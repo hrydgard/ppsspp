@@ -480,6 +480,8 @@ namespace Reporting
 	{
 		SetCurrentThreadName("Report");
 
+		AndroidJNIThreadContext jniContext;  // destructor detaches
+
 		Payload &payload = payloadBuffer[pos];
 		Buffer output;
 

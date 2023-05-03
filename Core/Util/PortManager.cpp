@@ -220,8 +220,8 @@ bool PortManager::Add(const char* protocol, unsigned short port, unsigned short 
 		Terminate();
 		return false;
 	}
-	sprintf(port_str, "%d", port);
-	sprintf(intport_str, "%d", intport);
+	snprintf(port_str, sizeof(port_str), "%d", port);
+	snprintf(intport_str, sizeof(intport_str), "%d", intport);
 	// Only add new port map if it's not previously created by PPSSPP for current IP
 	auto el_it = std::find_if(m_portList.begin(), m_portList.end(),
 		[port_str, protocol](const std::pair<std::string, std::string> &el) { return el.first == port_str && el.second == protocol; });
@@ -275,7 +275,7 @@ bool PortManager::Remove(const char* protocol, unsigned short port) {
 		Terminate();
 		return false;
 	}
-	sprintf(port_str, "%d", port);
+	snprintf(port_str, sizeof(port_str), "%d", port);
 	int r = UPNP_DeletePortMapping(urls->controlURL, datas->first.servicetype, port_str, protocol, NULL);
 	if (r != 0)
 	{

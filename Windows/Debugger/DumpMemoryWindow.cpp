@@ -152,7 +152,7 @@ bool DumpMemoryWindow::fetchDialogData(HWND hwnd)
 	if (cpu->initExpression(str,exp) == false
 		|| cpu->parseExpression(exp,start) == false)
 	{
-		sprintf(errorMessage,"Invalid address expression \"%s\".",str);
+		snprintf(errorMessage, sizeof(errorMessage), "Invalid address expression \"%s\".",str);
 		MessageBoxA(hwnd,errorMessage,"Error",MB_OK);
 		return false;
 	}
@@ -162,7 +162,7 @@ bool DumpMemoryWindow::fetchDialogData(HWND hwnd)
 	if (cpu->initExpression(str,exp) == false
 		|| cpu->parseExpression(exp,size) == false)
 	{
-		sprintf(errorMessage,"Invalid size expression \"%s\".",str);
+		snprintf(errorMessage, sizeof(errorMessage), "Invalid size expression \"%s\".",str);
 		MessageBoxA(hwnd,errorMessage,"Error",MB_OK);
 		return false;
 	}
@@ -198,12 +198,12 @@ bool DumpMemoryWindow::fetchDialogData(HWND hwnd)
 
 	if (invalidAddress)
 	{
-		sprintf(errorMessage,"Invalid address 0x%08X.",start);
+		snprintf(errorMessage, sizeof(errorMessage), "Invalid address 0x%08X.",start);
 		MessageBoxA(hwnd,errorMessage,"Error",MB_OK);
 		return false;
 	} else if (invalidSize)
 	{
-		sprintf(errorMessage,"Invalid end address 0x%08X.",start+size);
+		snprintf(errorMessage, sizeof(errorMessage), "Invalid end address 0x%08X.",start+size);
 		MessageBoxA(hwnd,errorMessage,"Error",MB_OK);
 		return false;
 	}
@@ -232,8 +232,7 @@ void DumpMemoryWindow::changeMode(HWND hwnd, Mode newMode)
 		u32 start = 0, size = 0;
 		const char *defaultFileName = "";
 
-		switch (selectedMode)
-		{
+		switch (selectedMode) {
 		case MODE_RAM:
 			start = PSP_GetUserMemoryBase();
 			size = PSP_GetUserMemoryEnd()-start;
@@ -251,11 +250,11 @@ void DumpMemoryWindow::changeMode(HWND hwnd, Mode newMode)
 			break;
 		}
 		
-		sprintf(buffer,"0x%08X",start);
+		snprintf(buffer, sizeof(buffer), "0x%08X", start);
 		SetWindowTextA(GetDlgItem(hwnd,IDC_DUMP_STARTADDRESS),buffer);
 		EnableWindow(GetDlgItem(hwnd,IDC_DUMP_STARTADDRESS),FALSE);
 
-		sprintf(buffer,"0x%08X",size);
+		snprintf(buffer, sizeof(buffer), "0x%08X", size);
 		SetWindowTextA(GetDlgItem(hwnd,IDC_DUMP_SIZE),buffer);
 		EnableWindow(GetDlgItem(hwnd,IDC_DUMP_SIZE),FALSE);
 		

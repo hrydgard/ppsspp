@@ -532,6 +532,10 @@ public:
 		pushbuffer->End();
 	}
 
+	bool IsInRenderPass() const {
+		return curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER;
+	}
+
 	// This starts a new step (like a "render pass" in Vulkan).
 	//
 	// After a "CopyFramebuffer" or the other functions that start "steps", you need to call this before
@@ -612,6 +616,11 @@ public:
 	}
 
 	void BindTexture(int slot, GLRTexture *tex) {
+		if (!curRenderStep_ && !tex) {
+			// Likely a pre-emptive bindtexture for D3D11 to avoid hazards. Not necessary.
+			// This can happen in BlitUsingRaster.
+			return;
+		}
 		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
 		_dbg_assert_(slot < MAX_GL_TEXTURE_SLOTS);
 		GLRRenderData data{ GLRRenderCommand::BINDTEXTURE };

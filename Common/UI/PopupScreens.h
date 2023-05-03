@@ -204,12 +204,15 @@ public:
 		I18NCat category, ScreenManager *screenManager, UI::LayoutParams *layoutParams = nullptr)
 		: AbstractChoiceWithValueDisplay(text, layoutParams), value_(value), choices_(choices), minVal_(minVal), numChoices_(numChoices),
 		category_(category), screenManager_(screenManager) {
-		if (*value >= numChoices + minVal)
-			*value = numChoices + minVal - 1;
-		if (*value < minVal)
-			*value = minVal;
+		if (choices) {
+			// If choices is nullptr, we're being called from PopupMultiChoiceDynamic where value doesn't yet point to anything valid.
+			if (*value >= numChoices + minVal)
+				*value = numChoices + minVal - 1;
+			if (*value < minVal)
+				*value = minVal;
+			UpdateText();
+		}
 		OnClick.Handle(this, &PopupMultiChoice::HandleClick);
-		UpdateText();
 	}
 
 	void Update() override;
@@ -306,7 +309,7 @@ private:
 	int maxValue_;
 	int defaultValue_;
 	int step_;
-	const char *fmt_;
+	std::string fmt_;
 	std::string zeroLabel_;
 	std::string negativeLabel_;
 	std::string units_;
@@ -345,7 +348,7 @@ private:
 	float maxValue_;
 	float defaultValue_;
 	float step_;
-	const char *fmt_;
+	std::string fmt_;
 	std::string zeroLabel_;
 	std::string units_;
 	ScreenManager *screenManager_;

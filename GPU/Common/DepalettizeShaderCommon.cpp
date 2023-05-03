@@ -184,9 +184,9 @@ void GenerateDepalShaderFloat(ShaderWriter &writer, const DepalConfig &config) {
 		if (shift == 0 && mask == 0xFF) {
 			// Easy peasy.
 			if (writer.Lang().shaderLanguage == HLSL_D3D9)
-				sprintf(lookupMethod, "index.a");
+				snprintf(lookupMethod, sizeof(lookupMethod), "index.a");
 			else
-				sprintf(lookupMethod, "index.r");
+				snprintf(lookupMethod, sizeof(lookupMethod), "index.r");
 			formatOK = true;
 		} else {
 			// Deal with this if we find it.
@@ -199,9 +199,9 @@ void GenerateDepalShaderFloat(ShaderWriter &writer, const DepalConfig &config) {
 			const char *rgba = "rrrrrrrrggggggggbbbbbbbbaaaaaaaa";
 			const u8 rgba_shift = shift & 7;
 			if (rgba_shift == 0 && mask == 0xFF) {
-				sprintf(lookupMethod, "index.%c", rgba[shift]);
+				snprintf(lookupMethod, sizeof(lookupMethod), "index.%c", rgba[shift]);
 			} else {
-				sprintf(lookupMethod, "mod(index.%c * %f, %d.0)", rgba[shift], 255.99f / (1 << rgba_shift), mask + 1);
+				snprintf(lookupMethod, sizeof(lookupMethod), "mod(index.%c * %f, %d.0)", rgba[shift], 255.99f / (1 << rgba_shift), mask + 1);
 				index_multiplier = 1.0f / 256.0f;
 				// Format was OK if there weren't bits from another component.
 				formatOK = mask <= 255 - (1 << rgba_shift);
@@ -215,11 +215,11 @@ void GenerateDepalShaderFloat(ShaderWriter &writer, const DepalConfig &config) {
 			const char *rgba = "rrrrggggbbbbaaaa";
 			const u8 rgba_shift = shift & 3;
 			if (rgba_shift == 0 && mask == 0xF) {
-				sprintf(lookupMethod, "index.%c", rgba[shift]);
+				snprintf(lookupMethod, sizeof(lookupMethod), "index.%c", rgba[shift]);
 				index_multiplier = 15.0f / 256.0f;
 			} else {
 				// Let's divide and mod to get the right bits.  A common case is shift=0, mask=01.
-				sprintf(lookupMethod, "mod(index.%c * %f, %d.0)", rgba[shift], 15.99f / (1 << rgba_shift), mask + 1);
+				snprintf(lookupMethod, sizeof(lookupMethod), "mod(index.%c * %f, %d.0)", rgba[shift], 15.99f / (1 << rgba_shift), mask + 1);
 				index_multiplier = 1.0f / 256.0f;
 				formatOK = mask <= 15 - (1 << rgba_shift);
 			}
@@ -234,12 +234,12 @@ void GenerateDepalShaderFloat(ShaderWriter &writer, const DepalConfig &config) {
 			const char *rgba = "rrrrrggggggbbbbb";
 			const u8 rgba_shift = shifts[shift];
 			if (rgba_shift == 0 && mask == multipliers[shift]) {
-				sprintf(lookupMethod, "index.%c", rgba[shift]);
+				snprintf(lookupMethod, sizeof(lookupMethod), "index.%c", rgba[shift]);
 				index_multiplier = multipliers[shift] / 256.0f;
 			} else {
 				// We just need to divide the right component by the right value, and then mod against the mask.
 				// A common case is shift=1, mask=0f.
-				sprintf(lookupMethod, "mod(index.%c * %f, %d.0)", rgba[shift], ((float)multipliers[shift] + 0.99f) / (1 << rgba_shift), mask + 1);
+				snprintf(lookupMethod, sizeof(lookupMethod), "mod(index.%c * %f, %d.0)", rgba[shift], ((float)multipliers[shift] + 0.99f) / (1 << rgba_shift), mask + 1);
 				index_multiplier = 1.0f / 256.0f;
 				formatOK = mask <= multipliers[shift] - (1 << rgba_shift);
 			}
@@ -249,21 +249,22 @@ void GenerateDepalShaderFloat(ShaderWriter &writer, const DepalConfig &config) {
 		break;
 	case GE_FORMAT_5551:
 		if (config.textureFormat == GE_TFMT_CLUT8 && mask == 0xFF && shift == 0) {
-			sprintf(lookupMethod, "(index.a * 128.0 + index.b * 64.0 + index.g * 4.0)");  // we just skip A.
+			// Follow the intent here, and ignore g (and let's not round unnecessarily).
+			snprintf(lookupMethod, sizeof(lookupMethod), "floor(floor(index.a) * 128.0 + index.b * 64.0)");
 			index_multiplier = 1.0f / 256.0f;
 			// SOCOM case. #16210
 		} else if ((mask & (mask + 1)) == 0 && shift < 16) {
 			const char *rgba = "rrrrrgggggbbbbba";
 			const u8 rgba_shift = shift % 5;
 			if (rgba_shift == 0 && mask == 0x1F) {
-				sprintf(lookupMethod, "index.%c", rgba[shift]);
+				snprintf(lookupMethod, sizeof(lookupMethod), "index.%c", rgba[shift]);
 				index_multiplier = 31.0f / 256.0f;
 			} else if (shift == 15 && mask == 1) {
-				sprintf(lookupMethod, "index.%c", rgba[shift]);
+				snprintf(lookupMethod, sizeof(lookupMethod), "index.%c", rgba[shift]);
 				index_multiplier = 1.0f / 256.0f;
 			} else {
 				// A isn't possible here.
-				sprintf(lookupMethod, "mod(index.%c * %f, %d.0)", rgba[shift], 31.99f / (1 << rgba_shift), mask + 1);
+				snprintf(lookupMethod, sizeof(lookupMethod), "mod(index.%c * %f, %d.0)", rgba[shift], 31.99f / (1 << rgba_shift), mask + 1);
 				index_multiplier = 1.0f / 256.0f;
 				formatOK = mask <= 31 - (1 << rgba_shift);
 			}
@@ -373,7 +374,12 @@ void GenerateDepalFs(ShaderWriter &writer, const DepalConfig &config) {
 		case GLSL_VULKAN:
 		case GLSL_3xx:
 		case HLSL_D3D11:
-			GenerateDepalShader300(writer, config);
+			// Use the float shader for the SOCOM special.
+			if (config.bufferFormat == GE_FORMAT_5551 && config.textureFormat == GE_TFMT_CLUT8) {
+				GenerateDepalShaderFloat(writer, config);
+			} else {
+				GenerateDepalShader300(writer, config);
+			}
 			break;
 		default:
 			_assert_msg_(false, "Shader language not supported for depal: %d", (int)writer.Lang().shaderLanguage);

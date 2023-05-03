@@ -58,7 +58,7 @@ public:
 		for (int i = 0; i < 32; i++)
 		{
 			char reg[8];
-			sprintf(reg, "r%d", i);
+			snprintf(reg, sizeof(reg), "r%d", i);
 
 			if (strcasecmp(str, reg) == 0 || strcasecmp(str, cpu->GetRegName(0, i)) == 0)
 			{
@@ -71,7 +71,7 @@ public:
 				return true;
 			}
 
-			sprintf(reg, "fi%d", i);
+			snprintf(reg, sizeof(reg), "fi%d", i);
 			if (strcasecmp(str, reg) == 0)
 			{
 				referenceIndex = REF_INDEX_FPU_INT | i;
@@ -88,7 +88,7 @@ public:
 			}
 
 			char reg[8];
-			sprintf(reg, "vi%d", i);
+			snprintf(reg, sizeof(reg), "vi%d", i);
 			if (strcasecmp(str, reg) == 0)
 			{
 				referenceIndex = REF_INDEX_VFPU_INT | i;
@@ -159,7 +159,7 @@ public:
 		return EXPR_TYPE_UINT;
 	}
 	
-	bool getMemoryValue(uint32_t address, int size, uint32_t& dest, char* error) override {
+	bool getMemoryValue(uint32_t address, int size, uint32_t& dest, char* error, size_t errorBufSize) override {
 		// We allow, but ignore, bad access.
 		// If we didn't, log/condition statements that reference registers couldn't be configured.
 		uint32_t valid = Memory::ValidSize(address, size);
@@ -179,7 +179,7 @@ public:
 			return true;
 		}
 
-		sprintf(error, "Unexpected memory access size %d", size);
+		snprintf(error, errorBufSize, "Unexpected memory access size %d", size);
 		return false;
 	}
 
@@ -264,7 +264,7 @@ const char *MIPSDebugInterface::GetName()
 	return ("R4");
 }
 
-
+// NOT threadsafe.
 const char *MIPSDebugInterface::GetRegName(int cat, int index)
 {
 	static const char *regName[32] = {
@@ -279,24 +279,21 @@ const char *MIPSDebugInterface::GetRegName(int cat, int index)
 	};
 
 	// really nasty hack so that this function can be called several times on one line of c++.
-	static int access=0;
+	static int access = 0;
 	access++;
 	access &= 3;
 	static char temp[4][16];
 
-	if (cat == 0)
+	if (cat == 0) {
 		return regName[index];
-	else if (cat == 1)
-	{
-		sprintf(temp[access],"f%i",index);
+	} else if (cat == 1) {
+		snprintf(temp[access], sizeof(temp[access]), "f%d", index);
 		return temp[access];
-	}
-	else if (cat == 2)
-	{
-		sprintf(temp[access],"v%03x",index);
+	} else if (cat == 2) {
+		snprintf(temp[access], sizeof(temp[access]), "v%03x", index);
 		return temp[access];
-	}
-	else
+	} else {
 		return "???";
+	}
 }
 

@@ -112,15 +112,15 @@ void Core_Break(u32 pc);
 // Call when loading save states, etc.
 void Core_ResetException();
 
-enum class ExceptionType {
+enum class MIPSExceptionType {
 	NONE,
 	MEMORY,
 	BREAK,
 	BAD_EXEC_ADDR,
 };
 
-struct ExceptionInfo {
-	ExceptionType type;
+struct MIPSExceptionInfo {
+	MIPSExceptionType type;
 	std::string info;
 	std::string stackTrace;  // if available.
 
@@ -135,8 +135,8 @@ struct ExceptionInfo {
 	ExecExceptionType exec_type;
 };
 
-const ExceptionInfo &Core_GetExceptionInfo();
+const MIPSExceptionInfo &Core_GetExceptionInfo();
 
-const char *ExceptionTypeAsString(ExceptionType type);
+const char *ExceptionTypeAsString(MIPSExceptionType type);
 const char *MemoryExceptionTypeAsString(MemoryExceptionType type);
 const char *ExecExceptionTypeAsString(ExecExceptionType type);

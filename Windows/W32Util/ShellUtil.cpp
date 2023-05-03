@@ -1,5 +1,3 @@
-// NOTE: Apologies for the quality of this code, this is really from pre-opensource Dolphin - that is, 2003.
-
 #pragma warning(disable:4091)  // workaround bug in VS2015 headers
 
 #include "Windows/stdafx.h"
@@ -59,9 +57,6 @@ namespace W32Util
 		return result;
 	}
 
-	//---------------------------------------------------------------------------------------------------
-	// function WinBrowseForFileName
-	//---------------------------------------------------------------------------------------------------
 	bool BrowseForFileName(bool _bLoad, HWND _hParent, const wchar_t *_pTitle,
 		const wchar_t *_pInitialFolder, const wchar_t *_pFilter, const wchar_t *_pExtension,
 		std::string &_strFileName) {

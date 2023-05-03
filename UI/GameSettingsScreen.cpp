@@ -278,7 +278,7 @@ void GameSettingsScreen::CreateViews() {
 
 #if !defined(MOBILE_DEVICE) || PPSSPP_PLATFORM(ANDROID)
 	// Hide search if screen is too small.
-	if (g_display.dp_xres < g_display.dp_yres || g_display.dp_yres >= 500) {
+	if ((g_display.dp_xres < g_display.dp_yres || g_display.dp_yres >= 500) && (deviceType != DEVICE_TYPE_VR)) {
 		auto se = GetI18NCategory(I18NCat::SEARCH);
 		// Search
 		LinearLayout *searchSettings = AddTab("GameSettingsSearch", ms->T("Search"), true);
@@ -941,6 +941,9 @@ void GameSettingsScreen::CreateSystemSettings(UI::ViewGroup *systemSettings) {
 
 	systemSettings->Add(new CheckBox(&g_Config.bTransparentBackground, sy->T("Transparent UI background")));
 
+	static const char *backgroundAnimations[] = { "No animation", "Floating symbols", "Recent games", "Waves", "Moving background" };
+	systemSettings->Add(new PopupMultiChoice(&g_Config.iBackgroundAnimation, sy->T("UI background animation"), backgroundAnimations, 0, ARRAY_SIZE(backgroundAnimations), I18NCat::SYSTEM, screenManager()));
+
 	PopupMultiChoiceDynamic *theme = systemSettings->Add(new PopupMultiChoiceDynamic(&g_Config.sThemeName, sy->T("Theme"), GetThemeInfoNames(), I18NCat::THEMES, screenManager()));
 	theme->OnChoice.Add([=](EventParams &e) {
 		UpdateTheme(screenManager()->getUIContext());
@@ -961,9 +964,6 @@ void GameSettingsScreen::CreateSystemSettings(UI::ViewGroup *systemSettings) {
 		systemSettings->Add(saturation);
 	}
 
-	static const char *backgroundAnimations[] = { "No animation", "Floating symbols", "Recent games", "Waves", "Moving background" };
-	systemSettings->Add(new PopupMultiChoice(&g_Config.iBackgroundAnimation, sy->T("UI background animation"), backgroundAnimations, 0, ARRAY_SIZE(backgroundAnimations), I18NCat::SYSTEM, screenManager()));
-
 	systemSettings->Add(new ItemHeader(sy->T("PSP Memory Stick")));
 
 	if (System_GetPropertyBool(SYSPROP_HAS_OPEN_DIRECTORY)) {
@@ -977,23 +977,28 @@ void GameSettingsScreen::CreateSystemSettings(UI::ViewGroup *systemSettings) {
 	systemSettings->Add(new Choice(sy->T("Set Memory Stick folder")))->OnClick.Handle(this, &GameSettingsScreen::OnChangeMemStickDir);
 #endif
 
-#if PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(UWP)
+#if PPSSPP_PLATFORM(UWP)
 	memstickDisplay_ = g_Config.memStickDirectory.ToShortFriendlyPath();
 	auto memstickPath = systemSettings->Add(new ChoiceWithValueDisplay(&memstickDisplay_, sy->T("Memory Stick folder", "Memory Stick folder"), I18NCat::NONE));
 	memstickPath->SetEnabled(!PSP_IsInited());
 	memstickPath->OnClick.Handle(this, &GameSettingsScreen::OnChangeMemStickDir);
+#elif PPSSPP_PLATFORM(ANDROID)
+	if (System_GetPropertyInt(SYSPROP_DEVICE_TYPE) != DEVICE_TYPE_VR) {
+		memstickDisplay_ = g_Config.memStickDirectory.ToVisualString();
+		auto memstickPath = systemSettings->Add(new ChoiceWithValueDisplay(&memstickDisplay_, sy->T("Memory Stick folder", "Memory Stick folder"), I18NCat::NONE));
+		memstickPath->SetEnabled(!PSP_IsInited());
+		memstickPath->OnClick.Handle(this, &GameSettingsScreen::OnChangeMemStickDir);
 
-#if PPSSPP_PLATFORM(ANDROID)
-	// Display USB path for convenience.
-	std::string usbPath;
-	if (PathToVisualUsbPath(g_Config.memStickDirectory, usbPath)) {
-		if (usbPath.empty()) {
-			// Probably it's just the root. So let's add PSP to make it clear.
-			usbPath = "/PSP";
+		// Display USB path for convenience.
+		std::string usbPath;
+		if (PathToVisualUsbPath(g_Config.memStickDirectory, usbPath)) {
+			if (usbPath.empty()) {
+				// Probably it's just the root. So let's add PSP to make it clear.
+				usbPath = "/PSP";
+			}
+			systemSettings->Add(new InfoItem(sy->T("USB"), usbPath))->SetChoiceStyle(true);
 		}
-		systemSettings->Add(new InfoItem(sy->T("USB"), usbPath))->SetChoiceStyle(true);
 	}
-#endif
 #elif defined(_WIN32) && !PPSSPP_PLATFORM(UWP)
 	SavePathInMyDocumentChoice = systemSettings->Add(new CheckBox(&installed_, sy->T("Save path in My Documents", "Save path in My Documents")));
 	SavePathInMyDocumentChoice->SetEnabled(!PSP_IsInited());

@@ -33,3 +33,4 @@ private:
 #endif // PPSSPP_PLATFORM(IOS)
 };
 
+void RestartMacApp();

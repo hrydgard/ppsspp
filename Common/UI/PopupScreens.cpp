@@ -115,12 +115,11 @@ void PopupMultiChoice::Update() {
 void PopupMultiChoice::UpdateText() {
 	if (!choices_)
 		return;
-	auto category = GetI18NCategory(category_);
-	// Clamp the value to be safe.
-	if (*value_ < minVal_ || *value_ > minVal_ + numChoices_ - 1) {
+	int index = *value_ - minVal_;
+	if (index < 0 || index >= numChoices_) {
 		valueText_ = "(invalid choice)";  // Shouldn't happen. Should be no need to translate this.
 	} else {
-		valueText_ = category ? category->T(choices_[*value_ - minVal_]) : choices_[*value_ - minVal_];
+		valueText_ = T(category_, choices_[index]);
 	}
 }
 
@@ -147,13 +146,13 @@ std::string PopupMultiChoice::ValueText() const {
 
 PopupSliderChoice::PopupSliderChoice(int *value, int minValue, int maxValue, int defaultValue, const std::string &text, ScreenManager *screenManager, const std::string &units, LayoutParams *layoutParams)
 	: AbstractChoiceWithValueDisplay(text, layoutParams), value_(value), minValue_(minValue), maxValue_(maxValue), defaultValue_(defaultValue), step_(1), units_(units), screenManager_(screenManager) {
-	fmt_ = "%i";
+	fmt_ = "%d";
 	OnClick.Handle(this, &PopupSliderChoice::HandleClick);
 }
 
 PopupSliderChoice::PopupSliderChoice(int *value, int minValue, int maxValue, int defaultValue, const std::string &text, int step, ScreenManager *screenManager, const std::string &units, LayoutParams *layoutParams)
 	: AbstractChoiceWithValueDisplay(text, layoutParams), value_(value), minValue_(minValue), maxValue_(maxValue), defaultValue_(defaultValue), step_(step), units_(units), screenManager_(screenManager) {
-	fmt_ = "%i";
+	fmt_ = "%d";
 	OnClick.Handle(this, &PopupSliderChoice::HandleClick);
 }
 
@@ -192,18 +191,46 @@ EventReturn PopupSliderChoice::HandleChange(EventParams &e) {
 	return EVENT_DONE;
 }
 
+static bool IsValidNumberFormatString(const std::string &s) {
+	if (s.empty())
+		return false;
+	size_t percentCount = 0;
+	for (int i = 0; i < (int)s.size(); i++) {
+		if (s[i] == '%') {
+			if (i < s.size() - 1) {
+				if (s[i + 1] == 's')
+					return false;
+				if (s[i + 1] == '%') {
+					// Next is another % sign, so it's an escape to emit a % sign, which is fine.
+					i++;
+					continue;
+				}
+			}
+			percentCount++;
+		}
+	}
+	return percentCount == 1;
+}
+
 std::string PopupSliderChoice::ValueText() const {
 	// Always good to have space for Unicode.
 	char temp[256];
+	temp[0] = '\0';
 	if (zeroLabel_.size() && *value_ == 0) {
-		strcpy(temp, zeroLabel_.c_str());
+		truncate_cpy(temp, zeroLabel_.c_str());
 	} else if (negativeLabel_.size() && *value_ < 0) {
-		strcpy(temp, negativeLabel_.c_str());
+		truncate_cpy(temp, negativeLabel_.c_str());
 	} else {
-		sprintf(temp, fmt_, *value_);
+		// Would normally be dangerous to have user-controlled format strings!
+		// However, let's check that there's only one % sign, and that it's not followed by an S.
+		// Also, these strings are from translations, which are kinda-fixed (though can be modified in theory).
+		if (IsValidNumberFormatString(fmt_)) {
+			snprintf(temp, sizeof(temp), fmt_.c_str(), *value_);
+		} else {
+			truncate_cpy(temp, "(translation error)");
+		}
 	}
-
-	return temp;
+	return std::string(temp);
 }
 
 EventReturn PopupSliderChoiceFloat::HandleClick(EventParams &e) {
@@ -230,12 +257,14 @@ EventReturn PopupSliderChoiceFloat::HandleChange(EventParams &e) {
 
 std::string PopupSliderChoiceFloat::ValueText() const {
 	char temp[256];
+	temp[0] = '\0';
 	if (zeroLabel_.size() && *value_ == 0.0f) {
-		strcpy(temp, zeroLabel_.c_str());
+		truncate_cpy(temp, zeroLabel_.c_str());
+	} else if (IsValidNumberFormatString(fmt_.c_str())) {
+		snprintf(temp, sizeof(temp), fmt_.c_str(), *value_);
 	} else {
-		sprintf(temp, fmt_, *value_);
+		snprintf(temp, sizeof(temp), "%0.2f", *value_);
 	}
-
 	return temp;
 }
 
@@ -283,8 +312,8 @@ EventReturn SliderPopupScreen::OnTextChange(EventParams &params) {
 }
 
 void SliderPopupScreen::UpdateTextBox() {
-	char temp[64];
-	sprintf(temp, "%d", sliderValue_);
+	char temp[128];
+	snprintf(temp, sizeof(temp), "%d", sliderValue_);
 	edit_->SetText(temp);
 }
 
@@ -296,6 +325,7 @@ void SliderPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	sliderValue_ = *value_;
 	if (disabled_ && sliderValue_ < 0)
 		sliderValue_ = 0;
+
 	LinearLayout *vert = parent->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(UI::Margins(10, 10))));
 	slider_ = new Slider(&sliderValue_, minValue_, maxValue_, new LinearLayoutParams(UI::Margins(10, 10)));
 	slider_->OnChange.Handle(this, &SliderPopupScreen::OnSliderChange);
@@ -418,8 +448,8 @@ EventReturn SliderFloatPopupScreen::OnSliderChange(EventParams &params) {
 }
 
 void SliderFloatPopupScreen::UpdateTextBox() {
-	char temp[64];
-	sprintf(temp, "%0.3f", sliderValue_);
+	char temp[128];
+	snprintf(temp, sizeof(temp), "%0.3f", sliderValue_);
 	edit_->SetText(temp);
 }
 

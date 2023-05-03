@@ -246,7 +246,7 @@ void Shutdown()
 		delete ev;
 	}
 }
-
+ 
 u64 GetTicks()
 {
 	if (currentMIPS) {
@@ -672,7 +672,7 @@ std::string GetScheduledEventsSummary() {
 		if (!name)
 			name = "[unknown]";
 		char temp[512];
-		sprintf(temp, "%s : %i %08x%08x\n", name, (int)ptr->time, (u32)(ptr->userdata >> 32), (u32)(ptr->userdata));
+		snprintf(temp, sizeof(temp), "%s : %i %08x%08x\n", name, (int)ptr->time, (u32)(ptr->userdata >> 32), (u32)(ptr->userdata));
 		text += temp;
 		ptr = ptr->next;
 	}

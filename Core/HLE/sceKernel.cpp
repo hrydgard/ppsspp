@@ -523,7 +523,7 @@ void KernelObjectPool::List() {
 		if (occupied[i]) {
 			char buffer[256];
 			if (pool[i]) {
-				pool[i]->GetQuickInfo(buffer, 256);
+				pool[i]->GetQuickInfo(buffer, sizeof(buffer));
 				INFO_LOG(SCEKERNEL, "KO %i: %s \"%s\": %s", i + handleOffset, pool[i]->GetTypeName(), pool[i]->GetName(), buffer);
 			} else {
 				strcpy(buffer, "WTF? Zero Pointer");

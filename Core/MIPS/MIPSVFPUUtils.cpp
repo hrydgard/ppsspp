@@ -540,7 +540,7 @@ MatrixOverlapType GetMatrixOverlap(int mtx1, int mtx2, MatrixSize msize) {
 
 const char *GetVectorNotation(int reg, VectorSize size)
 {
-	static char hej[4][16];
+	static char temp[4][16];
 	static int yo = 0; yo++; yo &= 3;
 
 	int mtx = (reg>>2)&7;
@@ -548,8 +548,7 @@ const char *GetVectorNotation(int reg, VectorSize size)
 	int row = 0;
 	int transpose = (reg>>5)&1;
 	char c;
-	switch (size)
-	{
+	switch (size) {
 	case V_Single:  transpose=0; c='S'; row=(reg>>5)&3; break;
 	case V_Pair:    c='C'; row=(reg>>5)&2; break;
 	case V_Triple:	c='C'; row=(reg>>6)&1; break;
@@ -558,15 +557,15 @@ const char *GetVectorNotation(int reg, VectorSize size)
 	}
 	if (transpose && c == 'C') c='R';
 	if (transpose)
-		sprintf(hej[yo],"%c%i%i%i",c,mtx,row,col);
+		snprintf(temp[yo], sizeof(temp[yo]), "%c%i%i%i",c,mtx,row,col);
 	else
-		sprintf(hej[yo],"%c%i%i%i",c,mtx,col,row);
-	return hej[yo];
+		snprintf(temp[yo], sizeof(temp[yo]), "%c%i%i%i",c,mtx,col,row);
+	return temp[yo];
 }
 
 const char *GetMatrixNotation(int reg, MatrixSize size)
 {
-  static char hej[4][16];
+  static char temp[4][16];
   static int yo=0;yo++;yo&=3;
   int mtx = (reg>>2)&7;
   int col = reg&3;
@@ -582,10 +581,10 @@ const char *GetMatrixNotation(int reg, MatrixSize size)
   }
   if (transpose && c=='M') c='E';
   if (transpose)
-    sprintf(hej[yo],"%c%i%i%i",c,mtx,row,col);
+    snprintf(temp[yo], sizeof(temp[yo]), "%c%i%i%i",c,mtx,row,col);
   else
-    sprintf(hej[yo],"%c%i%i%i",c,mtx,col,row);
-  return hej[yo];
+    snprintf(temp[yo], sizeof(temp[yo]), "%c%i%i%i",c,mtx,col,row);
+  return temp[yo];
 }
 
 bool GetVFPUCtrlMask(int reg, u32 *mask) {

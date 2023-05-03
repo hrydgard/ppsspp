@@ -75,7 +75,8 @@ SDLJoystick *joystick = NULL;
 GlobalUIState lastUIState = UISTATE_MENU;
 GlobalUIState GetUIState();
 
-static int g_QuitRequested = 0;
+static bool g_QuitRequested = false;
+static bool g_RestartRequested = false;
 
 static int g_DesktopWidth = 0;
 static int g_DesktopHeight = 0;
@@ -189,8 +190,11 @@ void System_Vibrate(int length_ms) {
 
 bool System_MakeRequest(SystemRequestType type, int requestId, const std::string &param1, const std::string &param2, int param3) {
 	switch (type) {
+	case SystemRequestType::RESTART_APP:
+		g_RestartRequested = true;
+		// TODO: Also save param1 and then split it into an argv.
+		return true;
 	case SystemRequestType::EXIT_APP:
-	case SystemRequestType::RESTART_APP:  // Not sure how we best do this, but do a clean exit, better than being stuck in a bad state.
 		// Do a clean exit
 		g_QuitRequested = true;
 		return true;
@@ -271,20 +275,18 @@ void System_ShowFileInFolder(const char *path) {
 			SHOpenFolderAndSelectItems(pidl, 0, NULL, 0);
 		CoTaskMemFree(pidl);
 	}
-#elif PPSSPP_PLATFORM(MAC) || (PPSSPP_PLATFORM(LINUX) && !PPSSPP_PLATFORM(ANDROID))
+#elif PPSSPP_PLATFORM(MAC)
+	OSXShowInFinder(path);
+#elif (PPSSPP_PLATFORM(LINUX) && !PPSSPP_PLATFORM(ANDROID))
 	pid_t pid = fork();
 	if (pid < 0)
 		return;
 
 	if (pid == 0) {
-#if PPSSPP_PLATFORM(MAC)
-		execlp("open", "open", path, nullptr);
-#else
 		execlp("xdg-open", "xdg-open", path, nullptr);
-#endif
 		exit(1);
 	}
-#endif
+#endif /* PPSSPP_PLATFORM(WINDOWS) */
 }
 
 void System_LaunchUrl(LaunchUrlType urlType, const char *url) {
@@ -303,8 +305,7 @@ void System_LaunchUrl(LaunchUrlType urlType, const char *url) {
 		std::wstring wurl = ConvertUTF8ToWString(url);
 		ShellExecute(NULL, L"open", wurl.c_str(), NULL, NULL, SW_SHOWNORMAL);
 #elif defined(__APPLE__)
-		std::string command = std::string("open ") + url;
-		system(command.c_str());
+		OSXOpenURL(url);
 #else
 		std::string command = std::string("xdg-open ") + url;
 		int err = system(command.c_str());
@@ -322,8 +323,8 @@ void System_LaunchUrl(LaunchUrlType urlType, const char *url) {
 		std::wstring mailto = std::wstring(L"mailto:") + ConvertUTF8ToWString(url);
 		ShellExecute(NULL, L"open", mailto.c_str(), NULL, NULL, SW_SHOWNORMAL);
 #elif defined(__APPLE__)
-		std::string command = std::string("open mailto:") + url;
-		system(command.c_str());
+		std::string mailToURL = std::string("mailto:") + url;
+		OSXOpenURL(mailToURL.c_str());
 #else
 		std::string command = std::string("xdg-email ") + url;
 		int err = system(command.c_str());
@@ -1170,6 +1171,7 @@ int main(int argc, char *argv[]) {
 					KeyInput key;
 					key.deviceId = DEVICE_ID_MOUSE;
 					key.flags = KEY_DOWN;
+#if SDL_VERSION_ATLEAST(2, 0, 18)
 					if (event.wheel.preciseY != 0.0f) {
 						// Should the scale be DPI-driven?
 						const float scale = 30.0f;
@@ -1183,6 +1185,7 @@ int main(int argc, char *argv[]) {
 						NativeKey(key);
 						break;
 					}
+#endif
 					// TODO: Should we even keep the "non-precise" events?
 					if (event.wheel.y > 0) {
 						key.keyCode = NKCODE_EXT_MOUSEWHEEL_UP;
@@ -1280,14 +1283,15 @@ int main(int argc, char *argv[]) {
 				break;
 			}
 		}
-		if (g_QuitRequested)
+		if (g_QuitRequested || g_RestartRequested)
 			break;
 		const uint8_t *keys = SDL_GetKeyboardState(NULL);
 		if (emuThreadState == (int)EmuThreadState::DISABLED) {
 			UpdateRunLoop();
 		}
-		if (g_QuitRequested)
+		if (g_QuitRequested || g_RestartRequested)
 			break;
+
 #if !defined(MOBILE_DEVICE)
 		if (lastUIState != GetUIState()) {
 			lastUIState = GetUIState();
@@ -1337,9 +1341,7 @@ int main(int argc, char *argv[]) {
 				break;
 		}
 
-
 		graphicsContext->SwapBuffers();
-
 
 		{
 			std::lock_guard<std::mutex> guard(g_mutexWindow);
@@ -1396,5 +1398,16 @@ int main(int argc, char *argv[]) {
 #ifdef HAVE_LIBNX
 	socketExit();
 #endif
+
+	// If a restart was requested (and supported on this platform), respawn the executable.
+	if (g_RestartRequested) {
+#if PPSSPP_PLATFORM(MAC)
+		RestartMacApp();
+#elif PPSSPP_PLATFORM(LINUX)
+		// Hackery from https://unix.stackexchange.com/questions/207935/how-to-restart-or-reset-a-running-process-in-linux,
+		char *exec_argv[] = { argv[0], nullptr };
+		execv("/proc/self/exe", exec_argv);
+#endif
+	}
 	return 0;
 }

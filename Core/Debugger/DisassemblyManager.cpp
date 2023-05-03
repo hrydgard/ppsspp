@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "ppsspp_config.h"
+
 #include <string>
 #include <algorithm>
 #include <map>
@@ -24,6 +25,7 @@
 
 #include "Common/CommonTypes.h"
 #include "Common/Data/Encoding/Utf8.h"
+#include "Common/StringUtils.h"
 #include "Core/MemMap.h"
 #include "Core/System.h"
 #include "Core/MIPS/MIPSCodeUtils.h"
@@ -123,14 +125,13 @@ void parseDisasm(const char* disasm, char* opcode, char* arguments, bool insertS
 		if (disasm == jumpAddress)
 		{
 			u32 branchTarget = 0;
-			sscanf(disasm+3,"%08x",&branchTarget);
-
+			sscanf(disasm+3, "%08x", &branchTarget);
 			const std::string addressSymbol = g_symbolMap->GetLabelString(branchTarget);
 			if (!addressSymbol.empty() && insertSymbols)
 			{
-				arguments += sprintf(arguments,"%s",addressSymbol.c_str());
+				arguments += sprintf(arguments, "%s", addressSymbol.c_str());
 			} else {
-				arguments += sprintf(arguments,"0x%08X",branchTarget);
+				arguments += sprintf(arguments, "0x%08X", branchTarget);
 			}
 
 			disasm += 3+8;
@@ -849,9 +850,9 @@ bool DisassemblyMacro::disassemble(u32 address, DisassemblyLineInfo &dest, bool 
 		
 		addressSymbol = g_symbolMap->GetLabelString(immediate);
 		if (!addressSymbol.empty() && insertSymbols) {
-			sprintf(buffer, "%s,%s", cpuDebug->GetRegName(0, rt), addressSymbol.c_str());
+			snprintf(buffer, sizeof(buffer), "%s,%s", cpuDebug->GetRegName(0, rt), addressSymbol.c_str());
 		} else {
-			sprintf(buffer, "%s,0x%08X", cpuDebug->GetRegName(0, rt), immediate);
+			snprintf(buffer, sizeof(buffer), "%s,0x%08X", cpuDebug->GetRegName(0, rt), immediate);
 		}
 
 		dest.params = buffer;
@@ -864,9 +865,9 @@ bool DisassemblyMacro::disassemble(u32 address, DisassemblyLineInfo &dest, bool 
 
 		addressSymbol = g_symbolMap->GetLabelString(immediate);
 		if (!addressSymbol.empty() && insertSymbols) {
-			sprintf(buffer, "%s,%s", cpuDebug->GetRegName(0, rt), addressSymbol.c_str());
+			snprintf(buffer, sizeof(buffer), "%s,%s", cpuDebug->GetRegName(0, rt), addressSymbol.c_str());
 		} else {
-			sprintf(buffer, "%s,0x%08X", cpuDebug->GetRegName(0, rt), immediate);
+			snprintf(buffer, sizeof(buffer), "%s,0x%08X", cpuDebug->GetRegName(0, rt), immediate);
 		}
 
 		dest.params = buffer;
@@ -1001,9 +1002,9 @@ void DisassemblyData::createLines()
 			} else {
 				char buffer[64];
 				if (pos == end && b == 0)
-					strcpy(buffer,"0");
+					truncate_cpy(buffer, "0");
 				else
-					sprintf(buffer,"0x%02X",b);
+					snprintf(buffer, sizeof(buffer), "0x%02X", b);
 
 				if (currentLine.size()+strlen(buffer) >= maxChars)
 				{

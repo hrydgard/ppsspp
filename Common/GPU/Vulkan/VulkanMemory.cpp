@@ -372,6 +372,8 @@ void VulkanPushPool::BeginFrame() {
 }
 
 void VulkanPushPool::NextBlock(VkDeviceSize allocationSize) {
+	_dbg_assert_(allocationSize != 0);  // If so, the logic in the caller is wrong, should never need a new block for this case.
+
 	int curFrameIndex = vulkan_->GetCurFrame();
 	curBlockIndex_++;
 	while (curBlockIndex_ < blocks_.size()) {

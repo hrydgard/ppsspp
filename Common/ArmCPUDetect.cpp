@@ -29,7 +29,7 @@
 #if PPSSPP_ARCH(ARM)
 #include "ext/cpu_features/include/cpuinfo_arm.h"
 
-#if defined(CPU_FEATURES_OS_LINUX) || defined(CPU_FEATURES_OS_ANDROID)
+#if defined(CPU_FEATURES_OS_LINUX)
 #define USE_CPU_FEATURES 1
 #endif
 #elif PPSSPP_ARCH(ARM64) && defined(__aarch64__)

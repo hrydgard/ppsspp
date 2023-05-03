@@ -331,8 +331,15 @@ static int DefaultGPUBackend() {
 		return (int)GPUBackend::VULKAN;
 	}
 #endif
-
+#elif PPSSPP_PLATFORM(MAC)
+#if PPSSPP_ARCH(ARM64)
+	return (int)GPUBackend::VULKAN;
+#else
+	// On Intel (generally older Macs) default to OpenGL.
+	return (int)GPUBackend::OPENGL;
 #endif
+#endif
+
 	// TODO: On some additional Linux platforms, we should also default to Vulkan.
 	return (int)GPUBackend::OPENGL;
 }

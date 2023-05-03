@@ -13,18 +13,18 @@
 
 #include "Core/Debugger/SymbolMap.h"
 #include "Core/MemMap.h"
+#include "Core/System.h"
+#include "Core/Core.h"
 #include "GPU/GPUInterface.h"
 #include "Common/File/Path.h"
 #include "Common/System/System.h"
+#include "Common/System/Request.h"
 #include "Common/System/NativeApp.h"
 #include "Core/Config.h"
 #include "Common/Data/Text/I18n.h"
 #include "Common/StringUtils.h"
 
 void TakeScreenshot();
-/* including "Core/Core.h" results in a compilation error soo */
-bool Core_IsStepping();
-void Core_EnableStepping(bool step, const char *reason = nullptr, u32 relatedAddress = 0);
 
 #ifdef __cplusplus
 extern "C" {
@@ -42,13 +42,21 @@ variableName.state = [self controlStateForBool: ConfigurationValueName];
 +(instancetype)sharedInstance;
 -(void)setupAppBarItems;
 @property (assign) NSMenu *fileMenu;
-@property (assign) std::shared_ptr<I18NCategory> mainSettingsLocalization;
-@property (assign) std::shared_ptr<I18NCategory> graphicsLocalization;
 @end
 
 void initializeOSXExtras() {
     [NSApplication.sharedApplication setDelegate:[PSPNSApplicationDelegate sharedAppDelegate]];
     [[BarItemsManager sharedInstance] setupAppBarItems];
+}
+
+void OSXShowInFinder(const char *path) {
+    NSURL *url = [NSURL fileURLWithPath:@(path)];
+    [NSWorkspace.sharedWorkspace activateFileViewerSelectingURLs:@[url]];
+}
+
+void OSXOpenURL(const char *url) {
+    NSURL *nsURL = [NSURL URLWithString:@(url)];
+    [NSWorkspace.sharedWorkspace openURL:nsURL];
 }
 
 @implementation BarItemsManager
@@ -57,10 +65,17 @@ void initializeOSXExtras() {
     static dispatch_once_t onceToken;
     dispatch_once(&onceToken, ^{
         stub = [BarItemsManager new];
-        stub.mainSettingsLocalization = GetI18NCategory(I18NCat::MAINSETTINGS);
     });
-    
     return stub;
+}
+
+-(NSString *)localizedString: (const char *)key category: (I18NCat)cat {
+    return @(T(cat, key));
+}
+
+-(NSString *)localizedMenuString: (const char *)key {
+    std::string processed = UnescapeMenuString(T(I18NCat::DESKTOPUI, key), nullptr);
+    return @(processed.c_str());
 }
 
 -(void)setupAppBarItems {
@@ -69,23 +84,28 @@ void initializeOSXExtras() {
     fileMenuItem.submenu = [self makeFileSubmenu];
     fileMenuItem.submenu.delegate = self;
 
-    NSMenuItem *graphicsMenuItem = [[NSMenuItem alloc] init];
-    graphicsMenuItem.submenu = [self makeGraphicsMenu];
-    graphicsMenuItem.submenu.delegate = self;
-    
+    NSMenuItem *emulationMenuItem = [[NSMenuItem alloc] init];
+    emulationMenuItem.submenu = [self makeEmulationMenu];
+    emulationMenuItem.submenu.delegate = self;
+
     NSMenuItem *debugMenuItem = [[NSMenuItem alloc] init];
     debugMenuItem.submenu = [self makeDebugMenu];
     debugMenuItem.submenu.delegate = self;
+
+    NSMenuItem *graphicsMenuItem = [[NSMenuItem alloc] init];
+    graphicsMenuItem.submenu = [self makeGraphicsMenu];
+    graphicsMenuItem.submenu.delegate = self;
     
     NSMenuItem *helpMenuItem = [[NSMenuItem alloc] init];
     helpMenuItem.submenu = [self makeHelpMenu];
     
     [NSApplication.sharedApplication.menu addItem:fileMenuItem];
-    [NSApplication.sharedApplication.menu addItem:graphicsMenuItem];
+    [NSApplication.sharedApplication.menu addItem:emulationMenuItem];
     [NSApplication.sharedApplication.menu addItem:debugMenuItem];
+    [NSApplication.sharedApplication.menu addItem:graphicsMenuItem];
     [NSApplication.sharedApplication.menu addItem:helpMenuItem];
     
-    NSString *windowMenuItemTitle = @"Window";
+    NSString *windowMenuItemTitle = @"Window";  // Don't translate, we lookup this.
     // Rearrange 'Window' to be behind 'Help'
     for (NSMenuItem *item in NSApplication.sharedApplication.menu.itemArray) {
         if ([item.title isEqualToString:windowMenuItemTitle]) {
@@ -138,7 +158,26 @@ void initializeOSXExtras() {
 }
 
 - (void)menuNeedsUpdate:(NSMenu *)menu {
-    if ([menu.title isEqualToString: [self localizedString:"Graphics" category: self.mainSettingsLocalization]]) {
+    if ([menu.title isEqualToString: [self localizedMenuString:"Emulation"]]) {
+        menu.autoenablesItems = NO;
+        // Enable/disable the various items.
+        for (NSMenuItem *item in menu.itemArray) {
+            switch (item.tag) {
+            case 1:
+            case 2:
+            case 3:
+            {
+                GlobalUIState state = GetUIState();
+                item.enabled = state == UISTATE_INGAME ? YES : NO;
+                printf("Setting enabled state to %d\n", (int)item.enabled);
+                break;
+            }
+            default:
+                printf("Unknown tag %d\n", (int)(long)item.tag);
+                break;
+            }
+        }
+    } else if ([menu.title isEqualToString: [self localizedMenuString:"Graphics"]]) {
         for (NSMenuItem *item in menu.itemArray) {
             switch (item.tag) {
                 case 1:
@@ -166,24 +205,26 @@ void initializeOSXExtras() {
                     break;
             }
         }
-    } else if ([menu.title isEqualToString: [self localizedString:"Debug" category: self.mainSettingsLocalization]]) {
+    } else if ([menu.title isEqualToString: [self localizedMenuString:"Debug"]]) {
+        menu.autoenablesItems = NO;
+        GlobalUIState state = GetUIState();
         for (NSMenuItem *item in menu.itemArray) {
             switch ([item tag]) {
                 case 2:
-                    item.state = [self controlStateForBool:g_Config.bAutoRun];
+                    item.state = [self controlStateForBool:!g_Config.bAutoRun];
                     break;
                 case 3:
                     item.state = [self controlStateForBool:g_Config.bIgnoreBadMemAccess];
                     break;
+                case 12:
+                    item.state = [self controlStateForBool:g_Config.bShowDebugStats];
+                    break;
                 default:
+                    item.enabled = state == UISTATE_INGAME ? YES : NO;
                     break;
             }
         }
     }
-}
-
--(NSString *)localizedString: (const char *)key category: (std::shared_ptr<I18NCategory>)cat {
-    return @(self.mainSettingsLocalization->T(key));
 }
 
 -(NSMenu *)makeHelpMenu {
@@ -207,8 +248,11 @@ void initializeOSXExtras() {
 }
 
 -(NSMenu *)makeFileSubmenu {
-    NSMenu *menu = [[NSMenu alloc] initWithTitle:@"File"];
-    NSMenuItem *openWithSystemFolderBrowserItem = [[NSMenuItem alloc] initWithTitle:@"Open..." action:@selector(openSystemFileBrowser) keyEquivalent:@"o"];
+    std::shared_ptr<I18NCategory> desktopUILocalization = GetI18NCategory(I18NCat::DESKTOPUI);
+#define DESKTOPUI_LOCALIZED(key) @(UnescapeMenuString(desktopUILocalization->T(key), nil).c_str())
+
+    NSMenu *menu = [[NSMenu alloc] initWithTitle:DESKTOPUI_LOCALIZED("File")];
+    NSMenuItem *openWithSystemFolderBrowserItem = [[NSMenuItem alloc] initWithTitle:DESKTOPUI_LOCALIZED("Load") action:@selector(openSystemFileBrowser) keyEquivalent:@"o"];
     openWithSystemFolderBrowserItem.keyEquivalentModifierMask = NSEventModifierFlagCommand;
     openWithSystemFolderBrowserItem.enabled = YES;
     openWithSystemFolderBrowserItem.target = self;
@@ -218,22 +262,25 @@ void initializeOSXExtras() {
 
     [self.fileMenu addItem:[NSMenuItem separatorItem]];
 
-    NSMenuItem *openMemstickFolderItem = [[NSMenuItem alloc] initWithTitle:@"Open Memory Stick" action:@selector(openMemstickFolder) keyEquivalent:@""];
+    NSMenuItem *openMemstickFolderItem = [[NSMenuItem alloc] initWithTitle:DESKTOPUI_LOCALIZED("Open Memory Stick") action:@selector(openMemstickFolder) keyEquivalent:@""];
     openMemstickFolderItem.target = self;
     [self.fileMenu addItem:openMemstickFolderItem];
 
     return menu;
 }
 
--(NSMenu *)makeGraphicsMenu {
-    NSMenu *parent = [[NSMenu alloc] initWithTitle:@(self.mainSettingsLocalization->T("Graphics"))];
+-(NSMenu *)makeGraphicsMenu {    
+    std::shared_ptr<I18NCategory> mainSettingsLocalization = GetI18NCategory(I18NCat::MAINSETTINGS);
+    std::shared_ptr<I18NCategory> graphicsLocalization = GetI18NCategory(I18NCat::GRAPHICS);
+    std::shared_ptr<I18NCategory> desktopUILocalization = GetI18NCategory(I18NCat::DESKTOPUI);
+
+    NSMenu *parent = [[NSMenu alloc] initWithTitle:@(mainSettingsLocalization->T("Graphics"))];
     NSMenu *backendsMenu = [[NSMenu alloc] init];
-    
-    self.graphicsLocalization = GetI18NCategory(I18NCat::GRAPHICS);
-#define GRAPHICS_LOCALIZED(key) @(self.graphicsLocalization->T(key))
-    
-    NSMenuItem *gpuBackendItem = [[NSMenuItem alloc] initWithTitle:GRAPHICS_LOCALIZED("Backend") action:nil keyEquivalent:@""];
-    
+#define GRAPHICS_LOCALIZED(key) @(graphicsLocalization->T(key))
+#define DESKTOPUI_LOCALIZED(key) @(UnescapeMenuString(desktopUILocalization->T(key), nil).c_str())
+
+    NSMenuItem *gpuBackendItem = [[NSMenuItem alloc] initWithTitle:DESKTOPUI_LOCALIZED("Backend") action:nil keyEquivalent:@""];
+
     std::vector<GPUBackend> allowed = [self allowedGPUBackends];
     for (int i = 0; i < allowed.size(); i++) {
         NSMenuItem *backendMenuItem = [[NSMenuItem alloc] initWithTitle:@(GPUBackendToString(allowed[i]).c_str()) action: @selector(setCurrentGPUBackend:) keyEquivalent: @""];
@@ -242,37 +289,39 @@ void initializeOSXExtras() {
         backendMenuItem.state = [self controlStateForBool: g_Config.iGPUBackend == (int)allowed[i]];
         [backendsMenu addItem:backendMenuItem];
     }
-    
+
     gpuBackendItem.submenu = backendsMenu;
     [parent addItem:gpuBackendItem];
-    
+
     [parent addItem:[NSMenuItem separatorItem]];
-    
+
     MENU_ITEM(softwareRendering, GRAPHICS_LOCALIZED("Software Rendering"), @selector(toggleSoftwareRendering:), g_Config.bSoftwareRendering, 1)
     [parent addItem:softwareRendering];
-    
+
+    /*
     MENU_ITEM(vsyncItem, GRAPHICS_LOCALIZED("VSync"), @selector(toggleVSync:), g_Config.bVSync, 2)
     [parent addItem:vsyncItem];
-    
-    MENU_ITEM(fullScreenItem, GRAPHICS_LOCALIZED("Fullscreen"), @selector(toggleFullScreen:), g_Config.bFullScreen, 3)
+    */
+
+    MENU_ITEM(fullScreenItem, DESKTOPUI_LOCALIZED("Fullscreen"), @selector(toggleFullScreen:), g_Config.bFullScreen, 3)
     [parent addItem:fullScreenItem];
-    
+
     [parent addItem:[NSMenuItem separatorItem]];
-    
+
     MENU_ITEM(autoFrameSkip, GRAPHICS_LOCALIZED("Auto FrameSkip"), @selector(toggleAutoFrameSkip:), g_Config.bAutoFrameSkip, 4)
     [parent addItem:autoFrameSkip];
-    
+
     [parent addItem:[NSMenuItem separatorItem]];
-    
-    MENU_ITEM(fpsCounterItem, GRAPHICS_LOCALIZED("Show FPS Counter"), @selector(setToggleShowCounterItem:), g_Config.iShowStatusFlags & (int)ShowStatusFlags::FPS_COUNTER, 5)
+
+    MENU_ITEM(fpsCounterItem, DESKTOPUI_LOCALIZED("Show FPS Counter"), @selector(setToggleShowCounterItem:), g_Config.iShowStatusFlags & (int)ShowStatusFlags::FPS_COUNTER, 5)
     fpsCounterItem.tag = (int)ShowStatusFlags::FPS_COUNTER + 100;
-    
+
     MENU_ITEM(speedCounterItem, GRAPHICS_LOCALIZED("Show Speed"), @selector(setToggleShowCounterItem:), g_Config.iShowStatusFlags & (int)ShowStatusFlags::SPEED_COUNTER, 6)
     speedCounterItem.tag = (int)ShowStatusFlags::SPEED_COUNTER + 100; // because of menuNeedsUpdate:
-    
+
     MENU_ITEM(batteryPercentItem, GRAPHICS_LOCALIZED("Show battery %"), @selector(setToggleShowCounterItem:), g_Config.iShowStatusFlags & (int)ShowStatusFlags::BATTERY_PERCENT, 7)
     batteryPercentItem.tag = (int)ShowStatusFlags::BATTERY_PERCENT + 100;
-    
+
     [parent addItem:[NSMenuItem separatorItem]];
     [parent addItem:fpsCounterItem];
     [parent addItem:speedCounterItem];
@@ -282,80 +331,128 @@ void initializeOSXExtras() {
     return parent;
 }
 
+-(NSMenu *)makeEmulationMenu {
+    std::shared_ptr<I18NCategory> desktopUILocalization = GetI18NCategory(I18NCat::DESKTOPUI);
+#define DESKTOPUI_LOCALIZED(key) @(UnescapeMenuString(desktopUILocalization->T(key), nil).c_str())
+
+    NSMenu *parent = [[NSMenu alloc] initWithTitle:DESKTOPUI_LOCALIZED("Emulation")];
+
+    NSMenuItem *pauseAction = [[NSMenuItem alloc] initWithTitle:DESKTOPUI_LOCALIZED("Pause") action:@selector(pauseAction:) keyEquivalent:@""];
+    pauseAction.target = self;
+    pauseAction.tag = 1;
+    NSMenuItem *resetAction = [[NSMenuItem alloc] initWithTitle:DESKTOPUI_LOCALIZED("Reset") action:@selector(resetAction:) keyEquivalent:@""];
+    resetAction.target = self;
+    resetAction.tag = 2;
+
+    [parent addItem:pauseAction];
+    [parent addItem:resetAction];
+
+    return parent;
+}
+
 -(NSMenu *)makeDebugMenu {
     std::shared_ptr<I18NCategory> sysInfoLocalization = GetI18NCategory(I18NCat::SYSINFO);
     std::shared_ptr<I18NCategory> desktopUILocalization = GetI18NCategory(I18NCat::DESKTOPUI);
 #define DESKTOPUI_LOCALIZED(key) @(UnescapeMenuString(desktopUILocalization->T(key), nil).c_str())
-    
-    NSMenu *parent = [[NSMenu alloc] initWithTitle:@(sysInfoLocalization->T("Debug"))];
-    
+
+    NSMenu *parent = [[NSMenu alloc] initWithTitle:DESKTOPUI_LOCALIZED("Debugging")];
+
     NSMenuItem *breakAction = [[NSMenuItem alloc] initWithTitle:DESKTOPUI_LOCALIZED("Break") action:@selector(breakAction:) keyEquivalent:@""];
     breakAction.tag = 1;
     breakAction.target = self;
-    
+
     MENU_ITEM(breakOnLoadAction, DESKTOPUI_LOCALIZED("Break on Load"), @selector(toggleBreakOnLoad:), g_Config.bAutoRun, 2)
     MENU_ITEM(ignoreIllegalRWAction, DESKTOPUI_LOCALIZED("Ignore Illegal Reads/Writes"), @selector(toggleIgnoreIllegalRWs:), g_Config.bIgnoreBadMemAccess, 3)
-    
+
     [parent addItem:breakAction];
     [parent addItem:[NSMenuItem separatorItem]];
-    
+
     [parent addItem:breakOnLoadAction];
     [parent addItem:ignoreIllegalRWAction];
     [parent addItem:[NSMenuItem separatorItem]];
-    
-    NSMenuItem *loadSymbolMapAction = [[NSMenuItem alloc] initWithTitle:DESKTOPUI_LOCALIZED("Load Map file") action:@selector(loadMapFile) keyEquivalent:@""];
+
+    // Tags 1, 2, and 3 are taken above.
+
+    NSMenuItem *loadSymbolMapAction = [[NSMenuItem alloc] initWithTitle:DESKTOPUI_LOCALIZED("Load Map File...") action:@selector(loadMapFile) keyEquivalent:@""];
     loadSymbolMapAction.target = self;
-    
-    NSMenuItem *saveMapFileAction = [[NSMenuItem alloc] initWithTitle:DESKTOPUI_LOCALIZED("Save Map file") action:@selector(saveMapFile) keyEquivalent:@""];
+    loadSymbolMapAction.tag = 4;
+
+    NSMenuItem *saveMapFileAction = [[NSMenuItem alloc] initWithTitle:DESKTOPUI_LOCALIZED("Save Map file...") action:@selector(saveMapFile) keyEquivalent:@""];
     saveMapFileAction.target = self;
-    
+    saveMapFileAction.tag = 5;
+
     NSMenuItem *loadSymFileAction = [[NSMenuItem alloc] initWithTitle:DESKTOPUI_LOCALIZED("Load .sym File...") action:@selector(loadSymbolsFile) keyEquivalent:@""];
     loadSymFileAction.target = self;
-    
+    loadSymFileAction.tag = 6;
+
     NSMenuItem *saveSymFileAction = [[NSMenuItem alloc] initWithTitle:DESKTOPUI_LOCALIZED("Save .sym File...") action:@selector(saveSymbolsfile) keyEquivalent:@""];
     saveSymFileAction.target = self;
-    
+    saveSymFileAction.tag = 7;
+
     NSMenuItem *resetSymbolTableAction = [[NSMenuItem alloc] initWithTitle:DESKTOPUI_LOCALIZED("Reset Symbol Table") action:@selector(resetSymbolTable) keyEquivalent:@""];
     resetSymbolTableAction.target = self;
-    
+    resetSymbolTableAction.tag = 8;
+
     NSMenuItem *takeScreenshotAction = [[NSMenuItem alloc] initWithTitle:DESKTOPUI_LOCALIZED("Take Screenshot") action:@selector(takeScreenshot) keyEquivalent:@""];
     takeScreenshotAction.target = self;
-    
-    NSMenuItem *dumpNextFrameToLogAction = [[NSMenuItem alloc] initWithTitle:DESKTOPUI_LOCALIZED("Dump next frame to log") action:@selector(dumpNextFrameToLog) keyEquivalent:@""];
+    takeScreenshotAction.tag = 9;
+
+    NSMenuItem *dumpNextFrameToLogAction = [[NSMenuItem alloc] initWithTitle:DESKTOPUI_LOCALIZED("Dump Next Frame to Log") action:@selector(dumpNextFrameToLog) keyEquivalent:@""];
     dumpNextFrameToLogAction.target = self;
-    
+    dumpNextFrameToLogAction.tag = 10;
+
     NSMenuItem *copyBaseAddr = [[NSMenuItem alloc] initWithTitle:DESKTOPUI_LOCALIZED("Copy PSP memory base address") action:@selector(copyAddr) keyEquivalent:@""];
     copyBaseAddr.target = self;
-    
-    MENU_ITEM(showDebugStatsAction, DESKTOPUI_LOCALIZED("Show Debug Statistics"), @selector(toggleShowDebugStats:), g_Config.bShowDebugStats, 2)
-    
+    copyBaseAddr.tag = 11;
+
+    MENU_ITEM(showDebugStatsAction, DESKTOPUI_LOCALIZED("Show Debug Statistics"), @selector(toggleShowDebugStats:), g_Config.bShowDebugStats, 12)
+
     [parent addItem:loadSymbolMapAction];
     [parent addItem:saveMapFileAction];
     [parent addItem:[NSMenuItem separatorItem]];
-    
+
     [parent addItem:loadSymFileAction];
     [parent addItem:saveSymFileAction];
     [parent addItem:[NSMenuItem separatorItem]];
-    
+
     [parent addItem:resetSymbolTableAction];
     [parent addItem:[NSMenuItem separatorItem]];
-    
+
     [parent addItem:takeScreenshotAction];
     [parent addItem:dumpNextFrameToLogAction];
     [parent addItem:showDebugStatsAction];
-    
+
     [parent addItem:[NSMenuItem separatorItem]];
     [parent addItem:copyBaseAddr];
     return parent;
 }
 
 -(void)breakAction: (NSMenuItem *)item {
+   std::shared_ptr<I18NCategory> desktopUILocalization = GetI18NCategory(I18NCat::DESKTOPUI);
+#define DESKTOPUI_LOCALIZED(key) @(UnescapeMenuString(desktopUILocalization->T(key), nil).c_str())
+   std::shared_ptr<I18NCategory> developerUILocalization = GetI18NCategory(I18NCat::DEVELOPER);
+#define DEVELOPERUI_LOCALIZED(key) @(developerUILocalization->T(key))
     if (Core_IsStepping()) {
         Core_EnableStepping(false, "ui.break");
-        item.title = @"Break";
+        item.title = DESKTOPUI_LOCALIZED("Break");
     } else {
         Core_EnableStepping(true, "ui.break");
-        item.title = @"Resume";
+        item.title = DEVELOPERUI_LOCALIZED("Resume");
+    }
+}
+
+-(void)pauseAction: (NSMenuItem *)item {
+	NativeMessageReceived("pause", "");
+}
+
+-(void)resetAction: (NSMenuItem *)item {
+    NativeMessageReceived("reset", "");
+	Core_EnableStepping(false);
+}
+
+-(void)chatAction: (NSMenuItem *)item {
+    if (GetUIState() == UISTATE_INGAME) {
+        NativeMessageReceived("chat screen", "");
     }
 }
 
@@ -370,12 +467,10 @@ void initializeOSXExtras() {
     openPanel.allowedFileTypes = allowedFileTypes;
     if ([openPanel runModal] == NSModalResponseOK) {
         NSURL *urlWeWant = openPanel.URLs.firstObject;
-        
         if (urlWeWant) {
             return urlWeWant;
         }
     }
-    
     return nil;
 }
 
@@ -385,7 +480,6 @@ void initializeOSXExtras() {
     if ([savePanel runModal] == NSModalResponseOK && savePanel.URL) {
         return savePanel.URL;
     }
-    
     return nil;
 }
 
@@ -433,13 +527,20 @@ __VA_ARGS__; /* for any additional updates */ \
 item.state = [self controlStateForBool: ConfigValueName]; \
 }
 
+#define TOGGLE_METHOD_INVERSE(name, ConfigValueName, ...) \
+-(void)toggle##name: (NSMenuItem *)item { \
+ConfigValueName = !ConfigValueName; \
+__VA_ARGS__; /* for any additional updates */ \
+item.state = [self controlStateForBool: !ConfigValueName]; \
+}
+
 TOGGLE_METHOD(Sound, g_Config.bEnableSound)
-TOGGLE_METHOD(BreakOnLoad, g_Config.bAutoRun)
+TOGGLE_METHOD_INVERSE(BreakOnLoad, g_Config.bAutoRun)
 TOGGLE_METHOD(IgnoreIllegalRWs, g_Config.bIgnoreBadMemAccess)
 TOGGLE_METHOD(AutoFrameSkip, g_Config.bAutoFrameSkip, g_Config.UpdateAfterSettingAutoFrameSkip())
 TOGGLE_METHOD(SoftwareRendering, g_Config.bSoftwareRendering)
 TOGGLE_METHOD(FullScreen, g_Config.bFullScreen, System_MakeRequest(SystemRequestType::TOGGLE_FULLSCREEN_STATE, 0, g_Config.UseFullScreen() ? "1" : "0", "", 3))
-TOGGLE_METHOD(VSync, g_Config.bVSync)
+// TOGGLE_METHOD(VSync, g_Config.bVSync)
 TOGGLE_METHOD(ShowDebugStats, g_Config.bShowDebugStats, NativeMessageReceived("clear jit", ""))
 #undef TOGGLE_METHOD
 
@@ -462,10 +563,10 @@ TOGGLE_METHOD(ShowDebugStats, g_Config.bShowDebugStats, NativeMessageReceived("c
         printf("only one item, bailing");
         return;
     }
-    
+
     g_Config.iGPUBackend = (int)(allowed[sender.tag]);
     sender.state = NSControlStateValueOn;
-    
+
     for (NSMenuItem *item in sender.menu.itemArray) {
         // deselect the previously selected item
         if (item.state == NSControlStateValueOn && item.tag != sender.tag) {
@@ -473,6 +574,10 @@ TOGGLE_METHOD(ShowDebugStats, g_Config.bShowDebugStats, NativeMessageReceived("c
             break;
         }
     }
+
+    // TODO: Use same command line params as the previous startup?
+    // Note that this does a clean shutdown, so the config will be saved automatically.
+    System_RestartApp("");
 }
 
 -(NSControlStateValue) controlStateForBool: (BOOL)boolValue {
@@ -496,8 +601,11 @@ TOGGLE_METHOD(ShowDebugStats, g_Config.bShowDebugStats, NativeMessageReceived("c
 }
 
 -(void)addOpenRecentlyItem {
+    std::shared_ptr<I18NCategory> mainmenuLocalization = GetI18NCategory(I18NCat::MAINMENU);
+#define MAINMENU_LOCALIZED(key) @(mainmenuLocalization->T(key))
+
     std::vector<std::string> recentIsos = g_Config.RecentIsos();
-    NSMenuItem *openRecent = [[NSMenuItem alloc] initWithTitle:@"Open Recent" action:nil keyEquivalent:@""];
+    NSMenuItem *openRecent = [[NSMenuItem alloc] initWithTitle:MAINMENU_LOCALIZED("Recent") action:nil keyEquivalent:@""];
     NSMenu *recentsMenu = [[NSMenu alloc] init];
     if (recentIsos.empty())
         openRecent.enabled = NO;

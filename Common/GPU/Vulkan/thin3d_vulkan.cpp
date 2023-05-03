@@ -948,6 +948,9 @@ VKContext::VKContext(VulkanContext *vulkan)
 		// Workaround for Intel driver bug. TODO: Re-enable after some driver version
 		bugs_.Infest(Bugs::DUAL_SOURCE_BLENDING_BROKEN);
 	} else if (caps_.vendor == GPUVendor::VENDOR_ARM) {
+		// Really old Vulkan drivers for Mali didn't have proper versions. We try to detect that (can't be 100% but pretty good).
+		bool isOldVersion = IsHashMaliDriverVersion(deviceProps);
+
 		int majorVersion = VK_API_VERSION_MAJOR(deviceProps.driverVersion);
 
 		// These GPUs (up to some certain hardware version?) have a bug where draws where gl_Position.w == .z
@@ -966,8 +969,17 @@ VKContext::VKContext(VulkanContext *vulkan)
 
 		// Older ARM devices have very slow geometry shaders, not worth using.  At least before 15.
 		// Also seen to cause weird issues on 18, so let's lump it in.
-		if (majorVersion <= 18) {
+		if (majorVersion <= 18 || isOldVersion) {
 			bugs_.Infest(Bugs::GEOMETRY_SHADERS_SLOW_OR_BROKEN);
+		}
+
+		// Attempt to workaround #17386
+		if (isOldVersion) {
+			if (!strcmp(deviceProps.deviceName, "Mali-T880") ||
+				!strcmp(deviceProps.deviceName, "Mali-T860") ||
+				!strcmp(deviceProps.deviceName, "Mali-T830")) {
+				bugs_.Infest(Bugs::UNIFORM_INDEXING_BROKEN);
+			}
 		}
 	}
 
@@ -1487,6 +1499,11 @@ void VKContext::DrawIndexed(int vertexCount, int offset) {
 }
 
 void VKContext::DrawUP(const void *vdata, int vertexCount) {
+	_dbg_assert_(vertexCount >= 0);
+	if (vertexCount <= 0) {
+		return;
+	}
+
 	VkBuffer vulkanVbuf, vulkanUBObuf;
 	size_t vbBindOffset = push_->Push(vdata, vertexCount * curPipeline_->stride[0], 4, &vulkanVbuf);
 	uint32_t ubo_offset = (uint32_t)curPipeline_->PushUBO(push_, vulkan_, &vulkanUBObuf);

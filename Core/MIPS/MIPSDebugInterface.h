@@ -64,11 +64,11 @@ public:
 	}
 	const char *GetRegName(int cat, int index) override;
 
-	void PrintRegValue(int cat, int index, char *out) override {
+	void PrintRegValue(int cat, int index, char *out, size_t outSize) override {
 		switch (cat) {
-		case 0: sprintf(out, "%08X", cpu->r[index]); break;
-		case 1: sprintf(out, "%f", cpu->f[index]); break;
-		case 2: sprintf(out, "N/A"); break;
+		case 0: snprintf(out, outSize, "%08X", cpu->r[index]); break;
+		case 1: snprintf(out, outSize, "%f", cpu->f[index]); break;
+		case 2: snprintf(out, outSize, "N/A"); break;
 		}
 	}
 

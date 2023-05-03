@@ -76,7 +76,7 @@ static uint64_t HashJitBlock(const JitBlock &b) {
 }
 
 JitBlockCache::JitBlockCache(MIPSState *mipsState, CodeBlockCommon *codeBlock) :
-	codeBlock_(codeBlock), blocks_(nullptr), num_blocks_(0) {
+	codeBlock_(codeBlock) {
 }
 
 JitBlockCache::~JitBlockCache() {
@@ -90,7 +90,8 @@ bool JitBlock::ContainsAddress(u32 em_address) {
 }
 
 bool JitBlockCache::IsFull() const {
-	return num_blocks_ >= MAX_NUM_BLOCKS - 1;
+	// -10 to safely leave space for some proxy blocks, which we don't check before we allocate (not ideal, but should work).
+	return num_blocks_ >= MAX_NUM_BLOCKS - 10;
 }
 
 void JitBlockCache::Init() {
@@ -280,13 +281,13 @@ void JitBlockCache::FinalizeBlock(int block_num, bool block_link) {
 
 #if defined USE_OPROFILE && USE_OPROFILE
 	char buf[100];
-	sprintf(buf, "EmuCode%x", b.originalAddress);
+	snprintf(buf, sizeof(buf), "EmuCode%x", b.originalAddress);
 	const u8* blockStart = blocks_[block_num].checkedEntry;
 	op_write_native_code(agent, buf, (uint64_t)blockStart, blockStart, b.normalEntry + b.codeSize - b.checkedEntry);
 #endif
 
 #ifdef USE_VTUNE
-	sprintf(b.blockName, "EmuCode_0x%08x", b.originalAddress);
+	snprintf(b.blockName, sizeof(b.blockName), "EmuCode_0x%08x", b.originalAddress);
 
 	iJIT_Method_Load jmethod = {0};
 	jmethod.method_id = iJIT_GetNewMethodID();

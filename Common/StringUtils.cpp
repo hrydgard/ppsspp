@@ -242,7 +242,7 @@ std::string StringFromFormat(const char* format, ...)
 std::string StringFromInt(int value)
 {
 	char temp[16];
-	sprintf(temp, "%i", value);
+	snprintf(temp, sizeof(temp), "%d", value);
 	return temp;
 }
 

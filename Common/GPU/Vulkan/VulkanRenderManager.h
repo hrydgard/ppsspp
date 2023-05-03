@@ -456,13 +456,13 @@ public:
 	void Invalidate(InvalidationFlags flags);
 
 	void ResetStats();
+	void DrainCompileQueue();
 
 private:
 	void EndCurRenderStep();
 
 	void ThreadFunc();
 	void CompileThreadFunc();
-	void DrainCompileQueue();
 
 	void Run(VKRRenderThreadTask &task);
 

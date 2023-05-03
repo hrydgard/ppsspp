@@ -548,7 +548,9 @@ void DrawEngineCommon::SubmitCurve(const void *control_points, const void *indic
 	output.indices = decIndex;
 	output.count = 0;
 
-	surface.Init(DECODED_VERTEX_BUFFER_SIZE / 2 / vertexSize);
+	int maxVerts = DECODED_VERTEX_BUFFER_SIZE / 2 / vertexSize;
+
+	surface.Init(maxVerts);
 
 	if (CanUseHardwareTessellation(surface.primType)) {
 		HardwareTessellation(output, surface, origVertType, points, tessDataTransfer);

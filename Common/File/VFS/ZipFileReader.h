@@ -40,9 +40,11 @@ public:
 	}
 
 private:
-	void GetZipListings(const char *path, std::set<std::string> &files, std::set<std::string> &directories);
+	ZipFileReader(zip *zip_file, const std::string &inZipPath) : zip_file_(zip_file), inZipPath_(inZipPath) {}
+	// Path has to be either an empty string, or a string ending with a /.
+	bool GetZipListings(const std::string &path, std::set<std::string> &files, std::set<std::string> &directories);
 
 	zip *zip_file_ = nullptr;
 	std::mutex lock_;
-	char inZipPath_[256];
+	std::string inZipPath_;
 };

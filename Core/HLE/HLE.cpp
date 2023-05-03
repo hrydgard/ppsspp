@@ -223,7 +223,7 @@ const char *GetFuncName(const char *moduleName, u32 nib)
 		return func->name;
 
 	static char temp[256];
-	sprintf(temp,"[UNK: 0x%08x]", nib);
+	snprintf(temp, sizeof(temp), "[UNK: 0x%08x]", nib);
 	return temp;
 }
 

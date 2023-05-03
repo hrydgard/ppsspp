@@ -96,7 +96,6 @@ public:
 	TextureReplacer(Draw::DrawContext *draw);
 	~TextureReplacer();
 
-	void Init();
 	void NotifyConfigChanged();
 
 	bool Enabled() const { return enabled_; }
@@ -128,7 +127,7 @@ protected:
 	bool FindFiltering(u64 cachekey, u32 hash, TextureFiltering *forceFiltering);
 
 	bool LoadIni();
-	bool LoadIniValues(IniFile &ini, bool isOverride = false);
+	bool LoadIniValues(IniFile &ini, VFSBackend *dir, bool isOverride = false);
 	void ParseHashRange(const std::string &key, const std::string &value);
 	void ParseFiltering(const std::string &key, const std::string &value);
 	void ParseReduceHashRange(const std::string& key, const std::string& value);
