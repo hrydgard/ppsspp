@@ -536,8 +536,11 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 	}
 	case SystemRequestType::BROWSE_FOR_FILE:
 	{
-		std::vector<std::string> supportedExtensions = { ".cso", ".bin", ".iso", ".elf", ".pbp", ".zip"};
+		std::vector<std::string> supportedExtensions = {};
 		switch ((BrowseFileType)param3) {
+		case BrowseFileType::BOOTABLE:
+			supportedExtensions = { ".cso", ".bin", ".iso", ".elf", ".pbp", ".zip" };
+			break;
 		case BrowseFileType::INI:
 			supportedExtensions = { ".ini" };
 			break;
@@ -545,7 +548,7 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 			supportedExtensions = { ".db" };
 			break;
 		case BrowseFileType::ANY:
-			supportedExtensions = {};
+			// 'ChooseFile' will added '*' by default when there are no extensions assigned
 			break;
 		default:
 			ERROR_LOG(FILESYS, "Unexpected BrowseFileType: %d", param3);

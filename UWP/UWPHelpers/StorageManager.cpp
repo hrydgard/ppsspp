@@ -292,10 +292,10 @@ bool GetFakeFolders(Path path, std::vector<File::FileInfo>* files, const char* f
 				info.exists = true;
 				info.size = 1;
 				info.isDirectory = true;
-				info.isWritable = 0;
-				info.atime = 1000;
-				info.mtime = 1000;
-				info.ctime = 1000;
+				info.isWritable = true;
+				info.atime = 0;
+				info.mtime = 0;
+				info.ctime = 0;
 				info.access = 0111;
 
 				files->push_back(info);
@@ -347,25 +347,31 @@ bool OpenFolder(std::string path) {
 	return state;
 }
 
-int64_t GetLocalFreeSpace() {
-	Platform::String^ freeSpaceKey = ref new Platform::String(L"System.FreeSpace");
-	Platform::Collections::Vector<Platform::String^>^ propertiesToRetrieve = ref new Platform::Collections::Vector<Platform::String^>();
-	propertiesToRetrieve->Append(freeSpaceKey);
-	Windows::Foundation::Collections::IMap<Platform::String^, Platform::Object^>^ result;
-	ExecuteTask(result, ApplicationData::Current->LocalFolder->Properties->RetrievePropertiesAsync(propertiesToRetrieve));
-	int64_t remainingSize = 0;
-	if (result != nullptr && result->Size > 0) {
-		try {
-			auto it = result->First();
-			auto sizeString = it->Current->Value->ToString();
-			const wchar_t* begin = sizeString->Data();
-			remainingSize = (int64_t)std::wcstol(begin, nullptr, 10);
-		}
-		catch (...) {
+bool GetDriveFreeSpace(Path path, int64_t& space) {
 
+	bool state = false;
+	Platform::String^ wString = ref new Platform::String(path.ToWString().c_str());
+	StorageFolder^ storageItem;
+	ExecuteTask(storageItem, StorageFolder::GetFolderFromPathAsync(wString));
+	if (storageItem != nullptr) {
+		Platform::String^ freeSpaceKey = ref new Platform::String(L"System.FreeSpace");
+		Platform::Collections::Vector<Platform::String^>^ propertiesToRetrieve = ref new Platform::Collections::Vector<Platform::String^>();
+		propertiesToRetrieve->Append(freeSpaceKey);
+		Windows::Foundation::Collections::IMap<Platform::String^, Platform::Object^>^ result;
+		ExecuteTask(result, storageItem->Properties->RetrievePropertiesAsync(propertiesToRetrieve));
+		if (result != nullptr && result->Size > 0) {
+			try {
+				auto value = result->Lookup(L"System.FreeSpace");
+				space = (uint64_t)value;
+				state = true;
+			}
+			catch (...) {
+
+			}
 		}
 	}
-	return remainingSize;
+
+	return state;
 }
 #pragma endregion
 

@@ -253,7 +253,7 @@ void App::OnSuspending(Platform::Object^ sender, SuspendingEventArgs^ args) {
 	create_task([app, deferral]() {
 		g_Config.Save("App::OnSuspending");
 		app->m_deviceResources->Trim();
-	    deferral->Complete();
+		deferral->Complete();
 	});
 }
 

@@ -35,12 +35,12 @@ concurrency::task<Platform::String^> PickSingleFolder()
 
 	return concurrency::create_task(folderPicker->PickSingleFolderAsync()).then([](StorageFolder^ folder) {
 		auto path = ref new Platform::String();
-	    if (folder != nullptr)
-	    {
+		if (folder != nullptr)
+		{
 			AddItemToFutureList(folder);
-	    	path = folder->Path;
-	    }
-	    return path;
+			path = folder->Path;
+		}
+		return path;
 	});
 }
 
@@ -62,12 +62,12 @@ concurrency::task<Platform::String^> PickSingleFile(std::vector<std::string> ext
 	}
 	return concurrency::create_task(filePicker->PickSingleFileAsync()).then([](StorageFile^ file) {
 		auto path = ref new Platform::String();
-	    if (file != nullptr)
-	    {
+		if (file != nullptr)
+		{
 			AddItemToFutureList(file);
-	    	path = file->Path;
-	    }
-	    return path;
+			path = file->Path;
+		}
+		return path;
 	});
 }
 

@@ -51,7 +51,7 @@ bool IsRootForAccessibleItems(std::string path);
 bool OpenFile(std::string path);
 bool OpenFolder(std::string path);
 std::string ResolvePathUWP(std::string path);
-int64_t GetLocalFreeSpace();
+bool GetDriveFreeSpace(Path path, int64_t& space);
 
 // Log helpers
 std::string GetLogFile();
