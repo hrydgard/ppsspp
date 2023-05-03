@@ -365,7 +365,7 @@ public:
 		}
 
 		// In case of a remote file, check if it actually exists before locking.
-		if (!info_->GetFileLoader()->Exists()) {
+		if (!info_->GetFileLoader() || !info_->GetFileLoader()->Exists()) {
 			return;
 		}
 
