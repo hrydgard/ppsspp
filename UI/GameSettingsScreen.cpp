@@ -274,7 +274,7 @@ void GameSettingsScreen::CreateViews() {
 
 #if !defined(MOBILE_DEVICE) || PPSSPP_PLATFORM(ANDROID)
 	// Hide search if screen is too small.
-	if (g_display.dp_xres < g_display.dp_yres || g_display.dp_yres >= 500) {
+	if ((g_display.dp_xres < g_display.dp_yres || g_display.dp_yres >= 500) && (deviceType != DEVICE_TYPE_VR)) {
 		auto se = GetI18NCategory(I18NCat::SEARCH);
 		// Search
 		LinearLayout *searchSettings = AddTab("GameSettingsSearch", ms->T("Search"), true);
@@ -974,19 +974,21 @@ void GameSettingsScreen::CreateSystemSettings(UI::ViewGroup *systemSettings) {
 #endif
 
 #if PPSSPP_PLATFORM(ANDROID)
-	memstickDisplay_ = g_Config.memStickDirectory.ToVisualString();
-	auto memstickPath = systemSettings->Add(new ChoiceWithValueDisplay(&memstickDisplay_, sy->T("Memory Stick folder", "Memory Stick folder"), I18NCat::NONE));
-	memstickPath->SetEnabled(!PSP_IsInited());
-	memstickPath->OnClick.Handle(this, &GameSettingsScreen::OnChangeMemStickDir);
+	if (System_GetPropertyInt(SYSPROP_DEVICE_TYPE) != DEVICE_TYPE_VR) {
+		memstickDisplay_ = g_Config.memStickDirectory.ToVisualString();
+		auto memstickPath = systemSettings->Add(new ChoiceWithValueDisplay(&memstickDisplay_, sy->T("Memory Stick folder", "Memory Stick folder"), I18NCat::NONE));
+		memstickPath->SetEnabled(!PSP_IsInited());
+		memstickPath->OnClick.Handle(this, &GameSettingsScreen::OnChangeMemStickDir);
 
-	// Display USB path for convenience.
-	std::string usbPath;
-	if (PathToVisualUsbPath(g_Config.memStickDirectory, usbPath)) {
-		if (usbPath.empty()) {
-			// Probably it's just the root. So let's add PSP to make it clear.
-			usbPath = "/PSP";
+		// Display USB path for convenience.
+		std::string usbPath;
+		if (PathToVisualUsbPath(g_Config.memStickDirectory, usbPath)) {
+			if (usbPath.empty()) {
+				// Probably it's just the root. So let's add PSP to make it clear.
+				usbPath = "/PSP";
+			}
+			systemSettings->Add(new InfoItem(sy->T("USB"), usbPath))->SetChoiceStyle(true);
 		}
-		systemSettings->Add(new InfoItem(sy->T("USB"), usbPath))->SetChoiceStyle(true);
 	}
 #elif defined(_WIN32) && !PPSSPP_PLATFORM(UWP)
 	SavePathInMyDocumentChoice = systemSettings->Add(new CheckBox(&installed_, sy->T("Save path in My Documents", "Save path in My Documents")));
