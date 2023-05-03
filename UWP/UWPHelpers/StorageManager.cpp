@@ -86,11 +86,10 @@ std::string GetMusicFolder() {
 }
 std::string GetPreviewPath(std::string path) {
 	std::string pathView = path;
-
 	pathView = ReplaceAll(pathView, "/", "\\");
-	pathView = ReplaceAll(pathView, GetLocalFolder(), "LocalState");
-	pathView = ReplaceAll(pathView, GetTempFolder(), "TempState");
-	pathView = ReplaceAll(pathView, GetInstallationFolder(), "Installation folder");
+	std::string currentMemoryStick = ConvertWStringToUTF8(g_Config.memStickDirectory.ToWString());
+	// Ensure memStick sub path replaced by 'ms:'
+	pathView = ReplaceAll(pathView, currentMemoryStick + "\\", "ms:\\");
 	auto appData = ReplaceAll(GetLocalFolder(), "\\LocalState", "");
 	pathView = ReplaceAll(pathView, appData, "AppData");
 
