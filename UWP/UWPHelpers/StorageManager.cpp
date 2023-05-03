@@ -184,13 +184,13 @@ FILE* GetFileStreamFromApp(std::string path, const char* mode) {
 	else if (!strcmp(mode, "a") || !strcmp(mode, "ab") || !strcmp(mode, "at")) {
 		dwDesiredAccess = GENERIC_WRITE;
 		dwShareMode = FILE_SHARE_READ | FILE_SHARE_WRITE;
-		dwCreationDisposition = CREATE_ALWAYS;
+		dwCreationDisposition = OPEN_ALWAYS;
 		flags = _O_APPEND | _O_WRONLY | _O_CREAT;
 	}
 	else if (!strcmp(mode, "a+") || !strcmp(mode, "ab+") || !strcmp(mode, "a+b") || !strcmp(mode, "at+") || !strcmp(mode, "a+t")) {
 		dwDesiredAccess = GENERIC_READ | GENERIC_WRITE;
 		dwShareMode = FILE_SHARE_READ | FILE_SHARE_WRITE;
-		dwCreationDisposition = CREATE_ALWAYS;
+		dwCreationDisposition = OPEN_ALWAYS;
 		flags = _O_APPEND | _O_RDWR | _O_CREAT;
 	}
 	else if (!strcmp(mode, "w") || !strcmp(mode, "wb") || !strcmp(mode, "wt"))
