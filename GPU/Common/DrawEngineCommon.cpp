@@ -66,6 +66,7 @@ VertexDecoder *DrawEngineCommon::GetVertexDecoder(u32 vtype) {
 	if (dec)
 		return dec;
 	dec = new VertexDecoder();
+	_assert_(dec);
 	dec->SetVertexType(vtype, decOptions_, decJitCache_);
 	decoderMap_.Insert(vtype, dec);
 	return dec;
@@ -809,7 +810,7 @@ void DrawEngineCommon::SubmitPrim(const void *verts, const void *inds, GEPrimiti
 	}
 
 	// If vtype has changed, setup the vertex decoder.
-	if (vertTypeID != lastVType_) {
+	if (vertTypeID != lastVType_ || !dec_) {
 		dec_ = GetVertexDecoder(vertTypeID);
 		lastVType_ = vertTypeID;
 	}
