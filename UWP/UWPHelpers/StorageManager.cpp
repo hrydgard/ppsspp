@@ -87,13 +87,13 @@ std::string GetMusicFolder() {
 std::string GetPreviewPath(std::string path) {
 	std::string pathView = path;
 
-	if (Path(GetLocalFolder()) == Path(path + "\\LocalState")) {
-		return "AppData";
-	}
 	pathView = ReplaceAll(pathView, "/", "\\");
 	pathView = ReplaceAll(pathView, GetLocalFolder(), "LocalState");
 	pathView = ReplaceAll(pathView, GetTempFolder(), "TempState");
 	pathView = ReplaceAll(pathView, GetInstallationFolder(), "Installation folder");
+	auto appData = ReplaceAll(GetLocalFolder(), "\\LocalState", "");
+	pathView = ReplaceAll(pathView, appData, "AppData");
+
 	return pathView;
 }
 bool isLocalState(std::string path) {
