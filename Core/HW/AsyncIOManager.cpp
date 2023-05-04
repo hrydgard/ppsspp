@@ -29,6 +29,7 @@
 #include "Core/FileSystems/MetaFileSystem.h"
 
 bool AsyncIOManager::HasOperation(u32 handle) {
+	std::lock_guard<std::mutex> guard(resultsLock_);
 	if (resultsPending_.find(handle) != resultsPending_.end()) {
 		return true;
 	}
@@ -60,6 +61,7 @@ bool AsyncIOManager::HasResult(u32 handle) {
 }
 
 bool AsyncIOManager::PopResult(u32 handle, AsyncIOResult &result) {
+	// This is called under lock from WaitResult, no need to lock again.
 	if (results_.find(handle) != results_.end()) {
 		result = results_[handle];
 		results_.erase(handle);
@@ -75,6 +77,7 @@ bool AsyncIOManager::PopResult(u32 handle, AsyncIOResult &result) {
 }
 
 bool AsyncIOManager::ReadResult(u32 handle, AsyncIOResult &result) {
+	// This is called under lock from WaitResult, no need to lock again.
 	if (results_.find(handle) != results_.end()) {
 		result = results_[handle];
 		return true;
