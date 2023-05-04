@@ -554,6 +554,11 @@ void GLPushBuffer::Flush() {
 	// Must be called from the render thread.
 	_dbg_assert_(OnRenderThread());
 
+	if (buf_ >= buffers_.size()) {
+		_dbg_assert_msg_(false, "buf_ somehow got out of sync: %d vs %d", (int)buf_, (int)buffers_.size());
+		return;
+	}
+
 	buffers_[buf_].flushOffset = offset_;
 	if (!buffers_[buf_].deviceMemory && writePtr_) {
 		auto &info = buffers_[buf_];
@@ -589,6 +594,7 @@ bool GLPushBuffer::AddBuffer() {
 	if (!info.localMemory)
 		return false;
 	info.buffer = render_->CreateBuffer(target_, size_, GL_DYNAMIC_DRAW);
+	info.size = size_;
 	buf_ = buffers_.size();
 	buffers_.push_back(info);
 	return true;
@@ -605,7 +611,6 @@ void GLPushBuffer::Destroy(bool onRenderThread) {
 		} else {
 			render_->DeleteBuffer(info.buffer);
 		}
-
 		FreeAlignedMemory(info.localMemory);
 	}
 	buffers_.clear();
@@ -640,7 +645,7 @@ void GLPushBuffer::Defragment() {
 	_dbg_assert_msg_(!OnRenderThread(), "Defragment must not run on the render thread");
 
 	if (buffers_.size() <= 1) {
-		// Let's take this chance to jetison localMemory we don't need.
+		// Let's take this opportunity to jettison any localMemory we don't need.
 		for (auto &info : buffers_) {
 			if (info.deviceMemory) {
 				FreeAlignedMemory(info.localMemory);
@@ -652,18 +657,31 @@ void GLPushBuffer::Defragment() {
 	}
 
 	// Okay, we have more than one.  Destroy them all and start over with a larger one.
-	size_t newSize = size_ * buffers_.size();
+
+	// When calling AddBuffer, we sometimes increase size_. So if we allocated multiple buffers in a frame,
+	// they won't all have the same size. Sum things up properly.
+	size_t newSize = 0;
+	for (int i = 0; i < (int)buffers_.size(); i++) {
+		newSize += buffers_[i].size;
+	}
+
 	Destroy(false);
 
-	size_ = newSize;
+	// Set some sane but very free limits. If there's another spike, we'll just allocate more anyway.
+	size_ = std::min(std::max(newSize, (size_t)65536), (size_t)(512 * 1024 * 1024));
 	bool res = AddBuffer();
 	_assert_msg_(res, "AddBuffer failed");
 }
 
 size_t GLPushBuffer::GetTotalSize() const {
 	size_t sum = 0;
-	if (buffers_.size() > 1)
-		sum += size_ * (buffers_.size() - 1);
+	// When calling AddBuffer, we sometimes increase size_. So if we allocated multiple buffers in a frame,
+	// they won't all have the same size. Sum things up properly.
+	if (buffers_.size() > 1) {
+		for (int i = 0; i < (int)buffers_.size() - 1; i++) {
+			sum += buffers_[i].size;
+		}
+	}
 	sum += offset_;
 	return sum;
 }

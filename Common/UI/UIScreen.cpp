@@ -111,6 +111,7 @@ void UIScreen::postRender() {
 	if (!draw) {
 		return;
 	}
+	screenManager()->getUIContext()->Flush();
 	draw->EndFrame();
 }
 

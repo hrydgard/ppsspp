@@ -149,7 +149,11 @@ public:
 		DecodeVerts(decoded);
 	}
 
-	void DispatchFlush() override { Flush(); }
+	void DispatchFlush() override {
+		if (!numDrawCalls)
+			return;
+		Flush();
+	}
 
 	void ClearTrackedVertexArrays() override;
 

@@ -62,6 +62,7 @@ public:
 
 	void Execute_TexFlush(u32 op, u32 diff);
 
+	// TODO: Have these return an error code if they jump to a bad address. If bad, stop the FastRunLoop.
 	typedef void (GPUCommonHW::*CmdFunc)(u32 op, u32 diff);
 
 	void FastRunLoop(DisplayList &list) override;
