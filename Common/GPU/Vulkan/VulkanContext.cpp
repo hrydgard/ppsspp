@@ -1199,6 +1199,12 @@ static std::string surface_transforms_to_string(VkSurfaceTransformFlagsKHR trans
 }
 
 bool VulkanContext::InitSwapchain() {
+	_assert_(physical_device_ >= 0 && physical_device_ < physical_devices_.size());
+	if (!surface_) {
+		ERROR_LOG(G3D, "VK: No surface, can't create swapchain");
+		return false;
+	}
+
 	VkResult res = vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physical_devices_[physical_device_], surface_, &surfCapabilities_);
 	if (res == VK_ERROR_SURFACE_LOST_KHR) {
 		// Not much to do.
