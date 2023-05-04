@@ -107,6 +107,7 @@ private:
 
 // Simple memory pushbuffer pool that can share blocks between the "frames", to reduce the impact of push memory spikes -
 // a later frame can gobble up redundant buffers from an earlier frame even if they don't share frame index.
+// NOT thread safe! Can only be used from one thread (our main thread).
 class VulkanPushPool : public VulkanMemoryManager {
 public:
 	VulkanPushPool(VulkanContext *vulkan, const char *name, size_t originalBlockSize, VkBufferUsageFlags usage);

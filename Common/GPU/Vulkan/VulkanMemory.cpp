@@ -323,6 +323,7 @@ VulkanPushPool::Block VulkanPushPool::CreateBlock(size_t size) {
 	result = vmaMapMemory(vulkan_->Allocator(), block.allocation, (void **)(&block.writePtr));
 	_assert_(result == VK_SUCCESS);
 
+	_assert_msg_(block.writePtr != nullptr, "VulkanPushPool: Failed to map memory on block of size %d", (int)block.size);
 	return block;
 }
 
@@ -384,6 +385,7 @@ void VulkanPushPool::NextBlock(VkDeviceSize allocationSize) {
 			block.used = allocationSize;
 			block.lastUsed = time_now_d();
 			block.frameIndex = curFrameIndex;
+			_assert_(block.writePtr != nullptr);
 			return;
 		}
 		curBlockIndex_++;
@@ -391,6 +393,7 @@ void VulkanPushPool::NextBlock(VkDeviceSize allocationSize) {
 
 	double start = time_now_d();
 	VkDeviceSize newBlockSize = std::max(originalBlockSize_ * 2, (VkDeviceSize)RoundUpToPowerOf2((uint32_t)allocationSize));
+
 	// We're still here and ran off the end of blocks. Create a new one.
 	blocks_.push_back(CreateBlock(newBlockSize));
 	blocks_.back().frameIndex = curFrameIndex;
