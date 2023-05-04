@@ -25,6 +25,11 @@ If you want to download regularly updated builds for Android, Windows x86 and x6
 
 For game compatibility, see [community compatibility feedback](https://report.ppsspp.org/games).
 
+What's new in 1.15.2
+====================
+- Assorted minor crash fixes ([#17401], [#17399])
+- Fix Android 12 support in the Android VR build (avoid scoped storage) ([#17398])
+
 What's new in 1.15.1
 ====================
 - Assorted minor crash fixes ([#17374], [#17370], [#17392], [#17394])
@@ -586,4 +591,6 @@ Credit goes to:
 [#17380]: https://github.com/hrydgard/ppsspp/issues/17380 "Pre-scan the root of texture packs for hash-named files."
 [#17393]: https://github.com/hrydgard/ppsspp/issues/17393 "Prevent tilt-controlled left/right dpad butons from getting stuck"
 [#17396]: https://github.com/hrydgard/ppsspp/issues/17396 "Vulkan: Turn off the ubershader on Mali T880, T860 and T830 on old driver versions"
-
+[#17401]: https://github.com/hrydgard/ppsspp/issues/17401 "Additional crash fixes"
+[#17399]: https://github.com/hrydgard/ppsspp/issues/17399 "More crash fixes"
+[#17398]: https://github.com/hrydgard/ppsspp/issues/17398 "OpenXR - Cleanup unsupported features, support Android 12"
