@@ -197,9 +197,12 @@ bool GameInfo::LoadFromPath(const Path &gamePath) {
 	std::lock_guard<std::mutex> guard(lock);
 	// No need to rebuild if we already have it loaded.
 	if (filePath_ != gamePath) {
-		fileLoader.reset(ConstructFileLoader(gamePath));
-		if (!fileLoader)
-			return false;
+		{
+			std::lock_guard<std::mutex> guard(loaderLock);
+			fileLoader.reset(ConstructFileLoader(gamePath));
+			if (!fileLoader)
+				return false;
+		}
 		filePath_ = gamePath;
 
 		// This is a fallback title, while we're loading / if unable to load.
@@ -215,13 +218,18 @@ std::shared_ptr<FileLoader> GameInfo::GetFileLoader() {
 		// because Priority() calls GetFileLoader()... gnarly.
 		return fileLoader;
 	}
+
+	std::lock_guard<std::mutex> guard(loaderLock);
 	if (!fileLoader) {
-		fileLoader.reset(ConstructFileLoader(filePath_));
+		FileLoader *loader = ConstructFileLoader(filePath_);
+		fileLoader.reset(loader);
+		return fileLoader;
 	}
 	return fileLoader;
 }
 
 void GameInfo::DisposeFileLoader() {
+	std::lock_guard<std::mutex> guard(loaderLock);
 	fileLoader.reset();
 }
 
