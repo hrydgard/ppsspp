@@ -269,6 +269,9 @@ std::string Path::ToVisualString(const char *relativeRoot) const {
 		return AndroidContentURI(path_).ToVisualString();
 #if PPSSPP_PLATFORM(WINDOWS)
 	} else if (type_ == PathType::NATIVE) {
+#if PPSSPP_PLATFORM(UWP) && !defined(__LIBRETRO__)
+		return GetPreviewPath(path_);
+#else
 		// It can be useful to show the path as relative to the memstick
 		if (relativeRoot) {
 			std::string root = ReplaceAll(relativeRoot, "/", "\\");
@@ -281,6 +284,7 @@ std::string Path::ToVisualString(const char *relativeRoot) const {
 		} else {
 			return ReplaceAll(path_, "/", "\\");
 		}
+#endif
 #else
 		if (relativeRoot) {
 			std::string root = relativeRoot;
@@ -296,14 +300,6 @@ std::string Path::ToVisualString(const char *relativeRoot) const {
 	} else {
 		return path_;
 	}
-}
-
-std::string Path::ToShortFriendlyPath() const {
-#if PPSSPP_PLATFORM(UWP) && !defined(__LIBRETRO__)
-	return GetPreviewPath(path_);
-#else
-	return Path(path_).ToVisualString();
-#endif
 }
 
 bool Path::CanNavigateUp() const {

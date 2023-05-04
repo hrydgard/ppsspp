@@ -19,7 +19,6 @@
 #include <cinttypes>
 
 #include "Common/Log.h"
-#include "Core/Config.h"
 #include "Common/File/Path.h"
 #include "Common/File/AndroidStorage.h"
 #include "Common/Data/Encoding/Utf8.h"

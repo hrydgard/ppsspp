@@ -15,7 +15,6 @@
 #include <ppltasks.h>
 
 #include "UWPHelpers/LaunchItem.h"
-#include <regex>
 
 using namespace UWP;
  
@@ -125,8 +124,7 @@ bool App::HasBackButton() {
 void App::App_BackRequested(Platform::Object^ sender, Windows::UI::Core::BackRequestedEventArgs^ e) {
 	if (m_isPhone) {
 		e->Handled = m_main->OnHardwareButton(HardwareButton::BACK);
-	}
-	else {
+	} else {
 		e->Handled = true;
 	}
 }
@@ -163,7 +161,7 @@ void App::OnPointerPressed(Windows::UI::Core::CoreWindow^ sender, Windows::UI::C
 	float X = args->CurrentPoint->Position.X;
 	float Y = args->CurrentPoint->Position.Y;
 	int64_t timestamp = args->CurrentPoint->Timestamp;
-	m_main->OnTouchEvent(TOUCH_DOWN | TOUCH_MOVE, pointerId, X, Y, (double)timestamp);
+	m_main->OnTouchEvent(TOUCH_DOWN|TOUCH_MOVE, pointerId, X, Y, (double)timestamp);
 	if (!m_isPhone) {
 		sender->SetPointerCapture();
 	}
@@ -176,7 +174,7 @@ void App::OnPointerReleased(Windows::UI::Core::CoreWindow^ sender, Windows::UI::
 	float X = args->CurrentPoint->Position.X;
 	float Y = args->CurrentPoint->Position.Y;
 	int64_t timestamp = args->CurrentPoint->Timestamp;
-	m_main->OnTouchEvent(TOUCH_UP | TOUCH_MOVE, pointerId, X, Y, (double)timestamp);
+	m_main->OnTouchEvent(TOUCH_UP|TOUCH_MOVE, pointerId, X, Y, (double)timestamp);
 	if (!m_isPhone) {
 		sender->ReleasePointerCapture();
 	}
@@ -206,8 +204,7 @@ void App::Run() {
 			if (m_main->Render()) {
 				m_deviceResources->Present();
 			}
-		}
-		else {
+		} else {
 			CoreWindow::GetForCurrentThread()->Dispatcher->ProcessEvents(CoreProcessEventsOption::ProcessOneAndAllPending);
 		}
 	}

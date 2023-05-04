@@ -845,12 +845,11 @@ uint64_t GetFileSize(const Path &filename) {
 #if defined(_WIN32) && defined(UNICODE)
 	WIN32_FILE_ATTRIBUTE_DATA attr;
 #if PPSSPP_PLATFORM(UWP)
-	if (!GetFileAttributesExFromAppW(filename.ToWString().c_str(), GetFileExInfoStandard, &attr)) {
+	if (!GetFileAttributesExFromAppW(filename.ToWString().c_str(), GetFileExInfoStandard, &attr))
 #else
-	if (!GetFileAttributesEx(filename.ToWString().c_str(), GetFileExInfoStandard, &attr)){
+	if (!GetFileAttributesEx(filename.ToWString().c_str(), GetFileExInfoStandard, &attr))
 #endif
 		return 0;
-	}
 	if (attr.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
 		return 0;
 	return ((uint64_t)attr.nFileSizeHigh << 32) | (uint64_t)attr.nFileSizeLow;

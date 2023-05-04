@@ -652,10 +652,10 @@ void SystemInfoScreen::CreateViews() {
 
 	storage->Add(new ItemHeader(si->T("Directories")));
 	// Intentionally non-translated
-	storage->Add(new InfoItem("MemStickDirectory", g_Config.memStickDirectory.ToShortFriendlyPath()));
-	storage->Add(new InfoItem("InternalDataDirectory", g_Config.internalDataDirectory.ToShortFriendlyPath()));
-	storage->Add(new InfoItem("AppCacheDir", g_Config.appCacheDirectory.ToShortFriendlyPath()));
-	storage->Add(new InfoItem("DefaultCurrentDir", g_Config.defaultCurrentDirectory.ToShortFriendlyPath()));
+	storage->Add(new InfoItem("MemStickDirectory", g_Config.memStickDirectory.ToVisualString()));
+	storage->Add(new InfoItem("InternalDataDirectory", g_Config.internalDataDirectory.ToVisualString()));
+	storage->Add(new InfoItem("AppCacheDir", g_Config.appCacheDirectory.ToVisualString()));
+	storage->Add(new InfoItem("DefaultCurrentDir", g_Config.defaultCurrentDirectory.ToVisualString()));
 
 #if PPSSPP_PLATFORM(ANDROID)
 	storage->Add(new InfoItem("ExtFilesDir", g_extFilesDir));

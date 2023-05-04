@@ -267,7 +267,7 @@ void MemStickScreen::CreateViews() {
 	if (choice_ == CHOICE_BROWSE_FOLDER || choice_ == CHOICE_SET_MANUAL) {
 		UI::View *extraView = nullptr;
 		if (!g_Config.memStickDirectory.empty()) {
-			extraView = new TextView(StringFromFormat("    %s: %s", iz->T("Current"), g_Config.memStickDirectory.ToShortFriendlyPath().c_str()), ALIGN_LEFT, false);
+			extraView = new TextView(StringFromFormat("    %s: %s", iz->T("Current"), g_Config.memStickDirectory.ToVisualString().c_str()), ALIGN_LEFT, false);
 		}
 		AddExplanation(leftColumn, (MemStickScreen::Choice)choice_, extraView);
 	}
@@ -584,7 +584,7 @@ void ConfirmMemstickMoveScreen::CreateViews() {
 	if (!initialSetup_) {
 		leftColumn->Add(new TextView(iz->T("PPSSPP will restart after the change"), ALIGN_LEFT, false));
 	}
-	leftColumn->Add(new TextView(newMemstickFolder_.ToShortFriendlyPath(), ALIGN_LEFT, false));
+	leftColumn->Add(new TextView(newMemstickFolder_.ToVisualString(), ALIGN_LEFT, false));
 	std::string newFreeSpaceText = std::string(iz->T("Free space")) + ": " + FormatSpaceString(freeSpaceNew);
 	leftColumn->Add(new TextView(newFreeSpaceText, ALIGN_LEFT, false));
 	if (existingFilesInNewFolder_) {
@@ -601,7 +601,7 @@ void ConfirmMemstickMoveScreen::CreateViews() {
 		std::string oldFreeSpaceText = std::string(iz->T("Free space")) + ": " + FormatSpaceString(freeSpaceOld);
 
 		rightColumn->Add(new TextView(std::string(iz->T("Current")) + ":", ALIGN_LEFT, false));
-		rightColumn->Add(new TextView(oldMemstickFolder.ToShortFriendlyPath(), ALIGN_LEFT, false));
+		rightColumn->Add(new TextView(oldMemstickFolder.ToVisualString(), ALIGN_LEFT, false));
 		rightColumn->Add(new TextView(oldFreeSpaceText, ALIGN_LEFT, false));
 	}
 
