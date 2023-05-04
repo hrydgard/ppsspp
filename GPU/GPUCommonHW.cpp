@@ -806,7 +806,6 @@ void GPUCommonHW::FastRunLoop(DisplayList &list) {
 			if (info.flags & FLAG_EXECUTE) {
 				downcount = dc;
 				(this->*info.func)(op, diff);
-				// TODO: Check pc here, and break if invalid, as the func can change it. Might an have a performance impact though.
 				dc = downcount;
 			}
 		} else {
@@ -820,7 +819,6 @@ void GPUCommonHW::FastRunLoop(DisplayList &list) {
 			if (flags & (FLAG_EXECUTE | FLAG_EXECUTEONCHANGE)) {
 				downcount = dc;
 				(this->*info.func)(op, diff);
-				// TODO: Check pc here, and break if invalid, as the func can change it. Might have a performance impact though.
 				dc = downcount;
 			} else {
 				uint64_t dirty = flags >> 8;
