@@ -272,7 +272,9 @@ public:
 
 protected:
 	void PostChoiceCallback(int num) override {
-		*valueStr_ = choices_[num];
+		if (valueStr_) {
+			*valueStr_ = choices_[num];
+		}
 	}
 
 private:
