@@ -25,6 +25,11 @@ If you want to download regularly updated builds for Android, Windows x86 and x6
 
 For game compatibility, see [community compatibility feedback](https://report.ppsspp.org/games).
 
+What's new in 1.15.2
+====================
+- Assorted minor crash fixes ([#17401], [#17399])
+- Fix Android 12 support in the Android VR build (avoid scoped storage) ([#17398])
+
 What's new in 1.15.1
 ====================
 - Assorted minor crash fixes ([#17374], [#17370], [#17392], [#17394])
