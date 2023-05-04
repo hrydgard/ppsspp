@@ -1420,7 +1420,7 @@ void GameSettingsScreen::dialogFinished(const Screen *dialog, DialogResult resul
 }
 
 void GameSettingsScreen::RecreateViews() {
-	oldSettingInfo_ = settingInfo_->GetText();
+	oldSettingInfo_ = settingInfo_ ? settingInfo_->GetText() : "N/A";
 	UIScreen::RecreateViews();
 }
 

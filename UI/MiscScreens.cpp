@@ -1114,5 +1114,5 @@ void SettingInfoMessage::Draw(UIContext &dc) {
 }
 
 std::string SettingInfoMessage::GetText() const {
-	return showing_ && text_ ? text_->GetText() : "";
+	return (showing_ && text_) ? text_->GetText() : "";
 }
