@@ -302,7 +302,7 @@ std::string Path::ToShortFriendlyPath() const {
 #if PPSSPP_PLATFORM(UWP) && !defined(__LIBRETRO__)
 	return GetPreviewPath(path_);
 #else
-	return path_.ToVisualString();
+	return Path(path_).ToVisualString();
 #endif
 }
 
