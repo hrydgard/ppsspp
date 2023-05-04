@@ -56,7 +56,7 @@ public:
 		return NullValue;
 	}
 
-	// Returns false if we already had the key! Which is a bit different.
+	// Asserts if we already had the key!
 	bool Insert(const Key &key, Value value) {
 		// Check load factor, resize if necessary. We never shrink.
 		if (count_ > capacity_ / 2) {
