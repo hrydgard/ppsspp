@@ -74,6 +74,8 @@ private:
 	UI::EventReturn OnConfirmClick(UI::EventParams &params);
 	UI::EventReturn OnChoiceClick(UI::EventParams &params);
 
+	SettingInfoMessage *settingInfo_ = nullptr;
+
 	bool initialSetup_;
 	bool storageBrowserWorking_;
 	bool done_ = false;
