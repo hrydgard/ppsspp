@@ -591,4 +591,6 @@ Credit goes to:
 [#17380]: https://github.com/hrydgard/ppsspp/issues/17380 "Pre-scan the root of texture packs for hash-named files."
 [#17393]: https://github.com/hrydgard/ppsspp/issues/17393 "Prevent tilt-controlled left/right dpad butons from getting stuck"
 [#17396]: https://github.com/hrydgard/ppsspp/issues/17396 "Vulkan: Turn off the ubershader on Mali T880, T860 and T830 on old driver versions"
-
+[#17401]: https://github.com/hrydgard/ppsspp/issues/17401 "Additional crash fixes"
+[#17399]: https://github.com/hrydgard/ppsspp/issues/17399 "More crash fixes"
+[#17398]: https://github.com/hrydgard/ppsspp/issues/17398 "OpenXR - Cleanup unsupported features, support Android 12"
