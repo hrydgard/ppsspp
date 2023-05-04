@@ -18,6 +18,7 @@
 #include <algorithm>
 #include <set>
 #include <unordered_map>
+#include <mutex>
 
 #include "ppsspp_config.h"
 
@@ -36,7 +37,11 @@
 
 namespace KeyMap {
 
+// We actually need to lock g_controllerMap since it can be modified! Crashes will probably be rare though,
+// but I've seen one. Let's just protect it with a mutex.
+std::recursive_mutex g_controllerMapLock;
 KeyMapping g_controllerMap;
+
 // Incremented on modification, so we know when to update menus.
 int g_controllerMapGeneration = 0;
 std::set<std::string> g_seenPads;
@@ -484,6 +489,7 @@ std::vector<KeyMap_IntStrPair> GetMappableKeys() {
 
 bool InputMappingToPspButton(const InputMapping &mapping, std::vector<int> *pspButtons) {
 	bool found = false;
+	std::lock_guard<std::recursive_mutex> guard(g_controllerMapLock);
 	for (auto iter = g_controllerMap.begin(); iter != g_controllerMap.end(); ++iter) {
 		for (auto iter2 = iter->second.begin(); iter2 != iter->second.end(); ++iter2) {
 			if (iter2->EqualsSingleMapping(mapping)) {
@@ -497,6 +503,7 @@ bool InputMappingToPspButton(const InputMapping &mapping, std::vector<int> *pspB
 }
 
 bool InputMappingsFromPspButton(int btn, std::vector<MultiInputMapping> *mappings, bool ignoreMouse) {
+	std::lock_guard<std::recursive_mutex> guard(g_controllerMapLock);
 	auto iter = g_controllerMap.find(btn);
 	if (iter == g_controllerMap.end()) {
 		return false;
@@ -513,6 +520,7 @@ bool InputMappingsFromPspButton(int btn, std::vector<MultiInputMapping> *mapping
 }
 
 bool PspButtonHasMappings(int btn) {
+	std::lock_guard<std::recursive_mutex> guard(g_controllerMapLock);
 	auto iter = g_controllerMap.find(btn);
 	if (iter == g_controllerMap.end()) {
 		return false;
@@ -548,6 +556,7 @@ MappedAnalogAxes MappedAxesForDevice(int deviceId) {
 		return MappedAnalogAxis{ -1 };
 	};
 
+	std::lock_guard<std::recursive_mutex> guard(g_controllerMapLock);
 	result.leftX = findAxisIdPair(VIRTKEY_AXIS_X_MIN, VIRTKEY_AXIS_X_MAX);
 	result.leftY = findAxisIdPair(VIRTKEY_AXIS_Y_MIN, VIRTKEY_AXIS_Y_MAX);
 	result.rightX = findAxisIdPair(VIRTKEY_AXIS_RIGHT_X_MIN, VIRTKEY_AXIS_RIGHT_X_MAX);
@@ -556,6 +565,7 @@ MappedAnalogAxes MappedAxesForDevice(int deviceId) {
 }
 
 void RemoveButtonMapping(int btn) {
+	std::lock_guard<std::recursive_mutex> guard(g_controllerMapLock);
 	for (auto iter = g_controllerMap.begin(); iter != g_controllerMap.end(); ++iter)	{
 		if (iter->first == btn) {
 			g_controllerMap.erase(iter);
@@ -565,6 +575,7 @@ void RemoveButtonMapping(int btn) {
 }
 
 bool IsKeyMapped(int device, int key) {
+	std::lock_guard<std::recursive_mutex> guard(g_controllerMapLock);
 	for (auto &iter : g_controllerMap) {
 		for (auto &mappedKey : iter.second) {
 			if (mappedKey.mappings.contains(InputMapping(device, key))) {
@@ -576,6 +587,7 @@ bool IsKeyMapped(int device, int key) {
 }
 
 bool ReplaceSingleKeyMapping(int btn, int index, MultiInputMapping key) {
+	std::lock_guard<std::recursive_mutex> guard(g_controllerMapLock);
 	// Check for duplicate
 	for (int i = 0; i < (int)g_controllerMap[btn].size(); ++i) {
 		if (i != index && g_controllerMap[btn][i] == key) {
@@ -607,6 +619,7 @@ void DeleteNthMapping(int key, int number) {
 }
 
 void SetInputMapping(int btn, const MultiInputMapping &key, bool replace) {
+	std::lock_guard<std::recursive_mutex> guard(g_controllerMapLock);
 	if (key.empty()) {
 		g_controllerMap.erase(btn);
 		return;
@@ -630,6 +643,7 @@ void SetInputMapping(int btn, const MultiInputMapping &key, bool replace) {
 }
 
 void RestoreDefault() {
+	std::lock_guard<std::recursive_mutex> guard(g_controllerMapLock);
 	g_controllerMap.clear();
 	g_controllerMapGeneration++;
 
@@ -718,6 +732,7 @@ void SaveToIni(IniFile &file) {
 }
 
 void ClearAllMappings() {
+	std::lock_guard<std::recursive_mutex> guard(g_controllerMapLock);
 	g_controllerMap.clear();
 	g_controllerMapGeneration++;
 }
@@ -758,6 +773,7 @@ void NotifyPadConnected(int deviceId, const std::string &name) {
 }
 
 void AutoConfForPad(const std::string &name) {
+	std::lock_guard<std::recursive_mutex> guard(g_controllerMapLock);
 	g_controllerMap.clear();
 
 	INFO_LOG(SYSTEM, "Autoconfiguring pad for '%s'", name.c_str());
