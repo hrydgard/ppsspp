@@ -684,6 +684,7 @@ VulkanTexture *VKContext::GetNullTexture() {
 		uint32_t bindOffset;
 		VkBuffer bindBuf;
 		uint32_t *data = (uint32_t *)push_->Allocate(w * h * 4, 4, &bindBuf, &bindOffset);
+		_assert_(data != nullptr);
 		for (int y = 0; y < h; y++) {
 			for (int x = 0; x < w; x++) {
 				// data[y*w + x] = ((x ^ y) & 1) ? 0xFF808080 : 0xFF000000;   // gray/black checkerboard
@@ -788,6 +789,7 @@ bool VKTexture::Create(VkCommandBuffer cmd, VulkanPushPool *push, const TextureD
 			size_t size = w * h * d * bytesPerPixel;
 			if (desc.initDataCallback) {
 				uint8_t *dest = (uint8_t *)push->Allocate(size, 16, &buf, &offset);
+				_assert_(dest != nullptr);
 				if (!desc.initDataCallback(dest, desc.initData[i], w, h, d, w * bytesPerPixel, h * w * bytesPerPixel)) {
 					memcpy(dest, desc.initData[i], size);
 				}
@@ -1505,7 +1507,12 @@ void VKContext::DrawUP(const void *vdata, int vertexCount) {
 	}
 
 	VkBuffer vulkanVbuf, vulkanUBObuf;
-	size_t vbBindOffset = push_->Push(vdata, vertexCount * curPipeline_->stride[0], 4, &vulkanVbuf);
+	size_t dataSize = vertexCount * curPipeline_->stride[0];
+	uint32_t vbBindOffset;
+	uint8_t *dataPtr = push_->Allocate(dataSize, 4, &vulkanVbuf, &vbBindOffset);
+	_assert_(dataPtr != nullptr);
+	memcpy(dataPtr, vdata, dataSize);
+
 	uint32_t ubo_offset = (uint32_t)curPipeline_->PushUBO(push_, vulkan_, &vulkanUBObuf);
 
 	VkDescriptorSet descSet = GetOrCreateDescriptorSet(vulkanUBObuf);
