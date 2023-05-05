@@ -278,8 +278,10 @@ void System_Notify(SystemNotification notification) {
 			g_symbolMap->SortSymbols();
 		break;
 	case SystemNotification::AUDIO_RESET_DEVICE:
+#ifdef SDL
 		StopSDLAudioDevice();
 		InitSDLAudioDevice();
+#endif
 		break;
 	default:
 		break;
