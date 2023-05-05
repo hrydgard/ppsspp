@@ -953,12 +953,6 @@ void GPUCommon::Execute_Jump(u32 op, u32 diff) {
 	currentList->pc = target - 4; // pc will be increased after we return, counteract that
 }
 
-void GPUCommon::Execute_JumpFast(u32 op, u32 diff) {
-	const u32 target = gstate_c.getRelativeAddress(op & 0x00FFFFFC);
-	UpdatePC(currentList->pc, target - 4);
-	currentList->pc = target - 4; // pc will be increased after we return, counteract that
-}
-
 void GPUCommon::Execute_BJump(u32 op, u32 diff) {
 	if (!currentList->bboxResult) {
 		// bounding box jump.
@@ -982,13 +976,6 @@ void GPUCommon::Execute_Call(u32 op, u32 diff) {
 		UpdateState(GPUSTATE_ERROR);
 		return;
 	}
-	DoExecuteCall(target);
-}
-
-void GPUCommon::Execute_CallFast(u32 op, u32 diff) {
-	PROFILE_THIS_SCOPE("gpu_call");
-
-	const u32 target = gstate_c.getRelativeAddress(op & 0x00FFFFFC);
 	DoExecuteCall(target);
 }
 

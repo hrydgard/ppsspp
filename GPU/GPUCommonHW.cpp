@@ -442,14 +442,6 @@ void GPUCommonHW::UpdateCmdInfo() {
 		cmdInfo_[GE_CMD_VERTEXTYPE].func = &GPUCommonHW::Execute_VertexType;
 	}
 
-	if (g_Config.bFastMemory) {
-		cmdInfo_[GE_CMD_JUMP].func = &GPUCommon::Execute_JumpFast;
-		cmdInfo_[GE_CMD_CALL].func = &GPUCommon::Execute_CallFast;
-	} else {
-		cmdInfo_[GE_CMD_JUMP].func = &GPUCommon::Execute_Jump;
-		cmdInfo_[GE_CMD_CALL].func = &GPUCommon::Execute_Call;
-	}
-
 	// Reconfigure for light ubershader or not.
 	for (int i = 0; i < 4; i++) {
 		if (gstate_c.Use(GPU_USE_LIGHT_UBERSHADER)) {
