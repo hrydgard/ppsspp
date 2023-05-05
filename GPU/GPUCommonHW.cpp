@@ -803,9 +803,7 @@ void GPUCommonHW::FastRunLoop(DisplayList &list) {
 		} else {
 			uint64_t flags = info.flags;
 			if (flags & FLAG_FLUSHBEFOREONCHANGE) {
-				if (drawEngineCommon_->GetNumDrawCalls()) {
-					drawEngineCommon_->DispatchFlush();
-				}
+				drawEngineCommon_->DispatchFlush();
 			}
 			gstate.cmdmem[cmd] = op;
 			if (flags & (FLAG_EXECUTE | FLAG_EXECUTEONCHANGE)) {

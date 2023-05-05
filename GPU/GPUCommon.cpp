@@ -1000,6 +1000,7 @@ void GPUCommon::DoExecuteCall(u32 target) {
 
 	if (currentList->stackptr == ARRAY_SIZE(currentList->stack)) {
 		ERROR_LOG(G3D, "CALL: Stack full!");
+		// TODO: UpdateState(GPUSTATE_ERROR) ?
 	} else {
 		auto &stackEntry = currentList->stack[currentList->stackptr++];
 		stackEntry.pc = retval;
