@@ -163,6 +163,11 @@ void SingleControlMapper::Refresh() {
 }
 
 void SingleControlMapper::MappedCallback(MultiInputMapping kdf) {
+	if (kdf.empty()) {
+		// Don't want to try to add this.
+		return;
+	}
+
 	switch (action_) {
 	case ADD:
 		KeyMap::SetInputMapping(pspKey_, kdf, false);
