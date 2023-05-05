@@ -48,14 +48,17 @@ std::set<std::string> g_seenPads;
 std::map<int, std::string> g_padNames;
 std::set<int> g_seenDeviceIds;
 
-// Utility...
+// Utility for UI navigation
 void SingleInputMappingFromPspButton(int btn, std::vector<InputMapping> *mappings, bool ignoreMouse) {
 	std::vector<MultiInputMapping> multiMappings;
 	InputMappingsFromPspButton(btn, &multiMappings, ignoreMouse);
 	mappings->clear();
 	for (auto &mapping : multiMappings) {
-		_dbg_assert_(!mapping.empty());
-		mappings->push_back(mapping.mappings[0]);
+		if (!mapping.empty()) {
+			mappings->push_back(mapping.mappings[0]);
+		} else {
+			WARN_LOG(COMMON, "Encountered empty mapping in multi-mapping for button %d", btn);
+		}
 	}
 }
 
@@ -598,6 +601,11 @@ bool ReplaceSingleKeyMapping(int btn, int index, MultiInputMapping key) {
 			return false;
 		}
 	}
+
+	if (key.empty()) {
+		return false;
+	}
+
 	KeyMap::g_controllerMap[btn][index] = key;
 	g_controllerMapGeneration++;
 
@@ -702,8 +710,10 @@ void LoadFromIni(IniFile &file) {
 
 		for (size_t j = 0; j < mappings.size(); j++) {
 			MultiInputMapping input = MultiInputMapping::FromConfigString(mappings[j]);
+			if (input.empty()) {
+				continue;  // eat empty mappings, however they arose, so they can't keep haunting us.
+			}
 			SetInputMapping(psp_button_names[i].key, input, false);
-
 			for (auto mapping : input.mappings) {
 				g_seenDeviceIds.insert(mapping.deviceId);
 			}
