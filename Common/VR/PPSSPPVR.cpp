@@ -254,6 +254,7 @@ void UpdateVRInput(bool haptics, float dp_xscale, float dp_yscale) {
 			keyInput.deviceId = controllerIds[j];
 
 			//process the key action
+
 			if (m.pressed != pressed) {
 				if (pressed && haptics) {
 					INVR_Vibrate(100, j, 1000);
@@ -446,7 +447,8 @@ void UpdateVRInput(bool haptics, float dp_xscale, float dp_yscale) {
 			mousePressed = pressed;
 		}
 
-		//mouse wheel emulation
+		// mouse wheel emulation
+		// TODO: Spams key-up events if nothing changed!
 		for (int j = 0; j < 2; j++) {
 			keyInput.deviceId = controllerIds[j];
 			float scroll = -IN_VRGetJoystickState(j).y;

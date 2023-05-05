@@ -360,6 +360,13 @@ bool KeyMappingNewKeyDialog::key(const KeyInput &key) {
 		}
 	}
 	if (key.flags & KEY_UP) {
+		// If the key released wasn't part of the mapping, ignore it here. Some device can cause
+		// stray key-up events.
+		InputMapping upMapping(key.deviceId, key.keyCode);
+		if (!mapping_.mappings.contains(upMapping)) {
+			return true;
+		}
+
 		if (callback_)
 			callback_(mapping_);
 		TriggerFinish(DR_YES);
@@ -391,7 +398,9 @@ bool KeyMappingNewMouseKeyDialog::key(const KeyInput &key) {
 		}
 
 		mapped_ = true;
+
 		MultiInputMapping kdf(InputMapping(key.deviceId, key.keyCode));
+
 		TriggerFinish(DR_YES);
 		g_Config.bMapMouse = false;
 		if (callback_)
