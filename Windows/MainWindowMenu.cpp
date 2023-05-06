@@ -676,7 +676,7 @@ namespace MainWindow {
 
 		case ID_OPTIONS_SKIP_BUFFER_EFFECTS:
 			g_Config.bSkipBufferEffects = !g_Config.bSkipBufferEffects;
-			NativeMessageReceived("gpu_configChanged", "");
+			NativeMessageReceived("gpu_renderResized", "");
 			osm.ShowOnOff(gr->T("Skip Buffer Effects"), g_Config.bSkipBufferEffects);
 			break;
 
