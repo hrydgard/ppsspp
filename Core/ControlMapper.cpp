@@ -294,9 +294,21 @@ bool ControlMapper::UpdatePSPState(const InputMapping &changedMapping, double no
 			}
 			// Check if all inputs are "on".
 			bool all = true;
+			double curTime = 0.0;
 			for (auto mapping : multiMapping.mappings) {
 				auto iter = curInput_.find(mapping);
-				bool down = iter != curInput_.end() && iter->second.value > GetDeviceAxisThreshold(iter->first.deviceId);
+				if (iter == curInput_.end()) {
+					all = false;
+					continue;
+				}
+				// Stop reverse ordering from triggering.
+				if (iter->second.timestamp < curTime) {
+					all = false;
+					break;
+				} else {
+					curTime = iter->second.timestamp;
+				}
+				bool down = iter->second.value > GetDeviceAxisThreshold(iter->first.deviceId);
 				if (!down)
 					all = false;
 			}
@@ -336,12 +348,23 @@ bool ControlMapper::UpdatePSPState(const InputMapping &changedMapping, double no
 			}
 
 			float product = 1.0f;  // We multiply the various inputs in a combo mapping with each other.
+			double curTime = 0.0;
 			for (auto mapping : multiMapping.mappings) {
 				auto iter = curInput_.find(mapping);
+
 				if (iter != curInput_.end()) {
+					// Stop reverse ordering from triggering.
+					if (iter->second.timestamp < curTime) {
+						product = 0.0f;
+						break;
+					} else {
+						curTime = iter->second.timestamp;
+					}
+
 					if (mapping.IsAxis()) {
 						threshold = GetDeviceAxisThreshold(iter->first.deviceId);
-						product *= MapAxisValue(iter->second.value, idForMapping, mapping, changedMapping, &touchedByMapping);
+						float value = MapAxisValue(iter->second.value, idForMapping, mapping, changedMapping, &touchedByMapping);
+						product *= value;
 					} else {
 						product *= iter->second.value;
 					}
