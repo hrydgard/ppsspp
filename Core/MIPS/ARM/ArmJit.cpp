@@ -519,6 +519,14 @@ bool ArmJit::ReplaceJalTo(u32 dest) {
 	js.compilerPC += 4;
 	// No writing exits, keep going!
 
+	if (CBreakPoints::HasMemChecks()) {
+		// We could modify coreState, so we need to write PC and check.
+		// Otherwise, PC may end up on the jal.  We add 4 to skip the delay slot.
+		FlushAll();
+		WriteExit(GetCompilerPC() + 4, js.nextExit++);
+		js.compiling = false;
+	}
+
 	// Add a trigger so that if the inlined code changes, we invalidate this block.
 	blocks.ProxyBlock(js.blockStart, dest, funcSize / sizeof(u32), GetCodePtr());
 #endif
