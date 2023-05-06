@@ -140,10 +140,8 @@ public:
 	void Execute_Iaddr(u32 op, u32 diff);
 	void Execute_Origin(u32 op, u32 diff);
 	void Execute_Jump(u32 op, u32 diff);
-	void Execute_JumpFast(u32 op, u32 diff);
 	void Execute_BJump(u32 op, u32 diff);
 	void Execute_Call(u32 op, u32 diff);
-	void Execute_CallFast(u32 op, u32 diff);
 	void Execute_Ret(u32 op, u32 diff);
 	void Execute_End(u32 op, u32 diff);
 
