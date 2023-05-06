@@ -337,6 +337,8 @@ void KeyMappingNewKeyDialog::CreatePopupContents(UI::ViewGroup *parent) {
 }
 
 bool KeyMappingNewKeyDialog::key(const KeyInput &key) {
+	if (ignoreInput_)
+		return true;
 	if (time_now_d() < delayUntil_)
 		return true;
 	if (key.flags & KEY_DOWN) {
@@ -390,6 +392,8 @@ void KeyMappingNewMouseKeyDialog::CreatePopupContents(UI::ViewGroup *parent) {
 bool KeyMappingNewMouseKeyDialog::key(const KeyInput &key) {
 	if (mapped_)
 		return false;
+	if (ignoreInput_)
+		return true;
 	if (key.flags & KEY_DOWN) {
 		if (key.keyCode == NKCODE_ESCAPE) {
 			TriggerFinish(DR_OK);
@@ -427,6 +431,8 @@ void KeyMappingNewKeyDialog::axis(const AxisInput &axis) {
 	if (time_now_d() < delayUntil_)
 		return;
 	if (IgnoreAxisForMapping(axis.axisId))
+		return;
+	if (ignoreInput_)
 		return;
 
 	if (axis.value > AXIS_BIND_THRESHOLD) {

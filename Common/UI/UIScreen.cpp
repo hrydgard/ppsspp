@@ -149,7 +149,7 @@ TouchInput UIScreen::transformTouch(const TouchInput &touch) {
 }
 
 void UIScreen::touch(const TouchInput &touch) {
-	if (root_) {
+	if (root_ && !ignoreInput_) {
 		if (ClickDebug && (touch.flags & TOUCH_DOWN)) {
 			INFO_LOG(SYSTEM, "Touch down!");
 			std::vector<UI::View *> views;
@@ -164,13 +164,21 @@ void UIScreen::touch(const TouchInput &touch) {
 }
 
 bool UIScreen::key(const KeyInput &key) {
-	if (root_) {
+	if (root_ && !ignoreInput_) {
 		return UI::KeyEvent(key, root_);
 	}
 	return false;
 }
 
+void UIScreen::axis(const AxisInput &axis) {
+	if (root_ && !ignoreInput_) {
+		UI::AxisEvent(axis, root_);
+	}
+}
+
 void UIScreen::TriggerFinish(DialogResult result) {
+	// From here on, this dialog cannot receive input.
+	ignoreInput_ = true;
 	screenManager()->finishDialog(this, result);
 }
 
@@ -193,12 +201,6 @@ void UIDialogScreen::sendMessage(const char *msg, const char *value) {
 	Screen *screen = screenManager()->dialogParent(this);
 	if (screen) {
 		screen->sendMessage(msg, value);
-	}
-}
-
-void UIScreen::axis(const AxisInput &axis) {
-	if (root_) {
-		UI::AxisEvent(axis, root_);
 	}
 }
 
@@ -313,6 +315,7 @@ void PopupScreen::SetPopupOffset(float y) {
 
 void PopupScreen::TriggerFinish(DialogResult result) {
 	if (CanComplete(result)) {
+		ignoreInput_ = true;
 		finishFrame_ = frames_;
 		finishResult_ = result;
 
