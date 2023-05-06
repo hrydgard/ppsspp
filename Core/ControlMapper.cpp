@@ -265,7 +265,7 @@ bool ControlMapper::UpdatePSPState(const InputMapping &changedMapping, double no
 	case ROTATION_LOCKED_VERTICAL180:   rotations = 3; break;
 	}
 
-	// For the PSP's button inputs, we just go through and put the flags together.
+	// For the PSP's digital button inputs, we just go through and put the flags together.
 	uint32_t buttonMask = 0;
 	uint32_t changedButtonMask = 0;
 	for (int i = 0; i < 32; i++) {
@@ -476,6 +476,18 @@ void ControlMapper::ToggleSwapAxes() {
 	UpdateAnalogOutput(1);
 }
 
+void ControlMapper::UpdateCurInputAxis(const InputMapping &mapping, float value, double timestamp) {
+	InputSample &input = curInput_[mapping];
+	input.value = value;
+	if (value > GetDeviceAxisThreshold(mapping.deviceId)) {
+		if (input.timestamp == 0.0) {
+			input.timestamp = time_now_d();
+		}
+	} else {
+		input.timestamp = 0.0;
+	}
+}
+
 void ControlMapper::Axis(const AxisInput *axes, size_t count) {
 	double now = time_now_d();
 
@@ -489,15 +501,15 @@ void ControlMapper::Axis(const AxisInput *axes, size_t count) {
 		if (axis.value >= 0.0f) {
 			InputMapping mapping(axis.deviceId, axis.axisId, 1);
 			InputMapping opposite(axis.deviceId, axis.axisId, -1);
-			curInput_[mapping] = { axis.value, now };
-			curInput_[opposite] = { 0.0f, now };
+			UpdateCurInputAxis(mapping, axis.value, now);
+			UpdateCurInputAxis(opposite, 0.0f, now);
 			UpdatePSPState(mapping, now);
 			UpdatePSPState(opposite, now);
 		} else if (axis.value < 0.0f) {
 			InputMapping mapping(axis.deviceId, axis.axisId, -1);
 			InputMapping opposite(axis.deviceId, axis.axisId, 1);
-			curInput_[mapping] = { -axis.value, now };
-			curInput_[opposite] = { 0.0f, now };
+			UpdateCurInputAxis(mapping, -axis.value, now);
+			UpdateCurInputAxis(opposite, 0.0f, now);
 			UpdatePSPState(mapping, now);
 			UpdatePSPState(opposite, now);
 		}
