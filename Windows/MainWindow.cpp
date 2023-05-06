@@ -375,6 +375,7 @@ namespace MainWindow
 				int totalHeight = GetSystemMetrics(SM_CYVIRTUALSCREEN);
 				MoveWindow(hwndMain, totalX, totalY, totalWidth, totalHeight, TRUE);
 				HandleSizeChange(oldWindowState);
+				ShowWindow(hwndMain, SW_SHOW);
 			} else {
 				ShowWindow(hwndMain, SW_MAXIMIZE);
 			}
