@@ -47,12 +47,13 @@ ViewGroup::~ViewGroup() {
 	Clear();
 }
 
-void ViewGroup::RemoveSubview(View *view) {
+void ViewGroup::RemoveSubview(View *subView) {
 	std::lock_guard<std::mutex> guard(modifyLock_);
+	// loop counter needed, so can't convert loop.
 	for (size_t i = 0; i < views_.size(); i++) {
-		if (views_[i] == view) {
+		if (views_[i] == subView) {
 			views_.erase(views_.begin() + i);
-			delete view;
+			delete subView;
 			return;
 		}
 	}
@@ -68,9 +69,8 @@ bool ViewGroup::ContainsSubview(const View *view) const {
 
 void ViewGroup::Clear() {
 	std::lock_guard<std::mutex> guard(modifyLock_);
-	for (size_t i = 0; i < views_.size(); i++) {
-		delete views_[i];
-		views_[i] = nullptr;
+	for (View *view : views_) {
+		delete view;
 	}
 	views_.clear();
 }
@@ -91,10 +91,10 @@ void ViewGroup::PersistData(PersistStatus status, std::string anonId, PersistMap
 bool ViewGroup::Touch(const TouchInput &input) {
 	std::lock_guard<std::mutex> guard(modifyLock_);
 	bool any = false;
-	for (auto iter = views_.begin(); iter != views_.end(); ++iter) {
+	for (View *view : views_) {
 		// TODO: If there is a transformation active, transform input coordinates accordingly.
-		if ((*iter)->GetVisibility() == V_VISIBLE) {
-			bool touch = (*iter)->Touch(input);
+		if (view->GetVisibility() == V_VISIBLE) {
+			bool touch = view->Touch(input);
 			any = any || touch;
 			if (exclusiveTouch_ && touch && (input.flags & TOUCH_DOWN)) {
 				break;
@@ -111,8 +111,8 @@ bool ViewGroup::Touch(const TouchInput &input) {
 void ViewGroup::Query(float x, float y, std::vector<View *> &list) {
 	if (bounds_.Contains(x, y)) {
 		list.push_back(this);
-		for (auto iter = views_.begin(); iter != views_.end(); ++iter) {
-			(*iter)->Query(x, y, list);
+		for (View *view : views_) {
+			view->Query(x, y, list);
 		}
 	}
 }
@@ -120,34 +120,34 @@ void ViewGroup::Query(float x, float y, std::vector<View *> &list) {
 bool ViewGroup::Key(const KeyInput &input) {
 	std::lock_guard<std::mutex> guard(modifyLock_);
 	bool ret = false;
-	for (auto iter = views_.begin(); iter != views_.end(); ++iter) {
+	for (View *view : views_) {
 		// TODO: If there is a transformation active, transform input coordinates accordingly.
-		if ((*iter)->GetVisibility() == V_VISIBLE)
-			ret = ret || (*iter)->Key(input);
+		if (view->GetVisibility() == V_VISIBLE)
+			ret = ret || view->Key(input);
 	}
 	return ret;
 }
 
 void ViewGroup::Axis(const AxisInput &input) {
 	std::lock_guard<std::mutex> guard(modifyLock_);
-	for (auto iter = views_.begin(); iter != views_.end(); ++iter) {
+	for (View *view : views_) {
 		// TODO: If there is a transformation active, transform input coordinates accordingly.
-		if ((*iter)->GetVisibility() == V_VISIBLE)
-			(*iter)->Axis(input);
+		if (view->GetVisibility() == V_VISIBLE)
+			view->Axis(input);
 	}
 }
 
 void ViewGroup::DeviceLost() {
 	std::lock_guard<std::mutex> guard(modifyLock_);
-	for (auto iter = views_.begin(); iter != views_.end(); ++iter) {
-		(*iter)->DeviceLost();
+	for (View *view : views_) {
+		view->DeviceLost();
 	}
 }
 
 void ViewGroup::DeviceRestored(Draw::DrawContext *draw) {
 	std::lock_guard<std::mutex> guard(modifyLock_);
-	for (auto iter = views_.begin(); iter != views_.end(); ++iter) {
-		(*iter)->DeviceRestored(draw);
+	for (View *view : views_) {
+		view->DeviceRestored(draw);
 	}
 }
 
@@ -247,19 +247,17 @@ void ViewGroup::Update() {
 bool ViewGroup::SetFocus() {
 	std::lock_guard<std::mutex> guard(modifyLock_);
 	if (!CanBeFocused() && !views_.empty()) {
-		for (size_t i = 0; i < views_.size(); i++) {
-			if (views_[i]->SetFocus())
+		for (View *view : views_) {
+			if (view->SetFocus())
 				return true;
 		}
 	}
 	return false;
 }
 
-bool ViewGroup::SubviewFocused(View *view) {
-	for (size_t i = 0; i < views_.size(); i++) {
-		if (views_[i] == view)
-			return true;
-		if (views_[i]->SubviewFocused(view))
+bool ViewGroup::SubviewFocused(View *queryView) {
+	for (View *view : views_) {
+		if (view == queryView || view->SubviewFocused(queryView))
 			return true;
 	}
 	return false;
