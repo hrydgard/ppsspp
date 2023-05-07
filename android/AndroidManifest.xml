@@ -70,6 +70,7 @@
 				<category android:name="android.intent.category.BROWSABLE" />
 
 				<data android:scheme="file" />
+				<data android:scheme="content" />
 				<data android:mimeType="*/*" />
 				<data android:host="*" />
 				<data android:pathPattern=".*\\.iso" />
@@ -90,6 +91,7 @@
 				<data android:pathPattern=".*\\.ELF" />
 				<data android:pathPattern=".*\\..*\\.ELF" />
 				<data android:pathPattern=".*\\..*\\..*\\.ELF" />
+				<data android:pathPattern=".*\\.ppdmp" />
 			</intent-filter>
         </activity>
         <meta-data android:name="isGame" android:value="true" />
