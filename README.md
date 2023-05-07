@@ -25,6 +25,12 @@ If you want to download regularly updated builds for Android, Windows x86 and x6
 
 For game compatibility, see [community compatibility feedback](https://report.ppsspp.org/games).
 
+What's new in 1.15.3
+====================
+- Assorted minor crash- and other fixes ([#17406], [#17414], [#17415], [#17422])
+- Android: Allow launch by content URI (for frontends) ([#17425])
+- Control mapping: Fix bugs in mapping UI causing trouble with some controllers ([#17412], [#17420])
+
 What's new in 1.15.2
 ====================
 - Assorted minor crash fixes ([#17401], [#17399])
@@ -593,4 +599,10 @@ Credit goes to:
 [#17396]: https://github.com/hrydgard/ppsspp/issues/17396 "Vulkan: Turn off the ubershader on Mali T880, T860 and T830 on old driver versions"
 [#17401]: https://github.com/hrydgard/ppsspp/issues/17401 "Additional crash fixes"
 [#17399]: https://github.com/hrydgard/ppsspp/issues/17399 "More crash fixes"
-[#17398]: https://github.com/hrydgard/ppsspp/issues/17398 "OpenXR - Cleanup unsupported features, support Android 12"
+[#17398]: https://github.com/hrydgard/ppsspp/issues/17398 "OpenXR - Cleanup unsupported features, support Android 12"[#17406]: https://github.com/hrydgard/ppsspp/issues/17406 "Even more crash fixes"
+[#17414]: https://github.com/hrydgard/ppsspp/issues/17414 "GPU: Remove JumpFast/CallFast"
+[#17415]: https://github.com/hrydgard/ppsspp/issues/17415 "Misc fixes and checks"
+[#17422]: https://github.com/hrydgard/ppsspp/issues/17422 "Windows: Fix initial window show for all displays"
+[#17425]: https://github.com/hrydgard/ppsspp/issues/17425 "Android: Explicitly allow content URI intents"
+[#17412]: https://github.com/hrydgard/ppsspp/issues/17412 "Controller mapping fixes"
+[#17420]: https://github.com/hrydgard/ppsspp/issues/17420 "Fix glitch when mapping analog inputs, caused"
