@@ -28,7 +28,7 @@ class CustomButtonMappingScreen : public UIDialogScreenWithGameBackground {
 public:
 	CustomButtonMappingScreen(const Path &gamePath, int id) : UIDialogScreenWithGameBackground(gamePath), id_(id) {}
 
-	const char *tag() const override { return "CustomKey"; }
+	const char *tag() const override { return "CustomButton"; }
 
 	void CreateViews() override;
 	void onFinish(DialogResult result) override;
