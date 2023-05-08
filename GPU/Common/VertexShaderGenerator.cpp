@@ -576,10 +576,8 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 			WRITE(p, "uniform lowp vec4 u_matambientalpha;\n");  // matambient + matalpha
 			*uniformMask |= DIRTY_MATAMBIENTALPHA;
 		}
-		if (useHWTransform) {
-			WRITE(p, "uniform highp vec2 u_fogcoef;\n");
-			*uniformMask |= DIRTY_FOGCOEFENABLE;
-		}
+		WRITE(p, "uniform highp vec2 u_fogcoef;\n");
+		*uniformMask |= DIRTY_FOGCOEF;
 
 		if (!isModeThrough) {
 			WRITE(p, "uniform highp vec4 u_depthRange;\n");
@@ -1292,14 +1290,8 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 			}
 		}
 
-		// Compute fogdepth.  [branch] works around an apparent d3d9 shader compiler bug.
-		if (compat.shaderLanguage == HLSL_D3D9)
-			WRITE(p, "  [branch]\n");
-		WRITE(p, "  if (u_fogcoef.x <= -65535.0 && u_fogcoef.y <= -65535.0) {\n");
-		WRITE(p, "    %sv_fogdepth = 1.0;\n", compat.vsOutPrefix);
-		WRITE(p, "  } else {\n");
-		WRITE(p, "    %sv_fogdepth = (viewPos.z + u_fogcoef.x) * u_fogcoef.y;\n", compat.vsOutPrefix);
-		WRITE(p, "  }\n");
+		// Compute fogdepth
+		WRITE(p, "  %sv_fogdepth = (viewPos.z + u_fogcoef.x) * u_fogcoef.y;\n", compat.vsOutPrefix);
 	}
 
 	if (clipClampedDepth) {

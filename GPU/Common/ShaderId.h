@@ -80,7 +80,7 @@ enum FShaderBit : uint8_t {
 	FS_BIT_COLOR_TEST = 17,
 	FS_BIT_COLOR_TEST_FUNC = 18,  // 2 bits
 	FS_BIT_COLOR_AGAINST_ZERO = 20,
-	// 1 free bit
+	FS_BIT_ENABLE_FOG = 21,
 	FS_BIT_DO_TEXTURE_PROJ = 22,
 	// 1 free bit
 	FS_BIT_STENCIL_TO_ALPHA = 24,  // 2 bits

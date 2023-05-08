@@ -241,11 +241,9 @@ void SoftwareTransform::Decode(int prim, u32 vertType, const DecVtxFormat &decVt
 
 			// Ignore color1 and fog, never used in throughmode anyway.
 			// The w of uv is also never used (hardcoded to 1.0.)
-			vert.fog = 1.0;
 		}
 	} else {
 		const Vec4f materialAmbientRGBA = Vec4f::FromRGBA(gstate.getMaterialAmbientRGBA());
-		bool fogEnabled = gstate.isFogEnabled();
 		// Okay, need to actually perform the full transform.
 		for (int index = 0; index < maxIndex; index++) {
 			reader.Goto(index);
@@ -254,6 +252,7 @@ void SoftwareTransform::Decode(int prim, u32 vertType, const DecVtxFormat &decVt
 			Vec4f c0 = Vec4f(1, 1, 1, 1);
 			Vec4f c1 = Vec4f(0, 0, 0, 0);
 			float uv[3] = {0, 0, 1};
+			float fogCoef = 1.0f;
 
 			float out[3];
 			float pos[3];
@@ -415,10 +414,11 @@ void SoftwareTransform::Decode(int prim, u32 vertType, const DecVtxFormat &decVt
 
 			// Transform the coord by the view matrix.
 			Vec3ByMatrix43(v, out, gstate.viewMatrix);
+			fogCoef = (v[2] + fog_end) * fog_slope;
 
 			// TODO: Write to a flexible buffer, we don't always need all four components.
 			Vec3ByMatrix44(transformed[index].pos, v, projMatrix_.m);
-			transformed[index].fog = fogEnabled ? (v[2] + fog_end) * fog_slope : 1.0f;
+			transformed[index].fog = fogCoef;
 			memcpy(&transformed[index].uv, uv, 3 * sizeof(float));
 			transformed[index].color0_32 = c0.ToRGBA();
 			transformed[index].color1_32 = c1.ToRGBA();
