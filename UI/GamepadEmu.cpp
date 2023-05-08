@@ -189,11 +189,11 @@ bool PSPButton::Touch(const TouchInput &input) {
 	return retval;
 }
 
-bool CustomKey::IsDown() {
+bool CustomButton::IsDown() {
 	return (toggle_ && on_) || (!toggle_ && pointerDownMask_ != 0);
 }
 
-void CustomKey::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
+void CustomButton::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
 	MultiTouchButton::GetContentDimensions(dc, w, h);
 	if (invertedContextDimension_) {
 		float tmp = w;
@@ -202,7 +202,7 @@ void CustomKey::GetContentDimensions(const UIContext &dc, float &w, float &h) co
 	}
 }
 
-bool CustomKey::Touch(const TouchInput &input) {
+bool CustomButton::Touch(const TouchInput &input) {
 	using namespace CustomKeyData;
 	bool lastDown = pointerDownMask_ != 0;
 	bool retval = MultiTouchButton::Touch(input);
@@ -233,7 +233,7 @@ bool CustomKey::Touch(const TouchInput &input) {
 	return retval;
 }
 
-void CustomKey::Update() {
+void CustomButton::Update() {
 	MultiTouchButton::Update();
 	using namespace CustomKeyData;
 
@@ -825,10 +825,10 @@ UI::ViewGroup *CreatePadLayout(float xres, float yres, bool *pause, bool showPau
 		}
 		return nullptr;
 	};
-	auto addCustomButton = [=](const ConfigCustomButton& cfg, const char *key, const ConfigTouchPos &touch) -> CustomKey * {
+	auto addCustomButton = [=](const ConfigCustomButton& cfg, const char *key, const ConfigTouchPos &touch) -> CustomButton * {
 		using namespace CustomKeyData;
 		if (touch.show) {
-			auto aux = root->Add(new CustomKey(cfg.key, key, cfg.toggle, cfg.repeat, controllMapper,
+			auto aux = root->Add(new CustomButton(cfg.key, key, cfg.toggle, cfg.repeat, controllMapper,
 					g_Config.iTouchButtonStyle == 0 ? customKeyShapes[cfg.shape].i : customKeyShapes[cfg.shape].l, customKeyShapes[cfg.shape].i,
 					customKeyImages[cfg.image].i, touch.scale, customKeyShapes[cfg.shape].d, buttonLayoutParams(touch)));
 			aux->SetAngle(customKeyImages[cfg.image].r, customKeyShapes[cfg.shape].r);

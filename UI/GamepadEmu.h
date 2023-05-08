@@ -173,9 +173,9 @@ UI::ViewGroup *CreatePadLayout(float xres, float yres, bool *pause, bool showPau
 const int D_pad_Radius = 50;
 const int baseActionButtonSpacing = 60;
 
-class CustomKey : public MultiTouchButton {
+class CustomButton : public MultiTouchButton {
 public:
-	CustomKey(uint64_t pspButtonBit, const char *key, bool toggle, bool repeat, ControlMapper* controllMapper, ImageID bgImg, ImageID bgDownImg, ImageID img, float scale, bool invertedContextDimension, UI::LayoutParams *layoutParams)
+	CustomButton(uint64_t pspButtonBit, const char *key, bool toggle, bool repeat, ControlMapper* controllMapper, ImageID bgImg, ImageID bgDownImg, ImageID img, float scale, bool invertedContextDimension, UI::LayoutParams *layoutParams)
 		: MultiTouchButton(key, bgImg, bgDownImg, img, scale, layoutParams), pspButtonBit_(pspButtonBit), toggle_(toggle), repeat_(repeat), controlMapper_(controllMapper), on_(false), invertedContextDimension_(invertedContextDimension) {
 	}
 	bool Touch(const TouchInput &input) override;

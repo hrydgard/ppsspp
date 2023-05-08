@@ -5,6 +5,8 @@
 #include <cstdlib>
 #include <cstdio>
 
+#include <inttypes.h>
+
 #ifndef _MSC_VER
 #include <strings.h>
 #endif
@@ -192,7 +194,7 @@ void Section::Set(const char* key, uint32_t newValue) {
 }
 
 void Section::Set(const char* key, uint64_t newValue) {
-	Set(key, StringFromFormat("0x%016lx", newValue).c_str());
+	Set(key, StringFromFormat("0x%016" PRIx64, newValue).c_str());
 }
 
 void Section::Set(const char* key, float newValue) {
