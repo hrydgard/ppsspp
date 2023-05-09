@@ -90,6 +90,7 @@ void ComputeVertexShaderID(VShaderID *id_out, VertexDecoder *vertexDecoder, bool
 		!isModeThrough && gstate_c.submitType == SubmitType::DRAW;  // neither hw nor sw spline/bezier. See #11692
 
 	VShaderID id;
+	id.SetBit(VS_BIT_LMODE, lmode);
 	id.SetBit(VS_BIT_IS_THROUGH, isModeThrough);
 	id.SetBit(VS_BIT_HAS_COLOR, vtypeHasColor);
 	id.SetBit(VS_BIT_VERTEX_RANGE_CULLING, vertexRangeCulling);
@@ -130,7 +131,6 @@ void ComputeVertexShaderID(VShaderID *id_out, VertexDecoder *vertexDecoder, bool
 			// doShadeMapping is stored as UVGenMode, and light type doesn't matter for shade mapping.
 			id.SetBit(VS_BIT_LIGHTING_ENABLE);
 			if (gstate_c.Use(GPU_USE_LIGHT_UBERSHADER)) {
-				lmode = false;  // handled dynamically.
 				id.SetBit(VS_BIT_LIGHT_UBERSHADER);
 			} else {
 				id.SetBits(VS_BIT_MATERIAL_UPDATE, 3, gstate.getMaterialUpdate());
@@ -162,7 +162,6 @@ void ComputeVertexShaderID(VShaderID *id_out, VertexDecoder *vertexDecoder, bool
 		}
 	}
 
-	id.SetBit(VS_BIT_LMODE, lmode);
 	id.SetBit(VS_BIT_FLATSHADE, doFlatShading);
 
 	// These two bits cannot be combined, otherwise havoc occurs. We get reports that indicate this happened somehow... "ERROR: 0:14: 'u_proj' : undeclared identifier"

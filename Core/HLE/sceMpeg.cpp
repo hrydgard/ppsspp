@@ -2091,7 +2091,7 @@ static u32 sceMpegAvcInitYCbCr(u32 mpeg, int mode, int width, int height, u32 yc
 		return -1;
 	}
 
-	ERROR_LOG(ME, "UNIMPL sceMpegAvcInitYCbCr(%08x, %i, %i, %i, %08x)", mpeg, mode, width, height, ycbcr_addr);
+	WARN_LOG_ONCE(sceMpegAvcInitYCbCr, ME, "UNIMPL sceMpegAvcInitYCbCr(%08x, %i, %i, %i, %08x)", mpeg, mode, width, height, ycbcr_addr);
 	return 0;
 }
 
