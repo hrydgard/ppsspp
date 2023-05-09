@@ -175,6 +175,7 @@ struct GLRRenderData {
 			GLRInputLayout *inputLayout;
 			GLRBuffer *buffer;
 			size_t offset;
+			GLRBuffer *indexBuffer;
 		} bindVertexBuffer;
 		struct {
 			int slot;

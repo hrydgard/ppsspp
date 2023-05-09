@@ -326,16 +326,16 @@ void DrawEngineGLES::DoFlush() {
 		
 		LinkedShader *program = shaderManager_->ApplyFragmentShader(vsid, vshader, pipelineState_, framebufferManager_->UseBufferedRendering());
 		GLRInputLayout *inputLayout = SetupDecFmtForDraw(program, dec_->GetDecVtxFmt());
-		render_->BindVertexBuffer(inputLayout, vertexBuffer, vertexBufferOffset);
 		if (useElements) {
 			if (!indexBuffer) {
 				size_t esz = sizeof(uint16_t) * indexGen.VertexCount();
 				void *dest = frameData.pushIndex->Push(esz, &indexBufferOffset, &indexBuffer);
 				memcpy(dest, decIndex, esz);
 			}
-			render_->BindIndexBuffer(indexBuffer);
+			render_->BindVertexBuffer(inputLayout, vertexBuffer, vertexBufferOffset, indexBuffer);
 			render_->DrawIndexed(glprim[prim], vertexCount, GL_UNSIGNED_SHORT, (GLvoid*)(intptr_t)indexBufferOffset);
 		} else {
+			render_->BindVertexBuffer(inputLayout, vertexBuffer, vertexBufferOffset, nullptr);
 			render_->Draw(glprim[prim], 0, vertexCount);
 		}
 	} else {
@@ -434,12 +434,11 @@ void DrawEngineGLES::DoFlush() {
 			if (result.drawIndexed) {
 				vertexBufferOffset = (uint32_t)frameData.pushVertex->Push(result.drawBuffer, maxIndex * sizeof(TransformedVertex), &vertexBuffer);
 				indexBufferOffset = (uint32_t)frameData.pushIndex->Push(inds, sizeof(uint16_t) * result.drawNumTrans, &indexBuffer);
-				render_->BindVertexBuffer(softwareInputLayout_, vertexBuffer, vertexBufferOffset);
-				render_->BindIndexBuffer(indexBuffer);
+				render_->BindVertexBuffer(softwareInputLayout_, vertexBuffer, vertexBufferOffset, indexBuffer);
 				render_->DrawIndexed(glprim[prim], result.drawNumTrans, GL_UNSIGNED_SHORT, (void *)(intptr_t)indexBufferOffset);
 			} else {
 				vertexBufferOffset = (uint32_t)frameData.pushVertex->Push(result.drawBuffer, result.drawNumTrans * sizeof(TransformedVertex), &vertexBuffer);
-				render_->BindVertexBuffer(softwareInputLayout_, vertexBuffer, vertexBufferOffset);
+				render_->BindVertexBuffer(softwareInputLayout_, vertexBuffer, vertexBufferOffset, nullptr);
 				render_->Draw(glprim[prim], 0, result.drawNumTrans);
 			}
 		} else if (result.action == SW_CLEAR) {

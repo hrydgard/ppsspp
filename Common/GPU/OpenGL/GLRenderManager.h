@@ -641,21 +641,14 @@ public:
 #endif
 	}
 
-	void BindIndexBuffer(GLRBuffer *buffer) {  // Want to support an offset but can't in ES 2.0. We supply an offset when binding the buffers instead.
-		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
-		GLRRenderData data{ GLRRenderCommand::BIND_BUFFER};
-		data.bind_buffer.buffer = buffer;
-		data.bind_buffer.target = GL_ELEMENT_ARRAY_BUFFER;
-		curRenderStep_->commands.push_back(data);
-	}
-
-	void BindVertexBuffer(GLRInputLayout *inputLayout, GLRBuffer *buffer, size_t offset) {
+	void BindVertexBuffer(GLRInputLayout *inputLayout, GLRBuffer *buffer, size_t offset, GLRBuffer *indexBuffer) {
 		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
 		_dbg_assert_(inputLayout);
 		GLRRenderData data{ GLRRenderCommand::BIND_VERTEX_BUFFER };
 		data.bindVertexBuffer.inputLayout = inputLayout;
 		data.bindVertexBuffer.offset = offset;
 		data.bindVertexBuffer.buffer = buffer;
+		data.bindVertexBuffer.indexBuffer = indexBuffer;
 		curRenderStep_->commands.push_back(data);
 	}
 

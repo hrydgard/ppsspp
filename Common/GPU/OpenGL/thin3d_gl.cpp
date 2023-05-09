@@ -1333,7 +1333,7 @@ void OpenGLContext::Draw(int vertexCount, int offset) {
 	_dbg_assert_msg_(curVBuffers_[0] != nullptr, "Can't call Draw without a vertex buffer");
 	ApplySamplers();
 	if (curPipeline_->inputLayout) {
-		renderManager_.BindVertexBuffer(curPipeline_->inputLayout->inputLayout_, curVBuffers_[0]->buffer_, curVBufferOffsets_[0]);
+		renderManager_.BindVertexBuffer(curPipeline_->inputLayout->inputLayout_, curVBuffers_[0]->buffer_, curVBufferOffsets_[0], nullptr);
 	}
 	renderManager_.Draw(curPipeline_->prim, offset, vertexCount);
 }
@@ -1343,9 +1343,8 @@ void OpenGLContext::DrawIndexed(int vertexCount, int offset) {
 	_dbg_assert_msg_(curIBuffer_ != nullptr, "Can't call DrawIndexed without an index buffer");
 	ApplySamplers();
 	if (curPipeline_->inputLayout) {
-		renderManager_.BindVertexBuffer(curPipeline_->inputLayout->inputLayout_, curVBuffers_[0]->buffer_, curVBufferOffsets_[0]);
+		renderManager_.BindVertexBuffer(curPipeline_->inputLayout->inputLayout_, curVBuffers_[0]->buffer_, curVBufferOffsets_[0], curIBuffer_->buffer_);
 	}
-	renderManager_.BindIndexBuffer(curIBuffer_->buffer_);
 	renderManager_.DrawIndexed(curPipeline_->prim, vertexCount, GL_UNSIGNED_SHORT, (void *)((intptr_t)curIBufferOffset_ + offset * sizeof(uint32_t)));
 }
 
@@ -1361,7 +1360,7 @@ void OpenGLContext::DrawUP(const void *vdata, int vertexCount) {
 
 	ApplySamplers();
 	if (curPipeline_->inputLayout) {
-		renderManager_.BindVertexBuffer(curPipeline_->inputLayout->inputLayout_, buf, offset);
+		renderManager_.BindVertexBuffer(curPipeline_->inputLayout->inputLayout_, buf, offset, nullptr);
 	}
 	renderManager_.Draw(curPipeline_->prim, 0, vertexCount);
 }

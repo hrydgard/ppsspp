@@ -1176,6 +1176,14 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step, bool first, bool last
 				auto &entry = layout->entries[i];
 				glVertexAttribPointer(entry.location, entry.count, entry.type, entry.normalized, entry.stride, (const void *)(c.bindVertexBuffer.offset + entry.offset));
 			}
+			if (c.bindVertexBuffer.indexBuffer) {
+				GLuint buf = c.bindVertexBuffer.indexBuffer->buffer_;
+				_dbg_assert_(!(c.bindVertexBuffer.indexBuffer && c.bindVertexBuffer.indexBuffer->Mapped()));
+				if (buf != curElemArrayBuffer) {
+					glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, buf);
+					curElemArrayBuffer = buf;
+				}
+			}
 			CHECK_GL_ERROR_IF_DEBUG();
 			break;
 		}
@@ -1183,14 +1191,8 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step, bool first, bool last
 		{
 			if (c.bind_buffer.target == GL_ARRAY_BUFFER) {
 				Crash();
-			} else if (c.bind_buffer.target == GL_ELEMENT_ARRAY_BUFFER) {
-				GLuint buf = c.bind_buffer.buffer ? c.bind_buffer.buffer->buffer_ : 0;
-				_dbg_assert_(!(c.bind_buffer.buffer && c.bind_buffer.buffer->Mapped()));
-				if (buf != curElemArrayBuffer) {
-					glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, buf);
-					curElemArrayBuffer = buf;
-				}
 			} else {
+				// is this used?
 				GLuint buf = c.bind_buffer.buffer ? c.bind_buffer.buffer->buffer_ : 0;
 				_dbg_assert_(!(c.bind_buffer.buffer && c.bind_buffer.buffer->Mapped()));
 				glBindBuffer(c.bind_buffer.target, buf);
