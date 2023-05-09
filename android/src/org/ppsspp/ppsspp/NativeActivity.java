@@ -754,7 +754,7 @@ public abstract class NativeActivity extends Activity {
 		super.onDestroy();
 		Log.i(TAG, "onDestroy");
 		if (javaGL) {
-			if (nativeRenderer.isRenderingFrame()) {
+			if (nativeRenderer != null && nativeRenderer.isRenderingFrame()) {
 				Log.i(TAG, "Waiting for renderer to finish.");
 				int tries = 200;
 				do {
