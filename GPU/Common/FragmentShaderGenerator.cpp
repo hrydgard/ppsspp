@@ -97,6 +97,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 	p.ApplySamplerMetadata(arrayTexture ? samplersStereo : samplersMono);
 
 	bool doTexture = id.Bit(FS_BIT_DO_TEXTURE);
+	bool enableFog = id.Bit(FS_BIT_ENABLE_FOG);
 	bool enableAlphaTest = id.Bit(FS_BIT_ALPHA_TEST);
 
 	bool alphaTestAgainstZero = id.Bit(FS_BIT_ALPHA_AGAINST_ZERO);
@@ -259,7 +260,9 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 				WRITE(p, "float u_texNoAlpha : register(c%i);\n", CONST_PS_TEX_NO_ALPHA);
 				WRITE(p, "float u_texMul : register(c%i);\n", CONST_PS_TEX_MUL);
 			}
-			WRITE(p, "float3 u_fogcolor : register(c%i);\n", CONST_PS_FOGCOLOR);
+			if (enableFog) {
+				WRITE(p, "float3 u_fogcolor : register(c%i);\n", CONST_PS_FOGCOLOR);
+			}
 			if (texture3D) {
 				WRITE(p, "float u_mipBias : register(c%i);\n", CONST_PS_MIPBIAS);
 			}
@@ -423,8 +426,10 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 
 		WRITE(p, "%s %s lowp vec4 v_color0;\n", shading, compat.varying_fs);
 		WRITE(p, "%s %s lowp vec3 v_color1;\n", shading, compat.varying_fs);
-		*uniformMask |= DIRTY_FOGCOLOR;
-		WRITE(p, "uniform vec3 u_fogcolor;\n");
+		if (enableFog) {
+			*uniformMask |= DIRTY_FOGCOLOR;
+			WRITE(p, "uniform vec3 u_fogcolor;\n");
+		}
 		WRITE(p, "%s %s float v_fogdepth;\n", compat.varying_fs, highpFog ? "highp" : "mediump");
 		if (doTexture) {
 			WRITE(p, "%s %s vec3 v_texcoord;\n", compat.varying_fs, highpTexcoord ? "highp" : "mediump");
@@ -531,7 +536,9 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 	if (compat.shaderLanguage == HLSL_D3D11 || compat.shaderLanguage == HLSL_D3D9) {
 		WRITE(p, "  vec4 v_color0 = In.v_color0;\n");
 		WRITE(p, "  vec3 v_color1 = In.v_color1;\n");
-		WRITE(p, "  float v_fogdepth = In.v_fogdepth;\n");
+		if (enableFog) {
+			WRITE(p, "  float v_fogdepth = In.v_fogdepth;\n");
+		}
 		if (doTexture) {
 			WRITE(p, "  vec3 v_texcoord = In.v_texcoord;\n");
 		}
@@ -857,8 +864,10 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 			WRITE(p, "  vec4 v = v_color0 + s;\n");
 		}
 
-		WRITE(p, "  float fogCoef = clamp(v_fogdepth, 0.0, 1.0);\n");
-		WRITE(p, "  v = mix(vec4(u_fogcolor, v.a), v, fogCoef);\n");
+		if (enableFog) {
+			WRITE(p, "  float fogCoef = clamp(v_fogdepth, 0.0, 1.0);\n");
+			WRITE(p, "  v = mix(vec4(u_fogcolor, v.a), v, fogCoef);\n");
+		}
 
 		// Texture access is at half texels [0.5/256, 255.5/256], but colors are normalized [0, 255].
 		// So we have to scale to account for the difference.
