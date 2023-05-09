@@ -390,9 +390,8 @@ struct GLRRenderThreadTask {
 // directly in the destructor.
 class GLRenderManager {
 public:
-	GLRenderManager() {}
+	GLRenderManager();
 	~GLRenderManager();
-
 
 	void SetInvalidationCallback(InvalidationCallback callback) {
 		invalidationCallback_ = callback;
@@ -783,10 +782,11 @@ public:
 		_dbg_assert_(curProgram_);
 #endif
 		GLRRenderData data{ GLRRenderCommand::UNIFORMSTEREOMATRIX };
-		data.uniformMatrix4.name = name;
-		data.uniformMatrix4.loc = loc;
-		memcpy(&data.uniformMatrix4.m[0], left, sizeof(float) * 16);
-		memcpy(&data.uniformMatrix4.m[16], right, sizeof(float) * 16);
+		data.uniformStereoMatrix4.name = name;
+		data.uniformStereoMatrix4.loc = loc;
+		data.uniformStereoMatrix4.mData = new float[32];
+		memcpy(&data.uniformStereoMatrix4.mData[0], left, sizeof(float) * 16);
+		memcpy(&data.uniformStereoMatrix4.mData[16], right, sizeof(float) * 16);
 		curRenderStep_->commands.push_back(data);
 	}
 
