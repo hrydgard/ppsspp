@@ -174,6 +174,10 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 	bool needFragCoord = readFramebufferTex || gstate_c.Use(GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT);
 	bool writeDepth = gstate_c.Use(GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT);
 
+	// TODO: We could have a separate mechanism to support more ops using the shader blending mechanism,
+// on hardware that can do proper bit math in fragment shaders.
+	SimulateLogicOpType simulateLogicOpType = (SimulateLogicOpType)id.Bits(FS_BIT_SIMULATE_LOGIC_OP_TYPE, 2);
+
 	if (shaderDepalMode != ShaderDepalMode::OFF && !doTexture) {
 		*errorString = "depal requires a texture";
 		return false;
@@ -387,6 +391,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 			WRITE(p, "uniform vec2 u_texclampoff;\n");
 		}
 
+		// TODO: Can get rid of some of this in the != 0 cases.
 		if (enableAlphaTest || enableColorTest) {
 			if (enableFragmentTestCache) {
 				WRITE(p, "uniform sampler2D testtex;\n");
@@ -871,7 +876,13 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 
 			// This happens before fog is applied.
 			*uniformMask |= DIRTY_TEX_ALPHA_MUL;
-			WRITE(p, "  v.rgb = clamp(v.rgb * u_texMul, 0.0, 1.0);\n");
+
+			// We only need a clamp if the color will be further processed. Otherwise the hardware color conversion will clamp for us.
+			if (enableFog || enableColorTest || replaceBlend != REPLACE_BLEND_NO || simulateLogicOpType != LOGICOPTYPE_NORMAL || colorWriteMask || blueToAlpha) {
+				WRITE(p, "  v.rgb = clamp(v.rgb * u_texMul, 0.0, 1.0);\n");
+			} else {
+				WRITE(p, "  v.rgb *= u_texMul;\n");
+			}
 		} else {
 			// No texture mapping
 			WRITE(p, "  vec4 v = v_color0%s;\n", secondary);
@@ -1147,9 +1158,6 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 		return false;
 	}
 
-	// TODO: We could have a separate mechanism to support more ops using the shader blending mechanism,
-	// on hardware that can do proper bit math in fragment shaders.
-	SimulateLogicOpType simulateLogicOpType = (SimulateLogicOpType)id.Bits(FS_BIT_SIMULATE_LOGIC_OP_TYPE, 2);
 	switch (simulateLogicOpType) {
 	case LOGICOPTYPE_ONE:
 		WRITE(p, "  %s.rgb = splat3(1.0);\n", compat.fragColor0);
