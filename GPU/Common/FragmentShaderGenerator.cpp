@@ -96,6 +96,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 
 	p.ApplySamplerMetadata(arrayTexture ? samplersStereo : samplersMono);
 
+	bool lmode = id.Bit(FS_BIT_LMODE);
 	bool doTexture = id.Bit(FS_BIT_DO_TEXTURE);
 	bool enableFog = id.Bit(FS_BIT_ENABLE_FOG);
 	bool enableAlphaTest = id.Bit(FS_BIT_ALPHA_TEST);
@@ -173,6 +174,10 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 	bool needFragCoord = readFramebufferTex || gstate_c.Use(GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT);
 	bool writeDepth = gstate_c.Use(GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT);
 
+	// TODO: We could have a separate mechanism to support more ops using the shader blending mechanism,
+// on hardware that can do proper bit math in fragment shaders.
+	SimulateLogicOpType simulateLogicOpType = (SimulateLogicOpType)id.Bits(FS_BIT_SIMULATE_LOGIC_OP_TYPE, 2);
+
 	if (shaderDepalMode != ShaderDepalMode::OFF && !doTexture) {
 		*errorString = "depal requires a texture";
 		return false;
@@ -205,7 +210,9 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 
 		// Note: the precision qualifiers must match the vertex shader!
 		WRITE(p, "layout (location = 1) %s in lowp vec4 v_color0;\n", shading);
-		WRITE(p, "layout (location = 2) %s in lowp vec3 v_color1;\n", shading);
+		if (lmode) {
+			WRITE(p, "layout (location = 2) %s in lowp vec3 v_color1;\n", shading);
+		}
 		WRITE(p, "layout (location = 3) in highp float v_fogdepth;\n");
 		if (doTexture) {
 			WRITE(p, "layout (location = 0) in highp vec3 v_texcoord;\n");
@@ -311,7 +318,9 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 		}
 		const char *colorInterpolation = doFlatShading && compat.shaderLanguage == HLSL_D3D11 ? "nointerpolation " : "";
 		WRITE(p, "  %svec4 v_color0: COLOR0;\n", colorInterpolation);
-		WRITE(p, "  vec3 v_color1: COLOR1;\n");
+		if (lmode) {
+			WRITE(p, "  vec3 v_color1: COLOR1;\n");
+		}
 		WRITE(p, "  float v_fogdepth: TEXCOORD1;\n");
 		if (needFragCoord) {
 			if (compat.shaderLanguage == HLSL_D3D11) {
@@ -382,6 +391,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 			WRITE(p, "uniform vec2 u_texclampoff;\n");
 		}
 
+		// TODO: Can get rid of some of this in the != 0 cases.
 		if (enableAlphaTest || enableColorTest) {
 			if (enableFragmentTestCache) {
 				WRITE(p, "uniform sampler2D testtex;\n");
@@ -425,7 +435,9 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 		}
 
 		WRITE(p, "%s %s lowp vec4 v_color0;\n", shading, compat.varying_fs);
-		WRITE(p, "%s %s lowp vec3 v_color1;\n", shading, compat.varying_fs);
+		if (lmode) {
+			WRITE(p, "%s %s lowp vec3 v_color1;\n", shading, compat.varying_fs);
+		}
 		if (enableFog) {
 			*uniformMask |= DIRTY_FOGCOLOR;
 			WRITE(p, "uniform vec3 u_fogcolor;\n");
@@ -535,7 +547,9 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 
 	if (compat.shaderLanguage == HLSL_D3D11 || compat.shaderLanguage == HLSL_D3D9) {
 		WRITE(p, "  vec4 v_color0 = In.v_color0;\n");
-		WRITE(p, "  vec3 v_color1 = In.v_color1;\n");
+		if (lmode) {
+			WRITE(p, "  vec3 v_color1 = In.v_color1;\n");
+		}
 		if (enableFog) {
 			WRITE(p, "  float v_fogdepth = In.v_fogdepth;\n");
 		}
@@ -573,8 +587,12 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 		// Clear mode does not allow any fancy shading.
 		WRITE(p, "  vec4 v = v_color0;\n");
 	} else {
+		const char *secondary = "";
 		// Secondary color for specular on top of texture
-		WRITE(p, "  vec4 s = vec4(v_color1, 0.0);\n");
+		if (lmode) {
+			WRITE(p, "  vec4 s = vec4(v_color1, 0.0);\n");
+			secondary = " + s";
+		}
 
 		if (doTexture) {
 			char texcoord[64] = "v_texcoord";
@@ -831,37 +849,43 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 
 			switch (texFunc) {
 			case GE_TEXFUNC_MODULATE:
-				WRITE(p, "  vec4 v = p * t + s;\n");
+				WRITE(p, "  vec4 v = p * t%s;\n", secondary);
 				break;
 			case GE_TEXFUNC_DECAL:
-				WRITE(p, "  vec4 v = vec4(mix(p.rgb, t.rgb, t.a), p.a) + s;\n");
+				WRITE(p, "  vec4 v = vec4(mix(p.rgb, t.rgb, t.a), p.a)%s;\n", secondary);
 				break;
 			case GE_TEXFUNC_BLEND:
-				WRITE(p, "  vec4 v = vec4(mix(p.rgb, u_texenv.rgb, t.rgb), p.a * t.a) + s;\n");
+				WRITE(p, "  vec4 v = vec4(mix(p.rgb, u_texenv.rgb, t.rgb), p.a * t.a)%s;\n", secondary);
 				break;
 			case GE_TEXFUNC_REPLACE:
 				WRITE(p, "  vec4 r = t;\n");
 				WRITE(p, "  r.a = mix(r.a, p.a, u_texNoAlpha);\n");
-				WRITE(p, "  vec4 v = r + s;\n");
+				WRITE(p, "  vec4 v = r%s;\n", secondary);
 				break;
 			case GE_TEXFUNC_ADD:
 			case GE_TEXFUNC_UNKNOWN1:
 			case GE_TEXFUNC_UNKNOWN2:
 			case GE_TEXFUNC_UNKNOWN3:
-				WRITE(p, "  vec4 v = vec4(p.rgb + t.rgb, p.a * t.a) + s;\n");
+				WRITE(p, "  vec4 v = vec4(p.rgb + t.rgb, p.a * t.a)%s;\n", secondary);
 				break;
 			default:
 				// Doesn't happen
-				WRITE(p, "  vec4 v = p + s;\n"); break;
+				WRITE(p, "  vec4 v = p%s;\n", secondary); break;
 				break;
 			}
 
 			// This happens before fog is applied.
 			*uniformMask |= DIRTY_TEX_ALPHA_MUL;
-			WRITE(p, "  v.rgb = clamp(v.rgb * u_texMul, 0.0, 1.0);\n");
+
+			// We only need a clamp if the color will be further processed. Otherwise the hardware color conversion will clamp for us.
+			if (enableFog || enableColorTest || replaceBlend != REPLACE_BLEND_NO || simulateLogicOpType != LOGICOPTYPE_NORMAL || colorWriteMask || blueToAlpha) {
+				WRITE(p, "  v.rgb = clamp(v.rgb * u_texMul, 0.0, 1.0);\n");
+			} else {
+				WRITE(p, "  v.rgb *= u_texMul;\n");
+			}
 		} else {
 			// No texture mapping
-			WRITE(p, "  vec4 v = v_color0 + s;\n");
+			WRITE(p, "  vec4 v = v_color0%s;\n", secondary);
 		}
 
 		if (enableFog) {
@@ -1134,9 +1158,6 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 		return false;
 	}
 
-	// TODO: We could have a separate mechanism to support more ops using the shader blending mechanism,
-	// on hardware that can do proper bit math in fragment shaders.
-	SimulateLogicOpType simulateLogicOpType = (SimulateLogicOpType)id.Bits(FS_BIT_SIMULATE_LOGIC_OP_TYPE, 2);
 	switch (simulateLogicOpType) {
 	case LOGICOPTYPE_ONE:
 		WRITE(p, "  %s.rgb = splat3(1.0);\n", compat.fragColor0);

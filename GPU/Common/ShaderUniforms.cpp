@@ -298,8 +298,6 @@ uint32_t PackLightControlBits() {
 
 	// Material update is 3 bits.
 	lightControl |= gstate.getMaterialUpdate() << 20;
-	// LMODE is 1 bit.
-	lightControl |= gstate.isUsingSecondaryColor() << 23;
 	return lightControl;
 }
 
