@@ -66,7 +66,7 @@ R"(  mat4 u_proj;
   vec4 u_texclamp;
   vec2 u_texclampoff;
   vec2 u_fogcoef;
-  float u_texNoAlpha; float u_texMul; float pad1; float pad2;
+  vec2 u_texNoAlphaMul; float pad1; float pad2;
 )";
 
 // 512 bytes. Would like to shrink more. Some colors only have 8-bit precision and we expand

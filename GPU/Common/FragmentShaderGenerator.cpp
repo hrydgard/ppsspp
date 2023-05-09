@@ -264,8 +264,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 				if (texFunc == GE_TEXFUNC_BLEND) {
 					WRITE(p, "float3 u_texenv : register(c%i);\n", CONST_PS_TEXENV);
 				}
-				WRITE(p, "float u_texNoAlpha : register(c%i);\n", CONST_PS_TEX_NO_ALPHA);
-				WRITE(p, "float u_texMul : register(c%i);\n", CONST_PS_TEX_MUL);
+				WRITE(p, "float2 u_texNoAlphaMul : register(c%i);\n", CONST_PS_TEX_NO_ALPHA_MUL);
 			}
 			if (enableFog) {
 				WRITE(p, "float3 u_fogcolor : register(c%i);\n", CONST_PS_FOGCOLOR);
@@ -364,8 +363,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 				WRITE(p, "uniform sampler2D tex;\n");
 			}
 			*uniformMask |= DIRTY_TEX_ALPHA_MUL;
-			WRITE(p, "uniform float u_texNoAlpha;\n");
-			WRITE(p, "uniform float u_texMul;\n");
+			WRITE(p, "uniform vec2 u_texNoAlphaMul;\n");
 		}
 
 		if (readFramebufferTex) {
@@ -844,7 +842,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 			WRITE(p, "  vec4 p = v_color0;\n");
 
 			if (texFunc != GE_TEXFUNC_REPLACE) {
-				WRITE(p, "  t.a = max(t.a, u_texNoAlpha);\n");
+				WRITE(p, "  t.a = max(t.a, u_texNoAlphaMul.x);\n");
 			}
 
 			switch (texFunc) {
@@ -859,7 +857,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 				break;
 			case GE_TEXFUNC_REPLACE:
 				WRITE(p, "  vec4 r = t;\n");
-				WRITE(p, "  r.a = mix(r.a, p.a, u_texNoAlpha);\n");
+				WRITE(p, "  r.a = mix(r.a, p.a, u_texNoAlphaMul.x);\n");
 				WRITE(p, "  vec4 v = r%s;\n", secondary);
 				break;
 			case GE_TEXFUNC_ADD:
@@ -879,9 +877,9 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 
 			// We only need a clamp if the color will be further processed. Otherwise the hardware color conversion will clamp for us.
 			if (enableFog || enableColorTest || replaceBlend != REPLACE_BLEND_NO || simulateLogicOpType != LOGICOPTYPE_NORMAL || colorWriteMask || blueToAlpha) {
-				WRITE(p, "  v.rgb = clamp(v.rgb * u_texMul, 0.0, 1.0);\n");
+				WRITE(p, "  v.rgb = clamp(v.rgb * u_texNoAlphaMul.y, 0.0, 1.0);\n");
 			} else {
-				WRITE(p, "  v.rgb *= u_texMul;\n");
+				WRITE(p, "  v.rgb *= u_texNoAlphaMul.y;\n");
 			}
 		} else {
 			// No texture mapping

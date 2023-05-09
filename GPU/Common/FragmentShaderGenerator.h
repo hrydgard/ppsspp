@@ -36,8 +36,7 @@ struct FShaderID;
 #define CONST_PS_TEXCLAMP 8
 #define CONST_PS_TEXCLAMPOFF 9
 #define CONST_PS_MIPBIAS 10
-#define CONST_PS_TEX_NO_ALPHA 11
-#define CONST_PS_TEX_MUL 12
+#define CONST_PS_TEX_NO_ALPHA_MUL 11
 
 // For stencil upload
 #define BCONST_PS_STENCILVALUE 13
