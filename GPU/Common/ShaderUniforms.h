@@ -30,16 +30,16 @@ struct alignas(16) UB_VS_FS_Base {
 	float matAmbient[4];
 	float cullRangeMin[4];
 	float cullRangeMax[4];
-	uint32_t spline_counts; uint32_t depal_mask_shift_off_fmt;  // 4 params packed into one.
+	uint32_t spline_counts; uint32_t depal_mask_shift_off_fmt;  // 4 params packed into one. 1 is vshader data (spline_counts)
 	uint32_t colorWriteMask; float mipBias;
 	// Fragment data
+	float texNoAlpha; float texMul; float fogCoef[2];
 	float fogColor[3]; uint32_t alphaColorRef;
 	float texEnvColor[3]; uint32_t colorTestMask;
-	float blendFixA[3]; float stencilReplaceValue;
-	float blendFixB[3]; float rotation;
 	float texClamp[4];
-	float texClampOffset[2]; float fogCoef[2];
-	float texNoAlpha; float texMul; float padding[2];
+	float texClampOffset[2]; float stencilReplaceValue; float rotation;
+	float blendFixA[3]; float padding1;
+	float blendFixB[3]; float padding2;
 	// VR stuff is to go here, later. For normal drawing, we can then get away
 	// with just uploading the first 448 bytes of the struct (up to and including fogCoef).
 };
@@ -59,14 +59,13 @@ R"(  mat4 u_proj;
   uint u_depal_mask_shift_off_fmt;
   uint u_colorWriteMask;
   float u_mipBias;
+  float u_texNoAlpha; float u_texMul; vec2 u_fogcoef;
   vec3 u_fogcolor;  uint u_alphacolorref;
   vec3 u_texenv;    uint u_alphacolormask;
-  vec3 u_blendFixA; float u_stencilReplaceValue;
-  vec3 u_blendFixB; float u_rotation;
   vec4 u_texclamp;
-  vec2 u_texclampoff;
-  vec2 u_fogcoef;
-  float u_texNoAlpha; float u_texMul; float pad1; float pad2;
+  vec2 u_texclampoff; float u_stencilReplaceValue; float u_rotation;
+  vec3 u_blendFixA; float padding1;
+  vec3 u_blendFixB; float padding2;
 )";
 
 // 512 bytes. Would like to shrink more. Some colors only have 8-bit precision and we expand
