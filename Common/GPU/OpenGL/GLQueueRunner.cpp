@@ -1048,6 +1048,7 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step, bool first, bool last
 					glUnmapBuffer(GL_UNIFORM_BUFFER);
 					glBindBuffer(GL_UNIFORM_BUFFER, 0);
 				}
+				delete[] c.uniformStereoMatrix4.mData;  // We only playback once.
 			} else {
 				int loc = c.uniformStereoMatrix4.loc ? *c.uniformStereoMatrix4.loc : -1;
 				if (c.uniformStereoMatrix4.name) {
@@ -1060,8 +1061,12 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step, bool first, bool last
 						glUniformMatrix4fv(loc, 1, false, c.uniformStereoMatrix4.mData + 16);
 					}
 				}
+				if (GetVRFBOIndex() == 1 || GetVRPassesCount() == 1) {
+					// Only delete the data if we're rendering the only or the second eye.
+					// If we delete during the first eye, we get a use-after-free or double delete.
+					delete[] c.uniformStereoMatrix4.mData;
+				}
 			}
-			delete [] c.uniformStereoMatrix4.mData;
 			CHECK_GL_ERROR_IF_DEBUG();
 			break;
 		}
