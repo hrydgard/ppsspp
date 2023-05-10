@@ -475,6 +475,9 @@ bail:
 	gpuStats.numDrawCalls += numDrawCalls_;
 	gpuStats.numVertsSubmitted += vertexCountInDrawCalls_;
 
+	// TODO: When the next flush has the same vertex format, we can continue with the same offset in the vertex buffer,
+	// and start indexing from a higher value. This is very friendly to OpenGL (where we can't rely on baseindex if we
+	// wanted to avoid rebinding the vertex input every time).
 	indexGen.Reset();
 	decodedVerts_ = 0;
 	numDrawCalls_ = 0;

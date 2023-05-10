@@ -190,8 +190,11 @@ std::string FragmentShaderDesc(const FShaderID &id) {
 	if (id.Bit(FS_BIT_DO_TEXTURE_PROJ)) desc << "TexProj ";
 	if (id.Bit(FS_BIT_ENABLE_FOG)) desc << "Fog ";
 	if (id.Bit(FS_BIT_LMODE)) desc << "LM ";
+	if (id.Bit(FS_BIT_TEXALPHA)) desc << "TexAlpha ";
+	if (id.Bit(FS_BIT_DOUBLE_COLOR)) desc << "Double ";
 	if (id.Bit(FS_BIT_FLATSHADE)) desc << "Flat ";
 	if (id.Bit(FS_BIT_BGRA_TEXTURE)) desc << "BGRA ";
+	if (id.Bit(FS_BIT_UBERSHADER)) desc << "FragUber ";
 	switch ((ShaderDepalMode)id.Bits(FS_BIT_SHADER_DEPAL_MODE, 2)) {
 	case ShaderDepalMode::OFF: break;
 	case ShaderDepalMode::NORMAL: desc << "Depal ";  break;
@@ -285,8 +288,13 @@ void ComputeFragmentShaderID(FShaderID *id_out, const ComputedPipelineState &pip
 		bool enableFog = gstate.isFogEnabled() && !isModeThrough;
 		bool enableAlphaTest = gstate.isAlphaTestEnabled() && !IsAlphaTestTriviallyTrue();
 		bool enableColorTest = gstate.isColorTestEnabled() && !IsColorTestTriviallyTrue();
+		bool enableColorDouble = gstate.isColorDoublingEnabled();
 		bool doTextureProjection = (gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_MATRIX && MatrixNeedsProjection(gstate.tgenMatrix, gstate.getUVProjMode()));
 		bool doFlatShading = gstate.getShadeMode() == GE_SHADE_FLAT;
+
+		bool enableTexAlpha = gstate.isTextureAlphaUsed();
+
+		bool uberShader = gstate_c.Use(GPU_USE_FRAGMENT_UBERSHADER);
 
 		ShaderDepalMode shaderDepalMode = gstate_c.shaderDepalMode;
 
@@ -329,7 +337,14 @@ void ComputeFragmentShaderID(FShaderID *id_out, const ComputedPipelineState &pip
 			id.SetBit(FS_BIT_TEST_DISCARD_TO_ZERO, !NeedsTestDiscard());
 		}
 
-		id.SetBit(FS_BIT_ENABLE_FOG, enableFog);
+		id.SetBit(FS_BIT_ENABLE_FOG, enableFog);  // TODO: Will be moved back to the ubershader.
+
+		id.SetBit(FS_BIT_UBERSHADER, uberShader);
+		if (!uberShader) {
+			id.SetBit(FS_BIT_TEXALPHA, enableTexAlpha);
+			id.SetBit(FS_BIT_DOUBLE_COLOR, enableColorDouble);
+		}
+
 		id.SetBit(FS_BIT_DO_TEXTURE_PROJ, doTextureProjection);
 
 		// 2 bits

@@ -68,12 +68,12 @@ enum FShaderBit : uint8_t {
 	FS_BIT_CLEARMODE = 0,
 	FS_BIT_DO_TEXTURE = 1,
 	FS_BIT_TEXFUNC = 2,  // 3 bits
-	FS_BIT_DO_TEXTURE_PROJ = 5,
+	FS_BIT_DOUBLE_COLOR = 5,  // Not used with FS_BIT_UBERSHADER
 	FS_BIT_3D_TEXTURE = 6,
 	FS_BIT_SHADER_TEX_CLAMP = 7,
 	FS_BIT_CLAMP_S = 8,
 	FS_BIT_CLAMP_T = 9,
-	FS_BIT_FLATSHADE = 10,
+	FS_BIT_TEXALPHA = 10,  // Not used with FS_BIT_UBERSHADER
 	FS_BIT_LMODE = 11,
 	FS_BIT_ALPHA_TEST = 12,
 	FS_BIT_ALPHA_TEST_FUNC = 13,  // 3 bits
@@ -81,9 +81,9 @@ enum FShaderBit : uint8_t {
 	FS_BIT_COLOR_TEST = 17,
 	FS_BIT_COLOR_TEST_FUNC = 18,  // 2 bits
 	FS_BIT_COLOR_AGAINST_ZERO = 20,
-	FS_BIT_ENABLE_FOG = 21,
-	FS_BIT_SAMPLE_ARRAY_TEXTURE = 22,  // For multiview, framebuffers are array textures and we need to sample the two layers correctly.
-	FS_BIT_STEREO = 23,
+	FS_BIT_ENABLE_FOG = 21,  // Not used with FS_BIT_UBERSHADER
+	FS_BIT_DO_TEXTURE_PROJ = 22,
+	// 1 free bit
 	FS_BIT_STENCIL_TO_ALPHA = 24,  // 2 bits
 	FS_BIT_REPLACE_ALPHA_WITH_STENCIL_TYPE = 26,  // 4 bits    (ReplaceAlphaType)
 	FS_BIT_SIMULATE_LOGIC_OP_TYPE = 30,  // 2 bits
@@ -91,13 +91,17 @@ enum FShaderBit : uint8_t {
 	FS_BIT_BLENDEQ = 35,  // 3 bits
 	FS_BIT_BLENDFUNC_A = 38,  // 4 bits
 	FS_BIT_BLENDFUNC_B = 42,  // 4 bits
-	FS_BIT_USE_FRAMEBUFFER_FETCH = 46,
+	FS_BIT_FLATSHADE = 46,
 	FS_BIT_BGRA_TEXTURE = 47,
 	FS_BIT_TEST_DISCARD_TO_ZERO = 48,
 	FS_BIT_NO_DEPTH_CANNOT_DISCARD_STENCIL = 49,
 	FS_BIT_COLOR_WRITEMASK = 50,
 	FS_BIT_REPLACE_LOGIC_OP = 51,  // 4 bits. GE_LOGIC_COPY means no-op/off.
 	FS_BIT_SHADER_DEPAL_MODE = 55,  // 2 bits (ShaderDepalMode)
+	FS_BIT_SAMPLE_ARRAY_TEXTURE = 57,  // For multiview, framebuffers are array textures and we need to sample the two layers correctly.
+	FS_BIT_STEREO = 58,
+	FS_BIT_USE_FRAMEBUFFER_FETCH = 59,
+	FS_BIT_UBERSHADER = 60,
 };
 
 static inline FShaderBit operator +(FShaderBit bit, int i) {
