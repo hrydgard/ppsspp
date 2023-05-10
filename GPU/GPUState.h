@@ -574,6 +574,12 @@ struct GPUStateCache {
 			Dirty(DIRTY_FRAGMENTSHADER_STATE);
 		}
 	}
+	void SetTextureIsFramebuffer(bool framebuf) {
+		if (framebufTexture != framebuf) {
+			framebufTexture = framebuf;
+			Dirty(DIRTY_UVSCALEOFFSET);
+		}
+	}
 	void SetTextureIsBGRA(bool isBGRA) {
 		if (bgraTexture != isBGRA) {
 			bgraTexture = isBGRA;
@@ -616,6 +622,7 @@ public:
 	bool needShaderTexClamp;
 	bool arrayTexture;
 	bool useFlagsChanged;
+	bool framebufTexture;
 
 	float morphWeights[8];
 	u32 deferredVertTypeDirty;
