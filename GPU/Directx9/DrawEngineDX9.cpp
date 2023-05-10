@@ -206,7 +206,7 @@ IDirect3DVertexDeclaration9 *DrawEngineDX9::SetupDecFmtForDraw(const DecVtxForma
 
 		// POSITION
 		// Always
-		VertexAttribSetup(VertexElement, decFmt.posfmt, decFmt.posoff, D3DDECLUSAGE_POSITION, 0);
+		VertexAttribSetup(VertexElement, DecVtxFormat::PosFmt(), decFmt.posoff, D3DDECLUSAGE_POSITION, 0);
 		VertexElement++;
 
 		// End

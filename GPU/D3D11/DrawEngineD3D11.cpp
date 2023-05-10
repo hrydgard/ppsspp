@@ -243,7 +243,7 @@ ID3D11InputLayout *DrawEngineD3D11::SetupDecFmtForDraw(D3D11VertexShader *vshade
 
 		// POSITION
 		// Always
-		VertexAttribSetup(VertexElement, decFmt.posfmt, decFmt.posoff, "POSITION", 0);
+		VertexAttribSetup(VertexElement, DecVtxFormat::PosFmt(), decFmt.posoff, "POSITION", 0);
 		VertexElement++;
 
 		// Create declaration

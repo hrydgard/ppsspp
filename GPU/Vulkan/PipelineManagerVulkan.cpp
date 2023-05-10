@@ -134,7 +134,7 @@ static int SetupVertexAttribs(VkVertexInputAttributeDescription attrs[], const D
 		VertexAttribSetup(&attrs[count++], decFmt.nrmfmt, decFmt.nrmoff, PspAttributeLocation::NORMAL);
 	}
 	// Position is always there.
-	VertexAttribSetup(&attrs[count++], decFmt.posfmt, decFmt.posoff, PspAttributeLocation::POSITION);
+	VertexAttribSetup(&attrs[count++], DecVtxFormat::PosFmt(), decFmt.posoff, PspAttributeLocation::POSITION);
 	return count;
 }
 

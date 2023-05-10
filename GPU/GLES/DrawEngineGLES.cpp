@@ -218,7 +218,7 @@ GLRInputLayout *DrawEngineGLES::SetupDecFmtForDraw(const DecVtxFormat &decFmt) {
 	VertexAttribSetup(ATTR_COLOR0, decFmt.c0fmt, decFmt.stride, decFmt.c0off, entries);
 	VertexAttribSetup(ATTR_COLOR1, decFmt.c1fmt, decFmt.stride, decFmt.c1off, entries);
 	VertexAttribSetup(ATTR_NORMAL, decFmt.nrmfmt, decFmt.stride, decFmt.nrmoff, entries);
-	VertexAttribSetup(ATTR_POSITION, decFmt.posfmt, decFmt.stride, decFmt.posoff, entries);
+	VertexAttribSetup(ATTR_POSITION, DecVtxFormat::PosFmt(), decFmt.stride, decFmt.posoff, entries);
 
 	inputLayout = render_->CreateInputLayout(entries);
 	inputLayoutMap_.Insert(key, inputLayout);
