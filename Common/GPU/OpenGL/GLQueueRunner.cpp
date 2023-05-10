@@ -1187,20 +1187,21 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step, bool first, bool last
 			CHECK_GL_ERROR_IF_DEBUG();
 			break;
 		}
-		case GLRRenderCommand::GENMIPS:
-			// TODO: Should we include the texture handle in the command?
-			// Also, should this not be an init command?
-			glGenerateMipmap(GL_TEXTURE_2D);
-			break;
 		case GLRRenderCommand::DRAW:
-			glDrawArrays(c.draw.mode, c.draw.first, c.draw.count);
-			break;
-		case GLRRenderCommand::DRAW_INDEXED:
-			if (c.draw.instances == 1) {
+			if (c.draw.indexType == 0) {
+				glDrawArrays(c.draw.mode, c.draw.first, c.draw.count);
+			} else if (c.draw.instances == 1) {
 				glDrawElements(c.draw.mode, c.draw.count, c.draw.indexType, c.draw.indices);
 			} else {
 				glDrawElementsInstanced(c.draw.mode, c.draw.count, c.draw.indexType, c.draw.indices, c.draw.instances);
 			}
+			CHECK_GL_ERROR_IF_DEBUG();
+			break;
+		case GLRRenderCommand::GENMIPS:
+			// TODO: Should we include the texture handle in the command?
+			// Also, should this not be an init command?
+			glGenerateMipmap(GL_TEXTURE_2D);
+			CHECK_GL_ERROR_IF_DEBUG();
 			break;
 		case GLRRenderCommand::TEXTURESAMPLER:
 		{

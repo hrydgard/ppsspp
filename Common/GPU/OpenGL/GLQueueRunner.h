@@ -63,7 +63,6 @@ enum class GLRRenderCommand : uint8_t {
 	BIND_VERTEX_BUFFER,
 	GENMIPS,
 	DRAW,
-	DRAW_INDEXED,
 	TEXTURE_SUBIMAGE,
 };
 
@@ -111,9 +110,9 @@ struct GLRRenderData {
 			GLenum mode;  // primitive
 			GLint first;
 			GLint count;
+			GLint indexType;
 			void *indices;
 			GLint instances;
-			GLint indexType;
 		} draw;
 		struct {
 			const char *name;  // if null, use loc
