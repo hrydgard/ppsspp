@@ -641,24 +641,6 @@ public:
 #endif
 	}
 
-	void BindIndexBuffer(GLRBuffer *buffer) {  // Want to support an offset but can't in ES 2.0. We supply an offset when binding the buffers instead.
-		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
-		GLRRenderData data{ GLRRenderCommand::BIND_BUFFER};
-		data.bind_buffer.buffer = buffer;
-		data.bind_buffer.target = GL_ELEMENT_ARRAY_BUFFER;
-		curRenderStep_->commands.push_back(data);
-	}
-
-	void BindVertexBuffer(GLRInputLayout *inputLayout, GLRBuffer *buffer, size_t offset) {
-		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
-		_dbg_assert_(inputLayout);
-		GLRRenderData data{ GLRRenderCommand::BIND_VERTEX_BUFFER };
-		data.bindVertexBuffer.inputLayout = inputLayout;
-		data.bindVertexBuffer.offset = offset;
-		data.bindVertexBuffer.buffer = buffer;
-		curRenderStep_->commands.push_back(data);
-	}
-
 	void SetDepth(bool enabled, bool write, GLenum func) {
 		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
 		GLRRenderData data{ GLRRenderCommand::DEPTH };
@@ -924,25 +906,33 @@ public:
 		curRenderStep_->commands.push_back(data);
 	}
 
-	void Draw(GLenum mode, int first, int count) {
+	void Draw(GLRInputLayout *inputLayout, GLRBuffer *buffer, size_t offset, GLenum mode, int first, int count) {
 		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
 		GLRRenderData data{ GLRRenderCommand::DRAW };
+		data.draw.inputLayout = inputLayout;
+		data.draw.offset = offset;
+		data.draw.buffer = buffer;
+		data.draw.indexBuffer = nullptr;
 		data.draw.mode = mode;
 		data.draw.first = first;
 		data.draw.count = count;
-		data.draw.buffer = 0;
+		data.draw.indexType = 0;
 		curRenderStep_->commands.push_back(data);
 		curRenderStep_->render.numDraws++;
 	}
 
-	void DrawIndexed(GLenum mode, int count, GLenum indexType, void *indices, int instances = 1) {
+	void DrawIndexed(GLRInputLayout *inputLayout, GLRBuffer *buffer, size_t offset, GLRBuffer *indexBuffer, GLenum mode, int count, GLenum indexType, void *indices, int instances = 1) {
 		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
-		GLRRenderData data{ GLRRenderCommand::DRAW_INDEXED };
-		data.drawIndexed.mode = mode;
-		data.drawIndexed.count = count;
-		data.drawIndexed.indexType = indexType;
-		data.drawIndexed.instances = instances;
-		data.drawIndexed.indices = indices;
+		GLRRenderData data{ GLRRenderCommand::DRAW };
+		data.draw.inputLayout = inputLayout;
+		data.draw.offset = offset;
+		data.draw.buffer = buffer;
+		data.draw.indexBuffer = indexBuffer;
+		data.draw.mode = mode;
+		data.draw.count = count;
+		data.draw.indexType = indexType;
+		data.draw.indices = indices;
+		data.draw.instances = instances;
 		curRenderStep_->commands.push_back(data);
 		curRenderStep_->render.numDraws++;
 	}

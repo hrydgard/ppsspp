@@ -1332,21 +1332,18 @@ void OpenGLContext::UpdateDynamicUniformBuffer(const void *ub, size_t size) {
 void OpenGLContext::Draw(int vertexCount, int offset) {
 	_dbg_assert_msg_(curVBuffers_[0] != nullptr, "Can't call Draw without a vertex buffer");
 	ApplySamplers();
-	if (curPipeline_->inputLayout) {
-		renderManager_.BindVertexBuffer(curPipeline_->inputLayout->inputLayout_, curVBuffers_[0]->buffer_, curVBufferOffsets_[0]);
-	}
-	renderManager_.Draw(curPipeline_->prim, offset, vertexCount);
+	_assert_(curPipeline_->inputLayout);
+	renderManager_.Draw(curPipeline_->inputLayout->inputLayout_, curVBuffers_[0]->buffer_, curVBufferOffsets_[0], curPipeline_->prim, offset, vertexCount);
 }
 
 void OpenGLContext::DrawIndexed(int vertexCount, int offset) {
 	_dbg_assert_msg_(curVBuffers_[0] != nullptr, "Can't call DrawIndexed without a vertex buffer");
 	_dbg_assert_msg_(curIBuffer_ != nullptr, "Can't call DrawIndexed without an index buffer");
 	ApplySamplers();
-	if (curPipeline_->inputLayout) {
-		renderManager_.BindVertexBuffer(curPipeline_->inputLayout->inputLayout_, curVBuffers_[0]->buffer_, curVBufferOffsets_[0]);
-	}
-	renderManager_.BindIndexBuffer(curIBuffer_->buffer_);
-	renderManager_.DrawIndexed(curPipeline_->prim, vertexCount, GL_UNSIGNED_SHORT, (void *)((intptr_t)curIBufferOffset_ + offset * sizeof(uint32_t)));
+	_assert_(curPipeline_->inputLayout);
+	renderManager_.DrawIndexed(
+		curPipeline_->inputLayout->inputLayout_, curVBuffers_[0]->buffer_, curVBufferOffsets_[0], curIBuffer_->buffer_, 
+		curPipeline_->prim, vertexCount, GL_UNSIGNED_SHORT, (void *)((intptr_t)curIBufferOffset_ + offset * sizeof(uint32_t)));
 }
 
 void OpenGLContext::DrawUP(const void *vdata, int vertexCount) {
@@ -1360,10 +1357,8 @@ void OpenGLContext::DrawUP(const void *vdata, int vertexCount) {
 	size_t offset = frameData.push->Push(vdata, dataSize, &buf);
 
 	ApplySamplers();
-	if (curPipeline_->inputLayout) {
-		renderManager_.BindVertexBuffer(curPipeline_->inputLayout->inputLayout_, buf, offset);
-	}
-	renderManager_.Draw(curPipeline_->prim, 0, vertexCount);
+	_assert_(curPipeline_->inputLayout);
+	renderManager_.Draw(curPipeline_->inputLayout->inputLayout_, buf, offset, curPipeline_->prim, 0, vertexCount);
 }
 
 void OpenGLContext::Clear(int mask, uint32_t colorval, float depthVal, int stencilVal) {

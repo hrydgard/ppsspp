@@ -61,10 +61,8 @@ enum class GLRRenderCommand : uint8_t {
 	BINDTEXTURE,
 	BIND_FB_TEXTURE,
 	BIND_VERTEX_BUFFER,
-	BIND_BUFFER,
 	GENMIPS,
 	DRAW,
-	DRAW_INDEXED,
 	TEXTURE_SUBIMAGE,
 };
 
@@ -109,18 +107,17 @@ struct GLRRenderData {
 			uint8_t writeMask;
 		} stencilOp;  // also write mask
 		struct {
+			GLRInputLayout *inputLayout;
+			GLRBuffer *buffer;
+			size_t offset;
+			GLRBuffer *indexBuffer;
 			GLenum mode;  // primitive
-			GLint buffer;
 			GLint first;
 			GLint count;
-		} draw;
-		struct {
-			GLenum mode;  // primitive
-			GLint count;
-			GLint instances;
 			GLint indexType;
 			void *indices;
-		} drawIndexed;
+			GLint instances;
+		} draw;
 		struct {
 			const char *name;  // if null, use loc
 			const GLint *loc; // NOTE: This is a pointer so we can immediately use things that are "queried" during program creation.
@@ -171,11 +168,6 @@ struct GLRRenderData {
 		struct {
 			GLRProgram *program;
 		} program;
-		struct {
-			GLRInputLayout *inputLayout;
-			GLRBuffer *buffer;
-			size_t offset;
-		} bindVertexBuffer;
 		struct {
 			int slot;
 			GLenum wrapS;
