@@ -395,7 +395,7 @@ public:
 	void BufferSubdata(GLRBuffer *buffer, size_t offset, size_t size, uint8_t *data, bool deleteData = true) {
 		// TODO: Maybe should be a render command instead of an init command? When possible it's better as
 		// an init command, that's for sure.
-		GLRInitStep step{ GLRInitStepType::BUFFER_SUBDATA };
+		GLRInitStep step(GLRInitStepType::BUFFER_SUBDATA);
 		_dbg_assert_(offset >= 0);
 		_dbg_assert_(offset <= buffer->size_ - size);
 		step.buffer_subdata.buffer = buffer;
@@ -408,7 +408,7 @@ public:
 
 	// Takes ownership over the data pointer and delete[]-s it.
 	void TextureImage(GLRTexture *texture, int level, int width, int height, int depth, Draw::DataFormat format, uint8_t *data, GLRAllocType allocType = GLRAllocType::NEW, bool linearFilter = false) {
-		GLRInitStep step{ GLRInitStepType::TEXTURE_IMAGE };
+		GLRInitStep step(GLRInitStepType::TEXTURE_IMAGE);
 		step.texture_image.texture = texture;
 		step.texture_image.data = data;
 		step.texture_image.format = format;
@@ -423,7 +423,7 @@ public:
 
 	void TextureSubImage(int slot, GLRTexture *texture, int level, int x, int y, int width, int height, Draw::DataFormat format, uint8_t *data, GLRAllocType allocType = GLRAllocType::NEW) {
 		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
-		GLRRenderData _data{ GLRRenderCommand::TEXTURE_SUBIMAGE };
+		GLRRenderData _data(GLRRenderCommand::TEXTURE_SUBIMAGE);
 		_data.texture_subimage.texture = texture;
 		_data.texture_subimage.data = data;
 		_data.texture_subimage.format = format;
@@ -438,7 +438,7 @@ public:
 	}
 
 	void FinalizeTexture(GLRTexture *texture, int loadedLevels, bool genMips) {
-		GLRInitStep step{ GLRInitStepType::TEXTURE_FINALIZE };
+		GLRInitStep step(GLRInitStepType::TEXTURE_FINALIZE);
 		step.texture_finalize.texture = texture;
 		step.texture_finalize.loadedLevels = loadedLevels;
 		step.texture_finalize.genMips = genMips;
@@ -453,7 +453,7 @@ public:
 		}
 		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
 		_dbg_assert_(slot < MAX_GL_TEXTURE_SLOTS);
-		GLRRenderData data{ GLRRenderCommand::BINDTEXTURE };
+		GLRRenderData data(GLRRenderCommand::BINDTEXTURE);
 		data.texture.slot = slot;
 		data.texture.texture = tex;
 		curRenderStep_->commands.push_back(data);
@@ -461,7 +461,7 @@ public:
 
 	void BindProgram(GLRProgram *program) {
 		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
-		GLRRenderData data{ GLRRenderCommand::BINDPROGRAM };
+		GLRRenderData data(GLRRenderCommand::BINDPROGRAM);
 		_dbg_assert_(program != nullptr);
 		data.program.program = program;
 		curRenderStep_->commands.push_back(data);
@@ -472,7 +472,7 @@ public:
 
 	void SetDepth(bool enabled, bool write, GLenum func) {
 		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
-		GLRRenderData data{ GLRRenderCommand::DEPTH };
+		GLRRenderData data(GLRRenderCommand::DEPTH);
 		data.depth.enabled = enabled;
 		data.depth.write = write;
 		data.depth.func = func;
@@ -481,14 +481,14 @@ public:
 
 	void SetViewport(const GLRViewport &vp) {
 		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
-		GLRRenderData data{ GLRRenderCommand::VIEWPORT };
+		GLRRenderData data(GLRRenderCommand::VIEWPORT);
 		data.viewport.vp = vp;
 		curRenderStep_->commands.push_back(data);
 	}
 
 	void SetScissor(const GLRect2D &rc) {
 		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
-		GLRRenderData data{ GLRRenderCommand::SCISSOR };
+		GLRRenderData data(GLRRenderCommand::SCISSOR);
 		data.scissor.rc = rc;
 		curRenderStep_->commands.push_back(data);
 	}
@@ -498,7 +498,8 @@ public:
 #ifdef _DEBUG
 		_dbg_assert_(curProgram_);
 #endif
-		GLRRenderData data{ GLRRenderCommand::UNIFORM4I };
+		GLRRenderData data(GLRRenderCommand::UNIFORM4I);
+		data.uniform4.name = nullptr;
 		data.uniform4.loc = loc;
 		data.uniform4.count = count;
 		memcpy(data.uniform4.v, udata, sizeof(int) * count);
@@ -510,7 +511,8 @@ public:
 #ifdef _DEBUG
 		_dbg_assert_(curProgram_);
 #endif
-		GLRRenderData data{ GLRRenderCommand::UNIFORM4I };
+		GLRRenderData data(GLRRenderCommand::UNIFORM4I);
+		data.uniform4.name = nullptr;
 		data.uniform4.loc = loc;
 		data.uniform4.count = 1;
 		memcpy(data.uniform4.v, &udata, sizeof(udata));
@@ -522,7 +524,8 @@ public:
 #ifdef _DEBUG
 		_dbg_assert_(curProgram_);
 #endif
-		GLRRenderData data{ GLRRenderCommand::UNIFORM4UI };
+		GLRRenderData data(GLRRenderCommand::UNIFORM4UI);
+		data.uniform4.name = nullptr;
 		data.uniform4.loc = loc;
 		data.uniform4.count = count;
 		memcpy(data.uniform4.v, udata, sizeof(uint32_t) * count);
@@ -534,7 +537,8 @@ public:
 #ifdef _DEBUG
 		_dbg_assert_(curProgram_);
 #endif
-		GLRRenderData data{ GLRRenderCommand::UNIFORM4UI };
+		GLRRenderData data(GLRRenderCommand::UNIFORM4UI);
+		data.uniform4.name = nullptr;
 		data.uniform4.loc = loc;
 		data.uniform4.count = 1;
 		memcpy(data.uniform4.v, &udata, sizeof(udata));
@@ -546,7 +550,8 @@ public:
 #ifdef _DEBUG
 		_dbg_assert_(curProgram_);
 #endif
-		GLRRenderData data{ GLRRenderCommand::UNIFORM4F };
+		GLRRenderData data(GLRRenderCommand::UNIFORM4F);
+		data.uniform4.name = nullptr;
 		data.uniform4.loc = loc;
 		data.uniform4.count = count;
 		memcpy(data.uniform4.v, udata, sizeof(float) * count);
@@ -558,7 +563,8 @@ public:
 #ifdef _DEBUG
 		_dbg_assert_(curProgram_);
 #endif
-		GLRRenderData data{ GLRRenderCommand::UNIFORM4F };
+		GLRRenderData data(GLRRenderCommand::UNIFORM4F);
+		data.uniform4.name = nullptr;
 		data.uniform4.loc = loc;
 		data.uniform4.count = 1;
 		memcpy(data.uniform4.v, &udata, sizeof(float));
@@ -570,8 +576,9 @@ public:
 #ifdef _DEBUG
 		_dbg_assert_(curProgram_);
 #endif
-		GLRRenderData data{ GLRRenderCommand::UNIFORM4F };
+		GLRRenderData data(GLRRenderCommand::UNIFORM4F);
 		data.uniform4.name = name;
+		data.uniform4.loc = nullptr;
 		data.uniform4.count = count;
 		memcpy(data.uniform4.v, udata, sizeof(float) * count);
 		curRenderStep_->commands.push_back(data);
@@ -582,7 +589,8 @@ public:
 #ifdef _DEBUG
 		_dbg_assert_(curProgram_);
 #endif
-		GLRRenderData data{ GLRRenderCommand::UNIFORMMATRIX };
+		GLRRenderData data(GLRRenderCommand::UNIFORMMATRIX);
+		data.uniformMatrix4.name = nullptr;
 		data.uniformMatrix4.loc = loc;
 		memcpy(data.uniformMatrix4.m, udata, sizeof(float) * 16);
 		curRenderStep_->commands.push_back(data);
@@ -593,7 +601,7 @@ public:
 #ifdef _DEBUG
 		_dbg_assert_(curProgram_);
 #endif
-		GLRRenderData data{ GLRRenderCommand::UNIFORMSTEREOMATRIX };
+		GLRRenderData data(GLRRenderCommand::UNIFORMSTEREOMATRIX);
 		data.uniformStereoMatrix4.name = name;
 		data.uniformStereoMatrix4.loc = loc;
 		data.uniformStereoMatrix4.mData = new float[32];
@@ -607,8 +615,9 @@ public:
 #ifdef _DEBUG
 		_dbg_assert_(curProgram_);
 #endif
-		GLRRenderData data{ GLRRenderCommand::UNIFORMMATRIX };
+		GLRRenderData data(GLRRenderCommand::UNIFORMMATRIX);
 		data.uniformMatrix4.name = name;
+		data.uniformMatrix4.loc = nullptr;
 		memcpy(data.uniformMatrix4.m, udata, sizeof(float) * 16);
 		curRenderStep_->commands.push_back(data);
 	}
@@ -617,7 +626,7 @@ public:
 		// Make this one only a non-debug _assert_, since it often comes first.
 		// Lets us collect info about this potential crash through assert extra data.
 		_assert_(curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
-		GLRRenderData data{ GLRRenderCommand::BLEND };
+		GLRRenderData data(GLRRenderCommand::BLEND);
 		data.blend.mask = colorMask;
 		data.blend.enabled = blendEnabled;
 		data.blend.srcColor = srcColor;
@@ -631,7 +640,7 @@ public:
 
 	void SetNoBlendAndMask(int colorMask) {
 		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
-		GLRRenderData data{ GLRRenderCommand::BLEND };
+		GLRRenderData data(GLRRenderCommand::BLEND);
 		data.blend.mask = colorMask;
 		data.blend.enabled = false;
 		curRenderStep_->commands.push_back(data);
@@ -640,7 +649,7 @@ public:
 #ifndef USING_GLES2
 	void SetLogicOp(bool enabled, GLenum logicOp) {
 		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
-		GLRRenderData data{ GLRRenderCommand::LOGICOP };
+		GLRRenderData data(GLRRenderCommand::LOGICOP);
 		data.logic.enabled = enabled;
 		data.logic.logicOp = logicOp;
 		curRenderStep_->commands.push_back(data);
@@ -649,7 +658,7 @@ public:
 
 	void SetStencilFunc(bool enabled, GLenum func, uint8_t refValue, uint8_t compareMask) {
 		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
-		GLRRenderData data{ GLRRenderCommand::STENCILFUNC };
+		GLRRenderData data(GLRRenderCommand::STENCILFUNC);
 		data.stencilFunc.enabled = enabled;
 		data.stencilFunc.func = func;
 		data.stencilFunc.ref = refValue;
@@ -659,7 +668,7 @@ public:
 
 	void SetStencilOp(uint8_t writeMask, GLenum sFail, GLenum zFail, GLenum pass) {
 		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
-		GLRRenderData data{ GLRRenderCommand::STENCILOP };
+		GLRRenderData data(GLRRenderCommand::STENCILOP);
 		data.stencilOp.writeMask = writeMask;
 		data.stencilOp.sFail = sFail;
 		data.stencilOp.zFail = zFail;
@@ -669,22 +678,22 @@ public:
 
 	void SetStencilDisabled() {
 		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
-		GLRRenderData data;
-		data.cmd = GLRRenderCommand::STENCILFUNC;
+		GLRRenderData data(GLRRenderCommand::STENCILFUNC);
 		data.stencilFunc.enabled = false;
+		// When enabled = false, the others aren't read so we don't zero-initialize them.
 		curRenderStep_->commands.push_back(data);
 	}
 
 	void SetBlendFactor(const float color[4]) {
 		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
-		GLRRenderData data{ GLRRenderCommand::BLENDCOLOR };
+		GLRRenderData data(GLRRenderCommand::BLENDCOLOR);
 		CopyFloat4(data.blendColor.color, color);
 		curRenderStep_->commands.push_back(data);
 	}
 
 	void SetRaster(GLboolean cullEnable, GLenum frontFace, GLenum cullFace, GLboolean ditherEnable, GLboolean depthClamp) {
 		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
-		GLRRenderData data{ GLRRenderCommand::RASTER };
+		GLRRenderData data(GLRRenderCommand::RASTER);
 		data.raster.cullEnable = cullEnable;
 		data.raster.frontFace = frontFace;
 		data.raster.cullFace = cullFace;
@@ -697,7 +706,7 @@ public:
 	void SetTextureSampler(int slot, GLenum wrapS, GLenum wrapT, GLenum magFilter, GLenum minFilter, float anisotropy) {
 		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
 		_dbg_assert_(slot < MAX_GL_TEXTURE_SLOTS);
-		GLRRenderData data{ GLRRenderCommand::TEXTURESAMPLER };
+		GLRRenderData data(GLRRenderCommand::TEXTURESAMPLER);
 		data.textureSampler.slot = slot;
 		data.textureSampler.wrapS = wrapS;
 		data.textureSampler.wrapT = wrapT;
@@ -710,7 +719,7 @@ public:
 	void SetTextureLod(int slot, float minLod, float maxLod, float lodBias) {
 		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
 		_dbg_assert_(slot < MAX_GL_TEXTURE_SLOTS);
-		GLRRenderData data{ GLRRenderCommand::TEXTURELOD};
+		GLRRenderData data(GLRRenderCommand::TEXTURELOD);
 		data.textureLod.slot = slot;
 		data.textureLod.minLod = minLod;
 		data.textureLod.maxLod = maxLod;
@@ -723,7 +732,7 @@ public:
 		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
 		if (!clearMask)
 			return;
-		GLRRenderData data{ GLRRenderCommand::CLEAR };
+		GLRRenderData data(GLRRenderCommand::CLEAR);
 		data.clear.clearMask = clearMask;
 		data.clear.clearColor = clearColor;
 		data.clear.clearZ = clearZ;
@@ -738,7 +747,7 @@ public:
 
 	void Draw(GLRInputLayout *inputLayout, GLRBuffer *buffer, size_t offset, GLenum mode, int first, int count) {
 		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
-		GLRRenderData data{ GLRRenderCommand::DRAW };
+		GLRRenderData data(GLRRenderCommand::DRAW);
 		data.draw.inputLayout = inputLayout;
 		data.draw.offset = offset;
 		data.draw.buffer = buffer;
@@ -753,7 +762,7 @@ public:
 
 	void DrawIndexed(GLRInputLayout *inputLayout, GLRBuffer *buffer, size_t offset, GLRBuffer *indexBuffer, GLenum mode, int count, GLenum indexType, void *indices, int instances = 1) {
 		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
-		GLRRenderData data{ GLRRenderCommand::DRAW };
+		GLRRenderData data(GLRRenderCommand::DRAW);
 		data.draw.inputLayout = inputLayout;
 		data.draw.offset = offset;
 		data.draw.buffer = buffer;

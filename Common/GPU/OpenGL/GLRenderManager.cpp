@@ -220,8 +220,7 @@ void GLRenderManager::BindFramebufferAsRenderTarget(GLRFramebuffer *fb, GLRRende
 	steps_.push_back(step);
 
 	GLuint clearMask = 0;
-	GLRRenderData data;
-	data.cmd = GLRRenderCommand::CLEAR;
+	GLRRenderData data(GLRRenderCommand::CLEAR);
 	if (color == GLRRenderPassAction::CLEAR) {
 		clearMask |= GL_COLOR_BUFFER_BIT;
 		data.clear.clearColor = clearColor;

@@ -70,6 +70,7 @@ enum class GLRRenderCommand : uint8_t {
 // type field, smashed right after each other?)
 // Also, all GLenums are really only 16 bits.
 struct GLRRenderData {
+	GLRRenderData(GLRRenderCommand _cmd) : cmd(_cmd) {}
 	GLRRenderCommand cmd;
 	union {
 		struct {
