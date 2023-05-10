@@ -575,7 +575,7 @@ void PreprocessSkyplane(GLRStep* step) {
 		if (command.cmd == GLRRenderCommand::DEPTH) {
 			depthEnabled = command.depth.enabled;
 		} else if ((command.cmd == GLRRenderCommand::DRAW_INDEXED) && !depthEnabled) {
-			command.drawIndexed.count = 0;
+			command.draw.count = 0;
 		}
 	}
 }

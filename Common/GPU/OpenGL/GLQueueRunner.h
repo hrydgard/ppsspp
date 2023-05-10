@@ -109,17 +109,12 @@ struct GLRRenderData {
 		} stencilOp;  // also write mask
 		struct {
 			GLenum mode;  // primitive
-			GLint buffer;
 			GLint first;
 			GLint count;
-		} draw;
-		struct {
-			GLenum mode;  // primitive
-			GLint count;
+			void *indices;
 			GLint instances;
 			GLint indexType;
-			void *indices;
-		} drawIndexed;
+		} draw;
 		struct {
 			const char *name;  // if null, use loc
 			const GLint *loc; // NOTE: This is a pointer so we can immediately use things that are "queried" during program creation.

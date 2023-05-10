@@ -1196,12 +1196,11 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step, bool first, bool last
 			glDrawArrays(c.draw.mode, c.draw.first, c.draw.count);
 			break;
 		case GLRRenderCommand::DRAW_INDEXED:
-			if (c.drawIndexed.instances == 1) {
-				glDrawElements(c.drawIndexed.mode, c.drawIndexed.count, c.drawIndexed.indexType, c.drawIndexed.indices);
+			if (c.draw.instances == 1) {
+				glDrawElements(c.draw.mode, c.draw.count, c.draw.indexType, c.draw.indices);
 			} else {
-				glDrawElementsInstanced(c.drawIndexed.mode, c.drawIndexed.count, c.drawIndexed.indexType, c.drawIndexed.indices, c.drawIndexed.instances);
+				glDrawElementsInstanced(c.draw.mode, c.draw.count, c.draw.indexType, c.draw.indices, c.draw.instances);
 			}
-			CHECK_GL_ERROR_IF_DEBUG();
 			break;
 		case GLRRenderCommand::TEXTURESAMPLER:
 		{

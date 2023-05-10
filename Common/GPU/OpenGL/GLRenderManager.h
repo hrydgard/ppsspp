@@ -923,7 +923,7 @@ public:
 		data.draw.mode = mode;
 		data.draw.first = first;
 		data.draw.count = count;
-		data.draw.buffer = 0;
+		data.draw.indices = nullptr;
 		curRenderStep_->commands.push_back(data);
 		curRenderStep_->render.numDraws++;
 	}
@@ -931,11 +931,11 @@ public:
 	void DrawIndexed(GLenum mode, int count, GLenum indexType, void *indices, int instances = 1) {
 		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
 		GLRRenderData data{ GLRRenderCommand::DRAW_INDEXED };
-		data.drawIndexed.mode = mode;
-		data.drawIndexed.count = count;
-		data.drawIndexed.indexType = indexType;
-		data.drawIndexed.instances = instances;
-		data.drawIndexed.indices = indices;
+		data.draw.mode = mode;
+		data.draw.count = count;
+		data.draw.indices = indices;
+		data.draw.indexType = indexType;
+		data.draw.instances = instances;
 		curRenderStep_->commands.push_back(data);
 		curRenderStep_->render.numDraws++;
 	}
