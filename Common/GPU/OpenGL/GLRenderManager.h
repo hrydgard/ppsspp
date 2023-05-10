@@ -641,17 +641,6 @@ public:
 #endif
 	}
 
-	void BindVertexBuffer(GLRInputLayout *inputLayout, GLRBuffer *buffer, size_t offset, GLRBuffer *indexBuffer) {
-		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
-		_dbg_assert_(inputLayout);
-		GLRRenderData data{ GLRRenderCommand::BIND_VERTEX_BUFFER };
-		data.bindVertexBuffer.inputLayout = inputLayout;
-		data.bindVertexBuffer.offset = offset;
-		data.bindVertexBuffer.buffer = buffer;
-		data.bindVertexBuffer.indexBuffer = indexBuffer;
-		curRenderStep_->commands.push_back(data);
-	}
-
 	void SetDepth(bool enabled, bool write, GLenum func) {
 		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
 		GLRRenderData data{ GLRRenderCommand::DEPTH };
@@ -917,9 +906,13 @@ public:
 		curRenderStep_->commands.push_back(data);
 	}
 
-	void Draw(GLenum mode, int first, int count) {
+	void Draw(GLRInputLayout *inputLayout, GLRBuffer *buffer, size_t offset, GLenum mode, int first, int count) {
 		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
 		GLRRenderData data{ GLRRenderCommand::DRAW };
+		data.draw.inputLayout = inputLayout;
+		data.draw.offset = offset;
+		data.draw.buffer = buffer;
+		data.draw.indexBuffer = nullptr;
 		data.draw.mode = mode;
 		data.draw.first = first;
 		data.draw.count = count;
@@ -928,9 +921,13 @@ public:
 		curRenderStep_->render.numDraws++;
 	}
 
-	void DrawIndexed(GLenum mode, int count, GLenum indexType, void *indices, int instances = 1) {
+	void DrawIndexed(GLRInputLayout *inputLayout, GLRBuffer *buffer, size_t offset, GLRBuffer *indexBuffer, GLenum mode, int count, GLenum indexType, void *indices, int instances = 1) {
 		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
 		GLRRenderData data{ GLRRenderCommand::DRAW };
+		data.draw.inputLayout = inputLayout;
+		data.draw.offset = offset;
+		data.draw.buffer = buffer;
+		data.draw.indexBuffer = indexBuffer;
 		data.draw.mode = mode;
 		data.draw.count = count;
 		data.draw.indexType = indexType;

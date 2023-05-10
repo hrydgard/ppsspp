@@ -332,11 +332,13 @@ void DrawEngineGLES::DoFlush() {
 				void *dest = frameData.pushIndex->Push(esz, &indexBufferOffset, &indexBuffer);
 				memcpy(dest, decIndex, esz);
 			}
-			render_->BindVertexBuffer(inputLayout, vertexBuffer, vertexBufferOffset, indexBuffer);
-			render_->DrawIndexed(glprim[prim], vertexCount, GL_UNSIGNED_SHORT, (GLvoid*)(intptr_t)indexBufferOffset);
+			render_->DrawIndexed(
+				inputLayout, vertexBuffer, vertexBufferOffset, indexBuffer,
+				glprim[prim], vertexCount, GL_UNSIGNED_SHORT, (GLvoid*)(intptr_t)indexBufferOffset);
 		} else {
-			render_->BindVertexBuffer(inputLayout, vertexBuffer, vertexBufferOffset, nullptr);
-			render_->Draw(glprim[prim], 0, vertexCount);
+			render_->Draw(
+				inputLayout, vertexBuffer, vertexBufferOffset,
+				glprim[prim], 0, vertexCount);
 		}
 	} else {
 		PROFILE_THIS_SCOPE("soft");
@@ -434,12 +436,13 @@ void DrawEngineGLES::DoFlush() {
 			if (result.drawIndexed) {
 				vertexBufferOffset = (uint32_t)frameData.pushVertex->Push(result.drawBuffer, maxIndex * sizeof(TransformedVertex), &vertexBuffer);
 				indexBufferOffset = (uint32_t)frameData.pushIndex->Push(inds, sizeof(uint16_t) * result.drawNumTrans, &indexBuffer);
-				render_->BindVertexBuffer(softwareInputLayout_, vertexBuffer, vertexBufferOffset, indexBuffer);
-				render_->DrawIndexed(glprim[prim], result.drawNumTrans, GL_UNSIGNED_SHORT, (void *)(intptr_t)indexBufferOffset);
+				render_->DrawIndexed(
+					softwareInputLayout_, vertexBuffer, vertexBufferOffset, indexBuffer,
+					glprim[prim], result.drawNumTrans, GL_UNSIGNED_SHORT, (void *)(intptr_t)indexBufferOffset);
 			} else {
 				vertexBufferOffset = (uint32_t)frameData.pushVertex->Push(result.drawBuffer, result.drawNumTrans * sizeof(TransformedVertex), &vertexBuffer);
-				render_->BindVertexBuffer(softwareInputLayout_, vertexBuffer, vertexBufferOffset, nullptr);
-				render_->Draw(glprim[prim], 0, result.drawNumTrans);
+				render_->Draw(
+					softwareInputLayout_, vertexBuffer, vertexBufferOffset, glprim[prim], 0, result.drawNumTrans);
 			}
 		} else if (result.action == SW_CLEAR) {
 			u32 clearColor = result.color;

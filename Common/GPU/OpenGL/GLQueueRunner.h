@@ -107,6 +107,10 @@ struct GLRRenderData {
 			uint8_t writeMask;
 		} stencilOp;  // also write mask
 		struct {
+			GLRInputLayout *inputLayout;
+			GLRBuffer *buffer;
+			size_t offset;
+			GLRBuffer *indexBuffer;
 			GLenum mode;  // primitive
 			GLint first;
 			GLint count;
@@ -164,12 +168,6 @@ struct GLRRenderData {
 		struct {
 			GLRProgram *program;
 		} program;
-		struct {
-			GLRInputLayout *inputLayout;
-			GLRBuffer *buffer;
-			size_t offset;
-			GLRBuffer *indexBuffer;
-		} bindVertexBuffer;
 		struct {
 			int slot;
 			GLenum wrapS;
