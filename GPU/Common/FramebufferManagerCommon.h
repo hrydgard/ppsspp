@@ -199,6 +199,7 @@ enum BindFramebufferColorFlags {
 	BINDFBCOLOR_APPLY_TEX_OFFSET = 4,
 	// Used when rendering to a temporary surface (e.g. not the current render target.)
 	BINDFBCOLOR_FORCE_SELF = 8,
+	BINDFBCOLOR_UNCACHED = 16,
 };
 
 enum DrawTextureFlags {
