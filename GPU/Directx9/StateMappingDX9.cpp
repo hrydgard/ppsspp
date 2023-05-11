@@ -138,7 +138,7 @@ void DrawEngineDX9::ApplyDrawState(int prim) {
 
 				if (fboTexBindState_ == FBO_TEX_COPY_BIND_TEX) {
 					// Note that this is positions, not UVs, that we need the copy from.
-					framebufferManager_->BindFramebufferAsColorTexture(1, framebufferManager_->GetCurrentRenderVFB(), BINDFBCOLOR_MAY_COPY, Draw::ALL_LAYERS);
+					framebufferManager_->BindFramebufferAsColorTexture(1, framebufferManager_->GetCurrentRenderVFB(), BINDFBCOLOR_MAY_COPY | BINDFBCOLOR_UNCACHED, Draw::ALL_LAYERS);
 					// If we are rendering at a higher resolution, linear is probably best for the dest color.
 					device_->SetSamplerState(1, D3DSAMP_MAGFILTER, D3DTEXF_LINEAR);
 					device_->SetSamplerState(1, D3DSAMP_MINFILTER, D3DTEXF_LINEAR);
