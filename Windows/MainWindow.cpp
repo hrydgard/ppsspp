@@ -91,6 +91,7 @@ int verysleepy__useSendMessage = 1;
 
 const UINT WM_VERYSLEEPY_MSG = WM_APP + 0x3117;
 const UINT WM_USER_GET_BASE_POINTER = WM_APP + 0x3118;  // 0xB118
+const UINT WM_USER_GET_EMULATION_STATE = WM_APP + 0x3119;  // 0xB119
 
 // Respond TRUE to a message with this param value to indicate support.
 const WPARAM VERYSLEEPY_WPARAM_SUPPORTED = 0;
@@ -788,6 +789,9 @@ namespace MainWindow
 				return 0;
 			}
 			break;
+
+		case WM_USER_GET_EMULATION_STATE:
+			return (u32)(Core_IsActive() && GetUIState() == UISTATE_INGAME);
 
 		// Hack to kill the white line underneath the menubar.
 		// From https://stackoverflow.com/questions/57177310/how-to-paint-over-white-line-between-menu-bar-and-client-area-of-window
