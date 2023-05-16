@@ -664,32 +664,25 @@ public:
 	}
 #endif
 
-	void SetStencilFunc(bool enabled, GLenum func, uint8_t refValue, uint8_t compareMask) {
+	void SetStencil(bool enabled, GLenum func, uint8_t refValue, uint8_t compareMask, uint8_t writeMask, GLenum sFail, GLenum zFail, GLenum pass) {
 		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
 		GLRRenderData &data = curRenderStep_->commands.push_uninitialized();
-		data.cmd = GLRRenderCommand::STENCILFUNC;
-		data.stencilFunc.enabled = enabled;
-		data.stencilFunc.func = func;
-		data.stencilFunc.ref = refValue;
-		data.stencilFunc.compareMask = compareMask;
-	}
-
-	void SetStencilOp(uint8_t writeMask, GLenum sFail, GLenum zFail, GLenum pass) {
-		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
-		GLRRenderData &data = curRenderStep_->commands.push_uninitialized();
-		data.cmd = GLRRenderCommand::STENCILOP;
-		data.stencilOp.writeMask = writeMask;
-		data.stencilOp.sFail = sFail;
-		data.stencilOp.zFail = zFail;
-		data.stencilOp.pass = pass;
+		data.cmd = GLRRenderCommand::STENCIL;
+		data.stencil.enabled = enabled;
+		data.stencil.func = func;
+		data.stencil.ref = refValue;
+		data.stencil.compareMask = compareMask;
+		data.stencil.writeMask = writeMask;
+		data.stencil.sFail = sFail;
+		data.stencil.zFail = zFail;
+		data.stencil.pass = pass;
 	}
 
 	void SetStencilDisabled() {
 		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
 		GLRRenderData &data = curRenderStep_->commands.push_uninitialized();
-		data.cmd = GLRRenderCommand::STENCILFUNC;
-		data.stencilFunc.enabled = false;
-		// When enabled = false, the others aren't read so we don't zero-initialize them.
+		data.cmd = GLRRenderCommand::STENCIL;
+		data.stencil.enabled = false;
 	}
 
 	void SetBlendFactor(const float color[4]) {

@@ -180,8 +180,9 @@ public:
 
 	void Apply(GLRenderManager *render, uint8_t stencilRef, uint8_t stencilWriteMask, uint8_t stencilCompareMask) {
 		render->SetDepth(depthTestEnabled, depthWriteEnabled, depthComp);
-		render->SetStencilFunc(stencilEnabled, stencilCompareOp, stencilRef, stencilCompareMask);
-		render->SetStencilOp(stencilWriteMask, stencilFail, stencilZFail, stencilPass);
+		render->SetStencil(
+			stencilEnabled, stencilCompareOp, stencilRef, stencilCompareMask,
+			stencilWriteMask, stencilFail, stencilZFail, stencilPass);
 	}
 };
 
@@ -407,12 +408,11 @@ public:
 		stencilWriteMask_ = writeMask;
 		stencilCompareMask_ = compareMask;
 		// Do we need to update on the fly here?
-		renderManager_.SetStencilFunc(
+		renderManager_.SetStencil(
 			curPipeline_->depthStencil->stencilEnabled,
 			curPipeline_->depthStencil->stencilCompareOp,
 			refValue,
-			compareMask);
-		renderManager_.SetStencilOp(
+			compareMask,
 			writeMask,
 			curPipeline_->depthStencil->stencilFail,
 			curPipeline_->depthStencil->stencilZFail,

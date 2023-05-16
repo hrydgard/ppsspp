@@ -862,22 +862,20 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step, bool first, bool last
 				depthEnabled = false;
 			}
 			break;
-		case GLRRenderCommand::STENCILFUNC:
-			if (c.stencilFunc.enabled) {
+		case GLRRenderCommand::STENCIL:
+			if (c.stencil.enabled) {
 				if (!stencilEnabled) {
 					glEnable(GL_STENCIL_TEST);
 					stencilEnabled = true;
 				}
-				glStencilFunc(c.stencilFunc.func, c.stencilFunc.ref, c.stencilFunc.compareMask);
+				glStencilFunc(c.stencil.func, c.stencil.ref, c.stencil.compareMask);
+				glStencilOp(c.stencil.sFail, c.stencil.zFail, c.stencil.pass);
+				glStencilMask(c.stencil.writeMask);
 			} else if (/* !c.stencilFunc.enabled && */stencilEnabled) {
 				glDisable(GL_STENCIL_TEST);
 				stencilEnabled = false;
 			}
 			CHECK_GL_ERROR_IF_DEBUG();
-			break;
-		case GLRRenderCommand::STENCILOP:
-			glStencilOp(c.stencilOp.sFail, c.stencilOp.zFail, c.stencilOp.pass);
-			glStencilMask(c.stencilOp.writeMask);
 			break;
 		case GLRRenderCommand::BLEND:
 			if (c.blend.enabled) {
