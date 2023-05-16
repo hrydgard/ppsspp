@@ -302,6 +302,7 @@ void DrawEngineGLES::ApplyDrawState(int prim) {
 void DrawEngineGLES::ApplyDrawStateLate(bool setStencilValue, int stencilValue) {
 	if (setStencilValue) {
 		render_->SetStencilFunc(GL_TRUE, GL_ALWAYS, stencilValue, 255);
+		render_->SetStencilOp(0xFF, GL_REPLACE, GL_REPLACE, GL_REPLACE);
 	}
 
 	// At this point, we know if the vertices are full alpha or not.
