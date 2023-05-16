@@ -93,6 +93,20 @@ std::vector<std::string> ParamSFOData::GetKeys() const {
 	return result;
 }
 
+std::string ParamSFOData::GetDiscID() {
+	const std::string discID = GetValueString("DISC_ID");
+	if (discID.empty()) {
+		std::string fakeID = GenerateFakeID();
+		WARN_LOG(LOADER, "No DiscID found - generating a fake one: '%s' (from %s)", fakeID.c_str(), PSP_CoreParameter().fileToStart.c_str());
+		ValueData data;
+		data.type = VT_UTF8;
+		data.s_value = fakeID;
+		values["DISC_ID"] = data;
+		return fakeID;
+	}
+	return discID;
+}
+
 // I'm so sorry Ced but this is highly endian unsafe :(
 bool ParamSFOData::ReadSFO(const u8 *paramsfo, size_t size) {
 	if (size < sizeof(Header))
@@ -319,7 +333,12 @@ std::string ParamSFOData::GenerateFakeID(std::string filename) const {
 	int sumOfAllLetters = 0;
 	for (char &c : file) {
 		sumOfAllLetters += c;
-		c = toupper(c);
+		// Get rid of some garbage characters than can arise when opening content URIs. Well, I've only seen '%', but...
+		if (strchr("%() []", c) != nullptr) {
+			c = 'X';
+		} else {
+			c = toupper(c);
+		}
 	}
 
 	if (file.size() < 4) {

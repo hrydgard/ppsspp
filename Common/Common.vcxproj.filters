@@ -497,6 +497,9 @@
     <ClInclude Include="System\Request.h">
       <Filter>System</Filter>
     </ClInclude>
+    <ClInclude Include="File\AndroidContentURI.h">
+      <Filter>File</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="ABI.cpp" />
@@ -925,6 +928,9 @@
     </ClCompile>
     <ClCompile Include="System\Request.cpp">
       <Filter>System</Filter>
+    </ClCompile>
+    <ClCompile Include="File\AndroidContentURI.cpp">
+      <Filter>File</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

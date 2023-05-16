@@ -9,7 +9,7 @@
 
 using namespace PPSSPP_VK;
 
-// Debug help: adb logcat -s DEBUG PPSSPPNativeActivity PPSSPP NativeGLView NativeRenderer NativeSurfaceView PowerSaveModeReceiver InputDeviceState
+// Debug help: adb logcat -s DEBUG AndroidRuntime PPSSPPNativeActivity PPSSPP NativeGLView NativeRenderer NativeSurfaceView PowerSaveModeReceiver InputDeviceState PpssppActivity CameraHelper
 
 static void MergeRenderAreaRectInto(VkRect2D *dest, const VkRect2D &src) {
 	if (dest->offset.x > src.offset.x) {

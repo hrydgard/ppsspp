@@ -432,6 +432,9 @@
     <ClCompile Include="..\..\Common\System\Request.cpp">
       <Filter>System</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\Common\File\AndroidContentURI.cpp">
+      <Filter>File</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="targetver.h" />
@@ -816,6 +819,9 @@
     </ClInclude>
     <ClInclude Include="..\..\Common\System\Request.h">
       <Filter>System</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\File\AndroidContentURI.h">
+      <Filter>File</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
