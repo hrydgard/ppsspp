@@ -47,9 +47,11 @@
 #endif
 
 #include "Common/Data/Collections/TinySet.h"
+#include "Common/Data/Collections/FastVec.h"
 #include "Common/Data/Convert/SmallDataConvert.h"
 #include "Common/Data/Text/Parsers.h"
 #include "Common/Data/Text/WrapText.h"
+#include "Common/Data/Collections/FastVec.h"
 #include "Common/Data/Encoding/Utf8.h"
 #include "Common/File/Path.h"
 #include "Common/Input/InputState.h"
@@ -362,6 +364,25 @@ bool TestTinySet() {
 	EXPECT_EQ_INT((int)b.size(), 8);
 	b.push_back(13);
 	EXPECT_EQ_INT(b.size(), 9);
+	return true;
+}
+
+bool TestFastVec() {
+	FastVec<int> a;
+	EXPECT_EQ_INT((int)a.size(), 0);
+	a.push_back(1);
+	EXPECT_EQ_INT((int)a.size(), 1);
+	a.push_back(2);
+	EXPECT_EQ_INT((int)a.size(), 2);
+	FastVec<int> b;
+	b.push_back(8);
+	b.push_back(9);
+	b.push_back(10);
+	EXPECT_EQ_INT((int)b.size(), 3);
+	for (int i = 0; i < 100; i++) {
+		b.push_back(33);
+	}
+	EXPECT_EQ_INT((int)b.size(), 103);
 	return true;
 }
 
@@ -977,6 +998,7 @@ TestItem availableTests[] = {
 	TEST_ITEM(ThreadManager),
 	TEST_ITEM(WrapText),
 	TEST_ITEM(TinySet),
+	TEST_ITEM(FastVec),
 	TEST_ITEM(SmallDataConvert),
 	TEST_ITEM(DepthMath),
 	TEST_ITEM(InputMapping),

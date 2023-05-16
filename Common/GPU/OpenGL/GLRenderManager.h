@@ -208,7 +208,7 @@ struct GLRRenderThreadTask {
 	GLRRenderThreadTask(GLRRunType _runType) : runType(_runType) {}
 
 	std::vector<GLRStep *> steps;
-	std::vector<GLRInitStep> initSteps;
+	FastVec<GLRInitStep> initSteps;
 
 	int frame = -1;
 	GLRRunType runType;
@@ -225,6 +225,9 @@ class GLRenderManager {
 public:
 	GLRenderManager();
 	~GLRenderManager();
+
+	GLRenderManager(GLRenderManager &) = delete;
+	GLRenderManager &operator=(GLRenderManager &) = delete;
 
 	void SetInvalidationCallback(InvalidationCallback callback) {
 		invalidationCallback_ = callback;
@@ -859,7 +862,7 @@ private:
 
 	GLRStep *curRenderStep_ = nullptr;
 	std::vector<GLRStep *> steps_;
-	std::vector<GLRInitStep> initSteps_;
+	FastVec<GLRInitStep> initSteps_;
 
 	// Execution time state
 	bool run_ = true;

@@ -135,13 +135,12 @@ bool GLRenderManager::ThreadFrame() {
 	while (true) {
 		// Pop a task of the queue and execute it.
 		// NOTE: We need to actually wait for a task, we can't just bail!
-
 		{
 			std::unique_lock<std::mutex> lock(pushMutex_);
 			while (renderThreadQueue_.empty()) {
 				pushCondVar_.wait(lock);
 			}
-			task = renderThreadQueue_.front();
+			task = std::move(renderThreadQueue_.front());
 			renderThreadQueue_.pop();
 		}
 

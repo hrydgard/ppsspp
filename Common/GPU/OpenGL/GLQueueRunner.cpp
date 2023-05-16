@@ -118,7 +118,7 @@ static std::string GetStereoBufferLayout(const char *uniformName) {
 	else return "undefined";
 }
 
-void GLQueueRunner::RunInitSteps(const std::vector<GLRInitStep> &steps, bool skipGLCalls) {
+void GLQueueRunner::RunInitSteps(const FastVec<GLRInitStep> &steps, bool skipGLCalls) {
 	if (skipGLCalls) {
 		// Some bookkeeping still needs to be done.
 		for (size_t i = 0; i < steps.size(); i++) {

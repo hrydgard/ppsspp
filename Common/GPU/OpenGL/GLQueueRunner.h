@@ -11,7 +11,7 @@
 #include "Common/GPU/Shader.h"
 #include "Common/GPU/thin3d.h"
 #include "Common/Data/Collections/TinySet.h"
-
+#include "Common/Data/Collections/FastVec.h"
 
 struct GLRViewport {
 	float x, y, w, h, minZ, maxZ;
@@ -354,7 +354,7 @@ public:
 		caps_ = caps;
 	}
 
-	void RunInitSteps(const std::vector<GLRInitStep> &steps, bool skipGLCalls);
+	void RunInitSteps(const FastVec<GLRInitStep> &steps, bool skipGLCalls);
 
 	void RunSteps(const std::vector<GLRStep *> &steps, bool skipGLCalls, bool keepSteps, bool useVR);
 
