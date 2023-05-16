@@ -18,10 +18,10 @@ public:
 	}
 	~FastVec() { if (data_) free(data_); }
 
-	T *push_back() {
+	T &push_uninitialized() {
 		if (size_ < capacity_) {
 			size_++;
-			return data_ + size_ - 1;
+			return data_[size_ - 1];
 		} else {
 			T *oldData = data_;
 			size_t newCapacity = capacity_ * 2;
@@ -35,13 +35,13 @@ public:
 			}
 			size_++;
 			capacity_ = newCapacity;
-			return data_ + size_ - 1;
+			return data_[size_ - 1];
 		}
 	}
 
 	void push_back(const T &t) {
-		T *dest = push_back();
-		*dest = t;
+		T &dest = push_uninitialized();
+		dest = t;
 	}
 
 	// Move constructor
