@@ -46,6 +46,7 @@
 #include "Core/System.h"
 #include "Core/Replay.h"
 #include "Core/Reporting.h"
+#include "Core/ELF/ParamSFO.h"
 
 #ifdef _WIN32
 #include "Common/CommonWindows.h"
@@ -830,9 +831,22 @@ std::vector<PSPFileInfo> DirectoryFileSystem::GetDirListing(const std::string &p
 		} else {
 			entry.name = file.name;
 		}
-		if (hideISOFiles && (endsWithNoCase(entry.name, ".cso") || endsWithNoCase(entry.name, ".iso"))) {
-			// Workaround for DJ Max Portable, see compat.ini.
-			continue;
+		if (hideISOFiles) {
+			if (endsWithNoCase(entry.name, ".cso") || endsWithNoCase(entry.name, ".iso")) {
+				// Workaround for DJ Max Portable, see compat.ini.
+				continue;
+			} else if (file.isDirectory) {
+				if (endsWithNoCase(path, "SAVEDATA")) {
+					// Don't let it see savedata from other games, it can misinterpret stuff.
+					std::string gameID = g_paramSFO.GetDiscID();
+					if (entry.name.size() > 2 && !startsWithNoCase(entry.name, gameID)) {
+						continue;
+					}
+				} else if (file.name == "GAME" || file.name == "TEXTURES" || file.name == "PPSSPP_STATE" || equalsNoCase(file.name, "Cheats")) {
+					// The game scans these folders on startup which can take time. Skip them.
+					continue;
+				}
+			}
 		}
 		if (file.name == "..") {
 			entry.size = 4096;
