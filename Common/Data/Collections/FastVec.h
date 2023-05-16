@@ -73,6 +73,8 @@ public:
 	// Out of bounds (past size() - 1) is undefined behavior.
 	T &operator[] (const size_t index) { return data_[index]; }
 	const T &operator[] (const size_t index) const { return data_[index]; }
+	T &at(const size_t index) { return data_[index]; }
+	const T &at(const size_t index) const { return data_[index]; }
 
 	// These two are invalid if empty().
 	const T &back() const { return (*this)[size() - 1]; }
@@ -88,18 +90,35 @@ public:
 		return data_[pos];
 	}
 
+	void insert(T *destIter, const T *beginIter, const T *endIter) {
+		int pos = destIter - data_;
+		if (beginIter == endIter)
+			return;
+		size_t newItems = endIter - beginIter;
+		IncreaseCapacityTo(size_ + newItems);
+		memmove(data_ + pos + newItems, data_ + pos, (size_ - pos) * sizeof(T));
+		memcpy(data_ + pos, beginIter, newItems * sizeof(T));
+		size_ += newItems;
+	}
+
 private:
-	void ExtendByOne() {
+	void IncreaseCapacityTo(size_t newCapacity) {
+		if (newCapacity <= capacity_)
+			return;
 		T *oldData = data_;
-		size_t newCapacity = capacity_ * 2;
-		if (newCapacity < 16) {
-			newCapacity = 16;
-		}
 		data_ = (T *)malloc(sizeof(T) * newCapacity);
 		if (capacity_ != 0) {
 			memcpy(data_, oldData, sizeof(T) * size_);
 			free(oldData);
 		}
+	}
+
+	void ExtendByOne() {
+		size_t newCapacity = capacity_ * 2;
+		if (newCapacity < 16) {
+			newCapacity = 16;
+		}
+		IncreaseCapacityTo(newCapacity);
 		size_++;
 		capacity_ = newCapacity;
 	}

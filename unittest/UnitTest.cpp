@@ -51,7 +51,6 @@
 #include "Common/Data/Convert/SmallDataConvert.h"
 #include "Common/Data/Text/Parsers.h"
 #include "Common/Data/Text/WrapText.h"
-#include "Common/Data/Collections/FastVec.h"
 #include "Common/Data/Encoding/Utf8.h"
 #include "Common/File/Path.h"
 #include "Common/Input/InputState.h"
@@ -383,6 +382,16 @@ bool TestFastVec() {
 		b.push_back(33);
 	}
 	EXPECT_EQ_INT((int)b.size(), 103);
+
+	int items[4] = { 50, 60, 70, 80 };
+	b.insert(b.begin() + 1, items, items + 4);
+	EXPECT_EQ_INT(b[0], 8);
+	EXPECT_EQ_INT(b[1], 50);
+	EXPECT_EQ_INT(b[2], 60);
+	EXPECT_EQ_INT(b[3], 70);
+	EXPECT_EQ_INT(b[4], 80);
+	EXPECT_EQ_INT(b[5], 9);
+
 	return true;
 }
 
