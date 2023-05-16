@@ -240,7 +240,8 @@ public:
 	void BindPipeline(VKRGraphicsPipeline *pipeline, PipelineFlags flags, VkPipelineLayout pipelineLayout) {
 		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == VKRStepType::RENDER);
 		_dbg_assert_(pipeline != nullptr);
-		VkRenderData data{ VKRRenderCommand::BIND_GRAPHICS_PIPELINE };
+		VkRenderData &data = curRenderStep_->commands.push_uninitialized();
+		data.cmd = VKRRenderCommand::BIND_GRAPHICS_PIPELINE;
 		pipelinesToCheck_.push_back(pipeline);
 		data.graphics_pipeline.pipeline = pipeline;
 		data.graphics_pipeline.pipelineLayout = pipelineLayout;
@@ -249,24 +250,24 @@ public:
 		//     DebugBreak();
 		// }
 		curPipelineFlags_ |= flags;
-		curRenderStep_->commands.push_back(data);
 	}
 
 	void BindPipeline(VKRComputePipeline *pipeline, PipelineFlags flags, VkPipelineLayout pipelineLayout) {
 		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == VKRStepType::RENDER);
 		_dbg_assert_(pipeline != nullptr);
-		VkRenderData data{ VKRRenderCommand::BIND_COMPUTE_PIPELINE };
+		VkRenderData &data = curRenderStep_->commands.push_uninitialized();
+		data.cmd = VKRRenderCommand::BIND_COMPUTE_PIPELINE;
 		data.compute_pipeline.pipeline = pipeline;
 		data.compute_pipeline.pipelineLayout = pipelineLayout;
 		curPipelineFlags_ |= flags;
-		curRenderStep_->commands.push_back(data);
 	}
 
 	void SetViewport(const VkViewport &vp) {
 		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == VKRStepType::RENDER);
 		_dbg_assert_((int)vp.width >= 0);
 		_dbg_assert_((int)vp.height >= 0);
-		VkRenderData data{ VKRRenderCommand::VIEWPORT };
+		VkRenderData &data = curRenderStep_->commands.push_uninitialized();
+		data.cmd = VKRRenderCommand::VIEWPORT;
 		data.viewport.vp.x = vp.x;
 		data.viewport.vp.y = vp.y;
 		data.viewport.vp.width = vp.width;
@@ -276,7 +277,6 @@ public:
 		// TODO: This should be fixed at the source.
 		data.viewport.vp.minDepth = clamp_value(vp.minDepth, 0.0f, 1.0f);
 		data.viewport.vp.maxDepth = clamp_value(vp.maxDepth, 0.0f, 1.0f);
-		curRenderStep_->commands.push_back(data);
 		curStepHasViewport_ = true;
 	}
 
@@ -318,37 +318,37 @@ public:
 
 		curRenderArea_.Apply(rc);
 
-		VkRenderData data{ VKRRenderCommand::SCISSOR };
+		VkRenderData &data = curRenderStep_->commands.push_uninitialized();
+		data.cmd = VKRRenderCommand::SCISSOR;
 		data.scissor.scissor = rc;
-		curRenderStep_->commands.push_back(data);
 		curStepHasScissor_ = true;
 	}
 
 	void SetStencilParams(uint8_t writeMask, uint8_t compareMask, uint8_t refValue) {
 		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == VKRStepType::RENDER);
-		VkRenderData data{ VKRRenderCommand::STENCIL };
+		VkRenderData &data = curRenderStep_->commands.push_uninitialized();
+		data.cmd = VKRRenderCommand::STENCIL;
 		data.stencil.stencilWriteMask = writeMask;
 		data.stencil.stencilCompareMask = compareMask;
 		data.stencil.stencilRef = refValue;
-		curRenderStep_->commands.push_back(data);
 	}
 
 	void SetBlendFactor(uint32_t color) {
 		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == VKRStepType::RENDER);
-		VkRenderData data{ VKRRenderCommand::BLEND };
+		VkRenderData &data = curRenderStep_->commands.push_uninitialized();
+		data.cmd = VKRRenderCommand::BLEND;
 		data.blendColor.color = color;
-		curRenderStep_->commands.push_back(data);
 	}
 
 	void PushConstants(VkPipelineLayout pipelineLayout, VkShaderStageFlags stages, int offset, int size, void *constants) {
 		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == VKRStepType::RENDER);
 		_dbg_assert_(size + offset < 40);
-		VkRenderData data{ VKRRenderCommand::PUSH_CONSTANTS };
+		VkRenderData &data = curRenderStep_->commands.push_uninitialized();
+		data.cmd = VKRRenderCommand::PUSH_CONSTANTS;
 		data.push.stages = stages;
 		data.push.offset = offset;
 		data.push.size = size;
 		memcpy(data.push.data, constants, size);
-		curRenderStep_->commands.push_back(data);
 	}
 
 	void Clear(uint32_t clearColor, float clearZ, int clearStencil, int clearMask);
@@ -380,7 +380,8 @@ public:
 
 	void Draw(VkDescriptorSet descSet, int numUboOffsets, const uint32_t *uboOffsets, VkBuffer vbuffer, int voffset, int count, int offset = 0) {
 		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == VKRStepType::RENDER && curStepHasViewport_ && curStepHasScissor_);
-		VkRenderData data{ VKRRenderCommand::DRAW };
+		VkRenderData &data = curRenderStep_->commands.push_uninitialized();
+		data.cmd = VKRRenderCommand::DRAW;
 		data.draw.count = count;
 		data.draw.offset = offset;
 		data.draw.ds = descSet;
@@ -390,13 +391,13 @@ public:
 		_dbg_assert_(numUboOffsets <= ARRAY_SIZE(data.draw.uboOffsets));
 		for (int i = 0; i < numUboOffsets; i++)
 			data.draw.uboOffsets[i] = uboOffsets[i];
-		curRenderStep_->commands.push_back(data);
 		curRenderStep_->render.numDraws++;
 	}
 
 	void DrawIndexed(VkDescriptorSet descSet, int numUboOffsets, const uint32_t *uboOffsets, VkBuffer vbuffer, int voffset, VkBuffer ibuffer, int ioffset, int count, int numInstances, VkIndexType indexType) {
 		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == VKRStepType::RENDER && curStepHasViewport_ && curStepHasScissor_);
-		VkRenderData data{ VKRRenderCommand::DRAW_INDEXED };
+		VkRenderData &data = curRenderStep_->commands.push_uninitialized();
+		data.cmd = VKRRenderCommand::DRAW_INDEXED;
 		data.drawIndexed.count = count;
 		data.drawIndexed.instances = numInstances;
 		data.drawIndexed.ds = descSet;
@@ -409,7 +410,6 @@ public:
 		for (int i = 0; i < numUboOffsets; i++)
 			data.drawIndexed.uboOffsets[i] = uboOffsets[i];
 		data.drawIndexed.indexType = indexType;
-		curRenderStep_->commands.push_back(data);
 		curRenderStep_->render.numDraws++;
 	}
 
@@ -417,9 +417,9 @@ public:
 	// in the debugger.
 	void DebugAnnotate(const char *annotation) {
 		_dbg_assert_(curRenderStep_);
-		VkRenderData data{ VKRRenderCommand::DEBUG_ANNOTATION };
+		VkRenderData &data = curRenderStep_->commands.push_uninitialized();
+		data.cmd = VKRRenderCommand::DEBUG_ANNOTATION;
 		data.debugAnnotation.annotation = annotation;
-		curRenderStep_->commands.push_back(data);
 	}
 
 	VkCommandBuffer GetInitCmd();

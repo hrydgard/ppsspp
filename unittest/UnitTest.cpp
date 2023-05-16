@@ -392,6 +392,16 @@ bool TestFastVec() {
 	EXPECT_EQ_INT(b[4], 80);
 	EXPECT_EQ_INT(b[5], 9);
 
+	b.resize(2);
+	b.insert(b.end(), items, items + 4);
+	EXPECT_EQ_INT(b[0], 8);
+	EXPECT_EQ_INT(b[1], 50);
+	EXPECT_EQ_INT(b[2], 50);
+	EXPECT_EQ_INT(b[3], 60);
+	EXPECT_EQ_INT(b[4], 70);
+	EXPECT_EQ_INT(b[5], 80);
+
+
 	return true;
 }
 

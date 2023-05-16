@@ -101,6 +101,14 @@ public:
 		size_ += newItems;
 	}
 
+	void resize(size_t size) {
+		if (size < size_) {
+			size_ = size;
+		} else {
+			// TODO
+		}
+	}
+
 private:
 	void IncreaseCapacityTo(size_t newCapacity) {
 		if (newCapacity <= capacity_)
@@ -123,7 +131,7 @@ private:
 		capacity_ = newCapacity;
 	}
 
-	T *data_ = nullptr;
 	size_t size_ = 0;
 	size_t capacity_ = 0;
+	T *data_ = nullptr;
 };
