@@ -25,7 +25,7 @@ struct GLOffset2D {
 	int x, y;
 };
 
-enum class GLRAllocType {
+enum class GLRAllocType : uint8_t {
 	NONE,
 	NEW,
 	ALIGNED,
@@ -127,8 +127,13 @@ struct GLRRenderData {
 		struct {
 			const char *name;  // if null, use loc
 			const GLint *loc;
-			float m[32];
+			float m[16];
 		} uniformMatrix4;
+		struct {
+			const char *name;  // if null, use loc
+			const GLint *loc;
+			float *mData;  // new'd, 32 entries
+		} uniformStereoMatrix4;
 		struct {
 			uint32_t clearColor;
 			float clearZ;

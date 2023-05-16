@@ -1038,27 +1038,33 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step, bool first, bool last
 		{
 			_dbg_assert_(curProgram);
 			if (IsMultiviewSupported()) {
-				int layout = GetStereoBufferIndex(c.uniformMatrix4.name);
+				int layout = GetStereoBufferIndex(c.uniformStereoMatrix4.name);
 				if (layout >= 0) {
 					int size = 2 * 16 * sizeof(float);
-					glBindBufferBase(GL_UNIFORM_BUFFER, layout, *c.uniformMatrix4.loc);
-					glBindBuffer(GL_UNIFORM_BUFFER, *c.uniformMatrix4.loc);
+					glBindBufferBase(GL_UNIFORM_BUFFER, layout, *c.uniformStereoMatrix4.loc);
+					glBindBuffer(GL_UNIFORM_BUFFER, *c.uniformStereoMatrix4.loc);
 					void *matrices = glMapBufferRange(GL_UNIFORM_BUFFER, 0, size, GL_MAP_WRITE_BIT | GL_MAP_INVALIDATE_BUFFER_BIT);
-					memcpy(matrices, c.uniformMatrix4.m, size);
+					memcpy(matrices, c.uniformStereoMatrix4.mData, size);
 					glUnmapBuffer(GL_UNIFORM_BUFFER);
 					glBindBuffer(GL_UNIFORM_BUFFER, 0);
 				}
+				delete[] c.uniformStereoMatrix4.mData;  // We only playback once.
 			} else {
-				int loc = c.uniformMatrix4.loc ? *c.uniformMatrix4.loc : -1;
-				if (c.uniformMatrix4.name) {
-					loc = curProgram->GetUniformLoc(c.uniformMatrix4.name);
+				int loc = c.uniformStereoMatrix4.loc ? *c.uniformStereoMatrix4.loc : -1;
+				if (c.uniformStereoMatrix4.name) {
+					loc = curProgram->GetUniformLoc(c.uniformStereoMatrix4.name);
 				}
 				if (loc >= 0) {
 					if (GetVRFBOIndex() == 0) {
-						glUniformMatrix4fv(loc, 1, false, c.uniformMatrix4.m);
+						glUniformMatrix4fv(loc, 1, false, c.uniformStereoMatrix4.mData);
 					} else {
-						glUniformMatrix4fv(loc, 1, false, &c.uniformMatrix4.m[16]);
+						glUniformMatrix4fv(loc, 1, false, c.uniformStereoMatrix4.mData + 16);
 					}
+				}
+				if (GetVRFBOIndex() == 1 || GetVRPassesCount() == 1) {
+					// Only delete the data if we're rendering the only or the second eye.
+					// If we delete during the first eye, we get a use-after-free or double delete.
+					delete[] c.uniformStereoMatrix4.mData;
 				}
 			}
 			CHECK_GL_ERROR_IF_DEBUG();

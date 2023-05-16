@@ -41,6 +41,11 @@ GLRTexture::~GLRTexture() {
 	}
 }
 
+GLRenderManager::GLRenderManager() {
+	// size_t sz = sizeof(GLRRenderData);
+	// _dbg_assert_(sz == 88);
+}
+
 GLRenderManager::~GLRenderManager() {
 	_dbg_assert_(!run_);
 
