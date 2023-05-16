@@ -311,8 +311,6 @@ struct GLRStep {
 			GLRRenderPassAction color;
 			GLRRenderPassAction depth;
 			GLRRenderPassAction stencil;
-			// Note: not accurate.
-			int numDraws;
 		} render;
 		struct {
 			GLRFramebuffer *src;

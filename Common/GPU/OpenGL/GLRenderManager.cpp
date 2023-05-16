@@ -215,7 +215,6 @@ void GLRenderManager::BindFramebufferAsRenderTarget(GLRFramebuffer *fb, GLRRende
 	step->render.color = color;
 	step->render.depth = depth;
 	step->render.stencil = stencil;
-	step->render.numDraws = 0;
 	step->tag = tag;
 	steps_.push_back(step);
 

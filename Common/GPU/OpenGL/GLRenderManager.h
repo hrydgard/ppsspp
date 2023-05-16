@@ -757,7 +757,6 @@ public:
 		data.draw.count = count;
 		data.draw.indexType = 0;
 		curRenderStep_->commands.push_back(data);
-		curRenderStep_->render.numDraws++;
 	}
 
 	void DrawIndexed(GLRInputLayout *inputLayout, GLRBuffer *buffer, size_t offset, GLRBuffer *indexBuffer, GLenum mode, int count, GLenum indexType, void *indices, int instances = 1) {
@@ -773,7 +772,6 @@ public:
 		data.draw.indices = indices;
 		data.draw.instances = instances;
 		curRenderStep_->commands.push_back(data);
-		curRenderStep_->render.numDraws++;
 	}
 
 	enum { MAX_INFLIGHT_FRAMES = 3 };
