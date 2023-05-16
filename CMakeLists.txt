@@ -614,6 +614,8 @@ add_library(Common STATIC
 	Common/File/VFS/DirectoryReader.h
 	Common/File/AndroidStorage.h
 	Common/File/AndroidStorage.cpp
+	Common/File/AndroidContentURI.h
+	Common/File/AndroidContentURI.cpp
 	Common/File/DiskFree.h
 	Common/File/DiskFree.cpp
 	Common/File/Path.h

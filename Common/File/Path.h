@@ -133,6 +133,8 @@ private:
 	PathType type_;
 };
 
+// Utility function for parsing out file extensions.
+std::string GetExtFromString(const std::string &str);
 
 // Utility function for fixing the case of paths. Only present on Unix-like systems.
 

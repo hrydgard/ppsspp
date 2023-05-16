@@ -1196,7 +1196,9 @@ public abstract class NativeActivity extends Activity {
 				String path = selectedDirectoryUri.toString();
 				Log.i(TAG, "Browse folder finished: " + path);
 				try {
-					getContentResolver().takePersistableUriPermission(selectedDirectoryUri, Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+					if (Build.VERSION.SDK_INT >= 19) {
+						getContentResolver().takePersistableUriPermission(selectedDirectoryUri, Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+					}
 				} catch (Exception e) {
 					Log.w(TAG, "Exception getting permissions for document: " + e.toString());
 				}

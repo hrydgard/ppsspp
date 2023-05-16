@@ -276,6 +276,7 @@ SOURCES_CXX += \
 	$(COMMONDIR)/File/VFS/DirectoryReader.cpp \
 	$(COMMONDIR)/File/VFS/ZipFileReader.cpp \
 	$(COMMONDIR)/File/AndroidStorage.cpp \
+	$(COMMONDIR)/File/AndroidContentURI.cpp \
 	$(COMMONDIR)/File/DiskFree.cpp \
 	$(COMMONDIR)/File/Path.cpp \
 	$(COMMONDIR)/File/PathBrowser.cpp \

@@ -434,6 +434,7 @@
     <ClInclude Include="Data\Text\Parsers.h" />
     <ClInclude Include="Data\Text\WrapText.h" />
     <ClInclude Include="FakeEmitter.h" />
+    <ClInclude Include="File\AndroidContentURI.h" />
     <ClInclude Include="File\AndroidStorage.h" />
     <ClInclude Include="File\DirListing.h" />
     <ClInclude Include="File\DiskFree.h" />
@@ -874,6 +875,7 @@
     <ClCompile Include="Data\Text\I18n.cpp" />
     <ClCompile Include="Data\Text\Parsers.cpp" />
     <ClCompile Include="Data\Text\WrapText.cpp" />
+    <ClCompile Include="File\AndroidContentURI.cpp" />
     <ClCompile Include="File\AndroidStorage.cpp" />
     <ClCompile Include="File\DirListing.cpp" />
     <ClCompile Include="File\DiskFree.cpp" />

@@ -73,7 +73,7 @@
 #include "GPU/Common/TextureDecoder.h"
 #include "GPU/Common/GPUStateUtils.h"
 
-#include "android/jni/AndroidContentURI.h"
+#include "Common/File/AndroidContentURI.h"
 
 #include "unittest/JitHarness.h"
 #include "unittest/TestVertexJit.h"
@@ -692,7 +692,7 @@ static bool TestAndroidContentURI() {
 	static const char *directoryURIString = "content://com.android.externalstorage.documents/tree/primary%3APSP%20ISO/document/primary%3APSP%20ISO";
 	static const char *fileTreeURIString = "content://com.android.externalstorage.documents/tree/primary%3APSP%20ISO/document/primary%3APSP%20ISO%2FTekken%206.iso";
 	static const char *fileNonTreeString = "content://com.android.externalstorage.documents/document/primary%3APSP%2Fcrash_bad_execaddr.prx";
-
+	static const char *downloadURIString = "content://com.android.providers.downloads.documents/document/msf%3A10000000006";
 
 	AndroidContentURI treeURI;
 	EXPECT_TRUE(treeURI.Parse(std::string(treeURIString)));
@@ -724,6 +724,12 @@ static bool TestAndroidContentURI() {
 	EXPECT_EQ_STR(fileURI.GetFileExtension(), std::string(".prx"));
 	EXPECT_FALSE(fileURI.CanNavigateUp());
 
+	// These are annoying because they hide the actual filename, and we can't get at a parent folder,
+	// which confuses our elf loading.
+	AndroidContentURI downloadURI;
+	EXPECT_TRUE(downloadURI.Parse(std::string(downloadURIString)));
+	EXPECT_EQ_STR(downloadURI.GetLastPart(), std::string("10000000006"));
+	EXPECT_FALSE(downloadURI.CanNavigateUp());
 	return true;
 }
 

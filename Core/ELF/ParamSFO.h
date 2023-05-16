@@ -38,19 +38,7 @@ public:
 	std::vector<std::string> GetKeys() const;
 	std::string GenerateFakeID(std::string filename = "") const;
 
-	std::string GetDiscID() {
-		const std::string discID = GetValueString("DISC_ID");
-		if (discID.empty()) {
-			std::string fakeID = GenerateFakeID();
-			WARN_LOG(LOADER, "No DiscID found - generating a fake one: '%s'", fakeID.c_str());
-			ValueData data;
-			data.type = VT_UTF8;
-			data.s_value = fakeID;
-			values["DISC_ID"] = data;
-			return fakeID;
-		}
-		return discID;
-	}
+	std::string GetDiscID();
 
 	bool ReadSFO(const u8 *paramsfo, size_t size);
 	bool WriteSFO(u8 **paramsfo, size_t *size) const;

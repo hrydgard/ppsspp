@@ -25,7 +25,6 @@
 #include "ppsspp_config.h"
 
 #include "android/jni/app-android.h"
-#include "android/jni/AndroidContentURI.h"
 
 #ifdef __MINGW32__
 #include <unistd.h>
@@ -33,12 +32,14 @@
 #define _POSIX_THREAD_SAFE_FUNCTIONS 200112L
 #endif
 #endif
+
 #include <cstring>
 #include <ctime>
 #include <memory>
 
 #include "Common/Log.h"
 #include "Common/LogReporting.h"
+#include "Common/File/AndroidContentURI.h"
 #include "Common/File/FileUtil.h"
 #include "Common/StringUtils.h"
 #include "Common/SysError.h"

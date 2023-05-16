@@ -17,7 +17,6 @@
 
 #if PPSSPP_PLATFORM(ANDROID)
 #include "android/jni/app-android.h"
-#include "android/jni/AndroidContentURI.h"
 #endif
 
 bool LoadRemoteFileList(const Path &url, const std::string &userAgent, bool *cancel, std::vector<File::FileInfo> &files) {

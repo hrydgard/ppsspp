@@ -55,6 +55,7 @@
 #include "UI/Theme.h"
 
 #include "Common/File/FileUtil.h"
+#include "Common/File/AndroidContentURI.h"
 #include "Common/OSVersion.h"
 #include "Common/TimeUtil.h"
 #include "Common/StringUtils.h"
@@ -88,7 +89,6 @@
 #if PPSSPP_PLATFORM(ANDROID)
 
 #include "android/jni/AndroidAudio.h"
-#include "android/jni/AndroidContentURI.h"
 
 extern AndroidAudioState *g_audioState;
 
