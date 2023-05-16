@@ -203,14 +203,19 @@ enum class GLRRunType {
 class GLRenderManager;
 class GLPushBuffer;
 
-// These are enqueued from the main thread,
-// and the render thread pops them off
+// These are enqueued from the main thread, and the render thread pops them off
 struct GLRRenderThreadTask {
+	GLRRenderThreadTask(GLRRunType _runType) : runType(_runType) {}
+
 	std::vector<GLRStep *> steps;
 	std::vector<GLRInitStep> initSteps;
 
-	int frame;
+	int frame = -1;
 	GLRRunType runType;
+
+	// Avoid copying these by accident.
+	GLRRenderThreadTask(GLRRenderThreadTask &) = delete;
+	GLRRenderThreadTask& operator =(GLRRenderThreadTask &) = delete;
 };
 
 // Note: The GLRenderManager is created and destroyed on the render thread, and the latter
@@ -866,7 +871,7 @@ private:
 	std::mutex pushMutex_;
 	std::condition_variable pushCondVar_;
 
-	std::queue<GLRRenderThreadTask> renderThreadQueue_;
+	std::queue<GLRRenderThreadTask *> renderThreadQueue_;
 
 	// For readbacks and other reasons we need to sync with the render thread.
 	std::mutex syncMutex_;
