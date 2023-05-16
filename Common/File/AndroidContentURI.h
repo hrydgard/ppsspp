@@ -66,4 +66,8 @@ public:
 	const std::string &RootPath() const {
 		return root.empty() ? file : root;
 	}
+
+	bool IsTreeURI() const {
+		return !root.empty();
+	}
 };

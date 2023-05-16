@@ -62,7 +62,16 @@ AndroidContentURI AndroidContentURI::WithRootFilePath(const std::string &filePat
 
 AndroidContentURI AndroidContentURI::WithComponent(const std::string &filePath) {
 	AndroidContentURI uri = *this;
-	uri.file = uri.file + "/" + filePath;
+	if (uri.file.empty()) {
+		// Not sure what to do.
+		return uri;
+	}
+	if (uri.file.back() == ':') {
+		// Special case handling for Document URIs: Treat the ':' as a directory separator too (but preserved in the filename).
+		uri.file = uri.file + filePath;
+	} else {
+		uri.file = uri.file + "/" + filePath;
+	}
 	return uri;
 }
 
@@ -94,10 +103,11 @@ AndroidContentURI AndroidContentURI::WithReplacedExtension(const std::string &ne
 }
 
 bool AndroidContentURI::CanNavigateUp() const {
-	if (root.empty()) {
-		return false;
+	if (IsTreeURI()) {
+		return file.size() > root.size();
+	} else {
+		return file.find(':') != std::string::npos && file.back() != ':';
 	}
-	return file.size() > root.size();
 }
 
 // Only goes downwards in hierarchies. No ".." will ever be generated.
@@ -138,6 +148,9 @@ std::string AndroidContentURI::GetLastPart() const {
 
 	if (!CanNavigateUp()) {
 		size_t colon = file.rfind(':');
+		if (file.back() == ':') {
+			return file;
+		}
 		if (colon == std::string::npos) {
 			return std::string();
 		}
@@ -146,7 +159,12 @@ std::string AndroidContentURI::GetLastPart() const {
 
 	size_t slash = file.rfind('/');
 	if (slash == std::string::npos) {
-		return std::string();
+		// ok, look for the final colon. If it's the last char, we would have been caught above in !CanNavigateUp.
+		size_t colon = file.rfind(':');
+		if (colon == std::string::npos) {
+			return std::string();
+		}
+		return file.substr(colon + 1);
 	}
 
 	std::string part = file.substr(slash + 1);
@@ -160,7 +178,13 @@ bool AndroidContentURI::NavigateUp() {
 
 	size_t slash = file.rfind('/');
 	if (slash == std::string::npos) {
-		return false;
+		// ok, look for the final colon.
+		size_t colon = file.rfind(':');
+		if (colon == std::string::npos) {
+			return false;
+		}
+		file = file.substr(0, colon + 1);  // Note: we include the colon in these paths.
+		return true;
 	}
 
 	file = file.substr(0, slash);

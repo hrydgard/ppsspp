@@ -722,14 +722,20 @@ static bool TestAndroidContentURI() {
 	EXPECT_EQ_STR(diff, std::string("Tekken 6.iso"));
 
 	EXPECT_EQ_STR(fileURI.GetFileExtension(), std::string(".prx"));
-	EXPECT_FALSE(fileURI.CanNavigateUp());
+	EXPECT_TRUE(fileURI.CanNavigateUp());  // Can now virtually navigate up one step from these.
 
-	// These are annoying because they hide the actual filename, and we can't get at a parent folder,
-	// which confuses our elf loading.
+	// These are annoying because they hide the actual filename, and we can't get at a parent folder.
+	// Decided to handle the ':' as a directory separator for navigation purposes, which fixes the problem (though not the extension thing).
 	AndroidContentURI downloadURI;
 	EXPECT_TRUE(downloadURI.Parse(std::string(downloadURIString)));
 	EXPECT_EQ_STR(downloadURI.GetLastPart(), std::string("10000000006"));
-	EXPECT_FALSE(downloadURI.CanNavigateUp());
+	EXPECT_TRUE(downloadURI.CanNavigateUp());
+	EXPECT_TRUE(downloadURI.NavigateUp());
+	// While this is not an openable valid content URI, we can still get something that we can concatenate a filename on top of.
+	EXPECT_EQ_STR(downloadURI.ToString(), std::string("content://com.android.providers.downloads.documents/document/msf%3A"));
+	EXPECT_EQ_STR(downloadURI.GetLastPart(), std::string("msf:"));
+	downloadURI = downloadURI.WithComponent("myfile");
+	EXPECT_EQ_STR(downloadURI.ToString(), std::string("content://com.android.providers.downloads.documents/document/msf%3Amyfile"));
 	return true;
 }
 
