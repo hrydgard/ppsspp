@@ -212,9 +212,14 @@ struct VKRStep {
 // These are enqueued from the main thread,
 // and the render thread pops them off
 struct VKRRenderThreadTask {
+	VKRRenderThreadTask(VKRRunType _runType) : runType(_runType) {}
 	std::vector<VKRStep *> steps;
-	int frame;
+	int frame = -1;
 	VKRRunType runType;
+
+	// Avoid copying these by accident.
+	VKRRenderThreadTask(VKRRenderThreadTask &) = delete;
+	VKRRenderThreadTask &operator =(VKRRenderThreadTask &) = delete;
 };
 
 class VulkanQueueRunner {

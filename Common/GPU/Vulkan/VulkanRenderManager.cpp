@@ -308,9 +308,8 @@ bool VulkanRenderManager::CreateBackbuffers() {
 void VulkanRenderManager::StopThread() {
 	{
 		// Tell the render thread to quit when it's done.
-		VKRRenderThreadTask task;
-		task.frame = vulkan_->GetCurFrame();
-		task.runType = VKRRunType::EXIT;
+		VKRRenderThreadTask *task = new VKRRenderThreadTask(VKRRunType::EXIT);
+		task->frame = vulkan_->GetCurFrame();
 		std::unique_lock<std::mutex> lock(pushMutex_);
 		renderThreadQueue_.push(task);
 		pushCondVar_.notify_one();
@@ -494,7 +493,7 @@ void VulkanRenderManager::ThreadFunc() {
 	SetCurrentThreadName("RenderMan");
 	while (true) {
 		// Pop a task of the queue and execute it.
-		VKRRenderThreadTask task;
+		VKRRenderThreadTask *task = nullptr;
 		{
 			std::unique_lock<std::mutex> lock(pushMutex_);
 			while (renderThreadQueue_.empty()) {
@@ -506,12 +505,13 @@ void VulkanRenderManager::ThreadFunc() {
 
 		// Oh, we got a task! We can now have pushMutex_ unlocked, allowing the host to
 		// push more work when it feels like it, and just start working.
-		if (task.runType == VKRRunType::EXIT) {
+		if (task->runType == VKRRunType::EXIT) {
 			// Oh, host wanted out. Let's leave.
 			break;
 		}
 
-		Run(task);
+		Run(*task);
+		delete task;
 	}
 
 	// Wait for the device to be done with everything, before tearing stuff down.
@@ -1266,13 +1266,12 @@ void VulkanRenderManager::Finish() {
 	FrameData &frameData = frameData_[curFrame];
 
 	VLOG("PUSH: Frame[%d]", curFrame);
-	VKRRenderThreadTask task;
-	task.frame = curFrame;
-	task.runType = VKRRunType::PRESENT;
+	VKRRenderThreadTask *task = new VKRRenderThreadTask(VKRRunType::PRESENT);
+	task->frame = curFrame;
 	{
 		std::unique_lock<std::mutex> lock(pushMutex_);
 		renderThreadQueue_.push(task);
-		renderThreadQueue_.back().steps = std::move(steps_);
+		renderThreadQueue_.back()->steps = std::move(steps_);
 		pushCondVar_.notify_one();
 	}
 
@@ -1382,12 +1381,11 @@ void VulkanRenderManager::FlushSync() {
 	
 	{
 		VLOG("PUSH: Frame[%d]", curFrame);
-		VKRRenderThreadTask task;
-		task.frame = curFrame;
-		task.runType = VKRRunType::SYNC;
+		VKRRenderThreadTask *task = new VKRRenderThreadTask(VKRRunType::SYNC);
+		task->frame = curFrame;
 		std::unique_lock<std::mutex> lock(pushMutex_);
 		renderThreadQueue_.push(task);
-		renderThreadQueue_.back().steps = std::move(steps_);
+		renderThreadQueue_.back()->steps = std::move(steps_);
 		pushCondVar_.notify_one();
 	}
 

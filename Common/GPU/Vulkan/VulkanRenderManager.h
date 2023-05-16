@@ -509,7 +509,7 @@ private:
 	std::mutex pushMutex_;
 	std::condition_variable pushCondVar_;
 
-	std::queue<VKRRenderThreadTask> renderThreadQueue_;
+	std::queue<VKRRenderThreadTask *> renderThreadQueue_;
 
 	// For readbacks and other reasons we need to sync with the render thread.
 	std::mutex syncMutex_;

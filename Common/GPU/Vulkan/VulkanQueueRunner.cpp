@@ -481,7 +481,7 @@ void VulkanQueueRunner::ApplyMGSHack(std::vector<VKRStep *> &steps) {
 					last = j - 1;
 				// should really also check descriptor sets...
 				if (steps[j]->commands.size()) {
-					VkRenderData &cmd = steps[j]->commands.back();
+					const VkRenderData &cmd = steps[j]->commands.back();
 					if (cmd.cmd == VKRRenderCommand::DRAW_INDEXED && cmd.draw.count != 6)
 						last = j - 1;
 				}
