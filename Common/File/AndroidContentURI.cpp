@@ -148,11 +148,11 @@ std::string AndroidContentURI::GetLastPart() const {
 
 	if (!CanNavigateUp()) {
 		size_t colon = file.rfind(':');
-		if (file.back() == ':') {
-			return file;
-		}
 		if (colon == std::string::npos) {
 			return std::string();
+		}
+		if (file.back() == ':') {
+			return file;
 		}
 		return file.substr(colon + 1);
 	}
