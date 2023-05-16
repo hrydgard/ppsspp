@@ -302,7 +302,7 @@ enum {
 struct GLRStep {
 	GLRStep(GLRStepType _type) : stepType(_type) {}
 	GLRStepType stepType;
-	std::vector<GLRRenderData> commands;
+	FastVec<GLRRenderData> commands;
 	TinySet<const GLRFramebuffer *, 8> dependencies;
 	const char *tag;
 	union {

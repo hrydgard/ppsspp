@@ -700,7 +700,7 @@ void GLQueueRunner::RunSteps(const std::vector<GLRStep *> &steps, bool skipGLCal
 	CHECK_GL_ERROR_IF_DEBUG();
 	size_t renderCount = 0;
 	for (size_t i = 0; i < steps.size(); i++) {
-		const GLRStep &step = *steps[i];
+		GLRStep &step = *steps[i];
 
 #if !defined(USING_GLES2)
 		if (useDebugGroups_)
@@ -711,7 +711,7 @@ void GLQueueRunner::RunSteps(const std::vector<GLRStep *> &steps, bool skipGLCal
 		case GLRStepType::RENDER:
 			renderCount++;
 			if (IsVREnabled()) {
-				GLRStep vrStep = step;
+				GLRStep &vrStep = step;
 				PreprocessStepVR(&vrStep);
 				PerformRenderPass(vrStep, renderCount == 1, renderCount == totalRenderCount);
 			} else {

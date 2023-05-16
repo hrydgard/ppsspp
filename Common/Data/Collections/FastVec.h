@@ -23,18 +23,7 @@ public:
 			size_++;
 			return data_[size_ - 1];
 		} else {
-			T *oldData = data_;
-			size_t newCapacity = capacity_ * 2;
-			if (newCapacity < 16) {
-				newCapacity = 16;
-			}
-			data_ = (T *)malloc(sizeof(T) * newCapacity);
-			if (capacity_ != 0) {
-				memcpy(data_, oldData, sizeof(T) * size_);
-				free(oldData);
-			}
-			size_++;
-			capacity_ = newCapacity;
+			ExtendByOne();
 			return data_[size_ - 1];
 		}
 	}
@@ -74,6 +63,7 @@ public:
 	size_t size() const { return size_; }
 	size_t capacity() const { return capacity_; }
 	void clear() { size_ = 0; }
+	bool empty() const { return size_ == 0; }
 
 	T *begin() { return data_; }
 	T *end() { return data_ + size_; }
@@ -88,7 +78,32 @@ public:
 	const T &back() const { return (*this)[size() - 1]; }
 	const T &front() const { return (*this)[0]; }
 
+	// Limited functionality for inserts and similar, add as needed.
+	T &insert(T *iter) {
+		int pos = iter - data_;
+		ExtendByOne();
+		if (pos + 1 < size_) {
+			memmove(data_ + pos + 1, data_ + pos, (size_ - pos) * sizeof(T));
+		}
+		return data_[pos];
+	}
+
 private:
+	void ExtendByOne() {
+		T *oldData = data_;
+		size_t newCapacity = capacity_ * 2;
+		if (newCapacity < 16) {
+			newCapacity = 16;
+		}
+		data_ = (T *)malloc(sizeof(T) * newCapacity);
+		if (capacity_ != 0) {
+			memcpy(data_, oldData, sizeof(T) * size_);
+			free(oldData);
+		}
+		size_++;
+		capacity_ = newCapacity;
+	}
+
 	T *data_ = nullptr;
 	size_t size_ = 0;
 	size_t capacity_ = 0;
