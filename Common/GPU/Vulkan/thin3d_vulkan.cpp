@@ -247,7 +247,7 @@ bool VKShaderModule::Compile(VulkanContext *vulkan, ShaderLanguage language, con
 
 class VKInputLayout : public InputLayout {
 public:
-	std::vector<VkVertexInputBindingDescription> bindings;
+	VkVertexInputBindingDescription binding;
 	std::vector<VkVertexInputAttributeDescription> attributes;
 	VkPipelineVertexInputStateCreateInfo visc;
 };
@@ -290,7 +290,7 @@ public:
 
 	std::vector<VKShaderModule *> deps;
 
-	int stride[4]{};
+	int stride = 0;
 	int dynamicUniformSize = 0;
 
 	bool usesStencil = false;
@@ -446,13 +446,9 @@ public:
 		curPipeline_ = (VKPipeline *)pipeline;
 	}
 
-	// TODO: Make VKBuffers proper buffers, and do a proper binding model. This is just silly.
-	void BindVertexBuffers(int start, int count, Buffer **buffers, const int *offsets) override {
-		_assert_(start + count <= ARRAY_SIZE(curVBuffers_));
-		for (int i = 0; i < count; i++) {
-			curVBuffers_[i + start] = (VKBuffer *)buffers[i];
-			curVBufferOffsets_[i + start] = offsets ? offsets[i] : 0;
-		}
+	void BindVertexBuffer(Buffer *vertexBuffer, int offset) override {
+		curVBuffer_ = (VKBuffer *)vertexBuffer;
+		curVBufferOffset_ = offset;
 	}
 	void BindIndexBuffer(Buffer *indexBuffer, int offset) override {
 		curIBuffer_ = (VKBuffer *)indexBuffer;
@@ -535,8 +531,8 @@ private:
 	VulkanTexture *nullTexture_ = nullptr;
 
 	AutoRef<VKPipeline> curPipeline_;
-	AutoRef<VKBuffer> curVBuffers_[4];
-	int curVBufferOffsets_[4]{};
+	AutoRef<VKBuffer> curVBuffer_;
+	int curVBufferOffset_ = 0;
 	AutoRef<VKBuffer> curIBuffer_;
 	int curIBufferOffset_ = 0;
 
@@ -1149,13 +1145,11 @@ Pipeline *VKContext::CreateGraphicsPipeline(const PipelineDesc &desc, const char
 		}
 	}
 
-	_dbg_assert_(input && input->bindings.size() == 1);
+	_dbg_assert_(input);
 	_dbg_assert_((int)input->attributes.size() == (int)input->visc.vertexAttributeDescriptionCount);
 
-	for (int i = 0; i < (int)input->bindings.size(); i++) {
-		pipeline->stride[i] = input->bindings[i].stride;
-	}
-	gDesc.ibd = input->bindings[0];
+	pipeline->stride = input->binding.stride;
+	gDesc.ibd = input->binding;
 	for (size_t i = 0; i < input->attributes.size(); i++) {
 		gDesc.attrs[i] = input->attributes[i];
 	}
@@ -1237,23 +1231,20 @@ InputLayout *VKContext::CreateInputLayout(const InputLayoutDesc &desc) {
 	VKInputLayout *vl = new VKInputLayout();
 	vl->visc = { VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO };
 	vl->visc.flags = 0;
+	vl->visc.vertexBindingDescriptionCount = 1;
 	vl->visc.vertexAttributeDescriptionCount = (uint32_t)desc.attributes.size();
-	vl->visc.vertexBindingDescriptionCount = (uint32_t)desc.bindings.size();
-	vl->bindings.resize(vl->visc.vertexBindingDescriptionCount);
 	vl->attributes.resize(vl->visc.vertexAttributeDescriptionCount);
-	vl->visc.pVertexBindingDescriptions = vl->bindings.data();
+	vl->visc.pVertexBindingDescriptions = &vl->binding;
 	vl->visc.pVertexAttributeDescriptions = vl->attributes.data();
 	for (size_t i = 0; i < desc.attributes.size(); i++) {
-		vl->attributes[i].binding = (uint32_t)desc.attributes[i].binding;
+		vl->attributes[i].binding = 0;
 		vl->attributes[i].format = DataFormatToVulkan(desc.attributes[i].format);
 		vl->attributes[i].location = desc.attributes[i].location;
 		vl->attributes[i].offset = desc.attributes[i].offset;
 	}
-	for (size_t i = 0; i < desc.bindings.size(); i++) {
-		vl->bindings[i].inputRate = desc.bindings[i].instanceRate ? VK_VERTEX_INPUT_RATE_INSTANCE : VK_VERTEX_INPUT_RATE_VERTEX;
-		vl->bindings[i].binding = (uint32_t)i;
-		vl->bindings[i].stride = desc.bindings[i].stride;
-	}
+	vl->binding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+	vl->binding.binding = 0;
+	vl->binding.stride = desc.stride;
 	return vl;
 }
 
@@ -1408,7 +1399,7 @@ void VKContext::ApplyDynamicState() {
 }
 
 void VKContext::Draw(int vertexCount, int offset) {
-	VKBuffer *vbuf = curVBuffers_[0];
+	VKBuffer *vbuf = curVBuffer_;
 
 	VkBuffer vulkanVbuf;
 	VkBuffer vulkanUBObuf;
@@ -1420,12 +1411,12 @@ void VKContext::Draw(int vertexCount, int offset) {
 	int descSetIndex;
 	PackedDescriptor *descriptors = renderManager_.PushDescriptorSet(4, &descSetIndex);
 	BindDescriptors(vulkanUBObuf, descriptors);
-	renderManager_.Draw(descSetIndex, 1, &ubo_offset, vulkanVbuf, (int)vbBindOffset + curVBufferOffsets_[0], vertexCount, offset);
+	renderManager_.Draw(descSetIndex, 1, &ubo_offset, vulkanVbuf, (int)vbBindOffset + curVBufferOffset_, vertexCount, offset);
 }
 
 void VKContext::DrawIndexed(int vertexCount, int offset) {
 	VKBuffer *ibuf = curIBuffer_;
-	VKBuffer *vbuf = curVBuffers_[0];
+	VKBuffer *vbuf = curVBuffer_;
 
 	VkBuffer vulkanVbuf, vulkanIbuf, vulkanUBObuf;
 	uint32_t ubo_offset = (uint32_t)curPipeline_->PushUBO(push_, vulkan_, &vulkanUBObuf);
@@ -1437,7 +1428,7 @@ void VKContext::DrawIndexed(int vertexCount, int offset) {
 	int descSetIndex;
 	PackedDescriptor *descriptors = renderManager_.PushDescriptorSet(4, &descSetIndex);
 	BindDescriptors(vulkanUBObuf, descriptors);
-	renderManager_.DrawIndexed(descSetIndex, 1, &ubo_offset, vulkanVbuf, (int)vbBindOffset + curVBufferOffsets_[0], vulkanIbuf, (int)ibBindOffset + offset * sizeof(uint32_t), vertexCount, 1);
+	renderManager_.DrawIndexed(descSetIndex, 1, &ubo_offset, vulkanVbuf, (int)vbBindOffset + curVBufferOffset_, vulkanIbuf, (int)ibBindOffset + offset * sizeof(uint32_t), vertexCount, 1);
 }
 
 void VKContext::DrawUP(const void *vdata, int vertexCount) {
@@ -1447,7 +1438,7 @@ void VKContext::DrawUP(const void *vdata, int vertexCount) {
 	}
 
 	VkBuffer vulkanVbuf, vulkanUBObuf;
-	size_t dataSize = vertexCount * curPipeline_->stride[0];
+	size_t dataSize = vertexCount * curPipeline_->stride;
 	uint32_t vbBindOffset;
 	uint8_t *dataPtr = push_->Allocate(dataSize, 4, &vulkanVbuf, &vbBindOffset);
 	_assert_(dataPtr != nullptr);
@@ -1460,7 +1451,7 @@ void VKContext::DrawUP(const void *vdata, int vertexCount) {
 	int descSetIndex;
 	PackedDescriptor *descriptors = renderManager_.PushDescriptorSet(4, &descSetIndex);
 	BindDescriptors(vulkanUBObuf, descriptors);
-	renderManager_.Draw(descSetIndex, 1, &ubo_offset, vulkanVbuf, (int)vbBindOffset + curVBufferOffsets_[0], vertexCount);
+	renderManager_.Draw(descSetIndex, 1, &ubo_offset, vulkanVbuf, (int)vbBindOffset + curVBufferOffset_, vertexCount);
 }
 
 void VKContext::BindCurrentPipeline() {

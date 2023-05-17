@@ -421,12 +421,9 @@ public:
 	void BindNativeTexture(int sampler, void *nativeTexture) override;
 
 	void BindPipeline(Pipeline *pipeline) override;
-	void BindVertexBuffers(int start, int count, Buffer **buffers, const int *offsets) override {
-		_assert_(start + count <= ARRAY_SIZE(curVBuffers_));
-		for (int i = 0; i < count; i++) {
-			curVBuffers_[i + start] = (OpenGLBuffer *)buffers[i];
-			curVBufferOffsets_[i + start] = offsets ? offsets[i] : 0;
-		}
+	void BindVertexBuffer(Buffer *buffer, int offset) override {
+		curVBuffer_ = (OpenGLBuffer *)buffer;
+		curVBufferOffset_ = offset;
 	}
 	void BindIndexBuffer(Buffer *indexBuffer, int offset) override {
 		curIBuffer_ = (OpenGLBuffer  *)indexBuffer;
@@ -505,9 +502,9 @@ private:
 	const GLRTexture *boundTextures_[MAX_TEXTURE_SLOTS]{};
 
 	AutoRef<OpenGLPipeline> curPipeline_;
-	AutoRef<OpenGLBuffer> curVBuffers_[4]{};
-	int curVBufferOffsets_[4]{};
+	AutoRef<OpenGLBuffer> curVBuffer_;
 	AutoRef<OpenGLBuffer> curIBuffer_;
+	int curVBufferOffset_ = 0;
 	int curIBufferOffset_ = 0;
 	AutoRef<Framebuffer> curRenderTarget_;
 
@@ -1370,20 +1367,20 @@ void OpenGLContext::UpdateDynamicUniformBuffer(const void *ub, size_t size) {
 }
 
 void OpenGLContext::Draw(int vertexCount, int offset) {
-	_dbg_assert_msg_(curVBuffers_[0] != nullptr, "Can't call Draw without a vertex buffer");
+	_dbg_assert_msg_(curVBuffer_ != nullptr, "Can't call Draw without a vertex buffer");
 	ApplySamplers();
 	_assert_(curPipeline_->inputLayout);
-	renderManager_.Draw(curPipeline_->inputLayout->inputLayout_, curVBuffers_[0]->buffer_, curVBufferOffsets_[0], curPipeline_->prim, offset, vertexCount);
+	renderManager_.Draw(curPipeline_->inputLayout->inputLayout_, curVBuffer_->buffer_, curVBufferOffset_, curPipeline_->prim, offset, vertexCount);
 }
 
 void OpenGLContext::DrawIndexed(int vertexCount, int offset) {
-	_dbg_assert_msg_(curVBuffers_[0] != nullptr, "Can't call DrawIndexed without a vertex buffer");
+	_dbg_assert_msg_(curVBuffer_ != nullptr, "Can't call DrawIndexed without a vertex buffer");
 	_dbg_assert_msg_(curIBuffer_ != nullptr, "Can't call DrawIndexed without an index buffer");
 	ApplySamplers();
 	_assert_(curPipeline_->inputLayout);
 	renderManager_.DrawIndexed(
 		curPipeline_->inputLayout->inputLayout_,
-		curVBuffers_[0]->buffer_, curVBufferOffsets_[0],
+		curVBuffer_->buffer_, curVBufferOffset_,
 		curIBuffer_->buffer_, curIBufferOffset_ + offset * sizeof(uint32_t),
 		curPipeline_->prim, vertexCount, GL_UNSIGNED_SHORT);
 }
@@ -1432,13 +1429,12 @@ OpenGLInputLayout::~OpenGLInputLayout() {
 void OpenGLInputLayout::Compile(const InputLayoutDesc &desc) {
 	// TODO: This is only accurate if there's only one stream. But whatever, for now we
 	// never use multiple streams anyway.
-	stride = desc.bindings.empty() ? 0 : (GLsizei)desc.bindings[0].stride;
+	stride = desc.stride;
 
 	std::vector<GLRInputLayout::Entry> entries;
 	for (auto &attr : desc.attributes) {
 		GLRInputLayout::Entry entry;
 		entry.location = attr.location;
-		entry.stride = (GLsizei)desc.bindings[attr.binding].stride;
 		entry.offset = attr.offset;
 		switch (attr.format) {
 		case DataFormat::R32G32_FLOAT:
@@ -1470,7 +1466,7 @@ void OpenGLInputLayout::Compile(const InputLayoutDesc &desc) {
 		entries.push_back(entry);
 	}
 	if (!entries.empty()) {
-		inputLayout_ = render_->CreateInputLayout(entries);
+		inputLayout_ = render_->CreateInputLayout(entries, stride);
 	} else {
 		inputLayout_ = nullptr;
 	}
