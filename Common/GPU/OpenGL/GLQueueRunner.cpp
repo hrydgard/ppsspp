@@ -834,6 +834,11 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step, bool first, bool last
 	bool logicEnabled = false;
 #endif
 	bool clipDistanceEnabled[8]{};
+
+	bool lastDrawIsArray = false;
+	int lastBindOffset = 0;
+	GLRInputLayout *lastDrawLayout = nullptr;
+
 	GLuint blendEqColor = (GLuint)-1;
 	GLuint blendEqAlpha = (GLuint)-1;
 
@@ -1176,16 +1181,19 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step, bool first, bool last
 			if (buf != curArrayBuffer) {
 				glBindBuffer(GL_ARRAY_BUFFER, buf);
 				curArrayBuffer = buf;
+				// Invalidate any draw offset caching.
+				lastDrawLayout = nullptr;
 			}
+
 			if (attrMask != layout->semanticsMask_) {
 				EnableDisableVertexArrays(attrMask, layout->semanticsMask_);
 				attrMask = layout->semanticsMask_;
 			}
-			for (size_t i = 0; i < layout->entries.size(); i++) {
-				auto &entry = layout->entries[i];
-				glVertexAttribPointer(entry.location, entry.count, entry.type, entry.normalized, layout->stride, (const void *)(c.draw.offset + entry.offset));
-			}
 			if (c.draw.indexBuffer) {
+				for (size_t i = 0; i < layout->entries.size(); i++) {
+					auto &entry = layout->entries[i];
+					glVertexAttribPointer(entry.location, entry.count, entry.type, entry.normalized, layout->stride, (const void *)(c.draw.offset + entry.offset));
+				}
 				GLuint buf = c.draw.indexBuffer->buffer_;
 				_dbg_assert_(!(c.draw.indexBuffer && c.draw.indexBuffer->Mapped()));
 				if (buf != curElemArrayBuffer) {
@@ -1197,9 +1205,31 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step, bool first, bool last
 				} else {
 					glDrawElementsInstanced(c.draw.mode, c.draw.count, c.draw.indexType, c.draw.indices, c.draw.instances);
 				}
+				lastDrawIsArray = false;
 			} else {
-				glDrawArrays(c.draw.mode, c.draw.first, c.draw.count);
+				// See if we can avoid calling glVertexAttribPointer.
+				int offset = 0;
+				bool rebind = true;
+				if (lastDrawIsArray && layout == lastDrawLayout) {
+					unsigned int diff = (unsigned int)c.draw.offset - (unsigned int)lastBindOffset;
+					if (diff % layout->stride == 0) {
+						// Compatible draws.
+						offset = diff / layout->stride;
+						rebind = false;
+					}
+				}
+				if (rebind) {
+					// Rebind.
+					for (size_t i = 0; i < layout->entries.size(); i++) {
+						auto &entry = layout->entries[i];
+						glVertexAttribPointer(entry.location, entry.count, entry.type, entry.normalized, layout->stride, (const void *)(c.draw.offset + entry.offset));
+					}
+					lastBindOffset = (int)c.draw.offset;
+				}
+				glDrawArrays(c.draw.mode, c.draw.first + offset, c.draw.count);
+				lastDrawIsArray = true;
 			}
+			lastDrawLayout = layout;
 			CHECK_GL_ERROR_IF_DEBUG();
 			break;
 		}

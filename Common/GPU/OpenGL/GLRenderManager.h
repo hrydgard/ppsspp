@@ -362,7 +362,7 @@ public:
 		intptr_t offset;
 	};
 	std::vector<Entry> entries;
-	int stride;
+	unsigned int stride;
 	int semanticsMask_ = 0;
 };
 
