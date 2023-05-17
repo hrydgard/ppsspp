@@ -778,6 +778,19 @@ void GLQueueRunner::PerformBlit(const GLRStep &step) {
 	}
 }
 
+static void EnableDisableVertexArrays(uint32_t prevAttr, uint32_t newAttr) {
+	int enable = (~prevAttr) & newAttr;
+	int disable = prevAttr & (~newAttr);
+	for (int i = 0; i < 7; i++) {  // SEM_MAX
+		if (enable & (1 << i)) {
+			glEnableVertexAttribArray(i);
+		}
+		if (disable & (1 << i)) {
+			glDisableVertexAttribArray(i);
+		}
+	}
+}
+
 void GLQueueRunner::PerformRenderPass(const GLRStep &step, bool first, bool last) {
 	CHECK_GL_ERROR_IF_DEBUG();
 
@@ -1165,16 +1178,7 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step, bool first, bool last
 				curArrayBuffer = buf;
 			}
 			if (attrMask != layout->semanticsMask_) {
-				int enable = layout->semanticsMask_ & ~attrMask;
-				int disable = (~layout->semanticsMask_) & attrMask;
-				for (int i = 0; i < 7; i++) {  // SEM_MAX
-					if (enable & (1 << i)) {
-						glEnableVertexAttribArray(i);
-					}
-					if (disable & (1 << i)) {
-						glDisableVertexAttribArray(i);
-					}
-				}
+				EnableDisableVertexArrays(attrMask, layout->semanticsMask_);
 				attrMask = layout->semanticsMask_;
 			}
 			for (size_t i = 0; i < layout->entries.size(); i++) {
