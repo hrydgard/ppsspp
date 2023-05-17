@@ -37,6 +37,8 @@
 #include "GPU/Vulkan/VulkanUtil.h"
 #include "GPU/Vulkan/TextureCacheVulkan.h"
 
+#include "Core/Config.h"
+
 #undef DrawText
 
 bool comparePushBufferNames(const VulkanMemoryManager *a, const VulkanMemoryManager *b) {
@@ -107,9 +109,14 @@ void DrawGPUProfilerVis(UIContext *ui, GPUInterface *gpu) {
 
 	ui->Begin();
 
-	GPU_Vulkan *gpuVulkan = static_cast<GPU_Vulkan *>(gpu);
+	float scale = 0.4f;
+	if (g_Config.iGPUBackend == (int)GPUBackend::OPENGL) {
+		// Don't have as much info, let's go bigger.
+		scale = 0.7f;
+	}
 
-	std::string text = gpuVulkan->GetGpuProfileString();
+	GPUCommon *gpuCommon = static_cast<GPUCommon *>(gpu);
+	std::string text = gpuCommon->GetGpuProfileString();
 
 	ui->SetFontScale(0.4f, 0.4f);
 	ui->DrawTextShadow(text.c_str(), x, y, 0xFFFFFFFF, FLAG_DYNAMIC_ASCII);

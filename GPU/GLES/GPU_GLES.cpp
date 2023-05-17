@@ -305,3 +305,8 @@ void GPU_GLES::GetStats(char *buffer, size_t bufsize) {
 		shaderManagerGL_->GetNumPrograms()
 	);
 }
+
+std::string GPU_GLES::GetGpuProfileString() {
+	GLRenderManager *rm = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
+	return rm->GetGpuProfileString();
+}

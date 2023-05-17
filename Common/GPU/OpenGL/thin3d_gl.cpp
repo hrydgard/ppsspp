@@ -328,6 +328,9 @@ public:
 		DrawContext::SetTargetSize(w, h);
 		renderManager_.Resize(w, h);
 	}
+	void SetDebugFlags(DebugFlags flags) override {
+		debugFlags_ = flags;
+	}
 
 	const DeviceCaps &GetDeviceCaps() const override {
 		return caps_;
@@ -514,6 +517,8 @@ private:
 		GLPushBuffer *push;
 	};
 	FrameData frameData_[GLRenderManager::MAX_INFLIGHT_FRAMES]{};
+
+	DebugFlags debugFlags_ = DebugFlags::NONE;
 };
 
 static constexpr int MakeIntelSimpleVer(int v1, int v2, int v3) {
@@ -778,7 +783,7 @@ OpenGLContext::~OpenGLContext() {
 }
 
 void OpenGLContext::BeginFrame() {
-	renderManager_.BeginFrame();
+	renderManager_.BeginFrame(debugFlags_ & DebugFlags::PROFILE_TIMESTAMPS);
 	FrameData &frameData = frameData_[renderManager_.GetCurFrame()];
 	renderManager_.BeginPushBuffer(frameData.push);
 }

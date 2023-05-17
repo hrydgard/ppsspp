@@ -35,6 +35,13 @@ public:
 	std::vector<GLPushBuffer *> pushBuffers;
 };
 
+struct GLQueueProfileContext {
+	bool enabled;
+	double cpuStartTime;
+	double cpuEndTime;
+};
+
+
 // Per-frame data, round-robin so we can overlap submission with execution of the previous frame.
 struct GLFrameData {
 	bool skipSwap = false;
@@ -49,4 +56,6 @@ struct GLFrameData {
 	GLDeleter deleter;
 	GLDeleter deleter_prev;
 	std::set<GLPushBuffer *> activePushBuffers;
+
+	GLQueueProfileContext profile;
 };

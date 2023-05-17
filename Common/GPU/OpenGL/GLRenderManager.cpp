@@ -8,6 +8,7 @@
 #include "Common/Log.h"
 #include "Common/TimeUtil.h"
 #include "Common/MemoryUtil.h"
+#include "Common/StringUtils.h"
 #include "Common/Math/math_util.h"
 
 #if 0 // def _DEBUG
@@ -187,6 +188,14 @@ void GLRenderManager::StopThread() {
 	}
 }
 
+std::string GLRenderManager::GetGpuProfileString() const {
+	int curFrame = GetCurFrame();
+	const GLQueueProfileContext &profile = frameData_[curFrame].profile;
+
+	float cputime_ms = 1000.0f * (profile.cpuEndTime - profile.cpuStartTime);
+	return StringFromFormat("CPU time to run the list: %0.2f ms", cputime_ms);
+}
+
 void GLRenderManager::BindFramebufferAsRenderTarget(GLRFramebuffer *fb, GLRRenderPassAction color, GLRRenderPassAction depth, GLRRenderPassAction stencil, uint32_t clearColor, float clearDepth, uint8_t clearStencil, const char *tag) {
 	_assert_(insideFrame_);
 #ifdef _DEBUG
@@ -341,7 +350,7 @@ void GLRenderManager::CopyImageToMemorySync(GLRTexture *texture, int mipLevel, i
 	queueRunner_.CopyFromReadbackBuffer(nullptr, w, h, Draw::DataFormat::R8G8B8A8_UNORM, destFormat, pixelStride, pixels);
 }
 
-void GLRenderManager::BeginFrame() {
+void GLRenderManager::BeginFrame(bool enableProfiling) {
 #ifdef _DEBUG
 	curProgram_ = nullptr;
 #endif
@@ -349,6 +358,7 @@ void GLRenderManager::BeginFrame() {
 	int curFrame = GetCurFrame();
 
 	GLFrameData &frameData = frameData_[curFrame];
+	frameData.profile.enabled = enableProfiling;
 	{
 		VLOG("PUSH: BeginFrame (curFrame = %d, readyForFence = %d, time=%0.3f)", curFrame, (int)frameData.readyForFence, time_now_d());
 		std::unique_lock<std::mutex> lock(frameData.fenceMutex);
@@ -417,6 +427,10 @@ bool GLRenderManager::Run(GLRRenderThreadTask &task) {
 		}
 	}
 
+	if (frameData.profile.enabled) {
+		frameData.profile.cpuStartTime = time_now_d();
+	}
+
 	if (IsVREnabled()) {
 		int passes = GetVRPassesCount();
 		for (int i = 0; i < passes; i++) {
@@ -426,6 +440,10 @@ bool GLRenderManager::Run(GLRRenderThreadTask &task) {
 		}
 	} else {
 		queueRunner_.RunSteps(task.steps, skipGLCalls_, false, false);
+	}
+
+	if (frameData.profile.enabled) {
+		frameData.profile.cpuEndTime = time_now_d();
 	}
 
 	if (!skipGLCalls_) {
