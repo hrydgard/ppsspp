@@ -651,7 +651,7 @@ retry_depth:
 	currentReadHandle_ = fbo->handle;
 }
 
-void GLQueueRunner::RunSteps(const std::vector<GLRStep *> &steps, bool skipGLCalls, bool keepSteps, bool useVR) {
+void GLQueueRunner::RunSteps(const std::vector<GLRStep *> &steps, bool skipGLCalls, bool keepSteps, bool useVR, GLQueueProfileContext &profile) {
 	if (skipGLCalls) {
 		if (keepSteps) {
 			return;
@@ -713,9 +713,9 @@ void GLQueueRunner::RunSteps(const std::vector<GLRStep *> &steps, bool skipGLCal
 			if (IsVREnabled()) {
 				GLRStep vrStep = step;
 				PreprocessStepVR(&vrStep);
-				PerformRenderPass(vrStep, renderCount == 1, renderCount == totalRenderCount);
+				PerformRenderPass(vrStep, renderCount == 1, renderCount == totalRenderCount, profile);
 			} else {
-				PerformRenderPass(step, renderCount == 1, renderCount == totalRenderCount);
+				PerformRenderPass(step, renderCount == 1, renderCount == totalRenderCount, profile);
 			}
 			break;
 		case GLRStepType::COPY:
@@ -791,7 +791,7 @@ static void EnableDisableVertexArrays(uint32_t prevAttr, uint32_t newAttr) {
 	}
 }
 
-void GLQueueRunner::PerformRenderPass(const GLRStep &step, bool first, bool last) {
+void GLQueueRunner::PerformRenderPass(const GLRStep &step, bool first, bool last, GLQueueProfileContext &profile) {
 	CHECK_GL_ERROR_IF_DEBUG();
 
 	PerformBindFramebufferAsRenderTarget(step);
@@ -1216,6 +1216,7 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step, bool first, bool last
 						// Compatible draws.
 						offset = diff / layout->stride;
 						rebind = false;
+						profile.drawArraysRebindsAvoided++;
 					}
 				}
 				if (rebind) {

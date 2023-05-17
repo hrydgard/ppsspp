@@ -39,6 +39,7 @@ struct GLQueueProfileContext {
 	bool enabled;
 	double cpuStartTime;
 	double cpuEndTime;
+	int drawArraysRebindsAvoided;
 };
 
 

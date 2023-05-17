@@ -357,7 +357,7 @@ public:
 
 	void RunInitSteps(const std::vector<GLRInitStep> &steps, bool skipGLCalls);
 
-	void RunSteps(const std::vector<GLRStep *> &steps, bool skipGLCalls, bool keepSteps, bool useVR);
+	void RunSteps(const std::vector<GLRStep *> &steps, bool skipGLCalls, bool keepSteps, bool useVR, GLQueueProfileContext &profile);
 
 	void CreateDeviceObjects();
 	void DestroyDeviceObjects();
@@ -382,7 +382,7 @@ private:
 	void InitCreateFramebuffer(const GLRInitStep &step);
 
 	void PerformBindFramebufferAsRenderTarget(const GLRStep &pass);
-	void PerformRenderPass(const GLRStep &pass, bool first, bool last);
+	void PerformRenderPass(const GLRStep &pass, bool first, bool last, GLQueueProfileContext &profile);
 	void PerformCopy(const GLRStep &pass);
 	void PerformBlit(const GLRStep &pass);
 	void PerformReadback(const GLRStep &pass);

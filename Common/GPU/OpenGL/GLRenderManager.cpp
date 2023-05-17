@@ -193,7 +193,11 @@ std::string GLRenderManager::GetGpuProfileString() const {
 	const GLQueueProfileContext &profile = frameData_[curFrame].profile;
 
 	float cputime_ms = 1000.0f * (profile.cpuEndTime - profile.cpuStartTime);
-	return StringFromFormat("CPU time to run the list: %0.2f ms", cputime_ms);
+	return StringFromFormat(
+		"CPU time to run the list: %0.2f ms\n"
+		"Avoided DrawArrays rebinds: %d",
+		cputime_ms,
+		profile.drawArraysRebindsAvoided);
 }
 
 void GLRenderManager::BindFramebufferAsRenderTarget(GLRFramebuffer *fb, GLRRenderPassAction color, GLRRenderPassAction depth, GLRRenderPassAction stencil, uint32_t clearColor, float clearDepth, uint8_t clearStencil, const char *tag) {
@@ -429,17 +433,18 @@ bool GLRenderManager::Run(GLRRenderThreadTask &task) {
 
 	if (frameData.profile.enabled) {
 		frameData.profile.cpuStartTime = time_now_d();
+		frameData.profile.drawArraysRebindsAvoided = 0;
 	}
 
 	if (IsVREnabled()) {
 		int passes = GetVRPassesCount();
 		for (int i = 0; i < passes; i++) {
 			PreVRFrameRender(i);
-			queueRunner_.RunSteps(task.steps, skipGLCalls_, i < passes - 1, true);
+			queueRunner_.RunSteps(task.steps, skipGLCalls_, i < passes - 1, true, frameData.profile);
 			PostVRFrameRender();
 		}
 	} else {
-		queueRunner_.RunSteps(task.steps, skipGLCalls_, false, false);
+		queueRunner_.RunSteps(task.steps, skipGLCalls_, false, false, frameData.profile);
 	}
 
 	if (frameData.profile.enabled) {
