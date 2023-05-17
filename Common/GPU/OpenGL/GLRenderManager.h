@@ -359,10 +359,10 @@ public:
 		int count;
 		GLenum type;
 		GLboolean normalized;
-		int stride;
 		intptr_t offset;
 	};
 	std::vector<Entry> entries;
+	int stride;
 	int semanticsMask_ = 0;
 };
 
@@ -487,10 +487,11 @@ public:
 		return step.create_program.program;
 	}
 
-	GLRInputLayout *CreateInputLayout(const std::vector<GLRInputLayout::Entry> &entries) {
+	GLRInputLayout *CreateInputLayout(const std::vector<GLRInputLayout::Entry> &entries, int stride) {
 		GLRInitStep step{ GLRInitStepType::CREATE_INPUT_LAYOUT };
 		step.create_input_layout.inputLayout = new GLRInputLayout();
 		step.create_input_layout.inputLayout->entries = entries;
+		step.create_input_layout.inputLayout->stride = stride;
 		for (auto &iter : step.create_input_layout.inputLayout->entries) {
 			step.create_input_layout.inputLayout->semanticsMask_ |= 1 << iter.location;
 		}

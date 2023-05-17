@@ -1179,7 +1179,7 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step, bool first, bool last
 			}
 			for (size_t i = 0; i < layout->entries.size(); i++) {
 				auto &entry = layout->entries[i];
-				glVertexAttribPointer(entry.location, entry.count, entry.type, entry.normalized, entry.stride, (const void *)(c.draw.offset + entry.offset));
+				glVertexAttribPointer(entry.location, entry.count, entry.type, entry.normalized, layout->stride, (const void *)(c.draw.offset + entry.offset));
 			}
 			if (c.draw.indexBuffer) {
 				GLuint buf = c.draw.indexBuffer->buffer_;

@@ -1393,13 +1393,13 @@ OpenGLInputLayout::~OpenGLInputLayout() {
 void OpenGLInputLayout::Compile(const InputLayoutDesc &desc) {
 	// TODO: This is only accurate if there's only one stream. But whatever, for now we
 	// never use multiple streams anyway.
-	stride = desc.bindings.empty() ? 0 : (GLsizei)desc.bindings[0].stride;
+	_dbg_assert_(desc.bindings.size() == 1);
+	stride = (GLsizei)desc.bindings[0].stride;
 
 	std::vector<GLRInputLayout::Entry> entries;
 	for (auto &attr : desc.attributes) {
 		GLRInputLayout::Entry entry;
 		entry.location = attr.location;
-		entry.stride = (GLsizei)desc.bindings[attr.binding].stride;
 		entry.offset = attr.offset;
 		switch (attr.format) {
 		case DataFormat::R32G32_FLOAT:
@@ -1431,7 +1431,7 @@ void OpenGLInputLayout::Compile(const InputLayoutDesc &desc) {
 		entries.push_back(entry);
 	}
 	if (!entries.empty()) {
-		inputLayout_ = render_->CreateInputLayout(entries);
+		inputLayout_ = render_->CreateInputLayout(entries, stride);
 	} else {
 		inputLayout_ = nullptr;
 	}

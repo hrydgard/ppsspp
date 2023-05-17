@@ -103,12 +103,12 @@ void DrawEngineGLES::InitDeviceObjects() {
 
 	int vertexSize = sizeof(TransformedVertex);
 	std::vector<GLRInputLayout::Entry> entries;
-	entries.push_back({ ATTR_POSITION, 4, GL_FLOAT, GL_FALSE, vertexSize, offsetof(TransformedVertex, x) });
-	entries.push_back({ ATTR_TEXCOORD, 3, GL_FLOAT, GL_FALSE, vertexSize, offsetof(TransformedVertex, u) });
-	entries.push_back({ ATTR_COLOR0, 4, GL_UNSIGNED_BYTE, GL_TRUE, vertexSize, offsetof(TransformedVertex, color0) });
-	entries.push_back({ ATTR_COLOR1, 3, GL_UNSIGNED_BYTE, GL_TRUE, vertexSize, offsetof(TransformedVertex, color1) });
-	entries.push_back({ ATTR_NORMAL, 1, GL_FLOAT, GL_FALSE, vertexSize, offsetof(TransformedVertex, fog) });
-	softwareInputLayout_ = render_->CreateInputLayout(entries);
+	entries.push_back({ ATTR_POSITION, 4, GL_FLOAT, GL_FALSE, offsetof(TransformedVertex, x) });
+	entries.push_back({ ATTR_TEXCOORD, 3, GL_FLOAT, GL_FALSE, offsetof(TransformedVertex, u) });
+	entries.push_back({ ATTR_COLOR0, 4, GL_UNSIGNED_BYTE, GL_TRUE, offsetof(TransformedVertex, color0) });
+	entries.push_back({ ATTR_COLOR1, 3, GL_UNSIGNED_BYTE, GL_TRUE, offsetof(TransformedVertex, color1) });
+	entries.push_back({ ATTR_NORMAL, 1, GL_FLOAT, GL_FALSE, offsetof(TransformedVertex, fog) });
+	softwareInputLayout_ = render_->CreateInputLayout(entries, vertexSize);
 
 	draw_->SetInvalidationCallback(std::bind(&DrawEngineGLES::Invalidate, this, std::placeholders::_1));
 }
@@ -189,7 +189,7 @@ static const GlTypeInfo GLComp[] = {
 	{GL_UNSIGNED_SHORT, 4, GL_TRUE},// 	DEC_U16_4,
 };
 
-static inline void VertexAttribSetup(int attrib, int fmt, int stride, int offset, std::vector<GLRInputLayout::Entry> &entries) {
+static inline void VertexAttribSetup(int attrib, int fmt, int offset, std::vector<GLRInputLayout::Entry> &entries) {
 	if (fmt) {
 		const GlTypeInfo &type = GLComp[fmt];
 		GLRInputLayout::Entry entry;
@@ -197,7 +197,6 @@ static inline void VertexAttribSetup(int attrib, int fmt, int stride, int offset
 		entry.location = attrib;
 		entry.normalized = type.normalized;
 		entry.type = type.type;
-		entry.stride = stride;
 		entry.count = type.count;
 		entries.push_back(entry);
 	}
@@ -212,15 +211,15 @@ GLRInputLayout *DrawEngineGLES::SetupDecFmtForDraw(LinkedShader *program, const 
 	}
 
 	std::vector<GLRInputLayout::Entry> entries;
-	VertexAttribSetup(ATTR_W1, decFmt.w0fmt, decFmt.stride, decFmt.w0off, entries);
-	VertexAttribSetup(ATTR_W2, decFmt.w1fmt, decFmt.stride, decFmt.w1off, entries);
-	VertexAttribSetup(ATTR_TEXCOORD, decFmt.uvfmt, decFmt.stride, decFmt.uvoff, entries);
-	VertexAttribSetup(ATTR_COLOR0, decFmt.c0fmt, decFmt.stride, decFmt.c0off, entries);
-	VertexAttribSetup(ATTR_COLOR1, decFmt.c1fmt, decFmt.stride, decFmt.c1off, entries);
-	VertexAttribSetup(ATTR_NORMAL, decFmt.nrmfmt, decFmt.stride, decFmt.nrmoff, entries);
-	VertexAttribSetup(ATTR_POSITION, decFmt.posfmt, decFmt.stride, decFmt.posoff, entries);
+	VertexAttribSetup(ATTR_W1, decFmt.w0fmt, decFmt.w0off, entries);
+	VertexAttribSetup(ATTR_W2, decFmt.w1fmt, decFmt.w1off, entries);
+	VertexAttribSetup(ATTR_TEXCOORD, decFmt.uvfmt, decFmt.uvoff, entries);
+	VertexAttribSetup(ATTR_COLOR0, decFmt.c0fmt, decFmt.c0off, entries);
+	VertexAttribSetup(ATTR_COLOR1, decFmt.c1fmt, decFmt.c1off, entries);
+	VertexAttribSetup(ATTR_NORMAL, decFmt.nrmfmt, decFmt.nrmoff, entries);
+	VertexAttribSetup(ATTR_POSITION, decFmt.posfmt, decFmt.posoff, entries);
 
-	inputLayout = render_->CreateInputLayout(entries);
+	inputLayout = render_->CreateInputLayout(entries, decFmt.stride);
 	inputLayoutMap_.Insert(key, inputLayout);
 	return inputLayout;
 }
