@@ -1046,6 +1046,9 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 	case SystemRequestType::RESTART_APP:
 		PushCommand("graphics_restart", param1);
 		return true;
+	case SystemRequestType::RECREATE_ACTIVITY:
+		PushCommand("recreate", param1);
+		return true;
 	case SystemRequestType::INPUT_TEXT_MODAL:
 	{
 		std::string serialized = StringFromFormat("%d:@:%s:@:%s", requestId, param1.c_str(), param2.c_str());
@@ -1283,6 +1286,50 @@ extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeActivity_requestExitVulkanR
 	}
 }
 
+void correctRatio(int &sz_x, int &sz_y, float scale) {
+	float x = (float)sz_x;
+	float y = (float)sz_y;
+	float ratio = x / y;
+	INFO_LOG(G3D, "CorrectRatio: Considering size: %0.2f/%0.2f=%0.2f for scale %f", x, y, ratio, scale);
+	float targetRatio;
+
+	// Try to get the longest dimension to match scale*PSP resolution.
+	if (x >= y) {
+		targetRatio = 480.0f / 272.0f;
+		x = 480.f * scale;
+		y = 272.f * scale;
+	} else {
+		targetRatio = 272.0f / 480.0f;
+		x = 272.0f * scale;
+		y = 480.0f * scale;
+	}
+
+	float correction = targetRatio / ratio;
+	INFO_LOG(G3D, "Target ratio: %0.2f ratio: %0.2f correction: %0.2f", targetRatio, ratio, correction);
+	if (ratio < targetRatio) {
+		y *= correction;
+	} else {
+		x /= correction;
+	}
+
+	sz_x = x;
+	sz_y = y;
+	INFO_LOG(G3D, "Corrected ratio: %dx%d", sz_x, sz_y);
+}
+
+void getDesiredBackbufferSize(int &sz_x, int &sz_y) {
+	sz_x = display_xres;
+	sz_y = display_yres;
+	std::string config = NativeQueryConfig("hwScale");
+	int scale;
+	if (1 == sscanf(config.c_str(), "%d", &scale) && scale > 0) {
+		correctRatio(sz_x, sz_y, scale);
+	} else {
+		sz_x = 0;
+		sz_y = 0;
+	}
+}
+
 extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_setDisplayParameters(JNIEnv *, jclass, jint xres, jint yres, jint dpi, jfloat refreshRate) {
 	INFO_LOG(G3D, "NativeApp.setDisplayParameters(%d x %d, dpi=%d, refresh=%0.2f)", xres, yres, dpi, refreshRate);
 
@@ -1309,6 +1356,18 @@ extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_setDisplayParameters(JN
 		recalculateDpi();
 		NativeResized();
 	}
+}
+
+extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_computeDesiredBackbufferDimensions() {
+	getDesiredBackbufferSize(desiredBackbufferSizeX, desiredBackbufferSizeY);
+}
+
+extern "C" jint JNICALL Java_org_ppsspp_ppsspp_NativeApp_getDesiredBackbufferWidth(JNIEnv *, jclass) {
+	return desiredBackbufferSizeX;
+}
+
+extern "C" jint JNICALL Java_org_ppsspp_ppsspp_NativeApp_getDesiredBackbufferHeight(JNIEnv *, jclass) {
+	return desiredBackbufferSizeY;
 }
 
 std::vector<std::string> System_GetCameraDeviceList() {

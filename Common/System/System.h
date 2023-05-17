@@ -63,6 +63,7 @@ enum class SystemRequestType {
 
 	EXIT_APP,
 	RESTART_APP,  // For graphics backend changes
+	RECREATE_ACTIVITY,  // Android
 	COPY_TO_CLIPBOARD,
 	SHARE_TEXT,
 	SET_WINDOW_TITLE,
