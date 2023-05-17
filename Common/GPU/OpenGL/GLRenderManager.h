@@ -409,8 +409,10 @@ public:
 		caps_ = caps;
 	}
 
+	std::string GetGpuProfileString() const;
+
 	// Makes sure that the GPU has caught up enough that we can start writing buffers of this frame again.
-	void BeginFrame();
+	void BeginFrame(bool enableProfiling);
 	// Can run on a different thread!
 	void Finish(); 
 
