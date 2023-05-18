@@ -455,6 +455,7 @@
     <ClInclude Include="GPU\OpenGL\gl3stub.h" />
     <ClInclude Include="GPU\OpenGL\GLFeatures.h" />
     <ClInclude Include="GPU\OpenGL\GLFrameData.h" />
+    <ClInclude Include="GPU\OpenGL\GLMemory.h" />
     <ClInclude Include="GPU\OpenGL\GLQueueRunner.h" />
     <ClInclude Include="GPU\OpenGL\GLRenderManager.h" />
     <ClInclude Include="GPU\OpenGL\GLSLProgram.h" />
@@ -896,6 +897,7 @@
     <ClCompile Include="GPU\OpenGL\gl3stub.c" />
     <ClCompile Include="GPU\OpenGL\GLFeatures.cpp" />
     <ClCompile Include="GPU\OpenGL\GLFrameData.cpp" />
+    <ClCompile Include="GPU\OpenGL\GLMemory.cpp" />
     <ClCompile Include="GPU\OpenGL\GLQueueRunner.cpp" />
     <ClCompile Include="GPU\OpenGL\GLRenderManager.cpp" />
     <ClCompile Include="GPU\OpenGL\GLSLProgram.cpp" />
