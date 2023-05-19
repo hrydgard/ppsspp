@@ -151,6 +151,10 @@ static LocationHelper *locationHelper;
 	return self;
 }
 
+- (BOOL)prefersHomeIndicatorAutoHidden {
+    return YES;
+}
+
 - (void)shareText:(NSString *)text {
 	NSArray *items = @[text];
 	UIActivityViewController * viewController = [[UIActivityViewController alloc] initWithActivityItems:items applicationActivities:nil];
