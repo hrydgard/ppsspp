@@ -231,7 +231,7 @@ void *DrawEngineGLES::DecodeVertsToPushBuffer(GLPushBuffer *push, uint32_t *bind
 	// Figure out how much pushbuffer space we need to allocate.
 	if (push) {
 		int vertsToDecode = ComputeNumVertsToDecode();
-		dest = (u8 *)push->Push(vertsToDecode * dec_->GetDecVtxFmt().stride, bindOffset, buf);
+		dest = (u8 *)push->Allocate(vertsToDecode * dec_->GetDecVtxFmt().stride, 4, buf, bindOffset);
 	}
 	DecodeVerts(dest);
 	return dest;
@@ -289,8 +289,8 @@ void DrawEngineGLES::DoFlush() {
 
 		if (decOptions_.applySkinInDecode && (lastVType_ & GE_VTYPE_WEIGHT_MASK)) {
 			// If software skinning, we've already predecoded into "decoded". So push that content.
-			size_t size = decodedVerts_ * dec_->GetDecVtxFmt().stride;
-			u8 *dest = (u8 *)frameData.pushVertex->Push(size, &vertexBufferOffset, &vertexBuffer);
+			uint32_t size = decodedVerts_ * dec_->GetDecVtxFmt().stride;
+			u8 *dest = (u8 *)frameData.pushVertex->Allocate(size, 4, &vertexBuffer, &vertexBufferOffset);
 			memcpy(dest, decoded, size);
 		} else {
 			// Decode directly into the pushbuffer
@@ -328,8 +328,8 @@ void DrawEngineGLES::DoFlush() {
 		GLRInputLayout *inputLayout = SetupDecFmtForDraw(program, dec_->GetDecVtxFmt());
 		if (useElements) {
 			if (!indexBuffer) {
-				size_t esz = sizeof(uint16_t) * indexGen.VertexCount();
-				void *dest = frameData.pushIndex->Push(esz, &indexBufferOffset, &indexBuffer);
+				uint32_t esz = sizeof(uint16_t) * indexGen.VertexCount();
+				void *dest = frameData.pushIndex->Allocate(esz, 2, &indexBuffer, &indexBufferOffset);
 				memcpy(dest, decIndex, esz);
 			}
 			render_->DrawIndexed(
@@ -434,13 +434,13 @@ void DrawEngineGLES::DoFlush() {
 
 		if (result.action == SW_DRAW_PRIMITIVES) {
 			if (result.drawIndexed) {
-				vertexBufferOffset = (uint32_t)frameData.pushVertex->Push(result.drawBuffer, maxIndex * sizeof(TransformedVertex), &vertexBuffer);
-				indexBufferOffset = (uint32_t)frameData.pushIndex->Push(inds, sizeof(uint16_t) * result.drawNumTrans, &indexBuffer);
+				vertexBufferOffset = (uint32_t)frameData.pushVertex->Push(result.drawBuffer, maxIndex * sizeof(TransformedVertex), 4, &vertexBuffer);
+				indexBufferOffset = (uint32_t)frameData.pushIndex->Push(inds, sizeof(uint16_t) * result.drawNumTrans, 2, &indexBuffer);
 				render_->DrawIndexed(
 					softwareInputLayout_, vertexBuffer, vertexBufferOffset, indexBuffer,
 					glprim[prim], result.drawNumTrans, GL_UNSIGNED_SHORT, (void *)(intptr_t)indexBufferOffset);
 			} else {
-				vertexBufferOffset = (uint32_t)frameData.pushVertex->Push(result.drawBuffer, result.drawNumTrans * sizeof(TransformedVertex), &vertexBuffer);
+				vertexBufferOffset = (uint32_t)frameData.pushVertex->Push(result.drawBuffer, result.drawNumTrans * sizeof(TransformedVertex), 4, &vertexBuffer);
 				render_->Draw(
 					softwareInputLayout_, vertexBuffer, vertexBufferOffset, glprim[prim], 0, result.drawNumTrans);
 			}

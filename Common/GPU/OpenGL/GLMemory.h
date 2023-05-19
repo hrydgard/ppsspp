@@ -105,57 +105,32 @@ public:
 		return writePtr_ != nullptr;
 	}
 
-	// When using the returned memory, make sure to bind the returned vkbuf.
-	// This will later allow for handling overflow correctly.
-	size_t Allocate(size_t numBytes, GLRBuffer **vkbuf) {
-		size_t out = offset_;
-		if (offset_ + ((numBytes + 3) & ~3) >= size_) {
-			NextBuffer(numBytes);
-			out = offset_;
-			offset_ += (numBytes + 3) & ~3;
-		} else {
-			offset_ += (numBytes + 3) & ~3;  // Round up to 4 bytes.
+	// Recommended - write directly into the buffer through the returned pointer.
+	uint8_t *Allocate(uint32_t numBytes, uint32_t alignment, GLRBuffer **buf, uint32_t *bindOffset) {
+		uint32_t offset = ((uint32_t)offset_ + alignment - 1) & ~(alignment - 1);
+		if (offset + numBytes <= size_) {
+			// Common path.
+			offset_ = offset + numBytes;
+			*buf = buffers_[buf_].buffer;
+			*bindOffset = offset;
+			return writePtr_ + offset;
 		}
-		*vkbuf = buffers_[buf_].buffer;
-		return out;
+
+		NextBuffer(numBytes);
+		*bindOffset = 0;
+		*buf = buffers_[buf_].buffer;
+		return writePtr_;
 	}
 
-	// Returns the offset that should be used when binding this buffer to get this data.
-	size_t Push(const void *data, size_t size, GLRBuffer **vkbuf) {
-		_dbg_assert_(writePtr_);
-		size_t off = Allocate(size, vkbuf);
-		memcpy(writePtr_ + off, data, size);
-		return off;
+	// For convenience if all you'll do is to copy.
+	uint32_t Push(const void *data, uint32_t numBytes, int alignment, GLRBuffer **buf) {
+		uint32_t bindOffset;
+		uint8_t *ptr = Allocate(numBytes, alignment, buf, &bindOffset);
+		memcpy(ptr, data, numBytes);
+		return bindOffset;
 	}
 
-	uint32_t PushAligned(const void *data, size_t size, int align, GLRBuffer **vkbuf) {
-		_dbg_assert_(writePtr_);
-		offset_ = (offset_ + align - 1) & ~(align - 1);
-		size_t off = Allocate(size, vkbuf);
-		memcpy(writePtr_ + off, data, size);
-		return (uint32_t)off;
-	}
-
-	size_t GetOffset() const {
-		return offset_;
-	}
-
-	// "Zero-copy" variant - you can write the data directly as you compute it.
-	// Recommended.
-	void *Push(size_t size, uint32_t *bindOffset, GLRBuffer **vkbuf) {
-		_dbg_assert_(writePtr_);
-		size_t off = Allocate(size, vkbuf);
-		*bindOffset = (uint32_t)off;
-		return writePtr_ + off;
-	}
-	void *PushAligned(size_t size, uint32_t *bindOffset, GLRBuffer **vkbuf, int align) {
-		_dbg_assert_(writePtr_);
-		offset_ = (offset_ + align - 1) & ~(align - 1);
-		size_t off = Allocate(size, vkbuf);
-		*bindOffset = (uint32_t)off;
-		return writePtr_ + off;
-	}
-
+	size_t GetOffset() const { return offset_; }
 	size_t GetTotalSize() const;
 
 	void Destroy(bool onRenderThread);
