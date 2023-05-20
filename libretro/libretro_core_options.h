@@ -293,6 +293,7 @@ struct retro_core_option_v2_definition option_defs_us[] = {
       },
       "480x272"
    },
+#if 0 // see issue #16786
    {
       "ppsspp_mulitsample_level",
       "MSAA Antialiasing (Vulkan Only)",
@@ -309,6 +310,7 @@ struct retro_core_option_v2_definition option_defs_us[] = {
       },
       "Disabled"
    },
+#endif
    {
       "ppsspp_skip_buffer_effects",
       "Skip Buffer Effects",
