@@ -104,6 +104,8 @@
     #define PPSSPP_PLATFORM_LINUX 1
 #elif defined(__linux__)
     #define PPSSPP_PLATFORM_LINUX 1
+#elif defined(__OpenBSD__)
+    #define PPSSPP_PLATFORM_OPENBSD 1
 #endif
 
 // Windows ARM/ARM64, and Windows UWP (all), are the only platform that don't do GL at all (until Apple finally removes it)

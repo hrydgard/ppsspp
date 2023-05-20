@@ -15,7 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#if __linux__ || __APPLE__
+#if __linux__ || __APPLE__ || defined(__OpenBSD__)
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/mman.h>
