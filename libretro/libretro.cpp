@@ -603,6 +603,7 @@ static void check_variables(CoreParameter &coreParam)
          g_Config.iInternalResolution = 10;
    }
 
+#if 0 // see issue #16786
    var.key = "ppsspp_mulitsample_level";
    if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value)
    {
@@ -617,6 +618,7 @@ static void check_variables(CoreParameter &coreParam)
       else if (!strcmp(var.value, "x8"))
          g_Config.iMultiSampleLevel = 3;
    }
+#endif
 
    var.key = "ppsspp_skip_buffer_effects";
    if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value)
@@ -1015,6 +1017,7 @@ static void check_variables(CoreParameter &coreParam)
       }
    }
 
+#if 0 // see issue #16786
    if (g_Config.iMultiSampleLevel != iMultiSampleLevel_prev && PSP_IsInited())
    {
       if (gpu)
@@ -1022,6 +1025,7 @@ static void check_variables(CoreParameter &coreParam)
          gpu->NotifyRenderResized();
       }
    }
+#endif
 
    if (updateAvInfo)
    {
@@ -1292,6 +1296,23 @@ bool retro_load_game(const struct retro_game_info *game)
       ERROR_LOG(BOOT, "%s", error_string.c_str());
       return false;
    }
+
+   struct retro_core_option_display option_display;
+
+   // Show/hide 'MSAA' and 'Texture Shader' options, Vulkan only
+   option_display.visible = (g_Config.iGPUBackend == (int)GPUBackend::VULKAN) ? true : false;
+#if 0 // see issue #16786
+   option_display.key = "ppsspp_mulitsample_level";
+   environ_cb(RETRO_ENVIRONMENT_SET_CORE_OPTIONS_DISPLAY, &option_display);
+#endif
+   option_display.key = "ppsspp_texture_shader";
+   environ_cb(RETRO_ENVIRONMENT_SET_CORE_OPTIONS_DISPLAY, &option_display);
+
+   // Show/hide 'Buffered Frames' option, Vulkan/GL only
+   option_display.visible = (g_Config.iGPUBackend == (int)GPUBackend::VULKAN ||
+         g_Config.iGPUBackend == (int)GPUBackend::OPENGL) ? true : false;
+   option_display.key = "ppsspp_inflight_frames";
+   environ_cb(RETRO_ENVIRONMENT_SET_CORE_OPTIONS_DISPLAY, &option_display);
 
    set_variable_visibility();
 
