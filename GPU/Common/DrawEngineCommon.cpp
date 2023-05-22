@@ -179,6 +179,8 @@ void DrawEngineCommon::NotifyConfigChanged() {
 	if (decJitCache_)
 		decJitCache_->Clear();
 	dec_ = nullptr;
+	// Just make sure there's no pending draw, since we wipe the decoders. There shouldn't be one.
+	numDrawCalls = 0;
 	decoderMap_.Iterate([&](const uint32_t vtype, VertexDecoder *decoder) {
 		delete decoder;
 	});

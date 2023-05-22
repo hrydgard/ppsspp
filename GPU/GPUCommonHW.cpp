@@ -820,13 +820,13 @@ void GPUCommonHW::FastRunLoop(DisplayList &list) {
 }
 
 void GPUCommonHW::Execute_VertexType(u32 op, u32 diff) {
-	if (diff)
+	// When this function is active (instead of Execute_VertexTypeSkinning), auto-flush-on-change is enabled, so we always flush here
+	if (diff) {
 		gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE);
-	if (diff & (GE_VTYPE_THROUGH_MASK)) {
-		gstate_c.Dirty(DIRTY_UVSCALEOFFSET);
-		// Switching between through and non-through, we need to invalidate a bunch of stuff.
-		if (diff & GE_VTYPE_THROUGH_MASK)
+		if (diff & GE_VTYPE_THROUGH_MASK) {
+			// Switching between through and non-through, we need to invalidate a bunch of stuff.
 			gstate_c.Dirty(DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_FRAGMENTSHADER_STATE | DIRTY_GEOMETRYSHADER_STATE | DIRTY_CULLRANGE);
+		}
 	}
 }
 
@@ -860,7 +860,7 @@ void GPUCommonHW::Execute_VertexTypeSkinning(u32 op, u32 diff) {
 		}
 	}
 	if (diff & GE_VTYPE_THROUGH_MASK)
-		gstate_c.Dirty(DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_FRAGMENTSHADER_STATE | DIRTY_GEOMETRYSHADER_STATE | DIRTY_CULLRANGE | DIRTY_UVSCALEOFFSET);
+		gstate_c.Dirty(DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_FRAGMENTSHADER_STATE | DIRTY_GEOMETRYSHADER_STATE | DIRTY_CULLRANGE);
 }
 
 void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
