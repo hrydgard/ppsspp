@@ -25,6 +25,17 @@ If you want to download regularly updated builds for Android, Windows x86 and x6
 
 For game compatibility, see [community compatibility feedback](https://report.ppsspp.org/games).
 
+What's new in 1.15.4
+====================
+- Tilt controls: Restore "Low end radius" control ([#17489])
+- Android: Restore the ability to choose "display" (hardware scaler) resolution ([#17473])
+- Improve the workarounds for the DJ Max games ([#17467])
+- Android: Fix running some file formats directly from the Downloads folder ([#17466])
+- OpenGL: Restore most of the lost performance on low-end hardware from the shader variant reduction ([#17440, #17439])
+- Add a simple profiling tool to check CPU usage by the GL backend ([#17475])
+- Loader: Fix bug preventing WWE 2009 from starting ([#17435])
+- Misc minor fixes and optimizations ([#17442], [#17457], [#17486], [#17446], more)
+
 What's new in 1.15.3
 ====================
 - Assorted minor crash- and other fixes ([#17406], [#17414], [#17415], [#17422])
