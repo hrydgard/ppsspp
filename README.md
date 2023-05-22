@@ -31,7 +31,7 @@ What's new in 1.15.4
 - Android: Restore the ability to choose "display" (hardware scaler) resolution ([#17473])
 - Improve the workarounds for the DJ Max games ([#17467])
 - Android: Fix running some file formats directly from the Downloads folder ([#17466])
-- OpenGL: Restore most of the lost performance on low-end hardware from the shader variant reduction ([#17440, #17439])
+- OpenGL: Restore most of the lost performance on low-end hardware from the shader variant reduction ([#17440, [#17439]])
 - Add a simple profiling tool to check CPU usage by the GL backend ([#17475])
 - Loader: Fix bug preventing WWE 2009 from starting ([#17435])
 - Misc minor fixes and optimizations ([#17442], [#17457], [#17486], [#17446], more)
@@ -617,3 +617,15 @@ Credit goes to:
 [#17425]: https://github.com/hrydgard/ppsspp/issues/17425 "Android: Explicitly allow content URI intents"
 [#17412]: https://github.com/hrydgard/ppsspp/issues/17412 "Controller mapping fixes"
 [#17420]: https://github.com/hrydgard/ppsspp/issues/17420 "Fix glitch when mapping analog inputs, caused"
+[#17489]: https://github.com/hrydgard/ppsspp/issues/17489 "Restore \"low end radius\" (inverse deadzone) for tilt input"
+[#17473]: https://github.com/hrydgard/ppsspp/issues/17473 "Revert \"Remove the Android display resolution selector\""
+[#17467]: https://github.com/hrydgard/ppsspp/issues/17467 "Make the DJ Max workaround more aggressive about hiding stuff."
+[#17466]: https://github.com/hrydgard/ppsspp/issues/17466 "Fix running some file formats from the Downloads folder"
+[#17440]: https://github.com/hrydgard/ppsspp/issues/17440 "Revert lmode variant reduction"
+[#17439]: https://github.com/hrydgard/ppsspp/issues/17439 "Revert \"Merge pull request #16628 from hrydgard/remove-fog-fshader-flag\""
+[#17475]: https://github.com/hrydgard/ppsspp/issues/17475 "Add a trivial profiling tool to the OpenGL backend"
+[#17435]: https://github.com/hrydgard/ppsspp/issues/17435 "ElfLoader: Don't scan for functions in zero-length sections"
+[#17442]: https://github.com/hrydgard/ppsspp/issues/17442 "Shrink the GLRRenderCommand struct from 152 to 88"
+[#17457]: https://github.com/hrydgard/ppsspp/issues/17457 "UI: Fix thread error on zip open failure"
+[#17486]: https://github.com/hrydgard/ppsspp/issues/17486 "Build fixes for OpenBSD"
+[#17446]: https://github.com/hrydgard/ppsspp/issues/17446 "OpenGL: Combine some render commands"
