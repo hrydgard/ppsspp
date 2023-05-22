@@ -40,6 +40,24 @@ inline float ApplyDeadzone(float x, float deadzone) {
 	}
 }
 
+// Also clamps to -1.0..1.0.
+// This applies a (circular if desired) inverse deadzone.
+inline void ApplyInverseDeadzone(float x, float y, float *outX, float *outY, float inverseDeadzone, bool circular) {
+	if (inverseDeadzone == 0.0f) {
+		*outX = Clamp(x, -1.0f, 1.0f);
+		*outY = Clamp(y, -1.0f, 1.0f);
+	}
+	if (circular) {
+		float magnitude = sqrtf(x * x + y * y);
+		magnitude = (magnitude + inverseDeadzone) / magnitude;
+		*outX = Clamp(x * magnitude, -1.0f, 1.0f);
+		*outY = Clamp(y * magnitude, -1.0f, 1.0f);
+	} else {
+		*outX = Clamp(x + copysignf(inverseDeadzone, x), -1.0f, 1.0f);
+		*outY = Clamp(y + copysignf(inverseDeadzone, y), -1.0f, 1.0f);
+	}
+}
+
 void ProcessTilt(bool landscape, float calibrationAngle, float x, float y, float z, bool invertX, bool invertY, float xSensitivity, float ySensitivity) {
 	if (g_Config.iTiltInputType == TILT_NULL) {
 		// Turned off - nothing to do.
@@ -79,9 +97,14 @@ void ProcessTilt(bool landscape, float calibrationAngle, float x, float y, float
 
 	if (g_Config.iTiltInputType == TILT_ANALOG) {
 		// Only analog mappings use the deadzone.
-
 		float adjustedTiltX = ApplyDeadzone(tiltX, g_Config.fTiltAnalogDeadzoneRadius);
 		float adjustedTiltY = ApplyDeadzone(tiltY, g_Config.fTiltAnalogDeadzoneRadius);
+
+		// Unlike regular deadzone, where per-axis is okay, inverse deadzone (to compensate for game deadzones) really needs to be
+		// applied on the two axes together.
+		// TODO: Share this code with the joystick code. For now though, we keep it separate.
+		ApplyInverseDeadzone(adjustedTiltX, adjustedTiltY, &adjustedTiltX, &adjustedTiltY, g_Config.fTiltInverseDeadzone, g_Config.bTiltCircularInverseDeadzone);
+
 		rawTiltAnalogX = adjustedTiltX;
 		rawTiltAnalogY = adjustedTiltY;
 		GenerateAnalogStickEvent(adjustedTiltX, adjustedTiltY);
