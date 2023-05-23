@@ -225,18 +225,6 @@ GLRInputLayout *DrawEngineGLES::SetupDecFmtForDraw(LinkedShader *program, const 
 	return inputLayout;
 }
 
-void *DrawEngineGLES::DecodeVertsToPushBuffer(GLPushBuffer *push, uint32_t *bindOffset, GLRBuffer **buf) {
-	u8 *dest = decoded_;
-
-	// Figure out how much pushbuffer space we need to allocate.
-	if (push) {
-		int vertsToDecode = ComputeNumVertsToDecode();
-		dest = (u8 *)push->Allocate(vertsToDecode * dec_->GetDecVtxFmt().stride, 4, buf, bindOffset);
-	}
-	DecodeVerts(dest);
-	return dest;
-}
-
 // A new render step means we need to flush any dynamic state. Really, any state that is reset in
 // GLQueueRunner::PerformRenderPass.
 void DrawEngineGLES::Invalidate(InvalidationCallbackFlags flags) {
@@ -293,8 +281,10 @@ void DrawEngineGLES::DoFlush() {
 			u8 *dest = (u8 *)frameData.pushVertex->Allocate(size, 4, &vertexBuffer, &vertexBufferOffset);
 			memcpy(dest, decoded_, size);
 		} else {
-			// Decode directly into the pushbuffer
-			u8 *dest = (u8 *)DecodeVertsToPushBuffer(frameData.pushVertex, &vertexBufferOffset, &vertexBuffer);
+			// Figure out how much pushbuffer space we need to allocate.
+			int vertsToDecode = ComputeNumVertsToDecode();
+			u8 *dest = (u8 *)frameData.pushVertex->Allocate(vertsToDecode * dec_->GetDecVtxFmt().stride, 4, &vertexBuffer, &vertexBufferOffset);
+			DecodeVerts(dest);
 		}
 
 		gpuStats.numUncachedVertsDrawn += indexGen.VertexCount();

@@ -122,8 +122,6 @@ private:
 
 	GLRInputLayout *SetupDecFmtForDraw(LinkedShader *program, const DecVtxFormat &decFmt);
 
-	void *DecodeVertsToPushBuffer(GLPushBuffer *push, uint32_t *bindOffset, GLRBuffer **buf);
-
 	struct FrameData {
 		GLPushBuffer *pushVertex;
 		GLPushBuffer *pushIndex;
