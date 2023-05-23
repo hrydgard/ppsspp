@@ -836,6 +836,11 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step, bool first, bool last
 	bool clipDistanceEnabled[8]{};
 	GLuint blendEqColor = (GLuint)-1;
 	GLuint blendEqAlpha = (GLuint)-1;
+	GLenum blendSrcColor = (GLenum)-1;
+	GLenum blendDstColor = (GLenum)-1;
+	GLenum blendSrcAlpha = (GLenum)-1;
+	GLenum blendDstAlpha = (GLenum)-1;
+
 	GLuint stencilWriteMask = (GLuint)-1;
 	GLenum stencilFunc = (GLenum)-1;
 	GLuint stencilRef = (GLuint)-1;
@@ -843,8 +848,20 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step, bool first, bool last
 	GLenum stencilSFail = (GLenum)-1;
 	GLenum stencilZFail = (GLenum)-1;
 	GLenum stencilPass = (GLenum)-1;
-
+	GLenum frontFace = (GLenum)-1;
+	GLenum cullFace = (GLenum)-1;
 	GLRTexture *curTex[MAX_GL_TEXTURE_SLOTS]{};
+
+	GLRViewport viewport = {
+		-1000000000.0f,
+		-1000000000.0f,
+		-1000000000.0f,
+		-1000000000.0f,
+		-1000000000.0f,
+		-1000000000.0f,
+	};
+
+	GLRect2D scissorRc = { -1, -1, -1, -1 };
 
 	CHECK_GL_ERROR_IF_DEBUG();
 	auto &commands = step.commands;
@@ -908,7 +925,13 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step, bool first, bool last
 					blendEqColor = c.blend.funcColor;
 					blendEqAlpha = c.blend.funcAlpha;
 				}
-				glBlendFuncSeparate(c.blend.srcColor, c.blend.dstColor, c.blend.srcAlpha, c.blend.dstAlpha);
+				if (blendSrcColor != c.blend.srcColor || blendDstColor != c.blend.dstColor || blendSrcAlpha != c.blend.srcAlpha || blendDstAlpha != c.blend.dstAlpha) {
+					glBlendFuncSeparate(c.blend.srcColor, c.blend.dstColor, c.blend.srcAlpha, c.blend.dstAlpha);
+					blendSrcColor = c.blend.srcColor;
+					blendDstColor = c.blend.dstColor;
+					blendSrcAlpha = c.blend.srcAlpha;
+					blendDstAlpha = c.blend.dstAlpha;
+				}
 			} else if (/* !c.blend.enabled && */ blendEnabled) {
 				glDisable(GL_BLEND);
 				blendEnabled = false;
@@ -986,16 +1009,27 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step, bool first, bool last
 				y = curFBHeight_ - y - c.viewport.vp.h;
 
 			// TODO: Support FP viewports through glViewportArrays
-			glViewport((GLint)c.viewport.vp.x, (GLint)y, (GLsizei)c.viewport.vp.w, (GLsizei)c.viewport.vp.h);
-#if !defined(USING_GLES2)
-			if (gl_extensions.IsGLES) {
-				glDepthRangef(c.viewport.vp.minZ, c.viewport.vp.maxZ);
-			} else {
-				glDepthRange(c.viewport.vp.minZ, c.viewport.vp.maxZ);
+			if (viewport.x != c.viewport.vp.x || viewport.y != y || viewport.w != c.viewport.vp.w || viewport.h != c.viewport.vp.h) {
+				glViewport((GLint)c.viewport.vp.x, (GLint)y, (GLsizei)c.viewport.vp.w, (GLsizei)c.viewport.vp.h);
+				viewport.x = c.viewport.vp.x;
+				viewport.y = y;
+				viewport.w = c.viewport.vp.w;
+				viewport.h = c.viewport.vp.h;
 			}
+
+			if (viewport.minZ != c.viewport.vp.minZ || viewport.maxZ != c.viewport.vp.maxZ) {
+				viewport.minZ = c.viewport.vp.minZ;
+				viewport.maxZ = c.viewport.vp.maxZ;
+#if !defined(USING_GLES2)
+				if (gl_extensions.IsGLES) {
+					glDepthRangef(c.viewport.vp.minZ, c.viewport.vp.maxZ);
+				} else {
+					glDepthRange(c.viewport.vp.minZ, c.viewport.vp.maxZ);
+				}
 #else
-			glDepthRangef(c.viewport.vp.minZ, c.viewport.vp.maxZ);
+				glDepthRangef(c.viewport.vp.minZ, c.viewport.vp.maxZ);
 #endif
+			}
 			CHECK_GL_ERROR_IF_DEBUG();
 			break;
 		}
@@ -1004,7 +1038,13 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step, bool first, bool last
 			int y = c.scissor.rc.y;
 			if (!curFB_)
 				y = curFBHeight_ - y - c.scissor.rc.h;
-			glScissor(c.scissor.rc.x, y, c.scissor.rc.w, c.scissor.rc.h);
+			if (scissorRc.x != c.scissor.rc.x || scissorRc.y != y || scissorRc.w != c.scissor.rc.w || scissorRc.h != c.scissor.rc.h) {
+				glScissor(c.scissor.rc.x, y, c.scissor.rc.w, c.scissor.rc.h);
+				scissorRc.x = c.scissor.rc.x;
+				scissorRc.y = y;
+				scissorRc.w = c.scissor.rc.w;
+				scissorRc.h = c.scissor.rc.h;
+			}
 			CHECK_GL_ERROR_IF_DEBUG();
 			break;
 		}
@@ -1328,8 +1368,14 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step, bool first, bool last
 					glEnable(GL_CULL_FACE);
 					cullEnabled = true;
 				}
-				glFrontFace(c.raster.frontFace);
-				glCullFace(c.raster.cullFace);
+				if (frontFace != c.raster.frontFace) {
+					glFrontFace(c.raster.frontFace);
+					frontFace = c.raster.frontFace;
+				}
+				if (cullFace != c.raster.cullFace) {
+					glCullFace(c.raster.cullFace);
+					cullFace = c.raster.cullFace;
+				}
 			} else if (/* !c.raster.cullEnable && */ cullEnabled) {
 				glDisable(GL_CULL_FACE);
 				cullEnabled = false;
