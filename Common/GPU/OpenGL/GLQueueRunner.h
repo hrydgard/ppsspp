@@ -40,8 +40,7 @@ class GLRInputLayout;
 
 enum class GLRRenderCommand : uint8_t {
 	DEPTH,
-	STENCILFUNC,
-	STENCILOP,
+	STENCIL,
 	BLEND,
 	BLENDCOLOR,
 	LOGICOP,
@@ -100,13 +99,11 @@ struct GLRRenderData {
 			GLenum func;
 			uint8_t ref;
 			uint8_t compareMask;
-		} stencilFunc;
-		struct {
 			GLenum sFail;
 			GLenum zFail;
 			GLenum pass;
 			uint8_t writeMask;
-		} stencilOp;  // also write mask
+		} stencil;
 		struct {
 			GLRInputLayout *inputLayout;
 			GLRBuffer *buffer;

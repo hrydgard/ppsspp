@@ -836,6 +836,13 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step, bool first, bool last
 	bool clipDistanceEnabled[8]{};
 	GLuint blendEqColor = (GLuint)-1;
 	GLuint blendEqAlpha = (GLuint)-1;
+	GLuint stencilWriteMask = (GLuint)-1;
+	GLenum stencilFunc = (GLenum)-1;
+	GLuint stencilRef = (GLuint)-1;
+	GLuint stencilCompareMask = (GLuint)-1;
+	GLenum stencilSFail = (GLenum)-1;
+	GLenum stencilZFail = (GLenum)-1;
+	GLenum stencilPass = (GLenum)-1;
 
 	GLRTexture *curTex[MAX_GL_TEXTURE_SLOTS]{};
 
@@ -862,22 +869,33 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step, bool first, bool last
 				depthEnabled = false;
 			}
 			break;
-		case GLRRenderCommand::STENCILFUNC:
-			if (c.stencilFunc.enabled) {
+		case GLRRenderCommand::STENCIL:
+			if (c.stencil.enabled) {
 				if (!stencilEnabled) {
 					glEnable(GL_STENCIL_TEST);
 					stencilEnabled = true;
 				}
-				glStencilFunc(c.stencilFunc.func, c.stencilFunc.ref, c.stencilFunc.compareMask);
+				if (c.stencil.func != stencilFunc || c.stencil.ref != stencilRef || c.stencil.compareMask != stencilCompareMask) {
+					glStencilFunc(c.stencil.func, c.stencil.ref, c.stencil.compareMask);
+					stencilFunc = c.stencil.func;
+					stencilRef = c.stencil.ref;
+					stencilCompareMask = c.stencil.compareMask;
+				}
+				if (c.stencil.sFail != stencilSFail || c.stencil.zFail != stencilZFail || c.stencil.pass != stencilPass) {
+					glStencilOp(c.stencil.sFail, c.stencil.zFail, c.stencil.pass);
+					stencilSFail = c.stencil.sFail;
+					stencilZFail = c.stencil.zFail;
+					stencilPass = c.stencil.pass;
+				}
+				if (c.stencil.writeMask != stencilWriteMask) {
+					glStencilMask(c.stencil.writeMask);
+					stencilWriteMask = c.stencil.writeMask;
+				}
 			} else if (/* !c.stencilFunc.enabled && */stencilEnabled) {
 				glDisable(GL_STENCIL_TEST);
 				stencilEnabled = false;
 			}
 			CHECK_GL_ERROR_IF_DEBUG();
-			break;
-		case GLRRenderCommand::STENCILOP:
-			glStencilOp(c.stencilOp.sFail, c.stencilOp.zFail, c.stencilOp.pass);
-			glStencilMask(c.stencilOp.writeMask);
 			break;
 		case GLRRenderCommand::BLEND:
 			if (c.blend.enabled) {
