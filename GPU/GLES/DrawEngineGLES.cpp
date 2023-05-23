@@ -97,8 +97,8 @@ void DrawEngineGLES::InitDeviceObjects() {
 	_assert_msg_(render_ != nullptr, "Render manager must be set");
 
 	for (int i = 0; i < GLRenderManager::MAX_INFLIGHT_FRAMES; i++) {
-		frameData_[i].pushVertex = render_->CreatePushBuffer(i, GL_ARRAY_BUFFER, 1024 * 1024);
-		frameData_[i].pushIndex = render_->CreatePushBuffer(i, GL_ELEMENT_ARRAY_BUFFER, 256 * 1024);
+		frameData_[i].pushVertex = render_->CreatePushBuffer(i, GL_ARRAY_BUFFER, 2048 * 1024, "game_vertex");
+		frameData_[i].pushIndex = render_->CreatePushBuffer(i, GL_ELEMENT_ARRAY_BUFFER, 256 * 1024, "game_index");
 	}
 
 	int vertexSize = sizeof(TransformedVertex);
@@ -225,18 +225,6 @@ GLRInputLayout *DrawEngineGLES::SetupDecFmtForDraw(LinkedShader *program, const 
 	return inputLayout;
 }
 
-void *DrawEngineGLES::DecodeVertsToPushBuffer(GLPushBuffer *push, uint32_t *bindOffset, GLRBuffer **buf) {
-	u8 *dest = decoded;
-
-	// Figure out how much pushbuffer space we need to allocate.
-	if (push) {
-		int vertsToDecode = ComputeNumVertsToDecode();
-		dest = (u8 *)push->Allocate(vertsToDecode * dec_->GetDecVtxFmt().stride, 4, buf, bindOffset);
-	}
-	DecodeVerts(dest);
-	return dest;
-}
-
 // A new render step means we need to flush any dynamic state. Really, any state that is reset in
 // GLQueueRunner::PerformRenderPass.
 void DrawEngineGLES::Invalidate(InvalidationCallbackFlags flags) {
@@ -288,13 +276,15 @@ void DrawEngineGLES::DoFlush() {
 		bool useElements = true;
 
 		if (decOptions_.applySkinInDecode && (lastVType_ & GE_VTYPE_WEIGHT_MASK)) {
-			// If software skinning, we've already predecoded into "decoded". So push that content.
+			// If software skinning, we've already predecoded into "decoded_". So push that content.
 			uint32_t size = decodedVerts_ * dec_->GetDecVtxFmt().stride;
 			u8 *dest = (u8 *)frameData.pushVertex->Allocate(size, 4, &vertexBuffer, &vertexBufferOffset);
-			memcpy(dest, decoded, size);
+			memcpy(dest, decoded_, size);
 		} else {
-			// Decode directly into the pushbuffer
-			u8 *dest = (u8 *)DecodeVertsToPushBuffer(frameData.pushVertex, &vertexBufferOffset, &vertexBuffer);
+			// Figure out how much pushbuffer space we need to allocate.
+			int vertsToDecode = ComputeNumVertsToDecode();
+			u8 *dest = (u8 *)frameData.pushVertex->Allocate(vertsToDecode * dec_->GetDecVtxFmt().stride, 4, &vertexBuffer, &vertexBufferOffset);
+			DecodeVerts(dest);
 		}
 
 		gpuStats.numUncachedVertsDrawn += indexGen.VertexCount();
@@ -347,7 +337,7 @@ void DrawEngineGLES::DoFlush() {
 			lastVType_ |= (1 << 26);
 			dec_ = GetVertexDecoder(lastVType_);
 		}
-		DecodeVerts(decoded);
+		DecodeVerts(decoded_);
 
 		bool hasColor = (lastVType_ & GE_VTYPE_COL_MASK) != GE_VTYPE_COL_NONE;
 		if (gstate.isModeThrough()) {
@@ -366,7 +356,7 @@ void DrawEngineGLES::DoFlush() {
 		SoftwareTransformResult result{};
 		// TODO: Keep this static?  Faster than repopulating?
 		SoftwareTransformParams params{};
-		params.decoded = decoded;
+		params.decoded = decoded_;
 		params.transformed = transformed;
 		params.transformedExpanded = transformedExpanded;
 		params.fbman = framebufferManager_;

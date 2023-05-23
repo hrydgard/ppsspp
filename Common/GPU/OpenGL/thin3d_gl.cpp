@@ -631,7 +631,7 @@ OpenGLContext::OpenGLContext() {
 	caps_.isTilingGPU = gl_extensions.IsGLES && caps_.vendor != GPUVendor::VENDOR_NVIDIA && caps_.vendor != GPUVendor::VENDOR_INTEL;
 
 	for (int i = 0; i < GLRenderManager::MAX_INFLIGHT_FRAMES; i++) {
-		frameData_[i].push = renderManager_.CreatePushBuffer(i, GL_ARRAY_BUFFER, 64 * 1024);
+		frameData_[i].push = renderManager_.CreatePushBuffer(i, GL_ARRAY_BUFFER, 64 * 1024, "thin3d_vbuf");
 	}
 
 	if (!gl_extensions.VersionGEThan(3, 0, 0)) {
@@ -1359,7 +1359,9 @@ void OpenGLContext::DrawUP(const void *vdata, int vertexCount) {
 	FrameData &frameData = frameData_[renderManager_.GetCurFrame()];
 
 	GLRBuffer *buf;
-	uint32_t offset = frameData.push->Push(vdata, dataSize, 4, &buf);
+	uint32_t offset;
+	uint8_t *dest = frameData.push->Allocate(dataSize, 4, &buf, &offset);
+	memcpy(dest, vdata, dataSize);
 
 	ApplySamplers();
 	_assert_(curPipeline_->inputLayout);

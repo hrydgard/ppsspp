@@ -334,8 +334,8 @@ public:
 		return step.create_input_layout.inputLayout;
 	}
 
-	GLPushBuffer *CreatePushBuffer(int frame, GLuint target, size_t size) {
-		GLPushBuffer *push = new GLPushBuffer(this, target, size);
+	GLPushBuffer *CreatePushBuffer(int frame, GLuint target, size_t size, const char *tag) {
+		GLPushBuffer *push = new GLPushBuffer(this, target, size, tag);
 		RegisterPushBuffer(frame, push);
 		return push;
 	}

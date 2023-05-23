@@ -73,10 +73,13 @@ public:
 		size_t size;
 	};
 
-	GLPushBuffer(GLRenderManager *render, GLuint target, size_t size);
+	GLPushBuffer(GLRenderManager *render, GLuint target, size_t size, const char *tag);
 	~GLPushBuffer();
 
 	void Reset() { offset_ = 0; }
+
+	// Utility for users of this class, not used internally.
+	const uint32_t INVALID_OFFSET = 0xFFFFFFFF;
 
 private:
 	// Needs context in case of defragment.
@@ -105,7 +108,9 @@ public:
 		return writePtr_ != nullptr;
 	}
 
-	// Recommended - write directly into the buffer through the returned pointer.
+	// Recommended - lets you write directly into the buffer through the returned pointer.
+	// If you didn't end up using all the memory you grabbed here, then before calling Allocate or Push
+	// again, call Rewind (see below).
 	uint8_t *Allocate(uint32_t numBytes, uint32_t alignment, GLRBuffer **buf, uint32_t *bindOffset) {
 		uint32_t offset = ((uint32_t)offset_ + alignment - 1) & ~(alignment - 1);
 		if (offset + numBytes <= size_) {
@@ -128,6 +133,12 @@ public:
 		uint8_t *ptr = Allocate(numBytes, alignment, buf, &bindOffset);
 		memcpy(ptr, data, numBytes);
 		return bindOffset;
+	}
+
+	// If you didn't use all of the previous allocation you just made (obviously can't be another one),
+	// you can return memory to the buffer by specifying the offset up until which you wrote data.
+	void Rewind(uint32_t offset) {
+		offset_ = offset;
 	}
 
 	size_t GetOffset() const { return offset_; }
@@ -153,4 +164,5 @@ private:
 	uint8_t *writePtr_ = nullptr;
 	GLuint target_;
 	GLBufferStrategy strategy_ = GLBufferStrategy::SUBDATA;
+	const char *tag_;
 };

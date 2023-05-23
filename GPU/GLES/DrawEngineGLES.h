@@ -103,13 +103,6 @@ public:
 		Flush();
 	}
 
-	GLPushBuffer *GetPushVertexBuffer() {
-		return frameData_[render_->GetCurFrame()].pushVertex;
-	}
-	GLPushBuffer *GetPushIndexBuffer() {
-		return frameData_[render_->GetCurFrame()].pushIndex;
-	}
-
 	void ClearInputLayoutMap();
 
 	bool SupportsHWTessellation() const;
@@ -128,8 +121,6 @@ private:
 	void ApplyDrawStateLate(bool setStencil, int stencilValue);
 
 	GLRInputLayout *SetupDecFmtForDraw(LinkedShader *program, const DecVtxFormat &decFmt);
-
-	void *DecodeVertsToPushBuffer(GLPushBuffer *push, uint32_t *bindOffset, GLRBuffer **buf);
 
 	struct FrameData {
 		GLPushBuffer *pushVertex;
@@ -153,7 +144,6 @@ private:
 	ViewportAndScissor vpAndScissor;
 
 	int bufferDecimationCounter_ = 0;
-
 	int lastRenderStepId_ = -1;
 
 	// Hardware tessellation

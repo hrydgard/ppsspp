@@ -146,7 +146,7 @@ public:
 	void FinishDeferred() {
 		if (!numDrawCalls)
 			return;
-		DecodeVerts(decoded);
+		DecodeVerts(decoded_);
 	}
 
 	void DispatchFlush() override {

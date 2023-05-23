@@ -498,7 +498,7 @@ void DrawEngineCommon::SubmitCurve(const void *control_points, const void *indic
 	if (surface.num_points_u < 4 || surface.num_points_v < 4)
 		return;
 
-	SimpleBufferManager managedBuf(decoded, DECODED_VERTEX_BUFFER_SIZE / 2);
+	SimpleBufferManager managedBuf(decoded_, DECODED_VERTEX_BUFFER_SIZE / 2);
 
 	int num_points = surface.num_points_u * surface.num_points_v;
 	u16 index_lower_bound = 0;
@@ -544,7 +544,7 @@ void DrawEngineCommon::SubmitCurve(const void *control_points, const void *indic
 		points[idx] = simplified_control_points + (indices ? ConvertIndex(idx) : idx);
 
 	OutputBuffers output;
-	output.vertices = (SimpleVertex *)(decoded + DECODED_VERTEX_BUFFER_SIZE / 2);
+	output.vertices = (SimpleVertex *)(decoded_ + DECODED_VERTEX_BUFFER_SIZE / 2);
 	output.indices = decIndex;
 	output.count = 0;
 
