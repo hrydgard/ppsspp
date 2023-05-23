@@ -1354,12 +1354,12 @@ void OpenGLContext::DrawIndexed(int vertexCount, int offset) {
 void OpenGLContext::DrawUP(const void *vdata, int vertexCount) {
 	_assert_(curPipeline_->inputLayout != nullptr);
 	int stride = curPipeline_->inputLayout->stride;
-	size_t dataSize = stride * vertexCount;
+	uint32_t dataSize = stride * vertexCount;
 
 	FrameData &frameData = frameData_[renderManager_.GetCurFrame()];
 
 	GLRBuffer *buf;
-	size_t offset = frameData.push->Push(vdata, dataSize, &buf);
+	uint32_t offset = frameData.push->Push(vdata, dataSize, 4, &buf);
 
 	ApplySamplers();
 	_assert_(curPipeline_->inputLayout);

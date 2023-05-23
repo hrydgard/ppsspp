@@ -1612,8 +1612,8 @@ void EmuScreen::renderUI() {
 	}
 
 #if !PPSSPP_PLATFORM(UWP) && !PPSSPP_PLATFORM(SWITCH)
-	if (g_Config.iGPUBackend == (int)GPUBackend::VULKAN && g_Config.bShowAllocatorDebug) {
-		DrawAllocatorVis(ctx, gpu);
+	if ((g_Config.iGPUBackend == (int)GPUBackend::VULKAN || g_Config.iGPUBackend == (int)GPUBackend::OPENGL) && g_Config.bShowAllocatorDebug) {
+		DrawGPUMemoryVis(ctx, gpu);
 	}
 
 	if ((g_Config.iGPUBackend == (int)GPUBackend::VULKAN || g_Config.iGPUBackend == (int)GPUBackend::OPENGL) && g_Config.bShowGpuProfile) {

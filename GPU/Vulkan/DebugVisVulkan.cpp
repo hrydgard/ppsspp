@@ -45,7 +45,7 @@ bool comparePushBufferNames(const VulkanMemoryManager *a, const VulkanMemoryMana
 	return strcmp(a->Name(), b->Name()) < 0;
 }
 
-void DrawAllocatorVis(UIContext *ui, GPUInterface *gpu) {
+void DrawGPUMemoryVis(UIContext *ui, GPUInterface *gpu) {
 	// This one will simply display stats.
 	Draw::DrawContext *draw = ui->GetDrawContext();
 

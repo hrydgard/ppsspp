@@ -651,6 +651,8 @@ add_library(Common STATIC
 	Common/GPU/OpenGL/GLFrameData.cpp
 	Common/GPU/OpenGL/GLFrameData.h
 	Common/GPU/OpenGL/thin3d_gl.cpp
+	Common/GPU/OpenGL/GLMemory.cpp
+	Common/GPU/OpenGL/GLMemory.h
 	Common/GPU/OpenGL/GLRenderManager.cpp
 	Common/GPU/OpenGL/GLRenderManager.h
 	Common/GPU/OpenGL/GLQueueRunner.cpp

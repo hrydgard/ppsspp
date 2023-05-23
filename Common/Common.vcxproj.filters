@@ -500,6 +500,9 @@
     <ClInclude Include="File\AndroidContentURI.h">
       <Filter>File</Filter>
     </ClInclude>
+    <ClInclude Include="GPU\OpenGL\GLMemory.h">
+      <Filter>GPU\OpenGL</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="ABI.cpp" />
@@ -931,6 +934,9 @@
     </ClCompile>
     <ClCompile Include="File\AndroidContentURI.cpp">
       <Filter>File</Filter>
+    </ClCompile>
+    <ClCompile Include="GPU\OpenGL\GLMemory.cpp">
+      <Filter>GPU\OpenGL</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
