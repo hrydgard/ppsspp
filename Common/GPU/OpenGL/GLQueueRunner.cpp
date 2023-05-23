@@ -852,8 +852,14 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step, bool first, bool last
 	GLenum cullFace = (GLenum)-1;
 	GLRTexture *curTex[MAX_GL_TEXTURE_SLOTS]{};
 
-	float depthRangeMin = -1000000000.0f;
-	float depthRangeMax = -1000000000.0f;
+	GLRViewport viewport = {
+		-1000000000.0f,
+		-1000000000.0f,
+		-1000000000.0f,
+		-1000000000.0f,
+		-1000000000.0f,
+		-1000000000.0f,
+	};
 
 	GLRect2D scissorRc = { -1, -1, -1, -1 };
 
@@ -1003,11 +1009,17 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step, bool first, bool last
 				y = curFBHeight_ - y - c.viewport.vp.h;
 
 			// TODO: Support FP viewports through glViewportArrays
-			glViewport((GLint)c.viewport.vp.x, (GLint)y, (GLsizei)c.viewport.vp.w, (GLsizei)c.viewport.vp.h);
+			if (viewport.x != c.viewport.vp.x || viewport.y != y || viewport.w != c.viewport.vp.w || viewport.h != c.viewport.vp.h) {
+				glViewport((GLint)c.viewport.vp.x, (GLint)y, (GLsizei)c.viewport.vp.w, (GLsizei)c.viewport.vp.h);
+				viewport.x = c.viewport.vp.x;
+				viewport.y = y;
+				viewport.w = c.viewport.vp.w;
+				viewport.h = c.viewport.vp.h;
+			}
 
-			if (depthRangeMin != c.viewport.vp.minZ || depthRangeMax != c.viewport.vp.maxZ) {
-				depthRangeMin = c.viewport.vp.minZ;
-				depthRangeMax = c.viewport.vp.maxZ;
+			if (viewport.minZ != c.viewport.vp.minZ || viewport.maxZ != c.viewport.vp.maxZ) {
+				viewport.minZ = c.viewport.vp.minZ;
+				viewport.maxZ = c.viewport.vp.maxZ;
 #if !defined(USING_GLES2)
 				if (gl_extensions.IsGLES) {
 					glDepthRangef(c.viewport.vp.minZ, c.viewport.vp.maxZ);
