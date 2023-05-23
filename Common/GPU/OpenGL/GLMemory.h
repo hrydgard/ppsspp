@@ -73,7 +73,7 @@ public:
 		size_t size;
 	};
 
-	GLPushBuffer(GLRenderManager *render, GLuint target, size_t size);
+	GLPushBuffer(GLRenderManager *render, GLuint target, size_t size, const char *tag);
 	~GLPushBuffer();
 
 	void Reset() { offset_ = 0; }
@@ -164,4 +164,5 @@ private:
 	uint8_t *writePtr_ = nullptr;
 	GLuint target_;
 	GLBufferStrategy strategy_ = GLBufferStrategy::SUBDATA;
+	const char *tag_;
 };

@@ -61,7 +61,7 @@ bool GLRBuffer::Unmap() {
 	return glUnmapBuffer(target_) == GL_TRUE;
 }
 
-GLPushBuffer::GLPushBuffer(GLRenderManager *render, GLuint target, size_t size) : render_(render), size_(size), target_(target) {
+GLPushBuffer::GLPushBuffer(GLRenderManager *render, GLuint target, size_t size, const char *tag) : render_(render), size_(size), target_(target), tag_(tag) {
 	bool res = AddBuffer();
 	_assert_(res);
 }
@@ -136,6 +136,7 @@ void GLPushBuffer::Flush() {
 }
 
 bool GLPushBuffer::AddBuffer() {
+	INFO_LOG(G3D, "GLPushBuffer(%s): Allocating %d bytes", tag_, size_);
 	BufInfo info;
 	info.localMemory = (uint8_t *)AllocateAlignedMemory(size_, 16);
 	if (!info.localMemory)

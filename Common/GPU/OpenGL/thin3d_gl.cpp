@@ -631,7 +631,7 @@ OpenGLContext::OpenGLContext() {
 	caps_.isTilingGPU = gl_extensions.IsGLES && caps_.vendor != GPUVendor::VENDOR_NVIDIA && caps_.vendor != GPUVendor::VENDOR_INTEL;
 
 	for (int i = 0; i < GLRenderManager::MAX_INFLIGHT_FRAMES; i++) {
-		frameData_[i].push = renderManager_.CreatePushBuffer(i, GL_ARRAY_BUFFER, 64 * 1024);
+		frameData_[i].push = renderManager_.CreatePushBuffer(i, GL_ARRAY_BUFFER, 64 * 1024, "thin3d_vbuf");
 	}
 
 	if (!gl_extensions.VersionGEThan(3, 0, 0)) {

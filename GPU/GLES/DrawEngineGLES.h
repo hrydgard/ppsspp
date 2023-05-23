@@ -103,13 +103,6 @@ public:
 		Flush();
 	}
 
-	GLPushBuffer *GetPushVertexBuffer() {
-		return frameData_[render_->GetCurFrame()].pushVertex;
-	}
-	GLPushBuffer *GetPushIndexBuffer() {
-		return frameData_[render_->GetCurFrame()].pushIndex;
-	}
-
 	void ClearInputLayoutMap();
 
 	bool SupportsHWTessellation() const;
@@ -153,7 +146,6 @@ private:
 	ViewportAndScissor vpAndScissor;
 
 	int bufferDecimationCounter_ = 0;
-
 	int lastRenderStepId_ = -1;
 
 	// Hardware tessellation
