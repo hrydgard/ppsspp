@@ -431,7 +431,7 @@ bool TestMatrixTranspose() {
 }
 
 void TestGetMatrix(int matrix, MatrixSize sz) {
-	INFO_LOG(SYSTEM, "Testing matrix %s", GetMatrixNotation(matrix, sz));
+	INFO_LOG(SYSTEM, "Testing matrix %s", GetMatrixNotation(matrix, sz).c_str());
 	u8 fullMatrix[16];
 
 	u8 cols[4];
@@ -449,8 +449,8 @@ void TestGetMatrix(int matrix, MatrixSize sz) {
 		// int rowName = GetRowName(matrix, sz, i, 0);
 		int colName = cols[i];
 		int rowName = rows[i];
-		INFO_LOG(SYSTEM, "Column %i: %s", i, GetVectorNotation(colName, vsz));
-		INFO_LOG(SYSTEM, "Row %i: %s", i, GetVectorNotation(rowName, vsz));
+		INFO_LOG(SYSTEM, "Column %i: %s", i, GetVectorNotation(colName, vsz).c_str());
+		INFO_LOG(SYSTEM, "Row %i: %s", i, GetVectorNotation(rowName, vsz).c_str());
 
 		u8 colRegs[4];
 		u8 rowRegs[4];

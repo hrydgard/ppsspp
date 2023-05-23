@@ -124,7 +124,7 @@ void ApplyPrefixST(float *r, u32 data, VectorSize size, float invalid = 0.0f) {
 		if (!constants) {
 			if (regnum >= n) {
 				// We mostly handle this now, but still worth reporting.
-				ERROR_LOG_REPORT(CPU, "Invalid VFPU swizzle: %08x: %i / %d at PC = %08x (%s)", data, regnum, n, currentMIPS->pc, MIPSDisasmAt(currentMIPS->pc));
+				ERROR_LOG_REPORT(CPU, "Invalid VFPU swizzle: %08x: %i / %d at PC = %08x (%s)", data, regnum, n, currentMIPS->pc, MIPSDisasmAt(currentMIPS->pc).c_str());
 			}
 			r[i] = origV[regnum];
 			if (abs)

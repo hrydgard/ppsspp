@@ -207,6 +207,7 @@ endif
 SOURCES_C += \
 	$(EXTDIR)/cpu_features/src/filesystem.c \
 	$(EXTDIR)/cpu_features/src/impl_aarch64_linux_or_android.c \
+	$(EXTDIR)/cpu_features/src/impl_aarch64_windows.c \
 	$(EXTDIR)/cpu_features/src/impl_arm_linux_or_android.c \
 	$(EXTDIR)/cpu_features/src/impl_mips_linux_or_android.c \
 	$(EXTDIR)/cpu_features/src/impl_ppc_linux.c \

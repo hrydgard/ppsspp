@@ -16,8 +16,9 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #pragma once
-#include <cmath>
 
+#include <cmath>
+#include <string>
 #include "Common/CommonTypes.h"
 #include "Core/MIPS/MIPS.h"
 
@@ -216,8 +217,8 @@ VectorSize MatrixVectorSize(MatrixSize sz);
 int GetNumVectorElements(VectorSize sz);
 int GetMatrixSideSafe(MatrixSize sz);
 int GetMatrixSide(MatrixSize sz);
-const char *GetVectorNotation(int reg, VectorSize size);
-const char *GetMatrixNotation(int reg, MatrixSize size);
+std::string GetVectorNotation(int reg, VectorSize size);
+std::string GetMatrixNotation(int reg, MatrixSize size);
 inline bool IsMatrixTransposed(int matrixReg) {
 	return (matrixReg >> 5) & 1;
 }

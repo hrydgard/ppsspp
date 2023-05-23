@@ -371,7 +371,7 @@ JitBlockDebugInfo IRBlockCache::GetBlockDebugInfo(int blockNum) const {
 
 	for (u32 addr = start; addr < start + size; addr += 4) {
 		char temp[256];
-		MIPSDisAsm(Memory::Read_Instruction(addr), addr, temp, true);
+		MIPSDisAsm(Memory::Read_Instruction(addr), addr, temp, sizeof(temp), true);
 		std::string mipsDis = temp;
 		debugInfo.origDisasm.push_back(mipsDis);
 	}

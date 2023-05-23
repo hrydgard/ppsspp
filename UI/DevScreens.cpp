@@ -1143,7 +1143,7 @@ void JitCompareScreen::OnRandomBlock(int flag) {
 				MIPSOpcode opcode = Memory::Read_Instruction(addr);
 				if (MIPSGetInfo(opcode) & flag) {
 					char temp[256];
-					MIPSDisAsm(opcode, addr, temp);
+					MIPSDisAsm(opcode, addr, temp, sizeof(temp));
 					// INFO_LOG(HLE, "Stopping at random instruction: %08x %s", addr, temp);
 					anyWanted = true;
 					break;

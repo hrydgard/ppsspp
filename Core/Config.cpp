@@ -812,6 +812,7 @@ static const ConfigSetting debuggerSettings[] = {
 	ConfigSetting("ShowGpuProfile", &g_Config.bShowGpuProfile, false, CfgFlag::DONT_SAVE),
 	ConfigSetting("SkipDeadbeefFilling", &g_Config.bSkipDeadbeefFilling, false, CfgFlag::DEFAULT),
 	ConfigSetting("FuncHashMap", &g_Config.bFuncHashMap, false, CfgFlag::DEFAULT),
+	ConfigSetting("SkipFuncHashMap", &g_Config.sSkipFuncHashMap, "", CfgFlag::DEFAULT),
 	ConfigSetting("MemInfoDetailed", &g_Config.bDebugMemInfoDetailed, false, CfgFlag::DEFAULT),
 	ConfigSetting("DrawFrameGraph", &g_Config.bDrawFrameGraph, false, CfgFlag::DEFAULT),
 };

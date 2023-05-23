@@ -26,7 +26,6 @@ struct MemMap;
 
 class DebugInterface {
 public:
-	virtual const char *disasm(unsigned int address, unsigned int align) {return "NODEBUGGER";}
 	virtual int getInstructionSize(int instruction) {return 1;}
 
 	virtual bool isAlive() {return true;}
@@ -55,14 +54,14 @@ public:
 	virtual u32 GetPC() = 0;
 	virtual void SetPC(u32 _pc) = 0;
 	virtual u32 GetLR() {return GetPC();}
-	virtual void DisAsm(u32 op, u32 pc, int align, char *out, size_t outSize) {
-		snprintf(out, outSize, "[%08x] UNKNOWN", op);
+	virtual void DisAsm(u32 pc, char *out, size_t outSize) {
+		snprintf(out, outSize, "[%08x] UNKNOWN", pc);
 	}
 	// More stuff for debugger
 	virtual int GetNumCategories() {return 0;}
 	virtual int GetNumRegsInCategory(int cat) {return 0;}
 	virtual const char *GetCategoryName(int cat) {return 0;}
-	virtual const char *GetRegName(int cat, int index) {return 0;}
+	virtual std::string GetRegName(int cat, int index) { return ""; }
 	virtual void PrintRegValue(int cat, int index, char *out, size_t outSize) {
 		snprintf(out, outSize, "%08X", GetGPR32Value(index));
 	}

@@ -23,6 +23,7 @@
 #include "Common/BitScan.h"
 #include "Common/CommonFuncs.h"
 #include "Common/File/VFS/VFS.h"
+#include "Common/StringUtils.h"
 #include "Core/Reporting.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MIPSVFPUUtils.h"
@@ -538,11 +539,7 @@ MatrixOverlapType GetMatrixOverlap(int mtx1, int mtx2, MatrixSize msize) {
 	return OVERLAP_NONE;
 }
 
-const char *GetVectorNotation(int reg, VectorSize size)
-{
-	static char temp[4][16];
-	static int yo = 0; yo++; yo &= 3;
-
+std::string GetVectorNotation(int reg, VectorSize size) {
 	int mtx = (reg>>2)&7;
 	int col = reg&3;
 	int row = 0;
@@ -557,34 +554,27 @@ const char *GetVectorNotation(int reg, VectorSize size)
 	}
 	if (transpose && c == 'C') c='R';
 	if (transpose)
-		snprintf(temp[yo], sizeof(temp[yo]), "%c%i%i%i",c,mtx,row,col);
-	else
-		snprintf(temp[yo], sizeof(temp[yo]), "%c%i%i%i",c,mtx,col,row);
-	return temp[yo];
+		return StringFromFormat("%c%i%i%i", c, mtx, row, col);
+	return StringFromFormat("%c%i%i%i", c, mtx, col, row);
 }
 
-const char *GetMatrixNotation(int reg, MatrixSize size)
-{
-  static char temp[4][16];
-  static int yo=0;yo++;yo&=3;
-  int mtx = (reg>>2)&7;
-  int col = reg&3;
-  int row = 0;
-  int transpose = (reg>>5)&1;
-  char c;
-  switch (size)
-  {
-  case M_2x2:     c='M'; row=(reg>>5)&2; break;
-  case M_3x3:     c='M'; row=(reg>>6)&1; break;
-  case M_4x4:     c='M'; row=(reg>>5)&2; break;
-  default:        c='?'; break;
-  }
-  if (transpose && c=='M') c='E';
-  if (transpose)
-    snprintf(temp[yo], sizeof(temp[yo]), "%c%i%i%i",c,mtx,row,col);
-  else
-    snprintf(temp[yo], sizeof(temp[yo]), "%c%i%i%i",c,mtx,col,row);
-  return temp[yo];
+std::string GetMatrixNotation(int reg, MatrixSize size) {
+	int mtx = (reg>>2)&7;
+	int col = reg&3;
+	int row = 0;
+	int transpose = (reg>>5)&1;
+	char c;
+	switch (size)
+	{
+	case M_2x2:     c='M'; row=(reg>>5)&2; break;
+	case M_3x3:     c='M'; row=(reg>>6)&1; break;
+	case M_4x4:     c='M'; row=(reg>>5)&2; break;
+	default:        c='?'; break;
+	}
+	if (transpose && c=='M') c='E';
+	if (transpose)
+		return StringFromFormat("%c%i%i%i", c, mtx, row, col);
+	return StringFromFormat("%c%i%i%i", c, mtx, col, row);
 }
 
 bool GetVFPUCtrlMask(int reg, u32 *mask) {

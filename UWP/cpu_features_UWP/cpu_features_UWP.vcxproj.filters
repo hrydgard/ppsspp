@@ -110,6 +110,9 @@
     <ClCompile Include="..\..\ext\cpu_features\src\impl_aarch64_linux_or_android.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\ext\cpu_features\src\impl_aarch64_windows.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\ext\cpu_features\src\impl_arm_linux_or_android.c">
       <Filter>Source Files</Filter>
     </ClCompile>
