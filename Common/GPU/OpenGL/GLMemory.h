@@ -84,7 +84,7 @@ public:
 	const char *Name() const override { return tag_; };  // for sorting
 
 	// Utility for users of this class, not used internally.
-	const uint32_t INVALID_OFFSET = 0xFFFFFFFF;
+	static const uint32_t INVALID_OFFSET = 0xFFFFFFFF;
 
 private:
 	// Needs context in case of defragment.

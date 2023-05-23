@@ -866,6 +866,9 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step, bool first, bool last
 
 	GLRect2D scissorRc = { -1, -1, -1, -1 };
 
+	uint32_t curBufOffset = GLPushBuffer::INVALID_OFFSET;
+	GLRInputLayout *curInputLayout = nullptr;
+
 	CHECK_GL_ERROR_IF_DEBUG();
 	auto &commands = step.commands;
 	for (const auto &c : commands) {
@@ -1232,20 +1235,35 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step, bool first, bool last
 		{
 			// TODO: Add fast path for glBindVertexBuffer
 			GLRInputLayout *layout = c.draw.inputLayout;
+			// TODO: We really shouldn't need null checks here, right?
 			GLuint buf = c.draw.vertexBuffer ? c.draw.vertexBuffer->buffer_ : 0;
 			_dbg_assert_(!c.draw.vertexBuffer || !c.draw.vertexBuffer->Mapped());
 			if (buf != curArrayBuffer) {
 				glBindBuffer(GL_ARRAY_BUFFER, buf);
 				curArrayBuffer = buf;
+				// Buffer changed, can't reuse our binding (unlikely though that the offset would match in this case).
+				curBufOffset = GLPushBuffer::INVALID_OFFSET;
 			}
+
 			if (attrMask != layout->semanticsMask_) {
 				EnableDisableVertexArrays(attrMask, layout->semanticsMask_);
 				attrMask = layout->semanticsMask_;
 			}
-			for (size_t i = 0; i < layout->entries.size(); i++) {
-				auto &entry = layout->entries[i];
-				glVertexAttribPointer(entry.location, entry.count, entry.type, entry.normalized, entry.stride, (const void *)(c.draw.vertexOffset + entry.offset));
+
+			if (curInputLayout != layout) {
+				// If layout changed, force-rebind the vertex attributes.
+				curBufOffset = GLPushBuffer::INVALID_OFFSET;
+				curInputLayout = layout;
 			}
+
+			if (curBufOffset != c.draw.vertexOffset) {
+				for (size_t i = 0; i < layout->entries.size(); i++) {
+					auto &entry = layout->entries[i];
+					glVertexAttribPointer(entry.location, entry.count, entry.type, entry.normalized, entry.stride, (const void *)(c.draw.vertexOffset + entry.offset));
+				}
+				curBufOffset = c.draw.vertexOffset;
+			}
+
 			if (c.draw.indexBuffer) {
 				GLuint buf = c.draw.indexBuffer->buffer_;
 				_dbg_assert_(!(c.draw.indexBuffer && c.draw.indexBuffer->Mapped()));
