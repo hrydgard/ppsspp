@@ -545,7 +545,7 @@ void DrawEngineCommon::SubmitCurve(const void *control_points, const void *indic
 
 	OutputBuffers output;
 	output.vertices = (SimpleVertex *)(decoded_ + DECODED_VERTEX_BUFFER_SIZE / 2);
-	output.indices = decIndex;
+	output.indices = decIndex_;
 	output.count = 0;
 
 	int maxVerts = DECODED_VERTEX_BUFFER_SIZE / 2 / vertexSize;

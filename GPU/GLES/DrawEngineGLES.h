@@ -86,19 +86,19 @@ public:
 
 	// So that this can be inlined
 	void Flush() {
-		if (!numDrawCalls)
+		if (!numDrawCalls_)
 			return;
 		DoFlush();
 	}
 
 	void FinishDeferred() {
-		if (!numDrawCalls)
+		if (!numDrawCalls_)
 			return;
 		DoFlush();
 	}
 
 	void DispatchFlush() override {
-		if (!numDrawCalls)
+		if (!numDrawCalls_)
 			return;
 		Flush();
 	}
