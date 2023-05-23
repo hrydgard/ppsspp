@@ -965,7 +965,7 @@ enum class CacheDetectFlags {
 };
 
 #define CACHE_HEADER_MAGIC 0x83277592
-#define CACHE_VERSION 30
+#define CACHE_VERSION 31
 
 struct CacheHeader {
 	uint32_t magic;
