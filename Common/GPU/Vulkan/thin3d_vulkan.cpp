@@ -787,14 +787,14 @@ bool VKTexture::Create(VkCommandBuffer cmd, VulkanPushPool *push, const TextureD
 			uint32_t offset;
 			VkBuffer buf;
 			size_t size = w * h * d * bytesPerPixel;
+			uint8_t *dest = (uint8_t *)push->Allocate(size, 16, &buf, &offset);
 			if (desc.initDataCallback) {
-				uint8_t *dest = (uint8_t *)push->Allocate(size, 16, &buf, &offset);
 				_assert_(dest != nullptr);
 				if (!desc.initDataCallback(dest, desc.initData[i], w, h, d, w * bytesPerPixel, h * w * bytesPerPixel)) {
 					memcpy(dest, desc.initData[i], size);
 				}
 			} else {
-				offset = push->Push((const void *)desc.initData[i], size, 16, &buf);
+				memcpy(dest, desc.initData[i], size);
 			}
 			TextureCopyBatch batch;
 			vkTex_->CopyBufferToMipLevel(cmd, &batch, i, w, h, 0, buf, offset, w);

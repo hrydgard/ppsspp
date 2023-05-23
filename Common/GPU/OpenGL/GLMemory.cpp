@@ -136,7 +136,7 @@ void GLPushBuffer::Flush() {
 }
 
 bool GLPushBuffer::AddBuffer() {
-	INFO_LOG(G3D, "GLPushBuffer(%s): Allocating %d bytes", tag_, size_);
+	// INFO_LOG(G3D, "GLPushBuffer(%s): Allocating %d bytes", tag_, size_);
 	BufInfo info;
 	info.localMemory = (uint8_t *)AllocateAlignedMemory(size_, 16);
 	if (!info.localMemory)
