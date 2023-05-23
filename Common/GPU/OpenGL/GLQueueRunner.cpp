@@ -1229,8 +1229,8 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step, bool first, bool last
 		{
 			// TODO: Add fast path for glBindVertexBuffer
 			GLRInputLayout *layout = c.draw.inputLayout;
-			GLuint buf = c.draw.buffer ? c.draw.buffer->buffer_ : 0;
-			_dbg_assert_(!c.draw.buffer || !c.draw.buffer->Mapped());
+			GLuint buf = c.draw.vertexBuffer ? c.draw.vertexBuffer->buffer_ : 0;
+			_dbg_assert_(!c.draw.vertexBuffer || !c.draw.vertexBuffer->Mapped());
 			if (buf != curArrayBuffer) {
 				glBindBuffer(GL_ARRAY_BUFFER, buf);
 				curArrayBuffer = buf;
@@ -1241,7 +1241,7 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step, bool first, bool last
 			}
 			for (size_t i = 0; i < layout->entries.size(); i++) {
 				auto &entry = layout->entries[i];
-				glVertexAttribPointer(entry.location, entry.count, entry.type, entry.normalized, entry.stride, (const void *)(c.draw.offset + entry.offset));
+				glVertexAttribPointer(entry.location, entry.count, entry.type, entry.normalized, entry.stride, (const void *)(c.draw.vertexOffset + entry.offset));
 			}
 			if (c.draw.indexBuffer) {
 				GLuint buf = c.draw.indexBuffer->buffer_;
@@ -1251,9 +1251,9 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step, bool first, bool last
 					curElemArrayBuffer = buf;
 				}
 				if (c.draw.instances == 1) {
-					glDrawElements(c.draw.mode, c.draw.count, c.draw.indexType, c.draw.indices);
+					glDrawElements(c.draw.mode, c.draw.count, c.draw.indexType, (void *)(intptr_t)c.draw.indexOffset);
 				} else {
-					glDrawElementsInstanced(c.draw.mode, c.draw.count, c.draw.indexType, c.draw.indices, c.draw.instances);
+					glDrawElementsInstanced(c.draw.mode, c.draw.count, c.draw.indexType, (void *)(intptr_t)c.draw.indexOffset, c.draw.instances);
 				}
 			} else {
 				glDrawArrays(c.draw.mode, c.draw.first, c.draw.count);

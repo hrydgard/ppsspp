@@ -322,9 +322,10 @@ void DrawEngineGLES::DoFlush() {
 				void *dest = frameData.pushIndex->Allocate(esz, 2, &indexBuffer, &indexBufferOffset);
 				memcpy(dest, decIndex, esz);
 			}
-			render_->DrawIndexed(
-				inputLayout, vertexBuffer, vertexBufferOffset, indexBuffer,
-				glprim[prim], vertexCount, GL_UNSIGNED_SHORT, (GLvoid*)(intptr_t)indexBufferOffset);
+			render_->DrawIndexed(inputLayout,
+				vertexBuffer, vertexBufferOffset,
+				indexBuffer, indexBufferOffset,
+				glprim[prim], vertexCount, GL_UNSIGNED_SHORT);
 		} else {
 			render_->Draw(
 				inputLayout, vertexBuffer, vertexBufferOffset,
@@ -427,8 +428,8 @@ void DrawEngineGLES::DoFlush() {
 				vertexBufferOffset = (uint32_t)frameData.pushVertex->Push(result.drawBuffer, maxIndex * sizeof(TransformedVertex), 4, &vertexBuffer);
 				indexBufferOffset = (uint32_t)frameData.pushIndex->Push(inds, sizeof(uint16_t) * result.drawNumTrans, 2, &indexBuffer);
 				render_->DrawIndexed(
-					softwareInputLayout_, vertexBuffer, vertexBufferOffset, indexBuffer,
-					glprim[prim], result.drawNumTrans, GL_UNSIGNED_SHORT, (void *)(intptr_t)indexBufferOffset);
+					softwareInputLayout_, vertexBuffer, vertexBufferOffset, indexBuffer, indexBufferOffset,
+					glprim[prim], result.drawNumTrans, GL_UNSIGNED_SHORT);
 			} else {
 				vertexBufferOffset = (uint32_t)frameData.pushVertex->Push(result.drawBuffer, result.drawNumTrans * sizeof(TransformedVertex), 4, &vertexBuffer);
 				render_->Draw(

@@ -746,13 +746,13 @@ public:
 		data.clear.scissorH = scissorH;
 	}
 
-	void Draw(GLRInputLayout *inputLayout, GLRBuffer *buffer, size_t offset, GLenum mode, int first, int count) {
+	void Draw(GLRInputLayout *inputLayout, GLRBuffer *vertexBuffer, uint32_t vertexOffset, GLenum mode, int first, int count) {
 		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
 		GLRRenderData &data = curRenderStep_->commands.push_uninitialized();
 		data.cmd = GLRRenderCommand::DRAW;
 		data.draw.inputLayout = inputLayout;
-		data.draw.offset = offset;
-		data.draw.buffer = buffer;
+		data.draw.vertexOffset = vertexOffset;
+		data.draw.vertexBuffer = vertexBuffer;
 		data.draw.indexBuffer = nullptr;
 		data.draw.mode = mode;
 		data.draw.first = first;
@@ -760,18 +760,19 @@ public:
 		data.draw.indexType = 0;
 	}
 
-	void DrawIndexed(GLRInputLayout *inputLayout, GLRBuffer *buffer, size_t offset, GLRBuffer *indexBuffer, GLenum mode, int count, GLenum indexType, void *indices, int instances = 1) {
+	// Would really love to have a basevertex parameter, but impossible in unextended GLES, without glDrawElementsBaseVertex, unfortunately.
+	void DrawIndexed(GLRInputLayout *inputLayout, GLRBuffer *vertexBuffer, uint32_t vertexOffset, GLRBuffer *indexBuffer, uint32_t indexOffset, GLenum mode, int count, GLenum indexType, int instances = 1) {
 		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
 		GLRRenderData &data = curRenderStep_->commands.push_uninitialized();
 		data.cmd = GLRRenderCommand::DRAW;
 		data.draw.inputLayout = inputLayout;
-		data.draw.offset = offset;
-		data.draw.buffer = buffer;
+		data.draw.vertexOffset = vertexOffset;
+		data.draw.vertexBuffer = vertexBuffer;
 		data.draw.indexBuffer = indexBuffer;
+		data.draw.indexOffset = indexOffset;
 		data.draw.mode = mode;
 		data.draw.count = count;
 		data.draw.indexType = indexType;
-		data.draw.indices = indices;
 		data.draw.instances = instances;
 	}
 
