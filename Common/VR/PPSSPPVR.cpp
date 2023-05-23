@@ -560,12 +560,11 @@ void PreprocessSkyplane(GLRStep* step) {
 
 	// Clear sky with the fog color.
 	if (!vrCompat[VR_COMPAT_FBO_CLEAR]) {
-		GLRRenderData skyClear {};
-		skyClear.cmd = GLRRenderCommand::CLEAR;
+		GLRRenderData &skyClear = step->commands.insert(step->commands.begin());
+		skyClear.cmd = GLRRenderCommand::CLEAR;  // intentional zero-initialize
 		skyClear.clear.colorMask = 0xF;
 		skyClear.clear.clearMask = GL_COLOR_BUFFER_BIT;
 		skyClear.clear.clearColor = vrCompat[VR_COMPAT_FOG_COLOR];
-		step->commands.insert(step->commands.begin(), skyClear);
 		vrCompat[VR_COMPAT_FBO_CLEAR] = true;
 	}
 

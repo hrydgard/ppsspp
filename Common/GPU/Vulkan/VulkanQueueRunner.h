@@ -6,6 +6,7 @@
 
 #include "Common/Thread/Promise.h"
 #include "Common/Data/Collections/Hashmaps.h"
+#include "Common/Data/Collections/FastVec.h"
 #include "Common/GPU/Vulkan/VulkanContext.h"
 #include "Common/GPU/Vulkan/VulkanBarrier.h"
 #include "Common/GPU/Vulkan/VulkanFrameData.h"
@@ -153,7 +154,7 @@ struct VKRStep {
 	~VKRStep() {}
 
 	VKRStepType stepType;
-	std::vector<VkRenderData> commands;
+	FastVec<VkRenderData> commands;
 	TinySet<TransitionRequest, 4> preTransitions;
 	TinySet<VKRFramebuffer *, 8> dependencies;
 	const char *tag;
@@ -212,9 +213,14 @@ struct VKRStep {
 // These are enqueued from the main thread,
 // and the render thread pops them off
 struct VKRRenderThreadTask {
+	VKRRenderThreadTask(VKRRunType _runType) : runType(_runType) {}
 	std::vector<VKRStep *> steps;
-	int frame;
+	int frame = -1;
 	VKRRunType runType;
+
+	// Avoid copying these by accident.
+	VKRRenderThreadTask(VKRRenderThreadTask &) = delete;
+	VKRRenderThreadTask &operator =(VKRRenderThreadTask &) = delete;
 };
 
 class VulkanQueueRunner {

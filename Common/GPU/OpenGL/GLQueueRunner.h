@@ -11,7 +11,7 @@
 #include "Common/GPU/Shader.h"
 #include "Common/GPU/thin3d.h"
 #include "Common/Data/Collections/TinySet.h"
-
+#include "Common/Data/Collections/FastVec.h"
 
 struct GLRViewport {
 	float x, y, w, h, minZ, maxZ;
@@ -70,6 +70,7 @@ enum class GLRRenderCommand : uint8_t {
 // type field, smashed right after each other?)
 // Also, all GLenums are really only 16 bits.
 struct GLRRenderData {
+	GLRRenderData(GLRRenderCommand _cmd) : cmd(_cmd) {}
 	GLRRenderCommand cmd;
 	union {
 		struct {
@@ -301,7 +302,7 @@ enum {
 struct GLRStep {
 	GLRStep(GLRStepType _type) : stepType(_type) {}
 	GLRStepType stepType;
-	std::vector<GLRRenderData> commands;
+	FastVec<GLRRenderData> commands;
 	TinySet<const GLRFramebuffer *, 8> dependencies;
 	const char *tag;
 	union {
@@ -310,8 +311,6 @@ struct GLRStep {
 			GLRRenderPassAction color;
 			GLRRenderPassAction depth;
 			GLRRenderPassAction stencil;
-			// Note: not accurate.
-			int numDraws;
 		} render;
 		struct {
 			GLRFramebuffer *src;
@@ -355,7 +354,7 @@ public:
 		caps_ = caps;
 	}
 
-	void RunInitSteps(const std::vector<GLRInitStep> &steps, bool skipGLCalls);
+	void RunInitSteps(const FastVec<GLRInitStep> &steps, bool skipGLCalls);
 
 	void RunSteps(const std::vector<GLRStep *> &steps, bool skipGLCalls, bool keepSteps, bool useVR);
 

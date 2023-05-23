@@ -47,6 +47,7 @@
 #endif
 
 #include "Common/Data/Collections/TinySet.h"
+#include "Common/Data/Collections/FastVec.h"
 #include "Common/Data/Convert/SmallDataConvert.h"
 #include "Common/Data/Text/Parsers.h"
 #include "Common/Data/Text/WrapText.h"
@@ -362,6 +363,45 @@ bool TestTinySet() {
 	EXPECT_EQ_INT((int)b.size(), 8);
 	b.push_back(13);
 	EXPECT_EQ_INT(b.size(), 9);
+	return true;
+}
+
+bool TestFastVec() {
+	FastVec<int> a;
+	EXPECT_EQ_INT((int)a.size(), 0);
+	a.push_back(1);
+	EXPECT_EQ_INT((int)a.size(), 1);
+	a.push_back(2);
+	EXPECT_EQ_INT((int)a.size(), 2);
+	FastVec<int> b;
+	b.push_back(8);
+	b.push_back(9);
+	b.push_back(10);
+	EXPECT_EQ_INT((int)b.size(), 3);
+	for (int i = 0; i < 100; i++) {
+		b.push_back(33);
+	}
+	EXPECT_EQ_INT((int)b.size(), 103);
+
+	int items[4] = { 50, 60, 70, 80 };
+	b.insert(b.begin() + 1, items, items + 4);
+	EXPECT_EQ_INT(b[0], 8);
+	EXPECT_EQ_INT(b[1], 50);
+	EXPECT_EQ_INT(b[2], 60);
+	EXPECT_EQ_INT(b[3], 70);
+	EXPECT_EQ_INT(b[4], 80);
+	EXPECT_EQ_INT(b[5], 9);
+
+	b.resize(2);
+	b.insert(b.end(), items, items + 4);
+	EXPECT_EQ_INT(b[0], 8);
+	EXPECT_EQ_INT(b[1], 50);
+	EXPECT_EQ_INT(b[2], 50);
+	EXPECT_EQ_INT(b[3], 60);
+	EXPECT_EQ_INT(b[4], 70);
+	EXPECT_EQ_INT(b[5], 80);
+
+
 	return true;
 }
 
@@ -977,6 +1017,7 @@ TestItem availableTests[] = {
 	TEST_ITEM(ThreadManager),
 	TEST_ITEM(WrapText),
 	TEST_ITEM(TinySet),
+	TEST_ITEM(FastVec),
 	TEST_ITEM(SmallDataConvert),
 	TEST_ITEM(DepthMath),
 	TEST_ITEM(InputMapping),

@@ -129,25 +129,24 @@ bool GLRenderManager::ThreadFrame() {
 		return false;
 	}
 
-	GLRRenderThreadTask task;
+	GLRRenderThreadTask *task = nullptr;
 
 	// In case of syncs or other partial completion, we keep going until we complete a frame.
 	while (true) {
 		// Pop a task of the queue and execute it.
 		// NOTE: We need to actually wait for a task, we can't just bail!
-
 		{
 			std::unique_lock<std::mutex> lock(pushMutex_);
 			while (renderThreadQueue_.empty()) {
 				pushCondVar_.wait(lock);
 			}
-			task = renderThreadQueue_.front();
+			task = std::move(renderThreadQueue_.front());
 			renderThreadQueue_.pop();
 		}
 
 		// We got a task! We can now have pushMutex_ unlocked, allowing the host to
 		// push more work when it feels like it, and just start working.
-		if (task.runType == GLRRunType::EXIT) {
+		if (task->runType == GLRRunType::EXIT) {
 			// Oh, host wanted out. Let's leave, and also let's notify the host.
 			// This is unlike Vulkan too which can just block on the thread existing.
 			std::unique_lock<std::mutex> lock(syncMutex_);
@@ -157,11 +156,13 @@ bool GLRenderManager::ThreadFrame() {
 		}
 
 		// Render the scene.
-		VLOG("  PULL: Frame %d RUN (%0.3f)", task.frame, time_now_d());
-		if (Run(task)) {
+		VLOG("  PULL: Frame %d RUN (%0.3f)", task->frame, time_now_d());
+		if (Run(*task)) {
 			// Swap requested, so we just bail the loop.
+			delete task;
 			break;
 		}
+		delete task;
 	};
 
 	return true;
@@ -174,9 +175,7 @@ void GLRenderManager::StopThread() {
 		run_ = false;
 
 		std::unique_lock<std::mutex> lock(pushMutex_);
-		GLRRenderThreadTask exitTask{};
-		exitTask.runType = GLRRunType::EXIT;
-		renderThreadQueue_.push(exitTask);
+		renderThreadQueue_.push(new GLRRenderThreadTask(GLRRunType::EXIT));
 		pushCondVar_.notify_one();
 	} else {
 		WARN_LOG(G3D, "GL submission thread was already paused.");
@@ -215,13 +214,11 @@ void GLRenderManager::BindFramebufferAsRenderTarget(GLRFramebuffer *fb, GLRRende
 	step->render.color = color;
 	step->render.depth = depth;
 	step->render.stencil = stencil;
-	step->render.numDraws = 0;
 	step->tag = tag;
 	steps_.push_back(step);
 
 	GLuint clearMask = 0;
-	GLRRenderData data;
-	data.cmd = GLRRenderCommand::CLEAR;
+	GLRRenderData data(GLRRenderCommand::CLEAR);
 	if (color == GLRRenderPassAction::CLEAR) {
 		clearMask |= GL_COLOR_BUFFER_BIT;
 		data.clear.clearColor = clearColor;
@@ -379,15 +376,14 @@ void GLRenderManager::Finish() {
 	frameData_[curFrame].deleter.Take(deleter_);
 
 	VLOG("PUSH: Finish, pushing task. curFrame = %d", curFrame);
-	GLRRenderThreadTask task;
-	task.frame = curFrame;
-	task.runType = GLRRunType::PRESENT;
+	GLRRenderThreadTask *task = new GLRRenderThreadTask(GLRRunType::PRESENT);
+	task->frame = curFrame;
 
 	{
 		std::unique_lock<std::mutex> lock(pushMutex_);
 		renderThreadQueue_.push(task);
-		renderThreadQueue_.back().initSteps = std::move(initSteps_);
-		renderThreadQueue_.back().steps = std::move(steps_);
+		renderThreadQueue_.back()->initSteps = std::move(initSteps_);
+		renderThreadQueue_.back()->steps = std::move(steps_);
 		initSteps_.clear();
 		steps_.clear();
 		pushCondVar_.notify_one();
@@ -509,14 +505,13 @@ void GLRenderManager::FlushSync() {
 	{
 		VLOG("PUSH: Frame[%d].readyForRun = true (sync)", curFrame_);
 
-		GLRRenderThreadTask task;
-		task.frame = curFrame_;
-		task.runType = GLRRunType::SYNC;
+		GLRRenderThreadTask *task = new GLRRenderThreadTask(GLRRunType::SYNC);
+		task->frame = curFrame_;
 
 		std::unique_lock<std::mutex> lock(pushMutex_);
 		renderThreadQueue_.push(task);
-		renderThreadQueue_.back().initSteps = std::move(initSteps_);
-		renderThreadQueue_.back().steps = std::move(steps_);
+		renderThreadQueue_.back()->initSteps = std::move(initSteps_);
+		renderThreadQueue_.back()->steps = std::move(steps_);
 		pushCondVar_.notify_one();
 		steps_.clear();
 	}

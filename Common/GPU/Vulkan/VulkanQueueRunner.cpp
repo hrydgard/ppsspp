@@ -481,7 +481,7 @@ void VulkanQueueRunner::ApplyMGSHack(std::vector<VKRStep *> &steps) {
 					last = j - 1;
 				// should really also check descriptor sets...
 				if (steps[j]->commands.size()) {
-					VkRenderData &cmd = steps[j]->commands.back();
+					const VkRenderData &cmd = steps[j]->commands.back();
 					if (cmd.cmd == VKRRenderCommand::DRAW_INDEXED && cmd.draw.count != 6)
 						last = j - 1;
 				}
@@ -1241,7 +1241,7 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 	VKRGraphicsPipeline *lastGraphicsPipeline = nullptr;
 	VKRComputePipeline *lastComputePipeline = nullptr;
 
-	auto &commands = step.commands;
+	const auto &commands = step.commands;
 
 	// We can do a little bit of state tracking here to eliminate some calls into the driver.
 	// The stencil ones are very commonly mostly redundant so let's eliminate them where possible.

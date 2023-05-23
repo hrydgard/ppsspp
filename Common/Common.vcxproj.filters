@@ -938,6 +938,9 @@
     <ClCompile Include="GPU\OpenGL\GLMemory.cpp">
       <Filter>GPU\OpenGL</Filter>
     </ClCompile>
+    <ClCompile Include="Data\Collections\FastVec.h">
+      <Filter>Data\Collections</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Crypto">
