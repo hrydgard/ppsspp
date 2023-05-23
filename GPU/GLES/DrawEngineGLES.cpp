@@ -226,7 +226,7 @@ GLRInputLayout *DrawEngineGLES::SetupDecFmtForDraw(LinkedShader *program, const 
 }
 
 void *DrawEngineGLES::DecodeVertsToPushBuffer(GLPushBuffer *push, uint32_t *bindOffset, GLRBuffer **buf) {
-	u8 *dest = decoded;
+	u8 *dest = decoded_;
 
 	// Figure out how much pushbuffer space we need to allocate.
 	if (push) {
@@ -288,10 +288,10 @@ void DrawEngineGLES::DoFlush() {
 		bool useElements = true;
 
 		if (decOptions_.applySkinInDecode && (lastVType_ & GE_VTYPE_WEIGHT_MASK)) {
-			// If software skinning, we've already predecoded into "decoded". So push that content.
+			// If software skinning, we've already predecoded into "decoded_". So push that content.
 			uint32_t size = decodedVerts_ * dec_->GetDecVtxFmt().stride;
 			u8 *dest = (u8 *)frameData.pushVertex->Allocate(size, 4, &vertexBuffer, &vertexBufferOffset);
-			memcpy(dest, decoded, size);
+			memcpy(dest, decoded_, size);
 		} else {
 			// Decode directly into the pushbuffer
 			u8 *dest = (u8 *)DecodeVertsToPushBuffer(frameData.pushVertex, &vertexBufferOffset, &vertexBuffer);
@@ -347,7 +347,7 @@ void DrawEngineGLES::DoFlush() {
 			lastVType_ |= (1 << 26);
 			dec_ = GetVertexDecoder(lastVType_);
 		}
-		DecodeVerts(decoded);
+		DecodeVerts(decoded_);
 
 		bool hasColor = (lastVType_ & GE_VTYPE_COL_MASK) != GE_VTYPE_COL_NONE;
 		if (gstate.isModeThrough()) {
@@ -366,7 +366,7 @@ void DrawEngineGLES::DoFlush() {
 		SoftwareTransformResult result{};
 		// TODO: Keep this static?  Faster than repopulating?
 		SoftwareTransformParams params{};
-		params.decoded = decoded;
+		params.decoded = decoded_;
 		params.transformed = transformed;
 		params.transformedExpanded = transformedExpanded;
 		params.fbman = framebufferManager_;

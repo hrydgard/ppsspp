@@ -352,7 +352,7 @@ void DrawEngineVulkan::EndFrame() {
 }
 
 void DrawEngineVulkan::DecodeVertsToPushBuffer(VulkanPushBuffer *push, uint32_t *bindOffset, VkBuffer *vkbuf) {
-	u8 *dest = decoded;
+	u8 *dest = decoded_;
 
 	// Figure out how much pushbuffer space we need to allocate.
 	if (push) {
@@ -363,7 +363,7 @@ void DrawEngineVulkan::DecodeVertsToPushBuffer(VulkanPushBuffer *push, uint32_t 
 }
 
 void DrawEngineVulkan::DecodeVertsToPushPool(VulkanPushPool *push, uint32_t *bindOffset, VkBuffer *vkbuf) {
-	u8 *dest = decoded;
+	u8 *dest = decoded_;
 
 	// Figure out how much pushbuffer space we need to allocate.
 	if (push) {
@@ -742,7 +742,7 @@ void DrawEngineVulkan::DoFlush() {
 				// If software skinning, we've already predecoded into "decoded". So push that content.
 				VkDeviceSize size = decodedVerts_ * dec_->GetDecVtxFmt().stride;
 				u8 *dest = (u8 *)pushVertex_->Allocate(size, 4, &vbuf, &vbOffset);
-				memcpy(dest, decoded, size);
+				memcpy(dest, decoded_, size);
 			} else {
 				// Decode directly into the pushbuffer
 				DecodeVertsToPushPool(pushVertex_, &vbOffset, &vbuf);
@@ -841,7 +841,7 @@ void DrawEngineVulkan::DoFlush() {
 			lastVType_ |= (1 << 26);
 			dec_ = GetVertexDecoder(lastVType_);
 		}
-		DecodeVerts(decoded);
+		DecodeVerts(decoded_);
 		bool hasColor = (lastVType_ & GE_VTYPE_COL_MASK) != GE_VTYPE_COL_NONE;
 		if (gstate.isModeThrough()) {
 			gstate_c.vertexFullAlpha = gstate_c.vertexFullAlpha && (hasColor || gstate.getMaterialAmbientA() == 255);
@@ -858,7 +858,7 @@ void DrawEngineVulkan::DoFlush() {
 		u16 *inds = decIndex;
 		SoftwareTransformResult result{};
 		SoftwareTransformParams params{};
-		params.decoded = decoded;
+		params.decoded = decoded_;
 		params.transformed = transformed;
 		params.transformedExpanded = transformedExpanded;
 		params.fbman = framebufferManager_;

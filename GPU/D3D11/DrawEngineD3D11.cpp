@@ -380,7 +380,7 @@ void DrawEngineD3D11::DoFlush() {
 					vai->minihash = ComputeMiniHash();
 					vai->status = VertexArrayInfoD3D11::VAI_HASHING;
 					vai->drawsUntilNextFullHash = 0;
-					DecodeVerts(decoded); // writes to indexGen
+					DecodeVerts(decoded_); // writes to indexGen
 					vai->numVerts = indexGen.VertexCount();
 					vai->prim = indexGen.Prim();
 					vai->maxIndex = indexGen.MaxIndex();
@@ -405,7 +405,7 @@ void DrawEngineD3D11::DoFlush() {
 						}
 						if (newMiniHash != vai->minihash || newHash != vai->hash) {
 							MarkUnreliable(vai);
-							DecodeVerts(decoded);
+							DecodeVerts(decoded_);
 							goto rotateVBO;
 						}
 						if (vai->numVerts > 64) {
@@ -424,13 +424,13 @@ void DrawEngineD3D11::DoFlush() {
 						u32 newMiniHash = ComputeMiniHash();
 						if (newMiniHash != vai->minihash) {
 							MarkUnreliable(vai);
-							DecodeVerts(decoded);
+							DecodeVerts(decoded_);
 							goto rotateVBO;
 						}
 					}
 
 					if (vai->vbo == 0) {
-						DecodeVerts(decoded);
+						DecodeVerts(decoded_);
 						vai->numVerts = indexGen.VertexCount();
 						vai->prim = indexGen.Prim();
 						vai->maxIndex = indexGen.MaxIndex();
@@ -445,7 +445,7 @@ void DrawEngineD3D11::DoFlush() {
 						// TODO: Combine these two into one buffer?
 						u32 size = dec_->GetDecVtxFmt().stride * indexGen.MaxIndex();
 						D3D11_BUFFER_DESC desc{ size, D3D11_USAGE_IMMUTABLE, D3D11_BIND_VERTEX_BUFFER, 0 };
-						D3D11_SUBRESOURCE_DATA data{ decoded };
+						D3D11_SUBRESOURCE_DATA data{ decoded_ };
 						ASSERT_SUCCESS(device_->CreateBuffer(&desc, &data, &vai->vbo));
 						if (useElements) {
 							u32 size = sizeof(short) * indexGen.VertexCount();
@@ -496,14 +496,14 @@ void DrawEngineD3D11::DoFlush() {
 					if (vai->lastFrame != gpuStats.numFlips) {
 						vai->numFrames++;
 					}
-					DecodeVerts(decoded);
+					DecodeVerts(decoded_);
 					goto rotateVBO;
 				}
 			}
 
 			vai->lastFrame = gpuStats.numFlips;
 		} else {
-			DecodeVerts(decoded);
+			DecodeVerts(decoded_);
 rotateVBO:
 			gpuStats.numUncachedVertsDrawn += indexGen.VertexCount();
 			useElements = !indexGen.SeenOnlyPurePrims() || prim == GE_PRIM_TRIANGLE_FAN;
@@ -548,7 +548,7 @@ rotateVBO:
 			UINT vOffset;
 			int vSize = (maxIndex + 1) * dec_->GetDecVtxFmt().stride;
 			uint8_t *vptr = pushVerts_->BeginPush(context_, &vOffset, vSize);
-			memcpy(vptr, decoded, vSize);
+			memcpy(vptr, decoded_, vSize);
 			pushVerts_->EndPush(context_);
 			ID3D11Buffer *buf = pushVerts_->Buf();
 			context_->IASetVertexBuffers(0, 1, &buf, &stride, &vOffset);
@@ -580,7 +580,7 @@ rotateVBO:
 			lastVType_ |= (1 << 26);
 			dec_ = GetVertexDecoder(lastVType_);
 		}
-		DecodeVerts(decoded);
+		DecodeVerts(decoded_);
 		bool hasColor = (lastVType_ & GE_VTYPE_COL_MASK) != GE_VTYPE_COL_NONE;
 		if (gstate.isModeThrough()) {
 			gstate_c.vertexFullAlpha = gstate_c.vertexFullAlpha && (hasColor || gstate.getMaterialAmbientA() == 255);
@@ -598,7 +598,7 @@ rotateVBO:
 		u16 *inds = decIndex;
 		SoftwareTransformResult result{};
 		SoftwareTransformParams params{};
-		params.decoded = decoded;
+		params.decoded = decoded_;
 		params.transformed = transformed;
 		params.transformedExpanded = transformedExpanded;
 		params.fbman = framebufferManager_;

@@ -41,12 +41,12 @@ DrawEngineCommon::DrawEngineCommon() : decoderMap_(16) {
 	}
 	transformed = (TransformedVertex *)AllocateMemoryPages(TRANSFORMED_VERTEX_BUFFER_SIZE, MEM_PROT_READ | MEM_PROT_WRITE);
 	transformedExpanded = (TransformedVertex *)AllocateMemoryPages(3 * TRANSFORMED_VERTEX_BUFFER_SIZE, MEM_PROT_READ | MEM_PROT_WRITE);
-	decoded = (u8 *)AllocateMemoryPages(DECODED_VERTEX_BUFFER_SIZE, MEM_PROT_READ | MEM_PROT_WRITE);
+	decoded_ = (u8 *)AllocateMemoryPages(DECODED_VERTEX_BUFFER_SIZE, MEM_PROT_READ | MEM_PROT_WRITE);
 	decIndex = (u16 *)AllocateMemoryPages(DECODED_INDEX_BUFFER_SIZE, MEM_PROT_READ | MEM_PROT_WRITE);
 }
 
 DrawEngineCommon::~DrawEngineCommon() {
-	FreeMemoryPages(decoded, DECODED_VERTEX_BUFFER_SIZE);
+	FreeMemoryPages(decoded_, DECODED_VERTEX_BUFFER_SIZE);
 	FreeMemoryPages(decIndex, DECODED_INDEX_BUFFER_SIZE);
 	FreeMemoryPages(transformed, TRANSFORMED_VERTEX_BUFFER_SIZE);
 	FreeMemoryPages(transformedExpanded, 3 * TRANSFORMED_VERTEX_BUFFER_SIZE);
@@ -255,8 +255,8 @@ void DrawEngineCommon::DispatchSubmitImm(GEPrimitiveType prim, TransformedVertex
 // It does the simplest and safest test possible: If all points of a bbox is outside a single of
 // our clipping planes, we reject the box. Tighter bounds would be desirable but would take more calculations.
 bool DrawEngineCommon::TestBoundingBox(const void *control_points, const void *inds, int vertexCount, u32 vertType) {
-	SimpleVertex *corners = (SimpleVertex *)(decoded + 65536 * 12);
-	float *verts = (float *)(decoded + 65536 * 18);
+	SimpleVertex *corners = (SimpleVertex *)(decoded_ + 65536 * 12);
+	float *verts = (float *)(decoded_ + 65536 * 18);
 
 	// Although this may lead to drawing that shouldn't happen, the viewport is more complex on VR.
 	// Let's always say objects are within bounds.
@@ -279,7 +279,7 @@ bool DrawEngineCommon::TestBoundingBox(const void *control_points, const void *i
 		}
 	} else {
 		// Simplify away indices, bones, and morph before proceeding.
-		u8 *temp_buffer = decoded + 65536 * 24;
+		u8 *temp_buffer = decoded_ + 65536 * 24;
 		int vertexSize = 0;
 
 		u16 indexLowerBound = 0;
@@ -849,7 +849,7 @@ void DrawEngineCommon::SubmitPrim(const void *verts, const void *inds, GEPrimiti
 	vertexCountInDrawCalls_ += vertexCount;
 
 	if (decOptions_.applySkinInDecode && (vertTypeID & GE_VTYPE_WEIGHT_MASK)) {
-		DecodeVertsStep(decoded, decodeCounter_, decodedVerts_);
+		DecodeVertsStep(decoded_, decodeCounter_, decodedVerts_);
 		decodeCounter_++;
 	}
 

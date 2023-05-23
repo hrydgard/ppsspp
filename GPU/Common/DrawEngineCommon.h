@@ -185,7 +185,7 @@ protected:
 	bool everUsedExactEqualDepth_ = false;
 
 	// Vertex collector buffers
-	u8 *decoded = nullptr;
+	u8 *decoded_ = nullptr;
 	u16 *decIndex = nullptr;
 
 	// Cached vertex decoders
