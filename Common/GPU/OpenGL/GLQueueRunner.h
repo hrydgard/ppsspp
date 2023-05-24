@@ -290,11 +290,12 @@ enum class GLRRenderPassAction {
 
 class GLRFramebuffer;
 
-enum {
+enum GLRAspect {
 	GLR_ASPECT_COLOR = 1,
 	GLR_ASPECT_DEPTH = 2,
 	GLR_ASPECT_STENCIL = 3,
 };
+const char *GLRAspectToString(GLRAspect aspect);
 
 struct GLRStep {
 	GLRStep(GLRStepType _type) : stepType(_type) {}
@@ -388,6 +389,8 @@ private:
 	void fbo_bind_fb_target(bool read, GLuint name);
 	GLenum fbo_get_fb_target(bool read, GLuint **cached);
 	void fbo_unbind();
+
+	std::string StepToString(const GLRStep &step) const;
 
 	GLRFramebuffer *curFB_ = nullptr;
 
