@@ -124,6 +124,8 @@ public:
 		NextBuffer(numBytes);
 		*bindOffset = 0;
 		*buf = buffers_[buf_].buffer;
+		// Need to mark the allocated range used in the new buffer. How did things work before this?
+		offset_ = numBytes;
 		return writePtr_;
 	}
 
