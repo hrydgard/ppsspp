@@ -142,6 +142,10 @@ public:
 		return bindOffset;
 	}
 
+	uint8_t *GetPtr(uint32_t offset) {
+		return writePtr_ + offset;
+	}
+
 	// If you didn't use all of the previous allocation you just made (obviously can't be another one),
 	// you can return memory to the buffer by specifying the offset up until which you wrote data.
 	void Rewind(uint32_t offset) {

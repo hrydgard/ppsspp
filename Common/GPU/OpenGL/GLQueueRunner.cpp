@@ -1236,8 +1236,8 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step, bool first, bool last
 			// TODO: Add fast path for glBindVertexBuffer
 			GLRInputLayout *layout = c.draw.inputLayout;
 			// TODO: We really shouldn't need null checks here, right?
-			GLuint buf = c.draw.vertexBuffer ? c.draw.vertexBuffer->buffer_ : 0;
-			_dbg_assert_(!c.draw.vertexBuffer || !c.draw.vertexBuffer->Mapped());
+			GLuint buf = c.draw.vertexBuffer->buffer_;
+			_dbg_assert_(!c.draw.vertexBuffer->Mapped());
 			if (buf != curArrayBuffer) {
 				glBindBuffer(GL_ARRAY_BUFFER, buf);
 				curArrayBuffer = buf;

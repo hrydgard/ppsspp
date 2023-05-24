@@ -750,22 +750,24 @@ public:
 	}
 
 	void Draw(GLRInputLayout *inputLayout, GLRBuffer *vertexBuffer, uint32_t vertexOffset, GLenum mode, int first, int count) {
-		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
+		_dbg_assert_(vertexBuffer && curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
 		GLRRenderData &data = curRenderStep_->commands.push_uninitialized();
 		data.cmd = GLRRenderCommand::DRAW;
 		data.draw.inputLayout = inputLayout;
 		data.draw.vertexOffset = vertexOffset;
 		data.draw.vertexBuffer = vertexBuffer;
 		data.draw.indexBuffer = nullptr;
+		data.draw.indexOffset = 0;
 		data.draw.mode = mode;
 		data.draw.first = first;
 		data.draw.count = count;
 		data.draw.indexType = 0;
+		data.draw.instances = 1;
 	}
 
 	// Would really love to have a basevertex parameter, but impossible in unextended GLES, without glDrawElementsBaseVertex, unfortunately.
 	void DrawIndexed(GLRInputLayout *inputLayout, GLRBuffer *vertexBuffer, uint32_t vertexOffset, GLRBuffer *indexBuffer, uint32_t indexOffset, GLenum mode, int count, GLenum indexType, int instances = 1) {
-		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
+		_dbg_assert_(vertexBuffer && curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
 		GLRRenderData &data = curRenderStep_->commands.push_uninitialized();
 		data.cmd = GLRRenderCommand::DRAW;
 		data.draw.inputLayout = inputLayout;

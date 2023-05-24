@@ -234,6 +234,55 @@ void DrawEngineGLES::Invalidate(InvalidationCallbackFlags flags) {
 	}
 }
 
+static void CopyIndicesWithOffset(uint16_t *dst, const uint16_t *src, uint32_t count, uint16_t offset) {
+	if (offset == 0) {
+		memcpy(dst, src, count * sizeof(uint16_t));
+		return;
+	}
+
+	// TODO: SIMD-ify.
+	for (uint32_t i = 0; i < count; i++) {
+		// If we wrap here, we did something wrong in the calculations before calling this.
+		dst[i] = src[i] + offset;
+	}
+}
+
+void DrawEngineGLES::ReleaseReservedPushMemory(FrameData &frameData) {
+	if (curVBuffer_) {
+		frameData.pushVertex->Rewind(curVBufferOffset_);
+		// A bit excessive zeroing maybe, but nice for debugging.
+		curVBuffer_ = nullptr;
+		curVBufferOffset_ = GLPushBuffer::INVALID_OFFSET;
+		curVBufferBindOffset_ = GLPushBuffer::INVALID_OFFSET;
+		curVBufferEnd_ = 0;
+	}
+}
+
+const int RESERVATION_SIZE = 256 * 1024;
+
+u8 *DrawEngineGLES::AllocateVertices(FrameData &frameData, int stride, int count, GLRBuffer **vertexBuffer, uint32_t *bindOffset, uint32_t *vertexOffset) {
+	int size = stride * count;
+	if (curVBuffer_ && (curVBufferOffset_ + size <= curVBufferEnd_)) {
+		_dbg_assert_(curVBufferOffset_ != GLPushBuffer::INVALID_OFFSET && curVBufferBindOffset_ != GLPushBuffer::INVALID_OFFSET);
+		*bindOffset = curVBufferBindOffset_;
+		uint8_t *retval = frameData.pushVertex->GetPtr(curVBufferOffset_);
+		*vertexOffset = (curVBufferOffset_ - curVBufferBindOffset_) / stride;
+		*vertexBuffer = curVBuffer_;
+		curVBufferOffset_ += size;
+		return retval;
+	}
+
+	// OK, no available reserved space to grab. Let's allocate more and start over.
+	u8 *dest = (u8 *)frameData.pushVertex->Allocate(RESERVATION_SIZE, 4, &curVBuffer_, &curVBufferBindOffset_);
+	curVBufferEnd_ = curVBufferBindOffset_ + RESERVATION_SIZE;
+	*bindOffset = curVBufferBindOffset_;
+	*vertexOffset = 0;
+	*vertexBuffer = curVBuffer_;
+	curVBufferOffset_ = curVBufferBindOffset_ + size;
+	return dest;
+}
+
+
 void DrawEngineGLES::DoFlush() {
 	PROFILE_THIS_SCOPE("flush");
 	FrameData &frameData = frameData_[render_->GetCurFrame()];
@@ -275,17 +324,23 @@ void DrawEngineGLES::DoFlush() {
 		int vertexCount = 0;
 		bool useElements = true;
 		GLRInputLayout *inputLayout = SetupDecFmtForDraw(dec_->GetDecVtxFmt());
+		int stride = inputLayout->entries[0].stride;
+		uint32_t vertexOffset = 0;
+
+		if (!lastInputLayout_ || stride != lastInputLayout_->entries[0].stride) {
+			ReleaseReservedPushMemory(frameData);
+		}
+		lastInputLayout_ = inputLayout;
 
 		if (decOptions_.applySkinInDecode && (lastVType_ & GE_VTYPE_WEIGHT_MASK)) {
 			// If software skinning, we've already predecoded into "decoded_", and indices
 			// into decIndex_. So push that content.
-			uint32_t size = decodedVerts_ * dec_->GetDecVtxFmt().stride;
-			u8 *dest = (u8 *)frameData.pushVertex->Allocate(size, 4, &vertexBuffer, &vertexBufferOffset);
-			memcpy(dest, decoded_, size);
+			u8 *dest = AllocateVertices(frameData, stride, decodedVerts_, &vertexBuffer, &vertexBufferOffset, &vertexOffset);
+			memcpy(dest, decoded_, decodedVerts_ * stride);
 		} else {
 			// Figure out how much pushbuffer space we need to allocate.
 			int vertsToDecode = ComputeNumVertsToDecode();
-			u8 *dest = (u8 *)frameData.pushVertex->Allocate(vertsToDecode * dec_->GetDecVtxFmt().stride, 4, &vertexBuffer, &vertexBufferOffset);
+			u8 *dest = AllocateVertices(frameData, stride, vertsToDecode, &vertexBuffer, &vertexBufferOffset, &vertexOffset);
 			// Indices are decoded in here.
 			DecodeVerts(dest);
 		}
@@ -306,7 +361,7 @@ void DrawEngineGLES::DoFlush() {
 			void *dest = frameData.pushIndex->Allocate(esz, 2, &indexBuffer, &indexBufferOffset);
 			// TODO: When we need to apply an index offset, we can apply it directly when copying the indices here.
 			// Of course, minding the maximum value of 65535...
-			memcpy(dest, decIndex_, esz);
+			CopyIndicesWithOffset((uint16_t *)dest, decIndex_, indexGen.VertexCount(), vertexOffset);
 		}
 		prim = indexGen.Prim();
 
@@ -327,6 +382,7 @@ void DrawEngineGLES::DoFlush() {
 		
 		LinkedShader *program = shaderManager_->ApplyFragmentShader(vsid, vshader, pipelineState_, framebufferManager_->UseBufferedRendering());
 		if (useElements) {
+			// The vertexOffset is applied directly to the indices above.
 			render_->DrawIndexed(inputLayout,
 				vertexBuffer, vertexBufferOffset,
 				indexBuffer, indexBufferOffset,
@@ -334,7 +390,7 @@ void DrawEngineGLES::DoFlush() {
 		} else {
 			render_->Draw(
 				inputLayout, vertexBuffer, vertexBufferOffset,
-				glprim[prim], 0, vertexCount);
+				glprim[prim], vertexOffset, vertexCount);
 		}
 	} else {
 		PROFILE_THIS_SCOPE("soft");
@@ -429,6 +485,7 @@ void DrawEngineGLES::DoFlush() {
 		}
 
 		if (result.action == SW_DRAW_PRIMITIVES) {
+			ReleaseReservedPushMemory(frameData);
 			if (result.drawIndexed) {
 				vertexBufferOffset = (uint32_t)frameData.pushVertex->Push(result.drawBuffer, maxIndex * sizeof(TransformedVertex), 4, &vertexBuffer);
 				indexBufferOffset = (uint32_t)frameData.pushIndex->Push(inds, sizeof(uint16_t) * result.drawNumTrans, 2, &indexBuffer);
