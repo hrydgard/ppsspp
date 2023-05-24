@@ -30,7 +30,10 @@ public:
 
 	// Called from the render thread from threaded backends.
 	virtual void ThreadStart() {}
-	virtual bool ThreadFrame() { return true; }
+	virtual bool ThreadFrame() {
+		// Needs to return false if no queue draining is required.
+		return false;
+	}
 	virtual void ThreadEnd() {}
 	virtual void StopThread() {}
 

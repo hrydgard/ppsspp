@@ -1263,7 +1263,16 @@ bool retro_load_game(const struct retro_game_info *game)
    Core_SetGraphicsContext(ctx);
    SetGPUBackend((GPUBackend)g_Config.iGPUBackend);
 
+#ifdef IOS
+   // Use emu thread for vulkan and GL. The audio buffer gets filled and then
+   // writes to the audio buffer, which happen on the main thread, block and
+   // cause an fps drop. There's not a way to increase the audio buffer size
+   // that I've found, nor is it straightforward to move audio to its own
+   // thread.
+   useEmuThread              = ctx->GetGPUCore() != GPUCORE_SOFTWARE;
+#else
    useEmuThread              = ctx->GetGPUCore() == GPUCORE_GLES;
+#endif
 
    // default to interpreter to allow startup in platforms w/o JIT capability
    g_Config.iCpuCore         = (int)CPUCore::INTERPRETER;
@@ -1453,7 +1462,8 @@ void retro_run(void)
       if (emuThreadState != EmuThreadState::RUNNING)
          EmuThreadStart();
 
-      if (!ctx->ThreadFrame())
+      // Outside GLES, this always returns false so we should still swap.
+      if (!ctx->ThreadFrame() && ctx->GetGPUCore() == GPUCORE_GLES)
       {
          VsyncSwapIntervalDetect();
          return;
@@ -1682,7 +1692,8 @@ bool System_GetPropertyBool(SystemProperty prop)
    {
    case SYSPROP_CAN_JIT:
 #if PPSSPP_PLATFORM(IOS)
-      return false;
+      bool can_jit;
+      return (environ_cb(RETRO_ENVIRONMENT_GET_JIT_CAPABLE, &can_jit) && can_jit);
 #else
       return true;
 #endif
