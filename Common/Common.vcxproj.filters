@@ -449,9 +449,6 @@
     <ClInclude Include="Render\ManagedTexture.h">
       <Filter>Render</Filter>
     </ClInclude>
-    <ClInclude Include="GPU\MiscTypes.h">
-      <Filter>GPU</Filter>
-    </ClInclude>
     <ClInclude Include="GPU\Vulkan\VulkanFramebuffer.h">
       <Filter>GPU\Vulkan</Filter>
     </ClInclude>
@@ -502,6 +499,12 @@
     </ClInclude>
     <ClInclude Include="GPU\OpenGL\GLMemory.h">
       <Filter>GPU\OpenGL</Filter>
+    </ClInclude>
+    <ClInclude Include="GPU\GPUBackendCommon.h">
+      <Filter>GPU</Filter>
+    </ClInclude>
+    <ClInclude Include="GPU\MiscTypes.h">
+      <Filter>GPU</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -940,6 +943,9 @@
     </ClCompile>
     <ClCompile Include="Data\Collections\FastVec.h">
       <Filter>Data\Collections</Filter>
+    </ClCompile>
+    <ClCompile Include="GPU\GPUBackendCommon.cpp">
+      <Filter>GPU</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

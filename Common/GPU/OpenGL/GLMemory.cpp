@@ -2,6 +2,7 @@
 #include "Common/GPU/OpenGL/GLMemory.h"
 #include "Common/GPU/OpenGL/GLRenderManager.h"
 #include "Common/GPU/OpenGL/GLFeatures.h"
+#include "Common/Data/Text/Parsers.h"
 
 extern std::thread::id renderThreadId;
 #if MAX_LOGLEVEL >= DEBUG_LEVEL
@@ -64,9 +65,11 @@ bool GLRBuffer::Unmap() {
 GLPushBuffer::GLPushBuffer(GLRenderManager *render, GLuint target, size_t size, const char *tag) : render_(render), size_(size), target_(target), tag_(tag) {
 	bool res = AddBuffer();
 	_assert_(res);
+	RegisterGPUMemoryManager(this);
 }
 
 GLPushBuffer::~GLPushBuffer() {
+	UnregisterGPUMemoryManager(this);
 	Destroy(true);
 }
 
@@ -278,4 +281,8 @@ void GLPushBuffer::UnmapDevice() {
 			info.deviceMemory = nullptr;
 		}
 	}
+}
+
+void GLPushBuffer::GetDebugString(char *buffer, size_t bufSize) const {
+	snprintf(buffer, bufSize, "%s: %d/%d", tag_, NiceSizeFormat(this->offset_).c_str(), NiceSizeFormat(this->size_).c_str());
 }

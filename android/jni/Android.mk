@@ -189,6 +189,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Common/File/DirListing.cpp \
   $(SRC)/Common/File/FileDescriptor.cpp \
   $(SRC)/Common/GPU/thin3d.cpp \
+  $(SRC)/Common/GPU/GPUBackendCommon.cpp \
   $(SRC)/Common/GPU/Shader.cpp \
   $(SRC)/Common/GPU/ShaderWriter.cpp \
   $(SRC)/Common/GPU/ShaderTranslation.cpp \

@@ -6,6 +6,7 @@
 #include <vector>
 
 #include "Common/GPU/Vulkan/VulkanContext.h"
+#include "Common/GPU/GPUBackendCommon.h"
 
 // Forward declaration
 VK_DEFINE_HANDLE(VmaAllocation);
@@ -14,22 +15,13 @@ VK_DEFINE_HANDLE(VmaAllocation);
 //
 // Vulkan memory management utils.
 
-// Just an abstract thing to get debug information.
-class VulkanMemoryManager {
-public:
-	virtual ~VulkanMemoryManager() {}
-
-	virtual void GetDebugString(char *buffer, size_t bufSize) const = 0;
-	virtual const char *Name() const = 0;  // for sorting
-};
-
 // VulkanPushBuffer
 // Simple incrementing allocator.
 // Use these to push vertex, index and uniform data. Generally you'll have two or three of these
 // and alternate on each frame. Make sure not to reset until the fence from the last time you used it
 // has completed.
 // NOTE: This has now been replaced with VulkanPushPool for all uses except the vertex cache.
-class VulkanPushBuffer : public VulkanMemoryManager {
+class VulkanPushBuffer : public GPUMemoryManager {
 	struct BufInfo {
 		VkBuffer buffer;
 		VmaAllocation allocation;
@@ -108,7 +100,7 @@ private:
 // Simple memory pushbuffer pool that can share blocks between the "frames", to reduce the impact of push memory spikes -
 // a later frame can gobble up redundant buffers from an earlier frame even if they don't share frame index.
 // NOT thread safe! Can only be used from one thread (our main thread).
-class VulkanPushPool : public VulkanMemoryManager {
+class VulkanPushPool : public GPUMemoryManager {
 public:
 	VulkanPushPool(VulkanContext *vulkan, const char *name, size_t originalBlockSize, VkBufferUsageFlags usage);
 	~VulkanPushPool();
@@ -211,6 +203,4 @@ private:
 	uint32_t usage_ = 0;
 	bool grow_;
 };
-
-std::vector<VulkanMemoryManager *> GetActiveVulkanMemoryManagers();
 
