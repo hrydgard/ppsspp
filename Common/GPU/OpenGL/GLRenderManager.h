@@ -409,7 +409,7 @@ public:
 		GLRInitStep &step = initSteps_.push_uninitialized();
 		step.stepType = GLRInitStepType::BUFFER_SUBDATA;
 		_dbg_assert_(offset >= 0);
-		_dbg_assert_(offset <= buffer->size_ - size);
+		_dbg_assert_(offset + size <= buffer->size_);
 		step.buffer_subdata.buffer = buffer;
 		step.buffer_subdata.offset = (int)offset;
 		step.buffer_subdata.size = (int)size;

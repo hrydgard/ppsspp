@@ -156,6 +156,7 @@ void DrawEngineGLES::BeginFrame() {
 	render_->BeginPushBuffer(frameData.pushVertex);
 
 	lastRenderStepId_ = -1;
+	curVBuffer_ = nullptr;
 }
 
 void DrawEngineGLES::EndFrame() {
@@ -231,6 +232,7 @@ void DrawEngineGLES::Invalidate(InvalidationCallbackFlags flags) {
 	if (flags & InvalidationCallbackFlags::RENDER_PASS_STATE) {
 		// Dirty everything that has dynamic state that will need re-recording.
 		gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_BLEND_STATE | DIRTY_RASTER_STATE | DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS);
+		curVBuffer_ = nullptr;
 	}
 }
 
@@ -249,7 +251,7 @@ static void CopyIndicesWithOffset(uint16_t *dst, const uint16_t *src, uint32_t c
 
 void DrawEngineGLES::ReleaseReservedPushMemory(FrameData &frameData) {
 	if (curVBuffer_) {
-		frameData.pushVertex->Rewind(curVBufferOffset_);
+		frameData.pushVertex->Rewind(curVBuffer_, curVBufferOffset_);
 		// A bit excessive zeroing maybe, but nice for debugging.
 		curVBuffer_ = nullptr;
 		curVBufferOffset_ = GLPushBuffer::INVALID_OFFSET;
@@ -262,23 +264,29 @@ const int RESERVATION_SIZE = 256 * 1024;
 
 u8 *DrawEngineGLES::AllocateVertices(FrameData &frameData, int stride, int count, GLRBuffer **vertexBuffer, uint32_t *bindOffset, uint32_t *vertexOffset) {
 	int size = stride * count;
-	if (curVBuffer_ && (curVBufferOffset_ + size <= curVBufferEnd_)) {
+	if (curVBuffer_ && (curVBufferOffset_ + size <= curVBufferEnd_) && ((curVBufferOffset_ - curVBufferBindOffset_) / stride + count < 65536)) {
 		_dbg_assert_(curVBufferOffset_ != GLPushBuffer::INVALID_OFFSET && curVBufferBindOffset_ != GLPushBuffer::INVALID_OFFSET);
 		*bindOffset = curVBufferBindOffset_;
 		uint8_t *retval = frameData.pushVertex->GetPtr(curVBufferOffset_);
 		*vertexOffset = (curVBufferOffset_ - curVBufferBindOffset_) / stride;
 		*vertexBuffer = curVBuffer_;
 		curVBufferOffset_ += size;
+		_dbg_assert_(frameData.pushVertex->GetOffset() >= curVBufferOffset_);
 		return retval;
 	}
 
-	// OK, no available reserved space to grab. Let's allocate more and start over.
+	// OK, not enough available reserved space to grab. Let's allocate more and start over.
+	// Return what we didn't use, if any.
+	if (curVBuffer_ && curVBufferOffset_ != GLPushBuffer::INVALID_OFFSET) {
+		frameData.pushVertex->Rewind(curVBuffer_, curVBufferOffset_);
+	}
 	u8 *dest = (u8 *)frameData.pushVertex->Allocate(RESERVATION_SIZE, 4, &curVBuffer_, &curVBufferBindOffset_);
 	curVBufferEnd_ = curVBufferBindOffset_ + RESERVATION_SIZE;
 	*bindOffset = curVBufferBindOffset_;
 	*vertexOffset = 0;
 	*vertexBuffer = curVBuffer_;
 	curVBufferOffset_ = curVBufferBindOffset_ + size;
+	_dbg_assert_(frameData.pushVertex->GetOffset() >= curVBufferOffset_);
 	return dest;
 }
 
@@ -290,7 +298,7 @@ void DrawEngineGLES::DoFlush() {
 
 	if (!render_->IsInRenderPass()) {
 		// Something went badly wrong. Try to survive by simply skipping the draw, though.
-		_dbg_assert_msg_(false, "Trying to DoFlush while not in a render pass. This is bad.");
+		_dbg_assert_msg_(false, "Trying to DoFlush while not in a render pass. This is bad, please report.");
 		// can't goto bail here, skips too many variable initializations. So let's wipe the most important stuff.
 		indexGen.Reset();
 		decodedVerts_ = 0;
@@ -298,6 +306,7 @@ void DrawEngineGLES::DoFlush() {
 		vertexCountInDrawCalls_ = 0;
 		decodeCounter_ = 0;
 		dcid_ = 0;
+		curVBuffer_ = nullptr;
 		return;
 	}
 
