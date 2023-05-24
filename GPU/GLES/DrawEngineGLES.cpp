@@ -44,6 +44,18 @@
 #include "GPU/GLES/ShaderManagerGLES.h"
 #include "GPU/GLES/GPU_GLES.h"
 
+#ifdef _M_SSE
+#include <emmintrin.h>
+#endif
+#if PPSSPP_ARCH(ARM_NEON)
+
+#if defined(_MSC_VER) && PPSSPP_ARCH(ARM64)
+#include <arm64_neon.h>
+#else
+#include <arm_neon.h>
+#endif
+#endif
+
 const GLuint glprim[8] = {
 	// Points, which are expanded to triangles.
 	GL_TRIANGLES,
@@ -243,6 +255,23 @@ static void CopyIndicesWithOffset(uint16_t *dst, const uint16_t *src, uint32_t c
 	}
 
 	// TODO: SIMD-ify.
+#ifdef _M_SSE
+	__m128i ibase8 = _mm_set1_epi16(offset);
+	while (count >= 8) {
+		_mm_storeu_si128((__m128i *)dst, _mm_add_epi16(_mm_loadu_si128((const __m128i *)src), ibase8));
+		count -= 8;
+		dst += 8;
+		src += 8;
+	}
+#elif PPSSPP_ARCH(ARM_NEON)
+	uint16x8_t ibase8 = vdupq_n_u16(offset);
+	while (count >= 8) {
+		vst1q_u16(dst, vaddq_u16(vld1q_u16(src), ibase8));
+		count -= 8;
+		dst += 8;
+		src += 8;
+	}
+#endif
 	for (uint32_t i = 0; i < count; i++) {
 		// If we wrap here, we did something wrong in the calculations before calling this.
 		dst[i] = src[i] + offset;
@@ -367,7 +396,7 @@ void DrawEngineGLES::DoFlush() {
 		}
 		if (useElements) {
 			uint32_t esz = sizeof(uint16_t) * indexGen.VertexCount();
-			void *dest = frameData.pushIndex->Allocate(esz, 2, &indexBuffer, &indexBufferOffset);
+			void *dest = frameData.pushIndex->Allocate(esz, 4, &indexBuffer, &indexBufferOffset);
 			// TODO: When we need to apply an index offset, we can apply it directly when copying the indices here.
 			// Of course, minding the maximum value of 65535...
 			CopyIndicesWithOffset((uint16_t *)dest, decIndex_, indexGen.VertexCount(), vertexOffset);
