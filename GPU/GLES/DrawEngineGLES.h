@@ -120,7 +120,7 @@ private:
 	void ApplyDrawState(int prim);
 	void ApplyDrawStateLate(bool setStencil, int stencilValue);
 
-	GLRInputLayout *SetupDecFmtForDraw(LinkedShader *program, const DecVtxFormat &decFmt);
+	GLRInputLayout *SetupDecFmtForDraw(const DecVtxFormat &decFmt);
 
 	struct FrameData {
 		GLPushBuffer *pushVertex;

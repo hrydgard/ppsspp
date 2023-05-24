@@ -204,7 +204,7 @@ static inline void VertexAttribSetup(int attrib, int fmt, int stride, int offset
 }
 
 // TODO: Use VBO and get rid of the vertexData pointers - with that, we will supply only offsets
-GLRInputLayout *DrawEngineGLES::SetupDecFmtForDraw(LinkedShader *program, const DecVtxFormat &decFmt) {
+GLRInputLayout *DrawEngineGLES::SetupDecFmtForDraw(const DecVtxFormat &decFmt) {
 	uint32_t key = decFmt.id;
 	GLRInputLayout *inputLayout = inputLayoutMap_.Get(key);
 	if (inputLayout) {
@@ -274,6 +274,7 @@ void DrawEngineGLES::DoFlush() {
 	if (vshader->UseHWTransform()) {
 		int vertexCount = 0;
 		bool useElements = true;
+		GLRInputLayout *inputLayout = SetupDecFmtForDraw(dec_->GetDecVtxFmt());
 
 		if (decOptions_.applySkinInDecode && (lastVType_ & GE_VTYPE_WEIGHT_MASK)) {
 			// If software skinning, we've already predecoded into "decoded_", and indices
@@ -325,7 +326,6 @@ void DrawEngineGLES::DoFlush() {
 		ApplyDrawStateLate(false, 0);
 		
 		LinkedShader *program = shaderManager_->ApplyFragmentShader(vsid, vshader, pipelineState_, framebufferManager_->UseBufferedRendering());
-		GLRInputLayout *inputLayout = SetupDecFmtForDraw(program, dec_->GetDecVtxFmt());
 		if (useElements) {
 			render_->DrawIndexed(inputLayout,
 				vertexBuffer, vertexBufferOffset,
