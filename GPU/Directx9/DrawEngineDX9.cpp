@@ -92,7 +92,7 @@ DrawEngineDX9::DrawEngineDX9(Draw::DrawContext *draw) : draw_(draw), vai_(256), 
 
 	decimationCounter_ = VERTEXCACHE_DECIMATION_INTERVAL;
 
-	indexGen.Setup(decIndex);
+	indexGen.Setup(decIndex_);
 
 	InitDeviceObjects();
 
@@ -312,7 +312,7 @@ void DrawEngineDX9::Invalidate(InvalidationCallbackFlags flags) {
 	}
 }
 
-// The inline wrapper in the header checks for numDrawCalls == 0
+// The inline wrapper in the header checks for numDrawCalls_ == 0
 void DrawEngineDX9::DoFlush() {
 	bool textureNeedsApply = false;
 	if (gstate_c.IsDirty(DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS) && !gstate.isModeClear() && gstate.isTextureMapEnabled()) {
@@ -435,7 +435,7 @@ void DrawEngineDX9::DoFlush() {
 							u32 size = sizeof(short) * indexGen.VertexCount();
 							device_->CreateIndexBuffer(size, D3DUSAGE_WRITEONLY, D3DFMT_INDEX16, D3DPOOL_DEFAULT, &vai->ebo, NULL);
 							vai->ebo->Lock(0, size, &pIb, 0);
-							memcpy(pIb, decIndex, size);
+							memcpy(pIb, decIndex_, size);
 							vai->ebo->Unlock();
 						} else {
 							vai->ebo = 0;
@@ -521,7 +521,7 @@ rotateVBO:
 			device_->SetVertexDeclaration(pHardwareVertexDecl);
 			if (vb_ == NULL) {
 				if (useElements) {
-					device_->DrawIndexedPrimitiveUP(d3d_prim[prim], 0, maxIndex + 1, D3DPrimCount(d3d_prim[prim], vertexCount), decIndex, D3DFMT_INDEX16, decoded_, dec_->GetDecVtxFmt().stride);
+					device_->DrawIndexedPrimitiveUP(d3d_prim[prim], 0, maxIndex + 1, D3DPrimCount(d3d_prim[prim], vertexCount), decIndex_, D3DFMT_INDEX16, decoded_, dec_->GetDecVtxFmt().stride);
 				} else {
 					device_->DrawPrimitiveUP(d3d_prim[prim], D3DPrimCount(d3d_prim[prim], vertexCount), decoded_, dec_->GetDecVtxFmt().stride);
 				}
@@ -558,12 +558,12 @@ rotateVBO:
 			prim = GE_PRIM_TRIANGLES;
 		VERBOSE_LOG(G3D, "Flush prim %i SW! %i verts in one go", prim, indexGen.VertexCount());
 
-		u16 *inds = decIndex;
+		u16 *inds = decIndex_;
 		SoftwareTransformResult result{};
 		SoftwareTransformParams params{};
 		params.decoded = decoded_;
-		params.transformed = transformed;
-		params.transformedExpanded = transformedExpanded;
+		params.transformed = transformed_;
+		params.transformedExpanded = transformedExpanded_;
 		params.fbman = framebufferManager_;
 		params.texCache = textureCache_;
 		params.allowClear = true;
@@ -658,12 +658,12 @@ rotateVBO:
 	}
 
 	gpuStats.numFlushes++;
-	gpuStats.numDrawCalls += numDrawCalls;
+	gpuStats.numDrawCalls += numDrawCalls_;
 	gpuStats.numVertsSubmitted += vertexCountInDrawCalls_;
 
 	indexGen.Reset();
 	decodedVerts_ = 0;
-	numDrawCalls = 0;
+	numDrawCalls_ = 0;
 	vertexCountInDrawCalls_ = 0;
 	decodeCounter_ = 0;
 	dcid_ = 0;

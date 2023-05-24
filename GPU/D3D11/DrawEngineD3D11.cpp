@@ -88,7 +88,7 @@ DrawEngineD3D11::DrawEngineD3D11(Draw::DrawContext *draw, ID3D11Device *device, 
 	// Allocate nicely aligned memory. Maybe graphics drivers will
 	// appreciate it.
 	// All this is a LOT of memory, need to see if we can cut down somehow.
-	indexGen.Setup(decIndex);
+	indexGen.Setup(decIndex_);
 
 	InitDeviceObjects();
 
@@ -327,7 +327,7 @@ void DrawEngineD3D11::Invalidate(InvalidationCallbackFlags flags) {
 	}
 }
 
-// The inline wrapper in the header checks for numDrawCalls == 0
+// The inline wrapper in the header checks for numDrawCalls_ == 0
 void DrawEngineD3D11::DoFlush() {
 	bool textureNeedsApply = false;
 	if (gstate_c.IsDirty(DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS) && !gstate.isModeClear() && gstate.isTextureMapEnabled()) {
@@ -450,7 +450,7 @@ void DrawEngineD3D11::DoFlush() {
 						if (useElements) {
 							u32 size = sizeof(short) * indexGen.VertexCount();
 							D3D11_BUFFER_DESC desc{ size, D3D11_USAGE_IMMUTABLE, D3D11_BIND_INDEX_BUFFER, 0 };
-							D3D11_SUBRESOURCE_DATA data{ decIndex };
+							D3D11_SUBRESOURCE_DATA data{ decIndex_ };
 							ASSERT_SUCCESS(device_->CreateBuffer(&desc, &data, &vai->ebo));
 						} else {
 							vai->ebo = 0;
@@ -556,7 +556,7 @@ rotateVBO:
 				UINT iOffset;
 				int iSize = 2 * indexGen.VertexCount();
 				uint8_t *iptr = pushInds_->BeginPush(context_, &iOffset, iSize);
-				memcpy(iptr, decIndex, iSize);
+				memcpy(iptr, decIndex_, iSize);
 				pushInds_->EndPush(context_);
 				context_->IASetIndexBuffer(pushInds_->Buf(), DXGI_FORMAT_R16_UINT, iOffset);
 				context_->DrawIndexed(vertexCount, 0, 0);
@@ -595,12 +595,12 @@ rotateVBO:
 			prim = GE_PRIM_TRIANGLES;
 		VERBOSE_LOG(G3D, "Flush prim %i SW! %i verts in one go", prim, indexGen.VertexCount());
 
-		u16 *inds = decIndex;
+		u16 *inds = decIndex_;
 		SoftwareTransformResult result{};
 		SoftwareTransformParams params{};
 		params.decoded = decoded_;
-		params.transformed = transformed;
-		params.transformedExpanded = transformedExpanded;
+		params.transformed = transformed_;
+		params.transformedExpanded = transformedExpanded_;
 		params.fbman = framebufferManager_;
 		params.texCache = textureCache_;
 		params.allowClear = true;
@@ -716,12 +716,12 @@ rotateVBO:
 	}
 
 	gpuStats.numFlushes++;
-	gpuStats.numDrawCalls += numDrawCalls;
+	gpuStats.numDrawCalls += numDrawCalls_;
 	gpuStats.numVertsSubmitted += vertexCountInDrawCalls_;
 
 	indexGen.Reset();
 	decodedVerts_ = 0;
-	numDrawCalls = 0;
+	numDrawCalls_ = 0;
 	vertexCountInDrawCalls_ = 0;
 	decodeCounter_ = 0;
 	dcid_ = 0;

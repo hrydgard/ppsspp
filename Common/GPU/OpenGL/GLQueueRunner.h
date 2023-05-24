@@ -106,14 +106,14 @@ struct GLRRenderData {
 		} stencil;
 		struct {
 			GLRInputLayout *inputLayout;
-			GLRBuffer *buffer;
-			size_t offset;
+			GLRBuffer *vertexBuffer;
 			GLRBuffer *indexBuffer;
+			uint32_t vertexOffset;
+			uint32_t indexOffset;
 			GLenum mode;  // primitive
 			GLint first;
 			GLint count;
 			GLint indexType;
-			void *indices;
 			GLint instances;
 		} draw;
 		struct {

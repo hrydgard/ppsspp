@@ -75,7 +75,7 @@ DrawEngineVulkan::DrawEngineVulkan(Draw::DrawContext *draw)
 	decOptions_.alignOutputToWord = true;
 #endif
 
-	indexGen.Setup(decIndex);
+	indexGen.Setup(decIndex_);
 }
 
 void DrawEngineVulkan::InitDeviceObjects() {
@@ -552,7 +552,7 @@ void DrawEngineVulkan::Invalidate(InvalidationCallbackFlags flags) {
 	}
 }
 
-// The inline wrapper in the header checks for numDrawCalls == 0
+// The inline wrapper in the header checks for numDrawCalls_ == 0
 void DrawEngineVulkan::DoFlush() {
 	VulkanRenderManager *renderManager = (VulkanRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
 
@@ -685,7 +685,7 @@ void DrawEngineVulkan::DoFlush() {
 					if (useElements) {
 						u32 size = sizeof(uint16_t) * indexGen.VertexCount();
 						void *dest = vertexCache_->Allocate(size, 4, &vai->ib, &vai->ibOffset);
-						memcpy(dest, decIndex, size);
+						memcpy(dest, decIndex_, size);
 					} else {
 						vai->ib = VK_NULL_HANDLE;
 						vai->ibOffset = 0;
@@ -828,7 +828,7 @@ void DrawEngineVulkan::DoFlush() {
 		};
 		if (useElements) {
 			if (!ibuf) {
-				ibOffset = (uint32_t)pushIndex_->Push(decIndex, sizeof(uint16_t) * indexGen.VertexCount(), 4, &ibuf);
+				ibOffset = (uint32_t)pushIndex_->Push(decIndex_, sizeof(uint16_t) * indexGen.VertexCount(), 4, &ibuf);
 			}
 			renderManager->DrawIndexed(ds, ARRAY_SIZE(dynamicUBOOffsets), dynamicUBOOffsets, vbuf, vbOffset, ibuf, ibOffset, vertexCount, 1, VK_INDEX_TYPE_UINT16);
 		} else {
@@ -855,12 +855,12 @@ void DrawEngineVulkan::DoFlush() {
 		if (prim == GE_PRIM_TRIANGLE_STRIP)
 			prim = GE_PRIM_TRIANGLES;
 
-		u16 *inds = decIndex;
+		u16 *inds = decIndex_;
 		SoftwareTransformResult result{};
 		SoftwareTransformParams params{};
 		params.decoded = decoded_;
-		params.transformed = transformed;
-		params.transformedExpanded = transformedExpanded;
+		params.transformed = transformed_;
+		params.transformedExpanded = transformedExpanded_;
 		params.fbman = framebufferManager_;
 		params.texCache = textureCache_;
 		// In Vulkan, we have to force drawing of primitives if !framebufferManager_->UseBufferedRendering() because Vulkan clears
@@ -929,7 +929,7 @@ void DrawEngineVulkan::DoFlush() {
 				if (!pipeline || !pipeline->pipeline) {
 					// Already logged, let's bail out.
 					decodedVerts_ = 0;
-					numDrawCalls = 0;
+					numDrawCalls_ = 0;
 					decodeCounter_ = 0;
 					decOptions_.applySkinInDecode = g_Config.bSoftwareSkinning;
 					return;
@@ -1003,12 +1003,12 @@ void DrawEngineVulkan::DoFlush() {
 	}
 
 	gpuStats.numFlushes++;
-	gpuStats.numDrawCalls += numDrawCalls;
+	gpuStats.numDrawCalls += numDrawCalls_;
 	gpuStats.numVertsSubmitted += vertexCountInDrawCalls_;
 
 	indexGen.Reset();
 	decodedVerts_ = 0;
-	numDrawCalls = 0;
+	numDrawCalls_ = 0;
 	vertexCountInDrawCalls_ = 0;
 	decodeCounter_ = 0;
 	dcid_ = 0;

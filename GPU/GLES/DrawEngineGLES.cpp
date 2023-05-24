@@ -67,7 +67,7 @@ DrawEngineGLES::DrawEngineGLES(Draw::DrawContext *draw) : inputLayoutMap_(16), d
 	decOptions_.expandAllWeightsToFloat = false;
 	decOptions_.expand8BitNormalsToFloat = false;
 
-	indexGen.Setup(decIndex);
+	indexGen.Setup(decIndex_);
 
 	InitDeviceObjects();
 
@@ -245,7 +245,7 @@ void DrawEngineGLES::DoFlush() {
 		// can't goto bail here, skips too many variable initializations. So let's wipe the most important stuff.
 		indexGen.Reset();
 		decodedVerts_ = 0;
-		numDrawCalls = 0;
+		numDrawCalls_ = 0;
 		vertexCountInDrawCalls_ = 0;
 		decodeCounter_ = 0;
 		dcid_ = 0;
@@ -276,7 +276,8 @@ void DrawEngineGLES::DoFlush() {
 		bool useElements = true;
 
 		if (decOptions_.applySkinInDecode && (lastVType_ & GE_VTYPE_WEIGHT_MASK)) {
-			// If software skinning, we've already predecoded into "decoded_". So push that content.
+			// If software skinning, we've already predecoded into "decoded_", and indices
+			// into decIndex_. So push that content.
 			uint32_t size = decodedVerts_ * dec_->GetDecVtxFmt().stride;
 			u8 *dest = (u8 *)frameData.pushVertex->Allocate(size, 4, &vertexBuffer, &vertexBufferOffset);
 			memcpy(dest, decoded_, size);
@@ -284,6 +285,7 @@ void DrawEngineGLES::DoFlush() {
 			// Figure out how much pushbuffer space we need to allocate.
 			int vertsToDecode = ComputeNumVertsToDecode();
 			u8 *dest = (u8 *)frameData.pushVertex->Allocate(vertsToDecode * dec_->GetDecVtxFmt().stride, 4, &vertexBuffer, &vertexBufferOffset);
+			// Indices are decoded in here.
 			DecodeVerts(dest);
 		}
 
@@ -291,11 +293,19 @@ void DrawEngineGLES::DoFlush() {
 
 		// If there's only been one primitive type, and it's either TRIANGLES, LINES or POINTS,
 		// there is no need for the index buffer we built. We can then use glDrawArrays instead
-		// for a very minor speed boost.
+		// for a very minor speed boost. TODO: We can probably detect this case earlier, like before
+		// actually doing any vertex decoding (unless we're doing soft skinning and pre-decode on submit).
 		useElements = !indexGen.SeenOnlyPurePrims();
 		vertexCount = indexGen.VertexCount();
 		if (!useElements && indexGen.PureCount()) {
 			vertexCount = indexGen.PureCount();
+		}
+		if (useElements) {
+			uint32_t esz = sizeof(uint16_t) * indexGen.VertexCount();
+			void *dest = frameData.pushIndex->Allocate(esz, 2, &indexBuffer, &indexBufferOffset);
+			// TODO: When we need to apply an index offset, we can apply it directly when copying the indices here.
+			// Of course, minding the maximum value of 65535...
+			memcpy(dest, decIndex_, esz);
 		}
 		prim = indexGen.Prim();
 
@@ -317,14 +327,10 @@ void DrawEngineGLES::DoFlush() {
 		LinkedShader *program = shaderManager_->ApplyFragmentShader(vsid, vshader, pipelineState_, framebufferManager_->UseBufferedRendering());
 		GLRInputLayout *inputLayout = SetupDecFmtForDraw(program, dec_->GetDecVtxFmt());
 		if (useElements) {
-			if (!indexBuffer) {
-				uint32_t esz = sizeof(uint16_t) * indexGen.VertexCount();
-				void *dest = frameData.pushIndex->Allocate(esz, 2, &indexBuffer, &indexBufferOffset);
-				memcpy(dest, decIndex, esz);
-			}
-			render_->DrawIndexed(
-				inputLayout, vertexBuffer, vertexBufferOffset, indexBuffer,
-				glprim[prim], vertexCount, GL_UNSIGNED_SHORT, (GLvoid*)(intptr_t)indexBufferOffset);
+			render_->DrawIndexed(inputLayout,
+				vertexBuffer, vertexBufferOffset,
+				indexBuffer, indexBufferOffset,
+				glprim[prim], vertexCount, GL_UNSIGNED_SHORT);
 		} else {
 			render_->Draw(
 				inputLayout, vertexBuffer, vertexBufferOffset,
@@ -352,13 +358,13 @@ void DrawEngineGLES::DoFlush() {
 		if (prim == GE_PRIM_TRIANGLE_STRIP)
 			prim = GE_PRIM_TRIANGLES;
 
-		u16 *inds = decIndex;
+		u16 *inds = decIndex_;
 		SoftwareTransformResult result{};
 		// TODO: Keep this static?  Faster than repopulating?
 		SoftwareTransformParams params{};
 		params.decoded = decoded_;
-		params.transformed = transformed;
-		params.transformedExpanded = transformedExpanded;
+		params.transformed = transformed_;
+		params.transformedExpanded = transformedExpanded_;
 		params.fbman = framebufferManager_;
 		params.texCache = textureCache_;
 		params.allowClear = true;  // Clear in OpenGL respects scissor rects, so we'll use it.
@@ -427,8 +433,8 @@ void DrawEngineGLES::DoFlush() {
 				vertexBufferOffset = (uint32_t)frameData.pushVertex->Push(result.drawBuffer, maxIndex * sizeof(TransformedVertex), 4, &vertexBuffer);
 				indexBufferOffset = (uint32_t)frameData.pushIndex->Push(inds, sizeof(uint16_t) * result.drawNumTrans, 2, &indexBuffer);
 				render_->DrawIndexed(
-					softwareInputLayout_, vertexBuffer, vertexBufferOffset, indexBuffer,
-					glprim[prim], result.drawNumTrans, GL_UNSIGNED_SHORT, (void *)(intptr_t)indexBufferOffset);
+					softwareInputLayout_, vertexBuffer, vertexBufferOffset, indexBuffer, indexBufferOffset,
+					glprim[prim], result.drawNumTrans, GL_UNSIGNED_SHORT);
 			} else {
 				vertexBufferOffset = (uint32_t)frameData.pushVertex->Push(result.drawBuffer, result.drawNumTrans * sizeof(TransformedVertex), 4, &vertexBuffer);
 				render_->Draw(
@@ -466,12 +472,12 @@ void DrawEngineGLES::DoFlush() {
 
 bail:
 	gpuStats.numFlushes++;
-	gpuStats.numDrawCalls += numDrawCalls;
+	gpuStats.numDrawCalls += numDrawCalls_;
 	gpuStats.numVertsSubmitted += vertexCountInDrawCalls_;
 
 	indexGen.Reset();
 	decodedVerts_ = 0;
-	numDrawCalls = 0;
+	numDrawCalls_ = 0;
 	vertexCountInDrawCalls_ = 0;
 	decodeCounter_ = 0;
 	dcid_ = 0;
