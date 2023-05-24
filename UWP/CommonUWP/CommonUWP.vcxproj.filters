@@ -435,6 +435,9 @@
     <ClCompile Include="..\..\Common\File\AndroidContentURI.cpp">
       <Filter>File</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\Common\GPU\GPUBackendCommon.cpp">
+      <Filter>GPU</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="targetver.h" />
@@ -822,6 +825,9 @@
     </ClInclude>
     <ClInclude Include="..\..\Common\File\AndroidContentURI.h">
       <Filter>File</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\GPU\GPUBackendCommon.h">
+      <Filter>GPU</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

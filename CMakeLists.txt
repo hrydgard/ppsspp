@@ -631,6 +631,8 @@ add_library(Common STATIC
 	Common/File/FileDescriptor.h
 	Common/GPU/DataFormat.h
 	Common/GPU/MiscTypes.h
+	Common/GPU/GPUBackendCommon.cpp
+	Common/GPU/GPUBackendCommon.h
 	Common/GPU/thin3d.cpp
 	Common/GPU/thin3d.h
 	Common/GPU/thin3d_create.h

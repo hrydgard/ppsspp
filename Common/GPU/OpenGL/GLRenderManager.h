@@ -53,12 +53,13 @@ public:
 
 class GLRFramebuffer {
 public:
-	GLRFramebuffer(const Draw::DeviceCaps &caps, int _width, int _height, bool z_stencil)
+	GLRFramebuffer(const Draw::DeviceCaps &caps, int _width, int _height, bool z_stencil, const char *tag)
 		: color_texture(caps, _width, _height, 1, 1), z_stencil_texture(caps, _width, _height, 1, 1),
 		width(_width), height(_height), z_stencil_(z_stencil) {
 	}
-
 	~GLRFramebuffer();
+
+	const char *Tag() const { return tag_.c_str(); }
 
 	GLuint handle = 0;
 	GLRTexture color_texture;
@@ -71,8 +72,10 @@ public:
 	int width;
 	int height;
 	GLuint colorDepth = 0;
-
 	bool z_stencil_;
+
+private:
+	std::string tag_;
 };
 
 // We need to create some custom heap-allocated types so we can forward things that need to be created on the GL thread, before
@@ -283,10 +286,10 @@ public:
 		return step.create_shader.shader;
 	}
 
-	GLRFramebuffer *CreateFramebuffer(int width, int height, bool z_stencil) {
+	GLRFramebuffer *CreateFramebuffer(int width, int height, bool z_stencil, const char *tag) {
 		GLRInitStep &step = initSteps_.push_uninitialized();
 		step.stepType = GLRInitStepType::CREATE_FRAMEBUFFER;
-		step.create_framebuffer.framebuffer = new GLRFramebuffer(caps_, width, height, z_stencil);
+		step.create_framebuffer.framebuffer = new GLRFramebuffer(caps_, width, height, z_stencil, tag);
 		return step.create_framebuffer.framebuffer;
 	}
 
@@ -902,5 +905,6 @@ private:
 #endif
 	Draw::DeviceCaps caps_{};
 
+	std::string profilePassesString_;
 	InvalidationCallback invalidationCallback_;
 };

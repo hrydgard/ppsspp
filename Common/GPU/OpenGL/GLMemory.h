@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <cstring>
 
+#include "Common/GPU/GPUBackendCommon.h"
 #include "Common/GPU/OpenGL/GLCommon.h"
 #include "Common/Log.h"
 
@@ -61,7 +62,7 @@ class GLRenderManager;
 // trouble.
 // We need to manage the lifetime of this together with the other resources so its destructor
 // runs on the render thread.
-class GLPushBuffer {
+class GLPushBuffer : public GPUMemoryManager {
 public:
 	friend class GLRenderManager;
 
@@ -77,6 +78,10 @@ public:
 	~GLPushBuffer();
 
 	void Reset() { offset_ = 0; }
+
+	void GetDebugString(char *buffer, size_t bufSize) const override;
+
+	const char *Name() const override { return tag_; };  // for sorting
 
 	// Utility for users of this class, not used internally.
 	const uint32_t INVALID_OFFSET = 0xFFFFFFFF;
@@ -124,6 +129,8 @@ public:
 		NextBuffer(numBytes);
 		*bindOffset = 0;
 		*buf = buffers_[buf_].buffer;
+		// Need to mark the allocated range used in the new buffer. How did things work before this?
+		offset_ = numBytes;
 		return writePtr_;
 	}
 

@@ -286,6 +286,7 @@ SOURCES_CXX += \
 	$(COMMONDIR)/File/DirListing.cpp \
 	$(COMMONDIR)/GPU/thin3d.cpp \
 	$(COMMONDIR)/GPU/Shader.cpp \
+	$(COMMONDIR)/GPU/GPUBackendCommon.cpp \
 	$(COMMONDIR)/GPU/ShaderWriter.cpp \
 	$(COMMONDIR)/GPU/ShaderTranslation.cpp \
 	$(COMMONDIR)/GPU/OpenGL/thin3d_gl.cpp \

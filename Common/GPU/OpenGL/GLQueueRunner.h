@@ -290,11 +290,12 @@ enum class GLRRenderPassAction {
 
 class GLRFramebuffer;
 
-enum {
+enum GLRAspect {
 	GLR_ASPECT_COLOR = 1,
 	GLR_ASPECT_DEPTH = 2,
 	GLR_ASPECT_STENCIL = 3,
 };
+const char *GLRAspectToString(GLRAspect aspect);
 
 struct GLRStep {
 	GLRStep(GLRStepType _type) : stepType(_type) {}
@@ -353,7 +354,7 @@ public:
 
 	void RunInitSteps(const FastVec<GLRInitStep> &steps, bool skipGLCalls);
 
-	void RunSteps(const std::vector<GLRStep *> &steps, bool skipGLCalls, bool keepSteps, bool useVR);
+	void RunSteps(const std::vector<GLRStep *> &steps, GLFrameData &frameData, bool skipGLCalls, bool keepSteps, bool useVR);
 
 	void CreateDeviceObjects();
 	void DestroyDeviceObjects();
@@ -388,6 +389,8 @@ private:
 	void fbo_bind_fb_target(bool read, GLuint name);
 	GLenum fbo_get_fb_target(bool read, GLuint **cached);
 	void fbo_unbind();
+
+	std::string StepToString(const GLRStep &step) const;
 
 	GLRFramebuffer *curFB_ = nullptr;
 

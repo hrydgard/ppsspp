@@ -651,7 +651,7 @@ retry_depth:
 	currentReadHandle_ = fbo->handle;
 }
 
-void GLQueueRunner::RunSteps(const std::vector<GLRStep *> &steps, bool skipGLCalls, bool keepSteps, bool useVR) {
+void GLQueueRunner::RunSteps(const std::vector<GLRStep *> &steps, GLFrameData &frameData, bool skipGLCalls, bool keepSteps, bool useVR) {
 	if (skipGLCalls) {
 		if (keepSteps) {
 			return;
@@ -741,11 +741,14 @@ void GLQueueRunner::RunSteps(const std::vector<GLRStep *> &steps, bool skipGLCal
 		if (useDebugGroups_)
 			glPopDebugGroup();
 #endif
-
+		if (frameData.profile.enabled) {
+			frameData.profile.passesString += StepToString(step);
+		}
 		if (!keepSteps) {
 			delete steps[i];
 		}
 	}
+
 	CHECK_GL_ERROR_IF_DEBUG();
 }
 
@@ -1842,4 +1845,45 @@ GLRFramebuffer::~GLRFramebuffer() {
 	if (stencil_buffer)
 		glDeleteRenderbuffers(1, &stencil_buffer);
 	CHECK_GL_ERROR_IF_DEBUG();
+}
+
+std::string GLQueueRunner::StepToString(const GLRStep &step) const {
+	char buffer[256];
+	switch (step.stepType) {
+	case GLRStepType::RENDER:
+	{
+		int w = step.render.framebuffer ? step.render.framebuffer->width : targetWidth_;
+		int h = step.render.framebuffer ? step.render.framebuffer->height : targetHeight_;
+		snprintf(buffer, sizeof(buffer), "RENDER %s %s (commands: %d, %dx%d)\n", step.tag, step.render.framebuffer ? step.render.framebuffer->Tag() : "", (int)step.commands.size(), w, h);
+		break;
+	}
+	case GLRStepType::COPY:
+		snprintf(buffer, sizeof(buffer), "COPY '%s' %s -> %s (%dx%d, %s)\n", step.tag, step.copy.src->Tag(), step.copy.dst->Tag(), step.copy.srcRect.w, step.copy.srcRect.h, GLRAspectToString((GLRAspect)step.copy.aspectMask));
+		break;
+	case GLRStepType::BLIT:
+		snprintf(buffer, sizeof(buffer), "BLIT '%s' %s -> %s (%dx%d->%dx%d, %s)\n", step.tag, step.copy.src->Tag(), step.copy.dst->Tag(), step.blit.srcRect.w, step.blit.srcRect.h, step.blit.dstRect.w, step.blit.dstRect.h, GLRAspectToString((GLRAspect)step.blit.aspectMask));
+		break;
+	case GLRStepType::READBACK:
+		snprintf(buffer, sizeof(buffer), "READBACK '%s' %s (%dx%d, %s)\n", step.tag, step.readback.src ? step.readback.src->Tag() : "(backbuffer)", step.readback.srcRect.w, step.readback.srcRect.h, GLRAspectToString((GLRAspect)step.readback.aspectMask));
+		break;
+	case GLRStepType::READBACK_IMAGE:
+		snprintf(buffer, sizeof(buffer), "READBACK_IMAGE '%s' (%dx%d)\n", step.tag, step.readback_image.srcRect.w, step.readback_image.srcRect.h);
+		break;
+	case GLRStepType::RENDER_SKIP:
+		snprintf(buffer, sizeof(buffer), "(RENDER_SKIP) %s\n", step.tag);
+		break;
+	default:
+		buffer[0] = 0;
+		break;
+	}
+	return std::string(buffer);
+}
+
+const char *GLRAspectToString(GLRAspect aspect) {
+	switch (aspect) {
+	case GLR_ASPECT_COLOR: return "COLOR";
+	case GLR_ASPECT_DEPTH: return "DEPTH";
+	case GLR_ASPECT_STENCIL: return "STENCIL";
+	default: return "N/A";
+	}
 }

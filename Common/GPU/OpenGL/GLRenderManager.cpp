@@ -187,7 +187,7 @@ std::string GLRenderManager::GetGpuProfileString() const {
 	const GLQueueProfileContext &profile = frameData_[curFrame].profile;
 
 	float cputime_ms = 1000.0f * (profile.cpuEndTime - profile.cpuStartTime);
-	return StringFromFormat("CPU time to run the list: %0.2f ms", cputime_ms);
+	return StringFromFormat("CPU time to run the list: %0.2f ms\n\n%s", cputime_ms, profilePassesString_.c_str());
 }
 
 void GLRenderManager::BindFramebufferAsRenderTarget(GLRFramebuffer *fb, GLRRenderPassAction color, GLRRenderPassAction depth, GLRRenderPassAction stencil, uint32_t clearColor, float clearDepth, uint8_t clearStencil, const char *tag) {
@@ -351,6 +351,11 @@ void GLRenderManager::BeginFrame(bool enableProfiling) {
 
 	GLFrameData &frameData = frameData_[curFrame];
 	frameData.profile.enabled = enableProfiling;
+	if (frameData.profile.enabled) {
+		profilePassesString_ = std::move(frameData.profile.passesString);
+		frameData.profile.passesString.clear();
+	}
+
 	{
 		VLOG("PUSH: BeginFrame (curFrame = %d, readyForFence = %d, time=%0.3f)", curFrame, (int)frameData.readyForFence, time_now_d());
 		std::unique_lock<std::mutex> lock(frameData.fenceMutex);
@@ -426,11 +431,11 @@ bool GLRenderManager::Run(GLRRenderThreadTask &task) {
 		int passes = GetVRPassesCount();
 		for (int i = 0; i < passes; i++) {
 			PreVRFrameRender(i);
-			queueRunner_.RunSteps(task.steps, skipGLCalls_, i < passes - 1, true);
+			queueRunner_.RunSteps(task.steps, frameData, skipGLCalls_, i < passes - 1, true);
 			PostVRFrameRender();
 		}
 	} else {
-		queueRunner_.RunSteps(task.steps, skipGLCalls_, false, false);
+		queueRunner_.RunSteps(task.steps, frameData, skipGLCalls_, false, false);
 	}
 
 	if (frameData.profile.enabled) {

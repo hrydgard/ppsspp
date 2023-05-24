@@ -3,6 +3,7 @@
 #include <mutex>
 #include <condition_variable>
 #include <vector>
+#include <string>
 #include <set>
 
 #include "Common/GPU/OpenGL/GLCommon.h"
@@ -39,6 +40,7 @@ struct GLQueueProfileContext {
 	bool enabled;
 	double cpuStartTime;
 	double cpuEndTime;
+	std::string passesString;
 };
 
 
