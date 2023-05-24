@@ -144,6 +144,7 @@ private:
 	uint32_t curVBufferBindOffset_ = 0;
 	uint32_t curVBufferOffset_ = 0;
 	uint32_t curVBufferEnd_ = 0;
+	uint32_t curVertexIndex_ = 0;
 
 	// Other
 	ShaderManagerGLES *shaderManager_ = nullptr;

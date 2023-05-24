@@ -278,7 +278,10 @@ static void CopyIndicesWithOffset(uint16_t *dst, const uint16_t *src, uint32_t c
 	}
 }
 
+// #define OLD
+
 void DrawEngineGLES::ReleaseReservedPushMemory(FrameData &frameData) {
+#ifndef OLD
 	if (curVBuffer_) {
 		frameData.pushVertex->Rewind(curVBuffer_, curVBufferOffset_);
 		// A bit excessive zeroing maybe, but nice for debugging.
@@ -286,21 +289,29 @@ void DrawEngineGLES::ReleaseReservedPushMemory(FrameData &frameData) {
 		curVBufferOffset_ = GLPushBuffer::INVALID_OFFSET;
 		curVBufferBindOffset_ = GLPushBuffer::INVALID_OFFSET;
 		curVBufferEnd_ = 0;
+		curVertexIndex_ = 0;
 	}
+#endif
 }
 
 const int RESERVATION_SIZE = 256 * 1024;
 
 u8 *DrawEngineGLES::AllocateVertices(FrameData &frameData, int stride, int count, GLRBuffer **vertexBuffer, uint32_t *bindOffset, uint32_t *vertexOffset) {
+#ifdef OLD
+	*vertexOffset = 0;
+	return frameData.pushVertex->Allocate(stride * count, 4, vertexBuffer, bindOffset);
+#else
+
 	int size = stride * count;
-	if (curVBuffer_ && (curVBufferOffset_ + size <= curVBufferEnd_) && ((curVBufferOffset_ - curVBufferBindOffset_) / stride + count < 65536)) {
+	if (curVBuffer_ && (curVBufferOffset_ + size <= curVBufferEnd_) && (curVertexIndex_ + count < 32768)) {
 		_dbg_assert_(curVBufferOffset_ != GLPushBuffer::INVALID_OFFSET && curVBufferBindOffset_ != GLPushBuffer::INVALID_OFFSET);
 		*bindOffset = curVBufferBindOffset_;
-		uint8_t *retval = frameData.pushVertex->GetPtr(curVBufferOffset_);
-		*vertexOffset = (curVBufferOffset_ - curVBufferBindOffset_) / stride;
+		*vertexOffset = curVertexIndex_;
 		*vertexBuffer = curVBuffer_;
+		uint8_t *retval = frameData.pushVertex->GetPtr(curVBufferOffset_);
 		curVBufferOffset_ += size;
 		_dbg_assert_(frameData.pushVertex->GetOffset() >= curVBufferOffset_);
+		curVertexIndex_ += count;
 		return retval;
 	}
 
@@ -315,8 +326,10 @@ u8 *DrawEngineGLES::AllocateVertices(FrameData &frameData, int stride, int count
 	*vertexOffset = 0;
 	*vertexBuffer = curVBuffer_;
 	curVBufferOffset_ = curVBufferBindOffset_ + size;
+	curVertexIndex_ = count;
 	_dbg_assert_(frameData.pushVertex->GetOffset() >= curVBufferOffset_);
 	return dest;
+#endif
 }
 
 
@@ -528,9 +541,11 @@ void DrawEngineGLES::DoFlush() {
 				ReleaseReservedPushMemory(frameData);
 			}
 			if (result.drawIndexed) {
+				// Vertex data
 				int vsize = maxIndex * sizeof(TransformedVertex);
 				uint8_t *vdata = AllocateVertices(frameData, sizeof(TransformedVertex), maxIndex, &vertexBuffer, &vertexBufferOffset, &vertexOffset);
 				memcpy(vdata, result.drawBuffer, vsize);
+				// Index data
 				uint8_t *idata = frameData.pushIndex->Allocate(sizeof(uint16_t) * result.drawNumTrans, 4, &indexBuffer, &indexBufferOffset);
 				CopyIndicesWithOffset((uint16_t *)idata, inds, result.drawNumTrans, vertexOffset);
 				render_->DrawIndexed(
