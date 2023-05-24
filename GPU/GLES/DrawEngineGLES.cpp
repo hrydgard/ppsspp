@@ -328,13 +328,13 @@ void DrawEngineGLES::DoFlush() {
 	GLRBuffer *indexBuffer = nullptr;
 	uint32_t vertexBufferOffset = 0;
 	uint32_t indexBufferOffset = 0;
+	uint32_t vertexOffset = 0;
 
 	if (vshader->UseHWTransform()) {
 		int vertexCount = 0;
 		bool useElements = true;
 		GLRInputLayout *inputLayout = SetupDecFmtForDraw(dec_->GetDecVtxFmt());
 		int stride = inputLayout->entries[0].stride;
-		uint32_t vertexOffset = 0;
 
 		if (!lastInputLayout_ || stride != lastInputLayout_->entries[0].stride) {
 			ReleaseReservedPushMemory(frameData);
@@ -494,17 +494,25 @@ void DrawEngineGLES::DoFlush() {
 		}
 
 		if (result.action == SW_DRAW_PRIMITIVES) {
-			ReleaseReservedPushMemory(frameData);
+			if (lastInputLayout_ != softwareInputLayout_) {
+				lastInputLayout_ = softwareInputLayout_;
+				ReleaseReservedPushMemory(frameData);
+			}
 			if (result.drawIndexed) {
-				vertexBufferOffset = (uint32_t)frameData.pushVertex->Push(result.drawBuffer, maxIndex * sizeof(TransformedVertex), 4, &vertexBuffer);
-				indexBufferOffset = (uint32_t)frameData.pushIndex->Push(inds, sizeof(uint16_t) * result.drawNumTrans, 2, &indexBuffer);
+				int vsize = maxIndex * sizeof(TransformedVertex);
+				uint8_t *vdata = AllocateVertices(frameData, sizeof(TransformedVertex), maxIndex, &vertexBuffer, &vertexBufferOffset, &vertexOffset);
+				memcpy(vdata, result.drawBuffer, vsize);
+				uint8_t *idata = frameData.pushIndex->Allocate(sizeof(uint16_t) * result.drawNumTrans, 4, &indexBuffer, &indexBufferOffset);
+				CopyIndicesWithOffset((uint16_t *)idata, inds, result.drawNumTrans, vertexOffset);
 				render_->DrawIndexed(
 					softwareInputLayout_, vertexBuffer, vertexBufferOffset, indexBuffer, indexBufferOffset,
 					glprim[prim], result.drawNumTrans, GL_UNSIGNED_SHORT);
 			} else {
-				vertexBufferOffset = (uint32_t)frameData.pushVertex->Push(result.drawBuffer, result.drawNumTrans * sizeof(TransformedVertex), 4, &vertexBuffer);
+				int vsize = result.drawNumTrans * sizeof(TransformedVertex);
+				uint8_t *vdata = AllocateVertices(frameData, sizeof(TransformedVertex), maxIndex, &vertexBuffer, &vertexBufferOffset, &vertexOffset);
+				memcpy(vdata, result.drawBuffer, vsize);
 				render_->Draw(
-					softwareInputLayout_, vertexBuffer, vertexBufferOffset, glprim[prim], 0, result.drawNumTrans);
+					softwareInputLayout_, vertexBuffer, vertexBufferOffset, glprim[prim], vertexOffset, result.drawNumTrans);
 			}
 		} else if (result.action == SW_CLEAR) {
 			u32 clearColor = result.color;
