@@ -905,5 +905,6 @@ private:
 #endif
 	Draw::DeviceCaps caps_{};
 
+	std::string profilePassesString_;
 	InvalidationCallback invalidationCallback_;
 };
