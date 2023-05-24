@@ -284,5 +284,5 @@ void GLPushBuffer::UnmapDevice() {
 }
 
 void GLPushBuffer::GetDebugString(char *buffer, size_t bufSize) const {
-	snprintf(buffer, bufSize, "%s: %d/%d", tag_, NiceSizeFormat(this->offset_).c_str(), NiceSizeFormat(this->size_).c_str());
+	snprintf(buffer, bufSize, "%s: %s/%s", tag_, NiceSizeFormat(this->offset_).c_str(), NiceSizeFormat(this->size_).c_str());
 }
