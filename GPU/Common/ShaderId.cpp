@@ -377,7 +377,7 @@ void ComputeFragmentShaderID(FShaderID *id_out, const ComputedPipelineState &pip
 		id.SetBit(FS_BIT_COLOR_WRITEMASK, colorWriteMask);
 
 		// All framebuffers are array textures in Vulkan now.
-		if (gstate_c.arrayTexture && g_Config.iGPUBackend == (int)GPUBackend::VULKAN) {
+		if (gstate_c.textureIsArray && g_Config.iGPUBackend == (int)GPUBackend::VULKAN) {
 			id.SetBit(FS_BIT_SAMPLE_ARRAY_TEXTURE);
 		}
 

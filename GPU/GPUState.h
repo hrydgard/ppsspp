@@ -569,8 +569,8 @@ struct GPUStateCache {
 		}
 	}
 	void SetTextureIsArray(bool isArrayTexture) {  // VK only
-		if (arrayTexture != isArrayTexture) {
-			arrayTexture = isArrayTexture;
+		if (textureIsArray != isArrayTexture) {
+			textureIsArray = isArrayTexture;
 			Dirty(DIRTY_FRAGMENTSHADER_STATE);
 		}
 	}
@@ -578,6 +578,12 @@ struct GPUStateCache {
 		if (bgraTexture != isBGRA) {
 			bgraTexture = isBGRA;
 			Dirty(DIRTY_FRAGMENTSHADER_STATE);
+		}
+	}
+	void SetTextureIsFramebuffer(bool isFramebuffer) {
+		if (textureIsFramebuffer != isFramebuffer) {
+			textureIsFramebuffer = isFramebuffer;
+			Dirty(DIRTY_UVSCALEOFFSET);
 		}
 	}
 	void SetUseFlags(u32 newFlags) {
@@ -614,7 +620,8 @@ public:
 
 	bool bgraTexture;
 	bool needShaderTexClamp;
-	bool arrayTexture;
+	bool textureIsArray;
+	bool textureIsFramebuffer;
 	bool useFlagsChanged;
 
 	float morphWeights[8];

@@ -149,7 +149,7 @@ const CommonCommandTableEntry commonCommandTable[] = {
 	{ GE_CMD_TEXFORMAT, FLAG_FLUSHBEFOREONCHANGE, DIRTY_TEXTURE_IMAGE },
 	{ GE_CMD_TEXLEVEL, FLAG_EXECUTEONCHANGE, DIRTY_TEXTURE_PARAMS, &GPUCommonHW::Execute_TexLevel },
 	{ GE_CMD_TEXLODSLOPE, FLAG_FLUSHBEFOREONCHANGE, DIRTY_TEXTURE_PARAMS },
-	{ GE_CMD_TEXADDR0, FLAG_FLUSHBEFOREONCHANGE, DIRTY_TEXTURE_IMAGE | DIRTY_UVSCALEOFFSET },
+	{ GE_CMD_TEXADDR0, FLAG_FLUSHBEFOREONCHANGE, DIRTY_TEXTURE_IMAGE },
 	{ GE_CMD_TEXADDR1, FLAG_FLUSHBEFOREONCHANGE, DIRTY_TEXTURE_PARAMS },
 	{ GE_CMD_TEXADDR2, FLAG_FLUSHBEFOREONCHANGE, DIRTY_TEXTURE_PARAMS },
 	{ GE_CMD_TEXADDR3, FLAG_FLUSHBEFOREONCHANGE, DIRTY_TEXTURE_PARAMS },
@@ -827,13 +827,14 @@ void GPUCommonHW::FastRunLoop(DisplayList &list) {
 }
 
 void GPUCommonHW::Execute_VertexType(u32 op, u32 diff) {
-	if (diff)
+	if (diff) {
+		// TODO: We only need to dirty vshader-state here if the output format will be different.
 		gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE);
-	if (diff & (GE_VTYPE_TC_MASK | GE_VTYPE_THROUGH_MASK)) {
-		gstate_c.Dirty(DIRTY_UVSCALEOFFSET);
-		// Switching between through and non-through, we need to invalidate a bunch of stuff.
-		if (diff & GE_VTYPE_THROUGH_MASK)
+
+		if (diff & GE_VTYPE_THROUGH_MASK) {
+			// Switching between through and non-through, we need to invalidate a bunch of stuff.
 			gstate_c.Dirty(DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_FRAGMENTSHADER_STATE | DIRTY_GEOMETRYSHADER_STATE | DIRTY_CULLRANGE);
+		}
 	}
 }
 
@@ -844,8 +845,6 @@ void GPUCommonHW::Execute_VertexTypeSkinning(u32 op, u32 diff) {
 		gstate.vertType ^= diff;
 		Flush();
 		gstate.vertType ^= diff;
-		if (diff & (GE_VTYPE_TC_MASK | GE_VTYPE_THROUGH_MASK))
-			gstate_c.Dirty(DIRTY_UVSCALEOFFSET);
 		// In this case, we may be doing weights and morphs.
 		// Update any bone matrix uniforms so it uses them correctly.
 		if ((op & GE_VTYPE_MORPHCOUNT_MASK) != 0) {
@@ -1125,8 +1124,6 @@ bail:
 
 void GPUCommonHW::Execute_Bezier(u32 op, u32 diff) {
 	// We don't dirty on normal changes anymore as we prescale, but it's needed for splines/bezier.
-	gstate_c.Dirty(DIRTY_UVSCALEOFFSET);
-
 	gstate_c.framebufFormat = gstate.FrameBufFormat();
 
 	// This also make skipping drawing very effective.
@@ -1198,8 +1195,6 @@ void GPUCommonHW::Execute_Bezier(u32 op, u32 diff) {
 
 void GPUCommonHW::Execute_Spline(u32 op, u32 diff) {
 	// We don't dirty on normal changes anymore as we prescale, but it's needed for splines/bezier.
-	gstate_c.Dirty(DIRTY_UVSCALEOFFSET);
-
 	gstate_c.framebufFormat = gstate.FrameBufFormat();
 
 	// This also make skipping drawing very effective.
@@ -1289,7 +1284,6 @@ void GPUCommonHW::Execute_TexSize0(u32 op, u32 diff) {
 	if (diff || gstate_c.IsDirty(DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS)) {
 		gstate_c.curTextureWidth = gstate.getTextureWidth(0);
 		gstate_c.curTextureHeight = gstate.getTextureHeight(0);
-		gstate_c.Dirty(DIRTY_UVSCALEOFFSET);
 		// We will need to reset the texture now.
 		gstate_c.Dirty(DIRTY_TEXTURE_PARAMS);
 	}

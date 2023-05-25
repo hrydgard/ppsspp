@@ -336,7 +336,7 @@ public:
 
 	u32 VertexType() const { return fmt_; }
 
-	const DecVtxFormat &GetDecVtxFmt() { return decFmt; }
+	const DecVtxFormat &GetDecVtxFmt() const { return decFmt; }
 
 	void DecodeVerts(u8 *decoded, const void *verts, int indexLowerBound, int indexUpperBound) const;
 

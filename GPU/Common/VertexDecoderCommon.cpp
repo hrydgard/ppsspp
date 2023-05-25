@@ -1176,7 +1176,7 @@ void VertexDecoder::SetVertexType(u32 fmt, const VertexDecoderOptions &options, 
 
 		steps_[numSteps_++] = morphcount == 1 ? colstep[col] : colstep_morph[col];
 
-		// All color formats decode to DEC_U8_4 currently.
+		// All color formats decode to DEC_U8_4.
 		// They can become floats later during transform though.
 		decFmt.c0fmt = DEC_U8_4;
 		decFmt.c0off = decOff;
