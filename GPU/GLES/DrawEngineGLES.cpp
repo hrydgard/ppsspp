@@ -173,6 +173,7 @@ void DrawEngineGLES::BeginFrame() {
 
 void DrawEngineGLES::EndFrame() {
 	FrameData &frameData = frameData_[render_->GetCurFrame()];
+	ReleaseReservedPushMemory(frameData);
 	render_->EndPushBuffer(frameData.pushIndex);
 	render_->EndPushBuffer(frameData.pushVertex);
 	tessDataTransferGLES->EndFrame();
