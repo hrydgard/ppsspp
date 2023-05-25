@@ -713,9 +713,9 @@ void GLQueueRunner::RunSteps(const std::vector<GLRStep *> &steps, GLFrameData &f
 			if (IsVREnabled()) {
 				GLRStep &vrStep = step;
 				PreprocessStepVR(&vrStep);
-				PerformRenderPass(vrStep, renderCount == 1, renderCount == totalRenderCount);
+				PerformRenderPass(vrStep, renderCount == 1, renderCount == totalRenderCount, frameData.profile);
 			} else {
-				PerformRenderPass(step, renderCount == 1, renderCount == totalRenderCount);
+				PerformRenderPass(step, renderCount == 1, renderCount == totalRenderCount, frameData.profile);
 			}
 			break;
 		case GLRStepType::COPY:
@@ -794,7 +794,7 @@ static void EnableDisableVertexArrays(uint32_t prevAttr, uint32_t newAttr) {
 	}
 }
 
-void GLQueueRunner::PerformRenderPass(const GLRStep &step, bool first, bool last) {
+void GLQueueRunner::PerformRenderPass(const GLRStep &step, bool first, bool last, GLQueueProfileContext &profile) {
 	CHECK_GL_ERROR_IF_DEBUG();
 
 	PerformBindFramebufferAsRenderTarget(step);
@@ -869,6 +869,13 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step, bool first, bool last
 	CHECK_GL_ERROR_IF_DEBUG();
 	auto &commands = step.commands;
 	for (const auto &c : commands) {
+#ifdef _DEBUG
+		if (profile.enabled) {
+			if ((size_t)c.cmd < ARRAY_SIZE(profile.commandCounts)) {
+				profile.commandCounts[(size_t)c.cmd]++;
+			}
+		}
+#endif
 		switch (c.cmd) {
 		case GLRRenderCommand::DEPTH:
 			if (c.depth.enabled) {
@@ -1884,6 +1891,36 @@ const char *GLRAspectToString(GLRAspect aspect) {
 	case GLR_ASPECT_COLOR: return "COLOR";
 	case GLR_ASPECT_DEPTH: return "DEPTH";
 	case GLR_ASPECT_STENCIL: return "STENCIL";
+	default: return "N/A";
+	}
+}
+
+const char *RenderCommandToString(GLRRenderCommand cmd) {
+	switch (cmd) {
+	case GLRRenderCommand::DEPTH: return "DEPTH";
+	case GLRRenderCommand::STENCIL: return "STENCIL";
+	case GLRRenderCommand::BLEND: return "BLEND";
+	case GLRRenderCommand::BLENDCOLOR: return "BLENDCOLOR";
+	case GLRRenderCommand::LOGICOP: return "LOGICOP";
+	case GLRRenderCommand::UNIFORM4I: return "UNIFORM4I";
+	case GLRRenderCommand::UNIFORM4UI: return "UNIFORM4UI";
+	case GLRRenderCommand::UNIFORM4F: return "UNIFORM4F";
+	case GLRRenderCommand::UNIFORMMATRIX: return "UNIFORMMATRIX";
+	case GLRRenderCommand::UNIFORMSTEREOMATRIX: return "UNIFORMSTEREOMATRIX";
+	case GLRRenderCommand::TEXTURESAMPLER: return "TEXTURESAMPLER";
+	case GLRRenderCommand::TEXTURELOD: return "TEXTURELOD";
+	case GLRRenderCommand::VIEWPORT: return "VIEWPORT";
+	case GLRRenderCommand::SCISSOR: return "SCISSOR";
+	case GLRRenderCommand::RASTER: return "RASTER";
+	case GLRRenderCommand::CLEAR: return "CLEAR";
+	case GLRRenderCommand::INVALIDATE: return "INVALIDATE";
+	case GLRRenderCommand::BINDPROGRAM: return "BINDPROGRAM";
+	case GLRRenderCommand::BINDTEXTURE: return "BINDTEXTURE";
+	case GLRRenderCommand::BIND_FB_TEXTURE: return "BIND_FB_TEXTURE";
+	case GLRRenderCommand::BIND_VERTEX_BUFFER: return "BIND_VERTEX_BUFFER";
+	case GLRRenderCommand::GENMIPS: return "GENMIPS";
+	case GLRRenderCommand::DRAW: return "DRAW";
+	case GLRRenderCommand::TEXTURE_SUBIMAGE: return "TEXTURE_SUBIMAGE";
 	default: return "N/A";
 	}
 }

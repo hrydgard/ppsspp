@@ -379,7 +379,7 @@ private:
 	void InitCreateFramebuffer(const GLRInitStep &step);
 
 	void PerformBindFramebufferAsRenderTarget(const GLRStep &pass);
-	void PerformRenderPass(const GLRStep &pass, bool first, bool last);
+	void PerformRenderPass(const GLRStep &pass, bool first, bool last, GLQueueProfileContext &profile);
 	void PerformCopy(const GLRStep &pass);
 	void PerformBlit(const GLRStep &pass);
 	void PerformReadback(const GLRStep &pass);
@@ -423,3 +423,5 @@ private:
 	ErrorCallbackFn errorCallback_ = nullptr;
 	void *errorCallbackUserData_ = nullptr;
 };
+
+const char *RenderCommandToString(GLRRenderCommand cmd);

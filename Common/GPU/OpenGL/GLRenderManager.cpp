@@ -351,10 +351,6 @@ void GLRenderManager::BeginFrame(bool enableProfiling) {
 
 	GLFrameData &frameData = frameData_[curFrame];
 	frameData.profile.enabled = enableProfiling;
-	if (frameData.profile.enabled) {
-		profilePassesString_ = std::move(frameData.profile.passesString);
-		frameData.profile.passesString.clear();
-	}
 
 	{
 		VLOG("PUSH: BeginFrame (curFrame = %d, readyForFence = %d, time=%0.3f)", curFrame, (int)frameData.readyForFence, time_now_d());
@@ -392,6 +388,23 @@ void GLRenderManager::Finish() {
 		initSteps_.clear();
 		steps_.clear();
 		pushCondVar_.notify_one();
+	}
+
+	if (frameData.profile.enabled) {
+		profilePassesString_ = std::move(frameData.profile.passesString);
+
+#ifdef _DEBUG
+		std::string cmdString;
+		for (int i = 0; i < ARRAY_SIZE(frameData.profile.commandCounts); i++) {
+			if (frameData.profile.commandCounts[i] > 0) {
+				cmdString += StringFromFormat("%s: %d\n", RenderCommandToString((GLRRenderCommand)i), frameData.profile.commandCounts[i]);
+			}
+		}
+		memset(frameData.profile.commandCounts, 0, sizeof(frameData.profile.commandCounts));
+		profilePassesString_ = cmdString + profilePassesString_;
+#endif
+
+		frameData.profile.passesString.clear();
 	}
 
 	curFrame_++;
