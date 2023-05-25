@@ -130,13 +130,11 @@ u64 hleDelayResult(u64 result, const char *reason, int usec);
 void hleEatCycles(int cycles);
 void hleEatMicro(int usec);
 
-inline int hleDelayResult(int result, const char *reason, int usec)
-{
+inline int hleDelayResult(int result, const char *reason, int usec) {
 	return hleDelayResult((u32) result, reason, usec);
 }
 
-inline s64 hleDelayResult(s64 result, const char *reason, int usec)
-{
+inline s64 hleDelayResult(s64 result, const char *reason, int usec) {
 	return hleDelayResult((u64) result, reason, usec);
 }
 

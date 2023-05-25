@@ -25,10 +25,16 @@ static int sceNpDrmRenameCheck(const char *filename)
 static int sceNpDrmEdataSetupKey(u32 edataFd)
 {
 	INFO_LOG(HLE, "call sceNpDrmEdataSetupKey %x", edataFd);
-	/* set PGD offset */
-	sceIoIoctl(edataFd, 0x04100002, 0x90, 0, 0, 0);
-	/* call PGD open */
-	return sceIoIoctl(edataFd, 0x04100001, 0, 0, 0, 0);
+	int usec = 0;
+	// set PGD offset
+	int retval = __IoIoctl(edataFd, 0x04100002, 0x90, 0, 0, 0, usec);
+	if (retval != 0) {
+		return hleDelayResult(retval, "io ctrl command", usec);
+	}
+	// call PGD open
+	// Note that usec accumulates.
+	retval = __IoIoctl(edataFd, 0x04100001, 0, 0, 0, 0, usec);
+	return hleDelayResult(retval, "io ctrl command", usec);
 }
 
 static int sceNpDrmEdataGetDataSize(u32 edataFd)
