@@ -701,6 +701,12 @@ void EmuScreen::onVKey(int virtualKeyCode, bool down) {
 		if (down)
 			SaveState::LoadSlot(gamePath_, g_Config.iCurrentStateSlot, &AfterSaveStateAction);
 		break;
+	case VIRTKEY_PREVIOUS_SLOT:
+		if (down) {
+			SaveState::PrevSlot();
+			NativeMessageReceived("savestate_displayslot", "");
+		}
+		break;
 	case VIRTKEY_NEXT_SLOT:
 		if (down) {
 			SaveState::NextSlot();

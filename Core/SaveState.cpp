@@ -525,6 +525,11 @@ namespace SaveState
 		return g_Config.iCurrentStateSlot;
 	}
 
+	void PrevSlot()
+	{
+		g_Config.iCurrentStateSlot = (g_Config.iCurrentStateSlot - 1 + NUM_SLOTS) % NUM_SLOTS;
+	}
+
 	void NextSlot()
 	{
 		g_Config.iCurrentStateSlot = (g_Config.iCurrentStateSlot + 1) % NUM_SLOTS;

@@ -43,6 +43,7 @@ namespace SaveState
 	void Shutdown();
 
 	// Cycle through the 5 savestate slots
+	void PrevSlot();
 	void NextSlot();
 	void SaveSlot(const Path &gameFilename, int slot, Callback callback, void *cbUserData = 0);
 	void LoadSlot(const Path &gameFilename, int slot, Callback callback, void *cbUserData = 0);
