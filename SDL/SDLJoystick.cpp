@@ -19,7 +19,7 @@ static int SDLJoystickEventHandlerWrapper(void* userdata, SDL_Event* event)
 	return 0;
 }
 
-SDLJoystick::SDLJoystick(bool init_SDL ) : registeredAsEventHandler(false) {
+SDLJoystick::SDLJoystick(bool init_SDL, int njoy) : registeredAsEventHandler(false) {
 	SDL_SetHint(SDL_HINT_JOYSTICK_ALLOW_BACKGROUND_EVENTS, "1");
 	if (init_SDL) {
 		SDL_Init(SDL_INIT_JOYSTICK | SDL_INIT_VIDEO | SDL_INIT_GAMECONTROLLER);
@@ -41,16 +41,19 @@ SDLJoystick::SDLJoystick(bool init_SDL ) : registeredAsEventHandler(false) {
 		cout << "gamecontrollerdb.txt missing" << endl;
 	}
 	cout << "SUCCESS!" << endl;
-	setUpControllers();
+	//setUpControllers();
+	njoy_ = njoy;
+
 }
 
 void SDLJoystick::setUpControllers() {
 	int numjoys = SDL_NumJoysticks();
-	for (int i = 0; i < numjoys; i++) {
-		setUpController(i);
-	}
-	if (controllers.size() > 0) {
-		cout << "pad 1 has been assigned to control pad: " << SDL_GameControllerName(controllers.front()) << endl;
+
+	if(njoy_ < numjoys) {
+		setUpController(njoy_);
+		if (controllers.size() > 0) {
+			cout << "pad 1 has been assigned to control pad: " << SDL_JoystickNameForIndex(njoy_) << endl;
+		}
 	}
 }
 
@@ -163,7 +166,7 @@ void SDLJoystick::ProcessInput(SDL_Event &event){
 				KeyInput key;
 				key.flags = KEY_DOWN;
 				key.keyCode = code;
-				key.deviceId = DEVICE_ID_PAD_0 + getDeviceIndex(event.cbutton.which);
+				key.deviceId = DEVICE_ID_PAD_0;
 				NativeKey(key);
 			}
 		}
@@ -175,7 +178,7 @@ void SDLJoystick::ProcessInput(SDL_Event &event){
 				KeyInput key;
 				key.flags = KEY_UP;
 				key.keyCode = code;
-				key.deviceId = DEVICE_ID_PAD_0 + getDeviceIndex(event.cbutton.which);
+				key.deviceId = DEVICE_ID_PAD_0;
 				NativeKey(key);
 			}
 		}
@@ -186,7 +189,7 @@ void SDLJoystick::ProcessInput(SDL_Event &event){
 		axis.value = event.caxis.value / 32767.0f;
 		if (axis.value > 1.0f) axis.value = 1.0f;
 		if (axis.value < -1.0f) axis.value = -1.0f;
-		axis.deviceId = DEVICE_ID_PAD_0 + getDeviceIndex(event.caxis.which);
+		axis.deviceId = DEVICE_ID_PAD_0;
 		NativeAxis(axis);
 		break;
 	case SDL_CONTROLLERDEVICEREMOVED:
@@ -200,11 +203,9 @@ void SDLJoystick::ProcessInput(SDL_Event &event){
 		}
 		break;
 	case SDL_CONTROLLERDEVICEADDED:
-		// for add events, "which" is the device index!
-		int prevNumControllers = controllers.size();
-		setUpController(event.cdevice.which);
-		if (prevNumControllers == 0 && controllers.size() > 0) {
-			cout << "pad 1 has been assigned to control pad: " << SDL_GameControllerName(controllers.front()) << endl;
+		if(event.cdevice.which == njoy_) {
+			setUpController(njoy_);
+			cout << "pad 1 has been assigned to control pad: " << SDL_JoystickNameForIndex(njoy_) << endl;
 		}
 		break;
 	}

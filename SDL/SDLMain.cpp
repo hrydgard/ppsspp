@@ -646,6 +646,7 @@ int main(int argc, char *argv[]) {
 	bool set_ipad = false;
 	float set_dpi = 1.0f;
 	float set_scale = 1.0f;
+	int set_njoy = 0;
 
 	// Produce a new set of arguments with the ones we skip.
 	int remain_argc = 1;
@@ -664,6 +665,8 @@ int main(int argc, char *argv[]) {
 			set_dpi = parseFloat(argv[i]);
 		else if (set_scale == -2)
 			set_scale = parseFloat(argv[i]);
+		else if (set_njoy == -2)
+			set_njoy = parseInt(argv[i]);
 		else if (!strcmp(argv[i],"--xres"))
 			set_xres = -2;
 		else if (!strcmp(argv[i],"--yres"))
@@ -676,6 +679,8 @@ int main(int argc, char *argv[]) {
 			set_ipad = true;
 		else if (!strcmp(argv[i],"--portrait"))
 			portrait = true;
+		else if (!strcmp(argv[i],"--njoy"))
+			set_njoy = -2;
 		else {
 			remain_argv[remain_argc++] = argv[i];
 		}
@@ -908,7 +913,7 @@ int main(int argc, char *argv[]) {
 	InitSDLAudioDevice();
 
 	if (joystick_enabled) {
-		joystick = new SDLJoystick();
+		joystick = new SDLJoystick(false, set_njoy);
 	} else {
 		joystick = nullptr;
 	}
