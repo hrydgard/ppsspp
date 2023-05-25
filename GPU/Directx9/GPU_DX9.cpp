@@ -101,6 +101,9 @@ u32 GPU_DX9::CheckGPUFeatures() const {
 	// So we cannot incorrectly use the viewport transform as the depth range on Direct3D.
 	features |= GPU_USE_ACCURATE_DEPTH;
 
+	// DX9 GPUs probably benefit more than they lose from this. Though, might be a vendor check.
+	features |= GPU_USE_FRAGMENT_UBERSHADER;
+
 	return CheckGPUFeaturesLate(features);
 }
 

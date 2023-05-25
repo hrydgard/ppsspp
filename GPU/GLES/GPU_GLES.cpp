@@ -197,6 +197,10 @@ u32 GPU_GLES::CheckGPUFeatures() const {
 		}
 	}
 
+	if (gl_extensions.GLES3) {
+		features |= GPU_USE_FRAGMENT_UBERSHADER;
+	}
+
 	return features;
 }
 

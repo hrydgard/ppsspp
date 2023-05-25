@@ -107,6 +107,11 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 	bool colorTestAgainstZero = id.Bit(FS_BIT_COLOR_AGAINST_ZERO);
 	bool doTextureProjection = id.Bit(FS_BIT_DO_TEXTURE_PROJ);
 
+	bool ubershader = id.Bit(FS_BIT_UBERSHADER);
+	// ubershader-controlled bits. If ubershader is on, these will not be used below (and will be false).
+	bool useTexAlpha = id.Bit(FS_BIT_TEXALPHA);
+	bool enableColorDouble = id.Bit(FS_BIT_DOUBLE_COLOR);
+
 	if (texture3D && arrayTexture) {
 		*errorString = "Invalid combination of 3D texture and array texture, shouldn't happen";
 		return false;
@@ -264,8 +269,9 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 				if (texFunc == GE_TEXFUNC_BLEND) {
 					WRITE(p, "float3 u_texenv : register(c%i);\n", CONST_PS_TEXENV);
 				}
-				WRITE(p, "float u_texNoAlpha : register(c%i);\n", CONST_PS_TEX_NO_ALPHA);
-				WRITE(p, "float u_texMul : register(c%i);\n", CONST_PS_TEX_MUL);
+				if (ubershader) {
+					WRITE(p, "float2 u_texNoAlphaMul : register(c%i);\n", CONST_PS_TEX_NO_ALPHA_MUL);
+				}
 			}
 			if (enableFog) {
 				WRITE(p, "float3 u_fogcolor : register(c%i);\n", CONST_PS_FOGCOLOR);
@@ -364,8 +370,9 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 				WRITE(p, "uniform sampler2D tex;\n");
 			}
 			*uniformMask |= DIRTY_TEX_ALPHA_MUL;
-			WRITE(p, "uniform float u_texNoAlpha;\n");
-			WRITE(p, "uniform float u_texMul;\n");
+			if (ubershader) {
+				WRITE(p, "uniform vec2 u_texNoAlphaMul;\n");
+			}
 		}
 
 		if (readFramebufferTex) {
@@ -844,7 +851,11 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 			WRITE(p, "  vec4 p = v_color0;\n");
 
 			if (texFunc != GE_TEXFUNC_REPLACE) {
-				WRITE(p, "  t.a = max(t.a, u_texNoAlpha);\n");
+				if (ubershader) {
+					WRITE(p, "  t.a = max(t.a, u_texNoAlphaMul.x);\n");
+				} else if (!useTexAlpha) {
+					WRITE(p, "  t.a = 1.0;\n");
+				}
 			}
 
 			switch (texFunc) {
@@ -859,7 +870,11 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 				break;
 			case GE_TEXFUNC_REPLACE:
 				WRITE(p, "  vec4 r = t;\n");
-				WRITE(p, "  r.a = mix(r.a, p.a, u_texNoAlpha);\n");
+				if (ubershader) {
+					WRITE(p, "  r.a = mix(r.a, p.a, u_texNoAlphaMul.x);\n");
+				} else if (!useTexAlpha) {
+					WRITE(p, "  r.a = p.a;\n");
+				}
 				WRITE(p, "  vec4 v = r%s;\n", secondary);
 				break;
 			case GE_TEXFUNC_ADD:
@@ -878,10 +893,14 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 			*uniformMask |= DIRTY_TEX_ALPHA_MUL;
 
 			// We only need a clamp if the color will be further processed. Otherwise the hardware color conversion will clamp for us.
-			if (enableFog || enableColorTest || replaceBlend != REPLACE_BLEND_NO || simulateLogicOpType != LOGICOPTYPE_NORMAL || colorWriteMask || blueToAlpha) {
-				WRITE(p, "  v.rgb = clamp(v.rgb * u_texMul, 0.0, 1.0);\n");
-			} else {
-				WRITE(p, "  v.rgb *= u_texMul;\n");
+			if (ubershader) {
+				if (enableFog || enableColorTest || replaceBlend != REPLACE_BLEND_NO || simulateLogicOpType != LOGICOPTYPE_NORMAL || colorWriteMask || blueToAlpha) {
+					WRITE(p, "  v.rgb = clamp(v.rgb * u_texNoAlphaMul.y, 0.0, 1.0);\n");
+				} else {
+					WRITE(p, "  v.rgb *= u_texNoAlphaMul.y;\n");
+				}
+			} else if (enableColorDouble) {
+				p.C("  v.rgb = clamp(v.rgb * 2.0, 0.0, 1.0);\n");
 			}
 		} else {
 			// No texture mapping
