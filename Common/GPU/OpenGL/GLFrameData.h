@@ -41,6 +41,7 @@ struct GLQueueProfileContext {
 	double cpuStartTime;
 	double cpuEndTime;
 	std::string passesString;
+	int commandCounts[25];  // Can't grab count from the enum as it would mean a circular include. Might clean this up later.
 };
 
 
