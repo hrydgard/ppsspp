@@ -730,7 +730,18 @@ void SoftGPU::NotifyDisplayResized() {
 	}
 }
 
-void SoftGPU::NotifyConfigChanged() {}
+void SoftGPU::NotifyConfigChanged() {
+	configChanged_ = true;
+}
+
+void SoftGPU::CheckConfigChanged() {
+	if (configChanged_) {
+		drawEngineCommon_->NotifyConfigChanged();
+		BuildReportingInfo();
+		presentation_->UpdatePostShader();
+		configChanged_ = false;
+	}
+}
 
 void SoftGPU::FastRunLoop(DisplayList &list) {
 	PROFILE_THIS_SCOPE("soft_runloop");
