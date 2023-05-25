@@ -668,7 +668,7 @@ void PresentationCommon::CopyToOutput(OutputFlags flags, int uvRotation, float u
 
 	float finalU0 = u0, finalU1 = u1, finalV0 = v0, finalV1 = v1;
 
-	if (usePostShader) {
+	if (usePostShader && !(isFinalAtOutputResolution && postShaderPipelines_.size() == 1)) {
 		// The final blit will thus use the full texture.
 		finalU0 = 0.0f;
 		finalV0 = 0.0f;
