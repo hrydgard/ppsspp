@@ -823,8 +823,6 @@ uint32_t vrnd_generate(uint32_t *rcx)
 	B ^= B <<  5;
 	// Pell sequence, with additional increment.
 	uint32_t t= 2u * D + C + E;
-	C = D;
-	D = t;
 	// NOTE: the details of how E-part is set are
 	// largerly guesswork at the moment. This does
 	// match variety of test data.
@@ -835,6 +833,8 @@ uint32_t vrnd_generate(uint32_t *rcx)
 	    addition_overflows(C + E, D) &&
 	    addition_overflows(C + E, C + D + E) &&
 	    addition_overflows(C + E, C + D);
+	C = D;
+	D = t;
 	// Store.
 	rcx[0] = 0x3F800000u | (((E >>  0) & 0xF) << 16) | (A & 0xFFFFu);
 	rcx[1] = 0x3F800000u | (((E >>  4) & 0xF) << 16) | (B & 0xFFFFu);

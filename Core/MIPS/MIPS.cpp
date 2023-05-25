@@ -269,7 +269,7 @@ void MIPSState::UpdateCore(CPUCore desired) {
 }
 
 void MIPSState::DoState(PointerWrap &p) {
-	auto s = p.Section("MIPSState", 1, 3);
+	auto s = p.Section("MIPSState", 1, 4);
 	if (!s)
 		return;
 
