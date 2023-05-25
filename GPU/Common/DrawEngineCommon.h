@@ -200,7 +200,7 @@ protected:
 	u16 *decIndex_ = nullptr;
 
 	// Cached vertex decoders
-	u32 lastVType_ = -1;  // corresponds to dec_.  Could really just pick it out of dec_...
+	u32 lastVType_ = -1;  // corresponds to dec_, but also has a few extra bits (texgen type).
 	DenseHashMap<u32, VertexDecoder *, nullptr> decoderMap_;
 	VertexDecoder *dec_ = nullptr;
 	VertexDecoderJitCache *decJitCache_ = nullptr;
@@ -213,6 +213,7 @@ protected:
 	struct DeferredDrawCall {
 		const void *verts;
 		const void *inds;
+		VertexDecoder *dec;
 		u32 vertexCount;
 		u8 indexType;
 		s8 prim;
@@ -220,6 +221,9 @@ protected:
 		u16 indexLowerBound;
 		u16 indexUpperBound;
 		UVScale uvScale;
+		int IndexType() const {
+			return (dec->VertexType() & GE_VTYPE_IDX_MASK) >> GE_VTYPE_IDX_SHIFT;
+		}
 	};
 
 	enum { MAX_DEFERRED_DRAW_CALLS = 128 };

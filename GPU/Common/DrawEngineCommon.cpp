@@ -165,6 +165,8 @@ void DrawEngineCommon::NotifyConfigChanged() {
 		decJitCache_->Clear();
 	lastVType_ = -1;
 	dec_ = nullptr;
+	// Just make sure there's no pending draw, since we wipe the decoders. There shouldn't be one.
+	numDrawCalls_ = 0;
 	decoderMap_.Iterate([&](const uint32_t vtype, VertexDecoder *decoder) {
 		delete decoder;
 	});
@@ -624,9 +626,12 @@ void DrawEngineCommon::DecodeVertsStep(u8 *dest, int &i, int &decodedVerts, cons
 	int indexLowerBound = dc.indexLowerBound;
 	int indexUpperBound = dc.indexUpperBound;
 
-	if (dc.indexType == GE_VTYPE_IDX_NONE >> GE_VTYPE_IDX_SHIFT) {
+	int indexType = dc.IndexType();
+	const VertexDecoder *dec = dc.dec;
+
+	if (indexType == GE_VTYPE_IDX_NONE >> GE_VTYPE_IDX_SHIFT) {
 		// Decode the verts (and at the same time apply morphing/skinning). Simple.
-		dec_->DecodeVerts(dest + decodedVerts * (int)dec_->GetDecVtxFmt().stride,
+		dec->DecodeVerts(dest + decodedVerts * (int)dec->GetDecVtxFmt().stride,
 			dc.verts, uvScale, indexLowerBound, indexUpperBound);
 		decodedVerts += indexUpperBound - indexLowerBound + 1;
 		
@@ -640,13 +645,14 @@ void DrawEngineCommon::DecodeVertsStep(u8 *dest, int &i, int &decodedVerts, cons
 		// inds pointer but the same base vertex pointer. We'd like to reuse vertices between
 		// these as much as possible, so we make sure here to combine as many as possible
 		// into one nice big drawcall, sharing data.
+		// NOTE: We can't do that if the vertex decoder changes, so let's check for that.
 
 		// 1. Look ahead to find the max index, only looking as "matching" drawcalls.
 		//    Expand the lower and upper bounds as we go.
 		int lastMatch = i;
 		const int total = numDrawCalls_;
 		for (int j = i + 1; j < total; ++j) {
-			if (drawCalls_[j].verts != dc.verts)
+			if (drawCalls_[j].verts != dc.verts || drawCalls_[j].dec != dc.dec)
 				break;
 			// TODO: What if UV scale/offset changes between drawcalls here?
 			indexLowerBound = std::min(indexLowerBound, (int)drawCalls_[j].indexLowerBound);
@@ -655,7 +661,7 @@ void DrawEngineCommon::DecodeVertsStep(u8 *dest, int &i, int &decodedVerts, cons
 		}
 
 		// 2. Loop through the drawcalls, translating indices as we go.
-		switch (dc.indexType) {
+		switch (indexType) {
 		case GE_VTYPE_IDX_8BIT >> GE_VTYPE_IDX_SHIFT:
 			for (int j = i; j <= lastMatch; j++) {
 				bool clockwise = true;
@@ -693,7 +699,7 @@ void DrawEngineCommon::DecodeVertsStep(u8 *dest, int &i, int &decodedVerts, cons
 		}
 
 		// 3. Decode that range of vertex data.
-		dec_->DecodeVerts(dest + decodedVerts * (int)dec_->GetDecVtxFmt().stride,
+		dec->DecodeVerts(dest + decodedVerts * (int)dec->GetDecVtxFmt().stride,
 			dc.verts, uvScale, indexLowerBound, indexUpperBound);
 		decodedVerts += vertexCount;
 
@@ -818,6 +824,7 @@ void DrawEngineCommon::SubmitPrim(const void *verts, const void *inds, GEPrimiti
 	dc.verts = verts;
 	dc.inds = inds;
 	dc.vertexCount = vertexCount;
+	dc.dec = dec_;
 	dc.indexType = (vertTypeID & GE_VTYPE_IDX_MASK) >> GE_VTYPE_IDX_SHIFT;
 	dc.prim = prim;
 	dc.cullMode = cullMode;
