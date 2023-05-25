@@ -306,6 +306,12 @@ void MIPSState::DoState(PointerWrap &p) {
 		Do(p, fcr0_unused);
 	}
 	Do(p, fcr31);
+	if (s <= 3) {
+		uint32_t dummy;
+		Do(p, dummy); // rng.m_w
+		Do(p, dummy); // rng.m_z
+	}
+
 	Do(p, inDelaySlot);
 	Do(p, llBit);
 	Do(p, debugCount);
