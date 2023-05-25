@@ -54,7 +54,7 @@ const CommonCommandTableEntry commonCommandTable[] = {
 	{ GE_CMD_SPLINE, FLAG_EXECUTE, 0, &GPUCommonHW::Execute_Spline },
 
 	// Changing the vertex type requires us to flush.
-	{ GE_CMD_VERTEXTYPE, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, 0, &GPUCommonHW::Execute_VertexType },
+	{ GE_CMD_VERTEXTYPE, FLAG_EXECUTEONCHANGE, 0, &GPUCommonHW::Execute_VertexType },
 
 	{ GE_CMD_LOADCLUT, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE, 0, &GPUCommonHW::Execute_LoadClut},
 
@@ -461,10 +461,8 @@ void GPUCommonHW::DeviceRestore(Draw::DrawContext *draw) {
 
 void GPUCommonHW::UpdateCmdInfo() {
 	if (g_Config.bSoftwareSkinning) {
-		cmdInfo_[GE_CMD_VERTEXTYPE].flags &= ~FLAG_FLUSHBEFOREONCHANGE;
 		cmdInfo_[GE_CMD_VERTEXTYPE].func = &GPUCommonHW::Execute_VertexTypeSkinning;
 	} else {
-		cmdInfo_[GE_CMD_VERTEXTYPE].flags |= FLAG_FLUSHBEFOREONCHANGE;
 		cmdInfo_[GE_CMD_VERTEXTYPE].func = &GPUCommonHW::Execute_VertexType;
 	}
 
@@ -857,34 +855,78 @@ void GPUCommonHW::FastRunLoop(DisplayList &list) {
 	downcount = 0;
 }
 
-void GPUCommonHW::Execute_VertexType(u32 op, u32 diff) {
-	if (diff) {
-		// TODO: We only need to dirty vshader-state here if the output format will be different.
-		gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE);
+// This is tricky - the rules of this needs to match how the vertex decoder behaves. If it always produces
+// the same output format for a given component, then we check that existence matches. This is valid for:
+// * Color
+// * Position (though existence is always true)
+// * Texcoords
+// * Morph weight count (though not format! there are two!)
+// * Skin weight count if using software skinning (more restricted with hardware skinning)
+// Note that the following are different:
+// * Normals (two different output formats, s8 and float)
+static bool IsVTypeCompatibleSkinning(u32 prev, u32 diff) {
+	// Did anything outside the simple component types and weightcount change?
+	if ((diff & ~(GE_VTYPE_MORPHCOUNT_MASK | GE_VTYPE_WEIGHTCOUNT_MASK | GE_VTYPE_TC_MASK | GE_VTYPE_COL_MASK | GE_VTYPE_POS_MASK)) != 0)
+		return false;
+	u32 cur = prev ^ diff;
+	if (((prev & GE_VTYPE_TC_MASK) != 0) != ((cur & GE_VTYPE_TC_MASK) != 0))
+		return false;
+	if (((prev & GE_VTYPE_COL_MASK) != 0) != ((cur & GE_VTYPE_COL_MASK) != 0))
+		return false;
+	return true;
+}
+static bool IsVTypeCompatible(u32 prev, u32 diff) {
+	// Did anything outside the simple component types and weightcount change?
+	if ((diff & ~(GE_VTYPE_MORPHCOUNT_MASK | GE_VTYPE_TC_MASK | GE_VTYPE_COL_MASK | GE_VTYPE_POS_MASK)) != 0)
+		return false;
+	u32 cur = prev ^ diff;
+	if (((prev & GE_VTYPE_TC_MASK) != 0) != ((cur & GE_VTYPE_TC_MASK) != 0))
+		return false;
+	if (((prev & GE_VTYPE_COL_MASK) != 0) != ((cur & GE_VTYPE_COL_MASK) != 0))
+		return false;
+	return true;
+}
 
-		if (diff & GE_VTYPE_THROUGH_MASK) {
-			// Switching between through and non-through, we need to invalidate a bunch of stuff.
-			gstate_c.Dirty(DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_FRAGMENTSHADER_STATE | DIRTY_GEOMETRYSHADER_STATE | DIRTY_CULLRANGE);
-		}
+
+void GPUCommonHW::Execute_VertexType(u32 op, u32 diff) {
+	if (!diff) {
+		return;
+	}
+
+	u32 prevType = gstate.vertType ^ diff;
+	if (!IsVTypeCompatible(prevType, diff)) {
+		// Restore and flush
+		gstate.vertType = prevType;
+		Flush();
+		gstate.vertType ^= diff;
+		gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE);
+	}
+	if (diff & GE_VTYPE_THROUGH_MASK) {
+		// Switching between through and non-through, we need to invalidate a bunch of stuff.
+		gstate_c.Dirty(DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_FRAGMENTSHADER_STATE | DIRTY_GEOMETRYSHADER_STATE | DIRTY_CULLRANGE);
 	}
 }
 
 void GPUCommonHW::Execute_VertexTypeSkinning(u32 op, u32 diff) {
-	// Don't flush when weight count changes.
-	if (diff & ~GE_VTYPE_WEIGHTCOUNT_MASK) {
+	if (!diff) {
+		return;
+	}
+
+	u32 prevType = gstate.vertType ^ diff;
+	if (!IsVTypeCompatibleSkinning(prevType, diff)) {
 		// Restore and flush
-		gstate.vertType ^= diff;
+		gstate.vertType = prevType;
 		Flush();
 		gstate.vertType ^= diff;
-		// In this case, we may be doing weights and morphs.
-		// Update any bone matrix uniforms so it uses them correctly.
-		if ((op & GE_VTYPE_MORPHCOUNT_MASK) != 0) {
-			gstate_c.Dirty(gstate_c.deferredVertTypeDirty);
-			gstate_c.deferredVertTypeDirty = 0;
-		}
 		gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE);
 	}
-	if (diff & GE_VTYPE_THROUGH_MASK)
+	// In this case, we may be doing weights and morphs.
+	// Update any bone matrix uniforms so it uses them correctly.
+	if ((op & GE_VTYPE_MORPHCOUNT_MASK) != 0) {
+		gstate_c.Dirty(gstate_c.deferredVertTypeDirty);
+		gstate_c.deferredVertTypeDirty = 0;
+	}
+	if (diff & GE_VTYPE_THROUGH_MASK)  // through-mode changed on or off. Lots of dirtying needed.
 		gstate_c.Dirty(DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_FRAGMENTSHADER_STATE | DIRTY_GEOMETRYSHADER_STATE | DIRTY_CULLRANGE);
 }
 

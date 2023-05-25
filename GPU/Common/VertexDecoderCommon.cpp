@@ -1065,6 +1065,8 @@ static const StepFunction posstep_through[4] = {
 	&VertexDecoder::Step_PosFloatThrough,
 };
 
+// IMPORTANT: When changing how the formats map, your changes must match the rules
+// in IsVTypeCompatible in GPUCommonHW. See the comments on that function.
 void VertexDecoder::SetVertexType(u32 fmt, const VertexDecoderOptions &options, VertexDecoderJitCache *jitCache) {
 	fmt_ = fmt;
 	throughmode = (fmt & GE_VTYPE_THROUGH) != 0;
