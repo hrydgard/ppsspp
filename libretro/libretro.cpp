@@ -620,15 +620,6 @@ static void check_variables(CoreParameter &coreParam)
    }
 #endif
 
-   var.key = "ppsspp_skip_buffer_effects";
-   if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value)
-   {
-      if (!strcmp(var.value, "disabled"))
-         g_Config.bSkipBufferEffects = false;
-      else
-         g_Config.bSkipBufferEffects = true;
-   }
-
    var.key = "ppsspp_skip_gpu_readbacks";
    if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value)
    {
