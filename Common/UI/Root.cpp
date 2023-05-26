@@ -318,7 +318,7 @@ bool AxisEvent(const AxisInput &axis, ViewGroup *root) {
 
 	// Cannot use the remapper since this is for the menu, so we provide our own
 	// axis->button emulation here.
-	auto GenerateKeyFromAxis = [&](DirState old, DirState cur, keycode_t neg_key, keycode_t pos_key) {
+	auto GenerateKeyFromAxis = [&](DirState old, DirState cur, InputKeyCode neg_key, InputKeyCode pos_key) {
 		if (old == cur)
 			return;
 		if (old == DirState::POS) {

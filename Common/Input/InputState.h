@@ -175,7 +175,7 @@ struct KeyInput {
 
 struct AxisInput {
 	InputDeviceID deviceId;
-	int axisId;  // Android axis Ids are the canonical ones.
+	InputAxis axisId;  // Android axis Ids are the canonical ones.
 	float value;
 };
 

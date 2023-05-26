@@ -1,6 +1,6 @@
 #pragma once
 
-typedef enum _keycode_t {
+enum InputKeyCode {
 	NKCODE_BUTTON_CROSS = 23, // trackpad or X button(Xperia Play) is pressed
 	NKCODE_BUTTON_CROSS_PS3 = 96, // PS3 X button is pressed
 	NKCODE_BUTTON_CIRCLE = 1004, // Special custom keycode generated from 'O' button by our java code. Or 'O' button if Alt is pressed (TODO)
@@ -259,9 +259,9 @@ typedef enum _keycode_t {
 	NKCODE_EXT_ROTATION_RIGHT = 1114,
 
 	NKCODE_MAX
-} keycode_t;
+};
 
-enum AndroidJoystickAxis {
+enum InputAxis {
 	// Field descriptor #15 I
 	JOYSTICK_AXIS_X = 0,
 	JOYSTICK_AXIS_Y = 1,

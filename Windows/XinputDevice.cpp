@@ -221,7 +221,7 @@ void XinputDevice::UpdatePad(int pad, const XINPUT_STATE &state, XINPUT_VIBRATIO
 
 	AxisInput axis;
 	axis.deviceId = (InputDeviceID)(DEVICE_ID_XINPUT_0 + pad);
-	auto sendAxis = [&](AndroidJoystickAxis axisId, float value) {
+	auto sendAxis = [&](InputAxis axisId, float value) {
 		axis.axisId = axisId;
 		axis.value = value;
 		NativeAxis(axis);

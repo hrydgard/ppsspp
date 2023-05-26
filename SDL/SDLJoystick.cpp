@@ -116,7 +116,7 @@ void SDLJoystick::registerEventHandler() {
 	registeredAsEventHandler = true;
 }
 
-keycode_t SDLJoystick::getKeycodeForButton(SDL_GameControllerButton button) {
+InputKeyCode SDLJoystick::getKeycodeForButton(SDL_GameControllerButton button) {
 	switch (button) {
 	case SDL_CONTROLLER_BUTTON_DPAD_UP:
 		return NKCODE_DPAD_UP;

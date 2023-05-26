@@ -203,7 +203,7 @@ DinputDevice::~DinputDevice() {
 	}
 }
 
-void SendNativeAxis(InputDeviceID deviceId, int value, int &lastValue, int axisId) {
+void SendNativeAxis(InputDeviceID deviceId, int value, int &lastValue, InputAxis axisId) {
 	AxisInput axis;
 	axis.deviceId = deviceId;
 	axis.axisId = axisId;
