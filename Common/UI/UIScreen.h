@@ -42,9 +42,13 @@ public:
 	void deviceLost() override;
 	void deviceRestored() override;
 
-	void touch(const TouchInput &touch) override;
-	bool key(const KeyInput &touch) override;
-	void axis(const AxisInput &touch) override;
+	virtual void touch(const TouchInput &touch);
+	virtual bool key(const KeyInput &touch);
+	virtual void axis(const AxisInput &touch);
+
+	void UnsyncTouch(const TouchInput &touch) override;
+	bool UnsyncKey(const KeyInput &touch) override;
+	void UnsyncAxis(const AxisInput &touch) override;
 
 	TouchInput transformTouch(const TouchInput &touch) override;
 

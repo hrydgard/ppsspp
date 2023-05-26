@@ -61,6 +61,27 @@ void UIScreen::DoRecreateViews() {
 }
 
 void UIScreen::touch(const TouchInput &touch) {
+	if (!ignoreInput_) {
+		UI::TouchEvent(touch, root_);
+	}
+}
+
+void UIScreen::axis(const AxisInput &axis) {
+	if (!ignoreInput_) {
+		UI::AxisEvent(axis, root_);
+	}
+}
+
+bool UIScreen::key(const KeyInput &key) {
+	if (!ignoreInput_) {
+		UI::KeyEvent(key, root_);
+		return false;
+	} else {
+		return false;
+	}
+}
+
+void UIScreen::UnsyncTouch(const TouchInput &touch) {
 	if (root_) {
 		if (ClickDebug && (touch.flags & TOUCH_DOWN)) {
 			INFO_LOG(SYSTEM, "Touch down!");
@@ -79,7 +100,7 @@ void UIScreen::touch(const TouchInput &touch) {
 	eventQueue_.push_back(ev);
 }
 
-void UIScreen::axis(const AxisInput &axis) {
+void UIScreen::UnsyncAxis(const AxisInput &axis) {
 	std::lock_guard<std::mutex> guard(eventQueueLock_);
 	QueuedEvent ev{};
 	ev.type = QueuedEventType::AXIS;
@@ -87,12 +108,28 @@ void UIScreen::axis(const AxisInput &axis) {
 	eventQueue_.push_back(ev);
 }
 
-bool UIScreen::key(const KeyInput &key) {
-	if (root_ && !ignoreInput_) {
+bool UIScreen::UnsyncKey(const KeyInput &key) {
+	bool retval = false;
+	if (root_) {
 		// TODO: Make key events async too. The return value is troublesome, though.
-		return UI::KeyEvent(key, root_);
+		switch (UI::UnsyncKeyEvent(key, root_)) {
+		case UI::KeyEventResult::ACCEPT:
+			retval = true;
+			break;
+		case UI::KeyEventResult::PASS_THROUGH:
+			retval = false;
+			break;
+		case UI::KeyEventResult::IGNORE_KEY:
+			return false;
+		}
 	}
-	return false;
+
+	std::lock_guard<std::mutex> guard(eventQueueLock_);
+	QueuedEvent ev{};
+	ev.type = QueuedEventType::KEY;
+	ev.key = key;
+	eventQueue_.push_back(ev);
+	return true;
 }
 
 void UIScreen::update() {
@@ -122,6 +159,7 @@ void UIScreen::update() {
 			}
 			switch (ev.type) {
 			case QueuedEventType::KEY:
+				key(ev.key);
 				break;
 			case QueuedEventType::TOUCH:
 				if (ClickDebug && (ev.touch.flags & TOUCH_DOWN)) {
@@ -132,10 +170,10 @@ void UIScreen::update() {
 						INFO_LOG(SYSTEM, "%s", view->DescribeLog().c_str());
 					}
 				}
-				UI::TouchEvent(ev.touch, root_);
+				touch(ev.touch);
 				break;
 			case QueuedEventType::AXIS:
-				UI::AxisEvent(ev.axis, root_);
+				axis(ev.axis);
 				break;
 			}
 		}

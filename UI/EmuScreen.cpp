@@ -538,7 +538,7 @@ void EmuScreen::sendMessage(const char *message, const char *value) {
 	}
 }
 
-void EmuScreen::touch(const TouchInput &touch) {
+void EmuScreen::UnsyncTouch(const TouchInput &touch) {
 	Core_NotifyActivity();
 
 	if (chatMenu_ && chatMenu_->GetVisibility() == UI::V_VISIBLE) {
@@ -802,11 +802,11 @@ void EmuScreen::onVKeyAnalog(int virtualKeyCode, float value) {
 	limitMode = PSP_CoreParameter().analogFpsLimit == 60 ? FPSLimit::NORMAL : FPSLimit::ANALOG;
 }
 
-bool EmuScreen::key(const KeyInput &key) {
+bool EmuScreen::UnsyncKey(const KeyInput &key) {
 	Core_NotifyActivity();
 
 	if (UI::IsFocusMovementEnabled()) {
-		if (UIScreen::key(key)) {
+		if (UIScreen::UnsyncKey(key)) {
 			return true;
 		} else if ((key.flags & KEY_DOWN) != 0 && UI::IsEscapeKey(key)) {
 			if (chatMenu_)
@@ -821,7 +821,7 @@ bool EmuScreen::key(const KeyInput &key) {
 	return controlMapper_.Key(key, &pauseTrigger_);
 }
 
-void EmuScreen::axis(const AxisInput &axis) {
+void EmuScreen::UnsyncAxis(const AxisInput &axis) {
 	Core_NotifyActivity();
 
 	return controlMapper_.Axis(axis);
