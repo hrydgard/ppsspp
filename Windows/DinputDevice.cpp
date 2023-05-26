@@ -207,7 +207,7 @@ void SendNativeAxis(InputDeviceID deviceId, int value, int &lastValue, InputAxis
 	AxisInput axis;
 	axis.deviceId = deviceId;
 	axis.axisId = axisId;
-	axis.value = (float)value * (1.0 / 10000.0f); // Convert axis to normalised float
+	axis.value = (float)value * (1.0f / 10000.0f); // Convert axis to normalised float
 	NativeAxis(axis);
 
 	lastValue = value;
