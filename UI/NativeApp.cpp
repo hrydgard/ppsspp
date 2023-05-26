@@ -1147,9 +1147,9 @@ void NativeRender(GraphicsContext *graphicsContext) {
 }
 
 void HandleGlobalMessage(const std::string &msg, const std::string &value) {
-	int nextInputDeviceID = -1;
+	InputDeviceID nextInputDeviceID = DEVICE_ID_ANY;
 	if (msg == "inputDeviceConnectedID") {
-		nextInputDeviceID = parseLong(value);
+		nextInputDeviceID = (InputDeviceID)parseLong(value);
 	}
 	else if (msg == "inputDeviceConnected") {
 		KeyMap::NotifyPadConnected(nextInputDeviceID, value);

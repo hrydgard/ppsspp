@@ -105,7 +105,7 @@ static CameraHelper *cameraHelper;
 static LocationHelper *locationHelper;
 
 @interface ViewController () {
-	std::map<uint16_t, uint16_t> iCadeToKeyMap;
+	std::map<uint16_t, InputKeyCode> iCadeToKeyMap;
 }
 
 @property (nonatomic, strong) EAGLContext* context;
@@ -567,7 +567,7 @@ int ToTouchID(UITouch *uiTouch, bool allowAllocate) {
 	}
 }
 
-- (void)controllerButtonPressed:(BOOL)pressed keyCode:(keycode_t)keyCode
+- (void)controllerButtonPressed:(BOOL)pressed keyCode:(InputKeyCode)keyCode
 {
 	KeyInput key;
 	key.deviceId = DEVICE_ID_PAD_0;

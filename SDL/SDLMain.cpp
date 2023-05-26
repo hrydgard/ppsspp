@@ -1069,7 +1069,7 @@ int main(int argc, char *argv[]) {
 					int c = u8_nextchar(event.text.text, &pos);
 					KeyInput key;
 					key.flags = KEY_CHAR;
-					key.keyCode = c;
+					key.unicodeChar = c;
 					key.deviceId = DEVICE_ID_KEYBOARD;
 					NativeKey(key);
 					break;

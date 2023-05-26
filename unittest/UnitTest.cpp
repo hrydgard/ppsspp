@@ -910,10 +910,10 @@ static bool TestDepthMath() {
 
 bool TestInputMapping() {
 	InputMapping mapping;
-	mapping.deviceId = 10;
+	mapping.deviceId = DEVICE_ID_PAD_0;
 	mapping.keyCode = 20;
 	InputMapping mapping2;
-	mapping2.deviceId = 18;
+	mapping2.deviceId = DEVICE_ID_PAD_8;
 	mapping2.keyCode = 38;
 	std::string cfg = mapping.ToConfigString();
 

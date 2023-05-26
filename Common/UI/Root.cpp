@@ -175,8 +175,8 @@ static int frameCount;
 // completely broken input where the original keypresses have deviceId = 10 and the repeats
 // have deviceId = 0.
 struct HeldKey {
-	int key;
-	int deviceId;
+	InputKeyCode key;
+	InputDeviceID deviceId;
 	double triggerTime;
 
 	// Ignores startTime
@@ -250,6 +250,8 @@ bool KeyEvent(const KeyInput &key, ViewGroup *root) {
 	case NKCODE_VOLUME_MUTE:
 		retval = false;
 		break;
+	default:
+		break;
 	}
 
 	return retval;
@@ -318,7 +320,7 @@ bool AxisEvent(const AxisInput &axis, ViewGroup *root) {
 
 	// Cannot use the remapper since this is for the menu, so we provide our own
 	// axis->button emulation here.
-	auto GenerateKeyFromAxis = [&](DirState old, DirState cur, keycode_t neg_key, keycode_t pos_key) {
+	auto GenerateKeyFromAxis = [&](DirState old, DirState cur, InputKeyCode neg_key, InputKeyCode pos_key) {
 		if (old == cur)
 			return;
 		if (old == DirState::POS) {

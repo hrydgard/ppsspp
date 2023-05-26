@@ -25,7 +25,7 @@ public:
 private:
 	void setUpController(int deviceIndex);
 	void setUpControllers();
-	keycode_t getKeycodeForButton(SDL_GameControllerButton button);
+	InputKeyCode getKeycodeForButton(SDL_GameControllerButton button);
 	int getDeviceIndex(int instanceId);
 	bool registeredAsEventHandler;
 	std::vector<SDL_GameController *> controllers;

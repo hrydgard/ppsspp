@@ -214,7 +214,7 @@ protected:
 
 private:
 	void ResolverThread();
-	void SendEditKey(int keyCode, int flags = 0);
+	void SendEditKey(InputKeyCode keyCode, int flags = 0);
 
 	UI::EventReturn OnNumberClick(UI::EventParams &e);
 	UI::EventReturn OnPointClick(UI::EventParams &e);

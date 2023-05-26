@@ -145,6 +145,7 @@ void TiltAnalogSettingsScreen::axis(const AxisInput &axis) {
 		case JOYSTICK_AXIS_ACCELEROMETER_X: down_.x = axis.value; break;
 		case JOYSTICK_AXIS_ACCELEROMETER_Y: down_.y = axis.value; break;
 		case JOYSTICK_AXIS_ACCELEROMETER_Z: down_.z = axis.value; break;
+		default: break;
 		}
 	}
 }

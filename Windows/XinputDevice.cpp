@@ -126,7 +126,7 @@ static void UnloadXInputDLL() {}
 
 
 // Permanent map. Actual mapping happens elsewhere.
-static const struct {int from, to;} xinput_ctrl_map[] = {
+static const struct { int from; InputKeyCode to; } xinput_ctrl_map[] = {
 	{XINPUT_GAMEPAD_A,              NKCODE_BUTTON_A},
 	{XINPUT_GAMEPAD_B,              NKCODE_BUTTON_B},
 	{XINPUT_GAMEPAD_X,              NKCODE_BUTTON_X},
@@ -220,8 +220,8 @@ void XinputDevice::UpdatePad(int pad, const XINPUT_STATE &state, XINPUT_VIBRATIO
 	ApplyVibration(pad, vibration);
 
 	AxisInput axis;
-	axis.deviceId = DEVICE_ID_XINPUT_0 + pad;
-	auto sendAxis = [&](AndroidJoystickAxis axisId, float value) {
+	axis.deviceId = (InputDeviceID)(DEVICE_ID_XINPUT_0 + pad);
+	auto sendAxis = [&](InputAxis axisId, float value) {
 		axis.axisId = axisId;
 		axis.value = value;
 		NativeAxis(axis);

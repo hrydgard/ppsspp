@@ -57,7 +57,7 @@
 #endif
 
 namespace WindowsRawInput {
-	static std::set<int> keyboardKeysDown;
+	static std::set<InputKeyCode> keyboardKeysDown;
 	static void *rawInputBuffer;
 	static size_t rawInputBufferSize;
 	static bool menuActive;
@@ -68,7 +68,7 @@ namespace WindowsRawInput {
 
 	// TODO: More keys need to be added, but this is more than
 	// a fair start.
-	static std::map<int, int> windowsTransTable = {
+	static std::map<int, InputKeyCode> windowsTransTable = {
 		{ 'A', NKCODE_A },
 		{ 'B', NKCODE_B },
 		{ 'C', NKCODE_C },
@@ -213,7 +213,7 @@ namespace WindowsRawInput {
 		return menuActive;
 	}
 
-	static int GetTrueVKey(const RAWKEYBOARD &kb) {
+	static InputKeyCode GetTrueVKey(const RAWKEYBOARD &kb) {
 		int vKey = kb.VKey;
 		switch (kb.VKey) {
 		case VK_SHIFT:
@@ -285,7 +285,7 @@ namespace WindowsRawInput {
 
 	LRESULT ProcessChar(HWND hWnd, WPARAM wParam, LPARAM lParam) {
 		KeyInput key;
-		key.keyCode = (int)wParam;  // Note that this is NOT a NKCODE but a Unicode character!
+		key.unicodeChar = (int)wParam;  // Note that this is NOT a NKCODE but a Unicode character!
 		key.flags = KEY_CHAR;
 		key.deviceId = DEVICE_ID_KEYBOARD;
 		NativeKey(key);
