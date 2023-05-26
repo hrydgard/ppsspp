@@ -1190,6 +1190,8 @@ bool TextEdit::Key(const KeyInput &input) {
 		case NKCODE_BACK:
 		case NKCODE_ESCAPE:
 			return false;
+		default:
+			break;
 		}
 
 		if (ctrlDown_) {
@@ -1227,6 +1229,8 @@ bool TextEdit::Key(const KeyInput &input) {
 			case NKCODE_Z:
 				text_ = undo_;
 				break;
+			default:
+				break;
 			}
 		}
 
@@ -1243,6 +1247,8 @@ bool TextEdit::Key(const KeyInput &input) {
 		case NKCODE_CTRL_LEFT:
 		case NKCODE_CTRL_RIGHT:
 			ctrlDown_ = false;
+			break;
+		default:
 			break;
 		}
 	}
