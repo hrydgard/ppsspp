@@ -8,4 +8,6 @@
 
 #pragma once
 
+#include "Common/Input/KeyCodes.h"
+
 InputKeyCode getSmartKeyboardMap(int keycode);
