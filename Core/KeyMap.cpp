@@ -45,8 +45,8 @@ KeyMapping g_controllerMap;
 // Incremented on modification, so we know when to update menus.
 int g_controllerMapGeneration = 0;
 std::set<std::string> g_seenPads;
-std::map<int, std::string> g_padNames;
-std::set<int> g_seenDeviceIds;
+std::map<InputDeviceID, std::string> g_padNames;
+std::set<InputDeviceID> g_seenDeviceIds;
 
 // Utility for UI navigation
 void SingleInputMappingFromPspButton(int btn, std::vector<InputMapping> *mappings, bool ignoreMouse) {
@@ -120,8 +120,8 @@ void UpdateNativeMenuKeys() {
 	SetConfirmCancelKeys(confirmKeys, cancelKeys);
 	SetTabLeftRightKeys(tabLeft, tabRight);
 
-	std::unordered_map<int, int> flipYByDeviceId;
-	for (int deviceId : g_seenDeviceIds) {
+	std::unordered_map<InputDeviceID, int> flipYByDeviceId;
+	for (InputDeviceID deviceId : g_seenDeviceIds) {
 		auto analogs = MappedAxesForDevice(deviceId);
 		flipYByDeviceId[deviceId] = analogs.leftY.direction;
 	}
@@ -532,7 +532,7 @@ bool PspButtonHasMappings(int btn) {
 	return !iter->second.empty();
 }
 
-MappedAnalogAxes MappedAxesForDevice(int deviceId) {
+MappedAnalogAxes MappedAxesForDevice(InputDeviceID deviceId) {
 	MappedAnalogAxes result{};
 
 	// Find the axisId mapped for a specific virtual button.
@@ -578,7 +578,7 @@ void RemoveButtonMapping(int btn) {
 	}
 }
 
-bool IsKeyMapped(int device, int key) {
+bool IsKeyMapped(InputDeviceID device, int key) {
 	std::lock_guard<std::recursive_mutex> guard(g_controllerMapLock);
 	for (auto &iter : g_controllerMap) {
 		for (auto &mappedKey : iter.second) {
@@ -778,7 +778,7 @@ bool HasBuiltinController(const std::string &name) {
 	return IsOuya(name) || IsXperiaPlay(name) || IsNvidiaShield(name) || IsMOQII7S(name) || IsRetroid(name);
 }
 
-void NotifyPadConnected(int deviceId, const std::string &name) {
+void NotifyPadConnected(InputDeviceID deviceId, const std::string &name) {
 	g_seenPads.insert(name);
 	g_padNames[deviceId] = name;
 }
@@ -814,7 +814,7 @@ const std::set<std::string> &GetSeenPads() {
 	return g_seenPads;
 }
 
-std::string PadName(int deviceId) {
+std::string PadName(InputDeviceID deviceId) {
 	auto it = g_padNames.find(deviceId);
 	if (it != g_padNames.end())
 		return it->second;

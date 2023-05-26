@@ -220,7 +220,7 @@ void XinputDevice::UpdatePad(int pad, const XINPUT_STATE &state, XINPUT_VIBRATIO
 	ApplyVibration(pad, vibration);
 
 	AxisInput axis;
-	axis.deviceId = DEVICE_ID_XINPUT_0 + pad;
+	axis.deviceId = (InputDeviceID)(DEVICE_ID_XINPUT_0 + pad);
 	auto sendAxis = [&](AndroidJoystickAxis axisId, float value) {
 		axis.axisId = axisId;
 		axis.value = value;

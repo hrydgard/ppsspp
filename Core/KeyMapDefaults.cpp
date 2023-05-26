@@ -338,7 +338,7 @@ static const DefMappingStruct defaultVRRightController[] = {
 	{VIRTKEY_AXIS_X_MAX, NKCODE_DPAD_RIGHT},
 };
 
-static void SetDefaultKeyMap(int deviceId, const DefMappingStruct *array, size_t count, bool replace) {
+static void SetDefaultKeyMap(InputDeviceID deviceId, const DefMappingStruct *array, size_t count, bool replace) {
 	for (size_t i = 0; i < count; i++) {
 		if (array[i].direction == 0)
 			SetInputMapping(array[i].pspKey, MultiInputMapping(InputMapping(deviceId, array[i].keyOrAxis)), replace);

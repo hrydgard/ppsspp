@@ -349,7 +349,7 @@ bool Clickable::Key(const KeyInput &key) {
 				down_ = false;
 				ret = true;
 			}
-		} else if (IsEscapeKey(key)) {
+		} else if (down_ && IsEscapeKey(key)) {
 			down_ = false;
 		}
 	}

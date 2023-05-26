@@ -176,7 +176,7 @@ static int frameCount;
 // have deviceId = 0.
 struct HeldKey {
 	int key;
-	int deviceId;
+	InputDeviceID deviceId;
 	double triggerTime;
 
 	// Ignores startTime
