@@ -633,7 +633,7 @@ bool MainUI::event(QEvent *e) {
 		{
 			auto qtKeycode = ((QKeyEvent*)e)->key();
 			auto iter = KeyMapRawQttoNative.find(qtKeycode);
-			int nativeKeycode = 0;
+			InputKeyCode nativeKeycode = NKCODE_UNKNOWN;
 			if (iter != KeyMapRawQttoNative.end()) {
 				nativeKeycode = iter->second;
 				NativeKey(KeyInput(DEVICE_ID_KEYBOARD, nativeKeycode, KEY_DOWN));
@@ -652,8 +652,8 @@ bool MainUI::event(QEvent *e) {
 			default:
 				if (str.size()) {
 					int pos = 0;
-					int code = u8_nextchar(str.c_str(), &pos);
-					NativeKey(KeyInput(DEVICE_ID_KEYBOARD, code, KEY_CHAR));
+					int unicode = u8_nextchar(str.c_str(), &pos);
+					NativeKey(KeyInput(DEVICE_ID_KEYBOARD, unicode));
 				}
 				break;
 			}

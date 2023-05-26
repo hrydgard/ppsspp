@@ -250,6 +250,8 @@ bool KeyEvent(const KeyInput &key, ViewGroup *root) {
 	case NKCODE_VOLUME_MUTE:
 		retval = false;
 		break;
+	default:
+		break;
 	}
 
 	return retval;
