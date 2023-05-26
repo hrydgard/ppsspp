@@ -85,7 +85,7 @@ InputMapping InputMapping::FromConfigString(const std::string &str) {
 	std::vector<std::string> parts;
 	SplitString(str, '-', parts);
 	InputDeviceID deviceId = (InputDeviceID)(atoi(parts[0].c_str()));
-	int keyCode = atoi(parts[1].c_str());
+	InputKeyCode keyCode = (InputKeyCode)atoi(parts[1].c_str());
 
 	InputMapping mapping;
 	mapping.deviceId = deviceId;

@@ -46,7 +46,7 @@ enum VRMirroring {
 
 static VRAppMode appMode = VR_MENU_MODE;
 static std::map<int, std::map<int, float> > pspAxis;
-static std::map<int, bool> pspKeys;
+static std::map<int, bool> pspKeys;  // key can be virtual, so not using the enum.
 
 static int vr3DGeometryCount = 0;
 static long vrCompat[VR_COMPAT_MAX];
@@ -69,11 +69,11 @@ VR button mapping
 
 struct ButtonMapping {
 	ovrButton ovr;
-	int keycode;
+	InputKeyCode keycode;
 	bool pressed;
 	int repeat;
 
-	ButtonMapping(int keycode, ovrButton ovr) {
+	ButtonMapping(InputKeyCode keycode, ovrButton ovr) {
 		this->keycode = keycode;
 		this->ovr = ovr;
 		pressed = false;
@@ -106,7 +106,7 @@ static std::vector<ButtonMapping> rightControllerMapping = {
 		ButtonMapping(NKCODE_ENTER, ovrButton_Trigger),
 };
 
-static const int controllerIds[] = {DEVICE_ID_XR_CONTROLLER_LEFT, DEVICE_ID_XR_CONTROLLER_RIGHT};
+static const InputDeviceID controllerIds[] = {DEVICE_ID_XR_CONTROLLER_LEFT, DEVICE_ID_XR_CONTROLLER_RIGHT};
 static std::vector<ButtonMapping> controllerMapping[2] = {
 		leftControllerMapping,
 		rightControllerMapping
@@ -223,7 +223,7 @@ void SetVRAppMode(VRAppMode mode) {
 
 void UpdateVRInput(bool haptics, float dp_xscale, float dp_yscale) {
 	//axis
-	if (pspKeys[VIRTKEY_VR_CAMERA_ADJUST]) {
+	if (pspKeys[(int)VIRTKEY_VR_CAMERA_ADJUST]) {
 		AxisInput axis = {};
 		for (int j = 0; j < 2; j++) {
 			XrVector2f joystick = IN_VRGetJoystickState(j);
@@ -515,7 +515,7 @@ bool UpdateVRKeys(const KeyInput &key) {
 		pspKeys[VIRTKEY_VR_CAMERA_ADJUST] = false;
 		for (auto& pspKey : pspKeys) {
 			if (pspKey.second) {
-				keyUp.keyCode = pspKey.first;
+				keyUp.keyCode = (InputKeyCode)pspKey.first;
 				NativeKey(keyUp);
 			}
 		}

@@ -175,7 +175,7 @@ static int frameCount;
 // completely broken input where the original keypresses have deviceId = 10 and the repeats
 // have deviceId = 0.
 struct HeldKey {
-	int key;
+	InputKeyCode key;
 	InputDeviceID deviceId;
 	double triggerTime;
 

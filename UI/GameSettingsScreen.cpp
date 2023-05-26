@@ -2063,7 +2063,7 @@ void HostnameSelectScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	progressView_->SetVisibility(UI::V_GONE);
 }
 
-void HostnameSelectScreen::SendEditKey(int keyCode, int flags) {
+void HostnameSelectScreen::SendEditKey(InputKeyCode keyCode, int flags) {
 	auto oldView = UI::GetFocusedView();
 	UI::SetFocusedView(addrView_);
 	KeyInput fakeKey{ DEVICE_ID_KEYBOARD, keyCode, KEY_DOWN | flags };
@@ -2074,13 +2074,13 @@ void HostnameSelectScreen::SendEditKey(int keyCode, int flags) {
 UI::EventReturn HostnameSelectScreen::OnNumberClick(UI::EventParams &e) {
 	std::string text = e.v ? e.v->Tag() : "";
 	if (text.length() == 1 && text[0] >= '0' && text[0] <= '9') {
-		SendEditKey(text[0], KEY_CHAR);
+		SendEditKey((InputKeyCode)text[0], KEY_CHAR);  // ASCII for digits match keycodes.
 	}
 	return UI::EVENT_DONE;
 }
 
 UI::EventReturn HostnameSelectScreen::OnPointClick(UI::EventParams &e) {
-	SendEditKey('.', KEY_CHAR);
+	SendEditKey(NKCODE_PERIOD, KEY_CHAR);
 	return UI::EVENT_DONE;
 }
 

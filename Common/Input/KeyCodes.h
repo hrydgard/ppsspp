@@ -1,5 +1,6 @@
 #pragma once
 
+// These mostly match Android keycodes.
 enum InputKeyCode {
 	NKCODE_BUTTON_CROSS = 23, // trackpad or X button(Xperia Play) is pressed
 	NKCODE_BUTTON_CROSS_PS3 = 96, // PS3 X button is pressed
@@ -261,6 +262,7 @@ enum InputKeyCode {
 	NKCODE_MAX
 };
 
+// These mostly match Android axis IDs.
 enum InputAxis {
 	// Field descriptor #15 I
 	JOYSTICK_AXIS_X = 0,

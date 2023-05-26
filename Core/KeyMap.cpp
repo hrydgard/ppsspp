@@ -441,6 +441,7 @@ const KeyMap_IntStrPair psp_button_names[] = {
 	{CTRL_NOTE, "Note"},
 };
 
+// key here can be other things than InputKeyCode.
 static std::string FindName(int key, const KeyMap_IntStrPair list[], size_t size) {
 	for (size_t i = 0; i < size; i++) {
 		if (list[i].key == key)
@@ -449,7 +450,7 @@ static std::string FindName(int key, const KeyMap_IntStrPair list[], size_t size
 	return StringFromFormat("%02x?", key);
 }
 
-std::string GetKeyName(int keyCode) {
+std::string GetKeyName(InputKeyCode keyCode) {
 	return FindName(keyCode, key_names, ARRAY_SIZE(key_names));
 }
 

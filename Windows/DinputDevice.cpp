@@ -39,7 +39,7 @@ std::vector<DIDEVICEINSTANCE> DinputDevice::devices;
 bool DinputDevice::needsCheck_ = true;
 
 // In order from 0.  There can be 128, but most controllers do not have that many.
-static const int dinput_buttons[] = {
+static const InputKeyCode dinput_buttons[] = {
 	NKCODE_BUTTON_1,
 	NKCODE_BUTTON_2,
 	NKCODE_BUTTON_3,

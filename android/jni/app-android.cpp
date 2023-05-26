@@ -1181,8 +1181,8 @@ extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_touch
 
 extern "C" jboolean Java_org_ppsspp_ppsspp_NativeApp_keyDown(JNIEnv *, jclass, jint deviceId, jint key, jboolean isRepeat) {
 	KeyInput keyInput;
-	keyInput.deviceId = deviceId;
-	keyInput.keyCode = key;
+	keyInput.deviceId = (InputDeviceID)deviceId;
+	keyInput.keyCode = (InputKeyCode)key;
 	keyInput.flags = KEY_DOWN;
 	if (isRepeat) {
 		keyInput.flags |= KEY_IS_REPEAT;
@@ -1192,8 +1192,8 @@ extern "C" jboolean Java_org_ppsspp_ppsspp_NativeApp_keyDown(JNIEnv *, jclass, j
 
 extern "C" jboolean Java_org_ppsspp_ppsspp_NativeApp_keyUp(JNIEnv *, jclass, jint deviceId, jint key) {
 	KeyInput keyInput;
-	keyInput.deviceId = deviceId;
-	keyInput.keyCode = key;
+	keyInput.deviceId = (InputDeviceID)deviceId;
+	keyInput.keyCode = (InputKeyCode)key;
 	keyInput.flags = KEY_UP;
 	return NativeKey(keyInput);
 }
@@ -1204,8 +1204,8 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_joystickAxis(
 		return;
 
 	AxisInput axis;
-	axis.axisId = axisId;
-	axis.deviceId = deviceId;
+	axis.axisId = (InputAxis)axisId;
+	axis.deviceId = (InputDeviceID)deviceId;
 	axis.value = value;
 
 	NativeAxis(axis);

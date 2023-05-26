@@ -164,7 +164,7 @@ namespace KeyMap {
 	};
 
 	// Use if you need to display the textual name
-	std::string GetKeyName(int keyCode);
+	std::string GetKeyName(InputKeyCode keyCode);
 	std::string GetKeyOrAxisName(const InputMapping &mapping);
 	std::string GetAxisName(int axisId);
 	std::string GetPspButtonName(int btn);

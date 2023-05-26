@@ -167,15 +167,18 @@ enum {
 
 struct KeyInput {
 	KeyInput() {}
-	KeyInput(InputDeviceID devId, int code, int fl) : deviceId(devId), keyCode(code), flags(fl) {}
+	KeyInput(InputDeviceID devId, InputKeyCode code, int fl) : deviceId(devId), keyCode(code), flags(fl) {}
 	InputDeviceID deviceId;
-	int keyCode;  // Android keycodes are the canonical keycodes, everyone else map to them.
+	union {
+		InputKeyCode keyCode;  // Android keycodes are the canonical keycodes, everyone else map to them.
+		int unicodeChar;  // for KEY_CHAR
+	};
 	int flags;
 };
 
 struct AxisInput {
 	InputDeviceID deviceId;
-	InputAxis axisId;  // Android axis Ids are the canonical ones.
+	InputAxis axisId;
 	float value;
 };
 
