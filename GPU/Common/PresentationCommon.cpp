@@ -293,6 +293,8 @@ bool PresentationCommon::UpdatePostShader() {
 		int w = usePreviousAtOutputResolution ? pixelWidth_ : renderWidth_;
 		int h = usePreviousAtOutputResolution ? pixelHeight_ : renderHeight_;
 
+		_dbg_assert_(w > 0 && h > 0);
+
 		static constexpr int FRAMES = 2;
 		previousFramebuffers_.resize(FRAMES);
 		previousIndex_ = 0;

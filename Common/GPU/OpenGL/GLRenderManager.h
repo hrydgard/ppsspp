@@ -287,6 +287,8 @@ public:
 	}
 
 	GLRFramebuffer *CreateFramebuffer(int width, int height, bool z_stencil, const char *tag) {
+		_dbg_assert_(width > 0 && height > 0 && tag != nullptr);
+
 		GLRInitStep &step = initSteps_.push_uninitialized();
 		step.stepType = GLRInitStepType::CREATE_FRAMEBUFFER;
 		step.create_framebuffer.framebuffer = new GLRFramebuffer(caps_, width, height, z_stencil, tag);

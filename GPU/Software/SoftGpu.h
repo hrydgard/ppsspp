@@ -152,8 +152,8 @@ public:
 
 	void NotifyRenderResized() override;
 	void NotifyDisplayResized() override;
-	void NotifyConfigChanged() override;
 
+	void CheckDisplayResized() override;
 	void CheckConfigChanged() override;
 
 	void GetReportingInfo(std::string &primaryInfo, std::string &fullInfo) override {

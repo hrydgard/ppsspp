@@ -212,32 +212,6 @@ void GPUCommon::NotifyDisplayResized() {
 	displayResized_ = true;
 }
 
-// Called once per frame. Might also get called during the pause screen
-// if "transparent".
-void GPUCommon::CheckConfigChanged() {
-	if (configChanged_) {
-		ClearCacheNextFrame();
-		gstate_c.SetUseFlags(CheckGPUFeatures());
-		drawEngineCommon_->NotifyConfigChanged();
-		textureCache_->NotifyConfigChanged();
-		framebufferManager_->NotifyConfigChanged();
-		BuildReportingInfo();
-		configChanged_ = false;
-	}
-
-	// Check needed when running tests.
-	if (framebufferManager_) {
-		framebufferManager_->CheckPostShaders();
-	}
-}
-
-void GPUCommon::CheckDisplayResized() {
-	if (displayResized_) {
-		framebufferManager_->NotifyDisplayResized();
-		displayResized_ = false;
-	}
-}
-
 void GPUCommon::DumpNextFrame() {
 	dumpNextFrame_ = true;
 }
