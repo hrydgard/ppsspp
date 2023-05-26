@@ -312,16 +312,6 @@ struct retro_core_option_v2_definition option_defs_us[] = {
    },
 #endif
    {
-      "ppsspp_skip_buffer_effects",
-      "Skip Buffer Effects",
-      NULL,
-      "Faster, but may cause major rendering issues.",
-      NULL,
-      "video",
-      BOOL_OPTIONS,
-      "disabled"
-   },
-   {
       "ppsspp_skip_gpu_readbacks",
       "Skip GPU Readbacks",
       NULL,
