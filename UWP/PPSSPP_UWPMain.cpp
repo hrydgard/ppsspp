@@ -251,7 +251,7 @@ void PPSSPP_UWPMain::OnKeyUp(int scanCode, Windows::System::VirtualKey virtualKe
 }
 
 void PPSSPP_UWPMain::OnMouseWheel(float delta) {
-	int key = NKCODE_EXT_MOUSEWHEEL_UP;
+	InputKeyCode key = NKCODE_EXT_MOUSEWHEEL_UP;
 	if (delta < 0) {
 		key = NKCODE_EXT_MOUSEWHEEL_DOWN;
 	} else if (delta == 0) {

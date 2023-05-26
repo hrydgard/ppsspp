@@ -4,4 +4,4 @@
 
 #include "Common/Input/KeyCodes.h"
 
-extern std::map<Windows::System::VirtualKey, int> virtualKeyCodeToNKCode;
+extern std::map<Windows::System::VirtualKey, InputKeyCode> virtualKeyCodeToNKCode;
