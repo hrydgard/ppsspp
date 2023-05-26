@@ -6,9 +6,6 @@
 //
 //
 
-#ifndef SmartKeyboardMap_hpp
-#define SmartKeyboardMap_hpp
+#pragma once
 
-int getSmartKeyboardMap(int keycode);
-
-#endif /* SmartKeyboardMap_hpp */
+InputKeyCode getSmartKeyboardMap(int keycode);
