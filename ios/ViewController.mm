@@ -105,7 +105,7 @@ static CameraHelper *cameraHelper;
 static LocationHelper *locationHelper;
 
 @interface ViewController () {
-	std::map<uint16_t, uint16_t> iCadeToKeyMap;
+	std::map<uint16_t, InputKeyCode> iCadeToKeyMap;
 }
 
 @property (nonatomic, strong) EAGLContext* context;
