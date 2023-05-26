@@ -83,7 +83,10 @@ protected:
 	void BuildReportingInfo() override;
 	void UpdateMSAALevel(Draw::DrawContext *draw) override;
 
+	void CheckDisplayResized() override;
 	void CheckRenderResized() override;
+	void CheckConfigChanged() override;
+
 	u32 CheckGPUFeaturesLate(u32 features) const;
 
 	int msaaLevel_ = 0;

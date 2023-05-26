@@ -401,6 +401,32 @@ GPUCommonHW::~GPUCommonHW() {
 	delete shaderManager_;
 }
 
+// Called once per frame. Might also get called during the pause screen
+// if "transparent".
+void GPUCommonHW::CheckConfigChanged() {
+	if (configChanged_) {
+		ClearCacheNextFrame();
+		gstate_c.SetUseFlags(CheckGPUFeatures());
+		drawEngineCommon_->NotifyConfigChanged();
+		textureCache_->NotifyConfigChanged();
+		framebufferManager_->NotifyConfigChanged();
+		BuildReportingInfo();
+		configChanged_ = false;
+	}
+
+	// Check needed when running tests.
+	if (framebufferManager_) {
+		framebufferManager_->CheckPostShaders();
+	}
+}
+
+void GPUCommonHW::CheckDisplayResized() {
+	if (displayResized_) {
+		framebufferManager_->NotifyDisplayResized();
+		displayResized_ = false;
+	}
+}
+
 void GPUCommonHW::CheckRenderResized() {
 	if (renderResized_) {
 		framebufferManager_->NotifyRenderResized(msaaLevel_);

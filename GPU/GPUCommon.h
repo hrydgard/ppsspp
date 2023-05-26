@@ -76,9 +76,6 @@ public:
 	}
 	virtual u32 CheckGPUFeatures() const = 0;
 
-	void CheckDisplayResized() override;
-	void CheckConfigChanged() override;
-
 	virtual void UpdateCmdInfo() = 0;
 
 	bool IsReady() override {

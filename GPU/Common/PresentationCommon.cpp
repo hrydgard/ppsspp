@@ -293,6 +293,8 @@ bool PresentationCommon::UpdatePostShader() {
 		int w = usePreviousAtOutputResolution ? pixelWidth_ : renderWidth_;
 		int h = usePreviousAtOutputResolution ? pixelHeight_ : renderHeight_;
 
+		_dbg_assert_(w > 0 && h > 0);
+
 		static constexpr int FRAMES = 2;
 		previousFramebuffers_.resize(FRAMES);
 		previousIndex_ = 0;
@@ -668,7 +670,7 @@ void PresentationCommon::CopyToOutput(OutputFlags flags, int uvRotation, float u
 
 	float finalU0 = u0, finalU1 = u1, finalV0 = v0, finalV1 = v1;
 
-	if (usePostShader) {
+	if (usePostShader && !(isFinalAtOutputResolution && postShaderPipelines_.size() == 1)) {
 		// The final blit will thus use the full texture.
 		finalU0 = 0.0f;
 		finalV0 = 0.0f;
