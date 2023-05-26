@@ -1543,7 +1543,7 @@ namespace MIPSInt
 		int seed = VI(vd);
 		// Swizzles apply a constant value, constants/abs/neg work to vary the seed.
 		ApplySwizzleS(reinterpret_cast<float *>(&seed), V_Single);
-		currentMIPS->rng.Init(seed);
+                vrnd_init(uint32_t(seed), currentMIPS->vfpuCtrl + VFPU_CTRL_RCX0);
 		PC += 4;
 		EatPrefixes();
 	}
@@ -1553,12 +1553,12 @@ namespace MIPSInt
 		int vd = _VD;
 		VectorSize sz = GetVecSize(op);
 		int n = GetNumVectorElements(sz);
-		for (int i = 0; i < n; i++) {
-			// TODO: Make more accurate, use and update RCX regs?
+		// Values are written in backwards order.
+		for (int i = n - 1; i >= 0; i--) {
 			switch ((op >> 16) & 0x1f) {
-			case 1: d.u[i] = currentMIPS->rng.R32(); break;  // vrndi
-			case 2: d.u[i] = 0x3F800000 | (currentMIPS->rng.R32() & 0x007FFFFF); break; // vrndf1 (>= 1, < 2)
-			case 3: d.u[i] = 0x40000000 | (currentMIPS->rng.R32() & 0x007FFFFF); break; // vrndf2 (>= 2, < 4)
+			case 1: d.u[i] = vrnd_generate(currentMIPS->vfpuCtrl + VFPU_CTRL_RCX0); break;  // vrndi
+			case 2: d.u[i] = 0x3F800000 | (vrnd_generate(currentMIPS->vfpuCtrl + VFPU_CTRL_RCX0) & 0x007FFFFF); break; // vrndf1 (>= 1, < 2)
+			case 3: d.u[i] = 0x40000000 | (vrnd_generate(currentMIPS->vfpuCtrl + VFPU_CTRL_RCX0) & 0x007FFFFF); break; // vrndf2 (>= 2, < 4)
 			default: _dbg_assert_msg_(false,"Trying to interpret instruction that can't be interpreted");
 			}
 		}

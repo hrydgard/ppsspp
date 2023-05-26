@@ -770,6 +770,82 @@ float vfpu_dot(const float a[4], const float b[4]) {
 }
 
 //==============================================================================
+// The code below attempts to exactly match behaviour of
+// PSP's vrnd instructions. See investigation starting around
+// https://github.com/hrydgard/ppsspp/issues/16946#issuecomment-1467261209
+// for details.
+
+// Redundant currently, since void MIPSState::Init() already
+// does this on its own, but left as-is to be self-contained.
+void vrnd_init_default(uint32_t *rcx) {
+	rcx[0] = 0x00000001;
+	rcx[1] = 0x00000002;
+	rcx[2] = 0x00000004;
+	rcx[3] = 0x00000008;
+	rcx[4] = 0x00000000;
+	rcx[5] = 0x00000000;
+	rcx[6] = 0x00000000;
+	rcx[7] = 0x00000000;
+}
+
+void vrnd_init(uint32_t seed, uint32_t *rcx) {
+	for(int i = 0; i < 8; ++i) rcx[i] =
+		0x3F800000u |                          // 1.0f mask.
+		((seed >> ((i / 4) * 16)) & 0xFFFFu) | // lower or upper half of the seed.
+		(((seed >> (4 * i)) & 0xF) << 16);     // remaining nibble.
+
+}
+
+uint32_t vrnd_generate(uint32_t *rcx) {
+	// The actual RNG state appears to be 5 parts
+	// (32-bit each) stored into the registers as follows:
+	uint32_t A = (rcx[0] & 0xFFFFu) | (rcx[4] << 16);
+	uint32_t B = (rcx[1] & 0xFFFFu) | (rcx[5] << 16);
+	uint32_t C = (rcx[2] & 0xFFFFu) | (rcx[6] << 16);
+	uint32_t D = (rcx[3] & 0xFFFFu) | (rcx[7] << 16);
+	uint32_t E = (((rcx[0] >> 16) & 0xF) <<  0) |
+	             (((rcx[1] >> 16) & 0xF) <<  4) |
+	             (((rcx[2] >> 16) & 0xF) <<  8) |
+	             (((rcx[3] >> 16) & 0xF) << 12) |
+	             (((rcx[4] >> 16) & 0xF) << 16) |
+	             (((rcx[5] >> 16) & 0xF) << 20) |
+	             (((rcx[6] >> 16) & 0xF) << 24) |
+	             (((rcx[7] >> 16) & 0xF) << 28);
+	// Update.
+	// LCG with classic parameters.
+	A = 69069u * A + 1u; // NOTE: decimal constants.
+	// Xorshift, with classic parameters. Algorithm "xor" from p. 4 of Marsaglia, "Xorshift RNGs".
+	B ^= B << 13;
+	B ^= B >> 17;
+	B ^= B <<  5;
+	// Pell sequence, with additional increment.
+	uint32_t t= 2u * D + C + E;
+	// NOTE: the details of how E-part is set are
+	// largerly guesswork at the moment. This does
+	// match variety of test data.
+	auto addition_overflows=[](uint32_t x, uint32_t y) -> bool {
+		return x + y < x;
+	};
+	E = addition_overflows(C + E, C) &&
+	    addition_overflows(C + E, D) &&
+	    addition_overflows(C + E, C + D + E) &&
+	    addition_overflows(C + E, C + D);
+	C = D;
+	D = t;
+	// Store.
+	rcx[0] = 0x3F800000u | (((E >>  0) & 0xF) << 16) | (A & 0xFFFFu);
+	rcx[1] = 0x3F800000u | (((E >>  4) & 0xF) << 16) | (B & 0xFFFFu);
+	rcx[2] = 0x3F800000u | (((E >>  8) & 0xF) << 16) | (C & 0xFFFFu);
+	rcx[3] = 0x3F800000u | (((E >> 12) & 0xF) << 16) | (D & 0xFFFFu);
+	rcx[4] = 0x3F800000u | (((E >> 16) & 0xF) << 16) | (A >> 16);
+	rcx[5] = 0x3F800000u | (((E >> 20) & 0xF) << 16) | (B >> 16);
+	rcx[6] = 0x3F800000u | (((E >> 24) & 0xF) << 16) | (C >> 16);
+	rcx[7] = 0x3F800000u | (((E >> 28) & 0xF) << 16) | (D >> 16);
+	// Return value.
+	return A + B + D;
+}
+
+//==============================================================================
 // The code below attempts to exactly match the output of
 // several PSP's VFPU functions. For the sake of
 // making lookup tables smaller the code is
