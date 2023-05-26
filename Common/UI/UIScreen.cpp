@@ -61,19 +61,19 @@ void UIScreen::DoRecreateViews() {
 }
 
 void UIScreen::touch(const TouchInput &touch) {
-	if (!ignoreInput_) {
+	if (!ignoreInput_ && root_) {
 		UI::TouchEvent(touch, root_);
 	}
 }
 
 void UIScreen::axis(const AxisInput &axis) {
-	if (!ignoreInput_) {
+	if (!ignoreInput_ && root_) {
 		UI::AxisEvent(axis, root_);
 	}
 }
 
 bool UIScreen::key(const KeyInput &key) {
-	if (!ignoreInput_) {
+	if (!ignoreInput_ && root_) {
 		UI::KeyEvent(key, root_);
 		return false;
 	} else {
@@ -82,14 +82,12 @@ bool UIScreen::key(const KeyInput &key) {
 }
 
 void UIScreen::UnsyncTouch(const TouchInput &touch) {
-	if (root_) {
-		if (ClickDebug && (touch.flags & TOUCH_DOWN)) {
-			INFO_LOG(SYSTEM, "Touch down!");
-			std::vector<UI::View *> views;
-			root_->Query(touch.x, touch.y, views);
-			for (auto view : views) {
-				INFO_LOG(SYSTEM, "%s", view->DescribeLog().c_str());
-			}
+	if (ClickDebug && root_ && (touch.flags & TOUCH_DOWN)) {
+		INFO_LOG(SYSTEM, "Touch down!");
+		std::vector<UI::View *> views;
+		root_->Query(touch.x, touch.y, views);
+		for (auto view : views) {
+			INFO_LOG(SYSTEM, "%s", view->DescribeLog().c_str());
 		}
 	}
 
@@ -143,39 +141,40 @@ void UIScreen::update() {
 
 	if (root_) {
 		UpdateViewHierarchy(root_);
-		while (true) {
-			QueuedEvent ev{};
-			{
-				std::lock_guard<std::mutex> guard(eventQueueLock_);
-				if (!eventQueue_.empty()) {
-					ev = eventQueue_.front();
-					eventQueue_.pop_front();
-				} else {
-					break;
+	}
+
+	while (true) {
+		QueuedEvent ev{};
+		{
+			std::lock_guard<std::mutex> guard(eventQueueLock_);
+			if (!eventQueue_.empty()) {
+				ev = eventQueue_.front();
+				eventQueue_.pop_front();
+			} else {
+				break;
+			}
+		}
+		if (ignoreInput_) {
+			continue;
+		}
+		switch (ev.type) {
+		case QueuedEventType::KEY:
+			key(ev.key);
+			break;
+		case QueuedEventType::TOUCH:
+			if (ClickDebug && (ev.touch.flags & TOUCH_DOWN)) {
+				INFO_LOG(SYSTEM, "Touch down!");
+				std::vector<UI::View *> views;
+				root_->Query(ev.touch.x, ev.touch.y, views);
+				for (auto view : views) {
+					INFO_LOG(SYSTEM, "%s", view->DescribeLog().c_str());
 				}
 			}
-			if (ignoreInput_) {
-				continue;
-			}
-			switch (ev.type) {
-			case QueuedEventType::KEY:
-				key(ev.key);
-				break;
-			case QueuedEventType::TOUCH:
-				if (ClickDebug && (ev.touch.flags & TOUCH_DOWN)) {
-					INFO_LOG(SYSTEM, "Touch down!");
-					std::vector<UI::View *> views;
-					root_->Query(ev.touch.x, ev.touch.y, views);
-					for (auto view : views) {
-						INFO_LOG(SYSTEM, "%s", view->DescribeLog().c_str());
-					}
-				}
-				touch(ev.touch);
-				break;
-			case QueuedEventType::AXIS:
-				axis(ev.axis);
-				break;
-			}
+			touch(ev.touch);
+			break;
+		case QueuedEventType::AXIS:
+			axis(ev.axis);
+			break;
 		}
 	}
 }
