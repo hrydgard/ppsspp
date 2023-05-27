@@ -138,6 +138,8 @@ void HandleDebuggerRequest(const http::Request &request) {
 	UpdateConnected(1);
 	SetupDebuggerLock();
 
+	WebSocketClientInfo client_info;
+
 	GameBroadcaster game;
 	LogBroadcaster logger;
 	InputBroadcaster input;
@@ -166,7 +168,7 @@ void HandleDebuggerRequest(const http::Request &request) {
 			return;
 		}
 
-		DebuggerRequest req(event, ws, root);
+		DebuggerRequest req(event, ws, root, &client_info);
 		auto eventFunc = eventHandlers.find(event);
 		if (eventFunc != eventHandlers.end()) {
 			std::lock_guard<std::mutex> guard(lifecycleLock);
