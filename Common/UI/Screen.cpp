@@ -82,11 +82,11 @@ void ScreenManager::touch(const TouchInput &touch) {
 	if (touch.flags & TOUCH_RELEASE_ALL) {
 		for (auto &layer : stack_) {
 			Screen *screen = layer.screen;
-			layer.screen->touch(screen->transformTouch(touch));
+			layer.screen->UnsyncTouch(screen->transformTouch(touch));
 		}
 	} else if (!stack_.empty()) {
 		Screen *screen = stack_.back().screen;
-		stack_.back().screen->touch(screen->transformTouch(touch));
+		stack_.back().screen->UnsyncTouch(screen->transformTouch(touch));
 	}
 }
 
@@ -96,10 +96,10 @@ bool ScreenManager::key(const KeyInput &key) {
 	// Send key up to every screen layer, to avoid stuck keys.
 	if (key.flags & KEY_UP) {
 		for (auto &layer : stack_) {
-			result = layer.screen->key(key);
+			result = layer.screen->UnsyncKey(key);
 		}
 	} else if (!stack_.empty()) {
-		result = stack_.back().screen->key(key);
+		result = stack_.back().screen->UnsyncKey(key);
 	}
 	return result;
 }
@@ -120,10 +120,10 @@ void ScreenManager::axis(const AxisInput &axis) {
 	// Send center axis to every screen layer.
 	if (axis.value == 0) {
 		for (auto &layer : stack_) {
-			layer.screen->axis(axis);
+			layer.screen->UnsyncAxis(axis);
 		}
 	} else if (!stack_.empty()) {
-		stack_.back().screen->axis(axis);
+		stack_.back().screen->UnsyncAxis(axis);
 	}
 }
 

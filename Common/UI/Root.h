@@ -23,10 +23,19 @@ class ViewGroup;
 
 void LayoutViewHierarchy(const UIContext &dc, ViewGroup *root, bool ignoreInsets);
 void UpdateViewHierarchy(ViewGroup *root);
+
+enum class KeyEventResult {
+	IGNORE_KEY,  // Don't let it be processed.
+	PASS_THROUGH,  // Let it be processed, but return false.
+	ACCEPT,  // Let it be processed, but return true.
+};
+
 // Hooks arrow keys for navigation
-bool KeyEvent(const KeyInput &key, ViewGroup *root);
-bool TouchEvent(const TouchInput &touch, ViewGroup *root);
-bool AxisEvent(const AxisInput &axis, ViewGroup *root);
+KeyEventResult UnsyncKeyEvent(const KeyInput &key, ViewGroup *root);
+
+void KeyEvent(const KeyInput &key, ViewGroup *root);
+void TouchEvent(const TouchInput &touch, ViewGroup *root);
+void AxisEvent(const AxisInput &axis, ViewGroup *root);
 
 enum class UISound {
 	SELECT = 0,

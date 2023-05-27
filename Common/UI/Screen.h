@@ -55,12 +55,13 @@ public:
 	virtual void postRender() {}
 	virtual void resized() {}
 	virtual void dialogFinished(const Screen *dialog, DialogResult result) {}
-	virtual void touch(const TouchInput &touch) {}
-	virtual bool key(const KeyInput &key) { return false; }
-	virtual void axis(const AxisInput &touch) {}
 	virtual void sendMessage(const char *msg, const char *value) {}
 	virtual void deviceLost() {}
 	virtual void deviceRestored() {}
+
+	virtual void UnsyncTouch(const TouchInput &touch) {}
+	virtual bool UnsyncKey(const KeyInput &touch) { return false; }
+	virtual void UnsyncAxis(const AxisInput &touch) {}
 
 	virtual void RecreateViews() {}
 
