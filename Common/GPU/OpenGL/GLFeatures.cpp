@@ -626,11 +626,11 @@ bool CheckGLExtensions() {
 }
 
 void SetGLCoreContext(bool flag) {
-	_assert_msg_(!extensionsDone, "SetGLCoreContext() after CheckGLExtensions()");
-
-	useCoreContext = flag;
-	// For convenience, it'll get reset later.
-	gl_extensions.IsCoreContext = useCoreContext;
+	if (!extensionsDone) {
+		useCoreContext = flag;
+		// For convenience, it'll get reset later.
+		gl_extensions.IsCoreContext = useCoreContext;
+	}
 }
 
 void ResetGLExtensions() {
