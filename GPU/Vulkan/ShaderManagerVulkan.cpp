@@ -237,6 +237,7 @@ ShaderManagerVulkan::~ShaderManagerVulkan() {
 }
 
 void ShaderManagerVulkan::DeviceLost() {
+	Clear();  // We only really need to do this if the device is actually lost, so DeviceLost might need an argument.
 	draw_ = nullptr;
 }
 
