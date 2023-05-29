@@ -395,6 +395,9 @@ void VulkanQueueRunner::RunSteps(std::vector<VKRStep *> &steps, FrameData &frame
 					vkCmdEndDebugUtilsLabelEXT(cmd);
 				}
 				frameData.SubmitPending(vulkan_, FrameSubmitType::Pending, frameDataShared);
+				if (frameData.deviceLost) {
+					goto bail;
+				}
 
 				// When stepping in the GE debugger, we can end up here multiple times in a "frame".
 				// So only acquire once.
@@ -447,6 +450,7 @@ void VulkanQueueRunner::RunSteps(std::vector<VKRStep *> &steps, FrameData &frame
 		}
 	}
 
+bail:
 	// Deleting all in one go should be easier on the instruction cache than deleting
 	// them as we go - and easier to debug because we can look backwards in the frame.
 	if (!keepSteps) {

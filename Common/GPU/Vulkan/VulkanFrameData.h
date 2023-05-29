@@ -88,6 +88,9 @@ struct FrameData {
 
 	bool syncDone = false;
 
+	// Set if the device was just lost.
+	bool deviceLost = false;
+
 	// Swapchain.
 	uint32_t curSwapchainImage = -1;
 

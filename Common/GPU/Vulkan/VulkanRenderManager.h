@@ -185,7 +185,8 @@ public:
 	~VulkanRenderManager();
 
 	// Makes sure that the GPU has caught up enough that we can start writing buffers of this frame again.
-	void BeginFrame(bool enableProfiling, bool enableLogProfiler);
+	// A false return value means that the device is lost, and we should just try to end the frame ASAP without doing anything.
+	bool BeginFrame(bool enableProfiling, bool enableLogProfiler);
 	// Can run on a different thread!
 	void Finish();
 	// Zaps queued up commands. Use if you know there's a risk you've queued up stuff that has already been deleted. Can happen during in-game shutdown.
@@ -461,13 +462,16 @@ public:
 	void ResetStats();
 	void DrainCompileQueue();
 
+	bool DeviceIsLost() const { return deviceLost_; }
+
 private:
 	void EndCurRenderStep();
 
 	void ThreadFunc();
 	void CompileThreadFunc();
 
-	void Run(VKRRenderThreadTask &task);
+	// Fails if the device was lost.
+	bool Run(VKRRenderThreadTask &task);
 
 	// Bad for performance but sometimes necessary for synchronous CPU readbacks (screenshots and whatnot).
 	void FlushSync();
@@ -480,6 +484,8 @@ private:
 	int inflightFramesAtStart_ = 0;
 
 	int outOfDateFrames_ = 0;
+
+	bool deviceLost_ = false;
 
 	// Submission time state
 

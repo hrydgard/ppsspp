@@ -702,7 +702,8 @@ VkResult VulkanContext::CreateDevice() {
 	VkResult res = vkCreateDevice(physical_devices_[physical_device_], &device_info, nullptr, &device_);
 	if (res != VK_SUCCESS) {
 		init_error_ = "Unable to create Vulkan device";
-		ERROR_LOG(G3D, "Unable to create Vulkan device");
+		ERROR_LOG(G3D, "Unable to create Vulkan device: '%s'", VulkanResultToString(res));
+		return res;
 	} else {
 		VulkanLoadDeviceFunctions(device_, extensionsLookup_);
 	}

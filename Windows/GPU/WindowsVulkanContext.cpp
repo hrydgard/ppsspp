@@ -119,6 +119,7 @@ bool WindowsVulkanContext::Init(HINSTANCE hInst, HWND hWnd, std::string *error_m
 	vulkan_->ChooseDevice(deviceNum);
 	if (vulkan_->CreateDevice() != VK_SUCCESS) {
 		*error_message = vulkan_->InitError();
+		vulkan_->DestroyInstance();
 		delete vulkan_;
 		vulkan_ = nullptr;
 		return false;
@@ -183,4 +184,8 @@ void WindowsVulkanContext::Poll() {
 
 void *WindowsVulkanContext::GetAPIContext() {
 	return vulkan_;
+}
+
+bool WindowsVulkanContext::DeviceIsLost() const {
+	return renderManager_->DeviceIsLost();
 }

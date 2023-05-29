@@ -93,6 +93,7 @@ void FrameData::AcquireNextImage(VulkanContext *vulkan, FrameDataShared &shared)
 
 VkResult FrameData::QueuePresent(VulkanContext *vulkan, FrameDataShared &shared) {
 	_dbg_assert_(hasAcquired);
+	_dbg_assert_(!deviceLost);
 	hasAcquired = false;
 	_dbg_assert_(!skipSwap);
 
@@ -132,6 +133,8 @@ VkCommandBuffer FrameData::GetInitCmd(VulkanContext *vulkan) {
 }
 
 void FrameData::SubmitPending(VulkanContext *vulkan, FrameSubmitType type, FrameDataShared &sharedData) {
+	_dbg_assert_(!deviceLost);
+
 	VkCommandBuffer cmdBufs[3];
 	int numCmdBufs = 0;
 
@@ -206,7 +209,9 @@ void FrameData::SubmitPending(VulkanContext *vulkan, FrameSubmitType type, Frame
 	}
 
 	if (res == VK_ERROR_DEVICE_LOST) {
-		_assert_msg_(false, "Lost the Vulkan device in vkQueueSubmit! If this happens again, switch Graphics Backend away from Vulkan");
+		ERROR_LOG(G3D, "Lost the Vulkan device in vkQueueSubmit! If this happens again, switch Graphics Backend away from Vulkan");
+		deviceLost = true;
+		return;
 	} else {
 		_assert_msg_(res == VK_SUCCESS, "vkQueueSubmit failed (main)! result=%s", VulkanResultToString(res));
 	}

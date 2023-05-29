@@ -230,6 +230,10 @@ void Core_RunLoop(GraphicsContext *ctx) {
 		Core_StateProcessed();
 		double startTime = time_now_d();
 		UpdateRunLoop();
+		if (graphicsContext->DeviceIsLost()) {
+			// Let the outer loop take care of this.
+			return;
+		}
 
 		// Simple throttling to not burn the GPU in the menu.
 		double diffTime = time_now_d() - startTime;
@@ -243,6 +247,10 @@ void Core_RunLoop(GraphicsContext *ctx) {
 
 	while ((coreState == CORE_RUNNING || coreState == CORE_STEPPING) && GetUIState() == UISTATE_INGAME) {
 		UpdateRunLoop();
+		if (graphicsContext->DeviceIsLost()) {
+			// Let the outer loop take care of this.
+			break;
+		}
 		if (!windowHidden && !Core_IsStepping()) {
 			ctx->SwapBuffers();
 
@@ -337,6 +345,9 @@ bool Core_Run(GraphicsContext *ctx) {
 				return false;
 			}
 			Core_RunLoop(ctx);
+			if (ctx->DeviceIsLost()) {
+				return true;
+			}
 			continue;
 		}
 
@@ -345,6 +356,9 @@ bool Core_Run(GraphicsContext *ctx) {
 		case CORE_STEPPING:
 			// enter a fast runloop
 			Core_RunLoop(ctx);
+			if (ctx->DeviceIsLost()) {
+				return true;
+			}
 			if (coreState == CORE_POWERDOWN) {
 				Core_StateProcessed();
 				return true;
@@ -357,7 +371,6 @@ bool Core_Run(GraphicsContext *ctx) {
 		case CORE_RUNTIME_ERROR:
 			// Exit loop!!
 			Core_StateProcessed();
-
 			return true;
 
 		case CORE_NEXTFRAME:

@@ -805,7 +805,7 @@ public:
 	virtual void DrawUP(const void *vdata, int vertexCount) = 0;
 	
 	// Frame management (for the purposes of sync and resource management, necessary with modern APIs). Default implementations here.
-	virtual void BeginFrame() {}
+	virtual bool BeginFrame() { return true; }
 	virtual void EndFrame() = 0;
 	virtual void WipeQueue() {}
 

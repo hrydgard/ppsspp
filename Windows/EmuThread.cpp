@@ -259,6 +259,7 @@ void MainThreadFunc() {
 
 		// No safe way out without graphics.
 		ExitProcess(1);
+		return;  // This return never executes, but helps the compiler.
 	}
 
 	GraphicsContext *graphicsContext = g_graphicsContext;
@@ -301,6 +302,28 @@ void MainThreadFunc() {
 			if (!Core_IsActive())
 				UpdateUIState(UISTATE_MENU);
 			Core_Run(g_graphicsContext);
+			if (g_graphicsContext->DeviceIsLost()) {
+				// Try to recreate the device here.
+				NativeShutdownGraphics();
+				graphicsContext->StopThread();
+				graphicsContext->ShutdownFromRenderThread();
+				delete graphicsContext;
+				graphicsContext = nullptr;
+
+				bool success = CreateGraphicsBackend(&error_string, &g_graphicsContext);
+				if (success) {
+					graphicsContext = g_graphicsContext;
+					// Main thread is the render thread.
+					success = g_graphicsContext->InitFromRenderThread(&error_string);
+				}
+				if (!success) {
+					ERROR_LOG(G3D, "Failed to recreate Vulkan device after device loss");
+					coreState = CORE_POWERDOWN;
+					break;
+				}
+				NativeInitGraphics(graphicsContext);
+			}
+
 			if (coreState == CORE_BOOT_ERROR) {
 				break;
 			}
@@ -329,11 +352,12 @@ shutdown:
 	if (!useEmuThread) {
 		NativeShutdownGraphics();
 	}
+	if (g_graphicsContext) {
+		g_graphicsContext->ThreadEnd();
+		g_graphicsContext->ShutdownFromRenderThread();
 
-	g_graphicsContext->ThreadEnd();
-	g_graphicsContext->ShutdownFromRenderThread();
-
-	g_graphicsContext->Shutdown();
+		g_graphicsContext->Shutdown();
+	}
 
 	UpdateConsolePosition();
 	NativeShutdown();

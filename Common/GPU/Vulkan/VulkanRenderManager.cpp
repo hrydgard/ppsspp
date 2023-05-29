@@ -492,6 +492,9 @@ void VulkanRenderManager::DrainCompileQueue() {
 void VulkanRenderManager::ThreadFunc() {
 	SetCurrentThreadName("RenderMan");
 	while (true) {
+		if (deviceLost_) {
+			break;
+		}
 		// Pop a task of the queue and execute it.
 		VKRRenderThreadTask *task = nullptr;
 		{
@@ -501,6 +504,12 @@ void VulkanRenderManager::ThreadFunc() {
 			}
 			task = renderThreadQueue_.front();
 			renderThreadQueue_.pop();
+		}
+
+		if (deviceLost_) {
+			delete task;
+			// We'll clear out the rest after the break.
+			break;
 		}
 
 		// Oh, we got a task! We can now have pushMutex_ unlocked, allowing the host to
@@ -516,6 +525,16 @@ void VulkanRenderManager::ThreadFunc() {
 		delete task;
 	}
 
+	{
+		// Make sure nothing is left.
+		std::unique_lock<std::mutex> lock(pushMutex_);
+		while (!renderThreadQueue_.empty()) {
+			VKRRenderThreadTask *task = renderThreadQueue_.front();
+			renderThreadQueue_.pop();
+			delete task;
+		}
+	}
+
 	// Wait for the device to be done with everything, before tearing stuff down.
 	// TODO: Do we need this?
 	vkDeviceWaitIdle(vulkan_->GetDevice());
@@ -523,8 +542,11 @@ void VulkanRenderManager::ThreadFunc() {
 	VLOG("PULL: Quitting");
 }
 
-void VulkanRenderManager::BeginFrame(bool enableProfiling, bool enableLogProfiler) {
+bool VulkanRenderManager::BeginFrame(bool enableProfiling, bool enableLogProfiler) {
 	VLOG("BeginFrame");
+	if (deviceLost_) {
+		return false;
+	}
 	VkDevice device = vulkan_->GetDevice();
 
 	int curFrame = vulkan_->GetCurFrame();
@@ -545,8 +567,15 @@ void VulkanRenderManager::BeginFrame(bool enableProfiling, bool enableLogProfile
 	// This must be the very first Vulkan call we do in a new frame.
 	// Makes sure the very last command buffer from the frame before the previous has been fully executed.
 	if (vkWaitForFences(device, 1, &frameData.fence, true, UINT64_MAX) == VK_ERROR_DEVICE_LOST) {
-		_assert_msg_(false, "Device lost in vkWaitForFences");
+		ERROR_LOG(G3D, "Device lost in vkWaitForFences");
+		frameData.deviceLost = true;
+		deviceLost_ = true;
+		// If the render thread is waiting for an event that won't come, kick it loose.
+		pushCondVar_.notify_one();
+		frameData.readyForFence = true;
+		return false;
 	}
+
 	vkResetFences(device, 1, &frameData.fence);
 
 	int validBits = vulkan_->GetQueueFamilyProperties(vulkan_->GetGraphicsQueueFamilyIndex()).timestampValidBits;
@@ -616,6 +645,7 @@ void VulkanRenderManager::BeginFrame(bool enableProfiling, bool enableLogProfile
 		frameData.profile.timestampDescriptions.push_back("initCmd");
 		VkCommandBuffer initCmd = GetInitCmd();
 	}
+	return true;
 }
 
 VkCommandBuffer VulkanRenderManager::GetInitCmd() {
@@ -1280,6 +1310,10 @@ void VulkanRenderManager::Finish() {
 	steps_.clear();
 	vulkan_->EndFrame();
 	insideFrame_ = false;
+
+	if (deviceLost_) {
+		WARN_LOG(G3D, "VulkanRenderManager::Finish: Device lost");
+	}
 }
 
 void VulkanRenderManager::Wipe() {
@@ -1292,11 +1326,16 @@ void VulkanRenderManager::Wipe() {
 // Called on the render thread.
 //
 // Can be called again after a VKRRunType::SYNC on the same frame.
-void VulkanRenderManager::Run(VKRRenderThreadTask &task) {
+bool VulkanRenderManager::Run(VKRRenderThreadTask &task) {
+	_dbg_assert_(!deviceLost_);
+
 	FrameData &frameData = frameData_[task.frame];
 
 	_dbg_assert_(!frameData.hasPresentCommands);
 	frameData.SubmitPending(vulkan_, FrameSubmitType::Pending, frameDataShared_);
+	if (frameData.deviceLost) {
+		return false;
+	}
 
 	if (!frameData.hasMainCommands) {
 		// Effectively resets both main and present command buffers, since they both live in this pool.
@@ -1312,8 +1351,9 @@ void VulkanRenderManager::Run(VKRRenderThreadTask &task) {
 
 	queueRunner_.PreprocessSteps(task.steps);
 	// Likely during shutdown, happens in headless.
-	if (task.steps.empty() && !frameData.hasAcquired)
+	if (task.steps.empty() && !frameData.hasAcquired) {
 		frameData.skipSwap = true;
+	}
 	//queueRunner_.LogSteps(stepsOnThread, false);
 	if (IsVREnabled()) {
 		int passes = GetVRPassesCount();
@@ -1326,10 +1366,18 @@ void VulkanRenderManager::Run(VKRRenderThreadTask &task) {
 		queueRunner_.RunSteps(task.steps, frameData, frameDataShared_);
 	}
 
+	if (frameData.deviceLost) {
+		deviceLost_ = true;
+		return false;
+	}
+
 	switch (task.runType) {
 	case VKRRunType::PRESENT:
 		frameData.SubmitPending(vulkan_, FrameSubmitType::Present, frameDataShared_);
-
+		if (frameData.deviceLost) {
+			deviceLost_ = true;
+			return false;
+		}
 		if (!frameData.skipSwap) {
 			VkResult res = frameData.QueuePresent(vulkan_, frameDataShared_);
 			if (res == VK_ERROR_OUT_OF_DATE_KHR) {
@@ -1369,7 +1417,12 @@ void VulkanRenderManager::Run(VKRRenderThreadTask &task) {
 		_dbg_assert_(false);
 	}
 
+	if (frameData.deviceLost) {
+		deviceLost_ = true;
+	}
 	VLOG("PULL: Finished running frame %d", task.frame);
+
+	return !deviceLost_;
 }
 
 // Called from main thread.

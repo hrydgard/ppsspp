@@ -165,21 +165,23 @@ void ScreenManager::render() {
 
 				// TODO: Make really sure that this "mismatched" pre/post only happens
 				// when screens are "compatible" (both are UIScreens, for example).
-				backback.screen->preRender();
-				backback.screen->render();
-				stack_.back().screen->render();
-				if (postRenderCb_)
-					postRenderCb_(getUIContext(), postRenderUserdata_);
-				backback.screen->postRender();
-				break;
+				if (backback.screen->preRender()) {
+					backback.screen->render();
+					stack_.back().screen->render();
+					if (postRenderCb_)
+						postRenderCb_(getUIContext(), postRenderUserdata_);
+					backback.screen->postRender();
+					break;
+				}
 			}
 		default:
 			_assert_(stack_.back().screen);
-			stack_.back().screen->preRender();
-			stack_.back().screen->render();
-			if (postRenderCb_)
-				postRenderCb_(getUIContext(), postRenderUserdata_);
-			stack_.back().screen->postRender();
+			if (stack_.back().screen->preRender()) {
+				stack_.back().screen->render();
+				if (postRenderCb_)
+					postRenderCb_(getUIContext(), postRenderUserdata_);
+				stack_.back().screen->postRender();
+			}
 			break;
 		}
 	} else {

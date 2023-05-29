@@ -44,7 +44,7 @@ public:
 
 	void update() override;
 	void render() override;
-	void preRender() override;
+	bool preRender() override;
 	void postRender() override;
 	void dialogFinished(const Screen *dialog, DialogResult result) override;
 	void sendMessage(const char *msg, const char *value) override;

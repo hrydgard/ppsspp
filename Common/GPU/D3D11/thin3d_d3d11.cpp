@@ -137,7 +137,7 @@ public:
 	void DrawUP(const void *vdata, int vertexCount) override;
 	void Clear(int mask, uint32_t colorval, float depthVal, int stencilVal) override;
 
-	void BeginFrame() override;
+	bool BeginFrame() override;
 
 	std::string GetInfoString(InfoField info) const override {
 		switch (info) {
@@ -1448,7 +1448,7 @@ void D3D11DrawContext::Clear(int mask, uint32_t colorval, float depthVal, int st
 	}
 }
 
-void D3D11DrawContext::BeginFrame() {
+bool D3D11DrawContext::BeginFrame() {
 	context_->OMSetRenderTargets(1, &curRenderTargetView_, curDepthStencilView_);
 
 	if (curBlend_ != nullptr) {
@@ -1475,6 +1475,7 @@ void D3D11DrawContext::BeginFrame() {
 			context_->PSSetConstantBuffers(0, 1, &curPipeline_->dynamicUniforms);
 		}
 	}
+	return true;
 }
 
 void D3D11DrawContext::CopyFramebufferImage(Framebuffer *srcfb, int level, int x, int y, int z, Framebuffer *dstfb, int dstLevel, int dstX, int dstY, int dstZ, int width, int height, int depth, int channelBit, const char *tag) {

@@ -38,5 +38,9 @@ public:
 	// Should strive to get rid of these.
 	virtual void Poll() {}
 
+	virtual bool DeviceIsLost() const {
+		return false;
+	}
+
 	virtual Draw::DrawContext *GetDrawContext() = 0;
 };

@@ -1414,10 +1414,12 @@ static void DrawFrameTimes(UIContext *ctx, const Bounds &bounds) {
 	ctx->RebindTexture();
 }
 
-void EmuScreen::preRender() {
+bool EmuScreen::preRender() {
 	using namespace Draw;
 	DrawContext *draw = screenManager()->getDrawContext();
-	draw->BeginFrame();
+	if (!draw->BeginFrame()) {
+		return false;
+	}
 	// Here we do NOT bind the backbuffer or clear the screen, unless non-buffered.
 	// The emuscreen is different than the others - we really want to allow the game to render to framebuffers
 	// before we ever bind the backbuffer for rendering. On mobile GPUs, switching back and forth between render
@@ -1443,6 +1445,7 @@ void EmuScreen::preRender() {
 		draw->SetViewport(viewport);
 	}
 	draw->SetTargetSize(g_display.pixel_xres, g_display.pixel_yres);
+	return true;
 }
 
 void EmuScreen::postRender() {

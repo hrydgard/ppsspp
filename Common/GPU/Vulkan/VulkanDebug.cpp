@@ -76,6 +76,14 @@ VKAPI_ATTR VkBool32 VKAPI_CALL VulkanDebugUtilsCallback(
 		// Extended validation (ARM best practices)
 		// Non-fifo validation not recommended
 		return false;
+
+	// These get triggered during the device lost simulation. Ignore.
+	case -556648736:
+	case 1812873262:
+	case 337425955:
+		WARN_LOG(G3D, "Validation message %d typical of device lost simulation, ignoring.", messageCode);
+		return false;
+
 	default:
 		break;
 	}

@@ -50,7 +50,7 @@ public:
 
 	virtual void onFinish(DialogResult reason) {}
 	virtual void update() {}
-	virtual void preRender() {}
+	virtual bool preRender() { return true; }  // If this returns false, something is really bad and we should try to skip the rest of the frame, the error will be handled at the end.
 	virtual void render() {}
 	virtual void postRender() {}
 	virtual void resized() {}

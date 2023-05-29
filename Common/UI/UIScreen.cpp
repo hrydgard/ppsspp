@@ -189,13 +189,15 @@ void UIScreen::deviceRestored() {
 		root_->DeviceRestored(screenManager()->getDrawContext());
 }
 
-void UIScreen::preRender() {
+bool UIScreen::preRender() {
 	using namespace Draw;
 	Draw::DrawContext *draw = screenManager()->getDrawContext();
 	if (!draw) {
-		return;
+		return true;
 	}
-	draw->BeginFrame();
+	if (!draw->BeginFrame()) {
+		return false;
+	}
 	// Bind and clear the back buffer
 	draw->BindFramebufferAsRenderTarget(nullptr, { RPAction::CLEAR, RPAction::CLEAR, RPAction::CLEAR, 0xFF000000 }, "UI");
 	screenManager()->getUIContext()->BeginFrame();
@@ -209,6 +211,7 @@ void UIScreen::preRender() {
 	viewport.MinDepth = 0.0;
 	draw->SetViewport(viewport);
 	draw->SetTargetSize(g_display.pixel_xres, g_display.pixel_yres);
+	return true;
 }
 
 void UIScreen::postRender() {
