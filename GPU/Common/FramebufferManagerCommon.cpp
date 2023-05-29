@@ -1418,10 +1418,12 @@ Draw::Texture *FramebufferManagerCommon::MakePixelTexture(const u8 *srcPixels, G
 	};
 
 	// Hot Shots Golf (#12355) does tons of these in a frame in some situations! So creating textures
-	// better be fast.
+	// better be fast. So does God of War, a lot of the time, a bit unclear what it's doing.
 	Draw::Texture *tex = draw_->CreateTexture(desc);
-	if (!tex)
+	if (!tex) {
 		ERROR_LOG(G3D, "Failed to create DrawPixels texture");
+	}
+	gpuStats.numDrawPixels++;
 	return tex;
 }
 
