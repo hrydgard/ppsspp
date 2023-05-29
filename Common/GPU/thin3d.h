@@ -359,7 +359,7 @@ protected:
 
 class RefCountedObject {
 public:
-	RefCountedObject() {
+	explicit RefCountedObject(const char *name) : name_(name) {
 		refcount_ = 1;
 	}
 	RefCountedObject(const RefCountedObject &other) = delete;
@@ -372,6 +372,7 @@ public:
 
 private:
 	std::atomic<int> refcount_;
+	const char * const name_;
 };
 
 template <typename T>
@@ -428,18 +429,22 @@ struct AutoRef {
 
 class BlendState : public RefCountedObject {
 public:
+	BlendState() : RefCountedObject("BlendState") {}
 };
 
 class SamplerState : public RefCountedObject {
 public:
+	SamplerState() : RefCountedObject("SamplerState") {}
 };
 
 class DepthStencilState : public RefCountedObject {
 public:
+	DepthStencilState() : RefCountedObject("DepthStencilState") {}
 };
 
 class Framebuffer : public RefCountedObject {
 public:
+	Framebuffer() : RefCountedObject("Framebuffer") {}
 	int Width() { return width_; }
 	int Height() { return height_; }
 	int Layers() { return layers_; }
@@ -452,13 +457,16 @@ protected:
 
 class Buffer : public RefCountedObject {
 public:
+	Buffer() : RefCountedObject("Buffer") {}
 };
 
 class Texture : public RefCountedObject {
 public:
+	Texture() : RefCountedObject("Texture") {}
 	int Width() { return width_; }
 	int Height() { return height_; }
 	int Depth() { return depth_; }
+
 protected:
 	int width_ = -1, height_ = -1, depth_ = -1;
 };
@@ -480,18 +488,28 @@ struct InputLayoutDesc {
 	std::vector<AttributeDesc> attributes;
 };
 
-class InputLayout : public RefCountedObject { };
+class InputLayout : public RefCountedObject {
+public:
+	InputLayout() : RefCountedObject("InputLayout") {}
+};
 
 // Uniform types have moved to Shader.h.
 
 class ShaderModule : public RefCountedObject {
 public:
+	ShaderModule() : RefCountedObject("ShaderModule") {}
 	virtual ShaderStage GetStage() const = 0;
 };
 
-class Pipeline : public RefCountedObject { };
+class Pipeline : public RefCountedObject {
+public:
+	Pipeline() : RefCountedObject("Pipeline") {}
+};
 
-class RasterState : public RefCountedObject {};
+class RasterState : public RefCountedObject {
+public:
+	RasterState() : RefCountedObject("RasterState") {}
+};
 
 struct StencilSetup {
 	StencilOp failOp;

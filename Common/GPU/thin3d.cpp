@@ -119,7 +119,8 @@ bool DataFormatIsBlockCompressed(DataFormat fmt, int *blockSize) {
 }
 
 RefCountedObject::~RefCountedObject() {
-	_dbg_assert_(refcount_ == 0xDEDEDE);
+	const int rc = refcount_.load();
+	_dbg_assert_msg_(rc == 0xDEDEDE, "Unexpected refcount %d in object of type '%s'", rc, name_);
 }
 
 bool RefCountedObject::Release() {
