@@ -408,6 +408,10 @@ public:
 		}
 	}
 
+	void IntentionallyLoseDevice() override {
+		vulkan_->IntentionallyLoseDevice();
+	}
+
 	DepthStencilState *CreateDepthStencilState(const DepthStencilStateDesc &desc) override;
 	BlendState *CreateBlendState(const BlendStateDesc &desc) override;
 	InputLayout *CreateInputLayout(const InputLayoutDesc &desc) override;

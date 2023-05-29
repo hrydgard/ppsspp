@@ -834,6 +834,8 @@ public:
 	// Not very elegant, but more elegant than the old passId hack.
 	virtual void SetInvalidationCallback(InvalidationCallback callback) = 0;
 
+	virtual void IntentionallyLoseDevice() {}
+
 protected:
 	ShaderModule *vsPresets_[VS_MAX_PRESET];
 	ShaderModule *fsPresets_[FS_MAX_PRESET];

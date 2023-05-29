@@ -123,6 +123,14 @@ void DevMenuScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	items->Add(new CheckBox(&g_Config.bDrawFrameGraph, dev->T("Draw Frametimes Graph")));
 	items->Add(new Choice(dev->T("Reset limited logging")))->OnClick.Handle(this, &DevMenuScreen::OnResetLimitedLogging);
 
+	if (g_Config.iGPUBackend == (int)GPUBackend::VULKAN) {
+		items->Add(new Choice(dev->T("Crash GPU")))->OnClick.Add([&](UI::EventParams &) {
+			Draw::DrawContext *draw = screenManager()->getDrawContext();
+			draw->IntentionallyLoseDevice();
+			return UI::EVENT_DONE;
+		});
+	}
+
 	scroll->Add(items);
 	parent->Add(scroll);
 

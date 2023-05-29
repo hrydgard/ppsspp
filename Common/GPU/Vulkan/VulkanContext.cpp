@@ -1455,6 +1455,50 @@ bool VulkanContext::CreateShaderModule(const std::vector<uint32_t> &spirv, VkSha
 	}
 }
 
+// Only to be used for debugging lost device handling.
+// This works on NVIDIA to cause a lost device, need to try others.
+void VulkanContext::IntentionallyLoseDevice() {
+	_assert_(device_);
+	VkBufferCreateInfo b{ VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
+	b.size = 1024;
+	b.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+	b.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+	VmaAllocationCreateInfo allocCreateInfo{};
+	allocCreateInfo.usage = VMA_MEMORY_USAGE_CPU_TO_GPU;
+	VmaAllocationInfo allocInfo{};
+
+	VkBuffer buffer;
+	VmaAllocation alloc;
+
+	VkResult result = vmaCreateBuffer(Allocator(), &b, &allocCreateInfo, &buffer, &alloc, &allocInfo);
+	_assert_(result == VK_SUCCESS);
+
+	VkCommandPoolCreateInfo ci{ VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO };
+	VkCommandPool cmdPool;
+	vkCreateCommandPool(device_, &ci, nullptr, &cmdPool);
+	VkCommandBufferAllocateInfo cmdAllocInfo{ VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO };
+	cmdAllocInfo.commandPool = cmdPool;
+	cmdAllocInfo.commandBufferCount = 1;
+	cmdAllocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+	VkCommandBuffer cmdBuf;
+	vkAllocateCommandBuffers(device_, &cmdAllocInfo, &cmdBuf);
+	VkCommandBufferBeginInfo beginInfo{ VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO };
+	vkBeginCommandBuffer(cmdBuf, &beginInfo);
+	// Nonsense!
+	VkBufferCopy info{ 0, 1000000000, 100000 };
+	vkCmdCopyBuffer(cmdBuf, buffer, buffer, 1, &info);
+	vkEndCommandBuffer(cmdBuf);
+	VkSubmitInfo submitInfo{ VK_STRUCTURE_TYPE_SUBMIT_INFO };
+	submitInfo.commandBufferCount = 1;
+	submitInfo.pCommandBuffers = &cmdBuf;
+	// NOTE: Depending on which thread this is called from, this can itself be a violation (queueing stuff from a different thread
+	// on a queue used by another thread).
+	VkResult retval = vkQueueSubmit(gfx_queue_, 1, &submitInfo, VK_NULL_HANDLE);
+	// We might not actually lose the device immediately, but good to confirm.
+	NOTICE_LOG(G3D, "Tried to lose the device, vkQueueSubmit retval = %s", VulkanResultToString(retval));
+	// At this point, the device should be lost.
+}
+
 void TransitionImageLayout2(VkCommandBuffer cmd, VkImage image, int baseMip, int numMipLevels, int numLayers, VkImageAspectFlags aspectMask,
 	VkImageLayout oldImageLayout, VkImageLayout newImageLayout,
 	VkPipelineStageFlags srcStageMask, VkPipelineStageFlags dstStageMask,
@@ -1710,27 +1754,6 @@ void VulkanDeleteList::PerformDeletes(VulkanContext *vulkan, VmaAllocator alloca
 		vkDestroyQueryPool(device, queryPool, nullptr);
 	}
 	queryPools_.clear();
-}
-
-void VulkanContext::GetImageMemoryRequirements(VkImage image, VkMemoryRequirements *mem_reqs, bool *dedicatedAllocation) {
-	if (Extensions().KHR_dedicated_allocation) {
-		VkImageMemoryRequirementsInfo2KHR memReqInfo2{VK_STRUCTURE_TYPE_IMAGE_MEMORY_REQUIREMENTS_INFO_2_KHR};
-		memReqInfo2.image = image;
-
-		VkMemoryRequirements2KHR memReq2 = {VK_STRUCTURE_TYPE_MEMORY_REQUIREMENTS_2_KHR};
-		VkMemoryDedicatedRequirementsKHR memDedicatedReq{VK_STRUCTURE_TYPE_MEMORY_DEDICATED_REQUIREMENTS_KHR};
-		memReq2.pNext = &memDedicatedReq;
-
-		vkGetImageMemoryRequirements2KHR(GetDevice(), &memReqInfo2, &memReq2);
-
-		*mem_reqs = memReq2.memoryRequirements;
-		*dedicatedAllocation =
-			(memDedicatedReq.requiresDedicatedAllocation != VK_FALSE) ||
-			(memDedicatedReq.prefersDedicatedAllocation != VK_FALSE);
-	} else {
-		vkGetImageMemoryRequirements(GetDevice(), image, mem_reqs);
-		*dedicatedAllocation = false;
-	}
 }
 
 bool IsHashMaliDriverVersion(const VkPhysicalDeviceProperties &props) {
