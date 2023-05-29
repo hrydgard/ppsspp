@@ -121,7 +121,6 @@ alignas(16) static const uint16_t offsets_counter_clockwise[24] = {
 
 void IndexGenerator::AddStrip(int numVerts, bool clockwise) {
 	int numTris = numVerts - 2;
-
 #ifdef _M_SSE
 	// In an SSE2 register we can fit 8 16-bit integers.
 	// However, we need to output a multiple of 3 indices.
@@ -134,16 +133,21 @@ void IndexGenerator::AddStrip(int numVerts, bool clockwise) {
 	__m128i ibase8 = _mm_set1_epi16(index_);
 	__m128i increment = _mm_set1_epi16(8);
 	const __m128i *offsets = (const __m128i *)(clockwise ? offsets_clockwise : offsets_counter_clockwise);
-	__m128i offsets0 = _mm_load_si128(offsets);
-	__m128i offsets1 = _mm_load_si128(offsets + 1);
-	__m128i offsets2 = _mm_load_si128(offsets + 2);
+	__m128i offsets0 = _mm_add_epi16(ibase8, _mm_load_si128(offsets));
+	__m128i offsets1 = _mm_add_epi16(ibase8, _mm_load_si128(offsets + 1));
+	__m128i offsets2 = _mm_add_epi16(ibase8, _mm_load_si128(offsets + 2));
 	__m128i *dst = (__m128i *)inds_;
-	for (int i = 0; i < numChunks; i++) {
-		_mm_storeu_si128(dst, _mm_add_epi16(ibase8, offsets0));
-		_mm_storeu_si128(dst + 1, _mm_add_epi16(ibase8, offsets1));
-		_mm_storeu_si128(dst + 2, _mm_add_epi16(ibase8, offsets2));
-		ibase8 = _mm_add_epi16(ibase8, increment);
+	_mm_storeu_si128(dst, offsets0);
+	_mm_storeu_si128(dst + 1, offsets1);
+	_mm_storeu_si128(dst + 2, offsets2);
+	for (int i = 1; i < numChunks; i++) {
+		offsets0 = _mm_add_epi16(offsets0, increment);
+		offsets1 = _mm_add_epi16(offsets1, increment);
+		offsets2 = _mm_add_epi16(offsets2, increment);
 		dst += 3;
+		_mm_storeu_si128(dst, offsets0);
+		_mm_storeu_si128(dst + 1, offsets1);
+		_mm_storeu_si128(dst + 2, offsets2);
 	}
 	inds_ += numTris * 3;
 	// wind doesn't need to be updated, an even number of triangles have been drawn.
