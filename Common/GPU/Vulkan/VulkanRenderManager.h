@@ -76,7 +76,10 @@ struct BoundingRect {
 
 // All the data needed to create a graphics pipeline.
 // TODO: Compress this down greatly.
-struct VKRGraphicsPipelineDesc : Draw::RefCountedObject {
+class VKRGraphicsPipelineDesc : public Draw::RefCountedObject {
+public:
+	VKRGraphicsPipelineDesc() : Draw::RefCountedObject("VKRGraphicsPipelineDesc") {}
+
 	VkPipelineCache pipelineCache = VK_NULL_HANDLE;
 	VkPipelineColorBlendStateCreateInfo cbs{ VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO };
 	VkPipelineColorBlendAttachmentState blend0{};
