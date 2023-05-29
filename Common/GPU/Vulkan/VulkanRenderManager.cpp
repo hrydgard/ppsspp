@@ -507,6 +507,8 @@ void VulkanRenderManager::ThreadFunc() {
 		// push more work when it feels like it, and just start working.
 		if (task->runType == VKRRunType::EXIT) {
 			// Oh, host wanted out. Let's leave.
+			delete task;
+			// In this case, there should be no more tasks.
 			break;
 		}
 
