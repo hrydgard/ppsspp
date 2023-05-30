@@ -799,8 +799,9 @@ bool VKTexture::Create(VkCommandBuffer cmd, VulkanPushPool *pushBuffer, const Te
 void VKTexture::Update(VkCommandBuffer cmd, VulkanPushPool *pushBuffer, const uint8_t * const *data, TextureCallback initDataCallback, int numLevels) {
 	// Before we can use UpdateInternal, we need to transition the image to the same state as after CreateDirect,
 	// making it ready for writing.
-
+	vkTex_->PrepareForTransferDst(cmd, numLevels);
 	UpdateInternal(cmd, pushBuffer, data, initDataCallback, numLevels);
+	vkTex_->RestoreAfterTransferDst(cmd, numLevels);
 }
 
 void VKTexture::UpdateInternal(VkCommandBuffer cmd, VulkanPushPool *pushBuffer, const uint8_t * const *data, TextureCallback initDataCallback, int numLevels) {
