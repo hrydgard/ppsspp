@@ -484,6 +484,10 @@ public:
 	void EndFrame() override;
 	void WipeQueue() override;
 
+	int GetFrameCount() override {
+		return frameCount_;
+	}
+
 	void FlushState() override {}
 
 	void ResetStats() override {
@@ -528,6 +532,7 @@ private:
 	VulkanTexture *GetNullTexture();
 	VulkanContext *vulkan_ = nullptr;
 
+	int frameCount_ = 0;
 	VulkanRenderManager renderManager_;
 
 	VulkanTexture *nullTexture_ = nullptr;
@@ -799,8 +804,9 @@ bool VKTexture::Create(VkCommandBuffer cmd, VulkanPushPool *pushBuffer, const Te
 void VKTexture::Update(VkCommandBuffer cmd, VulkanPushPool *pushBuffer, const uint8_t * const *data, TextureCallback initDataCallback, int numLevels) {
 	// Before we can use UpdateInternal, we need to transition the image to the same state as after CreateDirect,
 	// making it ready for writing.
-
+	vkTex_->PrepareForTransferDst(cmd, numLevels);
 	UpdateInternal(cmd, pushBuffer, data, initDataCallback, numLevels);
+	vkTex_->RestoreAfterTransferDst(cmd, numLevels);
 }
 
 void VKTexture::UpdateInternal(VkCommandBuffer cmd, VulkanPushPool *pushBuffer, const uint8_t * const *data, TextureCallback initDataCallback, int numLevels) {
@@ -1104,6 +1110,8 @@ void VKContext::EndFrame() {
 
 	// Unbind stuff, to avoid accidentally relying on it across frames (and provide some protection against forgotten unbinds of deleted things).
 	Invalidate(InvalidationFlags::CACHED_RENDER_STATE);
+
+	frameCount_++;
 }
 
 void VKContext::Invalidate(InvalidationFlags flags) {

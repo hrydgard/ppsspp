@@ -370,6 +370,10 @@ public:
 	void BeginFrame() override;
 	void EndFrame() override;
 
+	int GetFrameCount() override {
+		return frameCount_;
+	}
+
 	void UpdateBuffer(Buffer *buffer, const uint8_t *data, size_t offset, size_t size, UpdateBufferFlags flags) override;
 	void UpdateTextureLevels(Texture *texture, const uint8_t **data, TextureCallback initDataCallback, int numLevels) override;
 
@@ -492,6 +496,7 @@ private:
 	void ApplySamplers();
 
 	GLRenderManager renderManager_;
+	int frameCount_ = 0;
 
 	DeviceCaps caps_{};
 
@@ -795,6 +800,7 @@ void OpenGLContext::EndFrame() {
 	renderManager_.Finish();
 
 	Invalidate(InvalidationFlags::CACHED_RENDER_STATE);
+	frameCount_++;
 }
 
 void OpenGLContext::Invalidate(InvalidationFlags flags) {

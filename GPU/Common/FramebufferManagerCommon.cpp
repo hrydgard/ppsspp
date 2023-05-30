@@ -1402,16 +1402,19 @@ Draw::Texture *FramebufferManagerCommon::MakePixelTexture(const u8 *srcPixels, G
 
 	Draw::DataFormat texFormat = srcPixelFormat == GE_FORMAT_DEPTH16 ? depthFormat : preferredPixelsFormat_;
 
+	int frameNumber = draw_->GetFrameCount();
+
 	// Look for a matching texture we can re-use.
 	for (auto &iter : drawPixelsCache_) {
-		if (iter.frameNumber > gpuStats.numFlips - 3 || iter.tex->Width() != width || iter.tex->Height() != height || iter.tex->Format() != texFormat) {
+		if (iter.frameNumber >= frameNumber - 3 || iter.tex->Width() != width || iter.tex->Height() != height || iter.tex->Format() != texFormat) {
 			continue;
 		}
 
 		// OK, current one seems good, let's use it (and mark it used).
 		gpuStats.numDrawPixels++;
 		draw_->UpdateTextureLevels(iter.tex, &srcPixels, generateTexture, 1);
-		iter.frameNumber = gpuStats.numFlips;
+		// NOTE: numFlips is no good - this is called every frame when paused sometimes!
+		iter.frameNumber = frameNumber;
 		return iter.tex;
 	}
 
@@ -1440,9 +1443,9 @@ Draw::Texture *FramebufferManagerCommon::MakePixelTexture(const u8 *srcPixels, G
 	gpuStats.numDrawPixels++;
 	gpuStats.numTexturesDecoded++;  // Separate stat for this later?
 
-	INFO_LOG(G3D, "Creating drawPixelsCache texture: %dx%d", tex->Width(), tex->Height());
+	// INFO_LOG(G3D, "Creating drawPixelsCache texture: %dx%d", tex->Width(), tex->Height());
 
-	DrawPixelsEntry entry{ tex, gpuStats.numFlips };
+	DrawPixelsEntry entry{ tex, frameNumber };
 	drawPixelsCache_.push_back(entry);
 	return tex;
 }
@@ -1695,9 +1698,9 @@ void FramebufferManagerCommon::DecimateFBOs() {
 	// And DrawPixels cached textures.
 
 	for (auto it = drawPixelsCache_.begin(); it != drawPixelsCache_.end(); ) {
-		int age = gpuStats.numFlips - it->frameNumber;
+		int age = draw_->GetFrameCount() - it->frameNumber;
 		if (age > 10) {
-			INFO_LOG(G3D, "Releasing drawPixelsCache texture: %dx%d", it->tex->Width(), it->tex->Height());
+			// INFO_LOG(G3D, "Releasing drawPixelsCache texture: %dx%d", it->tex->Width(), it->tex->Height());
 			it->tex->Release();
 			it->tex = nullptr;
 			it = drawPixelsCache_.erase(it);
