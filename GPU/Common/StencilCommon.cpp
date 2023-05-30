@@ -354,7 +354,6 @@ bool FramebufferManagerCommon::PerformWriteStencilFromMemory(u32 addr, int size,
 		draw_->BlitFramebuffer(blitFBO, 0, 0, w, h, dstBuffer->fbo, 0, 0, dstBuffer->renderWidth, dstBuffer->renderHeight, Draw::FB_STENCIL_BIT, Draw::FB_BLIT_NEAREST, "WriteStencilFromMemory_Blit");
 		RebindFramebuffer("RebindFramebuffer - Stencil");
 	}
-	tex->Release();
 
 	draw_->Invalidate(InvalidationFlags::CACHED_RENDER_STATE);
 	gstate_c.Dirty(DIRTY_ALL_RENDER_STATE);

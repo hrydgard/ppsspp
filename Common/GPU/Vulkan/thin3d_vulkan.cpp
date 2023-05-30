@@ -335,8 +335,11 @@ struct DescriptorSetKey {
 class VKTexture : public Texture {
 public:
 	VKTexture(VulkanContext *vulkan, VkCommandBuffer cmd, VulkanPushPool *pushBuffer, const TextureDesc &desc)
-		: vulkan_(vulkan), mipLevels_(desc.mipLevels), format_(desc.format) {}
+		: vulkan_(vulkan), mipLevels_(desc.mipLevels) {
+		format_ = desc.format;
+	}
 	bool Create(VkCommandBuffer cmd, VulkanPushPool *pushBuffer, const TextureDesc &desc);
+	void Update(VkCommandBuffer cmd, VulkanPushPool *pushBuffer, const uint8_t *const *data, TextureCallback callback, int numLevels);
 
 	~VKTexture() {
 		Destroy();
@@ -356,7 +359,13 @@ public:
 		return VK_NULL_HANDLE;  // This would be bad.
 	}
 
+	int NumLevels() const {
+		return mipLevels_;
+	}
+
 private:
+	void UpdateInternal(VkCommandBuffer cmd, VulkanPushPool *pushBuffer, const uint8_t *const *data, TextureCallback callback, int numLevels);
+
 	void Destroy() {
 		if (vkTex_) {
 			vkTex_->Destroy();
@@ -369,8 +378,6 @@ private:
 	VulkanTexture *vkTex_ = nullptr;
 
 	int mipLevels_ = 0;
-
-	DataFormat format_ = DataFormat::UNDEFINED;
 };
 
 class VKFramebuffer;
@@ -421,6 +428,7 @@ public:
 	Framebuffer *CreateFramebuffer(const FramebufferDesc &desc) override;
 
 	void UpdateBuffer(Buffer *buffer, const uint8_t *data, size_t offset, size_t size, UpdateBufferFlags flags) override;
+	void UpdateTextureLevels(Texture *texture, const uint8_t **data, TextureCallback initDataCallback, int numLevels) override;
 
 	void CopyFramebufferImage(Framebuffer *src, int level, int x, int y, int z, Framebuffer *dst, int dstLevel, int dstX, int dstY, int dstZ, int width, int height, int depth, int channelBits, const char *tag) override;
 	bool BlitFramebuffer(Framebuffer *src, int srcX1, int srcY1, int srcX2, int srcY2, Framebuffer *dst, int dstX1, int dstY1, int dstX2, int dstY2, int channelBits, FBBlitFilter filter, const char *tag) override;
@@ -748,14 +756,14 @@ enum class TextureState {
 	PENDING_DESTRUCTION,
 };
 
-bool VKTexture::Create(VkCommandBuffer cmd, VulkanPushPool *push, const TextureDesc &desc) {
+bool VKTexture::Create(VkCommandBuffer cmd, VulkanPushPool *pushBuffer, const TextureDesc &desc) {
 	// Zero-sized textures not allowed.
 	_assert_(desc.width * desc.height * desc.depth > 0);  // remember to set depth to 1!
 	if (desc.width * desc.height * desc.depth <= 0) {
 		ERROR_LOG(G3D,  "Bad texture dimensions %dx%dx%d", desc.width, desc.height, desc.depth);
 		return false;
 	}
-	_assert_(push);
+	_dbg_assert_(pushBuffer);
 	format_ = desc.format;
 	mipLevels_ = desc.mipLevels;
 	width_ = desc.width;
@@ -763,8 +771,6 @@ bool VKTexture::Create(VkCommandBuffer cmd, VulkanPushPool *push, const TextureD
 	depth_ = desc.depth;
 	vkTex_ = new VulkanTexture(vulkan_, desc.tag);
 	VkFormat vulkanFormat = DataFormatToVulkan(format_);
-	int bpp = GetBpp(vulkanFormat);
-	int bytesPerPixel = bpp / 8;
 	int usageBits = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
 	if (mipLevels_ > (int)desc.initData.size()) {
 		// Gonna have to generate some, which requires TRANSFER_SRC
@@ -779,38 +785,52 @@ bool VKTexture::Create(VkCommandBuffer cmd, VulkanPushPool *push, const TextureD
 	}
 	VkImageLayout layout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
 	if (desc.initData.size()) {
-		int w = width_;
-		int h = height_;
-		int d = depth_;
-		int i;
-		for (i = 0; i < (int)desc.initData.size(); i++) {
-			uint32_t offset;
-			VkBuffer buf;
-			size_t size = w * h * d * bytesPerPixel;
-			uint8_t *dest = (uint8_t *)push->Allocate(size, 16, &buf, &offset);
-			if (desc.initDataCallback) {
-				_assert_(dest != nullptr);
-				if (!desc.initDataCallback(dest, desc.initData[i], w, h, d, w * bytesPerPixel, h * w * bytesPerPixel)) {
-					memcpy(dest, desc.initData[i], size);
-				}
-			} else {
-				memcpy(dest, desc.initData[i], size);
-			}
-			TextureCopyBatch batch;
-			vkTex_->CopyBufferToMipLevel(cmd, &batch, i, w, h, 0, buf, offset, w);
-			vkTex_->FinishCopyBatch(cmd, &batch);
-			w = (w + 1) / 2;
-			h = (h + 1) / 2;
-			d = (d + 1) / 2;
-		}
+		UpdateInternal(cmd, pushBuffer, desc.initData.data(), desc.initDataCallback, (int)desc.initData.size());
 		// Generate the rest of the mips automatically.
-		if (i < mipLevels_) {
-			vkTex_->GenerateMips(cmd, i, false);
+		if (desc.initData.size() < mipLevels_) {
+			vkTex_->GenerateMips(cmd, (int)desc.initData.size(), false);
 			layout = VK_IMAGE_LAYOUT_GENERAL;
 		}
 	}
 	vkTex_->EndCreate(cmd, false, VK_PIPELINE_STAGE_TRANSFER_BIT, layout);
 	return true;
+}
+
+void VKTexture::Update(VkCommandBuffer cmd, VulkanPushPool *pushBuffer, const uint8_t * const *data, TextureCallback initDataCallback, int numLevels) {
+	// Before we can use UpdateInternal, we need to transition the image to the same state as after CreateDirect,
+	// making it ready for writing.
+
+	UpdateInternal(cmd, pushBuffer, data, initDataCallback, numLevels);
+}
+
+void VKTexture::UpdateInternal(VkCommandBuffer cmd, VulkanPushPool *pushBuffer, const uint8_t * const *data, TextureCallback initDataCallback, int numLevels) {
+	int w = width_;
+	int h = height_;
+	int d = depth_;
+	int i;
+	VkFormat vulkanFormat = DataFormatToVulkan(format_);
+	int bpp = GetBpp(vulkanFormat);
+	int bytesPerPixel = bpp / 8;
+	TextureCopyBatch batch;
+	for (i = 0; i < numLevels; i++) {
+		uint32_t offset;
+		VkBuffer buf;
+		size_t size = w * h * d * bytesPerPixel;
+		uint8_t *dest = (uint8_t *)pushBuffer->Allocate(size, 16, &buf, &offset);
+		if (initDataCallback) {
+			_assert_(dest != nullptr);
+			if (!initDataCallback(dest, data[i], w, h, d, w * bytesPerPixel, h * w * bytesPerPixel)) {
+				memcpy(dest, data[i], size);
+			}
+		} else {
+			memcpy(dest, data[i], size);
+		}
+		vkTex_->CopyBufferToMipLevel(cmd, &batch, i, w, h, 0, buf, offset, w);
+		w = (w + 1) / 2;
+		h = (h + 1) / 2;
+		d = (d + 1) / 2;
+	}
+	vkTex_->FinishCopyBatch(cmd, &batch);
 }
 
 static DataFormat DataFormatFromVulkanDepth(VkFormat fmt) {
@@ -1340,6 +1360,20 @@ Texture *VKContext::CreateTexture(const TextureDesc &desc) {
 		delete tex;
 		return nullptr;
 	}
+}
+
+void VKContext::UpdateTextureLevels(Texture *texture, const uint8_t **data, TextureCallback initDataCallback, int numLevels) {
+	VkCommandBuffer initCmd = renderManager_.GetInitCmd();
+	if (!push_ || !initCmd) {
+		// Too early! Fail.
+		ERROR_LOG(G3D, "Can't create textures before the first frame has started.");
+		return;
+	}
+
+	VKTexture *tex = (VKTexture *)texture;
+
+	_dbg_assert_(numLevels <= tex->NumLevels());
+	tex->Update(initCmd, push_, data, initDataCallback, numLevels);
 }
 
 static inline void CopySide(VkStencilOpState &dest, const StencilSetup &src) {
