@@ -811,12 +811,41 @@ public:
 	bool Create(ID3D11DeviceContext *context, ID3D11Device *device, const TextureDesc &desc, bool generateMips);
 
 	bool CreateStagingTexture(ID3D11Device *device);
+	void UpdateTextureLevels(ID3D11DeviceContext *context, ID3D11Device *device, Texture *texture, const uint8_t *const *data, TextureCallback initDataCallback, int numLevels);
+
+	ID3D11ShaderResourceView *View() { return view_; }
+
+private:
+	bool FillLevel(ID3D11DeviceContext *context, int level, int w, int h, int d, const uint8_t *const *data, TextureCallback initDataCallback);
 
 	ID3D11Texture2D *tex_ = nullptr;
 	ID3D11Texture2D *stagingTex_ = nullptr;
 	ID3D11ShaderResourceView *view_ = nullptr;
 	int mipLevels_ = 0;
 };
+
+bool D3D11Texture::FillLevel(ID3D11DeviceContext *context, int level, int w, int h, int d, const uint8_t *const *data, TextureCallback initDataCallback) {
+	D3D11_MAPPED_SUBRESOURCE mapped;
+	HRESULT hr = context->Map(stagingTex_, level, D3D11_MAP_WRITE, 0, &mapped);
+	if (!SUCCEEDED(hr)) {
+		tex_->Release();
+		tex_ = nullptr;
+		return false;
+	}
+
+	if (!initDataCallback((uint8_t *)mapped.pData, data[level], w, h, d, mapped.RowPitch, mapped.DepthPitch)) {
+		for (int s = 0; s < d; ++s) {
+			for (int y = 0; y < h; ++y) {
+				void *dest = (uint8_t *)mapped.pData + mapped.DepthPitch * s + mapped.RowPitch * y;
+				uint32_t byteStride = w * (uint32_t)DataFormatSizeInBytes(format_);
+				const void *src = data[level] + byteStride * (y + h * d);
+				memcpy(dest, src, byteStride);
+			}
+		}
+	}
+	context->Unmap(stagingTex_, level);
+	return true;
+}
 
 bool D3D11Texture::CreateStagingTexture(ID3D11Device *device) {
 	if (stagingTex_)
@@ -891,32 +920,9 @@ bool D3D11Texture::Create(ID3D11DeviceContext *context, ID3D11Device *device, co
 		return false;
 	}
 
-	auto populateLevelCallback = [&](int level, int w, int h, int d) {
-		D3D11_MAPPED_SUBRESOURCE mapped;
-		hr = context->Map(stagingTex_, level, D3D11_MAP_WRITE, 0, &mapped);
-		if (!SUCCEEDED(hr)) {
-			tex_->Release();
-			tex_ = nullptr;
-			return false;
-		}
-
-		if (!desc.initDataCallback((uint8_t *)mapped.pData, desc.initData[level], w, h, d, mapped.RowPitch, mapped.DepthPitch)) {
-			for (int s = 0; s < d; ++s) {
-				for (int y = 0; y < h; ++y) {
-					void *dest = (uint8_t *)mapped.pData + mapped.DepthPitch * s + mapped.RowPitch * y;
-					uint32_t byteStride = w * (uint32_t)DataFormatSizeInBytes(desc.format);
-					const void *src = desc.initData[level] + byteStride * (y + h * d);
-					memcpy(dest, src, byteStride);
-				}
-			}
-		}
-		context->Unmap(stagingTex_, level);
-		return true;
-	};
-
 	if (generateMips && desc.initData.size() >= 1) {
 		if (desc.initDataCallback) {
-			if (!populateLevelCallback(0, desc.width, desc.height, desc.depth)) {
+			if (!FillLevel(context, 0, desc.width, desc.height, desc.depth, desc.initData.data(), desc.initDataCallback)) {
 				tex_->Release();
 				return false;
 			}
@@ -934,7 +940,7 @@ bool D3D11Texture::Create(ID3D11DeviceContext *context, ID3D11Device *device, co
 		int h = desc.height;
 		int d = desc.depth;
 		for (int i = 0; i < (int)desc.initData.size(); i++) {
-			if (!populateLevelCallback(i, desc.width, desc.height, desc.depth)) {
+			if (!FillLevel(context, i, w, h, d, desc.initData.data(), desc.initDataCallback)) {
 				if (i == 0) {
 					return false;
 				} else {
@@ -952,6 +958,29 @@ bool D3D11Texture::Create(ID3D11DeviceContext *context, ID3D11Device *device, co
 		stagingTex_ = nullptr;
 	}
 	return true;
+}
+
+void D3D11Texture::UpdateTextureLevels(ID3D11DeviceContext *context, ID3D11Device *device, Texture *texture, const uint8_t * const*data, TextureCallback initDataCallback, int numLevels) {
+	if (!CreateStagingTexture(device)) {
+		return;
+	}
+
+	int w = width_;
+	int h = height_;
+	int d = depth_;
+	for (int i = 0; i < (int)numLevels; i++) {
+		if (!FillLevel(context, i, w, h, d, data, initDataCallback)) {
+			break;
+		}
+
+		w = (w + 1) / 2;
+		h = (h + 1) / 2;
+		d = (d + 1) / 2;
+	}
+
+	context->CopyResource(tex_, stagingTex_);
+	stagingTex_->Release();
+	stagingTex_ = nullptr;
 }
 
 Texture *D3D11DrawContext::CreateTexture(const TextureDesc &desc) {
@@ -974,12 +1003,10 @@ Texture *D3D11DrawContext::CreateTexture(const TextureDesc &desc) {
 	return tex;
 }
 
+
 void D3D11DrawContext::UpdateTextureLevels(Texture *texture, const uint8_t **data, TextureCallback initDataCallback, int numLevels) {
 	D3D11Texture *tex = (D3D11Texture *)texture;
-	
-	// If no staging texture, let's create one.
-
-
+	tex->UpdateTextureLevels(context_, device_, texture, data, initDataCallback, numLevels);
 }
 
 ShaderModule *D3D11DrawContext::CreateShaderModule(ShaderStage stage, ShaderLanguage language, const uint8_t *data, size_t dataSize, const char *tag) {
@@ -1450,7 +1477,7 @@ void D3D11DrawContext::BindTextures(int start, int count, Texture **textures, Te
 	_assert_(start + count <= ARRAY_SIZE(views));
 	for (int i = 0; i < count; i++) {
 		D3D11Texture *tex = (D3D11Texture *)textures[i];
-		views[i] = tex ? tex->view_ : nullptr;
+		views[i] = tex ? tex->View() : nullptr;
 	}
 	context_->PSSetShaderResources(start, count, views);
 }
@@ -1810,7 +1837,7 @@ uint64_t D3D11DrawContext::GetNativeObject(NativeObject obj, void *srcObject) {
 	case NativeObject::FEATURE_LEVEL:
 		return (uint64_t)(uintptr_t)featureLevel_;
 	case NativeObject::TEXTURE_VIEW:
-		return (uint64_t)(((D3D11Texture *)srcObject)->view_);
+		return (uint64_t)(((D3D11Texture *)srcObject)->View());
 	default:
 		return 0;
 	}
