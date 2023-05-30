@@ -57,7 +57,7 @@ VKAPI_ATTR VkBool32 VKAPI_CALL VulkanDebugUtilsCallback(
 		// We really need that performance flag check to sort out the stuff that matters.
 		// Will enable it soon, but it'll take some fixing.
 		//
-		//if (messageSeverity & VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT)
+		if (messageType & VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT)
 			return false;
 		break;
 
@@ -81,14 +81,6 @@ VKAPI_ATTR VkBool32 VKAPI_CALL VulkanDebugUtilsCallback(
 	case 657182421:
 		// Extended validation (ARM best practices)
 		// Non-fifo validation not recommended
-		return false;
-	case -564812795:
-	case 369680064:
-	case 307231540:
-	case 618171435:  // SHADER_ACCESS_READ
-	case 1774732925: // same but different
-	case -1539028524: // image layout in draw
-		// wip
 		return false;
 	default:
 		break;

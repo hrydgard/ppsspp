@@ -1443,7 +1443,7 @@ Draw::Texture *FramebufferManagerCommon::MakePixelTexture(const u8 *srcPixels, G
 	gpuStats.numDrawPixels++;
 	gpuStats.numTexturesDecoded++;  // Separate stat for this later?
 
-	INFO_LOG(G3D, "Creating drawPixelsCache texture: %dx%d", tex->Width(), tex->Height());
+	// INFO_LOG(G3D, "Creating drawPixelsCache texture: %dx%d", tex->Width(), tex->Height());
 
 	DrawPixelsEntry entry{ tex, frameNumber };
 	drawPixelsCache_.push_back(entry);
@@ -1700,7 +1700,7 @@ void FramebufferManagerCommon::DecimateFBOs() {
 	for (auto it = drawPixelsCache_.begin(); it != drawPixelsCache_.end(); ) {
 		int age = draw_->GetFrameCount() - it->frameNumber;
 		if (age > 10) {
-			INFO_LOG(G3D, "Releasing drawPixelsCache texture: %dx%d", it->tex->Width(), it->tex->Height());
+			// INFO_LOG(G3D, "Releasing drawPixelsCache texture: %dx%d", it->tex->Width(), it->tex->Height());
 			it->tex->Release();
 			it->tex = nullptr;
 			it = drawPixelsCache_.erase(it);
