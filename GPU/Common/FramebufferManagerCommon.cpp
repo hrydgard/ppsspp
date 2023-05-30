@@ -1217,7 +1217,6 @@ void FramebufferManagerCommon::DrawPixels(VirtualFramebuffer *vfb, int dstX, int
 			u0, v0, u1, v1, ROTATION_LOCKED_HORIZONTAL, flags);
 
 		gpuStats.numUploads++;
-		pixelsTex->Release();
 		draw_->Invalidate(InvalidationFlags::CACHED_RENDER_STATE);
 
 		gstate_c.Dirty(DIRTY_ALL_RENDER_STATE);
@@ -1401,11 +1400,26 @@ Draw::Texture *FramebufferManagerCommon::MakePixelTexture(const u8 *srcPixels, G
 		return true;
 	};
 
+	Draw::DataFormat texFormat = srcPixelFormat == GE_FORMAT_DEPTH16 ? depthFormat : preferredPixelsFormat_;
+
+	// Look for a matching texture we can re-use.
+	for (auto &iter : drawPixelsCache_) {
+		if (iter.frameNumber > gpuStats.numFlips - 3 || iter.tex->Width() != width || iter.tex->Height() != height || iter.tex->Format() != texFormat) {
+			continue;
+		}
+
+		// OK, current one seems good, let's use it (and mark it used).
+		gpuStats.numDrawPixels++;
+		draw_->UpdateTextureLevels(iter.tex, &srcPixels, generateTexture, 1);
+		iter.frameNumber = gpuStats.numFlips;
+		return iter.tex;
+	}
+
 	// Note: For depth, we create an R16_UNORM texture, that'll be just fine for uploading depth through a shader,
 	// and likely more efficient.
 	Draw::TextureDesc desc{
 		Draw::TextureType::LINEAR2D,
-		srcPixelFormat == GE_FORMAT_DEPTH16 ? depthFormat : preferredPixelsFormat_,
+		texFormat,
 		width,
 		height,
 		1,
@@ -1424,6 +1438,12 @@ Draw::Texture *FramebufferManagerCommon::MakePixelTexture(const u8 *srcPixels, G
 		ERROR_LOG(G3D, "Failed to create DrawPixels texture");
 	}
 	gpuStats.numDrawPixels++;
+	gpuStats.numTexturesDecoded++;  // Separate stat for this later?
+
+	INFO_LOG(G3D, "Creating drawPixelsCache texture: %dx%d", tex->Width(), tex->Height());
+
+	DrawPixelsEntry entry{ tex, gpuStats.numFlips };
+	drawPixelsCache_.push_back(entry);
 	return tex;
 }
 
@@ -1450,7 +1470,6 @@ void FramebufferManagerCommon::DrawFramebufferToOutput(const u8 *srcPixels, int 
 	presentation_->UpdateUniforms(textureCache_->VideoIsPlaying());
 	presentation_->SourceTexture(pixelsTex, 512, 272);
 	presentation_->CopyToOutput(flags, uvRotation, u0, v0, u1, v1);
-	pixelsTex->Release();
 
 	// PresentationCommon sets all kinds of state, we can't rely on anything.
 	gstate_c.Dirty(DIRTY_ALL);
@@ -1670,6 +1689,20 @@ void FramebufferManagerCommon::DecimateFBOs() {
 			INFO_LOG(FRAMEBUF, "Decimating FBO for %08x (%dx%d %s), age %i", vfb->fb_address, vfb->width, vfb->height, GeBufferFormatToString(vfb->fb_format), age);
 			DestroyFramebuf(vfb);
 			bvfbs_.erase(bvfbs_.begin() + i--);
+		}
+	}
+
+	// And DrawPixels cached textures.
+
+	for (auto it = drawPixelsCache_.begin(); it != drawPixelsCache_.end(); ) {
+		int age = gpuStats.numFlips - it->frameNumber;
+		if (age > 10) {
+			INFO_LOG(G3D, "Releasing drawPixelsCache texture: %dx%d", it->tex->Width(), it->tex->Height());
+			it->tex->Release();
+			it->tex = nullptr;
+			it = drawPixelsCache_.erase(it);
+		} else {
+			++it;
 		}
 	}
 }
@@ -2604,10 +2637,15 @@ void FramebufferManagerCommon::DestroyAllFBOs() {
 	}
 	tempFBOs_.clear();
 
-	for (auto iter : fbosToDelete_) {
+	for (auto &iter : fbosToDelete_) {
 		iter->Release();
 	}
 	fbosToDelete_.clear();
+
+	for (auto &iter : drawPixelsCache_) {
+		iter.tex->Release();
+	}
+	drawPixelsCache_.clear();
 }
 
 static const char *TempFBOReasonToString(TempFBO reason) {

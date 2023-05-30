@@ -92,7 +92,7 @@ public:
 	Framebuffer *CreateFramebuffer(const FramebufferDesc &desc) override;
 
 	void UpdateBuffer(Buffer *buffer, const uint8_t *data, size_t offset, size_t size, UpdateBufferFlags flags) override;
-	void UpdateTextureLevels(Texture *texture, const uint8_t **data, int numLevels) override;
+	void UpdateTextureLevels(Texture *texture, const uint8_t **data, TextureCallback initDataCallback, int numLevels) override;
 
 	void CopyFramebufferImage(Framebuffer *src, int level, int x, int y, int z, Framebuffer *dst, int dstLevel, int dstX, int dstY, int dstZ, int width, int height, int depth, int channelBits, const char *tag) override;
 	bool BlitFramebuffer(Framebuffer *src, int srcX1, int srcY1, int srcX2, int srcY2, Framebuffer *dst, int dstX1, int dstY1, int dstX2, int dstY2, int channelBits, FBBlitFilter filter, const char *tag) override;
@@ -796,6 +796,7 @@ public:
 		width_ = desc.width;
 		height_ = desc.height;
 		depth_ = desc.depth;
+		format_ = desc.format;
 	}
 	~D3D11Texture() {
 		if (tex)
@@ -944,7 +945,7 @@ Texture *D3D11DrawContext::CreateTexture(const TextureDesc &desc) {
 	return tex;
 }
 
-void D3D11DrawContext::UpdateTextureLevels(Texture *texture, const uint8_t **data, int numLevels) {
+void D3D11DrawContext::UpdateTextureLevels(Texture *texture, const uint8_t **data, TextureCallback initDataCallback, int numLevels) {
 	D3D11Texture *tex = (D3D11Texture *)texture;
 	// TODO
 }

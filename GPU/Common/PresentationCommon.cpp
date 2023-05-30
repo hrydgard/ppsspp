@@ -581,20 +581,23 @@ Draw::ShaderModule *PresentationCommon::CompileShaderModule(ShaderStage stage, S
 }
 
 void PresentationCommon::SourceTexture(Draw::Texture *texture, int bufferWidth, int bufferHeight) {
+	// AddRef before release and assign in case it's the same.
+	texture->AddRef();
+
 	DoRelease(srcTexture_);
 	DoRelease(srcFramebuffer_);
 
-	texture->AddRef();
 	srcTexture_ = texture;
 	srcWidth_ = bufferWidth;
 	srcHeight_ = bufferHeight;
 }
 
 void PresentationCommon::SourceFramebuffer(Draw::Framebuffer *fb, int bufferWidth, int bufferHeight) {
+	fb->AddRef();
+
 	DoRelease(srcTexture_);
 	DoRelease(srcFramebuffer_);
 
-	fb->AddRef();
 	srcFramebuffer_ = fb;
 	srcWidth_ = bufferWidth;
 	srcHeight_ = bufferHeight;

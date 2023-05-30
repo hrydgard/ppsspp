@@ -316,7 +316,6 @@ private:
 	LPDIRECT3DDEVICE9 device_;
 	LPDIRECT3DDEVICE9EX deviceEx_;
 	TextureType type_;
-	DataFormat format_;
 	D3DFORMAT d3dfmt_;
 	LPDIRECT3DTEXTURE9 tex_ = nullptr;
 	LPDIRECT3DVOLUMETEXTURE9 volTex_ = nullptr;
@@ -537,7 +536,7 @@ public:
 	Framebuffer *CreateFramebuffer(const FramebufferDesc &desc) override;
 
 	void UpdateBuffer(Buffer *buffer, const uint8_t *data, size_t offset, size_t size, UpdateBufferFlags flags) override;
-	void UpdateTextureLevels(Texture *texture, const uint8_t **data, int numLevels) override;
+	void UpdateTextureLevels(Texture *texture, const uint8_t **data, TextureCallback initDataCallback, int numLevels) override;
 
 	void CopyFramebufferImage(Framebuffer *src, int level, int x, int y, int z, Framebuffer *dst, int dstLevel, int dstX, int dstY, int dstZ, int width, int height, int depth, int channelBits, const char *tag) override {
 		// Not implemented
@@ -940,9 +939,9 @@ Texture *D3D9Context::CreateTexture(const TextureDesc &desc) {
 	return tex;
 }
 
-void D3D9Context::UpdateTextureLevels(Texture *texture, const uint8_t **data, int numLevels) {
+void D3D9Context::UpdateTextureLevels(Texture *texture, const uint8_t **data, TextureCallback initDataCallback, int numLevels) {
 	D3D9Texture *tex = (D3D9Texture *)texture;
-	tex->UpdateTextureLevels(data, numLevels, TextureCallback());
+	tex->UpdateTextureLevels(data, numLevels, initDataCallback);
 }
 
 

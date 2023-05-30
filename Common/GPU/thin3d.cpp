@@ -132,6 +132,7 @@ bool RefCountedObject::Release() {
 			return true;
 		}
 	} else {
+		// No point in printing the name here if the object has already been free-d, it'll be corrupt and dangerous to print.
 		_dbg_assert_msg_(false, "Refcount (%d) invalid for object %p - corrupt?", refcount_.load(), this);
 	}
 	return false;
@@ -139,10 +140,9 @@ bool RefCountedObject::Release() {
 
 bool RefCountedObject::ReleaseAssertLast() {
 	bool released = Release();
-	_dbg_assert_msg_(released, "RefCountedObject: Expected to be the last reference, but isn't!");
+	_dbg_assert_msg_(released, "RefCountedObject: Expected to be the last reference, but isn't! (%s)", name_);
 	return released;
 }
-
 
 // ================================== PIXEL/FRAGMENT SHADERS
 

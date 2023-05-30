@@ -267,6 +267,11 @@ namespace Draw {
 class DrawContext;
 }
 
+struct DrawPixelsEntry {
+	Draw::Texture *tex;
+	int frameNumber;
+};
+
 struct GPUDebugBuffer;
 class DrawEngineCommon;
 class PresentationCommon;
@@ -570,6 +575,8 @@ protected:
 
 	std::vector<VirtualFramebuffer *> vfbs_;
 	std::vector<VirtualFramebuffer *> bvfbs_; // blitting framebuffers (for download)
+
+	std::vector<DrawPixelsEntry> drawPixelsCache_;
 
 	bool gameUsesSequentialCopies_ = false;
 

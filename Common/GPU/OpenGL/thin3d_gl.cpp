@@ -371,7 +371,7 @@ public:
 	void EndFrame() override;
 
 	void UpdateBuffer(Buffer *buffer, const uint8_t *data, size_t offset, size_t size, UpdateBufferFlags flags) override;
-	void UpdateTextureLevels(Texture *texture, const uint8_t **data, int numLevels) override;
+	void UpdateTextureLevels(Texture *texture, const uint8_t **data, TextureCallback initDataCallback, int numLevels) override;
 
 	void CopyFramebufferImage(Framebuffer *src, int level, int x, int y, int z, Framebuffer *dst, int dstLevel, int dstX, int dstY, int dstZ, int width, int height, int depth, int channelBits, const char *tag) override;
 	bool BlitFramebuffer(Framebuffer *src, int srcX1, int srcY1, int srcX2, int srcY2, Framebuffer *dst, int dstX1, int dstY1, int dstX2, int dstY2, int channelBits, FBBlitFilter filter, const char *tag) override;
@@ -862,7 +862,6 @@ private:
 	GLRenderManager *render_;
 	GLRTexture *tex_;
 
-	DataFormat format_;
 	TextureType type_;
 	int mipLevels_;
 	bool generateMips_;  // Generate mips requested
@@ -1031,9 +1030,9 @@ Texture *OpenGLContext::CreateTexture(const TextureDesc &desc) {
 	return new OpenGLTexture(&renderManager_, desc);
 }
 
-void OpenGLContext::UpdateTextureLevels(Texture *texture, const uint8_t **data, int numLevels) {
+void OpenGLContext::UpdateTextureLevels(Texture *texture, const uint8_t **data, TextureCallback initDataCallback, int numLevels) {
 	OpenGLTexture *tex = (OpenGLTexture *)texture;
-	tex->UpdateTextureLevels(&renderManager_, data, numLevels, TextureCallback());
+	tex->UpdateTextureLevels(&renderManager_, data, numLevels, initDataCallback);
 }
 
 DepthStencilState *OpenGLContext::CreateDepthStencilState(const DepthStencilStateDesc &desc) {

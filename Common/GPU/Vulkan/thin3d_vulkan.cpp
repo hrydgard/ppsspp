@@ -335,7 +335,9 @@ struct DescriptorSetKey {
 class VKTexture : public Texture {
 public:
 	VKTexture(VulkanContext *vulkan, VkCommandBuffer cmd, VulkanPushPool *pushBuffer, const TextureDesc &desc)
-		: vulkan_(vulkan), mipLevels_(desc.mipLevels), format_(desc.format) {}
+		: vulkan_(vulkan), mipLevels_(desc.mipLevels) {
+		format_ = desc.format;
+	}
 	bool Create(VkCommandBuffer cmd, VulkanPushPool *pushBuffer, const TextureDesc &desc);
 	void Update(VkCommandBuffer cmd, VulkanPushPool *pushBuffer, const uint8_t *const *data, TextureCallback callback, int numLevels);
 
@@ -376,8 +378,6 @@ private:
 	VulkanTexture *vkTex_ = nullptr;
 
 	int mipLevels_ = 0;
-
-	DataFormat format_ = DataFormat::UNDEFINED;
 };
 
 class VKFramebuffer;
@@ -428,7 +428,7 @@ public:
 	Framebuffer *CreateFramebuffer(const FramebufferDesc &desc) override;
 
 	void UpdateBuffer(Buffer *buffer, const uint8_t *data, size_t offset, size_t size, UpdateBufferFlags flags) override;
-	void UpdateTextureLevels(Texture *texture, const uint8_t **data, int numLevels) override;
+	void UpdateTextureLevels(Texture *texture, const uint8_t **data, TextureCallback initDataCallback, int numLevels) override;
 
 	void CopyFramebufferImage(Framebuffer *src, int level, int x, int y, int z, Framebuffer *dst, int dstLevel, int dstX, int dstY, int dstZ, int width, int height, int depth, int channelBits, const char *tag) override;
 	bool BlitFramebuffer(Framebuffer *src, int srcX1, int srcY1, int srcX2, int srcY2, Framebuffer *dst, int dstX1, int dstY1, int dstX2, int dstY2, int channelBits, FBBlitFilter filter, const char *tag) override;
@@ -788,7 +788,7 @@ bool VKTexture::Create(VkCommandBuffer cmd, VulkanPushPool *pushBuffer, const Te
 		UpdateInternal(cmd, pushBuffer, desc.initData.data(), desc.initDataCallback, (int)desc.initData.size());
 		// Generate the rest of the mips automatically.
 		if (desc.initData.size() < mipLevels_) {
-			vkTex_->GenerateMips(cmd, desc.initData.size(), false);
+			vkTex_->GenerateMips(cmd, (int)desc.initData.size(), false);
 			layout = VK_IMAGE_LAYOUT_GENERAL;
 		}
 	}
@@ -1362,7 +1362,7 @@ Texture *VKContext::CreateTexture(const TextureDesc &desc) {
 	}
 }
 
-void VKContext::UpdateTextureLevels(Texture *texture, const uint8_t **data, int numLevels) {
+void VKContext::UpdateTextureLevels(Texture *texture, const uint8_t **data, TextureCallback initDataCallback, int numLevels) {
 	VkCommandBuffer initCmd = renderManager_.GetInitCmd();
 	if (!push_ || !initCmd) {
 		// Too early! Fail.
@@ -1373,7 +1373,7 @@ void VKContext::UpdateTextureLevels(Texture *texture, const uint8_t **data, int 
 	VKTexture *tex = (VKTexture *)texture;
 
 	_dbg_assert_(numLevels <= tex->NumLevels());
-	tex->Update(initCmd, push_, data, Draw::TextureCallback(), numLevels);
+	tex->Update(initCmd, push_, data, initDataCallback, numLevels);
 }
 
 static inline void CopySide(VkStencilOpState &dest, const StencilSetup &src) {
