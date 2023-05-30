@@ -371,6 +371,7 @@ public:
 	void EndFrame() override;
 
 	void UpdateBuffer(Buffer *buffer, const uint8_t *data, size_t offset, size_t size, UpdateBufferFlags flags) override;
+	void UpdateTextureLevels(Texture *texture, const uint8_t **data, int numLevels) override;
 
 	void CopyFramebufferImage(Framebuffer *src, int level, int x, int y, int z, Framebuffer *dst, int dstLevel, int dstX, int dstY, int dstZ, int width, int height, int depth, int channelBits, const char *tag) override;
 	bool BlitFramebuffer(Framebuffer *src, int srcX1, int srcY1, int srcX2, int srcY2, Framebuffer *dst, int dstX1, int dstY1, int dstX2, int dstY2, int channelBits, FBBlitFilter filter, const char *tag) override;
@@ -853,8 +854,10 @@ public:
 		return tex_;
 	}
 
+	void UpdateTextureLevels(GLRenderManager *render, const uint8_t *const *data, int numLevels, TextureCallback initDataCallback);
+
 private:
-	void SetImageData(int x, int y, int z, int width, int height, int depth, int level, int stride, const uint8_t *data, TextureCallback callback);
+	void SetImageData(int x, int y, int z, int width, int height, int depth, int level, int stride, const uint8_t *data, TextureCallback initDataCallback);
 
 	GLRenderManager *render_;
 	GLRTexture *tex_;
@@ -862,16 +865,19 @@ private:
 	DataFormat format_;
 	TextureType type_;
 	int mipLevels_;
-	bool generatedMips_;
+	bool generateMips_;  // Generate mips requested
+	bool generatedMips_;  // Has generated mips
 };
 
 OpenGLTexture::OpenGLTexture(GLRenderManager *render, const TextureDesc &desc) : render_(render) {
 	generatedMips_ = false;
+	generateMips_ = desc.generateMips;
 	width_ = desc.width;
 	height_ = desc.height;
 	depth_ = desc.depth;
 	format_ = desc.format;
 	type_ = desc.type;
+
 	GLenum target = TypeToTarget(desc.type);
 	tex_ = render->CreateTexture(target, desc.width, desc.height, 1, desc.mipLevels);
 
@@ -879,21 +885,25 @@ OpenGLTexture::OpenGLTexture(GLRenderManager *render, const TextureDesc &desc) :
 	if (desc.initData.empty())
 		return;
 
+	UpdateTextureLevels(render, desc.initData.data(), (int)desc.initData.size(), desc.initDataCallback);
+}
+
+void OpenGLTexture::UpdateTextureLevels(GLRenderManager *render, const uint8_t * const *data, int numLevels, TextureCallback initDataCallback) {
 	int level = 0;
 	int width = width_;
 	int height = height_;
 	int depth = depth_;
-	for (auto data : desc.initData) {
-		SetImageData(0, 0, 0, width, height, depth, level, 0, data, desc.initDataCallback);
+	for (int i = 0; i < numLevels; i++) {
+		SetImageData(0, 0, 0, width, height, depth, level, 0, data[i], initDataCallback);
 		width = (width + 1) / 2;
 		height = (height + 1) / 2;
 		depth = (depth + 1) / 2;
 		level++;
 	}
-	mipLevels_ = desc.generateMips ? desc.mipLevels : level;
+	mipLevels_ = generateMips_ ? mipLevels_ : level;
 
 	bool genMips = false;
-	if ((int)desc.initData.size() < desc.mipLevels && desc.generateMips) {
+	if (numLevels < mipLevels_ && generateMips_) {
 		// Assumes the texture is bound for editing
 		genMips = true;
 		generatedMips_ = true;
@@ -923,7 +933,7 @@ public:
 	GLRFramebuffer *framebuffer_ = nullptr;
 };
 
-void OpenGLTexture::SetImageData(int x, int y, int z, int width, int height, int depth, int level, int stride, const uint8_t *data, TextureCallback callback) {
+void OpenGLTexture::SetImageData(int x, int y, int z, int width, int height, int depth, int level, int stride, const uint8_t *data, TextureCallback initDataCallback) {
 	if ((width != width_ || height != height_ || depth != depth_) && level == 0) {
 		// When switching to texStorage we need to handle this correctly.
 		width_ = width;
@@ -939,8 +949,8 @@ void OpenGLTexture::SetImageData(int x, int y, int z, int width, int height, int
 	uint8_t *texData = new uint8_t[(size_t)(width * height * depth * alignment)];
 
 	bool texDataPopulated = false;
-	if (callback) {
-		texDataPopulated = callback(texData, data, width, height, depth, width * (int)alignment, height * width * (int)alignment);
+	if (initDataCallback) {
+		texDataPopulated = initDataCallback(texData, data, width, height, depth, width * (int)alignment, height * width * (int)alignment);
 	}
 	if (texDataPopulated) {
 		if (format_ == DataFormat::A1R5G5B5_UNORM_PACK16) {
@@ -1019,6 +1029,11 @@ bool OpenGLContext::CopyFramebufferToMemory(Framebuffer *src, int channelBits, i
 
 Texture *OpenGLContext::CreateTexture(const TextureDesc &desc) {
 	return new OpenGLTexture(&renderManager_, desc);
+}
+
+void OpenGLContext::UpdateTextureLevels(Texture *texture, const uint8_t **data, int numLevels) {
+	OpenGLTexture *tex = (OpenGLTexture *)texture;
+	tex->UpdateTextureLevels(&renderManager_, data, numLevels, TextureCallback());
 }
 
 DepthStencilState *OpenGLContext::CreateDepthStencilState(const DepthStencilStateDesc &desc) {
