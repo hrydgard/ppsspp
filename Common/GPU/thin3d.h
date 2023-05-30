@@ -841,6 +841,10 @@ public:
 	// Not very elegant, but more elegant than the old passId hack.
 	virtual void SetInvalidationCallback(InvalidationCallback callback) = 0;
 
+	// Total amount of frames rendered. Unaffected by game pause, so more robust than gpuStats.numFlips
+	virtual int GetFrameCount() = 0;
+	virtual int GetFramesInFlight() { return 3; }
+
 protected:
 	ShaderModule *vsPresets_[VS_MAX_PRESET];
 	ShaderModule *fsPresets_[FS_MAX_PRESET];

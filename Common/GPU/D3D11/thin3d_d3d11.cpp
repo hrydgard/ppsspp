@@ -131,7 +131,6 @@ public:
 		stencilDirty_ = true;
 	}
 
-	void EndFrame() override;
 
 	void Draw(int vertexCount, int offset) override;
 	void DrawIndexed(int vertexCount, int offset) override;
@@ -139,6 +138,9 @@ public:
 	void Clear(int mask, uint32_t colorval, float depthVal, int stencilVal) override;
 
 	void BeginFrame() override;
+	void EndFrame() override;
+
+	int GetFrameCount() override { return frameCount_; }
 
 	std::string GetInfoString(InfoField info) const override {
 		switch (info) {
@@ -221,6 +223,7 @@ private:
 	int nextIndexBufferOffset_ = 0;
 
 	InvalidationCallback invalidationCallback_;
+	int frameCount_ = 0;
 
 	// Dynamic state
 	float blendFactor_[4]{};
@@ -423,6 +426,7 @@ void D3D11DrawContext::HandleEvent(Event ev, int width, int height, void *param1
 
 void D3D11DrawContext::EndFrame() {
 	curPipeline_ = nullptr;
+	frameCount_++;
 }
 
 void D3D11DrawContext::SetViewport(const Viewport &viewport) {

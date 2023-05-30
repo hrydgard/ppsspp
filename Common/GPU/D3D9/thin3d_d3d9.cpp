@@ -580,6 +580,7 @@ public:
 	}
 
 	void EndFrame() override;
+	int GetFrameCount() override { return frameCount_; }
 
 	void UpdateDynamicUniformBuffer(const void *ub, size_t size) override;
 
@@ -640,6 +641,7 @@ private:
 	D3DCAPS9 d3dCaps_;
 	char shadeLangVersion_[64]{};
 	DeviceCaps caps_{};
+	int frameCount_ = 0;
 
 	// Bound state
 	AutoRef<D3D9Pipeline> curPipeline_;
@@ -964,6 +966,7 @@ void D3D9Context::BindNativeTexture(int index, void *nativeTexture) {
 
 void D3D9Context::EndFrame() {
 	curPipeline_ = nullptr;
+	frameCount_++;
 }
 
 static void SemanticToD3D9UsageAndIndex(int semantic, BYTE *usage, BYTE *index) {
