@@ -365,8 +365,6 @@ public:
 		return devicePerfClass_;
 	}
 
-	void GetImageMemoryRequirements(VkImage image, VkMemoryRequirements *mem_reqs, bool *dedicatedAllocation);
-
 	VmaAllocator Allocator() const {
 		return allocator_;
 	}
@@ -382,6 +380,10 @@ public:
 	std::vector<VkPresentModeKHR> GetAvailablePresentModes() const {
 		return availablePresentModes_;
 	}
+
+	// Forces a device loss, to help debug device recovery.
+	// It'll create its own command buffer for this.
+	void IntentionallyLoseDevice();
 
 private:
 	bool ChooseQueue();
@@ -476,6 +478,8 @@ private:
 	std::vector<VkCommandBuffer> cmdQueue_;
 
 	VmaAllocator allocator_ = VK_NULL_HANDLE;
+
+	bool deviceLost_ = false;
 };
 
 // Detailed control.

@@ -742,6 +742,7 @@ void VulkanFree() {
 const char *VulkanResultToString(VkResult res) {
 	static char temp[128]{};
 	switch (res) {
+	case VK_SUCCESS: return "VK_SUCCESS";
 	case VK_NOT_READY: return "VK_NOT_READY";
 	case VK_TIMEOUT: return "VK_TIMEOUT";
 	case VK_EVENT_SET: return "VK_EVENT_SET";

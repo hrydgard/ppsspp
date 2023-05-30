@@ -367,7 +367,7 @@ public:
 	Buffer *CreateBuffer(size_t size, uint32_t usageFlags) override;
 	Framebuffer *CreateFramebuffer(const FramebufferDesc &desc) override;
 
-	void BeginFrame() override;
+	bool BeginFrame() override;
 	void EndFrame() override;
 
 	void UpdateBuffer(Buffer *buffer, const uint8_t *data, size_t offset, size_t size, UpdateBufferFlags flags) override;
@@ -783,10 +783,11 @@ OpenGLContext::~OpenGLContext() {
 	}
 }
 
-void OpenGLContext::BeginFrame() {
+bool OpenGLContext::BeginFrame() {
 	renderManager_.BeginFrame(debugFlags_ & DebugFlags::PROFILE_TIMESTAMPS);
 	FrameData &frameData = frameData_[renderManager_.GetCurFrame()];
 	renderManager_.BeginPushBuffer(frameData.push);
+	return true;
 }
 
 void OpenGLContext::EndFrame() {

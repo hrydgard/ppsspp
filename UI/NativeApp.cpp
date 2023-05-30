@@ -1045,6 +1045,7 @@ void RenderOverlays(UIContext *dc, void *userdata) {
 void NativeRender(GraphicsContext *graphicsContext) {
 	_dbg_assert_(graphicsContext != nullptr);
 	_dbg_assert_(g_screenManager != nullptr);
+	_dbg_assert_(!graphicsContext->DeviceIsLost())
 
 	g_GameManager.Update();
 

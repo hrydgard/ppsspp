@@ -812,7 +812,7 @@ public:
 	virtual void DrawUP(const void *vdata, int vertexCount) = 0;
 	
 	// Frame management (for the purposes of sync and resource management, necessary with modern APIs). Default implementations here.
-	virtual void BeginFrame() {}
+	virtual bool BeginFrame() { return true; }
 	virtual void EndFrame() = 0;
 	virtual void WipeQueue() {}
 
@@ -840,6 +840,8 @@ public:
 	// Used by the DrawEngines to know when they have to re-apply some state.
 	// Not very elegant, but more elegant than the old passId hack.
 	virtual void SetInvalidationCallback(InvalidationCallback callback) = 0;
+
+	virtual void IntentionallyLoseDevice() {}
 
 protected:
 	ShaderModule *vsPresets_[VS_MAX_PRESET];

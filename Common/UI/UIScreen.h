@@ -36,7 +36,7 @@ public:
 	~UIScreen();
 
 	void update() override;
-	void preRender() override;
+	bool preRender() override;
 	void render() override;
 	void postRender() override;
 	void deviceLost() override;

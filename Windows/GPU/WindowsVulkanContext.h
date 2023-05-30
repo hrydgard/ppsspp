@@ -35,6 +35,7 @@ public:
 	void Poll() override;
 
 	void *GetAPIContext() override;
+	bool DeviceIsLost() const override;
 
 	Draw::DrawContext *GetDrawContext() override { return draw_; }
 private:

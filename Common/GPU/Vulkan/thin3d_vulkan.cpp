@@ -415,6 +415,10 @@ public:
 		}
 	}
 
+	void IntentionallyLoseDevice() override {
+		vulkan_->IntentionallyLoseDevice();
+	}
+
 	DepthStencilState *CreateDepthStencilState(const DepthStencilStateDesc &desc) override;
 	BlendState *CreateBlendState(const BlendStateDesc &desc) override;
 	InputLayout *CreateInputLayout(const InputLayoutDesc &desc) override;
@@ -480,7 +484,7 @@ public:
 
 	void Clear(int mask, uint32_t colorval, float depthVal, int stencilVal) override;
 
-	void BeginFrame() override;
+	bool BeginFrame() override;
 	void EndFrame() override;
 	void WipeQueue() override;
 
@@ -1088,15 +1092,18 @@ VKContext::~VKContext() {
 	vulkan_->Delete().QueueDeletePipelineCache(pipelineCache_);
 }
 
-void VKContext::BeginFrame() {
-	// TODO: Bad dependency on g_Config here!
-	renderManager_.BeginFrame(debugFlags_ & DebugFlags::PROFILE_TIMESTAMPS, debugFlags_ & DebugFlags::PROFILE_SCOPES);
+bool VKContext::BeginFrame() {
+	if (!renderManager_.BeginFrame(debugFlags_ & DebugFlags::PROFILE_TIMESTAMPS, debugFlags_ & DebugFlags::PROFILE_SCOPES)) {
+		// Something failed badly, let's bail.
+		return false;
+	}
 
 	FrameData &frame = frame_[vulkan_->GetCurFrame()];
 
 	push_->BeginFrame();
 
 	frame.descriptorPool.Reset();
+	return true;
 }
 
 void VKContext::EndFrame() {
