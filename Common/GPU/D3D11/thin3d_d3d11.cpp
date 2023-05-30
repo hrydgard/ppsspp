@@ -797,6 +797,7 @@ public:
 		height_ = desc.height;
 		depth_ = desc.depth;
 		format_ = desc.format;
+		mipLevels_ = desc.mipLevels;
 	}
 	~D3D11Texture() {
 		if (tex_)
@@ -809,10 +810,38 @@ public:
 
 	bool Create(ID3D11DeviceContext *context, ID3D11Device *device, const TextureDesc &desc, bool generateMips);
 
+	bool CreateStagingTexture(ID3D11Device *device);
+
 	ID3D11Texture2D *tex_ = nullptr;
 	ID3D11Texture2D *stagingTex_ = nullptr;
 	ID3D11ShaderResourceView *view_ = nullptr;
+	int mipLevels_ = 0;
 };
+
+bool D3D11Texture::CreateStagingTexture(ID3D11Device *device) {
+	if (stagingTex_)
+		return true;
+	D3D11_TEXTURE2D_DESC descColor{};
+	descColor.Width = width_;
+	descColor.Height = height_;
+	descColor.MipLevels = mipLevels_;
+	descColor.ArraySize = 1;
+	descColor.Format = dataFormatToD3D11(format_);
+	descColor.SampleDesc.Count = 1;
+	descColor.SampleDesc.Quality = 0;
+	descColor.Usage = D3D11_USAGE_STAGING;
+	descColor.BindFlags = 0;
+	descColor.MiscFlags = 0;
+	descColor.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+
+	HRESULT hr = device->CreateTexture2D(&descColor, nullptr, &stagingTex_);
+	if (!SUCCEEDED(hr)) {
+		stagingTex_->Release();
+		stagingTex_ = nullptr;
+		return false;
+	}
+	return true;
+}
 
 bool D3D11Texture::Create(ID3D11DeviceContext *context, ID3D11Device *device, const TextureDesc &desc, bool generateMips) {
 	D3D11_TEXTURE2D_DESC descColor{};
@@ -823,25 +852,15 @@ bool D3D11Texture::Create(ID3D11DeviceContext *context, ID3D11Device *device, co
 	descColor.Format = dataFormatToD3D11(desc.format);
 	descColor.SampleDesc.Count = 1;
 	descColor.SampleDesc.Quality = 0;
-
-	if (desc.initDataCallback) {
-		descColor.Usage = D3D11_USAGE_STAGING;
-		descColor.BindFlags = 0;
-		descColor.MiscFlags = 0;
-		descColor.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
-
-		HRESULT hr = device->CreateTexture2D(&descColor, nullptr, &stagingTex_);
-		if (!SUCCEEDED(hr)) {
-			stagingTex_->Release();
-			stagingTex_ = nullptr;
-			return false;
-		}
-	}
-
 	descColor.Usage = D3D11_USAGE_DEFAULT;
 	descColor.BindFlags = generateMips ? (D3D11_BIND_SHADER_RESOURCE | D3D11_BIND_RENDER_TARGET) : D3D11_BIND_SHADER_RESOURCE;
 	descColor.MiscFlags = generateMips ? D3D11_RESOURCE_MISC_GENERATE_MIPS : 0;
 	descColor.CPUAccessFlags = 0;
+
+	// Make sure we have a staging texture if we'll need it.
+	if (desc.initDataCallback && !CreateStagingTexture(device)) {
+		return false;
+	}
 
 	D3D11_SUBRESOURCE_DATA *initDataParam = nullptr;
 	D3D11_SUBRESOURCE_DATA initData[12]{};
@@ -957,7 +976,10 @@ Texture *D3D11DrawContext::CreateTexture(const TextureDesc &desc) {
 
 void D3D11DrawContext::UpdateTextureLevels(Texture *texture, const uint8_t **data, TextureCallback initDataCallback, int numLevels) {
 	D3D11Texture *tex = (D3D11Texture *)texture;
-	// TODO
+	
+	// If no staging texture, let's create one.
+
+
 }
 
 ShaderModule *D3D11DrawContext::CreateShaderModule(ShaderStage stage, ShaderLanguage language, const uint8_t *data, size_t dataSize, const char *tag) {
