@@ -1652,7 +1652,7 @@ size_t GPUCommonHW::FormatGPUStatsCommon(char *buffer, size_t size) {
 		"Textures: %d, dec: %d, invalidated: %d, hashed: %d kB\n"
 		"readbacks %d (%d non-block), uploads %d, depal %d\n"
 		"replacer: tracks %d references, %d unique textures\n"
-		"Copies: depth %d, color %d, reint %d, blend %d, selftex %d\n"
+		"Cpy: depth %d, color %d, reint %d, blend %d, self %d, drawpix %d\n"
 		"GPU cycles executed: %d (%f per vertex)\n",
 		gpuStats.msProcessingDisplayLists * 1000.0f,
 		gpuStats.numDrawSyncs,
@@ -1682,6 +1682,7 @@ size_t GPUCommonHW::FormatGPUStatsCommon(char *buffer, size_t size) {
 		gpuStats.numReinterpretCopies,
 		gpuStats.numCopiesForShaderBlend,
 		gpuStats.numCopiesForSelfTex,
+		gpuStats.numDrawPixels,
 		gpuStats.vertexGPUCycles + gpuStats.otherGPUCycles,
 		vertexAverageCycles
 	);

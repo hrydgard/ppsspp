@@ -81,15 +81,14 @@ struct VkRenderData {
 		} draw;
 		struct {
 			VkDescriptorSet ds;
-			int numUboOffsets;
 			uint32_t uboOffsets[3];
+			uint16_t numUboOffsets;
+			uint16_t instances;
 			VkBuffer vbuffer;
 			VkBuffer ibuffer;
 			uint32_t voffset;
 			uint32_t ioffset;
 			uint32_t count;
-			int16_t instances;
-			int16_t indexType;
 		} drawIndexed;
 		struct {
 			uint32_t clearColor;
