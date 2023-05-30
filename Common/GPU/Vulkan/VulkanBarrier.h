@@ -5,6 +5,7 @@
 
 #include "Common/Log.h"
 #include "Common/GPU/Vulkan/VulkanLoader.h"
+#include "Common/Data/Collections/FastVec.h"
 
 class VulkanContext;
 
@@ -13,6 +14,8 @@ class VulkanContext;
 // However, not thread safe in any way!
 class VulkanBarrier {
 public:
+	VulkanBarrier() : imageBarriers_(4) {}
+
 	void TransitionImage(
 		VkImage image, int baseMip, int numMipLevels, int numLayers, VkImageAspectFlags aspectMask,
 		VkImageLayout oldImageLayout, VkImageLayout newImageLayout,
@@ -25,7 +28,7 @@ public:
 		dstStageMask_ |= dstStageMask;
 		dependencyFlags_ |= VK_DEPENDENCY_BY_REGION_BIT;
 
-		VkImageMemoryBarrier imageBarrier;
+		VkImageMemoryBarrier &imageBarrier = imageBarriers_.push_uninitialized();
 		imageBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
 		imageBarrier.pNext = nullptr;
 		imageBarrier.srcAccessMask = srcAccessMask;
@@ -40,7 +43,6 @@ public:
 		imageBarrier.subresourceRange.baseArrayLayer = 0;
 		imageBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
 		imageBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-		imageBarriers_.push_back(imageBarrier);
 	}
 
 	// Automatically determines access and stage masks from layouts.
@@ -93,7 +95,7 @@ public:
 			break;
 		}
 
-		VkImageMemoryBarrier imageBarrier;
+		VkImageMemoryBarrier &imageBarrier = imageBarriers_.push_uninitialized();
 		imageBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
 		imageBarrier.pNext = nullptr;
 		imageBarrier.srcAccessMask = srcAccessMask;
@@ -108,7 +110,6 @@ public:
 		imageBarrier.subresourceRange.baseArrayLayer = 0;
 		imageBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
 		imageBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-		imageBarriers_.push_back(imageBarrier);
 	}
 
 	void Flush(VkCommandBuffer cmd);
@@ -116,6 +117,6 @@ public:
 private:
 	VkPipelineStageFlags srcStageMask_ = 0;
 	VkPipelineStageFlags dstStageMask_ = 0;
-	std::vector<VkImageMemoryBarrier> imageBarriers_;
+	FastVec<VkImageMemoryBarrier> imageBarriers_;
 	VkDependencyFlags dependencyFlags_ = 0;
 };
