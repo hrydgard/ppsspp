@@ -671,6 +671,9 @@
     <ClCompile Include="..\..\Core\Debugger\WebSocket\CPUCoreSubscriber.cpp">
       <Filter>Debugger\WebSocket</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\Core\Debugger\WebSocket\ClientConfigSubscriber.cpp">
+      <Filter>Debugger\WebSocket</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\Core\Debugger\WebSocket\DisasmSubscriber.cpp">
       <Filter>Debugger\WebSocket</Filter>
     </ClCompile>
@@ -1689,6 +1692,9 @@
     <ClInclude Include="..\..\Core\Debugger\WebSocket\CPUCoreSubscriber.h">
       <Filter>Debugger\WebSocket</Filter>
     </ClInclude>
+    <ClCompile Include="..\..\Core\Debugger\WebSocket\ClientConfigSubscriber.h">
+      <Filter>Debugger\WebSocket</Filter>
+    </ClCompile>
     <ClInclude Include="..\..\Core\Debugger\WebSocket\DisasmSubscriber.h">
       <Filter>Debugger\WebSocket</Filter>
     </ClInclude>

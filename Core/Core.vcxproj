@@ -547,6 +547,7 @@
     <ClCompile Include="Debugger\WebSocket.cpp" />
     <ClCompile Include="Debugger\WebSocket\BreakpointSubscriber.cpp" />
     <ClCompile Include="Debugger\WebSocket\CPUCoreSubscriber.cpp" />
+    <ClCompile Include="Debugger\WebSocket\ClientConfigSubscriber.cpp" />
     <ClCompile Include="Debugger\WebSocket\GameBroadcaster.cpp" />
     <ClCompile Include="Debugger\WebSocket\GameSubscriber.cpp" />
     <ClCompile Include="Debugger\WebSocket\GPUBufferSubscriber.cpp" />
@@ -1118,6 +1119,7 @@
     <ClInclude Include="Debugger\MemBlockInfo.h" />
     <ClInclude Include="Debugger\WebSocket.h" />
     <ClInclude Include="Debugger\WebSocket\BreakpointSubscriber.h" />
+    <ClInclude Include="Debugger\WebSocket\ClientConfigSubscriber.h" />
     <ClInclude Include="Debugger\WebSocket\GameSubscriber.h" />
     <ClInclude Include="Debugger\WebSocket\DisasmSubscriber.h" />
     <ClInclude Include="Debugger\WebSocket\GPUBufferSubscriber.h" />

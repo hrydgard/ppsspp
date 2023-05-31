@@ -34,11 +34,17 @@
 using namespace json;
 
 struct WebSocketClientInfo {
-	WebSocketClientInfo() : name(), version() {
-
+	WebSocketClientInfo() : name(), version(), allowed() {
+		// By default everything is on
+		allowed.emplace("logger", true);
+		allowed.emplace("game", true);
+		allowed.emplace("stepping", true);
+		allowed.emplace("input", true);
 	}
+
 	std::string name;
 	std::string version;
+	std::map <std::string, bool> allowed;
 };
 
 struct DebuggerErrorEvent {
