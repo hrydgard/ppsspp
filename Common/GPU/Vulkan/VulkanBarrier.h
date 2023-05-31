@@ -16,6 +16,8 @@ class VulkanBarrier {
 public:
 	VulkanBarrier() : imageBarriers_(4) {}
 
+	bool empty() const { return imageBarriers_.empty(); }
+
 	void TransitionImage(
 		VkImage image, int baseMip, int numMipLevels, int numLayers, VkImageAspectFlags aspectMask,
 		VkImageLayout oldImageLayout, VkImageLayout newImageLayout,
