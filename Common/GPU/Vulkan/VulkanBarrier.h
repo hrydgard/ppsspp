@@ -13,9 +13,10 @@ class VulkanContext;
 class VulkanBarrierBatch {
 public:
 	~VulkanBarrierBatch() {
-		_dbg_assert_(false);
+		_dbg_assert_(imageBarriers_.empty());
 	}
-	VkImageMemoryBarrier &Add(VkPipelineStageFlags srcStageMask, VkPipelineStageFlags dstStageMask, VkDependencyFlags dependencyFlags) {
+
+	VkImageMemoryBarrier *Add(VkImage image, VkPipelineStageFlags srcStageMask, VkPipelineStageFlags dstStageMask, VkDependencyFlags dependencyFlags) {
 		srcStageMask_ |= srcStageMask;
 		dstStageMask_ |= dstStageMask;
 		dependencyFlags_ |= dependencyFlags;
@@ -30,8 +31,10 @@ public:
 		barrier.subresourceRange.baseMipLevel = 0;
 		barrier.subresourceRange.layerCount = 1;
 		barrier.subresourceRange.levelCount = 1;
-		return barrier;
+		barrier.image = image;
+		return &barrier;
 	}
+
 	void Flush(VkCommandBuffer cmd) {
 		if (!imageBarriers_.empty()) {
 			vkCmdPipelineBarrier(cmd, srcStageMask_, dstStageMask_, dependencyFlags_, 0, nullptr, 0, nullptr, (uint32_t)imageBarriers_.size(), imageBarriers_.data());
@@ -41,6 +44,8 @@ public:
 			dependencyFlags_ = 0;
 		}
 	}
+
+	bool empty() const { return imageBarriers_.empty(); }
 
 private:
 	FastVec<VkImageMemoryBarrier> imageBarriers_;

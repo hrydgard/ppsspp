@@ -80,7 +80,7 @@ void VulkanQueueRunner::DestroyDeviceObjects() {
 	renderPasses_.Clear();
 }
 
-bool VulkanQueueRunner::CreateSwapchain(VkCommandBuffer cmdInit) {
+bool VulkanQueueRunner::CreateSwapchain(VkCommandBuffer cmdInit, VulkanBarrierBatch *barriers) {
 	VkResult res = vkGetSwapchainImagesKHR(vulkan_->GetDevice(), vulkan_->GetSwapchain(), &swapchainImageCount_, nullptr);
 	_dbg_assert_(res == VK_SUCCESS);
 
@@ -123,7 +123,7 @@ bool VulkanQueueRunner::CreateSwapchain(VkCommandBuffer cmdInit) {
 	delete[] swapchainImages;
 
 	// Must be before InitBackbufferRenderPass.
-	if (InitDepthStencilBuffer(cmdInit)) {
+	if (InitDepthStencilBuffer(cmdInit, barriers)) {
 		InitBackbufferFramebuffers(vulkan_->GetBackbufferWidth(), vulkan_->GetBackbufferHeight());
 	}
 	return true;
@@ -157,7 +157,7 @@ bool VulkanQueueRunner::InitBackbufferFramebuffers(int width, int height) {
 	return true;
 }
 
-bool VulkanQueueRunner::InitDepthStencilBuffer(VkCommandBuffer cmd) {
+bool VulkanQueueRunner::InitDepthStencilBuffer(VkCommandBuffer cmd, VulkanBarrierBatch *barriers) {
 	const VkFormat depth_format = vulkan_->GetDeviceInfo().preferredDepthStencilFormat;
 	int aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
 	VkImageCreateInfo image_info = { VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO };
@@ -189,12 +189,14 @@ bool VulkanQueueRunner::InitDepthStencilBuffer(VkCommandBuffer cmd) {
 
 	vulkan_->SetDebugName(depth_.image, VK_OBJECT_TYPE_IMAGE, "BackbufferDepth");
 
-	TransitionImageLayout2(cmd, depth_.image, 0, 1, 1,
-		aspectMask,
-		VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+	VkImageMemoryBarrier *barrier = barriers->Add(depth_.image,
 		VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
-		VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
-		0, VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT);
+		VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT, 0);
+	barrier->subresourceRange.aspectMask = aspectMask;
+	barrier->oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+	barrier->newLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+	barrier->srcAccessMask = 0;
+	barrier->dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
 
 	VkImageViewCreateInfo depth_view_info = { VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO };
 	depth_view_info.image = depth_.image;

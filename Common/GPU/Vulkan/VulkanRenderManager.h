@@ -538,7 +538,7 @@ public:
 
 	void Invalidate(InvalidationFlags flags);
 
-	VulkanBarrier &PostInitBarrier() {
+	VulkanBarrierBatch &PostInitBarrier() {
 		return postInitBarrier_;
 	}
 
@@ -633,7 +633,7 @@ private:
 	SimpleStat renderCPUTimeMs_;
 	SimpleStat descUpdateTimeMs_;
 
-	VulkanBarrier postInitBarrier_;
+	VulkanBarrierBatch postInitBarrier_;
 
 	std::function<void(InvalidationCallbackFlags)> invalidationCallback_;
 

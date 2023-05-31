@@ -291,7 +291,7 @@ bool VulkanRenderManager::CreateBackbuffers() {
 
 	VkCommandBuffer cmdInit = GetInitCmd();
 
-	if (!queueRunner_.CreateSwapchain(cmdInit)) {
+	if (!queueRunner_.CreateSwapchain(cmdInit, &postInitBarrier_)) {
 		return false;
 	}
 
