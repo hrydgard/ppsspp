@@ -6,8 +6,48 @@
 #include "Common/Log.h"
 #include "Common/GPU/Vulkan/VulkanLoader.h"
 #include "Common/Data/Collections/FastVec.h"
+#include "Common/Data/Collections/TinySet.h"
 
 class VulkanContext;
+
+class VulkanBarrierBatch {
+public:
+	~VulkanBarrierBatch() {
+		_dbg_assert_(false);
+	}
+	VkImageMemoryBarrier &Add(VkPipelineStageFlags srcStageMask, VkPipelineStageFlags dstStageMask, VkDependencyFlags dependencyFlags) {
+		srcStageMask_ |= srcStageMask;
+		dstStageMask_ |= dstStageMask;
+		dependencyFlags_ |= dependencyFlags;
+		VkImageMemoryBarrier &barrier = imageBarriers_.push_uninitialized();
+		// Initialize good defaults for the usual things.
+		barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+		barrier.pNext = nullptr;
+		barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+		barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+		barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		barrier.subresourceRange.baseArrayLayer = 0;
+		barrier.subresourceRange.baseMipLevel = 0;
+		barrier.subresourceRange.layerCount = 1;
+		barrier.subresourceRange.levelCount = 1;
+		return barrier;
+	}
+	void Flush(VkCommandBuffer cmd) {
+		if (!imageBarriers_.empty()) {
+			vkCmdPipelineBarrier(cmd, srcStageMask_, dstStageMask_, dependencyFlags_, 0, nullptr, 0, nullptr, (uint32_t)imageBarriers_.size(), imageBarriers_.data());
+			imageBarriers_.clear();
+			srcStageMask_ = 0;
+			dstStageMask_ = 0;
+			dependencyFlags_ = 0;
+		}
+	}
+
+private:
+	FastVec<VkImageMemoryBarrier> imageBarriers_;
+	VkPipelineStageFlags srcStageMask_ = 0;
+	VkPipelineStageFlags dstStageMask_ = 0;
+	VkDependencyFlags dependencyFlags_ = 0;
+};
 
 // Collects multiple barriers into one, then flushes it.
 // Reusable after a flush, in case you want to reuse the allocation made by the vector.
