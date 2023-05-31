@@ -84,7 +84,7 @@ public:
 	const char *Name() const override { return tag_; };  // for sorting
 
 	// Utility for users of this class, not used internally.
-	const uint32_t INVALID_OFFSET = 0xFFFFFFFF;
+	static const uint32_t INVALID_OFFSET = 0xFFFFFFFF;
 
 private:
 	// Needs context in case of defragment.
@@ -142,10 +142,18 @@ public:
 		return bindOffset;
 	}
 
+	uint8_t *GetPtr(uint32_t offset) {
+		return writePtr_ + offset;
+	}
+
 	// If you didn't use all of the previous allocation you just made (obviously can't be another one),
 	// you can return memory to the buffer by specifying the offset up until which you wrote data.
-	void Rewind(uint32_t offset) {
-		offset_ = offset;
+	void Rewind(GLRBuffer *buffer, uint32_t offset) {
+		if (buffer == buffers_[buf_].buffer) {
+			_dbg_assert_(offset != INVALID_OFFSET);
+			_dbg_assert_(offset <= offset_);
+			offset_ = offset;
+		}
 	}
 
 	size_t GetOffset() const { return offset_; }

@@ -120,18 +120,31 @@ private:
 	void ApplyDrawState(int prim);
 	void ApplyDrawStateLate(bool setStencil, int stencilValue);
 
-	GLRInputLayout *SetupDecFmtForDraw(LinkedShader *program, const DecVtxFormat &decFmt);
+	GLRInputLayout *SetupDecFmtForDraw(const DecVtxFormat &decFmt);
 
 	struct FrameData {
 		GLPushBuffer *pushVertex;
 		GLPushBuffer *pushIndex;
 	};
-	FrameData frameData_[GLRenderManager::MAX_INFLIGHT_FRAMES];
+
+	// Manage suballocating pushbuffer reservations
+	void ReleaseReservedPushMemory(FrameData &frameData);
+	u8 *AllocateVertices(FrameData &frameData, int stride, int count, GLRBuffer **vertexBuffer, uint32_t *bindOffset, uint32_t *vertexOffset);
+
+	FrameData frameData_[GLRenderManager::MAX_INFLIGHT_FRAMES]{};
 
 	DenseHashMap<uint32_t, GLRInputLayout *, nullptr> inputLayoutMap_;
 
 	GLRInputLayout *softwareInputLayout_ = nullptr;
+	GLRInputLayout *lastInputLayout_ = nullptr;
 	GLRenderManager *render_;
+
+	// These are ONLY touched within AllocateVertices and ReleaseReservedPushMemory, to isolate the logic properly.
+	GLRBuffer *curVBuffer_ = nullptr;
+	uint32_t curVBufferBindOffset_ = 0;
+	uint32_t curVBufferOffset_ = 0;
+	uint32_t curVBufferEnd_ = 0;
+	uint32_t curVertexIndex_ = 0;
 
 	// Other
 	ShaderManagerGLES *shaderManager_ = nullptr;
