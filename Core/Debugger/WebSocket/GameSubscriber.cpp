@@ -97,16 +97,15 @@ void WebSocketGameStatus(DebuggerRequest &req) {
 void WebSocketVersion(DebuggerRequest &req) {
 	JsonWriter &json = req.Respond();
 
-	std::string version;
-	if (!req.ParamString("version", &version)) {
+	std::string version = req.client->version;
+	if (!req.ParamString("version", &version, DebuggerParamType::OPTIONAL_LOOSE))
 		return;
-	}
-	std::string name;
-	if (!req.ParamString("name", &name)) {
+	std::string name = req.client->name;
+	if (!req.ParamString("name", &name, DebuggerParamType::OPTIONAL_LOOSE))
 		return;
-	}
-	req.client->name = name;
+
 	req.client->version = version;
+	req.client->name = name;
 
 	json.writeString("name", "PPSSPP");
 	json.writeString("version", PPSSPP_GIT_VERSION);
