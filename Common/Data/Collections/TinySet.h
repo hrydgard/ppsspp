@@ -2,6 +2,8 @@
 
 #include <vector>
 
+#include "Common/Log.h"
+
 // Insert-only small-set implementation. Performs no allocation unless MaxFastSize is exceeded.
 // Can also be used as a small vector, then use push_back (or push_in_place) instead of insert.
 // Duplicates are thus allowed if you use that, but not if you exclusively use insert.
@@ -32,16 +34,18 @@ struct TinySet {
 		}
 		slowLookup_->push_back(t);
 	}
-	inline T *add_back() {
+	inline T &push_uninitialized() {
 		if (fastCount_ < MaxFastSize) {
-			return &fastLookup_[fastCount_++];
+			return fastLookup_[fastCount_++];
 		}
 		if (!slowLookup_) {
 			slowLookup_ = new std::vector<T>();
 		}
+
+		// The slow lookup is also slow at adding.
 		T t;
 		slowLookup_->push_back(t);
-		return slowLookup_->back();
+		return *slowLookup_->back();
 	}
 	void append(const TinySet<T, MaxFastSize> &other) {
 		size_t otherSize = other.size();
@@ -136,8 +140,8 @@ private:
 };
 
 template <class T, int MaxSize>
-struct FixedTinyVec {
-	~FixedTinyVec() {}
+struct FixedVec {
+	~FixedVec() {}
 	// WARNING: Can fail if you exceed MaxSize!
 	inline bool push_back(const T &t) {
 		if (count_ < MaxSize) {
@@ -147,13 +151,16 @@ struct FixedTinyVec {
 			return false;
 		}
 	}
+
 	// WARNING: Can fail if you exceed MaxSize!
-	inline T *add_back() {
+	inline T &push_uninitialized() {
 		if (count_ < MaxSize) {
 			return &data_[count_++];
 		}
-		return nullptr;
+		_dbg_assert_(false);
+		return *data_[MaxSize - 1];  // BAD
 	}
+
 	// Invalid if empty().
 	void pop_back() { count_--;	}
 
@@ -184,7 +191,7 @@ struct FixedTinyVec {
 	const T &back() const { return (*this)[size() - 1]; }
 	const T &front() const { return (*this)[0]; }
 
-	bool operator == (const FixedTinyVec<T, MaxSize> &other) const {
+	bool operator == (const FixedVec<T, MaxSize> &other) const {
 		if (count_ != other.count_)
 			return false;
 		for (int i = 0; i < count_; i++) {
