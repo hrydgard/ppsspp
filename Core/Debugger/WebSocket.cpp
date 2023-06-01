@@ -148,6 +148,12 @@ void HandleDebuggerRequest(const http::Request &request) {
 	InputBroadcaster input;
 	SteppingBroadcaster stepping;
 
+	// By default everything is on
+	allowed_config.emplace("logger", true);
+	allowed_config.emplace("game", true);
+	allowed_config.emplace("stepping", true);
+	allowed_config.emplace("input", true);
+
 	std::unordered_map<std::string, DebuggerEventHandler> eventHandlers;
 	std::vector<DebuggerSubscriber *> subscriberData;
 	for (auto init : subscribers) {
@@ -193,6 +199,7 @@ void HandleDebuggerRequest(const http::Request &request) {
 		// These send events that aren't just responses to requests
 
 		// The client can explicitly ask not to be notified about some events
+		// so we check the client settings first
 		if (allowed_config.at("logger"))
 			logger.Broadcast(ws);
 		if (allowed_config.at("game"))

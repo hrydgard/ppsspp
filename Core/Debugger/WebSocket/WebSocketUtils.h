@@ -35,11 +35,7 @@ using namespace json;
 
 struct WebSocketClientInfo {
 	WebSocketClientInfo() : name(), version(), allowed() {
-		// By default everything is on
-		allowed.emplace("logger", true);
-		allowed.emplace("game", true);
-		allowed.emplace("stepping", true);
-		allowed.emplace("input", true);
+
 	}
 
 	std::string name;
