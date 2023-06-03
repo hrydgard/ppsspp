@@ -630,6 +630,8 @@ void SetGLCoreContext(bool flag) {
 		useCoreContext = flag;
 		// For convenience, it'll get reset later.
 		gl_extensions.IsCoreContext = useCoreContext;
+	} else {
+		_assert_(flag == useCoreContext);
 	}
 }
 
