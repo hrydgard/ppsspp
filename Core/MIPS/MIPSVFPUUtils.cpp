@@ -717,7 +717,7 @@ float vfpu_dot(const float a[4], const float b[4]) {
 // https://github.com/hrydgard/ppsspp/issues/16946#issuecomment-1467261209
 // for details.
 
-// Redundant currently, since void MIPSState::Init() already
+// Redundant currently, since MIPSState::Init() already
 // does this on its own, but left as-is to be self-contained.
 void vrnd_init_default(uint32_t *rcx) {
 	rcx[0] = 0x00000001;
@@ -760,18 +760,13 @@ uint32_t vrnd_generate(uint32_t *rcx) {
 	B ^= B << 13;
 	B ^= B >> 17;
 	B ^= B <<  5;
-	// Pell sequence, with additional increment.
+	// Sequence similar to Pell numbers ( https://en.wikipedia.org/wiki/Pell_number ),
+	// except with different starting values, and an occasional increment (E).
 	uint32_t t= 2u * D + C + E;
-	// NOTE: the details of how E-part is set are
-	// largerly guesswork at the moment. This does
-	// match variety of test data.
-	auto addition_overflows=[](uint32_t x, uint32_t y) -> bool {
-		return x + y < x;
-	};
-	E = addition_overflows(C + E, C) &&
-	    addition_overflows(C + E, D) &&
-	    addition_overflows(C + E, C + D + E) &&
-	    addition_overflows(C + E, C + D);
+	// NOTE: the details of how E-part is set are somewhat of a guess
+	// at the moment. The expression below looks weird, but does match
+	// the available test data.
+	E = uint32_t((uint64_t(C) + uint64_t(D >> 1) + uint64_t(E)) >> 32);
 	C = D;
 	D = t;
 	// Store.
