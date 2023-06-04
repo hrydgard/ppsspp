@@ -711,9 +711,8 @@ void GLQueueRunner::RunSteps(const std::vector<GLRStep *> &steps, GLFrameData &f
 		case GLRStepType::RENDER:
 			renderCount++;
 			if (IsVREnabled()) {
-				GLRStep &vrStep = step;
-				PreprocessStepVR(&vrStep);
-				PerformRenderPass(vrStep, renderCount == 1, renderCount == totalRenderCount, frameData.profile);
+				PreprocessStepVR(&step);
+				PerformRenderPass(step, renderCount == 1, renderCount == totalRenderCount, frameData.profile);
 			} else {
 				PerformRenderPass(step, renderCount == 1, renderCount == totalRenderCount, frameData.profile);
 			}
