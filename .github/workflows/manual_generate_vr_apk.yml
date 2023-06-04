@@ -1,0 +1,61 @@
+name: Manual Generate APK
+on:
+  workflow_dispatch:
+    inputs:
+
+      buildVariant:
+        type: choice
+        description: 'Build Variant'     
+        required: true
+        default: 'VrOptimized'
+        options: 
+        - VrOptimized
+        - VrDebug
+
+jobs:
+
+  apk:
+    name: Generate ${{ github.event.inputs.buildVariant }} APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+          submodules: recursive
+        
+      - name: Setup JDK
+        uses: actions/setup-java@v2
+        with:
+          distribution: 'zulu'
+          java-version: '11'
+        
+      #- name: Setup SDK
+      #  uses: android-actions/setup-android@v2
+          
+      #- name: Setup NDK
+      #  uses: nttld/setup-ndk@v1
+      #  with:
+      #    ndk-version: r21e
+      
+      - name: Assemble APK
+        run: bash ./gradlew assemble${{ github.event.inputs.buildVariant }} --stacktrace
+      
+      #- name: Gradle Test
+      #  run: bash ./gradlew test${{ github.event.inputs.buildVariant }}UnitTest --stacktrace
+      
+      - name: Package build
+        run: |
+          find . -name "*.apk"
+          mkdir ppsspp
+          if [ -e android/build/*/apk/*/*/android-vr-optimized.apk ]; then
+            cp android/build/*/apk/*/*/android-vr-optimized.apk ppsspp/
+          elif [ -e android/build/*/apk/*/*/android-vr-debug.apk ]; then
+            cp android/build/*/apk/*/*/android-vr-debug.apk ppsspp/
+          fi
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v3
+        with:
+          name: android-${{ github.event.inputs.buildVariant }} build
+          path: ppsspp/
