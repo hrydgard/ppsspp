@@ -261,14 +261,14 @@ namespace MIPSDis
 	void Dis_MatrixSet1(MIPSOpcode op, uint32_t pc, char *out, size_t outSize) {
 		const char *name = MIPSGetName(op);
 		int vd = _VD;
-		MatrixSize sz = GetMtxSizeSafe(op);
+		MatrixSize sz = GetMtxSize(op);
 		snprintf(out, outSize, "%s%s\t%s", name, VSuff(op), MN(vd, sz));
 	}
 	void Dis_MatrixSet2(MIPSOpcode op, uint32_t pc, char *out, size_t outSize) {
 		const char *name = MIPSGetName(op);
 		int vd = _VD;
 		int vs = _VS;
-		MatrixSize sz = GetMtxSizeSafe(op);
+		MatrixSize sz = GetMtxSize(op);
 		snprintf(out, outSize, "%s%s\t%s, %s", name, VSuff(op), MN(vd, sz), MN(vs,sz));
 	}
 	void Dis_MatrixSet3(MIPSOpcode op, uint32_t pc, char *out, size_t outSize) {
@@ -276,7 +276,7 @@ namespace MIPSDis
 		int vd = _VD;
 		int vs = _VS;
 		int vt = _VT;
-		MatrixSize sz = GetMtxSizeSafe(op);
+		MatrixSize sz = GetMtxSize(op);
 		snprintf(out, outSize, "%s%s\t%s, %s, %s", name, VSuff(op), MN(vd, sz), MN(vs,sz), MN(vt,sz));
 	}
 
@@ -285,7 +285,7 @@ namespace MIPSDis
 		int vd = _VD;
 		int vs = _VS;
 		int vt = _VT;
-		MatrixSize sz = GetMtxSizeSafe(op);
+		MatrixSize sz = GetMtxSize(op);
 		// TODO: Xpose?
 		snprintf(out, outSize, "%s%s\t%s, %s, %s", name, VSuff(op), MN(vd, sz), MN(Xpose(vs),sz), MN(vt,sz));
 	}
@@ -295,7 +295,7 @@ namespace MIPSDis
 		int vd = _VD;
 		int vs = _VS;
 		int vt = _VT;
-		MatrixSize sz = GetMtxSizeSafe(op);
+		MatrixSize sz = GetMtxSize(op);
 		snprintf(out, outSize, "%s%s\t%s, %s, %s", name, VSuff(op), MN(vd, sz), MN(vs, sz), VN(vt, V_Single));
 	}
 
@@ -314,7 +314,7 @@ namespace MIPSDis
 		int vt = _VT;
 		int ins = (op>>23) & 7;
 		VectorSize sz = GetVecSize(op);
-		MatrixSize msz = GetMtxSizeSafe(op);
+		MatrixSize msz = GetMtxSize(op);
 		int n = GetNumVectorElements(sz);
 
 		if (n == ins)

@@ -420,25 +420,6 @@ MatrixSize GetMatrixSize(VectorSize sz) {
 	return res;
 }
 
-MatrixSize GetMtxSizeSafe(MIPSOpcode op) {
-	int a = (op >> 7) & 1;
-	int b = (op >> 15) & 1;
-	a += (b << 1);
-	switch (a) {
-	case 0: return M_1x1;  // This happens in disassembly of junk, but has predictable behavior.
-	case 1: return M_2x2;
-	case 2: return M_3x3;
-	case 3: return M_4x4;
-	default: return M_Invalid;
-	}
-}
-
-MatrixSize GetMtxSize(MIPSOpcode op) {
-	MatrixSize res = GetMtxSizeSafe(op);
-	_assert_msg_(res != M_Invalid, "%s: Bad matrix size", __FUNCTION__);
-	return res;
-}
-
 VectorSize MatrixVectorSizeSafe(MatrixSize sz) {
 	switch (sz) {
 	case M_1x1: return V_Single;

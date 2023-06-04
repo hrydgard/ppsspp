@@ -213,8 +213,12 @@ inline VectorSize GetVecSize(MIPSOpcode op) {
 	return (VectorSize)(a + b + 1);  // Safe, there are no other possibilities
 }
 
-MatrixSize GetMtxSizeSafe(MIPSOpcode op);
-MatrixSize GetMtxSize(MIPSOpcode op);
+inline MatrixSize GetMtxSize(MIPSOpcode op) {
+	int a = (op >> 7) & 1;
+	int b = (op >> 14) & 2;
+	return (MatrixSize)(a + b + 1);  // Safe, there are no other possibilities
+}
+
 VectorSize GetHalfVectorSizeSafe(VectorSize sz);
 VectorSize GetHalfVectorSize(VectorSize sz);
 VectorSize GetDoubleVectorSizeSafe(VectorSize sz);
