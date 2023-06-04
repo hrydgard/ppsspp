@@ -388,25 +388,6 @@ VectorSize GetDoubleVectorSize(VectorSize sz) {
 	return res;
 }
 
-VectorSize GetVecSizeSafe(MIPSOpcode op) {
-	int a = (op >> 7) & 1;
-	int b = (op >> 15) & 1;
-	a += (b << 1);
-	switch (a) {
-	case 0: return V_Single;
-	case 1: return V_Pair;
-	case 2: return V_Triple;
-	case 3: return V_Quad;
-	default: return V_Invalid;
-	}
-}
-
-VectorSize GetVecSize(MIPSOpcode op) {
-	VectorSize res = GetVecSizeSafe(op);
-	_assert_msg_(res != V_Invalid, "%s: Bad vector size", __FUNCTION__);
-	return res;
-}
-
 VectorSize GetVectorSizeSafe(MatrixSize sz) {
 	switch (sz) {
 	case M_1x1: return V_Single;

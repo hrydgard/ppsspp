@@ -202,14 +202,17 @@ enum MatrixOverlapType {
 
 MatrixOverlapType GetMatrixOverlap(int m1, int m2, MatrixSize msize);
 
-
 // Returns a number from 0-7, good for checking overlap for 4x4 matrices.
 inline int GetMtx(int matrixReg) {
 	return (matrixReg >> 2) & 7;
 }
 
-VectorSize GetVecSizeSafe(MIPSOpcode op);
-VectorSize GetVecSize(MIPSOpcode op);
+inline VectorSize GetVecSize(MIPSOpcode op) {
+	int a = (op >> 7) & 1;
+	int b = (op >> 14) & 2;
+	return (VectorSize)(a + b + 1);  // Safe, there are no other possibilities
+}
+
 MatrixSize GetMtxSizeSafe(MIPSOpcode op);
 MatrixSize GetMtxSize(MIPSOpcode op);
 VectorSize GetHalfVectorSizeSafe(VectorSize sz);
