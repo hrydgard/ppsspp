@@ -155,14 +155,8 @@ jobs:
           extra: android
           cc: clang
           cxx: clang++
-          args: cd android && ./ab.sh -j2 APP_ABI=arm64-v8a OPENXR=1 OPENXR_PLATFORM_QUEST=1
-          id: android-vr-quest
-        - os: ubuntu-latest
-          extra: android
-          cc: clang
-          cxx: clang++
-          args: cd android && ./ab.sh -j2 APP_ABI=arm64-v8a OPENXR=1 OPENXR_PLATFORM_PICO=1
-          id: android-vr-pico
+          args: cd android && ./ab.sh -j2 APP_ABI=arm64-v8a OPENXR=1
+          id: android-vr
         - os: ubuntu-latest
           extra: android
           cc: clang
