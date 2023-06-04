@@ -165,68 +165,58 @@ void GetMatrixRows(int matrixReg, MatrixSize msize, u8 vecs[4]) {
 }
 
 void ReadVector(float *rd, VectorSize size, int reg) {
-	int row = 0;
-	int length = 0;
-
+	int row;
+	int length;
 	switch (size) {
 	case V_Single: rd[0] = V(reg); return; // transpose = 0; row=(reg>>5)&3; length = 1; break;
 	case V_Pair:   row=(reg>>5)&2; length = 2; break;
 	case V_Triple: row=(reg>>6)&1; length = 3; break;
 	case V_Quad:   row=(reg>>5)&2; length = 4; break;
-	default: _assert_msg_(false, "%s: Bad vector size", __FUNCTION__);
+	default: length = 0; break;
 	}
-	int transpose = (reg>>5) & 1;
-	const int mtx = (reg >> 2) & 7;
+	int transpose = (reg >> 5) & 1;
+	const int mtx = reg & (7 << 2);
 	const int col = reg & 3;
-
 	if (transpose) {
-		const int base = mtx * 4 + col * 32;
+		const int base = mtx + col * 32;
 		for (int i = 0; i < length; i++)
 			rd[i] = V(base + ((row+i)&3));
 	} else {
-		const int base = mtx * 4 + col;
+		const int base = mtx + col;
 		for (int i = 0; i < length; i++)
 			rd[i] = V(base + ((row+i)&3)*32);
 	}
 }
 
 void WriteVector(const float *rd, VectorSize size, int reg) {
-	if (size == V_Single) {
-		// Optimize the common case.
-		if (!currentMIPS->VfpuWriteMask(0)) {
-			V(reg) = rd[0];
-		}
-		return;
-	}
-
-	const int mtx = (reg>>2)&7;
-	const int col = reg & 3;
-	int transpose = (reg>>5)&1;
-	int row = 0;
-	int length = 0;
+	int row;
+	int length;
 
 	switch (size) {
-	case V_Single: _dbg_assert_(false); return; // transpose = 0; row=(reg>>5)&3; length = 1; break;
+	case V_Single: if (!currentMIPS->VfpuWriteMask(0)) V(reg) = rd[0]; return; // transpose = 0; row=(reg>>5)&3; length = 1; break;
 	case V_Pair:   row=(reg>>5)&2; length = 2; break;
 	case V_Triple: row=(reg>>6)&1; length = 3; break;
 	case V_Quad:   row=(reg>>5)&2; length = 4; break;
-	default: _assert_msg_(false, "%s: Bad vector size", __FUNCTION__);
+	default: length = 0; break;
 	}
 
+	const int mtx = reg & (7 << 2);
+	const int col = reg & 3;
+	bool transpose = (reg >> 5) & 1;
 	if (currentMIPS->VfpuWriteMask() == 0) {
 		if (transpose) {
-			const int base = mtx * 4 + col * 32;
+			const int base = mtx + col * 32;
 			for (int i = 0; i < length; i++)
 				V(base + ((row+i)&3)) = rd[i];
 		} else {
-			const int base = mtx * 4 + col;
+			const int base = mtx + col;
 			for (int i = 0; i < length; i++)
 				V(base + ((row+i)&3)*32) = rd[i];
 		}
 	} else {
 		for (int i = 0; i < length; i++) {
 			if (!currentMIPS->VfpuWriteMask(i)) {
-				int index = mtx * 4;
+				int index = mtx;
 				if (transpose)
 					index += ((row+i)&3) + col*32;
 				else
@@ -243,9 +233,6 @@ u32 VFPURewritePrefix(int ctrl, u32 remove, u32 add) {
 }
 
 void ReadMatrix(float *rd, MatrixSize size, int reg) {
-	int mtx = (reg >> 2) & 7;
-	int col = reg & 3;
-
 	int row = 0;
 	int side = 0;
 	int transpose = (reg >> 5) & 1;
@@ -255,8 +242,11 @@ void ReadMatrix(float *rd, MatrixSize size, int reg) {
 	case M_2x2: row = (reg >> 5) & 2; side = 2; break;
 	case M_3x3: row = (reg >> 6) & 1; side = 3; break;
 	case M_4x4: row = (reg >> 5) & 2; side = 4; break;
-	default: _assert_msg_(false, "%s: Bad matrix size", __FUNCTION__);
+	default: side = 0; break;
 	}
+
+	int mtx = (reg >> 2) & 7;
+	int col = reg & 3;
 
 	// The voffset ordering is now integrated in these formulas,
 	// eliminating a table lookup.
@@ -296,8 +286,8 @@ void WriteMatrix(const float *rd, MatrixSize size, int reg) {
 	int mtx = (reg>>2)&7;
 	int col = reg&3;
 
-	int row = 0;
-	int side = 0;
+	int row;
+	int side;
 	int transpose = (reg >> 5) & 1;
 
 	switch (size) {
@@ -305,7 +295,7 @@ void WriteMatrix(const float *rd, MatrixSize size, int reg) {
 	case M_2x2: row = (reg >> 5) & 2; side = 2; break;
 	case M_3x3: row = (reg >> 6) & 1; side = 3; break;
 	case M_4x4: row = (reg >> 5) & 2; side = 4; break;
-	default: _assert_msg_(false, "%s: Bad matrix size", __FUNCTION__);
+	default: side = 0;
 	}
 
 	if (currentMIPS->VfpuWriteMask() != 0) {
@@ -368,16 +358,6 @@ int GetVectorOverlap(int vec1, VectorSize size1, int vec2, VectorSize size2) {
 		}
 	}
 	return count;
-}
-
-int GetNumVectorElements(VectorSize sz) {
-	switch (sz) {
-		case V_Single: return 1;
-		case V_Pair:   return 2;
-		case V_Triple: return 3;
-		case V_Quad:   return 4;
-		default:       return 0;
-	}
 }
 
 VectorSize GetHalfVectorSizeSafe(VectorSize sz) {

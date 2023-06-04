@@ -218,7 +218,17 @@ VectorSize GetDoubleVectorSizeSafe(VectorSize sz);
 VectorSize GetDoubleVectorSize(VectorSize sz);
 VectorSize MatrixVectorSizeSafe(MatrixSize sz);
 VectorSize MatrixVectorSize(MatrixSize sz);
-int GetNumVectorElements(VectorSize sz);
+
+inline int GetNumVectorElements(VectorSize sz) {
+	switch (sz) {
+	case V_Single: return 1;
+	case V_Pair:   return 2;
+	case V_Triple: return 3;
+	case V_Quad:   return 4;
+	default:       return 0;
+	}
+}
+
 int GetMatrixSideSafe(MatrixSize sz);
 int GetMatrixSide(MatrixSize sz);
 std::string GetVectorNotation(int reg, VectorSize size);

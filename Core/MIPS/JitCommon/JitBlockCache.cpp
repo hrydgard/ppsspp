@@ -83,7 +83,7 @@ JitBlockCache::~JitBlockCache() {
 	Shutdown();
 }
 
-bool JitBlock::ContainsAddress(u32 em_address) {
+bool JitBlock::ContainsAddress(u32 em_address) const {
 	// WARNING - THIS DOES NOT WORK WITH JIT INLINING ENABLED.
 	// However, that doesn't exist yet so meh.
 	return (em_address >= originalAddress && em_address < originalAddress + 4 * originalSize);
