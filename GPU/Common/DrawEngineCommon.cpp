@@ -74,17 +74,18 @@ VertexDecoder *DrawEngineCommon::GetVertexDecoder(u32 vtype) {
 
 int DrawEngineCommon::ComputeNumVertsToDecode() const {
 	int vertsToDecode = 0;
+	int numDrawCalls = numDrawCalls_;
 	if (drawCalls_[0].indexType == GE_VTYPE_IDX_NONE >> GE_VTYPE_IDX_SHIFT) {
-		for (int i = 0; i < numDrawCalls_; i++) {
+		for (int i = 0; i < numDrawCalls; i++) {
 			const DeferredDrawCall &dc = drawCalls_[i];
 			vertsToDecode += dc.vertexCount;
 		}
 	} else {
 		// TODO: Share this computation with DecodeVertsStep?
-		for (int i = 0; i < numDrawCalls_; i++) {
+		for (int i = 0; i < numDrawCalls; i++) {
 			const DeferredDrawCall &dc = drawCalls_[i];
 			int lastMatch = i;
-			const int total = numDrawCalls_;
+			const int total = numDrawCalls;
 			int indexLowerBound = dc.indexLowerBound;
 			int indexUpperBound = dc.indexUpperBound;
 			for (int j = i + 1; j < total; ++j) {
@@ -645,7 +646,7 @@ void DrawEngineCommon::DecodeVertsStep(u8 *dest, int &i, int &decodedVerts) {
 		for (int j = i + 1; j < total; ++j) {
 			if (drawCalls_[j].verts != dc.verts)
 				break;
-
+			// TODO: What if UV scale/offset changes between drawcalls here?
 			indexLowerBound = std::min(indexLowerBound, (int)drawCalls_[j].indexLowerBound);
 			indexUpperBound = std::max(indexUpperBound, (int)drawCalls_[j].indexUpperBound);
 			lastMatch = j;
