@@ -141,18 +141,12 @@ void HandleDebuggerRequest(const http::Request &request) {
 	SetupDebuggerLock();
 
 	WebSocketClientInfo client_info;
-	auto& allowed_config = client_info.allowed;
+	auto& disallowed_config = client_info.disallowed;
 
 	GameBroadcaster game;
 	LogBroadcaster logger;
 	InputBroadcaster input;
 	SteppingBroadcaster stepping;
-
-	// By default everything is on
-	allowed_config.emplace("logger", true);
-	allowed_config.emplace("game", true);
-	allowed_config.emplace("stepping", true);
-	allowed_config.emplace("input", true);
 
 	std::unordered_map<std::string, DebuggerEventHandler> eventHandlers;
 	std::vector<DebuggerSubscriber *> subscriberData;
@@ -200,13 +194,13 @@ void HandleDebuggerRequest(const http::Request &request) {
 
 		// The client can explicitly ask not to be notified about some events
 		// so we check the client settings first
-		if (allowed_config.at("logger"))
+		if (!disallowed_config["logger"])
 			logger.Broadcast(ws);
-		if (allowed_config.at("game"))
+		if (!disallowed_config["game"])
 			game.Broadcast(ws);
-		if (allowed_config.at("stepping"))
+		if (!disallowed_config["stepping"])
 			stepping.Broadcast(ws);
-		if (allowed_config.at("input"))
+		if (!disallowed_config["input"])
 			input.Broadcast(ws);
 
 		for (size_t i = 0; i < subscribers.size(); ++i) {

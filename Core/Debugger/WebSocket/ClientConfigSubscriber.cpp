@@ -32,21 +32,21 @@ DebuggerSubscriber *WebSocketClientConfigInit(DebuggerEventHandlerMap & map) {
 // No parameters.
 //
 // Response (same event name):
-//  - allowed: object with boolean fields:
-//     - logger: whether logger events are allowed
-//     - game: whether game events are allowed
-//     - stepping: whether stepping events are allowed
-//     - input: whether input events are allowed
+//  - disallowed: object with optional boolean fields:
+//     - logger: whether logger events are disallowed
+//     - game: whether game events are disallowed
+//     - stepping: whether stepping events are disallowed
+//     - input: whether input events are disallowed
 void WebSocketBroadcastConfigGet(DebuggerRequest & req) {
 	JsonWriter &json = req.Respond();
-	const auto& allowed_config = req.client->allowed;
+	const auto& disallowed_config = req.client->disallowed;
 
-	json.pushDict("allowed");
+	json.pushDict("disallowed");
 
-	json.writeBool("logger", allowed_config.at("logger"));
-	json.writeBool("game", allowed_config.at("game"));
-	json.writeBool("stepping", allowed_config.at("stepping"));
-	json.writeBool("input", allowed_config.at("input"));
+	for (const auto[name, status] : disallowed_config) {
+		if (status)
+			json.writeBool(name, true);
+	}
 
 	json.end();
 }
@@ -54,35 +54,34 @@ void WebSocketBroadcastConfigGet(DebuggerRequest & req) {
 // Update the current client broadcast configuration (broadcast.config.set)
 //
 // Parameters:
-//  - allowed: object with boolean fields (all of them are optional):
+//  - disallowed: object with boolean fields (all of them are optional):
 //     - logger: new logger config state
 //     - game: new game config state
 //     - stepping: new stepping config state
 //     - input: new input config state
 //
 // Response (same event name):
-//  - allowed: object with boolean fields:
-//     - logger: whether logger events are now allowed
-//     - game: whether game events are now allowed
-//     - stepping: whether stepping events are bow allowed
-//     - input: whether input events are now allowed
+//  - disallowed: object with optional boolean fields:
+//     - logger: whether logger events are now disallowed
+//     - game: whether game events are now disallowed
+//     - stepping: whether stepping events are now disallowed
+//     - input: whether input events are now disallowed
 void WebSocketBroadcastConfigSet(DebuggerRequest & req) {
 	JsonWriter &json = req.Respond();
-	// WebSocketClientInfo& client = req.client;
-	auto& allowed_config = req.client->allowed;
+	auto& disallowed_config = req.client->disallowed;
 
-	const JsonNode *jsonAllowed = req.data.get("allowed");
-	if (!jsonAllowed) {
-		return req.Fail("Missing 'allowed' parameter");
+	const JsonNode *jsonDisallowed = req.data.get("disallowed");
+	if (!jsonDisallowed) {
+		return req.Fail("Missing 'disallowed' parameter");
 	}
-	if (jsonAllowed->value.getTag() != JSON_OBJECT) {
-		return req.Fail("Invalid 'allowed' parameter type");
+	if (jsonDisallowed->value.getTag() != JSON_OBJECT) {
+		return req.Fail("Invalid 'disallowed' parameter type");
 	}
 
-	for (const JsonNode *broadcaster : jsonAllowed->value) {
-		auto it = allowed_config.find(broadcaster->key);
-		if (it == allowed_config.end()) {
-			return req.Fail(StringFromFormat("Unsupported 'allowed' object key '%s'", broadcaster->key));
+	for (const JsonNode *broadcaster : jsonDisallowed->value) {
+		auto it = disallowed_config.find(broadcaster->key);
+		if (it == disallowed_config.end()) {
+			return req.Fail(StringFromFormat("Unsupported 'disallowed' object key '%s'", broadcaster->key));
 		}
 
 		if (broadcaster->value.getTag() == JSON_TRUE) {
@@ -92,16 +91,16 @@ void WebSocketBroadcastConfigSet(DebuggerRequest & req) {
 			it->second = false;
 		}
 		else if (broadcaster->value.getTag() != JSON_NULL) {
-			return req.Fail(StringFromFormat("Unsupported 'allowed' object type for key '%s'", broadcaster->key));
+			return req.Fail(StringFromFormat("Unsupported 'disallowed' object type for key '%s'", broadcaster->key));
 		}
 	}
 
-	json.pushDict("allowed");
+	json.pushDict("disallowed");
 
-	json.writeBool("logger", allowed_config.at("logger"));
-	json.writeBool("game", allowed_config.at("game"));
-	json.writeBool("stepping", allowed_config.at("stepping"));
-	json.writeBool("input", allowed_config.at("input"));
+	for (const auto[name, status] : disallowed_config) {
+		if (status)
+			json.writeBool(name, true);
+	}
 
 	json.end();
 }

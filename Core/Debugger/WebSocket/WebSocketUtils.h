@@ -34,13 +34,13 @@
 using namespace json;
 
 struct WebSocketClientInfo {
-	WebSocketClientInfo() : name(), version(), allowed() {
+	WebSocketClientInfo() : name(), version(), disallowed() {
 
 	}
 
 	std::string name;
 	std::string version;
-	std::map <std::string, bool> allowed;
+	std::map <std::string, bool> disallowed;
 };
 
 struct DebuggerErrorEvent {
