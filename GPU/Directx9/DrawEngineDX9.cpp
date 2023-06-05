@@ -345,11 +345,12 @@ void DrawEngineDX9::DoFlush() {
 			useCache = false;
 
 		if (useCache) {
-			u32 id = dcid_ ^ gstate.getUVGenMode();  // This can have an effect on which UV decoder we need to use! And hence what the decoded data will look like. See #9263
-			VertexArrayInfoDX9 *vai = vai_.Get(id);
+			// getUVGenMode can have an effect on which UV decoder we need to use! And hence what the decoded data will look like. See #9263
+			u32 dcid = (u32)XXH3_64bits(&drawCalls_, sizeof(DeferredDrawCall) * numDrawCalls_) ^ gstate.getUVGenMode();
+			VertexArrayInfoDX9 *vai = vai_.Get(dcid);
 			if (!vai) {
 				vai = new VertexArrayInfoDX9();
-				vai_.Insert(id, vai);
+				vai_.Insert(dcid, vai);
 			}
 
 			switch (vai->status) {
@@ -666,7 +667,6 @@ rotateVBO:
 	numDrawCalls_ = 0;
 	vertexCountInDrawCalls_ = 0;
 	decodeCounter_ = 0;
-	dcid_ = 0;
 	gstate_c.vertexFullAlpha = true;
 	framebufferManager_->SetColorUpdated(gstate_c.skipDrawReason);
 

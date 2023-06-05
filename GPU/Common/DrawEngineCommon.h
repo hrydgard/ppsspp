@@ -218,7 +218,6 @@ protected:
 
 	int decimationCounter_ = 0;
 	int decodeCounter_ = 0;
-	u32 dcid_ = 0;
 
 	// Vertex collector state
 	IndexGenerator indexGen;
