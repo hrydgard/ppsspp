@@ -222,6 +222,8 @@ private:
 
 	void DestroyDeviceObjects();
 
+	bool VertexCacheLookup(int &vertexCount, GEPrimitiveType &prim, VkBuffer &vbuf, uint32_t &vbOffset, VkBuffer &ibuf, uint32_t &ibOffset, bool &useElements, bool forceIndexed);
+
 	void DecodeVertsToPushPool(VulkanPushPool *push, uint32_t *bindOffset, VkBuffer *vkbuf);
 	void DecodeVertsToPushBuffer(VulkanPushBuffer *push, uint32_t *bindOffset, VkBuffer *vkbuf);
 
