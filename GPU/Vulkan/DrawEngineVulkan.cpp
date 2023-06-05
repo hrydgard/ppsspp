@@ -825,6 +825,8 @@ void DrawEngineVulkan::DoFlush() {
 
 		VkDescriptorSet ds = GetOrCreateDescriptorSet(imageView, sampler, baseBuf, lightBuf, boneBuf, tess);
 
+		// TODO: Can we avoid binding all three when not needed? Same below for hardware transform.
+		// Think this will require different descriptor set layouts.
 		const uint32_t dynamicUBOOffsets[3] = {
 			baseUBOOffset, lightUBOOffset, boneUBOOffset,
 		};
