@@ -60,6 +60,7 @@ static const X64Reg tempReg3 = R10;
 static const X64Reg srcReg = RCX;
 static const X64Reg dstReg = RDX;
 static const X64Reg counterReg = R8;
+static const X64Reg alphaReg = R11;
 #else
 static const X64Reg tempReg1 = RAX;
 static const X64Reg tempReg2 = R9;
@@ -67,6 +68,7 @@ static const X64Reg tempReg3 = R10;
 static const X64Reg srcReg = RDI;
 static const X64Reg dstReg = RSI;
 static const X64Reg counterReg = RDX;
+static const X64Reg alphaReg = R11;
 #endif
 #else
 static const X64Reg tempReg1 = EAX;
@@ -201,6 +203,16 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec, int
 	MOVUPS(MDisp(ESP, 80), XMM9);
 #endif
 
+	// Initialize alpha reg if possible. TODO: Only do if color values with alpha are used.
+#if PPSSPP_ARCH(AMD64)
+	if (RipAccessible(&gstate_c.vertexFullAlpha)) {
+		MOV(8, R(alphaReg), M(&gstate_c.vertexFullAlpha));  // rip accessible
+	} else {
+		MOV(PTRBITS, R(tempReg1), ImmPtr(&gstate_c.vertexFullAlpha));
+		MOV(8, R(alphaReg), MatR(tempReg1));
+	}
+#endif
+
 	bool prescaleStep = false;
 	// Look for prescaled texcoord steps
 	for (int i = 0; i < dec.numSteps_; i++) {
@@ -243,6 +255,7 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec, int
 	}
 
 	// Keep the scale/offset in a few fp registers if we need it.
+	// TODO: Read it from an argument pointer instead of gstate_c.uv.
 	if (prescaleStep) {
 		MOV(PTRBITS, R(tempReg1), ImmPtr(&gstate_c.uv));
 		MOVUPS(fpScaleOffsetReg, MatR(tempReg1));
@@ -270,6 +283,16 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec, int
 	ADD(PTRBITS, R(dstReg), Imm32(dec.decFmt.stride));
 	SUB(32, R(counterReg), Imm8(1));
 	J_CC(CC_NZ, loopStart, true);
+
+	// Writeback alpha reg
+#if PPSSPP_ARCH(AMD64)
+	if (RipAccessible(&gstate_c.vertexFullAlpha)) {
+		MOV(8, M(&gstate_c.vertexFullAlpha), R(alphaReg));  // rip accessible
+	} else {
+		MOV(PTRBITS, R(tempReg1), ImmPtr(&gstate_c.vertexFullAlpha));
+		MOV(8, MatR(tempReg1), R(alphaReg));
+	}
+#endif
 
 	MOVUPS(XMM4, MDisp(ESP, 0));
 	MOVUPS(XMM5, MDisp(ESP, 16));
@@ -930,12 +953,16 @@ void VertexDecoderJitCache::Jit_Color8888() {
 
 	CMP(32, R(tempReg1), Imm32(0xFF000000));
 	FixupBranch skip = J_CC(CC_AE, false);
+#if PPSSPP_ARCH(AMD64)
+	XOR(32, R(alphaReg), R(alphaReg));
+#else
 	if (RipAccessible(&gstate_c.vertexFullAlpha)) {
 		MOV(8, M(&gstate_c.vertexFullAlpha), Imm8(0));  // rip accessible
 	} else {
 		MOV(PTRBITS, R(tempReg1), ImmPtr(&gstate_c.vertexFullAlpha));
 		MOV(8, MatR(tempReg1), Imm8(0));
 	}
+#endif
 	SetJumpTarget(skip);
 }
 
@@ -965,12 +992,16 @@ void VertexDecoderJitCache::Jit_Color4444() {
 
 	CMP(32, R(tempReg1), Imm32(0xFF000000));
 	FixupBranch skip = J_CC(CC_AE, false);
+#if PPSSPP_ARCH(AMD64)
+	XOR(32, R(alphaReg), R(alphaReg));
+#else
 	if (RipAccessible(&gstate_c.vertexFullAlpha)) {
 		MOV(8, M(&gstate_c.vertexFullAlpha), Imm8(0));  // rip accessible
 	} else {
 		MOV(PTRBITS, R(tempReg1), ImmPtr(&gstate_c.vertexFullAlpha));
 		MOV(8, MatR(tempReg1), Imm8(0));
 	}
+#endif
 	SetJumpTarget(skip);
 }
 
@@ -1044,12 +1075,16 @@ void VertexDecoderJitCache::Jit_Color5551() {
 
 	// Let's AND to avoid a branch, tempReg1 has alpha only in the top 8 bits.
 	SHR(32, R(tempReg1), Imm8(24));
+#if PPSSPP_ARCH(AMD64)
+	AND(8, R(alphaReg), R(tempReg1));
+#else
 	if (RipAccessible(&gstate_c.vertexFullAlpha)) {
 		AND(8, M(&gstate_c.vertexFullAlpha), R(tempReg1));  // rip accessible
 	} else {
 		MOV(PTRBITS, R(tempReg3), ImmPtr(&gstate_c.vertexFullAlpha));
 		AND(8, MatR(tempReg3), R(tempReg1));
 	}
+#endif
 }
 
 void VertexDecoderJitCache::Jit_Color8888Morph() {
@@ -1258,12 +1293,16 @@ void VertexDecoderJitCache::Jit_WriteMorphColor(int outOff, bool checkAlpha) {
 	if (checkAlpha) {
 		CMP(32, R(tempReg1), Imm32(0xFF000000));
 		FixupBranch skip = J_CC(CC_AE, false);
+#if PPSSPP_ARCH(AMD64)
+		XOR(32, R(alphaReg), R(alphaReg));
+#else
 		if (RipAccessible(&gstate_c.vertexFullAlpha)) {
 			MOV(8, M(&gstate_c.vertexFullAlpha), Imm8(0));  // rip accessible
 		} else {
 			MOV(PTRBITS, R(tempReg2), ImmPtr(&gstate_c.vertexFullAlpha));
 			MOV(8, MatR(tempReg2), Imm8(0));
 		}
+#endif
 		SetJumpTarget(skip);
 	} else {
 		// Force alpha to full if we're not checking it.
