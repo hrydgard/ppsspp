@@ -947,7 +947,7 @@ int SavedataParam::EncryptData(unsigned int mode,
 		return -5;
 
 	/* Verify encryption */
-	if (sceChnnlsv_21BE78B4_(ctx2) < 0)
+	if (sceSdCleanList_(ctx2) < 0)
 		return -6;
 
 	/* Build the file hash from this PSP */
@@ -989,7 +989,7 @@ int SavedataParam::DecryptSave(unsigned int mode, unsigned char *data, int *data
 		return -6;
 
 	/* Verify that it decrypted correctly */
-	if (sceChnnlsv_21BE78B4_(ctx2) < 0)
+	if (sceSdCleanList_(ctx2) < 0)
 		return -7;
 
 	if (expectedHash) {
