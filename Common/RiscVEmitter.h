@@ -302,6 +302,12 @@ public:
 	void NEG(RiscVReg rd, RiscVReg rs) {
 		SUB(rd, R_ZERO, rs);
 	}
+	void SNEZ(RiscVReg rd, RiscVReg rs) {
+		SLTU(rd, R_ZERO, rs);
+	}
+	void SEQZ(RiscVReg rd, RiscVReg rs) {
+		SLTIU(rd, rs, 1);
+	}
 
 	void FENCE(Fence predecessor, Fence successor);
 	void FENCE_TSO();
@@ -896,6 +902,9 @@ public:
 	void MINU(RiscVReg rd, RiscVReg rs1, RiscVReg rs2);
 	void SEXT_B(RiscVReg rd, RiscVReg rs);
 	void SEXT_H(RiscVReg rd, RiscVReg rs);
+	void SEXT_W(RiscVReg rd, RiscVReg rs) {
+		ADDIW(rd, rs, 0);
+	}
 	void ZEXT_H(RiscVReg rd, RiscVReg rs);
 	void ZEXT_W(RiscVReg rd, RiscVReg rs) {
 		ADD_UW(rd, rs, R_ZERO);
