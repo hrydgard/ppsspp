@@ -1147,7 +1147,8 @@ void NativeRender(GraphicsContext *graphicsContext) {
 }
 
 void HandleGlobalMessage(const std::string &msg, const std::string &value) {
-	InputDeviceID nextInputDeviceID = DEVICE_ID_ANY;
+	// A bit ugly, see InputDeviceState.java.
+	static InputDeviceID nextInputDeviceID = DEVICE_ID_ANY;
 	if (msg == "inputDeviceConnectedID") {
 		nextInputDeviceID = (InputDeviceID)parseLong(value);
 	}
