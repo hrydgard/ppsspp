@@ -156,6 +156,10 @@ bool ElfReader::LoadRelocations(const Elf32_Rel *rels, int numRelocs) {
 				for (int t = r + 1; t < numRelocs; t++) {
 					if ((rels[t].r_info & 0xF) == R_MIPS_LO16) {
 						u32 corrLoAddr = rels[t].r_offset + segmentVAddr[readwrite];
+						// Should have matching index and segment info, according to llvm, which makes sense.
+						if ((rels[t].r_info >> 8) != (rels[r].r_info >> 8)) {
+							WARN_LOG_REPORT(LOADER, "ELF relocation HI16/LO16 with mismatching r_info lo=%08x, hi=%08x", rels[t].r_info, rels[r].r_info);
+						}
 						if (log) {
 							DEBUG_LOG(LOADER, "Corresponding lo found at %08x", corrLoAddr);
 						}
@@ -172,7 +176,7 @@ bool ElfReader::LoadRelocations(const Elf32_Rel *rels, int numRelocs) {
 					}
 				}
 				if (!found) {
-					ERROR_LOG_REPORT(LOADER, "R_MIPS_HI16: could not find R_MIPS_LO16");
+					ERROR_LOG_REPORT(LOADER, "R_MIPS_HI16: could not find R_MIPS_LO16 (r=%d of %d, addr=%08x)", r, numRelocs, addr);
 				}
 				op = (op & 0xFFFF0000) | hi;
 			}
@@ -237,7 +241,7 @@ void ElfReader::LoadRelocations2(int rel_seg)
 
 	buf = (u8*)GetSegmentPtr(rel_seg);
 	if (!buf) {
-		ERROR_LOG(LOADER, "Rel2 segment invalid");
+		ERROR_LOG_REPORT(LOADER, "Rel2 segment invalid");
 		return;
 	}
 	end = buf+ph->p_filesz;
@@ -291,7 +295,7 @@ void ElfReader::LoadRelocations2(int rel_seg)
 			addr_seg = seg;
 			relocate_to = addr_seg >= (int)ARRAY_SIZE(segmentVAddr) ? 0 : segmentVAddr[addr_seg];
 			if (!Memory::IsValidAddress(relocate_to)) {
-				ERROR_LOG(LOADER, "ELF: Bad address to relocate to: %08x (segment %d)", relocate_to, addr_seg);
+				ERROR_LOG_REPORT(LOADER, "ELF: Bad address to relocate to: %08x (segment %d)", relocate_to, addr_seg);
 				continue;
 			}
 
@@ -323,7 +327,7 @@ void ElfReader::LoadRelocations2(int rel_seg)
 
 			rel_offset = rel_base+segmentVAddr[off_seg];
 			if (!Memory::IsValidAddress(rel_offset)) {
-				ERROR_LOG(LOADER, "ELF: Bad rel_offset: %08x", rel_offset);
+				ERROR_LOG_REPORT(LOADER, "ELF: Bad rel_offset: %08x", rel_offset);
 				continue;
 			}
 
@@ -376,7 +380,7 @@ void ElfReader::LoadRelocations2(int rel_seg)
 			}
 
 			Memory::Write_U32(op, rel_offset);
-			NotifyMemInfo(MemBlockFlags::WRITE, addr, 4, "Relocation2");
+			NotifyMemInfo(MemBlockFlags::WRITE, rel_offset, 4, "Relocation2");
 			rcount += 1;
 		}
 	}
