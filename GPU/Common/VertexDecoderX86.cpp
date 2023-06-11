@@ -203,15 +203,10 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec, int
 	MOVUPS(MDisp(ESP, 80), XMM9);
 #endif
 
-	// Initialize alpha reg if possible. TODO: Only do if color values with alpha are used.
-#if PPSSPP_ARCH(AMD64)
-	if (RipAccessible(&gstate_c.vertexFullAlpha)) {
-		MOV(8, R(alphaReg), M(&gstate_c.vertexFullAlpha));  // rip accessible
-	} else {
-		MOV(PTRBITS, R(tempReg1), ImmPtr(&gstate_c.vertexFullAlpha));
-		MOV(8, R(alphaReg), MatR(tempReg1));
+	// Initialize alpha reg.
+	if (dec.col) {
+		MOV(32, R(alphaReg), Imm32(1));
 	}
-#endif
 
 	bool prescaleStep = false;
 	// Look for prescaled texcoord steps
@@ -286,11 +281,16 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec, int
 
 	// Writeback alpha reg
 #if PPSSPP_ARCH(AMD64)
-	if (RipAccessible(&gstate_c.vertexFullAlpha)) {
-		MOV(8, M(&gstate_c.vertexFullAlpha), R(alphaReg));  // rip accessible
-	} else {
-		MOV(PTRBITS, R(tempReg1), ImmPtr(&gstate_c.vertexFullAlpha));
-		MOV(8, MatR(tempReg1), R(alphaReg));
+	if (dec.col) {
+		CMP(32, R(alphaReg), Imm32(1));
+		FixupBranch alphaJump = J_CC(CC_NE, false);
+		if (RipAccessible(&gstate_c.vertexFullAlpha)) {
+			MOV(8, M(&gstate_c.vertexFullAlpha), Imm8(0));  // rip accessible
+		} else {
+			MOV(PTRBITS, R(tempReg1), ImmPtr(&gstate_c.vertexFullAlpha));
+			MOV(8, MatR(tempReg1), Imm8(0));  // rip accessible
+		}
+		SetJumpTarget(alphaJump);
 	}
 #endif
 
@@ -954,6 +954,7 @@ void VertexDecoderJitCache::Jit_Color8888() {
 	CMP(32, R(tempReg1), Imm32(0xFF000000));
 	FixupBranch skip = J_CC(CC_AE, false);
 #if PPSSPP_ARCH(AMD64)
+	// Would like to use CMOV or SetCC but CMOV doesn't take immediates and SetCC isn't right. So...
 	XOR(32, R(alphaReg), R(alphaReg));
 #else
 	if (RipAccessible(&gstate_c.vertexFullAlpha)) {
