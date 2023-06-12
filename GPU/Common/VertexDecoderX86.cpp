@@ -272,7 +272,7 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec, int
 	}
 
 	// Let's not bother with a proper stack frame. We just grab the arguments and go.
-	JumpTarget loopStart = GetCodePtr();
+	JumpTarget loopStart = NopAlignCode16();
 	for (int i = 0; i < dec.numSteps_; i++) {
 		if (!CompileStep(dec, i)) {
 			EndWrite();
