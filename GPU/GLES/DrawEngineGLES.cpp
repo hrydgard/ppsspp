@@ -204,7 +204,7 @@ static inline void VertexAttribSetup(int attrib, int fmt, int stride, int offset
 }
 
 // TODO: Use VBO and get rid of the vertexData pointers - with that, we will supply only offsets
-GLRInputLayout *DrawEngineGLES::SetupDecFmtForDraw(LinkedShader *program, const DecVtxFormat &decFmt) {
+GLRInputLayout *DrawEngineGLES::SetupDecFmtForDraw(const DecVtxFormat &decFmt) {
 	uint32_t key = decFmt.id;
 	GLRInputLayout *inputLayout = inputLayoutMap_.Get(key);
 	if (inputLayout) {
@@ -325,7 +325,7 @@ void DrawEngineGLES::DoFlush() {
 		ApplyDrawStateLate(false, 0);
 		
 		LinkedShader *program = shaderManager_->ApplyFragmentShader(vsid, vshader, pipelineState_, framebufferManager_->UseBufferedRendering());
-		GLRInputLayout *inputLayout = SetupDecFmtForDraw(program, dec_->GetDecVtxFmt());
+		GLRInputLayout *inputLayout = SetupDecFmtForDraw(dec_->GetDecVtxFmt());
 		if (useElements) {
 			render_->DrawIndexed(inputLayout,
 				vertexBuffer, vertexBufferOffset,
@@ -502,7 +502,7 @@ bool DrawEngineGLES::SupportsHWTessellation() const {
 	return hasTexelFetch && gstate_c.UseAll(GPU_USE_VERTEX_TEXTURE_FETCH | GPU_USE_TEXTURE_FLOAT | GPU_USE_INSTANCE_RENDERING);
 }
 
-bool DrawEngineGLES::UpdateUseHWTessellation(bool enable) {
+bool DrawEngineGLES::UpdateUseHWTessellation(bool enable) const {
 	return enable && SupportsHWTessellation();
 }
 
