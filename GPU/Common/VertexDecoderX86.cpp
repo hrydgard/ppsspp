@@ -285,7 +285,7 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec, int
 #if PPSSPP_ARCH(AMD64)
 	if (dec.col) {
 		CMP(32, R(alphaReg), Imm32(1));
-		FixupBranch alphaJump = J_CC(CC_NE, false);
+		FixupBranch alphaJump = J_CC(CC_E, false);
 		if (RipAccessible(&gstate_c.vertexFullAlpha)) {
 			MOV(8, M(&gstate_c.vertexFullAlpha), Imm8(0));  // rip accessible
 		} else {
@@ -1076,7 +1076,7 @@ void VertexDecoderJitCache::Jit_Color5551() {
 
 	MOV(32, MDisp(dstReg, dec_->decFmt.c0off), R(tempReg2));
 
-	// Let's AND to avoid a branch, tempReg1 has alpha only in the top 8 bits.
+	// Let's AND to avoid a branch, tempReg1 has alpha only in the top 8 bits, and they're all equal.
 	SHR(32, R(tempReg1), Imm8(24));
 #if PPSSPP_ARCH(AMD64)
 	AND(8, R(alphaReg), R(tempReg1));
