@@ -161,7 +161,7 @@ static void VertexAttribSetup(D3DVERTEXELEMENT9 * VertexElement, u8 fmt, u8 offs
 	VertexElement->UsageIndex = usage_index;
 }
 
-IDirect3DVertexDeclaration9 *DrawEngineDX9::SetupDecFmtForDraw(VSShader *vshader, const DecVtxFormat &decFmt, u32 pspFmt) {
+IDirect3DVertexDeclaration9 *DrawEngineDX9::SetupDecFmtForDraw(const DecVtxFormat &decFmt, u32 pspFmt) {
 	IDirect3DVertexDeclaration9 *vertexDeclCached = vertexDeclMap_.Get(pspFmt);
 
 	if (vertexDeclCached) {
@@ -515,7 +515,7 @@ rotateVBO:
 		ApplyDrawStateLate();
 
 		VSShader *vshader = shaderManager_->ApplyShader(true, useHWTessellation_, dec_, decOptions_.expandAllWeightsToFloat, decOptions_.applySkinInDecode, pipelineState_);
-		IDirect3DVertexDeclaration9 *pHardwareVertexDecl = SetupDecFmtForDraw(vshader, dec_->GetDecVtxFmt(), dec_->VertexType());
+		IDirect3DVertexDeclaration9 *pHardwareVertexDecl = SetupDecFmtForDraw(dec_->GetDecVtxFmt(), dec_->VertexType());
 
 		if (pHardwareVertexDecl) {
 			device_->SetVertexDeclaration(pHardwareVertexDecl);

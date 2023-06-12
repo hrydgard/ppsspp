@@ -130,7 +130,7 @@ public:
 	virtual void ClearTrackedVertexArrays() {}
 
 protected:
-	virtual bool UpdateUseHWTessellation(bool enabled) { return enabled; }
+	virtual bool UpdateUseHWTessellation(bool enabled) const { return enabled; }
 
 	int ComputeNumVertsToDecode() const;
 	void DecodeVerts(u8 *dest);

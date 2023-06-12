@@ -108,7 +108,7 @@ public:
 	bool SupportsHWTessellation() const;
 
 protected:
-	bool UpdateUseHWTessellation(bool enable) override;
+	bool UpdateUseHWTessellation(bool enable) const override;
 
 private:
 	void Invalidate(InvalidationCallbackFlags flags);
@@ -120,7 +120,7 @@ private:
 	void ApplyDrawState(int prim);
 	void ApplyDrawStateLate(bool setStencil, int stencilValue);
 
-	GLRInputLayout *SetupDecFmtForDraw(LinkedShader *program, const DecVtxFormat &decFmt);
+	GLRInputLayout *SetupDecFmtForDraw(const DecVtxFormat &decFmt);
 
 	struct FrameData {
 		GLPushBuffer *pushVertex;
