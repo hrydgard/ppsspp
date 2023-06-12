@@ -378,8 +378,8 @@ void DrawEngineGLES::DoFlush() {
 			ConvertViewportAndScissor(framebufferManager_->UseBufferedRendering(),
 				framebufferManager_->GetRenderWidth(), framebufferManager_->GetRenderHeight(),
 				framebufferManager_->GetTargetBufferWidth(), framebufferManager_->GetTargetBufferHeight(),
-				vpAndScissor);
-			UpdateCachedViewportState(vpAndScissor);
+				vpAndScissor_);
+			UpdateCachedViewportState(vpAndScissor_);
 		}
 
 		int maxIndex = indexGen.MaxIndex();
@@ -455,7 +455,7 @@ void DrawEngineGLES::DoFlush() {
 			if (alphaMask) target |= GL_STENCIL_BUFFER_BIT;
 			if (depthMask) target |= GL_DEPTH_BUFFER_BIT;
 
-			render_->Clear(clearColor, clearDepth, clearColor >> 24, target, rgbaMask, vpAndScissor.scissorX, vpAndScissor.scissorY, vpAndScissor.scissorW, vpAndScissor.scissorH);
+			render_->Clear(clearColor, clearDepth, clearColor >> 24, target, rgbaMask, vpAndScissor_.scissorX, vpAndScissor_.scissorY, vpAndScissor_.scissorW, vpAndScissor_.scissorH);
 			framebufferManager_->SetColorUpdated(gstate_c.skipDrawReason);
 
 			if (gstate_c.Use(GPU_USE_CLEAR_RAM_HACK) && colorMask && (alphaMask || gstate_c.framebufFormat == GE_FORMAT_565)) {

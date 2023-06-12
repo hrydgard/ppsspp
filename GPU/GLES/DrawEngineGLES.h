@@ -141,7 +141,9 @@ private:
 	Draw::DrawContext *draw_;
 
 	// Need to preserve the scissor for use when clearing.
-	ViewportAndScissor vpAndScissor;
+	ViewportAndScissor vpAndScissor_{};
+	// Need to preserve writemask, easiest way.
+	GenericStencilFuncState stencilState_{};
 
 	int bufferDecimationCounter_ = 0;
 	int lastRenderStepId_ = -1;
