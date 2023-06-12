@@ -248,7 +248,7 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec, int
 		MOV(fullAlphaReg, 0xFF);
 	}
 
-	JumpTarget loopStart = GetCodePtr();
+	JumpTarget loopStart = NopAlignCode16();
 	// Preload data cache ahead of reading. This offset seems pretty good.
 	PLD(srcReg, 64);
 	for (int i = 0; i < dec.numSteps_; i++) {

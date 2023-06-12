@@ -401,6 +401,7 @@ public:
 	void ReserveCodeSpace(u32 bytes);
 	const u8* AlignCode16();
 	const u8* AlignCodePage();
+	const u8 *NopAlignCode16();
 	void FlushIcache();
 	void FlushIcacheSection(const u8* start, const u8* end);
 	u8* GetWritableCodePtr();

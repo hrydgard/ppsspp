@@ -238,7 +238,7 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec, int
 		LDRH(INDEX_UNSIGNED, boundsMaxVReg, scratchReg64, offsetof(KnownVertexBounds, maxV));
 	}
 
-	const u8 *loopStart = GetCodePtr();
+	const u8 *loopStart = NopAlignCode16();
 	for (int i = 0; i < dec.numSteps_; i++) {
 		if (!CompileStep(dec, i)) {
 			EndWrite();
