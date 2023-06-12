@@ -190,7 +190,6 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec, int
 
 	// Keep the scale/offset in a few fp registers if we need it.
 	if (prescaleStep) {
-		MOVP2R(R3, &gstate_c.uv);
 		VLD1(F_32, neonUVScaleReg, R3, 2, ALIGN_NONE);
 		if ((dec.VertexType() & GE_VTYPE_TC_MASK) == GE_VTYPE_TC_8BIT) {
 			VMOV_neon(F_32, neonScratchReg, by128);

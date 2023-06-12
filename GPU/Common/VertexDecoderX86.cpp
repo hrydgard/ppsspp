@@ -60,6 +60,7 @@ static const X64Reg tempReg3 = R10;
 static const X64Reg srcReg = RCX;
 static const X64Reg dstReg = RDX;
 static const X64Reg counterReg = R8;
+static const X64Reg uvScalePtrReg = R9;  // only used during init
 static const X64Reg alphaReg = R11;
 #else
 static const X64Reg tempReg1 = RAX;
@@ -68,6 +69,7 @@ static const X64Reg tempReg3 = R10;
 static const X64Reg srcReg = RDI;
 static const X64Reg dstReg = RSI;
 static const X64Reg counterReg = RDX;
+static const X64Reg uvScalePtrReg = RCX;  // only used during init
 static const X64Reg alphaReg = R11;
 #endif
 #else
@@ -77,6 +79,7 @@ static const X64Reg tempReg3 = EDX;
 static const X64Reg srcReg = ESI;
 static const X64Reg dstReg = EDI;
 static const X64Reg counterReg = ECX;
+static const X64Reg uvScalePtrReg = EDX;  // only used during init
 #endif
 
 // XMM0-XMM5 are volatile on Windows X64
@@ -168,6 +171,22 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec, int
 	BeginWrite(4096);
 	const u8 *start = this->AlignCode16();
 
+	bool prescaleStep = false;
+	// Look for prescaled texcoord steps
+	for (int i = 0; i < dec.numSteps_; i++) {
+		if (dec.steps_[i] == &VertexDecoder::Step_TcU8Prescale ||
+			dec.steps_[i] == &VertexDecoder::Step_TcU16Prescale ||
+			dec.steps_[i] == &VertexDecoder::Step_TcFloatPrescale) {
+			prescaleStep = true;
+		}
+		if (dec.steps_[i] == &VertexDecoder::Step_TcU8PrescaleMorph ||
+			dec.steps_[i] == &VertexDecoder::Step_TcU16PrescaleMorph ||
+			dec.steps_[i] == &VertexDecoder::Step_TcFloatPrescaleMorph) {
+			prescaleStep = true;
+		}
+	}
+
+
 #if PPSSPP_ARCH(X86)
 	// Store register values
 	PUSH(ESI);
@@ -180,6 +199,7 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec, int
 	MOV(32, R(srcReg), MDisp(ESP, 16 + offset + 0));
 	MOV(32, R(dstReg), MDisp(ESP, 16 + offset + 4));
 	MOV(32, R(counterReg), MDisp(ESP, 16 + offset + 8));
+	MOV(32, R(uvScalePtrReg), MDisp(ESP, 16 + offset + 12));
 
 	const uint8_t STACK_FIXED_ALLOC = 64;
 #else
@@ -210,58 +230,44 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec, int
 	}
 #endif
 
-	bool prescaleStep = false;
-	// Look for prescaled texcoord steps
-	for (int i = 0; i < dec.numSteps_; i++) {
-		if (dec.steps_[i] == &VertexDecoder::Step_TcU8Prescale ||
-			dec.steps_[i] == &VertexDecoder::Step_TcU16Prescale ||
-			dec.steps_[i] == &VertexDecoder::Step_TcFloatPrescale) {
-			prescaleStep = true;
-		}
-		if (dec.steps_[i] == &VertexDecoder::Step_TcU8PrescaleMorph ||
-			dec.steps_[i] == &VertexDecoder::Step_TcU16PrescaleMorph ||
-			dec.steps_[i] == &VertexDecoder::Step_TcFloatPrescaleMorph) {
-			prescaleStep = true;
-		}
-	}
-
-	// Add code to convert matrices to 4x4.
-	// Later we might want to do this when the matrices are loaded instead.
-	if (dec.skinInDecode) {
-		MOV(PTRBITS, R(tempReg1), ImmPtr(&threeMasks));
-		MOVAPS(XMM4, MatR(tempReg1));
-		MOV(PTRBITS, R(tempReg1), ImmPtr(&aOne));
-		MOVUPS(XMM5, MatR(tempReg1));
-		MOV(PTRBITS, R(tempReg1), ImmPtr(gstate.boneMatrix));
-		MOV(PTRBITS, R(tempReg2), ImmPtr(bones));
-		for (int i = 0; i < dec.nweights; i++) {
-			MOVUPS(XMM0, MDisp(tempReg1, (12 * i) * 4));
-			MOVUPS(XMM1, MDisp(tempReg1, (12 * i + 3) * 4));
-			MOVUPS(XMM2, MDisp(tempReg1, (12 * i + 3 * 2) * 4));
-			MOVUPS(XMM3, MDisp(tempReg1, (12 * i + 3 * 3) * 4));
-			ANDPS(XMM0, R(XMM4));
-			ANDPS(XMM1, R(XMM4));
-			ANDPS(XMM2, R(XMM4));
-			ANDPS(XMM3, R(XMM4));
-			ORPS(XMM3, R(XMM5));
-			MOVAPS(MDisp(tempReg2, (16 * i) * 4), XMM0);
-			MOVAPS(MDisp(tempReg2, (16 * i + 4) * 4), XMM1);
-			MOVAPS(MDisp(tempReg2, (16 * i + 8) * 4), XMM2);
-			MOVAPS(MDisp(tempReg2, (16 * i + 12) * 4), XMM3);
-		}
-	}
-
 	// Keep the scale/offset in a few fp registers if we need it.
 	// TODO: Read it from an argument pointer instead of gstate_c.uv.
 	if (prescaleStep) {
-		MOV(PTRBITS, R(tempReg1), ImmPtr(&gstate_c.uv));
-		MOVUPS(fpScaleOffsetReg, MatR(tempReg1));
+		// uvScalePtrReg should point to gstate_c.uv, or wherever the UV scale we want to use is located.
+		MOVUPS(fpScaleOffsetReg, MatR(uvScalePtrReg));
 		if ((dec.VertexType() & GE_VTYPE_TC_MASK) == GE_VTYPE_TC_8BIT) {
 			MOV(PTRBITS, R(tempReg2), ImmPtr(&by128_11));
 			MULPS(fpScaleOffsetReg, MatR(tempReg2));
 		} else if ((dec.VertexType() & GE_VTYPE_TC_MASK) == GE_VTYPE_TC_16BIT) {
 			MOV(PTRBITS, R(tempReg2), ImmPtr(&by32768_11));
 			MULPS(fpScaleOffsetReg, MatR(tempReg2));
+		}
+	}
+
+	// Add code to convert matrices to 4x4.
+	// Later we might want to do this when the matrices are loaded instead.
+	// Can't touch fpScaleOffsetReg (XMM0) in here!
+	if (dec.skinInDecode) {
+		MOV(PTRBITS, R(tempReg1), ImmPtr(&threeMasks));
+		MOVAPS(XMM5, MatR(tempReg1));
+		MOV(PTRBITS, R(tempReg1), ImmPtr(&aOne));
+		MOVUPS(XMM6, MatR(tempReg1));
+		MOV(PTRBITS, R(tempReg1), ImmPtr(gstate.boneMatrix));
+		MOV(PTRBITS, R(tempReg2), ImmPtr(bones));
+		for (int i = 0; i < dec.nweights; i++) {
+			MOVUPS(XMM1, MDisp(tempReg1, (12 * i) * 4));
+			MOVUPS(XMM2, MDisp(tempReg1, (12 * i + 3) * 4));
+			MOVUPS(XMM3, MDisp(tempReg1, (12 * i + 3 * 2) * 4));
+			MOVUPS(XMM4, MDisp(tempReg1, (12 * i + 3 * 3) * 4));
+			ANDPS(XMM1, R(XMM5));
+			ANDPS(XMM2, R(XMM5));
+			ANDPS(XMM3, R(XMM5));
+			ANDPS(XMM4, R(XMM5));
+			ORPS(XMM4, R(XMM6));
+			MOVAPS(MDisp(tempReg2, (16 * i) * 4), XMM1);
+			MOVAPS(MDisp(tempReg2, (16 * i + 4) * 4), XMM2);
+			MOVAPS(MDisp(tempReg2, (16 * i + 8) * 4), XMM3);
+			MOVAPS(MDisp(tempReg2, (16 * i + 12) * 4), XMM4);
 		}
 	}
 
@@ -775,6 +781,8 @@ void VertexDecoderJitCache::Jit_TcU8Prescale() {
 	CVTSI2SS(fpScratchReg, R(tempReg1));
 	CVTSI2SS(fpScratchReg2, R(tempReg2));
 	UNPCKLPS(fpScratchReg, R(fpScratchReg2));
+	// TODO: These are a lot of nasty consecutive dependencies. Can probably be made faster
+	// if we can spare another register to avoid the shuffle, like on ARM.
 	MULPS(fpScratchReg, R(fpScaleOffsetReg));
 	SHUFPS(fpScaleOffsetReg, R(fpScaleOffsetReg), _MM_SHUFFLE(1, 0, 3, 2));
 	ADDPS(fpScratchReg, R(fpScaleOffsetReg));

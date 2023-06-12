@@ -1282,11 +1282,10 @@ void VertexDecoder::SetVertexType(u32 fmt, const VertexDecoderOptions &options, 
 	}
 }
 
-void VertexDecoder::DecodeVerts(u8 *decodedptr, const void *verts, int indexLowerBound, int indexUpperBound) const {
+void VertexDecoder::DecodeVerts(u8 *decodedptr, const void *verts, const UVScale *uvScaleOffset, int indexLowerBound, int indexUpperBound) const {
 	// Decode the vertices within the found bounds, once each
 	// decoded_ and ptr_ are used in the steps, so can't be turned into locals for speed.
-	decoded_ = decodedptr;
-	ptr_ = (const u8*)verts + indexLowerBound * size;
+	const u8 *startPtr = (const u8*)verts + indexLowerBound * size;
 
 	int count = indexUpperBound - indexLowerBound + 1;
 	int stride = decFmt.stride;
@@ -1300,8 +1299,10 @@ void VertexDecoder::DecodeVerts(u8 *decodedptr, const void *verts, int indexLowe
 
 	if (jitted_) {
 		// We've compiled the steps into optimized machine code, so just jump!
-		jitted_(ptr_, decoded_, count);
+		jitted_(startPtr, decodedptr, count, uvScaleOffset);
 	} else {
+		ptr_ = startPtr;
+		decoded_ = decodedptr;
 		// Interpret the decode steps
 		for (; count; count--) {
 			for (int i = 0; i < numSteps_; i++) {
