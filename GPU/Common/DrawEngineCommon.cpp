@@ -783,16 +783,6 @@ uint64_t DrawEngineCommon::ComputeHash() {
 	return fullhash;
 }
 
-// Cheap bit scrambler from https://nullprogram.com/blog/2018/07/31/
-inline uint32_t lowbias32_r(uint32_t x) {
-	x ^= x >> 16;
-	x *= 0x43021123U;
-	x ^= x >> 15 ^ x >> 30;
-	x *= 0x1d69e2a5U;
-	x ^= x >> 16;
-	return x;
-}
-
 // vertTypeID is the vertex type but with the UVGen mode smashed into the top bits.
 void DrawEngineCommon::SubmitPrim(const void *verts, const void *inds, GEPrimitiveType prim, int vertexCount, u32 vertTypeID, int cullMode, int *bytesRead) {
 	if (!indexGen.PrimCompatible(prevPrim_, prim) || numDrawCalls_ >= MAX_DEFERRED_DRAW_CALLS || vertexCountInDrawCalls_ + vertexCount > VERTEX_BUFFER_MAX) {
@@ -863,6 +853,29 @@ bool DrawEngineCommon::CanUseHardwareTessellation(GEPatchPrimType prim) {
 		return CanUseHardwareTransform(PatchPrimToPrim(prim));
 	}
 	return false;
+}
+
+// Cheap bit scrambler from https://nullprogram.com/blog/2018/07/31/
+inline uint32_t lowbias32_r(uint32_t x) {
+	x ^= x >> 16;
+	x *= 0x43021123U;
+	x ^= x >> 15 ^ x >> 30;
+	x *= 0x1d69e2a5U;
+	x ^= x >> 16;
+	return x;
+}
+
+uint32_t DrawEngineCommon::ComputeDrawcallsHash() const {
+	uint32_t dcid = 0;
+	for (int i = 0; i < numDrawCalls_; i++) {
+		u32 dhash = dcid;
+		dhash = __rotl(dhash ^ (u32)(uintptr_t)drawCalls_[i].verts, 13);
+		dhash = __rotl(dhash ^ (u32)(uintptr_t)drawCalls_[i].inds, 19);
+		dhash = __rotl(dhash ^ (u32)drawCalls_[i].indexType, 7);
+		dhash = __rotl(dhash ^ (u32)drawCalls_[i].vertexCount, 11);
+		dcid = lowbias32_r(dhash ^ (u32)drawCalls_[i].prim);
+	}
+	return dcid;
 }
 
 void TessellationDataTransfer::CopyControlPoints(float *pos, float *tex, float *col, int posStride, int texStride, int colStride, const SimpleVertex *const *points, int size, u32 vertType) {

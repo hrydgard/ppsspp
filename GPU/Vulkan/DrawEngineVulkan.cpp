@@ -554,7 +554,8 @@ void DrawEngineVulkan::Invalidate(InvalidationCallbackFlags flags) {
 
 bool DrawEngineVulkan::VertexCacheLookup(int &vertexCount, GEPrimitiveType &prim, VkBuffer &vbuf, uint32_t &vbOffset, VkBuffer &ibuf, uint32_t &ibOffset, bool &useElements, bool forceIndexed) {
 	// getUVGenMode can have an effect on which UV decoder we need to use! And hence what the decoded data will look like. See #9263
-	u32 dcid = (u32)XXH3_64bits(&drawCalls_, sizeof(DeferredDrawCall) * numDrawCalls_) ^ gstate.getUVGenMode();
+	// u32 dcid = (u32)XXH3_64bits(&drawCalls_, sizeof(DeferredDrawCall) * numDrawCalls_) ^ gstate.getUVGenMode();
+	u32 dcid = ComputeDrawcallsHash() ^ gstate.getUVGenMode();
 
 	PROFILE_THIS_SCOPE("vcache");
 	VertexArrayInfoVulkan *vai = vai_.Get(dcid);

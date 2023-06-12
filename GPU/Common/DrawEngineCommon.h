@@ -175,6 +175,8 @@ protected:
 		}
 	}
 
+	uint32_t ComputeDrawcallsHash() const;
+
 	bool useHWTransform_ = false;
 	bool useHWTessellation_ = false;
 	// Used to prevent unnecessary flushing in softgpu.
