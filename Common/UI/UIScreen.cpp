@@ -127,7 +127,7 @@ bool UIScreen::UnsyncKey(const KeyInput &key) {
 	ev.type = QueuedEventType::KEY;
 	ev.key = key;
 	eventQueue_.push_back(ev);
-	return true;
+	return retval;
 }
 
 void UIScreen::update() {
