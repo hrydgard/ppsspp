@@ -204,9 +204,11 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec, int
 #endif
 
 	// Initialize alpha reg.
+#if PPSSPP_ARCH(AMD64)
 	if (dec.col) {
 		MOV(32, R(alphaReg), Imm32(1));
 	}
+#endif
 
 	bool prescaleStep = false;
 	// Look for prescaled texcoord steps
