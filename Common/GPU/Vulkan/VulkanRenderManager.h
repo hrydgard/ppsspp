@@ -453,8 +453,6 @@ public:
 		return outOfDateFrames_ > VulkanContext::MAX_INFLIGHT_FRAMES;
 	}
 
-	void Invalidate(InvalidationFlags flags);
-
 	void ResetStats();
 	void DrainCompileQueue();
 
