@@ -78,7 +78,7 @@ public:
 	void Execute(int vtype, int indexUpperBound, bool useJit) {
 		SetupExecute(vtype, useJit);
 
-		dec_->DecodeVerts(dst_, src_, indexLowerBound_, indexUpperBound);
+		dec_->DecodeVerts(dst_, src_, &gstate_c.uv, indexLowerBound_, indexUpperBound);
 	}
 
 	double ExecuteTimed(int vtype, int indexUpperBound, bool useJit) {
@@ -88,7 +88,7 @@ public:
 		double st = time_now_d();
 		do {
 			for (int j = 0; j < ROUNDS; ++j) {
-				dec_->DecodeVerts(dst_, src_, indexLowerBound_, indexUpperBound);
+				dec_->DecodeVerts(dst_, src_, &gstate_c.uv, indexLowerBound_, indexUpperBound);
 				++total;
 			}
 		} while (time_now_d() - st < 0.5);

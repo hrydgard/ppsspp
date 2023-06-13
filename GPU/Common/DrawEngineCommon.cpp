@@ -103,12 +103,9 @@ int DrawEngineCommon::ComputeNumVertsToDecode() const {
 }
 
 void DrawEngineCommon::DecodeVerts(u8 *dest) {
-	const UVScale origUV = gstate_c.uv;
 	for (; decodeCounter_ < numDrawCalls_; decodeCounter_++) {
-		gstate_c.uv = drawCalls_[decodeCounter_].uvScale;
-		DecodeVertsStep(dest, decodeCounter_, decodedVerts_);  // NOTE! DecodeVertsStep can modify decodeCounter_!
+		DecodeVertsStep(dest, decodeCounter_, decodedVerts_, &drawCalls_[decodeCounter_].uvScale);  // NOTE! DecodeVertsStep can modify decodeCounter_!
 	}
-	gstate_c.uv = origUV;
 
 	// Sanity check
 	if (indexGen.Prim() < 0) {
@@ -505,7 +502,7 @@ bool DrawEngineCommon::GetCurrentSimpleVertices(int count, std::vector<GPUDebugV
 u32 DrawEngineCommon::NormalizeVertices(u8 *outPtr, u8 *bufPtr, const u8 *inPtr, VertexDecoder *dec, int lowerBound, int upperBound, u32 vertType) {
 	// First, decode the vertices into a GPU compatible format. This step can be eliminated but will need a separate
 	// implementation of the vertex decoder.
-	dec->DecodeVerts(bufPtr, inPtr, lowerBound, upperBound);
+	dec->DecodeVerts(bufPtr, inPtr, &gstate_c.uv, lowerBound, upperBound);
 
 	// OK, morphing eliminated but bones still remain to be taken care of.
 	// Let's do a partial software transform where we only do skinning.
@@ -612,7 +609,7 @@ void DrawEngineCommon::ApplyFramebufferRead(FBOTexState *fboTexState) {
 	gstate_c.Dirty(DIRTY_SHADERBLEND);
 }
 
-void DrawEngineCommon::DecodeVertsStep(u8 *dest, int &i, int &decodedVerts) {
+void DrawEngineCommon::DecodeVertsStep(u8 *dest, int &i, int &decodedVerts, const UVScale *uvScale) {
 	PROFILE_THIS_SCOPE("vertdec");
 
 	const DeferredDrawCall &dc = drawCalls_[i];
@@ -624,7 +621,7 @@ void DrawEngineCommon::DecodeVertsStep(u8 *dest, int &i, int &decodedVerts) {
 	if (dc.indexType == GE_VTYPE_IDX_NONE >> GE_VTYPE_IDX_SHIFT) {
 		// Decode the verts (and at the same time apply morphing/skinning). Simple.
 		dec_->DecodeVerts(dest + decodedVerts * (int)dec_->GetDecVtxFmt().stride,
-			dc.verts, indexLowerBound, indexUpperBound);
+			dc.verts, uvScale, indexLowerBound, indexUpperBound);
 		decodedVerts += indexUpperBound - indexLowerBound + 1;
 		
 		bool clockwise = true;
@@ -691,7 +688,7 @@ void DrawEngineCommon::DecodeVertsStep(u8 *dest, int &i, int &decodedVerts) {
 
 		// 3. Decode that range of vertex data.
 		dec_->DecodeVerts(dest + decodedVerts * (int)dec_->GetDecVtxFmt().stride,
-			dc.verts, indexLowerBound, indexUpperBound);
+			dc.verts, uvScale, indexLowerBound, indexUpperBound);
 		decodedVerts += vertexCount;
 
 		// 4. Advance indexgen vertex counter.
@@ -849,7 +846,7 @@ void DrawEngineCommon::SubmitPrim(const void *verts, const void *inds, GEPrimiti
 	vertexCountInDrawCalls_ += vertexCount;
 
 	if (decOptions_.applySkinInDecode && (vertTypeID & GE_VTYPE_WEIGHT_MASK)) {
-		DecodeVertsStep(decoded_, decodeCounter_, decodedVerts_);
+		DecodeVertsStep(decoded_, decodeCounter_, decodedVerts_, &dc.uvScale);
 		decodeCounter_++;
 	}
 

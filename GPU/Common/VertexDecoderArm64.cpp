@@ -39,6 +39,9 @@ static const ARM64Reg srcReg = X0;
 static const ARM64Reg dstReg = X1;
 
 static const ARM64Reg counterReg = W2;
+
+static const ARM64Reg uvScaleReg = X3;
+
 static const ARM64Reg tempReg1 = W3;
 static const ARM64Reg tempRegPtr = X3;
 static const ARM64Reg tempReg2 = W4;
@@ -178,7 +181,6 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec, int
 
 	// Keep the scale/offset in a few fp registers if we need it.
 	if (prescaleStep) {
-		MOVP2R(X3, &gstate_c.uv);
 		fp.LDR(64, INDEX_UNSIGNED, neonUVScaleReg, X3, 0);
 		fp.LDR(64, INDEX_UNSIGNED, neonUVOffsetReg, X3, 8);
 		if ((dec.VertexType() & GE_VTYPE_TC_MASK) == GE_VTYPE_TC_8BIT) {
@@ -239,7 +241,7 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec, int
 		LDRH(INDEX_UNSIGNED, boundsMaxVReg, scratchReg64, offsetof(KnownVertexBounds, maxV));
 	}
 
-	const u8 *loopStart = GetCodePtr();
+	const u8 *loopStart = NopAlignCode16();
 	for (int i = 0; i < dec.numSteps_; i++) {
 		if (!CompileStep(dec, i)) {
 			EndWrite();

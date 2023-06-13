@@ -143,7 +143,7 @@ protected:
 	uint64_t ComputeHash();
 
 	// Vertex decoding
-	void DecodeVertsStep(u8 *dest, int &i, int &decodedVerts);
+	void DecodeVertsStep(u8 *dest, int &i, int &decodedVerts, const UVScale *uvScale);
 
 	void ApplyFramebufferRead(FBOTexState *fboTexState);
 
