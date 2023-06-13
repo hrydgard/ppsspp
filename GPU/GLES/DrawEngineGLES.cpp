@@ -248,7 +248,6 @@ void DrawEngineGLES::DoFlush() {
 		numDrawCalls_ = 0;
 		vertexCountInDrawCalls_ = 0;
 		decodeCounter_ = 0;
-		dcid_ = 0;
 		return;
 	}
 
@@ -483,7 +482,6 @@ bail:
 	numDrawCalls_ = 0;
 	vertexCountInDrawCalls_ = 0;
 	decodeCounter_ = 0;
-	dcid_ = 0;
 	gstate_c.vertexFullAlpha = true;
 	framebufferManager_->SetColorUpdated(gstate_c.skipDrawReason);
 

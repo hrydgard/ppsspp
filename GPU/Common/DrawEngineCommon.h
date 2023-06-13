@@ -175,6 +175,8 @@ protected:
 		}
 	}
 
+	uint32_t ComputeDrawcallsHash() const;
+
 	bool useHWTransform_ = false;
 	bool useHWTessellation_ = false;
 	// Used to prevent unnecessary flushing in softgpu.
@@ -218,7 +220,6 @@ protected:
 
 	int decimationCounter_ = 0;
 	int decodeCounter_ = 0;
-	u32 dcid_ = 0;
 
 	// Vertex collector state
 	IndexGenerator indexGen;
