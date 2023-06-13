@@ -39,7 +39,6 @@ enum class VKRRenderCommand : uint8_t {
 	DRAW,
 	DRAW_INDEXED,
 	PUSH_CONSTANTS,
-	SELF_DEPENDENCY_BARRIER,
 	DEBUG_ANNOTATION,
 	NUM_RENDER_COMMANDS,
 };
@@ -48,10 +47,9 @@ enum class PipelineFlags : u8 {
 	NONE = 0,
 	USES_BLEND_CONSTANT = (1 << 1),
 	USES_DEPTH_STENCIL = (1 << 2),  // Reads or writes the depth or stencil buffers.
-	USES_INPUT_ATTACHMENT = (1 << 3),
-	USES_GEOMETRY_SHADER = (1 << 4),
-	USES_MULTIVIEW = (1 << 5),  // Inherited from the render pass it was created with.
-	USES_DISCARD = (1 << 6),
+	USES_GEOMETRY_SHADER = (1 << 3),
+	USES_MULTIVIEW = (1 << 4),  // Inherited from the render pass it was created with.
+	USES_DISCARD = (1 << 5),
 };
 ENUM_CLASS_BITOPS(PipelineFlags);
 
@@ -313,8 +311,6 @@ private:
 	static void SetupTransitionToTransferSrc(VKRImage &img, VkImageAspectFlags aspect, VulkanBarrier *recordBarrier);
 	static void SetupTransitionToTransferDst(VKRImage &img, VkImageAspectFlags aspect, VulkanBarrier *recordBarrier);
 	static void SetupTransferDstWriteAfterWrite(VKRImage &img, VkImageAspectFlags aspect, VulkanBarrier *recordBarrier);
-
-	static void SelfDependencyBarrier(VKRImage &img, VkImageAspectFlags aspect, VulkanBarrier *recordBarrier);
 
 	VulkanContext *vulkan_;
 

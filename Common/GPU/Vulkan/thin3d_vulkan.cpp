@@ -438,7 +438,6 @@ public:
 	// These functions should be self explanatory.
 	void BindFramebufferAsRenderTarget(Framebuffer *fbo, const RenderPassInfo &rp, const char *tag) override;
 	void BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChannel channelBit, int layer) override;
-	void BindCurrentFramebufferForColorInput() override;
 
 	void GetFramebufferDimensions(Framebuffer *fbo, int *w, int *h) override;
 
@@ -1011,9 +1010,9 @@ VKContext::VKContext(VulkanContext *vulkan)
 		}
 	}
 
-	// Limited, through input attachments and self-dependencies.
-	// We turn it off here already if buggy.
-	caps_.framebufferFetchSupported = !bugs_.Has(Bugs::SUBPASS_FEEDBACK_BROKEN);
+	// Vulkan can support this through input attachments and various extensions, but not worth
+	// the trouble.
+	caps_.framebufferFetchSupported = false;
 
 	caps_.deviceID = deviceProps.deviceID;
 	device_ = vulkan->GetDevice();
@@ -1775,10 +1774,6 @@ void VKContext::BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChanne
 
 	boundTextures_[binding].clear();
 	boundImageView_[binding] = renderManager_.BindFramebufferAsTexture(fb->GetFB(), binding, aspect, layer);
-}
-
-void VKContext::BindCurrentFramebufferForColorInput() {
-	renderManager_.BindCurrentFramebufferAsInputAttachment0(VK_IMAGE_ASPECT_COLOR_BIT);
 }
 
 void VKContext::GetFramebufferDimensions(Framebuffer *fbo, int *w, int *h) {

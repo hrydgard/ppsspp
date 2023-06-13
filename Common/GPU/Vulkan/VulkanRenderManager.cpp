@@ -659,10 +659,6 @@ VKRGraphicsPipeline *VulkanRenderManager::CreateGraphicsPipeline(VKRGraphicsPipe
 				WARN_LOG(G3D, "Not compiling pipeline that requires depth, for non depth renderpass type");
 				continue;
 			}
-			if ((pipelineFlags & PipelineFlags::USES_INPUT_ATTACHMENT) && !RenderPassTypeHasInput(rpType)) {
-				WARN_LOG(G3D, "Not compiling pipeline that requires input attachment, for non input renderpass type");
-				continue;
-			}
 			// Shouldn't hit this, these should have been filtered elsewhere. However, still a good check to do.
 			if (sampleCount == VK_SAMPLE_COUNT_1_BIT && RenderPassTypeHasMultisample(rpType)) {
 				WARN_LOG(G3D, "Not compiling single sample pipeline for a multisampled render pass type");
@@ -712,10 +708,6 @@ void VulkanRenderManager::EndCurRenderStep() {
 	if (!curRenderStep_->render.framebuffer) {
 		rpType = RenderPassType::BACKBUFFER;
 	} else {
-		if (curPipelineFlags_ & PipelineFlags::USES_INPUT_ATTACHMENT) {
-			// Not allowed on backbuffers.
-			rpType = depthStencil ? (RenderPassType::HAS_DEPTH | RenderPassType::COLOR_INPUT) : RenderPassType::COLOR_INPUT;
-		}
 		// Framebuffers can be stereo, and if so, will control the render pass type to match.
 		// Pipelines can be mono and render fine to stereo etc, so not checking them here.
 		// Note that we don't support rendering to just one layer of a multilayer framebuffer!
@@ -764,11 +756,6 @@ void VulkanRenderManager::EndCurRenderStep() {
 	// We no longer have a current render step.
 	curRenderStep_ = nullptr;
 	curPipelineFlags_ = (PipelineFlags)0;
-}
-
-void VulkanRenderManager::BindCurrentFramebufferAsInputAttachment0(VkImageAspectFlags aspectBits) {
-	_dbg_assert_(curRenderStep_);
-	curRenderStep_->commands.push_back(VkRenderData{ VKRRenderCommand::SELF_DEPENDENCY_BARRIER });
 }
 
 void VulkanRenderManager::BindFramebufferAsRenderTarget(VKRFramebuffer *fb, VKRRenderPassLoadAction color, VKRRenderPassLoadAction depth, VKRRenderPassLoadAction stencil, uint32_t clearColor, float clearDepth, uint8_t clearStencil, const char *tag) {

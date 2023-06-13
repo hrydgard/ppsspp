@@ -356,9 +356,6 @@ VulkanPipeline *PipelineManagerVulkan::GetOrCreatePipeline(VulkanRenderManager *
 		return iter;
 
 	PipelineFlags pipelineFlags = (PipelineFlags)0;
-	if (fs->Flags() & FragmentShaderFlags::INPUT_ATTACHMENT) {
-		pipelineFlags |= PipelineFlags::USES_INPUT_ATTACHMENT;
-	}
 	if (fs->Flags() & FragmentShaderFlags::USES_DISCARD) {
 		pipelineFlags |= PipelineFlags::USES_DISCARD;
 	}

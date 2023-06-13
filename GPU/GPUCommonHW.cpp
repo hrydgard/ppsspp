@@ -607,10 +607,6 @@ u32 GPUCommonHW::CheckGPUFeatures() const {
 		features |= GPU_USE_VS_RANGE_CULLING;
 	}
 
-	if (draw_->GetDeviceCaps().framebufferFetchSupported) {
-		features |= GPU_USE_FRAMEBUFFER_FETCH;
-	}
-
 	if (draw_->GetShaderLanguageDesc().bitwiseOps) {
 		features |= GPU_USE_LIGHT_UBERSHADER;
 	}

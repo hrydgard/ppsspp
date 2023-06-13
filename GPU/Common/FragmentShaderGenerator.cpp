@@ -171,8 +171,8 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 	bool fetchFramebuffer = needFramebufferRead && id.Bit(FS_BIT_USE_FRAMEBUFFER_FETCH);
 	bool readFramebufferTex = needFramebufferRead && !id.Bit(FS_BIT_USE_FRAMEBUFFER_FETCH);
 
-	if (fetchFramebuffer && compat.shaderLanguage != GLSL_VULKAN && (compat.shaderLanguage != GLSL_3xx || !compat.lastFragData)) {
-		*errorString = "framebuffer fetch requires GLSL: vulkan or 3xx";
+	if (fetchFramebuffer && (compat.shaderLanguage != GLSL_3xx || !compat.lastFragData)) {
+		*errorString = "framebuffer fetch requires GLSL 3xx";
 		return false;
 	}
 
@@ -204,9 +204,6 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 		if (readFramebufferTex) {
 			// The framebuffer texture is always bound as an array.
 			p.F("layout (set = 0, binding = %d) uniform sampler2DArray fbotex;\n", DRAW_BINDING_2ND_TEXTURE);
-		} else if (fetchFramebuffer) {
-			p.F("layout (input_attachment_index = 0, set = 0, binding = %d) uniform subpassInput inputColor;\n", DRAW_BINDING_INPUT_ATTACHMENT);
-			*fragmentShaderFlags |= FragmentShaderFlags::INPUT_ATTACHMENT;
 		}
 
 		if (shaderDepalMode != ShaderDepalMode::OFF) {
