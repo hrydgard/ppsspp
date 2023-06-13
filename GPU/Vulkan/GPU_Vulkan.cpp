@@ -280,22 +280,12 @@ u32 GPU_Vulkan::CheckGPUFeatures() const {
 		features |= GPU_USE_SINGLE_PASS_STEREO;
 		features |= GPU_USE_SIMPLE_STEREO_PERSPECTIVE;
 
-		features &= ~GPU_USE_FRAMEBUFFER_FETCH;  // Need to figure out if this can be supported with multiview rendering
 		if (features & GPU_USE_GS_CULLING) {
 			// Many devices that support stereo and GS don't support GS during stereo.
 			features &= ~GPU_USE_GS_CULLING;
 			features |= GPU_USE_VS_RANGE_CULLING;
 		}
 	}
-
-	// We need to turn off framebuffer fetch through input attachments if MSAA is on for now.
-	// This is fixable, just needs some shader generator work (subpassInputMS).
-	// Actually, I've decided to disable framebuffer fetch entirely for now. Perf isn't worth
-	// the compatibility problems.
-
-	// if (msaaLevel_ != 0) {
-	features &= ~GPU_USE_FRAMEBUFFER_FETCH;
-	// }
 
 	// Only a few low-power GPUs should probably avoid this.
 	// Let's figure that out later.

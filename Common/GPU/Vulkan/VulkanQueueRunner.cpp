@@ -261,31 +261,6 @@ VKRRenderPass *VulkanQueueRunner::GetRenderPass(const RPKey &key) {
 	return pass;
 }
 
-// Must match the subpass self-dependency declared above.
-void VulkanQueueRunner::SelfDependencyBarrier(VKRImage &img, VkImageAspectFlags aspect, VulkanBarrier *recordBarrier) {
-	if (aspect & VK_IMAGE_ASPECT_COLOR_BIT) {
-		VkAccessFlags srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-		VkAccessFlags dstAccessMask = VK_ACCESS_INPUT_ATTACHMENT_READ_BIT;
-		VkPipelineStageFlags srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-		VkPipelineStageFlags dstStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-		recordBarrier->TransitionImage(
-			img.image,
-			0,
-			1,
-			img.numLayers,
-			aspect,
-			VK_IMAGE_LAYOUT_GENERAL,
-			VK_IMAGE_LAYOUT_GENERAL,
-			srcAccessMask,
-			dstAccessMask,
-			srcStageMask,
-			dstStageMask
-		);
-	} else {
-		_assert_msg_(false, "Depth self-dependencies not yet supported");
-	}
-}
-
 void VulkanQueueRunner::PreprocessSteps(std::vector<VKRStep *> &steps) {
 	// Optimizes renderpasses, then sequences them.
 	// Planned optimizations: 
@@ -918,9 +893,6 @@ void VulkanQueueRunner::LogRenderPass(const VKRStep &pass, bool verbose) {
 			case VKRRenderCommand::REMOVED:
 				INFO_LOG(G3D, "  (Removed)");
 				break;
-			case VKRRenderCommand::SELF_DEPENDENCY_BARRIER:
-				INFO_LOG(G3D, "  SelfBarrier()");
-				break;
 			case VKRRenderCommand::BIND_GRAPHICS_PIPELINE:
 				INFO_LOG(G3D, "  BindGraphicsPipeline(%x)", (int)(intptr_t)cmd.graphics_pipeline.pipeline);
 				break;
@@ -1358,21 +1330,6 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 			float bc[4];
 			Uint8x4ToFloat4(bc, c.blendColor.color);
 			vkCmdSetBlendConstants(cmd, bc);
-			break;
-		}
-
-		case VKRRenderCommand::SELF_DEPENDENCY_BARRIER:
-		{
-			_assert_(step.render.pipelineFlags & PipelineFlags::USES_INPUT_ATTACHMENT);
-			_assert_(fb);
-			VulkanBarrier barrier;
-			if (fb->sampleCount != VK_SAMPLE_COUNT_1_BIT) {
-				// Rendering is happening to the multisample buffer, not the color buffer.
-				SelfDependencyBarrier(fb->msaaColor, VK_IMAGE_ASPECT_COLOR_BIT, &barrier);
-			} else {
-				SelfDependencyBarrier(fb->color, VK_IMAGE_ASPECT_COLOR_BIT, &barrier);
-			}
-			barrier.Flush(cmd);
 			break;
 		}
 
