@@ -104,9 +104,11 @@ int DrawEngineCommon::ComputeNumVertsToDecode() const {
 }
 
 void DrawEngineCommon::DecodeVerts(u8 *dest) {
-	for (; decodeCounter_ < numDrawCalls_; decodeCounter_++) {
-		DecodeVertsStep(dest, decodeCounter_, decodedVerts_, &drawCalls_[decodeCounter_].uvScale);  // NOTE! DecodeVertsStep can modify decodeCounter_!
+	int decodeCounter = decodeCounter_;
+	for (; decodeCounter < numDrawCalls_; decodeCounter++) {
+		DecodeVertsStep(dest, decodeCounter, decodedVerts_, &drawCalls_[decodeCounter].uvScale);  // NOTE! DecodeVertsStep can modify decodeCounter_!
 	}
+	decodeCounter_ = decodeCounter;
 
 	// Sanity check
 	if (indexGen.Prim() < 0) {
