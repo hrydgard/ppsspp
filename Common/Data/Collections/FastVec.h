@@ -8,6 +8,10 @@
 #include <cstdlib>
 #include <cstring>
 
+#ifdef _DEBUG
+#include "Common/Log.h"
+#endif
+
 template<class T>
 class FastVec {
 public:
@@ -109,8 +113,21 @@ public:
 		}
 	}
 
+	void reserve(size_t newCapacity) {
+		IncreaseCapacityTo(newCapacity);
+	}
+
+	void LockCapacity() {
+#ifdef _DEBUG
+		capacityLocked_ = true;
+#endif
+	}
+
 private:
 	void IncreaseCapacityTo(size_t newCapacity) {
+#ifdef _DEBUG
+		_dbg_assert_(!capacityLocked_);
+#endif
 		if (newCapacity <= capacity_)
 			return;
 		T *oldData = data_;
@@ -119,6 +136,7 @@ private:
 			memcpy(data_, oldData, sizeof(T) * size_);
 			free(oldData);
 		}
+		capacity_ = newCapacity;
 	}
 
 	void ExtendByOne() {
@@ -128,10 +146,12 @@ private:
 		}
 		IncreaseCapacityTo(newCapacity);
 		size_++;
-		capacity_ = newCapacity;
 	}
 
 	size_t size_ = 0;
 	size_t capacity_ = 0;
 	T *data_ = nullptr;
+#ifdef _DEBUG
+	bool capacityLocked_ = false;
+#endif
 };
