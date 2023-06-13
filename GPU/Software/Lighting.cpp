@@ -219,9 +219,10 @@ static inline __m128i LightColorScaleBy512SSE4(__m128i factor, __m128i color, __
 }
 #endif
 
+template <bool useSSE4>
 static inline int LightCeil(float f) {
 #if defined(_M_SSE)
-	if (cpu_info.bSSE4_1)
+	if (useSSE4)
 		return LightCeilSSE4(f);
 #elif PPSSPP_ARCH(ARM64_NEON)
 	return vcvtps_s32_f32(f);
@@ -229,12 +230,13 @@ static inline int LightCeil(float f) {
 	return (int)ceilf(f);
 }
 
+template <bool useSSE4>
 static Vec4<int> LightColorScaleBy512(const Vec4<int> &factor, const Vec4<int> &color, int scale) {
 	// We multiply s9 * s9 * s9, resulting in s27, then shift off 19 to get 8-bit.
 	// The reason all factors are s9 is to account for rounding.
 	// Also note that all values are positive, so can be treated as unsigned.
 #if defined(_M_SSE) && !PPSSPP_ARCH(X86)
-	if (cpu_info.bSSE4_1)
+	if (useSSE4)
 		return LightColorScaleBy512SSE4(factor.ivec, color.ivec, _mm_set1_epi32(scale));
 #elif PPSSPP_ARCH(ARM64_NEON)
 	int32x4_t multiplied = vmulq_n_s32(vmulq_s32(factor.ivec, color.ivec), scale);
@@ -253,7 +255,34 @@ static inline void LightColorSum(Vec4<int> &sum, const Vec4<int> &src) {
 #endif
 }
 
-void Process(VertexData &vertex, const WorldCoords &worldpos, const WorldCoords &worldnormal, const State &state) {
+#if defined(_M_SSE)
+#if defined(__GNUC__) || defined(__clang__) || defined(__INTEL_COMPILER)
+[[gnu::target("sse4.1")]]
+#endif
+static inline __m128 Dot33SSE4(__m128 a, __m128 b) {
+	__m128 multiplied = _mm_insert_ps(_mm_mul_ps(a, b), _mm_setzero_ps(), 0x30);
+	__m128 lanes3311 = _mm_movehdup_ps(multiplied);
+	__m128 partial = _mm_add_ps(multiplied, lanes3311);
+	return _mm_add_ss(partial, _mm_movehl_ps(lanes3311, partial));
+}
+#endif
+
+template <bool useSSE4>
+static inline float Dot33(const Vec3f &a, const Vec3f &b) {
+#if defined(_M_SSE) && !PPSSPP_ARCH(X86)
+	if (useSSE4)
+		return _mm_cvtss_f32(Dot33SSE4(a.vec, b.vec));
+#elif PPSSPP_ARCH(ARM64_NEON)
+	float32x4_t multipled = vsetq_lane_f32(0.0f, vmulq_f32(a.vec, b.vec), 3);
+	float32x2_t add1 = vget_low_f32(vpaddq_f32(multipled, multipled));
+	float32x2_t add2 = vpadd_f32(add1, add1);
+	return vget_lane_f32(add2, 0);
+#endif
+	return Dot(a, b);
+}
+
+template <bool useSSE4>
+static void ProcessSIMD(VertexData &vertex, const WorldCoords &worldpos, const WorldCoords &worldnormal, const State &state) {
 	// Lighting blending rounds using the half offset method (like alpha blend.)
 	const Vec4<int> ones = Vec4<int>::AssignToAll(1);
 	Vec4<int> colorFactor;
@@ -282,7 +311,7 @@ void Process(VertexData &vertex, const WorldCoords &worldpos, const WorldCoords 
 			// TODO: Should this normalize (0, 0, 0) to (0, 0, 1)?
 			float d = L.NormalizeOr001();
 
-			att = 1.0f / Dot(lstate.att, Vec3f(1.0f, d, d * d));
+			att = 1.0f / Dot33<useSSE4>(lstate.att, Vec3f(1.0f, d, d * d));
 			if (!(att > 0.0f))
 				att = 0.0f;
 			else if (att > 1.0f)
@@ -291,7 +320,7 @@ void Process(VertexData &vertex, const WorldCoords &worldpos, const WorldCoords 
 
 		float spot = 1.0f;
 		if (lstate.spot) {
-			float rawSpot = Dot(lstate.spotDir, L);
+			float rawSpot = Dot33<useSSE4>(lstate.spotDir, L);
 			if (std::isnan(rawSpot))
 				rawSpot = std::signbit(rawSpot) ? 0.0f : 1.0f;
 
@@ -306,44 +335,44 @@ void Process(VertexData &vertex, const WorldCoords &worldpos, const WorldCoords 
 
 		// ambient lighting
 		if (lstate.ambient) {
-			int attspot = (int)LightCeil(256 * 2 * att * spot + 1);
+			int attspot = (int)LightCeil<useSSE4>(256 * 2 * att * spot + 1);
 			if (attspot > 512)
 				attspot = 512;
-			Vec4<int> lambient = LightColorScaleBy512(lstate.ambientColorFactor, mac, attspot);
+			Vec4<int> lambient = LightColorScaleBy512<useSSE4>(lstate.ambientColorFactor, mac, attspot);
 			LightColorSum(final_color, lambient);
 		}
 
 		// diffuse lighting
 		float diffuse_factor;
 		if (lstate.diffuse || lstate.specular) {
-			diffuse_factor = Dot(L, worldnormal);
+			diffuse_factor = Dot33<useSSE4>(L, worldnormal);
 			if (lstate.poweredDiffuse) {
 				diffuse_factor = pspLightPow(diffuse_factor, state.specularExp);
 			}
 		}
 
 		if (lstate.diffuse && diffuse_factor > 0.0f) {
-			int diffuse_attspot = (int)LightCeil(256 * 2 * att * spot * diffuse_factor + 1);
+			int diffuse_attspot = (int)LightCeil<useSSE4>(256 * 2 * att * spot * diffuse_factor + 1);
 			if (diffuse_attspot > 512)
 				diffuse_attspot = 512;
 			Vec4<int> mdc = state.colorForDiffuse ? colorFactor : state.material.diffuseColorFactor;
-			Vec4<int> ldiffuse = LightColorScaleBy512(lstate.diffuseColorFactor, mdc, diffuse_attspot);
+			Vec4<int> ldiffuse = LightColorScaleBy512<useSSE4>(lstate.diffuseColorFactor, mdc, diffuse_attspot);
 			LightColorSum(final_color, ldiffuse);
 		}
 
 		if (lstate.specular && diffuse_factor >= 0.0f) {
 			Vec3<float> H = L + Vec3<float>(0.f, 0.f, 1.f);
 
-			float specular_factor = Dot(H.NormalizedOr001(cpu_info.bSSE4_1), worldnormal);
+			float specular_factor = Dot33<useSSE4>(H.NormalizedOr001(useSSE4), worldnormal);
 			specular_factor = pspLightPow(specular_factor, state.specularExp);
 
 			if (specular_factor > 0.0f) {
-				int specular_attspot = (int)LightCeil(256 * 2 * att * spot * specular_factor + 1);
+				int specular_attspot = (int)LightCeil<useSSE4>(256 * 2 * att * spot * specular_factor + 1);
 				if (specular_attspot > 512)
 					specular_attspot = 512;
 
 				Vec4<int> msc = state.colorForSpecular ? colorFactor : state.material.specularColorFactor;
-				Vec4<int> lspecular = LightColorScaleBy512(lstate.specularColorFactor, msc, specular_attspot);
+				Vec4<int> lspecular = LightColorScaleBy512<useSSE4>(lstate.specularColorFactor, msc, specular_attspot);
 				LightColorSum(specular_color, lspecular);
 			}
 		}
@@ -358,6 +387,16 @@ void Process(VertexData &vertex, const WorldCoords &worldpos, const WorldCoords 
 	} else {
 		vertex.color0 = final_color.ToRGBA();
 	}
+}
+
+void Process(VertexData &vertex, const WorldCoords &worldpos, const WorldCoords &worldnormal, const State &state) {
+#ifdef _M_SSE
+	if (cpu_info.bSSE4_1) {
+		ProcessSIMD<true>(vertex, worldpos, worldnormal, state);
+		return;
+	}
+#endif
+	ProcessSIMD<false>(vertex, worldpos, worldnormal, state);
 }
 
 } // namespace
