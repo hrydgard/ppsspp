@@ -159,18 +159,23 @@ void IndexGenerator::AddStrip(int numVerts, bool clockwise) {
 #elif PPSSPP_ARCH(ARM_NEON)
 	int numChunks = (numTris + 7) / 8;
 	uint16x8_t ibase8 = vdupq_n_u16(index_);
-	uint16x8_t increment = vdupq_n_u16(8);
 	const u16 *offsets = clockwise ? offsets_clockwise : offsets_counter_clockwise;
-	uint16x8_t offsets0 = vld1q_u16(offsets);
-	uint16x8_t offsets1 = vld1q_u16(offsets + 8);
-	uint16x8_t offsets2 = vld1q_u16(offsets + 16);
 	u16 *dst = inds_;
-	for (int i = 0; i < numChunks; i++) {
-		vst1q_u16(dst, vaddq_u16(ibase8, offsets0));
-		vst1q_u16(dst + 8, vaddq_u16(ibase8, offsets1));
-		vst1q_u16(dst + 16, vaddq_u16(ibase8, offsets2));
-		ibase8 = vaddq_u16(ibase8, increment);
+	uint16x8_t offsets0 = vaddq_u16(ibase8, vld1q_u16(offsets));
+	vst1q_u16(dst, offsets0);
+	uint16x8_t offsets1 = vaddq_u16(ibase8, vld1q_u16(offsets + 8));
+	vst1q_u16(dst + 8, offsets1);
+	uint16x8_t offsets2 = vaddq_u16(ibase8, vld1q_u16(offsets + 16));
+	vst1q_u16(dst + 16, offsets2);
+	uint16x8_t increment = vdupq_n_u16(8);
+	for (int i = 1; i < numChunks; i++) {
 		dst += 3 * 8;
+		offsets0 = vaddq_u16(offsets0, increment);
+		offsets1 = vaddq_u16(offsets1, increment);
+		offsets2 = vaddq_u16(offsets2, increment);
+		vst1q_u16(dst, offsets0);
+		vst1q_u16(dst + 8, offsets1);
+		vst1q_u16(dst + 16, offsets2);
 	}
 	inds_ += numTris * 3;
 #else
