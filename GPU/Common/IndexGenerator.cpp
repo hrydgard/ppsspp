@@ -131,23 +131,28 @@ void IndexGenerator::AddStrip(int numVerts, bool clockwise) {
 	// That's alright as we're appending to a buffer - they will get overwritten anyway.
 	int numChunks = (numTris + 7) / 8;
 	__m128i ibase8 = _mm_set1_epi16(index_);
-	__m128i increment = _mm_set1_epi16(8);
 	const __m128i *offsets = (const __m128i *)(clockwise ? offsets_clockwise : offsets_counter_clockwise);
-	__m128i offsets0 = _mm_add_epi16(ibase8, _mm_load_si128(offsets));
-	__m128i offsets1 = _mm_add_epi16(ibase8, _mm_load_si128(offsets + 1));
-	__m128i offsets2 = _mm_add_epi16(ibase8, _mm_load_si128(offsets + 2));
 	__m128i *dst = (__m128i *)inds_;
+	__m128i offsets0 = _mm_add_epi16(ibase8, _mm_load_si128(offsets));
+	// A single store is always enough for two triangles, which is a very common case.
 	_mm_storeu_si128(dst, offsets0);
-	_mm_storeu_si128(dst + 1, offsets1);
-	_mm_storeu_si128(dst + 2, offsets2);
-	for (int i = 1; i < numChunks; i++) {
-		offsets0 = _mm_add_epi16(offsets0, increment);
-		offsets1 = _mm_add_epi16(offsets1, increment);
-		offsets2 = _mm_add_epi16(offsets2, increment);
-		dst += 3;
-		_mm_storeu_si128(dst, offsets0);
+	if (numTris > 2) {
+		__m128i offsets1 = _mm_add_epi16(ibase8, _mm_load_si128(offsets + 1));
 		_mm_storeu_si128(dst + 1, offsets1);
-		_mm_storeu_si128(dst + 2, offsets2);
+		if (numTris > 5) {
+			__m128i offsets2 = _mm_add_epi16(ibase8, _mm_load_si128(offsets + 2));
+			_mm_storeu_si128(dst + 2, offsets2);
+			__m128i increment = _mm_set1_epi16(8);
+			for (int i = 1; i < numChunks; i++) {
+				dst += 3;
+				offsets0 = _mm_add_epi16(offsets0, increment);
+				offsets1 = _mm_add_epi16(offsets1, increment);
+				offsets2 = _mm_add_epi16(offsets2, increment);
+				_mm_storeu_si128(dst, offsets0);
+				_mm_storeu_si128(dst + 1, offsets1);
+				_mm_storeu_si128(dst + 2, offsets2);
+			}
+		}
 	}
 	inds_ += numTris * 3;
 	// wind doesn't need to be updated, an even number of triangles have been drawn.
