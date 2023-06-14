@@ -132,6 +132,9 @@ void ArmJit::DoState(PointerWrap &p)
 	if (!s)
 		return;
 
+	if (p.mode == PointerWrap::MODE_READ && !js.startDefaultPrefix) {
+		WARN_LOG(CPU, "Jit: An uneaten prefix was previously detected. Jitting in unknown-prefix mode.");
+	}
 	Do(p, js.startDefaultPrefix);
 	if (s >= 2) {
 		Do(p, js.hasSetRounding);

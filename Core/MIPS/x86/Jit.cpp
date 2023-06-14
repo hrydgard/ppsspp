@@ -144,6 +144,9 @@ void Jit::DoState(PointerWrap &p) {
 		return;
 
 	Do(p, js.startDefaultPrefix);
+	if (p.mode == PointerWrap::MODE_READ && !js.startDefaultPrefix) {
+		WARN_LOG(CPU, "Jit: An uneaten prefix was previously detected. Jitting in unknown-prefix mode.");
+	}
 	if (s >= 2) {
 		Do(p, js.hasSetRounding);
 		if (p.mode == PointerWrap::MODE_READ) {
