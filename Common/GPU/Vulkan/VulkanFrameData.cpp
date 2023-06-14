@@ -121,7 +121,7 @@ VkCommandBuffer FrameData::GetInitCmd(VulkanContext *vulkan) {
 		}
 
 		// Good spot to reset the query pool.
-		if (profilingEnabled_) {
+		if (profile.enabled) {
 			vkCmdResetQueryPool(initCmd, profile.queryPool, 0, MAX_TIMESTAMP_QUERIES);
 			vkCmdWriteTimestamp(initCmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, profile.queryPool, 0);
 		}
@@ -138,7 +138,7 @@ void FrameData::SubmitPending(VulkanContext *vulkan, FrameSubmitType type, Frame
 	VkFence fenceToTrigger = VK_NULL_HANDLE;
 
 	if (hasInitCommands) {
-		if (profilingEnabled_) {
+		if (profile.enabled) {
 			// Pre-allocated query ID 1 - end of init cmdbuf.
 			vkCmdWriteTimestamp(initCmd, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, profile.queryPool, 1);
 		}
