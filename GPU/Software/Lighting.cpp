@@ -255,23 +255,13 @@ static inline void LightColorSum(Vec4<int> &sum, const Vec4<int> &src) {
 #endif
 }
 
-#if defined(_M_SSE)
-#if defined(__GNUC__) || defined(__clang__) || defined(__INTEL_COMPILER)
-[[gnu::target("sse4.1")]]
-#endif
-static inline __m128 Dot33SSE4(__m128 a, __m128 b) {
-	__m128 multiplied = _mm_insert_ps(_mm_mul_ps(a, b), _mm_setzero_ps(), 0x30);
-	__m128 lanes3311 = _mm_movehdup_ps(multiplied);
-	__m128 partial = _mm_add_ps(multiplied, lanes3311);
-	return _mm_add_ss(partial, _mm_movehl_ps(lanes3311, partial));
-}
-#endif
-
-template <bool useSSE4>
 static inline float Dot33(const Vec3f &a, const Vec3f &b) {
-#if defined(_M_SSE) && !PPSSPP_ARCH(X86)
-	if (useSSE4)
-		return _mm_cvtss_f32(Dot33SSE4(a.vec, b.vec));
+#if defined(_M_SSE)
+	__m128 v = _mm_mul_ps(a.vec, b.vec); // [X, Y, Z, W]
+	__m128 shuf = _mm_shuffle_ps(v, v, _MM_SHUFFLE(3, 2, 0, 1)); // [Y, X, Z, W]
+	__m128 sums = _mm_add_ps(v, shuf); // [X + Y, X + Y, Z + Z, W + W]
+	shuf = _mm_movehl_ps(shuf, shuf); // [Z, W, Z, W]
+	return _mm_cvtss_f32(_mm_add_ss(sums, shuf)); // X + Y + Z
 #elif PPSSPP_ARCH(ARM64_NEON)
 	float32x4_t multipled = vsetq_lane_f32(0.0f, vmulq_f32(a.vec, b.vec), 3);
 	float32x2_t add1 = vget_low_f32(vpaddq_f32(multipled, multipled));
@@ -311,7 +301,7 @@ static void ProcessSIMD(VertexData &vertex, const WorldCoords &worldpos, const W
 			// TODO: Should this normalize (0, 0, 0) to (0, 0, 1)?
 			float d = L.NormalizeOr001();
 
-			att = 1.0f / Dot33<useSSE4>(lstate.att, Vec3f(1.0f, d, d * d));
+			att = 1.0f / Dot33(lstate.att, Vec3f(1.0f, d, d * d));
 			if (!(att > 0.0f))
 				att = 0.0f;
 			else if (att > 1.0f)
@@ -320,7 +310,7 @@ static void ProcessSIMD(VertexData &vertex, const WorldCoords &worldpos, const W
 
 		float spot = 1.0f;
 		if (lstate.spot) {
-			float rawSpot = Dot33<useSSE4>(lstate.spotDir, L);
+			float rawSpot = Dot33(lstate.spotDir, L);
 			if (std::isnan(rawSpot))
 				rawSpot = std::signbit(rawSpot) ? 0.0f : 1.0f;
 
@@ -345,7 +335,7 @@ static void ProcessSIMD(VertexData &vertex, const WorldCoords &worldpos, const W
 		// diffuse lighting
 		float diffuse_factor;
 		if (lstate.diffuse || lstate.specular) {
-			diffuse_factor = Dot33<useSSE4>(L, worldnormal);
+			diffuse_factor = Dot33(L, worldnormal);
 			if (lstate.poweredDiffuse) {
 				diffuse_factor = pspLightPow(diffuse_factor, state.specularExp);
 			}
@@ -363,7 +353,7 @@ static void ProcessSIMD(VertexData &vertex, const WorldCoords &worldpos, const W
 		if (lstate.specular && diffuse_factor >= 0.0f) {
 			Vec3<float> H = L + Vec3<float>(0.f, 0.f, 1.f);
 
-			float specular_factor = Dot33<useSSE4>(H.NormalizedOr001(useSSE4), worldnormal);
+			float specular_factor = Dot33(H.NormalizedOr001(useSSE4), worldnormal);
 			specular_factor = pspLightPow(specular_factor, state.specularExp);
 
 			if (specular_factor > 0.0f) {
