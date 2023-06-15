@@ -584,6 +584,11 @@ struct GPUStateCache {
 		if (textureIsFramebuffer != isFramebuffer) {
 			textureIsFramebuffer = isFramebuffer;
 			Dirty(DIRTY_UVSCALEOFFSET);
+		} else if (isFramebuffer) {
+			// Always dirty if it's a framebuffer, since the uniform value depends both
+			// on the specified texture size and the bound texture size. Makes things easier.
+			// TODO: Look at this again later.
+			Dirty(DIRTY_UVSCALEOFFSET);
 		}
 	}
 	void SetUseFlags(u32 newFlags) {
