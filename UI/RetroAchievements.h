@@ -21,7 +21,7 @@
 #define ALWAYS_INLINE __forceinline
 
 class CDImage;
-class StateWrapper;
+class PointerWrap;
 
 namespace Achievements {
 enum class AchievementCategory : u8
@@ -114,7 +114,7 @@ void FrameUpdate();
 void ProcessPendingHTTPRequests();
 
 /// Saves/loads state.
-bool DoState(StateWrapper &sw);
+bool DoState(PointerWrap &sw);
 
 /// Returns true if the current game has any achievements or leaderboards.
 /// Does not need to have the lock held.

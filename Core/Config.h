@@ -483,11 +483,15 @@ public:
 	bool bGpuLogProfiler; // Controls the Vulkan logging profiler (profiles textures uploads etc).
 
 	// Retro Achievement settings
+	// Copied from Duckstation, we might want to remove some.
 	bool bAchievementsEnable;
 	bool bAchievementsLeaderboards;
 	bool bAchievementsTestMode;
 	bool bAchievementsUnofficialTestMode;
 	bool bAchievementsRichPresence;
+	bool bAchievementsChallengeMode;
+	bool bAchievementsSoundEffects;
+	bool bAchievementsNotifications;
 
 	// Various directories. Autoconfigured, not read from ini.
 	Path currentDirectory;  // The directory selected in the game browsing window.

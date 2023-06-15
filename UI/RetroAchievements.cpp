@@ -21,7 +21,13 @@
 #include "Common/Log.h"
 #include "Common/File/Path.h"
 #include "Common/Net/HTTPClient.h"
-#include "Common/"
+#include "Common/TimeUtil.h"
+#include "Common/Data/Text/I18n.h"
+#include "Common/Serialize/Serializer.h"
+#include "Common/System/System.h"
+
+#include "Core/MemMap.h"
+#include "Core/Config.h"
 
 #ifdef WITH_RAINTEGRATION
 // RA_Interface ends up including windows.h, with its silly macros.
@@ -30,6 +36,21 @@
 #endif
 #include "RA_Interface.h"
 #endif
+
+// Temporarily get rid of some compile errors, wanna do this last
+namespace Common {
+	class HTTPDownloader {
+	public:
+		HTTPDownloader Create(const std::string &userAgent);
+		class Request {
+		public:
+			typedef std::vector<uint8_t> Data;
+			typedef std::function<void()> Callback;
+		};
+	};
+}  // namespace
+
+
 namespace Achievements {
 
 enum : s32
@@ -41,9 +62,10 @@ enum : s32
 	NO_RICH_PRESENCE_PING_FREQUENCY = RICH_PRESENCE_PING_FREQUENCY * 2,
 };
 
-static constexpr const char *INFO_SOUND_NAME = "sounds/achievements/message.wav";
-static constexpr const char *UNLOCK_SOUND_NAME = "sounds/achievements/unlock.wav";
-static constexpr const char *LBSUBMIT_SOUND_NAME = "sounds/achievements/lbsubmit.wav";
+// temporary sounds
+static constexpr const char *INFO_SOUND_NAME = "sfx_select.wav";
+static constexpr const char *UNLOCK_SOUND_NAME = "sfx_toggle_on.wav";
+static constexpr const char *LBSUBMIT_SOUND_NAME = "sfx_toggle_off.wav";
 
 static void FormattedError(const char *format, ...);
 static void LogFailedResponseJSON(const Common::HTTPDownloader::Request::Data &data);
@@ -101,8 +123,8 @@ static bool s_using_raintegration = false;
 
 static std::recursive_mutex s_achievements_mutex;
 static rc_runtime_t s_rcheevos_runtime;
-static std::string s_game_icon_cache_directory;
-static std::string s_achievement_icon_cache_directory;
+static Path s_game_icon_cache_directory;
+static Path s_achievement_icon_cache_directory;
 static std::unique_ptr<Common::HTTPDownloader> s_http_downloader;
 
 static std::string s_username;
@@ -118,7 +140,7 @@ static std::atomic<u32> s_primed_achievement_count{0};
 
 static bool s_has_rich_presence = false;
 static std::string s_rich_presence_string;
-static Timer s_last_ping_time;
+static Instant s_last_ping_time = Instant::Uninitialized();
 
 static u32 s_last_queried_lboard = 0;
 static u32 s_submitting_lboard_id = 0;
@@ -279,17 +301,18 @@ void Achievements::FormattedError(const char *format, ...)
 {
 	std::va_list ap;
 	va_start(ap, format);
-	std::string error(fmt::format("Achievements error: {}", StringUtil::StdStringFromFormatV(format, ap)));
+	char buffer[1024];
+	vsnprintf(buffer, sizeof(buffer), format, ap);
 	va_end(ap);
 
-	Log_ErrorPrint(error.c_str());
-	Host::AddOSDMessage(std::move(error), 10.0f);
+	ERROR_LOG(ACHIEVEMENTS, "%s", buffer);
+	// Host::AddOSDMessage(std::move(error), 10.0f);
 }
 
 void Achievements::LogFailedResponseJSON(const Common::HTTPDownloader::Request::Data &data)
 {
 	const std::string str_data(reinterpret_cast<const char *>(data.data()), data.size());
-	Log_ErrorPrintf("API call failed. Response JSON was:\n%s", str_data.c_str());
+	ERROR_LOG(ACHIEVEMENTS, "API call failed. Response JSON was:\n%s", str_data.c_str());
 }
 
 const Achievements::Achievement *Achievements::GetAchievementByID(u32 id)
@@ -393,22 +416,22 @@ bool Achievements::ChallengeModeActive()
 
 bool Achievements::LeaderboardsActive()
 {
-	return ChallengeModeActive() && g_settings.achievements_leaderboards;
+	return ChallengeModeActive() && g_Config.bAchievementsLeaderboards;
 }
 
 bool Achievements::IsTestModeActive()
 {
-	return g_settings.achievements_test_mode;
+	return g_Config.bAchievementsTestMode;
 }
 
 bool Achievements::IsUnofficialTestModeActive()
 {
-	return g_settings.achievements_unofficial_test_mode;
+	return g_Config.bAchievementsUnofficialTestMode;
 }
 
 bool Achievements::IsRichPresenceEnabled()
 {
-	return g_settings.achievements_rich_presence;
+	return g_Config.bAchievementsRichPresence;
 }
 
 bool Achievements::HasActiveGame()
@@ -432,7 +455,7 @@ void Achievements::Initialize()
 		return;
 
 	std::unique_lock lock(s_achievements_mutex);
-	AssertMsg(g_settings.achievements_enabled, "Achievements are enabled");
+	_assert_msg_(g_Config.bAchievementsEnable, "Achievements are enabled");
 
 	s_http_downloader = Common::HTTPDownloader::Create(GetUserAgent().c_str());
 	if (!s_http_downloader)
@@ -455,12 +478,12 @@ void Achievements::Initialize()
 		GameChanged(System::GetDiscPath(), nullptr);
 }
 
-void Achievements::UpdateSettings(const Settings &old_config)
+void Achievements::UpdateSettings()
 {
 	if (IsUsingRAIntegration())
 		return;
 
-	if (!g_settings.achievements_enabled)
+	if (!g_Config.bAchievementsEnable)
 	{
 		// we're done here
 		Shutdown();
@@ -474,6 +497,7 @@ void Achievements::UpdateSettings(const Settings &old_config)
 		return;
 	}
 
+	/*
 	if (g_settings.achievements_challenge_mode != old_config.achievements_challenge_mode)
 	{
 		// Hardcore mode can only be enabled through reset (ResetChallengeMode()).
@@ -487,17 +511,21 @@ void Achievements::UpdateSettings(const Settings &old_config)
 				10.0f);
 		}
 	}
+	*/
 
 	// FIXME: Handle changes to various settings individually
+	/*
 	if (g_settings.achievements_test_mode != old_config.achievements_test_mode ||
 		g_settings.achievements_unofficial_test_mode != old_config.achievements_unofficial_test_mode ||
 		g_settings.achievements_use_first_disc_from_playlist != old_config.achievements_use_first_disc_from_playlist ||
 		g_settings.achievements_rich_presence != old_config.achievements_rich_presence)
 	{
-		Shutdown();
-		Initialize();
 		return;
 	}
+	*/
+
+	Shutdown();
+	Initialize();
 
 	// in case cache directory changed
 	EnsureCacheDirectoriesExist();
@@ -511,6 +539,7 @@ bool Achievements::ConfirmChallengeModeDisable(const char *trigger)
 #endif
 
 	// I really hope this doesn't deadlock :/
+	/*
 	const bool confirmed = Host::ConfirmMessage(
 		Host::TranslateString("Achievements", "Confirm Hardcore Mode"),
 		fmt::format(Host::TranslateString("Achievements",
@@ -520,6 +549,7 @@ bool Achievements::ConfirmChallengeModeDisable(const char *trigger)
 			trigger));
 	if (!confirmed)
 		return false;
+		*/
 
 	DisableChallengeMode();
 	return true;
@@ -546,10 +576,10 @@ void Achievements::DisableChallengeMode()
 
 bool Achievements::ResetChallengeMode()
 {
-	if (!s_active || s_challenge_mode == g_settings.achievements_challenge_mode)
+	if (!s_active || s_challenge_mode == g_Config.bAchievementsChallengeMode)
 		return false;
 
-	SetChallengeMode(g_settings.achievements_challenge_mode);
+	SetChallengeMode(g_Config.bAchievementsChallengeMode);
 	return true;
 }
 
@@ -563,10 +593,9 @@ void Achievements::SetChallengeMode(bool enabled)
 
 	if (HasActiveGame())
 	{
-		ImGuiFullscreen::ShowToast(std::string(),
-			enabled ? Host::TranslateStdString("Achievements", "Hardcore mode is now enabled.") :
-			Host::TranslateStdString("Achievements", "Hardcore mode is now disabled."),
-			10.0f);
+		auto ac = GetI18NCategory(I18NCat::ACHIEVEMENTS);
+
+		System_Toast(enabled ? ac->T("Hardcore mode enabled.") : ac->T("Hardcore mode disabled."));  // 10.0f
 	}
 
 	if (HasActiveGame() && !IsTestModeActive())
@@ -679,8 +708,8 @@ void Achievements::FrameUpdate()
 		if (!IsTestModeActive())
 		{
 			const s32 ping_frequency =
-				g_settings.achievements_rich_presence ? RICH_PRESENCE_PING_FREQUENCY : NO_RICH_PRESENCE_PING_FREQUENCY;
-			if (static_cast<s32>(s_last_ping_time.GetTimeSeconds()) >= ping_frequency)
+				g_Config.bAchievementsRichPresence ? RICH_PRESENCE_PING_FREQUENCY : NO_RICH_PRESENCE_PING_FREQUENCY;
+			if (static_cast<s32>(s_last_ping_time.Elapsed()) >= ping_frequency)
 				SendPing();
 		}
 	}
@@ -696,8 +725,25 @@ void Achievements::ProcessPendingHTTPRequests()
 	s_http_downloader->PollRequests();
 }
 
-bool Achievements::DoState(StateWrapper &sw)
+/*
+bool Achievements::DoState(PointerWrap &pw)
 {
+	auto sw = pw.Section("Achievements", 1);
+	if (!sw) {
+		// Save state is missing the section.
+		// Reset the runtime.
+#ifdef WITH_RAINTEGRATION
+		if (IsUsingRAIntegration())
+			RA_OnReset();
+		else
+			rc_runtime_reset(&s_rcheevos_runtime);
+#else
+		rc_runtime_reset(&s_rcheevos_runtime);
+#endif
+
+		return;
+	}
+
 	// if we're inactive, we still need to skip the data (if any)
 	if (!s_active)
 	{
@@ -726,7 +772,7 @@ bool Achievements::DoState(StateWrapper &sw)
 		if (data_size == 0)
 		{
 			// reset runtime, no data (state might've been created without cheevos)
-			Log_DevPrintf("State is missing cheevos data, resetting runtime");
+			DEBUG_LOG(ACHIEVEMENTS, "State is missing cheevos data, resetting runtime");
 #ifdef WITH_RAINTEGRATION
 			if (IsUsingRAIntegration())
 				RA_OnReset();
@@ -753,7 +799,7 @@ bool Achievements::DoState(StateWrapper &sw)
 			const int result = rc_runtime_deserialize_progress(&s_rcheevos_runtime, data.get(), nullptr);
 			if (result != RC_OK)
 			{
-				Log_WarningPrintf("Failed to deserialize cheevos state (%d), resetting", result);
+				WARN_LOG(ACHIEVEMENTS, "Failed to deserialize cheevos state (%d), resetting", result);
 				rc_runtime_reset(&s_rcheevos_runtime);
 			}
 		}
@@ -792,7 +838,7 @@ bool Achievements::DoState(StateWrapper &sw)
 			if (result != RC_OK)
 			{
 				// set data to zero, effectively serializing nothing
-				Log_WarningPrintf("Failed to serialize cheevos state (%d)", result);
+				WARN_LOG(ACHIEVEMENTS, "Failed to serialize cheevos state (%d)", result);
 				data_size = 0;
 			}
 		}
@@ -804,6 +850,7 @@ bool Achievements::DoState(StateWrapper &sw)
 		return !sw.HasError();
 	}
 }
+*/
 
 bool Achievements::SafeHasAchievementsOrLeaderboards()
 {
@@ -823,7 +870,7 @@ const std::string &Achievements::GetRichPresenceString()
 
 void Achievements::EnsureCacheDirectoriesExist()
 {
-	s_game_icon_cache_directory = Path::Combine(EmuFolders::Cache, "achievement_gameicon");
+	s_game_icon_cache_directory = g_Config.appCacheDirectory / "icon"; // Path::Combine(EmuFolders::Cache, "achievement_gameicon");
 	s_achievement_icon_cache_directory = Path::Combine(EmuFolders::Cache, "achievement_badge");
 
 	if (!FileSystem::DirectoryExists(s_game_icon_cache_directory.c_str()) &&
@@ -963,7 +1010,7 @@ void Achievements::DownloadImage(std::string url, std::string cache_filename)
 
 			if (!FileSystem::WriteBinaryFile(cache_filename.c_str(), data.data(), data.size()))
 			{
-				Log_ErrorPrintf("Failed to write badge image to '%s'", cache_filename.c_str());
+				ERROR_LOG(ACHIEVEMENTS, "Failed to write badge image to '%s'", cache_filename.c_str());
 				return;
 			}
 
@@ -975,22 +1022,22 @@ void Achievements::DownloadImage(std::string url, std::string cache_filename)
 
 void Achievements::DisplayAchievementSummary()
 {
+	auto ac = GetI18NCategory(I18NCat::ACHIEVEMENTS);
+
 	std::string title;
 	if (ChallengeModeActive())
-		title = fmt::format(Host::TranslateString("Achievements", "{} (Hardcore Mode)").GetCharArray(), s_game_title);
+		title = s_game_title + " " + ac->T("(Hardcore Mode)");
 	else
 		title = s_game_title;
 
 	std::string summary;
 	if (GetAchievementCount() > 0)
 	{
-		summary = fmt::format(
-			Host::TranslateString("Achievements", "You have earned {} of {} achievements, and {} of {} points.")
-			.GetCharArray(),
+		summary = StringFromFormat(ac->T("Earned", "You have earned %d of %d achievements, and %d of %d points"),
 			GetUnlockedAchiementCount(), GetAchievementCount(), GetCurrentPointsForGame(), GetMaximumPointsForGame());
 	} else
 	{
-		summary = Host::TranslateStdString("Achievements", "This game has no achievements.");
+		summary = ac->T("This game has no achievements");
 	}
 	if (GetLeaderboardCount() > 0)
 	{
@@ -999,19 +1046,21 @@ void Achievements::DisplayAchievementSummary()
 			summary.append("Leaderboard submission is enabled.");
 	}
 
+	/*
 	Host::RunOnCPUThread([title = std::move(title), summary = std::move(summary), icon = s_game_icon]() {
-		if (FullscreenUI::IsInitialized() && g_settings.achievements_notifications)
+		if (FullscreenUI::IsInitialized() && g_Config.bAchievementsNotifications)
 			ImGuiFullscreen::AddNotification(10.0f, std::move(title), std::move(summary), std::move(icon));
 
 		// Technically not going through the resource API, but since we're passing this to something else, we can't.
-		if (g_settings.achievements_sound_effects)
+		if (g_Config.bAchievementsSoundEffects)
 			FrontendCommon::PlaySoundAsync(Path::Combine(EmuFolders::Resources, INFO_SOUND_NAME).c_str());
 		});
+	*/
 }
 
 void Achievements::DisplayMasteredNotification()
 {
-	if (!FullscreenUI::IsInitialized() || !g_settings.achievements_notifications)
+	if (!g_Config.bAchievementsNotifications)
 		return;
 
 	std::string title(fmt::format("Mastered {}", s_game_title));
@@ -1043,7 +1092,7 @@ void Achievements::GetUserUnlocksCallback(s32 status_code, std::string content_t
 		Achievement *cheevo = GetMutableAchievementByID(response.achievement_ids[i]);
 		if (!cheevo)
 		{
-			Log_ErrorPrintf("Server returned unknown achievement %u", response.achievement_ids[i]);
+			ERROR_LOG(ACHIEVEMENTS, "Server returned unknown achievement %u", response.achievement_ids[i]);
 			continue;
 		}
 
@@ -1116,7 +1165,7 @@ void Achievements::GetPatchesCallback(s32 status_code, std::string content_type,
 		{
 			if (!IsUnofficialTestModeActive())
 			{
-				Log_WarningPrintf("Skipping unofficial achievement %u (%s)", defn.id, defn.title);
+				WARN_LOG(ACHIEVEMENTS, "Skipping unofficial achievement %u (%s)", defn.id, defn.title);
 				continue;
 			}
 		}
@@ -1128,13 +1177,13 @@ void Achievements::GetPatchesCallback(s32 status_code, std::string content_type,
 
 		if (GetMutableAchievementByID(defn.id))
 		{
-			Log_ErrorPrintf("Achievement %u already exists", defn.id);
+			ERROR_LOG(ACHIEVEMENTS, "Achievement %u already exists", defn.id);
 			continue;
 		}
 
 		if (!defn.definition || !defn.title || !defn.description || !defn.badge_name)
 		{
-			Log_ErrorPrintf("Incomplete achievement %u", defn.id);
+			ERROR_LOG(ACHIEVEMENTS, "Incomplete achievement %u", defn.id);
 			continue;
 		}
 
@@ -1157,7 +1206,7 @@ void Achievements::GetPatchesCallback(s32 status_code, std::string content_type,
 		const rc_api_leaderboard_definition_t &defn = response.leaderboards[i];
 		if (!defn.title || !defn.description || !defn.definition)
 		{
-			Log_ErrorPrintf("Incomplete achievement %u", defn.id);
+			ERROR_LOG(ACHIEVEMENTS, "Incomplete achievement %u", defn.id);
 			continue;
 		}
 
@@ -1171,10 +1220,10 @@ void Achievements::GetPatchesCallback(s32 status_code, std::string content_type,
 		const int err = rc_runtime_activate_lboard(&s_rcheevos_runtime, defn.id, defn.definition, nullptr, 0);
 		if (err != RC_OK)
 		{
-			Log_ErrorPrintf("Leaderboard %u memaddr parse error: %s", defn.id, rc_error_str(err));
+			ERROR_LOG(ACHIEVEMENTS, "Leaderboard %u memaddr parse error: %s", defn.id, rc_error_str(err));
 		} else
 		{
-			Log_DevPrintf("Activated leaderboard %s (%u)", defn.title, defn.id);
+			DEBUG_LOG(ACHIEVEMENTS, "Activated leaderboard %s (%u)", defn.title, defn.id);
 		}
 	}
 
@@ -1185,12 +1234,12 @@ void Achievements::GetPatchesCallback(s32 status_code, std::string content_type,
 		if (res == RC_OK)
 			s_has_rich_presence = true;
 		else
-			Log_WarningPrintf("Failed to activate rich presence: %s", rc_error_str(res));
+			WARN_LOG(ACHIEVEMENTS, "Failed to activate rich presence: %s", rc_error_str(res));
 	}
 
-	Log_InfoPrintf("Game Title: %s", s_game_title.c_str());
-	Log_InfoPrintf("Achievements: %zu", s_achievements.size());
-	Log_InfoPrintf("Leaderboards: %zu", s_leaderboards.size());
+	INFO_LOG(ACHIEVEMENTS, "Game Title: %s", s_game_title.c_str());
+	INFO_LOG(ACHIEVEMENTS, "Achievements: %zu", s_achievements.size());
+	INFO_LOG(ACHIEVEMENTS, "Leaderboards: %zu", s_leaderboards.size());
 
 	// We don't want to block saving/loading states when there's no achievements.
 	if (s_achievements.empty() && s_leaderboards.empty())
@@ -1240,7 +1289,7 @@ void Achievements::GetLbInfoCallback(s32 status_code, std::string content_type,
 	const Leaderboard *leaderboard = GetLeaderboardByID(response.id);
 	if (!leaderboard)
 	{
-		Log_ErrorPrintf("Attempting to list unknown leaderboard %u", response.id);
+		ERROR_LOG(ACHIEVEMENTS, "Attempting to list unknown leaderboard %u", response.id);
 		return;
 	}
 
@@ -1286,7 +1335,7 @@ std::string Achievements::GetGameHash(CDImage *image)
 		std::memcpy(&header, executable_data.data(), sizeof(header));
 	if (!BIOS::IsValidPSExeHeader(header, static_cast<u32>(executable_data.size())))
 	{
-		Log_ErrorPrintf("PS-EXE header is invalid in '%s' (%zu bytes)", executable_name.c_str(), executable_data.size());
+		ERROR_LOG(ACHIEVEMENTS, "PS-EXE header is invalid in '%s' (%zu bytes)", executable_name.c_str(), executable_data.size());
 		return {};
 	}
 
@@ -1307,7 +1356,7 @@ std::string Achievements::GetGameHash(CDImage *image)
 		"%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x", hash[0], hash[1], hash[2], hash[3], hash[4],
 		hash[5], hash[6], hash[7], hash[8], hash[9], hash[10], hash[11], hash[12], hash[13], hash[14], hash[15]));
 
-	Log_InfoPrintf("Hash for '%s' (%zu bytes, %u bytes hashed): %s", executable_name.c_str(), executable_data.size(),
+	INFO_LOG(ACHIEVEMENTS, "Hash for '%s' (%zu bytes, %u bytes hashed): %s", executable_name.c_str(), executable_data.size(),
 		hash_size, hash_str.c_str());
 	return hash_str;
 }
@@ -1349,7 +1398,7 @@ void Achievements::GameChanged(const std::string &path, CDImage *image)
 		image = temp_image.get();
 		if (!temp_image)
 		{
-			Log_ErrorPrintf("Failed to open temporary CD image '%s'", path.c_str());
+			ERROR_LOG(ACHIEVEMENTS, "Failed to open temporary CD image '%s'", path.c_str());
 			s_http_downloader->WaitForAllRequests();
 			std::unique_lock lock(s_achievements_mutex);
 			DisableChallengeMode();
@@ -1365,7 +1414,7 @@ void Achievements::GameChanged(const std::string &path, CDImage *image)
 		if (s_game_hash == game_hash)
 		{
 			// only the path has changed - different format/save state/etc.
-			Log_InfoPrintf("Detected path change from '%s' to '%s'", s_game_path.c_str(), path.c_str());
+			INFO_LOG(ACHIEVEMENTS, "Detected path change from '%s' to '%s'", s_game_path.c_str(), path.c_str());
 			s_game_path = path;
 			return;
 		}
@@ -1385,7 +1434,7 @@ void Achievements::GameChanged(const std::string &path, CDImage *image)
 			CDImage::Open(image->GetFileName().c_str(), g_settings.cdrom_load_image_patches, nullptr));
 		if (!image_copy)
 		{
-			Log_ErrorPrintf("Failed to reopen image '%s'", image->GetFileName().c_str());
+			ERROR_LOG(ACHIEVEMENTS, "Failed to reopen image '%s'", image->GetFileName().c_str());
 			return;
 		}
 
@@ -1450,7 +1499,7 @@ void Achievements::SendPlayingCallback(s32 status_code, std::string content_type
 	if (!response)
 		return;
 
-	Log_InfoPrintf("Playing game updated to %u (%s)", s_game_id, s_game_title.c_str());
+	INFO_LOG(ACHIEVEMENTS, "Playing game updated to %u (%s)", s_game_id, s_game_title.c_str());
 }
 
 void Achievements::SendPlaying()
@@ -1506,7 +1555,7 @@ void Achievements::SendPing()
 	if (!HasActiveGame())
 		return;
 
-	s_last_ping_time.Reset();
+	s_last_ping_time = Instant::Now();
 
 	RAPIRequest<rc_api_ping_request_t, rc_api_init_ping_request> request;
 	request.api_token = s_api_token.c_str();
@@ -1670,13 +1719,13 @@ bool Achievements::ActivateAchievement(Achievement *achievement)
 		rc_runtime_activate_achievement(&s_rcheevos_runtime, achievement->id, achievement->memaddr.c_str(), nullptr, 0);
 	if (err != RC_OK)
 	{
-		Log_ErrorPrintf("Achievement %u memaddr parse error: %s", achievement->id, rc_error_str(err));
+		ERROR_LOG(ACHIEVEMENTS, "Achievement %u memaddr parse error: %s", achievement->id, rc_error_str(err));
 		return false;
 	}
 
 	achievement->active = true;
 
-	Log_DevPrintf("Activated achievement %s (%u)", achievement->title.c_str(), achievement->id);
+	DEBUG_LOG(ACHIEVEMENTS, "Activated achievement %s (%u)", achievement->title.c_str(), achievement->id);
 	return true;
 }
 
@@ -1694,7 +1743,7 @@ void Achievements::DeactivateAchievement(Achievement *achievement)
 		s_primed_achievement_count.fetch_sub(std::memory_order_acq_rel);
 	}
 
-	Log_DevPrintf("Deactivated achievement %s (%u)", achievement->title.c_str(), achievement->id);
+	DEBUG_LOG(ACHIEVEMENTS, "Deactivated achievement %s (%u)", achievement->title.c_str(), achievement->id);
 }
 
 void Achievements::UnlockAchievementCallback(s32 status_code, std::string content_type,
@@ -1709,7 +1758,7 @@ void Achievements::UnlockAchievementCallback(s32 status_code, std::string conten
 	if (!response)
 		return;
 
-	Log_InfoPrintf("Successfully unlocked achievement %u, new score %u", response.awarded_achievement_id,
+	INFO_LOG(ACHIEVEMENTS, "Successfully unlocked achievement %u, new score %u", response.awarded_achievement_id,
 		response.new_player_score);
 }
 
@@ -1759,29 +1808,29 @@ void Achievements::UnlockAchievement(u32 achievement_id, bool add_notification /
 	Achievement *achievement = GetMutableAchievementByID(achievement_id);
 	if (!achievement)
 	{
-		Log_ErrorPrintf("Attempting to unlock unknown achievement %u", achievement_id);
+		ERROR_LOG(ACHIEVEMENTS, "Attempting to unlock unknown achievement %u", achievement_id);
 		return;
 	} else if (!achievement->locked)
 	{
-		Log_WarningPrintf("Achievement %u for game %u is already unlocked", achievement_id, s_game_id);
+		WARN_LOG(ACHIEVEMENTS, "Achievement %u for game %u is already unlocked", achievement_id, s_game_id);
 		return;
 	}
 
 	achievement->locked = false;
 	DeactivateAchievement(achievement);
 
-	Log_InfoPrintf("Achievement %s (%u) for game %u unlocked", achievement->title.c_str(), achievement_id, s_game_id);
+	INFO_LOG(ACHIEVEMENTS, "Achievement %s (%u) for game %u unlocked", achievement->title.c_str(), achievement_id, s_game_id);
 
-	if (FullscreenUI::IsInitialized() && g_settings.achievements_notifications)
+	if (FullscreenUI::IsInitialized() && g_Config.bAchievementsNotifications)
 	{
 		std::string title;
 		switch (achievement->category)
 		{
 		case AchievementCategory::Local:
-			title = fmt::format("{} (Local)", achievement->title);
+			title = achievement->title + " (Local)";
 			break;
 		case AchievementCategory::Unofficial:
-			title = fmt::format("{} (Unofficial)", achievement->title);
+			title = achievement->title + " (Unofficial)";
 			break;
 		case AchievementCategory::Core:
 		default:
@@ -1792,7 +1841,8 @@ void Achievements::UnlockAchievement(u32 achievement_id, bool add_notification /
 		ImGuiFullscreen::AddNotification(15.0f, std::move(title), achievement->description,
 			GetAchievementBadgePath(*achievement));
 	}
-	if (g_settings.achievements_sound_effects)
+
+	if (g_Config.bAchievementsSoundEffects)
 		FrontendCommon::PlaySoundAsync(Path::Combine(EmuFolders::Resources, UNLOCK_SOUND_NAME).c_str());
 
 	if (IsMastered())
@@ -1800,13 +1850,13 @@ void Achievements::UnlockAchievement(u32 achievement_id, bool add_notification /
 
 	if (IsTestModeActive())
 	{
-		Log_WarningPrintf("Skipping sending achievement %u unlock to server because of test mode.", achievement_id);
+		WARN_LOG(ACHIEVEMENTS, "Skipping sending achievement %u unlock to server because of test mode.", achievement_id);
 		return;
 	}
 
 	if (achievement->category != AchievementCategory::Core)
 	{
-		Log_WarningPrintf("Skipping sending achievement %u unlock to server because it's not from the core set.",
+		WARN_LOG(ACHIEVEMENTS, "Skipping sending achievement %u unlock to server because it's not from the core set.",
 			achievement_id);
 		return;
 	}
@@ -1824,21 +1874,19 @@ void Achievements::SubmitLeaderboard(u32 leaderboard_id, int value)
 {
 	if (IsTestModeActive())
 	{
-		Log_WarningPrintf("Skipping sending leaderboard %u result to server because of test mode.", leaderboard_id);
+		WARN_LOG(ACHIEVEMENTS, "Skipping sending leaderboard %u result to server because of test mode.", leaderboard_id);
 		return;
 	}
 
 	if (!ChallengeModeActive())
 	{
-		Log_WarningPrintf("Skipping sending leaderboard %u result to server because Challenge mode is off.",
-			leaderboard_id);
+		WARN_LOG(ACHIEVEMENTS, "Skipping sending leaderboard %u result to server because Challenge mode is off.", leaderboard_id);
 		return;
 	}
 
 	if (!LeaderboardsActive())
 	{
-		Log_WarningPrintf("Skipping sending leaderboard %u result to server because leaderboards are disabled.",
-			leaderboard_id);
+		WARN_LOG(ACHIEVEMENTS, "Skipping sending leaderboard %u result to server because leaderboards are disabled.", leaderboard_id);
 		return;
 	}
 
@@ -1884,7 +1932,7 @@ std::pair<u32, u32> Achievements::GetAchievementProgress(const Achievement &achi
 	return result;
 }
 
-TinyString Achievements::GetAchievementProgressText(const Achievement &achievement)
+std::string Achievements::GetAchievementProgressText(const Achievement &achievement)
 {
 	char buf[256];
 	rc_runtime_format_achievement_measured(&s_rcheevos_runtime, achievement.id, buf, std::size(buf));
@@ -1941,8 +1989,8 @@ void Achievements::CheevosEventHandler(const rc_runtime_event_t *runtime_event)
 								   "RC_RUNTIME_EVENT_LBOARD_TRIGGERED",      "RC_RUNTIME_EVENT_ACHIEVEMENT_DISABLED",
 								   "RC_RUNTIME_EVENT_LBOARD_DISABLED" };
 	const char *event_text =
-		((unsigned)runtime_event->type >= countof(events)) ? "unknown" : events[(unsigned)runtime_event->type];
-	Log_DevPrintf("Cheevos Event %s for %u", event_text, runtime_event->id);
+		((unsigned)runtime_event->type >= ARRAY_SIZE(events)) ? "unknown" : events[(unsigned)runtime_event->type];
+	DEBUG_LOG(ACHIEVEMENTS, "Cheevos Event %s for %u", event_text, runtime_event->id);
 
 	switch (runtime_event->type)
 	{
@@ -1967,31 +2015,11 @@ void Achievements::CheevosEventHandler(const rc_runtime_event_t *runtime_event)
 	}
 }
 
-unsigned Achievements::PeekMemory(unsigned address, unsigned num_bytes, void *ud)
-{
-	switch (num_bytes)
-	{
-	case 1:
-	{
-		u8 value = 0;
-		CPU::SafeReadMemoryByte(address, &value);
-		return value;
-	}
-
-	case 2:
-	{
-		u16 value;
-		CPU::SafeReadMemoryHalfWord(address, &value);
-		return value;
-	}
-
-	case 4:
-	{
-		u32 value;
-		CPU::SafeReadMemoryWord(address, &value);
-		return value;
-	}
-
+unsigned Achievements::PeekMemory(unsigned address, unsigned num_bytes, void *ud) {
+	switch (num_bytes) {
+	case 1: return Memory::Read_U8(address);
+	case 2: return Memory::Read_U16(address);
+	case 4: return Memory::Read_U32(address);
 	default:
 		return 0;
 	}
