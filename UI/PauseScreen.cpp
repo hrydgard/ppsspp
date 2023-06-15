@@ -51,6 +51,7 @@
 #include "UI/OnScreenDisplay.h"
 #include "UI/GameInfoCache.h"
 #include "UI/DisplayLayoutScreen.h"
+#include "UI/RetroAchievementScreens.h"
 
 static void AfterSaveStateAction(SaveState::Status status, const std::string &message, void *) {
 	if (!message.empty() && (!g_Config.bDumpFrames || !g_Config.bDumpVideoOutput)) {
@@ -340,7 +341,16 @@ void GamePauseScreen::CreateViews() {
 		return UI::EVENT_DONE;
 	});
 	if (g_Config.bEnableCheats) {
-		rightColumnItems->Add(new Choice(pa->T("Cheats")))->OnClick.Handle(this, &GamePauseScreen::OnCwCheat);
+		rightColumnItems->Add(new Choice(pa->T("Cheats")))->OnClick.Add([&](UI::EventParams &e) {
+			screenManager()->push(new CwCheatScreen(gamePath_));
+			return UI::EVENT_DONE;
+		});
+	}
+	if (g_Config.bEnableRetroAchievements) {
+		rightColumnItems->Add(new Choice(pa->T("Achievements")))->OnClick.Add([&](UI::EventParams &e) {
+			screenManager()->push(new RetroAchievementsListScreen(gamePath_));
+			return UI::EVENT_DONE;
+		});
 	}
 
 	// TODO, also might be nice to show overall compat rating here?
@@ -423,11 +433,6 @@ UI::EventReturn GamePauseScreen::OnLastSaveUndo(UI::EventParams &e) {
 	SaveState::UndoLastSave(gamePath_);
 
 	RecreateViews();
-	return UI::EVENT_DONE;
-}
-
-UI::EventReturn GamePauseScreen::OnCwCheat(UI::EventParams &e) {
-	screenManager()->push(new CwCheatScreen(gamePath_));
 	return UI::EVENT_DONE;
 }
 

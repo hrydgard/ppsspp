@@ -35,6 +35,8 @@
     <ClCompile Include="..\..\UI\AudioCommon.cpp" />
     <ClCompile Include="..\..\UI\CustomButtonMappingScreen.cpp" />
     <ClCompile Include="..\..\UI\TabbedDialogScreen.cpp" />
+    <ClCompile Include="..\..\UI\RetroAchievements.cpp" />
+    <ClCompile Include="..\..\UI\RetroAchievementScreens.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="pch.h" />
@@ -71,5 +73,7 @@
     <ClInclude Include="..\..\UI\AudioCommon.h" />
     <ClInclude Include="..\..\UI\CustomButtonMappingScreen.h" />
     <ClInclude Include="..\..\UI\TabbedDialogScreen.h" />
+    <ClInclude Include="..\..\UI\RetroAchievements.h" />
+    <ClInclude Include="..\..\UI\RetroAchievementScreens.h" />
   </ItemGroup>
 </Project>

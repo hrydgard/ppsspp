@@ -77,6 +77,34 @@ SPIRV_CROSS_FILES := \
   $(SRC)/ext/SPIRV-Cross/spirv_glsl.cpp \
   $(SRC)/ext/SPIRV-Cross/spirv_parser.cpp \
   $(SRC)/ext/SPIRV-Cross/spirv_cross_parsed_ir.cpp
+ 
+RCHEEVOS_FILES := \
+  # rapi
+  ${SRC}/ext/rcheevos/src/rapi/rc_api_common.c \
+  ${SRC}/ext/rcheevos/src/rapi/rc_api_editor.c \
+  ${SRC}/ext/rcheevos/src/rapi/rc_api_info.c \
+  ${SRC}/ext/rcheevos/src/rapi/rc_api_runtime.c \
+  ${SRC}/ext/rcheevos/src/rapi/rc_api_user.c \
+  ${SRC}/ext/rcheevos/src/rcheevos/alloc.c \
+  ${SRC}/ext/rcheevos/src/rcheevos/compat.c \
+  ${SRC}/ext/rcheevos/src/rcheevos/condition.c \
+  ${SRC}/ext/rcheevos/src/rcheevos/condset.c \
+  ${SRC}/ext/rcheevos/src/rcheevos/consoleinfo.c \
+  ${SRC}/ext/rcheevos/src/rcheevos/format.c \
+  ${SRC}/ext/rcheevos/src/rcheevos/lboard.c \
+  ${SRC}/ext/rcheevos/src/rcheevos/memref.c \
+  ${SRC}/ext/rcheevos/src/rcheevos/operand.c \
+  ${SRC}/ext/rcheevos/src/rcheevos/rc_validate.c \
+  ${SRC}/ext/rcheevos/src/rcheevos/richpresence.c \
+  ${SRC}/ext/rcheevos/src/rcheevos/richpresence.c \
+  ${SRC}/ext/rcheevos/src/rcheevos/runtime.c \
+  ${SRC}/ext/rcheevos/src/rcheevos/runtime_progress.c \
+  ${SRC}/ext/rcheevos/src/rcheevos/trigger.c \
+  ${SRC}/ext/rcheevos/src/rcheevos/value.c \
+  ${SRC}/ext/rcheevos/src/rhash/cdreader.c \
+  ${SRC}/ext/rcheevos/src/rhash/hash.c \
+  ${SRC}/ext/rcheevos/src/rhash/md5.c \
+  ${SRC}/ext/rcheevos/src/rurl/url.c
 
 VR_FILES := \
   $(SRC)/Common/VR/OpenXRLoader.cpp \
@@ -149,6 +177,7 @@ EXEC_AND_LIB_FILES := \
   $(VR_FILES) \
   $(VMA_FILES) \
   $(SPIRV_CROSS_FILES) \
+  $(RCHEEVOS_FILES) \
   $(EXT_FILES) \
   $(NATIVE_FILES) \
   $(SRC)/Common/Buffer.cpp \

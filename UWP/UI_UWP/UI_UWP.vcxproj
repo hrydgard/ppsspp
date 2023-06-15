@@ -295,6 +295,8 @@
     <ClInclude Include="..\..\UI\InstallZipScreen.h" />
     <ClInclude Include="..\..\UI\JoystickHistoryView.h" />
     <ClInclude Include="..\..\UI\TabbedDialogScreen.h" />
+    <ClInclude Include="..\..\UI\RetroAchievements.h" />
+    <ClInclude Include="..\..\UI\RetroAchievementScreens.h" />
     <ClInclude Include="..\..\UI\Theme.h" />
     <ClInclude Include="..\..\UI\MainScreen.h" />
     <ClInclude Include="..\..\UI\MemStickScreen.h" />
@@ -331,6 +333,8 @@
     <ClCompile Include="..\..\UI\InstallZipScreen.cpp" />
     <ClCompile Include="..\..\UI\JoystickHistoryView.cpp" />
     <ClCompile Include="..\..\UI\TabbedDialogScreen.cpp" />
+    <ClCompile Include="..\..\UI\RetroAchievements.cpp" />
+    <ClCompile Include="..\..\UI\RetroAchievementScreens.cpp" />
     <ClCompile Include="..\..\UI\Theme.cpp" />
     <ClCompile Include="..\..\UI\MainScreen.cpp" />
     <ClCompile Include="..\..\UI\MemStickScreen.cpp" />
@@ -349,6 +353,14 @@
     <ClCompile Include="pch.cpp">
       <PrecompiledHeader>Create</PrecompiledHeader>
     </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\CommonUWP\CommonUWP.vcxproj">
+      <Project>{acb316ca-3ecb-48e5-be0a-91e72d5b0f12}</Project>
+    </ProjectReference>
+    <ProjectReference Include="..\rcheevos_UWP\rcheevos_UWP.vcxproj">
+      <Project>{4c9d52d0-310a-4347-8991-e3788cb22169}</Project>
+    </ProjectReference>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

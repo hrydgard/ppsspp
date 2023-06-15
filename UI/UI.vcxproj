@@ -59,6 +59,8 @@
     <ClCompile Include="ProfilerDraw.cpp" />
     <ClCompile Include="RemoteISOScreen.cpp" />
     <ClCompile Include="ReportScreen.cpp" />
+    <ClCompile Include="RetroAchievements.cpp" />
+    <ClCompile Include="RetroAchievementScreens.cpp" />
     <ClCompile Include="SavedataScreen.cpp" />
     <ClCompile Include="Store.cpp" />
     <ClCompile Include="AudioCommon.cpp" />
@@ -94,6 +96,8 @@
     <ClInclude Include="ProfilerDraw.h" />
     <ClInclude Include="RemoteISOScreen.h" />
     <ClInclude Include="ReportScreen.h" />
+    <ClInclude Include="RetroAchievements.h" />
+    <ClInclude Include="RetroAchievementScreens.h" />
     <ClInclude Include="SavedataScreen.h" />
     <ClInclude Include="Store.h" />
     <ClInclude Include="TabbedDialogScreen.h" />
