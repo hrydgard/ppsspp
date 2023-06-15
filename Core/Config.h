@@ -216,7 +216,6 @@ public:
 	int iAutoLoadSaveState; // 0 = off, 1 = oldest, 2 = newest, >2 = slot number + 3
 	bool bEnableCheats;
 	bool bReloadCheats;
-	bool bEnableRetroAchievements;
 	int iCwCheatRefreshRate;
 	float fCwCheatScrollPosition;
 	float fGameListScrollPosition;
@@ -482,6 +481,13 @@ public:
 	// Volatile development settings
 	bool bShowFrameProfiler;
 	bool bGpuLogProfiler; // Controls the Vulkan logging profiler (profiles textures uploads etc).
+
+	// Retro Achievement settings
+	bool bAchievementsEnable;
+	bool bAchievementsLeaderboards;
+	bool bAchievementsTestMode;
+	bool bAchievementsUnofficialTestMode;
+	bool bAchievementsRichPresence;
 
 	// Various directories. Autoconfigured, not read from ini.
 	Path currentDirectory;  // The directory selected in the game browsing window.

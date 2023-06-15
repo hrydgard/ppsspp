@@ -178,7 +178,6 @@ static const ConfigSetting generalSettings[] = {
 	ConfigSetting("CwCheatRefreshRate", &g_Config.iCwCheatRefreshRate, 77, CfgFlag::PER_GAME),
 	ConfigSetting("CwCheatScrollPosition", &g_Config.fCwCheatScrollPosition, 0.0f, CfgFlag::PER_GAME),
 	ConfigSetting("GameListScrollPosition", &g_Config.fGameListScrollPosition, 0.0f, CfgFlag::DEFAULT),
-	ConfigSetting("EnableRetroAchievements", &g_Config.bEnableRetroAchievements, false, CfgFlag::PER_GAME),
 
 	ConfigSetting("ScreenshotsAsPNG", &g_Config.bScreenshotsAsPNG, false, CfgFlag::PER_GAME),
 	ConfigSetting("UseFFV1", &g_Config.bUseFFV1, false, CfgFlag::DEFAULT),
@@ -264,6 +263,10 @@ static const ConfigSetting generalSettings[] = {
 static bool DefaultSasThread() {
 	return cpu_info.num_cores > 1;
 }
+
+static const ConfigSetting achievementSettings[] = {
+	ConfigSetting("Enable", &g_Config.bAchievementsEnable, false, CfgFlag::PER_GAME),
+};
 
 static const ConfigSetting cpuSettings[] = {
 	ConfigSetting("CPUCore", &g_Config.iCpuCore, &DefaultCpuCore, CfgFlag::PER_GAME | CfgFlag::REPORT),
@@ -888,6 +891,7 @@ static const ConfigSectionSettings sections[] = {
 	{"Upgrade", upgradeSettings, ARRAY_SIZE(upgradeSettings)},
 	{"Theme", themeSettings, ARRAY_SIZE(themeSettings)},
 	{"VR", vrSettings, ARRAY_SIZE(vrSettings)},
+	{"Achievements", achievementSettings, ARRAY_SIZE(achievementSettings)},
 };
 
 const size_t numSections = ARRAY_SIZE(sections);
