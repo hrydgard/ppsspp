@@ -295,6 +295,7 @@
     <ClInclude Include="..\..\Core\Debugger\WebSocket.h" />
     <ClInclude Include="..\..\Core\Debugger\WebSocket\BreakpointSubscriber.h" />
     <ClInclude Include="..\..\Core\Debugger\WebSocket\CPUCoreSubscriber.h" />
+    <ClInclude Include="..\..\Core\Debugger\WebSocket\ClientConfigSubscriber.h" />
     <ClInclude Include="..\..\Core\Debugger\WebSocket\DisasmSubscriber.h" />
     <ClInclude Include="..\..\Core\Debugger\WebSocket\GameBroadcaster.h" />
     <ClInclude Include="..\..\Core\Debugger\WebSocket\GameSubscriber.h" />
@@ -534,6 +535,7 @@
     <ClCompile Include="..\..\Core\Debugger\WebSocket.cpp" />
     <ClCompile Include="..\..\Core\Debugger\WebSocket\BreakpointSubscriber.cpp" />
     <ClCompile Include="..\..\Core\Debugger\WebSocket\CPUCoreSubscriber.cpp" />
+    <ClCompile Include="..\..\Core\Debugger\WebSocket\ClientConfigSubscriber.cpp" />
     <ClCompile Include="..\..\Core\Debugger\WebSocket\DisasmSubscriber.cpp" />
     <ClCompile Include="..\..\Core\Debugger\WebSocket\GameBroadcaster.cpp" />
     <ClCompile Include="..\..\Core\Debugger\WebSocket\GameSubscriber.cpp" />

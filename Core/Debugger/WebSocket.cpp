@@ -62,6 +62,7 @@
 #include "Core/Debugger/WebSocket/MemorySubscriber.h"
 #include "Core/Debugger/WebSocket/ReplaySubscriber.h"
 #include "Core/Debugger/WebSocket/SteppingSubscriber.h"
+#include "Core/Debugger/WebSocket/ClientConfigSubscriber.h"
 
 typedef DebuggerSubscriber *(*SubscriberInit)(DebuggerEventHandlerMap &map);
 static const std::vector<SubscriberInit> subscribers({
@@ -78,6 +79,7 @@ static const std::vector<SubscriberInit> subscribers({
 	&WebSocketMemoryInit,
 	&WebSocketReplayInit,
 	&WebSocketSteppingInit,
+	&WebSocketClientConfigInit,
 });
 
 // To handle webserver restart, keep track of how many running.
@@ -139,6 +141,7 @@ void HandleDebuggerRequest(const http::Request &request) {
 	SetupDebuggerLock();
 
 	WebSocketClientInfo client_info;
+	auto& disallowed_config = client_info.disallowed;
 
 	GameBroadcaster game;
 	LogBroadcaster logger;
@@ -187,11 +190,18 @@ void HandleDebuggerRequest(const http::Request &request) {
 
 	while (ws->Process(highActivity ? 1.0f / 1000.0f : 1.0f / 60.0f)) {
 		std::lock_guard<std::mutex> guard(lifecycleLock);
-		// These send events that aren't just responses to requests.
-		logger.Broadcast(ws);
-		game.Broadcast(ws);
-		stepping.Broadcast(ws);
-		input.Broadcast(ws);
+		// These send events that aren't just responses to requests
+
+		// The client can explicitly ask not to be notified about some events
+		// so we check the client settings first
+		if (!disallowed_config["logger"])
+			logger.Broadcast(ws);
+		if (!disallowed_config["game"])
+			game.Broadcast(ws);
+		if (!disallowed_config["stepping"])
+			stepping.Broadcast(ws);
+		if (!disallowed_config["input"])
+			input.Broadcast(ws);
 
 		for (size_t i = 0; i < subscribers.size(); ++i) {
 			if (subscriberData[i]) {
