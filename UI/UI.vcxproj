@@ -111,6 +111,9 @@
     <ProjectReference Include="..\ext\discord-rpc-build\discord-rpc.vcxproj">
       <Project>{beb0a821-3c7f-410f-a525-63afbc69bf8f}</Project>
     </ProjectReference>
+    <ProjectReference Include="..\ext\rcheevos-build\rcheevos.vcxproj">
+      <Project>{31694510-a8c0-40f6-b09b-e8df825adefa}</Project>
+    </ProjectReference>
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <ProjectGuid>{004B8D11-2BE3-4BD9-AB40-2BE04CF2096F}</ProjectGuid>

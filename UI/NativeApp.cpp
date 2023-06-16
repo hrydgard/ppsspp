@@ -55,6 +55,7 @@
 #include "Common/UI/Screen.h"
 #include "Common/UI/Context.h"
 #include "Common/UI/View.h"
+
 #include "android/jni/app-android.h"
 
 #include "Common/System/Display.h"
@@ -109,6 +110,7 @@
 #include "UI/BackgroundAudio.h"
 #include "UI/ControlMappingScreen.h"
 #include "UI/DiscordIntegration.h"
+#include "UI/RetroAchievements.h"
 #include "UI/EmuScreen.h"
 #include "UI/GameInfoCache.h"
 #include "UI/GPUDriverTestScreen.h"
@@ -808,6 +810,9 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	SetGPUBackend((GPUBackend) g_Config.iGPUBackend);
 	renderCounter = 0;
 
+	// Initialize retro achievements runtime.
+	Achievements::Initialize();
+
 	// Must be done restarting by now.
 	restarting = false;
 }
@@ -1368,6 +1373,8 @@ bool NativeIsRestarting() {
 }
 
 void NativeShutdown() {
+	Achievements::Shutdown();
+
 	if (g_screenManager) {
 		g_screenManager->shutdown();
 		delete g_screenManager;

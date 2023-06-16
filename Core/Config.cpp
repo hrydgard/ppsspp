@@ -265,7 +265,7 @@ static bool DefaultSasThread() {
 }
 
 static const ConfigSetting achievementSettings[] = {
-	ConfigSetting("Enable", &g_Config.bAchievementsEnable, false, CfgFlag::PER_GAME),
+	ConfigSetting("Enable", &g_Config.bAchievementsEnable, true, CfgFlag::PER_GAME),
 };
 
 static const ConfigSetting cpuSettings[] = {

@@ -101,7 +101,7 @@ void UpdateSettings();
 /// Called when the system is being reset. If it returns false, the reset should be aborted.
 bool ConfirmSystemReset();
 
-/// Called when the system is being shut down. If Shutdown() returns false, the shutdown should be aborted.
+/// Called when the system is being shut down. If Shutdown() returns false, the shutdown should be aborted if possible.
 bool Shutdown();
 
 /// Called when the system is being paused and resumed.
@@ -176,9 +176,3 @@ void ActivateMenuItem(int item);
 } // namespace RAIntegration
 #endif
 } // namespace Achievements
-
-/// Functions implemented in the frontend.
-namespace Host {
-void OnAchievementsRefreshed();
-void OnAchievementsChallengeModeChanged();
-} // namespace Host

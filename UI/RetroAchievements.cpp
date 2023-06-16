@@ -44,8 +44,8 @@
 #include "RA_Interface.h"
 #endif
 
-// Temporarily get rid of some compile errors, wanna do this last
-// Actually might be better to just make this a full blown wrapper.
+// Simply wrap our current HTTP backend.
+// Which will need replacement anyway for HTTPS...
 namespace Common {
 	class HTTPDownloader {
 	public:
@@ -54,17 +54,38 @@ namespace Common {
 		}
 		class Request {
 		public:
-			typedef std::vector<uint8_t> Data;
+			typedef std::string Data;
 			typedef std::function<void(s32 status_code, std::string content_type, Data data)> Callback;
 		};
 
-		void PollRequests() {}
-		void WaitForAllRequests() {}
-		void CreateRequest(std::string &&url, Request::Callback &&callback) {}
-		void CreatePostRequest(std::string &&url, const char *post_data, Request::Callback &&callback);
+		void PollRequests() {
+			downloader_.Update();
+		}
+		void WaitForAllRequests() {
+			downloader_.WaitForAll();
+		}
+		void CreateRequest(std::string &&url, Request::Callback &&callback) {
+			Request::Callback movedCallback = std::move(callback);
+			downloader_.StartDownloadWithCallback(url, Path(), [=](http::Download &download) {
+				std::string data;
+				download.buffer().TakeAll(&data);
+				movedCallback(download.ResultCode(), "", data);
+			});
+		}
+		void CreatePostRequest(std::string &&url, const char *post_data, Request::Callback &&callback) {
+			Request::Callback movedCallback = std::move(callback);
+			std::string post_data_str(post_data);
+			downloader_.AsyncPostWithCallback(url, post_data_str, "application/x-www-form-urlencoded", [=](http::Download &download) {
+				std::string data;
+				download.buffer().TakeAll(&data);
+				movedCallback(download.ResultCode(), "", data);
+			});
+		}
 
 	private:
 		HTTPDownloader() {}
+
+		http::Downloader downloader_;
 	};
 }  // namespace
 
@@ -74,9 +95,21 @@ void OSDAddToast(float duration_s, const std::string &text) {
 }
 void OSDAddNotification(float duration_s, const std::string &title, const std::string &summary, const std::string &iconImageData) {}
 
-void OSDOpenBackgroundProgressDialog(const char *str_id, std::string message, s32 min, s32 max, s32 value);
-void OSDUpdateBackgroundProgressDialog(const char *str_id, std::string message, s32 min, s32 max, s32 value);
-void OSDCloseBackgroundProgressDialog(const char *str_id);
+void OSDOpenBackgroundProgressDialog(const char *str_id, std::string message, s32 min, s32 max, s32 value) {
+	NOTICE_LOG(ACHIEVEMENTS, "Progress dialog opened: %s %s", str_id, message.c_str());
+}
+void OSDUpdateBackgroundProgressDialog(const char *str_id, std::string message, s32 min, s32 max, s32 value) {
+	NOTICE_LOG(ACHIEVEMENTS, "Progress dialog updated: %s %s %f/(%f->%f)", str_id, message.c_str(), value, min, max);
+}
+void OSDCloseBackgroundProgressDialog(const char *str_id) {
+	NOTICE_LOG(ACHIEVEMENTS, "Progress dialog closed: %s", str_id);
+}
+
+namespace Host {
+void OnAchievementsRefreshed() {
+	System_PostUIMessage("achievements_refreshed", "");
+}
+}
 
 namespace Achievements {
 
@@ -507,7 +540,7 @@ void Achievements::Initialize()
 	s_logged_in = (!s_username.empty() && !s_api_token.empty());
 
 	// if (System::IsValid())
-	GameChanged();
+	// GameChanged();
 }
 
 void Achievements::UpdateSettings()
@@ -1035,7 +1068,7 @@ void Achievements::DownloadImage(std::string url, std::string cache_filename)
 			if (status_code != HTTP_OK)
 				return;
 
-			if (!File::WriteDataToFile(false, data.data(), data.size(), Path(cache_filename))) {
+			if (!File::WriteDataToFile(false, data.data(), (int)data.size(), Path(cache_filename))) {
 				ERROR_LOG(ACHIEVEMENTS, "Failed to write badge image to '%s'", cache_filename.c_str());
 				return;
 			}
