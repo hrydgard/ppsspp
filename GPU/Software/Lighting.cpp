@@ -256,7 +256,8 @@ static inline void LightColorSum(Vec4<int> &sum, const Vec4<int> &src) {
 }
 
 static inline float Dot33(const Vec3f &a, const Vec3f &b) {
-#if defined(_M_SSE)
+	// NOTE: We can't guarantee aligned stack/parameter on 32-bit x86, so we avoid this path there. 
+#if defined(_M_SSE) && !PPSSPP_ARCH(X86)
 	__m128 v = _mm_mul_ps(a.vec, b.vec); // [X, Y, Z, W]
 	__m128 shuf = _mm_shuffle_ps(v, v, _MM_SHUFFLE(3, 2, 0, 1)); // [Y, X, Z, W]
 	__m128 sums = _mm_add_ps(v, shuf); // [X + Y, X + Y, Z + Z, W + W]
@@ -267,8 +268,9 @@ static inline float Dot33(const Vec3f &a, const Vec3f &b) {
 	float32x2_t add1 = vget_low_f32(vpaddq_f32(multipled, multipled));
 	float32x2_t add2 = vpadd_f32(add1, add1);
 	return vget_lane_f32(add2, 0);
-#endif
+#else
 	return Dot(a, b);
+#endif
 }
 
 template <bool useSSE4>
