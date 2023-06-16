@@ -34,9 +34,7 @@
 using namespace json;
 
 struct WebSocketClientInfo {
-	WebSocketClientInfo() : name(), version(), disallowed() {
-
-	}
+	WebSocketClientInfo() = default;
 
 	std::string name;
 	std::string version;
