@@ -75,6 +75,9 @@ namespace Common {
 		void CreatePostRequest(std::string &&url, const char *post_data, Request::Callback &&callback) {
 			Request::Callback movedCallback = std::move(callback);
 			std::string post_data_str(post_data);
+
+			NOTICE_LOG(ACHIEVEMENTS, "Request: post_data=%s", post_data);
+
 			downloader_.AsyncPostWithCallback(url, post_data_str, "application/x-www-form-urlencoded", [=](http::Download &download) {
 				std::string data;
 				download.buffer().TakeAll(&data);
@@ -108,6 +111,9 @@ void OSDCloseBackgroundProgressDialog(const char *str_id) {
 namespace Host {
 void OnAchievementsRefreshed() {
 	System_PostUIMessage("achievements_refreshed", "");
+}
+void OnAchievementsLoginStateChange() {
+	System_PostUIMessage("achievements_loginstatechange", "");
 }
 }
 
@@ -978,6 +984,8 @@ void Achievements::LoginCallback(s32 status_code, std::string content_type, Comm
 		if (!s_game_hash.empty())
 			SendGetGameId();
 	}
+
+	Host::OnAchievementsLoginStateChange();
 }
 
 void Achievements::LoginASyncCallback(s32 status_code, std::string content_type,
@@ -1050,7 +1058,7 @@ void Achievements::Logout()
 			std::string().swap(s_username);
 			std::string().swap(s_api_token);
 			s_logged_in = false;
-			Host::OnAchievementsRefreshed();
+			Host::OnAchievementsLoginStateChange();
 		}
 	}
 

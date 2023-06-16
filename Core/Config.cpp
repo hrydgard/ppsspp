@@ -265,7 +265,20 @@ static bool DefaultSasThread() {
 }
 
 static const ConfigSetting achievementSettings[] = {
-	ConfigSetting("Enable", &g_Config.bAchievementsEnable, true, CfgFlag::PER_GAME),
+	ConfigSetting("AchievementsEnable", &g_Config.bAchievementsEnable, true, CfgFlag::DEFAULT),
+	ConfigSetting("AchievementsLeaderboards", &g_Config.bAchievementsLeaderboards, false, CfgFlag::DEFAULT),
+	ConfigSetting("AchievementsTestMode", &g_Config.bAchievementsTestMode, false, CfgFlag::DEFAULT),
+	ConfigSetting("AchievementsUnofficialTestMode", &g_Config.bAchievementsUnofficialTestMode, false, CfgFlag::DEFAULT),
+	ConfigSetting("AchievementsRichPresence", &g_Config.bAchievementsRichPresence, true, CfgFlag::DEFAULT),
+	ConfigSetting("AchievementsChallengeMode", &g_Config.bAchievementsChallengeMode, false, CfgFlag::DEFAULT),
+	ConfigSetting("AchievementsSoundEffects", &g_Config.bAchievementsSoundEffects, true, CfgFlag::DEFAULT),
+	ConfigSetting("AchievementsNotifications", &g_Config.bAchievementsNotifications, true, CfgFlag::DEFAULT),
+
+	// Achievements login info. Note that password is NOT stored, only a login token.
+	// Still, we may wanna store it more securely than in PPSSPP.ini, especially on Android.
+	ConfigSetting("AchievementsUserName", &g_Config.sAchievementsUserName, "", CfgFlag::DEFAULT),
+	ConfigSetting("AchievementsToken", &g_Config.sAchievementsToken, "", CfgFlag::DEFAULT),
+	ConfigSetting("AchievementsLoginTimestamp", &g_Config.sAchievementsLoginTimestamp, "", CfgFlag::DEFAULT),
 };
 
 static const ConfigSetting cpuSettings[] = {

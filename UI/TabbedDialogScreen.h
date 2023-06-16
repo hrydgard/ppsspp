@@ -21,11 +21,11 @@ protected:
 	virtual bool ShowSearchControls() { return true; }
 
 	void RecreateViews() override;
+	void sendMessage(const char *message, const char *value) override;
 
 	SettingInfoMessage *settingInfo_ = nullptr;
 
 private:
-	void sendMessage(const char *message, const char *value) override;
 	void ApplySearchFilter();
 
 	UI::TabHolder *tabHolder_ = nullptr;

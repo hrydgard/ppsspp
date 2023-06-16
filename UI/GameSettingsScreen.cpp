@@ -53,6 +53,7 @@
 #include "UI/GPUDriverTestScreen.h"
 #include "UI/MemStickScreen.h"
 #include "UI/Theme.h"
+#include "UI/RetroAchievementScreens.h"
 
 #include "Common/File/FileUtil.h"
 #include "Common/File/AndroidContentURI.h"
@@ -849,6 +850,11 @@ void GameSettingsScreen::CreateSystemSettings(UI::ViewGroup *systemSettings) {
 	auto di = GetI18NCategory(I18NCat::DIALOG);
 	auto vr = GetI18NCategory(I18NCat::VR);
 	auto th = GetI18NCategory(I18NCat::THEMES);
+
+	systemSettings->Add(new Choice(sy->T("Achievements")))->OnClick.Add([&](UI::EventParams &) -> UI::EventReturn {
+		screenManager()->push(new RetroAchievementsSettingsScreen(gamePath_));
+		return UI::EVENT_DONE;
+	});
 
 	systemSettings->Add(new ItemHeader(sy->T("UI")));
 
