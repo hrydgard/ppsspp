@@ -12,3 +12,9 @@ public:
 
 	void CreateViews() override;
 };
+
+class RetroAchievementsSetupScreen : public UIDialogScreenWithGameBackground {
+public:
+	RetroAchievementsSetupScreen(const Path &gamePath) : UIDialogScreenWithGameBackground(gamePath) {}
+
+};

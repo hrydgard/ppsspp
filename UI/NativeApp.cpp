@@ -1213,6 +1213,8 @@ void NativeUpdate() {
 
 	g_requestManager.ProcessRequests();
 
+	Achievements::ProcessPendingHTTPRequests();
+
 	g_DownloadManager.Update();
 	g_screenManager->update();
 

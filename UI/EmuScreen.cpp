@@ -90,6 +90,7 @@ using namespace std::placeholders;
 #include "UI/ProfilerDraw.h"
 #include "UI/DiscordIntegration.h"
 #include "UI/ChatScreen.h"
+#include "UI/RetroAchievements.h"
 
 #include "Core/Reporting.h"
 
@@ -1126,6 +1127,8 @@ void EmuScreen::update() {
 			}
 		}
 	}
+
+	Achievements::FrameUpdate();
 }
 
 void EmuScreen::checkPowerDown() {
