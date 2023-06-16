@@ -90,6 +90,11 @@ public:
 
 #if PPSSPP_PLATFORM(WINDOWS)
 	std::wstring ToWString() const;
+	std::string ToCString() const;  // Flips the slashes back to Windows standard, but string still UTF-8.
+#else
+	std::string ToCSTring() const {
+		return ToString();
+	}
 #endif
 
 	// Pass in a relative root to turn the path into a relative path - if it is one!

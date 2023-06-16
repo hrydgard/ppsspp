@@ -258,6 +258,15 @@ std::wstring Path::ToWString() const {
 	}
 	return w;
 }
+std::string Path::ToCString() const {
+	std::string w = path_;
+	for (size_t i = 0; i < w.size(); i++) {
+		if (w[i] == '/') {
+			w[i] = '\\';
+		}
+	}
+	return w;
+}
 #endif
 
 std::string Path::ToVisualString(const char *relativeRoot) const {

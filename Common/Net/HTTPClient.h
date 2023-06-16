@@ -212,6 +212,10 @@ public:
 
 	std::vector<float> GetCurrentProgress();
 
+	size_t GetActiveCount() const {
+		return downloads_.size();
+	}
+
 private:
 	std::vector<std::shared_ptr<Download>> downloads_;
 	// These get copied to downloads_ in Update(). It's so that callbacks can add new downloads

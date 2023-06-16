@@ -15,6 +15,8 @@
 #include "ext/rcheevos/include/rc_api_runtime.h"
 #include "ext/rcheevos/include/rc_api_user.h"
 #include "ext/rcheevos/include/rc_url.h"
+#include "ext/rcheevos/include/rc_hash.h"
+#include "ext/rcheevos/src/rhash/md5.h"
 
 #include "UI/RetroAchievements.h"
 #include "ext/rapidjson/include/rapidjson/document.h"
@@ -46,8 +48,7 @@
 #include "RA_Interface.h"
 #endif
 
-// Simply wrap our current HTTP backend.
-// Which will need replacement anyway for HTTPS...
+// Simply wrap our current HTTP backend to fit the DuckStation-derived code.
 namespace Common {
 	class HTTPDownloader {
 	public:
@@ -65,6 +66,9 @@ namespace Common {
 		}
 		void WaitForAllRequests() {
 			downloader_.WaitForAll();
+		}
+		bool HasAnyRequests() const {
+			return downloader_.GetActiveCount() > 0;
 		}
 		void CreateRequest(std::string &&url, Request::Callback &&callback) {
 			Request::Callback movedCallback = std::move(callback);
@@ -108,6 +112,14 @@ void OSDUpdateBackgroundProgressDialog(const char *str_id, std::string message, 
 }
 void OSDCloseBackgroundProgressDialog(const char *str_id) {
 	NOTICE_LOG(ACHIEVEMENTS, "Progress dialog closed: %s", str_id);
+}
+
+void OSDAddKeyedMessage(const char *str_id, std::string message, float duration) {
+	NOTICE_LOG(ACHIEVEMENTS, "Keyed message: %s %s (%0.1f s)", str_id, message.c_str(), duration);
+}
+
+void OSDDisplayLoadingScreen(const char *text) {
+	
 }
 
 namespace Host {
@@ -168,7 +180,7 @@ static void GetUserUnlocks();
 static void GetPatchesCallback(s32 status_code, std::string content_type, Common::HTTPDownloader::Request::Data data);
 static void GetLbInfoCallback(s32 status_code, std::string content_type, Common::HTTPDownloader::Request::Data data);
 static void GetPatches(u32 game_id);
-static std::string GetGameHash(CDImage *image);
+static std::string GetGameHash(const Path &path);
 static void SetChallengeMode(bool enabled);
 static void SendGetGameId();
 static void GetGameIdCallback(s32 status_code, std::string content_type, Common::HTTPDownloader::Request::Data data);
@@ -199,7 +211,7 @@ static std::unique_ptr<Common::HTTPDownloader> s_http_downloader;
 static std::string s_username;
 static std::string s_api_token;
 
-static std::string s_game_path;
+static Path s_game_path;
 static std::string s_game_hash;
 static std::string s_game_title;
 static std::string s_game_icon;
@@ -453,8 +465,8 @@ void Achievements::ClearGameInfo(bool clear_achievements, bool clear_leaderboard
 
 void Achievements::ClearGameHash()
 {
-	s_game_path = {};
-	std::string().swap(s_game_hash);
+	s_game_path.clear();
+	s_game_hash.clear();
 }
 
 std::string Achievements::GetUserAgent()
@@ -546,6 +558,9 @@ void Achievements::Initialize()
 	s_username = g_Config.sAchievementsUserName;
 	s_api_token = g_Config.sAchievementsToken;
 	s_logged_in = (!s_username.empty() && !s_api_token.empty());
+
+	// this is just the non-SSL path.
+	rc_api_set_host("http://retroachievements.org");
 
 	// if (System::IsValid())
 	// GameChanged();
@@ -1389,13 +1404,27 @@ void Achievements::GetPatches(u32 game_id)
 	request.Send(GetPatchesCallback);
 }
 
-std::string Achievements::GetGameHash(CDImage *image)
+std::string Achievements::GetGameHash(const Path &path)
 {
 	// According to https://docs.retroachievements.org/Game-Identification/, we should simply
 	// concatenate param.sfo and eboot.bin, and hash the result, to obtain the game hash.
 
+	// UNFORTUNATELY, it's borked. Turns out that retroarch's rc_hash_cd_file is broken and will read
+	// outside the last sector in every case. Doubly unfortunately, all the hashes on retroachievements
+	// are generated like that. Oh well.
+
+	// We will need to reimplement it properly (hash some zeroes I guess, below) to handle file types
+	// that the cdreader can't handle (or we make a custom cdreader) but for now we just return orig_hash_str.
+
+	rc_hash_init_default_cdreader();
+
+	char orig_hash_str[33]{};
+	std::string ppath = path.ToCString();
+
+	rc_hash_generate_from_file(orig_hash_str, RC_CONSOLE_PSP, ppath.c_str());
+
 	const char *paramSFO = "disc0:/PSP_GAME/PARAM.SFO";
-	const char *ebootBIN = "disc0:/PSP_GAME/EBOOT.BIN";
+	const char *ebootBIN = "disc0:/PSP_GAME/SYSDIR/EBOOT.BIN";
 
 	std::vector<uint8_t> paramSFOContents;
 	std::vector<uint8_t> ebootContents;
@@ -1404,21 +1433,28 @@ std::string Achievements::GetGameHash(CDImage *image)
 	pspFileSystem.ReadEntireFile(ebootBIN, ebootContents);
 
 	uint8_t hash[16]{};
+	md5_state_t md5;
+	md5_init(&md5);
+	md5_append(&md5, paramSFOContents.data(), (int)paramSFOContents.size());
+	md5_append(&md5, ebootContents.data(), (int)ebootContents.size());
+	md5_finish(&md5, hash);
 
+	/*
 	md5_context md5ctx{};
 	ppsspp_md5_starts(&md5ctx);
 	ppsspp_md5_update(&md5ctx, paramSFOContents.data(), (int)paramSFOContents.size());
 	ppsspp_md5_update(&md5ctx, ebootContents.data(), (int)ebootContents.size());
 	ppsspp_md5_finish(&md5ctx, hash);
+	*/
 
-	// digest.Final(hash);
+	// This is straight from rc_hash_finalize
 	size_t hash_size = 0;
 	std::string hash_str(StringFromFormat(
 		"%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x", hash[0], hash[1], hash[2], hash[3], hash[4],
 		hash[5], hash[6], hash[7], hash[8], hash[9], hash[10], hash[11], hash[12], hash[13], hash[14], hash[15]));
 
-	INFO_LOG(ACHIEVEMENTS, "Hash for '%s' & '%s' (%zu bytes, %u bytes hashed): %s", paramSFO, ebootBIN, (int)paramSFOContents.size(), (int)ebootContents.size());
-	return hash_str;
+	INFO_LOG(ACHIEVEMENTS, "Hash for '%s' & '%s' (%u bytes, %u bytes hashed): %s", paramSFO, ebootBIN, (int)paramSFOContents.size(), (int)ebootContents.size(), hash_str.c_str());
+	return std::string(orig_hash_str);
 }
 
 void Achievements::GetGameIdCallback(s32 status_code, std::string content_type,
@@ -1434,7 +1470,7 @@ void Achievements::GetGameIdCallback(s32 status_code, std::string content_type,
 		return;
 
 	const u32 game_id = response.game_id;
-	INFO_LOG(ACHIEVEMENTS, "Server returned GameID % u", game_id);
+	NOTICE_LOG(ACHIEVEMENTS, "Server returned GameID %u", game_id);
 	if (game_id == 0)
 	{
 		// We don't want to block saving/loading states when there's no achievements.
@@ -1449,64 +1485,27 @@ void Achievements::LeftGame() {
 	// Should just uninitialize
 }
 
-void Achievements::GameChanged()
+void Achievements::GameChanged(const Path &path)
 {
-	/*
 	if (!IsActive() || s_game_path == path)
 		return;
 
-	std::unique_ptr<CDImage> temp_image;
-	if (!path.empty() && (!image || (g_settings.achievements_use_first_disc_from_playlist && image->HasSubImages() &&
-		image->GetCurrentSubImage() != 0)))
-	{
-		temp_image = CDImage::Open(path.c_str(), g_settings.cdrom_load_image_patches, nullptr);
-		image = temp_image.get();
-		if (!temp_image)
-		{
-			ERROR_LOG(ACHIEVEMENTS, "Failed to open temporary CD image '%s'", path.c_str());
-			s_http_downloader->WaitForAllRequests();
-			std::unique_lock lock(s_achievements_mutex);
-			DisableChallengeMode();
-			ClearGameInfo();
-			return;
-		}
-	}
-
 	std::string game_hash;
-	if (image)
+
+	game_hash = GetGameHash(path);
+	if (s_game_hash == game_hash)
 	{
-		game_hash = GetGameHash(image);
-		if (s_game_hash == game_hash)
-		{
-			// only the path has changed - different format/save state/etc.
-			INFO_LOG(ACHIEVEMENTS, "Detected path change from '%s' to '%s'", s_game_path.c_str(), path.c_str());
-			s_game_path = path;
-			return;
-		}
+		// only the path has changed - different format/save state/etc.
+		INFO_LOG(ACHIEVEMENTS, "Detected path change from '%s' to '%s'", s_game_path.c_str(), path.c_str());
+		s_game_path = path;
+		return;
 	}
 
 	if (!IsUsingRAIntegration() && s_http_downloader->HasAnyRequests())
 	{
-		if (image)
-			Host::DisplayLoadingScreen("Downloading achievements data...");
+		OSDDisplayLoadingScreen("Downloading achievements data...");
 
 		s_http_downloader->WaitForAllRequests();
-	}
-
-	if (image && image->HasSubImages() && image->GetCurrentSubImage() != 0)
-	{
-		std::unique_ptr<CDImage> image_copy(
-			CDImage::Open(image->GetFileName().c_str(), g_settings.cdrom_load_image_patches, nullptr));
-		if (!image_copy)
-		{
-			ERROR_LOG(ACHIEVEMENTS, "Failed to reopen image '%s'", image->GetFileName().c_str());
-			return;
-		}
-
-		// this will go to subimage zero automatically
-		Assert(image_copy->GetCurrentSubImage() == 0);
-		GameChanged(path, image_copy.get());
-		return;
 	}
 
 	std::unique_lock lock(s_achievements_mutex);
@@ -1531,7 +1530,7 @@ void Achievements::GameChanged()
 		// when we're booting the bios, this will fail
 		if (!s_game_path.empty())
 		{
-			Host::AddKeyedOSDMessage("retroachievements_disc_read_failed",
+			OSDAddKeyedMessage("retroachievements_disc_read_failed",
 				"Failed to read executable from disc. Achievements disabled.", 10.0f);
 		}
 
@@ -1541,7 +1540,6 @@ void Achievements::GameChanged()
 
 	if (IsLoggedIn())
 		SendGetGameId();
-	*/
 }
 
 void Achievements::SendGetGameId()

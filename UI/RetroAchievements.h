@@ -20,7 +20,7 @@
 
 #define ALWAYS_INLINE __forceinline
 
-class CDImage;
+class Path;
 class PointerWrap;
 
 namespace Achievements {
@@ -127,7 +127,7 @@ bool LoginAsync(const char *username, const char *password);
 bool Login(const char *username, const char *password);
 void Logout();
 
-void GameChanged();
+void GameChanged(const Path &path);
 void LeftGame();
 
 /// Re-enables hardcode mode if it is enabled in the settings.
