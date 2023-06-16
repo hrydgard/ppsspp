@@ -34,6 +34,7 @@
     <ClCompile Include="..\..\UI\JoystickHistoryView.cpp" />
     <ClCompile Include="..\..\UI\AudioCommon.cpp" />
     <ClCompile Include="..\..\UI\CustomButtonMappingScreen.cpp" />
+    <ClCompile Include="..\..\UI\TabbedDialogScreen.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="pch.h" />
@@ -69,5 +70,6 @@
     <ClInclude Include="..\..\UI\JoystickHistoryView.h" />
     <ClInclude Include="..\..\UI\AudioCommon.h" />
     <ClInclude Include="..\..\UI\CustomButtonMappingScreen.h" />
+    <ClInclude Include="..\..\UI\TabbedDialogScreen.h" />
   </ItemGroup>
 </Project>

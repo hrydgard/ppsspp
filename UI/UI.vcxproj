@@ -62,6 +62,7 @@
     <ClCompile Include="SavedataScreen.cpp" />
     <ClCompile Include="Store.cpp" />
     <ClCompile Include="AudioCommon.cpp" />
+    <ClCompile Include="TabbedDialogScreen.cpp" />
     <ClCompile Include="TiltAnalogSettingsScreen.cpp" />
     <ClCompile Include="TouchControlLayoutScreen.cpp" />
     <ClCompile Include="TouchControlVisibilityScreen.cpp" />
@@ -95,6 +96,7 @@
     <ClInclude Include="ReportScreen.h" />
     <ClInclude Include="SavedataScreen.h" />
     <ClInclude Include="Store.h" />
+    <ClInclude Include="TabbedDialogScreen.h" />
     <ClInclude Include="TiltAnalogSettingsScreen.h" />
     <ClInclude Include="TouchControlLayoutScreen.h" />
     <ClInclude Include="TouchControlVisibilityScreen.h" />

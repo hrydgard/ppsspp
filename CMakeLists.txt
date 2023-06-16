@@ -1368,6 +1368,8 @@ list(APPEND NativeAppSource
 	UI/MiscScreens.cpp
 	UI/PauseScreen.h
 	UI/PauseScreen.cpp
+	UI/TabbedDialogScreen.h
+	UI/TabbedDialogScreen.cpp
 	UI/GameScreen.h
 	UI/GameScreen.cpp
 	UI/GameSettingsScreen.h
