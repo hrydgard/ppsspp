@@ -83,6 +83,9 @@
     <ClCompile Include="CustomButtonMappingScreen.cpp">
       <Filter>Screens</Filter>
     </ClCompile>
+    <ClCompile Include="TabbedDialogScreen.cpp">
+      <Filter>Screens</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="GameInfoCache.h" />
@@ -164,6 +167,9 @@
     </ClInclude>
     <ClInclude Include="AudioCommon.h" />
     <ClInclude Include="CustomButtonMappingScreen.h">
+      <Filter>Screens</Filter>
+    </ClInclude>
+    <ClInclude Include="TabbedDialogScreen.h">
       <Filter>Screens</Filter>
     </ClInclude>
   </ItemGroup>
