@@ -27,12 +27,14 @@
 #include "Common/Data/Text/I18n.h"
 #include "Common/Serialize/Serializer.h"
 #include "Common/System/System.h"
+#include "Common/Crypto/md5.h"
 
 #include "Core/MemMap.h"
 #include "Core/Config.h"
 #include "Core/CoreParameter.h"
 #include "Core/ELF/ParamSFO.h"
 #include "Core/System.h"
+#include "Core/FileSystems/MetaFileSystem.h"
 
 #include "UI/Root.h"
 
@@ -1390,49 +1392,32 @@ void Achievements::GetPatches(u32 game_id)
 std::string Achievements::GetGameHash(CDImage *image)
 {
 	// According to https://docs.retroachievements.org/Game-Identification/, we should simply
-	// concatenate param.sfo and eboot.bin, and hash the result, to obtain the game ID.
+	// concatenate param.sfo and eboot.bin, and hash the result, to obtain the game hash.
 
 	const char *paramSFO = "disc0:/PSP_GAME/PARAM.SFO";
 	const char *ebootBIN = "disc0:/PSP_GAME/EBOOT.BIN";
 
+	std::vector<uint8_t> paramSFOContents;
+	std::vector<uint8_t> ebootContents;
 
-	std::string paramSFOContents;
-	std::string ebootContents;
+	pspFileSystem.ReadEntireFile(paramSFO, paramSFOContents);
+	pspFileSystem.ReadEntireFile(ebootBIN, ebootContents);
 
-	std::string executable_name;
-	std::vector<u8> executable_data;
-	/*
-	if (!System::ReadExecutableFromImage(image, &executable_name, &executable_data))
-		return {};
+	uint8_t hash[16]{};
 
-	BIOS::PSEXEHeader header;
-	if (executable_data.size() >= sizeof(header))
-		std::memcpy(&header, executable_data.data(), sizeof(header));
-	if (!BIOS::IsValidPSExeHeader(header, static_cast<u32>(executable_data.size())))
-	{
-		ERROR_LOG(ACHIEVEMENTS, "PS-EXE header is invalid in '%s' (%zu bytes)", executable_name.c_str(), executable_data.size());
-		return {};
-	}
+	md5_context md5ctx{};
+	ppsspp_md5_starts(&md5ctx);
+	ppsspp_md5_update(&md5ctx, paramSFOContents.data(), (int)paramSFOContents.size());
+	ppsspp_md5_update(&md5ctx, ebootContents.data(), (int)ebootContents.size());
+	ppsspp_md5_finish(&md5ctx, hash);
 
-	// See rcheevos hash.c - rc_hash_psx().
-	const u32 MAX_HASH_SIZE = 64 * 1024 * 1024;
-	const u32 hash_size = std::min<u32>(sizeof(header) + header.file_size, MAX_HASH_SIZE);
-	Assert(hash_size <= executable_data.size());
-
-	MD5Digest digest;
-	digest.Update(executable_name.c_str(), static_cast<u32>(executable_name.size()));
-	if (hash_size > 0)
-		digest.Update(executable_data.data(), hash_size);
-	*/
-	u8 hash[16]{};
 	// digest.Final(hash);
 	size_t hash_size = 0;
 	std::string hash_str(StringFromFormat(
 		"%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x", hash[0], hash[1], hash[2], hash[3], hash[4],
 		hash[5], hash[6], hash[7], hash[8], hash[9], hash[10], hash[11], hash[12], hash[13], hash[14], hash[15]));
 
-	INFO_LOG(ACHIEVEMENTS, "Hash for '%s' & '%s' (%zu bytes, %u bytes hashed): %s", paramSFO, ebootBIN, executable_data.size(),
-		hash_size, hash_str.c_str());
+	INFO_LOG(ACHIEVEMENTS, "Hash for '%s' & '%s' (%zu bytes, %u bytes hashed): %s", paramSFO, ebootBIN, (int)paramSFOContents.size(), (int)ebootContents.size());
 	return hash_str;
 }
 
