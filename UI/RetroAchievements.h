@@ -127,7 +127,8 @@ bool LoginAsync(const char *username, const char *password);
 bool Login(const char *username, const char *password);
 void Logout();
 
-void GameChanged(const std::string &path, CDImage *image);
+void GameChanged();
+void LeftGame();
 
 /// Re-enables hardcode mode if it is enabled in the settings.
 bool ResetChallengeMode();

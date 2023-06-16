@@ -6,6 +6,7 @@
 #include <functional>
 #include <string>
 #include <vector>
+#include <mutex>
 
 #include "ext/rcheevos/include/rcheevos.h"
 #include "ext/rcheevos/include/rc_api_user.h"
@@ -20,6 +21,7 @@
 
 #include "Common/Log.h"
 #include "Common/File/Path.h"
+#include "Common/File/FileUtil.h"
 #include "Common/Net/HTTPClient.h"
 #include "Common/TimeUtil.h"
 #include "Common/Data/Text/I18n.h"
@@ -28,6 +30,11 @@
 
 #include "Core/MemMap.h"
 #include "Core/Config.h"
+#include "Core/CoreParameter.h"
+#include "Core/ELF/ParamSFO.h"
+#include "Core/System.h"
+
+#include "UI/Root.h"
 
 #ifdef WITH_RAINTEGRATION
 // RA_Interface ends up including windows.h, with its silly macros.
@@ -38,18 +45,38 @@
 #endif
 
 // Temporarily get rid of some compile errors, wanna do this last
+// Actually might be better to just make this a full blown wrapper.
 namespace Common {
 	class HTTPDownloader {
 	public:
-		HTTPDownloader Create(const std::string &userAgent);
+		static std::unique_ptr<HTTPDownloader> Create(const std::string &userAgent) {
+			return std::unique_ptr<HTTPDownloader>(new HTTPDownloader());
+		}
 		class Request {
 		public:
 			typedef std::vector<uint8_t> Data;
-			typedef std::function<void()> Callback;
+			typedef std::function<void(s32 status_code, std::string content_type, Data data)> Callback;
 		};
+
+		void PollRequests() {}
+		void WaitForAllRequests() {}
+		void CreateRequest(std::string &&url, Request::Callback &&callback) {}
+		void CreatePostRequest(std::string &&url, const char *post_data, Request::Callback &&callback);
+
+	private:
+		HTTPDownloader() {}
 	};
 }  // namespace
 
+void OSDAddToast(float duration_s, const std::string &text) {
+	// TODO: Improve.
+	System_Toast(text.c_str());
+}
+void OSDAddNotification(float duration_s, const std::string &title, const std::string &summary, const std::string &iconImageData) {}
+
+void OSDOpenBackgroundProgressDialog(const char *str_id, std::string message, s32 min, s32 max, s32 value);
+void OSDUpdateBackgroundProgressDialog(const char *str_id, std::string message, s32 min, s32 max, s32 value);
+void OSDCloseBackgroundProgressDialog(const char *str_id);
 
 namespace Achievements {
 
@@ -63,9 +90,9 @@ enum : s32
 };
 
 // temporary sounds
-static constexpr const char *INFO_SOUND_NAME = "sfx_select.wav";
-static constexpr const char *UNLOCK_SOUND_NAME = "sfx_toggle_on.wav";
-static constexpr const char *LBSUBMIT_SOUND_NAME = "sfx_toggle_off.wav";
+static constexpr UI::UISound INFO_SOUND_NAME = UI::UISound::SELECT;
+static constexpr UI::UISound UNLOCK_SOUND_NAME = UI::UISound::TOGGLE_ON;
+static constexpr UI::UISound LBSUBMIT_SOUND_NAME = UI::UISound::TOGGLE_OFF;
 
 static void FormattedError(const char *format, ...);
 static void LogFailedResponseJSON(const Common::HTTPDownloader::Request::Data &data);
@@ -111,6 +138,7 @@ static void UnlockAchievementCallback(s32 status_code, std::string content_type,
 	Common::HTTPDownloader::Request::Data data);
 static void SubmitLeaderboardCallback(s32 status_code, std::string content_type,
 	Common::HTTPDownloader::Request::Data data);
+static void ResetRuntime();
 
 static bool s_active = false;
 static bool s_logged_in = false;
@@ -140,11 +168,14 @@ static std::atomic<u32> s_primed_achievement_count{0};
 
 static bool s_has_rich_presence = false;
 static std::string s_rich_presence_string;
-static Instant s_last_ping_time = Instant::Uninitialized();
+static double s_last_ping_time;
 
 static u32 s_last_queried_lboard = 0;
 static u32 s_submitting_lboard_id = 0;
 static std::optional<std::vector<Achievements::LeaderboardEntry>> s_lboard_entries;
+
+// TODO: Add an icon cache as a string map. We won't cache achievement icons across sessions, let's just
+// download them as we go.
 
 template<typename T>
 static const char *RAPIStructName();
@@ -226,7 +257,7 @@ public:
 			return false;
 		}
 
-		DebugAssertMsg(!api_request.post_data, "Download request does not have POST data");
+		_dbg_assert_msg_(!api_request.post_data, "Download request does not have POST data");
 		Achievements::DownloadImage(api_request.url, std::move(cache_filename));
 		return true;
 	}
@@ -253,7 +284,7 @@ private:
 public:
 	RAPIResponse(s32 status_code, Common::HTTPDownloader::Request::Data &data)
 	{
-		if (status_code != Common::HTTPDownloader::HTTP_OK || data.empty())
+		if (status_code != 200 || data.empty())
 		{
 			FormattedError("%s failed: empty response and/or status code %d", RAPIStructName<T>(), status_code);
 			LogFailedResponseJSON(data);
@@ -460,7 +491,8 @@ void Achievements::Initialize()
 	s_http_downloader = Common::HTTPDownloader::Create(GetUserAgent().c_str());
 	if (!s_http_downloader)
 	{
-		Host::ReportErrorAsync("Achievements Error", "Failed to create HTTPDownloader, cannot use achievements");
+		// TODO: Also report to user
+		ERROR_LOG(ACHIEVEMENTS, "Failed to create HTTPDownloader, cannot use achievements");
 		return;
 	}
 
@@ -469,13 +501,13 @@ void Achievements::Initialize()
 	rc_runtime_init(&s_rcheevos_runtime);
 	EnsureCacheDirectoriesExist();
 
-	s_last_ping_time.Reset();
-	s_username = Host::GetBaseStringSettingValue("Cheevos", "Username");
-	s_api_token = Host::GetBaseStringSettingValue("Cheevos", "Token");
+	s_last_ping_time = time_now_d();
+	s_username = g_Config.sAchievementsUserName;
+	s_api_token = g_Config.sAchievementsToken;
 	s_logged_in = (!s_username.empty() && !s_api_token.empty());
 
-	if (System::IsValid())
-		GameChanged(System::GetDiscPath(), nullptr);
+	// if (System::IsValid())
+	GameChanged();
 }
 
 void Achievements::UpdateSettings()
@@ -672,7 +704,7 @@ void Achievements::ResetRuntime()
 		return;
 
 	std::unique_lock lock(s_achievements_mutex);
-	Log_DevPrint("Resetting rcheevos state...");
+	DEBUG_LOG(ACHIEVEMENTS, "Resetting rcheevos state...");
 	rc_runtime_reset(&s_rcheevos_runtime);
 }
 
@@ -709,7 +741,7 @@ void Achievements::FrameUpdate()
 		{
 			const s32 ping_frequency =
 				g_Config.bAchievementsRichPresence ? RICH_PRESENCE_PING_FREQUENCY : NO_RICH_PRESENCE_PING_FREQUENCY;
-			if (static_cast<s32>(s_last_ping_time.Elapsed()) >= ping_frequency)
+			if (static_cast<s32>(time_now_d() - s_last_ping_time) >= ping_frequency)
 				SendPing();
 		}
 	}
@@ -870,20 +902,15 @@ const std::string &Achievements::GetRichPresenceString()
 
 void Achievements::EnsureCacheDirectoriesExist()
 {
-	s_game_icon_cache_directory = g_Config.appCacheDirectory / "icon"; // Path::Combine(EmuFolders::Cache, "achievement_gameicon");
-	s_achievement_icon_cache_directory = Path::Combine(EmuFolders::Cache, "achievement_badge");
+	/*
+	s_achievement_icon_cache_directory = g_Config.appCacheDirectory / "achievement_badge";
 
-	if (!FileSystem::DirectoryExists(s_game_icon_cache_directory.c_str()) &&
-		!FileSystem::CreateDirectory(s_game_icon_cache_directory.c_str(), false))
-	{
-		FormattedError("Failed to create cache directory '%s'", s_game_icon_cache_directory.c_str());
-	}
-
-	if (!FileSystem::DirectoryExists(s_achievement_icon_cache_directory.c_str()) &&
-		!FileSystem::CreateDirectory(s_achievement_icon_cache_directory.c_str(), false))
+	if (!File::Exists(s_achievement_icon_cache_directory.c_str()) &&
+		!File::CreateDir(s_achievement_icon_cache_directory.c_str(), false))
 	{
 		FormattedError("Failed to create cache directory '%s'", s_achievement_icon_cache_directory.c_str());
 	}
+	*/
 }
 
 void Achievements::LoginCallback(s32 status_code, std::string content_type, Common::HTTPDownloader::Request::Data data)
@@ -902,10 +929,11 @@ void Achievements::LoginCallback(s32 status_code, std::string content_type, Comm
 	std::string api_token(response.api_token);
 
 	// save to config
-	Host::SetBaseStringSettingValue("Cheevos", "Username", username.c_str());
-	Host::SetBaseStringSettingValue("Cheevos", "Token", api_token.c_str());
-	Host::SetBaseStringSettingValue("Cheevos", "LoginTimestamp", fmt::format("{}", std::time(nullptr)).c_str());
-	Host::CommitBaseSettingChanges();
+	g_Config.sAchievementsUserName = username;
+	g_Config.sAchievementsToken = api_token;
+	g_Config.sAchievementsLoginTimestamp = StringFromFormat("%llu", (unsigned long long)std::time(nullptr));
+
+	g_Config.Save("AchievementsLogin");
 
 	if (s_active)
 	{
@@ -922,7 +950,7 @@ void Achievements::LoginCallback(s32 status_code, std::string content_type, Comm
 void Achievements::LoginASyncCallback(s32 status_code, std::string content_type,
 	Common::HTTPDownloader::Request::Data data)
 {
-	ImGuiFullscreen::CloseBackgroundProgressDialog("cheevos_async_login");
+	OSDCloseBackgroundProgressDialog("cheevos_async_login");
 
 	LoginCallback(status_code, std::move(content_type), std::move(data));
 }
@@ -944,8 +972,7 @@ bool Achievements::LoginAsync(const char *username, const char *password)
 	if (s_logged_in || std::strlen(username) == 0 || std::strlen(password) == 0 || IsUsingRAIntegration())
 		return false;
 
-	if (FullscreenUI::IsInitialized())
-		ImGuiFullscreen::OpenBackgroundProgressDialog("cheevos_async_login", "Logging in to RetroAchivements...", 0, 0, 0);
+	OSDOpenBackgroundProgressDialog("cheevos_async_login", "Logging in to RetroAchivements...", 0, 0, 0);
 
 	SendLogin(username, password, s_http_downloader.get(), LoginASyncCallback);
 	return true;
@@ -967,7 +994,7 @@ bool Achievements::Login(const char *username, const char *password)
 	}
 
 	// create a temporary downloader if we're not initialized
-	AssertMsg(!s_active, "RetroAchievements is not active on login");
+	_assert_msg_(!s_active, "RetroAchievements is not active on login");
 	std::unique_ptr<Common::HTTPDownloader> http_downloader = Common::HTTPDownloader::Create(GetUserAgent().c_str());
 	if (!http_downloader)
 		return false;
@@ -975,7 +1002,7 @@ bool Achievements::Login(const char *username, const char *password)
 	SendLogin(username, password, http_downloader.get(), LoginCallback);
 	http_downloader->WaitForAllRequests();
 
-	return !Host::GetBaseStringSettingValue("Cheevos", "Token").empty();
+	return !g_Config.sAchievementsToken.empty();
 }
 
 void Achievements::Logout()
@@ -995,10 +1022,10 @@ void Achievements::Logout()
 	}
 
 	// remove from config
-	Host::DeleteBaseSettingValue("Cheevos", "Username");
-	Host::DeleteBaseSettingValue("Cheevos", "Token");
-	Host::DeleteBaseSettingValue("Cheevos", "LoginTimestamp");
-	Host::CommitBaseSettingChanges();
+	g_Config.sAchievementsUserName.clear();
+	g_Config.sAchievementsToken.clear();
+	g_Config.sAchievementsLoginTimestamp.clear();
+	g_Config.Save("Achievements logout");
 }
 
 void Achievements::DownloadImage(std::string url, std::string cache_filename)
@@ -1008,13 +1035,12 @@ void Achievements::DownloadImage(std::string url, std::string cache_filename)
 			if (status_code != HTTP_OK)
 				return;
 
-			if (!FileSystem::WriteBinaryFile(cache_filename.c_str(), data.data(), data.size()))
-			{
+			if (!File::WriteDataToFile(false, data.data(), data.size(), Path(cache_filename))) {
 				ERROR_LOG(ACHIEVEMENTS, "Failed to write badge image to '%s'", cache_filename.c_str());
 				return;
 			}
 
-			ImGuiFullscreen::InvalidateCachedTexture(cache_filename);
+			// ImGuiFullscreen::InvalidateCachedTexture(cache_filename);
 	};
 
 	s_http_downloader->CreateRequest(std::move(url), std::move(callback));
@@ -1046,16 +1072,9 @@ void Achievements::DisplayAchievementSummary()
 			summary.append("Leaderboard submission is enabled.");
 	}
 
-	/*
-	Host::RunOnCPUThread([title = std::move(title), summary = std::move(summary), icon = s_game_icon]() {
-		if (FullscreenUI::IsInitialized() && g_Config.bAchievementsNotifications)
-			ImGuiFullscreen::AddNotification(10.0f, std::move(title), std::move(summary), std::move(icon));
+	OSDAddNotification(10.0f, title, summary, s_game_icon);
 
-		// Technically not going through the resource API, but since we're passing this to something else, we can't.
-		if (g_Config.bAchievementsSoundEffects)
-			FrontendCommon::PlaySoundAsync(Path::Combine(EmuFolders::Resources, INFO_SOUND_NAME).c_str());
-		});
-	*/
+	// play info sound?
 }
 
 void Achievements::DisplayMasteredNotification()
@@ -1063,17 +1082,19 @@ void Achievements::DisplayMasteredNotification()
 	if (!g_Config.bAchievementsNotifications)
 		return;
 
-	std::string title(fmt::format("Mastered {}", s_game_title));
-	std::string message(fmt::format("{} achievements, {} points", GetAchievementCount(), GetCurrentPointsForGame()));
+	// TODO: Translation?
+	std::string title = "Mastered " + s_game_title;
+	std::string message = StringFromFormat("%d achievements, %d points", GetAchievementCount(), GetCurrentPointsForGame());
 
-	ImGuiFullscreen::AddNotification(20.0f, std::move(title), std::move(message), s_game_icon);
+	OSDAddNotification(20.0f, title, message, s_game_icon);
+	NOTICE_LOG(ACHIEVEMENTS, "%s", message.c_str());
 }
 
 void Achievements::GetUserUnlocksCallback(s32 status_code, std::string content_type,
 	Common::HTTPDownloader::Request::Data data)
 {
-	if (!System::IsValid())
-		return;
+	// if (!System::IsValid())
+	//	return;
 
 	RAPIResponse<rc_api_fetch_user_unlocks_response_t, rc_api_process_fetch_user_unlocks_response,
 		rc_api_destroy_fetch_user_unlocks_response>
@@ -1121,8 +1142,8 @@ void Achievements::GetUserUnlocks()
 void Achievements::GetPatchesCallback(s32 status_code, std::string content_type,
 	Common::HTTPDownloader::Request::Data data)
 {
-	if (!System::IsValid())
-		return;
+	// if (!System::IsValid())
+	// 	return;
 
 	RAPIResponse<rc_api_fetch_game_data_response_t, rc_api_process_fetch_game_data_response,
 		rc_api_destroy_fetch_game_data_response>
@@ -1137,16 +1158,17 @@ void Achievements::GetPatchesCallback(s32 status_code, std::string content_type,
 	}
 
 	// ensure fullscreen UI is ready
-	Host::RunOnCPUThread(FullscreenUI::Initialize);
+	// Host::RunOnCPUThread(FullscreenUI::Initialize);
 
 	s_game_id = response.id;
 	s_game_title = response.title;
 
 	// try for a icon
+	/*
 	if (response.image_name && std::strlen(response.image_name) > 0)
 	{
 		s_game_icon = Path::Combine(s_game_icon_cache_directory, fmt::format("{}.png", s_game_id));
-		if (!FileSystem::FileExists(s_game_icon.c_str()))
+		if (!File::Exists(s_game_icon))
 		{
 			RAPIRequest<rc_api_fetch_image_request_t, rc_api_init_fetch_image_request> request;
 			request.image_name = response.image_name;
@@ -1154,6 +1176,7 @@ void Achievements::GetPatchesCallback(s32 status_code, std::string content_type,
 			request.DownloadImage(s_game_icon);
 		}
 	}
+	*/
 
 	// parse achievements
 	for (u32 i = 0; i < response.num_achievements; i++)
@@ -1270,8 +1293,8 @@ void Achievements::GetPatchesCallback(s32 status_code, std::string content_type,
 void Achievements::GetLbInfoCallback(s32 status_code, std::string content_type,
 	Common::HTTPDownloader::Request::Data data)
 {
-	if (!System::IsValid())
-		return;
+	// if (!System::IsValid())
+	// 	return;
 
 	RAPIResponse<rc_api_fetch_leaderboard_info_response_t, rc_api_process_fetch_leaderboard_info_response,
 		rc_api_destroy_fetch_leaderboard_info_response>
@@ -1325,8 +1348,19 @@ void Achievements::GetPatches(u32 game_id)
 
 std::string Achievements::GetGameHash(CDImage *image)
 {
+	// According to https://docs.retroachievements.org/Game-Identification/, we should simply
+	// concatenate param.sfo and eboot.bin, and hash the result, to obtain the game ID.
+
+	const char *paramSFO = "disc0:/PSP_GAME/PARAM.SFO";
+	const char *ebootBIN = "disc0:/PSP_GAME/EBOOT.BIN";
+
+
+	std::string paramSFOContents;
+	std::string ebootContents;
+
 	std::string executable_name;
 	std::vector<u8> executable_data;
+	/*
 	if (!System::ReadExecutableFromImage(image, &executable_name, &executable_data))
 		return {};
 
@@ -1348,15 +1382,15 @@ std::string Achievements::GetGameHash(CDImage *image)
 	digest.Update(executable_name.c_str(), static_cast<u32>(executable_name.size()));
 	if (hash_size > 0)
 		digest.Update(executable_data.data(), hash_size);
-
-	u8 hash[16];
-	digest.Final(hash);
-
-	std::string hash_str(StringUtil::StdStringFromFormat(
+	*/
+	u8 hash[16]{};
+	// digest.Final(hash);
+	size_t hash_size = 0;
+	std::string hash_str(StringFromFormat(
 		"%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x", hash[0], hash[1], hash[2], hash[3], hash[4],
 		hash[5], hash[6], hash[7], hash[8], hash[9], hash[10], hash[11], hash[12], hash[13], hash[14], hash[15]));
 
-	INFO_LOG(ACHIEVEMENTS, "Hash for '%s' (%zu bytes, %u bytes hashed): %s", executable_name.c_str(), executable_data.size(),
+	INFO_LOG(ACHIEVEMENTS, "Hash for '%s' & '%s' (%zu bytes, %u bytes hashed): %s", paramSFO, ebootBIN, executable_data.size(),
 		hash_size, hash_str.c_str());
 	return hash_str;
 }
@@ -1364,8 +1398,8 @@ std::string Achievements::GetGameHash(CDImage *image)
 void Achievements::GetGameIdCallback(s32 status_code, std::string content_type,
 	Common::HTTPDownloader::Request::Data data)
 {
-	if (!System::IsValid())
-		return;
+	// if (!System::IsValid())
+	// 	return;
 
 	RAPIResponse<rc_api_resolve_hash_response_t, rc_api_process_resolve_hash_response,
 		rc_api_destroy_resolve_hash_response>
@@ -1374,7 +1408,7 @@ void Achievements::GetGameIdCallback(s32 status_code, std::string content_type,
 		return;
 
 	const u32 game_id = response.game_id;
-	Log_VerbosePrintf("Server returned GameID %u", game_id);
+	INFO_LOG(ACHIEVEMENTS, "Server returned GameID % u", game_id);
 	if (game_id == 0)
 	{
 		// We don't want to block saving/loading states when there's no achievements.
@@ -1385,8 +1419,13 @@ void Achievements::GetGameIdCallback(s32 status_code, std::string content_type,
 	GetPatches(game_id);
 }
 
-void Achievements::GameChanged(const std::string &path, CDImage *image)
+void Achievements::LeftGame() {
+	// Should just uninitialize
+}
+
+void Achievements::GameChanged()
 {
+	/*
 	if (!IsActive() || s_game_path == path)
 		return;
 
@@ -1422,7 +1461,7 @@ void Achievements::GameChanged(const std::string &path, CDImage *image)
 
 	if (!IsUsingRAIntegration() && s_http_downloader->HasAnyRequests())
 	{
-		if (image && System::IsValid())
+		if (image)
 			Host::DisplayLoadingScreen("Downloading achievements data...");
 
 		s_http_downloader->WaitForAllRequests();
@@ -1476,6 +1515,7 @@ void Achievements::GameChanged(const std::string &path, CDImage *image)
 
 	if (IsLoggedIn())
 		SendGetGameId();
+	*/
 }
 
 void Achievements::SendGetGameId()
@@ -1490,8 +1530,8 @@ void Achievements::SendGetGameId()
 void Achievements::SendPlayingCallback(s32 status_code, std::string content_type,
 	Common::HTTPDownloader::Request::Data data)
 {
-	if (!System::IsValid())
-		return;
+	// if (!System::IsValid())
+	// 	return;
 
 	RAPIResponse<rc_api_start_session_response_t, rc_api_process_start_session_response,
 		rc_api_destroy_start_session_response>
@@ -1543,8 +1583,8 @@ void Achievements::UpdateRichPresence()
 void Achievements::SendPingCallback(s32 status_code, std::string content_type,
 	Common::HTTPDownloader::Request::Data data)
 {
-	if (!System::IsValid())
-		return;
+	// if (!System::IsValid())
+	// 	return;
 
 	RAPIResponse<rc_api_ping_response_t, rc_api_process_ping_response, rc_api_destroy_ping_response> response(status_code,
 		data);
@@ -1555,7 +1595,7 @@ void Achievements::SendPing()
 	if (!HasActiveGame())
 		return;
 
-	s_last_ping_time = Instant::Now();
+	s_last_ping_time = time_now_d();
 
 	RAPIRequest<rc_api_ping_request_t, rc_api_init_ping_request> request;
 	request.api_token = s_api_token.c_str();
@@ -1749,8 +1789,8 @@ void Achievements::DeactivateAchievement(Achievement *achievement)
 void Achievements::UnlockAchievementCallback(s32 status_code, std::string content_type,
 	Common::HTTPDownloader::Request::Data data)
 {
-	if (!System::IsValid())
-		return;
+	// if (!System::IsValid())
+	// 	return;
 
 	RAPIResponse<rc_api_award_achievement_response_t, rc_api_process_award_achievement_response,
 		rc_api_destroy_award_achievement_response>
@@ -1765,8 +1805,8 @@ void Achievements::UnlockAchievementCallback(s32 status_code, std::string conten
 void Achievements::SubmitLeaderboardCallback(s32 status_code, std::string content_type,
 	Common::HTTPDownloader::Request::Data data)
 {
-	if (!System::IsValid())
-		return;
+	// if (!System::IsValid())
+	// 	return;
 
 	RAPIResponse<rc_api_submit_lboard_entry_response_t, rc_api_process_submit_lboard_entry_response,
 		rc_api_destroy_submit_lboard_entry_response>
@@ -1782,7 +1822,7 @@ void Achievements::SubmitLeaderboardCallback(s32 status_code, std::string conten
 		return;
 
 	const Leaderboard *lb = GetLeaderboardByID(std::exchange(s_submitting_lboard_id, 0u));
-	if (!lb || !FullscreenUI::IsInitialized() || !g_settings.achievements_notifications)
+	if (!lb || !g_Config.bAchievementsNotifications)
 		return;
 
 	char submitted_score[128];
@@ -1790,15 +1830,16 @@ void Achievements::SubmitLeaderboardCallback(s32 status_code, std::string conten
 	rc_runtime_format_lboard_value(submitted_score, sizeof(submitted_score), response.submitted_score, lb->format);
 	rc_runtime_format_lboard_value(best_score, sizeof(best_score), response.best_score, lb->format);
 
-	std::string summary = fmt::format(
-		Host::TranslateString("Achievements", "Your Score: {} (Best: {})\nLeaderboard Position: {} of {}").GetCharArray(),
+	auto ac = GetI18NCategory(I18NCat::ACHIEVEMENTS);
+	const char *formatString = ac->T("Your Score");
+	std::string summary = StringFromFormat(formatString,
 		submitted_score, best_score, response.new_rank, response.num_entries);
 
-	ImGuiFullscreen::AddNotification(10.0f, lb->title, std::move(summary), s_game_icon);
+	OSDAddNotification(10.0f, lb->title, std::move(summary), s_game_icon);
 
 	// Technically not going through the resource API, but since we're passing this to something else, we can't.
-	if (g_settings.achievements_sound_effects)
-		FrontendCommon::PlaySoundAsync(Path::Combine(EmuFolders::Resources, LBSUBMIT_SOUND_NAME).c_str());
+	if (g_Config.bAchievementsSoundEffects)
+		UI::PlayUISound(LBSUBMIT_SOUND_NAME);
 }
 
 void Achievements::UnlockAchievement(u32 achievement_id, bool add_notification /* = true*/)
@@ -1821,7 +1862,7 @@ void Achievements::UnlockAchievement(u32 achievement_id, bool add_notification /
 
 	INFO_LOG(ACHIEVEMENTS, "Achievement %s (%u) for game %u unlocked", achievement->title.c_str(), achievement_id, s_game_id);
 
-	if (FullscreenUI::IsInitialized() && g_Config.bAchievementsNotifications)
+	if (g_Config.bAchievementsNotifications)
 	{
 		std::string title;
 		switch (achievement->category)
@@ -1838,12 +1879,12 @@ void Achievements::UnlockAchievement(u32 achievement_id, bool add_notification /
 			break;
 		}
 
-		ImGuiFullscreen::AddNotification(15.0f, std::move(title), achievement->description,
+		OSDAddNotification(15.0f, std::move(title), achievement->description,
 			GetAchievementBadgePath(*achievement));
 	}
 
 	if (g_Config.bAchievementsSoundEffects)
-		FrontendCommon::PlaySoundAsync(Path::Combine(EmuFolders::Resources, UNLOCK_SOUND_NAME).c_str());
+		UI::PlayUISound(UNLOCK_SOUND_NAME);
 
 	if (IsMastered())
 		DisplayMasteredNotification();
@@ -1948,6 +1989,7 @@ const std::string &Achievements::GetAchievementBadgePath(const Achievement &achi
 		return badge_path;
 
 	// well, this comes from the internet.... :)
+	/*
 	const std::string clean_name(Path::SanitizeFileName(achievement.badge_name));
 	badge_path =
 		Path::Combine(s_achievement_icon_cache_directory, fmt::format("{}{}.png", clean_name, use_locked ? "_lock" : ""));
@@ -1962,6 +2004,7 @@ const std::string &Achievements::GetAchievementBadgePath(const Achievement &achi
 		request.image_type = use_locked ? RC_IMAGE_TYPE_ACHIEVEMENT_LOCKED : RC_IMAGE_TYPE_ACHIEVEMENT;
 		request.DownloadImage(badge_path);
 	}
+	*/
 
 	return badge_path;
 }

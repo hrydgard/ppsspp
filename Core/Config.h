@@ -493,6 +493,12 @@ public:
 	bool bAchievementsSoundEffects;
 	bool bAchievementsNotifications;
 
+	// Achivements login info. Note that password is NOT stored, only a login token.
+	// Still, we may wanna store it more securely than in PPSSPP.ini, especially on Android.
+	std::string sAchievementsUserName;
+	std::string sAchievementsToken;
+	std::string sAchievementsLoginTimestamp;
+
 	// Various directories. Autoconfigured, not read from ini.
 	Path currentDirectory;  // The directory selected in the game browsing window.
 	Path defaultCurrentDirectory;  // Platform dependent, initialized at startup.
