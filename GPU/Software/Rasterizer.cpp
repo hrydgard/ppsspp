@@ -852,11 +852,8 @@ static inline bool AnyMask(const Vec4<int> &mask) {
 		return AnyMaskSSE4(mask.ivec);
 	}
 
-	// In other words: !(mask.x < 0 && mask.y < 0 && mask.z < 0 && mask.w < 0)
-	__m128i low2 = _mm_and_si128(mask.ivec, _mm_shuffle_epi32(mask.ivec, _MM_SHUFFLE(3, 2, 3, 2)));
-	__m128i low1 = _mm_and_si128(low2, _mm_shuffle_epi32(low2, _MM_SHUFFLE(1, 1, 1, 1)));
-	// Now we only need to check one sign bit.
-	return _mm_cvtsi128_si32(low1) >= 0;
+	// Source: https://fgiesen.wordpress.com/2013/02/10/optimizing-the-basic-rasterizer/#comment-6676
+	return _mm_movemask_ps(_mm_castsi128_ps(mask.ivec))!=15;
 #elif PPSSPP_ARCH(ARM64_NEON)
 	int64x2_t sig = vreinterpretq_s64_s32(vshrq_n_s32(mask.ivec, 31));
 	return vgetq_lane_s64(sig, 0) != -1 || vgetq_lane_s64(sig, 1) != -1;
