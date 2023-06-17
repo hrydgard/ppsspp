@@ -453,6 +453,7 @@ public:
 	bool bEnableMotions;
 	bool bForce72Hz;
 	bool bManualForceVR;
+	bool bPassthrough;
 	bool bRescaleHUD;
 	float fCameraDistance;
 	float fCameraHeight;

@@ -20,6 +20,17 @@ float vrConfigFloat[VR_CONFIG_FLOAT_MAX] = {};
 
 XrVector3f hmdorientation;
 
+XrPassthroughFB passthrough = XR_NULL_HANDLE;
+XrPassthroughLayerFB passthroughLayer = XR_NULL_HANDLE;
+DECL_PFN(xrCreatePassthroughFB);
+DECL_PFN(xrDestroyPassthroughFB);
+DECL_PFN(xrPassthroughStartFB);
+DECL_PFN(xrPassthroughPauseFB);
+DECL_PFN(xrCreatePassthroughLayerFB);
+DECL_PFN(xrDestroyPassthroughLayerFB);
+DECL_PFN(xrPassthroughLayerPauseFB);
+DECL_PFN(xrPassthroughLayerResumeFB);
+
 void VR_UpdateStageBounds(ovrApp* pappState) {
 	XrExtent2Df stageBounds = {};
 
@@ -179,6 +190,17 @@ void VR_InitRenderer( engine_t* engine, bool multiview ) {
 		VR_DestroyRenderer(engine);
 	}
 
+	if (VR_GetPlatformFlag(VRPlatformFlag::VR_PLATFORM_EXTENSION_PASSTHROUGH)) {
+		INIT_PFN(xrCreatePassthroughFB);
+		INIT_PFN(xrDestroyPassthroughFB);
+		INIT_PFN(xrPassthroughStartFB);
+		INIT_PFN(xrPassthroughPauseFB);
+		INIT_PFN(xrCreatePassthroughLayerFB);
+		INIT_PFN(xrDestroyPassthroughLayerFB);
+		INIT_PFN(xrPassthroughLayerPauseFB);
+		INIT_PFN(xrPassthroughLayerResumeFB);
+	}
+
 	int eyeW, eyeH;
 	VR_GetResolution(engine, &eyeW, &eyeH);
 	VR_SetConfig(VR_CONFIG_VIEWPORT_WIDTH, eyeW);
@@ -221,10 +243,32 @@ void VR_InitRenderer( engine_t* engine, bool multiview ) {
 		ovrRenderer_SetFoveation(&engine->appState.Instance, &engine->appState.Session, &engine->appState.Renderer, XR_FOVEATION_LEVEL_HIGH_TOP_FB, 0, XR_FOVEATION_DYNAMIC_LEVEL_ENABLED_FB);
 	}
 #endif
+
+	if (VR_GetPlatformFlag(VRPlatformFlag::VR_PLATFORM_EXTENSION_PASSTHROUGH)) {
+		XrPassthroughCreateInfoFB ptci = {XR_TYPE_PASSTHROUGH_CREATE_INFO_FB};
+		XrResult result;
+		OXR(result = xrCreatePassthroughFB(engine->appState.Session, &ptci, &passthrough));
+
+		if (XR_SUCCEEDED(result)) {
+			XrPassthroughLayerCreateInfoFB plci = {XR_TYPE_PASSTHROUGH_LAYER_CREATE_INFO_FB};
+			plci.passthrough = passthrough;
+			plci.purpose = XR_PASSTHROUGH_LAYER_PURPOSE_RECONSTRUCTION_FB;
+			OXR(xrCreatePassthroughLayerFB(engine->appState.Session, &plci, &passthroughLayer));
+		}
+
+		OXR(xrPassthroughStartFB(passthrough));
+		OXR(xrPassthroughLayerResumeFB(passthroughLayer));
+	}
 	initialized = true;
 }
 
 void VR_DestroyRenderer( engine_t* engine ) {
+	if (VR_GetPlatformFlag(VRPlatformFlag::VR_PLATFORM_EXTENSION_PASSTHROUGH)) {
+		OXR(xrPassthroughLayerPauseFB(passthroughLayer));
+		OXR(xrPassthroughPauseFB(passthrough));
+		OXR(xrDestroyPassthroughFB(passthrough));
+		passthrough = XR_NULL_HANDLE;
+	}
 	ovrRenderer_Destroy(&engine->appState.Renderer);
 	free(projections);
 	initialized = false;
@@ -327,6 +371,16 @@ void VR_EndFrame( engine_t* engine ) {
 }
 
 void VR_FinishFrame( engine_t* engine ) {
+
+	if (VR_GetPlatformFlag(VRPlatformFlag::VR_PLATFORM_EXTENSION_PASSTHROUGH) && VR_GetConfig(VR_CONFIG_PASSTHROUGH)) {
+		if (passthroughLayer != XR_NULL_HANDLE) {
+			XrCompositionLayerPassthroughFB passthrough_layer = {XR_TYPE_COMPOSITION_LAYER_PASSTHROUGH_FB};
+			passthrough_layer.layerHandle = passthroughLayer;
+			passthrough_layer.flags = XR_COMPOSITION_LAYER_BLEND_TEXTURE_SOURCE_ALPHA_BIT;
+			passthrough_layer.space = XR_NULL_HANDLE;
+			engine->appState.Layers[engine->appState.LayerCount++].Passthrough = passthrough_layer;
+		}
+	}
 
 	int vrMode = vrConfig[VR_CONFIG_MODE];
 	XrCompositionLayerProjectionView projection_layer_elements[2] = {};
