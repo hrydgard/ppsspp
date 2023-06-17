@@ -582,7 +582,7 @@ std::shared_ptr<Download> Downloader::StartDownload(const std::string &url, cons
 	std::shared_ptr<Download> dl(new Download(RequestMethod::GET, url, "", "", outfile));
 	if (acceptMime)
 		dl->SetAccept(acceptMime);
-	downloads_.push_back(dl);
+	newDownloads_.push_back(dl);
 	dl->Start();
 	return dl;
 }
@@ -596,7 +596,7 @@ std::shared_ptr<Download> Downloader::StartDownloadWithCallback(
 	if (acceptMime)
 		dl->SetAccept(acceptMime);
 	dl->SetCallback(callback);
-	downloads_.push_back(dl);
+	newDownloads_.push_back(dl);
 	dl->Start();
 	return dl;
 }
@@ -608,15 +608,20 @@ std::shared_ptr<Download> Downloader::AsyncPostWithCallback(
 	std::string postMime = "application/x-www-form-urlencoded";
 	std::shared_ptr<Download> dl(new Download(RequestMethod::POST, url, postData, postMime, Path()));
 	dl->SetCallback(callback);
-	downloads_.push_back(dl);
+	newDownloads_.push_back(dl);
 	dl->Start();
 	return dl;
 }
 
 void Downloader::Update() {
+	for (auto iter : newDownloads_) {
+		downloads_.push_back(iter);
+	}
+	newDownloads_.clear();
+
 	restart:
 	for (size_t i = 0; i < downloads_.size(); i++) {
-		auto &dl = downloads_[i];
+		auto dl = downloads_[i];
 		if (dl->Done()) {
 			dl->RunCallback();
 			dl->Join();
