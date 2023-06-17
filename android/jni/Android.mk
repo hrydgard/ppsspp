@@ -8,7 +8,7 @@ LOCAL_C_INCLUDES += \
   $(LOCAL_PATH)/../../ext/cpu_features/include \
   $(LOCAL_PATH)/../../ext/rcheevos/include
 
-LOCAL_CFLAGS += -DSTACK_LINE_READER_BUFFER_SIZE=1024 -DHAVE_DLFCN_H
+LOCAL_CFLAGS += -DSTACK_LINE_READER_BUFFER_SIZE=1024 -DHAVE_DLFCN_H -DRC_DISABLE_LUA
 
 # http://software.intel.com/en-us/articles/getting-started-on-optimizing-ndk-project-for-multiple-cpu-architectures
 
@@ -96,7 +96,6 @@ RCHEEVOS_FILES := \
   ${SRC}/ext/rcheevos/src/rcheevos/memref.c \
   ${SRC}/ext/rcheevos/src/rcheevos/operand.c \
   ${SRC}/ext/rcheevos/src/rcheevos/rc_validate.c \
-  ${SRC}/ext/rcheevos/src/rcheevos/richpresence.c \
   ${SRC}/ext/rcheevos/src/rcheevos/richpresence.c \
   ${SRC}/ext/rcheevos/src/rcheevos/runtime.c \
   ${SRC}/ext/rcheevos/src/rcheevos/runtime_progress.c \
@@ -783,7 +782,9 @@ LOCAL_SRC_FILES := \
   $(SRC)/UI/ProfilerDraw.cpp \
   $(SRC)/UI/NativeApp.cpp \
   $(SRC)/UI/Theme.cpp \
-  $(SRC)/UI/CustomButtonMappingScreen.cpp
+  $(SRC)/UI/CustomButtonMappingScreen.cpp \
+  $(SRC)/UI/RetroAchievements.cpp \
+  $(SRC)/UI/RetroAchievementScreens.cpp
 
 ifneq ($(SKIPAPP),1)
   include $(BUILD_SHARED_LIBRARY)

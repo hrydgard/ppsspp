@@ -28,7 +28,6 @@ set(ALL_SOURCE_FILES
 	${SRC_DIR}/rcheevos/rc_validate.c
 	${SRC_DIR}/rcheevos/rc_version.h
 	${SRC_DIR}/rcheevos/richpresence.c
-	${SRC_DIR}/rcheevos/richpresence.c
 	${SRC_DIR}/rcheevos/runtime.c
 	${SRC_DIR}/rcheevos/runtime_progress.c
 	${SRC_DIR}/rcheevos/trigger.c
