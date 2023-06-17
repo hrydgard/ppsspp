@@ -79,7 +79,6 @@ SPIRV_CROSS_FILES := \
   $(SRC)/ext/SPIRV-Cross/spirv_cross_parsed_ir.cpp
  
 RCHEEVOS_FILES := \
-  # rapi
   ${SRC}/ext/rcheevos/src/rapi/rc_api_common.c \
   ${SRC}/ext/rcheevos/src/rapi/rc_api_editor.c \
   ${SRC}/ext/rcheevos/src/rapi/rc_api_info.c \
