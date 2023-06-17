@@ -5,7 +5,9 @@ include $(CLEAR_VARS)
 include $(LOCAL_PATH)/Locals.mk
 
 LOCAL_C_INCLUDES += \
-  $(LOCAL_PATH)/../../ext/cpu_features/include
+  $(LOCAL_PATH)/../../ext/cpu_features/include \
+  $(LOCAL_PATH)/../../ext/rcheevos/include
+
 LOCAL_CFLAGS += -DSTACK_LINE_READER_BUFFER_SIZE=1024 -DHAVE_DLFCN_H
 
 # http://software.intel.com/en-us/articles/getting-started-on-optimizing-ndk-project-for-multiple-cpu-architectures
