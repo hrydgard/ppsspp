@@ -105,7 +105,6 @@ enum class RequestMethod {
 // Really an asynchronous request.
 class Download {
 public:
-	// postMime should often be "application/x-www-form-urlencoded";
 	Download(RequestMethod method, const std::string &url, const std::string &postData, const std::string &postMime, const Path &outfile);
 	~Download();
 
@@ -202,7 +201,7 @@ public:
 	std::shared_ptr<Download> AsyncPostWithCallback(
 		const std::string &url,
 		const std::string &postData,
-		const std::string &postMime, // Use postMime = "application/x-www-form-urlencoded" for standard form-style posts, such as used by retroachievements.
+		const std::string &postMime, // Use postMime = "application/x-www-form-urlencoded" for standard form-style posts, such as used by retroachievements. For encoding form data manually we have MultipartFormDataEncoder.
 		std::function<void(Download &)> callback);
 
 	// Drops finished downloads from the list.
