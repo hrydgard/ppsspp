@@ -2,6 +2,7 @@
 #include "UI/RetroAchievements.h"
 #include "Common/UI/View.h"
 #include "Common/UI/ViewGroup.h"
+#include "Common/UI/Context.h"
 #include "Common/Data/Text/I18n.h"
 
 void RetroAchievementsListScreen::CreateViews() {
@@ -12,6 +13,7 @@ void RetroAchievementsListScreen::CreateViews() {
 	root_ = new ScrollView(UI::ORIENT_VERTICAL);
 
 	LinearLayout *listLayout = root_->Add(new LinearLayout(UI::ORIENT_VERTICAL));
+	listLayout->SetSpacing(0.0f);
 
 	std::vector<Achievements::Achievement> achievements;
 
@@ -21,8 +23,7 @@ void RetroAchievementsListScreen::CreateViews() {
 	});
 
 	for (auto achievement : achievements) {
-		listLayout->Add(new TextView(achievement.title));
-		listLayout->Add(new TextView(achievement.description));
+		listLayout->Add(new AchievementView(achievement));
 	}
 }
 
@@ -61,4 +62,50 @@ void RetroAchievementsSettingsScreen::CreateAccountTab(UI::ViewGroup *viewGroup)
 			return UI::EVENT_DONE;
 		});
 	}
+}
+
+void MeasureAchievement(const Achievements::Achievement &achievement, float *w, float *h) {
+	*w = 0.0f;
+	*h = 60.0f;
+}
+
+
+// Render style references:
+
+// https://www.trueachievements.com/achievement-meme-maker
+
+
+// Graphical
+void RenderAchievement(UIContext &dc, const Achievements::Achievement &achievement, AchievementRenderStyle style, const Bounds &bounds, float opacity) {
+	using namespace UI;
+	UI::Drawable background = achievement.locked ? dc.theme->popupStyle.background : dc.theme->itemStyle.background;
+
+	background.color = colorAlpha(background.color, opacity);
+
+	dc.Begin();
+	dc.FillRect(background, bounds);
+
+	dc.SetFontScale(0.7f, 0.7f);
+	dc.DrawTextRect(achievement.title.c_str(), bounds.Expand(-5.0f, -5.0f), dc.theme->itemStyle.fgColor, ALIGN_TOPLEFT);
+
+	dc.SetFontScale(0.5f, 0.5f);
+	dc.DrawTextRect(achievement.description.c_str(), bounds.Expand(-5.0f, -5.0f).Offset(0.0f, 30.0f), dc.theme->itemStyle.fgColor, ALIGN_TOPLEFT);
+
+	char temp[64];
+	snprintf(temp, sizeof(temp), "%d", achievement.points);
+
+	dc.SetFontScale(1.5f, 1.5f);
+	dc.DrawTextRect(temp, bounds.Expand(-5.0f, -5.0f), dc.theme->itemStyle.fgColor, ALIGN_RIGHT | ALIGN_VCENTER);
+
+	dc.SetFontScale(1.0f, 1.0f);
+
+	dc.Flush();
+}
+
+void AchievementView::Draw(UIContext &dc) {
+	RenderAchievement(dc, achievement_, AchievementRenderStyle::LISTED, bounds_, 0.0f);
+}
+
+void AchievementView::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
+	MeasureAchievement(achievement_, &w, &h);
 }
