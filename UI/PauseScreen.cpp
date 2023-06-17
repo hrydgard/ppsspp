@@ -51,6 +51,7 @@
 #include "UI/OnScreenDisplay.h"
 #include "UI/GameInfoCache.h"
 #include "UI/DisplayLayoutScreen.h"
+#include "UI/RetroAchievements.h"
 #include "UI/RetroAchievementScreens.h"
 
 static void AfterSaveStateAction(SaveState::Status status, const std::string &message, void *) {
@@ -346,7 +347,7 @@ void GamePauseScreen::CreateViews() {
 			return UI::EVENT_DONE;
 		});
 	}
-	if (g_Config.bAchievementsEnable) {
+	if (g_Config.bAchievementsEnable && Achievements::IsActive()) {
 		rightColumnItems->Add(new Choice(pa->T("Achievements")))->OnClick.Add([&](UI::EventParams &e) {
 			screenManager()->push(new RetroAchievementsListScreen(gamePath_));
 			return UI::EVENT_DONE;

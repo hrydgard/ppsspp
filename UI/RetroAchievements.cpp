@@ -2083,6 +2083,9 @@ void Achievements::CheevosEventHandler(const rc_runtime_event_t *runtime_event)
 }
 
 unsigned Achievements::PeekMemory(unsigned address, unsigned num_bytes, void *ud) {
+	// Unclear why achievements are defined with this offset, but they are and it can't be changed now, so we roll with it.
+	address += 0x08000000;
+
 	switch (num_bytes) {
 	case 1: return Memory::Read_U8(address);
 	case 2: return Memory::Read_U16(address);

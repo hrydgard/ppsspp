@@ -7,6 +7,23 @@
 void RetroAchievementsListScreen::CreateViews() {
 	auto di = GetI18NCategory(I18NCat::DIALOG);
 
+	using namespace UI;
+
+	root_ = new ScrollView(UI::ORIENT_VERTICAL);
+
+	LinearLayout *listLayout = root_->Add(new LinearLayout(UI::ORIENT_VERTICAL));
+
+	std::vector<Achievements::Achievement> achievements;
+
+	Achievements::EnumerateAchievements([&](const Achievements::Achievement &achievement) {
+		achievements.push_back(achievement);
+		return true;
+	});
+
+	for (auto achievement : achievements) {
+		listLayout->Add(new TextView(achievement.title));
+		listLayout->Add(new TextView(achievement.description));
+	}
 }
 
 void RetroAchievementsSettingsScreen::CreateTabs() {
