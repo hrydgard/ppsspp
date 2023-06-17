@@ -604,8 +604,8 @@ std::shared_ptr<Download> Downloader::StartDownloadWithCallback(
 std::shared_ptr<Download> Downloader::AsyncPostWithCallback(
 	const std::string &url,
 	const std::string &postData,
+	const std::string &postMime,
 	std::function<void(Download &)> callback) {
-	std::string postMime = "application/x-www-form-urlencoded";
 	std::shared_ptr<Download> dl(new Download(RequestMethod::POST, url, postData, postMime, Path()));
 	dl->SetCallback(callback);
 	newDownloads_.push_back(dl);

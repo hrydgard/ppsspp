@@ -202,6 +202,7 @@ public:
 	std::shared_ptr<Download> AsyncPostWithCallback(
 		const std::string &url,
 		const std::string &postData,
+		const std::string &postMime, // Use postMime = "application/x-www-form-urlencoded" for standard form-style posts, such as used by retroachievements.
 		std::function<void(Download &)> callback);
 
 	// Drops finished downloads from the list.
