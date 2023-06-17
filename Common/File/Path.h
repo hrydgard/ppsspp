@@ -92,7 +92,7 @@ public:
 	std::wstring ToWString() const;
 	std::string ToCString() const;  // Flips the slashes back to Windows standard, but string still UTF-8.
 #else
-	std::string ToCSTring() const {
+	std::string ToCString() const {
 		return ToString();
 	}
 #endif

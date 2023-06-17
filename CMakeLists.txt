@@ -1416,6 +1416,10 @@ list(APPEND NativeAppSource
 	UI/CustomButtonMappingScreen.cpp
 	UI/Theme.h
 	UI/Theme.cpp
+	UI/RetroAchievements.cpp
+	UI/RetroAchievements.h
+	UI/RetroAchievementScreens.cpp
+	UI/RetroAchievementScreens.h
 )
 
 if(ANDROID)
@@ -2212,7 +2216,7 @@ else()
 	include_directories(ext/zstd/lib)
 endif()
 
-target_link_libraries(${CoreLibName} Common native kirk cityhash sfmt19937 xbrz xxhash ${GlslangLibs}
+target_link_libraries(${CoreLibName} Common native kirk cityhash sfmt19937 xbrz xxhash rcheevos ${GlslangLibs}
 	${CoreExtraLibs} ${OPENGL_LIBRARIES} ${X11_LIBRARIES} ${CMAKE_DL_LIBS})
 
 target_compile_features(${CoreLibName} PUBLIC cxx_std_17)

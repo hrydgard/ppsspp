@@ -17,9 +17,6 @@
 #include <vector>
 #include <mutex>
 
-
-#define ALWAYS_INLINE __forceinline
-
 class Path;
 class PointerWrap;
 
@@ -74,7 +71,7 @@ bool IsUsingRAIntegration();
 
 #else
 
-static ALWAYS_INLINE bool IsUsingRAIntegration()
+static inline bool IsUsingRAIntegration()
 {
 	return false;
 }

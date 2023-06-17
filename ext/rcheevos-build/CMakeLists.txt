@@ -44,4 +44,5 @@ set(ALL_SOURCE_FILES
 
 add_library(rcheevos STATIC ${ALL_SOURCE_FILES})
 
+target_compile_definitions(rcheevos PUBLIC RC_DISABLE_LUA)
 target_include_directories(rcheevos PUBLIC ../rcheevos/include ../rcheevos/src/rapi)

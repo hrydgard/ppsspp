@@ -108,7 +108,7 @@ void OSDOpenBackgroundProgressDialog(const char *str_id, std::string message, s3
 	NOTICE_LOG(ACHIEVEMENTS, "Progress dialog opened: %s %s", str_id, message.c_str());
 }
 void OSDUpdateBackgroundProgressDialog(const char *str_id, std::string message, s32 min, s32 max, s32 value) {
-	NOTICE_LOG(ACHIEVEMENTS, "Progress dialog updated: %s %s %f/(%f->%f)", str_id, message.c_str(), value, min, max);
+	NOTICE_LOG(ACHIEVEMENTS, "Progress dialog updated: %s %s %d/(%d->%d)", str_id, message.c_str(), value, min, max);
 }
 void OSDCloseBackgroundProgressDialog(const char *str_id) {
 	NOTICE_LOG(ACHIEVEMENTS, "Progress dialog closed: %s", str_id);
