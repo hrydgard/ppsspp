@@ -458,8 +458,8 @@ int Client::ReadResponseEntity(net::Buffer *readbuf, const std::vector<std::stri
 	return 0;
 }
 
-Download::Download(const std::string &url, const Path &outfile)
-	: progress_(&cancelled_), url_(url), outfile_(outfile) {
+Download::Download(RequestMethod method, const std::string &url, const std::string &postData, const Path &outfile)
+	: method_(method), progress_(&cancelled_), url_(url), postData_(postData), outfile_(outfile) {
 }
 
 Download::~Download() {
@@ -484,7 +484,7 @@ void Download::SetFailed(int code) {
 	completed_ = true;
 }
 
-int Download::PerformGET(const std::string &url) {
+int Download::Perform(const std::string &url) {
 	Url fileUrl(url);
 	if (!fileUrl.Valid()) {
 		return -1;
@@ -533,7 +533,7 @@ void Download::Do() {
 
 	std::string downloadURL = url_;
 	while (resultCode_ == 0) {
-		int resultCode = PerformGET(downloadURL);
+		int resultCode = Perform(downloadURL);
 		if (resultCode == -1) {
 			SetFailed(resultCode);
 			return;
@@ -575,7 +575,7 @@ void Download::Do() {
 }
 
 std::shared_ptr<Download> Downloader::StartDownload(const std::string &url, const Path &outfile, const char *acceptMime) {
-	std::shared_ptr<Download> dl(new Download(url, outfile));
+	std::shared_ptr<Download> dl(new Download(RequestMethod::GET, url, "", outfile));
 	if (acceptMime)
 		dl->SetAccept(acceptMime);
 	downloads_.push_back(dl);
@@ -588,9 +588,20 @@ std::shared_ptr<Download> Downloader::StartDownloadWithCallback(
 	const Path &outfile,
 	std::function<void(Download &)> callback,
 	const char *acceptMime) {
-	std::shared_ptr<Download> dl(new Download(url, outfile));
+	std::shared_ptr<Download> dl(new Download(RequestMethod::GET, url, "", outfile));
 	if (acceptMime)
 		dl->SetAccept(acceptMime);
+	dl->SetCallback(callback);
+	downloads_.push_back(dl);
+	dl->Start();
+	return dl;
+}
+
+std::shared_ptr<Download> Downloader::AsyncPostWithCallback(
+	const std::string &url,
+	const std::string &postData,
+	std::function<void(Download &)> callback) {
+	std::shared_ptr<Download> dl(new Download(RequestMethod::POST, url, postData, Path()));
 	dl->SetCallback(callback);
 	downloads_.push_back(dl);
 	dl->Start();
@@ -607,6 +618,13 @@ void Downloader::Update() {
 			downloads_.erase(downloads_.begin() + i);
 			goto restart;
 		}
+	}
+}
+
+void Downloader::WaitForAll() {
+	// TODO: Should lock? Though, OK if called from main thread, where Update() is called from.
+	while (!downloads_.empty()) {
+		sleep_ms(10);
 	}
 }
 

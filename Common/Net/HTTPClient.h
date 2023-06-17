@@ -97,10 +97,15 @@ protected:
 	double dataTimeout_ = 900.0;
 };
 
-// Not particularly efficient, but hey - it's a background download, that's pretty cool :P
+enum class RequestMethod {
+	GET,
+	POST,
+};
+
+// Really an asynchronous request.
 class Download {
 public:
-	Download(const std::string &url, const Path &outfile);
+	Download(RequestMethod method, const std::string &url, const std::string &postData, const Path &outfile);
 	~Download();
 
 	void Start();
@@ -154,11 +159,13 @@ public:
 
 private:
 	void Do();  // Actually does the download. Runs on thread.
-	int PerformGET(const std::string &url);
+	int Perform(const std::string &url);
 	std::string RedirectLocation(const std::string &baseUrl);
 	void SetFailed(int code);
 
 	RequestProgress progress_;
+	RequestMethod method_;
+	std::string postData_;
 	Buffer buffer_;
 	std::vector<std::string> responseHeaders_;
 	std::string url_;
@@ -190,9 +197,16 @@ public:
 		std::function<void(Download &)> callback,
 		const char *acceptMime = nullptr);
 
+	std::shared_ptr<Download> AsyncPostWithCallback(
+		const std::string &url,
+		const std::string &postData,
+		std::function<void(Download &)> callback);
+
 	// Drops finished downloads from the list.
 	void Update();
 	void CancelAll();
+
+	void WaitForAll();
 
 	std::vector<float> GetCurrentProgress();
 
