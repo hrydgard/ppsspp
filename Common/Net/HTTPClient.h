@@ -105,7 +105,8 @@ enum class RequestMethod {
 // Really an asynchronous request.
 class Download {
 public:
-	Download(RequestMethod method, const std::string &url, const std::string &postData, const Path &outfile);
+	// postMime should often be "application/x-www-form-urlencoded";
+	Download(RequestMethod method, const std::string &url, const std::string &postData, const std::string &postMime, const Path &outfile);
 	~Download();
 
 	void Start();
@@ -172,6 +173,7 @@ private:
 	Path outfile_;
 	std::thread thread_;
 	const char *acceptMime_ = "*/*";
+	std::string postMime_;
 	int resultCode_ = 0;
 	bool completed_ = false;
 	bool failed_ = false;

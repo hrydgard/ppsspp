@@ -458,8 +458,8 @@ int Client::ReadResponseEntity(net::Buffer *readbuf, const std::vector<std::stri
 	return 0;
 }
 
-Download::Download(RequestMethod method, const std::string &url, const std::string &postData, const Path &outfile)
-	: method_(method), progress_(&cancelled_), url_(url), postData_(postData), outfile_(outfile) {
+Download::Download(RequestMethod method, const std::string &url, const std::string &postData, const std::string &postMime, const Path &outfile)
+	: method_(method), progress_(&cancelled_), url_(url), postData_(postData), postMime_(postMime), outfile_(outfile) {
 }
 
 Download::~Download() {
@@ -510,7 +510,11 @@ int Download::Perform(const std::string &url) {
 	}
 
 	RequestParams req(fileUrl.Resource(), acceptMime_);
-	return client.GET(req, &buffer_, responseHeaders_, &progress_);
+	if (method_ == RequestMethod::GET) {
+		return client.GET(req, &buffer_, responseHeaders_, &progress_);
+	} else {
+		return client.POST(req, postData_, postMime_, &buffer_, &progress_);
+	}
 }
 
 std::string Download::RedirectLocation(const std::string &baseUrl) {
@@ -557,12 +561,12 @@ void Download::Do() {
 		}
 
 		if (resultCode == 200) {
-			INFO_LOG(IO, "Completed downloading %s to %s", url_.c_str(), outfile_.empty() ? "memory" : outfile_.c_str());
+			INFO_LOG(IO, "Completed requesting %s (storing result to %s)", url_.c_str(), outfile_.empty() ? "memory" : outfile_.c_str());
 			if (!outfile_.empty() && !buffer_.FlushToFile(outfile_)) {
 				ERROR_LOG(IO, "Failed writing download to '%s'", outfile_.c_str());
 			}
 		} else {
-			ERROR_LOG(IO, "Error downloading '%s' to '%s': %i", url_.c_str(), outfile_.c_str(), resultCode);
+			ERROR_LOG(IO, "Error requesting '%s' (storing result to '%s'): %i", url_.c_str(), outfile_.empty() ? "memory" : outfile_.c_str(), resultCode);
 		}
 		resultCode_ = resultCode;
 	}
@@ -575,7 +579,7 @@ void Download::Do() {
 }
 
 std::shared_ptr<Download> Downloader::StartDownload(const std::string &url, const Path &outfile, const char *acceptMime) {
-	std::shared_ptr<Download> dl(new Download(RequestMethod::GET, url, "", outfile));
+	std::shared_ptr<Download> dl(new Download(RequestMethod::GET, url, "", "", outfile));
 	if (acceptMime)
 		dl->SetAccept(acceptMime);
 	downloads_.push_back(dl);
@@ -588,7 +592,7 @@ std::shared_ptr<Download> Downloader::StartDownloadWithCallback(
 	const Path &outfile,
 	std::function<void(Download &)> callback,
 	const char *acceptMime) {
-	std::shared_ptr<Download> dl(new Download(RequestMethod::GET, url, "", outfile));
+	std::shared_ptr<Download> dl(new Download(RequestMethod::GET, url, "", "", outfile));
 	if (acceptMime)
 		dl->SetAccept(acceptMime);
 	dl->SetCallback(callback);
@@ -601,7 +605,8 @@ std::shared_ptr<Download> Downloader::AsyncPostWithCallback(
 	const std::string &url,
 	const std::string &postData,
 	std::function<void(Download &)> callback) {
-	std::shared_ptr<Download> dl(new Download(RequestMethod::POST, url, postData, Path()));
+	std::string postMime = "application/x-www-form-urlencoded";
+	std::shared_ptr<Download> dl(new Download(RequestMethod::POST, url, postData, postMime, Path()));
 	dl->SetCallback(callback);
 	downloads_.push_back(dl);
 	dl->Start();
@@ -624,6 +629,7 @@ void Downloader::Update() {
 void Downloader::WaitForAll() {
 	// TODO: Should lock? Though, OK if called from main thread, where Update() is called from.
 	while (!downloads_.empty()) {
+		Update();
 		sleep_ms(10);
 	}
 }
