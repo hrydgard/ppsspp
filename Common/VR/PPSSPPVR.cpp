@@ -162,6 +162,7 @@ void InitVROnAndroid(void* vm, void* activity, const char* system, int version, 
 	} else if ((strcmp(vendor, "META") == 0) || (strcmp(vendor, "OCULUS") == 0)) {
 		VR_SetPlatformFLag(VR_PLATFORM_CONTROLLER_QUEST, true);
 		VR_SetPlatformFLag(VR_PLATFORM_EXTENSION_FOVEATION, true);
+		VR_SetPlatformFLag(VR_PLATFORM_EXTENSION_PASSTHROUGH, true);
 		VR_SetPlatformFLag(VR_PLATFORM_EXTENSION_PERFORMANCE, true);
 	}
 	VR_SetPlatformFLag(VR_PLATFORM_RENDERER_VULKAN, (GPUBackend)g_Config.iGPUBackend == GPUBackend::VULKAN);
@@ -792,6 +793,7 @@ bool StartVRRender() {
 		// Set customizations
 		__DisplaySetFramerate(g_Config.bForce72Hz ? 72 : 60);
 		VR_SetConfigFloat(VR_CONFIG_CANVAS_DISTANCE, g_Config.fCanvasDistance);
+		VR_SetConfig(VR_CONFIG_PASSTHROUGH, g_Config.bPassthrough);
 		vrMirroring[VR_MIRRORING_UPDATED] = false;
 		return true;
 	}
@@ -826,6 +828,10 @@ int GetVRPassesCount() {
 
 bool IsMultiviewSupported() {
 	return false;
+}
+
+bool IsPassthroughSupported() {
+	return VR_GetPlatformFlag(VR_PLATFORM_EXTENSION_PASSTHROUGH);
 }
 
 bool IsFlatVRGame() {
