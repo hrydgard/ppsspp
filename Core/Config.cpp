@@ -839,6 +839,7 @@ static const ConfigSetting vrSettings[] = {
 	ConfigSetting("VREnableMotions", &g_Config.bEnableMotions, true, CfgFlag::PER_GAME),
 	ConfigSetting("VRForce72Hz", &g_Config.bForce72Hz, true, CfgFlag::PER_GAME),
 	ConfigSetting("VRManualForceVR", &g_Config.bManualForceVR, false, CfgFlag::PER_GAME),
+	ConfigSetting("VRPassthrough", &g_Config.bPassthrough, false, CfgFlag::PER_GAME),
 	ConfigSetting("VRRescaleHUD", &g_Config.bRescaleHUD, true, CfgFlag::PER_GAME),
 	ConfigSetting("VRCameraDistance", &g_Config.fCameraDistance, 0.0f, CfgFlag::PER_GAME),
 	ConfigSetting("VRCameraHeight", &g_Config.fCameraHeight, 0.0f, CfgFlag::PER_GAME),
