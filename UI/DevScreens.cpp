@@ -456,31 +456,18 @@ const char *GetCompilerABI() {
 #endif
 }
 
-void SystemInfoScreen::CreateViews() {
+void SystemInfoScreen::CreateTabs() {
 	using namespace Draw;
 	using namespace UI;
 
-	// NOTE: Do not translate this section. It will change a lot and will be impossible to keep up.
 	auto di = GetI18NCategory(I18NCat::DIALOG);
 	auto si = GetI18NCategory(I18NCat::SYSINFO);
 	auto gr = GetI18NCategory(I18NCat::GRAPHICS);
-	root_ = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
-
-	ViewGroup *leftColumn = new AnchorLayout(new LinearLayoutParams(1.0f));
-	root_->Add(leftColumn);
-
-	AddStandardBack(root_);
 
 	TabHolder *tabHolder = new TabHolder(ORIENT_VERTICAL, 225, new AnchorLayoutParams(10, 0, 10, 0, false));
 	tabHolder->SetTag("DevSystemInfo");
 
-	root_->Add(tabHolder);
-	ViewGroup *deviceSpecsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
-	deviceSpecsScroll->SetTag("DevSystemInfoDeviceSpecs");
-	LinearLayout *deviceSpecs = new LinearLayoutList(ORIENT_VERTICAL);
-	deviceSpecs->SetSpacing(0);
-	deviceSpecsScroll->Add(deviceSpecs);
-	tabHolder->AddTab(si->T("Device Info"), deviceSpecsScroll);
+	LinearLayout *deviceSpecs = AddTab("Device Info", si->T("Device Info"));
 
 	deviceSpecs->Add(new ItemHeader(si->T("System Information")));
 	deviceSpecs->Add(new InfoItem(si->T("System Name", "Name"), System_GetProperty(SYSPROP_NAME)));
@@ -646,12 +633,7 @@ void SystemInfoScreen::CreateViews() {
 		}
 	}
 
-	ViewGroup *storageScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
-	storageScroll->SetTag("DevSystemInfoBuildConfig");
-	LinearLayout *storage = new LinearLayout(ORIENT_VERTICAL);
-	storage->SetSpacing(0);
-	storageScroll->Add(storage);
-	tabHolder->AddTab(si->T("Storage"), storageScroll);
+	LinearLayout *storage = AddTab("Storage", si->T("Storage"));
 
 	storage->Add(new ItemHeader(si->T("Directories")));
 	// Intentionally non-translated
@@ -670,12 +652,7 @@ void SystemInfoScreen::CreateViews() {
 	}
 #endif
 
-	ViewGroup *buildConfigScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
-	buildConfigScroll->SetTag("DevSystemInfoBuildConfig");
-	LinearLayout *buildConfig = new LinearLayoutList(ORIENT_VERTICAL);
-	buildConfig->SetSpacing(0);
-	buildConfigScroll->Add(buildConfig);
-	tabHolder->AddTab(si->T("Build Config"), buildConfigScroll);
+	LinearLayout *buildConfig = AddTab("DevSystemInfoBuildConfig", si->T("Build Config"));
 
 	buildConfig->Add(new ItemHeader(si->T("Build Configuration")));
 #ifdef JENKINS
@@ -708,27 +685,14 @@ void SystemInfoScreen::CreateViews() {
 		buildConfig->Add(new InfoItem("GOLD", ""));
 	}
 
-	ViewGroup *cpuExtensionsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
-	cpuExtensionsScroll->SetTag("DevSystemInfoCPUExt");
-	LinearLayout *cpuExtensions = new LinearLayoutList(ORIENT_VERTICAL);
-	cpuExtensions->SetSpacing(0);
-	cpuExtensionsScroll->Add(cpuExtensions);
-
-	tabHolder->AddTab(si->T("CPU Extensions"), cpuExtensionsScroll);
-
+	LinearLayout *cpuExtensions = AddTab("DevSystemInfoCPUExt", si->T("CPU Extensions"));
 	cpuExtensions->Add(new ItemHeader(si->T("CPU Extensions")));
 	std::vector<std::string> exts = cpu_info.Features();
 	for (std::string &ext : exts) {
 		cpuExtensions->Add(new TextView(ext, new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetFocusable(true);
 	}
 
-	ViewGroup *driverBugsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
-	driverBugsScroll->SetTag("DevSystemInfoDriverBugs");
-	LinearLayout *driverBugs = new LinearLayoutList(ORIENT_VERTICAL);
-	driverBugs->SetSpacing(0);
-	driverBugsScroll->Add(driverBugs);
-
-	tabHolder->AddTab(si->T("Driver bugs"), driverBugsScroll);
+	LinearLayout *driverBugs = AddTab("DevSystemInfoDriverBugs", si->T("Driver bugs"));
 
 	bool anyDriverBugs = false;
 	for (int i = 0; i < (int)draw->GetBugs().MaxBugIndex(); i++) {
@@ -742,14 +706,8 @@ void SystemInfoScreen::CreateViews() {
 		driverBugs->Add(new TextView(si->T("No GPU driver bugs detected"), new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetFocusable(true);
 	}
 
-	ViewGroup *gpuExtensionsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
-	gpuExtensionsScroll->SetTag("DevSystemInfoOGLExt");
-	LinearLayout *gpuExtensions = new LinearLayoutList(ORIENT_VERTICAL);
-	gpuExtensions->SetSpacing(0);
-	gpuExtensionsScroll->Add(gpuExtensions);
-
 	if (GetGPUBackend() == GPUBackend::OPENGL) {
-		tabHolder->AddTab(si->T("OGL Extensions"), gpuExtensionsScroll);
+		LinearLayout *gpuExtensions = AddTab("DevSystemInfoOGLExt", si->T("OGL Extensions"));
 
 		if (!gl_extensions.IsGLES) {
 			gpuExtensions->Add(new ItemHeader(si->T("OpenGL Extensions")));
@@ -786,11 +744,11 @@ void SystemInfoScreen::CreateViews() {
 			}
 		}
 	} else if (GetGPUBackend() == GPUBackend::VULKAN) {
+		LinearLayout *gpuExtensions = AddTab("DevSystemInfoOGLExt", si->T("Vulkan Features"));
 #if !PPSSPP_PLATFORM(UWP)
 		// Vulkan specific code here, can't be bothered to abstract.
 		// OK because of above check.
 
-		tabHolder->AddTab(si->T("Vulkan Features"), gpuExtensionsScroll);
 		VulkanContext *vk = (VulkanContext *)draw->GetNativeObject(Draw::NativeObject::CONTEXT);
 
 		gpuExtensions->Add(new ItemHeader(si->T("Vulkan Features")));

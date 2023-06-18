@@ -24,7 +24,7 @@
 #include "Common/Data/Text/I18n.h"
 #include "Common/Net/HTTPClient.h"
 #include "Common/UI/UIScreen.h"
-
+#include "UI/TabbedDialogScreen.h"
 #include "UI/MiscScreens.h"
 #include "GPU/Common/ShaderCommon.h"
 
@@ -105,13 +105,16 @@ private:
 	void OnCompleted(DialogResult result) override;
 };
 
-class SystemInfoScreen : public UIDialogScreenWithGameBackground {
+class SystemInfoScreen : public TabbedUIDialogScreenWithGameBackground {
 public:
-	SystemInfoScreen(const Path &filename) : UIDialogScreenWithGameBackground(filename) {}
+	SystemInfoScreen(const Path &filename) : TabbedUIDialogScreenWithGameBackground(filename) {}
 
 	const char *tag() const override { return "SystemInfo"; }
 
-	void CreateViews() override;
+	void CreateTabs() override;
+
+protected:
+	bool ShowSearchControls() override { return false; }
 };
 
 class AddressPromptScreen : public PopupScreen {

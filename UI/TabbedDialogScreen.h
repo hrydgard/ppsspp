@@ -17,7 +17,9 @@ public:
 protected:
 	// Load data and define your tabs here.
 	virtual void PreCreateViews() {}
-	virtual void CreateTabs() {};
+	virtual void CreateTabs() = 0;
+	virtual bool ShowSearchControls() { return true; }
+
 	void RecreateViews() override;
 
 	UI::EventReturn OnChangeSearchFilter(UI::EventParams &e);
