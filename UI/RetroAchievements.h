@@ -1,9 +1,11 @@
-// PLEASE NOTE
-// 
-// This is basically a copy/paste of Duckstation's RetroAchievements integration.
+// SPDX-FileCopyrightText: 2019-2022 Connor McLaughlin <stenzek@gmail.com>
+// SPDX-License-Identifier: (GPL-2.0 OR GPL-3.0 OR CC-BY-NC-ND-4.0)
+
+// Derived from Duckstation's RetroAchievements implementation by stenzek as can be seen
+// above, relicensed to GPL 2.0.
 // Modifications and deletions have been made where needed.
 // Refactoring it into a more PPSSPP-like style may or may not be a good idea -
-// it'll make it harder to copy new features from Duckstation :)
+// it'll make it harder to copy new achievement features from Duckstation.
 
 #pragma once
 

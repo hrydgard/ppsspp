@@ -1,3 +1,9 @@
+// SPDX-FileCopyrightText: 2019-2022 Connor McLaughlin <stenzek@gmail.com>
+// SPDX-License-Identifier: (GPL-2.0 OR GPL-3.0 OR CC-BY-NC-ND-4.0)
+
+// Derived from Duckstation's RetroAchievements implementation by stenzek as can be seen
+// above, relicensed to GPL 2.0.
+
 #include <algorithm>
 #include <atomic>
 #include <cstdarg>

@@ -972,6 +972,7 @@ void CreditsScreen::render() {
 		"adenovan",
 		"iota97",
 		"Lubos",
+		"stenzek",  // For retroachievements integration
 		"",
 		cr->T("specialthanks", "Special thanks to:"),
 		specialthanksMaxim.c_str(),
