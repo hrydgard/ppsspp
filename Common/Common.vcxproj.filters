@@ -506,6 +506,9 @@
     <ClInclude Include="GPU\MiscTypes.h">
       <Filter>GPU</Filter>
     </ClInclude>
+    <ClInclude Include="UI\IconCache.h">
+      <Filter>UI</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="ABI.cpp" />
@@ -946,6 +949,9 @@
     </ClCompile>
     <ClCompile Include="GPU\GPUBackendCommon.cpp">
       <Filter>GPU</Filter>
+    </ClCompile>
+    <ClCompile Include="UI\IconCache.cpp">
+      <Filter>UI</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

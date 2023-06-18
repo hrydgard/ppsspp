@@ -43,6 +43,8 @@
 #include "Common/UI/View.h"
 #include "Common/UI/ViewGroup.h"
 #include "Common/UI/UI.h"
+#include "Common/UI/IconCache.h"
+#include "Common/Data/Text/Parsers.h"
 #include "Common/Profiler/Profiler.h"
 
 #include "Common/LogManager.h"
@@ -782,6 +784,19 @@ void SystemInfoScreen::CreateTabs() {
 			gpuExtensions->Add(new TextView(extension, new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetFocusable(true);
 		}
 	}
+
+	LinearLayout *internals = AddTab("DevSystemInfoInternals", si->T("Internals"));
+
+	internals->Add(new ItemHeader(si->T("Icon cache")));
+	IconCacheStats iconStats = g_iconCache.GetStats();
+	internals->Add(new InfoItem(si->T("Image data count"), StringFromFormat("%d", iconStats.cachedCount)));
+	internals->Add(new InfoItem(si->T("Texture count"), StringFromFormat("%d", iconStats.textureCount)));
+	internals->Add(new InfoItem(si->T("Data size"), NiceSizeFormat(iconStats.dataSize)));
+	internals->Add(new Choice(di->T("Clear")))->OnClick.Add([&](UI::EventParams &) {
+		g_iconCache.ClearData();
+		RecreateViews();
+		return UI::EVENT_DONE;
+	});
 }
 
 void AddressPromptScreen::CreatePopupContents(UI::ViewGroup *parent) {

@@ -576,6 +576,7 @@
     <ClInclude Include="TimeUtil.h" />
     <ClInclude Include="UI\AsyncImageFileView.h" />
     <ClInclude Include="UI\Context.h" />
+    <ClInclude Include="UI\IconCache.h" />
     <ClInclude Include="UI\PopupScreens.h" />
     <ClInclude Include="UI\Root.h" />
     <ClInclude Include="UI\Screen.h" />
@@ -1029,6 +1030,7 @@
     <ClCompile Include="TimeUtil.cpp" />
     <ClCompile Include="UI\AsyncImageFileView.cpp" />
     <ClCompile Include="UI\Context.cpp" />
+    <ClCompile Include="UI\IconCache.cpp" />
     <ClCompile Include="UI\PopupScreens.cpp" />
     <ClCompile Include="UI\Root.cpp" />
     <ClCompile Include="UI\Screen.cpp" />

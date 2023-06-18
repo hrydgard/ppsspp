@@ -340,6 +340,7 @@ SOURCES_CXX += \
 	$(COMMONDIR)/UI/Context.cpp \
 	$(COMMONDIR)/UI/UIScreen.cpp \
 	$(COMMONDIR)/UI/Tween.cpp \
+	$(COMMONDIR)/UI/IconCache.cpp \
 	$(COMMONDIR)/UI/View.cpp \
 	$(COMMONDIR)/UI/ViewGroup.cpp \
 	$(COMMONDIR)/UI/ScrollView.cpp \

@@ -228,6 +228,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Common/UI/Context.cpp \
   $(SRC)/Common/UI/UIScreen.cpp \
   $(SRC)/Common/UI/Tween.cpp \
+  $(SRC)/Common/UI/IconCache.cpp \
   $(SRC)/Common/UI/View.cpp \
   $(SRC)/Common/UI/ViewGroup.cpp \
   $(SRC)/Common/UI/ScrollView.cpp \
