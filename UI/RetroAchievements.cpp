@@ -319,7 +319,6 @@ public:
 
 		_dbg_assert_msg_(!api_request.post_data, "Download request does not have POST data");
 
-		INFO_LOG(ACHIEVEMENTS, "Downloading image: %s (%s)", api_request.url, cache_filename.c_str());
 		Achievements::DownloadImage(api_request.url, std::move(cache_filename));
 		return true;
 	}
@@ -1086,8 +1085,12 @@ void Achievements::DownloadImage(std::string url, std::string cache_filename)
 		g_iconCache.InsertIcon(cache_filename, IconFormat::PNG, std::move(data));
 	};
 
-	s_http_downloader->CreateRequest(std::move(url), std::move(callback));
+	if (g_iconCache.MarkPending(cache_filename)) {
+		INFO_LOG(ACHIEVEMENTS, "Downloading image: %s (%s)", url.c_str(), cache_filename.c_str());
+		s_http_downloader->CreateRequest(std::move(url), std::move(callback));
+	}
 }
+
 
 void Achievements::DisplayAchievementSummary()
 {
@@ -1209,7 +1212,7 @@ void Achievements::GetPatchesCallback(s32 status_code, std::string content_type,
 	// try for a icon. not that we really need one, PSP games have their own icons...
 	if (response.image_name && std::strlen(response.image_name) > 0)
 	{
-		s_game_icon = g_gameIconCachePrefix + StringFromFormat("%d", s_game_id));
+		s_game_icon = g_gameIconCachePrefix + StringFromFormat("%d", s_game_id);
 		if (!g_iconCache.Contains(s_game_icon))
 		{
 			RAPIRequest<rc_api_fetch_image_request_t, rc_api_init_fetch_image_request> request;
@@ -1988,15 +1991,11 @@ std::string Achievements::GetAchievementProgressText(const Achievement &achievem
 }
 
 // Note that this returns an g_iconCache key, rather than an actual filename. So look up your image there.
-const std::string &Achievements::GetAchievementBadgePath(const Achievement &achievement, bool download_if_missing, bool force_unlocked_icon)
+std::string Achievements::GetAchievementBadgePath(const Achievement &achievement, bool download_if_missing, bool force_unlocked_icon)
 {
 	const bool use_locked = (achievement.locked && !force_unlocked_icon);
-	std::string &badge_path = use_locked ? achievement.locked_badge_path : achievement.unlocked_badge_path;
-	if (!badge_path.empty() || achievement.badge_name.empty())
-		return badge_path;
 
-	std::string badge_path = g_iconCachePrefix + achievement.badge_name + (use_locked ? "_lock" : "");
-
+	std::string badge_path = g_iconCachePrefix + achievement.badge_name + std::string(use_locked ? "_lock" : "");
 	if (g_iconCache.Contains(badge_path)) {
 		return badge_path;
 	}

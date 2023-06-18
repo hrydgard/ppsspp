@@ -4,6 +4,7 @@
 #include "Common/UI/ViewGroup.h"
 #include "Common/UI/Context.h"
 #include "Common/Data/Text/I18n.h"
+#include "Common/UI/IconCache.h"
 
 void RetroAchievementsListScreen::CreateViews() {
 	auto di = GetI18NCategory(I18NCat::DIALOG);
@@ -82,14 +83,16 @@ void RenderAchievement(UIContext &dc, const Achievements::Achievement &achieveme
 
 	background.color = colorAlpha(background.color, opacity);
 
+	float iconSpace = 64.0f;
+
 	dc.Begin();
 	dc.FillRect(background, bounds);
 
 	dc.SetFontScale(0.7f, 0.7f);
-	dc.DrawTextRect(achievement.title.c_str(), bounds.Expand(-5.0f, -5.0f), dc.theme->itemStyle.fgColor, ALIGN_TOPLEFT);
+	dc.DrawTextRect(achievement.title.c_str(), bounds.Inset(iconSpace + 5.0f, 5.0f, 5.0f, 5.0f), dc.theme->itemStyle.fgColor, ALIGN_TOPLEFT);
 
 	dc.SetFontScale(0.5f, 0.5f);
-	dc.DrawTextRect(achievement.description.c_str(), bounds.Expand(-5.0f, -5.0f).Offset(0.0f, 30.0f), dc.theme->itemStyle.fgColor, ALIGN_TOPLEFT);
+	dc.DrawTextRect(achievement.description.c_str(), bounds.Inset(iconSpace + 5.0f, 30.0f, 5.0f, 5.0f), dc.theme->itemStyle.fgColor, ALIGN_TOPLEFT);
 
 	char temp[64];
 	snprintf(temp, sizeof(temp), "%d", achievement.points);
@@ -98,6 +101,15 @@ void RenderAchievement(UIContext &dc, const Achievements::Achievement &achieveme
 	dc.DrawTextRect(temp, bounds.Expand(-5.0f, -5.0f), dc.theme->itemStyle.fgColor, ALIGN_RIGHT | ALIGN_VCENTER);
 
 	dc.SetFontScale(1.0f, 1.0f);
+	dc.Flush();
+
+	std::string name = Achievements::GetAchievementBadgePath(achievement);
+	if (g_iconCache.BindIconTexture(&dc, name)) {
+		dc.Draw()->DrawTexRect(Bounds(bounds.x, bounds.y, iconSpace, iconSpace), 0.0f, 0.0f, 1.0f, 1.0f, 0xFFFFFFFF);
+	}
+
+	dc.Flush();
+	dc.RebindTexture();
 
 	dc.Flush();
 }

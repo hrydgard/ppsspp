@@ -38,10 +38,6 @@ struct Achievement
 	std::string memaddr;
 	std::string badge_name;
 
-	// badge paths are mutable because they're resolved when they're needed.
-	mutable std::string locked_badge_path;
-	mutable std::string unlocked_badge_path;
-
 	u32 points;
 	AchievementCategory category;
 	bool locked;
@@ -160,7 +156,7 @@ u32 GetPrimedAchievementCount();
 const Achievement *GetAchievementByID(u32 id);
 std::pair<u32, u32> GetAchievementProgress(const Achievement &achievement);
 std::string GetAchievementProgressText(const Achievement &achievement);
-const std::string &GetAchievementBadgePath(const Achievement &achievement, bool download_if_missing = true,
+std::string GetAchievementBadgePath(const Achievement &achievement, bool download_if_missing = true,
 	bool force_unlocked_icon = false);
 std::string GetAchievementBadgeURL(const Achievement &achievement);
 
