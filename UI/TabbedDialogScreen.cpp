@@ -55,7 +55,7 @@ void TabbedUIDialogScreenWithGameBackground::CreateViews() {
 		root_->Add(tabHolder_);
 		AddStandardBack(root_);
 	}
-	tabHolder_->SetTag("GameSettings");
+	tabHolder_->SetTag(tag());  // take the tag from the screen.
 	root_->SetDefaultFocusView(tabHolder_);
 	settingTabContents_.clear();
 	settingTabFilterNotices_.clear();
@@ -81,7 +81,7 @@ void TabbedUIDialogScreenWithGameBackground::CreateViews() {
 #if !defined(MOBILE_DEVICE) || PPSSPP_PLATFORM(ANDROID)
 	// Hide search if screen is too small.
 	int deviceType = System_GetPropertyInt(SYSPROP_DEVICE_TYPE);
-	if ((g_display.dp_xres < g_display.dp_yres || g_display.dp_yres >= 500) && (deviceType != DEVICE_TYPE_VR)) {
+	if ((g_display.dp_xres < g_display.dp_yres || g_display.dp_yres >= 500) && (deviceType != DEVICE_TYPE_VR) && ShowSearchControls()) {
 		auto se = GetI18NCategory(I18NCat::SEARCH);
 		// Search
 		LinearLayout *searchSettings = AddTab("GameSettingsSearch", ms->T("Search"), true);
