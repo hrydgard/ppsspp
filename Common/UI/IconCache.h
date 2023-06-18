@@ -20,6 +20,12 @@ class Texture;
 
 // TODO: Possibly make this smarter and use instead of ManagedTexture?
 
+struct IconCacheStats {
+	size_t cachedCount;
+	size_t textureCount;  // number of cached images that are "live" textures
+	size_t dataSize;
+};
+
 class IconCache {
 public:
 	Draw::Texture *BindIconTexture(UIContext *context, const std::string &key);
@@ -34,6 +40,8 @@ public:
 
 	void ClearTextures();
 	void ClearData();
+
+	IconCacheStats GetStats();
 
 private:
 	struct Entry {

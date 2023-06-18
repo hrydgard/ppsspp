@@ -225,3 +225,18 @@ Draw::Texture *IconCache::BindIconTexture(UIContext *context, const std::string 
 
 	return texture;
 }
+
+IconCacheStats IconCache::GetStats() {
+	IconCacheStats stats{};
+
+	std::unique_lock<std::mutex> lock(lock_);
+
+	for (auto &iter : cache_) {
+		stats.cachedCount++;
+		if (iter.second.texture)
+			stats.textureCount++;
+		stats.dataSize += iter.second.data.size();
+	}
+
+	return stats;
+}
