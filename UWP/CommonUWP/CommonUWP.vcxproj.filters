@@ -438,6 +438,9 @@
     <ClCompile Include="..\..\Common\GPU\GPUBackendCommon.cpp">
       <Filter>GPU</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\Common\UI\IconCache.cpp">
+      <Filter>UI</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="targetver.h" />
@@ -828,6 +831,9 @@
     </ClInclude>
     <ClInclude Include="..\..\Common\GPU\GPUBackendCommon.h">
       <Filter>GPU</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\UI\IconCache.h">
+      <Filter>UI</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
