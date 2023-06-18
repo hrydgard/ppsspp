@@ -30,6 +30,8 @@ struct IconCacheStats {
 
 class IconCache {
 public:
+	// NOTE: Don't store the returned texture. Only use it to look up dimensions or other properties,
+	// instead call BindIconTexture every time you want to use it.
 	Draw::Texture *BindIconTexture(UIContext *context, const std::string &key);
 
 	// It's okay to call these from any thread.
@@ -41,6 +43,8 @@ public:
 
 	void SaveToFile(FILE *file);
 	bool LoadFromFile(FILE *file);
+
+	void FrameUpdate();
 
 	void ClearTextures();
 	void ClearData();
@@ -57,12 +61,12 @@ private:
 		bool badData;
 	};
 
-	void Decimate();
-
 	std::map<std::string, Entry> cache_;
 	std::set<std::string> pending_;
 
 	std::mutex lock_;
+
+	double lastUpdate_ = 0.0;
 };
 
 extern IconCache g_iconCache;

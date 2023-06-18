@@ -52,6 +52,8 @@ void ScreenManager::update() {
 	if (stack_.size()) {
 		stack_.back().screen->update();
 	}
+
+	g_iconCache.FrameUpdate();
 }
 
 void ScreenManager::switchToNext() {

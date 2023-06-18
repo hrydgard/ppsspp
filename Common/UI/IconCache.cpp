@@ -26,8 +26,6 @@ struct DiskCacheEntry {
 };
 
 void IconCache::SaveToFile(FILE *file) {
-	Decimate();
-
 	std::unique_lock<std::mutex> lock(lock_);
 
 	DiskCacheHeader header;
@@ -115,9 +113,24 @@ void IconCache::ClearData() {
 	cache_.clear();
 }
 
-void IconCache::Decimate() {
+void IconCache::FrameUpdate() {
 	std::unique_lock<std::mutex> lock(lock_);
-
+	// Remove old textures after a while.
+	double now = time_now_d();
+	if (now > lastUpdate_ + 2.0) {
+		for (auto &iter : cache_) {
+			double useAge = now - iter.second.usedTimeStamp;
+			if (useAge > 5.0) {
+				// Release the texture after a few seconds of no use.
+				// Still, keep the png data loaded, it's small.
+				if (iter.second.texture) {
+					iter.second.texture->Release();
+					iter.second.texture = nullptr;
+				}
+			}
+		}
+		lastUpdate_ = now;
+	}
 }
 
 bool IconCache::GetDimensions(const std::string &key, int *width, int *height) {
@@ -175,6 +188,10 @@ bool IconCache::InsertIcon(const std::string &key, IconFormat format, std::strin
 	if (cache_.find(key) != cache_.end()) {
 		// Already have this entry.
 		return false;
+	}
+
+	if (data.size() > 1024 * 512) {
+		WARN_LOG(G3D, "Unusually large icon inserted in icon cache: %s (%d bytes)", key.c_str(), (int)data.size());
 	}
 
 	pending_.erase(key);
@@ -240,6 +257,7 @@ Draw::Texture *IconCache::BindIconTexture(UIContext *context, const std::string 
 
 	Draw::Texture *texture = context->GetDrawContext()->CreateTexture(iconDesc);
 	iter->second.texture = texture;
+	iter->second.usedTimeStamp = time_now_d();
 
 	free(buffer);
 
