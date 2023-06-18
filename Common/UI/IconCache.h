@@ -1,6 +1,7 @@
 #pragma once
 
 #include <map>
+#include <set>
 #include <string>
 #include <cstdio>
 #include <mutex>
@@ -23,6 +24,7 @@ class Texture;
 struct IconCacheStats {
 	size_t cachedCount;
 	size_t textureCount;  // number of cached images that are "live" textures
+	size_t pending;
 	size_t dataSize;
 };
 
@@ -30,7 +32,9 @@ class IconCache {
 public:
 	Draw::Texture *BindIconTexture(UIContext *context, const std::string &key);
 
-	// It's okay to call this from any thread.
+	// It's okay to call these from any thread.
+	bool MarkPending(const std::string &key);  // returns false if already pending or loaded
+	void Cancel(const std::string &key);
 	bool InsertIcon(const std::string &key, IconFormat format, std::string &&pngData);
 	bool GetDimensions(const std::string &key, int *width, int *height);
 	bool Contains(const std::string &key);
@@ -56,6 +60,7 @@ private:
 	void Decimate();
 
 	std::map<std::string, Entry> cache_;
+	std::set<std::string> pending_;
 
 	std::mutex lock_;
 };

@@ -56,12 +56,16 @@ public:
 	HttpImageFileView(http::Downloader *downloader, const std::string &path, UI::ImageSizeMode sizeMode = UI::IS_DEFAULT, bool useIconCache = true, UI::LayoutParams *layoutParams = nullptr)
 		: UI::View(layoutParams), path_(path), sizeMode_(sizeMode), downloader_(downloader), useIconCache_(useIconCache) {
 
-		if (useIconCache && !g_iconCache.Contains(path_)) {
+		if (useIconCache && g_iconCache.MarkPending(path_)) {
 			const char *acceptMime = "image/png, image/jpeg, image/*; q=0.9, */*; q=0.8";
 			downloader_->StartDownloadWithCallback(path_, Path(), [&](http::Download &download) {
-				std::string data;
-				download.buffer().TakeAll(&data);
-				g_iconCache.InsertIcon(path_, IconFormat::PNG, std::move(data));
+				if (download.ResultCode() == 200) {
+					std::string data;
+					download.buffer().TakeAll(&data);
+					g_iconCache.InsertIcon(path_, IconFormat::PNG, std::move(data));
+				} else {
+					g_iconCache.Cancel(path_);
+				}
 			}, acceptMime);
 		}
 	}

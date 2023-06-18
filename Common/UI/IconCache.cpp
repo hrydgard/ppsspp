@@ -33,11 +33,9 @@ void IconCache::SaveToFile(FILE *file) {
 	DiskCacheHeader header;
 	header.magic = ICON_CACHE_MAGIC;
 	header.version = ICON_CACHE_VERSION;
-	header.entryCount = 0;  // (uint32_t)cache_.size();
+	header.entryCount = (uint32_t)cache_.size();
 
 	fwrite(&header, 1, sizeof(header), file);
-
-	return;
 
 	for (auto &iter : cache_) {
 		DiskCacheEntry entryHeader;
@@ -142,6 +140,23 @@ bool IconCache::Contains(const std::string &key) {
 	return cache_.find(key) != cache_.end();
 }
 
+bool IconCache::MarkPending(const std::string &key) {
+	std::unique_lock<std::mutex> lock(lock_);
+	if (cache_.find(key) != cache_.end()) {
+		return false;
+	}
+	if (pending_.find(key) != pending_.end()) {
+		return false;
+	}
+	pending_.insert(key);
+	return true;
+}
+
+void IconCache::Cancel(const std::string &key) {
+	std::unique_lock<std::mutex> lock(lock_);
+	pending_.erase(key);
+}
+
 bool IconCache::InsertIcon(const std::string &key, IconFormat format, std::string &&data) {
 	std::unique_lock<std::mutex> lock(lock_);
 
@@ -158,6 +173,8 @@ bool IconCache::InsertIcon(const std::string &key, IconFormat format, std::strin
 		// Already have this entry.
 		return false;
 	}
+
+	pending_.erase(key);
 
 	double now = time_now_d();
 	cache_.emplace(key, Entry{ std::move(data), format, nullptr, now, now, false });
@@ -237,6 +254,8 @@ IconCacheStats IconCache::GetStats() {
 			stats.textureCount++;
 		stats.dataSize += iter.second.data.size();
 	}
+
+	stats.pending = pending_.size();
 
 	return stats;
 }
