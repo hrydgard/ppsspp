@@ -36,6 +36,7 @@
 #include "Common/Serialize/Serializer.h"
 #include "Common/System/System.h"
 #include "Common/Crypto/md5.h"
+#include "Common/UI/IconCache.h"
 
 #include "Core/MemMap.h"
 #include "Core/Config.h"
@@ -155,7 +156,6 @@ static constexpr UI::UISound LBSUBMIT_SOUND_NAME = UI::UISound::TOGGLE_OFF;
 
 static void FormattedError(const char *format, ...);
 static void LogFailedResponseJSON(const Common::HTTPDownloader::Request::Data &data);
-static void EnsureCacheDirectoriesExist();
 static void CheevosEventHandler(const rc_runtime_event_t *runtime_event);
 static unsigned PeekMemory(unsigned address, unsigned num_bytes, void *ud);
 static bool IsMastered();
@@ -210,8 +210,6 @@ static bool s_using_raintegration = false;
 
 static std::recursive_mutex s_achievements_mutex;
 static rc_runtime_t s_rcheevos_runtime;
-static Path s_game_icon_cache_directory;
-static Path s_achievement_icon_cache_directory;
 static std::unique_ptr<Common::HTTPDownloader> s_http_downloader;
 
 static std::string s_username;
@@ -232,6 +230,9 @@ static double s_last_ping_time;
 static u32 s_last_queried_lboard = 0;
 static u32 s_submitting_lboard_id = 0;
 static std::optional<std::vector<Achievements::LeaderboardEntry>> s_lboard_entries;
+
+const std::string g_gameIconCachePrefix = "game:";
+const std::string g_iconCachePrefix = "badge:";
 
 // TODO: Add an icon cache as a string map. We won't cache achievement icons across sessions, let's just
 // download them as we go.
@@ -317,6 +318,8 @@ public:
 		}
 
 		_dbg_assert_msg_(!api_request.post_data, "Download request does not have POST data");
+
+		INFO_LOG(ACHIEVEMENTS, "Downloading image: %s (%s)", api_request.url, cache_filename.c_str());
 		Achievements::DownloadImage(api_request.url, std::move(cache_filename));
 		return true;
 	}
@@ -558,7 +561,6 @@ void Achievements::Initialize()
 	s_active = true;
 	s_challenge_mode = false;
 	rc_runtime_init(&s_rcheevos_runtime);
-	EnsureCacheDirectoriesExist();
 
 	s_last_ping_time = time_now_d();
 	s_username = g_Config.sAchievementsUserName;
@@ -620,9 +622,6 @@ void Achievements::UpdateSettings()
 
 	Shutdown();
 	Initialize();
-
-	// in case cache directory changed
-	EnsureCacheDirectoriesExist();
 }
 
 bool Achievements::ConfirmChallengeModeDisable(const char *trigger)
@@ -962,19 +961,6 @@ const std::string &Achievements::GetRichPresenceString()
 	return s_rich_presence_string;
 }
 
-void Achievements::EnsureCacheDirectoriesExist()
-{
-	/*
-	s_achievement_icon_cache_directory = g_Config.appCacheDirectory / "achievement_badge";
-
-	if (!File::Exists(s_achievement_icon_cache_directory.c_str()) &&
-		!File::CreateDir(s_achievement_icon_cache_directory.c_str(), false))
-	{
-		FormattedError("Failed to create cache directory '%s'", s_achievement_icon_cache_directory.c_str());
-	}
-	*/
-}
-
 void Achievements::LoginCallback(s32 status_code, std::string content_type, Common::HTTPDownloader::Request::Data data)
 {
 	std::unique_lock lock(s_achievements_mutex);
@@ -1094,17 +1080,10 @@ void Achievements::Logout()
 
 void Achievements::DownloadImage(std::string url, std::string cache_filename)
 {
-	auto callback = [cache_filename](s32 status_code, std::string content_type,
-		Common::HTTPDownloader::Request::Data data) {
-			if (status_code != HTTP_OK)
-				return;
-
-			if (!File::WriteDataToFile(false, data.data(), (int)data.size(), Path(cache_filename))) {
-				ERROR_LOG(ACHIEVEMENTS, "Failed to write badge image to '%s'", cache_filename.c_str());
-				return;
-			}
-
-			// ImGuiFullscreen::InvalidateCachedTexture(cache_filename);
+	auto callback = [cache_filename](s32 status_code, std::string content_type, Common::HTTPDownloader::Request::Data data) {
+		if (status_code != HTTP_OK)
+			return;
+		g_iconCache.InsertIcon(cache_filename, IconFormat::PNG, std::move(data));
 	};
 
 	s_http_downloader->CreateRequest(std::move(url), std::move(callback));
@@ -1227,12 +1206,11 @@ void Achievements::GetPatchesCallback(s32 status_code, std::string content_type,
 	s_game_id = response.id;
 	s_game_title = response.title;
 
-	// try for a icon
-	/*
+	// try for a icon. not that we really need one, PSP games have their own icons...
 	if (response.image_name && std::strlen(response.image_name) > 0)
 	{
-		s_game_icon = Path::Combine(s_game_icon_cache_directory, fmt::format("{}.png", s_game_id));
-		if (!File::Exists(s_game_icon))
+		s_game_icon = g_gameIconCachePrefix + StringFromFormat("%d", s_game_id));
+		if (!g_iconCache.Contains(s_game_icon))
 		{
 			RAPIRequest<rc_api_fetch_image_request_t, rc_api_init_fetch_image_request> request;
 			request.image_name = response.image_name;
@@ -1240,7 +1218,6 @@ void Achievements::GetPatchesCallback(s32 status_code, std::string content_type,
 			request.DownloadImage(s_game_icon);
 		}
 	}
-	*/
 
 	// parse achievements
 	for (u32 i = 0; i < response.num_achievements; i++)
@@ -2010,31 +1987,27 @@ std::string Achievements::GetAchievementProgressText(const Achievement &achievem
 	return buf;
 }
 
-const std::string &Achievements::GetAchievementBadgePath(const Achievement &achievement, bool download_if_missing,
-	bool force_unlocked_icon)
+// Note that this returns an g_iconCache key, rather than an actual filename. So look up your image there.
+const std::string &Achievements::GetAchievementBadgePath(const Achievement &achievement, bool download_if_missing, bool force_unlocked_icon)
 {
 	const bool use_locked = (achievement.locked && !force_unlocked_icon);
 	std::string &badge_path = use_locked ? achievement.locked_badge_path : achievement.unlocked_badge_path;
 	if (!badge_path.empty() || achievement.badge_name.empty())
 		return badge_path;
 
-	// well, this comes from the internet.... :)
-	/*
-	const std::string clean_name(Path::SanitizeFileName(achievement.badge_name));
-	badge_path =
-		Path::Combine(s_achievement_icon_cache_directory, fmt::format("{}{}.png", clean_name, use_locked ? "_lock" : ""));
-	if (FileSystem::FileExists(badge_path.c_str()))
+	std::string badge_path = g_iconCachePrefix + achievement.badge_name + (use_locked ? "_lock" : "");
+
+	if (g_iconCache.Contains(badge_path)) {
 		return badge_path;
+	}
 
 	// need to download it
-	if (download_if_missing)
-	{
+	if (download_if_missing) {
 		RAPIRequest<rc_api_fetch_image_request_t, rc_api_init_fetch_image_request> request;
 		request.image_name = achievement.badge_name.c_str();
 		request.image_type = use_locked ? RC_IMAGE_TYPE_ACHIEVEMENT_LOCKED : RC_IMAGE_TYPE_ACHIEVEMENT;
 		request.DownloadImage(badge_path);
 	}
-	*/
 
 	return badge_path;
 }
