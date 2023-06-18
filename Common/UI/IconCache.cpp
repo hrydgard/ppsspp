@@ -102,7 +102,10 @@ bool IconCache::LoadFromFile(FILE *file) {
 void IconCache::ClearTextures() {
 	std::unique_lock<std::mutex> lock(lock_);
 	for (auto &iter : cache_) {
-		iter.second.texture->Release();
+		if (iter.second.texture) {
+			iter.second.texture->Release();
+			iter.second.texture = nullptr;
+		}
 	}
 }
 
