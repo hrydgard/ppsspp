@@ -463,10 +463,10 @@ public:
 class Texture : public RefCountedObject {
 public:
 	Texture() : RefCountedObject("Texture") {}
-	int Width() { return width_; }
-	int Height() { return height_; }
-	int Depth() { return depth_; }
-	DataFormat Format() { return format_; }
+	int Width() const { return width_; }
+	int Height() const { return height_; }
+	int Depth() const { return depth_; }
+	DataFormat Format() const { return format_; }
 
 protected:
 	int width_ = -1, height_ = -1, depth_ = -1;

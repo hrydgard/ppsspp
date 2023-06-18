@@ -822,7 +822,7 @@ InputLayout *OpenGLContext::CreateInputLayout(const InputLayoutDesc &desc) {
 	return fmt;
 }
 
-GLuint TypeToTarget(TextureType type) {
+static GLuint TypeToTarget(TextureType type) {
 	switch (type) {
 #ifndef USING_GLES2
 	case TextureType::LINEAR1D: return GL_TEXTURE_1D;
@@ -875,6 +875,10 @@ private:
 };
 
 OpenGLTexture::OpenGLTexture(GLRenderManager *render, const TextureDesc &desc) : render_(render) {
+	_dbg_assert_(desc.format != Draw::DataFormat::UNDEFINED);
+	_dbg_assert_(desc.width > 0 && desc.height > 0 && desc.depth > 0);
+	_dbg_assert_(type_ != Draw::TextureType::UNKNOWN);
+
 	generatedMips_ = false;
 	generateMips_ = desc.generateMips;
 	width_ = desc.width;

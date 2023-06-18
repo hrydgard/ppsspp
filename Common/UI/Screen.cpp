@@ -6,6 +6,7 @@
 #include "Common/UI/UI.h"
 #include "Common/UI/View.h"
 #include "Common/UI/ViewGroup.h"
+#include "Common/UI/IconCache.h"
 
 #include "Common/Log.h"
 #include "Common/TimeUtil.h"
@@ -130,6 +131,7 @@ void ScreenManager::axis(const AxisInput &axis) {
 void ScreenManager::deviceLost() {
 	for (auto &iter : stack_)
 		iter.screen->deviceLost();
+	g_iconCache.ClearTextures();
 }
 
 void ScreenManager::deviceRestored() {

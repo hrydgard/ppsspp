@@ -119,6 +119,29 @@ void IconCache::Decimate() {
 
 }
 
+bool IconCache::GetDimensions(const std::string &key, int *width, int *height) {
+	std::unique_lock<std::mutex> lock(lock_);
+	auto iter = cache_.find(key);
+	if (iter == cache_.end()) {
+		// Don't have this entry.
+		return false;
+	}
+
+	if (iter->second.texture) {
+		// TODO: Store the width/height in the cache.
+		*width = iter->second.texture->Width();
+		*height = iter->second.texture->Height();
+		return true;
+	} else {
+		return false;
+	}
+}
+
+bool IconCache::Contains(const std::string &key) {
+	std::unique_lock<std::mutex> lock(lock_);
+	return cache_.find(key) != cache_.end();
+}
+
 bool IconCache::InsertIcon(const std::string &key, IconFormat format, std::string &&data) {
 	std::unique_lock<std::mutex> lock(lock_);
 
@@ -141,22 +164,22 @@ bool IconCache::InsertIcon(const std::string &key, IconFormat format, std::strin
 	return true;
 }
 
-bool IconCache::BindIconTexture(UIContext *context, const std::string &key) {
+Draw::Texture *IconCache::BindIconTexture(UIContext *context, const std::string &key) {
 	std::unique_lock<std::mutex> lock(lock_);
 	auto iter = cache_.find(key);
 	if (iter == cache_.end()) {
 		// Don't have this entry.
-		return false;
+		return nullptr;
 	}
 
 	if (iter->second.texture) {
 		context->GetDrawContext()->BindTexture(0, iter->second.texture);
 		iter->second.usedTimeStamp = time_now_d();
-		return true;
+		return iter->second.texture;
 	}
 
 	if (iter->second.badData) {
-		return false;
+		return nullptr;
 	}
 
 	// OK, don't have a texture. Upload it!
@@ -174,13 +197,13 @@ bool IconCache::BindIconTexture(UIContext *context, const std::string &key) {
 		if (result != 1) {
 			ERROR_LOG(G3D, "IconCache: Failed to load png (%d bytes) for key %s", (int)iter->second.data.size(), key.c_str());
 			iter->second.badData = true;
-			return false;
+			return nullptr;
 		}
 		dataFormat = Draw::DataFormat::R8G8B8A8_UNORM;
 		break;
 	}
 	default:
-		return false;
+		return nullptr;
 	}
 
 	Draw::TextureDesc iconDesc{};
@@ -192,11 +215,13 @@ bool IconCache::BindIconTexture(UIContext *context, const std::string &key) {
 	iconDesc.swizzle = Draw::TextureSwizzle::DEFAULT;
 	iconDesc.generateMips = false;
 	iconDesc.tag = key.c_str();
+	iconDesc.format = dataFormat;
+	iconDesc.type = Draw::TextureType::LINEAR2D;
 
 	Draw::Texture *texture = context->GetDrawContext()->CreateTexture(iconDesc);
 	iter->second.texture = texture;
 
 	free(buffer);
 
-	return true;
+	return texture;
 }
