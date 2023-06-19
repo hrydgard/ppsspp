@@ -154,25 +154,40 @@ bool ElfReader::LoadRelocations(const Elf32_Rel *rels, int numRelocs) {
 				u16 hi = 0;
 				bool found = false;
 				for (int t = r + 1; t < numRelocs; t++) {
-					if ((rels[t].r_info & 0xF) == R_MIPS_LO16) {
-						u32 corrLoAddr = rels[t].r_offset + segmentVAddr[readwrite];
-						// Should have matching index and segment info, according to llvm, which makes sense.
-						if ((rels[t].r_info >> 8) != (rels[r].r_info >> 8)) {
-							WARN_LOG_REPORT(LOADER, "ELF relocation HI16/LO16 with mismatching r_info lo=%08x, hi=%08x", rels[t].r_info, rels[r].r_info);
-						}
-						if (log) {
-							DEBUG_LOG(LOADER, "Corresponding lo found at %08x", corrLoAddr);
-						}
-						if (Memory::IsValidAddress(corrLoAddr)) {
-							s16 lo = (s16)relocOps[t];
-							cur += lo;
-							cur += relocateTo;
-							addrToHiLo(cur, hi, lo);
-							found = true;
-							break;
+					int t_type = rels[t].r_info & 0xF;
+					if (t_type == R_MIPS_HI16)
+						continue;
+
+					u32 corrLoAddr = rels[t].r_offset + segmentVAddr[readwrite];
+
+					// In MotorStorm: Arctic Edge (US), these are sometimes R_MIPS_16 (instead of LO16.)
+					// It appears the PSP takes any relocation that is not a HI16.
+					if (t_type != R_MIPS_LO16) {
+						if (t_type != R_MIPS_16) {
+							// Let's play it safe for now and skip.  We've only seen this type.
+							ERROR_LOG_REPORT(LOADER, "ELF relocation HI16/%d pair (instead of LO16) at %08x / %08x", t_type, addr, corrLoAddr);
+							continue;
 						} else {
-							ERROR_LOG(LOADER, "Bad corrLoAddr %08x", corrLoAddr);
+							WARN_LOG_REPORT(LOADER, "ELF relocation HI16/%d(16) pair (instead of LO16) at %08x / %08x", t_type, addr, corrLoAddr);
 						}
+					}
+
+					// Should have matching index and segment info, according to llvm, which makes sense.
+					if ((rels[t].r_info >> 8) != (rels[r].r_info >> 8)) {
+						WARN_LOG_REPORT(LOADER, "ELF relocation HI16/LO16 with mismatching r_info lo=%08x, hi=%08x", rels[t].r_info, rels[r].r_info);
+					}
+					if (log) {
+						DEBUG_LOG(LOADER, "Corresponding lo found at %08x", corrLoAddr);
+					}
+					if (Memory::IsValidAddress(corrLoAddr)) {
+						s16 lo = (s16)relocOps[t];
+						cur += lo;
+						cur += relocateTo;
+						addrToHiLo(cur, hi, lo);
+						found = true;
+						break;
+					} else {
+						ERROR_LOG(LOADER, "Bad corrLoAddr %08x", corrLoAddr);
 					}
 				}
 				if (!found) {
