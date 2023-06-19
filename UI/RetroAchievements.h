@@ -119,7 +119,6 @@ const std::string &GetUsername();
 const std::string &GetRichPresenceString();
 
 bool LoginAsync(const char *username, const char *password);
-bool Login(const char *username, const char *password);
 void Logout();
 
 void GameChanged(const Path &path);

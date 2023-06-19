@@ -26,6 +26,7 @@ public:
 
 private:
 	void CreateAccountTab(UI::ViewGroup *viewGroup);
+	void CreateSettingsTab(UI::ViewGroup *viewGroup);
 };
 
 class UIContext;

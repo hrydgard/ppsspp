@@ -1,10 +1,13 @@
 #include "UI/RetroAchievementScreens.h"
 #include "UI/RetroAchievements.h"
+#include "Common/System/Request.h"
 #include "Common/UI/View.h"
 #include "Common/UI/ViewGroup.h"
 #include "Common/UI/Context.h"
 #include "Common/Data/Text/I18n.h"
 #include "Common/UI/IconCache.h"
+
+#include "Core/Config.h"
 
 void RetroAchievementsListScreen::CreateViews() {
 	auto di = GetI18NCategory(I18NCat::DIALOG);
@@ -35,6 +38,9 @@ void RetroAchievementsSettingsScreen::CreateTabs() {
 
 	LinearLayout *account = AddTab("AchievementsAccount", ac->T("Account"));
 	CreateAccountTab(account);
+
+	LinearLayout *settings = AddTab("AchievementsSettings", ac->T("Settings"));
+	CreateSettingsTab(settings);
 }
 
 void RetroAchievementsSettingsScreen::sendMessage(const char *message, const char *value) {
@@ -52,17 +58,47 @@ void RetroAchievementsSettingsScreen::CreateAccountTab(UI::ViewGroup *viewGroup)
 
 	if (Achievements::IsLoggedIn()) {
 		viewGroup->Add(new InfoItem(ac->T("User Name"), Achievements::GetUsername()));
-		viewGroup->Add(new Choice(ac->T("Log out")))->OnClick.Add([&](UI::EventParams &) -> UI::EventReturn {
+		viewGroup->Add(new Choice(ac->T("Log out")))->OnClick.Add([=](UI::EventParams &) -> UI::EventReturn {
 			Achievements::Logout();
 			return UI::EVENT_DONE;
 		});
 	} else {
-		viewGroup->Add(new Choice(ac->T("Log in to RetroAchievements")))->OnClick.Add([&](UI::EventParams &) -> UI::EventReturn {
-			// TODO: Actually allow entering user/pass.			
-			Achievements::LoginAsync("fakeuser", "fakepassword");
+		// TODO: Add UI for platforms that don't support System_AskUsernamePassword.
+		viewGroup->Add(new Choice(ac->T("Log in to RetroAchievements")))->OnClick.Add([=](UI::EventParams &) -> UI::EventReturn {
+			System_AskUsernamePassword(ac->T("Log in"), [](const std::string &value, int) {
+				std::vector<std::string> parts;
+				SplitString(value, '\n', parts);
+				if (parts.size() == 2 && !parts[0].empty() && !parts[1].empty()) {
+					Achievements::LoginAsync(parts[0].c_str(), parts[1].c_str());
+				}
+			});
+			return UI::EVENT_DONE;
+		});
+		viewGroup->Add(new Choice(ac->T("Register on www.retroachievements.org")))->OnClick.Add([&](UI::EventParams &) -> UI::EventReturn {
+			System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://retroachievements.org/createaccount.php");
 			return UI::EVENT_DONE;
 		});
 	}
+	viewGroup->Add(new Choice(ac->T("About RetroAchievements")))->OnClick.Add([&](UI::EventParams &) -> UI::EventReturn {
+		System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://www.retroachievements.org/");
+		return UI::EVENT_DONE;
+	});
+}
+
+void RetroAchievementsSettingsScreen::CreateSettingsTab(UI::ViewGroup *viewGroup) {
+	auto ac = GetI18NCategory(I18NCat::ACHIEVEMENTS);
+
+	using namespace UI;
+	viewGroup->Add(new ItemHeader(ac->T("Settings")));
+	viewGroup->Add(new CheckBox(&g_Config.bAchievementsRichPresence, ac->T("Rich Presence")));
+	viewGroup->Add(new CheckBox(&g_Config.bAchievementsSoundEffects, ac->T("Sound Effects")));
+
+	// Not yet fully implemented
+	// viewGroup->Add(new CheckBox(&g_Config.bAchievementsChallengeMode, ac->T("Challenge Mode")));
+
+	// TODO: What are these for?
+	// viewGroup->Add(new CheckBox(&g_Config.bAchievementsTestMode, ac->T("Test Mode")));
+	// viewGroup->Add(new CheckBox(&g_Config.bAchievementsUnofficialTestMode, ac->T("Unofficial Test Mode")));
 }
 
 void MeasureAchievement(const Achievements::Achievement &achievement, float *w, float *h) {

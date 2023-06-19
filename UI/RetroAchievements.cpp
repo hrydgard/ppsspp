@@ -1027,33 +1027,6 @@ bool Achievements::LoginAsync(const char *username, const char *password)
 	return true;
 }
 
-bool Achievements::Login(const char *username, const char *password)
-{
-	if (s_active)
-		s_http_downloader->WaitForAllRequests();
-
-	if (s_logged_in || std::strlen(username) == 0 || std::strlen(password) == 0 || IsUsingRAIntegration())
-		return false;
-
-	if (s_active)
-	{
-		SendLogin(username, password, s_http_downloader.get(), LoginCallback);
-		s_http_downloader->WaitForAllRequests();
-		return IsLoggedIn();
-	}
-
-	// create a temporary downloader if we're not initialized
-	_assert_msg_(!s_active, "RetroAchievements is not active on login");
-	std::unique_ptr<Common::HTTPDownloader> http_downloader = Common::HTTPDownloader::Create(GetUserAgent().c_str());
-	if (!http_downloader)
-		return false;
-
-	SendLogin(username, password, http_downloader.get(), LoginCallback);
-	http_downloader->WaitForAllRequests();
-
-	return !g_Config.sAchievementsToken.empty();
-}
-
 void Achievements::Logout()
 {
 	if (s_active)
