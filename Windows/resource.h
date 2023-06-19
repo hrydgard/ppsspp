@@ -36,6 +36,7 @@
 #define ID_DEBUG_RESETSYMBOLTABLE       212
 #define IDI_STOP                        223
 #define IDD_INPUTBOX                    226
+#define IDD_USERPASSWORDBOX             227
 #define IDD_VFPU                        231
 #define IDD_BREAKPOINT                  233
 #define ID_FILE_LOAD_DIR                234
@@ -75,10 +76,12 @@
 #define IDC_INPUTBOX                    1098
 #define IDC_MODENORMAL                  1099
 #define IDC_MODESYMBOLS                 1100
+#define IDC_PASSWORDBOX                 1101
 #define IDC_SEARCH_RESULTS              1102
 #define IDC_REGIONS                     1142
 #define IDC_REGLIST                     1146
 #define IDC_VALUENAME                   1148
+#define IDC_PASSWORDNAME                1149
 #define IDC_SHOWVFPU                    1161
 #define IDC_BREAKPOINTLIST              1164
 #define IDC_DEBUGMEMVIEW                1165

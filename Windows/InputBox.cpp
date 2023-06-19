@@ -5,9 +5,12 @@
 #include "Common/Data/Encoding/Utf8.h"
 
 static std::wstring textBoxContents;
+static std::wstring passwordContents;
 static std::wstring out;
 static std::wstring windowTitle;
 static bool defaultSelected;
+static std::string g_userName;
+static std::string g_passWord;
 
 static INT_PTR CALLBACK InputBoxFunc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 {
@@ -135,6 +138,51 @@ bool InputBox_GetHex(HINSTANCE hInst, HWND hParent, const wchar_t* title, u32 de
 	else
 	{
 		outvalue = 0;
+		return false;
+	}
+}
+
+static INT_PTR CALLBACK UserPasswordBoxFunc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
+{
+	switch (message) {
+	case WM_INITDIALOG:
+		SetWindowText(GetDlgItem(hDlg, IDC_INPUTBOX), L"");
+		SetWindowText(GetDlgItem(hDlg, IDC_PASSWORDBOX), L"");
+		SetWindowText(hDlg, windowTitle.c_str());
+		PostMessage(GetDlgItem(hDlg, IDC_INPUTBOX), EM_SETSEL, -1, -1);
+		PostMessage(GetDlgItem(hDlg, IDC_PASSWORDBOX), EM_SETSEL, -1, -1);
+		return TRUE;
+	case WM_COMMAND:
+		switch (wParam)
+		{
+		case IDOK:
+		{
+			wchar_t temp[256];
+			GetWindowText(GetDlgItem(hDlg, IDC_INPUTBOX), temp, 255);
+			g_userName = ConvertWStringToUTF8(temp);
+			GetWindowText(GetDlgItem(hDlg, IDC_PASSWORDBOX), temp, 255);
+			g_passWord = ConvertWStringToUTF8(temp);
+		}
+		EndDialog(hDlg, IDOK);
+		return TRUE;
+		case IDCANCEL:
+			EndDialog(hDlg, IDCANCEL);
+			return TRUE;
+		}
+	default:
+		return FALSE;
+	}
+}
+
+bool UserPasswordBox_GetStrings(HINSTANCE hInst, HWND hParent, const wchar_t *title, std::string *username, std::string *password) {
+	windowTitle = title;
+	INT_PTR value = DialogBox(hInst, (LPCWSTR)IDD_USERPASSWORDBOX, hParent, UserPasswordBoxFunc);
+
+	if (value == IDOK) {
+		*username = g_userName;
+		*password = g_passWord;
+		return true;
+	} else {
 		return false;
 	}
 }
