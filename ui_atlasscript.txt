@@ -71,3 +71,4 @@ image I_ARROW_DOWN source_assets/image/arrow_down.png copy
 image I_SLIDERS source_assets/image/sliders.png copy
 image I_THREE_DOTS source_assets/image/three_dots.png copy
 image I_INFO source_assets/image/info.png copy
+image I_RETROACHIEVEMENTS_LOGO source_assets/image/retroachievements_logo.png copy
