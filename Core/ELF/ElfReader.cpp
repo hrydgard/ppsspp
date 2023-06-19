@@ -549,7 +549,7 @@ int ElfReader::LoadInto(u32 loadAddress, bool fromTop)
 
 		if (s->sh_flags & SHF_ALLOC)
 		{
-			std::string tag = name && name[0] ? StringFromFormat("ELF/%s", name) : StringFromFormat("ELF/%08x", writeAddr);
+			std::string tag = name && name[0] ? StringFromFormat("%s/%s", modName.c_str(), name) : StringFromFormat("%s/%08x", modName.c_str(), writeAddr);
 			NotifyMemInfo(MemBlockFlags::SUB_ALLOC, writeAddr, s->sh_size, tag.c_str(), tag.size());
 			DEBUG_LOG(LOADER,"Data Section found: %s     Sitting at %08x, size %08x", name, writeAddr, (u32)s->sh_size);
 		}
