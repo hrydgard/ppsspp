@@ -140,6 +140,8 @@ const std::string &GetGameTitle();
 const std::string &GetGameIcon();
 
 bool EnumerateAchievements(std::function<bool(const Achievement &)> callback);
+
+// TODO: Make these support multiple games, not just the current games, with cached info.
 u32 GetUnlockedAchiementCount();
 u32 GetAchievementCount();
 u32 GetMaximumPointsForGame();
@@ -154,6 +156,7 @@ u32 GetPrimedAchievementCount();
 
 const Achievement *GetAchievementByID(u32 id);
 std::pair<u32, u32> GetAchievementProgress(const Achievement &achievement);
+std::string GetGameAchievementSummary();
 std::string GetAchievementProgressText(const Achievement &achievement);
 std::string GetAchievementBadgePath(const Achievement &achievement, bool download_if_missing = true,
 	bool force_unlocked_icon = false);

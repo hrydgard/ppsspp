@@ -11,22 +11,35 @@
 
 void RetroAchievementsListScreen::CreateViews() {
 	auto di = GetI18NCategory(I18NCat::DIALOG);
+	auto ac = GetI18NCategory(I18NCat::ACHIEVEMENTS);
 
 	using namespace UI;
 
 	root_ = new ScrollView(UI::ORIENT_VERTICAL);
 
 	LinearLayout *listLayout = root_->Add(new LinearLayout(UI::ORIENT_VERTICAL));
-	listLayout->SetSpacing(0.0f);
+	listLayout->SetSpacing(5.0f);
 
-	std::vector<Achievements::Achievement> achievements;
+	std::vector<Achievements::Achievement> unlockedAchievements;
+	std::vector<Achievements::Achievement> lockedAchievements;
+
+	listLayout->Add(new GameAchievementSummaryView(Achievements::GetGameID()));
 
 	Achievements::EnumerateAchievements([&](const Achievements::Achievement &achievement) {
-		achievements.push_back(achievement);
+		if (achievement.locked) {
+			lockedAchievements.push_back(achievement);
+		} else {
+			unlockedAchievements.push_back(achievement);
+		}
 		return true;
 	});
 
-	for (auto achievement : achievements) {
+	listLayout->Add(new ItemHeader(ac->T("Unlocked achievements")));
+	for (auto achievement : unlockedAchievements) {
+		listLayout->Add(new AchievementView(achievement));
+	}
+	listLayout->Add(new ItemHeader(ac->T("Locked achievements")));
+	for (auto achievement : lockedAchievements) {
 		listLayout->Add(new AchievementView(achievement));
 	}
 }
@@ -106,6 +119,11 @@ void MeasureAchievement(const Achievements::Achievement &achievement, float *w, 
 	*h = 60.0f;
 }
 
+void MeasureGameAchievementSummary(int gameID, float *w, float *h) {
+	*w = 0.0f;
+	*h = 60.0f;
+}
+
 
 // Render style references:
 
@@ -124,11 +142,11 @@ void RenderAchievement(UIContext &dc, const Achievements::Achievement &achieveme
 	dc.Begin();
 	dc.FillRect(background, bounds);
 
-	dc.SetFontScale(0.7f, 0.7f);
+	dc.SetFontScale(1.0f, 1.0f);
 	dc.DrawTextRect(achievement.title.c_str(), bounds.Inset(iconSpace + 5.0f, 5.0f, 5.0f, 5.0f), dc.theme->itemStyle.fgColor, ALIGN_TOPLEFT);
 
-	dc.SetFontScale(0.5f, 0.5f);
-	dc.DrawTextRect(achievement.description.c_str(), bounds.Inset(iconSpace + 5.0f, 30.0f, 5.0f, 5.0f), dc.theme->itemStyle.fgColor, ALIGN_TOPLEFT);
+	dc.SetFontScale(0.66f, 0.66f);
+	dc.DrawTextRect(achievement.description.c_str(), bounds.Inset(iconSpace + 5.0f, 37.0f, 5.0f, 5.0f), dc.theme->itemStyle.fgColor, ALIGN_TOPLEFT);
 
 	char temp[64];
 	snprintf(temp, sizeof(temp), "%d", achievement.points);
@@ -150,10 +168,53 @@ void RenderAchievement(UIContext &dc, const Achievements::Achievement &achieveme
 	dc.Flush();
 }
 
+void RenderGameAchievementSummary(UIContext &dc, int gameID, const Bounds &bounds, float opacity) {
+	using namespace UI;
+	UI::Drawable background = dc.theme->itemStyle.background;
+
+	background.color = colorAlpha(background.color, opacity);
+
+	float iconSpace = 64.0f;
+
+	dc.Begin();
+	dc.FillRect(background, bounds);
+
+	dc.SetFontScale(1.0f, 1.0f);
+	dc.DrawTextRect(Achievements::GetGameTitle().c_str(), bounds.Inset(iconSpace + 5.0f, 5.0f, 5.0f, 5.0f), dc.theme->itemStyle.fgColor, ALIGN_TOPLEFT);
+
+	std::string description = Achievements::GetGameAchievementSummary();
+	std::string icon = Achievements::GetGameIcon();
+
+	dc.SetFontScale(0.66f, 0.66f);
+	dc.DrawTextRect(description.c_str(), bounds.Inset(iconSpace + 5.0f, 30.0f, 5.0f, 5.0f), dc.theme->itemStyle.fgColor, ALIGN_TOPLEFT);
+
+	dc.SetFontScale(1.0f, 1.0f);
+	dc.Flush();
+
+	std::string name = icon;
+	if (g_iconCache.BindIconTexture(&dc, name)) {
+		dc.Draw()->DrawTexRect(Bounds(bounds.x, bounds.y, iconSpace, iconSpace), 0.0f, 0.0f, 1.0f, 1.0f, 0xFFFFFFFF);
+	}
+
+	dc.Flush();
+	dc.RebindTexture();
+
+	dc.Flush();
+}
+
+
 void AchievementView::Draw(UIContext &dc) {
 	RenderAchievement(dc, achievement_, AchievementRenderStyle::LISTED, bounds_, 0.0f);
 }
 
 void AchievementView::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
 	MeasureAchievement(achievement_, &w, &h);
+}
+
+void GameAchievementSummaryView::Draw(UIContext &dc) {
+	RenderGameAchievementSummary(dc, gameID_, bounds_, 0.0f);
+}
+
+void GameAchievementSummaryView::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
+	MeasureGameAchievementSummary(gameID_, &w, &h);
 }

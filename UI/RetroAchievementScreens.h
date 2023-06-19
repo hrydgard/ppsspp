@@ -38,6 +38,8 @@ enum class AchievementRenderStyle {
 
 void MeasureAchievement(const Achievements::Achievement &achievement, float *w, float *h);
 void RenderAchievement(UIContext &context, const Achievements::Achievement &achievement, AchievementRenderStyle style, const Bounds &bounds, float time_s);
+void MeasureGameAchievementSummary(int gameID, float *w, float *h);
+
 
 class AchievementView : public UI::Item {
 public:
@@ -47,4 +49,14 @@ public:
 	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override;
 private:
 	Achievements::Achievement achievement_;
+};
+
+class GameAchievementSummaryView : public UI::Item {
+public:
+	GameAchievementSummaryView(int gameID, UI::LayoutParams *layoutParams = nullptr) : UI::Item(layoutParams), gameID_(gameID) {}
+
+	void Draw(UIContext &dc) override;
+	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override;
+private:
+	int gameID_;
 };

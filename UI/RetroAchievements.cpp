@@ -1064,6 +1064,22 @@ void Achievements::DownloadImage(std::string url, std::string cache_filename)
 	}
 }
 
+std::string Achievements::GetGameAchievementSummary() {
+	auto ac = GetI18NCategory(I18NCat::ACHIEVEMENTS);
+
+	std::string summary;
+	if (GetAchievementCount() > 0) {
+		summary = StringFromFormat(ac->T("Earned", "You have unlocked %d of %d achievements, earning %d of %d points"),
+			GetUnlockedAchiementCount(), GetAchievementCount(), GetCurrentPointsForGame(), GetMaximumPointsForGame());
+	} else {
+		summary = ac->T("This game has no achievements");
+	}
+	if (GetLeaderboardCount() > 0) {
+		if (LeaderboardsActive())
+			summary.append("\nLeaderboard submission is enabled.");
+	}
+	return summary;
+}
 
 void Achievements::DisplayAchievementSummary()
 {
@@ -1075,21 +1091,7 @@ void Achievements::DisplayAchievementSummary()
 	else
 		title = s_game_title;
 
-	std::string summary;
-	if (GetAchievementCount() > 0)
-	{
-		summary = StringFromFormat(ac->T("Earned", "You have earned %d of %d achievements, and %d of %d points"),
-			GetUnlockedAchiementCount(), GetAchievementCount(), GetCurrentPointsForGame(), GetMaximumPointsForGame());
-	} else
-	{
-		summary = ac->T("This game has no achievements");
-	}
-	if (GetLeaderboardCount() > 0)
-	{
-		summary.push_back('\n');
-		if (LeaderboardsActive())
-			summary.append("Leaderboard submission is enabled.");
-	}
+	std::string summary = GetGameAchievementSummary();
 
 	OSDAddNotification(10.0f, title, summary, s_game_icon);
 
@@ -1814,7 +1816,7 @@ void Achievements::SubmitLeaderboardCallback(s32 status_code, std::string conten
 	rc_runtime_format_lboard_value(best_score, sizeof(best_score), response.best_score, lb->format);
 
 	auto ac = GetI18NCategory(I18NCat::ACHIEVEMENTS);
-	const char *formatString = ac->T("Your Score");
+	const char *formatString = ac->T("Submitted Score");
 	std::string summary = StringFromFormat(formatString,
 		submitted_score, best_score, response.new_rank, response.num_entries);
 
