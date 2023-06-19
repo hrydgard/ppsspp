@@ -941,6 +941,7 @@ endif()
 
 find_package(LIBZIP)
 if(LIBZIP_FOUND AND USE_SYSTEM_LIBZIP)
+	include_directories(${LIBZIP_INCLUDE_DIRS})
 	add_definitions(-DSHARED_LIBZIP)
 else()
 	add_library(libzip STATIC
