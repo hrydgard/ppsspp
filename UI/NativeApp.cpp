@@ -786,6 +786,8 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 		g_screenManager->switchScreen(new LogoScreen(AfterLogoScreen::DEFAULT));
 	}
 
+	g_screenManager->SetOverlayScreen(new OSDOverlayScreen());
+
 	// Easy testing
 	// screenManager->push(new GPUDriverTestScreen());
 
@@ -1016,27 +1018,6 @@ void TakeScreenshot() {
 }
 
 void RenderOverlays(UIContext *dc, void *userdata) {
-	// Thin bar at the top of the screen.
-	std::vector<float> progress = g_DownloadManager.GetCurrentProgress();
-	if (!progress.empty()) {
-		static const uint32_t colors[4] = {
-			0xFFFFFFFF,
-			0xFFCCCCCC,
-			0xFFAAAAAA,
-			0xFF777777,
-		};
-
-		dc->Begin();
-		int h = 5;
-		for (size_t i = 0; i < progress.size(); i++) {
-			float barWidth = 10 + (dc->GetBounds().w - 10) * progress[i];
-			Bounds bounds(0, h * i, barWidth, h);
-			UI::Drawable solid(colors[i & 3]);
-			dc->FillRect(solid, bounds);
-		}
-		dc->Flush();
-	}
-
 	if (g_TakeScreenshot) {
 		TakeScreenshot();
 	}

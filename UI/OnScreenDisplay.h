@@ -6,9 +6,11 @@
 
 #include "Common/Math/geom2d.h"
 #include "Common/UI/View.h"
+#include "Common/UI/UIScreen.h"
 
 class DrawBuffer;
 
+// Data holder. This one is currently global.
 class OnScreenMessages {
 public:
 	void Show(const std::string &message, float duration_s = 1.0f, uint32_t color = 0xFFFFFF, int icon = -1, bool checkUnique = true, const char *id = nullptr);
@@ -39,11 +41,19 @@ private:
 	std::mutex mutex_;
 };
 
+// Infrastructure for rendering overlays.
+
 class OnScreenMessagesView : public UI::InertView {
 public:
 	OnScreenMessagesView(UI::LayoutParams *layoutParams = nullptr) : UI::InertView(layoutParams) {}
 	void Draw(UIContext &dc) override;
 	std::string DescribeText() const override;
+};
+
+class OSDOverlayScreen : public UIScreen {
+public:
+	const char *tag() const override { return "OSDOverlayScreen"; }
+	void CreateViews() override;
 };
 
 extern OnScreenMessages osm;

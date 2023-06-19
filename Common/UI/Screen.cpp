@@ -53,6 +53,10 @@ void ScreenManager::update() {
 		stack_.back().screen->update();
 	}
 
+	if (overlayScreen_) {
+		overlayScreen_->update();
+	}
+
 	g_iconCache.FrameUpdate();
 }
 
@@ -174,6 +178,9 @@ void ScreenManager::render() {
 				stack_.back().screen->render();
 				if (postRenderCb_)
 					postRenderCb_(getUIContext(), postRenderUserdata_);
+				if (overlayScreen_) {
+					overlayScreen_->render();
+				}
 				backback.screen->postRender();
 				break;
 			}
@@ -183,6 +190,9 @@ void ScreenManager::render() {
 			stack_.back().screen->render();
 			if (postRenderCb_)
 				postRenderCb_(getUIContext(), postRenderUserdata_);
+			if (overlayScreen_) {
+				overlayScreen_->render();
+			}
 			stack_.back().screen->postRender();
 			break;
 		}
@@ -233,6 +243,8 @@ void ScreenManager::shutdown() {
 	for (auto layer : nextStack_)
 		delete layer.screen;
 	nextStack_.clear();
+	delete overlayScreen_;
+	overlayScreen_ = nullptr;
 }
 
 void ScreenManager::push(Screen *screen, int layerFlags) {
@@ -324,4 +336,12 @@ void ScreenManager::processFinishDialog() {
 		delete dialogFinished_;
 		dialogFinished_ = nullptr;
 	}
+}
+
+void ScreenManager::SetOverlayScreen(Screen *screen) {
+	if (overlayScreen_) {
+		delete overlayScreen_;
+	}
+	overlayScreen_ = screen;
+	overlayScreen_->setScreenManager(this);
 }

@@ -144,6 +144,9 @@ public:
 
 	void getFocusPosition(float &x, float &y, float &z);
 
+	// Will delete any existing overlay screen.
+	void SetOverlayScreen(Screen *screen);
+
 	std::recursive_mutex inputLock_;
 
 private:
@@ -157,8 +160,10 @@ private:
 	PostRenderCallback postRenderCb_ = nullptr;
 	void *postRenderUserdata_ = nullptr;
 
-	const Screen *dialogFinished_;
-	DialogResult dialogResult_;
+	const Screen *dialogFinished_ = nullptr;
+	DialogResult dialogResult_{};
+
+	Screen *overlayScreen_ = nullptr;
 
 	struct Layer {
 		Screen *screen;

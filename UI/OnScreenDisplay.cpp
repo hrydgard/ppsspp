@@ -10,10 +10,16 @@
 #include "Common/UI/Context.h"
 
 #include "Common/TimeUtil.h"
+#include "Common/Net/HTTPClient.h"
+#include "Core/Config.h"
 
 OnScreenMessages osm;
 
 void OnScreenMessagesView::Draw(UIContext &dc) {
+	if (!g_Config.bShowOnScreenMessages) {
+		return;
+	}
+
 	// First, clean out old messages.
 	osm.Lock();
 	osm.Clean();
@@ -61,6 +67,27 @@ void OnScreenMessagesView::Draw(UIContext &dc) {
 	}
 
 	osm.Unlock();
+
+	// Thin bar at the top of the screen.
+	std::vector<float> progress = g_DownloadManager.GetCurrentProgress();
+	if (!progress.empty()) {
+		static const uint32_t colors[4] = {
+			0xFFFFFFFF,
+			0xFFCCCCCC,
+			0xFFAAAAAA,
+			0xFF777777,
+		};
+
+		dc.Begin();
+		int h = 5;
+		for (size_t i = 0; i < progress.size(); i++) {
+			float barWidth = 10 + (dc.GetBounds().w - 10) * progress[i];
+			Bounds bounds(0, h * i, barWidth, h);
+			UI::Drawable solid(colors[i & 3]);
+			dc.FillRect(solid, bounds);
+		}
+		dc.Flush();
+	}
 }
 
 std::string OnScreenMessagesView::DescribeText() const {
@@ -113,4 +140,9 @@ void OnScreenMessages::Show(const std::string &text, float duration_s, uint32_t 
 
 void OnScreenMessages::ShowOnOff(const std::string &message, bool b, float duration_s, uint32_t color, int icon) {
 	Show(message + (b ? ": on" : ": off"), duration_s, color, icon);
+}
+
+void OSDOverlayScreen::CreateViews() {
+	root_ = new UI::AnchorLayout();
+	root_->Add(new OnScreenMessagesView(new UI::AnchorLayoutParams(0.0f, 0.0f, 0.0f, 0.0f)));
 }
