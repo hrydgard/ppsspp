@@ -131,73 +131,10 @@ void CustomButtonMappingScreen::CreateViews() {
 	ConfigCustomButton* cfg = nullptr;
 	bool* show = nullptr;
 	memset(array, 0, sizeof(array));
-	switch (id_) {
-	case 0: 
-		cfg = &g_Config.CustomButton0;
-		show = &g_Config.touchCustom0.show;
-		for (int i = 0; i < ARRAY_SIZE(customKeyList); i++)
-			array[i] = (0x01 == ((g_Config.CustomButton0.key >> i) & 0x01));
-		break;
-	case 1:
-		cfg = &g_Config.CustomButton1;
-		show = &g_Config.touchCustom1.show;
-		for (int i = 0; i < ARRAY_SIZE(customKeyList); i++)
-			array[i] = (0x01 == ((g_Config.CustomButton1.key >> i) & 0x01));
-		break;
-	case 2:
-		cfg = &g_Config.CustomButton2;
-		show = &g_Config.touchCustom2.show;
-		for (int i = 0; i < ARRAY_SIZE(customKeyList); i++)
-			array[i] = (0x01 == ((g_Config.CustomButton2.key >> i) & 0x01));
-		break;
-	case 3:
-		cfg = &g_Config.CustomButton3;
-		show = &g_Config.touchCustom3.show;
-		for (int i = 0; i < ARRAY_SIZE(customKeyList); i++)
-			array[i] = (0x01 == ((g_Config.CustomButton3.key >> i) & 0x01));
-		break;
-	case 4:
-		cfg = &g_Config.CustomButton4;
-		show = &g_Config.touchCustom4.show;
-		for (int i = 0; i < ARRAY_SIZE(customKeyList); i++)
-			array[i] = (0x01 == ((g_Config.CustomButton4.key >> i) & 0x01));
-		break;
-	case 5: 
-		cfg = &g_Config.CustomButton5;
-		show = &g_Config.touchCustom5.show;
-		for (int i = 0; i < ARRAY_SIZE(customKeyList); i++)
-			array[i] = (0x01 == ((g_Config.CustomButton5.key >> i) & 0x01));
-		break;
-	case 6:
-		cfg = &g_Config.CustomButton6;
-		show = &g_Config.touchCustom6.show;
-		for (int i = 0; i < ARRAY_SIZE(customKeyList); i++)
-			array[i] = (0x01 == ((g_Config.CustomButton6.key >> i) & 0x01));
-		break;
-	case 7:
-		cfg = &g_Config.CustomButton7;
-		show = &g_Config.touchCustom7.show;
-		for (int i = 0; i < ARRAY_SIZE(customKeyList); i++)
-			array[i] = (0x01 == ((g_Config.CustomButton7.key >> i) & 0x01));
-		break;
-	case 8:
-		cfg = &g_Config.CustomButton8;
-		show = &g_Config.touchCustom8.show;
-		for (int i = 0; i < ARRAY_SIZE(customKeyList); i++)
-			array[i] = (0x01 == ((g_Config.CustomButton8.key >> i) & 0x01));
-		break;
-	case 9:
-		cfg = &g_Config.CustomButton9;
-		show = &g_Config.touchCustom9.show;
-		for (int i = 0; i < ARRAY_SIZE(customKeyList); i++)
-			array[i] = (0x01 == ((g_Config.CustomButton9.key >> i) & 0x01));
-		break;
-	default:
-		// This shouldn't happen, let's just not crash.
-		cfg = &g_Config.CustomButton0;
-		show = &g_Config.touchCustom0.show;
-		break;
-	}
+	cfg = &g_Config.CustomButton[id_];
+	show = &g_Config.touchCustom[id_].show;
+	for (int i = 0; i < ARRAY_SIZE(customKeyList); i++)
+		array[i] = (0x01 == ((g_Config.CustomButton[id_].key >> i) & 0x01));
 
 	leftColumn->Add(new ButtonPreview(g_Config.iTouchButtonStyle == 0 ? customKeyShapes[cfg->shape].i : customKeyShapes[cfg->shape].l, 
 			customKeyImages[cfg->image].i, customKeyImages[cfg->image].r, customKeyShapes[cfg->shape].f, customKeyShapes[cfg->shape].r, 62, 82));
@@ -282,37 +219,8 @@ static uint64_t arrayToInt(const bool ary[ARRAY_SIZE(CustomKeyData::customKeyLis
 }
 
 void CustomButtonMappingScreen::saveArray() {
-	switch (id_) {
-	case 0:
-		g_Config.CustomButton0.key = arrayToInt(array);
-		break;
-	case 1:
-		g_Config.CustomButton1.key = arrayToInt(array);
-		break;
-	case 2:
-		g_Config.CustomButton2.key = arrayToInt(array);
-		break;
-	case 3:
-		g_Config.CustomButton3.key = arrayToInt(array);
-		break;
-	case 4:
-		g_Config.CustomButton4.key = arrayToInt(array);
-		break;
-	case 5:
-		g_Config.CustomButton5.key = arrayToInt(array);
-		break;
-	case 6:
-		g_Config.CustomButton6.key = arrayToInt(array);
-		break;
-	case 7:
-		g_Config.CustomButton7.key = arrayToInt(array);
-		break;
-	case 8:
-		g_Config.CustomButton8.key = arrayToInt(array);
-		break;
-	case 9:
-		g_Config.CustomButton9.key = arrayToInt(array);
-		break;
+	if (id_ >= 0 && id_ < Config::CUSTOM_BUTTON_COUNT) {
+		g_Config.CustomButton[id_].key = arrayToInt(array);
 	}
 }
 

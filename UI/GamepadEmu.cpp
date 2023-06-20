@@ -738,46 +738,27 @@ void InitPadLayout(float xres, float yres, float globalScale) {
 	int r_key_Y = l_key_Y;
 	initTouchPos(g_Config.touchRKey, r_key_X, r_key_Y);
 
-	//Combo key
-	int combo_key_X = halfW + bottom_key_spacing * scale * 1.2f;
-	int combo_key_Y = yres / 2;
-	initTouchPos(g_Config.touchCustom0, combo_key_X, combo_key_Y);
+	struct { float x; float y; } customButtonPositions[10] = {
+		{ 1.2f, 0.5f },
+		{ 2.2f, 0.5f },
+		{ 3.2f, 0.5f },
+		{ 1.2f, 0.333f },
+		{ 2.2f, 0.333f },
+		{ -1.2f, 0.5f },
+		{ -2.2f, 0.5f },
+		{ -3.2f, 0.5f },
+		{ -1.2f, 0.333f },
+		{ -2.2f, 0.333f },
+	};
 
-	int combo1_key_X = halfW + bottom_key_spacing * scale * 2.2f;
-	int combo1_key_Y = yres / 2;
-	initTouchPos(g_Config.touchCustom1, combo1_key_X, combo1_key_Y);
+	for (int i = 0; i < Config::CUSTOM_BUTTON_COUNT; i++) {
+		float y_offset = (float)(i / 10) * 0.08333f;
 
-	int combo2_key_X = halfW + bottom_key_spacing * scale * 3.2f;
-	int combo2_key_Y = yres / 2;
-	initTouchPos(g_Config.touchCustom2, combo2_key_X, combo2_key_Y);
+		int combo_key_X = halfW + bottom_key_spacing * scale * customButtonPositions[i % 10].x;
+		int combo_key_Y = yres * (y_offset + customButtonPositions[i % 10].y);
 
-	int combo3_key_X = halfW + bottom_key_spacing * scale * 1.2f;
-	int combo3_key_Y = yres / 3;
-	initTouchPos(g_Config.touchCustom3, combo3_key_X, combo3_key_Y);
-
-	int combo4_key_X = halfW + bottom_key_spacing * scale * 2.2f;
-	int combo4_key_Y = yres / 3;
-	initTouchPos(g_Config.touchCustom4, combo4_key_X, combo4_key_Y);
-
-	int combo5_key_X = halfW - bottom_key_spacing * scale * 1.2f;
-	int combo5_key_Y = yres / 2;
-	initTouchPos(g_Config.touchCustom5, combo5_key_X, combo5_key_Y);
-
-	int combo6_key_X = halfW - bottom_key_spacing * scale * 2.2f;
-	int combo6_key_Y = yres / 2;
-	initTouchPos(g_Config.touchCustom6, combo6_key_X, combo6_key_Y);
-
-	int combo7_key_X = halfW - bottom_key_spacing * scale * 3.2f;
-	int combo7_key_Y = yres / 2;
-	initTouchPos(g_Config.touchCustom7, combo7_key_X, combo7_key_Y);
-
-	int combo8_key_X = halfW - bottom_key_spacing * scale * 1.2f;
-	int combo8_key_Y = yres / 3;
-	initTouchPos(g_Config.touchCustom8, combo8_key_X, combo8_key_Y);
-
-	int combo9_key_X = halfW - bottom_key_spacing * scale * 2.2f;
-	int combo9_key_Y = yres / 3;
-	initTouchPos(g_Config.touchCustom9, combo9_key_X, combo9_key_Y);
+		initTouchPos(g_Config.touchCustom[i], combo_key_X, combo_key_Y);
+	}
 }
 
 UI::ViewGroup *CreatePadLayout(float xres, float yres, bool *pause, bool showPauseButton, ControlMapper* controllMapper) {
@@ -884,16 +865,11 @@ UI::ViewGroup *CreatePadLayout(float xres, float yres, bool *pause, bool showPau
 			root->Add(new PSPStick(stickBg, "Right analog stick", stickImage, ImageID("I_STICK"), 1, g_Config.touchRightAnalogStick.scale, buttonLayoutParams(g_Config.touchRightAnalogStick)));
 	}
 
-	addCustomButton(g_Config.CustomButton0, "Custom 1 button", g_Config.touchCustom0);
-	addCustomButton(g_Config.CustomButton1, "Custom 2 button", g_Config.touchCustom1);
-	addCustomButton(g_Config.CustomButton2, "Custom 3 button", g_Config.touchCustom2);
-	addCustomButton(g_Config.CustomButton3, "Custom 4 button", g_Config.touchCustom3);
-	addCustomButton(g_Config.CustomButton4, "Custom 5 button", g_Config.touchCustom4);
-	addCustomButton(g_Config.CustomButton5, "Custom 6 button", g_Config.touchCustom5);
-	addCustomButton(g_Config.CustomButton6, "Custom 7 button", g_Config.touchCustom6);
-	addCustomButton(g_Config.CustomButton7, "Custom 8 button", g_Config.touchCustom7);
-	addCustomButton(g_Config.CustomButton8, "Custom 9 button", g_Config.touchCustom8);
-	addCustomButton(g_Config.CustomButton9, "Custom 10 button", g_Config.touchCustom9);
+	for (int i = 0; i < Config::CUSTOM_BUTTON_COUNT; i++) {
+		char temp[64];
+		snprintf(temp, sizeof(temp), "Custom %d button", i + 1);
+		addCustomButton(g_Config.CustomButton[i], temp, g_Config.touchCustom[i]);
+	}
 
 	if (g_Config.bGestureControlEnabled)
 		root->Add(new GestureGamepad(controllMapper));

@@ -44,7 +44,7 @@ public:
 protected:
 	virtual float GetButtonOpacity();
 
-	const char *key_;
+	std::string key_;
 	double lastFrameTime_;
 	float secondsWithoutTouch_ = 0.0;
 	bool forceVisible_ = false;
