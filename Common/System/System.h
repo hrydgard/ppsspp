@@ -236,18 +236,34 @@ public:
 	// Call this every frame, cleans up old entries.
 	void Update();
 
+	// Progress bar controls
+	// Set is both create and update.
+	void SetProgressBar(std::string id, std::string &&message, int minValue, int maxValue, int progress);
+	void RemoveProgressBar(std::string id, float fadeout_s);
+
 	struct Entry {
 		OSDType type;
 		std::string text;
 		const char *id;
 		double endTime;
 		double duration;
-		float progress;
 	};
+
+	struct ProgressBar {
+		std::string id;
+		std::string message;
+		int minValue;
+		int maxValue;
+		int progress;
+		double endTime;
+	};
+
 	std::vector<Entry> Entries();
+	std::vector<ProgressBar> ProgressBars();
 
 private:
 	std::vector<Entry> entries_;
+	std::vector<ProgressBar> bars_;
 	std::mutex mutex_;
 };
 

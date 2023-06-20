@@ -20,11 +20,24 @@ void OnScreenDisplay::Update() {
 			iter++;
 		}
 	}
+
+	for (auto iter = bars_.begin(); iter != bars_.end(); ) {
+		if (now >= iter->endTime) {
+			iter = bars_.erase(iter);
+		} else {
+			iter++;
+		}
+	}
 }
 
 std::vector<OnScreenDisplay::Entry> OnScreenDisplay::Entries() {
 	std::lock_guard<std::mutex> guard(mutex_);
 	return entries_;  // makes a copy.
+}
+
+std::vector<OnScreenDisplay::ProgressBar> OnScreenDisplay::ProgressBars() {
+	std::lock_guard<std::mutex> guard(mutex_);
+	return bars_;  // makes a copy.
 }
 
 void OnScreenDisplay::Show(OSDType type, const std::string &text, float duration_s, const char *id) {
@@ -74,6 +87,42 @@ void OnScreenDisplay::Show(OSDType type, const std::string &text, float duration
 void OnScreenDisplay::ShowOnOff(const std::string &message, bool on, float duration_s) {
 	// TODO: translate "on" and "off"? Or just get rid of this whole thing?
 	Show(OSDType::MESSAGE_INFO, message + ": " + (on ? "on" : "off"), duration_s);
+}
+
+void OnScreenDisplay::SetProgressBar(std::string id, std::string &&message, int minValue, int maxValue, int progress) {
+	std::lock_guard<std::mutex> guard(mutex_);
+	double now = time_now_d();
+	bool found = false;
+	for (auto &bar : bars_) {
+		if (bar.id == id) {
+			_dbg_assert_(minValue == bar.minValue);
+			_dbg_assert_(maxValue == bar.maxValue);
+			bar.progress = progress;
+			bar.message = message;
+			bar.endTime = now + 60.0;  // Nudge the progress bar to keep it shown.
+			return;
+		}
+	}
+
+	ProgressBar bar;
+	bar.id = id;
+	bar.message = std::move(message);
+	bar.minValue = minValue;
+	bar.maxValue = maxValue;
+	bar.progress = progress;
+	bar.endTime = now + 60.0;  // Show the progress bar for 60 seconds, then fade it out.
+	bars_.push_back(bar);
+}
+
+void OnScreenDisplay::RemoveProgressBar(std::string id, float fadeout_s) {
+	std::lock_guard<std::mutex> guard(mutex_);
+	for (auto iter = bars_.begin(); iter != bars_.end(); iter++) {
+		if (iter->id == id) {
+			iter->progress = iter->maxValue;
+			iter->endTime = time_now_d() + (double)fadeout_s;
+			break;
+		}
+	}
 }
 
 const char *RequestTypeAsString(SystemRequestType type) {

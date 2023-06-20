@@ -77,10 +77,43 @@ static void RenderOSDEntry(UIContext &dc, const OnScreenDisplay::Entry &entry, B
 	dc.DrawTextShadowRect(entry.text.c_str(), bounds, colorAlpha(0xFFFFFFFF, alpha), (align & FLAG_DYNAMIC_ASCII) | ALIGN_CENTER);
 }
 
+static void MeasureOSDProgressBar(UIContext &dc, const OnScreenDisplay::ProgressBar &bar, float *width, float *height) {
+	*height = 36;
+	*width = 450.0f;
+}
+
+static void RenderOSDProgressBar(UIContext &dc, const OnScreenDisplay::ProgressBar &entry, Bounds bounds, int align, float alpha) {
+	UI::Drawable background = UI::Drawable(colorAlpha(0x806050, alpha));
+	UI::Drawable progressBackground = UI::Drawable(colorAlpha(0xa08070, alpha));
+
+	uint32_t foreGround = whiteAlpha(alpha);
+
+	Bounds shadowBounds = bounds.Expand(10.0f);
+
+	dc.Draw()->DrawImage4Grid(dc.theme->dropShadow4Grid, shadowBounds.x, shadowBounds.y + 4.0f, shadowBounds.x2(), shadowBounds.y2(), alphaMul(0xFF000000, 0.9f * alpha), 1.0f);
+
+	float ratio = (float)(entry.progress - entry.minValue) / (float)entry.maxValue;
+
+	Bounds boundLeft = bounds;
+	Bounds boundRight = bounds;
+
+	boundLeft.w *= ratio;
+	boundRight.x += ratio * boundRight.w;
+	boundRight.w *= (1.0f - ratio);
+
+	dc.FillRect(progressBackground, boundLeft);
+	dc.FillRect(background, boundRight);
+	dc.SetFontStyle(dc.theme->uiFont);
+
+	dc.DrawTextShadowRect(entry.message.c_str(), bounds, colorAlpha(0xFFFFFFFF, alpha), (align & FLAG_DYNAMIC_ASCII) | ALIGN_CENTER);
+}
+
 void OnScreenMessagesView::Draw(UIContext &dc) {
 	if (!g_Config.bShowOnScreenMessages) {
 		return;
 	}
+
+	double now = time_now_d();
 
 	// Get height
 	float w, h;
@@ -88,8 +121,19 @@ void OnScreenMessagesView::Draw(UIContext &dc) {
 
 	float y = 10.0f;
 	// Then draw them all. 
+	const std::vector<OnScreenDisplay::ProgressBar> bars = g_OSD.ProgressBars();
+	for (auto &bar : bars) {
+		float tw, th;
+		MeasureOSDProgressBar(dc, bar, &tw, &th);
+		Bounds b(0.0f, y, tw, th);
+		b.x = (bounds_.w - b.w) * 0.5f;
+
+		float alpha = Clamp((float)(bar.endTime - now) * 4.0f, 0.0f, 1.0f);
+		RenderOSDProgressBar(dc, bar, b, 0, alpha);
+		y += (b.h + 4.0f) * alpha;  // including alpha here gets us smooth animations.
+	}
+
 	const std::vector<OnScreenDisplay::Entry> entries = g_OSD.Entries();
-	double now = time_now_d();
 	for (auto iter = entries.begin(); iter != entries.end(); ++iter) {
 		dc.SetFontScale(1.0f, 1.0f);
 		// Messages that are wider than the screen are left-aligned instead of centered.
