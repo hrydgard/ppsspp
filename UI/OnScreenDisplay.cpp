@@ -1,5 +1,6 @@
 #include <algorithm>
 #include <sstream>
+
 #include "UI/OnScreenDisplay.h"
 
 #include "Common/Data/Color/RGBAUtil.h"
@@ -8,21 +9,16 @@
 #include "Common/Render/DrawBuffer.h"
 
 #include "Common/UI/Context.h"
+#include "Common/System/System.h"
 
 #include "Common/TimeUtil.h"
 #include "Common/Net/HTTPClient.h"
 #include "Core/Config.h"
 
-OnScreenMessages osm;
-
 void OnScreenMessagesView::Draw(UIContext &dc) {
 	if (!g_Config.bShowOnScreenMessages) {
 		return;
 	}
-
-	// First, clean out old messages.
-	osm.Lock();
-	osm.Clean();
 
 	// Get height
 	float w, h;
@@ -30,7 +26,7 @@ void OnScreenMessagesView::Draw(UIContext &dc) {
 
 	float y = 10.0f;
 	// Then draw them all. 
-	const std::list<OnScreenMessages::Message> &messages = osm.Messages();
+	const std::vector<OnScreenDisplay::Message> messages = g_OSD.Messages();
 	double now = time_now_d();
 	for (auto iter = messages.begin(); iter != messages.end(); ++iter) {
 		float alpha = (iter->endTime - now) * 4.0f;
@@ -62,11 +58,9 @@ void OnScreenMessagesView::Draw(UIContext &dc) {
 			dc.SetFontScale(scale, scale);
 		}
 		dc.SetFontStyle(dc.theme->uiFont);
-		dc.DrawTextShadow(iter->text.c_str(), x, y, colorAlpha(iter->color, alpha), align);
+		dc.DrawTextShadow(iter->text.c_str(), x, y, colorAlpha(0xFFFFFFFF, alpha), align);
 		y += th * scale;
 	}
-
-	osm.Unlock();
 
 	// Thin bar at the top of the screen.
 	std::vector<float> progress = g_DownloadManager.GetCurrentProgress();
@@ -92,7 +86,7 @@ void OnScreenMessagesView::Draw(UIContext &dc) {
 
 std::string OnScreenMessagesView::DescribeText() const {
 	std::stringstream ss;
-	const auto &messages = osm.Messages();
+	const auto &messages = g_OSD.Messages();
 	for (auto iter = messages.begin(); iter != messages.end(); ++iter) {
 		if (iter != messages.begin()) {
 			ss << "\n";
@@ -100,46 +94,6 @@ std::string OnScreenMessagesView::DescribeText() const {
 		ss << iter->text;
 	}
 	return ss.str();
-}
-
-void OnScreenMessages::Clean() {
-restart:
-	double now = time_now_d();
-	for (auto iter = messages_.begin(); iter != messages_.end(); iter++) {
-		if (iter->endTime < now) {
-			messages_.erase(iter);
-			goto restart;
-		}
-	}
-}
-
-void OnScreenMessages::Show(const std::string &text, float duration_s, uint32_t color, int icon, bool checkUnique, const char *id) {
-	double now = time_now_d();
-	std::lock_guard<std::mutex> guard(mutex_);
-	if (checkUnique) {
-		for (auto iter = messages_.begin(); iter != messages_.end(); ++iter) {
-			if (iter->text == text || (id && iter->id && !strcmp(iter->id, id))) {
-				Message msg = *iter;
-				msg.endTime = now + duration_s;
-				msg.text = text;
-				msg.color = color;
-				messages_.erase(iter);
-				messages_.insert(messages_.begin(), msg);
-				return;
-			}
-		}
-	}
-	Message msg;
-	msg.text = text;
-	msg.color = color;
-	msg.endTime = now + duration_s;
-	msg.icon = icon;
-	msg.id = id;
-	messages_.insert(messages_.begin(), msg);
-}
-
-void OnScreenMessages::ShowOnOff(const std::string &message, bool b, float duration_s, uint32_t color, int icon) {
-	Show(message + (b ? ": on" : ": off"), duration_s, color, icon);
 }
 
 void OSDOverlayScreen::CreateViews() {

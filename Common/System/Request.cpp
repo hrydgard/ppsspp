@@ -2,8 +2,76 @@
 #include "Common/System/System.h"
 #include "Common/Log.h"
 #include "Common/File/Path.h"
+#include "Common/TimeUtil.h"
 
 RequestManager g_requestManager;
+OnScreenDisplay g_OSD;
+
+void OnScreenDisplay::Update() {
+	std::lock_guard<std::mutex> guard(mutex_);
+
+	double now = time_now_d();
+	for (auto iter = messages_.begin(); iter != messages_.end(); ) {
+		if (now >= iter->endTime) {
+			iter = messages_.erase(iter);
+		} else {
+			iter++;
+		}
+	}
+}
+
+std::vector<OnScreenDisplay::Message> OnScreenDisplay::Messages() {
+	std::lock_guard<std::mutex> guard(mutex_);
+	return messages_;
+}
+
+void OnScreenDisplay::Show(OSDType type, const std::string &text, float duration_s, const char *id) {
+	// Automatic duration based on type.
+	if (duration_s <= 0.0f) {
+		switch (type) {
+		case OSDType::MESSAGE_ERROR:
+		case OSDType::MESSAGE_WARNING:
+			duration_s = 3.0f;
+			break;
+		case OSDType::MESSAGE_FILE_LINK:
+			duration_s = 5.0f;
+			break;
+		case OSDType::MESSAGE_SUCCESS:
+			duration_s = 2.0f;
+			break;
+		default:
+			duration_s = 1.5f;
+			break;
+		}
+	}
+
+	double now = time_now_d();
+	std::lock_guard<std::mutex> guard(mutex_);
+	if (id) {
+		for (auto iter = messages_.begin(); iter != messages_.end(); ++iter) {
+			if (iter->id && !strcmp(iter->id, id)) {
+				Message msg = *iter;
+				msg.endTime = now + duration_s;
+				msg.text = text;
+				messages_.erase(iter);
+				messages_.insert(messages_.begin(), msg);
+				return;
+			}
+		}
+	}
+
+	Message msg;
+	msg.text = text;
+	msg.endTime = now + duration_s;
+	msg.id = id;
+	messages_.insert(messages_.begin(), msg);
+}
+
+void OnScreenDisplay::ShowOnOff(const std::string &message, bool on, float duration_s) {
+	// TODO: translate "on" and "off"? Or just get rid of this whole thing?
+	Show(OSDType::MESSAGE_INFO, message + ": " + (on ? "on" : "off"), duration_s);
+}
+
 
 const char *RequestTypeAsString(SystemRequestType type) {
 	switch (type) {

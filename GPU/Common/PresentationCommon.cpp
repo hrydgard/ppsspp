@@ -450,9 +450,9 @@ void PresentationCommon::ShowPostShaderError(const std::string &errorString) {
 		}
 	}
 	if (!firstLine.empty()) {
-		System_NotifyUserMessage("Post-shader error: " + firstLine + "...:\n" + errorString, 10.0f, 0xFF3090FF);
+		g_OSD.Show(OSDType::MESSAGE_ERROR_DUMP, "Post-shader error: " + firstLine + "...:\n" + errorString, 10.0f);
 	} else {
-		System_NotifyUserMessage("Post-shader error, see log for details", 10.0f, 0xFF3090FF);
+		g_OSD.Show(OSDType::MESSAGE_ERROR, "Post-shader error, see log for details", 10.0f);
 	}
 }
 

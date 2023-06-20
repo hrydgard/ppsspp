@@ -4,6 +4,7 @@
 #include <vector>
 #include <functional>
 #include <cstdint>
+#include <mutex>
 
 // Platform integration
 
@@ -212,7 +213,41 @@ void System_PostUIMessage(const std::string &message, const std::string &param);
 
 // Shows a visible message to the user.
 // The default implementation in NativeApp.cpp uses our "osm" system (on screen messaging).
-void System_NotifyUserMessage(const std::string &message, float duration = 1.0f, uint32_t color = 0x00FFFFFF, const char *id = nullptr);
+enum class OSDType {
+	MESSAGE_INFO,
+	MESSAGE_SUCCESS,
+	MESSAGE_WARNING,
+	MESSAGE_ERROR,
+	MESSAGE_ERROR_DUMP,  // displays lots of text (after the first line), small size
+	MESSAGE_FILE_LINK,
+	// PROGRESS_BAR,
+	// PROGRESS_INDETERMINATE,
+};
+
+// Data holder. This one is currently global.
+class OnScreenDisplay {
+public:
+	// If you specify 0 duration, a duration will be chosen automatically depending on type.
+	void Show(OSDType type, const std::string &message, float duration_s = 0.0f, const char *id = nullptr);
+	void ShowOnOff(const std::string &message, bool on, float duration_s = 0.0f);
+	bool IsEmpty() const { return messages_.empty(); }
+
+	void Update();
+
+	struct Message {
+		std::string text;
+		const char *id;
+		double endTime;
+		double duration;
+	};
+	std::vector<Message> Messages();
+
+private:
+	std::vector<Message> messages_;
+	std::mutex mutex_;
+};
+
+extern OnScreenDisplay g_OSD;
 
 // For these functions, most platforms will use the implementation provided in UI/AudioCommon.cpp,
 // no need to implement separately.

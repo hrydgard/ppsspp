@@ -1385,7 +1385,7 @@ int friendFinder(){
 	g_adhocServerIP.in.sin_addr.s_addr = INADDR_NONE;
 	if (g_Config.bEnableWlan && !net::DNSResolve(g_Config.proAdhocServer, "", &resolved, err)) {
 		ERROR_LOG(SCENET, "DNS Error Resolving %s\n", g_Config.proAdhocServer.c_str());
-		System_NotifyUserMessage(n->T("DNS Error Resolving ") + g_Config.proAdhocServer, 2.0f, 0x0000ff);
+		g_OSD.Show(OSDType::MESSAGE_ERROR, n->T("DNS Error Resolving ") + g_Config.proAdhocServer);
 	}
 	if (resolved) {
 		for (auto ptr = resolved; ptr != NULL; ptr = ptr->ai_next) {
@@ -1447,7 +1447,7 @@ int friendFinder(){
 							shutdown((int)metasocket, SD_BOTH);
 							closesocket((int)metasocket);
 							metasocket = (int)INVALID_SOCKET;
-							System_NotifyUserMessage(std::string(n->T("Disconnected from AdhocServer")) + " (" + std::string(n->T("Error")) + ": " + std::to_string(error) + ")", 2.0, 0x0000ff);
+							g_OSD.Show(OSDType::MESSAGE_ERROR, std::string(n->T("Disconnected from AdhocServer")) + " (" + std::string(n->T("Error")) + ": " + std::to_string(error) + ")");
 							// Mark all friends as timedout since we won't be able to detects disconnected friends anymore without being connected to Adhoc Server
 							peerlock.lock();
 							timeoutFriendsRecursive(friends);
@@ -2191,7 +2191,7 @@ int initNetwork(SceNetAdhocctlAdhocId *adhoc_id){
 		iResult = bind((int)metasocket, &g_localhostIP.addr, sizeof(g_localhostIP.addr));
 		if (iResult == SOCKET_ERROR) {
 			ERROR_LOG(SCENET, "Bind to alternate localhost[%s] failed(%i).", ip2str(g_localhostIP.in.sin_addr).c_str(), iResult);
-			System_NotifyUserMessage(std::string(n->T("Failed to Bind Localhost IP")) + " " + ip2str(g_localhostIP.in.sin_addr).c_str(), 2.0, 0x0000ff);
+			g_OSD.Show(OSDType::MESSAGE_ERROR, std::string(n->T("Failed to Bind Localhost IP")) + " " + ip2str(g_localhostIP.in.sin_addr).c_str());
 		}
 	}
 	
@@ -2246,7 +2246,7 @@ int initNetwork(SceNetAdhocctlAdhocId *adhoc_id){
 		}
 		if (!done) {
 			ERROR_LOG(SCENET, "Socket error (%i) when connecting to AdhocServer [%s/%s:%u]", errorcode, g_Config.proAdhocServer.c_str(), ip2str(g_adhocServerIP.in.sin_addr).c_str(), ntohs(g_adhocServerIP.in.sin_port));
-			System_NotifyUserMessage(std::string(n->T("Failed to connect to Adhoc Server")) + " (" + std::string(n->T("Error")) + ": " + std::to_string(errorcode) + ")", 1.0f, 0x0000ff);
+			g_OSD.Show(OSDType::MESSAGE_ERROR, std::string(n->T("Failed to connect to Adhoc Server")) + " (" + std::string(n->T("Error")) + ": " + std::to_string(errorcode) + ")");
 			return iResult;
 		}
 	}
@@ -2268,10 +2268,9 @@ int initNetwork(SceNetAdhocctlAdhocId *adhoc_id){
 		socklen_t addrLen = sizeof(LocalIP);
 		memset(&LocalIP, 0, addrLen);
 		getsockname((int)metasocket, &LocalIP, &addrLen);
-		System_NotifyUserMessage(n->T("Network Initialized"), 1.0);
+		g_OSD.Show(OSDType::MESSAGE_SUCCESS, n->T("Network Initialized"), 1.0);
 		return 0;
-	}
-	else{
+	} else {
 		return SOCKET_ERROR;
 	}
 }

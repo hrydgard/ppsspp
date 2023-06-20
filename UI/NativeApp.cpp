@@ -765,7 +765,8 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	if (!boot_filename.empty() && stateToLoad.Valid()) {
 		SaveState::Load(stateToLoad, -1, [](SaveState::Status status, const std::string &message, void *) {
 			if (!message.empty() && (!g_Config.bDumpFrames || !g_Config.bDumpVideoOutput)) {
-				osm.Show(message, status == SaveState::Status::SUCCESS ? 2.0 : 5.0);
+				g_OSD.Show(status == SaveState::Status::SUCCESS ? OSDType::MESSAGE_SUCCESS : OSDType::MESSAGE_ERROR,
+					message, status == SaveState::Status::SUCCESS ? 2.0 : 5.0);
 			}
 		});
 	}
@@ -1010,10 +1011,10 @@ void TakeScreenshot() {
 
 	bool success = TakeGameScreenshot(filename, g_Config.bScreenshotsAsPNG ? ScreenshotFormat::PNG : ScreenshotFormat::JPG, SCREENSHOT_OUTPUT);
 	if (success) {
-		osm.Show(filename.ToVisualString());
+		g_OSD.Show(OSDType::MESSAGE_FILE_LINK, filename.ToString());
 	} else {
 		auto err = GetI18NCategory(I18NCat::ERRORS);
-		osm.Show(err->T("Could not save screenshot file"));
+		g_OSD.Show(OSDType::MESSAGE_ERROR, err->T("Could not save screenshot file"));
 	}
 }
 
@@ -1140,7 +1141,7 @@ void HandleGlobalMessage(const std::string &msg, const std::string &value) {
 		auto sy = GetI18NCategory(I18NCat::SYSTEM);
 		std::string msg = StringFromFormat("%s: %d", sy->T("Savestate Slot"), SaveState::GetCurrentSlot() + 1);
 		// Show for the same duration as the preview.
-		osm.Show(msg, 2.0f, 0xFFFFFF, -1, true, "savestate_slot");
+		g_OSD.Show(OSDType::MESSAGE_INFO, msg, 2.0f, "savestate_slot");
 	}
 	else if (msg == "gpu_displayResized") {
 		if (gpu) {
@@ -1162,9 +1163,9 @@ void HandleGlobalMessage(const std::string &msg, const std::string &value) {
 		if (value != "false") {
 			auto sy = GetI18NCategory(I18NCat::SYSTEM);
 #if PPSSPP_PLATFORM(ANDROID)
-			osm.Show(sy->T("WARNING: Android battery save mode is on"), 2.0f, 0xFFFFFF, -1, true, "core_powerSaving");
+			g_OSD.Show(OSDType::MESSAGE_WARNING, sy->T("WARNING: Android battery save mode is on"), 2.0f, "core_powerSaving");
 #else
-			osm.Show(sy->T("WARNING: Battery save mode is on"), 2.0f, 0xFFFFFF, -1, true, "core_powerSaving");
+			g_OSD.Show(OSDType::MESSAGE_WARNING, sy->T("WARNING: Battery save mode is on"), 2.0f, "core_powerSaving");
 #endif
 		}
 		Core_SetPowerSaving(value != "false");
@@ -1212,6 +1213,8 @@ void NativeUpdate() {
 
 	g_Discord.Update();
 	g_BackgroundAudio.Play();
+
+	g_OSD.Update();
 
 	UI::SetSoundEnabled(g_Config.bUISound);
 }
@@ -1348,10 +1351,6 @@ void NativeMessageReceived(const char *message, const char *value) {
 
 void System_PostUIMessage(const std::string &message, const std::string &value) {
 	NativeMessageReceived(message.c_str(), value.c_str());
-}
-
-void System_NotifyUserMessage(const std::string &message, float duration_s, u32 color, const char *id) {
-	osm.Show(message, duration_s, color, -1, true, id);
 }
 
 void NativeResized() {

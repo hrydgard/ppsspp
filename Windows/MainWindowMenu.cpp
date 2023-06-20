@@ -358,7 +358,7 @@ namespace MainWindow {
 
 	static void SaveStateActionFinished(SaveState::Status status, const std::string &message, void *userdata) {
 		if (!message.empty() && (!g_Config.bDumpFrames || !g_Config.bDumpVideoOutput)) {
-			osm.Show(message, status == SaveState::Status::SUCCESS ? 2.0 : 5.0);
+			g_OSD.Show(status == SaveState::Status::SUCCESS ? OSDType::MESSAGE_SUCCESS : OSDType::MESSAGE_ERROR, message, status == SaveState::Status::SUCCESS ? 2.0 : 5.0);
 		}
 		PostMessage(MainWindow::GetHWND(), WM_USER_SAVESTATE_FINISH, 0, 0);
 	}
@@ -397,7 +397,7 @@ namespace MainWindow {
 		else
 			messageStream << g_Config.iFrameSkip;
 
-		osm.Show(messageStream.str());
+		g_OSD.Show(OSDType::MESSAGE_INFO, messageStream.str());
 	}
 
 	static void setFrameSkippingType(int fskipType = -1) {
@@ -417,7 +417,7 @@ namespace MainWindow {
 		else
 			messageStream << gr->T("Percent of FPS");
 
-		osm.Show(messageStream.str());
+		g_OSD.Show(OSDType::MESSAGE_INFO, messageStream.str());
 	}
 
 	static void RestartApp() {
@@ -507,7 +507,7 @@ namespace MainWindow {
 
 		case ID_EMULATION_CHEATS:
 			g_Config.bEnableCheats = !g_Config.bEnableCheats;
-			osm.ShowOnOff(gr->T("Cheats"), g_Config.bEnableCheats);
+			g_OSD.ShowOnOff(gr->T("Cheats"), g_Config.bEnableCheats);
 			break;
 
 		case ID_EMULATION_CHAT:
@@ -677,7 +677,7 @@ namespace MainWindow {
 		case ID_OPTIONS_SKIP_BUFFER_EFFECTS:
 			g_Config.bSkipBufferEffects = !g_Config.bSkipBufferEffects;
 			NativeMessageReceived("gpu_renderResized", "");
-			osm.ShowOnOff(gr->T("Skip Buffer Effects"), g_Config.bSkipBufferEffects);
+			g_OSD.ShowOnOff(gr->T("Skip Buffer Effects"), g_Config.bSkipBufferEffects);
 			break;
 
 		case ID_DEBUG_SHOWDEBUGSTATISTICS:
@@ -688,7 +688,7 @@ namespace MainWindow {
 		case ID_OPTIONS_HARDWARETRANSFORM:
 			g_Config.bHardwareTransform = !g_Config.bHardwareTransform;
 			NativeMessageReceived("gpu_configChanged", "");
-			osm.ShowOnOff(gr->T("Hardware Transform"), g_Config.bHardwareTransform);
+			g_OSD.ShowOnOff(gr->T("Hardware Transform"), g_Config.bHardwareTransform);
 			break;
 
 		case ID_OPTIONS_DISPLAY_LAYOUT:

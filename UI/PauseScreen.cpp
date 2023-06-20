@@ -54,7 +54,8 @@
 
 static void AfterSaveStateAction(SaveState::Status status, const std::string &message, void *) {
 	if (!message.empty() && (!g_Config.bDumpFrames || !g_Config.bDumpVideoOutput)) {
-		osm.Show(message, status == SaveState::Status::SUCCESS ? 2.0 : 5.0);
+		g_OSD.Show(status == SaveState::Status::SUCCESS ? OSDType::MESSAGE_SUCCESS : OSDType::MESSAGE_ERROR,
+			message, status == SaveState::Status::SUCCESS ? 2.0 : 5.0);
 	}
 }
 
