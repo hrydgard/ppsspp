@@ -173,6 +173,7 @@ static void DeactivateAchievement(Achievement *achievement);
 static void UnlockAchievement(u32 achievement_id, bool add_notification = true);
 static void AchievementPrimed(u32 achievement_id);
 static void AchievementUnprimed(u32 achievement_id);
+static void AchievementDisabled(u32 achievement_id);
 static void SubmitLeaderboard(u32 leaderboard_id, int value);
 static void SendPing();
 static void SendPlaying();
@@ -244,6 +245,8 @@ static u64 g_badMemoryAccessCount = 0;
 
 const std::string g_gameIconCachePrefix = "game:";
 const std::string g_iconCachePrefix = "badge:";
+
+#define PSP_MEMORY_OFFSET 0x08000000
 
 // TODO: Add an icon cache as a string map. We won't cache achievement icons across sessions, let's just
 // download them as we go.
@@ -1171,6 +1174,10 @@ void Achievements::GetUserUnlocks()
 	request.Send(GetUserUnlocksCallback);
 }
 
+static int ValidateAddress(unsigned address) {
+	return Memory::IsValidAddress(address + PSP_MEMORY_OFFSET) ? 1 : 0;
+}
+
 void Achievements::GetPatchesCallback(s32 status_code, std::string content_type,
 	Common::HTTPDownloader::Request::Data data)
 {
@@ -1318,6 +1325,9 @@ void Achievements::GetPatchesCallback(s32 status_code, std::string content_type,
 	{
 		ClearGameInfo();
 	}
+
+	// Hook up memory validation (doesn't seem to do much though?)
+	rc_runtime_validate_addresses(&s_rcheevos_runtime, &Achievements::CheevosEventHandler, &ValidateAddress);
 }
 
 void Achievements::GetLbInfoCallback(s32 status_code, std::string content_type,
@@ -1962,6 +1972,19 @@ void Achievements::AchievementUnprimed(u32 achievement_id)
 	s_primed_achievement_count.fetch_sub(std::memory_order_acq_rel);
 }
 
+void Achievements::AchievementDisabled(u32 achievement_id)
+{
+	std::unique_lock lock(s_achievements_mutex);
+	Achievement *achievement = GetMutableAchievementByID(achievement_id);
+	if (!achievement)
+		return;
+
+	// Have not seen this trigger yet, despite games doing bad memory accesses.
+	INFO_LOG(ACHIEVEMENTS, "Achievement disabled due to invalid memory access: %s", achievement->title);
+
+	achievement->disabled = true;
+}
+
 std::pair<u32, u32> Achievements::GetAchievementProgress(const Achievement &achievement)
 {
 	std::pair<u32, u32> result;
@@ -2037,6 +2060,10 @@ void Achievements::CheevosEventHandler(const rc_runtime_event_t *runtime_event)
 		AchievementUnprimed(runtime_event->id);
 		break;
 
+	case RC_RUNTIME_EVENT_ACHIEVEMENT_DISABLED:
+		AchievementDisabled(runtime_event->id);
+		break;
+
 	case RC_RUNTIME_EVENT_LBOARD_TRIGGERED:
 		SubmitLeaderboard(runtime_event->id, runtime_event->value);
 		break;
@@ -2048,13 +2075,16 @@ void Achievements::CheevosEventHandler(const rc_runtime_event_t *runtime_event)
 
 unsigned Achievements::PeekMemory(unsigned address, unsigned num_bytes, void *ud) {
 	// Unclear why achievements are defined with this offset, but they are and it can't be changed now, so we roll with it.
-	address += 0x08000000;
+	address += PSP_MEMORY_OFFSET;
 
 	if (!Memory::IsValidAddress(address)) {
 		// Some achievement packs are really, really spammy.
 		// So we'll just count the bad accesses.
 		g_badMemoryAccessCount++;
-		// WARN_LOG(G3D, "RetroAchievements PeekMemory: Bad address %08x (%d bytes)", address, num_bytes);
+
+		if (g_Config.bAchievementsLogBadMemReads) {
+			WARN_LOG(G3D, "RetroAchievements PeekMemory: Bad address %08x (%d bytes)", address, num_bytes);
+		}
 		return 0;
 	}
 

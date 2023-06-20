@@ -43,6 +43,7 @@ struct Achievement
 	bool locked;
 	bool active;
 	bool primed;
+	bool disabled;  // due to bad memory access, presumably
 };
 
 struct Leaderboard
