@@ -205,7 +205,7 @@ extern float g_safeInsetBottom;
 	graphicsContext = new IOSGraphicsContext();
 
 	graphicsContext->GetDrawContext()->SetErrorCallback([](const char *shortDesc, const char *details, void *userdata) {
-		System_NotifyUserMessage(details, 5.0, 0xFFFFFFFF, "error_callback");
+		g_OSD.Show(OSDType::MESSAGE_ERROR, details, 0.0f, "error_callback");
 	}, nullptr);
 
 	graphicsContext->ThreadStart();
