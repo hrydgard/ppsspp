@@ -1,3 +1,5 @@
+#include <cstring>
+
 #include "Common/System/Request.h"
 #include "Common/System/System.h"
 #include "Common/Log.h"
