@@ -239,6 +239,9 @@ static u32 s_last_queried_lboard = 0;
 static u32 s_submitting_lboard_id = 0;
 static std::optional<std::vector<Achievements::LeaderboardEntry>> s_lboard_entries;
 
+// TODO: Make this show up somewhere.
+static u64 g_badMemoryAccessCount = 0;
+
 const std::string g_gameIconCachePrefix = "game:";
 const std::string g_iconCachePrefix = "badge:";
 
@@ -2048,7 +2051,10 @@ unsigned Achievements::PeekMemory(unsigned address, unsigned num_bytes, void *ud
 	address += 0x08000000;
 
 	if (!Memory::IsValidAddress(address)) {
-		WARN_LOG(G3D, "RetroAchievements PeekMemory: Bad address %08x (%d bytes)", address, num_bytes);
+		// Some achievement packs are really, really spammy.
+		// So we'll just count the bad accesses.
+		g_badMemoryAccessCount++;
+		// WARN_LOG(G3D, "RetroAchievements PeekMemory: Bad address %08x (%d bytes)", address, num_bytes);
 		return 0;
 	}
 
