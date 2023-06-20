@@ -341,16 +341,9 @@ public:
 	ConfigTouchPos touchAnalogStick;
 	ConfigTouchPos touchRightAnalogStick;
 
-	ConfigTouchPos touchCustom0;
-	ConfigTouchPos touchCustom1;
-	ConfigTouchPos touchCustom2;
-	ConfigTouchPos touchCustom3;
-	ConfigTouchPos touchCustom4;
-	ConfigTouchPos touchCustom5;
-	ConfigTouchPos touchCustom6;
-	ConfigTouchPos touchCustom7;
-	ConfigTouchPos touchCustom8;
-	ConfigTouchPos touchCustom9;
+	enum { CUSTOM_BUTTON_COUNT = 10 };
+
+	ConfigTouchPos touchCustom[CUSTOM_BUTTON_COUNT];
 
 	float fLeftStickHeadScale;
 	float fRightStickHeadScale;
@@ -364,16 +357,7 @@ public:
 	bool bShowTouchTriangle;
 	bool bShowTouchSquare;
 
-	ConfigCustomButton CustomButton0;
-	ConfigCustomButton CustomButton1;
-	ConfigCustomButton CustomButton2;
-	ConfigCustomButton CustomButton3;
-	ConfigCustomButton CustomButton4;
-	ConfigCustomButton CustomButton5;
-	ConfigCustomButton CustomButton6;
-	ConfigCustomButton CustomButton7;
-	ConfigCustomButton CustomButton8;
-	ConfigCustomButton CustomButton9;
+	ConfigCustomButton CustomButton[CUSTOM_BUTTON_COUNT];
 
 	// Ignored on iOS and other platforms that lack pause.
 	bool bShowTouchPause;

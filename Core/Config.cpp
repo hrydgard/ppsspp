@@ -637,27 +637,27 @@ static const ConfigSetting controlSettings[] = {
 	ConfigSetting("ShowTouchSquare", &g_Config.bShowTouchSquare, true, CfgFlag::PER_GAME),
 	ConfigSetting("ShowTouchTriangle", &g_Config.bShowTouchTriangle, true, CfgFlag::PER_GAME),
 
-	ConfigSetting("Custom0Mapping", "Custom0Image", "Custom0Shape", "Custom0Toggle", "Custom0Repeat", &g_Config.CustomButton0, {0, 0, 0, false, false}, CfgFlag::PER_GAME),
-	ConfigSetting("Custom1Mapping", "Custom1Image", "Custom1Shape", "Custom1Toggle", "Custom1Repeat", &g_Config.CustomButton1, {0, 1, 0, false, false}, CfgFlag::PER_GAME),
-	ConfigSetting("Custom2Mapping", "Custom2Image", "Custom2Shape", "Custom2Toggle", "Custom2Repeat", &g_Config.CustomButton2, {0, 2, 0, false, false}, CfgFlag::PER_GAME),
-	ConfigSetting("Custom3Mapping", "Custom3Image", "Custom3Shape", "Custom3Toggle", "Custom3Repeat", &g_Config.CustomButton3, {0, 3, 0, false, false}, CfgFlag::PER_GAME),
-	ConfigSetting("Custom4Mapping", "Custom4Image", "Custom4Shape", "Custom4Toggle", "Custom4Repeat", &g_Config.CustomButton4, {0, 4, 0, false, false}, CfgFlag::PER_GAME),
-	ConfigSetting("Custom5Mapping", "Custom5Image", "Custom5Shape", "Custom5Toggle", "Custom5Repeat", &g_Config.CustomButton5, {0, 0, 1, false, false}, CfgFlag::PER_GAME),
-	ConfigSetting("Custom6Mapping", "Custom6Image", "Custom6Shape", "Custom6Toggle", "Custom6Repeat", &g_Config.CustomButton6, {0, 1, 1, false, false}, CfgFlag::PER_GAME),
-	ConfigSetting("Custom7Mapping", "Custom7Image", "Custom7Shape", "Custom7Toggle", "Custom7Repeat", &g_Config.CustomButton7, {0, 2, 1, false, false}, CfgFlag::PER_GAME),
-	ConfigSetting("Custom8Mapping", "Custom8Image", "Custom8Shape", "Custom8Toggle", "Custom8Repeat", &g_Config.CustomButton8, {0, 3, 1, false, false}, CfgFlag::PER_GAME),
-	ConfigSetting("Custom9Mapping", "Custom9Image", "Custom9Shape", "Custom9Toggle", "Custom9Repeat", &g_Config.CustomButton9, {0, 4, 1, false, false}, CfgFlag::PER_GAME),
+	ConfigSetting("Custom0Mapping", "Custom0Image", "Custom0Shape", "Custom0Toggle", "Custom0Repeat", &g_Config.CustomButton[0], {0, 0, 0, false, false}, CfgFlag::PER_GAME),
+	ConfigSetting("Custom1Mapping", "Custom1Image", "Custom1Shape", "Custom1Toggle", "Custom1Repeat", &g_Config.CustomButton[1], {0, 1, 0, false, false}, CfgFlag::PER_GAME),
+	ConfigSetting("Custom2Mapping", "Custom2Image", "Custom2Shape", "Custom2Toggle", "Custom2Repeat", &g_Config.CustomButton[2], {0, 2, 0, false, false}, CfgFlag::PER_GAME),
+	ConfigSetting("Custom3Mapping", "Custom3Image", "Custom3Shape", "Custom3Toggle", "Custom3Repeat", &g_Config.CustomButton[3], {0, 3, 0, false, false}, CfgFlag::PER_GAME),
+	ConfigSetting("Custom4Mapping", "Custom4Image", "Custom4Shape", "Custom4Toggle", "Custom4Repeat", &g_Config.CustomButton[4], {0, 4, 0, false, false}, CfgFlag::PER_GAME),
+	ConfigSetting("Custom5Mapping", "Custom5Image", "Custom5Shape", "Custom5Toggle", "Custom5Repeat", &g_Config.CustomButton[5], {0, 0, 1, false, false}, CfgFlag::PER_GAME),
+	ConfigSetting("Custom6Mapping", "Custom6Image", "Custom6Shape", "Custom6Toggle", "Custom6Repeat", &g_Config.CustomButton[6], {0, 1, 1, false, false}, CfgFlag::PER_GAME),
+	ConfigSetting("Custom7Mapping", "Custom7Image", "Custom7Shape", "Custom7Toggle", "Custom7Repeat", &g_Config.CustomButton[7], {0, 2, 1, false, false}, CfgFlag::PER_GAME),
+	ConfigSetting("Custom8Mapping", "Custom8Image", "Custom8Shape", "Custom8Toggle", "Custom8Repeat", &g_Config.CustomButton[8], {0, 3, 1, false, false}, CfgFlag::PER_GAME),
+	ConfigSetting("Custom9Mapping", "Custom9Image", "Custom9Shape", "Custom9Toggle", "Custom9Repeat", &g_Config.CustomButton[9], {0, 4, 1, false, false}, CfgFlag::PER_GAME),
 	// Combo keys are going to be something else, but I don't want to break the config.
-	ConfigSetting("fcombo0X", "fcombo0Y", "comboKeyScale0", "ShowComboKey0", &g_Config.touchCustom0, defaultTouchPosHide, CfgFlag::PER_GAME),
-	ConfigSetting("fcombo1X", "fcombo1Y", "comboKeyScale1", "ShowComboKey1", &g_Config.touchCustom1, defaultTouchPosHide, CfgFlag::PER_GAME),
-	ConfigSetting("fcombo2X", "fcombo2Y", "comboKeyScale2", "ShowComboKey2", &g_Config.touchCustom2, defaultTouchPosHide, CfgFlag::PER_GAME),
-	ConfigSetting("fcombo3X", "fcombo3Y", "comboKeyScale3", "ShowComboKey3", &g_Config.touchCustom3, defaultTouchPosHide, CfgFlag::PER_GAME),
-	ConfigSetting("fcombo4X", "fcombo4Y", "comboKeyScale4", "ShowComboKey4", &g_Config.touchCustom4, defaultTouchPosHide, CfgFlag::PER_GAME),
-	ConfigSetting("fcombo5X", "fcombo5Y", "comboKeyScale5", "ShowComboKey5", &g_Config.touchCustom5, defaultTouchPosHide, CfgFlag::PER_GAME),
-	ConfigSetting("fcombo6X", "fcombo6Y", "comboKeyScale6", "ShowComboKey6", &g_Config.touchCustom6, defaultTouchPosHide, CfgFlag::PER_GAME),
-	ConfigSetting("fcombo7X", "fcombo7Y", "comboKeyScale7", "ShowComboKey7", &g_Config.touchCustom7, defaultTouchPosHide, CfgFlag::PER_GAME),
-	ConfigSetting("fcombo8X", "fcombo8Y", "comboKeyScale8", "ShowComboKey8", &g_Config.touchCustom8, defaultTouchPosHide, CfgFlag::PER_GAME),
-	ConfigSetting("fcombo9X", "fcombo9Y", "comboKeyScale9", "ShowComboKey9", &g_Config.touchCustom9, defaultTouchPosHide, CfgFlag::PER_GAME),
+	ConfigSetting("fcombo0X", "fcombo0Y", "comboKeyScale0", "ShowComboKey0", &g_Config.touchCustom[0], defaultTouchPosHide, CfgFlag::PER_GAME),
+	ConfigSetting("fcombo1X", "fcombo1Y", "comboKeyScale1", "ShowComboKey1", &g_Config.touchCustom[1], defaultTouchPosHide, CfgFlag::PER_GAME),
+	ConfigSetting("fcombo2X", "fcombo2Y", "comboKeyScale2", "ShowComboKey2", &g_Config.touchCustom[2], defaultTouchPosHide, CfgFlag::PER_GAME),
+	ConfigSetting("fcombo3X", "fcombo3Y", "comboKeyScale3", "ShowComboKey3", &g_Config.touchCustom[3], defaultTouchPosHide, CfgFlag::PER_GAME),
+	ConfigSetting("fcombo4X", "fcombo4Y", "comboKeyScale4", "ShowComboKey4", &g_Config.touchCustom[4], defaultTouchPosHide, CfgFlag::PER_GAME),
+	ConfigSetting("fcombo5X", "fcombo5Y", "comboKeyScale5", "ShowComboKey5", &g_Config.touchCustom[5], defaultTouchPosHide, CfgFlag::PER_GAME),
+	ConfigSetting("fcombo6X", "fcombo6Y", "comboKeyScale6", "ShowComboKey6", &g_Config.touchCustom[6], defaultTouchPosHide, CfgFlag::PER_GAME),
+	ConfigSetting("fcombo7X", "fcombo7Y", "comboKeyScale7", "ShowComboKey7", &g_Config.touchCustom[7], defaultTouchPosHide, CfgFlag::PER_GAME),
+	ConfigSetting("fcombo8X", "fcombo8Y", "comboKeyScale8", "ShowComboKey8", &g_Config.touchCustom[8], defaultTouchPosHide, CfgFlag::PER_GAME),
+	ConfigSetting("fcombo9X", "fcombo9Y", "comboKeyScale9", "ShowComboKey9", &g_Config.touchCustom[9], defaultTouchPosHide, CfgFlag::PER_GAME),
 
 #if defined(_WIN32)
 	// A win32 user seeing touch controls is likely using PPSSPP on a tablet. There it makes
@@ -1707,16 +1707,9 @@ void Config::ResetControlLayout() {
 	reset(g_Config.touchRKey);
 	reset(g_Config.touchAnalogStick);
 	reset(g_Config.touchRightAnalogStick);
-	reset(g_Config.touchCustom0);
-	reset(g_Config.touchCustom1);
-	reset(g_Config.touchCustom2);
-	reset(g_Config.touchCustom3);
-	reset(g_Config.touchCustom4);
-	reset(g_Config.touchCustom5);
-	reset(g_Config.touchCustom6);
-	reset(g_Config.touchCustom7);
-	reset(g_Config.touchCustom8);
-	reset(g_Config.touchCustom9);
+	for (int i = 0; i < CUSTOM_BUTTON_COUNT; i++) {
+		reset(g_Config.touchCustom[i]);
+	}
 	g_Config.fLeftStickHeadScale = 1.0f;
 	g_Config.fRightStickHeadScale = 1.0f;
 }
