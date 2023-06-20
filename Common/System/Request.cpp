@@ -55,6 +55,7 @@ void OnScreenDisplay::Show(OSDType type, const std::string &text, float duration
 				Entry msg = *iter;
 				msg.endTime = now + duration_s;
 				msg.text = text;
+				msg.type = type;
 				entries_.erase(iter);
 				entries_.insert(entries_.begin(), msg);
 				return;
@@ -65,6 +66,7 @@ void OnScreenDisplay::Show(OSDType type, const std::string &text, float duration
 	Entry msg;
 	msg.text = text;
 	msg.endTime = now + duration_s;
+	msg.type = type;
 	msg.id = id;
 	entries_.insert(entries_.begin(), msg);
 }

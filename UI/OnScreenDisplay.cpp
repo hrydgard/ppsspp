@@ -7,6 +7,7 @@
 #include "Common/Data/Encoding/Utf8.h"
 #include "Common/Render/TextureAtlas.h"
 #include "Common/Render/DrawBuffer.h"
+#include "Common/Math/math_util.h"
 
 #include "Common/UI/Context.h"
 #include "Common/System/System.h"
@@ -19,12 +20,61 @@ static uint32_t GetOSDBackgroundColor(OSDType type) {
 	// Colors from Infima
 	switch (type) {
 	case OSDType::MESSAGE_ERROR:
-	case OSDType::MESSAGE_ERROR_DUMP: return 0xd53035;  // danger-darker
-	case OSDType::MESSAGE_WARNING: return 0xd99e00;  // warning-darker
-	case OSDType::MESSAGE_INFO: return 0x606770;  // gray-700
+	case OSDType::MESSAGE_ERROR_DUMP: return 0x3530d5;  // danger-darker
+	case OSDType::MESSAGE_WARNING: return 0x009ed9;  // warning-darker
+	case OSDType::MESSAGE_INFO: return 0x706760;  // gray-700
 	case OSDType::MESSAGE_SUCCESS: return 0x008b00;
 	default: return 0x606770;
 	}
+}
+
+ImageID GetOSDIcon(OSDType type) {
+	switch (type) {
+	case OSDType::MESSAGE_INFO: return ImageID::invalid(); //  return ImageID("I_INFO");
+	case OSDType::MESSAGE_ERROR: return ImageID("I_CROSS");
+	case OSDType::MESSAGE_WARNING: return ImageID("I_WARNING");
+	case OSDType::MESSAGE_SUCCESS: return ImageID("I_CHECKEDBOX");
+	default: return ImageID::invalid();
+	}
+}
+
+static const float iconSize = 36.0f;
+
+// Align only matters here for the ASCII-only flag.
+static void MeasureOSDEntry(UIContext &dc, const OnScreenDisplay::Entry &entry, int align, float *width, float *height) {
+	dc.MeasureText(dc.theme->uiFont, 1.0f, 1.0f, entry.text.c_str(), width, height, align);
+
+	if (!GetOSDIcon(entry.type).isInvalid()) {
+		*width += iconSize + 5.0f;
+	}
+
+	*width += 12.0f;
+	*height = std::max(*height, iconSize + 5.0f);
+}
+
+static void RenderOSDEntry(UIContext &dc, const OnScreenDisplay::Entry &entry, Bounds bounds, int align, float alpha) {
+	UI::Drawable background = UI::Drawable(colorAlpha(GetOSDBackgroundColor(entry.type), alpha));
+
+	uint32_t foreGround = whiteAlpha(alpha);
+
+	Bounds shadowBounds = bounds.Expand(10.0f);
+
+	dc.Draw()->DrawImage4Grid(dc.theme->dropShadow4Grid, shadowBounds.x, shadowBounds.y + 4.0f, shadowBounds.x2(), shadowBounds.y2(), alphaMul(0xFF000000, 0.9f * alpha), 1.0f);
+
+	dc.FillRect(background, bounds);
+	dc.SetFontStyle(dc.theme->uiFont);
+
+	ImageID iconID = GetOSDIcon(entry.type);
+
+	if (iconID.isValid()) {
+		dc.DrawImageVGradient(iconID, foreGround, foreGround, Bounds(bounds.x + 2.5f, bounds.y + 2.5f, iconSize, iconSize));
+
+		// Make room
+		bounds.x += iconSize + 5.0f;
+		bounds.w -= iconSize + 5.0f;
+	}
+
+	dc.DrawTextShadowRect(entry.text.c_str(), bounds, colorAlpha(0xFFFFFFFF, alpha), (align & FLAG_DYNAMIC_ASCII) | ALIGN_CENTER);
 }
 
 void OnScreenMessagesView::Draw(UIContext &dc) {
@@ -41,9 +91,6 @@ void OnScreenMessagesView::Draw(UIContext &dc) {
 	const std::vector<OnScreenDisplay::Entry> entries = g_OSD.Entries();
 	double now = time_now_d();
 	for (auto iter = entries.begin(); iter != entries.end(); ++iter) {
-		float alpha = (iter->endTime - now) * 4.0f;
-		if (alpha > 1.0) alpha = 1.0f;
-		if (alpha < 0.0) alpha = 0.0f;
 		dc.SetFontScale(1.0f, 1.0f);
 		// Messages that are wider than the screen are left-aligned instead of centered.
 
@@ -55,23 +102,31 @@ void OnScreenMessagesView::Draw(UIContext &dc) {
 		}
 
 		float tw, th;
-		dc.MeasureText(dc.theme->uiFont, 1.0f, 1.0f, iter->text.c_str(), &tw, &th, align);
-		float x = bounds_.centerX();
+		MeasureOSDEntry(dc, *iter, align, &tw, &th);
+
+		Bounds b(0.0f, y, tw, th);
+
 		if (tw > bounds_.w) {
-			align |= ALIGN_TOP | ALIGN_LEFT;
-			x = 2;
+			// Left-aligned
+			b.x = 2;
 		} else {
-			align |= ALIGN_TOP | ALIGN_HCENTER;
+			// Centered
+			b.x = (bounds_.w - b.w) * 0.5f;
 		}
+
+		// Scale down if height doesn't fit.
 		float scale = 1.0f;
 		if (th > bounds_.h - y) {
 			// Scale down!
 			scale = std::max(0.15f, (bounds_.h - y) / th);
 			dc.SetFontScale(scale, scale);
+			b.w *= scale;
+			b.h *= scale;
 		}
-		dc.SetFontStyle(dc.theme->uiFont);
-		dc.DrawTextShadow(iter->text.c_str(), x, y, colorAlpha(0xFFFFFFFF, alpha), align);
-		y += th * scale;
+
+		float alpha = Clamp((float)(iter->endTime - now) * 4.0f, 0.0f, 1.0f);
+		RenderOSDEntry(dc, *iter, b, align, alpha);
+		y += (b.h * scale + 4.0f) * alpha;  // including alpha here gets us smooth animations.
 	}
 
 	// Thin bar at the top of the screen.

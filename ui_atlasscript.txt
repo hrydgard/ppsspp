@@ -70,3 +70,4 @@ image I_ARROW_UP source_assets/image/arrow_up.png copy
 image I_ARROW_DOWN source_assets/image/arrow_down.png copy
 image I_SLIDERS source_assets/image/sliders.png copy
 image I_THREE_DOTS source_assets/image/three_dots.png copy
+image I_INFO source_assets/image/info.png copy

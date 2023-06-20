@@ -797,6 +797,24 @@ void SystemInfoScreen::CreateTabs() {
 		RecreateViews();
 		return UI::EVENT_DONE;
 	});
+
+	internals->Add(new ItemHeader(si->T("Notification tests")));
+	internals->Add(new Choice(si->T("Error")))->OnClick.Add([&](UI::EventParams &) {
+		g_OSD.Show(OSDType::MESSAGE_ERROR, si->T("Error"));
+		return UI::EVENT_DONE;
+	});
+	internals->Add(new Choice(si->T("Warning")))->OnClick.Add([&](UI::EventParams &) {
+		g_OSD.Show(OSDType::MESSAGE_WARNING, si->T("Warning"));
+		return UI::EVENT_DONE;
+	});
+	internals->Add(new Choice(si->T("Info")))->OnClick.Add([&](UI::EventParams &) {
+		g_OSD.Show(OSDType::MESSAGE_INFO, si->T("Info"));
+		return UI::EVENT_DONE;
+	});
+	internals->Add(new Choice(si->T("Success")))->OnClick.Add([&](UI::EventParams &) {
+		g_OSD.Show(OSDType::MESSAGE_SUCCESS, si->T("Success"));
+		return UI::EVENT_DONE;
+	});
 }
 
 void AddressPromptScreen::CreatePopupContents(UI::ViewGroup *parent) {
