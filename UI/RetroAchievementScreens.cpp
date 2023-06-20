@@ -138,6 +138,7 @@ void RenderAchievement(UIContext &dc, const Achievements::Achievement &achieveme
 	background.color = colorAlpha(background.color, opacity);
 
 	float iconSpace = 64.0f;
+	dc.Flush();
 
 	dc.Begin();
 	dc.FillRect(background, bounds);
@@ -164,8 +165,6 @@ void RenderAchievement(UIContext &dc, const Achievements::Achievement &achieveme
 
 	dc.Flush();
 	dc.RebindTexture();
-
-	dc.Flush();
 }
 
 void RenderGameAchievementSummary(UIContext &dc, int gameID, const Bounds &bounds, float opacity) {
@@ -175,6 +174,7 @@ void RenderGameAchievementSummary(UIContext &dc, int gameID, const Bounds &bound
 	background.color = colorAlpha(background.color, opacity);
 
 	float iconSpace = 64.0f;
+	dc.Flush();
 
 	dc.Begin();
 	dc.FillRect(background, bounds);
@@ -198,8 +198,6 @@ void RenderGameAchievementSummary(UIContext &dc, int gameID, const Bounds &bound
 
 	dc.Flush();
 	dc.RebindTexture();
-
-	dc.Flush();
 }
 
 
