@@ -647,7 +647,17 @@ static const ConfigSetting controlSettings[] = {
 	ConfigSetting("Custom7Mapping", "Custom7Image", "Custom7Shape", "Custom7Toggle", "Custom7Repeat", &g_Config.CustomButton[7], {0, 2, 1, false, false}, CfgFlag::PER_GAME),
 	ConfigSetting("Custom8Mapping", "Custom8Image", "Custom8Shape", "Custom8Toggle", "Custom8Repeat", &g_Config.CustomButton[8], {0, 3, 1, false, false}, CfgFlag::PER_GAME),
 	ConfigSetting("Custom9Mapping", "Custom9Image", "Custom9Shape", "Custom9Toggle", "Custom9Repeat", &g_Config.CustomButton[9], {0, 4, 1, false, false}, CfgFlag::PER_GAME),
-	// Combo keys are going to be something else, but I don't want to break the config.
+	ConfigSetting("Custom10Mapping", "Custom10Image", "Custom10Shape", "Custom10Toggle", "Custom10Repeat", &g_Config.CustomButton[10], {0, 0, 2, false, false}, CfgFlag::PER_GAME),
+	ConfigSetting("Custom11Mapping", "Custom11Image", "Custom11Shape", "Custom11Toggle", "Custom11Repeat", &g_Config.CustomButton[11], {0, 1, 2, false, false}, CfgFlag::PER_GAME),
+	ConfigSetting("Custom12Mapping", "Custom12Image", "Custom12Shape", "Custom12Toggle", "Custom12Repeat", &g_Config.CustomButton[12], {0, 2, 2, false, false}, CfgFlag::PER_GAME),
+	ConfigSetting("Custom13Mapping", "Custom13Image", "Custom13Shape", "Custom13Toggle", "Custom13Repeat", &g_Config.CustomButton[13], {0, 3, 2, false, false}, CfgFlag::PER_GAME),
+	ConfigSetting("Custom14Mapping", "Custom14Image", "Custom14Shape", "Custom14Toggle", "Custom14Repeat", &g_Config.CustomButton[14], {0, 4, 2, false, false}, CfgFlag::PER_GAME),
+	ConfigSetting("Custom15Mapping", "Custom15Image", "Custom15Shape", "Custom15Toggle", "Custom15Repeat", &g_Config.CustomButton[15], {0, 0, 9, false, false}, CfgFlag::PER_GAME),
+	ConfigSetting("Custom16Mapping", "Custom16Image", "Custom16Shape", "Custom16Toggle", "Custom16Repeat", &g_Config.CustomButton[16], {0, 1, 9, false, false}, CfgFlag::PER_GAME),
+	ConfigSetting("Custom17Mapping", "Custom17Image", "Custom17Shape", "Custom17Toggle", "Custom17Repeat", &g_Config.CustomButton[17], {0, 2, 9, false, false}, CfgFlag::PER_GAME),
+	ConfigSetting("Custom18Mapping", "Custom18Image", "Custom18Shape", "Custom18Toggle", "Custom18Repeat", &g_Config.CustomButton[18], {0, 3, 9, false, false}, CfgFlag::PER_GAME),
+	ConfigSetting("Custom19Mapping", "Custom19Image", "Custom19Shape", "Custom19Toggle", "Custom19Repeat", &g_Config.CustomButton[19], {0, 4, 9, false, false}, CfgFlag::PER_GAME),
+	// Combo keys are something else, but I don't want to break the config backwards compatibility so these will stay wrongly named.
 	ConfigSetting("fcombo0X", "fcombo0Y", "comboKeyScale0", "ShowComboKey0", &g_Config.touchCustom[0], defaultTouchPosHide, CfgFlag::PER_GAME),
 	ConfigSetting("fcombo1X", "fcombo1Y", "comboKeyScale1", "ShowComboKey1", &g_Config.touchCustom[1], defaultTouchPosHide, CfgFlag::PER_GAME),
 	ConfigSetting("fcombo2X", "fcombo2Y", "comboKeyScale2", "ShowComboKey2", &g_Config.touchCustom[2], defaultTouchPosHide, CfgFlag::PER_GAME),
@@ -658,6 +668,16 @@ static const ConfigSetting controlSettings[] = {
 	ConfigSetting("fcombo7X", "fcombo7Y", "comboKeyScale7", "ShowComboKey7", &g_Config.touchCustom[7], defaultTouchPosHide, CfgFlag::PER_GAME),
 	ConfigSetting("fcombo8X", "fcombo8Y", "comboKeyScale8", "ShowComboKey8", &g_Config.touchCustom[8], defaultTouchPosHide, CfgFlag::PER_GAME),
 	ConfigSetting("fcombo9X", "fcombo9Y", "comboKeyScale9", "ShowComboKey9", &g_Config.touchCustom[9], defaultTouchPosHide, CfgFlag::PER_GAME),
+	ConfigSetting("fcombo10X", "fcombo10Y", "comboKeyScale10", "ShowComboKey10", &g_Config.touchCustom[10], defaultTouchPosHide, CfgFlag::PER_GAME),
+	ConfigSetting("fcombo11X", "fcombo11Y", "comboKeyScale11", "ShowComboKey11", &g_Config.touchCustom[11], defaultTouchPosHide, CfgFlag::PER_GAME),
+	ConfigSetting("fcombo12X", "fcombo12Y", "comboKeyScale12", "ShowComboKey12", &g_Config.touchCustom[12], defaultTouchPosHide, CfgFlag::PER_GAME),
+	ConfigSetting("fcombo13X", "fcombo13Y", "comboKeyScale13", "ShowComboKey13", &g_Config.touchCustom[13], defaultTouchPosHide, CfgFlag::PER_GAME),
+	ConfigSetting("fcombo14X", "fcombo14Y", "comboKeyScale14", "ShowComboKey14", &g_Config.touchCustom[14], defaultTouchPosHide, CfgFlag::PER_GAME),
+	ConfigSetting("fcombo15X", "fcombo15Y", "comboKeyScale15", "ShowComboKey15", &g_Config.touchCustom[15], defaultTouchPosHide, CfgFlag::PER_GAME),
+	ConfigSetting("fcombo16X", "fcombo16Y", "comboKeyScale16", "ShowComboKey16", &g_Config.touchCustom[16], defaultTouchPosHide, CfgFlag::PER_GAME),
+	ConfigSetting("fcombo17X", "fcombo17Y", "comboKeyScale17", "ShowComboKey17", &g_Config.touchCustom[17], defaultTouchPosHide, CfgFlag::PER_GAME),
+	ConfigSetting("fcombo18X", "fcombo18Y", "comboKeyScale18", "ShowComboKey18", &g_Config.touchCustom[18], defaultTouchPosHide, CfgFlag::PER_GAME),
+	ConfigSetting("fcombo19X", "fcombo19Y", "comboKeyScale19", "ShowComboKey19", &g_Config.touchCustom[19], defaultTouchPosHide, CfgFlag::PER_GAME),
 
 #if defined(_WIN32)
 	// A win32 user seeing touch controls is likely using PPSSPP on a tablet. There it makes

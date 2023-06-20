@@ -341,7 +341,7 @@ public:
 	ConfigTouchPos touchAnalogStick;
 	ConfigTouchPos touchRightAnalogStick;
 
-	enum { CUSTOM_BUTTON_COUNT = 10 };
+	enum { CUSTOM_BUTTON_COUNT = 20 };
 
 	ConfigTouchPos touchCustom[CUSTOM_BUTTON_COUNT];
 
