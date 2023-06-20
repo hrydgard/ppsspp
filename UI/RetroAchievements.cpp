@@ -106,27 +106,35 @@ namespace Common {
 }  // namespace
 
 void OSDAddToast(float duration_s, const std::string &text) {
-	// TODO: Improve.
-	System_Toast(text.c_str());
+	g_OSD.Show(OSDType::MESSAGE_INFO, text);
 }
-void OSDAddNotification(float duration_s, const std::string &title, const std::string &summary, const std::string &iconImageData) {}
+
+void OSDAddNotification(float duration_s, const std::string &title, const std::string &summary, const std::string &iconImageData) {
+	g_OSD.Show(OSDType::MESSAGE_INFO, title);
+}
 
 void OSDOpenBackgroundProgressDialog(const char *str_id, std::string message, s32 min, s32 max, s32 value) {
 	NOTICE_LOG(ACHIEVEMENTS, "Progress dialog opened: %s %s", str_id, message.c_str());
-}
-void OSDUpdateBackgroundProgressDialog(const char *str_id, std::string message, s32 min, s32 max, s32 value) {
-	NOTICE_LOG(ACHIEVEMENTS, "Progress dialog updated: %s %s %d/(%d->%d)", str_id, message.c_str(), value, min, max);
-}
-void OSDCloseBackgroundProgressDialog(const char *str_id) {
-	NOTICE_LOG(ACHIEVEMENTS, "Progress dialog closed: %s", str_id);
+	g_OSD.SetProgressBar(str_id, std::move(message), min, max, value);
 }
 
-void OSDAddKeyedMessage(const char *str_id, std::string message, float duration) {
+void OSDUpdateBackgroundProgressDialog(const char *str_id, std::string message, s32 min, s32 max, s32 value) {
+	NOTICE_LOG(ACHIEVEMENTS, "Progress dialog updated: %s %s %d/(%d->%d)", str_id, message.c_str(), value, min, max);
+	g_OSD.SetProgressBar(str_id, std::move(message), min, max, value);
+}
+
+void OSDCloseBackgroundProgressDialog(const char *str_id) {
+	NOTICE_LOG(ACHIEVEMENTS, "Progress dialog closed: %s", str_id);
+	g_OSD.RemoveProgressBar(str_id, 0.25f);
+}
+
+void OSDAddErrorMessage(const char *str_id, std::string message, float duration) {
+	g_OSD.Show(OSDType::MESSAGE_ERROR, message);
 	NOTICE_LOG(ACHIEVEMENTS, "Keyed message: %s %s (%0.1f s)", str_id, message.c_str(), duration);
 }
 
 void OSDDisplayLoadingScreen(const char *text) {
-	
+	g_OSD.Show(OSDType::MESSAGE_INFO, text);
 }
 
 namespace Host {
@@ -1491,7 +1499,7 @@ void Achievements::GameChanged(const Path &path)
 		// when we're booting the bios, this will fail
 		if (!s_game_path.empty())
 		{
-			OSDAddKeyedMessage("retroachievements_disc_read_failed",
+			OSDAddErrorMessage("retroachievements_disc_read_failed",
 				"Failed to read executable from disc. Achievements disabled.", 10.0f);
 		}
 
