@@ -947,7 +947,7 @@ bool Achievements::DoState(PointerWrap &pw)
 bool Achievements::SafeHasAchievementsOrLeaderboards()
 {
 	std::unique_lock lock(s_achievements_mutex);
-	return !s_achievements.empty() || s_leaderboards.empty();
+	return !s_achievements.empty() || !s_leaderboards.empty();
 }
 
 const std::string &Achievements::GetUsername()
