@@ -17,6 +17,7 @@
 
 #include "Common/Render/TextureAtlas.h"
 #include "Common/Data/Text/I18n.h"
+#include "Common/StringUtils.h"
 
 #include "Core/Config.h"
 
@@ -108,7 +109,15 @@ void TouchControlVisibilityScreen::CreateViews() {
 		row->Add(checkbox);
 		Choice *choice;
 		if (toggle.handle) {
-			choice = new Choice(std::string(mc->T(toggle.key)) + " (" + mc->T("tap to customize") + ")", "", false, new LinearLayoutParams(1.0f));
+			// Handle custom button strings differently, and hackily. But will extend to arbitrary button counts.
+			char translated[256];
+			int i = 0;
+			if (sscanf(toggle.key.c_str(), "Custom %d", &i) == 1) {
+				snprintf(translated, sizeof(translated), mc->T("Custom %d"), i);
+			} else {
+				truncate_cpy(translated, mc->T(toggle.key));
+			}
+			choice = new Choice(std::string(translated) + " (" + mc->T("tap to customize") + ")", "", false, new LinearLayoutParams(1.0f));
 			choice->OnClick.Add(toggle.handle);
 		} else if (toggle.img.isValid()) {
 			choice = new CheckBoxChoice(toggle.img, checkbox, new LinearLayoutParams(1.0f));
