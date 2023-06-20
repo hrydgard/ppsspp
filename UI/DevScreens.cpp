@@ -824,6 +824,10 @@ void SystemInfoScreen::CreateTabs() {
 		g_OSD.SetProgressBar("testprogress", "Test Progress", 1, 100, 100);
 		return UI::EVENT_DONE;
 	});
+	internals->Add(new Choice(si->T("N/A%")))->OnClick.Add([&](UI::EventParams &) {
+		g_OSD.SetProgressBar("testprogress", "Test Progress", 0, 0, 0);
+		return UI::EVENT_DONE;
+	});
 	internals->Add(new Choice(si->T("Clear")))->OnClick.Add([&](UI::EventParams &) {
 		g_OSD.RemoveProgressBar("testprogress", 0.25f);
 		return UI::EVENT_DONE;

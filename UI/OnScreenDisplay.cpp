@@ -83,26 +83,40 @@ static void MeasureOSDProgressBar(UIContext &dc, const OnScreenDisplay::Progress
 }
 
 static void RenderOSDProgressBar(UIContext &dc, const OnScreenDisplay::ProgressBar &entry, Bounds bounds, int align, float alpha) {
-	UI::Drawable background = UI::Drawable(colorAlpha(0x806050, alpha));
-	UI::Drawable progressBackground = UI::Drawable(colorAlpha(0xa08070, alpha));
-
 	uint32_t foreGround = whiteAlpha(alpha);
 
 	Bounds shadowBounds = bounds.Expand(10.0f);
 
 	dc.Draw()->DrawImage4Grid(dc.theme->dropShadow4Grid, shadowBounds.x, shadowBounds.y + 4.0f, shadowBounds.x2(), shadowBounds.y2(), alphaMul(0xFF000000, 0.9f * alpha), 1.0f);
 
-	float ratio = (float)(entry.progress - entry.minValue) / (float)entry.maxValue;
+	uint32_t backgroundColor = colorAlpha(0x806050, alpha);
+	uint32_t progressBackgroundColor = colorAlpha(0xa08070, alpha);
 
-	Bounds boundLeft = bounds;
-	Bounds boundRight = bounds;
+	if (entry.maxValue > entry.minValue) {
+		// Normal progress bar
 
-	boundLeft.w *= ratio;
-	boundRight.x += ratio * boundRight.w;
-	boundRight.w *= (1.0f - ratio);
+		UI::Drawable background = UI::Drawable(backgroundColor);
+		UI::Drawable progressBackground = UI::Drawable(progressBackgroundColor);
 
-	dc.FillRect(progressBackground, boundLeft);
-	dc.FillRect(background, boundRight);
+		float ratio = (float)(entry.progress - entry.minValue) / (float)entry.maxValue;
+
+		Bounds boundLeft = bounds;
+		Bounds boundRight = bounds;
+
+		boundLeft.w *= ratio;
+		boundRight.x += ratio * boundRight.w;
+		boundRight.w *= (1.0f - ratio);
+
+		dc.FillRect(progressBackground, boundLeft);
+		dc.FillRect(background, boundRight);
+	} else {
+		// Indeterminate spinner
+		float alpha = cos(time_now_d() * 5.0) * 0.5f + 0.5f;
+		uint32_t pulse = colorBlend(backgroundColor, progressBackgroundColor, alpha);
+		UI::Drawable background = UI::Drawable(pulse);
+		dc.FillRect(background, bounds);
+	}
+
 	dc.SetFontStyle(dc.theme->uiFont);
 
 	dc.DrawTextShadowRect(entry.message.c_str(), bounds, colorAlpha(0xFFFFFFFF, alpha), (align & FLAG_DYNAMIC_ASCII) | ALIGN_CENTER);

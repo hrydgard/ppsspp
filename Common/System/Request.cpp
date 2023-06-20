@@ -95,8 +95,8 @@ void OnScreenDisplay::SetProgressBar(std::string id, std::string &&message, int 
 	bool found = false;
 	for (auto &bar : bars_) {
 		if (bar.id == id) {
-			_dbg_assert_(minValue == bar.minValue);
-			_dbg_assert_(maxValue == bar.maxValue);
+			bar.minValue = minValue;
+			bar.maxValue = maxValue;
 			bar.progress = progress;
 			bar.message = message;
 			bar.endTime = now + 60.0;  // Nudge the progress bar to keep it shown.
