@@ -7,6 +7,7 @@
 #include "Common/Data/Encoding/Utf8.h"
 #include "Common/Render/TextureAtlas.h"
 #include "Common/Render/DrawBuffer.h"
+#include "Common/Math/math_util.h"
 
 #include "Common/UI/Context.h"
 #include "Common/System/System.h"
@@ -51,17 +52,14 @@ static void MeasureOSDEntry(UIContext &dc, const OnScreenDisplay::Entry &entry, 
 	*height = std::max(*height, iconSize + 5.0f);
 }
 
-static void RenderOSDEntry(UIContext &dc, const OnScreenDisplay::Entry &entry, Bounds bounds, int align, double now) {
-	float alpha = (entry.endTime - now) * 4.0f;
-	if (alpha > 1.0) alpha = 1.0f;
-	if (alpha < 0.0) alpha = 0.0f;
+static void RenderOSDEntry(UIContext &dc, const OnScreenDisplay::Entry &entry, Bounds bounds, int align, float alpha) {
 	UI::Drawable background = UI::Drawable(colorAlpha(GetOSDBackgroundColor(entry.type), alpha));
 
 	uint32_t foreGround = whiteAlpha(alpha);
 
 	Bounds shadowBounds = bounds.Expand(10.0f);
 
-	dc.Draw()->DrawImage4Grid(dc.theme->dropShadow4Grid, shadowBounds.x, shadowBounds.y + 4.0f, shadowBounds.x2(), shadowBounds.y2(), alphaMul(0xFF000000, 0.9f), 1.0f);
+	dc.Draw()->DrawImage4Grid(dc.theme->dropShadow4Grid, shadowBounds.x, shadowBounds.y + 4.0f, shadowBounds.x2(), shadowBounds.y2(), alphaMul(0xFF000000, 0.9f * alpha), 1.0f);
 
 	dc.FillRect(background, bounds);
 	dc.SetFontStyle(dc.theme->uiFont);
@@ -125,8 +123,10 @@ void OnScreenMessagesView::Draw(UIContext &dc) {
 			b.w *= scale;
 			b.h *= scale;
 		}
-		RenderOSDEntry(dc, *iter, b, align, now);
-		y += b.h * scale + 4.0f;
+
+		float alpha = Clamp((float)(iter->endTime - now) * 4.0f, 0.0f, 1.0f);
+		RenderOSDEntry(dc, *iter, b, align, alpha);
+		y += (b.h * scale + 4.0f) * alpha;  // including alpha here gets us smooth animations.
 	}
 
 	// Thin bar at the top of the screen.
