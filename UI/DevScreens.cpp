@@ -804,7 +804,7 @@ void SystemInfoScreen::CreateTabs() {
 		return UI::EVENT_DONE;
 	});
 	internals->Add(new Choice(si->T("Warning")))->OnClick.Add([&](UI::EventParams &) {
-		g_OSD.Show(OSDType::MESSAGE_WARNING, si->T("Warning"));
+		g_OSD.Show(OSDType::MESSAGE_WARNING, si->T("Warning"), "Some\nAdditional\nDetail");
 		return UI::EVENT_DONE;
 	});
 	internals->Add(new Choice(si->T("Info")))->OnClick.Add([&](UI::EventParams &) {

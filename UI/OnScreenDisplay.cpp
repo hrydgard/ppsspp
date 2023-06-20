@@ -40,9 +40,19 @@ ImageID GetOSDIcon(OSDType type) {
 
 static const float iconSize = 36.0f;
 
+static const float extraTextScale = 0.7f;
+
 // Align only matters here for the ASCII-only flag.
-static void MeasureOSDEntry(UIContext &dc, const OnScreenDisplay::Entry &entry, int align, float *width, float *height) {
+static void MeasureOSDEntry(UIContext &dc, const OnScreenDisplay::Entry &entry, int align, float *width, float *height, float *height1) {
 	dc.MeasureText(dc.theme->uiFont, 1.0f, 1.0f, entry.text.c_str(), width, height, align);
+	*height1 = *height;
+
+	float width2 = 0.0f, height2 = 0.0f;
+	if (!entry.text2.empty()) {
+		dc.MeasureText(dc.theme->uiFont, extraTextScale, extraTextScale, entry.text2.c_str(), &width2, &height2, align);
+		*width = std::max(*width, width2);
+		*height += 5.0f + height2;
+	}
 
 	if (!GetOSDIcon(entry.type).isInvalid()) {
 		*width += iconSize + 5.0f;
@@ -52,7 +62,7 @@ static void MeasureOSDEntry(UIContext &dc, const OnScreenDisplay::Entry &entry, 
 	*height = std::max(*height, iconSize + 5.0f);
 }
 
-static void RenderOSDEntry(UIContext &dc, const OnScreenDisplay::Entry &entry, Bounds bounds, int align, float alpha) {
+static void RenderOSDEntry(UIContext &dc, const OnScreenDisplay::Entry &entry, Bounds bounds, float height1, int align, float alpha) {
 	UI::Drawable background = UI::Drawable(colorAlpha(GetOSDBackgroundColor(entry.type), alpha));
 
 	uint32_t foreGround = whiteAlpha(alpha);
@@ -74,7 +84,16 @@ static void RenderOSDEntry(UIContext &dc, const OnScreenDisplay::Entry &entry, B
 		bounds.w -= iconSize + 5.0f;
 	}
 
-	dc.DrawTextShadowRect(entry.text.c_str(), bounds, colorAlpha(0xFFFFFFFF, alpha), (align & FLAG_DYNAMIC_ASCII) | ALIGN_CENTER);
+	dc.DrawTextShadowRect(entry.text.c_str(), bounds.Inset(0.0f, 1.0f, 0.0f, 0.0f), colorAlpha(0xFFFFFFFF, alpha), (align & FLAG_DYNAMIC_ASCII));
+
+	if (!entry.text2.empty()) {
+		Bounds bottomTextBounds = bounds.Inset(3.0f, height1 + 5.0f, 3.0f, 3.0f);
+		UI::Drawable backgroundDark = UI::Drawable(colorAlpha(darkenColor(GetOSDBackgroundColor(entry.type)), alpha));
+		dc.FillRect(backgroundDark, bottomTextBounds);
+		dc.SetFontScale(extraTextScale, extraTextScale);
+		dc.DrawTextRect(entry.text2.c_str(), bottomTextBounds, colorAlpha(0xFFFFFFFF, alpha), (align & FLAG_DYNAMIC_ASCII) | ALIGN_LEFT);
+		dc.SetFontScale(1.0f, 1.0f);
+	}
 }
 
 static void MeasureOSDProgressBar(UIContext &dc, const OnScreenDisplay::ProgressBar &bar, float *width, float *height) {
@@ -159,8 +178,8 @@ void OnScreenMessagesView::Draw(UIContext &dc) {
 				align |= FLAG_DYNAMIC_ASCII;
 		}
 
-		float tw, th;
-		MeasureOSDEntry(dc, *iter, align, &tw, &th);
+		float tw, th, h1;
+		MeasureOSDEntry(dc, *iter, align, &tw, &th, &h1);
 
 		Bounds b(0.0f, y, tw, th);
 
@@ -183,7 +202,7 @@ void OnScreenMessagesView::Draw(UIContext &dc) {
 		}
 
 		float alpha = Clamp((float)(iter->endTime - now) * 4.0f, 0.0f, 1.0f);
-		RenderOSDEntry(dc, *iter, b, align, alpha);
+		RenderOSDEntry(dc, *iter, b, h1, align, alpha);
 		y += (b.h * scale + 4.0f) * alpha;  // including alpha here gets us smooth animations.
 	}
 
