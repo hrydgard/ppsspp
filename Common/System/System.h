@@ -228,7 +228,10 @@ enum class OSDType {
 class OnScreenDisplay {
 public:
 	// If you specify 0.0f as duration, a duration will be chosen automatically depending on type.
-	void Show(OSDType type, const std::string &message, float duration_s = 0.0f, const char *id = nullptr);
+	void Show(OSDType type, const std::string &text, float duration_s = 0.0f, const char *id = nullptr) {
+		Show(type, text, "", duration_s, id);
+	}
+	void Show(OSDType type, const std::string &text, const std::string &text2, float duration_s = 0.0f, const char *id = nullptr);
 	void ShowOnOff(const std::string &message, bool on, float duration_s = 0.0f);
 
 	bool IsEmpty() const { return entries_.empty(); }  // Shortcut to skip rendering.
@@ -244,6 +247,7 @@ public:
 	struct Entry {
 		OSDType type;
 		std::string text;
+		std::string text2;
 		const char *id;
 		double endTime;
 		double duration;
