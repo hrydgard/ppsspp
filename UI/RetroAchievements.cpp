@@ -133,10 +133,6 @@ void OSDAddErrorMessage(const char *str_id, std::string message, float duration)
 	NOTICE_LOG(ACHIEVEMENTS, "Keyed message: %s %s (%0.1f s)", str_id, message.c_str(), duration);
 }
 
-void OSDDisplayLoadingScreen(const char *text) {
-	g_OSD.Show(OSDType::MESSAGE_INFO, text);
-}
-
 namespace Host {
 void OnAchievementsRefreshed() {
 	System_PostUIMessage("achievements_refreshed", "");
@@ -1328,6 +1324,9 @@ void Achievements::GetPatchesCallback(s32 status_code, std::string content_type,
 
 	// Hook up memory validation (doesn't seem to do much though?)
 	rc_runtime_validate_addresses(&s_rcheevos_runtime, &Achievements::CheevosEventHandler, &ValidateAddress);
+
+	// Stop the progress bar.
+	OSDCloseBackgroundProgressDialog("get_patches");
 }
 
 void Achievements::GetLbInfoCallback(s32 status_code, std::string content_type,
@@ -1379,6 +1378,8 @@ void Achievements::GetLbInfoCallback(s32 status_code, std::string content_type,
 
 void Achievements::GetPatches(u32 game_id)
 {
+	OSDOpenBackgroundProgressDialog("get_patches", "Downloading achievements data...", 0, 0, 0);
+
 	RAPIRequest<rc_api_fetch_game_data_request_t, rc_api_init_fetch_game_data_request> request;
 	request.username = s_username.c_str();
 	request.api_token = s_api_token.c_str();
@@ -1485,8 +1486,6 @@ void Achievements::GameChanged(const Path &path)
 
 	if (!IsUsingRAIntegration() && s_http_downloader->HasAnyRequests())
 	{
-		OSDDisplayLoadingScreen("Downloading achievements data...");
-
 		s_http_downloader->WaitForAllRequests();
 	}
 
