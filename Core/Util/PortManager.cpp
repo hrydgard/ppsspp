@@ -190,7 +190,7 @@ bool PortManager::Initialize(const unsigned int timeout) {
 	ERROR_LOG(SCENET, "PortManager - upnpDiscover failed (error: %i) or No UPnP device detected", error);
 	if (g_Config.bEnableUPnP) {
 		auto n = GetI18NCategory(I18NCat::NETWORKING);
-		System_NotifyUserMessage(n->T("Unable to find UPnP device"), 2.0f, 0x0000ff);
+		g_OSD.Show(OSDType::MESSAGE_ERROR, n->T("Unable to find UPnP device"));
 	}
 	m_InitState = UPNP_INITSTATE_NONE;
 #endif // WITH_UPNP
@@ -215,11 +215,12 @@ bool PortManager::Add(const char* protocol, unsigned short port, unsigned short 
 	{
 		if (g_Config.bEnableUPnP) {
 			WARN_LOG(SCENET, "PortManager::Add - the init was not done !");
-			System_NotifyUserMessage(n->T("UPnP need to be reinitialized"), 2.0f, 0x0000ff);
+			g_OSD.Show(OSDType::MESSAGE_INFO, n->T("UPnP need to be reinitialized"));
 		}
 		Terminate();
 		return false;
 	}
+
 	snprintf(port_str, sizeof(port_str), "%d", port);
 	snprintf(intport_str, sizeof(intport_str), "%d", intport);
 	// Only add new port map if it's not previously created by PPSSPP for current IP
@@ -244,7 +245,7 @@ bool PortManager::Add(const char* protocol, unsigned short port, unsigned short 
 			ERROR_LOG(SCENET, "PortManager - AddPortMapping failed (error: %i)", r);
 			if (r == UPNPCOMMAND_HTTP_ERROR) {
 				if (g_Config.bEnableUPnP) {
-					System_NotifyUserMessage(n->T("UPnP need to be reinitialized"), 2.0f, 0x0000ff);
+					g_OSD.Show(OSDType::MESSAGE_INFO, n->T("UPnP need to be reinitialized"));
 				}
 				Terminate(); // Most of the time errors occurred because the router is no longer reachable (ie. changed networks) so we should invalidate the state to prevent further lags due to timeouts
 				return false;
@@ -270,7 +271,7 @@ bool PortManager::Remove(const char* protocol, unsigned short port) {
 	{
 		if (g_Config.bEnableUPnP) {
 			WARN_LOG(SCENET, "PortManager::Remove - the init was not done !");
-			System_NotifyUserMessage(n->T("UPnP need to be reinitialized"), 2.0f, 0x0000ff);
+			g_OSD.Show(OSDType::MESSAGE_INFO, n->T("UPnP need to be reinitialized"));
 		}
 		Terminate();
 		return false;
@@ -282,7 +283,7 @@ bool PortManager::Remove(const char* protocol, unsigned short port) {
 		ERROR_LOG(SCENET, "PortManager - DeletePortMapping failed (error: %i)", r);
 		if (r == UPNPCOMMAND_HTTP_ERROR) {
 			if (g_Config.bEnableUPnP) {
-				System_NotifyUserMessage(n->T("UPnP need to be reinitialized"), 2.0f, 0x0000ff);
+				g_OSD.Show(OSDType::MESSAGE_INFO, n->T("UPnP need to be reinitialized"));
 			}
 			Terminate(); // Most of the time errors occurred because the router is no longer reachable (ie. changed networks) so we should invalidate the state to prevent further lags due to timeouts
 			return false;

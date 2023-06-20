@@ -32,7 +32,6 @@
 struct AxisInput;
 
 class AsyncImageFileView;
-class OnScreenMessagesView;
 class ChatMenu;
 
 class EmuScreen : public UIScreen {
@@ -113,7 +112,6 @@ private:
 	ChatMenu *chatMenu_ = nullptr;
 
 	UI::Button *cardboardDisableButton_ = nullptr;
-	OnScreenMessagesView *onScreenMessagesView_ = nullptr;
 
 	ControlMapper controlMapper_;
 };
