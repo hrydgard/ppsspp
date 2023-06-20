@@ -224,26 +224,30 @@ enum class OSDType {
 	// PROGRESS_INDETERMINATE,
 };
 
-// Data holder. This one is currently global.
+// Data holder for on-screen messages.
 class OnScreenDisplay {
 public:
-	// If you specify 0 duration, a duration will be chosen automatically depending on type.
+	// If you specify 0.0f as duration, a duration will be chosen automatically depending on type.
 	void Show(OSDType type, const std::string &message, float duration_s = 0.0f, const char *id = nullptr);
 	void ShowOnOff(const std::string &message, bool on, float duration_s = 0.0f);
-	bool IsEmpty() const { return messages_.empty(); }
 
+	bool IsEmpty() const { return entries_.empty(); }  // Shortcut to skip rendering.
+
+	// Call this every frame, cleans up old entries.
 	void Update();
 
-	struct Message {
+	struct Entry {
+		OSDType type;
 		std::string text;
 		const char *id;
 		double endTime;
 		double duration;
+		float progress;
 	};
-	std::vector<Message> Messages();
+	std::vector<Entry> Entries();
 
 private:
-	std::vector<Message> messages_;
+	std::vector<Entry> entries_;
 	std::mutex mutex_;
 };
 

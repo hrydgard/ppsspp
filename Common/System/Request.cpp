@@ -11,18 +11,18 @@ void OnScreenDisplay::Update() {
 	std::lock_guard<std::mutex> guard(mutex_);
 
 	double now = time_now_d();
-	for (auto iter = messages_.begin(); iter != messages_.end(); ) {
+	for (auto iter = entries_.begin(); iter != entries_.end(); ) {
 		if (now >= iter->endTime) {
-			iter = messages_.erase(iter);
+			iter = entries_.erase(iter);
 		} else {
 			iter++;
 		}
 	}
 }
 
-std::vector<OnScreenDisplay::Message> OnScreenDisplay::Messages() {
+std::vector<OnScreenDisplay::Entry> OnScreenDisplay::Entries() {
 	std::lock_guard<std::mutex> guard(mutex_);
-	return messages_;
+	return entries_;  // makes a copy.
 }
 
 void OnScreenDisplay::Show(OSDType type, const std::string &text, float duration_s, const char *id) {
@@ -48,30 +48,29 @@ void OnScreenDisplay::Show(OSDType type, const std::string &text, float duration
 	double now = time_now_d();
 	std::lock_guard<std::mutex> guard(mutex_);
 	if (id) {
-		for (auto iter = messages_.begin(); iter != messages_.end(); ++iter) {
+		for (auto iter = entries_.begin(); iter != entries_.end(); ++iter) {
 			if (iter->id && !strcmp(iter->id, id)) {
-				Message msg = *iter;
+				Entry msg = *iter;
 				msg.endTime = now + duration_s;
 				msg.text = text;
-				messages_.erase(iter);
-				messages_.insert(messages_.begin(), msg);
+				entries_.erase(iter);
+				entries_.insert(entries_.begin(), msg);
 				return;
 			}
 		}
 	}
 
-	Message msg;
+	Entry msg;
 	msg.text = text;
 	msg.endTime = now + duration_s;
 	msg.id = id;
-	messages_.insert(messages_.begin(), msg);
+	entries_.insert(entries_.begin(), msg);
 }
 
 void OnScreenDisplay::ShowOnOff(const std::string &message, bool on, float duration_s) {
 	// TODO: translate "on" and "off"? Or just get rid of this whole thing?
 	Show(OSDType::MESSAGE_INFO, message + ": " + (on ? "on" : "off"), duration_s);
 }
-
 
 const char *RequestTypeAsString(SystemRequestType type) {
 	switch (type) {

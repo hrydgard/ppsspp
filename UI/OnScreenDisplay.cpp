@@ -15,6 +15,18 @@
 #include "Common/Net/HTTPClient.h"
 #include "Core/Config.h"
 
+static uint32_t GetOSDBackgroundColor(OSDType type) {
+	// Colors from Infima
+	switch (type) {
+	case OSDType::MESSAGE_ERROR:
+	case OSDType::MESSAGE_ERROR_DUMP: return 0xd53035;  // danger-darker
+	case OSDType::MESSAGE_WARNING: return 0xd99e00;  // warning-darker
+	case OSDType::MESSAGE_INFO: return 0x606770;  // gray-700
+	case OSDType::MESSAGE_SUCCESS: return 0x008b00;
+	default: return 0x606770;
+	}
+}
+
 void OnScreenMessagesView::Draw(UIContext &dc) {
 	if (!g_Config.bShowOnScreenMessages) {
 		return;
@@ -26,9 +38,9 @@ void OnScreenMessagesView::Draw(UIContext &dc) {
 
 	float y = 10.0f;
 	// Then draw them all. 
-	const std::vector<OnScreenDisplay::Message> messages = g_OSD.Messages();
+	const std::vector<OnScreenDisplay::Entry> entries = g_OSD.Entries();
 	double now = time_now_d();
-	for (auto iter = messages.begin(); iter != messages.end(); ++iter) {
+	for (auto iter = entries.begin(); iter != entries.end(); ++iter) {
 		float alpha = (iter->endTime - now) * 4.0f;
 		if (alpha > 1.0) alpha = 1.0f;
 		if (alpha < 0.0) alpha = 0.0f;
@@ -86,9 +98,9 @@ void OnScreenMessagesView::Draw(UIContext &dc) {
 
 std::string OnScreenMessagesView::DescribeText() const {
 	std::stringstream ss;
-	const auto &messages = g_OSD.Messages();
-	for (auto iter = messages.begin(); iter != messages.end(); ++iter) {
-		if (iter != messages.begin()) {
+	const auto &entries = g_OSD.Entries();
+	for (auto iter = entries.begin(); iter != entries.end(); ++iter) {
+		if (iter != entries.begin()) {
 			ss << "\n";
 		}
 		ss << iter->text;
