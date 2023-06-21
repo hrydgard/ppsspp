@@ -67,6 +67,7 @@ void RetroAchievementsSettingsScreen::sendMessage(const char *message, const cha
 
 void RetroAchievementsSettingsScreen::CreateAccountTab(UI::ViewGroup *viewGroup) {
 	auto ac = GetI18NCategory(I18NCat::ACHIEVEMENTS);
+	auto di = GetI18NCategory(I18NCat::DIALOG);
 
 	using namespace UI;
 
@@ -78,23 +79,41 @@ void RetroAchievementsSettingsScreen::CreateAccountTab(UI::ViewGroup *viewGroup)
 		});
 	} else {
 		// TODO: Add UI for platforms that don't support System_AskUsernamePassword.
-		viewGroup->Add(new Choice(ac->T("Log in to RetroAchievements")))->OnClick.Add([=](UI::EventParams &) -> UI::EventReturn {
-			System_AskUsernamePassword(ac->T("Log in"), [](const std::string &value, int) {
-				std::vector<std::string> parts;
-				SplitString(value, '\n', parts);
-				if (parts.size() == 2 && !parts[0].empty() && !parts[1].empty()) {
-					Achievements::LoginAsync(parts[0].c_str(), parts[1].c_str());
-				}
+		if (System_GetPropertyBool(SYSPROP_HAS_LOGIN_DIALOG)) {
+			viewGroup->Add(new Choice(ac->T("Log in to RetroAchievements")))->OnClick.Add([=](UI::EventParams &) -> UI::EventReturn {
+				System_AskUsernamePassword(ac->T("Log in"), [](const std::string &value, int) {
+					std::vector<std::string> parts;
+					SplitString(value, '\n', parts);
+					if (parts.size() == 2 && !parts[0].empty() && !parts[1].empty()) {
+						Achievements::LoginAsync(parts[0].c_str(), parts[1].c_str());
+					}
+					});
+				return UI::EVENT_DONE;
 			});
-			return UI::EVENT_DONE;
-		});
+		} else {
+			// Hack up a temporary quick login-form-ish-thing
+			viewGroup->Add(new PopupTextInputChoice(&username_, "Username", "", 128, screenManager()));
+			viewGroup->Add(new PopupTextInputChoice(&password_, "Password", "", 128, screenManager()));
+			viewGroup->Add(new Choice(ac->T("Log in")))->OnClick.Add([=](UI::EventParams &) -> UI::EventReturn {
+				if (!username_.empty() && !password_.empty()) {
+					Achievements::LoginAsync(username_.c_str(), password_.c_str());
+				}
+				return UI::EVENT_DONE;
+			});
+		}
 		viewGroup->Add(new Choice(ac->T("Register on www.retroachievements.org")))->OnClick.Add([&](UI::EventParams &) -> UI::EventReturn {
 			System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://retroachievements.org/createaccount.php");
 			return UI::EVENT_DONE;
 		});
 	}
-	viewGroup->Add(new Choice(ac->T("About RetroAchievements")))->OnClick.Add([&](UI::EventParams &) -> UI::EventReturn {
+
+	viewGroup->Add(new ItemHeader(di->T("Links")));
+	viewGroup->Add(new Choice(ac->T("RetroAchievements website")))->OnClick.Add([&](UI::EventParams &) -> UI::EventReturn {
 		System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://www.retroachievements.org/");
+		return UI::EVENT_DONE;
+	});
+	viewGroup->Add(new Choice(ac->T("How to use RetroAchievements")))->OnClick.Add([&](UI::EventParams &) -> UI::EventReturn {
+		System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://www.ppsspp.org/docs/reference/retro-achievements");
 		return UI::EVENT_DONE;
 	});
 }

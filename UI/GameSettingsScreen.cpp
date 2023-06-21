@@ -851,12 +851,12 @@ void GameSettingsScreen::CreateSystemSettings(UI::ViewGroup *systemSettings) {
 	auto vr = GetI18NCategory(I18NCat::VR);
 	auto th = GetI18NCategory(I18NCat::THEMES);
 
-	systemSettings->Add(new Choice(sy->T("Achievements")))->OnClick.Add([&](UI::EventParams &) -> UI::EventReturn {
+	systemSettings->Add(new ItemHeader(sy->T("UI")));
+
+	systemSettings->Add(new Choice(sy->T("RetroAchievements")))->OnClick.Add([&](UI::EventParams &) -> UI::EventReturn {
 		screenManager()->push(new RetroAchievementsSettingsScreen(gamePath_));
 		return UI::EVENT_DONE;
 	});
-
-	systemSettings->Add(new ItemHeader(sy->T("UI")));
 
 	auto langCodeToName = [](const char *value) -> std::string {
 		auto &mapping = g_Config.GetLangValuesMapping();
