@@ -51,6 +51,16 @@ public:
 
 	IconCacheStats GetStats();
 
+	// for testing
+	std::string GetFirstIconName() const {
+		if (!cache_.empty()) {
+			return cache_.begin()->first;
+		} else if (!pending_.empty()) {
+			return *pending_.begin();
+		}
+		return "";
+	}
+
 private:
 	struct Entry {
 		std::string data;

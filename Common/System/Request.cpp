@@ -40,7 +40,7 @@ std::vector<OnScreenDisplay::ProgressBar> OnScreenDisplay::ProgressBars() {
 	return bars_;  // makes a copy.
 }
 
-void OnScreenDisplay::Show(OSDType type, const std::string &text, const std::string &text2, float duration_s, const char *id) {
+void OnScreenDisplay::Show(OSDType type, const std::string &text, const std::string &text2, const std::string &icon, float duration_s, const char *id) {
 	// Automatic duration based on type.
 	if (duration_s <= 0.0f) {
 		switch (type) {
@@ -70,6 +70,7 @@ void OnScreenDisplay::Show(OSDType type, const std::string &text, const std::str
 				msg.text = text;
 				msg.text2 = text2;
 				msg.type = type;
+				msg.iconName = icon;
 				// Move to top (should we? maybe not?)
 				entries_.erase(iter);
 				entries_.insert(entries_.begin(), msg);
@@ -81,6 +82,8 @@ void OnScreenDisplay::Show(OSDType type, const std::string &text, const std::str
 	Entry msg;
 	msg.text = text;
 	msg.text2 = text2;
+	msg.iconName = icon;
+	msg.startTime = now;
 	msg.endTime = now + duration_s;
 	msg.type = type;
 	msg.id = id;

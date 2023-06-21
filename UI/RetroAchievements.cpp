@@ -110,7 +110,7 @@ void OSDAddToast(float duration_s, const std::string &text) {
 }
 
 void OSDAddNotification(float duration_s, const std::string &title, const std::string &summary, const std::string &iconImageData) {
-	g_OSD.Show(OSDType::MESSAGE_INFO, title);
+	g_OSD.Show(OSDType::MESSAGE_INFO, title, summary, iconImageData, 5.0f);
 }
 
 void OSDAddAchievementUnlockedNotification(unsigned int achievementId) {

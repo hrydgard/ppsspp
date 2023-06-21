@@ -237,7 +237,10 @@ public:
 	void Show(OSDType type, const std::string &text, float duration_s = 0.0f, const char *id = nullptr) {
 		Show(type, text, "", duration_s, id);
 	}
-	void Show(OSDType type, const std::string &text, const std::string &text2, float duration_s = 0.0f, const char *id = nullptr);
+	void Show(OSDType type, const std::string &text, const std::string &text2, float duration_s = 0.0f, const char *id = nullptr) {
+		Show(type, text, "", "", duration_s, id);
+	}
+	void Show(OSDType type, const std::string &text, const std::string &text2, const std::string &icon, float duration_s = 0.0f, const char *id = nullptr);
 	void ShowAchievementUnlocked(int achievementID);
 
 	void ShowOnOff(const std::string &message, bool on, float duration_s = 0.0f);

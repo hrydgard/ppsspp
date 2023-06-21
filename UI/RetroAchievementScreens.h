@@ -8,14 +8,19 @@
 #include "Common/File/Path.h"
 #include "UI/RetroAchievements.h"
 
-class RetroAchievementsListScreen : public UIDialogScreenWithGameBackground {
+// Lists the achievements and leaderboards for one game.
+class RetroAchievementsListScreen : public TabbedUIDialogScreenWithGameBackground {
 public:
-	RetroAchievementsListScreen(const Path &gamePath) : UIDialogScreenWithGameBackground(gamePath) {}
+	RetroAchievementsListScreen(const Path &gamePath) : TabbedUIDialogScreenWithGameBackground(gamePath) {}
 	const char *tag() const override { return "RetroAchievementsListScreen"; }
 
-	void CreateViews() override;
+	void CreateTabs() override;
+
+protected:
+	bool ShowSearchControls() const override { return false; }
 };
 
+// Lets you manage your account, and shows some achievement stats and stuff.
 class RetroAchievementsSettingsScreen : public TabbedUIDialogScreenWithGameBackground {
 public:
 	RetroAchievementsSettingsScreen(const Path &gamePath) : TabbedUIDialogScreenWithGameBackground(gamePath) {}
@@ -40,7 +45,7 @@ enum class AchievementRenderStyle {
 };
 
 void MeasureAchievement(const UIContext &dc, const Achievements::Achievement &achievement, float *w, float *h);
-void RenderAchievement(UIContext &dc, const Achievements::Achievement &achievement, AchievementRenderStyle style, const Bounds &bounds, float alpha);
+void RenderAchievement(UIContext &dc, const Achievements::Achievement &achievement, AchievementRenderStyle style, const Bounds &bounds, float alpha, float startTime, float time_s);
 void MeasureGameAchievementSummary(const UIContext &dc, int gameID, float *w, float *h);
 void RenderGameAchievementSummary(UIContext &dc, int gameID, const Bounds &bounds, float alpha);
 

@@ -9,21 +9,22 @@
 
 #include "Core/Config.h"
 
-void RetroAchievementsListScreen::CreateViews() {
+void RetroAchievementsListScreen::CreateTabs() {
 	auto di = GetI18NCategory(I18NCat::DIALOG);
 	auto ac = GetI18NCategory(I18NCat::ACHIEVEMENTS);
 
 	using namespace UI;
 
-	root_ = new ScrollView(UI::ORIENT_VERTICAL);
+	LinearLayout *achievements = AddTab("Achievements", ac->T("Achievements"));
 
-	LinearLayout *listLayout = root_->Add(new LinearLayout(UI::ORIENT_VERTICAL));
-	listLayout->SetSpacing(5.0f);
+	achievements->SetSpacing(5.0f);
 
 	std::vector<Achievements::Achievement> unlockedAchievements;
 	std::vector<Achievements::Achievement> lockedAchievements;
 
-	listLayout->Add(new GameAchievementSummaryView(Achievements::GetGameID()));
+	achievements->Add(new ItemHeader(ac->T("Achievements")));
+
+	achievements->Add(new GameAchievementSummaryView(Achievements::GetGameID()));
 
 	Achievements::EnumerateAchievements([&](const Achievements::Achievement &achievement) {
 		if (achievement.locked) {
@@ -34,13 +35,13 @@ void RetroAchievementsListScreen::CreateViews() {
 		return true;
 	});
 
-	listLayout->Add(new ItemHeader(ac->T("Unlocked achievements")));
+	achievements->Add(new ItemHeader(ac->T("Unlocked achievements")));
 	for (auto achievement : unlockedAchievements) {
-		listLayout->Add(new AchievementView(achievement));
+		achievements->Add(new AchievementView(achievement));
 	}
-	listLayout->Add(new ItemHeader(ac->T("Locked achievements")));
+	achievements->Add(new ItemHeader(ac->T("Locked achievements")));
 	for (auto achievement : lockedAchievements) {
-		listLayout->Add(new AchievementView(achievement));
+		achievements->Add(new AchievementView(achievement));
 	}
 }
 
@@ -117,20 +118,27 @@ void RetroAchievementsSettingsScreen::CreateSettingsTab(UI::ViewGroup *viewGroup
 
 void MeasureAchievement(const UIContext &dc, const Achievements::Achievement &achievement, float *w, float *h) {
 	*w = 0.0f;
-	*h = 60.0f;
+	*h = 72.0f;
 }
 
 void MeasureGameAchievementSummary(const UIContext &dc, int gameID, float *w, float *h) {
 	*w = 0.0f;
-	*h = 60.0f;
+	*h = 72.0f;
 }
 
 // Graphical
-void RenderAchievement(UIContext &dc, const Achievements::Achievement &achievement, AchievementRenderStyle style, const Bounds &bounds, float alpha) {
+void RenderAchievement(UIContext &dc, const Achievements::Achievement &achievement, AchievementRenderStyle style, const Bounds &bounds, float alpha, float startTime, float time_s) {
 	using namespace UI;
-	UI::Drawable background = achievement.locked ? dc.theme->popupStyle.background : dc.theme->itemStyle.background;
-
+	UI::Drawable background = dc.theme->itemStyle.background;
+	if (achievement.locked) {
+		background.color = 0x706060;
+	}
 	background.color = colorAlpha(background.color, alpha);
+
+	if (style == AchievementRenderStyle::UNLOCKED) {
+		float mixWhite = pow(Clamp((float)(1.0f - (time_s - startTime)), 0.0f, 1.0f), 3.0f);
+		background.color = colorBlend(0xFFE0FFFF, background.color, mixWhite);
+	}
 
 	float iconSpace = 64.0f;
 	dc.Flush();
@@ -138,11 +146,13 @@ void RenderAchievement(UIContext &dc, const Achievements::Achievement &achieveme
 	dc.Begin();
 	dc.FillRect(background, bounds);
 
+	dc.SetFontStyle(dc.theme->uiFont);
+
 	dc.SetFontScale(1.0f, 1.0f);
-	dc.DrawTextRect(achievement.title.c_str(), bounds.Inset(iconSpace + 5.0f, 5.0f, 5.0f, 5.0f), dc.theme->itemStyle.fgColor, ALIGN_TOPLEFT);
+	dc.DrawTextRect(achievement.title.c_str(), bounds.Inset(iconSpace + 12.0f, 2.0f, 5.0f, 5.0f), dc.theme->itemStyle.fgColor, ALIGN_TOPLEFT);
 
 	dc.SetFontScale(0.66f, 0.66f);
-	dc.DrawTextRect(achievement.description.c_str(), bounds.Inset(iconSpace + 5.0f, 37.0f, 5.0f, 5.0f), dc.theme->itemStyle.fgColor, ALIGN_TOPLEFT);
+	dc.DrawTextRect(achievement.description.c_str(), bounds.Inset(iconSpace + 12.0f, 39.0f, 5.0f, 5.0f), dc.theme->itemStyle.fgColor, ALIGN_TOPLEFT);
 
 	char temp[64];
 	snprintf(temp, sizeof(temp), "%d", achievement.points);
@@ -155,7 +165,7 @@ void RenderAchievement(UIContext &dc, const Achievements::Achievement &achieveme
 
 	std::string name = Achievements::GetAchievementBadgePath(achievement);
 	if (g_iconCache.BindIconTexture(&dc, name)) {
-		dc.Draw()->DrawTexRect(Bounds(bounds.x, bounds.y, iconSpace, iconSpace), 0.0f, 0.0f, 1.0f, 1.0f, 0xFFFFFFFF);
+		dc.Draw()->DrawTexRect(Bounds(bounds.x + 4.0f, bounds.y + 4.0f, iconSpace, iconSpace), 0.0f, 0.0f, 1.0f, 1.0f, 0xFFFFFFFF);
 	}
 
 	dc.Flush();
@@ -174,14 +184,16 @@ void RenderGameAchievementSummary(UIContext &dc, int gameID, const Bounds &bound
 	dc.Begin();
 	dc.FillRect(background, bounds);
 
+	dc.SetFontStyle(dc.theme->uiFont);
+
 	dc.SetFontScale(1.0f, 1.0f);
-	dc.DrawTextRect(Achievements::GetGameTitle().c_str(), bounds.Inset(iconSpace + 5.0f, 5.0f, 5.0f, 5.0f), dc.theme->itemStyle.fgColor, ALIGN_TOPLEFT);
+	dc.DrawTextRect(Achievements::GetGameTitle().c_str(), bounds.Inset(iconSpace + 5.0f, 2.0f, 5.0f, 5.0f), dc.theme->itemStyle.fgColor, ALIGN_TOPLEFT);
 
 	std::string description = Achievements::GetGameAchievementSummary();
 	std::string icon = Achievements::GetGameIcon();
 
 	dc.SetFontScale(0.66f, 0.66f);
-	dc.DrawTextRect(description.c_str(), bounds.Inset(iconSpace + 5.0f, 30.0f, 5.0f, 5.0f), dc.theme->itemStyle.fgColor, ALIGN_TOPLEFT);
+	dc.DrawTextRect(description.c_str(), bounds.Inset(iconSpace + 5.0f, 38.0f, 5.0f, 5.0f), dc.theme->itemStyle.fgColor, ALIGN_TOPLEFT);
 
 	dc.SetFontScale(1.0f, 1.0f);
 	dc.Flush();
@@ -197,7 +209,7 @@ void RenderGameAchievementSummary(UIContext &dc, int gameID, const Bounds &bound
 
 
 void AchievementView::Draw(UIContext &dc) {
-	RenderAchievement(dc, achievement_, AchievementRenderStyle::LISTED, bounds_, 0.0f);
+	RenderAchievement(dc, achievement_, AchievementRenderStyle::LISTED, bounds_, 0.0f, 0.0f, 0.0f);
 }
 
 void AchievementView::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
