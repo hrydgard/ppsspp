@@ -72,6 +72,11 @@ SDLJoystick *joystick = NULL;
 #include "CocoaBarItems.h"
 #endif
 
+#if PPSSPP_PLATFORM(SWITCH)
+#define LIBNX_SWKBD_LIMIT 500 // enforced by HOS
+extern u32 __nx_applet_type; // Not exposed through a header?
+#endif
+
 GlobalUIState lastUIState = UISTATE_MENU;
 GlobalUIState GetUIState();
 
@@ -198,6 +203,37 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 		// Do a clean exit
 		g_QuitRequested = true;
 		return true;
+#if PPSSPP_PLATFORM(SWITCH)
+	case SystemRequestType::INPUT_TEXT_MODAL: {
+		Result rc;
+		SwkbdConfig kbd;
+		// swkbd only works on "real" titles
+		if (__nx_applet_type != AppletType_Application && __nx_applet_type != AppletType_SystemApplication) {
+			g_requestManager.PostSystemFailure(requestId);
+			return true;
+		}
+
+		rc = swkbdCreate(&kbd, 0);
+
+		if (R_SUCCEEDED(rc)) {
+			char buf[LIBNX_SWKBD_LIMIT] = {'\0'};
+			swkbdConfigMakePresetDefault(&kbd);
+
+			swkbdConfigSetHeaderText(&kbd, param1.c_str());
+			swkbdConfigSetInitialText(&kbd, param2.c_str());
+
+			rc = swkbdShow(&kbd, buf, sizeof(buf));
+
+			swkbdClose(&kbd);
+
+			g_requestManager.PostSystemSuccess(requestId, buf);
+			return true;
+		}
+
+		g_requestManager.PostSystemFailure(requestId);
+		return true;
+	}
+#endif // PPSSPP_PLATFORM(SWITCH)
 #if PPSSPP_PLATFORM(MAC) || PPSSPP_PLATFORM(IOS)
 	case SystemRequestType::BROWSE_FOR_FILE:
 	{
