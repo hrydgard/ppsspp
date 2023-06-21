@@ -353,6 +353,7 @@ bool System_GetPropertyBool(SystemProperty prop) {
 	case SYSPROP_HAS_FILE_BROWSER:
 	case SYSPROP_HAS_FOLDER_BROWSER:
 	case SYSPROP_HAS_OPEN_DIRECTORY:
+	case SYSPROP_HAS_TEXT_INPUT_DIALOG:
 		return true;
 	case SYSPROP_HAS_IMAGE_BROWSER:
 		return true;
