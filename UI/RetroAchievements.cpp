@@ -1391,6 +1391,29 @@ void Achievements::GetPatches(u32 game_id)
 	request.Send(GetPatchesCallback);
 }
 
+// File reader that can handle Path (and thus Android storage and stuff).
+static void *ac_open(const char *utf8Path) {
+	Path path(utf8Path);
+	FILE *f = File::OpenCFile(path, "rb");
+	return (void *)f;
+}
+
+static void ac_seek(void *file_handle, int64_t offset, int origin) {
+	fseek((FILE *)file_handle, offset, origin);
+}
+
+static int64_t ac_tell(void *file_handle) {
+	return ftell((FILE *)file_handle);
+}
+
+static size_t ac_read(void *file_handle, void *buffer, size_t requested_bytes) {
+	return fread(buffer, 1, requested_bytes, (FILE *)file_handle);
+}
+
+static void ac_close(void *file_handle) {
+	fclose((FILE *)file_handle);
+}
+
 std::string Achievements::GetGameHash(const Path &path)
 {
 	// According to https://docs.retroachievements.org/Game-Identification/, we should simply
@@ -1403,44 +1426,24 @@ std::string Achievements::GetGameHash(const Path &path)
 	// We will need to reimplement it properly (hash some zeroes I guess, below) to handle file types
 	// that the cdreader can't handle (or we make a custom cdreader) but for now we just return orig_hash_str.
 
+	rc_hash_filereader rc_filereader;
+	rc_filereader.open = &ac_open;
+	rc_filereader.seek = &ac_seek;
+	rc_filereader.tell = &ac_tell;
+	rc_filereader.read = &ac_read;
+	rc_filereader.close = &ac_close;
+
+	rc_hash_init_custom_filereader(&rc_filereader);
 	rc_hash_init_default_cdreader();
 
 	char orig_hash_str[33]{};
-	std::string ppath = path.ToCString();
+	std::string ppath = path.ToString();
 
-	rc_hash_generate_from_file(orig_hash_str, RC_CONSOLE_PSP, ppath.c_str());
+	if (0 == rc_hash_generate_from_file(orig_hash_str, RC_CONSOLE_PSP, ppath.c_str())) {
+		ERROR_LOG(ACHIEVEMENTS, "Failed to generate hash from file: %s", ppath.c_str());
+		return "";
+	}
 
-	const char *paramSFO = "disc0:/PSP_GAME/PARAM.SFO";
-	const char *ebootBIN = "disc0:/PSP_GAME/SYSDIR/EBOOT.BIN";
-
-	std::vector<uint8_t> paramSFOContents;
-	std::vector<uint8_t> ebootContents;
-
-	pspFileSystem.ReadEntireFile(paramSFO, paramSFOContents);
-	pspFileSystem.ReadEntireFile(ebootBIN, ebootContents);
-
-	uint8_t hash[16]{};
-	md5_state_t md5;
-	md5_init(&md5);
-	md5_append(&md5, paramSFOContents.data(), (int)paramSFOContents.size());
-	md5_append(&md5, ebootContents.data(), (int)ebootContents.size());
-	md5_finish(&md5, hash);
-
-	/*
-	md5_context md5ctx{};
-	ppsspp_md5_starts(&md5ctx);
-	ppsspp_md5_update(&md5ctx, paramSFOContents.data(), (int)paramSFOContents.size());
-	ppsspp_md5_update(&md5ctx, ebootContents.data(), (int)ebootContents.size());
-	ppsspp_md5_finish(&md5ctx, hash);
-	*/
-
-	// This is straight from rc_hash_finalize
-	size_t hash_size = 0;
-	std::string hash_str(StringFromFormat(
-		"%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x", hash[0], hash[1], hash[2], hash[3], hash[4],
-		hash[5], hash[6], hash[7], hash[8], hash[9], hash[10], hash[11], hash[12], hash[13], hash[14], hash[15]));
-
-	INFO_LOG(ACHIEVEMENTS, "Hash for '%s' & '%s' (%u bytes, %u bytes hashed): %s", paramSFO, ebootBIN, (int)paramSFOContents.size(), (int)ebootContents.size(), hash_str.c_str());
 	return std::string(orig_hash_str);
 }
 
