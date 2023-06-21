@@ -1983,8 +1983,7 @@ void Achievements::AchievementDisabled(u32 achievement_id)
 		return;
 
 	// Have not seen this trigger yet, despite games doing bad memory accesses.
-	INFO_LOG(ACHIEVEMENTS, "Achievement disabled due to invalid memory access: %s", achievement->title);
-
+	INFO_LOG(ACHIEVEMENTS, "Achievement disabled due to invalid memory access: %s", achievement->title.c_str());
 	achievement->disabled = true;
 }
 
