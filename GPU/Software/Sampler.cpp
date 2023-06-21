@@ -720,7 +720,28 @@ static Vec4IntResult SOFTRAST_CALL SampleLinearLevel(float s, float t, const u8 
 	const Vec4<int> u = GetTexelCoordinatesQuadS(texlevel, s, frac_u, samplerID);
 	const Vec4<int> v = GetTexelCoordinatesQuadT(texlevel, t, frac_v, samplerID);
 	Nearest4 c = SampleNearest<4>(u.AsArray(), v.AsArray(), tptr[0], bufw[0], texlevel, samplerID);
-
+#ifdef _M_SSE
+	__m128i zero = _mm_setzero_si128();
+	__m128i samples = _mm_loadu_si128((const __m128i*)(c.v));
+	__m128i top = _mm_unpacklo_epi8(samples, zero);
+	__m128i bot = _mm_unpackhi_epi8(samples, zero);
+	// I just a want reasonably efficient
+	// __m128i mul_u = _mm_setr_epi16(0x10 - frac_u, 0x10 - frac_u, 0x10 - frac_u, 0x10 - frac_u, frac_u, frac_u, frac_u, frac_u);
+	// GCC/clang do something decent for that, MSVC - not so much.
+	// Hence this. (0x10 - frac_u) is expressed as (frac_u ^ 0xF) + 1,
+	// which REQUIRES 0 <= frac_u < 0x10.
+	__m128i mul_u =	_mm_set1_epi16(frac_u);
+	mul_u = _mm_xor_si128(mul_u, _mm_setr_epi16(0xF, 0xF, 0xF, 0xF, 0x0, 0x0, 0x0, 0x0));
+	mul_u = _mm_add_epi16(mul_u, _mm_setr_epi16(0x1, 0x1, 0x1, 0x1, 0x0, 0x0, 0x0, 0x0));
+	top = _mm_mullo_epi16(top, _mm_set1_epi16(0x10 - frac_v));
+	bot = _mm_mullo_epi16(bot, _mm_set1_epi16(frac_v));
+	__m128i sum = _mm_add_epi16(top, bot);
+	sum = _mm_mullo_epi16(sum, mul_u);
+	sum = _mm_add_epi16(sum, _mm_shuffle_epi32(sum, _MM_SHUFFLE(3, 2, 3, 2)));
+	sum = _mm_srli_epi16(sum, 8);
+	sum = _mm_unpacklo_epi16(sum, zero);
+	return sum;
+#else
 	Vec4<int> texcolor_tl = Vec4<int>::FromRGBA(c.v[0]);
 	Vec4<int> texcolor_tr = Vec4<int>::FromRGBA(c.v[1]);
 	Vec4<int> texcolor_bl = Vec4<int>::FromRGBA(c.v[2]);
@@ -728,6 +749,7 @@ static Vec4IntResult SOFTRAST_CALL SampleLinearLevel(float s, float t, const u8 
 	Vec4<int> top = texcolor_tl * (0x10 - frac_u) + texcolor_tr * frac_u;
 	Vec4<int> bot = texcolor_bl * (0x10 - frac_u) + texcolor_br * frac_u;
 	return ToVec4IntResult((top * (0x10 - frac_v) + bot * frac_v) / (16 * 16));
+#endif
 }
 
 static Vec4IntResult SOFTRAST_CALL SampleLinear(float s, float t, Vec4IntArg prim_color, const u8 *const *tptr, const uint16_t *bufw, int texlevel, int levelFrac, const SamplerID &samplerID) {
