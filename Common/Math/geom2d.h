@@ -72,6 +72,9 @@ struct Bounds {
 	Bounds Offset(float xAmount, float yAmount) const {
 		return Bounds(x + xAmount, y + yAmount, w, h);
 	}
+	Bounds Inset(float left, float top, float right, float bottom) {
+		return Bounds(x + left, y + top, w - left - right, h - bottom - top);
+	}
 
 	float x;
 	float y;

@@ -228,7 +228,10 @@ enum class OSDType {
 class OnScreenDisplay {
 public:
 	// If you specify 0.0f as duration, a duration will be chosen automatically depending on type.
-	void Show(OSDType type, const std::string &message, float duration_s = 0.0f, const char *id = nullptr);
+	void Show(OSDType type, const std::string &text, float duration_s = 0.0f, const char *id = nullptr) {
+		Show(type, text, "", duration_s, id);
+	}
+	void Show(OSDType type, const std::string &text, const std::string &text2, float duration_s = 0.0f, const char *id = nullptr);
 	void ShowOnOff(const std::string &message, bool on, float duration_s = 0.0f);
 
 	bool IsEmpty() const { return entries_.empty(); }  // Shortcut to skip rendering.
@@ -236,18 +239,35 @@ public:
 	// Call this every frame, cleans up old entries.
 	void Update();
 
+	// Progress bar controls
+	// Set is both create and update.
+	void SetProgressBar(std::string id, std::string &&message, int minValue, int maxValue, int progress);
+	void RemoveProgressBar(std::string id, float fadeout_s);
+
 	struct Entry {
 		OSDType type;
 		std::string text;
+		std::string text2;
 		const char *id;
 		double endTime;
 		double duration;
-		float progress;
 	};
+
+	struct ProgressBar {
+		std::string id;
+		std::string message;
+		int minValue;
+		int maxValue;
+		int progress;
+		double endTime;
+	};
+
 	std::vector<Entry> Entries();
+	std::vector<ProgressBar> ProgressBars();
 
 private:
 	std::vector<Entry> entries_;
+	std::vector<ProgressBar> bars_;
 	std::mutex mutex_;
 };
 

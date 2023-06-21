@@ -229,6 +229,8 @@ bool EmuScreen::bootAllowStorage(const Path &filename) {
 }
 
 void EmuScreen::bootGame(const Path &filename) {
+	auto sc = GetI18NCategory(I18NCat::SCREEN);
+
 	if (PSP_IsRebooting())
 		return;
 	if (PSP_IsInited()) {
@@ -258,8 +260,6 @@ void EmuScreen::bootGame(const Path &filename) {
 	// Check permission status first, in case we came from a shortcut.
 	if (!bootAllowStorage(filename))
 		return;
-
-	auto sc = GetI18NCategory(I18NCat::SCREEN);
 
 	invalid_ = true;
 
