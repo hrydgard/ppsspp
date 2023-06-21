@@ -78,27 +78,31 @@ void TabbedUIDialogScreenWithGameBackground::CreateViews() {
 	// Let the subclass create its tabs.
 	CreateTabs();
 
-#if !defined(MOBILE_DEVICE) || PPSSPP_PLATFORM(ANDROID)
-	// Hide search if screen is too small.
-	int deviceType = System_GetPropertyInt(SYSPROP_DEVICE_TYPE);
-	if ((g_display.dp_xres < g_display.dp_yres || g_display.dp_yres >= 500) && (deviceType != DEVICE_TYPE_VR) && ShowSearchControls()) {
-		auto se = GetI18NCategory(I18NCat::SEARCH);
-		// Search
-		LinearLayout *searchSettings = AddTab("GameSettingsSearch", ms->T("Search"), true);
+	if (System_GetPropertyBool(SYSPROP_HAS_KEYBOARD) || System_GetPropertyBool(SYSPROP_HAS_TEXT_INPUT_DIALOG)) {
+		// Hide search if screen is too small.
+		int deviceType = System_GetPropertyInt(SYSPROP_DEVICE_TYPE);
+		if ((g_display.dp_xres < g_display.dp_yres || g_display.dp_yres >= 500) && (deviceType != DEVICE_TYPE_VR) && ShowSearchControls()) {
+			auto se = GetI18NCategory(I18NCat::SEARCH);
+			// Search
+			LinearLayout *searchSettings = AddTab("GameSettingsSearch", ms->T("Search"), true);
 
-		searchSettings->Add(new ItemHeader(se->T("Find settings")));
-		if (System_GetPropertyBool(SYSPROP_HAS_KEYBOARD)) {
-			searchSettings->Add(new ChoiceWithValueDisplay(&searchFilter_, se->T("Filter"), I18NCat::NONE))->OnClick.Handle(this, &TabbedUIDialogScreenWithGameBackground::OnChangeSearchFilter);
-		} else {
-			searchSettings->Add(new PopupTextInputChoice(&searchFilter_, se->T("Filter"), "", 64, screenManager()))->OnChange.Handle(this, &TabbedUIDialogScreenWithGameBackground::OnChangeSearchFilter);
+			searchSettings->Add(new ItemHeader(se->T("Find settings")));
+			searchSettings->Add(new PopupTextInputChoice(&searchFilter_, se->T("Filter"), "", 64, screenManager()))->OnChange.Add([=](UI::EventParams &e) {
+				NativeMessageReceived("gameSettings_search", StripSpaces(searchFilter_).c_str());
+				return UI::EVENT_DONE;
+			});
+
+			clearSearchChoice_ = searchSettings->Add(new Choice(se->T("Clear filter")));
+			clearSearchChoice_->OnClick.Add([=](UI::EventParams &e) {
+				NativeMessageReceived("gameSettings_search", "");
+				return UI::EVENT_DONE;
+			});
+
+			noSearchResults_ = searchSettings->Add(new TextView(se->T("No settings matched '%1'"), new LinearLayoutParams(Margins(20, 5))));
+
+			ApplySearchFilter();
 		}
-		clearSearchChoice_ = searchSettings->Add(new Choice(se->T("Clear filter")));
-		clearSearchChoice_->OnClick.Handle(this, &TabbedUIDialogScreenWithGameBackground::OnClearSearchFilter);
-		noSearchResults_ = searchSettings->Add(new TextView(se->T("No settings matched '%1'"), new LinearLayoutParams(Margins(20, 5))));
-
-		ApplySearchFilter();
 	}
-#endif
 }
 
 void TabbedUIDialogScreenWithGameBackground::sendMessage(const char *message, const char *value) {
@@ -152,22 +156,4 @@ void TabbedUIDialogScreenWithGameBackground::ApplySearchFilter() {
 	noSearchResults_->SetText(ReplaceAll(se->T("No settings matched '%1'"), "%1", searchFilter_));
 	noSearchResults_->SetVisibility(matches ? UI::V_GONE : UI::V_VISIBLE);
 	clearSearchChoice_->SetVisibility(searchFilter_.empty() ? UI::V_GONE : UI::V_VISIBLE);
-}
-
-UI::EventReturn TabbedUIDialogScreenWithGameBackground::OnChangeSearchFilter(UI::EventParams &e) {
-#if PPSSPP_PLATFORM(WINDOWS) || defined(USING_QT_UI) || defined(__ANDROID__) || PPSSPP_PLATFORM(SWITCH)
-	auto se = GetI18NCategory(I18NCat::SEARCH);
-	System_InputBoxGetString(se->T("Search term"), searchFilter_, [](const std::string &value, int) {
-		NativeMessageReceived("gameSettings_search", StripSpaces(value).c_str());
-		});
-#else
-	if (!System_GetPropertyBool(SYSPROP_HAS_KEYBOARD))
-		NativeMessageReceived("gameSettings_search", StripSpaces(searchFilter_).c_str());
-#endif
-	return UI::EVENT_DONE;
-}
-
-UI::EventReturn TabbedUIDialogScreenWithGameBackground::OnClearSearchFilter(UI::EventParams &e) {
-	NativeMessageReceived("gameSettings_search", "");
-	return UI::EVENT_DONE;
 }

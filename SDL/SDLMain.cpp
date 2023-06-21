@@ -513,6 +513,10 @@ bool System_GetPropertyBool(SystemProperty prop) {
 #endif
 	case SYSPROP_HAS_BACK_BUTTON:
 		return true;
+#if PPSSPP_PLATFORM(SWITCH)
+	case SYSPROP_HAS_TEXT_INPUT_DIALOG:
+		return true;
+#endif
 	case SYSPROP_APP_GOLD:
 #ifdef GOLD
 		return true;

@@ -502,6 +502,8 @@ EventReturn PopupTextInputChoice::HandleClick(EventParams &e) {
 	if (System_GetPropertyBool(SYSPROP_HAS_TEXT_INPUT_DIALOG)) {
 		System_InputBoxGetString(text_, *value_ , [=](const std::string &enteredValue, int) {
 			*value_ = StripSpaces(enteredValue);
+			EventParams params{};
+			OnChange.Trigger(params);
 		});
 		return EVENT_DONE;
 	}
