@@ -365,6 +365,7 @@ private:
 	bool hasDropShadow_ = true;
 };
 
+// NOTE: This one will defer to a system-native dialog if possible.
 class PopupTextInputChoice : public AbstractChoiceWithValueDisplay {
 public:
 	PopupTextInputChoice(std::string *value, const std::string &title, const std::string &placeholder, int maxLen, ScreenManager *screenManager, LayoutParams *layoutParams = 0);

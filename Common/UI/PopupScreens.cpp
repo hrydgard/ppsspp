@@ -8,6 +8,8 @@
 #include "Common/UI/Root.h"
 #include "Common/StringUtils.h"
 #include "Common/Data/Text/I18n.h"
+#include "Common/System/System.h"
+#include "Common/System/Request.h"
 
 namespace UI {
 
@@ -495,6 +497,14 @@ PopupTextInputChoice::PopupTextInputChoice(std::string *value, const std::string
 
 EventReturn PopupTextInputChoice::HandleClick(EventParams &e) {
 	restoreFocus_ = HasFocus();
+
+	// Choose method depending on platform capabilities.
+	if (System_GetPropertyBool(SYSPROP_HAS_TEXT_INPUT_DIALOG)) {
+		System_InputBoxGetString(text_, *value_ , [=](const std::string &enteredValue, int) {
+			*value_ = StripSpaces(enteredValue);
+		});
+		return EVENT_DONE;
+	}
 
 	TextEditPopupScreen *popupScreen = new TextEditPopupScreen(value_, placeHolder_, ChopTitle(text_), maxLen_);
 	popupScreen->OnChange.Handle(this, &PopupTextInputChoice::HandleChange);
