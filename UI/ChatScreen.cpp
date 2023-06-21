@@ -90,12 +90,12 @@ void ChatMenu::CreateSubviews(const Bounds &screenBounds) {
 }
 
 UI::EventReturn ChatMenu::OnSubmit(UI::EventParams &e) {
-#if PPSSPP_PLATFORM(WINDOWS) || defined(USING_QT_UI) || defined(SDL)
+#if PPSSPP_PLATFORM(WINDOWS) || defined(USING_QT_UI) || (defined(SDL) && !PPSSPP_PLATFORM(SWITCH))
 	std::string chat = chatEdit_->GetText();
 	chatEdit_->SetText("");
 	chatEdit_->SetFocus();
 	sendChat(chat);
-#elif PPSSPP_PLATFORM(ANDROID)
+#elif PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(SWITCH)
 	auto n = GetI18NCategory(I18NCat::NETWORKING);
 	System_InputBoxGetString(n->T("Chat"), "", [](const std::string &value, int) {
 		sendChat(value);

@@ -1443,7 +1443,7 @@ UI::EventReturn GameSettingsScreen::OnAudioDevice(UI::EventParams &e) {
 }
 
 UI::EventReturn GameSettingsScreen::OnChangeQuickChat0(UI::EventParams &e) {
-#if PPSSPP_PLATFORM(WINDOWS) || defined(USING_QT_UI) || PPSSPP_PLATFORM(ANDROID)
+#if PPSSPP_PLATFORM(WINDOWS) || defined(USING_QT_UI) || PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(SWITCH)
 	auto n = GetI18NCategory(I18NCat::NETWORKING);
 	System_InputBoxGetString(n->T("Enter Quick Chat 1"), g_Config.sQuickChat0, [](const std::string &value, int) {
 		g_Config.sQuickChat0 = value;
@@ -1453,7 +1453,7 @@ UI::EventReturn GameSettingsScreen::OnChangeQuickChat0(UI::EventParams &e) {
 }
 
 UI::EventReturn GameSettingsScreen::OnChangeQuickChat1(UI::EventParams &e) {
-#if PPSSPP_PLATFORM(WINDOWS) || defined(USING_QT_UI) || PPSSPP_PLATFORM(ANDROID)
+#if PPSSPP_PLATFORM(WINDOWS) || defined(USING_QT_UI) || PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(SWITCH)
 	auto n = GetI18NCategory(I18NCat::NETWORKING);
 	System_InputBoxGetString(n->T("Enter Quick Chat 2"), g_Config.sQuickChat1, [](const std::string &value, int) {
 		g_Config.sQuickChat1 = value;
@@ -1463,7 +1463,7 @@ UI::EventReturn GameSettingsScreen::OnChangeQuickChat1(UI::EventParams &e) {
 }
 
 UI::EventReturn GameSettingsScreen::OnChangeQuickChat2(UI::EventParams &e) {
-#if PPSSPP_PLATFORM(WINDOWS) || defined(USING_QT_UI) || PPSSPP_PLATFORM(ANDROID)
+#if PPSSPP_PLATFORM(WINDOWS) || defined(USING_QT_UI) || PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(SWITCH)
 	auto n = GetI18NCategory(I18NCat::NETWORKING);
 	System_InputBoxGetString(n->T("Enter Quick Chat 3"), g_Config.sQuickChat2, [](const std::string &value, int) {
 		g_Config.sQuickChat2 = value;
@@ -1473,7 +1473,7 @@ UI::EventReturn GameSettingsScreen::OnChangeQuickChat2(UI::EventParams &e) {
 }
 
 UI::EventReturn GameSettingsScreen::OnChangeQuickChat3(UI::EventParams &e) {
-#if PPSSPP_PLATFORM(WINDOWS) || defined(USING_QT_UI) || PPSSPP_PLATFORM(ANDROID)
+#if PPSSPP_PLATFORM(WINDOWS) || defined(USING_QT_UI) || PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(SWITCH)
 	auto n = GetI18NCategory(I18NCat::NETWORKING);
 	System_InputBoxGetString(n->T("Enter Quick Chat 4"), g_Config.sQuickChat3, [](const std::string &value, int) {
 		g_Config.sQuickChat3 = value;
@@ -1483,7 +1483,7 @@ UI::EventReturn GameSettingsScreen::OnChangeQuickChat3(UI::EventParams &e) {
 }
 
 UI::EventReturn GameSettingsScreen::OnChangeQuickChat4(UI::EventParams &e) {
-#if PPSSPP_PLATFORM(WINDOWS) || defined(USING_QT_UI) || PPSSPP_PLATFORM(ANDROID)
+#if PPSSPP_PLATFORM(WINDOWS) || defined(USING_QT_UI) || PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(SWITCH)
 	auto n = GetI18NCategory(I18NCat::NETWORKING);
 	System_InputBoxGetString(n->T("Enter Quick Chat 5"), g_Config.sQuickChat4, [](const std::string &value, int) {
 		g_Config.sQuickChat4 = value;
@@ -1493,7 +1493,7 @@ UI::EventReturn GameSettingsScreen::OnChangeQuickChat4(UI::EventParams &e) {
 }
 
 UI::EventReturn GameSettingsScreen::OnChangeNickname(UI::EventParams &e) {
-#if PPSSPP_PLATFORM(WINDOWS) || defined(USING_QT_UI) || PPSSPP_PLATFORM(ANDROID)
+#if PPSSPP_PLATFORM(WINDOWS) || defined(USING_QT_UI) || PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(SWITCH)
 	auto n = GetI18NCategory(I18NCat::NETWORKING);
 	System_InputBoxGetString(n->T("Enter a new PSP nickname"), g_Config.sNickName, [](const std::string &value, int) {
 		g_Config.sNickName = StripSpaces(value);
@@ -1946,7 +1946,7 @@ UI::EventReturn HostnameSelectScreen::OnDeleteAllClick(UI::EventParams &e) {
 
 UI::EventReturn HostnameSelectScreen::OnEditClick(UI::EventParams& e) {
 	auto n = GetI18NCategory(I18NCat::NETWORKING);
-#if PPSSPP_PLATFORM(ANDROID)
+#if PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(SWITCH)
 	System_InputBoxGetString(n->T("proAdhocServer Address:"), addrView_->GetText(), [this](const std::string& value, int) {
 	    addrView_->SetText(value);
 	});
