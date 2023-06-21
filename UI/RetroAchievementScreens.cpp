@@ -115,28 +115,22 @@ void RetroAchievementsSettingsScreen::CreateSettingsTab(UI::ViewGroup *viewGroup
 	// viewGroup->Add(new CheckBox(&g_Config.bAchievementsUnofficialTestMode, ac->T("Unofficial Test Mode")));
 }
 
-void MeasureAchievement(const Achievements::Achievement &achievement, float *w, float *h) {
+void MeasureAchievement(const UIContext &dc, const Achievements::Achievement &achievement, float *w, float *h) {
 	*w = 0.0f;
 	*h = 60.0f;
 }
 
-void MeasureGameAchievementSummary(int gameID, float *w, float *h) {
+void MeasureGameAchievementSummary(const UIContext &dc, int gameID, float *w, float *h) {
 	*w = 0.0f;
 	*h = 60.0f;
 }
-
-
-// Render style references:
-
-// https://www.trueachievements.com/achievement-meme-maker
-
 
 // Graphical
-void RenderAchievement(UIContext &dc, const Achievements::Achievement &achievement, AchievementRenderStyle style, const Bounds &bounds, float opacity) {
+void RenderAchievement(UIContext &dc, const Achievements::Achievement &achievement, AchievementRenderStyle style, const Bounds &bounds, float alpha) {
 	using namespace UI;
 	UI::Drawable background = achievement.locked ? dc.theme->popupStyle.background : dc.theme->itemStyle.background;
 
-	background.color = colorAlpha(background.color, opacity);
+	background.color = colorAlpha(background.color, alpha);
 
 	float iconSpace = 64.0f;
 	dc.Flush();
@@ -168,11 +162,11 @@ void RenderAchievement(UIContext &dc, const Achievements::Achievement &achieveme
 	dc.RebindTexture();
 }
 
-void RenderGameAchievementSummary(UIContext &dc, int gameID, const Bounds &bounds, float opacity) {
+void RenderGameAchievementSummary(UIContext &dc, int gameID, const Bounds &bounds, float alpha) {
 	using namespace UI;
 	UI::Drawable background = dc.theme->itemStyle.background;
 
-	background.color = colorAlpha(background.color, opacity);
+	background.color = colorAlpha(background.color, alpha);
 
 	float iconSpace = 64.0f;
 	dc.Flush();
@@ -207,7 +201,14 @@ void AchievementView::Draw(UIContext &dc) {
 }
 
 void AchievementView::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
-	MeasureAchievement(achievement_, &w, &h);
+	MeasureAchievement(dc, achievement_, &w, &h);
+}
+
+void AchievementView::Click() {
+	// In debug builds, clicking achievements will show them being unlocked (which may be a lie).
+#ifdef _DEBUG
+	g_OSD.ShowAchievementUnlocked(achievement_.id);
+#endif
 }
 
 void GameAchievementSummaryView::Draw(UIContext &dc) {
@@ -215,5 +216,5 @@ void GameAchievementSummaryView::Draw(UIContext &dc) {
 }
 
 void GameAchievementSummaryView::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
-	MeasureGameAchievementSummary(gameID_, &w, &h);
+	MeasureGameAchievementSummary(dc, gameID_, &w, &h);
 }

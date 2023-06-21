@@ -113,6 +113,10 @@ void OSDAddNotification(float duration_s, const std::string &title, const std::s
 	g_OSD.Show(OSDType::MESSAGE_INFO, title);
 }
 
+void OSDAddAchievementUnlockedNotification(unsigned int achievementId) {
+	g_OSD.ShowAchievementUnlocked(achievementId);
+}
+
 void OSDOpenBackgroundProgressDialog(const char *str_id, std::string message, s32 min, s32 max, s32 value) {
 	NOTICE_LOG(ACHIEVEMENTS, "Progress dialog opened: %s %s", str_id, message.c_str());
 	g_OSD.SetProgressBar(str_id, std::move(message), min, max, value);

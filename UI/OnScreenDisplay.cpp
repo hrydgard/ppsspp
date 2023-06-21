@@ -8,6 +8,8 @@
 #include "Common/Render/TextureAtlas.h"
 #include "Common/Render/DrawBuffer.h"
 #include "Common/Math/math_util.h"
+#include "Common/UI/IconCache.h"
+#include "UI/RetroAchievementScreens.h"
 
 #include "Common/UI/Context.h"
 #include "Common/System/System.h"
@@ -44,6 +46,14 @@ static const float extraTextScale = 0.7f;
 
 // Align only matters here for the ASCII-only flag.
 static void MeasureOSDEntry(UIContext &dc, const OnScreenDisplay::Entry &entry, int align, float *width, float *height, float *height1) {
+	if (entry.type == OSDType::ACHIEVEMENT_UNLOCKED) {
+		const Achievements::Achievement *achievement = Achievements::GetAchievementByID(entry.numericID);
+		MeasureAchievement(dc, *achievement, width, height);
+		*width = 400.0f;
+		*height1 = *height;
+		return;
+	}
+
 	dc.MeasureText(dc.theme->uiFont, 1.0f, 1.0f, entry.text.c_str(), width, height, align);
 	*height1 = *height;
 
@@ -63,6 +73,12 @@ static void MeasureOSDEntry(UIContext &dc, const OnScreenDisplay::Entry &entry, 
 }
 
 static void RenderOSDEntry(UIContext &dc, const OnScreenDisplay::Entry &entry, Bounds bounds, float height1, int align, float alpha) {
+	if (entry.type == OSDType::ACHIEVEMENT_UNLOCKED) {
+		const Achievements::Achievement *achievement = Achievements::GetAchievementByID(entry.numericID);
+		RenderAchievement(dc, *achievement, AchievementRenderStyle::UNLOCKED, bounds, alpha);
+		return;
+	}
+
 	UI::Drawable background = UI::Drawable(colorAlpha(GetOSDBackgroundColor(entry.type), alpha));
 
 	uint32_t foreGround = whiteAlpha(alpha);

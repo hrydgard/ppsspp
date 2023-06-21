@@ -223,6 +223,9 @@ enum class OSDType {
 	MESSAGE_ERROR,
 	MESSAGE_ERROR_DUMP,  // displays lots of text (after the first line), small size
 	MESSAGE_FILE_LINK,
+
+	ACHIEVEMENT_UNLOCKED,
+
 	// PROGRESS_BAR,
 	// PROGRESS_INDETERMINATE,
 };
@@ -235,6 +238,8 @@ public:
 		Show(type, text, "", duration_s, id);
 	}
 	void Show(OSDType type, const std::string &text, const std::string &text2, float duration_s = 0.0f, const char *id = nullptr);
+	void ShowAchievementUnlocked(int achievementID);
+
 	void ShowOnOff(const std::string &message, bool on, float duration_s = 0.0f);
 
 	bool IsEmpty() const { return entries_.empty(); }  // Shortcut to skip rendering.
@@ -251,9 +256,11 @@ public:
 		OSDType type;
 		std::string text;
 		std::string text2;
+		std::string iconName;
+		int numericID;
 		const char *id;
+		double startTime;
 		double endTime;
-		double duration;
 	};
 
 	struct ProgressBar {

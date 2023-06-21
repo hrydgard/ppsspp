@@ -87,6 +87,19 @@ void OnScreenDisplay::Show(OSDType type, const std::string &text, const std::str
 	entries_.insert(entries_.begin(), msg);
 }
 
+void OnScreenDisplay::ShowAchievementUnlocked(int achievementID) {
+	double now = time_now_d();
+
+	double duration_s = 5.0;
+
+	Entry msg;
+	msg.numericID = achievementID;
+	msg.type = OSDType::ACHIEVEMENT_UNLOCKED;
+	msg.startTime = now;
+	msg.endTime = now + duration_s;
+	entries_.insert(entries_.begin(), msg);
+}
+
 void OnScreenDisplay::ShowOnOff(const std::string &message, bool on, float duration_s) {
 	// TODO: translate "on" and "off"? Or just get rid of this whole thing?
 	Show(OSDType::MESSAGE_INFO, message + ": " + (on ? "on" : "off"), duration_s);
