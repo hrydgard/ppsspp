@@ -1,5 +1,6 @@
 #include <algorithm>
 #include <sstream>
+#include <cstring>
 
 #include "Common/UI/PopupScreens.h"
 #include "Common/UI/ViewGroup.h"
@@ -582,7 +583,12 @@ void AbstractChoiceWithValueDisplay::Draw(UIContext &dc) {
 	int paddingX = 12;
 	dc.SetFontStyle(dc.theme->uiFont);
 
-	const std::string valueText = ValueText();
+	std::string valueText = ValueText();
+
+	if (password_) {
+		// Replace all characters with stars.
+		memset(&valueText[0], '*', valueText.size());
+	}
 
 	// If there is a label, assume we want at least 20% of the size for it, at a minimum.
 

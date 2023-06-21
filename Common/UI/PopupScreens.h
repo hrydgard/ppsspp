@@ -191,10 +191,16 @@ public:
 	void Draw(UIContext &dc) override;
 	void GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert, float &w, float &h) const override;
 
+	void SetPasswordDisplay() {
+		password_ = true;
+	}
+
 protected:
 	virtual std::string ValueText() const = 0;
 
 	float CalculateValueScale(const UIContext &dc, const std::string &valueText, float availWidth) const;
+
+	bool password_ = false;
 };
 
 // Reads and writes value to determine the current selection.
