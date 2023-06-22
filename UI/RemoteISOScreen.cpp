@@ -641,7 +641,7 @@ void RemoteISOSettingsScreen::CreateViews() {
 }
 
 UI::EventReturn RemoteISOSettingsScreen::OnClickRemoteServer(UI::EventParams &e) {
-#if PPSSPP_PLATFORM(WINDOWS) || defined(USING_QT_UI) || defined(__ANDROID__)
+#if PPSSPP_PLATFORM(WINDOWS) || defined(USING_QT_UI) || defined(__ANDROID__) || PPSSPP_PLATFORM(SWITCH)
 	auto ri = GetI18NCategory(I18NCat::REMOTEISO);
 	System_InputBoxGetString(ri->T("Remote Server"), g_Config.sLastRemoteISOServer, [](const std::string &value, int) {
 		g_Config.sLastRemoteISOServer = value;
@@ -661,7 +661,7 @@ static void CleanupRemoteISOSubdir() {
 }
 
 UI::EventReturn RemoteISOSettingsScreen::OnClickRemoteISOSubdir(UI::EventParams &e) {
-#if PPSSPP_PLATFORM(WINDOWS) || defined(USING_QT_UI) || defined(__ANDROID__)
+#if PPSSPP_PLATFORM(WINDOWS) || defined(USING_QT_UI) || defined(__ANDROID__) || PPSSPP_PLATFORM(SWITCH)
 	auto ri = GetI18NCategory(I18NCat::REMOTEISO);
 	System_InputBoxGetString(ri->T("Remote Subdirectory"), g_Config.sRemoteISOSubdir, [](const std::string &value, int) {
 		g_Config.sRemoteISOSubdir = value;

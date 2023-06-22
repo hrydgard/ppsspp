@@ -672,7 +672,7 @@ UI::EventReturn SavedataScreen::OnSortClick(UI::EventParams &e) {
 
 UI::EventReturn SavedataScreen::OnSearch(UI::EventParams &e) {
 	auto di = GetI18NCategory(I18NCat::DIALOG);
-#if PPSSPP_PLATFORM(WINDOWS) || defined(USING_QT_UI) || defined(__ANDROID__)
+#if PPSSPP_PLATFORM(WINDOWS) || defined(USING_QT_UI) || defined(__ANDROID__) || PPSSPP_PLATFORM(SWITCH)
 	System_InputBoxGetString(di->T("Filter"), searchFilter_, [](const std::string &value, int ivalue) {
 		if (ivalue) {
 			NativeMessageReceived("savedatascreen_search", value.c_str());

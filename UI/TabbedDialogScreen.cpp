@@ -155,7 +155,7 @@ void TabbedUIDialogScreenWithGameBackground::ApplySearchFilter() {
 }
 
 UI::EventReturn TabbedUIDialogScreenWithGameBackground::OnChangeSearchFilter(UI::EventParams &e) {
-#if PPSSPP_PLATFORM(WINDOWS) || defined(USING_QT_UI) || defined(__ANDROID__)
+#if PPSSPP_PLATFORM(WINDOWS) || defined(USING_QT_UI) || defined(__ANDROID__) || PPSSPP_PLATFORM(SWITCH)
 	auto se = GetI18NCategory(I18NCat::SEARCH);
 	System_InputBoxGetString(se->T("Search term"), searchFilter_, [](const std::string &value, int) {
 		NativeMessageReceived("gameSettings_search", StripSpaces(value).c_str());

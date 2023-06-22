@@ -1292,7 +1292,7 @@ bool MainScreen::key(const KeyInput &touch) {
 		if (touch.keyCode == NKCODE_CTRL_LEFT || touch.keyCode == NKCODE_CTRL_RIGHT)
 			searchKeyModifier_ = true;
 		if (touch.keyCode == NKCODE_F && searchKeyModifier_) {
-#if PPSSPP_PLATFORM(WINDOWS) || defined(USING_QT_UI) || defined(__ANDROID__)
+#if PPSSPP_PLATFORM(WINDOWS) || defined(USING_QT_UI) || defined(__ANDROID__) || PPSSPP_PLATFORM(SWITCH)
 			auto se = GetI18NCategory(I18NCat::SEARCH);
 			System_InputBoxGetString(se->T("Search term"), searchFilter_, [&](const std::string &value, int) {
 				searchFilter_ = StripSpaces(value);
