@@ -22,8 +22,6 @@ protected:
 
 	void RecreateViews() override;
 
-	UI::EventReturn OnChangeSearchFilter(UI::EventParams &e);
-	UI::EventReturn OnClearSearchFilter(UI::EventParams &e);
 	SettingInfoMessage *settingInfo_ = nullptr;
 
 private:

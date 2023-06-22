@@ -353,10 +353,13 @@ bool System_GetPropertyBool(SystemProperty prop) {
 	case SYSPROP_HAS_FILE_BROWSER:
 	case SYSPROP_HAS_FOLDER_BROWSER:
 	case SYSPROP_HAS_OPEN_DIRECTORY:
+	case SYSPROP_HAS_TEXT_INPUT_DIALOG:
 		return true;
 	case SYSPROP_HAS_IMAGE_BROWSER:
 		return true;
 	case SYSPROP_HAS_BACK_BUTTON:
+		return true;
+	case SYSPROP_HAS_LOGIN_DIALOG:
 		return true;
 	case SYSPROP_APP_GOLD:
 #ifdef GOLD
@@ -493,6 +496,17 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 			std::string out;
 			if (InputBox_GetString(MainWindow::GetHInstance(), MainWindow::GetHWND(), ConvertUTF8ToWString(param1).c_str(), param2, out)) {
 				g_requestManager.PostSystemSuccess(requestId, out.c_str());
+			} else {
+				g_requestManager.PostSystemFailure(requestId);
+			}
+		}).detach();
+		return true;
+	case SystemRequestType::ASK_USERNAME_PASSWORD:
+		std::thread([=] {
+			std::string username;
+			std::string password;
+			if (UserPasswordBox_GetStrings(MainWindow::GetHInstance(), MainWindow::GetHWND(), ConvertUTF8ToWString(param1).c_str(), &username, &password)) {
+				g_requestManager.PostSystemSuccess(requestId, (username + '\n' + password).c_str());
 			} else {
 				g_requestManager.PostSystemFailure(requestId);
 			}

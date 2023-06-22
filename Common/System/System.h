@@ -58,6 +58,7 @@ void System_LaunchUrl(LaunchUrlType urlType, const char *url);
 
 enum class SystemRequestType {
 	INPUT_TEXT_MODAL,
+	ASK_USERNAME_PASSWORD,
 	BROWSE_FOR_IMAGE,
 	BROWSE_FOR_FILE,
 	BROWSE_FOR_FOLDER,
@@ -129,6 +130,8 @@ enum SystemProperty {
 	SYSPROP_HAS_BACK_BUTTON,
 	SYSPROP_HAS_KEYBOARD,
 	SYSPROP_HAS_OPEN_DIRECTORY,
+	SYSPROP_HAS_LOGIN_DIALOG,
+	SYSPROP_HAS_TEXT_INPUT_DIALOG,  // Indicates that System_InputBoxGetString is available.
 
 	SYSPROP_CAN_CREATE_SHORTCUT,
 

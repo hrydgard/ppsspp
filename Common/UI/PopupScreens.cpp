@@ -1,5 +1,6 @@
 #include <algorithm>
 #include <sstream>
+#include <cstring>
 
 #include "Common/UI/PopupScreens.h"
 #include "Common/UI/ViewGroup.h"
@@ -7,6 +8,8 @@
 #include "Common/UI/Root.h"
 #include "Common/StringUtils.h"
 #include "Common/Data/Text/I18n.h"
+#include "Common/System/System.h"
+#include "Common/System/Request.h"
 
 namespace UI {
 
@@ -495,6 +498,16 @@ PopupTextInputChoice::PopupTextInputChoice(std::string *value, const std::string
 EventReturn PopupTextInputChoice::HandleClick(EventParams &e) {
 	restoreFocus_ = HasFocus();
 
+	// Choose method depending on platform capabilities.
+	if (System_GetPropertyBool(SYSPROP_HAS_TEXT_INPUT_DIALOG)) {
+		System_InputBoxGetString(text_, *value_ , [=](const std::string &enteredValue, int) {
+			*value_ = StripSpaces(enteredValue);
+			EventParams params{};
+			OnChange.Trigger(params);
+		});
+		return EVENT_DONE;
+	}
+
 	TextEditPopupScreen *popupScreen = new TextEditPopupScreen(value_, placeHolder_, ChopTitle(text_), maxLen_);
 	popupScreen->OnChange.Handle(this, &PopupTextInputChoice::HandleChange);
 	if (e.v)
@@ -582,7 +595,12 @@ void AbstractChoiceWithValueDisplay::Draw(UIContext &dc) {
 	int paddingX = 12;
 	dc.SetFontStyle(dc.theme->uiFont);
 
-	const std::string valueText = ValueText();
+	std::string valueText = ValueText();
+
+	if (password_) {
+		// Replace all characters with stars.
+		memset(&valueText[0], '*', valueText.size());
+	}
 
 	// If there is a label, assume we want at least 20% of the size for it, at a minimum.
 

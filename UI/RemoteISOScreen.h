@@ -102,10 +102,7 @@ public:
 
 	const char *tag() const override { return "RemoteISOSettings"; }
 
-	UI::EventReturn OnClickRemoteISOSubdir(UI::EventParams &e);
-	UI::EventReturn OnClickRemoteServer(UI::EventParams &e);
 protected:
-
 	void update() override;
 	void CreateViews() override;
 

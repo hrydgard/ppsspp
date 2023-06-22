@@ -1291,14 +1291,12 @@ bool MainScreen::key(const KeyInput &touch) {
 	if (touch.flags & KEY_DOWN) {
 		if (touch.keyCode == NKCODE_CTRL_LEFT || touch.keyCode == NKCODE_CTRL_RIGHT)
 			searchKeyModifier_ = true;
-		if (touch.keyCode == NKCODE_F && searchKeyModifier_) {
-#if PPSSPP_PLATFORM(WINDOWS) || defined(USING_QT_UI) || defined(__ANDROID__) || PPSSPP_PLATFORM(SWITCH)
+		if (touch.keyCode == NKCODE_F && searchKeyModifier_ && System_GetPropertyBool(SYSPROP_HAS_TEXT_INPUT_DIALOG)) {
 			auto se = GetI18NCategory(I18NCat::SEARCH);
 			System_InputBoxGetString(se->T("Search term"), searchFilter_, [&](const std::string &value, int) {
 				searchFilter_ = StripSpaces(value);
 				searchChanged_ = true;
 			});
-#endif
 		}
 	} else if (touch.flags & KEY_UP) {
 		if (touch.keyCode == NKCODE_CTRL_LEFT || touch.keyCode == NKCODE_CTRL_RIGHT)
