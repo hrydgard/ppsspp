@@ -1463,7 +1463,9 @@ void Achievements::GetGameIdCallback(s32 status_code, std::string content_type,
 	NOTICE_LOG(ACHIEVEMENTS, "Server returned GameID %u", game_id);
 	if (game_id == 0)
 	{
+		auto ac = GetI18NCategory(I18NCat::ACHIEVEMENTS);
 		// We don't want to block saving/loading states when there's no achievements.
+		OSDAddNotification(4.0f, ac->T("RetroAchievements are not available for this game"), "", "");
 		DisableChallengeMode();
 		return;
 	}

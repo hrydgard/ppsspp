@@ -153,6 +153,7 @@ void RenderAchievement(UIContext &dc, const Achievements::Achievement &achieveme
 		background.color = 0x706060;
 	}
 	background.color = colorAlpha(background.color, alpha);
+	uint32_t fgColor = colorAlpha(dc.theme->itemStyle.fgColor, alpha);
 
 	if (style == AchievementRenderStyle::UNLOCKED) {
 		float mixWhite = pow(Clamp((float)(1.0f - (time_s - startTime)), 0.0f, 1.0f), 3.0f);
@@ -168,23 +169,23 @@ void RenderAchievement(UIContext &dc, const Achievements::Achievement &achieveme
 	dc.SetFontStyle(dc.theme->uiFont);
 
 	dc.SetFontScale(1.0f, 1.0f);
-	dc.DrawTextRect(achievement.title.c_str(), bounds.Inset(iconSpace + 12.0f, 2.0f, 5.0f, 5.0f), dc.theme->itemStyle.fgColor, ALIGN_TOPLEFT);
+	dc.DrawTextRect(achievement.title.c_str(), bounds.Inset(iconSpace + 12.0f, 2.0f, 5.0f, 5.0f), fgColor, ALIGN_TOPLEFT);
 
 	dc.SetFontScale(0.66f, 0.66f);
-	dc.DrawTextRect(achievement.description.c_str(), bounds.Inset(iconSpace + 12.0f, 39.0f, 5.0f, 5.0f), dc.theme->itemStyle.fgColor, ALIGN_TOPLEFT);
+	dc.DrawTextRect(achievement.description.c_str(), bounds.Inset(iconSpace + 12.0f, 39.0f, 5.0f, 5.0f), fgColor, ALIGN_TOPLEFT);
 
 	char temp[64];
 	snprintf(temp, sizeof(temp), "%d", achievement.points);
 
 	dc.SetFontScale(1.5f, 1.5f);
-	dc.DrawTextRect(temp, bounds.Expand(-5.0f, -5.0f), dc.theme->itemStyle.fgColor, ALIGN_RIGHT | ALIGN_VCENTER);
+	dc.DrawTextRect(temp, bounds.Expand(-5.0f, -5.0f), fgColor, ALIGN_RIGHT | ALIGN_VCENTER);
 
 	dc.SetFontScale(1.0f, 1.0f);
 	dc.Flush();
 
 	std::string name = Achievements::GetAchievementBadgePath(achievement);
 	if (g_iconCache.BindIconTexture(&dc, name)) {
-		dc.Draw()->DrawTexRect(Bounds(bounds.x + 4.0f, bounds.y + 4.0f, iconSpace, iconSpace), 0.0f, 0.0f, 1.0f, 1.0f, 0xFFFFFFFF);
+		dc.Draw()->DrawTexRect(Bounds(bounds.x + 4.0f, bounds.y + 4.0f, iconSpace, iconSpace), 0.0f, 0.0f, 1.0f, 1.0f, whiteAlpha(alpha));
 	}
 
 	dc.Flush();
@@ -196,6 +197,7 @@ void RenderGameAchievementSummary(UIContext &dc, int gameID, const Bounds &bound
 	UI::Drawable background = dc.theme->itemStyle.background;
 
 	background.color = colorAlpha(background.color, alpha);
+	uint32_t fgColor = colorAlpha(dc.theme->itemStyle.fgColor, alpha);
 
 	float iconSpace = 64.0f;
 	dc.Flush();
@@ -206,20 +208,20 @@ void RenderGameAchievementSummary(UIContext &dc, int gameID, const Bounds &bound
 	dc.SetFontStyle(dc.theme->uiFont);
 
 	dc.SetFontScale(1.0f, 1.0f);
-	dc.DrawTextRect(Achievements::GetGameTitle().c_str(), bounds.Inset(iconSpace + 5.0f, 2.0f, 5.0f, 5.0f), dc.theme->itemStyle.fgColor, ALIGN_TOPLEFT);
+	dc.DrawTextRect(Achievements::GetGameTitle().c_str(), bounds.Inset(iconSpace + 5.0f, 2.0f, 5.0f, 5.0f), fgColor, ALIGN_TOPLEFT);
 
 	std::string description = Achievements::GetGameAchievementSummary();
 	std::string icon = Achievements::GetGameIcon();
 
 	dc.SetFontScale(0.66f, 0.66f);
-	dc.DrawTextRect(description.c_str(), bounds.Inset(iconSpace + 5.0f, 38.0f, 5.0f, 5.0f), dc.theme->itemStyle.fgColor, ALIGN_TOPLEFT);
+	dc.DrawTextRect(description.c_str(), bounds.Inset(iconSpace + 5.0f, 38.0f, 5.0f, 5.0f), fgColor, ALIGN_TOPLEFT);
 
 	dc.SetFontScale(1.0f, 1.0f);
 	dc.Flush();
 
 	std::string name = icon;
 	if (g_iconCache.BindIconTexture(&dc, name)) {
-		dc.Draw()->DrawTexRect(Bounds(bounds.x, bounds.y, iconSpace, iconSpace), 0.0f, 0.0f, 1.0f, 1.0f, 0xFFFFFFFF);
+		dc.Draw()->DrawTexRect(Bounds(bounds.x, bounds.y, iconSpace, iconSpace), 0.0f, 0.0f, 1.0f, 1.0f, whiteAlpha(alpha));
 	}
 
 	dc.Flush();
