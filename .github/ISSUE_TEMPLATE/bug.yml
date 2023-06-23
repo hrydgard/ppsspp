@@ -17,6 +17,16 @@ body:
       description: >
         Shown in the title bar, logs, and long press on the game icon.  If it's outside a game, put 'None.'
 
+ type: input
+    id: Patched_Iso
+    validations:
+      required: true
+    attributes:
+      label: Game or games this happens in
+      placeholder: No
+      description: >
+        Does the ISO is patched in translation\undub? Please note that patched ISO is not offical support.
+        
   - type: textarea
     id: reproduction
     validations:
