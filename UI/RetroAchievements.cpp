@@ -60,7 +60,7 @@
 namespace Common {
 	class HTTPDownloader {
 	public:
-		static std::unique_ptr<HTTPDownloader> Create(const std::string &userAgent) {
+		static std::unique_ptr<HTTPDownloader> Create() {
 			return std::unique_ptr<HTTPDownloader>(new HTTPDownloader());
 		}
 		class Request {
@@ -90,7 +90,7 @@ namespace Common {
 			Request::Callback movedCallback = std::move(callback);
 			std::string post_data_str(post_data);
 
-			NOTICE_LOG(ACHIEVEMENTS, "Request: post_data=%s", post_data);
+			INFO_LOG(ACHIEVEMENTS, "Request: post_data=%s", post_data);
 
 			downloader_.AsyncPostWithCallback(url, post_data_str, "application/x-www-form-urlencoded", [=](http::Download &download) {
 				std::string data;
@@ -495,15 +495,6 @@ void Achievements::ClearGameHash()
 	s_game_hash.clear();
 }
 
-std::string Achievements::GetUserAgent()
-{
-#if 0
-	return fmt::format("DuckStation for {} ({}) {}", SYSTEM_STR, CPU_ARCH_STR, g_scm_tag_str);
-#else
-	return "DuckStation";
-#endif
-}
-
 bool Achievements::IsActive()
 {
 	return s_active;
@@ -567,7 +558,7 @@ void Achievements::Initialize()
 	std::unique_lock lock(s_achievements_mutex);
 	_assert_msg_(g_Config.bAchievementsEnable, "Achievements are enabled");
 
-	s_http_downloader = Common::HTTPDownloader::Create(GetUserAgent().c_str());
+	s_http_downloader = Common::HTTPDownloader::Create();
 	if (!s_http_downloader)
 	{
 		// TODO: Also report to user
@@ -614,6 +605,9 @@ void Achievements::UpdateSettings()
 	}
 
 	/*
+	// TODO: We don't have an "old" config state. But we can probably maintain one right here
+	// in this file.
+
 	if (g_settings.achievements_challenge_mode != old_config.achievements_challenge_mode)
 	{
 		// Hardcore mode can only be enabled through reset (ResetChallengeMode()).
@@ -707,8 +701,9 @@ void Achievements::SetChallengeMode(bool enabled)
 	if (HasActiveGame())
 	{
 		auto ac = GetI18NCategory(I18NCat::ACHIEVEMENTS);
+		auto di = GetI18NCategory(I18NCat::DIALOG);
 
-		System_Toast(enabled ? ac->T("Hardcore mode enabled.") : ac->T("Hardcore mode disabled."));  // 10.0f
+		OSDAddNotification(5.0f, std::string(ac->T("Challenge mode")) + ": " + di->T(enabled ? "Enabled" : "Disabled"), "", "");
 	}
 
 	if (HasActiveGame() && !IsTestModeActive())
@@ -785,7 +780,7 @@ void Achievements::ResetRuntime()
 		return;
 
 	std::unique_lock lock(s_achievements_mutex);
-	DEBUG_LOG(ACHIEVEMENTS, "Resetting rcheevos state...");
+	INFO_LOG(ACHIEVEMENTS, "Resetting rcheevos state...");
 	rc_runtime_reset(&s_rcheevos_runtime);
 }
 
@@ -1089,15 +1084,11 @@ std::string Achievements::GetGameAchievementSummary() {
 	auto ac = GetI18NCategory(I18NCat::ACHIEVEMENTS);
 
 	std::string summary;
-	if (GetAchievementCount() > 0) {
-		summary = StringFromFormat(ac->T("Earned", "You have unlocked %d of %d achievements, earning %d of %d points"),
-			GetUnlockedAchiementCount(), GetAchievementCount(), GetCurrentPointsForGame(), GetMaximumPointsForGame());
-	} else {
-		summary = ac->T("This game has no achievements");
-	}
-	if (GetLeaderboardCount() > 0) {
-		if (LeaderboardsActive())
-			summary.append("\nLeaderboard submission is enabled.");
+	summary = StringFromFormat(ac->T("Earned", "You have unlocked %d of %d achievements, earning %d of %d points"),
+		GetUnlockedAchiementCount(), GetAchievementCount(), GetCurrentPointsForGame(), GetMaximumPointsForGame());
+	if (GetLeaderboardCount() > 0 && LeaderboardsActive()) {
+		summary.append("\n");
+		summary.append(ac->T("Leaderboard submission is enabled"));
 	}
 	return summary;
 }
@@ -1108,7 +1099,7 @@ void Achievements::DisplayAchievementSummary()
 
 	std::string title;
 	if (ChallengeModeActive())
-		title = s_game_title + " " + ac->T("(Hardcore Mode)");
+		title = s_game_title + " (" + ac->T("Challenge Mode") + ")";
 	else
 		title = s_game_title;
 
@@ -1121,12 +1112,14 @@ void Achievements::DisplayAchievementSummary()
 
 void Achievements::DisplayMasteredNotification()
 {
+	auto ac = GetI18NCategory(I18NCat::ACHIEVEMENTS);
+
 	if (!g_Config.bAchievementsNotifications)
 		return;
 
 	// TODO: Translation?
-	std::string title = "Mastered " + s_game_title;
-	std::string message = StringFromFormat("%d achievements, %d points", GetAchievementCount(), GetCurrentPointsForGame());
+	std::string title = StringFromFormat(ac->T("Mastered %s"), s_game_title.c_str());
+	std::string message = StringFromFormat(ac->T("%d achievements, %d points"), GetAchievementCount(), GetCurrentPointsForGame());
 
 	OSDAddNotification(20.0f, title, message, s_game_icon);
 	NOTICE_LOG(ACHIEVEMENTS, "%s", message.c_str());
@@ -1389,7 +1382,9 @@ void Achievements::GetLbInfoCallback(s32 status_code, std::string content_type,
 
 void Achievements::GetPatches(u32 game_id)
 {
-	OSDOpenBackgroundProgressDialog("get_patches", "Downloading achievements data...", 0, 0, 0);
+	auto ac = GetI18NCategory(I18NCat::ACHIEVEMENTS);
+
+	OSDOpenBackgroundProgressDialog("get_patches", ac->T("Syncing achievements data..."), 0, 0, 0);
 
 	RAPIRequest<rc_api_fetch_game_data_request_t, rc_api_init_fetch_game_data_request> request;
 	request.username = s_username.c_str();
@@ -1865,6 +1860,8 @@ void Achievements::SubmitLeaderboardCallback(s32 status_code, std::string conten
 
 void Achievements::UnlockAchievement(u32 achievement_id, bool add_notification /* = true*/)
 {
+	auto ac = GetI18NCategory(I18NCat::ACHIEVEMENTS);
+
 	std::unique_lock lock(s_achievements_mutex);
 
 	Achievement *achievement = GetMutableAchievementByID(achievement_id);
@@ -1889,10 +1886,10 @@ void Achievements::UnlockAchievement(u32 achievement_id, bool add_notification /
 		switch (achievement->category)
 		{
 		case AchievementCategory::Local:
-			title = achievement->title + " (Local)";
+			title = achievement->title + " (" + ac->T("Local") + ")";
 			break;
 		case AchievementCategory::Unofficial:
-			title = achievement->title + " (Unofficial)";
+			title = achievement->title + " (" + ac->T("Unofficial") + ")";
 			break;
 		case AchievementCategory::Core:
 		default:
@@ -2088,7 +2085,8 @@ void Achievements::CheevosEventHandler(const rc_runtime_event_t *runtime_event)
 }
 
 unsigned Achievements::PeekMemory(unsigned address, unsigned num_bytes, void *ud) {
-	// Unclear why achievements are defined with this offset, but they are and it can't be changed now, so we roll with it.
+	// Achievements are traditionally defined relative to the base of main memory of the emulated console.
+	// This is some kind of RetroArch-related legacy. In the PSP's case, this is simply a straight offset of 0x08000000.
 	address += PSP_MEMORY_OFFSET;
 
 	if (!Memory::IsValidAddress(address)) {

@@ -47,13 +47,14 @@ void RetroAchievementsListScreen::CreateTabs() {
 
 void RetroAchievementsSettingsScreen::CreateTabs() {
 	auto ac = GetI18NCategory(I18NCat::ACHIEVEMENTS);
+	auto di = GetI18NCategory(I18NCat::DIALOG);
 
 	using namespace UI;
 
 	LinearLayout *account = AddTab("AchievementsAccount", ac->T("Account"));
 	CreateAccountTab(account);
 
-	LinearLayout *settings = AddTab("AchievementsSettings", ac->T("Settings"));
+	LinearLayout *settings = AddTab("AchievementsSettings", di->T("Settings"));
 	CreateSettingsTab(settings);
 }
 
@@ -72,15 +73,15 @@ void RetroAchievementsSettingsScreen::CreateAccountTab(UI::ViewGroup *viewGroup)
 	using namespace UI;
 
 	if (Achievements::IsLoggedIn()) {
-		viewGroup->Add(new InfoItem(ac->T("User Name"), Achievements::GetUsername()));
-		viewGroup->Add(new Choice(ac->T("Log out")))->OnClick.Add([=](UI::EventParams &) -> UI::EventReturn {
+		viewGroup->Add(new InfoItem(ac->T("Username"), Achievements::GetUsername()));
+		viewGroup->Add(new Choice(di->T("Log out")))->OnClick.Add([=](UI::EventParams &) -> UI::EventReturn {
 			Achievements::Logout();
 			return UI::EVENT_DONE;
 		});
 	} else {
 		// TODO: Add UI for platforms that don't support System_AskUsernamePassword.
 		if (System_GetPropertyBool(SYSPROP_HAS_LOGIN_DIALOG)) {
-			viewGroup->Add(new Choice(ac->T("Log in to RetroAchievements")))->OnClick.Add([=](UI::EventParams &) -> UI::EventReturn {
+			viewGroup->Add(new Choice(ac->T("Log in")))->OnClick.Add([=](UI::EventParams &) -> UI::EventReturn {
 				System_AskUsernamePassword(ac->T("Log in"), [](const std::string &value, int) {
 					std::vector<std::string> parts;
 					SplitString(value, '\n', parts);
@@ -92,9 +93,9 @@ void RetroAchievementsSettingsScreen::CreateAccountTab(UI::ViewGroup *viewGroup)
 			});
 		} else {
 			// Hack up a temporary quick login-form-ish-thing
-			viewGroup->Add(new PopupTextInputChoice(&username_, "Username", "", 128, screenManager()));
-			viewGroup->Add(new PopupTextInputChoice(&password_, "Password", "", 128, screenManager()));
-			viewGroup->Add(new Choice(ac->T("Log in")))->OnClick.Add([=](UI::EventParams &) -> UI::EventReturn {
+			viewGroup->Add(new PopupTextInputChoice(&username_, di->T("Username"), "", 128, screenManager()));
+			viewGroup->Add(new PopupTextInputChoice(&password_, di->T("Password"), "", 128, screenManager()));
+			viewGroup->Add(new Choice(di->T("Log in")))->OnClick.Add([=](UI::EventParams &) -> UI::EventReturn {
 				if (!username_.empty() && !password_.empty()) {
 					Achievements::LoginAsync(username_.c_str(), password_.c_str());
 				}
