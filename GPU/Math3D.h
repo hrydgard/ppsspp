@@ -580,8 +580,25 @@ public:
 #endif
 
 	template<typename T2>
-	Vec4<T2> Cast() const
-	{
+	Vec4<T2> Cast() const {
+		if constexpr (std::is_same<T, float>::value && std::is_same<T2, int>::value) {
+#if defined(_M_SSE) && !PPSSPP_ARCH(X86)
+			return _mm_cvtps_epi32(vec);
+#elif defined(_M_SSE)
+			return _mm_cvtps_epi32(_mm_loadu_ps((float *)&vec));
+#elif PPSSPP_ARCH(ARM64_NEON)
+			return vcvtq_s32_f32(ivec);
+#endif
+		}
+		if constexpr (std::is_same<T, int>::value && std::is_same<T2, float>::value) {
+#if defined(_M_SSE) && !PPSSPP_ARCH(X86)
+			return _mm_cvtepi32_ps(ivec);
+#elif defined(_M_SSE)
+			return _mm_cvtepi32_ps(_mm_loadu_si128(&ivec));
+#elif PPSSPP_ARCH(ARM64_NEON)
+			return vcvtq_f32_s32(ivec);
+#endif
+		}
 		return Vec4<T2>((T2)x, (T2)y, (T2)z, (T2)w);
 	}
 
