@@ -1,5 +1,6 @@
 #include "Windows/stdafx.h"
 #include <windowsx.h>
+#include <windows.h>
 #include <commctrl.h>
 #include "..\resource.h"
 

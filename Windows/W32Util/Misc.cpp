@@ -3,6 +3,7 @@
 
 #include <WinUser.h>
 #include <shellapi.h>
+#include <windows.h>
 #include <commctrl.h>
 
 #include "Misc.h"

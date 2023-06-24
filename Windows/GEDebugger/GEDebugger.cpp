@@ -22,6 +22,7 @@
 #include <vector>
 
 #include "Common/CommonWindows.h"
+#include <windows.h>
 #include <commctrl.h>
 
 #include "Common/Data/Convert/ColorConv.h"

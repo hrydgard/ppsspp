@@ -419,6 +419,7 @@ else()
 	endif()
 	set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -D_DEBUG")
 	set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -D_NDEBUG")
+	set(CMAKE_EXE_LINKER_FLAGS /NODEFAULTLIB:"libcmt.lib")
 endif()
 
 if(WIN32)
@@ -2360,7 +2361,6 @@ set(WindowsFiles
 	Windows/Debugger/Debugger_MemoryDlg.h
 	Windows/Debugger/Debugger_Lists.cpp
 	Windows/Debugger/Debugger_Lists.h
-	Windows/Debugger/Debugger_SymbolMap.h
 	Windows/Debugger/Debugger_VFPUDlg.cpp
 	Windows/Debugger/Debugger_VFPUDlg.h
 	Windows/Debugger/WatchItemWindow.cpp
@@ -2408,6 +2408,13 @@ set(WindowsFiles
 	Windows/W32Util/ShellUtil.h
 	Windows/W32Util/TabControl.cpp
 	Windows/W32Util/TabControl.h
+	Windows/W32Util/IatHook.h
+	Windows/W32Util/ContextMenu.h
+	Windows/W32Util/ContextMenu.cpp
+	Windows/W32Util/DarkMode.h
+	Windows/W32Util/DarkMode.cpp
+	Windows/W32Util/UAHMenuBar.h
+	Windows/W32Util/UAHMenuBar.cpp
 	Windows/WindowsHost.cpp
 	Windows/WindowsHost.h
 	Windows/MainWindow.cpp
@@ -2431,7 +2438,7 @@ set(WindowsFiles
 list(APPEND LinkCommon ${CoreLibName} ${CMAKE_THREAD_LIBS_INIT})
 
 if(WIN32)
-	list(APPEND LinkCommon kernel32 user32 gdi32 shell32 comctl32 dsound xinput d3d9 winmm dinput8 ole32 winspool ksuser mf mfplat mfreadwrite mfuuid shlwapi)
+	list(APPEND LinkCommon kernel32 user32 gdi32 shell32 comctl32 dsound xinput d3d9 winmm dinput8 ole32 winspool ksuser mf uxtheme mfplat mfreadwrite mfuuid shlwapi)
 	#setup_target_project(${TargetBin} Windows)
 	list(APPEND NativeAppSource ${WindowsFiles})
 endif()

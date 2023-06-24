@@ -29,6 +29,7 @@
 #include "Common/CommonWindows.h"
 #include "Common/StringUtils.h"
 
+#include <windows.h>
 #include <windowsx.h>
 #include <commctrl.h>
 

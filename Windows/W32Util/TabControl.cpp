@@ -2,6 +2,7 @@
 #include "DialogManager.h"
 #include "Windows/MainWindow.h"
 #include <windowsx.h>
+#include <windows.h>
 #include <commctrl.h>
 
 const DWORD tabControlStyleMask = ~(WS_POPUP | WS_TILEDWINDOW);
