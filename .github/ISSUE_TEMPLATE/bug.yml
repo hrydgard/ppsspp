@@ -25,7 +25,7 @@ body:
       label: Game or games this happens in
       placeholder: No
       description: >
-        Does the ISO is patched in translation\undub? Please note that patched ISO is not offical support.
+        Does the ISO is patched in translation\undub? Please note that patched ISO is not officially supported.
         
   - type: textarea
     id: reproduction
