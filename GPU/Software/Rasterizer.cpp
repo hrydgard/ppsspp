@@ -901,6 +901,9 @@ void DrawTriangleSlice(
 	Vec4<int> w1_base = e1.Start(v2.screenpos, v0.screenpos, pprime);
 	Vec4<int> w2_base = e2.Start(v0.screenpos, v1.screenpos, pprime);
 
+	// The sum of weights should remain constant as we move toward/away from the edges.
+	const Vec4<float> wsum_recip = EdgeRecip(w0_base, w1_base, w2_base);
+
 	// All the z values are the same, no interpolation required.
 	// This is common, and when we interpolate, we lose accuracy.
 	const bool flatZ = v0.screenpos.z == v1.screenpos.z && v0.screenpos.z == v2.screenpos.z;
@@ -963,8 +966,6 @@ void DrawTriangleSlice(
 			// If p is on or inside all edges, render pixel
 			Vec4<int> mask = MakeMask(w0, w1, w2, bias0, bias1, bias2, scissor_mask);
 			if (AnyMask<useSSE4>(mask)) {
-				Vec4<float> wsum_recip = EdgeRecip(w0, w1, w2);
-
 				Vec4<int> z;
 				if (flatZ) {
 					z = Vec4<int>::AssignToAll(v2.screenpos.z);
