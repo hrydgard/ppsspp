@@ -55,7 +55,7 @@ bool Thin3DFormatToGLFormatAndType(DataFormat fmt, GLuint &internalFormat, GLuin
 		internalFormat = GL_RGB;
 		format = GL_RGB;
 		type = GL_UNSIGNED_BYTE;
-		alignment = 1;
+		alignment = 3;
 		break;
 
 	case DataFormat::R4G4B4A4_UNORM_PACK16:
