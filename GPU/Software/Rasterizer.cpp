@@ -927,6 +927,10 @@ void DrawTriangleSlice(
 	const Vec3<int> v1_c1 = Vec3<int>::FromRGB(v1.color1);
 	const Vec3<int> v2_c1 = Vec3<int>::FromRGB(v2.color1);
 
+	const Vec4<float> v0_z4 = Vec4<int>::AssignToAll(v0.screenpos.z).Cast<float>();
+	const Vec4<float> v1_z4 = Vec4<int>::AssignToAll(v1.screenpos.z).Cast<float>();
+	const Vec4<float> v2_z4 = Vec4<int>::AssignToAll(v2.screenpos.z).Cast<float>();
+
 	for (int64_t curY = minY; curY <= maxY; curY += SCREEN_SCALE_FACTOR * 2,
 										w0_base = e0.StepY(w0_base),
 										w1_base = e1.StepY(w1_base),
@@ -970,7 +974,7 @@ void DrawTriangleSlice(
 					z = Vec4<int>::AssignToAll(v2.screenpos.z);
 				} else {
 					// Z is interpolated pretty much directly.
-					Vec4<float> zfloats = w0.Cast<float>() * v0.screenpos.z + w1.Cast<float>() * v1.screenpos.z + w2.Cast<float>() * v2.screenpos.z;
+					Vec4<float> zfloats = w0.Cast<float>() * v0_z4 + w1.Cast<float>() * v1_z4 + w2.Cast<float>() * v2_z4;
 					z = (zfloats * wsum_recip).Cast<int>();
 				}
 
