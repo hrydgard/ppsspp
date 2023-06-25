@@ -1,9 +1,7 @@
 #pragma once
 
-#define WIN32_LEAN_AND_MEAN
-#define NOMINMAX
-#include <Windows.h>
-#include <CommCtrl.h>
+#include "Common/CommonWindows.h"
+#include <commctrl.h>
 #include <Uxtheme.h>
 #include <WindowsX.h>
 #include <Vssym32.h>
