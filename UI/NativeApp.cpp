@@ -1419,3 +1419,23 @@ void NativeShutdown() {
 	// Previously we did exit() here on Android but that makes it hard to do things like restart on backend change.
 	// I think we handle most globals correctly or correct-enough now.
 }
+
+Path GetSecretPath(const char *nameOfSecret) {
+	return g_Config.internalDataDirectory / ("ppsspp_" + std::string(nameOfSecret) + ".dat");
+}
+
+// name should be simple alphanumerics to avoid problems on Windows.
+void NativeSaveSecret(const char *nameOfSecret, const std::string &data) {
+	// We'll simply store secrets in files under g_Config.internalDataDirectory.
+	// On Android, that corresponds to the app private directory. On other platforms,
+	// the location is less secure unfortunately - to be improved.
+	Path path = GetSecretPath(nameOfSecret);
+	File::WriteDataToFile(false, data.data(), data.size(), path);
+}
+
+std::string NativeLoadSecret(const char *nameOfSecret) {
+	Path path = GetSecretPath(nameOfSecret);
+	std::string data;
+	File::ReadFileToString(false, path, data);
+	return data;
+}

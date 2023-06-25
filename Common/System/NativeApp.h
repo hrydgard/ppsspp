@@ -87,3 +87,6 @@ void NativeShutdownGraphics();
 void NativeShutdown();
 
 void PostLoadConfig();
+
+void NativeSaveSecret(const char *nameOfSecret, const std::string &data);
+std::string NativeLoadSecret(const char *nameOfSecret);
