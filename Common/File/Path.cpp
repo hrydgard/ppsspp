@@ -84,7 +84,9 @@ Path Path::operator /(const std::string &subdir) const {
 	}
 
 	// Direct string manipulation.
-
+	if (path_.empty()) {
+		return Path(subdir);
+	}
 	if (subdir.empty()) {
 		return Path(path_);
 	}
