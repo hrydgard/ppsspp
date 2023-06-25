@@ -5,8 +5,8 @@
 
 #pragma once
 
+#include "Common/CommonWindows.h"
 #include <cstdint>
-#include <windows.h>
 #include <winnt.h>
 
 template <typename T, typename T1, typename T2>

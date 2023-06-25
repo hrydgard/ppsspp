@@ -8,7 +8,6 @@
 #include "GPU/GPUState.h"
 #include "Core/Config.h"
 #include <windowsx.h>
-#include <windows.h>
 #include <commctrl.h>
 
 enum { WM_GEDBG_LISTS_CHANGELIST = WM_USER+400, WM_GEDBG_LISTS_GOTOSTACKPC };

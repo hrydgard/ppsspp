@@ -1,6 +1,5 @@
 #include "Common/CommonWindows.h"
 #include <windowsx.h>
-#include <windows.h>
 #include <commctrl.h>
 #include "Windows/resource.h"
 #include "Common/Data/Encoding/Utf8.h"

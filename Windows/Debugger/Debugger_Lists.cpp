@@ -1,7 +1,6 @@
 #include "Windows/Debugger/Debugger_Lists.h"
 #include "Common/CommonWindows.h"
 #include <windowsx.h>
-#include <windows.h>
 #include <commctrl.h>
 #include "Windows/Debugger/BreakpointWindow.h"
 #include "Windows/Debugger/CtrlDisAsmView.h"
