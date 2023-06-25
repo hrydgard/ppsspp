@@ -687,6 +687,105 @@ static inline void ApplyTexturing(const RasterizerState &state, Vec4<int> *prim_
 	}
 }
 
+static inline Vec4<int> SOFTRAST_CALL CheckDepthTestPassed4(const Vec4<int> &mask, GEComparison func, int x, int y, int stride, Vec4<int> z) {
+	// Skip the depth buffer read if we're masked already.
+#if defined(_M_SSE)
+#if PPSSPP_ARCH(64BIT)
+	__m128i result = mask.ivec;
+#else
+	__m128i result = _mm_loadu_si128(&mask.ivec);
+#endif
+	int maskbits = _mm_movemask_epi8(result);
+	if (maskbits >= 0xFFFF)
+		return mask;
+#else
+	Vec4<int> result = mask;
+	if (mask.x < 0 && mask.y < 0 && mask.z < 0 && mask.w < 0)
+		return result;
+#endif
+
+	// Read in the existing depth values.
+#if defined(_M_SSE)
+	// Tried using flags from maskbits to skip dwords... seemed neutral.
+	__m128i refz = _mm_cvtsi32_si128(*(u32 *)depthbuf.Get16Ptr(x, y, stride));
+	refz = _mm_unpacklo_epi32(refz, _mm_cvtsi32_si128(*(u32 *)depthbuf.Get16Ptr(x, y + 1, stride)));
+	refz = _mm_unpacklo_epi16(refz, _mm_setzero_si128());
+#else
+	Vec4<int> refz(depthbuf.Get16(x, y, stride), depthbuf.Get16(x + 1, y, stride), depthbuf.Get16(x, y + 1, stride), depthbuf.Get16(x + 1, y + 1, stride));
+#endif
+
+	switch (func) {
+	case GE_COMP_NEVER:
+#if defined(_M_SSE)
+		result = _mm_set1_epi32(-1);
+#else
+		result = Vec4<int>::AssignToAll(-1);
+#endif
+		break;
+
+	case GE_COMP_ALWAYS:
+		break;
+
+	case GE_COMP_EQUAL:
+#if defined(_M_SSE)
+		result = _mm_or_si128(result, _mm_xor_si128(_mm_cmpeq_epi32(z.ivec, refz), _mm_set1_epi32(-1)));
+#else
+		for (int i = 0; i < 4; ++i)
+			result[i] |= z[i] != refz[i] ? -1 : 0;
+#endif
+		break;
+
+	case GE_COMP_NOTEQUAL:
+#if defined(_M_SSE)
+		result = _mm_or_si128(result, _mm_cmpeq_epi32(z.ivec, refz));
+#else
+		for (int i = 0; i < 4; ++i)
+			result[i] |= z[i] == refz[i] ? -1 : 0;
+#endif
+		break;
+
+	case GE_COMP_LESS:
+#if defined(_M_SSE)
+		result = _mm_or_si128(result, _mm_cmpgt_epi32(z.ivec, refz));
+		result = _mm_or_si128(result, _mm_cmpeq_epi32(z.ivec, refz));
+#else
+		for (int i = 0; i < 4; ++i)
+			result[i] |= z[i] >= refz[i] ? -1 : 0;
+#endif
+		break;
+
+	case GE_COMP_LEQUAL:
+#if defined(_M_SSE)
+		result = _mm_or_si128(result, _mm_cmpgt_epi32(z.ivec, refz));
+#else
+		for (int i = 0; i < 4; ++i)
+			result[i] |= z[i] > refz[i] ? -1 : 0;
+#endif
+		break;
+
+	case GE_COMP_GREATER:
+#if defined(_M_SSE)
+		result = _mm_or_si128(result, _mm_cmplt_epi32(z.ivec, refz));
+		result = _mm_or_si128(result, _mm_cmpeq_epi32(z.ivec, refz));
+#else
+		for (int i = 0; i < 4; ++i)
+			result[i] |= z[i] <= refz[i] ? -1 : 0;
+#endif
+		break;
+
+	case GE_COMP_GEQUAL:
+#if defined(_M_SSE)
+		result = _mm_or_si128(result, _mm_cmplt_epi32(z.ivec, refz));
+#else
+		for (int i = 0; i < 4; ++i)
+			result[i] |= z[i] < refz[i] ? -1 : 0;
+#endif
+		break;
+	}
+
+	return result;
+}
+
 template <bool useSSE4>
 struct TriangleEdge {
 	Vec4<int> Start(const ScreenCoords &v0, const ScreenCoords &v1, const ScreenCoords &origin);
@@ -930,6 +1029,8 @@ void DrawTriangleSlice(
 	const Vec4<float> v0_z4 = Vec4<int>::AssignToAll(v0.screenpos.z).Cast<float>();
 	const Vec4<float> v1_z4 = Vec4<int>::AssignToAll(v1.screenpos.z).Cast<float>();
 	const Vec4<float> v2_z4 = Vec4<int>::AssignToAll(v2.screenpos.z).Cast<float>();
+	const Vec4<int> minz = Vec4<int>::AssignToAll(pixelID.cached.minz);
+	const Vec4<int> maxz = Vec4<int>::AssignToAll(pixelID.cached.maxz);
 
 	for (int64_t curY = minY; curY <= maxY; curY += SCREEN_SCALE_FACTOR * 2,
 										w0_base = e0.StepY(w0_base),
@@ -977,20 +1078,19 @@ void DrawTriangleSlice(
 				}
 
 				if (pixelID.earlyZChecks) {
-					for (int i = 0; i < 4; ++i) {
-						if (pixelID.applyDepthRange) {
-							if (z[i] < pixelID.cached.minz || z[i] > pixelID.cached.maxz)
+					if (pixelID.applyDepthRange) {
+#if defined(_M_SSE)
+						mask.ivec = _mm_or_si128(mask.ivec, _mm_or_si128(_mm_cmplt_epi32(z.ivec, minz.ivec), _mm_cmpgt_epi32(z.ivec, maxz.ivec)));
+#else
+						for (int i = 0; i < 4; ++i) {
+							if (z[i] < minz[i] || z[i] > maxz[i])
 								mask[i] = -1;
 						}
-						if (mask[i] < 0)
-							continue;
-
-						int x = p.x + (i & 1);
-						int y = p.y + (i / 2);
-						if (!CheckDepthTestPassed(pixelID.DepthTestFunc(), x, y, pixelID.cached.depthbufStride, z[i])) {
-							mask[i] = -1;
-						}
+#endif
 					}
+					mask = CheckDepthTestPassed4(mask, pixelID.DepthTestFunc(), p.x, p.y, pixelID.cached.depthbufStride, z);
+					if (!AnyMask<useSSE4>(mask))
+						continue;
 				}
 
 				// Color interpolation is not perspective corrected on the PSP.
