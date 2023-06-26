@@ -148,7 +148,7 @@ void MeasureGameAchievementSummary(const UIContext &dc, int gameID, float *w, fl
 // Graphical
 void RenderAchievement(UIContext &dc, const Achievements::Achievement &achievement, AchievementRenderStyle style, const Bounds &bounds, float alpha, float startTime, float time_s) {
 	using namespace UI;
-	UI::Drawable background = dc.theme->itemStyle.background;
+	UI::Drawable background = UI::Drawable(dc.theme->backgroundColor);
 	if (achievement.locked) {
 		background.color = 0x706060;
 	}
@@ -230,7 +230,7 @@ void RenderGameAchievementSummary(UIContext &dc, int gameID, const Bounds &bound
 
 
 void AchievementView::Draw(UIContext &dc) {
-	RenderAchievement(dc, achievement_, AchievementRenderStyle::LISTED, bounds_, 0.0f, 0.0f, 0.0f);
+	RenderAchievement(dc, achievement_, AchievementRenderStyle::LISTED, bounds_, 1.0f, 0.0f, 0.0f);
 }
 
 void AchievementView::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
@@ -245,7 +245,7 @@ void AchievementView::Click() {
 }
 
 void GameAchievementSummaryView::Draw(UIContext &dc) {
-	RenderGameAchievementSummary(dc, gameID_, bounds_, 0.0f);
+	RenderGameAchievementSummary(dc, gameID_, bounds_, 1.0f);
 }
 
 void GameAchievementSummaryView::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
