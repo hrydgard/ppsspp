@@ -323,17 +323,8 @@ void ovrFramebuffer_Acquire(ovrFramebuffer* frameBuffer) {
 	XrSwapchainImageWaitInfo waitInfo;
 	waitInfo.type = XR_TYPE_SWAPCHAIN_IMAGE_WAIT_INFO;
 	waitInfo.next = NULL;
-	waitInfo.timeout = 1000000; /* timeout in nanoseconds */
+	waitInfo.timeout = XR_INFINITE_DURATION;
 	XrResult res = xrWaitSwapchainImage(frameBuffer->ColorSwapChain.Handle, &waitInfo);
-	int i = 0;
-	while ((res != XR_SUCCESS) && (i < 10)) {
-		res = xrWaitSwapchainImage(frameBuffer->ColorSwapChain.Handle, &waitInfo);
-		i++;
-		ALOGV(
-				" Retry xrWaitSwapchainImage %d times due to XR_TIMEOUT_EXPIRED (duration %f micro seconds)",
-				i,
-				waitInfo.timeout * (1E-9));
-	}
 	frameBuffer->Acquired = res == XR_SUCCESS;
 
 	ovrFramebuffer_SetCurrent(frameBuffer);

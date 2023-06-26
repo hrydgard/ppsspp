@@ -327,7 +327,11 @@ bool VR_InitFrame( engine_t* engine ) {
 			projectionCapacityInput,
 			&projectionCountOutput,
 			projections));
-	//
+	if ((viewState.viewStateFlags & XR_VIEW_STATE_POSITION_VALID_BIT) == 0 ||
+	    (viewState.viewStateFlags & XR_VIEW_STATE_ORIENTATION_VALID_BIT) == 0) {
+		return false;  // There is no valid tracking poses for the views.
+	}
+
 
 	fov = {};
 	for (int eye = 0; eye < ovrMaxNumEyes; eye++) {
@@ -486,14 +490,7 @@ void VR_FinishFrame( engine_t* engine ) {
 	endFrameInfo.environmentBlendMode = XR_ENVIRONMENT_BLEND_MODE_OPAQUE;
 	endFrameInfo.layerCount = engine->appState.LayerCount;
 	endFrameInfo.layers = layers;
-
 	OXR(xrEndFrame(engine->appState.Session, &endFrameInfo));
-	int instances = engine->appState.Renderer.Multiview ? 1 : ovrMaxNumEyes;
-	for (int i = 0; i < instances; i++) {
-		ovrFramebuffer* frameBuffer = &engine->appState.Renderer.FrameBuffer[instances];
-		frameBuffer->TextureSwapChainIndex++;
-		frameBuffer->TextureSwapChainIndex %= frameBuffer->TextureSwapChainLength;
-	}
 }
 
 int VR_GetConfig( VRConfig config ) {
