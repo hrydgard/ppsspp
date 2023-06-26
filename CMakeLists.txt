@@ -801,8 +801,10 @@ add_library(Common STATIC
 	Common/MemArenaDarwin.cpp
 	Common/MemArenaPosix.cpp
 	Common/MemArenaWin32.cpp
+	Common/MemArenaHorizon.cpp
 	Common/MemArena.h
 	Common/MemoryUtil.cpp
+	Common/MemoryUtilHorizon.cpp
 	Common/MemoryUtil.h
 	Common/OSVersion.cpp
 	Common/OSVersion.h
