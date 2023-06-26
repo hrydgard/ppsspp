@@ -164,7 +164,7 @@ static constexpr UI::UISound UNLOCK_SOUND_NAME = UI::UISound::TOGGLE_ON;
 static constexpr UI::UISound LBSUBMIT_SOUND_NAME = UI::UISound::TOGGLE_OFF;
 
 // It's the name of the secret, not a secret name - the value is not secret :)
-static const char *RA_TOKEN_SECRET_NAME = "retroachievements ";
+static const char *RA_TOKEN_SECRET_NAME = "retroachievements";
 
 static void FormattedError(const char *format, ...);
 static void LogFailedResponseJSON(const Common::HTTPDownloader::Request::Data &data);

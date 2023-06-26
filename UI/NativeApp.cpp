@@ -1423,8 +1423,8 @@ void NativeShutdown() {
 // In the future, we might make this more sophisticated, such as storing in the app private directory on Android.
 // Right now we just store secrets in separate files next to ppsspp.ini. The important thing is keeping them out of it
 // since we often ask people to post or send the ini for debugging.
-Path GetSecretPath(const char *nameOfSecret) {
-	return g_Config.memStickDirectory / ("PSP/SYSTEM/ppsspp_" + std::string(nameOfSecret) + ".dat");
+static Path GetSecretPath(const char *nameOfSecret) {
+	return GetSysDirectory(DIRECTORY_SYSTEM) / ("ppsspp_" + std::string(nameOfSecret) + ".dat");
 }
 
 // name should be simple alphanumerics to avoid problems on Windows.
