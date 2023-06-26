@@ -1430,12 +1430,16 @@ void NativeSaveSecret(const char *nameOfSecret, const std::string &data) {
 	// On Android, that corresponds to the app private directory. On other platforms,
 	// the location is less secure unfortunately - to be improved.
 	Path path = GetSecretPath(nameOfSecret);
-	File::WriteDataToFile(false, data.data(), data.size(), path);
+	if (!File::WriteDataToFile(false, data.data(), data.size(), path)) {
+		WARN_LOG(SYSTEM, "Failed to write secret '%s' to path '%s'", nameOfSecret, path.c_str());
+	}
 }
 
 std::string NativeLoadSecret(const char *nameOfSecret) {
 	Path path = GetSecretPath(nameOfSecret);
 	std::string data;
-	File::ReadFileToString(false, path, data);
+	if (!File::ReadFileToString(false, path, data)) {
+		WARN_LOG(SYSTEM, "Failed to read secret '%s' from path '%s'", nameOfSecret, path.c_str());
+	}
 	return data;
 }

@@ -31,6 +31,7 @@
 #include "Common/File/Path.h"
 #include "Common/File/FileUtil.h"
 #include "Common/Net/HTTPClient.h"
+#include "Common/System/NativeApp.h"
 #include "Common/TimeUtil.h"
 #include "Common/Data/Text/I18n.h"
 #include "Common/Serialize/Serializer.h"
@@ -161,6 +162,9 @@ enum : s32
 static constexpr UI::UISound INFO_SOUND_NAME = UI::UISound::SELECT;
 static constexpr UI::UISound UNLOCK_SOUND_NAME = UI::UISound::TOGGLE_ON;
 static constexpr UI::UISound LBSUBMIT_SOUND_NAME = UI::UISound::TOGGLE_OFF;
+
+// It's the name of the secret, not a secret name - the value is not secret :)
+static const char *RA_TOKEN_SECRET_NAME = "retroachievements ";
 
 static void FormattedError(const char *format, ...);
 static void LogFailedResponseJSON(const Common::HTTPDownloader::Request::Data &data);
@@ -577,7 +581,10 @@ void Achievements::Initialize()
 
 	s_last_ping_time = time_now_d();
 	s_username = g_Config.sAchievementsUserName;
-	s_api_token = g_Config.sAchievementsToken;
+	s_api_token = NativeLoadSecret(RA_TOKEN_SECRET_NAME);
+	if (s_api_token.empty()) {
+		s_api_token = g_Config.sAchievementsToken;
+	}
 	s_logged_in = (!s_username.empty() && !s_api_token.empty());
 
 	// this is just the non-SSL path.
@@ -991,8 +998,8 @@ void Achievements::LoginCallback(s32 status_code, std::string content_type, Comm
 
 	// save to config
 	g_Config.sAchievementsUserName = username;
-	g_Config.sAchievementsToken = api_token;
 	g_Config.sAchievementsLoginTimestamp = StringFromFormat("%llu", (unsigned long long)std::time(nullptr));
+	NativeSaveSecret(RA_TOKEN_SECRET_NAME, api_token);
 
 	g_Config.Save("AchievementsLogin");
 
@@ -1059,7 +1066,7 @@ void Achievements::Logout()
 
 	// remove from config
 	g_Config.sAchievementsUserName.clear();
-	g_Config.sAchievementsToken.clear();
+	NativeSaveSecret(RA_TOKEN_SECRET_NAME, "");
 	g_Config.sAchievementsLoginTimestamp.clear();
 	g_Config.Save("Achievements logout");
 }

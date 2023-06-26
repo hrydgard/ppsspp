@@ -276,9 +276,9 @@ static const ConfigSetting achievementSettings[] = {
 	ConfigSetting("AchievementsLogBadMemReads", &g_Config.bAchievementsLogBadMemReads, false, CfgFlag::DEFAULT),
 
 	// Achievements login info. Note that password is NOT stored, only a login token.
-	// Still, we may wanna store it more securely than in PPSSPP.ini, especially on Android.
+	// And that login token is stored separately from the ini, see NativeSaveSecret.
 	ConfigSetting("AchievementsUserName", &g_Config.sAchievementsUserName, "", CfgFlag::DEFAULT),
-	ConfigSetting("AchievementsToken", &g_Config.sAchievementsToken, "", CfgFlag::DEFAULT),
+	ConfigSetting("AchievementsToken", &g_Config.sAchievementsToken, "", CfgFlag::DONT_SAVE),
 	ConfigSetting("AchievementsLoginTimestamp", &g_Config.sAchievementsLoginTimestamp, "", CfgFlag::DEFAULT),
 };
 
