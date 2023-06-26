@@ -17,7 +17,7 @@
 
 #include "ppsspp_config.h"
 
-#if !defined(_WIN32) && !defined(ANDROID) && !defined(__APPLE__)
+#if !defined(_WIN32) && !defined(ANDROID) && !defined(__APPLE__) && !PPSSPP_PLATFORM(SWITCH)
 
 #include <sys/mman.h>
 #include <sys/stat.h>
