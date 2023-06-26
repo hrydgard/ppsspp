@@ -1420,15 +1420,15 @@ void NativeShutdown() {
 	// I think we handle most globals correctly or correct-enough now.
 }
 
+// In the future, we might make this more sophisticated, such as storing in the app private directory on Android.
+// Right now we just store secrets in separate files next to ppsspp.ini. The important thing is keeping them out of it
+// since we often ask people to post or send the ini for debugging.
 Path GetSecretPath(const char *nameOfSecret) {
-	return g_Config.internalDataDirectory / ("ppsspp_" + std::string(nameOfSecret) + ".dat");
+	return g_Config.memStickDirectory / ("PSP/SYSTEM/ppsspp_" + std::string(nameOfSecret) + ".dat");
 }
 
 // name should be simple alphanumerics to avoid problems on Windows.
 void NativeSaveSecret(const char *nameOfSecret, const std::string &data) {
-	// We'll simply store secrets in files under g_Config.internalDataDirectory.
-	// On Android, that corresponds to the app private directory. On other platforms,
-	// the location is less secure unfortunately - to be improved.
 	Path path = GetSecretPath(nameOfSecret);
 	if (!File::WriteDataToFile(false, data.data(), data.size(), path)) {
 		WARN_LOG(SYSTEM, "Failed to write secret '%s' to path '%s'", nameOfSecret, path.c_str());
