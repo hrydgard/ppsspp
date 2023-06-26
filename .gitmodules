@@ -44,3 +44,6 @@
 [submodule "cpu_features"]
 	path = ext/cpu_features
 	url = https://github.com/google/cpu_features.git
+[submodule "ext/rcheevos"]
+	path = ext/rcheevos
+	url = https://github.com/RetroAchievements/rcheevos.git

@@ -40,6 +40,7 @@ static const char * const g_categoryNames[(size_t)I18NCat::CATEGORY_COUNT] = {
 	"UI Elements",
 	"Upgrade",
 	"VR",
+	"Achievements",
 };
 
 I18NRepo g_i18nrepo;

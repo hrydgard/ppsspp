@@ -86,6 +86,10 @@
     <ClCompile Include="TabbedDialogScreen.cpp">
       <Filter>Screens</Filter>
     </ClCompile>
+    <ClCompile Include="RetroAchievements.cpp" />
+    <ClCompile Include="RetroAchievementScreens.cpp">
+      <Filter>Screens</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="GameInfoCache.h" />
@@ -170,6 +174,10 @@
       <Filter>Screens</Filter>
     </ClInclude>
     <ClInclude Include="TabbedDialogScreen.h">
+      <Filter>Screens</Filter>
+    </ClInclude>
+    <ClInclude Include="RetroAchievements.h" />
+    <ClInclude Include="RetroAchievementScreens.h">
       <Filter>Screens</Filter>
     </ClInclude>
   </ItemGroup>

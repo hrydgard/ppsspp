@@ -53,6 +53,7 @@
 #include "UI/GPUDriverTestScreen.h"
 #include "UI/MemStickScreen.h"
 #include "UI/Theme.h"
+#include "UI/RetroAchievementScreens.h"
 
 #include "Common/File/FileUtil.h"
 #include "Common/File/AndroidContentURI.h"
@@ -851,6 +852,11 @@ void GameSettingsScreen::CreateSystemSettings(UI::ViewGroup *systemSettings) {
 	auto th = GetI18NCategory(I18NCat::THEMES);
 
 	systemSettings->Add(new ItemHeader(sy->T("UI")));
+
+	systemSettings->Add(new Choice(sy->T("RetroAchievements")))->OnClick.Add([&](UI::EventParams &) -> UI::EventReturn {
+		screenManager()->push(new RetroAchievementsSettingsScreen(gamePath_));
+		return UI::EVENT_DONE;
+	});
 
 	auto langCodeToName = [](const char *value) -> std::string {
 		auto &mapping = g_Config.GetLangValuesMapping();

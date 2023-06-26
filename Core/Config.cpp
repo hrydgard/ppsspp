@@ -264,6 +264,24 @@ static bool DefaultSasThread() {
 	return cpu_info.num_cores > 1;
 }
 
+static const ConfigSetting achievementSettings[] = {
+	ConfigSetting("AchievementsEnable", &g_Config.bAchievementsEnable, true, CfgFlag::DEFAULT),
+	ConfigSetting("AchievementsLeaderboards", &g_Config.bAchievementsLeaderboards, false, CfgFlag::DEFAULT),
+	ConfigSetting("AchievementsTestMode", &g_Config.bAchievementsTestMode, false, CfgFlag::DEFAULT),
+	ConfigSetting("AchievementsUnofficialTestMode", &g_Config.bAchievementsUnofficialTestMode, false, CfgFlag::DEFAULT),
+	ConfigSetting("AchievementsRichPresence", &g_Config.bAchievementsRichPresence, true, CfgFlag::DEFAULT),
+	ConfigSetting("AchievementsChallengeMode", &g_Config.bAchievementsChallengeMode, false, CfgFlag::DEFAULT),
+	ConfigSetting("AchievementsSoundEffects", &g_Config.bAchievementsSoundEffects, true, CfgFlag::DEFAULT),
+	ConfigSetting("AchievementsNotifications", &g_Config.bAchievementsNotifications, true, CfgFlag::DEFAULT),
+	ConfigSetting("AchievementsLogBadMemReads", &g_Config.bAchievementsLogBadMemReads, false, CfgFlag::DEFAULT),
+
+	// Achievements login info. Note that password is NOT stored, only a login token.
+	// And that login token is stored separately from the ini, see NativeSaveSecret.
+	ConfigSetting("AchievementsUserName", &g_Config.sAchievementsUserName, "", CfgFlag::DEFAULT),
+	ConfigSetting("AchievementsToken", &g_Config.sAchievementsToken, "", CfgFlag::DONT_SAVE),
+	ConfigSetting("AchievementsLoginTimestamp", &g_Config.sAchievementsLoginTimestamp, "", CfgFlag::DEFAULT),
+};
+
 static const ConfigSetting cpuSettings[] = {
 	ConfigSetting("CPUCore", &g_Config.iCpuCore, &DefaultCpuCore, CfgFlag::PER_GAME | CfgFlag::REPORT),
 	ConfigSetting("SeparateSASThread", &g_Config.bSeparateSASThread, &DefaultSasThread, CfgFlag::PER_GAME | CfgFlag::REPORT),
@@ -887,6 +905,7 @@ static const ConfigSectionSettings sections[] = {
 	{"Upgrade", upgradeSettings, ARRAY_SIZE(upgradeSettings)},
 	{"Theme", themeSettings, ARRAY_SIZE(themeSettings)},
 	{"VR", vrSettings, ARRAY_SIZE(vrSettings)},
+	{"Achievements", achievementSettings, ARRAY_SIZE(achievementSettings)},
 };
 
 const size_t numSections = ARRAY_SIZE(sections);

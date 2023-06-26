@@ -90,6 +90,7 @@ using namespace std::placeholders;
 #include "UI/ProfilerDraw.h"
 #include "UI/DiscordIntegration.h"
 #include "UI/ChatScreen.h"
+#include "UI/RetroAchievements.h"
 
 #include "Core/Reporting.h"
 
@@ -345,6 +346,8 @@ void EmuScreen::bootGame(const Path &filename) {
 		auto gr = GetI18NCategory(I18NCat::GRAPHICS);
 		g_OSD.Show(OSDType::MESSAGE_WARNING, gr->T("DefaultCPUClockRequired", "Warning: This game requires the CPU clock to be set to default."), 10.0f);
 	}
+
+	Achievements::GameChanged(filename);
 
 	loadingViewColor_->Divert(0xFFFFFFFF, 0.75f);
 	loadingViewVisible_->Divert(UI::V_VISIBLE, 0.75f);
@@ -1126,6 +1129,8 @@ void EmuScreen::update() {
 			}
 		}
 	}
+
+	Achievements::FrameUpdate();
 }
 
 void EmuScreen::checkPowerDown() {

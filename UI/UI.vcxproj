@@ -59,6 +59,8 @@
     <ClCompile Include="ProfilerDraw.cpp" />
     <ClCompile Include="RemoteISOScreen.cpp" />
     <ClCompile Include="ReportScreen.cpp" />
+    <ClCompile Include="RetroAchievements.cpp" />
+    <ClCompile Include="RetroAchievementScreens.cpp" />
     <ClCompile Include="SavedataScreen.cpp" />
     <ClCompile Include="Store.cpp" />
     <ClCompile Include="AudioCommon.cpp" />
@@ -94,6 +96,8 @@
     <ClInclude Include="ProfilerDraw.h" />
     <ClInclude Include="RemoteISOScreen.h" />
     <ClInclude Include="ReportScreen.h" />
+    <ClInclude Include="RetroAchievements.h" />
+    <ClInclude Include="RetroAchievementScreens.h" />
     <ClInclude Include="SavedataScreen.h" />
     <ClInclude Include="Store.h" />
     <ClInclude Include="TabbedDialogScreen.h" />
@@ -106,6 +110,9 @@
   <ItemGroup>
     <ProjectReference Include="..\ext\discord-rpc-build\discord-rpc.vcxproj">
       <Project>{beb0a821-3c7f-410f-a525-63afbc69bf8f}</Project>
+    </ProjectReference>
+    <ProjectReference Include="..\ext\rcheevos-build\rcheevos.vcxproj">
+      <Project>{31694510-a8c0-40f6-b09b-e8df825adefa}</Project>
     </ProjectReference>
   </ItemGroup>
   <PropertyGroup Label="Globals">

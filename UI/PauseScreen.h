@@ -54,7 +54,6 @@ private:
 	UI::EventReturn OnLastSaveUndo(UI::EventParams &e);
 
 	UI::EventReturn OnScreenshotClicked(UI::EventParams &e);
-	UI::EventReturn OnCwCheat(UI::EventParams &e);
 
 	UI::EventReturn OnCreateConfig(UI::EventParams &e);
 	UI::EventReturn OnDeleteConfig(UI::EventParams &e);

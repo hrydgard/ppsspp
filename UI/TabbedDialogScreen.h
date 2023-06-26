@@ -18,14 +18,14 @@ protected:
 	// Load data and define your tabs here.
 	virtual void PreCreateViews() {}
 	virtual void CreateTabs() = 0;
-	virtual bool ShowSearchControls() { return true; }
+	virtual bool ShowSearchControls() const { return true; }
 
 	void RecreateViews() override;
+	void sendMessage(const char *message, const char *value) override;
 
 	SettingInfoMessage *settingInfo_ = nullptr;
 
 private:
-	void sendMessage(const char *message, const char *value) override;
 	void ApplySearchFilter();
 
 	UI::TabHolder *tabHolder_ = nullptr;

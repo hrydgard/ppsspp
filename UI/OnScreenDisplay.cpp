@@ -8,6 +8,8 @@
 #include "Common/Render/TextureAtlas.h"
 #include "Common/Render/DrawBuffer.h"
 #include "Common/Math/math_util.h"
+#include "Common/UI/IconCache.h"
+#include "UI/RetroAchievementScreens.h"
 
 #include "Common/UI/Context.h"
 #include "Common/System/System.h"
@@ -38,12 +40,21 @@ ImageID GetOSDIcon(OSDType type) {
 	}
 }
 
-static const float iconSize = 36.0f;
+static const float g_atlasIconSize = 36.0f;
 
 static const float extraTextScale = 0.7f;
 
 // Align only matters here for the ASCII-only flag.
 static void MeasureOSDEntry(UIContext &dc, const OnScreenDisplay::Entry &entry, int align, float *width, float *height, float *height1) {
+	if (entry.type == OSDType::ACHIEVEMENT_UNLOCKED) {
+		const Achievements::Achievement *achievement = Achievements::GetAchievementByID(entry.numericID);
+		MeasureAchievement(dc, *achievement, width, height);
+		*width = 550.0f;
+		*height1 = *height;
+		return;
+	}
+
+	dc.SetFontStyle(dc.theme->uiFont);
 	dc.MeasureText(dc.theme->uiFont, 1.0f, 1.0f, entry.text.c_str(), width, height, align);
 	*height1 = *height;
 
@@ -54,15 +65,31 @@ static void MeasureOSDEntry(UIContext &dc, const OnScreenDisplay::Entry &entry, 
 		*height += 5.0f + height2;
 	}
 
-	if (!GetOSDIcon(entry.type).isInvalid()) {
-		*width += iconSize + 5.0f;
+	float iconSize = 0.0f;
+
+	if (!entry.iconName.empty()) {
+		// Normal entry but with a cached icon.
+		int iconWidth, iconHeight;
+		if (g_iconCache.GetDimensions(entry.iconName, &iconWidth, &iconHeight)) {
+			*width += 5.0f + iconWidth;
+			iconSize = iconWidth + 5.0f;
+		}
+	} else if (!GetOSDIcon(entry.type).isInvalid()) {
+		// Atlas icon.
+		iconSize = g_atlasIconSize + 5.0f;
 	}
 
-	*width += 12.0f;
+	*width += iconSize + 12.0f;
 	*height = std::max(*height, iconSize + 5.0f);
 }
 
 static void RenderOSDEntry(UIContext &dc, const OnScreenDisplay::Entry &entry, Bounds bounds, float height1, int align, float alpha) {
+	if (entry.type == OSDType::ACHIEVEMENT_UNLOCKED) {
+		const Achievements::Achievement *achievement = Achievements::GetAchievementByID(entry.numericID);
+		RenderAchievement(dc, *achievement, AchievementRenderStyle::UNLOCKED, bounds, alpha, entry.startTime, time_now_d());
+		return;
+	}
+
 	UI::Drawable background = UI::Drawable(colorAlpha(GetOSDBackgroundColor(entry.type), alpha));
 
 	uint32_t foreGround = whiteAlpha(alpha);
@@ -72,28 +99,40 @@ static void RenderOSDEntry(UIContext &dc, const OnScreenDisplay::Entry &entry, B
 	dc.Draw()->DrawImage4Grid(dc.theme->dropShadow4Grid, shadowBounds.x, shadowBounds.y + 4.0f, shadowBounds.x2(), shadowBounds.y2(), alphaMul(0xFF000000, 0.9f * alpha), 1.0f);
 
 	dc.FillRect(background, bounds);
-	dc.SetFontStyle(dc.theme->uiFont);
 
 	ImageID iconID = GetOSDIcon(entry.type);
 
-	if (iconID.isValid()) {
-		dc.DrawImageVGradient(iconID, foreGround, foreGround, Bounds(bounds.x + 2.5f, bounds.y + 2.5f, iconSize, iconSize));
-
-		// Make room
-		bounds.x += iconSize + 5.0f;
-		bounds.w -= iconSize + 5.0f;
+	float iconSize = 0.0f;
+	if (!entry.iconName.empty()) {
+		dc.Flush();
+		// Normal entry but with a cached icon.
+		Draw::Texture *texture = g_iconCache.BindIconTexture(&dc, entry.iconName);
+		if (texture) {
+			iconSize = texture->Width();
+			dc.Draw()->DrawTexRect(Bounds(bounds.x + 2.5f, bounds.y + 2.5f, iconSize, iconSize), 0.0f, 0.0f, 1.0f, 1.0f, foreGround);
+			dc.Flush();
+			dc.RebindTexture();
+		}
+		dc.Begin();
+	} else if (iconID.isValid()) {
+		// Atlas icon.
+		dc.DrawImageVGradient(iconID, foreGround, foreGround, Bounds(bounds.x + 2.5f, bounds.y + 2.5f, g_atlasIconSize, g_atlasIconSize));
 	}
 
-	dc.DrawTextShadowRect(entry.text.c_str(), bounds.Inset(0.0f, 1.0f, 0.0f, 0.0f), colorAlpha(0xFFFFFFFF, alpha), (align & FLAG_DYNAMIC_ASCII));
+	// Make room
+	bounds.x += iconSize + 5.0f;
+	bounds.w -= iconSize + 5.0f;
+
+	dc.DrawTextShadowRect(entry.text.c_str(), bounds.Inset(0.0f, 1.0f, 0.0f, 0.0f), foreGround, (align & FLAG_DYNAMIC_ASCII));
 
 	if (!entry.text2.empty()) {
 		Bounds bottomTextBounds = bounds.Inset(3.0f, height1 + 5.0f, 3.0f, 3.0f);
 		UI::Drawable backgroundDark = UI::Drawable(colorAlpha(darkenColor(GetOSDBackgroundColor(entry.type)), alpha));
 		dc.FillRect(backgroundDark, bottomTextBounds);
 		dc.SetFontScale(extraTextScale, extraTextScale);
-		dc.DrawTextRect(entry.text2.c_str(), bottomTextBounds, colorAlpha(0xFFFFFFFF, alpha), (align & FLAG_DYNAMIC_ASCII) | ALIGN_LEFT);
-		dc.SetFontScale(1.0f, 1.0f);
+		dc.DrawTextRect(entry.text2.c_str(), bottomTextBounds, foreGround, (align & FLAG_DYNAMIC_ASCII) | ALIGN_LEFT);
 	}
+	dc.SetFontScale(1.0f, 1.0f);
 }
 
 static void MeasureOSDProgressBar(UIContext &dc, const OnScreenDisplay::ProgressBar &bar, float *width, float *height) {
@@ -137,6 +176,7 @@ static void RenderOSDProgressBar(UIContext &dc, const OnScreenDisplay::ProgressB
 	}
 
 	dc.SetFontStyle(dc.theme->uiFont);
+	dc.SetFontScale(1.0f, 1.0f);
 
 	dc.DrawTextShadowRect(entry.message.c_str(), bounds, colorAlpha(0xFFFFFFFF, alpha), (align & FLAG_DYNAMIC_ASCII) | ALIGN_CENTER);
 }
@@ -145,6 +185,8 @@ void OnScreenMessagesView::Draw(UIContext &dc) {
 	if (!g_Config.bShowOnScreenMessages) {
 		return;
 	}
+
+	dc.Flush();
 
 	double now = time_now_d();
 
@@ -207,6 +249,7 @@ void OnScreenMessagesView::Draw(UIContext &dc) {
 	}
 
 	// Thin bar at the top of the screen.
+	// TODO: Remove and replace with "proper" progress bars.
 	std::vector<float> progress = g_DownloadManager.GetCurrentProgress();
 	if (!progress.empty()) {
 		static const uint32_t colors[4] = {

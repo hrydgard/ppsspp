@@ -84,7 +84,9 @@ Path Path::operator /(const std::string &subdir) const {
 	}
 
 	// Direct string manipulation.
-
+	if (path_.empty()) {
+		return Path(subdir);
+	}
 	if (subdir.empty()) {
 		return Path(path_);
 	}
@@ -251,6 +253,15 @@ const std::string &Path::ToString() const {
 #if PPSSPP_PLATFORM(WINDOWS)
 std::wstring Path::ToWString() const {
 	std::wstring w = ConvertUTF8ToWString(path_);
+	for (size_t i = 0; i < w.size(); i++) {
+		if (w[i] == '/') {
+			w[i] = '\\';
+		}
+	}
+	return w;
+}
+std::string Path::ToCString() const {
+	std::string w = path_;
 	for (size_t i = 0; i < w.size(); i++) {
 		if (w[i] == '/') {
 			w[i] = '\\';

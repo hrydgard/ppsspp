@@ -114,7 +114,7 @@ public:
 	void CreateTabs() override;
 
 protected:
-	bool ShowSearchControls() override { return false; }
+	bool ShowSearchControls() const override { return false; }
 };
 
 class AddressPromptScreen : public PopupScreen {

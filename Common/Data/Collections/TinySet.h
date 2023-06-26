@@ -187,7 +187,7 @@ struct FixedTinyVec {
 	bool operator == (const FixedTinyVec<T, MaxSize> &other) const {
 		if (count_ != other.count_)
 			return false;
-		for (size_t i = 0; i < count_; i++) {
+		for (int i = 0; i < count_; i++) {
 			if (!(data_[i] == other.data_[i])) {
 				return false;
 			}
