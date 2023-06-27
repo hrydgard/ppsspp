@@ -427,9 +427,6 @@ void LinkedShader::UpdateUniforms(const ShaderID &vsid, bool useBufferedRenderin
 			} else {
 				UpdateVRProjection(gstate.projMatrix, leftEyeMatrix.m, rightEyeMatrix.m);
 			}
-			float m4x4[16];
-			ConvertMatrix4x3To4x4Transposed(m4x4, gstate.viewMatrix);
-			UpdateVRParams(gstate.projMatrix, m4x4);
 
 			FlipProjMatrix(leftEyeMatrix, useBufferedRendering);
 			FlipProjMatrix(rightEyeMatrix, useBufferedRendering);
@@ -574,6 +571,7 @@ void LinkedShader::UpdateUniforms(const ShaderID &vsid, bool useBufferedRenderin
 			ConvertMatrix4x3To4x4Transposed(leftEyeView, gstate.viewMatrix);
 			ConvertMatrix4x3To4x4Transposed(rightEyeView, gstate.viewMatrix);
 			if (!is2D) {
+				UpdateVRParams(gstate.projMatrix, leftEyeView);
 				UpdateVRView(leftEyeView, rightEyeView);
 			}
 			render_->SetUniformM4x4Stereo("u_view", &u_view, leftEyeView, rightEyeView);

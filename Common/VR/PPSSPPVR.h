@@ -59,3 +59,4 @@ bool Is2DVRObject(float* projMatrix, bool ortho);
 void UpdateVRParams(float* projMatrix, float* viewMatrix);
 void UpdateVRProjection(float* projMatrix, float* leftEye, float* rightEye);
 void UpdateVRView(float* leftEye, float* rightEye);
+void UpdateVRViewMatrices();
