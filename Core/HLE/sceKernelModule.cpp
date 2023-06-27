@@ -73,6 +73,11 @@
 #include "GPU/GPUInterface.h"
 #include "GPU/GPUState.h"
 
+#if PPSSPP_PLATFORM(SWITCH)
+// Defined in Misc.cpp
+extern size_t strnlen(const char *s, size_t maxlen);
+#endif // PPSSPP_PLATFORM(SWITCH)
+
 enum {
 	PSP_THREAD_ATTR_KERNEL = 0x00001000,
 	PSP_THREAD_ATTR_USER = 0x80000000,

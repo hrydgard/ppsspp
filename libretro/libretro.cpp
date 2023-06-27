@@ -1492,6 +1492,15 @@ bool retro_load_game(const struct retro_game_info *game)
    coreParam.cpuCore         =  (CPUCore)g_Config.iCpuCore;
 
    std::string error_string;
+#if 1
+   // was if 0 on last rebase, should probably implement via core options at this point?
+   g_Config.bVertexDecoderJit = true;
+#endif
+	check_variables(coreParam);
+	
+	if(g_Config.bVertexDecoderJit)
+		g_Config.bVertexDecoderJit = (coreParam.cpuCore == CPUCore::JIT) ? true : false;
+
    if (!PSP_InitStart(coreParam, &error_string))
    {
       ERROR_LOG(Log::Boot, "%s", error_string.c_str());

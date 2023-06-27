@@ -101,9 +101,10 @@ LibretroGraphicsContext *LibretroGraphicsContext::CreateGraphicsContext() {
 	if (Libretro::backend != RETRO_HW_CONTEXT_DUMMY)
 		preferred = Libretro::backend;
 
+#if !PPSSPP_PLATFORM(SWITCH)
 #ifndef USING_GLES2
-	if (preferred == RETRO_HW_CONTEXT_DUMMY || preferred == RETRO_HW_CONTEXT_OPENGL_CORE) {
-		ctx = new LibretroGLCoreContext();
+	if (preferred == RETRO_HW_CONTEXT_DUMMY || preferred == RETRO_HW_CONTEXT_OPENGL_CORE) 
+		ctx = new LibretroGLContext();
 
 		if (ctx->Init()) {
 			return ctx;
@@ -111,6 +112,7 @@ LibretroGraphicsContext *LibretroGraphicsContext::CreateGraphicsContext() {
 		delete ctx;
 	}
 #endif
+#endif // PPSSPP_PLATFORM(SWITCH)
 
 	if (preferred == RETRO_HW_CONTEXT_DUMMY || preferred == RETRO_HW_CONTEXT_OPENGL || preferred == RETRO_HW_CONTEXT_OPENGLES3) {
 		ctx = new LibretroGLContext();
@@ -121,7 +123,7 @@ LibretroGraphicsContext *LibretroGraphicsContext::CreateGraphicsContext() {
 		delete ctx;
 	}
 
-#ifndef HAVE_LIBNX
+#if !PPSSPP_PLATFORM(SWITCH)
 	if (preferred == RETRO_HW_CONTEXT_DUMMY || preferred == RETRO_HW_CONTEXT_VULKAN) {
 		ctx = new LibretroVulkanContext();
 

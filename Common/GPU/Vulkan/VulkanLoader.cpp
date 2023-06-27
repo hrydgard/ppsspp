@@ -264,6 +264,7 @@ static VulkanLibraryHandle vulkanLibrary;
 bool g_vulkanAvailabilityChecked = false;
 bool g_vulkanMayBeAvailable = false;
 
+#if !PPSSPP_PLATFORM(SWITCH)
 #define LOAD_INSTANCE_FUNC(instance, x) x = (PFN_ ## x)vkGetInstanceProcAddr(instance, #x); if (!x) {INFO_LOG(Log::G3D, "Missing (instance): %s", #x);}
 #define LOAD_INSTANCE_FUNC_CORE(instance, x, ext_x, min_core) \
     x = (PFN_ ## x)vkGetInstanceProcAddr(instance, vulkanApiVersion >= min_core ? #x : #ext_x); \
@@ -277,6 +278,19 @@ bool g_vulkanMayBeAvailable = false;
 #define LOAD_GLOBAL_FUNC(x) x = (PFN_ ## x)dlsym(vulkanLibrary, #x); if (!x) {INFO_LOG(Log::G3D,"Missing (global): %s", #x);}
 
 #define LOAD_GLOBAL_FUNC_LOCAL(lib, x) (PFN_ ## x)dlsym(lib, #x);
+
+#else // !PPSSPP_PLATFORM(SWITCH)
+// Just random stubs
+#define RTLD_NOW 0
+#define RTLD_LOCAL 1
+#define dlopen(...) NULL
+#define dlclose(...)
+#define LOAD_INSTANCE_FUNC(instance, x) x = (PFN_ ## x)NULL;
+#define LOAD_DEVICE_FUNC(instance, x) x = (PFN_ ## x)NULL;
+#define LOAD_GLOBAL_FUNC(x) x = (PFN_ ## x)NULL;
+
+#define LOAD_GLOBAL_FUNC_LOCAL(lib, x)  (PFN_ ## x)NULL;
+#endif // PPSSPP_PLATFORM(SWITCH)
 
 static const char * const device_name_blacklist[] = {
 	"NVIDIA:SHIELD Tablet K1",

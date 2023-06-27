@@ -41,6 +41,11 @@
 #include "Core/HLE/sceKernelInterrupt.h"
 #include "Core/HLE/HLE.h"
 
+#if PPSSPP_PLATFORM(SWITCH)
+// Defined in Misc.cpp
+extern size_t strnlen(const char *s, size_t maxlen);
+#endif // PPSSPP_PLATFORM(SWITCH)
+
 enum
 {
 	// Do nothing after the syscall.

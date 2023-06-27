@@ -28,12 +28,12 @@
 #include <cstring>
 #include <signal.h>
 
-#if defined(HAVE_LIBNX) || PPSSPP_PLATFORM(SWITCH)
+#if PPSSPP_PLATFORM(SWITCH) || PPSSPP_PLATFORM(SWITCH)
 #include <netdb.h>
 #include <switch.h>
 // Missing include, *shrugs*
 extern "C" struct hostent *gethostbyname(const char *name);
-#endif // defined(HAVE_LIBNX) || PPSSPP_PLATFORM(SWITCH)
+#endif // PPSSPP_PLATFORM(SWITCH) || PPSSPP_PLATFORM(SWITCH)
 
 #include <sys/types.h>
 // Net stuff
@@ -1912,7 +1912,6 @@ int server_loop(int server)
 					// Switch Socket into Non-Blocking Mode
 					change_blocking_mode(loginresult, 1);
 				}
-
 				// Login User (Stream)
 				if (loginresult != -1) {
 					u32_le sip = addr.sin_addr.s_addr;
