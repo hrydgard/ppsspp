@@ -587,7 +587,7 @@ public:
 #elif defined(_M_SSE)
 			return _mm_cvtps_epi32(_mm_loadu_ps(&x));
 #elif PPSSPP_ARCH(ARM64_NEON)
-			return vcvtq_s32_f32(ivec);
+			return vcvtq_s32_f32(vec);
 #endif
 		}
 		if constexpr (std::is_same<T, int>::value && std::is_same<T2, float>::value) {
