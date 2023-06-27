@@ -117,6 +117,7 @@ static void RenderOSDEntry(UIContext &dc, const OnScreenDisplay::Entry &entry, B
 	} else if (iconID.isValid()) {
 		// Atlas icon.
 		dc.DrawImageVGradient(iconID, foreGround, foreGround, Bounds(bounds.x + 2.5f, bounds.y + 2.5f, g_atlasIconSize, g_atlasIconSize));
+		iconSize = g_atlasIconSize;
 	}
 
 	// Make room
