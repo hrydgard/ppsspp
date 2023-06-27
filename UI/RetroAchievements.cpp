@@ -35,6 +35,7 @@
 #include "Common/TimeUtil.h"
 #include "Common/Data/Text/I18n.h"
 #include "Common/Serialize/Serializer.h"
+#include "Common/StringUtils.h"
 #include "Common/System/System.h"
 #include "Common/Crypto/md5.h"
 #include "Common/UI/IconCache.h"
@@ -707,7 +708,7 @@ void Achievements::SetChallengeMode(bool enabled)
 		auto ac = GetI18NCategory(I18NCat::ACHIEVEMENTS);
 		auto di = GetI18NCategory(I18NCat::DIALOG);
 
-		OSDAddNotification(5.0f, std::string(ac->T("Challenge mode")) + ": " + di->T(enabled ? "Enabled" : "Disabled"), "", "");
+		OSDAddNotification(5.0f, std::string(ac->T("Challenge Mode")) + ": " + di->T(enabled ? "Enabled" : "Disabled"), "", "");
 	}
 
 	if (HasActiveGame() && !IsTestModeActive())
@@ -1126,7 +1127,7 @@ void Achievements::DisplayMasteredNotification()
 		return;
 
 	// TODO: Translation?
-	std::string title = StringFromFormat(ac->T("Mastered %s"), s_game_title.c_str());
+	std::string title = ReplaceAll(ac->T("Mastered %1"), "%1", s_game_title.c_str());
 	std::string message = StringFromFormat(ac->T("%d achievements, %d points"), GetAchievementCount(), GetCurrentPointsForGame());
 
 	OSDAddNotification(20.0f, title, message, s_game_icon);
@@ -1948,7 +1949,7 @@ void Achievements::SubmitLeaderboard(u32 leaderboard_id, int value)
 
 	if (!ChallengeModeActive())
 	{
-		WARN_LOG(ACHIEVEMENTS, "Skipping sending leaderboard %u result to server because Challenge mode is off.", leaderboard_id);
+		WARN_LOG(ACHIEVEMENTS, "Skipping sending leaderboard %u result to server because Challenge Mode is off.", leaderboard_id);
 		return;
 	}
 

@@ -216,7 +216,7 @@ void RetroAchievementsSettingsScreen::CreateSettingsTab(UI::ViewGroup *viewGroup
 	viewGroup->Add(new CheckBox(&g_Config.bAchievementsLogBadMemReads, ac->T("Log bad memory accesses")));
 
 	// Not yet fully implemented
-	// viewGroup->Add(new CheckBox(&g_Config.bAchievementsChallengeMode, ac->T("Challenge Mode")));
+	// viewGroup->Add(new CheckBox(&g_Config.bAchievementsChallengeMode, ac->T("Challenge Mode (no savestates)")));
 
 	// TODO: What are these for?
 	// viewGroup->Add(new CheckBox(&g_Config.bAchievementsTestMode, ac->T("Test Mode")));
