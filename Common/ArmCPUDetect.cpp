@@ -40,6 +40,7 @@
 #endif
 #endif
 
+#include <cstring>
 #include <ctype.h>
 
 #include "Common/CommonTypes.h"
