@@ -244,11 +244,12 @@ static u32 s_last_queried_lboard = 0;
 static u32 s_submitting_lboard_id = 0;
 static std::optional<std::vector<Achievements::LeaderboardEntry>> s_lboard_entries;
 
-// TODO: Make this show up somewhere.
-static u64 g_badMemoryAccessCount = 0;
+static Achievements::Statistics g_stats;
 
 const std::string g_gameIconCachePrefix = "game:";
 const std::string g_iconCachePrefix = "badge:";
+
+
 
 #define PSP_MEMORY_OFFSET 0x08000000
 
@@ -484,6 +485,9 @@ void Achievements::ClearGameInfo(bool clear_achievements, bool clear_leaderboard
 		s_has_rich_presence = false;
 		s_game_id = 0;
 	}
+
+	// Reset statistics
+	g_stats = {};
 
 	if (had_game)
 		Host::OnAchievementsRefreshed();
@@ -1078,6 +1082,10 @@ void Achievements::DownloadImage(std::string url, std::string cache_filename)
 		INFO_LOG(ACHIEVEMENTS, "Downloading image: %s (%s)", url.c_str(), cache_filename.c_str());
 		s_http_downloader->CreateRequest(std::move(url), std::move(callback));
 	}
+}
+
+Achievements::Statistics Achievements::GetStatistics() {
+	return g_stats;
 }
 
 std::string Achievements::GetGameAchievementSummary() {
@@ -2092,7 +2100,7 @@ unsigned Achievements::PeekMemory(unsigned address, unsigned num_bytes, void *ud
 	if (!Memory::IsValidAddress(address)) {
 		// Some achievement packs are really, really spammy.
 		// So we'll just count the bad accesses.
-		g_badMemoryAccessCount++;
+		g_stats.badMemoryAccessCount++;
 
 		if (g_Config.bAchievementsLogBadMemReads) {
 			WARN_LOG(G3D, "RetroAchievements PeekMemory: Bad address %08x (%d bytes)", address, num_bytes);

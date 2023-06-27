@@ -23,6 +23,7 @@ class Path;
 class PointerWrap;
 
 namespace Achievements {
+
 enum class AchievementCategory : u8
 {
 	Local = 0,
@@ -61,6 +62,12 @@ struct LeaderboardEntry
 	time_t submitted;
 	u32 rank;
 	bool is_self;
+};
+
+struct Statistics
+{
+	// Debug stats
+	int badMemoryAccessCount;
 };
 
 // RAIntegration only exists for Windows, so no point checking it on other platforms.
@@ -147,6 +154,8 @@ u32 GetUnlockedAchiementCount();
 u32 GetAchievementCount();
 u32 GetMaximumPointsForGame();
 u32 GetCurrentPointsForGame();
+
+Statistics GetStatistics();
 
 bool EnumerateLeaderboards(std::function<bool(const Leaderboard &)> callback);
 std::optional<bool> TryEnumerateLeaderboardEntries(u32 id, std::function<bool(const LeaderboardEntry &)> callback);

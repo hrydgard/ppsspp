@@ -51,11 +51,11 @@ void RetroAchievementsSettingsScreen::CreateTabs() {
 
 	using namespace UI;
 
-	LinearLayout *account = AddTab("AchievementsAccount", ac->T("Account"));
-	CreateAccountTab(account);
-
-	LinearLayout *settings = AddTab("AchievementsSettings", di->T("Settings"));
-	CreateSettingsTab(settings);
+	CreateAccountTab(AddTab("AchievementsAccount", ac->T("Account")));
+	CreateSettingsTab(AddTab("AchievementsSettings", di->T("Settings")));
+#ifdef _DEBUG
+	CreateStatisticsTab(AddTab("AchievementsStatistics", ac->T("Statistics")));
+#endif
 }
 
 void RetroAchievementsSettingsScreen::sendMessage(const char *message, const char *value) {
@@ -134,6 +134,16 @@ void RetroAchievementsSettingsScreen::CreateSettingsTab(UI::ViewGroup *viewGroup
 	// TODO: What are these for?
 	// viewGroup->Add(new CheckBox(&g_Config.bAchievementsTestMode, ac->T("Test Mode")));
 	// viewGroup->Add(new CheckBox(&g_Config.bAchievementsUnofficialTestMode, ac->T("Unofficial Test Mode")));
+}
+
+void RetroAchievementsSettingsScreen::CreateStatisticsTab(UI::ViewGroup *viewGroup) {
+	auto ac = GetI18NCategory(I18NCat::ACHIEVEMENTS);
+
+	using namespace UI;
+
+	Achievements::Statistics stats = Achievements::GetStatistics();
+	viewGroup->Add(new ItemHeader(ac->T("Statistics")));
+	viewGroup->Add(new InfoItem(ac->T("Bad memory accesses"), StringFromFormat("%d", stats.badMemoryAccessCount)));
 }
 
 void MeasureAchievement(const UIContext &dc, const Achievements::Achievement &achievement, float *w, float *h) {
