@@ -16,6 +16,10 @@ enum class OSDType {
 
 	ACHIEVEMENT_UNLOCKED,
 
+	// Side entries
+	ACHIEVEMENT_PROGRESS,
+	ACHIEVEMENT_CHALLENGE_INDICATOR,
+
 	// PROGRESS_BAR,
 	// PROGRESS_INDETERMINATE,
 };
@@ -32,6 +36,8 @@ public:
 	}
 	void Show(OSDType type, const std::string &text, const std::string &text2, const std::string &icon, float duration_s = 0.0f, const char *id = nullptr);
 	void ShowAchievementUnlocked(int achievementID);
+
+	void ShowAchievementProgress(int achievementID, float duration_s);
 
 	void ShowOnOff(const std::string &message, bool on, float duration_s = 0.0f);
 
@@ -66,10 +72,12 @@ public:
 	};
 
 	std::vector<Entry> Entries();
+	std::vector<Entry> SideEntries();
 	std::vector<ProgressBar> ProgressBars();
 
 private:
 	std::vector<Entry> entries_;
+	std::vector<Entry> sideEntries_;
 	std::vector<ProgressBar> bars_;
 	std::mutex mutex_;
 };

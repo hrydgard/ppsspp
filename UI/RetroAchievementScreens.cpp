@@ -17,11 +17,9 @@ void RetroAchievementsListScreen::CreateTabs() {
 	achievements->SetSpacing(5.0f);
 	CreateAchievementsTab(achievements);
 
-	if (Achievements::GetLeaderboardCount() > 0) {
-		UI::LinearLayout *leaderboards = AddTab("Leaderboards", ac->T("Leaderboards"));
-		leaderboards->SetSpacing(5.0f);
-		CreateLeaderboardsTab(leaderboards);
-	}
+	UI::LinearLayout *leaderboards = AddTab("Leaderboards", ac->T("Leaderboards"));
+	leaderboards->SetSpacing(5.0f);
+	CreateLeaderboardsTab(leaderboards);
 
 #ifdef _DEBUG
 	CreateStatisticsTab(AddTab("AchievementsStatistics", ac->T("Statistics")));
@@ -34,29 +32,45 @@ void RetroAchievementsListScreen::CreateAchievementsTab(UI::ViewGroup *achieveme
 
 	using namespace UI;
 
-	std::vector<Achievements::Achievement> unlockedAchievements;
-	std::vector<Achievements::Achievement> lockedAchievements;
+	rc_client_achievement_list_t *list = rc_client_create_achievement_list(Achievements::GetClient(),
+		RC_CLIENT_ACHIEVEMENT_CATEGORY_CORE_AND_UNOFFICIAL, RC_CLIENT_ACHIEVEMENT_LIST_GROUPING_LOCK_STATE);
+
+	std::vector<const rc_client_achievement_t *> unlockedAchievements;
+	std::vector<const rc_client_achievement_t *> lockedAchievements;
+	std::vector<const rc_client_achievement_t *> otherAchievements;
+
+	for (uint32_t i = 0; i < list->num_buckets; i++) {
+		const rc_client_achievement_bucket_t &bucket = list->buckets[i];
+		for (uint32_t j = 0; j < bucket.num_achievements; j++) {
+			switch (bucket.bucket_type) {
+			case RC_CLIENT_ACHIEVEMENT_BUCKET_LOCKED:
+				lockedAchievements.push_back(bucket.achievements[j]);
+				break;
+			case RC_CLIENT_ACHIEVEMENT_BUCKET_UNLOCKED:
+				unlockedAchievements.push_back(bucket.achievements[j]);
+				break;
+			default:
+				otherAchievements.push_back(bucket.achievements[j]);
+				break;
+			}
+		}
+	}
 
 	achievements->Add(new ItemHeader(ac->T("Achievements")));
 
 	achievements->Add(new GameAchievementSummaryView(Achievements::GetGameID()));
 
-	Achievements::EnumerateAchievements([&](const Achievements::Achievement &achievement) {
-		if (achievement.locked) {
-			lockedAchievements.push_back(achievement);
-		} else {
-			unlockedAchievements.push_back(achievement);
-		}
-		return true;
-		});
-
 	achievements->Add(new ItemHeader(ac->T("Unlocked achievements")));
 	for (auto &achievement : unlockedAchievements) {
-		achievements->Add(new AchievementView(std::move(achievement)));
+		achievements->Add(new AchievementView(achievement));
 	}
 	achievements->Add(new ItemHeader(ac->T("Locked achievements")));
 	for (auto &achievement : lockedAchievements) {
-		achievements->Add(new AchievementView(std::move(achievement)));
+		achievements->Add(new AchievementView(achievement));
+	}
+	achievements->Add(new ItemHeader(ac->T("Other achievements")));
+	for (auto &achievement : otherAchievements) {
+		achievements->Add(new AchievementView(achievement));
 	}
 }
 
@@ -70,21 +84,21 @@ void RetroAchievementsListScreen::CreateLeaderboardsTab(UI::ViewGroup *viewGroup
 
 	viewGroup->Add(new ItemHeader(ac->T("Leaderboards")));
 
-	std::vector<Achievements::Leaderboard> leaderboards;
-
-	Achievements::EnumerateLeaderboards([&](const Achievements::Leaderboard &leaderboard) {
-		leaderboards.push_back(leaderboard);
-		return true;
-		});
+	std::vector<rc_client_leaderboard_t *> leaderboards;
+	rc_client_leaderboard_list_t *list = rc_client_create_leaderboard_list(Achievements::GetClient(), RC_CLIENT_LEADERBOARD_LIST_GROUPING_NONE);
+	for (uint32_t i = 0; i < list->num_buckets; i++) {
+		const rc_client_leaderboard_bucket_t &bucket = list->buckets[i];
+		for (uint32_t j = 0; j < bucket.num_leaderboards; j++) {
+			leaderboards.push_back(bucket.leaderboards[j]);
+		}
+	}
 
 	for (auto &leaderboard : leaderboards) {
-		if (!leaderboard.hidden) {
-			int leaderboardID = leaderboard.id;
-			viewGroup->Add(new LeaderboardSummaryView(std::move(leaderboard)))->OnClick.Add([=](UI::EventParams &e) -> UI::EventReturn {
-				screenManager()->push(new RetroAchievementsLeaderboardScreen(gamePath_, leaderboardID));
-				return UI::EVENT_DONE;
-				});
-		}
+		int leaderboardID = leaderboard->id;
+		viewGroup->Add(new LeaderboardSummaryView(leaderboard))->OnClick.Add([=](UI::EventParams &e) -> UI::EventReturn {
+			screenManager()->push(new RetroAchievementsLeaderboardScreen(gamePath_, leaderboardID));
+			return UI::EVENT_DONE;
+		});
 	}
 }
 
@@ -98,35 +112,57 @@ void RetroAchievementsListScreen::CreateStatisticsTab(UI::ViewGroup *viewGroup) 
 	viewGroup->Add(new InfoItem(ac->T("Bad memory accesses"), StringFromFormat("%d", stats.badMemoryAccessCount)));
 }
 
+RetroAchievementsLeaderboardScreen::~RetroAchievementsLeaderboardScreen() {
+	if (pendingAsyncCall_) {
+		rc_client_abort_async(Achievements::GetClient(), pendingAsyncCall_);
+	}
+	Poll();  // Gets rid of pendingEntryList_.
+	if (entryList_) {
+		rc_client_destroy_leaderboard_entry_list(entryList_);
+	}
+}
+
+RetroAchievementsLeaderboardScreen::RetroAchievementsLeaderboardScreen(const Path &gamePath, int leaderboardID)
+	: TabbedUIDialogScreenWithGameBackground(gamePath), leaderboardID_(leaderboardID) {
+	rc_client_begin_fetch_leaderboard_entries(Achievements::GetClient(), leaderboardID_, 0, 20, [](int result, const char *error_message, rc_client_leaderboard_entry_list_t *list, rc_client_t *client, void *userdata) {
+		if (result != RC_OK) {
+			g_OSD.Show(OSDType::MESSAGE_ERROR, error_message, 10.0f);
+			return;
+		}
+
+		RetroAchievementsLeaderboardScreen *thiz = (RetroAchievementsLeaderboardScreen *)userdata;
+		thiz->pendingEntryList_ = list;
+		thiz->pendingAsyncCall_ = nullptr;
+	}, this);
+}
+
 void RetroAchievementsLeaderboardScreen::CreateTabs() {
 	auto ac = GetI18NCategory(I18NCat::ACHIEVEMENTS);
-	const Achievements::Leaderboard *leaderboard = Achievements::GetLeaderboardByID(leaderboardID_);
+	const rc_client_leaderboard_t *leaderboard = rc_client_get_leaderboard_info(Achievements::GetClient(), leaderboardID_);
+
 	using namespace UI;
-
-	UI::LinearLayout *layout = AddTab("AchievementsLeaderboard", leaderboard->title.c_str());
+	UI::LinearLayout *layout = AddTab("AchievementsLeaderboard", leaderboard->title);
 	layout->Add(new TextView(leaderboard->description));
-
 	layout->Add(new ItemHeader(ac->T("Leaderboard")));
 
-	Poll();
-
-	// TODO: Make it pretty.
-	for (auto &entry : entries_) {
-		layout->Add(new TextView(StringFromFormat(" %d: %s: %s%s", entry.rank, entry.user.c_str(), entry.formatted_score.c_str(), entry.is_self ? " <<<<< " : "")));
+	if (entryList_) {
+		for (uint32_t i = 0; i < entryList_->num_entries; i++) {
+			bool is_self = (i == entryList_->user_index);
+			// Should highlight somehow.
+			const rc_client_leaderboard_entry_t &entry = entryList_->entries[i];
+			// Can also show entry.submitted, which is a time_t. And maybe highlight recent ones?
+			layout->Add(new TextView(StringFromFormat(" %d: %s: %s%s", entry.rank, entry.user, entry.display, is_self ? " <<<<< " : "")));
+		}
 	}
 }
 
 void RetroAchievementsLeaderboardScreen::Poll() {
-	if (done_)
-		return;
-
-	std::optional<bool> result = Achievements::TryEnumerateLeaderboardEntries(leaderboardID_, [&](const Achievements::LeaderboardEntry &entry) -> bool {
-		entries_.push_back(entry);
-		return true;
-	});
-
-	if (result.has_value()) {
-		done_ = true;
+	if (pendingEntryList_) {
+		if (entryList_) {
+			rc_client_destroy_leaderboard_entry_list(entryList_);
+		}
+		entryList_ = pendingEntryList_;
+		pendingEntryList_ = nullptr;
 		RecreateViews();
 	}
 }
@@ -161,7 +197,14 @@ void RetroAchievementsSettingsScreen::CreateAccountTab(UI::ViewGroup *viewGroup)
 	using namespace UI;
 
 	if (Achievements::IsLoggedIn()) {
-		viewGroup->Add(new InfoItem(ac->T("Username"), Achievements::GetUsername()));
+		const rc_client_user_t *info = rc_client_get_user_info(Achievements::GetClient());
+
+		// In the future, RetroAchievements will support display names. Prepare for that.
+		if (strcmp(info->display_name, info->username) != 0) {
+			viewGroup->Add(new InfoItem(ac->T("Name"), info->display_name));
+		}
+		viewGroup->Add(new InfoItem(ac->T("Username"), info->username));
+		// viewGroup->Add(new InfoItem(ac->T("Unread messages"), info.numUnreadMessages));
 		viewGroup->Add(new Choice(di->T("Log out")))->OnClick.Add([=](UI::EventParams &) -> UI::EventReturn {
 			Achievements::Logout();
 			return UI::EVENT_DONE;
@@ -224,9 +267,16 @@ void RetroAchievementsSettingsScreen::CreateSettingsTab(UI::ViewGroup *viewGroup
 	// viewGroup->Add(new CheckBox(&g_Config.bAchievementsUnofficialTestMode, ac->T("Unofficial Test Mode")));
 }
 
-void MeasureAchievement(const UIContext &dc, const Achievements::Achievement &achievement, float *w, float *h) {
+void MeasureAchievement(const UIContext &dc, const rc_client_achievement_t *achievement, AchievementRenderStyle style, float *w, float *h) {
 	*w = 0.0f;
-	*h = 72.0f;
+	switch (style) {
+	case AchievementRenderStyle::PROGRESS_INDICATOR:
+		*h = 36.0f;
+		break;
+	default:
+		*h = 72.0f;
+		break;
+	}
 }
 
 void MeasureGameAchievementSummary(const UIContext &dc, int gameID, float *w, float *h) {
@@ -234,16 +284,18 @@ void MeasureGameAchievementSummary(const UIContext &dc, int gameID, float *w, fl
 	*h = 72.0f;
 }
 
-void MeasureLeaderboardSummary(const UIContext &dc, const Achievements::Leaderboard &achievement, float *w, float *h) {
+void MeasureLeaderboardSummary(const UIContext &dc, const rc_client_leaderboard_t *leaderboard, float *w, float *h) {
 	*w = 0.0f;
 	*h = 72.0f;
 }
 
 // Graphical
-void RenderAchievement(UIContext &dc, const Achievements::Achievement &achievement, AchievementRenderStyle style, const Bounds &bounds, float alpha, float startTime, float time_s) {
+void RenderAchievement(UIContext &dc, const rc_client_achievement_t *achievement, AchievementRenderStyle style, const Bounds &bounds, float alpha, float startTime, float time_s) {
 	using namespace UI;
 	UI::Drawable background = UI::Drawable(dc.theme->backgroundColor);
-	if (achievement.locked) {
+	if (!achievement->unlocked) {
+		// Make the background color gray.
+		// TODO: Different colors in challenge mode, or even in the "re-take achievements" mode when we add that?
 		background.color = 0x706060;
 	}
 	background.color = colorAlpha(background.color, alpha);
@@ -263,13 +315,15 @@ void RenderAchievement(UIContext &dc, const Achievements::Achievement &achieveme
 	dc.SetFontStyle(dc.theme->uiFont);
 
 	dc.SetFontScale(1.0f, 1.0f);
-	dc.DrawTextRect(achievement.title.c_str(), bounds.Inset(iconSpace + 12.0f, 2.0f, 5.0f, 5.0f), fgColor, ALIGN_TOPLEFT);
+	dc.DrawTextRect(achievement->title, bounds.Inset(iconSpace + 12.0f, 2.0f, 5.0f, 5.0f), fgColor, ALIGN_TOPLEFT);
 
 	dc.SetFontScale(0.66f, 0.66f);
-	dc.DrawTextRect(achievement.description.c_str(), bounds.Inset(iconSpace + 12.0f, 39.0f, 5.0f, 5.0f), fgColor, ALIGN_TOPLEFT);
+	dc.DrawTextRect(achievement->description, bounds.Inset(iconSpace + 12.0f, 39.0f, 5.0f, 5.0f), fgColor, ALIGN_TOPLEFT);
 
-	char temp[64];
-	snprintf(temp, sizeof(temp), "%d", achievement.points);
+	// TODO: Draw measured_progress / measured_percent in a cute way
+
+	char temp[512];
+	snprintf(temp, sizeof(temp), "%d", achievement->points);
 
 	dc.SetFontScale(1.5f, 1.5f);
 	dc.DrawTextRect(temp, bounds.Expand(-5.0f, -5.0f), fgColor, ALIGN_RIGHT | ALIGN_VCENTER);
@@ -277,9 +331,12 @@ void RenderAchievement(UIContext &dc, const Achievements::Achievement &achieveme
 	dc.SetFontScale(1.0f, 1.0f);
 	dc.Flush();
 
-	std::string name = Achievements::GetAchievementBadgePath(achievement);
-	if (g_iconCache.BindIconTexture(&dc, name)) {
-		dc.Draw()->DrawTexRect(Bounds(bounds.x + 4.0f, bounds.y + 4.0f, iconSpace, iconSpace), 0.0f, 0.0f, 1.0f, 1.0f, whiteAlpha(alpha));
+	// Download and display the image.
+	if (RC_OK == rc_client_achievement_get_image_url(achievement, achievement->state, temp, sizeof(temp))) {
+		Achievements::DownloadImageIfMissing(achievement->badge_name, std::move(std::string(temp)));
+		if (g_iconCache.BindIconTexture(&dc, achievement->badge_name)) {
+			dc.Draw()->DrawTexRect(Bounds(bounds.x + 4.0f, bounds.y + 4.0f, iconSpace, iconSpace), 0.0f, 0.0f, 1.0f, 1.0f, whiteAlpha(alpha));
+		}
 	}
 
 	dc.Flush();
@@ -301,11 +358,12 @@ void RenderGameAchievementSummary(UIContext &dc, int gameID, const Bounds &bound
 
 	dc.SetFontStyle(dc.theme->uiFont);
 
+	const rc_client_game_t *gameInfo = rc_client_get_game_info(Achievements::GetClient());
+
 	dc.SetFontScale(1.0f, 1.0f);
-	dc.DrawTextRect(Achievements::GetGameTitle().c_str(), bounds.Inset(iconSpace + 5.0f, 2.0f, 5.0f, 5.0f), fgColor, ALIGN_TOPLEFT);
+	dc.DrawTextRect(gameInfo->title, bounds.Inset(iconSpace + 5.0f, 2.0f, 5.0f, 5.0f), fgColor, ALIGN_TOPLEFT);
 
 	std::string description = Achievements::GetGameAchievementSummary();
-	std::string icon = Achievements::GetGameIcon();
 
 	dc.SetFontScale(0.66f, 0.66f);
 	dc.DrawTextRect(description.c_str(), bounds.Inset(iconSpace + 5.0f, 38.0f, 5.0f, 5.0f), fgColor, ALIGN_TOPLEFT);
@@ -313,16 +371,19 @@ void RenderGameAchievementSummary(UIContext &dc, int gameID, const Bounds &bound
 	dc.SetFontScale(1.0f, 1.0f);
 	dc.Flush();
 
-	std::string name = icon;
-	if (g_iconCache.BindIconTexture(&dc, name)) {
-		dc.Draw()->DrawTexRect(Bounds(bounds.x, bounds.y, iconSpace, iconSpace), 0.0f, 0.0f, 1.0f, 1.0f, whiteAlpha(alpha));
+	char temp[512];
+	if (RC_OK == rc_client_game_get_image_url(gameInfo, temp, sizeof(temp))) {
+		Achievements::DownloadImageIfMissing(gameInfo->badge_name, std::move(std::string(temp)));
+		if (g_iconCache.BindIconTexture(&dc, gameInfo->badge_name)) {
+			dc.Draw()->DrawTexRect(Bounds(bounds.x, bounds.y, iconSpace, iconSpace), 0.0f, 0.0f, 1.0f, 1.0f, whiteAlpha(alpha));
+		}
 	}
 
 	dc.Flush();
 	dc.RebindTexture();
 }
 
-void RenderLeaderboardSummary(UIContext &dc, const Achievements::Leaderboard &leaderboard, AchievementRenderStyle style, const Bounds &bounds, float alpha, float startTime, float time_s) {
+void RenderLeaderboardSummary(UIContext &dc, const rc_client_leaderboard_t *leaderboard, AchievementRenderStyle style, const Bounds &bounds, float alpha, float startTime, float time_s) {
 	using namespace UI;
 	UI::Drawable background = UI::Drawable(dc.theme->backgroundColor);
 	background.color = colorAlpha(background.color, alpha);
@@ -333,7 +394,6 @@ void RenderLeaderboardSummary(UIContext &dc, const Achievements::Leaderboard &le
 		background.color = colorBlend(0xFFE0FFFF, background.color, mixWhite);
 	}
 
-	float iconSpace = 64.0f;
 	dc.Flush();
 
 	dc.Begin();
@@ -342,10 +402,10 @@ void RenderLeaderboardSummary(UIContext &dc, const Achievements::Leaderboard &le
 	dc.SetFontStyle(dc.theme->uiFont);
 
 	dc.SetFontScale(1.0f, 1.0f);
-	dc.DrawTextRect(leaderboard.title.c_str(), bounds.Inset(iconSpace + 12.0f, 2.0f, 5.0f, 5.0f), fgColor, ALIGN_TOPLEFT);
+	dc.DrawTextRect(leaderboard->title, bounds.Inset(12.0f, 2.0f, 5.0f, 5.0f), fgColor, ALIGN_TOPLEFT);
 
 	dc.SetFontScale(0.66f, 0.66f);
-	dc.DrawTextRect(leaderboard.description.c_str(), bounds.Inset(iconSpace + 12.0f, 39.0f, 5.0f, 5.0f), fgColor, ALIGN_TOPLEFT);
+	dc.DrawTextRect(leaderboard->description, bounds.Inset(12.0f, 39.0f, 5.0f, 5.0f), fgColor, ALIGN_TOPLEFT);
 
 	/*
 	char temp[64];
@@ -367,13 +427,13 @@ void AchievementView::Draw(UIContext &dc) {
 }
 
 void AchievementView::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
-	MeasureAchievement(dc, achievement_, &w, &h);
+	MeasureAchievement(dc, achievement_, AchievementRenderStyle::LISTED, &w, &h);
 }
 
 void AchievementView::Click() {
 	// In debug builds, clicking achievements will show them being unlocked (which may be a lie).
 #ifdef _DEBUG
-	g_OSD.ShowAchievementUnlocked(achievement_.id);
+	g_OSD.ShowAchievementUnlocked(achievement_->id);
 #endif
 }
 

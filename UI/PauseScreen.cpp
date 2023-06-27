@@ -347,7 +347,7 @@ void GamePauseScreen::CreateViews() {
 			return UI::EVENT_DONE;
 		});
 	}
-	if (g_Config.bAchievementsEnable && Achievements::SafeHasAchievementsOrLeaderboards()) {
+	if (g_Config.bAchievementsEnable && Achievements::HasAchievementsOrLeaderboards()) {
 		rightColumnItems->Add(new Choice(pa->T("Achievements")))->OnClick.Add([&](UI::EventParams &e) {
 			screenManager()->push(new RetroAchievementsListScreen(gamePath_));
 			return UI::EVENT_DONE;

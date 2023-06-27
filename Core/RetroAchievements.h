@@ -9,9 +9,6 @@
 
 #pragma once
 
-#include "Common/StringUtils.h"
-#include "Common/CommonTypes.h"
-
 #include <functional>
 #include <optional>
 #include <string>
@@ -19,54 +16,17 @@
 #include <vector>
 #include <mutex>
 
+#include "Common/StringUtils.h"
+#include "Common/CommonTypes.h"
+
+#include "ext/rcheevos/include/rc_client.h"
+
 class Path;
 class PointerWrap;
 
 namespace Achievements {
 
-enum class AchievementCategory : u8
-{
-	Local = 0,
-	Core = 3,
-	Unofficial = 5
-};
-
-struct Achievement
-{
-	u32 id;
-	std::string title;
-	std::string description;
-	std::string memaddr;
-	std::string badge_name;
-
-	u32 points;
-	AchievementCategory category;
-	bool locked;
-	bool active;
-	bool primed;
-	bool disabled;  // due to bad memory access, presumably
-};
-
-struct Leaderboard
-{
-	u32 id;
-	std::string title;
-	std::string description;
-	int format;
-	bool hidden;
-};
-
-struct LeaderboardEntry
-{
-	std::string user;
-	std::string formatted_score;
-	time_t submitted;
-	u32 rank;
-	bool is_self;
-};
-
-struct Statistics
-{
+struct Statistics {
 	// Debug stats
 	int badMemoryAccessCount;
 };
@@ -85,101 +45,46 @@ static inline bool IsUsingRAIntegration()
 
 #endif
 
-bool IsActive();
 bool IsLoggedIn();
-bool ChallengeModeActive();
-bool LeaderboardsActive();
-bool IsTestModeActive();
-bool IsUnofficialTestModeActive();
-bool IsRichPresenceEnabled();
-bool HasActiveGame();
-
-u32 GetGameID();
-
-/// Acquires the achievements lock. Must be held when accessing any achievement state from another thread.
-std::unique_lock<std::recursive_mutex> GetLock();
-
-void Initialize();
-void UpdateSettings();
-
-/// Called when the system is being reset. If it returns false, the reset should be aborted.
-bool ConfirmSystemReset();
-
-/// Called when the system is being shut down. If Shutdown() returns false, the shutdown should be aborted if possible.
-bool Shutdown();
-
-/// Called once a frame at vsync time on the CPU thread.
-void FrameUpdate();
-
-/// Called when the system is paused, because FrameUpdate() won't be getting called.
-void ProcessPendingHTTPRequests();
-
-/// Saves/loads state.
-bool DoState(PointerWrap &sw);
-
-/// Returns true if the current game has any achievements or leaderboards.
-/// Does not need to have the lock held.
-bool SafeHasAchievementsOrLeaderboards();
-
-const std::string &GetUsername();
-const std::string &GetRichPresenceString();
-
-bool LoginAsync(const char *username, const char *password);
-void Logout();
-
-void GameChanged(const Path &path);
-void LeftGame();
-
-/// Re-enables hardcode mode if it is enabled in the settings.
-bool ResetChallengeMode();
-
-/// Forces hardcore mode off until next reset.
-void DisableChallengeMode();
-
-/// Prompts the user to disable hardcore mode, if they agree, returns true.
-bool ConfirmChallengeModeDisable(const char *trigger);
 
 /// Returns true if features such as save states should be disabled.
 bool ChallengeModeActive();
 
-const std::string &GetGameTitle();
-const std::string &GetGameIcon();
+// The new API is so much nicer that we can use it directly instead of wrapping it. So let's expose the client.
+// Will of course return nullptr if not active.
+rc_client_t *GetClient();
 
-bool EnumerateAchievements(std::function<bool(const Achievement &)> callback);
+u32 GetGameID();
 
-// TODO: Make these support multiple games, not just the current games, with cached info.
-u32 GetUnlockedAchiementCount();
-u32 GetAchievementCount();
-u32 GetMaximumPointsForGame();
-u32 GetCurrentPointsForGame();
+void Initialize();
+void UpdateSettings();
+
+/// Called when the system is being shut down. If Shutdown() returns false, the shutdown should be aborted if possible.
+bool Shutdown();
+
+void DownloadImageIfMissing(const std::string &cache_key, std::string &&url);
+
+/// Called once a frame at vsync time on the CPU thread, during gameplay.
+void FrameUpdate();
+
+/// Called every frame to let background processing happen.
+void Idle();
+
+/// Saves/loads state.
+void DoState(PointerWrap &p);
+
+/// Returns true if the current game has any achievements or leaderboards.
+bool HasAchievementsOrLeaderboards();
+
+bool LoginAsync(const char *username, const char *password);
+void Logout();
+
+void SetGame(const Path &path);
+void ChangeUMD(const Path &path);  // for in-game UMD change
+void UnloadGame();  // Call when leaving a game.
 
 Statistics GetStatistics();
 
-bool EnumerateLeaderboards(std::function<bool(const Leaderboard &)> callback);
-
-// Unlike most other functions here, this you're supposed to poll until you get a valid std::optional.
-std::optional<bool> TryEnumerateLeaderboardEntries(u32 id, std::function<bool(const LeaderboardEntry &)> callback);
-const Leaderboard *GetLeaderboardByID(u32 id);
-u32 GetLeaderboardCount();
-bool IsLeaderboardTimeType(const Leaderboard &leaderboard);
-u32 GetPrimedAchievementCount();
-
-const Achievement *GetAchievementByID(u32 id);
-std::pair<u32, u32> GetAchievementProgress(const Achievement &achievement);
 std::string GetGameAchievementSummary();
-std::string GetAchievementProgressText(const Achievement &achievement);
-std::string GetAchievementBadgePath(const Achievement &achievement, bool download_if_missing = true,
-	bool force_unlocked_icon = false);
-std::string GetAchievementBadgeURL(const Achievement &achievement);
 
-#ifdef WITH_RAINTEGRATION
-void SwitchToRAIntegration();
-
-namespace RAIntegration {
-void MainWindowChanged(void *new_handle);
-void GameChanged();
-std::vector<std::tuple<int, std::string, bool>> GetMenuItems();
-void ActivateMenuItem(int item);
-} // namespace RAIntegration
-#endif
 } // namespace Achievements

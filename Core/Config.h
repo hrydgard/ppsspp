@@ -488,9 +488,6 @@ public:
 	// Retro Achievement settings
 	// Copied from Duckstation, we might want to remove some.
 	bool bAchievementsEnable;
-	bool bAchievementsLeaderboards;
-	bool bAchievementsTestMode;
-	bool bAchievementsUnofficialTestMode;
 	bool bAchievementsRichPresence;
 	bool bAchievementsChallengeMode;
 	bool bAchievementsSoundEffects;
@@ -501,7 +498,6 @@ public:
 	// Still, we may wanna store it more securely than in PPSSPP.ini, especially on Android.
 	std::string sAchievementsUserName;
 	std::string sAchievementsToken;  // Not saved, to be used if you want to manually make your RA login persistent. See Native_SaveSecret for the normal case.
-	std::string sAchievementsLoginTimestamp;
 
 	// Various directories. Autoconfigured, not read from ini.
 	Path currentDirectory;  // The directory selected in the game browsing window.

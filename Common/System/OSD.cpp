@@ -17,6 +17,14 @@ void OnScreenDisplay::Update() {
 		}
 	}
 
+	for (auto iter = sideEntries_.begin(); iter != sideEntries_.end(); ) {
+		if (now >= iter->endTime) {
+			iter = sideEntries_.erase(iter);
+		} else {
+			iter++;
+		}
+	}
+
 	for (auto iter = bars_.begin(); iter != bars_.end(); ) {
 		if (now >= iter->endTime) {
 			iter = bars_.erase(iter);
@@ -29,6 +37,11 @@ void OnScreenDisplay::Update() {
 std::vector<OnScreenDisplay::Entry> OnScreenDisplay::Entries() {
 	std::lock_guard<std::mutex> guard(mutex_);
 	return entries_;  // makes a copy.
+}
+
+std::vector<OnScreenDisplay::Entry> OnScreenDisplay::SideEntries() {
+	std::lock_guard<std::mutex> guard(mutex_);
+	return sideEntries_;  // makes a copy.
 }
 
 std::vector<OnScreenDisplay::ProgressBar> OnScreenDisplay::ProgressBars() {
@@ -97,6 +110,28 @@ void OnScreenDisplay::ShowAchievementUnlocked(int achievementID) {
 	msg.startTime = now;
 	msg.endTime = now + duration_s;
 	entries_.insert(entries_.begin(), msg);
+}
+
+void OnScreenDisplay::ShowAchievementProgress(int achievementID, float duration_s) {
+	double now = time_now_d();
+
+	for (auto &entry : sideEntries_) {
+		if (entry.numericID == achievementID && entry.type == OSDType::ACHIEVEMENT_PROGRESS) {
+			// Duplicate, let's just bump the timer.
+			entry.startTime = now;
+			entry.endTime = now + (double)duration_s;
+			// We're done.
+			return;
+		}
+	}
+
+	// OK, let's make a new side-entry.
+	Entry entry;
+	entry.numericID = achievementID;
+	entry.type = OSDType::ACHIEVEMENT_PROGRESS;
+	entry.startTime = now;
+	entry.endTime = now + (double)duration_s;
+	sideEntries_.insert(sideEntries_.begin(), entry);
 }
 
 void OnScreenDisplay::ShowOnOff(const std::string &message, bool on, float duration_s) {

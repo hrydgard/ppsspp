@@ -53,8 +53,10 @@ static NoticeLevel GetNoticeLevel(OSDType type) {
 	}
 }
 
+// Align only matters here for the ASCII-only flag.
 static void MeasureNotice(const UIContext &dc, NoticeLevel level, const std::string &text, const std::string &details, const std::string &iconName, int align, float *width, float *height, float *height1) {
 	dc.MeasureText(dc.theme->uiFont, 1.0f, 1.0f, text.c_str(), width, height, align);
+
 	*height1 = *height;
 
 	float width2 = 0.0f, height2 = 0.0f;
@@ -85,8 +87,8 @@ static void MeasureNotice(const UIContext &dc, NoticeLevel level, const std::str
 // Align only matters here for the ASCII-only flag.
 static void MeasureOSDEntry(const UIContext &dc, const OnScreenDisplay::Entry &entry, int align, float *width, float *height, float *height1) {
 	if (entry.type == OSDType::ACHIEVEMENT_UNLOCKED) {
-		const Achievements::Achievement *achievement = Achievements::GetAchievementByID(entry.numericID);
-		MeasureAchievement(dc, *achievement, width, height);
+		const rc_client_achievement_t *achievement = rc_client_get_achievement_info(Achievements::GetClient(), entry.numericID);
+		MeasureAchievement(dc, achievement, AchievementRenderStyle::UNLOCKED, width, height);
 		*width = 550.0f;
 		*height1 = *height;
 	} else {
@@ -141,12 +143,14 @@ static void RenderNotice(UIContext &dc, Bounds bounds, float height1, NoticeLeve
 
 static void RenderOSDEntry(UIContext &dc, const OnScreenDisplay::Entry &entry, Bounds bounds, float height1, int align, float alpha) {
 	if (entry.type == OSDType::ACHIEVEMENT_UNLOCKED) {
-		const Achievements::Achievement *achievement = Achievements::GetAchievementByID(entry.numericID);
-		RenderAchievement(dc, *achievement, AchievementRenderStyle::UNLOCKED, bounds, alpha, entry.startTime, time_now_d());
+		const rc_client_achievement_t * achievement = rc_client_get_achievement_info(Achievements::GetClient(), entry.numericID);
+		if (achievement) {
+			RenderAchievement(dc, achievement, AchievementRenderStyle::UNLOCKED, bounds, alpha, entry.startTime, time_now_d());
+		}
 		return;
+	} else {
+		RenderNotice(dc, bounds, height1, GetNoticeLevel(entry.type), entry.text, entry.text2, entry.iconName, align, alpha);
 	}
-
-	RenderNotice(dc, bounds, height1, GetNoticeLevel(entry.type), entry.text, entry.text2, entry.iconName, align, alpha);
 }
 
 static void MeasureOSDProgressBar(const UIContext &dc, const OnScreenDisplay::ProgressBar &bar, float *width, float *height) {
@@ -204,11 +208,39 @@ void OnScreenMessagesView::Draw(UIContext &dc) {
 
 	double now = time_now_d();
 
+	float y = 10.0f;
+
+	// Draw side entries. Top entries should apply on top of them if there's a collision, so drawing
+	// these first makes sense.
+	const std::vector<OnScreenDisplay::Entry> sideEntries = g_OSD.SideEntries();
+	for (auto &entry : sideEntries) {
+		float tw, th;
+		AchievementRenderStyle style = AchievementRenderStyle::PROGRESS_INDICATOR;
+
+		switch (entry.type) {
+		case OSDType::ACHIEVEMENT_PROGRESS:
+		{
+			const rc_client_achievement_t *achievement = rc_client_get_achievement_info(Achievements::GetClient(), entry.numericID);
+			style = AchievementRenderStyle::PROGRESS_INDICATOR;
+			MeasureAchievement(dc, achievement, style,  &tw, &th);
+			break;
+		}
+		default:
+			continue;
+		}
+		Bounds b(10.0f, y, tw, th);
+		float alpha = Clamp((float)(entry.endTime - now) * 4.0f, 0.0f, 1.0f);
+		// OK, render the thing.
+		y += (b.h + 4.0f) * alpha;  // including alpha here gets us smooth animations.
+
+	}
+
 	// Get height
 	float w, h;
 	dc.MeasureText(dc.theme->uiFont, 1.0f, 1.0f, "Wg", &w, &h);
 
-	float y = 10.0f;
+	y = 10.0f;
+
 	// Then draw them all. 
 	const std::vector<OnScreenDisplay::ProgressBar> bars = g_OSD.ProgressBars();
 	for (auto &bar : bars) {
@@ -223,19 +255,34 @@ void OnScreenMessagesView::Draw(UIContext &dc) {
 	}
 
 	const std::vector<OnScreenDisplay::Entry> entries = g_OSD.Entries();
-	for (auto iter = entries.begin(); iter != entries.end(); ++iter) {
+	for (const auto &entry : entries) {
 		dc.SetFontScale(1.0f, 1.0f);
 		// Messages that are wider than the screen are left-aligned instead of centered.
 
 		int align = 0;
 		// If we have newlines, we may be looking at ASCII debug output.  But let's verify.
-		if (iter->text.find('\n') != 0) {
-			if (!UTF8StringHasNonASCII(iter->text.c_str()))
+		if (entry.text.find('\n') != 0) {
+			if (!UTF8StringHasNonASCII(entry.text.c_str()))
 				align |= FLAG_DYNAMIC_ASCII;
 		}
 
-		float tw, th, h1;
-		MeasureOSDEntry(dc, *iter, align, &tw, &th, &h1);
+		float tw, th = 0.0f, h1 = 0.0f;
+
+		switch (entry.type) {
+		case OSDType::ACHIEVEMENT_UNLOCKED:
+		{
+			const rc_client_achievement_t *achievement = rc_client_get_achievement_info(Achievements::GetClient(), entry.numericID);
+			if (achievement) {
+				MeasureAchievement(dc, achievement, AchievementRenderStyle::UNLOCKED, &tw, &th);
+				h1 = th;
+			}
+			tw = 550.0f;
+			break;
+		}
+		default:
+			MeasureOSDEntry(dc, entry, align, &tw, &th, &h1);
+			break;
+		}
 
 		Bounds b(0.0f, y, tw, th);
 
@@ -257,8 +304,8 @@ void OnScreenMessagesView::Draw(UIContext &dc) {
 			b.h *= scale;
 		}
 
-		float alpha = Clamp((float)(iter->endTime - now) * 4.0f, 0.0f, 1.0f);
-		RenderOSDEntry(dc, *iter, b, h1, align, alpha);
+		float alpha = Clamp((float)(entry.endTime - now) * 4.0f, 0.0f, 1.0f);
+		RenderOSDEntry(dc, entry, b, h1, align, alpha);
 		y += (b.h * scale + 4.0f) * alpha;  // including alpha here gets us smooth animations.
 	}
 

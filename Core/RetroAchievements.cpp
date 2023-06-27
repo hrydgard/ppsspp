@@ -15,6 +15,7 @@
 #include <mutex>
 
 #include "ext/rcheevos/include/rcheevos.h"
+#include "ext/rcheevos/include/rc_client.h"
 #include "ext/rcheevos/include/rc_api_user.h"
 #include "ext/rcheevos/include/rc_api_info.h"
 #include "ext/rcheevos/include/rc_api_request.h"
@@ -36,6 +37,7 @@
 #include "Common/TimeUtil.h"
 #include "Common/Data/Text/I18n.h"
 #include "Common/Serialize/Serializer.h"
+#include "Common/Serialize/SerializeFuncs.h"
 #include "Common/StringUtils.h"
 #include "Common/Crypto/md5.h"
 #include "Common/UI/IconCache.h"
@@ -106,8 +108,9 @@ void OSDAddNotification(float duration_s, const std::string &title, const std::s
 	g_OSD.Show(OSDType::MESSAGE_INFO, title, summary, iconImageData, 5.0f);
 }
 
-void OSDAddAchievementUnlockedNotification(unsigned int achievementId) {
-	g_OSD.ShowAchievementUnlocked(achievementId);
+void OSDAddAchievementUnlockedNotification(rc_client_achievement_t *achievement) {
+	// TODO: Maybe pass the achievement pointer instead.
+	g_OSD.ShowAchievementUnlocked(achievement->id);
 }
 
 void OSDOpenBackgroundProgressDialog(const char *str_id, std::string message, s32 min, s32 max, s32 value) {
@@ -130,6 +133,11 @@ void OSDAddErrorMessage(const char *str_id, std::string message, float duration)
 	NOTICE_LOG(ACHIEVEMENTS, "Keyed message: %s %s (%0.1f s)", str_id, message.c_str(), duration);
 }
 
+void OSDShowServerError(const rc_client_event_t *event) {
+	// TODO: Enable translation here.
+	g_OSD.Show(OSDType::MESSAGE_ERROR, "Server error");
+}
+
 namespace Host {
 void OnAchievementsRefreshed() {
 	System_PostUIMessage("achievements_refreshed", "");
@@ -141,393 +149,218 @@ void OnAchievementsLoginStateChange() {
 
 namespace Achievements {
 
-enum : s32
-{
-	HTTP_OK = 200,
-
-	// Number of seconds between rich presence pings. RAIntegration uses 2 minutes.
-	RICH_PRESENCE_PING_FREQUENCY = 2 * 60,
-	NO_RICH_PRESENCE_PING_FREQUENCY = RICH_PRESENCE_PING_FREQUENCY * 2,
-};
-
 // It's the name of the secret, not a secret name - the value is not secret :)
 static const char *RA_TOKEN_SECRET_NAME = "retroachievements";
 
-static void FormattedError(const char *format, ...);
-static void LogFailedResponseJSON(const Common::HTTPDownloader::Request::Data &data);
-static void CheevosEventHandler(const rc_runtime_event_t *runtime_event);
-static unsigned PeekMemory(unsigned address, unsigned num_bytes, void *ud);
-static bool IsMastered();
-static void ActivateLockedAchievements();
-static bool ActivateAchievement(Achievement *achievement);
-static void DeactivateAchievement(Achievement *achievement);
-static void UnlockAchievement(u32 achievement_id, bool add_notification = true);
-static void AchievementPrimed(u32 achievement_id);
-static void AchievementUnprimed(u32 achievement_id);
-static void AchievementDisabled(u32 achievement_id);
 static void SubmitLeaderboard(u32 leaderboard_id, int value);
-static void SendPing();
-static void SendPlaying();
-static void UpdateRichPresence();
-static Achievement *GetMutableAchievementByID(u32 id);
-static void ClearGameInfo(bool clear_achievements = true, bool clear_leaderboards = true);
-static void ClearGameHash();
-static std::string GetUserAgent();
-static void LoginCallback(s32 status_code, std::string content_type, Common::HTTPDownloader::Request::Data data);
-static void LoginASyncCallback(s32 status_code, std::string content_type, Common::HTTPDownloader::Request::Data data);
-static void SendLogin(const char *username, const char *password, Common::HTTPDownloader *http_downloader,
-	Common::HTTPDownloader::Request::Callback callback);
-static void DownloadImage(std::string url, std::string cache_filename);
 static void DisplayAchievementSummary();
 static void DisplayMasteredNotification();
-static void GetUserUnlocksCallback(s32 status_code, std::string content_type,
-	Common::HTTPDownloader::Request::Data data);
-static void GetUserUnlocks();
-static void GetPatchesCallback(s32 status_code, std::string content_type, Common::HTTPDownloader::Request::Data data);
-static void GetLbInfoCallback(s32 status_code, std::string content_type, Common::HTTPDownloader::Request::Data data);
-static void GetPatches(u32 game_id);
-static std::string GetGameHash(const Path &path);
 static void SetChallengeMode(bool enabled);
-static void SendGetGameId();
-static void GetGameIdCallback(s32 status_code, std::string content_type, Common::HTTPDownloader::Request::Data data);
-static void SendPlayingCallback(s32 status_code, std::string content_type, Common::HTTPDownloader::Request::Data data);
-static void UpdateRichPresence();
-static void SendPingCallback(s32 status_code, std::string content_type, Common::HTTPDownloader::Request::Data data);
-static void UnlockAchievementCallback(s32 status_code, std::string content_type,
-	Common::HTTPDownloader::Request::Data data);
-static void SubmitLeaderboardCallback(s32 status_code, std::string content_type,
-	Common::HTTPDownloader::Request::Data data);
-static void ResetRuntime();
 
-static bool s_active = false;
-static bool s_logged_in = false;
-static bool s_challenge_mode = false;
-static u32 s_game_id = 0;
-
-static std::recursive_mutex s_achievements_mutex;
-static rc_runtime_t s_rcheevos_runtime;
 static std::unique_ptr<Common::HTTPDownloader> s_http_downloader;
-
-static std::string s_username;
-static std::string s_api_token;
-
-static Path s_game_path;
-static std::string s_game_hash;
-static std::string s_game_title;
-static std::string s_game_icon;
-static std::vector<Achievements::Achievement> s_achievements;
-static std::vector<Achievements::Leaderboard> s_leaderboards;
-static std::atomic<u32> s_primed_achievement_count{0};
-
-static bool s_has_rich_presence = false;
-static std::string s_rich_presence_string;
-static double s_last_ping_time;
-
-static u32 s_last_queried_lboard = 0;
-static u32 s_submitting_lboard_id = 0;
-static std::optional<std::vector<Achievements::LeaderboardEntry>> s_lboard_entries;
 
 static Achievements::Statistics g_stats;
 
 const std::string g_gameIconCachePrefix = "game:";
 const std::string g_iconCachePrefix = "badge:";
 
+Path s_game_path;
+std::string s_game_hash;
 
+bool g_challengeMode = true;
+bool g_activeGame = false;
+
+// rc_client implementation
+static rc_client_t *g_rcClient;
 
 #define PSP_MEMORY_OFFSET 0x08000000
 
-// TODO: Add an icon cache as a string map. We won't cache achievement icons across sessions, let's just
-// download them as we go.
-
-template<typename T>
-static const char *RAPIStructName();
-
-#define RAPI_STRUCT_NAME(x)                                                                                            \
-  template<>                                                                                                           \
-  const char* RAPIStructName<x>()                                                                                      \
-  {                                                                                                                    \
-    return #x;                                                                                                         \
-  }
-
-RAPI_STRUCT_NAME(rc_api_login_request_t);
-RAPI_STRUCT_NAME(rc_api_fetch_image_request_t);
-RAPI_STRUCT_NAME(rc_api_resolve_hash_request_t);
-RAPI_STRUCT_NAME(rc_api_fetch_game_data_request_t);
-RAPI_STRUCT_NAME(rc_api_fetch_user_unlocks_request_t);
-RAPI_STRUCT_NAME(rc_api_start_session_request_t);
-RAPI_STRUCT_NAME(rc_api_ping_request_t);
-RAPI_STRUCT_NAME(rc_api_award_achievement_request_t);
-RAPI_STRUCT_NAME(rc_api_submit_lboard_entry_request_t);
-RAPI_STRUCT_NAME(rc_api_fetch_leaderboard_info_request_t);
-
-RAPI_STRUCT_NAME(rc_api_login_response_t);
-RAPI_STRUCT_NAME(rc_api_resolve_hash_response_t);
-RAPI_STRUCT_NAME(rc_api_fetch_game_data_response_t);
-RAPI_STRUCT_NAME(rc_api_ping_response_t);
-RAPI_STRUCT_NAME(rc_api_award_achievement_response_t);
-RAPI_STRUCT_NAME(rc_api_submit_lboard_entry_response_t);
-RAPI_STRUCT_NAME(rc_api_start_session_response_t);
-RAPI_STRUCT_NAME(rc_api_fetch_user_unlocks_response_t);
-RAPI_STRUCT_NAME(rc_api_fetch_leaderboard_info_response_t);
-
-// Unused for now.
-// RAPI_STRUCT_NAME(rc_api_fetch_achievement_info_response_t);
-// RAPI_STRUCT_NAME(rc_api_fetch_games_list_response_t);
-
-#undef RAPI_STRUCT_NAME
-
-template<typename T, int (*InitFunc)(rc_api_request_t *, const T *)>
-struct RAPIRequest : public T
-{
-private:
-	rc_api_request_t api_request;
-
-public:
-	RAPIRequest() { std::memset(this, 0, sizeof(*this)); }
-
-	~RAPIRequest() { rc_api_destroy_request(&api_request); }
-
-	void Send(Common::HTTPDownloader::Request::Callback callback) { Send(s_http_downloader.get(), std::move(callback)); }
-
-	void Send(Common::HTTPDownloader *http_downloader, Common::HTTPDownloader::Request::Callback callback)
-	{
-		const int error = InitFunc(&api_request, this);
-		if (error != RC_OK)
-		{
-			FormattedError("%s failed: error %d (%s)", RAPIStructName<T>(), error, rc_error_str(error));
-			callback(-1, std::string(), Common::HTTPDownloader::Request::Data());
-			return;
-		}
-
-		if (api_request.post_data)
-		{
-			// needs to be a post
-			http_downloader->CreatePostRequest(api_request.url, api_request.post_data, std::move(callback));
-		} else
-		{
-			// get is fine
-			http_downloader->CreateRequest(api_request.url, std::move(callback));
-		}
-	}
-
-	bool DownloadImage(std::string cache_filename)
-	{
-		const int error = InitFunc(&api_request, this);
-		if (error != RC_OK)
-		{
-			FormattedError("%s failed: error %d (%s)", RAPIStructName<T>(), error, rc_error_str(error));
-			return false;
-		}
-
-		_dbg_assert_msg_(!api_request.post_data, "Download request does not have POST data");
-
-		Achievements::DownloadImage(api_request.url, std::move(cache_filename));
-		return true;
-	}
-
-	std::string GetURL()
-	{
-		const int error = InitFunc(&api_request, this);
-		if (error != RC_OK)
-		{
-			FormattedError("%s failed: error %d (%s)", RAPIStructName<T>(), error, rc_error_str(error));
-			return std::string();
-		}
-
-		return api_request.url;
-	}
-};
-
-template<typename T, int (*ParseFunc)(T *, const char *), void (*DestroyFunc)(T *)>
-struct RAPIResponse : public T
-{
-private:
-	bool initialized = false;
-
-public:
-	RAPIResponse(s32 status_code, Common::HTTPDownloader::Request::Data &data)
-	{
-		if (status_code != 200 || data.empty())
-		{
-			FormattedError("%s failed: empty response and/or status code %d", RAPIStructName<T>(), status_code);
-			LogFailedResponseJSON(data);
-			return;
-		}
-
-		// ensure null termination, rapi needs it
-		data.push_back(0);
-
-		const int error = ParseFunc(this, reinterpret_cast<const char *>(data.data()));
-		initialized = (error == RC_OK);
-
-		const rc_api_response_t &response = static_cast<T *>(this)->response;
-		if (error != RC_OK)
-		{
-			FormattedError("%s failed: parse function returned %d (%s)", RAPIStructName<T>(), error, rc_error_str(error));
-			LogFailedResponseJSON(data);
-		} else if (!response.succeeded)
-		{
-			FormattedError("%s failed: %s", RAPIStructName<T>(),
-				response.error_message ? response.error_message : "<no error>");
-			LogFailedResponseJSON(data);
-		}
-	}
-
-	~RAPIResponse()
-	{
-		if (initialized)
-			DestroyFunc(this);
-	}
-
-	operator bool() const { return initialized && static_cast<const T *>(this)->response.succeeded; }
-};
-
-} // namespace Achievements
-
-void Achievements::FormattedError(const char *format, ...)
-{
-	std::va_list ap;
-	va_start(ap, format);
-	char buffer[1024];
-	vsnprintf(buffer, sizeof(buffer), format, ap);
-	va_end(ap);
-
-	ERROR_LOG(ACHIEVEMENTS, "%s", buffer);
-	// Host::AddOSDMessage(std::move(error), 10.0f);
+rc_client_t *GetClient() {
+	return g_rcClient;
 }
 
-void Achievements::LogFailedResponseJSON(const Common::HTTPDownloader::Request::Data &data)
-{
+void LogFailedResponseJSON(const Common::HTTPDownloader::Request::Data &data) {
 	const std::string str_data(reinterpret_cast<const char *>(data.data()), data.size());
 	ERROR_LOG(ACHIEVEMENTS, "API call failed. Response JSON was:\n%s", str_data.c_str());
 }
 
-const Achievements::Achievement *Achievements::GetAchievementByID(u32 id)
-{
-	for (const Achievement &ach : s_achievements)
-	{
-		if (ach.id == id)
-			return &ach;
-	}
-
-	return nullptr;
+bool IsLoggedIn() {
+	return rc_client_get_user_info(g_rcClient) != nullptr;
 }
 
-Achievements::Achievement *Achievements::GetMutableAchievementByID(u32 id)
-{
-	for (Achievement &ach : s_achievements)
-	{
-		if (ach.id == id)
-			return &ach;
-	}
-
-	return nullptr;
+bool ChallengeModeActive() {
+	return g_challengeMode;
 }
 
-void Achievements::ClearGameInfo(bool clear_achievements, bool clear_leaderboards)
-{
-	const bool had_game = (s_game_id != 0);
+u32 GetGameID() {
+	if (!g_rcClient) {
+		return 0;
+	}
 
-	if (clear_achievements)
-	{
-		while (!s_achievements.empty())
-		{
-			Achievement &ach = s_achievements.back();
-			DeactivateAchievement(&ach);
-			s_achievements.pop_back();
+	const rc_client_game_t *info = rc_client_get_game_info(g_rcClient);
+	if (!info) {
+		return 0;
+	}
+	return info->id;
+}
+
+// This is the function the rc_client will use to read memory for the emulator. we don't need it yet,
+// so just provide a dummy function that returns "no memory read".
+static uint32_t read_memory_callback(uint32_t address, uint8_t *buffer, uint32_t num_bytes, rc_client_t *client) {
+	// Achievements are traditionally defined relative to the base of main memory of the emulated console.
+	// This is some kind of RetroArch-related legacy. In the PSP's case, this is simply a straight offset of 0x08000000.
+	address += PSP_MEMORY_OFFSET;
+
+	if (!Memory::IsValidAddress(address)) {
+		// Some achievement packs are really, really spammy.
+		// So we'll just count the bad accesses.
+		Achievements::g_stats.badMemoryAccessCount++;
+		if (g_Config.bAchievementsLogBadMemReads) {
+			WARN_LOG(G3D, "RetroAchievements PeekMemory: Bad address %08x (%d bytes)", address, num_bytes);
 		}
-		s_primed_achievement_count.store(0, std::memory_order_release);
-	}
-	if (clear_leaderboards)
-	{
-		while (!s_leaderboards.empty())
-		{
-			Leaderboard &lb = s_leaderboards.back();
-			rc_runtime_deactivate_lboard(&s_rcheevos_runtime, lb.id);
-			s_leaderboards.pop_back();
-		}
-
-		s_last_queried_lboard = 0;
-		s_submitting_lboard_id = 0;
-		s_lboard_entries.reset();
+		return 0;
 	}
 
-	if (s_achievements.empty() && s_leaderboards.empty())
-	{
-		// Ready to tear down cheevos completely
-		s_game_title = {};
-		s_game_icon = {};
-		s_rich_presence_string = {};
-		s_has_rich_presence = false;
-		s_game_id = 0;
+	switch (num_bytes) {
+	case 1:
+		*buffer = Memory::ReadUnchecked_U8(address);
+		return 1;
+	case 2: {
+		uint16_t temp = Memory::ReadUnchecked_U16(address);
+		memcpy(buffer, &temp, 2);
+		return 2;
 	}
-
-	// Reset statistics
-	g_stats = {};
-
-	if (had_game)
-		Host::OnAchievementsRefreshed();
+	case 4: {
+		uint32_t temp = Memory::ReadUnchecked_U32(address);
+		memcpy(buffer, &temp, 4);
+		return 4;
+	}
+	default:
+		return 0;
+	}
 }
 
-void Achievements::ClearGameHash()
+// This is the HTTP request dispatcher that is provided to the rc_client. Whenever the client
+// needs to talk to the server, it will call this function.
+static void server_call_callback(const rc_api_request_t *request,
+	rc_client_server_callback_t callback, void *callback_data, rc_client_t *client)
 {
-	s_game_path.clear();
-	s_game_hash.clear();
+	// If post data is provided, we need to make a POST request, otherwise, a GET request will suffice.
+	if (request->post_data) {
+		g_DownloadManager.AsyncPostWithCallback(std::string(request->url), std::string(request->post_data), "application/x-www-form-urlencoded", [=](http::Download &download) {
+			std::string buffer;
+			download.buffer().TakeAll(&buffer);
+			rc_api_server_response_t response{};
+			response.body = buffer.c_str();
+			response.body_length = buffer.size();
+			response.http_status_code = download.ResultCode();
+			callback(&response, callback_data);
+		});
+	} else {
+		g_DownloadManager.StartDownloadWithCallback(std::string(request->url), Path(), [=](http::Download &download) {
+			std::string buffer;
+			download.buffer().TakeAll(&buffer);
+			rc_api_server_response_t response{};
+			response.body = buffer.c_str();
+			response.body_length = buffer.size();
+			response.http_status_code = download.ResultCode();
+			callback(&response, callback_data);
+		});
+	}
 }
 
-bool Achievements::IsActive()
-{
-	return s_active;
+// Write log messages to the console
+static void log_message_callback(const char *message, const rc_client_t *client) {
+	INFO_LOG(ACHIEVEMENTS, "RetroAchievements log: %s", message);
 }
 
-bool Achievements::IsLoggedIn()
-{
-	return s_logged_in;
+static void login_token_callback(int result, const char *error_message, rc_client_t *client, void *userdata) {
+	switch (result) {
+	case RC_OK:
+		Host::OnAchievementsLoginStateChange();
+		break;
+	case RC_INVALID_STATE:
+	case RC_API_FAILURE:
+	case RC_MISSING_VALUE:
+	case RC_INVALID_JSON:
+		ERROR_LOG(ACHIEVEMENTS, "Failure logging in via token: %d, %s", result, error_message);
+		Host::OnAchievementsLoginStateChange();
+		break;
+	}
 }
 
-bool Achievements::ChallengeModeActive()
-{
-	return s_challenge_mode;
+// For detailed documentation, see https://github.com/RetroAchievements/rcheevos/wiki/rc_client_set_event_handler.
+static void event_handler_callback(const rc_client_event_t *event, rc_client_t *client) {
+	NOTICE_LOG(ACHIEVEMENTS, "rc_client event: %d", event->type);
+	switch (event->type) {
+	case RC_CLIENT_EVENT_ACHIEVEMENT_TRIGGERED:
+		// An achievement was earned by the player. The handler should notify the player that the achievement was earned.
+		OSDAddAchievementUnlockedNotification(event->achievement);
+		break;
+	case RC_CLIENT_EVENT_GAME_COMPLETED:
+		// All achievements for the game have been earned. The handler should notify the player that the game was completed or mastered, depending on challenge mode.
+		DisplayMasteredNotification();
+		break;
+	case RC_CLIENT_EVENT_LEADERBOARD_STARTED:
+		// A leaderboard attempt has started. The handler may show a message with the leaderboard title and /or description indicating the attempt started.
+		NOTICE_LOG(ACHIEVEMENTS, "Leaderboard attempt started: %s", event->leaderboard->title);
+		break;
+	case RC_CLIENT_EVENT_LEADERBOARD_FAILED:
+		NOTICE_LOG(ACHIEVEMENTS, "Leaderboard attempt failed: %s", event->leaderboard->title);
+		// A leaderboard attempt has failed.
+		break;
+	case RC_CLIENT_EVENT_LEADERBOARD_SUBMITTED:
+		NOTICE_LOG(ACHIEVEMENTS, "Leaderboard result submitted: %s", event->leaderboard->title);
+		// A leaderboard attempt was completed.The handler may show a message with the leaderboard title and /or description indicating the final value being submitted to the server.
+		break;
+	case RC_CLIENT_EVENT_ACHIEVEMENT_CHALLENGE_INDICATOR_SHOW:
+		NOTICE_LOG(ACHIEVEMENTS, "Challenge indicator show: %s", event->achievement->title);
+		// A challenge achievement has become active. The handler should show a small version of the achievement icon
+		// to indicate the challenge is active.
+		break;
+	case RC_CLIENT_EVENT_ACHIEVEMENT_CHALLENGE_INDICATOR_HIDE:
+		NOTICE_LOG(ACHIEVEMENTS, "Challenge indicator hide: %s", event->achievement->title);
+		// A challenge achievement has become inactive.
+		// The handler should hide the small version of the achievement icon that was shown by the corresponding RC_CLIENT_EVENT_ACHIEVEMENT_CHALLENGE_INDICATOR_SHOW event.
+		break;
+	case RC_CLIENT_EVENT_ACHIEVEMENT_PROGRESS_INDICATOR_SHOW:
+		NOTICE_LOG(ACHIEVEMENTS, "Progress indicator show (temporarily): %s", event->achievement->title);
+		// An achievement that tracks progress has changed the amount of progress that has been made.
+		// The handler should show a small version of the achievement icon along with the achievement->measured_progress text (for two seconds).
+		// Only one progress indicator should be shown at a time.
+		// If a progress indicator is already visible, it should be updated with the new icon and text, and the two second timer should be restarted.
+		g_OSD.ShowAchievementProgress(event->achievement->id, 2.0f);
+		break;
+	case RC_CLIENT_EVENT_LEADERBOARD_TRACKER_SHOW:
+		NOTICE_LOG(ACHIEVEMENTS, "Leaderboard tracker show: %s", event->leaderboard_tracker->display);
+		// A leaderboard_tracker has become active. The handler should show the tracker text on screen.
+		// Multiple active leaderboards may share a single tracker if they have the same definition and value.
+		// As such, the leaderboard tracker IDs are unique amongst the leaderboard trackers, and have no correlation to the active leaderboard(s).
+		// Use event->leaderboard_tracker->id for uniqueness checks, and display event->leaderboard_tracker->display (string)
+		break;
+	case RC_CLIENT_EVENT_LEADERBOARD_TRACKER_HIDE:
+		// A leaderboard_tracker has become inactive.The handler should hide the tracker text from the screen.
+		NOTICE_LOG(ACHIEVEMENTS, "Leaderboard tracker hide: %s", event->leaderboard_tracker->display);
+		break;
+	case RC_CLIENT_EVENT_LEADERBOARD_TRACKER_UPDATE:
+		// A leaderboard_tracker value has been updated. The handler should update the tracker text on the screen.
+		NOTICE_LOG(ACHIEVEMENTS, "Leaderboard tracker update: %s", event->leaderboard_tracker->display);
+		break;
+	case RC_CLIENT_EVENT_RESET:
+		// Challenge mode was enabled, or something else that forces a game reset.
+		System_PostUIMessage("reset", "");
+		break;
+	case RC_CLIENT_EVENT_SERVER_ERROR:
+		ERROR_LOG(ACHIEVEMENTS, "Server error: %s: %s", event->server_error->api, event->server_error->error_message);
+		OSDShowServerError(event);
+		break;
+	default:
+		WARN_LOG(ACHIEVEMENTS, "Unhandled rc_client event %d, ignoring", event->type);
+		break;
+	}
 }
 
-bool Achievements::LeaderboardsActive()
-{
-	return ChallengeModeActive() && g_Config.bAchievementsLeaderboards;
-}
-
-bool Achievements::IsTestModeActive()
-{
-	return g_Config.bAchievementsTestMode;
-}
-
-bool Achievements::IsUnofficialTestModeActive()
-{
-	return g_Config.bAchievementsUnofficialTestMode;
-}
-
-bool Achievements::IsRichPresenceEnabled()
-{
-	return g_Config.bAchievementsRichPresence;
-}
-
-bool Achievements::HasActiveGame()
-{
-	return s_game_id != 0;
-}
-
-u32 Achievements::GetGameID()
-{
-	return s_game_id;
-}
-
-std::unique_lock<std::recursive_mutex> Achievements::GetLock()
-{
-	return std::unique_lock(s_achievements_mutex);
-}
-
-void Achievements::Initialize()
-{
-	std::unique_lock lock(s_achievements_mutex);
+void Initialize() {
 	_assert_msg_(g_Config.bAchievementsEnable, "Achievements are enabled");
 
 	s_http_downloader = Common::HTTPDownloader::Create();
@@ -538,1423 +371,283 @@ void Achievements::Initialize()
 		return;
 	}
 
-	s_active = true;
-	s_challenge_mode = false;
-	rc_runtime_init(&s_rcheevos_runtime);
+	g_challengeMode = true;  // the default
+	g_rcClient = rc_client_create(read_memory_callback, server_call_callback);
+	// Provide a logging function to simplify debugging
+	rc_client_enable_logging(g_rcClient, RC_CLIENT_LOG_LEVEL_VERBOSE, log_message_callback);
 
-	s_last_ping_time = time_now_d();
-	s_username = g_Config.sAchievementsUserName;
-	s_api_token = NativeLoadSecret(RA_TOKEN_SECRET_NAME);
-	if (s_api_token.empty()) {
-		s_api_token = g_Config.sAchievementsToken;
+	// FOR NOW: Disable hardcore - if we goof something up in the implementation, we don't want our
+	// account disabled for cheating.
+	rc_client_set_hardcore_enabled(g_rcClient, 0);
+	g_challengeMode = false;
+
+	// Disable SSL for now.
+	rc_client_set_host(g_rcClient, "http://retroachievements.org");
+
+	rc_client_set_event_handler(g_rcClient, event_handler_callback);
+
+	std::string api_token = NativeLoadSecret(RA_TOKEN_SECRET_NAME);
+	if (!api_token.empty()) {
+		rc_client_begin_login_with_token(g_rcClient, g_Config.sAchievementsUserName.c_str(), api_token.c_str(), &login_token_callback, nullptr);
 	}
-	s_logged_in = (!s_username.empty() && !s_api_token.empty());
-
-	// this is just the non-SSL path.
-	rc_api_set_host("http://retroachievements.org");
-
-	// if (System::IsValid())
-	// GameChanged();
 }
 
-void Achievements::UpdateSettings()
-{
-	if (!g_Config.bAchievementsEnable)
+static void login_password_callback(int result, const char *error_message, rc_client_t *client, void *userdata) {
+	switch (result) {
+	case RC_OK:
 	{
+		// Get the token and store it.
+		const rc_client_user_t *user = rc_client_get_user_info(client);
+		g_Config.sAchievementsUserName = user->username;
+		NativeSaveSecret(RA_TOKEN_SECRET_NAME, std::string(user->token));
+		Host::OnAchievementsLoginStateChange();
+		break;
+	}
+	case RC_INVALID_STATE:
+	case RC_API_FAILURE:
+	case RC_MISSING_VALUE:
+	case RC_INVALID_JSON:
+		ERROR_LOG(ACHIEVEMENTS, "Failure logging in via token: %d, %s", result, error_message);
+		Host::OnAchievementsLoginStateChange();
+		break;
+	}
+
+	OSDCloseBackgroundProgressDialog("cheevos_async_login");
+}
+
+bool LoginAsync(const char *username, const char *password) {
+	if (IsLoggedIn() || std::strlen(username) == 0 || std::strlen(password) == 0 || IsUsingRAIntegration())
+		return false;
+
+	OSDOpenBackgroundProgressDialog("cheevos_async_login", "Logging in to RetroAchivements...", 0, 0, 0);
+	rc_client_begin_login_with_password(g_rcClient, username, password, &login_password_callback, nullptr);
+	return true;
+}
+
+void Logout() {
+	rc_client_logout(g_rcClient);
+	// remove from config
+	g_Config.sAchievementsUserName.clear();
+	NativeSaveSecret(RA_TOKEN_SECRET_NAME, "");
+	g_Config.Save("Achievements logout");
+}
+
+void UpdateSettings() {
+	if (!g_Config.bAchievementsEnable) {
 		// we're done here
 		Shutdown();
 		return;
 	}
 
-	if (!s_active)
-	{
+	if (!g_rcClient) {
 		// we just got enabled
 		Initialize();
 		return;
 	}
-
-	/*
-	// TODO: We don't have an "old" config state. But we can probably maintain one right here
-	// in this file.
-
-	if (g_settings.achievements_challenge_mode != old_config.achievements_challenge_mode)
-	{
-		// Hardcore mode can only be enabled through reset (ResetChallengeMode()).
-		if (s_challenge_mode && !g_settings.achievements_challenge_mode)
-		{
-			ResetChallengeMode();
-		} else if (!s_challenge_mode && g_settings.achievements_challenge_mode)
-		{
-			ImGuiFullscreen::ShowToast(
-				std::string(), Host::TranslateStdString("Achievements", "Hardcore mode will be enabled on system reset."),
-				10.0f);
-		}
-	}
-	*/
-
-	// FIXME: Handle changes to various settings individually
-	/*
-	if (g_settings.achievements_test_mode != old_config.achievements_test_mode ||
-		g_settings.achievements_unofficial_test_mode != old_config.achievements_unofficial_test_mode ||
-		g_settings.achievements_use_first_disc_from_playlist != old_config.achievements_use_first_disc_from_playlist ||
-		g_settings.achievements_rich_presence != old_config.achievements_rich_presence)
-	{
-		return;
-	}
-	*/
-
-	Shutdown();
-	Initialize();
 }
 
-bool Achievements::ConfirmChallengeModeDisable(const char *trigger)
-{
-	// I really hope this doesn't deadlock :/
-	/*
-	const bool confirmed = Host::ConfirmMessage(
-		Host::TranslateString("Achievements", "Confirm Hardcore Mode"),
-		fmt::format(Host::TranslateString("Achievements",
-			"{0} cannot be performed while hardcore mode is active. Do you "
-			"want to disable hardcore mode? {0} will be cancelled if you select No.")
-			.GetCharArray(),
-			trigger));
-	if (!confirmed)
-		return false;
-		*/
-
-	DisableChallengeMode();
-	return true;
-}
-
-void Achievements::DisableChallengeMode()
-{
-	if (!s_active)
-		return;
-
-	if (s_challenge_mode)
-		SetChallengeMode(false);
-}
-
-bool Achievements::ResetChallengeMode()
-{
-	if (!s_active || s_challenge_mode == g_Config.bAchievementsChallengeMode)
-		return false;
-
-	SetChallengeMode(g_Config.bAchievementsChallengeMode);
-	return true;
-}
-
-void Achievements::SetChallengeMode(bool enabled)
-{
-	if (enabled == s_challenge_mode)
-		return;
-
-	// new mode
-	s_challenge_mode = enabled;
-
-	if (HasActiveGame())
-	{
-		auto ac = GetI18NCategory(I18NCat::ACHIEVEMENTS);
-		auto di = GetI18NCategory(I18NCat::DIALOG);
-
-		OSDAddNotification(5.0f, std::string(ac->T("Challenge Mode")) + ": " + di->T(enabled ? "Enabled" : "Disabled"), "", "");
-	}
-
-	if (HasActiveGame() && !IsTestModeActive())
-	{
-		// deactivate, but don't clear all achievements (getting unlocks will reactivate them)
-		std::unique_lock lock(s_achievements_mutex);
-		for (Achievement &achievement : s_achievements)
-		{
-			DeactivateAchievement(&achievement);
-			achievement.locked = true;
-		}
-		for (Leaderboard &leaderboard : s_leaderboards)
-			rc_runtime_deactivate_lboard(&s_rcheevos_runtime, leaderboard.id);
-	}
-
-	// re-grab unlocks, this will reactivate what's locked in non-hardcore mode later on
-	if (!s_achievements.empty())
-		GetUserUnlocks();
-}
-
-bool Achievements::Shutdown()
-{
-	if (!s_active)
-		return true;
-
-	std::unique_lock lock(s_achievements_mutex);
+bool Shutdown() {
 	s_http_downloader->WaitForAllRequests();
 
-	ClearGameInfo();
-	ClearGameHash();
-	std::string().swap(s_username);
-	std::string().swap(s_api_token);
-	s_logged_in = false;
-	Host::OnAchievementsRefreshed();
-
-	s_active = false;
-	s_challenge_mode = false;
-	rc_runtime_destroy(&s_rcheevos_runtime);
+	rc_client_destroy(g_rcClient);
+	g_rcClient = nullptr;
 
 	s_http_downloader.reset();
 	return true;
 }
 
-bool Achievements::ConfirmSystemReset()
-{
-	return true;
-}
-
-void Achievements::ResetRuntime()
-{
-	if (!s_active)
-		return;
-
-	std::unique_lock lock(s_achievements_mutex);
+void ResetRuntime() {
 	INFO_LOG(ACHIEVEMENTS, "Resetting rcheevos state...");
-	rc_runtime_reset(&s_rcheevos_runtime);
+	rc_client_reset(g_rcClient);
 }
 
-void Achievements::FrameUpdate()
-{
-	if (!IsActive())
+void FrameUpdate() {
+	if (!g_rcClient)
 		return;
 
 	s_http_downloader->PollRequests();
-
-	if (HasActiveGame())
-	{
-		std::unique_lock lock(s_achievements_mutex);
-		rc_runtime_do_frame(&s_rcheevos_runtime, &CheevosEventHandler, &PeekMemory, nullptr, nullptr);
-		UpdateRichPresence();
-
-		if (!IsTestModeActive())
-		{
-			const s32 ping_frequency =
-				g_Config.bAchievementsRichPresence ? RICH_PRESENCE_PING_FREQUENCY : NO_RICH_PRESENCE_PING_FREQUENCY;
-			if (static_cast<s32>(time_now_d() - s_last_ping_time) >= ping_frequency)
-				SendPing();
-		}
-	}
+	rc_client_do_frame(g_rcClient);
 }
 
-void Achievements::ProcessPendingHTTPRequests()
-{
+void Idle() {
+	rc_client_idle(g_rcClient);
 	s_http_downloader->PollRequests();
 }
 
-/*
-bool Achievements::DoState(PointerWrap &pw)
-{
-	auto sw = pw.Section("Achievements", 1);
+void DoState(PointerWrap &p) {
+	auto sw = p.Section("Achievements", 1);
 	if (!sw) {
 		// Save state is missing the section.
 		// Reset the runtime.
-		rc_runtime_reset(&s_rcheevos_runtime);
 		return;
 	}
 
-	// if we're inactive, we still need to skip the data (if any)
-	if (!s_active)
-	{
-		u32 data_size = 0;
-		sw.Do(&data_size);
-		if (data_size > 0)
-			sw.SkipBytes(data_size);
-
-		return !sw.HasError();
+	uint32_t data_size = 0;
+	if (p.mode == PointerWrap::MODE_MEASURE || p.mode == PointerWrap::MODE_WRITE || p.mode == PointerWrap::MODE_VERIFY || p.mode == PointerWrap::MODE_NOOP) {
+		data_size = (uint32_t)(g_rcClient ? rc_client_progress_size(g_rcClient) : 0);
 	}
+	Do(p, data_size);
 
-	std::unique_lock lock(s_achievements_mutex);
-
-	if (sw.IsReading())
-	{
-		// if we're active, make sure we've downloaded and activated all the achievements
-		// before deserializing, otherwise that state's going to get lost.
-		if (s_http_downloader->HasAnyRequests())
-		{
-			Host::DisplayLoadingScreen("Downloading achievements data...");
-			s_http_downloader->WaitForAllRequests();
+	if (data_size > 0) {
+		uint8_t *buffer = new uint8_t[data_size];
+		switch (p.mode) {
+		case PointerWrap::MODE_NOOP:
+		case PointerWrap::MODE_MEASURE:
+		case PointerWrap::MODE_WRITE:
+		case PointerWrap::MODE_VERIFY:
+			rc_client_serialize_progress(g_rcClient, buffer);
+			break;
 		}
 
-		u32 data_size = 0;
-		sw.Do(&data_size);
-		if (data_size == 0)
-		{
-			// reset runtime, no data (state might've been created without cheevos)
-			DEBUG_LOG(ACHIEVEMENTS, "State is missing cheevos data, resetting runtime");
-			rc_runtime_reset(&s_rcheevos_runtime);
-			return !sw.HasError();
+		DoArray(p, buffer, data_size);
+
+		switch (p.mode) {
+		case PointerWrap::MODE_READ:
+			rc_client_deserialize_progress(g_rcClient, buffer);
+			break;
 		}
-
-		const std::unique_ptr<u8[]> data(new u8[data_size]);
-		sw.DoBytes(data.get(), data_size);
-		if (sw.HasError())
-			return false;
-
-		return true;
-	} else
-	{
-		u32 data_size;
-		std::unique_ptr<u8[]> data;
-
-		{
-			// internally this happens twice.. not great.
-			const int size = rc_runtime_progress_size(&s_rcheevos_runtime, nullptr);
-
-			data_size = (size >= 0) ? static_cast<u32>(size) : 0;
-			data = std::unique_ptr<u8[]>(new u8[data_size]);
-
-			const int result = rc_runtime_serialize_progress(data.get(), &s_rcheevos_runtime, nullptr);
-			if (result != RC_OK)
-			{
-				// set data to zero, effectively serializing nothing
-				WARN_LOG(ACHIEVEMENTS, "Failed to serialize cheevos state (%d)", result);
-				data_size = 0;
-			}
-		}
-
-		sw.Do(&data_size);
-		if (data_size > 0)
-			sw.DoBytes(data.get(), data_size);
-
-		return !sw.HasError();
+		delete[] buffer;
 	}
 }
-*/
 
-bool Achievements::SafeHasAchievementsOrLeaderboards()
-{
-	std::unique_lock lock(s_achievements_mutex);
-	return !s_achievements.empty() || !s_leaderboards.empty();
-}
-
-const std::string &Achievements::GetUsername()
-{
-	return s_username;
-}
-
-const std::string &Achievements::GetRichPresenceString()
-{
-	return s_rich_presence_string;
-}
-
-void Achievements::LoginCallback(s32 status_code, std::string content_type, Common::HTTPDownloader::Request::Data data)
-{
-	std::unique_lock lock(s_achievements_mutex);
-
-	RAPIResponse<rc_api_login_response_t, rc_api_process_login_response, rc_api_destroy_login_response> response(
-		status_code, data);
-	if (!response || !response.username || !response.api_token)
-	{
-		FormattedError("Login failed. Please check your user name and password, and try again.");
-		return;
-	}
-
-	std::string username(response.username);
-	std::string api_token(response.api_token);
-
-	// save to config
-	g_Config.sAchievementsUserName = username;
-	g_Config.sAchievementsLoginTimestamp = StringFromFormat("%llu", (unsigned long long)std::time(nullptr));
-	NativeSaveSecret(RA_TOKEN_SECRET_NAME, api_token);
-
-	g_Config.Save("AchievementsLogin");
-
-	if (s_active)
-	{
-		s_username = std::move(username);
-		s_api_token = std::move(api_token);
-		s_logged_in = true;
-
-		// If we have a game running, set it up.
-		if (!s_game_hash.empty())
-			SendGetGameId();
-	}
-
-	Host::OnAchievementsLoginStateChange();
-}
-
-void Achievements::LoginASyncCallback(s32 status_code, std::string content_type,
-	Common::HTTPDownloader::Request::Data data)
-{
-	OSDCloseBackgroundProgressDialog("cheevos_async_login");
-
-	LoginCallback(status_code, std::move(content_type), std::move(data));
-}
-
-void Achievements::SendLogin(const char *username, const char *password, Common::HTTPDownloader *http_downloader,
-	Common::HTTPDownloader::Request::Callback callback)
-{
-	RAPIRequest<rc_api_login_request_t, rc_api_init_login_request> request;
-	request.username = username;
-	request.password = password;
-	request.api_token = nullptr;
-	request.Send(http_downloader, std::move(callback));
-}
-
-bool Achievements::LoginAsync(const char *username, const char *password)
-{
-	s_http_downloader->WaitForAllRequests();
-
-	if (s_logged_in || std::strlen(username) == 0 || std::strlen(password) == 0)
+bool HasAchievementsOrLeaderboards() {
+	if (!g_rcClient) {
 		return false;
-
-	OSDOpenBackgroundProgressDialog("cheevos_async_login", "Logging in to RetroAchivements...", 0, 0, 0);
-
-	SendLogin(username, password, s_http_downloader.get(), LoginASyncCallback);
-	return true;
-}
-
-void Achievements::Logout()
-{
-	if (s_active)
-	{
-		std::unique_lock lock(s_achievements_mutex);
-		s_http_downloader->WaitForAllRequests();
-		if (s_logged_in)
-		{
-			ClearGameInfo();
-			std::string().swap(s_username);
-			std::string().swap(s_api_token);
-			s_logged_in = false;
-			Host::OnAchievementsLoginStateChange();
-		}
 	}
-
-	// remove from config
-	g_Config.sAchievementsUserName.clear();
-	NativeSaveSecret(RA_TOKEN_SECRET_NAME, "");
-	g_Config.sAchievementsLoginTimestamp.clear();
-	g_Config.Save("Achievements logout");
+	return g_activeGame;
 }
 
-void Achievements::DownloadImage(std::string url, std::string cache_filename)
-{
-	auto callback = [cache_filename](s32 status_code, std::string content_type, Common::HTTPDownloader::Request::Data data) {
-		if (status_code != HTTP_OK)
+void DownloadImageIfMissing(const std::string &cache_key, std::string &&url) {
+	auto callback = [cache_key](s32 status_code, std::string content_type, Common::HTTPDownloader::Request::Data data) {
+		if (status_code != 200)
 			return;
-		g_iconCache.InsertIcon(cache_filename, IconFormat::PNG, std::move(data));
+		g_iconCache.InsertIcon(cache_key, IconFormat::PNG, std::move(data));
 	};
 
-	if (g_iconCache.MarkPending(cache_filename)) {
-		INFO_LOG(ACHIEVEMENTS, "Downloading image: %s (%s)", url.c_str(), cache_filename.c_str());
+	if (g_iconCache.MarkPending(cache_key)) {
+		INFO_LOG(ACHIEVEMENTS, "Downloading image: %s (%s)", url.c_str(), cache_key.c_str());
 		s_http_downloader->CreateRequest(std::move(url), std::move(callback));
 	}
 }
 
-Achievements::Statistics Achievements::GetStatistics() {
+Statistics GetStatistics() {
 	return g_stats;
 }
 
-std::string Achievements::GetGameAchievementSummary() {
+std::string GetGameAchievementSummary() {
 	auto ac = GetI18NCategory(I18NCat::ACHIEVEMENTS);
 
-	std::string summary;
-	summary = StringFromFormat(ac->T("Earned", "You have unlocked %d of %d achievements, earning %d of %d points"),
-		GetUnlockedAchiementCount(), GetAchievementCount(), GetCurrentPointsForGame(), GetMaximumPointsForGame());
-	if (GetLeaderboardCount() > 0 && LeaderboardsActive()) {
-		summary.append("\n");
-		summary.append(ac->T("Leaderboard submission is enabled"));
+	rc_client_user_game_summary_t summary;
+	rc_client_get_user_game_summary(g_rcClient, &summary);
+
+	std::string summaryString = StringFromFormat(ac->T("Earned", "You have unlocked %d of %d achievements, earning %d of %d points"),
+		summary.num_unlocked_achievements, summary.num_core_achievements + summary.num_unofficial_achievements,
+		summary.points_unlocked, summary.points_core);
+	if (ChallengeModeActive()) {
+		summaryString.append("\n");
+		summaryString.append(ac->T("Leaderboard submission is enabled"));
 	}
-	return summary;
+	return summaryString;
 }
 
-void Achievements::DisplayAchievementSummary()
-{
-	auto ac = GetI18NCategory(I18NCat::ACHIEVEMENTS);
-
-	std::string title;
-	if (ChallengeModeActive())
-		title = s_game_title + " (" + ac->T("Challenge Mode") + ")";
-	else
-		title = s_game_title;
-
-	std::string summary = GetGameAchievementSummary();
-
-	OSDAddNotification(10.0f, title, summary, s_game_icon);
-}
-
-void Achievements::DisplayMasteredNotification()
-{
+void DisplayMasteredNotification() {
 	auto ac = GetI18NCategory(I18NCat::ACHIEVEMENTS);
 
 	if (!g_Config.bAchievementsNotifications)
 		return;
 
-	// TODO: Translation?
-	std::string title = ReplaceAll(ac->T("Mastered %1"), "%1", s_game_title.c_str());
-	std::string message = StringFromFormat(ac->T("%d achievements, %d points"), GetAchievementCount(), GetCurrentPointsForGame());
+	const rc_client_game_t *gameInfo = rc_client_get_game_info(g_rcClient);
 
-	OSDAddNotification(20.0f, title, message, s_game_icon);
+	// TODO: Translation?
+	std::string title = ReplaceAll(ac->T("Mastered %1"), "%1", gameInfo->title);
+	rc_client_user_game_summary_t summary;
+	rc_client_get_user_game_summary(g_rcClient, &summary);
+
+	std::string message = StringFromFormat(ac->T("%d achievements"), summary.num_unlocked_achievements);
+
+	OSDAddNotification(20.0f, title, message, gameInfo->badge_name);
 	NOTICE_LOG(ACHIEVEMENTS, "%s", message.c_str());
 }
 
-void Achievements::GetUserUnlocksCallback(s32 status_code, std::string content_type,
-	Common::HTTPDownloader::Request::Data data)
-{
-	// if (!System::IsValid())
-	//	return;
-
-	RAPIResponse<rc_api_fetch_user_unlocks_response_t, rc_api_process_fetch_user_unlocks_response,
-		rc_api_destroy_fetch_user_unlocks_response>
-		response(status_code, data);
-
-	std::unique_lock lock(s_achievements_mutex);
-	if (!response)
-	{
-		ClearGameInfo(true, false);
-		return;
-	}
-
-	// flag achievements as unlocked
-	for (u32 i = 0; i < response.num_achievement_ids; i++)
-	{
-		Achievement *cheevo = GetMutableAchievementByID(response.achievement_ids[i]);
-		if (!cheevo)
-		{
-			ERROR_LOG(ACHIEVEMENTS, "Server returned unknown achievement %u", response.achievement_ids[i]);
-			continue;
-		}
-
-		cheevo->locked = false;
-	}
-
-	// start scanning for locked achievements
-	ActivateLockedAchievements();
-	DisplayAchievementSummary();
-	SendPlaying();
-	UpdateRichPresence();
-	SendPing();
-	Host::OnAchievementsRefreshed();
-}
-
-void Achievements::GetUserUnlocks()
-{
-	RAPIRequest<rc_api_fetch_user_unlocks_request_t, rc_api_init_fetch_user_unlocks_request> request;
-	request.username = s_username.c_str();
-	request.api_token = s_api_token.c_str();
-	request.game_id = s_game_id;
-	request.hardcore = static_cast<int>(ChallengeModeActive());
-	request.Send(GetUserUnlocksCallback);
-}
-
-static int ValidateAddress(unsigned address) {
-	return Memory::IsValidAddress(address + PSP_MEMORY_OFFSET) ? 1 : 0;
-}
-
-void Achievements::GetPatchesCallback(s32 status_code, std::string content_type,
-	Common::HTTPDownloader::Request::Data data)
-{
-	// if (!System::IsValid())
-	// 	return;
-
-	RAPIResponse<rc_api_fetch_game_data_response_t, rc_api_process_fetch_game_data_response,
-		rc_api_destroy_fetch_game_data_response>
-		response(status_code, data);
-
-	std::unique_lock lock(s_achievements_mutex);
-	ClearGameInfo();
-	if (!response || !response.title)
-	{
-		DisableChallengeMode();
-		return;
-	}
-
-	// ensure fullscreen UI is ready
-	// Host::RunOnCPUThread(FullscreenUI::Initialize);
-
-	s_game_id = response.id;
-	s_game_title = response.title;
-
-	// try for a icon. not that we really need one, PSP games have their own icons...
-	if (response.image_name && std::strlen(response.image_name) > 0)
-	{
-		s_game_icon = g_gameIconCachePrefix + StringFromFormat("%d", s_game_id);
-		if (!g_iconCache.Contains(s_game_icon))
-		{
-			RAPIRequest<rc_api_fetch_image_request_t, rc_api_init_fetch_image_request> request;
-			request.image_name = response.image_name;
-			request.image_type = RC_IMAGE_TYPE_GAME;
-			request.DownloadImage(s_game_icon);
-		}
-	}
-
-	// parse achievements
-	for (u32 i = 0; i < response.num_achievements; i++)
-	{
-		const rc_api_achievement_definition_t &defn = response.achievements[i];
-
-		// Skip local and unofficial achievements for now, unless "Test Unofficial Achievements" is enabled
-		if (defn.category == RC_ACHIEVEMENT_CATEGORY_UNOFFICIAL)
-		{
-			if (!IsUnofficialTestModeActive())
-			{
-				WARN_LOG(ACHIEVEMENTS, "Skipping unofficial achievement %u (%s)", defn.id, defn.title);
-				continue;
-			}
-		}
-		// local achievements shouldn't be in this list, but just in case?
-		else if (defn.category != RC_ACHIEVEMENT_CATEGORY_CORE)
-		{
-			continue;
-		}
-
-		if (GetMutableAchievementByID(defn.id))
-		{
-			ERROR_LOG(ACHIEVEMENTS, "Achievement %u already exists", defn.id);
-			continue;
-		}
-
-		if (!defn.definition || !defn.title || !defn.description || !defn.badge_name)
-		{
-			ERROR_LOG(ACHIEVEMENTS, "Incomplete achievement %u", defn.id);
-			continue;
-		}
-
-		Achievement cheevo;
-		cheevo.id = defn.id;
-		cheevo.memaddr = defn.definition;
-		cheevo.title = defn.title;
-		cheevo.description = defn.description;
-		cheevo.badge_name = defn.badge_name;
-		cheevo.locked = true;
-		cheevo.active = false;
-		cheevo.primed = false;
-		cheevo.points = defn.points;
-		cheevo.category = static_cast<AchievementCategory>(defn.category);
-		s_achievements.push_back(std::move(cheevo));
-	}
-
-	for (u32 i = 0; i < response.num_leaderboards; i++)
-	{
-		const rc_api_leaderboard_definition_t &defn = response.leaderboards[i];
-		if (!defn.title || !defn.description || !defn.definition)
-		{
-			ERROR_LOG(ACHIEVEMENTS, "Incomplete achievement %u", defn.id);
-			continue;
-		}
-
-		Leaderboard lboard;
-		lboard.id = defn.id;
-		lboard.title = defn.title;
-		lboard.description = defn.description;
-		lboard.format = defn.format;
-		lboard.hidden = defn.hidden;
-		s_leaderboards.push_back(std::move(lboard));
-
-		const int err = rc_runtime_activate_lboard(&s_rcheevos_runtime, defn.id, defn.definition, nullptr, 0);
-		if (err != RC_OK)
-		{
-			ERROR_LOG(ACHIEVEMENTS, "Leaderboard %u memaddr parse error: %s", defn.id, rc_error_str(err));
-		} else
-		{
-			DEBUG_LOG(ACHIEVEMENTS, "Activated leaderboard %s (%u)", defn.title, defn.id);
-		}
-	}
-
-	// parse rich presence
-	if (response.rich_presence_script && std::strlen(response.rich_presence_script) > 0)
-	{
-		const int res = rc_runtime_activate_richpresence(&s_rcheevos_runtime, response.rich_presence_script, nullptr, 0);
-		if (res == RC_OK)
-			s_has_rich_presence = true;
-		else
-			WARN_LOG(ACHIEVEMENTS, "Failed to activate rich presence: %s", rc_error_str(res));
-	}
-
-	INFO_LOG(ACHIEVEMENTS, "Game Title: %s", s_game_title.c_str());
-	INFO_LOG(ACHIEVEMENTS, "Achievements: %zu", s_achievements.size());
-	INFO_LOG(ACHIEVEMENTS, "Leaderboards: %zu", s_leaderboards.size());
-
-	// We don't want to block saving/loading states when there's no achievements.
-	if (s_achievements.empty() && s_leaderboards.empty())
-		DisableChallengeMode();
-
-	if (!s_achievements.empty() || s_has_rich_presence)
-	{
-		if (!IsTestModeActive())
-		{
-			GetUserUnlocks();
-		} else
-		{
-			ActivateLockedAchievements();
-			DisplayAchievementSummary();
-			Host::OnAchievementsRefreshed();
-		}
-	} else
-	{
-		DisplayAchievementSummary();
-	}
-
-	if (s_achievements.empty() && s_leaderboards.empty() && !s_has_rich_presence)
-	{
-		ClearGameInfo();
-	}
-
-	// Hook up memory validation (doesn't seem to do much though?)
-	rc_runtime_validate_addresses(&s_rcheevos_runtime, &Achievements::CheevosEventHandler, &ValidateAddress);
-
-	// Stop the progress bar.
-	OSDCloseBackgroundProgressDialog("get_patches");
-}
-
-void Achievements::GetLbInfoCallback(s32 status_code, std::string content_type,
-	Common::HTTPDownloader::Request::Data data)
-{
-	// if (!System::IsValid())
-	// 	return;
-
-	RAPIResponse<rc_api_fetch_leaderboard_info_response_t, rc_api_process_fetch_leaderboard_info_response,
-		rc_api_destroy_fetch_leaderboard_info_response>
-		response(status_code, data);
-	if (!response)
-		return;
-
-	std::unique_lock lock(s_achievements_mutex);
-	if (response.id != s_last_queried_lboard)
-	{
-		// User has already requested another leaderboard, drop this data
-		return;
-	}
-
-	const Leaderboard *leaderboard = GetLeaderboardByID(response.id);
-	if (!leaderboard)
-	{
-		ERROR_LOG(ACHIEVEMENTS, "Attempting to list unknown leaderboard %u", response.id);
-		return;
-	}
-
-	s_lboard_entries = std::vector<Achievements::LeaderboardEntry>();
-	for (u32 i = 0; i < response.num_entries; i++)
-	{
-		const rc_api_lboard_info_entry_t &entry = response.entries[i];
-		if (!entry.username)
-			continue;
-
-		char score[128];
-		rc_runtime_format_lboard_value(score, sizeof(score), entry.score, leaderboard->format);
-
-		LeaderboardEntry lbe;
-		lbe.user = entry.username;
-		lbe.rank = entry.rank;
-		lbe.submitted = entry.submitted;
-		lbe.formatted_score = score;
-		lbe.is_self = lbe.user == s_username;
-
-		s_lboard_entries->push_back(std::move(lbe));
-	}
-}
-
-void Achievements::GetPatches(u32 game_id)
-{
+void identify_and_load_callback(int result, const char *error_message, rc_client_t *client, void *userdata) {
 	auto ac = GetI18NCategory(I18NCat::ACHIEVEMENTS);
 
-	OSDOpenBackgroundProgressDialog("get_patches", ac->T("Syncing achievements data..."), 0, 0, 0);
+	NOTICE_LOG(ACHIEVEMENTS, "Load callback: %d (%s)", result, error_message);
 
-	RAPIRequest<rc_api_fetch_game_data_request_t, rc_api_init_fetch_game_data_request> request;
-	request.username = s_username.c_str();
-	request.api_token = s_api_token.c_str();
-	request.game_id = game_id;
-	request.Send(GetPatchesCallback);
+	switch (result) {
+	case RC_OK:
+	{
+		// Successful! Show a message that we're active.
+		const rc_client_game_t *gameInfo = rc_client_get_game_info(client);
+
+		char temp[512];
+		if (RC_OK == rc_client_game_get_image_url(gameInfo, temp, sizeof(temp))) {
+			Achievements::DownloadImageIfMissing(gameInfo->badge_name, std::move(std::string(temp)));
+		}
+
+		std::string title = std::string(gameInfo->title);
+		if (ChallengeModeActive())
+			title += std::string(" (") + ac->T("Challenge Mode") + ")";
+
+		std::string summary = GetGameAchievementSummary();
+		OSDAddNotification(10.0f, title, summary, gameInfo->badge_name);
+		g_activeGame = true;
+		break;
+	}
+	case RC_NO_GAME_LOADED:
+		// The current game does not support achievements.
+		g_OSD.Show(OSDType::MESSAGE_INFO, ac->T("This game has no achievements"), 3.0f);
+		break;
+	default:
+		// Other various errors.
+		ERROR_LOG(ACHIEVEMENTS, "Failed to identify/load game: %d (%s)", result, error_message);
+		break;
+	}
 }
 
-// File reader that can handle Path (and thus Android storage and stuff).
-static void *ac_open(const char *utf8Path) {
-	Path path(utf8Path);
-	FILE *f = File::OpenCFile(path, "rb");
-	return (void *)f;
-}
-
-static void ac_seek(void *file_handle, int64_t offset, int origin) {
-	fseek((FILE *)file_handle, offset, origin);
-}
-
-static int64_t ac_tell(void *file_handle) {
-	return ftell((FILE *)file_handle);
-}
-
-static size_t ac_read(void *file_handle, void *buffer, size_t requested_bytes) {
-	return fread(buffer, 1, requested_bytes, (FILE *)file_handle);
-}
-
-static void ac_close(void *file_handle) {
-	fclose((FILE *)file_handle);
-}
-
-std::string Achievements::GetGameHash(const Path &path)
-{
-	// According to https://docs.retroachievements.org/Game-Identification/, we should simply
-	// concatenate param.sfo and eboot.bin, and hash the result, to obtain the game hash.
-
-	// UNFORTUNATELY, it's borked. Turns out that retroarch's rc_hash_cd_file is broken and will read
-	// outside the last sector in every case. Doubly unfortunately, all the hashes on retroachievements
-	// are generated like that. Oh well.
-
-	// We will need to reimplement it properly (hash some zeroes I guess, below) to handle file types
-	// that the cdreader can't handle (or we make a custom cdreader) but for now we just return orig_hash_str.
+void SetGame(const Path &path) {
+	if (!g_rcClient || !IsLoggedIn()) {
+		// Nothing to do.
+		return;
+	}
 
 	rc_hash_filereader rc_filereader;
-	rc_filereader.open = &ac_open;
-	rc_filereader.seek = &ac_seek;
-	rc_filereader.tell = &ac_tell;
-	rc_filereader.read = &ac_read;
-	rc_filereader.close = &ac_close;
+	rc_filereader.open = [](const char *utf8Path) {
+		Path path(utf8Path);
+		FILE *f = File::OpenCFile(path, "rb");
+		return (void *)f;
+	};
+	rc_filereader.seek = [](void *file_handle, int64_t offset, int origin) { fseek((FILE *)file_handle, offset, origin); };
+	rc_filereader.tell = [](void *file_handle) -> int64_t { return (int64_t)ftell((FILE *)file_handle); };
+	rc_filereader.read = [](void *file_handle, void *buffer, size_t requested_bytes) -> size_t { return fread(buffer, 1, requested_bytes, (FILE *)file_handle); };
+	rc_filereader.close = [](void *file_handle) { fclose((FILE *)file_handle); };
 
+	g_activeGame = false;
 	rc_hash_init_custom_filereader(&rc_filereader);
 	rc_hash_init_default_cdreader();
-
-	char orig_hash_str[33]{};
-	std::string ppath = path.ToString();
-
-	if (0 == rc_hash_generate_from_file(orig_hash_str, RC_CONSOLE_PSP, ppath.c_str())) {
-		ERROR_LOG(ACHIEVEMENTS, "Failed to generate hash from file: %s", ppath.c_str());
-		return "";
-	}
-
-	return std::string(orig_hash_str);
+	rc_client_begin_identify_and_load_game(g_rcClient, RC_CONSOLE_PSP, path.c_str(), nullptr, 0, &identify_and_load_callback, nullptr);
 }
 
-void Achievements::GetGameIdCallback(s32 status_code, std::string content_type,
-	Common::HTTPDownloader::Request::Data data)
-{
-	// if (!System::IsValid())
-	// 	return;
-
-	RAPIResponse<rc_api_resolve_hash_response_t, rc_api_process_resolve_hash_response,
-		rc_api_destroy_resolve_hash_response>
-		response(status_code, data);
-	if (!response)
-		return;
-
-	const u32 game_id = response.game_id;
-	NOTICE_LOG(ACHIEVEMENTS, "Server returned GameID %u", game_id);
-	if (game_id == 0)
-	{
-		auto ac = GetI18NCategory(I18NCat::ACHIEVEMENTS);
-		// We don't want to block saving/loading states when there's no achievements.
-		OSDAddNotification(4.0f, ac->T("RetroAchievements are not available for this game"), "", "");
-		DisableChallengeMode();
-		return;
-	}
-
-	GetPatches(game_id);
-}
-
-void Achievements::LeftGame() {
-	// Should just uninitialize
-}
-
-void Achievements::GameChanged(const Path &path)
-{
-	if (!IsActive() || s_game_path == path)
-		return;
-
-	std::string game_hash;
-
-	game_hash = GetGameHash(path);
-	if (s_game_hash == game_hash)
-	{
-		// only the path has changed - different format/save state/etc.
-		INFO_LOG(ACHIEVEMENTS, "Detected path change from '%s' to '%s'", s_game_path.c_str(), path.c_str());
-		s_game_path = path;
-		return;
-	}
-
-	if (s_http_downloader->HasAnyRequests())
-	{
-		s_http_downloader->WaitForAllRequests();
-	}
-
-	std::unique_lock lock(s_achievements_mutex);
-
-	ClearGameInfo();
-	ClearGameHash();
-	s_game_path = path;
-	s_game_hash = std::move(game_hash);
-
-	if (s_game_hash.empty())
-	{
-		// when we're booting the bios, this will fail
-		if (!s_game_path.empty())
-		{
-			OSDAddErrorMessage("retroachievements_disc_read_failed",
-				"Failed to read executable from disc. Achievements disabled.", 10.0f);
-		}
-
-		DisableChallengeMode();
-		return;
-	}
-
-	if (IsLoggedIn())
-		SendGetGameId();
-}
-
-void Achievements::SendGetGameId()
-{
-	RAPIRequest<rc_api_resolve_hash_request_t, rc_api_init_resolve_hash_request> request;
-	request.username = s_username.c_str();
-	request.api_token = s_api_token.c_str();
-	request.game_hash = s_game_hash.c_str();
-	request.Send(GetGameIdCallback);
-}
-
-void Achievements::SendPlayingCallback(s32 status_code, std::string content_type,
-	Common::HTTPDownloader::Request::Data data)
-{
-	// if (!System::IsValid())
-	// 	return;
-
-	RAPIResponse<rc_api_start_session_response_t, rc_api_process_start_session_response,
-		rc_api_destroy_start_session_response>
-		response(status_code, data);
-	if (!response)
-		return;
-
-	INFO_LOG(ACHIEVEMENTS, "Playing game updated to %u (%s)", s_game_id, s_game_title.c_str());
-}
-
-void Achievements::SendPlaying()
-{
-	if (!HasActiveGame())
-		return;
-
-	RAPIRequest<rc_api_start_session_request_t, rc_api_init_start_session_request> request;
-	request.username = s_username.c_str();
-	request.api_token = s_api_token.c_str();
-	request.game_id = s_game_id;
-	request.Send(SendPlayingCallback);
-}
-
-void Achievements::UpdateRichPresence()
-{
-	if (!s_has_rich_presence)
-		return;
-
-	char buffer[512];
-	const int res =
-		rc_runtime_get_richpresence(&s_rcheevos_runtime, buffer, sizeof(buffer), PeekMemory, nullptr, nullptr);
-	if (res <= 0)
-	{
-		const bool had_rich_presence = !s_rich_presence_string.empty();
-		s_rich_presence_string.clear();
-		if (had_rich_presence)
-			Host::OnAchievementsRefreshed();
-
-		return;
-	}
-
-	std::unique_lock lock(s_achievements_mutex);
-	if (s_rich_presence_string == buffer)
-		return;
-
-	s_rich_presence_string.assign(buffer);
-	Host::OnAchievementsRefreshed();
-}
-
-void Achievements::SendPingCallback(s32 status_code, std::string content_type,
-	Common::HTTPDownloader::Request::Data data)
-{
-	// if (!System::IsValid())
-	// 	return;
-
-	RAPIResponse<rc_api_ping_response_t, rc_api_process_ping_response, rc_api_destroy_ping_response> response(status_code,
-		data);
-}
-
-void Achievements::SendPing()
-{
-	if (!HasActiveGame())
-		return;
-
-	s_last_ping_time = time_now_d();
-
-	RAPIRequest<rc_api_ping_request_t, rc_api_init_ping_request> request;
-	request.api_token = s_api_token.c_str();
-	request.username = s_username.c_str();
-	request.game_id = s_game_id;
-	request.rich_presence = s_rich_presence_string.c_str();
-	request.Send(SendPingCallback);
-}
-
-const std::string &Achievements::GetGameTitle()
-{
-	return s_game_title;
-}
-
-const std::string &Achievements::GetGameIcon()
-{
-	return s_game_icon;
-}
-
-bool Achievements::EnumerateAchievements(std::function<bool(const Achievement &)> callback)
-{
-	for (const Achievement &cheevo : s_achievements)
-	{
-		if (!callback(cheevo))
-			return false;
-	}
-
-	return true;
-}
-
-u32 Achievements::GetUnlockedAchiementCount()
-{
-	u32 count = 0;
-	for (const Achievement &cheevo : s_achievements)
-	{
-		if (!cheevo.locked)
-			count++;
-	}
-
-	return count;
-}
-
-u32 Achievements::GetAchievementCount()
-{
-	return static_cast<u32>(s_achievements.size());
-}
-
-u32 Achievements::GetMaximumPointsForGame()
-{
-	u32 points = 0;
-	for (const Achievement &cheevo : s_achievements)
-		points += cheevo.points;
-
-	return points;
-}
-
-u32 Achievements::GetCurrentPointsForGame()
-{
-	u32 points = 0;
-	for (const Achievement &cheevo : s_achievements)
-	{
-		if (!cheevo.locked)
-			points += cheevo.points;
-	}
-
-	return points;
-}
-
-bool Achievements::EnumerateLeaderboards(std::function<bool(const Leaderboard &)> callback)
-{
-	for (const Leaderboard &lboard : s_leaderboards)
-	{
-		if (!callback(lboard))
-			return false;
-	}
-
-	return true;
-}
-
-std::optional<bool> Achievements::TryEnumerateLeaderboardEntries(u32 id,
-	std::function<bool(const LeaderboardEntry &)> callback)
-{
-	if (id == s_last_queried_lboard)
-	{
-		if (s_lboard_entries)
-		{
-			for (const LeaderboardEntry &entry : *s_lboard_entries)
-			{
-				if (!callback(entry))
-					return false;
-			}
-			return true;
-		}
-	} else
-	{
-		s_last_queried_lboard = id;
-		s_lboard_entries.reset();
-
-		// TODO: Add paging? For now, stick to defaults
-		RAPIRequest<rc_api_fetch_leaderboard_info_request_t, rc_api_init_fetch_leaderboard_info_request> request;
-		request.username = s_username.c_str();
-		request.leaderboard_id = id;
-		request.first_entry = 0;
-
-		// Just over what a single page can store, should be a reasonable amount for now
-		request.count = 15;
-
-		request.Send(GetLbInfoCallback);
-	}
-
-	return std::nullopt;
-}
-
-const Achievements::Leaderboard *Achievements::GetLeaderboardByID(u32 id)
-{
-	for (const Leaderboard &lb : s_leaderboards)
-	{
-		if (lb.id == id)
-			return &lb;
-	}
-
-	return nullptr;
-}
-
-u32 Achievements::GetLeaderboardCount()
-{
-	return static_cast<u32>(s_leaderboards.size());
-}
-
-bool Achievements::IsLeaderboardTimeType(const Leaderboard &leaderboard)
-{
-	return leaderboard.format != RC_FORMAT_SCORE && leaderboard.format != RC_FORMAT_VALUE;
-}
-
-bool Achievements::IsMastered()
-{
-	for (const Achievement &cheevo : s_achievements)
-	{
-		if (cheevo.locked)
-			return false;
-	}
-
-	return true;
-}
-
-void Achievements::ActivateLockedAchievements()
-{
-	for (Achievement &cheevo : s_achievements)
-	{
-		if (cheevo.locked)
-			ActivateAchievement(&cheevo);
+void UnloadGame() {
+	if (g_rcClient) {
+		rc_client_unload_game(g_rcClient);
 	}
 }
 
-bool Achievements::ActivateAchievement(Achievement *achievement)
-{
-	if (achievement->active)
-		return true;
-
-	const int err =
-		rc_runtime_activate_achievement(&s_rcheevos_runtime, achievement->id, achievement->memaddr.c_str(), nullptr, 0);
-	if (err != RC_OK)
-	{
-		ERROR_LOG(ACHIEVEMENTS, "Achievement %u memaddr parse error: %s", achievement->id, rc_error_str(err));
-		return false;
-	}
-
-	achievement->active = true;
-
-	DEBUG_LOG(ACHIEVEMENTS, "Activated achievement %s (%u)", achievement->title.c_str(), achievement->id);
-	return true;
+void change_media_callback(int result, const char *error_message, rc_client_t *client, void *userdata) {
+	NOTICE_LOG(ACHIEVEMENTS, "Change media callback: %d (%s)", result, error_message);
 }
 
-void Achievements::DeactivateAchievement(Achievement *achievement)
-{
-	if (!achievement->active)
-		return;
+void ChangeUMD(const Path &path) {
+	_dbg_assert_(g_rcClient && IsLoggedIn());
 
-	rc_runtime_deactivate_achievement(&s_rcheevos_runtime, achievement->id);
-	achievement->active = false;
-
-	if (achievement->primed)
-	{
-		achievement->primed = false;
-		s_primed_achievement_count.fetch_sub(std::memory_order_acq_rel);
-	}
-
-	DEBUG_LOG(ACHIEVEMENTS, "Deactivated achievement %s (%u)", achievement->title.c_str(), achievement->id);
+	rc_client_begin_change_media(g_rcClient, 
+		path.c_str(),
+		nullptr,
+		0,
+		&change_media_callback,
+		nullptr
+	);
 }
 
-void Achievements::UnlockAchievementCallback(s32 status_code, std::string content_type,
-	Common::HTTPDownloader::Request::Data data)
-{
-	// if (!System::IsValid())
-	// 	return;
-
-	RAPIResponse<rc_api_award_achievement_response_t, rc_api_process_award_achievement_response,
-		rc_api_destroy_award_achievement_response>
-		response(status_code, data);
-	if (!response)
-		return;
-
-	INFO_LOG(ACHIEVEMENTS, "Successfully unlocked achievement %u, new score %u", response.awarded_achievement_id,
-		response.new_player_score);
-}
-
-void Achievements::SubmitLeaderboardCallback(s32 status_code, std::string content_type,
-	Common::HTTPDownloader::Request::Data data)
-{
-	// if (!System::IsValid())
-	// 	return;
-
-	RAPIResponse<rc_api_submit_lboard_entry_response_t, rc_api_process_submit_lboard_entry_response,
-		rc_api_destroy_submit_lboard_entry_response>
-		response(status_code, data);
-	if (!response)
-		return;
-
-	// Force the next leaderboard query to repopulate everything, just in case the user wants to see their new score
-	s_last_queried_lboard = 0;
-
-	// RA API doesn't send us the leaderboard ID back.. hopefully we don't submit two at once :/
-	if (s_submitting_lboard_id == 0)
-		return;
-
-	const Leaderboard *lb = GetLeaderboardByID(std::exchange(s_submitting_lboard_id, 0u));
-	if (!lb || !g_Config.bAchievementsNotifications)
-		return;
-
-	char submitted_score[128];
-	char best_score[128];
-	rc_runtime_format_lboard_value(submitted_score, sizeof(submitted_score), response.submitted_score, lb->format);
-	rc_runtime_format_lboard_value(best_score, sizeof(best_score), response.best_score, lb->format);
-
-	auto ac = GetI18NCategory(I18NCat::ACHIEVEMENTS);
-	const char *formatString = ac->T("Submitted Score");
-	std::string summary = StringFromFormat(formatString,
-		submitted_score, best_score, response.new_rank, response.num_entries);
-
-	OSDAddNotification(10.0f, lb->title, std::move(summary), s_game_icon);
-}
-
-void Achievements::UnlockAchievement(u32 achievement_id, bool add_notification /* = true*/)
-{
-	auto ac = GetI18NCategory(I18NCat::ACHIEVEMENTS);
-
-	std::unique_lock lock(s_achievements_mutex);
-
-	Achievement *achievement = GetMutableAchievementByID(achievement_id);
-	if (!achievement)
-	{
-		ERROR_LOG(ACHIEVEMENTS, "Attempting to unlock unknown achievement %u", achievement_id);
-		return;
-	} else if (!achievement->locked)
-	{
-		WARN_LOG(ACHIEVEMENTS, "Achievement %u for game %u is already unlocked", achievement_id, s_game_id);
-		return;
-	}
-
-	achievement->locked = false;
-	DeactivateAchievement(achievement);
-
-	INFO_LOG(ACHIEVEMENTS, "Achievement %s (%u) for game %u unlocked", achievement->title.c_str(), achievement_id, s_game_id);
-
-	if (g_Config.bAchievementsNotifications)
-	{
-		std::string title;
-		switch (achievement->category)
-		{
-		case AchievementCategory::Local:
-			title = achievement->title + " (" + ac->T("Local") + ")";
-			break;
-		case AchievementCategory::Unofficial:
-			title = achievement->title + " (" + ac->T("Unofficial") + ")";
-			break;
-		case AchievementCategory::Core:
-		default:
-			title = achievement->title;
-			break;
-		}
-
-		OSDAddNotification(15.0f, std::move(title), achievement->description,
-			GetAchievementBadgePath(*achievement));
-	}
-
-	if (IsMastered())
-		DisplayMasteredNotification();
-
-	if (IsTestModeActive())
-	{
-		WARN_LOG(ACHIEVEMENTS, "Skipping sending achievement %u unlock to server because of test mode.", achievement_id);
-		return;
-	}
-
-	if (achievement->category != AchievementCategory::Core)
-	{
-		WARN_LOG(ACHIEVEMENTS, "Skipping sending achievement %u unlock to server because it's not from the core set.",
-			achievement_id);
-		return;
-	}
-
-	RAPIRequest<rc_api_award_achievement_request_t, rc_api_init_award_achievement_request> request;
-	request.username = s_username.c_str();
-	request.api_token = s_api_token.c_str();
-	request.game_hash = s_game_hash.c_str();
-	request.achievement_id = achievement_id;
-	request.hardcore = static_cast<int>(ChallengeModeActive());
-	request.Send(UnlockAchievementCallback);
-}
-
-void Achievements::SubmitLeaderboard(u32 leaderboard_id, int value)
-{
-	if (IsTestModeActive())
-	{
-		WARN_LOG(ACHIEVEMENTS, "Skipping sending leaderboard %u result to server because of test mode.", leaderboard_id);
-		return;
-	}
-
-	if (!ChallengeModeActive())
-	{
-		WARN_LOG(ACHIEVEMENTS, "Skipping sending leaderboard %u result to server because Challenge Mode is off.", leaderboard_id);
-		return;
-	}
-
-	if (!LeaderboardsActive())
-	{
-		WARN_LOG(ACHIEVEMENTS, "Skipping sending leaderboard %u result to server because leaderboards are disabled.", leaderboard_id);
-		return;
-	}
-
-	std::unique_lock lock(s_achievements_mutex);
-
-	s_submitting_lboard_id = leaderboard_id;
-
-	RAPIRequest<rc_api_submit_lboard_entry_request_t, rc_api_init_submit_lboard_entry_request> request;
-	request.username = s_username.c_str();
-	request.api_token = s_api_token.c_str();
-	request.game_hash = s_game_hash.c_str();
-	request.leaderboard_id = leaderboard_id;
-	request.score = value;
-	request.Send(SubmitLeaderboardCallback);
-}
-
-void Achievements::AchievementPrimed(u32 achievement_id)
-{
-	std::unique_lock lock(s_achievements_mutex);
-	Achievement *achievement = GetMutableAchievementByID(achievement_id);
-	if (!achievement || achievement->primed)
-		return;
-
-	achievement->primed = true;
-	s_primed_achievement_count.fetch_add(std::memory_order_acq_rel);
-}
-
-void Achievements::AchievementUnprimed(u32 achievement_id)
-{
-	std::unique_lock lock(s_achievements_mutex);
-	Achievement *achievement = GetMutableAchievementByID(achievement_id);
-	if (!achievement || !achievement->primed)
-		return;
-
-	achievement->primed = false;
-	s_primed_achievement_count.fetch_sub(std::memory_order_acq_rel);
-}
-
-void Achievements::AchievementDisabled(u32 achievement_id)
-{
-	std::unique_lock lock(s_achievements_mutex);
-	Achievement *achievement = GetMutableAchievementByID(achievement_id);
-	if (!achievement)
-		return;
-
-	// Have not seen this trigger yet, despite games doing bad memory accesses.
-	INFO_LOG(ACHIEVEMENTS, "Achievement disabled due to invalid memory access: %s", achievement->title.c_str());
-	achievement->disabled = true;
-}
-
-std::pair<u32, u32> Achievements::GetAchievementProgress(const Achievement &achievement)
-{
-	std::pair<u32, u32> result;
-	rc_runtime_get_achievement_measured(&s_rcheevos_runtime, achievement.id, &result.first, &result.second);
-	return result;
-}
-
-std::string Achievements::GetAchievementProgressText(const Achievement &achievement)
-{
-	char buf[256];
-	rc_runtime_format_achievement_measured(&s_rcheevos_runtime, achievement.id, buf, std::size(buf));
-	return buf;
-}
-
-// Note that this returns an g_iconCache key, rather than an actual filename. So look up your image there.
-std::string Achievements::GetAchievementBadgePath(const Achievement &achievement, bool download_if_missing, bool force_unlocked_icon)
-{
-	const bool use_locked = (achievement.locked && !force_unlocked_icon);
-
-	std::string badge_path = g_iconCachePrefix + achievement.badge_name + std::string(use_locked ? "_lock" : "");
-	if (g_iconCache.Contains(badge_path)) {
-		return badge_path;
-	}
-
-	// need to download it
-	if (download_if_missing) {
-		RAPIRequest<rc_api_fetch_image_request_t, rc_api_init_fetch_image_request> request;
-		request.image_name = achievement.badge_name.c_str();
-		request.image_type = use_locked ? RC_IMAGE_TYPE_ACHIEVEMENT_LOCKED : RC_IMAGE_TYPE_ACHIEVEMENT;
-		request.DownloadImage(badge_path);
-	}
-
-	return badge_path;
-}
-
-std::string Achievements::GetAchievementBadgeURL(const Achievement &achievement)
-{
-	RAPIRequest<rc_api_fetch_image_request_t, rc_api_init_fetch_image_request> request;
-	request.image_name = achievement.badge_name.c_str();
-	request.image_type = achievement.locked ? RC_IMAGE_TYPE_ACHIEVEMENT_LOCKED : RC_IMAGE_TYPE_ACHIEVEMENT;
-	return request.GetURL();
-}
-
-u32 Achievements::GetPrimedAchievementCount()
-{
-	// Relaxed is fine here, worst that happens is we draw the triggers one frame late.
-	return s_primed_achievement_count.load(std::memory_order_relaxed);
-}
-
-void Achievements::CheevosEventHandler(const rc_runtime_event_t *runtime_event)
-{
-	static const char *events[] = { "RC_RUNTIME_EVENT_ACHIEVEMENT_ACTIVATED", "RC_RUNTIME_EVENT_ACHIEVEMENT_PAUSED",
-								   "RC_RUNTIME_EVENT_ACHIEVEMENT_RESET",     "RC_RUNTIME_EVENT_ACHIEVEMENT_TRIGGERED",
-								   "RC_RUNTIME_EVENT_ACHIEVEMENT_PRIMED",    "RC_RUNTIME_EVENT_LBOARD_STARTED",
-								   "RC_RUNTIME_EVENT_LBOARD_CANCELED",       "RC_RUNTIME_EVENT_LBOARD_UPDATED",
-								   "RC_RUNTIME_EVENT_LBOARD_TRIGGERED",      "RC_RUNTIME_EVENT_ACHIEVEMENT_DISABLED",
-								   "RC_RUNTIME_EVENT_LBOARD_DISABLED" };
-	const char *event_text =
-		((unsigned)runtime_event->type >= ARRAY_SIZE(events)) ? "unknown" : events[(unsigned)runtime_event->type];
-	DEBUG_LOG(ACHIEVEMENTS, "Cheevos Event %s for %u", event_text, runtime_event->id);
-
-	switch (runtime_event->type)
-	{
-	case RC_RUNTIME_EVENT_ACHIEVEMENT_TRIGGERED:
-		UnlockAchievement(runtime_event->id);
-		break;
-
-	case RC_RUNTIME_EVENT_ACHIEVEMENT_PRIMED:
-		AchievementPrimed(runtime_event->id);
-		break;
-
-	case RC_RUNTIME_EVENT_ACHIEVEMENT_UNPRIMED:
-		AchievementUnprimed(runtime_event->id);
-		break;
-
-	case RC_RUNTIME_EVENT_ACHIEVEMENT_DISABLED:
-		AchievementDisabled(runtime_event->id);
-		break;
-
-	case RC_RUNTIME_EVENT_LBOARD_TRIGGERED:
-		SubmitLeaderboard(runtime_event->id, runtime_event->value);
-		break;
-
-	default:
-		break;
-	}
-}
-
-unsigned Achievements::PeekMemory(unsigned address, unsigned num_bytes, void *ud) {
-	// Achievements are traditionally defined relative to the base of main memory of the emulated console.
-	// This is some kind of RetroArch-related legacy. In the PSP's case, this is simply a straight offset of 0x08000000.
-	address += PSP_MEMORY_OFFSET;
-
-	if (!Memory::IsValidAddress(address)) {
-		// Some achievement packs are really, really spammy.
-		// So we'll just count the bad accesses.
-		g_stats.badMemoryAccessCount++;
-
-		if (g_Config.bAchievementsLogBadMemReads) {
-			WARN_LOG(G3D, "RetroAchievements PeekMemory: Bad address %08x (%d bytes)", address, num_bytes);
-		}
-		return 0;
-	}
-
-	switch (num_bytes) {
-	case 1: return Memory::ReadUnchecked_U8(address);
-	case 2: return Memory::ReadUnchecked_U16(address);
-	case 4: return Memory::ReadUnchecked_U32(address);
-	default:
-		return 0;
-	}
-}
+} // namespace Achievements
