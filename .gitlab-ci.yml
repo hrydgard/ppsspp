@@ -1,9 +1,3 @@
-# DESCRIPTION: GitLab CI/CD for libRetro (NOT FOR GitLab-proper)
-
-##############################################################################
-################################# BOILERPLATE ################################
-##############################################################################
-
 # Core definitions
 variables:
   GIT_SUBMODULE_STRATEGY: recursive
@@ -12,148 +6,19 @@ variables:
   variables:
     CORENAME: ppsspp
     CORE_ARGS: -DLIBRETRO=ON
-
-.cmake-defs:
-  variables:
-    EXTRA_PATH: lib
-
-.make-defs:
-  variables:
     MAKEFILE_PATH: libretro
 
-# Inclusion templates, required for the build to work
 include:
-  ################################## DESKTOPS ################################
-  # Windows 64bit
   - project: 'libretro-infrastructure/ci-templates'
-    file: '/windows-x64-msvc19-msys2.yml'
+    file: '/libnx-static.yml'
     
-  # Windows 32bit
-  - project: 'libretro-infrastructure/ci-templates'
-    file: '/windows-i686-msvc19-msys2.yml'
-
-  # Linux
-  - project: 'libretro-infrastructure/ci-templates'
-    file: '/linux-cmake.yml'
-
-  # MacOS 64-bit
-  - project: 'libretro-infrastructure/ci-templates'
-    file: '/osx-cmake-x86.yml'
-
-  # MacOS arm64
-  - project: 'libretro-infrastructure/ci-templates'
-    file: '/osx-cmake-arm64.yml'
-    
-  ################################## CELLULAR ################################
-  # Android  
-  - project: 'libretro-infrastructure/ci-templates'
-    file: '/android-cmake.yml'
-
-  # iOS
-  - project: 'libretro-infrastructure/ci-templates'
-    file: '/ios-cmake.yml'
-
-  # tvOS
-  - project: 'libretro-infrastructure/ci-templates'
-    file: '/tvos-cmake.yml'
-
-  ################################## CONSOLES ################################
-  
-  #################################### MISC ##################################
-
 # Stages for building
 stages:
-  - build-prepare
-  - build-shared
+  - build-static
 
-##############################################################################
-#################################### STAGES ##################################
-##############################################################################
-#
-################################### DESKTOPS #################################
-# Windows 64-bit
-libretro-build-windows-x64:
+# Nintendo Switch - libnx
+libretro-build-libnx-aarch64:
   extends:
-    - .libretro-windows-x64-msvc19-msys2-make-default
+    - .libretro-libnx-static-retroarch-master
     - .core-defs
     - .make-defs
-
-# Windows 32-bit
-libretro-build-windows-i686:
-  extends:
-    - .libretro-windows-i686-msvc19-msys2-make-default
-    - .core-defs
-    - .make-defs
-
-# Linux 64-bit
-libretro-build-linux-x64:
-  extends:
-    - .libretro-linux-cmake-x86_64
-    - .core-defs
-    - .cmake-defs
-
-# Linux 32-bit
-libretro-build-linux-i686:
-  extends:
-    - .libretro-linux-cmake-x86
-    - .core-defs
-    - .cmake-defs
-
-# MacOS 64-bit
-libretro-build-osx-x64:
-  variables:
-    CORE_ARGS: -DLIBRETRO=ON -DUSE_SYSTEM_LIBPNG=OFF
-  extends:
-    - .libretro-osx-cmake-x86_64
-    - .core-defs
-    - .cmake-defs
-
-# MacOS 64-bit
-libretro-build-osx-arm64:
-  extends:
-    - .libretro-osx-cmake-arm64
-    - .core-defs
-    - .cmake-defs
-
-################################### CELLULAR #################################
-# Android ARMv7a
-libretro-build-android-armeabi-v7a:
-  extends:
-    - .libretro-android-cmake-armeabi-v7a
-    - .core-defs
-
-# Android ARMv8a
-libretro-build-android-arm64-v8a:
-  extends:
-    - .libretro-android-cmake-arm64-v8a
-    - .core-defs
-
-# Android 64-bit x86
-libretro-build-android-x86_64:
-  extends:
-    - .libretro-android-cmake-x86_64
-    - .core-defs
-
-# Android 32-bit x86
-libretro-build-android-x86:
-  extends:
-    - .libretro-android-cmake-x86
-    - .core-defs
-
-# iOS arm64
-libretro-build-ios-arm64:
-  extends:
-    - .libretro-ios-cmake-arm64
-    - .core-defs
-    - .cmake-defs
-  variables:
-    CORE_ARGS: -DCMAKE_TOOLCHAIN_FILE=cmake/Toolchains/ios.cmake -DLIBRETRO=ON
-
-# tvOS arm64
-libretro-build-tvos-arm64:
-  extends:
-    - .libretro-tvos-cmake-arm64
-    - .core-defs
-    - .cmake-defs
-  variables:
-    CORE_ARGS: -DIOS_PLATFORM=TVOS -DCMAKE_TOOLCHAIN_FILE=cmake/Toolchains/ios.cmake -DLIBRETRO=ON

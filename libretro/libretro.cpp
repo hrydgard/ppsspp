@@ -1477,6 +1477,9 @@ bool retro_load_game(const struct retro_game_info *game)
    if (softwareRenderInitHack)
       g_Config.bSoftwareRendering = false;
 
+   if(g_Config.bVertexDecoderJit)
+		g_Config.bVertexDecoderJit = (coreParam.cpuCore == CPUCore::JIT) ? true : false;
+
    // set cpuCore from libretro setting variable
    coreParam.cpuCore         =  (CPUCore)g_Config.iCpuCore;
 

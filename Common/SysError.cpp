@@ -27,6 +27,23 @@
 #include <errno.h>
 #endif
 
+#ifdef __SWITCH__
+// Toolchain is missing strnlen
+size_t strnlen(const char *s, size_t maxlen)
+{
+	size_t i;
+	for(i = 0; i < maxlen; i++)
+	{
+		if(s[i] == '\0')
+		{
+			break;
+		}
+	}
+
+	return i;
+}
+#endif
+
 // Generic function to get last error message.
 // Call directly after the command or use the error num.
 // This function might change the error code.
@@ -56,6 +73,8 @@ std::string GetStringErrorMsg(int errCode) {
 		err_string.pop_back();
 	}
 	return err_string;
+#elif defined(__SWITCH__)
+	return "Unknown error";
 #else
 	char err_str[buff_size] = {};
 
