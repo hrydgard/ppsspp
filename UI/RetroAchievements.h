@@ -53,6 +53,7 @@ struct Leaderboard
 	std::string title;
 	std::string description;
 	int format;
+	bool hidden;
 };
 
 struct LeaderboardEntry
@@ -158,6 +159,8 @@ u32 GetCurrentPointsForGame();
 Statistics GetStatistics();
 
 bool EnumerateLeaderboards(std::function<bool(const Leaderboard &)> callback);
+
+// Unlike most other functions here, this you're supposed to poll until you get a valid std::optional.
 std::optional<bool> TryEnumerateLeaderboardEntries(u32 id, std::function<bool(const LeaderboardEntry &)> callback);
 const Leaderboard *GetLeaderboardByID(u32 id);
 u32 GetLeaderboardCount();

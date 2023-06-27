@@ -1283,6 +1283,7 @@ void Achievements::GetPatchesCallback(s32 status_code, std::string content_type,
 		lboard.title = defn.title;
 		lboard.description = defn.description;
 		lboard.format = defn.format;
+		lboard.hidden = defn.hidden;
 		s_leaderboards.push_back(std::move(lboard));
 
 		const int err = rc_runtime_activate_lboard(&s_rcheevos_runtime, defn.id, defn.definition, nullptr, 0);

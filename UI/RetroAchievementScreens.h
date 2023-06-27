@@ -18,6 +18,11 @@ public:
 
 protected:
 	bool ShowSearchControls() const override { return false; }
+
+private:
+	void CreateAchievementsTab(UI::ViewGroup *viewGroup);
+	void CreateLeaderboardsTab(UI::ViewGroup *viewGroup);
+	void CreateStatisticsTab(UI::ViewGroup *viewGroup);
 };
 
 // Lets you manage your account, and shows some achievement stats and stuff.
@@ -35,10 +40,27 @@ protected:
 private:
 	void CreateAccountTab(UI::ViewGroup *viewGroup);
 	void CreateSettingsTab(UI::ViewGroup *viewGroup);
-	void CreateStatisticsTab(UI::ViewGroup *viewGroup);
 
 	std::string username_;
 	std::string password_;
+};
+
+class RetroAchievementsLeaderboardScreen : public TabbedUIDialogScreenWithGameBackground {
+public:
+	RetroAchievementsLeaderboardScreen(const Path &gamePath, int leaderboardID) : TabbedUIDialogScreenWithGameBackground(gamePath), leaderboardID_(leaderboardID) {}
+	const char *tag() const override { return "RetroAchievementsLeaderboardScreen"; }
+
+	void CreateTabs() override;
+
+	void update() override;
+protected:
+	bool ShowSearchControls() const override { return false; }
+private:
+	void Poll();
+
+	int leaderboardID_;
+	bool done_ = false;
+	std::vector<Achievements::LeaderboardEntry> entries_;
 };
 
 class UIContext;
@@ -55,13 +77,24 @@ void RenderGameAchievementSummary(UIContext &dc, int gameID, const Bounds &bound
 
 class AchievementView : public UI::ClickableItem {
 public:
-	AchievementView(const Achievements::Achievement &achievement, UI::LayoutParams *layoutParams = nullptr) : UI::ClickableItem(layoutParams), achievement_(achievement) {}
+	AchievementView(const Achievements::Achievement &&achievement, UI::LayoutParams *layoutParams = nullptr) : UI::ClickableItem(layoutParams), achievement_(achievement) {}
 
 	void Click() override;
 	void Draw(UIContext &dc) override;
 	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override;
 private:
 	Achievements::Achievement achievement_;
+};
+
+class LeaderboardSummaryView : public UI::ClickableItem {
+public:
+	LeaderboardSummaryView(const Achievements::Leaderboard &&leaderboard, UI::LayoutParams *layoutParams = nullptr) : UI::ClickableItem(layoutParams), leaderboard_(leaderboard) {}
+
+	void Draw(UIContext &dc) override;
+	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override;
+
+private:
+	Achievements::Leaderboard leaderboard_;
 };
 
 class GameAchievementSummaryView : public UI::Item {
