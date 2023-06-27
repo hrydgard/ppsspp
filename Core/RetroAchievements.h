@@ -45,7 +45,11 @@ static inline bool IsUsingRAIntegration()
 
 #endif
 
+// Returns true if the user is logged in properly, and everything is set up for playing games with achievements.
 bool IsLoggedIn();
+
+// Returns true if in a game, and achievements are active in the current game.
+bool IsActive();
 
 /// Returns true if features such as save states should be disabled.
 bool ChallengeModeActive();
@@ -53,8 +57,6 @@ bool ChallengeModeActive();
 // The new API is so much nicer that we can use it directly instead of wrapping it. So let's expose the client.
 // Will of course return nullptr if not active.
 rc_client_t *GetClient();
-
-u32 GetGameID();
 
 void Initialize();
 void UpdateSettings();

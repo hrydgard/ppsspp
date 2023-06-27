@@ -58,7 +58,7 @@ void RetroAchievementsListScreen::CreateAchievementsTab(UI::ViewGroup *achieveme
 
 	achievements->Add(new ItemHeader(ac->T("Achievements")));
 
-	achievements->Add(new GameAchievementSummaryView(Achievements::GetGameID()));
+	achievements->Add(new GameAchievementSummaryView());
 
 	achievements->Add(new ItemHeader(ac->T("Unlocked achievements")));
 	for (auto &achievement : unlockedAchievements) {
@@ -80,7 +80,7 @@ void RetroAchievementsListScreen::CreateLeaderboardsTab(UI::ViewGroup *viewGroup
 
 	using namespace UI;
 
-	viewGroup->Add(new GameAchievementSummaryView(Achievements::GetGameID()));
+	viewGroup->Add(new GameAchievementSummaryView());
 
 	viewGroup->Add(new ItemHeader(ac->T("Leaderboards")));
 
@@ -175,6 +175,8 @@ void RetroAchievementsLeaderboardScreen::update() {
 	Poll();
 }
 
+RetroAchievementsSettingsScreen::~RetroAchievementsSettingsScreen() {}
+
 void RetroAchievementsSettingsScreen::CreateTabs() {
 	auto ac = GetI18NCategory(I18NCat::ACHIEVEMENTS);
 	auto di = GetI18NCategory(I18NCat::DIALOG);
@@ -265,12 +267,10 @@ void RetroAchievementsSettingsScreen::CreateSettingsTab(UI::ViewGroup *viewGroup
 		RecreateViews();
 		return UI::EVENT_DONE;
 	});
+	viewGroup->Add(new CheckBox(&g_Config.bAchievementsChallengeMode, ac->T("Challenge Mode (no savestates)")));
 	viewGroup->Add(new CheckBox(&g_Config.bAchievementsRichPresence, ac->T("Rich Presence")))->SetEnabledPtr(&g_Config.bAchievementsEnable);
 	viewGroup->Add(new CheckBox(&g_Config.bAchievementsSoundEffects, ac->T("Sound Effects")))->SetEnabledPtr(&g_Config.bAchievementsEnable);  // not yet implemented
 	viewGroup->Add(new CheckBox(&g_Config.bAchievementsLogBadMemReads, ac->T("Log bad memory accesses")))->SetEnabledPtr(&g_Config.bAchievementsEnable);
-
-	// Not yet fully implemented
-	// viewGroup->Add(new CheckBox(&g_Config.bAchievementsChallengeMode, ac->T("Challenge Mode (no savestates)")));
 
 	// TODO: What are these for?
 	// viewGroup->Add(new CheckBox(&g_Config.bAchievementsTestMode, ac->T("Test Mode")));
@@ -289,9 +289,12 @@ void MeasureAchievement(const UIContext &dc, const rc_client_achievement_t *achi
 	}
 }
 
-void MeasureGameAchievementSummary(const UIContext &dc, int gameID, float *w, float *h) {
+void MeasureGameAchievementSummary(const UIContext &dc, float *w, float *h) {
 	*w = 0.0f;
 	*h = 72.0f;
+	if (Achievements::ChallengeModeActive()) {
+		*h += 20.0f;
+	}
 }
 
 void MeasureLeaderboardSummary(const UIContext &dc, const rc_client_leaderboard_t *leaderboard, float *w, float *h) {
@@ -358,11 +361,11 @@ void RenderAchievement(UIContext &dc, const rc_client_achievement_t *achievement
 	dc.RebindTexture();
 }
 
-void RenderGameAchievementSummary(UIContext &dc, int gameID, const Bounds &bounds, float alpha) {
+void RenderGameAchievementSummary(UIContext &dc, const Bounds &bounds, float alpha) {
 	using namespace UI;
 	UI::Drawable background = dc.theme->itemStyle.background;
 
-	background.color = colorAlpha(background.color, alpha);
+	background.color = alphaMul(background.color, alpha);
 	uint32_t fgColor = colorAlpha(dc.theme->itemStyle.fgColor, alpha);
 
 	float iconSpace = 64.0f;
@@ -499,11 +502,11 @@ void AchievementView::Click() {
 }
 
 void GameAchievementSummaryView::Draw(UIContext &dc) {
-	RenderGameAchievementSummary(dc, gameID_, bounds_, 1.0f);
+	RenderGameAchievementSummary(dc, bounds_, 1.0f);
 }
 
 void GameAchievementSummaryView::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
-	MeasureGameAchievementSummary(dc, gameID_, &w, &h);
+	MeasureGameAchievementSummary(dc, &w, &h);
 }
 
 void LeaderboardSummaryView::Draw(UIContext &dc) {

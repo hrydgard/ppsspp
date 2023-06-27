@@ -265,27 +265,13 @@ GamePauseScreen::~GamePauseScreen() {
 	__DisplaySetWasPaused();
 }
 
-void GamePauseScreen::CreateViews() {
+void GamePauseScreen::CreateSavestateControls(UI::LinearLayout *leftColumnItems, bool vertical) {
+	auto pa = GetI18NCategory(I18NCat::PAUSE);
+
 	static const int NUM_SAVESLOTS = 5;
 
 	using namespace UI;
 
-	bool vertical = UseVerticalLayout();
-
-	Margins scrollMargins(0, 20, 0, 0);
-	Margins actionMenuMargins(0, 20, 15, 0);
-	auto gr = GetI18NCategory(I18NCat::GRAPHICS);
-	auto pa = GetI18NCategory(I18NCat::PAUSE);
-
-	root_ = new LinearLayout(ORIENT_HORIZONTAL);
-
-	ViewGroup *leftColumn = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(1.0, scrollMargins));
-	root_->Add(leftColumn);
-
-	LinearLayout *leftColumnItems = new LinearLayoutList(ORIENT_VERTICAL, new LayoutParams(FILL_PARENT, WRAP_CONTENT));
-	leftColumn->Add(leftColumnItems);
-
-	leftColumnItems->Add(new Spacer(0.0));
 	leftColumnItems->SetSpacing(10.0);
 	for (int i = 0; i < NUM_SAVESLOTS; i++) {
 		SaveSlotView *slot = leftColumnItems->Add(new SaveSlotView(gamePath_, i, vertical, new LayoutParams(FILL_PARENT, WRAP_CONTENT)));
@@ -310,6 +296,36 @@ void GamePauseScreen::CreateViews() {
 		UI::Choice *rewindButton = buttonRow->Add(new Choice(pa->T("Rewind")));
 		rewindButton->SetEnabled(SaveState::CanRewind());
 		rewindButton->OnClick.Handle(this, &GamePauseScreen::OnRewind);
+	}
+}
+
+void GamePauseScreen::CreateViews() {
+	using namespace UI;
+
+	bool vertical = UseVerticalLayout();
+
+	Margins scrollMargins(0, 10, 0, 0);
+	Margins actionMenuMargins(0, 10, 15, 0);
+	auto gr = GetI18NCategory(I18NCat::GRAPHICS);
+	auto pa = GetI18NCategory(I18NCat::PAUSE);
+	auto ac = GetI18NCategory(I18NCat::ACHIEVEMENTS);
+
+	root_ = new LinearLayout(ORIENT_HORIZONTAL);
+
+	ViewGroup *leftColumn = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(1.0, scrollMargins));
+	root_->Add(leftColumn);
+
+	LinearLayout *leftColumnItems = new LinearLayoutList(ORIENT_VERTICAL, new LayoutParams(FILL_PARENT, WRAP_CONTENT));
+	leftColumn->Add(leftColumnItems);
+
+	leftColumnItems->Add(new Spacer(0.0));
+	if (Achievements::IsActive()) {
+		leftColumnItems->Add(new GameAchievementSummaryView());
+		leftColumnItems->Add(new Spacer(5.0));
+	}
+
+	if (!Achievements::ChallengeModeActive()) {
+		CreateSavestateControls(leftColumnItems, vertical);
 	}
 
 	ViewGroup *rightColumn = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(vertical ? 200 : 300, FILL_PARENT, actionMenuMargins));

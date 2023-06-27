@@ -156,6 +156,7 @@ static void SubmitLeaderboard(u32 leaderboard_id, int value);
 static void DisplayAchievementSummary();
 static void DisplayMasteredNotification();
 static void SetChallengeMode(bool enabled);
+static u32 GetGameID();
 
 static Achievements::Statistics g_stats;
 
@@ -183,6 +184,10 @@ bool IsLoggedIn() {
 
 bool ChallengeModeActive() {
 	return g_challengeMode;
+}
+
+bool IsActive() {
+	return GetGameID() != 0;
 }
 
 u32 GetGameID() {

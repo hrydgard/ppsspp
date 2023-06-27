@@ -31,6 +31,7 @@ private:
 class RetroAchievementsSettingsScreen : public TabbedUIDialogScreenWithGameBackground {
 public:
 	RetroAchievementsSettingsScreen(const Path &gamePath) : TabbedUIDialogScreenWithGameBackground(gamePath) {}
+	~RetroAchievementsSettingsScreen();
 	const char *tag() const override { return "RetroAchievementsSettingsScreen"; }
 
 	void CreateTabs() override;
@@ -85,15 +86,17 @@ enum class AchievementRenderStyle {
 void MeasureAchievement(const UIContext &dc, const rc_client_achievement_t *achievement, AchievementRenderStyle style, float *w, float *h);
 void RenderAchievement(UIContext &dc, const rc_client_achievement_t *achievement, AchievementRenderStyle style, const Bounds &bounds, float alpha, float startTime, float time_s);
 
-void MeasureGameAchievementSummary(const UIContext &dc, int gameID, float *w, float *h);
-void RenderGameAchievementSummary(UIContext &dc, int gameID, const Bounds &bounds, float alpha);
+void MeasureGameAchievementSummary(const UIContext &dc, float *w, float *h);
+void RenderGameAchievementSummary(UIContext &dc, const Bounds &bounds, float alpha);
 
 void MeasureLeaderboardEntry(const UIContext &dc, const rc_client_leaderboard_entry_t *entry, float *w, float *h);
 void RenderLeaderboardEntry(UIContext &dc, const rc_client_leaderboard_entry_t *entry, const Bounds &bounds, float alpha);
 
 class AchievementView : public UI::ClickableItem {
 public:
-	AchievementView(const rc_client_achievement_t *achievement, UI::LayoutParams *layoutParams = nullptr) : UI::ClickableItem(layoutParams), achievement_(achievement) {}
+	AchievementView(const rc_client_achievement_t *achievement, UI::LayoutParams *layoutParams = nullptr) : UI::ClickableItem(layoutParams), achievement_(achievement) {
+		layoutParams_->height = UI::WRAP_CONTENT;  // Override the standard Item fixed height.
+	}
 
 	void Click() override;
 	void Draw(UIContext &dc) override;
@@ -104,17 +107,19 @@ private:
 
 class GameAchievementSummaryView : public UI::Item {
 public:
-	GameAchievementSummaryView(int gameID, UI::LayoutParams *layoutParams = nullptr) : UI::Item(layoutParams), gameID_(gameID) {}
+	GameAchievementSummaryView(UI::LayoutParams *layoutParams = nullptr) : UI::Item(layoutParams) {
+		layoutParams_->height = UI::WRAP_CONTENT;  // Override the standard Item fixed height.
+	}
 
 	void Draw(UIContext &dc) override;
 	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override;
-private:
-	int gameID_;
 };
 
 class LeaderboardSummaryView : public UI::ClickableItem {
 public:
-	LeaderboardSummaryView(const rc_client_leaderboard_t *leaderboard, UI::LayoutParams *layoutParams = nullptr) : UI::ClickableItem(layoutParams), leaderboard_(leaderboard) {}
+	LeaderboardSummaryView(const rc_client_leaderboard_t *leaderboard, UI::LayoutParams *layoutParams = nullptr) : UI::ClickableItem(layoutParams), leaderboard_(leaderboard) {
+		layoutParams_->height = UI::WRAP_CONTENT;  // Override the standard Item fixed height.
+	}
 
 	void Draw(UIContext &dc) override;
 	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override;
@@ -125,7 +130,10 @@ private:
 
 class LeaderboardEntryView : public UI::Item {
 public:
-	LeaderboardEntryView(const rc_client_leaderboard_entry_t *entry, bool isCurrentUser, UI::LayoutParams *layoutParams = nullptr) : UI::Item(layoutParams), entry_(entry), isCurrentUser_(isCurrentUser) {}
+	LeaderboardEntryView(const rc_client_leaderboard_entry_t *entry, bool isCurrentUser, UI::LayoutParams *layoutParams = nullptr)
+		: UI::Item(layoutParams), entry_(entry), isCurrentUser_(isCurrentUser) {
+		layoutParams_->height = UI::WRAP_CONTENT;  // Override the standard Item fixed height.
+	}
 
 	void Draw(UIContext &dc) override;
 	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override;
