@@ -49,14 +49,6 @@
 
 #include "UI/Root.h"
 
-#ifdef WITH_RAINTEGRATION
-// RA_Interface ends up including windows.h, with its silly macros.
-#ifdef _WIN32
-#include "common/windows_headers.h"
-#endif
-#include "RA_Interface.h"
-#endif
-
 // Simply wrap our current HTTP backend to fit the DuckStation-derived code.
 namespace Common {
 	class HTTPDownloader {
@@ -217,10 +209,6 @@ static bool s_active = false;
 static bool s_logged_in = false;
 static bool s_challenge_mode = false;
 static u32 s_game_id = 0;
-
-#ifdef WITH_RAINTEGRATION
-static bool s_using_raintegration = false;
-#endif
 
 static std::recursive_mutex s_achievements_mutex;
 static rc_runtime_t s_rcheevos_runtime;
@@ -402,13 +390,6 @@ public:
 
 } // namespace Achievements
 
-#ifdef WITH_RAINTEGRATION
-bool Achievements::IsUsingRAIntegration()
-{
-	return s_using_raintegration;
-}
-#endif
-
 void Achievements::FormattedError(const char *format, ...)
 {
 	std::va_list ap;
@@ -512,11 +493,6 @@ bool Achievements::IsLoggedIn()
 
 bool Achievements::ChallengeModeActive()
 {
-#ifdef WITH_RAINTEGRATION
-	if (IsUsingRAIntegration())
-		return RA_HardcoreModeIsActive() != 0;
-#endif
-
 	return s_challenge_mode;
 }
 
@@ -557,9 +533,6 @@ std::unique_lock<std::recursive_mutex> Achievements::GetLock()
 
 void Achievements::Initialize()
 {
-	if (IsUsingRAIntegration())
-		return;
-
 	std::unique_lock lock(s_achievements_mutex);
 	_assert_msg_(g_Config.bAchievementsEnable, "Achievements are enabled");
 
@@ -592,9 +565,6 @@ void Achievements::Initialize()
 
 void Achievements::UpdateSettings()
 {
-	if (IsUsingRAIntegration())
-		return;
-
 	if (!g_Config.bAchievementsEnable)
 	{
 		// we're done here
@@ -645,11 +615,6 @@ void Achievements::UpdateSettings()
 
 bool Achievements::ConfirmChallengeModeDisable(const char *trigger)
 {
-#ifdef WITH_RAINTEGRATION
-	if (IsUsingRAIntegration())
-		return (RA_WarnDisableHardcore(trigger) != 0);
-#endif
-
 	// I really hope this doesn't deadlock :/
 	/*
 	const bool confirmed = Host::ConfirmMessage(
@@ -671,16 +636,6 @@ void Achievements::DisableChallengeMode()
 {
 	if (!s_active)
 		return;
-
-#ifdef WITH_RAINTEGRATION
-	if (IsUsingRAIntegration())
-	{
-		if (RA_HardcoreModeIsActive())
-			RA_DisableHardcore();
-
-		return;
-	}
-#endif
 
 	if (s_challenge_mode)
 		SetChallengeMode(false);
@@ -731,15 +686,6 @@ void Achievements::SetChallengeMode(bool enabled)
 
 bool Achievements::Shutdown()
 {
-#ifdef WITH_RAINTEGRATION
-	if (IsUsingRAIntegration())
-	{
-		RA_SetPaused(false);
-		RA_ActivateGame(0);
-		return true;
-	}
-#endif
-
 	if (!s_active)
 		return true;
 
@@ -763,24 +709,11 @@ bool Achievements::Shutdown()
 
 bool Achievements::ConfirmSystemReset()
 {
-#ifdef WITH_RAINTEGRATION
-	if (IsUsingRAIntegration())
-		return RA_ConfirmLoadNewRom(false);
-#endif
-
 	return true;
 }
 
 void Achievements::ResetRuntime()
 {
-#ifdef WITH_RAINTEGRATION
-	if (IsUsingRAIntegration())
-	{
-		RA_OnReset();
-		return;
-	}
-#endif
-
 	if (!s_active)
 		return;
 
@@ -789,26 +722,10 @@ void Achievements::ResetRuntime()
 	rc_runtime_reset(&s_rcheevos_runtime);
 }
 
-void Achievements::OnSystemPaused(bool paused)
-{
-#ifdef WITH_RAINTEGRATION
-	if (IsUsingRAIntegration())
-		RA_SetPaused(paused);
-#endif
-}
-
 void Achievements::FrameUpdate()
 {
 	if (!IsActive())
 		return;
-
-#ifdef WITH_RAINTEGRATION
-	if (IsUsingRAIntegration())
-	{
-		RA_DoAchievementsFrame();
-		return;
-	}
-#endif
 
 	s_http_downloader->PollRequests();
 
@@ -830,11 +747,6 @@ void Achievements::FrameUpdate()
 
 void Achievements::ProcessPendingHTTPRequests()
 {
-#ifdef WITH_RAINTEGRATION
-	if (IsUsingRAIntegration())
-		return;
-#endif
-
 	s_http_downloader->PollRequests();
 }
 
@@ -845,15 +757,7 @@ bool Achievements::DoState(PointerWrap &pw)
 	if (!sw) {
 		// Save state is missing the section.
 		// Reset the runtime.
-#ifdef WITH_RAINTEGRATION
-		if (IsUsingRAIntegration())
-			RA_OnReset();
-		else
-			rc_runtime_reset(&s_rcheevos_runtime);
-#else
 		rc_runtime_reset(&s_rcheevos_runtime);
-#endif
-
 		return;
 	}
 
@@ -874,7 +778,7 @@ bool Achievements::DoState(PointerWrap &pw)
 	{
 		// if we're active, make sure we've downloaded and activated all the achievements
 		// before deserializing, otherwise that state's going to get lost.
-		if (!IsUsingRAIntegration() && s_http_downloader->HasAnyRequests())
+		if (s_http_downloader->HasAnyRequests())
 		{
 			Host::DisplayLoadingScreen("Downloading achievements data...");
 			s_http_downloader->WaitForAllRequests();
@@ -886,15 +790,7 @@ bool Achievements::DoState(PointerWrap &pw)
 		{
 			// reset runtime, no data (state might've been created without cheevos)
 			DEBUG_LOG(ACHIEVEMENTS, "State is missing cheevos data, resetting runtime");
-#ifdef WITH_RAINTEGRATION
-			if (IsUsingRAIntegration())
-				RA_OnReset();
-			else
-				rc_runtime_reset(&s_rcheevos_runtime);
-#else
 			rc_runtime_reset(&s_rcheevos_runtime);
-#endif
-
 			return !sw.HasError();
 		}
 
@@ -903,43 +799,12 @@ bool Achievements::DoState(PointerWrap &pw)
 		if (sw.HasError())
 			return false;
 
-#ifdef WITH_RAINTEGRATION
-		if (IsUsingRAIntegration())
-		{
-			RA_RestoreState(reinterpret_cast<const char *>(data.get()));
-		} else
-		{
-			const int result = rc_runtime_deserialize_progress(&s_rcheevos_runtime, data.get(), nullptr);
-			if (result != RC_OK)
-			{
-				WARN_LOG(ACHIEVEMENTS, "Failed to deserialize cheevos state (%d), resetting", result);
-				rc_runtime_reset(&s_rcheevos_runtime);
-			}
-		}
-#endif
-
 		return true;
 	} else
 	{
 		u32 data_size;
 		std::unique_ptr<u8[]> data;
 
-#ifdef WITH_RAINTEGRATION
-		if (IsUsingRAIntegration())
-		{
-			const int size = RA_CaptureState(nullptr, 0);
-
-			data_size = (size >= 0) ? static_cast<u32>(size) : 0;
-			data = std::unique_ptr<u8[]>(new u8[data_size]);
-
-			const int result = RA_CaptureState(reinterpret_cast<char *>(data.get()), static_cast<int>(data_size));
-			if (result != static_cast<int>(data_size))
-			{
-				Log_WarningPrint("Failed to serialize cheevos state from RAIntegration.");
-				data_size = 0;
-			}
-		} else
-#endif
 		{
 			// internally this happens twice.. not great.
 			const int size = rc_runtime_progress_size(&s_rcheevos_runtime, nullptr);
@@ -1039,7 +904,7 @@ bool Achievements::LoginAsync(const char *username, const char *password)
 {
 	s_http_downloader->WaitForAllRequests();
 
-	if (s_logged_in || std::strlen(username) == 0 || std::strlen(password) == 0 || IsUsingRAIntegration())
+	if (s_logged_in || std::strlen(username) == 0 || std::strlen(password) == 0)
 		return false;
 
 	OSDOpenBackgroundProgressDialog("cheevos_async_login", "Logging in to RetroAchivements...", 0, 0, 0);
@@ -1505,27 +1370,17 @@ void Achievements::GameChanged(const Path &path)
 		return;
 	}
 
-	if (!IsUsingRAIntegration() && s_http_downloader->HasAnyRequests())
+	if (s_http_downloader->HasAnyRequests())
 	{
 		s_http_downloader->WaitForAllRequests();
 	}
 
 	std::unique_lock lock(s_achievements_mutex);
-	if (!IsUsingRAIntegration())
-		s_http_downloader->WaitForAllRequests();
 
 	ClearGameInfo();
 	ClearGameHash();
 	s_game_path = path;
 	s_game_hash = std::move(game_hash);
-
-#ifdef WITH_RAINTEGRATION
-	if (IsUsingRAIntegration())
-	{
-		RAIntegration::GameChanged();
-		return;
-	}
-#endif
 
 	if (s_game_hash.empty())
 	{
@@ -2118,163 +1973,3 @@ unsigned Achievements::PeekMemory(unsigned address, unsigned num_bytes, void *ud
 		return 0;
 	}
 }
-
-#ifdef WITH_RAINTEGRATION
-
-#include "RA_Consoles.h"
-
-namespace Achievements::RAIntegration {
-static void InitializeRAIntegration(void *main_window_handle);
-
-static int RACallbackIsActive();
-static void RACallbackCauseUnpause();
-static void RACallbackCausePause();
-static void RACallbackRebuildMenu();
-static void RACallbackEstimateTitle(char *buf);
-static void RACallbackResetEmulator();
-static void RACallbackLoadROM(const char *unused);
-static unsigned char RACallbackReadMemory(unsigned int address);
-static unsigned int RACallbackReadMemoryBlock(unsigned int nAddress, unsigned char *pBuffer, unsigned int nBytes);
-static void RACallbackWriteMemory(unsigned int address, unsigned char value);
-
-static bool s_raintegration_initialized = false;
-} // namespace Achievements::RAIntegration
-
-void Achievements::SwitchToRAIntegration()
-{
-	s_using_raintegration = true;
-	s_active = true;
-
-	// Not strictly the case, but just in case we gate anything by IsLoggedIn().
-	s_logged_in = true;
-}
-
-void Achievements::RAIntegration::InitializeRAIntegration(void *main_window_handle)
-{
-	RA_InitClient((HWND)main_window_handle, "DuckStation", g_scm_tag_str);
-	RA_SetUserAgentDetail(Achievements::GetUserAgent().c_str());
-
-	RA_InstallSharedFunctions(RACallbackIsActive, RACallbackCauseUnpause, RACallbackCausePause, RACallbackRebuildMenu,
-		RACallbackEstimateTitle, RACallbackResetEmulator, RACallbackLoadROM);
-	RA_SetConsoleID(PlayStation);
-
-	// Apparently this has to be done early, or the memory inspector doesn't work.
-	// That's a bit unfortunate, because the RAM size can vary between games, and depending on the option.
-	RA_InstallMemoryBank(0, RACallbackReadMemory, RACallbackWriteMemory, Bus::RAM_2MB_SIZE);
-	RA_InstallMemoryBankBlockReader(0, RACallbackReadMemoryBlock);
-
-	// Fire off a login anyway. Saves going into the menu and doing it.
-	RA_AttemptLogin(0);
-
-	s_raintegration_initialized = true;
-
-	// this is pretty lame, but we may as well persist until we exit anyway
-	std::atexit(RA_Shutdown);
-}
-
-void Achievements::RAIntegration::MainWindowChanged(void *new_handle)
-{
-	if (s_raintegration_initialized)
-	{
-		RA_UpdateHWnd((HWND)new_handle);
-		return;
-	}
-
-	InitializeRAIntegration(new_handle);
-}
-
-void Achievements::RAIntegration::GameChanged()
-{
-	s_game_id = s_game_hash.empty() ? 0 : RA_IdentifyHash(s_game_hash.c_str());
-	RA_ActivateGame(s_game_id);
-}
-
-std::vector<std::tuple<int, std::string, bool>> Achievements::RAIntegration::GetMenuItems()
-{
-	std::array<RA_MenuItem, 64> items;
-	const int num_items = RA_GetPopupMenuItems(items.data());
-
-	std::vector<std::tuple<int, std::string, bool>> ret;
-	ret.reserve(static_cast<u32>(num_items));
-
-	for (int i = 0; i < num_items; i++)
-	{
-		const RA_MenuItem &it = items[i];
-		if (!it.sLabel)
-			ret.emplace_back(0, std::string(), false);
-		else
-			ret.emplace_back(static_cast<int>(it.nID), StringUtil::WideStringToUTF8String(it.sLabel), it.bChecked);
-	}
-
-	return ret;
-}
-
-void Achievements::RAIntegration::ActivateMenuItem(int item)
-{
-	RA_InvokeDialog(item);
-}
-
-int Achievements::RAIntegration::RACallbackIsActive()
-{
-	return static_cast<int>(HasActiveGame());
-}
-
-void Achievements::RAIntegration::RACallbackCauseUnpause()
-{
-	System::PauseSystem(false);
-}
-
-void Achievements::RAIntegration::RACallbackCausePause()
-{
-	System::PauseSystem(true);
-}
-
-void Achievements::RAIntegration::RACallbackRebuildMenu()
-{
-	// unused, we build the menu on demand
-}
-
-void Achievements::RAIntegration::RACallbackEstimateTitle(char *buf)
-{
-	StringUtil::Strlcpy(buf, System::GetGameTitle(), 256);
-}
-
-void Achievements::RAIntegration::RACallbackResetEmulator()
-{
-	if (System::IsValid())
-		System::ResetSystem();
-}
-
-void Achievements::RAIntegration::RACallbackLoadROM(const char *unused)
-{
-	// unused
-	UNREFERENCED_PARAMETER(unused);
-}
-
-unsigned char Achievements::RAIntegration::RACallbackReadMemory(unsigned int address)
-{
-	if (!System::IsValid())
-		return 0;
-
-	u8 value = 0;
-	CPU::SafeReadMemoryByte(address, &value);
-	return value;
-}
-
-void Achievements::RAIntegration::RACallbackWriteMemory(unsigned int address, unsigned char value)
-{
-	CPU::SafeWriteMemoryByte(address, value);
-}
-
-unsigned int Achievements::RAIntegration::RACallbackReadMemoryBlock(unsigned int nAddress, unsigned char *pBuffer,
-	unsigned int nBytes)
-{
-	if (nAddress >= Bus::g_ram_size)
-		return 0;
-
-	const u32 copy_size = std::min<u32>(Bus::g_ram_size - nAddress, nBytes);
-	std::memcpy(pBuffer, Bus::g_ram + nAddress, copy_size);
-	return copy_size;
-}
-
-#endif
