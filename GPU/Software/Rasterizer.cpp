@@ -690,11 +690,7 @@ static inline void ApplyTexturing(const RasterizerState &state, Vec4<int> *prim_
 static inline Vec4<int> SOFTRAST_CALL CheckDepthTestPassed4(const Vec4<int> &mask, GEComparison func, int x, int y, int stride, Vec4<int> z) {
 	// Skip the depth buffer read if we're masked already.
 #if defined(_M_SSE)
-#if PPSSPP_ARCH(64BIT)
-	__m128i result = mask.ivec;
-#else
-	__m128i result = _mm_loadu_si128(&mask.ivec);
-#endif
+	__m128i result = SAFE_M128I(mask.ivec);
 	int maskbits = _mm_movemask_epi8(result);
 	if (maskbits >= 0xFFFF)
 		return mask;
@@ -952,7 +948,7 @@ static inline bool AnyMask(const Vec4<int> &mask) {
 	}
 
 	// Source: https://fgiesen.wordpress.com/2013/02/10/optimizing-the-basic-rasterizer/#comment-6676
-	return _mm_movemask_ps(_mm_castsi128_ps(mask.ivec))!=15;
+	return _mm_movemask_ps(_mm_castsi128_ps(mask.ivec)) != 15;
 #elif PPSSPP_ARCH(ARM64_NEON)
 	int64x2_t sig = vreinterpretq_s64_s32(vshrq_n_s32(mask.ivec, 31));
 	return vgetq_lane_s64(sig, 0) != -1 || vgetq_lane_s64(sig, 1) != -1;
