@@ -96,7 +96,7 @@
     <AppxPackageSigningEnabled>True</AppxPackageSigningEnabled>
     <PackageCertificateKeyFile>PPSSPP_UWP_TemporaryKey.pfx</PackageCertificateKeyFile>
   </PropertyGroup>
-  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|ARM'">
     <Link>
       <AdditionalDependencies>xinputuap.lib;libavcodec.a;libavformat.a;libavutil.a;libswresample.a;libswscale.a;d2d1.lib;d3d11.lib;dxgi.lib;windowscodecs.lib;dwrite.lib; %(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>../ffmpeg/Windows10/ARM/lib;%(AdditionalLibraryDirectories); $(VCInstallDir)\lib\store\arm; $(VCInstallDir)\lib\arm</AdditionalLibraryDirectories>
@@ -122,7 +122,7 @@
       </Command>
     </PreBuildEvent>
   </ItemDefinitionGroup>
-  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|ARM64'">
     <Link>
       <AdditionalDependencies>xinputuap.lib;libavcodec.a;libavformat.a;libavutil.a;libswresample.a;libswscale.a;d2d1.lib;d3d11.lib;dxgi.lib;windowscodecs.lib;dwrite.lib; %(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>../ffmpeg/Windows10/ARM64/lib;%(AdditionalLibraryDirectories); $(VCInstallDir)\lib\store\arm; $(VCInstallDir)\lib\arm</AdditionalLibraryDirectories>
@@ -148,7 +148,7 @@
       </Command>
     </PreBuildEvent>
   </ItemDefinitionGroup>
-  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)' == 'Release|ARM'">
     <Link>
       <AdditionalDependencies>xinputuap.lib;libavcodec.a;libavformat.a;libavutil.a;libswresample.a;libswscale.a;d2d1.lib;d3d11.lib;dxgi.lib;windowscodecs.lib;dwrite.lib; %(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>../ffmpeg/Windows10/ARM/lib;%(AdditionalLibraryDirectories); $(VCInstallDir)\lib\store\arm; $(VCInstallDir)\lib\arm</AdditionalLibraryDirectories>
@@ -174,7 +174,7 @@
       </Command>
     </PreBuildEvent>
   </ItemDefinitionGroup>
-  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)' == 'Release|ARM64'">
     <Link>
       <AdditionalDependencies>xinputuap.lib;libavcodec.a;libavformat.a;libavutil.a;libswresample.a;libswscale.a;d2d1.lib;d3d11.lib;dxgi.lib;windowscodecs.lib;dwrite.lib; %(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>../ffmpeg/Windows10/ARM64/lib;%(AdditionalLibraryDirectories); $(VCInstallDir)\lib\store\arm; $(VCInstallDir)\lib\arm</AdditionalLibraryDirectories>
@@ -200,7 +200,7 @@
       </Command>
     </PreBuildEvent>
   </ItemDefinitionGroup>
-  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='UWP Gold|ARM'">
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)' == 'UWP Gold|ARM'">
     <Link>
       <AdditionalDependencies>xinputuap.lib;libavcodec.a;libavformat.a;libavutil.a;libswresample.a;libswscale.a;d2d1.lib;d3d11.lib;dxgi.lib;windowscodecs.lib;dwrite.lib; %(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>../ffmpeg/Windows10/ARM/lib;%(AdditionalLibraryDirectories); $(VCInstallDir)\lib\store\arm; $(VCInstallDir)\lib\arm</AdditionalLibraryDirectories>
@@ -226,7 +226,7 @@
       </Command>
     </PreBuildEvent>
   </ItemDefinitionGroup>
-  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='UWP Gold|ARM64'">
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)' == 'UWP Gold|ARM64'">
     <Link>
       <AdditionalDependencies>xinputuap.lib;libavcodec.a;libavformat.a;libavutil.a;libswresample.a;libswscale.a;d2d1.lib;d3d11.lib;dxgi.lib;windowscodecs.lib;dwrite.lib; %(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>../ffmpeg/Windows10/ARM64/lib;%(AdditionalLibraryDirectories); $(VCInstallDir)\lib\store\arm; $(VCInstallDir)\lib\arm</AdditionalLibraryDirectories>
@@ -252,7 +252,7 @@
       </Command>
     </PreBuildEvent>
   </ItemDefinitionGroup>
-  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|Win32'">
     <Link>
       <AdditionalDependencies>xinputuap.lib;libavcodec.a;libavformat.a;libavutil.a;libswresample.a;libswscale.a;d2d1.lib;d3d11.lib;dxgi.lib;windowscodecs.lib;dwrite.lib; %(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>../ffmpeg/Windows10/x86/lib;%(AdditionalLibraryDirectories); $(VCInstallDir)\lib\store; $(VCInstallDir)\lib</AdditionalLibraryDirectories>
@@ -278,7 +278,7 @@
       </Command>
     </PreBuildEvent>
   </ItemDefinitionGroup>
-  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)' == 'Release|Win32'">
     <Link>
       <AdditionalDependencies>xinputuap.lib;libavcodec.a;libavformat.a;libavutil.a;libswresample.a;libswscale.a;d2d1.lib;d3d11.lib;dxgi.lib;windowscodecs.lib;dwrite.lib; %(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>../ffmpeg/Windows10/x86/lib;%(AdditionalLibraryDirectories); $(VCInstallDir)\lib\store; $(VCInstallDir)\lib</AdditionalLibraryDirectories>
@@ -304,7 +304,7 @@
       </Command>
     </PreBuildEvent>
   </ItemDefinitionGroup>
-  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='UWP Gold|Win32'">
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)' == 'UWP Gold|Win32'">
     <Link>
       <AdditionalDependencies>xinputuap.lib;libavcodec.a;libavformat.a;libavutil.a;libswresample.a;libswscale.a;d2d1.lib;d3d11.lib;dxgi.lib;windowscodecs.lib;dwrite.lib; %(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>../ffmpeg/Windows10/x86/lib;%(AdditionalLibraryDirectories); $(VCInstallDir)\lib\store; $(VCInstallDir)\lib</AdditionalLibraryDirectories>
@@ -330,7 +330,7 @@
       </Command>
     </PreBuildEvent>
   </ItemDefinitionGroup>
-  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|x64'">
     <Link>
       <AdditionalDependencies>xinputuap.lib;libavcodec.a;libavformat.a;libavutil.a;libswresample.a;libswscale.a;d2d1.lib;d3d11.lib;dxgi.lib;windowscodecs.lib;dwrite.lib; %(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>../ffmpeg/Windows10/x64/lib;%(AdditionalLibraryDirectories); $(VCInstallDir)\lib\store\amd64; $(VCInstallDir)\lib\amd64</AdditionalLibraryDirectories>
@@ -356,7 +356,7 @@
       </Command>
     </PreBuildEvent>
   </ItemDefinitionGroup>
-  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)' == 'Release|x64'">
     <Link>
       <AdditionalDependencies>xinputuap.lib;libavcodec.a;libavformat.a;libavutil.a;libswresample.a;libswscale.a;d2d1.lib;d3d11.lib;dxgi.lib;windowscodecs.lib;dwrite.lib; %(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>../ffmpeg/Windows10/x64/lib;%(AdditionalLibraryDirectories); $(VCInstallDir)\lib\store\amd64; $(VCInstallDir)\lib\amd64</AdditionalLibraryDirectories>
@@ -382,7 +382,7 @@
       </Command>
     </PreBuildEvent>
   </ItemDefinitionGroup>
-  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='UWP Gold|x64'">
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)' == 'UWP Gold|x64'">
     <Link>
       <AdditionalDependencies>xinputuap.lib;libavcodec.a;libavformat.a;libavutil.a;libswresample.a;libswscale.a;d2d1.lib;d3d11.lib;dxgi.lib;windowscodecs.lib;dwrite.lib; %(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>../ffmpeg/Windows10/x64/lib;%(AdditionalLibraryDirectories); $(VCInstallDir)\lib\store\amd64; $(VCInstallDir)\lib\amd64</AdditionalLibraryDirectories>
