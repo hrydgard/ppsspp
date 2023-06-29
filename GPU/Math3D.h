@@ -665,6 +665,20 @@ public:
 	{
 		return Vec4(x | other.x, y | other.y, z | other.z, w | other.w);
 	}
+	Vec4 operator & (const Vec4 &other) const
+	{
+		return Vec4(x & other.x, y & other.y, z & other.z, w & other.w);
+	}
+	Vec4 operator << (const int amount) const
+	{
+		// NOTE: x*(1<<amount), etc., might be safer, since
+		// left-shifting negatives is UB pre-C++20.
+		return Vec4(x << amount, y << amount, z << amount, w << amount);
+	}
+	Vec4 operator >> (const int amount) const
+	{
+		return Vec4(x >> amount, y >> amount, z >> amount, w >> amount);
+	}
 	template<typename V>
 	Vec4 operator * (const V& f) const
 	{
@@ -1361,6 +1375,59 @@ inline Vec3<float> Vec3<float>::operator * (const Vec3 &other) const {
 template<> template<>
 inline Vec3<float> Vec3<float>::operator * (const float &other) const {
 	return Vec3<float>(_mm_mul_ps(SAFE_M128(vec), _mm_set_ps1(other)));
+}
+
+// Vec4<int> operation
+template<>
+inline Vec4<int> Vec4<int>::operator + (const Vec4 &other) const {
+	return Vec4<int>(_mm_add_epi32(SAFE_M128I(ivec), SAFE_M128I(other.ivec)));
+}
+
+template<>
+inline Vec4<int> Vec4<int>::operator * (const Vec4 &other) const {
+	__m128i a = SAFE_M128I(ivec);
+	__m128i b = SAFE_M128I(other.ivec);
+#if _M_SSE >= 0x401
+	return Vec4<int>(_mm_mullo_epi32(a, b));
+#else
+	// This is what clang does. Seems about as good
+	// as it gets.
+	__m128i m02 = _mm_mul_epu32(a, b);
+	__m128i m13 = _mm_mul_epu32( // 0xF5 -> [1, 1, 3, 3]
+		_mm_shuffle_epi32(a, 0xF5),
+		_mm_shuffle_epi32(b, 0xF5));
+	__m128i ret = _mm_unpacklo_epi32( // 0xE8 -> [0, 2, 2, 3]
+		_mm_shuffle_epi32(m02, 0xE8),
+		_mm_shuffle_epi32(m13, 0xE8));
+	return Vec4<int>(ret);
+#endif
+}
+
+template<> template<>
+inline Vec4<int> Vec4<int>::operator * (const int &other) const {
+	return (*this) * Vec4<int>(_mm_set1_epi32(other));
+}
+
+template<>
+inline Vec4<int> Vec4<int>::operator | (const Vec4 &other) const {
+	return Vec4<int>(_mm_or_si128(SAFE_M128I(ivec), SAFE_M128I(other.ivec)));
+}
+
+template<>
+inline Vec4<int> Vec4<int>::operator & (const Vec4 &other) const {
+	return Vec4<int>(_mm_and_si128(SAFE_M128I(ivec), SAFE_M128I(other.ivec)));
+}
+
+// NOTE: modern GCC, clang, and MSVC are all ok with
+// non-compile-time-const amount for _mm_slli_epi32/_mm_srli_epi32.
+template<>
+inline Vec4<int> Vec4<int>::operator << (const int amount) const {
+	return Vec4<int>(_mm_slli_epi32(SAFE_M128I(ivec), amount));
+}
+
+template<>
+inline Vec4<int> Vec4<int>::operator >> (const int amount) const {
+	return Vec4<int>(_mm_srli_epi32(SAFE_M128I(ivec), amount));
 }
 
 // Vec4<float> operation
