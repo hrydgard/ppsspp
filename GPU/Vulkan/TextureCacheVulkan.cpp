@@ -27,7 +27,7 @@
 #include "Common/Profiler/Profiler.h"
 #include "Common/GPU/thin3d.h"
 #include "Common/GPU/Vulkan/VulkanRenderManager.h"
-#include "Common/System/System.h"
+#include "Common/System/OSD.h"
 #include "Common/Data/Convert/ColorConv.h"
 #include "Common/StringUtils.h"
 #include "Common/TimeUtil.h"

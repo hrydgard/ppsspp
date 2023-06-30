@@ -28,7 +28,7 @@
 #include "Common/Math/lin/matrix4x4.h"
 #include "Common/Math/math_util.h"
 #include "Common/System/Display.h"
-#include "Common/System/System.h"
+#include "Common/System/OSD.h"
 #include "Common/VR/PPSSPPVR.h"
 #include "Common/CommonTypes.h"
 #include "Common/StringUtils.h"

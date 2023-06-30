@@ -42,6 +42,7 @@ using namespace std::placeholders;
 #include "Common/System/System.h"
 #include "Common/System/NativeApp.h"
 #include "Common/System/Request.h"
+#include "Common/System/OSD.h"
 #include "Common/Profiler/Profiler.h"
 #include "Common/Math/curves.h"
 #include "Common/TimeUtil.h"

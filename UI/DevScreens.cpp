@@ -31,6 +31,7 @@
 #include "Common/System/Display.h"
 #include "Common/System/NativeApp.h"
 #include "Common/System/System.h"
+#include "Common/System/OSD.h"
 #include "Common/GPU/OpenGL/GLFeatures.h"
 
 #if !PPSSPP_PLATFORM(UWP)

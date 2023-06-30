@@ -24,7 +24,7 @@
 #include "Common/Data/Text/I18n.h"
 #include "Common/Math/math_util.h"
 #include "Common/Profiler/Profiler.h"
-#include "Common/System/System.h"
+#include "Common/System/OSD.h"
 #include "Common/GPU/OpenGL/GLRenderManager.h"
 #include "Common/TimeUtil.h"
 

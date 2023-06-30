@@ -35,7 +35,7 @@
 #include "Common/Data/Text/I18n.h"
 #include "Common/Net/Resolve.h"
 #include "Common/Thread/ThreadUtil.h"
-#include "Common/System/System.h"
+#include "Common/System/OSD.h"
 #include "Common/Log.h"
 #include "Core/Config.h"
 #include "Core/System.h"

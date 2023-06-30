@@ -57,7 +57,7 @@
 
 #include "Common/Data/Text/I18n.h"
 #include "Common/Data/Text/Parsers.h"
-#include "Common/System/System.h"
+#include "Common/System/OSD.h"
 #include "Common/Thread/ThreadUtil.h"
 
 #include "Common/Serialize/SerializeFuncs.h"

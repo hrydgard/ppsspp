@@ -37,7 +37,7 @@
 #include "Common/File/VFS/VFS.h"
 #include "Common/LogReporting.h"
 #include "Common/StringUtils.h"
-#include "Common/System/System.h"
+#include "Common/System/OSD.h"
 #include "Common/Thread/ParallelLoop.h"
 #include "Common/Thread/Waitable.h"
 #include "Common/Thread/ThreadManager.h"

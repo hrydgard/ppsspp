@@ -1,5 +1,6 @@
 #include "UI/RetroAchievementScreens.h"
 #include "UI/RetroAchievements.h"
+#include "Common/System/OSD.h"
 #include "Common/System/Request.h"
 #include "Common/UI/View.h"
 #include "Common/UI/ViewGroup.h"

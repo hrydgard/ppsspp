@@ -35,7 +35,7 @@
 #include "Common/GPU/thin3d.h"
 #include "Common/GPU/OpenGL/GLRenderManager.h"
 #include "Common/System/Display.h"
-#include "Common/System/System.h"
+#include "Common/System/OSD.h"
 #include "Common/VR/PPSSPPVR.h"
 
 #include "Common/Log.h"

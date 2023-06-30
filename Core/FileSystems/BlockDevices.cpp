@@ -21,7 +21,7 @@
 
 #include "Common/Data/Text/I18n.h"
 #include "Common/File/FileUtil.h"
-#include "Common/System/System.h"
+#include "Common/System/OSD.h"
 #include "Common/Log.h"
 #include "Common/Swap.h"
 #include "Core/Loaders.h"

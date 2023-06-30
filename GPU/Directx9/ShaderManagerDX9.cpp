@@ -29,7 +29,7 @@
 #include "Common/Math/math_util.h"
 #include "Common/GPU/D3D9/D3D9ShaderCompiler.h"
 #include "Common/GPU/thin3d.h"
-#include "Common/System/System.h"
+#include "Common/System/OSD.h"
 #include "Common/System/Display.h"
 
 #include "Common/CommonTypes.h"

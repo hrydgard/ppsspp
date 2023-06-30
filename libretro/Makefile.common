@@ -347,6 +347,7 @@ SOURCES_CXX += \
 	$(COMMONDIR)/UI/PopupScreens.cpp \
 	$(COMMONDIR)/System/Display.cpp \
 	$(COMMONDIR)/System/Request.cpp \
+	$(COMMONDIR)/System/OSD.cpp \
 	$(COMMONDIR)/ArmCPUDetect.cpp \
 	$(COMMONDIR)/CPUDetect.cpp \
 	$(COMMONDIR)/Buffer.cpp \
