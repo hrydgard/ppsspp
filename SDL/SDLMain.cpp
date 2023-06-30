@@ -64,6 +64,12 @@ SDLJoystick *joystick = NULL;
 #include "SDLGLGraphicsContext.h"
 #include "SDLVulkanGraphicsContext.h"
 
+#if PPSSPP_PLATFORM(MAC)
+#include "SDL2/SDL_vulkan.h"
+#else
+#include "SDL_vulkan.h"
+#endif
+
 #if PPSSPP_PLATFORM(MAC) || PPSSPP_PLATFORM(IOS)
 #include "UI/DarwinFileSystemServices.h"
 #endif
@@ -85,6 +91,7 @@ static bool g_RestartRequested = false;
 
 static int g_DesktopWidth = 0;
 static int g_DesktopHeight = 0;
+static float g_DesktopDPI = 1.0f;
 static float g_RefreshRate = 60.f;
 static int g_sampleRate = 44100;
 
@@ -171,6 +178,20 @@ static void StopSDLAudioDevice() {
 		SDL_PauseAudioDevice(audioDev, 1);
 		SDL_CloseAudioDevice(audioDev);
 	}
+}
+
+static void UpdateScreenDPI(SDL_Window *window) {
+	int drawable_width, window_width;
+	SDL_GetWindowSize(window, &window_width, NULL);
+
+	if (g_Config.iGPUBackend == (int)GPUBackend::OPENGL)
+		SDL_GL_GetDrawableSize(window, &drawable_width, NULL);
+	else if (g_Config.iGPUBackend == (int)GPUBackend::VULKAN)
+		SDL_Vulkan_GetDrawableSize(window, &drawable_width, NULL);
+
+	// Round up a little otherwise there would be a gap sometimes
+	// in fractional scaling
+	g_DesktopDPI = ((float) drawable_width + 0.5) / window_width;
 }
 
 // Simple implementations of System functions
@@ -495,6 +516,8 @@ float System_GetPropertyFloat(SystemProperty prop) {
 	switch (prop) {
 	case SYSPROP_DISPLAY_REFRESH_RATE:
 		return g_RefreshRate;
+	case SYSPROP_DISPLAY_DPI:
+		return g_DesktopDPI * 96.0;
 	case SYSPROP_DISPLAY_SAFE_INSET_LEFT:
 	case SYSPROP_DISPLAY_SAFE_INSET_RIGHT:
 	case SYSPROP_DISPLAY_SAFE_INSET_TOP:
@@ -782,7 +805,7 @@ int main(int argc, char *argv[]) {
 #elif defined(USING_FBDEV) || PPSSPP_PLATFORM(SWITCH)
 	mode |= SDL_WINDOW_FULLSCREEN_DESKTOP;
 #else
-	mode |= SDL_WINDOW_RESIZABLE;
+	mode |= SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI;
 #endif
 
 	if (mode & SDL_WINDOW_FULLSCREEN_DESKTOP) {
@@ -910,6 +933,8 @@ int main(int argc, char *argv[]) {
 #endif
 	}
 
+	UpdateScreenDPI(window);
+
 	bool useEmuThread = g_Config.iGPUBackend == (int)GPUBackend::OPENGL;
 
 	SDL_SetWindowTitle(window, (app_name_nice + " " + PPSSPP_GIT_VERSION).c_str());
@@ -1009,8 +1034,8 @@ int main(int argc, char *argv[]) {
 		}
 		SDL_Event event, touchEvent;
 		while (SDL_PollEvent(&event)) {
-			float mx = event.motion.x * g_display.dpi_scale_x;
-			float my = event.motion.y * g_display.dpi_scale_y;
+			float mx = event.motion.x;
+			float my = event.motion.y;
 
 			switch (event.type) {
 			case SDL_QUIT:
@@ -1025,6 +1050,11 @@ int main(int argc, char *argv[]) {
 					int new_width = event.window.data1;
 					int new_height = event.window.data2;
 
+					// The size given by SDL is in point-units, convert these to
+					// pixels before passing to UpdateScreenScale()
+					int new_width_px = new_width * g_DesktopDPI;
+					int new_height_px = new_height * g_DesktopDPI;
+
 					windowHidden = false;
 					Core_NotifyWindowHidden(windowHidden);
 
@@ -1032,12 +1062,16 @@ int main(int argc, char *argv[]) {
 					bool fullscreen = (window_flags & SDL_WINDOW_FULLSCREEN);
 
 					// This one calls NativeResized if the size changed.
-					UpdateScreenScale(new_width, new_height);
+					UpdateScreenScale(new_width_px, new_height_px);
 
 					// Set variable here in case fullscreen was toggled by hotkey
 					if (g_Config.UseFullScreen() != fullscreen) {
 						g_Config.bFullScreen = fullscreen;
 						g_Config.iForceFullScreen = -1;
+					} else {
+						// It is possible for the monitor to change DPI, so recalculate
+						// DPI on each resize event. 
+						UpdateScreenDPI(window);
 					}
 
 					if (!g_Config.bFullScreen) {
