@@ -1,3 +1,5 @@
+#include <cstring>
+
 #include "Common/System/OSD.h"
 #include "Common/TimeUtil.h"
 
