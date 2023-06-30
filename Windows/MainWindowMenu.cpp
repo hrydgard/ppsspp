@@ -14,6 +14,7 @@
 #include "Common/Data/Text/I18n.h"
 #include "Common/Data/Encoding/Utf8.h"
 #include "Common/System/System.h"
+#include "Common/System/OSD.h"
 #include "Common/System/NativeApp.h"
 #include "Common/System/Request.h"
 #include "Common/File/FileUtil.h"

@@ -247,6 +247,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Common/Profiler/Profiler.cpp \
   $(SRC)/Common/System/Display.cpp \
   $(SRC)/Common/System/Request.cpp \
+  $(SRC)/Common/System/OSD.cpp \
   $(SRC)/Common/Thread/ThreadUtil.cpp \
   $(SRC)/Common/Thread/ThreadManager.cpp \
   $(SRC)/Common/Thread/ParallelLoop.cpp \

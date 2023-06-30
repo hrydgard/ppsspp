@@ -22,7 +22,7 @@
 #include "Common/GPU/OpenGL/GLFeatures.h"
 #include "Common/GPU/thin3d_create.h"
 #include "Common/GPU/OpenGL/GLRenderManager.h"
-#include "Common/System/System.h"
+#include "Common/System/OSD.h"
 #include "GL/gl.h"
 #include "GL/wglew.h"
 #include "Core/Config.h"

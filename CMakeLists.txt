@@ -744,6 +744,8 @@ add_library(Common STATIC
 	Common/System/NativeApp.h
 	Common/System/Request.cpp
 	Common/System/Request.h
+	Common/System/OSD.cpp
+	Common/System/OSD.h
 	Common/Thread/Channel.h
 	Common/Thread/ParallelLoop.cpp
 	Common/Thread/ParallelLoop.h

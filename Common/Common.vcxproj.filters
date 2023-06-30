@@ -509,6 +509,9 @@
     <ClInclude Include="UI\IconCache.h">
       <Filter>UI</Filter>
     </ClInclude>
+    <ClInclude Include="System\OSD.h">
+      <Filter>System</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="ABI.cpp" />
@@ -952,6 +955,9 @@
     </ClCompile>
     <ClCompile Include="UI\IconCache.cpp">
       <Filter>UI</Filter>
+    </ClCompile>
+    <ClCompile Include="System\OSD.cpp">
+      <Filter>System</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

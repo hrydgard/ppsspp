@@ -22,6 +22,7 @@
 
 #include "Common/System/Display.h"
 #include "Common/System/System.h"
+#include "Common/System/OSD.h"
 #include "Common/System/NativeApp.h"
 #include "Common/File/VFS/VFS.h"
 #include "Common/Log.h"

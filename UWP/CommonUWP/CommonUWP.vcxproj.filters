@@ -441,6 +441,9 @@
     <ClCompile Include="..\..\Common\UI\IconCache.cpp">
       <Filter>UI</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\Common\System\OSD.cpp">
+      <Filter>System</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="targetver.h" />
@@ -834,6 +837,9 @@
     </ClInclude>
     <ClInclude Include="..\..\Common\UI\IconCache.h">
       <Filter>UI</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\System\OSD.h">
+      <Filter>System</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

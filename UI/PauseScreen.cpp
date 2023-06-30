@@ -27,7 +27,7 @@
 
 #include "Common/Data/Text/I18n.h"
 #include "Common/StringUtils.h"
-#include "Common/System/System.h"
+#include "Common/System/OSD.h"
 #include "Common/System/Request.h"
 #include "Common/VR/PPSSPPVR.h"
 #include "Common/UI/AsyncImageFileView.h"

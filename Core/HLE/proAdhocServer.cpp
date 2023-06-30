@@ -57,7 +57,7 @@ extern "C" struct hostent *gethostbyname(const char *name);
 
 #include "Common/Data/Text/I18n.h"
 #include "Common/Thread/ThreadUtil.h"
-#include "Common/System/System.h"
+#include "Common/System/OSD.h"
 
 #include "Common/File/FileUtil.h"
 #include "Common/TimeUtil.h"

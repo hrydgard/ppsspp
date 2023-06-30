@@ -12,7 +12,7 @@
 #include "UI/RetroAchievementScreens.h"
 
 #include "Common/UI/Context.h"
-#include "Common/System/System.h"
+#include "Common/System/OSD.h"
 
 #include "Common/TimeUtil.h"
 #include "Common/Net/HTTPClient.h"
