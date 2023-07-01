@@ -92,6 +92,7 @@ static bool g_RestartRequested = false;
 static int g_DesktopWidth = 0;
 static int g_DesktopHeight = 0;
 static float g_DesktopDPI = 1.0f;
+static float g_ForcedDPI = 0.0f; // if this is 0.0f, use g_DesktopDPI
 static float g_RefreshRate = 60.f;
 static int g_sampleRate = 44100;
 
@@ -191,7 +192,7 @@ static void UpdateScreenDPI(SDL_Window *window) {
 
 	// Round up a little otherwise there would be a gap sometimes
 	// in fractional scaling
-	g_DesktopDPI = ((float) drawable_width + 0.5) / window_width;
+	g_DesktopDPI = ((float) drawable_width + 1.0f) / window_width;
 }
 
 // Simple implementations of System functions
@@ -515,7 +516,7 @@ float System_GetPropertyFloat(SystemProperty prop) {
 	case SYSPROP_DISPLAY_REFRESH_RATE:
 		return g_RefreshRate;
 	case SYSPROP_DISPLAY_DPI:
-		return g_DesktopDPI * 96.0;
+		return (g_ForcedDPI == 0.0f ? g_DesktopDPI : g_ForcedDPI) * 96.0;
 	case SYSPROP_DISPLAY_SAFE_INSET_LEFT:
 	case SYSPROP_DISPLAY_SAFE_INSET_RIGHT:
 	case SYSPROP_DISPLAY_SAFE_INSET_TOP:
@@ -707,7 +708,7 @@ int main(int argc, char *argv[]) {
 	int set_yres = -1;
 	bool portrait = false;
 	bool set_ipad = false;
-	float set_dpi = 1.0f;
+	float set_dpi = 0.0f;
 	float set_scale = 1.0f;
 
 	// Produce a new set of arguments with the ones we skip.
@@ -818,8 +819,6 @@ int main(int argc, char *argv[]) {
 			g_Config.bFullScreen = false;
 	}
 
-	set_dpi = 1.0f / set_dpi;
-
 	if (set_ipad) {
 		g_display.pixel_xres = 1024;
 		g_display.pixel_yres = 768;
@@ -834,9 +833,8 @@ int main(int argc, char *argv[]) {
 	if (set_yres > 0) {
 		g_display.pixel_yres = set_yres;
 	}
-	float dpi_scale = 1.0f;
 	if (set_dpi > 0) {
-		dpi_scale = set_dpi;
+		g_ForcedDPI = set_dpi;
 	}
 
 	// Mac / Linux
@@ -887,18 +885,6 @@ int main(int argc, char *argv[]) {
 		if (g_Config.iWindowHeight > 0)
 			h = g_Config.iWindowHeight;
 	}
-	g_display.pixel_xres = w;
-	g_display.pixel_yres = h;
-	g_display.dp_xres = (float)g_display.pixel_xres * dpi_scale;
-	g_display.dp_yres = (float)g_display.pixel_yres * dpi_scale;
-
-	g_display.pixel_in_dps_x = (float)g_display.pixel_xres / g_display.dp_xres;
-	g_display.pixel_in_dps_y = (float)g_display.pixel_yres / g_display.dp_yres;
-	g_display.dpi_scale_x = g_display.dp_xres / (float)g_display.pixel_xres;
-	g_display.dpi_scale_y = g_display.dp_yres / (float)g_display.pixel_yres;
-	g_display.dpi_scale_real_x = g_display.dpi_scale_x;
-	g_display.dpi_scale_real_y = g_display.dpi_scale_y;
-	// g_display.Print();
 
 	GraphicsContext *graphicsContext = nullptr;
 	SDL_Window *window = nullptr;
@@ -928,6 +914,20 @@ int main(int argc, char *argv[]) {
 	}
 
 	UpdateScreenDPI(window);
+
+	float dpi_scale = 1.0f / (g_ForcedDPI == 0.0f ? g_DesktopDPI : g_ForcedDPI);
+
+	g_display.pixel_xres = w;
+	g_display.pixel_yres = h;
+	g_display.dp_xres = (float)g_display.pixel_xres * dpi_scale;
+	g_display.dp_yres = (float)g_display.pixel_yres * dpi_scale;
+
+	g_display.pixel_in_dps_x = (float)g_display.pixel_xres / g_display.dp_xres;
+	g_display.pixel_in_dps_y = (float)g_display.pixel_yres / g_display.dp_yres;
+	g_display.dpi_scale_x = g_display.dp_xres / (float)g_display.pixel_xres;
+	g_display.dpi_scale_y = g_display.dp_yres / (float)g_display.pixel_yres;
+	g_display.dpi_scale_real_x = g_display.dpi_scale_x;
+	g_display.dpi_scale_real_y = g_display.dpi_scale_y;
 
 	bool useEmuThread = g_Config.iGPUBackend == (int)GPUBackend::OPENGL;
 
@@ -1028,8 +1028,14 @@ int main(int argc, char *argv[]) {
 		}
 		SDL_Event event, touchEvent;
 		while (SDL_PollEvent(&event)) {
-			float mx = event.motion.x;
-			float my = event.motion.y;
+			// We have to juggle around 3 kinds of "DPI spaces" if a logical DPI is
+			// provided (through --dpi, it is equal to system DPI if unspecified):
+			// - SDL gives us motion events in "system DPI" points
+			// - UpdateScreenScale expects pixels, so in a way "96 DPI" points
+			// - The UI code expects motion events in "logical DPI" points 
+			float logical_dpi = 1.0f / (g_ForcedDPI == 0.0f ? g_DesktopDPI : g_ForcedDPI);
+			float mx = event.motion.x * g_DesktopDPI * logical_dpi;
+			float my = event.motion.y * g_DesktopDPI * logical_dpi;
 
 			switch (event.type) {
 			case SDL_QUIT:
