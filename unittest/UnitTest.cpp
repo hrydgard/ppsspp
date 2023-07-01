@@ -103,6 +103,12 @@ void System_AudioGetDebugStats(char *buf, size_t bufSize) { if (buf) buf[0] = '\
 void System_AudioClear() {}
 void System_AudioPushSamples(const s32 *audio, int numSamples) {}
 
+// TODO: To avoid having to define these here, these should probably be turned into system "requests".
+void NativeSaveSecret(const char *nameOfSecret, const std::string &data) {}
+std::string NativeLoadSecret(const char *nameOfSecret) {
+	return "";
+}
+
 #if PPSSPP_PLATFORM(ANDROID)
 JNIEnv *getEnv() {
 	return nullptr;

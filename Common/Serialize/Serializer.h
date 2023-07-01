@@ -147,6 +147,11 @@ public:
 
 	void DoMarker(const char *prevName, u32 arbitraryNumber = 0x42);
 
+	void SkipBytes(size_t bytes) {
+		// Should work in all modes.
+		*ptr += bytes;
+	}
+
 	size_t Offset() const { return *ptr - ptrStart_; }
 
 private:

@@ -354,6 +354,11 @@ static void event_handler_callback(const rc_client_event_t *event, rc_client_t *
 }
 
 void Initialize() {
+	if (!g_Config.bAchievementsEnable) {
+		_dbg_assert_(!g_rcClient);
+		INFO_LOG(ACHIEVEMENTS, "Achievements are disabled, not initializing.");
+		return;
+	}
 	_assert_msg_(g_Config.bAchievementsEnable, "Achievements are enabled");
 
 	g_challengeMode = true;  // the default
@@ -453,14 +458,27 @@ void Idle() {
 }
 
 void DoState(PointerWrap &p) {
-	auto sw = p.Section("Achievements", 1);
+	auto sw = p.Section("Achievements", 0, 1);
 	if (!sw) {
 		// Save state is missing the section.
 		// Reset the runtime.
+		if (HasAchievementsOrLeaderboards()) {
+			auto ac = GetI18NCategory(I18NCat::ACHIEVEMENTS);
+			g_OSD.Show(OSDType::MESSAGE_WARNING, ac->T("Save state loaded without achievement data"), 5.0f);
+		}
+		rc_client_reset(g_rcClient);
 		return;
 	}
 
 	uint32_t data_size = 0;
+
+	if (!g_activeGame) {
+		WARN_LOG(ACHIEVEMENTS, "Save state contained achievement data, but achievements are not active. Ignore.");
+		Do(p, data_size);
+		p.SkipBytes(data_size);
+		return;
+	}
+
 	if (p.mode == PointerWrap::MODE_MEASURE || p.mode == PointerWrap::MODE_WRITE || p.mode == PointerWrap::MODE_VERIFY || p.mode == PointerWrap::MODE_NOOP) {
 		data_size = (uint32_t)(g_rcClient ? rc_client_progress_size(g_rcClient) : 0);
 	}
@@ -473,18 +491,35 @@ void DoState(PointerWrap &p) {
 		case PointerWrap::MODE_MEASURE:
 		case PointerWrap::MODE_WRITE:
 		case PointerWrap::MODE_VERIFY:
-			rc_client_serialize_progress(g_rcClient, buffer);
+		{
+			int retval = rc_client_serialize_progress(g_rcClient, buffer);
+			if (retval != RC_OK) {
+				ERROR_LOG(ACHIEVEMENTS, "Error %d serializing achievement data. Ignoring.", retval);
+			}
 			break;
+		}
 		}
 
 		DoArray(p, buffer, data_size);
 
 		switch (p.mode) {
 		case PointerWrap::MODE_READ:
-			rc_client_deserialize_progress(g_rcClient, buffer);
+		{
+			int retval = rc_client_deserialize_progress(g_rcClient, buffer);
+			if (retval != RC_OK) {
+				// TODO: What should we really do here?
+				ERROR_LOG(ACHIEVEMENTS, "Error %d deserializing achievement data. Ignoring.", retval);
+			}
 			break;
 		}
+		}
 		delete[] buffer;
+	} else {
+		if (HasAchievementsOrLeaderboards()) {
+			auto ac = GetI18NCategory(I18NCat::ACHIEVEMENTS);
+			g_OSD.Show(OSDType::MESSAGE_WARNING, ac->T("Save state loaded without achievement data"), 5.0f);
+		}
+		rc_client_reset(g_rcClient);
 	}
 }
 
@@ -610,6 +645,7 @@ void UnloadGame() {
 	if (g_rcClient) {
 		rc_client_unload_game(g_rcClient);
 	}
+	g_activeGame = false;
 }
 
 void change_media_callback(int result, const char *error_message, rc_client_t *client, void *userdata) {

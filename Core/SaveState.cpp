@@ -47,6 +47,7 @@
 #include "Core/MemMap.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/JitCommon/JitBlockCache.h"
+#include "Core/RetroAchievements.h"
 #include "HW/MemoryStick.h"
 #include "GPU/GPUState.h"
 
@@ -391,6 +392,7 @@ namespace SaveState
 		currentMIPS->DoState(p);
 		HLEDoState(p);
 		__KernelDoState(p);
+		Achievements::DoState(p);
 		// Kernel object destructors might close open files, so do the filesystem last.
 		pspFileSystem.DoState(p);
 	}
