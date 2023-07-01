@@ -748,7 +748,7 @@ static Vec4IntResult SOFTRAST_CALL SampleLinearLevel(float s, float t, const u8 
 	Vec4<int> texcolor_br = Vec4<int>::FromRGBA(c.v[3]);
 	Vec4<int> top = texcolor_tl * (0x10 - frac_u) + texcolor_tr * frac_u;
 	Vec4<int> bot = texcolor_bl * (0x10 - frac_u) + texcolor_br * frac_u;
-	return ToVec4IntResult((top * (0x10 - frac_v) + bot * frac_v) >> 8);
+	return ToVec4IntResult((top * (0x10 - frac_v) + bot * frac_v) >> (4 + 4));
 #endif
 }
 
