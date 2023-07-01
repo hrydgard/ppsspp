@@ -258,7 +258,7 @@ void *AllocateAlignedMemory(size_t size, size_t alignment) {
 #endif
 #endif
 
-	_assert_msg_(ptr != nullptr, "Failed to allocate aligned memory of size %lu", size);
+	_assert_msg_(ptr != nullptr, "Failed to allocate aligned memory of size %llu", (unsigned long long)size);
 	return ptr;
 }
 
