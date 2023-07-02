@@ -494,6 +494,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Core/MemMapFunctions.cpp \
   $(SRC)/Core/Reporting.cpp \
   $(SRC)/Core/Replay.cpp \
+  $(SRC)/Core/RetroAchievements.cpp \
   $(SRC)/Core/SaveState.cpp \
   $(SRC)/Core/Screenshot.cpp \
   $(SRC)/Core/System.cpp \
@@ -784,7 +785,6 @@ LOCAL_SRC_FILES := \
   $(SRC)/UI/NativeApp.cpp \
   $(SRC)/UI/Theme.cpp \
   $(SRC)/UI/CustomButtonMappingScreen.cpp \
-  $(SRC)/UI/RetroAchievements.cpp \
   $(SRC)/UI/RetroAchievementScreens.cpp
 
 ifneq ($(SKIPAPP),1)

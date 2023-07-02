@@ -666,6 +666,7 @@ SOURCES_CXX += \
 	       $(COREDIR)/PSPLoaders.cpp \
 	       $(COREDIR)/Replay.cpp \
 	       $(COREDIR)/Reporting.cpp \
+	       $(COREDIR)/RetroAchievements.cpp \
 	       $(COREDIR)/SaveState.cpp \
 	       $(COREDIR)/Screenshot.cpp \
 	       $(COREDIR)/System.cpp \

@@ -1420,8 +1420,6 @@ list(APPEND NativeAppSource
 	UI/CustomButtonMappingScreen.cpp
 	UI/Theme.h
 	UI/Theme.cpp
-	UI/RetroAchievements.cpp
-	UI/RetroAchievements.h
 	UI/RetroAchievementScreens.cpp
 	UI/RetroAchievementScreens.h
 )
@@ -1825,6 +1823,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/KeyMap.h
 	Core/KeyMapDefaults.cpp
 	Core/KeyMapDefaults.h
+	Core/RetroAchievements.h
+	Core/RetroAchievements.cpp
 	Core/ThreadEventQueue.h
 	Core/TiltEventProcessor.h
 	Core/TiltEventProcessor.cpp

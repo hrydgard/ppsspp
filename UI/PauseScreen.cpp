@@ -36,6 +36,7 @@
 #include "Core/SaveState.h"
 #include "Core/System.h"
 #include "Core/Config.h"
+#include "Core/RetroAchievements.h"
 #include "Core/ELF/ParamSFO.h"
 #include "Core/HLE/sceDisplay.h"
 #include "Core/HLE/sceUmd.h"
@@ -51,7 +52,6 @@
 #include "UI/OnScreenDisplay.h"
 #include "UI/GameInfoCache.h"
 #include "UI/DisplayLayoutScreen.h"
-#include "UI/RetroAchievements.h"
 #include "UI/RetroAchievementScreens.h"
 
 static void AfterSaveStateAction(SaveState::Status status, const std::string &message, void *) {

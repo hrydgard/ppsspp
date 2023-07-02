@@ -69,6 +69,7 @@ using namespace std::placeholders;
 #include "Core/HLE/sceCtrl.h"
 #include "Core/HLE/sceSas.h"
 #include "Core/Debugger/SymbolMap.h"
+#include "Core/RetroAchievements.h"
 #include "Core/SaveState.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/HLE/__sceAudio.h"
@@ -91,7 +92,6 @@ using namespace std::placeholders;
 #include "UI/ProfilerDraw.h"
 #include "UI/DiscordIntegration.h"
 #include "UI/ChatScreen.h"
-#include "UI/RetroAchievements.h"
 
 #include "Core/Reporting.h"
 

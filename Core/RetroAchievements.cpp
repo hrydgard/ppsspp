@@ -24,7 +24,6 @@
 #include "ext/rcheevos/include/rc_hash.h"
 #include "ext/rcheevos/src/rhash/md5.h"
 
-#include "UI/RetroAchievements.h"
 #include "ext/rapidjson/include/rapidjson/document.h"
 
 #include "Common/Log.h"
@@ -47,6 +46,7 @@
 #include "Core/ELF/ParamSFO.h"
 #include "Core/System.h"
 #include "Core/FileSystems/MetaFileSystem.h"
+#include "Core/RetroAchievements.h"
 
 // Simply wrap our current HTTP backend to fit the DuckStation-derived code.
 namespace Common {
