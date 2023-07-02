@@ -53,7 +53,7 @@ static bool vrFlatForced = false;
 static bool vrFlatGame = false;
 static float vrMatrix[VR_MATRIX_COUNT][16];
 static bool vrMirroring[VR_MIRRORING_COUNT];
-static int vrMirroringVariant = -1;
+static int vrMirroringVariant = 0;
 static XrView vrView[2];
 
 static void (*NativeAxis)(const AxisInput &axis);
@@ -626,7 +626,6 @@ bool StartVRRender() {
 		bool vrStereo = !PSP_CoreParameter().compat.vrCompat().ForceMono && g_Config.bEnableStereo;
 
 		// Get VR status
-		vrMirroringVariant = -1;
 		for (int eye = 0; eye < ovrMaxNumEyes; eye++) {
 			vrView[eye] = VR_GetView(eye);
 		}
@@ -746,52 +745,42 @@ bool Is2DVRObject(float* projMatrix, bool ortho) {
 	return identity || ortho;
 }
 
-void UpdateVRParams(float* projMatrix, float* viewMatrix) {
+void UpdateVRParams(float* projMatrix) {
 
 	// Set mirroring of axes
 	vrMirroring[VR_MIRRORING_AXIS_X] = projMatrix[0] < 0;
 	vrMirroring[VR_MIRRORING_AXIS_Y] = projMatrix[5] < 0;
 	vrMirroring[VR_MIRRORING_AXIS_Z] =  projMatrix[10] > 0;
 
-	float up = 0;
-	for (int i = 4; i < 7;  i++) {
-		up += viewMatrix[i];
-	}
-
-	int variant = projMatrix[0] < 0;
+	int variant = 1;
+	variant += projMatrix[0] < 0;
 	variant += (projMatrix[5] < 0) << 1;
 	variant += (projMatrix[10] < 0) << 2;
-	variant += (up < 0) << 3;
+	if (PSP_CoreParameter().compat.vrCompat().MirroringVariant > 0) {
+		variant = PSP_CoreParameter().compat.vrCompat().MirroringVariant;
+	}
 
 	switch (variant) {
-		case 0: //e.g. ATV
-		case 8: //e,g, Flatout (dynamic objects only)
+		case 1: //e.g. ATV
 			vrMirroring[VR_MIRRORING_PITCH] = false;
 			vrMirroring[VR_MIRRORING_YAW] = true;
 			vrMirroring[VR_MIRRORING_ROLL] = true;
 			break;
-		case 1: //e.g. Tales of the World
+		case 2: //e.g. Tales of the World
 			vrMirroring[VR_MIRRORING_PITCH] = false;
 			vrMirroring[VR_MIRRORING_YAW] = false;
 			vrMirroring[VR_MIRRORING_ROLL] = false;
 			break;
-		case 2: //e.g.PES 2014
-		case 3: //untested
-		case 5: //e.g Dante's Inferno
-		case 7: //untested
-		case 9: //untested
-		case 10: //untested
-		case 11: //untested
-		case 13: //untested
-		case 15: //untested
+		case 3: //e.g.PES 2014
+		case 4: //untested
+		case 6: //e.g Dante's Inferno
+		case 8: //untested
 			vrMirroring[VR_MIRRORING_PITCH] = true;
 			vrMirroring[VR_MIRRORING_YAW] = true;
 			vrMirroring[VR_MIRRORING_ROLL] = false;
 			break;
-		case 4: //e.g. Assassins Creed
-		case 6: //e.g. Ghost in the shell
-		case 12: //e.g. GTA Vice City
-		case 14: //untested
+		case 5: //e.g. Assassins Creed
+		case 7: //e.g. Ghost in the shell
 			vrMirroring[VR_MIRRORING_PITCH] = true;
 			vrMirroring[VR_MIRRORING_YAW] = false;
 			vrMirroring[VR_MIRRORING_ROLL] = true;
