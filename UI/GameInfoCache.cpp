@@ -598,14 +598,12 @@ handleELF:
 					info_->ParseParamSFO();
 
 					if (info_->wantFlags & GAMEINFO_WANTBG) {
-						ReadFileToString(&umd, "/PSP_GAME/PIC0.PNG", &info_->pic0.data, nullptr);
-						info_->pic0.dataLoaded = true;
-						ReadFileToString(&umd, "/PSP_GAME/PIC1.PNG", &info_->pic1.data, nullptr);
-						info_->pic1.dataLoaded = true;
+						info_->pic0.dataLoaded = ReadFileToString(&umd, "/PSP_GAME/PIC0.PNG", &info_->pic0.data, nullptr);
+						info_->pic1.dataLoaded = ReadFileToString(&umd, "/PSP_GAME/PIC1.PNG", &info_->pic1.data, nullptr);
 					}
 					if (info_->wantFlags & GAMEINFO_WANTSND) {
 						ReadFileToString(&umd, "/PSP_GAME/SND0.AT3", &info_->sndFileData, nullptr);
-						info_->pic1.dataLoaded = true;
+						info_->sndDataLoaded = true;
 					}
 				}
 
@@ -615,15 +613,16 @@ handleELF:
 					Path screenshot_png = GetSysDirectory(DIRECTORY_SCREENSHOT) / (info_->id + "_00000.png");
 					// Try using png/jpg screenshots first
 					if (File::Exists(screenshot_png))
-						File::ReadFileToString(false, screenshot_png, info_->icon.data);
+						info_->icon.dataLoaded = File::ReadFileToString(false, screenshot_png, info_->icon.data);
 					else if (File::Exists(screenshot_jpg))
-						File::ReadFileToString(false, screenshot_jpg, info_->icon.data);
+						info_->icon.dataLoaded = File::ReadFileToString(false, screenshot_jpg, info_->icon.data);
 					else {
 						DEBUG_LOG(LOADER, "Loading unknown.png because no icon was found");
-						ReadVFSToString("unknown.png", &info_->icon.data, &info_->lock);
+						info_->icon.dataLoaded = ReadVFSToString("unknown.png", &info_->icon.data, &info_->lock);
 					}
+				} else {
+					info_->icon.dataLoaded = true;
 				}
-				info_->icon.dataLoaded = true;
 				break;
 			}
 
@@ -799,7 +798,7 @@ void GameInfoCache::SetupTexture(std::shared_ptr<GameInfo> &info, Draw::DrawCont
 			if (tex.texture) {
 				tex.timeLoaded = time_now_d();
 			} else {
-				ERROR_LOG(G3D, "Failed creating texture (%s)", info->GetTitle().c_str());
+				ERROR_LOG(G3D, "Failed creating texture (%s) from %d-byte file", info->GetTitle().c_str(), (int)tex.data.size());
 			}
 		}
 		if ((info->wantFlags & GAMEINFO_WANTBGDATA) == 0) {
