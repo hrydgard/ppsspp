@@ -356,6 +356,8 @@ static inline bool GuessVRDrawingHUD(bool is2D, bool flatScreen) {
 	else if (gstate.isClearModeDepthMask()) hud = false;
 	//HUD texture has to contain alpha channel
 	else if (!gstate.isTextureAlphaUsed()) hud = false;
+	//HUD texture cannot be in 5551 format
+	else if (gstate.getTextureFormat() == GETextureFormat::GE_TFMT_5551) hud = false;
 	//HUD texture cannot be in CLUT16 format
 	else if (gstate.getTextureFormat() == GETextureFormat::GE_TFMT_CLUT16) hud = false;
 	//HUD texture cannot be in CLUT32 format
