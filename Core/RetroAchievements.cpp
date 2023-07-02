@@ -157,8 +157,6 @@ static void DisplayAchievementSummary();
 static void DisplayMasteredNotification();
 static void SetChallengeMode(bool enabled);
 
-static std::unique_ptr<Common::HTTPDownloader> s_http_downloader;
-
 static Achievements::Statistics g_stats;
 
 const std::string g_gameIconCachePrefix = "game:";
@@ -177,11 +175,6 @@ static rc_client_t *g_rcClient;
 
 rc_client_t *GetClient() {
 	return g_rcClient;
-}
-
-void LogFailedResponseJSON(const Common::HTTPDownloader::Request::Data &data) {
-	const std::string str_data(reinterpret_cast<const char *>(data.data()), data.size());
-	ERROR_LOG(ACHIEVEMENTS, "API call failed. Response JSON was:\n%s", str_data.c_str());
 }
 
 bool IsLoggedIn() {
@@ -363,14 +356,6 @@ static void event_handler_callback(const rc_client_event_t *event, rc_client_t *
 void Initialize() {
 	_assert_msg_(g_Config.bAchievementsEnable, "Achievements are enabled");
 
-	s_http_downloader = Common::HTTPDownloader::Create();
-	if (!s_http_downloader)
-	{
-		// TODO: Also report to user
-		ERROR_LOG(ACHIEVEMENTS, "Failed to create HTTPDownloader, cannot use achievements");
-		return;
-	}
-
 	g_challengeMode = true;  // the default
 	g_rcClient = rc_client_create(read_memory_callback, server_call_callback);
 	// Provide a logging function to simplify debugging
@@ -447,12 +432,8 @@ void UpdateSettings() {
 }
 
 bool Shutdown() {
-	s_http_downloader->WaitForAllRequests();
-
 	rc_client_destroy(g_rcClient);
 	g_rcClient = nullptr;
-
-	s_http_downloader.reset();
 	return true;
 }
 
@@ -464,14 +445,11 @@ void ResetRuntime() {
 void FrameUpdate() {
 	if (!g_rcClient)
 		return;
-
-	s_http_downloader->PollRequests();
 	rc_client_do_frame(g_rcClient);
 }
 
 void Idle() {
 	rc_client_idle(g_rcClient);
-	s_http_downloader->PollRequests();
 }
 
 void DoState(PointerWrap &p) {
@@ -518,15 +496,15 @@ bool HasAchievementsOrLeaderboards() {
 }
 
 void DownloadImageIfMissing(const std::string &cache_key, std::string &&url) {
-	auto callback = [cache_key](s32 status_code, std::string content_type, Common::HTTPDownloader::Request::Data data) {
-		if (status_code != 200)
-			return;
-		g_iconCache.InsertIcon(cache_key, IconFormat::PNG, std::move(data));
-	};
-
 	if (g_iconCache.MarkPending(cache_key)) {
 		INFO_LOG(ACHIEVEMENTS, "Downloading image: %s (%s)", url.c_str(), cache_key.c_str());
-		s_http_downloader->CreateRequest(std::move(url), std::move(callback));
+		g_DownloadManager.StartDownloadWithCallback(url, Path(), [cache_key](http::Download &download) {
+			if (download.ResultCode() != 200)
+				return;
+			std::string data;
+			download.buffer().TakeAll(&data);
+			g_iconCache.InsertIcon(cache_key, IconFormat::PNG, std::move(data));
+		});
 	}
 }
 
