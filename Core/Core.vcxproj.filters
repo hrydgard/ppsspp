@@ -1201,6 +1201,9 @@
     <ClCompile Include="ConfigSettings.cpp">
       <Filter>Core</Filter>
     </ClCompile>
+    <ClCompile Include="RetroAchievements.cpp">
+      <Filter>Core</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ELF\ElfReader.h">
@@ -1942,6 +1945,9 @@
       <Filter>MIPS</Filter>
     </ClInclude>
     <ClInclude Include="ConfigSettings.h">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="RetroAchievements.h">
       <Filter>Core</Filter>
     </ClInclude>
   </ItemGroup>

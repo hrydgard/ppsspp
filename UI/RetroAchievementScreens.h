@@ -1,12 +1,12 @@
 #pragma once
 
+#include "Common/File/Path.h"
 #include "Common/UI/View.h"
 #include "Common/UI/UIScreen.h"
 #include "Common/UI/ViewGroup.h"
+#include "Core/RetroAchievements.h"
 #include "UI/MiscScreens.h"
 #include "UI/TabbedDialogScreen.h"
-#include "Common/File/Path.h"
-#include "UI/RetroAchievements.h"
 
 // Lists the achievements and leaderboards for one game.
 class RetroAchievementsListScreen : public TabbedUIDialogScreenWithGameBackground {

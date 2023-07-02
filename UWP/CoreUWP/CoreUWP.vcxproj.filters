@@ -1130,6 +1130,7 @@
       <Filter>MIPS</Filter>
     </ClCompile>
     <ClCompile Include="..\..\Core\ConfigSettings.cpp" />
+    <ClCompile Include="..\..\Core\RetroAchievements.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="pch.h" />
@@ -1692,9 +1693,6 @@
     <ClInclude Include="..\..\Core\Debugger\WebSocket\CPUCoreSubscriber.h">
       <Filter>Debugger\WebSocket</Filter>
     </ClInclude>
-    <ClCompile Include="..\..\Core\Debugger\WebSocket\ClientConfigSubscriber.h">
-      <Filter>Debugger\WebSocket</Filter>
-    </ClCompile>
     <ClInclude Include="..\..\Core\Debugger\WebSocket\DisasmSubscriber.h">
       <Filter>Debugger\WebSocket</Filter>
     </ClInclude>
@@ -1788,6 +1786,8 @@
       <Filter>MIPS</Filter>
     </ClInclude>
     <ClInclude Include="..\..\Core\ConfigSettings.h" />
+    <ClInclude Include="..\..\Core\Debugger\WebSocket\ClientConfigSubscriber.h" />
+    <ClInclude Include="..\..\Core\RetroAchievements.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\..\ext\gason\LICENSE">
