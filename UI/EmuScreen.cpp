@@ -582,7 +582,7 @@ void EmuScreen::onVKey(int virtualKeyCode, bool down) {
 		break;
 
 	case VIRTKEY_SPEED_TOGGLE:
-		if (down) {
+		if (down && !Achievements::WarnUserIfChallengeModeActive()) {
 			// Cycle through enabled speeds.
 			if (PSP_CoreParameter().fpsLimit == FPSLimit::NORMAL && g_Config.iFpsLimit1 >= 0) {
 				PSP_CoreParameter().fpsLimit = FPSLimit::CUSTOM1;
@@ -598,28 +598,32 @@ void EmuScreen::onVKey(int virtualKeyCode, bool down) {
 		break;
 
 	case VIRTKEY_SPEED_CUSTOM1:
-		if (down) {
-			if (PSP_CoreParameter().fpsLimit == FPSLimit::NORMAL) {
-				PSP_CoreParameter().fpsLimit = FPSLimit::CUSTOM1;
-				g_OSD.Show(OSDType::MESSAGE_INFO, sc->T("fixed", "Speed: alternate"), 1.0);
-			}
-		} else {
-			if (PSP_CoreParameter().fpsLimit == FPSLimit::CUSTOM1) {
-				PSP_CoreParameter().fpsLimit = FPSLimit::NORMAL;
-				g_OSD.Show(OSDType::MESSAGE_INFO, sc->T("standard", "Speed: standard"), 1.0);
+		if (!Achievements::WarnUserIfChallengeModeActive()) {
+			if (down) {
+				if (PSP_CoreParameter().fpsLimit == FPSLimit::NORMAL) {
+					PSP_CoreParameter().fpsLimit = FPSLimit::CUSTOM1;
+					g_OSD.Show(OSDType::MESSAGE_INFO, sc->T("fixed", "Speed: alternate"), 1.0);
+				}
+			} else {
+				if (PSP_CoreParameter().fpsLimit == FPSLimit::CUSTOM1) {
+					PSP_CoreParameter().fpsLimit = FPSLimit::NORMAL;
+					g_OSD.Show(OSDType::MESSAGE_INFO, sc->T("standard", "Speed: standard"), 1.0);
+				}
 			}
 		}
 		break;
 	case VIRTKEY_SPEED_CUSTOM2:
-		if (down) {
-			if (PSP_CoreParameter().fpsLimit == FPSLimit::NORMAL) {
-				PSP_CoreParameter().fpsLimit = FPSLimit::CUSTOM2;
-				g_OSD.Show(OSDType::MESSAGE_INFO, sc->T("SpeedCustom2", "Speed: alternate 2"), 1.0);
-			}
-		} else {
-			if (PSP_CoreParameter().fpsLimit == FPSLimit::CUSTOM2) {
-				PSP_CoreParameter().fpsLimit = FPSLimit::NORMAL;
-				g_OSD.Show(OSDType::MESSAGE_INFO, sc->T("standard", "Speed: standard"), 1.0);
+		if (!Achievements::WarnUserIfChallengeModeActive()) {
+			if (down) {
+				if (PSP_CoreParameter().fpsLimit == FPSLimit::NORMAL) {
+					PSP_CoreParameter().fpsLimit = FPSLimit::CUSTOM2;
+					g_OSD.Show(OSDType::MESSAGE_INFO, sc->T("SpeedCustom2", "Speed: alternate 2"), 1.0);
+				}
+			} else {
+				if (PSP_CoreParameter().fpsLimit == FPSLimit::CUSTOM2) {
+					PSP_CoreParameter().fpsLimit = FPSLimit::NORMAL;
+					g_OSD.Show(OSDType::MESSAGE_INFO, sc->T("standard", "Speed: standard"), 1.0);
+				}
 			}
 		}
 		break;
@@ -635,13 +639,15 @@ void EmuScreen::onVKey(int virtualKeyCode, bool down) {
 		break;
 
 	case VIRTKEY_FRAME_ADVANCE:
-		if (down) {
-			// If game is running, pause emulation immediately. Otherwise, advance a single frame.
-			if (Core_IsStepping()) {
-				frameStep_ = true;
-				Core_EnableStepping(false);
-			} else if (!frameStep_) {
-				Core_EnableStepping(true, "ui.frameAdvance", 0);
+		if (!Achievements::WarnUserIfChallengeModeActive()) {
+			if (down) {
+				// If game is running, pause emulation immediately. Otherwise, advance a single frame.
+				if (Core_IsStepping()) {
+					frameStep_ = true;
+					Core_EnableStepping(false);
+				} else if (!frameStep_) {
+					Core_EnableStepping(true, "ui.frameAdvance", 0);
+				}
 			}
 		}
 		break;
@@ -691,7 +697,7 @@ void EmuScreen::onVKey(int virtualKeyCode, bool down) {
 #endif
 
 	case VIRTKEY_REWIND:
-		if (down) {
+		if (down && !Achievements::WarnUserIfChallengeModeActive()) {
 			if (SaveState::CanRewind()) {
 				SaveState::Rewind(&AfterSaveStateAction);
 			} else {
@@ -700,21 +706,21 @@ void EmuScreen::onVKey(int virtualKeyCode, bool down) {
 		}
 		break;
 	case VIRTKEY_SAVE_STATE:
-		if (down)
+		if (down && !Achievements::WarnUserIfChallengeModeActive())
 			SaveState::SaveSlot(gamePath_, g_Config.iCurrentStateSlot, &AfterSaveStateAction);
 		break;
 	case VIRTKEY_LOAD_STATE:
-		if (down)
+		if (down && !Achievements::WarnUserIfChallengeModeActive())
 			SaveState::LoadSlot(gamePath_, g_Config.iCurrentStateSlot, &AfterSaveStateAction);
 		break;
 	case VIRTKEY_PREVIOUS_SLOT:
-		if (down) {
+		if (down && !Achievements::WarnUserIfChallengeModeActive()) {
 			SaveState::PrevSlot();
 			System_PostUIMessage("savestate_displayslot", "");
 		}
 		break;
 	case VIRTKEY_NEXT_SLOT:
-		if (down) {
+		if (down && !Achievements::WarnUserIfChallengeModeActive()) {
 			SaveState::NextSlot();
 			System_PostUIMessage("savestate_displayslot", "");
 		}

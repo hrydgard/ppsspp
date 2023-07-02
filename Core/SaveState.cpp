@@ -399,6 +399,11 @@ namespace SaveState
 
 	void Enqueue(SaveState::Operation op)
 	{
+		if (Achievements::ChallengeModeActive()) {
+			// No savestate operations are permitted, let's just ignore it.
+			return;
+		}
+
 		std::lock_guard<std::mutex> guard(mutex);
 		pending.push_back(op);
 

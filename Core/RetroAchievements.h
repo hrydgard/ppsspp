@@ -51,14 +51,24 @@ bool IsLoggedIn();
 // Returns true if in a game, and achievements are active in the current game.
 bool IsActive();
 
+// Returns true if unofficial achievements are enabled.
+bool UnofficialEnabled();
+
 // Returns true if the emulator should hold off on executing game code, such as during game identification.
 bool IsBlockingExecution();
 
-/// Returns true if features such as save states should be disabled.
+// Returns true if features such as save states should be disabled.
+// This should only be used for controlling functionality of the following things, which are banned in Challenge/Hardcore mode:
+//
+// * Savestates
+// * Slowdown time (though hard to fully prevent, could use crazy post shaders or software rendering...)
 bool ChallengeModeActive();
 
-// Returns true if unofficial achievements are enabled.
-bool UnofficialEnabled();
+// Same as ChallengeModeActive but comes with a convenient user message. Don't use for every-frame checks or UI enablement,
+// only for shortcut keys and commands. You should look up the message in I18NCat::ACHIEVEMENTS.
+// If no message is specified, a standard "This feature is not available in Challenge Mode" message will be shown.
+// Also returns true if challenge mode is active.
+bool WarnUserIfChallengeModeActive(const char *message = nullptr);
 
 // The new API is so much nicer that we can use it directly instead of wrapping it. So let's expose the client.
 // Will of course return nullptr if not active.

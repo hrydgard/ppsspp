@@ -74,8 +74,6 @@ namespace Achievements {
 // It's the name of the secret, not a secret name - the value is not secret :)
 static const char *RA_TOKEN_SECRET_NAME = "retroachievements";
 
-static u32 GetGameID();
-
 static Achievements::Statistics g_stats;
 
 const std::string g_gameIconCachePrefix = "game:";
@@ -83,8 +81,6 @@ const std::string g_iconCachePrefix = "badge:";
 
 Path s_game_path;
 std::string s_game_hash;
-
-bool g_challengeMode = true;
 
 bool g_isIdentifying = false;
 
@@ -101,10 +97,6 @@ bool IsLoggedIn() {
 	return rc_client_get_user_info(g_rcClient) != nullptr;
 }
 
-bool ChallengeModeActive() {
-	return g_challengeMode;
-}
-
 bool EncoreModeActive() {
 	if (!g_rcClient) {
 		return false;
@@ -119,15 +111,33 @@ bool UnofficialEnabled() {
 	return rc_client_get_unofficial_enabled(g_rcClient);
 }
 
-bool IsActive() {
-	return GetGameID() != 0;
+bool ChallengeModeActive() {
+	if (!g_rcClient) {
+		return false;
+	}
+	return rc_client_get_hardcore_enabled(g_rcClient);
+}
+
+bool WarnUserIfChallengeModeActive(const char *message) {
+	if (!ChallengeModeActive()) {
+		return false;
+	}
+
+	const char *showMessage = message;
+	if (!message) {
+		auto ac = GetI18NCategory(I18NCat::ACHIEVEMENTS);
+		showMessage = ac->T("This feature is not available in Challenge Mode");
+	}
+
+	g_OSD.Show(OSDType::MESSAGE_WARNING, showMessage, 3.0f);
+	return true;
 }
 
 bool IsBlockingExecution() {
 	return g_isIdentifying;
 }
 
-u32 GetGameID() {
+static u32 GetGameID() {
 	if (!g_rcClient) {
 		return 0;
 	}
@@ -137,6 +147,10 @@ u32 GetGameID() {
 		return 0;
 	}
 	return info->id;  // 0 if not identified
+}
+
+bool IsActive() {
+	return GetGameID() != 0;
 }
 
 // This is the function the rc_client will use to read memory for the emulator. we don't need it yet,
@@ -260,12 +274,12 @@ static void event_handler_callback(const rc_client_event_t *event, rc_client_t *
 		break;
 	case RC_CLIENT_EVENT_LEADERBOARD_FAILED:
 		NOTICE_LOG(ACHIEVEMENTS, "Leaderboard attempt failed: %s", event->leaderboard->title);
-		g_OSD.Show(OSDType::MESSAGE_INFO, ReplaceAll(ac->T("%1: Failed"), "%1", event->leaderboard->title), 3.0f);
+		g_OSD.Show(OSDType::MESSAGE_INFO, ReplaceAll(ac->T("%1: Leaderboard attempt failed"), "%1", event->leaderboard->title), 3.0f);
 		// A leaderboard attempt has failed.
 		break;
 	case RC_CLIENT_EVENT_LEADERBOARD_SUBMITTED:
 		NOTICE_LOG(ACHIEVEMENTS, "Leaderboard result submitted: %s", event->leaderboard->title);
-		g_OSD.Show(OSDType::MESSAGE_SUCCESS, ReplaceAll(ac->T("%1: Submitting successful score!"), "%1", event->leaderboard->title), event->leaderboard->description, 3.0f);
+		g_OSD.Show(OSDType::MESSAGE_SUCCESS, ReplaceAll(ReplaceAll(ac->T("%1: Submitting leaderboard score: %2!"), "%1", event->leaderboard->title), "%2", event->leaderboard->tracker_value), event->leaderboard->description, 3.0f);
 		// A leaderboard attempt was completed.The handler may show a message with the leaderboard title and /or description indicating the final value being submitted to the server.
 		break;
 	case RC_CLIENT_EVENT_ACHIEVEMENT_CHALLENGE_INDICATOR_SHOW:
@@ -288,7 +302,7 @@ static void event_handler_callback(const rc_client_event_t *event, rc_client_t *
 		g_OSD.ShowAchievementProgress(event->achievement->id, 2.0f);
 		break;
 	case RC_CLIENT_EVENT_LEADERBOARD_TRACKER_SHOW:
-		NOTICE_LOG(ACHIEVEMENTS, "Leaderboard tracker show: %s", event->leaderboard_tracker->display);
+		NOTICE_LOG(ACHIEVEMENTS, "Leaderboard tracker show: '%s' (id %d)", event->leaderboard_tracker->display, event->leaderboard_tracker->id);
 		// A leaderboard_tracker has become active. The handler should show the tracker text on screen.
 		// Multiple active leaderboards may share a single tracker if they have the same definition and value.
 		// As such, the leaderboard tracker IDs are unique amongst the leaderboard trackers, and have no correlation to the active leaderboard(s).
@@ -297,13 +311,13 @@ static void event_handler_callback(const rc_client_event_t *event, rc_client_t *
 		break;
 	case RC_CLIENT_EVENT_LEADERBOARD_TRACKER_HIDE:
 		// A leaderboard_tracker has become inactive. The handler should hide the tracker text from the screen.
-		NOTICE_LOG(ACHIEVEMENTS, "Leaderboard tracker hide: %s", event->leaderboard_tracker->display);
+		NOTICE_LOG(ACHIEVEMENTS, "Leaderboard tracker hide: '%s' (id %d)", event->leaderboard_tracker->display, event->leaderboard_tracker->id);
 		g_OSD.ShowLeaderboardTracker(event->leaderboard_tracker->id, nullptr, false);
 		break;
 	case RC_CLIENT_EVENT_LEADERBOARD_TRACKER_UPDATE:
 		// A leaderboard_tracker value has been updated. The handler should update the tracker text on the screen.
-		NOTICE_LOG(ACHIEVEMENTS, "Leaderboard tracker update: %s", event->leaderboard_tracker->display);
-		g_OSD.ShowLeaderboardTracker(event->leaderboard_tracker->id, event->leaderboard_tracker->display, false);
+		NOTICE_LOG(ACHIEVEMENTS, "Leaderboard tracker update: '%s' (id %d)", event->leaderboard_tracker->display, event->leaderboard_tracker->id);
+		g_OSD.ShowLeaderboardTracker(event->leaderboard_tracker->id, event->leaderboard_tracker->display, true);
 		break;
 	case RC_CLIENT_EVENT_RESET:
 		WARN_LOG(ACHIEVEMENTS, "Resetting game due to achievement setting change!");
@@ -328,15 +342,9 @@ void Initialize() {
 	}
 	_assert_msg_(g_Config.bAchievementsEnable, "Achievements are enabled");
 
-	g_challengeMode = true;  // the default
 	g_rcClient = rc_client_create(read_memory_callback, server_call_callback);
 	// Provide a logging function to simplify debugging
 	rc_client_enable_logging(g_rcClient, RC_CLIENT_LOG_LEVEL_VERBOSE, log_message_callback);
-
-	// FOR NOW: Disable hardcore - if we goof something up in the implementation, we don't want our
-	// account disabled for cheating.
-	rc_client_set_hardcore_enabled(g_rcClient, 0);
-	g_challengeMode = false;
 
 	// Disable SSL for now.
 	rc_client_set_host(g_rcClient, "http://retroachievements.org");
@@ -590,6 +598,7 @@ void SetGame(const Path &path) {
 	g_isIdentifying = true;
 
 	// Apply pre-load settings.
+	rc_client_set_hardcore_enabled(g_rcClient, g_Config.bAchievementsChallengeMode ? 1 : 0);
 	rc_client_set_encore_mode_enabled(g_rcClient, g_Config.bAchievementsEncoreMode ? 1 : 0);
 	rc_client_set_unofficial_enabled(g_rcClient, g_Config.bAchievementsUnofficial ? 1 : 0);
 

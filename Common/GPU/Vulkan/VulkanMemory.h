@@ -5,6 +5,7 @@
 #include <functional>
 #include <vector>
 
+#include "Common/Data/Collections/FastVec.h"
 #include "Common/GPU/Vulkan/VulkanContext.h"
 #include "Common/GPU/GPUBackendCommon.h"
 
@@ -205,4 +206,3 @@ private:
 	uint32_t usage_ = 0;
 	bool grow_;
 };
-

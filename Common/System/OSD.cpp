@@ -2,6 +2,7 @@
 
 #include "Common/System/OSD.h"
 #include "Common/TimeUtil.h"
+#include "Common/Log.h"
 
 OnScreenDisplay g_OSD;
 
@@ -146,6 +147,11 @@ void OnScreenDisplay::ShowChallengeIndicator(int achievementID, bool show) {
 		}
 	}
 
+	if (!show) {
+		// Sanity check
+		return;
+	}
+
 	// OK, let's make a new side-entry.
 	Entry entry;
 	entry.numericID = achievementID;
@@ -172,13 +178,20 @@ void OnScreenDisplay::ShowLeaderboardTracker(int leaderboardTrackerID, const cha
 		}
 	}
 
+	if (!show) {
+		// Sanity check
+		return;
+	}
+
 	// OK, let's make a new side-entry.
 	Entry entry;
 	entry.numericID = leaderboardTrackerID;
 	entry.type = OSDType::LEADERBOARD_TRACKER;
 	entry.startTime = now;
 	entry.endTime = now + 10000000.0;  // Don't auto-fadeout
-	entry.text = trackerText;
+	if (trackerText) {
+		entry.text = trackerText;
+	}
 	sideEntries_.insert(sideEntries_.begin(), entry);
 }
 

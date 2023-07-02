@@ -51,6 +51,7 @@
 #include "Core/HLE/sceUmd.h"
 #include "Core/SaveState.h"
 #include "Core/Core.h"
+#include "Core/RetroAchievements.h"
 
 extern bool g_TakeScreenshot;
 
@@ -69,14 +70,23 @@ namespace MainWindow {
 	LRESULT CALLBACK AboutDlgProc(HWND, UINT, WPARAM, LPARAM);
 
 	void SetIngameMenuItemStates(HMENU menu, const GlobalUIState state) {
-		UINT menuEnable = state == UISTATE_INGAME || state == UISTATE_EXCEPTION ? MF_ENABLED : MF_GRAYED;
+		bool menuEnableBool = state == UISTATE_INGAME || state == UISTATE_EXCEPTION;
+
+		bool saveStateEnableBool = menuEnableBool;
+		if (Achievements::ChallengeModeActive()) {
+			saveStateEnableBool = false;
+		}
+
+		UINT menuEnable = menuEnableBool ? MF_ENABLED : MF_GRAYED;
+		UINT saveStateEnable = saveStateEnableBool ? MF_ENABLED : MF_GRAYED;
 		UINT menuInGameEnable = state == UISTATE_INGAME ? MF_ENABLED : MF_GRAYED;
 		UINT umdSwitchEnable = state == UISTATE_INGAME && getUMDReplacePermit() ? MF_ENABLED : MF_GRAYED;
 
-		EnableMenuItem(menu, ID_FILE_SAVESTATEFILE, menuEnable);
-		EnableMenuItem(menu, ID_FILE_LOADSTATEFILE, menuEnable);
-		EnableMenuItem(menu, ID_FILE_QUICKSAVESTATE, menuEnable);
-		EnableMenuItem(menu, ID_FILE_QUICKLOADSTATE, menuEnable);
+		EnableMenuItem(menu, ID_FILE_SAVESTATE_SLOT_MENU, saveStateEnable);
+		EnableMenuItem(menu, ID_FILE_SAVESTATEFILE, saveStateEnable);
+		EnableMenuItem(menu, ID_FILE_LOADSTATEFILE, saveStateEnable);
+		EnableMenuItem(menu, ID_FILE_QUICKSAVESTATE, saveStateEnable);
+		EnableMenuItem(menu, ID_FILE_QUICKLOADSTATE, saveStateEnable);
 		EnableMenuItem(menu, ID_EMULATION_PAUSE, menuEnable);
 		EnableMenuItem(menu, ID_EMULATION_STOP, menuEnable);
 		EnableMenuItem(menu, ID_EMULATION_RESET, menuEnable);
@@ -517,70 +527,87 @@ namespace MainWindow {
 			}
 			break;
 		case ID_FILE_LOADSTATEFILE:
-			if (W32Util::BrowseForFileName(true, hWnd, L"Load state", 0, L"Save States (*.ppst)\0*.ppst\0All files\0*.*\0\0", L"ppst", fn)) {
-				SetCursor(LoadCursor(0, IDC_WAIT));
-				SaveState::Load(Path(fn), -1, SaveStateActionFinished);
+			if (!Achievements::WarnUserIfChallengeModeActive()) {
+				if (W32Util::BrowseForFileName(true, hWnd, L"Load state", 0, L"Save States (*.ppst)\0*.ppst\0All files\0*.*\0\0", L"ppst", fn)) {
+					SetCursor(LoadCursor(0, IDC_WAIT));
+					SaveState::Load(Path(fn), -1, SaveStateActionFinished);
+				}
 			}
 			break;
 		case ID_FILE_SAVESTATEFILE:
-			if (W32Util::BrowseForFileName(false, hWnd, L"Save state", 0, L"Save States (*.ppst)\0*.ppst\0All files\0*.*\0\0", L"ppst", fn)) {
-				SetCursor(LoadCursor(0, IDC_WAIT));
-				SaveState::Save(Path(fn), -1, SaveStateActionFinished);
+			if (!Achievements::WarnUserIfChallengeModeActive()) {
+				if (W32Util::BrowseForFileName(false, hWnd, L"Save state", 0, L"Save States (*.ppst)\0*.ppst\0All files\0*.*\0\0", L"ppst", fn)) {
+					SetCursor(LoadCursor(0, IDC_WAIT));
+					SaveState::Save(Path(fn), -1, SaveStateActionFinished);
+				}
 			}
 			break;
 
 		case ID_FILE_SAVESTATE_NEXT_SLOT:
 		{
-			SaveState::NextSlot();
-			System_PostUIMessage("savestate_displayslot", "");
-			break;
-		}
-
-		case ID_FILE_SAVESTATE_NEXT_SLOT_HC:
-		{
-			if (!KeyMap::PspButtonHasMappings(VIRTKEY_NEXT_SLOT)) {
+			if (!Achievements::WarnUserIfChallengeModeActive()) {
 				SaveState::NextSlot();
 				System_PostUIMessage("savestate_displayslot", "");
 			}
 			break;
 		}
 
-		case ID_FILE_SAVESTATE_SLOT_1: g_Config.iCurrentStateSlot = 0; break;
-		case ID_FILE_SAVESTATE_SLOT_2: g_Config.iCurrentStateSlot = 1; break;
-		case ID_FILE_SAVESTATE_SLOT_3: g_Config.iCurrentStateSlot = 2; break;
-		case ID_FILE_SAVESTATE_SLOT_4: g_Config.iCurrentStateSlot = 3; break;
-		case ID_FILE_SAVESTATE_SLOT_5: g_Config.iCurrentStateSlot = 4; break;
-
-		case ID_FILE_QUICKLOADSTATE:
+		case ID_FILE_SAVESTATE_NEXT_SLOT_HC:
 		{
-			SetCursor(LoadCursor(0, IDC_WAIT));
-			SaveState::LoadSlot(PSP_CoreParameter().fileToStart, g_Config.iCurrentStateSlot, SaveStateActionFinished);
+			if (!Achievements::WarnUserIfChallengeModeActive()) {
+				if (!KeyMap::PspButtonHasMappings(VIRTKEY_NEXT_SLOT)) {
+					SaveState::NextSlot();
+					System_PostUIMessage("savestate_displayslot", "");
+				}
+			}
 			break;
 		}
 
-		case ID_FILE_QUICKLOADSTATE_HC:
-		{
-			if (!KeyMap::PspButtonHasMappings(VIRTKEY_LOAD_STATE))
-			{
+		case ID_FILE_SAVESTATE_SLOT_1:
+		case ID_FILE_SAVESTATE_SLOT_2:
+		case ID_FILE_SAVESTATE_SLOT_3:
+		case ID_FILE_SAVESTATE_SLOT_4:
+		case ID_FILE_SAVESTATE_SLOT_5:
+			if (!Achievements::WarnUserIfChallengeModeActive()) {
+				g_Config.iCurrentStateSlot = wmId - ID_FILE_SAVESTATE_SLOT_1;
+			}
+			break;
+
+		case ID_FILE_QUICKLOADSTATE:
+			if (!Achievements::WarnUserIfChallengeModeActive()) {
 				SetCursor(LoadCursor(0, IDC_WAIT));
 				SaveState::LoadSlot(PSP_CoreParameter().fileToStart, g_Config.iCurrentStateSlot, SaveStateActionFinished);
+			}
+			break;
+
+		case ID_FILE_QUICKLOADSTATE_HC:
+		{
+			if (!Achievements::WarnUserIfChallengeModeActive()) {
+				if (!KeyMap::PspButtonHasMappings(VIRTKEY_LOAD_STATE)) {
+					SetCursor(LoadCursor(0, IDC_WAIT));
+					SaveState::LoadSlot(PSP_CoreParameter().fileToStart, g_Config.iCurrentStateSlot, SaveStateActionFinished);
+				}
 			}
 			break;
 		}
 		case ID_FILE_QUICKSAVESTATE:
 		{
-			SetCursor(LoadCursor(0, IDC_WAIT));
-			SaveState::SaveSlot(PSP_CoreParameter().fileToStart, g_Config.iCurrentStateSlot, SaveStateActionFinished);
+			if (!Achievements::WarnUserIfChallengeModeActive()) {
+				SetCursor(LoadCursor(0, IDC_WAIT));
+				SaveState::SaveSlot(PSP_CoreParameter().fileToStart, g_Config.iCurrentStateSlot, SaveStateActionFinished);
+			}
 			break;
 		}
 
 		case ID_FILE_QUICKSAVESTATE_HC:
 		{
-			if (!KeyMap::PspButtonHasMappings(VIRTKEY_SAVE_STATE))
-			{
-				SetCursor(LoadCursor(0, IDC_WAIT));
-				SaveState::SaveSlot(PSP_CoreParameter().fileToStart, g_Config.iCurrentStateSlot, SaveStateActionFinished);
-				break;
+			if (!Achievements::WarnUserIfChallengeModeActive()) {
+				if (!KeyMap::PspButtonHasMappings(VIRTKEY_SAVE_STATE))
+				{
+					SetCursor(LoadCursor(0, IDC_WAIT));
+					SaveState::SaveSlot(PSP_CoreParameter().fileToStart, g_Config.iCurrentStateSlot, SaveStateActionFinished);
+					break;
+				}
 			}
 			break;
 		}

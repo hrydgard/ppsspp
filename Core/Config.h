@@ -488,7 +488,6 @@ public:
 	// Retro Achievement settings
 	// Copied from Duckstation, we might want to remove some.
 	bool bAchievementsEnable;
-	bool bAchievementsRichPresence;
 	bool bAchievementsChallengeMode;
 	bool bAchievementsEncoreMode;
 	bool bAchievementsUnofficial;
