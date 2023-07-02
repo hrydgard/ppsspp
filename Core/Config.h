@@ -490,8 +490,8 @@ public:
 	bool bAchievementsEnable;
 	bool bAchievementsRichPresence;
 	bool bAchievementsChallengeMode;
+	bool bAchievementsEncoreMode;
 	bool bAchievementsSoundEffects;
-	bool bAchievementsNotifications;
 	bool bAchievementsLogBadMemReads;
 
 	// Achivements login info. Note that password is NOT stored, only a login token.

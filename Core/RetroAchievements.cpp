@@ -50,67 +50,8 @@
 #include "Core/FileSystems/MetaFileSystem.h"
 #include "Core/RetroAchievements.h"
 
-// Simply wrap our current HTTP backend to fit the DuckStation-derived code.
-namespace Common {
-	class HTTPDownloader {
-	public:
-		static std::unique_ptr<HTTPDownloader> Create() {
-			return std::unique_ptr<HTTPDownloader>(new HTTPDownloader());
-		}
-		class Request {
-		public:
-			typedef std::string Data;
-			typedef std::function<void(s32 status_code, std::string content_type, Data data)> Callback;
-		};
-
-		void PollRequests() {
-			downloader_.Update();
-		}
-		void WaitForAllRequests() {
-			downloader_.WaitForAll();
-		}
-		bool HasAnyRequests() const {
-			return downloader_.GetActiveCount() > 0;
-		}
-		void CreateRequest(std::string &&url, Request::Callback &&callback) {
-			Request::Callback movedCallback = std::move(callback);
-			downloader_.StartDownloadWithCallback(url, Path(), [=](http::Download &download) {
-				std::string data;
-				download.buffer().TakeAll(&data);
-				movedCallback(download.ResultCode(), "", data);
-			});
-		}
-		void CreatePostRequest(std::string &&url, const char *post_data, Request::Callback &&callback) {
-			Request::Callback movedCallback = std::move(callback);
-			std::string post_data_str(post_data);
-
-			INFO_LOG(ACHIEVEMENTS, "Request: post_data=%s", post_data);
-
-			downloader_.AsyncPostWithCallback(url, post_data_str, "application/x-www-form-urlencoded", [=](http::Download &download) {
-				std::string data;
-				download.buffer().TakeAll(&data);
-				movedCallback(download.ResultCode(), "", data);
-			});
-		}
-
-	private:
-		HTTPDownloader() {}
-
-		http::Downloader downloader_;
-	};
-}  // namespace
-
-void OSDAddToast(float duration_s, const std::string &text) {
-	g_OSD.Show(OSDType::MESSAGE_INFO, text);
-}
-
 void OSDAddNotification(float duration_s, const std::string &title, const std::string &summary, const std::string &iconImageData) {
 	g_OSD.Show(OSDType::MESSAGE_INFO, title, summary, iconImageData, 5.0f);
-}
-
-void OSDAddAchievementUnlockedNotification(rc_client_achievement_t *achievement) {
-	// TODO: Maybe pass the achievement pointer instead.
-	g_OSD.ShowAchievementUnlocked(achievement->id);
 }
 
 void OSDOpenBackgroundProgressDialog(const char *str_id, std::string message, s32 min, s32 max, s32 value) {
@@ -138,13 +79,8 @@ void OSDShowServerError(const rc_client_event_t *event) {
 	g_OSD.Show(OSDType::MESSAGE_ERROR, "Server error");
 }
 
-namespace Host {
-void OnAchievementsRefreshed() {
-	System_PostUIMessage("achievements_refreshed", "");
-}
 void OnAchievementsLoginStateChange() {
 	System_PostUIMessage("achievements_loginstatechange", "");
-}
 }
 
 namespace Achievements {
@@ -167,7 +103,6 @@ Path s_game_path;
 std::string s_game_hash;
 
 bool g_challengeMode = true;
-bool g_activeGame = false;
 
 // rc_client implementation
 static rc_client_t *g_rcClient;
@@ -186,6 +121,13 @@ bool ChallengeModeActive() {
 	return g_challengeMode;
 }
 
+bool EncoreModeActive() {
+	if (!g_rcClient) {
+		return false;
+	}
+	return rc_client_get_encore_mode_enabled(g_rcClient);
+}
+
 bool IsActive() {
 	return GetGameID() != 0;
 }
@@ -199,7 +141,7 @@ u32 GetGameID() {
 	if (!info) {
 		return 0;
 	}
-	return info->id;
+	return info->id;  // 0 if not identified
 }
 
 // This is the function the rc_client will use to read memory for the emulator. we don't need it yet,
@@ -275,14 +217,14 @@ static void log_message_callback(const char *message, const rc_client_t *client)
 static void login_token_callback(int result, const char *error_message, rc_client_t *client, void *userdata) {
 	switch (result) {
 	case RC_OK:
-		Host::OnAchievementsLoginStateChange();
+		OnAchievementsLoginStateChange();
 		break;
 	case RC_INVALID_STATE:
 	case RC_API_FAILURE:
 	case RC_MISSING_VALUE:
 	case RC_INVALID_JSON:
 		ERROR_LOG(ACHIEVEMENTS, "Failure logging in via token: %d, %s", result, error_message);
-		Host::OnAchievementsLoginStateChange();
+		OnAchievementsLoginStateChange();
 		break;
 	}
 }
@@ -293,7 +235,7 @@ static void event_handler_callback(const rc_client_event_t *event, rc_client_t *
 	switch (event->type) {
 	case RC_CLIENT_EVENT_ACHIEVEMENT_TRIGGERED:
 		// An achievement was earned by the player. The handler should notify the player that the achievement was earned.
-		OSDAddAchievementUnlockedNotification(event->achievement);
+		g_OSD.ShowAchievementUnlocked(event->achievement->id);
 		break;
 	case RC_CLIENT_EVENT_GAME_COMPLETED:
 		// All achievements for the game have been earned. The handler should notify the player that the game was completed or mastered, depending on challenge mode.
@@ -395,7 +337,7 @@ static void login_password_callback(int result, const char *error_message, rc_cl
 		const rc_client_user_t *user = rc_client_get_user_info(client);
 		g_Config.sAchievementsUserName = user->username;
 		NativeSaveSecret(RA_TOKEN_SECRET_NAME, std::string(user->token));
-		Host::OnAchievementsLoginStateChange();
+		OnAchievementsLoginStateChange();
 		break;
 	}
 	case RC_INVALID_STATE:
@@ -403,7 +345,7 @@ static void login_password_callback(int result, const char *error_message, rc_cl
 	case RC_MISSING_VALUE:
 	case RC_INVALID_JSON:
 		ERROR_LOG(ACHIEVEMENTS, "Failure logging in via token: %d, %s", result, error_message);
-		Host::OnAchievementsLoginStateChange();
+		OnAchievementsLoginStateChange();
 		break;
 	}
 
@@ -476,9 +418,11 @@ void DoState(PointerWrap &p) {
 
 	uint32_t data_size = 0;
 
-	if (!g_activeGame) {
-		WARN_LOG(ACHIEVEMENTS, "Save state contained achievement data, but achievements are not active. Ignore.");
+	if (!IsActive()) {
 		Do(p, data_size);
+		if (p.mode == PointerWrap::MODE_READ) {
+			WARN_LOG(ACHIEVEMENTS, "Save state contained achievement data, but achievements are not active. Ignore.");
+		}
 		p.SkipBytes(data_size);
 		return;
 	}
@@ -519,7 +463,7 @@ void DoState(PointerWrap &p) {
 		}
 		delete[] buffer;
 	} else {
-		if (HasAchievementsOrLeaderboards()) {
+		if (IsActive()) {
 			auto ac = GetI18NCategory(I18NCat::ACHIEVEMENTS);
 			g_OSD.Show(OSDType::MESSAGE_WARNING, ac->T("Save state loaded without achievement data"), 5.0f);
 		}
@@ -531,7 +475,7 @@ bool HasAchievementsOrLeaderboards() {
 	if (!g_rcClient) {
 		return false;
 	}
-	return g_activeGame;
+	return IsActive();
 }
 
 void DownloadImageIfMissing(const std::string &cache_key, std::string &&url) {
@@ -562,16 +506,17 @@ std::string GetGameAchievementSummary() {
 		summary.points_unlocked, summary.points_core);
 	if (ChallengeModeActive()) {
 		summaryString.append("\n");
-		summaryString.append(ac->T("Leaderboard submission is enabled"));
+		summaryString.append(ac->T("Challenge Mode"));
+	}
+	if (EncoreModeActive()) {
+		summaryString.append("\n");
+		summaryString.append(ac->T("Encore Mode"));
 	}
 	return summaryString;
 }
 
 void DisplayMasteredNotification() {
 	auto ac = GetI18NCategory(I18NCat::ACHIEVEMENTS);
-
-	if (!g_Config.bAchievementsNotifications)
-		return;
 
 	const rc_client_game_t *gameInfo = rc_client_get_game_info(g_rcClient);
 
@@ -597,18 +542,14 @@ void identify_and_load_callback(int result, const char *error_message, rc_client
 		// Successful! Show a message that we're active.
 		const rc_client_game_t *gameInfo = rc_client_get_game_info(client);
 
+		char cacheId[128];
+		snprintf(cacheId, sizeof(cacheId), "gi:%s", gameInfo->badge_name);
+
 		char temp[512];
 		if (RC_OK == rc_client_game_get_image_url(gameInfo, temp, sizeof(temp))) {
-			Achievements::DownloadImageIfMissing(gameInfo->badge_name, std::move(std::string(temp)));
+			Achievements::DownloadImageIfMissing(cacheId, std::move(std::string(temp)));
 		}
-
-		std::string title = std::string(gameInfo->title);
-		if (ChallengeModeActive())
-			title += std::string(" (") + ac->T("Challenge Mode") + ")";
-
-		std::string summary = GetGameAchievementSummary();
-		OSDAddNotification(10.0f, title, summary, gameInfo->badge_name);
-		g_activeGame = true;
+		OSDAddNotification(10.0f, std::string(gameInfo->title), GetGameAchievementSummary(), cacheId);
 		break;
 	}
 	case RC_NO_GAME_LOADED:
@@ -639,7 +580,9 @@ void SetGame(const Path &path) {
 	rc_filereader.read = [](void *file_handle, void *buffer, size_t requested_bytes) -> size_t { return fread(buffer, 1, requested_bytes, (FILE *)file_handle); };
 	rc_filereader.close = [](void *file_handle) { fclose((FILE *)file_handle); };
 
-	g_activeGame = false;
+	// Apply pre-load settings.
+	rc_client_set_encore_mode_enabled(g_rcClient, g_Config.bAchievementsEncoreMode ? 1 : 0);
+
 	rc_hash_init_custom_filereader(&rc_filereader);
 	rc_hash_init_default_cdreader();
 	rc_client_begin_identify_and_load_game(g_rcClient, RC_CONSOLE_PSP, path.c_str(), nullptr, 0, &identify_and_load_callback, nullptr);
@@ -649,7 +592,6 @@ void UnloadGame() {
 	if (g_rcClient) {
 		rc_client_unload_game(g_rcClient);
 	}
-	g_activeGame = false;
 }
 
 void change_media_callback(int result, const char *error_message, rc_client_t *client, void *userdata) {
