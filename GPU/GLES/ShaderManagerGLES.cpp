@@ -429,6 +429,7 @@ void LinkedShader::UpdateUniforms(const ShaderID &vsid, bool useBufferedRenderin
 			} else {
 				UpdateVRProjection(gstate.projMatrix, leftEyeMatrix.m, rightEyeMatrix.m);
 			}
+			UpdateVRParams(gstate.projMatrix);
 
 			FlipProjMatrix(leftEyeMatrix, useBufferedRendering);
 			FlipProjMatrix(rightEyeMatrix, useBufferedRendering);
@@ -566,14 +567,13 @@ void LinkedShader::UpdateUniforms(const ShaderID &vsid, bool useBufferedRenderin
 	if (dirty & DIRTY_WORLDMATRIX) {
 		SetMatrix4x3(render_, &u_world, gstate.worldMatrix);
 	}
-	if ((dirty & DIRTY_VIEWMATRIX) || IsVREnabled()) {
+	if (dirty & DIRTY_VIEWMATRIX) {
 		if (gstate_c.Use(GPU_USE_VIRTUAL_REALITY)) {
 			float leftEyeView[16];
 			float rightEyeView[16];
 			ConvertMatrix4x3To4x4Transposed(leftEyeView, gstate.viewMatrix);
 			ConvertMatrix4x3To4x4Transposed(rightEyeView, gstate.viewMatrix);
 			if (!is2D) {
-				UpdateVRParams(gstate.projMatrix, leftEyeView);
 				UpdateVRView(leftEyeView, rightEyeView);
 			}
 			render_->SetUniformM4x4Stereo("u_view", &u_view, leftEyeView, rightEyeView);
