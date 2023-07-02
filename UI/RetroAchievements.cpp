@@ -48,8 +48,6 @@
 #include "Core/System.h"
 #include "Core/FileSystems/MetaFileSystem.h"
 
-#include "UI/Root.h"
-
 // Simply wrap our current HTTP backend to fit the DuckStation-derived code.
 namespace Common {
 	class HTTPDownloader {
@@ -151,11 +149,6 @@ enum : s32
 	RICH_PRESENCE_PING_FREQUENCY = 2 * 60,
 	NO_RICH_PRESENCE_PING_FREQUENCY = RICH_PRESENCE_PING_FREQUENCY * 2,
 };
-
-// temporary sounds
-static constexpr UI::UISound INFO_SOUND_NAME = UI::UISound::SELECT;
-static constexpr UI::UISound UNLOCK_SOUND_NAME = UI::UISound::TOGGLE_ON;
-static constexpr UI::UISound LBSUBMIT_SOUND_NAME = UI::UISound::TOGGLE_OFF;
 
 // It's the name of the secret, not a secret name - the value is not secret :)
 static const char *RA_TOKEN_SECRET_NAME = "retroachievements";
@@ -981,8 +974,6 @@ void Achievements::DisplayAchievementSummary()
 	std::string summary = GetGameAchievementSummary();
 
 	OSDAddNotification(10.0f, title, summary, s_game_icon);
-
-	// play info sound?
 }
 
 void Achievements::DisplayMasteredNotification()
@@ -1718,10 +1709,6 @@ void Achievements::SubmitLeaderboardCallback(s32 status_code, std::string conten
 		submitted_score, best_score, response.new_rank, response.num_entries);
 
 	OSDAddNotification(10.0f, lb->title, std::move(summary), s_game_icon);
-
-	// Technically not going through the resource API, but since we're passing this to something else, we can't.
-	if (g_Config.bAchievementsSoundEffects)
-		UI::PlayUISound(LBSUBMIT_SOUND_NAME);
 }
 
 void Achievements::UnlockAchievement(u32 achievement_id, bool add_notification /* = true*/)
@@ -1766,9 +1753,6 @@ void Achievements::UnlockAchievement(u32 achievement_id, bool add_notification /
 		OSDAddNotification(15.0f, std::move(title), achievement->description,
 			GetAchievementBadgePath(*achievement));
 	}
-
-	if (g_Config.bAchievementsSoundEffects)
-		UI::PlayUISound(UNLOCK_SOUND_NAME);
 
 	if (IsMastered())
 		DisplayMasteredNotification();
