@@ -150,8 +150,11 @@ void RetroAchievementsLeaderboardScreen::CreateTabs() {
 			bool is_self = (i == entryList_->user_index);
 			// Should highlight somehow.
 			const rc_client_leaderboard_entry_t &entry = entryList_->entries[i];
+
+			char buffer[512];
+			rc_client_leaderboard_entry_get_user_image_url(&entryList_->entries[i], buffer, sizeof(buffer));
 			// Can also show entry.submitted, which is a time_t. And maybe highlight recent ones?
-			layout->Add(new TextView(StringFromFormat(" %d: %s: %s%s", entry.rank, entry.user, entry.display, is_self ? " <<<<< " : "")));
+			layout->Add(new LeaderboardEntryView(&entryList_->entries[i], is_self));
 		}
 	}
 }
@@ -296,6 +299,11 @@ void MeasureLeaderboardSummary(const UIContext &dc, const rc_client_leaderboard_
 	*h = 72.0f;
 }
 
+void MeasureLeaderboardEntry(const UIContext &dc, const rc_client_leaderboard_entry_t *entry, float *w, float *h) {
+	*w = 0.0f;
+	*h = 72.0f;
+}
+
 // Graphical
 void RenderAchievement(UIContext &dc, const rc_client_achievement_t *achievement, AchievementRenderStyle style, const Bounds &bounds, float alpha, float startTime, float time_s) {
 	using namespace UI;
@@ -429,6 +437,52 @@ void RenderLeaderboardSummary(UIContext &dc, const rc_client_leaderboard_t *lead
 	dc.RebindTexture();
 }
 
+void RenderLeaderboardEntry(UIContext &dc, const rc_client_leaderboard_entry_t *entry, const Bounds &bounds, float alpha) {
+	using namespace UI;
+	UI::Drawable background = dc.theme->itemStyle.background;
+
+	background.color = alphaMul(background.color, alpha);
+	uint32_t fgColor = alphaMul(dc.theme->itemStyle.fgColor, alpha);
+
+	float iconSize = 64.0f;
+	float numberSpace = 128.0f;
+	float iconLeft = numberSpace + 5.0f;
+	float iconSpace = numberSpace + 5.0f + iconSize;
+
+	dc.Flush();
+
+	dc.Begin();
+	dc.FillRect(background, bounds);
+
+	dc.SetFontStyle(dc.theme->uiFont);
+
+	dc.SetFontScale(1.5f, 1.5f);
+	dc.DrawTextRect(StringFromFormat("%d", entry->rank).c_str(), Bounds(bounds.x + 4.0f, bounds.y + 4.0f, numberSpace - 10.0f, bounds.h - 4.0f * 2.0f), fgColor, ALIGN_TOPRIGHT);
+
+	dc.SetFontScale(1.0f, 1.0f);
+	dc.DrawTextRect(entry->user, bounds.Inset(iconSpace + 5.0f, 2.0f, 5.0f, 5.0f), fgColor, ALIGN_TOPLEFT);
+
+	dc.SetFontScale(0.66f, 0.66f);
+	dc.DrawTextRect(entry->display, bounds.Inset(iconSpace + 5.0f, 38.0f, 5.0f, 5.0f), fgColor, ALIGN_TOPLEFT);
+
+	dc.SetFontScale(1.0f, 1.0f);
+	dc.Flush();
+
+	// Come up with a unique name for the icon entry.
+	char entryName[256];
+	snprintf(entryName, sizeof(entryName), "lbe:%s", entry->user);
+	char temp[512];
+	if (RC_OK == rc_client_leaderboard_entry_get_user_image_url(entry, temp, sizeof(temp))) {
+		Achievements::DownloadImageIfMissing(entryName, std::move(std::string(temp)));
+		if (g_iconCache.BindIconTexture(&dc, entryName)) {
+			dc.Draw()->DrawTexRect(Bounds(bounds.x + iconLeft, bounds.y + 4.0f, 64.0f, 64.0f), 0.0f, 0.0f, 1.0f, 1.0f, whiteAlpha(alpha));
+		}
+	}
+
+	dc.Flush();
+	dc.RebindTexture();
+}
+
 void AchievementView::Draw(UIContext &dc) {
 	RenderAchievement(dc, achievement_, AchievementRenderStyle::LISTED, bounds_, 1.0f, 0.0f, 0.0f);
 }
@@ -444,6 +498,14 @@ void AchievementView::Click() {
 #endif
 }
 
+void GameAchievementSummaryView::Draw(UIContext &dc) {
+	RenderGameAchievementSummary(dc, gameID_, bounds_, 1.0f);
+}
+
+void GameAchievementSummaryView::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
+	MeasureGameAchievementSummary(dc, gameID_, &w, &h);
+}
+
 void LeaderboardSummaryView::Draw(UIContext &dc) {
 	RenderLeaderboardSummary(dc, leaderboard_, AchievementRenderStyle::LISTED, bounds_, 1.0f, 0.0f, 0.0f);
 }
@@ -452,10 +514,11 @@ void LeaderboardSummaryView::GetContentDimensions(const UIContext &dc, float &w,
 	MeasureLeaderboardSummary(dc, leaderboard_, &w, &h);
 }
 
-void GameAchievementSummaryView::Draw(UIContext &dc) {
-	RenderGameAchievementSummary(dc, gameID_, bounds_, 1.0f);
+void LeaderboardEntryView::Draw(UIContext &dc) {
+	RenderLeaderboardEntry(dc, entry_, bounds_, 1.0f);
 }
 
-void GameAchievementSummaryView::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
-	MeasureGameAchievementSummary(dc, gameID_, &w, &h);
+void LeaderboardEntryView::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
+	MeasureLeaderboardEntry(dc, entry_, &w, &h);
 }
+

@@ -88,6 +88,9 @@ void RenderAchievement(UIContext &dc, const rc_client_achievement_t *achievement
 void MeasureGameAchievementSummary(const UIContext &dc, int gameID, float *w, float *h);
 void RenderGameAchievementSummary(UIContext &dc, int gameID, const Bounds &bounds, float alpha);
 
+void MeasureLeaderboardEntry(const UIContext &dc, const rc_client_leaderboard_entry_t *entry, float *w, float *h);
+void RenderLeaderboardEntry(UIContext &dc, const rc_client_leaderboard_entry_t *entry, const Bounds &bounds, float alpha);
+
 class AchievementView : public UI::ClickableItem {
 public:
 	AchievementView(const rc_client_achievement_t *achievement, UI::LayoutParams *layoutParams = nullptr) : UI::ClickableItem(layoutParams), achievement_(achievement) {}
@@ -97,6 +100,16 @@ public:
 	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override;
 private:
 	const rc_client_achievement_t *achievement_;
+};
+
+class GameAchievementSummaryView : public UI::Item {
+public:
+	GameAchievementSummaryView(int gameID, UI::LayoutParams *layoutParams = nullptr) : UI::Item(layoutParams), gameID_(gameID) {}
+
+	void Draw(UIContext &dc) override;
+	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override;
+private:
+	int gameID_;
 };
 
 class LeaderboardSummaryView : public UI::ClickableItem {
@@ -110,12 +123,14 @@ private:
 	const rc_client_leaderboard_t *leaderboard_;
 };
 
-class GameAchievementSummaryView : public UI::Item {
+class LeaderboardEntryView : public UI::Item {
 public:
-	GameAchievementSummaryView(int gameID, UI::LayoutParams *layoutParams = nullptr) : UI::Item(layoutParams), gameID_(gameID) {}
+	LeaderboardEntryView(const rc_client_leaderboard_entry_t *entry, bool isCurrentUser, UI::LayoutParams *layoutParams = nullptr) : UI::Item(layoutParams), entry_(entry), isCurrentUser_(isCurrentUser) {}
 
 	void Draw(UIContext &dc) override;
 	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override;
+
 private:
-	int gameID_;
+	const rc_client_leaderboard_entry_t *entry_;
+	bool isCurrentUser_;
 };

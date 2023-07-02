@@ -430,9 +430,8 @@ void UpdateSettings() {
 	}
 
 	if (!g_rcClient) {
-		// we just got enabled
+		// we just got enabled.
 		Initialize();
-		return;
 	}
 }
 
