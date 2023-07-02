@@ -877,7 +877,7 @@ private:
 OpenGLTexture::OpenGLTexture(GLRenderManager *render, const TextureDesc &desc) : render_(render) {
 	_dbg_assert_(desc.format != Draw::DataFormat::UNDEFINED);
 	_dbg_assert_(desc.width > 0 && desc.height > 0 && desc.depth > 0);
-	_dbg_assert_(type_ != Draw::TextureType::UNKNOWN);
+	_dbg_assert_(desc.type != Draw::TextureType::UNKNOWN);
 
 	generatedMips_ = false;
 	generateMips_ = desc.generateMips;
