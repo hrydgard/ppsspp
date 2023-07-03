@@ -607,10 +607,14 @@ void UnloadGame() {
 
 void change_media_callback(int result, const char *error_message, rc_client_t *client, void *userdata) {
 	NOTICE_LOG(ACHIEVEMENTS, "Change media callback: %d (%s)", result, error_message);
+	g_isIdentifying = false;
 }
 
 void ChangeUMD(const Path &path) {
-	_dbg_assert_(g_rcClient && IsLoggedIn());
+	if (!IsActive()) {
+		// Nothing to do.
+		return;
+	}
 
 	rc_client_begin_change_media(g_rcClient, 
 		path.c_str(),
@@ -619,6 +623,8 @@ void ChangeUMD(const Path &path) {
 		&change_media_callback,
 		nullptr
 	);
+
+	g_isIdentifying = true;
 }
 
 } // namespace Achievements
