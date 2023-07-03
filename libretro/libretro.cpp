@@ -1744,3 +1744,9 @@ bool System_AudioRecordingState() { return false; }
 
 void System_InputBoxGetString(const std::string &title, const std::string &defaultValue, std::function<void(bool, const std::string &)> cb) { cb(false, ""); }
 #endif
+
+// TODO: To avoid having to define these here, these should probably be turned into system "requests".
+void NativeSaveSecret(const char *nameOfSecret, const std::string &data) {}
+std::string NativeLoadSecret(const char *nameOfSecret) {
+   return "";
+}

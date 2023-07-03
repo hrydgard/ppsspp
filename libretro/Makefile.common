@@ -193,6 +193,35 @@ SOURCES_C += \
 	$(EXTDIR)/libpng17/pngwtran.c \
 	$(EXTDIR)/libpng17/pngwutil.c
 
+INCFLAGS += -I$(EXTDIR)/rcheevos/include
+
+COREFLAGS += -DRC_DISABLE_LUA
+
+SOURCES_C += \
+	$(EXTDIR)/rcheevos/src/rapi/rc_api_common.c \
+	$(EXTDIR)/rcheevos/src/rapi/rc_api_editor.c \
+	$(EXTDIR)/rcheevos/src/rapi/rc_api_info.c \
+	$(EXTDIR)/rcheevos/src/rapi/rc_api_runtime.c \
+	$(EXTDIR)/rcheevos/src/rapi/rc_api_user.c \
+	$(EXTDIR)/rcheevos/src/rcheevos/alloc.c \
+	$(EXTDIR)/rcheevos/src/rcheevos/compat.c \
+	$(EXTDIR)/rcheevos/src/rcheevos/condition.c \
+	$(EXTDIR)/rcheevos/src/rcheevos/condset.c \
+	$(EXTDIR)/rcheevos/src/rcheevos/consoleinfo.c \
+	$(EXTDIR)/rcheevos/src/rcheevos/format.c \
+	$(EXTDIR)/rcheevos/src/rcheevos/lboard.c \
+	$(EXTDIR)/rcheevos/src/rcheevos/memref.c \
+	$(EXTDIR)/rcheevos/src/rcheevos/operand.c \
+	$(EXTDIR)/rcheevos/src/rcheevos/rc_validate.c \
+	$(EXTDIR)/rcheevos/src/rcheevos/richpresence.c \
+	$(EXTDIR)/rcheevos/src/rcheevos/runtime.c \
+	$(EXTDIR)/rcheevos/src/rcheevos/runtime_progress.c \
+	$(EXTDIR)/rcheevos/src/rcheevos/trigger.c \
+	$(EXTDIR)/rcheevos/src/rcheevos/value.c \
+	$(EXTDIR)/rcheevos/src/rhash/cdreader.c \
+	$(EXTDIR)/rcheevos/src/rhash/hash.c \
+	$(EXTDIR)/rcheevos/src/rhash/md5.c
+
 COREFLAGS += -DSTACK_LINE_READER_BUFFER_SIZE=1024
 ifeq ($(PLATFORM_EXT), android)
 COREFLAGS += -DHAVE_DLFCN_H
