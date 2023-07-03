@@ -122,6 +122,12 @@
 #define IDC_SHOWOFFSETS                 1200
 #define IDC_GEDBG_PRIMCOUNTER           1201
 #define IDC_BUTTON_SEARCH               1204
+#define IDC_SCANREMOVE_SCAN             1205
+#define IDC_SCANREMOVE_REMOVE           1206
+#define IDC_SCANREMOVE_ADDRESS          1207
+#define IDC_SCANREMOVE_SIZE             1208
+#define IDC_SCANREMOVE_OK               1209
+#define IDC_SCANREMOVE_CANCEL           1210
 
 #define ID_FILE_EXIT                     40000
 #define ID_DEBUG_SAVEMAPFILE             40001
