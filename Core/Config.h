@@ -491,6 +491,7 @@ public:
 	bool bAchievementsRichPresence;
 	bool bAchievementsChallengeMode;
 	bool bAchievementsEncoreMode;
+	bool bAchievementsUnofficial;
 	bool bAchievementsSoundEffects;
 	bool bAchievementsLogBadMemReads;
 

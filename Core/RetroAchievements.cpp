@@ -130,6 +130,13 @@ bool EncoreModeActive() {
 	return rc_client_get_encore_mode_enabled(g_rcClient);
 }
 
+bool UnofficialEnabled() {
+	if (!g_rcClient) {
+		return false;
+	}
+	return rc_client_get_unofficial_enabled(g_rcClient);
+}
+
 bool IsActive() {
 	return GetGameID() != 0;
 }
@@ -593,6 +600,7 @@ void SetGame(const Path &path) {
 
 	// Apply pre-load settings.
 	rc_client_set_encore_mode_enabled(g_rcClient, g_Config.bAchievementsEncoreMode ? 1 : 0);
+	rc_client_set_unofficial_enabled(g_rcClient, g_Config.bAchievementsUnofficial ? 1 : 0);
 
 	rc_hash_init_custom_filereader(&rc_filereader);
 	rc_hash_init_default_cdreader();

@@ -32,8 +32,13 @@ void RetroAchievementsListScreen::CreateAchievementsTab(UI::ViewGroup *achieveme
 
 	using namespace UI;
 
+	int filter = RC_CLIENT_ACHIEVEMENT_CATEGORY_CORE;
+	if (Achievements::UnofficialEnabled()) {
+		filter = RC_CLIENT_ACHIEVEMENT_CATEGORY_CORE_AND_UNOFFICIAL;
+	}
+
 	rc_client_achievement_list_t *list = rc_client_create_achievement_list(Achievements::GetClient(),
-		RC_CLIENT_ACHIEVEMENT_CATEGORY_CORE_AND_UNOFFICIAL, RC_CLIENT_ACHIEVEMENT_LIST_GROUPING_LOCK_STATE);
+		filter, RC_CLIENT_ACHIEVEMENT_LIST_GROUPING_LOCK_STATE);
 
 	std::vector<const rc_client_achievement_t *> unlockedAchievements;
 	std::vector<const rc_client_achievement_t *> lockedAchievements;
@@ -269,8 +274,9 @@ void RetroAchievementsSettingsScreen::CreateSettingsTab(UI::ViewGroup *viewGroup
 	});
 	viewGroup->Add(new CheckBox(&g_Config.bAchievementsChallengeMode, ac->T("Challenge Mode (no savestates)")));
 	viewGroup->Add(new CheckBox(&g_Config.bAchievementsEncoreMode, ac->T("Encore Mode")));
+	viewGroup->Add(new CheckBox(&g_Config.bAchievementsUnofficial, ac->T("Unofficial achievements")));
 	viewGroup->Add(new CheckBox(&g_Config.bAchievementsRichPresence, ac->T("Rich Presence")))->SetEnabledPtr(&g_Config.bAchievementsEnable);
-	viewGroup->Add(new CheckBox(&g_Config.bAchievementsSoundEffects, ac->T("Sound Effects")))->SetEnabledPtr(&g_Config.bAchievementsEnable);  // not yet implemented
+	// viewGroup->Add(new CheckBox(&g_Config.bAchievementsSoundEffects, ac->T("Sound Effects")))->SetEnabledPtr(&g_Config.bAchievementsEnable);  // not yet implemented
 	viewGroup->Add(new CheckBox(&g_Config.bAchievementsLogBadMemReads, ac->T("Log bad memory accesses")))->SetEnabledPtr(&g_Config.bAchievementsEnable);
 
 	// TODO: What are these for?

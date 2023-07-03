@@ -269,6 +269,7 @@ static const ConfigSetting achievementSettings[] = {
 	ConfigSetting("AchievementsRichPresence", &g_Config.bAchievementsRichPresence, true, CfgFlag::DEFAULT),
 	ConfigSetting("AchievementsChallengeMode", &g_Config.bAchievementsChallengeMode, false, CfgFlag::DEFAULT),
 	ConfigSetting("AchievementsEncoreMode", &g_Config.bAchievementsEncoreMode, false, CfgFlag::DEFAULT),
+	ConfigSetting("AchievementsUnofficial", &g_Config.bAchievementsUnofficial, false, CfgFlag::DEFAULT),
 	ConfigSetting("AchievementsSoundEffects", &g_Config.bAchievementsSoundEffects, true, CfgFlag::DEFAULT),
 	ConfigSetting("AchievementsLogBadMemReads", &g_Config.bAchievementsLogBadMemReads, false, CfgFlag::DEFAULT),
 

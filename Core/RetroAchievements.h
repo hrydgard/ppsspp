@@ -57,6 +57,9 @@ bool IsBlockingExecution();
 /// Returns true if features such as save states should be disabled.
 bool ChallengeModeActive();
 
+// Returns true if unofficial achievements are enabled.
+bool UnofficialEnabled();
+
 // The new API is so much nicer that we can use it directly instead of wrapping it. So let's expose the client.
 // Will of course return nullptr if not active.
 rc_client_t *GetClient();
