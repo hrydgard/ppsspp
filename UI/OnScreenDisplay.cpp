@@ -99,9 +99,7 @@ static void RenderNotice(UIContext &dc, Bounds bounds, float height1, NoticeLeve
 
 	uint32_t foreGround = whiteAlpha(alpha);
 
-	Bounds shadowBounds = bounds.Expand(10.0f);
-
-	dc.Draw()->DrawImage4Grid(dc.theme->dropShadow4Grid, shadowBounds.x, shadowBounds.y + 4.0f, shadowBounds.x2(), shadowBounds.y2(), alphaMul(0xFF000000, 0.9f * alpha), 1.0f);
+	dc.DrawRectDropShadow(bounds, 12.0f, 0.7f * alpha);
 
 	dc.FillRect(background, bounds);
 
