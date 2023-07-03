@@ -288,7 +288,14 @@ void MeasureAchievement(const UIContext &dc, const rc_client_achievement_t *achi
 	*w = 0.0f;
 	switch (style) {
 	case AchievementRenderStyle::PROGRESS_INDICATOR:
+		dc.MeasureText(dc.theme->uiFont, 1.0f, 1.0f, achievement->measured_progress, w, h);
+		*w += 36.0f + 4.0f * 3.0f;
 		*h = 36.0f;
+		break;
+	case AchievementRenderStyle::CHALLENGE_INDICATOR:
+		// ONLY the icon.
+		*w = 60.0f;
+		*h = 60.0f;
 		break;
 	default:
 		*h = 72.0f;
@@ -331,41 +338,63 @@ void RenderAchievement(UIContext &dc, const rc_client_achievement_t *achievement
 		background.color = colorBlend(0xFFE0FFFF, background.color, mixWhite);
 	}
 
-	float iconSpace = 64.0f;
+	float padding = 4.0f;
+
+	float iconSpace = bounds.h - padding * 2.0f;
 	dc.Flush();
+	dc.RebindTexture();
 
 	dc.Begin();
+
+	dc.DrawRectDropShadow(bounds, 12.0f, 0.7f * alpha);
 	dc.FillRect(background, bounds);
+
+	dc.Flush();
+	dc.Begin();
 
 	dc.SetFontStyle(dc.theme->uiFont);
 
-	dc.SetFontScale(1.0f, 1.0f);
-	dc.DrawTextRect(achievement->title, bounds.Inset(iconSpace + 12.0f, 2.0f, 5.0f, 5.0f), fgColor, ALIGN_TOPLEFT);
-
-	dc.SetFontScale(0.66f, 0.66f);
-	dc.DrawTextRect(achievement->description, bounds.Inset(iconSpace + 12.0f, 39.0f, 5.0f, 5.0f), fgColor, ALIGN_TOPLEFT);
-
-	// TODO: Draw measured_progress / measured_percent in a cute way
-
 	char temp[512];
-	snprintf(temp, sizeof(temp), "%d", achievement->points);
 
-	dc.SetFontScale(1.5f, 1.5f);
-	dc.DrawTextRect(temp, bounds.Expand(-5.0f, -5.0f), fgColor, ALIGN_RIGHT | ALIGN_VCENTER);
+	switch (style) {
+	case AchievementRenderStyle::LISTED:
+	case AchievementRenderStyle::UNLOCKED:
+	{
+		dc.SetFontScale(1.0f, 1.0f);
+		dc.DrawTextRect(achievement->title, bounds.Inset(iconSpace + 12.0f, 2.0f, padding, padding), fgColor, ALIGN_TOPLEFT);
 
-	dc.SetFontScale(1.0f, 1.0f);
-	dc.Flush();
+		dc.SetFontScale(0.66f, 0.66f);
+		dc.DrawTextRect(achievement->description, bounds.Inset(iconSpace + 12.0f, 39.0f, padding, padding), fgColor, ALIGN_TOPLEFT);
+
+		// TODO: Draw measured_progress / measured_percent in a cute way
+		snprintf(temp, sizeof(temp), "%d", achievement->points);
+
+		dc.SetFontScale(1.5f, 1.5f);
+		dc.DrawTextRect(temp, bounds.Expand(-5.0f, -5.0f), fgColor, ALIGN_RIGHT | ALIGN_VCENTER);
+
+		dc.SetFontScale(1.0f, 1.0f);
+		dc.Flush();
+		break;
+	}
+	case AchievementRenderStyle::PROGRESS_INDICATOR:
+		// TODO: Also render a progress bar.
+		dc.SetFontScale(1.0f, 1.0f);
+		dc.DrawTextRect(achievement->measured_progress, bounds.Inset(iconSpace + padding * 2.0f, padding, padding, padding), fgColor, ALIGN_TOPLEFT);
+		break;
+	case AchievementRenderStyle::CHALLENGE_INDICATOR:
+		// Nothing but the icon.
+		break;
+	}
 
 	// Download and display the image.
 	if (RC_OK == rc_client_achievement_get_image_url(achievement, achievement->state, temp, sizeof(temp))) {
 		Achievements::DownloadImageIfMissing(achievement->badge_name, std::move(std::string(temp)));
 		if (g_iconCache.BindIconTexture(&dc, achievement->badge_name)) {
-			dc.Draw()->DrawTexRect(Bounds(bounds.x + 4.0f, bounds.y + 4.0f, iconSpace, iconSpace), 0.0f, 0.0f, 1.0f, 1.0f, whiteAlpha(alpha));
+			dc.Draw()->DrawTexRect(Bounds(bounds.x + padding, bounds.y + padding, iconSpace, iconSpace), 0.0f, 0.0f, 1.0f, 1.0f, whiteAlpha(alpha));
 		}
+		dc.Flush();
+		dc.RebindTexture();
 	}
-
-	dc.Flush();
-	dc.RebindTexture();
 }
 
 void RenderGameAchievementSummary(UIContext &dc, const Bounds &bounds, float alpha) {
@@ -504,7 +533,16 @@ void AchievementView::GetContentDimensions(const UIContext &dc, float &w, float 
 void AchievementView::Click() {
 	// In debug builds, clicking achievements will show them being unlocked (which may be a lie).
 #ifdef _DEBUG
-	g_OSD.ShowAchievementUnlocked(achievement_->id);
+	static int type = 0;
+	type++;
+	type = type % 4;
+	switch (type) {
+	case 0: g_OSD.ShowAchievementUnlocked(achievement_->id); break;
+	case 1: g_OSD.ShowAchievementProgress(achievement_->id, 2.0f); break;
+	case 2: g_OSD.ShowChallengeIndicator(achievement_->id, true); break;
+	case 3: g_OSD.ShowChallengeIndicator(achievement_->id, false); break;
+	}
+
 #endif
 }
 

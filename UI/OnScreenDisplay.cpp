@@ -102,7 +102,6 @@ static void RenderNotice(UIContext &dc, Bounds bounds, float height1, NoticeLeve
 	uint32_t foreGround = whiteAlpha(alpha);
 
 	dc.DrawRectDropShadow(bounds, 12.0f, 0.7f * alpha);
-
 	dc.FillRect(background, bounds);
 
 	ImageID iconID = GetOSDIcon(level);
@@ -161,9 +160,7 @@ static void MeasureOSDProgressBar(const UIContext &dc, const OnScreenDisplay::Pr
 static void RenderOSDProgressBar(UIContext &dc, const OnScreenDisplay::ProgressBar &entry, Bounds bounds, int align, float alpha) {
 	uint32_t foreGround = whiteAlpha(alpha);
 
-	Bounds shadowBounds = bounds.Expand(10.0f);
-
-	dc.Draw()->DrawImage4Grid(dc.theme->dropShadow4Grid, shadowBounds.x, shadowBounds.y + 4.0f, shadowBounds.x2(), shadowBounds.y2(), alphaMul(0xFF000000, 0.9f * alpha), 1.0f);
+	dc.DrawRectDropShadow(bounds, 12.0f, 0.7f * alpha);
 
 	uint32_t backgroundColor = colorAlpha(0x806050, alpha);
 	uint32_t progressBackgroundColor = colorAlpha(0xa08070, alpha);
@@ -199,6 +196,23 @@ static void RenderOSDProgressBar(UIContext &dc, const OnScreenDisplay::ProgressB
 	dc.DrawTextShadowRect(entry.message.c_str(), bounds, colorAlpha(0xFFFFFFFF, alpha), (align & FLAG_DYNAMIC_ASCII) | ALIGN_CENTER);
 }
 
+static void MeasureLeaderboardTracker(UIContext &dc, const std::string &text, float *width, float *height) {
+	dc.MeasureText(dc.GetFontStyle(), 1.0f, 1.0f, text.c_str(), width, height);
+	*width += 10.0f;
+	*height += 10.0f;
+}
+
+static void RenderLeaderboardTracker(UIContext &dc, const Bounds &bounds, const std::string &text, float alpha) {
+	// TODO: Awful color.
+	uint32_t backgroundColor = colorAlpha(0x806050, alpha);
+	UI::Drawable background = UI::Drawable(backgroundColor);
+	dc.DrawRectDropShadow(bounds, 12.0f, 0.7f * alpha);
+	dc.FillRect(background, bounds);
+	dc.SetFontStyle(dc.theme->uiFont);
+	dc.SetFontScale(1.0f, 1.0f);
+	dc.DrawTextShadowRect(text.c_str(), bounds.Inset(5.0f, 5.0f), colorAlpha(0xFFFFFFFF, alpha), ALIGN_VCENTER | ALIGN_LEFT);
+}
+
 void OnScreenMessagesView::Draw(UIContext &dc) {
 	if (!g_Config.bShowOnScreenMessages) {
 		return;
@@ -210,29 +224,63 @@ void OnScreenMessagesView::Draw(UIContext &dc) {
 
 	float y = 10.0f;
 
+	const float fadeoutCoef = 1.0f / OnScreenDisplay::FadeoutTime();
+
 	// Draw side entries. Top entries should apply on top of them if there's a collision, so drawing
 	// these first makes sense.
 	const std::vector<OnScreenDisplay::Entry> sideEntries = g_OSD.SideEntries();
 	for (auto &entry : sideEntries) {
 		float tw, th;
-		AchievementRenderStyle style = AchievementRenderStyle::PROGRESS_INDICATOR;
+
+		const rc_client_achievement_t *achievement = nullptr;
+		AchievementRenderStyle style;
 
 		switch (entry.type) {
 		case OSDType::ACHIEVEMENT_PROGRESS:
 		{
-			const rc_client_achievement_t *achievement = rc_client_get_achievement_info(Achievements::GetClient(), entry.numericID);
+			achievement = rc_client_get_achievement_info(Achievements::GetClient(), entry.numericID);
+			if (!achievement)
+				continue;
 			style = AchievementRenderStyle::PROGRESS_INDICATOR;
-			MeasureAchievement(dc, achievement, style,  &tw, &th);
+			MeasureAchievement(dc, achievement, style, &tw, &th);
+			break;
+		}
+		case OSDType::ACHIEVEMENT_CHALLENGE_INDICATOR:
+		{
+			achievement = rc_client_get_achievement_info(Achievements::GetClient(), entry.numericID);
+			if (!achievement)
+				continue;
+			style = AchievementRenderStyle::CHALLENGE_INDICATOR;
+			MeasureAchievement(dc, achievement, style, &tw, &th);
+			break;
+		}
+		case OSDType::LEADERBOARD_TRACKER:
+		{
+			MeasureLeaderboardTracker(dc, entry.text, &tw, &th);
 			break;
 		}
 		default:
 			continue;
 		}
 		Bounds b(10.0f, y, tw, th);
-		float alpha = Clamp((float)(entry.endTime - now) * 4.0f, 0.0f, 1.0f);
+		float alpha = Clamp((float)(entry.endTime - now) * fadeoutCoef, 0.0f, 1.0f);
 		// OK, render the thing.
-		y += (b.h + 4.0f) * alpha;  // including alpha here gets us smooth animations.
 
+		switch (entry.type) {
+		case OSDType::ACHIEVEMENT_PROGRESS:
+		case OSDType::ACHIEVEMENT_CHALLENGE_INDICATOR:
+		{
+			RenderAchievement(dc, achievement, style, b, alpha, entry.startTime, now);
+			break;
+		}
+		case OSDType::LEADERBOARD_TRACKER:
+			RenderLeaderboardTracker(dc, b, entry.text, alpha);
+			break;
+		default:
+			continue;
+		}
+
+		y += (b.h + 4.0f) * alpha;  // including alpha here gets us smooth animations.
 	}
 
 	// Get height

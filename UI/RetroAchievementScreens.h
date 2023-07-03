@@ -81,6 +81,7 @@ enum class AchievementRenderStyle {
 	LISTED,
 	UNLOCKED,
 	PROGRESS_INDICATOR,
+	CHALLENGE_INDICATOR,
 };
 
 void MeasureAchievement(const UIContext &dc, const rc_client_achievement_t *achievement, AchievementRenderStyle style, float *w, float *h);

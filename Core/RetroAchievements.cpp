@@ -50,10 +50,6 @@
 #include "Core/FileSystems/MetaFileSystem.h"
 #include "Core/RetroAchievements.h"
 
-void OSDAddNotification(float duration_s, const std::string &title, const std::string &summary, const std::string &iconImageData) {
-	g_OSD.Show(OSDType::MESSAGE_INFO, title, summary, iconImageData, 5.0f);
-}
-
 void OSDOpenBackgroundProgressDialog(const char *str_id, std::string message, s32 min, s32 max, s32 value) {
 	NOTICE_LOG(ACHIEVEMENTS, "Progress dialog opened: %s %s", str_id, message.c_str());
 	g_OSD.SetProgressBar(str_id, std::move(message), min, max, value);
@@ -66,17 +62,7 @@ void OSDUpdateBackgroundProgressDialog(const char *str_id, std::string message, 
 
 void OSDCloseBackgroundProgressDialog(const char *str_id) {
 	NOTICE_LOG(ACHIEVEMENTS, "Progress dialog closed: %s", str_id);
-	g_OSD.RemoveProgressBar(str_id, 0.25f);
-}
-
-void OSDAddErrorMessage(const char *str_id, std::string message, float duration) {
-	g_OSD.Show(OSDType::MESSAGE_ERROR, message);
-	NOTICE_LOG(ACHIEVEMENTS, "Keyed message: %s %s (%0.1f s)", str_id, message.c_str(), duration);
-}
-
-void OSDShowServerError(const rc_client_event_t *event) {
-	// TODO: Enable translation here.
-	g_OSD.Show(OSDType::MESSAGE_ERROR, "Server error");
+	g_OSD.RemoveProgressBar(str_id);
 }
 
 void OnAchievementsLoginStateChange() {
@@ -88,10 +74,6 @@ namespace Achievements {
 // It's the name of the secret, not a secret name - the value is not secret :)
 static const char *RA_TOKEN_SECRET_NAME = "retroachievements";
 
-static void SubmitLeaderboard(u32 leaderboard_id, int value);
-static void DisplayAchievementSummary();
-static void DisplayMasteredNotification();
-static void SetChallengeMode(bool enabled);
 static u32 GetGameID();
 
 static Achievements::Statistics g_stats;
@@ -244,36 +226,57 @@ static void login_token_callback(int result, const char *error_message, rc_clien
 
 // For detailed documentation, see https://github.com/RetroAchievements/rcheevos/wiki/rc_client_set_event_handler.
 static void event_handler_callback(const rc_client_event_t *event, rc_client_t *client) {
-	NOTICE_LOG(ACHIEVEMENTS, "rc_client event: %d", event->type);
+	auto ac = GetI18NCategory(I18NCat::ACHIEVEMENTS);
+
 	switch (event->type) {
 	case RC_CLIENT_EVENT_ACHIEVEMENT_TRIGGERED:
 		// An achievement was earned by the player. The handler should notify the player that the achievement was earned.
 		g_OSD.ShowAchievementUnlocked(event->achievement->id);
+		INFO_LOG(ACHIEVEMENTS, "Achievement unlocked: '%s' (%d)", event->achievement->title, event->achievement->id);
 		break;
 	case RC_CLIENT_EVENT_GAME_COMPLETED:
+	{
 		// All achievements for the game have been earned. The handler should notify the player that the game was completed or mastered, depending on challenge mode.
-		DisplayMasteredNotification();
+		auto ac = GetI18NCategory(I18NCat::ACHIEVEMENTS);
+
+		const rc_client_game_t *gameInfo = rc_client_get_game_info(g_rcClient);
+
+		// TODO: Translation?
+		std::string title = ReplaceAll(ac->T("Mastered %1"), "%1", gameInfo->title);
+		rc_client_user_game_summary_t summary;
+		rc_client_get_user_game_summary(g_rcClient, &summary);
+
+		std::string message = StringFromFormat(ac->T("%d achievements"), summary.num_unlocked_achievements);
+
+		g_OSD.Show(OSDType::MESSAGE_INFO, title, message, gameInfo->badge_name, 10.0f);
+
+		INFO_LOG(ACHIEVEMENTS, "%s", message.c_str());
 		break;
+	}
 	case RC_CLIENT_EVENT_LEADERBOARD_STARTED:
 		// A leaderboard attempt has started. The handler may show a message with the leaderboard title and /or description indicating the attempt started.
-		NOTICE_LOG(ACHIEVEMENTS, "Leaderboard attempt started: %s", event->leaderboard->title);
+		INFO_LOG(ACHIEVEMENTS, "Leaderboard attempt started: %s", event->leaderboard->title);
+		g_OSD.Show(OSDType::MESSAGE_INFO, ReplaceAll(ac->T("%1: Leaderboard attempt started"), "%1", event->leaderboard->title), event->leaderboard->description, 3.0f);
 		break;
 	case RC_CLIENT_EVENT_LEADERBOARD_FAILED:
 		NOTICE_LOG(ACHIEVEMENTS, "Leaderboard attempt failed: %s", event->leaderboard->title);
+		g_OSD.Show(OSDType::MESSAGE_INFO, ReplaceAll(ac->T("%1: Failed"), "%1", event->leaderboard->title), 3.0f);
 		// A leaderboard attempt has failed.
 		break;
 	case RC_CLIENT_EVENT_LEADERBOARD_SUBMITTED:
 		NOTICE_LOG(ACHIEVEMENTS, "Leaderboard result submitted: %s", event->leaderboard->title);
+		g_OSD.Show(OSDType::MESSAGE_SUCCESS, ReplaceAll(ac->T("%1: Submitting successful score!"), "%1", event->leaderboard->title), event->leaderboard->description, 3.0f);
 		// A leaderboard attempt was completed.The handler may show a message with the leaderboard title and /or description indicating the final value being submitted to the server.
 		break;
 	case RC_CLIENT_EVENT_ACHIEVEMENT_CHALLENGE_INDICATOR_SHOW:
 		NOTICE_LOG(ACHIEVEMENTS, "Challenge indicator show: %s", event->achievement->title);
+		g_OSD.ShowChallengeIndicator(event->achievement->id, true);
 		// A challenge achievement has become active. The handler should show a small version of the achievement icon
 		// to indicate the challenge is active.
 		break;
 	case RC_CLIENT_EVENT_ACHIEVEMENT_CHALLENGE_INDICATOR_HIDE:
 		NOTICE_LOG(ACHIEVEMENTS, "Challenge indicator hide: %s", event->achievement->title);
-		// A challenge achievement has become inactive.
+		g_OSD.ShowChallengeIndicator(event->achievement->id, false);
 		// The handler should hide the small version of the achievement icon that was shown by the corresponding RC_CLIENT_EVENT_ACHIEVEMENT_CHALLENGE_INDICATOR_SHOW event.
 		break;
 	case RC_CLIENT_EVENT_ACHIEVEMENT_PROGRESS_INDICATOR_SHOW:
@@ -290,22 +293,26 @@ static void event_handler_callback(const rc_client_event_t *event, rc_client_t *
 		// Multiple active leaderboards may share a single tracker if they have the same definition and value.
 		// As such, the leaderboard tracker IDs are unique amongst the leaderboard trackers, and have no correlation to the active leaderboard(s).
 		// Use event->leaderboard_tracker->id for uniqueness checks, and display event->leaderboard_tracker->display (string)
+		g_OSD.ShowLeaderboardTracker(event->leaderboard_tracker->id, event->leaderboard_tracker->display, true);
 		break;
 	case RC_CLIENT_EVENT_LEADERBOARD_TRACKER_HIDE:
-		// A leaderboard_tracker has become inactive.The handler should hide the tracker text from the screen.
+		// A leaderboard_tracker has become inactive. The handler should hide the tracker text from the screen.
 		NOTICE_LOG(ACHIEVEMENTS, "Leaderboard tracker hide: %s", event->leaderboard_tracker->display);
+		g_OSD.ShowLeaderboardTracker(event->leaderboard_tracker->id, nullptr, false);
 		break;
 	case RC_CLIENT_EVENT_LEADERBOARD_TRACKER_UPDATE:
 		// A leaderboard_tracker value has been updated. The handler should update the tracker text on the screen.
 		NOTICE_LOG(ACHIEVEMENTS, "Leaderboard tracker update: %s", event->leaderboard_tracker->display);
+		g_OSD.ShowLeaderboardTracker(event->leaderboard_tracker->id, event->leaderboard_tracker->display, false);
 		break;
 	case RC_CLIENT_EVENT_RESET:
+		WARN_LOG(ACHIEVEMENTS, "Resetting game due to achievement setting change!");
 		// Challenge mode was enabled, or something else that forces a game reset.
 		System_PostUIMessage("reset", "");
 		break;
 	case RC_CLIENT_EVENT_SERVER_ERROR:
 		ERROR_LOG(ACHIEVEMENTS, "Server error: %s: %s", event->server_error->api, event->server_error->error_message);
-		OSDShowServerError(event);
+		g_OSD.Show(OSDType::MESSAGE_ERROR, "Server error");
 		break;
 	default:
 		WARN_LOG(ACHIEVEMENTS, "Unhandled rc_client event %d, ignoring", event->type);
@@ -528,22 +535,6 @@ std::string GetGameAchievementSummary() {
 	return summaryString;
 }
 
-void DisplayMasteredNotification() {
-	auto ac = GetI18NCategory(I18NCat::ACHIEVEMENTS);
-
-	const rc_client_game_t *gameInfo = rc_client_get_game_info(g_rcClient);
-
-	// TODO: Translation?
-	std::string title = ReplaceAll(ac->T("Mastered %1"), "%1", gameInfo->title);
-	rc_client_user_game_summary_t summary;
-	rc_client_get_user_game_summary(g_rcClient, &summary);
-
-	std::string message = StringFromFormat(ac->T("%d achievements"), summary.num_unlocked_achievements);
-
-	OSDAddNotification(20.0f, title, message, gameInfo->badge_name);
-	NOTICE_LOG(ACHIEVEMENTS, "%s", message.c_str());
-}
-
 void identify_and_load_callback(int result, const char *error_message, rc_client_t *client, void *userdata) {
 	auto ac = GetI18NCategory(I18NCat::ACHIEVEMENTS);
 
@@ -562,7 +553,7 @@ void identify_and_load_callback(int result, const char *error_message, rc_client
 		if (RC_OK == rc_client_game_get_image_url(gameInfo, temp, sizeof(temp))) {
 			Achievements::DownloadImageIfMissing(cacheId, std::move(std::string(temp)));
 		}
-		OSDAddNotification(10.0f, std::string(gameInfo->title), GetGameAchievementSummary(), cacheId);
+		g_OSD.Show(OSDType::MESSAGE_INFO, std::string(gameInfo->title), GetGameAchievementSummary(), cacheId, 5.0f);
 		break;
 	}
 	case RC_NO_GAME_LOADED:

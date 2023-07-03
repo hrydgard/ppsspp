@@ -17,11 +17,9 @@ enum class OSDType {
 	ACHIEVEMENT_UNLOCKED,
 
 	// Side entries
-	ACHIEVEMENT_PROGRESS,
-	ACHIEVEMENT_CHALLENGE_INDICATOR,
-
-	// PROGRESS_BAR,
-	// PROGRESS_INDETERMINATE,
+	ACHIEVEMENT_PROGRESS,  // Achievement icon + "measured_progress" text, auto-hide after 2s
+	ACHIEVEMENT_CHALLENGE_INDICATOR,  // Achievement icon ONLY, no auto-hide
+	LEADERBOARD_TRACKER,
 };
 
 // Data holder for on-screen messages.
@@ -35,9 +33,6 @@ public:
 		Show(type, text, text2, "", duration_s, id);
 	}
 	void Show(OSDType type, const std::string &text, const std::string &text2, const std::string &icon, float duration_s = 0.0f, const char *id = nullptr);
-	void ShowAchievementUnlocked(int achievementID);
-
-	void ShowAchievementProgress(int achievementID, float duration_s);
 
 	void ShowOnOff(const std::string &message, bool on, float duration_s = 0.0f);
 
@@ -46,10 +41,17 @@ public:
 	// Call this every frame, cleans up old entries.
 	void Update();
 
+	// Specialized achievement-related types. These go to the side notifications, not the top-middle.
+	void ShowAchievementUnlocked(int achievementID);
+	void ShowAchievementProgress(int achievementID, float duration_s);
+	void ShowChallengeIndicator(int achievementID, bool show);  // call with show=false to hide.
+	void ShowLeaderboardTracker(int leaderboardTrackerID, const char *trackerText, bool show);   // show=true is used both for create and update.
+
 	// Progress bar controls
-	// Set is both create and update.
+	// Set is both create and update. If you set maxValue <= minValue, you'll create an "indeterminate" progress
+	// bar that doesn't show a specific amount of progress.
 	void SetProgressBar(std::string id, std::string &&message, int minValue, int maxValue, int progress);
-	void RemoveProgressBar(std::string id, float fadeout_s);
+	void RemoveProgressBar(std::string id);
 
 	struct Entry {
 		OSDType type;
@@ -74,6 +76,8 @@ public:
 	std::vector<Entry> Entries();
 	std::vector<Entry> SideEntries();
 	std::vector<ProgressBar> ProgressBars();
+
+	static float FadeoutTime() { return 0.25f; }
 
 private:
 	std::vector<Entry> entries_;
