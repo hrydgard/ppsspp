@@ -288,8 +288,8 @@ void MeasureAchievement(const UIContext &dc, const rc_client_achievement_t *achi
 	switch (style) {
 	case AchievementRenderStyle::PROGRESS_INDICATOR:
 		dc.MeasureText(dc.theme->uiFont, 1.0f, 1.0f, achievement->measured_progress, w, h);
-		*w += 36.0f + 4.0f * 3.0f;
-		*h = 36.0f;
+		*w += 44.0f + 4.0f * 3.0f;
+		*h = 44.0f;
 		break;
 	case AchievementRenderStyle::CHALLENGE_INDICATOR:
 		// ONLY the icon.
@@ -303,11 +303,14 @@ void MeasureAchievement(const UIContext &dc, const rc_client_achievement_t *achi
 }
 
 void MeasureGameAchievementSummary(const UIContext &dc, float *w, float *h) {
-	*w = 0.0f;
-	*h = 72.0f;
-	if (Achievements::ChallengeModeActive()) {
-		*h += 20.0f;
-	}
+	std::string description = Achievements::GetGameAchievementSummary();
+
+	float tw, th;
+	dc.MeasureText(dc.theme->uiFont, 1.0f, 1.0f, "Wg", &tw, &th);
+
+	dc.MeasureText(dc.theme->uiFont, 0.66f, 0.66f, description.c_str(), w, h);
+	*h += 12.0f + th;
+	*w += 8.0f;
 }
 
 void MeasureLeaderboardSummary(const UIContext &dc, const rc_client_leaderboard_t *leaderboard, float *w, float *h) {
@@ -324,13 +327,22 @@ void MeasureLeaderboardEntry(const UIContext &dc, const rc_client_leaderboard_en
 void RenderAchievement(UIContext &dc, const rc_client_achievement_t *achievement, AchievementRenderStyle style, const Bounds &bounds, float alpha, float startTime, float time_s) {
 	using namespace UI;
 	UI::Drawable background = UI::Drawable(dc.theme->backgroundColor);
+
+	// Set some alpha, if displayed in list.
+	if (style == AchievementRenderStyle::LISTED) {
+		background.color = colorAlpha(background.color, 0.6f);
+	}
+
 	if (!achievement->unlocked) {
 		// Make the background color gray.
 		// TODO: Different colors in challenge mode, or even in the "re-take achievements" mode when we add that?
-		background.color = 0x706060;
+		background.color = (background.color & 0xFF000000) | 0x706060;
 	}
-	background.color = colorAlpha(background.color, alpha);
-	uint32_t fgColor = colorAlpha(dc.theme->itemStyle.fgColor, alpha);
+
+	int iconState = achievement->state;
+
+	background.color = alphaMul(background.color, alpha);
+	uint32_t fgColor = alphaMul(dc.theme->itemStyle.fgColor, alpha);
 
 	if (style == AchievementRenderStyle::UNLOCKED) {
 		float mixWhite = pow(Clamp((float)(1.0f - (time_s - startTime)), 0.0f, 1.0f), 3.0f);
@@ -345,7 +357,10 @@ void RenderAchievement(UIContext &dc, const rc_client_achievement_t *achievement
 
 	dc.Begin();
 
-	dc.DrawRectDropShadow(bounds, 12.0f, 0.7f * alpha);
+	if (style != AchievementRenderStyle::LISTED) {
+		dc.DrawRectDropShadow(bounds, 12.0f, 0.7f * alpha);
+	}
+
 	dc.FillRect(background, bounds);
 
 	dc.Flush();
@@ -365,6 +380,11 @@ void RenderAchievement(UIContext &dc, const rc_client_achievement_t *achievement
 		dc.SetFontScale(0.66f, 0.66f);
 		dc.DrawTextRect(achievement->description, bounds.Inset(iconSpace + 12.0f, 39.0f, padding, padding), fgColor, ALIGN_TOPLEFT);
 
+		if (style == AchievementRenderStyle::LISTED && strlen(achievement->measured_progress) > 0) {
+			dc.SetFontScale(1.0f, 1.0f);
+			dc.DrawTextRect(achievement->measured_progress, bounds.Inset(iconSpace + 12.0f, padding, padding + 100.0f, padding), fgColor, ALIGN_VCENTER | ALIGN_RIGHT);
+		}
+
 		// TODO: Draw measured_progress / measured_percent in a cute way
 		snprintf(temp, sizeof(temp), "%d", achievement->points);
 
@@ -378,17 +398,22 @@ void RenderAchievement(UIContext &dc, const rc_client_achievement_t *achievement
 	case AchievementRenderStyle::PROGRESS_INDICATOR:
 		// TODO: Also render a progress bar.
 		dc.SetFontScale(1.0f, 1.0f);
-		dc.DrawTextRect(achievement->measured_progress, bounds.Inset(iconSpace + padding * 2.0f, padding, padding, padding), fgColor, ALIGN_TOPLEFT);
+		dc.DrawTextRect(achievement->measured_progress, bounds.Inset(iconSpace + padding * 2.0f, padding, padding, padding), fgColor, ALIGN_LEFT | ALIGN_VCENTER);
+		// Show the unlocked icon.
+		iconState = RC_CLIENT_ACHIEVEMENT_STATE_UNLOCKED;
 		break;
 	case AchievementRenderStyle::CHALLENGE_INDICATOR:
-		// Nothing but the icon.
+		// Nothing but the icon, unlocked.
+		iconState = RC_CLIENT_ACHIEVEMENT_STATE_UNLOCKED;
 		break;
 	}
 
 	// Download and display the image.
-	if (RC_OK == rc_client_achievement_get_image_url(achievement, achievement->state, temp, sizeof(temp))) {
-		Achievements::DownloadImageIfMissing(achievement->badge_name, std::move(std::string(temp)));
-		if (g_iconCache.BindIconTexture(&dc, achievement->badge_name)) {
+	char cacheKey[256];
+	snprintf(cacheKey, sizeof(cacheKey), "ai:%s:%s", achievement->badge_name, iconState == RC_CLIENT_ACHIEVEMENT_STATE_UNLOCKED ? "unlocked" : "locked");
+	if (RC_OK == rc_client_achievement_get_image_url(achievement, iconState, temp, sizeof(temp))) {
+		Achievements::DownloadImageIfMissing(cacheKey, std::move(std::string(temp)));
+		if (g_iconCache.BindIconTexture(&dc, cacheKey)) {
 			dc.Draw()->DrawTexRect(Bounds(bounds.x + padding, bounds.y + padding, iconSpace, iconSpace), 0.0f, 0.0f, 1.0f, 1.0f, whiteAlpha(alpha));
 		}
 		dc.Flush();
@@ -424,10 +449,12 @@ void RenderGameAchievementSummary(UIContext &dc, const Bounds &bounds, float alp
 	dc.SetFontScale(1.0f, 1.0f);
 	dc.Flush();
 
-	char temp[512];
-	if (RC_OK == rc_client_game_get_image_url(gameInfo, temp, sizeof(temp))) {
-		Achievements::DownloadImageIfMissing(gameInfo->badge_name, std::move(std::string(temp)));
-		if (g_iconCache.BindIconTexture(&dc, gameInfo->badge_name)) {
+	char url[512];
+	char cacheKey[256];
+	snprintf(cacheKey, sizeof(cacheKey), "gi:%s", gameInfo->badge_name);
+	if (RC_OK == rc_client_game_get_image_url(gameInfo, url, sizeof(url))) {
+		Achievements::DownloadImageIfMissing(cacheKey, std::move(std::string(url)));
+		if (g_iconCache.BindIconTexture(&dc, cacheKey)) {
 			dc.Draw()->DrawTexRect(Bounds(bounds.x, bounds.y, iconSpace, iconSpace), 0.0f, 0.0f, 1.0f, 1.0f, whiteAlpha(alpha));
 		}
 	}
@@ -507,12 +534,12 @@ void RenderLeaderboardEntry(UIContext &dc, const rc_client_leaderboard_entry_t *
 	dc.Flush();
 
 	// Come up with a unique name for the icon entry.
-	char entryName[256];
-	snprintf(entryName, sizeof(entryName), "lbe:%s", entry->user);
+	char cacheKey[256];
+	snprintf(cacheKey, sizeof(cacheKey), "lbe:%s", entry->user);
 	char temp[512];
 	if (RC_OK == rc_client_leaderboard_entry_get_user_image_url(entry, temp, sizeof(temp))) {
-		Achievements::DownloadImageIfMissing(entryName, std::move(std::string(temp)));
-		if (g_iconCache.BindIconTexture(&dc, entryName)) {
+		Achievements::DownloadImageIfMissing(cacheKey, std::move(std::string(temp)));
+		if (g_iconCache.BindIconTexture(&dc, cacheKey)) {
 			dc.Draw()->DrawTexRect(Bounds(bounds.x + iconLeft, bounds.y + 4.0f, 64.0f, 64.0f), 0.0f, 0.0f, 1.0f, 1.0f, whiteAlpha(alpha));
 		}
 	}

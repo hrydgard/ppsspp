@@ -294,7 +294,7 @@ static void event_handler_callback(const rc_client_event_t *event, rc_client_t *
 		// The handler should hide the small version of the achievement icon that was shown by the corresponding RC_CLIENT_EVENT_ACHIEVEMENT_CHALLENGE_INDICATOR_SHOW event.
 		break;
 	case RC_CLIENT_EVENT_ACHIEVEMENT_PROGRESS_INDICATOR_SHOW:
-		NOTICE_LOG(ACHIEVEMENTS, "Progress indicator show (temporarily): %s", event->achievement->title);
+		NOTICE_LOG(ACHIEVEMENTS, "Progress indicator show: %s, progress: '%s' (%f)", event->achievement->title, event->achievement->measured_progress, event->achievement->measured_percent);
 		// An achievement that tracks progress has changed the amount of progress that has been made.
 		// The handler should show a small version of the achievement icon along with the achievement->measured_progress text (for two seconds).
 		// Only one progress indicator should be shown at a time.
