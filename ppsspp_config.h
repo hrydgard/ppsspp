@@ -19,7 +19,11 @@
 
 #if defined(_M_X64) || defined(__amd64__) || defined(__x86_64__)
     #define PPSSPP_ARCH_AMD64 1
-    #define PPSSPP_ARCH_64BIT 1
+    #if defined(__ILP32__)
+        #define PPSSPP_ARCH_32BIT 1
+    #else
+        #define PPSSPP_ARCH_64BIT 1
+    #endif
     //TODO: Remove this compat define
     #ifndef _M_X64
         #define _M_X64 1
