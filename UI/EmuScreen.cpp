@@ -1495,50 +1495,52 @@ void EmuScreen::render() {
 
 	Core_UpdateDebugStats(g_Config.bShowDebugStats || g_Config.bLogFrameDrops);
 
-	PSP_BeginHostFrame();
+	bool blockedExecution = Achievements::IsBlockingExecution();
+	if (!blockedExecution) {
+		PSP_BeginHostFrame();
+		PSP_RunLoopWhileState();
 
-	PSP_RunLoopWhileState();
-
-	// Hopefully coreState is now CORE_NEXTFRAME
-	switch (coreState) {
-	case CORE_NEXTFRAME:
-		// Reached the end of the frame, all good. Set back to running for the next frame
-		coreState = CORE_RUNNING;
-		break;
-	case CORE_STEPPING:
-	case CORE_RUNTIME_ERROR:
-	{
-		// If there's an exception, display information.
-		const MIPSExceptionInfo &info = Core_GetExceptionInfo();
-		if (info.type != MIPSExceptionType::NONE) {
-			// Clear to blue background screen
-			bool dangerousSettings = !Reporting::IsSupported();
-			uint32_t color = dangerousSettings ? 0xFF900050 : 0xFF900000;
-			thin3d->BindFramebufferAsRenderTarget(nullptr, { RPAction::CLEAR, RPAction::DONT_CARE, RPAction::DONT_CARE, color }, "EmuScreen_RuntimeError");
-			// The info is drawn later in renderUI
-		} else {
-			// If we're stepping, it's convenient not to clear the screen entirely, so we copy display to output.
-			// This won't work in non-buffered, but that's fine.
-			thin3d->BindFramebufferAsRenderTarget(nullptr, { RPAction::CLEAR, RPAction::DONT_CARE, RPAction::DONT_CARE }, "EmuScreen_Stepping");
-			// Just to make sure.
-			if (PSP_IsInited()) {
-				gpu->CopyDisplayToOutput(true);
+		// Hopefully coreState is now CORE_NEXTFRAME
+		switch (coreState) {
+		case CORE_NEXTFRAME:
+			// Reached the end of the frame, all good. Set back to running for the next frame
+			coreState = CORE_RUNNING;
+			break;
+		case CORE_STEPPING:
+		case CORE_RUNTIME_ERROR:
+		{
+			// If there's an exception, display information.
+			const MIPSExceptionInfo &info = Core_GetExceptionInfo();
+			if (info.type != MIPSExceptionType::NONE) {
+				// Clear to blue background screen
+				bool dangerousSettings = !Reporting::IsSupported();
+				uint32_t color = dangerousSettings ? 0xFF900050 : 0xFF900000;
+				thin3d->BindFramebufferAsRenderTarget(nullptr, { RPAction::CLEAR, RPAction::DONT_CARE, RPAction::DONT_CARE, color }, "EmuScreen_RuntimeError");
+				// The info is drawn later in renderUI
+			} else {
+				// If we're stepping, it's convenient not to clear the screen entirely, so we copy display to output.
+				// This won't work in non-buffered, but that's fine.
+				thin3d->BindFramebufferAsRenderTarget(nullptr, { RPAction::CLEAR, RPAction::DONT_CARE, RPAction::DONT_CARE }, "EmuScreen_Stepping");
+				// Just to make sure.
+				if (PSP_IsInited()) {
+					gpu->CopyDisplayToOutput(true);
+				}
 			}
+			break;
 		}
-		break;
-	}
-	default:
-		// Didn't actually reach the end of the frame, ran out of the blockTicks cycles.
-		// In this case we need to bind and wipe the backbuffer, at least.
-		// It's possible we never ended up outputted anything - make sure we have the backbuffer cleared
-		thin3d->BindFramebufferAsRenderTarget(nullptr, { RPAction::CLEAR, RPAction::CLEAR, RPAction::CLEAR }, "EmuScreen_NoFrame");
-		break;
-	}
+		default:
+			// Didn't actually reach the end of the frame, ran out of the blockTicks cycles.
+			// In this case we need to bind and wipe the backbuffer, at least.
+			// It's possible we never ended up outputted anything - make sure we have the backbuffer cleared
+			thin3d->BindFramebufferAsRenderTarget(nullptr, { RPAction::CLEAR, RPAction::CLEAR, RPAction::CLEAR }, "EmuScreen_NoFrame");
+			break;
+		}
 
-	PSP_EndHostFrame();
+		PSP_EndHostFrame();
 
-	// This must happen after PSP_EndHostFrame so that things like push buffers are end-frame'd before we start destroying stuff.
-	checkPowerDown();
+		// This must happen after PSP_EndHostFrame so that things like push buffers are end-frame'd before we start destroying stuff.
+		checkPowerDown();
+	}
 
 	if (invalid_)
 		return;

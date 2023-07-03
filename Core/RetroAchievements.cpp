@@ -104,6 +104,8 @@ std::string s_game_hash;
 
 bool g_challengeMode = true;
 
+bool g_isIdentifying = false;
+
 // rc_client implementation
 static rc_client_t *g_rcClient;
 
@@ -130,6 +132,10 @@ bool EncoreModeActive() {
 
 bool IsActive() {
 	return GetGameID() != 0;
+}
+
+bool IsBlockingExecution() {
+	return g_isIdentifying;
 }
 
 u32 GetGameID() {
@@ -561,6 +567,8 @@ void identify_and_load_callback(int result, const char *error_message, rc_client
 		ERROR_LOG(ACHIEVEMENTS, "Failed to identify/load game: %d (%s)", result, error_message);
 		break;
 	}
+
+	g_isIdentifying = false;
 }
 
 void SetGame(const Path &path) {
@@ -579,6 +587,9 @@ void SetGame(const Path &path) {
 	rc_filereader.tell = [](void *file_handle) -> int64_t { return (int64_t)ftell((FILE *)file_handle); };
 	rc_filereader.read = [](void *file_handle, void *buffer, size_t requested_bytes) -> size_t { return fread(buffer, 1, requested_bytes, (FILE *)file_handle); };
 	rc_filereader.close = [](void *file_handle) { fclose((FILE *)file_handle); };
+
+	// The caller should hold off on executing game code until this turns false, checking with IsBlockingExecution()
+	g_isIdentifying = true;
 
 	// Apply pre-load settings.
 	rc_client_set_encore_mode_enabled(g_rcClient, g_Config.bAchievementsEncoreMode ? 1 : 0);

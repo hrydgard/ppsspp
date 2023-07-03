@@ -51,6 +51,9 @@ bool IsLoggedIn();
 // Returns true if in a game, and achievements are active in the current game.
 bool IsActive();
 
+// Returns true if the emulator should hold off on executing game code, such as during game identification.
+bool IsBlockingExecution();
+
 /// Returns true if features such as save states should be disabled.
 bool ChallengeModeActive();
 
