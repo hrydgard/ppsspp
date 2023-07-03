@@ -984,8 +984,11 @@ void CtrlDisAsmView::onMouseUp(WPARAM wParam, LPARAM lParam, int button)
 				ScanRemoveWindow srw(wnd, debugger);
 				if (srw.exec()) {
 					srw.eval();
+					SendMessage(GetParent(wnd), WM_DEB_MAPLOADED, 0, 0);
+					redraw();
 				}
 			}
+			break;
 		case ID_DISASM_SETPCTOHERE:
 			debugger->setPC(curAddress);
 			redraw();
