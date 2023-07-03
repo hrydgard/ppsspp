@@ -543,9 +543,7 @@ static inline void GetTextureCoordinatesProj(const VertexData& v0, const VertexD
 	float wq0 = p * q0;
 	float wq1 = (1.0f - p) * q1;
 
-	float q_recip = 1.0f / (wq0 + wq1);
-	float q = (v0.texturecoords.q() * wq0 + v1.texturecoords.q() * wq1) * q_recip;
-	q_recip *= 1.0f / q;
+	float q_recip = 1.0f / (v0.texturecoords.q() * wq0 + v1.texturecoords.q() * wq1);
 
 	s = (v0.texturecoords.s() * wq0 + v1.texturecoords.s() * wq1) * q_recip;
 	t = (v0.texturecoords.t() * wq0 + v1.texturecoords.t() * wq1) * q_recip;
@@ -574,9 +572,9 @@ static inline void GetTextureCoordinatesProj(const VertexData &v0, const VertexD
 	Vec4<float> wq1 = w1.Cast<float>() * q1;
 	Vec4<float> wq2 = w2.Cast<float>() * q2;
 
-	Vec4<float> q_recip = (wq0 + wq1 + wq2).Reciprocal();
-	Vec4<float> q = Interpolate(v0.texturecoords.q(), v1.texturecoords.q(), v2.texturecoords.q(), wq0, wq1, wq2, q_recip);
-	q_recip = q_recip * q.Reciprocal();
+	// Here, Interpolate() is a bit suboptimal, since
+	// there's no need to multiply by 1.0f.
+	Vec4<float> q_recip = Interpolate(v0.texturecoords.q(), v1.texturecoords.q(), v2.texturecoords.q(), wq0, wq1, wq2, Vec4<float>::AssignToAll(1.0f)).Reciprocal();
 
 	s = Interpolate(v0.texturecoords.s(), v1.texturecoords.s(), v2.texturecoords.s(), wq0, wq1, wq2, q_recip);
 	t = Interpolate(v0.texturecoords.t(), v1.texturecoords.t(), v2.texturecoords.t(), wq0, wq1, wq2, q_recip);
