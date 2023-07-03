@@ -61,6 +61,7 @@
 #define IDD_GEDBG_TAB_MATRICES          255
 #define IDD_GEDBG_STEPCOUNT             256
 #define IDD_CPUWATCH                    257
+#define IDD_SCANREMOVE                  258
 
 #define IDC_STOPGO                      1001
 #define IDC_ADDRESS                     1002
@@ -352,6 +353,7 @@
 #define IDC_DISASM_FMT_INT               40233
 #define IDC_DISASM_FMT_FLOAT             40234
 #define IDC_DISASM_FMT_STR               40235
+#define ID_DISASM_SCANREMOVE             40236
 
 
 // Dummy option to let the buffered rendering hotkey cycle through all the options.
