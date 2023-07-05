@@ -679,22 +679,24 @@ struct DebugProfilerRegs {
 	u32 local_bus;
 };
 
-static u32 sceKernelReferThreadProfiler(u32 unused) {
+static u32 sceKernelReferThreadProfiler() {
 	// This seems to simply has no parameter:
 	// https://pspdev.github.io/pspsdk/group__ThreadMan.html#ga8fd30da51b9dc0507ac4dae04a7e4a17 , 
 	// And in testing it just returns null in 55 usec (which is surprisingly long).
 
 	// So, we log only if debug logging is enabled, and sleep for a bit.
-	DEBUG_LOG(SCEKERNEL, "sceKernelReferThreadProfiler(%08x)", unused);
+	DEBUG_LOG(SCEKERNEL, "0=sceKernelReferThreadProfiler()");
 
-	// The delay has been measured, 53-56.
-	return hleDelayResult(0, "refer_thread_profiler", 55);
+	// The delay has been measured, 53-56 us.
+	hleEatMicro(55);
+	return 0;
 }
 
-static int sceKernelReferGlobalProfiler(u32 unused) {
-	DEBUG_LOG(SCEKERNEL, "sceKernelReferGlobalProfiler(%08x)", unused);
-	// The delay has been measured, 53-56.
-	return hleDelayResult(0, "refer_thread_profiler", 55);
+static int sceKernelReferGlobalProfiler() {
+	DEBUG_LOG(SCEKERNEL, "0=sceKernelReferGlobalProfiler()");
+	// The delay has been measured, 53-56 us.
+	hleEatMicro(55);
+	return 0;
 }
 
 const HLEFunction ThreadManForUser[] =
@@ -779,9 +781,9 @@ const HLEFunction ThreadManForUser[] =
 	{0XDB738F35, &WrapI_U<sceKernelGetSystemTime>,                   "sceKernelGetSystemTime",                    'i', "x"       },
 	{0X369ED59D, &WrapU_V<sceKernelGetSystemTimeLow>,                "sceKernelGetSystemTimeLow",                 'x', ""        },
 
-	{0X8218B4DD, &WrapI_U<sceKernelReferGlobalProfiler>,             "sceKernelReferGlobalProfiler",              'i', "x"       },
+	{0X8218B4DD, &WrapI_V<sceKernelReferGlobalProfiler>,             "sceKernelReferGlobalProfiler",              'i', ""       },
 	{0X627E6F3A, &WrapI_U<sceKernelReferSystemStatus>,               "sceKernelReferSystemStatus",                'i', "x"       },
-	{0X64D4540E, &WrapU_U<sceKernelReferThreadProfiler>,             "sceKernelReferThreadProfiler",              'x', "x"       },
+	{0X64D4540E, &WrapU_V<sceKernelReferThreadProfiler>,             "sceKernelReferThreadProfiler",              'x', ""       },
 
 	//Fifa Street 2 uses alarms
 	{0X6652B8CA, &WrapI_UUU<sceKernelSetAlarm>,                      "sceKernelSetAlarm",                         'i', "xxx"     },
