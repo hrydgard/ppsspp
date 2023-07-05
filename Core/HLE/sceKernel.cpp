@@ -655,6 +655,7 @@ static int sceKernelReferSystemStatus(u32 statusPtr) {
 	return 0;
 }
 
+// Unused - believed to be the returned struct from sceKernelReferThreadProfiler.
 struct DebugProfilerRegs {
 	u32 enable;
 	u32 systemck;
@@ -678,24 +679,22 @@ struct DebugProfilerRegs {
 	u32 local_bus;
 };
 
-static u32 sceKernelReferThreadProfiler(u32 statusPtr) {
-	ERROR_LOG(SCEKERNEL, "FAKE sceKernelReferThreadProfiler()");
+static u32 sceKernelReferThreadProfiler(u32 unused) {
+	// This seems to simply has no parameter:
+	// https://pspdev.github.io/pspsdk/group__ThreadMan.html#ga8fd30da51b9dc0507ac4dae04a7e4a17 , 
+	// And in testing it just returns null in 55 usec (which is surprisingly long).
 
-	// Can we confirm that the struct above is the right struct?
-	// If so, re-enable this code.
-	//auto regs = PSPPointer<DebugProfilerRegs>::Create(statusPtr);
-	// TODO: fill the struct.
-	//if (regs.IsValid()) {
-	//	memset((DebugProfilerRegs *)regs, 0, sizeof(DebugProfilerRegs));
-	//	regs.NotifyWrite("ThreadProfiler");
-	//}
-	return 0;
+	// So, we log only if debug logging is enabled, and sleep for a bit.
+	DEBUG_LOG(SCEKERNEL, "sceKernelReferThreadProfiler(%08x)", unused);
+
+	// The delay has been measured, 53-56.
+	return hleDelayResult(0, "refer_thread_profiler", 55);
 }
 
-static int sceKernelReferGlobalProfiler(u32 statusPtr) {
-	ERROR_LOG(SCEKERNEL, "UNIMPL sceKernelReferGlobalProfiler(%08x)", statusPtr);
-	// Ignore for now
-	return 0;
+static int sceKernelReferGlobalProfiler(u32 unused) {
+	DEBUG_LOG(SCEKERNEL, "sceKernelReferGlobalProfiler(%08x)", unused);
+	// The delay has been measured, 53-56.
+	return hleDelayResult(0, "refer_thread_profiler", 55);
 }
 
 const HLEFunction ThreadManForUser[] =
