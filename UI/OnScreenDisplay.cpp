@@ -286,5 +286,6 @@ std::string OnScreenMessagesView::DescribeText() const {
 
 void OSDOverlayScreen::CreateViews() {
 	root_ = new UI::AnchorLayout();
+	root_->SetTag("OSDOverlayScreen");
 	root_->Add(new OnScreenMessagesView(new UI::AnchorLayoutParams(0.0f, 0.0f, 0.0f, 0.0f)));
 }

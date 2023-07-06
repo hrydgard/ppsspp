@@ -133,7 +133,7 @@ void LayoutViewHierarchy(const UIContext &dc, ViewGroup *root, bool ignoreInsets
 	root->Layout();
 }
 
-void MoveFocus(ViewGroup *root, FocusDirection direction) {
+static void MoveFocus(ViewGroup *root, FocusDirection direction) {
 	View *focusedView = GetFocusedView();
 	if (!focusedView) {
 		// Nothing was focused when we got in here. Focus the first non-group in the hierarchy.

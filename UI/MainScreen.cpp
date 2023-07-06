@@ -1260,6 +1260,8 @@ void MainScreen::CreateViews() {
 		root_->SetDefaultFocusView(tabHolder_);
 	}
 
+	root_->SetTag("mainroot");
+
 	auto u = GetI18NCategory(I18NCat::UPGRADE);
 
 	upgradeBar_ = 0;
