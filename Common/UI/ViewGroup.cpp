@@ -401,10 +401,13 @@ static float GetDirectionScore(int originIndex, const View *origin, View *destin
 }
 
 NeighborResult ViewGroup::FindNeighbor(View *view, FocusDirection direction, NeighborResult result) {
-	if (!IsEnabled())
+	if (!IsEnabled()) {
+		INFO_LOG(SCECTRL, "Not enabled");
 		return result;
-	if (GetVisibility() != V_VISIBLE)
+	}
+	if (GetVisibility() != V_VISIBLE) {
 		return result;
+	}
 
 	// First, find the position of the view in the list.
 	int num = -1;
@@ -412,24 +415,6 @@ NeighborResult ViewGroup::FindNeighbor(View *view, FocusDirection direction, Nei
 		if (views_[i] == view) {
 			num = (int)i;
 			break;
-		}
-	}
-
-	if (direction == FOCUS_PREV || direction == FOCUS_NEXT) {
-		switch (direction) {
-		case FOCUS_PREV:
-			// If view not found, no neighbor to find.
-			if (num == -1)
-				return NeighborResult(0, 0.0f);
-			return NeighborResult(views_[(num + views_.size() - 1) % views_.size()], 0.0f);
-
-		case FOCUS_NEXT:
-			// If view not found, no neighbor to find.
-			if (num == -1)
-				return NeighborResult(0, 0.0f);
-			return NeighborResult(views_[(num + 1) % views_.size()], 0.0f);
-		default:
-			return NeighborResult(nullptr, 0.0f);
 		}
 	}
 
@@ -468,12 +453,22 @@ NeighborResult ViewGroup::FindNeighbor(View *view, FocusDirection direction, Nei
 			}
 			return result;
 		}
-
 	case FOCUS_PREV_PAGE:
 	case FOCUS_NEXT_PAGE:
 		return FindScrollNeighbor(view, Point(INFINITY, INFINITY), direction, result);
+	case FOCUS_PREV:
+		// If view not found, no neighbor to find.
+		if (num == -1)
+			return NeighborResult(nullptr, 0.0f);
+		return NeighborResult(views_[(num + views_.size() - 1) % views_.size()], 0.0f);
+	case FOCUS_NEXT:
+		// If view not found, no neighbor to find.
+		if (num == -1)
+			return NeighborResult(0, 0.0f);
+		return NeighborResult(views_[(num + 1) % views_.size()], 0.0f);
 
 	default:
+		ERROR_LOG(SYSTEM, "Bad focus direction %d", (int)direction);
 		return result;
 	}
 }

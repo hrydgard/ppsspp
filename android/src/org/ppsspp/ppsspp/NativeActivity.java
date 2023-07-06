@@ -984,11 +984,7 @@ public abstract class NativeActivity extends Activity {
 			// XInput device on Android returns source 1281 or 0x501, which equals GAMEPAD | KEYBOARD.
 			// Shield Remote returns 769 or 0x301 which equals DPAD | KEYBOARD.
 
-			// Don't disable passthrough if app at top level.
-			if (((sources & InputDevice.SOURCE_GAMEPAD) == InputDevice.SOURCE_GAMEPAD ||
-					(sources & InputDevice.SOURCE_JOYSTICK) == InputDevice.SOURCE_JOYSTICK ||
-					(sources & InputDevice.SOURCE_DPAD) == InputDevice.SOURCE_DPAD))
-			{
+			if (InputDeviceState.inputSourceIsJoystick(sources)) {
 				passThrough = false;
 			}
 
@@ -1083,7 +1079,7 @@ public abstract class NativeActivity extends Activity {
 		case KeyEvent.KEYCODE_DPAD_LEFT:
 		case KeyEvent.KEYCODE_DPAD_RIGHT:
 			// Joysticks are supported in Honeycomb MR1 and later via the onGenericMotionEvent method.
-			if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB_MR1 && event.getSource() == InputDevice.SOURCE_JOYSTICK) {
+			if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB_MR1 && (event.getSource() & InputDevice.SOURCE_JOYSTICK) != 0) {
 				// Pass through / ignore
 				return super.onKeyDown(keyCode, event);
 			}

@@ -11,16 +11,15 @@
 #include "Common/Log.h"
 #include "Common/TimeUtil.h"
 
-ScreenManager::ScreenManager() {
-	uiContext_ = 0;
-	dialogFinished_ = 0;
-}
+#include "Core/KeyMap.h"
 
 ScreenManager::~ScreenManager() {
 	shutdown();
 }
 
 void ScreenManager::switchScreen(Screen *screen) {
+	// TODO: inputLock_ ?
+
 	if (!nextStack_.empty() && screen == nextStack_.front().screen) {
 		ERROR_LOG(SYSTEM, "Already switching to this screen");
 		return;
@@ -53,9 +52,8 @@ void ScreenManager::update() {
 		stack_.back().screen->update();
 	}
 
-	if (overlayScreen_) {
-		overlayScreen_->update();
-	}
+	// NOTE: We should not update the OverlayScreen. In fact, we must never update more than one
+	// UIScreen in here, because we might end up double-processing the stuff in Root.cpp.
 
 	g_iconCache.FrameUpdate();
 }

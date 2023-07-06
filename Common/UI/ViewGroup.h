@@ -15,9 +15,8 @@ class AnchorTranslateTween;
 class ScrollView;
 
 struct NeighborResult {
-	NeighborResult() : view(0), score(0) {}
+	NeighborResult() : view(nullptr), score(0) {}
 	NeighborResult(View *v, float s) : view(v), score(s) {}
-
 	View *view;
 	float score;
 };

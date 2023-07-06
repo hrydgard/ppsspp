@@ -43,12 +43,12 @@ public:
 	void deviceRestored() override;
 
 	virtual void touch(const TouchInput &touch);
-	virtual bool key(const KeyInput &touch);
-	virtual void axis(const AxisInput &touch);
+	virtual bool key(const KeyInput &key);
+	virtual void axis(const AxisInput &axis);
 
 	void UnsyncTouch(const TouchInput &touch) override;
-	bool UnsyncKey(const KeyInput &touch) override;
-	void UnsyncAxis(const AxisInput &touch) override;
+	bool UnsyncKey(const KeyInput &key) override;
+	void UnsyncAxis(const AxisInput &axis) override;
 
 	TouchInput transformTouch(const TouchInput &touch) override;
 
