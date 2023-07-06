@@ -1207,8 +1207,8 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_joystickAxis(
 		return;
 
 	AxisInput axis;
-	axis.axisId = (InputAxis)axisId;
 	axis.deviceId = (InputDeviceID)deviceId;
+	axis.axisId = (InputAxis)axisId;
 	axis.value = value;
 
 	NativeAxis(axis);

@@ -630,6 +630,7 @@ void TouchTestScreen::touch(const TouchInput &touch) {
 	}
 }
 
+// TODO: Move this screen out into its own file.
 void TouchTestScreen::CreateViews() {
 	using namespace UI;
 
@@ -638,9 +639,7 @@ void TouchTestScreen::CreateViews() {
 	root_ = new LinearLayout(ORIENT_VERTICAL);
 	LinearLayout *theTwo = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(1.0f));
 
-	lastLastKeyEvent_ = theTwo->Add(new TextView("-", new LayoutParams(FILL_PARENT, WRAP_CONTENT)));
-	lastLastKeyEvent_->SetTextColor(0x80FFFFFF);   // semi-transparent
-	lastKeyEvent_ = theTwo->Add(new TextView("-", new LayoutParams(FILL_PARENT, WRAP_CONTENT)));
+	lastKeyEvents_ = theTwo->Add(new TextView("-", new LayoutParams(FILL_PARENT, WRAP_CONTENT)));
 
 	root_->Add(theTwo);
 
@@ -671,38 +670,48 @@ extern int display_xres;
 extern int display_yres;
 #endif
 
+void TouchTestScreen::UpdateLogView() {
+	while (keyEventLog_.size() > 8) {
+		keyEventLog_.erase(keyEventLog_.begin());
+	}
+
+	std::string text;
+	for (auto &iter : keyEventLog_) {
+		text += iter + "\n";
+	}
+
+	if (lastKeyEvents_) {
+		lastKeyEvents_->SetText(text);
+	}
+}
+
 bool TouchTestScreen::key(const KeyInput &key) {
+	UIScreen::key(key);
 	char buf[512];
 	snprintf(buf, sizeof(buf), "Keycode: %d Device ID: %d [%s%s%s%s]", key.keyCode, key.deviceId,
 		(key.flags & KEY_IS_REPEAT) ? "REP" : "",
 		(key.flags & KEY_UP) ? "UP" : "",
 		(key.flags & KEY_DOWN) ? "DOWN" : "",
 		(key.flags & KEY_CHAR) ? "CHAR" : "");
-	if (lastLastKeyEvent_ && lastKeyEvent_) {
-		lastLastKeyEvent_->SetText(lastKeyEvent_->GetText());
-		lastKeyEvent_->SetText(buf);
-	}
+	keyEventLog_.push_back(buf);
+	UpdateLogView();
 	return true;
 }
 
 void TouchTestScreen::axis(const AxisInput &axis) {
-	// This is mainly to catch axis events that would otherwise get translated
-	// into arrow keys, since seeing keyboard arrow key events appear when using
-	// a controller would be confusing for the user.
+	// This just filters out accelerometer events. We show everything else.
 	if (IgnoreAxisForMapping(axis.axisId))
 		return;
 
-	const float AXIS_LOG_THRESHOLD = AXIS_BIND_THRESHOLD * 0.5f;
-	if (axis.value > AXIS_LOG_THRESHOLD || axis.value < -AXIS_LOG_THRESHOLD) {
-		char buf[512];
-		snprintf(buf, sizeof(buf), "Axis: %d (value %1.3f) Device ID: %d",
-			axis.axisId, axis.value, axis.deviceId);
-		// Null-check just in case they weren't created yet.
-		if (lastLastKeyEvent_ && lastKeyEvent_) {
-			lastLastKeyEvent_->SetText(lastKeyEvent_->GetText());
-			lastKeyEvent_->SetText(buf);
-		}
+	char buf[512];
+	snprintf(buf, sizeof(buf), "Axis: %d (value %1.3f) Device ID: %d",
+		axis.axisId, axis.value, axis.deviceId);
+
+	keyEventLog_.push_back(buf);
+	if (keyEventLog_.size() > 8) {
+		keyEventLog_.erase(keyEventLog_.begin());
 	}
+	UpdateLogView();
 }
 
 void TouchTestScreen::render() {

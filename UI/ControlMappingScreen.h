@@ -22,6 +22,7 @@
 #include <set>
 #include <mutex>
 #include <vector>
+#include <string>
 
 #include "Common/UI/View.h"
 #include "Common/UI/UIScreen.h"
@@ -165,10 +166,12 @@ protected:
 	};
 	TrackedTouch touches_[MAX_TOUCH_POINTS]{};
 
-	UI::TextView *lastKeyEvent_ = nullptr;
-	UI::TextView *lastLastKeyEvent_ = nullptr;
+	std::vector<std::string> keyEventLog_;
+
+	UI::TextView *lastKeyEvents_ = nullptr;
 
 	void CreateViews() override;
+	void UpdateLogView();
 
 	UI::EventReturn OnImmersiveModeChange(UI::EventParams &e);
 	UI::EventReturn OnRenderingBackend(UI::EventParams &e);
