@@ -428,7 +428,7 @@ EmuScreen::~EmuScreen() {
 void EmuScreen::dialogFinished(const Screen *dialog, DialogResult result) {
 	// TODO: improve the way with which we got commands from PauseMenu.
 	// DR_CANCEL/DR_BACK means clicked on "continue", DR_OK means clicked on "back to menu",
-	// DR_YES means a message sent to PauseMenu by NativeMessageReceived.
+	// DR_YES means a message sent to PauseMenu by System_PostUIMessage.
 	if (result == DR_OK || quit_) {
 		screenManager()->switchScreen(new MainScreen());
 		quit_ = false;
@@ -709,13 +709,13 @@ void EmuScreen::onVKey(int virtualKeyCode, bool down) {
 	case VIRTKEY_PREVIOUS_SLOT:
 		if (down) {
 			SaveState::PrevSlot();
-			NativeMessageReceived("savestate_displayslot", "");
+			System_PostUIMessage("savestate_displayslot", "");
 		}
 		break;
 	case VIRTKEY_NEXT_SLOT:
 		if (down) {
 			SaveState::NextSlot();
-			NativeMessageReceived("savestate_displayslot", "");
+			System_PostUIMessage("savestate_displayslot", "");
 		}
 		break;
 	case VIRTKEY_TOGGLE_FULLSCREEN:
@@ -733,7 +733,7 @@ void EmuScreen::onVKey(int virtualKeyCode, bool down) {
 			g_Config.bSaveNewTextures = !g_Config.bSaveNewTextures;
 			if (g_Config.bSaveNewTextures) {
 				g_OSD.Show(OSDType::MESSAGE_INFO, sc->T("saveNewTextures_true", "Textures will now be saved to your storage"), 2.0);
-				NativeMessageReceived("gpu_configChanged", "");
+				System_PostUIMessage("gpu_configChanged", "");
 			} else {
 				g_OSD.Show(OSDType::MESSAGE_INFO, sc->T("saveNewTextures_false", "Texture saving was disabled"), 2.0);
 			}
@@ -746,7 +746,7 @@ void EmuScreen::onVKey(int virtualKeyCode, bool down) {
 				g_OSD.Show(OSDType::MESSAGE_INFO, sc->T("replaceTextures_true", "Texture replacement enabled"), 2.0);
 			else
 				g_OSD.Show(OSDType::MESSAGE_INFO, sc->T("replaceTextures_false", "Textures no longer are being replaced"), 2.0);
-			NativeMessageReceived("gpu_configChanged", "");
+			System_PostUIMessage("gpu_configChanged", "");
 		}
 		break;
 	case VIRTKEY_RAPID_FIRE:
@@ -1037,7 +1037,7 @@ UI::EventReturn EmuScreen::OnResume(UI::EventParams &params) {
 
 UI::EventReturn EmuScreen::OnReset(UI::EventParams &params) {
 	if (coreState == CoreState::CORE_RUNTIME_ERROR) {
-		NativeMessageReceived("reset", "");
+		System_PostUIMessage("reset", "");
 	}
 	return UI::EVENT_DONE;
 }

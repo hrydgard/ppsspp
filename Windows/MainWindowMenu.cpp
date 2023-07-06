@@ -339,7 +339,7 @@ namespace MainWindow {
 			Core_EnableStepping(false);
 		}
 		filename = ReplaceAll(filename, "\\", "/");
-		NativeMessageReceived("boot", filename.c_str());
+		System_PostUIMessage("boot", filename.c_str());
 		W32Util::MakeTopMost(GetHWND(), g_Config.bTopMost);
 	}
 
@@ -367,17 +367,17 @@ namespace MainWindow {
 	// not static
 	void setTexScalingMultiplier(int level) {
 		g_Config.iTexScalingLevel = level;
-		NativeMessageReceived("gpu_configChanged", "");
+		System_PostUIMessage("gpu_configChanged", "");
 	}
 
 	static void setTexScalingType(int type) {
 		g_Config.iTexScalingType = type;
-		NativeMessageReceived("gpu_configChanged", "");
+		System_PostUIMessage("gpu_configChanged", "");
 	}
 
 	static void setSkipBufferEffects(bool skip) {
 		g_Config.bSkipBufferEffects = skip;
-		NativeMessageReceived("gpu_configChanged", "");
+		System_PostUIMessage("gpu_configChanged", "");
 	}
 
 	static void setFrameSkipping(int framesToSkip = -1) {
@@ -461,7 +461,7 @@ namespace MainWindow {
 		case ID_TOGGLE_BREAK:
 			if (GetUIState() == UISTATE_PAUSEMENU) {
 				// Causes hang
-				//NativeMessageReceived("run", "");
+				//System_PostUIMessage("run", "");
 
 				if (disasmWindow)
 					SendMessage(disasmWindow->GetDlgHandle(), WM_COMMAND, IDC_STOPGO, 0);
@@ -480,7 +480,7 @@ namespace MainWindow {
 			break;
 
 		case ID_EMULATION_PAUSE:
-			NativeMessageReceived("pause", "");
+			System_PostUIMessage("pause", "");
 			break;
 
 		case ID_EMULATION_STOP:
@@ -488,12 +488,12 @@ namespace MainWindow {
 				Core_EnableStepping(false);
 
 			Core_Stop();
-			NativeMessageReceived("stop", "");
+			System_PostUIMessage("stop", "");
 			Core_WaitInactive();
 			break;
 
 		case ID_EMULATION_RESET:
-			NativeMessageReceived("reset", "");
+			System_PostUIMessage("reset", "");
 			Core_EnableStepping(false);
 			break;
 
@@ -513,7 +513,7 @@ namespace MainWindow {
 
 		case ID_EMULATION_CHAT:
 			if (GetUIState() == UISTATE_INGAME) {
-				NativeMessageReceived("chat screen", "");
+				System_PostUIMessage("chat screen", "");
 			}
 			break;
 		case ID_FILE_LOADSTATEFILE:
@@ -532,7 +532,7 @@ namespace MainWindow {
 		case ID_FILE_SAVESTATE_NEXT_SLOT:
 		{
 			SaveState::NextSlot();
-			NativeMessageReceived("savestate_displayslot", "");
+			System_PostUIMessage("savestate_displayslot", "");
 			break;
 		}
 
@@ -540,7 +540,7 @@ namespace MainWindow {
 		{
 			if (!KeyMap::PspButtonHasMappings(VIRTKEY_NEXT_SLOT)) {
 				SaveState::NextSlot();
-				NativeMessageReceived("savestate_displayslot", "");
+				System_PostUIMessage("savestate_displayslot", "");
 			}
 			break;
 		}
@@ -586,7 +586,7 @@ namespace MainWindow {
 		}
 
 		case ID_OPTIONS_LANGUAGE:
-			NativeMessageReceived("language screen", "");
+			System_PostUIMessage("language screen", "");
 			break;
 
 		case ID_OPTIONS_IGNOREWINKEY:
@@ -631,7 +631,7 @@ namespace MainWindow {
 			g_Config.bAutoFrameSkip = !g_Config.bAutoFrameSkip;
 			if (g_Config.bAutoFrameSkip && g_Config.bSkipBufferEffects) {
 				g_Config.bSkipBufferEffects = false;
-				NativeMessageReceived("gpu_configChanged", "");
+				System_PostUIMessage("gpu_configChanged", "");
 			}
 			break;
 
@@ -648,7 +648,7 @@ namespace MainWindow {
 
 		case ID_TEXTURESCALING_DEPOSTERIZE:
 			g_Config.bTexDeposterize = !g_Config.bTexDeposterize;
-			NativeMessageReceived("gpu_configChanged", "");
+			System_PostUIMessage("gpu_configChanged", "");
 			break;
 
 		case ID_OPTIONS_DIRECT3D9:
@@ -677,23 +677,23 @@ namespace MainWindow {
 
 		case ID_OPTIONS_SKIP_BUFFER_EFFECTS:
 			g_Config.bSkipBufferEffects = !g_Config.bSkipBufferEffects;
-			NativeMessageReceived("gpu_renderResized", "");
+			System_PostUIMessage("gpu_renderResized", "");
 			g_OSD.ShowOnOff(gr->T("Skip Buffer Effects"), g_Config.bSkipBufferEffects);
 			break;
 
 		case ID_DEBUG_SHOWDEBUGSTATISTICS:
 			g_Config.bShowDebugStats = !g_Config.bShowDebugStats;
-			NativeMessageReceived("clear jit", "");
+			System_PostUIMessage("clear jit", "");
 			break;
 
 		case ID_OPTIONS_HARDWARETRANSFORM:
 			g_Config.bHardwareTransform = !g_Config.bHardwareTransform;
-			NativeMessageReceived("gpu_configChanged", "");
+			System_PostUIMessage("gpu_configChanged", "");
 			g_OSD.ShowOnOff(gr->T("Hardware Transform"), g_Config.bHardwareTransform);
 			break;
 
 		case ID_OPTIONS_DISPLAY_LAYOUT:
-			NativeMessageReceived("display layout editor", "");
+			System_PostUIMessage("display layout editor", "");
 			break;
 
 
@@ -724,7 +724,7 @@ namespace MainWindow {
 			break;
 
 		case ID_DEBUG_DUMPNEXTFRAME:
-			NativeMessageReceived("gpu dump next frame", "");
+			System_PostUIMessage("gpu dump next frame", "");
 			break;
 
 		case ID_DEBUG_LOADMAPFILE:
@@ -860,11 +860,11 @@ namespace MainWindow {
 			break;
 
 		case ID_OPTIONS_CONTROLS:
-			NativeMessageReceived("control mapping", "");
+			System_PostUIMessage("control mapping", "");
 			break;
 
 		case ID_OPTIONS_MORE_SETTINGS:
-			NativeMessageReceived("settings", "");
+			System_PostUIMessage("settings", "");
 			break;
 
 		case ID_EMULATION_SOUND:

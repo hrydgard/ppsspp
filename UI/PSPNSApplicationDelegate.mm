@@ -26,7 +26,7 @@
 	NSURL *firstURL = urls.firstObject;
 	if (!firstURL) return; // No URLs, don't do anything
 	
-	NativeMessageReceived("boot", firstURL.fileSystemRepresentation);
+	System_PostUIMessage("boot", firstURL.fileSystemRepresentation);
 }
 
 - (NSMenu *)applicationDockMenu:(NSApplication *)sender {

@@ -860,7 +860,7 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_resume(JNIEnv *, jclass) {
 	INFO_LOG(SYSTEM, "NativeApp.resume() - resuming audio");
 	AndroidAudio_Resume(g_audioState);
 
-	NativeMessageReceived("app_resumed", "");
+	System_PostUIMessage("app_resumed", "");
 }
 
 extern "C" void Java_org_ppsspp_ppsspp_NativeApp_pause(JNIEnv *, jclass) {
@@ -973,7 +973,7 @@ extern "C" bool Java_org_ppsspp_ppsspp_NativeRenderer_displayInit(JNIEnv * env, 
 		renderer_inited = true;
 	}
 
-	NativeMessageReceived("recreateviews", "");
+	System_PostUIMessage("recreateviews", "");
 
 	if (IsVREnabled()) {
 		EnterVR(firstStart, graphicsContext->GetAPIContext());
@@ -1266,7 +1266,7 @@ extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_sendMessageFromJava(JNI
 	} else if (msg == "permission_granted") {
 		INFO_LOG(SYSTEM, "STORAGE PERMISSION: GRANTED");
 		// Send along.
-		NativeMessageReceived(msg.c_str(), prm.c_str());
+		System_PostUIMessage(msg.c_str(), prm.c_str());
 	} else if (msg == "sustained_perf_supported") {
 		sustainedPerfSupported = true;
 	} else if (msg == "safe_insets") {
@@ -1285,7 +1285,7 @@ extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_sendMessageFromJava(JNI
 		KeyMap::NotifyPadConnected(nextInputDeviceID, prm);
 	} else if (msg == "core_powerSaving") {
 		// Forward.
-		NativeMessageReceived(msg.c_str(), prm.c_str());
+		System_PostUIMessage(msg.c_str(), prm.c_str());
 	} else {
 		ERROR_LOG(SYSTEM, "Got unexpected message from Java, ignoring: %s / %s", msg.c_str(), prm.c_str());
 	}

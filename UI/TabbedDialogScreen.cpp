@@ -88,13 +88,13 @@ void TabbedUIDialogScreenWithGameBackground::CreateViews() {
 
 			searchSettings->Add(new ItemHeader(se->T("Find settings")));
 			searchSettings->Add(new PopupTextInputChoice(&searchFilter_, se->T("Filter"), "", 64, screenManager()))->OnChange.Add([=](UI::EventParams &e) {
-				NativeMessageReceived("gameSettings_search", StripSpaces(searchFilter_).c_str());
+				System_PostUIMessage("gameSettings_search", StripSpaces(searchFilter_).c_str());
 				return UI::EVENT_DONE;
 			});
 
 			clearSearchChoice_ = searchSettings->Add(new Choice(se->T("Clear filter")));
 			clearSearchChoice_->OnClick.Add([=](UI::EventParams &e) {
-				NativeMessageReceived("gameSettings_search", "");
+				System_PostUIMessage("gameSettings_search", "");
 				return UI::EVENT_DONE;
 			});
 

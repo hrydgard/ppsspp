@@ -267,7 +267,7 @@ void App::OnWindowSizeChanged(CoreWindow^ sender, WindowSizeChangedEventArgs^ ar
 	PSP_CoreParameter().pixelWidth = (int)(width * scale);
 	PSP_CoreParameter().pixelHeight = (int)(height * scale);
 	if (UpdateScreenScale((int)width, (int)height)) {
-		NativeMessageReceived("gpu_displayResized", "");
+		System_PostUIMessage("gpu_displayResized", "");
 	}
 }
 

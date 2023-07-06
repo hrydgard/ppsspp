@@ -113,20 +113,20 @@ private slots:
 	void consoleAct();
 
 	// Game settings
-	void languageAct() { NativeMessageReceived("language screen", ""); }
-	void controlMappingAct() { NativeMessageReceived("control mapping", ""); }
-	void displayLayoutEditorAct() { NativeMessageReceived("display layout editor", ""); }
-	void moreSettingsAct() { NativeMessageReceived("settings", ""); }
+	void languageAct() { System_PostUIMessage("language screen", ""); }
+	void controlMappingAct() { System_PostUIMessage("control mapping", ""); }
+	void displayLayoutEditorAct() { System_PostUIMessage("display layout editor", ""); }
+	void moreSettingsAct() { System_PostUIMessage("settings", ""); }
 
 	void bufferRenderAct() {
-		NativeMessageReceived("gpu_renderResized", "");
-		NativeMessageReceived("gpu_configChanged", "");
+		System_PostUIMessage("gpu_renderResized", "");
+		System_PostUIMessage("gpu_configChanged", "");
 	}
 	void linearAct() { g_Config.iTexFiltering = (g_Config.iTexFiltering != 0) ? 0 : 3; }
 
 	void renderingResolutionGroup_triggered(QAction *action) {
 		g_Config.iInternalResolution = action->data().toInt();
-		NativeMessageReceived("gpu_renderResized", "");
+		NativeMessagSystem_PostUIMessageeReceived("gpu_renderResized", "");
 	}
 	void windowGroup_triggered(QAction *action) { SetWindowScale(action->data().toInt()); }
 
@@ -134,7 +134,7 @@ private slots:
 		g_Config.bAutoFrameSkip = !g_Config.bAutoFrameSkip;
 		if (g_Config.bSkipBufferEffects) {
 			g_Config.bSkipBufferEffects = false;
-			NativeMessageReceived("gpu_configChanged", "");
+			System_PostUIMessage("gpu_configChanged", "");
 		}
 	}
 	void frameSkippingGroup_triggered(QAction *action) { g_Config.iFrameSkip = action->data().toInt(); }
@@ -143,19 +143,19 @@ private slots:
 	void screenScalingFilterGroup_triggered(QAction *action) { g_Config.iDisplayFilter = action->data().toInt(); }
 	void textureScalingLevelGroup_triggered(QAction *action) {
 		g_Config.iTexScalingLevel = action->data().toInt();
-		NativeMessageReceived("gpu_configChanged", "");
+		System_PostUIMessage("gpu_configChanged", "");
 	}
 	void textureScalingTypeGroup_triggered(QAction *action) {
 		g_Config.iTexScalingType = action->data().toInt();
-		NativeMessageReceived("gpu_configChanged", "");
+		System_PostUIMessage("gpu_configChanged", "");
 	}
 	void deposterizeAct() {
 		g_Config.bTexDeposterize = !g_Config.bTexDeposterize;
-		NativeMessageReceived("gpu_configChanged", "");
+		System_PostUIMessage("gpu_configChanged", "");
 	}
 	void transformAct() {
 		g_Config.bHardwareTransform = !g_Config.bHardwareTransform;
-		NativeMessageReceived("gpu_configChanged", "");
+		System_PostUIMessage("gpu_configChanged", "");
 	}
 	void vertexCacheAct() { g_Config.bVertexCache = !g_Config.bVertexCache; }
 	void frameskipAct() { g_Config.iFrameSkip = !g_Config.iFrameSkip; }
@@ -172,7 +172,7 @@ private slots:
 	// Chat
 	void chatAct() {
 		if (GetUIState() == UISTATE_INGAME) {
-			NativeMessageReceived("chat screen", "");
+			System_PostUIMessage("chat screen", "");
 		}
 	}
 
@@ -180,7 +180,7 @@ private slots:
 	void raiseTopMost();
 	void statsAct() {
 		g_Config.bShowDebugStats = !g_Config.bShowDebugStats;
-		NativeMessageReceived("clear jit", "");
+		System_PostUIMessage("clear jit", "");
 	}
 
 	// Help

@@ -297,7 +297,7 @@ void GameSettingsScreen::CreateGraphicsSettings(UI::ViewGroup *graphicsSettings)
 		static const char *msaaModes[] = { "Off", "2x", "4x", "8x", "16x" };
 		auto msaaChoice = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iMultiSampleLevel, gr->T("Antialiasing (MSAA)"), msaaModes, 0, ARRAY_SIZE(msaaModes), I18NCat::GRAPHICS, screenManager()));
 		msaaChoice->OnChoice.Add([&](UI::EventParams &) -> UI::EventReturn {
-			NativeMessageReceived("gpu_renderResized", "");
+			System_PostUIMessage("gpu_renderResized", "");
 			return UI::EVENT_DONE;
 		});
 		msaaChoice->SetDisabledPtr(&g_Config.bSoftwareRendering);
@@ -388,7 +388,7 @@ void GameSettingsScreen::CreateGraphicsSettings(UI::ViewGroup *graphicsSettings)
 			settingInfo_->Show(gr->T("RenderingMode NonBuffered Tip", "Faster, but graphics may be missing in some games"), e.v);
 			g_Config.bAutoFrameSkip = false;
 		}
-		NativeMessageReceived("gpu_renderResized", "");
+		System_PostUIMessage("gpu_renderResized", "");
 		return UI::EVENT_DONE;
 	});
 	skipBufferEffects->SetDisabledPtr(&g_Config.bSoftwareRendering);
@@ -1147,7 +1147,7 @@ UI::EventReturn GameSettingsScreen::OnSustainedPerformanceModeChange(UI::EventPa
 }
 
 UI::EventReturn GameSettingsScreen::OnJitAffectingSetting(UI::EventParams &e) {
-	NativeMessageReceived("clear jit", "");
+	System_PostUIMessage("clear jit", "");
 	return UI::EVENT_DONE;
 }
 
@@ -1263,7 +1263,7 @@ UI::EventReturn GameSettingsScreen::OnResolutionChange(UI::EventParams &e) {
 		System_RecreateActivity();
 	}
 	Reporting::UpdateConfig();
-	NativeMessageReceived("gpu_renderResized", "");
+	System_PostUIMessage("gpu_renderResized", "");
 	return UI::EVENT_DONE;
 }
 
@@ -1292,7 +1292,7 @@ void GameSettingsScreen::onFinish(DialogResult result) {
 
 	// Wipe some caches after potentially changing settings.
 	// Let's not send resize messages here, handled elsewhere.
-	NativeMessageReceived("gpu_configChanged", "");
+	System_PostUIMessage("gpu_configChanged", "");
 }
 
 void GameSettingsScreen::dialogFinished(const Screen *dialog, DialogResult result) {
@@ -1538,7 +1538,7 @@ UI::EventReturn GameSettingsScreen::OnTextureShader(UI::EventParams &e) {
 }
 
 UI::EventReturn GameSettingsScreen::OnTextureShaderChange(UI::EventParams &e) {
-	NativeMessageReceived("gpu_configChanged", "");
+	System_PostUIMessage("gpu_configChanged", "");
 	RecreateViews(); // Update setting name
 	g_Config.bTexHardwareScaling = g_Config.sTextureShaderName != "Off";
 	return UI::EVENT_DONE;
@@ -1727,7 +1727,7 @@ void DeveloperToolsScreen::CreateViews() {
 
 void DeveloperToolsScreen::onFinish(DialogResult result) {
 	g_Config.Save("DeveloperToolsScreen::onFinish");
-	NativeMessageReceived("gpu_configChanged", "");
+	System_PostUIMessage("gpu_configChanged", "");
 }
 
 void GameSettingsScreen::CallbackRestoreDefaults(bool yes) {
@@ -1808,7 +1808,7 @@ UI::EventReturn DeveloperToolsScreen::OnTouchscreenTest(UI::EventParams &e) {
 }
 
 UI::EventReturn DeveloperToolsScreen::OnJitAffectingSetting(UI::EventParams &e) {
-	NativeMessageReceived("clear jit", "");
+	System_PostUIMessage("clear jit", "");
 	return UI::EVENT_DONE;
 }
 
