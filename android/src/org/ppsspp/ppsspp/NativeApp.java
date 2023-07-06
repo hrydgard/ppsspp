@@ -58,4 +58,23 @@ public class NativeApp {
 	public static native void setGpsDataAndroid(long time, float hdop, float latitude, float longitude, float altitude, float speed, float bearing);
 	public static native void setSatInfoAndroid(short index, short id, short elevation, short azimuth, short snr, short good);
 	public static native void pushCameraImageAndroid(byte[] image);
+
+	// Wrappers
+	public static void reportException(Exception e, String data) {
+		String str = e.toString() + "\n" + e.getMessage() + "\n";
+		if (data != null) {
+			str += data + "\n";
+		}
+		// could also use import android.util.Log; String stackTrace = Log.getStackTraceString(exception);
+		int count = 0;
+		for (StackTraceElement ste : e.getStackTrace()) {
+			str += ste + "\n";
+			// Only bother with the top of the stack.
+			if (count > 3) {
+				break;
+			}
+			count++;
+		}
+		NativeApp.sendMessageFromJava("exception", str);
+	}
 }

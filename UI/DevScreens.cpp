@@ -801,19 +801,19 @@ void SystemInfoScreen::CreateTabs() {
 
 	internals->Add(new ItemHeader(si->T("Notification tests")));
 	internals->Add(new Choice(si->T("Error")))->OnClick.Add([&](UI::EventParams &) {
-		g_OSD.Show(OSDType::MESSAGE_ERROR, si->T("Error"));
+		g_OSD.Show(OSDType::MESSAGE_ERROR, "Error");
 		return UI::EVENT_DONE;
 	});
 	internals->Add(new Choice(si->T("Warning")))->OnClick.Add([&](UI::EventParams &) {
-		g_OSD.Show(OSDType::MESSAGE_WARNING, si->T("Warning"), "Some\nAdditional\nDetail");
+		g_OSD.Show(OSDType::MESSAGE_WARNING, "Warning", "Some\nAdditional\nDetail");
 		return UI::EVENT_DONE;
 	});
 	internals->Add(new Choice(si->T("Info")))->OnClick.Add([&](UI::EventParams &) {
-		g_OSD.Show(OSDType::MESSAGE_INFO, si->T("Info"));
+		g_OSD.Show(OSDType::MESSAGE_INFO, "Info");
 		return UI::EVENT_DONE;
 	});
 	internals->Add(new Choice(si->T("Success")))->OnClick.Add([&](UI::EventParams &) {
-		g_OSD.Show(OSDType::MESSAGE_SUCCESS, si->T("Success"));
+		g_OSD.Show(OSDType::MESSAGE_SUCCESS, "Success");
 		return UI::EVENT_DONE;
 	});
 	internals->Add(new ItemHeader(si->T("Progress tests")));
@@ -833,7 +833,12 @@ void SystemInfoScreen::CreateTabs() {
 		g_OSD.RemoveProgressBar("testprogress", 0.25f);
 		return UI::EVENT_DONE;
 	});
-
+#if PPSSPP_PLATFORM(ANDROID)
+	internals->Add(new Choice(si->T("Exception")))->OnClick.Add([&](UI::EventParams &) {
+		System_Notify(SystemNotification::TEST_JAVA_EXCEPTION);
+		return UI::EVENT_DONE;
+	});
+#endif
 }
 
 void AddressPromptScreen::CreatePopupContents(UI::ViewGroup *parent) {
