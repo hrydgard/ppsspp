@@ -984,11 +984,7 @@ public abstract class NativeActivity extends Activity {
 			// XInput device on Android returns source 1281 or 0x501, which equals GAMEPAD | KEYBOARD.
 			// Shield Remote returns 769 or 0x301 which equals DPAD | KEYBOARD.
 
-			// Don't disable passthrough if app at top level.
-			if (((sources & InputDevice.SOURCE_GAMEPAD) == InputDevice.SOURCE_GAMEPAD ||
-					(sources & InputDevice.SOURCE_JOYSTICK) == InputDevice.SOURCE_JOYSTICK ||
-					(sources & InputDevice.SOURCE_DPAD) == InputDevice.SOURCE_DPAD))
-			{
+			if (InputDeviceState.inputSourceIsJoystick(sources)) {
 				passThrough = false;
 			}
 

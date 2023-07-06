@@ -95,6 +95,12 @@ public class InputDeviceState {
 		return str;
 	}
 
+	public static boolean inputSourceIsJoystick(int source) {
+		return (source & InputDevice.SOURCE_JOYSTICK) == InputDevice.SOURCE_JOYSTICK ||
+				(source & InputDevice.SOURCE_DPAD) == InputDevice.SOURCE_DPAD ||
+				(source & InputDevice.SOURCE_GAMEPAD) == InputDevice.SOURCE_GAMEPAD;
+	}
+
 	public InputDeviceState(InputDevice device) {
 		sources = device.getSources();
 		// First, anything that's a gamepad is a gamepad, even if it has a keyboard or pointer.
@@ -102,8 +108,7 @@ public class InputDeviceState {
 			this.deviceId = NativeApp.DEVICE_ID_PAD_0;
 		} else if ((sources & InputDevice.SOURCE_KEYBOARD) == InputDevice.SOURCE_KEYBOARD && device.getKeyboardType() == InputDevice.KEYBOARD_TYPE_ALPHABETIC) {
 			this.deviceId = NativeApp.DEVICE_ID_KEYBOARD;
-		} else if ((sources & InputDevice.SOURCE_JOYSTICK) == InputDevice.SOURCE_JOYSTICK ||
-				(sources & InputDevice.SOURCE_DPAD) == InputDevice.SOURCE_DPAD) {
+		} else if (inputSourceIsJoystick(sources)) {
 			this.deviceId = NativeApp.DEVICE_ID_PAD_0;
 		} else if ((sources & InputDevice.SOURCE_CLASS_POINTER) == InputDevice.SOURCE_CLASS_POINTER) {
 			this.deviceId = NativeApp.DEVICE_ID_MOUSE;
@@ -134,19 +139,22 @@ public class InputDeviceState {
 		NativeApp.sendMessage("inputDeviceConnected", device.getName());
 	}
 
+	// This is called from dispatchKeyEvent.
 	public boolean onKeyDown(KeyEvent event) {
 		int keyCode = event.getKeyCode();
 		boolean repeat = event.getRepeatCount() > 0;
 		return NativeApp.keyDown(deviceId, keyCode, repeat);
 	}
 
+	// This is called from dispatchKeyEvent.
 	public boolean onKeyUp(KeyEvent event) {
 		int keyCode = event.getKeyCode();
 		return NativeApp.keyUp(deviceId, keyCode);
 	}
 
 	public boolean onJoystickMotion(MotionEvent event) {
-		if ((event.getSource() & InputDevice.SOURCE_CLASS_JOYSTICK) == 0) {
+		if (!inputSourceIsJoystick(event.getSource())) {
+			Log.i(TAG, "Not a joystick event: source = " + event.getSource());
 			return false;
 		}
 		for (int i = 0; i < mAxes.length; i++) {
