@@ -401,10 +401,13 @@ static float GetDirectionScore(int originIndex, const View *origin, View *destin
 }
 
 NeighborResult ViewGroup::FindNeighbor(View *view, FocusDirection direction, NeighborResult result) {
-	if (!IsEnabled())
+	if (!IsEnabled()) {
+		INFO_LOG(SCECTRL, "Not enabled");
 		return result;
-	if (GetVisibility() != V_VISIBLE)
+	}
+	if (GetVisibility() != V_VISIBLE) {
 		return result;
+	}
 
 	// First, find the position of the view in the list.
 	int num = -1;
@@ -420,7 +423,7 @@ NeighborResult ViewGroup::FindNeighbor(View *view, FocusDirection direction, Nei
 		case FOCUS_PREV:
 			// If view not found, no neighbor to find.
 			if (num == -1)
-				return NeighborResult(0, 0.0f);
+				return NeighborResult(nullptr, 0.0f);
 			return NeighborResult(views_[(num + views_.size() - 1) % views_.size()], 0.0f);
 
 		case FOCUS_NEXT:
@@ -429,6 +432,7 @@ NeighborResult ViewGroup::FindNeighbor(View *view, FocusDirection direction, Nei
 				return NeighborResult(0, 0.0f);
 			return NeighborResult(views_[(num + 1) % views_.size()], 0.0f);
 		default:
+			// Can't happen
 			return NeighborResult(nullptr, 0.0f);
 		}
 	}
@@ -474,6 +478,7 @@ NeighborResult ViewGroup::FindNeighbor(View *view, FocusDirection direction, Nei
 		return FindScrollNeighbor(view, Point(INFINITY, INFINITY), direction, result);
 
 	default:
+		ERROR_LOG(SYSTEM, "Bad focus direction %d", (int)direction);
 		return result;
 	}
 }
