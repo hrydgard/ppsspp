@@ -801,19 +801,19 @@ void SystemInfoScreen::CreateTabs() {
 
 	internals->Add(new ItemHeader(si->T("Notification tests")));
 	internals->Add(new Choice(si->T("Error")))->OnClick.Add([&](UI::EventParams &) {
-		g_OSD.Show(OSDType::MESSAGE_ERROR, si->T("Error"));
+		g_OSD.Show(OSDType::MESSAGE_ERROR, "Error");
 		return UI::EVENT_DONE;
 	});
 	internals->Add(new Choice(si->T("Warning")))->OnClick.Add([&](UI::EventParams &) {
-		g_OSD.Show(OSDType::MESSAGE_WARNING, si->T("Warning"), "Some\nAdditional\nDetail");
+		g_OSD.Show(OSDType::MESSAGE_WARNING, "Warning", "Some\nAdditional\nDetail");
 		return UI::EVENT_DONE;
 	});
 	internals->Add(new Choice(si->T("Info")))->OnClick.Add([&](UI::EventParams &) {
-		g_OSD.Show(OSDType::MESSAGE_INFO, si->T("Info"));
+		g_OSD.Show(OSDType::MESSAGE_INFO, "Info");
 		return UI::EVENT_DONE;
 	});
 	internals->Add(new Choice(si->T("Success")))->OnClick.Add([&](UI::EventParams &) {
-		g_OSD.Show(OSDType::MESSAGE_SUCCESS, si->T("Success"));
+		g_OSD.Show(OSDType::MESSAGE_SUCCESS, "Success");
 		return UI::EVENT_DONE;
 	});
 	internals->Add(new ItemHeader(si->T("Progress tests")));

@@ -1038,7 +1038,7 @@ void System_Notify(SystemNotification notification) {
 		PushCommand("sustainedPerfMode", "");
 		break;
 	case SystemNotification::TEST_JAVA_EXCEPTION:
-		PushCommand("testException", "");
+		PushCommand("testException", "This is a test exception");
 		break;
 	default:
 		break;

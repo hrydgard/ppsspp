@@ -428,7 +428,7 @@ public abstract class NativeActivity extends Activity {
 			additionalStorageDirs = s.toString();
 		}
 		catch (Exception e) {
-			NativeApp.reportException(e);
+			NativeApp.reportException(e, null);
 			Log.e(TAG, "Failed to get SD storage dirs: " + e.toString());
 		}
 
@@ -1161,7 +1161,7 @@ public abstract class NativeActivity extends Activity {
 					NativeApp.sendRequestResult(imageRequestId, false, "", 0);
 				}
 			} catch (Exception e) {
-				NativeApp.reportException(e);
+				NativeApp.reportException(e, null);
 				Log.w(TAG, "Exception receiving image: " + e);
 			}
 			imageRequestId = -1;
@@ -1180,7 +1180,7 @@ public abstract class NativeActivity extends Activity {
 				} catch (Exception e) {
 					Log.w(TAG, "Exception getting permissions for document: " + e.toString());
 					NativeApp.sendRequestResult(fileRequestId, false, "", 0);
-					NativeApp.reportException(e);
+					NativeApp.reportException(e, selectedFile.toString());
 					fileRequestId = -1;
 					return;
 				}
@@ -1205,7 +1205,7 @@ public abstract class NativeActivity extends Activity {
 						getContentResolver().takePersistableUriPermission(selectedDirectoryUri, Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
 					}
 				} catch (Exception e) {
-					NativeApp.reportException(e);
+					NativeApp.reportException(e, selectedDirectoryUri.toString());
 					Log.w(TAG, "Exception getting permissions for document: " + e.toString());
 					// Intentionally don't return - see below.
 				}
@@ -1349,7 +1349,7 @@ public abstract class NativeActivity extends Activity {
 					startActivity(i);
 					return true;
 				} catch (Exception e) {
-					NativeApp.reportException(e);
+					NativeApp.reportException(e, params);
 					// No browser?
 					Log.e(TAG, e.toString());
 					return false;
@@ -1366,7 +1366,7 @@ public abstract class NativeActivity extends Activity {
 				startActivity(Intent.createChooser(send, "E-mail the app author!"));
 				return true;
 			} catch (Exception e) { // For example, android.content.ActivityNotFoundException
-				NativeApp.reportException(e);
+				NativeApp.reportException(e, params);
 				Log.e(TAG, e.toString());
 				return false;
 			}
@@ -1378,7 +1378,7 @@ public abstract class NativeActivity extends Activity {
 				startActivityForResult(i, RESULT_LOAD_IMAGE);
 				return true;
 			} catch (Exception e) { // For example, android.content.ActivityNotFoundException
-				NativeApp.reportException(e);
+				NativeApp.reportException(e, params);
 				imageRequestId = -1;
 				Log.e(TAG, e.toString());
 				return false;
@@ -1396,7 +1396,7 @@ public abstract class NativeActivity extends Activity {
 				startActivityForResult(intent, RESULT_OPEN_DOCUMENT);
 				// intent.putExtra(DocumentsContract.EXTRA_INITIAL_URI, pickerInitialUri);
 			} catch (Exception e) {
-				NativeApp.reportException(e);
+				NativeApp.reportException(e, params);
 				fileRequestId = -1;
 				Log.e(TAG, e.toString());
 				return false;
@@ -1412,7 +1412,7 @@ public abstract class NativeActivity extends Activity {
 				startActivityForResult(intent, RESULT_OPEN_DOCUMENT_TREE);
 				return true;
 			} catch (Exception e) {
-				NativeApp.reportException(e);
+				NativeApp.reportException(e, params);
 				folderRequestId = -1;
 				Log.e(TAG, e.toString());
 				return false;
@@ -1427,7 +1427,7 @@ public abstract class NativeActivity extends Activity {
 				startActivity(shareIntent);
 				return true;
 			} catch (Exception e) { // For example, android.content.ActivityNotFoundException
-				NativeApp.reportException(e);
+				NativeApp.reportException(e, params);
 				Log.e(TAG, e.toString());
 				return false;
 			}
@@ -1579,7 +1579,7 @@ public abstract class NativeActivity extends Activity {
 			try {
 				throw new Exception();
 			} catch (Exception e) {
-				NativeApp.reportException(e);
+				NativeApp.reportException(e, params);
 			}
 		}
 		return false;

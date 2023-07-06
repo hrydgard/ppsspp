@@ -60,8 +60,12 @@ public class NativeApp {
 	public static native void pushCameraImageAndroid(byte[] image);
 
 	// Wrappers
-	public static void reportException(Exception e) {
+	public static void reportException(Exception e, String data) {
 		String str = e.toString() + "\n" + e.getMessage() + "\n";
+		if (data != null) {
+			str += data + "\n";
+		}
+		// could also use import android.util.Log; String stackTrace = Log.getStackTraceString(exception);
 		int count = 0;
 		for (StackTraceElement ste : e.getStackTrace()) {
 			str += ste + "\n";
