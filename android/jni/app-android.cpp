@@ -1267,6 +1267,7 @@ extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_sendMessageFromJava(JNI
 		// Don't need to send along, nothing else is listening.
 	} else if (msg == "permission_granted") {
 		INFO_LOG(SYSTEM, "STORAGE PERMISSION: GRANTED");
+		permissions[SYSTEM_PERMISSION_STORAGE] = PERMISSION_STATUS_GRANTED;
 		// Send along.
 		System_PostUIMessage(msg.c_str(), prm.c_str());
 	} else if (msg == "sustained_perf_supported") {
