@@ -59,9 +59,9 @@ public:
 	virtual void deviceLost() {}
 	virtual void deviceRestored() {}
 
-	virtual void UnsyncTouch(const TouchInput &touch) {}
-	virtual bool UnsyncKey(const KeyInput &touch) { return false; }
-	virtual void UnsyncAxis(const AxisInput &touch) {}
+	virtual void UnsyncTouch(const TouchInput &touch) = 0;
+	virtual bool UnsyncKey(const KeyInput &touch) = 0;
+	virtual void UnsyncAxis(const AxisInput &touch) = 0;
 
 	virtual void RecreateViews() {}
 
@@ -98,7 +98,6 @@ typedef void(*PostRenderCallback)(UIContext *ui, void *userdata);
 
 class ScreenManager {
 public:
-	ScreenManager();
 	virtual ~ScreenManager();
 
 	void switchScreen(Screen *screen);
@@ -154,8 +153,8 @@ private:
 	void switchToNext();
 	void processFinishDialog();
 
-	UIContext *uiContext_;
-	Draw::DrawContext *thin3DContext_;
+	UIContext *uiContext_ = nullptr;
+	Draw::DrawContext *thin3DContext_ = nullptr;
 
 	PostRenderCallback postRenderCb_ = nullptr;
 	void *postRenderUserdata_ = nullptr;

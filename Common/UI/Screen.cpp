@@ -11,16 +11,15 @@
 #include "Common/Log.h"
 #include "Common/TimeUtil.h"
 
-ScreenManager::ScreenManager() {
-	uiContext_ = 0;
-	dialogFinished_ = 0;
-}
+#include "Core/KeyMap.h"
 
 ScreenManager::~ScreenManager() {
 	shutdown();
 }
 
 void ScreenManager::switchScreen(Screen *screen) {
+	// TODO: inputLock_ ?
+
 	if (!nextStack_.empty() && screen == nextStack_.front().screen) {
 		ERROR_LOG(SYSTEM, "Already switching to this screen");
 		return;

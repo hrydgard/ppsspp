@@ -688,7 +688,7 @@ void TouchTestScreen::UpdateLogView() {
 bool TouchTestScreen::key(const KeyInput &key) {
 	UIScreen::key(key);
 	char buf[512];
-	snprintf(buf, sizeof(buf), "Keycode: %d Device ID: %d [%s%s%s%s]", key.keyCode, key.deviceId,
+	snprintf(buf, sizeof(buf), "%s (%d) Device ID: %d [%s%s%s%s]", KeyMap::GetKeyName(key.keyCode).c_str(), key.keyCode, key.deviceId,
 		(key.flags & KEY_IS_REPEAT) ? "REP" : "",
 		(key.flags & KEY_UP) ? "UP" : "",
 		(key.flags & KEY_DOWN) ? "DOWN" : "",
@@ -704,8 +704,8 @@ void TouchTestScreen::axis(const AxisInput &axis) {
 		return;
 
 	char buf[512];
-	snprintf(buf, sizeof(buf), "Axis: %d (value %1.3f) Device ID: %d",
-		axis.axisId, axis.value, axis.deviceId);
+	snprintf(buf, sizeof(buf), "Axis: %s (%d) (value %1.3f) Device ID: %d",
+		KeyMap::GetAxisName(axis.axisId).c_str(), axis.axisId, axis.value, axis.deviceId);
 
 	keyEventLog_.push_back(buf);
 	if (keyEventLog_.size() > 8) {
