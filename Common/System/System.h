@@ -196,6 +196,7 @@ enum class SystemNotification {
 	SUSTAINED_PERF_CHANGE,
 	POLL_CONTROLLERS,
 	TOGGLE_DEBUG_CONSOLE,  // TODO: Kinda weird, just ported forward.
+	TEST_JAVA_EXCEPTION,
 };
 
 std::string System_GetProperty(SystemProperty prop);

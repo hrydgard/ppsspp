@@ -1037,6 +1037,9 @@ void System_Notify(SystemNotification notification) {
 	case SystemNotification::SUSTAINED_PERF_CHANGE:
 		PushCommand("sustainedPerfMode", "");
 		break;
+	case SystemNotification::TEST_JAVA_EXCEPTION:
+		PushCommand("testException", "");
+		break;
 	default:
 		break;
 	}
@@ -1286,6 +1289,8 @@ extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_sendMessageFromJava(JNI
 	} else if (msg == "core_powerSaving") {
 		// Forward.
 		System_PostUIMessage(msg.c_str(), prm.c_str());
+	} else if (msg == "exception") {
+		g_OSD.Show(OSDType::MESSAGE_ERROR, std::string("Java Exception"), prm, 10.0f);
 	} else {
 		ERROR_LOG(SYSTEM, "Got unexpected message from Java, ignoring: %s / %s", msg.c_str(), prm.c_str());
 	}

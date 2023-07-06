@@ -833,7 +833,12 @@ void SystemInfoScreen::CreateTabs() {
 		g_OSD.RemoveProgressBar("testprogress", 0.25f);
 		return UI::EVENT_DONE;
 	});
-
+#if PPSSPP_PLATFORM(ANDROID)
+	internals->Add(new Choice(si->T("Exception")))->OnClick.Add([&](UI::EventParams &) {
+		System_Notify(SystemNotification::TEST_JAVA_EXCEPTION);
+		return UI::EVENT_DONE;
+	});
+#endif
 }
 
 void AddressPromptScreen::CreatePopupContents(UI::ViewGroup *parent) {
