@@ -1925,7 +1925,7 @@ UI::EventReturn HostnameSelectScreen::OnNumberClick(UI::EventParams &e) {
 }
 
 UI::EventReturn HostnameSelectScreen::OnPointClick(UI::EventParams &e) {
-	SendEditKey(NKCODE_PERIOD, KEY_CHAR);
+	SendEditKey((InputKeyCode)'.', KEY_CHAR);
 	return UI::EVENT_DONE;
 }
 
