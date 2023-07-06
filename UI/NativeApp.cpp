@@ -1118,7 +1118,7 @@ void NativeRender(GraphicsContext *graphicsContext) {
 #if !PPSSPP_PLATFORM(WINDOWS) && !defined(ANDROID)
 		PSP_CoreParameter().pixelWidth = g_display.pixel_xres;
 		PSP_CoreParameter().pixelHeight = g_display.pixel_yres;
-		NativeMessageReceived("gpu_displayResized", "");
+		System_PostUIMessage("gpu_displayResized", "");
 #endif
 	} else {
 		// INFO_LOG(G3D, "Polling graphics context");
@@ -1135,15 +1135,7 @@ void NativeRender(GraphicsContext *graphicsContext) {
 }
 
 void HandleGlobalMessage(const std::string &msg, const std::string &value) {
-	// A bit ugly, see InputDeviceState.java.
-	static InputDeviceID nextInputDeviceID = DEVICE_ID_ANY;
-	if (msg == "inputDeviceConnectedID") {
-		nextInputDeviceID = (InputDeviceID)parseLong(value);
-	}
-	else if (msg == "inputDeviceConnected") {
-		KeyMap::NotifyPadConnected(nextInputDeviceID, value);
-	}
-	else if (msg == "savestate_displayslot") {
+	if (msg == "savestate_displayslot") {
 		auto sy = GetI18NCategory(I18NCat::SYSTEM);
 		std::string msg = StringFromFormat("%s: %d", sy->T("Savestate Slot"), SaveState::GetCurrentSlot() + 1);
 		// Show for the same duration as the preview.
@@ -1349,16 +1341,12 @@ void NativeAxis(const AxisInput &axis) {
 		xSensitivity, ySensitivity);
 }
 
-void NativeMessageReceived(const char *message, const char *value) {
+void System_PostUIMessage(const std::string &message, const std::string &value) {
 	std::lock_guard<std::mutex> lock(pendingMutex);
 	PendingMessage pendingMessage;
 	pendingMessage.msg = message;
 	pendingMessage.value = value;
 	pendingMessages.push_back(pendingMessage);
-}
-
-void System_PostUIMessage(const std::string &message, const std::string &value) {
-	NativeMessageReceived(message.c_str(), value.c_str());
 }
 
 void NativeResized() {

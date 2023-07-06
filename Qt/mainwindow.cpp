@@ -130,7 +130,7 @@ void MainWindow::loadAct()
 	{
 		QFileInfo info(filename);
 		g_Config.currentDirectory = Path(info.absolutePath().toStdString());
-		NativeMessageReceived("boot", filename.toStdString().c_str());
+		System_PostUIMessage("boot", filename.toStdString().c_str());
 	}
 }
 
@@ -138,7 +138,7 @@ void MainWindow::closeAct()
 {
 	updateMenus();
 
-	NativeMessageReceived("stop", "");
+	System_PostUIMessage("stop", "");
 	SetGameTitle("");
 }
 
@@ -232,25 +232,25 @@ void MainWindow::exitAct()
 
 void MainWindow::runAct()
 {
-	NativeMessageReceived("run", "");
+	System_PostUIMessage("run", "");
 }
 
 void MainWindow::pauseAct()
 {
-	NativeMessageReceived("pause", "");
+	System_PostUIMessage("pause", "");
 }
 
 void MainWindow::stopAct()
 {
 	Core_Stop();
-	NativeMessageReceived("stop", "");
+	System_PostUIMessage("stop", "");
 }
 
 void MainWindow::resetAct()
 {
 	updateMenus();
 
-	NativeMessageReceived("reset", "");
+	System_PostUIMessage("reset", "");
 }
 
 void MainWindow::switchUMDAct()

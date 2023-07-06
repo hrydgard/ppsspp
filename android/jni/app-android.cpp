@@ -90,6 +90,7 @@ struct JNIEnv {};
 #include "Core/ConfigValues.h"
 #include "Core/Loaders.h"
 #include "Core/FileLoaders/LocalFileLoader.h"
+#include "Core/KeyMap.h"
 #include "Core/System.h"
 #include "Core/HLE/sceUsbCam.h"
 #include "Core/HLE/sceUsbGps.h"
@@ -369,7 +370,7 @@ static void EmuThreadJoin() {
 
 static void ProcessFrameCommands(JNIEnv *env);
 
-void PushCommand(std::string cmd, std::string param) {
+static void PushCommand(std::string cmd, std::string param) {
 	std::lock_guard<std::mutex> guard(frameCommandLock);
 	frameCommands.push(FrameCommand(cmd, param));
 }
@@ -859,7 +860,7 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_resume(JNIEnv *, jclass) {
 	INFO_LOG(SYSTEM, "NativeApp.resume() - resuming audio");
 	AndroidAudio_Resume(g_audioState);
 
-	NativeMessageReceived("app_resumed", "");
+	System_PostUIMessage("app_resumed", "");
 }
 
 extern "C" void Java_org_ppsspp_ppsspp_NativeApp_pause(JNIEnv *, jclass) {
@@ -972,7 +973,7 @@ extern "C" bool Java_org_ppsspp_ppsspp_NativeRenderer_displayInit(JNIEnv * env, 
 		renderer_inited = true;
 	}
 
-	NativeMessageReceived("recreateviews", "");
+	System_PostUIMessage("recreateviews", "");
 
 	if (IsVREnabled()) {
 		EnterVR(firstStart, graphicsContext->GetAPIContext());
@@ -1242,9 +1243,12 @@ extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_accelerometer(JNIEnv *,
 	NativeAxis(axis);
 }
 
-extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_sendMessage(JNIEnv *env, jclass, jstring message, jstring param) {
+extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_sendMessageFromJava(JNIEnv *env, jclass, jstring message, jstring param) {
 	std::string msg = GetJavaString(env, message);
 	std::string prm = GetJavaString(env, param);
+
+	// A bit ugly, see InputDeviceState.java.
+	static InputDeviceID nextInputDeviceID = DEVICE_ID_ANY;
 
 	// Some messages are caught by app-android. TODO: Should be all.
 	if (msg == "moga") {
@@ -1253,12 +1257,15 @@ extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_sendMessage(JNIEnv *env
 		INFO_LOG(SYSTEM, "STORAGE PERMISSION: PENDING");
 		// TODO: Add support for other permissions
 		permissions[SYSTEM_PERMISSION_STORAGE] = PERMISSION_STATUS_PENDING;
+		// Don't need to send along, nothing else is listening.
 	} else if (msg == "permission_denied") {
 		INFO_LOG(SYSTEM, "STORAGE PERMISSION: DENIED");
 		permissions[SYSTEM_PERMISSION_STORAGE] = PERMISSION_STATUS_DENIED;
+		// Don't need to send along, nothing else is listening.
 	} else if (msg == "permission_granted") {
 		INFO_LOG(SYSTEM, "STORAGE PERMISSION: GRANTED");
-		permissions[SYSTEM_PERMISSION_STORAGE] = PERMISSION_STATUS_GRANTED;
+		// Send along.
+		System_PostUIMessage(msg.c_str(), prm.c_str());
 	} else if (msg == "sustained_perf_supported") {
 		sustainedPerfSupported = true;
 	} else if (msg == "safe_insets") {
@@ -1271,10 +1278,16 @@ extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_sendMessage(JNIEnv *env
 			g_safeInsetTop = (float)top * g_display.dpi_scale_y;
 			g_safeInsetBottom = (float)bottom * g_display.dpi_scale_y;
 		}
+	} else if (msg == "inputDeviceConnectedID") {
+		nextInputDeviceID = (InputDeviceID)parseLong(prm);
+	} else if (msg == "inputDeviceConnected") {
+		KeyMap::NotifyPadConnected(nextInputDeviceID, prm);
+	} else if (msg == "core_powerSaving") {
+		// Forward.
+		System_PostUIMessage(msg.c_str(), prm.c_str());
+	} else {
+		ERROR_LOG(SYSTEM, "Got unexpected message from Java, ignoring: %s / %s", msg.c_str(), prm.c_str());
 	}
-
-	// Ensures that the receiver can handle it on a sensible thread.
-	NativeMessageReceived(msg.c_str(), prm.c_str());
 }
 
 extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeActivity_requestExitVulkanRenderLoop(JNIEnv *env, jobject obj) {

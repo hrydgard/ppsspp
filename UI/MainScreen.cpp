@@ -1377,7 +1377,7 @@ UI::EventReturn MainScreen::OnLoadFile(UI::EventParams &e) {
 	if (System_GetPropertyBool(SYSPROP_HAS_FILE_BROWSER)) {
 		auto mm = GetI18NCategory(I18NCat::MAINMENU);
 		System_BrowseForFile(mm->T("Load"), BrowseFileType::BOOTABLE, [](const std::string &value, int) {
-			NativeMessageReceived("boot", value.c_str());
+			System_PostUIMessage("boot", value.c_str());
 		});
 	}
 	return UI::EVENT_DONE;

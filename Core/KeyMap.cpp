@@ -780,6 +780,7 @@ bool HasBuiltinController(const std::string &name) {
 }
 
 void NotifyPadConnected(InputDeviceID deviceId, const std::string &name) {
+	std::lock_guard<std::recursive_mutex> guard(g_controllerMapLock);
 	g_seenPads.insert(name);
 	g_padNames[deviceId] = name;
 }
@@ -812,10 +813,12 @@ void AutoConfForPad(const std::string &name) {
 }
 
 const std::set<std::string> &GetSeenPads() {
+	std::lock_guard<std::recursive_mutex> guard(g_controllerMapLock);
 	return g_seenPads;
 }
 
 std::string PadName(InputDeviceID deviceId) {
+	std::lock_guard<std::recursive_mutex> guard(g_controllerMapLock);
 	auto it = g_padNames.find(deviceId);
 	if (it != g_padNames.end())
 		return it->second;

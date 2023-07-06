@@ -200,9 +200,9 @@ public abstract class NativeActivity extends Activity {
 		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
 			// Let's start out granted if it was granted already.
 			if (this.checkSelfPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED) {
-				NativeApp.sendMessage("permission_granted", "storage");
+				NativeApp.sendMessageFromJava("permission_granted", "storage");
 			} else {
-				NativeApp.sendMessage("permission_denied", "storage");
+				NativeApp.sendMessageFromJava("permission_denied", "storage");
 			}
 		}
 	}
@@ -220,9 +220,9 @@ public abstract class NativeActivity extends Activity {
 		switch (requestCode) {
 		case REQUEST_CODE_STORAGE_PERMISSION:
 			if (permissionsGranted(permissions, grantResults)) {
-				NativeApp.sendMessage("permission_granted", "storage");
+				NativeApp.sendMessageFromJava("permission_granted", "storage");
 			} else {
-				NativeApp.sendMessage("permission_denied", "storage");
+				NativeApp.sendMessageFromJava("permission_denied", "storage");
 			}
 			break;
 		case REQUEST_CODE_LOCATION_PERMISSION:
@@ -364,7 +364,7 @@ public abstract class NativeActivity extends Activity {
 		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
 			if (powerManager != null && powerManager.isSustainedPerformanceModeSupported()) {
 				sustainedPerfSupported = true;
-				NativeApp.sendMessage("sustained_perf_supported", "1");
+				NativeApp.sendMessageFromJava("sustained_perf_supported", "1");
 			}
 		}
 
@@ -1511,9 +1511,9 @@ public abstract class NativeActivity extends Activity {
 			recreate();
 		} else if (command.equals("ask_permission") && params.equals("storage")) {
 			if (askForPermissions(permissionsForStorage, REQUEST_CODE_STORAGE_PERMISSION)) {
-				NativeApp.sendMessage("permission_pending", "storage");
+				NativeApp.sendMessageFromJava("permission_pending", "storage");
 			} else {
-				NativeApp.sendMessage("permission_granted", "storage");
+				NativeApp.sendMessageFromJava("permission_granted", "storage");
 			}
 		} else if (command.equals("gps_command")) {
 			if (params.equals("open")) {
