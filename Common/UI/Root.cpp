@@ -249,6 +249,7 @@ KeyEventResult UnsyncKeyEvent(const KeyInput &key, ViewGroup *root) {
 		retval = KeyEventResult::PASS_THROUGH;
 		break;
 	default:
+		retval = KeyEventResult::ACCEPT;
 		break;
 	}
 	return retval;
