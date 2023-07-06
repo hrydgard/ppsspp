@@ -6,9 +6,11 @@
 //
 
 #import <Cocoa/Cocoa.h>
+
 #import "PSPNSApplicationDelegate.h"
+
+#include "Common/System/System.h"
 #include "Core/SaveState.h"
-#include "Common/System/NativeApp.h"
 #include "Core/Config.h"
 
 @implementation PSPNSApplicationDelegate

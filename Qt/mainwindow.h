@@ -126,7 +126,7 @@ private slots:
 
 	void renderingResolutionGroup_triggered(QAction *action) {
 		g_Config.iInternalResolution = action->data().toInt();
-		NativeMessagSystem_PostUIMessageeReceived("gpu_renderResized", "");
+		System_PostUIMessage("gpu_renderResized", "");
 	}
 	void windowGroup_triggered(QAction *action) { SetWindowScale(action->data().toInt()); }
 
