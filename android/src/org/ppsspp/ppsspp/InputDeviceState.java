@@ -18,6 +18,7 @@ public class InputDeviceState {
 
 	private InputDevice mDevice;
 	private int[] mAxes;
+	private float[] mAxisPrevValue;
 
 	private int sources;
 
@@ -118,6 +119,7 @@ public class InputDeviceState {
 		}
 
 		mAxes = new int[numAxes];
+		mAxisPrevValue = new float[numAxes];
 
 		int i = 0;
 		for (MotionRange range : device.getMotionRanges()) {
@@ -150,7 +152,10 @@ public class InputDeviceState {
 		for (int i = 0; i < mAxes.length; i++) {
 			int axisId = mAxes[i];
 			float value = event.getAxisValue(axisId);
-			NativeApp.joystickAxis(deviceId, axisId, value);
+			if (value != mAxisPrevValue[i]) {
+				NativeApp.joystickAxis(deviceId, axisId, value);
+				mAxisPrevValue[i] = value;
+			}
 		}
 		return true;
 	}

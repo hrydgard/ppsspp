@@ -1169,20 +1169,19 @@ PermissionStatus System_GetPermissionStatus(SystemPermission permission) {
 
 extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_touch
 	(JNIEnv *, jclass, float x, float y, int code, int pointerId) {
-
-	float scaledX = x * g_display.dpi_scale_x;
-	float scaledY = y * g_display.dpi_scale_y;
-
+	if (!renderer_inited)
+		return;
 	TouchInput touch;
 	touch.id = pointerId;
-	touch.x = scaledX;
-	touch.y = scaledY;
+	touch.x = x * g_display.dpi_scale_x;
+	touch.y = y * g_display.dpi_scale_y;
 	touch.flags = code;
-
 	NativeTouch(touch);
 }
 
 extern "C" jboolean Java_org_ppsspp_ppsspp_NativeApp_keyDown(JNIEnv *, jclass, jint deviceId, jint key, jboolean isRepeat) {
+	if (!renderer_inited)
+		return false;
 	KeyInput keyInput;
 	keyInput.deviceId = (InputDeviceID)deviceId;
 	keyInput.keyCode = (InputKeyCode)key;
@@ -1194,6 +1193,8 @@ extern "C" jboolean Java_org_ppsspp_ppsspp_NativeApp_keyDown(JNIEnv *, jclass, j
 }
 
 extern "C" jboolean Java_org_ppsspp_ppsspp_NativeApp_keyUp(JNIEnv *, jclass, jint deviceId, jint key) {
+	if (!renderer_inited)
+		return false;
 	KeyInput keyInput;
 	keyInput.deviceId = (InputDeviceID)deviceId;
 	keyInput.keyCode = (InputKeyCode)key;
@@ -1210,7 +1211,6 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_joystickAxis(
 	axis.deviceId = (InputDeviceID)deviceId;
 	axis.axisId = (InputAxis)axisId;
 	axis.value = value;
-
 	NativeAxis(axis);
 }
 
@@ -1218,7 +1218,6 @@ extern "C" jboolean Java_org_ppsspp_ppsspp_NativeApp_mouseWheelEvent(
 	JNIEnv *env, jclass, jint stick, jfloat x, jfloat y) {
 	if (!renderer_inited)
 		return false;
-
 	// TODO: Support mousewheel for android
 	return true;
 }
