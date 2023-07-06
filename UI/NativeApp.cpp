@@ -1135,15 +1135,7 @@ void NativeRender(GraphicsContext *graphicsContext) {
 }
 
 void HandleGlobalMessage(const std::string &msg, const std::string &value) {
-	// A bit ugly, see InputDeviceState.java.
-	static InputDeviceID nextInputDeviceID = DEVICE_ID_ANY;
-	if (msg == "inputDeviceConnectedID") {
-		nextInputDeviceID = (InputDeviceID)parseLong(value);
-	}
-	else if (msg == "inputDeviceConnected") {
-		KeyMap::NotifyPadConnected(nextInputDeviceID, value);
-	}
-	else if (msg == "savestate_displayslot") {
+	if (msg == "savestate_displayslot") {
 		auto sy = GetI18NCategory(I18NCat::SYSTEM);
 		std::string msg = StringFromFormat("%s: %d", sy->T("Savestate Slot"), SaveState::GetCurrentSlot() + 1);
 		// Show for the same duration as the preview.
