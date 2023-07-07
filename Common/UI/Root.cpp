@@ -418,7 +418,6 @@ void UpdateViewHierarchy(ViewGroup *root) {
 			}
 			root->SubviewFocused(GetFocusedView());
 		} else {
-			INFO_LOG(SCECTRL, "Processing focus moves.");
 			for (size_t i = 0; i < focusMoves.size(); i++) {
 				switch (focusMoves[i]) {
 				case NKCODE_DPAD_LEFT: MoveFocus(root, FOCUS_LEFT); break;
@@ -432,7 +431,6 @@ void UpdateViewHierarchy(ViewGroup *root) {
 				}
 			}
 		}
-		INFO_LOG(SCECTRL, "Clearing focus moves.");
 		focusMoves.clear();
 	}
 

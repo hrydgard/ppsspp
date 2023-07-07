@@ -1050,6 +1050,7 @@ private:
 };
 
 void MeasureBySpec(Size sz, float contentWidth, MeasureSpec spec, float *measured);
+void ApplyBoundsBySpec(Bounds &bounds, MeasureSpec horiz, MeasureSpec vert);
 
 bool IsDPadKey(const KeyInput &key);
 bool IsAcceptKey(const KeyInput &key);

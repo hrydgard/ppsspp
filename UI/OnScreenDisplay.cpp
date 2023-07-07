@@ -18,63 +18,62 @@
 #include "Common/Net/HTTPClient.h"
 #include "Core/Config.h"
 
-static uint32_t GetOSDBackgroundColor(OSDType type) {
+static const float g_atlasIconSize = 36.0f;
+static const float extraTextScale = 0.7f;
+
+static uint32_t GetNoticeBackgroundColor(NoticeLevel type) {
 	// Colors from Infima
 	switch (type) {
-	case OSDType::MESSAGE_ERROR:
-	case OSDType::MESSAGE_ERROR_DUMP: return 0x3530d5;  // danger-darker
-	case OSDType::MESSAGE_WARNING: return 0x009ed9;  // warning-darker
-	case OSDType::MESSAGE_INFO: return 0x706760;  // gray-700
-	case OSDType::MESSAGE_SUCCESS: return 0x008b00;
+	case NoticeLevel::ERROR: return 0x3530d5;  // danger-darker
+	case NoticeLevel::WARN: return 0x009ed9;  // warning-darker
+	case NoticeLevel::INFO: return 0x706760;  // gray-700
+	case NoticeLevel::SUCCESS: return 0x008b00;  // nice green
 	default: return 0x606770;
 	}
 }
 
-ImageID GetOSDIcon(OSDType type) {
-	switch (type) {
-	case OSDType::MESSAGE_INFO: return ImageID::invalid(); //  return ImageID("I_INFO");
-	case OSDType::MESSAGE_ERROR: return ImageID("I_CROSS");
-	case OSDType::MESSAGE_WARNING: return ImageID("I_WARNING");
-	case OSDType::MESSAGE_SUCCESS: return ImageID("I_CHECKEDBOX");
+static ImageID GetOSDIcon(NoticeLevel level) {
+	switch (level) {
+	case NoticeLevel::INFO: return ImageID::invalid(); //  return ImageID("I_INFO");
+	case NoticeLevel::ERROR: return ImageID("I_CROSS");
+	case NoticeLevel::WARN: return ImageID("I_WARNING");
+	case NoticeLevel::SUCCESS: return ImageID("I_CHECKEDBOX");
 	default: return ImageID::invalid();
 	}
 }
 
-static const float g_atlasIconSize = 36.0f;
-
-static const float extraTextScale = 0.7f;
-
-// Align only matters here for the ASCII-only flag.
-static void MeasureOSDEntry(UIContext &dc, const OnScreenDisplay::Entry &entry, int align, float *width, float *height, float *height1) {
-	if (entry.type == OSDType::ACHIEVEMENT_UNLOCKED) {
-		const Achievements::Achievement *achievement = Achievements::GetAchievementByID(entry.numericID);
-		MeasureAchievement(dc, *achievement, width, height);
-		*width = 550.0f;
-		*height1 = *height;
-		return;
+static NoticeLevel GetNoticeLevel(OSDType type) {
+	switch (type) {
+	case OSDType::MESSAGE_INFO: return NoticeLevel::INFO;
+	case OSDType::MESSAGE_ERROR:
+	case OSDType::MESSAGE_ERROR_DUMP: return NoticeLevel::ERROR;
+	case OSDType::MESSAGE_WARNING: return NoticeLevel::WARN;
+	case OSDType::MESSAGE_SUCCESS: return NoticeLevel::SUCCESS;
+	default: return NoticeLevel::SUCCESS;
 	}
+}
 
-	dc.SetFontStyle(dc.theme->uiFont);
-	dc.MeasureText(dc.theme->uiFont, 1.0f, 1.0f, entry.text.c_str(), width, height, align);
+static void MeasureNotice(const UIContext &dc, NoticeLevel level, const std::string &text, const std::string &details, const std::string &iconName, int align, float *width, float *height, float *height1) {
+	dc.MeasureText(dc.theme->uiFont, 1.0f, 1.0f, text.c_str(), width, height, align);
 	*height1 = *height;
 
 	float width2 = 0.0f, height2 = 0.0f;
-	if (!entry.text2.empty()) {
-		dc.MeasureText(dc.theme->uiFont, extraTextScale, extraTextScale, entry.text2.c_str(), &width2, &height2, align);
+	if (!details.empty()) {
+		dc.MeasureText(dc.theme->uiFont, extraTextScale, extraTextScale, details.c_str(), &width2, &height2, align);
 		*width = std::max(*width, width2);
 		*height += 5.0f + height2;
 	}
 
 	float iconSize = 0.0f;
 
-	if (!entry.iconName.empty()) {
+	if (!iconName.empty()) {
 		// Normal entry but with a cached icon.
 		int iconWidth, iconHeight;
-		if (g_iconCache.GetDimensions(entry.iconName, &iconWidth, &iconHeight)) {
+		if (g_iconCache.GetDimensions(iconName, &iconWidth, &iconHeight)) {
 			*width += 5.0f + iconWidth;
 			iconSize = iconWidth + 5.0f;
 		}
-	} else if (!GetOSDIcon(entry.type).isInvalid()) {
+	} else if (!GetOSDIcon(level).isInvalid()) {
 		// Atlas icon.
 		iconSize = g_atlasIconSize + 5.0f;
 	}
@@ -83,14 +82,20 @@ static void MeasureOSDEntry(UIContext &dc, const OnScreenDisplay::Entry &entry, 
 	*height = std::max(*height, iconSize + 5.0f);
 }
 
-static void RenderOSDEntry(UIContext &dc, const OnScreenDisplay::Entry &entry, Bounds bounds, float height1, int align, float alpha) {
+// Align only matters here for the ASCII-only flag.
+static void MeasureOSDEntry(const UIContext &dc, const OnScreenDisplay::Entry &entry, int align, float *width, float *height, float *height1) {
 	if (entry.type == OSDType::ACHIEVEMENT_UNLOCKED) {
 		const Achievements::Achievement *achievement = Achievements::GetAchievementByID(entry.numericID);
-		RenderAchievement(dc, *achievement, AchievementRenderStyle::UNLOCKED, bounds, alpha, entry.startTime, time_now_d());
-		return;
+		MeasureAchievement(dc, *achievement, width, height);
+		*width = 550.0f;
+		*height1 = *height;
+	} else {
+		MeasureNotice(dc, GetNoticeLevel(entry.type), entry.text, entry.text2, entry.iconName, align, width, height, height1);
 	}
+}
 
-	UI::Drawable background = UI::Drawable(colorAlpha(GetOSDBackgroundColor(entry.type), alpha));
+static void RenderNotice(UIContext &dc, Bounds bounds, float height1, NoticeLevel level, const std::string &text, const std::string &details, const std::string &iconName, int align, float alpha) {
+	UI::Drawable background = UI::Drawable(colorAlpha(GetNoticeBackgroundColor(level), alpha));
 
 	uint32_t foreGround = whiteAlpha(alpha);
 
@@ -100,13 +105,13 @@ static void RenderOSDEntry(UIContext &dc, const OnScreenDisplay::Entry &entry, B
 
 	dc.FillRect(background, bounds);
 
-	ImageID iconID = GetOSDIcon(entry.type);
+	ImageID iconID = GetOSDIcon(level);
 
 	float iconSize = 0.0f;
-	if (!entry.iconName.empty()) {
+	if (!iconName.empty()) {
 		dc.Flush();
 		// Normal entry but with a cached icon.
-		Draw::Texture *texture = g_iconCache.BindIconTexture(&dc, entry.iconName);
+		Draw::Texture *texture = g_iconCache.BindIconTexture(&dc, iconName);
 		if (texture) {
 			iconSize = texture->Width();
 			dc.Draw()->DrawTexRect(Bounds(bounds.x + 2.5f, bounds.y + 2.5f, iconSize, iconSize), 0.0f, 0.0f, 1.0f, 1.0f, foreGround);
@@ -124,19 +129,29 @@ static void RenderOSDEntry(UIContext &dc, const OnScreenDisplay::Entry &entry, B
 	bounds.x += iconSize + 5.0f;
 	bounds.w -= iconSize + 5.0f;
 
-	dc.DrawTextShadowRect(entry.text.c_str(), bounds.Inset(0.0f, 1.0f, 0.0f, 0.0f), foreGround, (align & FLAG_DYNAMIC_ASCII));
+	dc.DrawTextShadowRect(text.c_str(), bounds.Inset(0.0f, 1.0f, 0.0f, 0.0f), foreGround, (align & FLAG_DYNAMIC_ASCII));
 
-	if (!entry.text2.empty()) {
+	if (!details.empty()) {
 		Bounds bottomTextBounds = bounds.Inset(3.0f, height1 + 5.0f, 3.0f, 3.0f);
-		UI::Drawable backgroundDark = UI::Drawable(colorAlpha(darkenColor(GetOSDBackgroundColor(entry.type)), alpha));
+		UI::Drawable backgroundDark = UI::Drawable(colorAlpha(darkenColor(GetNoticeBackgroundColor(level)), alpha));
 		dc.FillRect(backgroundDark, bottomTextBounds);
 		dc.SetFontScale(extraTextScale, extraTextScale);
-		dc.DrawTextRect(entry.text2.c_str(), bottomTextBounds, foreGround, (align & FLAG_DYNAMIC_ASCII) | ALIGN_LEFT);
+		dc.DrawTextRect(details.c_str(), bottomTextBounds, foreGround, (align & FLAG_DYNAMIC_ASCII) | ALIGN_LEFT);
 	}
 	dc.SetFontScale(1.0f, 1.0f);
 }
 
-static void MeasureOSDProgressBar(UIContext &dc, const OnScreenDisplay::ProgressBar &bar, float *width, float *height) {
+static void RenderOSDEntry(UIContext &dc, const OnScreenDisplay::Entry &entry, Bounds bounds, float height1, int align, float alpha) {
+	if (entry.type == OSDType::ACHIEVEMENT_UNLOCKED) {
+		const Achievements::Achievement *achievement = Achievements::GetAchievementByID(entry.numericID);
+		RenderAchievement(dc, *achievement, AchievementRenderStyle::UNLOCKED, bounds, alpha, entry.startTime, time_now_d());
+		return;
+	}
+
+	RenderNotice(dc, bounds, height1, GetNoticeLevel(entry.type), entry.text, entry.text2, entry.iconName, align, alpha);
+}
+
+static void MeasureOSDProgressBar(const UIContext &dc, const OnScreenDisplay::ProgressBar &bar, float *width, float *height) {
 	*height = 36;
 	*width = 450.0f;
 }
@@ -288,4 +303,22 @@ void OSDOverlayScreen::CreateViews() {
 	root_ = new UI::AnchorLayout();
 	root_->SetTag("OSDOverlayScreen");
 	root_->Add(new OnScreenMessagesView(new UI::AnchorLayoutParams(0.0f, 0.0f, 0.0f, 0.0f)));
+}
+
+void NoticeView::GetContentDimensionsBySpec(const UIContext &dc, UI::MeasureSpec horiz, UI::MeasureSpec vert, float &w, float &h) const {
+	Bounds bounds(0, 0, layoutParams_->width, layoutParams_->height);
+	if (bounds.w < 0) {
+		// If there's no size, let's grow as big as we want.
+		bounds.w = horiz.size;
+	}
+	if (bounds.h < 0) {
+		bounds.h = vert.size;
+	}
+
+	ApplyBoundsBySpec(bounds, horiz, vert);
+	MeasureNotice(dc, level_, text_, detailsText_, iconName_, 0, &w, &h, &height1_);
+}
+
+void NoticeView::Draw(UIContext &dc) {
+	RenderNotice(dc, bounds_, height1_, level_, text_, detailsText_, iconName_, 0, 1.0f);
 }
