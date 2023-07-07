@@ -132,7 +132,9 @@ void DrawEngineD3D11::NotifyConfigChanged() {
 }
 
 void DrawEngineD3D11::DestroyDeviceObjects() {
-	draw_->SetInvalidationCallback(InvalidationCallback());
+	if (draw_) {
+		draw_->SetInvalidationCallback(InvalidationCallback());
+	}
 
 	ClearTrackedVertexArrays();
 	ClearInputLayoutMap();

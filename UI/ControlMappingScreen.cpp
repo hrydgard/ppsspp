@@ -46,6 +46,7 @@
 #include "UI/ControlMappingScreen.h"
 #include "UI/GameSettingsScreen.h"
 #include "UI/JoystickHistoryView.h"
+#include "UI/OnScreenDisplay.h"
 
 #if PPSSPP_PLATFORM(ANDROID)
 #include "android/jni/app-android.h"
@@ -334,7 +335,7 @@ void KeyMappingNewKeyDialog::CreatePopupContents(UI::ViewGroup *parent) {
 	parent->Add(new TextView(std::string(km->T("Map a new key for")) + " " + mc->T(pspButtonName), new LinearLayoutParams(Margins(10, 0))));
 	parent->Add(new TextView(std::string(mapping_.ToVisualString()), new LinearLayoutParams(Margins(10, 0))));
 
-	comboMappingsNotEnabled_ = parent->Add(new TextView(km->T("Combo mappings are not enabled"), new LinearLayoutParams(Margins(10, 0))));
+	comboMappingsNotEnabled_ = parent->Add(new NoticeView(NoticeLevel::WARN, km->T("Combo mappings are not enabled"), "", new LinearLayoutParams(Margins(10, 0))));
 	comboMappingsNotEnabled_->SetVisibility(UI::V_GONE);
 
 	SetVRAppMode(VRAppMode::VR_CONTROLLER_MAPPING_MODE);
