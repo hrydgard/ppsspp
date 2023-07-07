@@ -1027,7 +1027,7 @@ public abstract class NativeActivity extends Activity {
 	@TargetApi(Build.VERSION_CODES.HONEYCOMB_MR1)
 	public boolean onGenericMotionEvent(MotionEvent event) {
 		// Log.d(TAG, "onGenericMotionEvent: " + event);
-		if ((event.getSource() & InputDevice.SOURCE_JOYSTICK) != 0) {
+		if (InputDeviceState.inputSourceIsJoystick(event.getSource())) {
 			if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB_MR1) {
 				InputDeviceState state = getInputDeviceState(event);
 				if (state == null) {
@@ -1080,7 +1080,7 @@ public abstract class NativeActivity extends Activity {
 		case KeyEvent.KEYCODE_DPAD_LEFT:
 		case KeyEvent.KEYCODE_DPAD_RIGHT:
 			// Joysticks are supported in Honeycomb MR1 and later via the onGenericMotionEvent method.
-			if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB_MR1 && (event.getSource() & InputDevice.SOURCE_JOYSTICK) != 0) {
+			if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB_MR1 && InputDeviceState.inputSourceIsJoystick(event.getSource())) {
 				// Pass through / ignore
 				return super.onKeyDown(keyCode, event);
 			}
@@ -1118,7 +1118,7 @@ public abstract class NativeActivity extends Activity {
 		case KeyEvent.KEYCODE_DPAD_LEFT:
 		case KeyEvent.KEYCODE_DPAD_RIGHT:
 			// Joysticks are supported in Honeycomb MR1 and later via the onGenericMotionEvent method.
-			if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB_MR1 && event.getSource() == InputDevice.SOURCE_JOYSTICK) {
+			if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB_MR1 && InputDeviceState.inputSourceIsJoystick(event.getSource())) {
 				return super.onKeyUp(keyCode, event);
 			}
 			// Fall through

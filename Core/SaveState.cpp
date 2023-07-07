@@ -873,12 +873,12 @@ namespace SaveState
 			// Sometimes this exposes game bugs that were rarely seen on real devices,
 			// because few people played on a real PSP for 10 hours straight.
 			callbackMessage = sc->T("Loaded. Save in game, restart, and load for less bugs.");
-			return Status::WARNING;
+			return Status::SUCCESS;
 		}
 		if (IsOldVersion()) {
 			// Save states also preserve bugs from old PPSSPP versions, so warn.
 			callbackMessage = sc->T("Loaded. Save in game, restart, and load for less bugs.");
-			return Status::WARNING;
+			return Status::SUCCESS;
 		}
 		// If the loaded state (saveDataGeneration) is older, the game may prevent saving again.
 		// This can happen with newer too, but ignore to/from 0 as a common likely safe case.

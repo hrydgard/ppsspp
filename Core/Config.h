@@ -376,6 +376,9 @@ public:
 	// Sets up how much the analog limiter button restricts digital->analog input.
 	float fAnalogLimiterDeadzone;
 
+	// Sets whether combo mapping is enabled.
+	bool bAllowMappingCombos;
+
 	bool bMouseControl;
 	bool bMapMouse; // Workaround for mapping screen:|
 	bool bMouseConfine; // Trap inside the window.
