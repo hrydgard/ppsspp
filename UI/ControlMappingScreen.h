@@ -81,6 +81,8 @@ private:
 
 	KeyMap::MultiInputMapping mapping_;
 
+	UI::View *comboMappingsNotEnabled_ = nullptr;
+
 	// We need to do our own detection for axis "keyup" here.
 	std::set<InputMapping> triggeredAxes_;
 

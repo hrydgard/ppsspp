@@ -252,6 +252,7 @@ void ControlMappingScreen::CreateViews() {
 	}
 
 	leftColumn->Add(new Choice(km->T("Show PSP")))->OnClick.Handle(this, &ControlMappingScreen::OnVisualizeMapping);
+	leftColumn->Add(new CheckBox(&g_Config.bAllowMappingCombos, km->T("Allow combo mappings")));
 
 	leftColumn->Add(new Spacer(new LinearLayoutParams(1.0f)));
 	AddStandardBack(leftColumn);
@@ -333,6 +334,9 @@ void KeyMappingNewKeyDialog::CreatePopupContents(UI::ViewGroup *parent) {
 	parent->Add(new TextView(std::string(km->T("Map a new key for")) + " " + mc->T(pspButtonName), new LinearLayoutParams(Margins(10, 0))));
 	parent->Add(new TextView(std::string(mapping_.ToVisualString()), new LinearLayoutParams(Margins(10, 0))));
 
+	comboMappingsNotEnabled_ = parent->Add(new TextView(km->T("Combo mappings are not enabled"), new LinearLayoutParams(Margins(10, 0))));
+	comboMappingsNotEnabled_->SetVisibility(UI::V_GONE);
+
 	SetVRAppMode(VRAppMode::VR_CONTROLLER_MAPPING_MODE);
 }
 
@@ -341,6 +345,7 @@ bool KeyMappingNewKeyDialog::key(const KeyInput &key) {
 		return true;
 	if (time_now_d() < delayUntil_)
 		return true;
+
 	if (key.flags & KEY_DOWN) {
 		if (key.keyCode == NKCODE_EXT_MOUSEBUTTON_1) {
 			// Don't map
@@ -355,7 +360,9 @@ bool KeyMappingNewKeyDialog::key(const KeyInput &key) {
 		InputMapping newMapping(key.deviceId, key.keyCode);
 
 		if (!(key.flags & KEY_IS_REPEAT)) {
-			if (!mapping_.mappings.contains(newMapping)) {
+			if (!g_Config.bAllowMappingCombos && !mapping_.mappings.empty()) {
+				comboMappingsNotEnabled_->SetVisibility(UI::V_VISIBLE);
+			} else if (!mapping_.mappings.contains(newMapping)) {
 				mapping_.mappings.push_back(newMapping);
 				RecreateViews();
 			}
