@@ -681,21 +681,17 @@ struct DebugProfilerRegs {
 
 static u32 sceKernelReferThreadProfiler() {
 	// This seems to simply has no parameter:
-	// https://pspdev.github.io/pspsdk/group__ThreadMan.html#ga8fd30da51b9dc0507ac4dae04a7e4a17 , 
-	// And in testing it just returns null in 55 usec (which is surprisingly long).
-
-	// So, we log only if debug logging is enabled, and sleep for a bit.
+	// https://pspdev.github.io/pspsdk/group__ThreadMan.html#ga8fd30da51b9dc0507ac4dae04a7e4a17
+	// In testing it just returns null in around 140-150 cycles.  See issue #17623.
 	DEBUG_LOG(SCEKERNEL, "0=sceKernelReferThreadProfiler()");
-
-	// The delay has been measured, 53-56 us.
-	hleEatMicro(55);
+	hleEatCycles(140);
 	return 0;
 }
 
 static int sceKernelReferGlobalProfiler() {
 	DEBUG_LOG(SCEKERNEL, "0=sceKernelReferGlobalProfiler()");
-	// The delay has been measured, 53-56 us.
-	hleEatMicro(55);
+	// See sceKernelReferThreadProfiler(), similar.
+	hleEatCycles(140);
 	return 0;
 }
 
