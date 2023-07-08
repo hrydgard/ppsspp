@@ -681,18 +681,17 @@ struct DebugProfilerRegs {
 
 static u32 sceKernelReferThreadProfiler() {
 	// This seems to simply has no parameter:
-	// https://pspdev.github.io/pspsdk/group__ThreadMan.html#ga8fd30da51b9dc0507ac4dae04a7e4a17 , 
-	// And in testing it just returns null in 55 usec (which is surprisingly long).
-	// However, this breaks MLB 2k11. See issue #17623. So I've removed the sleeps for now.
+	// https://pspdev.github.io/pspsdk/group__ThreadMan.html#ga8fd30da51b9dc0507ac4dae04a7e4a17
+	// In testing it just returns null in around 140-150 cycles.  See issue #17623.
 	DEBUG_LOG(SCEKERNEL, "0=sceKernelReferThreadProfiler()");
-	// hleEatMicro(55);
+	hleEatCycles(140);
 	return 0;
 }
 
 static int sceKernelReferGlobalProfiler() {
 	DEBUG_LOG(SCEKERNEL, "0=sceKernelReferGlobalProfiler()");
 	// See sceKernelReferThreadProfiler(), similar.
-	// hleEatMicro(55);
+	hleEatCycles(140);
 	return 0;
 }
 
