@@ -49,6 +49,7 @@
 #include "Core/HLE/sceKernelInterrupt.h"
 #include "Core/HW/Display.h"
 #include "Core/Util/PPGeDraw.h"
+#include "Core/RetroAchievements.h"
 
 #include "GPU/GPU.h"
 #include "GPU/GPUState.h"
@@ -348,12 +349,15 @@ void __DisplaySetWasPaused() {
 }
 
 static int FrameTimingLimit() {
-	if (PSP_CoreParameter().fpsLimit == FPSLimit::CUSTOM1)
-		return g_Config.iFpsLimit1;
-	if (PSP_CoreParameter().fpsLimit == FPSLimit::CUSTOM2)
-		return g_Config.iFpsLimit2;
-	if (PSP_CoreParameter().fpsLimit == FPSLimit::ANALOG)
-		return PSP_CoreParameter().analogFpsLimit;
+	if (!Achievements::ChallengeModeActive()) {
+		if (PSP_CoreParameter().fpsLimit == FPSLimit::CUSTOM1)
+			return g_Config.iFpsLimit1;
+		if (PSP_CoreParameter().fpsLimit == FPSLimit::CUSTOM2)
+			return g_Config.iFpsLimit2;
+		if (PSP_CoreParameter().fpsLimit == FPSLimit::ANALOG)
+			return PSP_CoreParameter().analogFpsLimit;
+	}
+	// Note: Fast-forward is OK in challenge mode.
 	if (PSP_CoreParameter().fastForward)
 		return 0;
 	return framerate;

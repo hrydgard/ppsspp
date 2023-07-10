@@ -23,6 +23,8 @@ set(ALL_SOURCE_FILES
 	${SRC_DIR}/rcheevos/memref.c
 	${SRC_DIR}/rcheevos/operand.c
 	${SRC_DIR}/rcheevos/rc_compat.h
+	${SRC_DIR}/rcheevos/rc_client.c
+	${SRC_DIR}/rcheevos/rc_client_internal.h
 	${SRC_DIR}/rcheevos/rc_internal.h
 	${SRC_DIR}/rcheevos/rc_validate.h
 	${SRC_DIR}/rcheevos/rc_validate.c
@@ -37,8 +39,6 @@ set(ALL_SOURCE_FILES
 	${SRC_DIR}/rhash/hash.c
 	${SRC_DIR}/rhash/md5.c
 	${SRC_DIR}/rhash/md5.h
-	# rurl
-	${SRC_DIR}/rurl/url.c
 	)
 
 add_library(rcheevos STATIC ${ALL_SOURCE_FILES})

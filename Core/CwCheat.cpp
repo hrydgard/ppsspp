@@ -19,6 +19,7 @@
 #include "Core/System.h"
 #include "Core/HLE/sceCtrl.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
+#include "Core/RetroAchievements.h"
 #include "GPU/Common/PostShader.h"
 
 #ifdef _WIN32
@@ -319,9 +320,11 @@ void __CheatDoState(PointerWrap &p) {
 }
 
 void hleCheat(u64 userdata, int cyclesLate) {
-	if (cheatsEnabled != g_Config.bEnableCheats) {
+	bool shouldBeEnabled = !Achievements::ChallengeModeActive() && g_Config.bEnableCheats;
+
+	if (cheatsEnabled != shouldBeEnabled) {
 		// Okay, let's move to the desired state, then.
-		if (g_Config.bEnableCheats) {
+		if (shouldBeEnabled) {
 			__CheatStart();
 		} else {
 			__CheatStop();
@@ -1193,6 +1196,10 @@ void CWCheatEngine::ExecuteOp(const CheatOperation &op, const CheatCode &cheat, 
 }
 
 void CWCheatEngine::Run() {
+	if (Achievements::ChallengeModeActive()) {
+		return;
+	}
+
 	for (CheatCode cheat : cheats_) {
 		// InterpretNextOp and ExecuteOp move i.
 		for (size_t i = 0; i < cheat.lines.size(); ) {
@@ -1207,8 +1214,7 @@ bool CWCheatEngine::HasCheats() {
 }
 
 bool CheatsInEffect() {
-	if (!cheatEngine || !cheatsEnabled)
+	if (!cheatEngine || !cheatsEnabled || Achievements::ChallengeModeActive())
 		return false;
 	return cheatEngine->HasCheats();
 }
-

@@ -10,9 +10,6 @@
     <Filter Include="rhash">
       <UniqueIdentifier>{55ec06aa-6d34-4edf-8b0b-f93f93a064b4}</UniqueIdentifier>
     </Filter>
-    <Filter Include="rurl">
-      <UniqueIdentifier>{990047ac-f0d4-44f5-8463-54f898557d02}</UniqueIdentifier>
-    </Filter>
     <Filter Include="include">
       <UniqueIdentifier>{9e049d1f-4b83-4aa5-89f3-01a42e1773e2}</UniqueIdentifier>
     </Filter>
@@ -87,8 +84,8 @@
     <ClCompile Include="..\rcheevos\src\rhash\md5.c">
       <Filter>rhash</Filter>
     </ClCompile>
-    <ClCompile Include="..\rcheevos\src\rurl\url.c">
-      <Filter>rurl</Filter>
+    <ClCompile Include="..\rcheevos\src\rcheevos\rc_client.c">
+      <Filter>rcheevos</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -145,6 +142,12 @@
     </ClInclude>
     <ClInclude Include="..\rcheevos\src\rhash\md5.h">
       <Filter>rhash</Filter>
+    </ClInclude>
+    <ClInclude Include="..\rcheevos\include\rc_client.h">
+      <Filter>include</Filter>
+    </ClInclude>
+    <ClInclude Include="..\rcheevos\src\rcheevos\rc_client_internal.h">
+      <Filter>rcheevos</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

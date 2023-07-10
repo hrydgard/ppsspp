@@ -266,20 +266,17 @@ static bool DefaultSasThread() {
 
 static const ConfigSetting achievementSettings[] = {
 	ConfigSetting("AchievementsEnable", &g_Config.bAchievementsEnable, true, CfgFlag::DEFAULT),
-	ConfigSetting("AchievementsLeaderboards", &g_Config.bAchievementsLeaderboards, false, CfgFlag::DEFAULT),
-	ConfigSetting("AchievementsTestMode", &g_Config.bAchievementsTestMode, false, CfgFlag::DEFAULT),
-	ConfigSetting("AchievementsUnofficialTestMode", &g_Config.bAchievementsUnofficialTestMode, false, CfgFlag::DEFAULT),
-	ConfigSetting("AchievementsRichPresence", &g_Config.bAchievementsRichPresence, true, CfgFlag::DEFAULT),
 	ConfigSetting("AchievementsChallengeMode", &g_Config.bAchievementsChallengeMode, false, CfgFlag::DEFAULT),
+	ConfigSetting("AchievementsEncoreMode", &g_Config.bAchievementsEncoreMode, false, CfgFlag::DEFAULT),
+	ConfigSetting("AchievementsUnofficial", &g_Config.bAchievementsUnofficial, false, CfgFlag::DEFAULT),
 	ConfigSetting("AchievementsSoundEffects", &g_Config.bAchievementsSoundEffects, true, CfgFlag::DEFAULT),
-	ConfigSetting("AchievementsNotifications", &g_Config.bAchievementsNotifications, true, CfgFlag::DEFAULT),
 	ConfigSetting("AchievementsLogBadMemReads", &g_Config.bAchievementsLogBadMemReads, false, CfgFlag::DEFAULT),
 
 	// Achievements login info. Note that password is NOT stored, only a login token.
-	// And that login token is stored separately from the ini, see NativeSaveSecret.
-	ConfigSetting("AchievementsUserName", &g_Config.sAchievementsUserName, "", CfgFlag::DEFAULT),
+	// And that login token is stored separately from the ini, see NativeSaveSecret, but it can also be loaded
+	// from the ini if manually entered (useful when testing various builds on Android).
 	ConfigSetting("AchievementsToken", &g_Config.sAchievementsToken, "", CfgFlag::DONT_SAVE),
-	ConfigSetting("AchievementsLoginTimestamp", &g_Config.sAchievementsLoginTimestamp, "", CfgFlag::DEFAULT),
+	ConfigSetting("AchievementsUserName", &g_Config.sAchievementsUserName, "", CfgFlag::DEFAULT),
 };
 
 static const ConfigSetting cpuSettings[] = {

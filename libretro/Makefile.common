@@ -212,6 +212,7 @@ SOURCES_C += \
 	$(EXTDIR)/rcheevos/src/rcheevos/lboard.c \
 	$(EXTDIR)/rcheevos/src/rcheevos/memref.c \
 	$(EXTDIR)/rcheevos/src/rcheevos/operand.c \
+	$(EXTDIR)/rcheevos/src/rcheevos/rc_client.c \
 	$(EXTDIR)/rcheevos/src/rcheevos/rc_validate.c \
 	$(EXTDIR)/rcheevos/src/rcheevos/richpresence.c \
 	$(EXTDIR)/rcheevos/src/rcheevos/runtime.c \

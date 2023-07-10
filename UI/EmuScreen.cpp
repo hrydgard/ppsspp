@@ -348,7 +348,7 @@ void EmuScreen::bootGame(const Path &filename) {
 		g_OSD.Show(OSDType::MESSAGE_WARNING, gr->T("DefaultCPUClockRequired", "Warning: This game requires the CPU clock to be set to default."), 10.0f);
 	}
 
-	Achievements::GameChanged(filename);
+	Achievements::SetGame(filename);
 
 	loadingViewColor_->Divert(0xFFFFFFFF, 0.75f);
 	loadingViewVisible_->Divert(UI::V_VISIBLE, 0.75f);
@@ -405,6 +405,7 @@ void EmuScreen::bootComplete() {
 EmuScreen::~EmuScreen() {
 	if (!invalid_ || bootPending_) {
 		// If we were invalid, it would already be shutdown.
+		Achievements::UnloadGame();
 		PSP_Shutdown();
 	}
 
@@ -581,7 +582,7 @@ void EmuScreen::onVKey(int virtualKeyCode, bool down) {
 		break;
 
 	case VIRTKEY_SPEED_TOGGLE:
-		if (down) {
+		if (down && !Achievements::WarnUserIfChallengeModeActive()) {
 			// Cycle through enabled speeds.
 			if (PSP_CoreParameter().fpsLimit == FPSLimit::NORMAL && g_Config.iFpsLimit1 >= 0) {
 				PSP_CoreParameter().fpsLimit = FPSLimit::CUSTOM1;
@@ -597,28 +598,32 @@ void EmuScreen::onVKey(int virtualKeyCode, bool down) {
 		break;
 
 	case VIRTKEY_SPEED_CUSTOM1:
-		if (down) {
-			if (PSP_CoreParameter().fpsLimit == FPSLimit::NORMAL) {
-				PSP_CoreParameter().fpsLimit = FPSLimit::CUSTOM1;
-				g_OSD.Show(OSDType::MESSAGE_INFO, sc->T("fixed", "Speed: alternate"), 1.0);
-			}
-		} else {
-			if (PSP_CoreParameter().fpsLimit == FPSLimit::CUSTOM1) {
-				PSP_CoreParameter().fpsLimit = FPSLimit::NORMAL;
-				g_OSD.Show(OSDType::MESSAGE_INFO, sc->T("standard", "Speed: standard"), 1.0);
+		if (!Achievements::WarnUserIfChallengeModeActive()) {
+			if (down) {
+				if (PSP_CoreParameter().fpsLimit == FPSLimit::NORMAL) {
+					PSP_CoreParameter().fpsLimit = FPSLimit::CUSTOM1;
+					g_OSD.Show(OSDType::MESSAGE_INFO, sc->T("fixed", "Speed: alternate"), 1.0);
+				}
+			} else {
+				if (PSP_CoreParameter().fpsLimit == FPSLimit::CUSTOM1) {
+					PSP_CoreParameter().fpsLimit = FPSLimit::NORMAL;
+					g_OSD.Show(OSDType::MESSAGE_INFO, sc->T("standard", "Speed: standard"), 1.0);
+				}
 			}
 		}
 		break;
 	case VIRTKEY_SPEED_CUSTOM2:
-		if (down) {
-			if (PSP_CoreParameter().fpsLimit == FPSLimit::NORMAL) {
-				PSP_CoreParameter().fpsLimit = FPSLimit::CUSTOM2;
-				g_OSD.Show(OSDType::MESSAGE_INFO, sc->T("SpeedCustom2", "Speed: alternate 2"), 1.0);
-			}
-		} else {
-			if (PSP_CoreParameter().fpsLimit == FPSLimit::CUSTOM2) {
-				PSP_CoreParameter().fpsLimit = FPSLimit::NORMAL;
-				g_OSD.Show(OSDType::MESSAGE_INFO, sc->T("standard", "Speed: standard"), 1.0);
+		if (!Achievements::WarnUserIfChallengeModeActive()) {
+			if (down) {
+				if (PSP_CoreParameter().fpsLimit == FPSLimit::NORMAL) {
+					PSP_CoreParameter().fpsLimit = FPSLimit::CUSTOM2;
+					g_OSD.Show(OSDType::MESSAGE_INFO, sc->T("SpeedCustom2", "Speed: alternate 2"), 1.0);
+				}
+			} else {
+				if (PSP_CoreParameter().fpsLimit == FPSLimit::CUSTOM2) {
+					PSP_CoreParameter().fpsLimit = FPSLimit::NORMAL;
+					g_OSD.Show(OSDType::MESSAGE_INFO, sc->T("standard", "Speed: standard"), 1.0);
+				}
 			}
 		}
 		break;
@@ -634,13 +639,15 @@ void EmuScreen::onVKey(int virtualKeyCode, bool down) {
 		break;
 
 	case VIRTKEY_FRAME_ADVANCE:
-		if (down) {
-			// If game is running, pause emulation immediately. Otherwise, advance a single frame.
-			if (Core_IsStepping()) {
-				frameStep_ = true;
-				Core_EnableStepping(false);
-			} else if (!frameStep_) {
-				Core_EnableStepping(true, "ui.frameAdvance", 0);
+		if (!Achievements::WarnUserIfChallengeModeActive()) {
+			if (down) {
+				// If game is running, pause emulation immediately. Otherwise, advance a single frame.
+				if (Core_IsStepping()) {
+					frameStep_ = true;
+					Core_EnableStepping(false);
+				} else if (!frameStep_) {
+					Core_EnableStepping(true, "ui.frameAdvance", 0);
+				}
 			}
 		}
 		break;
@@ -690,7 +697,7 @@ void EmuScreen::onVKey(int virtualKeyCode, bool down) {
 #endif
 
 	case VIRTKEY_REWIND:
-		if (down) {
+		if (down && !Achievements::WarnUserIfChallengeModeActive()) {
 			if (SaveState::CanRewind()) {
 				SaveState::Rewind(&AfterSaveStateAction);
 			} else {
@@ -699,21 +706,21 @@ void EmuScreen::onVKey(int virtualKeyCode, bool down) {
 		}
 		break;
 	case VIRTKEY_SAVE_STATE:
-		if (down)
+		if (down && !Achievements::WarnUserIfChallengeModeActive())
 			SaveState::SaveSlot(gamePath_, g_Config.iCurrentStateSlot, &AfterSaveStateAction);
 		break;
 	case VIRTKEY_LOAD_STATE:
-		if (down)
+		if (down && !Achievements::WarnUserIfChallengeModeActive())
 			SaveState::LoadSlot(gamePath_, g_Config.iCurrentStateSlot, &AfterSaveStateAction);
 		break;
 	case VIRTKEY_PREVIOUS_SLOT:
-		if (down) {
+		if (down && !Achievements::WarnUserIfChallengeModeActive()) {
 			SaveState::PrevSlot();
 			System_PostUIMessage("savestate_displayslot", "");
 		}
 		break;
 	case VIRTKEY_NEXT_SLOT:
-		if (down) {
+		if (down && !Achievements::WarnUserIfChallengeModeActive()) {
 			SaveState::NextSlot();
 			System_PostUIMessage("savestate_displayslot", "");
 		}
@@ -1494,50 +1501,52 @@ void EmuScreen::render() {
 
 	Core_UpdateDebugStats(g_Config.bShowDebugStats || g_Config.bLogFrameDrops);
 
-	PSP_BeginHostFrame();
+	bool blockedExecution = Achievements::IsBlockingExecution();
+	if (!blockedExecution) {
+		PSP_BeginHostFrame();
+		PSP_RunLoopWhileState();
 
-	PSP_RunLoopWhileState();
-
-	// Hopefully coreState is now CORE_NEXTFRAME
-	switch (coreState) {
-	case CORE_NEXTFRAME:
-		// Reached the end of the frame, all good. Set back to running for the next frame
-		coreState = CORE_RUNNING;
-		break;
-	case CORE_STEPPING:
-	case CORE_RUNTIME_ERROR:
-	{
-		// If there's an exception, display information.
-		const MIPSExceptionInfo &info = Core_GetExceptionInfo();
-		if (info.type != MIPSExceptionType::NONE) {
-			// Clear to blue background screen
-			bool dangerousSettings = !Reporting::IsSupported();
-			uint32_t color = dangerousSettings ? 0xFF900050 : 0xFF900000;
-			thin3d->BindFramebufferAsRenderTarget(nullptr, { RPAction::CLEAR, RPAction::DONT_CARE, RPAction::DONT_CARE, color }, "EmuScreen_RuntimeError");
-			// The info is drawn later in renderUI
-		} else {
-			// If we're stepping, it's convenient not to clear the screen entirely, so we copy display to output.
-			// This won't work in non-buffered, but that's fine.
-			thin3d->BindFramebufferAsRenderTarget(nullptr, { RPAction::CLEAR, RPAction::DONT_CARE, RPAction::DONT_CARE }, "EmuScreen_Stepping");
-			// Just to make sure.
-			if (PSP_IsInited()) {
-				gpu->CopyDisplayToOutput(true);
+		// Hopefully coreState is now CORE_NEXTFRAME
+		switch (coreState) {
+		case CORE_NEXTFRAME:
+			// Reached the end of the frame, all good. Set back to running for the next frame
+			coreState = CORE_RUNNING;
+			break;
+		case CORE_STEPPING:
+		case CORE_RUNTIME_ERROR:
+		{
+			// If there's an exception, display information.
+			const MIPSExceptionInfo &info = Core_GetExceptionInfo();
+			if (info.type != MIPSExceptionType::NONE) {
+				// Clear to blue background screen
+				bool dangerousSettings = !Reporting::IsSupported();
+				uint32_t color = dangerousSettings ? 0xFF900050 : 0xFF900000;
+				thin3d->BindFramebufferAsRenderTarget(nullptr, { RPAction::CLEAR, RPAction::DONT_CARE, RPAction::DONT_CARE, color }, "EmuScreen_RuntimeError");
+				// The info is drawn later in renderUI
+			} else {
+				// If we're stepping, it's convenient not to clear the screen entirely, so we copy display to output.
+				// This won't work in non-buffered, but that's fine.
+				thin3d->BindFramebufferAsRenderTarget(nullptr, { RPAction::CLEAR, RPAction::DONT_CARE, RPAction::DONT_CARE }, "EmuScreen_Stepping");
+				// Just to make sure.
+				if (PSP_IsInited()) {
+					gpu->CopyDisplayToOutput(true);
+				}
 			}
+			break;
 		}
-		break;
-	}
-	default:
-		// Didn't actually reach the end of the frame, ran out of the blockTicks cycles.
-		// In this case we need to bind and wipe the backbuffer, at least.
-		// It's possible we never ended up outputted anything - make sure we have the backbuffer cleared
-		thin3d->BindFramebufferAsRenderTarget(nullptr, { RPAction::CLEAR, RPAction::CLEAR, RPAction::CLEAR }, "EmuScreen_NoFrame");
-		break;
-	}
+		default:
+			// Didn't actually reach the end of the frame, ran out of the blockTicks cycles.
+			// In this case we need to bind and wipe the backbuffer, at least.
+			// It's possible we never ended up outputted anything - make sure we have the backbuffer cleared
+			thin3d->BindFramebufferAsRenderTarget(nullptr, { RPAction::CLEAR, RPAction::CLEAR, RPAction::CLEAR }, "EmuScreen_NoFrame");
+			break;
+		}
 
-	PSP_EndHostFrame();
+		PSP_EndHostFrame();
 
-	// This must happen after PSP_EndHostFrame so that things like push buffers are end-frame'd before we start destroying stuff.
-	checkPowerDown();
+		// This must happen after PSP_EndHostFrame so that things like push buffers are end-frame'd before we start destroying stuff.
+		checkPowerDown();
+	}
 
 	if (invalid_)
 		return;

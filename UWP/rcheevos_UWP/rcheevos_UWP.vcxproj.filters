@@ -55,6 +55,12 @@
     <ClInclude Include="..\..\ext\rcheevos\src\rhash\md5.h">
       <Filter>rhash</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\ext\rcheevos\src\rcheevos\rc_client_internal.h">
+      <Filter>rcheevos</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\rcheevos\include\rc_client.h">
+      <Filter>include</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="include">
@@ -139,6 +145,9 @@
     </ClCompile>
     <ClCompile Include="..\..\ext\rcheevos\src\rhash\md5.c">
       <Filter>rhash</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\rcheevos\src\rcheevos\rc_client.c">
+      <Filter>rcheevos</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

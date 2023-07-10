@@ -313,6 +313,17 @@ void UIContext::FillRect(const UI::Drawable &drawable, const Bounds &bounds) {
 	} 
 }
 
+void UIContext::DrawRectDropShadow(const Bounds &bounds, float radius, float alpha, uint32_t color) {
+	if (alpha <= 0.0f)
+		return;
+
+	color = colorAlpha(color, alpha);
+
+	// Bias the shadow downwards a bit.
+	Bounds shadowBounds = bounds.Expand(radius, 0.5 * radius, radius, 1.5 * radius);
+	Draw()->DrawImage4Grid(theme->dropShadow4Grid, shadowBounds.x, shadowBounds.y, shadowBounds.x2(), shadowBounds.y2(), color, radius * (1.0f / 24.0f) * 2.0f);
+}
+
 void UIContext::DrawImageVGradient(ImageID image, uint32_t color1, uint32_t color2, const Bounds &bounds) {
 	uidrawbuffer_->DrawImageStretchVGradient(image, bounds.x, bounds.y, bounds.x2(), bounds.y2(), color1, color2);
 }

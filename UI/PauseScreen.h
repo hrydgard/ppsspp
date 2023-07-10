@@ -45,6 +45,8 @@ protected:
 	void CallbackDeleteConfig(bool yes);
 
 private:
+	void CreateSavestateControls(UI::LinearLayout *viewGroup, bool vertical);
+
 	UI::EventReturn OnGameSettings(UI::EventParams &e);
 	UI::EventReturn OnExitToMenu(UI::EventParams &e);
 	UI::EventReturn OnReportFeedback(UI::EventParams &e);

@@ -2,6 +2,7 @@
 
 #include "Common/System/OSD.h"
 #include "Common/TimeUtil.h"
+#include "Common/Log.h"
 
 OnScreenDisplay g_OSD;
 
@@ -12,6 +13,14 @@ void OnScreenDisplay::Update() {
 	for (auto iter = entries_.begin(); iter != entries_.end(); ) {
 		if (now >= iter->endTime) {
 			iter = entries_.erase(iter);
+		} else {
+			iter++;
+		}
+	}
+
+	for (auto iter = sideEntries_.begin(); iter != sideEntries_.end(); ) {
+		if (now >= iter->endTime) {
+			iter = sideEntries_.erase(iter);
 		} else {
 			iter++;
 		}
@@ -29,6 +38,11 @@ void OnScreenDisplay::Update() {
 std::vector<OnScreenDisplay::Entry> OnScreenDisplay::Entries() {
 	std::lock_guard<std::mutex> guard(mutex_);
 	return entries_;  // makes a copy.
+}
+
+std::vector<OnScreenDisplay::Entry> OnScreenDisplay::SideEntries() {
+	std::lock_guard<std::mutex> guard(mutex_);
+	return sideEntries_;  // makes a copy.
 }
 
 std::vector<OnScreenDisplay::ProgressBar> OnScreenDisplay::ProgressBars() {
@@ -99,6 +113,88 @@ void OnScreenDisplay::ShowAchievementUnlocked(int achievementID) {
 	entries_.insert(entries_.begin(), msg);
 }
 
+void OnScreenDisplay::ShowAchievementProgress(int achievementID, float duration_s) {
+	double now = time_now_d();
+
+	for (auto &entry : sideEntries_) {
+		if (entry.numericID == achievementID && entry.type == OSDType::ACHIEVEMENT_PROGRESS) {
+			// Duplicate, let's just bump the timer.
+			entry.startTime = now;
+			entry.endTime = now + (double)duration_s;
+			// We're done.
+			return;
+		}
+	}
+
+	// OK, let's make a new side-entry.
+	Entry entry;
+	entry.numericID = achievementID;
+	entry.type = OSDType::ACHIEVEMENT_PROGRESS;
+	entry.startTime = now;
+	entry.endTime = now + (double)duration_s;
+	sideEntries_.insert(sideEntries_.begin(), entry);
+}
+
+void OnScreenDisplay::ShowChallengeIndicator(int achievementID, bool show) {
+	double now = time_now_d();
+
+	for (auto &entry : sideEntries_) {
+		if (entry.numericID == achievementID && entry.type == OSDType::ACHIEVEMENT_CHALLENGE_INDICATOR && !show) {
+			// Hide and eventually delete it.
+			entry.endTime = now + (double)FadeoutTime();
+			// Found it, we're done.
+			return;
+		}
+	}
+
+	if (!show) {
+		// Sanity check
+		return;
+	}
+
+	// OK, let's make a new side-entry.
+	Entry entry;
+	entry.numericID = achievementID;
+	entry.type = OSDType::ACHIEVEMENT_CHALLENGE_INDICATOR;
+	entry.startTime = now;
+	entry.endTime = now + 10000000.0;  // Don't auto-fadeout.
+	sideEntries_.insert(sideEntries_.begin(), entry);
+}
+
+void OnScreenDisplay::ShowLeaderboardTracker(int leaderboardTrackerID, const char *trackerText, bool show) {   // show=true is used both for create and update.
+	double now = time_now_d();
+
+	for (auto &entry : sideEntries_) {
+		if (entry.numericID == leaderboardTrackerID && entry.type == OSDType::LEADERBOARD_TRACKER) {
+			if (show) {
+				// Just an update.
+				entry.text = trackerText;
+			} else {
+				// Keep the current text, hide and eventually delete it.
+				entry.endTime = now + (double)FadeoutTime();
+			}
+			// Found it, we're done.
+			return;
+		}
+	}
+
+	if (!show) {
+		// Sanity check
+		return;
+	}
+
+	// OK, let's make a new side-entry.
+	Entry entry;
+	entry.numericID = leaderboardTrackerID;
+	entry.type = OSDType::LEADERBOARD_TRACKER;
+	entry.startTime = now;
+	entry.endTime = now + 10000000.0;  // Don't auto-fadeout
+	if (trackerText) {
+		entry.text = trackerText;
+	}
+	sideEntries_.insert(sideEntries_.begin(), entry);
+}
+
 void OnScreenDisplay::ShowOnOff(const std::string &message, bool on, float duration_s) {
 	// TODO: translate "on" and "off"? Or just get rid of this whole thing?
 	Show(OSDType::MESSAGE_INFO, message + ": " + (on ? "on" : "off"), duration_s);
@@ -129,12 +225,12 @@ void OnScreenDisplay::SetProgressBar(std::string id, std::string &&message, int 
 	bars_.push_back(bar);
 }
 
-void OnScreenDisplay::RemoveProgressBar(std::string id, float fadeout_s) {
+void OnScreenDisplay::RemoveProgressBar(std::string id) {
 	std::lock_guard<std::mutex> guard(mutex_);
 	for (auto iter = bars_.begin(); iter != bars_.end(); iter++) {
 		if (iter->id == id) {
 			iter->progress = iter->maxValue;
-			iter->endTime = time_now_d() + (double)fadeout_s;
+			iter->endTime = time_now_d() + FadeoutTime();
 			break;
 		}
 	}

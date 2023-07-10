@@ -95,6 +95,7 @@ RCHEEVOS_FILES := \
   ${SRC}/ext/rcheevos/src/rcheevos/lboard.c \
   ${SRC}/ext/rcheevos/src/rcheevos/memref.c \
   ${SRC}/ext/rcheevos/src/rcheevos/operand.c \
+  ${SRC}/ext/rcheevos/src/rcheevos/rc_client.c \
   ${SRC}/ext/rcheevos/src/rcheevos/rc_validate.c \
   ${SRC}/ext/rcheevos/src/rcheevos/richpresence.c \
   ${SRC}/ext/rcheevos/src/rcheevos/runtime.c \
@@ -103,8 +104,7 @@ RCHEEVOS_FILES := \
   ${SRC}/ext/rcheevos/src/rcheevos/value.c \
   ${SRC}/ext/rcheevos/src/rhash/cdreader.c \
   ${SRC}/ext/rcheevos/src/rhash/hash.c \
-  ${SRC}/ext/rcheevos/src/rhash/md5.c \
-  ${SRC}/ext/rcheevos/src/rurl/url.c
+  ${SRC}/ext/rcheevos/src/rhash/md5.c
 
 VR_FILES := \
   $(SRC)/Common/VR/OpenXRLoader.cpp \

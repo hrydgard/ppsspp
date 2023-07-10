@@ -830,7 +830,20 @@ void SystemInfoScreen::CreateTabs() {
 		return UI::EVENT_DONE;
 	});
 	internals->Add(new Choice(si->T("Clear")))->OnClick.Add([&](UI::EventParams &) {
-		g_OSD.RemoveProgressBar("testprogress", 0.25f);
+		g_OSD.RemoveProgressBar("testprogress");
+		return UI::EVENT_DONE;
+	});
+	internals->Add(new ItemHeader(si->T("Achievement tests")));
+	internals->Add(new Choice(si->T("Leaderboard tracker: Show")))->OnClick.Add([=](UI::EventParams &) {
+		g_OSD.ShowLeaderboardTracker(1, "My leaderboard tracker", true);
+		return UI::EVENT_DONE;
+	});
+	internals->Add(new Choice(si->T("Leaderboard tracker: Update")))->OnClick.Add([=](UI::EventParams &) {
+		g_OSD.ShowLeaderboardTracker(1, "Updated tracker", true);
+		return UI::EVENT_DONE;
+	});
+	internals->Add(new Choice(si->T("Leaderboard tracker: Hide")))->OnClick.Add([=](UI::EventParams &) {
+		g_OSD.ShowLeaderboardTracker(1, nullptr, false);
 		return UI::EVENT_DONE;
 	});
 #if PPSSPP_PLATFORM(ANDROID)

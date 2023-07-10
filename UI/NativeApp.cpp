@@ -1206,7 +1206,8 @@ void NativeUpdate() {
 
 	g_requestManager.ProcessRequests();
 
-	Achievements::ProcessPendingHTTPRequests();
+	// it's ok to call this redundantly with DoFrame from EmuScreen
+	Achievements::Idle();
 
 	g_DownloadManager.Update();
 	g_screenManager->update();
