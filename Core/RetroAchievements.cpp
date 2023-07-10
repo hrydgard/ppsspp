@@ -160,6 +160,7 @@ bool IsActive() {
 static uint32_t read_memory_callback(uint32_t address, uint8_t *buffer, uint32_t num_bytes, rc_client_t *client) {
 	// Achievements are traditionally defined relative to the base of main memory of the emulated console.
 	// This is some kind of RetroArch-related legacy. In the PSP's case, this is simply a straight offset of 0x08000000.
+	uint32_t orig_address = address;
 	address += PSP_MEMORY_OFFSET;
 
 	if (!Memory::IsValidAddress(address)) {
@@ -167,9 +168,15 @@ static uint32_t read_memory_callback(uint32_t address, uint8_t *buffer, uint32_t
 		// So we'll just count the bad accesses.
 		Achievements::g_stats.badMemoryAccessCount++;
 		if (g_Config.bAchievementsLogBadMemReads) {
-			WARN_LOG(G3D, "RetroAchievements PeekMemory: Bad address %08x (%d bytes)", address, num_bytes);
+			WARN_LOG(G3D, "RetroAchievements PeekMemory: Bad address %08x (%d bytes) (%08x was passed in)", address, num_bytes, orig_address);
 		}
-		return 0;
+
+		// TEMPORARY HACK: rcheevos' handling of bad memory accesses causes a LOT of extra work, since
+		// for some reason these invalid accesses keeps happening. So we'll temporarily to back to the previous
+		// behavior of simply returning 0.
+		uint32_t temp = 0;
+		memcpy(buffer, &temp, num_bytes);
+		return num_bytes;
 	}
 
 	switch (num_bytes) {
