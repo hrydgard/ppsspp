@@ -53,6 +53,10 @@ public:
 	void SetProgressBar(std::string id, std::string &&message, int minValue, int maxValue, int progress);
 	void RemoveProgressBar(std::string id);
 
+	// Show stuff on the side or now, like the challenge indicators etc.
+	void SetShowSidebar(bool show) { showSidebar_ = show; }
+	bool ShowSidebar() const { return showSidebar_; }
+
 	struct Entry {
 		OSDType type;
 		std::string text;
@@ -84,6 +88,8 @@ private:
 	std::vector<Entry> sideEntries_;
 	std::vector<ProgressBar> bars_;
 	std::mutex mutex_;
+
+	bool showSidebar_ = true;
 };
 
 extern OnScreenDisplay g_OSD;

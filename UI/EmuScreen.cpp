@@ -197,6 +197,7 @@ EmuScreen::EmuScreen(const Path &filename)
 	// Usually, we don't want focus movement enabled on this screen, so disable on start.
 	// Only if you open chat or dev tools do we want it to start working.
 	UI::EnableFocusMovement(false);
+	g_OSD.SetShowSidebar(true);
 }
 
 bool EmuScreen::bootAllowStorage(const Path &filename) {
