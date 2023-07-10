@@ -10,6 +10,10 @@
 #include "Core/Config.h"
 #include "Core/RetroAchievements.h"
 
+static inline const char *DeNull(const char *ptr) {
+	return ptr ? ptr : "";
+}
+
 void RetroAchievementsListScreen::CreateTabs() {
 	auto ac = GetI18NCategory(I18NCat::ACHIEVEMENTS);
 
@@ -378,7 +382,7 @@ void RenderAchievement(UIContext &dc, const rc_client_achievement_t *achievement
 		dc.DrawTextRect(achievement->title, bounds.Inset(iconSpace + 12.0f, 2.0f, padding, padding), fgColor, ALIGN_TOPLEFT);
 
 		dc.SetFontScale(0.66f, 0.66f);
-		dc.DrawTextRect(achievement->description, bounds.Inset(iconSpace + 12.0f, 39.0f, padding, padding), fgColor, ALIGN_TOPLEFT);
+		dc.DrawTextRect(DeNull(achievement->description), bounds.Inset(iconSpace + 12.0f, 39.0f, padding, padding), fgColor, ALIGN_TOPLEFT);
 
 		if (style == AchievementRenderStyle::LISTED && strlen(achievement->measured_progress) > 0) {
 			dc.SetFontScale(1.0f, 1.0f);
@@ -482,10 +486,10 @@ void RenderLeaderboardSummary(UIContext &dc, const rc_client_leaderboard_t *lead
 	dc.SetFontStyle(dc.theme->uiFont);
 
 	dc.SetFontScale(1.0f, 1.0f);
-	dc.DrawTextRect(leaderboard->title, bounds.Inset(12.0f, 2.0f, 5.0f, 5.0f), fgColor, ALIGN_TOPLEFT);
+	dc.DrawTextRect(DeNull(leaderboard->title), bounds.Inset(12.0f, 2.0f, 5.0f, 5.0f), fgColor, ALIGN_TOPLEFT);
 
 	dc.SetFontScale(0.66f, 0.66f);
-	dc.DrawTextRect(leaderboard->description, bounds.Inset(12.0f, 39.0f, 5.0f, 5.0f), fgColor, ALIGN_TOPLEFT);
+	dc.DrawTextRect(DeNull(leaderboard->description), bounds.Inset(12.0f, 39.0f, 5.0f, 5.0f), fgColor, ALIGN_TOPLEFT);
 
 	/*
 	char temp[64];
@@ -514,6 +518,11 @@ void RenderLeaderboardEntry(UIContext &dc, const rc_client_leaderboard_entry_t *
 	float iconLeft = numberSpace + 5.0f;
 	float iconSpace = numberSpace + 5.0f + iconSize;
 
+	// Sanity check
+	if (!entry->user) {
+		return;
+	}
+
 	dc.Flush();
 
 	dc.Begin();
@@ -528,7 +537,7 @@ void RenderLeaderboardEntry(UIContext &dc, const rc_client_leaderboard_entry_t *
 	dc.DrawTextRect(entry->user, bounds.Inset(iconSpace + 5.0f, 2.0f, 5.0f, 5.0f), fgColor, ALIGN_TOPLEFT);
 
 	dc.SetFontScale(0.66f, 0.66f);
-	dc.DrawTextRect(entry->display, bounds.Inset(iconSpace + 5.0f, 38.0f, 5.0f, 5.0f), fgColor, ALIGN_TOPLEFT);
+	dc.DrawTextRect(DeNull(entry->display), bounds.Inset(iconSpace + 5.0f, 38.0f, 5.0f, 5.0f), fgColor, ALIGN_TOPLEFT);
 
 	dc.SetFontScale(1.0f, 1.0f);
 	dc.Flush();

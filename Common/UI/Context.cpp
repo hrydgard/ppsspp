@@ -208,10 +208,12 @@ void UIContext::SetFontStyle(const UI::FontStyle &fontStyle) {
 }
 
 void UIContext::MeasureText(const UI::FontStyle &style, float scaleX, float scaleY, const char *str, float *x, float *y, int align) const {
+	_dbg_assert_(str != nullptr);
 	MeasureTextCount(style, scaleX, scaleY, str, (int)strlen(str), x, y, align);
 }
 
 void UIContext::MeasureTextCount(const UI::FontStyle &style, float scaleX, float scaleY, const char *str, int count, float *x, float *y, int align) const {
+	_dbg_assert_(str != nullptr);
 	if (!textDrawer_ || (align & FLAG_DYNAMIC_ASCII)) {
 		float sizeFactor = (float)style.sizePts / 24.0f;
 		Draw()->SetFontScale(scaleX * sizeFactor, scaleY * sizeFactor);
@@ -225,6 +227,7 @@ void UIContext::MeasureTextCount(const UI::FontStyle &style, float scaleX, float
 }
 
 void UIContext::MeasureTextRect(const UI::FontStyle &style, float scaleX, float scaleY, const char *str, int count, const Bounds &bounds, float *x, float *y, int align) const {
+	_dbg_assert_(str != nullptr);
 	if (!textDrawer_ || (align & FLAG_DYNAMIC_ASCII)) {
 		float sizeFactor = (float)style.sizePts / 24.0f;
 		Draw()->SetFontScale(scaleX * sizeFactor, scaleY * sizeFactor);
@@ -238,6 +241,7 @@ void UIContext::MeasureTextRect(const UI::FontStyle &style, float scaleX, float 
 }
 
 void UIContext::DrawText(const char *str, float x, float y, uint32_t color, int align) {
+	_dbg_assert_(str != nullptr);
 	if (!textDrawer_ || (align & FLAG_DYNAMIC_ASCII)) {
 		// Use the font texture if this font is in that texture instead.
 		bool useFontTexture = Draw()->GetFontAtlas()->getFont(fontStyle_->atlasFont) != nullptr;
