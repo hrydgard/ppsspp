@@ -226,61 +226,63 @@ void OnScreenMessagesView::Draw(UIContext &dc) {
 
 	const float fadeoutCoef = 1.0f / OnScreenDisplay::FadeoutTime();
 
-	// Draw side entries. Top entries should apply on top of them if there's a collision, so drawing
-	// these first makes sense.
-	const std::vector<OnScreenDisplay::Entry> sideEntries = g_OSD.SideEntries();
-	for (auto &entry : sideEntries) {
-		float tw, th;
+	if (g_OSD.ShowSidebar()) {
+		// Draw side entries. Top entries should apply on top of them if there's a collision, so drawing
+		// these first makes sense.
+		const std::vector<OnScreenDisplay::Entry> sideEntries = g_OSD.SideEntries();
+		for (auto &entry : sideEntries) {
+			float tw, th;
 
-		const rc_client_achievement_t *achievement = nullptr;
-		AchievementRenderStyle style;
+			const rc_client_achievement_t *achievement = nullptr;
+			AchievementRenderStyle style;
 
-		switch (entry.type) {
-		case OSDType::ACHIEVEMENT_PROGRESS:
-		{
-			achievement = rc_client_get_achievement_info(Achievements::GetClient(), entry.numericID);
-			if (!achievement)
+			switch (entry.type) {
+			case OSDType::ACHIEVEMENT_PROGRESS:
+			{
+				achievement = rc_client_get_achievement_info(Achievements::GetClient(), entry.numericID);
+				if (!achievement)
+					continue;
+				style = AchievementRenderStyle::PROGRESS_INDICATOR;
+				MeasureAchievement(dc, achievement, style, &tw, &th);
+				break;
+			}
+			case OSDType::ACHIEVEMENT_CHALLENGE_INDICATOR:
+			{
+				achievement = rc_client_get_achievement_info(Achievements::GetClient(), entry.numericID);
+				if (!achievement)
+					continue;
+				style = AchievementRenderStyle::CHALLENGE_INDICATOR;
+				MeasureAchievement(dc, achievement, style, &tw, &th);
+				break;
+			}
+			case OSDType::LEADERBOARD_TRACKER:
+			{
+				MeasureLeaderboardTracker(dc, entry.text, &tw, &th);
+				break;
+			}
+			default:
 				continue;
-			style = AchievementRenderStyle::PROGRESS_INDICATOR;
-			MeasureAchievement(dc, achievement, style, &tw, &th);
-			break;
-		}
-		case OSDType::ACHIEVEMENT_CHALLENGE_INDICATOR:
-		{
-			achievement = rc_client_get_achievement_info(Achievements::GetClient(), entry.numericID);
-			if (!achievement)
+			}
+			Bounds b(10.0f, y, tw, th);
+			float alpha = Clamp((float)(entry.endTime - now) * fadeoutCoef, 0.0f, 1.0f);
+			// OK, render the thing.
+
+			switch (entry.type) {
+			case OSDType::ACHIEVEMENT_PROGRESS:
+			case OSDType::ACHIEVEMENT_CHALLENGE_INDICATOR:
+			{
+				RenderAchievement(dc, achievement, style, b, alpha, entry.startTime, now);
+				break;
+			}
+			case OSDType::LEADERBOARD_TRACKER:
+				RenderLeaderboardTracker(dc, b, entry.text, alpha);
+				break;
+			default:
 				continue;
-			style = AchievementRenderStyle::CHALLENGE_INDICATOR;
-			MeasureAchievement(dc, achievement, style, &tw, &th);
-			break;
-		}
-		case OSDType::LEADERBOARD_TRACKER:
-		{
-			MeasureLeaderboardTracker(dc, entry.text, &tw, &th);
-			break;
-		}
-		default:
-			continue;
-		}
-		Bounds b(10.0f, y, tw, th);
-		float alpha = Clamp((float)(entry.endTime - now) * fadeoutCoef, 0.0f, 1.0f);
-		// OK, render the thing.
+			}
 
-		switch (entry.type) {
-		case OSDType::ACHIEVEMENT_PROGRESS:
-		case OSDType::ACHIEVEMENT_CHALLENGE_INDICATOR:
-		{
-			RenderAchievement(dc, achievement, style, b, alpha, entry.startTime, now);
-			break;
+			y += (b.h + 4.0f) * alpha;  // including alpha here gets us smooth animations.
 		}
-		case OSDType::LEADERBOARD_TRACKER:
-			RenderLeaderboardTracker(dc, b, entry.text, alpha);
-			break;
-		default:
-			continue;
-		}
-
-		y += (b.h + 4.0f) * alpha;  // including alpha here gets us smooth animations.
 	}
 
 	// Get height

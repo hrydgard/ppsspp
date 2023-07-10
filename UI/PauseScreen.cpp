@@ -261,8 +261,14 @@ void GamePauseScreen::update() {
 	SetVRAppMode(VRAppMode::VR_MENU_MODE);
 }
 
+GamePauseScreen::GamePauseScreen(const Path &filename)
+	: UIDialogScreenWithGameBackground(filename) {
+	g_OSD.SetShowSidebar(false);
+}
+
 GamePauseScreen::~GamePauseScreen() {
 	__DisplaySetWasPaused();
+	g_OSD.SetShowSidebar(true);
 }
 
 void GamePauseScreen::CreateSavestateControls(UI::LinearLayout *leftColumnItems, bool vertical) {
@@ -326,6 +332,18 @@ void GamePauseScreen::CreateViews() {
 
 	if (!Achievements::ChallengeModeActive()) {
 		CreateSavestateControls(leftColumnItems, vertical);
+	} else {
+		// Let's show the active challenges.
+		std::set<uint32_t> ids = Achievements::GetActiveChallengeIDs();
+		if (!ids.empty()) {
+			leftColumnItems->Add(new ItemHeader(ac->T("Active Challenges")));
+			for (auto id : ids) {
+				const rc_client_achievement_t *achievement = rc_client_get_achievement_info(Achievements::GetClient(), id);
+				if (!achievement)
+					continue;
+				leftColumnItems->Add(new AchievementView(achievement));
+			}
+		}
 	}
 
 	ViewGroup *rightColumn = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(vertical ? 200 : 300, FILL_PARENT, actionMenuMargins));

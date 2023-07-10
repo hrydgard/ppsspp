@@ -595,4 +595,3 @@ void LeaderboardEntryView::Draw(UIContext &dc) {
 void LeaderboardEntryView::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
 	MeasureLeaderboardEntry(dc, entry_, &w, &h);
 }
-

@@ -32,7 +32,7 @@ enum class PauseScreenMode {
 
 class GamePauseScreen : public UIDialogScreenWithGameBackground {
 public:
-	GamePauseScreen(const Path &filename) : UIDialogScreenWithGameBackground(filename), gamePath_(filename) {}
+	GamePauseScreen(const Path &filename);
 	~GamePauseScreen();
 
 	void dialogFinished(const Screen *dialog, DialogResult dr) override;
@@ -65,6 +65,5 @@ private:
 
 	// hack
 	bool finishNextFrame_ = false;
-	Path gamePath_;
 	PauseScreenMode mode_ = PauseScreenMode::MAIN;
 };

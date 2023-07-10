@@ -10,6 +10,7 @@
 #include <cstdlib>
 #include <ctime>
 #include <functional>
+#include <set>
 #include <string>
 #include <vector>
 #include <mutex>
@@ -82,6 +83,7 @@ const std::string g_iconCachePrefix = "badge:";
 Path s_game_path;
 std::string s_game_hash;
 
+std::set<uint32_t> g_activeChallenges;
 bool g_isIdentifying = false;
 
 // rc_client implementation
@@ -285,12 +287,14 @@ static void event_handler_callback(const rc_client_event_t *event, rc_client_t *
 	case RC_CLIENT_EVENT_ACHIEVEMENT_CHALLENGE_INDICATOR_SHOW:
 		NOTICE_LOG(ACHIEVEMENTS, "Challenge indicator show: %s", event->achievement->title);
 		g_OSD.ShowChallengeIndicator(event->achievement->id, true);
+		g_activeChallenges.insert(event->achievement->id);
 		// A challenge achievement has become active. The handler should show a small version of the achievement icon
 		// to indicate the challenge is active.
 		break;
 	case RC_CLIENT_EVENT_ACHIEVEMENT_CHALLENGE_INDICATOR_HIDE:
 		NOTICE_LOG(ACHIEVEMENTS, "Challenge indicator hide: %s", event->achievement->title);
 		g_OSD.ShowChallengeIndicator(event->achievement->id, false);
+		g_activeChallenges.erase(event->achievement->id);
 		// The handler should hide the small version of the achievement icon that was shown by the corresponding RC_CLIENT_EVENT_ACHIEVEMENT_CHALLENGE_INDICATOR_SHOW event.
 		break;
 	case RC_CLIENT_EVENT_ACHIEVEMENT_PROGRESS_INDICATOR_SHOW:
@@ -395,6 +399,7 @@ void Logout() {
 	g_Config.sAchievementsUserName.clear();
 	NativeSaveSecret(RA_TOKEN_SECRET_NAME, "");
 	g_Config.Save("Achievements logout");
+	g_activeChallenges.clear();
 }
 
 void UpdateSettings() {
@@ -411,6 +416,7 @@ void UpdateSettings() {
 }
 
 bool Shutdown() {
+	g_activeChallenges.clear();
 	rc_client_destroy(g_rcClient);
 	g_rcClient = nullptr;
 	return true;
@@ -419,6 +425,7 @@ bool Shutdown() {
 void ResetRuntime() {
 	INFO_LOG(ACHIEVEMENTS, "Resetting rcheevos state...");
 	rc_client_reset(g_rcClient);
+	g_activeChallenges.clear();
 }
 
 void FrameUpdate() {
@@ -633,6 +640,10 @@ void ChangeUMD(const Path &path) {
 	);
 
 	g_isIdentifying = true;
+}
+
+std::set<uint32_t> GetActiveChallengeIDs() {
+	return g_activeChallenges;
 }
 
 } // namespace Achievements

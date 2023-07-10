@@ -14,6 +14,7 @@
 #include <string>
 #include <utility>
 #include <vector>
+#include <set>
 #include <mutex>
 
 #include "Common/StringUtils.h"
@@ -104,5 +105,7 @@ void UnloadGame();  // Call when leaving a game.
 Statistics GetStatistics();
 
 std::string GetGameAchievementSummary();
+
+std::set<uint32_t> GetActiveChallengeIDs();
 
 } // namespace Achievements
