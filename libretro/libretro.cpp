@@ -1683,7 +1683,8 @@ bool System_GetPropertyBool(SystemProperty prop)
    {
    case SYSPROP_CAN_JIT:
 #if PPSSPP_PLATFORM(IOS)
-      return false;
+      bool can_jit;
+      return (environ_cb(RETRO_ENVIRONMENT_GET_JIT_CAPABLE, &can_jit) && can_jit);
 #else
       return true;
 #endif
