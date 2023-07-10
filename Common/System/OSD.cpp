@@ -235,3 +235,32 @@ void OnScreenDisplay::RemoveProgressBar(std::string id) {
 		}
 	}
 }
+
+// Fades out everything related to achievements. Should be used on game shutdown.
+void OnScreenDisplay::ClearAchievementStuff() {
+	double now = time_now_d();
+	for (auto &iter : entries_) {
+		switch (iter.type) {
+		case OSDType::ACHIEVEMENT_CHALLENGE_INDICATOR:
+		case OSDType::ACHIEVEMENT_UNLOCKED:
+		case OSDType::ACHIEVEMENT_PROGRESS:
+		case OSDType::LEADERBOARD_TRACKER:
+			iter.endTime = now;
+			break;
+		default:
+			break;
+		}
+	}
+	for (auto &iter : sideEntries_) {
+		switch (iter.type) {
+		case OSDType::ACHIEVEMENT_CHALLENGE_INDICATOR:
+		case OSDType::ACHIEVEMENT_UNLOCKED:
+		case OSDType::ACHIEVEMENT_PROGRESS:
+		case OSDType::LEADERBOARD_TRACKER:
+			iter.endTime = now;
+			break;
+		default:
+			break;
+		}
+	}
+}
