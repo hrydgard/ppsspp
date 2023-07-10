@@ -1025,8 +1025,9 @@ static void check_variables(CoreParameter &coreParam)
       environ_cb(RETRO_ENVIRONMENT_SET_SYSTEM_AV_INFO, &avInfo);
    }
 
-   bool isFastForwarding = environ_cb(RETRO_ENVIRONMENT_GET_FASTFORWARDING, &isFastForwarding);
-   coreParam.fastForward = isFastForwarding;
+   bool isFastForwarding;
+   if (environ_cb(RETRO_ENVIRONMENT_GET_FASTFORWARDING, &isFastForwarding))
+       coreParam.fastForward = isFastForwarding;
 
    set_variable_visibility();
 }
