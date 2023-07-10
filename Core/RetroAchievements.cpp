@@ -51,6 +51,10 @@
 #include "Core/FileSystems/MetaFileSystem.h"
 #include "Core/RetroAchievements.h"
 
+static inline const char *DeNull(const char *ptr) {
+	return ptr ? ptr : "";
+}
+
 void OSDOpenBackgroundProgressDialog(const char *str_id, std::string message, s32 min, s32 max, s32 value) {
 	NOTICE_LOG(ACHIEVEMENTS, "Progress dialog opened: %s %s", str_id, message.c_str());
 	g_OSD.SetProgressBar(str_id, std::move(message), min, max, value);
@@ -271,7 +275,7 @@ static void event_handler_callback(const rc_client_event_t *event, rc_client_t *
 
 		std::string message = StringFromFormat(ac->T("%d achievements"), summary.num_unlocked_achievements);
 
-		g_OSD.Show(OSDType::MESSAGE_INFO, title, message, gameInfo->badge_name, 10.0f);
+		g_OSD.Show(OSDType::MESSAGE_INFO, title, message, DeNull(gameInfo->badge_name), 10.0f);
 
 		INFO_LOG(ACHIEVEMENTS, "%s", message.c_str());
 		break;
@@ -279,7 +283,7 @@ static void event_handler_callback(const rc_client_event_t *event, rc_client_t *
 	case RC_CLIENT_EVENT_LEADERBOARD_STARTED:
 		// A leaderboard attempt has started. The handler may show a message with the leaderboard title and /or description indicating the attempt started.
 		INFO_LOG(ACHIEVEMENTS, "Leaderboard attempt started: %s", event->leaderboard->title);
-		g_OSD.Show(OSDType::MESSAGE_INFO, ReplaceAll(ac->T("%1: Leaderboard attempt started"), "%1", event->leaderboard->title), event->leaderboard->description, 3.0f);
+		g_OSD.Show(OSDType::MESSAGE_INFO, ReplaceAll(ac->T("%1: Leaderboard attempt started"), "%1", event->leaderboard->title), DeNull(event->leaderboard->description), 3.0f);
 		break;
 	case RC_CLIENT_EVENT_LEADERBOARD_FAILED:
 		NOTICE_LOG(ACHIEVEMENTS, "Leaderboard attempt failed: %s", event->leaderboard->title);
@@ -288,7 +292,7 @@ static void event_handler_callback(const rc_client_event_t *event, rc_client_t *
 		break;
 	case RC_CLIENT_EVENT_LEADERBOARD_SUBMITTED:
 		NOTICE_LOG(ACHIEVEMENTS, "Leaderboard result submitted: %s", event->leaderboard->title);
-		g_OSD.Show(OSDType::MESSAGE_SUCCESS, ReplaceAll(ReplaceAll(ac->T("%1: Submitting leaderboard score: %2!"), "%1", event->leaderboard->title), "%2", event->leaderboard->tracker_value), event->leaderboard->description, 3.0f);
+		g_OSD.Show(OSDType::MESSAGE_SUCCESS, ReplaceAll(ReplaceAll(ac->T("%1: Submitting leaderboard score: %2!"), "%1", DeNull(event->leaderboard->title)), "%2", DeNull(event->leaderboard->tracker_value)), DeNull(event->leaderboard->description), 3.0f);
 		// A leaderboard attempt was completed.The handler may show a message with the leaderboard title and /or description indicating the final value being submitted to the server.
 		break;
 	case RC_CLIENT_EVENT_ACHIEVEMENT_CHALLENGE_INDICATOR_SHOW:

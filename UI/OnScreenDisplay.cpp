@@ -18,6 +18,10 @@
 #include "Common/Net/HTTPClient.h"
 #include "Core/Config.h"
 
+static inline const char *DeNull(const char *ptr) {
+	return ptr ? ptr : "";
+}
+
 static const float g_atlasIconSize = 36.0f;
 static const float extraTextScale = 0.7f;
 

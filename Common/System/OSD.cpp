@@ -168,7 +168,7 @@ void OnScreenDisplay::ShowLeaderboardTracker(int leaderboardTrackerID, const cha
 		if (entry.numericID == leaderboardTrackerID && entry.type == OSDType::LEADERBOARD_TRACKER) {
 			if (show) {
 				// Just an update.
-				entry.text = trackerText;
+				entry.text = trackerText ? trackerText : "";
 			} else {
 				// Keep the current text, hide and eventually delete it.
 				entry.endTime = now + (double)FadeoutTime();
