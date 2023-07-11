@@ -411,6 +411,8 @@ void Logout() {
 	NativeSaveSecret(RA_TOKEN_SECRET_NAME, "");
 	g_Config.Save("Achievements logout");
 	g_activeChallenges.clear();
+
+	OnAchievementsLoginStateChange();
 }
 
 void UpdateSettings() {
