@@ -42,7 +42,7 @@ protected:
 
 private:
 	void CreateAccountTab(UI::ViewGroup *viewGroup);
-	void CreateSettingsTab(UI::ViewGroup *viewGroup);
+	void CreateDeveloperToolsTab(UI::ViewGroup *viewGroup);
 
 	std::string username_;
 	std::string password_;

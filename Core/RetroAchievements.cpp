@@ -594,7 +594,7 @@ void identify_and_load_callback(int result, const char *error_message, rc_client
 	}
 	case RC_NO_GAME_LOADED:
 		// The current game does not support achievements.
-		g_OSD.Show(OSDType::MESSAGE_INFO, ac->T("This game has no achievements"), 3.0f);
+		g_OSD.Show(OSDType::MESSAGE_INFO, ac->T("RetroAchievements are not available for this game"), 3.0f);
 		break;
 	default:
 		// Other various errors.
