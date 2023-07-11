@@ -425,6 +425,10 @@ static std::string map_psp_language_to_i18n_locale(int val)
 
 static void check_variables(CoreParameter &coreParam)
 {
+   bool isFastForwarding;
+   if (environ_cb(RETRO_ENVIRONMENT_GET_FASTFORWARDING, &isFastForwarding))
+       coreParam.fastForward = isFastForwarding;
+
    bool updated = false;
 
    if (     coreState != CoreState::CORE_POWERUP
@@ -1024,10 +1028,6 @@ static void check_variables(CoreParameter &coreParam)
       retro_get_system_av_info(&avInfo);
       environ_cb(RETRO_ENVIRONMENT_SET_SYSTEM_AV_INFO, &avInfo);
    }
-
-   bool isFastForwarding;
-   if (environ_cb(RETRO_ENVIRONMENT_GET_FASTFORWARDING, &isFastForwarding))
-       coreParam.fastForward = isFastForwarding;
 
    set_variable_visibility();
 }
