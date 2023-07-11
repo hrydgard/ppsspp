@@ -46,4 +46,4 @@
 	url = https://github.com/google/cpu_features.git
 [submodule "ext/rcheevos"]
 	path = ext/rcheevos
-	url = https://github.com/RetroAchievements/rcheevos.git
+	url = https://github.com/hrydgard/rcheevos.git
