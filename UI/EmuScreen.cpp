@@ -246,6 +246,7 @@ void EmuScreen::bootGame(const Path &filename) {
 	if (PSP_IsIniting()) {
 		std::string error_string;
 		bootPending_ = !PSP_InitUpdate(&error_string);
+
 		if (!bootPending_) {
 			invalid_ = !PSP_IsInited();
 			if (invalid_) {
@@ -361,7 +362,9 @@ void EmuScreen::bootComplete() {
 	System_Notify(SystemNotification::DISASSEMBLY);
 
 	NOTICE_LOG(BOOT, "Loading %s...", PSP_CoreParameter().fileToStart.c_str());
-	autoLoad();
+	if (!Achievements::ChallengeModeActive()) {
+		autoLoad();
+	}
 
 	auto sc = GetI18NCategory(I18NCat::SCREEN);
 

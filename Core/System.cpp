@@ -73,6 +73,7 @@
 #include "GPU/GPUState.h"
 #include "GPU/GPUInterface.h"
 #include "GPU/Debugger/RecordFormat.h"
+#include "Core/RetroAchievements.h"
 
 enum CPUThreadState {
 	CPU_THREAD_NOT_RUNNING,
@@ -472,6 +473,11 @@ bool PSP_InitStart(const CoreParameter &coreParam, std::string *error_string) {
 }
 
 bool PSP_InitUpdate(std::string *error_string) {
+	if (Achievements::IsBlockingExecution()) {
+		// Keep waiting.
+		return false;
+	}
+
 	if (pspIsInited || !pspIsIniting) {
 		return true;
 	}

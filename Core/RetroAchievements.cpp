@@ -504,6 +504,8 @@ void DoState(PointerWrap &p) {
 			}
 			break;
 		}
+		default:
+			break;
 		}
 
 		DoArray(p, buffer, data_size);
@@ -518,6 +520,8 @@ void DoState(PointerWrap &p) {
 			}
 			break;
 		}
+		default:
+			break;
 		}
 		delete[] buffer;
 	} else {
