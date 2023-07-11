@@ -369,6 +369,9 @@ void Initialize() {
 	std::string api_token = NativeLoadSecret(RA_TOKEN_SECRET_NAME);
 	if (!api_token.empty()) {
 		rc_client_begin_login_with_token(g_rcClient, g_Config.sAchievementsUserName.c_str(), api_token.c_str(), &login_token_callback, nullptr);
+	} else {
+		rc_client_destroy(g_rcClient);
+		g_rcClient = nullptr;
 	}
 }
 
