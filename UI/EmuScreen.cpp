@@ -349,8 +349,6 @@ void EmuScreen::bootGame(const Path &filename) {
 		g_OSD.Show(OSDType::MESSAGE_WARNING, gr->T("DefaultCPUClockRequired", "Warning: This game requires the CPU clock to be set to default."), 10.0f);
 	}
 
-	Achievements::SetGame(filename);
-
 	loadingViewColor_->Divert(0xFFFFFFFF, 0.75f);
 	loadingViewVisible_->Divert(UI::V_VISIBLE, 0.75f);
 

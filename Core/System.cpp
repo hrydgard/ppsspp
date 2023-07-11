@@ -43,6 +43,7 @@
 #include "Common/TimeUtil.h"
 #include "Common/GraphicsContext.h"
 
+#include "Core/RetroAchievements.h"
 #include "Core/MemFault.h"
 #include "Core/HDRemaster.h"
 #include "Core/MIPS/MIPS.h"
@@ -234,7 +235,7 @@ bool DiscIDFromGEDumpPath(const Path &path, FileLoader *fileLoader, std::string 
 	}
 }
 
-bool CPU_Init(std::string *errorString) {
+bool CPU_Init(std::string *errorString, FileLoader *loadedFile) {
 	coreState = CORE_POWERUP;
 	currentMIPS = &mipsr4k;
 
@@ -249,12 +250,6 @@ bool CPU_Init(std::string *errorString) {
 	Memory::g_PSPModel = g_Config.iPSPModel;
 
 	Path filename = g_CoreParameter.fileToStart;
-	loadedFile = ResolveFileLoaderTarget(ConstructFileLoader(filename));
-#if PPSSPP_ARCH(AMD64)
-	if (g_Config.bCacheFullIsoInRam) {
-		loadedFile = new RamCachingFileLoader(loadedFile);
-	}
-#endif
 
 	IdentifiedFileType type = Identify_File(loadedFile, errorString);
 
@@ -440,7 +435,17 @@ bool PSP_InitStart(const CoreParameter &coreParam, std::string *error_string) {
 	pspIsIniting = true;
 	PSP_SetLoading("Loading game...");
 
-	if (!CPU_Init(&g_CoreParameter.errorString)) {
+	Path filename = g_CoreParameter.fileToStart;
+	FileLoader *loadedFile = ResolveFileLoaderTarget(ConstructFileLoader(filename));
+#if PPSSPP_ARCH(AMD64)
+	if (g_Config.bCacheFullIsoInRam) {
+		loadedFile = new RamCachingFileLoader(loadedFile);
+	}
+#endif
+
+	Achievements::SetGame(filename, loadedFile);
+
+	if (!CPU_Init(&g_CoreParameter.errorString, loadedFile)) {
 		*error_string = g_CoreParameter.errorString;
 		if (error_string->empty()) {
 			*error_string = "Failed initializing CPU/Memory";
