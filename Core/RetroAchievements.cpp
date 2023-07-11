@@ -121,7 +121,7 @@ bool ChallengeModeActive() {
 	if (!g_rcClient) {
 		return false;
 	}
-	return rc_client_get_hardcore_enabled(g_rcClient);
+	return IsLoggedIn() && rc_client_get_hardcore_enabled(g_rcClient);
 }
 
 bool WarnUserIfChallengeModeActive(const char *message) {
