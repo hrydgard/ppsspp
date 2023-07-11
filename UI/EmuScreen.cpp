@@ -404,11 +404,12 @@ void EmuScreen::bootComplete() {
 }
 
 EmuScreen::~EmuScreen() {
+	// If we were invalid, it would already be shutdown.
+	Achievements::UnloadGame();
 	if (!invalid_ || bootPending_) {
-		// If we were invalid, it would already be shutdown.
-		Achievements::UnloadGame();
 		PSP_Shutdown();
 	}
+	g_OSD.ClearAchievementStuff();
 
 	SetExtraAssertInfo(nullptr);
 

@@ -57,6 +57,9 @@ public:
 	void SetShowSidebar(bool show) { showSidebar_ = show; }
 	bool ShowSidebar() const { return showSidebar_; }
 
+	// Fades out everything related to achievements. Should be used on game shutdown.
+	void ClearAchievementStuff();
+
 	struct Entry {
 		OSDType type;
 		std::string text;

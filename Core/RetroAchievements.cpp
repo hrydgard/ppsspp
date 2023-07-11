@@ -121,7 +121,7 @@ bool ChallengeModeActive() {
 	if (!g_rcClient) {
 		return false;
 	}
-	return rc_client_get_hardcore_enabled(g_rcClient);
+	return IsLoggedIn() && rc_client_get_hardcore_enabled(g_rcClient);
 }
 
 bool WarnUserIfChallengeModeActive(const char *message) {
@@ -355,9 +355,14 @@ void Initialize() {
 		INFO_LOG(ACHIEVEMENTS, "Achievements are disabled, not initializing.");
 		return;
 	}
-	_assert_msg_(g_Config.bAchievementsEnable, "Achievements are enabled");
+	_assert_msg_(!g_rcClient, "Achievements already initialized");
 
 	g_rcClient = rc_client_create(read_memory_callback, server_call_callback);
+	if (!g_rcClient) {
+		// Shouldn't happen really.
+		return;
+	}
+
 	// Provide a logging function to simplify debugging
 	rc_client_enable_logging(g_rcClient, RC_CLIENT_LOG_LEVEL_VERBOSE, log_message_callback);
 
@@ -370,6 +375,8 @@ void Initialize() {
 	if (!api_token.empty()) {
 		rc_client_begin_login_with_token(g_rcClient, g_Config.sAchievementsUserName.c_str(), api_token.c_str(), &login_token_callback, nullptr);
 	}
+
+	INFO_LOG(ACHIEVEMENTS, "Achievements initialized.");
 }
 
 static void login_password_callback(int result, const char *error_message, rc_client_t *client, void *userdata) {
@@ -411,16 +418,18 @@ void Logout() {
 	NativeSaveSecret(RA_TOKEN_SECRET_NAME, "");
 	g_Config.Save("Achievements logout");
 	g_activeChallenges.clear();
+
+	OnAchievementsLoginStateChange();
 }
 
 void UpdateSettings() {
-	if (!g_Config.bAchievementsEnable) {
+	if (g_rcClient && !g_Config.bAchievementsEnable) {
 		// we're done here
 		Shutdown();
 		return;
 	}
 
-	if (!g_rcClient) {
+	if (!g_rcClient && g_Config.bAchievementsEnable) {
 		// we just got enabled.
 		Initialize();
 	}
@@ -430,6 +439,7 @@ bool Shutdown() {
 	g_activeChallenges.clear();
 	rc_client_destroy(g_rcClient);
 	g_rcClient = nullptr;
+	INFO_LOG(ACHIEVEMENTS, "Achievements shut down.");
 	return true;
 }
 
