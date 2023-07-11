@@ -349,14 +349,16 @@ void __DisplaySetWasPaused() {
 }
 
 static int FrameTimingLimit() {
-	if (!Achievements::ChallengeModeActive()) {
-		if (PSP_CoreParameter().fpsLimit == FPSLimit::CUSTOM1)
-			return g_Config.iFpsLimit1;
-		if (PSP_CoreParameter().fpsLimit == FPSLimit::CUSTOM2)
-			return g_Config.iFpsLimit2;
-		if (PSP_CoreParameter().fpsLimit == FPSLimit::ANALOG)
-			return PSP_CoreParameter().analogFpsLimit;
-	}
+	bool challenge = Achievements::ChallengeModeActive();
+
+	// Can't slow down in challenge mode.
+	int minRate = challenge ? 60 : 1;
+	if (PSP_CoreParameter().fpsLimit == FPSLimit::CUSTOM1)
+		return std::max(g_Config.iFpsLimit1, minRate);
+	if (PSP_CoreParameter().fpsLimit == FPSLimit::CUSTOM2)
+		return std::max(g_Config.iFpsLimit2, minRate);
+	if (PSP_CoreParameter().fpsLimit == FPSLimit::ANALOG)
+		return std::max(PSP_CoreParameter().analogFpsLimit, minRate);
 	// Note: Fast-forward is OK in challenge mode.
 	if (PSP_CoreParameter().fastForward)
 		return 0;
