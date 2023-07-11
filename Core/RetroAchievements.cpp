@@ -31,6 +31,8 @@
 #include "Common/Log.h"
 #include "Common/File/Path.h"
 #include "Common/File/FileUtil.h"
+#include "Core/FileLoaders/LocalFileLoader.h"
+#include "Core/FileSystems/BlockDevices.h"
 #include "Common/Net/HTTPClient.h"
 #include "Common/System/OSD.h"
 #include "Common/System/System.h"
@@ -502,6 +504,8 @@ void DoState(PointerWrap &p) {
 			}
 			break;
 		}
+		default:
+			break;
 		}
 
 		DoArray(p, buffer, data_size);
@@ -516,6 +520,8 @@ void DoState(PointerWrap &p) {
 			}
 			break;
 		}
+		default:
+			break;
 		}
 		delete[] buffer;
 	} else {
@@ -605,22 +611,72 @@ void identify_and_load_callback(int result, const char *error_message, rc_client
 	g_isIdentifying = false;
 }
 
-void SetGame(const Path &path) {
+struct FileContext {
+	BlockDevice *bd;
+	int64_t seekPos;
+};
+
+static BlockDevice *g_blockDevice;
+
+void SetGame(const Path &path, FileLoader *fileLoader) {
 	if (!g_rcClient || !IsLoggedIn()) {
 		// Nothing to do.
 		return;
 	}
 
+	// TODO: Fish the block device out of the loading process somewhere else. Though, probably easier to just do it here.
+	g_blockDevice = constructBlockDevice(fileLoader);
+	if (!g_blockDevice) {
+		ERROR_LOG(ACHIEVEMENTS, "Failed to construct block device for '%s' - can't identify", path.c_str());
+		return;
+	}
+
 	rc_hash_filereader rc_filereader;
 	rc_filereader.open = [](const char *utf8Path) {
-		Path path(utf8Path);
-		FILE *f = File::OpenCFile(path, "rb");
-		return (void *)f;
+		return (void *) new FileContext{ g_blockDevice, 0 };
 	};
-	rc_filereader.seek = [](void *file_handle, int64_t offset, int origin) { fseek((FILE *)file_handle, offset, origin); };
-	rc_filereader.tell = [](void *file_handle) -> int64_t { return (int64_t)ftell((FILE *)file_handle); };
-	rc_filereader.read = [](void *file_handle, void *buffer, size_t requested_bytes) -> size_t { return fread(buffer, 1, requested_bytes, (FILE *)file_handle); };
-	rc_filereader.close = [](void *file_handle) { fclose((FILE *)file_handle); };
+	rc_filereader.seek = [](void *file_handle, int64_t offset, int origin) {
+		FileContext *ctx = (FileContext *)file_handle;
+		switch (origin) {
+		case SEEK_SET: ctx->seekPos = offset; break;
+		case SEEK_END: ctx->seekPos = ctx->bd->GetBlockSize() * ctx->bd->GetNumBlocks() + offset; break;
+		case SEEK_CUR: ctx->seekPos += offset; break;
+		default: break;
+		}
+	};
+	rc_filereader.tell = [](void *file_handle) -> int64_t {
+		return ((FileContext *)file_handle)->seekPos;
+	};
+	rc_filereader.read = [](void *file_handle, void *buffer, size_t requested_bytes) -> size_t {
+		FileContext *ctx = (FileContext *)file_handle;
+
+		int blockSize = ctx->bd->GetBlockSize();
+
+		int64_t offset = ctx->seekPos;
+		int64_t endOffset = ctx->seekPos + requested_bytes;
+		int firstBlock = offset / blockSize;
+		int afterLastBlock = (endOffset + blockSize - 1) / blockSize;
+		int numBlocks = afterLastBlock - firstBlock;
+		// This is suboptimal, but good enough since we're not doing a lot of accesses.
+		uint8_t *buf = new uint8_t[numBlocks * blockSize];
+		bool success = ctx->bd->ReadBlocks(firstBlock, numBlocks, (u8 *)buf);
+		if (success) {
+			int64_t firstOffset = firstBlock * blockSize;
+			memcpy(buffer, buf + (offset - firstOffset), requested_bytes);
+			ctx->seekPos += requested_bytes;
+			delete[] buf;
+			return requested_bytes;
+		} else {
+			delete[] buf;
+			ERROR_LOG(ACHIEVEMENTS, "Block device load fail");
+			return 0;
+		}
+	};
+	rc_filereader.close = [](void *file_handle) {
+		FileContext *ctx = (FileContext *)file_handle;
+		delete ctx->bd;
+		delete ctx;
+	};
 
 	// The caller should hold off on executing game code until this turns false, checking with IsBlockingExecution()
 	g_isIdentifying = true;
@@ -633,6 +689,9 @@ void SetGame(const Path &path) {
 	rc_hash_init_custom_filereader(&rc_filereader);
 	rc_hash_init_default_cdreader();
 	rc_client_begin_identify_and_load_game(g_rcClient, RC_CONSOLE_PSP, path.c_str(), nullptr, 0, &identify_and_load_callback, nullptr);
+
+	// fclose above will have deleted it.
+	g_blockDevice = nullptr;
 }
 
 void UnloadGame() {

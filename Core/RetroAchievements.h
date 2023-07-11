@@ -24,6 +24,7 @@
 
 class Path;
 class PointerWrap;
+class FileLoader;
 
 namespace Achievements {
 
@@ -98,7 +99,7 @@ bool HasAchievementsOrLeaderboards();
 bool LoginAsync(const char *username, const char *password);
 void Logout();
 
-void SetGame(const Path &path);
+void SetGame(const Path &path, FileLoader *fileLoader);
 void ChangeUMD(const Path &path);  // for in-game UMD change
 void UnloadGame();  // Call when leaving a game.
 

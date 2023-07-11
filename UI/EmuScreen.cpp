@@ -246,6 +246,7 @@ void EmuScreen::bootGame(const Path &filename) {
 	if (PSP_IsIniting()) {
 		std::string error_string;
 		bootPending_ = !PSP_InitUpdate(&error_string);
+
 		if (!bootPending_) {
 			invalid_ = !PSP_IsInited();
 			if (invalid_) {
@@ -349,8 +350,6 @@ void EmuScreen::bootGame(const Path &filename) {
 		g_OSD.Show(OSDType::MESSAGE_WARNING, gr->T("DefaultCPUClockRequired", "Warning: This game requires the CPU clock to be set to default."), 10.0f);
 	}
 
-	Achievements::SetGame(filename);
-
 	loadingViewColor_->Divert(0xFFFFFFFF, 0.75f);
 	loadingViewVisible_->Divert(UI::V_VISIBLE, 0.75f);
 
@@ -363,7 +362,9 @@ void EmuScreen::bootComplete() {
 	System_Notify(SystemNotification::DISASSEMBLY);
 
 	NOTICE_LOG(BOOT, "Loading %s...", PSP_CoreParameter().fileToStart.c_str());
-	autoLoad();
+	if (!Achievements::ChallengeModeActive()) {
+		autoLoad();
+	}
 
 	auto sc = GetI18NCategory(I18NCat::SCREEN);
 
