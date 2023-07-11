@@ -446,14 +446,18 @@ void KeyMappingNewKeyDialog::axis(const AxisInput &axis) {
 	if (axis.value > AXIS_BIND_THRESHOLD) {
 		InputMapping mapping(axis.deviceId, axis.axisId, 1);
 		triggeredAxes_.insert(mapping);
-		if (!mapping_.mappings.contains(mapping)) {
+		if (!g_Config.bAllowMappingCombos && !mapping_.mappings.empty()) {
+			comboMappingsNotEnabled_->SetVisibility(UI::V_VISIBLE);
+		} else if (!mapping_.mappings.contains(mapping)) {
 			mapping_.mappings.push_back(mapping);
 			RecreateViews();
 		}
 	} else if (axis.value < -AXIS_BIND_THRESHOLD) {
 		InputMapping mapping(axis.deviceId, axis.axisId, -1);
 		triggeredAxes_.insert(mapping);
-		if (!mapping_.mappings.contains(mapping)) {
+		if (!g_Config.bAllowMappingCombos && !mapping_.mappings.empty()) {
+			comboMappingsNotEnabled_->SetVisibility(UI::V_VISIBLE);
+		} else if (!mapping_.mappings.contains(mapping)) {
 			mapping_.mappings.push_back(mapping);
 			RecreateViews();
 		}
