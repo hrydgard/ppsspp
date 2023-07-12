@@ -387,9 +387,15 @@ void UpdateVRInput(bool haptics, float dp_xscale, float dp_yscale) {
 						g_Config.fCameraHeight = clampFloat(g_Config.fCameraHeight, -150.0f, 150.0f);
 						break;
 					case JOYSTICK_AXIS_Z:
-						if (axis.second < -0.75f) g_Config.fHeadUpDisplayScale -= 0.01f;
-						if (axis.second > 0.75f) g_Config.fHeadUpDisplayScale += 0.01f;
-						g_Config.fHeadUpDisplayScale = clampFloat(g_Config.fHeadUpDisplayScale, 0.0f, 1.5f);
+						if (g_Config.bEnableVR) {
+							if (axis.second < -0.75f) g_Config.fHeadUpDisplayScale -= 0.01f;
+							if (axis.second > 0.75f) g_Config.fHeadUpDisplayScale += 0.01f;
+							g_Config.fHeadUpDisplayScale = clampFloat(g_Config.fHeadUpDisplayScale, 0.0f, 1.5f);
+						} else {
+							if (axis.second < -0.75f) g_Config.fCanvas3DDistance += 0.1f;
+							if (axis.second > 0.75f) g_Config.fCanvas3DDistance -= 0.1f;
+							g_Config.fCanvas3DDistance = clampFloat(g_Config.fCanvas3DDistance, 1.0f, 15.0f);
+						}
 						break;
 					case JOYSTICK_AXIS_RZ:
 						if (axis.second > 0.75f) g_Config.fCameraDistance -= 0.1f;
@@ -432,6 +438,7 @@ void UpdateVRInput(bool haptics, float dp_xscale, float dp_yscale) {
 		VR_SetConfig(VR_CONFIG_MOUSE_X, (int)x);
 		VR_SetConfig(VR_CONFIG_MOUSE_Y, (int)y);
 		VR_SetConfig(VR_CONFIG_MOUSE_SIZE, 6 * (int)pow(VR_GetConfigFloat(VR_CONFIG_CANVAS_DISTANCE), 0.25f));
+		VR_SetConfig(VR_CONFIG_CANVAS_6DOF, g_Config.bEnable6DoF);
 
 		//inform engine about the status
 		TouchInput touch;
@@ -526,6 +533,7 @@ bool UpdateVRKeys(const KeyInput &key) {
 
 	// Reset camera adjust
 	if (pspKeys[VIRTKEY_VR_CAMERA_ADJUST] && pspKeys[VIRTKEY_VR_CAMERA_RESET]) {
+		g_Config.fCanvas3DDistance = 3.0f;
 		g_Config.fCameraHeight = 0;
 		g_Config.fCameraSide = 0;
 		g_Config.fCameraDistance = 0;
@@ -672,7 +680,7 @@ bool StartVRRender() {
 
 		// Set customizations
 		__DisplaySetFramerate(g_Config.bForce72Hz ? 72 : 60);
-		VR_SetConfigFloat(VR_CONFIG_CANVAS_DISTANCE, g_Config.fCanvasDistance);
+		VR_SetConfigFloat(VR_CONFIG_CANVAS_DISTANCE, vrScene && (appMode == VR_GAME_MODE) ? g_Config.fCanvas3DDistance : g_Config.fCanvasDistance);
 		VR_SetConfig(VR_CONFIG_PASSTHROUGH, g_Config.bPassthrough);
 		return true;
 	}
