@@ -226,7 +226,6 @@ static KeyEventResult KeyEventToFocusMoves(const KeyInput &key) {
 			}
 
 			heldKeys.insert(hk);
-			INFO_LOG(SCECTRL, "focus move: %d", key.keyCode);
 			focusMoves.push_back(key.keyCode);
 			retval = KeyEventResult::ACCEPT;
 		}
