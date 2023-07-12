@@ -261,10 +261,14 @@ static void event_handler_callback(const rc_client_event_t *event, rc_client_t *
 	case RC_CLIENT_EVENT_ACHIEVEMENT_TRIGGERED:
 		// An achievement was earned by the player. The handler should notify the player that the achievement was earned.
 		g_OSD.ShowAchievementUnlocked(event->achievement->id);
+		System_PostUIMessage("play_sound", "achievement_unlocked");
 		INFO_LOG(ACHIEVEMENTS, "Achievement unlocked: '%s' (%d)", event->achievement->title, event->achievement->id);
 		break;
+
 	case RC_CLIENT_EVENT_GAME_COMPLETED:
 	{
+		// TODO: Do some zany fireworks!
+
 		// All achievements for the game have been earned. The handler should notify the player that the game was completed or mastered, depending on challenge mode.
 		auto ac = GetI18NCategory(I18NCat::ACHIEVEMENTS);
 
@@ -278,6 +282,8 @@ static void event_handler_callback(const rc_client_event_t *event, rc_client_t *
 		std::string message = StringFromFormat(ac->T("%d achievements"), summary.num_unlocked_achievements);
 
 		g_OSD.Show(OSDType::MESSAGE_INFO, title, message, DeNull(gameInfo->badge_name), 10.0f);
+
+		System_PostUIMessage("play_sound", "achievement_unlocked");
 
 		INFO_LOG(ACHIEVEMENTS, "%s", message.c_str());
 		break;
@@ -295,7 +301,7 @@ static void event_handler_callback(const rc_client_event_t *event, rc_client_t *
 	case RC_CLIENT_EVENT_LEADERBOARD_SUBMITTED:
 		NOTICE_LOG(ACHIEVEMENTS, "Leaderboard result submitted: %s", event->leaderboard->title);
 		g_OSD.Show(OSDType::MESSAGE_SUCCESS, ReplaceAll(ReplaceAll(ac->T("%1: Submitting leaderboard score: %2!"), "%1", DeNull(event->leaderboard->title)), "%2", DeNull(event->leaderboard->tracker_value)), DeNull(event->leaderboard->description), 3.0f);
-		// A leaderboard attempt was completed.The handler may show a message with the leaderboard title and /or description indicating the final value being submitted to the server.
+		System_PostUIMessage("play_sound", "leaderboard_submitted");
 		break;
 	case RC_CLIENT_EVENT_ACHIEVEMENT_CHALLENGE_INDICATOR_SHOW:
 		NOTICE_LOG(ACHIEVEMENTS, "Challenge indicator show: %s", event->achievement->title);

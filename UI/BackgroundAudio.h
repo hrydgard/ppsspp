@@ -28,7 +28,7 @@ public:
 	void LoadSamples();
 
 	void Mix(int16_t *buffer, int sz, int sampleRateHz);
-	void Play(UI::UISound sfx);
+	void Play(UI::UISound sfx, float volume);
 
 	std::vector<std::unique_ptr<Sample>> samples_;
 

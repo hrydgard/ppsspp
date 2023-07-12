@@ -381,12 +381,17 @@ void SoundEffectMixer::Mix(int16_t *buffer, int sz, int sampleRateHz) {
 
 	for (std::vector<PlayInstance>::iterator iter = plays_.begin(); iter != plays_.end(); ) {
 		auto sample = samples_[(int)iter->sound].get();
+		if (!sample) {
+			// Remove playback instance if sample invalid.
+			iter = plays_.erase(iter);
+			continue;
+		}
 
 		int64_t rateOfSample = sample->rateInHz_;
 		int64_t stride = (rateOfSample << 32) / sampleRateHz;
 
 		for (int i = 0; i < sz * 2; i += 2) {
-			if (!sample || (iter->offset >> 32) >= sample->length_ - 2) {
+			if ((iter->offset >> 32) >= sample->length_ - 2) {
 				iter->done = true;
 				break;
 			}
@@ -415,15 +420,16 @@ void SoundEffectMixer::Mix(int16_t *buffer, int sz, int sampleRateHz) {
 	}
 }
 
-void SoundEffectMixer::Play(UI::UISound sfx) {
+void SoundEffectMixer::Play(UI::UISound sfx, float volume) {
 	std::lock_guard<std::mutex> guard(mutex_);
-	plays_.push_back(PlayInstance{ sfx, 0, 64, false });
+	plays_.push_back(PlayInstance{ sfx, 0, (int)(255.0f * volume), false });
 }
 
 Sample *SoundEffectMixer::LoadSample(const std::string &path) {
 	size_t bytes;
 	uint8_t *data = g_VFS.ReadFile(path.c_str(), &bytes);
 	if (!data) {
+		WARN_LOG(AUDIO, "Failed to load sample '%s'", path.c_str());
 		return nullptr;
 	}
 
@@ -451,8 +457,10 @@ void SoundEffectMixer::LoadSamples() {
 	samples_[(size_t)UI::UISound::CONFIRM] = std::unique_ptr<Sample>(LoadSample("sfx_confirm.wav"));
 	samples_[(size_t)UI::UISound::TOGGLE_ON] = std::unique_ptr<Sample>(LoadSample("sfx_toggle_on.wav"));
 	samples_[(size_t)UI::UISound::TOGGLE_OFF] = std::unique_ptr<Sample>(LoadSample("sfx_toggle_off.wav"));
+	samples_[(size_t)UI::UISound::ACHIEVEMENT_UNLOCKED] = std::unique_ptr<Sample>(LoadSample("sfx_achievement_unlocked.wav"));
+	samples_[(size_t)UI::UISound::LEADERBOARD_SUBMITTED] = std::unique_ptr<Sample>(LoadSample("sfx_leaderbord_submitted.wav"));
 
-	UI::SetSoundCallback([](UI::UISound sound) {
-		g_BackgroundAudio.SFX().Play(sound);
+	UI::SetSoundCallback([](UI::UISound sound, float volume) {
+		g_BackgroundAudio.SFX().Play(sound, volume);
 	});
 }
