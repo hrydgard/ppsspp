@@ -64,10 +64,9 @@ void TabbedUIDialogScreenWithGameBackground::CreateViews() {
 	if (!vertical) {
 		leftSide += 200.0f;
 	}
-	settingInfo_ = new SettingInfoMessage(ALIGN_CENTER | FLAG_WRAP_TEXT, new AnchorLayoutParams(
+	settingInfo_ = new SettingInfoMessage(ALIGN_CENTER | FLAG_WRAP_TEXT, g_display.dp_yres - 200.0f, new AnchorLayoutParams(
 		g_display.dp_xres - leftSide - 40.0f, WRAP_CONTENT,
 		leftSide, g_display.dp_yres - 80.0f - 40.0f, NONE, NONE));
-	settingInfo_->SetBottomCutoff(g_display.dp_yres - 200.0f);
 	root_->Add(settingInfo_);
 
 	// Show it again if we recreated the view

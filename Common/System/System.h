@@ -219,7 +219,10 @@ void System_PostUIMessage(const std::string &message, const std::string &param);
 // no need to implement separately.
 void System_AudioGetDebugStats(char *buf, size_t bufSize);
 void System_AudioClear();
+
 // These samples really have 16 bits of value, but can be a little out of range.
+// This is for pushing rate-controlled 44khz audio from emulation.
+// If you push a little too fast, we'll pitch up to a limit, for example.
 void System_AudioPushSamples(const int32_t *audio, int numSamples);
 
 inline void System_AudioResetStatCounters() {
