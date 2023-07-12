@@ -624,6 +624,8 @@ void SetGame(const Path &path, FileLoader *fileLoader) {
 		return;
 	}
 
+	_dbg_assert_(!g_blockDevice);
+
 	// TODO: Fish the block device out of the loading process somewhere else. Though, probably easier to just do it here.
 	g_blockDevice = constructBlockDevice(fileLoader);
 	if (!g_blockDevice) {
@@ -632,7 +634,12 @@ void SetGame(const Path &path, FileLoader *fileLoader) {
 	}
 
 	rc_hash_filereader rc_filereader;
-	rc_filereader.open = [](const char *utf8Path) {
+	rc_filereader.open = [](const char *utf8Path) -> void * {
+		if (!g_blockDevice) {
+			ERROR_LOG(ACHIEVEMENTS, "No block device");
+			return nullptr;
+		}
+
 		return (void *) new FileContext{ g_blockDevice, 0 };
 	};
 	rc_filereader.seek = [](void *file_handle, int64_t offset, int origin) {
