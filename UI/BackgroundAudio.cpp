@@ -374,9 +374,17 @@ static inline int16_t Clamp16(int32_t sample) {
 }
 
 void SoundEffectMixer::Mix(int16_t *buffer, int sz, int sampleRateHz) {
-	// Mix in menu sound effects. Terribly slow mixer but meh.
-	if (plays_.empty()) {
-		return;
+	{
+		std::lock_guard<std::mutex> guard(mutex_);
+		if (!queue_.empty()) {
+			for (const auto &entry : queue_) {
+				plays_.push_back(entry);
+			}
+			queue_.clear();
+		}
+		if (plays_.empty()) {
+			return;
+		}
 	}
 
 	for (std::vector<PlayInstance>::iterator iter = plays_.begin(); iter != plays_.end(); ) {
@@ -422,7 +430,7 @@ void SoundEffectMixer::Mix(int16_t *buffer, int sz, int sampleRateHz) {
 
 void SoundEffectMixer::Play(UI::UISound sfx, float volume) {
 	std::lock_guard<std::mutex> guard(mutex_);
-	plays_.push_back(PlayInstance{ sfx, 0, (int)(255.0f * volume), false });
+	queue_.push_back(PlayInstance{ sfx, 0, (int)(255.0f * volume), false });
 }
 
 Sample *SoundEffectMixer::LoadSample(const std::string &path) {

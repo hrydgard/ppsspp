@@ -40,6 +40,7 @@ public:
 	};
 
 	std::mutex mutex_;
+	std::vector<PlayInstance> queue_;
 	std::vector<PlayInstance> plays_;
 };
 
