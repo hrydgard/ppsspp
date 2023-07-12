@@ -241,7 +241,7 @@ void ISOFileSystem::ReadDirectory(TreeEntry *root) {
 			// Round down to avoid any false reports.
 			if (isFile && dir.firstDataSector + (dir.dataLength / 2048) > blockDevice->GetNumBlocks()) {
 				blockDevice->NotifyReadError();
-				ERROR_LOG(FILESYS, "File '%s' starts or ends outside ISO. firstDataSector: %d len: %d", entry->BuildPath().c_str(), dir.firstDataSector, dir.dataLength);
+				ERROR_LOG(FILESYS, "File '%s' starts or ends outside ISO. firstDataSector: %d len: %d", entry->BuildPath().c_str(), (int)dir.firstDataSector, (int)dir.dataLength);
 			}
 
 			if (entry->isDirectory && !relative) {
