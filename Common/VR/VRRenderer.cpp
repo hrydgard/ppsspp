@@ -428,14 +428,15 @@ void VR_FinishFrame( engine_t* engine ) {
 	} else if ((vrMode == VR_MODE_MONO_SCREEN) || (vrMode == VR_MODE_STEREO_SCREEN)) {
 
 		// Flat screen pose
-		float distance = VR_GetConfigFloat(VR_CONFIG_CANVAS_DISTANCE);
+		float distance = VR_GetConfigFloat(VR_CONFIG_CANVAS_DISTANCE) / 4.0f - 1.0f;
 		float menuPitch = ToRadians(VR_GetConfigFloat(VR_CONFIG_MENU_PITCH));
 		float menuYaw = ToRadians(VR_GetConfigFloat(VR_CONFIG_MENU_YAW));
-		XrVector3f pos = {
-				invViewTransform[0].position.x - sinf(menuYaw) * distance,
-				invViewTransform[0].position.y,
-				invViewTransform[0].position.z - cosf(menuYaw) * distance
-		};
+		XrVector3f pos = {-sinf(menuYaw) * distance, 0, -cosf(menuYaw) * distance};
+		if (!VR_GetConfig(VR_CONFIG_CANVAS_6DOF)) {
+			pos.x += invViewTransform[0].position.x;
+			pos.y += invViewTransform[0].position.y;
+			pos.z += invViewTransform[0].position.z;
+		}
 		XrQuaternionf pitch = XrQuaternionf_CreateFromVectorAngle({1, 0, 0}, -menuPitch);
 		XrQuaternionf yaw = XrQuaternionf_CreateFromVectorAngle({0, 1, 0}, menuYaw);
 
@@ -453,7 +454,7 @@ void VR_FinishFrame( engine_t* engine ) {
 		cylinder_layer.subImage.imageArrayIndex = 0;
 		cylinder_layer.pose.orientation = XrQuaternionf_Multiply(pitch, yaw);
 		cylinder_layer.pose.position = pos;
-		cylinder_layer.radius = 12.0f;
+		cylinder_layer.radius = 2.0f;
 		cylinder_layer.centralAngle = (float)(M_PI * 0.5);
 		cylinder_layer.aspectRatio = VR_GetConfigFloat(VR_CONFIG_CANVAS_ASPECT);
 
