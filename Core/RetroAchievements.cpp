@@ -388,6 +388,7 @@ void Initialize() {
 }
 
 static void login_password_callback(int result, const char *error_message, rc_client_t *client, void *userdata) {
+	auto di = GetI18NCategory(I18NCat::DIALOG);
 	switch (result) {
 	case RC_OK:
 	{
@@ -396,15 +397,19 @@ static void login_password_callback(int result, const char *error_message, rc_cl
 		g_Config.sAchievementsUserName = user->username;
 		NativeSaveSecret(RA_TOKEN_SECRET_NAME, std::string(user->token));
 		OnAchievementsLoginStateChange();
+		g_OSD.Show(OSDType::MESSAGE_SUCCESS, di->T("Logged in!"));
 		break;
 	}
 	case RC_INVALID_STATE:
 	case RC_API_FAILURE:
 	case RC_MISSING_VALUE:
 	case RC_INVALID_JSON:
-		ERROR_LOG(ACHIEVEMENTS, "Failure logging in via token: %d, %s", result, error_message);
+	{
+		ERROR_LOG(ACHIEVEMENTS, "Failure logging in via password: %d, %s", result, error_message);
+		g_OSD.Show(OSDType::MESSAGE_WARNING, di->T("Failed to log in, check your username and password."));
 		OnAchievementsLoginStateChange();
 		break;
+	}
 	}
 
 	OSDCloseBackgroundProgressDialog("cheevos_async_login");

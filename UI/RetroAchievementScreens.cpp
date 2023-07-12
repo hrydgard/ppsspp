@@ -227,7 +227,6 @@ void RetroAchievementsSettingsScreen::CreateAccountTab(UI::ViewGroup *viewGroup)
 			return UI::EVENT_DONE;
 		});
 	} else {
-		// TODO: Add UI for platforms that don't support System_AskUsernamePassword.
 		if (System_GetPropertyBool(SYSPROP_HAS_LOGIN_DIALOG)) {
 			viewGroup->Add(new Choice(ac->T("Log in")))->OnClick.Add([=](UI::EventParams &) -> UI::EventReturn {
 				System_AskUsernamePassword(ac->T("Log in"), [](const std::string &value, int) {
@@ -242,12 +241,17 @@ void RetroAchievementsSettingsScreen::CreateAccountTab(UI::ViewGroup *viewGroup)
 		} else {
 			// Hack up a temporary quick login-form-ish-thing
 			viewGroup->Add(new PopupTextInputChoice(&username_, di->T("Username"), "", 128, screenManager()));
-			viewGroup->Add(new PopupTextInputChoice(&password_, di->T("Password"), "", 128, screenManager()));
-			viewGroup->Add(new Choice(di->T("Log in")))->OnClick.Add([=](UI::EventParams &) -> UI::EventReturn {
+			viewGroup->Add(new PopupTextInputChoice(&password_, di->T("Password"), "", 128, screenManager()))->SetPasswordDisplay();
+			Choice *loginButton = viewGroup->Add(new Choice(di->T("Log in")));
+			loginButton->OnClick.Add([=](UI::EventParams &) -> UI::EventReturn {
 				if (!username_.empty() && !password_.empty()) {
 					Achievements::LoginAsync(username_.c_str(), password_.c_str());
+					password_.clear();
 				}
 				return UI::EVENT_DONE;
+			});
+			loginButton->SetEnabledFunc([&]() {
+				return !username_.empty() && !password_.empty();
 			});
 		}
 		viewGroup->Add(new Choice(ac->T("Register on www.retroachievements.org")))->OnClick.Add([&](UI::EventParams &) -> UI::EventReturn {
@@ -358,6 +362,7 @@ void RenderAchievement(UIContext &dc, const rc_client_achievement_t *achievement
 	float iconSpace = bounds.h - padding * 2.0f;
 	dc.Flush();
 	dc.RebindTexture();
+	dc.PushScissor(bounds);
 
 	dc.Begin();
 
@@ -423,6 +428,9 @@ void RenderAchievement(UIContext &dc, const rc_client_achievement_t *achievement
 		dc.Flush();
 		dc.RebindTexture();
 	}
+
+	dc.Flush();
+	dc.PopScissor();
 }
 
 void RenderGameAchievementSummary(UIContext &dc, const Bounds &bounds, float alpha) {
