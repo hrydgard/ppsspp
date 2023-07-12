@@ -29,6 +29,7 @@
 #include "Common/System/Request.h"
 #include "Common/System/NativeApp.h"
 #include "Common/System/Display.h"
+#include "Common/System/OSD.h"
 #include "Common/Data/Text/I18n.h"
 #include "Common/Data/Text/Parsers.h"
 
@@ -227,17 +228,14 @@ void MemStickScreen::CreateViews() {
 	// For legacy Android systems, so you can switch back to the old ways if you move to SD or something.
 	// Trying to avoid needing a scroll view, so only showing the explanation for one option at a time.
 
-#if PPSSPP_PLATFORM(ANDROID)
 	if (!System_GetPropertyBool(SYSPROP_ANDROID_SCOPED_STORAGE)) {
 		leftColumn->Add(new RadioButton(&choice_, CHOICE_STORAGE_ROOT, iz->T("Use PSP folder at root of storage")))->OnClick.Handle(this, &MemStickScreen::OnChoiceClick);
 		if (choice_ == CHOICE_STORAGE_ROOT) {
 			AddExplanation(leftColumn, (MemStickScreen::Choice)choice_);
 		}
 	}
-#endif
 
 	if (storageBrowserWorking_) {
-		//ImageID("I_FOLDER_OPEN")
 		leftColumn->Add(new RadioButton(&choice_, CHOICE_BROWSE_FOLDER, iz->T("Create or Choose a PSP folder")))->OnClick.Handle(this, &MemStickScreen::OnChoiceClick);
 
 		// TODO: Show current folder here if we have one set.
@@ -447,19 +445,16 @@ UI::EventReturn MemStickScreen::UseStorageRoot(UI::EventParams &params) {
 UI::EventReturn MemStickScreen::Browse(UI::EventParams &params) {
 	auto mm = GetI18NCategory(I18NCat::MAINMENU);
 	System_BrowseForFolder(mm->T("Choose folder"), [=](const std::string &value, int) {
-		std::string filename;
-		filename = value;
-		INFO_LOG(SYSTEM, "Got folder: '%s'", filename.c_str());
-
+		Path pendingMemStickFolder = Path(value);
+		INFO_LOG(SYSTEM, "Got folder: '%s'", pendingMemStickFolder.c_str());
 		// Browse finished. Let's pop up the confirmation dialog.
-		Path pendingMemStickFolder = Path(filename);
-
-		if (pendingMemStickFolder == g_Config.memStickDirectory) {
+		if (!pendingMemStickFolder.empty() && pendingMemStickFolder == g_Config.memStickDirectory && File::IsDirectory(pendingMemStickFolder)) {
 			auto iz = GetI18NCategory(I18NCat::MEMSTICK);
+			// Not sure how this could happen, but let's go with it.
+			g_OSD.Show(OSDType::MESSAGE_SUCCESS, iz->T("Done!"));
+			done_ = true;
 			return;
 		}
-
-		bool existingFiles = FolderSeemsToBeUsed(pendingMemStickFolder);
 		screenManager()->push(new ConfirmMemstickMoveScreen(pendingMemStickFolder, initialSetup_));
 	});
 	return UI::EVENT_DONE;

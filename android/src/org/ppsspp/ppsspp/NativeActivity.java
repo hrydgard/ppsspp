@@ -1187,6 +1187,10 @@ public abstract class NativeActivity extends Activity {
 			}
 			fileRequestId = -1;
 		} else if (requestCode == RESULT_OPEN_DOCUMENT_TREE) {
+			if (folderRequestId == -1) {
+				Log.e(TAG, "Unexpected request ID -1");
+			}
+
 			if (resultCode != RESULT_OK || data == null) {
 				NativeApp.sendRequestResult(folderRequestId, false, "", 0);
 				folderRequestId = -1;
