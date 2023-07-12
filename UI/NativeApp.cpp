@@ -763,7 +763,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 #endif
 
 	// TODO: Load these in the background instead of synchronously.
-	g_BackgroundAudio.LoadSamples();
+	g_BackgroundAudio.SFX().LoadSamples();
 
 	if (!boot_filename.empty() && stateToLoad.Valid()) {
 		SaveState::Load(stateToLoad, -1, [](SaveState::Status status, const std::string &message, void *) {
