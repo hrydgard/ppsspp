@@ -55,6 +55,7 @@
 #include "Common/UI/Screen.h"
 #include "Common/UI/Context.h"
 #include "Common/UI/View.h"
+#include "Common/UI/IconCache.h"
 
 #include "android/jni/app-android.h"
 
@@ -774,6 +775,14 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 		});
 	}
 
+	if (g_Config.bAchievementsEnable) {
+		FILE *iconCacheFile = File::OpenCFile(GetSysDirectory(DIRECTORY_CACHE) / "icon.cache", "rb");
+		if (iconCacheFile) {
+			g_iconCache.LoadFromFile(iconCacheFile);
+			fclose(iconCacheFile);
+		}
+	}
+
 	DEBUG_LOG(SYSTEM, "ScreenManager!");
 	g_screenManager = new ScreenManager();
 	if (g_Config.memStickDirectory.empty()) {
@@ -1366,6 +1375,14 @@ bool NativeIsRestarting() {
 
 void NativeShutdown() {
 	Achievements::Shutdown();
+
+	if (g_Config.bAchievementsEnable) {
+		FILE *iconCacheFile = File::OpenCFile(GetSysDirectory(DIRECTORY_CACHE) / "icon.cache", "wb");
+		if (iconCacheFile) {
+			g_iconCache.SaveToFile(iconCacheFile);
+			fclose(iconCacheFile);
+		}
+	}
 
 	if (g_screenManager) {
 		g_screenManager->shutdown();

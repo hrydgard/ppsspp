@@ -62,6 +62,8 @@ public:
 	}
 
 private:
+	void Decimate(int64_t maxSize);
+
 	struct Entry {
 		std::string data;
 		IconFormat format;
@@ -77,6 +79,7 @@ private:
 	std::mutex lock_;
 
 	double lastUpdate_ = 0.0;
+	double lastDecimate_ = 0.0;
 };
 
 extern IconCache g_iconCache;
