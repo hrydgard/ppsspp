@@ -21,7 +21,7 @@ static bool focusMovementEnabled;
 bool focusForced;
 static std::mutex eventMutex_;
 
-static std::function<void(UISound)> soundCallback;
+static std::function<void(UISound, float)> soundCallback;
 static bool soundEnabled = true;
 
 struct DispatchQueueItem {
@@ -158,13 +158,13 @@ void SetSoundEnabled(bool enabled) {
 	soundEnabled = enabled;
 }
 
-void SetSoundCallback(std::function<void(UISound)> func) {
+void SetSoundCallback(std::function<void(UISound, float)> func) {
 	soundCallback = func;
 }
 
-void PlayUISound(UISound sound) {
+void PlayUISound(UISound sound, float volume) {
 	if (soundEnabled && soundCallback) {
-		soundCallback(sound);
+		soundCallback(sound, volume);
 	}
 }
 

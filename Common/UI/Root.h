@@ -43,12 +43,14 @@ enum class UISound {
 	CONFIRM,
 	TOGGLE_ON,
 	TOGGLE_OFF,
+	ACHIEVEMENT_UNLOCKED,
+	LEADERBOARD_SUBMITTED,
 	COUNT,
 };
 
 void SetSoundEnabled(bool enabled);
-void SetSoundCallback(std::function<void(UISound)> func);
+void SetSoundCallback(std::function<void(UISound, float)> func);
 
-void PlayUISound(UISound sound);
+void PlayUISound(UISound sound, float volume = 0.25f);
 
 }  // namespace UI
