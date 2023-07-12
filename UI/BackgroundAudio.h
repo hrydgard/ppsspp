@@ -12,12 +12,13 @@ class AT3PlusReader;
 
 struct Sample {
 	// data must be new-ed.
-	Sample(int16_t *data, int length) : data_(data), length_(length) {}
+	Sample(int16_t *data, int length, int rateInHz) : data_(data), length_(length), rateInHz_(rateInHz) {}
 	~Sample() {
 		delete[] data_;
 	}
 	int16_t *data_;
 	int length_;  // stereo samples.
+	int rateInHz_;  // sampleRate
 };
 
 // Mixer for things played on top of everything.
@@ -33,7 +34,7 @@ public:
 
 	struct PlayInstance {
 		UI::UISound sound;
-		int offset;
+		int64_t offset;  // 32.32 fixed point
 		int volume; // 0..255
 		bool done;
 	};

@@ -381,23 +381,30 @@ void SoundEffectMixer::Mix(int16_t *buffer, int sz, int sampleRateHz) {
 
 	for (std::vector<PlayInstance>::iterator iter = plays_.begin(); iter != plays_.end(); ) {
 		auto sample = samples_[(int)iter->sound].get();
+
+		int64_t rateOfSample = sample->rateInHz_;
+		int64_t stride = (rateOfSample << 32) / sampleRateHz;
+
 		for (int i = 0; i < sz * 2; i += 2) {
-			if (!sample || iter->offset >= sample->length_) {
+			if (!sample || (iter->offset >> 32) >= sample->length_ - 2) {
 				iter->done = true;
 				break;
 			}
 
-			// Clamping add on top. Not great, we should be mixing at higher bitrate instead. Oh well.
-			int left = buffer[i];
-			int right = buffer[i + 1];
+			int wholeOffset = iter->offset >> 32;
+			int frac = (iter->offset >> 20) & 0xFFF;  // Use a 12 bit fraction to get away with 32-bit multiplies
 
-			left = Clamp16(left + (sample->data_[iter->offset * 2] * iter->volume >> 8));
-			right = Clamp16(right + (sample->data_[iter->offset * 2 + 1] * iter->volume >> 8));
+			int interpolatedLeft = (sample->data_[wholeOffset * 2] * (0x1000 - frac) + sample->data_[(wholeOffset + 1) * 2] * frac) >> 12;
+			int interpolatedRight = (sample->data_[wholeOffset * 2 + 1] * (0x1000 - frac) + sample->data_[(wholeOffset + 1) * 2 + 1] * frac) >> 12;
+
+			// Clamping add on top per sample. Not great, we should be mixing at higher bitrate instead. Oh well.
+			int left = Clamp16(buffer[i] + (interpolatedLeft * iter->volume >> 8));
+			int right = Clamp16(buffer[i + 1] + (interpolatedRight * iter->volume >> 8));
 
 			buffer[i] = left;
 			buffer[i + 1] = right;
 
-			iter->offset++;
+			iter->offset += stride;
 		}
 
 		if (iter->done) {
@@ -427,15 +434,14 @@ Sample *SoundEffectMixer::LoadSample(const std::string &path) {
 
 	delete[] data;
 
-	if (wave.num_channels != 2 || wave.sample_rate != 44100 || wave.raw_bytes_per_frame != 4) {
+	if (wave.num_channels != 2 || wave.raw_bytes_per_frame != 4) {
 		ERROR_LOG(AUDIO, "Wave format not supported for mixer playback. Must be 16-bit raw stereo. '%s'", path.c_str());
 		return nullptr;
 	}
 
 	int16_t *samples = new int16_t[2 * wave.numFrames];
 	memcpy(samples, wave.raw_data, wave.numFrames * wave.raw_bytes_per_frame);
-
-	return new Sample(samples, wave.numFrames);
+	return new Sample(samples, wave.numFrames, wave.sample_rate);
 }
 
 void SoundEffectMixer::LoadSamples() {
