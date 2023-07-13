@@ -1,3 +1,5 @@
+#include <algorithm>
+
 #include "Common/UI/IconCache.h"
 #include "Common/UI/Context.h"
 #include "Common/TimeUtil.h"
@@ -5,8 +7,10 @@
 #include "Common/Log.h"
 
 #define ICON_CACHE_VERSION 1
-
 #define MK_FOURCC(str) (str[0] | ((uint8_t)str[1] << 8) | ((uint8_t)str[2] << 16) | ((uint8_t)str[3] << 24))
+
+#define MAX_RUNTIME_CACHE_SIZE (1024 * 1024 * 4)
+#define MAX_SAVED_CACHE_SIZE (1024 * 1024 * 1)
 
 const uint32_t ICON_CACHE_MAGIC = MK_FOURCC("pICN");
 
@@ -27,6 +31,9 @@ struct DiskCacheEntry {
 
 void IconCache::SaveToFile(FILE *file) {
 	std::unique_lock<std::mutex> lock(lock_);
+
+	// First, compute the total size. If above a threshold, remove until under.
+	Decimate(MAX_SAVED_CACHE_SIZE);
 
 	DiskCacheHeader header;
 	header.magic = ICON_CACHE_MAGIC;
@@ -130,6 +137,53 @@ void IconCache::FrameUpdate() {
 			}
 		}
 		lastUpdate_ = now;
+	}
+
+	if (now > lastDecimate_ + 60.0) {
+		Decimate(MAX_RUNTIME_CACHE_SIZE);
+		lastDecimate_ = now;
+	}
+}
+
+void IconCache::Decimate(int64_t maxSize) {
+	// Call this under the lock.
+
+	int64_t totalSize = 0;
+	for (auto &iter : cache_) {
+		totalSize += iter.second.data.size();
+	}
+
+	if (totalSize <= maxSize) {
+		return;
+	}
+
+	// Create a list of all the entries, sort by date. Then delete until we reach the desired size.
+	struct SortEntry {
+		std::string key;
+		double usedTimestamp;
+		size_t size;
+	};
+
+	std::vector<SortEntry> sortEntries;
+	for (auto iter : cache_) {
+		sortEntries.push_back({ iter.first, iter.second.usedTimeStamp, iter.second.data.size() });
+	}
+
+	std::sort(sortEntries.begin(), sortEntries.end(), [](const SortEntry &a, const SortEntry &b) {
+		// Oldest should be last in the lsit.
+		return a.usedTimestamp > b.usedTimestamp;
+	});
+
+	while (totalSize > maxSize && !sortEntries.empty()) {
+		totalSize -= sortEntries.back().size;
+		auto iter = cache_.find(sortEntries.back().key);
+		if (iter != cache_.end()) {
+			if (iter->second.texture) {
+				iter->second.texture->Release();
+			}
+			cache_.erase(iter);
+		}
+		sortEntries.pop_back();
 	}
 }
 
