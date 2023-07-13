@@ -615,7 +615,7 @@ void __DisplayFlip(int cyclesLate) {
 			}
 		}
 
-		// Setting CORE_NEXTFRAME causes a swap.
+		// Setting CORE_NEXTFRAME (which Core_NextFrame does) causes a swap.
 		const bool fbReallyDirty = gpu->FramebufferReallyDirty();
 		if (fbReallyDirty || noRecentFlip || postEffectRequiresFlip) {
 			// Check first though, might've just quit / been paused.
