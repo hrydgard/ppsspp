@@ -853,10 +853,12 @@ void GameSettingsScreen::CreateSystemSettings(UI::ViewGroup *systemSettings) {
 
 	systemSettings->Add(new ItemHeader(sy->T("UI")));
 
-	systemSettings->Add(new Choice(sy->T("RetroAchievements")))->OnClick.Add([&](UI::EventParams &) -> UI::EventReturn {
+	auto retro = systemSettings->Add(new Choice(sy->T("RetroAchievements")));
+	retro->OnClick.Add([&](UI::EventParams &) -> UI::EventReturn {
 		screenManager()->push(new RetroAchievementsSettingsScreen(gamePath_));
 		return UI::EVENT_DONE;
 	});
+	retro->SetIcon(ImageID("I_RETROACHIEVEMENTS_LOGO"));
 
 	auto langCodeToName = [](const char *value) -> std::string {
 		auto &mapping = g_Config.GetLangValuesMapping();
