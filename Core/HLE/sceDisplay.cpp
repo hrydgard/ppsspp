@@ -506,6 +506,9 @@ static void DoFrameIdleTiming() {
 void hleEnterVblank(u64 userdata, int cyclesLate) {
 	int vbCount = userdata;
 
+	// This should be a good place to do it. Should happen once per vblank. Here or in leave? Not sure it matters much.
+	Achievements::FrameUpdate();
+
 	VERBOSE_LOG(SCEDISPLAY, "Enter VBlank %i", vbCount);
 
 	DisplayFireVblankStart();
