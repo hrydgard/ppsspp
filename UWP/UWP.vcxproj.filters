@@ -292,6 +292,9 @@
     <None Include="Content\shaders\bloom.fsh">
       <Filter>Content\shaders</Filter>
     </None>
+    <None Include="Content\shaders\bloomnoblur.fsh">
+      <Filter>Content\shaders</Filter>
+    </None>
     <None Include="Content\shaders\cartoon.fsh">
       <Filter>Content\shaders</Filter>
     </None>

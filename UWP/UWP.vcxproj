@@ -820,6 +820,9 @@
     <None Include="Content\shaders\bloom.fsh">
       <DeploymentContent>true</DeploymentContent>
     </None>
+    <None Include="Content\shaders\bloomnoblur.fsh">
+      <DeploymentContent>true</DeploymentContent>
+    </None>
     <None Include="Content\shaders\cartoon.fsh">
       <DeploymentContent>true</DeploymentContent>
     </None>
