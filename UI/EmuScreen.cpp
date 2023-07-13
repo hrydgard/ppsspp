@@ -1146,8 +1146,6 @@ void EmuScreen::update() {
 			}
 		}
 	}
-
-	Achievements::FrameUpdate();
 }
 
 void EmuScreen::checkPowerDown() {

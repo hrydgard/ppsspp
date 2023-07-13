@@ -91,7 +91,11 @@ bool IconCache::LoadFromFile(FILE *file) {
 
 		std::string data;
 		data.resize(entryHeader.dataLen);
-		fread(&data[0], 1, entryHeader.dataLen, file);
+		size_t len = fread(&data[0], 1, entryHeader.dataLen, file);
+		if (len != (size_t)entryHeader.dataLen) {
+			// Stop reading and don't use this entry. Seems the file is truncated, but we'll recover.
+			break;
+		}
 
 		Entry entry{};
 		entry.data = data;
