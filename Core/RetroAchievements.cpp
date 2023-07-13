@@ -76,6 +76,7 @@ std::string s_game_hash;
 
 std::set<uint32_t> g_activeChallenges;
 bool g_isIdentifying = false;
+bool g_isLoggingIn = false;
 
 // rc_client implementation
 static rc_client_t *g_rcClient;
@@ -127,7 +128,7 @@ bool WarnUserIfChallengeModeActive(const char *message) {
 }
 
 bool IsBlockingExecution() {
-	return g_isIdentifying;
+	return g_isIdentifying || g_isLoggingIn;
 }
 
 static u32 GetGameID() {
@@ -220,28 +221,6 @@ static void server_call_callback(const rc_api_request_t *request,
 
 static void log_message_callback(const char *message, const rc_client_t *client) {
 	INFO_LOG(ACHIEVEMENTS, "RetroAchievements: %s", message);
-}
-
-static void login_token_callback(int result, const char *error_message, rc_client_t *client, void *userdata) {
-	switch (result) {
-	case RC_OK:
-		OnAchievementsLoginStateChange();
-		break;
-	case RC_NO_RESPONSE:
-	{
-		auto di = GetI18NCategory(I18NCat::DIALOG);
-		g_OSD.Show(OSDType::MESSAGE_WARNING, di->T("Failed to connect to server, check your internet connection."));
-		break;
-	}
-	case RC_INVALID_STATE:
-	case RC_API_FAILURE:
-	case RC_MISSING_VALUE:
-	case RC_INVALID_JSON:
-	default:
-		ERROR_LOG(ACHIEVEMENTS, "Failure logging in via token: %d, %s", result, error_message);
-		OnAchievementsLoginStateChange();
-		break;
-	}
 }
 
 // For detailed documentation, see https://github.com/RetroAchievements/rcheevos/wiki/rc_client_set_event_handler.
@@ -348,6 +327,29 @@ static void event_handler_callback(const rc_client_event_t *event, rc_client_t *
 	}
 }
 
+static void login_token_callback(int result, const char *error_message, rc_client_t *client, void *userdata) {
+	switch (result) {
+	case RC_OK:
+		OnAchievementsLoginStateChange();
+		break;
+	case RC_NO_RESPONSE:
+	{
+		auto di = GetI18NCategory(I18NCat::DIALOG);
+		g_OSD.Show(OSDType::MESSAGE_WARNING, di->T("Failed to connect to server, check your internet connection."));
+		break;
+	}
+	case RC_INVALID_STATE:
+	case RC_API_FAILURE:
+	case RC_MISSING_VALUE:
+	case RC_INVALID_JSON:
+	default:
+		ERROR_LOG(ACHIEVEMENTS, "Failure logging in via token: %d, %s", result, error_message);
+		OnAchievementsLoginStateChange();
+		break;
+	}
+	g_isLoggingIn = false;
+}
+
 void Initialize() {
 	if (!g_Config.bAchievementsEnable) {
 		_dbg_assert_(!g_rcClient);
@@ -372,6 +374,7 @@ void Initialize() {
 
 	std::string api_token = NativeLoadSecret(RA_TOKEN_SECRET_NAME);
 	if (!api_token.empty()) {
+		g_isLoggingIn = true;
 		rc_client_begin_login_with_token(g_rcClient, g_Config.sAchievementsUserName.c_str(), api_token.c_str(), &login_token_callback, nullptr);
 	}
 
@@ -411,6 +414,7 @@ static void login_password_callback(int result, const char *error_message, rc_cl
 	}
 
 	g_OSD.RemoveProgressBar("cheevos_async_login");
+	g_isLoggingIn = false;
 }
 
 bool LoginAsync(const char *username, const char *password) {
@@ -420,6 +424,7 @@ bool LoginAsync(const char *username, const char *password) {
 
 	g_OSD.SetProgressBar("cheevos_async_login", di->T("Logging in..."), 0, 0, 0);
 
+	g_isLoggingIn = true;
 	rc_client_begin_login_with_password(g_rcClient, username, password, &login_password_callback, nullptr);
 	return true;
 }
@@ -630,6 +635,13 @@ struct FileContext {
 static BlockDevice *g_blockDevice;
 
 void SetGame(const Path &path, FileLoader *fileLoader) {
+	// If we are currently logging in, give it a couple of seconds. This is not ideal, but works.
+	if (g_isLoggingIn) {
+		for (int i = 0; i < 3000 / 50; i++) {
+			sleep_ms(50);
+		}
+	}
+
 	if (!g_rcClient || !IsLoggedIn()) {
 		// Nothing to do.
 		return;
