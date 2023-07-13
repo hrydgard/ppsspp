@@ -57,21 +57,6 @@ static inline const char *DeNull(const char *ptr) {
 	return ptr ? ptr : "";
 }
 
-void OSDOpenBackgroundProgressDialog(const char *str_id, std::string message, s32 min, s32 max, s32 value) {
-	NOTICE_LOG(ACHIEVEMENTS, "Progress dialog opened: %s %s", str_id, message.c_str());
-	g_OSD.SetProgressBar(str_id, std::move(message), min, max, value);
-}
-
-void OSDUpdateBackgroundProgressDialog(const char *str_id, std::string message, s32 min, s32 max, s32 value) {
-	NOTICE_LOG(ACHIEVEMENTS, "Progress dialog updated: %s %s %d/(%d->%d)", str_id, message.c_str(), value, min, max);
-	g_OSD.SetProgressBar(str_id, std::move(message), min, max, value);
-}
-
-void OSDCloseBackgroundProgressDialog(const char *str_id) {
-	NOTICE_LOG(ACHIEVEMENTS, "Progress dialog closed: %s", str_id);
-	g_OSD.RemoveProgressBar(str_id);
-}
-
 void OnAchievementsLoginStateChange() {
 	System_PostUIMessage("achievements_loginstatechange", "");
 }
@@ -233,9 +218,8 @@ static void server_call_callback(const rc_api_request_t *request,
 	}
 }
 
-// Write log messages to the console
 static void log_message_callback(const char *message, const rc_client_t *client) {
-	INFO_LOG(ACHIEVEMENTS, "RetroAchievements log: %s", message);
+	INFO_LOG(ACHIEVEMENTS, "RetroAchievements: %s", message);
 }
 
 static void login_token_callback(int result, const char *error_message, rc_client_t *client, void *userdata) {
@@ -243,10 +227,17 @@ static void login_token_callback(int result, const char *error_message, rc_clien
 	case RC_OK:
 		OnAchievementsLoginStateChange();
 		break;
+	case RC_NO_RESPONSE:
+	{
+		auto di = GetI18NCategory(I18NCat::DIALOG);
+		g_OSD.Show(OSDType::MESSAGE_WARNING, di->T("Failed to connect to server, check your internet connection."));
+		break;
+	}
 	case RC_INVALID_STATE:
 	case RC_API_FAILURE:
 	case RC_MISSING_VALUE:
 	case RC_INVALID_JSON:
+	default:
 		ERROR_LOG(ACHIEVEMENTS, "Failure logging in via token: %d, %s", result, error_message);
 		OnAchievementsLoginStateChange();
 		break;
@@ -400,10 +391,17 @@ static void login_password_callback(int result, const char *error_message, rc_cl
 		g_OSD.Show(OSDType::MESSAGE_SUCCESS, di->T("Logged in!"));
 		break;
 	}
+	case RC_NO_RESPONSE:
+	{
+		auto di = GetI18NCategory(I18NCat::DIALOG);
+		g_OSD.Show(OSDType::MESSAGE_WARNING, di->T("Failed to connect to server, check your internet connection."));
+		break;
+	}
 	case RC_INVALID_STATE:
 	case RC_API_FAILURE:
 	case RC_MISSING_VALUE:
 	case RC_INVALID_JSON:
+	default:
 	{
 		ERROR_LOG(ACHIEVEMENTS, "Failure logging in via password: %d, %s", result, error_message);
 		g_OSD.Show(OSDType::MESSAGE_WARNING, di->T("Failed to log in, check your username and password."));
@@ -412,14 +410,16 @@ static void login_password_callback(int result, const char *error_message, rc_cl
 	}
 	}
 
-	OSDCloseBackgroundProgressDialog("cheevos_async_login");
+	g_OSD.RemoveProgressBar("cheevos_async_login");
 }
 
 bool LoginAsync(const char *username, const char *password) {
+	auto di = GetI18NCategory(I18NCat::DIALOG);
 	if (IsLoggedIn() || std::strlen(username) == 0 || std::strlen(password) == 0 || IsUsingRAIntegration())
 		return false;
 
-	OSDOpenBackgroundProgressDialog("cheevos_async_login", "Logging in to RetroAchivements...", 0, 0, 0);
+	g_OSD.SetProgressBar("cheevos_async_login", di->T("Logging in..."), 0, 0, 0);
+
 	rc_client_begin_login_with_password(g_rcClient, username, password, &login_password_callback, nullptr);
 	return true;
 }

@@ -38,10 +38,10 @@ static uint32_t GetNoticeBackgroundColor(NoticeLevel type) {
 
 static ImageID GetOSDIcon(NoticeLevel level) {
 	switch (level) {
-	case NoticeLevel::INFO: return ImageID::invalid(); //  return ImageID("I_INFO");
+	case NoticeLevel::INFO: return ImageID("I_INFO");
 	case NoticeLevel::ERROR: return ImageID("I_CROSS");
 	case NoticeLevel::WARN: return ImageID("I_WARNING");
-	case NoticeLevel::SUCCESS: return ImageID("I_CHECKEDBOX");
+	case NoticeLevel::SUCCESS: return ImageID("I_CHECKMARK");
 	default: return ImageID::invalid();
 	}
 }
