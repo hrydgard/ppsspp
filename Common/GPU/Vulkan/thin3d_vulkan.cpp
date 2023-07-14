@@ -1614,6 +1614,8 @@ std::vector<std::string> VKContext::GetFeatureList() const {
 
 	AddFeature(features, "multiview", vulkan_->GetDeviceFeatures().available.multiview.multiview, vulkan_->GetDeviceFeatures().enabled.multiview.multiview);
 	AddFeature(features, "multiviewGeometryShader", vulkan_->GetDeviceFeatures().available.multiview.multiviewGeometryShader, vulkan_->GetDeviceFeatures().enabled.multiview.multiviewGeometryShader);
+	AddFeature(features, "presentId", vulkan_->GetDeviceFeatures().available.presentId.presentId, vulkan_->GetDeviceFeatures().enabled.presentId.presentId);
+	AddFeature(features, "presentWait", vulkan_->GetDeviceFeatures().available.presentWait.presentWait, vulkan_->GetDeviceFeatures().enabled.presentWait.presentWait);
 
 	features.emplace_back(std::string("Preferred depth buffer format: ") + VulkanFormatToString(vulkan_->GetDeviceInfo().preferredDepthStencilFormat));
 

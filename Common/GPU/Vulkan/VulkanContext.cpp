@@ -592,10 +592,18 @@ void VulkanContext::ChooseDevice(int physical_device) {
 		VkPhysicalDeviceFeatures2 features2{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2_KHR};
 		// Add to chain even if not supported, GetPhysicalDeviceFeatures is supposed to ignore unknown structs.
 		VkPhysicalDeviceMultiviewFeatures multiViewFeatures{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MULTIVIEW_FEATURES };
+		VkPhysicalDevicePresentWaitFeaturesKHR presentWaitFeatures{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PRESENT_WAIT_FEATURES_KHR };
+		VkPhysicalDevicePresentIdFeaturesKHR presentIdFeatures{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PRESENT_ID_FEATURES_KHR };
+
 		features2.pNext = &multiViewFeatures;
+		multiViewFeatures.pNext = &presentWaitFeatures;
+		presentWaitFeatures.pNext = &presentIdFeatures;
+
 		vkGetPhysicalDeviceFeatures2KHR(physical_devices_[physical_device_], &features2);
 		deviceFeatures_.available.standard = features2.features;
 		deviceFeatures_.available.multiview = multiViewFeatures;
+		deviceFeatures_.available.presentWait = presentWaitFeatures;
+		deviceFeatures_.available.presentId = presentIdFeatures;
 	} else {
 		vkGetPhysicalDeviceFeatures(physical_devices_[physical_device_], &deviceFeatures_.available.standard);
 		deviceFeatures_.available.multiview = {};
@@ -615,6 +623,8 @@ void VulkanContext::ChooseDevice(int physical_device) {
 
 	deviceFeatures_.enabled.multiview = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MULTIVIEW_FEATURES };
 	deviceFeatures_.enabled.multiview.multiview = deviceFeatures_.available.multiview.multiview;
+	deviceFeatures_.enabled.presentId = deviceFeatures_.available.presentId;
+	deviceFeatures_.enabled.presentWait = deviceFeatures_.available.presentWait;
 	// deviceFeatures_.enabled.multiview.multiviewGeometryShader = deviceFeatures_.available.multiview.multiviewGeometryShader;
 
 	GetDeviceLayerExtensionList(nullptr, device_extension_properties_);
@@ -680,6 +690,10 @@ VkResult VulkanContext::CreateDevice() {
 	extensionsLookup_.EXT_shader_stencil_export = EnableDeviceExtension(VK_EXT_SHADER_STENCIL_EXPORT_EXTENSION_NAME);
 	extensionsLookup_.EXT_fragment_shader_interlock = EnableDeviceExtension(VK_EXT_FRAGMENT_SHADER_INTERLOCK_EXTENSION_NAME);
 	extensionsLookup_.ARM_rasterization_order_attachment_access = EnableDeviceExtension(VK_ARM_RASTERIZATION_ORDER_ATTACHMENT_ACCESS_EXTENSION_NAME);
+
+	extensionsLookup_.KHR_present_id = EnableDeviceExtension(VK_KHR_PRESENT_ID_EXTENSION_NAME);
+	extensionsLookup_.KHR_present_wait = EnableDeviceExtension(VK_KHR_PRESENT_WAIT_EXTENSION_NAME);
+	extensionsLookup_.GOOGLE_display_timing = EnableDeviceExtension(VK_GOOGLE_DISPLAY_TIMING_EXTENSION_NAME);
 
 	VkPhysicalDeviceFeatures2 features2{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2 };
 
