@@ -313,11 +313,13 @@ void PostLoadConfig() {
 
 bool CreateDirectoriesAndroid() {
 	// TODO: We should probably simply use this as the shared function to create memstick directories.
+#if PPSSPP_PLATFORM(ANDROID)
+	const bool createNoMedia = true;
+#else
+	const bool createNoMedia = false;
+#endif
 
-	Path pspDir = g_Config.memStickDirectory;
-	if (pspDir.GetFilename() != "PSP") {
-		pspDir /= "PSP";
-	}
+	Path pspDir = GetSysDirectory(DIRECTORY_PSP);
 
 	INFO_LOG(IO, "Creating '%s' and subdirs:", pspDir.c_str());
 	File::CreateFullPath(pspDir);
@@ -326,21 +328,27 @@ bool CreateDirectoriesAndroid() {
 		return false;
 	}
 
-	File::CreateFullPath(GetSysDirectory(DIRECTORY_CHEATS));
-	File::CreateFullPath(GetSysDirectory(DIRECTORY_SAVEDATA));
-	File::CreateFullPath(GetSysDirectory(DIRECTORY_SAVESTATE));
-	File::CreateFullPath(GetSysDirectory(DIRECTORY_GAME));
-	File::CreateFullPath(GetSysDirectory(DIRECTORY_SYSTEM));
-	File::CreateFullPath(GetSysDirectory(DIRECTORY_TEXTURES));
-	File::CreateFullPath(GetSysDirectory(DIRECTORY_PLUGINS));
+	if (createNoMedia) {
+		// Create a nomedia file in the root PSP directory.
+		File::CreateEmptyFile(GetSysDirectory(DIRECTORY_PSP) / ".nomedia");
+	}
 
-	// Avoid media scanners in PPSSPP_STATE and SAVEDATA directories,
-	// and in the root PSP directory as well.
-	File::CreateEmptyFile(GetSysDirectory(DIRECTORY_SAVESTATE) / ".nomedia");
-	File::CreateEmptyFile(GetSysDirectory(DIRECTORY_SAVEDATA) / ".nomedia");
-	File::CreateEmptyFile(GetSysDirectory(DIRECTORY_SYSTEM) / ".nomedia");
-	File::CreateEmptyFile(GetSysDirectory(DIRECTORY_TEXTURES) / ".nomedia");
-	File::CreateEmptyFile(GetSysDirectory(DIRECTORY_PLUGINS) / ".nomedia");
+	static const PSPDirectories sysDirs[] = {
+		DIRECTORY_CHEATS,
+		DIRECTORY_SAVEDATA,
+		DIRECTORY_SAVESTATE,
+		DIRECTORY_GAME,
+		DIRECTORY_SYSTEM,
+		DIRECTORY_TEXTURES,
+		DIRECTORY_PLUGINS,
+		DIRECTORY_CACHE,
+	};
+
+	for (auto dir : sysDirs) {
+		Path path = GetSysDirectory(dir);
+		File::CreateFullPath(path);
+	}
+
 	return true;
 }
 
