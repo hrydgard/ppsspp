@@ -74,8 +74,7 @@ void UIScreen::axis(const AxisInput &axis) {
 
 bool UIScreen::key(const KeyInput &key) {
 	if (!ignoreInput_ && root_) {
-		UI::KeyEvent(key, root_);
-		return false;
+		return UI::KeyEvent(key, root_);
 	} else {
 		return false;
 	}
