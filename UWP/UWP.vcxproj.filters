@@ -106,13 +106,13 @@
     <Image Include="Content\zip.png">
       <Filter>Content</Filter>
     </Image>
+    <Image Include="Content\rargray.png">
+      <Filter>Content</Filter>
+    </Image>
     <Image Include="Content\ui_atlas.zim">
       <Filter>Content</Filter>
     </Image>
     <Image Include="AssetsGold\StoreLogo.scale-100.png">
-      <Filter>Assets</Filter>
-    </Image>
-    <Image Include="Content\rargray.png">
       <Filter>Assets</Filter>
     </Image>
     <Image Include="Content\asciifont_atlas.zim">
@@ -301,6 +301,9 @@
     <None Include="Content\shaders\cartoon.vsh">
       <Filter>Content\shaders</Filter>
     </None>
+    <None Include="Content\shaders\checkers.fsh">
+      <Filter>Content\shaders</Filter>
+    </None>
     <None Include="Content\shaders\colorcorrection.fsh">
       <Filter>Content\shaders</Filter>
     </None>
@@ -442,10 +445,16 @@
     <None Include="Content\font_atlas.meta">
       <Filter>Content</Filter>
     </None>
+    <None Include="Content\sfx_achievement_unlocked.wav">
+      <Filter>Content</Filter>
+    </None>
     <None Include="Content\sfx_back.wav">
       <Filter>Content</Filter>
     </None>
     <None Include="Content\sfx_confirm.wav">
+      <Filter>Content</Filter>
+    </None>
+    <None Include="Content\sfx_leaderbord_submitted.wav">
       <Filter>Content</Filter>
     </None>
     <None Include="Content\sfx_select.wav">
