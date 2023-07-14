@@ -445,6 +445,9 @@
     <Image Include="Content\zip.png">
       <DeploymentContent>true</DeploymentContent>
     </Image>
+    <Image Include="Content\rargray.png">
+      <DeploymentContent>true</DeploymentContent>
+    </Image>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\ppsspp_config.h" />
@@ -479,9 +482,6 @@
       <SubType>Designer</SubType>
       <FileType>Document</FileType>
     </AppxManifest>
-    <Image Include="Content\rargray.png">
-      <DeploymentContent>true</DeploymentContent>
-    </Image>
     <Image Include="Content\ui_atlas.zim">
       <DeploymentContent>true</DeploymentContent>
       <FileType>Document</FileType>
@@ -589,10 +589,16 @@
     <None Include="Content\compat.ini">
       <DeploymentContent>true</DeploymentContent>
     </None>
+    <None Include="Content\sfx_achievement_unlocked.wav">
+      <DeploymentContent>true</DeploymentContent>
+    </None>
     <None Include="Content\sfx_back.wav">
       <DeploymentContent>true</DeploymentContent>
     </None>
     <None Include="Content\sfx_confirm.wav">
+      <DeploymentContent>true</DeploymentContent>
+    </None>
+    <None Include="Content\sfx_leaderbord_submitted.wav">
       <DeploymentContent>true</DeploymentContent>
     </None>
     <None Include="Content\sfx_select.wav">
@@ -827,6 +833,9 @@
       <DeploymentContent>true</DeploymentContent>
     </None>
     <None Include="Content\shaders\cartoon.vsh">
+      <DeploymentContent>true</DeploymentContent>
+    </None>
+    <None Include="Content\shaders\checkers.fsh">
       <DeploymentContent>true</DeploymentContent>
     </None>
     <None Include="Content\shaders\colorcorrection.fsh">
