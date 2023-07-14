@@ -33,7 +33,7 @@ enum class KeyEventResult {
 // Hooks arrow keys for navigation
 KeyEventResult UnsyncKeyEvent(const KeyInput &key, ViewGroup *root);
 
-void KeyEvent(const KeyInput &key, ViewGroup *root);
+bool KeyEvent(const KeyInput &key, ViewGroup *root);
 void TouchEvent(const TouchInput &touch, ViewGroup *root);
 void AxisEvent(const AxisInput &axis, ViewGroup *root);
 

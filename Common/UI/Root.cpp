@@ -263,8 +263,8 @@ KeyEventResult UnsyncKeyEvent(const KeyInput &key, ViewGroup *root) {
 	return retval;
 }
 
-void KeyEvent(const KeyInput &key, ViewGroup *root) {
-	root->Key(key);
+bool KeyEvent(const KeyInput &key, ViewGroup *root) {
+	return root->Key(key);
 }
 
 void TouchEvent(const TouchInput &touch, ViewGroup *root) {
