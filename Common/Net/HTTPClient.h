@@ -156,6 +156,9 @@ public:
 	// Downloader::GetCurrentProgress won't return it in the results.
 	bool IsHidden() const { return hidden_; }
 	void SetHidden(bool hidden) { hidden_ = hidden; }
+	void SetUserAgent(const std::string &userAgent) {
+		userAgent_ = userAgent;
+	}
 
 private:
 	void Do();  // Actually does the download. Runs on thread.
@@ -166,6 +169,7 @@ private:
 	RequestProgress progress_;
 	RequestMethod method_;
 	std::string postData_;
+	std::string userAgent_;
 	Buffer buffer_;
 	std::vector<std::string> responseHeaders_;
 	std::string url_;
@@ -209,6 +213,9 @@ public:
 	void CancelAll();
 
 	void WaitForAll();
+	void SetUserAgent(const std::string &userAgent) {
+		userAgent_ = userAgent;
+	}
 
 	std::vector<float> GetCurrentProgress();
 
@@ -221,6 +228,8 @@ private:
 	// These get copied to downloads_ in Update(). It's so that callbacks can add new downloads
 	// while running.
 	std::vector<std::shared_ptr<Download>> newDownloads_;
+
+	std::string userAgent_;
 };
 
 }	// http

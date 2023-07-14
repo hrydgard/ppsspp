@@ -1050,6 +1050,8 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 		bUpdatedInstanceCounter = true;
 	}
 
+	g_DownloadManager.SetUserAgent(StringFromFormat("PPSSPP/%s", PPSSPP_GIT_VERSION));
+
 	UpdateIniLocation(iniFileName, controllerIniFilename);
 
 	INFO_LOG(LOADER, "Loading config: %s", iniFilename_.c_str());

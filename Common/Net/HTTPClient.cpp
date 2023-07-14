@@ -180,7 +180,7 @@ void Connection::Disconnect() {
 namespace http {
 
 // TODO: do something sane here
-constexpr const char *DEFAULT_USERAGENT = "NATIVEAPP 1.0";
+constexpr const char *DEFAULT_USERAGENT = "PPSSPP";
 
 Client::Client() {
 	httpVersion_ = "1.1";
@@ -491,6 +491,10 @@ int Download::Perform(const std::string &url) {
 	}
 
 	http::Client client;
+	if (!userAgent_.empty()) {
+		client.SetUserAgent(userAgent_);
+	}
+
 	if (!client.Resolve(fileUrl.Host().c_str(), fileUrl.Port())) {
 		ERROR_LOG(IO, "Failed resolving %s", url.c_str());
 		return -1;
@@ -580,6 +584,8 @@ void Download::Do() {
 
 std::shared_ptr<Download> Downloader::StartDownload(const std::string &url, const Path &outfile, const char *acceptMime) {
 	std::shared_ptr<Download> dl(new Download(RequestMethod::GET, url, "", "", outfile));
+	if (!userAgent_.empty())
+		dl->SetUserAgent(userAgent_);
 	if (acceptMime)
 		dl->SetAccept(acceptMime);
 	newDownloads_.push_back(dl);
@@ -593,6 +599,8 @@ std::shared_ptr<Download> Downloader::StartDownloadWithCallback(
 	std::function<void(Download &)> callback,
 	const char *acceptMime) {
 	std::shared_ptr<Download> dl(new Download(RequestMethod::GET, url, "", "", outfile));
+	if (!userAgent_.empty())
+		dl->SetUserAgent(userAgent_);
 	if (acceptMime)
 		dl->SetAccept(acceptMime);
 	dl->SetCallback(callback);
@@ -607,6 +615,8 @@ std::shared_ptr<Download> Downloader::AsyncPostWithCallback(
 	const std::string &postMime,
 	std::function<void(Download &)> callback) {
 	std::shared_ptr<Download> dl(new Download(RequestMethod::POST, url, postData, postMime, Path()));
+	if (!userAgent_.empty())
+		dl->SetUserAgent(userAgent_);
 	dl->SetCallback(callback);
 	newDownloads_.push_back(dl);
 	dl->Start();

@@ -579,16 +579,25 @@ std::string GetGameAchievementSummary() {
 	rc_client_user_game_summary_t summary;
 	rc_client_get_user_game_summary(g_rcClient, &summary);
 
-	std::string summaryString = StringFromFormat(ac->T("Earned", "You have unlocked %d of %d achievements, earning %d of %d points"),
-		summary.num_unlocked_achievements, summary.num_core_achievements + summary.num_unofficial_achievements,
-		summary.points_unlocked, summary.points_core);
-	if (ChallengeModeActive()) {
-		summaryString.append("\n");
-		summaryString.append(ac->T("Challenge Mode"));
-	}
-	if (EncoreModeActive()) {
-		summaryString.append("\n");
-		summaryString.append(ac->T("Encore Mode"));
+	std::string summaryString;
+	if (summary.num_core_achievements + summary.num_unofficial_achievements == 0) {
+		summaryString = ac->T("This game has no achievements");
+	} else {
+		summaryString = StringFromFormat(ac->T("Earned", "You have unlocked %d of %d achievements, earning %d of %d points"),
+			summary.num_unlocked_achievements, summary.num_core_achievements + summary.num_unofficial_achievements,
+			summary.points_unlocked, summary.points_core);
+		if (ChallengeModeActive()) {
+			summaryString.append("\n");
+			summaryString.append(ac->T("Challenge Mode"));
+		}
+		if (EncoreModeActive()) {
+			summaryString.append("\n");
+			summaryString.append(ac->T("Encore Mode"));
+		}
+		if (UnofficialEnabled()) {
+			summaryString.append("\n");
+			summaryString.append(ac->T("Unofficial achievements"));
+		}
 	}
 	return summaryString;
 }
