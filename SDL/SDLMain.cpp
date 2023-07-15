@@ -205,15 +205,14 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 		return true;
 #if PPSSPP_PLATFORM(SWITCH)
 	case SystemRequestType::INPUT_TEXT_MODAL: {
-		Result rc;
-		SwkbdConfig kbd;
 		// swkbd only works on "real" titles
 		if (__nx_applet_type != AppletType_Application && __nx_applet_type != AppletType_SystemApplication) {
 			g_requestManager.PostSystemFailure(requestId);
 			return true;
 		}
 
-		rc = swkbdCreate(&kbd, 0);
+		SwkbdConfig kbd;
+		Result rc = swkbdCreate(&kbd, 0);
 
 		if (R_SUCCEEDED(rc)) {
 			char buf[LIBNX_SWKBD_LIMIT] = {'\0'};
@@ -515,7 +514,7 @@ bool System_GetPropertyBool(SystemProperty prop) {
 		return true;
 #if PPSSPP_PLATFORM(SWITCH)
 	case SYSPROP_HAS_TEXT_INPUT_DIALOG:
-		return true;
+		return __nx_applet_type == AppletType_Application || __nx_applet_type != AppletType_SystemApplication;
 #endif
 	case SYSPROP_APP_GOLD:
 #ifdef GOLD
