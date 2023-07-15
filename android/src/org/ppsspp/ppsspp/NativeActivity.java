@@ -105,8 +105,6 @@ public abstract class NativeActivity extends Activity {
 	private static final int RESULT_OPEN_DOCUMENT = 102;
 	private static final int RESULT_OPEN_DOCUMENT_TREE = 103;
 
-	private int lastRequestId = -1000;
-
 	// Allow for multiple connected gamepads but just consider them the same for now.
 	// Actually this is not entirely true, see the code.
 	private ArrayList<InputDeviceState> inputPlayers = new ArrayList<InputDeviceState>();
@@ -1126,18 +1124,27 @@ public abstract class NativeActivity extends Activity {
 		}
 	}
 
-	@Override
-	protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-		super.onActivityResult(requestCode, resultCode, data);
+	static int packResultCode(int requestCode, int requestId) {
+		return (requestCode << 16) | (requestId & 0xFFFF);
+	}
+	static int getRequestCode(int packedResult) {
+		return packedResult >> 16;  // This will sign-extend, just like we want.
+	}
+	static int getRequestId(int packedResult) {
+		return packedResult & 0xFFFF;  // The requestID is unsigned, so this is fine.
+	}
 
-		if (lastRequestId < 0) {
-			NativeApp.reportError("onActivityResult: No or bad pending request (" + lastRequestId + "). RequestCode=" + requestCode + " ResultCode = " + resultCode);
-			return;
-		}
+	@Override
+	protected void onActivityResult(int packedRequest, int resultCode, Intent data) {
+		super.onActivityResult(packedRequest, resultCode, data);
+
+		int requestCode = getRequestCode(packedRequest);
+		int requestId = getRequestId(packedRequest);
+
+		Log.i(TAG, "onActivityResult: requestCode=" + requestCode + " requestId = " + requestId + " resultCode = " + resultCode);
 
 		if (resultCode != RESULT_OK || data == null) {
-			NativeApp.sendRequestResult(lastRequestId, false, "", resultCode);
-			lastRequestId = -2;
+			NativeApp.sendRequestResult(requestId, false, "", resultCode);
 			return;
 		}
 
@@ -1146,7 +1153,7 @@ public abstract class NativeActivity extends Activity {
 				Uri selectedImage = data.getData();
 				if (selectedImage != null) {
 					if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-						NativeApp.sendRequestResult(lastRequestId, true, selectedImage.toString(), 0);
+						NativeApp.sendRequestResult(requestId, true, selectedImage.toString(), 0);
 					} else {
 						String[] filePathColumn = {MediaStore.Images.Media.DATA};
 						Cursor cursor = getContentResolver().query(selectedImage, filePathColumn, null, null, null);
@@ -1155,7 +1162,7 @@ public abstract class NativeActivity extends Activity {
 							int columnIndex = cursor.getColumnIndex(filePathColumn[0]);
 							String picturePath = cursor.getString(columnIndex);
 							cursor.close();
-							NativeApp.sendRequestResult(lastRequestId, true, picturePath, 0);
+							NativeApp.sendRequestResult(requestId, true, picturePath, 0);
 						}
 					}
 				}
@@ -1169,13 +1176,12 @@ public abstract class NativeActivity extends Activity {
 						}
 					} catch (Exception e) {
 						Log.w(TAG, "Exception getting permissions for document: " + e.toString());
-						NativeApp.sendRequestResult(lastRequestId, false, "", 0);
+						NativeApp.sendRequestResult(requestId, false, "", 0);
 						NativeApp.reportException(e, selectedFile.toString());
-						lastRequestId = -3;
 						return;
 					}
 					Log.i(TAG, "Browse file finished:" + selectedFile.toString());
-					NativeApp.sendRequestResult(lastRequestId, true, selectedFile.toString(), 0);
+					NativeApp.sendRequestResult(requestId, true, selectedFile.toString(), 0);
 				}
 			} else if (requestCode == RESULT_OPEN_DOCUMENT_TREE) {
 				Uri selectedDirectoryUri = data.getData();
@@ -1194,18 +1200,17 @@ public abstract class NativeActivity extends Activity {
 					}
 					DocumentFile documentFile = DocumentFile.fromTreeUri(this, selectedDirectoryUri);
 					Log.i(TAG, "Chosen document name: " + documentFile.getUri());
-					NativeApp.sendRequestResult(lastRequestId, true, documentFile.getUri().toString(), 0);
+					NativeApp.sendRequestResult(requestId, true, documentFile.getUri().toString(), 0);
 				}
 			} else {
 				Toast.makeText(getApplicationContext(), "Bad request code: " + requestCode, Toast.LENGTH_LONG).show();
-				NativeApp.sendRequestResult(lastRequestId, false, null, resultCode);
+				NativeApp.sendRequestResult(requestId, false, null, resultCode);
 				// Can't send a sensible request result back to the app without a requestCode
 			}
 		} catch (Exception e) {
 			NativeApp.reportException(e, "(function level)");
-			NativeApp.sendRequestResult(lastRequestId, false, null, resultCode);
+			NativeApp.sendRequestResult(requestId, false, null, resultCode);
 		}
-		lastRequestId = -4;
 	}
 
 	@TargetApi(Build.VERSION_CODES.HONEYCOMB)
@@ -1357,10 +1362,11 @@ public abstract class NativeActivity extends Activity {
 			}
 		} else if (command.equals("browse_image")) {
 			try {
-				lastRequestId = Integer.parseInt(params);
-				Log.i(TAG, "image request ID: " + lastRequestId);
+				int requestId = Integer.parseInt(params);
+				int packedResultCode = packResultCode(RESULT_LOAD_IMAGE, requestId);
+				Log.i(TAG, "image request ID: " + requestId + " packed: " + packedResultCode);
 				Intent i = new Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
-				startActivityForResult(i, RESULT_LOAD_IMAGE);
+				startActivityForResult(i, packedResultCode);
 				return true;
 			} catch (Exception e) { // For example, android.content.ActivityNotFoundException
 				NativeApp.reportException(e, params);
@@ -1369,7 +1375,9 @@ public abstract class NativeActivity extends Activity {
 			}
 		} else if (command.equals("browse_file")) {
 			try {
-				lastRequestId = Integer.parseInt(params);
+				int requestId = Integer.parseInt(params);
+				int packedResultCode = packResultCode(RESULT_OPEN_DOCUMENT, requestId);
+				Log.i(TAG, "browse_file request ID: " + requestId + " packed: " + packedResultCode);
 				Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
 				intent.addCategory(Intent.CATEGORY_OPENABLE);
 				intent.setType("*/*");
@@ -1377,7 +1385,7 @@ public abstract class NativeActivity extends Activity {
 				// Possible alternative approach:
 				// String[] mimeTypes = {"application/octet-stream", "/x-iso9660-image"};
 				// intent.putExtra(Intent.EXTRA_MIME_TYPES, mimeTypes);
-				startActivityForResult(intent, RESULT_OPEN_DOCUMENT);
+				startActivityForResult(intent, packedResultCode);
 				// intent.putExtra(DocumentsContract.EXTRA_INITIAL_URI, pickerInitialUri);
 			} catch (Exception e) {
 				NativeApp.reportException(e, params);
@@ -1386,13 +1394,15 @@ public abstract class NativeActivity extends Activity {
 			}
 		} else if (command.equals("browse_folder")) {
 			try {
-				lastRequestId = Integer.parseInt(params);
+				int requestId = Integer.parseInt(params);
+				int packedResultCode = packResultCode(RESULT_OPEN_DOCUMENT_TREE, requestId);
+				Log.i(TAG, "browse_folder request ID: " + requestId + " packed: " + packedResultCode);
 				Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
 				intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
 				intent.addFlags(Intent.FLAG_GRANT_PREFIX_URI_PERMISSION);
 				intent.addFlags(Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
 				intent.putExtra(Intent.EXTRA_LOCAL_ONLY, true);  // Only allow local folders.
-				startActivityForResult(intent, RESULT_OPEN_DOCUMENT_TREE);
+				startActivityForResult(intent, packedResultCode);
 				return true;
 			} catch (Exception e) {
 				NativeApp.reportException(e, params);
