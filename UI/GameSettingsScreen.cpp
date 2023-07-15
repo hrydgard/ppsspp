@@ -851,14 +851,16 @@ void GameSettingsScreen::CreateSystemSettings(UI::ViewGroup *systemSettings) {
 	auto vr = GetI18NCategory(I18NCat::VR);
 	auto th = GetI18NCategory(I18NCat::THEMES);
 
-	systemSettings->Add(new ItemHeader(sy->T("UI")));
-
+	systemSettings->Add(new ItemHeader(sy->T("RetroAchievements")));
 	auto retro = systemSettings->Add(new Choice(sy->T("RetroAchievements")));
+
 	retro->OnClick.Add([&](UI::EventParams &) -> UI::EventReturn {
 		screenManager()->push(new RetroAchievementsSettingsScreen(gamePath_));
 		return UI::EVENT_DONE;
 	});
 	retro->SetIcon(ImageID("I_RETROACHIEVEMENTS_LOGO"));
+
+	systemSettings->Add(new ItemHeader(sy->T("UI")));
 
 	auto langCodeToName = [](const char *value) -> std::string {
 		auto &mapping = g_Config.GetLangValuesMapping();
@@ -1232,20 +1234,21 @@ UI::EventReturn GameSettingsScreen::OnChangeBackground(UI::EventParams &e) {
 		File::Delete(bgPng);
 		File::Delete(bgJpg);
 		UIBackgroundShutdown();
+		RecreateViews();
 	} else {
 		auto sy = GetI18NCategory(I18NCat::SYSTEM);
-		System_BrowseForImage(sy->T("Set UI background..."), [](const std::string &value, int) {
+		System_BrowseForImage(sy->T("Set UI background..."), [=](const std::string &value, int) {
 			if (!value.empty()) {
 				Path dest = GetSysDirectory(DIRECTORY_SYSTEM) / (endsWithNoCase(value, ".jpg") ? "background.jpg" : "background.png");
 				File::Copy(Path(value), dest);
 			}
 			// It will init again automatically.  We can't init outside a frame on Vulkan.
 			UIBackgroundShutdown();
+			RecreateViews();
 		});
 	}
 
 	// Change to a browse or clear button.
-	RecreateViews();
 	return UI::EVENT_DONE;
 }
 
