@@ -101,14 +101,11 @@ public abstract class NativeActivity extends Activity {
 	// switched-away from or rotated etc.
 	private boolean shuttingDown;
 
-	private static final int RESULT_LOAD_IMAGE = 1;
-	private static final int RESULT_OPEN_DOCUMENT = 2;
-	private static final int RESULT_OPEN_DOCUMENT_TREE = 3;
+	private static final int RESULT_LOAD_IMAGE = 101;
+	private static final int RESULT_OPEN_DOCUMENT = 102;
+	private static final int RESULT_OPEN_DOCUMENT_TREE = 103;
 
-	// These can probably be merged, but conceptually nice to have them separate.
-	private int imageRequestId = -1;
-	private int fileRequestId = -1;
-	private int folderRequestId = -1;
+	private int lastRequestId = -1000;
 
 	// Allow for multiple connected gamepads but just consider them the same for now.
 	// Actually this is not entirely true, see the code.
@@ -1132,16 +1129,24 @@ public abstract class NativeActivity extends Activity {
 	@Override
 	protected void onActivityResult(int requestCode, int resultCode, Intent data) {
 		super.onActivityResult(requestCode, resultCode, data);
-		if (requestCode == RESULT_LOAD_IMAGE) {
-			if (resultCode != RESULT_OK || data == null) {
-				NativeApp.sendRequestResult(imageRequestId, false, "", 0);
-				return;
-			}
-			try {
+
+		if (lastRequestId < 0) {
+			NativeApp.reportError("onActivityResult: No or bad pending request (" + lastRequestId + "). RequestCode=" + requestCode + " ResultCode = " + resultCode);
+			return;
+		}
+
+		if (resultCode != RESULT_OK || data == null) {
+			NativeApp.sendRequestResult(lastRequestId, false, "", resultCode);
+			lastRequestId = -2;
+			return;
+		}
+
+		try {
+			if (requestCode == RESULT_LOAD_IMAGE) {
 				Uri selectedImage = data.getData();
 				if (selectedImage != null) {
 					if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-						NativeApp.sendRequestResult(imageRequestId, true, selectedImage.toString(), 0);
+						NativeApp.sendRequestResult(lastRequestId, true, selectedImage.toString(), 0);
 					} else {
 						String[] filePathColumn = {MediaStore.Images.Media.DATA};
 						Cursor cursor = getContentResolver().query(selectedImage, filePathColumn, null, null, null);
@@ -1150,80 +1155,57 @@ public abstract class NativeActivity extends Activity {
 							int columnIndex = cursor.getColumnIndex(filePathColumn[0]);
 							String picturePath = cursor.getString(columnIndex);
 							cursor.close();
-							NativeApp.sendRequestResult(imageRequestId, true, picturePath, 0);
+							NativeApp.sendRequestResult(lastRequestId, true, picturePath, 0);
 						}
 					}
-				} else {
-					NativeApp.sendRequestResult(imageRequestId, false, "", 0);
 				}
-			} catch (Exception e) {
-				NativeApp.reportException(e, null);
-				Log.w(TAG, "Exception receiving image: " + e);
-			}
-			imageRequestId = -1;
-		} else if (requestCode == RESULT_OPEN_DOCUMENT) {
-			if (resultCode != RESULT_OK || data == null) {
-				NativeApp.sendRequestResult(fileRequestId, false, "", 0);
-				return;
-			}
-			Uri selectedFile = data.getData();
-			if (selectedFile != null) {
-				try {
-					// Grab permanent permission so we can show it in recents list etc.
-					if (Build.VERSION.SDK_INT >= 19) {
-						getContentResolver().takePersistableUriPermission(selectedFile, Intent.FLAG_GRANT_READ_URI_PERMISSION);
+			} else if (requestCode == RESULT_OPEN_DOCUMENT) {
+				Uri selectedFile = data.getData();
+				if (selectedFile != null) {
+					try {
+						// Grab permanent permission so we can show it in recents list etc.
+						if (Build.VERSION.SDK_INT >= 19) {
+							getContentResolver().takePersistableUriPermission(selectedFile, Intent.FLAG_GRANT_READ_URI_PERMISSION);
+						}
+					} catch (Exception e) {
+						Log.w(TAG, "Exception getting permissions for document: " + e.toString());
+						NativeApp.sendRequestResult(lastRequestId, false, "", 0);
+						NativeApp.reportException(e, selectedFile.toString());
+						lastRequestId = -3;
+						return;
 					}
-				} catch (Exception e) {
-					Log.w(TAG, "Exception getting permissions for document: " + e.toString());
-					NativeApp.sendRequestResult(fileRequestId, false, "", 0);
-					NativeApp.reportException(e, selectedFile.toString());
-					fileRequestId = -1;
-					return;
+					Log.i(TAG, "Browse file finished:" + selectedFile.toString());
+					NativeApp.sendRequestResult(lastRequestId, true, selectedFile.toString(), 0);
 				}
-				// Even if we got an exception getting permissions, try to pass along the file. Maybe this version of Android
-				// doesn't need it.
-				Log.i(TAG, "Browse file finished:" + selectedFile.toString());
-				NativeApp.sendRequestResult(fileRequestId, true, selectedFile.toString(), 0);
-			}
-			fileRequestId = -1;
-		} else if (requestCode == RESULT_OPEN_DOCUMENT_TREE) {
-			if (folderRequestId == -1) {
-				Log.e(TAG, "Unexpected request ID -1");
-			}
-
-			if (resultCode != RESULT_OK || data == null) {
-				NativeApp.sendRequestResult(folderRequestId, false, "", 0);
-				folderRequestId = -1;
-				return;
-			}
-			Uri selectedDirectoryUri = data.getData();
-			if (selectedDirectoryUri != null) {
-				String path = selectedDirectoryUri.toString();
-				Log.i(TAG, "Browse folder finished: " + path);
-				try {
-					if (Build.VERSION.SDK_INT >= 19) {
-						getContentResolver().takePersistableUriPermission(selectedDirectoryUri, Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+			} else if (requestCode == RESULT_OPEN_DOCUMENT_TREE) {
+				Uri selectedDirectoryUri = data.getData();
+				if (selectedDirectoryUri != null) {
+					String path = selectedDirectoryUri.toString();
+					Log.i(TAG, "Browse folder finished: " + path);
+					try {
+						if (Build.VERSION.SDK_INT >= 19) {
+							getContentResolver().takePersistableUriPermission(selectedDirectoryUri, Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+						}
+					} catch (Exception e) {
+						Log.w(TAG, "Exception getting permissions for document: " + e.toString());
+						NativeApp.reportException(e, selectedDirectoryUri.toString());
+						// Even if we got an exception getting permissions, continue and try to pass along the file. Maybe this version of Android
+						// doesn't need it. If we can't access it, we'll fail in some other way later.
 					}
-				} catch (Exception e) {
-					NativeApp.reportException(e, selectedDirectoryUri.toString());
-					Log.w(TAG, "Exception getting permissions for document: " + e.toString());
-					// Intentionally don't return - see below.
+					DocumentFile documentFile = DocumentFile.fromTreeUri(this, selectedDirectoryUri);
+					Log.i(TAG, "Chosen document name: " + documentFile.getUri());
+					NativeApp.sendRequestResult(lastRequestId, true, documentFile.getUri().toString(), 0);
 				}
-				// Even if we got an exception getting permissions, try to pass along the file. Maybe this version of Android
-				// doesn't need it. If we can't access it, we'll fail in some other way later.
-				DocumentFile documentFile = DocumentFile.fromTreeUri(this, selectedDirectoryUri);
-				Log.i(TAG, "Document name: " + documentFile.getUri());
-				/*
-				// Old debug log
-				DocumentFile[] children = documentFile.listFiles();
-				for (DocumentFile child : children) {
-					Log.i(TAG, "Child: " + child.getUri() + " " + child.getName());
-				}
-				*/
-				NativeApp.sendRequestResult(folderRequestId, true, documentFile.getUri().toString(), 0);
+			} else {
+				Toast.makeText(getApplicationContext(), "Bad request code: " + requestCode, Toast.LENGTH_LONG).show();
+				NativeApp.sendRequestResult(lastRequestId, false, null, resultCode);
+				// Can't send a sensible request result back to the app without a requestCode
 			}
-			folderRequestId = -1;
+		} catch (Exception e) {
+			NativeApp.reportException(e, "(function level)");
+			NativeApp.sendRequestResult(lastRequestId, false, null, resultCode);
 		}
+		lastRequestId = -4;
 	}
 
 	@TargetApi(Build.VERSION_CODES.HONEYCOMB)
@@ -1299,13 +1281,15 @@ public abstract class NativeActivity extends Activity {
 			.setPositiveButton(defaultAction, new DialogInterface.OnClickListener() {
 				@Override
 				public void onClick(DialogInterface d, int which) {
+					Log.i(TAG, "input box successful");
 					NativeApp.sendRequestResult(requestId, true, input.getText().toString(), 0);
-					d.dismiss();
+					d.dismiss();  // It's OK that this will cause an extra dismiss message. It'll be ignored since the request number has already been processed.
 				}
 			})
 			.setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
 				@Override
 				public void onClick(DialogInterface d, int which) {
+					Log.i(TAG, "input box cancelled");
 					NativeApp.sendRequestResult(requestId, false, "", 0);
 					d.cancel();
 				}
@@ -1314,6 +1298,7 @@ public abstract class NativeActivity extends Activity {
 			builder.setOnDismissListener(new DialogInterface.OnDismissListener() {
 				@Override
 				public void onDismiss(DialogInterface d) {
+					Log.i(TAG, "input box dismissed");
 					NativeApp.sendRequestResult(requestId, false, "", 0);
 					updateSystemUiVisibility();
 				}
@@ -1372,20 +1357,19 @@ public abstract class NativeActivity extends Activity {
 			}
 		} else if (command.equals("browse_image")) {
 			try {
-				imageRequestId = Integer.parseInt(params);
-				Log.i(TAG, "image request ID: " + imageRequestId);
+				lastRequestId = Integer.parseInt(params);
+				Log.i(TAG, "image request ID: " + lastRequestId);
 				Intent i = new Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
 				startActivityForResult(i, RESULT_LOAD_IMAGE);
 				return true;
 			} catch (Exception e) { // For example, android.content.ActivityNotFoundException
 				NativeApp.reportException(e, params);
-				imageRequestId = -1;
 				Log.e(TAG, e.toString());
 				return false;
 			}
 		} else if (command.equals("browse_file")) {
 			try {
-				fileRequestId = Integer.parseInt(params);
+				lastRequestId = Integer.parseInt(params);
 				Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
 				intent.addCategory(Intent.CATEGORY_OPENABLE);
 				intent.setType("*/*");
@@ -1397,13 +1381,12 @@ public abstract class NativeActivity extends Activity {
 				// intent.putExtra(DocumentsContract.EXTRA_INITIAL_URI, pickerInitialUri);
 			} catch (Exception e) {
 				NativeApp.reportException(e, params);
-				fileRequestId = -1;
 				Log.e(TAG, e.toString());
 				return false;
 			}
 		} else if (command.equals("browse_folder")) {
 			try {
-				folderRequestId = Integer.parseInt(params);
+				lastRequestId = Integer.parseInt(params);
 				Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
 				intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
 				intent.addFlags(Intent.FLAG_GRANT_PREFIX_URI_PERMISSION);
@@ -1413,7 +1396,6 @@ public abstract class NativeActivity extends Activity {
 				return true;
 			} catch (Exception e) {
 				NativeApp.reportException(e, params);
-				folderRequestId = -1;
 				Log.e(TAG, e.toString());
 				return false;
 			}

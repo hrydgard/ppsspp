@@ -48,6 +48,7 @@
 #include "UI/MemStickScreen.h"
 #include "UI/MainScreen.h"
 #include "UI/MiscScreens.h"
+#include "UI/OnScreenDisplay.h"
 
 static bool FolderSeemsToBeUsed(Path newMemstickFolder) {
 	// Inspect the potential new folder, quickly.
@@ -245,6 +246,9 @@ void MemStickScreen::CreateViews() {
 		leftColumn->Add(new TextView(iz->T("DataCanBeShared", "Data can be shared between PPSSPP regular/Gold.")))->SetBullet(true);
 		// TODO: Show current folder here if we have one set.
 	}
+	errorNoticeView_ = leftColumn->Add(new NoticeView(NoticeLevel::WARN, iz->T("Cancelled - try again"), ""));
+	errorNoticeView_->SetVisibility(UI::V_GONE);
+
 	if (choice_ == CHOICE_BROWSE_FOLDER || choice_ == CHOICE_SET_MANUAL) {
 		UI::View *extraView = nullptr;
 		if (!g_Config.memStickDirectory.empty()) {
@@ -312,7 +316,6 @@ UI::EventReturn MemStickScreen::OnChoiceClick(UI::EventParams &params) {
 	// Change the confirm button to match the choice,
 	// and change the text that we show.
 	RecreateViews();
-
 	return UI::EVENT_DONE;
 }
 
@@ -455,7 +458,10 @@ UI::EventReturn MemStickScreen::Browse(UI::EventParams &params) {
 			done_ = true;
 			return;
 		}
+		errorNoticeView_->SetVisibility(UI::V_GONE);
 		screenManager()->push(new ConfirmMemstickMoveScreen(pendingMemStickFolder, initialSetup_));
+	}, [=]() {
+		errorNoticeView_->SetVisibility(UI::V_VISIBLE);
 	});
 	return UI::EVENT_DONE;
 }
@@ -555,15 +561,15 @@ void ConfirmMemstickMoveScreen::CreateViews() {
 
 	leftColumn->Add(new TextView(iz->T("Selected PSP Data Folder"), ALIGN_LEFT, false));
 	if (!initialSetup_) {
-		leftColumn->Add(new TextView(iz->T("PPSSPP will restart after the change"), ALIGN_LEFT, false));
+		leftColumn->Add(new NoticeView(NoticeLevel::WARN, iz->T("PPSSPP will restart after the change"), ""));
 	}
 	leftColumn->Add(new TextView(newMemstickFolder_.ToVisualString(), ALIGN_LEFT, false));
 	std::string newFreeSpaceText = std::string(iz->T("Free space")) + ": " + FormatSpaceString(freeSpaceNew);
 	leftColumn->Add(new TextView(newFreeSpaceText, ALIGN_LEFT, false));
 	if (existingFilesInNewFolder_) {
-		leftColumn->Add(new TextView(iz->T("Already contains PSP data"), ALIGN_LEFT, false));
+		leftColumn->Add(new NoticeView(NoticeLevel::SUCCESS, iz->T("Already contains PSP data"), ""));
 		if (!moveData_) {
-			leftColumn->Add(new TextView(iz->T("No data will be changed"), ALIGN_LEFT, false));
+			leftColumn->Add(new NoticeView(NoticeLevel::INFO, iz->T("No data will be changed"), ""));
 		}
 	}
 	if (!error_.empty()) {
