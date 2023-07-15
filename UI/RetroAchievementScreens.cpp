@@ -594,6 +594,7 @@ void GameAchievementSummaryView::Draw(UIContext &dc) {
 }
 
 void GameAchievementSummaryView::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
+	// Somehow wrong!
 	MeasureGameAchievementSummary(dc, &w, &h);
 }
 
