@@ -1093,24 +1093,8 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 }
 
 extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_sendRequestResult(JNIEnv *env, jclass, jint jrequestID, jboolean result, jstring jvalue, jint jintValue) {
-	std::string value = GetJavaString(env, jvalue);
-
+	std::string value = jvalue ? GetJavaString(env, jvalue) : "(no value)";
 	INFO_LOG(SYSTEM, "Received result of request %d from Java: %d: %d '%s'", jrequestID, (int)result, jintValue, value.c_str());
-
-	if (jrequestID == -1) {
-		// Sanity check. This shouldn't happen.
-		ERROR_LOG(SYSTEM, "Unexpected request id %d", jrequestID);
-		System_Toast("Bad request ID -1");
-	}
-
-	static jint lastSeqID = -1337;
-	if (lastSeqID == jrequestID) {
-		// We send this on dismiss, so twice in many cases.
-		WARN_LOG(SYSTEM, "Ignoring duplicate sendRequestResult");
-		return;
-	}
-	lastSeqID = jrequestID;
-
 	if (result) {
 		g_requestManager.PostSystemSuccess(jrequestID, value.c_str());
 	} else {

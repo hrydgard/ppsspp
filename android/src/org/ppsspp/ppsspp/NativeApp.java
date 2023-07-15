@@ -77,4 +77,8 @@ public class NativeApp {
 		}
 		NativeApp.sendMessageFromJava("exception", str);
 	}
+
+	public static void reportError(String errorStr) {
+		NativeApp.sendMessageFromJava("exception", errorStr);
+	}
 }

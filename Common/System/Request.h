@@ -61,7 +61,8 @@ private:
 		RequestFailedCallback callback;
 	};
 
-	int idCounter_ = 0;
+	// Let's start at 10 to get a recognizably valid ID in logs.
+	int idCounter_ = 10;
 	std::vector<PendingSuccess> pendingSuccesses_;
 	std::vector<PendingFailure> pendingFailures_;
 	std::mutex responseMutex_;
