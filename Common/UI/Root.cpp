@@ -141,16 +141,13 @@ static void MoveFocus(ViewGroup *root, FocusDirection direction) {
 		return;
 	}
 
-	NeighborResult neigh;
-	neigh = root->FindNeighbor(focusedView, direction, neigh);
+	NeighborResult neigh = root->FindNeighbor(focusedView, direction, neigh);
 
 	if (neigh.view) {
 		neigh.view->SetFocus();
 		root->SubviewFocused(neigh.view);
 
 		PlayUISound(UISound::SELECT);
-	} else {
-		INFO_LOG(SCECTRL, "No neighbor view");
 	}
 }
 
@@ -257,7 +254,11 @@ KeyEventResult UnsyncKeyEvent(const KeyInput &key, ViewGroup *root) {
 		retval = KeyEventResult::PASS_THROUGH;
 		break;
 	default:
-		retval = KeyEventResult::ACCEPT;
+		if (!(key.flags & KEY_IS_REPEAT)) {
+			// If a repeat, we follow what KeyEventToFocusMoves set it to.
+			// Otherwise we signal that we used the key, always.
+			retval = KeyEventResult::ACCEPT;
+		}
 		break;
 	}
 	return retval;
