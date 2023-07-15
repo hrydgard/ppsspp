@@ -141,16 +141,13 @@ static void MoveFocus(ViewGroup *root, FocusDirection direction) {
 		return;
 	}
 
-	NeighborResult neigh;
-	neigh = root->FindNeighbor(focusedView, direction, neigh);
+	NeighborResult neigh = root->FindNeighbor(focusedView, direction, neigh);
 
 	if (neigh.view) {
 		neigh.view->SetFocus();
 		root->SubviewFocused(neigh.view);
 
 		PlayUISound(UISound::SELECT);
-	} else {
-		INFO_LOG(SCECTRL, "No neighbor view");
 	}
 }
 
