@@ -602,8 +602,7 @@ handleELF:
 						info_->pic1.dataLoaded = ReadFileToString(&umd, "/PSP_GAME/PIC1.PNG", &info_->pic1.data, nullptr);
 					}
 					if (info_->wantFlags & GAMEINFO_WANTSND) {
-						ReadFileToString(&umd, "/PSP_GAME/SND0.AT3", &info_->sndFileData, nullptr);
-						info_->sndDataLoaded = true;
+						info_->sndDataLoaded = ReadFileToString(&umd, "/PSP_GAME/SND0.AT3", &info_->sndFileData, nullptr);
 					}
 				}
 
