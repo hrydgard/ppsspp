@@ -54,6 +54,7 @@ AudioFileChooser::AudioFileChooser(std::string *value, const std::string &title,
 		return UI::EVENT_DONE;
 	});
 	Add(new Choice(ImageID("I_TRASHCAN"), new LinearLayoutParams(ITEM_HEIGHT, ITEM_HEIGHT)))->OnClick.Add([=](UI::EventParams &) {
+		g_BackgroundAudio.SFX().UpdateSample(sound, nullptr);
 		value->clear();
 		return UI::EVENT_DONE;
 	});
@@ -239,7 +240,10 @@ void RetroAchievementsSettingsScreen::CreateTabs() {
 	using namespace UI;
 
 	CreateAccountTab(AddTab("AchievementsAccount", ac->T("Account")));
-	CreateCustomizeTab(AddTab("AchievementsCustomize", ac->T("Customize")));
+	if (System_GetPropertyBool(SYSPROP_HAS_FILE_BROWSER)) {
+		// Don't bother creating this tab if we don't have a file browser.
+		CreateCustomizeTab(AddTab("AchievementsCustomize", ac->T("Customize")));
+	}
 	CreateDeveloperToolsTab(AddTab("AchievementsDeveloperTools", sy->T("Developer Tools")));
 }
 

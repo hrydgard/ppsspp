@@ -369,6 +369,11 @@ void BackgroundAudio::Update() {
 	}
 }
 
+inline int16_t ConvertU8ToI16(uint8_t value) {
+	int ivalue = value - 128;
+	return ivalue * 255;
+}
+
 Sample *Sample::Load(const std::string &path) {
 	size_t bytes;
 	uint8_t *data = g_VFS.ReadFile(path.c_str(), &bytes);
@@ -384,14 +389,22 @@ Sample *Sample::Load(const std::string &path) {
 
 	delete[] data;
 
-	if (wave.num_channels != 2 || wave.raw_bytes_per_frame != 4) {
-		ERROR_LOG(AUDIO, "Wave format not supported for mixer playback. Must be 16-bit raw stereo. '%s'", path.c_str());
+	if (wave.num_channels > 2 || wave.raw_bytes_per_frame > sizeof(int16_t) * wave.num_channels) {
+		ERROR_LOG(AUDIO, "Wave format not supported for mixer playback. Must be 8-bit or 16-bit raw mono or stereo. '%s'", path.c_str());
 		return nullptr;
 	}
 
-	int16_t *samples = new int16_t[2 * wave.numFrames];
-	memcpy(samples, wave.raw_data, wave.numFrames * wave.raw_bytes_per_frame);
-	return new Sample(samples, wave.numFrames, wave.sample_rate);
+	int16_t *samples = new int16_t[wave.num_channels * wave.numFrames];
+	if (wave.raw_bytes_per_frame == wave.num_channels * 2) {
+		// 16-bit
+		memcpy(samples, wave.raw_data, wave.numFrames * wave.raw_bytes_per_frame);
+	} else if (wave.raw_bytes_per_frame == wave.num_channels) {
+		// 8-bit. Convert.
+		for (int i = 0; i < wave.num_channels * wave.numFrames; i++) {
+			samples[i] = ConvertU8ToI16(wave.raw_data[i]);
+		}
+	}
+	return new Sample(samples, wave.num_channels, wave.numFrames, wave.sample_rate);
 }
 
 static inline int16_t Clamp16(int32_t sample) {
@@ -434,15 +447,25 @@ void SoundEffectMixer::Mix(int16_t *buffer, int sz, int sampleRateHz) {
 			int wholeOffset = iter->offset >> 32;
 			int frac = (iter->offset >> 20) & 0xFFF;  // Use a 12 bit fraction to get away with 32-bit multiplies
 
-			int interpolatedLeft = (sample->data_[wholeOffset * 2] * (0x1000 - frac) + sample->data_[(wholeOffset + 1) * 2] * frac) >> 12;
-			int interpolatedRight = (sample->data_[wholeOffset * 2 + 1] * (0x1000 - frac) + sample->data_[(wholeOffset + 1) * 2 + 1] * frac) >> 12;
+			if (sample->channels_ == 2) {
+				int interpolatedLeft = (sample->data_[wholeOffset * 2] * (0x1000 - frac) + sample->data_[(wholeOffset + 1) * 2] * frac) >> 12;
+				int interpolatedRight = (sample->data_[wholeOffset * 2 + 1] * (0x1000 - frac) + sample->data_[(wholeOffset + 1) * 2 + 1] * frac) >> 12;
 
-			// Clamping add on top per sample. Not great, we should be mixing at higher bitrate instead. Oh well.
-			int left = Clamp16(buffer[i] + (interpolatedLeft * iter->volume >> 8));
-			int right = Clamp16(buffer[i + 1] + (interpolatedRight * iter->volume >> 8));
+				// Clamping add on top per sample. Not great, we should be mixing at higher bitrate instead. Oh well.
+				int left = Clamp16(buffer[i] + (interpolatedLeft * iter->volume >> 8));
+				int right = Clamp16(buffer[i + 1] + (interpolatedRight * iter->volume >> 8));
 
-			buffer[i] = left;
-			buffer[i + 1] = right;
+				buffer[i] = left;
+				buffer[i + 1] = right;
+			} else if (sample->channels_ == 1) {
+				int interpolated = (sample->data_[wholeOffset] * (0x1000 - frac) + sample->data_[wholeOffset + 1] * frac) >> 12;
+
+				// Clamping add on top per sample. Not great, we should be mixing at higher bitrate instead. Oh well.
+				int value = Clamp16(buffer[i] + (interpolated * iter->volume >> 8));
+
+				buffer[i] = value;
+				buffer[i + 1] = value;
+			}
 
 			iter->offset += stride;
 		}
@@ -462,6 +485,7 @@ void SoundEffectMixer::Play(UI::UISound sfx, float volume) {
 
 void SoundEffectMixer::UpdateSample(UI::UISound sound, Sample *sample) {
 	if (sample) {
+		std::lock_guard<std::mutex> guard(mutex_);
 		samples_[(size_t)sound] = std::unique_ptr<Sample>(sample);
 	} else {
 		LoadDefaultSample(sound);
@@ -485,6 +509,7 @@ void SoundEffectMixer::LoadDefaultSample(UI::UISound sound) {
 	if (!sample) {
 		ERROR_LOG(SYSTEM, "Failed to load the default sample for UI sound %d", (int)sound);
 	}
+	std::lock_guard<std::mutex> guard(mutex_);
 	samples_[(size_t)sound] = std::unique_ptr<Sample>(sample);
 }
 

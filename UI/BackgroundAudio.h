@@ -12,13 +12,14 @@ class AT3PlusReader;
 
 struct Sample {
 	// data must be new-ed.
-	Sample(int16_t *data, int length, int rateInHz) : data_(data), length_(length), rateInHz_(rateInHz) {}
+	Sample(int16_t *data, int channels, int length, int rateInHz) : channels_(channels), data_(data), length_(length), rateInHz_(rateInHz) {}
 	~Sample() {
 		delete[] data_;
 	}
 	int16_t *data_;
-	int length_;  // stereo samples.
+	int length_;  // stereo or mono samples.
 	int rateInHz_;  // sampleRate
+	int channels_;
 
 	static Sample *Load(const std::string &path);
 };
