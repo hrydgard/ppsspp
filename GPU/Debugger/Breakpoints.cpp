@@ -128,9 +128,10 @@ u32 GetAdjustedRenderTargetAddress(u32 op) {
 	return (u32)-1;
 }
 
-bool IsTextureChangeBreakpoint(u32 op, u32 addr) {
+// Note: this now always returns false, but still needs to be called.
+void CheckForTextureChange(u32 op, u32 addr) {
 	if (!textureChangeTemp) {
-		return false;
+		return;
 	}
 
 	const u8 cmd = op >> 24;
@@ -142,24 +143,30 @@ bool IsTextureChangeBreakpoint(u32 op, u32 addr) {
 		if (cmd == GE_CMD_TEXTUREMAPENABLE) {
 			enabled = (op & 1) != 0;
 		} else {
-			return false;
+			return;
 		}
 	}
 	if (enabled && addr != lastTexture) {
 		textureChangeTemp = false;
 		lastTexture = addr;
-		return true;
-	} else {
-		return false;
+
+		// Silently convert to a primitive breakpoint, so we stop on use.
+		// Note: this may cause "spurious" breaks if the tex is changed and the changed back.
+		AddCmdBreakpoint(GE_CMD_PRIM, true);
+		AddCmdBreakpoint(GE_CMD_BEZIER, true);
+		AddCmdBreakpoint(GE_CMD_SPLINE, true);
+		AddCmdBreakpoint(GE_CMD_VAP, true);
 	}
 }
 
 bool IsTextureCmdBreakpoint(u32 op) {
 	const u32 addr = GetAdjustedTextureAddress(op);
 	if (addr != (u32)-1) {
-		return IsTextureChangeBreakpoint(op, addr) || IsTextureBreakpoint(addr);
+		CheckForTextureChange(op, addr);
+		return IsTextureBreakpoint(addr);
 	} else {
-		return IsTextureChangeBreakpoint(op, gstate.getTextureAddress(0));
+		CheckForTextureChange(op, gstate.getTextureAddress(0));
+		return false;
 	}
 }
 
