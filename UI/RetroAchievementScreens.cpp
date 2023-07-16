@@ -338,8 +338,8 @@ void RetroAchievementsSettingsScreen::CreateCustomizeTab(UI::ViewGroup *viewGrou
 
 	using namespace UI;
 	viewGroup->Add(new ItemHeader(ac->T("Sound effects")));
-	viewGroup->Add(new AudioFileChooser(&g_Config.sAchievementsUnlockAudioFile, "Achievement unlocked", UISound::ACHIEVEMENT_UNLOCKED));
-	viewGroup->Add(new AudioFileChooser(&g_Config.sAchievementsLeaderboardSubmitAudioFile, "Leaderboard score submission", UISound::LEADERBOARD_SUBMITTED));
+	viewGroup->Add(new AudioFileChooser(&g_Config.sAchievementsUnlockAudioFile, ac->T("Achievement unlocked"), UISound::ACHIEVEMENT_UNLOCKED));
+	viewGroup->Add(new AudioFileChooser(&g_Config.sAchievementsLeaderboardSubmitAudioFile, ac->T("Leaderboard score submission"), UISound::LEADERBOARD_SUBMITTED));
 }
 
 void RetroAchievementsSettingsScreen::CreateDeveloperToolsTab(UI::ViewGroup *viewGroup) {
