@@ -1373,14 +1373,18 @@ public abstract class NativeActivity extends Activity {
 				Log.e(TAG, e.toString());
 				return false;
 			}
-		} else if (command.equals("browse_file")) {
+		} else if (command.equals("browse_file") || command.equals("browse_file_audio")) {
 			try {
 				int requestId = Integer.parseInt(params);
 				int packedResultCode = packResultCode(RESULT_OPEN_DOCUMENT, requestId);
 				Log.i(TAG, "browse_file request ID: " + requestId + " packed: " + packedResultCode);
 				Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
 				intent.addCategory(Intent.CATEGORY_OPENABLE);
-				intent.setType("*/*");
+				if (command.equals("browse_file_audio")) {
+					intent.setType("audio/x-wav");
+				} else {
+					intent.setType("*/*");
+				}
 				intent.addFlags(Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
 				// Possible alternative approach:
 				// String[] mimeTypes = {"application/octet-stream", "/x-iso9660-image"};

@@ -4,18 +4,20 @@
 #include "Common/File/VFS/VFS.h"
 #include "Common/UI/Root.h"
 
+#include "Common/Data/Text/I18n.h"
 #include "Common/CommonTypes.h"
 #include "Common/Data/Format/RIFF.h"
 #include "Common/Log.h"
 #include "Common/System/System.h"
+#include "Common/System/OSD.h"
 #include "Common/Serialize/SerializeFuncs.h"
 #include "Common/TimeUtil.h"
 #include "Common/Data/Collections/FixedSizeQueue.h"
 #include "Core/HW/SimpleAudioDec.h"
 #include "Core/HLE/__sceAudio.h"
 #include "Core/System.h"
-#include "GameInfoCache.h"
 #include "Core/Config.h"
+#include "UI/GameInfoCache.h"
 #include "UI/BackgroundAudio.h"
 
 struct WavData {
@@ -367,6 +369,44 @@ void BackgroundAudio::Update() {
 	}
 }
 
+inline int16_t ConvertU8ToI16(uint8_t value) {
+	int ivalue = value - 128;
+	return ivalue * 255;
+}
+
+Sample *Sample::Load(const std::string &path) {
+	size_t bytes;
+	uint8_t *data = g_VFS.ReadFile(path.c_str(), &bytes);
+	if (!data) {
+		WARN_LOG(AUDIO, "Failed to load sample '%s'", path.c_str());
+		return nullptr;
+	}
+
+	RIFFReader reader(data, (int)bytes);
+
+	WavData wave;
+	wave.Read(reader);
+
+	delete[] data;
+
+	if (wave.num_channels > 2 || wave.raw_bytes_per_frame > sizeof(int16_t) * wave.num_channels) {
+		ERROR_LOG(AUDIO, "Wave format not supported for mixer playback. Must be 8-bit or 16-bit raw mono or stereo. '%s'", path.c_str());
+		return nullptr;
+	}
+
+	int16_t *samples = new int16_t[wave.num_channels * wave.numFrames];
+	if (wave.raw_bytes_per_frame == wave.num_channels * 2) {
+		// 16-bit
+		memcpy(samples, wave.raw_data, wave.numFrames * wave.raw_bytes_per_frame);
+	} else if (wave.raw_bytes_per_frame == wave.num_channels) {
+		// 8-bit. Convert.
+		for (int i = 0; i < wave.num_channels * wave.numFrames; i++) {
+			samples[i] = ConvertU8ToI16(wave.raw_data[i]);
+		}
+	}
+	return new Sample(samples, wave.num_channels, wave.numFrames, wave.sample_rate);
+}
+
 static inline int16_t Clamp16(int32_t sample) {
 	if (sample < -32767) return -32767;
 	if (sample > 32767) return 32767;
@@ -407,15 +447,25 @@ void SoundEffectMixer::Mix(int16_t *buffer, int sz, int sampleRateHz) {
 			int wholeOffset = iter->offset >> 32;
 			int frac = (iter->offset >> 20) & 0xFFF;  // Use a 12 bit fraction to get away with 32-bit multiplies
 
-			int interpolatedLeft = (sample->data_[wholeOffset * 2] * (0x1000 - frac) + sample->data_[(wholeOffset + 1) * 2] * frac) >> 12;
-			int interpolatedRight = (sample->data_[wholeOffset * 2 + 1] * (0x1000 - frac) + sample->data_[(wholeOffset + 1) * 2 + 1] * frac) >> 12;
+			if (sample->channels_ == 2) {
+				int interpolatedLeft = (sample->data_[wholeOffset * 2] * (0x1000 - frac) + sample->data_[(wholeOffset + 1) * 2] * frac) >> 12;
+				int interpolatedRight = (sample->data_[wholeOffset * 2 + 1] * (0x1000 - frac) + sample->data_[(wholeOffset + 1) * 2 + 1] * frac) >> 12;
 
-			// Clamping add on top per sample. Not great, we should be mixing at higher bitrate instead. Oh well.
-			int left = Clamp16(buffer[i] + (interpolatedLeft * iter->volume >> 8));
-			int right = Clamp16(buffer[i + 1] + (interpolatedRight * iter->volume >> 8));
+				// Clamping add on top per sample. Not great, we should be mixing at higher bitrate instead. Oh well.
+				int left = Clamp16(buffer[i] + (interpolatedLeft * iter->volume >> 8));
+				int right = Clamp16(buffer[i + 1] + (interpolatedRight * iter->volume >> 8));
 
-			buffer[i] = left;
-			buffer[i + 1] = right;
+				buffer[i] = left;
+				buffer[i + 1] = right;
+			} else if (sample->channels_ == 1) {
+				int interpolated = (sample->data_[wholeOffset] * (0x1000 - frac) + sample->data_[wholeOffset + 1] * frac) >> 12;
+
+				// Clamping add on top per sample. Not great, we should be mixing at higher bitrate instead. Oh well.
+				int value = Clamp16(buffer[i] + (interpolated * iter->volume >> 8));
+
+				buffer[i] = value;
+				buffer[i + 1] = value;
+			}
 
 			iter->offset += stride;
 		}
@@ -433,40 +483,54 @@ void SoundEffectMixer::Play(UI::UISound sfx, float volume) {
 	queue_.push_back(PlayInstance{ sfx, 0, (int)(255.0f * volume), false });
 }
 
-Sample *SoundEffectMixer::LoadSample(const std::string &path) {
-	size_t bytes;
-	uint8_t *data = g_VFS.ReadFile(path.c_str(), &bytes);
-	if (!data) {
-		WARN_LOG(AUDIO, "Failed to load sample '%s'", path.c_str());
-		return nullptr;
+void SoundEffectMixer::UpdateSample(UI::UISound sound, Sample *sample) {
+	if (sample) {
+		std::lock_guard<std::mutex> guard(mutex_);
+		samples_[(size_t)sound] = std::unique_ptr<Sample>(sample);
+	} else {
+		LoadDefaultSample(sound);
 	}
+}
 
-	RIFFReader reader(data, (int)bytes);
-
-	WavData wave;
-	wave.Read(reader);
-
-	delete[] data;
-
-	if (wave.num_channels != 2 || wave.raw_bytes_per_frame != 4) {
-		ERROR_LOG(AUDIO, "Wave format not supported for mixer playback. Must be 16-bit raw stereo. '%s'", path.c_str());
-		return nullptr;
+void SoundEffectMixer::LoadDefaultSample(UI::UISound sound) {
+	const char *filename = nullptr;
+	switch (sound) {
+	case UI::UISound::BACK: filename = "sfx_back.wav"; break;
+	case UI::UISound::SELECT: filename = "sfx_select.wav"; break;
+	case UI::UISound::CONFIRM: filename = "sfx_confirm.wav"; break;
+	case UI::UISound::TOGGLE_ON: filename = "sfx_toggle_on.wav"; break;
+	case UI::UISound::TOGGLE_OFF: filename = "sfx_toggle_off.wav"; break;
+	case UI::UISound::ACHIEVEMENT_UNLOCKED: filename = "sfx_achievement_unlocked.wav"; break;
+	case UI::UISound::LEADERBOARD_SUBMITTED: filename = "sfx_leaderbord_submitted.wav"; break;
+	default:
+		return;
 	}
-
-	int16_t *samples = new int16_t[2 * wave.numFrames];
-	memcpy(samples, wave.raw_data, wave.numFrames * wave.raw_bytes_per_frame);
-	return new Sample(samples, wave.numFrames, wave.sample_rate);
+	Sample *sample = Sample::Load(filename);
+	if (!sample) {
+		ERROR_LOG(SYSTEM, "Failed to load the default sample for UI sound %d", (int)sound);
+	}
+	std::lock_guard<std::mutex> guard(mutex_);
+	samples_[(size_t)sound] = std::unique_ptr<Sample>(sample);
 }
 
 void SoundEffectMixer::LoadSamples() {
 	samples_.resize((size_t)UI::UISound::COUNT);
-	samples_[(size_t)UI::UISound::BACK] = std::unique_ptr<Sample>(LoadSample("sfx_back.wav"));
-	samples_[(size_t)UI::UISound::SELECT] = std::unique_ptr<Sample>(LoadSample("sfx_select.wav"));
-	samples_[(size_t)UI::UISound::CONFIRM] = std::unique_ptr<Sample>(LoadSample("sfx_confirm.wav"));
-	samples_[(size_t)UI::UISound::TOGGLE_ON] = std::unique_ptr<Sample>(LoadSample("sfx_toggle_on.wav"));
-	samples_[(size_t)UI::UISound::TOGGLE_OFF] = std::unique_ptr<Sample>(LoadSample("sfx_toggle_off.wav"));
-	samples_[(size_t)UI::UISound::ACHIEVEMENT_UNLOCKED] = std::unique_ptr<Sample>(LoadSample("sfx_achievement_unlocked.wav"));
-	samples_[(size_t)UI::UISound::LEADERBOARD_SUBMITTED] = std::unique_ptr<Sample>(LoadSample("sfx_leaderbord_submitted.wav"));
+	LoadDefaultSample(UI::UISound::BACK);
+	LoadDefaultSample(UI::UISound::SELECT);
+	LoadDefaultSample(UI::UISound::CONFIRM);
+	LoadDefaultSample(UI::UISound::TOGGLE_ON);
+	LoadDefaultSample(UI::UISound::TOGGLE_OFF);
+
+	if (!g_Config.sAchievementsUnlockAudioFile.empty()) {
+		UpdateSample(UI::UISound::ACHIEVEMENT_UNLOCKED, Sample::Load(g_Config.sAchievementsUnlockAudioFile));
+	} else {
+		LoadDefaultSample(UI::UISound::ACHIEVEMENT_UNLOCKED);
+	}
+	if (!g_Config.sAchievementsLeaderboardSubmitAudioFile.empty()) {
+		UpdateSample(UI::UISound::LEADERBOARD_SUBMITTED, Sample::Load(g_Config.sAchievementsLeaderboardSubmitAudioFile));
+	} else {
+		LoadDefaultSample(UI::UISound::LEADERBOARD_SUBMITTED);
+	}
 
 	UI::SetSoundCallback([](UI::UISound sound, float volume) {
 		g_BackgroundAudio.SFX().Play(sound, volume);

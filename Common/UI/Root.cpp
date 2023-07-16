@@ -141,8 +141,7 @@ static void MoveFocus(ViewGroup *root, FocusDirection direction) {
 		return;
 	}
 
-	NeighborResult neigh = root->FindNeighbor(focusedView, direction, neigh);
-
+	NeighborResult neigh = root->FindNeighbor(focusedView, direction, NeighborResult());
 	if (neigh.view) {
 		neigh.view->SetFocus();
 		root->SubviewFocused(neigh.view);

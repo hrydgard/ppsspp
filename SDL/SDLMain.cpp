@@ -244,7 +244,8 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 			}
 		};
 		DarwinFileSystemServices services;
-		services.presentDirectoryPanel(callback, /* allowFiles = */ true, /* allowDirectories = */ false);
+		BrowseFileType fileType = (BrowseFileType)param3;
+		services.presentDirectoryPanel(callback, /* allowFiles = */ true, /* allowDirectories = */ false, fileType);
 		return true;
 	}
 	case SystemRequestType::BROWSE_FOR_FOLDER:

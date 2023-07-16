@@ -495,6 +495,10 @@ public:
 	bool bAchievementsSoundEffects;
 	bool bAchievementsLogBadMemReads;
 
+	// Customizations
+	std::string sAchievementsUnlockAudioFile;
+	std::string sAchievementsLeaderboardSubmitAudioFile;
+
 	// Achivements login info. Note that password is NOT stored, only a login token.
 	// Still, we may wanna store it more securely than in PPSSPP.ini, especially on Android.
 	std::string sAchievementsUserName;

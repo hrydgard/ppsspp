@@ -1,4 +1,3 @@
-#include "UI/RetroAchievementScreens.h"
 #include "Common/System/OSD.h"
 #include "Common/System/Request.h"
 #include "Common/UI/View.h"
@@ -10,8 +9,55 @@
 #include "Core/Config.h"
 #include "Core/RetroAchievements.h"
 
+#include "UI/RetroAchievementScreens.h"
+#include "UI/BackgroundAudio.h"
+
 static inline const char *DeNull(const char *ptr) {
 	return ptr ? ptr : "";
+}
+
+// Compound view, creating a FileChooserChoice inside.
+class AudioFileChooser : public UI::LinearLayout {
+public:
+	AudioFileChooser(std::string *value, const std::string &title, UI::UISound sound, UI::LayoutParams *layoutParams = nullptr);
+
+	UI::UISound sound_;
+};
+
+static constexpr UI::Size ITEM_HEIGHT = 64.f;
+
+AudioFileChooser::AudioFileChooser(std::string *value, const std::string &title, UI::UISound sound, UI::LayoutParams *layoutParams) : UI::LinearLayout(UI::ORIENT_HORIZONTAL, layoutParams), sound_(sound) {
+	using namespace UI;
+	SetSpacing(2.0f);
+	if (!layoutParams) {
+		layoutParams_->width = FILL_PARENT;
+		layoutParams_->height = ITEM_HEIGHT;
+	}
+	Add(new FileChooserChoice(value, title, BrowseFileType::SOUND_EFFECT, new LinearLayoutParams(1.0f)))->OnChange.Add([=](UI::EventParams &e) {
+		// TODO: Check the file format here.
+		// Need to forward the event out.
+		std::string path = e.s;
+		Sample *sample = Sample::Load(path);
+		if (sample) {
+			g_BackgroundAudio.SFX().UpdateSample(sound, sample);
+		} else {
+			if (!sample) {
+				auto au = GetI18NCategory(I18NCat::AUDIO);
+				g_OSD.Show(OSDType::MESSAGE_WARNING, au->T("Audio file format not supported. Must be 16-bit WAV."));
+			}
+			value->clear();
+		}
+		return UI::EVENT_DONE;
+	});
+	Add(new Choice(ImageID("I_ARROW_RIGHT"), new LinearLayoutParams(ITEM_HEIGHT, ITEM_HEIGHT)))->OnClick.Add([=](UI::EventParams &) {
+		g_BackgroundAudio.SFX().Play(sound_, 0.6f);
+		return UI::EVENT_DONE;
+	});
+	Add(new Choice(ImageID("I_TRASHCAN"), new LinearLayoutParams(ITEM_HEIGHT, ITEM_HEIGHT)))->OnClick.Add([=](UI::EventParams &) {
+		g_BackgroundAudio.SFX().UpdateSample(sound, nullptr);
+		value->clear();
+		return UI::EVENT_DONE;
+	});
 }
 
 void RetroAchievementsListScreen::CreateTabs() {
@@ -194,6 +240,10 @@ void RetroAchievementsSettingsScreen::CreateTabs() {
 	using namespace UI;
 
 	CreateAccountTab(AddTab("AchievementsAccount", ac->T("Account")));
+	if (System_GetPropertyBool(SYSPROP_HAS_FILE_BROWSER)) {
+		// Don't bother creating this tab if we don't have a file browser.
+		CreateCustomizeTab(AddTab("AchievementsCustomize", ac->T("Customize")));
+	}
 	CreateDeveloperToolsTab(AddTab("AchievementsDeveloperTools", sy->T("Developer Tools")));
 }
 
@@ -281,6 +331,15 @@ void RetroAchievementsSettingsScreen::CreateAccountTab(UI::ViewGroup *viewGroup)
 		System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://www.ppsspp.org/docs/reference/retro-achievements");
 		return UI::EVENT_DONE;
 	});
+}
+
+void RetroAchievementsSettingsScreen::CreateCustomizeTab(UI::ViewGroup *viewGroup) {
+	auto ac = GetI18NCategory(I18NCat::ACHIEVEMENTS);
+
+	using namespace UI;
+	viewGroup->Add(new ItemHeader(ac->T("Sound effects")));
+	viewGroup->Add(new AudioFileChooser(&g_Config.sAchievementsUnlockAudioFile, "Achievement unlocked", UISound::ACHIEVEMENT_UNLOCKED));
+	viewGroup->Add(new AudioFileChooser(&g_Config.sAchievementsLeaderboardSubmitAudioFile, "Leaderboard score submission", UISound::LEADERBOARD_SUBMITTED));
 }
 
 void RetroAchievementsSettingsScreen::CreateDeveloperToolsTab(UI::ViewGroup *viewGroup) {

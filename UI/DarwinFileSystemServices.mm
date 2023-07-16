@@ -44,15 +44,35 @@
 #include <AppKit/AppKit.h>
 #endif // __has_include(<UIKit/UIKit.h>)
 
-void DarwinFileSystemServices::presentDirectoryPanel(DarwinDirectoryPanelCallback callback,
-													 bool allowFiles,
-													 bool allowDirectories) {
-    dispatch_async(dispatch_get_main_queue(), ^{
+void DarwinFileSystemServices::presentDirectoryPanel(
+	DarwinDirectoryPanelCallback callback,
+	bool allowFiles, bool allowDirectories,
+	BrowseFileType fileType) {
+	dispatch_async(dispatch_get_main_queue(), ^{
 #if PPSSPP_PLATFORM(MAC)
-        NSOpenPanel *panel = [[NSOpenPanel alloc] init];
-        panel.allowsMultipleSelection = NO;
-        panel.canChooseFiles = allowFiles;
-        panel.canChooseDirectories = allowDirectories;
+		NSOpenPanel *panel = [[NSOpenPanel alloc] init];
+		panel.allowsMultipleSelection = NO;
+		panel.canChooseFiles = allowFiles;
+		panel.canChooseDirectories = allowDirectories;
+		switch (fileType) {
+		case BrowseFileType::BOOTABLE:
+			[panel setAllowedFileTypes:[NSArray arrayWithObjects:@"iso", @"cso", @"pbp", @"elf", @"zip", @"ppdmp", nil]];
+			break;
+		case BrowseFileType::IMAGE:
+			[panel setAllowedFileTypes:[NSArray arrayWithObjects:@"jpg", @"png", nil]];
+			break;
+		case BrowseFileType::INI:
+			[panel setAllowedFileTypes:[NSArray arrayWithObject:@"ini"]];
+			break;
+		case BrowseFileType::DB:
+			[panel setAllowedFileTypes:[NSArray arrayWithObject:@"db"]];
+			break;
+		case BrowseFileType::SOUND_EFFECT:
+			[panel setAllowedFileTypes:[NSArray arrayWithObject:@"wav"]];
+			break;
+		default:
+			break;
+		}
 //		if (!allowFiles && allowDirectories)
 //			panel.allowedFileTypes = @[(__bridge NSString *)kUTTypeFolder];
         

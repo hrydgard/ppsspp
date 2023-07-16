@@ -12,23 +12,28 @@ class AT3PlusReader;
 
 struct Sample {
 	// data must be new-ed.
-	Sample(int16_t *data, int length, int rateInHz) : data_(data), length_(length), rateInHz_(rateInHz) {}
+	Sample(int16_t *data, int channels, int length, int rateInHz) : channels_(channels), data_(data), length_(length), rateInHz_(rateInHz) {}
 	~Sample() {
 		delete[] data_;
 	}
 	int16_t *data_;
-	int length_;  // stereo samples.
+	int length_;  // stereo or mono samples.
 	int rateInHz_;  // sampleRate
+	int channels_;
+
+	static Sample *Load(const std::string &path);
 };
 
 // Mixer for things played on top of everything.
 class SoundEffectMixer {
 public:
-	static Sample *LoadSample(const std::string &path);
 	void LoadSamples();
 
 	void Mix(int16_t *buffer, int sz, int sampleRateHz);
 	void Play(UI::UISound sfx, float volume);
+
+	void UpdateSample(UI::UISound sound, Sample *sample);
+	void LoadDefaultSample(UI::UISound sound);
 
 	std::vector<std::unique_ptr<Sample>> samples_;
 
@@ -39,6 +44,7 @@ public:
 		bool done;
 	};
 
+private:
 	std::mutex mutex_;
 	std::vector<PlayInstance> queue_;
 	std::vector<PlayInstance> plays_;
