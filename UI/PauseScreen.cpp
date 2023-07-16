@@ -263,12 +263,10 @@ void GamePauseScreen::update() {
 
 GamePauseScreen::GamePauseScreen(const Path &filename)
 	: UIDialogScreenWithGameBackground(filename) {
-	g_OSD.SetShowSidebar(false);
 }
 
 GamePauseScreen::~GamePauseScreen() {
 	__DisplaySetWasPaused();
-	g_OSD.SetShowSidebar(true);
 }
 
 void GamePauseScreen::CreateSavestateControls(UI::LinearLayout *leftColumnItems, bool vertical) {

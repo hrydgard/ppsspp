@@ -3,8 +3,12 @@
 #include "Common/System/OSD.h"
 #include "Common/TimeUtil.h"
 #include "Common/Log.h"
+#include "Common/Math/math_util.h"
 
 OnScreenDisplay g_OSD;
+
+// Effectively forever.
+constexpr double forever_s = 10000000000.0;
 
 void OnScreenDisplay::Update() {
 	std::lock_guard<std::mutex> guard(mutex_);
@@ -48,6 +52,17 @@ std::vector<OnScreenDisplay::Entry> OnScreenDisplay::SideEntries() {
 std::vector<OnScreenDisplay::ProgressBar> OnScreenDisplay::ProgressBars() {
 	std::lock_guard<std::mutex> guard(mutex_);
 	return bars_;  // makes a copy.
+}
+
+void OnScreenDisplay::NudgeSidebar() {
+	sideBarShowTime_ = time_now_d();
+}
+
+float OnScreenDisplay::SidebarAlpha() const {
+	double timeSinceNudge = time_now_d() - sideBarShowTime_;
+
+	// Fade out in 1/4 second, 0.1s after the last nudge.
+	return saturatef(1.0f - ((float)timeSinceNudge - 0.1f) * 4.0f);
 }
 
 void OnScreenDisplay::Show(OSDType type, const std::string &text, const std::string &text2, const std::string &icon, float duration_s, const char *id) {
@@ -157,7 +172,7 @@ void OnScreenDisplay::ShowChallengeIndicator(int achievementID, bool show) {
 	entry.numericID = achievementID;
 	entry.type = OSDType::ACHIEVEMENT_CHALLENGE_INDICATOR;
 	entry.startTime = now;
-	entry.endTime = now + 10000000.0;  // Don't auto-fadeout.
+	entry.endTime = now + forever_s;
 	sideEntries_.insert(sideEntries_.begin(), entry);
 }
 
@@ -188,7 +203,7 @@ void OnScreenDisplay::ShowLeaderboardTracker(int leaderboardTrackerID, const cha
 	entry.numericID = leaderboardTrackerID;
 	entry.type = OSDType::LEADERBOARD_TRACKER;
 	entry.startTime = now;
-	entry.endTime = now + 10000000.0;  // Don't auto-fadeout
+	entry.endTime = now + forever_s;
 	if (trackerText) {
 		entry.text = trackerText;
 	}

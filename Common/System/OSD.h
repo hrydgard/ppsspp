@@ -53,9 +53,9 @@ public:
 	void SetProgressBar(std::string id, std::string &&message, int minValue, int maxValue, int progress);
 	void RemoveProgressBar(std::string id);
 
-	// Show stuff on the side or now, like the challenge indicators etc.
-	void SetShowSidebar(bool show) { showSidebar_ = show; }
-	bool ShowSidebar() const { return showSidebar_; }
+	// Call every frame to keep the sidebar visible. Otherwise it'll fade out.
+	void NudgeSidebar();
+	float SidebarAlpha() const;
 
 	// Fades out everything related to achievements. Should be used on game shutdown.
 	void ClearAchievementStuff();
@@ -92,7 +92,7 @@ private:
 	std::vector<ProgressBar> bars_;
 	std::mutex mutex_;
 
-	bool showSidebar_ = true;
+	double sideBarShowTime_ = 0.0;
 };
 
 extern OnScreenDisplay g_OSD;

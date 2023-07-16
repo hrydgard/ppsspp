@@ -545,6 +545,8 @@ bool PSP_IsQuitting() {
 }
 
 void PSP_Shutdown() {
+	Achievements::UnloadGame();
+
 	// Do nothing if we never inited.
 	if (!pspIsInited && !pspIsIniting && !pspIsQuitting) {
 		return;

@@ -197,7 +197,6 @@ EmuScreen::EmuScreen(const Path &filename)
 	// Usually, we don't want focus movement enabled on this screen, so disable on start.
 	// Only if you open chat or dev tools do we want it to start working.
 	UI::EnableFocusMovement(false);
-	g_OSD.SetShowSidebar(true);
 }
 
 bool EmuScreen::bootAllowStorage(const Path &filename) {
@@ -406,7 +405,6 @@ void EmuScreen::bootComplete() {
 
 EmuScreen::~EmuScreen() {
 	// If we were invalid, it would already be shutdown.
-	Achievements::UnloadGame();
 	if (!invalid_ || bootPending_) {
 		PSP_Shutdown();
 	}
@@ -1480,6 +1478,8 @@ void EmuScreen::render() {
 	if (!thin3d)
 		return;  // shouldn't really happen but I've seen a suspicious stack trace..
 
+	g_OSD.NudgeSidebar();
+
 	if (invalid_) {
 		// Loading, or after shutdown?
 		if (loadingTextView_->GetVisibility() == UI::V_VISIBLE)
@@ -1550,10 +1550,10 @@ void EmuScreen::render() {
 		}
 
 		PSP_EndHostFrame();
-
-		// This must happen after PSP_EndHostFrame so that things like push buffers are end-frame'd before we start destroying stuff.
-		checkPowerDown();
 	}
+
+	// This must happen after PSP_EndHostFrame so that things like push buffers are end-frame'd before we start destroying stuff.
+	checkPowerDown();
 
 	if (invalid_)
 		return;

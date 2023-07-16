@@ -230,7 +230,9 @@ void OnScreenMessagesView::Draw(UIContext &dc) {
 
 	const float fadeoutCoef = 1.0f / OnScreenDisplay::FadeoutTime();
 
-	if (g_OSD.ShowSidebar()) {
+	float sidebarAlpha = g_OSD.SidebarAlpha();
+
+	if (sidebarAlpha > 0.0f) {
 		// Draw side entries. Top entries should apply on top of them if there's a collision, so drawing
 		// these first makes sense.
 		const std::vector<OnScreenDisplay::Entry> sideEntries = g_OSD.SideEntries();
@@ -268,6 +270,7 @@ void OnScreenMessagesView::Draw(UIContext &dc) {
 				continue;
 			}
 			Bounds b(10.0f, y, tw, th);
+			// We don't multiply in sidebarAlpha here because it shouldn't drive the below animation.
 			float alpha = Clamp((float)(entry.endTime - now) * fadeoutCoef, 0.0f, 1.0f);
 			// OK, render the thing.
 
@@ -275,11 +278,11 @@ void OnScreenMessagesView::Draw(UIContext &dc) {
 			case OSDType::ACHIEVEMENT_PROGRESS:
 			case OSDType::ACHIEVEMENT_CHALLENGE_INDICATOR:
 			{
-				RenderAchievement(dc, achievement, style, b, alpha, entry.startTime, now);
+				RenderAchievement(dc, achievement, style, b, alpha * sidebarAlpha, entry.startTime, now);
 				break;
 			}
 			case OSDType::LEADERBOARD_TRACKER:
-				RenderLeaderboardTracker(dc, b, entry.text, alpha);
+				RenderLeaderboardTracker(dc, b, entry.text, alpha * sidebarAlpha);
 				break;
 			default:
 				continue;
