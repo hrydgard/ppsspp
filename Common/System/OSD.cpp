@@ -3,6 +3,7 @@
 #include "Common/System/OSD.h"
 #include "Common/TimeUtil.h"
 #include "Common/Log.h"
+#include "Common/Math/math_util.h"
 
 OnScreenDisplay g_OSD;
 
@@ -48,6 +49,17 @@ std::vector<OnScreenDisplay::Entry> OnScreenDisplay::SideEntries() {
 std::vector<OnScreenDisplay::ProgressBar> OnScreenDisplay::ProgressBars() {
 	std::lock_guard<std::mutex> guard(mutex_);
 	return bars_;  // makes a copy.
+}
+
+void OnScreenDisplay::NudgeSidebar() {
+	sideBarShowTime_ = time_now_d();
+}
+
+float OnScreenDisplay::SidebarAlpha() const {
+	double timeSinceNudge = time_now_d() - sideBarShowTime_;
+
+	// Fade out in 1/4 second, 0.1s after the last nudge.
+	return saturatef(1.0f - ((float)timeSinceNudge - 0.1f) * 4.0f);
 }
 
 void OnScreenDisplay::Show(OSDType type, const std::string &text, const std::string &text2, const std::string &icon, float duration_s, const char *id) {
