@@ -254,7 +254,7 @@ static void event_handler_callback(const rc_client_event_t *event, rc_client_t *
 	case RC_CLIENT_EVENT_LEADERBOARD_SUBMITTED:
 		NOTICE_LOG(ACHIEVEMENTS, "Leaderboard result submitted: %s", event->leaderboard->title);
 		g_OSD.Show(OSDType::MESSAGE_SUCCESS,
-			ApplySafeSubstitutions(ac->T("%1: Submitting leaderboard score: %2!"), DeNull(event->leaderboard->title), DeNull(event->leaderboard->tracker_value)),
+			ApplySafeSubstitutions(ac->T("Submitted %1 for %2"), DeNull(event->leaderboard->tracker_value), DeNull(event->leaderboard->title)),
 			DeNull(event->leaderboard->description), 3.0f);
 		System_PostUIMessage("play_sound", "leaderboard_submitted");
 		break;
