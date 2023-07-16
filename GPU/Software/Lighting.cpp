@@ -93,8 +93,6 @@ void ComputeState(State *state, bool hasColor0) {
 		if (!lstate.enabled)
 			continue;
 
-		lstate.spot = gstate.isSpotLight(light);
-		lstate.directional = gstate.isDirectionalLight(light);
 		lstate.poweredDiffuse = gstate.isUsingPoweredDiffuseLight(light);
 		lstate.specular = gstate.isUsingSpecularLight(light);
 
@@ -112,7 +110,14 @@ void ComputeState(State *state, bool hasColor0) {
 			anySpecular = anySpecular || lstate.specular;
 		}
 
+		// Doesn't actually need to be on if nothing will affect it.
+		if (!lstate.specular && !lstate.ambient && !lstate.diffuse) {
+			lstate.enabled = false;
+			continue;
+		}
+
 		lstate.pos = GetLightVec(gstate.lpos, light);
+		lstate.directional = gstate.isDirectionalLight(light);
 		if (lstate.directional) {
 			lstate.pos.NormalizeOr001();
 			anyDirectional = true;
@@ -120,6 +125,7 @@ void ComputeState(State *state, bool hasColor0) {
 			lstate.att = GetLightVec(gstate.latt, light);
 		}
 
+		lstate.spot = gstate.isSpotLight(light);
 		if (lstate.spot) {
 			lstate.spotDir = GetLightVec(gstate.ldir, light);
 			lstate.spotDir.Normalize();
