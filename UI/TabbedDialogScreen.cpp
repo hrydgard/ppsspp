@@ -130,7 +130,7 @@ void TabbedUIDialogScreenWithGameBackground::ApplySearchFilter() {
 
 		// Show an indicator that a filter is applied.
 		settingTabFilterNotices_[t]->SetVisibility(tabMatches ? UI::V_GONE : UI::V_VISIBLE);
-		settingTabFilterNotices_[t]->SetText(ReplaceAll(se->T("Filtering settings by '%1'"), "%1", searchFilter_));
+		settingTabFilterNotices_[t]->SetText(ApplySafeSubstitutions(se->T("Filtering settings by '%1'"), searchFilter_));
 
 		UI::View *lastHeading = nullptr;
 		for (int i = 1; i < tabContents->GetNumSubviews(); ++i) {
@@ -152,7 +152,7 @@ void TabbedUIDialogScreenWithGameBackground::ApplySearchFilter() {
 		matches = matches || tabMatches;
 	}
 
-	noSearchResults_->SetText(ReplaceAll(se->T("No settings matched '%1'"), "%1", searchFilter_));
+	noSearchResults_->SetText(ApplySafeSubstitutions(se->T("No settings matched '%1'"), searchFilter_));
 	noSearchResults_->SetVisibility(matches ? UI::V_GONE : UI::V_VISIBLE);
 	clearSearchChoice_->SetVisibility(searchFilter_.empty() ? UI::V_GONE : UI::V_VISIBLE);
 }

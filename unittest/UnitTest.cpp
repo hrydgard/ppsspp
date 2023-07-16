@@ -971,6 +971,12 @@ bool TestEscapeMenuString() {
 	return true;
 }
 
+bool TestSubstitutions() {
+	std::string output = ApplySafeSubstitutions("%3 %2 %1", "a", "b", "c");
+	EXPECT_EQ_STR(output, std::string("c b a"));
+	return true;
+}
+
 typedef bool (*TestFunc)();
 struct TestItem {
 	const char *name;
@@ -1028,6 +1034,7 @@ TestItem availableTests[] = {
 	TEST_ITEM(InputMapping),
 	TEST_ITEM(EscapeMenuString),
 	TEST_ITEM(VFS),
+	TEST_ITEM(Substitutions),
 };
 
 int main(int argc, const char *argv[]) {

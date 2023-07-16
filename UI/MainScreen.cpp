@@ -433,7 +433,7 @@ std::string GameButton::DescribeText() const {
 		return "...";
 
 	auto u = GetI18NCategory(I18NCat::UI_ELEMENTS);
-	return ReplaceAll(u->T("%1 button"), "%1", ginfo->GetTitle());
+	return ApplySafeSubstitutions(u->T("%1 button"), ginfo->GetTitle());
 }
 
 class DirButton : public UI::Button {

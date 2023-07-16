@@ -111,3 +111,7 @@ inline void CharArrayFromFormat(char (& out)[Count], const char* format, ...)
 
 // "C:/Windows/winhelp.exe" to "C:/Windows/", "winhelp", ".exe"
 bool SplitPath(const std::string& full_path, std::string* _pPath, std::string* _pFilename, std::string* _pExtension);
+
+// Replaces %1, %2, %3 in format with arg1, arg2, arg3.
+// Much safer than snprintf and friends.
+std::string ApplySafeSubstitutions(const char *format, const std::string &string1, const std::string &string2 = "", const std::string &string3 = "");
