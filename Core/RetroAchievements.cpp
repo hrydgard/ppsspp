@@ -147,15 +147,13 @@ bool IsActive() {
 	return GetGameID() != 0;
 }
 
-// This is the function the rc_client will use to read memory for the emulator. we don't need it yet,
-// so just provide a dummy function that returns "no memory read".
 static uint32_t read_memory_callback(uint32_t address, uint8_t *buffer, uint32_t num_bytes, rc_client_t *client) {
 	// Achievements are traditionally defined relative to the base of main memory of the emulated console.
 	// This is some kind of RetroArch-related legacy. In the PSP's case, this is simply a straight offset of 0x08000000.
 	uint32_t orig_address = address;
 	address += PSP_MEMORY_OFFSET;
 
-	if (!Memory::IsValidAddress(address)) {
+	if (!Memory::ValidSize(address, num_bytes)) {
 		// Some achievement packs are really, really spammy.
 		// So we'll just count the bad accesses.
 		Achievements::g_stats.badMemoryAccessCount++;
@@ -165,29 +163,14 @@ static uint32_t read_memory_callback(uint32_t address, uint8_t *buffer, uint32_t
 
 		// TEMPORARY HACK: rcheevos' handling of bad memory accesses causes a LOT of extra work, since
 		// for some reason these invalid accesses keeps happening. So we'll temporarily to back to the previous
-		// behavior of simply returning 0.
+		// behavior of simply returning 0. This is fixed in a PR upstream, not yet merged.
 		uint32_t temp = 0;
 		memcpy(buffer, &temp, num_bytes);
 		return num_bytes;
 	}
 
-	switch (num_bytes) {
-	case 1:
-		*buffer = Memory::ReadUnchecked_U8(address);
-		return 1;
-	case 2: {
-		uint16_t temp = Memory::ReadUnchecked_U16(address);
-		memcpy(buffer, &temp, 2);
-		return 2;
-	}
-	case 4: {
-		uint32_t temp = Memory::ReadUnchecked_U32(address);
-		memcpy(buffer, &temp, 4);
-		return 4;
-	}
-	default:
-		return 0;
-	}
+	Memory::MemcpyUnchecked(buffer, address, num_bytes);
+	return num_bytes;
 }
 
 // This is the HTTP request dispatcher that is provided to the rc_client. Whenever the client
