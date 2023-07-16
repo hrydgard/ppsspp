@@ -86,7 +86,7 @@ void ComputeState(State *state, bool hasColor0) {
 	bool anyAmbient = false;
 	bool anyDiffuse = false;
 	bool anySpecular = false;
-	bool anyDirectional = false;
+	bool anyNonDirectional = false;
 	for (int light = 0; light < 4; ++light) {
 		auto &lstate = state->lights[light];
 		lstate.enabled = gstate.isLightChanEnabled(light);
@@ -120,9 +120,9 @@ void ComputeState(State *state, bool hasColor0) {
 		lstate.directional = gstate.isDirectionalLight(light);
 		if (lstate.directional) {
 			lstate.pos.NormalizeOr001();
-			anyDirectional = true;
 		} else {
 			lstate.att = GetLightVec(gstate.latt, light);
+			anyNonDirectional = true;
 		}
 
 		lstate.spot = gstate.isSpotLight(light);
@@ -183,7 +183,7 @@ void ComputeState(State *state, bool hasColor0) {
 	state->baseAmbientColorFactor = LightColorFactor(gstate.getAmbientRGBA(), ones);
 	state->setColor1 = gstate.isUsingSecondaryColor() && anySpecular;
 	state->addColor1 = !gstate.isUsingSecondaryColor() && anySpecular;
-	state->usesWorldPos = anyDirectional;
+	state->usesWorldPos = anyNonDirectional;
 	state->usesWorldNormal = gstate.getUVGenMode() == GE_TEXMAP_ENVIRONMENT_MAP || anyDiffuse || anySpecular;
 }
 
