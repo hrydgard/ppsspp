@@ -546,10 +546,10 @@ void EmuScreen::sendMessage(const char *message, const char *value) {
 		if (g_Config.bAchievementsSoundEffects) {
 			// TODO: Handle this some nicer way.
 			if (!strcmp(value, "achievement_unlocked")) {
-				UI::PlayUISound(UI::UISound::ACHIEVEMENT_UNLOCKED, 0.6f);
+				g_BackgroundAudio.SFX().Play(UI::UISound::ACHIEVEMENT_UNLOCKED, 0.6f);
 			}
 			if (!strcmp(value, "leaderboard_submitted")) {
-				UI::PlayUISound(UI::UISound::LEADERBOARD_SUBMITTED, 0.6f);
+				g_BackgroundAudio.SFX().Play(UI::UISound::LEADERBOARD_SUBMITTED, 0.6f);
 			}
 		}
 	}

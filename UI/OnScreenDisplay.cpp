@@ -148,7 +148,7 @@ static void RenderOSDEntry(UIContext &dc, const OnScreenDisplay::Entry &entry, B
 	if (entry.type == OSDType::ACHIEVEMENT_UNLOCKED) {
 		const rc_client_achievement_t * achievement = rc_client_get_achievement_info(Achievements::GetClient(), entry.numericID);
 		if (achievement) {
-			RenderAchievement(dc, achievement, AchievementRenderStyle::UNLOCKED, bounds, alpha, entry.startTime, time_now_d());
+			RenderAchievement(dc, achievement, AchievementRenderStyle::UNLOCKED, bounds, alpha, entry.startTime, time_now_d(), false);
 		}
 		return;
 	} else {
@@ -278,7 +278,7 @@ void OnScreenMessagesView::Draw(UIContext &dc) {
 			case OSDType::ACHIEVEMENT_PROGRESS:
 			case OSDType::ACHIEVEMENT_CHALLENGE_INDICATOR:
 			{
-				RenderAchievement(dc, achievement, style, b, alpha * sidebarAlpha, entry.startTime, now);
+				RenderAchievement(dc, achievement, style, b, alpha * sidebarAlpha, entry.startTime, now, false);
 				break;
 			}
 			case OSDType::LEADERBOARD_TRACKER:
