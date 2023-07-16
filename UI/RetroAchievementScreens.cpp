@@ -116,6 +116,10 @@ void RetroAchievementsListScreen::CreateAchievementsTab(UI::ViewGroup *achieveme
 
 	achievements->Add(new GameAchievementSummaryView());
 
+	if (Achievements::EncoreModeActive()) {
+		achievements->Add(new NoticeView(NoticeLevel::WARN, ac->T("In Encore mode - unlock state may not be accurate"), ""));
+	}
+
 	CollapsibleSection *unlocked = new CollapsibleSection(StringFromFormat("%s (%d)", ac->T("Unlocked achievements"), (int)unlockedAchievements.size()));
 	unlocked->SetSpacing(2.0f);
 	for (auto &achievement : unlockedAchievements) {
