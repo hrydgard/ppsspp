@@ -11,6 +11,7 @@
 
 #include "UI/RetroAchievementScreens.h"
 #include "UI/BackgroundAudio.h"
+#include "UI/OnScreenDisplay.h"
 
 static inline const char *DeNull(const char *ptr) {
 	return ptr ? ptr : "";
@@ -115,18 +116,26 @@ void RetroAchievementsListScreen::CreateAchievementsTab(UI::ViewGroup *achieveme
 
 	achievements->Add(new GameAchievementSummaryView());
 
-	achievements->Add(new ItemHeader(ac->T("Unlocked achievements")));
+	CollapsibleSection *unlocked = new CollapsibleSection(StringFromFormat("%s (%d)", ac->T("Unlocked achievements"), (int)unlockedAchievements.size()));
+	unlocked->SetSpacing(2.0f);
 	for (auto &achievement : unlockedAchievements) {
-		achievements->Add(new AchievementView(achievement));
+		unlocked->Add(new AchievementView(achievement));
 	}
-	achievements->Add(new ItemHeader(ac->T("Locked achievements")));
+	achievements->Add(unlocked);
+
+	CollapsibleSection *locked = new CollapsibleSection(StringFromFormat("%s (%d)", ac->T("Locked achievements"), (int)lockedAchievements.size()));
+	unlocked->SetSpacing(2.0f);
 	for (auto &achievement : lockedAchievements) {
-		achievements->Add(new AchievementView(achievement));
+		locked->Add(new AchievementView(achievement));
 	}
-	achievements->Add(new ItemHeader(ac->T("Other achievements")));
+	achievements->Add(locked);
+
+	CollapsibleSection *other = new CollapsibleSection(StringFromFormat("%s (%d)", ac->T("Other achievements"), (int)otherAchievements.size()));
+	unlocked->SetSpacing(2.0f);
 	for (auto &achievement : otherAchievements) {
-		achievements->Add(new AchievementView(achievement));
+		other->Add(new AchievementView(achievement));
 	}
+	achievements->Add(other);
 }
 
 void RetroAchievementsListScreen::CreateLeaderboardsTab(UI::ViewGroup *viewGroup) {

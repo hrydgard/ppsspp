@@ -857,13 +857,22 @@ public:
 	//allow external agents to toggle the checkbox
 	virtual void Toggle();
 	virtual bool Toggled() const;
-private:
+
+protected:
 	float CalculateTextScale(const UIContext &dc, float availWidth) const;
 
 	bool *toggle_;
 	std::string text_;
 	std::string smallText_;
 	ImageID imageID_;
+};
+
+class CollapsibleHeader : public CheckBox {
+public:
+	CollapsibleHeader(bool *toggle, const std::string &text, LayoutParams *layoutParams = nullptr);
+	void Draw(UIContext &dc) override;
+	void GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert, float &w, float &h) const override;
+	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override;
 };
 
 class BitCheckBox : public CheckBox {

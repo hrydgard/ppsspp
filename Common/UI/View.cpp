@@ -612,6 +612,45 @@ std::string ItemHeader::DescribeText() const {
 	return ApplySafeSubstitutions(u->T("%1 heading"), text_);
 }
 
+CollapsibleHeader::CollapsibleHeader(bool *toggle, const std::string &text, LayoutParams *layoutParams)
+	: CheckBox(toggle, text, "", layoutParams) {
+	layoutParams_->width = FILL_PARENT;
+	layoutParams_->height = 40;
+}
+
+void CollapsibleHeader::Draw(UIContext &dc) {
+	Style style = dc.theme->itemStyle;
+	if (HasFocus()) style = dc.theme->itemFocusedStyle;
+	if (down_) style = dc.theme->itemDownStyle;
+	if (!IsEnabled()) style = dc.theme->itemDisabledStyle;
+
+	DrawBG(dc, style);
+
+	float xoff = 37.0f;
+
+	dc.SetFontStyle(dc.theme->uiFontSmall);
+	dc.DrawText(text_.c_str(), bounds_.x + 4 + xoff, bounds_.centerY(), dc.theme->headerStyle.fgColor, ALIGN_LEFT | ALIGN_VCENTER);
+	dc.Draw()->DrawImageCenterTexel(dc.theme->whiteImage, bounds_.x, bounds_.y2() - 2, bounds_.x2(), bounds_.y2(), dc.theme->headerStyle.fgColor);
+	dc.Draw()->DrawImageRotated(ImageID("I_ARROW"), bounds_.x + 20.0f, bounds_.y + 20.0f, 1.0f, *toggle_ ? -M_PI / 2 : M_PI);
+}
+
+void CollapsibleHeader::GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert, float &w, float &h) const {
+	Bounds bounds(0, 0, layoutParams_->width, layoutParams_->height);
+	if (bounds.w < 0) {
+		// If there's no size, let's grow as big as we want.
+		bounds.w = horiz.size == 0 ? MAX_ITEM_SIZE : horiz.size;
+	}
+	if (bounds.h < 0) {
+		bounds.h = vert.size == 0 ? MAX_ITEM_SIZE : vert.size;
+	}
+	ApplyBoundsBySpec(bounds, horiz, vert);
+	dc.MeasureTextRect(dc.theme->uiFontSmall, 1.0f, 1.0f, text_.c_str(), (int)text_.length(), bounds, &w, &h, ALIGN_LEFT | ALIGN_VCENTER);
+}
+
+void CollapsibleHeader::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
+	View::GetContentDimensions(dc, w, h);
+}
+
 void BorderView::Draw(UIContext &dc) {
 	Color color = 0xFFFFFFFF;
 	if (style_ == BorderStyle::HEADER_FG)
