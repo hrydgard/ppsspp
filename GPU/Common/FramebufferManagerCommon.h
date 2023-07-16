@@ -509,7 +509,6 @@ protected:
 	void BlitFramebufferDepth(VirtualFramebuffer *src, VirtualFramebuffer *dst);
 
 	void ResizeFramebufFBO(VirtualFramebuffer *vfb, int w, int h, bool force = false, bool skipCopy = false);
-	void ShowScreenResolution();
 
 	bool ShouldDownloadFramebufferColor(const VirtualFramebuffer *vfb) const;
 	bool ShouldDownloadFramebufferDepth(const VirtualFramebuffer *vfb) const;
