@@ -488,6 +488,9 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 			case BrowseFileType::DB:
 				picker->FileTypeFilter->Append(".db");
 				break;
+			case BrowseFileType::SOUND_EFFECT:
+				picker->FileTypeFilter->Append(".wav");
+				break;
 			case BrowseFileType::ANY:
 				picker->FileTypeFilter->Append("*");
 				break;

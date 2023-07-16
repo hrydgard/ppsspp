@@ -312,6 +312,9 @@ bool MainUI::HandleCustomEvent(QEvent *e) {
 		case BrowseFileType::DB:
 			filter = "DB files (*.db)";
 			break;
+		case BrowseFileType::SOUND_EFFECT:
+			filter = "WAVE files (*.wav)";
+			break;
 		case BrowseFileType::ANY:
 			break;
 		}

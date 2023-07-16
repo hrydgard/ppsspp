@@ -90,6 +90,7 @@ enum class BrowseFileType {
 	IMAGE,
 	INI,
 	DB,
+	SOUND_EFFECT,
 	ANY,
 };
 

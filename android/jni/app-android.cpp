@@ -1066,8 +1066,18 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 		PushCommand("browse_image", StringFromFormat("%d", requestId));
 		return true;
 	case SystemRequestType::BROWSE_FOR_FILE:
-		PushCommand("browse_file", StringFromFormat("%d", requestId));
+	{
+		BrowseFileType fileType = (BrowseFileType)param3;
+		switch (fileType) {
+		case BrowseFileType::SOUND_EFFECT:
+			PushCommand("browse_file_audio", StringFromFormat("%d", requestId));
+			break;
+		default:
+			PushCommand("browse_file", StringFromFormat("%d", requestId));
+			break;
+		}
 		return true;
+	}
 	case SystemRequestType::BROWSE_FOR_FOLDER:
 		PushCommand("browse_folder", StringFromFormat("%d", requestId));
 		return true;
