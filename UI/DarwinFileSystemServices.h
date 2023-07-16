@@ -9,6 +9,7 @@
 
 #include "ppsspp_config.h"
 #include "Common/File/Path.h"
+#include "Common/System/Request.h"
 
 #define PreferredMemoryStickUserDefaultsKey "UserPreferredMemoryStickDirectoryPath"
 
@@ -18,18 +19,20 @@ typedef std::function<void (bool, Path)> DarwinDirectoryPanelCallback;
 /// on Darwin platforms.
 class DarwinFileSystemServices {
 public:
-    /// Present a pannel to choose the directory as the memory stick manager.
-	void presentDirectoryPanel(DarwinDirectoryPanelCallback,
-							   bool allowFiles = false,
-							   bool allowDirectories = true);
-    
-    static Path appropriateMemoryStickDirectoryToUse();
-    static void setUserPreferredMemoryStickDirectory(Path);
+	/// Present a panel to choose a file or directory.
+	void presentDirectoryPanel(
+		DarwinDirectoryPanelCallback,
+		bool allowFiles = false,
+		bool allowDirectories = true,
+		BrowseFileType fileType = BrowseFileType::ANY);
+
+	static Path appropriateMemoryStickDirectoryToUse();
+	static void setUserPreferredMemoryStickDirectory(Path);
 private:
-    static Path __defaultMemoryStickPath();
+	static Path __defaultMemoryStickPath();
 #if PPSSPP_PLATFORM(IOS)
-    // iOS only, needed for UIDocumentPickerViewController
-    void *__pickerDelegate = NULL;
+	// iOS only, needed for UIDocumentPickerViewController
+	void *__pickerDelegate = NULL;
 #endif // PPSSPP_PLATFORM(IOS)
 };
 
