@@ -215,7 +215,7 @@ static inline __m128i LightColorScaleBy512SSE4(__m128i factor, __m128i color, __
 	__m128i result18 = _mm_madd_epi16(factor, color);
 	// But now with 18 bits, we need a full multiply.
 	__m128i multiplied = _mm_mullo_epi32(result18, scale);
-	return _mm_srai_epi32(multiplied, 19);
+	return _mm_srai_epi32(multiplied, 10 + 9);
 }
 #endif
 
@@ -240,9 +240,9 @@ static Vec4<int> LightColorScaleBy512(const Vec4<int> &factor, const Vec4<int> &
 		return LightColorScaleBy512SSE4(factor.ivec, color.ivec, _mm_set1_epi32(scale));
 #elif PPSSPP_ARCH(ARM64_NEON)
 	int32x4_t multiplied = vmulq_n_s32(vmulq_s32(factor.ivec, color.ivec), scale);
-	return vshrq_n_s32(multiplied, 19);
+	return vshrq_n_s32(multiplied, 10 + 19);
 #endif
-	return (factor * color * scale) / (1024 * 512);
+	return (factor * color * scale) >> (10 + 9);
 }
 
 static inline void LightColorSum(Vec4<int> &sum, const Vec4<int> &src) {
@@ -296,25 +296,26 @@ static void ProcessSIMD(VertexData &vertex, const WorldCoords &worldpos, const W
 		// L =  vector from vertex to light source
 		// TODO: Should transfer the light positions to world/view space for these calculations?
 		Vec3<float> L = lstate.pos;
-		float att = 1.0f;
+		float attspot = 1.0f;
 		if (!lstate.directional) {
 			L -= worldpos;
 			// TODO: Should this normalize (0, 0, 0) to (0, 0, 1)?
 			float d = L.NormalizeOr001();
 
-			att = 1.0f / Dot33(lstate.att, Vec3f(1.0f, d, d * d));
+			float att = 1.0f / Dot33(lstate.att, Vec3f(1.0f, d, d * d));
 			if (!(att > 0.0f))
 				att = 0.0f;
 			else if (att > 1.0f)
 				att = 1.0f;
+			attspot = att;
 		}
 
-		float spot = 1.0f;
 		if (lstate.spot) {
 			float rawSpot = Dot33(lstate.spotDir, L);
 			if (std::isnan(rawSpot))
 				rawSpot = std::signbit(rawSpot) ? 0.0f : 1.0f;
 
+			float spot = 1.0f;
 			if (rawSpot >= lstate.spotCutoff) {
 				spot = pspLightPow(rawSpot, lstate.spotExp);
 				if (std::isnan(spot))
@@ -322,14 +323,16 @@ static void ProcessSIMD(VertexData &vertex, const WorldCoords &worldpos, const W
 			} else {
 				spot = 0.0f;
 			}
+
+			attspot *= spot;
 		}
 
 		// ambient lighting
 		if (lstate.ambient) {
-			int attspot = (int)LightCeil<useSSE4>(256 * 2 * att * spot + 1);
-			if (attspot > 512)
-				attspot = 512;
-			Vec4<int> lambient = LightColorScaleBy512<useSSE4>(lstate.ambientColorFactor, mac, attspot);
+			int attspot512 = (int)LightCeil<useSSE4>(256 * 2 * attspot + 1);
+			if (attspot512 > 512)
+				attspot512 = 512;
+			Vec4<int> lambient = LightColorScaleBy512<useSSE4>(lstate.ambientColorFactor, mac, attspot512);
 			LightColorSum(final_color, lambient);
 		}
 
@@ -343,7 +346,7 @@ static void ProcessSIMD(VertexData &vertex, const WorldCoords &worldpos, const W
 		}
 
 		if (lstate.diffuse && diffuse_factor > 0.0f) {
-			int diffuse_attspot = (int)LightCeil<useSSE4>(256 * 2 * att * spot * diffuse_factor + 1);
+			int diffuse_attspot = (int)LightCeil<useSSE4>(256 * 2 * attspot * diffuse_factor + 1);
 			if (diffuse_attspot > 512)
 				diffuse_attspot = 512;
 			Vec4<int> mdc = state.colorForDiffuse ? colorFactor : state.material.diffuseColorFactor;
@@ -358,7 +361,7 @@ static void ProcessSIMD(VertexData &vertex, const WorldCoords &worldpos, const W
 			specular_factor = pspLightPow(specular_factor, state.specularExp);
 
 			if (specular_factor > 0.0f) {
-				int specular_attspot = (int)LightCeil<useSSE4>(256 * 2 * att * spot * specular_factor + 1);
+				int specular_attspot = (int)LightCeil<useSSE4>(256 * 2 * attspot * specular_factor + 1);
 				if (specular_attspot > 512)
 					specular_attspot = 512;
 

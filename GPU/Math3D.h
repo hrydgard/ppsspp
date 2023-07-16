@@ -1368,6 +1368,16 @@ inline Vec3<float> Vec3<float>::operator + (const Vec3 &other) const {
 }
 
 template<>
+inline void Vec3<float>::operator -= (const Vec3<float> &other) {
+	vec = _mm_sub_ps(SAFE_M128(vec), SAFE_M128(other.vec));
+}
+
+template<>
+inline Vec3<float> Vec3<float>::operator - (const Vec3 &other) const {
+	return Vec3<float>(_mm_sub_ps(SAFE_M128(vec), SAFE_M128(other.vec)));
+}
+
+template<>
 inline Vec3<float> Vec3<float>::operator * (const Vec3 &other) const {
 	return Vec3<float>(_mm_mul_ps(SAFE_M128(vec), SAFE_M128(other.vec)));
 }
