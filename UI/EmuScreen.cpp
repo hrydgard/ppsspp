@@ -1551,10 +1551,10 @@ void EmuScreen::render() {
 		}
 
 		PSP_EndHostFrame();
-
-		// This must happen after PSP_EndHostFrame so that things like push buffers are end-frame'd before we start destroying stuff.
-		checkPowerDown();
 	}
+
+	// This must happen after PSP_EndHostFrame so that things like push buffers are end-frame'd before we start destroying stuff.
+	checkPowerDown();
 
 	if (invalid_)
 		return;
