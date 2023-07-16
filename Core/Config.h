@@ -29,7 +29,7 @@
 
 extern const char *PPSSPP_GIT_VERSION;
 
-enum ChatPositions {
+enum class ScreenEdgePosition {
 	BOTTOM_LEFT = 0,
 	BOTTOM_CENTER = 1,
 	BOTOM_RIGHT = 2,
