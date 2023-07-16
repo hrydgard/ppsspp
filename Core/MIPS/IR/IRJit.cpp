@@ -229,6 +229,7 @@ void IRJit::RunLoopUntil(u64 globalticks) {
 				IRBlock *block = blocks_.GetBlock(data);
 				u32 startPC = mips_->pc;
 				mips_->pc = IRInterpret(mips_, block->GetInstructions(), block->GetNumInstructions());
+				// Note: this will "jump to zero" on a badly constructed block missing exits.
 				if (!Memory::IsValidAddress(mips_->pc) || (mips_->pc & 3) != 0) {
 					Core_ExecException(mips_->pc, startPC, ExecExceptionType::JUMP);
 					break;
