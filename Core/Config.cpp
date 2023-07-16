@@ -265,11 +265,11 @@ static bool DefaultSasThread() {
 }
 
 static const ConfigSetting achievementSettings[] = {
+	// Core settings
 	ConfigSetting("AchievementsEnable", &g_Config.bAchievementsEnable, true, CfgFlag::DEFAULT),
 	ConfigSetting("AchievementsChallengeMode", &g_Config.bAchievementsChallengeMode, false, CfgFlag::DEFAULT),
 	ConfigSetting("AchievementsEncoreMode", &g_Config.bAchievementsEncoreMode, false, CfgFlag::DEFAULT),
 	ConfigSetting("AchievementsUnofficial", &g_Config.bAchievementsUnofficial, false, CfgFlag::DEFAULT),
-	ConfigSetting("AchievementsSoundEffects", &g_Config.bAchievementsSoundEffects, true, CfgFlag::DEFAULT),
 	ConfigSetting("AchievementsLogBadMemReads", &g_Config.bAchievementsLogBadMemReads, false, CfgFlag::DEFAULT),
 
 	// Achievements login info. Note that password is NOT stored, only a login token.
@@ -277,6 +277,10 @@ static const ConfigSetting achievementSettings[] = {
 	// from the ini if manually entered (useful when testing various builds on Android).
 	ConfigSetting("AchievementsToken", &g_Config.sAchievementsToken, "", CfgFlag::DONT_SAVE),
 	ConfigSetting("AchievementsUserName", &g_Config.sAchievementsUserName, "", CfgFlag::DEFAULT),
+
+	// Customizations
+	ConfigSetting("AchievementsUnlockAudioFile", &g_Config.sAchievementsUnlockAudioFile, "", CfgFlag::DEFAULT),
+	ConfigSetting("AchievementsLeaderboardSubmitAudioFile", &g_Config.sAchievementsLeaderboardSubmitAudioFile, "", CfgFlag::DEFAULT),
 };
 
 static const ConfigSetting cpuSettings[] = {

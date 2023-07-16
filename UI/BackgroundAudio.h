@@ -19,16 +19,20 @@ struct Sample {
 	int16_t *data_;
 	int length_;  // stereo samples.
 	int rateInHz_;  // sampleRate
+
+	static Sample *Load(const std::string &path);
 };
 
 // Mixer for things played on top of everything.
 class SoundEffectMixer {
 public:
-	static Sample *LoadSample(const std::string &path);
 	void LoadSamples();
 
 	void Mix(int16_t *buffer, int sz, int sampleRateHz);
 	void Play(UI::UISound sfx, float volume);
+
+	void UpdateSample(UI::UISound sound, Sample *sample);
+	void LoadDefaultSample(UI::UISound sound);
 
 	std::vector<std::unique_ptr<Sample>> samples_;
 
@@ -39,6 +43,7 @@ public:
 		bool done;
 	};
 
+private:
 	std::mutex mutex_;
 	std::vector<PlayInstance> queue_;
 	std::vector<PlayInstance> plays_;

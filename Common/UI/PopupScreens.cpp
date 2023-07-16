@@ -670,6 +670,10 @@ FileChooserChoice::FileChooserChoice(std::string *value, const std::string &text
 }
 
 std::string FileChooserChoice::ValueText() const {
+	if (value_->empty()) {
+		auto di = GetI18NCategory(I18NCat::DIALOG);
+		return di->T("Default");
+	}
 	Path path(*value_);
 	return path.GetFilename();
 }
