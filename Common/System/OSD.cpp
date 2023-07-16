@@ -7,6 +7,9 @@
 
 OnScreenDisplay g_OSD;
 
+// Effectively forever.
+constexpr double forever_s = 10000000000.0;
+
 void OnScreenDisplay::Update() {
 	std::lock_guard<std::mutex> guard(mutex_);
 
@@ -169,7 +172,7 @@ void OnScreenDisplay::ShowChallengeIndicator(int achievementID, bool show) {
 	entry.numericID = achievementID;
 	entry.type = OSDType::ACHIEVEMENT_CHALLENGE_INDICATOR;
 	entry.startTime = now;
-	entry.endTime = now + 10000000.0;  // Don't auto-fadeout.
+	entry.endTime = now + forever_s;
 	sideEntries_.insert(sideEntries_.begin(), entry);
 }
 
@@ -200,7 +203,7 @@ void OnScreenDisplay::ShowLeaderboardTracker(int leaderboardTrackerID, const cha
 	entry.numericID = leaderboardTrackerID;
 	entry.type = OSDType::LEADERBOARD_TRACKER;
 	entry.startTime = now;
-	entry.endTime = now + 10000000.0;  // Don't auto-fadeout
+	entry.endTime = now + forever_s;
 	if (trackerText) {
 		entry.text = trackerText;
 	}
