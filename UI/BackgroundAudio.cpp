@@ -481,8 +481,11 @@ void SoundEffectMixer::LoadDefaultSample(UI::UISound sound) {
 	default:
 		return;
 	}
-
-	samples_[(size_t)sound] = std::unique_ptr<Sample>(Sample::Load(filename));
+	Sample *sample = Sample::Load(filename);
+	if (!sample) {
+		ERROR_LOG(SYSTEM, "Failed to load the default sample for UI sound %d", (int)sound);
+	}
+	samples_[(size_t)sound] = std::unique_ptr<Sample>(sample);
 }
 
 void SoundEffectMixer::LoadSamples() {
