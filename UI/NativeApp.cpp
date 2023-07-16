@@ -328,11 +328,6 @@ bool CreateDirectoriesAndroid() {
 		return false;
 	}
 
-	if (createNoMedia) {
-		// Create a nomedia file in the root PSP directory.
-		File::CreateEmptyFile(GetSysDirectory(DIRECTORY_PSP) / ".nomedia");
-	}
-
 	static const PSPDirectories sysDirs[] = {
 		DIRECTORY_CHEATS,
 		DIRECTORY_SAVEDATA,
@@ -347,6 +342,10 @@ bool CreateDirectoriesAndroid() {
 	for (auto dir : sysDirs) {
 		Path path = GetSysDirectory(dir);
 		File::CreateFullPath(path);
+		if (createNoMedia) {
+			// Create a nomedia file in each specified subdirectory.
+			File::CreateEmptyFile(path / ".nomedia");
+		}
 	}
 
 	return true;
