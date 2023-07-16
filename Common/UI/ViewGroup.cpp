@@ -1181,6 +1181,8 @@ StickyChoice *ChoiceStrip::Choice(int index) {
 }
 
 CollapsibleSection::CollapsibleSection(const std::string &title, LayoutParams *layoutParams) : LinearLayout(ORIENT_VERTICAL, layoutParams) {
+	SetSpacing(0.0f);
+
 	CollapsibleHeader *heading = new CollapsibleHeader(&open_, title);
 	views_.push_back(heading);
 	heading->OnClick.Add([=](UI::EventParams &) {

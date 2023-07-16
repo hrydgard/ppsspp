@@ -116,19 +116,22 @@ void RetroAchievementsListScreen::CreateAchievementsTab(UI::ViewGroup *achieveme
 
 	achievements->Add(new GameAchievementSummaryView());
 
-	CollapsibleSection *unlocked = new CollapsibleSection(ac->T("Unlocked achievements"));
+	CollapsibleSection *unlocked = new CollapsibleSection(StringFromFormat("%s (%d)", ac->T("Unlocked achievements"), (int)unlockedAchievements.size()));
+	unlocked->SetSpacing(2.0f);
 	for (auto &achievement : unlockedAchievements) {
 		unlocked->Add(new AchievementView(achievement));
 	}
 	achievements->Add(unlocked);
 
-	CollapsibleSection *locked = new CollapsibleSection(ac->T("Locked achievements"));
+	CollapsibleSection *locked = new CollapsibleSection(StringFromFormat("%s (%d)", ac->T("Locked achievements"), (int)lockedAchievements.size()));
+	unlocked->SetSpacing(2.0f);
 	for (auto &achievement : lockedAchievements) {
 		locked->Add(new AchievementView(achievement));
 	}
 	achievements->Add(locked);
 
-	CollapsibleSection *other = new CollapsibleSection(ac->T("Other achievements"));
+	CollapsibleSection *other = new CollapsibleSection(StringFromFormat("%s (%d)", ac->T("Other achievements"), (int)otherAchievements.size()));
+	unlocked->SetSpacing(2.0f);
 	for (auto &achievement : otherAchievements) {
 		other->Add(new AchievementView(achievement));
 	}
