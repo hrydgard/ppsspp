@@ -246,6 +246,7 @@ void RetroAchievementsSettingsScreen::CreateAccountTab(UI::ViewGroup *viewGroup)
 			loginButton->OnClick.Add([=](UI::EventParams &) -> UI::EventReturn {
 				if (!username_.empty() && !password_.empty()) {
 					Achievements::LoginAsync(username_.c_str(), password_.c_str());
+					memset(&password_[0], 0, password_.size());
 					password_.clear();
 				}
 				return UI::EVENT_DONE;
