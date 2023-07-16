@@ -401,16 +401,20 @@ void MeasureLeaderboardEntry(const UIContext &dc, const rc_client_leaderboard_en
 }
 
 // Graphical
-void RenderAchievement(UIContext &dc, const rc_client_achievement_t *achievement, AchievementRenderStyle style, const Bounds &bounds, float alpha, float startTime, float time_s) {
+void RenderAchievement(UIContext &dc, const rc_client_achievement_t *achievement, AchievementRenderStyle style, const Bounds &bounds, float alpha, float startTime, float time_s, bool hasFocus) {
 	using namespace UI;
 	UI::Drawable background = UI::Drawable(dc.theme->backgroundColor);
+
+	if (hasFocus) {
+		background = dc.theme->itemFocusedStyle.background;
+	}
 
 	// Set some alpha, if displayed in list.
 	if (style == AchievementRenderStyle::LISTED) {
 		background.color = colorAlpha(background.color, 0.6f);
 	}
 
-	if (!achievement->unlocked) {
+	if (!achievement->unlocked && !hasFocus) {
 		// Make the background color gray.
 		// TODO: Different colors in challenge mode, or even in the "re-take achievements" mode when we add that?
 		background.color = (background.color & 0xFF000000) | 0x706060;
@@ -544,11 +548,15 @@ void RenderGameAchievementSummary(UIContext &dc, const Bounds &bounds, float alp
 	dc.RebindTexture();
 }
 
-void RenderLeaderboardSummary(UIContext &dc, const rc_client_leaderboard_t *leaderboard, AchievementRenderStyle style, const Bounds &bounds, float alpha, float startTime, float time_s) {
+void RenderLeaderboardSummary(UIContext &dc, const rc_client_leaderboard_t *leaderboard, AchievementRenderStyle style, const Bounds &bounds, float alpha, float startTime, float time_s, bool hasFocus) {
 	using namespace UI;
-	UI::Drawable background = UI::Drawable(dc.theme->backgroundColor);
-	background.color = colorAlpha(background.color, alpha);
-	uint32_t fgColor = colorAlpha(dc.theme->itemStyle.fgColor, alpha);
+	UI::Drawable background = dc.theme->itemStyle.background;
+	if (hasFocus) {
+		background = dc.theme->itemFocusedStyle.background;
+	}
+
+	background.color = alphaMul(background.color, alpha);
+	uint32_t fgColor = alphaMul(dc.theme->itemStyle.fgColor, alpha);
 
 	if (style == AchievementRenderStyle::UNLOCKED) {
 		float mixWhite = pow(Clamp((float)(1.0f - (time_s - startTime)), 0.0f, 1.0f), 3.0f);
@@ -583,9 +591,12 @@ void RenderLeaderboardSummary(UIContext &dc, const rc_client_leaderboard_t *lead
 	dc.RebindTexture();
 }
 
-void RenderLeaderboardEntry(UIContext &dc, const rc_client_leaderboard_entry_t *entry, const Bounds &bounds, float alpha) {
+void RenderLeaderboardEntry(UIContext &dc, const rc_client_leaderboard_entry_t *entry, const Bounds &bounds, float alpha, bool hasFocus) {
 	using namespace UI;
 	UI::Drawable background = dc.theme->itemStyle.background;
+	if (hasFocus) {
+		background = dc.theme->itemFocusedStyle.background;
+	}
 
 	background.color = alphaMul(background.color, alpha);
 	uint32_t fgColor = alphaMul(dc.theme->itemStyle.fgColor, alpha);
@@ -635,7 +646,7 @@ void RenderLeaderboardEntry(UIContext &dc, const rc_client_leaderboard_entry_t *
 }
 
 void AchievementView::Draw(UIContext &dc) {
-	RenderAchievement(dc, achievement_, AchievementRenderStyle::LISTED, bounds_, 1.0f, 0.0f, 0.0f);
+	RenderAchievement(dc, achievement_, AchievementRenderStyle::LISTED, bounds_, 1.0f, 0.0f, 0.0f, HasFocus());
 }
 
 void AchievementView::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
@@ -668,7 +679,7 @@ void GameAchievementSummaryView::GetContentDimensions(const UIContext &dc, float
 }
 
 void LeaderboardSummaryView::Draw(UIContext &dc) {
-	RenderLeaderboardSummary(dc, leaderboard_, AchievementRenderStyle::LISTED, bounds_, 1.0f, 0.0f, 0.0f);
+	RenderLeaderboardSummary(dc, leaderboard_, AchievementRenderStyle::LISTED, bounds_, 1.0f, 0.0f, 0.0f, HasFocus());
 }
 
 void LeaderboardSummaryView::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
@@ -676,7 +687,7 @@ void LeaderboardSummaryView::GetContentDimensions(const UIContext &dc, float &w,
 }
 
 void LeaderboardEntryView::Draw(UIContext &dc) {
-	RenderLeaderboardEntry(dc, entry_, bounds_, 1.0f);
+	RenderLeaderboardEntry(dc, entry_, bounds_, 1.0f, HasFocus());
 }
 
 void LeaderboardEntryView::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
