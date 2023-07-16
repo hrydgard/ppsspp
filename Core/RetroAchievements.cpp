@@ -228,7 +228,7 @@ static void event_handler_callback(const rc_client_event_t *event, rc_client_t *
 		const rc_client_game_t *gameInfo = rc_client_get_game_info(g_rcClient);
 
 		// TODO: Translation?
-		std::string title = ReplaceAll(ac->T("Mastered %1"), "%1", gameInfo->title);
+		std::string title = ApplySafeSubstitutions(ac->T("Mastered %1"), gameInfo->title);
 		rc_client_user_game_summary_t summary;
 		rc_client_get_user_game_summary(g_rcClient, &summary);
 
@@ -244,16 +244,18 @@ static void event_handler_callback(const rc_client_event_t *event, rc_client_t *
 	case RC_CLIENT_EVENT_LEADERBOARD_STARTED:
 		// A leaderboard attempt has started. The handler may show a message with the leaderboard title and /or description indicating the attempt started.
 		INFO_LOG(ACHIEVEMENTS, "Leaderboard attempt started: %s", event->leaderboard->title);
-		g_OSD.Show(OSDType::MESSAGE_INFO, ReplaceAll(ac->T("%1: Leaderboard attempt started"), "%1", event->leaderboard->title), DeNull(event->leaderboard->description), 3.0f);
+		g_OSD.Show(OSDType::MESSAGE_INFO, ApplySafeSubstitutions(ac->T("%1: Leaderboard attempt started"), event->leaderboard->title), DeNull(event->leaderboard->description), 3.0f);
 		break;
 	case RC_CLIENT_EVENT_LEADERBOARD_FAILED:
 		NOTICE_LOG(ACHIEVEMENTS, "Leaderboard attempt failed: %s", event->leaderboard->title);
-		g_OSD.Show(OSDType::MESSAGE_INFO, ReplaceAll(ac->T("%1: Leaderboard attempt failed"), "%1", event->leaderboard->title), 3.0f);
+		g_OSD.Show(OSDType::MESSAGE_INFO, ApplySafeSubstitutions(ac->T("%1: Leaderboard attempt failed"), event->leaderboard->title), 3.0f);
 		// A leaderboard attempt has failed.
 		break;
 	case RC_CLIENT_EVENT_LEADERBOARD_SUBMITTED:
 		NOTICE_LOG(ACHIEVEMENTS, "Leaderboard result submitted: %s", event->leaderboard->title);
-		g_OSD.Show(OSDType::MESSAGE_SUCCESS, ReplaceAll(ReplaceAll(ac->T("%1: Submitting leaderboard score: %2!"), "%1", DeNull(event->leaderboard->title)), "%2", DeNull(event->leaderboard->tracker_value)), DeNull(event->leaderboard->description), 3.0f);
+		g_OSD.Show(OSDType::MESSAGE_SUCCESS,
+			ApplySafeSubstitutions(ac->T("%1: Submitting leaderboard score: %2!"), DeNull(event->leaderboard->title), DeNull(event->leaderboard->tracker_value)),
+			DeNull(event->leaderboard->description), 3.0f);
 		System_PostUIMessage("play_sound", "leaderboard_submitted");
 		break;
 	case RC_CLIENT_EVENT_ACHIEVEMENT_CHALLENGE_INDICATOR_SHOW:

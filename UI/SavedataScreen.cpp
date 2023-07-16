@@ -409,7 +409,7 @@ void SavedataButton::Draw(UIContext &dc) {
 
 std::string SavedataButton::DescribeText() const {
 	auto u = GetI18NCategory(I18NCat::UI_ELEMENTS);
-	return ReplaceAll(u->T("%1 button"), "%1", title_) + "\n" + subtitle_;
+	return ApplySafeSubstitutions(u->T("%1 button"), title_) + "\n" + subtitle_;
 }
 
 SavedataBrowser::SavedataBrowser(const Path &path, UI::LayoutParams *layoutParams)
@@ -465,9 +465,9 @@ void SavedataBrowser::SetSearchFilter(const std::string &filter) {
 	if (gameList_)
 		searchPending_ = true;
 	if (noMatchView_)
-		noMatchView_->SetText(ReplaceAll(sa->T("Nothing matching '%1' was found."), "%1", filter));
+		noMatchView_->SetText(ApplySafeSubstitutions(sa->T("Nothing matching '%1' was found."), filter));
 	if (searchingView_)
-		searchingView_->SetText(ReplaceAll(sa->T("Showing matches for '%1'."), "%1", filter));
+		searchingView_->SetText(ApplySafeSubstitutions(sa->T("Showing matches for '%1'."), filter));
 }
 
 void SavedataBrowser::SetSortOption(SavedataSortOption opt) {
