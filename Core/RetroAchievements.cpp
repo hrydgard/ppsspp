@@ -161,12 +161,8 @@ static uint32_t read_memory_callback(uint32_t address, uint8_t *buffer, uint32_t
 			WARN_LOG(G3D, "RetroAchievements PeekMemory: Bad address %08x (%d bytes) (%08x was passed in)", address, num_bytes, orig_address);
 		}
 
-		// TEMPORARY HACK: rcheevos' handling of bad memory accesses causes a LOT of extra work, since
-		// for some reason these invalid accesses keeps happening. So we'll temporarily to back to the previous
-		// behavior of simply returning 0. This is fixed in a PR upstream, not yet merged.
-		uint32_t temp = 0;
-		memcpy(buffer, &temp, num_bytes);
-		return num_bytes;
+		// This tells rcheevos that the access was bad, which should now be handled properly.
+		return 0;
 	}
 
 	Memory::MemcpyUnchecked(buffer, address, num_bytes);

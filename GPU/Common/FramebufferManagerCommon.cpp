@@ -2604,13 +2604,6 @@ void FramebufferManagerCommon::NotifyRenderResized(int msaaLevel) {
 	// No drawing is allowed here. This includes anything that might potentially touch a command buffer, like creating images!
 	// So we need to defer the post processing initialization.
 	updatePostShaders_ = true;
-
-#ifdef _WIN32
-	// Seems related - if you're ok with numbers all the time, show some more :)
-	if (g_Config.iShowStatusFlags != 0) {
-		ShowScreenResolution();
-	}
-#endif
 }
 
 void FramebufferManagerCommon::NotifyConfigChanged() {
@@ -2698,24 +2691,6 @@ void FramebufferManagerCommon::UpdateFramebufUsage(VirtualFramebuffer *vfb) {
 	checkFlag(FB_USAGE_TEXTURE, vfb->last_frame_used);
 	checkFlag(FB_USAGE_RENDER_COLOR, vfb->last_frame_render);
 	checkFlag(FB_USAGE_CLUT, vfb->last_frame_clut);
-}
-
-void FramebufferManagerCommon::ShowScreenResolution() {
-	auto gr = GetI18NCategory(I18NCat::GRAPHICS);
-
-	std::ostringstream messageStream;
-	messageStream << gr->T("Internal Resolution") << ": ";
-	messageStream << PSP_CoreParameter().renderWidth << "x" << PSP_CoreParameter().renderHeight << " ";
-	if (postShaderIsUpscalingFilter_) {
-		messageStream << gr->T("(upscaling)") << " ";
-	} else if (postShaderIsSupersampling_) {
-		messageStream << gr->T("(supersampling)") << " ";
-	}
-	messageStream << gr->T("Window Size") << ": ";
-	messageStream << PSP_CoreParameter().pixelWidth << "x" << PSP_CoreParameter().pixelHeight;
-
-	g_OSD.Show(OSDType::MESSAGE_INFO, messageStream.str(), 0.0f, "resize");
-	INFO_LOG(SYSTEM, "%s", messageStream.str().c_str());
 }
 
 void FramebufferManagerCommon::ClearAllDepthBuffers() {
