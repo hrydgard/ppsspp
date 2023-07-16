@@ -56,6 +56,9 @@ bool IsActive();
 // Returns true if unofficial achievements are enabled.
 bool UnofficialEnabled();
 
+// Returns true if encore-mode is active.
+bool EncoreModeActive();
+
 // Returns true if the emulator should hold off on executing game code, such as during game identification.
 bool IsBlockingExecution();
 

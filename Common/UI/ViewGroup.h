@@ -290,7 +290,6 @@ private:
 	bool topTabs_ = false;
 };
 
-
 class TabHolder : public LinearLayout {
 public:
 	TabHolder(Orientation orientation, float stripSize, LayoutParams *layoutParams = 0);
@@ -323,6 +322,14 @@ private:
 	int currentTab_ = 0;
 	std::vector<View *> tabs_;
 	std::vector<AnchorTranslateTween *> tabTweens_;
+};
+
+class CollapsibleSection : public LinearLayout {
+public:
+	CollapsibleSection(const std::string &title, LayoutParams *layoutParams = nullptr);
+
+private:
+	bool open_ = true;
 };
 
 }  // namespace UI
