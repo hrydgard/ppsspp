@@ -386,7 +386,7 @@ void MeasureGameAchievementSummary(const UIContext &dc, float *w, float *h) {
 	dc.MeasureText(dc.theme->uiFont, 1.0f, 1.0f, "Wg", &tw, &th);
 
 	dc.MeasureText(dc.theme->uiFont, 0.66f, 0.66f, description.c_str(), w, h);
-	*h += 12.0f + th;
+	*h += 8.0f + th;
 	*w += 8.0f;
 }
 
