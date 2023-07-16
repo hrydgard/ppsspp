@@ -405,7 +405,6 @@ void EmuScreen::bootComplete() {
 
 EmuScreen::~EmuScreen() {
 	// If we were invalid, it would already be shutdown.
-	Achievements::UnloadGame();
 	if (!invalid_ || bootPending_) {
 		PSP_Shutdown();
 	}
