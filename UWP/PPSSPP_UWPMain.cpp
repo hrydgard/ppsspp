@@ -184,7 +184,7 @@ void PPSSPP_UWPMain::BootToLaunchFile() {
 		launchItem.SetState(true);
 		std::string path = launchItem.GetFilePath();
 		if (!path.empty()) {
-			NativeMessageReceived("boot", path.c_str());
+			System_PostUIMessage("boot", path.c_str());
 		}
 	}
 }
