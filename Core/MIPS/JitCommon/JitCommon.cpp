@@ -45,6 +45,8 @@
 #include "../x86/Jit.h"
 #elif PPSSPP_ARCH(MIPS)
 #include "../MIPS/MipsJit.h"
+#elif PPSSPP_ARCH(RISCV64)
+#include "../RiscV/RiscVJit.h"
 #else
 #include "../fake/FakeJit.h"
 #endif
@@ -108,6 +110,8 @@ namespace MIPSComp {
 		return new MIPSComp::Jit(mipsState);
 #elif PPSSPP_ARCH(MIPS)
 		return new MIPSComp::MipsJit(mipsState);
+#elif PPSSPP_ARCH(RISCV64)
+		return new MIPSComp::RiscVJit(mipsState);
 #else
 		return new MIPSComp::FakeJit(mipsState);
 #endif
