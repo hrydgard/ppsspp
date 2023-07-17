@@ -736,7 +736,6 @@ public:
 protected:
 	// hackery
 	virtual bool IsSticky() const { return false; }
-	virtual float CalculateTextScale(const UIContext &dc, float availWidth) const;
 
 	std::string text_;
 	std::string smallText_;
@@ -859,8 +858,6 @@ public:
 	virtual bool Toggled() const;
 
 protected:
-	float CalculateTextScale(const UIContext &dc, float availWidth) const;
-
 	bool *toggle_;
 	std::string text_;
 	std::string smallText_;

@@ -89,6 +89,11 @@ public:
 	void DrawTextShadow(const char *str, float x, float y, uint32_t color, int align = 0);
 	void DrawTextRect(const char *str, const Bounds &bounds, uint32_t color, int align = 0);
 	void DrawTextShadowRect(const char *str, const Bounds &bounds, uint32_t color, int align = 0);
+	// Will squeeze the text into the bounds if needed.
+	void DrawTextRectSqueeze(const char *str, const Bounds &bounds, uint32_t color, int align = 0);
+
+	float CalculateTextScale(const char *text, float availWidth, float availHeight) const;
+
 	void FillRect(const UI::Drawable &drawable, const Bounds &bounds);
 	void DrawRectDropShadow(const Bounds &bounds, float radius, float alpha, uint32_t color = 0);
 	void DrawImageVGradient(ImageID image, uint32_t color1, uint32_t color2, const Bounds &bounds);
