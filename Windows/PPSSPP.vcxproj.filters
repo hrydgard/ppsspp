@@ -280,7 +280,7 @@
     <ClCompile Include="Debugger\WatchItemWindow.cpp">
       <Filter>Windows\Debugger</Filter>
     </ClCompile>
-    <ClCompile Include="Debugger\ScanRemoveWindow.cpp">
+    <ClCompile Include="Debugger\EditSymbolsWindow.cpp">
       <Filter>Windows\Debugger</Filter>
     </ClCompile>
   </ItemGroup>
@@ -571,7 +571,7 @@
     <ClInclude Include="Debugger\WatchItemWindow.h">
       <Filter>Windows\Debugger</Filter>
     </ClInclude>
-    <ClInclude Include="Debugger\ScanRemoveWindow.h">
+    <ClInclude Include="Debugger\EditSymbolsWindow.h">
       <Filter>Windows\Debugger</Filter>
     </ClInclude>
     <ClInclude Include="..\SDL\CocoaBarItems.h">

@@ -18,7 +18,7 @@
 #include "Windows/Debugger/Debugger_MemoryDlg.h"
 #include "Windows/Debugger/DebuggerShared.h"
 #include "Windows/Debugger/BreakpointWindow.h"
-#include "Windows/Debugger/ScanRemoveWindow.h"
+#include "Windows/Debugger/EditSymbolsWindow.h"
 #include "Windows/main.h"
 
 #include "Common/CommonWindows.h"
@@ -979,11 +979,11 @@ void CtrlDisAsmView::onMouseUp(WPARAM wParam, LPARAM lParam, int button)
 			NopInstructions(selectRangeStart, selectRangeEnd);
 			redraw();
 			break;
-		case ID_DISASM_SCANREMOVE:
+		case ID_DISASM_EDITSYMBOLS:
 			{
-				ScanRemoveWindow srw(wnd, debugger);
-				if (srw.exec()) {
-					srw.eval();
+				EditSymbolsWindow esw(wnd, debugger);
+				if (esw.exec()) {
+					esw.eval();
 					SendMessage(GetParent(wnd), WM_DEB_MAPLOADED, 0, 0);
 					redraw();
 				}

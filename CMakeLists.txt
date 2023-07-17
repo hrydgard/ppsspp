@@ -2373,8 +2373,8 @@ set(WindowsFiles
 	Windows/Debugger/Debugger_VFPUDlg.h
 	Windows/Debugger/WatchItemWindow.cpp
 	Windows/Debugger/WatchItemWindow.h
-	Windows/Debugger/ScanRemoveWindow.cpp
-	Windows/Debugger/ScanRemoveWindow.h
+	Windows/Debugger/EditSymbolsWindow.cpp
+	Windows/Debugger/EditSymbolsWindow.h
 	Windows/GEDebugger/CtrlDisplayListView.cpp
 	Windows/GEDebugger/SimpleGLWindow.cpp
 	Windows/GEDebugger/TabState.cpp

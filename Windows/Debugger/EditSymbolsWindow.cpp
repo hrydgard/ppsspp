@@ -1,20 +1,20 @@
-#include "ScanRemoveWindow.h"
+#include "EditSymbolsWindow.h"
 #include "../resource.h"
 
 
-bool ScanRemoveWindow::GetCheckState(HWND hwnd, int dlgItem) {
+bool EditSymbolsWindow::GetCheckState(HWND hwnd, int dlgItem) {
 	return SendMessage(GetDlgItem(hwnd, dlgItem), BM_GETCHECK, 0, 0) != 0;
 }
 
-bool ScanRemoveWindow::fetchDialogData(HWND hwnd)
+bool EditSymbolsWindow::fetchDialogData(HWND hwnd)
 {
 	char str[256], errorMessage[512];
 	PostfixExpression exp;
 
-	scan_ = GetCheckState(hwnd, IDC_SCANREMOVE_SCAN);
+	scan_ = GetCheckState(hwnd, IDC_EDITSYMBOLS_SCAN);
 
 	// Parse the address
-	GetWindowTextA(GetDlgItem(hwnd, IDC_SCANREMOVE_ADDRESS), str, 256);
+	GetWindowTextA(GetDlgItem(hwnd, IDC_EDITSYMBOLS_ADDRESS), str, 256);
 
 	if (cpu->initExpression(str, exp) == false)
 	{
@@ -30,7 +30,7 @@ bool ScanRemoveWindow::fetchDialogData(HWND hwnd)
 	}
 
 	// Parse the size
-	GetWindowTextA(GetDlgItem(hwnd, IDC_SCANREMOVE_SIZE), str, 256);
+	GetWindowTextA(GetDlgItem(hwnd, IDC_EDITSYMBOLS_SIZE), str, 256);
 
 	if (cpu->initExpression(str, exp) == false)
 	{
@@ -54,14 +54,14 @@ bool ScanRemoveWindow::fetchDialogData(HWND hwnd)
 	return true;
 }
 
-INT_PTR CALLBACK ScanRemoveWindow::StaticDlgFunc(HWND hWnd, UINT iMsg, WPARAM wParam, LPARAM lParam) {
-	ScanRemoveWindow *thiz;
+INT_PTR CALLBACK EditSymbolsWindow::StaticDlgFunc(HWND hWnd, UINT iMsg, WPARAM wParam, LPARAM lParam) {
+	EditSymbolsWindow *thiz;
 	if (iMsg == WM_INITDIALOG) {
 		SetWindowLongPtr(hWnd, GWLP_USERDATA, (LONG_PTR)lParam);
-		thiz = (ScanRemoveWindow *)lParam;
+		thiz = (EditSymbolsWindow *)lParam;
 	}
 	else {
-		thiz = (ScanRemoveWindow *)GetWindowLongPtr(hWnd, GWLP_USERDATA);
+		thiz = (EditSymbolsWindow *)GetWindowLongPtr(hWnd, GWLP_USERDATA);
 	}
 
 	if (!thiz)
@@ -69,7 +69,7 @@ INT_PTR CALLBACK ScanRemoveWindow::StaticDlgFunc(HWND hWnd, UINT iMsg, WPARAM wP
 	return thiz->DlgFunc(hWnd, iMsg, wParam, lParam);
 }
 
-INT_PTR ScanRemoveWindow::DlgFunc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lParam)
+INT_PTR EditSymbolsWindow::DlgFunc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lParam)
 {
 	char str[128];
 
@@ -78,22 +78,22 @@ INT_PTR ScanRemoveWindow::DlgFunc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lP
 	case WM_INITDIALOG:
 
 		// Set the radiobutton values
-		SendMessage(GetDlgItem(hwnd, IDC_SCANREMOVE_SCAN), BM_SETCHECK, scan_ ? BST_CHECKED : BST_UNCHECKED, 0);
-		SendMessage(GetDlgItem(hwnd, IDC_SCANREMOVE_REMOVE), BM_SETCHECK, scan_ ? BST_UNCHECKED : BST_CHECKED, 0);
+		SendMessage(GetDlgItem(hwnd, IDC_EDITSYMBOLS_SCAN), BM_SETCHECK, scan_ ? BST_CHECKED : BST_UNCHECKED, 0);
+		SendMessage(GetDlgItem(hwnd, IDC_EDITSYMBOLS_REMOVE), BM_SETCHECK, scan_ ? BST_UNCHECKED : BST_CHECKED, 0);
 
 		// Set the text in the textboxes
 		if (address_ != -1) {
 			snprintf(str, sizeof(str), "0x%08X", address_);
-			SetWindowTextA(GetDlgItem(hwnd, IDC_SCANREMOVE_ADDRESS), str);
+			SetWindowTextA(GetDlgItem(hwnd, IDC_EDITSYMBOLS_ADDRESS), str);
 		}
 		snprintf(str, sizeof(str), "0x%08X", size_);
-		SetWindowTextA(GetDlgItem(hwnd, IDC_SCANREMOVE_SIZE), str);
+		SetWindowTextA(GetDlgItem(hwnd, IDC_EDITSYMBOLS_SIZE), str);
 
 		return TRUE;
 	case WM_COMMAND:
 		switch (LOWORD(wParam))
 		{
-		case IDC_SCANREMOVE_SCAN:
+		case IDC_EDITSYMBOLS_SCAN:
 			switch (HIWORD(wParam))
 			{
 			case BN_CLICKED:
@@ -101,7 +101,7 @@ INT_PTR ScanRemoveWindow::DlgFunc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lP
 				break;
 			}
 			break;
-		case IDC_SCANREMOVE_REMOVE:
+		case IDC_EDITSYMBOLS_REMOVE:
 			switch (HIWORD(wParam))
 			{
 			case BN_CLICKED:
@@ -109,7 +109,7 @@ INT_PTR ScanRemoveWindow::DlgFunc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lP
 				break;
 			}
 			break;
-		case IDC_SCANREMOVE_OK:
+		case IDC_EDITSYMBOLS_OK:
 			switch (HIWORD(wParam))
 			{
 			case BN_CLICKED:
@@ -119,7 +119,7 @@ INT_PTR ScanRemoveWindow::DlgFunc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lP
 				break;
 			};
 			break;
-		case IDC_SCANREMOVE_CANCEL:
+		case IDC_EDITSYMBOLS_CANCEL:
 			switch (HIWORD(wParam))
 			{
 			case BN_CLICKED:
@@ -141,16 +141,16 @@ INT_PTR ScanRemoveWindow::DlgFunc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lP
 	return FALSE;
 }
 
-bool ScanRemoveWindow::exec() {
-	return DialogBoxParam(GetModuleHandle(0), MAKEINTRESOURCE(IDD_SCANREMOVE), parentHwnd, StaticDlgFunc, (LPARAM)this) != 0;
+bool EditSymbolsWindow::exec() {
+	return DialogBoxParam(GetModuleHandle(0), MAKEINTRESOURCE(IDD_EDITSYMBOLS), parentHwnd, StaticDlgFunc, (LPARAM)this) != 0;
 }
 
-void ScanRemoveWindow::Scan() {
+void EditSymbolsWindow::Scan() {
 	bool insertSymbols = MIPSAnalyst::ScanForFunctions(address_, address_ + size_ - 1, true);
 	MIPSAnalyst::FinalizeScan(insertSymbols);
 }
 
-void ScanRemoveWindow::Remove() {
+void EditSymbolsWindow::Remove() {
 	u32 func_address = g_symbolMap->GetFunctionStart(address_);
 	if (func_address == SymbolMap::INVALID_ADDRESS) {
 		func_address = g_symbolMap->GetNextSymbolAddress(address_, SymbolType::ST_FUNCTION);
@@ -182,7 +182,7 @@ void ScanRemoveWindow::Remove() {
 	}
 }
 
-void ScanRemoveWindow::eval() {
+void EditSymbolsWindow::eval() {
 	if (scan_) {
 		Scan();
 	}

@@ -9,7 +9,7 @@
 #include "Core/Debugger/DisassemblyManager.h"
 #include "Core/MemMap.h"
 
-class ScanRemoveWindow {
+class EditSymbolsWindow {
 	HWND parentHwnd;
 	DebugInterface* cpu;
 
@@ -27,7 +27,7 @@ class ScanRemoveWindow {
 	INT_PTR DlgFunc(HWND hWnd, UINT iMsg, WPARAM wParam, LPARAM lParam);
 
 public:
-	ScanRemoveWindow(HWND parent, DebugInterface* cpu) : cpu(cpu) {
+	EditSymbolsWindow(HWND parent, DebugInterface* cpu) : cpu(cpu) {
 		parentHwnd = parent;
 		scan_ = true;
 		address_ = -1;
