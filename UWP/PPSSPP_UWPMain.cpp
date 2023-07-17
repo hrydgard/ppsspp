@@ -547,6 +547,9 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 		case BrowseFileType::DB:
 			supportedExtensions = { ".db" };
 			break;
+		case BrowseFileType::SOUND_EFFECT:
+			supportedExtensions = { ".wav" };
+			break;
 		case BrowseFileType::ANY:
 			// 'ChooseFile' will added '*' by default when there are no extensions assigned
 			break;
