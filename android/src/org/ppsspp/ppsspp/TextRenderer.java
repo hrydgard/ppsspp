@@ -61,10 +61,10 @@ public class TextRenderer {
 			total.x = 1;
 		if (total.y < 1)
 			total.y = 1;
-		if (total.x > 2048)
-			total.x = 2048;
-		if (total.y > 2048)
-			total.y = 2048;
+		if (total.x > 4096)
+			total.x = 4096;
+		if (total.y > 4096)
+			total.y = 4096;
 		return total;
 	}
 

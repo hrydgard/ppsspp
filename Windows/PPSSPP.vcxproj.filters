@@ -62,6 +62,9 @@
     <Filter Include="Windows\Darkmode">
       <UniqueIdentifier>{e6f1a7f6-807b-484e-9595-bdb58ecaa2ae}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Other Platforms\Mac">
+      <UniqueIdentifier>{e2dd8951-ccb6-4575-996a-69c6832fafbf}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Debugger\CtrlDisAsmView.cpp">
@@ -565,6 +568,12 @@
     <ClInclude Include="Debugger\WatchItemWindow.h">
       <Filter>Windows\Debugger</Filter>
     </ClInclude>
+    <ClInclude Include="..\SDL\CocoaBarItems.h">
+      <Filter>Other Platforms\Mac</Filter>
+    </ClInclude>
+    <ClInclude Include="..\UI\PSPNSApplicationDelegate.h">
+      <Filter>Other Platforms\Mac</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="icon1.ico">
@@ -793,6 +802,12 @@
     </None>
     <None Include="..\cmake\Toolchains\nvidiajetsonsdl.armv8.cmake">
       <Filter>Build\CMake</Filter>
+    </None>
+    <None Include="..\SDL\CocoaBarItems.mm">
+      <Filter>Other Platforms\Mac</Filter>
+    </None>
+    <None Include="..\UI\PSPNSApplicationDelegate.mm">
+      <Filter>Other Platforms\Mac</Filter>
     </None>
   </ItemGroup>
   <ItemGroup>

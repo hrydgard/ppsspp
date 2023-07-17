@@ -57,7 +57,7 @@ extern "C" struct hostent *gethostbyname(const char *name);
 
 #include "Common/Data/Text/I18n.h"
 #include "Common/Thread/ThreadUtil.h"
-#include "Common/System/System.h"
+#include "Common/System/OSD.h"
 
 #include "Common/File/FileUtil.h"
 #include "Common/TimeUtil.h"
@@ -1858,7 +1858,7 @@ int create_listen_socket(uint16_t port)
 		else {
 			ERROR_LOG(SCENET, "AdhocServer: Bind returned %i (Socket error %d)", bindresult, errno);
 			auto n = GetI18NCategory(I18NCat::NETWORKING);
-			System_NotifyUserMessage(std::string(n->T("AdhocServer Failed to Bind Port")) + " " + std::to_string(port), 3.0, 0x0000ff);
+			g_OSD.Show(OSDType::MESSAGE_ERROR, std::string(n->T("AdhocServer Failed to Bind Port")) + " " + std::to_string(port));
 		}
 
 		// Close Socket

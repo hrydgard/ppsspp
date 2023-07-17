@@ -71,6 +71,7 @@ enum {
 	VIRTKEY_SPEED_ANALOG = 0x40000024,
 	VIRTKEY_VR_CAMERA_ADJUST = 0x40000025,
 	VIRTKEY_VR_CAMERA_RESET = 0x40000026,
+	VIRTKEY_PREVIOUS_SLOT = 0x40000027,
 	VIRTKEY_LAST,
 	VIRTKEY_COUNT = VIRTKEY_LAST - VIRTKEY_FIRST
 };
@@ -154,7 +155,7 @@ namespace KeyMap {
 	// Once the multimappings are inserted here, they must not be empty.
 	// If one would be, delete the whole entry from the map instead.
 	// This is automatically handled by SetInputMapping.
-	extern std::set<int> g_seenDeviceIds;
+	extern std::set<InputDeviceID> g_seenDeviceIds;
 	extern int g_controllerMapGeneration;
 	// Key & Button names
 	struct KeyMap_IntStrPair {
@@ -163,7 +164,7 @@ namespace KeyMap {
 	};
 
 	// Use if you need to display the textual name
-	std::string GetKeyName(int keyCode);
+	std::string GetKeyName(InputKeyCode keyCode);
 	std::string GetKeyOrAxisName(const InputMapping &mapping);
 	std::string GetAxisName(int axisId);
 	std::string GetPspButtonName(int btn);
@@ -188,7 +189,7 @@ namespace KeyMap {
 	// Return false if bind was a duplicate and got removed
 	bool ReplaceSingleKeyMapping(int btn, int index, MultiInputMapping key);
 
-	MappedAnalogAxes MappedAxesForDevice(int deviceId);
+	MappedAnalogAxes MappedAxesForDevice(InputDeviceID deviceId);
 
 	void LoadFromIni(IniFile &iniFile);
 	void SaveToIni(IniFile &iniFile);
@@ -201,7 +202,7 @@ namespace KeyMap {
 
 	void UpdateNativeMenuKeys();
 
-	void NotifyPadConnected(int deviceId, const std::string &name);
+	void NotifyPadConnected(InputDeviceID deviceId, const std::string &name);
 	bool IsNvidiaShield(const std::string &name);
 	bool IsNvidiaShieldTV(const std::string &name);
 	bool IsXperiaPlay(const std::string &name);
@@ -211,10 +212,10 @@ namespace KeyMap {
 	bool HasBuiltinController(const std::string &name);
 
 	const std::set<std::string> &GetSeenPads();
-	std::string PadName(int deviceId);
+	std::string PadName(InputDeviceID deviceId);
 	void AutoConfForPad(const std::string &name);
 
-	bool IsKeyMapped(int device, int key);
+	bool IsKeyMapped(InputDeviceID device, int key);
 
 	bool HasChanged(int &prevGeneration);
 }

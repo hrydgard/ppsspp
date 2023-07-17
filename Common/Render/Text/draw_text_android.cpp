@@ -47,7 +47,7 @@ bool TextDrawerAndroid::IsReady() const {
 uint32_t TextDrawerAndroid::SetFont(const char *fontName, int size, int flags) {
 	// We will only use the default font but just for consistency let's still involve
 	// the font name.
-	uint32_t fontHash = hash::Adler32((const uint8_t *)fontName, strlen(fontName));
+	uint32_t fontHash = fontName ? hash::Adler32((const uint8_t *)fontName, strlen(fontName)) : 1337;
 	fontHash ^= size;
 	fontHash ^= flags << 10;
 

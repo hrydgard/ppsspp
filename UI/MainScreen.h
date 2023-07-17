@@ -51,6 +51,7 @@ public:
 
 	void FocusGame(const Path &gamePath);
 	void SetPath(const Path &path);
+	void ApplySearchFilter(const std::string &filter);
 	void Draw(UIContext &dc) override;
 	void Update() override;
 
@@ -58,6 +59,7 @@ protected:
 	virtual bool DisplayTopBar();
 	virtual bool HasSpecialFiles(std::vector<Path> &filenames);
 	virtual Path HomePath();
+	void ApplySearchFilter();
 
 	void Refresh();
 
@@ -80,14 +82,23 @@ private:
 	UI::EventReturn OnRecentClear(UI::EventParams &e);
 	UI::EventReturn OnHomebrewStore(UI::EventParams &e);
 
+	enum class SearchState {
+		MATCH,
+		MISMATCH,
+		PENDING,
+	};
+
 	UI::ViewGroup *gameList_ = nullptr;
 	PathBrowser path_;
 	bool *gridStyle_ = nullptr;
 	BrowseFlags browseFlags_;
 	std::string lastText_;
 	std::string lastLink_;
+	std::string searchFilter_;
+	std::vector<SearchState> searchStates_;
 	Path focusGamePath_;
 	bool listingPending_ = false;
+	bool searchPending_ = false;
 	float lastScale_ = 1.0f;
 	bool lastLayoutWasGrid_ = true;
 	ScreenManager *screenManager_;
@@ -106,6 +117,8 @@ public:
 
 	// Horrible hack to show the demos & homebrew tab after having installed a game from a zip file.
 	static bool showHomebrewTab;
+
+	bool key(const KeyInput &touch) override;
 
 protected:
 	void CreateViews() override;
@@ -148,6 +161,9 @@ protected:
 	bool lastVertical_;
 	bool confirmedTemporary_ = false;
 	UI::ScrollView *scrollAllGames_ = nullptr;
+	bool searchKeyModifier_ = false;
+	bool searchChanged_ = false;
+	std::string searchFilter_;
 
 	friend class RemoteISOBrowseScreen;
 };

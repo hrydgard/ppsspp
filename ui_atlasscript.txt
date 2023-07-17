@@ -21,7 +21,6 @@ image I_STICK_LINE source_assets/image/stick_line.png copy
 image I_STICK_BG_LINE source_assets/image/stick_bg_line.png copy
 image I_CHECKEDBOX source_assets/image/checkedbox.png copy
 image I_BG source_assets/image/background2.png copy
-image I_BG_GOLD source_assets/image/background_gold.png copy
 image I_L source_assets/image/L.png copy
 image I_R source_assets/image/R.png copy
 image I_DROP_SHADOW source_assets/image/dropshadow.png copy
@@ -70,3 +69,6 @@ image I_ARROW_UP source_assets/image/arrow_up.png copy
 image I_ARROW_DOWN source_assets/image/arrow_down.png copy
 image I_SLIDERS source_assets/image/sliders.png copy
 image I_THREE_DOTS source_assets/image/three_dots.png copy
+image I_INFO source_assets/image/info.png copy
+image I_RETROACHIEVEMENTS_LOGO source_assets/image/retroachievements_logo.png copy
+image I_CHECKMARK source_assets/image/checkmark.png copy

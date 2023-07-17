@@ -54,7 +54,7 @@ void *MemArena::CreateView(s64 offset, size_t size, void *viewbase) {
 	return ptr;
 }
 
-void MemArena::ReleaseView(void* view, size_t size) {
+void MemArena::ReleaseView(s64 offset, void* view, size_t size) {
 #if PPSSPP_PLATFORM(UWP)
 #else
 	UnmapViewOfFile(view);

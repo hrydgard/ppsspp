@@ -37,7 +37,7 @@
 #include "Common/File/VFS/VFS.h"
 #include "Common/LogReporting.h"
 #include "Common/StringUtils.h"
-#include "Common/System/System.h"
+#include "Common/System/OSD.h"
 #include "Common/Thread/ParallelLoop.h"
 #include "Common/Thread/Waitable.h"
 #include "Common/Thread/ThreadManager.h"
@@ -310,7 +310,7 @@ bool TextureReplacer::LoadIniValues(IniFile &ini, VFSBackend *dir, bool isOverri
 
 	if (filenameWarning) {
 		auto err = GetI18NCategory(I18NCat::ERRORS);
-		System_NotifyUserMessage(err->T("textures.ini filenames may not be cross-platform (banned characters)"), 6.0f);
+		g_OSD.Show(OSDType::MESSAGE_ERROR, err->T("textures.ini filenames may not be cross-platform (banned characters)"), 6.0f);
 	}
 
 	if (ini.HasSection("hashranges")) {

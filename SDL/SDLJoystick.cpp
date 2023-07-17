@@ -88,7 +88,8 @@ void SDLJoystick::setUpController(int deviceIndex) {
 			controllers.push_back(controller);
 			controllerDeviceMap[SDL_JoystickInstanceID(SDL_GameControllerGetJoystick(controller))] = deviceIndex;
 			cout << "found control pad: " << SDL_GameControllerName(controller) << ", loading mapping: ";
-			KeyMap::NotifyPadConnected(deviceIndex, std::string(pszGUID) + ": " + SDL_GameControllerName(controller));
+			// NOTE: The case to InputDeviceID here is wrong, we should do some kind of lookup.
+			KeyMap::NotifyPadConnected((InputDeviceID)deviceIndex, std::string(pszGUID) + ": " + SDL_GameControllerName(controller));
 			auto mapping = SDL_GameControllerMapping(controller);
 			if (mapping == NULL) {
 				//cout << "FAILED" << endl;
@@ -116,7 +117,7 @@ void SDLJoystick::registerEventHandler() {
 	registeredAsEventHandler = true;
 }
 
-keycode_t SDLJoystick::getKeycodeForButton(SDL_GameControllerButton button) {
+InputKeyCode SDLJoystick::getKeycodeForButton(SDL_GameControllerButton button) {
 	switch (button) {
 	case SDL_CONTROLLER_BUTTON_DPAD_UP:
 		return NKCODE_DPAD_UP;
@@ -182,7 +183,8 @@ void SDLJoystick::ProcessInput(SDL_Event &event){
 		break;
 	case SDL_CONTROLLERAXISMOTION:
 		AxisInput axis;
-		axis.axisId = event.caxis.axis;
+		// TODO: Can we really cast axis events like that? Do they match?
+		axis.axisId = (InputAxis)event.caxis.axis;
 		axis.value = event.caxis.value / 32767.0f;
 		if (axis.value > 1.0f) axis.value = 1.0f;
 		if (axis.value < -1.0f) axis.value = -1.0f;

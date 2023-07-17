@@ -1,6 +1,8 @@
 #pragma once
 
-#include <set>
+#include <mutex>
+#include <string>
+#include <deque>
 
 #include "Common/Math/lin/vec3.h"
 #include "Common/UI/Screen.h"
@@ -12,6 +14,21 @@ class I18NCategory;
 namespace Draw {
 	class DrawContext;
 }
+
+enum class QueuedEventType : u8 {
+	KEY,
+	AXIS,
+	TOUCH,
+};
+
+struct QueuedEvent {
+	QueuedEventType type;
+	union {
+		TouchInput touch;
+		KeyInput key;
+		AxisInput axis;
+	};
+};
 
 class UIScreen : public Screen {
 public:
@@ -25,9 +42,13 @@ public:
 	void deviceLost() override;
 	void deviceRestored() override;
 
-	void touch(const TouchInput &touch) override;
-	bool key(const KeyInput &touch) override;
-	void axis(const AxisInput &touch) override;
+	virtual void touch(const TouchInput &touch);
+	virtual bool key(const KeyInput &key);
+	virtual void axis(const AxisInput &axis);
+
+	void UnsyncTouch(const TouchInput &touch) override;
+	bool UnsyncKey(const KeyInput &key) override;
+	void UnsyncAxis(const AxisInput &axis) override;
 
 	TouchInput transformTouch(const TouchInput &touch) override;
 
@@ -50,12 +71,16 @@ protected:
 	Vec3 scale_ = Vec3(1.0f);
 	float alpha_ = 1.0f;
 	bool ignoreInsets_ = false;
+	bool ignoreInput_ = false;
 
 private:
 	void DoRecreateViews();
 
 	bool recreateViews_ = true;
 	bool lastVertical_;
+
+	std::mutex eventQueueLock_;
+	std::deque<QueuedEvent> eventQueue_;
 };
 
 class UIDialogScreen : public UIScreen {

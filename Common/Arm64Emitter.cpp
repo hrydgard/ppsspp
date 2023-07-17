@@ -315,6 +315,14 @@ const u8* ARM64XEmitter::AlignCodePage()
 	return m_code;
 }
 
+const u8 *ARM64XEmitter::NopAlignCode16() {
+	int bytes = ((-(intptr_t)m_code) & 15);
+	for (int i = 0; i < bytes / 4; i++) {
+		Write32(0xD503201F); // official nop instruction
+	}
+	return m_code;
+}
+
 void ARM64XEmitter::FlushIcache()
 {
 	FlushIcacheSection(m_lastCacheFlushEnd, m_code);

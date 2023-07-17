@@ -249,6 +249,7 @@ bool System_GetPropertyBool(SystemProperty prop) {
 	case SYSPROP_HAS_FILE_BROWSER:
 	case SYSPROP_HAS_FOLDER_BROWSER:
 	case SYSPROP_HAS_OPEN_DIRECTORY:
+	case SYSPROP_HAS_TEXT_INPUT_DIALOG:
 		return true;
 	case SYSPROP_SUPPORTS_OPEN_FILE_IN_EDITOR:
 		return true;  // FileUtil.cpp: OpenFileInEditor
@@ -278,8 +279,10 @@ void System_Notify(SystemNotification notification) {
 			g_symbolMap->SortSymbols();
 		break;
 	case SystemNotification::AUDIO_RESET_DEVICE:
+#ifdef SDL
 		StopSDLAudioDevice();
 		InitSDLAudioDevice();
+#endif
 		break;
 	default:
 		break;
@@ -308,6 +311,9 @@ bool MainUI::HandleCustomEvent(QEvent *e) {
 			break;
 		case BrowseFileType::DB:
 			filter = "DB files (*.db)";
+			break;
+		case BrowseFileType::SOUND_EFFECT:
+			filter = "WAVE files (*.wav)";
 			break;
 		case BrowseFileType::ANY:
 			break;
@@ -534,7 +540,7 @@ QString MainUI::InputBoxGetQString(QString title, QString defaultValue) {
 
 void MainUI::resizeGL(int w, int h) {
 	if (UpdateScreenScale(w, h)) {
-		NativeMessageReceived("gpu_displayResized", "");
+		System_PostUIMessage("gpu_displayResized", "");
 	}
 	xscale = w / this->width();
 	yscale = h / this->height();
@@ -631,7 +637,7 @@ bool MainUI::event(QEvent *e) {
 		{
 			auto qtKeycode = ((QKeyEvent*)e)->key();
 			auto iter = KeyMapRawQttoNative.find(qtKeycode);
-			int nativeKeycode = 0;
+			InputKeyCode nativeKeycode = NKCODE_UNKNOWN;
 			if (iter != KeyMapRawQttoNative.end()) {
 				nativeKeycode = iter->second;
 				NativeKey(KeyInput(DEVICE_ID_KEYBOARD, nativeKeycode, KEY_DOWN));
@@ -650,8 +656,8 @@ bool MainUI::event(QEvent *e) {
 			default:
 				if (str.size()) {
 					int pos = 0;
-					int code = u8_nextchar(str.c_str(), &pos);
-					NativeKey(KeyInput(DEVICE_ID_KEYBOARD, code, KEY_CHAR));
+					int unicode = u8_nextchar(str.c_str(), &pos);
+					NativeKey(KeyInput(DEVICE_ID_KEYBOARD, unicode));
 				}
 				break;
 			}

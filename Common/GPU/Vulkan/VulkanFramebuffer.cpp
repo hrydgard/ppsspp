@@ -265,7 +265,6 @@ static VkAttachmentStoreOp ConvertStoreAction(VKRRenderPassStoreAction action) {
 // Also see https://www.khronos.org/registry/vulkan/specs/1.3-extensions/html/vkspec.html#synchronization-pipeline-barriers-subpass-self-dependencies
 
 VkRenderPass CreateRenderPass(VulkanContext *vulkan, const RPKey &key, RenderPassType rpType, VkSampleCountFlagBits sampleCount) {
-	bool selfDependency = RenderPassTypeHasInput(rpType);
 	bool isBackbuffer = rpType == RenderPassType::BACKBUFFER;
 	bool hasDepth = RenderPassTypeHasDepth(rpType);
 	bool multiview = RenderPassTypeHasMultiView(rpType);
@@ -330,7 +329,7 @@ VkRenderPass CreateRenderPass(VulkanContext *vulkan, const RPKey &key, RenderPas
 
 	VkAttachmentReference colorReference{};
 	colorReference.attachment = colorAttachmentIndex;
-	colorReference.layout = selfDependency ? VK_IMAGE_LAYOUT_GENERAL : VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+	colorReference.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
 	VkAttachmentReference depthReference{};
 	depthReference.attachment = depthAttachmentIndex;
@@ -339,20 +338,15 @@ VkRenderPass CreateRenderPass(VulkanContext *vulkan, const RPKey &key, RenderPas
 	VkSubpassDescription subpass{};
 	subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
 	subpass.flags = 0;
-	if (selfDependency) {
-		subpass.inputAttachmentCount = 1;
-		subpass.pInputAttachments = &colorReference;
-	} else {
-		subpass.inputAttachmentCount = 0;
-		subpass.pInputAttachments = nullptr;
-	}
+	subpass.inputAttachmentCount = 0;
+	subpass.pInputAttachments = nullptr;
 	subpass.colorAttachmentCount = 1;
 	subpass.pColorAttachments = &colorReference;
 
 	VkAttachmentReference colorResolveReference;
 	if (multisample) {
 		colorResolveReference.attachment = 0;  // the non-msaa color buffer.
-		colorResolveReference.layout = selfDependency ? VK_IMAGE_LAYOUT_GENERAL : VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+		colorResolveReference.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 		subpass.pResolveAttachments = &colorResolveReference;
 	} else {
 		subpass.pResolveAttachments = nullptr;
@@ -393,17 +387,6 @@ VkRenderPass CreateRenderPass(VulkanContext *vulkan, const RPKey &key, RenderPas
 		deps[numDeps].dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
 		deps[numDeps].srcAccessMask = 0;
 		deps[numDeps].dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-		numDeps++;
-	}
-
-	if (selfDependency) {
-		deps[numDeps].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
-		deps[numDeps].srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-		deps[numDeps].dstAccessMask = VK_ACCESS_INPUT_ATTACHMENT_READ_BIT;
-		deps[numDeps].srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-		deps[numDeps].dstStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-		deps[numDeps].srcSubpass = 0;
-		deps[numDeps].dstSubpass = 0;
 		numDeps++;
 	}
 
@@ -463,10 +446,6 @@ VkRenderPass CreateRenderPass(VulkanContext *vulkan, const RPKey &key, RenderPas
 		VkSubpassDescription2KHR subpass2{ VK_STRUCTURE_TYPE_SUBPASS_DESCRIPTION_2_KHR };
 		subpass2.colorAttachmentCount = subpass.colorAttachmentCount;
 		subpass2.flags = subpass.flags;
-		if (selfDependency) {
-			subpass2.inputAttachmentCount = subpass.inputAttachmentCount;
-			subpass2.pInputAttachments = &colorReference2;
-		}
 		subpass2.pColorAttachments = &colorReference2;
 		if (hasDepth) {
 			subpass2.pDepthStencilAttachment = &depthReference2;
@@ -476,7 +455,7 @@ VkRenderPass CreateRenderPass(VulkanContext *vulkan, const RPKey &key, RenderPas
 		if (multisample) {
 			colorResolveReference2.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 			colorResolveReference2.attachment = colorResolveReference.attachment;  // the non-msaa color buffer.
-			colorResolveReference2.layout = selfDependency ? VK_IMAGE_LAYOUT_GENERAL : VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+			colorResolveReference2.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 			subpass2.pResolveAttachments = &colorResolveReference2;
 		} else {
 			subpass2.pResolveAttachments = nullptr;

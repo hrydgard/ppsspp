@@ -33,11 +33,11 @@ static const float const65535 = 65535.0f;
 
 using namespace RiscVGen;
 
-static const RiscVReg srcReg = X10;
-static const RiscVReg dstReg = X11;
-static const RiscVReg counterReg = X12;
+static const RiscVReg srcReg = X10;  // a0
+static const RiscVReg dstReg = X11;  // a1
+static const RiscVReg counterReg = X12;  // a2
 
-static const RiscVReg tempReg1 = X13;
+static const RiscVReg tempReg1 = X13;  // a3
 static const RiscVReg tempReg2 = X14;
 static const RiscVReg tempReg3 = X15;
 static const RiscVReg scratchReg = X16;
@@ -234,7 +234,7 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec, int
 
 	// Keep the scale/offset in a few fp registers if we need it.
 	if (prescaleStep) {
-		LI(tempReg1, &gstate_c.uv);
+		// tempReg1 happens to be the fourth argument register.
 		FL(32, prescaleRegs.scale.u, tempReg1, 0);
 		FL(32, prescaleRegs.scale.v, tempReg1, 4);
 		FL(32, prescaleRegs.offset.u, tempReg1, 8);

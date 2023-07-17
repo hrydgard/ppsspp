@@ -118,7 +118,7 @@ static std::string GetStereoBufferLayout(const char *uniformName) {
 	else return "undefined";
 }
 
-void GLQueueRunner::RunInitSteps(const std::vector<GLRInitStep> &steps, bool skipGLCalls) {
+void GLQueueRunner::RunInitSteps(const FastVec<GLRInitStep> &steps, bool skipGLCalls) {
 	if (skipGLCalls) {
 		// Some bookkeeping still needs to be done.
 		for (size_t i = 0; i < steps.size(); i++) {
@@ -651,7 +651,7 @@ retry_depth:
 	currentReadHandle_ = fbo->handle;
 }
 
-void GLQueueRunner::RunSteps(const std::vector<GLRStep *> &steps, bool skipGLCalls, bool keepSteps, bool useVR) {
+void GLQueueRunner::RunSteps(const std::vector<GLRStep *> &steps, GLFrameData &frameData, bool skipGLCalls, bool keepSteps, bool useVR) {
 	if (skipGLCalls) {
 		if (keepSteps) {
 			return;
@@ -700,7 +700,7 @@ void GLQueueRunner::RunSteps(const std::vector<GLRStep *> &steps, bool skipGLCal
 	CHECK_GL_ERROR_IF_DEBUG();
 	size_t renderCount = 0;
 	for (size_t i = 0; i < steps.size(); i++) {
-		const GLRStep &step = *steps[i];
+		GLRStep &step = *steps[i];
 
 #if !defined(USING_GLES2)
 		if (useDebugGroups_)
@@ -711,11 +711,10 @@ void GLQueueRunner::RunSteps(const std::vector<GLRStep *> &steps, bool skipGLCal
 		case GLRStepType::RENDER:
 			renderCount++;
 			if (IsVREnabled()) {
-				GLRStep vrStep = step;
-				PreprocessStepVR(&vrStep);
-				PerformRenderPass(vrStep, renderCount == 1, renderCount == totalRenderCount);
+				PreprocessStepVR(&step);
+				PerformRenderPass(step, renderCount == 1, renderCount == totalRenderCount, frameData.profile);
 			} else {
-				PerformRenderPass(step, renderCount == 1, renderCount == totalRenderCount);
+				PerformRenderPass(step, renderCount == 1, renderCount == totalRenderCount, frameData.profile);
 			}
 			break;
 		case GLRStepType::COPY:
@@ -741,11 +740,14 @@ void GLQueueRunner::RunSteps(const std::vector<GLRStep *> &steps, bool skipGLCal
 		if (useDebugGroups_)
 			glPopDebugGroup();
 #endif
-
+		if (frameData.profile.enabled) {
+			frameData.profile.passesString += StepToString(step);
+		}
 		if (!keepSteps) {
 			delete steps[i];
 		}
 	}
+
 	CHECK_GL_ERROR_IF_DEBUG();
 }
 
@@ -778,7 +780,20 @@ void GLQueueRunner::PerformBlit(const GLRStep &step) {
 	}
 }
 
-void GLQueueRunner::PerformRenderPass(const GLRStep &step, bool first, bool last) {
+static void EnableDisableVertexArrays(uint32_t prevAttr, uint32_t newAttr) {
+	int enable = (~prevAttr) & newAttr;
+	int disable = prevAttr & (~newAttr);
+	for (int i = 0; i < 7; i++) {  // SEM_MAX
+		if (enable & (1 << i)) {
+			glEnableVertexAttribArray(i);
+		}
+		if (disable & (1 << i)) {
+			glDisableVertexAttribArray(i);
+		}
+	}
+}
+
+void GLQueueRunner::PerformRenderPass(const GLRStep &step, bool first, bool last, GLQueueProfileContext &profile) {
 	CHECK_GL_ERROR_IF_DEBUG();
 
 	PerformBindFramebufferAsRenderTarget(step);
@@ -823,12 +838,43 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step, bool first, bool last
 	bool clipDistanceEnabled[8]{};
 	GLuint blendEqColor = (GLuint)-1;
 	GLuint blendEqAlpha = (GLuint)-1;
+	GLenum blendSrcColor = (GLenum)-1;
+	GLenum blendDstColor = (GLenum)-1;
+	GLenum blendSrcAlpha = (GLenum)-1;
+	GLenum blendDstAlpha = (GLenum)-1;
 
+	GLuint stencilWriteMask = (GLuint)-1;
+	GLenum stencilFunc = (GLenum)-1;
+	GLuint stencilRef = (GLuint)-1;
+	GLuint stencilCompareMask = (GLuint)-1;
+	GLenum stencilSFail = (GLenum)-1;
+	GLenum stencilZFail = (GLenum)-1;
+	GLenum stencilPass = (GLenum)-1;
+	GLenum frontFace = (GLenum)-1;
+	GLenum cullFace = (GLenum)-1;
 	GLRTexture *curTex[MAX_GL_TEXTURE_SLOTS]{};
+
+	GLRViewport viewport = {
+		-1000000000.0f,
+		-1000000000.0f,
+		-1000000000.0f,
+		-1000000000.0f,
+		-1000000000.0f,
+		-1000000000.0f,
+	};
+
+	GLRect2D scissorRc = { -1, -1, -1, -1 };
 
 	CHECK_GL_ERROR_IF_DEBUG();
 	auto &commands = step.commands;
 	for (const auto &c : commands) {
+#ifdef _DEBUG
+		if (profile.enabled) {
+			if ((size_t)c.cmd < ARRAY_SIZE(profile.commandCounts)) {
+				profile.commandCounts[(size_t)c.cmd]++;
+			}
+		}
+#endif
 		switch (c.cmd) {
 		case GLRRenderCommand::DEPTH:
 			if (c.depth.enabled) {
@@ -849,22 +895,33 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step, bool first, bool last
 				depthEnabled = false;
 			}
 			break;
-		case GLRRenderCommand::STENCILFUNC:
-			if (c.stencilFunc.enabled) {
+		case GLRRenderCommand::STENCIL:
+			if (c.stencil.enabled) {
 				if (!stencilEnabled) {
 					glEnable(GL_STENCIL_TEST);
 					stencilEnabled = true;
 				}
-				glStencilFunc(c.stencilFunc.func, c.stencilFunc.ref, c.stencilFunc.compareMask);
+				if (c.stencil.func != stencilFunc || c.stencil.ref != stencilRef || c.stencil.compareMask != stencilCompareMask) {
+					glStencilFunc(c.stencil.func, c.stencil.ref, c.stencil.compareMask);
+					stencilFunc = c.stencil.func;
+					stencilRef = c.stencil.ref;
+					stencilCompareMask = c.stencil.compareMask;
+				}
+				if (c.stencil.sFail != stencilSFail || c.stencil.zFail != stencilZFail || c.stencil.pass != stencilPass) {
+					glStencilOp(c.stencil.sFail, c.stencil.zFail, c.stencil.pass);
+					stencilSFail = c.stencil.sFail;
+					stencilZFail = c.stencil.zFail;
+					stencilPass = c.stencil.pass;
+				}
+				if (c.stencil.writeMask != stencilWriteMask) {
+					glStencilMask(c.stencil.writeMask);
+					stencilWriteMask = c.stencil.writeMask;
+				}
 			} else if (/* !c.stencilFunc.enabled && */stencilEnabled) {
 				glDisable(GL_STENCIL_TEST);
 				stencilEnabled = false;
 			}
 			CHECK_GL_ERROR_IF_DEBUG();
-			break;
-		case GLRRenderCommand::STENCILOP:
-			glStencilOp(c.stencilOp.sFail, c.stencilOp.zFail, c.stencilOp.pass);
-			glStencilMask(c.stencilOp.writeMask);
 			break;
 		case GLRRenderCommand::BLEND:
 			if (c.blend.enabled) {
@@ -877,7 +934,13 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step, bool first, bool last
 					blendEqColor = c.blend.funcColor;
 					blendEqAlpha = c.blend.funcAlpha;
 				}
-				glBlendFuncSeparate(c.blend.srcColor, c.blend.dstColor, c.blend.srcAlpha, c.blend.dstAlpha);
+				if (blendSrcColor != c.blend.srcColor || blendDstColor != c.blend.dstColor || blendSrcAlpha != c.blend.srcAlpha || blendDstAlpha != c.blend.dstAlpha) {
+					glBlendFuncSeparate(c.blend.srcColor, c.blend.dstColor, c.blend.srcAlpha, c.blend.dstAlpha);
+					blendSrcColor = c.blend.srcColor;
+					blendDstColor = c.blend.dstColor;
+					blendSrcAlpha = c.blend.srcAlpha;
+					blendDstAlpha = c.blend.dstAlpha;
+				}
 			} else if (/* !c.blend.enabled && */ blendEnabled) {
 				glDisable(GL_BLEND);
 				blendEnabled = false;
@@ -955,16 +1018,27 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step, bool first, bool last
 				y = curFBHeight_ - y - c.viewport.vp.h;
 
 			// TODO: Support FP viewports through glViewportArrays
-			glViewport((GLint)c.viewport.vp.x, (GLint)y, (GLsizei)c.viewport.vp.w, (GLsizei)c.viewport.vp.h);
-#if !defined(USING_GLES2)
-			if (gl_extensions.IsGLES) {
-				glDepthRangef(c.viewport.vp.minZ, c.viewport.vp.maxZ);
-			} else {
-				glDepthRange(c.viewport.vp.minZ, c.viewport.vp.maxZ);
+			if (viewport.x != c.viewport.vp.x || viewport.y != y || viewport.w != c.viewport.vp.w || viewport.h != c.viewport.vp.h) {
+				glViewport((GLint)c.viewport.vp.x, (GLint)y, (GLsizei)c.viewport.vp.w, (GLsizei)c.viewport.vp.h);
+				viewport.x = c.viewport.vp.x;
+				viewport.y = y;
+				viewport.w = c.viewport.vp.w;
+				viewport.h = c.viewport.vp.h;
 			}
+
+			if (viewport.minZ != c.viewport.vp.minZ || viewport.maxZ != c.viewport.vp.maxZ) {
+				viewport.minZ = c.viewport.vp.minZ;
+				viewport.maxZ = c.viewport.vp.maxZ;
+#if !defined(USING_GLES2)
+				if (gl_extensions.IsGLES) {
+					glDepthRangef(c.viewport.vp.minZ, c.viewport.vp.maxZ);
+				} else {
+					glDepthRange(c.viewport.vp.minZ, c.viewport.vp.maxZ);
+				}
 #else
-			glDepthRangef(c.viewport.vp.minZ, c.viewport.vp.maxZ);
+				glDepthRangef(c.viewport.vp.minZ, c.viewport.vp.maxZ);
 #endif
+			}
 			CHECK_GL_ERROR_IF_DEBUG();
 			break;
 		}
@@ -973,7 +1047,13 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step, bool first, bool last
 			int y = c.scissor.rc.y;
 			if (!curFB_)
 				y = curFBHeight_ - y - c.scissor.rc.h;
-			glScissor(c.scissor.rc.x, y, c.scissor.rc.w, c.scissor.rc.h);
+			if (scissorRc.x != c.scissor.rc.x || scissorRc.y != y || scissorRc.w != c.scissor.rc.w || scissorRc.h != c.scissor.rc.h) {
+				glScissor(c.scissor.rc.x, y, c.scissor.rc.w, c.scissor.rc.h);
+				scissorRc.x = c.scissor.rc.x;
+				scissorRc.y = y;
+				scissorRc.w = c.scissor.rc.w;
+				scissorRc.h = c.scissor.rc.h;
+			}
 			CHECK_GL_ERROR_IF_DEBUG();
 			break;
 		}
@@ -1038,27 +1118,33 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step, bool first, bool last
 		{
 			_dbg_assert_(curProgram);
 			if (IsMultiviewSupported()) {
-				int layout = GetStereoBufferIndex(c.uniformMatrix4.name);
+				int layout = GetStereoBufferIndex(c.uniformStereoMatrix4.name);
 				if (layout >= 0) {
 					int size = 2 * 16 * sizeof(float);
-					glBindBufferBase(GL_UNIFORM_BUFFER, layout, *c.uniformMatrix4.loc);
-					glBindBuffer(GL_UNIFORM_BUFFER, *c.uniformMatrix4.loc);
+					glBindBufferBase(GL_UNIFORM_BUFFER, layout, *c.uniformStereoMatrix4.loc);
+					glBindBuffer(GL_UNIFORM_BUFFER, *c.uniformStereoMatrix4.loc);
 					void *matrices = glMapBufferRange(GL_UNIFORM_BUFFER, 0, size, GL_MAP_WRITE_BIT | GL_MAP_INVALIDATE_BUFFER_BIT);
-					memcpy(matrices, c.uniformMatrix4.m, size);
+					memcpy(matrices, c.uniformStereoMatrix4.mData, size);
 					glUnmapBuffer(GL_UNIFORM_BUFFER);
 					glBindBuffer(GL_UNIFORM_BUFFER, 0);
 				}
+				delete[] c.uniformStereoMatrix4.mData;  // We only playback once.
 			} else {
-				int loc = c.uniformMatrix4.loc ? *c.uniformMatrix4.loc : -1;
-				if (c.uniformMatrix4.name) {
-					loc = curProgram->GetUniformLoc(c.uniformMatrix4.name);
+				int loc = c.uniformStereoMatrix4.loc ? *c.uniformStereoMatrix4.loc : -1;
+				if (c.uniformStereoMatrix4.name) {
+					loc = curProgram->GetUniformLoc(c.uniformStereoMatrix4.name);
 				}
 				if (loc >= 0) {
 					if (GetVRFBOIndex() == 0) {
-						glUniformMatrix4fv(loc, 1, false, c.uniformMatrix4.m);
+						glUniformMatrix4fv(loc, 1, false, c.uniformStereoMatrix4.mData);
 					} else {
-						glUniformMatrix4fv(loc, 1, false, &c.uniformMatrix4.m[16]);
+						glUniformMatrix4fv(loc, 1, false, c.uniformStereoMatrix4.mData + 16);
 					}
+				}
+				if (GetVRFBOIndex() == 1 || GetVRPassesCount() == 1) {
+					// Only delete the data if we're rendering the only or the second eye.
+					// If we delete during the first eye, we get a use-after-free or double delete.
+					delete[] c.uniformStereoMatrix4.mData;
 				}
 			}
 			CHECK_GL_ERROR_IF_DEBUG();
@@ -1148,52 +1234,37 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step, bool first, bool last
 			CHECK_GL_ERROR_IF_DEBUG();
 			break;
 		}
-		case GLRRenderCommand::BIND_VERTEX_BUFFER:
+		case GLRRenderCommand::DRAW:
 		{
-			// TODO: Add fast path for glBindVertexBuffer
-			GLRInputLayout *layout = c.bindVertexBuffer.inputLayout;
-			GLuint buf = c.bindVertexBuffer.buffer ? c.bindVertexBuffer.buffer->buffer_ : 0;
-			_dbg_assert_(!c.bindVertexBuffer.buffer || !c.bindVertexBuffer.buffer->Mapped());
+			GLRInputLayout *layout = c.draw.inputLayout;
+			GLuint buf = c.draw.vertexBuffer->buffer_;
+			_dbg_assert_(!c.draw.vertexBuffer->Mapped());
 			if (buf != curArrayBuffer) {
 				glBindBuffer(GL_ARRAY_BUFFER, buf);
 				curArrayBuffer = buf;
 			}
 			if (attrMask != layout->semanticsMask_) {
-				int enable = layout->semanticsMask_ & ~attrMask;
-				int disable = (~layout->semanticsMask_) & attrMask;
-
-				for (int i = 0; i < 7; i++) {  // SEM_MAX
-					if (enable & (1 << i)) {
-						glEnableVertexAttribArray(i);
-					}
-					if (disable & (1 << i)) {
-						glDisableVertexAttribArray(i);
-					}
-				}
+				EnableDisableVertexArrays(attrMask, layout->semanticsMask_);
 				attrMask = layout->semanticsMask_;
 			}
 			for (size_t i = 0; i < layout->entries.size(); i++) {
 				auto &entry = layout->entries[i];
-				glVertexAttribPointer(entry.location, entry.count, entry.type, entry.normalized, entry.stride, (const void *)(c.bindVertexBuffer.offset + entry.offset));
+				glVertexAttribPointer(entry.location, entry.count, entry.type, entry.normalized, entry.stride, (const void *)(c.draw.vertexOffset + entry.offset));
 			}
-			CHECK_GL_ERROR_IF_DEBUG();
-			break;
-		}
-		case GLRRenderCommand::BIND_BUFFER:
-		{
-			if (c.bind_buffer.target == GL_ARRAY_BUFFER) {
-				Crash();
-			} else if (c.bind_buffer.target == GL_ELEMENT_ARRAY_BUFFER) {
-				GLuint buf = c.bind_buffer.buffer ? c.bind_buffer.buffer->buffer_ : 0;
-				_dbg_assert_(!(c.bind_buffer.buffer && c.bind_buffer.buffer->Mapped()));
+			if (c.draw.indexBuffer) {
+				GLuint buf = c.draw.indexBuffer->buffer_;
+				_dbg_assert_(!c.draw.indexBuffer->Mapped());
 				if (buf != curElemArrayBuffer) {
 					glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, buf);
 					curElemArrayBuffer = buf;
 				}
+				if (c.draw.instances == 1) {
+					glDrawElements(c.draw.mode, c.draw.count, c.draw.indexType, (void *)(intptr_t)c.draw.indexOffset);
+				} else {
+					glDrawElementsInstanced(c.draw.mode, c.draw.count, c.draw.indexType, (void *)(intptr_t)c.draw.indexOffset, c.draw.instances);
+				}
 			} else {
-				GLuint buf = c.bind_buffer.buffer ? c.bind_buffer.buffer->buffer_ : 0;
-				_dbg_assert_(!(c.bind_buffer.buffer && c.bind_buffer.buffer->Mapped()));
-				glBindBuffer(c.bind_buffer.target, buf);
+				glDrawArrays(c.draw.mode, c.draw.first, c.draw.count);
 			}
 			CHECK_GL_ERROR_IF_DEBUG();
 			break;
@@ -1202,16 +1273,6 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step, bool first, bool last
 			// TODO: Should we include the texture handle in the command?
 			// Also, should this not be an init command?
 			glGenerateMipmap(GL_TEXTURE_2D);
-			break;
-		case GLRRenderCommand::DRAW:
-			glDrawArrays(c.draw.mode, c.draw.first, c.draw.count);
-			break;
-		case GLRRenderCommand::DRAW_INDEXED:
-			if (c.drawIndexed.instances == 1) {
-				glDrawElements(c.drawIndexed.mode, c.drawIndexed.count, c.drawIndexed.indexType, c.drawIndexed.indices);
-			} else {
-				glDrawElementsInstanced(c.drawIndexed.mode, c.drawIndexed.count, c.drawIndexed.indexType, c.drawIndexed.indices, c.drawIndexed.instances);
-			}
 			CHECK_GL_ERROR_IF_DEBUG();
 			break;
 		case GLRRenderCommand::TEXTURESAMPLER:
@@ -1315,8 +1376,14 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step, bool first, bool last
 					glEnable(GL_CULL_FACE);
 					cullEnabled = true;
 				}
-				glFrontFace(c.raster.frontFace);
-				glCullFace(c.raster.cullFace);
+				if (frontFace != c.raster.frontFace) {
+					glFrontFace(c.raster.frontFace);
+					frontFace = c.raster.frontFace;
+				}
+				if (cullFace != c.raster.cullFace) {
+					glCullFace(c.raster.cullFace);
+					cullFace = c.raster.cullFace;
+				}
 			} else if (/* !c.raster.cullEnable && */ cullEnabled) {
 				glDisable(GL_CULL_FACE);
 				cullEnabled = false;
@@ -1783,4 +1850,75 @@ GLRFramebuffer::~GLRFramebuffer() {
 	if (stencil_buffer)
 		glDeleteRenderbuffers(1, &stencil_buffer);
 	CHECK_GL_ERROR_IF_DEBUG();
+}
+
+std::string GLQueueRunner::StepToString(const GLRStep &step) const {
+	char buffer[256];
+	switch (step.stepType) {
+	case GLRStepType::RENDER:
+	{
+		int w = step.render.framebuffer ? step.render.framebuffer->width : targetWidth_;
+		int h = step.render.framebuffer ? step.render.framebuffer->height : targetHeight_;
+		snprintf(buffer, sizeof(buffer), "RENDER %s %s (commands: %d, %dx%d)\n", step.tag, step.render.framebuffer ? step.render.framebuffer->Tag() : "", (int)step.commands.size(), w, h);
+		break;
+	}
+	case GLRStepType::COPY:
+		snprintf(buffer, sizeof(buffer), "COPY '%s' %s -> %s (%dx%d, %s)\n", step.tag, step.copy.src->Tag(), step.copy.dst->Tag(), step.copy.srcRect.w, step.copy.srcRect.h, GLRAspectToString((GLRAspect)step.copy.aspectMask));
+		break;
+	case GLRStepType::BLIT:
+		snprintf(buffer, sizeof(buffer), "BLIT '%s' %s -> %s (%dx%d->%dx%d, %s)\n", step.tag, step.copy.src->Tag(), step.copy.dst->Tag(), step.blit.srcRect.w, step.blit.srcRect.h, step.blit.dstRect.w, step.blit.dstRect.h, GLRAspectToString((GLRAspect)step.blit.aspectMask));
+		break;
+	case GLRStepType::READBACK:
+		snprintf(buffer, sizeof(buffer), "READBACK '%s' %s (%dx%d, %s)\n", step.tag, step.readback.src ? step.readback.src->Tag() : "(backbuffer)", step.readback.srcRect.w, step.readback.srcRect.h, GLRAspectToString((GLRAspect)step.readback.aspectMask));
+		break;
+	case GLRStepType::READBACK_IMAGE:
+		snprintf(buffer, sizeof(buffer), "READBACK_IMAGE '%s' (%dx%d)\n", step.tag, step.readback_image.srcRect.w, step.readback_image.srcRect.h);
+		break;
+	case GLRStepType::RENDER_SKIP:
+		snprintf(buffer, sizeof(buffer), "(RENDER_SKIP) %s\n", step.tag);
+		break;
+	default:
+		buffer[0] = 0;
+		break;
+	}
+	return std::string(buffer);
+}
+
+const char *GLRAspectToString(GLRAspect aspect) {
+	switch (aspect) {
+	case GLR_ASPECT_COLOR: return "COLOR";
+	case GLR_ASPECT_DEPTH: return "DEPTH";
+	case GLR_ASPECT_STENCIL: return "STENCIL";
+	default: return "N/A";
+	}
+}
+
+const char *RenderCommandToString(GLRRenderCommand cmd) {
+	switch (cmd) {
+	case GLRRenderCommand::DEPTH: return "DEPTH";
+	case GLRRenderCommand::STENCIL: return "STENCIL";
+	case GLRRenderCommand::BLEND: return "BLEND";
+	case GLRRenderCommand::BLENDCOLOR: return "BLENDCOLOR";
+	case GLRRenderCommand::LOGICOP: return "LOGICOP";
+	case GLRRenderCommand::UNIFORM4I: return "UNIFORM4I";
+	case GLRRenderCommand::UNIFORM4UI: return "UNIFORM4UI";
+	case GLRRenderCommand::UNIFORM4F: return "UNIFORM4F";
+	case GLRRenderCommand::UNIFORMMATRIX: return "UNIFORMMATRIX";
+	case GLRRenderCommand::UNIFORMSTEREOMATRIX: return "UNIFORMSTEREOMATRIX";
+	case GLRRenderCommand::TEXTURESAMPLER: return "TEXTURESAMPLER";
+	case GLRRenderCommand::TEXTURELOD: return "TEXTURELOD";
+	case GLRRenderCommand::VIEWPORT: return "VIEWPORT";
+	case GLRRenderCommand::SCISSOR: return "SCISSOR";
+	case GLRRenderCommand::RASTER: return "RASTER";
+	case GLRRenderCommand::CLEAR: return "CLEAR";
+	case GLRRenderCommand::INVALIDATE: return "INVALIDATE";
+	case GLRRenderCommand::BINDPROGRAM: return "BINDPROGRAM";
+	case GLRRenderCommand::BINDTEXTURE: return "BINDTEXTURE";
+	case GLRRenderCommand::BIND_FB_TEXTURE: return "BIND_FB_TEXTURE";
+	case GLRRenderCommand::BIND_VERTEX_BUFFER: return "BIND_VERTEX_BUFFER";
+	case GLRRenderCommand::GENMIPS: return "GENMIPS";
+	case GLRRenderCommand::DRAW: return "DRAW";
+	case GLRRenderCommand::TEXTURE_SUBIMAGE: return "TEXTURE_SUBIMAGE";
+	default: return "N/A";
+	}
 }

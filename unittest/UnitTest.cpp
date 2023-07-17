@@ -47,6 +47,7 @@
 #endif
 
 #include "Common/Data/Collections/TinySet.h"
+#include "Common/Data/Collections/FastVec.h"
 #include "Common/Data/Convert/SmallDataConvert.h"
 #include "Common/Data/Text/Parsers.h"
 #include "Common/Data/Text/WrapText.h"
@@ -73,7 +74,7 @@
 #include "GPU/Common/TextureDecoder.h"
 #include "GPU/Common/GPUStateUtils.h"
 
-#include "android/jni/AndroidContentURI.h"
+#include "Common/File/AndroidContentURI.h"
 
 #include "unittest/JitHarness.h"
 #include "unittest/TestVertexJit.h"
@@ -98,10 +99,15 @@ bool System_GetPropertyBool(SystemProperty prop) {
 }
 void System_Notify(SystemNotification notification) {}
 void System_PostUIMessage(const std::string &message, const std::string &param) {}
-void System_NotifyUserMessage(const std::string &message, float duration, u32 color, const char *id) {}
 void System_AudioGetDebugStats(char *buf, size_t bufSize) { if (buf) buf[0] = '\0'; }
 void System_AudioClear() {}
 void System_AudioPushSamples(const s32 *audio, int numSamples) {}
+
+// TODO: To avoid having to define these here, these should probably be turned into system "requests".
+void NativeSaveSecret(const char *nameOfSecret, const std::string &data) {}
+std::string NativeLoadSecret(const char *nameOfSecret) {
+	return "";
+}
 
 #if PPSSPP_PLATFORM(ANDROID)
 JNIEnv *getEnv() {
@@ -365,6 +371,45 @@ bool TestTinySet() {
 	return true;
 }
 
+bool TestFastVec() {
+	FastVec<int> a;
+	EXPECT_EQ_INT((int)a.size(), 0);
+	a.push_back(1);
+	EXPECT_EQ_INT((int)a.size(), 1);
+	a.push_back(2);
+	EXPECT_EQ_INT((int)a.size(), 2);
+	FastVec<int> b;
+	b.push_back(8);
+	b.push_back(9);
+	b.push_back(10);
+	EXPECT_EQ_INT((int)b.size(), 3);
+	for (int i = 0; i < 100; i++) {
+		b.push_back(33);
+	}
+	EXPECT_EQ_INT((int)b.size(), 103);
+
+	int items[4] = { 50, 60, 70, 80 };
+	b.insert(b.begin() + 1, items, items + 4);
+	EXPECT_EQ_INT(b[0], 8);
+	EXPECT_EQ_INT(b[1], 50);
+	EXPECT_EQ_INT(b[2], 60);
+	EXPECT_EQ_INT(b[3], 70);
+	EXPECT_EQ_INT(b[4], 80);
+	EXPECT_EQ_INT(b[5], 9);
+
+	b.resize(2);
+	b.insert(b.end(), items, items + 4);
+	EXPECT_EQ_INT(b[0], 8);
+	EXPECT_EQ_INT(b[1], 50);
+	EXPECT_EQ_INT(b[2], 50);
+	EXPECT_EQ_INT(b[3], 60);
+	EXPECT_EQ_INT(b[4], 70);
+	EXPECT_EQ_INT(b[5], 80);
+
+
+	return true;
+}
+
 bool TestVFPUSinCos() {
 	float sine, cosine;
 	// Needed for VFPU tables.
@@ -431,7 +476,7 @@ bool TestMatrixTranspose() {
 }
 
 void TestGetMatrix(int matrix, MatrixSize sz) {
-	INFO_LOG(SYSTEM, "Testing matrix %s", GetMatrixNotation(matrix, sz));
+	INFO_LOG(SYSTEM, "Testing matrix %s", GetMatrixNotation(matrix, sz).c_str());
 	u8 fullMatrix[16];
 
 	u8 cols[4];
@@ -449,8 +494,8 @@ void TestGetMatrix(int matrix, MatrixSize sz) {
 		// int rowName = GetRowName(matrix, sz, i, 0);
 		int colName = cols[i];
 		int rowName = rows[i];
-		INFO_LOG(SYSTEM, "Column %i: %s", i, GetVectorNotation(colName, vsz));
-		INFO_LOG(SYSTEM, "Row %i: %s", i, GetVectorNotation(rowName, vsz));
+		INFO_LOG(SYSTEM, "Column %i: %s", i, GetVectorNotation(colName, vsz).c_str());
+		INFO_LOG(SYSTEM, "Row %i: %s", i, GetVectorNotation(rowName, vsz).c_str());
 
 		u8 colRegs[4];
 		u8 rowRegs[4];
@@ -692,7 +737,7 @@ static bool TestAndroidContentURI() {
 	static const char *directoryURIString = "content://com.android.externalstorage.documents/tree/primary%3APSP%20ISO/document/primary%3APSP%20ISO";
 	static const char *fileTreeURIString = "content://com.android.externalstorage.documents/tree/primary%3APSP%20ISO/document/primary%3APSP%20ISO%2FTekken%206.iso";
 	static const char *fileNonTreeString = "content://com.android.externalstorage.documents/document/primary%3APSP%2Fcrash_bad_execaddr.prx";
-
+	static const char *downloadURIString = "content://com.android.providers.downloads.documents/document/msf%3A10000000006";
 
 	AndroidContentURI treeURI;
 	EXPECT_TRUE(treeURI.Parse(std::string(treeURIString)));
@@ -722,8 +767,20 @@ static bool TestAndroidContentURI() {
 	EXPECT_EQ_STR(diff, std::string("Tekken 6.iso"));
 
 	EXPECT_EQ_STR(fileURI.GetFileExtension(), std::string(".prx"));
-	EXPECT_FALSE(fileURI.CanNavigateUp());
+	EXPECT_TRUE(fileURI.CanNavigateUp());  // Can now virtually navigate up one step from these.
 
+	// These are annoying because they hide the actual filename, and we can't get at a parent folder.
+	// Decided to handle the ':' as a directory separator for navigation purposes, which fixes the problem (though not the extension thing).
+	AndroidContentURI downloadURI;
+	EXPECT_TRUE(downloadURI.Parse(std::string(downloadURIString)));
+	EXPECT_EQ_STR(downloadURI.GetLastPart(), std::string("10000000006"));
+	EXPECT_TRUE(downloadURI.CanNavigateUp());
+	EXPECT_TRUE(downloadURI.NavigateUp());
+	// While this is not an openable valid content URI, we can still get something that we can concatenate a filename on top of.
+	EXPECT_EQ_STR(downloadURI.ToString(), std::string("content://com.android.providers.downloads.documents/document/msf%3A"));
+	EXPECT_EQ_STR(downloadURI.GetLastPart(), std::string("msf:"));
+	downloadURI = downloadURI.WithComponent("myfile");
+	EXPECT_EQ_STR(downloadURI.ToString(), std::string("content://com.android.providers.downloads.documents/document/msf%3Amyfile"));
 	return true;
 }
 
@@ -858,10 +915,10 @@ static bool TestDepthMath() {
 
 bool TestInputMapping() {
 	InputMapping mapping;
-	mapping.deviceId = 10;
+	mapping.deviceId = DEVICE_ID_PAD_0;
 	mapping.keyCode = 20;
 	InputMapping mapping2;
-	mapping2.deviceId = 18;
+	mapping2.deviceId = DEVICE_ID_PAD_8;
 	mapping2.keyCode = 38;
 	std::string cfg = mapping.ToConfigString();
 
@@ -911,6 +968,12 @@ bool TestEscapeMenuString() {
 	temp = UnescapeMenuString("&A&B", &c);
 	EXPECT_EQ_STR(temp, std::string("AB"));
 	EXPECT_EQ_INT((int)c, (int)'A');
+	return true;
+}
+
+bool TestSubstitutions() {
+	std::string output = ApplySafeSubstitutions("%3 %2 %1", "a", "b", "c");
+	EXPECT_EQ_STR(output, std::string("c b a"));
 	return true;
 }
 
@@ -965,11 +1028,13 @@ TestItem availableTests[] = {
 	TEST_ITEM(ThreadManager),
 	TEST_ITEM(WrapText),
 	TEST_ITEM(TinySet),
+	TEST_ITEM(FastVec),
 	TEST_ITEM(SmallDataConvert),
 	TEST_ITEM(DepthMath),
 	TEST_ITEM(InputMapping),
 	TEST_ITEM(EscapeMenuString),
 	TEST_ITEM(VFS),
+	TEST_ITEM(Substitutions),
 };
 
 int main(int argc, const char *argv[]) {

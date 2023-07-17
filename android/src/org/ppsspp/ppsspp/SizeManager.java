@@ -85,6 +85,11 @@ public class SizeManager implements SurfaceHolder.Callback {
 
 		Log.d(TAG, "Surface created. pixelWidth=" + pixelWidth + ", pixelHeight=" + pixelHeight + " holder: " + holder.toString() + " or: " + requestedOr);
 		NativeApp.setDisplayParameters(pixelWidth, pixelHeight, (int)densityDpi, refreshRate);
+		getDesiredBackbufferSize(desiredSize);
+
+		// Note that desiredSize might be 0,0 here - but that's fine when calling setFixedSize! It means auto.
+		Log.d(TAG, "Setting fixed size " + desiredSize.x + " x " + desiredSize.y);
+		holder.setFixedSize(desiredSize.x, desiredSize.y);
 	}
 
 	@Override
@@ -198,7 +203,7 @@ public class SizeManager implements SurfaceHolder.Callback {
 				safeInsetTop = 0;
 				safeInsetBottom = 0;
 			}
-			NativeApp.sendMessage("safe_insets", safeInsetLeft + ":" + safeInsetRight + ":" + safeInsetTop + ":" + safeInsetBottom);
+			NativeApp.sendMessageFromJava("safe_insets", safeInsetLeft + ":" + safeInsetRight + ":" + safeInsetTop + ":" + safeInsetBottom);
 		}
 	}
 }

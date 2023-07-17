@@ -183,9 +183,9 @@ const HLEFunction KDebugForKernel[] =
 	{0X24C32559, nullptr,                                            "sceKernelDipsw",                          '?', ""   },
 	{0XD636B827, nullptr,                                            "sceKernelRemoveByDebugSection",           '?', ""   },
 	{0X5282DD5E, nullptr,                                            "sceKernelDipswSet",                       '?', ""   },
-	{0X9F8703E4, nullptr,                                            "KDebugForKernel_9F8703E4",                '?', ""   },
-	{0X333DCEC7, nullptr,                                            "KDebugForKernel_333DCEC7",                '?', ""   },
-	{0XE892D9A1, nullptr,                                            "KDebugForKernel_E892D9A1",                '?', ""   },
+	{0X9F8703E4, nullptr,                                            "sceKernelDipswCpTime",                    '?', ""   },
+	{0X333DCEC7, nullptr,                                            "sceKernelSm1RegisterOperations",          '?', ""   },
+	{0XE892D9A1, nullptr,                                            "sceKernelSm1ReferOperations",             '?', ""   },
 	{0XA126F497, nullptr,                                            "KDebugForKernel_A126F497",                '?', ""   },
 	{0XB7251823, nullptr,                                            "sceKernelAcceptMbogoSig",                 '?', ""   },
 };

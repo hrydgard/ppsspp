@@ -47,6 +47,7 @@
 #include "Core/MemMap.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/JitCommon/JitBlockCache.h"
+#include "Core/RetroAchievements.h"
 #include "HW/MemoryStick.h"
 #include "GPU/GPUState.h"
 
@@ -391,12 +392,18 @@ namespace SaveState
 		currentMIPS->DoState(p);
 		HLEDoState(p);
 		__KernelDoState(p);
+		Achievements::DoState(p);
 		// Kernel object destructors might close open files, so do the filesystem last.
 		pspFileSystem.DoState(p);
 	}
 
 	void Enqueue(SaveState::Operation op)
 	{
+		if (Achievements::ChallengeModeActive()) {
+			// No savestate operations are permitted, let's just ignore it.
+			return;
+		}
+
 		std::lock_guard<std::mutex> guard(mutex);
 		pending.push_back(op);
 
@@ -523,6 +530,11 @@ namespace SaveState
 	int GetCurrentSlot()
 	{
 		return g_Config.iCurrentStateSlot;
+	}
+
+	void PrevSlot()
+	{
+		g_Config.iCurrentStateSlot = (g_Config.iCurrentStateSlot - 1 + NUM_SLOTS) % NUM_SLOTS;
 	}
 
 	void NextSlot()
@@ -868,12 +880,12 @@ namespace SaveState
 			// Sometimes this exposes game bugs that were rarely seen on real devices,
 			// because few people played on a real PSP for 10 hours straight.
 			callbackMessage = sc->T("Loaded. Save in game, restart, and load for less bugs.");
-			return Status::WARNING;
+			return Status::SUCCESS;
 		}
 		if (IsOldVersion()) {
 			// Save states also preserve bugs from old PPSSPP versions, so warn.
 			callbackMessage = sc->T("Loaded. Save in game, restart, and load for less bugs.");
-			return Status::WARNING;
+			return Status::SUCCESS;
 		}
 		// If the loaded state (saveDataGeneration) is older, the game may prevent saving again.
 		// This can happen with newer too, but ignore to/from 0 as a common likely safe case.

@@ -478,7 +478,7 @@ enum {
 	GPU_USE_VS_RANGE_CULLING = FLAG_BIT(3),
 	GPU_USE_BLEND_MINMAX = FLAG_BIT(4),
 	GPU_USE_LOGIC_OP = FLAG_BIT(5),
-	// Bit 6 is free.
+	GPU_USE_FRAGMENT_UBERSHADER = FLAG_BIT(6),
 	GPU_USE_TEXTURE_NPOT = FLAG_BIT(7),
 	GPU_USE_ANISOTROPY = FLAG_BIT(8),
 	GPU_USE_CLEAR_RAM_HACK = FLAG_BIT(9),
@@ -569,8 +569,8 @@ struct GPUStateCache {
 		}
 	}
 	void SetTextureIsArray(bool isArrayTexture) {  // VK only
-		if (arrayTexture != isArrayTexture) {
-			arrayTexture = isArrayTexture;
+		if (textureIsArray != isArrayTexture) {
+			textureIsArray = isArrayTexture;
 			Dirty(DIRTY_FRAGMENTSHADER_STATE);
 		}
 	}
@@ -578,6 +578,17 @@ struct GPUStateCache {
 		if (bgraTexture != isBGRA) {
 			bgraTexture = isBGRA;
 			Dirty(DIRTY_FRAGMENTSHADER_STATE);
+		}
+	}
+	void SetTextureIsFramebuffer(bool isFramebuffer) {
+		if (textureIsFramebuffer != isFramebuffer) {
+			textureIsFramebuffer = isFramebuffer;
+			Dirty(DIRTY_UVSCALEOFFSET);
+		} else if (isFramebuffer) {
+			// Always dirty if it's a framebuffer, since the uniform value depends both
+			// on the specified texture size and the bound texture size. Makes things easier.
+			// TODO: Look at this again later.
+			Dirty(DIRTY_UVSCALEOFFSET);
 		}
 	}
 	void SetUseFlags(u32 newFlags) {
@@ -614,7 +625,8 @@ public:
 
 	bool bgraTexture;
 	bool needShaderTexClamp;
-	bool arrayTexture;
+	bool textureIsArray;
+	bool textureIsFramebuffer;
 	bool useFlagsChanged;
 
 	float morphWeights[8];

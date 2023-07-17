@@ -3,6 +3,7 @@
 #include <mutex>
 #include <condition_variable>
 #include <vector>
+#include <string>
 #include <set>
 
 #include "Common/GPU/OpenGL/GLCommon.h"
@@ -35,6 +36,15 @@ public:
 	std::vector<GLPushBuffer *> pushBuffers;
 };
 
+struct GLQueueProfileContext {
+	bool enabled;
+	double cpuStartTime;
+	double cpuEndTime;
+	std::string passesString;
+	int commandCounts[25];  // Can't grab count from the enum as it would mean a circular include. Might clean this up later.
+};
+
+
 // Per-frame data, round-robin so we can overlap submission with execution of the previous frame.
 struct GLFrameData {
 	bool skipSwap = false;
@@ -49,4 +59,6 @@ struct GLFrameData {
 	GLDeleter deleter;
 	GLDeleter deleter_prev;
 	std::set<GLPushBuffer *> activePushBuffers;
+
+	GLQueueProfileContext profile;
 };

@@ -449,11 +449,13 @@ SoftGPU::SoftGPU(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	if (gfxCtx && draw) {
 		presentation_ = new PresentationCommon(draw_);
 		presentation_->SetLanguage(draw_->GetShaderLanguageDesc().shaderLanguage);
+		presentation_->UpdateDisplaySize(PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
+		presentation_->UpdateRenderSize(PSP_CoreParameter().renderWidth, PSP_CoreParameter().renderHeight);
 	}
 
 	NotifyConfigChanged();
-	NotifyRenderResized();
 	NotifyDisplayResized();
+	NotifyRenderResized();
 }
 
 void SoftGPU::DeviceLost() {
@@ -723,14 +725,28 @@ void SoftGPU::NotifyRenderResized() {
 }
 
 void SoftGPU::NotifyDisplayResized() {
-	if (presentation_) {
+	displayResized_ = true;
+}
+
+void SoftGPU::CheckDisplayResized() {
+	if (displayResized_ && presentation_) {
 		presentation_->UpdateDisplaySize(PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
 		presentation_->UpdateRenderSize(PSP_CoreParameter().renderWidth, PSP_CoreParameter().renderHeight);
 		presentation_->UpdatePostShader();
+		displayResized_ = false;
 	}
 }
 
-void SoftGPU::NotifyConfigChanged() {}
+void SoftGPU::CheckConfigChanged() {
+	if (configChanged_) {
+		drawEngineCommon_->NotifyConfigChanged();
+		BuildReportingInfo();
+		if (presentation_) {
+			presentation_->UpdatePostShader();
+		}
+		configChanged_ = false;
+	}
+}
 
 void SoftGPU::FastRunLoop(DisplayList &list) {
 	PROFILE_THIS_SCOPE("soft_runloop");

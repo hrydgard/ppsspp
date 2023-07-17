@@ -112,7 +112,7 @@
 		iOSCoreAudioShutdown();
 	}
 
-	NativeMessageReceived("lost_focus", "");
+	System_PostUIMessage("lost_focus", "");
 }
 
 -(void) applicationDidBecomeActive:(UIApplication *)application {
@@ -120,7 +120,7 @@
 		iOSCoreAudioInit();
 	}
 
-	NativeMessageReceived("got_focus", "");
+	System_PostUIMessage("got_focus", "");
 }
 
 - (void)applicationWillTerminate:(UIApplication *)application {

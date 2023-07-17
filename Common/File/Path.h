@@ -90,6 +90,11 @@ public:
 
 #if PPSSPP_PLATFORM(WINDOWS)
 	std::wstring ToWString() const;
+	std::string ToCString() const;  // Flips the slashes back to Windows standard, but string still UTF-8.
+#else
+	std::string ToCString() const {
+		return ToString();
+	}
 #endif
 
 	// Pass in a relative root to turn the path into a relative path - if it is one!
@@ -133,6 +138,8 @@ private:
 	PathType type_;
 };
 
+// Utility function for parsing out file extensions.
+std::string GetExtFromString(const std::string &str);
 
 // Utility function for fixing the case of paths. Only present on Unix-like systems.
 

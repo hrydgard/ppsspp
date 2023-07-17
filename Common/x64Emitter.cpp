@@ -140,6 +140,37 @@ const u8 *XEmitter::AlignCodePage()
 	return code;
 }
 
+const u8 *XEmitter::NopAlignCode16() {
+	int nops = 16 - ((u64)code & 15);
+	if (nops == 16)
+		return code;
+
+	// note: the string lengths are obviously not computable with strlen, but are equal to the index.
+	// Nop strings from https://stackoverflow.com/questions/25545470/long-multi-byte-nops-commonly-understood-macros-or-other-notation
+	static const char * const nopStrings[16] = {
+		"",
+		"\x90",
+		"\x66\x90",
+		"\x0f\x1f\00",
+		"\x0f\x1f\x40\x00",
+		"\x0f\x1f\x44\x00\x00",
+		"\x66\x0f\x1f\x44\x00\x00",
+		"\x0f\x1f\x80\x00\x00\x00\x00",
+		"\x0f\x1f\x84\x00\x00\x00\x00\x00",
+		"\x66\x0f\x1f\x84\x00\x00\x00\x00\x00",
+		"\x66\x66\x0f\x1f\x84\x00\x00\x00\x00\x00",
+		"\x66\x66\x66\x0f\x1f\x84\x00\x00\x00\x00\x00",
+		"\x66\x66\x66\x0f\x1f\x84\x00\x00\x00\x00\x00\x90",
+		"\x66\x66\x66\x0f\x1f\x84\x00\x00\x00\x00\x00\x66\x90",
+		"\x66\x66\x66\x0f\x1f\x84\x00\x00\x00\x00\x00\x0f\x1f\00",
+		"\x66\x66\x66\x0f\x1f\x84\x00\x00\x00\x00\x00\x0f\x1f\x40\x00",
+	};
+
+	memcpy(code, nopStrings[nops], nops);
+	code += nops;
+	return code;
+}
+
 // This operation modifies flags; check to see the flags are locked.
 // If the flags are locked, we should immediately and loudly fail before
 // causing a subtle JIT bug.

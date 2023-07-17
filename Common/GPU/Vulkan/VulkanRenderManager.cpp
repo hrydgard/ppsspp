@@ -308,9 +308,8 @@ bool VulkanRenderManager::CreateBackbuffers() {
 void VulkanRenderManager::StopThread() {
 	{
 		// Tell the render thread to quit when it's done.
-		VKRRenderThreadTask task;
-		task.frame = vulkan_->GetCurFrame();
-		task.runType = VKRRunType::EXIT;
+		VKRRenderThreadTask *task = new VKRRenderThreadTask(VKRRunType::EXIT);
+		task->frame = vulkan_->GetCurFrame();
 		std::unique_lock<std::mutex> lock(pushMutex_);
 		renderThreadQueue_.push(task);
 		pushCondVar_.notify_one();
@@ -494,7 +493,7 @@ void VulkanRenderManager::ThreadFunc() {
 	SetCurrentThreadName("RenderMan");
 	while (true) {
 		// Pop a task of the queue and execute it.
-		VKRRenderThreadTask task;
+		VKRRenderThreadTask *task = nullptr;
 		{
 			std::unique_lock<std::mutex> lock(pushMutex_);
 			while (renderThreadQueue_.empty()) {
@@ -506,12 +505,15 @@ void VulkanRenderManager::ThreadFunc() {
 
 		// Oh, we got a task! We can now have pushMutex_ unlocked, allowing the host to
 		// push more work when it feels like it, and just start working.
-		if (task.runType == VKRRunType::EXIT) {
+		if (task->runType == VKRRunType::EXIT) {
 			// Oh, host wanted out. Let's leave.
+			delete task;
+			// In this case, there should be no more tasks.
 			break;
 		}
 
-		Run(task);
+		Run(*task);
+		delete task;
 	}
 
 	// Wait for the device to be done with everything, before tearing stuff down.
@@ -550,13 +552,14 @@ void VulkanRenderManager::BeginFrame(bool enableProfiling, bool enableLogProfile
 	int validBits = vulkan_->GetQueueFamilyProperties(vulkan_->GetGraphicsQueueFamilyIndex()).timestampValidBits;
 
 	// Can't set this until after the fence.
-	frameData.profilingEnabled_ = enableProfiling && validBits > 0;
+	frameData.profile.enabled = enableProfiling;
+	frameData.profile.timestampsEnabled = enableProfiling && validBits > 0;
 
 	uint64_t queryResults[MAX_TIMESTAMP_QUERIES];
 
-	if (frameData.profilingEnabled_) {
+	if (enableProfiling) {
 		// Pull the profiling results from last time and produce a summary!
-		if (!frameData.profile.timestampDescriptions.empty()) {
+		if (!frameData.profile.timestampDescriptions.empty() && frameData.profile.timestampsEnabled) {
 			int numQueries = (int)frameData.profile.timestampDescriptions.size();
 			VkResult res = vkGetQueryPoolResults(
 				vulkan_->GetDevice(),
@@ -594,7 +597,12 @@ void VulkanRenderManager::BeginFrame(bool enableProfiling, bool enableLogProfile
 				frameData.profile.profileSummary = "(error getting GPU profile - not ready?)";
 			}
 		} else {
-			frameData.profile.profileSummary = "(no GPU profile data collected)";
+			std::stringstream str;
+			char line[256];
+			renderCPUTimeMs_.Update((frameData.profile.cpuEndTime - frameData.profile.cpuStartTime) * 1000.0);
+			renderCPUTimeMs_.Format(line, sizeof(line));
+			str << line;
+			frameData.profile.profileSummary = str.str();
 		}
 	}
 
@@ -605,7 +613,7 @@ void VulkanRenderManager::BeginFrame(bool enableProfiling, bool enableLogProfile
 	vulkan_->BeginFrame(enableLogProfiler ? GetInitCmd() : VK_NULL_HANDLE);
 
 	frameData.profile.timestampDescriptions.clear();
-	if (frameData.profilingEnabled_) {
+	if (frameData.profile.timestampsEnabled) {
 		// For various reasons, we need to always use an init cmd buffer in this case to perform the vkCmdResetQueryPool,
 		// unless we want to limit ourselves to only measure the main cmd buffer.
 		// Later versions of Vulkan have support for clearing queries on the CPU timeline, but we don't want to rely on that.
@@ -657,10 +665,6 @@ VKRGraphicsPipeline *VulkanRenderManager::CreateGraphicsPipeline(VKRGraphicsPipe
 				WARN_LOG(G3D, "Not compiling pipeline that requires depth, for non depth renderpass type");
 				continue;
 			}
-			if ((pipelineFlags & PipelineFlags::USES_INPUT_ATTACHMENT) && !RenderPassTypeHasInput(rpType)) {
-				WARN_LOG(G3D, "Not compiling pipeline that requires input attachment, for non input renderpass type");
-				continue;
-			}
 			// Shouldn't hit this, these should have been filtered elsewhere. However, still a good check to do.
 			if (sampleCount == VK_SAMPLE_COUNT_1_BIT && RenderPassTypeHasMultisample(rpType)) {
 				WARN_LOG(G3D, "Not compiling single sample pipeline for a multisampled render pass type");
@@ -710,10 +714,6 @@ void VulkanRenderManager::EndCurRenderStep() {
 	if (!curRenderStep_->render.framebuffer) {
 		rpType = RenderPassType::BACKBUFFER;
 	} else {
-		if (curPipelineFlags_ & PipelineFlags::USES_INPUT_ATTACHMENT) {
-			// Not allowed on backbuffers.
-			rpType = depthStencil ? (RenderPassType::HAS_DEPTH | RenderPassType::COLOR_INPUT) : RenderPassType::COLOR_INPUT;
-		}
 		// Framebuffers can be stereo, and if so, will control the render pass type to match.
 		// Pipelines can be mono and render fine to stereo etc, so not checking them here.
 		// Note that we don't support rendering to just one layer of a multilayer framebuffer!
@@ -762,11 +762,6 @@ void VulkanRenderManager::EndCurRenderStep() {
 	// We no longer have a current render step.
 	curRenderStep_ = nullptr;
 	curPipelineFlags_ = (PipelineFlags)0;
-}
-
-void VulkanRenderManager::BindCurrentFramebufferAsInputAttachment0(VkImageAspectFlags aspectBits) {
-	_dbg_assert_(curRenderStep_);
-	curRenderStep_->commands.push_back(VkRenderData{ VKRRenderCommand::SELF_DEPENDENCY_BARRIER });
 }
 
 void VulkanRenderManager::BindFramebufferAsRenderTarget(VKRFramebuffer *fb, VKRRenderPassLoadAction color, VKRRenderPassLoadAction depth, VKRRenderPassLoadAction stencil, uint32_t clearColor, float clearDepth, uint8_t clearStencil, const char *tag) {
@@ -999,7 +994,7 @@ void VulkanRenderManager::CopyImageToMemorySync(VkImage image, int mipLevel, int
 	queueRunner_.CopyReadbackBuffer(frameData_[vulkan_->GetCurFrame()], nullptr, w, h, destFormat, destFormat, pixelStride, pixels);
 }
 
-static void RemoveDrawCommands(std::vector<VkRenderData> *cmds) {
+static void RemoveDrawCommands(FastVec<VkRenderData> *cmds) {
 	// Here we remove any DRAW type commands when we hit a CLEAR.
 	for (auto &c : *cmds) {
 		if (c.cmd == VKRRenderCommand::DRAW || c.cmd == VKRRenderCommand::DRAW_INDEXED) {
@@ -1008,7 +1003,7 @@ static void RemoveDrawCommands(std::vector<VkRenderData> *cmds) {
 	}
 }
 
-static void CleanupRenderCommands(std::vector<VkRenderData> *cmds) {
+static void CleanupRenderCommands(FastVec<VkRenderData> *cmds) {
 	size_t lastCommand[(int)VKRRenderCommand::NUM_RENDER_COMMANDS];
 	memset(lastCommand, -1, sizeof(lastCommand));
 
@@ -1266,13 +1261,12 @@ void VulkanRenderManager::Finish() {
 	FrameData &frameData = frameData_[curFrame];
 
 	VLOG("PUSH: Frame[%d]", curFrame);
-	VKRRenderThreadTask task;
-	task.frame = curFrame;
-	task.runType = VKRRunType::PRESENT;
+	VKRRenderThreadTask *task = new VKRRenderThreadTask(VKRRunType::PRESENT);
+	task->frame = curFrame;
 	{
 		std::unique_lock<std::mutex> lock(pushMutex_);
 		renderThreadQueue_.push(task);
-		renderThreadQueue_.back().steps = std::move(steps_);
+		renderThreadQueue_.back()->steps = std::move(steps_);
 		pushCondVar_.notify_one();
 	}
 
@@ -1382,12 +1376,11 @@ void VulkanRenderManager::FlushSync() {
 	
 	{
 		VLOG("PUSH: Frame[%d]", curFrame);
-		VKRRenderThreadTask task;
-		task.frame = curFrame;
-		task.runType = VKRRunType::SYNC;
+		VKRRenderThreadTask *task = new VKRRenderThreadTask(VKRRunType::SYNC);
+		task->frame = curFrame;
 		std::unique_lock<std::mutex> lock(pushMutex_);
 		renderThreadQueue_.push(task);
-		renderThreadQueue_.back().steps = std::move(steps_);
+		renderThreadQueue_.back()->steps = std::move(steps_);
 		pushCondVar_.notify_one();
 	}
 

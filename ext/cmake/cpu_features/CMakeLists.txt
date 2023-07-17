@@ -142,7 +142,9 @@ endif()
 add_library(cpu_features ${CPU_FEATURES_HDRS} ${CPU_FEATURES_SRCS})
 set_target_properties(cpu_features PROPERTIES PUBLIC_HEADER "${CPU_FEATURES_HDRS}")
 setup_include_and_definitions(cpu_features)
-target_link_libraries(cpu_features PUBLIC ${CMAKE_DL_LIBS})
+if(NOT USE_LIBNX)
+  target_link_libraries(cpu_features PUBLIC ${CMAKE_DL_LIBS})
+endif()
 target_include_directories(cpu_features
   PUBLIC $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/cpu_features>
 )

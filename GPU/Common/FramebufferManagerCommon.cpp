@@ -28,7 +28,7 @@
 #include "Common/Math/lin/matrix4x4.h"
 #include "Common/Math/math_util.h"
 #include "Common/System/Display.h"
-#include "Common/System/System.h"
+#include "Common/System/OSD.h"
 #include "Common/VR/PPSSPPVR.h"
 #include "Common/CommonTypes.h"
 #include "Common/StringUtils.h"
@@ -1217,7 +1217,6 @@ void FramebufferManagerCommon::DrawPixels(VirtualFramebuffer *vfb, int dstX, int
 			u0, v0, u1, v1, ROTATION_LOCKED_HORIZONTAL, flags);
 
 		gpuStats.numUploads++;
-		pixelsTex->Release();
 		draw_->Invalidate(InvalidationFlags::CACHED_RENDER_STATE);
 
 		gstate_c.Dirty(DIRTY_ALL_RENDER_STATE);
@@ -1240,7 +1239,7 @@ bool FramebufferManagerCommon::BindFramebufferAsColorTexture(int stage, VirtualF
 		// Self-texturing, need a copy currently (some backends can potentially support it though).
 		WARN_LOG_ONCE(selfTextureCopy, G3D, "Attempting to texture from current render target (src=%08x / target=%08x / flags=%d), making a copy", framebuffer->fb_address, currentRenderVfb_->fb_address, flags);
 		// TODO: Maybe merge with bvfbs_?  Not sure if those could be packing, and they're created at a different size.
-		if (currentFramebufferCopy_) {
+		if (currentFramebufferCopy_ && (flags & BINDFBCOLOR_UNCACHED) == 0) {
 			// We have a copy already that hasn't been invalidated, let's keep using it.
 			draw_->BindFramebufferAsTexture(currentFramebufferCopy_, stage, Draw::FB_COLOR_BIT, layer);
 			return true;
@@ -1258,7 +1257,7 @@ bool FramebufferManagerCommon::BindFramebufferAsColorTexture(int stage, VirtualF
 
 			// Only cache the copy if it wasn't a partial copy.
 			// TODO: Improve on this.
-			if (!partial) {
+			if (!partial && (flags & BINDFBCOLOR_UNCACHED) == 0) {
 				currentFramebufferCopy_ = renderCopy;
 			}
 			gpuStats.numCopiesForSelfTex++;
@@ -1401,11 +1400,29 @@ Draw::Texture *FramebufferManagerCommon::MakePixelTexture(const u8 *srcPixels, G
 		return true;
 	};
 
+	Draw::DataFormat texFormat = srcPixelFormat == GE_FORMAT_DEPTH16 ? depthFormat : preferredPixelsFormat_;
+
+	int frameNumber = draw_->GetFrameCount();
+
+	// Look for a matching texture we can re-use.
+	for (auto &iter : drawPixelsCache_) {
+		if (iter.frameNumber >= frameNumber - 3 || iter.tex->Width() != width || iter.tex->Height() != height || iter.tex->Format() != texFormat) {
+			continue;
+		}
+
+		// OK, current one seems good, let's use it (and mark it used).
+		gpuStats.numDrawPixels++;
+		draw_->UpdateTextureLevels(iter.tex, &srcPixels, generateTexture, 1);
+		// NOTE: numFlips is no good - this is called every frame when paused sometimes!
+		iter.frameNumber = frameNumber;
+		return iter.tex;
+	}
+
 	// Note: For depth, we create an R16_UNORM texture, that'll be just fine for uploading depth through a shader,
 	// and likely more efficient.
 	Draw::TextureDesc desc{
 		Draw::TextureType::LINEAR2D,
-		srcPixelFormat == GE_FORMAT_DEPTH16 ? depthFormat : preferredPixelsFormat_,
+		texFormat,
 		width,
 		height,
 		1,
@@ -1418,10 +1435,18 @@ Draw::Texture *FramebufferManagerCommon::MakePixelTexture(const u8 *srcPixels, G
 	};
 
 	// Hot Shots Golf (#12355) does tons of these in a frame in some situations! So creating textures
-	// better be fast.
+	// better be fast. So does God of War, a lot of the time, a bit unclear what it's doing.
 	Draw::Texture *tex = draw_->CreateTexture(desc);
-	if (!tex)
+	if (!tex) {
 		ERROR_LOG(G3D, "Failed to create DrawPixels texture");
+	}
+	gpuStats.numDrawPixels++;
+	gpuStats.numTexturesDecoded++;  // Separate stat for this later?
+
+	// INFO_LOG(G3D, "Creating drawPixelsCache texture: %dx%d", tex->Width(), tex->Height());
+
+	DrawPixelsEntry entry{ tex, frameNumber };
+	drawPixelsCache_.push_back(entry);
 	return tex;
 }
 
@@ -1448,7 +1473,6 @@ void FramebufferManagerCommon::DrawFramebufferToOutput(const u8 *srcPixels, int 
 	presentation_->UpdateUniforms(textureCache_->VideoIsPlaying());
 	presentation_->SourceTexture(pixelsTex, 512, 272);
 	presentation_->CopyToOutput(flags, uvRotation, u0, v0, u1, v1);
-	pixelsTex->Release();
 
 	// PresentationCommon sets all kinds of state, we can't rely on anything.
 	gstate_c.Dirty(DIRTY_ALL);
@@ -1668,6 +1692,20 @@ void FramebufferManagerCommon::DecimateFBOs() {
 			INFO_LOG(FRAMEBUF, "Decimating FBO for %08x (%dx%d %s), age %i", vfb->fb_address, vfb->width, vfb->height, GeBufferFormatToString(vfb->fb_format), age);
 			DestroyFramebuf(vfb);
 			bvfbs_.erase(bvfbs_.begin() + i--);
+		}
+	}
+
+	// And DrawPixels cached textures.
+
+	for (auto it = drawPixelsCache_.begin(); it != drawPixelsCache_.end(); ) {
+		int age = draw_->GetFrameCount() - it->frameNumber;
+		if (age > 10) {
+			// INFO_LOG(G3D, "Releasing drawPixelsCache texture: %dx%d", it->tex->Width(), it->tex->Height());
+			it->tex->Release();
+			it->tex = nullptr;
+			it = drawPixelsCache_.erase(it);
+		} else {
+			++it;
 		}
 	}
 }
@@ -2566,13 +2604,6 @@ void FramebufferManagerCommon::NotifyRenderResized(int msaaLevel) {
 	// No drawing is allowed here. This includes anything that might potentially touch a command buffer, like creating images!
 	// So we need to defer the post processing initialization.
 	updatePostShaders_ = true;
-
-#ifdef _WIN32
-	// Seems related - if you're ok with numbers all the time, show some more :)
-	if (g_Config.iShowStatusFlags != 0) {
-		ShowScreenResolution();
-	}
-#endif
 }
 
 void FramebufferManagerCommon::NotifyConfigChanged() {
@@ -2602,10 +2633,15 @@ void FramebufferManagerCommon::DestroyAllFBOs() {
 	}
 	tempFBOs_.clear();
 
-	for (auto iter : fbosToDelete_) {
+	for (auto &iter : fbosToDelete_) {
 		iter->Release();
 	}
 	fbosToDelete_.clear();
+
+	for (auto &iter : drawPixelsCache_) {
+		iter.tex->Release();
+	}
+	drawPixelsCache_.clear();
 }
 
 static const char *TempFBOReasonToString(TempFBO reason) {
@@ -2655,24 +2691,6 @@ void FramebufferManagerCommon::UpdateFramebufUsage(VirtualFramebuffer *vfb) {
 	checkFlag(FB_USAGE_TEXTURE, vfb->last_frame_used);
 	checkFlag(FB_USAGE_RENDER_COLOR, vfb->last_frame_render);
 	checkFlag(FB_USAGE_CLUT, vfb->last_frame_clut);
-}
-
-void FramebufferManagerCommon::ShowScreenResolution() {
-	auto gr = GetI18NCategory(I18NCat::GRAPHICS);
-
-	std::ostringstream messageStream;
-	messageStream << gr->T("Internal Resolution") << ": ";
-	messageStream << PSP_CoreParameter().renderWidth << "x" << PSP_CoreParameter().renderHeight << " ";
-	if (postShaderIsUpscalingFilter_) {
-		messageStream << gr->T("(upscaling)") << " ";
-	} else if (postShaderIsSupersampling_) {
-		messageStream << gr->T("(supersampling)") << " ";
-	}
-	messageStream << gr->T("Window Size") << ": ";
-	messageStream << PSP_CoreParameter().pixelWidth << "x" << PSP_CoreParameter().pixelHeight;
-
-	System_NotifyUserMessage(messageStream.str(), 2.0f, 0xFFFFFF, "resize");
-	INFO_LOG(SYSTEM, "%s", messageStream.str().c_str());
 }
 
 void FramebufferManagerCommon::ClearAllDepthBuffers() {

@@ -264,6 +264,8 @@ public:
 	struct AllPhysicalDeviceFeatures {
 		VkPhysicalDeviceFeatures standard;
 		VkPhysicalDeviceMultiviewFeatures multiview;
+		VkPhysicalDevicePresentWaitFeaturesKHR presentWait;
+		VkPhysicalDevicePresentIdFeaturesKHR presentId;
 	};
 
 	const PhysicalDeviceProps &GetPhysicalDeviceProperties(int i = -1) const {

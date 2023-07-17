@@ -411,6 +411,9 @@ static inline bool MergeRecentMemInfo(const PendingNotifyMem &info, size_t copyL
 
 	for (size_t i = 1; i <= 4; ++i) {
 		auto &prev = pendingNotifies[pendingNotifies.size() - i];
+		if (prev.flags != info.flags)
+			continue;
+
 		if (prev.start >= info.start + info.size || prev.start + prev.size <= info.start)
 			continue;
 

@@ -442,17 +442,17 @@ void OSXOpenURL(const char *url) {
 }
 
 -(void)pauseAction: (NSMenuItem *)item {
-	NativeMessageReceived("pause", "");
+	System_PostUIMessage("pause", "");
 }
 
 -(void)resetAction: (NSMenuItem *)item {
-    NativeMessageReceived("reset", "");
+    System_PostUIMessage("reset", "");
 	Core_EnableStepping(false);
 }
 
 -(void)chatAction: (NSMenuItem *)item {
     if (GetUIState() == UISTATE_INGAME) {
-        NativeMessageReceived("chat screen", "");
+        System_PostUIMessage("chat screen", "");
     }
 }
 
@@ -541,7 +541,7 @@ TOGGLE_METHOD(AutoFrameSkip, g_Config.bAutoFrameSkip, g_Config.UpdateAfterSettin
 TOGGLE_METHOD(SoftwareRendering, g_Config.bSoftwareRendering)
 TOGGLE_METHOD(FullScreen, g_Config.bFullScreen, System_MakeRequest(SystemRequestType::TOGGLE_FULLSCREEN_STATE, 0, g_Config.UseFullScreen() ? "1" : "0", "", 3))
 // TOGGLE_METHOD(VSync, g_Config.bVSync)
-TOGGLE_METHOD(ShowDebugStats, g_Config.bShowDebugStats, NativeMessageReceived("clear jit", ""))
+TOGGLE_METHOD(ShowDebugStats, g_Config.bShowDebugStats, System_PostUIMessage("clear jit", ""))
 #undef TOGGLE_METHOD
 
 -(void)setToggleShowCounterItem: (NSMenuItem *)item {
@@ -622,14 +622,14 @@ TOGGLE_METHOD(ShowDebugStats, g_Config.bShowDebugStats, NativeMessageReceived("c
 }
 
 -(void)openRecentItem: (NSMenuItem *)item {
-    NativeMessageReceived("boot", g_Config.RecentIsos()[item.tag].c_str());
+    System_PostUIMessage("boot", g_Config.RecentIsos()[item.tag].c_str());
 }
 
 -(void)openSystemFileBrowser {
     int g = 0;
     DarwinDirectoryPanelCallback callback = [g] (bool succ, Path thePathChosen) {
         if (succ)
-            NativeMessageReceived("boot", thePathChosen.c_str());
+            System_PostUIMessage("boot", thePathChosen.c_str());
     };
     
     DarwinFileSystemServices services;

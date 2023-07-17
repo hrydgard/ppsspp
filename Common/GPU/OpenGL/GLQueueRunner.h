@@ -11,7 +11,7 @@
 #include "Common/GPU/Shader.h"
 #include "Common/GPU/thin3d.h"
 #include "Common/Data/Collections/TinySet.h"
-
+#include "Common/Data/Collections/FastVec.h"
 
 struct GLRViewport {
 	float x, y, w, h, minZ, maxZ;
@@ -25,7 +25,7 @@ struct GLOffset2D {
 	int x, y;
 };
 
-enum class GLRAllocType {
+enum class GLRAllocType : uint8_t {
 	NONE,
 	NEW,
 	ALIGNED,
@@ -40,8 +40,7 @@ class GLRInputLayout;
 
 enum class GLRRenderCommand : uint8_t {
 	DEPTH,
-	STENCILFUNC,
-	STENCILOP,
+	STENCIL,
 	BLEND,
 	BLENDCOLOR,
 	LOGICOP,
@@ -61,10 +60,8 @@ enum class GLRRenderCommand : uint8_t {
 	BINDTEXTURE,
 	BIND_FB_TEXTURE,
 	BIND_VERTEX_BUFFER,
-	BIND_BUFFER,
 	GENMIPS,
 	DRAW,
-	DRAW_INDEXED,
 	TEXTURE_SUBIMAGE,
 };
 
@@ -72,6 +69,7 @@ enum class GLRRenderCommand : uint8_t {
 // type field, smashed right after each other?)
 // Also, all GLenums are really only 16 bits.
 struct GLRRenderData {
+	GLRRenderData(GLRRenderCommand _cmd) : cmd(_cmd) {}
 	GLRRenderCommand cmd;
 	union {
 		struct {
@@ -101,26 +99,23 @@ struct GLRRenderData {
 			GLenum func;
 			uint8_t ref;
 			uint8_t compareMask;
-		} stencilFunc;
-		struct {
 			GLenum sFail;
 			GLenum zFail;
 			GLenum pass;
 			uint8_t writeMask;
-		} stencilOp;  // also write mask
+		} stencil;
 		struct {
+			GLRInputLayout *inputLayout;
+			GLRBuffer *vertexBuffer;
+			GLRBuffer *indexBuffer;
+			uint32_t vertexOffset;
+			uint32_t indexOffset;
 			GLenum mode;  // primitive
-			GLint buffer;
 			GLint first;
 			GLint count;
-		} draw;
-		struct {
-			GLenum mode;  // primitive
-			GLint count;
-			GLint instances;
 			GLint indexType;
-			void *indices;
-		} drawIndexed;
+			GLint instances;
+		} draw;
 		struct {
 			const char *name;  // if null, use loc
 			const GLint *loc; // NOTE: This is a pointer so we can immediately use things that are "queried" during program creation.
@@ -130,8 +125,13 @@ struct GLRRenderData {
 		struct {
 			const char *name;  // if null, use loc
 			const GLint *loc;
-			float m[32];
+			float m[16];
 		} uniformMatrix4;
+		struct {
+			const char *name;  // if null, use loc
+			const GLint *loc;
+			float *mData;  // new'd, 32 entries
+		} uniformStereoMatrix4;
 		struct {
 			uint32_t clearColor;
 			float clearZ;
@@ -171,11 +171,6 @@ struct GLRRenderData {
 		struct {
 			GLRProgram *program;
 		} program;
-		struct {
-			GLRInputLayout *inputLayout;
-			GLRBuffer *buffer;
-			size_t offset;
-		} bindVertexBuffer;
 		struct {
 			int slot;
 			GLenum wrapS;
@@ -295,16 +290,17 @@ enum class GLRRenderPassAction {
 
 class GLRFramebuffer;
 
-enum {
+enum GLRAspect {
 	GLR_ASPECT_COLOR = 1,
 	GLR_ASPECT_DEPTH = 2,
 	GLR_ASPECT_STENCIL = 3,
 };
+const char *GLRAspectToString(GLRAspect aspect);
 
 struct GLRStep {
 	GLRStep(GLRStepType _type) : stepType(_type) {}
 	GLRStepType stepType;
-	std::vector<GLRRenderData> commands;
+	FastVec<GLRRenderData> commands;
 	TinySet<const GLRFramebuffer *, 8> dependencies;
 	const char *tag;
 	union {
@@ -313,8 +309,6 @@ struct GLRStep {
 			GLRRenderPassAction color;
 			GLRRenderPassAction depth;
 			GLRRenderPassAction stencil;
-			// Note: not accurate.
-			int numDraws;
 		} render;
 		struct {
 			GLRFramebuffer *src;
@@ -358,9 +352,9 @@ public:
 		caps_ = caps;
 	}
 
-	void RunInitSteps(const std::vector<GLRInitStep> &steps, bool skipGLCalls);
+	void RunInitSteps(const FastVec<GLRInitStep> &steps, bool skipGLCalls);
 
-	void RunSteps(const std::vector<GLRStep *> &steps, bool skipGLCalls, bool keepSteps, bool useVR);
+	void RunSteps(const std::vector<GLRStep *> &steps, GLFrameData &frameData, bool skipGLCalls, bool keepSteps, bool useVR);
 
 	void CreateDeviceObjects();
 	void DestroyDeviceObjects();
@@ -385,7 +379,7 @@ private:
 	void InitCreateFramebuffer(const GLRInitStep &step);
 
 	void PerformBindFramebufferAsRenderTarget(const GLRStep &pass);
-	void PerformRenderPass(const GLRStep &pass, bool first, bool last);
+	void PerformRenderPass(const GLRStep &pass, bool first, bool last, GLQueueProfileContext &profile);
 	void PerformCopy(const GLRStep &pass);
 	void PerformBlit(const GLRStep &pass);
 	void PerformReadback(const GLRStep &pass);
@@ -395,6 +389,8 @@ private:
 	void fbo_bind_fb_target(bool read, GLuint name);
 	GLenum fbo_get_fb_target(bool read, GLuint **cached);
 	void fbo_unbind();
+
+	std::string StepToString(const GLRStep &step) const;
 
 	GLRFramebuffer *curFB_ = nullptr;
 
@@ -427,3 +423,5 @@ private:
 	ErrorCallbackFn errorCallback_ = nullptr;
 	void *errorCallbackUserData_ = nullptr;
 };
+
+const char *RenderCommandToString(GLRRenderCommand cmd);

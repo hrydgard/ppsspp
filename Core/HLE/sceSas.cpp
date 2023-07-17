@@ -320,7 +320,7 @@ static u32 _sceSasCoreWithMix(u32 core, u32 inoutAddr, int leftVolume, int right
 
 static u32 sceSasSetVoice(u32 core, int voiceNum, u32 vagAddr, int size, int loop) {
 	if (voiceNum >= PSP_SAS_VOICES_MAX || voiceNum < 0)	{
-		return hleLogWarning(SCESAS, ERROR_SAS_INVALID_VOICE, "invalid voicenum");
+		return hleLogVerbose(SCESAS, ERROR_SAS_INVALID_VOICE, "invalid voicenum");
 	}
 
 	if (size == 0 || ((u32)size & 0xF) != 0) {

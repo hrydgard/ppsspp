@@ -126,7 +126,7 @@ static void UnloadXInputDLL() {}
 
 
 // Permanent map. Actual mapping happens elsewhere.
-static const struct {int from, to;} xinput_ctrl_map[] = {
+static const struct { int from; InputKeyCode to; } xinput_ctrl_map[] = {
 	{XINPUT_GAMEPAD_A,              NKCODE_BUTTON_A},
 	{XINPUT_GAMEPAD_B,              NKCODE_BUTTON_B},
 	{XINPUT_GAMEPAD_X,              NKCODE_BUTTON_X},
@@ -161,7 +161,7 @@ XinputDevice::~XinputDevice() {
 }
 
 struct Stick {
-	Stick (float x_, float y_, float scale) : x(x_ * scale), y(y_ * scale) {}
+	Stick(float x_, float y_, float scale) : x(x_ * scale), y(y_ * scale) {}
 	float x;
 	float y;
 };
@@ -202,9 +202,8 @@ int XinputDevice::UpdateState() {
 }
 
 void XinputDevice::UpdatePad(int pad, const XINPUT_STATE &state, XINPUT_VIBRATION &vibration) {
-	static bool notified[XUSER_MAX_COUNT]{};
-	if (!notified[pad]) {
-		notified[pad] = true;
+	if (!notified_[pad]) {
+		notified_[pad] = true;
 #if !PPSSPP_PLATFORM(UWP)
 		XINPUT_CAPABILITIES_EX caps{};
 		if (PPSSPP_XInputGetCapabilitiesEx != nullptr && PPSSPP_XInputGetCapabilitiesEx(1, pad, 0, &caps) == ERROR_SUCCESS) {
@@ -220,24 +219,27 @@ void XinputDevice::UpdatePad(int pad, const XINPUT_STATE &state, XINPUT_VIBRATIO
 	ApplyVibration(pad, vibration);
 
 	AxisInput axis;
-	axis.deviceId = DEVICE_ID_XINPUT_0 + pad;
-	auto sendAxis = [&](AndroidJoystickAxis axisId, float value) {
-		axis.axisId = axisId;
-		axis.value = value;
-		NativeAxis(axis);
+	axis.deviceId = (InputDeviceID)(DEVICE_ID_XINPUT_0 + pad);
+	auto sendAxis = [&](InputAxis axisId, float value, int axisIndex) {
+		if (value != prevAxisValue_[pad][axisIndex]) {
+			prevAxisValue_[pad][axisIndex] = value;
+			axis.axisId = axisId;
+			axis.value = value;
+			NativeAxis(axis);
+		}
 	};
 
-	sendAxis(JOYSTICK_AXIS_X, (float)state.Gamepad.sThumbLX / 32767.0f);
-	sendAxis(JOYSTICK_AXIS_Y, (float)state.Gamepad.sThumbLY / 32767.0f);
-	sendAxis(JOYSTICK_AXIS_Z, (float)state.Gamepad.sThumbRX / 32767.0f);
-	sendAxis(JOYSTICK_AXIS_RZ, (float)state.Gamepad.sThumbRY / 32767.0f);
+	sendAxis(JOYSTICK_AXIS_X, (float)state.Gamepad.sThumbLX / 32767.0f, 0);
+	sendAxis(JOYSTICK_AXIS_Y, (float)state.Gamepad.sThumbLY / 32767.0f, 1);
+	sendAxis(JOYSTICK_AXIS_Z, (float)state.Gamepad.sThumbRX / 32767.0f, 2);
+	sendAxis(JOYSTICK_AXIS_RZ, (float)state.Gamepad.sThumbRY / 32767.0f, 3);
 
 	if (NormalizedDeadzoneDiffers(prevState[pad].Gamepad.bLeftTrigger, state.Gamepad.bLeftTrigger, XINPUT_GAMEPAD_TRIGGER_THRESHOLD)) {
-		sendAxis(JOYSTICK_AXIS_LTRIGGER, (float)state.Gamepad.bLeftTrigger / 255.0f);
+		sendAxis(JOYSTICK_AXIS_LTRIGGER, (float)state.Gamepad.bLeftTrigger / 255.0f, 4);
 	}
 
 	if (NormalizedDeadzoneDiffers(prevState[pad].Gamepad.bRightTrigger, state.Gamepad.bRightTrigger, XINPUT_GAMEPAD_TRIGGER_THRESHOLD)) {
-		sendAxis(JOYSTICK_AXIS_RTRIGGER, (float)state.Gamepad.bRightTrigger / 255.0f);
+		sendAxis(JOYSTICK_AXIS_RTRIGGER, (float)state.Gamepad.bRightTrigger / 255.0f, 5);
 	}
 
 	prevState[pad] = state;
@@ -245,11 +247,11 @@ void XinputDevice::UpdatePad(int pad, const XINPUT_STATE &state, XINPUT_VIBRATIO
 }
 
 void XinputDevice::ApplyButtons(int pad, const XINPUT_STATE &state) {
-	u32 buttons = state.Gamepad.wButtons;
+	const u32 buttons = state.Gamepad.wButtons;
 
-	u32 downMask = buttons & (~prevButtons[pad]);
-	u32 upMask = (~buttons) & prevButtons[pad];
-	prevButtons[pad] = buttons;
+	const u32 downMask = buttons & (~prevButtons_[pad]);
+	const u32 upMask = (~buttons) & prevButtons_[pad];
+	prevButtons_[pad] = buttons;
 	
 	for (int i = 0; i < xinput_ctrl_map_size; i++) {
 		if (downMask & xinput_ctrl_map[i].from) {

@@ -602,12 +602,6 @@ void RemoteISOSettingsScreen::CreateViews() {
 	remoteisoSettings->Add(new CheckBox(&g_Config.bRemoteISOManual, ri->T("Manual Mode Client", "Manually configure client")));
 
 	UI::Choice *remoteServer;
-#if defined(MOBILE_DEVICE)
-	if (System_GetPropertyBool(SYSPROP_HAS_KEYBOARD)) {
-		remoteServer = new ChoiceWithValueDisplay(&g_Config.sLastRemoteISOServer, ri->T("Remote Server"), I18NCat::NONE);
-		remoteServer->OnClick.Handle(this, &RemoteISOSettingsScreen::OnClickRemoteServer);
-	} else
-#endif
 	remoteServer = new PopupTextInputChoice(&g_Config.sLastRemoteISOServer, ri->T("Remote Server"), "", 255, screenManager());
 	remoteisoSettings->Add(remoteServer);
 	remoteServer->SetEnabledPtr(&g_Config.bRemoteISOManual);
@@ -616,12 +610,6 @@ void RemoteISOSettingsScreen::CreateViews() {
 	remotePort->SetEnabledPtr(&g_Config.bRemoteISOManual);
 
 	UI::Choice *remoteSubdir;
-#if defined(MOBILE_DEVICE)
-	if (System_GetPropertyBool(SYSPROP_HAS_KEYBOARD)) {
-		remoteSubdir = new ChoiceWithValueDisplay(&g_Config.sRemoteISOSubdir, ri->T("Remote Subdirectory"), I18NCat::NONE);
-		remoteSubdir->OnClick.Handle(this, &RemoteISOSettingsScreen::OnClickRemoteISOSubdir);
-	} else
-#endif
 	{
 		PopupTextInputChoice *remoteSubdirInput = new PopupTextInputChoice(&g_Config.sRemoteISOSubdir, ri->T("Remote Subdirectory"), "", 255, screenManager());
 		remoteSubdirInput->OnChange.Handle(this, &RemoteISOSettingsScreen::OnChangeRemoteISOSubdir);
@@ -640,16 +628,6 @@ void RemoteISOSettingsScreen::CreateViews() {
 	AddStandardBack(root_);
 }
 
-UI::EventReturn RemoteISOSettingsScreen::OnClickRemoteServer(UI::EventParams &e) {
-#if PPSSPP_PLATFORM(WINDOWS) || defined(USING_QT_UI) || defined(__ANDROID__)
-	auto ri = GetI18NCategory(I18NCat::REMOTEISO);
-	System_InputBoxGetString(ri->T("Remote Server"), g_Config.sLastRemoteISOServer, [](const std::string &value, int) {
-		g_Config.sLastRemoteISOServer = value;
-	});
-#endif
-	return UI::EVENT_DONE;
-}
-
 static void CleanupRemoteISOSubdir() {
 	// Replace spaces and force forward slashes.
 	// TODO: Maybe we should uri escape this after?
@@ -658,18 +636,6 @@ static void CleanupRemoteISOSubdir() {
 	// Make sure it begins with /.
 	if (g_Config.sRemoteISOSubdir.empty() || g_Config.sRemoteISOSubdir[0] != '/')
 		g_Config.sRemoteISOSubdir = "/" + g_Config.sRemoteISOSubdir;
-}
-
-UI::EventReturn RemoteISOSettingsScreen::OnClickRemoteISOSubdir(UI::EventParams &e) {
-#if PPSSPP_PLATFORM(WINDOWS) || defined(USING_QT_UI) || defined(__ANDROID__)
-	auto ri = GetI18NCategory(I18NCat::REMOTEISO);
-	System_InputBoxGetString(ri->T("Remote Subdirectory"), g_Config.sRemoteISOSubdir, [](const std::string &value, int) {
-		g_Config.sRemoteISOSubdir = value;
-		// Apply the cleanup logic, too.
-		CleanupRemoteISOSubdir();
-	});
-#endif
-	return UI::EVENT_DONE;
 }
 
 UI::EventReturn RemoteISOSettingsScreen::OnChangeRemoteISOSubdir(UI::EventParams &e) {

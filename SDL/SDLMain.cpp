@@ -72,6 +72,11 @@ SDLJoystick *joystick = NULL;
 #include "CocoaBarItems.h"
 #endif
 
+#if PPSSPP_PLATFORM(SWITCH)
+#define LIBNX_SWKBD_LIMIT 500 // enforced by HOS
+extern u32 __nx_applet_type; // Not exposed through a header?
+#endif
+
 GlobalUIState lastUIState = UISTATE_MENU;
 GlobalUIState GetUIState();
 
@@ -198,6 +203,36 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 		// Do a clean exit
 		g_QuitRequested = true;
 		return true;
+#if PPSSPP_PLATFORM(SWITCH)
+	case SystemRequestType::INPUT_TEXT_MODAL: {
+		// swkbd only works on "real" titles
+		if (__nx_applet_type != AppletType_Application && __nx_applet_type != AppletType_SystemApplication) {
+			g_requestManager.PostSystemFailure(requestId);
+			return true;
+		}
+
+		SwkbdConfig kbd;
+		Result rc = swkbdCreate(&kbd, 0);
+
+		if (R_SUCCEEDED(rc)) {
+			char buf[LIBNX_SWKBD_LIMIT] = {'\0'};
+			swkbdConfigMakePresetDefault(&kbd);
+
+			swkbdConfigSetHeaderText(&kbd, param1.c_str());
+			swkbdConfigSetInitialText(&kbd, param2.c_str());
+
+			rc = swkbdShow(&kbd, buf, sizeof(buf));
+
+			swkbdClose(&kbd);
+
+			g_requestManager.PostSystemSuccess(requestId, buf);
+			return true;
+		}
+
+		g_requestManager.PostSystemFailure(requestId);
+		return true;
+	}
+#endif // PPSSPP_PLATFORM(SWITCH)
 #if PPSSPP_PLATFORM(MAC) || PPSSPP_PLATFORM(IOS)
 	case SystemRequestType::BROWSE_FOR_FILE:
 	{
@@ -209,7 +244,8 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 			}
 		};
 		DarwinFileSystemServices services;
-		services.presentDirectoryPanel(callback, /* allowFiles = */ true, /* allowDirectories = */ false);
+		BrowseFileType fileType = (BrowseFileType)param3;
+		services.presentDirectoryPanel(callback, /* allowFiles = */ true, /* allowDirectories = */ false, fileType);
 		return true;
 	}
 	case SystemRequestType::BROWSE_FOR_FOLDER:
@@ -477,6 +513,10 @@ bool System_GetPropertyBool(SystemProperty prop) {
 #endif
 	case SYSPROP_HAS_BACK_BUTTON:
 		return true;
+#if PPSSPP_PLATFORM(SWITCH)
+	case SYSPROP_HAS_TEXT_INPUT_DIALOG:
+		return __nx_applet_type == AppletType_Application || __nx_applet_type != AppletType_SystemApplication;
+#endif
 	case SYSPROP_APP_GOLD:
 #ifdef GOLD
 		return true;
@@ -589,7 +629,7 @@ static void EmuThreadStart(GraphicsContext *context) {
 	emuThread = std::thread(&EmuThreadFunc, context);
 }
 
-static void EmuThreadStop() {
+static void EmuThreadStop(const char *reason) {
 	emuThreadState = (int)EmuThreadState::QUIT_REQUESTED;
 }
 
@@ -931,9 +971,11 @@ int main(int argc, char *argv[]) {
 	
 #if PPSSPP_PLATFORM(MAC)
 	// setup menu items for macOS
-    initializeOSXExtras();
+	initializeOSXExtras();
 #endif
 	
+	bool rebootEmuThread = false;
+
 	while (true) {
 		double startTime = time_now_d();
 
@@ -1046,6 +1088,13 @@ int main(int argc, char *argv[]) {
 					key.keyCode = mapped->second;
 					key.deviceId = DEVICE_ID_KEYBOARD;
 					NativeKey(key);
+
+#ifdef _DEBUG
+					if (k == SDLK_F7 && useEmuThread) {
+						printf("f7 pressed - rebooting emuthread\n");
+						rebootEmuThread = true;
+					}
+#endif
 					break;
 				}
 			case SDL_KEYUP:
@@ -1069,7 +1118,7 @@ int main(int argc, char *argv[]) {
 					int c = u8_nextchar(event.text.text, &pos);
 					KeyInput key;
 					key.flags = KEY_CHAR;
-					key.keyCode = c;
+					key.unicodeChar = c;
 					key.deviceId = DEVICE_ID_KEYBOARD;
 					NativeKey(key);
 					break;
@@ -1186,7 +1235,6 @@ int main(int argc, char *argv[]) {
 						break;
 					}
 #endif
-					// TODO: Should we even keep the "non-precise" events?
 					if (event.wheel.y > 0) {
 						key.keyCode = NKCODE_EXT_MOUSEWHEEL_UP;
 						mouseWheelMovedUpFrames = 5;
@@ -1350,6 +1398,36 @@ int main(int argc, char *argv[]) {
 			}
 		}
 
+		if (rebootEmuThread) {
+			printf("rebooting emu thread");
+			rebootEmuThread = false;
+			EmuThreadStop("shutdown");
+			// Skipping GL calls, the old context is gone.
+			while (graphicsContext->ThreadFrame()) {
+				INFO_LOG(SYSTEM, "graphicsContext->ThreadFrame executed to clear buffers");
+			}
+			EmuThreadJoin();
+			graphicsContext->ThreadEnd();
+			graphicsContext->ShutdownFromRenderThread();
+
+			printf("OK, shutdown complete. starting up graphics again.\n");
+
+			if (g_Config.iGPUBackend == (int)GPUBackend::OPENGL) {
+				SDLGLGraphicsContext *ctx  = (SDLGLGraphicsContext *)graphicsContext;
+				if (!ctx->Init(window, x, y, w, h, mode, &error_message)) {
+					printf("Failed to reinit graphics.\n");
+				}
+			}
+
+			if (!graphicsContext->InitFromRenderThread(&error_message)) {
+				System_Toast("Graphics initialization failed. Quitting.");
+				return 1;
+			}
+
+			EmuThreadStart(graphicsContext);
+			graphicsContext->ThreadStart();
+		}
+
 		// Simple throttling to not burn the GPU in the menu.
 		if (GetUIState() != UISTATE_INGAME || !PSP_IsInited() || renderThreadPaused) {
 			double diffTime = time_now_d() - startTime;
@@ -1362,7 +1440,7 @@ int main(int argc, char *argv[]) {
 	}
 
 	if (useEmuThread) {
-		EmuThreadStop();
+		EmuThreadStop("shutdown");
 		while (graphicsContext->ThreadFrame()) {
 			// Need to keep eating frames to allow the EmuThread to exit correctly.
 			continue;

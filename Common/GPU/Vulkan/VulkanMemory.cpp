@@ -35,37 +35,15 @@ using namespace PPSSPP_VK;
 // Always keep around push buffers at least this long (seconds).
 static const double PUSH_GARBAGE_COLLECTION_DELAY = 10.0;
 
-// Global push buffer tracker for vulkan memory profiling.
-// Don't want to manually dig up all the active push buffers.
-static std::mutex g_pushBufferListMutex;
-static std::set<VulkanMemoryManager *> g_pushBuffers;
-
-std::vector<VulkanMemoryManager *> GetActiveVulkanMemoryManagers() {
-	std::vector<VulkanMemoryManager *> buffers;
-	std::lock_guard<std::mutex> guard(g_pushBufferListMutex);
-	for (auto iter : g_pushBuffers) {
-		buffers.push_back(iter);
-	}
-	return buffers;
-}
-
 VulkanPushBuffer::VulkanPushBuffer(VulkanContext *vulkan, const char *name, size_t size, VkBufferUsageFlags usage)
 		: vulkan_(vulkan), name_(name), size_(size), usage_(usage) {
-	{
-		std::lock_guard<std::mutex> guard(g_pushBufferListMutex);
-		g_pushBuffers.insert(this);
-	}
-
+	RegisterGPUMemoryManager(this);
 	bool res = AddBuffer();
 	_assert_(res);
 }
 
 VulkanPushBuffer::~VulkanPushBuffer() {
-	{
-		std::lock_guard<std::mutex> guard(g_pushBufferListMutex);
-		g_pushBuffers.erase(this);
-	}
-
+	UnregisterGPUMemoryManager(this);
 	_dbg_assert_(!writePtr_);
 	_assert_(buffers_.empty());
 }
@@ -276,11 +254,7 @@ VkResult VulkanDescSetPool::Recreate(bool grow) {
 
 VulkanPushPool::VulkanPushPool(VulkanContext *vulkan, const char *name, size_t originalBlockSize, VkBufferUsageFlags usage)
 	: vulkan_(vulkan), name_(name), originalBlockSize_(originalBlockSize), usage_(usage) {
-	{
-		std::lock_guard<std::mutex> guard(g_pushBufferListMutex);
-		g_pushBuffers.insert(this);
-	}
-
+	RegisterGPUMemoryManager(this);
 	for (int i = 0; i < VulkanContext::MAX_INFLIGHT_FRAMES; i++) {
 		blocks_.push_back(CreateBlock(originalBlockSize));
 		blocks_.back().original = true;
@@ -289,11 +263,7 @@ VulkanPushPool::VulkanPushPool(VulkanContext *vulkan, const char *name, size_t o
 }
 
 VulkanPushPool::~VulkanPushPool() {
-	{
-		std::lock_guard<std::mutex> guard(g_pushBufferListMutex);
-		g_pushBuffers.erase(this);
-	}
-
+	UnregisterGPUMemoryManager(this);
 	_dbg_assert_(blocks_.empty());
 }
 
@@ -323,6 +293,7 @@ VulkanPushPool::Block VulkanPushPool::CreateBlock(size_t size) {
 	result = vmaMapMemory(vulkan_->Allocator(), block.allocation, (void **)(&block.writePtr));
 	_assert_(result == VK_SUCCESS);
 
+	_assert_msg_(block.writePtr != nullptr, "VulkanPushPool: Failed to map memory on block of size %d", (int)block.size);
 	return block;
 }
 
@@ -384,6 +355,7 @@ void VulkanPushPool::NextBlock(VkDeviceSize allocationSize) {
 			block.used = allocationSize;
 			block.lastUsed = time_now_d();
 			block.frameIndex = curFrameIndex;
+			_assert_(block.writePtr != nullptr);
 			return;
 		}
 		curBlockIndex_++;
@@ -391,6 +363,7 @@ void VulkanPushPool::NextBlock(VkDeviceSize allocationSize) {
 
 	double start = time_now_d();
 	VkDeviceSize newBlockSize = std::max(originalBlockSize_ * 2, (VkDeviceSize)RoundUpToPowerOf2((uint32_t)allocationSize));
+
 	// We're still here and ran off the end of blocks. Create a new one.
 	blocks_.push_back(CreateBlock(newBlockSize));
 	blocks_.back().frameIndex = curFrameIndex;

@@ -190,7 +190,6 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec, int
 
 	// Keep the scale/offset in a few fp registers if we need it.
 	if (prescaleStep) {
-		MOVP2R(R3, &gstate_c.uv);
 		VLD1(F_32, neonUVScaleReg, R3, 2, ALIGN_NONE);
 		if ((dec.VertexType() & GE_VTYPE_TC_MASK) == GE_VTYPE_TC_8BIT) {
 			VMOV_neon(F_32, neonScratchReg, by128);
@@ -249,7 +248,7 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec, int
 		MOV(fullAlphaReg, 0xFF);
 	}
 
-	JumpTarget loopStart = GetCodePtr();
+	JumpTarget loopStart = NopAlignCode16();
 	// Preload data cache ahead of reading. This offset seems pretty good.
 	PLD(srcReg, 64);
 	for (int i = 0; i < dec.numSteps_; i++) {

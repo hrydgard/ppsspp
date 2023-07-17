@@ -16,8 +16,9 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #pragma once
-#include <cmath>
 
+#include <cmath>
+#include <string>
 #include "Common/CommonTypes.h"
 #include "Core/MIPS/MIPS.h"
 
@@ -66,6 +67,10 @@ extern float vfpu_exp2(float);
 extern float vfpu_rexp2(float);
 extern float vfpu_log2(float);
 extern float vfpu_rcp(float);
+
+extern void vrnd_init_default(uint32_t *rcx);
+extern void vrnd_init(uint32_t seed, uint32_t *rcx);
+extern uint32_t vrnd_generate(uint32_t *rcx);
 
 inline uint32_t get_uexp(uint32_t x) {
 	return (x >> 23) & 0xFF;
@@ -197,34 +202,51 @@ enum MatrixOverlapType {
 
 MatrixOverlapType GetMatrixOverlap(int m1, int m2, MatrixSize msize);
 
-
 // Returns a number from 0-7, good for checking overlap for 4x4 matrices.
-inline int GetMtx(int matrixReg) {
+static inline int GetMtx(int matrixReg) {
 	return (matrixReg >> 2) & 7;
 }
 
-VectorSize GetVecSizeSafe(MIPSOpcode op);
-VectorSize GetVecSize(MIPSOpcode op);
-MatrixSize GetMtxSizeSafe(MIPSOpcode op);
-MatrixSize GetMtxSize(MIPSOpcode op);
+static inline VectorSize GetVecSize(MIPSOpcode op) {
+	int a = (op >> 7) & 1;
+	int b = (op >> 14) & 2;
+	return (VectorSize)(a + b + 1);  // Safe, there are no other possibilities
+}
+
+static inline MatrixSize GetMtxSize(MIPSOpcode op) {
+	int a = (op >> 7) & 1;
+	int b = (op >> 14) & 2;
+	return (MatrixSize)(a + b + 1);  // Safe, there are no other possibilities
+}
+
 VectorSize GetHalfVectorSizeSafe(VectorSize sz);
 VectorSize GetHalfVectorSize(VectorSize sz);
 VectorSize GetDoubleVectorSizeSafe(VectorSize sz);
 VectorSize GetDoubleVectorSize(VectorSize sz);
 VectorSize MatrixVectorSizeSafe(MatrixSize sz);
 VectorSize MatrixVectorSize(MatrixSize sz);
-int GetNumVectorElements(VectorSize sz);
+
+static inline int GetNumVectorElements(VectorSize sz) {
+	switch (sz) {
+	case V_Single: return 1;
+	case V_Pair:   return 2;
+	case V_Triple: return 3;
+	case V_Quad:   return 4;
+	default:       return 0;
+	}
+}
+
 int GetMatrixSideSafe(MatrixSize sz);
 int GetMatrixSide(MatrixSize sz);
-const char *GetVectorNotation(int reg, VectorSize size);
-const char *GetMatrixNotation(int reg, MatrixSize size);
-inline bool IsMatrixTransposed(int matrixReg) {
+std::string GetVectorNotation(int reg, VectorSize size);
+std::string GetMatrixNotation(int reg, MatrixSize size);
+static inline bool IsMatrixTransposed(int matrixReg) {
 	return (matrixReg >> 5) & 1;
 }
-inline bool IsVectorColumn(int vectorReg) {
+static inline bool IsVectorColumn(int vectorReg) {
 	return !((vectorReg >> 5) & 1);
 }
-inline int TransposeMatrixReg(int matrixReg) {
+static inline int TransposeMatrixReg(int matrixReg) {
 	return matrixReg ^ 0x20;
 }
 int GetVectorOverlap(int reg1, VectorSize size1, int reg2, VectorSize size2);

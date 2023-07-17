@@ -32,7 +32,6 @@
 struct AxisInput;
 
 class AsyncImageFileView;
-class OnScreenMessagesView;
 class ChatMenu;
 
 class EmuScreen : public UIScreen {
@@ -50,9 +49,11 @@ public:
 	void sendMessage(const char *msg, const char *value) override;
 	void resized() override;
 
-	void touch(const TouchInput &touch) override;
-	bool key(const KeyInput &key) override;
-	void axis(const AxisInput &axis) override;
+	// Note: Unlike your average boring UIScreen, here we override the Unsync* functions
+	// to get minimal latency and full control. We forward to UIScreen when needed.
+	void UnsyncTouch(const TouchInput &touch) override;
+	bool UnsyncKey(const KeyInput &key) override;
+	void UnsyncAxis(const AxisInput &axis) override;
 
 private:
 	void CreateViews() override;
@@ -111,7 +112,6 @@ private:
 	ChatMenu *chatMenu_ = nullptr;
 
 	UI::Button *cardboardDisableButton_ = nullptr;
-	OnScreenMessagesView *onScreenMessagesView_ = nullptr;
 
 	ControlMapper controlMapper_;
 };

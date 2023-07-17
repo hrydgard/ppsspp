@@ -349,7 +349,7 @@ bool Clickable::Key(const KeyInput &key) {
 				down_ = false;
 				ret = true;
 			}
-		} else if (IsEscapeKey(key)) {
+		} else if (down_ && IsEscapeKey(key)) {
 			down_ = false;
 		}
 	}
@@ -460,7 +460,7 @@ void Choice::GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz, 
 		}
 		if (horiz.type != EXACTLY && layoutParams_->width > 0.0f && availWidth > layoutParams_->width)
 			availWidth = layoutParams_->width;
-		float scale = CalculateTextScale(dc, availWidth);
+		float scale = dc.CalculateTextScale(text_.c_str(), availWidth, bounds_.h);
 		Bounds availBounds(0, 0, availWidth, vert.size);
 		float textW = 0.0f, textH = 0.0f;
 		dc.MeasureTextRect(dc.theme->uiFont, scale, scale, text_.c_str(), (int)text_.size(), availBounds, &textW, &textH, FLAG_WRAP_TEXT);
@@ -471,16 +471,6 @@ void Choice::GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz, 
 	w = totalW + 24;
 	h = totalH + 16;
 	h = std::max(h, ITEM_HEIGHT);
-}
-
-float Choice::CalculateTextScale(const UIContext &dc, float availWidth) const {
-	float actualWidth, actualHeight;
-	Bounds availBounds(0, 0, availWidth, bounds_.h);
-	dc.MeasureTextRect(dc.theme->uiFont, 1.0f, 1.0f, text_.c_str(), (int)text_.size(), availBounds, &actualWidth, &actualHeight, drawTextFlags_);
-	if (actualWidth > availWidth) {
-		return std::max(MIN_TEXT_SCALE, availWidth / actualWidth);
-	}
-	return 1.0f;
 }
 
 void Choice::Draw(UIContext &dc) {
@@ -508,18 +498,15 @@ void Choice::Draw(UIContext &dc) {
 			dc.Draw()->DrawImage(image_, bounds_.x + 6, bounds_.centerY(), 1.0f, style.fgColor, ALIGN_LEFT | ALIGN_VCENTER);
 		}
 
-		float scale = CalculateTextScale(dc, availWidth);
-
-		dc.SetFontScale(scale, scale);
 		if (centered_) {
-			dc.DrawTextRect(text_.c_str(), bounds_, style.fgColor, ALIGN_CENTER | FLAG_WRAP_TEXT | drawTextFlags_);
+			dc.DrawTextRectSqueeze(text_.c_str(), bounds_, style.fgColor, ALIGN_CENTER | FLAG_WRAP_TEXT | drawTextFlags_);
 		} else {
 			if (rightIconImage_.isValid()) {
 				uint32_t col = rightIconKeepColor_ ? 0xffffffff : style.fgColor; // Don't apply theme to gold icon
 				dc.Draw()->DrawImageRotated(rightIconImage_, bounds_.x2() - 32 - paddingX, bounds_.centerY(), rightIconScale_, rightIconRot_, col, rightIconFlipH_);
 			}
 			Bounds textBounds(bounds_.x + paddingX + textPadding_.left, bounds_.y, availWidth, bounds_.h);
-			dc.DrawTextRect(text_.c_str(), textBounds, style.fgColor, ALIGN_VCENTER | FLAG_WRAP_TEXT | drawTextFlags_);
+			dc.DrawTextRectSqueeze(text_.c_str(), textBounds, style.fgColor, ALIGN_VCENTER | FLAG_WRAP_TEXT | drawTextFlags_);
 		}
 		dc.SetFontScale(1.0f, 1.0f);
 	}
@@ -531,7 +518,7 @@ void Choice::Draw(UIContext &dc) {
 
 std::string Choice::DescribeText() const {
 	auto u = GetI18NCategory(I18NCat::UI_ELEMENTS);
-	return ReplaceAll(u->T("%1 choice"), "%1", text_);
+	return ApplySafeSubstitutions(u->T("%1 choice"), text_);
 }
 
 InfoItem::InfoItem(const std::string &text, const std::string &rightText, LayoutParams *layoutParams)
@@ -579,7 +566,7 @@ void InfoItem::Draw(UIContext &dc) {
 
 std::string InfoItem::DescribeText() const {
 	auto u = GetI18NCategory(I18NCat::UI_ELEMENTS);
-	return ReplaceAll(ReplaceAll(u->T("%1: %2"), "%1", text_), "%2", rightText_);
+	return ApplySafeSubstitutions(u->T("%1: %2"), text_, rightText_);
 }
 
 ItemHeader::ItemHeader(const std::string &text, LayoutParams *layoutParams)
@@ -609,7 +596,46 @@ void ItemHeader::GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec hor
 
 std::string ItemHeader::DescribeText() const {
 	auto u = GetI18NCategory(I18NCat::UI_ELEMENTS);
-	return ReplaceAll(u->T("%1 heading"), "%1", text_);
+	return ApplySafeSubstitutions(u->T("%1 heading"), text_);
+}
+
+CollapsibleHeader::CollapsibleHeader(bool *toggle, const std::string &text, LayoutParams *layoutParams)
+	: CheckBox(toggle, text, "", layoutParams) {
+	layoutParams_->width = FILL_PARENT;
+	layoutParams_->height = 40;
+}
+
+void CollapsibleHeader::Draw(UIContext &dc) {
+	Style style = dc.theme->itemStyle;
+	if (HasFocus()) style = dc.theme->itemFocusedStyle;
+	if (down_) style = dc.theme->itemDownStyle;
+	if (!IsEnabled()) style = dc.theme->itemDisabledStyle;
+
+	DrawBG(dc, style);
+
+	float xoff = 37.0f;
+
+	dc.SetFontStyle(dc.theme->uiFontSmall);
+	dc.DrawText(text_.c_str(), bounds_.x + 4 + xoff, bounds_.centerY(), dc.theme->headerStyle.fgColor, ALIGN_LEFT | ALIGN_VCENTER);
+	dc.Draw()->DrawImageCenterTexel(dc.theme->whiteImage, bounds_.x, bounds_.y2() - 2, bounds_.x2(), bounds_.y2(), dc.theme->headerStyle.fgColor);
+	dc.Draw()->DrawImageRotated(ImageID("I_ARROW"), bounds_.x + 20.0f, bounds_.y + 20.0f, 1.0f, *toggle_ ? -M_PI / 2 : M_PI);
+}
+
+void CollapsibleHeader::GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert, float &w, float &h) const {
+	Bounds bounds(0, 0, layoutParams_->width, layoutParams_->height);
+	if (bounds.w < 0) {
+		// If there's no size, let's grow as big as we want.
+		bounds.w = horiz.size == 0 ? MAX_ITEM_SIZE : horiz.size;
+	}
+	if (bounds.h < 0) {
+		bounds.h = vert.size == 0 ? MAX_ITEM_SIZE : vert.size;
+	}
+	ApplyBoundsBySpec(bounds, horiz, vert);
+	dc.MeasureTextRect(dc.theme->uiFontSmall, 1.0f, 1.0f, text_.c_str(), (int)text_.length(), bounds, &w, &h, ALIGN_LEFT | ALIGN_VCENTER);
+}
+
+void CollapsibleHeader::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
+	View::GetContentDimensions(dc, w, h);
 }
 
 void BorderView::Draw(UIContext &dc) {
@@ -674,7 +700,7 @@ void PopupHeader::Draw(UIContext &dc) {
 
 std::string PopupHeader::DescribeText() const {
 	auto u = GetI18NCategory(I18NCat::UI_ELEMENTS);
-	return ReplaceAll(u->T("%1 heading"), "%1", text_);
+	return ApplySafeSubstitutions(u->T("%1 heading"), text_);
 }
 
 void CheckBox::Toggle() {
@@ -744,10 +770,8 @@ void CheckBox::Draw(UIContext &dc) {
 	const float availWidth = bounds_.w - paddingX * 2 - imageW - paddingX;
 
 	if (!text_.empty()) {
-		float scale = CalculateTextScale(dc, availWidth);
-		dc.SetFontScale(scale, scale);
 		Bounds textBounds(bounds_.x + paddingX, bounds_.y, availWidth, bounds_.h);
-		dc.DrawTextRect(text_.c_str(), textBounds, style.fgColor, ALIGN_VCENTER | FLAG_WRAP_TEXT);
+		dc.DrawTextRectSqueeze(text_.c_str(), textBounds, style.fgColor, ALIGN_VCENTER | FLAG_WRAP_TEXT);
 	}
 	dc.Draw()->DrawImage(image, bounds_.x2() - paddingX, bounds_.centerY(), 1.0f, style.fgColor, ALIGN_RIGHT | ALIGN_VCENTER);
 	dc.SetFontScale(1.0f, 1.0f);
@@ -755,21 +779,11 @@ void CheckBox::Draw(UIContext &dc) {
 
 std::string CheckBox::DescribeText() const {
 	auto u = GetI18NCategory(I18NCat::UI_ELEMENTS);
-	std::string text = ReplaceAll(u->T("%1 checkbox"), "%1", text_);
+	std::string text = ApplySafeSubstitutions(u->T("%1 checkbox"), text_);
 	if (!smallText_.empty()) {
 		text += "\n" + smallText_;
 	}
 	return text;
-}
-
-float CheckBox::CalculateTextScale(const UIContext &dc, float availWidth) const {
-	float actualWidth, actualHeight;
-	Bounds availBounds(0, 0, availWidth, bounds_.h);
-	dc.MeasureTextRect(dc.theme->uiFont, 1.0f, 1.0f, text_.c_str(), (int)text_.size(), availBounds, &actualWidth, &actualHeight, ALIGN_VCENTER);
-	if (actualWidth > availWidth) {
-		return std::max(MIN_TEXT_SCALE, availWidth / actualWidth);
-	}
-	return 1.0f;
 }
 
 void CheckBox::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
@@ -799,7 +813,7 @@ void CheckBox::GetContentDimensions(const UIContext &dc, float &w, float &h) con
 	}
 
 	if (!text_.empty()) {
-		float scale = CalculateTextScale(dc, availWidth);
+		float scale = dc.CalculateTextScale(text_.c_str(), availWidth, bounds_.h);
 
 		float actualWidth, actualHeight;
 		Bounds availBounds(0, 0, availWidth, bounds_.h);
@@ -858,7 +872,7 @@ void Button::GetContentDimensions(const UIContext &dc, float &w, float &h) const
 
 std::string Button::DescribeText() const {
 	auto u = GetI18NCategory(I18NCat::UI_ELEMENTS);
-	return ReplaceAll(u->T("%1 button"), "%1", GetText());
+	return ApplySafeSubstitutions(u->T("%1 button"), GetText());
 }
 
 void Button::Click() {
@@ -920,7 +934,7 @@ void RadioButton::GetContentDimensions(const UIContext &dc, float &w, float &h) 
 
 std::string RadioButton::DescribeText() const {
 	auto u = GetI18NCategory(I18NCat::UI_ELEMENTS);
-	return ReplaceAll(u->T("%1 radio button"), "%1", text_);
+	return ApplySafeSubstitutions(u->T("%1 radio button"), text_);
 }
 
 void RadioButton::Click() {
@@ -1108,7 +1122,7 @@ void TextEdit::GetContentDimensions(const UIContext &dc, float &w, float &h) con
 
 std::string TextEdit::DescribeText() const {
 	auto u = GetI18NCategory(I18NCat::UI_ELEMENTS);
-	return ReplaceAll(u->T("%1 text field"), "%1", GetText());
+	return ApplySafeSubstitutions(u->T("%1 text field"), GetText());
 }
 
 // Handles both windows and unix line endings.
@@ -1190,6 +1204,8 @@ bool TextEdit::Key(const KeyInput &input) {
 		case NKCODE_BACK:
 		case NKCODE_ESCAPE:
 			return false;
+		default:
+			break;
 		}
 
 		if (ctrlDown_) {
@@ -1227,6 +1243,8 @@ bool TextEdit::Key(const KeyInput &input) {
 			case NKCODE_Z:
 				text_ = undo_;
 				break;
+			default:
+				break;
 			}
 		}
 
@@ -1243,6 +1261,8 @@ bool TextEdit::Key(const KeyInput &input) {
 		case NKCODE_CTRL_LEFT:
 		case NKCODE_CTRL_RIGHT:
 			ctrlDown_ = false;
+			break;
+		default:
 			break;
 		}
 	}
@@ -1293,7 +1313,7 @@ void ProgressBar::Draw(UIContext &dc) {
 std::string ProgressBar::DescribeText() const {
 	auto u = GetI18NCategory(I18NCat::UI_ELEMENTS);
 	float percent = progress_ * 100.0f;
-	return ReplaceAll(u->T("Progress: %1%"), "%1", StringFromInt((int)percent));
+	return ApplySafeSubstitutions(u->T("Progress: %1%"), StringFromInt((int)percent));
 }
 
 void Spinner::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
@@ -1369,7 +1389,7 @@ bool Slider::Key(const KeyInput &input) {
 	}
 }
 
-bool Slider::ApplyKey(int keyCode) {
+bool Slider::ApplyKey(InputKeyCode keyCode) {
 	switch (keyCode) {
 	case NKCODE_DPAD_LEFT:
 	case NKCODE_MINUS:
@@ -1497,7 +1517,7 @@ bool SliderFloat::Key(const KeyInput &input) {
 	}
 }
 
-bool SliderFloat::ApplyKey(int keyCode) {
+bool SliderFloat::ApplyKey(InputKeyCode keyCode) {
 	switch (keyCode) {
 	case NKCODE_DPAD_LEFT:
 	case NKCODE_MINUS:

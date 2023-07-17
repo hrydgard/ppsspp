@@ -86,15 +86,13 @@ void ComputeState(State *state, bool hasColor0) {
 	bool anyAmbient = false;
 	bool anyDiffuse = false;
 	bool anySpecular = false;
-	bool anyDirectional = false;
+	bool anyNonDirectional = false;
 	for (int light = 0; light < 4; ++light) {
 		auto &lstate = state->lights[light];
 		lstate.enabled = gstate.isLightChanEnabled(light);
 		if (!lstate.enabled)
 			continue;
 
-		lstate.spot = gstate.isSpotLight(light);
-		lstate.directional = gstate.isDirectionalLight(light);
 		lstate.poweredDiffuse = gstate.isUsingPoweredDiffuseLight(light);
 		lstate.specular = gstate.isUsingSpecularLight(light);
 
@@ -112,14 +110,22 @@ void ComputeState(State *state, bool hasColor0) {
 			anySpecular = anySpecular || lstate.specular;
 		}
 
-		lstate.pos = GetLightVec(gstate.lpos, light);
-		if (lstate.directional) {
-			lstate.pos.NormalizeOr001();
-			anyDirectional = true;
-		} else {
-			lstate.att = GetLightVec(gstate.latt, light);
+		// Doesn't actually need to be on if nothing will affect it.
+		if (!lstate.specular && !lstate.ambient && !lstate.diffuse) {
+			lstate.enabled = false;
+			continue;
 		}
 
+		lstate.pos = GetLightVec(gstate.lpos, light);
+		lstate.directional = gstate.isDirectionalLight(light);
+		if (lstate.directional) {
+			lstate.pos.NormalizeOr001();
+		} else {
+			lstate.att = GetLightVec(gstate.latt, light);
+			anyNonDirectional = true;
+		}
+
+		lstate.spot = gstate.isSpotLight(light);
 		if (lstate.spot) {
 			lstate.spotDir = GetLightVec(gstate.ldir, light);
 			lstate.spotDir.Normalize();
@@ -177,7 +183,7 @@ void ComputeState(State *state, bool hasColor0) {
 	state->baseAmbientColorFactor = LightColorFactor(gstate.getAmbientRGBA(), ones);
 	state->setColor1 = gstate.isUsingSecondaryColor() && anySpecular;
 	state->addColor1 = !gstate.isUsingSecondaryColor() && anySpecular;
-	state->usesWorldPos = anyDirectional;
+	state->usesWorldPos = anyNonDirectional;
 	state->usesWorldNormal = gstate.getUVGenMode() == GE_TEXMAP_ENVIRONMENT_MAP || anyDiffuse || anySpecular;
 }
 
@@ -215,13 +221,14 @@ static inline __m128i LightColorScaleBy512SSE4(__m128i factor, __m128i color, __
 	__m128i result18 = _mm_madd_epi16(factor, color);
 	// But now with 18 bits, we need a full multiply.
 	__m128i multiplied = _mm_mullo_epi32(result18, scale);
-	return _mm_srai_epi32(multiplied, 19);
+	return _mm_srai_epi32(multiplied, 10 + 9);
 }
 #endif
 
+template <bool useSSE4>
 static inline int LightCeil(float f) {
 #if defined(_M_SSE)
-	if (cpu_info.bSSE4_1)
+	if (useSSE4)
 		return LightCeilSSE4(f);
 #elif PPSSPP_ARCH(ARM64_NEON)
 	return vcvtps_s32_f32(f);
@@ -229,18 +236,19 @@ static inline int LightCeil(float f) {
 	return (int)ceilf(f);
 }
 
+template <bool useSSE4>
 static Vec4<int> LightColorScaleBy512(const Vec4<int> &factor, const Vec4<int> &color, int scale) {
 	// We multiply s9 * s9 * s9, resulting in s27, then shift off 19 to get 8-bit.
 	// The reason all factors are s9 is to account for rounding.
 	// Also note that all values are positive, so can be treated as unsigned.
 #if defined(_M_SSE) && !PPSSPP_ARCH(X86)
-	if (cpu_info.bSSE4_1)
+	if (useSSE4)
 		return LightColorScaleBy512SSE4(factor.ivec, color.ivec, _mm_set1_epi32(scale));
 #elif PPSSPP_ARCH(ARM64_NEON)
 	int32x4_t multiplied = vmulq_n_s32(vmulq_s32(factor.ivec, color.ivec), scale);
-	return vshrq_n_s32(multiplied, 19);
+	return vshrq_n_s32(multiplied, 10 + 19);
 #endif
-	return (factor * color * scale) / (1024 * 512);
+	return (factor * color * scale) >> (10 + 9);
 }
 
 static inline void LightColorSum(Vec4<int> &sum, const Vec4<int> &src) {
@@ -253,7 +261,25 @@ static inline void LightColorSum(Vec4<int> &sum, const Vec4<int> &src) {
 #endif
 }
 
-void Process(VertexData &vertex, const WorldCoords &worldpos, const WorldCoords &worldnormal, const State &state) {
+static inline float Dot33(const Vec3f &a, const Vec3f &b) {
+#if defined(_M_SSE)
+	__m128 v = _mm_mul_ps(SAFE_M128(a.vec), SAFE_M128(b.vec)); // [X, Y, Z, W]
+	__m128 shuf = _mm_shuffle_ps(v, v, _MM_SHUFFLE(3, 2, 0, 1)); // [Y, X, Z, W]
+	__m128 sums = _mm_add_ps(v, shuf); // [X + Y, X + Y, Z + Z, W + W]
+	shuf = _mm_movehl_ps(shuf, shuf); // [Z, W, Z, W]
+	return _mm_cvtss_f32(_mm_add_ss(sums, shuf)); // X + Y + Z
+#elif PPSSPP_ARCH(ARM64_NEON)
+	float32x4_t multipled = vsetq_lane_f32(0.0f, vmulq_f32(a.vec, b.vec), 3);
+	float32x2_t add1 = vget_low_f32(vpaddq_f32(multipled, multipled));
+	float32x2_t add2 = vpadd_f32(add1, add1);
+	return vget_lane_f32(add2, 0);
+#else
+	return Dot(a, b);
+#endif
+}
+
+template <bool useSSE4>
+static void ProcessSIMD(VertexData &vertex, const WorldCoords &worldpos, const WorldCoords &worldnormal, const State &state) {
 	// Lighting blending rounds using the half offset method (like alpha blend.)
 	const Vec4<int> ones = Vec4<int>::AssignToAll(1);
 	Vec4<int> colorFactor;
@@ -263,7 +289,7 @@ void Process(VertexData &vertex, const WorldCoords &worldpos, const WorldCoords 
 	Vec4<int> mec = Vec4<int>::FromRGBA(gstate.getMaterialEmissive());
 
 	Vec4<int> mac = state.colorForAmbient ? colorFactor : state.material.ambientColorFactor;
-	Vec4<int> ambient = (mac * state.baseAmbientColorFactor) / 1024;
+	Vec4<int> ambient = (mac * state.baseAmbientColorFactor) >> 10;
 
 	Vec4<int> final_color = mec + ambient;
 	Vec4<int> specular_color = Vec4<int>::AssignToAll(0);
@@ -276,25 +302,26 @@ void Process(VertexData &vertex, const WorldCoords &worldpos, const WorldCoords 
 		// L =  vector from vertex to light source
 		// TODO: Should transfer the light positions to world/view space for these calculations?
 		Vec3<float> L = lstate.pos;
-		float att = 1.0f;
+		float attspot = 1.0f;
 		if (!lstate.directional) {
 			L -= worldpos;
 			// TODO: Should this normalize (0, 0, 0) to (0, 0, 1)?
 			float d = L.NormalizeOr001();
 
-			att = 1.0f / Dot(lstate.att, Vec3f(1.0f, d, d * d));
+			float att = 1.0f / Dot33(lstate.att, Vec3f(1.0f, d, d * d));
 			if (!(att > 0.0f))
 				att = 0.0f;
 			else if (att > 1.0f)
 				att = 1.0f;
+			attspot = att;
 		}
 
-		float spot = 1.0f;
 		if (lstate.spot) {
-			float rawSpot = Dot(lstate.spotDir, L);
+			float rawSpot = Dot33(lstate.spotDir, L);
 			if (std::isnan(rawSpot))
 				rawSpot = std::signbit(rawSpot) ? 0.0f : 1.0f;
 
+			float spot = 1.0f;
 			if (rawSpot >= lstate.spotCutoff) {
 				spot = pspLightPow(rawSpot, lstate.spotExp);
 				if (std::isnan(spot))
@@ -302,48 +329,50 @@ void Process(VertexData &vertex, const WorldCoords &worldpos, const WorldCoords 
 			} else {
 				spot = 0.0f;
 			}
+
+			attspot *= spot;
 		}
 
 		// ambient lighting
 		if (lstate.ambient) {
-			int attspot = (int)LightCeil(256 * 2 * att * spot + 1);
-			if (attspot > 512)
-				attspot = 512;
-			Vec4<int> lambient = LightColorScaleBy512(lstate.ambientColorFactor, mac, attspot);
+			int attspot512 = (int)LightCeil<useSSE4>(256 * 2 * attspot + 1);
+			if (attspot512 > 512)
+				attspot512 = 512;
+			Vec4<int> lambient = LightColorScaleBy512<useSSE4>(lstate.ambientColorFactor, mac, attspot512);
 			LightColorSum(final_color, lambient);
 		}
 
 		// diffuse lighting
 		float diffuse_factor;
 		if (lstate.diffuse || lstate.specular) {
-			diffuse_factor = Dot(L, worldnormal);
+			diffuse_factor = Dot33(L, worldnormal);
 			if (lstate.poweredDiffuse) {
 				diffuse_factor = pspLightPow(diffuse_factor, state.specularExp);
 			}
 		}
 
 		if (lstate.diffuse && diffuse_factor > 0.0f) {
-			int diffuse_attspot = (int)LightCeil(256 * 2 * att * spot * diffuse_factor + 1);
+			int diffuse_attspot = (int)LightCeil<useSSE4>(256 * 2 * attspot * diffuse_factor + 1);
 			if (diffuse_attspot > 512)
 				diffuse_attspot = 512;
 			Vec4<int> mdc = state.colorForDiffuse ? colorFactor : state.material.diffuseColorFactor;
-			Vec4<int> ldiffuse = LightColorScaleBy512(lstate.diffuseColorFactor, mdc, diffuse_attspot);
+			Vec4<int> ldiffuse = LightColorScaleBy512<useSSE4>(lstate.diffuseColorFactor, mdc, diffuse_attspot);
 			LightColorSum(final_color, ldiffuse);
 		}
 
 		if (lstate.specular && diffuse_factor >= 0.0f) {
 			Vec3<float> H = L + Vec3<float>(0.f, 0.f, 1.f);
 
-			float specular_factor = Dot(H.NormalizedOr001(cpu_info.bSSE4_1), worldnormal);
+			float specular_factor = Dot33(H.NormalizedOr001(useSSE4), worldnormal);
 			specular_factor = pspLightPow(specular_factor, state.specularExp);
 
 			if (specular_factor > 0.0f) {
-				int specular_attspot = (int)LightCeil(256 * 2 * att * spot * specular_factor + 1);
+				int specular_attspot = (int)LightCeil<useSSE4>(256 * 2 * attspot * specular_factor + 1);
 				if (specular_attspot > 512)
 					specular_attspot = 512;
 
 				Vec4<int> msc = state.colorForSpecular ? colorFactor : state.material.specularColorFactor;
-				Vec4<int> lspecular = LightColorScaleBy512(lstate.specularColorFactor, msc, specular_attspot);
+				Vec4<int> lspecular = LightColorScaleBy512<useSSE4>(lstate.specularColorFactor, msc, specular_attspot);
 				LightColorSum(specular_color, lspecular);
 			}
 		}
@@ -358,6 +387,16 @@ void Process(VertexData &vertex, const WorldCoords &worldpos, const WorldCoords 
 	} else {
 		vertex.color0 = final_color.ToRGBA();
 	}
+}
+
+void Process(VertexData &vertex, const WorldCoords &worldpos, const WorldCoords &worldnormal, const State &state) {
+#ifdef _M_SSE
+	if (cpu_info.bSSE4_1) {
+		ProcessSIMD<true>(vertex, worldpos, worldnormal, state);
+		return;
+	}
+#endif
+	ProcessSIMD<false>(vertex, worldpos, worldnormal, state);
 }
 
 } // namespace

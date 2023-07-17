@@ -32,14 +32,15 @@
 #if defined(CPU_FEATURES_OS_LINUX)
 #define USE_CPU_FEATURES 1
 #endif
-#elif PPSSPP_ARCH(ARM64) && defined(__aarch64__)
+#elif PPSSPP_ARCH(ARM64)
 #include "ext/cpu_features/include/cpuinfo_aarch64.h"
 
-#if defined(CPU_FEATURES_OS_LINUX) || defined(CPU_FEATURES_OS_ANDROID)
+#if defined(CPU_FEATURES_OS_LINUX) || defined(CPU_FEATURES_OS_ANDROID) || defined(CPU_FEATURES_OS_WINDOWS)
 #define USE_CPU_FEATURES 1
 #endif
 #endif
 
+#include <cstring>
 #include <ctype.h>
 
 #include "Common/CommonTypes.h"
@@ -54,7 +55,7 @@
 std::string GetCPUBrandString();
 #else
 // No CPUID on ARM, so we'll have to read the registry
-#include <windows.h>
+#include "Common/CommonWindows.h"
 std::string GetCPUBrandString() {
 	std::string cpu_string;
 	

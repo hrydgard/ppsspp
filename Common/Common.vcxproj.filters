@@ -449,9 +449,6 @@
     <ClInclude Include="Render\ManagedTexture.h">
       <Filter>Render</Filter>
     </ClInclude>
-    <ClInclude Include="GPU\MiscTypes.h">
-      <Filter>GPU</Filter>
-    </ClInclude>
     <ClInclude Include="GPU\Vulkan\VulkanFramebuffer.h">
       <Filter>GPU\Vulkan</Filter>
     </ClInclude>
@@ -495,6 +492,24 @@
       <Filter>ext\basis_universal</Filter>
     </ClInclude>
     <ClInclude Include="System\Request.h">
+      <Filter>System</Filter>
+    </ClInclude>
+    <ClInclude Include="File\AndroidContentURI.h">
+      <Filter>File</Filter>
+    </ClInclude>
+    <ClInclude Include="GPU\OpenGL\GLMemory.h">
+      <Filter>GPU\OpenGL</Filter>
+    </ClInclude>
+    <ClInclude Include="GPU\GPUBackendCommon.h">
+      <Filter>GPU</Filter>
+    </ClInclude>
+    <ClInclude Include="GPU\MiscTypes.h">
+      <Filter>GPU</Filter>
+    </ClInclude>
+    <ClInclude Include="UI\IconCache.h">
+      <Filter>UI</Filter>
+    </ClInclude>
+    <ClInclude Include="System\OSD.h">
       <Filter>System</Filter>
     </ClInclude>
   </ItemGroup>
@@ -924,6 +939,24 @@
       <Filter>ext\basis_universal</Filter>
     </ClCompile>
     <ClCompile Include="System\Request.cpp">
+      <Filter>System</Filter>
+    </ClCompile>
+    <ClCompile Include="File\AndroidContentURI.cpp">
+      <Filter>File</Filter>
+    </ClCompile>
+    <ClCompile Include="GPU\OpenGL\GLMemory.cpp">
+      <Filter>GPU\OpenGL</Filter>
+    </ClCompile>
+    <ClCompile Include="Data\Collections\FastVec.h">
+      <Filter>Data\Collections</Filter>
+    </ClCompile>
+    <ClCompile Include="GPU\GPUBackendCommon.cpp">
+      <Filter>GPU</Filter>
+    </ClCompile>
+    <ClCompile Include="UI\IconCache.cpp">
+      <Filter>UI</Filter>
+    </ClCompile>
+    <ClCompile Include="System\OSD.cpp">
       <Filter>System</Filter>
     </ClCompile>
   </ItemGroup>

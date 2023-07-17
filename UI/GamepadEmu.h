@@ -44,7 +44,7 @@ public:
 protected:
 	virtual float GetButtonOpacity();
 
-	const char *key_;
+	std::string key_;
 	double lastFrameTime_;
 	float secondsWithoutTouch_ = 0.0;
 	bool forceVisible_ = false;
@@ -173,9 +173,9 @@ UI::ViewGroup *CreatePadLayout(float xres, float yres, bool *pause, bool showPau
 const int D_pad_Radius = 50;
 const int baseActionButtonSpacing = 60;
 
-class CustomKey : public MultiTouchButton {
+class CustomButton : public MultiTouchButton {
 public:
-	CustomKey(uint64_t pspButtonBit, const char *key, bool toggle, bool repeat, ControlMapper* controllMapper, ImageID bgImg, ImageID bgDownImg, ImageID img, float scale, bool invertedContextDimension, UI::LayoutParams *layoutParams)
+	CustomButton(uint64_t pspButtonBit, const char *key, bool toggle, bool repeat, ControlMapper* controllMapper, ImageID bgImg, ImageID bgDownImg, ImageID img, float scale, bool invertedContextDimension, UI::LayoutParams *layoutParams)
 		: MultiTouchButton(key, bgImg, bgDownImg, img, scale, layoutParams), pspButtonBit_(pspButtonBit), toggle_(toggle), repeat_(repeat), controlMapper_(controllMapper), on_(false), invertedContextDimension_(invertedContextDimension) {
 	}
 	bool Touch(const TouchInput &input) override;
@@ -329,6 +329,7 @@ namespace CustomKeyData {
 		{ ImageID::invalid(), VIRTKEY_AXIS_Y_MIN },
 		{ ImageID::invalid(), VIRTKEY_AXIS_X_MAX },
 		{ ImageID::invalid(), VIRTKEY_AXIS_Y_MAX },
+		{ ImageID::invalid(), VIRTKEY_PREVIOUS_SLOT },
 	};
 	static_assert(ARRAY_SIZE(customKeyList) <= 64, "Too many key for a uint64_t bit mask");
 };
@@ -356,6 +357,7 @@ namespace GestureKey {
 		VIRTKEY_REWIND, 
 		VIRTKEY_SAVE_STATE,
 		VIRTKEY_LOAD_STATE,
+		VIRTKEY_PREVIOUS_SLOT,
 		VIRTKEY_NEXT_SLOT,
 		VIRTKEY_TEXTURE_DUMP, 
 		VIRTKEY_TEXTURE_REPLACE,

@@ -119,7 +119,8 @@ bool DataFormatIsBlockCompressed(DataFormat fmt, int *blockSize) {
 }
 
 RefCountedObject::~RefCountedObject() {
-	_dbg_assert_(refcount_ == 0xDEDEDE);
+	const int rc = refcount_.load();
+	_dbg_assert_msg_(rc == 0xDEDEDE, "Unexpected refcount %d in object of type '%s'", rc, name_);
 }
 
 bool RefCountedObject::Release() {
@@ -131,6 +132,7 @@ bool RefCountedObject::Release() {
 			return true;
 		}
 	} else {
+		// No point in printing the name here if the object has already been free-d, it'll be corrupt and dangerous to print.
 		_dbg_assert_msg_(false, "Refcount (%d) invalid for object %p - corrupt?", refcount_.load(), this);
 	}
 	return false;
@@ -138,10 +140,9 @@ bool RefCountedObject::Release() {
 
 bool RefCountedObject::ReleaseAssertLast() {
 	bool released = Release();
-	_dbg_assert_msg_(released, "RefCountedObject: Expected to be the last reference, but isn't!");
+	_dbg_assert_msg_(released, "RefCountedObject: Expected to be the last reference, but isn't! (%s)", name_);
 	return released;
 }
-
 
 // ================================== PIXEL/FRAGMENT SHADERS
 

@@ -155,9 +155,9 @@ UI::EventReturn DisplayLayoutScreen::OnPostProcShaderChange(UI::EventParams &e) 
 	g_Config.vPostShaderNames.erase(std::remove(g_Config.vPostShaderNames.begin(), g_Config.vPostShaderNames.end(), "Off"), g_Config.vPostShaderNames.end());
 	FixPostShaderOrder(&g_Config.vPostShaderNames);
 
-	NativeMessageReceived("gpu_configChanged", "");
-	NativeMessageReceived("gpu_renderResized", "");  // To deal with shaders that can change render resolution like upscaling.
-	NativeMessageReceived("postshader_updated", "");
+	System_PostUIMessage("gpu_configChanged", "");
+	System_PostUIMessage("gpu_renderResized", "");  // To deal with shaders that can change render resolution like upscaling.
+	System_PostUIMessage("postshader_updated", "");
 
 	if (gpu) {
 		gpu->NotifyConfigChanged();
@@ -381,7 +381,7 @@ void DisplayLayoutScreen::CreateViews() {
 			auto removeButton = shaderRow->Add(new Choice(ImageID("I_TRASHCAN"), new LinearLayoutParams(0.0f)));
 			removeButton->OnClick.Add([=](EventParams &e) -> UI::EventReturn {
 				g_Config.vPostShaderNames.erase(g_Config.vPostShaderNames.begin() + i);
-				NativeMessageReceived("gpu_configChanged", "");
+				System_PostUIMessage("gpu_configChanged", "");
 				RecreateViews();
 				return UI::EVENT_DONE;
 			});
@@ -409,7 +409,7 @@ void DisplayLayoutScreen::CreateViews() {
 						return UI::EVENT_DONE;
 					}
 					FixPostShaderOrder(&g_Config.vPostShaderNames);
-					NativeMessageReceived("gpu_configChanged", "");
+					System_PostUIMessage("gpu_configChanged", "");
 					RecreateViews();
 					return UI::EVENT_DONE;
 				});
@@ -493,18 +493,18 @@ void PostProcScreen::OnCompleted(DialogResult result) {
 	if (showStereoShaders_) {
 		if (g_Config.sStereoToMonoShader != value) {
 			g_Config.sStereoToMonoShader = value;
-			NativeMessageReceived("gpu_configChanged", "");
+			System_PostUIMessage("gpu_configChanged", "");
 		}
 	} else {
 		if (id_ < (int)g_Config.vPostShaderNames.size()) {
 			if (g_Config.vPostShaderNames[id_] != value) {
 				g_Config.vPostShaderNames[id_] = value;
-				NativeMessageReceived("gpu_configChanged", "");
+				System_PostUIMessage("gpu_configChanged", "");
 			}
 		}
 		else {
 			g_Config.vPostShaderNames.push_back(value);
-			NativeMessageReceived("gpu_configChanged", "");
+			System_PostUIMessage("gpu_configChanged", "");
 		}
 	}
 }

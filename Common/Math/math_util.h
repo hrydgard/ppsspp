@@ -67,6 +67,13 @@ inline T clamp_value(T val, T floor, T cap) {
 		return val;
 }
 
+// Very common operation, familiar from shaders.
+inline float saturatef(float x) {
+	if (x > 1.0f) return 1.0f;
+	else if (x < 0.0f) return 0.0f;
+	else return x;
+}
+
 #define ROUND_UP(x, a)   (((x) + (a) - 1) & ~((a) - 1))
 #define ROUND_DOWN(x, a) ((x) & ~((a) - 1))
 

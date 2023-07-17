@@ -613,6 +613,14 @@ const u8 *ARMXEmitter::AlignCode16()
 	return code;
 }
 
+const u8 *ARMXEmitter::NopAlignCode16() {
+	int bytes = ((-(intptr_t)code) & 15);
+	for (int i = 0; i < bytes / 4; i++) {
+		Write32(0xE320F000); // one of many possible nops
+	}
+	return code;
+}
+
 const u8 *ARMXEmitter::AlignCodePage()
 {
 	ReserveCodeSpace((-(intptr_t)code) & 4095);

@@ -62,6 +62,7 @@ public:
 
 	void Execute_TexFlush(u32 op, u32 diff);
 
+	// TODO: Have these return an error code if they jump to a bad address. If bad, stop the FastRunLoop.
 	typedef void (GPUCommonHW::*CmdFunc)(u32 op, u32 diff);
 
 	void FastRunLoop(DisplayList &list) override;
@@ -82,7 +83,10 @@ protected:
 	void BuildReportingInfo() override;
 	void UpdateMSAALevel(Draw::DrawContext *draw) override;
 
+	void CheckDisplayResized() override;
 	void CheckRenderResized() override;
+	void CheckConfigChanged() override;
+
 	u32 CheckGPUFeaturesLate(u32 features) const;
 
 	int msaaLevel_ = 0;

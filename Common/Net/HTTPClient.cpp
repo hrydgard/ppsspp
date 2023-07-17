@@ -180,7 +180,7 @@ void Connection::Disconnect() {
 namespace http {
 
 // TODO: do something sane here
-constexpr const char *DEFAULT_USERAGENT = "NATIVEAPP 1.0";
+constexpr const char *DEFAULT_USERAGENT = "PPSSPP";
 
 Client::Client() {
 	httpVersion_ = "1.1";
@@ -458,8 +458,8 @@ int Client::ReadResponseEntity(net::Buffer *readbuf, const std::vector<std::stri
 	return 0;
 }
 
-Download::Download(const std::string &url, const Path &outfile)
-	: progress_(&cancelled_), url_(url), outfile_(outfile) {
+Download::Download(RequestMethod method, const std::string &url, const std::string &postData, const std::string &postMime, const Path &outfile)
+	: method_(method), progress_(&cancelled_), url_(url), postData_(postData), postMime_(postMime), outfile_(outfile) {
 }
 
 Download::~Download() {
@@ -484,13 +484,17 @@ void Download::SetFailed(int code) {
 	completed_ = true;
 }
 
-int Download::PerformGET(const std::string &url) {
+int Download::Perform(const std::string &url) {
 	Url fileUrl(url);
 	if (!fileUrl.Valid()) {
 		return -1;
 	}
 
 	http::Client client;
+	if (!userAgent_.empty()) {
+		client.SetUserAgent(userAgent_);
+	}
+
 	if (!client.Resolve(fileUrl.Host().c_str(), fileUrl.Port())) {
 		ERROR_LOG(IO, "Failed resolving %s", url.c_str());
 		return -1;
@@ -510,7 +514,11 @@ int Download::PerformGET(const std::string &url) {
 	}
 
 	RequestParams req(fileUrl.Resource(), acceptMime_);
-	return client.GET(req, &buffer_, responseHeaders_, &progress_);
+	if (method_ == RequestMethod::GET) {
+		return client.GET(req, &buffer_, responseHeaders_, &progress_);
+	} else {
+		return client.POST(req, postData_, postMime_, &buffer_, &progress_);
+	}
 }
 
 std::string Download::RedirectLocation(const std::string &baseUrl) {
@@ -533,7 +541,7 @@ void Download::Do() {
 
 	std::string downloadURL = url_;
 	while (resultCode_ == 0) {
-		int resultCode = PerformGET(downloadURL);
+		int resultCode = Perform(downloadURL);
 		if (resultCode == -1) {
 			SetFailed(resultCode);
 			return;
@@ -557,12 +565,12 @@ void Download::Do() {
 		}
 
 		if (resultCode == 200) {
-			INFO_LOG(IO, "Completed downloading %s to %s", url_.c_str(), outfile_.empty() ? "memory" : outfile_.c_str());
+			INFO_LOG(IO, "Completed requesting %s (storing result to %s)", url_.c_str(), outfile_.empty() ? "memory" : outfile_.c_str());
 			if (!outfile_.empty() && !buffer_.FlushToFile(outfile_)) {
 				ERROR_LOG(IO, "Failed writing download to '%s'", outfile_.c_str());
 			}
 		} else {
-			ERROR_LOG(IO, "Error downloading '%s' to '%s': %i", url_.c_str(), outfile_.c_str(), resultCode);
+			ERROR_LOG(IO, "Error requesting '%s' (storing result to '%s'): %i", url_.c_str(), outfile_.empty() ? "memory" : outfile_.c_str(), resultCode);
 		}
 		resultCode_ = resultCode;
 	}
@@ -575,10 +583,12 @@ void Download::Do() {
 }
 
 std::shared_ptr<Download> Downloader::StartDownload(const std::string &url, const Path &outfile, const char *acceptMime) {
-	std::shared_ptr<Download> dl(new Download(url, outfile));
+	std::shared_ptr<Download> dl(new Download(RequestMethod::GET, url, "", "", outfile));
+	if (!userAgent_.empty())
+		dl->SetUserAgent(userAgent_);
 	if (acceptMime)
 		dl->SetAccept(acceptMime);
-	downloads_.push_back(dl);
+	newDownloads_.push_back(dl);
 	dl->Start();
 	return dl;
 }
@@ -588,25 +598,54 @@ std::shared_ptr<Download> Downloader::StartDownloadWithCallback(
 	const Path &outfile,
 	std::function<void(Download &)> callback,
 	const char *acceptMime) {
-	std::shared_ptr<Download> dl(new Download(url, outfile));
+	std::shared_ptr<Download> dl(new Download(RequestMethod::GET, url, "", "", outfile));
+	if (!userAgent_.empty())
+		dl->SetUserAgent(userAgent_);
 	if (acceptMime)
 		dl->SetAccept(acceptMime);
 	dl->SetCallback(callback);
-	downloads_.push_back(dl);
+	newDownloads_.push_back(dl);
+	dl->Start();
+	return dl;
+}
+
+std::shared_ptr<Download> Downloader::AsyncPostWithCallback(
+	const std::string &url,
+	const std::string &postData,
+	const std::string &postMime,
+	std::function<void(Download &)> callback) {
+	std::shared_ptr<Download> dl(new Download(RequestMethod::POST, url, postData, postMime, Path()));
+	if (!userAgent_.empty())
+		dl->SetUserAgent(userAgent_);
+	dl->SetCallback(callback);
+	newDownloads_.push_back(dl);
 	dl->Start();
 	return dl;
 }
 
 void Downloader::Update() {
+	for (auto iter : newDownloads_) {
+		downloads_.push_back(iter);
+	}
+	newDownloads_.clear();
+
 	restart:
 	for (size_t i = 0; i < downloads_.size(); i++) {
-		auto &dl = downloads_[i];
+		auto dl = downloads_[i];
 		if (dl->Done()) {
 			dl->RunCallback();
 			dl->Join();
 			downloads_.erase(downloads_.begin() + i);
 			goto restart;
 		}
+	}
+}
+
+void Downloader::WaitForAll() {
+	// TODO: Should lock? Though, OK if called from main thread, where Update() is called from.
+	while (!downloads_.empty()) {
+		Update();
+		sleep_ms(10);
 	}
 }
 

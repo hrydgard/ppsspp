@@ -199,6 +199,7 @@ enum BindFramebufferColorFlags {
 	BINDFBCOLOR_APPLY_TEX_OFFSET = 4,
 	// Used when rendering to a temporary surface (e.g. not the current render target.)
 	BINDFBCOLOR_FORCE_SELF = 8,
+	BINDFBCOLOR_UNCACHED = 16,
 };
 
 enum DrawTextureFlags {
@@ -265,6 +266,11 @@ struct BlockTransferRect {
 namespace Draw {
 class DrawContext;
 }
+
+struct DrawPixelsEntry {
+	Draw::Texture *tex;
+	int frameNumber;
+};
 
 struct GPUDebugBuffer;
 class DrawEngineCommon;
@@ -503,7 +509,6 @@ protected:
 	void BlitFramebufferDepth(VirtualFramebuffer *src, VirtualFramebuffer *dst);
 
 	void ResizeFramebufFBO(VirtualFramebuffer *vfb, int w, int h, bool force = false, bool skipCopy = false);
-	void ShowScreenResolution();
 
 	bool ShouldDownloadFramebufferColor(const VirtualFramebuffer *vfb) const;
 	bool ShouldDownloadFramebufferDepth(const VirtualFramebuffer *vfb) const;
@@ -569,6 +574,8 @@ protected:
 
 	std::vector<VirtualFramebuffer *> vfbs_;
 	std::vector<VirtualFramebuffer *> bvfbs_; // blitting framebuffers (for download)
+
+	std::vector<DrawPixelsEntry> drawPixelsCache_;
 
 	bool gameUsesSequentialCopies_ = false;
 

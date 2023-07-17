@@ -4,6 +4,7 @@
 #include <vector>
 #include <functional>
 #include <cstdint>
+#include <mutex>
 
 // Platform integration
 
@@ -57,12 +58,14 @@ void System_LaunchUrl(LaunchUrlType urlType, const char *url);
 
 enum class SystemRequestType {
 	INPUT_TEXT_MODAL,
+	ASK_USERNAME_PASSWORD,
 	BROWSE_FOR_IMAGE,
 	BROWSE_FOR_FILE,
 	BROWSE_FOR_FOLDER,
 
 	EXIT_APP,
 	RESTART_APP,  // For graphics backend changes
+	RECREATE_ACTIVITY,  // Android
 	COPY_TO_CLIPBOARD,
 	SHARE_TEXT,
 	SET_WINDOW_TITLE,
@@ -127,6 +130,8 @@ enum SystemProperty {
 	SYSPROP_HAS_BACK_BUTTON,
 	SYSPROP_HAS_KEYBOARD,
 	SYSPROP_HAS_OPEN_DIRECTORY,
+	SYSPROP_HAS_LOGIN_DIALOG,
+	SYSPROP_HAS_TEXT_INPUT_DIALOG,  // Indicates that System_InputBoxGetString is available.
 
 	SYSPROP_CAN_CREATE_SHORTCUT,
 
@@ -191,6 +196,7 @@ enum class SystemNotification {
 	SUSTAINED_PERF_CHANGE,
 	POLL_CONTROLLERS,
 	TOGGLE_DEBUG_CONSOLE,  // TODO: Kinda weird, just ported forward.
+	TEST_JAVA_EXCEPTION,
 };
 
 std::string System_GetProperty(SystemProperty prop);
@@ -206,18 +212,17 @@ std::vector<std::string> System_GetCameraDeviceList();
 bool System_AudioRecordingIsAvailable();
 bool System_AudioRecordingState();
 
-// This will be changed to take an enum. Currently simply implemented by forwarding to NativeMessageReceived.
+// This will be changed to take an enum. Replacement for the old NativeMessageReceived.
 void System_PostUIMessage(const std::string &message, const std::string &param);
-
-// Shows a visible message to the user.
-// The default implementation in NativeApp.cpp uses our "osm" system (on screen messaging).
-void System_NotifyUserMessage(const std::string &message, float duration = 1.0f, uint32_t color = 0x00FFFFFF, const char *id = nullptr);
 
 // For these functions, most platforms will use the implementation provided in UI/AudioCommon.cpp,
 // no need to implement separately.
 void System_AudioGetDebugStats(char *buf, size_t bufSize);
 void System_AudioClear();
+
 // These samples really have 16 bits of value, but can be a little out of range.
+// This is for pushing rate-controlled 44khz audio from emulation.
+// If you push a little too fast, we'll pitch up to a limit, for example.
 void System_AudioPushSamples(const int32_t *audio, int numSamples);
 
 inline void System_AudioResetStatCounters() {

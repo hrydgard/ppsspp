@@ -406,6 +406,7 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 		Unbind();
 		gstate_c.SetTextureIs3D(false);
 		gstate_c.SetTextureIsArray(false);
+		gstate_c.SetTextureIsFramebuffer(false);
 		return nullptr;
 	}
 
@@ -573,6 +574,7 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 			gstate_c.SetTextureIs3D((entry->status & TexCacheEntry::STATUS_3D) != 0);
 			gstate_c.SetTextureIsArray(false);
 			gstate_c.SetTextureIsBGRA((entry->status & TexCacheEntry::STATUS_BGRA) != 0);
+			gstate_c.SetTextureIsFramebuffer(false);
 
 			if (rehash) {
 				// Update in case any of these changed.
@@ -681,6 +683,7 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 	gstate_c.curTextureHeight = h;
 	gstate_c.SetTextureIs3D((entry->status & TexCacheEntry::STATUS_3D) != 0);
 	gstate_c.SetTextureIsArray(false);  // Ordinary 2D textures still aren't used by array view in VK. We probably might as well, though, at this point..
+	gstate_c.SetTextureIsFramebuffer(false);
 
 	failedTexture_ = false;
 	nextTexture_ = entry;
@@ -1138,22 +1141,26 @@ void TextureCacheCommon::SetTextureFramebuffer(const AttachCandidate &candidate)
 		bool needsDepthXSwizzle = depthUpperBits == 2;
 
 		// We need to force it, since we may have set it on a texture before attaching.
-		gstate_c.curTextureWidth = framebuffer->bufferWidth;
-		gstate_c.curTextureHeight = framebuffer->bufferHeight;
-
+		int texWidth = framebuffer->bufferWidth;
+		int texHeight = framebuffer->bufferHeight;
 		if (candidate.channel == RASTER_COLOR && gstate.getTextureFormat() == GE_TFMT_CLUT8 && framebuffer->fb_format == GE_FORMAT_5551 && PSP_CoreParameter().compat.flags().SOCOMClut8Replacement) {
 			// See #16210. UV must be adjusted as if the texture was twice the width.
-			gstate_c.curTextureWidth *= 2.0f;
+			texWidth *= 2.0f;
 		}
 
 		if (needsDepthXSwizzle) {
-			gstate_c.curTextureWidth = RoundUpToPowerOf2(gstate_c.curTextureWidth);
+			texWidth = RoundUpToPowerOf2(texWidth);
 		}
+
+		gstate_c.curTextureWidth = texWidth;
+		gstate_c.curTextureHeight = texHeight;
+		gstate_c.SetTextureIsFramebuffer(true);
+		gstate_c.SetTextureIsBGRA(false);
 
 		if ((gstate_c.curTextureXOffset == 0) != (fbInfo.xOffset == 0) || (gstate_c.curTextureYOffset == 0) != (fbInfo.yOffset == 0)) {
 			gstate_c.Dirty(DIRTY_FRAGMENTSHADER_STATE);
 		}
-		gstate_c.SetTextureIsBGRA(false);
+
 		gstate_c.curTextureXOffset = fbInfo.xOffset;
 		gstate_c.curTextureYOffset = fbInfo.yOffset;
 		u32 texW = (u32)gstate.getTextureWidth(0);
@@ -2360,6 +2367,7 @@ void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 		gpuStats.numDepal++;
 
 		gstate_c.curTextureWidth = texWidth;
+		gstate_c.Dirty(DIRTY_UVSCALEOFFSET);
 
 		draw_->BindTexture(0, nullptr);
 		framebufferManager_->RebindFramebuffer("ApplyTextureFramebuffer");
@@ -2461,6 +2469,7 @@ void TextureCacheCommon::ApplyTextureDepal(TexCacheEntry *entry) {
 	gpuStats.numDepal++;
 
 	gstate_c.curTextureWidth = texWidth;
+	gstate_c.Dirty(DIRTY_UVSCALEOFFSET);
 
 	draw_->BindTexture(0, nullptr);
 	framebufferManager_->RebindFramebuffer("ApplyTextureFramebuffer");

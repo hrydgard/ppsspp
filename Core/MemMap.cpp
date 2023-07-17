@@ -187,7 +187,7 @@ bail:
 		SKIP(flags, views[i].flags);
 		if (*views[j].out_ptr) {
 			if (!CanIgnoreView(views[j])) {
-				g_arena.ReleaseView(*views[j].out_ptr, views[j].size);
+				g_arena.ReleaseView(0, *views[j].out_ptr, views[j].size);
 			}
 			*views[j].out_ptr = NULL;
 		}
@@ -265,13 +265,24 @@ bool MemoryMap_Setup(u32 flags) {
 }
 
 void MemoryMap_Shutdown(u32 flags) {
+	size_t position = 0;
+	size_t last_position = 0;
+
 	for (int i = 0; i < num_views; i++) {
 		if (views[i].size == 0)
 			continue;
 		SKIP(flags, views[i].flags);
+        
+		if (views[i].flags & MV_MIRROR_PREVIOUS) {
+			position = last_position;
+		}
+
 		if (*views[i].out_ptr)
-			g_arena.ReleaseView(*views[i].out_ptr, views[i].size);
+			g_arena.ReleaseView(position, *views[i].out_ptr, views[i].size);
 		*views[i].out_ptr = nullptr;
+
+		last_position = position;
+		position += g_arena.roundup(views[i].size);
 	}
 	g_arena.ReleaseSpace();
 

@@ -209,8 +209,6 @@ void MIPSState::Init() {
 	llBit = 0;
 	nextPC = 0;
 	downcount = 0;
-	// Initialize the VFPU random number generator with .. something?
-	rng.Init(0x1337);
 
 	std::lock_guard<std::recursive_mutex> guard(MIPSComp::jitLock);
 	if (PSP_CoreParameter().cpuCore == CPUCore::JIT) {
@@ -271,7 +269,7 @@ void MIPSState::UpdateCore(CPUCore desired) {
 }
 
 void MIPSState::DoState(PointerWrap &p) {
-	auto s = p.Section("MIPSState", 1, 3);
+	auto s = p.Section("MIPSState", 1, 4);
 	if (!s)
 		return;
 
@@ -308,8 +306,12 @@ void MIPSState::DoState(PointerWrap &p) {
 		Do(p, fcr0_unused);
 	}
 	Do(p, fcr31);
-	Do(p, rng.m_w);
-	Do(p, rng.m_z);
+	if (s <= 3) {
+		uint32_t dummy;
+		Do(p, dummy); // rng.m_w
+		Do(p, dummy); // rng.m_z
+	}
+
 	Do(p, inDelaySlot);
 	Do(p, llBit);
 	Do(p, debugCount);

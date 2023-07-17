@@ -43,7 +43,7 @@ enum pspUmdType {
 void __UmdInit();
 void __UmdDoState(PointerWrap &p);
 
-void __UmdReplace(Path filepath);
+void __UmdReplace(const Path &filepath);
 bool getUMDReplacePermit();
 
 void Register_sceUmdUser();

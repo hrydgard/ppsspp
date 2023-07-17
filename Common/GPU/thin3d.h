@@ -359,7 +359,7 @@ protected:
 
 class RefCountedObject {
 public:
-	RefCountedObject() {
+	explicit RefCountedObject(const char *name) : name_(name) {
 		refcount_ = 1;
 	}
 	RefCountedObject(const RefCountedObject &other) = delete;
@@ -372,6 +372,7 @@ public:
 
 private:
 	std::atomic<int> refcount_;
+	const char * const name_;
 };
 
 template <typename T>
@@ -428,18 +429,22 @@ struct AutoRef {
 
 class BlendState : public RefCountedObject {
 public:
+	BlendState() : RefCountedObject("BlendState") {}
 };
 
 class SamplerState : public RefCountedObject {
 public:
+	SamplerState() : RefCountedObject("SamplerState") {}
 };
 
 class DepthStencilState : public RefCountedObject {
 public:
+	DepthStencilState() : RefCountedObject("DepthStencilState") {}
 };
 
 class Framebuffer : public RefCountedObject {
 public:
+	Framebuffer() : RefCountedObject("Framebuffer") {}
 	int Width() { return width_; }
 	int Height() { return height_; }
 	int Layers() { return layers_; }
@@ -452,15 +457,20 @@ protected:
 
 class Buffer : public RefCountedObject {
 public:
+	Buffer() : RefCountedObject("Buffer") {}
 };
 
 class Texture : public RefCountedObject {
 public:
-	int Width() { return width_; }
-	int Height() { return height_; }
-	int Depth() { return depth_; }
+	Texture() : RefCountedObject("Texture") {}
+	int Width() const { return width_; }
+	int Height() const { return height_; }
+	int Depth() const { return depth_; }
+	DataFormat Format() const { return format_; }
+
 protected:
 	int width_ = -1, height_ = -1, depth_ = -1;
+	DataFormat format_ = DataFormat::UNDEFINED;
 };
 
 struct BindingDesc {
@@ -480,18 +490,28 @@ struct InputLayoutDesc {
 	std::vector<AttributeDesc> attributes;
 };
 
-class InputLayout : public RefCountedObject { };
+class InputLayout : public RefCountedObject {
+public:
+	InputLayout() : RefCountedObject("InputLayout") {}
+};
 
 // Uniform types have moved to Shader.h.
 
 class ShaderModule : public RefCountedObject {
 public:
+	ShaderModule() : RefCountedObject("ShaderModule") {}
 	virtual ShaderStage GetStage() const = 0;
 };
 
-class Pipeline : public RefCountedObject { };
+class Pipeline : public RefCountedObject {
+public:
+	Pipeline() : RefCountedObject("Pipeline") {}
+};
 
-class RasterState : public RefCountedObject {};
+class RasterState : public RefCountedObject {
+public:
+	RasterState() : RefCountedObject("RasterState") {}
+};
 
 struct StencilSetup {
 	StencilOp failOp;
@@ -713,6 +733,11 @@ public:
 	// Copies data from the CPU over into the buffer, at a specific offset. This does not change the size of the buffer and cannot write outside it.
 	virtual void UpdateBuffer(Buffer *buffer, const uint8_t *data, size_t offset, size_t size, UpdateBufferFlags flags) = 0;
 
+	// Used to optimize DrawPixels by re-using previously allocated temp textures.
+	// Do not try to update a texture that might be used by an in-flight command buffer! In OpenGL and D3D, this will cause stalls
+	// while in Vulkan this might cause various strangeness like image corruption.
+	virtual void UpdateTextureLevels(Texture *texture, const uint8_t **data, TextureCallback initDataCallback, int numLevels) = 0;
+
 	virtual void CopyFramebufferImage(Framebuffer *src, int level, int x, int y, int z, Framebuffer *dst, int dstLevel, int dstX, int dstY, int dstZ, int width, int height, int depth, int channelBits, const char *tag) = 0;
 	virtual bool BlitFramebuffer(Framebuffer *src, int srcX1, int srcY1, int srcX2, int srcY2, Framebuffer *dst, int dstX1, int dstY1, int dstX2, int dstY2, int channelBits, FBBlitFilter filter, const char *tag) = 0;
 
@@ -815,6 +840,10 @@ public:
 	// Used by the DrawEngines to know when they have to re-apply some state.
 	// Not very elegant, but more elegant than the old passId hack.
 	virtual void SetInvalidationCallback(InvalidationCallback callback) = 0;
+
+	// Total amount of frames rendered. Unaffected by game pause, so more robust than gpuStats.numFlips
+	virtual int GetFrameCount() = 0;
+	virtual int GetFramesInFlight() { return 3; }
 
 protected:
 	ShaderModule *vsPresets_[VS_MAX_PRESET];

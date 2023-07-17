@@ -34,6 +34,7 @@
 #include "Core/HLE/sceKernelInterrupt.h"
 #include "Core/HLE/sceKernelMemory.h"
 #include "Core/HLE/KernelWaitHelpers.h"
+#include "Core/RetroAchievements.h"
 
 #include "Core/FileSystems/BlockDevices.h"
 #include "Core/FileSystems/MetaFileSystem.h"
@@ -483,12 +484,14 @@ static u32 sceUmdGetErrorStat()
 	return umdErrorStat;
 }
 
-void __UmdReplace(Path filepath) {
+void __UmdReplace(const Path &filepath) {
 	std::string error = "";
 	if (!UmdReplace(filepath, error)) {
 		ERROR_LOG(SCEIO, "UMD Replace failed: %s", error.c_str());
 		return;
 	}
+
+	Achievements::ChangeUMD(filepath);
 
 	UMDInserted = false;
 	// Wake any threads waiting for the disc to be removed.

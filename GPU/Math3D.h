@@ -43,6 +43,29 @@
 #define MATH3D_CALL
 #endif
 
+// There's probably a better place to define these macros.
+#if PPSSPP_ARCH(X86)
+// On 32-bit x86, MSVC does not guarantee alignment for
+// SSE arguments passed on stack (Compiler Error C2719), see e.g.:
+//   https://stackoverflow.com/questions/10484422/msvc-cannot-send-function-parameters-of-16byte-alignment-on-x86
+//   https://stackoverflow.com/questions/28488986/formal-parameter-with-declspecalign16-wont-be-aligned
+// So, as a workaround, "dangerous" cases are loaded via loadu* on 32-bit x86.
+// Compilers are decently ok at eliminating these extra loads, at least
+// in trivial cases.
+// NOTE: not to be outdone, GCC has its own flavor of broken, see e.g.:
+//   http://www.peterstock.co.uk/games/mingw_sse/
+//   https://github.com/nothings/stb/issues/81
+// which is probably worse since it breaks alignment of locals and/or
+// spills, but that, hopefully, does not affect PPSSPP (modern GCC+Linux
+// is 16-byte aligned on x86, and MinGW is not a supported PPSSPP target).
+// NOTE: weird double-casts add a bit of type-safety.
+#define SAFE_M128(v)  _mm_loadu_ps   (reinterpret_cast<const float*>  (static_cast<const __m128*> (&(v))))
+#define SAFE_M128I(v) _mm_loadu_si128(reinterpret_cast<const __m128i*>(static_cast<const __m128i*>(&(v))))
+#else // x64, FWIW also works for non-x86.
+#define SAFE_M128(v)  (v)
+#define SAFE_M128I(v) (v)
+#endif
+
 namespace Math3D {
 
 // Helper for Vec classes to clamp values.
@@ -580,8 +603,21 @@ public:
 #endif
 
 	template<typename T2>
-	Vec4<T2> Cast() const
-	{
+	Vec4<T2> Cast() const {
+		if constexpr (std::is_same<T, float>::value && std::is_same<T2, int>::value) {
+#if defined(_M_SSE)
+			return _mm_cvtps_epi32(SAFE_M128(vec));
+#elif PPSSPP_ARCH(ARM64_NEON)
+			return vcvtq_s32_f32(vec);
+#endif
+		}
+		if constexpr (std::is_same<T, int>::value && std::is_same<T2, float>::value) {
+#if defined(_M_SSE)
+			return _mm_cvtepi32_ps(SAFE_M128I(ivec));
+#elif PPSSPP_ARCH(ARM64_NEON)
+			return vcvtq_f32_s32(ivec);
+#endif
+		}
 		return Vec4<T2>((T2)x, (T2)y, (T2)z, (T2)w);
 	}
 
@@ -628,6 +664,20 @@ public:
 	Vec4 operator | (const Vec4 &other) const
 	{
 		return Vec4(x | other.x, y | other.y, z | other.z, w | other.w);
+	}
+	Vec4 operator & (const Vec4 &other) const
+	{
+		return Vec4(x & other.x, y & other.y, z & other.z, w & other.w);
+	}
+	Vec4 operator << (const int amount) const
+	{
+		// NOTE: x*(1<<amount), etc., might be safer, since
+		// left-shifting negatives is UB pre-C++20.
+		return Vec4(x << amount, y << amount, z << amount, w << amount);
+	}
+	Vec4 operator >> (const int amount) const
+	{
+		return Vec4(x >> amount, y >> amount, z >> amount, w >> amount);
 	}
 	template<typename V>
 	Vec4 operator * (const V& f) const
@@ -911,10 +961,11 @@ inline void Vec3ByMatrix43(float vecOut[3], const float v[3], const float m[12])
 }
 
 inline Vec3f MATH3D_CALL Vec3ByMatrix43(const Vec3f v, const float m[12]) {
-#if defined(_M_SSE) && PPSSPP_ARCH(64BIT)
-	__m128 x = _mm_shuffle_ps(v.vec, v.vec, _MM_SHUFFLE(0, 0, 0, 0));
-	__m128 y = _mm_shuffle_ps(v.vec, v.vec, _MM_SHUFFLE(1, 1, 1, 1));
-	__m128 z = _mm_shuffle_ps(v.vec, v.vec, _MM_SHUFFLE(2, 2, 2, 2));
+#if defined(_M_SSE)
+	const __m128 vv = SAFE_M128(v.vec);
+	__m128 x = _mm_shuffle_ps(vv, vv, _MM_SHUFFLE(0, 0, 0, 0));
+	__m128 y = _mm_shuffle_ps(vv, vv, _MM_SHUFFLE(1, 1, 1, 1));
+	__m128 z = _mm_shuffle_ps(vv, vv, _MM_SHUFFLE(2, 2, 2, 2));
 	return Vec3ByMatrix43Internal(x, y, z, m);
 #elif PPSSPP_ARCH(ARM64_NEON)
 	return Vec3ByMatrix43Internal(v.vec, m);
@@ -970,10 +1021,11 @@ inline void Vec3ByMatrix44(float vecOut[4], const float v[3], const float m[16])
 }
 
 inline Vec4f MATH3D_CALL Vec3ByMatrix44(const Vec3f v, const float m[16]) {
-#if defined(_M_SSE) && PPSSPP_ARCH(64BIT)
-	__m128 x = _mm_shuffle_ps(v.vec, v.vec, _MM_SHUFFLE(0, 0, 0, 0));
-	__m128 y = _mm_shuffle_ps(v.vec, v.vec, _MM_SHUFFLE(1, 1, 1, 1));
-	__m128 z = _mm_shuffle_ps(v.vec, v.vec, _MM_SHUFFLE(2, 2, 2, 2));
+#if defined(_M_SSE)
+	const __m128 vv = SAFE_M128(v.vec);
+	__m128 x = _mm_shuffle_ps(vv, vv, _MM_SHUFFLE(0, 0, 0, 0));
+	__m128 y = _mm_shuffle_ps(vv, vv, _MM_SHUFFLE(1, 1, 1, 1));
+	__m128 z = _mm_shuffle_ps(vv, vv, _MM_SHUFFLE(2, 2, 2, 2));
 	return Vec3ByMatrix44Internal(x, y, z, m);
 #elif PPSSPP_ARCH(ARM64_NEON)
 	return Vec3ByMatrix44Internal(v.vec, m);
@@ -1029,10 +1081,11 @@ inline void Norm3ByMatrix43(float vecOut[3], const float v[3], const float m[12]
 }
 
 inline Vec3f MATH3D_CALL Norm3ByMatrix43(const Vec3f v, const float m[12]) {
-#if defined(_M_SSE) && PPSSPP_ARCH(64BIT)
-	__m128 x = _mm_shuffle_ps(v.vec, v.vec, _MM_SHUFFLE(0, 0, 0, 0));
-	__m128 y = _mm_shuffle_ps(v.vec, v.vec, _MM_SHUFFLE(1, 1, 1, 1));
-	__m128 z = _mm_shuffle_ps(v.vec, v.vec, _MM_SHUFFLE(2, 2, 2, 2));
+#if defined(_M_SSE)
+	const __m128 vv = SAFE_M128(v.vec);
+	__m128 x = _mm_shuffle_ps(vv, vv, _MM_SHUFFLE(0, 0, 0, 0));
+	__m128 y = _mm_shuffle_ps(vv, vv, _MM_SHUFFLE(1, 1, 1, 1));
+	__m128 z = _mm_shuffle_ps(vv, vv, _MM_SHUFFLE(2, 2, 2, 2));
 	return Norm3ByMatrix43Internal(x, y, z, m);
 #elif PPSSPP_ARCH(ARM64_NEON)
 	return Norm3ByMatrix43Internal(v.vec, m);
@@ -1116,11 +1169,6 @@ inline void Transpose4x4(float out[16], const float in[16]) {
 	}
 }
 
-inline float Vec3Dot(const float v1[3], const float v2[3])
-{
-	return v1[0]*v2[0] + v1[1]*v2[1] + v1[2]*v2[2];
-}
-
 namespace Math3D {
 
 template<typename T>
@@ -1193,11 +1241,7 @@ template<>
 __forceinline unsigned int Vec3<float>::ToRGB() const
 {
 #if defined(_M_SSE)
-#if PPSSPP_ARCH(64BIT)
-	__m128i c = _mm_cvtps_epi32(_mm_mul_ps(vec, _mm_set_ps1(255.0f)));
-#else
-	__m128i c = _mm_cvtps_epi32(_mm_mul_ps(_mm_loadu_ps((float *)&vec), _mm_set_ps1(255.0f)));
-#endif
+	__m128i c = _mm_cvtps_epi32(_mm_mul_ps(SAFE_M128(vec), _mm_set_ps1(255.0f)));
 	__m128i c16 = _mm_packs_epi32(c, c);
 	return _mm_cvtsi128_si32(_mm_packus_epi16(c16, c16)) & 0x00FFFFFF;
 #elif PPSSPP_ARCH(ARM64_NEON)
@@ -1215,11 +1259,7 @@ template<>
 __forceinline unsigned int Vec3<int>::ToRGB() const
 {
 #if defined(_M_SSE)
-#if PPSSPP_ARCH(64BIT)
-	__m128i c16 = _mm_packs_epi32(ivec, ivec);
-#else
-	__m128i c16 = _mm_packs_epi32(_mm_loadu_si128(&ivec), _mm_setzero_si128());
-#endif
+	__m128i c16 = _mm_packs_epi32(SAFE_M128I(ivec), SAFE_M128I(ivec));
 	return _mm_cvtsi128_si32(_mm_packus_epi16(c16, c16)) & 0x00FFFFFF;
 #elif PPSSPP_ARCH(ARM64_NEON)
 	uint16x4_t c16 = vqmovun_s32(vsetq_lane_s32(0, ivec, 3));
@@ -1277,11 +1317,7 @@ template<>
 __forceinline unsigned int Vec4<float>::ToRGBA() const
 {
 #if defined(_M_SSE)
-#if PPSSPP_ARCH(64BIT)
-	__m128i c = _mm_cvtps_epi32(_mm_mul_ps(vec, _mm_set_ps1(255.0f)));
-#else
-	__m128i c = _mm_cvtps_epi32(_mm_mul_ps(_mm_loadu_ps((float *)&vec), _mm_set_ps1(255.0f)));
-#endif
+	__m128i c = _mm_cvtps_epi32(_mm_mul_ps(SAFE_M128(vec), _mm_set_ps1(255.0f)));
 	__m128i c16 = _mm_packs_epi32(c, c);
 	return _mm_cvtsi128_si32(_mm_packus_epi16(c16, c16));
 #elif PPSSPP_ARCH(ARM64_NEON)
@@ -1300,11 +1336,7 @@ template<>
 __forceinline unsigned int Vec4<int>::ToRGBA() const
 {
 #if defined(_M_SSE)
-#if PPSSPP_ARCH(64BIT)
-	__m128i c16 = _mm_packs_epi32(ivec, ivec);
-#else
-	__m128i c16 = _mm_packs_epi32(_mm_loadu_si128(&ivec), _mm_setzero_si128());
-#endif
+	__m128i c16 = _mm_packs_epi32(SAFE_M128I(ivec), SAFE_M128I(ivec));
 	return _mm_cvtsi128_si32(_mm_packus_epi16(c16, c16));
 #elif PPSSPP_ARCH(ARM64_NEON)
 	uint16x4_t c16 = vqmovun_s32(ivec);
@@ -1326,60 +1358,120 @@ __forceinline void Vec4<T>::ToRGBA(u8 *rgba) const
 
 // Vec3<float> operation
 template<>
-inline void Vec3<float>::operator += (const Vec3<float> &other)
-{
-	vec = _mm_add_ps(vec, other.vec);
+inline void Vec3<float>::operator += (const Vec3<float> &other) {
+	vec = _mm_add_ps(SAFE_M128(vec), SAFE_M128(other.vec));
 }
 
 template<>
-inline Vec3<float> Vec3<float>::operator + (const Vec3 &other) const
-{
-	return Vec3<float>(_mm_add_ps(vec, other.vec));
+inline Vec3<float> Vec3<float>::operator + (const Vec3 &other) const {
+	return Vec3<float>(_mm_add_ps(SAFE_M128(vec), SAFE_M128(other.vec)));
 }
 
 template<>
-inline Vec3<float> Vec3<float>::operator * (const Vec3 &other) const
-{
-	return Vec3<float>(_mm_mul_ps(vec, other.vec));
+inline void Vec3<float>::operator -= (const Vec3<float> &other) {
+	vec = _mm_sub_ps(SAFE_M128(vec), SAFE_M128(other.vec));
+}
+
+template<>
+inline Vec3<float> Vec3<float>::operator - (const Vec3 &other) const {
+	return Vec3<float>(_mm_sub_ps(SAFE_M128(vec), SAFE_M128(other.vec)));
+}
+
+template<>
+inline Vec3<float> Vec3<float>::operator * (const Vec3 &other) const {
+	return Vec3<float>(_mm_mul_ps(SAFE_M128(vec), SAFE_M128(other.vec)));
 }
 
 template<> template<>
-inline Vec3<float> Vec3<float>::operator * (const float &other) const
-{
-	return Vec3<float>(_mm_mul_ps(vec, _mm_set_ps1(other)));
+inline Vec3<float> Vec3<float>::operator * (const float &other) const {
+	return Vec3<float>(_mm_mul_ps(SAFE_M128(vec), _mm_set_ps1(other)));
+}
+
+// Vec4<int> operation
+template<>
+inline Vec4<int> Vec4<int>::operator + (const Vec4 &other) const {
+	return Vec4<int>(_mm_add_epi32(SAFE_M128I(ivec), SAFE_M128I(other.ivec)));
+}
+
+template<>
+inline Vec4<int> Vec4<int>::operator * (const Vec4 &other) const {
+	__m128i a = SAFE_M128I(ivec);
+	__m128i b = SAFE_M128I(other.ivec);
+	// Intel in its immense wisdom decided that
+	// SSE2 does not get _mm_mullo_epi32(),
+	// so we do it this way. This is what clang does,
+	// which seems about as good as it gets.
+	__m128i m02 = _mm_mul_epu32(a, b);
+	__m128i m13 = _mm_mul_epu32(
+		_mm_shuffle_epi32(a, _MM_SHUFFLE(3, 3, 1, 1)),
+		_mm_shuffle_epi32(b, _MM_SHUFFLE(3, 3, 1, 1)));
+	__m128i ret = _mm_unpacklo_epi32(
+		_mm_shuffle_epi32(m02, _MM_SHUFFLE(3, 2, 2, 0)),
+		_mm_shuffle_epi32(m13, _MM_SHUFFLE(3, 2, 2, 0)));
+	return Vec4<int>(ret);
+}
+
+template<> template<>
+inline Vec4<int> Vec4<int>::operator * (const int &other) const {
+	return (*this) * Vec4<int>(_mm_set1_epi32(other));
+}
+
+template<>
+inline Vec4<int> Vec4<int>::operator | (const Vec4 &other) const {
+	return Vec4<int>(_mm_or_si128(SAFE_M128I(ivec), SAFE_M128I(other.ivec)));
+}
+
+template<>
+inline Vec4<int> Vec4<int>::operator & (const Vec4 &other) const {
+	return Vec4<int>(_mm_and_si128(SAFE_M128I(ivec), SAFE_M128I(other.ivec)));
+}
+
+// NOTE: modern GCC, clang, and MSVC are all ok with
+// non-compile-time-const amount for _mm_slli_epi32/_mm_srli_epi32.
+template<>
+inline Vec4<int> Vec4<int>::operator << (const int amount) const {
+	return Vec4<int>(_mm_slli_epi32(SAFE_M128I(ivec), amount));
+}
+
+template<>
+inline Vec4<int> Vec4<int>::operator >> (const int amount) const {
+	return Vec4<int>(_mm_srli_epi32(SAFE_M128I(ivec), amount));
 }
 
 // Vec4<float> operation
 template<>
-inline void Vec4<float>::operator += (const Vec4<float> &other)
-{
-	vec = _mm_add_ps(vec, other.vec);
+inline void Vec4<float>::operator += (const Vec4<float> &other) {
+	vec = _mm_add_ps(SAFE_M128(vec), SAFE_M128(other.vec));
 }
 
 template<>
-inline Vec4<float> Vec4<float>::operator + (const Vec4 &other) const
-{
-	return Vec4<float>(_mm_add_ps(vec, other.vec));
+inline Vec4<float> Vec4<float>::operator + (const Vec4 &other) const {
+	return Vec4<float>(_mm_add_ps(SAFE_M128(vec), SAFE_M128(other.vec)));
 }
 
 template<>
-inline Vec4<float> Vec4<float>::operator * (const Vec4 &other) const
-{
-	return Vec4<float>(_mm_mul_ps(vec, other.vec));
+inline Vec4<float> Vec4<float>::operator * (const Vec4 &other) const {
+	return Vec4<float>(_mm_mul_ps(SAFE_M128(vec), SAFE_M128(other.vec)));
 }
 
 template<> template<>
-inline Vec4<float> Vec4<float>::operator * (const float &other) const
-{
-	return Vec4<float>(_mm_mul_ps(vec, _mm_set_ps1(other)));
+inline Vec4<float> Vec4<float>::operator * (const float &other) const {
+	return Vec4<float>(_mm_mul_ps(SAFE_M128(vec), _mm_set_ps1(other)));
 }
 
 // Vec3<float> cross product
 template<>
 inline Vec3<float> Cross(const Vec3<float> &a, const Vec3<float> &b)
 {
-	const __m128 left = _mm_mul_ps(_mm_shuffle_ps(a.vec, a.vec, _MM_SHUFFLE(3, 0, 2, 1)), _mm_shuffle_ps(b.vec, b.vec, _MM_SHUFFLE(3, 1, 0, 2)));
-	const __m128 right = _mm_mul_ps(_mm_shuffle_ps(a.vec, a.vec, _MM_SHUFFLE(3, 1, 0, 2)), _mm_shuffle_ps(b.vec, b.vec, _MM_SHUFFLE(3, 0, 2, 1)));
+#if PPSSPP_ARCH(X86)
+	__m128 avec = _mm_loadu_ps(&a.x);
+	__m128 bvec = _mm_loadu_ps(&b.x);
+#else
+	__m128 avec = a.vec;
+	__m128 bvec = b.vec;
+#endif
+	const __m128 left = _mm_mul_ps(_mm_shuffle_ps(avec, avec, _MM_SHUFFLE(3, 0, 2, 1)), _mm_shuffle_ps(bvec, bvec, _MM_SHUFFLE(3, 1, 0, 2)));
+	const __m128 right = _mm_mul_ps(_mm_shuffle_ps(avec, avec, _MM_SHUFFLE(3, 1, 0, 2)), _mm_shuffle_ps(bvec, bvec, _MM_SHUFFLE(3, 0, 2, 1)));
 	return _mm_sub_ps(left, right);
 }
 #endif

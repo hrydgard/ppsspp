@@ -42,12 +42,16 @@ static void OXR_CheckErrors(XrInstance instance, XrResult result, const char* fu
 #define OXR(func) func;
 #endif
 
-enum { ovrMaxLayerCount = 2 };
+#define DECL_PFN(pfn) PFN_##pfn pfn = nullptr
+#define INIT_PFN(pfn) OXR(xrGetInstanceProcAddr(engine->appState.Instance, #pfn, (PFN_xrVoidFunction*)(&pfn)))
+
+enum { ovrMaxLayerCount = 3 };
 enum { ovrMaxNumEyes = 2 };
 
 typedef union {
 	XrCompositionLayerProjection Projection;
 	XrCompositionLayerCylinderKHR Cylinder;
+	XrCompositionLayerPassthroughFB Passthrough;
 } ovrCompositorLayer_Union;
 
 typedef struct {
@@ -62,8 +66,9 @@ typedef struct {
 	uint32_t TextureSwapChainLength;
 	uint32_t TextureSwapChainIndex;
 	ovrSwapChain ColorSwapChain;
+	ovrSwapChain DepthSwapChain;
 	void* ColorSwapChainImage;
-	unsigned int* GLDepthBuffers;
+	void* DepthSwapChainImage;
 	unsigned int* GLFrameBuffers;
 	VkFramebuffer* VKFrameBuffers;
 	VkImageView* VKColorImages;
@@ -122,6 +127,7 @@ enum VRPlatformFlag {
 	VR_PLATFORM_CONTROLLER_QUEST,
 	VR_PLATFORM_EXTENSION_FOVEATION,
 	VR_PLATFORM_EXTENSION_INSTANCE,
+	VR_PLATFORM_EXTENSION_PASSTHROUGH,
 	VR_PLATFORM_EXTENSION_PERFORMANCE,
 	VR_PLATFORM_RENDERER_VULKAN,
 	VR_PLATFORM_TRACKING_FLOOR,

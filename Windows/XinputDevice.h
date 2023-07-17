@@ -18,5 +18,7 @@ private:
 	XINPUT_STATE prevState[4]{};
 	XINPUT_VIBRATION prevVibration[4]{};
 	double prevVibrationTime = 0.0;
-	u32 prevButtons[4]{};
+	float prevAxisValue_[4][6]{};
+	bool notified_[XUSER_MAX_COUNT]{};
+	u32 prevButtons_[4]{};
 };

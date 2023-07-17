@@ -31,6 +31,7 @@
 #include "Common/System/Display.h"
 #include "Common/System/NativeApp.h"
 #include "Common/System/System.h"
+#include "Common/System/OSD.h"
 #include "Common/GPU/OpenGL/GLFeatures.h"
 
 #if !PPSSPP_PLATFORM(UWP)
@@ -43,6 +44,8 @@
 #include "Common/UI/View.h"
 #include "Common/UI/ViewGroup.h"
 #include "Common/UI/UI.h"
+#include "Common/UI/IconCache.h"
+#include "Common/Data/Text/Parsers.h"
 #include "Common/Profiler/Profiler.h"
 
 #include "Common/LogManager.h"
@@ -99,8 +102,10 @@ void DevMenuScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	items->Add(new Choice(sy->T("Developer Tools")))->OnClick.Handle(this, &DevMenuScreen::OnDeveloperTools);
 	items->Add(new Choice(dev->T("Jit Compare")))->OnClick.Handle(this, &DevMenuScreen::OnJitCompare);
 	items->Add(new Choice(dev->T("Shader Viewer")))->OnClick.Handle(this, &DevMenuScreen::OnShaderView);
-	if (g_Config.iGPUBackend == (int)GPUBackend::VULKAN) {
-		items->Add(new CheckBox(&g_Config.bShowAllocatorDebug, dev->T("Allocator Viewer")));
+	if (g_Config.iGPUBackend == (int)GPUBackend::VULKAN || g_Config.iGPUBackend == (int)GPUBackend::OPENGL) {
+		items->Add(new CheckBox(&g_Config.bShowAllocatorDebug, dev->T("GPU Allocator Viewer")));
+	}
+	if (g_Config.iGPUBackend == (int)GPUBackend::VULKAN || g_Config.iGPUBackend == (int)GPUBackend::OPENGL) {
 		items->Add(new CheckBox(&g_Config.bShowGpuProfile, dev->T("GPU Profile")));
 	}
 	items->Add(new Choice(dev->T("Toggle Freeze")))->OnClick.Handle(this, &DevMenuScreen::OnFreezeFrame);
@@ -453,31 +458,18 @@ const char *GetCompilerABI() {
 #endif
 }
 
-void SystemInfoScreen::CreateViews() {
+void SystemInfoScreen::CreateTabs() {
 	using namespace Draw;
 	using namespace UI;
 
-	// NOTE: Do not translate this section. It will change a lot and will be impossible to keep up.
 	auto di = GetI18NCategory(I18NCat::DIALOG);
 	auto si = GetI18NCategory(I18NCat::SYSINFO);
 	auto gr = GetI18NCategory(I18NCat::GRAPHICS);
-	root_ = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
-
-	ViewGroup *leftColumn = new AnchorLayout(new LinearLayoutParams(1.0f));
-	root_->Add(leftColumn);
-
-	AddStandardBack(root_);
 
 	TabHolder *tabHolder = new TabHolder(ORIENT_VERTICAL, 225, new AnchorLayoutParams(10, 0, 10, 0, false));
 	tabHolder->SetTag("DevSystemInfo");
 
-	root_->Add(tabHolder);
-	ViewGroup *deviceSpecsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
-	deviceSpecsScroll->SetTag("DevSystemInfoDeviceSpecs");
-	LinearLayout *deviceSpecs = new LinearLayoutList(ORIENT_VERTICAL);
-	deviceSpecs->SetSpacing(0);
-	deviceSpecsScroll->Add(deviceSpecs);
-	tabHolder->AddTab(si->T("Device Info"), deviceSpecsScroll);
+	LinearLayout *deviceSpecs = AddTab("Device Info", si->T("Device Info"));
 
 	deviceSpecs->Add(new ItemHeader(si->T("System Information")));
 	deviceSpecs->Add(new InfoItem(si->T("System Name", "Name"), System_GetProperty(SYSPROP_NAME)));
@@ -643,12 +635,7 @@ void SystemInfoScreen::CreateViews() {
 		}
 	}
 
-	ViewGroup *storageScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
-	storageScroll->SetTag("DevSystemInfoBuildConfig");
-	LinearLayout *storage = new LinearLayout(ORIENT_VERTICAL);
-	storage->SetSpacing(0);
-	storageScroll->Add(storage);
-	tabHolder->AddTab(si->T("Storage"), storageScroll);
+	LinearLayout *storage = AddTab("Storage", si->T("Storage"));
 
 	storage->Add(new ItemHeader(si->T("Directories")));
 	// Intentionally non-translated
@@ -667,12 +654,7 @@ void SystemInfoScreen::CreateViews() {
 	}
 #endif
 
-	ViewGroup *buildConfigScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
-	buildConfigScroll->SetTag("DevSystemInfoBuildConfig");
-	LinearLayout *buildConfig = new LinearLayoutList(ORIENT_VERTICAL);
-	buildConfig->SetSpacing(0);
-	buildConfigScroll->Add(buildConfig);
-	tabHolder->AddTab(si->T("Build Config"), buildConfigScroll);
+	LinearLayout *buildConfig = AddTab("DevSystemInfoBuildConfig", si->T("Build Config"));
 
 	buildConfig->Add(new ItemHeader(si->T("Build Configuration")));
 #ifdef JENKINS
@@ -705,27 +687,14 @@ void SystemInfoScreen::CreateViews() {
 		buildConfig->Add(new InfoItem("GOLD", ""));
 	}
 
-	ViewGroup *cpuExtensionsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
-	cpuExtensionsScroll->SetTag("DevSystemInfoCPUExt");
-	LinearLayout *cpuExtensions = new LinearLayoutList(ORIENT_VERTICAL);
-	cpuExtensions->SetSpacing(0);
-	cpuExtensionsScroll->Add(cpuExtensions);
-
-	tabHolder->AddTab(si->T("CPU Extensions"), cpuExtensionsScroll);
-
+	LinearLayout *cpuExtensions = AddTab("DevSystemInfoCPUExt", si->T("CPU Extensions"));
 	cpuExtensions->Add(new ItemHeader(si->T("CPU Extensions")));
 	std::vector<std::string> exts = cpu_info.Features();
 	for (std::string &ext : exts) {
 		cpuExtensions->Add(new TextView(ext, new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetFocusable(true);
 	}
 
-	ViewGroup *driverBugsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
-	driverBugsScroll->SetTag("DevSystemInfoDriverBugs");
-	LinearLayout *driverBugs = new LinearLayoutList(ORIENT_VERTICAL);
-	driverBugs->SetSpacing(0);
-	driverBugsScroll->Add(driverBugs);
-
-	tabHolder->AddTab(si->T("Driver bugs"), driverBugsScroll);
+	LinearLayout *driverBugs = AddTab("DevSystemInfoDriverBugs", si->T("Driver bugs"));
 
 	bool anyDriverBugs = false;
 	for (int i = 0; i < (int)draw->GetBugs().MaxBugIndex(); i++) {
@@ -739,14 +708,8 @@ void SystemInfoScreen::CreateViews() {
 		driverBugs->Add(new TextView(si->T("No GPU driver bugs detected"), new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetFocusable(true);
 	}
 
-	ViewGroup *gpuExtensionsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
-	gpuExtensionsScroll->SetTag("DevSystemInfoOGLExt");
-	LinearLayout *gpuExtensions = new LinearLayoutList(ORIENT_VERTICAL);
-	gpuExtensions->SetSpacing(0);
-	gpuExtensionsScroll->Add(gpuExtensions);
-
 	if (GetGPUBackend() == GPUBackend::OPENGL) {
-		tabHolder->AddTab(si->T("OGL Extensions"), gpuExtensionsScroll);
+		LinearLayout *gpuExtensions = AddTab("DevSystemInfoOGLExt", si->T("OGL Extensions"));
 
 		if (!gl_extensions.IsGLES) {
 			gpuExtensions->Add(new ItemHeader(si->T("OpenGL Extensions")));
@@ -783,11 +746,11 @@ void SystemInfoScreen::CreateViews() {
 			}
 		}
 	} else if (GetGPUBackend() == GPUBackend::VULKAN) {
+		LinearLayout *gpuExtensions = AddTab("DevSystemInfoOGLExt", si->T("Vulkan Features"));
 #if !PPSSPP_PLATFORM(UWP)
 		// Vulkan specific code here, can't be bothered to abstract.
 		// OK because of above check.
 
-		tabHolder->AddTab(si->T("Vulkan Features"), gpuExtensionsScroll);
 		VulkanContext *vk = (VulkanContext *)draw->GetNativeObject(Draw::NativeObject::CONTEXT);
 
 		gpuExtensions->Add(new ItemHeader(si->T("Vulkan Features")));
@@ -817,10 +780,78 @@ void SystemInfoScreen::CreateViews() {
 
 		gpuExtensions->Add(new ItemHeader(si->T("Vulkan Extensions")));
 		std::vector<std::string> extensions = draw->GetExtensionList();
+		std::sort(extensions.begin(), extensions.end());
 		for (auto &extension : extensions) {
 			gpuExtensions->Add(new TextView(extension, new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetFocusable(true);
 		}
 	}
+
+	LinearLayout *internals = AddTab("DevSystemInfoInternals", si->T("Internals"));
+
+	internals->Add(new ItemHeader(si->T("Icon cache")));
+	IconCacheStats iconStats = g_iconCache.GetStats();
+	internals->Add(new InfoItem(si->T("Image data count"), StringFromFormat("%d", iconStats.cachedCount)));
+	internals->Add(new InfoItem(si->T("Texture count"), StringFromFormat("%d", iconStats.textureCount)));
+	internals->Add(new InfoItem(si->T("Data size"), NiceSizeFormat(iconStats.dataSize)));
+	internals->Add(new Choice(di->T("Clear")))->OnClick.Add([&](UI::EventParams &) {
+		g_iconCache.ClearData();
+		RecreateViews();
+		return UI::EVENT_DONE;
+	});
+
+	internals->Add(new ItemHeader(si->T("Notification tests")));
+	internals->Add(new Choice(si->T("Error")))->OnClick.Add([&](UI::EventParams &) {
+		g_OSD.Show(OSDType::MESSAGE_ERROR, "Error");
+		return UI::EVENT_DONE;
+	});
+	internals->Add(new Choice(si->T("Warning")))->OnClick.Add([&](UI::EventParams &) {
+		g_OSD.Show(OSDType::MESSAGE_WARNING, "Warning", "Some\nAdditional\nDetail");
+		return UI::EVENT_DONE;
+	});
+	internals->Add(new Choice(si->T("Info")))->OnClick.Add([&](UI::EventParams &) {
+		g_OSD.Show(OSDType::MESSAGE_INFO, "Info");
+		return UI::EVENT_DONE;
+	});
+	internals->Add(new Choice(si->T("Success")))->OnClick.Add([&](UI::EventParams &) {
+		g_OSD.Show(OSDType::MESSAGE_SUCCESS, "Success");
+		return UI::EVENT_DONE;
+	});
+	internals->Add(new ItemHeader(si->T("Progress tests")));
+	internals->Add(new Choice(si->T("30%")))->OnClick.Add([&](UI::EventParams &) {
+		g_OSD.SetProgressBar("testprogress", "Test Progress", 1, 100, 30);
+		return UI::EVENT_DONE;
+	});
+	internals->Add(new Choice(si->T("100%")))->OnClick.Add([&](UI::EventParams &) {
+		g_OSD.SetProgressBar("testprogress", "Test Progress", 1, 100, 100);
+		return UI::EVENT_DONE;
+	});
+	internals->Add(new Choice(si->T("N/A%")))->OnClick.Add([&](UI::EventParams &) {
+		g_OSD.SetProgressBar("testprogress", "Test Progress", 0, 0, 0);
+		return UI::EVENT_DONE;
+	});
+	internals->Add(new Choice(si->T("Clear")))->OnClick.Add([&](UI::EventParams &) {
+		g_OSD.RemoveProgressBar("testprogress");
+		return UI::EVENT_DONE;
+	});
+	internals->Add(new ItemHeader(si->T("Achievement tests")));
+	internals->Add(new Choice(si->T("Leaderboard tracker: Show")))->OnClick.Add([=](UI::EventParams &) {
+		g_OSD.ShowLeaderboardTracker(1, "My leaderboard tracker", true);
+		return UI::EVENT_DONE;
+	});
+	internals->Add(new Choice(si->T("Leaderboard tracker: Update")))->OnClick.Add([=](UI::EventParams &) {
+		g_OSD.ShowLeaderboardTracker(1, "Updated tracker", true);
+		return UI::EVENT_DONE;
+	});
+	internals->Add(new Choice(si->T("Leaderboard tracker: Hide")))->OnClick.Add([=](UI::EventParams &) {
+		g_OSD.ShowLeaderboardTracker(1, nullptr, false);
+		return UI::EVENT_DONE;
+	});
+#if PPSSPP_PLATFORM(ANDROID)
+	internals->Add(new Choice(si->T("Exception")))->OnClick.Add([&](UI::EventParams &) {
+		System_Notify(SystemNotification::TEST_JAVA_EXCEPTION);
+		return UI::EVENT_DONE;
+	});
+#endif
 }
 
 void AddressPromptScreen::CreatePopupContents(UI::ViewGroup *parent) {
@@ -1140,7 +1171,7 @@ void JitCompareScreen::OnRandomBlock(int flag) {
 				MIPSOpcode opcode = Memory::Read_Instruction(addr);
 				if (MIPSGetInfo(opcode) & flag) {
 					char temp[256];
-					MIPSDisAsm(opcode, addr, temp);
+					MIPSDisAsm(opcode, addr, temp, sizeof(temp));
 					// INFO_LOG(HLE, "Stopping at random instruction: %08x %s", addr, temp);
 					anyWanted = true;
 					break;

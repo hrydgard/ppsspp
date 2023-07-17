@@ -178,11 +178,8 @@ private:
 
 class SettingInfoMessage : public UI::LinearLayout {
 public:
-	SettingInfoMessage(int align, UI::AnchorLayoutParams *lp);
+	SettingInfoMessage(int align, float cutOffY, UI::AnchorLayoutParams *lp);
 
-	void SetBottomCutoff(float y) {
-		cutOffY_ = y;
-	}
 	void Show(const std::string &text, const UI::View *refView = nullptr);
 
 	void Draw(UIContext &dc) override;

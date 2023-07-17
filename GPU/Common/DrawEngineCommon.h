@@ -122,7 +122,7 @@ public:
 		return false;
 	}
 	int GetNumDrawCalls() const {
-		return numDrawCalls;
+		return numDrawCalls_;
 	}
 
 	VertexDecoder *GetVertexDecoder(u32 vtype);
@@ -130,7 +130,7 @@ public:
 	virtual void ClearTrackedVertexArrays() {}
 
 protected:
-	virtual bool UpdateUseHWTessellation(bool enabled) { return enabled; }
+	virtual bool UpdateUseHWTessellation(bool enabled) const { return enabled; }
 
 	int ComputeNumVertsToDecode() const;
 	void DecodeVerts(u8 *dest);
@@ -143,7 +143,7 @@ protected:
 	uint64_t ComputeHash();
 
 	// Vertex decoding
-	void DecodeVertsStep(u8 *dest, int &i, int &decodedVerts);
+	void DecodeVertsStep(u8 *dest, int &i, int &decodedVerts, const UVScale *uvScale);
 
 	void ApplyFramebufferRead(FBOTexState *fboTexState);
 
@@ -175,6 +175,8 @@ protected:
 		}
 	}
 
+	uint32_t ComputeDrawcallsHash() const;
+
 	bool useHWTransform_ = false;
 	bool useHWTessellation_ = false;
 	// Used to prevent unnecessary flushing in softgpu.
@@ -185,8 +187,8 @@ protected:
 	bool everUsedExactEqualDepth_ = false;
 
 	// Vertex collector buffers
-	u8 *decoded = nullptr;
-	u16 *decIndex = nullptr;
+	u8 *decoded_ = nullptr;
+	u16 *decIndex_ = nullptr;
 
 	// Cached vertex decoders
 	u32 lastVType_ = -1;  // corresponds to dec_.  Could really just pick it out of dec_...
@@ -195,8 +197,8 @@ protected:
 	VertexDecoderJitCache *decJitCache_ = nullptr;
 	VertexDecoderOptions decOptions_{};
 
-	TransformedVertex *transformed = nullptr;
-	TransformedVertex *transformedExpanded = nullptr;
+	TransformedVertex *transformed_ = nullptr;
+	TransformedVertex *transformedExpanded_ = nullptr;
 
 	// Defer all vertex decoding to a "Flush" (except when software skinning)
 	struct DeferredDrawCall {
@@ -212,13 +214,12 @@ protected:
 	};
 
 	enum { MAX_DEFERRED_DRAW_CALLS = 128 };
-	DeferredDrawCall drawCalls[MAX_DEFERRED_DRAW_CALLS];
-	int numDrawCalls = 0;
+	DeferredDrawCall drawCalls_[MAX_DEFERRED_DRAW_CALLS];
+	int numDrawCalls_ = 0;
 	int vertexCountInDrawCalls_ = 0;
 
 	int decimationCounter_ = 0;
 	int decodeCounter_ = 0;
-	u32 dcid_ = 0;
 
 	// Vertex collector state
 	IndexGenerator indexGen;

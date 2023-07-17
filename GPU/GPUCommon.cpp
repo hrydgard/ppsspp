@@ -212,32 +212,6 @@ void GPUCommon::NotifyDisplayResized() {
 	displayResized_ = true;
 }
 
-// Called once per frame. Might also get called during the pause screen
-// if "transparent".
-void GPUCommon::CheckConfigChanged() {
-	if (configChanged_) {
-		ClearCacheNextFrame();
-		gstate_c.SetUseFlags(CheckGPUFeatures());
-		drawEngineCommon_->NotifyConfigChanged();
-		textureCache_->NotifyConfigChanged();
-		framebufferManager_->NotifyConfigChanged();
-		BuildReportingInfo();
-		configChanged_ = false;
-	}
-
-	// Check needed when running tests.
-	if (framebufferManager_) {
-		framebufferManager_->CheckPostShaders();
-	}
-}
-
-void GPUCommon::CheckDisplayResized() {
-	if (displayResized_) {
-		framebufferManager_->NotifyDisplayResized();
-		displayResized_ = false;
-	}
-}
-
 void GPUCommon::DumpNextFrame() {
 	dumpNextFrame_ = true;
 }
@@ -953,12 +927,6 @@ void GPUCommon::Execute_Jump(u32 op, u32 diff) {
 	currentList->pc = target - 4; // pc will be increased after we return, counteract that
 }
 
-void GPUCommon::Execute_JumpFast(u32 op, u32 diff) {
-	const u32 target = gstate_c.getRelativeAddress(op & 0x00FFFFFC);
-	UpdatePC(currentList->pc, target - 4);
-	currentList->pc = target - 4; // pc will be increased after we return, counteract that
-}
-
 void GPUCommon::Execute_BJump(u32 op, u32 diff) {
 	if (!currentList->bboxResult) {
 		// bounding box jump.
@@ -985,13 +953,6 @@ void GPUCommon::Execute_Call(u32 op, u32 diff) {
 	DoExecuteCall(target);
 }
 
-void GPUCommon::Execute_CallFast(u32 op, u32 diff) {
-	PROFILE_THIS_SCOPE("gpu_call");
-
-	const u32 target = gstate_c.getRelativeAddress(op & 0x00FFFFFC);
-	DoExecuteCall(target);
-}
-
 void GPUCommon::DoExecuteCall(u32 target) {
 	// Saint Seiya needs correct support for relative calls.
 	const u32 retval = currentList->pc + 4;
@@ -1013,6 +974,7 @@ void GPUCommon::DoExecuteCall(u32 target) {
 
 	if (currentList->stackptr == ARRAY_SIZE(currentList->stack)) {
 		ERROR_LOG(G3D, "CALL: Stack full!");
+		// TODO: UpdateState(GPUSTATE_ERROR) ?
 	} else {
 		auto &stackEntry = currentList->stack[currentList->stackptr++];
 		stackEntry.pc = retval;

@@ -718,6 +718,9 @@
     <ClCompile Include="Debugger\WebSocket\CPUCoreSubscriber.cpp">
       <Filter>Debugger\WebSocket</Filter>
     </ClCompile>
+    <ClCompile Include="Debugger\WebSocket\ClientConfigSubscriber.cpp">
+      <Filter>Debugger\WebSocket</Filter>
+    </ClCompile>
     <ClCompile Include="Debugger\WebSocket\WebSocketUtils.cpp">
       <Filter>Debugger\WebSocket</Filter>
     </ClCompile>
@@ -1196,6 +1199,9 @@
       <Filter>MIPS</Filter>
     </ClCompile>
     <ClCompile Include="ConfigSettings.cpp">
+      <Filter>Core</Filter>
+    </ClCompile>
+    <ClCompile Include="RetroAchievements.cpp">
       <Filter>Core</Filter>
     </ClCompile>
   </ItemGroup>
@@ -1782,6 +1788,9 @@
     <ClInclude Include="Debugger\WebSocket\GameBroadcaster.h">
       <Filter>Debugger\WebSocket</Filter>
     </ClInclude>
+    <ClInclude Include="Debugger\WebSocket\ClientConfigSubscriber.h">
+      <Filter>Debugger\WebSocket</Filter>
+    </ClInclude>
     <ClInclude Include="Debugger\WebSocket\CPUCoreSubscriber.h">
       <Filter>Debugger\WebSocket</Filter>
     </ClInclude>
@@ -1936,6 +1945,9 @@
       <Filter>MIPS</Filter>
     </ClInclude>
     <ClInclude Include="ConfigSettings.h">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="RetroAchievements.h">
       <Filter>Core</Filter>
     </ClInclude>
   </ItemGroup>

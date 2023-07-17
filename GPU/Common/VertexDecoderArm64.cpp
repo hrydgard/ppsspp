@@ -39,6 +39,9 @@ static const ARM64Reg srcReg = X0;
 static const ARM64Reg dstReg = X1;
 
 static const ARM64Reg counterReg = W2;
+
+static const ARM64Reg uvScaleReg = X3;
+
 static const ARM64Reg tempReg1 = W3;
 static const ARM64Reg tempRegPtr = X3;
 static const ARM64Reg tempReg2 = W4;
@@ -64,9 +67,9 @@ static const ARM64Reg neonScratchRegQ = Q2;
 static const ARM64Reg neonUVScaleReg = D0;
 static const ARM64Reg neonUVOffsetReg = D1;
 
-static const ARM64Reg src[3] = {S2, S3, S8};
-static const ARM64Reg srcD[3] = {D2, D3, D8};
-static const ARM64Reg srcQ[3] = {Q2, Q3, Q8};
+static const ARM64Reg src[2] = {S2, S3};
+static const ARM64Reg srcD = D2;
+static const ARM64Reg srcQ = Q2;
 
 static const ARM64Reg srcNEON = Q8;
 static const ARM64Reg accNEON = Q9;
@@ -169,13 +172,15 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec, int
 
 	// if (skinning) log = true;
 
-	uint64_t regs_to_save = Arm64Gen::ALL_CALLEE_SAVED;
-	uint64_t regs_to_save_fp = Arm64Gen::ALL_CALLEE_SAVED_FP;
+	// GPRs 0-15 do not need to be saved.
+	// We don't use any higher GPRs than 16. So:
+	uint64_t regs_to_save = 1 << 16; // Arm64Gen::ALL_CALLEE_SAVED;
+	// We only need to save Q8-Q15 if skinning is used.
+	uint64_t regs_to_save_fp = dec.skinInDecode ? Arm64Gen::ALL_CALLEE_SAVED_FP : 0;
 	fp.ABI_PushRegisters(regs_to_save, regs_to_save_fp);
 
 	// Keep the scale/offset in a few fp registers if we need it.
 	if (prescaleStep) {
-		MOVP2R(X3, &gstate_c.uv);
 		fp.LDR(64, INDEX_UNSIGNED, neonUVScaleReg, X3, 0);
 		fp.LDR(64, INDEX_UNSIGNED, neonUVOffsetReg, X3, 8);
 		if ((dec.VertexType() & GE_VTYPE_TC_MASK) == GE_VTYPE_TC_8BIT) {
@@ -236,7 +241,7 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec, int
 		LDRH(INDEX_UNSIGNED, boundsMaxVReg, scratchReg64, offsetof(KnownVertexBounds, maxV));
 	}
 
-	const u8 *loopStart = GetCodePtr();
+	const u8 *loopStart = NopAlignCode16();
 	for (int i = 0; i < dec.numSteps_; i++) {
 		if (!CompileStep(dec, i)) {
 			EndWrite();
@@ -645,12 +650,12 @@ void VertexDecoderJitCache::Jit_TcFloatPrescale() {
 
 void VertexDecoderJitCache::Jit_PosS8() {
 	Jit_AnyS8ToFloat(dec_->posoff);
-	fp.STUR(128, srcQ[0], dstReg, dec_->decFmt.posoff);
+	fp.STUR(128, srcQ, dstReg, dec_->decFmt.posoff);
 }
 
 void VertexDecoderJitCache::Jit_PosS16() {
 	Jit_AnyS16ToFloat(dec_->posoff);
-	fp.STUR(128, srcQ[0], dstReg, dec_->decFmt.posoff);
+	fp.STUR(128, srcQ, dstReg, dec_->decFmt.posoff);
 }
 
 void VertexDecoderJitCache::Jit_PosFloat() {
@@ -677,8 +682,8 @@ void VertexDecoderJitCache::Jit_PosS8Through() {
 void VertexDecoderJitCache::Jit_PosS16Through() {
 	// Start with X and Y (which is signed.)
 	fp.LDUR(32, src[0], srcReg, dec_->posoff);
-	fp.SXTL(16, srcD[0], src[0]);
-	fp.SCVTF(32, srcD[0], srcD[0]);
+	fp.SXTL(16, srcD, src[0]);
+	fp.SCVTF(32, srcD, srcD);
 	fp.STUR(64, src[0], dstReg, dec_->decFmt.posoff);
 	// Now load in Z (which is unsigned.)
 	LDRH(INDEX_UNSIGNED, tempReg3, srcReg, dec_->posoff + 4);
@@ -744,7 +749,7 @@ void VertexDecoderJitCache::Jit_NormalS16Skin() {
 }
 
 void VertexDecoderJitCache::Jit_NormalFloatSkin() {
-	fp.LDUR(128, srcQ[0], srcReg, dec_->nrmoff);
+	fp.LDUR(128, srcQ, srcReg, dec_->nrmoff);
 	Jit_WriteMatrixMul(dec_->decFmt.nrmoff, false);
 }
 
@@ -759,28 +764,28 @@ void VertexDecoderJitCache::Jit_PosS16Skin() {
 }
 
 void VertexDecoderJitCache::Jit_PosFloatSkin() {
-	fp.LDUR(128, srcQ[0], srcReg, dec_->posoff);
+	fp.LDUR(128, srcQ, srcReg, dec_->posoff);
 	Jit_WriteMatrixMul(dec_->decFmt.posoff, true);
 }
 
 void VertexDecoderJitCache::Jit_AnyS8ToFloat(int srcoff) {
 	fp.LDUR(32, src[0], srcReg, srcoff);
-	fp.SXTL(8, srcD[0], src[0]);
-	fp.SXTL(16, srcQ[0], srcD[0]);
-	fp.SCVTF(32, srcQ[0], srcQ[0], 7);
+	fp.SXTL(8, srcD, src[0]);
+	fp.SXTL(16, srcQ, srcD);
+	fp.SCVTF(32, srcQ, srcQ, 7);
 }
 
 void VertexDecoderJitCache::Jit_AnyS16ToFloat(int srcoff) {
 	fp.LDUR(64, src[0], srcReg, srcoff);
-	fp.SXTL(16, srcQ[0], srcD[0]);
-	fp.SCVTF(32, srcQ[0], srcQ[0], 15);
+	fp.SXTL(16, srcQ, srcD);
+	fp.SCVTF(32, srcQ, srcQ, 15);
 }
 
 void VertexDecoderJitCache::Jit_WriteMatrixMul(int outOff, bool pos) {
-	// Multiply with the matrix sitting in Q4-Q7.
-	fp.FMUL(32, accNEON, Q4, srcQ[0], 0);
-	fp.FMLA(32, accNEON, Q5, srcQ[0], 1);
-	fp.FMLA(32, accNEON, Q6, srcQ[0], 2);
+	// Multiply srcQ with the matrix sitting in Q4-Q7.
+	fp.FMUL(32, accNEON, Q4, srcQ, 0);
+	fp.FMLA(32, accNEON, Q5, srcQ, 1);
+	fp.FMLA(32, accNEON, Q6, srcQ, 2);
 	if (pos) {
 		fp.FADD(32, accNEON, accNEON, Q7);
 	}

@@ -32,6 +32,7 @@ class FileLoader;
 
 class BlockDevice {
 public:
+	BlockDevice(FileLoader *fileLoader) : fileLoader_(fileLoader) {}
 	virtual ~BlockDevice() {}
 	virtual bool ReadBlock(int blockNumber, u8 *outPtr, bool uncached = false) = 0;
 	virtual bool ReadBlocks(u32 minBlock, int count, u8 *outPtr) {
@@ -51,6 +52,7 @@ public:
 	void NotifyReadError();
 
 protected:
+	FileLoader *fileLoader_;
 	bool reportedError_ = false;
 };
 
@@ -64,7 +66,6 @@ public:
 	bool IsDisc() override { return true; }
 
 private:
-	FileLoader *fileLoader_;
 	u32 *index;
 	u8 *readBuffer;
 	u8 *zlibBuffer;
@@ -88,7 +89,6 @@ public:
 	bool IsDisc() override { return true; }
 
 private:
-	FileLoader *fileLoader_;
 	u64 filesize_;
 };
 
@@ -113,7 +113,6 @@ public:
 	bool IsDisc() override { return false; }
 
 private:
-	FileLoader *fileLoader_;
 	static std::mutex mutex_;
 	u32 lbaSize;
 

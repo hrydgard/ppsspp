@@ -37,6 +37,10 @@ public:
 	void GenerateMips(VkCommandBuffer cmd, int firstMipToGenerate, bool fromCompute);
 	void EndCreate(VkCommandBuffer cmd, bool vertexTexture, VkPipelineStageFlags prevStage, VkImageLayout layout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
 
+	// For updating levels after creation. Careful with the timelines!
+	void PrepareForTransferDst(VkCommandBuffer cmd, int levels);
+	void RestoreAfterTransferDst(VkCommandBuffer cmd, int levels);
+
 	// When loading mips from compute shaders, you need to pass VK_IMAGE_LAYOUT_GENERAL to the above function.
 	// In addition, ignore UploadMip and GenerateMip, and instead use GetViewForMip. Make sure to delete the returned views when used.
 	VkImageView CreateViewForMip(int mip);

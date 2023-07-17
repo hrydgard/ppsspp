@@ -320,7 +320,7 @@ struct JitLookup {
 // Collapse to less skinning shaders to reduce shader switching, which is expensive.
 int TranslateNumBones(int bones);
 
-typedef void(*JittedVertexDecoder)(const u8 *src, u8 *dst, int count);
+typedef void (*JittedVertexDecoder)(const u8 *src, u8 *dst, int count, const UVScale *uvScaleOffset);
 
 struct VertexDecoderOptions {
 	bool expandAllWeightsToFloat;
@@ -336,9 +336,9 @@ public:
 
 	u32 VertexType() const { return fmt_; }
 
-	const DecVtxFormat &GetDecVtxFmt() { return decFmt; }
+	const DecVtxFormat &GetDecVtxFmt() const { return decFmt; }
 
-	void DecodeVerts(u8 *decoded, const void *verts, int indexLowerBound, int indexUpperBound) const;
+	void DecodeVerts(u8 *decoded, const void *verts, const UVScale *uvScaleOffset, int indexLowerBound, int indexUpperBound) const;
 
 	int VertexSize() const { return size; }  // PSP format size
 

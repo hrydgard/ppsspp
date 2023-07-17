@@ -12,7 +12,7 @@
 
 // Default device IDs
 
-enum {
+enum InputDeviceID {
 	DEVICE_ID_ANY = -1,  // Represents any device ID
 	DEVICE_ID_DEFAULT = 0,  // Old Android
 	DEVICE_ID_KEYBOARD = 1,  // PC keyboard, android keyboards
@@ -38,42 +38,14 @@ enum {
 	DEVICE_ID_TOUCH = 42,
 };
 
+inline InputDeviceID operator +(InputDeviceID deviceID, int addend) {
+	return (InputDeviceID)((int)deviceID + addend);
+}
+
 //number of contiguous generic joypad IDs
 const int MAX_NUM_PADS = 10;
 
 const char *GetDeviceName(int deviceId);
-
-enum {
-	PAD_BUTTON_A = 1,
-	PAD_BUTTON_B = 2,
-	PAD_BUTTON_X = 4,
-	PAD_BUTTON_Y = 8,
-	PAD_BUTTON_LBUMPER = 16,
-	PAD_BUTTON_RBUMPER = 32,
-	PAD_BUTTON_START = 64,
-	PAD_BUTTON_SELECT = 128,
-	PAD_BUTTON_UP = 256,
-	PAD_BUTTON_DOWN = 512,
-	PAD_BUTTON_LEFT = 1024,
-	PAD_BUTTON_RIGHT = 2048,
-
-	PAD_BUTTON_MENU = 4096,
-	PAD_BUTTON_BACK = 8192,
-
-	// For Qt
-	PAD_BUTTON_JOY_UP = 1<<14,
-	PAD_BUTTON_JOY_DOWN = 1<<15,
-	PAD_BUTTON_JOY_LEFT = 1<<16,
-	PAD_BUTTON_JOY_RIGHT = 1<<17,
-
-	PAD_BUTTON_LEFT_THUMB = 1 << 18,   // Click left thumb stick on X360
-	PAD_BUTTON_RIGHT_THUMB = 1 << 19,   // Click right thumb stick on X360
-
-	PAD_BUTTON_LEFT_TRIGGER = 1 << 21,   // Click left thumb stick on X360
-	PAD_BUTTON_RIGHT_TRIGGER = 1 << 22,   // Click left thumb stick on X360
-
-	PAD_BUTTON_FASTFORWARD = 1 << 20, // Click Tab to unthrottle
-};
 
 #ifndef MAX_KEYQUEUESIZE
 #define MAX_KEYQUEUESIZE 20
@@ -98,18 +70,18 @@ private:
 		return AXIS_BIND_NKCODE_START + axisId * 2 + (direction < 0 ? 1 : 0);
 	}
 public:
-	InputMapping() : deviceId(0), keyCode(0) {}
+	InputMapping() : deviceId(DEVICE_ID_DEFAULT), keyCode(0) {}
 	// From a key mapping
-	InputMapping(int _deviceId, int key) : deviceId(_deviceId), keyCode(key) {}
+	InputMapping(InputDeviceID _deviceId, int key) : deviceId(_deviceId), keyCode(key) {}
 	// From an axis
-	InputMapping(int _deviceId, int axis, int direction) : deviceId(_deviceId), keyCode(TranslateKeyCodeFromAxis(axis, direction)) {
+	InputMapping(InputDeviceID _deviceId, int axis, int direction) : deviceId(_deviceId), keyCode(TranslateKeyCodeFromAxis(axis, direction)) {
 		_dbg_assert_(direction != 0);
 	}
 
 	static InputMapping FromConfigString(const std::string &str);
 	std::string ToConfigString() const;
 
-	int deviceId;
+	InputDeviceID deviceId;
 	int keyCode;  // Can also represent an axis with direction, if encoded properly.
 
 	bool IsAxis() const {
@@ -195,15 +167,19 @@ enum {
 
 struct KeyInput {
 	KeyInput() {}
-	KeyInput(int devId, int code, int fl) : deviceId(devId), keyCode(code), flags(fl) {}
-	int deviceId;
-	int keyCode;  // Android keycodes are the canonical keycodes, everyone else map to them.
+	KeyInput(InputDeviceID devId, InputKeyCode code, int fl) : deviceId(devId), keyCode(code), flags(fl) {}
+	KeyInput(InputDeviceID devId, int unicode) : deviceId(devId), unicodeChar(unicode), flags(KEY_CHAR) {}
+	InputDeviceID deviceId;
+	union {
+		InputKeyCode keyCode;  // Android keycodes are the canonical keycodes, everyone else map to them.
+		int unicodeChar;  // for KEY_CHAR
+	};
 	int flags;
 };
 
 struct AxisInput {
-	int deviceId;
-	int axisId;  // Android axis Ids are the canonical ones.
+	InputDeviceID deviceId;
+	InputAxis axisId;
 	float value;
 };
 
@@ -219,5 +195,5 @@ void SetConfirmCancelKeys(const std::vector<InputMapping> &confirm, const std::v
 void SetTabLeftRightKeys(const std::vector<InputMapping> &tabLeft, const std::vector<InputMapping> &tabRight);
 
 // 0 means unknown (attempt autodetect), -1 means flip, 1 means original direction.
-void SetAnalogFlipY(std::unordered_map<int, int> flipYByDeviceId);
-int GetAnalogYDirection(int deviceId);
+void SetAnalogFlipY(std::unordered_map<InputDeviceID, int> flipYByDeviceId);
+int GetAnalogYDirection(InputDeviceID deviceId);

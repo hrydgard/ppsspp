@@ -20,7 +20,7 @@ const char *GetDeviceName(int deviceId) {
 	case DEVICE_ID_PAD_7: return "pad8";
 	case DEVICE_ID_PAD_8: return "pad9";
 	case DEVICE_ID_PAD_9: return "pad10";
-	case DEVICE_ID_XINPUT_0: return "x360";  // keeping these strings for backward compat
+	case DEVICE_ID_XINPUT_0: return "x360";  // keeping these strings for backward compat. Hm, what would break if we changed them to xbox?
 	case DEVICE_ID_XINPUT_1: return "x360_2";
 	case DEVICE_ID_XINPUT_2: return "x360_3";
 	case DEVICE_ID_XINPUT_3: return "x360_4";
@@ -39,7 +39,7 @@ std::vector<InputMapping> confirmKeys;
 std::vector<InputMapping> cancelKeys;
 std::vector<InputMapping> tabLeftKeys;
 std::vector<InputMapping> tabRightKeys;
-static std::unordered_map<int, int> uiFlipAnalogY;
+static std::unordered_map<InputDeviceID, int> uiFlipAnalogY;
 
 static void AppendKeys(std::vector<InputMapping> &keys, const std::vector<InputMapping> &newKeys) {
 	for (auto iter = newKeys.begin(); iter != newKeys.end(); ++iter) {
@@ -69,11 +69,11 @@ void SetTabLeftRightKeys(const std::vector<InputMapping> &tabLeft, const std::ve
 	tabRightKeys = tabRight;
 }
 
-void SetAnalogFlipY(std::unordered_map<int, int> flipYByDeviceId) {
+void SetAnalogFlipY(std::unordered_map<InputDeviceID, int> flipYByDeviceId) {
 	uiFlipAnalogY = flipYByDeviceId;
 }
 
-int GetAnalogYDirection(int deviceId) {
+int GetAnalogYDirection(InputDeviceID deviceId) {
 	auto configured = uiFlipAnalogY.find(deviceId);
 	if (configured != uiFlipAnalogY.end())
 		return configured->second;
@@ -84,8 +84,8 @@ int GetAnalogYDirection(int deviceId) {
 InputMapping InputMapping::FromConfigString(const std::string &str) {
 	std::vector<std::string> parts;
 	SplitString(str, '-', parts);
-	int deviceId = atoi(parts[0].c_str());
-	int keyCode = atoi(parts[1].c_str());
+	InputDeviceID deviceId = (InputDeviceID)(atoi(parts[0].c_str()));
+	InputKeyCode keyCode = (InputKeyCode)atoi(parts[1].c_str());
 
 	InputMapping mapping;
 	mapping.deviceId = deviceId;
@@ -94,15 +94,15 @@ InputMapping InputMapping::FromConfigString(const std::string &str) {
 }
 
 std::string InputMapping::ToConfigString() const {
-	return StringFromFormat("%d-%d", deviceId, keyCode);
+	return StringFromFormat("%d-%d", (int)deviceId, keyCode);
 }
 
 void InputMapping::FormatDebug(char *buffer, size_t bufSize) const {
 	if (IsAxis()) {
 		int direction;
 		int axis = Axis(&direction);
-		snprintf(buffer, bufSize, "Device: %d Axis: %d (%d)", deviceId, axis, direction);
+		snprintf(buffer, bufSize, "Device: %d Axis: %d (%d)", (int)deviceId, axis, direction);
 	} else {
-		snprintf(buffer, bufSize, "Device: %d Key: %d", deviceId, keyCode);
+		snprintf(buffer, bufSize, "Device: %d Key: %d", (int)deviceId, keyCode);
 	}
 }

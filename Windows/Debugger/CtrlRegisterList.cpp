@@ -251,7 +251,7 @@ void CtrlRegisterList::onPaint(WPARAM wParam, LPARAM lParam)
 		if (i<cpu->GetNumRegsInCategory(category))
 		{
 			char temp[256];
-			int temp_len = snprintf(temp, sizeof(temp), "%s", cpu->GetRegName(category, i));
+			int temp_len = snprintf(temp, sizeof(temp), "%s", cpu->GetRegName(category, i).c_str());
 			SetTextColor(hdc,0x600000);
 			TextOutA(hdc,17,rowY1,temp,temp_len);
 			SetTextColor(hdc,0x000000);

@@ -53,8 +53,14 @@ VKAPI_ATTR VkBool32 VKAPI_CALL VulkanDebugUtilsCallback(
 		return false;
 	case 1303270965:
 		// Benign perf warning, image blit using GENERAL layout.
-		// UNASSIGNED
-		return false;
+		// TODO: Oops, turns out we filtered out a bit too much here!
+		// We really need that performance flag check to sort out the stuff that matters.
+		// Will enable it soon, but it'll take some fixing.
+		//
+		if (messageType & VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT)
+			return false;
+		break;
+
 	case 606910136:
 	case -392708513:
 	case -384083808:

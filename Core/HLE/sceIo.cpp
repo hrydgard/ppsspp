@@ -2533,7 +2533,7 @@ static u32 sceIoDclose(int id) {
 	return kernelObjects.Destroy<DirListing>(id);
 }
 
-static int __IoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 outlen, int &usec) {
+int __IoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 outlen, int &usec) {
 	u32 error;
 	FileNode *f = __IoGetFd(id, error);
 	if (error) {
@@ -2546,7 +2546,7 @@ static int __IoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, 
 	}
 
 	// TODO: Move this into each command, probably?
-	usec = 100;
+	usec += 100;
 
 	//KD Hearts:
 	//56:46:434 HLE\sceIo.cpp:886 E[HLE]: UNIMPL 0=sceIoIoctrl id: 0000011f, cmd 04100001, indataPtr 08b313d8, inlen 00000010, outdataPtr 00000000, outLen 0
@@ -2574,25 +2574,28 @@ static int __IoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, 
 		pspFileSystem.SeekFile(f->handle, (s32)f->pgd_offset, FILEMOVE_BEGIN);
 		pspFileSystem.ReadFile(f->handle, pgd_header, 0x90);
 		f->pgdInfo = pgd_open(pgd_header, 2, key_ptr);
-		if(f->pgdInfo==NULL){
-			ERROR_LOG(SCEIO, "Not a valid PGD file. Open as normal file.");
+		if (!f->pgdInfo) {
+			ERROR_LOG(SCEIO, "Not a valid PGD file. Examining.");
 			f->npdrm = false;
 			pspFileSystem.SeekFile(f->handle, (s32)0, FILEMOVE_BEGIN);
-			if(memcmp(pgd_header, pgd_magic, 4)==0){
+			if (memcmp(pgd_header, pgd_magic, 4) == 0) {
+				ERROR_LOG(SCEIO, "File is PGD file, but there's likely a key mismatch. Returning error.");
 				// File is PGD file, but key mismatch
 				return ERROR_PGD_INVALID_HEADER;
-			}else{
+			} else {
+				WARN_LOG(SCEIO, "File is not encrypted, proceeding.");
 				// File is decrypted.
 				return 0;
 			}
-		}else{
-			// Everthing OK.
+		} else {
+			// Everything OK.
 			f->npdrm = true;
 			f->pgdInfo->data_offset += f->pgd_offset;
 			return 0;
 		}
 		break;
 	}
+
 	// Set PGD offset. Called from sceNpDrmEdataSetupKey
 	case 0x04100002:
 		f->pgd_offset = indataPtr;
@@ -2739,7 +2742,7 @@ static int __IoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, 
 		// Even if the size is 4, it still actually reads a 16 byte struct, it seems.
 
 		//if (GetIOTimingMethod() == IOTIMING_REALISTIC) // Need a check for io timing method?
-		usec = 15000;// Fantasy Golf Pangya Portable(KS) needs a delay over 15000us.
+		usec += 15000;// Fantasy Golf Pangya Portable(KS) needs a delay over 15000us.
 
 		if (Memory::IsValidAddress(indataPtr) && inlen >= 4) {
 			struct SeekInfo {
@@ -2928,7 +2931,7 @@ static int IoAsyncFinish(int id) {
 			break;
 
 		case IoAsyncOp::IOCTL:
-			us = 100;
+			us = 0;  // __IoIoctl will add 100.
 			f->asyncResult = __IoIoctl(id, params.ioctl.cmd, params.ioctl.inAddr, params.ioctl.inSize, params.ioctl.outAddr, params.ioctl.outSize, us);
 			DEBUG_LOG(SCEIO, "ASYNC sceIoIoctlAsync(%08x, %08x, %08x, %08x, %08x, %08x)", id, params.ioctl.cmd, params.ioctl.inAddr, params.ioctl.inSize, params.ioctl.outAddr, params.ioctl.outSize);
 			break;
@@ -3035,7 +3038,7 @@ const HLEFunction IoFileMgrForKernel[] = {
 	{0x3251EA56, &WrapU_IU<sceIoPollAsync>,             "sceIoPollAsync",              'i', "iP",     HLE_KERNEL_SYSCALL },
 	{0xE23EEC33, &WrapI_IU<sceIoWaitAsync>,             "sceIoWaitAsync",              'i', "iP",     HLE_KERNEL_SYSCALL },
 	{0x35DBD746, &WrapI_IU<sceIoWaitAsyncCB>,           "sceIoWaitAsyncCB",            'i', "iP",     HLE_KERNEL_SYSCALL },
-	{0xBD17474F, nullptr,                               "IoFileMgrForKernel_BD17474F", '?', ""        },
+	{0xBD17474F, nullptr,                               "sceIoGetIobUserLevel",        '?', ""        },
 	{0x76DA16E3, nullptr,                               "IoFileMgrForKernel_76DA16E3", '?', ""        },
 };
 
