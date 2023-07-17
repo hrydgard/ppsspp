@@ -464,7 +464,7 @@ void RenderAchievement(UIContext &dc, const rc_client_achievement_t *achievement
 		dc.DrawTextRect(achievement->title, bounds.Inset(iconSpace + 12.0f, 2.0f, padding, padding), fgColor, ALIGN_TOPLEFT);
 
 		dc.SetFontScale(0.66f, 0.66f);
-		dc.DrawTextRect(DeNull(achievement->description), bounds.Inset(iconSpace + 12.0f, 39.0f, padding, padding), fgColor, ALIGN_TOPLEFT);
+		dc.DrawTextRectSqueeze(DeNull(achievement->description), bounds.Inset(iconSpace + 12.0f, 39.0f, padding, padding), fgColor, ALIGN_TOPLEFT);
 
 		if (style == AchievementRenderStyle::LISTED && strlen(achievement->measured_progress) > 0) {
 			dc.SetFontScale(1.0f, 1.0f);
@@ -578,7 +578,7 @@ void RenderLeaderboardSummary(UIContext &dc, const rc_client_leaderboard_t *lead
 	dc.DrawTextRect(DeNull(leaderboard->title), bounds.Inset(12.0f, 2.0f, 5.0f, 5.0f), fgColor, ALIGN_TOPLEFT);
 
 	dc.SetFontScale(0.66f, 0.66f);
-	dc.DrawTextRect(DeNull(leaderboard->description), bounds.Inset(12.0f, 39.0f, 5.0f, 5.0f), fgColor, ALIGN_TOPLEFT);
+	dc.DrawTextRectSqueeze(DeNull(leaderboard->description), bounds.Inset(12.0f, 39.0f, 5.0f, 5.0f), fgColor, ALIGN_TOPLEFT);
 
 	/*
 	char temp[64];
@@ -587,9 +587,9 @@ void RenderLeaderboardSummary(UIContext &dc, const rc_client_leaderboard_t *lead
 	dc.SetFontScale(1.5f, 1.5f);
 	dc.DrawTextRect(temp, bounds.Expand(-5.0f, -5.0f), fgColor, ALIGN_RIGHT | ALIGN_VCENTER);
 
-	dc.SetFontScale(1.0f, 1.0f);
 	dc.Flush();
 	*/
+	dc.SetFontScale(1.0f, 1.0f);
 
 	dc.Flush();
 	dc.RebindTexture();
