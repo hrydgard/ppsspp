@@ -15,6 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "ppsspp_config.h"
 #include <set>
 
 #include "ext/xxhash.h"
@@ -49,7 +50,10 @@ IRJit::IRJit(MIPSState *mipsState) : frontend_(mipsState->HasDefaultPrefix()), m
 
 	IROptions opts{};
 	opts.disableFlags = g_Config.uJitDisableFlags;
+	// Assume that RISC-V always has very slow unaligned memory accesses.
+#if !PPSSPP_ARCH(RISCV64)
 	opts.unalignedLoadStore = (opts.disableFlags & (uint32_t)JitDisable::LSU_UNALIGNED) == 0;
+#endif
 	frontend_.SetOptions(opts);
 }
 
@@ -229,6 +233,7 @@ void IRJit::RunLoopUntil(u64 globalticks) {
 				IRBlock *block = blocks_.GetBlock(data);
 				u32 startPC = mips_->pc;
 				mips_->pc = IRInterpret(mips_, block->GetInstructions(), block->GetNumInstructions());
+				// Note: this will "jump to zero" on a badly constructed block missing exits.
 				if (!Memory::IsValidAddress(mips_->pc) || (mips_->pc & 3) != 0) {
 					Core_ExecException(mips_->pc, startPC, ExecExceptionType::JUMP);
 					break;
@@ -371,7 +376,7 @@ JitBlockDebugInfo IRBlockCache::GetBlockDebugInfo(int blockNum) const {
 
 	for (u32 addr = start; addr < start + size; addr += 4) {
 		char temp[256];
-		MIPSDisAsm(Memory::Read_Instruction(addr), addr, temp, true);
+		MIPSDisAsm(Memory::Read_Instruction(addr), addr, temp, sizeof(temp), true);
 		std::string mipsDis = temp;
 		debugInfo.origDisasm.push_back(mipsDis);
 	}

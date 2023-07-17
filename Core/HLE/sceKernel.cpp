@@ -85,8 +85,7 @@
 #include "sceDmac.h"
 #include "sceMp4.h"
 #include "sceOpenPSID.h"
-
-#include "../Util/PPGeDraw.h"
+#include "Core/Util/PPGeDraw.h"
 
 /*
 17: [MIPS32 R4K 00000000 ]: Loader: Type: 1 Vaddr: 00000000 Filesz: 2856816 Memsz: 2856816 
@@ -655,6 +654,7 @@ static int sceKernelReferSystemStatus(u32 statusPtr) {
 	return 0;
 }
 
+// Unused - believed to be the returned struct from sceKernelReferThreadProfiler.
 struct DebugProfilerRegs {
 	u32 enable;
 	u32 systemck;
@@ -678,23 +678,19 @@ struct DebugProfilerRegs {
 	u32 local_bus;
 };
 
-static u32 sceKernelReferThreadProfiler(u32 statusPtr) {
-	ERROR_LOG(SCEKERNEL, "FAKE sceKernelReferThreadProfiler()");
-
-	// Can we confirm that the struct above is the right struct?
-	// If so, re-enable this code.
-	//auto regs = PSPPointer<DebugProfilerRegs>::Create(statusPtr);
-	// TODO: fill the struct.
-	//if (regs.IsValid()) {
-	//	memset((DebugProfilerRegs *)regs, 0, sizeof(DebugProfilerRegs));
-	//	regs.NotifyWrite("ThreadProfiler");
-	//}
+static u32 sceKernelReferThreadProfiler() {
+	// This seems to simply has no parameter:
+	// https://pspdev.github.io/pspsdk/group__ThreadMan.html#ga8fd30da51b9dc0507ac4dae04a7e4a17
+	// In testing it just returns null in around 140-150 cycles.  See issue #17623.
+	DEBUG_LOG(SCEKERNEL, "0=sceKernelReferThreadProfiler()");
+	hleEatCycles(140);
 	return 0;
 }
 
-static int sceKernelReferGlobalProfiler(u32 statusPtr) {
-	ERROR_LOG(SCEKERNEL, "UNIMPL sceKernelReferGlobalProfiler(%08x)", statusPtr);
-	// Ignore for now
+static int sceKernelReferGlobalProfiler() {
+	DEBUG_LOG(SCEKERNEL, "0=sceKernelReferGlobalProfiler()");
+	// See sceKernelReferThreadProfiler(), similar.
+	hleEatCycles(140);
 	return 0;
 }
 
@@ -780,9 +776,9 @@ const HLEFunction ThreadManForUser[] =
 	{0XDB738F35, &WrapI_U<sceKernelGetSystemTime>,                   "sceKernelGetSystemTime",                    'i', "x"       },
 	{0X369ED59D, &WrapU_V<sceKernelGetSystemTimeLow>,                "sceKernelGetSystemTimeLow",                 'x', ""        },
 
-	{0X8218B4DD, &WrapI_U<sceKernelReferGlobalProfiler>,             "sceKernelReferGlobalProfiler",              'i', "x"       },
+	{0X8218B4DD, &WrapI_V<sceKernelReferGlobalProfiler>,             "sceKernelReferGlobalProfiler",              'i', ""       },
 	{0X627E6F3A, &WrapI_U<sceKernelReferSystemStatus>,               "sceKernelReferSystemStatus",                'i', "x"       },
-	{0X64D4540E, &WrapU_U<sceKernelReferThreadProfiler>,             "sceKernelReferThreadProfiler",              'x', "x"       },
+	{0X64D4540E, &WrapU_V<sceKernelReferThreadProfiler>,             "sceKernelReferThreadProfiler",              'x', ""       },
 
 	//Fifa Street 2 uses alarms
 	{0X6652B8CA, &WrapI_UUU<sceKernelSetAlarm>,                      "sceKernelSetAlarm",                         'i', "xxx"     },

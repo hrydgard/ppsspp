@@ -21,7 +21,7 @@
 
 #include "Common/Data/Text/I18n.h"
 #include "Common/File/FileUtil.h"
-#include "Common/System/System.h"
+#include "Common/System/OSD.h"
 #include "Common/Log.h"
 #include "Common/Swap.h"
 #include "Core/Loaders.h"
@@ -73,13 +73,13 @@ u32 BlockDevice::CalculateCRC(volatile bool *cancel) {
 void BlockDevice::NotifyReadError() {
 	auto err = GetI18NCategory(I18NCat::ERRORS);
 	if (!reportedError_) {
-		System_NotifyUserMessage(err->T("Game disc read error - ISO corrupt"), 6.0f);
+		g_OSD.Show(OSDType::MESSAGE_WARNING, err->T("Game disc read error - ISO corrupt"), fileLoader_->GetPath().ToVisualString(), 6.0f);
 		reportedError_ = true;
 	}
 }
 
 FileBlockDevice::FileBlockDevice(FileLoader *fileLoader)
-	: fileLoader_(fileLoader) {
+	: BlockDevice(fileLoader) {
 	filesize_ = fileLoader->FileSize();
 }
 
@@ -137,7 +137,7 @@ typedef struct ciso_header
 static const u32 CSO_READ_BUFFER_SIZE = 256 * 1024;
 
 CISOFileBlockDevice::CISOFileBlockDevice(FileLoader *fileLoader)
-	: fileLoader_(fileLoader)
+	: BlockDevice(fileLoader)
 {
 	// CISO format is fairly simple, but most tools do not write the header_size.
 
@@ -382,7 +382,7 @@ bool CISOFileBlockDevice::ReadBlocks(u32 minBlock, int count, u8 *outPtr) {
 }
 
 NPDRMDemoBlockDevice::NPDRMDemoBlockDevice(FileLoader *fileLoader)
-	: fileLoader_(fileLoader)
+	: BlockDevice(fileLoader)
 {
 	std::lock_guard<std::mutex> guard(mutex_);
 	MAC_KEY mkey;

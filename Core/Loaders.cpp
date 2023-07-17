@@ -128,6 +128,7 @@ IdentifiedFileType Identify_File(FileLoader *fileLoader, std::string *errorStrin
 
 	// OK, quick methods of identification for common types failed. Moving on to more expensive methods,
 	// starting by reading the first few bytes.
+	// This can be necessary for weird Android content storage path types, see issue #17462
 
 	u32_le id;
 
@@ -170,9 +171,9 @@ IdentifiedFileType Identify_File(FileLoader *fileLoader, std::string *errorStrin
 
 	if (id == 'FLE\x7F') {
 		Path filename = fileLoader->GetPath();
-		// There are a few elfs misnamed as pbp (like Trig Wars), accept that.
+		// There are a few elfs misnamed as pbp (like Trig Wars), accept that. Also accept extension-less paths.
 		if (extension == ".plf" || strstr(filename.GetFilename().c_str(), "BOOT.BIN") ||
-			extension == ".elf" || extension == ".prx" || extension == ".pbp") {
+			extension == ".elf" || extension == ".prx" || extension == ".pbp" || extension == "") {
 			return IdentifiedFileType::PSP_ELF;
 		}
 		return IdentifiedFileType::UNKNOWN_ELF;
@@ -296,11 +297,12 @@ bool LoadFile(FileLoader **fileLoaderPtr, std::string *error_string) {
 				return false;
 			}
 		}
+		// Looks like a wrong fall through but is not, both paths are handled above.
 
 	case IdentifiedFileType::PSP_PBP:
 	case IdentifiedFileType::PSP_ELF:
 		{
-			INFO_LOG(LOADER, "File is an ELF or loose PBP!");
+			INFO_LOG(LOADER, "File is an ELF or loose PBP! %s", fileLoader->GetPath().c_str());
 			return Load_PSP_ELF_PBP(fileLoader, error_string);
 		}
 

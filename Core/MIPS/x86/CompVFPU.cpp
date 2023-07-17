@@ -2208,13 +2208,25 @@ void CosOnly(SinCosArg angle, float *output) {
 	output[1] = vfpu_cos(angle);
 }
 
-void ASinScaled(SinCosArg angle, float *output) {
-	output[0] = vfpu_asin(angle);
+void ASinScaled(SinCosArg sine, float *output) {
+	output[0] = vfpu_asin(sine);
 }
 
 void SinCosNegSin(SinCosArg angle, float *output) {
 	vfpu_sincos(angle, output[0], output[1]);
 	output[0] = -output[0];
+}
+
+void Exp2(SinCosArg arg, float *output) {
+	output[0] = vfpu_exp2(arg);
+}
+
+void Log2(SinCosArg arg, float *output) {
+	output[0] = vfpu_log2(arg);
+}
+
+void RExp2(SinCosArg arg, float *output) {
+	output[0] = vfpu_rexp2(arg);
 }
 
 void Jit::Comp_VV2Op(MIPSOpcode op) {
@@ -2223,7 +2235,7 @@ void Jit::Comp_VV2Op(MIPSOpcode op) {
 	if (js.HasUnknownPrefix())
 		DISABLE;
 
-	auto trigCallHelper = [this](void (*sinCosFunc)(SinCosArg, float *output), u8 sreg) {
+	auto specialFuncCallHelper = [this](void (*specialFunc)(SinCosArg, float *output), u8 sreg) {
 #if PPSSPP_ARCH(AMD64)
 		MOVSS(XMM0, fpr.V(sreg));
 		// TODO: This reg might be different on Linux...
@@ -2232,7 +2244,7 @@ void Jit::Comp_VV2Op(MIPSOpcode op) {
 #else
 		LEA(64, RDI, MIPSSTATE_VAR(sincostemp[0]));
 #endif
-		ABI_CallFunction(thunks.ProtectFunction((const void *)sinCosFunc, 0));
+		ABI_CallFunction(thunks.ProtectFunction((const void *)specialFunc, 0));
 #else
 		// Sigh, passing floats with cdecl isn't pretty, ends up on the stack.
 		if (fpr.V(sreg).IsSimpleReg()) {
@@ -2240,7 +2252,7 @@ void Jit::Comp_VV2Op(MIPSOpcode op) {
 		} else {
 			MOV(32, R(EAX), fpr.V(sreg));
 		}
-		CallProtectedFunction((const void *)sinCosFunc, R(EAX), Imm32((uint32_t)(uintptr_t)&mips_->sincostemp[0]));
+		CallProtectedFunction((const void *)specialFunc, R(EAX), Imm32((uint32_t)(uintptr_t)&mips_->sincostemp[0]));
 #endif
 	};
 
@@ -2406,18 +2418,20 @@ void Jit::Comp_VV2Op(MIPSOpcode op) {
 			DIVSS(tempxregs[i], R(XMM0));
 			break;
 		case 18: // d[i] = sinf((float)M_PI_2 * s[i]); break; //vsin
-			trigCallHelper(&SinOnly, sregs[i]);
+			specialFuncCallHelper(&SinOnly, sregs[i]);
 			MOVSS(tempxregs[i], MIPSSTATE_VAR(sincostemp[0]));
 			break;
 		case 19: // d[i] = cosf((float)M_PI_2 * s[i]); break; //vcos
-			trigCallHelper(&CosOnly, sregs[i]);
+			specialFuncCallHelper(&CosOnly, sregs[i]);
 			MOVSS(tempxregs[i], MIPSSTATE_VAR(sincostemp[1]));
 			break;
 		case 20: // d[i] = powf(2.0f, s[i]); break; //vexp2
-			DISABLE;
+			specialFuncCallHelper(&Exp2, sregs[i]);
+			MOVSS(tempxregs[i], MIPSSTATE_VAR(sincostemp[0]));
 			break;
 		case 21: // d[i] = logf(s[i])/log(2.0f); break; //vlog2
-			DISABLE;
+			specialFuncCallHelper(&Log2, sregs[i]);
+			MOVSS(tempxregs[i], MIPSSTATE_VAR(sincostemp[0]));
 			break;
 		case 22: // d[i] = sqrtf(s[i]); break; //vsqrt
 			SQRTSS(tempxregs[i], fpr.V(sregs[i]));
@@ -2425,7 +2439,7 @@ void Jit::Comp_VV2Op(MIPSOpcode op) {
 			ANDPS(tempxregs[i], MatR(TEMPREG));
 			break;
 		case 23: // d[i] = asinf(s[i]) / M_PI_2; break; //vasin
-			trigCallHelper(&ASinScaled, sregs[i]);
+			specialFuncCallHelper(&ASinScaled, sregs[i]);
 			MOVSS(tempxregs[i], MIPSSTATE_VAR(sincostemp[0]));
 			break;
 		case 24: // d[i] = -1.0f / s[i]; break; // vnrcp
@@ -2436,11 +2450,12 @@ void Jit::Comp_VV2Op(MIPSOpcode op) {
 			MOVSS(tempxregs[i], R(XMM0));
 			break;
 		case 26: // d[i] = -sinf((float)M_PI_2 * s[i]); break; // vnsin
-			trigCallHelper(&NegSinOnly, sregs[i]);
+			specialFuncCallHelper(&NegSinOnly, sregs[i]);
 			MOVSS(tempxregs[i], MIPSSTATE_VAR(sincostemp[0]));
 			break;
 		case 28: // d[i] = 1.0f / expf(s[i] * (float)M_LOG2E); break; // vrexp2
-			DISABLE;
+			specialFuncCallHelper(&RExp2, sregs[i]);
+			MOVSS(tempxregs[i], MIPSSTATE_VAR(sincostemp[0]));
 			break;
 		}
 	}

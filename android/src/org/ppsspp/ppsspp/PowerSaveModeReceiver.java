@@ -108,9 +108,9 @@ public class PowerSaveModeReceiver extends BroadcastReceiver {
 
 		try {
 			if (isBatteryLow || isPowerSaving) {
-				NativeApp.sendMessage("core_powerSaving", "true");
+				NativeApp.sendMessageFromJava("core_powerSaving", "true");
 			} else {
-				NativeApp.sendMessage("core_powerSaving", "false");
+				NativeApp.sendMessageFromJava("core_powerSaving", "false");
 			}
 		} catch (Exception e) {
 			Log.e(TAG, "Exception in sendPowerSaving: " + e.toString());

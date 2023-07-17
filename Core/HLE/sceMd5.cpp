@@ -57,7 +57,7 @@ static int sceMd5Digest(u32 dataAddr, u32 len, u32 digestAddr) {
 	if (!Memory::IsValidAddress(dataAddr) || !Memory::IsValidAddress(digestAddr))
 		return -1;
 
-	md5(Memory::GetPointerWriteUnchecked(dataAddr), (int)len, Memory::GetPointerWriteUnchecked(digestAddr));
+	ppsspp_md5(Memory::GetPointerWriteUnchecked(dataAddr), (int)len, Memory::GetPointerWriteUnchecked(digestAddr));
 	return 0;
 }
 
@@ -69,7 +69,7 @@ static int sceMd5BlockInit(u32 ctxAddr) {
 	// TODO: Until I know how large a context is, we just go all lazy and use a global context,
 	// which will work just fine unless games do several MD5 concurrently.
 
-	md5_starts(&md5_ctx);
+	ppsspp_md5_starts(&md5_ctx);
 	return 0;
 }
 
@@ -78,7 +78,7 @@ static int sceMd5BlockUpdate(u32 ctxAddr, u32 dataPtr, u32 len) {
 	if (!Memory::IsValidAddress(ctxAddr) || !Memory::IsValidAddress(dataPtr))
 		return -1;
 	
-	md5_update(&md5_ctx, Memory::GetPointerWriteUnchecked(dataPtr), (int)len);
+	ppsspp_md5_update(&md5_ctx, Memory::GetPointerWriteUnchecked(dataPtr), (int)len);
 	return 0;
 }
 
@@ -87,7 +87,7 @@ static int sceMd5BlockResult(u32 ctxAddr, u32 digestAddr) {
 	if (!Memory::IsValidAddress(ctxAddr) || !Memory::IsValidAddress(digestAddr))
 		return -1;
 
-	md5_finish(&md5_ctx, Memory::GetPointerWriteUnchecked(digestAddr));
+	ppsspp_md5_finish(&md5_ctx, Memory::GetPointerWriteUnchecked(digestAddr));
 	return 0;
 }
 
@@ -97,7 +97,7 @@ int sceKernelUtilsMd5Digest(u32 dataAddr, int len, u32 digestAddr) {
 	if (!Memory::IsValidAddress(dataAddr) || !Memory::IsValidAddress(digestAddr))
 		return -1;
 
-	md5(Memory::GetPointerWriteUnchecked(dataAddr), (int)len, Memory::GetPointerWriteUnchecked(digestAddr));
+	ppsspp_md5(Memory::GetPointerWriteUnchecked(dataAddr), (int)len, Memory::GetPointerWriteUnchecked(digestAddr));
 	return 0;
 }
 
@@ -109,7 +109,7 @@ int sceKernelUtilsMd5BlockInit(u32 ctxAddr) {
 	// TODO: Until I know how large a context is, we just go all lazy and use a global context,
 	// which will work just fine unless games do several MD5 concurrently.
 
-	md5_starts(&md5_ctx);
+	ppsspp_md5_starts(&md5_ctx);
 	return 0;
 }
 
@@ -118,7 +118,7 @@ int sceKernelUtilsMd5BlockUpdate(u32 ctxAddr, u32 dataPtr, int len) {
 	if (!Memory::IsValidAddress(ctxAddr) || !Memory::IsValidAddress(dataPtr))
 		return -1;
 
-	md5_update(&md5_ctx, Memory::GetPointerWriteUnchecked(dataPtr), (int)len);
+	ppsspp_md5_update(&md5_ctx, Memory::GetPointerWriteUnchecked(dataPtr), (int)len);
 	return 0;
 }
 
@@ -127,7 +127,7 @@ int sceKernelUtilsMd5BlockResult(u32 ctxAddr, u32 digestAddr) {
 	if (!Memory::IsValidAddress(ctxAddr) || !Memory::IsValidAddress(digestAddr))
 		return -1;
 
-	md5_finish(&md5_ctx, Memory::GetPointerWriteUnchecked(digestAddr));
+	ppsspp_md5_finish(&md5_ctx, Memory::GetPointerWriteUnchecked(digestAddr));
 	return 0;
 }
 

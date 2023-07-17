@@ -18,7 +18,11 @@
 #pragma once
 
 #ifndef _WIN32
+#ifndef __SWITCH__
 #include <sys/mman.h>
+#else
+#include <switch.h>
+#endif // !__SWITCH__
 #endif
 #include <stdint.h>
 

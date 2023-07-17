@@ -182,8 +182,10 @@ void GPU_Vulkan::SaveCache(const Path &filename) {
 }
 
 GPU_Vulkan::~GPU_Vulkan() {
-	VulkanRenderManager *rm = (VulkanRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
-	rm->DrainCompileQueue();
+	if (draw_) {
+		VulkanRenderManager *rm = (VulkanRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
+		rm->DrainCompileQueue();
+	}
 
 	SaveCache(shaderCachePath_);
 	// Note: We save the cache in DeviceLost
@@ -278,7 +280,6 @@ u32 GPU_Vulkan::CheckGPUFeatures() const {
 		features |= GPU_USE_SINGLE_PASS_STEREO;
 		features |= GPU_USE_SIMPLE_STEREO_PERSPECTIVE;
 
-		features &= ~GPU_USE_FRAMEBUFFER_FETCH;  // Need to figure out if this can be supported with multiview rendering
 		if (features & GPU_USE_GS_CULLING) {
 			// Many devices that support stereo and GS don't support GS during stereo.
 			features &= ~GPU_USE_GS_CULLING;
@@ -286,14 +287,9 @@ u32 GPU_Vulkan::CheckGPUFeatures() const {
 		}
 	}
 
-	// We need to turn off framebuffer fetch through input attachments if MSAA is on for now.
-	// This is fixable, just needs some shader generator work (subpassInputMS).
-	// Actually, I've decided to disable framebuffer fetch entirely for now. Perf isn't worth
-	// the compatibility problems.
-
-	// if (msaaLevel_ != 0) {
-	features &= ~GPU_USE_FRAMEBUFFER_FETCH;
-	// }
+	// Only a few low-power GPUs should probably avoid this.
+	// Let's figure that out later.
+	features |= GPU_USE_FRAGMENT_UBERSHADER;
 
 	// Attempt to workaround #17386
 	if (draw_->GetBugs().Has(Draw::Bugs::UNIFORM_INDEXING_BROKEN)) {

@@ -112,6 +112,8 @@ bool ScrollView::Key(const KeyInput &input) {
 	case DEVICE_ID_XR_CONTROLLER_RIGHT:
 		scrollSpeed = 50;
 		break;
+	default:
+		break;
 	}
 
 	if (input.flags & KEY_DOWN) {
@@ -126,6 +128,8 @@ bool ScrollView::Key(const KeyInput &input) {
 			break;
 		case NKCODE_EXT_MOUSEWHEEL_DOWN:
 			ScrollRelative(scrollSpeed);
+			break;
+		default:
 			break;
 		}
 	}

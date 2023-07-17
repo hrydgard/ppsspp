@@ -25,10 +25,11 @@
 #include "Common/UI/UIScreen.h"
 #include "Core/ConfigValues.h"
 #include "UI/MiscScreens.h"
+#include "UI/TabbedDialogScreen.h"
 
 // Per-game settings screen - enables you to configure graphic options, control options, etc
 // per game.
-class GameSettingsScreen : public UIDialogScreenWithGameBackground {
+class GameSettingsScreen : public TabbedUIDialogScreenWithGameBackground {
 public:
 	GameSettingsScreen(const Path &gamePath, std::string gameID = "", bool editThenRestore = false);
 
@@ -36,17 +37,18 @@ public:
 	const char *tag() const override { return "GameSettings"; }
 
 protected:
-	void sendMessage(const char *message, const char *value) override;
-	void CreateViews() override;
 	void CallbackRestoreDefaults(bool yes);
 	void CallbackRenderingBackend(bool yes);
 	void CallbackRenderingDevice(bool yes);
 	void CallbackInflightFrames(bool yes);
 	void CallbackMemstickFolder(bool yes);
 	void dialogFinished(const Screen *dialog, DialogResult result) override;
-	void RecreateViews() override;
+
+	void CreateTabs() override;
 
 private:
+	void PreCreateViews() override;
+
 	void CreateGraphicsSettings(UI::ViewGroup *graphicsSettings);
 	void CreateControlsSettings(UI::ViewGroup *tools);
 	void CreateAudioSettings(UI::ViewGroup *audioSettings);
@@ -55,8 +57,6 @@ private:
 	void CreateSystemSettings(UI::ViewGroup *systemSettings);
 	void CreateVRSettings(UI::ViewGroup *vrSettings);
 
-	UI::LinearLayout *AddTab(const char *tag, const std::string &title, bool isSearch = false);
-	void ApplySearchFilter();
 	void TriggerRestart(const char *why);
 
 	std::string gameID_;
@@ -66,9 +66,6 @@ private:
 	UI::Choice *backgroundChoice_ = nullptr;
 	UI::PopupMultiChoice *resolutionChoice_ = nullptr;
 	UI::CheckBox *frameSkipAuto_ = nullptr;
-	SettingInfoMessage *settingInfo_ = nullptr;
-	UI::Choice *clearSearchChoice_ = nullptr;
-	UI::TextView *noSearchResults_ = nullptr;
 #ifdef _WIN32
 	UI::CheckBox *SavePathInMyDocumentChoice = nullptr;
 	UI::CheckBox *SavePathInOtherChoice = nullptr;
@@ -78,10 +75,6 @@ private:
 #endif
 
 	std::string memstickDisplay_;
-
-	UI::TabHolder *tabHolder_ = nullptr;
-	std::vector<UI::LinearLayout *> settingTabContents_;
-	std::vector<UI::TextView *> settingTabFilterNotices_;
 
 	// Event handlers
 	UI::EventReturn OnControlMapping(UI::EventParams &e);
@@ -108,6 +101,7 @@ private:
 	UI::EventReturn OnFullscreenChange(UI::EventParams &e);
 	UI::EventReturn OnFullscreenMultiChange(UI::EventParams &e);
 	UI::EventReturn OnResolutionChange(UI::EventParams &e);
+	UI::EventReturn OnHwScaleChange(UI::EventParams &e);
 	UI::EventReturn OnRestoreDefaultSettings(UI::EventParams &e);
 	UI::EventReturn OnRenderingMode(UI::EventParams &e);
 	UI::EventReturn OnRenderingBackend(UI::EventParams &e);
@@ -130,8 +124,6 @@ private:
 
 	UI::EventReturn OnSavedataManager(UI::EventParams &e);
 	UI::EventReturn OnSysInfo(UI::EventParams &e);
-	UI::EventReturn OnChangeSearchFilter(UI::EventParams &e);
-	UI::EventReturn OnClearSearchFilter(UI::EventParams &e);
 
 	// Temporaries to convert setting types, cache enabled, etc.
 	int iAlternateSpeedPercent1_ = 0;
@@ -142,16 +134,11 @@ private:
 	bool enableReportsSet_ = false;
 	bool analogSpeedMapped_ = false;
 
-	std::string searchFilter_;
-
 	// edit the game-specific settings and restore the global settings after exiting
 	bool editThenRestore_ = false;
 
 	// Android-only
 	std::string pendingMemstickFolder_;
-
-	// If we recreate the views while this is active we show it again
-	std::string oldSettingInfo_;
 };
 
 class DeveloperToolsScreen : public UIDialogScreenWithGameBackground {
@@ -213,7 +200,7 @@ protected:
 
 private:
 	void ResolverThread();
-	void SendEditKey(int keyCode, int flags = 0);
+	void SendEditKey(InputKeyCode keyCode, int flags = 0);
 
 	UI::EventReturn OnNumberClick(UI::EventParams &e);
 	UI::EventReturn OnPointClick(UI::EventParams &e);

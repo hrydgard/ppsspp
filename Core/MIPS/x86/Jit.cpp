@@ -144,6 +144,9 @@ void Jit::DoState(PointerWrap &p) {
 		return;
 
 	Do(p, js.startDefaultPrefix);
+	if (p.mode == PointerWrap::MODE_READ && !js.startDefaultPrefix) {
+		WARN_LOG(CPU, "Jit: An uneaten prefix was previously detected. Jitting in unknown-prefix mode.");
+	}
 	if (s >= 2) {
 		Do(p, js.hasSetRounding);
 		if (p.mode == PointerWrap::MODE_READ) {
@@ -564,6 +567,13 @@ bool Jit::ReplaceJalTo(u32 dest) {
 
 	js.compilerPC += 4;
 	// No writing exits, keep going!
+
+	if (CBreakPoints::HasMemChecks()) {
+		// We could modify coreState, so we need to write PC and check.
+		// Otherwise, PC may end up on the jal.  We add 4 to skip the delay slot.
+		MOV(32, MIPSSTATE_VAR(pc), Imm32(GetCompilerPC() + 4));
+		js.afterOp |= JitState::AFTER_CORE_STATE;
+	}
 
 	// Add a trigger so that if the inlined code changes, we invalidate this block.
 	blocks.ProxyBlock(js.blockStart, dest, funcSize / sizeof(u32), GetCodePtr());

@@ -17,7 +17,7 @@
 
 #include "ppsspp_config.h"
 
-#if !defined(_WIN32) && !defined(ANDROID) && !defined(__APPLE__)
+#if !defined(_WIN32) && !defined(ANDROID) && !defined(__APPLE__) && !PPSSPP_PLATFORM(SWITCH)
 
 #include <sys/mman.h>
 #include <sys/stat.h>
@@ -121,7 +121,7 @@ void *MemArena::CreateView(s64 offset, size_t size, void *base)
 	return retval;
 }
 
-void MemArena::ReleaseView(void* view, size_t size) {
+void MemArena::ReleaseView(s64 offset, void* view, size_t size) {
 	munmap(view, size);
 }
 

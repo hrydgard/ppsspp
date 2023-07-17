@@ -79,7 +79,7 @@ void *MemArena::CreateView(s64 offset, size_t size, void *base) {
 	return (void *)target;
 }
 
-void MemArena::ReleaseView(void* view, size_t size) {
+void MemArena::ReleaseView(s64 offset, void* view, size_t size) {
 	vm_address_t addr = (vm_address_t)view;
 	vm_deallocate(mach_task_self(), addr, size);
 }

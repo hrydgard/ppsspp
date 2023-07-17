@@ -24,6 +24,7 @@
 
 #include "Common/System/Display.h"
 #include "Common/System/System.h"
+#include "Common/System/OSD.h"
 #include "Common/File/VFS/VFS.h"
 #include "Common/VR/PPSSPPVR.h"
 #include "Common/Log.h"
@@ -293,6 +294,8 @@ bool PresentationCommon::UpdatePostShader() {
 		int w = usePreviousAtOutputResolution ? pixelWidth_ : renderWidth_;
 		int h = usePreviousAtOutputResolution ? pixelHeight_ : renderHeight_;
 
+		_dbg_assert_(w > 0 && h > 0);
+
 		static constexpr int FRAMES = 2;
 		previousFramebuffers_.resize(FRAMES);
 		previousIndex_ = 0;
@@ -448,9 +451,9 @@ void PresentationCommon::ShowPostShaderError(const std::string &errorString) {
 		}
 	}
 	if (!firstLine.empty()) {
-		System_NotifyUserMessage("Post-shader error: " + firstLine + "...:\n" + errorString, 10.0f, 0xFF3090FF);
+		g_OSD.Show(OSDType::MESSAGE_ERROR_DUMP, "Post-shader error: " + firstLine + "...:\n" + errorString, 10.0f);
 	} else {
-		System_NotifyUserMessage("Post-shader error, see log for details", 10.0f, 0xFF3090FF);
+		g_OSD.Show(OSDType::MESSAGE_ERROR, "Post-shader error, see log for details", 10.0f);
 	}
 }
 
@@ -579,20 +582,23 @@ Draw::ShaderModule *PresentationCommon::CompileShaderModule(ShaderStage stage, S
 }
 
 void PresentationCommon::SourceTexture(Draw::Texture *texture, int bufferWidth, int bufferHeight) {
+	// AddRef before release and assign in case it's the same.
+	texture->AddRef();
+
 	DoRelease(srcTexture_);
 	DoRelease(srcFramebuffer_);
 
-	texture->AddRef();
 	srcTexture_ = texture;
 	srcWidth_ = bufferWidth;
 	srcHeight_ = bufferHeight;
 }
 
 void PresentationCommon::SourceFramebuffer(Draw::Framebuffer *fb, int bufferWidth, int bufferHeight) {
+	fb->AddRef();
+
 	DoRelease(srcTexture_);
 	DoRelease(srcFramebuffer_);
 
-	fb->AddRef();
 	srcFramebuffer_ = fb;
 	srcWidth_ = bufferWidth;
 	srcHeight_ = bufferHeight;
@@ -668,7 +674,7 @@ void PresentationCommon::CopyToOutput(OutputFlags flags, int uvRotation, float u
 
 	float finalU0 = u0, finalU1 = u1, finalV0 = v0, finalV1 = v1;
 
-	if (usePostShader) {
+	if (usePostShader && !(isFinalAtOutputResolution && postShaderPipelines_.size() == 1)) {
 		// The final blit will thus use the full texture.
 		finalU0 = 0.0f;
 		finalV0 = 0.0f;

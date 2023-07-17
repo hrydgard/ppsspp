@@ -55,11 +55,14 @@
 #include "Common/UI/Screen.h"
 #include "Common/UI/Context.h"
 #include "Common/UI/View.h"
+#include "Common/UI/IconCache.h"
+
 #include "android/jni/app-android.h"
 
 #include "Common/System/Display.h"
 #include "Common/System/Request.h"
 #include "Common/System/System.h"
+#include "Common/System/OSD.h"
 #include "Common/System/NativeApp.h"
 
 #include "Common/Data/Text/I18n.h"
@@ -89,6 +92,7 @@
 #include "Core/FileLoaders/DiskCachingFileLoader.h"
 #include "Core/KeyMap.h"
 #include "Core/Reporting.h"
+#include "Core/RetroAchievements.h"
 #include "Core/SaveState.h"
 #include "Core/Screenshot.h"
 #include "Core/System.h"
@@ -211,6 +215,22 @@ std::string NativeQueryConfig(std::string query) {
 		return std::string(temp);
 	} else if (query == "immersiveMode") {
 		return std::string(g_Config.bImmersiveMode ? "1" : "0");
+	} else if (query == "hwScale") {
+		int scale = g_Config.iAndroidHwScale;
+		// Override hw scale for TV type devices.
+		if (System_GetPropertyInt(SYSPROP_DEVICE_TYPE) == DEVICE_TYPE_TV)
+			scale = 0;
+
+		if (scale == 1) {
+			// If g_Config.iInternalResolution is also set to Auto (1), we fall back to "Device resolution" (0). It works out.
+			scale = g_Config.iInternalResolution;
+		} else if (scale >= 2) {
+			scale -= 1;
+		}
+
+		int max_res = std::max(System_GetPropertyInt(SYSPROP_DISPLAY_XRES), System_GetPropertyInt(SYSPROP_DISPLAY_YRES)) / 480 + 1;
+		snprintf(temp, sizeof(temp), "%d", std::min(scale, max_res));
+		return std::string(temp);
 	} else if (query == "sustainedPerformanceMode") {
 		return std::string(g_Config.bSustainedPerformanceMode ? "1" : "0");
 	} else if (query == "androidJavaGL") {
@@ -293,11 +313,13 @@ void PostLoadConfig() {
 
 bool CreateDirectoriesAndroid() {
 	// TODO: We should probably simply use this as the shared function to create memstick directories.
+#if PPSSPP_PLATFORM(ANDROID)
+	const bool createNoMedia = true;
+#else
+	const bool createNoMedia = false;
+#endif
 
-	Path pspDir = g_Config.memStickDirectory;
-	if (pspDir.GetFilename() != "PSP") {
-		pspDir /= "PSP";
-	}
+	Path pspDir = GetSysDirectory(DIRECTORY_PSP);
 
 	INFO_LOG(IO, "Creating '%s' and subdirs:", pspDir.c_str());
 	File::CreateFullPath(pspDir);
@@ -306,21 +328,26 @@ bool CreateDirectoriesAndroid() {
 		return false;
 	}
 
-	File::CreateFullPath(GetSysDirectory(DIRECTORY_CHEATS));
-	File::CreateFullPath(GetSysDirectory(DIRECTORY_SAVEDATA));
-	File::CreateFullPath(GetSysDirectory(DIRECTORY_SAVESTATE));
-	File::CreateFullPath(GetSysDirectory(DIRECTORY_GAME));
-	File::CreateFullPath(GetSysDirectory(DIRECTORY_SYSTEM));
-	File::CreateFullPath(GetSysDirectory(DIRECTORY_TEXTURES));
-	File::CreateFullPath(GetSysDirectory(DIRECTORY_PLUGINS));
+	static const PSPDirectories sysDirs[] = {
+		DIRECTORY_CHEATS,
+		DIRECTORY_SAVEDATA,
+		DIRECTORY_SAVESTATE,
+		DIRECTORY_GAME,
+		DIRECTORY_SYSTEM,
+		DIRECTORY_TEXTURES,
+		DIRECTORY_PLUGINS,
+		DIRECTORY_CACHE,
+	};
 
-	// Avoid media scanners in PPSSPP_STATE and SAVEDATA directories,
-	// and in the root PSP directory as well.
-	File::CreateEmptyFile(GetSysDirectory(DIRECTORY_SAVESTATE) / ".nomedia");
-	File::CreateEmptyFile(GetSysDirectory(DIRECTORY_SAVEDATA) / ".nomedia");
-	File::CreateEmptyFile(GetSysDirectory(DIRECTORY_SYSTEM) / ".nomedia");
-	File::CreateEmptyFile(GetSysDirectory(DIRECTORY_TEXTURES) / ".nomedia");
-	File::CreateEmptyFile(GetSysDirectory(DIRECTORY_PLUGINS) / ".nomedia");
+	for (auto dir : sysDirs) {
+		Path path = GetSysDirectory(dir);
+		File::CreateFullPath(path);
+		if (createNoMedia) {
+			// Create a nomedia file in each specified subdirectory.
+			File::CreateEmptyFile(path / ".nomedia");
+		}
+	}
+
 	return true;
 }
 
@@ -766,14 +793,23 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 #endif
 
 	// TODO: Load these in the background instead of synchronously.
-	g_BackgroundAudio.LoadSamples();
+	g_BackgroundAudio.SFX().LoadSamples();
 
 	if (!boot_filename.empty() && stateToLoad.Valid()) {
 		SaveState::Load(stateToLoad, -1, [](SaveState::Status status, const std::string &message, void *) {
 			if (!message.empty() && (!g_Config.bDumpFrames || !g_Config.bDumpVideoOutput)) {
-				osm.Show(message, status == SaveState::Status::SUCCESS ? 2.0 : 5.0);
+				g_OSD.Show(status == SaveState::Status::SUCCESS ? OSDType::MESSAGE_SUCCESS : OSDType::MESSAGE_ERROR,
+					message, status == SaveState::Status::SUCCESS ? 2.0 : 5.0);
 			}
 		});
+	}
+
+	if (g_Config.bAchievementsEnable) {
+		FILE *iconCacheFile = File::OpenCFile(GetSysDirectory(DIRECTORY_CACHE) / "icon.cache", "rb");
+		if (iconCacheFile) {
+			g_iconCache.LoadFromFile(iconCacheFile);
+			fclose(iconCacheFile);
+		}
 	}
 
 	DEBUG_LOG(SYSTEM, "ScreenManager!");
@@ -791,6 +827,8 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	} else {
 		g_screenManager->switchScreen(new LogoScreen(AfterLogoScreen::DEFAULT));
 	}
+
+	g_screenManager->SetOverlayScreen(new OSDOverlayScreen());
 
 	// Easy testing
 	// screenManager->push(new GPUDriverTestScreen());
@@ -810,6 +848,9 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	CheckFailedGPUBackends();
 	SetGPUBackend((GPUBackend) g_Config.iGPUBackend);
 	renderCounter = 0;
+
+	// Initialize retro achievements runtime.
+	Achievements::Initialize();
 
 	// Must be done restarting by now.
 	restarting = false;
@@ -1014,35 +1055,14 @@ void TakeScreenshot() {
 
 	bool success = TakeGameScreenshot(filename, g_Config.bScreenshotsAsPNG ? ScreenshotFormat::PNG : ScreenshotFormat::JPG, SCREENSHOT_OUTPUT);
 	if (success) {
-		osm.Show(filename.ToVisualString());
+		g_OSD.Show(OSDType::MESSAGE_FILE_LINK, filename.ToString());
 	} else {
 		auto err = GetI18NCategory(I18NCat::ERRORS);
-		osm.Show(err->T("Could not save screenshot file"));
+		g_OSD.Show(OSDType::MESSAGE_ERROR, err->T("Could not save screenshot file"));
 	}
 }
 
 void RenderOverlays(UIContext *dc, void *userdata) {
-	// Thin bar at the top of the screen.
-	std::vector<float> progress = g_DownloadManager.GetCurrentProgress();
-	if (!progress.empty()) {
-		static const uint32_t colors[4] = {
-			0xFFFFFFFF,
-			0xFFCCCCCC,
-			0xFFAAAAAA,
-			0xFF777777,
-		};
-
-		dc->Begin();
-		int h = 5;
-		for (size_t i = 0; i < progress.size(); i++) {
-			float barWidth = 10 + (dc->GetBounds().w - 10) * progress[i];
-			Bounds bounds(0, h * i, barWidth, h);
-			UI::Drawable solid(colors[i & 3]);
-			dc->FillRect(solid, bounds);
-		}
-		dc->Flush();
-	}
-
 	if (g_TakeScreenshot) {
 		TakeScreenshot();
 	}
@@ -1136,7 +1156,7 @@ void NativeRender(GraphicsContext *graphicsContext) {
 #if !PPSSPP_PLATFORM(WINDOWS) && !defined(ANDROID)
 		PSP_CoreParameter().pixelWidth = g_display.pixel_xres;
 		PSP_CoreParameter().pixelHeight = g_display.pixel_yres;
-		NativeMessageReceived("gpu_displayResized", "");
+		System_PostUIMessage("gpu_displayResized", "");
 #endif
 	} else {
 		// INFO_LOG(G3D, "Polling graphics context");
@@ -1153,18 +1173,11 @@ void NativeRender(GraphicsContext *graphicsContext) {
 }
 
 void HandleGlobalMessage(const std::string &msg, const std::string &value) {
-	int nextInputDeviceID = -1;
-	if (msg == "inputDeviceConnectedID") {
-		nextInputDeviceID = parseLong(value);
-	}
-	else if (msg == "inputDeviceConnected") {
-		KeyMap::NotifyPadConnected(nextInputDeviceID, value);
-	}
-	else if (msg == "savestate_displayslot") {
+	if (msg == "savestate_displayslot") {
 		auto sy = GetI18NCategory(I18NCat::SYSTEM);
 		std::string msg = StringFromFormat("%s: %d", sy->T("Savestate Slot"), SaveState::GetCurrentSlot() + 1);
 		// Show for the same duration as the preview.
-		osm.Show(msg, 2.0f, 0xFFFFFF, -1, true, "savestate_slot");
+		g_OSD.Show(OSDType::MESSAGE_INFO, msg, 2.0f, "savestate_slot");
 	}
 	else if (msg == "gpu_displayResized") {
 		if (gpu) {
@@ -1186,9 +1199,9 @@ void HandleGlobalMessage(const std::string &msg, const std::string &value) {
 		if (value != "false") {
 			auto sy = GetI18NCategory(I18NCat::SYSTEM);
 #if PPSSPP_PLATFORM(ANDROID)
-			osm.Show(sy->T("WARNING: Android battery save mode is on"), 2.0f, 0xFFFFFF, -1, true, "core_powerSaving");
+			g_OSD.Show(OSDType::MESSAGE_WARNING, sy->T("WARNING: Android battery save mode is on"), 2.0f, "core_powerSaving");
 #else
-			osm.Show(sy->T("WARNING: Battery save mode is on"), 2.0f, 0xFFFFFF, -1, true, "core_powerSaving");
+			g_OSD.Show(OSDType::MESSAGE_WARNING, sy->T("WARNING: Battery save mode is on"), 2.0f, "core_powerSaving");
 #endif
 		}
 		Core_SetPowerSaving(value != "false");
@@ -1231,11 +1244,16 @@ void NativeUpdate() {
 
 	g_requestManager.ProcessRequests();
 
+	// it's ok to call this redundantly with DoFrame from EmuScreen
+	Achievements::Idle();
+
 	g_DownloadManager.Update();
 	g_screenManager->update();
 
 	g_Discord.Update();
 	g_BackgroundAudio.Play();
+
+	g_OSD.Update();
 
 	UI::SetSoundEnabled(g_Config.bUISound);
 }
@@ -1362,20 +1380,12 @@ void NativeAxis(const AxisInput &axis) {
 		xSensitivity, ySensitivity);
 }
 
-void NativeMessageReceived(const char *message, const char *value) {
+void System_PostUIMessage(const std::string &message, const std::string &value) {
 	std::lock_guard<std::mutex> lock(pendingMutex);
 	PendingMessage pendingMessage;
 	pendingMessage.msg = message;
 	pendingMessage.value = value;
 	pendingMessages.push_back(pendingMessage);
-}
-
-void System_PostUIMessage(const std::string &message, const std::string &value) {
-	NativeMessageReceived(message.c_str(), value.c_str());
-}
-
-void System_NotifyUserMessage(const std::string &message, float duration_s, u32 color, const char *id) {
-	osm.Show(message, duration_s, color, -1, true, id);
 }
 
 void NativeResized() {
@@ -1393,6 +1403,16 @@ bool NativeIsRestarting() {
 }
 
 void NativeShutdown() {
+	Achievements::Shutdown();
+
+	if (g_Config.bAchievementsEnable) {
+		FILE *iconCacheFile = File::OpenCFile(GetSysDirectory(DIRECTORY_CACHE) / "icon.cache", "wb");
+		if (iconCacheFile) {
+			g_iconCache.SaveToFile(iconCacheFile);
+			fclose(iconCacheFile);
+		}
+	}
+
 	if (g_screenManager) {
 		g_screenManager->shutdown();
 		delete g_screenManager;
@@ -1434,4 +1454,28 @@ void NativeShutdown() {
 
 	// Previously we did exit() here on Android but that makes it hard to do things like restart on backend change.
 	// I think we handle most globals correctly or correct-enough now.
+}
+
+// In the future, we might make this more sophisticated, such as storing in the app private directory on Android.
+// Right now we just store secrets in separate files next to ppsspp.ini. The important thing is keeping them out of it
+// since we often ask people to post or send the ini for debugging.
+static Path GetSecretPath(const char *nameOfSecret) {
+	return GetSysDirectory(DIRECTORY_SYSTEM) / ("ppsspp_" + std::string(nameOfSecret) + ".dat");
+}
+
+// name should be simple alphanumerics to avoid problems on Windows.
+void NativeSaveSecret(const char *nameOfSecret, const std::string &data) {
+	Path path = GetSecretPath(nameOfSecret);
+	if (!File::WriteDataToFile(false, data.data(), (unsigned int)data.size(), path)) {
+		WARN_LOG(SYSTEM, "Failed to write secret '%s' to path '%s'", nameOfSecret, path.c_str());
+	}
+}
+
+std::string NativeLoadSecret(const char *nameOfSecret) {
+	Path path = GetSecretPath(nameOfSecret);
+	std::string data;
+	if (!File::ReadFileToString(false, path, data)) {
+		WARN_LOG(SYSTEM, "Failed to read secret '%s' from path '%s'", nameOfSecret, path.c_str());
+	}
+	return data;
 }

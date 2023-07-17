@@ -28,7 +28,6 @@ class MIPSDebugInterface : public DebugInterface
 	MIPSState *cpu;
 public:
 	MIPSDebugInterface(MIPSState *_cpu) { cpu = _cpu; }
-	const char *disasm(unsigned int address, unsigned int align) override;
 	int getInstructionSize(int instruction) override { return 4; }
 	bool isAlive() override;
 	bool isBreakpoint(unsigned int address) override;
@@ -51,6 +50,7 @@ public:
 	u32 GetGPR32Value(int reg) override { return cpu->r[reg]; }
 	u32 GetPC() override { return cpu->pc; }
 	u32 GetLR() override { return cpu->r[MIPS_REG_RA]; }
+	void DisAsm(u32 pc, char *out, size_t outSize) override;
 	void SetPC(u32 _pc) override { cpu->pc = _pc; }
 
 	const char *GetCategoryName(int cat) override {
@@ -62,7 +62,7 @@ public:
 		static int r[3] = { 32, 32, 128 };
 		return r[cat];
 	}
-	const char *GetRegName(int cat, int index) override;
+	std::string GetRegName(int cat, int index) override;
 
 	void PrintRegValue(int cat, int index, char *out, size_t outSize) override {
 		switch (cat) {

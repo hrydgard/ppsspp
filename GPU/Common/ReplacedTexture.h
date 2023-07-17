@@ -128,7 +128,7 @@ public:
 
 	void GetSize(int level, int *w, int *h) const {
 		_dbg_assert_(State() == ReplacementState::ACTIVE);
-		_dbg_assert_(level < levels_.size());
+		_dbg_assert_((size_t)level < levels_.size());
 		*w = levels_[level].fullW;
 		*h = levels_[level].fullH;
 	}

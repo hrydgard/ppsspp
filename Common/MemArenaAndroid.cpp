@@ -129,7 +129,7 @@ void *MemArena::CreateView(s64 offset, size_t size, void *base) {
 	return retval;
 }
 
-void MemArena::ReleaseView(void* view, size_t size) {
+void MemArena::ReleaseView(s64 offset, void* view, size_t size) {
 	munmap(view, size);
 }
 

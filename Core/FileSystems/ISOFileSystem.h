@@ -60,6 +60,9 @@ private:
 	struct TreeEntry {
 		~TreeEntry();
 
+		// Recursive function that reconstructs the path by looking at the parent pointers.
+		std::string BuildPath();
+
 		std::string name;
 		u32 flags = 0;
 		u32 startingPosition = 0;

@@ -189,11 +189,11 @@ public class NativeGLView extends GLSurfaceView implements SensorEventListener, 
 			case StateEvent.ACTION_CONNECTED:
 				Log.i(TAG, "Moga Connected");
 				if (mController.getState(Controller.STATE_CURRENT_PRODUCT_VERSION) == Controller.ACTION_VERSION_MOGA) {
-					NativeApp.sendMessage("moga", "Moga");
+					NativeApp.sendMessageFromJava("moga", "Moga");
 				} else {
 					Log.i(TAG, "MOGA Pro detected");
 					isMogaPro = true;
-					NativeApp.sendMessage("moga", "MogaPro");
+					NativeApp.sendMessageFromJava("moga", "MogaPro");
 				}
 				break;
 			case StateEvent.ACTION_CONNECTING:
@@ -201,7 +201,7 @@ public class NativeGLView extends GLSurfaceView implements SensorEventListener, 
 				break;
 			case StateEvent.ACTION_DISCONNECTED:
 				Log.i(TAG, "Moga Disconnected (or simply Not connected)");
-				NativeApp.sendMessage("moga", "");
+				NativeApp.sendMessageFromJava("moga", "");
 				break;
 			}
 			break;

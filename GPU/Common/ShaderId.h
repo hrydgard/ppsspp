@@ -68,19 +68,20 @@ enum FShaderBit : uint8_t {
 	FS_BIT_CLEARMODE = 0,
 	FS_BIT_DO_TEXTURE = 1,
 	FS_BIT_TEXFUNC = 2,  // 3 bits
-	// 1 bit free at position 5
+	FS_BIT_DOUBLE_COLOR = 5,  // Not used with FS_BIT_UBERSHADER
 	FS_BIT_3D_TEXTURE = 6,
 	FS_BIT_SHADER_TEX_CLAMP = 7,
 	FS_BIT_CLAMP_S = 8,
 	FS_BIT_CLAMP_T = 9,
-	// 2 bits free
+	FS_BIT_TEXALPHA = 10,  // Not used with FS_BIT_UBERSHADER
+	FS_BIT_LMODE = 11,
 	FS_BIT_ALPHA_TEST = 12,
 	FS_BIT_ALPHA_TEST_FUNC = 13,  // 3 bits
 	FS_BIT_ALPHA_AGAINST_ZERO = 16,
 	FS_BIT_COLOR_TEST = 17,
 	FS_BIT_COLOR_TEST_FUNC = 18,  // 2 bits
 	FS_BIT_COLOR_AGAINST_ZERO = 20,
-	// 1 free bit
+	FS_BIT_ENABLE_FOG = 21,  // Not used with FS_BIT_UBERSHADER
 	FS_BIT_DO_TEXTURE_PROJ = 22,
 	// 1 free bit
 	FS_BIT_STENCIL_TO_ALPHA = 24,  // 2 bits
@@ -100,6 +101,7 @@ enum FShaderBit : uint8_t {
 	FS_BIT_SAMPLE_ARRAY_TEXTURE = 57,  // For multiview, framebuffers are array textures and we need to sample the two layers correctly.
 	FS_BIT_STEREO = 58,
 	FS_BIT_USE_FRAMEBUFFER_FETCH = 59,
+	FS_BIT_UBERSHADER = 60,
 };
 
 static inline FShaderBit operator +(FShaderBit bit, int i) {
@@ -110,7 +112,8 @@ static inline FShaderBit operator +(FShaderBit bit, int i) {
 enum GShaderBit : uint8_t {
 	GS_BIT_ENABLED = 0,     // If not set, we don't use a geo shader.
 	GS_BIT_DO_TEXTURE = 1,  // presence of texcoords
-	GS_BIT_CURVE = 2,       // curve, which means don't do range culling.
+	GS_BIT_LMODE = 2,
+	GS_BIT_CURVE = 3,       // curve, which means don't do range culling.
 };
 
 static inline GShaderBit operator +(GShaderBit bit, int i) {

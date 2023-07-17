@@ -429,8 +429,11 @@ void GameButton::Draw(UIContext &dc) {
 
 std::string GameButton::DescribeText() const {
 	std::shared_ptr<GameInfo> ginfo = g_gameInfoCache->GetInfo(nullptr, gamePath_, 0);
+	if (ginfo->pending)
+		return "...";
+
 	auto u = GetI18NCategory(I18NCat::UI_ELEMENTS);
-	return ReplaceAll(u->T("%1 button"), "%1", ginfo->GetTitle());
+	return ApplySafeSubstitutions(u->T("%1 button"), ginfo->GetTitle());
 }
 
 class DirButton : public UI::Button {
@@ -528,6 +531,67 @@ void GameBrowser::SetPath(const Path &path) {
 	Refresh();
 }
 
+void GameBrowser::ApplySearchFilter(const std::string &filter) {
+	searchFilter_ = filter;
+	std::transform(searchFilter_.begin(), searchFilter_.end(), searchFilter_.begin(), tolower);
+
+	// We don't refresh because game info loads asynchronously anyway.
+	ApplySearchFilter();
+}
+
+void GameBrowser::ApplySearchFilter() {
+	if (searchFilter_.empty() && searchStates_.empty()) {
+		// We haven't hidden anything, and we're not searching, so do nothing.
+		searchPending_ = false;
+		return;
+	}
+
+	searchPending_ = false;
+	// By default, everything is matching.
+	searchStates_.resize(gameList_->GetNumSubviews(), SearchState::MATCH);
+
+	if (searchFilter_.empty()) {
+		// Just quickly mark anything we hid as visible again.
+		for (int i = 0; i < gameList_->GetNumSubviews(); ++i) {
+			UI::View *v = gameList_->GetViewByIndex(i);
+			if (searchStates_[i] != SearchState::MATCH)
+				v->SetVisibility(UI::V_VISIBLE);
+		}
+
+		searchStates_.clear();
+		return;
+	}
+
+	for (int i = 0; i < gameList_->GetNumSubviews(); ++i) {
+		UI::View *v = gameList_->GetViewByIndex(i);
+		std::string label = v->DescribeText();
+		// TODO: Maybe we should just save the gameButtons list, though nice to search dirs too?
+		// This is a bit of a hack to recognize a pending game title.
+		if (label == "...") {
+			searchPending_ = true;
+			// Hide anything pending while, we'll pop-in search results as they match.
+			// Note: we leave it at MATCH if gone before, so we don't show it again.
+			if (v->GetVisibility() == UI::V_VISIBLE) {
+				if (searchStates_[i] == SearchState::MATCH)
+					v->SetVisibility(UI::V_GONE);
+				searchStates_[i] = SearchState::PENDING;
+			}
+			continue;
+		}
+
+		std::transform(label.begin(), label.end(), label.begin(), tolower);
+		bool match = v->CanBeFocused() && label.find(searchFilter_) != label.npos;
+		if (match && searchStates_[i] != SearchState::MATCH) {
+			// It was previously visible and force hidden, so show it again.
+			v->SetVisibility(UI::V_VISIBLE);
+			searchStates_[i] = SearchState::MATCH;
+		} else if (!match && searchStates_[i] == SearchState::MATCH && v->GetVisibility() == UI::V_VISIBLE) {
+			v->SetVisibility(UI::V_GONE);
+			searchStates_[i] = SearchState::MISMATCH;
+		}
+	}
+}
+
 UI::EventReturn GameBrowser::LayoutChange(UI::EventParams &e) {
 	*gridStyle_ = e.a == 0 ? true : false;
 	Refresh();
@@ -622,6 +686,9 @@ void GameBrowser::Update() {
 	if (listingPending_ && path_.IsListingReady()) {
 		Refresh();
 	}
+	if (searchPending_) {
+		ApplySearchFilter();
+	}
 }
 
 void GameBrowser::Draw(UIContext &dc) {
@@ -686,6 +753,7 @@ void GameBrowser::Refresh() {
 
 	// Kill all the contents
 	Clear();
+	searchStates_.clear();
 
 	Add(new Spacer(1.0f));
 	auto mm = GetI18NCategory(I18NCat::MAINMENU);
@@ -1189,6 +1257,8 @@ void MainScreen::CreateViews() {
 		root_->SetDefaultFocusView(tabHolder_);
 	}
 
+	root_->SetTag("mainroot");
+
 	auto u = GetI18NCategory(I18NCat::UPGRADE);
 
 	upgradeBar_ = 0;
@@ -1214,6 +1284,25 @@ void MainScreen::CreateViews() {
 		root_->ReplaceLayoutParams(new LinearLayoutParams(1.0));
 		root_ = newRoot;
 	}
+}
+
+bool MainScreen::key(const KeyInput &touch) {
+	if (touch.flags & KEY_DOWN) {
+		if (touch.keyCode == NKCODE_CTRL_LEFT || touch.keyCode == NKCODE_CTRL_RIGHT)
+			searchKeyModifier_ = true;
+		if (touch.keyCode == NKCODE_F && searchKeyModifier_ && System_GetPropertyBool(SYSPROP_HAS_TEXT_INPUT_DIALOG)) {
+			auto se = GetI18NCategory(I18NCat::SEARCH);
+			System_InputBoxGetString(se->T("Search term"), searchFilter_, [&](const std::string &value, int) {
+				searchFilter_ = StripSpaces(value);
+				searchChanged_ = true;
+			});
+		}
+	} else if (touch.flags & KEY_UP) {
+		if (touch.keyCode == NKCODE_CTRL_LEFT || touch.keyCode == NKCODE_CTRL_RIGHT)
+			searchKeyModifier_ = false;
+	}
+
+	return UIScreenWithBackground::key(touch);
 }
 
 UI::EventReturn MainScreen::OnAllowStorage(UI::EventParams &e) {
@@ -1273,13 +1362,19 @@ void MainScreen::sendMessage(const char *message, const char *value) {
 void MainScreen::update() {
 	UIScreen::update();
 	UpdateUIState(UISTATE_MENU);
+
+	if (searchChanged_) {
+		for (auto browser : gameBrowsers_)
+			browser->ApplySearchFilter(searchFilter_);
+		searchChanged_ = false;
+	}
 }
 
 UI::EventReturn MainScreen::OnLoadFile(UI::EventParams &e) {
 	if (System_GetPropertyBool(SYSPROP_HAS_FILE_BROWSER)) {
 		auto mm = GetI18NCategory(I18NCat::MAINMENU);
 		System_BrowseForFile(mm->T("Load"), BrowseFileType::BOOTABLE, [](const std::string &value, int) {
-			NativeMessageReceived("boot", value.c_str());
+			System_PostUIMessage("boot", value.c_str());
 		});
 	}
 	return UI::EVENT_DONE;

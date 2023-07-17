@@ -83,7 +83,7 @@ JitBlockCache::~JitBlockCache() {
 	Shutdown();
 }
 
-bool JitBlock::ContainsAddress(u32 em_address) {
+bool JitBlock::ContainsAddress(u32 em_address) const {
 	// WARNING - THIS DOES NOT WORK WITH JIT INLINING ENABLED.
 	// However, that doesn't exist yet so meh.
 	return (em_address >= originalAddress && em_address < originalAddress + 4 * originalSize);
@@ -688,7 +688,7 @@ JitBlockDebugInfo JitBlockCache::GetBlockDebugInfo(int blockNum) const {
 	debugInfo.originalAddress = block->originalAddress;
 	for (u32 addr = block->originalAddress; addr <= block->originalAddress + block->originalSize * 4; addr += 4) {
 		char temp[256];
-		MIPSDisAsm(Memory::Read_Instruction(addr), addr, temp, true);
+		MIPSDisAsm(Memory::Read_Instruction(addr), addr, temp, sizeof(temp), true);
 		std::string mipsDis = temp;
 		debugInfo.origDisasm.push_back(mipsDis);
 	}

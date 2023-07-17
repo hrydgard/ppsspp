@@ -23,6 +23,7 @@
 #include "Common/BitScan.h"
 #include "Common/CommonFuncs.h"
 #include "Common/File/VFS/VFS.h"
+#include "Common/StringUtils.h"
 #include "Core/Reporting.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MIPSVFPUUtils.h"
@@ -164,68 +165,58 @@ void GetMatrixRows(int matrixReg, MatrixSize msize, u8 vecs[4]) {
 }
 
 void ReadVector(float *rd, VectorSize size, int reg) {
-	int row = 0;
-	int length = 0;
-
+	int row;
+	int length;
 	switch (size) {
 	case V_Single: rd[0] = V(reg); return; // transpose = 0; row=(reg>>5)&3; length = 1; break;
 	case V_Pair:   row=(reg>>5)&2; length = 2; break;
 	case V_Triple: row=(reg>>6)&1; length = 3; break;
 	case V_Quad:   row=(reg>>5)&2; length = 4; break;
-	default: _assert_msg_(false, "%s: Bad vector size", __FUNCTION__);
+	default: length = 0; break;
 	}
-	int transpose = (reg>>5) & 1;
-	const int mtx = (reg >> 2) & 7;
+	int transpose = (reg >> 5) & 1;
+	const int mtx = reg & (7 << 2);
 	const int col = reg & 3;
-
 	if (transpose) {
-		const int base = mtx * 4 + col * 32;
+		const int base = mtx + col * 32;
 		for (int i = 0; i < length; i++)
 			rd[i] = V(base + ((row+i)&3));
 	} else {
-		const int base = mtx * 4 + col;
+		const int base = mtx + col;
 		for (int i = 0; i < length; i++)
 			rd[i] = V(base + ((row+i)&3)*32);
 	}
 }
 
 void WriteVector(const float *rd, VectorSize size, int reg) {
-	if (size == V_Single) {
-		// Optimize the common case.
-		if (!currentMIPS->VfpuWriteMask(0)) {
-			V(reg) = rd[0];
-		}
-		return;
-	}
-
-	const int mtx = (reg>>2)&7;
-	const int col = reg & 3;
-	int transpose = (reg>>5)&1;
-	int row = 0;
-	int length = 0;
+	int row;
+	int length;
 
 	switch (size) {
-	case V_Single: _dbg_assert_(false); return; // transpose = 0; row=(reg>>5)&3; length = 1; break;
+	case V_Single: if (!currentMIPS->VfpuWriteMask(0)) V(reg) = rd[0]; return; // transpose = 0; row=(reg>>5)&3; length = 1; break;
 	case V_Pair:   row=(reg>>5)&2; length = 2; break;
 	case V_Triple: row=(reg>>6)&1; length = 3; break;
 	case V_Quad:   row=(reg>>5)&2; length = 4; break;
-	default: _assert_msg_(false, "%s: Bad vector size", __FUNCTION__);
+	default: length = 0; break;
 	}
 
+	const int mtx = reg & (7 << 2);
+	const int col = reg & 3;
+	bool transpose = (reg >> 5) & 1;
 	if (currentMIPS->VfpuWriteMask() == 0) {
 		if (transpose) {
-			const int base = mtx * 4 + col * 32;
+			const int base = mtx + col * 32;
 			for (int i = 0; i < length; i++)
 				V(base + ((row+i)&3)) = rd[i];
 		} else {
-			const int base = mtx * 4 + col;
+			const int base = mtx + col;
 			for (int i = 0; i < length; i++)
 				V(base + ((row+i)&3)*32) = rd[i];
 		}
 	} else {
 		for (int i = 0; i < length; i++) {
 			if (!currentMIPS->VfpuWriteMask(i)) {
-				int index = mtx * 4;
+				int index = mtx;
 				if (transpose)
 					index += ((row+i)&3) + col*32;
 				else
@@ -242,9 +233,6 @@ u32 VFPURewritePrefix(int ctrl, u32 remove, u32 add) {
 }
 
 void ReadMatrix(float *rd, MatrixSize size, int reg) {
-	int mtx = (reg >> 2) & 7;
-	int col = reg & 3;
-
 	int row = 0;
 	int side = 0;
 	int transpose = (reg >> 5) & 1;
@@ -254,8 +242,11 @@ void ReadMatrix(float *rd, MatrixSize size, int reg) {
 	case M_2x2: row = (reg >> 5) & 2; side = 2; break;
 	case M_3x3: row = (reg >> 6) & 1; side = 3; break;
 	case M_4x4: row = (reg >> 5) & 2; side = 4; break;
-	default: _assert_msg_(false, "%s: Bad matrix size", __FUNCTION__);
+	default: side = 0; break;
 	}
+
+	int mtx = (reg >> 2) & 7;
+	int col = reg & 3;
 
 	// The voffset ordering is now integrated in these formulas,
 	// eliminating a table lookup.
@@ -295,8 +286,8 @@ void WriteMatrix(const float *rd, MatrixSize size, int reg) {
 	int mtx = (reg>>2)&7;
 	int col = reg&3;
 
-	int row = 0;
-	int side = 0;
+	int row;
+	int side;
 	int transpose = (reg >> 5) & 1;
 
 	switch (size) {
@@ -304,7 +295,7 @@ void WriteMatrix(const float *rd, MatrixSize size, int reg) {
 	case M_2x2: row = (reg >> 5) & 2; side = 2; break;
 	case M_3x3: row = (reg >> 6) & 1; side = 3; break;
 	case M_4x4: row = (reg >> 5) & 2; side = 4; break;
-	default: _assert_msg_(false, "%s: Bad matrix size", __FUNCTION__);
+	default: side = 0;
 	}
 
 	if (currentMIPS->VfpuWriteMask() != 0) {
@@ -369,16 +360,6 @@ int GetVectorOverlap(int vec1, VectorSize size1, int vec2, VectorSize size2) {
 	return count;
 }
 
-int GetNumVectorElements(VectorSize sz) {
-	switch (sz) {
-		case V_Single: return 1;
-		case V_Pair:   return 2;
-		case V_Triple: return 3;
-		case V_Quad:   return 4;
-		default:       return 0;
-	}
-}
-
 VectorSize GetHalfVectorSizeSafe(VectorSize sz) {
 	switch (sz) {
 	case V_Pair: return V_Single;
@@ -403,25 +384,6 @@ VectorSize GetDoubleVectorSizeSafe(VectorSize sz) {
 
 VectorSize GetDoubleVectorSize(VectorSize sz) {
 	VectorSize res = GetDoubleVectorSizeSafe(sz);
-	_assert_msg_(res != V_Invalid, "%s: Bad vector size", __FUNCTION__);
-	return res;
-}
-
-VectorSize GetVecSizeSafe(MIPSOpcode op) {
-	int a = (op >> 7) & 1;
-	int b = (op >> 15) & 1;
-	a += (b << 1);
-	switch (a) {
-	case 0: return V_Single;
-	case 1: return V_Pair;
-	case 2: return V_Triple;
-	case 3: return V_Quad;
-	default: return V_Invalid;
-	}
-}
-
-VectorSize GetVecSize(MIPSOpcode op) {
-	VectorSize res = GetVecSizeSafe(op);
 	_assert_msg_(res != V_Invalid, "%s: Bad vector size", __FUNCTION__);
 	return res;
 }
@@ -455,25 +417,6 @@ MatrixSize GetMatrixSizeSafe(VectorSize sz) {
 MatrixSize GetMatrixSize(VectorSize sz) {
 	MatrixSize res = GetMatrixSizeSafe(sz);
 	_assert_msg_(res != M_Invalid, "%s: Bad vector size", __FUNCTION__);
-	return res;
-}
-
-MatrixSize GetMtxSizeSafe(MIPSOpcode op) {
-	int a = (op >> 7) & 1;
-	int b = (op >> 15) & 1;
-	a += (b << 1);
-	switch (a) {
-	case 0: return M_1x1;  // This happens in disassembly of junk, but has predictable behavior.
-	case 1: return M_2x2;
-	case 2: return M_3x3;
-	case 3: return M_4x4;
-	default: return M_Invalid;
-	}
-}
-
-MatrixSize GetMtxSize(MIPSOpcode op) {
-	MatrixSize res = GetMtxSizeSafe(op);
-	_assert_msg_(res != M_Invalid, "%s: Bad matrix size", __FUNCTION__);
 	return res;
 }
 
@@ -538,11 +481,7 @@ MatrixOverlapType GetMatrixOverlap(int mtx1, int mtx2, MatrixSize msize) {
 	return OVERLAP_NONE;
 }
 
-const char *GetVectorNotation(int reg, VectorSize size)
-{
-	static char temp[4][16];
-	static int yo = 0; yo++; yo &= 3;
-
+std::string GetVectorNotation(int reg, VectorSize size) {
 	int mtx = (reg>>2)&7;
 	int col = reg&3;
 	int row = 0;
@@ -557,34 +496,27 @@ const char *GetVectorNotation(int reg, VectorSize size)
 	}
 	if (transpose && c == 'C') c='R';
 	if (transpose)
-		snprintf(temp[yo], sizeof(temp[yo]), "%c%i%i%i",c,mtx,row,col);
-	else
-		snprintf(temp[yo], sizeof(temp[yo]), "%c%i%i%i",c,mtx,col,row);
-	return temp[yo];
+		return StringFromFormat("%c%i%i%i", c, mtx, row, col);
+	return StringFromFormat("%c%i%i%i", c, mtx, col, row);
 }
 
-const char *GetMatrixNotation(int reg, MatrixSize size)
-{
-  static char temp[4][16];
-  static int yo=0;yo++;yo&=3;
-  int mtx = (reg>>2)&7;
-  int col = reg&3;
-  int row = 0;
-  int transpose = (reg>>5)&1;
-  char c;
-  switch (size)
-  {
-  case M_2x2:     c='M'; row=(reg>>5)&2; break;
-  case M_3x3:     c='M'; row=(reg>>6)&1; break;
-  case M_4x4:     c='M'; row=(reg>>5)&2; break;
-  default:        c='?'; break;
-  }
-  if (transpose && c=='M') c='E';
-  if (transpose)
-    snprintf(temp[yo], sizeof(temp[yo]), "%c%i%i%i",c,mtx,row,col);
-  else
-    snprintf(temp[yo], sizeof(temp[yo]), "%c%i%i%i",c,mtx,col,row);
-  return temp[yo];
+std::string GetMatrixNotation(int reg, MatrixSize size) {
+	int mtx = (reg>>2)&7;
+	int col = reg&3;
+	int row = 0;
+	int transpose = (reg>>5)&1;
+	char c;
+	switch (size)
+	{
+	case M_2x2:     c='M'; row=(reg>>5)&2; break;
+	case M_3x3:     c='M'; row=(reg>>6)&1; break;
+	case M_4x4:     c='M'; row=(reg>>5)&2; break;
+	default:        c='?'; break;
+	}
+	if (transpose && c=='M') c='E';
+	if (transpose)
+		return StringFromFormat("%c%i%i%i", c, mtx, row, col);
+	return StringFromFormat("%c%i%i%i", c, mtx, col, row);
 }
 
 bool GetVFPUCtrlMask(int reg, u32 *mask) {
@@ -777,6 +709,77 @@ float vfpu_dot(const float a[4], const float b[4]) {
 
 	result.i = sign_sum | (max_exp << 23) | (mant_sum & 0x007FFFFF);
 	return result.f;
+}
+
+//==============================================================================
+// The code below attempts to exactly match behaviour of
+// PSP's vrnd instructions. See investigation starting around
+// https://github.com/hrydgard/ppsspp/issues/16946#issuecomment-1467261209
+// for details.
+
+// Redundant currently, since MIPSState::Init() already
+// does this on its own, but left as-is to be self-contained.
+void vrnd_init_default(uint32_t *rcx) {
+	rcx[0] = 0x00000001;
+	rcx[1] = 0x00000002;
+	rcx[2] = 0x00000004;
+	rcx[3] = 0x00000008;
+	rcx[4] = 0x00000000;
+	rcx[5] = 0x00000000;
+	rcx[6] = 0x00000000;
+	rcx[7] = 0x00000000;
+}
+
+void vrnd_init(uint32_t seed, uint32_t *rcx) {
+	for(int i = 0; i < 8; ++i) rcx[i] =
+		0x3F800000u |                          // 1.0f mask.
+		((seed >> ((i / 4) * 16)) & 0xFFFFu) | // lower or upper half of the seed.
+		(((seed >> (4 * i)) & 0xF) << 16);     // remaining nibble.
+
+}
+
+uint32_t vrnd_generate(uint32_t *rcx) {
+	// The actual RNG state appears to be 5 parts
+	// (32-bit each) stored into the registers as follows:
+	uint32_t A = (rcx[0] & 0xFFFFu) | (rcx[4] << 16);
+	uint32_t B = (rcx[1] & 0xFFFFu) | (rcx[5] << 16);
+	uint32_t C = (rcx[2] & 0xFFFFu) | (rcx[6] << 16);
+	uint32_t D = (rcx[3] & 0xFFFFu) | (rcx[7] << 16);
+	uint32_t E = (((rcx[0] >> 16) & 0xF) <<  0) |
+	             (((rcx[1] >> 16) & 0xF) <<  4) |
+	             (((rcx[2] >> 16) & 0xF) <<  8) |
+	             (((rcx[3] >> 16) & 0xF) << 12) |
+	             (((rcx[4] >> 16) & 0xF) << 16) |
+	             (((rcx[5] >> 16) & 0xF) << 20) |
+	             (((rcx[6] >> 16) & 0xF) << 24) |
+	             (((rcx[7] >> 16) & 0xF) << 28);
+	// Update.
+	// LCG with classic parameters.
+	A = 69069u * A + 1u; // NOTE: decimal constants.
+	// Xorshift, with classic parameters. Algorithm "xor" from p. 4 of Marsaglia, "Xorshift RNGs".
+	B ^= B << 13;
+	B ^= B >> 17;
+	B ^= B <<  5;
+	// Sequence similar to Pell numbers ( https://en.wikipedia.org/wiki/Pell_number ),
+	// except with different starting values, and an occasional increment (E).
+	uint32_t t= 2u * D + C + E;
+	// NOTE: the details of how E-part is set are somewhat of a guess
+	// at the moment. The expression below looks weird, but does match
+	// the available test data.
+	E = uint32_t((uint64_t(C) + uint64_t(D >> 1) + uint64_t(E)) >> 32);
+	C = D;
+	D = t;
+	// Store.
+	rcx[0] = 0x3F800000u | (((E >>  0) & 0xF) << 16) | (A & 0xFFFFu);
+	rcx[1] = 0x3F800000u | (((E >>  4) & 0xF) << 16) | (B & 0xFFFFu);
+	rcx[2] = 0x3F800000u | (((E >>  8) & 0xF) << 16) | (C & 0xFFFFu);
+	rcx[3] = 0x3F800000u | (((E >> 12) & 0xF) << 16) | (D & 0xFFFFu);
+	rcx[4] = 0x3F800000u | (((E >> 16) & 0xF) << 16) | (A >> 16);
+	rcx[5] = 0x3F800000u | (((E >> 20) & 0xF) << 16) | (B >> 16);
+	rcx[6] = 0x3F800000u | (((E >> 24) & 0xF) << 16) | (C >> 16);
+	rcx[7] = 0x3F800000u | (((E >> 28) & 0xF) << 16) | (D >> 16);
+	// Return value.
+	return A + B + D;
 }
 
 //==============================================================================

@@ -1053,7 +1053,6 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, int count) {
 		inst++;
 	}
 
-	// If we got here, the block was badly constructed.
-	Crash();
+	// We hit count.  If this is a full block, it was badly constructed.
 	return 0;
 }

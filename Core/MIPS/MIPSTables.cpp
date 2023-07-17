@@ -918,14 +918,13 @@ void MIPSCompileOp(MIPSOpcode op, MIPSComp::MIPSFrontendInterface *jit) {
 	}
 }
 
-void MIPSDisAsm(MIPSOpcode op, u32 pc, char *out, bool tabsToSpaces) {
+void MIPSDisAsm(MIPSOpcode op, u32 pc, char *out, size_t outSize, bool tabsToSpaces) {
 	if (op == 0) {
-		strcpy(out, "nop");
+		truncate_cpy(out, outSize, "nop");
 	} else {
-		disPC = pc;
 		const MIPSInstruction *instr = MIPSGetInstruction(op);
 		if (instr && instr->disasm) {
-			instr->disasm(op, out);
+			instr->disasm(op, pc, out, outSize);
 			if (tabsToSpaces) {
 				while (*out) {
 					if (*out == '\t')
@@ -934,7 +933,7 @@ void MIPSDisAsm(MIPSOpcode op, u32 pc, char *out, bool tabsToSpaces) {
 				}
 			}
 		} else {
-			strcpy(out, "no instruction :(");
+			truncate_cpy(out, outSize, "no instruction :(");
 		}
 	}
 }
@@ -946,7 +945,7 @@ static inline void Interpret(const MIPSInstruction *instr, MIPSOpcode op) {
 		ERROR_LOG_REPORT(CPU, "Unknown instruction %08x at %08x", op.encoding, currentMIPS->pc);
 		// Try to disassemble it
 		char disasm[256];
-		MIPSDisAsm(op, currentMIPS->pc, disasm);
+		MIPSDisAsm(op, currentMIPS->pc, disasm, sizeof(disasm));
 		_dbg_assert_msg_(0, "%s", disasm);
 		currentMIPS->pc += 4;
 	}
@@ -1120,8 +1119,8 @@ int MIPSGetMemoryAccessSize(MIPSOpcode op) {
 	return 0;
 }
 
-const char *MIPSDisasmAt(u32 compilerPC) {
-	static char temp[256];
-	MIPSDisAsm(Memory::Read_Instruction(compilerPC), 0, temp);
+std::string MIPSDisasmAt(u32 compilerPC) {
+	char temp[512];
+	MIPSDisAsm(Memory::Read_Instruction(compilerPC), 0, temp, sizeof(temp));
 	return temp;
 }

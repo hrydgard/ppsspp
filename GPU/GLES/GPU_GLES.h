@@ -51,6 +51,8 @@ public:
 	void BeginHostFrame() override;
 	void EndHostFrame() override;
 
+	std::string GetGpuProfileString() override;
+
 protected:
 	void FinishDeferred() override;
 

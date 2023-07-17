@@ -520,16 +520,12 @@ void ControlLayoutView::CreateViews() {
 		}
 		return b;
 	};
-	addDragCustomKey(g_Config.touchCustom0, "Custom 1 button", g_Config.CustomButton0);
-	addDragCustomKey(g_Config.touchCustom1, "Custom 2 button", g_Config.CustomButton1);
-	addDragCustomKey(g_Config.touchCustom2, "Custom 3 button", g_Config.CustomButton2);
-	addDragCustomKey(g_Config.touchCustom3, "Custom 4 button", g_Config.CustomButton3);
-	addDragCustomKey(g_Config.touchCustom4, "Custom 5 button", g_Config.CustomButton4);
-	addDragCustomKey(g_Config.touchCustom5, "Custom 6 button", g_Config.CustomButton5);
-	addDragCustomKey(g_Config.touchCustom6, "Custom 7 button", g_Config.CustomButton6);
-	addDragCustomKey(g_Config.touchCustom7, "Custom 8 button", g_Config.CustomButton7);
-	addDragCustomKey(g_Config.touchCustom8, "Custom 9 button", g_Config.CustomButton8);
-	addDragCustomKey(g_Config.touchCustom9, "Custom 10 button", g_Config.CustomButton9);
+
+	for (int i = 0; i < Config::CUSTOM_BUTTON_COUNT; i++) {
+		char temp[64];
+		snprintf(temp, sizeof(temp), "Custom %d button", i);
+		addDragCustomKey(g_Config.touchCustom[i], temp, g_Config.CustomButton[i]);
+	}
 
 	for (size_t i = 0; i < controls_.size(); i++) {
 		Add(controls_[i]);

@@ -22,7 +22,7 @@
 #include "Common/Serialize/Serializer.h"
 #include "Common/File/FileUtil.h"
 #include "Common/GraphicsContext.h"
-#include "Common/System/System.h"
+#include "Common/System/OSD.h"
 #include "Common/VR/PPSSPPVR.h"
 
 #include "Core/Config.h"
@@ -122,7 +122,7 @@ GPU_GLES::GPU_GLES(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 		if (!drawEngine_.SupportsHWTessellation()) {
 			ERROR_LOG(G3D, "Hardware Tessellation is unsupported, falling back to software tessellation");
 			auto gr = GetI18NCategory(I18NCat::GRAPHICS);
-			System_NotifyUserMessage(gr->T("Turn off Hardware Tessellation - unsupported"), 2.5f, 0xFF3030FF);
+			g_OSD.Show(OSDType::MESSAGE_WARNING, gr->T("Turn off Hardware Tessellation - unsupported"));
 		}
 	}
 }
@@ -195,6 +195,10 @@ u32 GPU_GLES::CheckGPUFeatures() const {
 			features &= ~GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT;
 			features |= GPU_ROUND_DEPTH_TO_16BIT;
 		}
+	}
+
+	if (gl_extensions.GLES3) {
+		features |= GPU_USE_FRAGMENT_UBERSHADER;
 	}
 
 	return features;
@@ -304,4 +308,9 @@ void GPU_GLES::GetStats(char *buffer, size_t bufsize) {
 		shaderManagerGL_->GetNumFragmentShaders(),
 		shaderManagerGL_->GetNumPrograms()
 	);
+}
+
+std::string GPU_GLES::GetGpuProfileString() {
+	GLRenderManager *rm = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
+	return rm->GetGpuProfileString();
 }

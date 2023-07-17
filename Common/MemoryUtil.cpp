@@ -17,6 +17,7 @@
 
 #include "ppsspp_config.h"
 
+#if !PPSSPP_PLATFORM(SWITCH)
 #include <cstring>
 #include <cstdlib>
 
@@ -257,7 +258,7 @@ void *AllocateAlignedMemory(size_t size, size_t alignment) {
 #endif
 #endif
 
-	_assert_msg_(ptr != nullptr, "Failed to allocate aligned memory of size %llu", size);
+	_assert_msg_(ptr != nullptr, "Failed to allocate aligned memory of size %llu", (unsigned long long)size);
 	return ptr;
 }
 
@@ -355,3 +356,4 @@ int GetMemoryProtectPageSize() {
 #endif
 	return MEM_PAGE_SIZE;
 }
+#endif // !PPSSPP_PLATFORM(SWITCH)

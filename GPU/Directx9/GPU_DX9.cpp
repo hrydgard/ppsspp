@@ -19,7 +19,7 @@
 
 #include "Common/Serialize/Serializer.h"
 #include "Common/GraphicsContext.h"
-#include "Common/System/System.h"
+#include "Common/System/OSD.h"
 #include "Common/Profiler/Profiler.h"
 #include "Common/Data/Text/I18n.h"
 #include "Core/Debugger/Breakpoints.h"
@@ -88,7 +88,8 @@ GPU_DX9::GPU_DX9(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 		// Disable hardware tessellation bacause DX9 is still unsupported.
 		ERROR_LOG(G3D, "Hardware Tessellation is unsupported, falling back to software tessellation");
 		auto gr = GetI18NCategory(I18NCat::GRAPHICS);
-		System_NotifyUserMessage(gr->T("Turn off Hardware Tessellation - unsupported"), 2.5f, 0xFF3030FF);
+		// TODO: Badly formulated
+		g_OSD.Show(OSDType::MESSAGE_WARNING, gr->T("Turn off Hardware Tessellation - unsupported"));
 	}
 }
 
@@ -100,6 +101,9 @@ u32 GPU_DX9::CheckGPUFeatures() const {
 	// Accurate depth is required because the Direct3D API does not support inverse Z.
 	// So we cannot incorrectly use the viewport transform as the depth range on Direct3D.
 	features |= GPU_USE_ACCURATE_DEPTH;
+
+	// DX9 GPUs probably benefit more than they lose from this. Though, might be a vendor check.
+	features |= GPU_USE_FRAGMENT_UBERSHADER;
 
 	return CheckGPUFeaturesLate(features);
 }

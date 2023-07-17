@@ -3,7 +3,7 @@
 
 using namespace Windows::System;
 
-std::map<Windows::System::VirtualKey, int> virtualKeyCodeToNKCode{
+std::map<Windows::System::VirtualKey, InputKeyCode> virtualKeyCodeToNKCode{
 	{ VirtualKey::A, NKCODE_A },
 	{ VirtualKey::B, NKCODE_B },
 	{ VirtualKey::C, NKCODE_C },

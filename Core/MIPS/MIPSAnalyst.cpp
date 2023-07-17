@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "ppsspp_config.h"
+#include <algorithm>
 #include <map>
 #include <set>
 #include <unordered_map>
@@ -27,6 +28,7 @@
 
 #include "Common/File/FileUtil.h"
 #include "Common/Log.h"
+#include "Common/StringUtils.h"
 #include "Common/TimeUtil.h"
 #include "Core/Config.h"
 #include "Core/MemMap.h"
@@ -940,6 +942,10 @@ skip:
 			return true;
 		}
 
+		// Un named stubs, just in case.
+		if (!strncmp(name, "[UNK:", strlen("[UNK:")))
+			return true;
+
 		// Assume any z_un, not just the address, is a default func.
 		return !strncmp(name, "z_un_", strlen("z_un_")) || !strncmp(name, "u_un_", strlen("u_un_"));
 	}
@@ -1189,6 +1195,12 @@ skip:
 		}
 	}
 
+	bool SkipFuncHash(const std::string &name) {
+		std::vector<std::string> funcs;
+		SplitString(g_Config.sSkipFuncHashMap, ',', funcs);
+		return std::find(funcs.begin(), funcs.end(), name) != funcs.end();
+	}
+
 	void RegisterFunction(u32 startAddr, u32 size, const char *name) {
 		std::lock_guard<std::recursive_mutex> guard(functions_lock);
 
@@ -1196,7 +1208,7 @@ skip:
 		for (auto iter = functions.begin(); iter != functions.end(); iter++) {
 			if (iter->start == startAddr) {
 				// Let's just add it to the hashmap.
-				if (iter->hasHash && size > 16) {
+				if (iter->hasHash && size > 16 && SkipFuncHash(name)) {
 					HashMapFunc hfun;
 					hfun.hash = iter->hash;
 					strncpy(hfun.name, name, 64);
@@ -1278,7 +1290,7 @@ skip:
 			}
 			// Functions with default names aren't very interesting either.
 			const std::string name = g_symbolMap->GetLabelString(f.start);
-			if (IsDefaultFunction(name)) {
+			if (IsDefaultFunction(name) || SkipFuncHash(name)) {
 				continue;
 			}
 

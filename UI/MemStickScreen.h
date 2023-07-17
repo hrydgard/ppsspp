@@ -29,6 +29,8 @@
 
 #include "UI/MiscScreens.h"
 
+class NoticeView;
+
 // MemStickScreen - let's you configure your memory stick directory.
 // Currently only useful for Android.
 class MemStickScreen : public UIDialogScreenWithBackground {
@@ -75,6 +77,7 @@ private:
 	UI::EventReturn OnChoiceClick(UI::EventParams &params);
 
 	SettingInfoMessage *settingInfo_ = nullptr;
+	NoticeView *errorNoticeView_ = nullptr;
 
 	bool initialSetup_;
 	bool storageBrowserWorking_;

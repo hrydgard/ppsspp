@@ -61,7 +61,8 @@ private:
 		RequestFailedCallback callback;
 	};
 
-	int idCounter_ = 0;
+	// Let's start at 10 to get a recognizably valid ID in logs.
+	int idCounter_ = 10;
 	std::vector<PendingSuccess> pendingSuccesses_;
 	std::vector<PendingFailure> pendingFailures_;
 	std::mutex responseMutex_;
@@ -72,12 +73,13 @@ const char *RequestTypeAsString(SystemRequestType type);
 extern RequestManager g_requestManager;
 
 // Wrappers for easy requests.
-// NOTE: Semantics have changed - this no longer calls the callback on cancellation.
+// NOTE: Semantics have changed - this no longer calls the callback on cancellation, instead you
+// can specify a different callback for that.
 inline void System_InputBoxGetString(const std::string &title, const std::string &defaultValue, RequestCallback callback, RequestFailedCallback failedCallback = nullptr) {
 	g_requestManager.MakeSystemRequest(SystemRequestType::INPUT_TEXT_MODAL, callback, failedCallback, title, defaultValue, 0);
 }
 
-// This one will pop up a special image brwoser if available. You can also pick
+// This one will pop up a special image browser if available. You can also pick
 // images with the file browser below.
 inline void System_BrowseForImage(const std::string &title, RequestCallback callback, RequestFailedCallback failedCallback = nullptr) {
 	g_requestManager.MakeSystemRequest(SystemRequestType::BROWSE_FOR_IMAGE, callback, failedCallback, title, "", 0);
@@ -88,6 +90,7 @@ enum class BrowseFileType {
 	IMAGE,
 	INI,
 	DB,
+	SOUND_EFFECT,
 	ANY,
 };
 
@@ -97,6 +100,11 @@ inline void System_BrowseForFile(const std::string &title, BrowseFileType type, 
 
 inline void System_BrowseForFolder(const std::string &title, RequestCallback callback, RequestFailedCallback failedCallback = nullptr) {
 	g_requestManager.MakeSystemRequest(SystemRequestType::BROWSE_FOR_FOLDER, callback, failedCallback, title, "", 0);
+}
+
+// The returned string is username + '\n' + password.
+inline void System_AskUsernamePassword(const std::string &title, RequestCallback callback, RequestFailedCallback failedCallback = nullptr) {
+	g_requestManager.MakeSystemRequest(SystemRequestType::ASK_USERNAME_PASSWORD, callback, failedCallback, title, "", 0);
 }
 
 inline void System_CopyStringToClipboard(const std::string &string) {
@@ -109,6 +117,10 @@ inline void System_ExitApp() {
 
 inline void System_RestartApp(const std::string &params) {
 	g_requestManager.MakeSystemRequest(SystemRequestType::RESTART_APP, nullptr, nullptr, params, "", 0);
+}
+
+inline void System_RecreateActivity() {
+	g_requestManager.MakeSystemRequest(SystemRequestType::RECREATE_ACTIVITY, nullptr, nullptr, "", "", 0);
 }
 
 // The design is a little weird, just a holdover from the old message. Can either toggle or set to on or off.

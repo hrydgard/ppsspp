@@ -29,7 +29,7 @@
 #include "Common/Math/math_util.h"
 #include "Common/GPU/D3D9/D3D9ShaderCompiler.h"
 #include "Common/GPU/thin3d.h"
-#include "Common/System/System.h"
+#include "Common/System/OSD.h"
 #include "Common/System/Display.h"
 
 #include "Common/CommonTypes.h"
@@ -291,8 +291,8 @@ void ShaderManagerDX9::PSUpdateUniforms(u64 dirtyUniforms) {
 			doTextureAlpha = false;
 		}
 		// NOTE: Reversed value, more efficient in shader.
-		PSSetFloat(CONST_PS_TEX_NO_ALPHA, doTextureAlpha ? 0.0f : 1.0f);
-		PSSetFloat(CONST_PS_TEX_MUL, gstate.isColorDoublingEnabled() ? 2.0f : 1.0f);
+		float noAlphaMul[2] = { doTextureAlpha ? 0.0f : 1.0f, gstate.isColorDoublingEnabled() ? 2.0f : 1.0f };
+		PSSetFloatArray(CONST_PS_TEX_NO_ALPHA_MUL, noAlphaMul, 2);
 	}
 	if (dirtyUniforms & DIRTY_SHADERBLEND) {
 		PSSetColorUniform3(CONST_PS_BLENDFIXA, gstate.getFixA());
@@ -338,7 +338,7 @@ void ShaderManagerDX9::PSUpdateUniforms(u64 dirtyUniforms) {
 }
 
 const uint64_t vsUniforms = DIRTY_PROJMATRIX | DIRTY_PROJTHROUGHMATRIX | DIRTY_WORLDMATRIX | DIRTY_VIEWMATRIX | DIRTY_TEXMATRIX |
-DIRTY_FOGCOEFENABLE | DIRTY_BONE_UNIFORMS | DIRTY_UVSCALEOFFSET | DIRTY_DEPTHRANGE | DIRTY_CULLRANGE |
+DIRTY_FOGCOEF | DIRTY_BONE_UNIFORMS | DIRTY_UVSCALEOFFSET | DIRTY_DEPTHRANGE | DIRTY_CULLRANGE |
 DIRTY_AMBIENT | DIRTY_MATAMBIENTALPHA | DIRTY_MATSPECULAR | DIRTY_MATDIFFUSE | DIRTY_MATEMISSIVE | DIRTY_LIGHT0 | DIRTY_LIGHT1 | DIRTY_LIGHT2 | DIRTY_LIGHT3;
 
 void ShaderManagerDX9::VSUpdateUniforms(u64 dirtyUniforms) {
@@ -385,27 +385,21 @@ void ShaderManagerDX9::VSUpdateUniforms(u64 dirtyUniforms) {
 	if (dirtyUniforms & DIRTY_TEXMATRIX) {
 		VSSetMatrix4x3_3(CONST_VS_TEXMTX, gstate.tgenMatrix);
 	}
-	if (dirtyUniforms & DIRTY_FOGCOEFENABLE) {
-		if (gstate.isFogEnabled() && !gstate.isModeThrough()) {
-			float fogcoef[2] = {
-				getFloat24(gstate.fog1),
-				getFloat24(gstate.fog2),
-			};
-			// The PSP just ignores infnan here (ignoring IEEE), so take it down to a valid float.
-			// Workaround for https://github.com/hrydgard/ppsspp/issues/5384#issuecomment-38365988
-			if (my_isnanorinf(fogcoef[0])) {
-				// Not really sure what a sensible value might be, but let's try 64k.
-				fogcoef[0] = std::signbit(fogcoef[0]) ? -65535.0f : 65535.0f;
-			}
-			if (my_isnanorinf(fogcoef[1])) {
-				fogcoef[1] = std::signbit(fogcoef[1]) ? -65535.0f : 65535.0f;
-			}
-			VSSetFloatArray(CONST_VS_FOGCOEF, fogcoef, 2);
-		} else {
-			// not very useful values, use as marker for disabled fog.
-			float fogcoef[2] = { -65536.0f, -65536.0f };
-			VSSetFloatArray(CONST_VS_FOGCOEF, fogcoef, 2);
+	if (dirtyUniforms & DIRTY_FOGCOEF) {
+		float fogcoef[2] = {
+			getFloat24(gstate.fog1),
+			getFloat24(gstate.fog2),
+		};
+		// The PSP just ignores infnan here (ignoring IEEE), so take it down to a valid float.
+		// Workaround for https://github.com/hrydgard/ppsspp/issues/5384#issuecomment-38365988
+		if (my_isnanorinf(fogcoef[0])) {
+			// Not really sure what a sensible value might be, but let's try 64k.
+			fogcoef[0] = std::signbit(fogcoef[0]) ? -65535.0f : 65535.0f;
 		}
+		if (my_isnanorinf(fogcoef[1])) {
+			fogcoef[1] = std::signbit(fogcoef[1]) ? -65535.0f : 65535.0f;
+		}
+		VSSetFloatArray(CONST_VS_FOGCOEF, fogcoef, 2);
 	}
 	// TODO: Could even set all bones in one go if they're all dirty.
 #ifdef USE_BONE_ARRAY
@@ -442,12 +436,16 @@ void ShaderManagerDX9::VSUpdateUniforms(u64 dirtyUniforms) {
 
 	// Texturing
 	if (dirtyUniforms & DIRTY_UVSCALEOFFSET) {
-		const float invW = 1.0f / (float)gstate_c.curTextureWidth;
-		const float invH = 1.0f / (float)gstate_c.curTextureHeight;
-		const int w = gstate.getTextureWidth(0);
-		const int h = gstate.getTextureHeight(0);
-		const float widthFactor = (float)w * invW;
-		const float heightFactor = (float)h * invH;
+		float widthFactor = 1.0f;
+		float heightFactor = 1.0f;
+		if (gstate_c.textureIsFramebuffer) {
+			const float invW = 1.0f / (float)gstate_c.curTextureWidth;
+			const float invH = 1.0f / (float)gstate_c.curTextureHeight;
+			const int w = gstate.getTextureWidth(0);
+			const int h = gstate.getTextureHeight(0);
+			widthFactor = (float)w * invW;
+			heightFactor = (float)h * invH;
+		}
 		float uvscaleoff[4];
 		uvscaleoff[0] = widthFactor;
 		uvscaleoff[1] = heightFactor;
@@ -608,7 +606,7 @@ VSShader *ShaderManagerDX9::ApplyShader(bool useHWTransform, bool useHWTessellat
 				ERROR_LOG(G3D, "Shader compilation failed, falling back to software transform");
 			}
 			if (!g_Config.bHideSlowWarnings) {
-				System_NotifyUserMessage(gr->T("hardware transform error - falling back to software"), 2.5f, 0xFF3030FF);
+				g_OSD.Show(OSDType::MESSAGE_ERROR, gr->T("hardware transform error - falling back to software"), 2.5f);
 			}
 			delete vs;
 

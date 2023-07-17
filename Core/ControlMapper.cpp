@@ -504,10 +504,12 @@ void ControlMapper::PSPKey(int deviceId, int pspKeyCode, int flags) {
 		if (flags & KEY_DOWN) {
 			virtKeys_[vk] = 1.0f;
 			onVKey(pspKeyCode, true);
+			onVKeyAnalog(deviceId, pspKeyCode, 1.0f);
 		}
 		if (flags & KEY_UP) {
 			virtKeys_[vk] = 0.0f;
 			onVKey(pspKeyCode, false);
+			onVKeyAnalog(deviceId, pspKeyCode, 0.0f);
 		}
 	} else {
 		// INFO_LOG(SYSTEM, "pspKey %d %d", pspKeyCode, flags);

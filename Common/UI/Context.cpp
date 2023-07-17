@@ -208,10 +208,12 @@ void UIContext::SetFontStyle(const UI::FontStyle &fontStyle) {
 }
 
 void UIContext::MeasureText(const UI::FontStyle &style, float scaleX, float scaleY, const char *str, float *x, float *y, int align) const {
+	_dbg_assert_(str != nullptr);
 	MeasureTextCount(style, scaleX, scaleY, str, (int)strlen(str), x, y, align);
 }
 
 void UIContext::MeasureTextCount(const UI::FontStyle &style, float scaleX, float scaleY, const char *str, int count, float *x, float *y, int align) const {
+	_dbg_assert_(str != nullptr);
 	if (!textDrawer_ || (align & FLAG_DYNAMIC_ASCII)) {
 		float sizeFactor = (float)style.sizePts / 24.0f;
 		Draw()->SetFontScale(scaleX * sizeFactor, scaleY * sizeFactor);
@@ -225,6 +227,7 @@ void UIContext::MeasureTextCount(const UI::FontStyle &style, float scaleX, float
 }
 
 void UIContext::MeasureTextRect(const UI::FontStyle &style, float scaleX, float scaleY, const char *str, int count, const Bounds &bounds, float *x, float *y, int align) const {
+	_dbg_assert_(str != nullptr);
 	if (!textDrawer_ || (align & FLAG_DYNAMIC_ASCII)) {
 		float sizeFactor = (float)style.sizePts / 24.0f;
 		Draw()->SetFontScale(scaleX * sizeFactor, scaleY * sizeFactor);
@@ -238,6 +241,7 @@ void UIContext::MeasureTextRect(const UI::FontStyle &style, float scaleX, float 
 }
 
 void UIContext::DrawText(const char *str, float x, float y, uint32_t color, int align) {
+	_dbg_assert_(str != nullptr);
 	if (!textDrawer_ || (align & FLAG_DYNAMIC_ASCII)) {
 		// Use the font texture if this font is in that texture instead.
 		bool useFontTexture = Draw()->GetFontAtlas()->getFont(fontStyle_->atlasFont) != nullptr;
@@ -286,6 +290,28 @@ void UIContext::DrawTextRect(const char *str, const Bounds &bounds, uint32_t col
 	RebindTexture();
 }
 
+static constexpr float MIN_TEXT_SCALE = 0.7f;
+
+float UIContext::CalculateTextScale(const char *text, float availWidth, float availHeight) const {
+	float actualWidth, actualHeight;
+	Bounds availBounds(0, 0, availWidth, availHeight);
+	MeasureTextRect(theme->uiFont, 1.0f, 1.0f, text, (int)strlen(text), availBounds, &actualWidth, &actualHeight, ALIGN_VCENTER);
+	if (actualWidth > availWidth) {
+		return std::max(MIN_TEXT_SCALE, availWidth / actualWidth);
+	}
+	return 1.0f;
+}
+
+void UIContext::DrawTextRectSqueeze(const char *str, const Bounds &bounds, uint32_t color, int align) {
+	float origScaleX = fontScaleX_;
+	float origScaleY = fontScaleY_;
+	float scale = CalculateTextScale(str, bounds.w / origScaleX, bounds.h / origScaleY);
+	SetFontScale(scale * origScaleX, scale * origScaleY);
+	Bounds textBounds(bounds.x, bounds.y, bounds.w, bounds.h);
+	DrawTextRect(str, textBounds, color, align);
+	SetFontScale(origScaleX, origScaleY);
+}
+
 void UIContext::DrawTextShadowRect(const char *str, const Bounds &bounds, uint32_t color, int align) {
 	uint32_t alpha = (color >> 1) & 0xFF000000;
 	Bounds shadowBounds(bounds.x+2, bounds.y+2, bounds.w, bounds.h);
@@ -311,6 +337,17 @@ void UIContext::FillRect(const UI::Drawable &drawable, const Bounds &bounds) {
 	case UI::DRAW_NOTHING:
 		break;
 	} 
+}
+
+void UIContext::DrawRectDropShadow(const Bounds &bounds, float radius, float alpha, uint32_t color) {
+	if (alpha <= 0.0f)
+		return;
+
+	color = colorAlpha(color, alpha);
+
+	// Bias the shadow downwards a bit.
+	Bounds shadowBounds = bounds.Expand(radius, 0.5 * radius, radius, 1.5 * radius);
+	Draw()->DrawImage4Grid(theme->dropShadow4Grid, shadowBounds.x, shadowBounds.y, shadowBounds.x2(), shadowBounds.y2(), color, radius * (1.0f / 24.0f) * 2.0f);
 }
 
 void UIContext::DrawImageVGradient(ImageID image, uint32_t color1, uint32_t color2, const Bounds &bounds) {

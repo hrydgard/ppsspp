@@ -38,7 +38,7 @@ int sceSdSetIndex_(pspChnnlsvContext1& ctx, int value);
 int sceSdRemoveValue_(pspChnnlsvContext1& ctx, u8* data, int length);
 int sceSdCreateList_(pspChnnlsvContext2& ctx2, int mode, int uknw, u8* data, u8* cryptkey);
 int sceSdSetMember_(pspChnnlsvContext2& ctx, u8* data, int alignedLen);
-int sceChnnlsv_21BE78B4_(pspChnnlsvContext2& ctx);
+int sceSdCleanList_(pspChnnlsvContext2& ctx);
 int sceSdGetLastIndex_(pspChnnlsvContext1& ctx, u8* in_hash, u8* in_key);
 
 void Register_sceChnnlsv();

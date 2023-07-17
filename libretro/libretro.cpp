@@ -425,6 +425,10 @@ static std::string map_psp_language_to_i18n_locale(int val)
 
 static void check_variables(CoreParameter &coreParam)
 {
+   bool isFastForwarding;
+   if (environ_cb(RETRO_ENVIRONMENT_GET_FASTFORWARDING, &isFastForwarding))
+       coreParam.fastForward = isFastForwarding;
+
    bool updated = false;
 
    if (     coreState != CoreState::CORE_POWERUP
@@ -603,6 +607,7 @@ static void check_variables(CoreParameter &coreParam)
          g_Config.iInternalResolution = 10;
    }
 
+#if 0 // see issue #16786
    var.key = "ppsspp_mulitsample_level";
    if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value)
    {
@@ -617,15 +622,7 @@ static void check_variables(CoreParameter &coreParam)
       else if (!strcmp(var.value, "x8"))
          g_Config.iMultiSampleLevel = 3;
    }
-
-   var.key = "ppsspp_skip_buffer_effects";
-   if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value)
-   {
-      if (!strcmp(var.value, "disabled"))
-         g_Config.bSkipBufferEffects = false;
-      else
-         g_Config.bSkipBufferEffects = true;
-   }
+#endif
 
    var.key = "ppsspp_skip_gpu_readbacks";
    if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value)
@@ -1015,6 +1012,7 @@ static void check_variables(CoreParameter &coreParam)
       }
    }
 
+#if 0 // see issue #16786
    if (g_Config.iMultiSampleLevel != iMultiSampleLevel_prev && PSP_IsInited())
    {
       if (gpu)
@@ -1022,6 +1020,7 @@ static void check_variables(CoreParameter &coreParam)
          gpu->NotifyRenderResized();
       }
    }
+#endif
 
    if (updateAvInfo)
    {
@@ -1029,9 +1028,6 @@ static void check_variables(CoreParameter &coreParam)
       retro_get_system_av_info(&avInfo);
       environ_cb(RETRO_ENVIRONMENT_SET_SYSTEM_AV_INFO, &avInfo);
    }
-
-   bool isFastForwarding = environ_cb(RETRO_ENVIRONMENT_GET_FASTFORWARDING, &isFastForwarding);
-   coreParam.fastForward = isFastForwarding;
 
    set_variable_visibility();
 }
@@ -1292,6 +1288,23 @@ bool retro_load_game(const struct retro_game_info *game)
       ERROR_LOG(BOOT, "%s", error_string.c_str());
       return false;
    }
+
+   struct retro_core_option_display option_display;
+
+   // Show/hide 'MSAA' and 'Texture Shader' options, Vulkan only
+   option_display.visible = (g_Config.iGPUBackend == (int)GPUBackend::VULKAN) ? true : false;
+#if 0 // see issue #16786
+   option_display.key = "ppsspp_mulitsample_level";
+   environ_cb(RETRO_ENVIRONMENT_SET_CORE_OPTIONS_DISPLAY, &option_display);
+#endif
+   option_display.key = "ppsspp_texture_shader";
+   environ_cb(RETRO_ENVIRONMENT_SET_CORE_OPTIONS_DISPLAY, &option_display);
+
+   // Show/hide 'Buffered Frames' option, Vulkan/GL only
+   option_display.visible = (g_Config.iGPUBackend == (int)GPUBackend::VULKAN ||
+         g_Config.iGPUBackend == (int)GPUBackend::OPENGL) ? true : false;
+   option_display.key = "ppsspp_inflight_frames";
+   environ_cb(RETRO_ENVIRONMENT_SET_CORE_OPTIONS_DISPLAY, &option_display);
 
    set_variable_visibility();
 
@@ -1670,7 +1683,8 @@ bool System_GetPropertyBool(SystemProperty prop)
    {
    case SYSPROP_CAN_JIT:
 #if PPSSPP_PLATFORM(IOS)
-      return false;
+      bool can_jit;
+      return (environ_cb(RETRO_ENVIRONMENT_GET_JIT_CAPABLE, &can_jit) && can_jit);
 #else
       return true;
 #endif
@@ -1690,7 +1704,6 @@ void System_Notify(SystemNotification notification) {
 }
 bool System_MakeRequest(SystemRequestType type, int requestId, const std::string &param1, const std::string &param2, int param3) { return false; }
 void System_PostUIMessage(const std::string &message, const std::string &param) {}
-void System_NotifyUserMessage(const std::string &message, float duration, u32 color, const char *id) {}
 void NativeUpdate() {}
 void NativeRender(GraphicsContext *graphicsContext) {}
 void NativeResized() {}
@@ -1733,3 +1746,9 @@ bool System_AudioRecordingState() { return false; }
 
 void System_InputBoxGetString(const std::string &title, const std::string &defaultValue, std::function<void(bool, const std::string &)> cb) { cb(false, ""); }
 #endif
+
+// TODO: To avoid having to define these here, these should probably be turned into system "requests".
+void NativeSaveSecret(const char *nameOfSecret, const std::string &data) {}
+std::string NativeLoadSecret(const char *nameOfSecret) {
+   return "";
+}

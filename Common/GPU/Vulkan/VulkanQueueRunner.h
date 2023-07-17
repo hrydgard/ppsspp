@@ -6,6 +6,7 @@
 
 #include "Common/Thread/Promise.h"
 #include "Common/Data/Collections/Hashmaps.h"
+#include "Common/Data/Collections/FastVec.h"
 #include "Common/GPU/Vulkan/VulkanContext.h"
 #include "Common/GPU/Vulkan/VulkanBarrier.h"
 #include "Common/GPU/Vulkan/VulkanFrameData.h"
@@ -38,7 +39,6 @@ enum class VKRRenderCommand : uint8_t {
 	DRAW,
 	DRAW_INDEXED,
 	PUSH_CONSTANTS,
-	SELF_DEPENDENCY_BARRIER,
 	DEBUG_ANNOTATION,
 	NUM_RENDER_COMMANDS,
 };
@@ -47,10 +47,9 @@ enum class PipelineFlags : u8 {
 	NONE = 0,
 	USES_BLEND_CONSTANT = (1 << 1),
 	USES_DEPTH_STENCIL = (1 << 2),  // Reads or writes the depth or stencil buffers.
-	USES_INPUT_ATTACHMENT = (1 << 3),
-	USES_GEOMETRY_SHADER = (1 << 4),
-	USES_MULTIVIEW = (1 << 5),  // Inherited from the render pass it was created with.
-	USES_DISCARD = (1 << 6),
+	USES_GEOMETRY_SHADER = (1 << 3),
+	USES_MULTIVIEW = (1 << 4),  // Inherited from the render pass it was created with.
+	USES_DISCARD = (1 << 5),
 };
 ENUM_CLASS_BITOPS(PipelineFlags);
 
@@ -80,15 +79,14 @@ struct VkRenderData {
 		} draw;
 		struct {
 			VkDescriptorSet ds;
-			int numUboOffsets;
 			uint32_t uboOffsets[3];
+			uint16_t numUboOffsets;
+			uint16_t instances;
 			VkBuffer vbuffer;
 			VkBuffer ibuffer;
 			uint32_t voffset;
 			uint32_t ioffset;
 			uint32_t count;
-			int16_t instances;
-			int16_t indexType;
 		} drawIndexed;
 		struct {
 			uint32_t clearColor;
@@ -153,7 +151,7 @@ struct VKRStep {
 	~VKRStep() {}
 
 	VKRStepType stepType;
-	std::vector<VkRenderData> commands;
+	FastVec<VkRenderData> commands;
 	TinySet<TransitionRequest, 4> preTransitions;
 	TinySet<VKRFramebuffer *, 8> dependencies;
 	const char *tag;
@@ -212,9 +210,14 @@ struct VKRStep {
 // These are enqueued from the main thread,
 // and the render thread pops them off
 struct VKRRenderThreadTask {
+	VKRRenderThreadTask(VKRRunType _runType) : runType(_runType) {}
 	std::vector<VKRStep *> steps;
-	int frame;
+	int frame = -1;
 	VKRRunType runType;
+
+	// Avoid copying these by accident.
+	VKRRenderThreadTask(VKRRenderThreadTask &) = delete;
+	VKRRenderThreadTask &operator =(VKRRenderThreadTask &) = delete;
 };
 
 class VulkanQueueRunner {
@@ -308,8 +311,6 @@ private:
 	static void SetupTransitionToTransferSrc(VKRImage &img, VkImageAspectFlags aspect, VulkanBarrier *recordBarrier);
 	static void SetupTransitionToTransferDst(VKRImage &img, VkImageAspectFlags aspect, VulkanBarrier *recordBarrier);
 	static void SetupTransferDstWriteAfterWrite(VKRImage &img, VkImageAspectFlags aspect, VulkanBarrier *recordBarrier);
-
-	static void SelfDependencyBarrier(VKRImage &img, VkImageAspectFlags aspect, VulkanBarrier *recordBarrier);
 
 	VulkanContext *vulkan_;
 

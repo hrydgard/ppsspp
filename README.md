@@ -25,6 +25,28 @@ If you want to download regularly updated builds for Android, Windows x86 and x6
 
 For game compatibility, see [community compatibility feedback](https://report.ppsspp.org/games).
 
+What's new in 1.15.4
+====================
+- Tilt controls: Restore "Low end radius" control ([#17489])
+- Android: Restore the ability to choose "display" (hardware scaler) resolution ([#17473])
+- Improve the workarounds for the DJ Max games ([#17467])
+- Android: Fix running some file formats directly from the Downloads folder ([#17466])
+- OpenGL: Restore most of the lost performance on low-end hardware from the shader variant reduction ([#17440, [#17439]])
+- Add a simple profiling tool to check CPU usage by the GL backend ([#17475])
+- Loader: Fix bug preventing WWE 2009 from starting ([#17435])
+- Misc minor fixes and optimizations ([#17442], [#17457], [#17486], [#17446], more)
+
+What's new in 1.15.3
+====================
+- Assorted minor crash- and other fixes ([#17406], [#17414], [#17415], [#17422])
+- Android: Allow launch by content URI (for frontends) ([#17425])
+- Control mapping: Fix bugs in mapping UI causing trouble with some controllers ([#17412], [#17420])
+
+What's new in 1.15.2
+====================
+- Assorted minor crash fixes ([#17401], [#17399])
+- Fix Android 12 support in the Android VR build (avoid scoped storage) ([#17398])
+
 What's new in 1.15.1
 ====================
 - Assorted minor crash fixes ([#17374], [#17370], [#17392], [#17394])
@@ -586,4 +608,24 @@ Credit goes to:
 [#17380]: https://github.com/hrydgard/ppsspp/issues/17380 "Pre-scan the root of texture packs for hash-named files."
 [#17393]: https://github.com/hrydgard/ppsspp/issues/17393 "Prevent tilt-controlled left/right dpad butons from getting stuck"
 [#17396]: https://github.com/hrydgard/ppsspp/issues/17396 "Vulkan: Turn off the ubershader on Mali T880, T860 and T830 on old driver versions"
-
+[#17401]: https://github.com/hrydgard/ppsspp/issues/17401 "Additional crash fixes"
+[#17399]: https://github.com/hrydgard/ppsspp/issues/17399 "More crash fixes"
+[#17398]: https://github.com/hrydgard/ppsspp/issues/17398 "OpenXR - Cleanup unsupported features, support Android 12"[#17406]: https://github.com/hrydgard/ppsspp/issues/17406 "Even more crash fixes"
+[#17414]: https://github.com/hrydgard/ppsspp/issues/17414 "GPU: Remove JumpFast/CallFast"
+[#17415]: https://github.com/hrydgard/ppsspp/issues/17415 "Misc fixes and checks"
+[#17422]: https://github.com/hrydgard/ppsspp/issues/17422 "Windows: Fix initial window show for all displays"
+[#17425]: https://github.com/hrydgard/ppsspp/issues/17425 "Android: Explicitly allow content URI intents"
+[#17412]: https://github.com/hrydgard/ppsspp/issues/17412 "Controller mapping fixes"
+[#17420]: https://github.com/hrydgard/ppsspp/issues/17420 "Fix glitch when mapping analog inputs, caused"
+[#17489]: https://github.com/hrydgard/ppsspp/issues/17489 "Restore \"low end radius\" (inverse deadzone) for tilt input"
+[#17473]: https://github.com/hrydgard/ppsspp/issues/17473 "Revert \"Remove the Android display resolution selector\""
+[#17467]: https://github.com/hrydgard/ppsspp/issues/17467 "Make the DJ Max workaround more aggressive about hiding stuff."
+[#17466]: https://github.com/hrydgard/ppsspp/issues/17466 "Fix running some file formats from the Downloads folder"
+[#17440]: https://github.com/hrydgard/ppsspp/issues/17440 "Revert lmode variant reduction"
+[#17439]: https://github.com/hrydgard/ppsspp/issues/17439 "Revert \"Merge pull request #16628 from hrydgard/remove-fog-fshader-flag\""
+[#17475]: https://github.com/hrydgard/ppsspp/issues/17475 "Add a trivial profiling tool to the OpenGL backend"
+[#17435]: https://github.com/hrydgard/ppsspp/issues/17435 "ElfLoader: Don't scan for functions in zero-length sections"
+[#17442]: https://github.com/hrydgard/ppsspp/issues/17442 "Shrink the GLRRenderCommand struct from 152 to 88"
+[#17457]: https://github.com/hrydgard/ppsspp/issues/17457 "UI: Fix thread error on zip open failure"
+[#17486]: https://github.com/hrydgard/ppsspp/issues/17486 "Build fixes for OpenBSD"
+[#17446]: https://github.com/hrydgard/ppsspp/issues/17446 "OpenGL: Combine some render commands"

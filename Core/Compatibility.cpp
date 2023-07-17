@@ -137,6 +137,7 @@ void Compatibility::CheckVRSettings(IniFile &iniFile, const std::string &gameID)
 	CheckSetting(iniFile, gameID, "ForceFlatScreen", &vrCompat_.ForceFlatScreen);
 	CheckSetting(iniFile, gameID, "ForceMono", &vrCompat_.ForceMono);
 	CheckSetting(iniFile, gameID, "IdentityViewHack", &vrCompat_.IdentityViewHack);
+	CheckSetting(iniFile, gameID, "MirroringVariant", &vrCompat_.MirroringVariant);
 	CheckSetting(iniFile, gameID, "Skyplane", &vrCompat_.Skyplane);
 	CheckSetting(iniFile, gameID, "UnitsPerMeter", &vrCompat_.UnitsPerMeter);
 
@@ -155,6 +156,12 @@ void Compatibility::CheckSetting(IniFile &iniFile, const std::string &gameID, co
 }
 
 void Compatibility::CheckSetting(IniFile &iniFile, const std::string &gameID, const char *option, float *flag) {
+	std::string value;
+	iniFile.Get(option, gameID.c_str(), &value, "0");
+	*flag = stof(value);
+}
+
+void Compatibility::CheckSetting(IniFile &iniFile, const std::string &gameID, const char *option, int *flag) {
 	std::string value;
 	iniFile.Get(option, gameID.c_str(), &value, "0");
 	*flag = stof(value);

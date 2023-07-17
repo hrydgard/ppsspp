@@ -543,9 +543,7 @@ static inline void GetTextureCoordinatesProj(const VertexData& v0, const VertexD
 	float wq0 = p * q0;
 	float wq1 = (1.0f - p) * q1;
 
-	float q_recip = 1.0f / (wq0 + wq1);
-	float q = (v0.texturecoords.q() * wq0 + v1.texturecoords.q() * wq1) * q_recip;
-	q_recip *= 1.0f / q;
+	float q_recip = 1.0f / (v0.texturecoords.q() * wq0 + v1.texturecoords.q() * wq1);
 
 	s = (v0.texturecoords.s() * wq0 + v1.texturecoords.s() * wq1) * q_recip;
 	t = (v0.texturecoords.t() * wq0 + v1.texturecoords.t() * wq1) * q_recip;
@@ -574,9 +572,9 @@ static inline void GetTextureCoordinatesProj(const VertexData &v0, const VertexD
 	Vec4<float> wq1 = w1.Cast<float>() * q1;
 	Vec4<float> wq2 = w2.Cast<float>() * q2;
 
-	Vec4<float> q_recip = (wq0 + wq1 + wq2).Reciprocal();
-	Vec4<float> q = Interpolate(v0.texturecoords.q(), v1.texturecoords.q(), v2.texturecoords.q(), wq0, wq1, wq2, q_recip);
-	q_recip = q_recip * q.Reciprocal();
+	// Here, Interpolate() is a bit suboptimal, since
+	// there's no need to multiply by 1.0f.
+	Vec4<float> q_recip = Interpolate(v0.texturecoords.q(), v1.texturecoords.q(), v2.texturecoords.q(), wq0, wq1, wq2, Vec4<float>::AssignToAll(1.0f)).Reciprocal();
 
 	s = Interpolate(v0.texturecoords.s(), v1.texturecoords.s(), v2.texturecoords.s(), wq0, wq1, wq2, q_recip);
 	t = Interpolate(v0.texturecoords.t(), v1.texturecoords.t(), v2.texturecoords.t(), wq0, wq1, wq2, q_recip);
@@ -685,6 +683,101 @@ static inline void ApplyTexturing(const RasterizerState &state, Vec4<int> *prim_
 		if (mask[i] >= 0)
 			prim_color[i] = ApplyTexturing(s[i], t[i], ToVec4IntArg(prim_color[i]), level, levelFrac, bilinear, state);
 	}
+}
+
+static inline Vec4<int> SOFTRAST_CALL CheckDepthTestPassed4(const Vec4<int> &mask, GEComparison func, int x, int y, int stride, Vec4<int> z) {
+	// Skip the depth buffer read if we're masked already.
+#if defined(_M_SSE)
+	__m128i result = SAFE_M128I(mask.ivec);
+	int maskbits = _mm_movemask_epi8(result);
+	if (maskbits >= 0xFFFF)
+		return mask;
+#else
+	Vec4<int> result = mask;
+	if (mask.x < 0 && mask.y < 0 && mask.z < 0 && mask.w < 0)
+		return result;
+#endif
+
+	// Read in the existing depth values.
+#if defined(_M_SSE)
+	// Tried using flags from maskbits to skip dwords... seemed neutral.
+	__m128i refz = _mm_cvtsi32_si128(*(u32 *)depthbuf.Get16Ptr(x, y, stride));
+	refz = _mm_unpacklo_epi32(refz, _mm_cvtsi32_si128(*(u32 *)depthbuf.Get16Ptr(x, y + 1, stride)));
+	refz = _mm_unpacklo_epi16(refz, _mm_setzero_si128());
+#else
+	Vec4<int> refz(depthbuf.Get16(x, y, stride), depthbuf.Get16(x + 1, y, stride), depthbuf.Get16(x, y + 1, stride), depthbuf.Get16(x + 1, y + 1, stride));
+#endif
+
+	switch (func) {
+	case GE_COMP_NEVER:
+#if defined(_M_SSE)
+		result = _mm_set1_epi32(-1);
+#else
+		result = Vec4<int>::AssignToAll(-1);
+#endif
+		break;
+
+	case GE_COMP_ALWAYS:
+		break;
+
+	case GE_COMP_EQUAL:
+#if defined(_M_SSE)
+		result = _mm_or_si128(result, _mm_xor_si128(_mm_cmpeq_epi32(z.ivec, refz), _mm_set1_epi32(-1)));
+#else
+		for (int i = 0; i < 4; ++i)
+			result[i] |= z[i] != refz[i] ? -1 : 0;
+#endif
+		break;
+
+	case GE_COMP_NOTEQUAL:
+#if defined(_M_SSE)
+		result = _mm_or_si128(result, _mm_cmpeq_epi32(z.ivec, refz));
+#else
+		for (int i = 0; i < 4; ++i)
+			result[i] |= z[i] == refz[i] ? -1 : 0;
+#endif
+		break;
+
+	case GE_COMP_LESS:
+#if defined(_M_SSE)
+		result = _mm_or_si128(result, _mm_cmpgt_epi32(z.ivec, refz));
+		result = _mm_or_si128(result, _mm_cmpeq_epi32(z.ivec, refz));
+#else
+		for (int i = 0; i < 4; ++i)
+			result[i] |= z[i] >= refz[i] ? -1 : 0;
+#endif
+		break;
+
+	case GE_COMP_LEQUAL:
+#if defined(_M_SSE)
+		result = _mm_or_si128(result, _mm_cmpgt_epi32(z.ivec, refz));
+#else
+		for (int i = 0; i < 4; ++i)
+			result[i] |= z[i] > refz[i] ? -1 : 0;
+#endif
+		break;
+
+	case GE_COMP_GREATER:
+#if defined(_M_SSE)
+		result = _mm_or_si128(result, _mm_cmplt_epi32(z.ivec, refz));
+		result = _mm_or_si128(result, _mm_cmpeq_epi32(z.ivec, refz));
+#else
+		for (int i = 0; i < 4; ++i)
+			result[i] |= z[i] <= refz[i] ? -1 : 0;
+#endif
+		break;
+
+	case GE_COMP_GEQUAL:
+#if defined(_M_SSE)
+		result = _mm_or_si128(result, _mm_cmplt_epi32(z.ivec, refz));
+#else
+		for (int i = 0; i < 4; ++i)
+			result[i] |= z[i] < refz[i] ? -1 : 0;
+#endif
+		break;
+	}
+
+	return result;
 }
 
 template <bool useSSE4>
@@ -852,11 +945,8 @@ static inline bool AnyMask(const Vec4<int> &mask) {
 		return AnyMaskSSE4(mask.ivec);
 	}
 
-	// In other words: !(mask.x < 0 && mask.y < 0 && mask.z < 0 && mask.w < 0)
-	__m128i low2 = _mm_and_si128(mask.ivec, _mm_shuffle_epi32(mask.ivec, _MM_SHUFFLE(3, 2, 3, 2)));
-	__m128i low1 = _mm_and_si128(low2, _mm_shuffle_epi32(low2, _MM_SHUFFLE(1, 1, 1, 1)));
-	// Now we only need to check one sign bit.
-	return _mm_cvtsi128_si32(low1) >= 0;
+	// Source: https://fgiesen.wordpress.com/2013/02/10/optimizing-the-basic-rasterizer/#comment-6676
+	return _mm_movemask_ps(_mm_castsi128_ps(mask.ivec)) != 15;
 #elif PPSSPP_ARCH(ARM64_NEON)
 	int64x2_t sig = vreinterpretq_s64_s32(vshrq_n_s32(mask.ivec, 31));
 	return vgetq_lane_s64(sig, 0) != -1 || vgetq_lane_s64(sig, 1) != -1;
@@ -901,6 +991,9 @@ void DrawTriangleSlice(
 	Vec4<int> w1_base = e1.Start(v2.screenpos, v0.screenpos, pprime);
 	Vec4<int> w2_base = e2.Start(v0.screenpos, v1.screenpos, pprime);
 
+	// The sum of weights should remain constant as we move toward/away from the edges.
+	const Vec4<float> wsum_recip = EdgeRecip(w0_base, w1_base, w2_base);
+
 	// All the z values are the same, no interpolation required.
 	// This is common, and when we interpolate, we lose accuracy.
 	const bool flatZ = v0.screenpos.z == v1.screenpos.z && v0.screenpos.z == v2.screenpos.z;
@@ -926,6 +1019,12 @@ void DrawTriangleSlice(
 	const Vec3<int> v0_c1 = Vec3<int>::FromRGB(v0.color1);
 	const Vec3<int> v1_c1 = Vec3<int>::FromRGB(v1.color1);
 	const Vec3<int> v2_c1 = Vec3<int>::FromRGB(v2.color1);
+
+	const Vec4<float> v0_z4 = Vec4<int>::AssignToAll(v0.screenpos.z).Cast<float>();
+	const Vec4<float> v1_z4 = Vec4<int>::AssignToAll(v1.screenpos.z).Cast<float>();
+	const Vec4<float> v2_z4 = Vec4<int>::AssignToAll(v2.screenpos.z).Cast<float>();
+	const Vec4<int> minz = Vec4<int>::AssignToAll(pixelID.cached.minz);
+	const Vec4<int> maxz = Vec4<int>::AssignToAll(pixelID.cached.maxz);
 
 	for (int64_t curY = minY; curY <= maxY; curY += SCREEN_SCALE_FACTOR * 2,
 										w0_base = e0.StepY(w0_base),
@@ -963,32 +1062,29 @@ void DrawTriangleSlice(
 			// If p is on or inside all edges, render pixel
 			Vec4<int> mask = MakeMask(w0, w1, w2, bias0, bias1, bias2, scissor_mask);
 			if (AnyMask<useSSE4>(mask)) {
-				Vec4<float> wsum_recip = EdgeRecip(w0, w1, w2);
-
 				Vec4<int> z;
 				if (flatZ) {
 					z = Vec4<int>::AssignToAll(v2.screenpos.z);
 				} else {
 					// Z is interpolated pretty much directly.
-					Vec4<float> zfloats = w0.Cast<float>() * v0.screenpos.z + w1.Cast<float>() * v1.screenpos.z + w2.Cast<float>() * v2.screenpos.z;
+					Vec4<float> zfloats = w0.Cast<float>() * v0_z4 + w1.Cast<float>() * v1_z4 + w2.Cast<float>() * v2_z4;
 					z = (zfloats * wsum_recip).Cast<int>();
 				}
 
 				if (pixelID.earlyZChecks) {
-					for (int i = 0; i < 4; ++i) {
-						if (pixelID.applyDepthRange) {
-							if (z[i] < pixelID.cached.minz || z[i] > pixelID.cached.maxz)
+					if (pixelID.applyDepthRange) {
+#if defined(_M_SSE)
+						mask.ivec = _mm_or_si128(mask.ivec, _mm_or_si128(_mm_cmplt_epi32(z.ivec, minz.ivec), _mm_cmpgt_epi32(z.ivec, maxz.ivec)));
+#else
+						for (int i = 0; i < 4; ++i) {
+							if (z[i] < minz[i] || z[i] > maxz[i])
 								mask[i] = -1;
 						}
-						if (mask[i] < 0)
-							continue;
-
-						int x = p.x + (i & 1);
-						int y = p.y + (i / 2);
-						if (!CheckDepthTestPassed(pixelID.DepthTestFunc(), x, y, pixelID.cached.depthbufStride, z[i])) {
-							mask[i] = -1;
-						}
+#endif
 					}
+					mask = CheckDepthTestPassed4(mask, pixelID.DepthTestFunc(), p.x, p.y, pixelID.cached.depthbufStride, z);
+					if (!AnyMask<useSSE4>(mask))
+						continue;
 				}
 
 				// Color interpolation is not perspective corrected on the PSP.

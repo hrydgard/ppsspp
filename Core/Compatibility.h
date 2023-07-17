@@ -107,6 +107,7 @@ struct VRCompat {
 	bool ForceMono;
 	bool ForceFlatScreen;
 	bool IdentityViewHack;
+	int MirroringVariant;
 	bool Skyplane;
 	float UnitsPerMeter;
 };
@@ -132,6 +133,7 @@ private:
 	void CheckVRSettings(IniFile &iniFile, const std::string &gameID);
 	void CheckSetting(IniFile &iniFile, const std::string &gameID, const char *option, bool *flag);
 	void CheckSetting(IniFile &iniFile, const std::string &gameID, const char *option, float *value);
+	void CheckSetting(IniFile &iniFile, const std::string &gameID, const char *option, int *value);
 
 	CompatFlags flags_{};
 	VRCompat vrCompat_{};

@@ -4,6 +4,7 @@
 #include "Common/File/VFS/VFS.h"
 #include "Common/File/FileUtil.h"
 #include "Common/File/AndroidStorage.h"
+#include "Common/StringUtils.h"
 
 VFS g_VFS;
 
@@ -27,7 +28,7 @@ void VFS::Clear() {
 static bool IsLocalAbsolutePath(const char *path) {
 	bool isUnixLocal = path[0] == '/';
 #ifdef _WIN32
-	bool isWindowsLocal = isalpha(path[0]) && path[1] == ':';
+	bool isWindowsLocal = (isalpha(path[0]) && path[1] == ':') || startsWith(path, "\\\\") || startsWith(path, "//");
 #else
 	bool isWindowsLocal = false;
 #endif

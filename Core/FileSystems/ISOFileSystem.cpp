@@ -177,6 +177,14 @@ ISOFileSystem::~ISOFileSystem() {
 	delete treeroot;
 }
 
+std::string ISOFileSystem::TreeEntry::BuildPath() {
+	if (parent) {
+		return parent->BuildPath() + "/" + name;
+	} else {
+		return name;
+	}
+}
+
 void ISOFileSystem::ReadDirectory(TreeEntry *root) {
 	for (u32 secnum = root->startsector, endsector = root->startsector + (root->dirsize + 2047) / 2048; secnum < endsector; ++secnum) {
 		u8 theSector[2048];
@@ -228,12 +236,12 @@ void ISOFileSystem::ReadDirectory(TreeEntry *root) {
 			entry->startsector = dir.firstDataSector;
 			entry->dirsize = dir.dataLength;
 			entry->valid = isFile;  // Can pre-mark as valid if file, as we don't recurse into those.
-			VERBOSE_LOG(FILESYS, "%s: %s %08x %08x %i", entry->isDirectory ? "D" : "F", entry->name.c_str(), (u32)dir.firstDataSector, entry->startingPosition, entry->startingPosition);
+			VERBOSE_LOG(FILESYS, "%s: %s %08x %08x %d", entry->isDirectory ? "D" : "F", entry->name.c_str(), (u32)dir.firstDataSector, entry->startingPosition, entry->startingPosition);
 
 			// Round down to avoid any false reports.
 			if (isFile && dir.firstDataSector + (dir.dataLength / 2048) > blockDevice->GetNumBlocks()) {
 				blockDevice->NotifyReadError();
-				ERROR_LOG(FILESYS, "File '%s' starts or ends outside ISO", entry->name.c_str());
+				ERROR_LOG(FILESYS, "File '%s' starts or ends outside ISO. firstDataSector: %d len: %d", entry->BuildPath().c_str(), (int)dir.firstDataSector, (int)dir.dataLength);
 			}
 
 			if (entry->isDirectory && !relative) {

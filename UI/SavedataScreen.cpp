@@ -409,7 +409,7 @@ void SavedataButton::Draw(UIContext &dc) {
 
 std::string SavedataButton::DescribeText() const {
 	auto u = GetI18NCategory(I18NCat::UI_ELEMENTS);
-	return ReplaceAll(u->T("%1 button"), "%1", title_) + "\n" + subtitle_;
+	return ApplySafeSubstitutions(u->T("%1 button"), title_) + "\n" + subtitle_;
 }
 
 SavedataBrowser::SavedataBrowser(const Path &path, UI::LayoutParams *layoutParams)
@@ -465,9 +465,9 @@ void SavedataBrowser::SetSearchFilter(const std::string &filter) {
 	if (gameList_)
 		searchPending_ = true;
 	if (noMatchView_)
-		noMatchView_->SetText(ReplaceAll(sa->T("Nothing matching '%1' was found."), "%1", filter));
+		noMatchView_->SetText(ApplySafeSubstitutions(sa->T("Nothing matching '%1' was found."), filter));
 	if (searchingView_)
-		searchingView_->SetText(ReplaceAll(sa->T("Showing matches for '%1'."), "%1", filter));
+		searchingView_->SetText(ApplySafeSubstitutions(sa->T("Showing matches for '%1'."), filter));
 }
 
 void SavedataBrowser::SetSortOption(SavedataSortOption opt) {
@@ -654,8 +654,9 @@ void SavedataScreen::CreateViews() {
 	sortStrip->OnChoice.Handle<SavedataScreen>(this, &SavedataScreen::OnSortClick);
 
 	AddStandardBack(root_);
-	if (System_GetPropertyBool(SYSPROP_HAS_KEYBOARD))
+	if (System_GetPropertyBool(SYSPROP_HAS_TEXT_INPUT_DIALOG)) {
 		root_->Add(new Choice(di->T("Search"), "", false, new AnchorLayoutParams(WRAP_CONTENT, 64, NONE, NONE, 10, 10)))->OnClick.Handle<SavedataScreen>(this, &SavedataScreen::OnSearch);
+	}
 
 	root_->Add(main);
 	root_->Add(sortStrip);
@@ -672,13 +673,13 @@ UI::EventReturn SavedataScreen::OnSortClick(UI::EventParams &e) {
 
 UI::EventReturn SavedataScreen::OnSearch(UI::EventParams &e) {
 	auto di = GetI18NCategory(I18NCat::DIALOG);
-#if PPSSPP_PLATFORM(WINDOWS) || defined(USING_QT_UI) || defined(__ANDROID__)
-	System_InputBoxGetString(di->T("Filter"), searchFilter_, [](const std::string &value, int ivalue) {
-		if (ivalue) {
-			NativeMessageReceived("savedatascreen_search", value.c_str());
-		}
-	});
-#endif
+	if (System_GetPropertyBool(SYSPROP_HAS_TEXT_INPUT_DIALOG)) {
+		System_InputBoxGetString(di->T("Filter"), searchFilter_, [](const std::string &value, int ivalue) {
+			if (ivalue) {
+				System_PostUIMessage("savedatascreen_search", value.c_str());
+			}
+		});
+	}
 	return UI::EVENT_DONE;
 }
 

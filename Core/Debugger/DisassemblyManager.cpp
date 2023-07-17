@@ -102,36 +102,33 @@ static HashType computeHash(u32 address, u32 size)
 }
 
 
-void parseDisasm(const char* disasm, char* opcode, char* arguments, bool insertSymbols)
-{
+static void parseDisasm(const char *disasm, char *opcode, size_t opcodeSize, char *arguments, size_t argumentsSize, bool insertSymbols) {
 	// copy opcode
-	while (*disasm != 0 && *disasm != '\t')
-	{
-		*opcode++ = *disasm++;
+	size_t opcodePos = 0;
+	while (*disasm != 0 && *disasm != '\t' && opcodePos + 1 < opcodeSize) {
+		opcode[opcodePos++] = *disasm++;
 	}
-	*opcode = 0;
+	opcode[opcodePos] = 0;
 
-	if (*disasm++ == 0)
-	{
+	// Otherwise it's a tab, and we skip intentionally.
+	if (*disasm++ == 0) {
 		*arguments = 0;
 		return;
 	}
 
 	const char* jumpAddress = strstr(disasm,"->$");
 	const char* jumpRegister = strstr(disasm,"->");
-	while (*disasm != 0)
-	{
+	size_t argumentsPos = 0;
+	while (*disasm != 0 && argumentsPos + 1 < argumentsSize) {
 		// parse symbol
-		if (disasm == jumpAddress)
-		{
+		if (disasm == jumpAddress) {
 			u32 branchTarget = 0;
 			sscanf(disasm+3, "%08x", &branchTarget);
 			const std::string addressSymbol = g_symbolMap->GetLabelString(branchTarget);
-			if (!addressSymbol.empty() && insertSymbols)
-			{
-				arguments += sprintf(arguments, "%s", addressSymbol.c_str());
+			if (!addressSymbol.empty() && insertSymbols) {
+				argumentsPos += snprintf(&arguments[argumentsPos], argumentsSize - argumentsPos, "%s", addressSymbol.c_str());
 			} else {
-				arguments += sprintf(arguments, "0x%08X", branchTarget);
+				argumentsPos += snprintf(&arguments[argumentsPos], argumentsSize - argumentsPos, "0x%08X", branchTarget);
 			}
 
 			disasm += 3+8;
@@ -141,15 +138,14 @@ void parseDisasm(const char* disasm, char* opcode, char* arguments, bool insertS
 		if (disasm == jumpRegister)
 			disasm += 2;
 
-		if (*disasm == ' ')
-		{
+		if (*disasm == ' ') {
 			disasm++;
 			continue;
 		}
-		*arguments++ = *disasm++;
+		arguments[argumentsPos++] = *disasm++;
 	}
 
-	*arguments = 0;
+	arguments[argumentsPos] = 0;
 }
 
 std::map<u32,DisassemblyEntry*>::iterator findDisassemblyEntry(std::map<u32,DisassemblyEntry*>& entries, u32 address, bool exact)
@@ -766,8 +762,9 @@ bool DisassemblyOpcode::disassemble(u32 address, DisassemblyLineInfo &dest, bool
 		cpuDebug = DisassemblyManager::getCpu();
 
 	char opcode[64],arguments[256];
-	const char *dizz = cpuDebug->disasm(address, 4);
-	parseDisasm(dizz,opcode,arguments,insertSymbols);
+	char dizz[512];
+	cpuDebug->DisAsm(address, dizz, sizeof(dizz));
+	parseDisasm(dizz, opcode, sizeof(opcode), arguments, sizeof(arguments), insertSymbols);
 	dest.type = DISTYPE_OPCODE;
 	dest.name = opcode;
 	dest.params = arguments;
@@ -850,9 +847,9 @@ bool DisassemblyMacro::disassemble(u32 address, DisassemblyLineInfo &dest, bool 
 		
 		addressSymbol = g_symbolMap->GetLabelString(immediate);
 		if (!addressSymbol.empty() && insertSymbols) {
-			snprintf(buffer, sizeof(buffer), "%s,%s", cpuDebug->GetRegName(0, rt), addressSymbol.c_str());
+			snprintf(buffer, sizeof(buffer), "%s,%s", cpuDebug->GetRegName(0, rt).c_str(), addressSymbol.c_str());
 		} else {
-			snprintf(buffer, sizeof(buffer), "%s,0x%08X", cpuDebug->GetRegName(0, rt), immediate);
+			snprintf(buffer, sizeof(buffer), "%s,0x%08X", cpuDebug->GetRegName(0, rt).c_str(), immediate);
 		}
 
 		dest.params = buffer;
@@ -865,9 +862,9 @@ bool DisassemblyMacro::disassemble(u32 address, DisassemblyLineInfo &dest, bool 
 
 		addressSymbol = g_symbolMap->GetLabelString(immediate);
 		if (!addressSymbol.empty() && insertSymbols) {
-			snprintf(buffer, sizeof(buffer), "%s,%s", cpuDebug->GetRegName(0, rt), addressSymbol.c_str());
+			snprintf(buffer, sizeof(buffer), "%s,%s", cpuDebug->GetRegName(0, rt).c_str(), addressSymbol.c_str());
 		} else {
-			snprintf(buffer, sizeof(buffer), "%s,0x%08X", cpuDebug->GetRegName(0, rt), immediate);
+			snprintf(buffer, sizeof(buffer), "%s,0x%08X", cpuDebug->GetRegName(0, rt).c_str(), immediate);
 		}
 
 		dest.params = buffer;

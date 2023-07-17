@@ -180,8 +180,9 @@ public:
 
 	void Apply(GLRenderManager *render, uint8_t stencilRef, uint8_t stencilWriteMask, uint8_t stencilCompareMask) {
 		render->SetDepth(depthTestEnabled, depthWriteEnabled, depthComp);
-		render->SetStencilFunc(stencilEnabled, stencilCompareOp, stencilRef, stencilCompareMask);
-		render->SetStencilOp(stencilWriteMask, stencilFail, stencilZFail, stencilPass);
+		render->SetStencil(
+			stencilEnabled, stencilCompareOp, stencilRef, stencilCompareMask,
+			stencilWriteMask, stencilFail, stencilZFail, stencilPass);
 	}
 };
 
@@ -328,6 +329,9 @@ public:
 		DrawContext::SetTargetSize(w, h);
 		renderManager_.Resize(w, h);
 	}
+	void SetDebugFlags(DebugFlags flags) override {
+		debugFlags_ = flags;
+	}
 
 	const DeviceCaps &GetDeviceCaps() const override {
 		return caps_;
@@ -366,7 +370,12 @@ public:
 	void BeginFrame() override;
 	void EndFrame() override;
 
+	int GetFrameCount() override {
+		return frameCount_;
+	}
+
 	void UpdateBuffer(Buffer *buffer, const uint8_t *data, size_t offset, size_t size, UpdateBufferFlags flags) override;
+	void UpdateTextureLevels(Texture *texture, const uint8_t **data, TextureCallback initDataCallback, int numLevels) override;
 
 	void CopyFramebufferImage(Framebuffer *src, int level, int x, int y, int z, Framebuffer *dst, int dstLevel, int dstX, int dstY, int dstZ, int width, int height, int depth, int channelBits, const char *tag) override;
 	bool BlitFramebuffer(Framebuffer *src, int srcX1, int srcY1, int srcX2, int srcY2, Framebuffer *dst, int dstX1, int dstY1, int dstX2, int dstY2, int channelBits, FBBlitFilter filter, const char *tag) override;
@@ -404,12 +413,11 @@ public:
 		stencilWriteMask_ = writeMask;
 		stencilCompareMask_ = compareMask;
 		// Do we need to update on the fly here?
-		renderManager_.SetStencilFunc(
+		renderManager_.SetStencil(
 			curPipeline_->depthStencil->stencilEnabled,
 			curPipeline_->depthStencil->stencilCompareOp,
 			refValue,
-			compareMask);
-		renderManager_.SetStencilOp(
+			compareMask,
 			writeMask,
 			curPipeline_->depthStencil->stencilFail,
 			curPipeline_->depthStencil->stencilZFail,
@@ -488,6 +496,7 @@ private:
 	void ApplySamplers();
 
 	GLRenderManager renderManager_;
+	int frameCount_ = 0;
 
 	DeviceCaps caps_{};
 
@@ -514,6 +523,8 @@ private:
 		GLPushBuffer *push;
 	};
 	FrameData frameData_[GLRenderManager::MAX_INFLIGHT_FRAMES]{};
+
+	DebugFlags debugFlags_ = DebugFlags::NONE;
 };
 
 static constexpr int MakeIntelSimpleVer(int v1, int v2, int v3) {
@@ -626,7 +637,7 @@ OpenGLContext::OpenGLContext() {
 	caps_.isTilingGPU = gl_extensions.IsGLES && caps_.vendor != GPUVendor::VENDOR_NVIDIA && caps_.vendor != GPUVendor::VENDOR_INTEL;
 
 	for (int i = 0; i < GLRenderManager::MAX_INFLIGHT_FRAMES; i++) {
-		frameData_[i].push = renderManager_.CreatePushBuffer(i, GL_ARRAY_BUFFER, 64 * 1024);
+		frameData_[i].push = renderManager_.CreatePushBuffer(i, GL_ARRAY_BUFFER, 64 * 1024, "thin3d_vbuf");
 	}
 
 	if (!gl_extensions.VersionGEThan(3, 0, 0)) {
@@ -778,7 +789,7 @@ OpenGLContext::~OpenGLContext() {
 }
 
 void OpenGLContext::BeginFrame() {
-	renderManager_.BeginFrame();
+	renderManager_.BeginFrame(debugFlags_ & DebugFlags::PROFILE_TIMESTAMPS);
 	FrameData &frameData = frameData_[renderManager_.GetCurFrame()];
 	renderManager_.BeginPushBuffer(frameData.push);
 }
@@ -789,6 +800,7 @@ void OpenGLContext::EndFrame() {
 	renderManager_.Finish();
 
 	Invalidate(InvalidationFlags::CACHED_RENDER_STATE);
+	frameCount_++;
 }
 
 void OpenGLContext::Invalidate(InvalidationFlags flags) {
@@ -810,7 +822,7 @@ InputLayout *OpenGLContext::CreateInputLayout(const InputLayoutDesc &desc) {
 	return fmt;
 }
 
-GLuint TypeToTarget(TextureType type) {
+static GLuint TypeToTarget(TextureType type) {
 	switch (type) {
 #ifndef USING_GLES2
 	case TextureType::LINEAR1D: return GL_TEXTURE_1D;
@@ -848,25 +860,33 @@ public:
 		return tex_;
 	}
 
+	void UpdateTextureLevels(GLRenderManager *render, const uint8_t *const *data, int numLevels, TextureCallback initDataCallback);
+
 private:
-	void SetImageData(int x, int y, int z, int width, int height, int depth, int level, int stride, const uint8_t *data, TextureCallback callback);
+	void SetImageData(int x, int y, int z, int width, int height, int depth, int level, int stride, const uint8_t *data, TextureCallback initDataCallback);
 
 	GLRenderManager *render_;
 	GLRTexture *tex_;
 
-	DataFormat format_;
 	TextureType type_;
 	int mipLevels_;
-	bool generatedMips_;
+	bool generateMips_;  // Generate mips requested
+	bool generatedMips_;  // Has generated mips
 };
 
 OpenGLTexture::OpenGLTexture(GLRenderManager *render, const TextureDesc &desc) : render_(render) {
+	_dbg_assert_(desc.format != Draw::DataFormat::UNDEFINED);
+	_dbg_assert_(desc.width > 0 && desc.height > 0 && desc.depth > 0);
+	_dbg_assert_(desc.type != Draw::TextureType::UNKNOWN);
+
 	generatedMips_ = false;
+	generateMips_ = desc.generateMips;
 	width_ = desc.width;
 	height_ = desc.height;
 	depth_ = desc.depth;
 	format_ = desc.format;
 	type_ = desc.type;
+
 	GLenum target = TypeToTarget(desc.type);
 	tex_ = render->CreateTexture(target, desc.width, desc.height, 1, desc.mipLevels);
 
@@ -874,21 +894,25 @@ OpenGLTexture::OpenGLTexture(GLRenderManager *render, const TextureDesc &desc) :
 	if (desc.initData.empty())
 		return;
 
+	UpdateTextureLevels(render, desc.initData.data(), (int)desc.initData.size(), desc.initDataCallback);
+}
+
+void OpenGLTexture::UpdateTextureLevels(GLRenderManager *render, const uint8_t * const *data, int numLevels, TextureCallback initDataCallback) {
 	int level = 0;
 	int width = width_;
 	int height = height_;
 	int depth = depth_;
-	for (auto data : desc.initData) {
-		SetImageData(0, 0, 0, width, height, depth, level, 0, data, desc.initDataCallback);
+	for (int i = 0; i < numLevels; i++) {
+		SetImageData(0, 0, 0, width, height, depth, level, 0, data[i], initDataCallback);
 		width = (width + 1) / 2;
 		height = (height + 1) / 2;
 		depth = (depth + 1) / 2;
 		level++;
 	}
-	mipLevels_ = desc.generateMips ? desc.mipLevels : level;
+	mipLevels_ = generateMips_ ? mipLevels_ : level;
 
 	bool genMips = false;
-	if ((int)desc.initData.size() < desc.mipLevels && desc.generateMips) {
+	if (numLevels < mipLevels_ && generateMips_) {
 		// Assumes the texture is bound for editing
 		genMips = true;
 		generatedMips_ = true;
@@ -918,7 +942,7 @@ public:
 	GLRFramebuffer *framebuffer_ = nullptr;
 };
 
-void OpenGLTexture::SetImageData(int x, int y, int z, int width, int height, int depth, int level, int stride, const uint8_t *data, TextureCallback callback) {
+void OpenGLTexture::SetImageData(int x, int y, int z, int width, int height, int depth, int level, int stride, const uint8_t *data, TextureCallback initDataCallback) {
 	if ((width != width_ || height != height_ || depth != depth_) && level == 0) {
 		// When switching to texStorage we need to handle this correctly.
 		width_ = width;
@@ -934,8 +958,8 @@ void OpenGLTexture::SetImageData(int x, int y, int z, int width, int height, int
 	uint8_t *texData = new uint8_t[(size_t)(width * height * depth * alignment)];
 
 	bool texDataPopulated = false;
-	if (callback) {
-		texDataPopulated = callback(texData, data, width, height, depth, width * (int)alignment, height * width * (int)alignment);
+	if (initDataCallback) {
+		texDataPopulated = initDataCallback(texData, data, width, height, depth, width * (int)alignment, height * width * (int)alignment);
 	}
 	if (texDataPopulated) {
 		if (format_ == DataFormat::A1R5G5B5_UNORM_PACK16) {
@@ -1014,6 +1038,11 @@ bool OpenGLContext::CopyFramebufferToMemory(Framebuffer *src, int channelBits, i
 
 Texture *OpenGLContext::CreateTexture(const TextureDesc &desc) {
 	return new OpenGLTexture(&renderManager_, desc);
+}
+
+void OpenGLContext::UpdateTextureLevels(Texture *texture, const uint8_t **data, TextureCallback initDataCallback, int numLevels) {
+	OpenGLTexture *tex = (OpenGLTexture *)texture;
+	tex->UpdateTextureLevels(&renderManager_, data, numLevels, initDataCallback);
 }
 
 DepthStencilState *OpenGLContext::CreateDepthStencilState(const DepthStencilStateDesc &desc) {
@@ -1332,38 +1361,37 @@ void OpenGLContext::UpdateDynamicUniformBuffer(const void *ub, size_t size) {
 void OpenGLContext::Draw(int vertexCount, int offset) {
 	_dbg_assert_msg_(curVBuffers_[0] != nullptr, "Can't call Draw without a vertex buffer");
 	ApplySamplers();
-	if (curPipeline_->inputLayout) {
-		renderManager_.BindVertexBuffer(curPipeline_->inputLayout->inputLayout_, curVBuffers_[0]->buffer_, curVBufferOffsets_[0]);
-	}
-	renderManager_.Draw(curPipeline_->prim, offset, vertexCount);
+	_assert_(curPipeline_->inputLayout);
+	renderManager_.Draw(curPipeline_->inputLayout->inputLayout_, curVBuffers_[0]->buffer_, curVBufferOffsets_[0], curPipeline_->prim, offset, vertexCount);
 }
 
 void OpenGLContext::DrawIndexed(int vertexCount, int offset) {
 	_dbg_assert_msg_(curVBuffers_[0] != nullptr, "Can't call DrawIndexed without a vertex buffer");
 	_dbg_assert_msg_(curIBuffer_ != nullptr, "Can't call DrawIndexed without an index buffer");
 	ApplySamplers();
-	if (curPipeline_->inputLayout) {
-		renderManager_.BindVertexBuffer(curPipeline_->inputLayout->inputLayout_, curVBuffers_[0]->buffer_, curVBufferOffsets_[0]);
-	}
-	renderManager_.BindIndexBuffer(curIBuffer_->buffer_);
-	renderManager_.DrawIndexed(curPipeline_->prim, vertexCount, GL_UNSIGNED_SHORT, (void *)((intptr_t)curIBufferOffset_ + offset * sizeof(uint32_t)));
+	_assert_(curPipeline_->inputLayout);
+	renderManager_.DrawIndexed(
+		curPipeline_->inputLayout->inputLayout_,
+		curVBuffers_[0]->buffer_, curVBufferOffsets_[0],
+		curIBuffer_->buffer_, curIBufferOffset_ + offset * sizeof(uint32_t),
+		curPipeline_->prim, vertexCount, GL_UNSIGNED_SHORT);
 }
 
 void OpenGLContext::DrawUP(const void *vdata, int vertexCount) {
 	_assert_(curPipeline_->inputLayout != nullptr);
 	int stride = curPipeline_->inputLayout->stride;
-	size_t dataSize = stride * vertexCount;
+	uint32_t dataSize = stride * vertexCount;
 
 	FrameData &frameData = frameData_[renderManager_.GetCurFrame()];
 
 	GLRBuffer *buf;
-	size_t offset = frameData.push->Push(vdata, dataSize, &buf);
+	uint32_t offset;
+	uint8_t *dest = frameData.push->Allocate(dataSize, 4, &buf, &offset);
+	memcpy(dest, vdata, dataSize);
 
 	ApplySamplers();
-	if (curPipeline_->inputLayout) {
-		renderManager_.BindVertexBuffer(curPipeline_->inputLayout->inputLayout_, buf, offset);
-	}
-	renderManager_.Draw(curPipeline_->prim, 0, vertexCount);
+	_assert_(curPipeline_->inputLayout);
+	renderManager_.Draw(curPipeline_->inputLayout->inputLayout_, buf, offset, curPipeline_->prim, 0, vertexCount);
 }
 
 void OpenGLContext::Clear(int mask, uint32_t colorval, float depthVal, int stencilVal) {
@@ -1443,7 +1471,7 @@ Framebuffer *OpenGLContext::CreateFramebuffer(const FramebufferDesc &desc) {
 	// TODO: Support multiview later. (It's our only use case for multi layers).
 	_dbg_assert_(desc.numLayers == 1);
 
-	GLRFramebuffer *framebuffer = renderManager_.CreateFramebuffer(desc.width, desc.height, desc.z_stencil);
+	GLRFramebuffer *framebuffer = renderManager_.CreateFramebuffer(desc.width, desc.height, desc.z_stencil, desc.tag);
 	OpenGLFramebuffer *fbo = new OpenGLFramebuffer(&renderManager_, framebuffer);
 	return fbo;
 }

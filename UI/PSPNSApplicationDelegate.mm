@@ -6,9 +6,11 @@
 //
 
 #import <Cocoa/Cocoa.h>
+
 #import "PSPNSApplicationDelegate.h"
+
+#include "Common/System/System.h"
 #include "Core/SaveState.h"
-#include "Common/System/NativeApp.h"
 #include "Core/Config.h"
 
 @implementation PSPNSApplicationDelegate
@@ -26,7 +28,7 @@
 	NSURL *firstURL = urls.firstObject;
 	if (!firstURL) return; // No URLs, don't do anything
 	
-	NativeMessageReceived("boot", firstURL.fileSystemRepresentation);
+	System_PostUIMessage("boot", firstURL.fileSystemRepresentation);
 }
 
 - (NSMenu *)applicationDockMenu:(NSApplication *)sender {

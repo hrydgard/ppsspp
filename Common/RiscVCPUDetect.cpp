@@ -209,8 +209,8 @@ void CPUInfo::Detect()
 	RiscV_C = ExtensionSupported(hwcap, 'C');
 	RiscV_V = ExtensionSupported(hwcap, 'V');
 	RiscV_B = ExtensionSupported(hwcap, 'B');
-	// Let's assume for now...
-	RiscV_Zicsr = RiscV_M && RiscV_A && RiscV_F && RiscV_D;
+	// We assume as in RVA20U64 that F means Zicsr is available.
+	RiscV_Zicsr = RiscV_F;
 
 #ifdef USE_CPU_FEATURES
 	cpu_features::RiscvInfo info = cpu_features::GetRiscvInfo();
@@ -220,6 +220,7 @@ void CPUInfo::Detect()
 	RiscV_F = info.features.F;
 	RiscV_D = info.features.D;
 	RiscV_C = info.features.C;
+	RiscV_V = info.features.V;
 	RiscV_Zicsr = info.features.Zicsr;
 
 	truncate_cpy(brand_string, info.uarch);

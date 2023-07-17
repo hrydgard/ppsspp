@@ -196,5 +196,5 @@ public:
 #endif
 
 protected:
-	bool UpdateUseHWTessellation(bool enable) override { return false; }
+	bool UpdateUseHWTessellation(bool enable) const override { return false; }
 };

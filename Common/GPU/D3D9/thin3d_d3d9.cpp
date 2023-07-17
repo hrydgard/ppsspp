@@ -308,14 +308,14 @@ public:
 			return nullptr;
 		}
 	}
+	void UpdateTextureLevels(const uint8_t * const *data, int numLevels, TextureCallback initDataCallback);
 
 private:
-	void SetImageData(int x, int y, int z, int width, int height, int depth, int level, int stride, const uint8_t *data, TextureCallback callback);
+	void SetImageData(int x, int y, int z, int width, int height, int depth, int level, int stride, const uint8_t *data, TextureCallback initDataCallback);
 	bool Create(const TextureDesc &desc);
 	LPDIRECT3DDEVICE9 device_;
 	LPDIRECT3DDEVICE9EX deviceEx_;
 	TextureType type_;
-	DataFormat format_;
 	D3DFORMAT d3dfmt_;
 	LPDIRECT3DTEXTURE9 tex_ = nullptr;
 	LPDIRECT3DVOLUMETEXTURE9 volTex_ = nullptr;
@@ -374,25 +374,29 @@ bool D3D9Texture::Create(const TextureDesc &desc) {
 		break;
 	}
 	if (FAILED(hr)) {
-		ERROR_LOG(G3D,  "Texture creation failed");
+		ERROR_LOG(G3D, "D3D9 Texture creation failed");
 		return false;
 	}
 
 	if (desc.initData.size()) {
 		// In D3D9, after setting D3DUSAGE_AUTOGENMIPS, we can only access the top layer. The rest will be
 		// automatically generated.
-		int maxLevel = desc.generateMips ? 1 : (int)desc.initData.size();
-		int w = desc.width;
-		int h = desc.height;
-		int d = desc.depth;
-		for (int i = 0; i < maxLevel; i++) {
-			SetImageData(0, 0, 0, w, h, d, i, 0, desc.initData[i], desc.initDataCallback);
-			w = (w + 1) / 2;
-			h = (h + 1) / 2;
-			d = (d + 1) / 2;
-		}
+		int numLevels = desc.generateMips ? 1 : (int)desc.initData.size();
+		UpdateTextureLevels(desc.initData.data(), numLevels, desc.initDataCallback);
 	}
 	return true;
+}
+
+void D3D9Texture::UpdateTextureLevels(const uint8_t * const *data, int numLevels, TextureCallback initDataCallback) {
+	int w = width_;
+	int h = height_;
+	int d = depth_;
+	for (int i = 0; i < numLevels; i++) {
+		SetImageData(0, 0, 0, w, h, d, i, 0, data[i], initDataCallback);
+		w = (w + 1) / 2;
+		h = (h + 1) / 2;
+		d = (d + 1) / 2;
+	}
 }
 
 // Just switches R and G.
@@ -532,6 +536,7 @@ public:
 	Framebuffer *CreateFramebuffer(const FramebufferDesc &desc) override;
 
 	void UpdateBuffer(Buffer *buffer, const uint8_t *data, size_t offset, size_t size, UpdateBufferFlags flags) override;
+	void UpdateTextureLevels(Texture *texture, const uint8_t **data, TextureCallback initDataCallback, int numLevels) override;
 
 	void CopyFramebufferImage(Framebuffer *src, int level, int x, int y, int z, Framebuffer *dst, int dstLevel, int dstX, int dstY, int dstZ, int width, int height, int depth, int channelBits, const char *tag) override {
 		// Not implemented
@@ -575,6 +580,7 @@ public:
 	}
 
 	void EndFrame() override;
+	int GetFrameCount() override { return frameCount_; }
 
 	void UpdateDynamicUniformBuffer(const void *ub, size_t size) override;
 
@@ -635,6 +641,7 @@ private:
 	D3DCAPS9 d3dCaps_;
 	char shadeLangVersion_[64]{};
 	DeviceCaps caps_{};
+	int frameCount_ = 0;
 
 	// Bound state
 	AutoRef<D3D9Pipeline> curPipeline_;
@@ -934,6 +941,12 @@ Texture *D3D9Context::CreateTexture(const TextureDesc &desc) {
 	return tex;
 }
 
+void D3D9Context::UpdateTextureLevels(Texture *texture, const uint8_t **data, TextureCallback initDataCallback, int numLevels) {
+	D3D9Texture *tex = (D3D9Texture *)texture;
+	tex->UpdateTextureLevels(data, numLevels, initDataCallback);
+}
+
+
 void D3D9Context::BindTextures(int start, int count, Texture **textures, TextureBindFlags flags) {
 	_assert_(start + count <= MAX_BOUND_TEXTURES);
 	for (int i = start; i < start + count; i++) {
@@ -953,6 +966,7 @@ void D3D9Context::BindNativeTexture(int index, void *nativeTexture) {
 
 void D3D9Context::EndFrame() {
 	curPipeline_ = nullptr;
+	frameCount_++;
 }
 
 static void SemanticToD3D9UsageAndIndex(int semantic, BYTE *usage, BYTE *index) {

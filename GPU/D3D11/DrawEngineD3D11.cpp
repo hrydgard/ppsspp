@@ -88,7 +88,7 @@ DrawEngineD3D11::DrawEngineD3D11(Draw::DrawContext *draw, ID3D11Device *device, 
 	// Allocate nicely aligned memory. Maybe graphics drivers will
 	// appreciate it.
 	// All this is a LOT of memory, need to see if we can cut down somehow.
-	indexGen.Setup(decIndex);
+	indexGen.Setup(decIndex_);
 
 	InitDeviceObjects();
 
@@ -132,7 +132,9 @@ void DrawEngineD3D11::NotifyConfigChanged() {
 }
 
 void DrawEngineD3D11::DestroyDeviceObjects() {
-	draw_->SetInvalidationCallback(InvalidationCallback());
+	if (draw_) {
+		draw_->SetInvalidationCallback(InvalidationCallback());
+	}
 
 	ClearTrackedVertexArrays();
 	ClearInputLayoutMap();
@@ -327,7 +329,7 @@ void DrawEngineD3D11::Invalidate(InvalidationCallbackFlags flags) {
 	}
 }
 
-// The inline wrapper in the header checks for numDrawCalls == 0
+// The inline wrapper in the header checks for numDrawCalls_ == 0
 void DrawEngineD3D11::DoFlush() {
 	bool textureNeedsApply = false;
 	if (gstate_c.IsDirty(DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS) && !gstate.isModeClear() && gstate.isTextureMapEnabled()) {
@@ -363,12 +365,13 @@ void DrawEngineD3D11::DoFlush() {
 			useCache = false;
 
 		if (useCache) {
-			u32 id = dcid_ ^ gstate.getUVGenMode();  // This can have an effect on which UV decoder we need to use! And hence what the decoded data will look like. See #9263
+			// getUVGenMode can have an effect on which UV decoder we need to use! And hence what the decoded data will look like. See #9263
+			u32 dcid = (u32)XXH3_64bits(&drawCalls_, sizeof(DeferredDrawCall) * numDrawCalls_) ^ gstate.getUVGenMode();
 
-			VertexArrayInfoD3D11 *vai = vai_.Get(id);
+			VertexArrayInfoD3D11 *vai = vai_.Get(dcid);
 			if (!vai) {
 				vai = new VertexArrayInfoD3D11();
-				vai_.Insert(id, vai);
+				vai_.Insert(dcid, vai);
 			}
 
 			switch (vai->status) {
@@ -380,7 +383,7 @@ void DrawEngineD3D11::DoFlush() {
 					vai->minihash = ComputeMiniHash();
 					vai->status = VertexArrayInfoD3D11::VAI_HASHING;
 					vai->drawsUntilNextFullHash = 0;
-					DecodeVerts(decoded); // writes to indexGen
+					DecodeVerts(decoded_); // writes to indexGen
 					vai->numVerts = indexGen.VertexCount();
 					vai->prim = indexGen.Prim();
 					vai->maxIndex = indexGen.MaxIndex();
@@ -405,7 +408,7 @@ void DrawEngineD3D11::DoFlush() {
 						}
 						if (newMiniHash != vai->minihash || newHash != vai->hash) {
 							MarkUnreliable(vai);
-							DecodeVerts(decoded);
+							DecodeVerts(decoded_);
 							goto rotateVBO;
 						}
 						if (vai->numVerts > 64) {
@@ -424,13 +427,13 @@ void DrawEngineD3D11::DoFlush() {
 						u32 newMiniHash = ComputeMiniHash();
 						if (newMiniHash != vai->minihash) {
 							MarkUnreliable(vai);
-							DecodeVerts(decoded);
+							DecodeVerts(decoded_);
 							goto rotateVBO;
 						}
 					}
 
 					if (vai->vbo == 0) {
-						DecodeVerts(decoded);
+						DecodeVerts(decoded_);
 						vai->numVerts = indexGen.VertexCount();
 						vai->prim = indexGen.Prim();
 						vai->maxIndex = indexGen.MaxIndex();
@@ -445,12 +448,12 @@ void DrawEngineD3D11::DoFlush() {
 						// TODO: Combine these two into one buffer?
 						u32 size = dec_->GetDecVtxFmt().stride * indexGen.MaxIndex();
 						D3D11_BUFFER_DESC desc{ size, D3D11_USAGE_IMMUTABLE, D3D11_BIND_VERTEX_BUFFER, 0 };
-						D3D11_SUBRESOURCE_DATA data{ decoded };
+						D3D11_SUBRESOURCE_DATA data{ decoded_ };
 						ASSERT_SUCCESS(device_->CreateBuffer(&desc, &data, &vai->vbo));
 						if (useElements) {
 							u32 size = sizeof(short) * indexGen.VertexCount();
 							D3D11_BUFFER_DESC desc{ size, D3D11_USAGE_IMMUTABLE, D3D11_BIND_INDEX_BUFFER, 0 };
-							D3D11_SUBRESOURCE_DATA data{ decIndex };
+							D3D11_SUBRESOURCE_DATA data{ decIndex_ };
 							ASSERT_SUCCESS(device_->CreateBuffer(&desc, &data, &vai->ebo));
 						} else {
 							vai->ebo = 0;
@@ -496,14 +499,14 @@ void DrawEngineD3D11::DoFlush() {
 					if (vai->lastFrame != gpuStats.numFlips) {
 						vai->numFrames++;
 					}
-					DecodeVerts(decoded);
+					DecodeVerts(decoded_);
 					goto rotateVBO;
 				}
 			}
 
 			vai->lastFrame = gpuStats.numFlips;
 		} else {
-			DecodeVerts(decoded);
+			DecodeVerts(decoded_);
 rotateVBO:
 			gpuStats.numUncachedVertsDrawn += indexGen.VertexCount();
 			useElements = !indexGen.SeenOnlyPurePrims() || prim == GE_PRIM_TRIANGLE_FAN;
@@ -548,7 +551,7 @@ rotateVBO:
 			UINT vOffset;
 			int vSize = (maxIndex + 1) * dec_->GetDecVtxFmt().stride;
 			uint8_t *vptr = pushVerts_->BeginPush(context_, &vOffset, vSize);
-			memcpy(vptr, decoded, vSize);
+			memcpy(vptr, decoded_, vSize);
 			pushVerts_->EndPush(context_);
 			ID3D11Buffer *buf = pushVerts_->Buf();
 			context_->IASetVertexBuffers(0, 1, &buf, &stride, &vOffset);
@@ -556,7 +559,7 @@ rotateVBO:
 				UINT iOffset;
 				int iSize = 2 * indexGen.VertexCount();
 				uint8_t *iptr = pushInds_->BeginPush(context_, &iOffset, iSize);
-				memcpy(iptr, decIndex, iSize);
+				memcpy(iptr, decIndex_, iSize);
 				pushInds_->EndPush(context_);
 				context_->IASetIndexBuffer(pushInds_->Buf(), DXGI_FORMAT_R16_UINT, iOffset);
 				context_->DrawIndexed(vertexCount, 0, 0);
@@ -580,7 +583,7 @@ rotateVBO:
 			lastVType_ |= (1 << 26);
 			dec_ = GetVertexDecoder(lastVType_);
 		}
-		DecodeVerts(decoded);
+		DecodeVerts(decoded_);
 		bool hasColor = (lastVType_ & GE_VTYPE_COL_MASK) != GE_VTYPE_COL_NONE;
 		if (gstate.isModeThrough()) {
 			gstate_c.vertexFullAlpha = gstate_c.vertexFullAlpha && (hasColor || gstate.getMaterialAmbientA() == 255);
@@ -595,12 +598,12 @@ rotateVBO:
 			prim = GE_PRIM_TRIANGLES;
 		VERBOSE_LOG(G3D, "Flush prim %i SW! %i verts in one go", prim, indexGen.VertexCount());
 
-		u16 *inds = decIndex;
+		u16 *inds = decIndex_;
 		SoftwareTransformResult result{};
 		SoftwareTransformParams params{};
-		params.decoded = decoded;
-		params.transformed = transformed;
-		params.transformedExpanded = transformedExpanded;
+		params.decoded = decoded_;
+		params.transformed = transformed_;
+		params.transformedExpanded = transformedExpanded_;
 		params.fbman = framebufferManager_;
 		params.texCache = textureCache_;
 		params.allowClear = true;
@@ -716,15 +719,14 @@ rotateVBO:
 	}
 
 	gpuStats.numFlushes++;
-	gpuStats.numDrawCalls += numDrawCalls;
+	gpuStats.numDrawCalls += numDrawCalls_;
 	gpuStats.numVertsSubmitted += vertexCountInDrawCalls_;
 
 	indexGen.Reset();
 	decodedVerts_ = 0;
-	numDrawCalls = 0;
+	numDrawCalls_ = 0;
 	vertexCountInDrawCalls_ = 0;
 	decodeCounter_ = 0;
-	dcid_ = 0;
 	gstate_c.vertexFullAlpha = true;
 	framebufferManager_->SetColorUpdated(gstate_c.skipDrawReason);
 

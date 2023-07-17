@@ -97,10 +97,15 @@ protected:
 	double dataTimeout_ = 900.0;
 };
 
-// Not particularly efficient, but hey - it's a background download, that's pretty cool :P
+enum class RequestMethod {
+	GET,
+	POST,
+};
+
+// Really an asynchronous request.
 class Download {
 public:
-	Download(const std::string &url, const Path &outfile);
+	Download(RequestMethod method, const std::string &url, const std::string &postData, const std::string &postMime, const Path &outfile);
 	~Download();
 
 	void Start();
@@ -151,20 +156,27 @@ public:
 	// Downloader::GetCurrentProgress won't return it in the results.
 	bool IsHidden() const { return hidden_; }
 	void SetHidden(bool hidden) { hidden_ = hidden; }
+	void SetUserAgent(const std::string &userAgent) {
+		userAgent_ = userAgent;
+	}
 
 private:
 	void Do();  // Actually does the download. Runs on thread.
-	int PerformGET(const std::string &url);
+	int Perform(const std::string &url);
 	std::string RedirectLocation(const std::string &baseUrl);
 	void SetFailed(int code);
 
 	RequestProgress progress_;
+	RequestMethod method_;
+	std::string postData_;
+	std::string userAgent_;
 	Buffer buffer_;
 	std::vector<std::string> responseHeaders_;
 	std::string url_;
 	Path outfile_;
 	std::thread thread_;
 	const char *acceptMime_ = "*/*";
+	std::string postMime_;
 	int resultCode_ = 0;
 	bool completed_ = false;
 	bool failed_ = false;
@@ -190,14 +202,34 @@ public:
 		std::function<void(Download &)> callback,
 		const char *acceptMime = nullptr);
 
+	std::shared_ptr<Download> AsyncPostWithCallback(
+		const std::string &url,
+		const std::string &postData,
+		const std::string &postMime, // Use postMime = "application/x-www-form-urlencoded" for standard form-style posts, such as used by retroachievements. For encoding form data manually we have MultipartFormDataEncoder.
+		std::function<void(Download &)> callback);
+
 	// Drops finished downloads from the list.
 	void Update();
 	void CancelAll();
 
+	void WaitForAll();
+	void SetUserAgent(const std::string &userAgent) {
+		userAgent_ = userAgent;
+	}
+
 	std::vector<float> GetCurrentProgress();
+
+	size_t GetActiveCount() const {
+		return downloads_.size();
+	}
 
 private:
 	std::vector<std::shared_ptr<Download>> downloads_;
+	// These get copied to downloads_ in Update(). It's so that callbacks can add new downloads
+	// while running.
+	std::vector<std::shared_ptr<Download>> newDownloads_;
+
+	std::string userAgent_;
 };
 
 }	// http

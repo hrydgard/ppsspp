@@ -1,7 +1,10 @@
+#include <cstring>
+
 #include "Common/System/Request.h"
 #include "Common/System/System.h"
 #include "Common/Log.h"
 #include "Common/File/Path.h"
+#include "Common/TimeUtil.h"
 
 RequestManager g_requestManager;
 

@@ -96,7 +96,9 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 
 	p.ApplySamplerMetadata(arrayTexture ? samplersStereo : samplersMono);
 
+	bool lmode = id.Bit(FS_BIT_LMODE);
 	bool doTexture = id.Bit(FS_BIT_DO_TEXTURE);
+	bool enableFog = id.Bit(FS_BIT_ENABLE_FOG);
 	bool enableAlphaTest = id.Bit(FS_BIT_ALPHA_TEST);
 
 	bool alphaTestAgainstZero = id.Bit(FS_BIT_ALPHA_AGAINST_ZERO);
@@ -104,6 +106,11 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 	bool enableColorTest = id.Bit(FS_BIT_COLOR_TEST);
 	bool colorTestAgainstZero = id.Bit(FS_BIT_COLOR_AGAINST_ZERO);
 	bool doTextureProjection = id.Bit(FS_BIT_DO_TEXTURE_PROJ);
+
+	bool ubershader = id.Bit(FS_BIT_UBERSHADER);
+	// ubershader-controlled bits. If ubershader is on, these will not be used below (and will be false).
+	bool useTexAlpha = id.Bit(FS_BIT_TEXALPHA);
+	bool enableColorDouble = id.Bit(FS_BIT_DOUBLE_COLOR);
 
 	if (texture3D && arrayTexture) {
 		*errorString = "Invalid combination of 3D texture and array texture, shouldn't happen";
@@ -164,13 +171,17 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 	bool fetchFramebuffer = needFramebufferRead && id.Bit(FS_BIT_USE_FRAMEBUFFER_FETCH);
 	bool readFramebufferTex = needFramebufferRead && !id.Bit(FS_BIT_USE_FRAMEBUFFER_FETCH);
 
-	if (fetchFramebuffer && compat.shaderLanguage != GLSL_VULKAN && (compat.shaderLanguage != GLSL_3xx || !compat.lastFragData)) {
-		*errorString = "framebuffer fetch requires GLSL: vulkan or 3xx";
+	if (fetchFramebuffer && (compat.shaderLanguage != GLSL_3xx || !compat.lastFragData)) {
+		*errorString = "framebuffer fetch requires GLSL 3xx";
 		return false;
 	}
 
 	bool needFragCoord = readFramebufferTex || gstate_c.Use(GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT);
 	bool writeDepth = gstate_c.Use(GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT);
+
+	// TODO: We could have a separate mechanism to support more ops using the shader blending mechanism,
+// on hardware that can do proper bit math in fragment shaders.
+	SimulateLogicOpType simulateLogicOpType = (SimulateLogicOpType)id.Bits(FS_BIT_SIMULATE_LOGIC_OP_TYPE, 2);
 
 	if (shaderDepalMode != ShaderDepalMode::OFF && !doTexture) {
 		*errorString = "depal requires a texture";
@@ -193,9 +204,6 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 		if (readFramebufferTex) {
 			// The framebuffer texture is always bound as an array.
 			p.F("layout (set = 0, binding = %d) uniform sampler2DArray fbotex;\n", DRAW_BINDING_2ND_TEXTURE);
-		} else if (fetchFramebuffer) {
-			p.F("layout (input_attachment_index = 0, set = 0, binding = %d) uniform subpassInput inputColor;\n", DRAW_BINDING_INPUT_ATTACHMENT);
-			*fragmentShaderFlags |= FragmentShaderFlags::INPUT_ATTACHMENT;
 		}
 
 		if (shaderDepalMode != ShaderDepalMode::OFF) {
@@ -204,7 +212,9 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 
 		// Note: the precision qualifiers must match the vertex shader!
 		WRITE(p, "layout (location = 1) %s in lowp vec4 v_color0;\n", shading);
-		WRITE(p, "layout (location = 2) %s in lowp vec3 v_color1;\n", shading);
+		if (lmode) {
+			WRITE(p, "layout (location = 2) %s in lowp vec3 v_color1;\n", shading);
+		}
 		WRITE(p, "layout (location = 3) in highp float v_fogdepth;\n");
 		if (doTexture) {
 			WRITE(p, "layout (location = 0) in highp vec3 v_texcoord;\n");
@@ -256,10 +266,13 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 				if (texFunc == GE_TEXFUNC_BLEND) {
 					WRITE(p, "float3 u_texenv : register(c%i);\n", CONST_PS_TEXENV);
 				}
-				WRITE(p, "float u_texNoAlpha : register(c%i);\n", CONST_PS_TEX_NO_ALPHA);
-				WRITE(p, "float u_texMul : register(c%i);\n", CONST_PS_TEX_MUL);
+				if (ubershader) {
+					WRITE(p, "float2 u_texNoAlphaMul : register(c%i);\n", CONST_PS_TEX_NO_ALPHA_MUL);
+				}
 			}
-			WRITE(p, "float3 u_fogcolor : register(c%i);\n", CONST_PS_FOGCOLOR);
+			if (enableFog) {
+				WRITE(p, "float3 u_fogcolor : register(c%i);\n", CONST_PS_FOGCOLOR);
+			}
 			if (texture3D) {
 				WRITE(p, "float u_mipBias : register(c%i);\n", CONST_PS_MIPBIAS);
 			}
@@ -308,7 +321,9 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 		}
 		const char *colorInterpolation = doFlatShading && compat.shaderLanguage == HLSL_D3D11 ? "nointerpolation " : "";
 		WRITE(p, "  %svec4 v_color0: COLOR0;\n", colorInterpolation);
-		WRITE(p, "  vec3 v_color1: COLOR1;\n");
+		if (lmode) {
+			WRITE(p, "  vec3 v_color1: COLOR1;\n");
+		}
 		WRITE(p, "  float v_fogdepth: TEXCOORD1;\n");
 		if (needFragCoord) {
 			if (compat.shaderLanguage == HLSL_D3D11) {
@@ -352,8 +367,9 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 				WRITE(p, "uniform sampler2D tex;\n");
 			}
 			*uniformMask |= DIRTY_TEX_ALPHA_MUL;
-			WRITE(p, "uniform float u_texNoAlpha;\n");
-			WRITE(p, "uniform float u_texMul;\n");
+			if (ubershader) {
+				WRITE(p, "uniform vec2 u_texNoAlphaMul;\n");
+			}
 		}
 
 		if (readFramebufferTex) {
@@ -379,6 +395,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 			WRITE(p, "uniform vec2 u_texclampoff;\n");
 		}
 
+		// TODO: Can get rid of some of this in the != 0 cases.
 		if (enableAlphaTest || enableColorTest) {
 			if (enableFragmentTestCache) {
 				WRITE(p, "uniform sampler2D testtex;\n");
@@ -422,9 +439,13 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 		}
 
 		WRITE(p, "%s %s lowp vec4 v_color0;\n", shading, compat.varying_fs);
-		WRITE(p, "%s %s lowp vec3 v_color1;\n", shading, compat.varying_fs);
-		*uniformMask |= DIRTY_FOGCOLOR;
-		WRITE(p, "uniform vec3 u_fogcolor;\n");
+		if (lmode) {
+			WRITE(p, "%s %s lowp vec3 v_color1;\n", shading, compat.varying_fs);
+		}
+		if (enableFog) {
+			*uniformMask |= DIRTY_FOGCOLOR;
+			WRITE(p, "uniform vec3 u_fogcolor;\n");
+		}
 		WRITE(p, "%s %s float v_fogdepth;\n", compat.varying_fs, highpFog ? "highp" : "mediump");
 		if (doTexture) {
 			WRITE(p, "%s %s vec3 v_texcoord;\n", compat.varying_fs, highpTexcoord ? "highp" : "mediump");
@@ -530,8 +551,12 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 
 	if (compat.shaderLanguage == HLSL_D3D11 || compat.shaderLanguage == HLSL_D3D9) {
 		WRITE(p, "  vec4 v_color0 = In.v_color0;\n");
-		WRITE(p, "  vec3 v_color1 = In.v_color1;\n");
-		WRITE(p, "  float v_fogdepth = In.v_fogdepth;\n");
+		if (lmode) {
+			WRITE(p, "  vec3 v_color1 = In.v_color1;\n");
+		}
+		if (enableFog) {
+			WRITE(p, "  float v_fogdepth = In.v_fogdepth;\n");
+		}
 		if (doTexture) {
 			WRITE(p, "  vec3 v_texcoord = In.v_texcoord;\n");
 		}
@@ -566,8 +591,12 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 		// Clear mode does not allow any fancy shading.
 		WRITE(p, "  vec4 v = v_color0;\n");
 	} else {
+		const char *secondary = "";
 		// Secondary color for specular on top of texture
-		WRITE(p, "  vec4 s = vec4(v_color1, 0.0);\n");
+		if (lmode) {
+			WRITE(p, "  vec4 s = vec4(v_color1, 0.0);\n");
+			secondary = " + s";
+		}
 
 		if (doTexture) {
 			char texcoord[64] = "v_texcoord";
@@ -819,46 +848,66 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 			WRITE(p, "  vec4 p = v_color0;\n");
 
 			if (texFunc != GE_TEXFUNC_REPLACE) {
-				WRITE(p, "  t.a = max(t.a, u_texNoAlpha);\n");
+				if (ubershader) {
+					WRITE(p, "  t.a = max(t.a, u_texNoAlphaMul.x);\n");
+				} else if (!useTexAlpha) {
+					WRITE(p, "  t.a = 1.0;\n");
+				}
 			}
 
 			switch (texFunc) {
 			case GE_TEXFUNC_MODULATE:
-				WRITE(p, "  vec4 v = p * t + s;\n");
+				WRITE(p, "  vec4 v = p * t%s;\n", secondary);
 				break;
 			case GE_TEXFUNC_DECAL:
-				WRITE(p, "  vec4 v = vec4(mix(p.rgb, t.rgb, t.a), p.a) + s;\n");
+				WRITE(p, "  vec4 v = vec4(mix(p.rgb, t.rgb, t.a), p.a)%s;\n", secondary);
 				break;
 			case GE_TEXFUNC_BLEND:
-				WRITE(p, "  vec4 v = vec4(mix(p.rgb, u_texenv.rgb, t.rgb), p.a * t.a) + s;\n");
+				WRITE(p, "  vec4 v = vec4(mix(p.rgb, u_texenv.rgb, t.rgb), p.a * t.a)%s;\n", secondary);
 				break;
 			case GE_TEXFUNC_REPLACE:
 				WRITE(p, "  vec4 r = t;\n");
-				WRITE(p, "  r.a = mix(r.a, p.a, u_texNoAlpha);\n");
-				WRITE(p, "  vec4 v = r + s;\n");
+				if (ubershader) {
+					WRITE(p, "  r.a = mix(r.a, p.a, u_texNoAlphaMul.x);\n");
+				} else if (!useTexAlpha) {
+					WRITE(p, "  r.a = p.a;\n");
+				}
+				WRITE(p, "  vec4 v = r%s;\n", secondary);
 				break;
 			case GE_TEXFUNC_ADD:
 			case GE_TEXFUNC_UNKNOWN1:
 			case GE_TEXFUNC_UNKNOWN2:
 			case GE_TEXFUNC_UNKNOWN3:
-				WRITE(p, "  vec4 v = vec4(p.rgb + t.rgb, p.a * t.a) + s;\n");
+				WRITE(p, "  vec4 v = vec4(p.rgb + t.rgb, p.a * t.a)%s;\n", secondary);
 				break;
 			default:
 				// Doesn't happen
-				WRITE(p, "  vec4 v = p + s;\n"); break;
+				WRITE(p, "  vec4 v = p%s;\n", secondary); break;
 				break;
 			}
 
 			// This happens before fog is applied.
 			*uniformMask |= DIRTY_TEX_ALPHA_MUL;
-			WRITE(p, "  v.rgb = clamp(v.rgb * u_texMul, 0.0, 1.0);\n");
+
+			// We only need a clamp if the color will be further processed. Otherwise the hardware color conversion will clamp for us.
+			if (ubershader) {
+				if (enableFog || enableColorTest || replaceBlend != REPLACE_BLEND_NO || simulateLogicOpType != LOGICOPTYPE_NORMAL || colorWriteMask || blueToAlpha) {
+					WRITE(p, "  v.rgb = clamp(v.rgb * u_texNoAlphaMul.y, 0.0, 1.0);\n");
+				} else {
+					WRITE(p, "  v.rgb *= u_texNoAlphaMul.y;\n");
+				}
+			} else if (enableColorDouble) {
+				p.C("  v.rgb = clamp(v.rgb * 2.0, 0.0, 1.0);\n");
+			}
 		} else {
 			// No texture mapping
-			WRITE(p, "  vec4 v = v_color0 + s;\n");
+			WRITE(p, "  vec4 v = v_color0%s;\n", secondary);
 		}
 
-		WRITE(p, "  float fogCoef = clamp(v_fogdepth, 0.0, 1.0);\n");
-		WRITE(p, "  v = mix(vec4(u_fogcolor, v.a), v, fogCoef);\n");
+		if (enableFog) {
+			WRITE(p, "  float fogCoef = clamp(v_fogdepth, 0.0, 1.0);\n");
+			WRITE(p, "  v = mix(vec4(u_fogcolor, v.a), v, fogCoef);\n");
+		}
 
 		// Texture access is at half texels [0.5/256, 255.5/256], but colors are normalized [0, 255].
 		// So we have to scale to account for the difference.
@@ -1125,9 +1174,6 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 		return false;
 	}
 
-	// TODO: We could have a separate mechanism to support more ops using the shader blending mechanism,
-	// on hardware that can do proper bit math in fragment shaders.
-	SimulateLogicOpType simulateLogicOpType = (SimulateLogicOpType)id.Bits(FS_BIT_SIMULATE_LOGIC_OP_TYPE, 2);
 	switch (simulateLogicOpType) {
 	case LOGICOPTYPE_ONE:
 		WRITE(p, "  %s.rgb = splat3(1.0);\n", compat.fragColor0);

@@ -164,7 +164,7 @@ bool TestJit() {
 	addr = currentMIPS->pc;
 	for (size_t j = 0; j < ARRAY_SIZE(lines); ++j) {
 		char line[512];
-		MIPSDisAsm(Memory::Read_Instruction(addr), addr, line, true);
+		MIPSDisAsm(Memory::Read_Instruction(addr), addr, line, sizeof(line), true);
 		addr += 4;
 		printf("%s\n", line);
 	}

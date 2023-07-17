@@ -1205,7 +1205,7 @@ static u32 sceMpegAvcDecode(u32 mpeg, u32 auAddr, u32 frameWidth, u32 bufferAddr
 	// Flush structs back to memory
 	avcAu.write(auAddr);
 
-	if (mpegLibVersion >= 0x0105) {
+	if (mpegLibVersion >= 0x0105 && mpegLibVersion < 0x010a) {
 		//Killzone - Liberation expect , issue #16727
 		Memory::Write_U32(1, initAddr);
 	}
@@ -2091,7 +2091,7 @@ static u32 sceMpegAvcInitYCbCr(u32 mpeg, int mode, int width, int height, u32 yc
 		return -1;
 	}
 
-	ERROR_LOG(ME, "UNIMPL sceMpegAvcInitYCbCr(%08x, %i, %i, %i, %08x)", mpeg, mode, width, height, ycbcr_addr);
+	WARN_LOG_ONCE(sceMpegAvcInitYCbCr, ME, "UNIMPL sceMpegAvcInitYCbCr(%08x, %i, %i, %i, %08x)", mpeg, mode, width, height, ycbcr_addr);
 	return 0;
 }
 

@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Common/System/Request.h"
+
 #include "Common/Data/Text/I18n.h"
 #include "Common/UI/UIScreen.h"
 #include "Common/UI/UI.h"
@@ -191,10 +193,16 @@ public:
 	void Draw(UIContext &dc) override;
 	void GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert, float &w, float &h) const override;
 
+	void SetPasswordDisplay() {
+		passwordDisplay_ = true;
+	}
+
 protected:
 	virtual std::string ValueText() const = 0;
 
 	float CalculateValueScale(const UIContext &dc, const std::string &valueText, float availWidth) const;
+
+	bool passwordDisplay_ = false;
 };
 
 // Reads and writes value to determine the current selection.
@@ -272,7 +280,9 @@ public:
 
 protected:
 	void PostChoiceCallback(int num) override {
-		*valueStr_ = choices_[num];
+		if (valueStr_) {
+			*valueStr_ = choices_[num];
+		}
 	}
 
 private:
@@ -357,6 +367,7 @@ private:
 	bool hasDropShadow_ = true;
 };
 
+// NOTE: This one will defer to a system-native dialog if possible.
 class PopupTextInputChoice : public AbstractChoiceWithValueDisplay {
 public:
 	PopupTextInputChoice(std::string *value, const std::string &title, const std::string &placeholder, int maxLen, ScreenManager *screenManager, LayoutParams *layoutParams = 0);
@@ -396,6 +407,22 @@ private:
 	int *iValue_ = nullptr;
 	I18NCat category_ = I18NCat::CATEGORY_COUNT;
 	std::string(*translateCallback_)(const char *value) = nullptr;
+};
+
+enum class FileChooserFileType {
+	WAVE_FILE,
+};
+
+class FileChooserChoice : public AbstractChoiceWithValueDisplay {
+public:
+	FileChooserChoice(std::string *value, const std::string &title, BrowseFileType fileType, LayoutParams *layoutParams = nullptr);
+	std::string ValueText() const override;
+
+	Event OnChange;
+
+private:
+	std::string *value_;
+	BrowseFileType fileType_;
 };
 
 }  // namespace UI

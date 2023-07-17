@@ -132,8 +132,7 @@ enum {
 	DRAW_BINDING_TESS_STORAGE_BUF = 6,
 	DRAW_BINDING_TESS_STORAGE_BUF_WU = 7,
 	DRAW_BINDING_TESS_STORAGE_BUF_WV = 8,
-	DRAW_BINDING_INPUT_ATTACHMENT = 9,
-	DRAW_BINDING_COUNT = 10,
+	DRAW_BINDING_COUNT = 9,
 };
 
 // Handles transform, lighting and drawing.
@@ -163,13 +162,13 @@ public:
 
 	// So that this can be inlined
 	void Flush() {
-		if (!numDrawCalls)
+		if (!numDrawCalls_)
 			return;
 		DoFlush();
 	}
 
 	void FinishDeferred() {
-		if (!numDrawCalls)
+		if (!numDrawCalls_)
 			return;
 		// Decode any pending vertices. And also flush while we're at it, for simplicity.
 		// It might be possible to only decode like in the other backends, but meh, it can't matter.
@@ -177,7 +176,11 @@ public:
 		DoFlush();
 	}
 
-	void DispatchFlush() override { Flush(); }
+	void DispatchFlush() override {
+		if (!numDrawCalls_)
+			return;
+		Flush();
+	}
 
 	VkPipelineLayout GetPipelineLayout() const {
 		return pipelineLayout_;
@@ -218,6 +221,8 @@ private:
 
 	void DestroyDeviceObjects();
 
+	bool VertexCacheLookup(int &vertexCount, GEPrimitiveType &prim, VkBuffer &vbuf, uint32_t &vbOffset, VkBuffer &ibuf, uint32_t &ibOffset, bool &useElements, bool forceIndexed);
+
 	void DecodeVertsToPushPool(VulkanPushPool *push, uint32_t *bindOffset, VkBuffer *vkbuf);
 	void DecodeVertsToPushBuffer(VulkanPushBuffer *push, uint32_t *bindOffset, VkBuffer *vkbuf);
 
@@ -239,7 +244,6 @@ private:
 
 	// Secondary texture for shader blending
 	VkImageView boundSecondary_ = VK_NULL_HANDLE;
-	bool boundSecondaryIsInputAttachment_ = false;
 
 	// CLUT texture for shader depal
 	VkImageView boundDepal_ = VK_NULL_HANDLE;
@@ -258,7 +262,6 @@ private:
 		VkSampler sampler_;
 		VkBuffer base_, light_, bone_;  // All three UBO slots will be set to this. This will usually be identical
 		// for all draws in a frame, except when the buffer has to grow.
-		bool secondaryIsInputAttachment;
 	};
 
 	// We alternate between these.

@@ -310,7 +310,7 @@ bool GameManager::InstallGame(Path url, Path fileName, bool deleteAfter) {
 
 	struct zip *z = ZipOpenPath(fileName);
 	if (!z) {
-		installInProgress_ = false;
+		SetInstallError(sy->T("Unable to open zip file"));
 		return false;
 	}
 
@@ -742,6 +742,6 @@ void GameManager::ResetInstallError() {
 }
 
 void GameManager::InstallDone() {
-	installInProgress_ = false;
 	installDonePending_ = true;
+	installInProgress_ = false;
 }

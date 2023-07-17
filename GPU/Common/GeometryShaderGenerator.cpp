@@ -74,8 +74,10 @@ bool GenerateGeometryShader(const GShaderID &id, char *buffer, const ShaderLangu
 	}
 	varyings.push_back(VaryingDef{ "vec4", "v_color0", Draw::SEM_COLOR0, 1, "lowp" });
 	outVaryings.push_back(VaryingDef{ "vec4", "v_color0Out", Draw::SEM_COLOR0, 1, "lowp" });
-	varyings.push_back(VaryingDef{ "vec3", "v_color1", Draw::SEM_COLOR1, 2, "lowp" });
-	outVaryings.push_back(VaryingDef{ "vec3", "v_color1Out", Draw::SEM_COLOR1, 2, "lowp" });
+	if (id.Bit(GS_BIT_LMODE)) {
+		varyings.push_back(VaryingDef{ "vec3", "v_color1", Draw::SEM_COLOR1, 2, "lowp" });
+		outVaryings.push_back(VaryingDef{ "vec3", "v_color1Out", Draw::SEM_COLOR1, 2, "lowp" });
+	}
 	varyings.push_back(VaryingDef{ "float", "v_fogdepth", Draw::SEM_TEXCOORD1, 3, "highp" });
 	outVaryings.push_back(VaryingDef{ "float", "v_fogdepthOut", Draw::SEM_TEXCOORD1, 3, "highp" });
 

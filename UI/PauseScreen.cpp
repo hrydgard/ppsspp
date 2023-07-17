@@ -27,7 +27,7 @@
 
 #include "Common/Data/Text/I18n.h"
 #include "Common/StringUtils.h"
-#include "Common/System/System.h"
+#include "Common/System/OSD.h"
 #include "Common/System/Request.h"
 #include "Common/VR/PPSSPPVR.h"
 #include "Common/UI/AsyncImageFileView.h"
@@ -36,6 +36,7 @@
 #include "Core/SaveState.h"
 #include "Core/System.h"
 #include "Core/Config.h"
+#include "Core/RetroAchievements.h"
 #include "Core/ELF/ParamSFO.h"
 #include "Core/HLE/sceDisplay.h"
 #include "Core/HLE/sceUmd.h"
@@ -51,10 +52,12 @@
 #include "UI/OnScreenDisplay.h"
 #include "UI/GameInfoCache.h"
 #include "UI/DisplayLayoutScreen.h"
+#include "UI/RetroAchievementScreens.h"
 
 static void AfterSaveStateAction(SaveState::Status status, const std::string &message, void *) {
 	if (!message.empty() && (!g_Config.bDumpFrames || !g_Config.bDumpVideoOutput)) {
-		osm.Show(message, status == SaveState::Status::SUCCESS ? 2.0 : 5.0);
+		g_OSD.Show(status == SaveState::Status::SUCCESS ? OSDType::MESSAGE_SUCCESS : OSDType::MESSAGE_ERROR,
+			message, status == SaveState::Status::SUCCESS ? 2.0 : 5.0);
 	}
 }
 
@@ -258,31 +261,21 @@ void GamePauseScreen::update() {
 	SetVRAppMode(VRAppMode::VR_MENU_MODE);
 }
 
+GamePauseScreen::GamePauseScreen(const Path &filename)
+	: UIDialogScreenWithGameBackground(filename) {
+}
+
 GamePauseScreen::~GamePauseScreen() {
 	__DisplaySetWasPaused();
 }
 
-void GamePauseScreen::CreateViews() {
+void GamePauseScreen::CreateSavestateControls(UI::LinearLayout *leftColumnItems, bool vertical) {
+	auto pa = GetI18NCategory(I18NCat::PAUSE);
+
 	static const int NUM_SAVESLOTS = 5;
 
 	using namespace UI;
 
-	bool vertical = UseVerticalLayout();
-
-	Margins scrollMargins(0, 20, 0, 0);
-	Margins actionMenuMargins(0, 20, 15, 0);
-	auto gr = GetI18NCategory(I18NCat::GRAPHICS);
-	auto pa = GetI18NCategory(I18NCat::PAUSE);
-
-	root_ = new LinearLayout(ORIENT_HORIZONTAL);
-
-	ViewGroup *leftColumn = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(1.0, scrollMargins));
-	root_->Add(leftColumn);
-
-	LinearLayout *leftColumnItems = new LinearLayoutList(ORIENT_VERTICAL, new LayoutParams(FILL_PARENT, WRAP_CONTENT));
-	leftColumn->Add(leftColumnItems);
-
-	leftColumnItems->Add(new Spacer(0.0));
 	leftColumnItems->SetSpacing(10.0);
 	for (int i = 0; i < NUM_SAVESLOTS; i++) {
 		SaveSlotView *slot = leftColumnItems->Add(new SaveSlotView(gamePath_, i, vertical, new LayoutParams(FILL_PARENT, WRAP_CONTENT)));
@@ -307,6 +300,48 @@ void GamePauseScreen::CreateViews() {
 		UI::Choice *rewindButton = buttonRow->Add(new Choice(pa->T("Rewind")));
 		rewindButton->SetEnabled(SaveState::CanRewind());
 		rewindButton->OnClick.Handle(this, &GamePauseScreen::OnRewind);
+	}
+}
+
+void GamePauseScreen::CreateViews() {
+	using namespace UI;
+
+	bool vertical = UseVerticalLayout();
+
+	Margins scrollMargins(0, 10, 0, 0);
+	Margins actionMenuMargins(0, 10, 15, 0);
+	auto gr = GetI18NCategory(I18NCat::GRAPHICS);
+	auto pa = GetI18NCategory(I18NCat::PAUSE);
+	auto ac = GetI18NCategory(I18NCat::ACHIEVEMENTS);
+
+	root_ = new LinearLayout(ORIENT_HORIZONTAL);
+
+	ViewGroup *leftColumn = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(1.0, scrollMargins));
+	root_->Add(leftColumn);
+
+	LinearLayout *leftColumnItems = new LinearLayoutList(ORIENT_VERTICAL, new LayoutParams(FILL_PARENT, WRAP_CONTENT));
+	leftColumn->Add(leftColumnItems);
+
+	leftColumnItems->Add(new Spacer(0.0));
+	if (Achievements::IsActive()) {
+		leftColumnItems->Add(new GameAchievementSummaryView());
+		leftColumnItems->Add(new Spacer(5.0));
+	}
+
+	if (!Achievements::ChallengeModeActive()) {
+		CreateSavestateControls(leftColumnItems, vertical);
+	} else {
+		// Let's show the active challenges.
+		std::set<uint32_t> ids = Achievements::GetActiveChallengeIDs();
+		if (!ids.empty()) {
+			leftColumnItems->Add(new ItemHeader(ac->T("Active Challenges")));
+			for (auto id : ids) {
+				const rc_client_achievement_t *achievement = rc_client_get_achievement_info(Achievements::GetClient(), id);
+				if (!achievement)
+					continue;
+				leftColumnItems->Add(new AchievementView(achievement));
+			}
+		}
 	}
 
 	ViewGroup *rightColumn = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(vertical ? 200 : 300, FILL_PARENT, actionMenuMargins));
@@ -339,7 +374,16 @@ void GamePauseScreen::CreateViews() {
 		return UI::EVENT_DONE;
 	});
 	if (g_Config.bEnableCheats) {
-		rightColumnItems->Add(new Choice(pa->T("Cheats")))->OnClick.Handle(this, &GamePauseScreen::OnCwCheat);
+		rightColumnItems->Add(new Choice(pa->T("Cheats")))->OnClick.Add([&](UI::EventParams &e) {
+			screenManager()->push(new CwCheatScreen(gamePath_));
+			return UI::EVENT_DONE;
+		});
+	}
+	if (g_Config.bAchievementsEnable && Achievements::HasAchievementsOrLeaderboards()) {
+		rightColumnItems->Add(new Choice(pa->T("Achievements")))->OnClick.Add([&](UI::EventParams &e) {
+			screenManager()->push(new RetroAchievementsListScreen(gamePath_));
+			return UI::EVENT_DONE;
+		});
 	}
 
 	// TODO, also might be nice to show overall compat rating here?
@@ -422,11 +466,6 @@ UI::EventReturn GamePauseScreen::OnLastSaveUndo(UI::EventParams &e) {
 	SaveState::UndoLastSave(gamePath_);
 
 	RecreateViews();
-	return UI::EVENT_DONE;
-}
-
-UI::EventReturn GamePauseScreen::OnCwCheat(UI::EventParams &e) {
-	screenManager()->push(new CwCheatScreen(gamePath_));
 	return UI::EVENT_DONE;
 }
 

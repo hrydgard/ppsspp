@@ -645,7 +645,7 @@ PSPFileInfo VirtualDiscFileSystem::GetFileInfo(std::string filename) {
 			localtime_r((time_t*)&mtime, &x.mtime);
 		}
 
-		x.startSector = fileList[fileIndex].firstBlock;
+		// x.startSector was set above in "if (fileIndex != -1)".
 		x.numSectors = (x.size+2047)/2048;
 	}
 

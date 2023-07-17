@@ -444,10 +444,10 @@ public:
 	u32 Destroy(SceUID handle) {
 		u32 error;
 		if (Get<T>(handle, error)) {
-			occupied[handle-handleOffset] = false;
-			delete pool[handle-handleOffset];
-			// Why weren't we zeroing before?
-			pool[handle-handleOffset] = nullptr;
+			int index = handle - handleOffset;
+			occupied[index] = false;
+			delete pool[index];
+			pool[index] = nullptr;
 		}
 		return error;
 	};

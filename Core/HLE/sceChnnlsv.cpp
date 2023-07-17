@@ -497,14 +497,14 @@ int sceSdSetMember_(pspChnnlsvContext2& ctx, u8* data, int alignedLen)
 	return res;
 }
 
-static int sceChnnlsv_21BE78B4(u32 ctxAddr) {
+static int sceSdCleanList(u32 ctxAddr) {
 	auto ctx = PSPPointer<pspChnnlsvContext2>::Create(ctxAddr);
 	if (!ctx.IsValid())
 		return hleLogError(SCEMISC, 0, "Invalid pointer");
-	return hleLogSuccessI(SCEMISC, sceChnnlsv_21BE78B4_(*ctx));
+	return hleLogSuccessI(SCEMISC, sceSdCleanList_(*ctx));
 }
 
-int sceChnnlsv_21BE78B4_(pspChnnlsvContext2& ctx)
+int sceSdCleanList_(pspChnnlsvContext2& ctx)
 {
 	memset(ctx.cryptedData, 0, 16);
 	ctx.unkn = 0;
@@ -520,7 +520,7 @@ const HLEFunction sceChnnlsv[] =
 	{0XC4C494F8, &WrapI_UUU<sceSdGetLastIndex>,      "sceSdGetLastIndex",   'i', "xxx"  },
 	{0XABFDFC8B, &WrapI_UIIUU<sceSdCreateList>,      "sceSdCreateList",     'i', "xiixx"},
 	{0X850A7FA1, &WrapI_UUI<sceSdSetMember>,         "sceSdSetMember",      'i', "xxi"  },
-	{0X21BE78B4, &WrapI_U<sceChnnlsv_21BE78B4>,      "sceChnnlsv_21BE78B4", 'i', "x"    },
+	{0X21BE78B4, &WrapI_U<sceSdCleanList>,           "sceSdCleanList",      'i', "x"    },
 };
 
 void Register_sceChnnlsv()

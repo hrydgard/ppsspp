@@ -39,17 +39,17 @@ DrawEngineCommon::DrawEngineCommon() : decoderMap_(16) {
 	if (g_Config.bVertexDecoderJit && g_Config.iCpuCore == (int)CPUCore::JIT) {
 		decJitCache_ = new VertexDecoderJitCache();
 	}
-	transformed = (TransformedVertex *)AllocateMemoryPages(TRANSFORMED_VERTEX_BUFFER_SIZE, MEM_PROT_READ | MEM_PROT_WRITE);
-	transformedExpanded = (TransformedVertex *)AllocateMemoryPages(3 * TRANSFORMED_VERTEX_BUFFER_SIZE, MEM_PROT_READ | MEM_PROT_WRITE);
-	decoded = (u8 *)AllocateMemoryPages(DECODED_VERTEX_BUFFER_SIZE, MEM_PROT_READ | MEM_PROT_WRITE);
-	decIndex = (u16 *)AllocateMemoryPages(DECODED_INDEX_BUFFER_SIZE, MEM_PROT_READ | MEM_PROT_WRITE);
+	transformed_ = (TransformedVertex *)AllocateMemoryPages(TRANSFORMED_VERTEX_BUFFER_SIZE, MEM_PROT_READ | MEM_PROT_WRITE);
+	transformedExpanded_ = (TransformedVertex *)AllocateMemoryPages(3 * TRANSFORMED_VERTEX_BUFFER_SIZE, MEM_PROT_READ | MEM_PROT_WRITE);
+	decoded_ = (u8 *)AllocateMemoryPages(DECODED_VERTEX_BUFFER_SIZE, MEM_PROT_READ | MEM_PROT_WRITE);
+	decIndex_ = (u16 *)AllocateMemoryPages(DECODED_INDEX_BUFFER_SIZE, MEM_PROT_READ | MEM_PROT_WRITE);
 }
 
 DrawEngineCommon::~DrawEngineCommon() {
-	FreeMemoryPages(decoded, DECODED_VERTEX_BUFFER_SIZE);
-	FreeMemoryPages(decIndex, DECODED_INDEX_BUFFER_SIZE);
-	FreeMemoryPages(transformed, TRANSFORMED_VERTEX_BUFFER_SIZE);
-	FreeMemoryPages(transformedExpanded, 3 * TRANSFORMED_VERTEX_BUFFER_SIZE);
+	FreeMemoryPages(decoded_, DECODED_VERTEX_BUFFER_SIZE);
+	FreeMemoryPages(decIndex_, DECODED_INDEX_BUFFER_SIZE);
+	FreeMemoryPages(transformed_, TRANSFORMED_VERTEX_BUFFER_SIZE);
+	FreeMemoryPages(transformedExpanded_, 3 * TRANSFORMED_VERTEX_BUFFER_SIZE);
 	delete decJitCache_;
 	decoderMap_.Iterate([&](const uint32_t vtype, VertexDecoder *decoder) {
 		delete decoder;
@@ -66,6 +66,7 @@ VertexDecoder *DrawEngineCommon::GetVertexDecoder(u32 vtype) {
 	if (dec)
 		return dec;
 	dec = new VertexDecoder();
+	_assert_(dec);
 	dec->SetVertexType(vtype, decOptions_, decJitCache_);
 	decoderMap_.Insert(vtype, dec);
 	return dec;
@@ -73,25 +74,26 @@ VertexDecoder *DrawEngineCommon::GetVertexDecoder(u32 vtype) {
 
 int DrawEngineCommon::ComputeNumVertsToDecode() const {
 	int vertsToDecode = 0;
-	if (drawCalls[0].indexType == GE_VTYPE_IDX_NONE >> GE_VTYPE_IDX_SHIFT) {
+	int numDrawCalls = numDrawCalls_;
+	if (drawCalls_[0].indexType == GE_VTYPE_IDX_NONE >> GE_VTYPE_IDX_SHIFT) {
 		for (int i = 0; i < numDrawCalls; i++) {
-			const DeferredDrawCall &dc = drawCalls[i];
+			const DeferredDrawCall &dc = drawCalls_[i];
 			vertsToDecode += dc.vertexCount;
 		}
 	} else {
 		// TODO: Share this computation with DecodeVertsStep?
 		for (int i = 0; i < numDrawCalls; i++) {
-			const DeferredDrawCall &dc = drawCalls[i];
+			const DeferredDrawCall &dc = drawCalls_[i];
 			int lastMatch = i;
 			const int total = numDrawCalls;
 			int indexLowerBound = dc.indexLowerBound;
 			int indexUpperBound = dc.indexUpperBound;
 			for (int j = i + 1; j < total; ++j) {
-				if (drawCalls[j].verts != dc.verts)
+				if (drawCalls_[j].verts != dc.verts)
 					break;
 
-				indexLowerBound = std::min(indexLowerBound, (int)drawCalls[j].indexLowerBound);
-				indexUpperBound = std::max(indexUpperBound, (int)drawCalls[j].indexUpperBound);
+				indexLowerBound = std::min(indexLowerBound, (int)drawCalls_[j].indexLowerBound);
+				indexUpperBound = std::max(indexUpperBound, (int)drawCalls_[j].indexUpperBound);
 				lastMatch = j;
 			}
 			vertsToDecode += indexUpperBound - indexLowerBound + 1;
@@ -102,12 +104,11 @@ int DrawEngineCommon::ComputeNumVertsToDecode() const {
 }
 
 void DrawEngineCommon::DecodeVerts(u8 *dest) {
-	const UVScale origUV = gstate_c.uv;
-	for (; decodeCounter_ < numDrawCalls; decodeCounter_++) {
-		gstate_c.uv = drawCalls[decodeCounter_].uvScale;
-		DecodeVertsStep(dest, decodeCounter_, decodedVerts_);  // NOTE! DecodeVertsStep can modify decodeCounter_!
+	int decodeCounter = decodeCounter_;
+	for (; decodeCounter < numDrawCalls_; decodeCounter++) {
+		DecodeVertsStep(dest, decodeCounter, decodedVerts_, &drawCalls_[decodeCounter].uvScale);  // NOTE! DecodeVertsStep can modify decodeCounter_!
 	}
-	gstate_c.uv = origUV;
+	decodeCounter_ = decodeCounter;
 
 	// Sanity check
 	if (indexGen.Prim() < 0) {
@@ -235,7 +236,7 @@ void DrawEngineCommon::DispatchSubmitImm(GEPrimitiveType prim, TransformedVertex
 	// Code checks this reg directly, not just the vtype ID.
 	if (!prevThrough) {
 		gstate.vertType |= GE_VTYPE_THROUGH;
-		gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE | DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_UVSCALEOFFSET | DIRTY_CULLRANGE);
+		gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE | DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_CULLRANGE);
 	}
 
 	int bytesRead;
@@ -245,7 +246,7 @@ void DrawEngineCommon::DispatchSubmitImm(GEPrimitiveType prim, TransformedVertex
 
 	if (!prevThrough) {
 		gstate.vertType &= ~GE_VTYPE_THROUGH;
-		gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE | DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_UVSCALEOFFSET | DIRTY_CULLRANGE);
+		gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE | DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_CULLRANGE);
 	}
 }
 
@@ -254,8 +255,8 @@ void DrawEngineCommon::DispatchSubmitImm(GEPrimitiveType prim, TransformedVertex
 // It does the simplest and safest test possible: If all points of a bbox is outside a single of
 // our clipping planes, we reject the box. Tighter bounds would be desirable but would take more calculations.
 bool DrawEngineCommon::TestBoundingBox(const void *control_points, const void *inds, int vertexCount, u32 vertType) {
-	SimpleVertex *corners = (SimpleVertex *)(decoded + 65536 * 12);
-	float *verts = (float *)(decoded + 65536 * 18);
+	SimpleVertex *corners = (SimpleVertex *)(decoded_ + 65536 * 12);
+	float *verts = (float *)(decoded_ + 65536 * 18);
 
 	// Although this may lead to drawing that shouldn't happen, the viewport is more complex on VR.
 	// Let's always say objects are within bounds.
@@ -278,7 +279,7 @@ bool DrawEngineCommon::TestBoundingBox(const void *control_points, const void *i
 		}
 	} else {
 		// Simplify away indices, bones, and morph before proceeding.
-		u8 *temp_buffer = decoded + 65536 * 24;
+		u8 *temp_buffer = decoded_ + 65536 * 24;
 		int vertexSize = 0;
 
 		u16 indexLowerBound = 0;
@@ -504,7 +505,7 @@ bool DrawEngineCommon::GetCurrentSimpleVertices(int count, std::vector<GPUDebugV
 u32 DrawEngineCommon::NormalizeVertices(u8 *outPtr, u8 *bufPtr, const u8 *inPtr, VertexDecoder *dec, int lowerBound, int upperBound, u32 vertType) {
 	// First, decode the vertices into a GPU compatible format. This step can be eliminated but will need a separate
 	// implementation of the vertex decoder.
-	dec->DecodeVerts(bufPtr, inPtr, lowerBound, upperBound);
+	dec->DecodeVerts(bufPtr, inPtr, &gstate_c.uv, lowerBound, upperBound);
 
 	// OK, morphing eliminated but bones still remain to be taken care of.
 	// Let's do a partial software transform where we only do skinning.
@@ -611,10 +612,10 @@ void DrawEngineCommon::ApplyFramebufferRead(FBOTexState *fboTexState) {
 	gstate_c.Dirty(DIRTY_SHADERBLEND);
 }
 
-void DrawEngineCommon::DecodeVertsStep(u8 *dest, int &i, int &decodedVerts) {
+void DrawEngineCommon::DecodeVertsStep(u8 *dest, int &i, int &decodedVerts, const UVScale *uvScale) {
 	PROFILE_THIS_SCOPE("vertdec");
 
-	const DeferredDrawCall &dc = drawCalls[i];
+	const DeferredDrawCall &dc = drawCalls_[i];
 
 	indexGen.SetIndex(decodedVerts);
 	int indexLowerBound = dc.indexLowerBound;
@@ -623,7 +624,7 @@ void DrawEngineCommon::DecodeVertsStep(u8 *dest, int &i, int &decodedVerts) {
 	if (dc.indexType == GE_VTYPE_IDX_NONE >> GE_VTYPE_IDX_SHIFT) {
 		// Decode the verts (and at the same time apply morphing/skinning). Simple.
 		dec_->DecodeVerts(dest + decodedVerts * (int)dec_->GetDecVtxFmt().stride,
-			dc.verts, indexLowerBound, indexUpperBound);
+			dc.verts, uvScale, indexLowerBound, indexUpperBound);
 		decodedVerts += indexUpperBound - indexLowerBound + 1;
 		
 		bool clockwise = true;
@@ -640,13 +641,13 @@ void DrawEngineCommon::DecodeVertsStep(u8 *dest, int &i, int &decodedVerts) {
 		// 1. Look ahead to find the max index, only looking as "matching" drawcalls.
 		//    Expand the lower and upper bounds as we go.
 		int lastMatch = i;
-		const int total = numDrawCalls;
+		const int total = numDrawCalls_;
 		for (int j = i + 1; j < total; ++j) {
-			if (drawCalls[j].verts != dc.verts)
+			if (drawCalls_[j].verts != dc.verts)
 				break;
-
-			indexLowerBound = std::min(indexLowerBound, (int)drawCalls[j].indexLowerBound);
-			indexUpperBound = std::max(indexUpperBound, (int)drawCalls[j].indexUpperBound);
+			// TODO: What if UV scale/offset changes between drawcalls here?
+			indexLowerBound = std::min(indexLowerBound, (int)drawCalls_[j].indexLowerBound);
+			indexUpperBound = std::max(indexUpperBound, (int)drawCalls_[j].indexUpperBound);
 			lastMatch = j;
 		}
 
@@ -655,28 +656,28 @@ void DrawEngineCommon::DecodeVertsStep(u8 *dest, int &i, int &decodedVerts) {
 		case GE_VTYPE_IDX_8BIT >> GE_VTYPE_IDX_SHIFT:
 			for (int j = i; j <= lastMatch; j++) {
 				bool clockwise = true;
-				if (gstate.isCullEnabled() && gstate.getCullMode() != drawCalls[j].cullMode) {
+				if (gstate.isCullEnabled() && gstate.getCullMode() != drawCalls_[j].cullMode) {
 					clockwise = false;
 				}
-				indexGen.TranslatePrim(drawCalls[j].prim, drawCalls[j].vertexCount, (const u8 *)drawCalls[j].inds, indexLowerBound, clockwise);
+				indexGen.TranslatePrim(drawCalls_[j].prim, drawCalls_[j].vertexCount, (const u8 *)drawCalls_[j].inds, indexLowerBound, clockwise);
 			}
 			break;
 		case GE_VTYPE_IDX_16BIT >> GE_VTYPE_IDX_SHIFT:
 			for (int j = i; j <= lastMatch; j++) {
 				bool clockwise = true;
-				if (gstate.isCullEnabled() && gstate.getCullMode() != drawCalls[j].cullMode) {
+				if (gstate.isCullEnabled() && gstate.getCullMode() != drawCalls_[j].cullMode) {
 					clockwise = false;
 				}
-				indexGen.TranslatePrim(drawCalls[j].prim, drawCalls[j].vertexCount, (const u16_le *)drawCalls[j].inds, indexLowerBound, clockwise);
+				indexGen.TranslatePrim(drawCalls_[j].prim, drawCalls_[j].vertexCount, (const u16_le *)drawCalls_[j].inds, indexLowerBound, clockwise);
 			}
 			break;
 		case GE_VTYPE_IDX_32BIT >> GE_VTYPE_IDX_SHIFT:
 			for (int j = i; j <= lastMatch; j++) {
 				bool clockwise = true;
-				if (gstate.isCullEnabled() && gstate.getCullMode() != drawCalls[j].cullMode) {
+				if (gstate.isCullEnabled() && gstate.getCullMode() != drawCalls_[j].cullMode) {
 					clockwise = false;
 				}
-				indexGen.TranslatePrim(drawCalls[j].prim, drawCalls[j].vertexCount, (const u32_le *)drawCalls[j].inds, indexLowerBound, clockwise);
+				indexGen.TranslatePrim(drawCalls_[j].prim, drawCalls_[j].vertexCount, (const u32_le *)drawCalls_[j].inds, indexLowerBound, clockwise);
 			}
 			break;
 		}
@@ -690,7 +691,7 @@ void DrawEngineCommon::DecodeVertsStep(u8 *dest, int &i, int &decodedVerts) {
 
 		// 3. Decode that range of vertex data.
 		dec_->DecodeVerts(dest + decodedVerts * (int)dec_->GetDecVtxFmt().stride,
-			dc.verts, indexLowerBound, indexUpperBound);
+			dc.verts, uvScale, indexLowerBound, indexUpperBound);
 		decodedVerts += vertexCount;
 
 		// 4. Advance indexgen vertex counter.
@@ -723,15 +724,15 @@ u32 DrawEngineCommon::ComputeMiniHash() {
 	const int indexSize = IndexSize(dec_->VertexType());
 
 	int step;
-	if (numDrawCalls < 3) {
+	if (numDrawCalls_ < 3) {
 		step = 1;
-	} else if (numDrawCalls < 8) {
+	} else if (numDrawCalls_ < 8) {
 		step = 4;
 	} else {
-		step = numDrawCalls / 8;
+		step = numDrawCalls_ / 8;
 	}
-	for (int i = 0; i < numDrawCalls; i += step) {
-		const DeferredDrawCall &dc = drawCalls[i];
+	for (int i = 0; i < numDrawCalls_; i += step) {
+		const DeferredDrawCall &dc = drawCalls_[i];
 		if (!dc.inds) {
 			fullhash += ComputeMiniHashRange(dc.verts, vertexSize * dc.vertexCount);
 		} else {
@@ -749,18 +750,18 @@ uint64_t DrawEngineCommon::ComputeHash() {
 	const int vertexSize = dec_->GetDecVtxFmt().stride;
 	const int indexSize = IndexSize(dec_->VertexType());
 
-	// TODO: Add some caps both for numDrawCalls and num verts to check?
+	// TODO: Add some caps both for numDrawCalls_ and num verts to check?
 	// It is really very expensive to check all the vertex data so often.
-	for (int i = 0; i < numDrawCalls; i++) {
-		const DeferredDrawCall &dc = drawCalls[i];
+	for (int i = 0; i < numDrawCalls_; i++) {
+		const DeferredDrawCall &dc = drawCalls_[i];
 		if (!dc.inds) {
 			fullhash += XXH3_64bits((const char *)dc.verts, vertexSize * dc.vertexCount);
 		} else {
 			int indexLowerBound = dc.indexLowerBound, indexUpperBound = dc.indexUpperBound;
 			int j = i + 1;
 			int lastMatch = i;
-			while (j < numDrawCalls) {
-				if (drawCalls[j].verts != dc.verts)
+			while (j < numDrawCalls_) {
+				if (drawCalls_[j].verts != dc.verts)
 					break;
 				indexLowerBound = std::min(indexLowerBound, (int)dc.indexLowerBound);
 				indexUpperBound = std::max(indexUpperBound, (int)dc.indexUpperBound);
@@ -777,23 +778,13 @@ uint64_t DrawEngineCommon::ComputeHash() {
 		}
 	}
 
-	fullhash += XXH3_64bits(&drawCalls[0].uvScale, sizeof(drawCalls[0].uvScale) * numDrawCalls);
+	fullhash += XXH3_64bits(&drawCalls_[0].uvScale, sizeof(drawCalls_[0].uvScale) * numDrawCalls_);
 	return fullhash;
-}
-
-// Cheap bit scrambler from https://nullprogram.com/blog/2018/07/31/
-inline uint32_t lowbias32_r(uint32_t x) {
-	x ^= x >> 16;
-	x *= 0x43021123U;
-	x ^= x >> 15 ^ x >> 30;
-	x *= 0x1d69e2a5U;
-	x ^= x >> 16;
-	return x;
 }
 
 // vertTypeID is the vertex type but with the UVGen mode smashed into the top bits.
 void DrawEngineCommon::SubmitPrim(const void *verts, const void *inds, GEPrimitiveType prim, int vertexCount, u32 vertTypeID, int cullMode, int *bytesRead) {
-	if (!indexGen.PrimCompatible(prevPrim_, prim) || numDrawCalls >= MAX_DEFERRED_DRAW_CALLS || vertexCountInDrawCalls_ + vertexCount > VERTEX_BUFFER_MAX) {
+	if (!indexGen.PrimCompatible(prevPrim_, prim) || numDrawCalls_ >= MAX_DEFERRED_DRAW_CALLS || vertexCountInDrawCalls_ + vertexCount > VERTEX_BUFFER_MAX) {
 		DispatchFlush();
 	}
 
@@ -809,7 +800,7 @@ void DrawEngineCommon::SubmitPrim(const void *verts, const void *inds, GEPrimiti
 	}
 
 	// If vtype has changed, setup the vertex decoder.
-	if (vertTypeID != lastVType_) {
+	if (vertTypeID != lastVType_ || !dec_) {
 		dec_ = GetVertexDecoder(vertTypeID);
 		lastVType_ = vertTypeID;
 	}
@@ -820,16 +811,7 @@ void DrawEngineCommon::SubmitPrim(const void *verts, const void *inds, GEPrimiti
 	if ((vertexCount < 2 && prim > 0) || (vertexCount < 3 && prim > GE_PRIM_LINE_STRIP && prim != GE_PRIM_RECTANGLES))
 		return;
 
-	if (g_Config.bVertexCache) {
-		u32 dhash = dcid_;
-		dhash = __rotl(dhash ^ (u32)(uintptr_t)verts, 13);
-		dhash = __rotl(dhash ^ (u32)(uintptr_t)inds, 19);
-		dhash = __rotl(dhash ^ (u32)vertTypeID, 7);
-		dhash = __rotl(dhash ^ (u32)vertexCount, 11);
-		dcid_ = lowbias32_r(dhash ^ (u32)prim);
-	}
-
-	DeferredDrawCall &dc = drawCalls[numDrawCalls];
+	DeferredDrawCall &dc = drawCalls_[numDrawCalls_];
 	dc.verts = verts;
 	dc.inds = inds;
 	dc.vertexCount = vertexCount;
@@ -844,11 +826,11 @@ void DrawEngineCommon::SubmitPrim(const void *verts, const void *inds, GEPrimiti
 		dc.indexUpperBound = vertexCount - 1;
 	}
 
-	numDrawCalls++;
+	numDrawCalls_++;
 	vertexCountInDrawCalls_ += vertexCount;
 
 	if (decOptions_.applySkinInDecode && (vertTypeID & GE_VTYPE_WEIGHT_MASK)) {
-		DecodeVertsStep(decoded, decodeCounter_, decodedVerts_);
+		DecodeVertsStep(decoded_, decodeCounter_, decodedVerts_, &dc.uvScale);
 		decodeCounter_++;
 	}
 
@@ -870,6 +852,29 @@ bool DrawEngineCommon::CanUseHardwareTessellation(GEPatchPrimType prim) {
 		return CanUseHardwareTransform(PatchPrimToPrim(prim));
 	}
 	return false;
+}
+
+// Cheap bit scrambler from https://nullprogram.com/blog/2018/07/31/
+inline uint32_t lowbias32_r(uint32_t x) {
+	x ^= x >> 16;
+	x *= 0x43021123U;
+	x ^= x >> 15 ^ x >> 30;
+	x *= 0x1d69e2a5U;
+	x ^= x >> 16;
+	return x;
+}
+
+uint32_t DrawEngineCommon::ComputeDrawcallsHash() const {
+	uint32_t dcid = 0;
+	for (int i = 0; i < numDrawCalls_; i++) {
+		u32 dhash = dcid;
+		dhash = __rotl(dhash ^ (u32)(uintptr_t)drawCalls_[i].verts, 13);
+		dhash = __rotl(dhash ^ (u32)(uintptr_t)drawCalls_[i].inds, 19);
+		dhash = __rotl(dhash ^ (u32)drawCalls_[i].indexType, 7);
+		dhash = __rotl(dhash ^ (u32)drawCalls_[i].vertexCount, 11);
+		dcid = lowbias32_r(dhash ^ (u32)drawCalls_[i].prim);
+	}
+	return dcid;
 }
 
 void TessellationDataTransfer::CopyControlPoints(float *pos, float *tex, float *col, int posStride, int texStride, int colStride, const SimpleVertex *const *points, int size, u32 vertType) {

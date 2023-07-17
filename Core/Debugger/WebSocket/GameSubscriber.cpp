@@ -96,6 +96,17 @@ void WebSocketGameStatus(DebuggerRequest &req) {
 //  - version: string, typically starts with "v" and may have git build info.
 void WebSocketVersion(DebuggerRequest &req) {
 	JsonWriter &json = req.Respond();
+
+	std::string version = req.client->version;
+	if (!req.ParamString("version", &version, DebuggerParamType::OPTIONAL_LOOSE))
+		return;
+	std::string name = req.client->name;
+	if (!req.ParamString("name", &name, DebuggerParamType::OPTIONAL_LOOSE))
+		return;
+
+	req.client->version = version;
+	req.client->name = name;
+
 	json.writeString("name", "PPSSPP");
 	json.writeString("version", PPSSPP_GIT_VERSION);
 }

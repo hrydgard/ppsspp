@@ -157,7 +157,7 @@ void DrawEngineGLES::ApplyDrawState(int prim) {
 				// fboTexNeedsBind_ won't be set if we can read directly from the target.
 				if (fboTexBindState == FBO_TEX_COPY_BIND_TEX) {
 					// Note that this is positions, not UVs, that we need the copy from.
-					framebufferManager_->BindFramebufferAsColorTexture(1, framebufferManager_->GetCurrentRenderVFB(), BINDFBCOLOR_MAY_COPY, 0);
+					framebufferManager_->BindFramebufferAsColorTexture(1, framebufferManager_->GetCurrentRenderVFB(), BINDFBCOLOR_MAY_COPY | BINDFBCOLOR_UNCACHED, 0);
 					// If we are rendering at a higher resolution, linear is probably best for the dest color.
 					renderManager->SetTextureSampler(1, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, GL_LINEAR, GL_LINEAR, 0.0f);
 					fboTexBound_ = true;
@@ -242,13 +242,12 @@ void DrawEngineGLES::ApplyDrawState(int prim) {
 	}
 
 	if (gstate_c.IsDirty(DIRTY_DEPTHSTENCIL_STATE)) {
-		GenericStencilFuncState stencilState;
-		ConvertStencilFuncState(stencilState);
+		ConvertStencilFuncState(stencilState_);
 
 		if (gstate.isModeClear()) {
-			// Depth Test
-			renderManager->SetStencilFunc(gstate.isClearModeAlphaMask(), GL_ALWAYS, 0xFF, 0xFF);
-			renderManager->SetStencilOp(stencilState.writeMask, GL_REPLACE, GL_REPLACE, GL_REPLACE);
+			renderManager->SetStencil(
+				gstate.isClearModeAlphaMask(), GL_ALWAYS, 0xFF, 0xFF,
+				stencilState_.writeMask, GL_REPLACE, GL_REPLACE, GL_REPLACE);
 			renderManager->SetDepth(true, gstate.isClearModeDepthMask() ? true : false, GL_ALWAYS);
 		} else {
 			// Depth Test
@@ -258,18 +257,18 @@ void DrawEngineGLES::ApplyDrawState(int prim) {
 				UpdateEverUsedEqualDepth(gstate.getDepthTestFunction());
 
 			// Stencil Test
-			if (stencilState.enabled) {
-				renderManager->SetStencilFunc(stencilState.enabled, compareOps[stencilState.testFunc], stencilState.testRef, stencilState.testMask);
-				renderManager->SetStencilOp(stencilState.writeMask, stencilOps[stencilState.sFail], stencilOps[stencilState.zFail], stencilOps[stencilState.zPass]);
+			if (stencilState_.enabled) {
+				renderManager->SetStencil(
+					stencilState_.enabled, compareOps[stencilState_.testFunc], stencilState_.testRef, stencilState_.testMask,
+					stencilState_.writeMask, stencilOps[stencilState_.sFail], stencilOps[stencilState_.zFail], stencilOps[stencilState_.zPass]);
 
 				// Nasty special case for Spongebob and similar where it tries to write zeros to alpha/stencil during
 				// depth-fail. We can't write to alpha then because the pixel is killed. However, we can invert the depth
 				// test and modify the alpha function...
-				if (SpongebobDepthInverseConditions(stencilState)) {
+				if (SpongebobDepthInverseConditions(stencilState_)) {
 					renderManager->SetBlendAndMask(0x8, true, GL_ZERO, GL_ZERO, GL_ZERO, GL_ZERO, GL_FUNC_ADD, GL_FUNC_ADD);
 					renderManager->SetDepth(true, false, GL_LESS);
-					renderManager->SetStencilFunc(true, GL_ALWAYS, 0xFF, 0xFF);
-					renderManager->SetStencilOp(0xFF, GL_ZERO, GL_KEEP, GL_ZERO);
+					renderManager->SetStencil(true, GL_ALWAYS, 0xFF, 0xFF, 0xFF, GL_ZERO, GL_KEEP, GL_ZERO);
 
 					dirtyRequiresRecheck_ |= DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE;
 					gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE);
@@ -284,14 +283,14 @@ void DrawEngineGLES::ApplyDrawState(int prim) {
 		ConvertViewportAndScissor(useBufferedRendering,
 			framebufferManager_->GetRenderWidth(), framebufferManager_->GetRenderHeight(),
 			framebufferManager_->GetTargetBufferWidth(), framebufferManager_->GetTargetBufferHeight(),
-			vpAndScissor);
-		UpdateCachedViewportState(vpAndScissor);
+			vpAndScissor_);
+		UpdateCachedViewportState(vpAndScissor_);
 
-		renderManager->SetScissor(GLRect2D{ vpAndScissor.scissorX, vpAndScissor.scissorY, vpAndScissor.scissorW, vpAndScissor.scissorH });
+		renderManager->SetScissor(GLRect2D{ vpAndScissor_.scissorX, vpAndScissor_.scissorY, vpAndScissor_.scissorW, vpAndScissor_.scissorH });
 		renderManager->SetViewport({
-			vpAndScissor.viewportX, vpAndScissor.viewportY,
-			vpAndScissor.viewportW, vpAndScissor.viewportH,
-			vpAndScissor.depthRangeMin, vpAndScissor.depthRangeMax });
+			vpAndScissor_.viewportX, vpAndScissor_.viewportY,
+			vpAndScissor_.viewportW, vpAndScissor_.viewportH,
+			vpAndScissor_.depthRangeMin, vpAndScissor_.depthRangeMax });
 	}
 
 	gstate_c.Clean(DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_RASTER_STATE | DIRTY_BLEND_STATE);
@@ -301,7 +300,8 @@ void DrawEngineGLES::ApplyDrawState(int prim) {
 
 void DrawEngineGLES::ApplyDrawStateLate(bool setStencilValue, int stencilValue) {
 	if (setStencilValue) {
-		render_->SetStencilFunc(GL_TRUE, GL_ALWAYS, stencilValue, 255);
+		render_->SetStencil(stencilState_.writeMask, GL_ALWAYS, stencilValue, 255, 0xFF, GL_REPLACE, GL_REPLACE, GL_REPLACE);
+		gstate_c.Dirty(DIRTY_DEPTHSTENCIL_STATE);  // For the next time.
 	}
 
 	// At this point, we know if the vertices are full alpha or not.

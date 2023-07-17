@@ -575,7 +575,7 @@ size_t MetaFileSystem::SeekFile(u32 handle, s32 position, FileMove type)
 	std::lock_guard<std::recursive_mutex> guard(lock);
 	IFileSystem *sys = GetHandleOwner(handle);
 	if (sys)
-		return sys->SeekFile(handle,position,type);
+		return sys->SeekFile(handle, position, type);
 	else
 		return 0;
 }

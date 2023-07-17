@@ -154,25 +154,44 @@ bool ElfReader::LoadRelocations(const Elf32_Rel *rels, int numRelocs) {
 				u16 hi = 0;
 				bool found = false;
 				for (int t = r + 1; t < numRelocs; t++) {
-					if ((rels[t].r_info & 0xF) == R_MIPS_LO16) {
-						u32 corrLoAddr = rels[t].r_offset + segmentVAddr[readwrite];
-						if (log) {
-							DEBUG_LOG(LOADER, "Corresponding lo found at %08x", corrLoAddr);
-						}
-						if (Memory::IsValidAddress(corrLoAddr)) {
-							s16 lo = (s16)relocOps[t];
-							cur += lo;
-							cur += relocateTo;
-							addrToHiLo(cur, hi, lo);
-							found = true;
-							break;
+					int t_type = rels[t].r_info & 0xF;
+					if (t_type == R_MIPS_HI16)
+						continue;
+
+					u32 corrLoAddr = rels[t].r_offset + segmentVAddr[readwrite];
+
+					// In MotorStorm: Arctic Edge (US), these are sometimes R_MIPS_16 (instead of LO16.)
+					// It appears the PSP takes any relocation that is not a HI16.
+					if (t_type != R_MIPS_LO16) {
+						if (t_type != R_MIPS_16) {
+							// Let's play it safe for now and skip.  We've only seen this type.
+							ERROR_LOG_REPORT(LOADER, "ELF relocation HI16/%d pair (instead of LO16) at %08x / %08x", t_type, addr, corrLoAddr);
+							continue;
 						} else {
-							ERROR_LOG(LOADER, "Bad corrLoAddr %08x", corrLoAddr);
+							WARN_LOG_REPORT(LOADER, "ELF relocation HI16/%d(16) pair (instead of LO16) at %08x / %08x", t_type, addr, corrLoAddr);
 						}
+					}
+
+					// Should have matching index and segment info, according to llvm, which makes sense.
+					if ((rels[t].r_info >> 8) != (rels[r].r_info >> 8)) {
+						WARN_LOG_REPORT(LOADER, "ELF relocation HI16/LO16 with mismatching r_info lo=%08x, hi=%08x", rels[t].r_info, rels[r].r_info);
+					}
+					if (log) {
+						DEBUG_LOG(LOADER, "Corresponding lo found at %08x", corrLoAddr);
+					}
+					if (Memory::IsValidAddress(corrLoAddr)) {
+						s16 lo = (s16)relocOps[t];
+						cur += lo;
+						cur += relocateTo;
+						addrToHiLo(cur, hi, lo);
+						found = true;
+						break;
+					} else {
+						ERROR_LOG(LOADER, "Bad corrLoAddr %08x", corrLoAddr);
 					}
 				}
 				if (!found) {
-					ERROR_LOG_REPORT(LOADER, "R_MIPS_HI16: could not find R_MIPS_LO16");
+					ERROR_LOG_REPORT(LOADER, "R_MIPS_HI16: could not find R_MIPS_LO16 (r=%d of %d, addr=%08x)", r, numRelocs, addr);
 				}
 				op = (op & 0xFFFF0000) | hi;
 			}
@@ -204,7 +223,7 @@ bool ElfReader::LoadRelocations(const Elf32_Rel *rels, int numRelocs) {
 			default:
 			{
 				char temp[256];
-				MIPSDisAsm(MIPSOpcode(op), 0, temp);
+				MIPSDisAsm(MIPSOpcode(op), 0, temp, sizeof(temp));
 				ERROR_LOG_REPORT(LOADER, "ARGH IT'S AN UNKNOWN RELOCATION!!!!!!!! %08x, type=%d : %s", addr, type, temp);
 			}
 			break;
@@ -237,7 +256,7 @@ void ElfReader::LoadRelocations2(int rel_seg)
 
 	buf = (u8*)GetSegmentPtr(rel_seg);
 	if (!buf) {
-		ERROR_LOG(LOADER, "Rel2 segment invalid");
+		ERROR_LOG_REPORT(LOADER, "Rel2 segment invalid");
 		return;
 	}
 	end = buf+ph->p_filesz;
@@ -291,7 +310,7 @@ void ElfReader::LoadRelocations2(int rel_seg)
 			addr_seg = seg;
 			relocate_to = addr_seg >= (int)ARRAY_SIZE(segmentVAddr) ? 0 : segmentVAddr[addr_seg];
 			if (!Memory::IsValidAddress(relocate_to)) {
-				ERROR_LOG(LOADER, "ELF: Bad address to relocate to: %08x (segment %d)", relocate_to, addr_seg);
+				ERROR_LOG_REPORT(LOADER, "ELF: Bad address to relocate to: %08x (segment %d)", relocate_to, addr_seg);
 				continue;
 			}
 
@@ -323,7 +342,7 @@ void ElfReader::LoadRelocations2(int rel_seg)
 
 			rel_offset = rel_base+segmentVAddr[off_seg];
 			if (!Memory::IsValidAddress(rel_offset)) {
-				ERROR_LOG(LOADER, "ELF: Bad rel_offset: %08x", rel_offset);
+				ERROR_LOG_REPORT(LOADER, "ELF: Bad rel_offset: %08x", rel_offset);
 				continue;
 			}
 
@@ -376,7 +395,7 @@ void ElfReader::LoadRelocations2(int rel_seg)
 			}
 
 			Memory::Write_U32(op, rel_offset);
-			NotifyMemInfo(MemBlockFlags::WRITE, addr, 4, "Relocation2");
+			NotifyMemInfo(MemBlockFlags::WRITE, rel_offset, 4, "Relocation2");
 			rcount += 1;
 		}
 	}
@@ -545,7 +564,7 @@ int ElfReader::LoadInto(u32 loadAddress, bool fromTop)
 
 		if (s->sh_flags & SHF_ALLOC)
 		{
-			std::string tag = name && name[0] ? StringFromFormat("ELF/%s", name) : StringFromFormat("ELF/%08x", writeAddr);
+			std::string tag = name && name[0] ? StringFromFormat("%s/%s", modName.c_str(), name) : StringFromFormat("%s/%08x", modName.c_str(), writeAddr);
 			NotifyMemInfo(MemBlockFlags::SUB_ALLOC, writeAddr, s->sh_size, tag.c_str(), tag.size());
 			DEBUG_LOG(LOADER,"Data Section found: %s     Sitting at %08x, size %08x", name, writeAddr, (u32)s->sh_size);
 		}

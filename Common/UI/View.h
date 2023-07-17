@@ -19,6 +19,7 @@
 #include "Common/Math/lin/matrix4x4.h"
 #include "Common/Math/math_util.h"
 #include "Common/Math/geom2d.h"
+#include "Common/Input/KeyCodes.h"
 
 #include "Common/Common.h"
 
@@ -619,7 +620,7 @@ public:
 	Event OnChange;
 
 private:
-	bool ApplyKey(int keyCode);
+	bool ApplyKey(InputKeyCode keyCode);
 
 	int *value_;
 	bool showPercent_;
@@ -629,7 +630,7 @@ private:
 	float paddingRight_;
 	int step_;
 	int repeat_ = 0;
-	int repeatCode_ = 0;
+	InputKeyCode repeatCode_ = NKCODE_UNKNOWN;
 };
 
 class SliderFloat : public Clickable {
@@ -649,7 +650,7 @@ public:
 	Event OnChange;
 
 private:
-	bool ApplyKey(int keyCode);
+	bool ApplyKey(InputKeyCode keyCode);
 
 	float *value_;
 	float minValue_;
@@ -657,7 +658,7 @@ private:
 	float paddingLeft_;
 	float paddingRight_;
 	int repeat_;
-	int repeatCode_ = 0;
+	InputKeyCode repeatCode_ = NKCODE_UNKNOWN;
 };
 
 // Basic button that modifies a bitfield based on the pressed status. Supports multitouch.
@@ -735,7 +736,6 @@ public:
 protected:
 	// hackery
 	virtual bool IsSticky() const { return false; }
-	virtual float CalculateTextScale(const UIContext &dc, float availWidth) const;
 
 	std::string text_;
 	std::string smallText_;
@@ -856,13 +856,20 @@ public:
 	//allow external agents to toggle the checkbox
 	virtual void Toggle();
 	virtual bool Toggled() const;
-private:
-	float CalculateTextScale(const UIContext &dc, float availWidth) const;
 
+protected:
 	bool *toggle_;
 	std::string text_;
 	std::string smallText_;
 	ImageID imageID_;
+};
+
+class CollapsibleHeader : public CheckBox {
+public:
+	CollapsibleHeader(bool *toggle, const std::string &text, LayoutParams *layoutParams = nullptr);
+	void Draw(UIContext &dc) override;
+	void GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert, float &w, float &h) const override;
+	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override;
 };
 
 class BitCheckBox : public CheckBox {
@@ -1049,6 +1056,7 @@ private:
 };
 
 void MeasureBySpec(Size sz, float contentWidth, MeasureSpec spec, float *measured);
+void ApplyBoundsBySpec(Bounds &bounds, MeasureSpec horiz, MeasureSpec vert);
 
 bool IsDPadKey(const KeyInput &key);
 bool IsAcceptKey(const KeyInput &key);

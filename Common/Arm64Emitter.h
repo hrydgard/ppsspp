@@ -94,7 +94,7 @@ enum ARM64Reg
 
 // R19-R28. R29 (FP), R30 (LR) are always saved and FP updated appropriately.
 const u32 ALL_CALLEE_SAVED = 0x1FF80000;
-const u32 ALL_CALLEE_SAVED_FP = 0x0000FF00;  // d8-d15
+const u32 ALL_CALLEE_SAVED_FP = 0x0000FF00;  // q8-q15
 
 inline bool Is64Bit(ARM64Reg reg) { return (reg & 0x20) != 0; }
 inline bool IsSingle(ARM64Reg reg) { return (reg & 0xC0) == 0x40; }
@@ -401,6 +401,7 @@ public:
 	void ReserveCodeSpace(u32 bytes);
 	const u8* AlignCode16();
 	const u8* AlignCodePage();
+	const u8 *NopAlignCode16();
 	void FlushIcache();
 	void FlushIcacheSection(const u8* start, const u8* end);
 	u8* GetWritableCodePtr();

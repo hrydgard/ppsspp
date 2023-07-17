@@ -128,22 +128,26 @@ public:
 
 	// So that this can be inlined
 	void Flush() {
-		if (!numDrawCalls)
+		if (!numDrawCalls_)
 			return;
 		DoFlush();
 	}
 
 	void FinishDeferred() {
-		if (!numDrawCalls)
+		if (!numDrawCalls_)
 			return;
-		DecodeVerts(decoded);
+		DecodeVerts(decoded_);
 	}
 
-	void DispatchFlush() override { Flush(); }
+	void DispatchFlush() override {
+		if (!numDrawCalls_)
+			return;
+		Flush();
+	}
 
 protected:
 	// Not currently supported.
-	bool UpdateUseHWTessellation(bool enable) override { return false; }
+	bool UpdateUseHWTessellation(bool enable) const override { return false; }
 	void DecimateTrackedVertexArrays();
 
 private:
@@ -153,7 +157,7 @@ private:
 	void ApplyDrawState(int prim);
 	void ApplyDrawStateLate();
 
-	IDirect3DVertexDeclaration9 *SetupDecFmtForDraw(VSShader *vshader, const DecVtxFormat &decFmt, u32 pspFmt);
+	IDirect3DVertexDeclaration9 *SetupDecFmtForDraw(const DecVtxFormat &decFmt, u32 pspFmt);
 
 	void MarkUnreliable(VertexArrayInfoDX9 *vai);
 

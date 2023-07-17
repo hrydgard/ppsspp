@@ -13,15 +13,14 @@ enum class RenderPassType {
 	// These eight are organized so that bit 0 is DEPTH and bit 1 is INPUT and bit 2 is MULTIVIEW, so
 	// they can be OR-ed together in MergeRPTypes.
 	HAS_DEPTH = 1,
-	COLOR_INPUT = 2,  // input attachment
-	MULTIVIEW = 4,
-	MULTISAMPLE = 8,
+	MULTIVIEW = 2,
+	MULTISAMPLE = 4,
 
 	// This is the odd one out, and gets special handling in MergeRPTypes.
 	// If this flag is set, none of the other flags can be set.
 	// For the backbuffer we can always use CLEAR/DONT_CARE, so bandwidth cost for a depth channel is negligible
 	// so we don't bother with a non-depth version.
-	BACKBUFFER = 16,
+	BACKBUFFER = 8,
 
 	TYPE_COUNT = BACKBUFFER + 1,
 };
@@ -105,10 +104,6 @@ private:
 
 inline bool RenderPassTypeHasDepth(RenderPassType type) {
 	return (type & RenderPassType::HAS_DEPTH) || type == RenderPassType::BACKBUFFER;
-}
-
-inline bool RenderPassTypeHasInput(RenderPassType type) {
-	return (type & RenderPassType::COLOR_INPUT) != 0;
 }
 
 inline bool RenderPassTypeHasMultiView(RenderPassType type) {
