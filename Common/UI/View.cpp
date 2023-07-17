@@ -460,7 +460,7 @@ void Choice::GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz, 
 		}
 		if (horiz.type != EXACTLY && layoutParams_->width > 0.0f && availWidth > layoutParams_->width)
 			availWidth = layoutParams_->width;
-		float scale = CalculateTextScale(dc, availWidth);
+		float scale = dc.CalculateTextScale(text_.c_str(), availWidth, bounds_.h);
 		Bounds availBounds(0, 0, availWidth, vert.size);
 		float textW = 0.0f, textH = 0.0f;
 		dc.MeasureTextRect(dc.theme->uiFont, scale, scale, text_.c_str(), (int)text_.size(), availBounds, &textW, &textH, FLAG_WRAP_TEXT);
@@ -471,16 +471,6 @@ void Choice::GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz, 
 	w = totalW + 24;
 	h = totalH + 16;
 	h = std::max(h, ITEM_HEIGHT);
-}
-
-float Choice::CalculateTextScale(const UIContext &dc, float availWidth) const {
-	float actualWidth, actualHeight;
-	Bounds availBounds(0, 0, availWidth, bounds_.h);
-	dc.MeasureTextRect(dc.theme->uiFont, 1.0f, 1.0f, text_.c_str(), (int)text_.size(), availBounds, &actualWidth, &actualHeight, drawTextFlags_);
-	if (actualWidth > availWidth) {
-		return std::max(MIN_TEXT_SCALE, availWidth / actualWidth);
-	}
-	return 1.0f;
 }
 
 void Choice::Draw(UIContext &dc) {
@@ -508,18 +498,15 @@ void Choice::Draw(UIContext &dc) {
 			dc.Draw()->DrawImage(image_, bounds_.x + 6, bounds_.centerY(), 1.0f, style.fgColor, ALIGN_LEFT | ALIGN_VCENTER);
 		}
 
-		float scale = CalculateTextScale(dc, availWidth);
-
-		dc.SetFontScale(scale, scale);
 		if (centered_) {
-			dc.DrawTextRect(text_.c_str(), bounds_, style.fgColor, ALIGN_CENTER | FLAG_WRAP_TEXT | drawTextFlags_);
+			dc.DrawTextRectSqueeze(text_.c_str(), bounds_, style.fgColor, ALIGN_CENTER | FLAG_WRAP_TEXT | drawTextFlags_);
 		} else {
 			if (rightIconImage_.isValid()) {
 				uint32_t col = rightIconKeepColor_ ? 0xffffffff : style.fgColor; // Don't apply theme to gold icon
 				dc.Draw()->DrawImageRotated(rightIconImage_, bounds_.x2() - 32 - paddingX, bounds_.centerY(), rightIconScale_, rightIconRot_, col, rightIconFlipH_);
 			}
 			Bounds textBounds(bounds_.x + paddingX + textPadding_.left, bounds_.y, availWidth, bounds_.h);
-			dc.DrawTextRect(text_.c_str(), textBounds, style.fgColor, ALIGN_VCENTER | FLAG_WRAP_TEXT | drawTextFlags_);
+			dc.DrawTextRectSqueeze(text_.c_str(), textBounds, style.fgColor, ALIGN_VCENTER | FLAG_WRAP_TEXT | drawTextFlags_);
 		}
 		dc.SetFontScale(1.0f, 1.0f);
 	}
@@ -783,10 +770,8 @@ void CheckBox::Draw(UIContext &dc) {
 	const float availWidth = bounds_.w - paddingX * 2 - imageW - paddingX;
 
 	if (!text_.empty()) {
-		float scale = CalculateTextScale(dc, availWidth);
-		dc.SetFontScale(scale, scale);
 		Bounds textBounds(bounds_.x + paddingX, bounds_.y, availWidth, bounds_.h);
-		dc.DrawTextRect(text_.c_str(), textBounds, style.fgColor, ALIGN_VCENTER | FLAG_WRAP_TEXT);
+		dc.DrawTextRectSqueeze(text_.c_str(), textBounds, style.fgColor, ALIGN_VCENTER | FLAG_WRAP_TEXT);
 	}
 	dc.Draw()->DrawImage(image, bounds_.x2() - paddingX, bounds_.centerY(), 1.0f, style.fgColor, ALIGN_RIGHT | ALIGN_VCENTER);
 	dc.SetFontScale(1.0f, 1.0f);
@@ -799,16 +784,6 @@ std::string CheckBox::DescribeText() const {
 		text += "\n" + smallText_;
 	}
 	return text;
-}
-
-float CheckBox::CalculateTextScale(const UIContext &dc, float availWidth) const {
-	float actualWidth, actualHeight;
-	Bounds availBounds(0, 0, availWidth, bounds_.h);
-	dc.MeasureTextRect(dc.theme->uiFont, 1.0f, 1.0f, text_.c_str(), (int)text_.size(), availBounds, &actualWidth, &actualHeight, ALIGN_VCENTER);
-	if (actualWidth > availWidth) {
-		return std::max(MIN_TEXT_SCALE, availWidth / actualWidth);
-	}
-	return 1.0f;
 }
 
 void CheckBox::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
@@ -838,7 +813,7 @@ void CheckBox::GetContentDimensions(const UIContext &dc, float &w, float &h) con
 	}
 
 	if (!text_.empty()) {
-		float scale = CalculateTextScale(dc, availWidth);
+		float scale = dc.CalculateTextScale(text_.c_str(), availWidth, bounds_.h);
 
 		float actualWidth, actualHeight;
 		Bounds availBounds(0, 0, availWidth, bounds_.h);

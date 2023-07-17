@@ -290,6 +290,28 @@ void UIContext::DrawTextRect(const char *str, const Bounds &bounds, uint32_t col
 	RebindTexture();
 }
 
+static constexpr float MIN_TEXT_SCALE = 0.7f;
+
+float UIContext::CalculateTextScale(const char *text, float availWidth, float availHeight) const {
+	float actualWidth, actualHeight;
+	Bounds availBounds(0, 0, availWidth, availHeight);
+	MeasureTextRect(theme->uiFont, 1.0f, 1.0f, text, (int)strlen(text), availBounds, &actualWidth, &actualHeight, ALIGN_VCENTER);
+	if (actualWidth > availWidth) {
+		return std::max(MIN_TEXT_SCALE, availWidth / actualWidth);
+	}
+	return 1.0f;
+}
+
+void UIContext::DrawTextRectSqueeze(const char *str, const Bounds &bounds, uint32_t color, int align) {
+	float origScaleX = fontScaleX_;
+	float origScaleY = fontScaleY_;
+	float scale = CalculateTextScale(str, bounds.w / origScaleX, bounds.h / origScaleY);
+	SetFontScale(scale * origScaleX, scale * origScaleY);
+	Bounds textBounds(bounds.x, bounds.y, bounds.w, bounds.h);
+	DrawTextRect(str, textBounds, color, align);
+	SetFontScale(origScaleX, origScaleY);
+}
+
 void UIContext::DrawTextShadowRect(const char *str, const Bounds &bounds, uint32_t color, int align) {
 	uint32_t alpha = (color >> 1) & 0xFF000000;
 	Bounds shadowBounds(bounds.x+2, bounds.y+2, bounds.w, bounds.h);
