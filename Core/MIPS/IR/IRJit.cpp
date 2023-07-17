@@ -262,11 +262,6 @@ void IRJit::UnlinkBlock(u8 *checkedEntry, u32 originalAddress) {
 	Crash();
 }
 
-bool IRJit::ReplaceJalTo(u32 dest) {
-	Crash();
-	return false;
-}
-
 void IRBlockCache::Clear() {
 	for (int i = 0; i < (int)blocks_.size(); ++i) {
 		blocks_[i].Destroy(i);

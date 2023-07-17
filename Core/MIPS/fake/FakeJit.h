@@ -162,8 +162,6 @@ private:
 	void MovFromPC(FakeReg r);
 	void MovToPC(FakeReg r);
 
-	bool ReplaceJalTo(u32 dest);
-
 	void SaveDowncount();
 	void RestoreDowncount();
 

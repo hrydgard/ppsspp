@@ -263,10 +263,15 @@ bool HandleFault(uintptr_t hostAddress, void *ctx) {
 #endif
 		Core_ExecException(targetAddr, currentMIPS->pc, ExecExceptionType::JUMP);
 		// Redirect execution to a crash handler that will switch to CoreState::CORE_RUNTIME_ERROR immediately.
-		context->CTX_PC = (uintptr_t)MIPSComp::jit->GetCrashHandler();
-		ERROR_LOG(MEMMAP, "Bad execution access detected, halting: %08x (last known pc %08x, host: %p)", targetAddr, currentMIPS->pc, (void *)hostAddress);
-		inCrashHandler = false;
-		return true;
+		uintptr_t crashHandler = (uintptr_t)MIPSComp::jit->GetCrashHandler();
+		if (crashHandler != 0) {
+			context->CTX_PC = crashHandler;
+			ERROR_LOG(MEMMAP, "Bad execution access detected, halting: %08x (last known pc %08x, host: %p)", targetAddr, currentMIPS->pc, (void *)hostAddress);
+			inCrashHandler = false;
+			return true;
+		}
+
+		type = MemoryExceptionType::UNKNOWN;
 	} else if (success) {
 		if (info.isMemoryWrite) {
 			type = MemoryExceptionType::WRITE_WORD;
@@ -303,8 +308,11 @@ bool HandleFault(uintptr_t hostAddress, void *ctx) {
 		g_lastCrashAddress = codePtr;
 
 		// Redirect execution to a crash handler that will switch to CoreState::CORE_RUNTIME_ERROR immediately.
+		uintptr_t crashHandler = 0;
 		if (MIPSComp::jit)
-			context->CTX_PC = (uintptr_t)MIPSComp::jit->GetCrashHandler();
+			crashHandler = (uintptr_t)MIPSComp::jit->GetCrashHandler();
+		if (crashHandler != 0)
+			context->CTX_PC = crashHandler;
 		else
 			handled = false;
 		ERROR_LOG(MEMMAP, "Bad memory access detected! %08x (%p) Stopping emulation. Info:\n%s", guestAddress, (void *)hostAddress, infoString.c_str());

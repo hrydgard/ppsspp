@@ -153,10 +153,6 @@ void FakeJit::Comp_RunBlock(MIPSOpcode op)
 	ERROR_LOG(JIT, "Comp_RunBlock should never be reached!");
 }
 
-bool FakeJit::ReplaceJalTo(u32 dest) {
-	return true;
-}
-
 void FakeJit::Comp_ReplacementFunc(MIPSOpcode op)
 {
 }

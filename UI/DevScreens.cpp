@@ -1003,7 +1003,7 @@ void JitCompareScreen::UpdateDisasm() {
 	snprintf(temp, sizeof(temp), "%i/%i", currentBlock_, blockCacheDebug->GetNumBlocks());
 	blockName_->SetText(temp);
 
-	if (currentBlock_ < 0 || currentBlock_ >= blockCacheDebug->GetNumBlocks()) {
+	if (currentBlock_ < 0 || !blockCacheDebug || currentBlock_ >= blockCacheDebug->GetNumBlocks()) {
 		leftDisasm_->Add(new TextView(dev->T("No block")));
 		rightDisasm_->Add(new TextView(dev->T("No block")));
 		blockStats_->SetText("");
@@ -1067,6 +1067,9 @@ UI::EventReturn JitCompareScreen::OnShowStats(UI::EventParams &e) {
 	}
 
 	JitBlockCacheDebugInterface *blockCache = MIPSComp::jit->GetBlockCacheDebugInterface();
+	if (!blockCache)
+		return UI::EVENT_DONE;
+
 	BlockCacheStats bcStats;
 	blockCache->ComputeStats(bcStats);
 	NOTICE_LOG(JIT, "Num blocks: %i", bcStats.numBlocks);

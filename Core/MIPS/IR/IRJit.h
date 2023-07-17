@@ -172,7 +172,6 @@ public:
 
 private:
 	bool CompileBlock(u32 em_address, std::vector<IRInst> &instructions, u32 &mipsBytes, bool preload);
-	bool ReplaceJalTo(u32 dest);
 
 	JitOptions jo;
 
@@ -187,4 +186,3 @@ private:
 };
 
 }	// namespace MIPSComp
-
