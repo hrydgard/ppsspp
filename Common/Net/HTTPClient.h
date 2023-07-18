@@ -100,48 +100,13 @@ enum class ProgressBarMode {
 	DELAYED,
 };
 
-// Really an asynchronous request.
 class Download {
 public:
-	Download(RequestMethod method, const std::string &url, const std::string &postData, const std::string &postMime, const Path &outfile, ProgressBarMode progressBarMode = ProgressBarMode::DELAYED, const std::string &name = "");
-	~Download();
+	Download(const std::string &url, const std::string &name, bool *cancelled) : url_(url), name_(name), progress_(cancelled) {}
+	virtual ~Download() {}
 
-	void SetAccept(const char *mime) {
-		acceptMime_ = mime;
-	}
-
-	void SetUserAgent(const std::string &userAgent) {
-		userAgent_ = userAgent;
-	}
-
-	void Start();
-
-	void Join();
-
-	// Returns 1.0 when done. That one value can be compared exactly - or just use Done().
-	float Progress() const { return progress_.progress; }
-	float SpeedKBps() const { return progress_.kBps; }
-
-	bool Done() const { return completed_; }
-	bool Failed() const { return failed_; }
-
-	// NOTE! The value of ResultCode is INVALID until Done() returns true.
-	int ResultCode() const { return resultCode_; }
-
-	std::string url() const { return url_; }
-	const Path &outfile() const { return outfile_; }
-
-	// If not downloading to a file, access this to get the result.
-	Buffer &buffer() { return buffer_; }
-	const Buffer &buffer() const { return buffer_; }
-
-	void Cancel() {
-		cancelled_ = true;
-	}
-
-	bool IsCancelled() const {
-		return cancelled_;
-	}
+	virtual void SetAccept(const char *mime) = 0;
+	virtual void SetUserAgent(const std::string &userAgent) = 0;
 
 	// NOTE: Completion callbacks (which these are) are deferred until RunCallback is called. This is so that
 	// the call will end up on the thread that calls g_DownloadManager.Update().
@@ -154,6 +119,72 @@ public:
 		}
 	}
 
+	virtual void Start() = 0;
+	virtual void Join() = 0;
+
+	virtual bool Done() const = 0;
+	virtual bool Failed() const = 0;
+
+	virtual int ResultCode() const = 0;
+
+	// Returns 1.0 when done. That one value can be compared exactly - or just use Done().
+	float Progress() const { return progress_.progress; }
+	float SpeedKBps() const { return progress_.kBps; }
+	std::string url() const { return url_; }
+	virtual const Path &outfile() const = 0;
+
+	virtual void Cancel() = 0;
+	virtual bool IsCancelled() const = 0;
+
+	virtual Buffer &buffer() = 0;
+	virtual const Buffer &buffer() const = 0;
+
+protected:
+	std::function<void(Download &)> callback_;
+	std::string url_;
+	std::string name_;
+	net::RequestProgress progress_;
+
+private:
+};
+
+// Really an asynchronous request.
+class HTTPDownload : public Download {
+public:
+	HTTPDownload(RequestMethod method, const std::string &url, const std::string &postData, const std::string &postMime, const Path &outfile, ProgressBarMode progressBarMode = ProgressBarMode::DELAYED, const std::string &name = "");
+	~HTTPDownload();
+
+	void SetAccept(const char *mime) override {
+		acceptMime_ = mime;
+	}
+
+	void SetUserAgent(const std::string &userAgent) override {
+		userAgent_ = userAgent;
+	}
+
+	void Start() override;
+	void Join() override;
+
+	bool Done() const override { return completed_; }
+	bool Failed() const override { return failed_; }
+
+	// NOTE! The value of ResultCode is INVALID until Done() returns true.
+	int ResultCode() const override { return resultCode_; }
+
+	const Path &outfile() const override { return outfile_; }
+
+	// If not downloading to a file, access this to get the result.
+	Buffer &buffer() override { return buffer_; }
+	const Buffer &buffer() const override { return buffer_; }
+
+	void Cancel() override {
+		cancelled_ = true;
+	}
+
+	bool IsCancelled() const override {
+		return cancelled_;
+	}
+
 private:
 	void Do();  // Actually does the download. Runs on thread.
 	int Perform(const std::string &url);
@@ -161,12 +192,10 @@ private:
 	void SetFailed(int code);
 
 	RequestMethod method_;
-	net::RequestProgress progress_;
 	std::string postData_;
 	std::string userAgent_;
 	Buffer buffer_;
 	std::vector<std::string> responseHeaders_;
-	std::string url_;
 	Path outfile_;
 	std::thread thread_;
 	const char *acceptMime_ = "*/*";
@@ -177,8 +206,6 @@ private:
 	bool cancelled_ = false;
 	ProgressBarMode progressBarMode_;
 	bool joined_ = false;
-	std::string name_;
-	std::function<void(Download &)> callback_;
 };
 
 using std::shared_ptr;
