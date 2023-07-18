@@ -17,14 +17,19 @@
 
 #pragma once
 
+#include <string>
+#include <vector>
 #include "Common/RiscVEmitter.h"
 #include "Core/MIPS/IR/IRJit.h"
+#include "Core/MIPS/JitCommon/JitState.h"
+#include "Core/MIPS/JitCommon/JitCommon.h"
 
 namespace MIPSComp {
 
 class RiscVJit : public RiscVGen::RiscVCodeBlock, public IRJit {
 public:
 	RiscVJit(MIPSState *mipsState);
+	~RiscVJit();
 
 	void RunLoopUntil(u64 globalticks) override;
 
@@ -42,12 +47,33 @@ public:
 protected:
 	bool CompileBlock(u32 em_address, std::vector<IRInst> &instructions, u32 &mipsBytes, bool preload) override;
 
+	void CompileIRInst(IRInst inst);
+
 private:
 	void GenerateFixedCode(const JitOptions &jo);
 
+	void RestoreRoundingMode(bool force = false);
+	void ApplyRoundingMode(bool force = false);
+	void MovFromPC(RiscVGen::RiscVReg r);
+	void MovToPC(RiscVGen::RiscVReg r);
+
+	void SaveStaticRegisters();
+	void LoadStaticRegisters();
+
 	const u8 *enterDispatcher_ = nullptr;
 
+	const u8 *outerLoop_ = nullptr;
+	const u8 *outerLoopPCInSCRATCH1_ = nullptr;
+	const u8 *dispatcherCheckCoreState_ = nullptr;
+	const u8 *dispatcherPCInSCRATCH1_ = nullptr;
+	const u8 *dispatcher_ = nullptr;
+	const u8 *dispatcherNoCheck_ = nullptr;
+	const u8 *dispatcherFetch_ = nullptr;
+
+	const u8 *crashHandler_ = nullptr;
+
 	int jitStartOffset_ = 0;
+	const u8 **blockStartAddrs_ = nullptr;
 };
 
 } // namespace MIPSComp

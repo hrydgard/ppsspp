@@ -593,6 +593,7 @@
     <ClCompile Include="MIPS\IR\IRPassSimplify.cpp" />
     <ClCompile Include="MIPS\IR\IRRegCache.cpp" />
     <ClCompile Include="MIPS\MIPSVFPUFallbacks.cpp" />
+    <ClCompile Include="MIPS\RiscV\RiscVAsm.cpp" />
     <ClCompile Include="MIPS\RiscV\RiscVJit.cpp" />
     <ClCompile Include="Replay.cpp" />
     <ClCompile Include="Compatibility.cpp" />
@@ -1163,6 +1164,7 @@
     <ClInclude Include="MIPS\IR\IRRegCache.h" />
     <ClInclude Include="MIPS\MIPSVFPUFallbacks.h" />
     <ClInclude Include="MIPS\RiscV\RiscVJit.h" />
+    <ClInclude Include="MIPS\RiscV\RiscVRegCache.h" />
     <ClInclude Include="Replay.h" />
     <ClInclude Include="Compatibility.h" />
     <ClInclude Include="Config.h" />

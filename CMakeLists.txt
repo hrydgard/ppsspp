@@ -1609,8 +1609,10 @@ list(APPEND CoreExtra
 )
 
 list(APPEND CoreExtra
+	Core/MIPS/RiscV/RiscVAsm.cpp
 	Core/MIPS/RiscV/RiscVJit.cpp
 	Core/MIPS/RiscV/RiscVJit.h
+	Core/MIPS/RiscV/RiscVRegCache.h
 	GPU/Common/VertexDecoderRiscV.cpp
 )
 

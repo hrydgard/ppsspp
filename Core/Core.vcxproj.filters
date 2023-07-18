@@ -1210,6 +1210,9 @@
     <ClCompile Include="MIPS\RiscV\RiscVJit.cpp">
       <Filter>MIPS\RiscV</Filter>
     </ClCompile>
+    <ClCompile Include="MIPS\RiscV\RiscVAsm.cpp">
+      <Filter>MIPS\RiscV</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ELF\ElfReader.h">
@@ -1957,6 +1960,9 @@
       <Filter>Core</Filter>
     </ClInclude>
     <ClInclude Include="MIPS\RiscV\RiscVJit.h">
+      <Filter>MIPS\RiscV</Filter>
+    </ClInclude>
+    <ClInclude Include="MIPS\RiscV\RiscVRegCache.h">
       <Filter>MIPS\RiscV</Filter>
     </ClInclude>
   </ItemGroup>

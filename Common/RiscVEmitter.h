@@ -213,6 +213,13 @@ public:
 	bool BInRange(const void *func) const;
 	bool JInRange(const void *func) const;
 
+	void QuickCallFunction(RiscVReg scratchreg, const u8 *func);
+	template <typename T>
+	void QuickCallFunction(RiscVReg scratchreg, T *func) {
+		static_assert(std::is_function<T>::value, "QuickCallFunction without function");
+		QuickCallFunction(scratchreg, (const u8 *)func);
+	}
+
 	void LUI(RiscVReg rd, s32 simm32);
 	void AUIPC(RiscVReg rd, s32 simm32);
 

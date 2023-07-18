@@ -1180,6 +1180,16 @@ bool RiscVEmitter::CJInRange(const void *src, const void *dst) const {
 	return BJInRange(src, dst, 12);
 }
 
+void RiscVEmitter::QuickCallFunction(RiscVReg scratchreg, const u8 *func) {
+	if (!JInRange(GetCodePointer(), func)) {
+		// TODO: Might be able to optimize a tiny bit by taking advantage of simm12.
+		LI(scratchreg, (uintptr_t)func);
+		JALR(R_RA, scratchreg, 0);
+	} else {
+		JAL(R_RA, func);
+	}
+}
+
 void RiscVEmitter::SetRegToImmediate(RiscVReg rd, uint64_t value, RiscVReg temp) {
 	int64_t svalue = (int64_t)value;
 	_assert_msg_(IsGPR(rd) && IsGPR(temp), "SetRegToImmediate only supports GPRs");
