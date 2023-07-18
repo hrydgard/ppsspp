@@ -79,7 +79,10 @@ SPIRV_CROSS_FILES := \
   $(SRC)/ext/SPIRV-Cross/spirv_glsl.cpp \
   $(SRC)/ext/SPIRV-Cross/spirv_parser.cpp \
   $(SRC)/ext/SPIRV-Cross/spirv_cross_parsed_ir.cpp
- 
+
+NAETT_FILES := \
+  ${SRC}/ext/naett/naett.c
+
 RCHEEVOS_FILES := \
   ${SRC}/ext/rcheevos/src/rapi/rc_api_common.c \
   ${SRC}/ext/rcheevos/src/rapi/rc_api_editor.c \
@@ -178,6 +181,7 @@ EXEC_AND_LIB_FILES := \
   $(VMA_FILES) \
   $(SPIRV_CROSS_FILES) \
   $(RCHEEVOS_FILES) \
+  $(NAETT_FILES) \
   $(EXT_FILES) \
   $(NATIVE_FILES) \
   $(SRC)/Common/Buffer.cpp \
