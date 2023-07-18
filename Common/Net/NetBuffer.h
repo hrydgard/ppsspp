@@ -12,17 +12,21 @@ public:
 	RequestProgress() {}
 	explicit RequestProgress(bool *c) : cancelled(c) {}
 
-	void Update(float newProgress) {
-		progress = newProgress;
+	void Update(int64_t downloaded, int64_t totalBytes, bool done) {
+		if (totalBytes) {
+			progress = (double)downloaded / (double)totalBytes;
+		} else {
+			progress = 0.01f;
+		}
 		if (callback) {
-			callback(newProgress);
+			callback(downloaded, totalBytes, done);
 		}
 	}
 
 	float progress = 0.0f;
 	float kBps = 0.0f;
 	bool *cancelled = nullptr;
-	std::function<void(float)> callback;
+	std::function<void(int64_t, int64_t, bool)> callback;
 };
 
 class Buffer : public ::Buffer {

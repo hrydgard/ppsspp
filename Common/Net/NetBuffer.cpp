@@ -89,7 +89,7 @@ bool Buffer::ReadAllWithProgress(int fd, int knownSize, RequestProgress *progres
 		memcpy(p, &buf[0], retval);
 		total += retval;
 		if (progress) {
-			progress->Update((float)total / (float)knownSize);
+			progress->Update(total, knownSize, false);
 			progress->kBps = (float)(total / (time_now_d() - st)) / 1024.0f;
 		}
 	}

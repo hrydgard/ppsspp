@@ -216,9 +216,14 @@ void OnScreenDisplay::ShowOnOff(const std::string &message, bool on, float durat
 }
 
 void OnScreenDisplay::SetProgressBar(std::string id, std::string &&message, float minValue, float maxValue, float progress, float delay) {
-	std::lock_guard<std::mutex> guard(mutex_);
+	_dbg_assert_(!my_isnanorinf(progress));
+	_dbg_assert_(!my_isnanorinf(minValue));
+	_dbg_assert_(!my_isnanorinf(maxValue));
+
 	double now = time_now_d();
 	bool found = false;
+
+	std::lock_guard<std::mutex> guard(mutex_);
 	for (auto &bar : bars_) {
 		if (bar.id == id) {
 			bar.minValue = minValue;
@@ -228,6 +233,10 @@ void OnScreenDisplay::SetProgressBar(std::string id, std::string &&message, floa
 			bar.endTime = now + 60.0;  // Nudge the progress bar to keep it shown.
 			return;
 		}
+	}
+
+	if (message == "dorequest.php") {
+		found = found;
 	}
 
 	ProgressBar bar;

@@ -303,7 +303,7 @@ int Client::SendRequest(const char *method, const RequestParams &req, const char
 }
 
 int Client::SendRequestWithData(const char *method, const RequestParams &req, const std::string &data, const char *otherHeaders, net::RequestProgress *progress) {
-	progress->Update(0.01f);
+	progress->Update(0, 0, false);
 
 	net::Buffer buffer;
 	const char *tpl =
@@ -410,15 +410,9 @@ int Client::ReadResponseEntity(net::Buffer *readbuf, const std::vector<std::stri
 	}
 
 	if (contentLength < 0) {
+		WARN_LOG(IO, "Negative content length %d", contentLength);
 		// Just sanity checking...
 		contentLength = 0;
-	}
-
-	if (!contentLength) {
-		// Content length is unknown.
-		// Set progress to 2% so it looks like something is happening...
-		// The later progress updates won't include a reliable percentage.
-		progress->Update(0.02f);
 	}
 
 	if (!readbuf->ReadAllWithProgress(sock(), contentLength, progress))
@@ -428,7 +422,6 @@ int Client::ReadResponseEntity(net::Buffer *readbuf, const std::vector<std::stri
 	if (!output->IsVoid()) {
 		if (chunked) {
 			DeChunk(readbuf, output, contentLength);
-			progress->Update(1.0f);
 		} else {
 			output->Append(*readbuf);
 		}
@@ -440,42 +433,45 @@ int Client::ReadResponseEntity(net::Buffer *readbuf, const std::vector<std::stri
 			bool result = decompress_string(compressed, &decompressed);
 			if (!result) {
 				ERROR_LOG(IO, "Error decompressing using zlib");
-				progress->Update(0.0f);  // TJDO: is this right?
+				progress->Update(0, 0, true);
 				return -1;
 			}
 			output->Append(decompressed);
 		}
 	}
 
-	progress->Update(1.0f);
+	progress->Update(contentLength, contentLength, true);
 	return 0;
 }
 
-Download::Download(RequestMethod method, const std::string &url, const std::string &postData, const std::string &postMime, const Path &outfile, ProgressBarMode progressBarMode)
-	: method_(method), progress_(&cancelled_), url_(url), postData_(postData), postMime_(postMime), outfile_(outfile), progressBarMode_(progressBarMode) {
-
-	progress_.callback = [=](float progress) {
+Download::Download(RequestMethod method, const std::string &url, const std::string &postData, const std::string &postMime, const Path &outfile, ProgressBarMode progressBarMode, const std::string &name)
+	: method_(method), progress_(&cancelled_), url_(url), postData_(postData), postMime_(postMime), outfile_(outfile), progressBarMode_(progressBarMode), name_(name) {
+	progress_.callback = [=](int64_t bytes, int64_t contentLength, bool done) {
 		std::string message;
 		if (!name_.empty()) {
 			message = name_;
 		} else {
-			std::size_t pos = url.rfind('/');
+			std::size_t pos = url_.rfind('/');
 			if (pos != std::string::npos) {
-				message = url.substr(pos + 1);
+				message = url_.substr(pos + 1);
 			} else {
-				message = url;
+				message = url_;
 			}
 		}
 		if (progressBarMode_ != ProgressBarMode::NONE) {
-			g_OSD.SetProgressBar(url, std::move(message), 0.0f, 1.0f, progress, progressBarMode_ == ProgressBarMode::DELAYED ? 1.0f : 0.0f);  // delay 0.5 seconds before showing.
-			if (progress == 1.0f) {
-				g_OSD.RemoveProgressBar(url, Failed() ? false : true, 0.5f);
+			INFO_LOG(IO, "Showing progress bar: %s", message.c_str());
+			if (!done) {
+				g_OSD.SetProgressBar(url_, std::move(message), 0.0f, (float)contentLength, (float)bytes, progressBarMode_ == ProgressBarMode::DELAYED ? 3.0f : 0.0f);  // delay 3 seconds before showing.
+			} else {
+				g_OSD.RemoveProgressBar(url_, Failed() ? false : true, 0.5f);
 			}
 		}
 	};
 }
 
 Download::~Download() {
+	g_OSD.RemoveProgressBar(url_, Failed() ? false : true, 0.5f);
+
 	_assert_msg_(joined_, "Download destructed without join");
 }
 
@@ -493,7 +489,7 @@ void Download::Join() {
 
 void Download::SetFailed(int code) {
 	failed_ = true;
-	progress_.Update(1.0f);
+	progress_.Update(0, 0, true);
 	completed_ = true;
 }
 
@@ -588,8 +584,6 @@ void Download::Do() {
 		resultCode_ = resultCode;
 	}
 
-	progress_.Update(1.0f);
-
 	// Set this last to ensure no race conditions when checking Done. Users must always check
 	// Done before looking at the result code.
 	completed_ = true;
@@ -612,8 +606,9 @@ std::shared_ptr<Download> Downloader::StartDownloadWithCallback(
 	const Path &outfile,
 	ProgressBarMode mode,
 	std::function<void(Download &)> callback,
+	const std::string &name,
 	const char *acceptMime) {
-	std::shared_ptr<Download> dl(new Download(RequestMethod::GET, url, "", "", outfile, mode));
+	std::shared_ptr<Download> dl(new Download(RequestMethod::GET, url, "", "", outfile, mode, name));
 	if (!userAgent_.empty())
 		dl->SetUserAgent(userAgent_);
 	if (acceptMime)
@@ -629,8 +624,9 @@ std::shared_ptr<Download> Downloader::AsyncPostWithCallback(
 	const std::string &postData,
 	const std::string &postMime,
 	ProgressBarMode mode,
-	std::function<void(Download &)> callback) {
-	std::shared_ptr<Download> dl(new Download(RequestMethod::POST, url, postData, postMime, Path(), mode));
+	std::function<void(Download &)> callback,
+	const std::string &name) {
+	std::shared_ptr<Download> dl(new Download(RequestMethod::POST, url, postData, postMime, Path(), mode, name));
 	if (!userAgent_.empty())
 		dl->SetUserAgent(userAgent_);
 	dl->SetCallback(callback);

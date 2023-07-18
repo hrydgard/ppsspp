@@ -175,8 +175,9 @@ static void server_call_callback(const rc_api_request_t *request,
 	rc_client_server_callback_t callback, void *callback_data, rc_client_t *client)
 {
 	// If post data is provided, we need to make a POST request, otherwise, a GET request will suffice.
+	auto ac = GetI18NCategory(I18NCat::ACHIEVEMENTS);
 	if (request->post_data) {
-		g_DownloadManager.AsyncPostWithCallback(std::string(request->url), std::string(request->post_data), "application/x-www-form-urlencoded", http::ProgressBarMode::DELAYED, [=](http::Download &download) {
+		std::shared_ptr<http::Download> download = g_DownloadManager.AsyncPostWithCallback(std::string(request->url), std::string(request->post_data), "application/x-www-form-urlencoded", http::ProgressBarMode::DELAYED, [=](http::Download &download) {
 			std::string buffer;
 			download.buffer().TakeAll(&buffer);
 			rc_api_server_response_t response{};
@@ -184,9 +185,9 @@ static void server_call_callback(const rc_api_request_t *request,
 			response.body_length = buffer.size();
 			response.http_status_code = download.ResultCode();
 			callback(&response, callback_data);
-		});
+		}, ac->T("Contacting RetroAchievements server..."));
 	} else {
-		g_DownloadManager.StartDownloadWithCallback(std::string(request->url), Path(), http::ProgressBarMode::DELAYED, [=](http::Download &download) {
+		std::shared_ptr<http::Download> download = g_DownloadManager.StartDownloadWithCallback(std::string(request->url), Path(), http::ProgressBarMode::DELAYED, [=](http::Download &download) {
 			std::string buffer;
 			download.buffer().TakeAll(&buffer);
 			rc_api_server_response_t response{};
@@ -194,7 +195,7 @@ static void server_call_callback(const rc_api_request_t *request,
 			response.body_length = buffer.size();
 			response.http_status_code = download.ResultCode();
 			callback(&response, callback_data);
-		});
+		}, ac->T("Contacting RetroAchievements server..."));
 	}
 }
 

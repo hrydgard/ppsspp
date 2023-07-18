@@ -103,7 +103,7 @@ enum class ProgressBarMode {
 // Really an asynchronous request.
 class Download {
 public:
-	Download(RequestMethod method, const std::string &url, const std::string &postData, const std::string &postMime, const Path &outfile, ProgressBarMode progressBarMode = ProgressBarMode::DELAYED);
+	Download(RequestMethod method, const std::string &url, const std::string &postData, const std::string &postMime, const Path &outfile, ProgressBarMode progressBarMode = ProgressBarMode::DELAYED, const std::string &name = "");
 	~Download();
 
 	void SetAccept(const char *mime) {
@@ -153,8 +153,6 @@ public:
 			callback_(*this);
 		}
 	}
-	// Visual name for the download, to be displayed in progress bars.
-	void SetName(const std::string &&name) { name_ = std::move(name); }
 
 private:
 	void Do();  // Actually does the download. Runs on thread.
@@ -198,6 +196,7 @@ public:
 		const Path &outfile,
 		ProgressBarMode mode,
 		std::function<void(Download &)> callback,
+		const std::string &name = "",
 		const char *acceptMime = nullptr);
 
 	std::shared_ptr<Download> AsyncPostWithCallback(
@@ -205,7 +204,8 @@ public:
 		const std::string &postData,
 		const std::string &postMime, // Use postMime = "application/x-www-form-urlencoded" for standard form-style posts, such as used by retroachievements. For encoding form data manually we have MultipartFormDataEncoder.
 		ProgressBarMode mode,
-		std::function<void(Download &)> callback);
+		std::function<void(Download &)> callback,
+		const std::string &name = "");
 
 	// Drops finished downloads from the list.
 	void Update();
