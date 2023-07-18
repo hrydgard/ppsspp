@@ -50,8 +50,8 @@ public:
 	// Progress bar controls
 	// Set is both create and update. If you set maxValue <= minValue, you'll create an "indeterminate" progress
 	// bar that doesn't show a specific amount of progress.
-	void SetProgressBar(std::string id, std::string &&message, int minValue, int maxValue, int progress);
-	void RemoveProgressBar(std::string id);
+	void SetProgressBar(std::string id, std::string &&message, float minValue, float maxValue, float progress, float delay_s);
+	void RemoveProgressBar(std::string id, bool success, float delay_s);
 
 	// Call every frame to keep the sidebar visible. Otherwise it'll fade out.
 	void NudgeSidebar();
@@ -74,9 +74,10 @@ public:
 	struct ProgressBar {
 		std::string id;
 		std::string message;
-		int minValue;
-		int maxValue;
-		int progress;
+		float minValue;
+		float maxValue;
+		float progress;
+		double startTime;
 		double endTime;
 	};
 

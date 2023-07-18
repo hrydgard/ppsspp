@@ -139,7 +139,7 @@ bool RemoteISOConnectScreen::FindServer(std::string &resultHost, int &resultPort
 		}
 
 		SetStatus("Loading game list from [URL]...", host, port);
-		http::RequestProgress progress(&scanCancelled);
+		net::RequestProgress progress(&scanCancelled);
 		code = http.GET(http::RequestParams(subdir.c_str()), &result, &progress);
 		http.Disconnect();
 
@@ -193,7 +193,7 @@ bool RemoteISOConnectScreen::FindServer(std::string &resultHost, int &resultPort
 	SetStatus("Looking for peers...", "", 0);
 	if (http.Resolve(REPORT_HOSTNAME, REPORT_PORT)) {
 		if (http.Connect(2, 20.0, &scanCancelled)) {
-			http::RequestProgress progress(&scanCancelled);
+			net::RequestProgress progress(&scanCancelled);
 			code = http.GET(http::RequestParams("/match/list"), &result, &progress);
 			http.Disconnect();
 		}

@@ -2,6 +2,7 @@
 
 #include "Common/TimeUtil.h"
 #include "Common/StringUtils.h"
+#include "Common/System/OSD.h"
 
 #ifndef _WIN32
 #include <netinet/in.h>
@@ -217,7 +218,7 @@ bool GetHeaderValue(const std::vector<std::string> &responseHeaders, const std::
 	return found;
 }
 
-void DeChunk(Buffer *inbuffer, Buffer *outbuffer, int contentLength, float *progress) {
+void DeChunk(Buffer *inbuffer, Buffer *outbuffer, int contentLength) {
 	int dechunkedBytes = 0;
 	while (true) {
 		std::string line;
@@ -236,14 +237,11 @@ void DeChunk(Buffer *inbuffer, Buffer *outbuffer, int contentLength, float *prog
 			return;
 		}
 		dechunkedBytes += chunkSize;
-		if (progress && contentLength) {
-			*progress = (float)dechunkedBytes / contentLength;
-		}
 		inbuffer->Skip(2);
 	}
 }
 
-int Client::GET(const RequestParams &req, Buffer *output, std::vector<std::string> &responseHeaders, RequestProgress *progress) {
+int Client::GET(const RequestParams &req, Buffer *output, std::vector<std::string> &responseHeaders, net::RequestProgress *progress) {
 	const char *otherHeaders =
 		"Accept-Encoding: gzip\r\n";
 	int err = SendRequest("GET", req, otherHeaders, progress);
@@ -264,13 +262,13 @@ int Client::GET(const RequestParams &req, Buffer *output, std::vector<std::strin
 	return code;
 }
 
-int Client::GET(const RequestParams &req, Buffer *output, RequestProgress *progress) {
+int Client::GET(const RequestParams &req, Buffer *output, net::RequestProgress *progress) {
 	std::vector<std::string> responseHeaders;
 	int code = GET(req, output, responseHeaders, progress);
 	return code;
 }
 
-int Client::POST(const RequestParams &req, const std::string &data, const std::string &mime, Buffer *output, RequestProgress *progress) {
+int Client::POST(const RequestParams &req, const std::string &data, const std::string &mime, Buffer *output, net::RequestProgress *progress) {
 	char otherHeaders[2048];
 	if (mime.empty()) {
 		snprintf(otherHeaders, sizeof(otherHeaders), "Content-Length: %lld\r\n", (long long)data.size());
@@ -296,16 +294,16 @@ int Client::POST(const RequestParams &req, const std::string &data, const std::s
 	return code;
 }
 
-int Client::POST(const RequestParams &req, const std::string &data, Buffer *output, RequestProgress *progress) {
+int Client::POST(const RequestParams &req, const std::string &data, Buffer *output, net::RequestProgress *progress) {
 	return POST(req, data, "", output, progress);
 }
 
-int Client::SendRequest(const char *method, const RequestParams &req, const char *otherHeaders, RequestProgress *progress) {
+int Client::SendRequest(const char *method, const RequestParams &req, const char *otherHeaders, net::RequestProgress *progress) {
 	return SendRequestWithData(method, req, "", otherHeaders, progress);
 }
 
-int Client::SendRequestWithData(const char *method, const RequestParams &req, const std::string &data, const char *otherHeaders, RequestProgress *progress) {
-	progress->progress = 0.01f;
+int Client::SendRequestWithData(const char *method, const RequestParams &req, const std::string &data, const char *otherHeaders, net::RequestProgress *progress) {
+	progress->Update(0, 0, false);
 
 	net::Buffer buffer;
 	const char *tpl =
@@ -331,7 +329,7 @@ int Client::SendRequestWithData(const char *method, const RequestParams &req, co
 	return 0;
 }
 
-int Client::ReadResponseHeaders(net::Buffer *readbuf, std::vector<std::string> &responseHeaders, RequestProgress *progress) {
+int Client::ReadResponseHeaders(net::Buffer *readbuf, std::vector<std::string> &responseHeaders, net::RequestProgress *progress) {
 	// Snarf all the data we can into RAM. A little unsafe but hey.
 	static constexpr float CANCEL_INTERVAL = 0.25f;
 	bool ready = false;
@@ -384,7 +382,7 @@ int Client::ReadResponseHeaders(net::Buffer *readbuf, std::vector<std::string> &
 	return code;
 }
 
-int Client::ReadResponseEntity(net::Buffer *readbuf, const std::vector<std::string> &responseHeaders, Buffer *output, RequestProgress *progress) {
+int Client::ReadResponseEntity(net::Buffer *readbuf, const std::vector<std::string> &responseHeaders, Buffer *output, net::RequestProgress *progress) {
 	bool gzip = false;
 	bool chunked = false;
 	int contentLength = 0;
@@ -412,30 +410,18 @@ int Client::ReadResponseEntity(net::Buffer *readbuf, const std::vector<std::stri
 	}
 
 	if (contentLength < 0) {
+		WARN_LOG(IO, "Negative content length %d", contentLength);
 		// Just sanity checking...
 		contentLength = 0;
 	}
 
-	if (!contentLength) {
-		// Content length is unknown.
-		// Set progress to 1% so it looks like something is happening...
-		progress->progress = 0.1f;
-	}
-
-	if (!contentLength) {
-		// No way to know how far along we are. Let's just not update the progress counter.
-		if (!readbuf->ReadAllWithProgress(sock(), contentLength, nullptr, &progress->kBps, progress->cancelled))
-			return -1;
-	} else {
-		// Let's read in chunks, updating progress between each.
-		if (!readbuf->ReadAllWithProgress(sock(), contentLength, &progress->progress, &progress->kBps, progress->cancelled))
-			return -1;
-	}
+	if (!readbuf->ReadAllWithProgress(sock(), contentLength, progress))
+		return -1;
 
 	// output now contains the rest of the reply. Dechunk it.
 	if (!output->IsVoid()) {
 		if (chunked) {
-			DeChunk(readbuf, output, contentLength, &progress->progress);
+			DeChunk(readbuf, output, contentLength);
 		} else {
 			output->Append(*readbuf);
 		}
@@ -447,22 +433,45 @@ int Client::ReadResponseEntity(net::Buffer *readbuf, const std::vector<std::stri
 			bool result = decompress_string(compressed, &decompressed);
 			if (!result) {
 				ERROR_LOG(IO, "Error decompressing using zlib");
-				progress->progress = 0.0f;
+				progress->Update(0, 0, true);
 				return -1;
 			}
 			output->Append(decompressed);
 		}
 	}
 
-	progress->progress = 1.0f;
+	progress->Update(contentLength, contentLength, true);
 	return 0;
 }
 
-Download::Download(RequestMethod method, const std::string &url, const std::string &postData, const std::string &postMime, const Path &outfile)
-	: method_(method), progress_(&cancelled_), url_(url), postData_(postData), postMime_(postMime), outfile_(outfile) {
+Download::Download(RequestMethod method, const std::string &url, const std::string &postData, const std::string &postMime, const Path &outfile, ProgressBarMode progressBarMode, const std::string &name)
+	: method_(method), progress_(&cancelled_), url_(url), postData_(postData), postMime_(postMime), outfile_(outfile), progressBarMode_(progressBarMode), name_(name) {
+	progress_.callback = [=](int64_t bytes, int64_t contentLength, bool done) {
+		std::string message;
+		if (!name_.empty()) {
+			message = name_;
+		} else {
+			std::size_t pos = url_.rfind('/');
+			if (pos != std::string::npos) {
+				message = url_.substr(pos + 1);
+			} else {
+				message = url_;
+			}
+		}
+		if (progressBarMode_ != ProgressBarMode::NONE) {
+			INFO_LOG(IO, "Showing progress bar: %s", message.c_str());
+			if (!done) {
+				g_OSD.SetProgressBar(url_, std::move(message), 0.0f, (float)contentLength, (float)bytes, progressBarMode_ == ProgressBarMode::DELAYED ? 3.0f : 0.0f);  // delay 3 seconds before showing.
+			} else {
+				g_OSD.RemoveProgressBar(url_, Failed() ? false : true, 0.5f);
+			}
+		}
+	};
 }
 
 Download::~Download() {
+	g_OSD.RemoveProgressBar(url_, Failed() ? false : true, 0.5f);
+
 	_assert_msg_(joined_, "Download destructed without join");
 }
 
@@ -480,7 +489,7 @@ void Download::Join() {
 
 void Download::SetFailed(int code) {
 	failed_ = true;
-	progress_.progress = 1.0f;
+	progress_.Update(0, 0, true);
 	completed_ = true;
 }
 
@@ -575,15 +584,14 @@ void Download::Do() {
 		resultCode_ = resultCode;
 	}
 
-	progress_.progress = 1.0f;
-
 	// Set this last to ensure no race conditions when checking Done. Users must always check
 	// Done before looking at the result code.
 	completed_ = true;
 }
 
-std::shared_ptr<Download> Downloader::StartDownload(const std::string &url, const Path &outfile, const char *acceptMime) {
-	std::shared_ptr<Download> dl(new Download(RequestMethod::GET, url, "", "", outfile));
+std::shared_ptr<Download> Downloader::StartDownload(const std::string &url, const Path &outfile, ProgressBarMode mode, const char *acceptMime) {
+	std::shared_ptr<Download> dl(new Download(RequestMethod::GET, url, "", "", outfile, mode));
+
 	if (!userAgent_.empty())
 		dl->SetUserAgent(userAgent_);
 	if (acceptMime)
@@ -596,9 +604,11 @@ std::shared_ptr<Download> Downloader::StartDownload(const std::string &url, cons
 std::shared_ptr<Download> Downloader::StartDownloadWithCallback(
 	const std::string &url,
 	const Path &outfile,
+	ProgressBarMode mode,
 	std::function<void(Download &)> callback,
+	const std::string &name,
 	const char *acceptMime) {
-	std::shared_ptr<Download> dl(new Download(RequestMethod::GET, url, "", "", outfile));
+	std::shared_ptr<Download> dl(new Download(RequestMethod::GET, url, "", "", outfile, mode, name));
 	if (!userAgent_.empty())
 		dl->SetUserAgent(userAgent_);
 	if (acceptMime)
@@ -613,8 +623,10 @@ std::shared_ptr<Download> Downloader::AsyncPostWithCallback(
 	const std::string &url,
 	const std::string &postData,
 	const std::string &postMime,
-	std::function<void(Download &)> callback) {
-	std::shared_ptr<Download> dl(new Download(RequestMethod::POST, url, postData, postMime, Path()));
+	ProgressBarMode mode,
+	std::function<void(Download &)> callback,
+	const std::string &name) {
+	std::shared_ptr<Download> dl(new Download(RequestMethod::POST, url, postData, postMime, Path(), mode, name));
 	if (!userAgent_.empty())
 		dl->SetUserAgent(userAgent_);
 	dl->SetCallback(callback);
@@ -647,15 +659,6 @@ void Downloader::WaitForAll() {
 		Update();
 		sleep_ms(10);
 	}
-}
-
-std::vector<float> Downloader::GetCurrentProgress() {
-	std::vector<float> progress;
-	for (size_t i = 0; i < downloads_.size(); i++) {
-		if (!downloads_[i]->IsHidden())
-			progress.push_back(downloads_[i]->Progress());
-	}
-	return progress;
 }
 
 void Downloader::CancelAll() {

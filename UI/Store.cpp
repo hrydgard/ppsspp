@@ -58,7 +58,7 @@ public:
 
 		if (useIconCache && g_iconCache.MarkPending(path_)) {
 			const char *acceptMime = "image/png, image/jpeg, image/*; q=0.9, */*; q=0.8";
-			downloader_->StartDownloadWithCallback(path_, Path(), [&](http::Download &download) {
+			downloader_->StartDownloadWithCallback(path_, Path(), http::ProgressBarMode::DELAYED, [&](http::Download &download) {
 				if (download.ResultCode() == 200) {
 					std::string data;
 					download.buffer().TakeAll(&data);
@@ -165,8 +165,7 @@ void HttpImageFileView::Draw(UIContext &dc) {
 		if (!texture_ && !textureFailed_ && !path_.empty() && !download_) {
 			auto cb = std::bind(&HttpImageFileView::DownloadCompletedCallback, this, std::placeholders::_1);
 			const char *acceptMime = "image/png, image/jpeg, image/*; q=0.9, */*; q=0.8";
-			download_ = downloader_->StartDownloadWithCallback(path_, Path(), cb, acceptMime);
-			download_->SetHidden(true);
+			downloader_->StartDownloadWithCallback(path_, Path(), http::ProgressBarMode::NONE, cb, acceptMime);
 		}
 
 		if (!textureData_.empty()) {
@@ -404,7 +403,7 @@ StoreScreen::StoreScreen() {
 
 	std::string indexPath = storeBaseUrl + "index.json";
 	const char *acceptMime = "application/json, */*; q=0.8";
-	listing_ = g_DownloadManager.StartDownload(indexPath, Path(), acceptMime);
+	listing_ = g_DownloadManager.StartDownload(indexPath, Path(), http::ProgressBarMode::DELAYED, acceptMime);
 }
 
 StoreScreen::~StoreScreen() {

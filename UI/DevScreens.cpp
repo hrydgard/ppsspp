@@ -819,19 +819,23 @@ void SystemInfoScreen::CreateTabs() {
 	});
 	internals->Add(new ItemHeader(si->T("Progress tests")));
 	internals->Add(new Choice(si->T("30%")))->OnClick.Add([&](UI::EventParams &) {
-		g_OSD.SetProgressBar("testprogress", "Test Progress", 1, 100, 30);
+		g_OSD.SetProgressBar("testprogress", "Test Progress", 1, 100, 30, 0.0f);
 		return UI::EVENT_DONE;
 	});
 	internals->Add(new Choice(si->T("100%")))->OnClick.Add([&](UI::EventParams &) {
-		g_OSD.SetProgressBar("testprogress", "Test Progress", 1, 100, 100);
+		g_OSD.SetProgressBar("testprogress", "Test Progress", 1, 100, 100, 1.0f);
 		return UI::EVENT_DONE;
 	});
 	internals->Add(new Choice(si->T("N/A%")))->OnClick.Add([&](UI::EventParams &) {
-		g_OSD.SetProgressBar("testprogress", "Test Progress", 0, 0, 0);
+		g_OSD.SetProgressBar("testprogress", "Test Progress", 0, 0, 0, 0.0f);
 		return UI::EVENT_DONE;
 	});
-	internals->Add(new Choice(si->T("Clear")))->OnClick.Add([&](UI::EventParams &) {
-		g_OSD.RemoveProgressBar("testprogress");
+	internals->Add(new Choice(si->T("Success")))->OnClick.Add([&](UI::EventParams &) {
+		g_OSD.RemoveProgressBar("testprogress", true, 0.5f);
+		return UI::EVENT_DONE;
+	});
+	internals->Add(new Choice(si->T("Failure")))->OnClick.Add([&](UI::EventParams &) {
+		g_OSD.RemoveProgressBar("testprogress", false, 0.5f);
 		return UI::EVENT_DONE;
 	});
 	internals->Add(new ItemHeader(si->T("Achievement tests")));
@@ -1336,7 +1340,7 @@ void FrameDumpTestScreen::update() {
 
 	if (!listing_) {
 		const char *acceptMime = "text/html, */*; q=0.8";
-		listing_ = g_DownloadManager.StartDownload(framedumpsBaseUrl, Path(), acceptMime);
+		listing_ = g_DownloadManager.StartDownload(framedumpsBaseUrl, Path(), http::ProgressBarMode::DELAYED, acceptMime);
 	}
 
 	if (listing_ && listing_->Done() && files_.empty()) {
