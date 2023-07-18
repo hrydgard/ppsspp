@@ -44,16 +44,8 @@ namespace http {
 
 bool GetHeaderValue(const std::vector<std::string> &responseHeaders, const std::string &header, std::string *value);
 
-struct RequestProgress {
-	RequestProgress() {}
-	explicit RequestProgress(bool *c) : cancelled(c) {}
-
-	float progress = 0.0f;
-	float kBps = 0.0f;
-	bool *cancelled = nullptr;
-};
-
-struct RequestParams {
+class RequestParams {
+public:
 	RequestParams() {}
 	explicit RequestParams(const char *r) : resource(r) {}
 	RequestParams(const std::string &r, const char *a) : resource(r), acceptMime(a) {}
@@ -68,20 +60,20 @@ public:
 	~Client();
 
 	// Return value is the HTTP return code. 200 means OK. < 0 means some local error.
-	int GET(const RequestParams &req, Buffer *output, RequestProgress *progress);
-	int GET(const RequestParams &req, Buffer *output, std::vector<std::string> &responseHeaders, RequestProgress *progress);
+	int GET(const RequestParams &req, Buffer *output, net::RequestProgress *progress);
+	int GET(const RequestParams &req, Buffer *output, std::vector<std::string> &responseHeaders, net::RequestProgress *progress);
 
 	// Return value is the HTTP return code.
-	int POST(const RequestParams &req, const std::string &data, const std::string &mime, Buffer *output, RequestProgress *progress);
-	int POST(const RequestParams &req, const std::string &data, Buffer *output, RequestProgress *progress);
+	int POST(const RequestParams &req, const std::string &data, const std::string &mime, Buffer *output, net::RequestProgress *progress);
+	int POST(const RequestParams &req, const std::string &data, Buffer *output, net::RequestProgress *progress);
 
 	// HEAD, PUT, DELETE aren't implemented yet, but can be done with SendRequest.
 
-	int SendRequest(const char *method, const RequestParams &req, const char *otherHeaders, RequestProgress *progress);
-	int SendRequestWithData(const char *method, const RequestParams &req, const std::string &data, const char *otherHeaders, RequestProgress *progress);
-	int ReadResponseHeaders(net::Buffer *readbuf, std::vector<std::string> &responseHeaders, RequestProgress *progress);
+	int SendRequest(const char *method, const RequestParams &req, const char *otherHeaders, net::RequestProgress *progress);
+	int SendRequestWithData(const char *method, const RequestParams &req, const std::string &data, const char *otherHeaders, net::RequestProgress *progress);
+	int ReadResponseHeaders(net::Buffer *readbuf, std::vector<std::string> &responseHeaders, net::RequestProgress *progress);
 	// If your response contains a response, you must read it.
-	int ReadResponseEntity(net::Buffer *readbuf, const std::vector<std::string> &responseHeaders, Buffer *output, RequestProgress *progress);
+	int ReadResponseEntity(net::Buffer *readbuf, const std::vector<std::string> &responseHeaders, Buffer *output, net::RequestProgress *progress);
 
 	void SetDataTimeout(double t) {
 		dataTimeout_ = t;
@@ -102,11 +94,25 @@ enum class RequestMethod {
 	POST,
 };
 
+enum class ProgressBarMode {
+	NONE,
+	VISIBLE,
+	DELAYED,
+};
+
 // Really an asynchronous request.
 class Download {
 public:
-	Download(RequestMethod method, const std::string &url, const std::string &postData, const std::string &postMime, const Path &outfile);
+	Download(RequestMethod method, const std::string &url, const std::string &postData, const std::string &postMime, const Path &outfile, ProgressBarMode progressBarMode = ProgressBarMode::DELAYED);
 	~Download();
+
+	void SetAccept(const char *mime) {
+		acceptMime_ = mime;
+	}
+
+	void SetUserAgent(const std::string &userAgent) {
+		userAgent_ = userAgent;
+	}
 
 	void Start();
 
@@ -125,10 +131,6 @@ public:
 	std::string url() const { return url_; }
 	const Path &outfile() const { return outfile_; }
 
-	void SetAccept(const char *mime) {
-		acceptMime_ = mime;
-	}
-
 	// If not downloading to a file, access this to get the result.
 	Buffer &buffer() { return buffer_; }
 	const Buffer &buffer() const { return buffer_; }
@@ -141,7 +143,7 @@ public:
 		return cancelled_;
 	}
 
-	// NOTE: Callbacks are NOT executed until RunCallback is called. This is so that
+	// NOTE: Completion callbacks (which these are) are deferred until RunCallback is called. This is so that
 	// the call will end up on the thread that calls g_DownloadManager.Update().
 	void SetCallback(std::function<void(Download &)> callback) {
 		callback_ = callback;
@@ -151,14 +153,8 @@ public:
 			callback_(*this);
 		}
 	}
-
-	// Just metadata. Convenient for download managers, for example, if set,
-	// Downloader::GetCurrentProgress won't return it in the results.
-	bool IsHidden() const { return hidden_; }
-	void SetHidden(bool hidden) { hidden_ = hidden; }
-	void SetUserAgent(const std::string &userAgent) {
-		userAgent_ = userAgent;
-	}
+	// Visual name for the download, to be displayed in progress bars.
+	void SetName(const std::string &&name) { name_ = std::move(name); }
 
 private:
 	void Do();  // Actually does the download. Runs on thread.
@@ -166,8 +162,8 @@ private:
 	std::string RedirectLocation(const std::string &baseUrl);
 	void SetFailed(int code);
 
-	RequestProgress progress_;
 	RequestMethod method_;
+	net::RequestProgress progress_;
 	std::string postData_;
 	std::string userAgent_;
 	Buffer buffer_;
@@ -181,8 +177,9 @@ private:
 	bool completed_ = false;
 	bool failed_ = false;
 	bool cancelled_ = false;
-	bool hidden_ = false;
+	ProgressBarMode progressBarMode_;
 	bool joined_ = false;
+	std::string name_;
 	std::function<void(Download &)> callback_;
 };
 
@@ -194,11 +191,12 @@ public:
 		CancelAll();
 	}
 
-	std::shared_ptr<Download> StartDownload(const std::string &url, const Path &outfile, const char *acceptMime = nullptr);
+	std::shared_ptr<Download> StartDownload(const std::string &url, const Path &outfile, ProgressBarMode mode, const char *acceptMime = nullptr);
 
 	std::shared_ptr<Download> StartDownloadWithCallback(
 		const std::string &url,
 		const Path &outfile,
+		ProgressBarMode mode,
 		std::function<void(Download &)> callback,
 		const char *acceptMime = nullptr);
 
@@ -206,6 +204,7 @@ public:
 		const std::string &url,
 		const std::string &postData,
 		const std::string &postMime, // Use postMime = "application/x-www-form-urlencoded" for standard form-style posts, such as used by retroachievements. For encoding form data manually we have MultipartFormDataEncoder.
+		ProgressBarMode mode,
 		std::function<void(Download &)> callback);
 
 	// Drops finished downloads from the list.
@@ -215,12 +214,6 @@ public:
 	void WaitForAll();
 	void SetUserAgent(const std::string &userAgent) {
 		userAgent_ = userAgent;
-	}
-
-	std::vector<float> GetCurrentProgress();
-
-	size_t GetActiveCount() const {
-		return downloads_.size();
 	}
 
 private:

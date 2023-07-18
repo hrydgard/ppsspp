@@ -71,7 +71,7 @@ private:
 	s64 filepos_ = 0;
 	Url url_;
 	http::Client client_;
-	http::RequestProgress progress_;
+	net::RequestProgress progress_;
 	::Path filename_;
 	bool connected_ = false;
 	bool cancel_ = false;

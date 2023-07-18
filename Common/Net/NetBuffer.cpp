@@ -48,7 +48,7 @@ bool Buffer::FlushSocket(uintptr_t sock, double timeout, bool *cancelled) {
 	return true;
 }
 
-bool Buffer::ReadAllWithProgress(int fd, int knownSize, float *progress, float *kBps, bool *cancelled) {
+bool Buffer::ReadAllWithProgress(int fd, int knownSize, RequestProgress *progress) {
 	static constexpr float CANCEL_INTERVAL = 0.25f;
 	std::vector<char> buf;
 	// We're non-blocking and reading from an OS buffer, so try to read as much as we can at a time.
@@ -64,8 +64,8 @@ bool Buffer::ReadAllWithProgress(int fd, int knownSize, float *progress, float *
 	int total = 0;
 	while (true) {
 		bool ready = false;
-		while (!ready && cancelled) {
-			if (*cancelled)
+		while (!ready && (!progress || !*progress->cancelled)) {
+			if (*progress->cancelled)
 				return false;
 			ready = fd_util::WaitUntilReady(fd, CANCEL_INTERVAL, false);
 		}
@@ -88,10 +88,10 @@ bool Buffer::ReadAllWithProgress(int fd, int knownSize, float *progress, float *
 		char *p = Append((size_t)retval);
 		memcpy(p, &buf[0], retval);
 		total += retval;
-		if (progress)
-			*progress = (float)total / (float)knownSize;
-		if (kBps)
-			*kBps = (float)(total / (time_now_d() - st)) / 1024.0f;
+		if (progress) {
+			progress->Update((float)total / (float)knownSize);
+			progress->kBps = (float)(total / (time_now_d() - st)) / 1024.0f;
+		}
 	}
 	return true;
 }
@@ -114,4 +114,4 @@ int Buffer::Read(int fd, size_t sz) {
 	return (int)received;
 }
 
-}
+}  // namespace

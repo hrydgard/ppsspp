@@ -215,7 +215,7 @@ void OnScreenDisplay::ShowOnOff(const std::string &message, bool on, float durat
 	Show(OSDType::MESSAGE_INFO, message + ": " + (on ? "on" : "off"), duration_s);
 }
 
-void OnScreenDisplay::SetProgressBar(std::string id, std::string &&message, int minValue, int maxValue, int progress) {
+void OnScreenDisplay::SetProgressBar(std::string id, std::string &&message, float minValue, float maxValue, float progress, float delay) {
 	std::lock_guard<std::mutex> guard(mutex_);
 	double now = time_now_d();
 	bool found = false;
@@ -236,16 +236,27 @@ void OnScreenDisplay::SetProgressBar(std::string id, std::string &&message, int 
 	bar.minValue = minValue;
 	bar.maxValue = maxValue;
 	bar.progress = progress;
+	bar.startTime = now + delay;
 	bar.endTime = now + 60.0;  // Show the progress bar for 60 seconds, then fade it out.
 	bars_.push_back(bar);
 }
 
-void OnScreenDisplay::RemoveProgressBar(std::string id) {
+void OnScreenDisplay::RemoveProgressBar(std::string id, bool success, float delay_s) {
 	std::lock_guard<std::mutex> guard(mutex_);
 	for (auto iter = bars_.begin(); iter != bars_.end(); iter++) {
 		if (iter->id == id) {
-			iter->progress = iter->maxValue;
-			iter->endTime = time_now_d() + FadeoutTime();
+			if (success) {
+				// Quickly shoot up to max, if we weren't there.
+				if (iter->maxValue != 0.0f) {
+					iter->progress = iter->maxValue;
+				} else {
+					// Fake a full progress
+					iter->minValue = 0;
+					iter->maxValue = 1;
+					iter->progress = 1;
+				}
+			}
+			iter->endTime = time_now_d() + delay_s + FadeoutTime();
 			break;
 		}
 	}

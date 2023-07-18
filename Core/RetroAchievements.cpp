@@ -176,7 +176,7 @@ static void server_call_callback(const rc_api_request_t *request,
 {
 	// If post data is provided, we need to make a POST request, otherwise, a GET request will suffice.
 	if (request->post_data) {
-		g_DownloadManager.AsyncPostWithCallback(std::string(request->url), std::string(request->post_data), "application/x-www-form-urlencoded", [=](http::Download &download) {
+		g_DownloadManager.AsyncPostWithCallback(std::string(request->url), std::string(request->post_data), "application/x-www-form-urlencoded", http::ProgressBarMode::DELAYED, [=](http::Download &download) {
 			std::string buffer;
 			download.buffer().TakeAll(&buffer);
 			rc_api_server_response_t response{};
@@ -186,7 +186,7 @@ static void server_call_callback(const rc_api_request_t *request,
 			callback(&response, callback_data);
 		});
 	} else {
-		g_DownloadManager.StartDownloadWithCallback(std::string(request->url), Path(), [=](http::Download &download) {
+		g_DownloadManager.StartDownloadWithCallback(std::string(request->url), Path(), http::ProgressBarMode::DELAYED, [=](http::Download &download) {
 			std::string buffer;
 			download.buffer().TakeAll(&buffer);
 			rc_api_server_response_t response{};
@@ -394,7 +394,7 @@ static void login_password_callback(int result, const char *error_message, rc_cl
 	}
 	}
 
-	g_OSD.RemoveProgressBar("cheevos_async_login");
+	g_OSD.RemoveProgressBar("cheevos_async_login", true, 0.1f);
 	g_isLoggingIn = false;
 }
 
@@ -403,7 +403,7 @@ bool LoginAsync(const char *username, const char *password) {
 	if (IsLoggedIn() || std::strlen(username) == 0 || std::strlen(password) == 0 || IsUsingRAIntegration())
 		return false;
 
-	g_OSD.SetProgressBar("cheevos_async_login", di->T("Logging in..."), 0, 0, 0);
+	g_OSD.SetProgressBar("cheevos_async_login", di->T("Logging in..."), 0, 0, 0, 0.0f);
 
 	g_isLoggingIn = true;
 	rc_client_begin_login_with_password(g_rcClient, username, password, &login_password_callback, nullptr);
@@ -540,7 +540,7 @@ bool HasAchievementsOrLeaderboards() {
 void DownloadImageIfMissing(const std::string &cache_key, std::string &&url) {
 	if (g_iconCache.MarkPending(cache_key)) {
 		INFO_LOG(ACHIEVEMENTS, "Downloading image: %s (%s)", url.c_str(), cache_key.c_str());
-		g_DownloadManager.StartDownloadWithCallback(url, Path(), [cache_key](http::Download &download) {
+		g_DownloadManager.StartDownloadWithCallback(url, Path(), http::ProgressBarMode::NONE, [cache_key](http::Download &download) {
 			if (download.ResultCode() != 200)
 				return;
 			std::string data;

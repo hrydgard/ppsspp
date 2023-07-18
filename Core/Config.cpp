@@ -1174,8 +1174,7 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	if (iRunCount % 10 == 0 && bCheckForNewVersion) {
 		const char *versionUrl = "http://www.ppsspp.org/version.json";
 		const char *acceptMime = "application/json, text/*; q=0.9, */*; q=0.8";
-		auto dl = g_DownloadManager.StartDownloadWithCallback(versionUrl, Path(), &DownloadCompletedCallback, acceptMime);
-		dl->SetHidden(true);
+		g_DownloadManager.StartDownloadWithCallback(versionUrl, Path(), http::ProgressBarMode::NONE, &DownloadCompletedCallback, acceptMime);
 	}
 
 	INFO_LOG(LOADER, "Loading controller config: %s", controllerIniFilename_.c_str());
