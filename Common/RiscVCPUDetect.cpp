@@ -221,7 +221,8 @@ void CPUInfo::Detect()
 	RiscV_D = info.features.D;
 	RiscV_C = info.features.C;
 	RiscV_V = info.features.V;
-	RiscV_Zicsr = info.features.Zicsr;
+	// Seems to be wrong sometimes, assume we have it if we have F.
+	RiscV_Zicsr = info.features.Zicsr || info.features.F;
 
 	truncate_cpy(brand_string, info.uarch);
 #endif
