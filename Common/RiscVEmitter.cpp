@@ -1194,13 +1194,24 @@ void RiscVEmitter::SetRegToImmediate(RiscVReg rd, uint64_t value, RiscVReg temp)
 
 	auto useUpper = [&](int64_t v, void (RiscVEmitter::*upperOp)(RiscVReg, s32), bool force = false) {
 		if (SignReduce64(v, 32) == v || force) {
-			int32_t lower = (int32_t)SignReduce64(svalue, 12);
+			int32_t lower = (int32_t)SignReduce64(v, 12);
 			int32_t upper = ((v - lower) >> 12) << 12;
-			_assert_msg_(force || (int64_t)upper + lower == v, "Upper + ADDI immediate math mistake?");
+			bool clearUpper = v >= 0 && upper < 0;
+			if (clearUpper) {
+				_assert_msg_(BitsSupported() >= 64, "Shouldn't be possible on 32-bit");
+				_assert_msg_(force || (((int64_t)upper + lower) & 0xFFFFFFFF) == v, "Upper + ADDI immediate math mistake?");
+				// This isn't safe to do using AUIPC.  We can't have the high bit set this way.
+				if (upperOp == &RiscVEmitter::AUIPC)
+					return false;
+			} else {
+				_assert_msg_(force || (int64_t)upper + lower == v, "Upper + ADDI immediate math mistake?");
+			}
 
 			// Should be fused on some processors.
 			(this->*upperOp)(rd, upper);
-			if (lower != 0)
+			if (clearUpper)
+				ADDIW(rd, rd, lower);
+			else if (lower != 0)
 				ADDI(rd, rd, lower);
 			return true;
 		}
