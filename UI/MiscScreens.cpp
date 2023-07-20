@@ -542,8 +542,14 @@ void PromptScreen::CreateViews() {
 	Choice *yesButton = rightColumnItems->Add(new Choice(yesButtonText_));
 	yesButton->OnClick.Handle(this, &PromptScreen::OnYes);
 	root_->SetDefaultFocusView(yesButton);
-	if (!noButtonText_.empty())
+	if (!noButtonText_.empty()) {
 		rightColumnItems->Add(new Choice(noButtonText_))->OnClick.Handle(this, &PromptScreen::OnNo);
+	} else {
+		// This is an information screen, not a question.
+		// Sneak in the version of PPSSPP in the corner, for debug-reporting user screenshots.
+		std::string version = System_GetProperty(SYSPROP_BUILD_VERSION);
+		root_->Add(new TextView(version, 0, true, new AnchorLayoutParams(10.0f, NONE, NONE, 10.0f)));
+	}
 }
 
 UI::EventReturn PromptScreen::OnYes(UI::EventParams &e) {
