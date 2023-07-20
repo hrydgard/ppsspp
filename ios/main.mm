@@ -21,6 +21,7 @@
 #include "Common/System/Request.h"
 #include "Common/StringUtils.h"
 #include "Common/Profiler/Profiler.h"
+#include "Core/Config.h"
 #include "UI/DarwinFileSystemServices.h"
 
 static int (*csops)(pid_t pid, unsigned int ops, void * useraddr, size_t usersize);
