@@ -512,6 +512,9 @@
     <ClInclude Include="System\OSD.h">
       <Filter>System</Filter>
     </ClInclude>
+    <ClInclude Include="Net\HTTPRequest.h">
+      <Filter>Net</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="ABI.cpp" />
@@ -958,6 +961,9 @@
     </ClCompile>
     <ClCompile Include="System\OSD.cpp">
       <Filter>System</Filter>
+    </ClCompile>
+    <ClCompile Include="Net\HTTPRequest.cpp">
+      <Filter>Net</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

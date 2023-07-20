@@ -351,6 +351,7 @@ SOURCES_CXX += \
 	$(COMMONDIR)/Net/HTTPClient.cpp \
 	$(COMMONDIR)/Net/HTTPHeaders.cpp \
 	$(COMMONDIR)/Net/HTTPServer.cpp \
+	$(COMMONDIR)/Net/HTTPRequest.cpp \
 	$(COMMONDIR)/Net/NetBuffer.cpp \
 	$(COMMONDIR)/Net/Resolve.cpp \
 	$(COMMONDIR)/Net/Sinks.cpp \

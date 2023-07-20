@@ -494,6 +494,7 @@
     <ClInclude Include="Net\HTTPClient.h" />
     <ClInclude Include="Net\HTTPHeaders.h" />
     <ClInclude Include="Net\HTTPServer.h" />
+    <ClInclude Include="Net\HTTPRequest.h" />
     <ClInclude Include="Net\Resolve.h" />
     <ClInclude Include="Net\Sinks.h" />
     <ClInclude Include="Net\URL.h" />
@@ -938,6 +939,7 @@
     <ClCompile Include="Net\HTTPClient.cpp" />
     <ClCompile Include="Net\HTTPHeaders.cpp" />
     <ClCompile Include="Net\HTTPServer.cpp" />
+    <ClCompile Include="Net\HTTPRequest.cpp" />
     <ClCompile Include="Net\Resolve.cpp" />
     <ClCompile Include="Net\Sinks.cpp" />
     <ClCompile Include="Net\URL.cpp" />
