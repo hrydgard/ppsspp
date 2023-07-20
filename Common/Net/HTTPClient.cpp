@@ -542,10 +542,9 @@ std::string HTTPDownload::RedirectLocation(const std::string &baseUrl) {
 }
 
 void HTTPDownload::Do() {
-	SetCurrentThreadName("Downloader::Do");
+	SetCurrentThreadName("HTTPDownload::Do");
 
 	AndroidJNIThreadContext jniContext;
-
 	resultCode_ = 0;
 
 	std::string downloadURL = url_;

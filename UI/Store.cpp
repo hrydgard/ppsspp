@@ -35,7 +35,7 @@
 #include "UI/EmuScreen.h"
 #include "UI/Store.h"
 
-const std::string storeBaseUrl = "http://store.ppsspp.org/";
+const std::string storeBaseUrl = "https://store.ppsspp.org/";
 
 // baseUrl is assumed to have a trailing slash, and not contain any subdirectories.
 std::string ResolveUrl(std::string baseUrl, std::string url) {
@@ -53,12 +53,12 @@ std::string ResolveUrl(std::string baseUrl, std::string url) {
 
 class HttpImageFileView : public UI::View {
 public:
-	HttpImageFileView(http::Downloader *downloader, const std::string &path, UI::ImageSizeMode sizeMode = UI::IS_DEFAULT, bool useIconCache = true, UI::LayoutParams *layoutParams = nullptr)
-		: UI::View(layoutParams), path_(path), sizeMode_(sizeMode), downloader_(downloader), useIconCache_(useIconCache) {
+	HttpImageFileView(http::RequestManager *requestManager, const std::string &path, UI::ImageSizeMode sizeMode = UI::IS_DEFAULT, bool useIconCache = true, UI::LayoutParams *layoutParams = nullptr)
+		: UI::View(layoutParams), path_(path), sizeMode_(sizeMode), requestManager_(requestManager), useIconCache_(useIconCache) {
 
 		if (useIconCache && g_iconCache.MarkPending(path_)) {
 			const char *acceptMime = "image/png, image/jpeg, image/*; q=0.9, */*; q=0.8";
-			downloader_->StartDownloadWithCallback(path_, Path(), http::ProgressBarMode::DELAYED, [&](http::Download &download) {
+			requestManager_->StartDownloadWithCallback(path_, Path(), http::ProgressBarMode::DELAYED, [&](http::Download &download) {
 				if (download.ResultCode() == 200) {
 					std::string data;
 					download.buffer().TakeAll(&data);
@@ -100,7 +100,7 @@ private:
 	std::string path_;  // or cache key
 	uint32_t color_ = 0xFFFFFFFF;
 	UI::ImageSizeMode sizeMode_;
-	http::Downloader *downloader_;
+	http::RequestManager *requestManager_;
 	std::shared_ptr<http::Download> download_;
 
 	std::string textureData_;
@@ -169,7 +169,7 @@ void HttpImageFileView::Draw(UIContext &dc) {
 		if (!texture_ && !textureFailed_ && !path_.empty() && !download_) {
 			auto cb = std::bind(&HttpImageFileView::DownloadCompletedCallback, this, std::placeholders::_1);
 			const char *acceptMime = "image/png, image/jpeg, image/*; q=0.9, */*; q=0.8";
-			downloader_->StartDownloadWithCallback(path_, Path(), http::ProgressBarMode::NONE, cb, acceptMime);
+			requestManager_->StartDownloadWithCallback(path_, Path(), http::ProgressBarMode::NONE, cb, acceptMime);
 		}
 
 		if (!textureData_.empty()) {

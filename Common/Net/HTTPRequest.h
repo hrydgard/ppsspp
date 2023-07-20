@@ -43,7 +43,7 @@ public:
 	virtual void Start() = 0;
 	virtual void Join() = 0;
 
-	virtual bool Done() const = 0;
+	virtual bool Done() = 0;
 	virtual bool Failed() const = 0;
 
 	virtual int ResultCode() const = 0;
@@ -106,6 +106,8 @@ public:
 	}
 
 private:
+	bool IsHttpsUrl(const std::string &url);
+
 	std::vector<std::shared_ptr<Download>> downloads_;
 	// These get copied to downloads_ in Update(). It's so that callbacks can add new downloads
 	// while running.

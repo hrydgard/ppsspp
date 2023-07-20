@@ -1,11 +1,22 @@
 #include "Common/Net/HTTPRequest.h"
 #include "Common/Net/HTTPClient.h"
+#include "Common/Net/HTTPNaettRequest.h"
 #include "Common/TimeUtil.h"
+#include "Common/StringUtils.h"
 
 namespace http {
 
+bool RequestManager::IsHttpsUrl(const std::string &url) {
+	return startsWith(url, "https:");
+}
+
 std::shared_ptr<Download> RequestManager::StartDownload(const std::string &url, const Path &outfile, ProgressBarMode mode, const char *acceptMime) {
-	std::shared_ptr<Download> dl(new HTTPDownload(RequestMethod::GET, url, "", "", outfile, mode));
+	std::shared_ptr<Download> dl;
+	if (IsHttpsUrl(url)) {
+		dl.reset(new HTTPSDownload(RequestMethod::GET, url, "", "", outfile, mode));
+	} else {
+		dl.reset(new HTTPDownload(RequestMethod::GET, url, "", "", outfile, mode));
+	}
 
 	if (!userAgent_.empty())
 		dl->SetUserAgent(userAgent_);
@@ -23,7 +34,12 @@ std::shared_ptr<Download> RequestManager::StartDownloadWithCallback(
 	std::function<void(Download &)> callback,
 	const std::string &name,
 	const char *acceptMime) {
-	std::shared_ptr<Download> dl(new HTTPDownload(RequestMethod::GET, url, "", "", outfile, mode, name));
+	std::shared_ptr<Download> dl;
+	if (IsHttpsUrl(url)) {
+		dl.reset(new HTTPSDownload(RequestMethod::GET, url, "", "", outfile, mode, name));
+	} else {
+		dl.reset(new HTTPDownload(RequestMethod::GET, url, "", "", outfile, mode, name));
+	}
 	if (!userAgent_.empty())
 		dl->SetUserAgent(userAgent_);
 	if (acceptMime)
@@ -41,7 +57,12 @@ std::shared_ptr<Download> RequestManager::AsyncPostWithCallback(
 	ProgressBarMode mode,
 	std::function<void(Download &)> callback,
 	const std::string &name) {
-	std::shared_ptr<Download> dl(new HTTPDownload(RequestMethod::POST, url, postData, postMime, Path(), mode, name));
+	std::shared_ptr<Download> dl;
+	if (IsHttpsUrl(url)) {
+		dl.reset(new HTTPSDownload(RequestMethod::POST, url, postData, postMime, Path(), mode, name));
+	} else {
+		dl.reset(new HTTPDownload(RequestMethod::POST, url, postData, postMime, Path(), mode, name));
+	}
 	if (!userAgent_.empty())
 		dl->SetUserAgent(userAgent_);
 	dl->SetCallback(callback);

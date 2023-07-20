@@ -107,7 +107,7 @@ public:
 	void Start() override;
 	void Join() override;
 
-	bool Done() const override { return completed_; }
+	bool Done() override { return completed_; }
 	bool Failed() const override { return failed_; }
 
 	// NOTE! The value of ResultCode is INVALID until Done() returns true.

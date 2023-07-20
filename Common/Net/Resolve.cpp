@@ -30,8 +30,11 @@
 #include "Common/Log.h"
 #include "Common/TimeUtil.h"
 
+#include "ext/naett/naett.h"
+
 namespace net {
 
+int g_refCount = 0;
 
 void Init()
 {
@@ -40,6 +43,10 @@ void Init()
 	WSADATA wsaData = {0};
 	WSAStartup(MAKEWORD(2, 2), &wsaData);
 #endif
+	if (g_refCount == 0) {
+		naettInit(NULL);
+	}
+	g_refCount++;
 }
 
 void Shutdown()

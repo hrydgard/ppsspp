@@ -42,7 +42,7 @@ enum ChatPositions {
 
 namespace http {
 	class Download;
-	class Downloader;
+	class RequestManager;
 }
 
 struct UrlEncoder;
@@ -595,6 +595,6 @@ private:
 std::string CreateRandMAC();
 
 // TODO: Find a better place for this.
-extern http::Downloader g_DownloadManager;
+extern http::RequestManager g_DownloadManager;
 extern Config g_Config;
 
