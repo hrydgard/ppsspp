@@ -347,6 +347,8 @@ std::string System_GetProperty(SystemProperty prop) {
 		return "";
 	case SYSPROP_GPUDRIVER_VERSION:
 		return "";
+	case SYSPROP_BUILD_VERSION:
+		return PPSSPP_GIT_VERSION;
 	default:
 		return "";
 	}

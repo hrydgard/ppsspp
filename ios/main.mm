@@ -21,6 +21,7 @@
 #include "Common/System/Request.h"
 #include "Common/StringUtils.h"
 #include "Common/Profiler/Profiler.h"
+#include "Core/Config.h"
 #include "UI/DarwinFileSystemServices.h"
 
 static int (*csops)(pid_t pid, unsigned int ops, void * useraddr, size_t usersize);
@@ -108,6 +109,8 @@ std::string System_GetProperty(SystemProperty prop) {
 			return StringFromFormat("iOS %s", version.c_str());
 		case SYSPROP_LANGREGION:
 			return [[[NSLocale currentLocale] objectForKey:NSLocaleIdentifier] UTF8String];
+		case SYSPROP_BUILD_VERSION:
+			return PPSSPP_GIT_VERSION;
 		default:
 			return "";
 	}

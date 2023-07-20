@@ -234,6 +234,8 @@ std::string System_GetProperty(SystemProperty prop) {
 			gpuDriverVersion = GetVideoCardDriverVersion();
 		}
 		return gpuDriverVersion;
+	case SYSPROP_BUILD_VERSION:
+		return PPSSPP_GIT_VERSION;
 	default:
 		return "";
 	}

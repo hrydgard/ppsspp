@@ -117,6 +117,7 @@ enum SystemProperty {
 	SYSPROP_BOARDNAME,
 	SYSPROP_CLIPBOARD_TEXT,
 	SYSPROP_GPUDRIVER_VERSION,
+	SYSPROP_BUILD_VERSION,
 
 	// Separate SD cards or similar.
 	// Need hacky solutions to get at this.
