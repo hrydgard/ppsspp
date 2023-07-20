@@ -348,6 +348,14 @@ void TextureCacheD3D11::BuildTexture(TexCacheEntry *const entry) {
 	if (th > 16384)
 		th = 16384;
 
+	// NOTE: For block-compressed textures, we'll force the size up to the closest 4x4. This is due to an
+	// unfortunate restriction in D3D11 (and early D3D12). We'll warn about it in the log to give texture pack
+	// authors notice to fix it.
+	if (plan.doReplace && Draw::DataFormatIsBlockCompressed(plan.replaced->Format(), nullptr)) {
+		tw = (tw + 3) & ~3;
+		th = (th + 3) & ~3;
+	}
+
 	if (plan.depth == 1) {
 		// We don't yet have mip generation, so clamp the number of levels to the ones we can load directly.
 		levels = std::min(plan.levelsToCreate, plan.levelsToLoad);
