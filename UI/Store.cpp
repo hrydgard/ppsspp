@@ -62,7 +62,11 @@ public:
 				if (download.ResultCode() == 200) {
 					std::string data;
 					download.buffer().TakeAll(&data);
-					g_iconCache.InsertIcon(path_, IconFormat::PNG, std::move(data));
+					if (!data.empty()) {
+						g_iconCache.InsertIcon(path_, IconFormat::PNG, std::move(data));
+					} else {
+						g_iconCache.Cancel(path_);
+					}
 				} else {
 					g_iconCache.Cancel(path_);
 				}
