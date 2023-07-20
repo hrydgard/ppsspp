@@ -412,6 +412,8 @@ std::string System_GetProperty(SystemProperty prop) {
 		return mogaVersion;
 	case SYSPROP_BOARDNAME:
 		return boardName;
+	case SYSPROP_BUILD_VERSION:
+		return PPSSPP_GIT_VERSION;
 	default:
 		return "";
 	}

@@ -108,6 +108,8 @@ std::string System_GetProperty(SystemProperty prop) {
 			return StringFromFormat("iOS %s", version.c_str());
 		case SYSPROP_LANGREGION:
 			return [[[NSLocale currentLocale] objectForKey:NSLocaleIdentifier] UTF8String];
+		case SYSPROP_BUILD_VERSION:
+			return PPSSPP_GIT_VERSION;
 		default:
 			return "";
 	}

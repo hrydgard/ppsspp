@@ -431,6 +431,8 @@ std::string System_GetProperty(SystemProperty prop) {
 			}
 			return result;
 		}
+	case SYSPROP_BUILD_VERSION:
+		return PPSSPP_GIT_VERSION;
 	default:
 		return "";
 	}
