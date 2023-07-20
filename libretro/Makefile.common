@@ -223,10 +223,9 @@ SOURCES_C += \
 	$(EXTDIR)/rcheevos/src/rhash/hash.c \
 	$(EXTDIR)/rcheevos/src/rhash/md5.c
 
-SOURCES_C +=
-	$(EXTDIR)/naett/naett.c
-
 COREFLAGS += -DSTACK_LINE_READER_BUFFER_SIZE=1024
+COREFLAGS += -DHTTPS_NOT_AVAILABLE
+
 ifeq ($(PLATFORM_EXT), android)
 COREFLAGS += -DHAVE_DLFCN_H
 else ifneq ($(PLATFORM_EXT), win32)

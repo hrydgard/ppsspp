@@ -1,3 +1,5 @@
+#ifndef HTTPS_NOT_AVAILABLE
+
 #include <cstring>
 
 #include "Common/Net/HTTPRequest.h"
@@ -10,7 +12,7 @@
 namespace http {
 
 HTTPSDownload::HTTPSDownload(RequestMethod method, const std::string &url, const std::string &postData, const std::string &postMime, const Path &outfile, ProgressBarMode progressBarMode, const std::string &name)
-	: Download(url, name, progress_.cancelled), method_(method), postData_(postData), postMime_(postMime), outfile_(outfile), progressBarMode_(progressBarMode) {
+	: Download(url, name, &cancelled_), method_(method), postData_(postData), postMime_(postMime), outfile_(outfile), progressBarMode_(progressBarMode) {
 }
 
 HTTPSDownload::~HTTPSDownload() {
@@ -90,3 +92,5 @@ bool HTTPSDownload::Done() {
 }
 
 }  // namespace
+
+#endif  // HTTPS_NOT_AVAILABLE

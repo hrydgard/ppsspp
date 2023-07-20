@@ -1,8 +1,12 @@
 #pragma once
 
-#include "Common/Net/HTTPRequest.h"
-#include "ext/naett/naett.h"
 #include <thread>
+
+#include "Common/Net/HTTPRequest.h"
+
+#ifndef HTTPS_NOT_AVAILABLE
+
+#include "ext/naett/naett.h"
 
 namespace http {
 
@@ -66,3 +70,5 @@ private:
 };
 
 }  // namespace http
+
+#endif  // HTTPS_NOT_AVAILABLE

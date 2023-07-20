@@ -13,7 +13,11 @@ bool RequestManager::IsHttpsUrl(const std::string &url) {
 std::shared_ptr<Download> RequestManager::StartDownload(const std::string &url, const Path &outfile, ProgressBarMode mode, const char *acceptMime) {
 	std::shared_ptr<Download> dl;
 	if (IsHttpsUrl(url)) {
+#ifndef HTTPS_NOT_AVAILABLE
 		dl.reset(new HTTPSDownload(RequestMethod::GET, url, "", "", outfile, mode));
+#else
+		return std::shared_ptr<Download>();
+#endif
 	} else {
 		dl.reset(new HTTPDownload(RequestMethod::GET, url, "", "", outfile, mode));
 	}
@@ -36,7 +40,11 @@ std::shared_ptr<Download> RequestManager::StartDownloadWithCallback(
 	const char *acceptMime) {
 	std::shared_ptr<Download> dl;
 	if (IsHttpsUrl(url)) {
+#ifndef HTTPS_NOT_AVAILABLE
 		dl.reset(new HTTPSDownload(RequestMethod::GET, url, "", "", outfile, mode, name));
+#else
+		return std::shared_ptr<Download>();
+#endif
 	} else {
 		dl.reset(new HTTPDownload(RequestMethod::GET, url, "", "", outfile, mode, name));
 	}
@@ -59,7 +67,11 @@ std::shared_ptr<Download> RequestManager::AsyncPostWithCallback(
 	const std::string &name) {
 	std::shared_ptr<Download> dl;
 	if (IsHttpsUrl(url)) {
+#ifndef HTTPS_NOT_AVAILABLE
 		dl.reset(new HTTPSDownload(RequestMethod::POST, url, postData, postMime, Path(), mode, name));
+#else
+		return std::shared_ptr<Download>();
+#endif
 	} else {
 		dl.reset(new HTTPDownload(RequestMethod::POST, url, postData, postMime, Path(), mode, name));
 	}

@@ -54,6 +54,7 @@ PortManager::PortManager():
 	m_InitState(UPNP_INITSTATE_NONE),
 	m_LocalPort(UPNP_LOCAL_PORT_ANY),
 	m_leaseDuration("43200") {
+	// Don't call net::Init or similar here, we don't want stuff like that to happen before main.
 }
 
 PortManager::~PortManager() {
