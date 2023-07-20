@@ -337,6 +337,9 @@ bool TextureReplacer::LoadIniValues(IniFile &ini, VFSBackend *dir, bool isOverri
 		}
 	}
 
+	auto gr = GetI18NCategory(I18NCat::GRAPHICS);
+
+	g_OSD.Show(OSDType::MESSAGE_SUCCESS, gr->T("Texture replacement pack activated"));
 	return true;
 }
 
