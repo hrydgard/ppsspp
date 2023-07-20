@@ -710,6 +710,8 @@ add_library(Common STATIC
 	Common/Net/HTTPClient.h
 	Common/Net/HTTPHeaders.cpp
 	Common/Net/HTTPHeaders.h
+	Common/Net/HTTPNaettRequest.cpp
+	Common/Net/HTTPNaettRequest.h
 	Common/Net/HTTPRequest.cpp
 	Common/Net/HTTPRequest.h
 	Common/Net/HTTPServer.cpp

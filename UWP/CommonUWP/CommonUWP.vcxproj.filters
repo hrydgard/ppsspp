@@ -447,6 +447,9 @@
     <ClCompile Include="..\..\Common\Net\HTTPRequest.cpp">
       <Filter>Net</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\Common\Net\HTTPNaettRequest.cpp">
+      <Filter>Net</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="targetver.h" />
@@ -845,6 +848,9 @@
       <Filter>System</Filter>
     </ClInclude>
     <ClInclude Include="..\..\Common\Net\HTTPRequest.h">
+      <Filter>Net</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\Net\HTTPNaettRequest.h">
       <Filter>Net</Filter>
     </ClInclude>
   </ItemGroup>

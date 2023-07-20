@@ -114,6 +114,7 @@
     <ClInclude Include="..\..\Common\GPU\GPUBackendCommon.h" />
     <ClInclude Include="..\..\Common\GPU\Vulkan\VulkanLoader.h" />
     <ClInclude Include="..\..\Common\Math\Statistics.h" />
+    <ClInclude Include="..\..\Common\Net\HTTPNaettRequest.h" />
     <ClInclude Include="..\..\Common\Net\HTTPRequest.h" />
     <ClInclude Include="..\..\Common\Net\NetBuffer.h" />
     <ClInclude Include="..\..\Common\Data\Collections\ConstMap.h" />
@@ -274,6 +275,7 @@
     <ClCompile Include="..\..\Common\GPU\GPUBackendCommon.cpp" />
     <ClCompile Include="..\..\Common\GPU\Vulkan\VulkanLoader.cpp" />
     <ClCompile Include="..\..\Common\Math\Statistics.cpp" />
+    <ClCompile Include="..\..\Common\Net\HTTPNaettRequest.cpp" />
     <ClCompile Include="..\..\Common\Net\HTTPRequest.cpp" />
     <ClCompile Include="..\..\Common\Net\NetBuffer.cpp" />
     <ClCompile Include="..\..\Common\Data\Color\RGBAUtil.cpp" />

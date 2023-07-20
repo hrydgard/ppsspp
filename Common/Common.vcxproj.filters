@@ -518,6 +518,9 @@
     <ClInclude Include="..\ext\naett\naett.h">
       <Filter>ext\naett</Filter>
     </ClInclude>
+    <ClInclude Include="Net\HTTPNaettRequest.h">
+      <Filter>Net</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="ABI.cpp" />
@@ -970,6 +973,9 @@
     </ClCompile>
     <ClCompile Include="..\ext\naett\naett.c">
       <Filter>ext\naett</Filter>
+    </ClCompile>
+    <ClCompile Include="Net\HTTPNaettRequest.cpp">
+      <Filter>Net</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
