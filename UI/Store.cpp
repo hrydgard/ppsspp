@@ -35,7 +35,12 @@
 #include "UI/EmuScreen.h"
 #include "UI/Store.h"
 
-const std::string storeBaseUrl = "https://store.ppsspp.org/";
+const char *storeBaseUrlHttp = "http://store.ppsspp.org/";
+const char *storeBaseUrlHttps = "https://store.ppsspp.org/";
+
+static std::string StoreBaseUrl() {
+	return System_GetPropertyBool(SYSPROP_SUPPORTS_HTTPS) ? storeBaseUrlHttps : storeBaseUrlHttp;
+}
 
 // baseUrl is assumed to have a trailing slash, and not contain any subdirectories.
 std::string ResolveUrl(std::string baseUrl, std::string url) {
@@ -279,7 +284,7 @@ void ProductView::CreateViews() {
 	Clear();
 
 	if (!entry_.iconURL.empty()) {
-		Add(new HttpImageFileView(&g_DownloadManager, ResolveUrl(storeBaseUrl, entry_.iconURL), IS_FIXED))->SetFixedSize(144, 88);
+		Add(new HttpImageFileView(&g_DownloadManager, ResolveUrl(StoreBaseUrl(), entry_.iconURL), IS_FIXED))->SetFixedSize(144, 88);
 	}
 	Add(new TextView(entry_.name));
 	Add(new TextView(entry_.author));
@@ -350,7 +355,7 @@ void ProductView::Update() {
 std::string ProductView::DownloadURL() {
 	if (entry_.downloadURL.empty()) {
 		// Construct the URL.
-		return storeBaseUrl + "files/" + entry_.file + ".zip";
+		return StoreBaseUrl() + "files/" + entry_.file + ".zip";
 	} else {
 		// Use the provided URL, for external hosting.
 		return entry_.downloadURL;
@@ -405,7 +410,7 @@ StoreScreen::StoreScreen() {
 	lang_ = g_Config.sLanguageIni;
 	loading_ = true;
 
-	std::string indexPath = storeBaseUrl + "index.json";
+	std::string indexPath = StoreBaseUrl() + "index.json";
 	const char *acceptMime = "application/json, */*; q=0.8";
 	listing_ = g_DownloadManager.StartDownload(indexPath, Path(), http::ProgressBarMode::DELAYED, acceptMime);
 }
