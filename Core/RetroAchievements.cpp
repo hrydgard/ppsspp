@@ -77,6 +77,7 @@ std::string s_game_hash;
 std::set<uint32_t> g_activeChallenges;
 bool g_isIdentifying = false;
 bool g_isLoggingIn = false;
+int g_loginResult;
 
 // rc_client implementation
 static rc_client_t *g_rcClient;
@@ -320,15 +321,20 @@ static void login_token_callback(int result, const char *error_message, rc_clien
 		g_OSD.Show(OSDType::MESSAGE_WARNING, di->T("Failed to connect to server, check your internet connection."));
 		break;
 	}
-	case RC_INVALID_STATE:
 	case RC_API_FAILURE:
+	case RC_INVALID_STATE:
 	case RC_MISSING_VALUE:
 	case RC_INVALID_JSON:
 	default:
+	{
+		auto ac = GetI18NCategory(I18NCat::ACHIEVEMENTS);
 		ERROR_LOG(ACHIEVEMENTS, "Failure logging in via token: %d, %s", result, error_message);
+		g_OSD.Show(OSDType::MESSAGE_WARNING, ac->T("Failed logging in to RetroAchievements"));
 		OnAchievementsLoginStateChange();
 		break;
 	}
+	}
+	g_loginResult = result;
 	g_isLoggingIn = false;
 }
 
@@ -356,6 +362,19 @@ void Initialize() {
 
 	rc_client_set_event_handler(g_rcClient, event_handler_callback);
 
+	TryLoginByToken();
+}
+
+bool HasToken() {
+	return !NativeLoadSecret(RA_TOKEN_SECRET_NAME).empty();
+}
+
+bool LoginProblems(std::string *errorString) {
+	// TODO: Set error string.
+	return g_loginResult != RC_OK;
+}
+
+void TryLoginByToken() {
 	std::string api_token = NativeLoadSecret(RA_TOKEN_SECRET_NAME);
 	if (!api_token.empty()) {
 		g_isLoggingIn = true;
@@ -398,6 +417,7 @@ static void login_password_callback(int result, const char *error_message, rc_cl
 	}
 
 	g_OSD.RemoveProgressBar("cheevos_async_login", true, 0.1f);
+	g_loginResult = RC_OK;  // For these, we don't want the "permanence" of the login-by-token failure, this prevents LoginProblems from returning true.
 	g_isLoggingIn = false;
 }
 
@@ -420,7 +440,7 @@ void Logout() {
 	NativeSaveSecret(RA_TOKEN_SECRET_NAME, "");
 	g_Config.Save("Achievements logout");
 	g_activeChallenges.clear();
-
+	g_loginResult = RC_OK;  // Allow trying again
 	OnAchievementsLoginStateChange();
 }
 

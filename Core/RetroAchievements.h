@@ -82,6 +82,10 @@ rc_client_t *GetClient();
 void Initialize();
 void UpdateSettings();
 
+bool LoginProblems(std::string *errorString);
+bool HasToken();
+void TryLoginByToken();
+
 /// Called when the system is being shut down. If Shutdown() returns false, the shutdown should be aborted if possible.
 bool Shutdown();
 
