@@ -15,6 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "Common/CPUDetect.h"
 #include "Core/MemMap.h"
 #include "Core/MIPS/RiscV/RiscVJit.h"
 #include "Core/MIPS/RiscV/RiscVRegCache.h"
@@ -120,12 +121,51 @@ void RiscVJit::CompIR_Assign(IRInst inst) {
 
 	switch (inst.op) {
 	case IROp::Mov:
+		gpr.MapDirtyIn(inst.dest, inst.src1);
+		MV(gpr.R(inst.dest), gpr.R(inst.src1));
+		break;
+
 	case IROp::Ext8to32:
+		if (cpu_info.RiscV_Zbb) {
+			gpr.MapDirtyIn(inst.dest, inst.src1);
+			SEXT_B(gpr.R(inst.dest), gpr.R(inst.src1));
+		} else {
+			gpr.MapDirtyIn(inst.dest, inst.src1);
+			SLLI(gpr.R(inst.dest), gpr.R(inst.src1), 24);
+			SRAIW(gpr.R(inst.dest), gpr.R(inst.dest), 24);
+		}
+		break;
+
 	case IROp::Ext16to32:
+		if (cpu_info.RiscV_Zbb) {
+			gpr.MapDirtyIn(inst.dest, inst.src1);
+			SEXT_H(gpr.R(inst.dest), gpr.R(inst.src1));
+		} else {
+			gpr.MapDirtyIn(inst.dest, inst.src1);
+			SLLI(gpr.R(inst.dest), gpr.R(inst.src1), 16);
+			SRAIW(gpr.R(inst.dest), gpr.R(inst.dest), 16);
+		}
+		break;
+
 	case IROp::ReverseBits:
-	case IROp::BSwap16:
-	case IROp::BSwap32:
 		CompIR_Generic(inst);
+		break;
+
+	case IROp::BSwap16:
+		CompIR_Generic(inst);
+		break;
+
+	case IROp::BSwap32:
+		if (cpu_info.RiscV_Zbb) {
+			gpr.MapDirtyIn(inst.dest, inst.src1);
+			REV8(gpr.R(inst.dest), gpr.R(inst.src1));
+			if (XLEN >= 64) {
+				// REV8 swaps the entire register, so get the 32 highest bits.
+				SRLI(gpr.R(inst.dest), gpr.R(inst.dest), XLEN - 32);
+			}
+		} else {
+			CompIR_Generic(inst);
+		}
 		break;
 
 	default:
