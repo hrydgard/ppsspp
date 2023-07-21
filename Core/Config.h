@@ -41,7 +41,7 @@ enum ChatPositions {
 };
 
 namespace http {
-	class Download;
+	class Request;
 	class RequestManager;
 }
 
@@ -543,7 +543,7 @@ public:
 	void RemoveRecent(const std::string &file);
 	void CleanRecent();
 
-	static void DownloadCompletedCallback(http::Download &download);
+	static void DownloadCompletedCallback(http::Request &download);
 	void DismissUpgrade();
 
 	void ResetControlLayout();

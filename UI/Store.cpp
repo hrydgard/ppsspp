@@ -63,7 +63,7 @@ public:
 
 		if (useIconCache && g_iconCache.MarkPending(path_)) {
 			const char *acceptMime = "image/png, image/jpeg, image/*; q=0.9, */*; q=0.8";
-			requestManager_->StartDownloadWithCallback(path_, Path(), http::ProgressBarMode::DELAYED, [&](http::Download &download) {
+			requestManager_->StartDownloadWithCallback(path_, Path(), http::ProgressBarMode::DELAYED, [&](http::Request &download) {
 				if (download.ResultCode() == 200) {
 					std::string data;
 					download.buffer().TakeAll(&data);
@@ -98,7 +98,7 @@ public:
 	const std::string &GetFilename() const { return path_; }
 
 private:
-	void DownloadCompletedCallback(http::Download &download);
+	void DownloadCompletedCallback(http::Request &download);
 
 	bool canFocus_ = false;
 	bool useIconCache_ = false;
@@ -106,7 +106,7 @@ private:
 	uint32_t color_ = 0xFFFFFFFF;
 	UI::ImageSizeMode sizeMode_;
 	http::RequestManager *requestManager_;
-	std::shared_ptr<http::Download> download_;
+	std::shared_ptr<http::Request> download_;
 
 	std::string textureData_;
 	std::unique_ptr<ManagedTexture> texture_;
@@ -155,7 +155,7 @@ void HttpImageFileView::SetFilename(std::string filename) {
 	}
 }
 
-void HttpImageFileView::DownloadCompletedCallback(http::Download &download) {
+void HttpImageFileView::DownloadCompletedCallback(http::Request &download) {
 	if (download.IsCancelled()) {
 		// We were probably destroyed. Can't touch "this" (heh).
 		return;
