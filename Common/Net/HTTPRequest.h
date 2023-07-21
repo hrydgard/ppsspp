@@ -26,8 +26,13 @@ public:
 	Download(const std::string &url, const std::string &name, bool *cancelled) : url_(url), name_(name), progress_(cancelled) {}
 	virtual ~Download() {}
 
-	virtual void SetAccept(const char *mime) = 0;
-	virtual void SetUserAgent(const std::string &userAgent) = 0;
+	void SetAccept(const char *mime) {
+		acceptMime_ = mime;
+	}
+
+	void SetUserAgent(const std::string &userAgent) {
+		userAgent_ = userAgent;
+	}
 
 	// NOTE: Completion callbacks (which these are) are deferred until RunCallback is called. This is so that
 	// the call will end up on the thread that calls g_DownloadManager.Update().
@@ -65,6 +70,9 @@ protected:
 	std::function<void(Download &)> callback_;
 	std::string url_;
 	std::string name_;
+	const char *acceptMime_ = "*/*";
+	std::string userAgent_;
+
 	net::RequestProgress progress_;
 
 private:

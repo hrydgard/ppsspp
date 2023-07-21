@@ -110,8 +110,7 @@ bool HTTPSDownload::Done() {
 
 	completed_ = true;
 
-	if (callback_)
-		callback_(*this);
+	// The callback will be called later.
 	return true;
 }
 

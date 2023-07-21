@@ -16,14 +16,6 @@ public:
 	HTTPSDownload(RequestMethod method, const std::string &url, const std::string &postData, const std::string &postMime, const Path &outfile, ProgressBarMode progressBarMode = ProgressBarMode::DELAYED, const std::string &name = "");
 	~HTTPSDownload();
 
-	void SetAccept(const char *mime) override {
-		acceptMime_ = mime;
-	}
-
-	void SetUserAgent(const std::string &userAgent) override {
-		userAgent_ = userAgent;
-	}
-
 	void Start() override;
 	void Join() override;
 
@@ -51,11 +43,9 @@ public:
 private:
 	RequestMethod method_;
 	std::string postData_;
-	std::string userAgent_;
 	Buffer buffer_;
 	std::vector<std::string> responseHeaders_;
 	Path outfile_;
-	const char *acceptMime_ = "*/*";
 	std::string postMime_;
 	int resultCode_ = 0;
 	bool completed_ = false;
