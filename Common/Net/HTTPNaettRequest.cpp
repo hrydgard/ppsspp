@@ -27,6 +27,7 @@ void HTTPSDownload::Start() {
 	std::vector<naettOption *> options;
 	options.push_back(naettMethod(method_ == RequestMethod::GET ? "GET" : "POST"));
 	options.push_back(naettHeader("Accept", acceptMime_));
+	options.push_back(naettUserAgent(userAgent_.c_str()));
 	if (!postMime_.empty()) {
 		options.push_back(naettHeader("Content-Type", postMime_.c_str()));
 	}
