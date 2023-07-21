@@ -103,6 +103,7 @@
 #include "Core/HLE/proAdhoc.h"
 #include "Core/HW/MemoryStick.h"
 #include "Core/Util/GameManager.h"
+#include "Core/Util/PortManager.h"
 #include "Core/Util/AudioFormat.h"
 #include "Core/WebServer.h"
 #include "Core/TiltEventProcessor.h"
@@ -1408,6 +1409,8 @@ void NativeShutdown() {
 #if PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(IOS)
 	System_ExitApp();
 #endif
+
+	g_PortManager.Shutdown();
 
 	net::Shutdown();
 
