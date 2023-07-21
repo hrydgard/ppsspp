@@ -735,6 +735,53 @@ void GameSettingsScreen::CreateControlsSettings(UI::ViewGroup *controlsSettings)
 	}
 }
 
+// Compound view just like the audio file choosers
+class MacAddressChooser : public UI::LinearLayout {
+public:
+	MacAddressChooser(Path gamePath, std::string *value, const std::string &title, ScreenManager *screenManager, UI::LayoutParams *layoutParams = nullptr);
+};
+
+static constexpr UI::Size ITEM_HEIGHT = 64.f;
+
+MacAddressChooser::MacAddressChooser(Path gamePath_, std::string *value, const std::string &title, ScreenManager *screenManager, UI::LayoutParams *layoutParams) : UI::LinearLayout(UI::ORIENT_HORIZONTAL, layoutParams) {
+	using namespace UI;
+	SetSpacing(5.0f);
+	if (!layoutParams) {
+		layoutParams_->width = FILL_PARENT;
+		layoutParams_->height = ITEM_HEIGHT;
+	}
+	auto n = GetI18NCategory(I18NCat::NETWORKING);
+
+	std::string initialValue = *value;
+	Add(new PopupTextInputChoice(value, title, g_Config.sMACAddress, 17, screenManager, new LinearLayoutParams(1.0f)))->OnChange.Add([=](UI::EventParams &e) {
+		// Validate the chosen address, and restore to initialValue if bad.
+		if (g_Config.sMACAddress.size() != 17) {
+			// TODO: Alert the user
+			*value = initialValue;
+		}
+		return UI::EVENT_DONE;
+	});
+	Add(new Choice(n->T("Randomize"), new LinearLayoutParams(WRAP_CONTENT, ITEM_HEIGHT)))->OnClick.Add([=](UI::EventParams &) {
+		auto n = GetI18NCategory(I18NCat::NETWORKING);
+		auto di = GetI18NCategory(I18NCat::DIALOG);
+
+		const char *confirmMessage = n->T("ChangeMacSaveConfirm", "Generate a new MAC address?");
+		const char *warningMessage = n->T("ChangeMacSaveWarning", "Some games verify the MAC address when loading savedata, so this may break old saves.");
+		std::string combined = g_Config.sMACAddress + "\n\n" + std::string(confirmMessage) + "\n\n" + warningMessage;
+
+		auto confirmScreen = new PromptScreen(
+			gamePath_,
+			combined, di->T("Yes"), di->T("No"),
+			[&](bool success) {
+				if (success) {
+					g_Config.sMACAddress = CreateRandMAC();
+				}}
+		);
+		screenManager->push(confirmScreen);
+		return UI::EVENT_DONE;
+	});
+}
+
 void GameSettingsScreen::CreateNetworkingSettings(UI::ViewGroup *networkingSettings) {
 	using namespace UI;
 
@@ -746,7 +793,7 @@ void GameSettingsScreen::CreateNetworkingSettings(UI::ViewGroup *networkingSetti
 	networkingSettings->Add(new Choice(n->T("Open PPSSPP Multiplayer Wiki Page")))->OnClick.Handle(this, &GameSettingsScreen::OnAdhocGuides);
 
 	networkingSettings->Add(new CheckBox(&g_Config.bEnableWlan, n->T("Enable networking", "Enable networking/wlan (beta)")));
-	networkingSettings->Add(new ChoiceWithValueDisplay(&g_Config.sMACAddress, n->T("Change Mac Address"), I18NCat::NONE))->OnClick.Handle(this, &GameSettingsScreen::OnChangeMacAddress);
+	networkingSettings->Add(new MacAddressChooser(gamePath_, &g_Config.sMACAddress, n->T("Change Mac Address"), screenManager()));
 	static const char* wlanChannels[] = { "Auto", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11" };
 	auto wlanChannelChoice = networkingSettings->Add(new PopupMultiChoice(&g_Config.iWlanAdhocChannel, n->T("WLAN Channel"), wlanChannels, 0, ARRAY_SIZE(wlanChannels), I18NCat::NETWORKING, screenManager()));
 	for (int i = 0; i < 4; i++) {
@@ -1507,27 +1554,6 @@ UI::EventReturn GameSettingsScreen::OnChangeproAdhocServerAddress(UI::EventParam
 	auto n = GetI18NCategory(I18NCat::NETWORKING);
 
 	screenManager()->push(new HostnameSelectScreen(&g_Config.proAdhocServer, n->T("proAdhocServer Address:")));
-
-	return UI::EVENT_DONE;
-}
-
-UI::EventReturn GameSettingsScreen::OnChangeMacAddress(UI::EventParams &e) {
-	auto n = GetI18NCategory(I18NCat::NETWORKING);
-	auto di = GetI18NCategory(I18NCat::DIALOG);
-
-	const char *confirmMessage = n->T("ChangeMacSaveConfirm", "Generate a new MAC address?");
-	const char *warningMessage = n->T("ChangeMacSaveWarning", "Some games verify the MAC address when loading savedata, so this may break old saves.");
-	std::string combined = std::string(confirmMessage) + "\n\n" + warningMessage;
-
-	auto confirmScreen = new PromptScreen(
-		gamePath_,
-		combined, di->T("Yes"), di->T("No"),
-		[&](bool success) {
-		if (success) {
-			g_Config.sMACAddress = CreateRandMAC();
-		}}
-	);
-	screenManager()->push(confirmScreen);
 
 	return UI::EVENT_DONE;
 }
