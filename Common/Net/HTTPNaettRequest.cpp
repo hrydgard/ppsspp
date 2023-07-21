@@ -70,7 +70,8 @@ bool HTTPSDownload::Done() {
 		return false;
 	}
 
-	resultCode_ = naettGetStatus(res_);
+	// -1000 is a code specified by us to represent cancellation, that is unlikely to ever collide with naett error codes.
+	resultCode_ = IsCancelled() ? -1000 : naettGetStatus(res_);
 	if (resultCode_ < 0) {
 		// It's a naett error. Translate and handle.
 		switch (resultCode_) {
@@ -86,7 +87,7 @@ bool HTTPSDownload::Done() {
 		case naettWriteError:  // -4
 			ERROR_LOG(IO, "Write error");
 			break;
-		case naettGenericError:  // -4
+		case naettGenericError:  // -5
 			ERROR_LOG(IO, "Generic error");
 			break;
 		default:

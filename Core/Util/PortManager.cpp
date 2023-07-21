@@ -49,8 +49,6 @@ std::recursive_mutex upnpLock;
 std::deque<UPnPArgs> upnpReqs;
 
 PortManager::PortManager(): 
-	urls(0), 
-	datas(0), 
 	m_InitState(UPNP_INITSTATE_NONE),
 	m_LocalPort(UPNP_LOCAL_PORT_ANY),
 	m_leaseDuration("43200") {
