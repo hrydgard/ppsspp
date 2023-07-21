@@ -49,4 +49,4 @@
 	url = https://github.com/RetroAchievements/rcheevos.git
 [submodule "ext/naett"]
 	path = ext/naett
-	url = https://github.com/erkkah/naett.git
+	url = https://github.com/hrydgard/naett.git
