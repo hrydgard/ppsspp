@@ -5,6 +5,7 @@
 #include "Common/Net/HTTPRequest.h"
 #include "Common/Net/HTTPNaettRequest.h"
 #include "Common/Thread/ThreadUtil.h"
+#include "Common/StringUtils.h"
 #include "Common/Log.h"
 
 #include "ext/naett/naett.h"
@@ -12,7 +13,7 @@
 namespace http {
 
 HTTPSDownload::HTTPSDownload(RequestMethod method, const std::string &url, const std::string &postData, const std::string &postMime, const Path &outfile, ProgressBarMode progressBarMode, const std::string &name)
-	: Download(url, name, &cancelled_), method_(method), postData_(postData), postMime_(postMime), outfile_(outfile), progressBarMode_(progressBarMode) {
+	: Download(method, url, name, &cancelled_, progressBarMode), method_(method), postData_(postData), postMime_(postMime), outfile_(outfile) {
 }
 
 HTTPSDownload::~HTTPSDownload() {
@@ -40,10 +41,11 @@ void HTTPSDownload::Start() {
 	// 30 s timeout - not sure what's reasonable?
 	options.push_back(naettTimeout(30 * 1000));  // milliseconds
 
-
 	const naettOption **opts = (const naettOption **)options.data();
 	req_ = naettRequestWithOptions(url_.c_str(), (int)options.size(), opts);
 	res_ = naettMake(req_);
+
+	progress_.Update(0, 0, false);
 }
 
 void HTTPSDownload::Join() {
@@ -66,7 +68,9 @@ bool HTTPSDownload::Done() {
 		return true;
 
 	if (!naettComplete(res_)) {
-		// Not done yet, return and try again later.
+		int total = 0;
+		int size = naettGetTotalBytesRead(res_, &total);
+		progress_.Update(size, total, false);
 		return false;
 	}
 
@@ -95,6 +99,7 @@ bool HTTPSDownload::Done() {
 			break;
 		}
 		failed_ = true;
+		progress_.Update(0, 0, true);
 	} else if (resultCode_ == 200) {
 		int bodyLength;
 		const void *body = naettGetBody(res_, &bodyLength);
@@ -103,9 +108,11 @@ bool HTTPSDownload::Done() {
 		if (!outfile_.empty() && !buffer_.FlushToFile(outfile_)) {
 			ERROR_LOG(IO, "Failed writing download to '%s'", outfile_.c_str());
 		}
+		progress_.Update(bodyLength, bodyLength, true);
 	} else {
 		WARN_LOG(IO, "Naett request failed: %d", resultCode_);
 		failed_ = true;
+		progress_.Update(0, 0, true);
 	}
 
 	completed_ = true;

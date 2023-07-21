@@ -12,16 +12,7 @@ public:
 	RequestProgress() {}
 	explicit RequestProgress(bool *c) : cancelled(c) {}
 
-	void Update(int64_t downloaded, int64_t totalBytes, bool done) {
-		if (totalBytes) {
-			progress = (double)downloaded / (double)totalBytes;
-		} else {
-			progress = 0.01f;
-		}
-		if (callback) {
-			callback(downloaded, totalBytes, done);
-		}
-	}
+	void Update(int64_t downloaded, int64_t totalBytes, bool done);
 
 	float progress = 0.0f;
 	float kBps = 0.0f;

@@ -23,7 +23,7 @@ enum class ProgressBarMode {
 // Abstract request.
 class Download {
 public:
-	Download(const std::string &url, const std::string &name, bool *cancelled) : url_(url), name_(name), progress_(cancelled) {}
+	Download(RequestMethod method, const std::string &url, const std::string &name, bool *cancelled, ProgressBarMode mode);
 	virtual ~Download() {}
 
 	void SetAccept(const char *mime) {
@@ -68,12 +68,14 @@ public:
 
 protected:
 	std::function<void(Download &)> callback_;
+	RequestMethod method_;
 	std::string url_;
 	std::string name_;
 	const char *acceptMime_ = "*/*";
 	std::string userAgent_;
 
 	net::RequestProgress progress_;
+	ProgressBarMode progressBarMode_;
 
 private:
 };

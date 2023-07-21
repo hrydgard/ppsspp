@@ -445,28 +445,7 @@ int Client::ReadResponseEntity(net::Buffer *readbuf, const std::vector<std::stri
 }
 
 HTTPDownload::HTTPDownload(RequestMethod method, const std::string &url, const std::string &postData, const std::string &postMime, const Path &outfile, ProgressBarMode progressBarMode, const std::string &name)
-	: Download(url, name, &cancelled_), method_(method), postData_(postData), postMime_(postMime), outfile_(outfile), progressBarMode_(progressBarMode) {
-	progress_.callback = [=](int64_t bytes, int64_t contentLength, bool done) {
-		std::string message;
-		if (!name_.empty()) {
-			message = name_;
-		} else {
-			std::size_t pos = url_.rfind('/');
-			if (pos != std::string::npos) {
-				message = url_.substr(pos + 1);
-			} else {
-				message = url_;
-			}
-		}
-		if (progressBarMode_ != ProgressBarMode::NONE) {
-			INFO_LOG(IO, "Showing progress bar: %s", message.c_str());
-			if (!done) {
-				g_OSD.SetProgressBar(url_, std::move(message), 0.0f, (float)contentLength, (float)bytes, progressBarMode_ == ProgressBarMode::DELAYED ? 3.0f : 0.0f);  // delay 3 seconds before showing.
-			} else {
-				g_OSD.RemoveProgressBar(url_, Failed() ? false : true, 0.5f);
-			}
-		}
-	};
+	: Download(method, url, name, &cancelled_, progressBarMode), postData_(postData), postMime_(postMime), outfile_(outfile) {
 }
 
 HTTPDownload::~HTTPDownload() {

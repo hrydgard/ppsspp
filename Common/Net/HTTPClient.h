@@ -125,7 +125,6 @@ private:
 	std::string RedirectLocation(const std::string &baseUrl);
 	void SetFailed(int code);
 
-	RequestMethod method_;
 	std::string postData_;
 	Buffer buffer_;
 	std::vector<std::string> responseHeaders_;
@@ -136,7 +135,6 @@ private:
 	bool completed_ = false;
 	bool failed_ = false;
 	bool cancelled_ = false;
-	ProgressBarMode progressBarMode_;
 	bool joined_ = false;
 };
 
