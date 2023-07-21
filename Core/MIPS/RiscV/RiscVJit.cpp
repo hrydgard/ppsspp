@@ -28,7 +28,7 @@ using namespace RiscVJitConstants;
 
 static constexpr int MAX_ALLOWED_JIT_BLOCKS = 262144;
 
-RiscVJit::RiscVJit(MIPSState *mipsState) : IRJit(mipsState) {
+RiscVJit::RiscVJit(MIPSState *mipsState) : IRJit(mipsState), gpr(mipsState, &jo) {
 	// Automatically disable incompatible options.
 	if (((intptr_t)Memory::base & 0x00000000FFFFFFFFUL) != 0) {
 		jo.enablePointerify = false;
@@ -39,7 +39,8 @@ RiscVJit::RiscVJit(MIPSState *mipsState) : IRJit(mipsState) {
 	// TODO: Consider replacing block num method form IRJit - this is 2MB.
 	blockStartAddrs_ = new const u8 *[MAX_ALLOWED_JIT_BLOCKS];
 
-	// TODO: gpr, fpr
+	gpr.Init(this);
+	// TODO: fpr
 
 	GenerateFixedCode(jo);
 }
@@ -67,14 +68,16 @@ bool RiscVJit::CompileBlock(u32 em_address, std::vector<IRInst> &instructions, u
 	_assert_msg_(blockStartAddrs_[block_num] == nullptr, "Block reused before clear");
 	blockStartAddrs_[block_num] = GetCodePointer();
 
-	// TODO: gpr, fpr.
+	gpr.Start();
+	// TODO: fpr.
+
 	for (const IRInst &inst : instructions) {
 		CompileIRInst(inst);
 
-		// TODO
 		if (jo.Disabled(JitDisable::REGALLOC_GPR)) {
-			//gpr.FlushAll();
+			gpr.FlushAll();
 		}
+		// TODO
 		if (jo.Disabled(JitDisable::REGALLOC_FPR)) {
 			//fpr.FlushAll();
 		}
@@ -107,6 +110,7 @@ void RiscVJit::CompileIRInst(IRInst inst) {
 	uint64_t value;
 	memcpy(&value, &inst, sizeof(inst));
 
+	FlushAll();
 	LI(X10, value, SCRATCH2);
 	SaveStaticRegisters();
 	QuickCallFunction(SCRATCH2, &DoIRInst);
@@ -123,6 +127,11 @@ void RiscVJit::CompileIRInst(IRInst inst) {
 	}
 }
 
+void RiscVJit::FlushAll() {
+	gpr.FlushAll();
+	// TODO: fpr.
+}
+
 bool RiscVJit::DescribeCodePtr(const u8 *ptr, std::string &name) {
 	// Used in disassembly viewer.
 	if (ptr == dispatcher_) {
@@ -131,6 +140,10 @@ bool RiscVJit::DescribeCodePtr(const u8 *ptr, std::string &name) {
 		name = "dispatcher (PC in SCRATCH1)";
 	} else if (ptr == dispatcherNoCheck_) {
 		name = "dispatcherNoCheck";
+	} else if (ptr == saveStaticRegisters_) {
+		name = "saveStaticRegisters";
+	} else if (ptr == loadStaticRegisters_) {
+		name = "loadStaticRegisters";
 	} else if (ptr == enterDispatcher_) {
 		name = "enterDispatcher";
 	} else if (!IsInSpace(ptr)) {
@@ -217,22 +230,20 @@ void RiscVJit::MovToPC(RiscVGen::RiscVReg r) {
 }
 
 void RiscVJit::SaveStaticRegisters() {
-	// TODO
-	//if (jo.useStaticAlloc) {
-	//	QuickCallFunction(SCRATCH2, saveStaticRegisters_);
-	//} else {
+	if (jo.useStaticAlloc) {
+		QuickCallFunction(SCRATCH2, saveStaticRegisters_);
+	} else {
 		// Inline the single operation
 		SW(DOWNCOUNTREG, CTXREG, offsetof(MIPSState, downcount));
-	//}
+	}
 }
 
 void RiscVJit::LoadStaticRegisters() {
-	// TODO
-	//if (jo.useStaticAlloc) {
-	//	QuickCallFunction(SCRATCH2, loadStaticRegisters_);
-	//} else {
+	if (jo.useStaticAlloc) {
+		QuickCallFunction(SCRATCH2, loadStaticRegisters_);
+	} else {
 		LW(DOWNCOUNTREG, CTXREG, offsetof(MIPSState, downcount));
-	//}
+	}
 }
 
 } // namespace MIPSComp

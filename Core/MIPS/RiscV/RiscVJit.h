@@ -23,6 +23,7 @@
 #include "Core/MIPS/IR/IRJit.h"
 #include "Core/MIPS/JitCommon/JitState.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
+#include "Core/MIPS/RiscV/RiscVRegCache.h"
 
 namespace MIPSComp {
 
@@ -60,6 +61,10 @@ private:
 	void SaveStaticRegisters();
 	void LoadStaticRegisters();
 
+	void FlushAll();
+
+	RiscVRegCache gpr;
+
 	const u8 *enterDispatcher_ = nullptr;
 
 	const u8 *outerLoop_ = nullptr;
@@ -69,6 +74,9 @@ private:
 	const u8 *dispatcher_ = nullptr;
 	const u8 *dispatcherNoCheck_ = nullptr;
 	const u8 *dispatcherFetch_ = nullptr;
+
+	const u8 *saveStaticRegisters_ = nullptr;
+	const u8 *loadStaticRegisters_ = nullptr;
 
 	const u8 *crashHandler_ = nullptr;
 

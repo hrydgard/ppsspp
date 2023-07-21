@@ -1612,7 +1612,10 @@ list(APPEND CoreExtra
 	Core/MIPS/RiscV/RiscVAsm.cpp
 	Core/MIPS/RiscV/RiscVJit.cpp
 	Core/MIPS/RiscV/RiscVJit.h
+	Core/MIPS/RiscV/RiscVRegCache.cpp
 	Core/MIPS/RiscV/RiscVRegCache.h
+	Core/MIPS/RiscV/RiscVRegCacheFPU.cpp
+	Core/MIPS/RiscV/RiscVRegCacheFPU.h
 	GPU/Common/VertexDecoderRiscV.cpp
 )
 

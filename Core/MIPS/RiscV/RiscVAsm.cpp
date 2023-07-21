@@ -48,22 +48,21 @@ void RiscVJit::GenerateFixedCode(const JitOptions &jo) {
 	BeginWrite(GetMemoryProtectPageSize());
 	const u8 *start = AlignCodePage();
 
-	// TODO
 	if (jo.useStaticAlloc) {
-		//saveStaticRegisters = AlignCode16();
-		//SW(DOWNCOUNTREG, CTXREG, offsetof(MIPSState, downcount));
-		//gpr.EmitSaveStaticRegisters();
-		//RET();
+		saveStaticRegisters_ = AlignCode16();
+		SW(DOWNCOUNTREG, CTXREG, offsetof(MIPSState, downcount));
+		gpr.EmitSaveStaticRegisters();
+		RET();
 
-		//loadStaticRegisters = AlignCode16();
-		//gpr.EmitLoadStaticRegisters();
-		//LW(DOWNCOUNTREG, CTXREG, offsetof(MIPSState, downcount));
-		//RET();
+		loadStaticRegisters_ = AlignCode16();
+		gpr.EmitLoadStaticRegisters();
+		LW(DOWNCOUNTREG, CTXREG, offsetof(MIPSState, downcount));
+		RET();
 
-		//start = saveStaticRegisters;
+		start = saveStaticRegisters_;
 	} else {
-		//saveStaticRegisters = nullptr;
-		//loadStaticRegisters = nullptr;
+		saveStaticRegisters_ = nullptr;
+		loadStaticRegisters_ = nullptr;
 	}
 
 	// TODO: Do we actually need updateRoundingMode_?  Hm.
