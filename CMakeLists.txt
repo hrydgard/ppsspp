@@ -1610,6 +1610,12 @@ list(APPEND CoreExtra
 
 list(APPEND CoreExtra
 	Core/MIPS/RiscV/RiscVAsm.cpp
+	Core/MIPS/RiscV/RiscVCompALU.cpp
+	Core/MIPS/RiscV/RiscVCompBranch.cpp
+	Core/MIPS/RiscV/RiscVCompFPU.cpp
+	Core/MIPS/RiscV/RiscVCompLoadStore.cpp
+	Core/MIPS/RiscV/RiscVCompSystem.cpp
+	Core/MIPS/RiscV/RiscVCompVec.cpp
 	Core/MIPS/RiscV/RiscVJit.cpp
 	Core/MIPS/RiscV/RiscVJit.h
 	Core/MIPS/RiscV/RiscVRegCache.cpp

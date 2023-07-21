@@ -65,7 +65,8 @@ bool RiscVJit::CompileBlock(u32 em_address, std::vector<IRInst> &instructions, u
 	// TODO: Block linking, checked entries and such.
 
 	int block_num = blocks_.GetBlockNumberFromStartAddress(em_address);
-	_assert_msg_(blockStartAddrs_[block_num] == nullptr, "Block reused before clear");
+	_assert_msg_(block_num >= 0 && block_num < MAX_ALLOWED_JIT_BLOCKS, "Bad block num");
+	_assert_msg_(blockStartAddrs_[block_num] == nullptr, "Block %d reused before clear", block_num);
 	blockStartAddrs_[block_num] = GetCodePointer();
 
 	gpr.Start();
@@ -106,7 +107,64 @@ static u32 DoIRInst(uint64_t value) {
 }
 
 void RiscVJit::CompileIRInst(IRInst inst) {
+	switch (inst.op) {
+	case IROp::Nop:
+		break;
+
+	case IROp::SetConst:
+	case IROp::Downcount:
+	case IROp::SetPC:
+	case IROp::SetPCConst:
+		CompIR_Basic(inst);
+		break;
+
+	case IROp::Add:
+	case IROp::Sub:
+	case IROp::AddConst:
+	case IROp::SubConst:
+	case IROp::Neg:
+		CompIR_Arith(inst);
+		break;
+
+	case IROp::And:
+	case IROp::Or:
+	case IROp::Xor:
+	case IROp::AndConst:
+	case IROp::OrConst:
+	case IROp::XorConst:
+	case IROp::Not:
+		CompIR_Logic(inst);
+		break;
+
+	case IROp::Mov:
+	case IROp::Ext8to32:
+	case IROp::Ext16to32:
+	case IROp::ReverseBits:
+	case IROp::BSwap16:
+	case IROp::BSwap32:
+		CompIR_Assign(inst);
+		break;
+
+	case IROp::ExitToConst:
+	case IROp::ExitToReg:
+	case IROp::ExitToConstIfEq:
+	case IROp::ExitToConstIfNeq:
+	case IROp::ExitToConstIfGeZ:
+	case IROp::ExitToConstIfLtZ:
+	case IROp::ExitToConstIfLeZ:
+	case IROp::ExitToPC:
+		CompIR_Exit(inst);
+		break;
+
+	default:
+		CompIR_Generic(inst);
+		break;
+	}
+}
+
+void RiscVJit::CompIR_Generic(IRInst inst) {
 	// For now, we're gonna do it the slow and ugly way.
+	// Maybe there's a smarter way to fallback?
 	uint64_t value;
 	memcpy(&value, &inst, sizeof(inst));
 

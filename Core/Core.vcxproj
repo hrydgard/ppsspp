@@ -594,6 +594,12 @@
     <ClCompile Include="MIPS\IR\IRRegCache.cpp" />
     <ClCompile Include="MIPS\MIPSVFPUFallbacks.cpp" />
     <ClCompile Include="MIPS\RiscV\RiscVAsm.cpp" />
+    <ClCompile Include="MIPS\RiscV\RiscVCompALU.cpp" />
+    <ClCompile Include="MIPS\RiscV\RiscVCompBranch.cpp" />
+    <ClCompile Include="MIPS\RiscV\RiscVCompSystem.cpp" />
+    <ClCompile Include="MIPS\RiscV\RiscVCompFPU.cpp" />
+    <ClCompile Include="MIPS\RiscV\RiscVCompLoadStore.cpp" />
+    <ClCompile Include="MIPS\RiscV\RiscVCompVec.cpp" />
     <ClCompile Include="MIPS\RiscV\RiscVJit.cpp" />
     <ClCompile Include="MIPS\RiscV\RiscVRegCache.cpp" />
     <ClCompile Include="MIPS\RiscV\RiscVRegCacheFPU.cpp" />

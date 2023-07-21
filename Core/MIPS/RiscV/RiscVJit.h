@@ -63,6 +63,13 @@ private:
 
 	void FlushAll();
 
+	void CompIR_Generic(IRInst inst);
+	void CompIR_Basic(IRInst inst);
+	void CompIR_Arith(IRInst inst);
+	void CompIR_Logic(IRInst inst);
+	void CompIR_Assign(IRInst inst);
+	void CompIR_Exit(IRInst inst);
+
 	RiscVRegCache gpr;
 
 	const u8 *enterDispatcher_ = nullptr;
