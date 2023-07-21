@@ -21,9 +21,28 @@ HTTPSDownload::~HTTPSDownload() {
 
 void HTTPSDownload::Start() {
 	_dbg_assert_(!req_);
+	_dbg_assert_(!res_);
 
-	const char *methodStr = method_ == RequestMethod::GET ? "GET" : "POST";
-	req_ = naettRequest_va(url_.c_str(), !postMime_.empty() ? 3 : 2, naettMethod(methodStr), naettHeader("accept", "application/json, text/*; q=0.9, */*; q=0.8"), naettHeader("Content-Type", postMime_.c_str()));
+	std::vector<naettOption *> options;
+	options.push_back(naettMethod(method_ == RequestMethod::GET ? "GET" : "POST"));
+	options.push_back(naettHeader("Accept", acceptMime_));
+	if (!postMime_.empty()) {
+		options.push_back(naettHeader("Content-Type", postMime_.c_str()));
+	}
+	if (method_ == RequestMethod::POST) {
+		if (!postData_.empty()) {
+			// Note: Naett does not take ownership over the body.
+			options.push_back(naettBody(postData_.data(), (int)postData_.size()));
+		}
+	} else {
+		_dbg_assert_(postData_.empty());
+	}
+	// 30 s timeout - not sure what's reasonable?
+	options.push_back(naettTimeout(30 * 1000));  // milliseconds
+
+
+	const naettOption **opts = (const naettOption **)options.data();
+	req_ = naettRequestWithOptions(url_.c_str(), (int)options.size(), opts);
 	res_ = naettMake(req_);
 }
 
@@ -46,51 +65,55 @@ bool HTTPSDownload::Done() {
 	if (completed_)
 		return true;
 
-	if (naettComplete(res_)) {
-		resultCode_ = naettGetStatus(res_);
-		if (resultCode_ < 0) {
-			// It's a naett error. Translate and handle.
-			switch (resultCode_) {
-			case naettConnectionError:  // -1
-				ERROR_LOG(IO, "Connection error");
-				break;
-			case naettProtocolError:  // -2
-				ERROR_LOG(IO, "Protocol error");
-				break;
-			case naettReadError:  // -3
-				ERROR_LOG(IO, "Read error");
-				break;
-			case naettWriteError:  // -4
-				ERROR_LOG(IO, "Write error");
-				break;
-			case naettGenericError:  // -4
-				ERROR_LOG(IO, "Generic error");
-				break;
-			}
-		} else if (resultCode_ == 200) {
-			int bodyLength;
-			const void *body = naettGetBody(res_, &bodyLength);
-			char *dest = buffer_.Append(bodyLength);
-			memcpy(dest, body, bodyLength);
-
-			if (!outfile_.empty() && !buffer_.FlushToFile(outfile_)) {
-				ERROR_LOG(IO, "Failed writing download to '%s'", outfile_.c_str());
-			}
-		} else {
-			WARN_LOG(IO, "Naett request failed: %d", resultCode_);
-			failed_ = true;
-		}
-
-		completed_ = true;
-
-		if (callback_)
-			callback_(*this);
-		return true;
+	if (!naettComplete(res_)) {
+		// Not done yet, return and try again later.
+		return false;
 	}
 
-	return false;
+	resultCode_ = naettGetStatus(res_);
+	if (resultCode_ < 0) {
+		// It's a naett error. Translate and handle.
+		switch (resultCode_) {
+		case naettConnectionError:  // -1
+			ERROR_LOG(IO, "Connection error");
+			break;
+		case naettProtocolError:  // -2
+			ERROR_LOG(IO, "Protocol error");
+			break;
+		case naettReadError:  // -3
+			ERROR_LOG(IO, "Read error");
+			break;
+		case naettWriteError:  // -4
+			ERROR_LOG(IO, "Write error");
+			break;
+		case naettGenericError:  // -4
+			ERROR_LOG(IO, "Generic error");
+			break;
+		default:
+			ERROR_LOG(IO, "Unhandled naett error %d", resultCode_);
+			break;
+		}
+		failed_ = true;
+	} else if (resultCode_ == 200) {
+		int bodyLength;
+		const void *body = naettGetBody(res_, &bodyLength);
+		char *dest = buffer_.Append(bodyLength);
+		memcpy(dest, body, bodyLength);
+		if (!outfile_.empty() && !buffer_.FlushToFile(outfile_)) {
+			ERROR_LOG(IO, "Failed writing download to '%s'", outfile_.c_str());
+		}
+	} else {
+		WARN_LOG(IO, "Naett request failed: %d", resultCode_);
+		failed_ = true;
+	}
+
+	completed_ = true;
+
+	if (callback_)
+		callback_(*this);
+	return true;
 }
 
-}  // namespace
+}  // namespace http
 
 #endif  // HTTPS_NOT_AVAILABLE
