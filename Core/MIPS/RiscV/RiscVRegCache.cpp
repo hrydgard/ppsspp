@@ -15,6 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "Common/CPUDetect.h"
 #include "Core/MIPS/RiscV/RiscVRegCache.h"
 #include "Core/MIPS/JitCommon/JitState.h"
 #include "Core/Reporting.h"
@@ -446,22 +447,37 @@ RiscVReg RiscVRegCache::MapRegAsPointer(IRRegIndex reg) {
 		if (!jo_->enablePointerify) {
 			// Convert to a pointer by adding the base and clearing off the top bits.
 			// If SP, we can probably avoid the top bit clear, let's play with that later.
-#ifdef MASKED_PSP_MEMORY
-			// This destroys the value...
-			_dbg_assert_(!ar[riscvReg].isDirty);
-			emit_->SLLIW(riscvReg, riscvReg, 2);
-			emit_->SRLIW(riscvReg, riscvReg, 2);
-#endif
-			emit_->ADD(riscvReg, riscvReg, MEMBASEREG);
+			AddMemBase(riscvReg);
 			mr[reg].loc = MIPSLoc::RVREG_AS_PTR;
 		} else if (!ar[riscvReg].pointerified) {
-			emit_->ADD(riscvReg, riscvReg, MEMBASEREG);
+			AddMemBase(riscvReg);
 			ar[riscvReg].pointerified = true;
 		}
 	} else {
 		ERROR_LOG(JIT, "MapRegAsPointer : MapReg failed to allocate a register?");
 	}
 	return riscvReg;
+}
+
+void RiscVRegCache::AddMemBase(RiscVGen::RiscVReg reg) {
+	_assert_(reg >= X0 && reg <= X31);
+#ifdef MASKED_PSP_MEMORY
+	// This destroys the value...
+	_dbg_assert_(!ar[reg].isDirty);
+	emit_->SLLIW(reg, reg, 2);
+	emit_->SRLIW(reg, reg, 2);
+	emit_->ADD(reg, reg, MEMBASEREG);
+#else
+	// Clear the top bits to be safe.
+	if (cpu_info.RiscV_Zba) {
+		emit_->ADD_UW(reg, reg, MEMBASEREG);
+	} else {
+		_assert_(XLEN == 64);
+		emit_->SLLI(reg, reg, 32);
+		emit_->SRLI(reg, reg, 32);
+		emit_->ADD(reg, reg, MEMBASEREG);
+	}
+#endif
 }
 
 void RiscVRegCache::MapIn(IRRegIndex rs) {
@@ -759,11 +775,11 @@ void RiscVRegCache::FlushAll() {
 	for (int i = 0; i < count; i++) {
 		if (allocs[i].pointerified && !ar[allocs[i].ar].pointerified && jo_->enablePointerify) {
 			// Re-pointerify
-			emit_->ADD(allocs[i].ar, allocs[i].ar, MEMBASEREG);
+			AddMemBase(allocs[i].ar);
 			ar[allocs[i].ar].pointerified = true;
 		} else {
 			// If this register got pointerified on the way, mark it as not.
-			// This nis so that after save/reload (like in an interpreter fallback),
+			// This is so that after save/reload (like in an interpreter fallback),
 			// it won't be regarded as such, as it may no longer be.
 			ar[allocs[i].ar].pointerified = false;
 		}

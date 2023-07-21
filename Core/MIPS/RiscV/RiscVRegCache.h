@@ -151,6 +151,7 @@ private:
 	RiscVGen::RiscVReg AllocateReg();
 	RiscVGen::RiscVReg FindBestToSpill(bool unusedOnly, bool *clobbered);
 	RiscVGen::RiscVReg RiscVRegForFlush(IRRegIndex r);
+	void AddMemBase(RiscVGen::RiscVReg reg);
 	int GetMipsRegOffset(IRRegIndex r);
 
 	bool IsValidReg(IRRegIndex r) const;
