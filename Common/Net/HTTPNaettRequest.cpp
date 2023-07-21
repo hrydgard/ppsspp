@@ -12,15 +12,15 @@
 
 namespace http {
 
-HTTPSDownload::HTTPSDownload(RequestMethod method, const std::string &url, const std::string &postData, const std::string &postMime, const Path &outfile, ProgressBarMode progressBarMode, const std::string &name)
-	: Download(method, url, name, &cancelled_, progressBarMode), method_(method), postData_(postData), postMime_(postMime), outfile_(outfile) {
+HTTPSRequest::HTTPSRequest(RequestMethod method, const std::string &url, const std::string &postData, const std::string &postMime, const Path &outfile, ProgressBarMode progressBarMode, const std::string &name)
+	: Request(method, url, name, &cancelled_, progressBarMode), method_(method), postData_(postData), postMime_(postMime), outfile_(outfile) {
 }
 
-HTTPSDownload::~HTTPSDownload() {
+HTTPSRequest::~HTTPSRequest() {
 	Join();
 }
 
-void HTTPSDownload::Start() {
+void HTTPSRequest::Start() {
 	_dbg_assert_(!req_);
 	_dbg_assert_(!res_);
 
@@ -49,7 +49,7 @@ void HTTPSDownload::Start() {
 	progress_.Update(0, 0, false);
 }
 
-void HTTPSDownload::Join() {
+void HTTPSRequest::Join() {
 	if (!res_ || !req_)
 		return;  // No pending operation.
 	// Tear down.
@@ -64,7 +64,7 @@ void HTTPSDownload::Join() {
 	}
 }
 
-bool HTTPSDownload::Done() {
+bool HTTPSRequest::Done() {
 	if (completed_)
 		return true;
 

@@ -1363,7 +1363,7 @@ void Config::NotifyUpdatedCpuCore() {
 #define PPSSPP_GIT_VERSION "v0.0.1-gaaaaaaaaa"
 #endif
 
-void Config::DownloadCompletedCallback(http::Download &download) {
+void Config::DownloadCompletedCallback(http::Request &download) {
 	if (download.ResultCode() != 200) {
 		ERROR_LOG(LOADER, "Failed to download %s: %d", download.url().c_str(), download.ResultCode());
 		return;

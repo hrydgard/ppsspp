@@ -91,10 +91,10 @@ protected:
 };
 
 // Really an asynchronous request.
-class HTTPDownload : public Download {
+class HTTPRequest : public Request {
 public:
-	HTTPDownload(RequestMethod method, const std::string &url, const std::string &postData, const std::string &postMime, const Path &outfile, ProgressBarMode progressBarMode = ProgressBarMode::DELAYED, const std::string &name = "");
-	~HTTPDownload();
+	HTTPRequest(RequestMethod method, const std::string &url, const std::string &postData, const std::string &postMime, const Path &outfile, ProgressBarMode progressBarMode = ProgressBarMode::DELAYED, const std::string &name = "");
+	~HTTPRequest();
 
 	void Start() override;
 	void Join() override;

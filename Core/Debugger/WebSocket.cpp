@@ -131,7 +131,7 @@ static void SetupDebuggerLock() {
 	}
 }
 
-void HandleDebuggerRequest(const http::Request &request) {
+void HandleDebuggerRequest(const http::ServerRequest &request) {
 	net::WebSocketServer *ws = net::WebSocketServer::CreateAsUpgrade(request, "debugger.ppsspp.org");
 	if (!ws)
 		return;

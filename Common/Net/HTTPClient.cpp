@@ -444,21 +444,21 @@ int Client::ReadResponseEntity(net::Buffer *readbuf, const std::vector<std::stri
 	return 0;
 }
 
-HTTPDownload::HTTPDownload(RequestMethod method, const std::string &url, const std::string &postData, const std::string &postMime, const Path &outfile, ProgressBarMode progressBarMode, const std::string &name)
-	: Download(method, url, name, &cancelled_, progressBarMode), postData_(postData), postMime_(postMime), outfile_(outfile) {
+HTTPRequest::HTTPRequest(RequestMethod method, const std::string &url, const std::string &postData, const std::string &postMime, const Path &outfile, ProgressBarMode progressBarMode, const std::string &name)
+	: Request(method, url, name, &cancelled_, progressBarMode), postData_(postData), postMime_(postMime), outfile_(outfile) {
 }
 
-HTTPDownload::~HTTPDownload() {
+HTTPRequest::~HTTPRequest() {
 	g_OSD.RemoveProgressBar(url_, Failed() ? false : true, 0.5f);
 
 	_assert_msg_(joined_, "Download destructed without join");
 }
 
-void HTTPDownload::Start() {
-	thread_ = std::thread(std::bind(&HTTPDownload::Do, this));
+void HTTPRequest::Start() {
+	thread_ = std::thread(std::bind(&HTTPRequest::Do, this));
 }
 
-void HTTPDownload::Join() {
+void HTTPRequest::Join() {
 	if (joined_) {
 		ERROR_LOG(IO, "Already joined thread!");
 	}
@@ -466,13 +466,13 @@ void HTTPDownload::Join() {
 	joined_ = true;
 }
 
-void HTTPDownload::SetFailed(int code) {
+void HTTPRequest::SetFailed(int code) {
 	failed_ = true;
 	progress_.Update(0, 0, true);
 	completed_ = true;
 }
 
-int HTTPDownload::Perform(const std::string &url) {
+int HTTPRequest::Perform(const std::string &url) {
 	Url fileUrl(url);
 	if (!fileUrl.Valid()) {
 		return -1;
@@ -509,7 +509,7 @@ int HTTPDownload::Perform(const std::string &url) {
 	}
 }
 
-std::string HTTPDownload::RedirectLocation(const std::string &baseUrl) {
+std::string HTTPRequest::RedirectLocation(const std::string &baseUrl) {
 	std::string redirectUrl;
 	if (GetHeaderValue(responseHeaders_, "Location", &redirectUrl)) {
 		Url url(baseUrl);
@@ -520,7 +520,7 @@ std::string HTTPDownload::RedirectLocation(const std::string &baseUrl) {
 	return redirectUrl;
 }
 
-void HTTPDownload::Do() {
+void HTTPRequest::Do() {
 	SetCurrentThreadName("HTTPDownload::Do");
 
 	AndroidJNIThreadContext jniContext;

@@ -11,10 +11,10 @@
 namespace http {
 
 // Really an asynchronous request.
-class HTTPSDownload : public Download {
+class HTTPSRequest : public Request {
 public:
-	HTTPSDownload(RequestMethod method, const std::string &url, const std::string &postData, const std::string &postMime, const Path &outfile, ProgressBarMode progressBarMode = ProgressBarMode::DELAYED, const std::string &name = "");
-	~HTTPSDownload();
+	HTTPSRequest(RequestMethod method, const std::string &url, const std::string &postData, const std::string &postMime, const Path &outfile, ProgressBarMode progressBarMode = ProgressBarMode::DELAYED, const std::string &name = "");
+	~HTTPSRequest();
 
 	void Start() override;
 	void Join() override;

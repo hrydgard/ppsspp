@@ -218,8 +218,8 @@ private:
 	UI::EventReturn OnLoadDump(UI::EventParams &e);
 
 	std::vector<std::string> files_;
-	std::shared_ptr<http::Download> listing_;
-	std::shared_ptr<http::Download> dumpDownload_;
+	std::shared_ptr<http::Request> listing_;
+	std::shared_ptr<http::Request> dumpDownload_;
 };
 
 void DrawProfile(UIContext &ui);
