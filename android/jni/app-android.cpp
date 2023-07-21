@@ -158,7 +158,8 @@ static int desiredBackbufferSizeX;
 static int desiredBackbufferSizeY;
 
 // Cache the class loader so we can use it from native threads. Required for TextAndroid.
-static JavaVM* gJvm = nullptr;
+extern JavaVM *gJvm;
+
 static jobject gClassLoader;
 static jmethodID gFindClassMethod;
 
@@ -534,6 +535,10 @@ bool System_GetPropertyBool(SystemProperty prop) {
 		}
 	case SYSPROP_HAS_KEYBOARD:
 		return deviceType != DEVICE_TYPE_VR;
+#ifndef HTTPS_NOT_AVAILABLE
+	case SYSPROP_SUPPORTS_HTTPS:
+		return true;
+#endif
 	default:
 		return false;
 	}

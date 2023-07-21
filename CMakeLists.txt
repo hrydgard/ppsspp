@@ -219,6 +219,16 @@ else()
 	set(CoreLinkType STATIC)
 endif()
 
+if(NOT ANDROID AND NOT WIN32 AND NOT APPLE)
+	set(HTTPS_NOT_AVAILABLE ON)
+endif()
+
+# Made this flag negative because it's hopefully quite temporary and didn't
+# want to have to update all build systems.
+if(HTTPS_NOT_AVAILABLE)
+	add_definitions(-DHTTPS_NOT_AVAILABLE)
+endif()
+
 # Work around for some misfeature of the current glslang build system
 include_directories(ext/glslang)
 
@@ -710,6 +720,10 @@ add_library(Common STATIC
 	Common/Net/HTTPClient.h
 	Common/Net/HTTPHeaders.cpp
 	Common/Net/HTTPHeaders.h
+	Common/Net/HTTPNaettRequest.cpp
+	Common/Net/HTTPNaettRequest.h
+	Common/Net/HTTPRequest.cpp
+	Common/Net/HTTPRequest.h
 	Common/Net/HTTPServer.cpp
 	Common/Net/HTTPServer.h
 	Common/Net/NetBuffer.cpp
@@ -2222,6 +2236,10 @@ endif()
 
 target_link_libraries(${CoreLibName} Common native kirk cityhash sfmt19937 xbrz xxhash rcheevos ${GlslangLibs}
 	${CoreExtraLibs} ${OPENGL_LIBRARIES} ${X11_LIBRARIES} ${CMAKE_DL_LIBS})
+
+if(NOT HTTPS_NOT_AVAILABLE)
+	target_link_libraries(${CoreLibName} naett)
+endif()
 
 target_compile_features(${CoreLibName} PUBLIC cxx_std_17)
 

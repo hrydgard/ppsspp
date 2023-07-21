@@ -349,8 +349,10 @@ void Initialize() {
 	// Provide a logging function to simplify debugging
 	rc_client_enable_logging(g_rcClient, RC_CLIENT_LOG_LEVEL_VERBOSE, log_message_callback);
 
-	// Disable SSL for now.
-	rc_client_set_host(g_rcClient, "http://retroachievements.org");
+	if (!System_GetPropertyBool(SYSPROP_SUPPORTS_HTTPS)) {
+		// Disable SSL if not supported by our platform implementation.
+		rc_client_set_host(g_rcClient, "http://retroachievements.org");
+	}
 
 	rc_client_set_event_handler(g_rcClient, event_handler_callback);
 

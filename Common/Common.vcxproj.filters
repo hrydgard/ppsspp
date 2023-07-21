@@ -512,6 +512,15 @@
     <ClInclude Include="System\OSD.h">
       <Filter>System</Filter>
     </ClInclude>
+    <ClInclude Include="Net\HTTPRequest.h">
+      <Filter>Net</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ext\naett\naett.h">
+      <Filter>ext\naett</Filter>
+    </ClInclude>
+    <ClInclude Include="Net\HTTPNaettRequest.h">
+      <Filter>Net</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="ABI.cpp" />
@@ -959,6 +968,15 @@
     <ClCompile Include="System\OSD.cpp">
       <Filter>System</Filter>
     </ClCompile>
+    <ClCompile Include="Net\HTTPRequest.cpp">
+      <Filter>Net</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ext\naett\naett.c">
+      <Filter>ext\naett</Filter>
+    </ClCompile>
+    <ClCompile Include="Net\HTTPNaettRequest.cpp">
+      <Filter>Net</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Crypto">
@@ -1068,6 +1086,9 @@
     </Filter>
     <Filter Include="ext\basis_universal">
       <UniqueIdentifier>{d6d5f6e0-1c72-496b-af11-6d52d5123033}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ext\naett">
+      <UniqueIdentifier>{34f45db9-5c08-49cb-b349-b9e760ce3213}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>

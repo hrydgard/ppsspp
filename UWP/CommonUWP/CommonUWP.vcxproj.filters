@@ -94,6 +94,9 @@
     <Filter Include="ext\basis_universal">
       <UniqueIdentifier>{8b92cc15-8e3e-45b1-ba80-ad39b1a9cdc8}</UniqueIdentifier>
     </Filter>
+    <Filter Include="ext\naett">
+      <UniqueIdentifier>{403c3154-5e8a-4da1-ba82-8f69bef25e14}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\Common\ABI.cpp" />
@@ -443,6 +446,15 @@
     </ClCompile>
     <ClCompile Include="..\..\Common\System\OSD.cpp">
       <Filter>System</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\Net\HTTPRequest.cpp">
+      <Filter>Net</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\Net\HTTPNaettRequest.cpp">
+      <Filter>Net</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\naett\naett.c">
+      <Filter>ext\naett</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -840,6 +852,15 @@
     </ClInclude>
     <ClInclude Include="..\..\Common\System\OSD.h">
       <Filter>System</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\Net\HTTPRequest.h">
+      <Filter>Net</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\Net\HTTPNaettRequest.h">
+      <Filter>Net</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\naett\naett.h">
+      <Filter>ext\naett</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

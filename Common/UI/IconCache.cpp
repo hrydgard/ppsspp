@@ -239,6 +239,7 @@ bool IconCache::InsertIcon(const std::string &key, IconFormat format, std::strin
 	}
 
 	if (data.empty()) {
+		_dbg_assert_(false);
 		ERROR_LOG(G3D, "Can't insert empty data into icon cache");
 		return false;
 	}

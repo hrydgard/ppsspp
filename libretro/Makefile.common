@@ -224,6 +224,8 @@ SOURCES_C += \
 	$(EXTDIR)/rcheevos/src/rhash/md5.c
 
 COREFLAGS += -DSTACK_LINE_READER_BUFFER_SIZE=1024
+COREFLAGS += -DHTTPS_NOT_AVAILABLE
+
 ifeq ($(PLATFORM_EXT), android)
 COREFLAGS += -DHAVE_DLFCN_H
 else ifneq ($(PLATFORM_EXT), win32)
@@ -351,6 +353,8 @@ SOURCES_CXX += \
 	$(COMMONDIR)/Net/HTTPClient.cpp \
 	$(COMMONDIR)/Net/HTTPHeaders.cpp \
 	$(COMMONDIR)/Net/HTTPServer.cpp \
+	$(COMMONDIR)/Net/HTTPRequest.cpp \
+	$(COMMONDIR)/Net/HTTPNaettRequest.cpp \
 	$(COMMONDIR)/Net/NetBuffer.cpp \
 	$(COMMONDIR)/Net/Resolve.cpp \
 	$(COMMONDIR)/Net/Sinks.cpp \

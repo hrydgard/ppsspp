@@ -444,42 +444,21 @@ int Client::ReadResponseEntity(net::Buffer *readbuf, const std::vector<std::stri
 	return 0;
 }
 
-Download::Download(RequestMethod method, const std::string &url, const std::string &postData, const std::string &postMime, const Path &outfile, ProgressBarMode progressBarMode, const std::string &name)
-	: method_(method), progress_(&cancelled_), url_(url), postData_(postData), postMime_(postMime), outfile_(outfile), progressBarMode_(progressBarMode), name_(name) {
-	progress_.callback = [=](int64_t bytes, int64_t contentLength, bool done) {
-		std::string message;
-		if (!name_.empty()) {
-			message = name_;
-		} else {
-			std::size_t pos = url_.rfind('/');
-			if (pos != std::string::npos) {
-				message = url_.substr(pos + 1);
-			} else {
-				message = url_;
-			}
-		}
-		if (progressBarMode_ != ProgressBarMode::NONE) {
-			INFO_LOG(IO, "Showing progress bar: %s", message.c_str());
-			if (!done) {
-				g_OSD.SetProgressBar(url_, std::move(message), 0.0f, (float)contentLength, (float)bytes, progressBarMode_ == ProgressBarMode::DELAYED ? 3.0f : 0.0f);  // delay 3 seconds before showing.
-			} else {
-				g_OSD.RemoveProgressBar(url_, Failed() ? false : true, 0.5f);
-			}
-		}
-	};
+HTTPDownload::HTTPDownload(RequestMethod method, const std::string &url, const std::string &postData, const std::string &postMime, const Path &outfile, ProgressBarMode progressBarMode, const std::string &name)
+	: Download(method, url, name, &cancelled_, progressBarMode), postData_(postData), postMime_(postMime), outfile_(outfile) {
 }
 
-Download::~Download() {
+HTTPDownload::~HTTPDownload() {
 	g_OSD.RemoveProgressBar(url_, Failed() ? false : true, 0.5f);
 
 	_assert_msg_(joined_, "Download destructed without join");
 }
 
-void Download::Start() {
-	thread_ = std::thread(std::bind(&Download::Do, this));
+void HTTPDownload::Start() {
+	thread_ = std::thread(std::bind(&HTTPDownload::Do, this));
 }
 
-void Download::Join() {
+void HTTPDownload::Join() {
 	if (joined_) {
 		ERROR_LOG(IO, "Already joined thread!");
 	}
@@ -487,13 +466,13 @@ void Download::Join() {
 	joined_ = true;
 }
 
-void Download::SetFailed(int code) {
+void HTTPDownload::SetFailed(int code) {
 	failed_ = true;
 	progress_.Update(0, 0, true);
 	completed_ = true;
 }
 
-int Download::Perform(const std::string &url) {
+int HTTPDownload::Perform(const std::string &url) {
 	Url fileUrl(url);
 	if (!fileUrl.Valid()) {
 		return -1;
@@ -530,7 +509,7 @@ int Download::Perform(const std::string &url) {
 	}
 }
 
-std::string Download::RedirectLocation(const std::string &baseUrl) {
+std::string HTTPDownload::RedirectLocation(const std::string &baseUrl) {
 	std::string redirectUrl;
 	if (GetHeaderValue(responseHeaders_, "Location", &redirectUrl)) {
 		Url url(baseUrl);
@@ -541,11 +520,10 @@ std::string Download::RedirectLocation(const std::string &baseUrl) {
 	return redirectUrl;
 }
 
-void Download::Do() {
-	SetCurrentThreadName("Downloader::Do");
+void HTTPDownload::Do() {
+	SetCurrentThreadName("HTTPDownload::Do");
 
 	AndroidJNIThreadContext jniContext;
-
 	resultCode_ = 0;
 
 	std::string downloadURL = url_;
@@ -587,88 +565,6 @@ void Download::Do() {
 	// Set this last to ensure no race conditions when checking Done. Users must always check
 	// Done before looking at the result code.
 	completed_ = true;
-}
-
-std::shared_ptr<Download> Downloader::StartDownload(const std::string &url, const Path &outfile, ProgressBarMode mode, const char *acceptMime) {
-	std::shared_ptr<Download> dl(new Download(RequestMethod::GET, url, "", "", outfile, mode));
-
-	if (!userAgent_.empty())
-		dl->SetUserAgent(userAgent_);
-	if (acceptMime)
-		dl->SetAccept(acceptMime);
-	newDownloads_.push_back(dl);
-	dl->Start();
-	return dl;
-}
-
-std::shared_ptr<Download> Downloader::StartDownloadWithCallback(
-	const std::string &url,
-	const Path &outfile,
-	ProgressBarMode mode,
-	std::function<void(Download &)> callback,
-	const std::string &name,
-	const char *acceptMime) {
-	std::shared_ptr<Download> dl(new Download(RequestMethod::GET, url, "", "", outfile, mode, name));
-	if (!userAgent_.empty())
-		dl->SetUserAgent(userAgent_);
-	if (acceptMime)
-		dl->SetAccept(acceptMime);
-	dl->SetCallback(callback);
-	newDownloads_.push_back(dl);
-	dl->Start();
-	return dl;
-}
-
-std::shared_ptr<Download> Downloader::AsyncPostWithCallback(
-	const std::string &url,
-	const std::string &postData,
-	const std::string &postMime,
-	ProgressBarMode mode,
-	std::function<void(Download &)> callback,
-	const std::string &name) {
-	std::shared_ptr<Download> dl(new Download(RequestMethod::POST, url, postData, postMime, Path(), mode, name));
-	if (!userAgent_.empty())
-		dl->SetUserAgent(userAgent_);
-	dl->SetCallback(callback);
-	newDownloads_.push_back(dl);
-	dl->Start();
-	return dl;
-}
-
-void Downloader::Update() {
-	for (auto iter : newDownloads_) {
-		downloads_.push_back(iter);
-	}
-	newDownloads_.clear();
-
-	restart:
-	for (size_t i = 0; i < downloads_.size(); i++) {
-		auto dl = downloads_[i];
-		if (dl->Done()) {
-			dl->RunCallback();
-			dl->Join();
-			downloads_.erase(downloads_.begin() + i);
-			goto restart;
-		}
-	}
-}
-
-void Downloader::WaitForAll() {
-	// TODO: Should lock? Though, OK if called from main thread, where Update() is called from.
-	while (!downloads_.empty()) {
-		Update();
-		sleep_ms(10);
-	}
-}
-
-void Downloader::CancelAll() {
-	for (size_t i = 0; i < downloads_.size(); i++) {
-		downloads_[i]->Cancel();
-	}
-	for (size_t i = 0; i < downloads_.size(); i++) {
-		downloads_[i]->Join();
-	}
-	downloads_.clear();
 }
 
 }	// http

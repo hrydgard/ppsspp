@@ -8,6 +8,7 @@
 #include "Common/File/Path.h"
 #include "Common/Net/NetBuffer.h"
 #include "Common/Net/Resolve.h"
+#include "Common/Net/HTTPRequest.h"
 
 namespace net {
 
@@ -89,69 +90,33 @@ protected:
 	double dataTimeout_ = 900.0;
 };
 
-enum class RequestMethod {
-	GET,
-	POST,
-};
-
-enum class ProgressBarMode {
-	NONE,
-	VISIBLE,
-	DELAYED,
-};
-
 // Really an asynchronous request.
-class Download {
+class HTTPDownload : public Download {
 public:
-	Download(RequestMethod method, const std::string &url, const std::string &postData, const std::string &postMime, const Path &outfile, ProgressBarMode progressBarMode = ProgressBarMode::DELAYED, const std::string &name = "");
-	~Download();
+	HTTPDownload(RequestMethod method, const std::string &url, const std::string &postData, const std::string &postMime, const Path &outfile, ProgressBarMode progressBarMode = ProgressBarMode::DELAYED, const std::string &name = "");
+	~HTTPDownload();
 
-	void SetAccept(const char *mime) {
-		acceptMime_ = mime;
-	}
+	void Start() override;
+	void Join() override;
 
-	void SetUserAgent(const std::string &userAgent) {
-		userAgent_ = userAgent;
-	}
-
-	void Start();
-
-	void Join();
-
-	// Returns 1.0 when done. That one value can be compared exactly - or just use Done().
-	float Progress() const { return progress_.progress; }
-	float SpeedKBps() const { return progress_.kBps; }
-
-	bool Done() const { return completed_; }
-	bool Failed() const { return failed_; }
+	bool Done() override { return completed_; }
+	bool Failed() const override { return failed_; }
 
 	// NOTE! The value of ResultCode is INVALID until Done() returns true.
-	int ResultCode() const { return resultCode_; }
+	int ResultCode() const override { return resultCode_; }
 
-	std::string url() const { return url_; }
-	const Path &outfile() const { return outfile_; }
+	const Path &outfile() const override { return outfile_; }
 
 	// If not downloading to a file, access this to get the result.
-	Buffer &buffer() { return buffer_; }
-	const Buffer &buffer() const { return buffer_; }
+	Buffer &buffer() override { return buffer_; }
+	const Buffer &buffer() const override { return buffer_; }
 
-	void Cancel() {
+	void Cancel() override {
 		cancelled_ = true;
 	}
 
-	bool IsCancelled() const {
+	bool IsCancelled() const override {
 		return cancelled_;
-	}
-
-	// NOTE: Completion callbacks (which these are) are deferred until RunCallback is called. This is so that
-	// the call will end up on the thread that calls g_DownloadManager.Update().
-	void SetCallback(std::function<void(Download &)> callback) {
-		callback_ = callback;
-	}
-	void RunCallback() {
-		if (callback_) {
-			callback_(*this);
-		}
 	}
 
 private:
@@ -160,69 +125,17 @@ private:
 	std::string RedirectLocation(const std::string &baseUrl);
 	void SetFailed(int code);
 
-	RequestMethod method_;
-	net::RequestProgress progress_;
 	std::string postData_;
-	std::string userAgent_;
 	Buffer buffer_;
 	std::vector<std::string> responseHeaders_;
-	std::string url_;
 	Path outfile_;
 	std::thread thread_;
-	const char *acceptMime_ = "*/*";
 	std::string postMime_;
 	int resultCode_ = 0;
 	bool completed_ = false;
 	bool failed_ = false;
 	bool cancelled_ = false;
-	ProgressBarMode progressBarMode_;
 	bool joined_ = false;
-	std::string name_;
-	std::function<void(Download &)> callback_;
-};
-
-using std::shared_ptr;
-
-class Downloader {
-public:
-	~Downloader() {
-		CancelAll();
-	}
-
-	std::shared_ptr<Download> StartDownload(const std::string &url, const Path &outfile, ProgressBarMode mode, const char *acceptMime = nullptr);
-
-	std::shared_ptr<Download> StartDownloadWithCallback(
-		const std::string &url,
-		const Path &outfile,
-		ProgressBarMode mode,
-		std::function<void(Download &)> callback,
-		const std::string &name = "",
-		const char *acceptMime = nullptr);
-
-	std::shared_ptr<Download> AsyncPostWithCallback(
-		const std::string &url,
-		const std::string &postData,
-		const std::string &postMime, // Use postMime = "application/x-www-form-urlencoded" for standard form-style posts, such as used by retroachievements. For encoding form data manually we have MultipartFormDataEncoder.
-		ProgressBarMode mode,
-		std::function<void(Download &)> callback,
-		const std::string &name = "");
-
-	// Drops finished downloads from the list.
-	void Update();
-	void CancelAll();
-
-	void WaitForAll();
-	void SetUserAgent(const std::string &userAgent) {
-		userAgent_ = userAgent;
-	}
-
-private:
-	std::vector<std::shared_ptr<Download>> downloads_;
-	// These get copied to downloads_ in Update(). It's so that callbacks can add new downloads
-	// while running.
-	std::vector<std::shared_ptr<Download>> newDownloads_;
-
-	std::string userAgent_;
 };
 
 }	// http

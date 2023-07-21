@@ -22,6 +22,18 @@
 
 namespace net {
 
+void RequestProgress::Update(int64_t downloaded, int64_t totalBytes, bool done) {
+	if (totalBytes) {
+		progress = (double)downloaded / (double)totalBytes;
+	} else {
+		progress = 0.01f;
+	}
+
+	if (callback) {
+		callback(downloaded, totalBytes, done);
+	}
+}
+
 bool Buffer::FlushSocket(uintptr_t sock, double timeout, bool *cancelled) {
 	static constexpr float CANCEL_INTERVAL = 0.25f;
 	for (size_t pos = 0, end = data_.size(); pos < end; ) {

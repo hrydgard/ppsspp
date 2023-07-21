@@ -1,3 +1,5 @@
+#include "ppsspp_config.h"
+
 #include <cstring>
 
 #include "Common/System/Request.h"
@@ -5,6 +7,17 @@
 #include "Common/Log.h"
 #include "Common/File/Path.h"
 #include "Common/TimeUtil.h"
+
+#if PPSSPP_PLATFORM(ANDROID)
+
+// Maybe not the most natural place for this, but not sure what would be. It needs to be in the Common project
+// unless we want to make another System_ function to retrieve it.
+
+#include <jni.h>
+
+JavaVM *gJvm = nullptr;
+
+#endif
 
 RequestManager g_requestManager;
 

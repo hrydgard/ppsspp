@@ -108,8 +108,8 @@ private:
 	// Uninitialize/Reset the state
 	void Terminate();
 
-	struct UPNPUrls* urls = NULL;
-	struct IGDdatas* datas = NULL;
+	struct UPNPUrls* urls = nullptr;
+	struct IGDdatas* datas = nullptr;
 
 	int m_InitState = UPNP_INITSTATE_NONE;
 	int m_LocalPort = UPNP_LOCAL_PORT_ANY;
