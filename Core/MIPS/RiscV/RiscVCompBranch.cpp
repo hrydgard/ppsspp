@@ -42,19 +42,19 @@ void RiscVJit::CompIR_Exit(IRInst inst) {
 	case IROp::ExitToConst:
 		FlushAll();
 		LI(SCRATCH1, inst.constant);
-		QuickJ(SCRATCH2, dispatcherPCInSCRATCH1_);
+		QuickJ(R_RA, dispatcherPCInSCRATCH1_);
 		break;
 
 	case IROp::ExitToReg:
 		exitReg = gpr.MapReg(inst.src1);
 		FlushAll();
 		MV(SCRATCH1, exitReg);
-		QuickJ(SCRATCH2, dispatcherPCInSCRATCH1_);
+		QuickJ(R_RA, dispatcherPCInSCRATCH1_);
 		break;
 
 	case IROp::ExitToPC:
 		FlushAll();
-		QuickJ(SCRATCH2, dispatcher_);
+		QuickJ(R_RA, dispatcher_);
 		break;
 
 	default:

@@ -72,10 +72,10 @@ const RiscVReg *RiscVRegCache::GetMIPSAllocationOrder(int &count) {
 	// X8 and X9 are the most ideal for static alloc because they can be used with compression.
 	// Otherwise we stick to saved regs - might not be necessary.
 	static const RiscVReg allocationOrder[] = {
-		X7, X8, X9, X12, X13, X14, X1, X5, X6, X15, X16, X17, X18, X19, X20, X21, X22, X23, X28, X29, X30, X31,
+		X7, X8, X9, X12, X13, X14, X5, X6, X15, X16, X17, X18, X19, X20, X21, X22, X23, X28, X29, X30, X31,
 	};
 	static const RiscVReg allocationOrderStaticAlloc[] = {
-		X7, X12, X13, X14, X1, X5, X6, X15, X16, X17, X21, X22, X23, X28, X29, X30, X31,
+		X7, X12, X13, X14, X5, X6, X15, X16, X17, X21, X22, X23, X28, X29, X30, X31,
 	};
 
 	if (jo_->useStaticAlloc) {
@@ -123,7 +123,6 @@ void RiscVRegCache::EmitSaveStaticRegisters() {
 	// This only needs to run once (by Asm) so checks don't need to be fast.
 	for (int i = 0; i < count; i++) {
 		int offset = GetMipsRegOffset(allocs[i].mr);
-		// TODO: Check dirty?
 		emit_->SW(allocs[i].ar, CTXREG, offset);
 	}
 }

@@ -92,7 +92,7 @@ bool RiscVJit::CompileBlock(u32 em_address, std::vector<IRInst> &instructions, u
 
 	// Note: a properly constructed block should never get here.
 	// TODO: Need to do more than just this?  Call a func to set an exception?
-	QuickJ(SCRATCH2, crashHandler_);
+	QuickJ(R_RA, crashHandler_);
 
 	FlushIcache();
 
@@ -393,7 +393,7 @@ void RiscVJit::CompIR_Generic(IRInst inst) {
 	FlushAll();
 	LI(X10, value, SCRATCH2);
 	SaveStaticRegisters();
-	QuickCallFunction(SCRATCH2, &DoIRInst);
+	QuickCallFunction(&DoIRInst);
 	LoadStaticRegisters();
 	// Result in X10 aka SCRATCH1.
 	_assert_(X10 == SCRATCH1);
@@ -401,7 +401,7 @@ void RiscVJit::CompIR_Generic(IRInst inst) {
 		BNE(X10, R_ZERO, dispatcherPCInSCRATCH1_);
 	} else {
 		FixupBranch skip = BEQ(X10, R_ZERO);
-		QuickJ(SCRATCH2, dispatcherPCInSCRATCH1_);
+		QuickJ(R_RA, dispatcherPCInSCRATCH1_);
 		SetJumpTarget(skip);
 	}
 }
@@ -497,7 +497,7 @@ void RiscVJit::RestoreRoundingMode(bool force) {
 
 void RiscVJit::ApplyRoundingMode(bool force) {
 	// TODO: Also could maybe sometimes skip?
-	//QuickCallFunction(SCRATCH2, applyRoundingMode_);
+	//QuickCallFunction(applyRoundingMode_);
 }
 
 void RiscVJit::MovFromPC(RiscVGen::RiscVReg r) {
@@ -510,7 +510,7 @@ void RiscVJit::MovToPC(RiscVGen::RiscVReg r) {
 
 void RiscVJit::SaveStaticRegisters() {
 	if (jo.useStaticAlloc) {
-		QuickCallFunction(SCRATCH2, saveStaticRegisters_);
+		QuickCallFunction(saveStaticRegisters_);
 	} else {
 		// Inline the single operation
 		SW(DOWNCOUNTREG, CTXREG, offsetof(MIPSState, downcount));
@@ -519,7 +519,7 @@ void RiscVJit::SaveStaticRegisters() {
 
 void RiscVJit::LoadStaticRegisters() {
 	if (jo.useStaticAlloc) {
-		QuickCallFunction(SCRATCH2, loadStaticRegisters_);
+		QuickCallFunction(loadStaticRegisters_);
 	} else {
 		LW(DOWNCOUNTREG, CTXREG, offsetof(MIPSState, downcount));
 	}
