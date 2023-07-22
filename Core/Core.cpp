@@ -162,20 +162,19 @@ static bool IsWindowSmall(int pixelWidth, int pixelHeight) {
 // TODO: Feels like this belongs elsewhere.
 bool UpdateScreenScale(int width, int height) {
 	bool smallWindow;
-#if defined(USING_QT_UI)
-	g_display.dpi = System_GetPropertyFloat(SYSPROP_DISPLAY_DPI);
+
 	float g_logical_dpi = System_GetPropertyFloat(SYSPROP_DISPLAY_LOGICAL_DPI);
+	g_display.dpi = System_GetPropertyFloat(SYSPROP_DISPLAY_DPI);
+
+	if (g_display.dpi < 0.0f) {
+		g_display.dpi = 96.0f;
+	}
+	if (g_logical_dpi < 0.0f) {
+		g_logical_dpi = 96.0f;
+	}
+
 	g_display.dpi_scale_x = g_logical_dpi / g_display.dpi;
 	g_display.dpi_scale_y = g_logical_dpi / g_display.dpi;
-#elif (PPSSPP_PLATFORM(WINDOWS) && !PPSSPP_PLATFORM(UWP)) || PPSSPP_PLATFORM(LINUX)
-	g_display.dpi = System_GetPropertyFloat(SYSPROP_DISPLAY_DPI);
-	g_display.dpi_scale_x = 96.0f / g_display.dpi;
-	g_display.dpi_scale_y = 96.0f / g_display.dpi;
-#else
-	g_display.dpi = 96.0f;
-	g_display.dpi_scale_x = 1.0f;
-	g_display.dpi_scale_y = 1.0f;
-#endif
 	g_display.dpi_scale_real_x = g_display.dpi_scale_x;
 	g_display.dpi_scale_real_y = g_display.dpi_scale_y;
 
