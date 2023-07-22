@@ -35,6 +35,7 @@ RiscVJit::RiscVJit(MIPSState *mipsState) : IRJit(mipsState), gpr(mipsState, &jo)
 	}
 
 	AllocCodeSpace(1024 * 1024 * 16);
+	SetAutoCompress(true);
 
 	// TODO: Consider replacing block num method form IRJit - this is 2MB.
 	blockStartAddrs_ = new const u8 *[MAX_ALLOWED_JIT_BLOCKS];
@@ -91,8 +92,7 @@ bool RiscVJit::CompileBlock(u32 em_address, std::vector<IRInst> &instructions, u
 
 	// Note: a properly constructed block should never get here.
 	// TODO: Need to do more than just this?  Call a func to set an exception?
-	LI(SCRATCH2, crashHandler_);
-	JALR(R_ZERO, SCRATCH2, 0);
+	QuickJ(SCRATCH2, crashHandler_);
 
 	FlushIcache();
 
@@ -401,8 +401,7 @@ void RiscVJit::CompIR_Generic(IRInst inst) {
 		BNE(X10, R_ZERO, dispatcherPCInSCRATCH1_);
 	} else {
 		FixupBranch skip = BEQ(X10, R_ZERO);
-		LI(SCRATCH2, dispatcherPCInSCRATCH1_);
-		JALR(R_ZERO, SCRATCH2, 0);
+		QuickJ(SCRATCH2, dispatcherPCInSCRATCH1_);
 		SetJumpTarget(skip);
 	}
 }

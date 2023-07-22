@@ -42,34 +42,19 @@ void RiscVJit::CompIR_Exit(IRInst inst) {
 	case IROp::ExitToConst:
 		FlushAll();
 		LI(SCRATCH1, inst.constant);
-		if (JInRange(dispatcherPCInSCRATCH1_)) {
-			J(dispatcherPCInSCRATCH1_);
-		} else {
-			LI(SCRATCH2, dispatcherPCInSCRATCH1_);
-			JALR(R_ZERO, SCRATCH2, 0);
-		}
+		QuickJ(SCRATCH2, dispatcherPCInSCRATCH1_);
 		break;
 
 	case IROp::ExitToReg:
 		exitReg = gpr.MapReg(inst.src1);
 		FlushAll();
 		MV(SCRATCH1, exitReg);
-		if (JInRange(dispatcherPCInSCRATCH1_)) {
-			J(dispatcherPCInSCRATCH1_);
-		} else {
-			LI(SCRATCH2, dispatcherPCInSCRATCH1_);
-			JALR(R_ZERO, SCRATCH2, 0);
-		}
+		QuickJ(SCRATCH2, dispatcherPCInSCRATCH1_);
 		break;
 
 	case IROp::ExitToPC:
 		FlushAll();
-		if (JInRange(dispatcher_)) {
-			J(dispatcher_);
-		} else {
-			LI(SCRATCH2, dispatcher_);
-			JALR(R_ZERO, SCRATCH2, 0);
-		}
+		QuickJ(SCRATCH2, dispatcher_);
 		break;
 
 	default:

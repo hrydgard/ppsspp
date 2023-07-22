@@ -1180,13 +1180,16 @@ bool RiscVEmitter::CJInRange(const void *src, const void *dst) const {
 	return BJInRange(src, dst, 12);
 }
 
-void RiscVEmitter::QuickCallFunction(RiscVReg scratchreg, const u8 *func) {
-	if (!JInRange(GetCodePointer(), func)) {
-		// TODO: Might be able to optimize a tiny bit by taking advantage of simm12.
-		LI(scratchreg, (uintptr_t)func);
-		JALR(R_RA, scratchreg, 0);
+void RiscVEmitter::QuickJAL(RiscVReg scratchreg, RiscVReg rd, const u8 *dst) {
+	if (!JInRange(GetCodePointer(), dst)) {
+		static_assert(sizeof(intptr_t) <= sizeof(int64_t));
+		int64_t pcdelta = (int64_t)dst - (int64_t)GetCodePointer();
+		int32_t lower = (int32_t)SignReduce64(pcdelta, 12);
+		uintptr_t upper = ((pcdelta - lower) >> 12) << 12;
+		LI(scratchreg, (uintptr_t)GetCodePointer() + upper);
+		JALR(rd, scratchreg, lower);
 	} else {
-		JAL(R_RA, func);
+		JAL(rd, dst);
 	}
 }
 
