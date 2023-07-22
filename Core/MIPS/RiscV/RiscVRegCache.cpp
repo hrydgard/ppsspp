@@ -181,6 +181,17 @@ void RiscVRegCache::MarkDirty(RiscVReg reg) {
 	}
 }
 
+void RiscVRegCache::MarkPtrDirty(RiscVReg reg) {
+	// Can't mark X0 dirty.
+	_dbg_assert_(reg > X0 && reg <= X31);
+	ar[reg].isDirty = true;
+	if (ar[reg].mipsReg != IRREG_INVALID) {
+		_dbg_assert_(mr[ar[reg].mipsReg].loc == MIPSLoc::RVREG_AS_PTR);
+	} else {
+		_dbg_assert_(ar[reg].pointerified);
+	}
+}
+
 void RiscVRegCache::SetRegImm(RiscVReg reg, u64 imm) {
 	_dbg_assert_(reg != R_ZERO || imm == 0);
 	_dbg_assert_(reg >= X0 && reg <= X31);

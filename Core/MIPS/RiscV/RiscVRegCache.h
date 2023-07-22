@@ -118,6 +118,7 @@ public:
 	bool IsInRAM(IRRegIndex reg);
 
 	void MarkDirty(RiscVGen::RiscVReg reg);
+	void MarkPtrDirty(RiscVGen::RiscVReg reg);
 	void MapIn(IRRegIndex rs);
 	void MapInIn(IRRegIndex rd, IRRegIndex rs);
 	void MapDirtyIn(IRRegIndex rd, IRRegIndex rs, bool avoidLoad = true);

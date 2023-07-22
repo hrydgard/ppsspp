@@ -66,7 +66,7 @@ void RiscVJit::CompIR_Arith(IRInst inst) {
 		if ((int32_t)inst.constant >= -2048 && (int32_t)inst.constant <= 2047) {
 			// Typical of stack pointer updates.
 			if (gpr.IsMappedAsPointer(inst.src1) && inst.dest == inst.src1 && allowPtrMath) {
-				gpr.MarkDirty(gpr.RPtr(inst.dest));
+				gpr.MarkPtrDirty(gpr.RPtr(inst.dest));
 				ADDI(gpr.RPtr(inst.dest), gpr.RPtr(inst.dest), inst.constant);
 			} else {
 				gpr.MapDirtyIn(inst.dest, inst.src1);
