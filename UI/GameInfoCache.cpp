@@ -420,7 +420,10 @@ public:
 				}
 
 				// Then, ICON0.PNG.
-				if (pbp.GetSubFileSize(PBP_ICON0_PNG) > 0) {
+				Path customIcon = GetSysDirectory(DIRECTORY_TEXTURES) / info_->id / "icon.png";	
+				if (g_Config.bReplaceTextures && File::Exists(customIcon)) {
+					File::ReadFileToString(false, customIcon, info_->icon.data);
+				} else if (pbp.GetSubFileSize(PBP_ICON0_PNG) > 0) {
 					std::lock_guard<std::mutex> lock(info_->lock);
 					pbp.GetSubFileAsString(PBP_ICON0_PNG, &info_->icon.data);
 				} else {
@@ -471,17 +474,22 @@ handleELF:
 				info_->paramSFOLoaded = true;
 			}
 			{
-				Path screenshot_jpg = GetSysDirectory(DIRECTORY_SCREENSHOT) / (info_->id + "_00000.jpg");
-				Path screenshot_png = GetSysDirectory(DIRECTORY_SCREENSHOT) / (info_->id + "_00000.png");
-				// Try using png/jpg screenshots first
-				if (File::Exists(screenshot_png)) {
-					File::ReadFileToString(false, screenshot_png, info_->icon.data);
-				} else if (File::Exists(screenshot_jpg)) {
-					File::ReadFileToString(false, screenshot_jpg, info_->icon.data);
+				Path customIcon = GetSysDirectory(DIRECTORY_TEXTURES) / info_->id / "icon.png";
+				if (g_Config.bReplaceTextures && File::Exists(customIcon)) {
+					File::ReadFileToString(false, customIcon, info_->icon.data);
 				} else {
-					// Read standard icon
-					VERBOSE_LOG(LOADER, "Loading unknown.png because there was an ELF");
-					ReadVFSToString("unknown.png", &info_->icon.data, &info_->lock);
+					Path screenshot_jpg = GetSysDirectory(DIRECTORY_SCREENSHOT) / (info_->id + "_00000.jpg");
+					Path screenshot_png = GetSysDirectory(DIRECTORY_SCREENSHOT) / (info_->id + "_00000.png");
+					// Try using png/jpg screenshots first
+					if (File::Exists(screenshot_png)) {
+						File::ReadFileToString(false, screenshot_png, info_->icon.data);
+					} else if (File::Exists(screenshot_jpg)) {
+						File::ReadFileToString(false, screenshot_jpg, info_->icon.data);
+					} else {
+						// Read standard icon
+						VERBOSE_LOG(LOADER, "Loading unknown.png because there was an ELF");
+						ReadVFSToString("unknown.png", &info_->icon.data, &info_->lock);
+					}
 				}
 				info_->icon.dataLoaded = true;
 			}
@@ -557,7 +565,12 @@ handleELF:
 					info_->ParseParamSFO();
 				}
 
-				ReadFileToString(&umd, "/PSP_GAME/ICON0.PNG", &info_->icon.data, &info_->lock);
+				Path customIcon = GetSysDirectory(DIRECTORY_TEXTURES) / info_->id / "icon.png";
+				if (g_Config.bReplaceTextures && File::Exists(customIcon)) {
+					File::ReadFileToString(false, customIcon, info_->icon.data);
+				} else {
+					ReadFileToString(&umd, "/PSP_GAME/ICON0.PNG", &info_->icon.data, &info_->lock);
+				}
 				info_->icon.dataLoaded = true;
 				if (info_->wantFlags & GAMEINFO_WANTBG) {
 					ReadFileToString(&umd, "/PSP_GAME/PIC0.PNG", &info_->pic0.data, &info_->lock);
@@ -606,8 +619,12 @@ handleELF:
 					}
 				}
 
-				// Fall back to unknown icon if ISO is broken/is a homebrew ISO, override is allowed though
-				if (!ReadFileToString(&umd, "/PSP_GAME/ICON0.PNG", &info_->icon.data, &info_->lock)) {
+				Path customIcon = GetSysDirectory(DIRECTORY_TEXTURES) / info_->id / "icon.png";
+				if (g_Config.bReplaceTextures && File::Exists(customIcon)) {
+					File::ReadFileToString(false,  customIcon, info_->icon.data);
+					info_->icon.dataLoaded = true;
+				} else if (!ReadFileToString(&umd, "/PSP_GAME/ICON0.PNG", &info_->icon.data, &info_->lock)) {
+					// Fall back to unknown icon if ISO is broken/is a homebrew ISO, override is allowed though
 					Path screenshot_jpg = GetSysDirectory(DIRECTORY_SCREENSHOT) / (info_->id + "_00000.jpg");
 					Path screenshot_png = GetSysDirectory(DIRECTORY_SCREENSHOT) / (info_->id + "_00000.png");
 					// Try using png/jpg screenshots first
