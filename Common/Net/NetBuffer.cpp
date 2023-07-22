@@ -76,8 +76,8 @@ bool Buffer::ReadAllWithProgress(int fd, int knownSize, RequestProgress *progres
 	int total = 0;
 	while (true) {
 		bool ready = false;
-		while (!ready && (!progress || !*progress->cancelled)) {
-			if (*progress->cancelled)
+		while (!ready && (!progress || (progress->cancelled && !*progress->cancelled))) {
+			if (progress && progress->cancelled && *progress->cancelled)
 				return false;
 			ready = fd_util::WaitUntilReady(fd, CANCEL_INTERVAL, false);
 		}
