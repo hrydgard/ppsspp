@@ -104,6 +104,10 @@ private:
 	void CompIR_VecStore(IRInst inst);
 	void CompIR_ValidateAddress(IRInst inst);
 
+	void SetScratch1ToSrc1Address(IRReg src1);
+	// Modifies SCRATCH regs.
+	int32_t AdjustForAddressOffset(RiscVGen::RiscVReg *reg, int32_t constant);
+
 	RiscVRegCache gpr;
 
 	const u8 *enterDispatcher_ = nullptr;

@@ -169,6 +169,16 @@ void RiscVRegCache::MarkDirty(RiscVReg reg) {
 	// Can't mark X0 dirty.
 	_dbg_assert_(reg > X0 && reg <= X31);
 	ar[reg].isDirty = true;
+	// If reg is written to, pointerification is lost.
+	ar[reg].pointerified = false;
+	if (ar[reg].mipsReg != IRREG_INVALID) {
+		RegStatusMIPS &m = mr[ar[reg].mipsReg];
+		if (m.loc == MIPSLoc::RVREG_AS_PTR || m.loc == MIPSLoc::RVREG_IMM) {
+			m.loc = MIPSLoc::RVREG;
+			m.imm = -1;
+		}
+		_dbg_assert_(m.loc == MIPSLoc::RVREG);
+	}
 }
 
 void RiscVRegCache::SetRegImm(RiscVReg reg, u64 imm) {
