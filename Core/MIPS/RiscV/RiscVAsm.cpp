@@ -209,12 +209,10 @@ void RiscVJit::GenerateFixedCode(const JitOptions &jo) {
 	JR(SCRATCH1);
 	SetJumpTarget(skipJump);
 
-	// No block found, let's jit.  Might be able to optimize reg/frm saving later.
-	SaveStaticRegisters();
+	// No block found, let's jit.  We don't need to save static regs, they're all callee saved.
 	RestoreRoundingMode(true);
 	QuickCallFunction(SCRATCH1, &MIPSComp::JitAt);
 	ApplyRoundingMode(true);
-	LoadStaticRegisters();
 
 	// Try again, the block index should be set now.
 	J(dispatcherNoCheck_);
