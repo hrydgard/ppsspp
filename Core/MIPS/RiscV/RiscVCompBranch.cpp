@@ -37,13 +37,39 @@ using namespace RiscVJitConstants;
 void RiscVJit::CompIR_Exit(IRInst inst) {
 	CONDITIONAL_DISABLE;
 
-	// Will probably always want this?
-	FlushAll();
+	RiscVReg exitReg = INVALID_REG;
 	switch (inst.op) {
 	case IROp::ExitToConst:
+		FlushAll();
+		LI(SCRATCH1, inst.constant);
+		if (JInRange(dispatcherPCInSCRATCH1_)) {
+			J(dispatcherPCInSCRATCH1_);
+		} else {
+			LI(SCRATCH2, dispatcherPCInSCRATCH1_);
+			JALR(R_ZERO, SCRATCH2, 0);
+		}
+		break;
+
 	case IROp::ExitToReg:
+		exitReg = gpr.MapReg(inst.src1);
+		FlushAll();
+		MV(SCRATCH1, exitReg);
+		if (JInRange(dispatcherPCInSCRATCH1_)) {
+			J(dispatcherPCInSCRATCH1_);
+		} else {
+			LI(SCRATCH2, dispatcherPCInSCRATCH1_);
+			JALR(R_ZERO, SCRATCH2, 0);
+		}
+		break;
+
 	case IROp::ExitToPC:
-		CompIR_Generic(inst);
+		FlushAll();
+		if (JInRange(dispatcher_)) {
+			J(dispatcher_);
+		} else {
+			LI(SCRATCH2, dispatcher_);
+			JALR(R_ZERO, SCRATCH2, 0);
+		}
 		break;
 
 	default:

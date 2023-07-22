@@ -61,6 +61,7 @@ private:
 	void SaveStaticRegisters();
 	void LoadStaticRegisters();
 
+	// Note: destroys SCRATCH1.
 	void FlushAll();
 
 	void CompIR_Arith(IRInst inst);
