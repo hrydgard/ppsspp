@@ -54,3 +54,7 @@ private:
 	std::string inZipPath_;
 	Path zipPath_;
 };
+
+// When you just want a single file from a ZIP, and don't care about accurate error reporting, use this.
+// The buffer should be free'd with free. Mutex will be locked while updating data, if non-null.
+bool ReadSingleFileFromZip(Path zipFile, const char *path, std::string *data, std::mutex *mutex);

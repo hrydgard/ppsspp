@@ -1,3 +1,4 @@
+
 // Copyright (c) 2013- PPSSPP Project.
 
 // This program is free software: you can redistribute it and/or modify
@@ -25,6 +26,7 @@
 #include "Common/GPU/thin3d.h"
 #include "Common/Thread/ThreadManager.h"
 #include "Common/File/VFS/VFS.h"
+#include "Common/File/VFS/ZipFileReader.h"
 #include "Common/File/FileUtil.h"
 #include "Common/File/Path.h"
 #include "Common/Render/ManagedTexture.h"
@@ -755,8 +757,25 @@ handleELF:
 				}
 
 				// Fall back to unknown icon if ISO is broken/is a homebrew ISO, override is allowed though
+				// First, do try to get an icon from the replacement texture pack, if available.
 				if (flags_ & GameInfoFlags::ICON) {
-					if (!ReadFileToString(&umd, "/PSP_GAME/ICON0.PNG", &info_->icon.data, &info_->lock)) {
+					if (g_Config.bReplaceTextures) {
+						const Path customIconFilename = GetSysDirectory(DIRECTORY_TEXTURES) / info_->id / "icon.png";
+						const Path zipFilename = GetSysDirectory(DIRECTORY_TEXTURES) / info_->id / "textures.zip";
+						if (File::Exists(customIconFilename)) {
+							info_->icon.dataLoaded = ReadLocalFileToString(customIconFilename, &info_->icon.data, &info_->lock);
+						} else if (File::Exists(zipFilename)) {
+							// Read file from zip if available.
+							info_->icon.dataLoaded = ReadSingleFileFromZip(zipFilename, "icon.png", &info_->icon.data, &info_->lock);
+						}
+						if (info_->icon.dataLoaded) {
+							break;
+						}
+					}
+
+					if (ReadFileToString(&umd, "/PSP_GAME/ICON0.PNG", &info_->icon.data, &info_->lock)) {
+						info_->icon.dataLoaded = true;
+					} else {
 						Path screenshot_jpg = GetSysDirectory(DIRECTORY_SCREENSHOT) / (info_->id + "_00000.jpg");
 						Path screenshot_png = GetSysDirectory(DIRECTORY_SCREENSHOT) / (info_->id + "_00000.png");
 						// Try using png/jpg screenshots first
@@ -768,8 +787,6 @@ handleELF:
 							DEBUG_LOG(Log::Loader, "Loading unknown.png because no icon was found");
 							info_->icon.dataLoaded = ReadVFSToString("unknown.png", &info_->icon.data, &info_->lock);
 						}
-					} else {
-						info_->icon.dataLoaded = true;
 					}
 				}
 				break;
