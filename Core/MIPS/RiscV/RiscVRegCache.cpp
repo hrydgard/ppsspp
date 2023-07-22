@@ -795,9 +795,10 @@ void RiscVRegCache::FlushAll() {
 	for (int i = 0; i < count; i++) {
 		if (allocs[i].pointerified && !ar[allocs[i].ar].pointerified && jo_->enablePointerify) {
 			// Re-pointerify
+			_dbg_assert_(mr[allocs[i].mr].loc == MIPSLoc::RVREG);
 			AddMemBase(allocs[i].ar);
 			ar[allocs[i].ar].pointerified = true;
-		} else {
+		} else if (!allocs[i].pointerified) {
 			// If this register got pointerified on the way, mark it as not.
 			// This is so that after save/reload (like in an interpreter fallback),
 			// it won't be regarded as such, as it may no longer be.
