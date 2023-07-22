@@ -847,6 +847,9 @@
     <None Include="Content\shaders\defaultshaders.ini">
       <DeploymentContent>true</DeploymentContent>
     </None>
+    <None Include="Content\shaders\fakereclections.fsh">
+      <DeploymentContent>true</DeploymentContent>
+    </None>
     <None Include="Content\shaders\fxaa.fsh">
       <DeploymentContent>true</DeploymentContent>
     </None>

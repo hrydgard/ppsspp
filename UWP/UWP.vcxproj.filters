@@ -313,6 +313,9 @@
     <None Include="Content\shaders\defaultshaders.ini">
       <Filter>Content\shaders</Filter>
     </None>
+    <None Include="Content\shaders\fakereclections.fsh">
+      <Filter>Content\shaders</Filter>
+    </None>
     <None Include="Content\shaders\fxaa.fsh">
       <Filter>Content\shaders</Filter>
     </None>
