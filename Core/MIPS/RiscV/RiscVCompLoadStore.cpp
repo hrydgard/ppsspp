@@ -34,4 +34,124 @@ namespace MIPSComp {
 using namespace RiscVGen;
 using namespace RiscVJitConstants;
 
+void RiscVJit::CompIR_Load(IRInst inst) {
+	CONDITIONAL_DISABLE;
+
+	switch (inst.op) {
+	case IROp::Load8:
+	case IROp::Load8Ext:
+	case IROp::Load16:
+	case IROp::Load16Ext:
+	case IROp::Load32:
+		CompIR_Generic(inst);
+		break;
+
+	default:
+		INVALIDOP;
+		break;
+	}
+}
+
+void RiscVJit::CompIR_LoadShift(IRInst inst) {
+	CONDITIONAL_DISABLE;
+
+	switch (inst.op) {
+	case IROp::Load32Left:
+	case IROp::Load32Right:
+		CompIR_Generic(inst);
+		break;
+
+	default:
+		INVALIDOP;
+		break;
+	}
+}
+
+void RiscVJit::CompIR_FLoad(IRInst inst) {
+	CONDITIONAL_DISABLE;
+
+	switch (inst.op) {
+	case IROp::LoadFloat:
+		CompIR_Generic(inst);
+		break;
+
+	default:
+		INVALIDOP;
+		break;
+	}
+}
+
+void RiscVJit::CompIR_VecLoad(IRInst inst) {
+	CONDITIONAL_DISABLE;
+
+	switch (inst.op) {
+	case IROp::LoadVec4:
+		CompIR_Generic(inst);
+		break;
+
+	default:
+		INVALIDOP;
+		break;
+	}
+}
+
+void RiscVJit::CompIR_Store(IRInst inst) {
+	CONDITIONAL_DISABLE;
+
+	switch (inst.op) {
+	case IROp::Store8:
+	case IROp::Store16:
+	case IROp::Store32:
+		CompIR_Generic(inst);
+		break;
+
+	default:
+		INVALIDOP;
+		break;
+	}
+}
+
+void RiscVJit::CompIR_StoreShift(IRInst inst) {
+	CONDITIONAL_DISABLE;
+
+	switch (inst.op) {
+	case IROp::Store32Left:
+	case IROp::Store32Right:
+		CompIR_Generic(inst);
+		break;
+
+	default:
+		INVALIDOP;
+		break;
+	}
+}
+
+void RiscVJit::CompIR_FStore(IRInst inst) {
+	CONDITIONAL_DISABLE;
+
+	switch (inst.op) {
+	case IROp::StoreFloat:
+		CompIR_Generic(inst);
+		break;
+
+	default:
+		INVALIDOP;
+		break;
+	}
+}
+
+void RiscVJit::CompIR_VecStore(IRInst inst) {
+	CONDITIONAL_DISABLE;
+
+	switch (inst.op) {
+	case IROp::StoreVec4:
+		CompIR_Generic(inst);
+		break;
+
+	default:
+		INVALIDOP;
+		break;
+	}
+}
+
 } // namespace MIPSComp

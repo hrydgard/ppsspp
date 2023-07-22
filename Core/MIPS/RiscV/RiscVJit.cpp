@@ -112,6 +112,7 @@ void RiscVJit::CompileIRInst(IRInst inst) {
 		break;
 
 	case IROp::SetConst:
+	case IROp::SetConstF:
 	case IROp::Downcount:
 	case IROp::SetPC:
 	case IROp::SetPCConst:
@@ -139,24 +140,245 @@ void RiscVJit::CompileIRInst(IRInst inst) {
 	case IROp::Mov:
 	case IROp::Ext8to32:
 	case IROp::Ext16to32:
+		CompIR_Assign(inst);
+		break;
+
 	case IROp::ReverseBits:
 	case IROp::BSwap16:
 	case IROp::BSwap32:
-		CompIR_Assign(inst);
+	case IROp::Clz:
+		CompIR_Bits(inst);
+		break;
+
+	case IROp::Shl:
+	case IROp::Shr:
+	case IROp::Sar:
+	case IROp::Ror:
+	case IROp::ShlImm:
+	case IROp::ShrImm:
+	case IROp::SarImm:
+	case IROp::RorImm:
+		CompIR_Shift(inst);
+		break;
+
+	case IROp::Slt:
+	case IROp::SltConst:
+	case IROp::SltU:
+	case IROp::SltUConst:
+		CompIR_Compare(inst);
+		break;
+
+	case IROp::MovZ:
+	case IROp::MovNZ:
+	case IROp::Max:
+	case IROp::Min:
+		CompIR_CondAssign(inst);
+		break;
+
+	case IROp::MtLo:
+	case IROp::MtHi:
+	case IROp::MfLo:
+	case IROp::MfHi:
+		CompIR_HiLo(inst);
+		break;
+
+	case IROp::Mult:
+	case IROp::MultU:
+	case IROp::Madd:
+	case IROp::MaddU:
+	case IROp::Msub:
+	case IROp::MsubU:
+		CompIR_Mult(inst);
+		break;
+
+	case IROp::Div:
+	case IROp::DivU:
+		CompIR_Div(inst);
+		break;
+
+	case IROp::Load8:
+	case IROp::Load8Ext:
+	case IROp::Load16:
+	case IROp::Load16Ext:
+	case IROp::Load32:
+		CompIR_Load(inst);
+		break;
+
+	case IROp::Load32Left:
+	case IROp::Load32Right:
+		CompIR_LoadShift(inst);
+		break;
+
+	case IROp::LoadFloat:
+		CompIR_FLoad(inst);
+		break;
+
+	case IROp::LoadVec4:
+		CompIR_VecLoad(inst);
+		break;
+
+	case IROp::Store8:
+	case IROp::Store16:
+	case IROp::Store32:
+		CompIR_Store(inst);
+		break;
+
+	case IROp::Store32Left:
+	case IROp::Store32Right:
+		CompIR_StoreShift(inst);
+		break;
+
+	case IROp::StoreFloat:
+		CompIR_FStore(inst);
+		break;
+
+	case IROp::StoreVec4:
+		CompIR_VecStore(inst);
+		break;
+
+	case IROp::FAdd:
+	case IROp::FSub:
+	case IROp::FMul:
+	case IROp::FDiv:
+	case IROp::FSqrt:
+	case IROp::FNeg:
+		CompIR_FArith(inst);
+		break;
+
+	case IROp::FMin:
+	case IROp::FMax:
+		CompIR_FCondAssign(inst);
+		break;
+
+	case IROp::FMov:
+	case IROp::FAbs:
+	case IROp::FSign:
+		CompIR_FAssign(inst);
+		break;
+
+	case IROp::FRound:
+	case IROp::FTrunc:
+	case IROp::FCeil:
+	case IROp::FFloor:
+		CompIR_FRound(inst);
+		break;
+
+	case IROp::FCvtWS:
+	case IROp::FCvtSW:
+		CompIR_FCvt(inst);
+		break;
+
+	case IROp::FSat0_1:
+	case IROp::FSatMinus1_1:
+		CompIR_FSat(inst);
+		break;
+
+	case IROp::ZeroFpCond:
+	case IROp::FCmp:
+	case IROp::FCmovVfpuCC:
+	case IROp::FCmpVfpuBit:
+	case IROp::FCmpVfpuAggregate:
+		CompIR_FCompare(inst);
+		break;
+
+	case IROp::RestoreRoundingMode:
+	case IROp::ApplyRoundingMode:
+	case IROp::UpdateRoundingMode:
+		CompIR_RoundingMode(inst);
+		break;
+
+	case IROp::SetCtrlVFPU:
+	case IROp::SetCtrlVFPUReg:
+	case IROp::SetCtrlVFPUFReg:
+	case IROp::FpCondToReg:
+	case IROp::VfpuCtrlToReg:
+	case IROp::FMovFromGPR:
+	case IROp::FMovToGPR:
+		CompIR_Transfer(inst);
+		break;
+
+	case IROp::Vec4Init:
+	case IROp::Vec4Shuffle:
+	case IROp::Vec4Mov:
+		CompIR_VecAssign(inst);
+		break;
+
+	case IROp::Vec4Add:
+	case IROp::Vec4Sub:
+	case IROp::Vec4Mul:
+	case IROp::Vec4Div:
+	case IROp::Vec4Scale:
+	case IROp::Vec4Neg:
+	case IROp::Vec4Abs:
+		CompIR_VecArith(inst);
+		break;
+
+	case IROp::Vec4Dot:
+		CompIR_VecHoriz(inst);
+		break;
+
+	case IROp::Vec2Unpack16To31:
+	case IROp::Vec2Unpack16To32:
+	case IROp::Vec4Unpack8To32:
+	case IROp::Vec4DuplicateUpperBitsAndShift1:
+	case IROp::Vec4Pack31To8:
+	case IROp::Vec4Pack32To8:
+	case IROp::Vec2Pack31To16:
+	case IROp::Vec2Pack32To16:
+		CompIR_VecPack(inst);
+		break;
+
+	case IROp::Vec4ClampToZero:
+	case IROp::Vec2ClampToZero:
+		CompIR_VecClamp(inst);
+		break;
+
+	case IROp::FSin:
+	case IROp::FCos:
+	case IROp::FRSqrt:
+	case IROp::FRecip:
+	case IROp::FAsin:
+		CompIR_FSpecial(inst);
+		break;
+
+	case IROp::Interpret:
+	case IROp::Syscall:
+	case IROp::CallReplacement:
+	case IROp::Break:
+		CompIR_System(inst);
+		break;
+
+	case IROp::Breakpoint:
+	case IROp::MemoryCheck:
+		CompIR_Breakpoint(inst);
+		break;
+
+	case IROp::ValidateAddress8:
+	case IROp::ValidateAddress16:
+	case IROp::ValidateAddress32:
+	case IROp::ValidateAddress128:
+		CompIR_ValidateAddress(inst);
 		break;
 
 	case IROp::ExitToConst:
 	case IROp::ExitToReg:
-	case IROp::ExitToConstIfEq:
-	case IROp::ExitToConstIfNeq:
-	case IROp::ExitToConstIfGeZ:
-	case IROp::ExitToConstIfLtZ:
-	case IROp::ExitToConstIfLeZ:
 	case IROp::ExitToPC:
 		CompIR_Exit(inst);
 		break;
 
+	case IROp::ExitToConstIfEq:
+	case IROp::ExitToConstIfNeq:
+	case IROp::ExitToConstIfGtZ:
+	case IROp::ExitToConstIfGeZ:
+	case IROp::ExitToConstIfLtZ:
+	case IROp::ExitToConstIfLeZ:
+	case IROp::ExitToConstIfFpTrue:
+	case IROp::ExitToConstIfFpFalse:
+		CompIR_ExitIf(inst);
+		break;
+
 	default:
+		_assert_msg_(false, "Unexpected IR op %d", (int)inst.op);
 		CompIR_Generic(inst);
 		break;
 	}

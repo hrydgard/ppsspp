@@ -42,12 +42,30 @@ void RiscVJit::CompIR_Exit(IRInst inst) {
 	switch (inst.op) {
 	case IROp::ExitToConst:
 	case IROp::ExitToReg:
+	case IROp::ExitToPC:
+		CompIR_Generic(inst);
+		break;
+
+	default:
+		INVALIDOP;
+		break;
+	}
+}
+
+void RiscVJit::CompIR_ExitIf(IRInst inst) {
+	CONDITIONAL_DISABLE;
+
+	// Will probably always want this?
+	FlushAll();
+	switch (inst.op) {
 	case IROp::ExitToConstIfEq:
 	case IROp::ExitToConstIfNeq:
+	case IROp::ExitToConstIfGtZ:
 	case IROp::ExitToConstIfGeZ:
 	case IROp::ExitToConstIfLtZ:
 	case IROp::ExitToConstIfLeZ:
-	case IROp::ExitToPC:
+	case IROp::ExitToConstIfFpTrue:
+	case IROp::ExitToConstIfFpFalse:
 		CompIR_Generic(inst);
 		break;
 

@@ -63,12 +63,46 @@ private:
 
 	void FlushAll();
 
-	void CompIR_Generic(IRInst inst);
-	void CompIR_Basic(IRInst inst);
 	void CompIR_Arith(IRInst inst);
-	void CompIR_Logic(IRInst inst);
 	void CompIR_Assign(IRInst inst);
+	void CompIR_Basic(IRInst inst);
+	void CompIR_Bits(IRInst inst);
+	void CompIR_Breakpoint(IRInst inst);
+	void CompIR_Compare(IRInst inst);
+	void CompIR_CondAssign(IRInst inst);
+	void CompIR_Div(IRInst inst);
 	void CompIR_Exit(IRInst inst);
+	void CompIR_ExitIf(IRInst inst);
+	void CompIR_FArith(IRInst inst);
+	void CompIR_FAssign(IRInst inst);
+	void CompIR_FCompare(IRInst inst);
+	void CompIR_FCondAssign(IRInst inst);
+	void CompIR_FCvt(IRInst inst);
+	void CompIR_FLoad(IRInst inst);
+	void CompIR_FRound(IRInst inst);
+	void CompIR_FSat(IRInst inst);
+	void CompIR_FSpecial(IRInst inst);
+	void CompIR_FStore(IRInst inst);
+	void CompIR_Generic(IRInst inst);
+	void CompIR_HiLo(IRInst inst);
+	void CompIR_Load(IRInst inst);
+	void CompIR_LoadShift(IRInst inst);
+	void CompIR_Logic(IRInst inst);
+	void CompIR_Mult(IRInst inst);
+	void CompIR_RoundingMode(IRInst inst);
+	void CompIR_Shift(IRInst inst);
+	void CompIR_Store(IRInst inst);
+	void CompIR_StoreShift(IRInst inst);
+	void CompIR_System(IRInst inst);
+	void CompIR_Transfer(IRInst inst);
+	void CompIR_VecArith(IRInst inst);
+	void CompIR_VecAssign(IRInst inst);
+	void CompIR_VecClamp(IRInst inst);
+	void CompIR_VecHoriz(IRInst inst);
+	void CompIR_VecLoad(IRInst inst);
+	void CompIR_VecPack(IRInst inst);
+	void CompIR_VecStore(IRInst inst);
+	void CompIR_ValidateAddress(IRInst inst);
 
 	RiscVRegCache gpr;
 

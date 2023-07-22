@@ -147,6 +147,16 @@ void RiscVJit::CompIR_Assign(IRInst inst) {
 		}
 		break;
 
+	default:
+		INVALIDOP;
+		break;
+	}
+}
+
+void RiscVJit::CompIR_Bits(IRInst inst) {
+	CONDITIONAL_DISABLE;
+
+	switch (inst.op) {
 	case IROp::ReverseBits:
 		CompIR_Generic(inst);
 		break;
@@ -166,6 +176,116 @@ void RiscVJit::CompIR_Assign(IRInst inst) {
 		} else {
 			CompIR_Generic(inst);
 		}
+		break;
+
+	case IROp::Clz:
+		CompIR_Generic(inst);
+		break;
+
+	default:
+		INVALIDOP;
+		break;
+	}
+}
+
+void RiscVJit::CompIR_Shift(IRInst inst) {
+	CONDITIONAL_DISABLE;
+
+	switch (inst.op) {
+	case IROp::Shl:
+	case IROp::Shr:
+	case IROp::Sar:
+	case IROp::Ror:
+	case IROp::ShlImm:
+	case IROp::ShrImm:
+	case IROp::SarImm:
+	case IROp::RorImm:
+		CompIR_Generic(inst);
+		break;
+
+	default:
+		INVALIDOP;
+		break;
+	}
+}
+
+void RiscVJit::CompIR_Compare(IRInst inst) {
+	CONDITIONAL_DISABLE;
+
+	switch (inst.op) {
+	case IROp::Slt:
+	case IROp::SltConst:
+	case IROp::SltU:
+	case IROp::SltUConst:
+		CompIR_Generic(inst);
+		break;
+
+	default:
+		INVALIDOP;
+		break;
+	}
+}
+
+void RiscVJit::CompIR_CondAssign(IRInst inst) {
+	CONDITIONAL_DISABLE;
+
+	switch (inst.op) {
+	case IROp::MovZ:
+	case IROp::MovNZ:
+	case IROp::Max:
+	case IROp::Min:
+		CompIR_Generic(inst);
+		break;
+
+	default:
+		INVALIDOP;
+		break;
+	}
+}
+
+void RiscVJit::CompIR_HiLo(IRInst inst) {
+	CONDITIONAL_DISABLE;
+
+	switch (inst.op) {
+	case IROp::MtLo:
+	case IROp::MtHi:
+	case IROp::MfLo:
+	case IROp::MfHi:
+		CompIR_Generic(inst);
+		break;
+
+	default:
+		INVALIDOP;
+		break;
+	}
+}
+
+void RiscVJit::CompIR_Mult(IRInst inst) {
+	CONDITIONAL_DISABLE;
+
+	switch (inst.op) {
+	case IROp::Mult:
+	case IROp::MultU:
+	case IROp::Madd:
+	case IROp::MaddU:
+	case IROp::Msub:
+	case IROp::MsubU:
+		CompIR_Generic(inst);
+		break;
+
+	default:
+		INVALIDOP;
+		break;
+	}
+}
+
+void RiscVJit::CompIR_Div(IRInst inst) {
+	CONDITIONAL_DISABLE;
+
+	switch (inst.op) {
+	case IROp::Div:
+	case IROp::DivU:
+		CompIR_Generic(inst);
 		break;
 
 	default:

@@ -34,4 +34,90 @@ namespace MIPSComp {
 using namespace RiscVGen;
 using namespace RiscVJitConstants;
 
+void RiscVJit::CompIR_VecAssign(IRInst inst) {
+	CONDITIONAL_DISABLE;
+
+	switch (inst.op) {
+	case IROp::Vec4Init:
+	case IROp::Vec4Shuffle:
+	case IROp::Vec4Mov:
+		CompIR_Generic(inst);
+		break;
+
+	default:
+		INVALIDOP;
+		break;
+	}
+}
+
+void RiscVJit::CompIR_VecArith(IRInst inst) {
+	CONDITIONAL_DISABLE;
+
+	switch (inst.op) {
+	case IROp::Vec4Add:
+	case IROp::Vec4Sub:
+	case IROp::Vec4Mul:
+	case IROp::Vec4Div:
+	case IROp::Vec4Scale:
+	case IROp::Vec4Neg:
+	case IROp::Vec4Abs:
+		CompIR_Generic(inst);
+		break;
+
+	default:
+		INVALIDOP;
+		break;
+	}
+}
+
+void RiscVJit::CompIR_VecHoriz(IRInst inst) {
+	CONDITIONAL_DISABLE;
+
+	switch (inst.op) {
+	case IROp::Vec4Dot:
+		CompIR_Generic(inst);
+		break;
+
+	default:
+		INVALIDOP;
+		break;
+	}
+}
+
+void RiscVJit::CompIR_VecPack(IRInst inst) {
+	CONDITIONAL_DISABLE;
+
+	switch (inst.op) {
+	case IROp::Vec2Unpack16To31:
+	case IROp::Vec2Unpack16To32:
+	case IROp::Vec4Unpack8To32:
+	case IROp::Vec4DuplicateUpperBitsAndShift1:
+	case IROp::Vec4Pack31To8:
+	case IROp::Vec4Pack32To8:
+	case IROp::Vec2Pack31To16:
+	case IROp::Vec2Pack32To16:
+		CompIR_Generic(inst);
+		break;
+
+	default:
+		INVALIDOP;
+		break;
+	}
+}
+
+void RiscVJit::CompIR_VecClamp(IRInst inst) {
+	CONDITIONAL_DISABLE;
+
+	switch (inst.op) {
+	case IROp::Vec4ClampToZero:
+	case IROp::Vec2ClampToZero:
+		CompIR_Generic(inst);
+		break;
+
+	default:
+		INVALIDOP;
+		break;
+	}
+}
+
 } // namespace MIPSComp

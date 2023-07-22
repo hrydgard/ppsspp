@@ -42,6 +42,10 @@ void RiscVJit::CompIR_Basic(IRInst inst) {
 		gpr.SetImm(inst.dest, inst.constant);
 		break;
 
+	case IROp::SetConstF:
+		CompIR_Generic(inst);
+		break;
+
 	case IROp::Downcount:
 		if (inst.constant <= 2048) {
 			ADDI(DOWNCOUNTREG, DOWNCOUNTREG, -(s32)inst.constant);
@@ -59,6 +63,75 @@ void RiscVJit::CompIR_Basic(IRInst inst) {
 	case IROp::SetPCConst:
 		LI(SCRATCH1, inst.constant, SCRATCH2);
 		MovToPC(SCRATCH1);
+		break;
+
+	default:
+		INVALIDOP;
+		break;
+	}
+}
+
+void RiscVJit::CompIR_Transfer(IRInst inst) {
+	CONDITIONAL_DISABLE;
+
+	switch (inst.op) {
+	case IROp::SetCtrlVFPU:
+	case IROp::SetCtrlVFPUReg:
+	case IROp::SetCtrlVFPUFReg:
+	case IROp::FpCondToReg:
+	case IROp::VfpuCtrlToReg:
+	case IROp::FMovFromGPR:
+	case IROp::FMovToGPR:
+		CompIR_Generic(inst);
+		break;
+
+	default:
+		INVALIDOP;
+		break;
+	}
+}
+
+void RiscVJit::CompIR_System(IRInst inst) {
+	CONDITIONAL_DISABLE;
+
+	switch (inst.op) {
+	case IROp::Interpret:
+	case IROp::Syscall:
+	case IROp::CallReplacement:
+	case IROp::Break:
+		CompIR_Generic(inst);
+		break;
+
+	default:
+		INVALIDOP;
+		break;
+	}
+}
+
+void RiscVJit::CompIR_Breakpoint(IRInst inst) {
+	CONDITIONAL_DISABLE;
+
+	switch (inst.op) {
+	case IROp::Breakpoint:
+	case IROp::MemoryCheck:
+		CompIR_Generic(inst);
+		break;
+
+	default:
+		INVALIDOP;
+		break;
+	}
+}
+
+void RiscVJit::CompIR_ValidateAddress(IRInst inst) {
+	CONDITIONAL_DISABLE;
+
+	switch (inst.op) {
+	case IROp::ValidateAddress8:
+	case IROp::ValidateAddress16:
+	case IROp::ValidateAddress32:
+	case IROp::ValidateAddress128:
+		CompIR_Generic(inst);
 		break;
 
 	default:

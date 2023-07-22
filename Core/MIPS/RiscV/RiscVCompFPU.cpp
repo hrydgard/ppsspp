@@ -34,4 +34,153 @@ namespace MIPSComp {
 using namespace RiscVGen;
 using namespace RiscVJitConstants;
 
+void RiscVJit::CompIR_FArith(IRInst inst) {
+	CONDITIONAL_DISABLE;
+
+	switch (inst.op) {
+	case IROp::FAdd:
+	case IROp::FSub:
+	case IROp::FMul:
+	case IROp::FDiv:
+	case IROp::FSqrt:
+	case IROp::FNeg:
+		CompIR_Generic(inst);
+		break;
+
+	default:
+		INVALIDOP;
+		break;
+	}
+}
+
+void RiscVJit::CompIR_FCondAssign(IRInst inst) {
+	CONDITIONAL_DISABLE;
+
+	switch (inst.op) {
+	case IROp::FMin:
+	case IROp::FMax:
+		CompIR_Generic(inst);
+		break;
+
+	default:
+		INVALIDOP;
+		break;
+	}
+}
+
+void RiscVJit::CompIR_FAssign(IRInst inst) {
+	CONDITIONAL_DISABLE;
+
+	switch (inst.op) {
+	case IROp::FMov:
+	case IROp::FAbs:
+	case IROp::FSign:
+		CompIR_Generic(inst);
+		break;
+
+	default:
+		INVALIDOP;
+		break;
+	}
+}
+
+void RiscVJit::CompIR_FRound(IRInst inst) {
+	CONDITIONAL_DISABLE;
+
+	switch (inst.op) {
+	case IROp::FRound:
+	case IROp::FTrunc:
+	case IROp::FCeil:
+	case IROp::FFloor:
+		CompIR_Generic(inst);
+		break;
+
+	default:
+		INVALIDOP;
+		break;
+	}
+}
+
+void RiscVJit::CompIR_FCvt(IRInst inst) {
+	CONDITIONAL_DISABLE;
+
+	switch (inst.op) {
+	case IROp::FCvtWS:
+	case IROp::FCvtSW:
+		CompIR_Generic(inst);
+		break;
+
+	default:
+		INVALIDOP;
+		break;
+	}
+}
+
+void RiscVJit::CompIR_FSat(IRInst inst) {
+	CONDITIONAL_DISABLE;
+
+	switch (inst.op) {
+	case IROp::FSat0_1:
+	case IROp::FSatMinus1_1:
+		CompIR_Generic(inst);
+		break;
+
+	default:
+		INVALIDOP;
+		break;
+	}
+}
+
+void RiscVJit::CompIR_FCompare(IRInst inst) {
+	CONDITIONAL_DISABLE;
+
+	switch (inst.op) {
+	case IROp::ZeroFpCond:
+	case IROp::FCmp:
+	case IROp::FCmovVfpuCC:
+	case IROp::FCmpVfpuBit:
+	case IROp::FCmpVfpuAggregate:
+		CompIR_Generic(inst);
+		break;
+
+	default:
+		INVALIDOP;
+		break;
+	}
+}
+
+void RiscVJit::CompIR_RoundingMode(IRInst inst) {
+	CONDITIONAL_DISABLE;
+
+	switch (inst.op) {
+	case IROp::RestoreRoundingMode:
+	case IROp::ApplyRoundingMode:
+	case IROp::UpdateRoundingMode:
+		CompIR_Generic(inst);
+		break;
+
+	default:
+		INVALIDOP;
+		break;
+	}
+}
+
+void RiscVJit::CompIR_FSpecial(IRInst inst) {
+	CONDITIONAL_DISABLE;
+
+	switch (inst.op) {
+	case IROp::FSin:
+	case IROp::FCos:
+	case IROp::FRSqrt:
+	case IROp::FRecip:
+	case IROp::FAsin:
+		CompIR_Generic(inst);
+		break;
+
+	default:
+		INVALIDOP;
+		break;
+	}
+}
+
 } // namespace MIPSComp
