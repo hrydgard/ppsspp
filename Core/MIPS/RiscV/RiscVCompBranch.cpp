@@ -48,6 +48,7 @@ void RiscVJit::CompIR_Exit(IRInst inst) {
 	case IROp::ExitToReg:
 		exitReg = gpr.MapReg(inst.src1);
 		FlushAll();
+		// TODO: If ever we don't read this back in dispatcherPCInSCRATCH1_, we should zero upper.
 		MV(SCRATCH1, exitReg);
 		QuickJ(R_RA, dispatcherPCInSCRATCH1_);
 		break;
@@ -66,15 +67,93 @@ void RiscVJit::CompIR_Exit(IRInst inst) {
 void RiscVJit::CompIR_ExitIf(IRInst inst) {
 	CONDITIONAL_DISABLE;
 
-	// Will probably always want this?
-	FlushAll();
+	RiscVReg lhs = INVALID_REG;
+	RiscVReg rhs = INVALID_REG;
+	FixupBranch fixup;
 	switch (inst.op) {
 	case IROp::ExitToConstIfEq:
 	case IROp::ExitToConstIfNeq:
+		gpr.MapInIn(inst.src1, inst.src2);
+		lhs = gpr.R(inst.src1);
+		rhs = gpr.R(inst.src2);
+		FlushAll();
+
+		// For proper compare, we must sign extend so they both match or don't match.
+		// But don't change pointers, in case one is SP (happens in LittleBigPlanet.)
+		if (XLEN >= 64 && gpr.IsMappedAsPointer(inst.src1)) {
+			ADDIW(SCRATCH1, lhs, 0);
+			lhs = SCRATCH1;
+		} else if (XLEN >= 64 && lhs != R_ZERO) {
+			ADDIW(lhs, lhs, 0);
+		}
+		if (XLEN >= 64 && gpr.IsMappedAsPointer(inst.src2)) {
+			ADDIW(SCRATCH2, rhs, 0);
+			rhs = SCRATCH2;
+		} else if (XLEN >= 64 && rhs != R_ZERO) {
+			ADDIW(rhs, rhs, 0);
+		}
+
+		switch (inst.op) {
+		case IROp::ExitToConstIfEq:
+			fixup = BNE(lhs, rhs);
+			break;
+
+		case IROp::ExitToConstIfNeq:
+			fixup = BEQ(lhs, rhs);
+			break;
+
+		default:
+			INVALIDOP;
+			break;
+		}
+
+		LI(SCRATCH1, inst.constant);
+		QuickJ(R_RA, dispatcherPCInSCRATCH1_);
+		SetJumpTarget(fixup);
+		break;
+
 	case IROp::ExitToConstIfGtZ:
 	case IROp::ExitToConstIfGeZ:
 	case IROp::ExitToConstIfLtZ:
 	case IROp::ExitToConstIfLeZ:
+		lhs = gpr.MapReg(inst.src1);
+		FlushAll();
+
+		// For proper compare, we must sign extend.
+		if (XLEN >= 64 && gpr.IsMappedAsPointer(inst.src1)) {
+			ADDIW(SCRATCH1, lhs, 0);
+			lhs = SCRATCH1;
+		} else if (XLEN >= 64 && lhs != R_ZERO) {
+			ADDIW(lhs, lhs, 0);
+		}
+
+		switch (inst.op) {
+		case IROp::ExitToConstIfGtZ:
+			fixup = BGE(R_ZERO, lhs);
+			break;
+
+		case IROp::ExitToConstIfGeZ:
+			fixup = BLT(lhs, R_ZERO);
+			break;
+
+		case IROp::ExitToConstIfLtZ:
+			fixup = BGE(lhs, R_ZERO);
+			break;
+
+		case IROp::ExitToConstIfLeZ:
+			fixup = BLT(R_ZERO, lhs);
+			break;
+
+		default:
+			INVALIDOP;
+			break;
+		}
+
+		LI(SCRATCH1, inst.constant);
+		QuickJ(R_RA, dispatcherPCInSCRATCH1_);
+		SetJumpTarget(fixup);
+		break;
+
 	case IROp::ExitToConstIfFpTrue:
 	case IROp::ExitToConstIfFpFalse:
 		CompIR_Generic(inst);
