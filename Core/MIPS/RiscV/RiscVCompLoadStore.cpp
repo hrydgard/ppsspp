@@ -82,9 +82,9 @@ void RiscVJit::CompIR_Load(IRInst inst) {
 	}
 	// If they're the same, MapReg may subtract MEMBASEREG, so just mark dirty.
 	if (inst.dest == inst.src1)
-		gpr.MarkDirty(gpr.R(inst.dest));
+		gpr.MarkDirty(gpr.R(inst.dest), true);
 	else
-		gpr.MapReg(inst.dest, MAP_NOINIT);
+		gpr.MapReg(inst.dest, MIPSMap::NOINIT | MIPSMap::MARK_NORM32);
 	gpr.ReleaseSpillLock(inst.dest, inst.src1);
 
 	s32 imm = AdjustForAddressOffset(&addrReg, inst.constant);
@@ -109,7 +109,7 @@ void RiscVJit::CompIR_Load(IRInst inst) {
 		break;
 
 	case IROp::Load32:
-		LWU(gpr.R(inst.dest), addrReg, imm);
+		LW(gpr.R(inst.dest), addrReg, imm);
 		break;
 
 	default:

@@ -53,12 +53,12 @@ void RiscVJit::CompIR_Arith(IRInst inst) {
 
 	switch (inst.op) {
 	case IROp::Add:
-		gpr.MapDirtyInIn(inst.dest, inst.src1, inst.src2);
+		gpr.MapDirtyInIn(inst.dest, inst.src1, inst.src2, MapType::AVOID_LOAD_MARK_NORM32);
 		ADDW(gpr.R(inst.dest), gpr.R(inst.src1), gpr.R(inst.src2));
 		break;
 
 	case IROp::Sub:
-		gpr.MapDirtyInIn(inst.dest, inst.src1, inst.src2);
+		gpr.MapDirtyInIn(inst.dest, inst.src1, inst.src2, MapType::AVOID_LOAD_MARK_NORM32);
 		SUBW(gpr.R(inst.dest), gpr.R(inst.src1), gpr.R(inst.src2));
 		break;
 
@@ -69,24 +69,24 @@ void RiscVJit::CompIR_Arith(IRInst inst) {
 				gpr.MarkPtrDirty(gpr.RPtr(inst.dest));
 				ADDI(gpr.RPtr(inst.dest), gpr.RPtr(inst.dest), inst.constant);
 			} else {
-				gpr.MapDirtyIn(inst.dest, inst.src1);
+				gpr.MapDirtyIn(inst.dest, inst.src1, MapType::AVOID_LOAD_MARK_NORM32);
 				ADDIW(gpr.R(inst.dest), gpr.R(inst.src1), inst.constant);
 			}
 		} else {
-			gpr.MapDirtyIn(inst.dest, inst.src1);
+			gpr.MapDirtyIn(inst.dest, inst.src1, MapType::AVOID_LOAD_MARK_NORM32);
 			LI(SCRATCH1, (s32)inst.constant, SCRATCH2);
 			ADDW(gpr.R(inst.dest), gpr.R(inst.src1), SCRATCH1);
 		}
 		break;
 
 	case IROp::SubConst:
-		gpr.MapDirtyIn(inst.dest, inst.src1);
+		gpr.MapDirtyIn(inst.dest, inst.src1, MapType::AVOID_LOAD_MARK_NORM32);
 		LI(SCRATCH1, (s32)inst.constant, SCRATCH2);
 		SUBW(gpr.R(inst.dest), gpr.R(inst.src1), SCRATCH1);
 		break;
 
 	case IROp::Neg:
-		gpr.MapDirtyIn(inst.dest, inst.src1);
+		gpr.MapDirtyIn(inst.dest, inst.src1, MapType::AVOID_LOAD_MARK_NORM32);
 		SUBW(gpr.R(inst.dest), R_ZERO, gpr.R(inst.src1));
 		break;
 
@@ -123,14 +123,15 @@ void RiscVJit::CompIR_Assign(IRInst inst) {
 	case IROp::Mov:
 		gpr.MapDirtyIn(inst.dest, inst.src1);
 		MV(gpr.R(inst.dest), gpr.R(inst.src1));
+		gpr.MarkDirty(gpr.R(inst.dest), gpr.IsNormalized32(inst.src1));
 		break;
 
 	case IROp::Ext8to32:
 		if (cpu_info.RiscV_Zbb) {
-			gpr.MapDirtyIn(inst.dest, inst.src1);
+			gpr.MapDirtyIn(inst.dest, inst.src1, MapType::AVOID_LOAD_MARK_NORM32);
 			SEXT_B(gpr.R(inst.dest), gpr.R(inst.src1));
 		} else {
-			gpr.MapDirtyIn(inst.dest, inst.src1);
+			gpr.MapDirtyIn(inst.dest, inst.src1, MapType::AVOID_LOAD_MARK_NORM32);
 			SLLI(gpr.R(inst.dest), gpr.R(inst.src1), 24);
 			SRAIW(gpr.R(inst.dest), gpr.R(inst.dest), 24);
 		}
@@ -138,10 +139,10 @@ void RiscVJit::CompIR_Assign(IRInst inst) {
 
 	case IROp::Ext16to32:
 		if (cpu_info.RiscV_Zbb) {
-			gpr.MapDirtyIn(inst.dest, inst.src1);
+			gpr.MapDirtyIn(inst.dest, inst.src1, MapType::AVOID_LOAD_MARK_NORM32);
 			SEXT_H(gpr.R(inst.dest), gpr.R(inst.src1));
 		} else {
-			gpr.MapDirtyIn(inst.dest, inst.src1);
+			gpr.MapDirtyIn(inst.dest, inst.src1, MapType::AVOID_LOAD_MARK_NORM32);
 			SLLI(gpr.R(inst.dest), gpr.R(inst.src1), 16);
 			SRAIW(gpr.R(inst.dest), gpr.R(inst.dest), 16);
 		}
@@ -171,7 +172,8 @@ void RiscVJit::CompIR_Bits(IRInst inst) {
 			REV8(gpr.R(inst.dest), gpr.R(inst.src1));
 			if (XLEN >= 64) {
 				// REV8 swaps the entire register, so get the 32 highest bits.
-				SRLI(gpr.R(inst.dest), gpr.R(inst.dest), XLEN - 32);
+				SRAI(gpr.R(inst.dest), gpr.R(inst.dest), XLEN - 32);
+				gpr.MarkDirty(gpr.R(inst.dest), true);
 			}
 		} else {
 			CompIR_Generic(inst);

@@ -47,9 +47,23 @@ enum class MIPSLoc {
 };
 
 // Initing is the default so the flag is reversed.
-enum {
-	MAP_DIRTY = 1,
-	MAP_NOINIT = 2 | MAP_DIRTY,
+enum class MIPSMap {
+	INIT = 0,
+	DIRTY = 1,
+	NOINIT = 2 | DIRTY,
+	MARK_NORM32 = 4,
+};
+static inline MIPSMap operator |(const MIPSMap &lhs, const MIPSMap &rhs) {
+	return MIPSMap((int)lhs | (int)rhs);
+}
+static inline MIPSMap operator &(const MIPSMap &lhs, const MIPSMap &rhs) {
+	return MIPSMap((int)lhs & (int)rhs);
+}
+
+enum class MapType {
+	AVOID_LOAD,
+	AVOID_LOAD_MARK_NORM32,
+	ALWAYS_LOAD,
 };
 
 } // namespace RiscVJitConstants
@@ -69,8 +83,9 @@ constexpr IRRegIndex IRREG_INVALID = -1;
 struct RegStatusRiscV {
 	IRRegIndex mipsReg;  // if -1, no mipsreg attached.
 	bool isDirty;  // Should the register be written back?
-	bool pointerified;  // Has added the memory base into the top part of the reg. Note - still usable as 32-bit reg (in some cases.)
+	bool pointerified;  // Has added the memory base into the top part of the reg. Note - still usable as 32-bit reg (in only some cases.)
 	bool tempLocked; // Reserved for a temp register.
+	bool normalized32;  // 32 bits sign extended to XLEN.  RISC-V can't always address just the low 32-bits, so this matters.
 };
 
 struct RegStatusMIPS {
@@ -110,21 +125,25 @@ public:
 	RiscVGen::RiscVReg TryMapTempImm(IRRegIndex);
 
 	// Returns an ARM register containing the requested MIPS register.
-	RiscVGen::RiscVReg MapReg(IRRegIndex reg, int mapFlags = 0);
+	RiscVGen::RiscVReg MapReg(IRRegIndex reg, RiscVJitConstants::MIPSMap mapFlags = RiscVJitConstants::MIPSMap::INIT);
 	RiscVGen::RiscVReg MapRegAsPointer(IRRegIndex reg);
 
 	bool IsMapped(IRRegIndex reg);
 	bool IsMappedAsPointer(IRRegIndex reg);
+	bool IsMappedAsStaticPointer(IRRegIndex reg);
 	bool IsInRAM(IRRegIndex reg);
+	bool IsNormalized32(IRRegIndex reg);
 
-	void MarkDirty(RiscVGen::RiscVReg reg);
+	void MarkDirty(RiscVGen::RiscVReg reg, bool andNormalized32 = false);
 	void MarkPtrDirty(RiscVGen::RiscVReg reg);
+	// Copies to another reg if specified, otherwise same reg.
+	RiscVGen::RiscVReg Normalize32(IRRegIndex reg, RiscVGen::RiscVReg destReg = RiscVGen::INVALID_REG);
 	void MapIn(IRRegIndex rs);
 	void MapInIn(IRRegIndex rd, IRRegIndex rs);
-	void MapDirtyIn(IRRegIndex rd, IRRegIndex rs, bool avoidLoad = true);
-	void MapDirtyInIn(IRRegIndex rd, IRRegIndex rs, IRRegIndex rt, bool avoidLoad = true);
-	void MapDirtyDirtyIn(IRRegIndex rd1, IRRegIndex rd2, IRRegIndex rs, bool avoidLoad = true);
-	void MapDirtyDirtyInIn(IRRegIndex rd1, IRRegIndex rd2, IRRegIndex rs, IRRegIndex rt, bool avoidLoad = true);
+	void MapDirtyIn(IRRegIndex rd, IRRegIndex rs, RiscVJitConstants::MapType type = RiscVJitConstants::MapType::AVOID_LOAD);
+	void MapDirtyInIn(IRRegIndex rd, IRRegIndex rs, IRRegIndex rt, RiscVJitConstants::MapType type = RiscVJitConstants::MapType::AVOID_LOAD);
+	void MapDirtyDirtyIn(IRRegIndex rd1, IRRegIndex rd2, IRRegIndex rs, RiscVJitConstants::MapType type = RiscVJitConstants::MapType::AVOID_LOAD);
+	void MapDirtyDirtyInIn(IRRegIndex rd1, IRRegIndex rd2, IRRegIndex rs, IRRegIndex rt, RiscVJitConstants::MapType type = RiscVJitConstants::MapType::AVOID_LOAD);
 	void FlushRiscVReg(RiscVGen::RiscVReg r);
 	void FlushBeforeCall();
 	void FlushAll();
@@ -148,7 +167,7 @@ private:
 	};
 	const StaticAllocation *GetStaticAllocations(int &count);
 	const RiscVGen::RiscVReg *GetMIPSAllocationOrder(int &count);
-	void MapRegTo(RiscVGen::RiscVReg reg, IRRegIndex mipsReg, int mapFlags);
+	void MapRegTo(RiscVGen::RiscVReg reg, IRRegIndex mipsReg, RiscVJitConstants::MIPSMap mapFlags);
 	RiscVGen::RiscVReg AllocateReg();
 	RiscVGen::RiscVReg FindBestToSpill(bool unusedOnly, bool *clobbered);
 	RiscVGen::RiscVReg RiscVRegForFlush(IRRegIndex r);

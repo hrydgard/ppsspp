@@ -76,22 +76,22 @@ void RiscVJit::CompIR_ExitIf(IRInst inst) {
 		gpr.MapInIn(inst.src1, inst.src2);
 		lhs = gpr.R(inst.src1);
 		rhs = gpr.R(inst.src2);
-		FlushAll();
 
 		// For proper compare, we must sign extend so they both match or don't match.
 		// But don't change pointers, in case one is SP (happens in LittleBigPlanet.)
-		if (XLEN >= 64 && gpr.IsMappedAsPointer(inst.src1)) {
-			ADDIW(SCRATCH1, lhs, 0);
-			lhs = SCRATCH1;
-		} else if (XLEN >= 64 && lhs != R_ZERO) {
-			ADDIW(lhs, lhs, 0);
+		if (gpr.IsMappedAsStaticPointer(inst.src1)) {
+			// We can't use SCRATCH1, which is destroyed by FlushAll... but cheat and use R_RA.
+			lhs = gpr.Normalize32(inst.src1, R_RA);
+		} else {
+			gpr.Normalize32(inst.src1);
 		}
-		if (XLEN >= 64 && gpr.IsMappedAsPointer(inst.src2)) {
-			ADDIW(SCRATCH2, rhs, 0);
-			rhs = SCRATCH2;
-		} else if (XLEN >= 64 && rhs != R_ZERO) {
-			ADDIW(rhs, rhs, 0);
+		if (gpr.IsMappedAsStaticPointer(inst.src2)) {
+			rhs = gpr.Normalize32(inst.src2, SCRATCH2);
+		} else {
+			gpr.Normalize32(inst.src2);
 		}
+
+		FlushAll();
 
 		switch (inst.op) {
 		case IROp::ExitToConstIfEq:
@@ -117,15 +117,15 @@ void RiscVJit::CompIR_ExitIf(IRInst inst) {
 	case IROp::ExitToConstIfLtZ:
 	case IROp::ExitToConstIfLeZ:
 		lhs = gpr.MapReg(inst.src1);
-		FlushAll();
 
 		// For proper compare, we must sign extend.
-		if (XLEN >= 64 && gpr.IsMappedAsPointer(inst.src1)) {
-			ADDIW(SCRATCH1, lhs, 0);
-			lhs = SCRATCH1;
-		} else if (XLEN >= 64 && lhs != R_ZERO) {
-			ADDIW(lhs, lhs, 0);
+		if (gpr.IsMappedAsPointer(inst.src1)) {
+			lhs = gpr.Normalize32(inst.src1, SCRATCH2);
+		} else {
+			gpr.Normalize32(inst.src1);
 		}
+
+		FlushAll();
 
 		switch (inst.op) {
 		case IROp::ExitToConstIfGtZ:
