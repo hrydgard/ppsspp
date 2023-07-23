@@ -181,7 +181,7 @@ struct CompileQueueEntry {
 
 class VulkanRenderManager {
 public:
-	VulkanRenderManager(VulkanContext *vulkan);
+	VulkanRenderManager(VulkanContext *vulkan, bool useThread);
 	~VulkanRenderManager();
 
 	// Makes sure that the GPU has caught up enough that we can start writing buffers of this frame again.
@@ -488,6 +488,8 @@ private:
 
 	bool insideFrame_ = false;
 	bool run_ = false;
+
+	bool useRenderThread_ = true;
 
 	// This is the offset within this frame, in case of a mid-frame sync.
 	VKRStep *curRenderStep_ = nullptr;

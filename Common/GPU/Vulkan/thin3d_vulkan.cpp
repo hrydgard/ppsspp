@@ -384,7 +384,7 @@ class VKFramebuffer;
 
 class VKContext : public DrawContext {
 public:
-	VKContext(VulkanContext *vulkan);
+	VKContext(VulkanContext *vulkan, bool useRenderThread);
 	~VKContext();
 
 	void DebugAnnotate(const char *annotation) override;
@@ -857,8 +857,8 @@ static DataFormat DataFormatFromVulkanDepth(VkFormat fmt) {
 	return DataFormat::UNDEFINED;
 }
 
-VKContext::VKContext(VulkanContext *vulkan)
-	: vulkan_(vulkan), renderManager_(vulkan) {
+VKContext::VKContext(VulkanContext *vulkan, bool useRenderThread)
+	: vulkan_(vulkan), renderManager_(vulkan, useRenderThread) {
 	shaderLanguageDesc_.Init(GLSL_VULKAN);
 
 	VkFormat depthStencilFormat = vulkan->GetDeviceInfo().preferredDepthStencilFormat;
@@ -1582,8 +1582,8 @@ void VKContext::Clear(int clearMask, uint32_t colorval, float depthVal, int sten
 	renderManager_.Clear(colorval, depthVal, stencilVal, mask);
 }
 
-DrawContext *T3DCreateVulkanContext(VulkanContext *vulkan) {
-	return new VKContext(vulkan);
+DrawContext *T3DCreateVulkanContext(VulkanContext *vulkan, bool useRenderThread) {
+	return new VKContext(vulkan, useRenderThread);
 }
 
 void AddFeature(std::vector<std::string> &features, const char *name, VkBool32 available, VkBool32 enabled) {
