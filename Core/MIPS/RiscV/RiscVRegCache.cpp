@@ -239,6 +239,7 @@ RiscVGen::RiscVReg RiscVRegCache::Normalize32(IRRegIndex mipsReg, RiscVGen::Risc
 		} else if (destReg != INVALID_REG) {
 			emit_->ADDIW(destReg, mr[mipsReg].reg, 0);
 		}
+		ar[mr[mipsReg].reg].pointerified = false;
 		break;
 
 	case MIPSLoc::RVREG_AS_PTR:
@@ -257,6 +258,7 @@ RiscVGen::RiscVReg RiscVRegCache::Normalize32(IRRegIndex mipsReg, RiscVGen::Risc
 		} else {
 			emit_->ADDIW(destReg, mr[mipsReg].reg, 0);
 		}
+		ar[mr[mipsReg].reg].pointerified = false;
 		break;
 	}
 

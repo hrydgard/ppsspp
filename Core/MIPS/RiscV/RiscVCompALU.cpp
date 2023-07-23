@@ -101,21 +101,37 @@ void RiscVJit::CompIR_Logic(IRInst inst) {
 
 	switch (inst.op) {
 	case IROp::And:
-		gpr.MapDirtyInIn(inst.dest, inst.src1, inst.src2);
-		AND(gpr.R(inst.dest), gpr.R(inst.src1), gpr.R(inst.src2));
+		if (inst.src1 != inst.src2) {
+			gpr.MapDirtyInIn(inst.dest, inst.src1, inst.src2);
+			AND(gpr.R(inst.dest), gpr.R(inst.src1), gpr.R(inst.src2));
+		} else if (inst.src1 != inst.dest) {
+			gpr.MapDirtyIn(inst.dest, inst.src1);
+			MV(gpr.R(inst.dest), gpr.R(inst.src1));
+			gpr.MarkDirty(gpr.R(inst.dest), gpr.IsNormalized32(inst.src1));
+		}
 		break;
 
 	case IROp::Or:
-		gpr.MapDirtyInIn(inst.dest, inst.src1, inst.src2);
-		OR(gpr.R(inst.dest), gpr.R(inst.src1), gpr.R(inst.src2));
-		// If both were normalized before, the result is normalized.
-		if (gpr.IsNormalized32(inst.src1) && gpr.IsNormalized32(inst.src2))
-			gpr.MarkDirty(gpr.R(inst.dest), true);
+		if (inst.src1 != inst.src2) {
+			gpr.MapDirtyInIn(inst.dest, inst.src1, inst.src2);
+			OR(gpr.R(inst.dest), gpr.R(inst.src1), gpr.R(inst.src2));
+			// If both were normalized before, the result is normalized.
+			if (gpr.IsNormalized32(inst.src1) && gpr.IsNormalized32(inst.src2))
+				gpr.MarkDirty(gpr.R(inst.dest), true);
+		} else if (inst.src1 != inst.dest) {
+			gpr.MapDirtyIn(inst.dest, inst.src1);
+			MV(gpr.R(inst.dest), gpr.R(inst.src1));
+			gpr.MarkDirty(gpr.R(inst.dest), gpr.IsNormalized32(inst.src1));
+		}
 		break;
 
 	case IROp::Xor:
-		gpr.MapDirtyInIn(inst.dest, inst.src1, inst.src2);
-		XOR(gpr.R(inst.dest), gpr.R(inst.src1), gpr.R(inst.src2));
+		if (inst.src1 == inst.src2) {
+			gpr.SetImm(inst.dest, 0);
+		} else {
+			gpr.MapDirtyInIn(inst.dest, inst.src1, inst.src2);
+			XOR(gpr.R(inst.dest), gpr.R(inst.src1), gpr.R(inst.src2));
+		}
 		break;
 
 	case IROp::AndConst:
@@ -176,9 +192,11 @@ void RiscVJit::CompIR_Assign(IRInst inst) {
 
 	switch (inst.op) {
 	case IROp::Mov:
-		gpr.MapDirtyIn(inst.dest, inst.src1);
-		MV(gpr.R(inst.dest), gpr.R(inst.src1));
-		gpr.MarkDirty(gpr.R(inst.dest), gpr.IsNormalized32(inst.src1));
+		if (inst.dest != inst.src1) {
+			gpr.MapDirtyIn(inst.dest, inst.src1);
+			MV(gpr.R(inst.dest), gpr.R(inst.src1));
+			gpr.MarkDirty(gpr.R(inst.dest), gpr.IsNormalized32(inst.src1));
+		}
 		break;
 
 	case IROp::Ext8to32:
@@ -250,14 +268,91 @@ void RiscVJit::CompIR_Shift(IRInst inst) {
 
 	switch (inst.op) {
 	case IROp::Shl:
+		gpr.MapDirtyInIn(inst.dest, inst.src1, inst.src2, MapType::AVOID_LOAD_MARK_NORM32);
+		SLLW(gpr.R(inst.dest), gpr.R(inst.src1), gpr.R(inst.src2));
+		break;
+
 	case IROp::Shr:
+		gpr.MapDirtyInIn(inst.dest, inst.src1, inst.src2, MapType::AVOID_LOAD_MARK_NORM32);
+		SRLW(gpr.R(inst.dest), gpr.R(inst.src1), gpr.R(inst.src2));
+		break;
+
 	case IROp::Sar:
+		gpr.MapDirtyInIn(inst.dest, inst.src1, inst.src2, MapType::AVOID_LOAD_MARK_NORM32);
+		SRAW(gpr.R(inst.dest), gpr.R(inst.src1), gpr.R(inst.src2));
+		break;
+
 	case IROp::Ror:
+		if (cpu_info.RiscV_Zbb) {
+			gpr.MapDirtyInIn(inst.dest, inst.src1, inst.src2, MapType::AVOID_LOAD_MARK_NORM32);
+			RORW(gpr.R(inst.dest), gpr.R(inst.src1), gpr.R(inst.src2));
+		} else {
+			CompIR_Generic(inst);
+		}
+		break;
+
 	case IROp::ShlImm:
+		// Shouldn't happen, but let's be safe of any passes that modify the ops.
+		if (inst.src2 >= 32) {
+			gpr.SetImm(inst.dest, 0);
+		} else if (inst.src2 == 0) {
+			if (inst.dest != inst.src1) {
+				gpr.MapDirtyIn(inst.dest, inst.src1);
+				MV(gpr.R(inst.dest), gpr.R(inst.src1));
+				gpr.MarkDirty(gpr.R(inst.dest), gpr.IsNormalized32(inst.src1));
+			}
+		} else {
+			gpr.MapDirtyIn(inst.dest, inst.src1, MapType::AVOID_LOAD_MARK_NORM32);
+			SLLIW(gpr.R(inst.dest), gpr.R(inst.src1), inst.src2);
+		}
+		break;
+
 	case IROp::ShrImm:
+		// Shouldn't happen, but let's be safe of any passes that modify the ops.
+		if (inst.src2 >= 32) {
+			gpr.SetImm(inst.dest, 0);
+		} else if (inst.src2 == 0) {
+			if (inst.dest != inst.src1) {
+				gpr.MapDirtyIn(inst.dest, inst.src1);
+				MV(gpr.R(inst.dest), gpr.R(inst.src1));
+				gpr.MarkDirty(gpr.R(inst.dest), gpr.IsNormalized32(inst.src1));
+			}
+		} else {
+			gpr.MapDirtyIn(inst.dest, inst.src1, MapType::AVOID_LOAD_MARK_NORM32);
+			SRLIW(gpr.R(inst.dest), gpr.R(inst.src1), inst.src2);
+		}
+		break;
+
 	case IROp::SarImm:
+		// Shouldn't happen, but let's be safe of any passes that modify the ops.
+		if (inst.src2 >= 32) {
+			gpr.MapDirtyIn(inst.dest, inst.src1, MapType::AVOID_LOAD_MARK_NORM32);
+			SRAIW(gpr.R(inst.dest), gpr.R(inst.src1), 31);
+		} else if (inst.src2 == 0) {
+			if (inst.dest != inst.src1) {
+				gpr.MapDirtyIn(inst.dest, inst.src1);
+				MV(gpr.R(inst.dest), gpr.R(inst.src1));
+				gpr.MarkDirty(gpr.R(inst.dest), gpr.IsNormalized32(inst.src1));
+			}
+		} else {
+			gpr.MapDirtyIn(inst.dest, inst.src1, MapType::AVOID_LOAD_MARK_NORM32);
+			SRAIW(gpr.R(inst.dest), gpr.R(inst.src1), inst.src2);
+		}
+		break;
+
 	case IROp::RorImm:
-		CompIR_Generic(inst);
+		if (inst.src2 == 0) {
+			if (inst.dest != inst.src1) {
+				gpr.MapDirtyIn(inst.dest, inst.src1);
+				MV(gpr.R(inst.dest), gpr.R(inst.src1));
+				gpr.MarkDirty(gpr.R(inst.dest), gpr.IsNormalized32(inst.src1));
+			}
+		} else if (cpu_info.RiscV_Zbb) {
+			gpr.MapDirtyIn(inst.dest, inst.src1, MapType::AVOID_LOAD_MARK_NORM32);
+			RORIW(gpr.R(inst.dest), gpr.R(inst.src1), inst.src2 & 31);
+		} else {
+			CompIR_Generic(inst);
+		}
 		break;
 
 	default:
@@ -269,12 +364,111 @@ void RiscVJit::CompIR_Shift(IRInst inst) {
 void RiscVJit::CompIR_Compare(IRInst inst) {
 	CONDITIONAL_DISABLE;
 
+	RiscVReg lhs = INVALID_REG;
+	RiscVReg rhs = INVALID_REG;
+	FixupBranch fixup;
 	switch (inst.op) {
 	case IROp::Slt:
+		// Not using the NORM32 flag so we don't confuse ourselves on overlap.
+		gpr.MapDirtyInIn(inst.dest, inst.src1, inst.src2);
+		lhs = gpr.R(inst.src1);
+		rhs = gpr.R(inst.src2);
+
+		// For proper compare, we must sign extend so they both match or don't match.
+		// But don't change pointers, in case one is SP (happens in LittleBigPlanet.)
+		if (gpr.IsMappedAsStaticPointer(inst.src1) || inst.src1 == inst.dest) {
+			lhs = gpr.Normalize32(inst.src1, SCRATCH1);
+		} else {
+			gpr.Normalize32(inst.src1);
+		}
+		if (gpr.IsMappedAsStaticPointer(inst.src2) || inst.src2 == inst.dest) {
+			rhs = gpr.Normalize32(inst.src2, SCRATCH2);
+		} else {
+			gpr.Normalize32(inst.src2);
+		}
+
+		LI(gpr.R(inst.dest), 0);
+		fixup = BGE(lhs, rhs);
+		LI(gpr.R(inst.dest), 1);
+		SetJumpTarget(fixup);
+
+		gpr.MarkDirty(gpr.R(inst.dest), true);
+		break;
+
 	case IROp::SltConst:
+		// Not using the NORM32 flag so we don't confuse ourselves on overlap.
+		gpr.MapDirtyIn(inst.dest, inst.src1);
+		if (inst.constant == 0) {
+			// Basically, getting the sign bit.  Let's shift instead.
+			SRLIW(gpr.R(inst.dest), gpr.R(inst.src1), 31);
+		} else {
+			lhs = gpr.R(inst.src1);
+			if (gpr.IsMappedAsStaticPointer(inst.src1) || inst.src1 == inst.dest) {
+				lhs = gpr.Normalize32(inst.src1, SCRATCH1);
+			} else {
+				gpr.Normalize32(inst.src1);
+			}
+
+			LI(SCRATCH2, (int32_t)inst.constant);
+
+			LI(gpr.R(inst.dest), 0);
+			fixup = BGE(lhs, SCRATCH2);
+			LI(gpr.R(inst.dest), 1);
+			SetJumpTarget(fixup);
+		}
+		gpr.MarkDirty(gpr.R(inst.dest), true);
+		break;
+
 	case IROp::SltU:
+		// Not using the NORM32 flag so we don't confuse ourselves on overlap.
+		gpr.MapDirtyInIn(inst.dest, inst.src1, inst.src2);
+		lhs = gpr.R(inst.src1);
+		rhs = gpr.R(inst.src2);
+
+		// It's still fine to sign extend, the biggest just get even bigger.
+		if (gpr.IsMappedAsStaticPointer(inst.src1) || inst.src1 == inst.dest) {
+			lhs = gpr.Normalize32(inst.src1, SCRATCH1);
+		} else {
+			gpr.Normalize32(inst.src1);
+		}
+		if (gpr.IsMappedAsStaticPointer(inst.src2) || inst.src2 == inst.dest) {
+			rhs = gpr.Normalize32(inst.src2, SCRATCH2);
+		} else {
+			gpr.Normalize32(inst.src2);
+		}
+
+		LI(gpr.R(inst.dest), 0);
+		fixup = BGEU(lhs, rhs);
+		LI(gpr.R(inst.dest), 1);
+		SetJumpTarget(fixup);
+
+		gpr.MarkDirty(gpr.R(inst.dest), true);
+		break;
+
 	case IROp::SltUConst:
-		CompIR_Generic(inst);
+		// Not using the NORM32 flag so we don't confuse ourselves on overlap.
+		gpr.MapDirtyIn(inst.dest, inst.src1);
+		if (inst.constant == 0) {
+			gpr.SetImm(inst.dest, 0);
+		} else {
+			lhs = gpr.R(inst.src1);
+			if (gpr.IsMappedAsStaticPointer(inst.src1) || inst.src1 == inst.dest) {
+				lhs = gpr.Normalize32(inst.src1, SCRATCH1);
+			} else {
+				gpr.Normalize32(inst.src1);
+			}
+
+			// We sign extend because we're comparing against something normalized.
+			// It's also the most efficient to set.
+			LI(SCRATCH2, (int32_t)inst.constant);
+
+			LI(gpr.R(inst.dest), 0);
+			fixup = BGEU(lhs, SCRATCH2);
+			LI(gpr.R(inst.dest), 1);
+			SetJumpTarget(fixup);
+
+			gpr.MarkDirty(gpr.R(inst.dest), true);
+		}
 		break;
 
 	default:
