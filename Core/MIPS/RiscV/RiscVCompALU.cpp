@@ -74,14 +74,14 @@ void RiscVJit::CompIR_Arith(IRInst inst) {
 			}
 		} else {
 			gpr.MapDirtyIn(inst.dest, inst.src1, MapType::AVOID_LOAD_MARK_NORM32);
-			LI(SCRATCH1, (s32)inst.constant, SCRATCH2);
+			LI(SCRATCH1, (int32_t)inst.constant);
 			ADDW(gpr.R(inst.dest), gpr.R(inst.src1), SCRATCH1);
 		}
 		break;
 
 	case IROp::SubConst:
 		gpr.MapDirtyIn(inst.dest, inst.src1, MapType::AVOID_LOAD_MARK_NORM32);
-		LI(SCRATCH1, (s32)inst.constant, SCRATCH2);
+		LI(SCRATCH1, (int32_t)inst.constant);
 		SUBW(gpr.R(inst.dest), gpr.R(inst.src1), SCRATCH1);
 		break;
 
@@ -101,13 +101,68 @@ void RiscVJit::CompIR_Logic(IRInst inst) {
 
 	switch (inst.op) {
 	case IROp::And:
+		gpr.MapDirtyInIn(inst.dest, inst.src1, inst.src2);
+		AND(gpr.R(inst.dest), gpr.R(inst.src1), gpr.R(inst.src2));
+		break;
+
 	case IROp::Or:
+		gpr.MapDirtyInIn(inst.dest, inst.src1, inst.src2);
+		OR(gpr.R(inst.dest), gpr.R(inst.src1), gpr.R(inst.src2));
+		// If both were normalized before, the result is normalized.
+		if (gpr.IsNormalized32(inst.src1) && gpr.IsNormalized32(inst.src2))
+			gpr.MarkDirty(gpr.R(inst.dest), true);
+		break;
+
 	case IROp::Xor:
+		gpr.MapDirtyInIn(inst.dest, inst.src1, inst.src2);
+		XOR(gpr.R(inst.dest), gpr.R(inst.src1), gpr.R(inst.src2));
+		break;
+
 	case IROp::AndConst:
+		if ((int32_t)inst.constant >= -2048 && (int32_t)inst.constant <= 2047) {
+			gpr.MapDirtyIn(inst.dest, inst.src1);
+			ANDI(gpr.R(inst.dest), gpr.R(inst.src1), inst.constant);
+		} else {
+			gpr.MapDirtyIn(inst.dest, inst.src1);
+			LI(SCRATCH1, (int32_t)inst.constant);
+			AND(gpr.R(inst.dest), gpr.R(inst.src1), SCRATCH1);
+		}
+		// If the sign bits aren't cleared, and it was normalized before - it still is.
+		if ((inst.constant & 0x80000000) != 0 && gpr.IsNormalized32(inst.src1))
+			gpr.MarkDirty(gpr.R(inst.dest), true);
+		// Otherwise, if we cleared the sign bits, it's naturally normalized.
+		else if ((inst.constant & 0x80000000) == 0)
+			gpr.MarkDirty(gpr.R(inst.dest), true);
+		break;
+
 	case IROp::OrConst:
+		if ((int32_t)inst.constant >= -2048 && (int32_t)inst.constant <= 2047) {
+			gpr.MapDirtyIn(inst.dest, inst.src1);
+			ORI(gpr.R(inst.dest), gpr.R(inst.src1), inst.constant);
+		} else {
+			gpr.MapDirtyIn(inst.dest, inst.src1);
+			LI(SCRATCH1, (int32_t)inst.constant);
+			OR(gpr.R(inst.dest), gpr.R(inst.src1), SCRATCH1);
+		}
+		// Since our constant is normalized, oring its bits in won't hurt normalization.
+		if (gpr.IsNormalized32(inst.src1))
+			gpr.MarkDirty(gpr.R(inst.dest), true);
+		break;
+
 	case IROp::XorConst:
+		if ((int32_t)inst.constant >= -2048 && (int32_t)inst.constant <= 2047) {
+			gpr.MapDirtyIn(inst.dest, inst.src1);
+			XORI(gpr.R(inst.dest), gpr.R(inst.src1), inst.constant);
+		} else {
+			gpr.MapDirtyIn(inst.dest, inst.src1);
+			LI(SCRATCH1, (int32_t)inst.constant);
+			XOR(gpr.R(inst.dest), gpr.R(inst.src1), SCRATCH1);
+		}
+		break;
+
 	case IROp::Not:
-		CompIR_Generic(inst);
+		gpr.MapDirtyIn(inst.dest, inst.src1);
+		NOT(gpr.R(inst.dest), gpr.R(inst.src1));
 		break;
 
 	default:

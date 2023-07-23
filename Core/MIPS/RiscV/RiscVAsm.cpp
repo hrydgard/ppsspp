@@ -206,7 +206,10 @@ void RiscVJit::GenerateFixedCode(const JitOptions &jo) {
 	ADD(SCRATCH1, JITBASEREG, SCRATCH1);
 	// TODO: Consider replacing the block nums after all, just trying to use IR block cache.
 	LD(SCRATCH1, SCRATCH1, 0);
+	// TODO: This is ugly, but fixes a crash in LBP.  May be a copied emuhack?
+	FixupBranch needCompile = BEQ(SCRATCH1, R_ZERO);
 	JR(SCRATCH1);
+	SetJumpTarget(needCompile);
 	SetJumpTarget(skipJump);
 
 	// No block found, let's jit.  We don't need to save static regs, they're all callee saved.
