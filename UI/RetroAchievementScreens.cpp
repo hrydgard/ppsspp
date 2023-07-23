@@ -290,7 +290,20 @@ void RetroAchievementsSettingsScreen::CreateAccountTab(UI::ViewGroup *viewGroup)
 			return UI::EVENT_DONE;
 		});
 	} else {
-		if (System_GetPropertyBool(SYSPROP_HAS_LOGIN_DIALOG)) {
+		std::string errorMessage;
+		if (Achievements::LoginProblems(&errorMessage)) {
+			viewGroup->Add(new NoticeView(NoticeLevel::WARN, ac->T("Failed logging in to RetroAchievements"), errorMessage));
+			if (Achievements::HasToken()) {
+				viewGroup->Add(new Choice(di->T("Retry")))->OnClick.Add([=](UI::EventParams &) -> UI::EventReturn {
+					Achievements::TryLoginByToken();
+					return UI::EVENT_DONE;
+				});
+			}
+			viewGroup->Add(new Choice(di->T("Log out")))->OnClick.Add([=](UI::EventParams &) -> UI::EventReturn {
+				Achievements::Logout();
+				return UI::EVENT_DONE;
+			});
+		} else if (System_GetPropertyBool(SYSPROP_HAS_LOGIN_DIALOG)) {
 			viewGroup->Add(new Choice(ac->T("Log in")))->OnClick.Add([=](UI::EventParams &) -> UI::EventReturn {
 				System_AskUsernamePassword(ac->T("Log in"), [](const std::string &value, int) {
 					std::vector<std::string> parts;
