@@ -796,25 +796,12 @@ static const ConfigSetting networkSettings[] = {
 	ConfigSetting("QuickChat5", &g_Config.sQuickChat4, "Quick Chat 5", CfgFlag::PER_GAME),
 };
 
-static int DefaultSystemParamLanguage() {
-	int defaultLang = PSP_SYSTEMPARAM_LANGUAGE_ENGLISH;
-	if (g_Config.bFirstRun) {
-		// TODO: Be smart about same language, different country
-		auto &langValuesMapping = g_Config.GetLangValuesMapping();
-		auto iter = langValuesMapping.find(g_Config.sLanguageIni);
-		if (iter != langValuesMapping.end()) {
-			defaultLang = iter->second.second;
-		}
-	}
-	return defaultLang;
-}
-
 static const ConfigSetting systemParamSettings[] = {
 	ConfigSetting("PSPModel", &g_Config.iPSPModel, PSP_MODEL_SLIM, CfgFlag::PER_GAME | CfgFlag::REPORT),
 	ConfigSetting("PSPFirmwareVersion", &g_Config.iFirmwareVersion, PSP_DEFAULT_FIRMWARE, CfgFlag::PER_GAME | CfgFlag::REPORT),
 	ConfigSetting("NickName", &g_Config.sNickName, "PPSSPP", CfgFlag::PER_GAME),
 	ConfigSetting("MacAddress", &g_Config.sMACAddress, "", CfgFlag::PER_GAME),
-	ConfigSetting("Language", &g_Config.iLanguage, &DefaultSystemParamLanguage, CfgFlag::PER_GAME | CfgFlag::REPORT),
+	ConfigSetting("GameLanguage", &g_Config.iLanguage, -1, CfgFlag::PER_GAME | CfgFlag::REPORT),
 	ConfigSetting("ParamTimeFormat", &g_Config.iTimeFormat, PSP_SYSTEMPARAM_TIME_FORMAT_24HR, CfgFlag::PER_GAME),
 	ConfigSetting("ParamDateFormat", &g_Config.iDateFormat, PSP_SYSTEMPARAM_DATE_FORMAT_YYYYMMDD, CfgFlag::PER_GAME),
 	ConfigSetting("TimeZone", &g_Config.iTimeZone, 0, CfgFlag::PER_GAME),
@@ -1770,4 +1757,19 @@ void Config::GetReportingInfo(UrlEncoder &data) {
 
 bool Config::IsPortrait() const {
 	return (iInternalScreenRotation == ROTATION_LOCKED_VERTICAL || iInternalScreenRotation == ROTATION_LOCKED_VERTICAL180) && !bSkipBufferEffects;
+}
+
+int Config::GetPSPLanguage() {
+	if (g_Config.iLanguage == -1) {
+		const auto &langValuesMapping = GetLangValuesMapping();
+		auto iter = langValuesMapping.find(g_Config.sLanguageIni);
+		if (iter != langValuesMapping.end()) {
+			return iter->second.second;
+		} else {
+			// Fallback to English
+			return PSP_SYSTEMPARAM_LANGUAGE_ENGLISH;
+		}
+	} else {
+		return g_Config.iLanguage;
+	}
 }

@@ -569,6 +569,10 @@ public:
 	void SetAppendedConfigIni(const Path &path);
 	void UpdateAfterSettingAutoFrameSkip();
 	void NotifyUpdatedCpuCore();
+
+	// Applies the Auto setting if set. Returns an enum value from PSP_SYSTEMPARAM_LANGUAGE_*.
+	int GetPSPLanguage();
+
 protected:
 	void LoadStandardControllerIni();
 	void LoadLangValuesMapping();

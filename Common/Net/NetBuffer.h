@@ -9,7 +9,6 @@ namespace net {
 
 class RequestProgress {
 public:
-	RequestProgress() {}
 	explicit RequestProgress(bool *c) : cancelled(c) {}
 
 	void Update(int64_t downloaded, int64_t totalBytes, bool done);

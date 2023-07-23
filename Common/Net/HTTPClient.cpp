@@ -383,6 +383,8 @@ int Client::ReadResponseHeaders(net::Buffer *readbuf, std::vector<std::string> &
 }
 
 int Client::ReadResponseEntity(net::Buffer *readbuf, const std::vector<std::string> &responseHeaders, Buffer *output, net::RequestProgress *progress) {
+	_dbg_assert_(progress->cancelled);
+
 	bool gzip = false;
 	bool chunked = false;
 	int contentLength = 0;

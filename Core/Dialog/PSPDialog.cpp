@@ -42,7 +42,7 @@ PSPDialog::~PSPDialog() {
 void PSPDialog::InitCommon() {
 	UpdateCommon();
 
-	if (GetCommonParam() && GetCommonParam()->language != g_Config.iLanguage) {
+	if (GetCommonParam() && GetCommonParam()->language != g_Config.GetPSPLanguage()) {
 		WARN_LOG(SCEUTILITY, "Game requested language %d, ignoring and using user language", GetCommonParam()->language);
 	}
 }

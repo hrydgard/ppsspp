@@ -677,18 +677,9 @@ void NewLanguageScreen::OnCompleted(DialogResult result) {
 		iniLoadedSuccessfully = g_i18nrepo.LoadIni(g_Config.sLanguageIni, langOverridePath);
 
 	if (iniLoadedSuccessfully) {
-		// Dunno what else to do here.
-		auto &langValuesMapping = g_Config.GetLangValuesMapping();
-
-		auto iter = langValuesMapping.find(code);
-		if (iter == langValuesMapping.end()) {
-			// Fallback to English
-			g_Config.iLanguage = PSP_SYSTEMPARAM_LANGUAGE_ENGLISH;
-		} else {
-			g_Config.iLanguage = iter->second.second;
-		}
 		RecreateViews();
 	} else {
+		// Failed to load the language ini. Shouldn't really happen, but let's just switch back to the old language.
 		g_Config.sLanguageIni = oldLang;
 	}
 }

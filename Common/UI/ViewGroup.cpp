@@ -1183,9 +1183,9 @@ StickyChoice *ChoiceStrip::Choice(int index) {
 CollapsibleSection::CollapsibleSection(const std::string &title, LayoutParams *layoutParams) : LinearLayout(ORIENT_VERTICAL, layoutParams) {
 	SetSpacing(0.0f);
 
-	CollapsibleHeader *heading = new CollapsibleHeader(&open_, title);
-	views_.push_back(heading);
-	heading->OnClick.Add([=](UI::EventParams &) {
+	heading_ = new CollapsibleHeader(&open_, title);
+	views_.push_back(heading_);
+	heading_->OnClick.Add([=](UI::EventParams &) {
 		// Change the visibility of all children except the first one.
 		// Later maybe try something more ambitious.
 		for (size_t i = 1; i < views_.size(); i++) {
@@ -1193,6 +1193,11 @@ CollapsibleSection::CollapsibleSection(const std::string &title, LayoutParams *l
 		}
 		return UI::EVENT_DONE;
 	});
+}
+
+void CollapsibleSection::Update() {
+	ViewGroup::Update();
+	heading_->SetHasSubitems(views_.size() > 1);
 }
 
 }  // namespace UI
