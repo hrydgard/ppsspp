@@ -109,7 +109,6 @@ struct CPUInfo {
 	bool RiscV_D;
 	bool RiscV_C;
 	bool RiscV_V;
-	bool RiscV_B;
 	bool RiscV_Zicsr;
 	bool RiscV_Zba;
 	bool RiscV_Zbb;

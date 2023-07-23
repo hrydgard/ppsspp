@@ -194,7 +194,7 @@ void CPUInfo::Detect()
 
 	truncate_cpy(cpu_string, parser.ISAString().c_str());
 
-	// A number of CPUs support a limited set of B.  It's not all U74, so we use SOC for now...
+	// A number of CPUs support a limited set of bitmanip.  It's not all U74, so we use SOC for now...
 	if (parser.FirmwareMatchesCompatible("starfive,jh7110")) {
 		RiscV_Zba = true;
 		RiscV_Zbb = true;
@@ -208,7 +208,6 @@ void CPUInfo::Detect()
 	RiscV_D = ExtensionSupported(hwcap, 'D');
 	RiscV_C = ExtensionSupported(hwcap, 'C');
 	RiscV_V = ExtensionSupported(hwcap, 'V');
-	RiscV_B = ExtensionSupported(hwcap, 'B');
 	// We assume as in RVA20U64 that F means Zicsr is available.
 	RiscV_Zicsr = RiscV_F;
 
@@ -242,11 +241,10 @@ std::vector<std::string> CPUInfo::Features() {
 		{ RiscV_D, "Double" },
 		{ RiscV_C, "Compressed" },
 		{ RiscV_V, "Vector" },
-		{ RiscV_B, "Bitmanip" },
-		{ RiscV_Zba, "Zba" },
-		{ RiscV_Zbb, "Zbb" },
-		{ RiscV_Zbc, "Zbc" },
-		{ RiscV_Zbs, "Zbs" },
+		{ RiscV_Zba, "Bitmanip Zba" },
+		{ RiscV_Zbb, "Bitmanip Zbb" },
+		{ RiscV_Zbc, "Bitmanip Zbc" },
+		{ RiscV_Zbs, "Bitmanip Zbs" },
 		{ RiscV_Zicsr, "Zicsr" },
 		{ CPU64bit, "64-bit" },
 	};

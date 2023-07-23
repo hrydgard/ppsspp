@@ -62,10 +62,10 @@ static inline bool SupportsVector() {
 
 static inline bool SupportsBitmanip(char zbx) {
 	switch (zbx) {
-	case 'a': return cpu_info.RiscV_B || cpu_info.RiscV_Zba;
-	case 'b': return cpu_info.RiscV_B || cpu_info.RiscV_Zbb;
-	case 'c': return cpu_info.RiscV_B || cpu_info.RiscV_Zbc;
-	case 's': return cpu_info.RiscV_B || cpu_info.RiscV_Zbs;
+	case 'a': return cpu_info.RiscV_Zba;
+	case 'b': return cpu_info.RiscV_Zbb;
+	case 'c': return cpu_info.RiscV_Zbc;
+	case 's': return cpu_info.RiscV_Zbs;
 	default: return false;
 	}
 }
