@@ -1320,6 +1320,64 @@ void VertexDecoder::DecodeVerts(u8 *decodedptr, const void *verts, const UVScale
 	}
 }
 
+static float LargestAbsDiff(Vec4f a, Vec4f b, int n) {
+	Vec4f delta = a - b;
+	float largest = 0;
+	for (int i = 0; i < n; ++ i) {
+		largest = std::max(largest, fabsf(delta[i]));
+	}
+	return largest;
+}
+
+static bool DecodedVertsAreSimilar(const VertexReader &vtx1, const VertexReader &vtx2) {
+	Vec4f vec1{}, vec2{};
+	if (vtx1.hasNormal()) {
+		vtx1.ReadNrm(vec1.AsArray());
+		vtx2.ReadNrm(vec2.AsArray());
+		float diff = LargestAbsDiff(vec1, vec2, 3);
+		if (diff >= 1.0 / 512.0f) {
+			WARN_LOG(G3D, "Normal diff %f", diff);
+			return false;
+		}
+	}
+	if (vtx1.hasUV()) {
+		vtx1.ReadUV(vec1.AsArray());
+		vtx2.ReadUV(vec2.AsArray());
+		float diff = LargestAbsDiff(vec1, vec2, 2);
+		if (diff >= 1.0 / 512.0f) {
+			WARN_LOG(G3D, "UV diff %f", diff);
+			return false;
+		}
+	}
+	if (vtx1.hasColor0()) {
+		vtx1.ReadColor0(vec1.AsArray());
+		vtx2.ReadColor0(vec2.AsArray());
+		float diff = LargestAbsDiff(vec1, vec2, 4);
+		if (diff >= 1.0 / 255.0f) {
+			WARN_LOG(G3D, "Color0 diff %f", diff);
+			return false;
+		}
+	}
+	if (vtx1.hasColor1()) {
+		vtx1.ReadColor1(vec1.AsArray());
+		vtx2.ReadColor1(vec2.AsArray());
+		float diff = LargestAbsDiff(vec1, vec2, 4);
+		if (diff >= 1.0 / 255.0f) {
+			WARN_LOG(G3D, "Color1 diff %f", diff);
+			return false;
+		}
+	}
+	vtx1.ReadPos(vec1.AsArray());
+	vtx2.ReadPos(vec2.AsArray());
+	float diff = LargestAbsDiff(vec1, vec2, 3);
+	if (diff >= 1.0 / 512.0f) {
+		WARN_LOG(G3D, "Pos diff %f", diff);
+		return false;
+	}
+
+	return true;
+}
+
 void VertexDecoder::CompareToJit(const u8 *startPtr, u8 *decodedptr, int count, const UVScale *uvScaleOffset) const {
 	std::vector<uint8_t> jittedBuffer(decFmt.stride * count);
 	jitted_(startPtr, &jittedBuffer[0], count, uvScaleOffset);
@@ -1328,11 +1386,9 @@ void VertexDecoder::CompareToJit(const u8 *startPtr, u8 *decodedptr, int count, 
 	VertexReader jittedReader(&jittedBuffer[0], GetDecVtxFmt(), fmt_);
 	for (int i = 0; i < count; ++i) {
 		int off = decFmt.stride * i;
-		// TODO: May need to add tolerances?
-		if (memcmp(decodedptr + off, &jittedBuffer[off], decFmt.stride) != 0) {
-			controlReader.Goto(i);
-			jittedReader.Goto(i);
-
+		controlReader.Goto(i);
+		jittedReader.Goto(i);
+		if (!DecodedVertsAreSimilar(controlReader, jittedReader)) {
 			char name[512]{};
 			ToString(name);
 			ERROR_LOG(G3D, "Encountered vertexjit mismatch at %d/%d for %s", i, count, name);
