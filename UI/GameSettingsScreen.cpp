@@ -720,6 +720,7 @@ void GameSettingsScreen::CreateControlsSettings(UI::ViewGroup *controlsSettings)
 			settingInfo_->Show(co->T("AnalogLimiter Tip", "When the analog limiter button is pressed"), e.v);
 			return UI::EVENT_CONTINUE;
 		});
+		controlsSettings->Add(new PopupSliderChoice(&g_Config.iRapidFireInterval, 1, 10, 5, "Rapid fire interval", screenManager(), "frames"));
 #if defined(USING_WIN_UI) || defined(SDL)
 		controlsSettings->Add(new ItemHeader(co->T("Mouse", "Mouse settings")));
 		CheckBox *mouseControl = controlsSettings->Add(new CheckBox(&g_Config.bMouseControl, co->T("Use Mouse Control")));

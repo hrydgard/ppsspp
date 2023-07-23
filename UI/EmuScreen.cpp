@@ -764,7 +764,7 @@ void EmuScreen::onVKey(int virtualKeyCode, bool down) {
 		}
 		break;
 	case VIRTKEY_RAPID_FIRE:
-		__CtrlSetRapidFire(down);
+		__CtrlSetRapidFire(down, g_Config.iRapidFireInterval);
 		break;
 	case VIRTKEY_MUTE_TOGGLE:
 		if (down)

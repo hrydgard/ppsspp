@@ -264,7 +264,7 @@ void CustomButton::Update() {
 }
 
 bool PSPButton::IsDown() {
-	return (__CtrlPeekButtons() & pspButtonBit_) != 0;
+	return (__CtrlPeekButtonsVisual() & pspButtonBit_) != 0;
 }
 
 PSPDpad::PSPDpad(ImageID arrowIndex, const char *key, ImageID arrowDownIndex, ImageID overlayIndex, float scale, float spacing, UI::LayoutParams *layoutParams)
