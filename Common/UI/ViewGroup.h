@@ -324,12 +324,17 @@ private:
 	std::vector<AnchorTranslateTween *> tabTweens_;
 };
 
+class CollapsibleHeader;
+
 class CollapsibleSection : public LinearLayout {
 public:
 	CollapsibleSection(const std::string &title, LayoutParams *layoutParams = nullptr);
 
+	void Update() override;
+
 private:
 	bool open_ = true;
+	CollapsibleHeader *heading_;
 };
 
 }  // namespace UI
