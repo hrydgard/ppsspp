@@ -1389,21 +1389,28 @@ void VertexDecoderJitCache::Jit_AnyFloatMorph(int srcoff, int dstoff) {
 void VertexDecoderJitCache::Jit_WriteMatrixMul(int dstoff, bool pos) {
 	const RiscVReg fpDst[3] = { fpScratchReg1, fpScratchReg2, fpScratchReg3 };
 
+	// When using morph + skin, we don't keep skinMatrix in a reg.
+	RiscVReg skinMatrixReg = morphBaseReg;
+	if (dec_->morphcount > 1) {
+		LI(scratchReg, &skinMatrix[0]);
+		skinMatrixReg = scratchReg;
+	}
+
 	// First, take care of the 3x3 portion of the matrix.
 	for (int y = 0; y < 3; ++y) {
 		for (int x = 0; x < 3; ++x) {
-			FL(32, fpScratchReg4, morphBaseReg, (y * 3 + x) * 4);
+			FL(32, fpScratchReg4, skinMatrixReg, (y * 3 + x) * 4);
 			if (y == 0)
-				FMUL(32, fpDst[x], fpSrc[x], fpScratchReg4);
+				FMUL(32, fpDst[x], fpSrc[y], fpScratchReg4);
 			else
-				FMADD(32, fpDst[x], fpSrc[x], fpScratchReg4, fpDst[x]);
+				FMADD(32, fpDst[x], fpSrc[y], fpScratchReg4, fpDst[x]);
 		}
 	}
 
 	// For normal, z is 0 so we skip.
 	if (pos) {
 		for (int x = 0; x < 3; ++x)
-			FL(32, fpSrc[x], morphBaseReg, (9 + x) * 4);
+			FL(32, fpSrc[x], skinMatrixReg, (9 + x) * 4);
 		for (int x = 0; x < 3; ++x)
 			FADD(32, fpDst[x], fpDst[x], fpSrc[x]);
 	}
