@@ -41,6 +41,7 @@ static const char * const g_categoryNames[(size_t)I18NCat::CATEGORY_COUNT] = {
 	"Upgrade",
 	"VR",
 	"Achievements",
+	"PSPSettings",
 };
 
 I18NRepo g_i18nrepo;

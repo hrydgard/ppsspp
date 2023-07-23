@@ -88,7 +88,7 @@ public:
 	T &insert(T *iter) {
 		int pos = iter - data_;
 		ExtendByOne();
-		if (pos + 1 < size_) {
+		if (pos + 1 < (int)size_) {
 			memmove(data_ + pos + 1, data_ + pos, (size_ - pos) * sizeof(T));
 		}
 		return data_[pos];
