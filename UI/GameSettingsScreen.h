@@ -38,9 +38,6 @@ public:
 
 protected:
 	void CallbackRestoreDefaults(bool yes);
-	void CallbackRenderingBackend(bool yes);
-	void CallbackRenderingDevice(bool yes);
-	void CallbackInflightFrames(bool yes);
 	void CallbackMemstickFolder(bool yes);
 	void dialogFinished(const Screen *dialog, DialogResult result) override;
 
