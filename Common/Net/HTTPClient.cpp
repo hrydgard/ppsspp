@@ -369,7 +369,7 @@ int Client::ReadResponseHeaders(net::Buffer *readbuf, std::vector<std::string> &
 
 	while (true) {
 		int sz = readbuf->TakeLineCRLF(&line);
-		if (!sz)
+		if (!sz || sz < 0)
 			break;
 		responseHeaders.push_back(line);
 	}
