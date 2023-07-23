@@ -111,6 +111,8 @@ private:
 
 	RiscVRegCache gpr;
 
+	static constexpr int MAX_ALLOWED_JIT_BLOCKS = 262144;
+
 	const u8 *enterDispatcher_ = nullptr;
 
 	const u8 *outerLoop_ = nullptr;

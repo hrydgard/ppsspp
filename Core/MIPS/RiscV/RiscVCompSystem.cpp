@@ -19,7 +19,7 @@
 #include "Core/MIPS/RiscV/RiscVJit.h"
 #include "Core/MIPS/RiscV/RiscVRegCache.h"
 
-// This file contains compilation for basic PC/downcount accounting, debug funcs, etc.
+// This file contains compilation for basic PC/downcount accounting, syscalls, debug funcs, etc.
 //
 // All functions should have CONDITIONAL_DISABLE, so we can narrow things down to a file quickly.
 // Currently known non working ones should have DISABLE.  No flags because that's in IR already.

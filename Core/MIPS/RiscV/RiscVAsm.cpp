@@ -35,13 +35,23 @@ static const bool enableDisasm = false;
 static void ShowPC(u32 downcount, void *membase, void *jitbase) {
 	static int count = 0;
 	if (currentMIPS) {
-		ERROR_LOG(JIT, "ShowPC : %08x  Downcount : %08x %d %p %p", currentMIPS->pc, downcount, count, membase, jitbase);
+		ERROR_LOG(JIT, "[%08x] ShowPC  Downcount : %08x %d %p %p", currentMIPS->pc, downcount, count, membase, jitbase);
 	} else {
 		ERROR_LOG(JIT, "Universe corrupt?");
 	}
 	//if (count > 2000)
 	//	exit(0);
 	count++;
+}
+
+static void ShowBlockError(int type) {
+	if (type == 1) {
+		ERROR_LOG(JIT, "[%08x] ShowBlockError: block num was out of range in emuhack", currentMIPS->pc);
+	} else if (type == 2) {
+		ERROR_LOG(JIT, "[%08x] ShowBlockError: block num pointed to null jitblock", currentMIPS->pc);
+	} else {
+		ERROR_LOG(JIT, "[%08x] ShowBlockError: invalid error type", currentMIPS->pc);
+	}
 }
 
 void RiscVJit::GenerateFixedCode(const JitOptions &jo) {
@@ -197,20 +207,37 @@ void RiscVJit::GenerateFixedCode(const JitOptions &jo) {
 	SRLI(SCRATCH2, SCRATCH1, 24);
 	// We're in other words comparing to the top 8 bits of MIPS_EMUHACK_OPCODE by subtracting.
 	ADDI(SCRATCH2, SCRATCH2, -(MIPS_EMUHACK_OPCODE >> 24));
-	FixupBranch skipJump = BNE(SCRATCH2, R_ZERO);
+	FixupBranch needsCompile = BNE(SCRATCH2, R_ZERO);
 	// Use a wall to mask by 0x00FFFFFF and extract the block number.
 	SLLI(SCRATCH1, SCRATCH1, XLEN - 24);
 	// But actually, we want * 8, so skip shifting back just a bit.
 	_assert_msg_(sizeof(blockStartAddrs_[0]) == 8, "RiscVAsm currently assumes pointers are 64-bit");
 	SRLI(SCRATCH1, SCRATCH1, XLEN - 24 - 3);
-	ADD(SCRATCH1, JITBASEREG, SCRATCH1);
-	// TODO: Consider replacing the block nums after all, just trying to use IR block cache.
-	LD(SCRATCH1, SCRATCH1, 0);
-	// TODO: This is ugly, but fixes a crash in LBP.  May be a copied emuhack?
-	FixupBranch needCompile = BEQ(SCRATCH1, R_ZERO);
-	JR(SCRATCH1);
-	SetJumpTarget(needCompile);
-	SetJumpTarget(skipJump);
+	if (enableDebug) {
+		// Let's do some extra validation of the block number in debug mode for testing.
+
+		LI(SCRATCH2, MAX_ALLOWED_JIT_BLOCKS * 8);
+		FixupBranch highBlockNum = BGEU(SCRATCH1, SCRATCH2);
+		ADD(SCRATCH1, JITBASEREG, SCRATCH1);
+		// TODO: Consider replacing the block nums after all, just trying to use IR block cache.
+		LD(SCRATCH1, SCRATCH1, 0);
+		LI(SCRATCH2, 2);
+		FixupBranch invalidBlockNum = BEQ(SCRATCH1, R_ZERO);
+		JR(SCRATCH1);
+
+		SetJumpTarget(highBlockNum);
+		LI(SCRATCH2, 1);
+		SetJumpTarget(invalidBlockNum);
+
+		MV(X10, SCRATCH2);
+		QuickCallFunction(&ShowBlockError);
+	} else {
+		ADD(SCRATCH1, JITBASEREG, SCRATCH1);
+		// TODO: Consider replacing the block nums after all, just trying to use IR block cache.
+		LD(SCRATCH1, SCRATCH1, 0);
+		JR(SCRATCH1);
+	}
+	SetJumpTarget(needsCompile);
 
 	// No block found, let's jit.  We don't need to save static regs, they're all callee saved.
 	RestoreRoundingMode(true);

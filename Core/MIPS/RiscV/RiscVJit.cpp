@@ -26,8 +26,6 @@ namespace MIPSComp {
 using namespace RiscVGen;
 using namespace RiscVJitConstants;
 
-static constexpr int MAX_ALLOWED_JIT_BLOCKS = 262144;
-
 RiscVJit::RiscVJit(MIPSState *mipsState) : IRJit(mipsState), gpr(mipsState, &jo) {
 	// Automatically disable incompatible options.
 	if (((intptr_t)Memory::base & 0x00000000FFFFFFFFUL) != 0) {
@@ -39,6 +37,7 @@ RiscVJit::RiscVJit(MIPSState *mipsState) : IRJit(mipsState), gpr(mipsState, &jo)
 
 	// TODO: Consider replacing block num method form IRJit - this is 2MB.
 	blockStartAddrs_ = new const u8 *[MAX_ALLOWED_JIT_BLOCKS];
+	memset(blockStartAddrs_, 0, sizeof(blockStartAddrs_[0]) * MAX_ALLOWED_JIT_BLOCKS);
 
 	gpr.Init(this);
 	// TODO: fpr
@@ -65,7 +64,16 @@ bool RiscVJit::CompileBlock(u32 em_address, std::vector<IRInst> &instructions, u
 
 	// TODO: Block linking, checked entries and such.
 
-	int block_num = blocks_.GetBlockNumberFromStartAddress(em_address);
+	int block_num;
+	if (preload) {
+		block_num = blocks_.GetBlockNumberFromStartAddress(em_address);
+	} else {
+		u32 first_inst = Memory::ReadUnchecked_U32(em_address);
+		_assert_msg_(MIPS_IS_RUNBLOCK(first_inst), "Should've written an emuhack");
+
+		block_num = first_inst & MIPS_EMUHACK_VALUE_MASK;
+	}
+
 	_assert_msg_(block_num >= 0 && block_num < MAX_ALLOWED_JIT_BLOCKS, "Bad block num");
 	_assert_msg_(blockStartAddrs_[block_num] == nullptr, "Block %d reused before clear", block_num);
 	blockStartAddrs_[block_num] = GetCodePointer();
