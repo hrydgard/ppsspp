@@ -366,18 +366,12 @@ void RiscVJit::CompIR_Compare(IRInst inst) {
 
 	RiscVReg lhs = INVALID_REG;
 	RiscVReg rhs = INVALID_REG;
-	FixupBranch fixup;
 	switch (inst.op) {
 	case IROp::Slt:
 		// Not using the NORM32 flag so we don't confuse ourselves on overlap.
 		gpr.MapDirtyInIn(inst.dest, inst.src1, inst.src2);
-		NormalizeSrc12(inst, &lhs, &rhs, SCRATCH1, SCRATCH2, false);
-
-		LI(gpr.R(inst.dest), 0);
-		fixup = BGE(lhs, rhs);
-		LI(gpr.R(inst.dest), 1);
-		SetJumpTarget(fixup);
-
+		NormalizeSrc12(inst, &lhs, &rhs, SCRATCH1, SCRATCH2, true);
+		SLT(gpr.R(inst.dest), lhs, rhs);
 		gpr.MarkDirty(gpr.R(inst.dest), true);
 		break;
 
@@ -389,12 +383,13 @@ void RiscVJit::CompIR_Compare(IRInst inst) {
 			SRLIW(gpr.R(inst.dest), gpr.R(inst.src1), 31);
 		} else {
 			NormalizeSrc1(inst, &lhs, SCRATCH1, false);
-			LI(SCRATCH2, (int32_t)inst.constant);
 
-			LI(gpr.R(inst.dest), 0);
-			fixup = BGE(lhs, SCRATCH2);
-			LI(gpr.R(inst.dest), 1);
-			SetJumpTarget(fixup);
+			if ((int32_t)inst.constant >= -2048 && (int32_t)inst.constant <= 2047) {
+				SLTI(gpr.R(inst.dest), lhs, (int32_t)inst.constant);
+			} else {
+				LI(SCRATCH2, (int32_t)inst.constant);
+				SLT(gpr.R(inst.dest), lhs, SCRATCH2);
+			}
 		}
 		gpr.MarkDirty(gpr.R(inst.dest), true);
 		break;
@@ -403,13 +398,8 @@ void RiscVJit::CompIR_Compare(IRInst inst) {
 		// Not using the NORM32 flag so we don't confuse ourselves on overlap.
 		gpr.MapDirtyInIn(inst.dest, inst.src1, inst.src2);
 		// It's still fine to sign extend, the biggest just get even bigger.
-		NormalizeSrc12(inst, &lhs, &rhs, SCRATCH1, SCRATCH2, false);
-
-		LI(gpr.R(inst.dest), 0);
-		fixup = BGEU(lhs, rhs);
-		LI(gpr.R(inst.dest), 1);
-		SetJumpTarget(fixup);
-
+		NormalizeSrc12(inst, &lhs, &rhs, SCRATCH1, SCRATCH2, true);
+		SLTU(gpr.R(inst.dest), lhs, rhs);
 		gpr.MarkDirty(gpr.R(inst.dest), true);
 		break;
 
@@ -423,12 +413,12 @@ void RiscVJit::CompIR_Compare(IRInst inst) {
 
 			// We sign extend because we're comparing against something normalized.
 			// It's also the most efficient to set.
-			LI(SCRATCH2, (int32_t)inst.constant);
-
-			LI(gpr.R(inst.dest), 0);
-			fixup = BGEU(lhs, SCRATCH2);
-			LI(gpr.R(inst.dest), 1);
-			SetJumpTarget(fixup);
+			if ((int32_t)inst.constant >= -2048 && (int32_t)inst.constant <= 2047) {
+				SLTIU(gpr.R(inst.dest), lhs, (int32_t)inst.constant);
+			} else {
+				LI(SCRATCH2, (int32_t)inst.constant);
+				SLTU(gpr.R(inst.dest), lhs, SCRATCH2);
+			}
 
 			gpr.MarkDirty(gpr.R(inst.dest), true);
 		}
