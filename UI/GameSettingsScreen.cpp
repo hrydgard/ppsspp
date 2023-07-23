@@ -1414,45 +1414,18 @@ void GameSettingsScreen::TriggerRestart(const char *why) {
 	System_RestartApp(param);
 }
 
-void GameSettingsScreen::CallbackRenderingBackend(bool yes) {
-	// If the user ends up deciding not to restart, set the config back to the current backend
-	// so it doesn't get switched by accident.
-	if (yes) {
-		TriggerRestart("GameSettingsScreen::RenderingBackendYes");
-	} else {
-		g_Config.iGPUBackend = (int)GetGPUBackend();
-	}
-}
-
-void GameSettingsScreen::CallbackRenderingDevice(bool yes) {
-	// If the user ends up deciding not to restart, set the config back to the current backend
-	// so it doesn't get switched by accident.
-	if (yes) {
-		TriggerRestart("GameSettingsScreen::RenderingDeviceYes");
-	} else {
-		std::string *deviceNameSetting = GPUDeviceNameSetting();
-		if (deviceNameSetting)
-			*deviceNameSetting = GetGPUBackendDevice();
-		// Needed to redraw the setting.
-		RecreateViews();
-	}
-}
-
-void GameSettingsScreen::CallbackInflightFrames(bool yes) {
-	if (yes) {
-		TriggerRestart("GameSettingsScreen::InflightFramesYes");
-	} else {
-		g_Config.iInflightFrames = prevInflightFrames_;
-	}
-}
-
 UI::EventReturn GameSettingsScreen::OnRenderingBackend(UI::EventParams &e) {
 	auto di = GetI18NCategory(I18NCat::DIALOG);
 
 	// It only makes sense to show the restart prompt if the backend was actually changed.
 	if (g_Config.iGPUBackend != (int)GetGPUBackend()) {
-		screenManager()->push(new PromptScreen(gamePath_, di->T("ChangingGPUBackends", "Changing GPU backends requires PPSSPP to restart. Restart now?"), di->T("Yes"), di->T("No"),
-			std::bind(&GameSettingsScreen::CallbackRenderingBackend, this, std::placeholders::_1)));
+		screenManager()->push(new PromptScreen(gamePath_, di->T("Changing this setting requires PPSSPP to restart."), di->T("Restart"), di->T("Cancel"), [=](bool yes) {
+			if (yes) {
+				TriggerRestart("GameSettingsScreen::RenderingBackendYes");
+			} else {
+				g_Config.iGPUBackend = (int)GetGPUBackend();
+			}
+		}));
 	}
 	return UI::EVENT_DONE;
 }
@@ -1463,8 +1436,19 @@ UI::EventReturn GameSettingsScreen::OnRenderingDevice(UI::EventParams &e) {
 	// It only makes sense to show the restart prompt if the device was actually changed.
 	std::string *deviceNameSetting = GPUDeviceNameSetting();
 	if (deviceNameSetting && *deviceNameSetting != GetGPUBackendDevice()) {
-		screenManager()->push(new PromptScreen(gamePath_, di->T("ChangingGPUBackends", "Changing GPU backends requires PPSSPP to restart. Restart now?"), di->T("Yes"), di->T("No"),
-			std::bind(&GameSettingsScreen::CallbackRenderingDevice, this, std::placeholders::_1)));
+		screenManager()->push(new PromptScreen(gamePath_, di->T("Changing this setting requires PPSSPP to restart."), di->T("Restart"), di->T("Cancel"), [=](bool yes) {
+			// If the user ends up deciding not to restart, set the config back to the current backend
+			// so it doesn't get switched by accident.
+			if (yes) {
+				TriggerRestart("GameSettingsScreen::RenderingDeviceYes");
+			} else {
+				std::string *deviceNameSetting = GPUDeviceNameSetting();
+				if (deviceNameSetting)
+					*deviceNameSetting = GetGPUBackendDevice();
+				// Needed to redraw the setting.
+				RecreateViews();
+			}
+		}));
 	}
 	return UI::EVENT_DONE;
 }
@@ -1472,8 +1456,13 @@ UI::EventReturn GameSettingsScreen::OnRenderingDevice(UI::EventParams &e) {
 UI::EventReturn GameSettingsScreen::OnInflightFramesChoice(UI::EventParams &e) {
 	auto di = GetI18NCategory(I18NCat::DIALOG);
 	if (g_Config.iInflightFrames != prevInflightFrames_) {
-		screenManager()->push(new PromptScreen(gamePath_, di->T("ChangingInflightFrames", "Changing graphics command buffering requires PPSSPP to restart. Restart now?"), di->T("Yes"), di->T("No"),
-			std::bind(&GameSettingsScreen::CallbackInflightFrames, this, std::placeholders::_1)));
+		screenManager()->push(new PromptScreen(gamePath_, di->T("Changing this setting requires PPSSPP to restart."), di->T("Restart"), di->T("Cancel"), [=](bool yes) {
+			if (yes) {
+				TriggerRestart("GameSettingsScreen::InflightFramesYes");
+			} else {
+				g_Config.iInflightFrames = prevInflightFrames_;
+			}
+		}));
 	}
 	return UI::EVENT_DONE;
 }
