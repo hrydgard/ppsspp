@@ -508,11 +508,11 @@ void RiscVJit::ApplyRoundingMode(bool force) {
 	//QuickCallFunction(applyRoundingMode_);
 }
 
-void RiscVJit::MovFromPC(RiscVGen::RiscVReg r) {
+void RiscVJit::MovFromPC(RiscVReg r) {
 	LWU(r, CTXREG, offsetof(MIPSState, pc));
 }
 
-void RiscVJit::MovToPC(RiscVGen::RiscVReg r) {
+void RiscVJit::MovToPC(RiscVReg r) {
 	SW(r, CTXREG, offsetof(MIPSState, pc));
 }
 
@@ -530,6 +530,27 @@ void RiscVJit::LoadStaticRegisters() {
 		QuickCallFunction(loadStaticRegisters_);
 	} else {
 		LW(DOWNCOUNTREG, CTXREG, offsetof(MIPSState, downcount));
+	}
+}
+
+void RiscVJit::NormalizeSrc1(IRInst inst, RiscVReg *reg, RiscVReg tempReg, bool allowOverlap) {
+	*reg = NormalizeR(inst.src1, allowOverlap ? 0 : inst.dest, tempReg);
+}
+
+void RiscVJit::NormalizeSrc12(IRInst inst, RiscVReg *lhs, RiscVReg *rhs, RiscVReg lhsTempReg, RiscVReg rhsTempReg, bool allowOverlap) {
+	*lhs = NormalizeR(inst.src1, allowOverlap ? 0 : inst.dest, lhsTempReg);
+	*rhs = NormalizeR(inst.src2, allowOverlap ? 0 : inst.dest, rhsTempReg);
+}
+
+RiscVReg RiscVJit::NormalizeR(IRRegIndex rs, IRRegIndex rd, RiscVReg tempReg) {
+	// For proper compare, we must sign extend so they both match or don't match.
+	// But don't change pointers, in case one is SP (happens in LittleBigPlanet.)
+	if (gpr.IsImm(rs) && gpr.GetImm(rs) == 0) {
+		return R_ZERO;
+	} else if (gpr.IsMappedAsPointer(rs) || rs == rd) {
+		return gpr.Normalize32(rs, tempReg);
+	} else {
+		return gpr.Normalize32(rs);
 	}
 }
 

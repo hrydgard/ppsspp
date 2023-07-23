@@ -74,23 +74,8 @@ void RiscVJit::CompIR_ExitIf(IRInst inst) {
 	case IROp::ExitToConstIfEq:
 	case IROp::ExitToConstIfNeq:
 		gpr.MapInIn(inst.src1, inst.src2);
-		lhs = gpr.R(inst.src1);
-		rhs = gpr.R(inst.src2);
-
-		// For proper compare, we must sign extend so they both match or don't match.
-		// But don't change pointers, in case one is SP (happens in LittleBigPlanet.)
-		if (gpr.IsMappedAsStaticPointer(inst.src1)) {
-			// We can't use SCRATCH1, which is destroyed by FlushAll... but cheat and use R_RA.
-			lhs = gpr.Normalize32(inst.src1, R_RA);
-		} else {
-			gpr.Normalize32(inst.src1);
-		}
-		if (gpr.IsMappedAsStaticPointer(inst.src2)) {
-			rhs = gpr.Normalize32(inst.src2, SCRATCH2);
-		} else {
-			gpr.Normalize32(inst.src2);
-		}
-
+		// We can't use SCRATCH1, which is destroyed by FlushAll()... but cheat and use R_RA.
+		NormalizeSrc12(inst, &lhs, &rhs, R_RA, SCRATCH2, true);
 		FlushAll();
 
 		switch (inst.op) {
@@ -116,15 +101,8 @@ void RiscVJit::CompIR_ExitIf(IRInst inst) {
 	case IROp::ExitToConstIfGeZ:
 	case IROp::ExitToConstIfLtZ:
 	case IROp::ExitToConstIfLeZ:
-		lhs = gpr.MapReg(inst.src1);
-
-		// For proper compare, we must sign extend.
-		if (gpr.IsMappedAsPointer(inst.src1)) {
-			lhs = gpr.Normalize32(inst.src1, SCRATCH2);
-		} else {
-			gpr.Normalize32(inst.src1);
-		}
-
+		gpr.MapReg(inst.src1);
+		NormalizeSrc1(inst, &lhs, SCRATCH2, true);
 		FlushAll();
 
 		switch (inst.op) {
