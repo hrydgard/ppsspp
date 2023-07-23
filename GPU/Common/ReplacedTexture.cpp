@@ -513,7 +513,7 @@ ReplacedTexture::LoadLevelResult ReplacedTexture::LoadLevelData(VFSFileReference
 		bool bc = Draw::DataFormatIsBlockCompressed(*pixelFormat, &blockSize);
 		_dbg_assert_(bc || *pixelFormat == Draw::DataFormat::R8G8B8A8_UNORM);
 
-		if (bc && (level.w & 3) != 0 || (level.h & 3) != 0) {
+		if (bc && ((level.w & 3) != 0 || (level.h & 3) != 0)) {
 			WARN_LOG(G3D, "Block compressed replacement texture '%s' not divisible by 4x4 (%dx%d). In D3D11 (only!) we will have to expand (potentially causing glitches).", filename.c_str(), level.w, level.h);
 		}
 
@@ -567,7 +567,7 @@ ReplacedTexture::LoadLevelResult ReplacedTexture::LoadLevelData(VFSFileReference
 		bool bc = Draw::DataFormatIsBlockCompressed(*pixelFormat, &blockSize);
 		_dbg_assert_(bc);
 
-		if (bc && (level.w & 3) != 0 || (level.h & 3) != 0) {
+		if (bc && ((level.w & 3) != 0 || (level.h & 3) != 0)) {
 			WARN_LOG(G3D, "Block compressed replacement texture '%s' not divisible by 4x4 (%dx%d). In D3D11 (only!) we will have to expand (potentially causing glitches).", filename.c_str(), level.w, level.h);
 		}
 
