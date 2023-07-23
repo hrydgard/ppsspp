@@ -647,12 +647,14 @@ struct FileContext {
 
 static BlockDevice *g_blockDevice;
 
+bool IsReadyToStart() {
+	return !g_isLoggingIn;
+}
+
 void SetGame(const Path &path, FileLoader *fileLoader) {
-	// If we are currently logging in, give it a couple of seconds. This is not ideal, but works.
 	if (g_isLoggingIn) {
-		for (int i = 0; i < 3000 / 50; i++) {
-			sleep_ms(50);
-		}
+		// IsReadyToStart should have been checked, so we shouldn't be here.
+		ERROR_LOG(ACHIEVEMENTS, "Still logging in during SetGame - shouldn't happen");
 	}
 
 	if (!g_rcClient || !IsLoggedIn()) {
