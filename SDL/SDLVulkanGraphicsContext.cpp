@@ -136,7 +136,7 @@ bool SDLVulkanGraphicsContext::Init(SDL_Window *&window, int x, int y, int w, in
 		return false;
 	}
 
-	draw_ = Draw::T3DCreateVulkanContext(vulkan_);
+	draw_ = Draw::T3DCreateVulkanContext(vulkan_, g_Config.bRenderMultiThreading);
 	SetGPUBackend(GPUBackend::VULKAN);
 	bool success = draw_->CreatePresets();
 	_assert_(success);
@@ -144,7 +144,6 @@ bool SDLVulkanGraphicsContext::Init(SDL_Window *&window, int x, int y, int w, in
 
 	renderManager_ = (VulkanRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
 	renderManager_->SetInflightFrames(g_Config.iInflightFrames);
-
 	return true;
 }
 

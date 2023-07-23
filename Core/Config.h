@@ -238,6 +238,7 @@ public:
 	bool bGfxDebugOutput;
 	int iInflightFrames;
 	bool bRenderDuplicateFrames;
+	bool bRenderMultiThreading;
 
 	// Sound
 	bool bEnableSound;

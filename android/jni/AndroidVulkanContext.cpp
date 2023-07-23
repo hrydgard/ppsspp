@@ -113,7 +113,7 @@ bool AndroidVulkanContext::InitFromRenderThread(ANativeWindow *wnd, int desiredB
 
 	bool success = true;
 	if (g_Vulkan->InitSwapchain()) {
-		draw_ = Draw::T3DCreateVulkanContext(g_Vulkan);
+		draw_ = Draw::T3DCreateVulkanContext(g_Vulkan, g_Config.bRenderMultiThreading);
 		SetGPUBackend(GPUBackend::VULKAN);
 		success = draw_->CreatePresets();  // Doesn't fail, we ship the compiler.
 		_assert_msg_(success, "Failed to compile preset shaders");

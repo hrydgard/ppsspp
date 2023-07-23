@@ -247,15 +247,16 @@ bool VKRComputePipeline::CreateAsync(VulkanContext *vulkan) {
 	return true;
 }
 
-VulkanRenderManager::VulkanRenderManager(VulkanContext *vulkan)
+VulkanRenderManager::VulkanRenderManager(VulkanContext *vulkan, bool useThread)
 	: vulkan_(vulkan), queueRunner_(vulkan),
 	initTimeMs_("initTimeMs"),
 	totalGPUTimeMs_("totalGPUTimeMs"),
-	renderCPUTimeMs_("renderCPUTimeMs")
+	renderCPUTimeMs_("renderCPUTimeMs"),
+	useRenderThread_(useThread)
 {
 	inflightFramesAtStart_ = vulkan_->GetInflightFrames();
 
-	frameDataShared_.Init(vulkan);
+	frameDataShared_.Init(vulkan, useThread);
 
 	for (int i = 0; i < inflightFramesAtStart_; i++) {
 		frameData_[i].Init(vulkan, i);
@@ -292,12 +293,14 @@ bool VulkanRenderManager::CreateBackbuffers() {
 
 	outOfDateFrames_ = 0;
 
-	// Start the thread.
+	// Start the thread(s).
 	if (HasBackbuffers()) {
 		run_ = true;  // For controlling the compiler thread's exit
 
-		INFO_LOG(G3D, "Starting Vulkan submission thread");
-		thread_ = std::thread(&VulkanRenderManager::ThreadFunc, this);
+		if (useRenderThread_) {
+			INFO_LOG(G3D, "Starting Vulkan submission thread");
+			thread_ = std::thread(&VulkanRenderManager::ThreadFunc, this);
+		}
 		INFO_LOG(G3D, "Starting Vulkan compiler thread");
 		compileThread_ = std::thread(&VulkanRenderManager::CompileThreadFunc, this);
 	}
@@ -306,7 +309,8 @@ bool VulkanRenderManager::CreateBackbuffers() {
 
 // Called from main thread.
 void VulkanRenderManager::StopThread() {
-	{
+	if (useRenderThread_) {
+		_dbg_assert_(thread_.joinable());
 		// Tell the render thread to quit when it's done.
 		VKRRenderThreadTask *task = new VKRRenderThreadTask(VKRRunType::EXIT);
 		task->frame = vulkan_->GetCurFrame();
@@ -319,7 +323,9 @@ void VulkanRenderManager::StopThread() {
 	run_ = false;
 
 	// Stop the thread.
-	thread_.join();
+	if (useRenderThread_) {
+		thread_.join();
+	}
 
 	for (int i = 0; i < vulkan_->GetInflightFrames(); i++) {
 		auto &frameData = frameData_[i];
@@ -492,6 +498,8 @@ void VulkanRenderManager::DrainCompileQueue() {
 void VulkanRenderManager::ThreadFunc() {
 	SetCurrentThreadName("RenderMan");
 	while (true) {
+		_dbg_assert_(useRenderThread_);
+
 		// Pop a task of the queue and execute it.
 		VKRRenderThreadTask *task = nullptr;
 		{
@@ -534,7 +542,7 @@ void VulkanRenderManager::BeginFrame(bool enableProfiling, bool enableLogProfile
 
 	// Makes sure the submission from the previous time around has happened. Otherwise
 	// we are not allowed to wait from another thread here..
-	{
+	if (useRenderThread_) {
 		std::unique_lock<std::mutex> lock(frameData.fenceMutex);
 		while (!frameData.readyForFence) {
 			frameData.fenceCondVar.wait(lock);
@@ -1263,11 +1271,16 @@ void VulkanRenderManager::Finish() {
 	VLOG("PUSH: Frame[%d]", curFrame);
 	VKRRenderThreadTask *task = new VKRRenderThreadTask(VKRRunType::PRESENT);
 	task->frame = curFrame;
-	{
+	if (useRenderThread_) {
 		std::unique_lock<std::mutex> lock(pushMutex_);
 		renderThreadQueue_.push(task);
 		renderThreadQueue_.back()->steps = std::move(steps_);
 		pushCondVar_.notify_one();
+	} else {
+		// Just do it!
+		task->steps = std::move(steps_);
+		Run(*task);
+		delete task;
 	}
 
 	steps_.clear();
@@ -1348,7 +1361,7 @@ void VulkanRenderManager::Run(VKRRenderThreadTask &task) {
 		// The submit will trigger the readbackFence, and also do the wait for it.
 		frameData.SubmitPending(vulkan_, FrameSubmitType::Sync, frameDataShared_);
 
-		{
+		if (useRenderThread_) {
 			std::unique_lock<std::mutex> lock(syncMutex_);
 			syncCondVar_.notify_one();
 		}
@@ -1374,24 +1387,34 @@ void VulkanRenderManager::FlushSync() {
 	int curFrame = vulkan_->GetCurFrame();
 	FrameData &frameData = frameData_[curFrame];
 	
-	{
-		VLOG("PUSH: Frame[%d]", curFrame);
+	if (useRenderThread_) {
+		{
+			VLOG("PUSH: Frame[%d]", curFrame);
+			VKRRenderThreadTask *task = new VKRRenderThreadTask(VKRRunType::SYNC);
+			task->frame = curFrame;
+			std::unique_lock<std::mutex> lock(pushMutex_);
+			renderThreadQueue_.push(task);
+			renderThreadQueue_.back()->steps = std::move(steps_);
+			pushCondVar_.notify_one();
+			steps_.clear();
+		}
+
+		{
+			std::unique_lock<std::mutex> lock(syncMutex_);
+			// Wait for the flush to be hit, since we're syncing.
+			while (!frameData.syncDone) {
+				VLOG("PUSH: Waiting for frame[%d].syncDone = 1 (sync)", curFrame);
+				syncCondVar_.wait(lock);
+			}
+			frameData.syncDone = false;
+		}
+	} else {
 		VKRRenderThreadTask *task = new VKRRenderThreadTask(VKRRunType::SYNC);
 		task->frame = curFrame;
-		std::unique_lock<std::mutex> lock(pushMutex_);
-		renderThreadQueue_.push(task);
-		renderThreadQueue_.back()->steps = std::move(steps_);
-		pushCondVar_.notify_one();
-	}
-
-	{
-		std::unique_lock<std::mutex> lock(syncMutex_);
-		// Wait for the flush to be hit, since we're syncing.
-		while (!frameData.syncDone) {
-			VLOG("PUSH: Waiting for frame[%d].syncDone = 1 (sync)", curFrame);
-			syncCondVar_.wait(lock);
-		}
-		frameData.syncDone = false;
+		task->steps = std::move(steps_);
+		Run(*task);
+		delete task;
+		steps_.clear();
 	}
 }
 
