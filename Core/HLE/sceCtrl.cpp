@@ -103,6 +103,8 @@ static u8 vibrationRightDropout = 160;
 // Not related to sceCtrl*RapidFire(), although it may do the same thing.
 static bool emuRapidFire = false;
 static u32 emuRapidFireFrames = 0;
+static bool emuRapidFireToggle = true;
+static u32 emuRapidFireInterval = 5;
 
 // These buttons are not affected by rapid fire (neither is analog.)
 const u32 CTRL_EMU_RAPIDFIRE_MASK = CTRL_UP | CTRL_DOWN | CTRL_LEFT | CTRL_RIGHT;
@@ -113,7 +115,7 @@ static void __CtrlUpdateLatch()
 	u64 t = CoreTiming::GetGlobalTimeUs();
 
 	u32 buttons = ctrlCurrent.buttons;
-	if (emuRapidFire && (emuRapidFireFrames % 10) < 5)
+	if (emuRapidFire && emuRapidFireToggle)
 		buttons &= CTRL_EMU_RAPIDFIRE_MASK;
 
 	ReplayApplyCtrl(buttons, ctrlCurrent.analog, t);
@@ -173,6 +175,19 @@ u32 __CtrlPeekButtons()
 	return ctrlCurrent.buttons;
 }
 
+u32 __CtrlPeekButtonsVisual()
+{
+	u32 buttons;
+	{
+		std::lock_guard<std::mutex> guard(ctrlMutex);
+		buttons = ctrlCurrent.buttons;
+	}
+
+	if (emuRapidFire && emuRapidFireToggle)
+		buttons &= CTRL_EMU_RAPIDFIRE_MASK;
+	return buttons;
+}
+
 void __CtrlPeekAnalog(int stick, float *x, float *y)
 {
 	std::lock_guard<std::mutex> guard(ctrlMutex);
@@ -206,9 +221,11 @@ void __CtrlSetAnalogXY(int stick, float x, float y)
 	ctrlCurrent.analog[stick][CTRL_ANALOG_Y] = scaledY;
 }
 
-void __CtrlSetRapidFire(bool state)
+void __CtrlSetRapidFire(bool state, int interval)
 {
 	emuRapidFire = state;
+	emuRapidFireToggle = true;
+	emuRapidFireInterval = interval;
 }
 
 bool __CtrlGetRapidFire()
@@ -298,6 +315,10 @@ retry:
 static void __CtrlVblank()
 {
 	emuRapidFireFrames++;
+	if (emuRapidFireFrames >= emuRapidFireInterval) {
+		emuRapidFireFrames = 0;
+		emuRapidFireToggle = !emuRapidFireToggle;
+	}
 
 	// Reduce gamepad Vibration by set % each frame
 	leftVibration *= (float)vibrationLeftDropout / 256.0f;
