@@ -43,6 +43,8 @@ static const u8 nrmsize[4] = { 0, 3, 6, 12 }, nrmalign[4] = { 0, 1, 2, 4 };
 static const u8 possize[4] = { 3, 3, 6, 12 }, posalign[4] = { 1, 1, 2, 4 };
 static const u8 wtsize[4] = { 0, 1, 2, 4 }, wtalign[4] = { 0, 1, 2, 4 };
 
+static constexpr bool validateJit = false;
+
 // When software skinning. This array is only used when non-jitted - when jitted, the matrix
 // is kept in registers.
 alignas(16) static float skinMatrix[12];
@@ -1297,7 +1299,7 @@ void VertexDecoder::DecodeVerts(u8 *decodedptr, const void *verts, const UVScale
 		return;
 	}
 
-	if (jitted_) {
+	if (jitted_ && !validateJit) {
 		// We've compiled the steps into optimized machine code, so just jump!
 		jitted_(startPtr, decodedptr, count, uvScaleOffset);
 	} else {
@@ -1310,6 +1312,71 @@ void VertexDecoder::DecodeVerts(u8 *decodedptr, const void *verts, const UVScale
 			}
 			ptr_ += size;
 			decoded_ += stride;
+		}
+
+		if (jitted_ && validateJit) {
+			CompareToJit(startPtr, decodedptr, indexUpperBound - indexLowerBound + 1, uvScaleOffset);
+		}
+	}
+}
+
+void VertexDecoder::CompareToJit(const u8 *startPtr, u8 *decodedptr, int count, const UVScale *uvScaleOffset) const {
+	std::vector<uint8_t> jittedBuffer(decFmt.stride * count);
+	jitted_(startPtr, &jittedBuffer[0], count, uvScaleOffset);
+
+	VertexReader controlReader(decodedptr, GetDecVtxFmt(), fmt_);
+	VertexReader jittedReader(&jittedBuffer[0], GetDecVtxFmt(), fmt_);
+	for (int i = 0; i < count; ++i) {
+		int off = decFmt.stride * i;
+		// TODO: May need to add tolerances?
+		if (memcmp(decodedptr + off, &jittedBuffer[off], decFmt.stride) != 0) {
+			controlReader.Goto(i);
+			jittedReader.Goto(i);
+
+			char name[512]{};
+			ToString(name);
+			ERROR_LOG(G3D, "Encountered vertexjit mismatch at %d/%d for %s", i, count, name);
+			if (morphcount > 1) {
+				printf("Morph:\n");
+				for (int j = 0; j < morphcount; ++j) {
+					printf("  %f\n", gstate_c.morphWeights[j]);
+				}
+			}
+			if (weighttype) {
+				printf("Bones:\n");
+				for (int j = 0; j < nweights; ++j) {
+					for (int k = 0; k < 4; ++k) {
+						if (k == 0)
+							printf(" *");
+						else
+							printf("  ");
+						printf(" %f,%f,%f\n", gstate.boneMatrix[j * 12 + k * 3 + 0], gstate.boneMatrix[j * 12 + k * 3 + 1], gstate.boneMatrix[j * 12 + k * 3 + 2]);
+					}
+				}
+			}
+			printf("Src:\n");
+			const u8 *s = startPtr + i * size;
+			for (int j = 0; j < size; ++j) {
+				int oneoffset = j % onesize_;
+				if (oneoffset == weightoff && weighttype)
+					printf(" W:");
+				else if (oneoffset == tcoff && tc)
+					printf(" T:");
+				else if (oneoffset == coloff && col)
+					printf(" C:");
+				else if (oneoffset == nrmoff && nrm)
+					printf(" N:");
+				else if (oneoffset == posoff)
+					printf(" P:");
+				printf("%02x ", s[j]);
+				if (oneoffset == onesize_ - 1)
+					printf("\n");
+			}
+			printf("Interpreted vertex:\n");
+			PrintDecodedVertex(controlReader);
+			printf("Jit vertex:\n");
+			PrintDecodedVertex(jittedReader);
+			Crash();
 		}
 	}
 }
