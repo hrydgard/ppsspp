@@ -480,12 +480,73 @@ void RiscVJit::CompIR_Compare(IRInst inst) {
 void RiscVJit::CompIR_CondAssign(IRInst inst) {
 	CONDITIONAL_DISABLE;
 
+	RiscVReg lhs = INVALID_REG;
+	RiscVReg rhs = INVALID_REG;
+	FixupBranch fixup;
 	switch (inst.op) {
 	case IROp::MovZ:
 	case IROp::MovNZ:
+		if (inst.dest == inst.src2)
+			return;
+
+		// We could have a "zero" that with wrong upper due to XOR, so we have to normalize.
+		gpr.MapDirtyInIn(inst.dest, inst.src1, inst.src2, MapType::ALWAYS_LOAD);
+		lhs = gpr.R(inst.src1);
+
+		if (gpr.IsMappedAsStaticPointer(inst.src1) || inst.src1 == inst.dest) {
+			lhs = gpr.Normalize32(inst.src1, SCRATCH1);
+		} else {
+			gpr.Normalize32(inst.src1);
+		}
+
+		switch (inst.op) {
+		case IROp::MovZ:
+			fixup = BNE(lhs, R_ZERO);
+			break;
+		case IROp::MovNZ:
+			fixup = BEQ(lhs, R_ZERO);
+			break;
+		default:
+			INVALIDOP;
+			break;
+		}
+
+		MV(gpr.R(inst.dest), gpr.R(inst.src2));
+		SetJumpTarget(fixup);
+		break;
+
 	case IROp::Max:
+		if (inst.src1 != inst.src2) {
+			if (cpu_info.RiscV_Zbb) {
+				gpr.MapDirtyInIn(inst.dest, inst.src1, inst.src2);
+				MAX(gpr.R(inst.dest), gpr.R(inst.src1), gpr.R(inst.src2));
+				if (gpr.IsNormalized32(inst.src1) && gpr.IsNormalized32(inst.src2))
+					gpr.MarkDirty(gpr.R(inst.dest), true);
+			} else {
+				CompIR_Generic(inst);
+			}
+		} else if (inst.dest != inst.src1) {
+			gpr.MapDirtyIn(inst.dest, inst.src1);
+			MV(gpr.R(inst.dest), gpr.R(inst.src1));
+			gpr.MarkDirty(gpr.R(inst.dest), gpr.IsNormalized32(inst.src1));
+		}
+		break;
+
 	case IROp::Min:
-		CompIR_Generic(inst);
+		if (inst.src1 != inst.src2) {
+			if (cpu_info.RiscV_Zbb) {
+				gpr.MapDirtyInIn(inst.dest, inst.src1, inst.src2);
+				MIN(gpr.R(inst.dest), gpr.R(inst.src1), gpr.R(inst.src2));
+				if (gpr.IsNormalized32(inst.src1) && gpr.IsNormalized32(inst.src2))
+					gpr.MarkDirty(gpr.R(inst.dest), true);
+			} else {
+				CompIR_Generic(inst);
+			}
+		} else if (inst.dest != inst.src1) {
+			gpr.MapDirtyIn(inst.dest, inst.src1);
+			MV(gpr.R(inst.dest), gpr.R(inst.src1));
+			gpr.MarkDirty(gpr.R(inst.dest), gpr.IsNormalized32(inst.src1));
+		}
 		break;
 
 	default:
