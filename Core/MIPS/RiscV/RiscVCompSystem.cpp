@@ -39,7 +39,9 @@ void RiscVJit::CompIR_Basic(IRInst inst) {
 
 	switch (inst.op) {
 	case IROp::SetConst:
-		gpr.SetImm(inst.dest, inst.constant);
+		// Sign extend all constants.  We get 0xFFFFFFFF sometimes, and it's more work to truncate.
+		// The register only holds 32 bits in the end anyway.
+		gpr.SetImm(inst.dest, (int32_t)inst.constant);
 		break;
 
 	case IROp::SetConstF:
