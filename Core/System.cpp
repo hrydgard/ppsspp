@@ -418,6 +418,10 @@ bool PSP_InitStart(const CoreParameter &coreParam, std::string *error_string) {
 		return false;
 	}
 
+	if (!Achievements::IsReadyToStart()) {
+		return false;
+	}
+
 #if defined(_WIN32) && PPSSPP_ARCH(AMD64)
 	NOTICE_LOG(BOOT, "PPSSPP %s Windows 64 bit", PPSSPP_GIT_VERSION);
 #elif defined(_WIN32) && !PPSSPP_ARCH(AMD64)
