@@ -436,6 +436,7 @@ public:
 	// Mutable decoder state
 	mutable u8 *decoded_ = nullptr;
 	mutable const u8 *ptr_ = nullptr;
+	mutable const UVScale *prescaleUV_ = nullptr;
 	JittedVertexDecoder jitted_ = 0;
 	int32_t jittedSize_ = 0;
 

@@ -340,29 +340,29 @@ void VertexDecoder::Step_TcFloatThrough() const
 void VertexDecoder::Step_TcU8Prescale() const {
 	float *uv = (float *)(decoded_ + decFmt.uvoff);
 	const u8 *uvdata = (const u8 *)(ptr_ + tcoff);
-	uv[0] = (float)uvdata[0] * (1.f / 128.f) * gstate_c.uv.uScale + gstate_c.uv.uOff;
-	uv[1] = (float)uvdata[1] * (1.f / 128.f) * gstate_c.uv.vScale + gstate_c.uv.vOff;
+	uv[0] = (float)uvdata[0] * (1.f / 128.f) * prescaleUV_->uScale + prescaleUV_->uOff;
+	uv[1] = (float)uvdata[1] * (1.f / 128.f) * prescaleUV_->vScale + prescaleUV_->vOff;
 }
 
 void VertexDecoder::Step_TcU16Prescale() const {
 	float *uv = (float *)(decoded_ + decFmt.uvoff);
 	const u16_le *uvdata = (const u16_le *)(ptr_ + tcoff);
-	uv[0] = (float)uvdata[0] * (1.f / 32768.f) * gstate_c.uv.uScale + gstate_c.uv.uOff;
-	uv[1] = (float)uvdata[1] * (1.f / 32768.f) * gstate_c.uv.vScale + gstate_c.uv.vOff;
+	uv[0] = (float)uvdata[0] * (1.f / 32768.f) * prescaleUV_->uScale + prescaleUV_->uOff;
+	uv[1] = (float)uvdata[1] * (1.f / 32768.f) * prescaleUV_->vScale + prescaleUV_->vOff;
 }
 
 void VertexDecoder::Step_TcU16DoublePrescale() const {
 	float *uv = (float *)(decoded_ + decFmt.uvoff);
 	const u16_le *uvdata = (const u16_le *)(ptr_ + tcoff);
-	uv[0] = (float)uvdata[0] * (1.f / 16384.f) * gstate_c.uv.uScale + gstate_c.uv.uOff;
-	uv[1] = (float)uvdata[1] * (1.f / 16384.f) * gstate_c.uv.vScale + gstate_c.uv.vOff;
+	uv[0] = (float)uvdata[0] * (1.f / 16384.f) * prescaleUV_->uScale + prescaleUV_->uOff;
+	uv[1] = (float)uvdata[1] * (1.f / 16384.f) * prescaleUV_->vScale + prescaleUV_->vOff;
 }
 
 void VertexDecoder::Step_TcFloatPrescale() const {
 	float *uv = (float *)(decoded_ + decFmt.uvoff);
 	const float_le *uvdata = (const float_le *)(ptr_ + tcoff);
-	uv[0] = uvdata[0] * gstate_c.uv.uScale + gstate_c.uv.uOff;
-	uv[1] = uvdata[1] * gstate_c.uv.vScale + gstate_c.uv.vOff;
+	uv[0] = uvdata[0] * prescaleUV_->uScale + prescaleUV_->uOff;
+	uv[1] = uvdata[1] * prescaleUV_->vScale + prescaleUV_->vOff;
 }
 
 void VertexDecoder::Step_TcU8MorphToFloat() const {
@@ -436,8 +436,8 @@ void VertexDecoder::Step_TcU8PrescaleMorph() const {
 	}
 
 	float *out = (float *)(decoded_ + decFmt.uvoff);
-	out[0] = uv[0] * gstate_c.uv.uScale + gstate_c.uv.uOff;
-	out[1] = uv[1] * gstate_c.uv.vScale + gstate_c.uv.vOff;
+	out[0] = uv[0] * prescaleUV_->uScale + prescaleUV_->uOff;
+	out[1] = uv[1] * prescaleUV_->vScale + prescaleUV_->vOff;
 }
 
 void VertexDecoder::Step_TcU16PrescaleMorph() const {
@@ -451,8 +451,8 @@ void VertexDecoder::Step_TcU16PrescaleMorph() const {
 	}
 
 	float *out = (float *)(decoded_ + decFmt.uvoff);
-	out[0] = uv[0] * gstate_c.uv.uScale + gstate_c.uv.uOff;
-	out[1] = uv[1] * gstate_c.uv.vScale + gstate_c.uv.vOff;
+	out[0] = uv[0] * prescaleUV_->uScale + prescaleUV_->uOff;
+	out[1] = uv[1] * prescaleUV_->vScale + prescaleUV_->vOff;
 }
 
 void VertexDecoder::Step_TcU16DoublePrescaleMorph() const {
@@ -466,8 +466,8 @@ void VertexDecoder::Step_TcU16DoublePrescaleMorph() const {
 	}
 
 	float *out = (float *)(decoded_ + decFmt.uvoff);
-	out[0] = uv[0] * gstate_c.uv.uScale + gstate_c.uv.uOff;
-	out[1] = uv[1] * gstate_c.uv.vScale + gstate_c.uv.vOff;
+	out[0] = uv[0] * prescaleUV_->uScale + prescaleUV_->uOff;
+	out[1] = uv[1] * prescaleUV_->vScale + prescaleUV_->vOff;
 }
 
 void VertexDecoder::Step_TcFloatPrescaleMorph() const {
@@ -481,8 +481,8 @@ void VertexDecoder::Step_TcFloatPrescaleMorph() const {
 	}
 
 	float *out = (float *)(decoded_ + decFmt.uvoff);
-	out[0] = uv[0] * gstate_c.uv.uScale + gstate_c.uv.uOff;
-	out[1] = uv[1] * gstate_c.uv.vScale + gstate_c.uv.vOff;
+	out[0] = uv[0] * prescaleUV_->uScale + prescaleUV_->uOff;
+	out[1] = uv[1] * prescaleUV_->vScale + prescaleUV_->vOff;
 }
 
 void VertexDecoder::Step_ColorInvalid() const
@@ -1303,6 +1303,7 @@ void VertexDecoder::DecodeVerts(u8 *decodedptr, const void *verts, const UVScale
 	} else {
 		ptr_ = startPtr;
 		decoded_ = decodedptr;
+		prescaleUV_ = uvScaleOffset;
 		// Interpret the decode steps
 		for (; count; count--) {
 			for (int i = 0; i < numSteps_; i++) {
