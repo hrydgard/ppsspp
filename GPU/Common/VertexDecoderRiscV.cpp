@@ -265,15 +265,15 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec, int
 
 		if ((morphFlags & (1 << (int)MorphValuesIndex::COLOR_4)) != 0) {
 			LI(scratchReg, 255.0f / 15.0f);
-			FMV(FMv::W, FMv::X, fpScratchReg1, scratchReg);
+			FMV(FMv::W, FMv::X, fpExtra[0], scratchReg);
 		}
 		if ((morphFlags & (1 << (int)MorphValuesIndex::COLOR_5)) != 0) {
 			LI(scratchReg, 255.0f / 31.0f);
-			FMV(FMv::W, FMv::X, fpScratchReg2, scratchReg);
+			FMV(FMv::W, FMv::X, fpExtra[1], scratchReg);
 		}
 		if ((morphFlags & (1 << (int)MorphValuesIndex::COLOR_6)) != 0) {
 			LI(scratchReg, 255.0f / 63.0f);
-			FMV(FMv::W, FMv::X, fpScratchReg3, scratchReg);
+			FMV(FMv::W, FMv::X, fpExtra[2], scratchReg);
 		}
 
 		// Premultiply the values we need and store them so we can reuse.
@@ -287,11 +287,11 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec, int
 			if ((morphFlags & (1 << (int)MorphValuesIndex::AS_FLOAT)) != 0)
 				FS(32, fpScratchReg1, morphBaseReg, ((int)MorphValuesIndex::AS_FLOAT * 8 + n) * 4);
 			if ((morphFlags & (1 << (int)MorphValuesIndex::COLOR_4)) != 0)
-				storePremultiply(fpScratchReg1, MorphValuesIndex::COLOR_4, n);
+				storePremultiply(fpExtra[0], MorphValuesIndex::COLOR_4, n);
 			if ((morphFlags & (1 << (int)MorphValuesIndex::COLOR_5)) != 0)
-				storePremultiply(fpScratchReg2, MorphValuesIndex::COLOR_5, n);
+				storePremultiply(fpExtra[1], MorphValuesIndex::COLOR_5, n);
 			if ((morphFlags & (1 << (int)MorphValuesIndex::COLOR_6)) != 0)
-				storePremultiply(fpScratchReg3, MorphValuesIndex::COLOR_6, n);
+				storePremultiply(fpExtra[2], MorphValuesIndex::COLOR_6, n);
 		}
 	} else if (dec_->skinInDecode) {
 		LI(morphBaseReg, &skinMatrix[0]);
@@ -538,7 +538,7 @@ void VertexDecoderJitCache::Jit_TcU16ThroughToFloat() {
 	LHU(tempReg1, srcReg, dec_->tcoff + 0);
 	LHU(tempReg2, srcReg, dec_->tcoff + 2);
 
-	if (cpu_info.RiscV_B) {
+	if (cpu_info.RiscV_Zbb) {
 		MINU(boundsMinUReg, boundsMinUReg, tempReg1);
 		MAXU(boundsMaxUReg, boundsMaxUReg, tempReg1);
 		MINU(boundsMinVReg, boundsMinVReg, tempReg2);
@@ -1110,7 +1110,7 @@ void VertexDecoderJitCache::Jit_Color565Morph() {
 	SRLI(tempReg1, tempReg1, 6);
 	FMUL(32, fpSrc[1], fpSrc[1], fpScratchReg4, Round::TOZERO);
 
-	FCVT(FConv::S, FConv::WU, fpSrc[0], tempReg1, Round::TOZERO);
+	FCVT(FConv::S, FConv::WU, fpSrc[2], tempReg1, Round::TOZERO);
 	FMUL(32, fpSrc[2], fpSrc[2], fpScratchReg3, Round::TOZERO);
 
 	for (int n = 1; n < dec_->morphcount; n++) {
@@ -1172,7 +1172,7 @@ void VertexDecoderJitCache::Jit_Color5551Morph() {
 }
 
 void VertexDecoderJitCache::Jit_WriteMorphColor(int outOff, bool checkAlpha) {
-	if (cpu_info.RiscV_B) {
+	if (cpu_info.RiscV_Zbb) {
 		LI(scratchReg, 0xFF);
 		FCVT(FConv::WU, FConv::S, tempReg1, fpSrc[0], Round::TOZERO);
 		MAX(tempReg1, tempReg1, R_ZERO);
