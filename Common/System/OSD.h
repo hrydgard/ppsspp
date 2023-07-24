@@ -19,6 +19,7 @@ enum class OSDType {
 	// Side entries
 	ACHIEVEMENT_PROGRESS,  // Achievement icon + "measured_progress" text, auto-hide after 2s
 	ACHIEVEMENT_CHALLENGE_INDICATOR,  // Achievement icon ONLY, no auto-hide
+
 	LEADERBOARD_TRACKER,
 };
 

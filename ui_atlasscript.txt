@@ -72,3 +72,11 @@ image I_THREE_DOTS source_assets/image/three_dots.png copy
 image I_INFO source_assets/image/info.png copy
 image I_RETROACHIEVEMENTS_LOGO source_assets/image/retroachievements_logo.png copy
 image I_CHECKMARK source_assets/image/checkmark.png copy
+image I_PLAY source_assets/image/play.png copy
+image I_STOP source_assets/image/stop.png copy
+image I_FASTFORWARD source_assets/image/fast_forward.png copy
+image I_RECORD source_assets/image/record.png copy
+image I_SPEAKER source_assets/image/speaker.png copy
+image I_SPEAKER_MAX source_assets/image/speaker_max.png copy
+image I_SPEAKER_OFF source_assets/image/speaker_off.png copy
+image I_WINNER_CUP source_assets/image/winner_cup.png copy

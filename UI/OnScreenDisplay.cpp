@@ -202,7 +202,7 @@ static void RenderOSDProgressBar(UIContext &dc, const OnScreenDisplay::ProgressB
 
 static void MeasureLeaderboardTracker(UIContext &dc, const std::string &text, float *width, float *height) {
 	dc.MeasureText(dc.GetFontStyle(), 1.0f, 1.0f, text.c_str(), width, height);
-	*width += 10.0f;
+	*width += 16.0f;
 	*height += 10.0f;
 }
 
@@ -214,7 +214,7 @@ static void RenderLeaderboardTracker(UIContext &dc, const Bounds &bounds, const 
 	dc.FillRect(background, bounds);
 	dc.SetFontStyle(dc.theme->uiFont);
 	dc.SetFontScale(1.0f, 1.0f);
-	dc.DrawTextShadowRect(text.c_str(), bounds.Inset(5.0f, 5.0f), colorAlpha(0xFFFFFFFF, alpha), ALIGN_VCENTER | ALIGN_LEFT);
+	dc.DrawTextShadowRect(text.c_str(), bounds.Inset(5.0f, 5.0f), colorAlpha(0xFFFFFFFF, alpha), ALIGN_VCENTER | ALIGN_HCENTER);
 }
 
 void OnScreenMessagesView::Draw(UIContext &dc) {
