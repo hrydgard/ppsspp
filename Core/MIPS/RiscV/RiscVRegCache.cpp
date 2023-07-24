@@ -55,6 +55,7 @@ void RiscVRegCache::Start() {
 	for (int i = 0; i < numStatics; i++) {
 		ar[statics[i].ar].mipsReg = statics[i].mr;
 		ar[statics[i].ar].pointerified = statics[i].pointerified && jo_->enablePointerify;
+		ar[statics[i].ar].normalized32 = false;
 		mr[statics[i].mr].loc = MIPSLoc::RVREG;
 		mr[statics[i].mr].reg = statics[i].ar;
 		mr[statics[i].mr].isStatic = true;
@@ -112,9 +113,11 @@ void RiscVRegCache::EmitLoadStaticRegisters() {
 	const StaticAllocation *allocs = GetStaticAllocations(count);
 	for (int i = 0; i < count; i++) {
 		int offset = GetMipsRegOffset(allocs[i].mr);
-		emit_->LW(allocs[i].ar, CTXREG, offset);
 		if (allocs[i].pointerified && jo_->enablePointerify) {
+			emit_->LWU(allocs[i].ar, CTXREG, offset);
 			emit_->ADD(allocs[i].ar, allocs[i].ar, MEMBASEREG);
+		} else {
+			emit_->LW(allocs[i].ar, CTXREG, offset);
 		}
 	}
 }
@@ -230,35 +233,33 @@ RiscVGen::RiscVReg RiscVRegCache::Normalize32(IRRegIndex mipsReg, RiscVGen::Risc
 	case MIPSLoc::RVREG_IMM:
 		if (!ar[mr[mipsReg].reg].normalized32) {
 			if (destReg == INVALID_REG) {
-				emit_->ADDIW(mr[mipsReg].reg, mr[mipsReg].reg, 0);
+				emit_->SEXT_W(mr[mipsReg].reg, mr[mipsReg].reg);
 				ar[mr[mipsReg].reg].normalized32 = true;
 				ar[mr[mipsReg].reg].pointerified = false;
 			} else {
-				emit_->ADDIW(destReg, mr[mipsReg].reg, 0);
+				emit_->SEXT_W(destReg, mr[mipsReg].reg);
 			}
 		} else if (destReg != INVALID_REG) {
-			emit_->ADDIW(destReg, mr[mipsReg].reg, 0);
+			emit_->SEXT_W(destReg, mr[mipsReg].reg);
 		}
-		ar[mr[mipsReg].reg].pointerified = false;
 		break;
 
 	case MIPSLoc::RVREG_AS_PTR:
 		_dbg_assert_(ar[mr[mipsReg].reg].normalized32 == false);
 		if (destReg == INVALID_REG) {
-			// If we can pointerify, ADDIW will be enough.
+			// If we can pointerify, SEXT_W will be enough.
 			if (!jo_->enablePointerify)
 				emit_->SUB(mr[mipsReg].reg, mr[mipsReg].reg, MEMBASEREG);
-			emit_->ADDIW(mr[mipsReg].reg, mr[mipsReg].reg, 0);
+			emit_->SEXT_W(mr[mipsReg].reg, mr[mipsReg].reg);
 			mr[mipsReg].loc = MIPSLoc::RVREG;
 			ar[mr[mipsReg].reg].normalized32 = true;
 			ar[mr[mipsReg].reg].pointerified = false;
 		} else if (!jo_->enablePointerify) {
 			emit_->SUB(destReg, mr[mipsReg].reg, MEMBASEREG);
-			emit_->ADDIW(destReg, destReg, 0);
+			emit_->SEXT_W(destReg, destReg);
 		} else {
-			emit_->ADDIW(destReg, mr[mipsReg].reg, 0);
+			emit_->SEXT_W(destReg, mr[mipsReg].reg);
 		}
-		ar[mr[mipsReg].reg].pointerified = false;
 		break;
 	}
 
@@ -471,7 +472,6 @@ RiscVReg RiscVRegCache::MapReg(IRRegIndex mipsReg, MIPSMap mapFlags) {
 				_dbg_assert_(!ar[riscvReg].isDirty && (mapFlags & MIPSMap::DIRTY) != MIPSMap::DIRTY);
 #endif
 				emit_->SUB(riscvReg, riscvReg, MEMBASEREG);
-				ar[riscvReg].normalized32 = false;
 			}
 			mr[mipsReg].loc = MIPSLoc::RVREG;
 			ar[riscvReg].normalized32 = false;
