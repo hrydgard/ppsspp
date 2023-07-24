@@ -233,6 +233,11 @@ bool EmuScreen::bootAllowStorage(const Path &filename) {
 void EmuScreen::bootGame(const Path &filename) {
 	auto sc = GetI18NCategory(I18NCat::SCREEN);
 
+	if (Achievements::IsBlockingExecution()) {
+		// Keep waiting.
+		return;
+	}
+
 	if (PSP_IsRebooting())
 		return;
 	if (PSP_IsInited()) {
@@ -244,6 +249,7 @@ void EmuScreen::bootGame(const Path &filename) {
 
 	if (PSP_IsIniting()) {
 		std::string error_string = "(unknown error)";
+
 		bootPending_ = !PSP_InitUpdate(&error_string);
 
 		if (!bootPending_) {
