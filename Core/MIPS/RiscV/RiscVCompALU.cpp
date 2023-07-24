@@ -509,10 +509,27 @@ void RiscVJit::CompIR_HiLo(IRInst inst) {
 
 	switch (inst.op) {
 	case IROp::MtLo:
+		gpr.MapDirtyIn(IRREG_LO, inst.src1);
+		MV(gpr.R(IRREG_LO), gpr.R(inst.src1));
+		gpr.MarkDirty(gpr.R(IRREG_LO), gpr.IsNormalized32(inst.src1));
+		break;
+
 	case IROp::MtHi:
+		gpr.MapDirtyIn(IRREG_HI, inst.src1);
+		MV(gpr.R(IRREG_HI), gpr.R(inst.src1));
+		gpr.MarkDirty(gpr.R(IRREG_HI), gpr.IsNormalized32(inst.src1));
+		break;
+
 	case IROp::MfLo:
+		gpr.MapDirtyIn(inst.dest, IRREG_LO);
+		MV(gpr.R(inst.dest), gpr.R(IRREG_LO));
+		gpr.MarkDirty(gpr.R(inst.dest), gpr.IsNormalized32(IRREG_LO));
+		break;
+
 	case IROp::MfHi:
-		CompIR_Generic(inst);
+		gpr.MapDirtyIn(inst.dest, IRREG_HI);
+		MV(gpr.R(inst.dest), gpr.R(IRREG_HI));
+		gpr.MarkDirty(gpr.R(inst.dest), gpr.IsNormalized32(IRREG_HI));
 		break;
 
 	default:
@@ -524,14 +541,94 @@ void RiscVJit::CompIR_HiLo(IRInst inst) {
 void RiscVJit::CompIR_Mult(IRInst inst) {
 	CONDITIONAL_DISABLE;
 
+	auto makeArgsUnsigned = [&](RiscVReg *lhs, RiscVReg *rhs) {
+		if (cpu_info.RiscV_Zba) {
+			ZEXT_W(SCRATCH1, gpr.R(inst.src1));
+			ZEXT_W(SCRATCH2, gpr.R(inst.src2));
+		} else {
+			SLLI(SCRATCH1, gpr.R(inst.src1), XLEN - 32);
+			SRLI(SCRATCH1, SCRATCH1, XLEN - 32);
+			SLLI(SCRATCH2, gpr.R(inst.src2), XLEN - 32);
+			SRLI(SCRATCH2, SCRATCH2, XLEN - 32);
+		}
+		*lhs = SCRATCH1;
+		*rhs = SCRATCH2;
+	};
+	auto combinePrevMulResult = [&] {
+		// TODO: Using a single reg for HI/LO would make this less ugly.
+		if (cpu_info.RiscV_Zba) {
+			ZEXT_W(gpr.R(IRREG_LO), gpr.R(IRREG_LO));
+		} else {
+			SLLI(gpr.R(IRREG_LO), gpr.R(IRREG_LO), XLEN - 32);
+			SRLI(gpr.R(IRREG_LO), gpr.R(IRREG_LO), XLEN - 32);
+		}
+		SLLI(gpr.R(IRREG_HI), gpr.R(IRREG_HI), 32);
+		OR(gpr.R(IRREG_LO), gpr.R(IRREG_LO), gpr.R(IRREG_HI));
+	};
+	auto splitMulResult = [&] {
+		SRAI(gpr.R(IRREG_HI), gpr.R(IRREG_LO), 32);
+		gpr.MarkDirty(gpr.R(IRREG_HI), true);
+	};
+
+	RiscVReg lhs = INVALID_REG;
+	RiscVReg rhs = INVALID_REG;
 	switch (inst.op) {
 	case IROp::Mult:
+		// TODO: Maybe IR could simplify when HI is not needed or clobbered?
+		// TODO: HI/LO merge optimization?  Have to be careful of passes that split them...
+		gpr.MapDirtyDirtyInIn(IRREG_LO, IRREG_HI, inst.src1, inst.src2);
+		NormalizeSrc12(inst, &lhs, &rhs, SCRATCH1, SCRATCH2, true);
+		MUL(gpr.R(IRREG_LO), lhs, rhs);
+		splitMulResult();
+		break;
+
 	case IROp::MultU:
+		// This is an "anti-norm32" case.  Let's just zero always.
+		// TODO: If we could know that LO was only needed, we could use MULW and be done.
+		gpr.MapDirtyDirtyInIn(IRREG_LO, IRREG_HI, inst.src1, inst.src2);
+		makeArgsUnsigned(&lhs, &rhs);
+		MUL(gpr.R(IRREG_LO), lhs, rhs);
+		splitMulResult();
+		break;
+
 	case IROp::Madd:
+		gpr.MapDirtyDirtyInIn(IRREG_LO, IRREG_HI, inst.src1, inst.src2, MapType::ALWAYS_LOAD);
+		NormalizeSrc12(inst, &lhs, &rhs, SCRATCH1, SCRATCH2, true);
+		MUL(SCRATCH1, lhs, rhs);
+
+		combinePrevMulResult();
+		ADD(gpr.R(IRREG_LO), gpr.R(IRREG_LO), SCRATCH1);
+		splitMulResult();
+		break;
+
 	case IROp::MaddU:
+		gpr.MapDirtyDirtyInIn(IRREG_LO, IRREG_HI, inst.src1, inst.src2, MapType::ALWAYS_LOAD);
+		makeArgsUnsigned(&lhs, &rhs);
+		MUL(SCRATCH1, lhs, rhs);
+
+		combinePrevMulResult();
+		ADD(gpr.R(IRREG_LO), gpr.R(IRREG_LO), SCRATCH1);
+		splitMulResult();
+		break;
+
 	case IROp::Msub:
+		gpr.MapDirtyDirtyInIn(IRREG_LO, IRREG_HI, inst.src1, inst.src2, MapType::ALWAYS_LOAD);
+		NormalizeSrc12(inst, &lhs, &rhs, SCRATCH1, SCRATCH2, true);
+		MUL(SCRATCH1, lhs, rhs);
+
+		combinePrevMulResult();
+		SUB(gpr.R(IRREG_LO), gpr.R(IRREG_LO), SCRATCH1);
+		splitMulResult();
+		break;
+
 	case IROp::MsubU:
-		CompIR_Generic(inst);
+		gpr.MapDirtyDirtyInIn(IRREG_LO, IRREG_HI, inst.src1, inst.src2, MapType::ALWAYS_LOAD);
+		makeArgsUnsigned(&lhs, &rhs);
+		MUL(SCRATCH1, lhs, rhs);
+
+		combinePrevMulResult();
+		SUB(gpr.R(IRREG_LO), gpr.R(IRREG_LO), SCRATCH1);
+		splitMulResult();
 		break;
 
 	default:
