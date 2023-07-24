@@ -55,7 +55,7 @@ void RiscVJit::CompIR_Exit(IRInst inst) {
 
 	case IROp::ExitToPC:
 		FlushAll();
-		QuickJ(R_RA, dispatcher_);
+		QuickJ(R_RA, dispatcherCheckCoreState_);
 		break;
 
 	default:

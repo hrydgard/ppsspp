@@ -107,13 +107,6 @@ bool RiscVJit::CompileBlock(u32 em_address, std::vector<IRInst> &instructions, u
 	return true;
 }
 
-static u32 DoIRInst(uint64_t value) {
-	IRInst inst;
-	memcpy(&inst, &value, sizeof(inst));
-
-	return IRInterpret(currentMIPS, &inst, 1);
-}
-
 void RiscVJit::CompileIRInst(IRInst inst) {
 	switch (inst.op) {
 	case IROp::Nop:
@@ -392,9 +385,15 @@ void RiscVJit::CompileIRInst(IRInst inst) {
 	}
 }
 
+static u32 DoIRInst(uint64_t value) {
+	IRInst inst;
+	memcpy(&inst, &value, sizeof(inst));
+
+	return IRInterpret(currentMIPS, &inst, 1);
+}
+
 void RiscVJit::CompIR_Generic(IRInst inst) {
-	// For now, we're gonna do it the slow and ugly way.
-	// Maybe there's a smarter way to fallback?
+	// If we got here, we're going the slow way.
 	uint64_t value;
 	memcpy(&value, &inst, sizeof(inst));
 
@@ -403,14 +402,18 @@ void RiscVJit::CompIR_Generic(IRInst inst) {
 	SaveStaticRegisters();
 	QuickCallFunction(&DoIRInst);
 	LoadStaticRegisters();
-	// Result in X10 aka SCRATCH1.
-	_assert_(X10 == SCRATCH1);
-	if (BInRange(dispatcherPCInSCRATCH1_)) {
-		BNE(X10, R_ZERO, dispatcherPCInSCRATCH1_);
-	} else {
-		FixupBranch skip = BEQ(X10, R_ZERO);
-		QuickJ(R_RA, dispatcherPCInSCRATCH1_);
-		SetJumpTarget(skip);
+
+	// We only need to check the return value if it's a potential exit.
+	if ((GetIRMeta(inst.op)->flags & IRFLAG_EXIT) != 0) {
+		// Result in X10 aka SCRATCH1.
+		_assert_(X10 == SCRATCH1);
+		if (BInRange(dispatcherPCInSCRATCH1_)) {
+			BNE(X10, R_ZERO, dispatcherPCInSCRATCH1_);
+		} else {
+			FixupBranch skip = BEQ(X10, R_ZERO);
+			QuickJ(R_RA, dispatcherPCInSCRATCH1_);
+			SetJumpTarget(skip);
+		}
 	}
 }
 

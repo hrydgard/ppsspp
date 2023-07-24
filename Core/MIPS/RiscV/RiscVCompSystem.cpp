@@ -15,7 +15,12 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "Common/Profiler/Profiler.h"
+#include "Core/Core.h"
+#include "Core/HLE/HLE.h"
+#include "Core/HLE/ReplaceTables.h"
 #include "Core/MemMap.h"
+#include "Core/MIPS/MIPSTables.h"
 #include "Core/MIPS/RiscV/RiscVJit.h"
 #include "Core/MIPS/RiscV/RiscVRegCache.h"
 
@@ -98,10 +103,61 @@ void RiscVJit::CompIR_System(IRInst inst) {
 
 	switch (inst.op) {
 	case IROp::Interpret:
+		// IR protects us against this being a branching instruction (well, hopefully.)
+		FlushAll();
+		SaveStaticRegisters();
+		LI(X10, (int32_t)inst.constant);
+		QuickCallFunction((const u8 *)MIPSGetInterpretFunc(MIPSOpcode(inst.constant)));
+		LoadStaticRegisters();
+		break;
+
 	case IROp::Syscall:
+		FlushAll();
+		SaveStaticRegisters();
+
+#ifdef USE_PROFILER
+		// When profiling, we can't skip CallSyscall, since it times syscalls.
+		LI(X10, (int32_t)inst.constant);
+		QuickCallFunction(&CallSyscall);
+#else
+		// Skip the CallSyscall where possible.
+		{
+			MIPSOpcode op(inst.constant);
+			void *quickFunc = GetQuickSyscallFunc(op);
+			if (quickFunc) {
+				LI(X10, (uintptr_t)GetSyscallFuncPointer(op));
+				QuickCallFunction((const u8 *)quickFunc);
+			} else {
+				LI(X10, (int32_t)inst.constant);
+				QuickCallFunction(&CallSyscall);
+			}
+		}
+#endif
+
+		LoadStaticRegisters();
+		// This is always followed by an ExitToPC, where we check coreState.
+		break;
+
 	case IROp::CallReplacement:
+		FlushAll();
+		SaveStaticRegisters();
+		QuickCallFunction(GetReplacementFunc(inst.constant)->replaceFunc);
+		LoadStaticRegisters();
+		SUB(DOWNCOUNTREG, DOWNCOUNTREG, X10);
+		break;
+
 	case IROp::Break:
-		CompIR_Generic(inst);
+		FlushAll();
+		// This doesn't naturally have restore/apply around it.
+		RestoreRoundingMode(true);
+		SaveStaticRegisters();
+		MovFromPC(X10);
+		QuickCallFunction(&Core_Break);
+		LoadStaticRegisters();
+		ApplyRoundingMode(true);
+		MovFromPC(SCRATCH1);
+		ADDI(SCRATCH1, SCRATCH1, 4);
+		QuickJ(R_RA, dispatcherPCInSCRATCH1_);
 		break;
 
 	default:
