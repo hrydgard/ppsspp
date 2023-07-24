@@ -116,10 +116,7 @@ public:
 
 	void SetImm(IRRegIndex reg, u64 immVal);
 	bool IsImm(IRRegIndex reg) const;
-	bool IsPureImm(IRRegIndex reg) const;
 	u64 GetImm(IRRegIndex reg) const;
-	// Optimally set a register to an imm value (possibly using another register.)
-	void SetRegImm(RiscVGen::RiscVReg reg, u64 imm);
 
 	// May fail and return INVALID_REG if it needs flushing.
 	RiscVGen::RiscVReg TryMapTempImm(IRRegIndex);
@@ -144,7 +141,6 @@ public:
 	void MapDirtyInIn(IRRegIndex rd, IRRegIndex rs, IRRegIndex rt, RiscVJitConstants::MapType type = RiscVJitConstants::MapType::AVOID_LOAD);
 	void MapDirtyDirtyIn(IRRegIndex rd1, IRRegIndex rd2, IRRegIndex rs, RiscVJitConstants::MapType type = RiscVJitConstants::MapType::AVOID_LOAD);
 	void MapDirtyDirtyInIn(IRRegIndex rd1, IRRegIndex rd2, IRRegIndex rs, IRRegIndex rt, RiscVJitConstants::MapType type = RiscVJitConstants::MapType::AVOID_LOAD);
-	void FlushRiscVReg(RiscVGen::RiscVReg r);
 	void FlushBeforeCall();
 	void FlushAll();
 	void FlushR(IRRegIndex r);
@@ -171,6 +167,8 @@ private:
 	RiscVGen::RiscVReg AllocateReg();
 	RiscVGen::RiscVReg FindBestToSpill(bool unusedOnly, bool *clobbered);
 	RiscVGen::RiscVReg RiscVRegForFlush(IRRegIndex r);
+	void FlushRiscVReg(RiscVGen::RiscVReg r);
+	void SetRegImm(RiscVGen::RiscVReg reg, u64 imm);
 	void AddMemBase(RiscVGen::RiscVReg reg);
 	int GetMipsRegOffset(IRRegIndex r);
 

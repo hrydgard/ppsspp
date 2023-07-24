@@ -958,14 +958,6 @@ bool RiscVRegCache::IsImm(IRRegIndex r) const {
 		return mr[r].loc == MIPSLoc::IMM || mr[r].loc == MIPSLoc::RVREG_IMM;
 }
 
-bool RiscVRegCache::IsPureImm(IRRegIndex r) const {
-	_dbg_assert_(IsValidReg(r));
-	if (r == MIPS_REG_ZERO)
-		return true;
-	else
-		return mr[r].loc == MIPSLoc::IMM;
-}
-
 u64 RiscVRegCache::GetImm(IRRegIndex r) const {
 	_dbg_assert_(IsValidReg(r));
 	if (r == MIPS_REG_ZERO)
