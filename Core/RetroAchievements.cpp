@@ -89,7 +89,7 @@ rc_client_t *GetClient() {
 }
 
 bool IsLoggedIn() {
-	return rc_client_get_user_info(g_rcClient) != nullptr;
+	return rc_client_get_user_info(g_rcClient) != nullptr && !g_isLoggingIn;
 }
 
 bool EncoreModeActive() {
@@ -129,7 +129,11 @@ bool WarnUserIfChallengeModeActive(const char *message) {
 }
 
 bool IsBlockingExecution() {
-	return g_isIdentifying || g_isLoggingIn;
+	if (g_isLoggingIn || g_isIdentifying) {
+		// Useful for debugging race conditions.
+		// INFO_LOG(ACHIEVEMENTS, "isLoggingIn: %d   isIdentifying: %d", (int)g_isLoggingIn, (int)g_isIdentifying);
+	}
+	return g_isLoggingIn || g_isIdentifying;
 }
 
 static u32 GetGameID() {
@@ -313,6 +317,7 @@ static void event_handler_callback(const rc_client_event_t *event, rc_client_t *
 static void login_token_callback(int result, const char *error_message, rc_client_t *client, void *userdata) {
 	switch (result) {
 	case RC_OK:
+		INFO_LOG(ACHIEVEMENTS, "Successful login by token.");
 		OnAchievementsLoginStateChange();
 		break;
 	case RC_NO_RESPONSE:
@@ -328,7 +333,7 @@ static void login_token_callback(int result, const char *error_message, rc_clien
 	default:
 	{
 		auto ac = GetI18NCategory(I18NCat::ACHIEVEMENTS);
-		ERROR_LOG(ACHIEVEMENTS, "Failure logging in via token: %d, %s", result, error_message);
+		ERROR_LOG(ACHIEVEMENTS, "Callback: Failure logging in via token: %d, %s", result, error_message);
 		g_OSD.Show(OSDType::MESSAGE_WARNING, ac->T("Failed logging in to RetroAchievements"));
 		OnAchievementsLoginStateChange();
 		break;

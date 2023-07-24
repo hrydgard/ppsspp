@@ -243,14 +243,14 @@ void EmuScreen::bootGame(const Path &filename) {
 	}
 
 	if (PSP_IsIniting()) {
-		std::string error_string;
+		std::string error_string = "(unknown error)";
 		bootPending_ = !PSP_InitUpdate(&error_string);
 
 		if (!bootPending_) {
 			invalid_ = !PSP_IsInited();
 			if (invalid_) {
 				errorMessage_ = error_string;
-				ERROR_LOG(BOOT, "%s", errorMessage_.c_str());
+				ERROR_LOG(BOOT, "isIniting bootGame error: %s", errorMessage_.c_str());
 				return;
 			}
 			bootComplete();
@@ -331,7 +331,7 @@ void EmuScreen::bootGame(const Path &filename) {
 		bootPending_ = false;
 		invalid_ = true;
 		errorMessage_ = error_string;
-		ERROR_LOG(BOOT, "%s", errorMessage_.c_str());
+		ERROR_LOG(BOOT, "InitStart bootGame error: %s", errorMessage_.c_str());
 	}
 
 	if (PSP_CoreParameter().compat.flags().RequireBufferedRendering && g_Config.bSkipBufferEffects) {
@@ -360,8 +360,9 @@ void EmuScreen::bootComplete() {
 	System_Notify(SystemNotification::BOOT_DONE);
 	System_Notify(SystemNotification::DISASSEMBLY);
 
-	NOTICE_LOG(BOOT, "Loading %s...", PSP_CoreParameter().fileToStart.c_str());
+	NOTICE_LOG(BOOT, "Booted %s...", PSP_CoreParameter().fileToStart.c_str());
 	if (!Achievements::ChallengeModeActive()) {
+		// Don't auto-load savestates in challenge mode.
 		autoLoad();
 	}
 
@@ -1075,6 +1076,8 @@ void EmuScreen::update() {
 	}
 
 	if (bootPending_) {
+		// Keep trying the boot until bootPending_ is lifted.
+		// It may be delayed due to RetroAchievements or any other cause.
 		bootGame(gamePath_);
 	}
 
