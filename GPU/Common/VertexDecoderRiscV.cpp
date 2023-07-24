@@ -867,8 +867,8 @@ void VertexDecoderJitCache::Jit_PosS16Through() {
 	LH(tempReg2, srcReg, dec_->posoff + 2);
 	// This one, Z, has to be unsigned.
 	LHU(tempReg3, srcReg, dec_->posoff + 4);
-	FCVT(FConv::S, FConv::WU, fpSrc[0], tempReg1, Round::TOZERO);
-	FCVT(FConv::S, FConv::WU, fpSrc[1], tempReg2, Round::TOZERO);
+	FCVT(FConv::S, FConv::W, fpSrc[0], tempReg1, Round::TOZERO);
+	FCVT(FConv::S, FConv::W, fpSrc[1], tempReg2, Round::TOZERO);
 	FCVT(FConv::S, FConv::WU, fpSrc[2], tempReg3, Round::TOZERO);
 	FS(32, fpSrc[0], dstReg, dec_->decFmt.posoff + 0);
 	FS(32, fpSrc[1], dstReg, dec_->decFmt.posoff + 4);
