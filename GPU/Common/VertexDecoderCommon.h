@@ -473,6 +473,9 @@ public:
 	u8 biggest;  // in practice, alignment.
 
 	friend class VertexDecoderJitCache;
+
+private:
+	void CompareToJit(const u8 *startPtr, u8 *decodedptr, int count, const UVScale *uvScaleOffset) const;
 };
 
 
