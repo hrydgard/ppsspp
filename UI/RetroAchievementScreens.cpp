@@ -34,6 +34,10 @@ AudioFileChooser::AudioFileChooser(std::string *value, const std::string &title,
 		layoutParams_->width = FILL_PARENT;
 		layoutParams_->height = ITEM_HEIGHT;
 	}
+	Add(new Choice(ImageID("I_PLAY"), new LinearLayoutParams(ITEM_HEIGHT, ITEM_HEIGHT)))->OnClick.Add([=](UI::EventParams &) {
+		g_BackgroundAudio.SFX().Play(sound_, 0.6f);
+		return UI::EVENT_DONE;
+	});
 	Add(new FileChooserChoice(value, title, BrowseFileType::SOUND_EFFECT, new LinearLayoutParams(1.0f)))->OnChange.Add([=](UI::EventParams &e) {
 		// TODO: Check the file format here.
 		// Need to forward the event out.
@@ -48,10 +52,6 @@ AudioFileChooser::AudioFileChooser(std::string *value, const std::string &title,
 			}
 			value->clear();
 		}
-		return UI::EVENT_DONE;
-	});
-	Add(new Choice(ImageID("I_ARROW_RIGHT"), new LinearLayoutParams(ITEM_HEIGHT, ITEM_HEIGHT)))->OnClick.Add([=](UI::EventParams &) {
-		g_BackgroundAudio.SFX().Play(sound_, 0.6f);
 		return UI::EVENT_DONE;
 	});
 	Add(new Choice(ImageID("I_TRASHCAN"), new LinearLayoutParams(ITEM_HEIGHT, ITEM_HEIGHT)))->OnClick.Add([=](UI::EventParams &) {
