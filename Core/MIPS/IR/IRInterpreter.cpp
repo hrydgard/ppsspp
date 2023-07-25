@@ -768,9 +768,11 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, int count) {
 			mips->f[inst->dest] = mips->f[inst->src1] / mips->f[inst->src2];
 			break;
 		case IROp::FMin:
+			// TODO: This doesn't handle VFPU ordering right.
 			mips->f[inst->dest] = std::min(mips->f[inst->src1], mips->f[inst->src2]);
 			break;
 		case IROp::FMax:
+			// TODO: This doesn't handle VFPU ordering right.
 			mips->f[inst->dest] = std::max(mips->f[inst->src1], mips->f[inst->src2]);
 			break;
 

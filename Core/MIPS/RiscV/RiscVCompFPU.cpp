@@ -39,12 +39,37 @@ void RiscVJit::CompIR_FArith(IRInst inst) {
 
 	switch (inst.op) {
 	case IROp::FAdd:
+		fpr.MapDirtyInIn(inst.dest, inst.src1, inst.src2);
+		FADD(32, fpr.R(inst.dest), fpr.R(inst.src1), fpr.R(inst.src2));
+		break;
+
 	case IROp::FSub:
+		fpr.MapDirtyInIn(inst.dest, inst.src1, inst.src2);
+		FSUB(32, fpr.R(inst.dest), fpr.R(inst.src1), fpr.R(inst.src2));
+		break;
+
 	case IROp::FMul:
+		fpr.MapDirtyInIn(inst.dest, inst.src1, inst.src2);
+		if (inst.src1 != inst.src2) {
+			CompIR_Generic(inst);
+		} else {
+			FMUL(32, fpr.R(inst.dest), fpr.R(inst.src1), fpr.R(inst.src2));
+		}
+		break;
+
 	case IROp::FDiv:
+		fpr.MapDirtyInIn(inst.dest, inst.src1, inst.src2);
+		FDIV(32, fpr.R(inst.dest), fpr.R(inst.src1), fpr.R(inst.src2));
+		break;
+
 	case IROp::FSqrt:
+		fpr.MapDirtyIn(inst.dest, inst.src1);
+		FSQRT(32, fpr.R(inst.dest), fpr.R(inst.src1));
+		break;
+
 	case IROp::FNeg:
-		CompIR_Generic(inst);
+		fpr.MapDirtyIn(inst.dest, inst.src1);
+		FNEG(32, fpr.R(inst.dest), fpr.R(inst.src1));
 		break;
 
 	default:
@@ -59,6 +84,7 @@ void RiscVJit::CompIR_FCondAssign(IRInst inst) {
 	switch (inst.op) {
 	case IROp::FMin:
 	case IROp::FMax:
+		// TODO: These are tricky, have to handle order correctly.
 		CompIR_Generic(inst);
 		break;
 
@@ -73,7 +99,15 @@ void RiscVJit::CompIR_FAssign(IRInst inst) {
 
 	switch (inst.op) {
 	case IROp::FMov:
+		fpr.MapDirtyIn(inst.dest, inst.src1);
+		FMV(32, fpr.R(inst.dest), fpr.R(inst.src1));
+		break;
+
 	case IROp::FAbs:
+		fpr.MapDirtyIn(inst.dest, inst.src1);
+		FABS(32, fpr.R(inst.dest), fpr.R(inst.src1));
+		break;
+
 	case IROp::FSign:
 		CompIR_Generic(inst);
 		break;

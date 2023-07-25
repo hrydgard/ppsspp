@@ -50,7 +50,14 @@ void RiscVJit::CompIR_Basic(IRInst inst) {
 		break;
 
 	case IROp::SetConstF:
-		CompIR_Generic(inst);
+		fpr.MapReg(inst.dest, MIPSMap::NOINIT);
+		if (inst.constant == 0) {
+			FCVT(FConv::S, FConv::W, fpr.R(inst.dest), R_ZERO);
+		} else {
+			// TODO: In the future, could use FLI if it's approved.
+			LI(SCRATCH1, (int32_t)inst.constant);
+			FMV(FMv::W, FMv::X, fpr.R(inst.dest), SCRATCH1);
+		}
 		break;
 
 	case IROp::Downcount:
@@ -93,7 +100,9 @@ void RiscVJit::CompIR_Transfer(IRInst inst) {
 		break;
 
 	case IROp::SetCtrlVFPUFReg:
-		CompIR_Generic(inst);
+		gpr.MapReg(IRREG_VFPU_CTRL_BASE + inst.dest, MIPSMap::NOINIT);
+		fpr.MapReg(inst.src1);
+		FMV(FMv::X, FMv::W, gpr.R(IRREG_VFPU_CTRL_BASE + inst.dest), fpr.R(inst.src1));
 		break;
 
 	case IROp::FpCondToReg:
@@ -113,8 +122,19 @@ void RiscVJit::CompIR_Transfer(IRInst inst) {
 		break;
 
 	case IROp::FMovFromGPR:
+		fpr.MapReg(inst.dest, MIPSMap::NOINIT);
+		if (gpr.IsImm(inst.src1) && gpr.GetImm(inst.src1) == 0) {
+			FCVT(FConv::S, FConv::W, fpr.R(inst.dest), R_ZERO);
+		} else {
+			gpr.MapReg(inst.src1);
+			FMV(FMv::W, FMv::X, fpr.R(inst.dest), gpr.R(inst.src1));
+		}
+		break;
+
 	case IROp::FMovToGPR:
-		CompIR_Generic(inst);
+		gpr.MapReg(inst.dest, MIPSMap::NOINIT);
+		fpr.MapReg(inst.src1);
+		FMV(FMv::X, FMv::W, gpr.R(inst.dest), fpr.R(inst.src1));
 		break;
 
 	default:
