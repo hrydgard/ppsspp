@@ -26,7 +26,7 @@ namespace MIPSComp {
 using namespace RiscVGen;
 using namespace RiscVJitConstants;
 
-RiscVJit::RiscVJit(MIPSState *mipsState) : IRJit(mipsState), gpr(mipsState, &jo) {
+RiscVJit::RiscVJit(MIPSState *mipsState) : IRJit(mipsState), gpr(mipsState, &jo), fpr(mipsState, &jo) {
 	// Automatically disable incompatible options.
 	if (((intptr_t)Memory::base & 0x00000000FFFFFFFFUL) != 0) {
 		jo.enablePointerify = false;
@@ -40,7 +40,7 @@ RiscVJit::RiscVJit(MIPSState *mipsState) : IRJit(mipsState), gpr(mipsState, &jo)
 	memset(blockStartAddrs_, 0, sizeof(blockStartAddrs_[0]) * MAX_ALLOWED_JIT_BLOCKS);
 
 	gpr.Init(this);
-	// TODO: fpr
+	fpr.Init(this);
 
 	GenerateFixedCode(jo);
 }
@@ -79,7 +79,7 @@ bool RiscVJit::CompileBlock(u32 em_address, std::vector<IRInst> &instructions, u
 	blockStartAddrs_[block_num] = GetCodePointer();
 
 	gpr.Start();
-	// TODO: fpr.
+	fpr.Start();
 
 	for (const IRInst &inst : instructions) {
 		CompileIRInst(inst);
@@ -87,9 +87,8 @@ bool RiscVJit::CompileBlock(u32 em_address, std::vector<IRInst> &instructions, u
 		if (jo.Disabled(JitDisable::REGALLOC_GPR)) {
 			gpr.FlushAll();
 		}
-		// TODO
 		if (jo.Disabled(JitDisable::REGALLOC_FPR)) {
-			//fpr.FlushAll();
+			fpr.FlushAll();
 		}
 
 		// Safety check, in case we get a bunch of really large jit ops without a lot of branching.
@@ -419,7 +418,7 @@ void RiscVJit::CompIR_Generic(IRInst inst) {
 
 void RiscVJit::FlushAll() {
 	gpr.FlushAll();
-	// TODO: fpr.
+	fpr.FlushAll();
 }
 
 bool RiscVJit::DescribeCodePtr(const u8 *ptr, std::string &name) {

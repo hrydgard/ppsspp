@@ -68,10 +68,6 @@ enum class MapType {
 
 } // namespace RiscVJitConstants
 
-namespace MIPSAnalyst {
-struct AnalysisResults;
-};
-
 namespace MIPSComp {
 struct JitOptions;
 }
@@ -175,6 +171,8 @@ private:
 	bool IsValidReg(IRRegIndex r) const;
 	bool IsValidRegNoZero(IRRegIndex r) const;
 
+	void SetupInitialRegs();
+
 	MIPSState *mips_;
 	RiscVGen::RiscVEmitter *emit_ = nullptr;
 	MIPSComp::JitOptions *jo_;
@@ -186,4 +184,9 @@ private:
 
 	RegStatusRiscV ar[NUM_RVREG]{};
 	RegStatusMIPS mr[NUM_MIPSREG]{};
+
+	bool initialReady_ = false;
+	bool pendingUnlock_ = false;
+	RegStatusRiscV arInitial_[NUM_RVREG];
+	RegStatusMIPS mrInitial_[NUM_MIPSREG];
 };

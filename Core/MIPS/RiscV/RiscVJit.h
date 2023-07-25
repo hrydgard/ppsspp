@@ -24,6 +24,7 @@
 #include "Core/MIPS/JitCommon/JitState.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
 #include "Core/MIPS/RiscV/RiscVRegCache.h"
+#include "Core/MIPS/RiscV/RiscVRegCacheFPU.h"
 
 namespace MIPSComp {
 
@@ -113,6 +114,7 @@ private:
 	RiscVGen::RiscVReg NormalizeR(IRRegIndex rs, IRRegIndex rd, RiscVGen::RiscVReg tempReg);
 
 	RiscVRegCache gpr;
+	RiscVRegCacheFPU fpr;
 
 	static constexpr int MAX_ALLOWED_JIT_BLOCKS = 262144;
 

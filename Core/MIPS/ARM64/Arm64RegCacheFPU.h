@@ -17,8 +17,6 @@
 
 #pragma once
 
-#pragma once
-
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/ARM64/Arm64RegCache.h"
 #include "Core/MIPS/MIPSVFPUUtils.h"
@@ -165,7 +163,6 @@ private:
 	MIPSComp::JitOptions *jo_;
 
 	int numARMFpuReg_;
-	int qTime_;
 
 	enum {
 		// On ARM64, each of the 32 registers are full 128-bit. No sharing of components!
