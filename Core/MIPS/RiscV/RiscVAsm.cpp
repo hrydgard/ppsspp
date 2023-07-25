@@ -75,9 +75,8 @@ void RiscVJit::GenerateFixedCode(const JitOptions &jo) {
 		loadStaticRegisters_ = nullptr;
 	}
 
-	// TODO: Do we actually need updateRoundingMode_?  Hm.
-	//applyRoundingMode_ = AlignCode16();
-	if (false) {
+	applyRoundingMode_ = AlignCode16();
+	{
 		// Not sure if RISC-V has any flush to zero capability?  Leaving it off for now...
 		LWU(SCRATCH2, CTXREG, offsetof(MIPSState, fcr31));
 
@@ -102,30 +101,6 @@ void RiscVJit::GenerateFixedCode(const JitOptions &jo) {
 		FSRM(SCRATCH2);
 
 		SetJumpTarget(skip);
-		RET();
-	}
-
-	//updateRoundingMode_ = AlignCode16();
-	if (false) {
-		LWU(SCRATCH2, CTXREG, offsetof(MIPSState, fcr31));
-
-		// Set SCRATCH2 to FZ:RM (FZ is bit 24, and RM are lowest 2 bits.)
-		ANDI(SCRATCH1, SCRATCH2, 1 << 24);
-		ANDI(SCRATCH2, SCRATCH2, 3);
-		SRLI(SCRATCH1, SCRATCH1, 22);
-		OR(SCRATCH2, SCRATCH2, SCRATCH1);
-
-		// Let's update js.currentRoundingFunc with the right convertS0ToSCRATCH1 func.
-		//LI(SCRATCH1, convertS0ToSCRATCH1);
-		if (cpu_info.RiscV_Zba) {
-			SH_ADD(3, SCRATCH1, SCRATCH2, SCRATCH1);
-		} else {
-			SLLI(SCRATCH2, SCRATCH2, 3);
-			ADD(SCRATCH1, SCRATCH1, SCRATCH2);
-		}
-		LD(SCRATCH2, SCRATCH1, 0);
-		//LI(SCRATCH1, &js.currentRoundingFunc);
-		SW(SCRATCH2, SCRATCH1, 0);
 		RET();
 	}
 
@@ -279,15 +254,6 @@ void RiscVJit::GenerateFixedCode(const JitOptions &jo) {
 	LI(SCRATCH2, CORE_RUNTIME_ERROR);
 	SW(SCRATCH2, SCRATCH1, 0);
 	J(quitLoop);
-
-	// TODO: Do we need this?
-	static const Round roundModes[8] = { Round::NEAREST_EVEN, Round::TOZERO, Round::UP, Round::DOWN, Round::NEAREST_EVEN, Round::TOZERO, Round::UP, Round::DOWN };
-	for (size_t i = 0; i < ARRAY_SIZE(roundModes); ++i) {
-		//convertS0ToSCRATCH1[i] = AlignCode16();
-
-		//FCVT(FConv::W, FConv::S, SCRATCH1, F0, roundModes[i]);
-		//RET();
-	}
 
 	// Leave this at the end, add more stuff above.
 	if (enableDisasm) {

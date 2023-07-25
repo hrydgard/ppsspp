@@ -50,13 +50,13 @@ void RiscVRegCacheFPU::Start() {
 
 void RiscVRegCacheFPU::SetupInitialRegs() {
 	for (int i = 0; i < NUM_RVFPUREG; i++) {
-		ar[i].mipsReg = IRREG_INVALID;
-		ar[i].isDirty = false;
+		arInitial_[i].mipsReg = IRREG_INVALID;
+		arInitial_[i].isDirty = false;
 	}
 	for (int i = 0; i < NUM_MIPSFPUREG; i++) {
-		mr[i].loc = MIPSLoc::MEM;
-		mr[i].reg = (int)INVALID_REG;
-		mr[i].spillLock = false;
+		mrInitial_[i].loc = MIPSLoc::MEM;
+		mrInitial_[i].reg = (int)INVALID_REG;
+		mrInitial_[i].spillLock = false;
 	}
 }
 
@@ -377,7 +377,7 @@ bool RiscVRegCacheFPU::IsValidReg(IRRegIndex r) const {
 	int index = r + 32;
 
 	// Allow FPU or VFPU regs here.
-	if (index >= 32 && index < 32 + 128)
+	if (index >= 32 && index < 32 + 32 + 128)
 		return true;
 	// Also allow VFPU temps.
 	if (index >= 224 && index < 224 + 16)

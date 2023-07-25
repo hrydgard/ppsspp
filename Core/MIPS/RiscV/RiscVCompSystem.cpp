@@ -83,10 +83,35 @@ void RiscVJit::CompIR_Transfer(IRInst inst) {
 
 	switch (inst.op) {
 	case IROp::SetCtrlVFPU:
+		gpr.SetImm(IRREG_VFPU_CTRL_BASE + inst.dest, (int32_t)inst.constant);
+		break;
+
 	case IROp::SetCtrlVFPUReg:
+		gpr.MapDirtyIn(IRREG_VFPU_CTRL_BASE + inst.dest, inst.src1);
+		MV(gpr.R(IRREG_VFPU_CTRL_BASE + inst.dest), gpr.R(inst.src1));
+		gpr.MarkDirty(gpr.R(IRREG_VFPU_CTRL_BASE + inst.dest), gpr.IsNormalized32(inst.src1));
+		break;
+
 	case IROp::SetCtrlVFPUFReg:
+		CompIR_Generic(inst);
+		break;
+
 	case IROp::FpCondToReg:
+		gpr.MapDirtyIn(inst.dest, IRREG_FPCOND);
+		MV(gpr.R(inst.dest), gpr.R(IRREG_FPCOND));
+		gpr.MarkDirty(gpr.R(inst.dest), gpr.IsNormalized32(IRREG_FPCOND));
+		break;
+
+	case IROp::ZeroFpCond:
+		gpr.SetImm(IRREG_FPCOND, 0);
+		break;
+
 	case IROp::VfpuCtrlToReg:
+		gpr.MapDirtyIn(inst.dest, IRREG_VFPU_CTRL_BASE + inst.src1);
+		MV(gpr.R(inst.dest), gpr.R(IRREG_VFPU_CTRL_BASE + inst.src1));
+		gpr.MarkDirty(gpr.R(inst.dest), gpr.IsNormalized32(IRREG_VFPU_CTRL_BASE + inst.src1));
+		break;
+
 	case IROp::FMovFromGPR:
 	case IROp::FMovToGPR:
 		CompIR_Generic(inst);

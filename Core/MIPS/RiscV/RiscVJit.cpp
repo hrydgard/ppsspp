@@ -273,7 +273,6 @@ void RiscVJit::CompileIRInst(IRInst inst) {
 		CompIR_FSat(inst);
 		break;
 
-	case IROp::ZeroFpCond:
 	case IROp::FCmp:
 	case IROp::FCmovVfpuCC:
 	case IROp::FCmpVfpuBit:
@@ -291,6 +290,7 @@ void RiscVJit::CompileIRInst(IRInst inst) {
 	case IROp::SetCtrlVFPUReg:
 	case IROp::SetCtrlVFPUFReg:
 	case IROp::FpCondToReg:
+	case IROp::ZeroFpCond:
 	case IROp::VfpuCtrlToReg:
 	case IROp::FMovFromGPR:
 	case IROp::FMovToGPR:
@@ -435,6 +435,8 @@ bool RiscVJit::DescribeCodePtr(const u8 *ptr, std::string &name) {
 		name = "loadStaticRegisters";
 	} else if (ptr == enterDispatcher_) {
 		name = "enterDispatcher";
+	} else if (ptr == applyRoundingMode_) {
+		name = "applyRoundingMode";
 	} else if (!IsInSpace(ptr)) {
 		return false;
 	} else {
@@ -507,7 +509,7 @@ void RiscVJit::RestoreRoundingMode(bool force) {
 
 void RiscVJit::ApplyRoundingMode(bool force) {
 	// TODO: Also could maybe sometimes skip?
-	//QuickCallFunction(applyRoundingMode_);
+	QuickCallFunction(applyRoundingMode_);
 }
 
 void RiscVJit::MovFromPC(RiscVReg r) {

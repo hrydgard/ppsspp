@@ -135,7 +135,6 @@ void RiscVJit::CompIR_FCompare(IRInst inst) {
 	CONDITIONAL_DISABLE;
 
 	switch (inst.op) {
-	case IROp::ZeroFpCond:
 	case IROp::FCmp:
 	case IROp::FCmovVfpuCC:
 	case IROp::FCmpVfpuBit:
@@ -154,9 +153,15 @@ void RiscVJit::CompIR_RoundingMode(IRInst inst) {
 
 	switch (inst.op) {
 	case IROp::RestoreRoundingMode:
+		RestoreRoundingMode();
+		break;
+
 	case IROp::ApplyRoundingMode:
+		ApplyRoundingMode();
+		break;
+
 	case IROp::UpdateRoundingMode:
-		CompIR_Generic(inst);
+		// We don't need to do anything, instructions allow a "dynamic" rounding mode.
 		break;
 
 	default:

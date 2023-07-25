@@ -127,6 +127,7 @@ private:
 	const u8 *dispatcher_ = nullptr;
 	const u8 *dispatcherNoCheck_ = nullptr;
 	const u8 *dispatcherFetch_ = nullptr;
+	const u8 *applyRoundingMode_ = nullptr;
 
 	const u8 *saveStaticRegisters_ = nullptr;
 	const u8 *loadStaticRegisters_ = nullptr;

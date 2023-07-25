@@ -134,7 +134,8 @@ void RiscVJit::CompIR_ExitIf(IRInst inst) {
 
 	case IROp::ExitToConstIfFpTrue:
 	case IROp::ExitToConstIfFpFalse:
-		CompIR_Generic(inst);
+		// Note: not used.
+		DISABLE;
 		break;
 
 	default:
