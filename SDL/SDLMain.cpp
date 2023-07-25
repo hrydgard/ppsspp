@@ -1165,8 +1165,8 @@ int main(int argc, char *argv[]) {
 					SDL_GetWindowSize(window, &w, &h);
 					TouchInput input;
 					input.id = event.tfinger.fingerId;
-					input.x = event.tfinger.x * w;
-					input.y = event.tfinger.y * h;
+					input.x = event.tfinger.x * w * g_DesktopDPI * g_display.dpi_scale_x;
+					input.y = event.tfinger.y * h * g_DesktopDPI * g_display.dpi_scale_x;
 					input.flags = TOUCH_MOVE;
 					input.timestamp = event.tfinger.timestamp;
 					NativeTouch(input);
@@ -1177,8 +1177,8 @@ int main(int argc, char *argv[]) {
 					SDL_GetWindowSize(window, &w, &h);
 					TouchInput input;
 					input.id = event.tfinger.fingerId;
-					input.x = event.tfinger.x * w;
-					input.y = event.tfinger.y * h;
+					input.x = event.tfinger.x * w * g_DesktopDPI * g_display.dpi_scale_x;
+					input.y = event.tfinger.y * h * g_DesktopDPI * g_display.dpi_scale_x;
 					input.flags = TOUCH_DOWN;
 					input.timestamp = event.tfinger.timestamp;
 					NativeTouch(input);
@@ -1195,8 +1195,8 @@ int main(int argc, char *argv[]) {
 					SDL_GetWindowSize(window, &w, &h);
 					TouchInput input;
 					input.id = event.tfinger.fingerId;
-					input.x = event.tfinger.x * w;
-					input.y = event.tfinger.y * h;
+					input.x = event.tfinger.x * w * g_DesktopDPI * g_display.dpi_scale_x;
+					input.y = event.tfinger.y * h * g_DesktopDPI * g_display.dpi_scale_x;
 					input.flags = TOUCH_UP;
 					input.timestamp = event.tfinger.timestamp;
 					NativeTouch(input);
