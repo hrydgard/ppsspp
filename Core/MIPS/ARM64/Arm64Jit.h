@@ -213,7 +213,9 @@ private:
 
 	bool ReplaceJalTo(u32 dest);
 
+	// Clobbers SCRATCH2.
 	void SaveStaticRegisters();
+	// Clobbers SCRATCH2.
 	void LoadStaticRegisters();
 
 	void WriteExit(u32 destination, int exit_num);

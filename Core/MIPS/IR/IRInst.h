@@ -283,7 +283,9 @@ enum IRFpCompareMode {
 	LessEqualUnordered, // ule, ngt (less equal, unordered)
 };
 
-enum {
+typedef u8 IRReg;
+
+enum : IRReg {
 	IRTEMP_0 = 192,
 	IRTEMP_1,
 	IRTEMP_2,
@@ -332,11 +334,11 @@ struct IRMeta {
 struct IRInst {
 	IROp op;
 	union {
-		u8 dest;
-		u8 src3;
+		IRReg dest;
+		IRReg src3;
 	};
-	u8 src1;
-	u8 src2;
+	IRReg src1;
+	IRReg src2;
 	u32 constant;
 };
 

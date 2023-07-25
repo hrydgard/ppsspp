@@ -91,6 +91,9 @@
     <Filter Include="MIPS\fake">
       <UniqueIdentifier>{678fa299-0ff7-4983-982d-2da47b52e238}</UniqueIdentifier>
     </Filter>
+    <Filter Include="MIPS\RiscV">
+      <UniqueIdentifier>{067e3128-3aaf-4ed1-b19e-bab11606abe7}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="ELF\ElfReader.cpp">
@@ -1204,6 +1207,36 @@
     <ClCompile Include="RetroAchievements.cpp">
       <Filter>Core</Filter>
     </ClCompile>
+    <ClCompile Include="MIPS\RiscV\RiscVJit.cpp">
+      <Filter>MIPS\RiscV</Filter>
+    </ClCompile>
+    <ClCompile Include="MIPS\RiscV\RiscVAsm.cpp">
+      <Filter>MIPS\RiscV</Filter>
+    </ClCompile>
+    <ClCompile Include="MIPS\RiscV\RiscVRegCache.cpp">
+      <Filter>MIPS\RiscV</Filter>
+    </ClCompile>
+    <ClCompile Include="MIPS\RiscV\RiscVRegCacheFPU.cpp">
+      <Filter>MIPS\RiscV</Filter>
+    </ClCompile>
+    <ClCompile Include="MIPS\RiscV\RiscVCompFPU.cpp">
+      <Filter>MIPS\RiscV</Filter>
+    </ClCompile>
+    <ClCompile Include="MIPS\RiscV\RiscVCompLoadStore.cpp">
+      <Filter>MIPS\RiscV</Filter>
+    </ClCompile>
+    <ClCompile Include="MIPS\RiscV\RiscVCompVec.cpp">
+      <Filter>MIPS\RiscV</Filter>
+    </ClCompile>
+    <ClCompile Include="MIPS\RiscV\RiscVCompALU.cpp">
+      <Filter>MIPS\RiscV</Filter>
+    </ClCompile>
+    <ClCompile Include="MIPS\RiscV\RiscVCompBranch.cpp">
+      <Filter>MIPS\RiscV</Filter>
+    </ClCompile>
+    <ClCompile Include="MIPS\RiscV\RiscVCompSystem.cpp">
+      <Filter>MIPS\RiscV</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ELF\ElfReader.h">
@@ -1949,6 +1982,15 @@
     </ClInclude>
     <ClInclude Include="RetroAchievements.h">
       <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="MIPS\RiscV\RiscVJit.h">
+      <Filter>MIPS\RiscV</Filter>
+    </ClInclude>
+    <ClInclude Include="MIPS\RiscV\RiscVRegCache.h">
+      <Filter>MIPS\RiscV</Filter>
+    </ClInclude>
+    <ClInclude Include="MIPS\RiscV\RiscVRegCacheFPU.h">
+      <Filter>MIPS\RiscV</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

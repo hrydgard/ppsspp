@@ -1180,6 +1180,19 @@ bool RiscVEmitter::CJInRange(const void *src, const void *dst) const {
 	return BJInRange(src, dst, 12);
 }
 
+void RiscVEmitter::QuickJAL(RiscVReg scratchreg, RiscVReg rd, const u8 *dst) {
+	if (!JInRange(GetCodePointer(), dst)) {
+		static_assert(sizeof(intptr_t) <= sizeof(int64_t));
+		int64_t pcdelta = (int64_t)dst - (int64_t)GetCodePointer();
+		int32_t lower = (int32_t)SignReduce64(pcdelta, 12);
+		uintptr_t upper = ((pcdelta - lower) >> 12) << 12;
+		LI(scratchreg, (uintptr_t)GetCodePointer() + upper);
+		JALR(rd, scratchreg, lower);
+	} else {
+		JAL(rd, dst);
+	}
+}
+
 void RiscVEmitter::SetRegToImmediate(RiscVReg rd, uint64_t value, RiscVReg temp) {
 	int64_t svalue = (int64_t)value;
 	_assert_msg_(IsGPR(rd) && IsGPR(temp), "SetRegToImmediate only supports GPRs");

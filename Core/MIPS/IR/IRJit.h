@@ -170,9 +170,8 @@ public:
 	void LinkBlock(u8 *exitPoint, const u8 *checkedEntry) override;
 	void UnlinkBlock(u8 *checkedEntry, u32 originalAddress) override;
 
-private:
-	bool CompileBlock(u32 em_address, std::vector<IRInst> &instructions, u32 &mipsBytes, bool preload);
-	bool ReplaceJalTo(u32 dest);
+protected:
+	virtual bool CompileBlock(u32 em_address, std::vector<IRInst> &instructions, u32 &mipsBytes, bool preload);
 
 	JitOptions jo;
 
@@ -187,4 +186,3 @@ private:
 };
 
 }	// namespace MIPSComp
-
