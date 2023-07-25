@@ -291,6 +291,8 @@ void RiscVJit::CompileIRInst(IRInst inst) {
 	case IROp::SetCtrlVFPUFReg:
 	case IROp::FpCondToReg:
 	case IROp::ZeroFpCond:
+	case IROp::FpCtrlFromReg:
+	case IROp::FpCtrlToReg:
 	case IROp::VfpuCtrlToReg:
 	case IROp::FMovFromGPR:
 	case IROp::FMovToGPR:

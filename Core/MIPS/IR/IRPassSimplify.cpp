@@ -695,10 +695,11 @@ bool PropagateConstants(const IRWriter &in, IRWriter &out, const IROptions &opts
 			}
 			break;
 		case IROp::FpCtrlFromReg:
-			gpr.MapIn(inst.src1);
+			gpr.MapDirtyIn(IRREG_FCR31, inst.src1);
+			gpr.MapDirty(IRREG_FPCOND);
 			goto doDefault;
 		case IROp::FpCtrlToReg:
-			gpr.MapDirty(inst.dest);
+			gpr.MapDirtyInIn(inst.dest, IRREG_FPCOND, IRREG_FCR31);
 			goto doDefault;
 
 		case IROp::Vec4Init:

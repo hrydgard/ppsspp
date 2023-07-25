@@ -115,6 +115,40 @@ void RiscVJit::CompIR_Transfer(IRInst inst) {
 		gpr.SetImm(IRREG_FPCOND, 0);
 		break;
 
+	case IROp::FpCtrlFromReg:
+		gpr.MapDirtyIn(IRREG_FPCOND, inst.src1, MapType::AVOID_LOAD_MARK_NORM32);
+		LI(SCRATCH1, 0x0181FFFF);
+		AND(SCRATCH1, gpr.R(inst.src1), SCRATCH1);
+		// Extract the new fpcond value.
+		if (cpu_info.RiscV_Zbs) {
+			BEXTI(gpr.R(IRREG_FPCOND), SCRATCH1, 23);
+		} else {
+			SRLI(gpr.R(IRREG_FPCOND), SCRATCH1, 23);
+			ANDI(gpr.R(IRREG_FPCOND), gpr.R(IRREG_FPCOND), 1);
+		}
+		SW(SCRATCH1, CTXREG, IRREG_FCR31 * 4);
+		break;
+
+	case IROp::FpCtrlToReg:
+		gpr.MapDirtyIn(inst.dest, IRREG_FPCOND, MapType::AVOID_LOAD_MARK_NORM32);
+		// Load fcr31 and clear the fpcond bit.
+		LW(SCRATCH1, CTXREG, IRREG_FCR31 * 4);
+		if (cpu_info.RiscV_Zbs) {
+			BCLRI(SCRATCH1, SCRATCH1, 23);
+		} else {
+			LI(SCRATCH2, ~(1 << 23));
+			AND(SCRATCH1, SCRATCH1, SCRATCH2);
+		}
+
+		// Now get the correct fpcond bit.
+		ANDI(SCRATCH2, gpr.R(IRREG_FPCOND), 1);
+		SLLI(SCRATCH2, SCRATCH2, 23);
+		OR(gpr.R(inst.dest), SCRATCH1, SCRATCH2);
+
+		// Also update mips->fcr31 while we're here.
+		SW(gpr.R(inst.dest), CTXREG, IRREG_FCR31 * 4);
+		break;
+
 	case IROp::VfpuCtrlToReg:
 		gpr.MapDirtyIn(inst.dest, IRREG_VFPU_CTRL_BASE + inst.src1);
 		MV(gpr.R(inst.dest), gpr.R(IRREG_VFPU_CTRL_BASE + inst.src1));
