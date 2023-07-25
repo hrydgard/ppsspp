@@ -109,8 +109,28 @@ void RiscVJit::CompIR_FAssign(IRInst inst) {
 		break;
 
 	case IROp::FSign:
-		CompIR_Generic(inst);
+	{
+		fpr.MapDirtyIn(inst.dest, inst.src1);
+		// Check if it's negative zero, either 0x10/0x08 is zero.
+		FCLASS(32, SCRATCH1, fpr.R(inst.src1));
+		ANDI(SCRATCH1, SCRATCH1, 0x18);
+		SEQZ(SCRATCH1, SCRATCH1);
+		// Okay, it's zero if zero, 1 otherwise.  Convert 1 to a constant 1.0.
+		// Probably non-zero is the common case, so we make that the straight line.
+		FixupBranch skipOne = BEQ(SCRATCH1, R_ZERO);
+		LI(SCRATCH1, 1.0f);
+
+		// Now we just need the sign from it.
+		FMV(FMv::X, FMv::W, SCRATCH2, fpr.R(inst.src1));
+		// Use a wall to isolate the sign, and combine.
+		SRAIW(SCRATCH2, SCRATCH2, 31);
+		SLLIW(SCRATCH2, SCRATCH2, 31);
+		OR(SCRATCH1, SCRATCH1, SCRATCH2);
+
+		SetJumpTarget(skipOne);
+		FMV(FMv::W, FMv::X, fpr.R(inst.dest), SCRATCH1);
 		break;
+	}
 
 	default:
 		INVALIDOP;
