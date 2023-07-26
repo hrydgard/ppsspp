@@ -39,9 +39,88 @@ void RiscVJit::CompIR_VecAssign(IRInst inst) {
 
 	switch (inst.op) {
 	case IROp::Vec4Init:
+		for (int i = 0; i < 4; ++i)
+			fpr.SpillLock(inst.dest + i);
+		for (int i = 0; i < 4; ++i)
+			fpr.MapReg(inst.dest + i, MIPSMap::NOINIT);
+		for (int i = 0; i < 4; ++i)
+			fpr.ReleaseSpillLock(inst.dest + i);
+
+		// TODO: Check if FCVT/FMV/FL is better.
+		switch ((Vec4Init)inst.src1) {
+		case Vec4Init::AllZERO:
+			for (int i = 0; i < 4; ++i)
+				FCVT(FConv::S, FConv::W, fpr.R(inst.dest + i), R_ZERO);
+			break;
+
+		case Vec4Init::AllONE:
+			LI(SCRATCH1, 1.0f);
+			FMV(FMv::W, FMv::X, fpr.R(inst.dest), SCRATCH1);
+			for (int i = 1; i < 4; ++i)
+				FMV(32, fpr.R(inst.dest + i), fpr.R(inst.dest));
+			break;
+
+		case Vec4Init::AllMinusONE:
+			LI(SCRATCH1, -1.0f);
+			FMV(FMv::W, FMv::X, fpr.R(inst.dest), SCRATCH1);
+			for (int i = 1; i < 4; ++i)
+				FMV(32, fpr.R(inst.dest + i), fpr.R(inst.dest));
+			break;
+
+		case Vec4Init::Set_1000:
+			LI(SCRATCH1, 1.0f);
+			for (int i = 0; i < 4; ++i) {
+				if (i == 0)
+					FMV(FMv::W, FMv::X, fpr.R(inst.dest + i), SCRATCH1);
+				else
+					FCVT(FConv::S, FConv::W, fpr.R(inst.dest + i), R_ZERO);
+			}
+			break;
+
+		case Vec4Init::Set_0100:
+			LI(SCRATCH1, 1.0f);
+			for (int i = 0; i < 4; ++i) {
+				if (i == 1)
+					FMV(FMv::W, FMv::X, fpr.R(inst.dest + i), SCRATCH1);
+				else
+					FCVT(FConv::S, FConv::W, fpr.R(inst.dest + i), R_ZERO);
+			}
+			break;
+
+		case Vec4Init::Set_0010:
+			LI(SCRATCH1, 1.0f);
+			for (int i = 0; i < 4; ++i) {
+				if (i == 2)
+					FMV(FMv::W, FMv::X, fpr.R(inst.dest + i), SCRATCH1);
+				else
+					FCVT(FConv::S, FConv::W, fpr.R(inst.dest + i), R_ZERO);
+			}
+			break;
+
+		case Vec4Init::Set_0001:
+			LI(SCRATCH1, 1.0f);
+			for (int i = 0; i < 4; ++i) {
+				if (i == 3)
+					FMV(FMv::W, FMv::X, fpr.R(inst.dest + i), SCRATCH1);
+				else
+					FCVT(FConv::S, FConv::W, fpr.R(inst.dest + i), R_ZERO);
+			}
+			break;
+		}
+		break;
+
 	case IROp::Vec4Shuffle:
+		fpr.Map4DirtyIn(inst.dest, inst.src1);
+		for (int i = 0; i < 4; ++i) {
+			int lane = (inst.src2 >> (i * 2)) & 3;
+			FMV(32, fpr.R(inst.dest + i), fpr.R(inst.src1 + lane));
+		}
+		break;
+
 	case IROp::Vec4Mov:
-		CompIR_Generic(inst);
+		fpr.Map4DirtyIn(inst.dest, inst.src1);
+		for (int i = 0; i < 4; ++i)
+			FMV(32, fpr.R(inst.dest + i), fpr.R(inst.src1 + i));
 		break;
 
 	default:

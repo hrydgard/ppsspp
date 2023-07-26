@@ -55,6 +55,7 @@ void RiscVJit::CompIR_Basic(IRInst inst) {
 			FCVT(FConv::S, FConv::W, fpr.R(inst.dest), R_ZERO);
 		} else {
 			// TODO: In the future, could use FLI if it's approved.
+			// Also, is FCVT faster?
 			LI(SCRATCH1, (int32_t)inst.constant);
 			FMV(FMv::W, FMv::X, fpr.R(inst.dest), SCRATCH1);
 		}
