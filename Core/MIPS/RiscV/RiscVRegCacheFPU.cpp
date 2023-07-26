@@ -211,6 +211,32 @@ void RiscVRegCacheFPU::MapDirtyInIn(IRRegIndex rd, IRRegIndex rs, IRRegIndex rt,
 	ReleaseSpillLock(rt);
 }
 
+void RiscVRegCacheFPU::Map4DirtyIn(IRRegIndex rdbase, IRRegIndex rsbase, bool avoidLoad) {
+	for (int i = 0; i < 4; ++i)
+		SpillLock(rdbase + i, rsbase + i);
+	bool load = !avoidLoad || (rdbase < rsbase + 4 && rdbase + 4 > rsbase);
+	for (int i = 0; i < 4; ++i)
+		MapReg(rdbase + i, load ? MIPSMap::DIRTY : MIPSMap::NOINIT);
+	for (int i = 0; i < 4; ++i)
+		MapReg(rsbase + i);
+	for (int i = 0; i < 4; ++i)
+		ReleaseSpillLock(rdbase + i, rsbase + i);
+}
+
+void RiscVRegCacheFPU::Map4DirtyInIn(IRRegIndex rdbase, IRRegIndex rsbase, IRRegIndex rtbase, bool avoidLoad) {
+	for (int i = 0; i < 4; ++i)
+		SpillLock(rdbase + i, rsbase + i, rtbase + i);
+	bool load = !avoidLoad || (rdbase < rsbase + 4 && rdbase + 4 > rsbase) || (rdbase < rtbase + 4 && rdbase + 4 > rtbase);
+	for (int i = 0; i < 4; ++i)
+		MapReg(rdbase + i, load ? MIPSMap::DIRTY : MIPSMap::NOINIT);
+	for (int i = 0; i < 4; ++i)
+		MapReg(rsbase + i);
+	for (int i = 0; i < 4; ++i)
+		MapReg(rtbase + i);
+	for (int i = 0; i < 4; ++i)
+		ReleaseSpillLock(rdbase + i, rsbase + i, rtbase + i);
+}
+
 void RiscVRegCacheFPU::FlushRiscVReg(RiscVReg r) {
 	_dbg_assert_(r >= F0 && r <= F31);
 	int reg = r - F0;

@@ -55,13 +55,48 @@ void RiscVJit::CompIR_VecArith(IRInst inst) {
 
 	switch (inst.op) {
 	case IROp::Vec4Add:
+		fpr.Map4DirtyInIn(inst.dest, inst.src1, inst.src2);
+		for (int i = 0; i < 4; ++i)
+			FADD(32, fpr.R(inst.dest + i), fpr.R(inst.src1 + i), fpr.R(inst.src2 + i));
+		break;
+
 	case IROp::Vec4Sub:
+		fpr.Map4DirtyInIn(inst.dest, inst.src1, inst.src2);
+		for (int i = 0; i < 4; ++i)
+			FSUB(32, fpr.R(inst.dest + i), fpr.R(inst.src1 + i), fpr.R(inst.src2 + i));
+		break;
+
 	case IROp::Vec4Mul:
+		fpr.Map4DirtyInIn(inst.dest, inst.src1, inst.src2);
+		for (int i = 0; i < 4; ++i)
+			FMUL(32, fpr.R(inst.dest + i), fpr.R(inst.src1 + i), fpr.R(inst.src2 + i));
+		break;
+
 	case IROp::Vec4Div:
+		fpr.Map4DirtyInIn(inst.dest, inst.src1, inst.src2);
+		for (int i = 0; i < 4; ++i)
+			FDIV(32, fpr.R(inst.dest + i), fpr.R(inst.src1 + i), fpr.R(inst.src2 + i));
+		break;
+
 	case IROp::Vec4Scale:
+		fpr.SpillLock(inst.src2);
+		fpr.MapReg(inst.src2);
+		fpr.Map4DirtyIn(inst.dest, inst.src1);
+		fpr.ReleaseSpillLock(inst.src2);
+		for (int i = 0; i < 4; ++i)
+			FMUL(32, fpr.R(inst.dest + i), fpr.R(inst.src1 + i), fpr.R(inst.src2));
+		break;
+
 	case IROp::Vec4Neg:
+		fpr.Map4DirtyIn(inst.dest, inst.src1);
+		for (int i = 0; i < 4; ++i)
+			FNEG(32, fpr.R(inst.dest + i), fpr.R(inst.src1 + i));
+		break;
+
 	case IROp::Vec4Abs:
-		CompIR_Generic(inst);
+		fpr.Map4DirtyIn(inst.dest, inst.src1);
+		for (int i = 0; i < 4; ++i)
+			FABS(32, fpr.R(inst.dest + i), fpr.R(inst.src1 + i));
 		break;
 
 	default:

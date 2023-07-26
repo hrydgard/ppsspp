@@ -125,7 +125,7 @@ void RiscVJit::CompIR_LoadShift(IRInst inst) {
 	case IROp::Load32Left:
 	case IROp::Load32Right:
 		// Should not happen if the pass to split is active.
-		CompIR_Generic(inst);
+		DISABLE;
 		break;
 
 	default:
@@ -256,7 +256,7 @@ void RiscVJit::CompIR_StoreShift(IRInst inst) {
 	case IROp::Store32Left:
 	case IROp::Store32Right:
 		// Should not happen if the pass to split is active.
-		CompIR_Generic(inst);
+		DISABLE;
 		break;
 
 	default:
