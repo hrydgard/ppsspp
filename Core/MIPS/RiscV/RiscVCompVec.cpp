@@ -189,7 +189,39 @@ void RiscVJit::CompIR_VecHoriz(IRInst inst) {
 
 	switch (inst.op) {
 	case IROp::Vec4Dot:
-		CompIR_Generic(inst);
+		// TODO: Maybe some option to call the slow accurate mode?
+		fpr.SpillLock(inst.dest);
+		for (int i = 0; i < 4; ++i) {
+			fpr.SpillLock(inst.src1 + i);
+			fpr.SpillLock(inst.src2 + i);
+		}
+		for (int i = 0; i < 4; ++i) {
+			fpr.MapReg(inst.src1 + i);
+			fpr.MapReg(inst.src2 + i);
+		}
+		fpr.MapReg(inst.dest, MIPSMap::NOINIT);
+		for (int i = 0; i < 4; ++i) {
+			fpr.ReleaseSpillLock(inst.src1 + i);
+			fpr.ReleaseSpillLock(inst.src2 + i);
+		}
+		fpr.ReleaseSpillLock(inst.dest);
+
+		if ((inst.dest < inst.src1 + 4 && inst.dest >= inst.src1) || (inst.dest < inst.src2 + 4 && inst.dest >= inst.src2)) {
+			// This means inst.dest overlaps one of src1 or src2.  We have to do that one first.
+			// Technically this may impact -0.0 and such, but dots accurately need to be aligned anyway.
+			for (int i = 0; i < 4; ++i) {
+				if (inst.dest == inst.src1 + i || inst.dest == inst.src2 + i)
+					FMUL(32, fpr.R(inst.dest), fpr.R(inst.src1 + i), fpr.R(inst.src2 + i));
+			}
+			for (int i = 0; i < 4; ++i) {
+				if (inst.dest != inst.src1 + i && inst.dest != inst.src2 + i)
+					FMADD(32, fpr.R(inst.dest), fpr.R(inst.src1 + i), fpr.R(inst.src2 + i), fpr.R(inst.dest));
+			}
+		} else {
+			FMUL(32, fpr.R(inst.dest), fpr.R(inst.src1), fpr.R(inst.src2));
+			for (int i = 1; i < 4; ++i)
+				FMADD(32, fpr.R(inst.dest), fpr.R(inst.src1 + i), fpr.R(inst.src2 + i), fpr.R(inst.dest));
+		}
 		break;
 
 	default:
