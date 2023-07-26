@@ -498,19 +498,11 @@ void RiscVJit::ClearCache() {
 	memset(blockStartAddrs_, 0, sizeof(blockStartAddrs_[0]) * MAX_ALLOWED_JIT_BLOCKS);
 }
 
-void RiscVJit::UpdateFCR31() {
-	IRJit::UpdateFCR31();
-
-	// TODO: Handle rounding modes?
-}
-
 void RiscVJit::RestoreRoundingMode(bool force) {
-	// TODO: Could maybe skip if not hasSetRounding?  But that's on IRFrontend...
 	FSRMI(Round::NEAREST_EVEN);
 }
 
 void RiscVJit::ApplyRoundingMode(bool force) {
-	// TODO: Also could maybe sometimes skip?
 	QuickCallFunction(applyRoundingMode_);
 }
 

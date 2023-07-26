@@ -42,7 +42,6 @@ public:
 	const u8 *GetCrashHandler() const override;
 
 	void ClearCache() override;
-	void UpdateFCR31() override;
 
 	// TODO: GetBlockCacheDebugInterface, block linking?
 
