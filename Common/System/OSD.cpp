@@ -235,10 +235,6 @@ void OnScreenDisplay::SetProgressBar(std::string id, std::string &&message, floa
 		}
 	}
 
-	if (message == "dorequest.php") {
-		found = found;
-	}
-
 	ProgressBar bar;
 	bar.id = id;
 	bar.message = std::move(message);

@@ -76,11 +76,15 @@ bool Buffer::ReadAllWithProgress(int fd, int knownSize, RequestProgress *progres
 	int total = 0;
 	while (true) {
 		bool ready = false;
-		while (!ready && (!progress || (progress->cancelled && !*progress->cancelled))) {
-			if (progress && progress->cancelled && *progress->cancelled)
+
+		// If we might need to cancel, check on a timer for it to be ready.
+		// After this, we'll block on reading so we do this while first if we have a cancel pointer.
+		while (!ready && progress && progress->cancelled) {
+			if (*progress->cancelled)
 				return false;
 			ready = fd_util::WaitUntilReady(fd, CANCEL_INTERVAL, false);
 		}
+
 		int retval = recv(fd, &buf[0], (int)buf.size(), MSG_NOSIGNAL);
 		if (retval == 0) {
 			return true;

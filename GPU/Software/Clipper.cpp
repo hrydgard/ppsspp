@@ -405,7 +405,7 @@ void ProcessTriangle(const ClipVertexData &v0, const ClipVertexData &v1, const C
 			ClipVertexData &subv1 = *Vertices[indices[i + 1]];
 			ClipVertexData &subv2 = *Vertices[indices[i + 2]];
 
-			if (subv0.OutsideRange() || subv1.OutsideRange() | subv2.OutsideRange())
+			if (subv0.OutsideRange() || subv1.OutsideRange() || subv2.OutsideRange())
 				continue;
 
 			if (gstate.getShadeMode() == GE_SHADE_FLAT) {
