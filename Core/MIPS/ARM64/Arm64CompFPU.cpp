@@ -292,7 +292,7 @@ void Arm64Jit::Comp_FPU2op(MIPSOpcode op) {
 			fp.FMOV(fpr.R(fd), S0);
 		} else {
 			fp.FCMP(fpr.R(fs), fpr.R(fs));
-			fp.FCVTS(fpr.R(fd), fpr.R(fs), ROUND_Z);
+			fp.FCVTS(fpr.R(fd), fpr.R(fs), ROUND_N);
 			FixupBranch skip_nan = B(CC_VC);
 			MOVI2R(SCRATCH1, 0x7FFFFFFF);
 			fp.FMOV(fpr.R(fd), SCRATCH1);
