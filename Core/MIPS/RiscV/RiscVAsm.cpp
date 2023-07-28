@@ -112,7 +112,7 @@ void RiscVJit::GenerateFixedCode(const JitOptions &jo) {
 	static constexpr RiscVReg regs_to_save[]{ R_RA, X8, X9, X18, X19, X20, X21, X22, X23, X24, X25, X26, X27 };
 	// TODO: Maybe we shouldn't regalloc all of these?  Is it worth it?
 	static constexpr RiscVReg regs_to_save_fp[]{ F8, F9, F18, F19, F20, F21, F22, F23, F24, F25, F26, F27 };
-	int saveSize = 8 * (int)(ARRAY_SIZE(regs_to_save) + ARRAY_SIZE(regs_to_save_fp));
+	int saveSize = (XLEN / 8) * (int)(ARRAY_SIZE(regs_to_save) + ARRAY_SIZE(regs_to_save_fp));
 	if (saveSize & 0xF)
 		saveSize += 8;
 	_assert_msg_((saveSize & 0xF) == 0, "Stack must be kept aligned");
@@ -120,11 +120,11 @@ void RiscVJit::GenerateFixedCode(const JitOptions &jo) {
 	ADDI(R_SP, R_SP, -saveSize);
 	for (RiscVReg r : regs_to_save) {
 		SD(r, R_SP, saveOffset);
-		saveOffset += 8;
+		saveOffset += XLEN / 8;
 	}
 	for (RiscVReg r : regs_to_save_fp) {
 		FS(64, r, R_SP, saveOffset);
-		saveOffset += 8;
+		saveOffset += XLEN / 8;
 	}
 	_assert_(saveOffset <= saveSize);
 
@@ -214,17 +214,16 @@ void RiscVJit::GenerateFixedCode(const JitOptions &jo) {
 	saveOffset = 0;
 	for (RiscVReg r : regs_to_save) {
 		LD(r, R_SP, saveOffset);
-		saveOffset += 8;
+		saveOffset += XLEN / 8;
 	}
 	for (RiscVReg r : regs_to_save_fp) {
 		FL(64, r, R_SP, saveOffset);
-		saveOffset += 8;
+		saveOffset += XLEN / 8;
 	}
 	ADDI(R_SP, R_SP, saveSize);
 
 	RET();
 
-	// TODO
 	crashHandler_ = GetCodePtr();
 	LI(SCRATCH1, &coreState, SCRATCH2);
 	LI(SCRATCH2, CORE_RUNTIME_ERROR);

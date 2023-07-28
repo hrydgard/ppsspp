@@ -26,6 +26,8 @@ namespace MIPSComp {
 using namespace RiscVGen;
 using namespace RiscVJitConstants;
 
+static constexpr bool enableDebug = false;
+
 RiscVJit::RiscVJit(MIPSState *mipsState) : IRJit(mipsState), gpr(mipsState, &jo), fpr(mipsState, &jo) {
 	// Automatically disable incompatible options.
 	if (((intptr_t)Memory::base & 0x00000000FFFFFFFFUL) != 0) {
@@ -49,6 +51,10 @@ RiscVJit::~RiscVJit() {
 void RiscVJit::RunLoopUntil(u64 globalticks) {
 	PROFILE_THIS_SCOPE("jit");
 	((void (*)())enterDispatcher_)();
+}
+
+static void NoBlockExits() {
+	_assert_msg_(false, "Never exited block, invalid IR?");
 }
 
 bool RiscVJit::CompileTargetBlock(IRBlock *block, int block_num, bool preload) {
@@ -80,9 +86,11 @@ bool RiscVJit::CompileTargetBlock(IRBlock *block, int block_num, bool preload) {
 		}
 	}
 
-	// Note: a properly constructed block should never get here.
-	// TODO: Need to do more than just this?  Call a func to set an exception?
-	QuickJ(R_RA, crashHandler_);
+	// We should've written an exit above.  If we didn't, bad things will happen.
+	if (enableDebug) {
+		QuickCallFunction(&NoBlockExits);
+		QuickJ(R_RA, crashHandler_);
+	}
 
 	FlushIcache();
 
