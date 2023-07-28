@@ -133,39 +133,14 @@ void TextDrawerSDL::PrepareFallbackFonts() {
 #endif
 }
 
-// Count leading set bits. For use in UTF-8 decoding. 
-int LeadingOnes(uint8_t byte) {
-	for (int i = 7; i >= 0; i--) {
-		if (!((byte >> i) & 1)) return 7 - i;
-	}
-
-	return 8;
-}
-
 uint32_t TextDrawerSDL::CheckMissingGlyph(std::string& text) {
 	TTF_Font *font = fontMap_.find(fontHash_)->second;
+	UTF8 utf8Decoded(text.c_str());
 
 	uint32_t missingGlyph = 0;
-	const int length = text.length();
-	for (int i = 0; i < length; i++) {
-		uint32_t glyph; // UTF-32 char
-
-		// Decoding UTF-8 string into UTF-32 codepoints
-		if (LeadingOnes(text[i]) == 2 && (i + 1 < length)) {
-			glyph = text[i] & 0b00011111;
-			glyph = (glyph << 6) | (text[++i] & 0b00111111);
-		} else if (LeadingOnes(text[i]) == 3 && (i + 2 < length)) {
-			glyph = text[i] & 0b00001111;
-			glyph = (glyph << 6) | (text[++i] & 0b00111111);
-			glyph = (glyph << 6) | (text[++i] & 0b00111111);
-		} else if (LeadingOnes(text[i]) == 4 && (i + 3 < length)) {
-			glyph = text[i] & 0b00000111;
-			glyph = (glyph << 6) | (text[++i] & 0b00111111);
-			glyph = (glyph << 6) | (text[++i] & 0b00111111);
-			glyph = (glyph << 6) | (text[++i] & 0b00111111);
-		} else {
-			glyph = text[i];
-		}
+	for (int i = 0; i < text.length(); ) {
+		uint32_t glyph = utf8Decoded.next();
+		i = utf8Decoded.byteIndex();
 
 		if (!TTF_GlyphIsProvided32(font, glyph)) {
 			missingGlyph = glyph;
