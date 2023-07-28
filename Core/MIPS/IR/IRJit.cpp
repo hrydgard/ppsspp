@@ -85,7 +85,8 @@ void IRJit::Compile(u32 em_address) {
 		if (block_num != -1) {
 			IRBlock *b = blocks_.GetBlock(block_num);
 			// Okay, let's link and finalize the block now.
-			b->Finalize(block_num);
+			int cookie = b->GetTargetOffset() < 0 ? block_num : b->GetTargetOffset();
+			b->Finalize(cookie);
 			if (b->IsValid()) {
 				// Success, we're done.
 				return;
@@ -128,13 +129,13 @@ bool IRJit::CompileBlock(u32 em_address, std::vector<IRInst> &instructions, u32 
 	b->SetOriginalSize(mipsBytes);
 	if (preload) {
 		// Hash, then only update page stats, don't link yet.
-		b->UpdateHash();
-		blocks_.FinalizeBlock(block_num, true);
-	} else {
-		// Overwrites the first instruction, and also updates stats.
 		// TODO: Should we always hash?  Then we can reuse blocks.
-		blocks_.FinalizeBlock(block_num);
+		b->UpdateHash();
 	}
+	if (!CompileTargetBlock(b, block_num, preload))
+		return false;
+	// Overwrites the first instruction, and also updates stats.
+	blocks_.FinalizeBlock(block_num, preload);
 
 	return true;
 }
@@ -264,7 +265,8 @@ void IRJit::UnlinkBlock(u8 *checkedEntry, u32 originalAddress) {
 
 void IRBlockCache::Clear() {
 	for (int i = 0; i < (int)blocks_.size(); ++i) {
-		blocks_[i].Destroy(i);
+		int cookie = blocks_[i].GetTargetOffset() < 0 ? i : blocks_[i].GetTargetOffset();
+		blocks_[i].Destroy(cookie);
 	}
 	blocks_.clear();
 	byPage_.clear();
@@ -283,7 +285,8 @@ void IRBlockCache::InvalidateICache(u32 address, u32 length) {
 		for (int i : blocksInPage) {
 			if (blocks_[i].OverlapsRange(address, length)) {
 				// Not removing from the page, hopefully doesn't build up with small recompiles.
-				blocks_[i].Destroy(i);
+				int cookie = blocks_[i].GetTargetOffset() < 0 ? i : blocks_[i].GetTargetOffset();
+				blocks_[i].Destroy(cookie);
 			}
 		}
 	}
@@ -291,7 +294,8 @@ void IRBlockCache::InvalidateICache(u32 address, u32 length) {
 
 void IRBlockCache::FinalizeBlock(int i, bool preload) {
 	if (!preload) {
-		blocks_[i].Finalize(i);
+		int cookie = blocks_[i].GetTargetOffset() < 0 ? i : blocks_[i].GetTargetOffset();
+		blocks_[i].Finalize(cookie);
 	}
 
 	u32 startAddr, size;
@@ -331,13 +335,30 @@ int IRBlockCache::FindPreloadBlock(u32 em_address) {
 	return -1;
 }
 
+int IRBlockCache::FindByCookie(int cookie) {
+	if (blocks_.empty())
+		return -1;
+	// TODO: Maybe a flag to determine target offset mode?
+	if (blocks_[0].GetTargetOffset() < 0)
+		return cookie;
+
+	for (int i = 0; i < GetNumBlocks(); ++i) {
+		int offset = blocks_[i].GetTargetOffset();
+		if (offset == cookie)
+			return i;
+	}
+
+	return -1;
+}
+
 std::vector<u32> IRBlockCache::SaveAndClearEmuHackOps() {
 	std::vector<u32> result;
 	result.resize(blocks_.size());
 
 	for (int number = 0; number < (int)blocks_.size(); ++number) {
 		IRBlock &b = blocks_[number];
-		if (b.IsValid() && b.RestoreOriginalFirstOp(number)) {
+		int cookie = b.GetTargetOffset() < 0 ? number : b.GetTargetOffset();
+		if (b.IsValid() && b.RestoreOriginalFirstOp(cookie)) {
 			result[number] = number;
 		} else {
 			result[number] = 0;
@@ -357,7 +378,8 @@ void IRBlockCache::RestoreSavedEmuHackOps(std::vector<u32> saved) {
 		IRBlock &b = blocks_[number];
 		// Only if we restored it, write it back.
 		if (b.IsValid() && saved[number] != 0 && b.HasOriginalFirstOp()) {
-			b.Finalize(number);
+			int cookie = b.GetTargetOffset() < 0 ? number : b.GetTargetOffset();
+			b.Finalize(cookie);
 		}
 	}
 }
@@ -441,8 +463,8 @@ bool IRBlock::HasOriginalFirstOp() const {
 	return Memory::ReadUnchecked_U32(origAddr_) == origFirstOpcode_.encoding;
 }
 
-bool IRBlock::RestoreOriginalFirstOp(int number) {
-	const u32 emuhack = MIPS_EMUHACK_OPCODE | number;
+bool IRBlock::RestoreOriginalFirstOp(int cookie) {
+	const u32 emuhack = MIPS_EMUHACK_OPCODE | cookie;
 	if (Memory::ReadUnchecked_U32(origAddr_) == emuhack) {
 		Memory::Write_Opcode_JIT(origAddr_, origFirstOpcode_);
 		return true;
@@ -450,19 +472,19 @@ bool IRBlock::RestoreOriginalFirstOp(int number) {
 	return false;
 }
 
-void IRBlock::Finalize(int number) {
+void IRBlock::Finalize(int cookie) {
 	// Check it wasn't invalidated, in case this is after preload.
 	// TODO: Allow reusing blocks when the code matches hash_ again, instead.
 	if (origAddr_) {
 		origFirstOpcode_ = Memory::Read_Opcode_JIT(origAddr_);
-		MIPSOpcode opcode = MIPSOpcode(MIPS_EMUHACK_OPCODE | number);
+		MIPSOpcode opcode = MIPSOpcode(MIPS_EMUHACK_OPCODE | cookie);
 		Memory::Write_Opcode_JIT(origAddr_, opcode);
 	}
 }
 
-void IRBlock::Destroy(int number) {
+void IRBlock::Destroy(int cookie) {
 	if (origAddr_) {
-		MIPSOpcode opcode = MIPSOpcode(MIPS_EMUHACK_OPCODE | number);
+		MIPSOpcode opcode = MIPSOpcode(MIPS_EMUHACK_OPCODE | cookie);
 		if (Memory::ReadUnchecked_U32(origAddr_) == opcode.encoding)
 			Memory::Write_Opcode_JIT(origAddr_, origFirstOpcode_);
 
@@ -496,7 +518,7 @@ bool IRBlock::OverlapsRange(u32 addr, u32 size) const {
 }
 
 MIPSOpcode IRJit::GetOriginalOp(MIPSOpcode op) {
-	IRBlock *b = blocks_.GetBlock(op.encoding & 0xFFFFFF);
+	IRBlock *b = blocks_.GetBlock(blocks_.FindByCookie(op.encoding & 0xFFFFFF));
 	if (b) {
 		return b->GetOriginalFirstOp();
 	}

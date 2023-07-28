@@ -32,12 +32,10 @@ RiscVJit::RiscVJit(MIPSState *mipsState) : IRJit(mipsState), gpr(mipsState, &jo)
 		jo.enablePointerify = false;
 	}
 
+	// Since we store the offset, this is as big as it can be.
+	// We could shift off one bit to double it, would need to change RiscVAsm.
 	AllocCodeSpace(1024 * 1024 * 16);
 	SetAutoCompress(true);
-
-	// TODO: Consider replacing block num method form IRJit - this is 2MB.
-	blockStartAddrs_ = new const u8 *[MAX_ALLOWED_JIT_BLOCKS];
-	memset(blockStartAddrs_, 0, sizeof(blockStartAddrs_[0]) * MAX_ALLOWED_JIT_BLOCKS);
 
 	gpr.Init(this);
 	fpr.Init(this);
@@ -46,7 +44,6 @@ RiscVJit::RiscVJit(MIPSState *mipsState) : IRJit(mipsState), gpr(mipsState, &jo)
 }
 
 RiscVJit::~RiscVJit() {
-	delete [] blockStartAddrs_;
 }
 
 void RiscVJit::RunLoopUntil(u64 globalticks) {
@@ -54,34 +51,20 @@ void RiscVJit::RunLoopUntil(u64 globalticks) {
 	((void (*)())enterDispatcher_)();
 }
 
-bool RiscVJit::CompileBlock(u32 em_address, std::vector<IRInst> &instructions, u32 &mipsBytes, bool preload) {
-	// Check that we're not full (we allow less blocks than IR itself.)
-	if (blocks_.GetNumBlocks() >= MAX_ALLOWED_JIT_BLOCKS - 1)
+bool RiscVJit::CompileTargetBlock(IRBlock *block, int block_num, bool preload) {
+	if (GetSpaceLeft() < 0x800)
 		return false;
 
-	if (!IRJit::CompileBlock(em_address, instructions, mipsBytes, preload))
-		return false;
+	// Don't worry, the codespace isn't large enough to overflow offsets.
+	block->SetTargetOffset((int)GetOffset(GetCodePointer()));
 
 	// TODO: Block linking, checked entries and such.
-
-	int block_num;
-	if (preload) {
-		block_num = blocks_.GetBlockNumberFromStartAddress(em_address);
-	} else {
-		u32 first_inst = Memory::ReadUnchecked_U32(em_address);
-		_assert_msg_(MIPS_IS_RUNBLOCK(first_inst), "Should've written an emuhack");
-
-		block_num = first_inst & MIPS_EMUHACK_VALUE_MASK;
-	}
-
-	_assert_msg_(block_num >= 0 && block_num < MAX_ALLOWED_JIT_BLOCKS, "Bad block num");
-	_assert_msg_(blockStartAddrs_[block_num] == nullptr, "Block %d reused before clear", block_num);
-	blockStartAddrs_[block_num] = GetCodePointer();
 
 	gpr.Start();
 	fpr.Start();
 
-	for (const IRInst &inst : instructions) {
+	for (int i = 0; i < block->GetNumInstructions(); ++i) {
+		const IRInst &inst = block->GetInstructions()[i];
 		CompileIRInst(inst);
 
 		if (jo.Disabled(JitDisable::REGALLOC_GPR)) {
@@ -442,17 +425,14 @@ bool RiscVJit::DescribeCodePtr(const u8 *ptr, std::string &name) {
 	} else if (!IsInSpace(ptr)) {
 		return false;
 	} else {
-		uintptr_t uptr = (uintptr_t)ptr;
+		int offset = (int)GetOffset(ptr);
 		int block_num = -1;
-		for (int i = 0; i < MAX_ALLOWED_JIT_BLOCKS; ++i) {
-			uintptr_t blockptr = (uintptr_t)blockStartAddrs_[i];
-			// Out of allocated blocks.
-			if (uptr == 0)
-				break;
-
-			if (uptr >= blockptr)
+		for (int i = 0; i < blocks_.GetNumBlocks(); ++i) {
+			const auto &b = blocks_.GetBlock(i);
+			// We allocate linearly.
+			if (b->GetTargetOffset() <= offset)
 				block_num = i;
-			if (uptr < blockptr)
+			if (b->GetTargetOffset() > offset)
 				break;
 		}
 
@@ -494,8 +474,6 @@ void RiscVJit::ClearCache() {
 
 	ClearCodeSpace(jitStartOffset_);
 	FlushIcacheSection(region + jitStartOffset_, region + region_size - jitStartOffset_);
-
-	memset(blockStartAddrs_, 0, sizeof(blockStartAddrs_[0]) * MAX_ALLOWED_JIT_BLOCKS);
 }
 
 void RiscVJit::RestoreRoundingMode(bool force) {

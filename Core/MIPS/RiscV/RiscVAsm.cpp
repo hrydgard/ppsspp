@@ -131,7 +131,7 @@ void RiscVJit::GenerateFixedCode(const JitOptions &jo) {
 	// Fixed registers, these are always kept when in Jit context.
 	LI(MEMBASEREG, Memory::base, SCRATCH1);
 	LI(CTXREG, mips_, SCRATCH1);
-	LI(JITBASEREG, blockStartAddrs_, SCRATCH1);
+	LI(JITBASEREG, GetBasePtr(), SCRATCH1);
 
 	LoadStaticRegisters();
 	MovFromPC(SCRATCH1);
@@ -183,35 +183,11 @@ void RiscVJit::GenerateFixedCode(const JitOptions &jo) {
 	// We're in other words comparing to the top 8 bits of MIPS_EMUHACK_OPCODE by subtracting.
 	ADDI(SCRATCH2, SCRATCH2, -(MIPS_EMUHACK_OPCODE >> 24));
 	FixupBranch needsCompile = BNE(SCRATCH2, R_ZERO);
-	// Use a wall to mask by 0x00FFFFFF and extract the block number.
+	// Use a wall to mask by 0x00FFFFFF and extract the block jit offset.
 	SLLI(SCRATCH1, SCRATCH1, XLEN - 24);
-	// But actually, we want * 8, so skip shifting back just a bit.
-	_assert_msg_(sizeof(blockStartAddrs_[0]) == 8, "RiscVAsm currently assumes pointers are 64-bit");
-	SRLI(SCRATCH1, SCRATCH1, XLEN - 24 - 3);
-	if (enableDebug) {
-		// Let's do some extra validation of the block number in debug mode for testing.
-
-		LI(SCRATCH2, MAX_ALLOWED_JIT_BLOCKS * 8);
-		FixupBranch highBlockNum = BGEU(SCRATCH1, SCRATCH2);
-		ADD(SCRATCH1, JITBASEREG, SCRATCH1);
-		// TODO: Consider replacing the block nums after all, just trying to use IR block cache.
-		LD(SCRATCH1, SCRATCH1, 0);
-		LI(SCRATCH2, 2);
-		FixupBranch invalidBlockNum = BEQ(SCRATCH1, R_ZERO);
-		JR(SCRATCH1);
-
-		SetJumpTarget(highBlockNum);
-		LI(SCRATCH2, 1);
-		SetJumpTarget(invalidBlockNum);
-
-		MV(X10, SCRATCH2);
-		QuickCallFunction(&ShowBlockError);
-	} else {
-		ADD(SCRATCH1, JITBASEREG, SCRATCH1);
-		// TODO: Consider replacing the block nums after all, just trying to use IR block cache.
-		LD(SCRATCH1, SCRATCH1, 0);
-		JR(SCRATCH1);
-	}
+	SRLI(SCRATCH1, SCRATCH1, XLEN - 24);
+	ADD(SCRATCH1, JITBASEREG, SCRATCH1);
+	JR(SCRATCH1);
 	SetJumpTarget(needsCompile);
 
 	// No block found, let's jit.  We don't need to save static regs, they're all callee saved.
