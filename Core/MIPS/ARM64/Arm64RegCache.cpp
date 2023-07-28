@@ -180,7 +180,7 @@ void Arm64RegCache::MapRegTo(ARM64Reg reg, MIPSGPReg mipsReg, int mapFlags) {
 	ar[reg].isDirty = (mapFlags & MAP_DIRTY) ? true : false;
 	if ((mapFlags & MAP_NOINIT) != MAP_NOINIT) {
 		if (mipsReg == MIPS_REG_ZERO) {
-			// If we get a request to load the zero register, at least we won't spend
+			// If we get a request to map the zero register, at least we won't spend
 			// time on a memory access...
 			emit_->MOVI2R(reg, 0);
 

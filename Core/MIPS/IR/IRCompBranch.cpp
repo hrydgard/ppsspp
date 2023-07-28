@@ -455,6 +455,7 @@ void IRFrontend::Comp_Syscall(MIPSOpcode op) {
 }
 
 void IRFrontend::Comp_Break(MIPSOpcode op) {
+	ir.Write(IROp::SetPCConst, 0, ir.AddConstant(GetCompilerPC()));
 	ir.Write(IROp::Break);
 	js.compiling = false;
 }

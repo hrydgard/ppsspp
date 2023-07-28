@@ -53,8 +53,8 @@ void RiscVJit::SetScratch1ToSrc1Address(IRReg src1) {
 #endif
 }
 
-int32_t RiscVJit::AdjustForAddressOffset(RiscVGen::RiscVReg *reg, int32_t constant) {
-	if (constant < -2048 || constant > 2047) {
+int32_t RiscVJit::AdjustForAddressOffset(RiscVGen::RiscVReg *reg, int32_t constant, int32_t range) {
+	if (constant < -2048 || constant + range > 2047) {
 		LI(SCRATCH2, constant);
 		ADD(SCRATCH1, *reg, SCRATCH2);
 		*reg = SCRATCH1;
@@ -124,7 +124,8 @@ void RiscVJit::CompIR_LoadShift(IRInst inst) {
 	switch (inst.op) {
 	case IROp::Load32Left:
 	case IROp::Load32Right:
-		CompIR_Generic(inst);
+		// Should not happen if the pass to split is active.
+		DISABLE;
 		break;
 
 	default:
@@ -136,9 +137,28 @@ void RiscVJit::CompIR_LoadShift(IRInst inst) {
 void RiscVJit::CompIR_FLoad(IRInst inst) {
 	CONDITIONAL_DISABLE;
 
+	RiscVReg addrReg = INVALID_REG;
+	if (inst.src1 == MIPS_REG_ZERO) {
+		// This will get changed by AdjustForAddressOffset.
+		addrReg = MEMBASEREG;
+#ifdef MASKED_PSP_MEMORY
+		inst.constant &= Memory::MEMVIEW32_MASK;
+#endif
+	} else if (jo.cachePointers || gpr.IsMappedAsPointer(inst.src1)) {
+		addrReg = gpr.MapRegAsPointer(inst.src1);
+	} else {
+		SetScratch1ToSrc1Address(inst.src1);
+		addrReg = SCRATCH1;
+	}
+
+	s32 imm = AdjustForAddressOffset(&addrReg, inst.constant);
+
+	// TODO: Safe memory?  Or enough to have crash handler + validate?
+
 	switch (inst.op) {
 	case IROp::LoadFloat:
-		CompIR_Generic(inst);
+		fpr.MapReg(inst.dest, MIPSMap::NOINIT);
+		FL(32, fpr.R(inst.dest), addrReg, imm);
 		break;
 
 	default:
@@ -150,9 +170,32 @@ void RiscVJit::CompIR_FLoad(IRInst inst) {
 void RiscVJit::CompIR_VecLoad(IRInst inst) {
 	CONDITIONAL_DISABLE;
 
+	RiscVReg addrReg = INVALID_REG;
+	if (inst.src1 == MIPS_REG_ZERO) {
+		// This will get changed by AdjustForAddressOffset.
+		addrReg = MEMBASEREG;
+#ifdef MASKED_PSP_MEMORY
+		inst.constant &= Memory::MEMVIEW32_MASK;
+#endif
+	} else if (jo.cachePointers || gpr.IsMappedAsPointer(inst.src1)) {
+		addrReg = gpr.MapRegAsPointer(inst.src1);
+	} else {
+		SetScratch1ToSrc1Address(inst.src1);
+		addrReg = SCRATCH1;
+	}
+
+	// We need to be able to address the whole 16 bytes, so offset of 12.
+	s32 imm = AdjustForAddressOffset(&addrReg, inst.constant, 12);
+
+	// TODO: Safe memory?  Or enough to have crash handler + validate?
+
 	switch (inst.op) {
 	case IROp::LoadVec4:
-		CompIR_Generic(inst);
+		for (int i = 0; i < 4; ++i) {
+			// Spilling is okay.
+			fpr.MapReg(inst.dest + i, MIPSMap::NOINIT);
+			FL(32, fpr.R(inst.dest + i), addrReg, imm + 4 * i);
+		}
 		break;
 
 	default:
@@ -212,7 +255,8 @@ void RiscVJit::CompIR_StoreShift(IRInst inst) {
 	switch (inst.op) {
 	case IROp::Store32Left:
 	case IROp::Store32Right:
-		CompIR_Generic(inst);
+		// Should not happen if the pass to split is active.
+		DISABLE;
 		break;
 
 	default:
@@ -224,9 +268,28 @@ void RiscVJit::CompIR_StoreShift(IRInst inst) {
 void RiscVJit::CompIR_FStore(IRInst inst) {
 	CONDITIONAL_DISABLE;
 
+	RiscVReg addrReg = INVALID_REG;
+	if (inst.src1 == MIPS_REG_ZERO) {
+		// This will get changed by AdjustForAddressOffset.
+		addrReg = MEMBASEREG;
+#ifdef MASKED_PSP_MEMORY
+		inst.constant &= Memory::MEMVIEW32_MASK;
+#endif
+	} else if (jo.cachePointers || gpr.IsMappedAsPointer(inst.src1)) {
+		addrReg = gpr.MapRegAsPointer(inst.src1);
+	} else {
+		SetScratch1ToSrc1Address(inst.src1);
+		addrReg = SCRATCH1;
+	}
+
+	s32 imm = AdjustForAddressOffset(&addrReg, inst.constant);
+
+	// TODO: Safe memory?  Or enough to have crash handler + validate?
+
 	switch (inst.op) {
 	case IROp::StoreFloat:
-		CompIR_Generic(inst);
+		fpr.MapReg(inst.src3);
+		FS(32, fpr.R(inst.src3), addrReg, imm);
 		break;
 
 	default:
@@ -238,9 +301,32 @@ void RiscVJit::CompIR_FStore(IRInst inst) {
 void RiscVJit::CompIR_VecStore(IRInst inst) {
 	CONDITIONAL_DISABLE;
 
+	RiscVReg addrReg = INVALID_REG;
+	if (inst.src1 == MIPS_REG_ZERO) {
+		// This will get changed by AdjustForAddressOffset.
+		addrReg = MEMBASEREG;
+#ifdef MASKED_PSP_MEMORY
+		inst.constant &= Memory::MEMVIEW32_MASK;
+#endif
+	} else if (jo.cachePointers || gpr.IsMappedAsPointer(inst.src1)) {
+		addrReg = gpr.MapRegAsPointer(inst.src1);
+	} else {
+		SetScratch1ToSrc1Address(inst.src1);
+		addrReg = SCRATCH1;
+	}
+
+	// We need to be able to address the whole 16 bytes, so offset of 12.
+	s32 imm = AdjustForAddressOffset(&addrReg, inst.constant, 12);
+
+	// TODO: Safe memory?  Or enough to have crash handler + validate?
+
 	switch (inst.op) {
 	case IROp::StoreVec4:
-		CompIR_Generic(inst);
+		for (int i = 0; i < 4; ++i) {
+			// Spilling is okay, though not ideal.
+			fpr.MapReg(inst.src3 + i);
+			FS(32, fpr.R(inst.src3 + i), addrReg, imm + 4 * i);
+		}
 		break;
 
 	default:

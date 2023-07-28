@@ -24,6 +24,7 @@
 #include "Core/MIPS/JitCommon/JitState.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
 #include "Core/MIPS/RiscV/RiscVRegCache.h"
+#include "Core/MIPS/RiscV/RiscVRegCacheFPU.h"
 
 namespace MIPSComp {
 
@@ -41,7 +42,6 @@ public:
 	const u8 *GetCrashHandler() const override;
 
 	void ClearCache() override;
-	void UpdateFCR31() override;
 
 	// TODO: GetBlockCacheDebugInterface, block linking?
 
@@ -107,12 +107,13 @@ private:
 
 	void SetScratch1ToSrc1Address(IRReg src1);
 	// Modifies SCRATCH regs.
-	int32_t AdjustForAddressOffset(RiscVGen::RiscVReg *reg, int32_t constant);
+	int32_t AdjustForAddressOffset(RiscVGen::RiscVReg *reg, int32_t constant, int32_t range = 0);
 	void NormalizeSrc1(IRInst inst, RiscVGen::RiscVReg *reg, RiscVGen::RiscVReg tempReg, bool allowOverlap);
 	void NormalizeSrc12(IRInst inst, RiscVGen::RiscVReg *lhs, RiscVGen::RiscVReg *rhs, RiscVGen::RiscVReg lhsTempReg, RiscVGen::RiscVReg rhsTempReg, bool allowOverlap);
 	RiscVGen::RiscVReg NormalizeR(IRRegIndex rs, IRRegIndex rd, RiscVGen::RiscVReg tempReg);
 
 	RiscVRegCache gpr;
+	RiscVRegCacheFPU fpr;
 
 	static constexpr int MAX_ALLOWED_JIT_BLOCKS = 262144;
 
@@ -125,6 +126,7 @@ private:
 	const u8 *dispatcher_ = nullptr;
 	const u8 *dispatcherNoCheck_ = nullptr;
 	const u8 *dispatcherFetch_ = nullptr;
+	const u8 *applyRoundingMode_ = nullptr;
 
 	const u8 *saveStaticRegisters_ = nullptr;
 	const u8 *loadStaticRegisters_ = nullptr;

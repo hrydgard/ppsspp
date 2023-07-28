@@ -15,14 +15,14 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#ifndef offsetof
+#include <cstddef>
+#endif
+
 #include "Common/CPUDetect.h"
 #include "Core/MIPS/RiscV/RiscVRegCache.h"
 #include "Core/MIPS/JitCommon/JitState.h"
 #include "Core/Reporting.h"
-
-#ifndef offsetof
-#include "stddef.h"
-#endif
 
 using namespace RiscVGen;
 using namespace RiscVJitConstants;
@@ -36,20 +36,14 @@ void RiscVRegCache::Init(RiscVEmitter *emitter) {
 }
 
 void RiscVRegCache::Start() {
-	for (int i = 0; i < NUM_RVREG; i++) {
-		ar[i].mipsReg = IRREG_INVALID;
-		ar[i].isDirty = false;
-		ar[i].pointerified = false;
-		ar[i].tempLocked = false;
-		ar[i].normalized32 = false;
+	if (!initialReady_) {
+		SetupInitialRegs();
+		initialReady_ = true;
 	}
-	for (int i = 0; i < NUM_MIPSREG; i++) {
-		mr[i].loc = MIPSLoc::MEM;
-		mr[i].reg = INVALID_REG;
-		mr[i].imm = -1;
-		mr[i].spillLock = false;
-		mr[i].isStatic = false;
-	}
+
+	memcpy(ar, arInitial_, sizeof(ar));
+	memcpy(mr, mrInitial_, sizeof(mr));
+
 	int numStatics;
 	const StaticAllocation *statics = GetStaticAllocations(numStatics);
 	for (int i = 0; i < numStatics; i++) {
@@ -61,24 +55,41 @@ void RiscVRegCache::Start() {
 		mr[statics[i].mr].isStatic = true;
 		mr[statics[i].mr].spillLock = true;
 	}
+}
+
+void RiscVRegCache::SetupInitialRegs() {
+	for (int i = 0; i < NUM_RVREG; i++) {
+		arInitial_[i].mipsReg = IRREG_INVALID;
+		arInitial_[i].isDirty = false;
+		arInitial_[i].pointerified = false;
+		arInitial_[i].tempLocked = false;
+		arInitial_[i].normalized32 = false;
+	}
+	for (int i = 0; i < NUM_MIPSREG; i++) {
+		mrInitial_[i].loc = MIPSLoc::MEM;
+		mrInitial_[i].reg = INVALID_REG;
+		mrInitial_[i].imm = -1;
+		mrInitial_[i].spillLock = false;
+		mrInitial_[i].isStatic = false;
+	}
 
 	// Treat R_ZERO a bit specially, but it's basically static alloc too.
-	ar[R_ZERO].mipsReg = MIPS_REG_ZERO;
-	ar[R_ZERO].normalized32 = true;
-	mr[MIPS_REG_ZERO].loc = MIPSLoc::RVREG_IMM;
-	mr[MIPS_REG_ZERO].reg = R_ZERO;
-	mr[MIPS_REG_ZERO].imm = 0;
-	mr[MIPS_REG_ZERO].isStatic = true;
+	arInitial_[R_ZERO].mipsReg = MIPS_REG_ZERO;
+	arInitial_[R_ZERO].normalized32 = true;
+	mrInitial_[MIPS_REG_ZERO].loc = MIPSLoc::RVREG_IMM;
+	mrInitial_[MIPS_REG_ZERO].reg = R_ZERO;
+	mrInitial_[MIPS_REG_ZERO].imm = 0;
+	mrInitial_[MIPS_REG_ZERO].isStatic = true;
 }
 
 const RiscVReg *RiscVRegCache::GetMIPSAllocationOrder(int &count) {
 	// X8 and X9 are the most ideal for static alloc because they can be used with compression.
 	// Otherwise we stick to saved regs - might not be necessary.
 	static const RiscVReg allocationOrder[] = {
-		X7, X8, X9, X12, X13, X14, X5, X6, X15, X16, X17, X18, X19, X20, X21, X22, X23, X28, X29, X30, X31,
+		X8, X9, X12, X13, X14, X15, X5, X6, X7, X16, X17, X18, X19, X20, X21, X22, X23, X28, X29, X30, X31,
 	};
 	static const RiscVReg allocationOrderStaticAlloc[] = {
-		X7, X12, X13, X14, X5, X6, X15, X16, X17, X21, X22, X23, X28, X29, X30, X31,
+		X12, X13, X14, X15, X5, X6, X7, X16, X17, X21, X22, X23, X28, X29, X30, X31,
 	};
 
 	if (jo_->useStaticAlloc) {
@@ -432,6 +443,7 @@ RiscVReg RiscVRegCache::GetAndLockTempR() {
 	RiscVReg reg = AllocateReg();
 	if (reg != INVALID_REG) {
 		ar[reg].tempLocked = true;
+		pendingUnlock_ = true;
 	}
 	return reg;
 }
@@ -958,14 +970,6 @@ bool RiscVRegCache::IsImm(IRRegIndex r) const {
 		return mr[r].loc == MIPSLoc::IMM || mr[r].loc == MIPSLoc::RVREG_IMM;
 }
 
-bool RiscVRegCache::IsPureImm(IRRegIndex r) const {
-	_dbg_assert_(IsValidReg(r));
-	if (r == MIPS_REG_ZERO)
-		return true;
-	else
-		return mr[r].loc == MIPSLoc::IMM;
-}
-
 u64 RiscVRegCache::GetImm(IRRegIndex r) const {
 	_dbg_assert_(IsValidReg(r));
 	if (r == MIPS_REG_ZERO)
@@ -1016,9 +1020,13 @@ void RiscVRegCache::SpillLock(IRRegIndex r1, IRRegIndex r2, IRRegIndex r3, IRReg
 	if (r2 != IRREG_INVALID) mr[r2].spillLock = true;
 	if (r3 != IRREG_INVALID) mr[r3].spillLock = true;
 	if (r4 != IRREG_INVALID) mr[r4].spillLock = true;
+	pendingUnlock_ = true;
 }
 
 void RiscVRegCache::ReleaseSpillLocksAndDiscardTemps() {
+	if (!pendingUnlock_)
+		return;
+
 	for (int i = 0; i < NUM_MIPSREG; i++) {
 		if (!mr[i].isStatic)
 			mr[i].spillLock = false;
@@ -1026,6 +1034,8 @@ void RiscVRegCache::ReleaseSpillLocksAndDiscardTemps() {
 	for (int i = 0; i < NUM_RVREG; i++) {
 		ar[i].tempLocked = false;
 	}
+
+	pendingUnlock_ = false;
 }
 
 void RiscVRegCache::ReleaseSpillLock(IRRegIndex r1, IRRegIndex r2, IRRegIndex r3, IRRegIndex r4) {

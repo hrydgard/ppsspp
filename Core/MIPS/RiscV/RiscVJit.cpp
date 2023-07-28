@@ -26,7 +26,7 @@ namespace MIPSComp {
 using namespace RiscVGen;
 using namespace RiscVJitConstants;
 
-RiscVJit::RiscVJit(MIPSState *mipsState) : IRJit(mipsState), gpr(mipsState, &jo) {
+RiscVJit::RiscVJit(MIPSState *mipsState) : IRJit(mipsState), gpr(mipsState, &jo), fpr(mipsState, &jo) {
 	// Automatically disable incompatible options.
 	if (((intptr_t)Memory::base & 0x00000000FFFFFFFFUL) != 0) {
 		jo.enablePointerify = false;
@@ -40,7 +40,7 @@ RiscVJit::RiscVJit(MIPSState *mipsState) : IRJit(mipsState), gpr(mipsState, &jo)
 	memset(blockStartAddrs_, 0, sizeof(blockStartAddrs_[0]) * MAX_ALLOWED_JIT_BLOCKS);
 
 	gpr.Init(this);
-	// TODO: fpr
+	fpr.Init(this);
 
 	GenerateFixedCode(jo);
 }
@@ -79,7 +79,7 @@ bool RiscVJit::CompileBlock(u32 em_address, std::vector<IRInst> &instructions, u
 	blockStartAddrs_[block_num] = GetCodePointer();
 
 	gpr.Start();
-	// TODO: fpr.
+	fpr.Start();
 
 	for (const IRInst &inst : instructions) {
 		CompileIRInst(inst);
@@ -87,9 +87,8 @@ bool RiscVJit::CompileBlock(u32 em_address, std::vector<IRInst> &instructions, u
 		if (jo.Disabled(JitDisable::REGALLOC_GPR)) {
 			gpr.FlushAll();
 		}
-		// TODO
 		if (jo.Disabled(JitDisable::REGALLOC_FPR)) {
-			//fpr.FlushAll();
+			fpr.FlushAll();
 		}
 
 		// Safety check, in case we get a bunch of really large jit ops without a lot of branching.
@@ -105,13 +104,6 @@ bool RiscVJit::CompileBlock(u32 em_address, std::vector<IRInst> &instructions, u
 	FlushIcache();
 
 	return true;
-}
-
-static u32 DoIRInst(uint64_t value) {
-	IRInst inst;
-	memcpy(&inst, &value, sizeof(inst));
-
-	return IRInterpret(currentMIPS, &inst, 1);
 }
 
 void RiscVJit::CompileIRInst(IRInst inst) {
@@ -281,7 +273,6 @@ void RiscVJit::CompileIRInst(IRInst inst) {
 		CompIR_FSat(inst);
 		break;
 
-	case IROp::ZeroFpCond:
 	case IROp::FCmp:
 	case IROp::FCmovVfpuCC:
 	case IROp::FCmpVfpuBit:
@@ -299,6 +290,9 @@ void RiscVJit::CompileIRInst(IRInst inst) {
 	case IROp::SetCtrlVFPUReg:
 	case IROp::SetCtrlVFPUFReg:
 	case IROp::FpCondToReg:
+	case IROp::ZeroFpCond:
+	case IROp::FpCtrlFromReg:
+	case IROp::FpCtrlToReg:
 	case IROp::VfpuCtrlToReg:
 	case IROp::FMovFromGPR:
 	case IROp::FMovToGPR:
@@ -392,9 +386,15 @@ void RiscVJit::CompileIRInst(IRInst inst) {
 	}
 }
 
+static u32 DoIRInst(uint64_t value) {
+	IRInst inst;
+	memcpy(&inst, &value, sizeof(inst));
+
+	return IRInterpret(currentMIPS, &inst, 1);
+}
+
 void RiscVJit::CompIR_Generic(IRInst inst) {
-	// For now, we're gonna do it the slow and ugly way.
-	// Maybe there's a smarter way to fallback?
+	// If we got here, we're going the slow way.
 	uint64_t value;
 	memcpy(&value, &inst, sizeof(inst));
 
@@ -403,20 +403,24 @@ void RiscVJit::CompIR_Generic(IRInst inst) {
 	SaveStaticRegisters();
 	QuickCallFunction(&DoIRInst);
 	LoadStaticRegisters();
-	// Result in X10 aka SCRATCH1.
-	_assert_(X10 == SCRATCH1);
-	if (BInRange(dispatcherPCInSCRATCH1_)) {
-		BNE(X10, R_ZERO, dispatcherPCInSCRATCH1_);
-	} else {
-		FixupBranch skip = BEQ(X10, R_ZERO);
-		QuickJ(R_RA, dispatcherPCInSCRATCH1_);
-		SetJumpTarget(skip);
+
+	// We only need to check the return value if it's a potential exit.
+	if ((GetIRMeta(inst.op)->flags & IRFLAG_EXIT) != 0) {
+		// Result in X10 aka SCRATCH1.
+		_assert_(X10 == SCRATCH1);
+		if (BInRange(dispatcherPCInSCRATCH1_)) {
+			BNE(X10, R_ZERO, dispatcherPCInSCRATCH1_);
+		} else {
+			FixupBranch skip = BEQ(X10, R_ZERO);
+			QuickJ(R_RA, dispatcherPCInSCRATCH1_);
+			SetJumpTarget(skip);
+		}
 	}
 }
 
 void RiscVJit::FlushAll() {
 	gpr.FlushAll();
-	// TODO: fpr.
+	fpr.FlushAll();
 }
 
 bool RiscVJit::DescribeCodePtr(const u8 *ptr, std::string &name) {
@@ -433,6 +437,8 @@ bool RiscVJit::DescribeCodePtr(const u8 *ptr, std::string &name) {
 		name = "loadStaticRegisters";
 	} else if (ptr == enterDispatcher_) {
 		name = "enterDispatcher";
+	} else if (ptr == applyRoundingMode_) {
+		name = "applyRoundingMode";
 	} else if (!IsInSpace(ptr)) {
 		return false;
 	} else {
@@ -492,20 +498,12 @@ void RiscVJit::ClearCache() {
 	memset(blockStartAddrs_, 0, sizeof(blockStartAddrs_[0]) * MAX_ALLOWED_JIT_BLOCKS);
 }
 
-void RiscVJit::UpdateFCR31() {
-	IRJit::UpdateFCR31();
-
-	// TODO: Handle rounding modes?
-}
-
 void RiscVJit::RestoreRoundingMode(bool force) {
-	// TODO: Could maybe skip if not hasSetRounding?  But that's on IRFrontend...
 	FSRMI(Round::NEAREST_EVEN);
 }
 
 void RiscVJit::ApplyRoundingMode(bool force) {
-	// TODO: Also could maybe sometimes skip?
-	//QuickCallFunction(applyRoundingMode_);
+	QuickCallFunction(applyRoundingMode_);
 }
 
 void RiscVJit::MovFromPC(RiscVReg r) {

@@ -768,9 +768,11 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, int count) {
 			mips->f[inst->dest] = mips->f[inst->src1] / mips->f[inst->src2];
 			break;
 		case IROp::FMin:
+			// TODO: This doesn't handle VFPU ordering right.
 			mips->f[inst->dest] = std::min(mips->f[inst->src1], mips->f[inst->src2]);
 			break;
 		case IROp::FMax:
+			// TODO: This doesn't handle VFPU ordering right.
 			mips->f[inst->dest] = std::max(mips->f[inst->src1], mips->f[inst->src2]);
 			break;
 
@@ -810,6 +812,17 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, int count) {
 
 		case IROp::FpCondToReg:
 			mips->r[inst->dest] = mips->fpcond;
+			break;
+		case IROp::FpCtrlFromReg:
+			mips->fcr31 = mips->r[inst->src1] & 0x0181FFFF;
+			// Extract the new fpcond value.
+			// TODO: Is it really helping us to keep it separate?
+			mips->fpcond = (mips->fcr31 >> 23) & 1;
+			break;
+		case IROp::FpCtrlToReg:
+			// Update the fpcond bit first.
+			mips->fcr31 = (mips->fcr31 & ~(1 << 23)) | ((mips->fpcond & 1) << 23);
+			mips->r[inst->dest] = mips->fcr31;
 			break;
 		case IROp::VfpuCtrlToReg:
 			mips->r[inst->dest] = mips->vfpuCtrl[inst->src1];

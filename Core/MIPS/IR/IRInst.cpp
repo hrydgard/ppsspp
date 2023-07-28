@@ -112,6 +112,8 @@ static const IRMeta irMeta[] = {
 	{ IROp::FMovToGPR, "FMovToGPR", "GF" },
 	{ IROp::ZeroFpCond, "ZeroFpCond", "" },
 	{ IROp::FpCondToReg, "FpCondToReg", "G" },
+	{ IROp::FpCtrlFromReg, "FpCtrlFromReg", "_G" },
+	{ IROp::FpCtrlToReg, "FpCtrlToReg", "G" },
 	{ IROp::VfpuCtrlToReg, "VfpuCtrlToReg", "GI" },
 	{ IROp::SetCtrlVFPU, "SetCtrlVFPU", "TC" },
 	{ IROp::SetCtrlVFPUReg, "SetCtrlVFPUReg", "TG" },

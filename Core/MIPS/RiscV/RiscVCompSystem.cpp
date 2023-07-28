@@ -15,7 +15,12 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "Common/Profiler/Profiler.h"
+#include "Core/Core.h"
+#include "Core/HLE/HLE.h"
+#include "Core/HLE/ReplaceTables.h"
 #include "Core/MemMap.h"
+#include "Core/MIPS/MIPSTables.h"
 #include "Core/MIPS/RiscV/RiscVJit.h"
 #include "Core/MIPS/RiscV/RiscVRegCache.h"
 
@@ -45,7 +50,15 @@ void RiscVJit::CompIR_Basic(IRInst inst) {
 		break;
 
 	case IROp::SetConstF:
-		CompIR_Generic(inst);
+		fpr.MapReg(inst.dest, MIPSMap::NOINIT);
+		if (inst.constant == 0) {
+			FCVT(FConv::S, FConv::W, fpr.R(inst.dest), R_ZERO);
+		} else {
+			// TODO: In the future, could use FLI if it's approved.
+			// Also, is FCVT faster?
+			LI(SCRATCH1, (int32_t)inst.constant);
+			FMV(FMv::W, FMv::X, fpr.R(inst.dest), SCRATCH1);
+		}
 		break;
 
 	case IROp::Downcount:
@@ -78,13 +91,85 @@ void RiscVJit::CompIR_Transfer(IRInst inst) {
 
 	switch (inst.op) {
 	case IROp::SetCtrlVFPU:
+		gpr.SetImm(IRREG_VFPU_CTRL_BASE + inst.dest, (int32_t)inst.constant);
+		break;
+
 	case IROp::SetCtrlVFPUReg:
+		gpr.MapDirtyIn(IRREG_VFPU_CTRL_BASE + inst.dest, inst.src1);
+		MV(gpr.R(IRREG_VFPU_CTRL_BASE + inst.dest), gpr.R(inst.src1));
+		gpr.MarkDirty(gpr.R(IRREG_VFPU_CTRL_BASE + inst.dest), gpr.IsNormalized32(inst.src1));
+		break;
+
 	case IROp::SetCtrlVFPUFReg:
+		gpr.MapReg(IRREG_VFPU_CTRL_BASE + inst.dest, MIPSMap::NOINIT);
+		fpr.MapReg(inst.src1);
+		FMV(FMv::X, FMv::W, gpr.R(IRREG_VFPU_CTRL_BASE + inst.dest), fpr.R(inst.src1));
+		break;
+
 	case IROp::FpCondToReg:
+		gpr.MapDirtyIn(inst.dest, IRREG_FPCOND);
+		MV(gpr.R(inst.dest), gpr.R(IRREG_FPCOND));
+		gpr.MarkDirty(gpr.R(inst.dest), gpr.IsNormalized32(IRREG_FPCOND));
+		break;
+
+	case IROp::ZeroFpCond:
+		gpr.SetImm(IRREG_FPCOND, 0);
+		break;
+
+	case IROp::FpCtrlFromReg:
+		gpr.MapDirtyIn(IRREG_FPCOND, inst.src1, MapType::AVOID_LOAD_MARK_NORM32);
+		LI(SCRATCH1, 0x0181FFFF);
+		AND(SCRATCH1, gpr.R(inst.src1), SCRATCH1);
+		// Extract the new fpcond value.
+		if (cpu_info.RiscV_Zbs) {
+			BEXTI(gpr.R(IRREG_FPCOND), SCRATCH1, 23);
+		} else {
+			SRLI(gpr.R(IRREG_FPCOND), SCRATCH1, 23);
+			ANDI(gpr.R(IRREG_FPCOND), gpr.R(IRREG_FPCOND), 1);
+		}
+		SW(SCRATCH1, CTXREG, IRREG_FCR31 * 4);
+		break;
+
+	case IROp::FpCtrlToReg:
+		gpr.MapDirtyIn(inst.dest, IRREG_FPCOND, MapType::AVOID_LOAD_MARK_NORM32);
+		// Load fcr31 and clear the fpcond bit.
+		LW(SCRATCH1, CTXREG, IRREG_FCR31 * 4);
+		if (cpu_info.RiscV_Zbs) {
+			BCLRI(SCRATCH1, SCRATCH1, 23);
+		} else {
+			LI(SCRATCH2, ~(1 << 23));
+			AND(SCRATCH1, SCRATCH1, SCRATCH2);
+		}
+
+		// Now get the correct fpcond bit.
+		ANDI(SCRATCH2, gpr.R(IRREG_FPCOND), 1);
+		SLLI(SCRATCH2, SCRATCH2, 23);
+		OR(gpr.R(inst.dest), SCRATCH1, SCRATCH2);
+
+		// Also update mips->fcr31 while we're here.
+		SW(gpr.R(inst.dest), CTXREG, IRREG_FCR31 * 4);
+		break;
+
 	case IROp::VfpuCtrlToReg:
+		gpr.MapDirtyIn(inst.dest, IRREG_VFPU_CTRL_BASE + inst.src1);
+		MV(gpr.R(inst.dest), gpr.R(IRREG_VFPU_CTRL_BASE + inst.src1));
+		gpr.MarkDirty(gpr.R(inst.dest), gpr.IsNormalized32(IRREG_VFPU_CTRL_BASE + inst.src1));
+		break;
+
 	case IROp::FMovFromGPR:
+		fpr.MapReg(inst.dest, MIPSMap::NOINIT);
+		if (gpr.IsImm(inst.src1) && gpr.GetImm(inst.src1) == 0) {
+			FCVT(FConv::S, FConv::W, fpr.R(inst.dest), R_ZERO);
+		} else {
+			gpr.MapReg(inst.src1);
+			FMV(FMv::W, FMv::X, fpr.R(inst.dest), gpr.R(inst.src1));
+		}
+		break;
+
 	case IROp::FMovToGPR:
-		CompIR_Generic(inst);
+		gpr.MapReg(inst.dest, MIPSMap::NOINIT);
+		fpr.MapReg(inst.src1);
+		FMV(FMv::X, FMv::W, gpr.R(inst.dest), fpr.R(inst.src1));
 		break;
 
 	default:
@@ -98,10 +183,61 @@ void RiscVJit::CompIR_System(IRInst inst) {
 
 	switch (inst.op) {
 	case IROp::Interpret:
+		// IR protects us against this being a branching instruction (well, hopefully.)
+		FlushAll();
+		SaveStaticRegisters();
+		LI(X10, (int32_t)inst.constant);
+		QuickCallFunction((const u8 *)MIPSGetInterpretFunc(MIPSOpcode(inst.constant)));
+		LoadStaticRegisters();
+		break;
+
 	case IROp::Syscall:
+		FlushAll();
+		SaveStaticRegisters();
+
+#ifdef USE_PROFILER
+		// When profiling, we can't skip CallSyscall, since it times syscalls.
+		LI(X10, (int32_t)inst.constant);
+		QuickCallFunction(&CallSyscall);
+#else
+		// Skip the CallSyscall where possible.
+		{
+			MIPSOpcode op(inst.constant);
+			void *quickFunc = GetQuickSyscallFunc(op);
+			if (quickFunc) {
+				LI(X10, (uintptr_t)GetSyscallFuncPointer(op));
+				QuickCallFunction((const u8 *)quickFunc);
+			} else {
+				LI(X10, (int32_t)inst.constant);
+				QuickCallFunction(&CallSyscall);
+			}
+		}
+#endif
+
+		LoadStaticRegisters();
+		// This is always followed by an ExitToPC, where we check coreState.
+		break;
+
 	case IROp::CallReplacement:
+		FlushAll();
+		SaveStaticRegisters();
+		QuickCallFunction(GetReplacementFunc(inst.constant)->replaceFunc);
+		LoadStaticRegisters();
+		SUB(DOWNCOUNTREG, DOWNCOUNTREG, X10);
+		break;
+
 	case IROp::Break:
-		CompIR_Generic(inst);
+		FlushAll();
+		// This doesn't naturally have restore/apply around it.
+		RestoreRoundingMode(true);
+		SaveStaticRegisters();
+		MovFromPC(X10);
+		QuickCallFunction(&Core_Break);
+		LoadStaticRegisters();
+		ApplyRoundingMode(true);
+		MovFromPC(SCRATCH1);
+		ADDI(SCRATCH1, SCRATCH1, 4);
+		QuickJ(R_RA, dispatcherPCInSCRATCH1_);
 		break;
 
 	default:
