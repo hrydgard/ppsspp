@@ -50,6 +50,8 @@ void RiscVJit::CompIR_FArith(IRInst inst) {
 
 	case IROp::FMul:
 		fpr.MapDirtyInIn(inst.dest, inst.src1, inst.src2);
+		// TODO: If FMUL consistently produces NAN across chip vendors, we can skip this.
+		// Luckily this does match the RISC-V canonical NAN.
 		if (inst.src1 != inst.src2) {
 			// These will output 0x80/0x01 if infinity, 0x10/0x80 if zero.
 			// We need to check if one is infinity and the other zero.
