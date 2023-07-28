@@ -228,7 +228,7 @@ bool RemoveLoadStoreLeftRight(const IRWriter &in, IRWriter &out, const IROptions
 		};
 
 		auto combineOpposite = [&](IROp matchOp, int matchOff, IROp replaceOp, int replaceOff) {
-			if (!opts.unalignedLoadStore || i + 1 >= n)
+			if (i + 1 >= n)
 				return false;
 			const IRInst &next = nextOp();
 			if (next.op != matchOp || next.dest != inst.dest || next.src1 != inst.src1)
@@ -236,8 +236,40 @@ bool RemoveLoadStoreLeftRight(const IRWriter &in, IRWriter &out, const IROptions
 			if (inst.constant + matchOff != next.constant)
 				return false;
 
-			// Write out one unaligned op.
-			out.Write(replaceOp, inst.dest, inst.src1, out.AddConstant(inst.constant + replaceOff));
+			if (opts.unalignedLoadStore) {
+				// Write out one unaligned op.
+				out.Write(replaceOp, inst.dest, inst.src1, out.AddConstant(inst.constant + replaceOff));
+			} else if (replaceOp == IROp::Load32) {
+				// We can still combine to a simpler set of two loads.
+				// We start by isolating the address and shift amount.
+
+				// IRTEMP_LR_ADDR = rs + imm
+				out.Write(IROp::AddConst, IRTEMP_LR_ADDR, inst.src1, out.AddConstant(inst.constant + replaceOff));
+				// IRTEMP_LR_SHIFT = (addr & 3) * 8
+				out.Write(IROp::AndConst, IRTEMP_LR_SHIFT, IRTEMP_LR_ADDR, out.AddConstant(3));
+				out.Write(IROp::ShlImm, IRTEMP_LR_SHIFT, IRTEMP_LR_SHIFT, 3);
+				// IRTEMP_LR_ADDR = addr & 0xfffffffc
+				out.Write(IROp::AndConst, IRTEMP_LR_ADDR, IRTEMP_LR_ADDR, out.AddConstant(0xFFFFFFFC));
+				// IRTEMP_LR_VALUE = low_word, dest = high_word
+				out.Write(IROp::Load32, inst.dest, IRTEMP_LR_ADDR, out.AddConstant(0));
+				out.Write(IROp::Load32, IRTEMP_LR_VALUE, IRTEMP_LR_ADDR, out.AddConstant(4));
+
+				// Now we just need to adjust and combine dest and IRTEMP_LR_VALUE.
+				// inst.dest >>= shift (putting its bits in the right spot.)
+				out.Write(IROp::Shr, inst.dest, inst.dest, IRTEMP_LR_SHIFT);
+				// We can't shift by 32, so we compromise by shifting twice.
+				out.Write(IROp::ShlImm, IRTEMP_LR_VALUE, IRTEMP_LR_VALUE, 8);
+				// IRTEMP_LR_SHIFT = 24 - shift
+				out.Write(IROp::Neg, IRTEMP_LR_SHIFT, IRTEMP_LR_SHIFT);
+				out.Write(IROp::AddConst, IRTEMP_LR_SHIFT, IRTEMP_LR_SHIFT, out.AddConstant(24));
+				// IRTEMP_LR_VALUE <<= (24 - shift)
+				out.Write(IROp::Shl, IRTEMP_LR_VALUE, IRTEMP_LR_VALUE, IRTEMP_LR_SHIFT);
+
+				// At this point the values are aligned, and we just merge.
+				out.Write(IROp::Or, inst.dest, inst.dest, IRTEMP_LR_VALUE);
+			} else {
+				return false;
+			}
 			// Skip the next one, replaced.
 			i++;
 			return true;
