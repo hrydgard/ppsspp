@@ -357,6 +357,20 @@ void TextDrawerSDL::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStrin
 	// Replace "&&" with "&"
 	std::string processedStr = ReplaceAll(str, "&&", "&");
 
+	// If a string includes only newlines, SDL2_ttf will refuse to render it
+	// thinking it is empty. Add a space to avoid that. 
+	bool isAllNewline = true;
+	for (int i = 0; i < processedStr.size(); i++) {
+		if (processedStr[i] != '\n') {
+			isAllNewline = false;
+			break;
+		}
+	}
+
+	if (isAllNewline) {
+		processedStr.push_back(' ');
+	}
+
 	TTF_Font *font = fontMap_.find(fontHash_)->second;
 	int ptSize = TTF_FontHeight(font) / 1.35;
 
