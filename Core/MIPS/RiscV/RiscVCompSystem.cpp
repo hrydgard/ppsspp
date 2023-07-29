@@ -101,7 +101,7 @@ void RiscVJit::CompIR_Transfer(IRInst inst) {
 		break;
 
 	case IROp::SetCtrlVFPUFReg:
-		gpr.MapReg(IRREG_VFPU_CTRL_BASE + inst.dest, MIPSMap::NOINIT);
+		gpr.MapReg(IRREG_VFPU_CTRL_BASE + inst.dest, MIPSMap::NOINIT | MIPSMap::MARK_NORM32);
 		fpr.MapReg(inst.src1);
 		FMV(FMv::X, FMv::W, gpr.R(IRREG_VFPU_CTRL_BASE + inst.dest), fpr.R(inst.src1));
 		break;
@@ -167,7 +167,7 @@ void RiscVJit::CompIR_Transfer(IRInst inst) {
 		break;
 
 	case IROp::FMovToGPR:
-		gpr.MapReg(inst.dest, MIPSMap::NOINIT);
+		gpr.MapReg(inst.dest, MIPSMap::NOINIT | MIPSMap::MARK_NORM32);
 		fpr.MapReg(inst.src1);
 		FMV(FMv::X, FMv::W, gpr.R(inst.dest), fpr.R(inst.src1));
 		break;

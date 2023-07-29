@@ -220,6 +220,71 @@ void RiscVJit::CompIR_FCompare(IRInst inst) {
 
 	switch (inst.op) {
 	case IROp::FCmp:
+		switch (inst.dest) {
+		case IRFpCompareMode::False:
+			gpr.SetImm(IRREG_FPCOND, 0);
+			break;
+
+		case IRFpCompareMode::EitherUnordered:
+			fpr.MapInIn(inst.src1, inst.src2);
+			gpr.MapReg(IRREG_FPCOND, MIPSMap::NOINIT | MIPSMap::MARK_NORM32);
+			FCLASS(32, SCRATCH1, fpr.R(inst.src1));
+			FCLASS(32, SCRATCH2, fpr.R(inst.src2));
+			OR(SCRATCH1, SCRATCH1, SCRATCH2);
+			// NAN is 0x100 or 0x200.
+			ANDI(SCRATCH1, SCRATCH1, 0x300);
+			SNEZ(gpr.R(IRREG_FPCOND), SCRATCH1);
+			break;
+
+		case IRFpCompareMode::EqualOrdered:
+			fpr.MapInIn(inst.src1, inst.src2);
+			gpr.MapReg(IRREG_FPCOND, MIPSMap::NOINIT | MIPSMap::MARK_NORM32);
+			FEQ(32, gpr.R(IRREG_FPCOND), fpr.R(inst.src1), fpr.R(inst.src2));
+			break;
+
+		case IRFpCompareMode::EqualUnordered:
+			fpr.MapInIn(inst.src1, inst.src2);
+			gpr.MapReg(IRREG_FPCOND, MIPSMap::NOINIT | MIPSMap::MARK_NORM32);
+			FEQ(32, gpr.R(IRREG_FPCOND), fpr.R(inst.src1), fpr.R(inst.src2));
+
+			// Now let's just OR in the unordered check.
+			FCLASS(32, SCRATCH1, fpr.R(inst.src1));
+			FCLASS(32, SCRATCH2, fpr.R(inst.src2));
+			OR(SCRATCH1, SCRATCH1, SCRATCH2);
+			// NAN is 0x100 or 0x200.
+			ANDI(SCRATCH1, SCRATCH1, 0x300);
+			SNEZ(SCRATCH1, SCRATCH1);
+			OR(gpr.R(IRREG_FPCOND), gpr.R(IRREG_FPCOND), SCRATCH1);
+			break;
+
+		case IRFpCompareMode::LessEqualOrdered:
+			fpr.MapInIn(inst.src1, inst.src2);
+			gpr.MapReg(IRREG_FPCOND, MIPSMap::NOINIT | MIPSMap::MARK_NORM32);
+			FLE(32, gpr.R(IRREG_FPCOND), fpr.R(inst.src1), fpr.R(inst.src2));
+			break;
+
+		case IRFpCompareMode::LessEqualUnordered:
+			fpr.MapInIn(inst.src1, inst.src2);
+			gpr.MapReg(IRREG_FPCOND, MIPSMap::NOINIT | MIPSMap::MARK_NORM32);
+			FLT(32, gpr.R(IRREG_FPCOND), fpr.R(inst.src2), fpr.R(inst.src1));
+			SEQZ(gpr.R(IRREG_FPCOND), gpr.R(IRREG_FPCOND));
+			break;
+
+		case IRFpCompareMode::LessOrdered:
+			fpr.MapInIn(inst.src1, inst.src2);
+			gpr.MapReg(IRREG_FPCOND, MIPSMap::NOINIT | MIPSMap::MARK_NORM32);
+			FLT(32, gpr.R(IRREG_FPCOND), fpr.R(inst.src1), fpr.R(inst.src2));
+			break;
+
+		case IRFpCompareMode::LessUnordered:
+			fpr.MapInIn(inst.src1, inst.src2);
+			gpr.MapReg(IRREG_FPCOND, MIPSMap::NOINIT | MIPSMap::MARK_NORM32);
+			FLE(32, gpr.R(IRREG_FPCOND), fpr.R(inst.src2), fpr.R(inst.src1));
+			SEQZ(gpr.R(IRREG_FPCOND), gpr.R(IRREG_FPCOND));
+			break;
+		}
+		break;
+
 	case IROp::FCmovVfpuCC:
 	case IROp::FCmpVfpuBit:
 	case IROp::FCmpVfpuAggregate:
