@@ -110,18 +110,68 @@ void RiscVJit::CompIR_FArith(IRInst inst) {
 
 void RiscVJit::CompIR_FCondAssign(IRInst inst) {
 	CONDITIONAL_DISABLE;
-
-	switch (inst.op) {
-	case IROp::FMin:
-	case IROp::FMax:
-		// TODO: These are tricky, have to handle order correctly.
-		CompIR_Generic(inst);
-		break;
-
-	default:
+	if (inst.op != IROp::FMin && inst.op != IROp::FMax)
 		INVALIDOP;
-		break;
+	bool maxCondition = inst.op == IROp::FMax;
+
+	// FMin and FMax are used by VFPU and handle NAN/INF as just a larger exponent.
+	fpr.MapDirtyInIn(inst.dest, inst.src1, inst.src2);
+	FCLASS(32, SCRATCH1, fpr.R(inst.src1));
+	FCLASS(32, SCRATCH2, fpr.R(inst.src2));
+
+	// If either side is a NAN, it needs to participate in the comparison.
+	OR(SCRATCH1, SCRATCH1, SCRATCH2);
+	// NAN is either 0x100 or 0x200.
+	ANDI(SCRATCH1, SCRATCH1, 0x300);
+	FixupBranch useNormalCond = BEQ(SCRATCH1, R_ZERO);
+
+	// Time to use bits... classify won't help because it ignores -NAN.
+	FMV(FMv::X, FMv::W, SCRATCH1, fpr.R(inst.src1));
+	FMV(FMv::X, FMv::W, SCRATCH2, fpr.R(inst.src2));
+
+	// If both are negative, we flip the comparison (not two's compliment.)
+	// We cheat and use RA...
+	AND(R_RA, SCRATCH1, SCRATCH2);
+	SRLIW(R_RA, R_RA, 31);
+
+	if (cpu_info.RiscV_Zbb) {
+		FixupBranch swapCompare = BNE(R_RA, R_ZERO);
+		if (maxCondition)
+			MAX(SCRATCH1, SCRATCH1, SCRATCH2);
+		else
+			MIN(SCRATCH1, SCRATCH1, SCRATCH2);
+		FixupBranch skipSwapCompare = J();
+		SetJumpTarget(swapCompare);
+		if (maxCondition)
+			MIN(SCRATCH1, SCRATCH1, SCRATCH2);
+		else
+			MAX(SCRATCH1, SCRATCH1, SCRATCH2);
+		SetJumpTarget(skipSwapCompare);
+	} else {
+		RiscVReg isSrc1LowerReg = gpr.GetAndLockTempR();
+		gpr.ReleaseSpillLocksAndDiscardTemps();
+
+		SLT(isSrc1LowerReg, SCRATCH1, SCRATCH2);
+		// Flip the flag (to reverse the min/max) based on if both were negative.
+		XOR(isSrc1LowerReg, isSrc1LowerReg, R_RA);
+		FixupBranch useSrc1;
+		if (maxCondition)
+			useSrc1 = BEQ(isSrc1LowerReg, R_ZERO);
+		else
+			useSrc1 = BNE(isSrc1LowerReg, R_ZERO);
+		MV(SCRATCH1, SCRATCH2);
+		SetJumpTarget(useSrc1);
 	}
+
+	FMV(FMv::W, FMv::X, fpr.R(inst.dest), SCRATCH1);
+	FixupBranch finish = J();
+
+	SetJumpTarget(useNormalCond);
+	if (maxCondition)
+		FMAX(32, fpr.R(inst.dest), fpr.R(inst.src1), fpr.R(inst.src2));
+	else
+		FMIN(32, fpr.R(inst.dest), fpr.R(inst.src1), fpr.R(inst.src2));
+	SetJumpTarget(finish);
 }
 
 void RiscVJit::CompIR_FAssign(IRInst inst) {
