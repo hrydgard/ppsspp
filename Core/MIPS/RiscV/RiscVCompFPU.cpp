@@ -286,6 +286,27 @@ void RiscVJit::CompIR_FCompare(IRInst inst) {
 		break;
 
 	case IROp::FCmovVfpuCC:
+		gpr.MapReg(IRREG_VFPU_CTRL_BASE + VFPU_CTRL_CC);
+		fpr.MapDirtyIn(inst.dest, inst.src1, false);
+		if ((inst.src2 & 0xF) == 0) {
+			ANDI(SCRATCH1, gpr.R(IRREG_VFPU_CTRL_BASE + VFPU_CTRL_CC), 1);
+		} else if (cpu_info.RiscV_Zbs) {
+			BEXTI(SCRATCH1, gpr.R(IRREG_VFPU_CTRL_BASE + VFPU_CTRL_CC), inst.src2 & 0xF);
+		} else {
+			SRLI(SCRATCH1, gpr.R(IRREG_VFPU_CTRL_BASE + VFPU_CTRL_CC), inst.src2 & 0xF);
+			ANDI(SCRATCH1, SCRATCH1, 1);
+		}
+		if ((inst.src2 >> 7) & 1) {
+			FixupBranch skip = BEQ(SCRATCH1, R_ZERO);
+			FMV(32, fpr.R(inst.dest), fpr.R(inst.src1));
+			SetJumpTarget(skip);
+		} else {
+			FixupBranch skip = BNE(SCRATCH1, R_ZERO);
+			FMV(32, fpr.R(inst.dest), fpr.R(inst.src1));
+			SetJumpTarget(skip);
+		}
+		break;
+
 	case IROp::FCmpVfpuBit:
 	case IROp::FCmpVfpuAggregate:
 		CompIR_Generic(inst);
