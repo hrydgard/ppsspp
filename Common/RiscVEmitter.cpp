@@ -2148,6 +2148,7 @@ void RiscVEmitter::FCVT(FConv to, FConv from, RiscVReg rd, RiscVReg rs1, Round r
 			_assert_msg_(rm == Round::DYNAMIC || rm == Round::NEAREST_EVEN, "Invalid rounding mode for widening FCVT");
 			rm = Round::NEAREST_EVEN;
 		}
+		_assert_msg_(fromFmt != toFmt, "FCVT cannot convert to same float type");
 		Write32(EncodeR(Opcode32::OP_FP, rd, (Funct3)rm, rs1, (RiscVReg)fromFmt, toFmt, Funct5::FCVT_SZ));
 	} else {
 		Funct5 funct5 = FConvToIntegerBits(to) == 0 ? Funct5::FCVT_FROMX : Funct5::FCVT_TOX;
