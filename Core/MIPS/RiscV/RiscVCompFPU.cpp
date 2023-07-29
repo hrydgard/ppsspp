@@ -218,6 +218,8 @@ void RiscVJit::CompIR_FSat(IRInst inst) {
 void RiscVJit::CompIR_FCompare(IRInst inst) {
 	CONDITIONAL_DISABLE;
 
+	constexpr IRRegIndex IRREG_VFPUL_CC = IRREG_VFPU_CTRL_BASE + VFPU_CTRL_CC;
+
 	switch (inst.op) {
 	case IROp::FCmp:
 		switch (inst.dest) {
@@ -286,14 +288,14 @@ void RiscVJit::CompIR_FCompare(IRInst inst) {
 		break;
 
 	case IROp::FCmovVfpuCC:
-		gpr.MapReg(IRREG_VFPU_CTRL_BASE + VFPU_CTRL_CC);
+		gpr.MapReg(IRREG_VFPUL_CC);
 		fpr.MapDirtyIn(inst.dest, inst.src1, false);
 		if ((inst.src2 & 0xF) == 0) {
-			ANDI(SCRATCH1, gpr.R(IRREG_VFPU_CTRL_BASE + VFPU_CTRL_CC), 1);
+			ANDI(SCRATCH1, gpr.R(IRREG_VFPUL_CC), 1);
 		} else if (cpu_info.RiscV_Zbs) {
-			BEXTI(SCRATCH1, gpr.R(IRREG_VFPU_CTRL_BASE + VFPU_CTRL_CC), inst.src2 & 0xF);
+			BEXTI(SCRATCH1, gpr.R(IRREG_VFPUL_CC), inst.src2 & 0xF);
 		} else {
-			SRLI(SCRATCH1, gpr.R(IRREG_VFPU_CTRL_BASE + VFPU_CTRL_CC), inst.src2 & 0xF);
+			SRLI(SCRATCH1, gpr.R(IRREG_VFPUL_CC), inst.src2 & 0xF);
 			ANDI(SCRATCH1, SCRATCH1, 1);
 		}
 		if ((inst.src2 >> 7) & 1) {
@@ -308,8 +310,117 @@ void RiscVJit::CompIR_FCompare(IRInst inst) {
 		break;
 
 	case IROp::FCmpVfpuBit:
+		gpr.MapReg(IRREG_VFPUL_CC, MIPSMap::DIRTY);
+
+		switch (VCondition(inst.dest & 0xF)) {
+		case VC_EQ:
+			fpr.MapInIn(inst.src1, inst.src2);
+			FEQ(32, SCRATCH1, fpr.R(inst.src1), fpr.R(inst.src2));
+			break;
+		case VC_NE:
+			fpr.MapInIn(inst.src1, inst.src2);
+			// We could almost negate FEQ, except NAN != NAN.
+			// Anything != NAN is false and NAN != NAN is within that, so we only check one side.
+			FCLASS(32, SCRATCH2, fpr.R(inst.src2));
+			// NAN is 0x100 or 0x200.
+			ANDI(SCRATCH2, SCRATCH2, 0x300);
+			SNEZ(SCRATCH2, SCRATCH2);
+
+			FEQ(32, SCRATCH1, fpr.R(inst.src1), fpr.R(inst.src2));
+			SEQZ(SCRATCH1, SCRATCH1);
+			// Just OR in whether that side was a NAN so it's always not equal.
+			OR(SCRATCH1, SCRATCH1, SCRATCH2);
+			break;
+		case VC_LT:
+			fpr.MapInIn(inst.src1, inst.src2);
+			FLT(32, SCRATCH1, fpr.R(inst.src1), fpr.R(inst.src2));
+			break;
+		case VC_LE:
+			fpr.MapInIn(inst.src1, inst.src2);
+			FLE(32, SCRATCH1, fpr.R(inst.src1), fpr.R(inst.src2));
+			break;
+		case VC_GT:
+			fpr.MapInIn(inst.src1, inst.src2);
+			FLT(32, SCRATCH1, fpr.R(inst.src2), fpr.R(inst.src1));
+			break;
+		case VC_GE:
+			fpr.MapInIn(inst.src1, inst.src2);
+			FLE(32, SCRATCH1, fpr.R(inst.src2), fpr.R(inst.src1));
+			break;
+		case VC_EZ:
+		case VC_NZ:
+			fpr.MapReg(inst.src1);
+			// Zero is either 0x10 or 0x08.
+			FCLASS(32, SCRATCH1, gpr.R(inst.src1));
+			ANDI(SCRATCH1, SCRATCH1, 0x18);
+			if ((inst.dest & 4) == 0)
+				SNEZ(SCRATCH1, SCRATCH1);
+			else
+				SEQZ(SCRATCH1, SCRATCH1);
+			break;
+		case VC_EN:
+		case VC_NN:
+			fpr.MapReg(inst.src1);
+			// NAN is either 0x100 or 0x200.
+			FCLASS(32, SCRATCH1, gpr.R(inst.src1));
+			ANDI(SCRATCH1, SCRATCH1, 0x300);
+			if ((inst.dest & 4) == 0)
+				SNEZ(SCRATCH1, SCRATCH1);
+			else
+				SEQZ(SCRATCH1, SCRATCH1);
+			break;
+		case VC_EI:
+		case VC_NI:
+			fpr.MapReg(inst.src1);
+			// Infinity is either 0x80 or 0x01.
+			FCLASS(32, SCRATCH1, gpr.R(inst.src1));
+			ANDI(SCRATCH1, SCRATCH1, 0x81);
+			if ((inst.dest & 4) == 0)
+				SNEZ(SCRATCH1, SCRATCH1);
+			else
+				SEQZ(SCRATCH1, SCRATCH1);
+			break;
+		case VC_ES:
+		case VC_NS:
+			fpr.MapReg(inst.src1);
+			// Infinity is either 0x80 or 0x01, NAN is either 0x100 or 0x200.
+			FCLASS(32, SCRATCH1, gpr.R(inst.src1));
+			ANDI(SCRATCH1, SCRATCH1, 0x381);
+			if ((inst.dest & 4) == 0)
+				SNEZ(SCRATCH1, SCRATCH1);
+			else
+				SEQZ(SCRATCH1, SCRATCH1);
+			break;
+		case VC_TR:
+			LI(SCRATCH1, 1);
+			break;
+		case VC_FL:
+			LI(SCRATCH1, 0);
+			break;
+		}
+
+		ANDI(gpr.R(IRREG_VFPUL_CC), gpr.R(IRREG_VFPUL_CC), ~(1 << (inst.dest >> 4)));
+		if ((inst.dest >> 4) != 0)
+			SLLI(SCRATCH1, SCRATCH1, inst.dest >> 4);
+		OR(gpr.R(IRREG_VFPUL_CC), gpr.R(IRREG_VFPUL_CC), SCRATCH1);
+		break;
+
 	case IROp::FCmpVfpuAggregate:
-		CompIR_Generic(inst);
+		gpr.MapReg(IRREG_VFPUL_CC, MIPSMap::DIRTY);
+		ANDI(SCRATCH1, gpr.R(IRREG_VFPUL_CC), inst.dest);
+		// This is the "any bit", easy.
+		SNEZ(SCRATCH2, SCRATCH1);
+		// To compare to inst.dest for "all", let's simply subtract it and compare to zero.
+		ADDI(SCRATCH1, SCRATCH1, -inst.dest);
+		SEQZ(SCRATCH1, SCRATCH1);
+		// Now we combine those together.
+		SLLI(SCRATCH1, SCRATCH1, 5);
+		SLLI(SCRATCH2, SCRATCH2, 4);
+		OR(SCRATCH1, SCRATCH1, SCRATCH2);
+
+		// Reject those any/all bits and replace them with our own.
+		ANDI(gpr.R(IRREG_VFPUL_CC), gpr.R(IRREG_VFPUL_CC), ~0x30);
+		OR(gpr.R(IRREG_VFPUL_CC), gpr.R(IRREG_VFPUL_CC), SCRATCH1);
 		break;
 
 	default:
