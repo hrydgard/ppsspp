@@ -257,11 +257,14 @@ endif()
 
 if(NOT LIBRETRO AND NOT IOS AND NOT MACOSX)
 	find_package(SDL2)
+	find_package(SDL2_TTF)
+	find_package(Fontconfig)
 endif()
 
 if(MACOSX AND NOT IOS)
 	if(USE_SYSTEM_LIBSDL2)
 		find_package(SDL2)
+		find_package(SDL2_TTF)
 	else()
 		find_library(SDL2Fwk SDL2 REQUIRED PATHS SDL/macOS)
 		message(STATUS "found SDL2Fwk=${SDL2Fwk}")
@@ -1316,6 +1319,15 @@ else()
 			SDL/SDLVulkanGraphicsContext.cpp
 		)
 	endif()
+	if(SDL2_TTF_FOUND)
+		add_definitions(-DUSE_SDL2_TTF)
+		set(nativeExtraLibs ${nativeExtraLibs} SDL2_ttf::SDL2_ttf)
+
+		if(FONTCONFIG_FOUND)
+			add_definitions(-DUSE_SDL2_TTF_FONTCONFIG)
+			set(nativeExtraLibs ${nativeExtraLibs} Fontconfig::Fontconfig)
+		endif()
+	endif()
 	if(APPLE)
 		set(nativeExtra ${nativeExtra} 
 		SDL/SDLMain.h 
@@ -1457,6 +1469,8 @@ add_library(native STATIC
 	${nativeExtra}
 	Common/Render/Text/draw_text_qt.cpp
 	Common/Render/Text/draw_text_qt.h
+	Common/Render/Text/draw_text_sdl.cpp
+	Common/Render/Text/draw_text_sdl.h
 	ext/jpge/jpgd.cpp
 	ext/jpge/jpgd.h
 	ext/jpge/jpge.cpp

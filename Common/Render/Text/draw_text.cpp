@@ -11,6 +11,7 @@
 #include "Common/Render/Text/draw_text_uwp.h"
 #include "Common/Render/Text/draw_text_qt.h"
 #include "Common/Render/Text/draw_text_android.h"
+#include "Common/Render/Text/draw_text_sdl.h"
 
 TextDrawer::TextDrawer(Draw::DrawContext *draw) : draw_(draw) {
 	// These probably shouldn't be state.
@@ -92,6 +93,8 @@ TextDrawer *TextDrawer::Create(Draw::DrawContext *draw) {
 	drawer = new TextDrawerQt(draw);
 #elif PPSSPP_PLATFORM(ANDROID)
 	drawer = new TextDrawerAndroid(draw);
+#elif USE_SDL2_TTF
+	drawer = new TextDrawerSDL(draw);
 #endif
 	if (drawer && !drawer->IsReady()) {
 		delete drawer;
