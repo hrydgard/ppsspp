@@ -986,7 +986,55 @@ namespace MIPSComp {
 		// d[N] = int(S[N] * mult)
 		// Note: saturates on overflow.
 
-		DISABLE;
+		VectorSize sz = GetVecSize(op);
+		int n = GetNumVectorElements(sz);
+
+		int imm = (op >> 16) & 0x1f;
+
+		u8 sregs[4], dregs[4];
+		GetVectorRegsPrefixS(sregs, sz, _VS);
+		GetVectorRegsPrefixD(dregs, sz, _VD);
+
+		// Same values as FCR31.
+		uint8_t rmode = (op >> 21) & 3;
+		if (((op >> 21) & 0x1C) != 0x10)
+			INVALIDOP;
+
+		u8 tempregs[4];
+		for (int i = 0; i < n; ++i) {
+			if (!IsOverlapSafe(dregs[i], n, sregs)) {
+				tempregs[i] = IRVTEMP_PFX_T + i;  // Need IRVTEMP_0 for the scaling factor
+			} else {
+				tempregs[i] = dregs[i];
+			}
+		}
+		if (imm != 0) {
+			for (int i = 0; i < n; i++)
+				ir.Write(IROp::FCvtScaledWS, dregs[i], sregs[i], (uint8_t)(imm | (rmode << 6)));
+		} else {
+			for (int i = 0; i < n; i++) {
+				switch (rmode) {
+				case 0: // vf2in
+					ir.Write(IROp::FRound, dregs[i], sregs[i]);
+					break;
+
+				case 1: // vf2iz
+					ir.Write(IROp::FTrunc, dregs[i], sregs[i]);
+					break;
+
+				case 2: // vf2iu
+					ir.Write(IROp::FCeil, dregs[i], sregs[i]);
+					break;
+
+				case 3: // vf2id
+					ir.Write(IROp::FFloor, dregs[i], sregs[i]);
+					break;
+
+				default:
+					INVALIDOP;
+				}
+			}
+		}
 	}
 
 	void IRFrontend::Comp_Mftv(MIPSOpcode op) {

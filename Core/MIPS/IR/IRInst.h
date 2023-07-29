@@ -127,6 +127,7 @@ enum class IROp : u8 {
 
 	FCvtWS,
 	FCvtSW,
+	FCvtScaledWS,
 
 	FMovFromGPR,
 	FMovToGPR,
@@ -303,9 +304,6 @@ enum : IRReg {
 	IRVTEMP_PFX_T = 228 - 32,
 	IRVTEMP_PFX_D = 232 - 32,
 	IRVTEMP_0 = 236 - 32,
-
-	// 16 float temps for vector S and T prefixes and things like that.
-	// IRVTEMP_0 = 208 - 64,  // -64 to be relative to v[0]
 
 	// Hacky way to get to other state
 	IRREG_VFPU_CTRL_BASE = 208,

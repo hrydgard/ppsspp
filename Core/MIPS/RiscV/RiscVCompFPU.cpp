@@ -190,6 +190,7 @@ void RiscVJit::CompIR_FCvt(IRInst inst) {
 
 	switch (inst.op) {
 	case IROp::FCvtWS:
+	case IROp::FCvtScaledWS:
 	case IROp::FCvtSW:
 		CompIR_Generic(inst);
 		break;
