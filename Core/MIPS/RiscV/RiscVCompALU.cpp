@@ -254,7 +254,13 @@ void RiscVJit::CompIR_Bits(IRInst inst) {
 		break;
 
 	case IROp::Clz:
-		CompIR_Generic(inst);
+		if (cpu_info.RiscV_Zbb) {
+			gpr.MapDirtyIn(inst.dest, inst.src1, MapType::AVOID_LOAD_MARK_NORM32);
+			// This even sets to 32 when zero, perfect.
+			CLZW(gpr.R(inst.dest), gpr.R(inst.src1));
+		} else {
+			CompIR_Generic(inst);
+		}
 		break;
 
 	default:
