@@ -16,7 +16,9 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "Common/StringUtils.h"
+#include "Common/TimeUtil.h"
 #include "Core/MemMap.h"
+#include "Core/MIPS/MIPSTables.h"
 #include "Core/MIPS/RiscV/RiscVJit.h"
 #include "Core/MIPS/RiscV/RiscVRegCache.h"
 #include "Common/Profiler/Profiler.h"
@@ -27,6 +29,45 @@ using namespace RiscVGen;
 using namespace RiscVJitConstants;
 
 static constexpr bool enableDebug = false;
+
+static std::map<uint8_t, int> debugSeenNotCompiledIR;
+static std::map<const char *, int> debugSeenNotCompiled;
+double lastDebugLog = 0.0;
+
+static void LogDebugNotCompiled() {
+	if (!enableDebug)
+		return;
+
+	double now = time_now_d();
+	if (now < lastDebugLog + 1.0)
+		return;
+	lastDebugLog = now;
+
+	int worstIROp = -1;
+	int worstIRVal = 0;
+	for (auto it : debugSeenNotCompiledIR) {
+		if (it.second > worstIRVal) {
+			worstIRVal = it.second;
+			worstIROp = it.first;
+		}
+	}
+	debugSeenNotCompiledIR.clear();
+
+	const char *worstName = nullptr;
+	int worstVal = 0;
+	for (auto it : debugSeenNotCompiled) {
+		if (it.second > worstVal) {
+			worstVal = it.second;
+			worstName = it.first;
+		}
+	}
+	debugSeenNotCompiled.clear();
+
+	if (worstIROp != -1)
+		WARN_LOG(JIT, "Most not compiled IR op: %s (%d)", GetIRMeta((IROp)worstIROp)->name, worstIRVal);
+	if (worstName != nullptr)
+		WARN_LOG(JIT, "Most not compiled op: %s (%d)", worstName, worstVal);
+}
 
 RiscVJit::RiscVJit(MIPSState *mipsState) : IRJit(mipsState), gpr(mipsState, &jo), fpr(mipsState, &jo) {
 	// Automatically disable incompatible options.
@@ -49,6 +90,10 @@ RiscVJit::~RiscVJit() {
 }
 
 void RiscVJit::RunLoopUntil(u64 globalticks) {
+	if constexpr (enableDebug) {
+		LogDebugNotCompiled();
+	}
+
 	PROFILE_THIS_SCOPE("jit");
 	((void (*)())enterDispatcher_)();
 }
@@ -335,6 +380,9 @@ void RiscVJit::CompileIRInst(IRInst inst) {
 		break;
 
 	case IROp::Interpret:
+		CompIR_Interpret(inst);
+		break;
+
 	case IROp::Syscall:
 	case IROp::CallReplacement:
 	case IROp::Break:
@@ -381,6 +429,9 @@ static u32 DoIRInst(uint64_t value) {
 	IRInst inst;
 	memcpy(&inst, &value, sizeof(inst));
 
+	if constexpr (enableDebug)
+		debugSeenNotCompiledIR[(uint8_t)inst.op]++;
+
 	return IRInterpret(currentMIPS, &inst, 1);
 }
 
@@ -407,6 +458,26 @@ void RiscVJit::CompIR_Generic(IRInst inst) {
 			SetJumpTarget(skip);
 		}
 	}
+}
+
+static void DebugInterpretHit(const char *name) {
+	if (enableDebug)
+		debugSeenNotCompiled[name]++;
+}
+
+void RiscVJit::CompIR_Interpret(IRInst inst) {
+	MIPSOpcode op(inst.constant);
+
+	// IR protects us against this being a branching instruction (well, hopefully.)
+	FlushAll();
+	SaveStaticRegisters();
+	if (enableDebug) {
+		LI(X10, MIPSGetName(op));
+		QuickCallFunction(&DebugInterpretHit);
+	}
+	LI(X10, (int32_t)inst.constant);
+	QuickCallFunction((const u8 *)MIPSGetInterpretFunc(op));
+	LoadStaticRegisters();
 }
 
 void RiscVJit::FlushAll() {

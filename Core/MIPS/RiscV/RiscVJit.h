@@ -86,6 +86,7 @@ private:
 	void CompIR_FStore(IRInst inst);
 	void CompIR_Generic(IRInst inst);
 	void CompIR_HiLo(IRInst inst);
+	void CompIR_Interpret(IRInst inst);
 	void CompIR_Load(IRInst inst);
 	void CompIR_LoadShift(IRInst inst);
 	void CompIR_Logic(IRInst inst);

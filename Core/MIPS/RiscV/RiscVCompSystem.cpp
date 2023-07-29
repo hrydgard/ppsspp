@@ -20,7 +20,6 @@
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/ReplaceTables.h"
 #include "Core/MemMap.h"
-#include "Core/MIPS/MIPSTables.h"
 #include "Core/MIPS/RiscV/RiscVJit.h"
 #include "Core/MIPS/RiscV/RiscVRegCache.h"
 
@@ -182,15 +181,6 @@ void RiscVJit::CompIR_System(IRInst inst) {
 	CONDITIONAL_DISABLE;
 
 	switch (inst.op) {
-	case IROp::Interpret:
-		// IR protects us against this being a branching instruction (well, hopefully.)
-		FlushAll();
-		SaveStaticRegisters();
-		LI(X10, (int32_t)inst.constant);
-		QuickCallFunction((const u8 *)MIPSGetInterpretFunc(MIPSOpcode(inst.constant)));
-		LoadStaticRegisters();
-		break;
-
 	case IROp::Syscall:
 		FlushAll();
 		SaveStaticRegisters();
