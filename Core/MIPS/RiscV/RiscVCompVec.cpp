@@ -241,8 +241,23 @@ void RiscVJit::CompIR_VecPack(IRInst inst) {
 	case IROp::Vec4Pack31To8:
 	case IROp::Vec4Pack32To8:
 	case IROp::Vec2Pack31To16:
-	case IROp::Vec2Pack32To16:
 		CompIR_Generic(inst);
+		break;
+
+	case IROp::Vec2Pack32To16:
+		fpr.MapDirtyInIn(inst.dest, inst.src1, inst.src1 + 1);
+		FMV(FMv::X, FMv::W, SCRATCH1, fpr.R(inst.src1));
+		FMV(FMv::X, FMv::W, SCRATCH2, fpr.R(inst.src1 + 1));
+		// Keep in mind, this was sign-extended, so we have to zero the upper.
+		SLLI(SCRATCH1, SCRATCH1, XLEN - 32);
+		// Now we just set (SCRATCH2 & 0xFFFF0000) | SCRATCH1.
+		SRLI(SCRATCH1, SCRATCH1, XLEN - 16);
+		// Use a wall to mask.  We can ignore the upper 32 here.
+		SRLI(SCRATCH2, SCRATCH2, 16);
+		SLLI(SCRATCH2, SCRATCH2, 16);
+		OR(SCRATCH1, SCRATCH1, SCRATCH2);
+		// Okay, to the floating point register.
+		FMV(FMv::W, FMv::X, fpr.R(inst.dest), SCRATCH1);
 		break;
 
 	default:
