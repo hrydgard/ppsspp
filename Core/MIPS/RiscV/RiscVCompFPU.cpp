@@ -257,13 +257,70 @@ void RiscVJit::CompIR_RoundingMode(IRInst inst) {
 void RiscVJit::CompIR_FSpecial(IRInst inst) {
 	CONDITIONAL_DISABLE;
 
+#ifdef __riscv_float_abi_soft
+#error Currently hard float is required.
+#endif
+
+	auto callFuncF_F = [&](float (*func)(float)){
+		gpr.FlushBeforeCall();
+		fpr.FlushBeforeCall();
+		// It might be in a non-volatile register.
+		if (fpr.IsMapped(inst.src1)) {
+			FMV(32, F10, fpr.R(inst.src1));
+		} else {
+			int offset = offsetof(MIPSState, f) + inst.src1 * 4;
+			FL(32, F10, CTXREG, offset);
+		}
+		QuickCallFunction(func);
+
+		fpr.MapReg(inst.dest, MIPSMap::NOINIT);
+		// If it's already F10, we're done - MapReg doesn't actually overwrite the reg in that case.
+		if (fpr.R(inst.dest) != F10) {
+			FMV(32, fpr.R(inst.dest), F10);
+		}
+	};
+
 	switch (inst.op) {
 	case IROp::FSin:
+		callFuncF_F(&vfpu_sin);
+		break;
+
 	case IROp::FCos:
+		callFuncF_F(&vfpu_cos);
+		break;
+
 	case IROp::FRSqrt:
+		fpr.MapDirtyIn(inst.dest, inst.src1);
+		FSQRT(32, fpr.R(inst.dest), fpr.R(inst.src1));
+
+		// Ugh, we can't really avoid a temp here.  Probably not worth a permanent one.
+		LI(SCRATCH1, 1.0f);
+		{
+			// TODO: Smarter allocation of a temp reg?
+			RiscVReg tempReg = fpr.R(inst.dest) == F31 ? F30 : F31;
+			fpr.FlushRiscVReg(tempReg);
+			FMV(FMv::W, FMv::X, tempReg, SCRATCH1);
+			FDIV(32, fpr.R(inst.dest), tempReg, fpr.R(inst.dest));
+		}
+		break;
+
 	case IROp::FRecip:
+		fpr.MapDirtyIn(inst.dest, inst.src1);
+		LI(SCRATCH1, 1.0f);
+		if (inst.dest != inst.src1) {
+			// This is the easy case.
+			FMV(FMv::W, FMv::X, fpr.R(inst.dest), SCRATCH1);
+			FDIV(32, fpr.R(inst.dest), fpr.R(inst.dest), fpr.R(inst.src1));
+		} else {
+			RiscVReg tempReg = fpr.R(inst.dest) == F31 ? F30 : F31;
+			fpr.FlushRiscVReg(tempReg);
+			FMV(FMv::W, FMv::X, tempReg, SCRATCH1);
+			FDIV(32, fpr.R(inst.dest), tempReg, fpr.R(inst.src1));
+		}
+		break;
+
 	case IROp::FAsin:
-		CompIR_Generic(inst);
+		callFuncF_F(&vfpu_asin);
 		break;
 
 	default:
