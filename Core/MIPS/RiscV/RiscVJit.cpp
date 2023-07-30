@@ -201,6 +201,7 @@ void RiscVJit::CompileIRInst(IRInst inst) {
 	case IROp::Load16:
 	case IROp::Load16Ext:
 	case IROp::Load32:
+	case IROp::Load32Linked:
 		CompIR_Load(inst);
 		break;
 
@@ -221,6 +222,10 @@ void RiscVJit::CompileIRInst(IRInst inst) {
 	case IROp::Store16:
 	case IROp::Store32:
 		CompIR_Store(inst);
+		break;
+
+	case IROp::Store32Conditional:
+		CompIR_CondStore(inst);
 		break;
 
 	case IROp::Store32Left:

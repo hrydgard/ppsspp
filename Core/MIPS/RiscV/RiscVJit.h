@@ -71,6 +71,7 @@ private:
 	void CompIR_Breakpoint(IRInst inst);
 	void CompIR_Compare(IRInst inst);
 	void CompIR_CondAssign(IRInst inst);
+	void CompIR_CondStore(IRInst inst);
 	void CompIR_Div(IRInst inst);
 	void CompIR_Exit(IRInst inst);
 	void CompIR_ExitIf(IRInst inst);
