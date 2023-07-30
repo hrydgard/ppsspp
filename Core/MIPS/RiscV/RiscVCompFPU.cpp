@@ -425,7 +425,7 @@ void RiscVJit::CompIR_FCompare(IRInst inst) {
 		case VC_NZ:
 			fpr.MapReg(inst.src1);
 			// Zero is either 0x10 or 0x08.
-			FCLASS(32, SCRATCH1, gpr.R(inst.src1));
+			FCLASS(32, SCRATCH1, fpr.R(inst.src1));
 			ANDI(SCRATCH1, SCRATCH1, 0x18);
 			if ((inst.dest & 4) == 0)
 				SNEZ(SCRATCH1, SCRATCH1);
@@ -436,7 +436,7 @@ void RiscVJit::CompIR_FCompare(IRInst inst) {
 		case VC_NN:
 			fpr.MapReg(inst.src1);
 			// NAN is either 0x100 or 0x200.
-			FCLASS(32, SCRATCH1, gpr.R(inst.src1));
+			FCLASS(32, SCRATCH1, fpr.R(inst.src1));
 			ANDI(SCRATCH1, SCRATCH1, 0x300);
 			if ((inst.dest & 4) == 0)
 				SNEZ(SCRATCH1, SCRATCH1);
@@ -447,7 +447,7 @@ void RiscVJit::CompIR_FCompare(IRInst inst) {
 		case VC_NI:
 			fpr.MapReg(inst.src1);
 			// Infinity is either 0x80 or 0x01.
-			FCLASS(32, SCRATCH1, gpr.R(inst.src1));
+			FCLASS(32, SCRATCH1, fpr.R(inst.src1));
 			ANDI(SCRATCH1, SCRATCH1, 0x81);
 			if ((inst.dest & 4) == 0)
 				SNEZ(SCRATCH1, SCRATCH1);
@@ -458,7 +458,7 @@ void RiscVJit::CompIR_FCompare(IRInst inst) {
 		case VC_NS:
 			fpr.MapReg(inst.src1);
 			// Infinity is either 0x80 or 0x01, NAN is either 0x100 or 0x200.
-			FCLASS(32, SCRATCH1, gpr.R(inst.src1));
+			FCLASS(32, SCRATCH1, fpr.R(inst.src1));
 			ANDI(SCRATCH1, SCRATCH1, 0x381);
 			if ((inst.dest & 4) == 0)
 				SNEZ(SCRATCH1, SCRATCH1);

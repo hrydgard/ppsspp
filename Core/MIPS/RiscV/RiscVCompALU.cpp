@@ -39,7 +39,7 @@ void RiscVJit::CompIR_Arith(IRInst inst) {
 	CONDITIONAL_DISABLE;
 
 	bool allowPtrMath = true;
-#ifndef MASKED_PSP_MEMORY
+#ifdef MASKED_PSP_MEMORY
 	// Since we modify it, we can't safely.
 	allowPtrMath = false;
 #endif
@@ -374,21 +374,27 @@ void RiscVJit::CompIR_Compare(IRInst inst) {
 	RiscVReg rhs = INVALID_REG;
 	switch (inst.op) {
 	case IROp::Slt:
-		// Not using the NORM32 flag so we don't confuse ourselves on overlap.
-		gpr.MapDirtyInIn(inst.dest, inst.src1, inst.src2);
+		gpr.SpillLock(inst.dest, inst.src1, inst.src2);
+		gpr.MapReg(inst.src1);
+		gpr.MapReg(inst.src2);
 		NormalizeSrc12(inst, &lhs, &rhs, SCRATCH1, SCRATCH2, true);
+		gpr.MapReg(inst.dest, MIPSMap::NOINIT | MIPSMap::MARK_NORM32);
+		gpr.ReleaseSpillLock(inst.dest, inst.src1, inst.src2);
+
 		SLT(gpr.R(inst.dest), lhs, rhs);
-		gpr.MarkDirty(gpr.R(inst.dest), true);
 		break;
 
 	case IROp::SltConst:
-		// Not using the NORM32 flag so we don't confuse ourselves on overlap.
-		gpr.MapDirtyIn(inst.dest, inst.src1);
 		if (inst.constant == 0) {
 			// Basically, getting the sign bit.  Let's shift instead.
+			gpr.MapDirtyIn(inst.dest, inst.src1, MapType::AVOID_LOAD_MARK_NORM32);
 			SRLIW(gpr.R(inst.dest), gpr.R(inst.src1), 31);
 		} else {
+			gpr.SpillLock(inst.dest, inst.src1);
+			gpr.MapReg(inst.src1);
 			NormalizeSrc1(inst, &lhs, SCRATCH1, false);
+			gpr.MapReg(inst.dest, MIPSMap::NOINIT | MIPSMap::MARK_NORM32);
+			gpr.ReleaseSpillLock(inst.dest, inst.src1);
 
 			if ((int32_t)inst.constant >= -2048 && (int32_t)inst.constant <= 2047) {
 				SLTI(gpr.R(inst.dest), lhs, (int32_t)inst.constant);
@@ -396,26 +402,31 @@ void RiscVJit::CompIR_Compare(IRInst inst) {
 				LI(SCRATCH2, (int32_t)inst.constant);
 				SLT(gpr.R(inst.dest), lhs, SCRATCH2);
 			}
+			gpr.MarkDirty(gpr.R(inst.dest), true);
 		}
-		gpr.MarkDirty(gpr.R(inst.dest), true);
 		break;
 
 	case IROp::SltU:
-		// Not using the NORM32 flag so we don't confuse ourselves on overlap.
-		gpr.MapDirtyInIn(inst.dest, inst.src1, inst.src2);
+		gpr.SpillLock(inst.dest, inst.src1, inst.src2);
+		gpr.MapReg(inst.src1);
+		gpr.MapReg(inst.src2);
 		// It's still fine to sign extend, the biggest just get even bigger.
 		NormalizeSrc12(inst, &lhs, &rhs, SCRATCH1, SCRATCH2, true);
+		gpr.MapReg(inst.dest, MIPSMap::NOINIT | MIPSMap::MARK_NORM32);
+		gpr.ReleaseSpillLock(inst.dest, inst.src1, inst.src2);
+
 		SLTU(gpr.R(inst.dest), lhs, rhs);
-		gpr.MarkDirty(gpr.R(inst.dest), true);
 		break;
 
 	case IROp::SltUConst:
-		// Not using the NORM32 flag so we don't confuse ourselves on overlap.
-		gpr.MapDirtyIn(inst.dest, inst.src1);
 		if (inst.constant == 0) {
 			gpr.SetImm(inst.dest, 0);
 		} else {
+			gpr.SpillLock(inst.dest, inst.src1);
+			gpr.MapReg(inst.src1);
 			NormalizeSrc1(inst, &lhs, SCRATCH1, false);
+			gpr.MapReg(inst.dest, MIPSMap::NOINIT | MIPSMap::MARK_NORM32);
+			gpr.ReleaseSpillLock(inst.dest, inst.src1);
 
 			// We sign extend because we're comparing against something normalized.
 			// It's also the most efficient to set.
@@ -425,8 +436,6 @@ void RiscVJit::CompIR_Compare(IRInst inst) {
 				LI(SCRATCH2, (int32_t)inst.constant);
 				SLTU(gpr.R(inst.dest), lhs, SCRATCH2);
 			}
-
-			gpr.MarkDirty(gpr.R(inst.dest), true);
 		}
 		break;
 
