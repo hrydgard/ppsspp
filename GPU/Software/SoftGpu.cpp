@@ -81,7 +81,7 @@ const SoftwareCommandTableEntry softgpuCommandTable[] = {
 	{ GE_CMD_VADDR, FLAG_EXECUTE, SoftDirty::NONE, &GPUCommon::Execute_Vaddr },
 	{ GE_CMD_IADDR, FLAG_EXECUTE, SoftDirty::NONE, &GPUCommon::Execute_Iaddr },
 	{ GE_CMD_BJUMP, FLAG_EXECUTE | FLAG_READS_PC | FLAG_WRITES_PC, SoftDirty::NONE, &GPUCommon::Execute_BJump },
-	{ GE_CMD_BOUNDINGBOX, FLAG_EXECUTE, SoftDirty::NONE, &GPUCommon::Execute_BoundingBox },
+	{ GE_CMD_BOUNDINGBOX, FLAG_EXECUTE, SoftDirty::NONE, &SoftGPU::Execute_BoundingBox },
 
 	{ GE_CMD_PRIM, FLAG_EXECUTE, SoftDirty::NONE, &SoftGPU::Execute_Prim },
 	{ GE_CMD_BEZIER, FLAG_EXECUTE, SoftDirty::NONE, &SoftGPU::Execute_Bezier },
@@ -1029,6 +1029,11 @@ void SoftGPU::Execute_FramebufFormat(u32 op, u32 diff) {
 	// We should flush, because ranges within bins may change.
 	if (diff)
 		drawEngine_->transformUnit.Flush("framebuf");
+}
+
+void SoftGPU::Execute_BoundingBox(u32 op, u32 diff) {
+	gstate_c.Dirty(DIRTY_CULL_PLANES);
+	GPUCommon::Execute_BoundingBox(op, diff);
 }
 
 void SoftGPU::Execute_ZbufPtr(u32 op, u32 diff) {
