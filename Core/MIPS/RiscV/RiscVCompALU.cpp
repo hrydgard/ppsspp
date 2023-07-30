@@ -39,7 +39,7 @@ void RiscVJit::CompIR_Arith(IRInst inst) {
 	CONDITIONAL_DISABLE;
 
 	bool allowPtrMath = true;
-#ifndef MASKED_PSP_MEMORY
+#ifdef MASKED_PSP_MEMORY
 	// Since we modify it, we can't safely.
 	allowPtrMath = false;
 #endif
