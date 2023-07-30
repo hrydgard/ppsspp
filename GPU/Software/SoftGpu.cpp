@@ -1081,6 +1081,7 @@ void SoftGPU::Execute_WorldMtxData(u32 op, u32 diff) {
 		if (newVal != *target) {
 			*target = newVal;
 			dirtyFlags_ |= SoftDirty::TRANSFORM_MATRIX;
+			gstate_c.Dirty(DIRTY_CULL_PLANES);
 		}
 	}
 
@@ -1101,6 +1102,7 @@ void SoftGPU::Execute_ViewMtxData(u32 op, u32 diff) {
 		if (newVal != *target) {
 			*target = newVal;
 			dirtyFlags_ |= SoftDirty::TRANSFORM_MATRIX;
+			gstate_c.Dirty(DIRTY_CULL_PLANES);
 		}
 	}
 
@@ -1121,6 +1123,7 @@ void SoftGPU::Execute_ProjMtxData(u32 op, u32 diff) {
 		if (newVal != *target) {
 			*target = newVal;
 			dirtyFlags_ |= SoftDirty::TRANSFORM_MATRIX;
+			gstate_c.Dirty(DIRTY_CULL_PLANES);
 		}
 	}
 
