@@ -69,7 +69,8 @@ static void LogDebugNotCompiled() {
 		WARN_LOG(JIT, "Most not compiled op: %s (%d)", worstName, worstVal);
 }
 
-RiscVJit::RiscVJit(MIPSState *mipsState) : IRJit(mipsState), gpr(mipsState, &jo), fpr(mipsState, &jo) {
+RiscVJit::RiscVJit(MIPSState *mipsState)
+	: IRJit(mipsState), gpr(mipsState, &jo), fpr(mipsState, &jo), debugInterface_(blocks_, *this) {
 	// Automatically disable incompatible options.
 	if (((intptr_t)Memory::base & 0x00000000FFFFFFFFUL) != 0) {
 		jo.enablePointerify = false;
@@ -96,6 +97,10 @@ void RiscVJit::RunLoopUntil(u64 globalticks) {
 
 	PROFILE_THIS_SCOPE("jit");
 	((void (*)())enterDispatcher_)();
+}
+
+JitBlockCacheDebugInterface *MIPSComp::RiscVJit::GetBlockCacheDebugInterface() {
+	return &debugInterface_;
 }
 
 static void NoBlockExits() {
@@ -614,6 +619,78 @@ RiscVReg RiscVJit::NormalizeR(IRRegIndex rs, IRRegIndex rd, RiscVReg tempReg) {
 	} else {
 		return gpr.Normalize32(rs);
 	}
+}
+
+RiscVBlockCacheDebugInterface::RiscVBlockCacheDebugInterface(IRBlockCache &irBlocks, RiscVJit &jit)
+	: irBlocks_(irBlocks), jit_(jit) {}
+
+int RiscVBlockCacheDebugInterface::GetNumBlocks() const {
+	return irBlocks_.GetNumBlocks();
+}
+
+int RiscVBlockCacheDebugInterface::GetBlockNumberFromStartAddress(u32 em_address, bool realBlocksOnly) const {
+	return irBlocks_.GetBlockNumberFromStartAddress(em_address, realBlocksOnly);
+}
+
+void RiscVBlockCacheDebugInterface::GetBlockCodeRange(int blockNum, int *startOffset, int *size) const {
+	int blockOffset = irBlocks_.GetBlock(blockNum)->GetTargetOffset();
+	int endOffset;
+	// We assume linear allocation.  Maybe a bit dangerous, should always be right.
+	if (blockNum + 1 >= GetNumBlocks()) {
+		// Last block, get from current code pointer.
+		endOffset = (int)jit_.GetOffset(jit_.GetCodePointer());
+	} else {
+		endOffset = irBlocks_.GetBlock(blockNum + 1)->GetTargetOffset();
+		_assert_msg_(endOffset >= blockOffset, "Next block not sequential, block=%d/%08x, next=%d/%08x", blockNum, blockOffset, blockNum + 1, endOffset);
+	}
+
+	*startOffset = blockOffset;
+	*size = endOffset - blockOffset;
+}
+
+JitBlockDebugInfo RiscVBlockCacheDebugInterface::GetBlockDebugInfo(int blockNum) const {
+	JitBlockDebugInfo debugInfo = irBlocks_.GetBlockDebugInfo(blockNum);
+
+	int blockOffset, codeSize;
+	GetBlockCodeRange(blockNum, &blockOffset, &codeSize);
+	debugInfo.targetDisasm = DisassembleRV64(jit_.GetBasePtr() + blockOffset, codeSize);
+	return debugInfo;
+}
+
+void RiscVBlockCacheDebugInterface::ComputeStats(BlockCacheStats &bcStats) const {
+	double totalBloat = 0.0;
+	double maxBloat = 0.0;
+	double minBloat = 1000000000.0;
+	int numBlocks = GetNumBlocks();
+	for (int i = 0; i < numBlocks; ++i) {
+		const IRBlock &b = *irBlocks_.GetBlock(i);
+
+		// RISC-V (jit) size.
+		int blockOffset, codeSize;
+		GetBlockCodeRange(i, &blockOffset, &codeSize);
+		if (codeSize == 0)
+			continue;
+
+		// MIPS (PSP) size.
+		u32 origAddr, mipsBytes;
+		b.GetRange(origAddr, mipsBytes);
+
+		double bloat = (double)codeSize / (double)mipsBytes;
+		if (bloat < minBloat) {
+			minBloat = bloat;
+			bcStats.minBloatBlock = origAddr;
+		}
+		if (bloat > maxBloat) {
+			maxBloat = bloat;
+			bcStats.maxBloatBlock = origAddr;
+		}
+		totalBloat += bloat;
+		bcStats.bloatMap[bloat] = origAddr;
+	}
+	bcStats.numBlocks = numBlocks;
+	bcStats.minBloat = minBloat;
+	bcStats.maxBloat = maxBloat;
+	bcStats.avgBloat = totalBloat / (double)numBlocks;
 }
 
 } // namespace MIPSComp
