@@ -59,13 +59,6 @@ HRESULT D3D11Context::CreateTheDevice(IDXGIAdapter *adapter) {
 	UINT createDeviceFlags = 0;
 #endif
 
-	static const D3D_DRIVER_TYPE driverTypes[] = {
-		D3D_DRIVER_TYPE_HARDWARE,
-		D3D_DRIVER_TYPE_WARP,
-		D3D_DRIVER_TYPE_REFERENCE,
-	};
-	const UINT numDriverTypes = ARRAYSIZE(driverTypes);
-
 	static const D3D_FEATURE_LEVEL featureLevels[] = {
 		D3D_FEATURE_LEVEL_12_1,
 		D3D_FEATURE_LEVEL_12_0,
