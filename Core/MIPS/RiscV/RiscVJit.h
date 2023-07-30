@@ -28,6 +28,23 @@
 
 namespace MIPSComp {
 
+class RiscVJit;
+
+class RiscVBlockCacheDebugInterface : public JitBlockCacheDebugInterface {
+public:
+	RiscVBlockCacheDebugInterface(IRBlockCache &irBlocks, RiscVJit &jit);
+	int GetNumBlocks() const;
+	int GetBlockNumberFromStartAddress(u32 em_address, bool realBlocksOnly = true) const;
+	JitBlockDebugInfo GetBlockDebugInfo(int blockNum) const;
+	void ComputeStats(BlockCacheStats &bcStats) const;
+
+private:
+	void GetBlockCodeRange(int blockNum, int *startOffset, int *size) const;
+
+	IRBlockCache &irBlocks_;
+	RiscVJit &jit_;
+};
+
 class RiscVJit : public RiscVGen::RiscVCodeBlock, public IRJit {
 public:
 	RiscVJit(MIPSState *mipsState);
@@ -43,7 +60,7 @@ public:
 
 	void ClearCache() override;
 
-	// TODO: GetBlockCacheDebugInterface, block linking?
+	JitBlockCacheDebugInterface *GetBlockCacheDebugInterface() override;
 
 protected:
 	bool CompileTargetBlock(IRBlock *block, int block_num, bool preload) override;
@@ -116,6 +133,7 @@ private:
 
 	RiscVRegCache gpr;
 	RiscVRegCacheFPU fpr;
+	RiscVBlockCacheDebugInterface debugInterface_;
 
 	const u8 *enterDispatcher_ = nullptr;
 
