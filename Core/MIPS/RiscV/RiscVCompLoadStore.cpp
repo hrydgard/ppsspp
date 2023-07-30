@@ -112,6 +112,10 @@ void RiscVJit::CompIR_Load(IRInst inst) {
 		LW(gpr.R(inst.dest), addrReg, imm);
 		break;
 
+	case IROp::Load32Linked:
+		CompIR_Generic(inst);
+		break;
+
 	default:
 		INVALIDOP;
 		break;
@@ -247,6 +251,14 @@ void RiscVJit::CompIR_Store(IRInst inst) {
 		INVALIDOP;
 		break;
 	}
+}
+
+void RiscVJit::CompIR_CondStore(IRInst inst) {
+	CONDITIONAL_DISABLE;
+	if (inst.op != IROp::Store32Conditional)
+		INVALIDOP;
+
+	CompIR_Generic(inst);
 }
 
 void RiscVJit::CompIR_StoreShift(IRInst inst) {

@@ -105,6 +105,30 @@ namespace MIPSComp {
 		}
 	}
 
+	void IRFrontend::Comp_StoreSync(MIPSOpcode op) {
+		CONDITIONAL_DISABLE(LSU);
+
+		int offset = _IMM16;
+		MIPSGPReg rt = _RT;
+		MIPSGPReg rs = _RS;
+		// Note: still does something even if loading to zero.
+
+		CheckMemoryBreakpoint(rs, offset);
+
+		switch (op >> 26) {
+		case 48: // ll
+			ir.Write(IROp::Load32Linked, rt, rs, ir.AddConstant(offset));
+			break;
+
+		case 56: // sc
+			ir.Write(IROp::Store32Conditional, rt, rs, ir.AddConstant(offset));
+			break;
+
+		default:
+			INVALIDOP;
+		}
+	}
+
 	void IRFrontend::Comp_Cache(MIPSOpcode op) {
 		CONDITIONAL_DISABLE(LSU);
 

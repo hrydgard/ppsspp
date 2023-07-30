@@ -604,6 +604,7 @@ bool PropagateConstants(const IRWriter &in, IRWriter &out, const IROptions &opts
 		case IROp::Store32:
 		case IROp::Store32Left:
 		case IROp::Store32Right:
+		case IROp::Store32Conditional:
 			if (gpr.IsImm(inst.src1) && inst.src1 != inst.dest) {
 				gpr.MapIn(inst.dest);
 				out.Write(inst.op, inst.dest, 0, out.AddConstant(gpr.GetImm(inst.src1) + inst.constant));
@@ -627,6 +628,7 @@ bool PropagateConstants(const IRWriter &in, IRWriter &out, const IROptions &opts
 		case IROp::Load16:
 		case IROp::Load16Ext:
 		case IROp::Load32:
+		case IROp::Load32Linked:
 			if (gpr.IsImm(inst.src1) && inst.src1 != inst.dest) {
 				gpr.MapDirty(inst.dest);
 				out.Write(inst.op, inst.dest, 0, out.AddConstant(gpr.GetImm(inst.src1) + inst.constant));
@@ -1507,10 +1509,12 @@ bool ApplyMemoryValidation(const IRWriter &in, IRWriter &out, const IROptions &o
 			break;
 
 		case IROp::Load32:
+		case IROp::Load32Linked:
 		case IROp::LoadFloat:
 		case IROp::Store32:
+		case IROp::Store32Conditional:
 		case IROp::StoreFloat:
-			addValidate(IROp::ValidateAddress32, inst, inst.op == IROp::Store32 || inst.op == IROp::StoreFloat);
+			addValidate(IROp::ValidateAddress32, inst, inst.op == IROp::Store32 || inst.op == IROp::Store32Conditional || inst.op == IROp::StoreFloat);
 			break;
 
 		case IROp::LoadVec4:

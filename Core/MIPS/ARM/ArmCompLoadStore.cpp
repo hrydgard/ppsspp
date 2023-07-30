@@ -385,6 +385,12 @@ namespace MIPSComp
 		}
 	}
 
+	void ArmJit::Comp_StoreSync(MIPSOpcode op) {
+		CONDITIONAL_DISABLE(LSU);
+
+		DISABLE;
+	}
+
 	void ArmJit::Comp_Cache(MIPSOpcode op) {
 		CONDITIONAL_DISABLE(LSU);
 

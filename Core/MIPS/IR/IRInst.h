@@ -92,6 +92,7 @@ enum class IROp : u8 {
 	Load32,
 	Load32Left,
 	Load32Right,
+	Load32Linked,
 	LoadFloat,
 	LoadVec4,
 
@@ -100,6 +101,7 @@ enum class IROp : u8 {
 	Store32,
 	Store32Left,
 	Store32Right,
+	Store32Conditional,
 	StoreFloat,
 	StoreVec4,
 
