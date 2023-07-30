@@ -675,14 +675,14 @@ void AchievementView::Click() {
 #ifdef _DEBUG
 	static int type = 0;
 	type++;
-	type = type % 4;
+	type = type % 5;
 	switch (type) {
 	case 0: g_OSD.ShowAchievementUnlocked(achievement_->id); break;
-	case 1: g_OSD.ShowAchievementProgress(achievement_->id, 2.0f); break;
-	case 2: g_OSD.ShowChallengeIndicator(achievement_->id, true); break;
-	case 3: g_OSD.ShowChallengeIndicator(achievement_->id, false); break;
+	case 1: g_OSD.ShowAchievementProgress(achievement_->id, true); break;
+	case 2: g_OSD.ShowAchievementProgress(achievement_->id, false); break;
+	case 3: g_OSD.ShowChallengeIndicator(achievement_->id, true); break;
+	case 4: g_OSD.ShowChallengeIndicator(achievement_->id, false); break;
 	}
-
 #endif
 }
 

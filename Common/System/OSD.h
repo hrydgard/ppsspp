@@ -44,7 +44,7 @@ public:
 
 	// Specialized achievement-related types. These go to the side notifications, not the top-middle.
 	void ShowAchievementUnlocked(int achievementID);
-	void ShowAchievementProgress(int achievementID, float duration_s);
+	void ShowAchievementProgress(int achievementID, bool show);  // call with show=false to hide.  There can only be one of these. When hiding it's ok to not pass a valid achievementID.
 	void ShowChallengeIndicator(int achievementID, bool show);  // call with show=false to hide.
 	void ShowLeaderboardTracker(int leaderboardTrackerID, const char *trackerText, bool show);   // show=true is used both for create and update.
 

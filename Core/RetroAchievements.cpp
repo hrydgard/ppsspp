@@ -249,40 +249,52 @@ static void event_handler_callback(const rc_client_event_t *event, rc_client_t *
 		g_OSD.Show(OSDType::MESSAGE_INFO, ApplySafeSubstitutions(ac->T("%1: Leaderboard attempt started"), event->leaderboard->title), DeNull(event->leaderboard->description), 3.0f);
 		break;
 	case RC_CLIENT_EVENT_LEADERBOARD_FAILED:
-		NOTICE_LOG(ACHIEVEMENTS, "Leaderboard attempt failed: %s", event->leaderboard->title);
+		INFO_LOG(ACHIEVEMENTS, "Leaderboard attempt failed: %s", event->leaderboard->title);
 		g_OSD.Show(OSDType::MESSAGE_INFO, ApplySafeSubstitutions(ac->T("%1: Leaderboard attempt failed"), event->leaderboard->title), 3.0f);
 		// A leaderboard attempt has failed.
 		break;
 	case RC_CLIENT_EVENT_LEADERBOARD_SUBMITTED:
-		NOTICE_LOG(ACHIEVEMENTS, "Leaderboard result submitted: %s", event->leaderboard->title);
+		INFO_LOG(ACHIEVEMENTS, "Leaderboard result submitted: %s", event->leaderboard->title);
 		g_OSD.Show(OSDType::MESSAGE_SUCCESS,
 			ApplySafeSubstitutions(ac->T("Submitted %1 for %2"), DeNull(event->leaderboard->tracker_value), DeNull(event->leaderboard->title)),
 			DeNull(event->leaderboard->description), 3.0f);
 		System_PostUIMessage("play_sound", "leaderboard_submitted");
 		break;
 	case RC_CLIENT_EVENT_ACHIEVEMENT_CHALLENGE_INDICATOR_SHOW:
-		NOTICE_LOG(ACHIEVEMENTS, "Challenge indicator show: %s", event->achievement->title);
+		INFO_LOG(ACHIEVEMENTS, "Challenge indicator show: %s", event->achievement->title);
 		g_OSD.ShowChallengeIndicator(event->achievement->id, true);
 		g_activeChallenges.insert(event->achievement->id);
 		// A challenge achievement has become active. The handler should show a small version of the achievement icon
 		// to indicate the challenge is active.
 		break;
 	case RC_CLIENT_EVENT_ACHIEVEMENT_CHALLENGE_INDICATOR_HIDE:
-		NOTICE_LOG(ACHIEVEMENTS, "Challenge indicator hide: %s", event->achievement->title);
+		INFO_LOG(ACHIEVEMENTS, "Challenge indicator hide: %s", event->achievement->title);
 		g_OSD.ShowChallengeIndicator(event->achievement->id, false);
 		g_activeChallenges.erase(event->achievement->id);
 		// The handler should hide the small version of the achievement icon that was shown by the corresponding RC_CLIENT_EVENT_ACHIEVEMENT_CHALLENGE_INDICATOR_SHOW event.
 		break;
 	case RC_CLIENT_EVENT_ACHIEVEMENT_PROGRESS_INDICATOR_SHOW:
-		NOTICE_LOG(ACHIEVEMENTS, "Progress indicator show: %s, progress: '%s' (%f)", event->achievement->title, event->achievement->measured_progress, event->achievement->measured_percent);
+		INFO_LOG(ACHIEVEMENTS, "Progress indicator show: %s, progress: '%s' (%f)", event->achievement->title, event->achievement->measured_progress, event->achievement->measured_percent);
 		// An achievement that tracks progress has changed the amount of progress that has been made.
 		// The handler should show a small version of the achievement icon along with the achievement->measured_progress text (for two seconds).
 		// Only one progress indicator should be shown at a time.
 		// If a progress indicator is already visible, it should be updated with the new icon and text, and the two second timer should be restarted.
-		g_OSD.ShowAchievementProgress(event->achievement->id, 2.0f);
+		g_OSD.ShowAchievementProgress(event->achievement->id, true);
+		break;
+	case RC_CLIENT_EVENT_ACHIEVEMENT_PROGRESS_INDICATOR_UPDATE:
+		INFO_LOG(ACHIEVEMENTS, "Progress indicator update: %s, progress: '%s' (%f)", event->achievement->title, event->achievement->measured_progress, event->achievement->measured_percent);
+		g_OSD.ShowAchievementProgress(event->achievement->id, true);
+		break;
+	case RC_CLIENT_EVENT_ACHIEVEMENT_PROGRESS_INDICATOR_HIDE:
+		INFO_LOG(ACHIEVEMENTS, "Progress indicator hide");
+		// An achievement that tracks progress has changed the amount of progress that has been made.
+		// The handler should show a small version of the achievement icon along with the achievement->measured_progress text (for two seconds).
+		// Only one progress indicator should be shown at a time.
+		// If a progress indicator is already visible, it should be updated with the new icon and text, and the two second timer should be restarted.
+		g_OSD.ShowAchievementProgress(0, false);
 		break;
 	case RC_CLIENT_EVENT_LEADERBOARD_TRACKER_SHOW:
-		NOTICE_LOG(ACHIEVEMENTS, "Leaderboard tracker show: '%s' (id %d)", event->leaderboard_tracker->display, event->leaderboard_tracker->id);
+		INFO_LOG(ACHIEVEMENTS, "Leaderboard tracker show: '%s' (id %d)", event->leaderboard_tracker->display, event->leaderboard_tracker->id);
 		// A leaderboard_tracker has become active. The handler should show the tracker text on screen.
 		// Multiple active leaderboards may share a single tracker if they have the same definition and value.
 		// As such, the leaderboard tracker IDs are unique amongst the leaderboard trackers, and have no correlation to the active leaderboard(s).
@@ -291,12 +303,12 @@ static void event_handler_callback(const rc_client_event_t *event, rc_client_t *
 		break;
 	case RC_CLIENT_EVENT_LEADERBOARD_TRACKER_HIDE:
 		// A leaderboard_tracker has become inactive. The handler should hide the tracker text from the screen.
-		NOTICE_LOG(ACHIEVEMENTS, "Leaderboard tracker hide: '%s' (id %d)", event->leaderboard_tracker->display, event->leaderboard_tracker->id);
+		INFO_LOG(ACHIEVEMENTS, "Leaderboard tracker hide: '%s' (id %d)", event->leaderboard_tracker->display, event->leaderboard_tracker->id);
 		g_OSD.ShowLeaderboardTracker(event->leaderboard_tracker->id, nullptr, false);
 		break;
 	case RC_CLIENT_EVENT_LEADERBOARD_TRACKER_UPDATE:
 		// A leaderboard_tracker value has been updated. The handler should update the tracker text on the screen.
-		NOTICE_LOG(ACHIEVEMENTS, "Leaderboard tracker update: '%s' (id %d)", event->leaderboard_tracker->display, event->leaderboard_tracker->id);
+		INFO_LOG(ACHIEVEMENTS, "Leaderboard tracker update: '%s' (id %d)", event->leaderboard_tracker->display, event->leaderboard_tracker->id);
 		g_OSD.ShowLeaderboardTracker(event->leaderboard_tracker->id, event->leaderboard_tracker->display, true);
 		break;
 	case RC_CLIENT_EVENT_RESET:
