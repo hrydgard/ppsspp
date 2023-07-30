@@ -269,21 +269,21 @@ void DisassembleParam(char *buf, int bufSize, u8 param, char type, u32 constant)
 		break;
 	case 'F':
 		if (param >= 32) {
-			snprintf(buf, bufSize, "v%d", param - 32);
+			snprintf(buf, bufSize, "vf%d", param - 32);
 		} else {
 			snprintf(buf, bufSize, "f%d", param);
 		}
 		break;
 	case 'V':
 		if (param >= 32) {
-			snprintf(buf, bufSize, "v%d..v%d", param - 32, param - 32 + 3);
+			snprintf(buf, bufSize, "vf%d..vf%d", param - 32, param - 32 + 3);
 		} else {
 			snprintf(buf, bufSize, "f%d..f%d", param, param + 3);
 		}
 		break;
 	case '2':
 		if (param >= 32) {
-			snprintf(buf, bufSize, "v%d,v%d", param - 32, param - 32 + 1);
+			snprintf(buf, bufSize, "vf%d,vf%d", param - 32, param - 32 + 1);
 		} else {
 			snprintf(buf, bufSize, "f%d,f%d", param, param + 1);
 		}
