@@ -315,6 +315,7 @@ enum : IRReg {
 	IRREG_HI = 243,
 	IRREG_FCR31 = 244,
 	IRREG_FPCOND = 245,
+	IRREG_LLBIT = 250,
 };
 
 enum IRFlags {

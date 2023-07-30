@@ -113,7 +113,9 @@ void RiscVJit::CompIR_Load(IRInst inst) {
 		break;
 
 	case IROp::Load32Linked:
-		CompIR_Generic(inst);
+		if (inst.dest != MIPS_REG_ZERO)
+			LW(gpr.R(inst.dest), addrReg, imm);
+		gpr.SetImm(IRREG_LLBIT, 1);
 		break;
 
 	default:
@@ -258,7 +260,41 @@ void RiscVJit::CompIR_CondStore(IRInst inst) {
 	if (inst.op != IROp::Store32Conditional)
 		INVALIDOP;
 
-	CompIR_Generic(inst);
+	gpr.SpillLock(IRREG_LLBIT, inst.src3, inst.src1);
+	RiscVReg addrReg = INVALID_REG;
+	if (inst.src1 == MIPS_REG_ZERO) {
+		// This will get changed by AdjustForAddressOffset.
+		addrReg = MEMBASEREG;
+#ifdef MASKED_PSP_MEMORY
+		inst.constant &= Memory::MEMVIEW32_MASK;
+#endif
+	} else if ((jo.cachePointers || gpr.IsMappedAsPointer(inst.src1)) && inst.src3 != inst.src1) {
+		addrReg = gpr.MapRegAsPointer(inst.src1);
+	} else {
+		SetScratch1ToSrc1Address(inst.src1);
+		addrReg = SCRATCH1;
+	}
+	gpr.MapReg(inst.src3, inst.dest == MIPS_REG_ZERO ? MIPSMap::INIT : MIPSMap::DIRTY);
+	gpr.MapReg(IRREG_LLBIT);
+	gpr.ReleaseSpillLock(IRREG_LLBIT, inst.src3, inst.src1);
+
+	s32 imm = AdjustForAddressOffset(&addrReg, inst.constant);
+
+	// TODO: Safe memory?  Or enough to have crash handler + validate?
+
+	FixupBranch condFailed = BEQ(gpr.R(IRREG_LLBIT), R_ZERO);
+	SW(gpr.R(inst.src3), addrReg, imm);
+
+	if (inst.dest != MIPS_REG_ZERO) {
+		LI(gpr.R(inst.dest), 1);
+		FixupBranch finish = J();
+
+		SetJumpTarget(condFailed);
+		LI(gpr.R(inst.dest), 0);
+		SetJumpTarget(finish);
+	} else {
+		SetJumpTarget(condFailed);
+	}
 }
 
 void RiscVJit::CompIR_StoreShift(IRInst inst) {

@@ -221,18 +221,32 @@ void RiscVJit::CompIR_FAssign(IRInst inst) {
 void RiscVJit::CompIR_FRound(IRInst inst) {
 	CONDITIONAL_DISABLE;
 
+	// TODO: If this is followed by a GPR transfer, might want to combine.
+	fpr.MapDirtyIn(inst.dest, inst.src1);
+
 	switch (inst.op) {
 	case IROp::FRound:
+		FCVT(FConv::W, FConv::S, SCRATCH1, fpr.R(inst.src1), Round::NEAREST_EVEN);
+		break;
+
 	case IROp::FTrunc:
+		FCVT(FConv::W, FConv::S, SCRATCH1, fpr.R(inst.src1), Round::TOZERO);
+		break;
+
 	case IROp::FCeil:
+		FCVT(FConv::W, FConv::S, SCRATCH1, fpr.R(inst.src1), Round::UP);
+		break;
+
 	case IROp::FFloor:
-		CompIR_Generic(inst);
+		FCVT(FConv::W, FConv::S, SCRATCH1, fpr.R(inst.src1), Round::DOWN);
 		break;
 
 	default:
 		INVALIDOP;
 		break;
 	}
+
+	FMV(FMv::W, FMv::X, fpr.R(inst.dest), SCRATCH1);
 }
 
 void RiscVJit::CompIR_FCvt(IRInst inst) {
@@ -241,9 +255,15 @@ void RiscVJit::CompIR_FCvt(IRInst inst) {
 	switch (inst.op) {
 	case IROp::FCvtWS:
 	case IROp::FCvtScaledWS:
-	case IROp::FCvtSW:
 	case IROp::FCvtScaledSW:
 		CompIR_Generic(inst);
+		break;
+
+	case IROp::FCvtSW:
+		// TODO: This is probably proceeded by a GPR transfer, might be ideal to combine.
+		fpr.MapDirtyIn(inst.dest, inst.src1);
+		FMV(FMv::X, FMv::W, SCRATCH1, fpr.R(inst.src1));
+		FCVT(FConv::S, FConv::W, fpr.R(inst.dest), SCRATCH1);
 		break;
 
 	default:

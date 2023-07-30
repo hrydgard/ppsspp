@@ -20,6 +20,7 @@
 #endif
 
 #include "Common/CPUDetect.h"
+#include "Core/MIPS/IR/IRInst.h"
 #include "Core/MIPS/RiscV/RiscVRegCache.h"
 #include "Core/MIPS/JitCommon/JitState.h"
 #include "Core/Reporting.h"
@@ -998,7 +999,7 @@ bool RiscVRegCache::IsValidReg(IRRegIndex r) const {
 	if (r >= 224 && r < 224 + 16)
 		return false;
 	// Don't allow nextPC, etc. since it's probably a mistake.
-	if (r > 245)
+	if (r > IRREG_FPCOND && r != IRREG_LLBIT)
 		return false;
 	// Don't allow PC either.
 	if (r == 241)
