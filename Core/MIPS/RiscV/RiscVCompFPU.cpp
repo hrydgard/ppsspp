@@ -179,8 +179,10 @@ void RiscVJit::CompIR_FAssign(IRInst inst) {
 
 	switch (inst.op) {
 	case IROp::FMov:
-		fpr.MapDirtyIn(inst.dest, inst.src1);
-		FMV(32, fpr.R(inst.dest), fpr.R(inst.src1));
+		if (inst.dest != inst.src1) {
+			fpr.MapDirtyIn(inst.dest, inst.src1);
+			FMV(32, fpr.R(inst.dest), fpr.R(inst.src1));
+		}
 		break;
 
 	case IROp::FAbs:

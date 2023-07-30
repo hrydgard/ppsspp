@@ -238,7 +238,7 @@ namespace MIPSComp {
 				} else {
 					if (negate)
 						ir.Write(IROp::FNeg, vregs[i], origV[regnum]);
-					else
+					else if (vregs[i] != origV[regnum])
 						ir.Write(IROp::FMov, vregs[i], origV[regnum]);
 				}
 			} else {
@@ -855,7 +855,8 @@ namespace MIPSComp {
 			switch (optype) {
 			case 0: // d[i] = s[i]; break; //vmov
 				// Probably for swizzle.
-				ir.Write(IROp::FMov, tempregs[i], sregs[i]);
+				if (tempregs[i] != sregs[i])
+					ir.Write(IROp::FMov, tempregs[i], sregs[i]);
 				break;
 			case 1: // d[i] = fabsf(s[i]); break; //vabs
 				ir.Write(IROp::FAbs, tempregs[i], sregs[i]);
@@ -1171,7 +1172,8 @@ namespace MIPSComp {
 		}
 		for (int a = 0; a < n; a++) {
 			for (int b = 0; b < n; b++) {
-				ir.Write(IROp::FMov, dregs[a * 4 + b], sregs[a * 4 + b]);
+				if (dregs[a * 4 + b] != sregs[a * 4 + b])
+					ir.Write(IROp::FMov, dregs[a * 4 + b], sregs[a * 4 + b]);
 			}
 		}
 	}
