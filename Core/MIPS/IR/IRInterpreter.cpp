@@ -834,7 +834,7 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, int count) {
 				mips->fi[inst->dest] = my_isinf(value) && value < 0.0f ? -2147483648LL : 2147483647LL;
 				break;
 			} else {
-				mips->fs[inst->dest] = (int)floorf(value + 0.5f);
+				mips->fs[inst->dest] = (int)round_ieee_754(value);
 			}
 			break;
 		}
@@ -930,6 +930,35 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, int count) {
 			case 3: mips->fs[inst->dest] = (int)floorf(src); break;  // FLOOR_3
 			}
 			break; //cvt.w.s
+		}
+		case IROp::FCvtScaledSW:
+			mips->f[inst->dest] = (float)mips->fs[inst->src1] * (1.0f / (1UL << (inst->src2 & 0x1F)));
+			break;
+		case IROp::FCvtScaledWS:
+		{
+			float src = mips->f[inst->src1];
+			if (my_isnan(src)) {
+				// TODO: True for negatives too?
+				mips->fs[inst->dest] = 2147483647L;
+				break;
+			}
+
+			float mult = (float)(1UL << (inst->src2 & 0x1F));
+			double sv = src * mult; // (float)0x7fffffff == (float)0x80000000
+			// Cap/floor it to 0x7fffffff / 0x80000000
+			if (sv > (double)0x7fffffff) {
+				mips->fs[inst->dest] = 0x7fffffff;
+			} else if (sv <= (double)(int)0x80000000) {
+				mips->fs[inst->dest] = 0x80000000;
+			} else {
+				switch (inst->src2 >> 6) {
+				case 0: mips->fs[inst->dest] = (int)round_ieee_754(sv); break;
+				case 1: mips->fs[inst->dest] = src >= 0 ? (int)floor(sv) : (int)ceil(sv); break;
+				case 2: mips->fs[inst->dest] = (int)ceil(sv); break;
+				case 3: mips->fs[inst->dest] = (int)floor(sv); break;
+				}
+			}
+			break;
 		}
 
 		case IROp::ZeroFpCond:

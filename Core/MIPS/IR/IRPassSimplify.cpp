@@ -667,6 +667,8 @@ bool PropagateConstants(const IRWriter &in, IRWriter &out, const IROptions &opts
 		case IROp::FCeil:
 		case IROp::FFloor:
 		case IROp::FCvtSW:
+		case IROp::FCvtScaledWS:
+		case IROp::FCvtScaledSW:
 		case IROp::FSin:
 		case IROp::FCos:
 		case IROp::FSqrt:
