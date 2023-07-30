@@ -106,7 +106,7 @@ int DrawEngineCommon::ComputeNumVertsToDecode() const {
 void DrawEngineCommon::DecodeVerts(u8 *dest) {
 	int decodeCounter = decodeCounter_;
 	for (; decodeCounter < numDrawCalls_; decodeCounter++) {
-		DecodeVertsStep(dest, decodeCounter, decodedVerts_, &drawCalls_[decodeCounter].uvScale);  // NOTE! DecodeVertsStep can modify decodeCounter_!
+		DecodeVertsStep(dest, decodeCounter, decodedVerts_, &drawCalls_[decodeCounter].uvScale);  // NOTE! DecodeVertsStep can modify the decodeCounter parameter!
 	}
 	decodeCounter_ = decodeCounter;
 
