@@ -266,6 +266,7 @@ void RiscVJit::CompileIRInst(IRInst inst) {
 	case IROp::FCvtWS:
 	case IROp::FCvtSW:
 	case IROp::FCvtScaledWS:
+	case IROp::FCvtScaledSW:
 		CompIR_FCvt(inst);
 		break;
 

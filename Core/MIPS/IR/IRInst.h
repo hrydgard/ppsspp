@@ -128,6 +128,7 @@ enum class IROp : u8 {
 	FCvtWS,
 	FCvtSW,
 	FCvtScaledWS,
+	FCvtScaledSW,
 
 	FMovFromGPR,
 	FMovToGPR,

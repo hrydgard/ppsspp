@@ -929,37 +929,17 @@ namespace MIPSComp {
 		VectorSize sz = GetVecSize(op);
 		int n = GetNumVectorElements(sz);
 
-		int imm = (op >> 16) & 0x1f;
-		const float mult = 1.0f / (float)(1UL << imm);
+		uint8_t imm = (op >> 16) & 0x1f;
 
 		u8 sregs[4], dregs[4];
 		GetVectorRegsPrefixS(sregs, sz, _VS);
 		GetVectorRegsPrefixD(dregs, sz, _VD);
 
-		u8 tempregs[4];
-		for (int i = 0; i < n; ++i) {
-			if (!IsOverlapSafe(dregs[i], n, sregs)) {
-				tempregs[i] = IRVTEMP_PFX_T + i;  // Need IRVTEMP_0 for the scaling factor
-			} else {
-				tempregs[i] = dregs[i];
-			}
-		}
-		if (mult != 1.0f)
-			ir.Write(IROp::SetConstF, IRVTEMP_0, ir.AddConstantFloat(mult));
-		// TODO: Use the SCVTF with builtin scaling where possible.
 		for (int i = 0; i < n; i++) {
-			ir.Write(IROp::FCvtSW, tempregs[i], sregs[i]);
-		}
-		if (mult != 1.0f) {
-			for (int i = 0; i < n; i++) {
-				ir.Write(IROp::FMul, tempregs[i], tempregs[i], IRVTEMP_0);
-			}
-		}
-
-		for (int i = 0; i < n; ++i) {
-			if (dregs[i] != tempregs[i]) {
-				ir.Write(IROp::FMov, dregs[i], tempregs[i]);
-			}
+			if (imm == 0)
+				ir.Write(IROp::FCvtSW, dregs[i], sregs[i]);
+			else
+				ir.Write(IROp::FCvtScaledSW, dregs[i], sregs[i], imm);
 		}
 		ApplyPrefixD(dregs, sz);
 	}
@@ -989,7 +969,7 @@ namespace MIPSComp {
 		VectorSize sz = GetVecSize(op);
 		int n = GetNumVectorElements(sz);
 
-		int imm = (op >> 16) & 0x1f;
+		uint8_t imm = (op >> 16) & 0x1f;
 
 		u8 sregs[4], dregs[4];
 		GetVectorRegsPrefixS(sregs, sz, _VS);
@@ -1000,17 +980,9 @@ namespace MIPSComp {
 		if (((op >> 21) & 0x1C) != 0x10)
 			INVALIDOP;
 
-		u8 tempregs[4];
-		for (int i = 0; i < n; ++i) {
-			if (!IsOverlapSafe(dregs[i], n, sregs)) {
-				tempregs[i] = IRVTEMP_PFX_T + i;  // Need IRVTEMP_0 for the scaling factor
-			} else {
-				tempregs[i] = dregs[i];
-			}
-		}
 		if (imm != 0) {
 			for (int i = 0; i < n; i++)
-				ir.Write(IROp::FCvtScaledWS, dregs[i], sregs[i], (uint8_t)(imm | (rmode << 6)));
+				ir.Write(IROp::FCvtScaledWS, dregs[i], sregs[i], imm | (rmode << 6));
 		} else {
 			for (int i = 0; i < n; i++) {
 				switch (rmode) {

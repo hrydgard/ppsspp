@@ -106,6 +106,7 @@ static const IRMeta irMeta[] = {
 	{ IROp::FCvtWS, "FCvtWS", "FF" },
 	{ IROp::FCvtSW, "FCvtSW", "FF" },
 	{ IROp::FCvtScaledWS, "FCvtScaledWS", "FFI" },
+	{ IROp::FCvtScaledSW, "FCvtScaledSW", "FFI" },
 	{ IROp::FCmp, "FCmp", "mFF" },
 	{ IROp::FSat0_1, "FSat(0 - 1)", "FF" },
 	{ IROp::FSatMinus1_1, "FSat(-1 - 1)", "FF" },

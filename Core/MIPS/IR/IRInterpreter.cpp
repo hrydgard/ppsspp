@@ -931,6 +931,9 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, int count) {
 			}
 			break; //cvt.w.s
 		}
+		case IROp::FCvtScaledSW:
+			mips->f[inst->dest] = (float)mips->fs[inst->src1] * (1.0f / (1UL << (inst->src2 & 0x1F)));
+			break;
 		case IROp::FCvtScaledWS:
 		{
 			float src = mips->f[inst->src1];
