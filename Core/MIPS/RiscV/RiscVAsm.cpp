@@ -232,10 +232,12 @@ void RiscVJit::GenerateFixedCode(const JitOptions &jo) {
 
 	// Leave this at the end, add more stuff above.
 	if (enableDisasm) {
+#if PPSSPP_ARCH(RISCV64)
 		std::vector<std::string> lines = DisassembleRV64(start, GetCodePtr() - start);
 		for (auto s : lines) {
 			INFO_LOG(JIT, "%s", s.c_str());
 		}
+#endif
 	}
 
 	// Let's spare the pre-generated code from unprotect-reprotect.
