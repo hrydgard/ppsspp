@@ -128,17 +128,28 @@ void OnScreenDisplay::ShowAchievementUnlocked(int achievementID) {
 	entries_.insert(entries_.begin(), msg);
 }
 
-void OnScreenDisplay::ShowAchievementProgress(int achievementID, float duration_s) {
+void OnScreenDisplay::ShowAchievementProgress(int achievementID, bool show) {
 	double now = time_now_d();
 
+	// There can only be one of these at a time.
 	for (auto &entry : sideEntries_) {
-		if (entry.numericID == achievementID && entry.type == OSDType::ACHIEVEMENT_PROGRESS) {
-			// Duplicate, let's just bump the timer.
-			entry.startTime = now;
-			entry.endTime = now + (double)duration_s;
-			// We're done.
+		if (entry.type == OSDType::ACHIEVEMENT_PROGRESS) {
+			if (!show) {
+				// Hide and eventually delete it.
+				entry.endTime = now + (double)FadeoutTime();
+				// Found it, we're done.
+				return;
+			}
+			// Else update it.
+			entry.numericID = achievementID;
+			entry.endTime = now + forever_s;
 			return;
 		}
+	}
+
+	if (!show) {
+		// Sanity check
+		return;
 	}
 
 	// OK, let's make a new side-entry.
@@ -146,7 +157,7 @@ void OnScreenDisplay::ShowAchievementProgress(int achievementID, float duration_
 	entry.numericID = achievementID;
 	entry.type = OSDType::ACHIEVEMENT_PROGRESS;
 	entry.startTime = now;
-	entry.endTime = now + (double)duration_s;
+	entry.endTime = now + forever_s;
 	sideEntries_.insert(sideEntries_.begin(), entry);
 }
 
