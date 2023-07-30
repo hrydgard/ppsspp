@@ -652,9 +652,11 @@ void RiscVBlockCacheDebugInterface::GetBlockCodeRange(int blockNum, int *startOf
 JitBlockDebugInfo RiscVBlockCacheDebugInterface::GetBlockDebugInfo(int blockNum) const {
 	JitBlockDebugInfo debugInfo = irBlocks_.GetBlockDebugInfo(blockNum);
 
+#if PPSSPP_ARCH(RISCV64)
 	int blockOffset, codeSize;
 	GetBlockCodeRange(blockNum, &blockOffset, &codeSize);
 	debugInfo.targetDisasm = DisassembleRV64(jit_.GetBasePtr() + blockOffset, codeSize);
+#endif
 	return debugInfo;
 }
 
