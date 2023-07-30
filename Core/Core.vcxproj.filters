@@ -1237,6 +1237,9 @@
     <ClCompile Include="MIPS\RiscV\RiscVCompSystem.cpp">
       <Filter>MIPS\RiscV</Filter>
     </ClCompile>
+    <ClCompile Include="MIPS\IR\IRAnalysis.cpp">
+      <Filter>MIPS\IR</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ELF\ElfReader.h">
@@ -1991,6 +1994,9 @@
     </ClInclude>
     <ClInclude Include="MIPS\RiscV\RiscVRegCacheFPU.h">
       <Filter>MIPS\RiscV</Filter>
+    </ClInclude>
+    <ClInclude Include="MIPS\IR\IRAnalysis.h">
+      <Filter>MIPS\IR</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

@@ -6,6 +6,7 @@
 #include "Common/Data/Convert/SmallDataConvert.h"
 #include "Common/Log.h"
 #include "Core/Config.h"
+#include "Core/MIPS/IR/IRAnalysis.h"
 #include "Core/MIPS/IR/IRInterpreter.h"
 #include "Core/MIPS/IR/IRPassSimplify.h"
 #include "Core/MIPS/IR/IRRegCache.h"
@@ -805,27 +806,6 @@ bool PropagateConstants(const IRWriter &in, IRWriter &out, const IROptions &opts
 	return logBlocks;
 }
 
-bool IRReadsFromGPR(const IRInst &inst, int reg, bool directly = false) {
-	const IRMeta *m = GetIRMeta(inst.op);
-
-	if (m->types[1] == 'G' && inst.src1 == reg) {
-		return true;
-	}
-	if (m->types[2] == 'G' && inst.src2 == reg) {
-		return true;
-	}
-	if ((m->flags & (IRFLAG_SRC3 | IRFLAG_SRC3DST)) != 0 && m->types[0] == 'G' && inst.src3 == reg) {
-		return true;
-	}
-	if (!directly) {
-		if (inst.op == IROp::Interpret || inst.op == IROp::CallReplacement || inst.op == IROp::Syscall || inst.op == IROp::Break)
-			return true;
-		if (inst.op == IROp::Breakpoint || inst.op == IROp::MemoryCheck)
-			return true;
-	}
-	return false;
-}
-
 IRInst IRReplaceSrcGPR(const IRInst &inst, int fromReg, int toReg) {
 	IRInst newInst = inst;
 	const IRMeta *m = GetIRMeta(inst.op);
@@ -840,15 +820,6 @@ IRInst IRReplaceSrcGPR(const IRInst &inst, int fromReg, int toReg) {
 		newInst.src3 = toReg;
 	}
 	return newInst;
-}
-
-int IRDestGPR(const IRInst &inst) {
-	const IRMeta *m = GetIRMeta(inst.op);
-
-	if ((m->flags & IRFLAG_SRC3) == 0 && m->types[0] == 'G') {
-		return inst.dest;
-	}
-	return -1;
 }
 
 IRInst IRReplaceDestGPR(const IRInst &inst, int fromReg, int toReg) {
