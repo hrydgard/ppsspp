@@ -29,7 +29,7 @@ public:
 protected:
 	void ClearCache() override;
 	void PrepareFallbackFonts();
-	uint32_t CheckMissingGlyph(std::string& text);
+	uint32_t CheckMissingGlyph(const std::string& text);
 	bool FindFallbackFonts(uint32_t missingGlyph, int ptSize);
 
 	uint32_t fontHash_;

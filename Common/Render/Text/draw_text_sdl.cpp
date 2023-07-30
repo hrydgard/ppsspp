@@ -58,7 +58,7 @@ void TextDrawerSDL::PrepareFallbackFonts() {
 	};
 
 	for (int i = 0; i < ARRAY_SIZE(names); i++) {
-    	FcFontSet *foundFonts = FcFontList(config, names[i], os);
+		FcFontSet *foundFonts = FcFontList(config, names[i], os);
 		
 		for (int j = 0; foundFonts && j < foundFonts->nfont; ++j) {
 			FcPattern* font = foundFonts->fonts[j];
@@ -133,7 +133,7 @@ void TextDrawerSDL::PrepareFallbackFonts() {
 #endif
 }
 
-uint32_t TextDrawerSDL::CheckMissingGlyph(std::string& text) {
+uint32_t TextDrawerSDL::CheckMissingGlyph(const std::string& text) {
 	TTF_Font *font = fontMap_.find(fontHash_)->second;
 	UTF8 utf8Decoded(text.c_str());
 
@@ -293,7 +293,7 @@ void TextDrawerSDL::MeasureStringRect(const char *str, size_t len, const Bounds 
 		if (total_w < entry->width) {
 			total_w = entry->width;
 		}
-		total_h += entry->height;
+		total_h += TTF_FontLineSkip(font);
 	}
 
 	*w = total_w * fontScaleX_ * dpiScale_;
@@ -359,13 +359,7 @@ void TextDrawerSDL::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStrin
 
 	// If a string includes only newlines, SDL2_ttf will refuse to render it
 	// thinking it is empty. Add a space to avoid that. 
-	bool isAllNewline = true;
-	for (int i = 0; i < processedStr.size(); i++) {
-		if (processedStr[i] != '\n') {
-			isAllNewline = false;
-			break;
-		}
-	}
+	bool isAllNewline = processedStr.find_first_not_of('\n') == std::string::npos;
 
 	if (isAllNewline) {
 		processedStr.push_back(' ');
