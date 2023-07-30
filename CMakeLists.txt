@@ -1539,6 +1539,8 @@ set(CoreExtra)
 set(CoreExtraLibs)
 
 set(CoreExtra ${CoreExtra}
+	Core/MIPS/IR/IRAnalysis.cpp
+	Core/MIPS/IR/IRAnalysis.h
 	Core/MIPS/IR/IRCompALU.cpp
 	Core/MIPS/IR/IRCompBranch.cpp
 	Core/MIPS/IR/IRCompFPU.cpp

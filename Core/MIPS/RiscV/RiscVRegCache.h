@@ -19,6 +19,7 @@
 
 #include "Common/RiscVEmitter.h"
 #include "Core/MIPS/MIPS.h"
+#include "Core/MIPS/IR/IRJit.h"
 
 namespace RiscVJitConstants {
 
@@ -101,8 +102,10 @@ public:
 	~RiscVRegCache() {}
 
 	void Init(RiscVGen::RiscVEmitter *emitter);
-	// TODO: Maybe pass in IR block and start PC for logging/debugging?
-	void Start();
+	void Start(MIPSComp::IRBlock *irBlock);
+	void SetIRIndex(int index) {
+		irIndex_ = index;
+	}
 
 	// Protect the arm register containing a MIPS register from spilling, to ensure that
 	// it's being kept allocated.
@@ -176,6 +179,8 @@ private:
 	MIPSState *mips_;
 	RiscVGen::RiscVEmitter *emit_ = nullptr;
 	MIPSComp::JitOptions *jo_;
+	MIPSComp::IRBlock *irBlock_ = nullptr;
+	int irIndex_ = 0;
 
 	enum {
 		NUM_RVREG = 32,  // 31 actual registers, plus the zero/sp register which is not mappable.

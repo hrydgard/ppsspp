@@ -813,7 +813,7 @@ namespace MIPSAnalyst {
 			break;
 		}
 
-		if (reg > 32) {
+		if (reg >= 32) {
 			return USAGE_UNKNOWN;
 		}
 

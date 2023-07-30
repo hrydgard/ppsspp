@@ -671,6 +671,7 @@ SOURCES_CXX += \
 	       $(COREDIR)/MIPS/JitCommon/JitCommon.cpp \
 	       $(COREDIR)/MIPS/JitCommon/JitState.cpp \
 	       $(COREDIR)/MIPS/JitCommon/JitBlockCache.cpp \
+	       $(COREDIR)/MIPS/IR/IRAnalysis.cpp \
 	       $(COREDIR)/MIPS/IR/IRCompALU.cpp \
 	       $(COREDIR)/MIPS/IR/IRCompBranch.cpp \
 	       $(COREDIR)/MIPS/IR/IRCompFPU.cpp \

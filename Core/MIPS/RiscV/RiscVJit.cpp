@@ -111,19 +111,20 @@ bool RiscVJit::CompileTargetBlock(IRBlock *block, int block_num, bool preload) {
 
 	// TODO: Block linking, checked entries and such.
 
-	gpr.Start();
-	fpr.Start();
+	gpr.Start(block);
+	fpr.Start(block);
 
 	for (int i = 0; i < block->GetNumInstructions(); ++i) {
 		const IRInst &inst = block->GetInstructions()[i];
+		gpr.SetIRIndex(i);
+		fpr.SetIRIndex(i);
+
 		CompileIRInst(inst);
 
-		if (jo.Disabled(JitDisable::REGALLOC_GPR)) {
+		if (jo.Disabled(JitDisable::REGALLOC_GPR))
 			gpr.FlushAll();
-		}
-		if (jo.Disabled(JitDisable::REGALLOC_FPR)) {
+		if (jo.Disabled(JitDisable::REGALLOC_FPR))
 			fpr.FlushAll();
-		}
 
 		// Safety check, in case we get a bunch of really large jit ops without a lot of branching.
 		if (GetSpaceLeft() < 0x800) {

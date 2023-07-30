@@ -46,8 +46,10 @@ public:
 	~RiscVRegCacheFPU() {}
 
 	void Init(RiscVGen::RiscVEmitter *emitter);
-	// TODO: Maybe pass in IR block and start PC for logging/debugging?
-	void Start();
+	void Start(MIPSComp::IRBlock *irBlock);
+	void SetIRIndex(int index) {
+		irIndex_ = index;
+	}
 
 	// Protect the RISC-V register containing a MIPS register from spilling, to ensure that
 	// it's being kept allocated.
@@ -89,6 +91,8 @@ private:
 	MIPSState *mips_;
 	RiscVGen::RiscVEmitter *emit_ = nullptr;
 	MIPSComp::JitOptions *jo_;
+	MIPSComp::IRBlock *irBlock_ = nullptr;
+	int irIndex_ = 0;
 
 	enum {
 		// On RiscV, each of the 32 registers are full 128-bit. No sharing of components!

@@ -20,6 +20,8 @@
 #endif
 
 #include "Common/CPUDetect.h"
+#include "Core/MIPS/IR/IRInst.h"
+#include "Core/MIPS/IR/IRAnalysis.h"
 #include "Core/MIPS/RiscV/RiscVRegCacheFPU.h"
 #include "Core/MIPS/JitCommon/JitState.h"
 #include "Core/Reporting.h"
@@ -34,7 +36,7 @@ void RiscVRegCacheFPU::Init(RiscVEmitter *emitter) {
 	emit_ = emitter;
 }
 
-void RiscVRegCacheFPU::Start() {
+void RiscVRegCacheFPU::Start(MIPSComp::IRBlock *irBlock) {
 	if (!initialReady_) {
 		SetupInitialRegs();
 		initialReady_ = true;
@@ -43,6 +45,9 @@ void RiscVRegCacheFPU::Start() {
 	memcpy(ar, arInitial_, sizeof(ar));
 	memcpy(mr, mrInitial_, sizeof(mr));
 	pendingFlush_ = false;
+
+	irBlock_ = irBlock;
+	irIndex_ = 0;
 }
 
 void RiscVRegCacheFPU::SetupInitialRegs() {
@@ -130,8 +135,6 @@ allocate:
 	}
 
 	// Still nothing. Let's spill a reg and goto 10.
-	// TODO: Use age or something to choose which register to spill?
-	// TODO: Spill dirty regs first? or opposite?
 	bool clobbered;
 	RiscVReg bestToSpill = FindBestToSpill(true, &clobbered);
 	if (bestToSpill == INVALID_REG) {
@@ -160,21 +163,33 @@ RiscVReg RiscVRegCacheFPU::FindBestToSpill(bool unusedOnly, bool *clobbered) {
 
 	static const int UNUSED_LOOKAHEAD_OPS = 30;
 
+	IRSituation info;
+	info.lookaheadCount = UNUSED_LOOKAHEAD_OPS;
+	info.currentIndex = irIndex_;
+	info.instructions = irBlock_->GetInstructions();
+	info.numInstructions = irBlock_->GetNumInstructions();
+
 	*clobbered = false;
 	for (int i = 0; i < allocCount; i++) {
 		RiscVReg reg = allocOrder[i];
 		if (ar[reg - F0].mipsReg != IRREG_INVALID && mr[ar[reg - F0].mipsReg].spillLock)
 			continue;
 
-		// TODO: Look for clobbering in the IRInst array with index?
+		// As it's in alloc-order, we know it's not static so we don't need to check for that.
+		IRUsage usage = IRNextFPRUsage(ar[reg - F0].mipsReg, info);
 
-		// Not awesome.  A used reg.  Let's try to avoid spilling.
-		// TODO: Actually check if we'd be spilling.
-		if (unusedOnly) {
-			continue;
+		// Awesome, a clobbered reg.  Let's use it.
+		if (usage == IRUsage::CLOBBERED) {
+			*clobbered = true;
+			return reg;
 		}
 
-		return reg;
+		// Not awesome.  A used reg.  Let's try to avoid spilling.
+		if (!unusedOnly || usage == IRUsage::UNUSED) {
+			// TODO: Use age or something to choose which register to spill?
+			// TODO: Spill dirty regs first? or opposite?
+			return reg;
+		}
 	}
 
 	return INVALID_REG;
