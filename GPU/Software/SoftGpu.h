@@ -187,6 +187,9 @@ public:
 	// Overridden to change flushing behavior.
 	void Execute_Call(u32 op, u32 diff);
 
+	// Overridden for a dirty flag change.
+	void Execute_BoundingBox(u32 op, u32 diff);
+
 	void Execute_WorldMtxNum(u32 op, u32 diff);
 	void Execute_ViewMtxNum(u32 op, u32 diff);
 	void Execute_ProjMtxNum(u32 op, u32 diff);
