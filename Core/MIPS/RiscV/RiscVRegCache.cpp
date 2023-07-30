@@ -663,7 +663,6 @@ void RiscVRegCache::MapDirtyDirtyInIn(IRRegIndex rd1, IRRegIndex rd2, IRRegIndex
 void RiscVRegCache::FlushRiscVReg(RiscVReg r) {
 	_dbg_assert_(r > X0 && r <= X31);
 	_dbg_assert_(ar[r].mipsReg != MIPS_REG_ZERO);
-	_dbg_assert_(!mr[ar[r].mipsReg].isStatic);
 	if (r == INVALID_REG) {
 		ERROR_LOG(JIT, "FlushRiscVReg called on invalid register %d", r);
 		return;
@@ -673,6 +672,7 @@ void RiscVRegCache::FlushRiscVReg(RiscVReg r) {
 		_dbg_assert_(!ar[r].isDirty);
 		return;
 	}
+	_dbg_assert_(!mr[ar[r].mipsReg].isStatic);
 	if (mr[ar[r].mipsReg].isStatic) {
 		ERROR_LOG(JIT, "Cannot FlushRiscVReg a statically mapped register");
 		return;
