@@ -275,10 +275,55 @@ void RiscVJit::CompIR_FCvt(IRInst inst) {
 void RiscVJit::CompIR_FSat(IRInst inst) {
 	CONDITIONAL_DISABLE;
 
+	RiscVReg tempReg = INVALID_REG;
+	FixupBranch skipLower;
+	FixupBranch finishLower;
+	FixupBranch skipHigher;
 	switch (inst.op) {
 	case IROp::FSat0_1:
+		tempReg = fpr.MapDirtyInTemp(inst.dest, inst.src1);
+		if (inst.dest != inst.src1)
+			FMV(32, fpr.R(inst.dest), fpr.R(inst.src1));
+
+		// First, set SCRATCH1 = clamp to zero, SCRATCH2 = clamp to one.
+		FCVT(FConv::S, FConv::W, tempReg, R_ZERO);
+		// FLE here is intentional to convert -0.0 to +0.0.
+		FLE(32, SCRATCH1, fpr.R(inst.src1), tempReg);
+		LI(SCRATCH2, 1.0f);
+		FMV(FMv::W, FMv::X, tempReg, SCRATCH2);
+		FLT(32, SCRATCH2, tempReg, fpr.R(inst.src1));
+
+		skipLower = BEQ(SCRATCH1, R_ZERO);
+		FCVT(FConv::S, FConv::W, fpr.R(inst.dest), R_ZERO);
+		finishLower = J();
+
+		SetJumpTarget(skipLower);
+		skipHigher = BEQ(SCRATCH2, R_ZERO);
+		// Still has 1.0 in it.
+		FMV(32, fpr.R(inst.dest), tempReg);
+
+		SetJumpTarget(finishLower);
+		SetJumpTarget(skipHigher);
+		break;
+
 	case IROp::FSatMinus1_1:
-		CompIR_Generic(inst);
+		tempReg = fpr.MapDirtyInTemp(inst.dest, inst.src1);
+		if (inst.dest != inst.src1)
+			FMV(32, fpr.R(inst.dest), fpr.R(inst.src1));
+
+		// First, set SCRATCH1 = clamp to negative, SCRATCH2 = clamp to positive.
+		LI(SCRATCH2, -1.0f);
+		FMV(FMv::W, FMv::X, tempReg, SCRATCH2);
+		FLT(32, SCRATCH1, fpr.R(inst.src1), tempReg);
+		FNEG(32, tempReg, tempReg);
+		FLT(32, SCRATCH2, tempReg, fpr.R(inst.src1));
+
+		// But we can actually do one branch, using sign-injection to keep the original sign.
+		OR(SCRATCH1, SCRATCH1, SCRATCH2);
+
+		skipLower = BEQ(SCRATCH1, R_ZERO);
+		FSGNJ(32, fpr.R(inst.dest), tempReg, fpr.R(inst.dest));
+		SetJumpTarget(skipLower);
 		break;
 
 	default:
@@ -549,6 +594,7 @@ void RiscVJit::CompIR_FSpecial(IRInst inst) {
 		}
 	};
 
+	RiscVReg tempReg = INVALID_REG;
 	switch (inst.op) {
 	case IROp::FSin:
 		callFuncF_F(&vfpu_sin);
@@ -559,30 +605,25 @@ void RiscVJit::CompIR_FSpecial(IRInst inst) {
 		break;
 
 	case IROp::FRSqrt:
-		fpr.MapDirtyIn(inst.dest, inst.src1);
+		tempReg = fpr.MapDirtyInTemp(inst.dest, inst.src1);
 		FSQRT(32, fpr.R(inst.dest), fpr.R(inst.src1));
 
 		// Ugh, we can't really avoid a temp here.  Probably not worth a permanent one.
 		LI(SCRATCH1, 1.0f);
-		{
-			// TODO: Smarter allocation of a temp reg?
-			RiscVReg tempReg = fpr.R(inst.dest) == F31 ? F30 : F31;
-			fpr.FlushRiscVReg(tempReg);
-			FMV(FMv::W, FMv::X, tempReg, SCRATCH1);
-			FDIV(32, fpr.R(inst.dest), tempReg, fpr.R(inst.dest));
-		}
+		FMV(FMv::W, FMv::X, tempReg, SCRATCH1);
+		FDIV(32, fpr.R(inst.dest), tempReg, fpr.R(inst.dest));
 		break;
 
 	case IROp::FRecip:
-		fpr.MapDirtyIn(inst.dest, inst.src1);
-		LI(SCRATCH1, 1.0f);
 		if (inst.dest != inst.src1) {
 			// This is the easy case.
+			fpr.MapDirtyIn(inst.dest, inst.src1);
+			LI(SCRATCH1, 1.0f);
 			FMV(FMv::W, FMv::X, fpr.R(inst.dest), SCRATCH1);
 			FDIV(32, fpr.R(inst.dest), fpr.R(inst.dest), fpr.R(inst.src1));
 		} else {
-			RiscVReg tempReg = fpr.R(inst.dest) == F31 ? F30 : F31;
-			fpr.FlushRiscVReg(tempReg);
+			tempReg = fpr.MapDirtyInTemp(inst.dest, inst.src1);
+			LI(SCRATCH1, 1.0f);
 			FMV(FMv::W, FMv::X, tempReg, SCRATCH1);
 			FDIV(32, fpr.R(inst.dest), tempReg, fpr.R(inst.src1));
 		}

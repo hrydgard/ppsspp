@@ -64,6 +64,7 @@ public:
 	void MapInIn(IRRegIndex rd, IRRegIndex rs);
 	void MapDirtyIn(IRRegIndex rd, IRRegIndex rs, bool avoidLoad = true);
 	void MapDirtyInIn(IRRegIndex rd, IRRegIndex rs, IRRegIndex rt, bool avoidLoad = true);
+	RiscVGen::RiscVReg MapDirtyInTemp(IRRegIndex rd, IRRegIndex rs, bool avoidLoad = true);
 	void Map4DirtyIn(IRRegIndex rdbase, IRRegIndex rsbase, bool avoidLoad = true);
 	void Map4DirtyInIn(IRRegIndex rdbase, IRRegIndex rsbase, IRRegIndex rtbase, bool avoidLoad = true);
 	void FlushBeforeCall();
