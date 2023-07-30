@@ -19,9 +19,9 @@
 #include <cfloat>
 
 #include "Common/Data/Convert/ColorConv.h"
-#include "Common/Math/lin/matrix4x4.h"
 #include "Common/Profiler/Profiler.h"
 #include "Common/LogReporting.h"
+#include "Common/Math/lin/matrix4x4.h"
 #include "Core/Config.h"
 #include "GPU/Common/DrawEngineCommon.h"
 #include "GPU/Common/SplineCommon.h"
@@ -136,21 +136,6 @@ std::string DrawEngineCommon::DebugGetVertexLoaderString(std::string id, DebugSh
 	return dec ? dec->GetString(stringType) : "N/A";
 }
 
-struct Plane {
-	float x, y, z, w;
-	void Set(float _x, float _y, float _z, float _w) { x = _x; y = _y; z = _z; w = _w; }
-	float Test(const float f[3]) const { return x * f[0] + y * f[1] + z * f[2] + w; }
-};
-
-static void PlanesFromMatrix(const float mtx[16], Plane planes[6]) {
-	planes[0].Set(mtx[3]-mtx[0], mtx[7]-mtx[4], mtx[11]-mtx[8], mtx[15]-mtx[12]);  // Right
-	planes[1].Set(mtx[3]+mtx[0], mtx[7]+mtx[4], mtx[11]+mtx[8], mtx[15]+mtx[12]);  // Left
-	planes[2].Set(mtx[3]+mtx[1], mtx[7]+mtx[5], mtx[11]+mtx[9], mtx[15]+mtx[13]);  // Bottom
-	planes[3].Set(mtx[3]-mtx[1], mtx[7]-mtx[5], mtx[11]-mtx[9], mtx[15]-mtx[13]);  // Top
-	planes[4].Set(mtx[3]+mtx[2], mtx[7]+mtx[6], mtx[11]+mtx[10], mtx[15]+mtx[14]); // Near
-	planes[5].Set(mtx[3]-mtx[2], mtx[7]-mtx[6], mtx[11]-mtx[10], mtx[15]-mtx[14]); // Far
-}
-
 static Vec3f ClipToScreen(const Vec4f& coords) {
 	float xScale = gstate.getViewportXScale();
 	float xCenter = gstate.getViewportXCenter();
@@ -250,6 +235,52 @@ void DrawEngineCommon::DispatchSubmitImm(GEPrimitiveType prim, TransformedVertex
 	}
 }
 
+// Gated by DIRTY_CULL_PLANES
+void DrawEngineCommon::UpdatePlanes() {
+	float world[16];
+	float view[16];
+	float worldview[16];
+	float worldviewproj[16];
+	ConvertMatrix4x3To4x4(world, gstate.worldMatrix);
+	ConvertMatrix4x3To4x4(view, gstate.viewMatrix);
+	// TODO: Create a Matrix4x3ByMatrix4x3, and Matrix4x4ByMatrix4x3?
+	Matrix4ByMatrix4(worldview, world, view);
+	Matrix4ByMatrix4(worldviewproj, worldview, gstate.projMatrix);
+
+	// Next, we need to apply viewport, scissor, region, and even offset - but only for X/Y.
+	// Note that the PSP does not clip against the viewport.
+	const Vec2f baseOffset = Vec2f(gstate.getOffsetX(), gstate.getOffsetY());
+	// Region1 (rate) is used as an X1/Y1 here, matching PSP behavior.
+	minOffset_ = baseOffset + Vec2f(std::max(gstate.getRegionRateX() - 0x100, gstate.getScissorX1()), std::max(gstate.getRegionRateY() - 0x100, gstate.getScissorY1())) - Vec2f(1.0f, 1.0f);
+	maxOffset_ = baseOffset + Vec2f(std::min(gstate.getRegionX2(), gstate.getScissorX2()), std::min(gstate.getRegionY2(), gstate.getScissorY2())) + Vec2f(1.0f, 1.0f);
+
+	// Now let's apply the viewport to our scissor/region + offset range.
+	Vec2f inverseViewportScale = Vec2f(1.0f / gstate.getViewportXScale(), 1.0f / gstate.getViewportYScale());
+	Vec2f minViewport = (minOffset_ - Vec2f(gstate.getViewportXCenter(), gstate.getViewportYCenter())) * inverseViewportScale;
+	Vec2f maxViewport = (maxOffset_ - Vec2f(gstate.getViewportXCenter(), gstate.getViewportYCenter())) * inverseViewportScale;
+
+	Lin::Matrix4x4 applyViewport;
+	applyViewport.empty();
+	// Scale to the viewport's size.
+	applyViewport.xx = 2.0f / (maxViewport.x - minViewport.x);
+	applyViewport.yy = 2.0f / (maxViewport.y - minViewport.y);
+	applyViewport.zz = 1.0f;
+	applyViewport.ww = 1.0f;
+	// And offset to the viewport's centers.
+	applyViewport.wx = -(maxViewport.x + minViewport.x) / (maxViewport.x - minViewport.x);
+	applyViewport.wy = -(maxViewport.y + minViewport.y) / (maxViewport.y - minViewport.y);
+
+	float mtx[16];
+	Matrix4ByMatrix4(mtx, worldviewproj, applyViewport.m);
+
+	planes_[0].Set(mtx[3] - mtx[0], mtx[7] - mtx[4], mtx[11] - mtx[8], mtx[15] - mtx[12]);  // Right
+	planes_[1].Set(mtx[3] + mtx[0], mtx[7] + mtx[4], mtx[11] + mtx[8], mtx[15] + mtx[12]);  // Left
+	planes_[2].Set(mtx[3] + mtx[1], mtx[7] + mtx[5], mtx[11] + mtx[9], mtx[15] + mtx[13]);  // Bottom
+	planes_[3].Set(mtx[3] - mtx[1], mtx[7] - mtx[5], mtx[11] - mtx[9], mtx[15] - mtx[13]);  // Top
+	planes_[4].Set(mtx[3] + mtx[2], mtx[7] + mtx[6], mtx[11] + mtx[10], mtx[15] + mtx[14]); // Near
+	planes_[5].Set(mtx[3] - mtx[2], mtx[7] - mtx[6], mtx[11] - mtx[10], mtx[15] - mtx[14]); // Far
+}
+
 // This code has plenty of potential for optimization.
 //
 // It does the simplest and safest test possible: If all points of a bbox is outside a single of
@@ -273,7 +304,7 @@ bool DrawEngineCommon::TestBoundingBox(const void *control_points, const void *i
 			verts[i] = vtx[i] * (1.0f / 128.0f);
 		}
 	} else if ((vertType & 0xFFFFFF) == GE_VTYPE_POS_16BIT && !inds) {
-		const s16 *vtx = (const s16*)control_points;
+		const s16 *vtx = (const s16 *)control_points;
 		for (int i = 0; i < vertexCount * 3; i++) {
 			verts[i] = vtx[i] * (1.0f / 32768.0f);
 		}
@@ -302,70 +333,42 @@ bool DrawEngineCommon::TestBoundingBox(const void *control_points, const void *i
 		}
 	}
 
-	Plane planes[6];
+	// Due to world matrix updates per "thing", this isn't quite as effective as it could be if we did world transform
+	// in here as well. Though, it still does cut down on a lot of updates in Tekken 6.
+	if (gstate_c.IsDirty(DIRTY_CULL_PLANES)) {
+		UpdatePlanes();
+		gpuStats.numPlaneUpdates++;
+		gstate_c.Clean(DIRTY_CULL_PLANES);
+	}
 
-	float world[16];
-	float view[16];
-	float worldview[16];
-	float worldviewproj[16];
-	ConvertMatrix4x3To4x4(world, gstate.worldMatrix);
-	ConvertMatrix4x3To4x4(view, gstate.viewMatrix);
-	// TODO: Create a Matrix4x3ByMatrix4x3, and Matrix4x4ByMatrix4x3?
-	Matrix4ByMatrix4(worldview, world, view);
-	Matrix4ByMatrix4(worldviewproj, worldview, gstate.projMatrix);
-
-	// Next, we need to apply viewport, scissor, region, and even offset - but only for X/Y.
-	// Note that the PSP does not clip against the viewport.
-	const Vec2f baseOffset = Vec2f(gstate.getOffsetX(), gstate.getOffsetY());
-	// Region1 (rate) is used as an X1/Y1 here, matching PSP behavior.
-	Vec2f minOffset = baseOffset + Vec2f(std::max(gstate.getRegionRateX() - 0x100, gstate.getScissorX1()), std::max(gstate.getRegionRateY() - 0x100, gstate.getScissorY1())) - Vec2f(1.0f, 1.0f);
-	Vec2f maxOffset = baseOffset + Vec2f(std::min(gstate.getRegionX2(), gstate.getScissorX2()), std::min(gstate.getRegionY2(), gstate.getScissorY2())) + Vec2f(1.0f, 1.0f);
-
-	// Now let's apply the viewport to our scissor/region + offset range.
-	Vec2f inverseViewportScale = Vec2f(1.0f / gstate.getViewportXScale(), 1.0f / gstate.getViewportYScale());
-	Vec2f minViewport = (minOffset - Vec2f(gstate.getViewportXCenter(), gstate.getViewportYCenter())) * inverseViewportScale;
-	Vec2f maxViewport = (maxOffset - Vec2f(gstate.getViewportXCenter(), gstate.getViewportYCenter())) * inverseViewportScale;
-
-	Lin::Matrix4x4 applyViewport;
-	applyViewport.empty();
-	// Scale to the viewport's size.
-	applyViewport.xx = 2.0f / (maxViewport.x - minViewport.x);
-	applyViewport.yy = 2.0f / (maxViewport.y - minViewport.y);
-	applyViewport.zz = 1.0f;
-	applyViewport.ww = 1.0f;
-	// And offset to the viewport's centers.
-	applyViewport.wx = -(maxViewport.x + minViewport.x) / (maxViewport.x - minViewport.x);
-	applyViewport.wy = -(maxViewport.y + minViewport.y) / (maxViewport.y - minViewport.y);
-
-	float screenBounds[16];
-	Matrix4ByMatrix4(screenBounds, worldviewproj, applyViewport.m);
-
-	PlanesFromMatrix(screenBounds, planes);
 	// Note: near/far are not checked without clamp/clip enabled, so we skip those planes.
 	int totalPlanes = gstate.isDepthClampEnabled() ? 6 : 4;
 	for (int plane = 0; plane < totalPlanes; plane++) {
 		int inside = 0;
 		int out = 0;
 		for (int i = 0; i < vertexCount; i++) {
-			// Here we can test against the frustum planes!
-			float value = planes[plane].Test(verts + i * 3);
+			// Test against the frustum planes, and count.
+			// TODO: We should test 4 vertices at a time using SIMD.
+			// I guess could also test one vertex against 4 planes at a time, though a lot of waste at the common case of 6.
+			float value = planes_[plane].Test(verts + i * 3);
 			if (value <= -FLT_EPSILON)
 				out++;
 			else
 				inside++;
 		}
 
+		// No vertices inside this one plane? Don't need to draw.
 		if (inside == 0) {
 			// All out - but check for X and Y if the offset was near the cullbox edge.
 			bool outsideEdge = false;
 			if (plane == 1)
-				outsideEdge = minOffset.x < 1.0f;
+				outsideEdge = minOffset_.x < 1.0f;
 			if (plane == 2)
-				outsideEdge = minOffset.y < 1.0f;
+				outsideEdge = minOffset_.y < 1.0f;
 			else if (plane == 0)
-				outsideEdge = maxOffset.x >= 4096.0f;
+				outsideEdge = maxOffset_.x >= 4096.0f;
 			else if (plane == 3)
-				outsideEdge = maxOffset.y >= 4096.0f;
+				outsideEdge = maxOffset_.y >= 4096.0f;
 
 			// Only consider this outside if offset + scissor/region is fully inside the cullbox.
 			if (!outsideEdge)

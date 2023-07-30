@@ -93,7 +93,7 @@ enum : uint64_t {
 	DIRTY_LIGHT_CONTROL = 1ULL << 38,
 	DIRTY_TEX_ALPHA_MUL = 1ULL << 39,
 
-	// Bits 40-43 are free for new uniforms. Then we're really out and need to start merging.
+	// Bits 40-42 are free for new uniforms. Then we're really out and need to start merging.
 	// Don't forget to update DIRTY_ALL_UNIFORMS when you start using them.
 
 	DIRTY_BONE_UNIFORMS = 0xFF000000ULL,
@@ -101,6 +101,7 @@ enum : uint64_t {
 	DIRTY_ALL_UNIFORMS = 0x0FFFFFFFFFFULL,
 
 	// Other dirty elements that aren't uniforms
+	DIRTY_CULL_PLANES = 1ULL << 43,
 	DIRTY_FRAMEBUF = 1ULL << 44,
 	DIRTY_TEXTURE_IMAGE = 1ULL << 45,  // Means that the definition of the texture image has changed (address, stride etc), and we need to look up again.
 	DIRTY_TEXTURE_PARAMS = 1ULL << 46,
