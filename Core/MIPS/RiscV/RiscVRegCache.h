@@ -140,6 +140,7 @@ public:
 	void FlushBeforeCall();
 	void FlushAll();
 	void FlushR(IRRegIndex r);
+	void FlushRiscVReg(RiscVGen::RiscVReg r);
 	void DiscardR(IRRegIndex r);
 
 	RiscVGen::RiscVReg GetAndLockTempR();
@@ -163,7 +164,6 @@ private:
 	RiscVGen::RiscVReg AllocateReg();
 	RiscVGen::RiscVReg FindBestToSpill(bool unusedOnly, bool *clobbered);
 	RiscVGen::RiscVReg RiscVRegForFlush(IRRegIndex r);
-	void FlushRiscVReg(RiscVGen::RiscVReg r);
 	void SetRegImm(RiscVGen::RiscVReg reg, u64 imm);
 	void AddMemBase(RiscVGen::RiscVReg reg);
 	int GetMipsRegOffset(IRRegIndex r);

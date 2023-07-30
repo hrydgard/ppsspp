@@ -27,9 +27,6 @@
 using namespace RiscVGen;
 using namespace RiscVJitConstants;
 
-using namespace RiscVGen;
-using namespace RiscVJitConstants;
-
 RiscVRegCacheFPU::RiscVRegCacheFPU(MIPSState *mipsState, MIPSComp::JitOptions *jo)
 	: mips_(mipsState), jo_(jo) {}
 
@@ -276,6 +273,24 @@ RiscVReg RiscVRegCacheFPU::RiscVRegForFlush(IRRegIndex r) {
 	default:
 		_assert_(false);
 		return INVALID_REG;
+	}
+}
+
+void RiscVRegCacheFPU::FlushBeforeCall() {
+	// Note: don't set this false at the end, since we don't flush everything.
+	if (!pendingFlush_) {
+		return;
+	}
+
+	// These registers are not preserved by function calls.
+	for (int i = 0; i <= 7; ++i) {
+		FlushRiscVReg(RiscVReg(F0 + i));
+	}
+	for (int i = 10; i <= 17; ++i) {
+		FlushRiscVReg(RiscVReg(F0 + i));
+	}
+	for (int i = 28; i <= 31; ++i) {
+		FlushRiscVReg(RiscVReg(F0 + i));
 	}
 }
 

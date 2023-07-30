@@ -20,7 +20,6 @@
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/ReplaceTables.h"
 #include "Core/MemMap.h"
-#include "Core/MIPS/MIPSTables.h"
 #include "Core/MIPS/RiscV/RiscVJit.h"
 #include "Core/MIPS/RiscV/RiscVRegCache.h"
 
@@ -101,7 +100,7 @@ void RiscVJit::CompIR_Transfer(IRInst inst) {
 		break;
 
 	case IROp::SetCtrlVFPUFReg:
-		gpr.MapReg(IRREG_VFPU_CTRL_BASE + inst.dest, MIPSMap::NOINIT);
+		gpr.MapReg(IRREG_VFPU_CTRL_BASE + inst.dest, MIPSMap::NOINIT | MIPSMap::MARK_NORM32);
 		fpr.MapReg(inst.src1);
 		FMV(FMv::X, FMv::W, gpr.R(IRREG_VFPU_CTRL_BASE + inst.dest), fpr.R(inst.src1));
 		break;
@@ -167,7 +166,7 @@ void RiscVJit::CompIR_Transfer(IRInst inst) {
 		break;
 
 	case IROp::FMovToGPR:
-		gpr.MapReg(inst.dest, MIPSMap::NOINIT);
+		gpr.MapReg(inst.dest, MIPSMap::NOINIT | MIPSMap::MARK_NORM32);
 		fpr.MapReg(inst.src1);
 		FMV(FMv::X, FMv::W, gpr.R(inst.dest), fpr.R(inst.src1));
 		break;
@@ -182,15 +181,6 @@ void RiscVJit::CompIR_System(IRInst inst) {
 	CONDITIONAL_DISABLE;
 
 	switch (inst.op) {
-	case IROp::Interpret:
-		// IR protects us against this being a branching instruction (well, hopefully.)
-		FlushAll();
-		SaveStaticRegisters();
-		LI(X10, (int32_t)inst.constant);
-		QuickCallFunction((const u8 *)MIPSGetInterpretFunc(MIPSOpcode(inst.constant)));
-		LoadStaticRegisters();
-		break;
-
 	case IROp::Syscall:
 		FlushAll();
 		SaveStaticRegisters();

@@ -64,11 +64,12 @@ public:
 	void MapInIn(IRRegIndex rd, IRRegIndex rs);
 	void MapDirtyIn(IRRegIndex rd, IRRegIndex rs, bool avoidLoad = true);
 	void MapDirtyInIn(IRRegIndex rd, IRRegIndex rs, IRRegIndex rt, bool avoidLoad = true);
-	void Map4Dirty(IRRegIndex rdbase, bool avoidLoad = true);
 	void Map4DirtyIn(IRRegIndex rdbase, IRRegIndex rsbase, bool avoidLoad = true);
 	void Map4DirtyInIn(IRRegIndex rdbase, IRRegIndex rsbase, IRRegIndex rtbase, bool avoidLoad = true);
+	void FlushBeforeCall();
 	void FlushAll();
 	void FlushR(IRRegIndex r);
+	void FlushRiscVReg(RiscVGen::RiscVReg r);
 	void DiscardR(IRRegIndex r);
 
 	RiscVGen::RiscVReg R(int preg); // Returns a cached register
@@ -78,7 +79,6 @@ private:
 	RiscVGen::RiscVReg AllocateReg();
 	RiscVGen::RiscVReg FindBestToSpill(bool unusedOnly, bool *clobbered);
 	RiscVGen::RiscVReg RiscVRegForFlush(IRRegIndex r);
-	void FlushRiscVReg(RiscVGen::RiscVReg r);
 	int GetMipsRegOffset(IRRegIndex r);
 
 	bool IsValidReg(IRRegIndex r) const;

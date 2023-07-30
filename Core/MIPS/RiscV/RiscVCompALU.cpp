@@ -254,7 +254,13 @@ void RiscVJit::CompIR_Bits(IRInst inst) {
 		break;
 
 	case IROp::Clz:
-		CompIR_Generic(inst);
+		if (cpu_info.RiscV_Zbb) {
+			gpr.MapDirtyIn(inst.dest, inst.src1, MapType::AVOID_LOAD_MARK_NORM32);
+			// This even sets to 32 when zero, perfect.
+			CLZW(gpr.R(inst.dest), gpr.R(inst.src1));
+		} else {
+			CompIR_Generic(inst);
+		}
 		break;
 
 	default:
@@ -640,10 +646,53 @@ void RiscVJit::CompIR_Mult(IRInst inst) {
 void RiscVJit::CompIR_Div(IRInst inst) {
 	CONDITIONAL_DISABLE;
 
+	RiscVReg numReg, denomReg;
 	switch (inst.op) {
 	case IROp::Div:
+		gpr.MapDirtyDirtyInIn(IRREG_LO, IRREG_HI, inst.src1, inst.src2, MapType::AVOID_LOAD_MARK_NORM32);
+		// We have to do this because of the divide by zero and overflow checks below.
+		NormalizeSrc12(inst, &numReg, &denomReg, SCRATCH1, SCRATCH2, true);
+		DIVW(gpr.R(IRREG_LO), numReg, denomReg);
+		REMW(gpr.R(IRREG_HI), numReg, denomReg);
+
+		// Now some tweaks for divide by zero and overflow.
+		{
+			// Start with divide by zero, remainder is fine.
+			FixupBranch skipNonZero = BNE(denomReg, R_ZERO);
+			FixupBranch keepNegOne = BGE(numReg, R_ZERO);
+			LI(gpr.R(IRREG_LO), 1);
+			SetJumpTarget(keepNegOne);
+			SetJumpTarget(skipNonZero);
+
+			// For overflow, RISC-V sets LO right, but remainder to zero.
+			// Cheating a bit by using R_RA as a temp...
+			LI(R_RA, (int32_t)0x80000000);
+			FixupBranch notMostNegative = BNE(numReg, R_RA);
+			LI(R_RA, -1);
+			FixupBranch notNegativeOne = BNE(denomReg, R_RA);
+			LI(gpr.R(IRREG_HI), -1);
+			SetJumpTarget(notNegativeOne);
+			SetJumpTarget(notMostNegative);
+		}
+		break;
+
 	case IROp::DivU:
-		CompIR_Generic(inst);
+		gpr.MapDirtyDirtyInIn(IRREG_LO, IRREG_HI, inst.src1, inst.src2, MapType::AVOID_LOAD_MARK_NORM32);
+		// We have to do this because of the divide by zero check below.
+		NormalizeSrc12(inst, &numReg, &denomReg, SCRATCH1, SCRATCH2, true);
+		DIVUW(gpr.R(IRREG_LO), numReg, denomReg);
+		REMUW(gpr.R(IRREG_HI), numReg, denomReg);
+
+		// On divide by zero, everything is correct already except the 0xFFFF case.
+		{
+			FixupBranch skipNonZero = BNE(denomReg, R_ZERO);
+			// Luckily, we don't need SCRATCH2/denomReg anymore.
+			LI(SCRATCH2, 0xFFFF);
+			FixupBranch keepNegOne = BLTU(SCRATCH2, numReg);
+			MV(gpr.R(IRREG_LO), SCRATCH2);
+			SetJumpTarget(keepNegOne);
+			SetJumpTarget(skipNonZero);
+		}
 		break;
 
 	default:

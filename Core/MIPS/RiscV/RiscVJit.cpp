@@ -16,7 +16,9 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "Common/StringUtils.h"
+#include "Common/TimeUtil.h"
 #include "Core/MemMap.h"
+#include "Core/MIPS/MIPSTables.h"
 #include "Core/MIPS/RiscV/RiscVJit.h"
 #include "Core/MIPS/RiscV/RiscVRegCache.h"
 #include "Common/Profiler/Profiler.h"
@@ -26,18 +28,57 @@ namespace MIPSComp {
 using namespace RiscVGen;
 using namespace RiscVJitConstants;
 
+static constexpr bool enableDebug = false;
+
+static std::map<uint8_t, int> debugSeenNotCompiledIR;
+static std::map<const char *, int> debugSeenNotCompiled;
+double lastDebugLog = 0.0;
+
+static void LogDebugNotCompiled() {
+	if (!enableDebug)
+		return;
+
+	double now = time_now_d();
+	if (now < lastDebugLog + 1.0)
+		return;
+	lastDebugLog = now;
+
+	int worstIROp = -1;
+	int worstIRVal = 0;
+	for (auto it : debugSeenNotCompiledIR) {
+		if (it.second > worstIRVal) {
+			worstIRVal = it.second;
+			worstIROp = it.first;
+		}
+	}
+	debugSeenNotCompiledIR.clear();
+
+	const char *worstName = nullptr;
+	int worstVal = 0;
+	for (auto it : debugSeenNotCompiled) {
+		if (it.second > worstVal) {
+			worstVal = it.second;
+			worstName = it.first;
+		}
+	}
+	debugSeenNotCompiled.clear();
+
+	if (worstIROp != -1)
+		WARN_LOG(JIT, "Most not compiled IR op: %s (%d)", GetIRMeta((IROp)worstIROp)->name, worstIRVal);
+	if (worstName != nullptr)
+		WARN_LOG(JIT, "Most not compiled op: %s (%d)", worstName, worstVal);
+}
+
 RiscVJit::RiscVJit(MIPSState *mipsState) : IRJit(mipsState), gpr(mipsState, &jo), fpr(mipsState, &jo) {
 	// Automatically disable incompatible options.
 	if (((intptr_t)Memory::base & 0x00000000FFFFFFFFUL) != 0) {
 		jo.enablePointerify = false;
 	}
 
+	// Since we store the offset, this is as big as it can be.
+	// We could shift off one bit to double it, would need to change RiscVAsm.
 	AllocCodeSpace(1024 * 1024 * 16);
 	SetAutoCompress(true);
-
-	// TODO: Consider replacing block num method form IRJit - this is 2MB.
-	blockStartAddrs_ = new const u8 *[MAX_ALLOWED_JIT_BLOCKS];
-	memset(blockStartAddrs_, 0, sizeof(blockStartAddrs_[0]) * MAX_ALLOWED_JIT_BLOCKS);
 
 	gpr.Init(this);
 	fpr.Init(this);
@@ -46,42 +87,35 @@ RiscVJit::RiscVJit(MIPSState *mipsState) : IRJit(mipsState), gpr(mipsState, &jo)
 }
 
 RiscVJit::~RiscVJit() {
-	delete [] blockStartAddrs_;
 }
 
 void RiscVJit::RunLoopUntil(u64 globalticks) {
+	if constexpr (enableDebug) {
+		LogDebugNotCompiled();
+	}
+
 	PROFILE_THIS_SCOPE("jit");
 	((void (*)())enterDispatcher_)();
 }
 
-bool RiscVJit::CompileBlock(u32 em_address, std::vector<IRInst> &instructions, u32 &mipsBytes, bool preload) {
-	// Check that we're not full (we allow less blocks than IR itself.)
-	if (blocks_.GetNumBlocks() >= MAX_ALLOWED_JIT_BLOCKS - 1)
+static void NoBlockExits() {
+	_assert_msg_(false, "Never exited block, invalid IR?");
+}
+
+bool RiscVJit::CompileTargetBlock(IRBlock *block, int block_num, bool preload) {
+	if (GetSpaceLeft() < 0x800)
 		return false;
 
-	if (!IRJit::CompileBlock(em_address, instructions, mipsBytes, preload))
-		return false;
+	// Don't worry, the codespace isn't large enough to overflow offsets.
+	block->SetTargetOffset((int)GetOffset(GetCodePointer()));
 
 	// TODO: Block linking, checked entries and such.
-
-	int block_num;
-	if (preload) {
-		block_num = blocks_.GetBlockNumberFromStartAddress(em_address);
-	} else {
-		u32 first_inst = Memory::ReadUnchecked_U32(em_address);
-		_assert_msg_(MIPS_IS_RUNBLOCK(first_inst), "Should've written an emuhack");
-
-		block_num = first_inst & MIPS_EMUHACK_VALUE_MASK;
-	}
-
-	_assert_msg_(block_num >= 0 && block_num < MAX_ALLOWED_JIT_BLOCKS, "Bad block num");
-	_assert_msg_(blockStartAddrs_[block_num] == nullptr, "Block %d reused before clear", block_num);
-	blockStartAddrs_[block_num] = GetCodePointer();
 
 	gpr.Start();
 	fpr.Start();
 
-	for (const IRInst &inst : instructions) {
+	for (int i = 0; i < block->GetNumInstructions(); ++i) {
+		const IRInst &inst = block->GetInstructions()[i];
 		CompileIRInst(inst);
 
 		if (jo.Disabled(JitDisable::REGALLOC_GPR)) {
@@ -97,9 +131,11 @@ bool RiscVJit::CompileBlock(u32 em_address, std::vector<IRInst> &instructions, u
 		}
 	}
 
-	// Note: a properly constructed block should never get here.
-	// TODO: Need to do more than just this?  Call a func to set an exception?
-	QuickJ(R_RA, crashHandler_);
+	// We should've written an exit above.  If we didn't, bad things will happen.
+	if (enableDebug) {
+		QuickCallFunction(&NoBlockExits);
+		QuickJ(R_RA, crashHandler_);
+	}
 
 	FlushIcache();
 
@@ -351,6 +387,9 @@ void RiscVJit::CompileIRInst(IRInst inst) {
 		break;
 
 	case IROp::Interpret:
+		CompIR_Interpret(inst);
+		break;
+
 	case IROp::Syscall:
 	case IROp::CallReplacement:
 	case IROp::Break:
@@ -397,6 +436,9 @@ static u32 DoIRInst(uint64_t value) {
 	IRInst inst;
 	memcpy(&inst, &value, sizeof(inst));
 
+	if constexpr (enableDebug)
+		debugSeenNotCompiledIR[(uint8_t)inst.op]++;
+
 	return IRInterpret(currentMIPS, &inst, 1);
 }
 
@@ -425,6 +467,26 @@ void RiscVJit::CompIR_Generic(IRInst inst) {
 	}
 }
 
+static void DebugInterpretHit(const char *name) {
+	if (enableDebug)
+		debugSeenNotCompiled[name]++;
+}
+
+void RiscVJit::CompIR_Interpret(IRInst inst) {
+	MIPSOpcode op(inst.constant);
+
+	// IR protects us against this being a branching instruction (well, hopefully.)
+	FlushAll();
+	SaveStaticRegisters();
+	if (enableDebug) {
+		LI(X10, MIPSGetName(op));
+		QuickCallFunction(&DebugInterpretHit);
+	}
+	LI(X10, (int32_t)inst.constant);
+	QuickCallFunction((const u8 *)MIPSGetInterpretFunc(op));
+	LoadStaticRegisters();
+}
+
 void RiscVJit::FlushAll() {
 	gpr.FlushAll();
 	fpr.FlushAll();
@@ -449,17 +511,14 @@ bool RiscVJit::DescribeCodePtr(const u8 *ptr, std::string &name) {
 	} else if (!IsInSpace(ptr)) {
 		return false;
 	} else {
-		uintptr_t uptr = (uintptr_t)ptr;
+		int offset = (int)GetOffset(ptr);
 		int block_num = -1;
-		for (int i = 0; i < MAX_ALLOWED_JIT_BLOCKS; ++i) {
-			uintptr_t blockptr = (uintptr_t)blockStartAddrs_[i];
-			// Out of allocated blocks.
-			if (uptr == 0)
-				break;
-
-			if (uptr >= blockptr)
+		for (int i = 0; i < blocks_.GetNumBlocks(); ++i) {
+			const auto &b = blocks_.GetBlock(i);
+			// We allocate linearly.
+			if (b->GetTargetOffset() <= offset)
 				block_num = i;
-			if (uptr < blockptr)
+			if (b->GetTargetOffset() > offset)
 				break;
 		}
 
@@ -501,8 +560,6 @@ void RiscVJit::ClearCache() {
 
 	ClearCodeSpace(jitStartOffset_);
 	FlushIcacheSection(region + jitStartOffset_, region + region_size - jitStartOffset_);
-
-	memset(blockStartAddrs_, 0, sizeof(blockStartAddrs_[0]) * MAX_ALLOWED_JIT_BLOCKS);
 }
 
 void RiscVJit::RestoreRoundingMode(bool force) {

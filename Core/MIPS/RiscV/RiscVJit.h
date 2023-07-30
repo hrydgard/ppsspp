@@ -46,7 +46,7 @@ public:
 	// TODO: GetBlockCacheDebugInterface, block linking?
 
 protected:
-	bool CompileBlock(u32 em_address, std::vector<IRInst> &instructions, u32 &mipsBytes, bool preload) override;
+	bool CompileTargetBlock(IRBlock *block, int block_num, bool preload) override;
 
 	void CompileIRInst(IRInst inst);
 
@@ -87,6 +87,7 @@ private:
 	void CompIR_FStore(IRInst inst);
 	void CompIR_Generic(IRInst inst);
 	void CompIR_HiLo(IRInst inst);
+	void CompIR_Interpret(IRInst inst);
 	void CompIR_Load(IRInst inst);
 	void CompIR_LoadShift(IRInst inst);
 	void CompIR_Logic(IRInst inst);
@@ -116,8 +117,6 @@ private:
 	RiscVRegCache gpr;
 	RiscVRegCacheFPU fpr;
 
-	static constexpr int MAX_ALLOWED_JIT_BLOCKS = 262144;
-
 	const u8 *enterDispatcher_ = nullptr;
 
 	const u8 *outerLoop_ = nullptr;
@@ -135,7 +134,6 @@ private:
 	const u8 *crashHandler_ = nullptr;
 
 	int jitStartOffset_ = 0;
-	const u8 **blockStartAddrs_ = nullptr;
 };
 
 } // namespace MIPSComp
