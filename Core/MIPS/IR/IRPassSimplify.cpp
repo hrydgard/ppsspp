@@ -128,7 +128,9 @@ bool OptimizeFPMoves(const IRWriter &in, IRWriter &out, const IROptions &opts) {
 			if (prev.op == IROp::FMovToGPR && prev.dest == inst.src1) {
 				inst.op = IROp::FMov;
 				inst.src1 = prev.src1;
-				out.Write(inst);
+				// Skip it entirely if it's just a copy to and back.
+				if (inst.dest != inst.src1)
+					out.Write(inst);
 			} else {
 				out.Write(inst);
 			}

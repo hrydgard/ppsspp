@@ -152,7 +152,8 @@ void IRFrontend::Comp_FPU2op(MIPSOpcode op) {
 		ir.Write(IROp::FAbs, fd, fs);
 		break;
 	case 6:	//F(fd)	   = F(fs);                   break; //mov
-		ir.Write(IROp::FMov, fd, fs);
+		if (fd != fs)
+			ir.Write(IROp::FMov, fd, fs);
 		break;
 	case 7:	//F(fd)	   = -F(fs);                  break; //neg
 		ir.Write(IROp::FNeg, fd, fs);
