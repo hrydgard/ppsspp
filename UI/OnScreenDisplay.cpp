@@ -281,6 +281,10 @@ void OnScreenMessagesView::Draw(UIContext &dc) {
 		auto &measuredEntry = measuredEntries[i];
 
 		ScreenEdgePosition pos = typeEdges[(size_t)entry.type];
+		if (pos == ScreenEdgePosition::VALUE_COUNT) {
+			// NONE.
+			continue;
+		}
 
 		measuredEntry.align = 0;
 		measuredEntry.align2 = 0;

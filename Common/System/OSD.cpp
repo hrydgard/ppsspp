@@ -171,6 +171,8 @@ void OnScreenDisplay::ShowLeaderboardTracker(int leaderboardTrackerID, const cha
 			if (show) {
 				// Just an update.
 				entry.text = trackerText ? trackerText : "";
+				// Bump the end-time, in case it was fading out.
+				entry.endTime = now + forever_s;
 			} else {
 				// Keep the current text, hide and eventually delete it.
 				entry.endTime = now + (double)FadeoutTime();
