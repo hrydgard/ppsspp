@@ -376,21 +376,24 @@ void TextDrawerSDL::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStrin
 
 	if (align & ALIGN_HCENTER)
 		TTF_SetFontWrappedAlign(font, TTF_WRAPPED_ALIGN_CENTER);
-	else if (align & ALIGN_LEFT)
-		TTF_SetFontWrappedAlign(font, TTF_WRAPPED_ALIGN_LEFT);
 	else if (align & ALIGN_RIGHT)
 		TTF_SetFontWrappedAlign(font, TTF_WRAPPED_ALIGN_RIGHT);
+	else
+		TTF_SetFontWrappedAlign(font, TTF_WRAPPED_ALIGN_LEFT);
 
 	SDL_Color fgColor = { 0xFF, 0xFF, 0xFF, 0xFF };
 	SDL_Surface *text = TTF_RenderUTF8_Blended_Wrapped(font, processedStr.c_str(), fgColor, 0);
 	SDL_LockSurface(text);
 
 	entry.texture = nullptr;
-	entry.bmWidth = entry.width = text->pitch / sizeof(uint32_t);
+	// Each row of pixel needs to be aligned to 8 bytes (= 2 pixels), or else
+	// graphics corruption occurs. Made it 16-byte aligned just to be sure.
+	entry.bmWidth = entry.width = (text->w + 3) & ~3;
 	entry.bmHeight = entry.height = text->h;
 	entry.lastUsedFrame = frameCount_;
 
 	uint32_t *imageData = (uint32_t *)text->pixels;
+	uint32_t pitch = text->pitch / sizeof(uint32_t);
 
 	if (texFormat == Draw::DataFormat::B4G4R4A4_UNORM_PACK16 || texFormat == Draw::DataFormat::R4G4B4A4_UNORM_PACK16) {
 		bitmapData.resize(entry.bmWidth * entry.bmHeight * sizeof(uint16_t));
@@ -399,7 +402,7 @@ void TextDrawerSDL::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStrin
 		for (int x = 0; x < entry.bmWidth; x++) {
 			for (int y = 0; y < entry.bmHeight; y++) {
 				uint64_t index = entry.bmWidth * y + x;
-				bitmapData16[index] = 0xfff0 | (imageData[index] >> 28);
+				bitmapData16[index] = 0xfff0 | (imageData[pitch * y + x] >> 28);
 			}
 		}
 	} else if (texFormat == Draw::DataFormat::R8_UNORM) {
@@ -407,7 +410,7 @@ void TextDrawerSDL::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStrin
 		for (int x = 0; x < entry.bmWidth; x++) {
 			for (int y = 0; y < entry.bmHeight; y++) {
 				uint64_t index = entry.bmWidth * y + x;
-				bitmapData[index] = imageData[index] >> 24;
+				bitmapData[index] = imageData[pitch * y + x] >> 24;
 			}
 		}
 	} else {
