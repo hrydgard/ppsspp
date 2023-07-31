@@ -486,6 +486,9 @@ public:
 	bool bAchievementsSoundEffects;
 	bool bAchievementsLogBadMemReads;
 
+	// Positioning of the various notifications
+	int iAchievementsLeaderboardTrackerPos;
+
 	// Customizations
 	std::string sAchievementsUnlockAudioFile;
 	std::string sAchievementsLeaderboardSubmitAudioFile;

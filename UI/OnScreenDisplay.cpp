@@ -271,7 +271,7 @@ void OnScreenMessagesView::Draw(UIContext &dc) {
 	// TODO: Add ability to override these with g_Config settings.
 	typeEdges[(size_t)OSDType::ACHIEVEMENT_CHALLENGE_INDICATOR] = ScreenEdgePosition::TOP_LEFT;
 	typeEdges[(size_t)OSDType::ACHIEVEMENT_PROGRESS] = ScreenEdgePosition::TOP_LEFT;
-	typeEdges[(size_t)OSDType::LEADERBOARD_TRACKER] = ScreenEdgePosition::TOP_LEFT;
+	typeEdges[(size_t)OSDType::LEADERBOARD_TRACKER] = (ScreenEdgePosition)g_Config.iAchievementsLeaderboardTrackerPos;
 
 	dc.SetFontScale(1.0f, 1.0f);
 
