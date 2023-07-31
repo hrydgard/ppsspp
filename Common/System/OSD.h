@@ -21,6 +21,22 @@ enum class OSDType {
 	ACHIEVEMENT_CHALLENGE_INDICATOR,  // Achievement icon ONLY, no auto-hide
 
 	LEADERBOARD_TRACKER,
+
+	PROGRESS_BAR,
+
+	VALUE_COUNT,
+};
+
+enum class ScreenEdgePosition {
+	BOTTOM_LEFT = 0,
+	BOTTOM_CENTER = 1,
+	BOTTOM_RIGHT = 2,
+	TOP_LEFT = 3,
+	TOP_CENTER = 4,
+	TOP_RIGHT = 5,
+	CENTER_LEFT = 6,
+	CENTER_RIGHT = 7,
+	VALUE_COUNT,
 };
 
 // Data holder for on-screen messages.
@@ -67,31 +83,23 @@ public:
 		std::string text2;
 		std::string iconName;
 		int numericID;
-		const char *id;
+		std::string id;
 		double startTime;
 		double endTime;
-	};
 
-	struct ProgressBar {
-		std::string id;
-		std::string message;
+		// Progress-bar-only data:
 		float minValue;
 		float maxValue;
 		float progress;
-		double startTime;
-		double endTime;
 	};
 
 	std::vector<Entry> Entries();
-	std::vector<Entry> SideEntries();
-	std::vector<ProgressBar> ProgressBars();
 
+	static float FadeinTime() { return 0.1f; }
 	static float FadeoutTime() { return 0.25f; }
 
 private:
 	std::vector<Entry> entries_;
-	std::vector<Entry> sideEntries_;
-	std::vector<ProgressBar> bars_;
 	std::mutex mutex_;
 
 	double sideBarShowTime_ = 0.0;

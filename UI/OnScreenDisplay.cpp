@@ -156,12 +156,12 @@ static void RenderOSDEntry(UIContext &dc, const OnScreenDisplay::Entry &entry, B
 	}
 }
 
-static void MeasureOSDProgressBar(const UIContext &dc, const OnScreenDisplay::ProgressBar &bar, float *width, float *height) {
+static void MeasureOSDProgressBar(const UIContext &dc, const OnScreenDisplay::Entry &bar, float *width, float *height) {
 	*height = 36;
 	*width = 450.0f;
 }
 
-static void RenderOSDProgressBar(UIContext &dc, const OnScreenDisplay::ProgressBar &entry, Bounds bounds, int align, float alpha) {
+static void RenderOSDProgressBar(UIContext &dc, const OnScreenDisplay::Entry &entry, Bounds bounds, int align, float alpha) {
 	uint32_t foreGround = whiteAlpha(alpha);
 
 	dc.DrawRectDropShadow(bounds, 12.0f, 0.7f * alpha);
@@ -197,7 +197,7 @@ static void RenderOSDProgressBar(UIContext &dc, const OnScreenDisplay::ProgressB
 	dc.SetFontStyle(dc.theme->uiFont);
 	dc.SetFontScale(1.0f, 1.0f);
 
-	dc.DrawTextShadowRect(entry.message.c_str(), bounds, colorAlpha(0xFFFFFFFF, alpha), (align & FLAG_DYNAMIC_ASCII) | ALIGN_CENTER);
+	dc.DrawTextShadowRect(entry.text.c_str(), bounds, colorAlpha(0xFFFFFFFF, alpha), (align & FLAG_DYNAMIC_ASCII) | ALIGN_CENTER);
 }
 
 static void MeasureLeaderboardTracker(UIContext &dc, const std::string &text, float *width, float *height) {
@@ -226,143 +226,209 @@ void OnScreenMessagesView::Draw(UIContext &dc) {
 
 	double now = time_now_d();
 
-	float y = 10.0f;
+	const float padding = 5.0f;
 
+	const float fadeinCoef = 1.0f / OnScreenDisplay::FadeinTime();
 	const float fadeoutCoef = 1.0f / OnScreenDisplay::FadeoutTime();
 
 	float sidebarAlpha = g_OSD.SidebarAlpha();
 
-	if (sidebarAlpha > 0.0f) {
-		// Draw side entries. Top entries should apply on top of them if there's a collision, so drawing
-		// these first makes sense.
-		const std::vector<OnScreenDisplay::Entry> sideEntries = g_OSD.SideEntries();
-		for (auto &entry : sideEntries) {
-			float tw, th;
+	struct LayoutEdge {
+		float height;
+		float maxWidth;
+		float alpha;
+	};
 
-			const rc_client_achievement_t *achievement = nullptr;
-			AchievementRenderStyle style;
+	struct MeasuredEntry {
+		float w;
+		float h;
+		float h1;
+		float alpha;
+		int align;
+		int align2;
+		AchievementRenderStyle style;
+	};
 
-			switch (entry.type) {
-			case OSDType::ACHIEVEMENT_PROGRESS:
-			{
-				achievement = rc_client_get_achievement_info(Achievements::GetClient(), entry.numericID);
-				if (!achievement)
-					continue;
-				style = AchievementRenderStyle::PROGRESS_INDICATOR;
-				MeasureAchievement(dc, achievement, style, &tw, &th);
-				break;
-			}
-			case OSDType::ACHIEVEMENT_CHALLENGE_INDICATOR:
-			{
-				achievement = rc_client_get_achievement_info(Achievements::GetClient(), entry.numericID);
-				if (!achievement)
-					continue;
-				style = AchievementRenderStyle::CHALLENGE_INDICATOR;
-				MeasureAchievement(dc, achievement, style, &tw, &th);
-				break;
-			}
-			case OSDType::LEADERBOARD_TRACKER:
-			{
-				MeasureLeaderboardTracker(dc, entry.text, &tw, &th);
-				break;
-			}
-			default:
-				continue;
-			}
-			Bounds b(10.0f, y, tw, th);
-			// We don't multiply in sidebarAlpha here because it shouldn't drive the below animation.
-			float alpha = Clamp((float)(entry.endTime - now) * fadeoutCoef, 0.0f, 1.0f);
-			// OK, render the thing.
-
-			switch (entry.type) {
-			case OSDType::ACHIEVEMENT_PROGRESS:
-			case OSDType::ACHIEVEMENT_CHALLENGE_INDICATOR:
-			{
-				RenderAchievement(dc, achievement, style, b, alpha * sidebarAlpha, entry.startTime, now, false);
-				break;
-			}
-			case OSDType::LEADERBOARD_TRACKER:
-				RenderLeaderboardTracker(dc, b, entry.text, alpha * sidebarAlpha);
-				break;
-			default:
-				continue;
-			}
-
-			y += (b.h + 4.0f) * alpha;  // including alpha here gets us smooth animations.
-		}
-	}
-
-	y = 10.0f;
-
-	// Draw the progress bars. 
-	const std::vector<OnScreenDisplay::ProgressBar> bars = g_OSD.ProgressBars();
-	for (auto &bar : bars) {
-		float tw, th;
-		MeasureOSDProgressBar(dc, bar, &tw, &th);
-		Bounds b(0.0f, y, tw, th);
-		b.x = (bounds_.w - b.w) * 0.5f;
-
-		float enterAlpha = saturatef((float)(now - bar.startTime) * 4.0f);
-		float leaveAlpha = saturatef((float)(bar.endTime - now) * 4.0f);
-		float alpha = std::min(enterAlpha, leaveAlpha);
-		RenderOSDProgressBar(dc, bar, b, 0, alpha);
-		y += (b.h + 4.0f) * alpha;  // including alpha here gets us smooth animations.
-	}
-
-	// Draw the rest of the top-center messages.
+	// Grab all the entries. Makes a copy so we can release the lock ASAP.
 	const std::vector<OnScreenDisplay::Entry> entries = g_OSD.Entries();
-	for (const auto &entry : entries) {
-		dc.SetFontScale(1.0f, 1.0f);
-		// Messages that are wider than the screen are left-aligned instead of centered.
 
-		int align = 0;
+	std::vector<MeasuredEntry> measuredEntries;
+	measuredEntries.resize(entries.size());
+
+	// Indexed by the enum ScreenEdgePosition.
+	LayoutEdge edges[(size_t)ScreenEdgePosition::VALUE_COUNT]{};
+	for (size_t i = 0; i < (size_t)ScreenEdgePosition::VALUE_COUNT; i++) {
+		edges[i].alpha = sidebarAlpha;
+	}
+	edges[(size_t)ScreenEdgePosition::TOP_CENTER].alpha = 1.0f;
+
+	ScreenEdgePosition typeEdges[(size_t)OSDType::VALUE_COUNT]{};
+	// Default to top.
+	for (int i = 0; i < (size_t)OSDType::VALUE_COUNT; i++) {
+		typeEdges[i] = ScreenEdgePosition::TOP_CENTER;
+	}
+
+	// TODO: Add ability to override these with g_Config settings.
+	typeEdges[(size_t)OSDType::ACHIEVEMENT_CHALLENGE_INDICATOR] = ScreenEdgePosition::TOP_LEFT;
+	typeEdges[(size_t)OSDType::ACHIEVEMENT_PROGRESS] = ScreenEdgePosition::TOP_LEFT;
+	typeEdges[(size_t)OSDType::LEADERBOARD_TRACKER] = ScreenEdgePosition::TOP_LEFT;
+
+	dc.SetFontScale(1.0f, 1.0f);
+
+	// First pass: Measure all the sides.
+	for (size_t i = 0; i < entries.size(); i++) {
+		const auto &entry = entries[i];
+		auto &measuredEntry = measuredEntries[i];
+
+		ScreenEdgePosition pos = typeEdges[(size_t)entry.type];
+
+		measuredEntry.align = 0;
+		measuredEntry.align2 = 0;
 		// If we have newlines, we may be looking at ASCII debug output.  But let's verify.
-		if (entry.text.find('\n') != 0) {
+		if (entry.text.find('\n') != std::string::npos) {
 			if (!UTF8StringHasNonASCII(entry.text.c_str()))
-				align |= FLAG_DYNAMIC_ASCII;
+				measuredEntry.align |= FLAG_DYNAMIC_ASCII;
 		}
-
-		float tw, th = 0.0f, h1 = 0.0f;
+		if (entry.text2.find('\n') != std::string::npos) {
+			if (!UTF8StringHasNonASCII(entry.text2.c_str()))
+				measuredEntry.align2 |= FLAG_DYNAMIC_ASCII;
+		}
 
 		switch (entry.type) {
+		case OSDType::ACHIEVEMENT_PROGRESS:
+		{
+			const rc_client_achievement_t *achievement = rc_client_get_achievement_info(Achievements::GetClient(), entry.numericID);
+			if (!achievement)
+				continue;
+			measuredEntry.style = AchievementRenderStyle::PROGRESS_INDICATOR;
+			MeasureAchievement(dc, achievement, measuredEntry.style, &measuredEntry.w, &measuredEntry.h);
+			break;
+		}
+		case OSDType::ACHIEVEMENT_CHALLENGE_INDICATOR:
+		{
+			const rc_client_achievement_t *achievement = rc_client_get_achievement_info(Achievements::GetClient(), entry.numericID);
+			if (!achievement)
+				continue;
+			measuredEntry.style = AchievementRenderStyle::CHALLENGE_INDICATOR;
+			MeasureAchievement(dc, achievement, measuredEntry.style, &measuredEntry.w, &measuredEntry.h);
+			break;
+		}
+		case OSDType::LEADERBOARD_TRACKER:
+		{
+			MeasureLeaderboardTracker(dc, entry.text, &measuredEntry.w, &measuredEntry.h);
+			break;
+		}
 		case OSDType::ACHIEVEMENT_UNLOCKED:
 		{
 			const rc_client_achievement_t *achievement = rc_client_get_achievement_info(Achievements::GetClient(), entry.numericID);
-			if (achievement) {
-				MeasureAchievement(dc, achievement, AchievementRenderStyle::UNLOCKED, &tw, &th);
-				h1 = th;
-			}
-			tw = 550.0f;
+			if (!achievement)
+				continue;
+			measuredEntry.style = AchievementRenderStyle::UNLOCKED;
+			MeasureAchievement(dc, achievement, AchievementRenderStyle::UNLOCKED, &measuredEntry.w, &measuredEntry.h);
+			measuredEntry.h1 = measuredEntry.h;
+			measuredEntry.w = 550.0f;
 			break;
 		}
+		case OSDType::PROGRESS_BAR:
+			MeasureOSDProgressBar(dc, entry, &measuredEntry.w, &measuredEntry.h);
+			break;
 		default:
-			MeasureOSDEntry(dc, entry, align, &tw, &th, &h1);
+			MeasureOSDEntry(dc, entry, measuredEntry.align, &measuredEntry.w, &measuredEntry.h, &measuredEntry.h1);
 			break;
 		}
 
-		Bounds b(0.0f, y, tw, th);
+		float enterAlpha = saturatef((float)(now - entry.startTime) * fadeoutCoef);
+		float leaveAlpha = saturatef((float)(entry.endTime - now) * fadeoutCoef);
+		float alpha = std::min(enterAlpha, leaveAlpha);
+		measuredEntry.alpha = alpha;
 
-		if (tw > bounds_.w) {
-			// Left-aligned
-			b.x = 2;
-		} else {
-			// Centered
-			b.x = (bounds_.w - b.w) * 0.5f;
+		edges[(size_t)pos].height += (measuredEntry.h + 4.0f) * alpha;
+		edges[(size_t)pos].maxWidth = std::max(edges[(size_t)pos].maxWidth, measuredEntry.w);
+	}
+
+	// Now, perform layout for all 8 edges.
+	for (size_t i = 0; i < (size_t)ScreenEdgePosition::VALUE_COUNT; i++) {
+		if (edges[i].height == 0.0f) {
+			// Nothing on this side, ignore it entirely.
+			continue;
 		}
 
-		// Scale down if height doesn't fit.
-		float scale = 1.0f;
-		if (th > bounds_.h - y) {
-			// Scale down!
-			scale = std::max(0.15f, (bounds_.h - y) / th);
-			dc.SetFontScale(scale, scale);
-			b.w *= scale;
-			b.h *= scale;
+		// First, compute the start position.
+		float y = padding;
+		int horizAdj = 0;
+		int vertAdj = 0;
+		switch ((ScreenEdgePosition)i) {
+		case ScreenEdgePosition::TOP_LEFT:    horizAdj = -1; vertAdj = -1; break;
+		case ScreenEdgePosition::CENTER_LEFT: horizAdj = -1; break;
+		case ScreenEdgePosition::BOTTOM_LEFT: horizAdj = -1; vertAdj = 1; break;
+		case ScreenEdgePosition::TOP_RIGHT:    horizAdj = 1; vertAdj = -1; break;
+		case ScreenEdgePosition::CENTER_RIGHT: horizAdj = 1; break;
+		case ScreenEdgePosition::BOTTOM_RIGHT: horizAdj = 1; vertAdj = 1; break;
+		case ScreenEdgePosition::TOP_CENTER:  vertAdj = -1; break;
+		case ScreenEdgePosition::BOTTOM_CENTER: vertAdj = 1; break;
+		default: break;
 		}
 
-		float alpha = Clamp((float)(entry.endTime - now) * 4.0f, 0.0f, 1.0f);
-		RenderOSDEntry(dc, entry, b, h1, align, alpha);
-		y += (b.h * scale + 4.0f) * alpha;  // including alpha here gets us smooth animations.
+		if (vertAdj == 0) {
+			// Center vertically
+			y = (bounds_.h - edges[i].height) * 0.5f;
+		} else if (vertAdj == 1) {
+			y = (bounds_.h - edges[i].height);
+		}
+
+		// Then, loop through the entries and those belonging here, get rendered here.
+		for (size_t j = 0; j < (size_t)entries.size(); j++) {
+			auto &entry = entries[j];
+			if (typeEdges[(size_t)entry.type] != (ScreenEdgePosition)i) {  // yes, i
+				continue;
+			}
+			auto &measuredEntry = measuredEntries[j];
+			float alpha = measuredEntry.alpha * edges[i].alpha;
+
+			Bounds b(padding, y, measuredEntry.w, measuredEntry.h);
+
+			if (horizAdj == 0) {
+				// Centered
+				b.x = (bounds_.w - b.w) * 0.5f;
+			} else if (horizAdj == 1) {
+				// Right-aligned
+				b.x = bounds_.w - (b.w + padding);
+			}
+
+			switch (entry.type) {
+			case OSDType::ACHIEVEMENT_PROGRESS:
+			case OSDType::ACHIEVEMENT_CHALLENGE_INDICATOR:
+			{
+				const rc_client_achievement_t *achievement = rc_client_get_achievement_info(Achievements::GetClient(), entry.numericID);
+				RenderAchievement(dc, achievement, measuredEntry.style, b, alpha, entry.startTime, now, false);
+				break;
+			}
+			case OSDType::LEADERBOARD_TRACKER:
+				RenderLeaderboardTracker(dc, b, entry.text, alpha);
+				break;
+			case OSDType::PROGRESS_BAR:
+				RenderOSDProgressBar(dc, entry, b, 0, alpha);
+				break;
+			default:
+			{
+				// Scale down if height doesn't fit.
+				float scale = 1.0f;
+				if (measuredEntry.h > bounds_.h - y) {
+					// Scale down!
+					scale = std::max(0.15f, (bounds_.h - y) / measuredEntry.h);
+					dc.SetFontScale(scale, scale);
+					b.w *= scale;
+					b.h *= scale;
+				}
+
+				float alpha = Clamp((float)(entry.endTime - now) * 4.0f, 0.0f, 1.0f);
+				RenderOSDEntry(dc, entry, b, measuredEntry.h1, measuredEntry.align, alpha);
+				break;
+			}
+			}
+
+			y += (measuredEntry.h + 4.0f) * measuredEntry.alpha;
+		}
 	}
 }
 

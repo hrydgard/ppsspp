@@ -21,37 +21,11 @@ void OnScreenDisplay::Update() {
 			iter++;
 		}
 	}
-
-	for (auto iter = sideEntries_.begin(); iter != sideEntries_.end(); ) {
-		if (now >= iter->endTime) {
-			iter = sideEntries_.erase(iter);
-		} else {
-			iter++;
-		}
-	}
-
-	for (auto iter = bars_.begin(); iter != bars_.end(); ) {
-		if (now >= iter->endTime) {
-			iter = bars_.erase(iter);
-		} else {
-			iter++;
-		}
-	}
 }
 
 std::vector<OnScreenDisplay::Entry> OnScreenDisplay::Entries() {
 	std::lock_guard<std::mutex> guard(mutex_);
 	return entries_;  // makes a copy.
-}
-
-std::vector<OnScreenDisplay::Entry> OnScreenDisplay::SideEntries() {
-	std::lock_guard<std::mutex> guard(mutex_);
-	return sideEntries_;  // makes a copy.
-}
-
-std::vector<OnScreenDisplay::ProgressBar> OnScreenDisplay::ProgressBars() {
-	std::lock_guard<std::mutex> guard(mutex_);
-	return bars_;  // makes a copy.
 }
 
 void OnScreenDisplay::NudgeSidebar() {
@@ -89,7 +63,7 @@ void OnScreenDisplay::Show(OSDType type, const std::string &text, const std::str
 	std::lock_guard<std::mutex> guard(mutex_);
 	if (id) {
 		for (auto iter = entries_.begin(); iter != entries_.end(); ++iter) {
-			if (iter->id && !strcmp(iter->id, id)) {
+			if (iter->id == id) {
 				Entry msg = *iter;
 				msg.endTime = now + duration_s;
 				msg.text = text;
@@ -111,7 +85,9 @@ void OnScreenDisplay::Show(OSDType type, const std::string &text, const std::str
 	msg.startTime = now;
 	msg.endTime = now + duration_s;
 	msg.type = type;
-	msg.id = id;
+	if (id) {
+		msg.id = id;
+	}
 	entries_.insert(entries_.begin(), msg);
 }
 
@@ -132,7 +108,7 @@ void OnScreenDisplay::ShowAchievementProgress(int achievementID, bool show) {
 	double now = time_now_d();
 
 	// There can only be one of these at a time.
-	for (auto &entry : sideEntries_) {
+	for (auto &entry : entries_) {
 		if (entry.type == OSDType::ACHIEVEMENT_PROGRESS) {
 			if (!show) {
 				// Hide and eventually delete it.
@@ -158,13 +134,13 @@ void OnScreenDisplay::ShowAchievementProgress(int achievementID, bool show) {
 	entry.type = OSDType::ACHIEVEMENT_PROGRESS;
 	entry.startTime = now;
 	entry.endTime = now + forever_s;
-	sideEntries_.insert(sideEntries_.begin(), entry);
+	entries_.insert(entries_.begin(), entry);
 }
 
 void OnScreenDisplay::ShowChallengeIndicator(int achievementID, bool show) {
 	double now = time_now_d();
 
-	for (auto &entry : sideEntries_) {
+	for (auto &entry : entries_) {
 		if (entry.numericID == achievementID && entry.type == OSDType::ACHIEVEMENT_CHALLENGE_INDICATOR && !show) {
 			// Hide and eventually delete it.
 			entry.endTime = now + (double)FadeoutTime();
@@ -184,13 +160,13 @@ void OnScreenDisplay::ShowChallengeIndicator(int achievementID, bool show) {
 	entry.type = OSDType::ACHIEVEMENT_CHALLENGE_INDICATOR;
 	entry.startTime = now;
 	entry.endTime = now + forever_s;
-	sideEntries_.insert(sideEntries_.begin(), entry);
+	entries_.insert(entries_.begin(), entry);
 }
 
 void OnScreenDisplay::ShowLeaderboardTracker(int leaderboardTrackerID, const char *trackerText, bool show) {   // show=true is used both for create and update.
 	double now = time_now_d();
 
-	for (auto &entry : sideEntries_) {
+	for (auto &entry : entries_) {
 		if (entry.numericID == leaderboardTrackerID && entry.type == OSDType::LEADERBOARD_TRACKER) {
 			if (show) {
 				// Just an update.
@@ -218,7 +194,7 @@ void OnScreenDisplay::ShowLeaderboardTracker(int leaderboardTrackerID, const cha
 	if (trackerText) {
 		entry.text = trackerText;
 	}
-	sideEntries_.insert(sideEntries_.begin(), entry);
+	entries_.insert(entries_.begin(), entry);
 }
 
 void OnScreenDisplay::ShowOnOff(const std::string &message, bool on, float duration_s) {
@@ -235,32 +211,33 @@ void OnScreenDisplay::SetProgressBar(std::string id, std::string &&message, floa
 	bool found = false;
 
 	std::lock_guard<std::mutex> guard(mutex_);
-	for (auto &bar : bars_) {
-		if (bar.id == id) {
+	for (auto &bar : entries_) {
+		if (bar.type == OSDType::PROGRESS_BAR && bar.id == id) {
 			bar.minValue = minValue;
 			bar.maxValue = maxValue;
 			bar.progress = progress;
-			bar.message = message;
+			bar.text = message;
 			bar.endTime = now + 60.0;  // Nudge the progress bar to keep it shown.
 			return;
 		}
 	}
 
-	ProgressBar bar;
+	Entry bar;
 	bar.id = id;
-	bar.message = std::move(message);
+	bar.type = OSDType::PROGRESS_BAR;
+	bar.text = std::move(message);
 	bar.minValue = minValue;
 	bar.maxValue = maxValue;
 	bar.progress = progress;
 	bar.startTime = now + delay;
 	bar.endTime = now + 60.0;  // Show the progress bar for 60 seconds, then fade it out.
-	bars_.push_back(bar);
+	entries_.push_back(bar);
 }
 
 void OnScreenDisplay::RemoveProgressBar(std::string id, bool success, float delay_s) {
 	std::lock_guard<std::mutex> guard(mutex_);
-	for (auto iter = bars_.begin(); iter != bars_.end(); iter++) {
-		if (iter->id == id) {
+	for (auto iter = entries_.begin(); iter != entries_.end(); iter++) {
+		if (iter->type == OSDType::PROGRESS_BAR && iter->id == id) {
 			if (success) {
 				// Quickly shoot up to max, if we weren't there.
 				if (iter->maxValue != 0.0f) {
@@ -282,18 +259,6 @@ void OnScreenDisplay::RemoveProgressBar(std::string id, bool success, float dela
 void OnScreenDisplay::ClearAchievementStuff() {
 	double now = time_now_d();
 	for (auto &iter : entries_) {
-		switch (iter.type) {
-		case OSDType::ACHIEVEMENT_CHALLENGE_INDICATOR:
-		case OSDType::ACHIEVEMENT_UNLOCKED:
-		case OSDType::ACHIEVEMENT_PROGRESS:
-		case OSDType::LEADERBOARD_TRACKER:
-			iter.endTime = now;
-			break;
-		default:
-			break;
-		}
-	}
-	for (auto &iter : sideEntries_) {
 		switch (iter.type) {
 		case OSDType::ACHIEVEMENT_CHALLENGE_INDICATOR:
 		case OSDType::ACHIEVEMENT_UNLOCKED:

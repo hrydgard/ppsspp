@@ -459,6 +459,11 @@ const char *GetCompilerABI() {
 #endif
 }
 
+void SystemInfoScreen::update() {
+	TabbedUIDialogScreenWithGameBackground::update();
+	g_OSD.NudgeSidebar();
+}
+
 void SystemInfoScreen::CreateTabs() {
 	using namespace Draw;
 	using namespace UI;

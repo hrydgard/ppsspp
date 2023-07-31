@@ -275,7 +275,7 @@ void RetroAchievementsSettingsScreen::CreateAccountTab(UI::ViewGroup *viewGroup)
 	using namespace UI;
 
 	if (!g_Config.bAchievementsEnable) {
-		viewGroup->Add(new TextView(ac->T("Achievements are disabled")));
+		viewGroup->Add(new NoticeView(NoticeLevel::INFO, ac->T("Achievements are disabled"), "", new LinearLayoutParams(Margins(5))));
 	} else if (Achievements::IsLoggedIn()) {
 		const rc_client_user_t *info = rc_client_get_user_info(Achievements::GetClient());
 
