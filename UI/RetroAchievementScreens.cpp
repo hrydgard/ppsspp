@@ -192,7 +192,11 @@ RetroAchievementsLeaderboardScreen::~RetroAchievementsLeaderboardScreen() {
 
 RetroAchievementsLeaderboardScreen::RetroAchievementsLeaderboardScreen(const Path &gamePath, int leaderboardID)
 	: TabbedUIDialogScreenWithGameBackground(gamePath), leaderboardID_(leaderboardID) {
-	rc_client_begin_fetch_leaderboard_entries(Achievements::GetClient(), leaderboardID_, 0, 20, [](int result, const char *error_message, rc_client_leaderboard_entry_list_t *list, rc_client_t *client, void *userdata) {
+	FetchEntries();
+}
+
+void RetroAchievementsLeaderboardScreen::FetchEntries() {
+	auto callback = [](int result, const char *error_message, rc_client_leaderboard_entry_list_t *list, rc_client_t *client, void *userdata) {
 		if (result != RC_OK) {
 			g_OSD.Show(OSDType::MESSAGE_ERROR, error_message, 10.0f);
 			return;
@@ -201,7 +205,13 @@ RetroAchievementsLeaderboardScreen::RetroAchievementsLeaderboardScreen(const Pat
 		RetroAchievementsLeaderboardScreen *thiz = (RetroAchievementsLeaderboardScreen *)userdata;
 		thiz->pendingEntryList_ = list;
 		thiz->pendingAsyncCall_ = nullptr;
-	}, this);
+	};
+
+	if (nearMe_) {
+		rc_client_begin_fetch_leaderboard_entries_around_user(Achievements::GetClient(), leaderboardID_, 10, callback, this);
+	} else {
+		rc_client_begin_fetch_leaderboard_entries(Achievements::GetClient(), leaderboardID_, 0, 25, callback, this);
+	}
 }
 
 void RetroAchievementsLeaderboardScreen::CreateTabs() {
@@ -212,6 +222,17 @@ void RetroAchievementsLeaderboardScreen::CreateTabs() {
 	UI::LinearLayout *layout = AddTab("AchievementsLeaderboard", leaderboard->title);
 	layout->Add(new TextView(leaderboard->description));
 	layout->Add(new ItemHeader(ac->T("Leaderboard")));
+
+	auto strip = layout->Add(new ChoiceStrip(ORIENT_HORIZONTAL));
+	strip->AddChoice(ac->T("Top players"));
+	strip->AddChoice(ac->T("Around me"));
+	strip->OnChoice.Add([=](UI::EventParams &e) {
+		strip->SetSelection(e.a, false);
+		nearMe_ = e.a != 0;
+		FetchEntries();
+		return UI::EVENT_DONE;
+	});
+	strip->SetSelection(nearMe_ ? 1 : 0, false);
 
 	if (entryList_) {
 		for (uint32_t i = 0; i < entryList_->num_entries; i++) {
@@ -619,11 +640,14 @@ void RenderLeaderboardSummary(UIContext &dc, const rc_client_leaderboard_t *lead
 	dc.RebindTexture();
 }
 
-void RenderLeaderboardEntry(UIContext &dc, const rc_client_leaderboard_entry_t *entry, const Bounds &bounds, float alpha, bool hasFocus) {
+void RenderLeaderboardEntry(UIContext &dc, const rc_client_leaderboard_entry_t *entry, const Bounds &bounds, float alpha, bool hasFocus, bool isCurrentUser) {
 	using namespace UI;
 	UI::Drawable background = dc.theme->itemStyle.background;
 	if (hasFocus) {
 		background = dc.theme->itemFocusedStyle.background;
+	}
+	if (isCurrentUser) {
+		background = dc.theme->itemDownStyle.background;
 	}
 
 	background.color = alphaMul(background.color, alpha);
@@ -715,7 +739,7 @@ void LeaderboardSummaryView::GetContentDimensions(const UIContext &dc, float &w,
 }
 
 void LeaderboardEntryView::Draw(UIContext &dc) {
-	RenderLeaderboardEntry(dc, entry_, bounds_, 1.0f, HasFocus());
+	RenderLeaderboardEntry(dc, entry_, bounds_, 1.0f, HasFocus(), isCurrentUser_);
 }
 
 void LeaderboardEntryView::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
