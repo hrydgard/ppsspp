@@ -607,6 +607,7 @@ CollapsibleHeader::CollapsibleHeader(bool *toggle, const std::string &text, Layo
 
 void CollapsibleHeader::Draw(UIContext &dc) {
 	Style style = dc.theme->itemStyle;
+	style.background.color = 0;
 	if (HasFocus()) style = dc.theme->itemFocusedStyle;
 	if (down_) style = dc.theme->itemDownStyle;
 	if (!IsEnabled()) style = dc.theme->itemDisabledStyle;
@@ -618,7 +619,9 @@ void CollapsibleHeader::Draw(UIContext &dc) {
 	dc.SetFontStyle(dc.theme->uiFontSmall);
 	dc.DrawText(text_.c_str(), bounds_.x + 4 + xoff, bounds_.centerY(), dc.theme->headerStyle.fgColor, ALIGN_LEFT | ALIGN_VCENTER);
 	dc.Draw()->DrawImageCenterTexel(dc.theme->whiteImage, bounds_.x, bounds_.y2() - 2, bounds_.x2(), bounds_.y2(), dc.theme->headerStyle.fgColor);
-	dc.Draw()->DrawImageRotated(ImageID("I_ARROW"), bounds_.x + 20.0f, bounds_.y + 20.0f, 1.0f, *toggle_ ? -M_PI / 2 : M_PI);
+	if (hasSubItems_) {
+		dc.Draw()->DrawImageRotated(ImageID("I_ARROW"), bounds_.x + 20.0f, bounds_.y + 20.0f, 1.0f, *toggle_ ? -M_PI / 2 : M_PI);
+	}
 }
 
 void CollapsibleHeader::GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert, float &w, float &h) const {

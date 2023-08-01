@@ -312,7 +312,7 @@ void Arm64Jit::GenerateFixedCode(const JitOptions &jo) {
 
 	// Leave this at the end, add more stuff above.
 	if (enableDisasm) {
-		std::vector<std::string> lines = DisassembleArm64(start, GetCodePtr() - start);
+		std::vector<std::string> lines = DisassembleArm64(start, (int)(GetCodePtr() - start));
 		for (auto s : lines) {
 			INFO_LOG(JIT, "%s", s.c_str());
 		}

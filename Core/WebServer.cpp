@@ -64,7 +64,8 @@ static ServerStatus RetrieveStatus() {
 static bool RegisterServer(int port) {
 	bool success = false;
 	http::Client http;
-	http::RequestProgress progress;
+	bool cancelled = false;
+	net::RequestProgress progress(&cancelled);
 	Buffer theVoid = Buffer::Void();
 
 	http.SetUserAgent(StringFromFormat("PPSSPP/%s", PPSSPP_GIT_VERSION));
@@ -159,7 +160,7 @@ static Path LocalFromRemotePath(const std::string &path) {
 	return Path();
 }
 
-static void DiscHandler(const http::Request &request, const Path &filename) {
+static void DiscHandler(const http::ServerRequest &request, const Path &filename) {
 	s64 sz = File::GetFileSize(filename);
 
 	std::string range;
@@ -211,7 +212,7 @@ static void DiscHandler(const http::Request &request, const Path &filename) {
 	}
 }
 
-static void HandleListing(const http::Request &request) {
+static void HandleListing(const http::ServerRequest &request) {
 	AndroidJNIThreadContext jniContext;
 
 	request.WriteHttpResponseHeader("1.0", 200, -1, "text/plain");
@@ -230,7 +231,7 @@ static void HandleListing(const http::Request &request) {
 	}
 }
 
-static bool ServeDebuggerFile(const http::Request &request) {
+static bool ServeDebuggerFile(const http::ServerRequest &request) {
 	// Skip the slash at the start of the resource path.
 	const char *filename = request.resource() + 1;
 	if (strstr(filename, "..") != nullptr)
@@ -264,13 +265,13 @@ static bool ServeDebuggerFile(const http::Request &request) {
 	return true;
 }
 
-static void RedirectToDebugger(const http::Request &request) {
+static void RedirectToDebugger(const http::ServerRequest &request) {
 	static const std::string payload = "Redirecting to debugger UI...\r\n";
 	request.WriteHttpResponseHeader("1.0", 301, (int)payload.size(), "text/plain", "Location: /debugger/index.html\r\n");
 	request.Out()->Push(payload);
 }
 
-static void HandleFallback(const http::Request &request) {
+static void HandleFallback(const http::ServerRequest &request) {
 	AndroidJNIThreadContext jniContext;
 
 	if (serverFlags & (int)WebServerFlags::DISCS) {
@@ -296,7 +297,7 @@ static void HandleFallback(const http::Request &request) {
 	request.Out()->Push(payload);
 }
 
-static void ForwardDebuggerRequest(const http::Request &request) {
+static void ForwardDebuggerRequest(const http::ServerRequest &request) {
 	AndroidJNIThreadContext jniContext;
 
 	if (serverFlags & (int)WebServerFlags::DEBUGGER) {

@@ -436,6 +436,7 @@ public:
 	// Mutable decoder state
 	mutable u8 *decoded_ = nullptr;
 	mutable const u8 *ptr_ = nullptr;
+	mutable const UVScale *prescaleUV_ = nullptr;
 	JittedVertexDecoder jitted_ = 0;
 	int32_t jittedSize_ = 0;
 
@@ -472,6 +473,9 @@ public:
 	u8 biggest;  // in practice, alignment.
 
 	friend class VertexDecoderJitCache;
+
+private:
+	void CompareToJit(const u8 *startPtr, u8 *decodedptr, int count, const UVScale *uvScaleOffset) const;
 };
 
 

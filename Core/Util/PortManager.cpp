@@ -49,21 +49,20 @@ std::recursive_mutex upnpLock;
 std::deque<UPnPArgs> upnpReqs;
 
 PortManager::PortManager(): 
-	urls(0), 
-	datas(0), 
 	m_InitState(UPNP_INITSTATE_NONE),
 	m_LocalPort(UPNP_LOCAL_PORT_ANY),
 	m_leaseDuration("43200") {
-	// Since WSAStartup can be used multiple times it should be safe to do this right?
-	net::Init();
+	// Don't call net::Init or similar here, we don't want stuff like that to happen before main.
 }
 
 PortManager::~PortManager() {
 	// FIXME: On Windows it seems using any UPnP functions in this destructor that gets triggered when exiting PPSSPP will resulting to UPNPCOMMAND_HTTP_ERROR due to early WSACleanup (miniupnpc was getting WSANOTINITIALISED internally)
+}
+
+void PortManager::Shutdown() {
 	Clear();
 	Restore();
 	Terminate();
-	net::Shutdown();
 }
 
 void PortManager::Terminate() {
@@ -502,9 +501,7 @@ int upnpService(const unsigned int timeout)
 
 	// Cleaning up regardless of g_Config.bEnableUPnP to prevent lingering open ports on the router
 	if (g_PortManager.GetInitState() == UPNP_INITSTATE_DONE) {
-		g_PortManager.Clear();
-		g_PortManager.Restore();
-		g_PortManager.Terminate();
+		g_PortManager.Shutdown();
 	}
 
 	// Should we ingore any leftover UPnP requests? instead of processing it on the next game start

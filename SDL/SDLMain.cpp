@@ -431,6 +431,8 @@ std::string System_GetProperty(SystemProperty prop) {
 			}
 			return result;
 		}
+	case SYSPROP_BUILD_VERSION:
+		return PPSSPP_GIT_VERSION;
 	default:
 		return "";
 	}
@@ -527,6 +529,10 @@ bool System_GetPropertyBool(SystemProperty prop) {
 		return true;
 	case SYSPROP_SUPPORTS_OPEN_FILE_IN_EDITOR:
 		return true;  // FileUtil.cpp: OpenFileInEditor
+#ifndef HTTPS_NOT_AVAILABLE
+	case SYSPROP_SUPPORTS_HTTPS:
+		return true;
+#endif
 #if PPSSPP_PLATFORM(MAC)
 	case SYSPROP_HAS_FOLDER_BROWSER:
 	case SYSPROP_HAS_FILE_BROWSER:

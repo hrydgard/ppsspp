@@ -55,6 +55,9 @@ class MessagePopupScreen : public PopupScreen {
 public:
 	MessagePopupScreen(std::string title, std::string message, std::string button1, std::string button2, std::function<void(bool)> callback)
 		: PopupScreen(title, button1, button2), message_(message), callback_(callback) {}
+
+	const char *tag() const override { return "MessagePopupScreen"; }
+
 	UI::Event OnChoice;
 
 protected:

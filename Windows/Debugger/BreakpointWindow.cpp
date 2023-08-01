@@ -11,7 +11,8 @@ INT_PTR CALLBACK BreakpointWindow::StaticDlgFunc(HWND hWnd, UINT iMsg, WPARAM wP
 	if (iMsg == WM_INITDIALOG) {
 		SetWindowLongPtr(hWnd, GWLP_USERDATA, (LONG_PTR)lParam);
 		thiz = (BreakpointWindow *)lParam;
-	} else {
+	}
+	else {
 		thiz = (BreakpointWindow *)GetWindowLongPtr(hWnd, GWLP_USERDATA);
 	}
 
@@ -40,15 +41,15 @@ INT_PTR BreakpointWindow::DlgFunc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lP
 		EnableWindow(GetDlgItem(hwnd, IDC_BREAKPOINT_ONCHANGE), memory);
 		EnableWindow(GetDlgItem(hwnd, IDC_BREAKPOINT_SIZE), memory);
 		EnableWindow(GetDlgItem(hwnd, IDC_BREAKPOINT_LOG_FORMAT), log);
-		
+
 		if (address != -1) {
 			snprintf(str, sizeof(str), "0x%08X", address);
-			SetWindowTextA(GetDlgItem(hwnd,IDC_BREAKPOINT_ADDRESS),str);
+			SetWindowTextA(GetDlgItem(hwnd, IDC_BREAKPOINT_ADDRESS), str);
 		}
 
 		snprintf(str, sizeof(str), "0x%08X", size);
-		SetWindowTextA(GetDlgItem(hwnd, IDC_BREAKPOINT_SIZE),str);
-		
+		SetWindowTextA(GetDlgItem(hwnd, IDC_BREAKPOINT_SIZE), str);
+
 		SetWindowTextW(GetDlgItem(hwnd, IDC_BREAKPOINT_CONDITION), ConvertUTF8ToWString(condition).c_str());
 		SetWindowTextW(GetDlgItem(hwnd, IDC_BREAKPOINT_LOG_FORMAT), ConvertUTF8ToWString(logFormat).c_str());
 		return TRUE;
@@ -121,7 +122,7 @@ INT_PTR BreakpointWindow::DlgFunc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lP
 
 bool BreakpointWindow::fetchDialogData(HWND hwnd)
 {
-	char str[256],errorMessage[512];
+	char str[256], errorMessage[512];
 	PostfixExpression exp;
 
 	memory = GetCheckState(hwnd, IDC_BREAKPOINT_MEMORY);
@@ -132,36 +133,36 @@ bool BreakpointWindow::fetchDialogData(HWND hwnd)
 	onChange = GetCheckState(hwnd, IDC_BREAKPOINT_ONCHANGE);
 
 	// parse address
-	GetWindowTextA(GetDlgItem(hwnd,IDC_BREAKPOINT_ADDRESS),str,256);
-	if (cpu->initExpression(str,exp) == false)
+	GetWindowTextA(GetDlgItem(hwnd, IDC_BREAKPOINT_ADDRESS), str, 256);
+	if (cpu->initExpression(str, exp) == false)
 	{
 		snprintf(errorMessage, sizeof(errorMessage), "Invalid expression \"%s\": %s", str, getExpressionError());
-		MessageBoxA(hwnd,errorMessage,"Error",MB_OK);
+		MessageBoxA(hwnd, errorMessage, "Error", MB_OK);
 		return false;
 	}
 
-	if (cpu->parseExpression(exp,address) == false)
+	if (cpu->parseExpression(exp, address) == false)
 	{
 		snprintf(errorMessage, sizeof(errorMessage), "Invalid expression \"%s\": %s", str, getExpressionError());
-		MessageBoxA(hwnd,errorMessage,"Error",MB_OK);
+		MessageBoxA(hwnd, errorMessage, "Error", MB_OK);
 		return false;
 	}
 
 	if (memory)
 	{
 		// parse size
-		GetWindowTextA(GetDlgItem(hwnd,IDC_BREAKPOINT_SIZE),str,256);
-		if (cpu->initExpression(str,exp) == false)
+		GetWindowTextA(GetDlgItem(hwnd, IDC_BREAKPOINT_SIZE), str, 256);
+		if (cpu->initExpression(str, exp) == false)
 		{
 			snprintf(errorMessage, sizeof(errorMessage), "Invalid expression \"%s\": %s", str, getExpressionError());
-			MessageBoxA(hwnd,errorMessage,"Error",MB_OK);
+			MessageBoxA(hwnd, errorMessage, "Error", MB_OK);
 			return false;
 		}
 
-		if (cpu->parseExpression(exp,size) == false)
+		if (cpu->parseExpression(exp, size) == false)
 		{
 			snprintf(errorMessage, sizeof(errorMessage), "Invalid expression \"%s\": %s", str, getExpressionError());
-			MessageBoxA(hwnd,errorMessage,"Error",MB_OK);
+			MessageBoxA(hwnd, errorMessage, "Error", MB_OK);
 			return false;
 		}
 	}
@@ -176,7 +177,7 @@ bool BreakpointWindow::fetchDialogData(HWND hwnd)
 		if (cpu->initExpression(condition.c_str(), compiledCondition) == false)
 		{
 			snprintf(errorMessage, sizeof(errorMessage), "Invalid expression \"%s\": %s", condition.c_str(), getExpressionError());
-			MessageBoxA(hwnd,errorMessage,"Error",MB_OK);
+			MessageBoxA(hwnd, errorMessage, "Error", MB_OK);
 			return false;
 		}
 	}
@@ -229,16 +230,17 @@ void BreakpointWindow::addBreakpoint() {
 		}
 
 		CBreakPoints::ChangeMemCheckLogFormat(address, address + size, logFormat);
-	} else {
+	}
+	else {
 		// add breakpoint
-		CBreakPoints::AddBreakPoint(address,false);
+		CBreakPoints::AddBreakPoint(address, false);
 
 		if (!condition.empty()) {
 			BreakPointCond cond;
 			cond.debug = cpu;
 			cond.expressionString = condition;
 			cond.expression = compiledCondition;
-			CBreakPoints::ChangeBreakPointAddCond(address,cond);
+			CBreakPoints::ChangeBreakPointAddCond(address, cond);
 		}
 
 		CBreakPoints::ChangeBreakPoint(address, result);
@@ -257,11 +259,12 @@ void BreakpointWindow::loadFromMemcheck(const MemCheck &memcheck) {
 	enabled = (memcheck.result & BREAK_ACTION_PAUSE) != 0;
 
 	address = memcheck.start;
-	size = memcheck.end-address;
+	size = memcheck.end - address;
 
 	if (memcheck.hasCondition) {
 		condition = memcheck.condition.expressionString;
-	} else {
+	}
+	else {
 		condition.clear();
 	}
 
@@ -278,7 +281,8 @@ void BreakpointWindow::loadFromBreakpoint(const BreakPoint& breakpoint) {
 
 	if (breakpoint.hasCond) {
 		condition = breakpoint.cond.expressionString;
-	} else {
+	}
+	else {
 		condition.clear();
 	}
 

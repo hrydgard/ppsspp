@@ -842,7 +842,7 @@ bool D3D11Texture::FillLevel(ID3D11DeviceContext *context, int level, int w, int
 			for (int y = 0; y < h; ++y) {
 				void *dest = (uint8_t *)mapped.pData + mapped.DepthPitch * s + mapped.RowPitch * y;
 				uint32_t byteStride = w * (uint32_t)DataFormatSizeInBytes(format_);
-				const void *src = data[level] + byteStride * (y + h * d);
+				const void *src = data[level] + byteStride * (y + h * s);
 				memcpy(dest, src, byteStride);
 			}
 		}

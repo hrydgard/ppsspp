@@ -19,6 +19,7 @@ enum class OSDType {
 	// Side entries
 	ACHIEVEMENT_PROGRESS,  // Achievement icon + "measured_progress" text, auto-hide after 2s
 	ACHIEVEMENT_CHALLENGE_INDICATOR,  // Achievement icon ONLY, no auto-hide
+
 	LEADERBOARD_TRACKER,
 };
 
@@ -43,15 +44,15 @@ public:
 
 	// Specialized achievement-related types. These go to the side notifications, not the top-middle.
 	void ShowAchievementUnlocked(int achievementID);
-	void ShowAchievementProgress(int achievementID, float duration_s);
+	void ShowAchievementProgress(int achievementID, bool show);  // call with show=false to hide.  There can only be one of these. When hiding it's ok to not pass a valid achievementID.
 	void ShowChallengeIndicator(int achievementID, bool show);  // call with show=false to hide.
 	void ShowLeaderboardTracker(int leaderboardTrackerID, const char *trackerText, bool show);   // show=true is used both for create and update.
 
 	// Progress bar controls
 	// Set is both create and update. If you set maxValue <= minValue, you'll create an "indeterminate" progress
 	// bar that doesn't show a specific amount of progress.
-	void SetProgressBar(std::string id, std::string &&message, int minValue, int maxValue, int progress);
-	void RemoveProgressBar(std::string id);
+	void SetProgressBar(std::string id, std::string &&message, float minValue, float maxValue, float progress, float delay_s);
+	void RemoveProgressBar(std::string id, bool success, float delay_s);
 
 	// Call every frame to keep the sidebar visible. Otherwise it'll fade out.
 	void NudgeSidebar();
@@ -74,9 +75,10 @@ public:
 	struct ProgressBar {
 		std::string id;
 		std::string message;
-		int minValue;
-		int maxValue;
-		int progress;
+		float minValue;
+		float maxValue;
+		float progress;
+		double startTime;
 		double endTime;
 	};
 

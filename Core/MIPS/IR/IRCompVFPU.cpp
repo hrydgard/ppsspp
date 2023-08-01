@@ -238,7 +238,7 @@ namespace MIPSComp {
 				} else {
 					if (negate)
 						ir.Write(IROp::FNeg, vregs[i], origV[regnum]);
-					else
+					else if (vregs[i] != origV[regnum])
 						ir.Write(IROp::FMov, vregs[i], origV[regnum]);
 				}
 			} else {
@@ -855,7 +855,8 @@ namespace MIPSComp {
 			switch (optype) {
 			case 0: // d[i] = s[i]; break; //vmov
 				// Probably for swizzle.
-				ir.Write(IROp::FMov, tempregs[i], sregs[i]);
+				if (tempregs[i] != sregs[i])
+					ir.Write(IROp::FMov, tempregs[i], sregs[i]);
 				break;
 			case 1: // d[i] = fabsf(s[i]); break; //vabs
 				ir.Write(IROp::FAbs, tempregs[i], sregs[i]);
@@ -929,37 +930,17 @@ namespace MIPSComp {
 		VectorSize sz = GetVecSize(op);
 		int n = GetNumVectorElements(sz);
 
-		int imm = (op >> 16) & 0x1f;
-		const float mult = 1.0f / (float)(1UL << imm);
+		uint8_t imm = (op >> 16) & 0x1f;
 
 		u8 sregs[4], dregs[4];
 		GetVectorRegsPrefixS(sregs, sz, _VS);
 		GetVectorRegsPrefixD(dregs, sz, _VD);
 
-		u8 tempregs[4];
-		for (int i = 0; i < n; ++i) {
-			if (!IsOverlapSafe(dregs[i], n, sregs)) {
-				tempregs[i] = IRVTEMP_PFX_T + i;  // Need IRVTEMP_0 for the scaling factor
-			} else {
-				tempregs[i] = dregs[i];
-			}
-		}
-		if (mult != 1.0f)
-			ir.Write(IROp::SetConstF, IRVTEMP_0, ir.AddConstantFloat(mult));
-		// TODO: Use the SCVTF with builtin scaling where possible.
 		for (int i = 0; i < n; i++) {
-			ir.Write(IROp::FCvtSW, tempregs[i], sregs[i]);
-		}
-		if (mult != 1.0f) {
-			for (int i = 0; i < n; i++) {
-				ir.Write(IROp::FMul, tempregs[i], tempregs[i], IRVTEMP_0);
-			}
-		}
-
-		for (int i = 0; i < n; ++i) {
-			if (dregs[i] != tempregs[i]) {
-				ir.Write(IROp::FMov, dregs[i], tempregs[i]);
-			}
+			if (imm == 0)
+				ir.Write(IROp::FCvtSW, dregs[i], sregs[i]);
+			else
+				ir.Write(IROp::FCvtScaledSW, dregs[i], sregs[i], imm);
 		}
 		ApplyPrefixD(dregs, sz);
 	}
@@ -986,7 +967,47 @@ namespace MIPSComp {
 		// d[N] = int(S[N] * mult)
 		// Note: saturates on overflow.
 
-		DISABLE;
+		VectorSize sz = GetVecSize(op);
+		int n = GetNumVectorElements(sz);
+
+		uint8_t imm = (op >> 16) & 0x1f;
+
+		u8 sregs[4], dregs[4];
+		GetVectorRegsPrefixS(sregs, sz, _VS);
+		GetVectorRegsPrefixD(dregs, sz, _VD);
+
+		// Same values as FCR31.
+		uint8_t rmode = (op >> 21) & 3;
+		if (((op >> 21) & 0x1C) != 0x10)
+			INVALIDOP;
+
+		if (imm != 0) {
+			for (int i = 0; i < n; i++)
+				ir.Write(IROp::FCvtScaledWS, dregs[i], sregs[i], imm | (rmode << 6));
+		} else {
+			for (int i = 0; i < n; i++) {
+				switch (rmode) {
+				case 0: // vf2in
+					ir.Write(IROp::FRound, dregs[i], sregs[i]);
+					break;
+
+				case 1: // vf2iz
+					ir.Write(IROp::FTrunc, dregs[i], sregs[i]);
+					break;
+
+				case 2: // vf2iu
+					ir.Write(IROp::FCeil, dregs[i], sregs[i]);
+					break;
+
+				case 3: // vf2id
+					ir.Write(IROp::FFloor, dregs[i], sregs[i]);
+					break;
+
+				default:
+					INVALIDOP;
+				}
+			}
+		}
 	}
 
 	void IRFrontend::Comp_Mftv(MIPSOpcode op) {
@@ -1151,7 +1172,8 @@ namespace MIPSComp {
 		}
 		for (int a = 0; a < n; a++) {
 			for (int b = 0; b < n; b++) {
-				ir.Write(IROp::FMov, dregs[a * 4 + b], sregs[a * 4 + b]);
+				if (dregs[a * 4 + b] != sregs[a * 4 + b])
+					ir.Write(IROp::FMov, dregs[a * 4 + b], sregs[a * 4 + b]);
 			}
 		}
 	}

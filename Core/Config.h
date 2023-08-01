@@ -41,8 +41,8 @@ enum ChatPositions {
 };
 
 namespace http {
-	class Download;
-	class Downloader;
+	class Request;
+	class RequestManager;
 }
 
 struct UrlEncoder;
@@ -238,6 +238,7 @@ public:
 	bool bGfxDebugOutput;
 	int iInflightFrames;
 	bool bRenderDuplicateFrames;
+	bool bRenderMultiThreading;
 
 	// Sound
 	bool bEnableSound;
@@ -386,6 +387,7 @@ public:
 	float fMouseSmoothing;
 
 	bool bSystemControls;
+	int iRapidFireInterval;
 
 	// Use the hardware scaler to scale up the image to save fillrate. Similar to Windows' window size, really.
 	int iAndroidHwScale;  // 0 = device resolution. 1 = 480x272 (extended to correct aspect), 2 = 960x544 etc.
@@ -543,7 +545,7 @@ public:
 	void RemoveRecent(const std::string &file);
 	void CleanRecent();
 
-	static void DownloadCompletedCallback(http::Download &download);
+	static void DownloadCompletedCallback(http::Request &download);
 	void DismissUpgrade();
 
 	void ResetControlLayout();
@@ -569,6 +571,10 @@ public:
 	void SetAppendedConfigIni(const Path &path);
 	void UpdateAfterSettingAutoFrameSkip();
 	void NotifyUpdatedCpuCore();
+
+	// Applies the Auto setting if set. Returns an enum value from PSP_SYSTEMPARAM_LANGUAGE_*.
+	int GetPSPLanguage();
+
 protected:
 	void LoadStandardControllerIni();
 	void LoadLangValuesMapping();
@@ -595,6 +601,6 @@ private:
 std::string CreateRandMAC();
 
 // TODO: Find a better place for this.
-extern http::Downloader g_DownloadManager;
+extern http::RequestManager g_DownloadManager;
 extern Config g_Config;
 

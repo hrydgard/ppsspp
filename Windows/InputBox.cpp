@@ -1,3 +1,4 @@
+#include "Common/Common.h"
 #include "Common/CommonTypes.h"
 #include "Common/CommonWindows.h"
 #include "Windows/InputBox.h"

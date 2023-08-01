@@ -54,6 +54,7 @@ namespace MIPSComp {
 		virtual void Comp_RunBlock(MIPSOpcode op) = 0;
 		virtual void Comp_ReplacementFunc(MIPSOpcode op) = 0;
 		virtual void Comp_ITypeMem(MIPSOpcode op) = 0;
+		virtual void Comp_StoreSync(MIPSOpcode op) = 0;
 		virtual void Comp_Cache(MIPSOpcode op) = 0;
 		virtual void Comp_RelBranch(MIPSOpcode op) = 0;
 		virtual void Comp_RelBranchRI(MIPSOpcode op) = 0;

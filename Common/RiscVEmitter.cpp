@@ -62,10 +62,10 @@ static inline bool SupportsVector() {
 
 static inline bool SupportsBitmanip(char zbx) {
 	switch (zbx) {
-	case 'a': return cpu_info.RiscV_B || cpu_info.RiscV_Zba;
-	case 'b': return cpu_info.RiscV_B || cpu_info.RiscV_Zbb;
-	case 'c': return cpu_info.RiscV_B || cpu_info.RiscV_Zbc;
-	case 's': return cpu_info.RiscV_B || cpu_info.RiscV_Zbs;
+	case 'a': return cpu_info.RiscV_Zba;
+	case 'b': return cpu_info.RiscV_Zbb;
+	case 'c': return cpu_info.RiscV_Zbc;
+	case 's': return cpu_info.RiscV_Zbs;
 	default: return false;
 	}
 }
@@ -1180,6 +1180,19 @@ bool RiscVEmitter::CJInRange(const void *src, const void *dst) const {
 	return BJInRange(src, dst, 12);
 }
 
+void RiscVEmitter::QuickJAL(RiscVReg scratchreg, RiscVReg rd, const u8 *dst) {
+	if (!JInRange(GetCodePointer(), dst)) {
+		static_assert(sizeof(intptr_t) <= sizeof(int64_t));
+		int64_t pcdelta = (int64_t)dst - (int64_t)GetCodePointer();
+		int32_t lower = (int32_t)SignReduce64(pcdelta, 12);
+		uintptr_t upper = ((pcdelta - lower) >> 12) << 12;
+		LI(scratchreg, (uintptr_t)GetCodePointer() + upper);
+		JALR(rd, scratchreg, lower);
+	} else {
+		JAL(rd, dst);
+	}
+}
+
 void RiscVEmitter::SetRegToImmediate(RiscVReg rd, uint64_t value, RiscVReg temp) {
 	int64_t svalue = (int64_t)value;
 	_assert_msg_(IsGPR(rd) && IsGPR(temp), "SetRegToImmediate only supports GPRs");
@@ -1194,13 +1207,24 @@ void RiscVEmitter::SetRegToImmediate(RiscVReg rd, uint64_t value, RiscVReg temp)
 
 	auto useUpper = [&](int64_t v, void (RiscVEmitter::*upperOp)(RiscVReg, s32), bool force = false) {
 		if (SignReduce64(v, 32) == v || force) {
-			int32_t lower = (int32_t)SignReduce64(svalue, 12);
+			int32_t lower = (int32_t)SignReduce64(v, 12);
 			int32_t upper = ((v - lower) >> 12) << 12;
-			_assert_msg_(force || (int64_t)upper + lower == v, "Upper + ADDI immediate math mistake?");
+			bool clearUpper = v >= 0 && upper < 0;
+			if (clearUpper) {
+				_assert_msg_(BitsSupported() >= 64, "Shouldn't be possible on 32-bit");
+				_assert_msg_(force || (((int64_t)upper + lower) & 0xFFFFFFFF) == v, "Upper + ADDI immediate math mistake?");
+				// This isn't safe to do using AUIPC.  We can't have the high bit set this way.
+				if (upperOp == &RiscVEmitter::AUIPC)
+					return false;
+			} else {
+				_assert_msg_(force || (int64_t)upper + lower == v, "Upper + ADDI immediate math mistake?");
+			}
 
 			// Should be fused on some processors.
 			(this->*upperOp)(rd, upper);
-			if (lower != 0)
+			if (clearUpper)
+				ADDIW(rd, rd, lower);
+			else if (lower != 0)
 				ADDI(rd, rd, lower);
 			return true;
 		}
@@ -2124,6 +2148,7 @@ void RiscVEmitter::FCVT(FConv to, FConv from, RiscVReg rd, RiscVReg rs1, Round r
 			_assert_msg_(rm == Round::DYNAMIC || rm == Round::NEAREST_EVEN, "Invalid rounding mode for widening FCVT");
 			rm = Round::NEAREST_EVEN;
 		}
+		_assert_msg_(fromFmt != toFmt, "FCVT cannot convert to same float type");
 		Write32(EncodeR(Opcode32::OP_FP, rd, (Funct3)rm, rs1, (RiscVReg)fromFmt, toFmt, Funct5::FCVT_SZ));
 	} else {
 		Funct5 funct5 = FConvToIntegerBits(to) == 0 ? Funct5::FCVT_FROMX : Funct5::FCVT_TOX;

@@ -79,7 +79,10 @@ SPIRV_CROSS_FILES := \
   $(SRC)/ext/SPIRV-Cross/spirv_glsl.cpp \
   $(SRC)/ext/SPIRV-Cross/spirv_parser.cpp \
   $(SRC)/ext/SPIRV-Cross/spirv_cross_parsed_ir.cpp
- 
+
+NAETT_FILES := \
+  ${SRC}/ext/naett/naett.c
+
 RCHEEVOS_FILES := \
   ${SRC}/ext/rcheevos/src/rapi/rc_api_common.c \
   ${SRC}/ext/rcheevos/src/rapi/rc_api_editor.c \
@@ -178,6 +181,7 @@ EXEC_AND_LIB_FILES := \
   $(VMA_FILES) \
   $(SPIRV_CROSS_FILES) \
   $(RCHEEVOS_FILES) \
+  $(NAETT_FILES) \
   $(EXT_FILES) \
   $(NATIVE_FILES) \
   $(SRC)/Common/Buffer.cpp \
@@ -238,6 +242,8 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Common/Math/lin/matrix4x4.cpp.arm \
   $(SRC)/Common/Net/HTTPClient.cpp \
   $(SRC)/Common/Net/HTTPHeaders.cpp \
+  $(SRC)/Common/Net/HTTPRequest.cpp \
+  $(SRC)/Common/Net/HTTPNaettRequest.cpp \
   $(SRC)/Common/Net/HTTPServer.cpp \
   $(SRC)/Common/Net/NetBuffer.cpp \
   $(SRC)/Common/Net/Resolve.cpp \
@@ -384,6 +390,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Core/MIPS/MIPSVFPUFallbacks.cpp.arm \
   $(SRC)/Core/MIPS/MIPSCodeUtils.cpp.arm \
   $(SRC)/Core/MIPS/MIPSDebugInterface.cpp \
+  $(SRC)/Core/MIPS/IR/IRAnalysis.cpp \
   $(SRC)/Core/MIPS/IR/IRFrontend.cpp \
   $(SRC)/Core/MIPS/IR/IRJit.cpp \
   $(SRC)/Core/MIPS/IR/IRCompALU.cpp \

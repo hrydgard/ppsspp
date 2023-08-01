@@ -2,7 +2,7 @@
 #include "Core/MIPS/IR/IRRegCache.h"
 #include "Core/MIPS/IR/IRInst.h"
 
-void IRRegCache::Flush(int rd) {
+void IRRegCache::Flush(IRReg rd) {
 	if (rd == 0) {
 		return;
 	}
@@ -12,7 +12,7 @@ void IRRegCache::Flush(int rd) {
 	}
 }
 
-void IRRegCache::Discard(int rd) {
+void IRRegCache::Discard(IRReg rd) {
 	if (rd == 0) {
 		return;
 	}
@@ -31,33 +31,33 @@ void IRRegCache::FlushAll() {
 	}
 }
 
-void IRRegCache::MapIn(int rd) {
+void IRRegCache::MapIn(IRReg rd) {
 	Flush(rd);
 }
 
-void IRRegCache::MapDirty(int rd) {
+void IRRegCache::MapDirty(IRReg rd) {
 	Discard(rd);
 }
 
-void IRRegCache::MapInIn(int rs, int rt) {
+void IRRegCache::MapInIn(IRReg rs, IRReg rt) {
 	Flush(rs);
 	Flush(rt);
 }
 
-void IRRegCache::MapInInIn(int rd, int rs, int rt) {
+void IRRegCache::MapInInIn(IRReg rd, IRReg rs, IRReg rt) {
 	Flush(rd);
 	Flush(rs);
 	Flush(rt);
 }
 
-void IRRegCache::MapDirtyIn(int rd, int rs) {
+void IRRegCache::MapDirtyIn(IRReg rd, IRReg rs) {
 	if (rs != rd) {
 		Discard(rd);
 	}
 	Flush(rs);
 }
 
-void IRRegCache::MapDirtyInIn(int rd, int rs, int rt) {
+void IRRegCache::MapDirtyInIn(IRReg rd, IRReg rs, IRReg rt) {
 	if (rs != rd && rt != rd) {
 		Discard(rd);
 	}

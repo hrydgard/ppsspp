@@ -542,8 +542,14 @@ void PromptScreen::CreateViews() {
 	Choice *yesButton = rightColumnItems->Add(new Choice(yesButtonText_));
 	yesButton->OnClick.Handle(this, &PromptScreen::OnYes);
 	root_->SetDefaultFocusView(yesButton);
-	if (!noButtonText_.empty())
+	if (!noButtonText_.empty()) {
 		rightColumnItems->Add(new Choice(noButtonText_))->OnClick.Handle(this, &PromptScreen::OnNo);
+	} else {
+		// This is an information screen, not a question.
+		// Sneak in the version of PPSSPP in the corner, for debug-reporting user screenshots.
+		std::string version = System_GetProperty(SYSPROP_BUILD_VERSION);
+		root_->Add(new TextView(version, 0, true, new AnchorLayoutParams(10.0f, NONE, NONE, 10.0f)));
+	}
 }
 
 UI::EventReturn PromptScreen::OnYes(UI::EventParams &e) {
@@ -671,18 +677,9 @@ void NewLanguageScreen::OnCompleted(DialogResult result) {
 		iniLoadedSuccessfully = g_i18nrepo.LoadIni(g_Config.sLanguageIni, langOverridePath);
 
 	if (iniLoadedSuccessfully) {
-		// Dunno what else to do here.
-		auto &langValuesMapping = g_Config.GetLangValuesMapping();
-
-		auto iter = langValuesMapping.find(code);
-		if (iter == langValuesMapping.end()) {
-			// Fallback to English
-			g_Config.iLanguage = PSP_SYSTEMPARAM_LANGUAGE_ENGLISH;
-		} else {
-			g_Config.iLanguage = iter->second.second;
-		}
 		RecreateViews();
 	} else {
+		// Failed to load the language ini. Shouldn't really happen, but let's just switch back to the old language.
 		g_Config.sLanguageIni = oldLang;
 	}
 }

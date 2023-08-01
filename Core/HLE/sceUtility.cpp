@@ -898,7 +898,7 @@ static u32 sceUtilityGetSystemParamInt(u32 id, u32 destaddr)
 		param = g_Config.bDayLightSavings?PSP_SYSTEMPARAM_DAYLIGHTSAVINGS_SAVING:PSP_SYSTEMPARAM_DAYLIGHTSAVINGS_STD;
 		break;
 	case PSP_SYSTEMPARAM_ID_INT_LANGUAGE:
-		param = g_Config.iLanguage;
+		param = g_Config.GetPSPLanguage();
 		if (PSP_CoreParameter().compat.flags().EnglishOrJapaneseOnly) {
 			if (param != PSP_SYSTEMPARAM_LANGUAGE_ENGLISH && param != PSP_SYSTEMPARAM_LANGUAGE_JAPANESE) {
 				param = PSP_SYSTEMPARAM_LANGUAGE_ENGLISH;

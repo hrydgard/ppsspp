@@ -34,6 +34,10 @@ AudioFileChooser::AudioFileChooser(std::string *value, const std::string &title,
 		layoutParams_->width = FILL_PARENT;
 		layoutParams_->height = ITEM_HEIGHT;
 	}
+	Add(new Choice(ImageID("I_PLAY"), new LinearLayoutParams(ITEM_HEIGHT, ITEM_HEIGHT)))->OnClick.Add([=](UI::EventParams &) {
+		g_BackgroundAudio.SFX().Play(sound_, 0.6f);
+		return UI::EVENT_DONE;
+	});
 	Add(new FileChooserChoice(value, title, BrowseFileType::SOUND_EFFECT, new LinearLayoutParams(1.0f)))->OnChange.Add([=](UI::EventParams &e) {
 		// TODO: Check the file format here.
 		// Need to forward the event out.
@@ -48,10 +52,6 @@ AudioFileChooser::AudioFileChooser(std::string *value, const std::string &title,
 			}
 			value->clear();
 		}
-		return UI::EVENT_DONE;
-	});
-	Add(new Choice(ImageID("I_ARROW_RIGHT"), new LinearLayoutParams(ITEM_HEIGHT, ITEM_HEIGHT)))->OnClick.Add([=](UI::EventParams &) {
-		g_BackgroundAudio.SFX().Play(sound_, 0.6f);
 		return UI::EVENT_DONE;
 	});
 	Add(new Choice(ImageID("I_TRASHCAN"), new LinearLayoutParams(ITEM_HEIGHT, ITEM_HEIGHT)))->OnClick.Add([=](UI::EventParams &) {
@@ -290,7 +290,20 @@ void RetroAchievementsSettingsScreen::CreateAccountTab(UI::ViewGroup *viewGroup)
 			return UI::EVENT_DONE;
 		});
 	} else {
-		if (System_GetPropertyBool(SYSPROP_HAS_LOGIN_DIALOG)) {
+		std::string errorMessage;
+		if (Achievements::LoginProblems(&errorMessage)) {
+			viewGroup->Add(new NoticeView(NoticeLevel::WARN, ac->T("Failed logging in to RetroAchievements"), errorMessage));
+			if (Achievements::HasToken()) {
+				viewGroup->Add(new Choice(di->T("Retry")))->OnClick.Add([=](UI::EventParams &) -> UI::EventReturn {
+					Achievements::TryLoginByToken();
+					return UI::EVENT_DONE;
+				});
+			}
+			viewGroup->Add(new Choice(di->T("Log out")))->OnClick.Add([=](UI::EventParams &) -> UI::EventReturn {
+				Achievements::Logout();
+				return UI::EVENT_DONE;
+			});
+		} else if (System_GetPropertyBool(SYSPROP_HAS_LOGIN_DIALOG)) {
 			viewGroup->Add(new Choice(ac->T("Log in")))->OnClick.Add([=](UI::EventParams &) -> UI::EventReturn {
 				System_AskUsernamePassword(ac->T("Log in"), [](const std::string &value, int) {
 					std::vector<std::string> parts;
@@ -662,14 +675,14 @@ void AchievementView::Click() {
 #ifdef _DEBUG
 	static int type = 0;
 	type++;
-	type = type % 4;
+	type = type % 5;
 	switch (type) {
 	case 0: g_OSD.ShowAchievementUnlocked(achievement_->id); break;
-	case 1: g_OSD.ShowAchievementProgress(achievement_->id, 2.0f); break;
-	case 2: g_OSD.ShowChallengeIndicator(achievement_->id, true); break;
-	case 3: g_OSD.ShowChallengeIndicator(achievement_->id, false); break;
+	case 1: g_OSD.ShowAchievementProgress(achievement_->id, true); break;
+	case 2: g_OSD.ShowAchievementProgress(achievement_->id, false); break;
+	case 3: g_OSD.ShowChallengeIndicator(achievement_->id, true); break;
+	case 4: g_OSD.ShowChallengeIndicator(achievement_->id, false); break;
 	}
-
 #endif
 }
 

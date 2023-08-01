@@ -270,6 +270,12 @@ VkRenderPass CreateRenderPass(VulkanContext *vulkan, const RPKey &key, RenderPas
 	bool multiview = RenderPassTypeHasMultiView(rpType);
 	bool multisample = RenderPassTypeHasMultisample(rpType);
 
+	_dbg_assert_(!(isBackbuffer && multisample));
+
+	if (isBackbuffer) {
+		_dbg_assert_(key.depthLoadAction == VKRRenderPassLoadAction::CLEAR);
+	}
+
 	if (multiview) {
 		// TODO: Assert that the device has multiview support enabled.
 	}
@@ -296,7 +302,7 @@ VkRenderPass CreateRenderPass(VulkanContext *vulkan, const RPKey &key, RenderPas
 		attachments[attachmentCount].storeOp = ConvertStoreAction(key.depthStoreAction);
 		attachments[attachmentCount].stencilLoadOp = multisample ? VK_ATTACHMENT_LOAD_OP_DONT_CARE : ConvertLoadAction(key.stencilLoadAction);
 		attachments[attachmentCount].stencilStoreOp = ConvertStoreAction(key.stencilStoreAction);
-		attachments[attachmentCount].initialLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+		attachments[attachmentCount].initialLayout = isBackbuffer ? VK_IMAGE_LAYOUT_UNDEFINED : VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 		attachments[attachmentCount].finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 		attachmentCount++;
 	}

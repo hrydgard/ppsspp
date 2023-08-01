@@ -22,6 +22,7 @@
 #include "Common/CommonTypes.h"
 #include "Common/Data/Collections/Hashmaps.h"
 
+#include "GPU/Math3D.h"
 #include "GPU/GPUState.h"
 #include "GPU/Common/GPUStateUtils.h"
 #include "GPU/Common/GPUDebugInterface.h"
@@ -66,6 +67,13 @@ public:
 	virtual ~TessellationDataTransfer() {}
 	void CopyControlPoints(float *pos, float *tex, float *col, int posStride, int texStride, int colStride, const SimpleVertex *const *points, int size, u32 vertType);
 	virtual void SendDataToShader(const SimpleVertex *const *points, int size_u, int size_v, u32 vertType, const Spline::Weight2D &weights) = 0;
+};
+
+// Culling plane.
+struct Plane {
+	float x, y, z, w;
+	void Set(float _x, float _y, float _z, float _w) { x = _x; y = _y; z = _z; w = _w; }
+	float Test(const float f[3]) const { return x * f[0] + y * f[1] + z * f[2] + w; }
 };
 
 class DrawEngineCommon {
@@ -131,6 +139,7 @@ public:
 
 protected:
 	virtual bool UpdateUseHWTessellation(bool enabled) const { return enabled; }
+	void UpdatePlanes();
 
 	int ComputeNumVertsToDecode() const;
 	void DecodeVerts(u8 *dest);
@@ -236,4 +245,9 @@ protected:
 
 	// Hardware tessellation
 	TessellationDataTransfer *tessDataTransfer;
+
+	// Culling
+	Plane planes_[6];
+	Vec2f minOffset_;
+	Vec2f maxOffset_;
 };

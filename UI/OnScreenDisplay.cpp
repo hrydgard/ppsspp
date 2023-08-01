@@ -202,7 +202,7 @@ static void RenderOSDProgressBar(UIContext &dc, const OnScreenDisplay::ProgressB
 
 static void MeasureLeaderboardTracker(UIContext &dc, const std::string &text, float *width, float *height) {
 	dc.MeasureText(dc.GetFontStyle(), 1.0f, 1.0f, text.c_str(), width, height);
-	*width += 10.0f;
+	*width += 16.0f;
 	*height += 10.0f;
 }
 
@@ -214,7 +214,7 @@ static void RenderLeaderboardTracker(UIContext &dc, const Bounds &bounds, const 
 	dc.FillRect(background, bounds);
 	dc.SetFontStyle(dc.theme->uiFont);
 	dc.SetFontScale(1.0f, 1.0f);
-	dc.DrawTextShadowRect(text.c_str(), bounds.Inset(5.0f, 5.0f), colorAlpha(0xFFFFFFFF, alpha), ALIGN_VCENTER | ALIGN_LEFT);
+	dc.DrawTextShadowRect(text.c_str(), bounds.Inset(5.0f, 5.0f), colorAlpha(0xFFFFFFFF, alpha), ALIGN_VCENTER | ALIGN_HCENTER);
 }
 
 void OnScreenMessagesView::Draw(UIContext &dc) {
@@ -292,13 +292,9 @@ void OnScreenMessagesView::Draw(UIContext &dc) {
 		}
 	}
 
-	// Get height
-	float w, h;
-	dc.MeasureText(dc.theme->uiFont, 1.0f, 1.0f, "Wg", &w, &h);
-
 	y = 10.0f;
 
-	// Then draw them all. 
+	// Draw the progress bars. 
 	const std::vector<OnScreenDisplay::ProgressBar> bars = g_OSD.ProgressBars();
 	for (auto &bar : bars) {
 		float tw, th;
@@ -306,11 +302,14 @@ void OnScreenMessagesView::Draw(UIContext &dc) {
 		Bounds b(0.0f, y, tw, th);
 		b.x = (bounds_.w - b.w) * 0.5f;
 
-		float alpha = Clamp((float)(bar.endTime - now) * 4.0f, 0.0f, 1.0f);
+		float enterAlpha = saturatef((float)(now - bar.startTime) * 4.0f);
+		float leaveAlpha = saturatef((float)(bar.endTime - now) * 4.0f);
+		float alpha = std::min(enterAlpha, leaveAlpha);
 		RenderOSDProgressBar(dc, bar, b, 0, alpha);
 		y += (b.h + 4.0f) * alpha;  // including alpha here gets us smooth animations.
 	}
 
+	// Draw the rest of the top-center messages.
 	const std::vector<OnScreenDisplay::Entry> entries = g_OSD.Entries();
 	for (const auto &entry : entries) {
 		dc.SetFontScale(1.0f, 1.0f);
@@ -364,28 +363,6 @@ void OnScreenMessagesView::Draw(UIContext &dc) {
 		float alpha = Clamp((float)(entry.endTime - now) * 4.0f, 0.0f, 1.0f);
 		RenderOSDEntry(dc, entry, b, h1, align, alpha);
 		y += (b.h * scale + 4.0f) * alpha;  // including alpha here gets us smooth animations.
-	}
-
-	// Thin bar at the top of the screen.
-	// TODO: Remove and replace with "proper" progress bars.
-	std::vector<float> progress = g_DownloadManager.GetCurrentProgress();
-	if (!progress.empty()) {
-		static const uint32_t colors[4] = {
-			0xFFFFFFFF,
-			0xFFCCCCCC,
-			0xFFAAAAAA,
-			0xFF777777,
-		};
-
-		dc.Begin();
-		int h = 5;
-		for (size_t i = 0; i < progress.size(); i++) {
-			float barWidth = 10 + (dc.GetBounds().w - 10) * progress[i];
-			Bounds bounds(0, h * i, barWidth, h);
-			UI::Drawable solid(colors[i & 3]);
-			dc.FillRect(solid, bounds);
-		}
-		dc.Flush();
 	}
 }
 

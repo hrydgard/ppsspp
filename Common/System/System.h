@@ -117,6 +117,7 @@ enum SystemProperty {
 	SYSPROP_BOARDNAME,
 	SYSPROP_CLIPBOARD_TEXT,
 	SYSPROP_GPUDRIVER_VERSION,
+	SYSPROP_BUILD_VERSION,
 
 	// Separate SD cards or similar.
 	// Need hacky solutions to get at this.
@@ -134,6 +135,8 @@ enum SystemProperty {
 	SYSPROP_HAS_TEXT_INPUT_DIALOG,  // Indicates that System_InputBoxGetString is available.
 
 	SYSPROP_CAN_CREATE_SHORTCUT,
+
+	SYSPROP_SUPPORTS_HTTPS,
 
 	// Available as Int:
 	SYSPROP_SYSTEMVERSION,

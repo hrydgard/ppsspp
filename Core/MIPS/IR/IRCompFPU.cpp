@@ -152,7 +152,8 @@ void IRFrontend::Comp_FPU2op(MIPSOpcode op) {
 		ir.Write(IROp::FAbs, fd, fs);
 		break;
 	case 6:	//F(fd)	   = F(fs);                   break; //mov
-		ir.Write(IROp::FMov, fd, fs);
+		if (fd != fs)
+			ir.Write(IROp::FMov, fd, fs);
 		break;
 	case 7:	//F(fd)	   = -F(fs);                  break; //neg
 		ir.Write(IROp::FNeg, fd, fs);
@@ -203,7 +204,8 @@ void IRFrontend::Comp_mxc1(MIPSOpcode op) {
 			return;
 		}
 		if (fs == 31) {
-			DISABLE;  // TODO: Add a new op
+			// This needs to insert fpcond.
+			ir.Write(IROp::FpCtrlToReg, rt);
 		} else if (fs == 0) {
 			ir.Write(IROp::SetConst, rt, ir.AddConstant(MIPSState::FCR0_VALUE));
 		} else {
@@ -219,7 +221,10 @@ void IRFrontend::Comp_mxc1(MIPSOpcode op) {
 	case 6: //ctc1
 		if (fs == 31) {
 			// Set rounding mode
-			DISABLE;
+			RestoreRoundingMode();
+			ir.Write(IROp::FpCtrlFromReg, 0, rt);
+			UpdateRoundingMode();
+			ApplyRoundingMode();
 		} else {
 			Comp_Generic(op);
 		}

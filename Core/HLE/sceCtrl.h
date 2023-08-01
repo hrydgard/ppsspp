@@ -73,11 +73,12 @@ void __CtrlUpdateButtons(u32 bitsToSet, u32 bitsToClear);
 void __CtrlSetAnalogXY(int stick, float x, float y);
 
 // Call this to enable rapid-fire.  This will cause buttons other than arrows to alternate.
-void __CtrlSetRapidFire(bool state);
+void __CtrlSetRapidFire(bool state, int interval);
 bool __CtrlGetRapidFire();
 
 // For use by internal UI like MsgDialog
 u32 __CtrlPeekButtons();
+u32 __CtrlPeekButtonsVisual();  // also incorporates rapid-fire
 void __CtrlPeekAnalog(int stick, float *x, float *y);
 u32 __CtrlReadLatch();
 

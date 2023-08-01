@@ -540,6 +540,9 @@ void HLEReturnFromMipsCall() {
 const static u32 deadbeefRegs[12] = {0xDEADBEEF, 0xDEADBEEF, 0xDEADBEEF, 0xDEADBEEF, 0xDEADBEEF, 0xDEADBEEF, 0xDEADBEEF, 0xDEADBEEF, 0xDEADBEEF, 0xDEADBEEF, 0xDEADBEEF, 0xDEADBEEF};
 inline static void SetDeadbeefRegs()
 {
+	// Not exactly the same, but any time a syscall happens, it should clear ll.
+	currentMIPS->llBit = 0;
+
 	if (g_Config.bSkipDeadbeefFilling)
 		return;
 

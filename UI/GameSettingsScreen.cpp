@@ -31,6 +31,7 @@
 
 #include "Common/System/Display.h"  // Only to check screen aspect ratio with pixel_yres/pixel_xres
 #include "Common/System/Request.h"
+#include "Common/System/OSD.h"
 #include "Common/Battery/Battery.h"
 #include "Common/System/NativeApp.h"
 #include "Common/Data/Color/RGBAUtil.h"
@@ -720,6 +721,7 @@ void GameSettingsScreen::CreateControlsSettings(UI::ViewGroup *controlsSettings)
 			settingInfo_->Show(co->T("AnalogLimiter Tip", "When the analog limiter button is pressed"), e.v);
 			return UI::EVENT_CONTINUE;
 		});
+		controlsSettings->Add(new PopupSliderChoice(&g_Config.iRapidFireInterval, 1, 10, 5, "Rapid fire interval", screenManager(), "frames"));
 #if defined(USING_WIN_UI) || defined(SDL)
 		controlsSettings->Add(new ItemHeader(co->T("Mouse", "Mouse settings")));
 		CheckBox *mouseControl = controlsSettings->Add(new CheckBox(&g_Config.bMouseControl, co->T("Use Mouse Control")));
@@ -735,6 +737,53 @@ void GameSettingsScreen::CreateControlsSettings(UI::ViewGroup *controlsSettings)
 	}
 }
 
+// Compound view just like the audio file choosers
+class MacAddressChooser : public UI::LinearLayout {
+public:
+	MacAddressChooser(Path gamePath, std::string *value, const std::string &title, ScreenManager *screenManager, UI::LayoutParams *layoutParams = nullptr);
+};
+
+static constexpr UI::Size ITEM_HEIGHT = 64.f;
+
+MacAddressChooser::MacAddressChooser(Path gamePath_, std::string *value, const std::string &title, ScreenManager *screenManager, UI::LayoutParams *layoutParams) : UI::LinearLayout(UI::ORIENT_HORIZONTAL, layoutParams) {
+	using namespace UI;
+	SetSpacing(5.0f);
+	if (!layoutParams) {
+		layoutParams_->width = FILL_PARENT;
+		layoutParams_->height = ITEM_HEIGHT;
+	}
+	auto n = GetI18NCategory(I18NCat::NETWORKING);
+
+	std::string initialValue = *value;
+	Add(new PopupTextInputChoice(value, title, g_Config.sMACAddress, 17, screenManager, new LinearLayoutParams(1.0f)))->OnChange.Add([=](UI::EventParams &e) {
+		// Validate the chosen address, and restore to initialValue if bad.
+		if (g_Config.sMACAddress.size() != 17) {
+			// TODO: Alert the user
+			*value = initialValue;
+		}
+		return UI::EVENT_DONE;
+	});
+	Add(new Choice(n->T("Randomize"), new LinearLayoutParams(WRAP_CONTENT, ITEM_HEIGHT)))->OnClick.Add([=](UI::EventParams &) {
+		auto n = GetI18NCategory(I18NCat::NETWORKING);
+		auto di = GetI18NCategory(I18NCat::DIALOG);
+
+		const char *confirmMessage = n->T("ChangeMacSaveConfirm", "Generate a new MAC address?");
+		const char *warningMessage = n->T("ChangeMacSaveWarning", "Some games verify the MAC address when loading savedata, so this may break old saves.");
+		std::string combined = g_Config.sMACAddress + "\n\n" + std::string(confirmMessage) + "\n\n" + warningMessage;
+
+		auto confirmScreen = new PromptScreen(
+			gamePath_,
+			combined, di->T("Yes"), di->T("No"),
+			[&](bool success) {
+				if (success) {
+					g_Config.sMACAddress = CreateRandMAC();
+				}}
+		);
+		screenManager->push(confirmScreen);
+		return UI::EVENT_DONE;
+	});
+}
+
 void GameSettingsScreen::CreateNetworkingSettings(UI::ViewGroup *networkingSettings) {
 	using namespace UI;
 
@@ -746,7 +795,7 @@ void GameSettingsScreen::CreateNetworkingSettings(UI::ViewGroup *networkingSetti
 	networkingSettings->Add(new Choice(n->T("Open PPSSPP Multiplayer Wiki Page")))->OnClick.Handle(this, &GameSettingsScreen::OnAdhocGuides);
 
 	networkingSettings->Add(new CheckBox(&g_Config.bEnableWlan, n->T("Enable networking", "Enable networking/wlan (beta)")));
-	networkingSettings->Add(new ChoiceWithValueDisplay(&g_Config.sMACAddress, n->T("Change Mac Address"), I18NCat::NONE))->OnClick.Handle(this, &GameSettingsScreen::OnChangeMacAddress);
+	networkingSettings->Add(new MacAddressChooser(gamePath_, &g_Config.sMACAddress, n->T("Change Mac Address"), screenManager()));
 	static const char* wlanChannels[] = { "Auto", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11" };
 	auto wlanChannelChoice = networkingSettings->Add(new PopupMultiChoice(&g_Config.iWlanAdhocChannel, n->T("WLAN Channel"), wlanChannels, 0, ARRAY_SIZE(wlanChannels), I18NCat::NETWORKING, screenManager()));
 	for (int i = 0; i < 4; i++) {
@@ -772,9 +821,9 @@ void GameSettingsScreen::CreateNetworkingSettings(UI::ViewGroup *networkingSetti
 	networkingSettings->Add(new ItemHeader(n->T("Chat")));
 	networkingSettings->Add(new CheckBox(&g_Config.bEnableNetworkChat, n->T("Enable network chat", "Enable network chat")));
 	static const char *chatButtonPositions[] = { "Bottom Left", "Bottom Center", "Bottom Right", "Top Left", "Top Center", "Top Right", "Center Left", "Center Right", "None" };
-	networkingSettings->Add(new PopupMultiChoice(&g_Config.iChatButtonPosition, n->T("Chat Button Position"), chatButtonPositions, 0, ARRAY_SIZE(chatButtonPositions), I18NCat::NETWORKING, screenManager()))->SetEnabledPtr(&g_Config.bEnableNetworkChat);
+	networkingSettings->Add(new PopupMultiChoice(&g_Config.iChatButtonPosition, n->T("Chat Button Position"), chatButtonPositions, 0, ARRAY_SIZE(chatButtonPositions), I18NCat::DIALOG, screenManager()))->SetEnabledPtr(&g_Config.bEnableNetworkChat);
 	static const char *chatScreenPositions[] = { "Bottom Left", "Bottom Center", "Bottom Right", "Top Left", "Top Center", "Top Right" };
-	networkingSettings->Add(new PopupMultiChoice(&g_Config.iChatScreenPosition, n->T("Chat Screen Position"), chatScreenPositions, 0, ARRAY_SIZE(chatScreenPositions), I18NCat::NETWORKING, screenManager()))->SetEnabledPtr(&g_Config.bEnableNetworkChat);
+	networkingSettings->Add(new PopupMultiChoice(&g_Config.iChatScreenPosition, n->T("Chat Screen Position"), chatScreenPositions, 0, ARRAY_SIZE(chatScreenPositions), I18NCat::DIALOG, screenManager()))->SetEnabledPtr(&g_Config.bEnableNetworkChat);
 
 #if (!defined(MOBILE_DEVICE) && !defined(USING_QT_UI)) || defined(USING_QT_UI) || PPSSPP_PLATFORM(ANDROID) // Missing only iOS?
 	networkingSettings->Add(new ItemHeader(n->T("QuickChat", "Quick Chat")));
@@ -850,6 +899,7 @@ void GameSettingsScreen::CreateSystemSettings(UI::ViewGroup *systemSettings) {
 	auto di = GetI18NCategory(I18NCat::DIALOG);
 	auto vr = GetI18NCategory(I18NCat::VR);
 	auto th = GetI18NCategory(I18NCat::THEMES);
+	auto psps = GetI18NCategory(I18NCat::PSPSETTINGS);  // TODO: Should move more into this section.
 
 	systemSettings->Add(new ItemHeader(sy->T("RetroAchievements")));
 	auto retro = systemSettings->Add(new Choice(sy->T("RetroAchievements")));
@@ -1068,6 +1118,10 @@ void GameSettingsScreen::CreateSystemSettings(UI::ViewGroup *systemSettings) {
 	});
 
 	systemSettings->Add(new ItemHeader(sy->T("PSP Settings")));
+
+	// The ordering here is simply mapping directly to PSP_SYSTEMPARAM_LANGUAGE_*.
+	static const char *defaultLanguages[] = { "Auto", "Japanese", "English", "French", "Spanish", "German", "Italian", "Dutch", "Portuguese", "Russian", "Korean", "Chinese (traditional)", "Chinese (simplified)" };
+	systemSettings->Add(new PopupMultiChoice(&g_Config.iLanguage, psps->T("Game language"), defaultLanguages, -1, ARRAY_SIZE(defaultLanguages), I18NCat::PSPSETTINGS, screenManager()));
 	static const char *models[] = { "PSP-1000", "PSP-2000/3000" };
 	systemSettings->Add(new PopupMultiChoice(&g_Config.iPSPModel, sy->T("PSP Model"), models, 0, ARRAY_SIZE(models), I18NCat::SYSTEM, screenManager()))->SetEnabled(!PSP_IsInited());
 	systemSettings->Add(new PopupTextInputChoice(&g_Config.sNickName, sy->T("Change Nickname"), "", 32, screenManager()));
@@ -1367,45 +1421,18 @@ void GameSettingsScreen::TriggerRestart(const char *why) {
 	System_RestartApp(param);
 }
 
-void GameSettingsScreen::CallbackRenderingBackend(bool yes) {
-	// If the user ends up deciding not to restart, set the config back to the current backend
-	// so it doesn't get switched by accident.
-	if (yes) {
-		TriggerRestart("GameSettingsScreen::RenderingBackendYes");
-	} else {
-		g_Config.iGPUBackend = (int)GetGPUBackend();
-	}
-}
-
-void GameSettingsScreen::CallbackRenderingDevice(bool yes) {
-	// If the user ends up deciding not to restart, set the config back to the current backend
-	// so it doesn't get switched by accident.
-	if (yes) {
-		TriggerRestart("GameSettingsScreen::RenderingDeviceYes");
-	} else {
-		std::string *deviceNameSetting = GPUDeviceNameSetting();
-		if (deviceNameSetting)
-			*deviceNameSetting = GetGPUBackendDevice();
-		// Needed to redraw the setting.
-		RecreateViews();
-	}
-}
-
-void GameSettingsScreen::CallbackInflightFrames(bool yes) {
-	if (yes) {
-		TriggerRestart("GameSettingsScreen::InflightFramesYes");
-	} else {
-		g_Config.iInflightFrames = prevInflightFrames_;
-	}
-}
-
 UI::EventReturn GameSettingsScreen::OnRenderingBackend(UI::EventParams &e) {
 	auto di = GetI18NCategory(I18NCat::DIALOG);
 
 	// It only makes sense to show the restart prompt if the backend was actually changed.
 	if (g_Config.iGPUBackend != (int)GetGPUBackend()) {
-		screenManager()->push(new PromptScreen(gamePath_, di->T("ChangingGPUBackends", "Changing GPU backends requires PPSSPP to restart. Restart now?"), di->T("Yes"), di->T("No"),
-			std::bind(&GameSettingsScreen::CallbackRenderingBackend, this, std::placeholders::_1)));
+		screenManager()->push(new PromptScreen(gamePath_, di->T("Changing this setting requires PPSSPP to restart."), di->T("Restart"), di->T("Cancel"), [=](bool yes) {
+			if (yes) {
+				TriggerRestart("GameSettingsScreen::RenderingBackendYes");
+			} else {
+				g_Config.iGPUBackend = (int)GetGPUBackend();
+			}
+		}));
 	}
 	return UI::EVENT_DONE;
 }
@@ -1416,8 +1443,19 @@ UI::EventReturn GameSettingsScreen::OnRenderingDevice(UI::EventParams &e) {
 	// It only makes sense to show the restart prompt if the device was actually changed.
 	std::string *deviceNameSetting = GPUDeviceNameSetting();
 	if (deviceNameSetting && *deviceNameSetting != GetGPUBackendDevice()) {
-		screenManager()->push(new PromptScreen(gamePath_, di->T("ChangingGPUBackends", "Changing GPU backends requires PPSSPP to restart. Restart now?"), di->T("Yes"), di->T("No"),
-			std::bind(&GameSettingsScreen::CallbackRenderingDevice, this, std::placeholders::_1)));
+		screenManager()->push(new PromptScreen(gamePath_, di->T("Changing this setting requires PPSSPP to restart."), di->T("Restart"), di->T("Cancel"), [=](bool yes) {
+			// If the user ends up deciding not to restart, set the config back to the current backend
+			// so it doesn't get switched by accident.
+			if (yes) {
+				TriggerRestart("GameSettingsScreen::RenderingDeviceYes");
+			} else {
+				std::string *deviceNameSetting = GPUDeviceNameSetting();
+				if (deviceNameSetting)
+					*deviceNameSetting = GetGPUBackendDevice();
+				// Needed to redraw the setting.
+				RecreateViews();
+			}
+		}));
 	}
 	return UI::EVENT_DONE;
 }
@@ -1425,8 +1463,13 @@ UI::EventReturn GameSettingsScreen::OnRenderingDevice(UI::EventParams &e) {
 UI::EventReturn GameSettingsScreen::OnInflightFramesChoice(UI::EventParams &e) {
 	auto di = GetI18NCategory(I18NCat::DIALOG);
 	if (g_Config.iInflightFrames != prevInflightFrames_) {
-		screenManager()->push(new PromptScreen(gamePath_, di->T("ChangingInflightFrames", "Changing graphics command buffering requires PPSSPP to restart. Restart now?"), di->T("Yes"), di->T("No"),
-			std::bind(&GameSettingsScreen::CallbackInflightFrames, this, std::placeholders::_1)));
+		screenManager()->push(new PromptScreen(gamePath_, di->T("Changing this setting requires PPSSPP to restart."), di->T("Restart"), di->T("Cancel"), [=](bool yes) {
+			if (yes) {
+				TriggerRestart("GameSettingsScreen::InflightFramesYes");
+			} else {
+				g_Config.iInflightFrames = prevInflightFrames_;
+			}
+		}));
 	}
 	return UI::EVENT_DONE;
 }
@@ -1514,27 +1557,6 @@ UI::EventReturn GameSettingsScreen::OnChangeproAdhocServerAddress(UI::EventParam
 	auto n = GetI18NCategory(I18NCat::NETWORKING);
 
 	screenManager()->push(new HostnameSelectScreen(&g_Config.proAdhocServer, n->T("proAdhocServer Address:")));
-
-	return UI::EVENT_DONE;
-}
-
-UI::EventReturn GameSettingsScreen::OnChangeMacAddress(UI::EventParams &e) {
-	auto n = GetI18NCategory(I18NCat::NETWORKING);
-	auto di = GetI18NCategory(I18NCat::DIALOG);
-
-	const char *confirmMessage = n->T("ChangeMacSaveConfirm", "Generate a new MAC address?");
-	const char *warningMessage = n->T("ChangeMacSaveWarning", "Some games verify the MAC address when loading savedata, so this may break old saves.");
-	std::string combined = std::string(confirmMessage) + "\n\n" + warningMessage;
-
-	auto confirmScreen = new PromptScreen(
-		gamePath_,
-		combined, di->T("Yes"), di->T("No"),
-		[&](bool success) {
-		if (success) {
-			g_Config.sMACAddress = CreateRandMAC();
-		}}
-	);
-	screenManager()->push(confirmScreen);
 
 	return UI::EVENT_DONE;
 }
@@ -1642,6 +1664,15 @@ void DeveloperToolsScreen::CreateViews() {
 
 	cpuTests->SetEnabled(TestsAvailable());
 #endif
+
+	if (g_Config.iGPUBackend == (int)GPUBackend::VULKAN) {
+		list->Add(new CheckBox(&g_Config.bRenderMultiThreading, dev->T("Multi-threaded rendering"), ""))->OnClick.Add([](UI::EventParams &e) {
+			// TODO: Not translating yet. Will combine with other translations of settings that need restart.
+			g_OSD.Show(OSDType::MESSAGE_WARNING, "Restart required");
+			return UI::EVENT_DONE;
+		});
+	}
+
 	// For now, we only implement GPU driver tests for Vulkan and OpenGL. This is simply
 	// because the D3D drivers are generally solid enough to not need this type of investigation.
 	if (g_Config.iGPUBackend == (int)GPUBackend::VULKAN || g_Config.iGPUBackend == (int)GPUBackend::OPENGL) {

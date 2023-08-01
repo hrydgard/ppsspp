@@ -182,14 +182,13 @@ if(UNIX AND NOT (APPLE OR ANDROID) AND VULKAN)
 	endif()
 
 	# add_definitions(-DVK_USE_PLATFORM_XCB_KHR)
-	if(USE_WAYLAND_WSI)
-		find_package(Wayland)
-		if(NOT WAYLAND_FOUND)
-			message(STATUS "Could not find Wayland libraries, disabling Wayland WSI support for Vulkan.")
-		else()
-			include_directories(${WAYLAND_INCLUDE_DIR})
-			add_definitions(-DVK_USE_PLATFORM_WAYLAND_KHR)
-		endif()
+	find_package(Wayland)
+	if(NOT WAYLAND_FOUND)
+		message(STATUS "Could not find Wayland libraries, disabling Wayland WSI support for Vulkan.")
+	else()
+		include_directories(${WAYLAND_INCLUDE_DIR})
+		add_definitions(-DVK_USE_PLATFORM_WAYLAND_KHR)
+		add_definitions(-DUSE_WAYLAND_WSI=ON)
 	endif()
 
 	if(USE_VULKAN_DISPLAY_KHR)
@@ -217,6 +216,16 @@ if(ANDROID AND NOT LIBRETRO)
 else()
 	set(CoreLibName Core)
 	set(CoreLinkType STATIC)
+endif()
+
+if(NOT ANDROID AND NOT WIN32 AND NOT APPLE)
+	set(HTTPS_NOT_AVAILABLE ON)
+endif()
+
+# Made this flag negative because it's hopefully quite temporary and didn't
+# want to have to update all build systems.
+if(HTTPS_NOT_AVAILABLE)
+	add_definitions(-DHTTPS_NOT_AVAILABLE)
 endif()
 
 # Work around for some misfeature of the current glslang build system
@@ -248,11 +257,14 @@ endif()
 
 if(NOT LIBRETRO AND NOT IOS AND NOT MACOSX)
 	find_package(SDL2)
+	find_package(SDL2_TTF)
+	find_package(Fontconfig)
 endif()
 
 if(MACOSX AND NOT IOS)
 	if(USE_SYSTEM_LIBSDL2)
 		find_package(SDL2)
+		find_package(SDL2_TTF)
 	else()
 		find_library(SDL2Fwk SDL2 REQUIRED PATHS SDL/macOS)
 		message(STATUS "found SDL2Fwk=${SDL2Fwk}")
@@ -406,7 +418,7 @@ if(NOT MSVC)
 			add_definitions(-Wno-psabi)
 		endif()
 		add_definitions(-D_XOPEN_SOURCE=700)
-		add_definitions(-D_XOPEN_SOURCE_EXTENDED -D__BSD_VISIBLE=1 -D_BSD_SOURCE)
+		add_definitions(-D_XOPEN_SOURCE_EXTENDED -D__BSD_VISIBLE=1 -D_BSD_SOURCE -D_DEFAULT_SOURCE)
 		add_definitions(-D_LARGEFILE64_SOURCE=1 -D_FILE_OFFSET_BITS=64)
 	elseif(ANDROID)
 		add_definitions(-fsigned-char)
@@ -710,6 +722,10 @@ add_library(Common STATIC
 	Common/Net/HTTPClient.h
 	Common/Net/HTTPHeaders.cpp
 	Common/Net/HTTPHeaders.h
+	Common/Net/HTTPNaettRequest.cpp
+	Common/Net/HTTPNaettRequest.h
+	Common/Net/HTTPRequest.cpp
+	Common/Net/HTTPRequest.h
 	Common/Net/HTTPServer.cpp
 	Common/Net/HTTPServer.h
 	Common/Net/NetBuffer.cpp
@@ -1303,6 +1319,15 @@ else()
 			SDL/SDLVulkanGraphicsContext.cpp
 		)
 	endif()
+	if(SDL2_TTF_FOUND)
+		add_definitions(-DUSE_SDL2_TTF)
+		set(nativeExtraLibs ${nativeExtraLibs} SDL2_ttf::SDL2_ttf)
+
+		if(FONTCONFIG_FOUND)
+			add_definitions(-DUSE_SDL2_TTF_FONTCONFIG)
+			set(nativeExtraLibs ${nativeExtraLibs} Fontconfig::Fontconfig)
+		endif()
+	endif()
 	if(APPLE)
 		set(nativeExtra ${nativeExtra} 
 		SDL/SDLMain.h 
@@ -1444,6 +1469,8 @@ add_library(native STATIC
 	${nativeExtra}
 	Common/Render/Text/draw_text_qt.cpp
 	Common/Render/Text/draw_text_qt.h
+	Common/Render/Text/draw_text_sdl.cpp
+	Common/Render/Text/draw_text_sdl.h
 	ext/jpge/jpgd.cpp
 	ext/jpge/jpgd.h
 	ext/jpge/jpge.cpp
@@ -1512,6 +1539,8 @@ set(CoreExtra)
 set(CoreExtraLibs)
 
 set(CoreExtra ${CoreExtra}
+	Core/MIPS/IR/IRAnalysis.cpp
+	Core/MIPS/IR/IRAnalysis.h
 	Core/MIPS/IR/IRCompALU.cpp
 	Core/MIPS/IR/IRCompBranch.cpp
 	Core/MIPS/IR/IRCompFPU.cpp
@@ -1595,6 +1624,19 @@ list(APPEND CoreExtra
 )
 
 list(APPEND CoreExtra
+	Core/MIPS/RiscV/RiscVAsm.cpp
+	Core/MIPS/RiscV/RiscVCompALU.cpp
+	Core/MIPS/RiscV/RiscVCompBranch.cpp
+	Core/MIPS/RiscV/RiscVCompFPU.cpp
+	Core/MIPS/RiscV/RiscVCompLoadStore.cpp
+	Core/MIPS/RiscV/RiscVCompSystem.cpp
+	Core/MIPS/RiscV/RiscVCompVec.cpp
+	Core/MIPS/RiscV/RiscVJit.cpp
+	Core/MIPS/RiscV/RiscVJit.h
+	Core/MIPS/RiscV/RiscVRegCache.cpp
+	Core/MIPS/RiscV/RiscVRegCache.h
+	Core/MIPS/RiscV/RiscVRegCacheFPU.cpp
+	Core/MIPS/RiscV/RiscVRegCacheFPU.h
 	GPU/Common/VertexDecoderRiscV.cpp
 )
 
@@ -2223,6 +2265,10 @@ endif()
 target_link_libraries(${CoreLibName} Common native kirk cityhash sfmt19937 xbrz xxhash rcheevos ${GlslangLibs}
 	${CoreExtraLibs} ${OPENGL_LIBRARIES} ${X11_LIBRARIES} ${CMAKE_DL_LIBS})
 
+if(NOT HTTPS_NOT_AVAILABLE)
+	target_link_libraries(${CoreLibName} naett)
+endif()
+
 target_compile_features(${CoreLibName} PUBLIC cxx_std_17)
 
 if(FFmpeg_FOUND)
@@ -2373,6 +2419,8 @@ set(WindowsFiles
 	Windows/Debugger/Debugger_VFPUDlg.h
 	Windows/Debugger/WatchItemWindow.cpp
 	Windows/Debugger/WatchItemWindow.h
+	Windows/Debugger/EditSymbolsWindow.cpp
+	Windows/Debugger/EditSymbolsWindow.h
 	Windows/GEDebugger/CtrlDisplayListView.cpp
 	Windows/GEDebugger/SimpleGLWindow.cpp
 	Windows/GEDebugger/TabState.cpp

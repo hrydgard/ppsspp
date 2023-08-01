@@ -57,7 +57,7 @@
 #include "GPU/Common/FramebufferManagerCommon.h"
 
 // TODO: Find a better place for this.
-http::Downloader g_DownloadManager;
+http::RequestManager g_DownloadManager;
 
 Config g_Config;
 
@@ -129,7 +129,7 @@ std::string CreateRandMAC() {
 }
 
 static int DefaultCpuCore() {
-#if PPSSPP_ARCH(ARM) || PPSSPP_ARCH(ARM64) || PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)
+#if PPSSPP_ARCH(ARM) || PPSSPP_ARCH(ARM64) || PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64) || PPSSPP_ARCH(RISCV64)
 	if (System_GetPropertyBool(SYSPROP_CAN_JIT))
 		return (int)CPUCore::JIT;
 	return (int)CPUCore::IR_JIT;
@@ -139,7 +139,7 @@ static int DefaultCpuCore() {
 }
 
 static bool DefaultCodeGen() {
-#if PPSSPP_ARCH(ARM) || PPSSPP_ARCH(ARM64) || PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)
+#if PPSSPP_ARCH(ARM) || PPSSPP_ARCH(ARM64) || PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64) || PPSSPP_ARCH(RISCV64)
 	return true;
 #else
 	return false;
@@ -611,6 +611,8 @@ static const ConfigSetting graphicsSettings[] = {
 	ConfigSetting("InflightFrames", &g_Config.iInflightFrames, 3, CfgFlag::DEFAULT),
 	ConfigSetting("RenderDuplicateFrames", &g_Config.bRenderDuplicateFrames, false, CfgFlag::PER_GAME),
 
+	ConfigSetting("MultiThreading", &g_Config.bRenderMultiThreading, true, CfgFlag::DEFAULT),
+
 	ConfigSetting("ShaderCache", &g_Config.bShaderCache, true, CfgFlag::DONT_SAVE),  // Doesn't save. Ini-only.
 	ConfigSetting("GpuLogProfiler", &g_Config.bGpuLogProfiler, false, CfgFlag::DEFAULT),
 };
@@ -773,6 +775,7 @@ static const ConfigSetting controlSettings[] = {
 	ConfigSetting("MouseSmoothing", &g_Config.fMouseSmoothing, 0.9f, CfgFlag::PER_GAME),
 
 	ConfigSetting("SystemControls", &g_Config.bSystemControls, true, CfgFlag::DEFAULT),
+	ConfigSetting("RapidFileInterval", &g_Config.iRapidFireInterval, 5, CfgFlag::DEFAULT),
 };
 
 static const ConfigSetting networkSettings[] = {
@@ -796,25 +799,12 @@ static const ConfigSetting networkSettings[] = {
 	ConfigSetting("QuickChat5", &g_Config.sQuickChat4, "Quick Chat 5", CfgFlag::PER_GAME),
 };
 
-static int DefaultSystemParamLanguage() {
-	int defaultLang = PSP_SYSTEMPARAM_LANGUAGE_ENGLISH;
-	if (g_Config.bFirstRun) {
-		// TODO: Be smart about same language, different country
-		auto &langValuesMapping = g_Config.GetLangValuesMapping();
-		auto iter = langValuesMapping.find(g_Config.sLanguageIni);
-		if (iter != langValuesMapping.end()) {
-			defaultLang = iter->second.second;
-		}
-	}
-	return defaultLang;
-}
-
 static const ConfigSetting systemParamSettings[] = {
 	ConfigSetting("PSPModel", &g_Config.iPSPModel, PSP_MODEL_SLIM, CfgFlag::PER_GAME | CfgFlag::REPORT),
 	ConfigSetting("PSPFirmwareVersion", &g_Config.iFirmwareVersion, PSP_DEFAULT_FIRMWARE, CfgFlag::PER_GAME | CfgFlag::REPORT),
 	ConfigSetting("NickName", &g_Config.sNickName, "PPSSPP", CfgFlag::PER_GAME),
 	ConfigSetting("MacAddress", &g_Config.sMACAddress, "", CfgFlag::PER_GAME),
-	ConfigSetting("Language", &g_Config.iLanguage, &DefaultSystemParamLanguage, CfgFlag::PER_GAME | CfgFlag::REPORT),
+	ConfigSetting("GameLanguage", &g_Config.iLanguage, -1, CfgFlag::PER_GAME | CfgFlag::REPORT),
 	ConfigSetting("ParamTimeFormat", &g_Config.iTimeFormat, PSP_SYSTEMPARAM_TIME_FORMAT_24HR, CfgFlag::PER_GAME),
 	ConfigSetting("ParamDateFormat", &g_Config.iDateFormat, PSP_SYSTEMPARAM_DATE_FORMAT_YYYYMMDD, CfgFlag::PER_GAME),
 	ConfigSetting("TimeZone", &g_Config.iTimeZone, 0, CfgFlag::PER_GAME),
@@ -1174,8 +1164,7 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	if (iRunCount % 10 == 0 && bCheckForNewVersion) {
 		const char *versionUrl = "http://www.ppsspp.org/version.json";
 		const char *acceptMime = "application/json, text/*; q=0.9, */*; q=0.8";
-		auto dl = g_DownloadManager.StartDownloadWithCallback(versionUrl, Path(), &DownloadCompletedCallback, acceptMime);
-		dl->SetHidden(true);
+		g_DownloadManager.StartDownloadWithCallback(versionUrl, Path(), http::ProgressBarMode::NONE, &DownloadCompletedCallback, "version", acceptMime);
 	}
 
 	INFO_LOG(LOADER, "Loading controller config: %s", controllerIniFilename_.c_str());
@@ -1364,7 +1353,7 @@ void Config::NotifyUpdatedCpuCore() {
 #define PPSSPP_GIT_VERSION "v0.0.1-gaaaaaaaaa"
 #endif
 
-void Config::DownloadCompletedCallback(http::Download &download) {
+void Config::DownloadCompletedCallback(http::Request &download) {
 	if (download.ResultCode() != 200) {
 		ERROR_LOG(LOADER, "Failed to download %s: %d", download.url().c_str(), download.ResultCode());
 		return;
@@ -1771,4 +1760,19 @@ void Config::GetReportingInfo(UrlEncoder &data) {
 
 bool Config::IsPortrait() const {
 	return (iInternalScreenRotation == ROTATION_LOCKED_VERTICAL || iInternalScreenRotation == ROTATION_LOCKED_VERTICAL180) && !bSkipBufferEffects;
+}
+
+int Config::GetPSPLanguage() {
+	if (g_Config.iLanguage == -1) {
+		const auto &langValuesMapping = GetLangValuesMapping();
+		auto iter = langValuesMapping.find(g_Config.sLanguageIni);
+		if (iter != langValuesMapping.end()) {
+			return iter->second.second;
+		} else {
+			// Fallback to English
+			return PSP_SYSTEMPARAM_LANGUAGE_ENGLISH;
+		}
+	} else {
+		return g_Config.iLanguage;
+	}
 }

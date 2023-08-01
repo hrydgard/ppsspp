@@ -870,6 +870,10 @@ public:
 	void Draw(UIContext &dc) override;
 	void GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert, float &w, float &h) const override;
 	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override;
+
+	void SetHasSubitems(bool hasSubItems) { hasSubItems_ = hasSubItems; }
+private:
+	bool hasSubItems_ = true;
 };
 
 class BitCheckBox : public CheckBox {

@@ -6,6 +6,7 @@
 #include "Common/Data/Convert/SmallDataConvert.h"
 #include "Common/Log.h"
 #include "Core/Config.h"
+#include "Core/MIPS/IR/IRAnalysis.h"
 #include "Core/MIPS/IR/IRInterpreter.h"
 #include "Core/MIPS/IR/IRPassSimplify.h"
 #include "Core/MIPS/IR/IRRegCache.h"
@@ -128,7 +129,9 @@ bool OptimizeFPMoves(const IRWriter &in, IRWriter &out, const IROptions &opts) {
 			if (prev.op == IROp::FMovToGPR && prev.dest == inst.src1) {
 				inst.op = IROp::FMov;
 				inst.src1 = prev.src1;
-				out.Write(inst);
+				// Skip it entirely if it's just a copy to and back.
+				if (inst.dest != inst.src1)
+					out.Write(inst);
 			} else {
 				out.Write(inst);
 			}
@@ -228,7 +231,7 @@ bool RemoveLoadStoreLeftRight(const IRWriter &in, IRWriter &out, const IROptions
 		};
 
 		auto combineOpposite = [&](IROp matchOp, int matchOff, IROp replaceOp, int replaceOff) {
-			if (!opts.unalignedLoadStore || i + 1 >= n)
+			if (i + 1 >= n)
 				return false;
 			const IRInst &next = nextOp();
 			if (next.op != matchOp || next.dest != inst.dest || next.src1 != inst.src1)
@@ -236,8 +239,40 @@ bool RemoveLoadStoreLeftRight(const IRWriter &in, IRWriter &out, const IROptions
 			if (inst.constant + matchOff != next.constant)
 				return false;
 
-			// Write out one unaligned op.
-			out.Write(replaceOp, inst.dest, inst.src1, out.AddConstant(inst.constant + replaceOff));
+			if (opts.unalignedLoadStore) {
+				// Write out one unaligned op.
+				out.Write(replaceOp, inst.dest, inst.src1, out.AddConstant(inst.constant + replaceOff));
+			} else if (replaceOp == IROp::Load32) {
+				// We can still combine to a simpler set of two loads.
+				// We start by isolating the address and shift amount.
+
+				// IRTEMP_LR_ADDR = rs + imm
+				out.Write(IROp::AddConst, IRTEMP_LR_ADDR, inst.src1, out.AddConstant(inst.constant + replaceOff));
+				// IRTEMP_LR_SHIFT = (addr & 3) * 8
+				out.Write(IROp::AndConst, IRTEMP_LR_SHIFT, IRTEMP_LR_ADDR, out.AddConstant(3));
+				out.Write(IROp::ShlImm, IRTEMP_LR_SHIFT, IRTEMP_LR_SHIFT, 3);
+				// IRTEMP_LR_ADDR = addr & 0xfffffffc
+				out.Write(IROp::AndConst, IRTEMP_LR_ADDR, IRTEMP_LR_ADDR, out.AddConstant(0xFFFFFFFC));
+				// IRTEMP_LR_VALUE = low_word, dest = high_word
+				out.Write(IROp::Load32, inst.dest, IRTEMP_LR_ADDR, out.AddConstant(0));
+				out.Write(IROp::Load32, IRTEMP_LR_VALUE, IRTEMP_LR_ADDR, out.AddConstant(4));
+
+				// Now we just need to adjust and combine dest and IRTEMP_LR_VALUE.
+				// inst.dest >>= shift (putting its bits in the right spot.)
+				out.Write(IROp::Shr, inst.dest, inst.dest, IRTEMP_LR_SHIFT);
+				// We can't shift by 32, so we compromise by shifting twice.
+				out.Write(IROp::ShlImm, IRTEMP_LR_VALUE, IRTEMP_LR_VALUE, 8);
+				// IRTEMP_LR_SHIFT = 24 - shift
+				out.Write(IROp::Neg, IRTEMP_LR_SHIFT, IRTEMP_LR_SHIFT);
+				out.Write(IROp::AddConst, IRTEMP_LR_SHIFT, IRTEMP_LR_SHIFT, out.AddConstant(24));
+				// IRTEMP_LR_VALUE <<= (24 - shift)
+				out.Write(IROp::Shl, IRTEMP_LR_VALUE, IRTEMP_LR_VALUE, IRTEMP_LR_SHIFT);
+
+				// At this point the values are aligned, and we just merge.
+				out.Write(IROp::Or, inst.dest, inst.dest, IRTEMP_LR_VALUE);
+			} else {
+				return false;
+			}
 			// Skip the next one, replaced.
 			i++;
 			return true;
@@ -572,6 +607,7 @@ bool PropagateConstants(const IRWriter &in, IRWriter &out, const IROptions &opts
 		case IROp::Store32:
 		case IROp::Store32Left:
 		case IROp::Store32Right:
+		case IROp::Store32Conditional:
 			if (gpr.IsImm(inst.src1) && inst.src1 != inst.dest) {
 				gpr.MapIn(inst.dest);
 				out.Write(inst.op, inst.dest, 0, out.AddConstant(gpr.GetImm(inst.src1) + inst.constant));
@@ -595,6 +631,7 @@ bool PropagateConstants(const IRWriter &in, IRWriter &out, const IROptions &opts
 		case IROp::Load16:
 		case IROp::Load16Ext:
 		case IROp::Load32:
+		case IROp::Load32Linked:
 			if (gpr.IsImm(inst.src1) && inst.src1 != inst.dest) {
 				gpr.MapDirty(inst.dest);
 				out.Write(inst.op, inst.dest, 0, out.AddConstant(gpr.GetImm(inst.src1) + inst.constant));
@@ -667,6 +704,8 @@ bool PropagateConstants(const IRWriter &in, IRWriter &out, const IROptions &opts
 		case IROp::FCeil:
 		case IROp::FFloor:
 		case IROp::FCvtSW:
+		case IROp::FCvtScaledWS:
+		case IROp::FCvtScaledSW:
 		case IROp::FSin:
 		case IROp::FCos:
 		case IROp::FSqrt:
@@ -694,6 +733,13 @@ bool PropagateConstants(const IRWriter &in, IRWriter &out, const IROptions &opts
 				out.Write(inst);
 			}
 			break;
+		case IROp::FpCtrlFromReg:
+			gpr.MapDirtyIn(IRREG_FCR31, inst.src1);
+			gpr.MapDirty(IRREG_FPCOND);
+			goto doDefault;
+		case IROp::FpCtrlToReg:
+			gpr.MapDirtyInIn(inst.dest, IRREG_FPCOND, IRREG_FCR31);
+			goto doDefault;
 
 		case IROp::Vec4Init:
 		case IROp::Vec4Mov:
@@ -760,27 +806,6 @@ bool PropagateConstants(const IRWriter &in, IRWriter &out, const IROptions &opts
 	return logBlocks;
 }
 
-bool IRReadsFromGPR(const IRInst &inst, int reg, bool directly = false) {
-	const IRMeta *m = GetIRMeta(inst.op);
-
-	if (m->types[1] == 'G' && inst.src1 == reg) {
-		return true;
-	}
-	if (m->types[2] == 'G' && inst.src2 == reg) {
-		return true;
-	}
-	if ((m->flags & (IRFLAG_SRC3 | IRFLAG_SRC3DST)) != 0 && m->types[0] == 'G' && inst.src3 == reg) {
-		return true;
-	}
-	if (!directly) {
-		if (inst.op == IROp::Interpret || inst.op == IROp::CallReplacement || inst.op == IROp::Syscall || inst.op == IROp::Break)
-			return true;
-		if (inst.op == IROp::Breakpoint || inst.op == IROp::MemoryCheck)
-			return true;
-	}
-	return false;
-}
-
 IRInst IRReplaceSrcGPR(const IRInst &inst, int fromReg, int toReg) {
 	IRInst newInst = inst;
 	const IRMeta *m = GetIRMeta(inst.op);
@@ -795,15 +820,6 @@ IRInst IRReplaceSrcGPR(const IRInst &inst, int fromReg, int toReg) {
 		newInst.src3 = toReg;
 	}
 	return newInst;
-}
-
-int IRDestGPR(const IRInst &inst) {
-	const IRMeta *m = GetIRMeta(inst.op);
-
-	if ((m->flags & IRFLAG_SRC3) == 0 && m->types[0] == 'G') {
-		return inst.dest;
-	}
-	return -1;
 }
 
 IRInst IRReplaceDestGPR(const IRInst &inst, int fromReg, int toReg) {
@@ -1468,10 +1484,12 @@ bool ApplyMemoryValidation(const IRWriter &in, IRWriter &out, const IROptions &o
 			break;
 
 		case IROp::Load32:
+		case IROp::Load32Linked:
 		case IROp::LoadFloat:
 		case IROp::Store32:
+		case IROp::Store32Conditional:
 		case IROp::StoreFloat:
-			addValidate(IROp::ValidateAddress32, inst, inst.op == IROp::Store32 || inst.op == IROp::StoreFloat);
+			addValidate(IROp::ValidateAddress32, inst, inst.op == IROp::Store32 || inst.op == IROp::Store32Conditional || inst.op == IROp::StoreFloat);
 			break;
 
 		case IROp::LoadVec4:

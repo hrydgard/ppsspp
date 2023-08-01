@@ -78,8 +78,8 @@ private:
 
 	std::string GetTranslatedString(const json::JsonGet json, std::string key, const char *fallback = nullptr) const;
 
-	std::shared_ptr<http::Download> listing_;
-	std::shared_ptr<http::Download> image_;
+	std::shared_ptr<http::Request> listing_;
+	std::shared_ptr<http::Request> image_;
 
 	// TODO: Replace with a PathBrowser or similar. Though that one only supports
 	// local filesystems at the moment.

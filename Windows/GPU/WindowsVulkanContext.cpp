@@ -131,7 +131,7 @@ bool WindowsVulkanContext::Init(HINSTANCE hInst, HWND hWnd, std::string *error_m
 		return false;
 	}
 
-	draw_ = Draw::T3DCreateVulkanContext(vulkan_);
+	draw_ = Draw::T3DCreateVulkanContext(vulkan_, g_Config.bRenderMultiThreading);
 	SetGPUBackend(GPUBackend::VULKAN, vulkan_->GetPhysicalDeviceProperties(deviceNum).properties.deviceName);
 	bool success = draw_->CreatePresets();
 	_assert_msg_(success, "Failed to compile preset shaders");

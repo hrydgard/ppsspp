@@ -92,6 +92,7 @@ enum class IROp : u8 {
 	Load32,
 	Load32Left,
 	Load32Right,
+	Load32Linked,
 	LoadFloat,
 	LoadVec4,
 
@@ -100,6 +101,7 @@ enum class IROp : u8 {
 	Store32,
 	Store32Left,
 	Store32Right,
+	Store32Conditional,
 	StoreFloat,
 	StoreVec4,
 
@@ -127,6 +129,8 @@ enum class IROp : u8 {
 
 	FCvtWS,
 	FCvtSW,
+	FCvtScaledWS,
+	FCvtScaledSW,
 
 	FMovFromGPR,
 	FMovToGPR,
@@ -135,6 +139,8 @@ enum class IROp : u8 {
 	FSatMinus1_1,
 
 	FpCondToReg,
+	FpCtrlFromReg,
+	FpCtrlToReg,
 	VfpuCtrlToReg,
 
 	ZeroFpCond,
@@ -283,7 +289,9 @@ enum IRFpCompareMode {
 	LessEqualUnordered, // ule, ngt (less equal, unordered)
 };
 
-enum {
+typedef u8 IRReg;
+
+enum : IRReg {
 	IRTEMP_0 = 192,
 	IRTEMP_1,
 	IRTEMP_2,
@@ -300,9 +308,6 @@ enum {
 	IRVTEMP_PFX_D = 232 - 32,
 	IRVTEMP_0 = 236 - 32,
 
-	// 16 float temps for vector S and T prefixes and things like that.
-	// IRVTEMP_0 = 208 - 64,  // -64 to be relative to v[0]
-
 	// Hacky way to get to other state
 	IRREG_VFPU_CTRL_BASE = 208,
 	IRREG_VFPU_CC = 211,
@@ -310,6 +315,7 @@ enum {
 	IRREG_HI = 243,
 	IRREG_FCR31 = 244,
 	IRREG_FPCOND = 245,
+	IRREG_LLBIT = 250,
 };
 
 enum IRFlags {
@@ -332,11 +338,11 @@ struct IRMeta {
 struct IRInst {
 	IROp op;
 	union {
-		u8 dest;
-		u8 src3;
+		IRReg dest;
+		IRReg src3;
 	};
-	u8 src1;
-	u8 src2;
+	IRReg src1;
+	IRReg src2;
 	u32 constant;
 };
 

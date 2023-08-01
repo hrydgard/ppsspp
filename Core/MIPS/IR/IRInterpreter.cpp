@@ -218,6 +218,11 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, int count) {
 			mips->r[inst->dest] = (mips->r[inst->dest] & destMask) | (mem >> shift);
 			break;
 		}
+		case IROp::Load32Linked:
+			if (inst->dest != MIPS_REG_ZERO)
+				mips->r[inst->dest] = Memory::ReadUnchecked_U32(mips->r[inst->src1] + inst->constant);
+			mips->llBit = 1;
+			break;
 		case IROp::LoadFloat:
 			mips->f[inst->dest] = Memory::ReadUnchecked_Float(mips->r[inst->src1] + inst->constant);
 			break;
@@ -251,6 +256,16 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, int count) {
 			Memory::WriteUnchecked_U32(result, addr & 0xfffffffc);
 			break;
 		}
+		case IROp::Store32Conditional:
+			if (mips->llBit) {
+				Memory::WriteUnchecked_U32(mips->r[inst->src3], mips->r[inst->src1] + inst->constant);
+				if (inst->dest != MIPS_REG_ZERO) {
+					mips->r[inst->dest] = 1;
+				}
+			} else if (inst->dest != MIPS_REG_ZERO) {
+				mips->r[inst->dest] = 0;
+			}
+			break;
 		case IROp::StoreFloat:
 			Memory::WriteUnchecked_Float(mips->f[inst->src3], mips->r[inst->src1] + inst->constant);
 			break;
@@ -768,10 +783,28 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, int count) {
 			mips->f[inst->dest] = mips->f[inst->src1] / mips->f[inst->src2];
 			break;
 		case IROp::FMin:
-			mips->f[inst->dest] = std::min(mips->f[inst->src1], mips->f[inst->src2]);
+			if (my_isnan(mips->f[inst->src1]) || my_isnan(mips->f[inst->src2])) {
+				// See interpreter for this logic: this is for vmin, we're comparing mantissa+exp.
+				if (mips->fi[inst->src1] < 0 && mips->fi[inst->src2] < 0) {
+					mips->fi[inst->dest] = std::max(mips->fi[inst->src1], mips->fi[inst->src2]);
+				} else {
+					mips->fi[inst->dest] = std::min(mips->fi[inst->src1], mips->fi[inst->src2]);
+				}
+			} else {
+				mips->f[inst->dest] = std::min(mips->f[inst->src1], mips->f[inst->src2]);
+			}
 			break;
 		case IROp::FMax:
-			mips->f[inst->dest] = std::max(mips->f[inst->src1], mips->f[inst->src2]);
+			if (my_isnan(mips->f[inst->src1]) || my_isnan(mips->f[inst->src2])) {
+				// See interpreter for this logic: this is for vmax, we're comparing mantissa+exp.
+				if (mips->fi[inst->src1] < 0 && mips->fi[inst->src2] < 0) {
+					mips->fi[inst->dest] = std::min(mips->fi[inst->src1], mips->fi[inst->src2]);
+				} else {
+					mips->fi[inst->dest] = std::max(mips->fi[inst->src1], mips->fi[inst->src2]);
+				}
+			} else {
+				mips->f[inst->dest] = std::max(mips->f[inst->src1], mips->f[inst->src2]);
+			}
 			break;
 
 		case IROp::FMov:
@@ -811,6 +844,17 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, int count) {
 		case IROp::FpCondToReg:
 			mips->r[inst->dest] = mips->fpcond;
 			break;
+		case IROp::FpCtrlFromReg:
+			mips->fcr31 = mips->r[inst->src1] & 0x0181FFFF;
+			// Extract the new fpcond value.
+			// TODO: Is it really helping us to keep it separate?
+			mips->fpcond = (mips->fcr31 >> 23) & 1;
+			break;
+		case IROp::FpCtrlToReg:
+			// Update the fpcond bit first.
+			mips->fcr31 = (mips->fcr31 & ~(1 << 23)) | ((mips->fpcond & 1) << 23);
+			mips->r[inst->dest] = mips->fcr31;
+			break;
 		case IROp::VfpuCtrlToReg:
 			mips->r[inst->dest] = mips->vfpuCtrl[inst->src1];
 			break;
@@ -821,7 +865,7 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, int count) {
 				mips->fi[inst->dest] = my_isinf(value) && value < 0.0f ? -2147483648LL : 2147483647LL;
 				break;
 			} else {
-				mips->fs[inst->dest] = (int)floorf(value + 0.5f);
+				mips->fs[inst->dest] = (int)round_ieee_754(value);
 			}
 			break;
 		}
@@ -917,6 +961,35 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, int count) {
 			case 3: mips->fs[inst->dest] = (int)floorf(src); break;  // FLOOR_3
 			}
 			break; //cvt.w.s
+		}
+		case IROp::FCvtScaledSW:
+			mips->f[inst->dest] = (float)mips->fs[inst->src1] * (1.0f / (1UL << (inst->src2 & 0x1F)));
+			break;
+		case IROp::FCvtScaledWS:
+		{
+			float src = mips->f[inst->src1];
+			if (my_isnan(src)) {
+				// TODO: True for negatives too?
+				mips->fs[inst->dest] = 2147483647L;
+				break;
+			}
+
+			float mult = (float)(1UL << (inst->src2 & 0x1F));
+			double sv = src * mult; // (float)0x7fffffff == (float)0x80000000
+			// Cap/floor it to 0x7fffffff / 0x80000000
+			if (sv > (double)0x7fffffff) {
+				mips->fs[inst->dest] = 0x7fffffff;
+			} else if (sv <= (double)(int)0x80000000) {
+				mips->fs[inst->dest] = 0x80000000;
+			} else {
+				switch (inst->src2 >> 6) {
+				case 0: mips->fs[inst->dest] = (int)round_ieee_754(sv); break;
+				case 1: mips->fs[inst->dest] = src >= 0 ? (int)floor(sv) : (int)ceil(sv); break;
+				case 2: mips->fs[inst->dest] = (int)ceil(sv); break;
+				case 3: mips->fs[inst->dest] = (int)floor(sv); break;
+				}
+			}
+			break;
 		}
 
 		case IROp::ZeroFpCond:

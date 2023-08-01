@@ -234,6 +234,8 @@ std::string System_GetProperty(SystemProperty prop) {
 			gpuDriverVersion = GetVideoCardDriverVersion();
 		}
 		return gpuDriverVersion;
+	case SYSPROP_BUILD_VERSION:
+		return PPSSPP_GIT_VERSION;
 	default:
 		return "";
 	}
@@ -373,6 +375,8 @@ bool System_GetPropertyBool(SystemProperty prop) {
 		return true;
 	case SYSPROP_SUPPORTS_OPEN_FILE_IN_EDITOR:
 		return true;  // FileUtil.cpp: OpenFileInEditor
+	case SYSPROP_SUPPORTS_HTTPS:
+		return true;
 	default:
 		return false;
 	}

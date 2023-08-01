@@ -1,6 +1,5 @@
 #include "Common/CommonFuncs.h"
 #include "Core/MIPS/IR/IRInst.h"
-#include "Core/MIPS/IR/IRPassSimplify.h"
 #include "Core/MIPS/MIPSDebugInterface.h"
 
 // Legend
@@ -73,6 +72,7 @@ static const IRMeta irMeta[] = {
 	{ IROp::Load32, "Load32", "GGC" },
 	{ IROp::Load32Left, "Load32Left", "GGC", IRFLAG_SRC3DST },
 	{ IROp::Load32Right, "Load32Right", "GGC", IRFLAG_SRC3DST },
+	{ IROp::Load32Linked, "Load32Linked", "GGC" },
 	{ IROp::LoadFloat, "LoadFloat", "FGC" },
 	{ IROp::LoadVec4, "LoadVec4", "VGC" },
 	{ IROp::Store8, "Store8", "GGC", IRFLAG_SRC3 },
@@ -80,6 +80,7 @@ static const IRMeta irMeta[] = {
 	{ IROp::Store32, "Store32", "GGC", IRFLAG_SRC3 },
 	{ IROp::Store32Left, "Store32Left", "GGC", IRFLAG_SRC3 },
 	{ IROp::Store32Right, "Store32Right", "GGC", IRFLAG_SRC3 },
+	{ IROp::Store32Conditional, "Store32Conditional", "GGC", IRFLAG_SRC3DST },
 	{ IROp::StoreFloat, "StoreFloat", "FGC", IRFLAG_SRC3 },
 	{ IROp::StoreVec4, "StoreVec4", "VGC", IRFLAG_SRC3 },
 	{ IROp::FAdd, "FAdd", "FFF" },
@@ -105,6 +106,8 @@ static const IRMeta irMeta[] = {
 	{ IROp::FFloor, "FFloor", "FF" },
 	{ IROp::FCvtWS, "FCvtWS", "FF" },
 	{ IROp::FCvtSW, "FCvtSW", "FF" },
+	{ IROp::FCvtScaledWS, "FCvtScaledWS", "FFI" },
+	{ IROp::FCvtScaledSW, "FCvtScaledSW", "FFI" },
 	{ IROp::FCmp, "FCmp", "mFF" },
 	{ IROp::FSat0_1, "FSat(0 - 1)", "FF" },
 	{ IROp::FSatMinus1_1, "FSat(-1 - 1)", "FF" },
@@ -112,11 +115,13 @@ static const IRMeta irMeta[] = {
 	{ IROp::FMovToGPR, "FMovToGPR", "GF" },
 	{ IROp::ZeroFpCond, "ZeroFpCond", "" },
 	{ IROp::FpCondToReg, "FpCondToReg", "G" },
+	{ IROp::FpCtrlFromReg, "FpCtrlFromReg", "_G" },
+	{ IROp::FpCtrlToReg, "FpCtrlToReg", "G" },
 	{ IROp::VfpuCtrlToReg, "VfpuCtrlToReg", "GI" },
 	{ IROp::SetCtrlVFPU, "SetCtrlVFPU", "TC" },
 	{ IROp::SetCtrlVFPUReg, "SetCtrlVFPUReg", "TG" },
 	{ IROp::SetCtrlVFPUFReg, "SetCtrlVFPUFReg", "TF" },
-	{ IROp::FCmovVfpuCC, "FCmovVfpuCC", "FFI" },
+	{ IROp::FCmovVfpuCC, "FCmovVfpuCC", "FFI", IRFLAG_SRC3DST },
 	{ IROp::FCmpVfpuBit, "FCmpVfpuBit", "IFF" },
 	{ IROp::FCmpVfpuAggregate, "FCmpVfpuAggregate", "I" },
 	{ IROp::Vec4Init, "Vec4Init", "Vv" },
@@ -263,21 +268,21 @@ void DisassembleParam(char *buf, int bufSize, u8 param, char type, u32 constant)
 		break;
 	case 'F':
 		if (param >= 32) {
-			snprintf(buf, bufSize, "v%d", param - 32);
+			snprintf(buf, bufSize, "vf%d", param - 32);
 		} else {
 			snprintf(buf, bufSize, "f%d", param);
 		}
 		break;
 	case 'V':
 		if (param >= 32) {
-			snprintf(buf, bufSize, "v%d..v%d", param - 32, param - 32 + 3);
+			snprintf(buf, bufSize, "vf%d..vf%d", param - 32, param - 32 + 3);
 		} else {
 			snprintf(buf, bufSize, "f%d..f%d", param, param + 3);
 		}
 		break;
 	case '2':
 		if (param >= 32) {
-			snprintf(buf, bufSize, "v%d,v%d", param - 32, param - 32 + 1);
+			snprintf(buf, bufSize, "vf%d,vf%d", param - 32, param - 32 + 1);
 		} else {
 			snprintf(buf, bufSize, "f%d,f%d", param, param + 1);
 		}

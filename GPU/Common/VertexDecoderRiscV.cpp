@@ -265,15 +265,15 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec, int
 
 		if ((morphFlags & (1 << (int)MorphValuesIndex::COLOR_4)) != 0) {
 			LI(scratchReg, 255.0f / 15.0f);
-			FMV(FMv::W, FMv::X, fpScratchReg1, scratchReg);
+			FMV(FMv::W, FMv::X, fpExtra[0], scratchReg);
 		}
 		if ((morphFlags & (1 << (int)MorphValuesIndex::COLOR_5)) != 0) {
 			LI(scratchReg, 255.0f / 31.0f);
-			FMV(FMv::W, FMv::X, fpScratchReg2, scratchReg);
+			FMV(FMv::W, FMv::X, fpExtra[1], scratchReg);
 		}
 		if ((morphFlags & (1 << (int)MorphValuesIndex::COLOR_6)) != 0) {
 			LI(scratchReg, 255.0f / 63.0f);
-			FMV(FMv::W, FMv::X, fpScratchReg3, scratchReg);
+			FMV(FMv::W, FMv::X, fpExtra[2], scratchReg);
 		}
 
 		// Premultiply the values we need and store them so we can reuse.
@@ -287,11 +287,11 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec, int
 			if ((morphFlags & (1 << (int)MorphValuesIndex::AS_FLOAT)) != 0)
 				FS(32, fpScratchReg1, morphBaseReg, ((int)MorphValuesIndex::AS_FLOAT * 8 + n) * 4);
 			if ((morphFlags & (1 << (int)MorphValuesIndex::COLOR_4)) != 0)
-				storePremultiply(fpScratchReg1, MorphValuesIndex::COLOR_4, n);
+				storePremultiply(fpExtra[0], MorphValuesIndex::COLOR_4, n);
 			if ((morphFlags & (1 << (int)MorphValuesIndex::COLOR_5)) != 0)
-				storePremultiply(fpScratchReg2, MorphValuesIndex::COLOR_5, n);
+				storePremultiply(fpExtra[1], MorphValuesIndex::COLOR_5, n);
 			if ((morphFlags & (1 << (int)MorphValuesIndex::COLOR_6)) != 0)
-				storePremultiply(fpScratchReg3, MorphValuesIndex::COLOR_6, n);
+				storePremultiply(fpExtra[2], MorphValuesIndex::COLOR_6, n);
 		}
 	} else if (dec_->skinInDecode) {
 		LI(morphBaseReg, &skinMatrix[0]);
@@ -538,7 +538,7 @@ void VertexDecoderJitCache::Jit_TcU16ThroughToFloat() {
 	LHU(tempReg1, srcReg, dec_->tcoff + 0);
 	LHU(tempReg2, srcReg, dec_->tcoff + 2);
 
-	if (cpu_info.RiscV_B) {
+	if (cpu_info.RiscV_Zbb) {
 		MINU(boundsMinUReg, boundsMinUReg, tempReg1);
 		MAXU(boundsMaxUReg, boundsMaxUReg, tempReg1);
 		MINU(boundsMinVReg, boundsMinVReg, tempReg2);
@@ -838,20 +838,20 @@ void VertexDecoderJitCache::Jit_PosFloat() {
 }
 
 void VertexDecoderJitCache::Jit_PosS8Skin() {
-	Jit_AnyS8ToFloat(dec_->nrmoff);
-	Jit_WriteMatrixMul(dec_->decFmt.nrmoff, true);
+	Jit_AnyS8ToFloat(dec_->posoff);
+	Jit_WriteMatrixMul(dec_->decFmt.posoff, true);
 }
 
 void VertexDecoderJitCache::Jit_PosS16Skin() {
-	Jit_AnyS16ToFloat(dec_->nrmoff);
-	Jit_WriteMatrixMul(dec_->decFmt.nrmoff, true);
+	Jit_AnyS16ToFloat(dec_->posoff);
+	Jit_WriteMatrixMul(dec_->decFmt.posoff, true);
 }
 
 void VertexDecoderJitCache::Jit_PosFloatSkin() {
-	FL(32, fpSrc[0], srcReg, dec_->nrmoff + 0);
-	FL(32, fpSrc[1], srcReg, dec_->nrmoff + 4);
-	FL(32, fpSrc[2], srcReg, dec_->nrmoff + 8);
-	Jit_WriteMatrixMul(dec_->decFmt.nrmoff, true);
+	FL(32, fpSrc[0], srcReg, dec_->posoff + 0);
+	FL(32, fpSrc[1], srcReg, dec_->posoff + 4);
+	FL(32, fpSrc[2], srcReg, dec_->posoff + 8);
+	Jit_WriteMatrixMul(dec_->decFmt.posoff, true);
 }
 
 void VertexDecoderJitCache::Jit_PosS8Through() {
@@ -867,8 +867,8 @@ void VertexDecoderJitCache::Jit_PosS16Through() {
 	LH(tempReg2, srcReg, dec_->posoff + 2);
 	// This one, Z, has to be unsigned.
 	LHU(tempReg3, srcReg, dec_->posoff + 4);
-	FCVT(FConv::S, FConv::WU, fpSrc[0], tempReg1, Round::TOZERO);
-	FCVT(FConv::S, FConv::WU, fpSrc[1], tempReg2, Round::TOZERO);
+	FCVT(FConv::S, FConv::W, fpSrc[0], tempReg1, Round::TOZERO);
+	FCVT(FConv::S, FConv::W, fpSrc[1], tempReg2, Round::TOZERO);
 	FCVT(FConv::S, FConv::WU, fpSrc[2], tempReg3, Round::TOZERO);
 	FS(32, fpSrc[0], dstReg, dec_->decFmt.posoff + 0);
 	FS(32, fpSrc[1], dstReg, dec_->decFmt.posoff + 4);
@@ -904,17 +904,17 @@ void VertexDecoderJitCache::Jit_PosFloatMorph() {
 
 void VertexDecoderJitCache::Jit_PosS8MorphSkin() {
 	Jit_AnyS8Morph(dec_->posoff, -1);
-	Jit_WriteMatrixMul(dec_->decFmt.nrmoff, true);
+	Jit_WriteMatrixMul(dec_->decFmt.posoff, true);
 }
 
 void VertexDecoderJitCache::Jit_PosS16MorphSkin() {
 	Jit_AnyS16Morph(dec_->posoff, -1);
-	Jit_WriteMatrixMul(dec_->decFmt.nrmoff, true);
+	Jit_WriteMatrixMul(dec_->decFmt.posoff, true);
 }
 
 void VertexDecoderJitCache::Jit_PosFloatMorphSkin() {
 	Jit_AnyFloatMorph(dec_->posoff, -1);
-	Jit_WriteMatrixMul(dec_->decFmt.nrmoff, true);
+	Jit_WriteMatrixMul(dec_->decFmt.posoff, true);
 }
 
 void VertexDecoderJitCache::Jit_Color8888() {
@@ -1110,7 +1110,7 @@ void VertexDecoderJitCache::Jit_Color565Morph() {
 	SRLI(tempReg1, tempReg1, 6);
 	FMUL(32, fpSrc[1], fpSrc[1], fpScratchReg4, Round::TOZERO);
 
-	FCVT(FConv::S, FConv::WU, fpSrc[0], tempReg1, Round::TOZERO);
+	FCVT(FConv::S, FConv::WU, fpSrc[2], tempReg1, Round::TOZERO);
 	FMUL(32, fpSrc[2], fpSrc[2], fpScratchReg3, Round::TOZERO);
 
 	for (int n = 1; n < dec_->morphcount; n++) {
@@ -1172,7 +1172,7 @@ void VertexDecoderJitCache::Jit_Color5551Morph() {
 }
 
 void VertexDecoderJitCache::Jit_WriteMorphColor(int outOff, bool checkAlpha) {
-	if (cpu_info.RiscV_B) {
+	if (cpu_info.RiscV_Zbb) {
 		LI(scratchReg, 0xFF);
 		FCVT(FConv::WU, FConv::S, tempReg1, fpSrc[0], Round::TOZERO);
 		MAX(tempReg1, tempReg1, R_ZERO);
@@ -1389,21 +1389,28 @@ void VertexDecoderJitCache::Jit_AnyFloatMorph(int srcoff, int dstoff) {
 void VertexDecoderJitCache::Jit_WriteMatrixMul(int dstoff, bool pos) {
 	const RiscVReg fpDst[3] = { fpScratchReg1, fpScratchReg2, fpScratchReg3 };
 
+	// When using morph + skin, we don't keep skinMatrix in a reg.
+	RiscVReg skinMatrixReg = morphBaseReg;
+	if (dec_->morphcount > 1) {
+		LI(scratchReg, &skinMatrix[0]);
+		skinMatrixReg = scratchReg;
+	}
+
 	// First, take care of the 3x3 portion of the matrix.
 	for (int y = 0; y < 3; ++y) {
 		for (int x = 0; x < 3; ++x) {
-			FL(32, fpScratchReg4, morphBaseReg, (y * 3 + x) * 4);
+			FL(32, fpScratchReg4, skinMatrixReg, (y * 3 + x) * 4);
 			if (y == 0)
-				FMUL(32, fpDst[x], fpSrc[x], fpScratchReg4);
+				FMUL(32, fpDst[x], fpSrc[y], fpScratchReg4);
 			else
-				FMADD(32, fpDst[x], fpSrc[x], fpScratchReg4, fpDst[x]);
+				FMADD(32, fpDst[x], fpSrc[y], fpScratchReg4, fpDst[x]);
 		}
 	}
 
 	// For normal, z is 0 so we skip.
 	if (pos) {
 		for (int x = 0; x < 3; ++x)
-			FL(32, fpSrc[x], morphBaseReg, (9 + x) * 4);
+			FL(32, fpSrc[x], skinMatrixReg, (9 + x) * 4);
 		for (int x = 0; x < 3; ++x)
 			FADD(32, fpDst[x], fpDst[x], fpSrc[x]);
 	}

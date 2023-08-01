@@ -180,7 +180,7 @@ void Arm64RegCache::MapRegTo(ARM64Reg reg, MIPSGPReg mipsReg, int mapFlags) {
 	ar[reg].isDirty = (mapFlags & MAP_DIRTY) ? true : false;
 	if ((mapFlags & MAP_NOINIT) != MAP_NOINIT) {
 		if (mipsReg == MIPS_REG_ZERO) {
-			// If we get a request to load the zero register, at least we won't spend
+			// If we get a request to map the zero register, at least we won't spend
 			// time on a memory access...
 			emit_->MOVI2R(reg, 0);
 
@@ -777,7 +777,7 @@ void Arm64RegCache::FlushAll() {
 			// Re-pointerify
 			emit_->MOVK(EncodeRegTo64(allocs[i].ar), ((uint64_t)Memory::base) >> 32, SHIFT_32);
 			ar[allocs[i].ar].pointerified = true;
-		} else {
+		} else if (!allocs[i].pointerified) {
 			// If this register got pointerified on the way, mark it as not, so that after save/reload (like in an interpreter fallback), it won't be regarded as such, as it simply won't be.
 			ar[allocs[i].ar].pointerified = false;
 		}

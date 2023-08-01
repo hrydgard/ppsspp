@@ -45,6 +45,8 @@
 #include "../x86/Jit.h"
 #elif PPSSPP_ARCH(MIPS)
 #include "../MIPS/MipsJit.h"
+#elif PPSSPP_ARCH(RISCV64)
+#include "../RiscV/RiscVJit.h"
 #else
 #include "../fake/FakeJit.h"
 #endif
@@ -108,6 +110,8 @@ namespace MIPSComp {
 		return new MIPSComp::Jit(mipsState);
 #elif PPSSPP_ARCH(MIPS)
 		return new MIPSComp::MipsJit(mipsState);
+#elif PPSSPP_ARCH(RISCV64)
+		return new MIPSComp::RiscVJit(mipsState);
 #else
 		return new MIPSComp::FakeJit(mipsState);
 #endif
@@ -331,12 +335,12 @@ std::vector<std::string> DisassembleRV64(const u8 *data, int size) {
 			// Force align in case we're somehow unaligned.
 			len = 2 - ((uintptr_t)data & 1);
 			invalid_count += (int)len;
-			i +=(int) len;
+			i += (int)len;
 			continue;
 		}
 
 		invalid_flush();
-		riscv_disasm_inst(temp, sizeof(temp), rv64, i * 4, inst);
+		riscv_disasm_inst(temp, sizeof(temp), rv64, (uintptr_t)data + i, inst);
 		lines.push_back(ReplaceAll(temp, "\t", "  "));
 
 		i += (int)len;

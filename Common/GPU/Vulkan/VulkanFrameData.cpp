@@ -4,6 +4,12 @@
 #include "Common/Log.h"
 #include "Common/StringUtils.h"
 
+#if 0 // def _DEBUG
+#define VLOG(...) NOTICE_LOG(G3D, __VA_ARGS__)
+#else
+#define VLOG(...)
+#endif
+
 void CachedReadback::Destroy(VulkanContext *vulkan) {
 	if (buffer) {
 		vulkan->Delete().QueueDeleteBufferAllocation(buffer, allocation);
@@ -196,12 +202,16 @@ void FrameData::SubmitPending(VulkanContext *vulkan, FrameSubmitType type, Frame
 
 	VkResult res;
 	if (fenceToTrigger == fence) {
+		VLOG("Doing queue submit, fencing frame %d", this->index);
 		// The fence is waited on by the main thread, they are not allowed to access it simultaneously.
 		res = vkQueueSubmit(vulkan->GetGraphicsQueue(), 1, &submit_info, fenceToTrigger);
-		std::lock_guard<std::mutex> lock(fenceMutex);
-		readyForFence = true;
-		fenceCondVar.notify_one();
+		if (sharedData.useMultiThreading) {
+			std::lock_guard<std::mutex> lock(fenceMutex);
+			readyForFence = true;
+			fenceCondVar.notify_one();
+		}
 	} else {
+		VLOG("Doing queue submit, fencing something (%p)", fenceToTrigger);
 		res = vkQueueSubmit(vulkan->GetGraphicsQueue(), 1, &submit_info, fenceToTrigger);
 	}
 
@@ -219,7 +229,7 @@ void FrameData::SubmitPending(VulkanContext *vulkan, FrameSubmitType type, Frame
 	}
 }
 
-void FrameDataShared::Init(VulkanContext *vulkan) {
+void FrameDataShared::Init(VulkanContext *vulkan, bool useMultiThreading) {
 	VkSemaphoreCreateInfo semaphoreCreateInfo = { VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO };
 	semaphoreCreateInfo.flags = 0;
 	VkResult res = vkCreateSemaphore(vulkan->GetDevice(), &semaphoreCreateInfo, nullptr, &acquireSemaphore);
@@ -230,6 +240,8 @@ void FrameDataShared::Init(VulkanContext *vulkan) {
 	// This fence is used for synchronizing readbacks. Does not need preinitialization.
 	readbackFence = vulkan->CreateFence(false);
 	vulkan->SetDebugName(readbackFence, VK_OBJECT_TYPE_FENCE, "readbackFence");
+
+	this->useMultiThreading = useMultiThreading;
 }
 
 void FrameDataShared::Destroy(VulkanContext *vulkan) {

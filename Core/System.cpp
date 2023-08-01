@@ -418,6 +418,10 @@ bool PSP_InitStart(const CoreParameter &coreParam, std::string *error_string) {
 		return false;
 	}
 
+	if (!Achievements::IsReadyToStart()) {
+		return false;
+	}
+
 #if defined(_WIN32) && PPSSPP_ARCH(AMD64)
 	NOTICE_LOG(BOOT, "PPSSPP %s Windows 64 bit", PPSSPP_GIT_VERSION);
 #elif defined(_WIN32) && !PPSSPP_ARCH(AMD64)
@@ -473,11 +477,6 @@ bool PSP_InitStart(const CoreParameter &coreParam, std::string *error_string) {
 }
 
 bool PSP_InitUpdate(std::string *error_string) {
-	if (Achievements::IsBlockingExecution()) {
-		// Keep waiting.
-		return false;
-	}
-
 	if (pspIsInited || !pspIsIniting) {
 		return true;
 	}
@@ -487,7 +486,10 @@ bool PSP_InitUpdate(std::string *error_string) {
 	}
 
 	bool success = !g_CoreParameter.fileToStart.empty();
-	*error_string = g_CoreParameter.errorString;
+	if (!g_CoreParameter.errorString.empty()) {
+		*error_string = g_CoreParameter.errorString;
+	}
+
 	if (success && gpu == nullptr) {
 		PSP_SetLoading("Starting graphics...");
 		Draw::DrawContext *draw = g_CoreParameter.graphicsContext ? g_CoreParameter.graphicsContext->GetDrawContext() : nullptr;

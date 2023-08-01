@@ -53,8 +53,9 @@ struct FrameDataShared {
 
 	// For synchronous readbacks.
 	VkFence readbackFence = VK_NULL_HANDLE;
+	bool useMultiThreading;
 
-	void Init(VulkanContext *vulkan);
+	void Init(VulkanContext *vulkan, bool useMultiThreading);
 	void Destroy(VulkanContext *vulkan);
 };
 
