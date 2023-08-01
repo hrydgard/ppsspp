@@ -285,6 +285,11 @@ static const ConfigSetting achievementSettings[] = {
 	ConfigSetting("AchievementsLeaderboardSubmitAudioFile", &g_Config.sAchievementsLeaderboardSubmitAudioFile, "", CfgFlag::DEFAULT),
 
 	ConfigSetting("AchievementsLeaderboardTrackerPos", &g_Config.iAchievementsLeaderboardTrackerPos, (int)ScreenEdgePosition::TOP_LEFT, CfgFlag::DEFAULT),
+	ConfigSetting("AchievementsLeaderboardStartedOrFailedPos", &g_Config.iAchievementsLeaderboardStartedOrFailedPos, (int)ScreenEdgePosition::TOP_LEFT, CfgFlag::DEFAULT),
+	ConfigSetting("AchievementsLeaderboardSubmittedPos", &g_Config.iAchievementsLeaderboardSubmittedPos, (int)ScreenEdgePosition::TOP_LEFT, CfgFlag::DEFAULT),
+	ConfigSetting("AchievementsProgressPos", &g_Config.iAchievementsProgressPos, (int)ScreenEdgePosition::TOP_LEFT, CfgFlag::DEFAULT),
+	ConfigSetting("AchievementsChallengePos", &g_Config.iAchievementsChallengePos, (int)ScreenEdgePosition::TOP_LEFT, CfgFlag::DEFAULT),
+	ConfigSetting("AchievementsUnlockedPos", &g_Config.iAchievementsUnlockedPos, (int)ScreenEdgePosition::TOP_CENTER, CfgFlag::DEFAULT),
 };
 
 static const ConfigSetting cpuSettings[] = {

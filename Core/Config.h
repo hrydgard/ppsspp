@@ -488,6 +488,11 @@ public:
 
 	// Positioning of the various notifications
 	int iAchievementsLeaderboardTrackerPos;
+	int iAchievementsLeaderboardStartedOrFailedPos;
+	int iAchievementsLeaderboardSubmittedPos;
+	int iAchievementsProgressPos;
+	int iAchievementsChallengePos;
+	int iAchievementsUnlockedPos;
 
 	// Customizations
 	std::string sAchievementsUnlockAudioFile;

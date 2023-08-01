@@ -244,22 +244,37 @@ static void event_handler_callback(const rc_client_event_t *event, rc_client_t *
 		break;
 	}
 	case RC_CLIENT_EVENT_LEADERBOARD_STARTED:
-		// A leaderboard attempt has started. The handler may show a message with the leaderboard title and /or description indicating the attempt started.
-		INFO_LOG(ACHIEVEMENTS, "Leaderboard attempt started: %s", event->leaderboard->title);
-		g_OSD.Show(OSDType::MESSAGE_INFO, ApplySafeSubstitutions(ac->T("%1: Leaderboard attempt started"), event->leaderboard->title), DeNull(event->leaderboard->description), 3.0f);
-		break;
 	case RC_CLIENT_EVENT_LEADERBOARD_FAILED:
-		INFO_LOG(ACHIEVEMENTS, "Leaderboard attempt failed: %s", event->leaderboard->title);
-		g_OSD.Show(OSDType::MESSAGE_INFO, ApplySafeSubstitutions(ac->T("%1: Leaderboard attempt failed"), event->leaderboard->title), 3.0f);
-		// A leaderboard attempt has failed.
+	{
+		bool started = event->type == RC_CLIENT_EVENT_LEADERBOARD_STARTED;
+		// A leaderboard attempt has started. The handler may show a message with the leaderboard title and /or description indicating the attempt started.
+		const char *title = "";
+		const char *description = "";
+		// Hack around some problematic events in Burnout Legends. Hopefully this can be fixed in the backend.
+		if (strlen(event->leaderboard->title) > 0) {
+			title = event->leaderboard->title;
+			description = event->leaderboard->description;
+		} else {
+			title = event->leaderboard->description;
+		}
+		INFO_LOG(ACHIEVEMENTS, "Attempt %s: %s", started ? "started" : "failed", title);
+		g_OSD.ShowLeaderboardStartEnd(ApplySafeSubstitutions(ac->T(started ? "%1: Attempt started" : "%1: Attempt failed"), title), description, started);
 		break;
+	}
 	case RC_CLIENT_EVENT_LEADERBOARD_SUBMITTED:
+	{
 		INFO_LOG(ACHIEVEMENTS, "Leaderboard result submitted: %s", event->leaderboard->title);
-		g_OSD.Show(OSDType::MESSAGE_SUCCESS,
-			ApplySafeSubstitutions(ac->T("Submitted %1 for %2"), DeNull(event->leaderboard->tracker_value), DeNull(event->leaderboard->title)),
-			DeNull(event->leaderboard->description), 3.0f);
+		const char *title = "";
+		// Hack around some problematic events in Burnout Legends. Hopefully this can be fixed in the backend.
+		if (strlen(event->leaderboard->title) > 0) {
+			title = event->leaderboard->title;
+		} else {
+			title = event->leaderboard->description;
+		}
+		g_OSD.ShowLeaderboardSubmitted(ApplySafeSubstitutions(ac->T("Submitted %1 for %2"), DeNull(event->leaderboard->tracker_value), title), "");
 		System_PostUIMessage("play_sound", "leaderboard_submitted");
 		break;
+	}
 	case RC_CLIENT_EVENT_ACHIEVEMENT_CHALLENGE_INDICATOR_SHOW:
 		INFO_LOG(ACHIEVEMENTS, "Challenge indicator show: %s", event->achievement->title);
 		g_OSD.ShowChallengeIndicator(event->achievement->id, true);

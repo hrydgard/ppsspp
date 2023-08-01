@@ -268,10 +268,12 @@ void OnScreenMessagesView::Draw(UIContext &dc) {
 		typeEdges[i] = ScreenEdgePosition::TOP_CENTER;
 	}
 
-	// TODO: Add ability to override these with g_Config settings.
-	typeEdges[(size_t)OSDType::ACHIEVEMENT_CHALLENGE_INDICATOR] = ScreenEdgePosition::TOP_LEFT;
-	typeEdges[(size_t)OSDType::ACHIEVEMENT_PROGRESS] = ScreenEdgePosition::TOP_LEFT;
+	typeEdges[(size_t)OSDType::ACHIEVEMENT_CHALLENGE_INDICATOR] = (ScreenEdgePosition)g_Config.iAchievementsChallengePos;
+	typeEdges[(size_t)OSDType::ACHIEVEMENT_PROGRESS] = (ScreenEdgePosition)g_Config.iAchievementsProgressPos;
 	typeEdges[(size_t)OSDType::LEADERBOARD_TRACKER] = (ScreenEdgePosition)g_Config.iAchievementsLeaderboardTrackerPos;
+	typeEdges[(size_t)OSDType::LEADERBOARD_STARTED_FAILED] = (ScreenEdgePosition)g_Config.iAchievementsLeaderboardStartedOrFailedPos;
+	typeEdges[(size_t)OSDType::LEADERBOARD_SUBMITTED] = (ScreenEdgePosition)g_Config.iAchievementsLeaderboardSubmittedPos;
+	typeEdges[(size_t)OSDType::ACHIEVEMENT_UNLOCKED] = (ScreenEdgePosition)g_Config.iAchievementsUnlockedPos;
 
 	dc.SetFontScale(1.0f, 1.0f);
 
@@ -281,7 +283,7 @@ void OnScreenMessagesView::Draw(UIContext &dc) {
 		auto &measuredEntry = measuredEntries[i];
 
 		ScreenEdgePosition pos = typeEdges[(size_t)entry.type];
-		if (pos == ScreenEdgePosition::VALUE_COUNT) {
+		if (pos == ScreenEdgePosition::VALUE_COUNT || pos == (ScreenEdgePosition)-1) {
 			// NONE.
 			continue;
 		}

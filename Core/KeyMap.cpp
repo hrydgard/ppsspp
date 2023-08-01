@@ -400,8 +400,8 @@ const KeyMap_IntStrPair psp_button_names[] = {
 	{VIRTKEY_REWIND, "Rewind"},
 	{VIRTKEY_SAVE_STATE, "Save State"},
 	{VIRTKEY_LOAD_STATE, "Load State"},
-	{VIRTKEY_PREVIOUS_SLOT,  "Previous Slot"},
-	{VIRTKEY_NEXT_SLOT,  "Next Slot"},
+	{VIRTKEY_PREVIOUS_SLOT, "Previous Slot"},
+	{VIRTKEY_NEXT_SLOT, "Next Slot"},
 #if !defined(MOBILE_DEVICE)
 	{VIRTKEY_TOGGLE_FULLSCREEN, "Toggle Fullscreen"},
 #endif

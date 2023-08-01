@@ -199,6 +199,15 @@ void OnScreenDisplay::ShowLeaderboardTracker(int leaderboardTrackerID, const cha
 	entries_.insert(entries_.begin(), entry);
 }
 
+void OnScreenDisplay::ShowLeaderboardStartEnd(const std::string &title, const std::string &description, bool started) {
+	g_OSD.Show(OSDType::LEADERBOARD_STARTED_FAILED, title, description, 3.0f);
+
+}
+
+void OnScreenDisplay::ShowLeaderboardSubmitted(const std::string &title, const std::string &value) {
+	g_OSD.Show(OSDType::MESSAGE_SUCCESS, title, value, 3.0f);
+}
+
 void OnScreenDisplay::ShowOnOff(const std::string &message, bool on, float duration_s) {
 	// TODO: translate "on" and "off"? Or just get rid of this whole thing?
 	Show(OSDType::MESSAGE_INFO, message + ": " + (on ? "on" : "off"), duration_s);
@@ -266,6 +275,8 @@ void OnScreenDisplay::ClearAchievementStuff() {
 		case OSDType::ACHIEVEMENT_UNLOCKED:
 		case OSDType::ACHIEVEMENT_PROGRESS:
 		case OSDType::LEADERBOARD_TRACKER:
+		case OSDType::LEADERBOARD_STARTED_FAILED:
+		case OSDType::LEADERBOARD_SUBMITTED:
 			iter.endTime = now;
 			break;
 		default:
