@@ -894,15 +894,15 @@ protected:
 // TODO: Shouldn't actually need bounds for this, Anchor can center too.
 static UI::AnchorLayoutParams *AnchorInCorner(const Bounds &bounds, int corner, float xOffset, float yOffset) {
 	using namespace UI;
-	switch (g_Config.iChatButtonPosition) {
-	case 0:  return new AnchorLayoutParams(WRAP_CONTENT, WRAP_CONTENT, xOffset, NONE, NONE, yOffset, true);
-	case 1:  return new AnchorLayoutParams(WRAP_CONTENT, WRAP_CONTENT, bounds.centerX(), NONE, NONE, yOffset, true);
-	case 2:  return new AnchorLayoutParams(WRAP_CONTENT, WRAP_CONTENT, NONE, NONE, xOffset, yOffset, true);
-	case 3:  return new AnchorLayoutParams(WRAP_CONTENT, WRAP_CONTENT, xOffset, yOffset, NONE, NONE, true);
-	case 4:  return new AnchorLayoutParams(WRAP_CONTENT, WRAP_CONTENT, bounds.centerX(), yOffset, NONE, NONE, true);
-	case 5:  return new AnchorLayoutParams(WRAP_CONTENT, WRAP_CONTENT, NONE, yOffset, xOffset, NONE, true);
-	case 6:  return new AnchorLayoutParams(WRAP_CONTENT, WRAP_CONTENT, xOffset, bounds.centerY(), NONE, NONE, true);
-	case 7:  return new AnchorLayoutParams(WRAP_CONTENT, WRAP_CONTENT, NONE, bounds.centerY(), xOffset, NONE, true);
+	switch ((ScreenEdgePosition)g_Config.iChatButtonPosition) {
+	case ScreenEdgePosition::BOTTOM_LEFT:   return new AnchorLayoutParams(WRAP_CONTENT, WRAP_CONTENT, xOffset, NONE, NONE, yOffset, true);
+	case ScreenEdgePosition::BOTTOM_CENTER: return new AnchorLayoutParams(WRAP_CONTENT, WRAP_CONTENT, bounds.centerX(), NONE, NONE, yOffset, true);
+	case ScreenEdgePosition::BOTTOM_RIGHT:   return new AnchorLayoutParams(WRAP_CONTENT, WRAP_CONTENT, NONE, NONE, xOffset, yOffset, true);
+	case ScreenEdgePosition::TOP_LEFT:      return new AnchorLayoutParams(WRAP_CONTENT, WRAP_CONTENT, xOffset, yOffset, NONE, NONE, true);
+	case ScreenEdgePosition::TOP_CENTER:    return new AnchorLayoutParams(WRAP_CONTENT, WRAP_CONTENT, bounds.centerX(), yOffset, NONE, NONE, true);
+	case ScreenEdgePosition::TOP_RIGHT:     return new AnchorLayoutParams(WRAP_CONTENT, WRAP_CONTENT, NONE, yOffset, xOffset, NONE, true);
+	case ScreenEdgePosition::CENTER_LEFT:   return new AnchorLayoutParams(WRAP_CONTENT, WRAP_CONTENT, xOffset, bounds.centerY(), NONE, NONE, true);
+	case ScreenEdgePosition::CENTER_RIGHT:  return new AnchorLayoutParams(WRAP_CONTENT, WRAP_CONTENT, NONE, bounds.centerY(), xOffset, NONE, true);
 	default: return new AnchorLayoutParams(WRAP_CONTENT, WRAP_CONTENT, xOffset, NONE, NONE, yOffset, true);
 	}
 }

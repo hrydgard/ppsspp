@@ -275,7 +275,7 @@ void RetroAchievementsSettingsScreen::CreateAccountTab(UI::ViewGroup *viewGroup)
 	using namespace UI;
 
 	if (!g_Config.bAchievementsEnable) {
-		viewGroup->Add(new TextView(ac->T("Achievements are disabled")));
+		viewGroup->Add(new NoticeView(NoticeLevel::INFO, ac->T("Achievements are disabled"), "", new LinearLayoutParams(Margins(5))));
 	} else if (Achievements::IsLoggedIn()) {
 		const rc_client_user_t *info = rc_client_get_user_info(Achievements::GetClient());
 
@@ -366,6 +366,11 @@ void RetroAchievementsSettingsScreen::CreateCustomizeTab(UI::ViewGroup *viewGrou
 	viewGroup->Add(new ItemHeader(ac->T("Sound effects")));
 	viewGroup->Add(new AudioFileChooser(&g_Config.sAchievementsUnlockAudioFile, ac->T("Achievement unlocked"), UISound::ACHIEVEMENT_UNLOCKED));
 	viewGroup->Add(new AudioFileChooser(&g_Config.sAchievementsLeaderboardSubmitAudioFile, ac->T("Leaderboard score submission"), UISound::LEADERBOARD_SUBMITTED));
+
+	static const char *positions[] = { "Bottom Left", "Bottom Center", "Bottom Right", "Top Left", "Top Center", "Top Right", "Center Left", "Center Right", "None" };
+
+	viewGroup->Add(new ItemHeader(ac->T("Notifications")));
+	viewGroup->Add(new PopupMultiChoice(&g_Config.iAchievementsLeaderboardTrackerPos, ac->T("Leaderboard tracker"), positions, 0, ARRAY_SIZE(positions), I18NCat::DIALOG, screenManager()))->SetEnabledPtr(&g_Config.bAchievementsEnable);
 }
 
 void RetroAchievementsSettingsScreen::CreateDeveloperToolsTab(UI::ViewGroup *viewGroup) {

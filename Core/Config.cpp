@@ -47,6 +47,7 @@
 #include "Common/Thread/ThreadUtil.h"
 #include "Common/GPU/Vulkan/VulkanLoader.h"
 #include "Common/VR/PPSSPPVR.h"
+#include "Common/System/OSD.h"
 #include "Core/Config.h"
 #include "Core/ConfigSettings.h"
 #include "Core/ConfigValues.h"
@@ -282,6 +283,8 @@ static const ConfigSetting achievementSettings[] = {
 	ConfigSetting("AchievementsSoundEffects", &g_Config.bAchievementsSoundEffects, true, CfgFlag::DEFAULT),
 	ConfigSetting("AchievementsUnlockAudioFile", &g_Config.sAchievementsUnlockAudioFile, "", CfgFlag::DEFAULT),
 	ConfigSetting("AchievementsLeaderboardSubmitAudioFile", &g_Config.sAchievementsLeaderboardSubmitAudioFile, "", CfgFlag::DEFAULT),
+
+	ConfigSetting("AchievementsLeaderboardTrackerPos", &g_Config.iAchievementsLeaderboardTrackerPos, (int)ScreenEdgePosition::TOP_LEFT, CfgFlag::DEFAULT),
 };
 
 static const ConfigSetting cpuSettings[] = {
@@ -789,8 +792,8 @@ static const ConfigSetting networkSettings[] = {
 	ConfigSetting("UPnPUseOriginalPort", &g_Config.bUPnPUseOriginalPort, false, CfgFlag::PER_GAME),
 
 	ConfigSetting("EnableNetworkChat", &g_Config.bEnableNetworkChat, false, CfgFlag::PER_GAME),
-	ConfigSetting("ChatButtonPosition",&g_Config.iChatButtonPosition,BOTTOM_LEFT, CfgFlag::PER_GAME),
-	ConfigSetting("ChatScreenPosition",&g_Config.iChatScreenPosition,BOTTOM_LEFT, CfgFlag::PER_GAME),
+	ConfigSetting("ChatButtonPosition", &g_Config.iChatButtonPosition, (int)ScreenEdgePosition::BOTTOM_LEFT, CfgFlag::PER_GAME),
+	ConfigSetting("ChatScreenPosition", &g_Config.iChatScreenPosition, (int)ScreenEdgePosition::BOTTOM_LEFT, CfgFlag::PER_GAME),
 	ConfigSetting("EnableQuickChat", &g_Config.bEnableQuickChat, true, CfgFlag::PER_GAME),
 	ConfigSetting("QuickChat1", &g_Config.sQuickChat0, "Quick Chat 1", CfgFlag::PER_GAME),
 	ConfigSetting("QuickChat2", &g_Config.sQuickChat1, "Quick Chat 2", CfgFlag::PER_GAME),

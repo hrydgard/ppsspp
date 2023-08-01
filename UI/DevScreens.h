@@ -113,6 +113,8 @@ public:
 
 	void CreateTabs() override;
 
+	void update() override;
+
 protected:
 	bool ShowSearchControls() const override { return false; }
 };

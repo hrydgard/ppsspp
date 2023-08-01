@@ -459,6 +459,11 @@ const char *GetCompilerABI() {
 #endif
 }
 
+void SystemInfoScreen::update() {
+	TabbedUIDialogScreenWithGameBackground::update();
+	g_OSD.NudgeSidebar();
+}
+
 void SystemInfoScreen::CreateTabs() {
 	using namespace Draw;
 	using namespace UI;
@@ -852,6 +857,13 @@ void SystemInfoScreen::CreateTabs() {
 		g_OSD.ShowLeaderboardTracker(1, nullptr, false);
 		return UI::EVENT_DONE;
 	});
+
+	static const char *positions[] = { "Bottom Left", "Bottom Center", "Bottom Right", "Top Left", "Top Center", "Top Right", "Center Left", "Center Right", "None" };
+	auto ac = GetI18NCategory(I18NCat::ACHIEVEMENTS);
+
+	internals->Add(new ItemHeader(ac->T("Notifications")));
+	internals->Add(new PopupMultiChoice(&g_Config.iAchievementsLeaderboardTrackerPos, ac->T("Leaderboard tracker"), positions, 0, ARRAY_SIZE(positions), I18NCat::DIALOG, screenManager()))->SetEnabledPtr(&g_Config.bAchievementsEnable);
+
 #if PPSSPP_PLATFORM(ANDROID)
 	internals->Add(new Choice(si->T("Exception")))->OnClick.Add([&](UI::EventParams &) {
 		System_Notify(SystemNotification::TEST_JAVA_EXCEPTION);
