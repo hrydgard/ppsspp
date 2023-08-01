@@ -843,7 +843,6 @@ public:
 
 	// Total amount of frames rendered. Unaffected by game pause, so more robust than gpuStats.numFlips
 	virtual int GetFrameCount() = 0;
-	virtual int GetFramesInFlight() { return 3; }
 
 protected:
 	ShaderModule *vsPresets_[VS_MAX_PRESET];

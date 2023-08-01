@@ -139,7 +139,11 @@ void LibretroVulkanContext::CreateDrawContext() {
       return;
    }
 
-   draw_ = Draw::T3DCreateVulkanContext(vk, true);
+   bool useMultiThreading = g_Config.bRenderMultiThreading;
+   if (g_Config.iInflightFrames == 1) {
+      useMultiThreading = false;
+   }
+   draw_ = Draw::T3DCreateVulkanContext(vk, useMultiThreading);
    ((VulkanRenderManager*)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER))->SetInflightFrames(g_Config.iInflightFrames);
    SetGPUBackend(GPUBackend::VULKAN);
 }
