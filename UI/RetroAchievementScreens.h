@@ -64,9 +64,11 @@ protected:
 	bool ShowSearchControls() const override { return false; }
 
 private:
+	void FetchEntries();
 	void Poll();
 
 	int leaderboardID_;
+	bool nearMe_ = false;
 
 	// Keep the fetched list alive and destroy in destructor.
 	rc_client_leaderboard_entry_list_t *entryList_ = nullptr;
