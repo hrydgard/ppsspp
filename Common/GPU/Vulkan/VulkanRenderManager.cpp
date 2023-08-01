@@ -303,6 +303,11 @@ bool VulkanRenderManager::CreateBackbuffers() {
 		}
 		INFO_LOG(G3D, "Starting Vulkan compiler thread");
 		compileThread_ = std::thread(&VulkanRenderManager::CompileThreadFunc, this);
+
+		if (vulkan_->GetDeviceFeatures().enabled.presentWait.presentWait) {
+			INFO_LOG(G3D, "Starting Vulkan present wait thread");
+			presentWaitThread_ = std::thread(&VulkanRenderManager::PresentWaitThreadFunc, this);
+		}
 	}
 	return true;
 }
@@ -319,8 +324,12 @@ void VulkanRenderManager::StopThread() {
 		pushCondVar_.notify_one();
 	}
 
-	// Compiler thread still relies on this.
+	// Compiler and present thread still relies on this.
 	run_ = false;
+
+	if (presentWaitThread_.joinable()) {
+		presentWaitThread_.join();
+	}
 
 	// Stop the thread.
 	if (useRenderThread_) {
@@ -531,6 +540,22 @@ void VulkanRenderManager::ThreadFunc() {
 	VLOG("PULL: Quitting");
 }
 
+void VulkanRenderManager::PresentWaitThreadFunc() {
+	SetCurrentThreadName("PresentWait");
+
+	uint64_t waitedId = frameIdGen_;
+	while (run_) {
+		const uint64_t timeout = 1000000000ULL;  // 1 sec
+		vkWaitForPresentKHR(vulkan_->GetDevice(), vulkan_->GetSwapchain(), waitedId, timeout);
+		frameTimeData_[waitedId].actualPresent = time_now_d();
+		waitedId++;
+
+		_dbg_assert_(waitedId <= frameIdGen_);
+	}
+
+	INFO_LOG(G3D, "Leaving PresentWaitThreadFunc()");
+}
+
 void VulkanRenderManager::BeginFrame(bool enableProfiling, bool enableLogProfiler) {
 	double frameBeginTime = time_now_d()
 	VLOG("BeginFrame");
@@ -538,7 +563,6 @@ void VulkanRenderManager::BeginFrame(bool enableProfiling, bool enableLogProfile
 
 	int curFrame = vulkan_->GetCurFrame();
 	FrameData &frameData = frameData_[curFrame];
-
 	VLOG("PUSH: Fencing %d", curFrame);
 
 	// Makes sure the submission from the previous time around has happened. Otherwise
@@ -563,6 +587,7 @@ void VulkanRenderManager::BeginFrame(bool enableProfiling, bool enableLogProfile
 	// Can't set this until after the fence.
 	frameData.profile.enabled = enableProfiling;
 	frameData.profile.timestampsEnabled = enableProfiling && validBits > 0;
+	frameData.frameID = frameIdGen_++;
 
 	uint64_t frameId = ++frameIdGen_;
 	frameData.frameId = frameId;

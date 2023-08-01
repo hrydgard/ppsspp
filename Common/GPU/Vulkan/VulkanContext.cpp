@@ -598,6 +598,7 @@ void VulkanContext::ChooseDevice(int physical_device) {
 		features2.pNext = &multiViewFeatures;
 		multiViewFeatures.pNext = &presentWaitFeatures;
 		presentWaitFeatures.pNext = &presentIdFeatures;
+		presentIdFeatures.pNext = nullptr;
 
 		vkGetPhysicalDeviceFeatures2KHR(physical_devices_[physical_device_], &features2);
 		deviceFeatures_.available.standard = features2.features;
@@ -709,6 +710,9 @@ VkResult VulkanContext::CreateDevice() {
 		device_info.pNext = &features2;
 		features2.features = deviceFeatures_.enabled.standard;
 		features2.pNext = &deviceFeatures_.enabled.multiview;
+		deviceFeatures_.enabled.multiview.pNext = &deviceFeatures_.enabled.presentWait;
+		deviceFeatures_.enabled.presentWait.pNext = &deviceFeatures_.enabled.presentId;
+		deviceFeatures_.enabled.presentId.pNext = nullptr;
 	} else {
 		device_info.pEnabledFeatures = &deviceFeatures_.enabled.standard;
 	}
