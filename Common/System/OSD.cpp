@@ -200,7 +200,7 @@ void OnScreenDisplay::ShowLeaderboardTracker(int leaderboardTrackerID, const cha
 }
 
 void OnScreenDisplay::ShowLeaderboardStartEnd(const std::string &title, const std::string &description, bool started) {
-	g_OSD.Show(OSDType::MESSAGE_INFO, title, description, 3.0f);
+	g_OSD.Show(OSDType::LEADERBOARD_STARTED_FAILED, title, description, 3.0f);
 
 }
 
@@ -275,7 +275,7 @@ void OnScreenDisplay::ClearAchievementStuff() {
 		case OSDType::ACHIEVEMENT_UNLOCKED:
 		case OSDType::ACHIEVEMENT_PROGRESS:
 		case OSDType::LEADERBOARD_TRACKER:
-		case OSDType::LEADERBOARD_START_END:
+		case OSDType::LEADERBOARD_STARTED_FAILED:
 		case OSDType::LEADERBOARD_SUBMITTED:
 			iter.endTime = now;
 			break;
