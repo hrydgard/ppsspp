@@ -217,7 +217,7 @@ void OSXOpenURL(const char *url) {
                     item.state = [self controlStateForBool:g_Config.bIgnoreBadMemAccess];
                     break;
                 case 12:
-                    item.state = [self controlStateForBool:g_Config.bShowDebugStats];
+                    item.state = [self controlStateForBool:g_Config.iDebugOverlay == DebugOverlay::DEBUG_STATS];
                     break;
                 default:
                     item.enabled = state == UISTATE_INGAME ? YES : NO;
@@ -405,7 +405,7 @@ void OSXOpenURL(const char *url) {
     copyBaseAddr.target = self;
     copyBaseAddr.tag = 11;
 
-    MENU_ITEM(showDebugStatsAction, DESKTOPUI_LOCALIZED("Show Debug Statistics"), @selector(toggleShowDebugStats:), g_Config.bShowDebugStats, 12)
+    MENU_ITEM(showDebugStatsAction, DESKTOPUI_LOCALIZED("Show Debug Statistics"), @selector(toggleShowDebugStats:), (g_Config.iDebugOverlay == DebugOverlay::DEBUG_STATS), 12)
 
     [parent addItem:loadSymbolMapAction];
     [parent addItem:saveMapFileAction];
@@ -541,8 +541,17 @@ TOGGLE_METHOD(AutoFrameSkip, g_Config.bAutoFrameSkip, g_Config.UpdateAfterSettin
 TOGGLE_METHOD(SoftwareRendering, g_Config.bSoftwareRendering)
 TOGGLE_METHOD(FullScreen, g_Config.bFullScreen, System_MakeRequest(SystemRequestType::TOGGLE_FULLSCREEN_STATE, 0, g_Config.UseFullScreen() ? "1" : "0", "", 3))
 // TOGGLE_METHOD(VSync, g_Config.bVSync)
-TOGGLE_METHOD(ShowDebugStats, g_Config.bShowDebugStats, System_PostUIMessage("clear jit", ""))
 #undef TOGGLE_METHOD
+
+-(void)toggleShowDebugStats: (NSMenuItem *)item { \
+    if (g_Config.iDebugOverlay == DebugOverlay::DEBUG_STATS) {
+        g_Config.iDebugOverlay = DebugOverlay::OFF;
+    } else {
+        g_Config.iDebugOverlay = DebugOverlay::DEBUG_STATS;
+    }
+    System_PostUIMessage("clear jit", "");
+    item.state = [self controlStateForBool: g_Config.iDebugOverlay == DebugOverlay::DEBUG_STATS]; \
+}
 
 -(void)setToggleShowCounterItem: (NSMenuItem *)item {
     [self addOrRemoveInteger:(int)(item.tag - 100) to:&g_Config.iShowStatusFlags];
