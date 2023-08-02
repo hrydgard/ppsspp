@@ -1098,7 +1098,7 @@ void NativeRender(GraphicsContext *graphicsContext) {
 	g_screenManager->getUIContext()->SetTintSaturation(g_Config.fUITint, g_Config.fUISaturation);
 
 	Draw::DebugFlags debugFlags = Draw::DebugFlags::NONE;
-	if (g_Config.bShowGpuProfile)
+	if (g_Config.iDebugOverlay == DebugOverlay::GPU_PROFILE)
 		debugFlags |= Draw::DebugFlags::PROFILE_TIMESTAMPS;
 	if (g_Config.bGpuLogProfiler)
 		debugFlags |= Draw::DebugFlags::PROFILE_SCOPES;

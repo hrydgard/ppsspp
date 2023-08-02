@@ -1515,7 +1515,7 @@ void EmuScreen::render() {
 		}
 	}
 
-	Core_UpdateDebugStats(g_Config.bShowDebugStats || g_Config.bLogFrameDrops);
+	Core_UpdateDebugStats(g_Config.iDebugOverlay == DebugOverlay::DEBUG_STATS || g_Config.bLogFrameDrops);
 
 	bool blockedExecution = Achievements::IsBlockingExecution();
 	if (!blockedExecution) {
@@ -1591,7 +1591,7 @@ bool EmuScreen::hasVisibleUI() {
 	if (g_Config.bEnableCardboardVR || g_Config.bEnableNetworkChat)
 		return true;
 	// Debug UI.
-	if (g_Config.bShowDebugStats || g_Config.bShowDeveloperMenu || g_Config.bShowAudioDebug || g_Config.bShowFrameProfiler || g_Config.bShowControlDebug)
+	if (g_Config.iDebugOverlay != DebugOverlay::OFF)
 		return true;
 
 	// Exception information.
@@ -1626,37 +1626,38 @@ void EmuScreen::renderUI() {
 	}
 
 	if (!invalid_) {
-		if (g_Config.bShowDebugStats) {
+		switch (g_Config.iDebugOverlay) {
+		case DebugOverlay::DEBUG_STATS:
 			DrawDebugStats(ctx, ctx->GetLayoutBounds());
-		}
-
-		if (g_Config.bShowAudioDebug) {
+			break;
+		case DebugOverlay::FRAME_GRAPH:
+			DrawFrameTimes(ctx, ctx->GetLayoutBounds());
+			break;
+		case DebugOverlay::AUDIO:
 			DrawAudioDebugStats(ctx, ctx->GetLayoutBounds());
+			break;
+		case DebugOverlay::CONTROL:
+			DrawControlDebug(ctx, controlMapper_, ctx->GetLayoutBounds());
+			break;
+#if !PPSSPP_PLATFORM(UWP) && !PPSSPP_PLATFORM(SWITCH)
+
+		case DebugOverlay::GPU_PROFILE:
+			if (g_Config.iGPUBackend == (int)GPUBackend::VULKAN || g_Config.iGPUBackend == (int)GPUBackend::OPENGL) {
+				DrawGPUProfilerVis(ctx, gpu);
+			}
+			break;
+		case DebugOverlay::GPU_ALLOCATOR:
+			if (g_Config.iGPUBackend == (int)GPUBackend::VULKAN || g_Config.iGPUBackend == (int)GPUBackend::OPENGL) {
+				DrawGPUMemoryVis(ctx, gpu);
+			}
+			break;
+#endif
 		}
 
 		if (g_Config.iShowStatusFlags) {
 			DrawFPS(ctx, ctx->GetLayoutBounds());
 		}
-
-		if (g_Config.bDrawFrameGraph) {
-			DrawFrameTimes(ctx, ctx->GetLayoutBounds());
-		}
-
-		if (g_Config.bShowControlDebug) {
-			DrawControlDebug(ctx, controlMapper_, ctx->GetLayoutBounds());
-		}
 	}
-
-#if !PPSSPP_PLATFORM(UWP) && !PPSSPP_PLATFORM(SWITCH)
-	if ((g_Config.iGPUBackend == (int)GPUBackend::VULKAN || g_Config.iGPUBackend == (int)GPUBackend::OPENGL) && g_Config.bShowAllocatorDebug) {
-		DrawGPUMemoryVis(ctx, gpu);
-	}
-
-	if ((g_Config.iGPUBackend == (int)GPUBackend::VULKAN || g_Config.iGPUBackend == (int)GPUBackend::OPENGL) && g_Config.bShowGpuProfile) {
-		DrawGPUProfilerVis(ctx, gpu);
-	}
-
-#endif
 
 #ifdef USE_PROFILER
 	if (g_Config.bShowFrameProfiler && !invalid_) {

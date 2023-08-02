@@ -142,7 +142,7 @@ void TextureCacheCommon::StartFrame() {
 	timesInvalidatedAllThisFrame_ = 0;
 	replacementTimeThisFrame_ = 0.0;
 
-	if (g_Config.bShowDebugStats) {
+	if (g_Config.iDebugOverlay == DebugOverlay::DEBUG_STATS) {
 		gpuStats.numReplacerTrackedTex = replacer_.GetNumTrackedTextures();
 		gpuStats.numCachedReplacedTextures = replacer_.GetNumCachedReplacedTextures();
 	}

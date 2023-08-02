@@ -92,7 +92,7 @@ static void CalculateFPS() {
 		}
 	}
 
-	if (g_Config.bDrawFrameGraph || coreCollectDebugStats) {
+	if (g_Config.iDebugOverlay == DebugOverlay::FRAME_GRAPH || coreCollectDebugStats) {
 		frameTimeHistory[frameTimeHistoryPos++] = now - lastFrameTimeHistory;
 		lastFrameTimeHistory = now;
 		frameTimeHistoryPos = frameTimeHistoryPos % frameTimeHistorySize;

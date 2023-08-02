@@ -175,3 +175,16 @@ enum class ScreenEdgePosition {
 	CENTER_RIGHT = 7,
 	VALUE_COUNT,
 };
+
+enum class DebugOverlay : int {
+	OFF,
+	DEBUG_STATS,
+	FRAME_GRAPH,
+#ifdef USE_PROFILER
+	FRAME_PROFILE,
+#endif
+	CONTROL,
+	AUDIO,
+	GPU_PROFILE,
+	GPU_ALLOCATOR,
+};
