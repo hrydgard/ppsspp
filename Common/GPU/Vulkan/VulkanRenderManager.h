@@ -480,6 +480,8 @@ private:
 	void FlushSync();
 	void StopThread();
 
+	void PresentWaitThreadFunc();
+
 	FrameDataShared frameDataShared_;
 
 	FrameData frameData_[VulkanContext::MAX_INFLIGHT_FRAMES];
@@ -534,6 +536,9 @@ private:
 	std::condition_variable compileCond_;
 	std::mutex compileMutex_;
 	std::vector<CompileQueueEntry> compileQueue_;
+
+	// Thread for measuring presentation delay.
+	std::thread presentWaitThread_;
 
 	// pipelines to check and possibly create at the end of the current render pass.
 	std::vector<VKRGraphicsPipeline *> pipelinesToCheck_;

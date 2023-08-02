@@ -112,15 +112,24 @@ static void DrawFrameTiming(UIContext *ctx, const Bounds &bounds) {
 		double fenceLatency_s = data.afterFenceWait - data.frameBegin;
 		double submitLatency_s = data.firstSubmit - data.frameBegin;
 		double queuePresentLatency_s = data.queuePresent - data.frameBegin;
+		double actualPresentLatency_s = data.actualPresent - data.frameBegin;
 
+		char presentStats[256] = "";
+		if (data.actualPresent != 0.0) {
+			snprintf(presentStats, sizeof(presentStats),
+				"* Actual present: %0.1f ms\n",
+				actualPresentLatency_s * 1000.0);
+		}
 		snprintf(statBuf, sizeof(statBuf),
 			"Time from start of frame to event:\n"
 			"* Past the fence: %0.1f ms\n"
 			"* First submit: %0.1f ms\n"
-			"* Queue-present: %0.1f ms\n",
+			"* Queue-present: %0.1f ms\n"
+			"%s",
 			fenceLatency_s * 1000.0,
 			submitLatency_s * 1000.0,
-			queuePresentLatency_s * 1000.0
+			queuePresentLatency_s * 1000.0,
+			presentStats
 		);
 	}
 

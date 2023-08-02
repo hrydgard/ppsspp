@@ -72,6 +72,7 @@ struct FrameData {
 	std::mutex fenceMutex;
 	std::condition_variable fenceCondVar;
 	bool readyForFence = true;
+	uint64_t frameID;  // always incrementing, set at the start of each frame.
 
 	VkFence fence = VK_NULL_HANDLE;
 

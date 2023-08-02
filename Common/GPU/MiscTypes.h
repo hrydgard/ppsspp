@@ -24,4 +24,5 @@ struct FrameTimeData {
 	double afterFenceWait;
 	double firstSubmit;
 	double queuePresent;
+	double actualPresent;
 };

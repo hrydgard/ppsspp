@@ -110,6 +110,13 @@ VkResult FrameData::QueuePresent(VulkanContext *vulkan, FrameDataShared &shared)
 	present.pWaitSemaphores = &shared.renderingCompleteSemaphore;
 	present.waitSemaphoreCount = 1;
 
+	VkPresentIdKHR presentID{ VK_STRUCTURE_TYPE_PRESENT_ID_KHR };
+	if (vulkan->Extensions().KHR_present_id && vulkan->GetDeviceFeatures().enabled.presentId.presentId) {
+		presentID.pPresentIds = &frameID;
+		presentID.swapchainCount = 1;
+		present.pNext = &presentID;
+	}
+
 	return vkQueuePresentKHR(vulkan->GetGraphicsQueue(), &present);
 }
 

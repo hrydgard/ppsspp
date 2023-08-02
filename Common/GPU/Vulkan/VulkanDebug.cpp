@@ -82,6 +82,10 @@ VKAPI_ATTR VkBool32 VKAPI_CALL VulkanDebugUtilsCallback(
 		// Extended validation (ARM best practices)
 		// Non-fifo validation not recommended
 		return false;
+	case 337425955:
+		// False positive
+		// https://github.com/KhronosGroup/Vulkan-ValidationLayers/issues/3615
+		return false;
 	default:
 		break;
 	}
