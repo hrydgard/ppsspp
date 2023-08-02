@@ -95,8 +95,8 @@ static const char *g_debugOverlayList[] = {
 #ifdef USE_PROFILER
 	"Frame profile",
 #endif
-	"Toggle Control Debug",
-	"Toggle Audio Debug",
+	"Control Debug",
+	"Audio Debug",
 	"GPU Profile",
 	"GPU Allocator Viewer",
 };
