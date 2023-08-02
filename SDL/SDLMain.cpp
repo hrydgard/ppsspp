@@ -923,7 +923,7 @@ int main(int argc, char *argv[]) {
 
 	float dpi_scale = 1.0f / (g_ForcedDPI == 0.0f ? g_DesktopDPI : g_ForcedDPI);
 
-	UpdateScreenScale(w, h);
+	UpdateScreenScale(w * g_DesktopDPI, h * g_DesktopDPI);
 
 	bool useEmuThread = g_Config.iGPUBackend == (int)GPUBackend::OPENGL;
 
