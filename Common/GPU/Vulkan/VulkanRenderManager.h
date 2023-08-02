@@ -17,6 +17,7 @@
 #include "Common/System/Display.h"
 #include "Common/GPU/Vulkan/VulkanContext.h"
 #include "Common/Data/Convert/SmallDataConvert.h"
+#include "Common/Data/Collections/FastVec.h"
 #include "Common/Math/math_util.h"
 #include "Common/GPU/DataFormat.h"
 #include "Common/GPU/MiscTypes.h"
@@ -456,6 +457,17 @@ public:
 	void ResetStats();
 	void DrainCompileQueue();
 
+	// framesBack is the number of frames into the past to look.
+	FrameTimeData GetFrameTimeData(int framesBack) const {
+		FrameTimeData data;
+		if (framesBack >= frameIdGen_) {
+			data = {};
+			return data;
+		}
+		data = frameTimeData_[frameIdGen_ - framesBack];
+		return data;
+	}
+
 private:
 	void EndCurRenderStep();
 
@@ -532,4 +544,7 @@ private:
 	SimpleStat renderCPUTimeMs_;
 
 	std::function<void(InvalidationCallbackFlags)> invalidationCallback_;
+
+	uint64_t frameIdGen_ = 31;
+	HistoryBuffer<FrameTimeData, 32> frameTimeData_;
 };

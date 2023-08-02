@@ -155,3 +155,16 @@ private:
 	bool capacityLocked_ = false;
 #endif
 };
+
+// Simple cyclical vector.
+// Initially, doesn't do any sanity checking.
+template <class T, size_t size>
+class HistoryBuffer {
+public:
+	// Out of bounds (past size() - 1) is undefined behavior.
+	T &operator[] (const size_t index) { return data_[index % size]; }
+	const T &operator[] (const size_t index) const { return data_[index % size]; }
+
+private:
+	T data_[size]{};
+};

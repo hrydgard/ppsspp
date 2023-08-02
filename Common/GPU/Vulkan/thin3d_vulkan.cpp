@@ -487,6 +487,10 @@ public:
 		return frameCount_;
 	}
 
+	FrameTimeData GetFrameTimeData(int framesBack) const override {
+		return renderManager_.GetFrameTimeData(framesBack);
+	}
+
 	void FlushState() override {}
 
 	void ResetStats() override {

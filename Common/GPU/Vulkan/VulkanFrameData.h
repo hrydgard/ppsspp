@@ -95,6 +95,10 @@ struct FrameData {
 	// Swapchain.
 	uint32_t curSwapchainImage = -1;
 
+	// Frames need unique IDs to wait for present on, let's keep them here.
+	// Also used for indexing into the frame timing history buffer.
+	uint64_t frameId;
+
 	// Profiling.
 	QueueProfileContext profile{};
 

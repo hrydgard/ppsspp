@@ -180,6 +180,7 @@ enum class DebugOverlay : int {
 	OFF,
 	DEBUG_STATS,
 	FRAME_GRAPH,
+	FRAME_TIMING,
 #ifdef USE_PROFILER
 	FRAME_PROFILE,
 #endif

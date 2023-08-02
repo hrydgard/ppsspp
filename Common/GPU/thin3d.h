@@ -844,6 +844,10 @@ public:
 	// Total amount of frames rendered. Unaffected by game pause, so more robust than gpuStats.numFlips
 	virtual int GetFrameCount() = 0;
 
+	virtual FrameTimeData GetFrameTimeData(int framesBack) const {
+		return FrameTimeData{};
+	}
+
 protected:
 	ShaderModule *vsPresets_[VS_MAX_PRESET];
 	ShaderModule *fsPresets_[FS_MAX_PRESET];

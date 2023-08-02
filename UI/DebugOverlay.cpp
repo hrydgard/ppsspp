@@ -69,8 +69,8 @@ static void DrawControlDebug(UIContext *ctx, const ControlMapper &mapper, const 
 
 static void DrawFrameTimes(UIContext *ctx, const Bounds &bounds) {
 	FontID ubuntu24("UBUNTU24");
-	int valid, pos;
 	double *sleepHistory;
+	int valid, pos;
 	double *history = __DisplayGetFrameTimes(&valid, &pos, &sleepHistory);
 	int scale = 7000;
 	int width = 600;
@@ -99,6 +99,40 @@ static void DrawFrameTimes(UIContext *ctx, const Bounds &bounds) {
 	ctx->RebindTexture();
 }
 
+static void DrawFrameTiming(UIContext *ctx, const Bounds &bounds) {
+	FontID ubuntu24("UBUNTU24");
+
+	char statBuf[1024]{};
+
+	FrameTimeData data = ctx->GetDrawContext()->GetFrameTimeData(4);
+
+	if (data.frameBegin == 0.0) {
+		snprintf(statBuf, sizeof(statBuf), "(Frame timing collection not supported on this backend)");
+	} else {
+		double fenceLatency_s = data.afterFenceWait - data.frameBegin;
+		double submitLatency_s = data.firstSubmit - data.frameBegin;
+		double queuePresentLatency_s = data.queuePresent - data.frameBegin;
+
+		snprintf(statBuf, sizeof(statBuf),
+			"Time from start of frame to event:\n"
+			"* Past the fence: %0.1f ms\n"
+			"* First submit: %0.1f ms\n"
+			"* Queue-present: %0.1f ms\n",
+			fenceLatency_s * 1000.0,
+			submitLatency_s * 1000.0,
+			queuePresentLatency_s * 1000.0
+		);
+	}
+
+	ctx->Flush();
+	ctx->BindFontTexture();
+	ctx->Draw()->SetFontScale(0.5f, 0.5f);
+	ctx->Draw()->DrawTextRect(ubuntu24, statBuf, bounds.x + 11, bounds.y + 51, bounds.w - 20, bounds.h - 30, 0xc0000000, FLAG_DYNAMIC_ASCII);
+	ctx->Draw()->DrawTextRect(ubuntu24, statBuf, bounds.x + 10, bounds.y + 50, bounds.w - 20, bounds.h - 30, 0xFFFFFFFF, FLAG_DYNAMIC_ASCII);
+	ctx->Draw()->SetFontScale(1.0f, 1.0f);
+	ctx->Flush();
+	ctx->RebindTexture();
+}
 
 void DrawDebugOverlay(UIContext *ctx, const Bounds &bounds, const ControlMapper &controlMapper, DebugOverlay overlay) {
 	switch (overlay) {
@@ -107,6 +141,9 @@ void DrawDebugOverlay(UIContext *ctx, const Bounds &bounds, const ControlMapper 
 		break;
 	case DebugOverlay::FRAME_GRAPH:
 		DrawFrameTimes(ctx, ctx->GetLayoutBounds());
+		break;
+	case DebugOverlay::FRAME_TIMING:
+		DrawFrameTiming(ctx, ctx->GetLayoutBounds());
 		break;
 	case DebugOverlay::AUDIO:
 		DrawAudioDebugStats(ctx, ctx->GetLayoutBounds());

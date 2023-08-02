@@ -532,6 +532,7 @@ void VulkanRenderManager::ThreadFunc() {
 }
 
 void VulkanRenderManager::BeginFrame(bool enableProfiling, bool enableLogProfiler) {
+	double frameBeginTime = time_now_d()
 	VLOG("BeginFrame");
 	VkDevice device = vulkan_->GetDevice();
 
@@ -562,6 +563,13 @@ void VulkanRenderManager::BeginFrame(bool enableProfiling, bool enableLogProfile
 	// Can't set this until after the fence.
 	frameData.profile.enabled = enableProfiling;
 	frameData.profile.timestampsEnabled = enableProfiling && validBits > 0;
+
+	uint64_t frameId = ++frameIdGen_;
+	frameData.frameId = frameId;
+
+	frameTimeData_[frameId] = {};
+	frameTimeData_[frameId].frameBegin = frameBeginTime;
+	frameTimeData_[frameId].afterFenceWait = time_now_d();
 
 	uint64_t queryResults[MAX_TIMESTAMP_QUERIES];
 
@@ -1302,6 +1310,10 @@ void VulkanRenderManager::Run(VKRRenderThreadTask &task) {
 	FrameData &frameData = frameData_[task.frame];
 
 	_dbg_assert_(!frameData.hasPresentCommands);
+
+	if (!frameTimeData_[frameData.frameId].firstSubmit) {
+		frameTimeData_[frameData.frameId].firstSubmit = time_now_d();
+	}
 	frameData.SubmitPending(vulkan_, FrameSubmitType::Pending, frameDataShared_);
 
 	if (!frameData.hasMainCommands) {
@@ -1338,6 +1350,7 @@ void VulkanRenderManager::Run(VKRRenderThreadTask &task) {
 
 		if (!frameData.skipSwap) {
 			VkResult res = frameData.QueuePresent(vulkan_, frameDataShared_);
+			frameTimeData_[frameData.frameId].queuePresent = time_now_d();
 			if (res == VK_ERROR_OUT_OF_DATE_KHR) {
 				// We clearly didn't get this in vkAcquireNextImageKHR because of the skipSwap check above.
 				// Do the increment.
