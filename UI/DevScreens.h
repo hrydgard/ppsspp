@@ -42,8 +42,6 @@ protected:
 	UI::EventReturn OnLogConfig(UI::EventParams &e);
 	UI::EventReturn OnJitCompare(UI::EventParams &e);
 	UI::EventReturn OnShaderView(UI::EventParams &e);
-	UI::EventReturn OnFreezeFrame(UI::EventParams &e);
-	UI::EventReturn OnDumpFrame(UI::EventParams &e);
 	UI::EventReturn OnDeveloperTools(UI::EventParams &e);
 	UI::EventReturn OnResetLimitedLogging(UI::EventParams &e);
 
@@ -226,3 +224,5 @@ private:
 
 void DrawProfile(UIContext &ui);
 const char *GetCompilerABI();
+
+void AddOverlayList(UI::ViewGroup *items, ScreenManager *screenManager);

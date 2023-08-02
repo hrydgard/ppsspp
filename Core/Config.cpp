@@ -848,13 +848,10 @@ static const ConfigSetting debuggerSettings[] = {
 	ConfigSetting("DisplayStatusBar", &g_Config.bDisplayStatusBar, true, CfgFlag::DEFAULT),
 	ConfigSetting("ShowBottomTabTitles",&g_Config.bShowBottomTabTitles, true, CfgFlag::DEFAULT),
 	ConfigSetting("ShowDeveloperMenu", &g_Config.bShowDeveloperMenu, false, CfgFlag::DEFAULT),
-	ConfigSetting("ShowAllocatorDebug", &g_Config.bShowAllocatorDebug, false, CfgFlag::DONT_SAVE),
-	ConfigSetting("ShowGpuProfile", &g_Config.bShowGpuProfile, false, CfgFlag::DONT_SAVE),
 	ConfigSetting("SkipDeadbeefFilling", &g_Config.bSkipDeadbeefFilling, false, CfgFlag::DEFAULT),
 	ConfigSetting("FuncHashMap", &g_Config.bFuncHashMap, false, CfgFlag::DEFAULT),
 	ConfigSetting("SkipFuncHashMap", &g_Config.sSkipFuncHashMap, "", CfgFlag::DEFAULT),
 	ConfigSetting("MemInfoDetailed", &g_Config.bDebugMemInfoDetailed, false, CfgFlag::DEFAULT),
-	ConfigSetting("DrawFrameGraph", &g_Config.bDrawFrameGraph, false, CfgFlag::DEFAULT),
 };
 
 static const ConfigSetting jitSettings[] = {
@@ -1059,8 +1056,6 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 
 	INFO_LOG(LOADER, "Loading config: %s", iniFilename_.c_str());
 	bSaveSettings = true;
-
-	bShowFrameProfiler = true;
 
 	IniFile iniFile;
 	if (!iniFile.Load(iniFilename_)) {

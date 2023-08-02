@@ -88,6 +88,29 @@ static const char *logLevelList[] = {
 	"Verb."
 };
 
+static const char *g_debugOverlayList[] = {
+	"Off",
+	"Debug stats",
+	"Draw Frametimes Graph",
+#ifdef USE_PROFILER
+	"Frame profile",
+#endif
+	"Toggle Control Debug",
+	"Toggle Audio Debug",
+	"GPU Profile",
+	"GPU Allocator Viewer",
+};
+
+void AddOverlayList(UI::ViewGroup *items, ScreenManager *screenManager) {
+	using namespace UI;
+	auto dev = GetI18NCategory(I18NCat::DEVELOPER);
+	int numOverlays = ARRAY_SIZE(g_debugOverlayList);
+	if (!(g_Config.iGPUBackend == (int)GPUBackend::VULKAN || g_Config.iGPUBackend == (int)GPUBackend::OPENGL)) {
+		numOverlays -= 2;  // skip the last 2.
+	}
+	items->Add(new PopupMultiChoice((int *)&g_Config.iDebugOverlay, dev->T("Debug overlay"), g_debugOverlayList, 0, numOverlays, I18NCat::DEVELOPER, screenManager));
+}
+
 void DevMenuScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	using namespace UI;
 	auto dev = GetI18NCategory(I18NCat::DEVELOPER);
@@ -103,27 +126,21 @@ void DevMenuScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	items->Add(new Choice(sy->T("Developer Tools")))->OnClick.Handle(this, &DevMenuScreen::OnDeveloperTools);
 	items->Add(new Choice(dev->T("Jit Compare")))->OnClick.Handle(this, &DevMenuScreen::OnJitCompare);
 	items->Add(new Choice(dev->T("Shader Viewer")))->OnClick.Handle(this, &DevMenuScreen::OnShaderView);
-	if (g_Config.iGPUBackend == (int)GPUBackend::VULKAN || g_Config.iGPUBackend == (int)GPUBackend::OPENGL) {
-		items->Add(new CheckBox(&g_Config.bShowAllocatorDebug, dev->T("GPU Allocator Viewer")));
-	}
-	if (g_Config.iGPUBackend == (int)GPUBackend::VULKAN || g_Config.iGPUBackend == (int)GPUBackend::OPENGL) {
-		items->Add(new CheckBox(&g_Config.bShowGpuProfile, dev->T("GPU Profile")));
-	}
-	items->Add(new Choice(dev->T("Toggle Freeze")))->OnClick.Handle(this, &DevMenuScreen::OnFreezeFrame);
 
-	items->Add(new Choice(dev->T("Dump next frame to log")))->OnClick.Handle(this, &DevMenuScreen::OnDumpFrame);
-	items->Add(new Choice(dev->T("Toggle Audio Debug")))->OnClick.Add([](UI::EventParams &) {
-		g_Config.bShowAudioDebug = !g_Config.bShowAudioDebug;
+	AddOverlayList(items, screenManager());
+	items->Add(new Choice(dev->T("Toggle Freeze")))->OnClick.Add([](UI::EventParams &e) {
+		if (PSP_CoreParameter().frozen) {
+			PSP_CoreParameter().frozen = false;
+		} else {
+			PSP_CoreParameter().freezeNext = true;
+		}
 		return UI::EVENT_DONE;
 	});
-	items->Add(new Choice(dev->T("Toggle Control Debug")))->OnClick.Add([](UI::EventParams &) {
-		g_Config.bShowControlDebug = !g_Config.bShowControlDebug;
+
+	items->Add(new Choice(dev->T("Dump next frame to log")))->OnClick.Add([](UI::EventParams &e) {
+		gpu->DumpNextFrame();
 		return UI::EVENT_DONE;
 	});
-#ifdef USE_PROFILER
-	items->Add(new CheckBox(&g_Config.bShowFrameProfiler, dev->T("Frame Profiler"), ""));
-#endif
-	items->Add(new CheckBox(&g_Config.bDrawFrameGraph, dev->T("Draw Frametimes Graph")));
 	items->Add(new Choice(dev->T("Reset limited logging")))->OnClick.Handle(this, &DevMenuScreen::OnResetLimitedLogging);
 
 	scroll->Add(items);
@@ -168,20 +185,6 @@ UI::EventReturn DevMenuScreen::OnShaderView(UI::EventParams &e) {
 	UpdateUIState(UISTATE_PAUSEMENU);
 	if (gpu)  // Avoid crashing if chosen while the game is being loaded.
 		screenManager()->push(new ShaderListScreen());
-	return UI::EVENT_DONE;
-}
-
-UI::EventReturn DevMenuScreen::OnFreezeFrame(UI::EventParams &e) {
-	if (PSP_CoreParameter().frozen) {
-		PSP_CoreParameter().frozen = false;
-	} else {
-		PSP_CoreParameter().freezeNext = true;
-	}
-	return UI::EVENT_DONE;
-}
-
-UI::EventReturn DevMenuScreen::OnDumpFrame(UI::EventParams &e) {
-	gpu->DumpNextFrame();
 	return UI::EVENT_DONE;
 }
 
