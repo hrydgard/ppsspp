@@ -461,8 +461,10 @@ public:
 	bool bDisplayStatusBar;
 	bool bShowBottomTabTitles;
 	bool bShowDeveloperMenu;
+
 	// Double edged sword: much easier debugging, but not accurate.
 	bool bSkipDeadbeefFilling;
+
 	bool bFuncHashMap;
 	std::string sSkipFuncHashMap;
 	bool bDebugMemInfoDetailed;
@@ -470,6 +472,7 @@ public:
 	// Volatile development settings
 	// Overlays
 	DebugOverlay iDebugOverlay;
+
 	bool bGpuLogProfiler; // Controls the Vulkan logging profiler (profiles textures uploads etc).
 
 	// Retro Achievement settings

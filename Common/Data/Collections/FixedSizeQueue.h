@@ -222,4 +222,3 @@ private:
 	volatile int curReadBlock;
 	volatile int curWriteBlock;
 };
-
