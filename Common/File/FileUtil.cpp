@@ -136,14 +136,20 @@ FILE *OpenCFile(const Path &path, const char *mode) {
 			}
 
 			// TODO: Support append modes and stuff... For now let's go with the most common one.
-			int descriptor = Android_OpenContentUriFd(path.ToString(), Android_OpenContentUriMode::READ_WRITE_TRUNCATE);
+			Android_OpenContentUriMode openMode = Android_OpenContentUriMode::READ_WRITE_TRUNCATE;
+			const char *fmode = "wb";
+			if (!strcmp(mode, "at") || !strcmp(mode, "a")) {
+				openMode = Android_OpenContentUriMode::READ_WRITE;
+				fmode = "ab";
+			}
+			int descriptor = Android_OpenContentUriFd(path.ToString(), openMode);
 			if (descriptor < 0) {
 				INFO_LOG(COMMON, "Opening '%s' for write failed", path.ToString().c_str());
 				return nullptr;
 			}
-			FILE *f = fdopen(descriptor, "wb");
+			FILE *f = fdopen(descriptor, fmode);
 			if (f && (!strcmp(mode, "at") || !strcmp(mode, "a"))) {
-				// Append mode.
+				// Append mode - not sure we got a "true" append mode, so seek to the end.
 				fseek(f, 0, SEEK_END);
 			}
 			return f;
