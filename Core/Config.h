@@ -251,6 +251,9 @@ public:
 
 	std::string sThemeName;
 
+	// These aren't saved, just for instant debugging.
+	bool bLogFrameDrops;
+
 	// Analog stick tilting
 	// This is the held base angle (from the horizon), that we compute the tilt relative from.
 	float fTiltBaseAngleY;
