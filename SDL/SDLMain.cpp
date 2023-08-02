@@ -64,6 +64,12 @@ SDLJoystick *joystick = NULL;
 #include "SDLGLGraphicsContext.h"
 #include "SDLVulkanGraphicsContext.h"
 
+#if PPSSPP_PLATFORM(MAC)
+#include "SDL2/SDL_vulkan.h"
+#else
+#include "SDL_vulkan.h"
+#endif
+
 #if PPSSPP_PLATFORM(MAC) || PPSSPP_PLATFORM(IOS)
 #include "UI/DarwinFileSystemServices.h"
 #endif
@@ -85,6 +91,8 @@ static bool g_RestartRequested = false;
 
 static int g_DesktopWidth = 0;
 static int g_DesktopHeight = 0;
+static float g_DesktopDPI = 1.0f;
+static float g_ForcedDPI = 0.0f; // if this is 0.0f, use g_DesktopDPI
 static float g_RefreshRate = 60.f;
 static int g_sampleRate = 44100;
 
@@ -171,6 +179,20 @@ static void StopSDLAudioDevice() {
 		SDL_PauseAudioDevice(audioDev, 1);
 		SDL_CloseAudioDevice(audioDev);
 	}
+}
+
+static void UpdateScreenDPI(SDL_Window *window) {
+	int drawable_width, window_width;
+	SDL_GetWindowSize(window, &window_width, NULL);
+
+	if (g_Config.iGPUBackend == (int)GPUBackend::OPENGL)
+		SDL_GL_GetDrawableSize(window, &drawable_width, NULL);
+	else if (g_Config.iGPUBackend == (int)GPUBackend::VULKAN)
+		SDL_Vulkan_GetDrawableSize(window, &drawable_width, NULL);
+
+	// Round up a little otherwise there would be a gap sometimes
+	// in fractional scaling
+	g_DesktopDPI = ((float) drawable_width + 1.0f) / window_width;
 }
 
 // Simple implementations of System functions
@@ -495,6 +517,8 @@ float System_GetPropertyFloat(SystemProperty prop) {
 	switch (prop) {
 	case SYSPROP_DISPLAY_REFRESH_RATE:
 		return g_RefreshRate;
+	case SYSPROP_DISPLAY_DPI:
+		return (g_ForcedDPI == 0.0f ? g_DesktopDPI : g_ForcedDPI) * 96.0;
 	case SYSPROP_DISPLAY_SAFE_INSET_LEFT:
 	case SYSPROP_DISPLAY_SAFE_INSET_RIGHT:
 	case SYSPROP_DISPLAY_SAFE_INSET_TOP:
@@ -690,7 +714,7 @@ int main(int argc, char *argv[]) {
 	int set_yres = -1;
 	bool portrait = false;
 	bool set_ipad = false;
-	float set_dpi = 1.0f;
+	float set_dpi = 0.0f;
 	float set_scale = 1.0f;
 
 	// Produce a new set of arguments with the ones we skip.
@@ -782,7 +806,7 @@ int main(int argc, char *argv[]) {
 #elif defined(USING_FBDEV) || PPSSPP_PLATFORM(SWITCH)
 	mode |= SDL_WINDOW_FULLSCREEN_DESKTOP;
 #else
-	mode |= SDL_WINDOW_RESIZABLE;
+	mode |= SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI;
 #endif
 
 	if (mode & SDL_WINDOW_FULLSCREEN_DESKTOP) {
@@ -801,8 +825,6 @@ int main(int argc, char *argv[]) {
 			g_Config.bFullScreen = false;
 	}
 
-	set_dpi = 1.0f / set_dpi;
-
 	if (set_ipad) {
 		g_display.pixel_xres = 1024;
 		g_display.pixel_yres = 768;
@@ -817,9 +839,8 @@ int main(int argc, char *argv[]) {
 	if (set_yres > 0) {
 		g_display.pixel_yres = set_yres;
 	}
-	float dpi_scale = 1.0f;
 	if (set_dpi > 0) {
-		dpi_scale = set_dpi;
+		g_ForcedDPI = set_dpi;
 	}
 
 	// Mac / Linux
@@ -870,18 +891,6 @@ int main(int argc, char *argv[]) {
 		if (g_Config.iWindowHeight > 0)
 			h = g_Config.iWindowHeight;
 	}
-	g_display.pixel_xres = w;
-	g_display.pixel_yres = h;
-	g_display.dp_xres = (float)g_display.pixel_xres * dpi_scale;
-	g_display.dp_yres = (float)g_display.pixel_yres * dpi_scale;
-
-	g_display.pixel_in_dps_x = (float)g_display.pixel_xres / g_display.dp_xres;
-	g_display.pixel_in_dps_y = (float)g_display.pixel_yres / g_display.dp_yres;
-	g_display.dpi_scale_x = g_display.dp_xres / (float)g_display.pixel_xres;
-	g_display.dpi_scale_y = g_display.dp_yres / (float)g_display.pixel_yres;
-	g_display.dpi_scale_real_x = g_display.dpi_scale_x;
-	g_display.dpi_scale_real_y = g_display.dpi_scale_y;
-	// g_display.Print();
 
 	GraphicsContext *graphicsContext = nullptr;
 	SDL_Window *window = nullptr;
@@ -909,6 +918,12 @@ int main(int argc, char *argv[]) {
 		}
 #endif
 	}
+
+	UpdateScreenDPI(window);
+
+	float dpi_scale = 1.0f / (g_ForcedDPI == 0.0f ? g_DesktopDPI : g_ForcedDPI);
+
+	UpdateScreenScale(w * g_DesktopDPI, h * g_DesktopDPI);
 
 	bool useEmuThread = g_Config.iGPUBackend == (int)GPUBackend::OPENGL;
 
@@ -1009,8 +1024,13 @@ int main(int argc, char *argv[]) {
 		}
 		SDL_Event event, touchEvent;
 		while (SDL_PollEvent(&event)) {
-			float mx = event.motion.x * g_display.dpi_scale_x;
-			float my = event.motion.y * g_display.dpi_scale_y;
+			// We have to juggle around 3 kinds of "DPI spaces" if a logical DPI is
+			// provided (through --dpi, it is equal to system DPI if unspecified):
+			// - SDL gives us motion events in "system DPI" points
+			// - UpdateScreenScale expects pixels, so in a way "96 DPI" points
+			// - The UI code expects motion events in "logical DPI" points
+			float mx = event.motion.x * g_DesktopDPI * g_display.dpi_scale_x;
+			float my = event.motion.y * g_DesktopDPI * g_display.dpi_scale_x;
 
 			switch (event.type) {
 			case SDL_QUIT:
@@ -1025,6 +1045,11 @@ int main(int argc, char *argv[]) {
 					int new_width = event.window.data1;
 					int new_height = event.window.data2;
 
+					// The size given by SDL is in point-units, convert these to
+					// pixels before passing to UpdateScreenScale()
+					int new_width_px = new_width * g_DesktopDPI;
+					int new_height_px = new_height * g_DesktopDPI;
+
 					windowHidden = false;
 					Core_NotifyWindowHidden(windowHidden);
 
@@ -1032,12 +1057,16 @@ int main(int argc, char *argv[]) {
 					bool fullscreen = (window_flags & SDL_WINDOW_FULLSCREEN);
 
 					// This one calls NativeResized if the size changed.
-					UpdateScreenScale(new_width, new_height);
+					UpdateScreenScale(new_width_px, new_height_px);
 
 					// Set variable here in case fullscreen was toggled by hotkey
 					if (g_Config.UseFullScreen() != fullscreen) {
 						g_Config.bFullScreen = fullscreen;
 						g_Config.iForceFullScreen = -1;
+					} else {
+						// It is possible for the monitor to change DPI, so recalculate
+						// DPI on each resize event. 
+						UpdateScreenDPI(window);
 					}
 
 					if (!g_Config.bFullScreen) {
@@ -1136,8 +1165,8 @@ int main(int argc, char *argv[]) {
 					SDL_GetWindowSize(window, &w, &h);
 					TouchInput input;
 					input.id = event.tfinger.fingerId;
-					input.x = event.tfinger.x * w;
-					input.y = event.tfinger.y * h;
+					input.x = event.tfinger.x * w * g_DesktopDPI * g_display.dpi_scale_x;
+					input.y = event.tfinger.y * h * g_DesktopDPI * g_display.dpi_scale_x;
 					input.flags = TOUCH_MOVE;
 					input.timestamp = event.tfinger.timestamp;
 					NativeTouch(input);
@@ -1148,8 +1177,8 @@ int main(int argc, char *argv[]) {
 					SDL_GetWindowSize(window, &w, &h);
 					TouchInput input;
 					input.id = event.tfinger.fingerId;
-					input.x = event.tfinger.x * w;
-					input.y = event.tfinger.y * h;
+					input.x = event.tfinger.x * w * g_DesktopDPI * g_display.dpi_scale_x;
+					input.y = event.tfinger.y * h * g_DesktopDPI * g_display.dpi_scale_x;
 					input.flags = TOUCH_DOWN;
 					input.timestamp = event.tfinger.timestamp;
 					NativeTouch(input);
@@ -1166,8 +1195,8 @@ int main(int argc, char *argv[]) {
 					SDL_GetWindowSize(window, &w, &h);
 					TouchInput input;
 					input.id = event.tfinger.fingerId;
-					input.x = event.tfinger.x * w;
-					input.y = event.tfinger.y * h;
+					input.x = event.tfinger.x * w * g_DesktopDPI * g_display.dpi_scale_x;
+					input.y = event.tfinger.y * h * g_DesktopDPI * g_display.dpi_scale_x;
 					input.flags = TOUCH_UP;
 					input.timestamp = event.tfinger.timestamp;
 					NativeTouch(input);

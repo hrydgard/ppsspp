@@ -90,6 +90,8 @@
 	<string></string>
 	<key>CSResourcesFileMapped</key>
 	<true/>
+	<key>NSHighResolutionCapable</key>
+	<true/>
 	<key>NSHumanReadableCopyright</key>
 	<string></string>
 	<key>UTExportedTypeDeclarations</key>
