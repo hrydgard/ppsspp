@@ -594,7 +594,8 @@ void VulkanRenderManager::BeginFrame(bool enableProfiling, bool enableLogProfile
 				frameTimeData_[presentId].actualPresent = from_time_raw(timings[i].actualPresentTime);
 				frameTimeData_[presentId].desiredPresentTime = from_time_raw(timings[i].desiredPresentTime);
 				frameTimeData_[presentId].earliestPresentTime = from_time_raw(timings[i].earliestPresentTime);
-				frameTimeData_[presentId].presentMargin = from_time_raw(timings[i].earliestPresentTime);
+				frameTimeData_[presentId].presentMargin = from_time_raw(timings[i].presentMargin);
+				INFO_LOG(G3D, "presentID: %llu : %f", (unsigned long long)presentId, frameTimeData_[presentId].actualPresent);
 			}
 			delete[] timings;
 		}
