@@ -718,6 +718,8 @@ void hleLagSync(u64 userdata, int cyclesLate) {
 #ifndef _WIN32
 		const double left = goal - now;
 		usleep((long)(left * 1000000.0));
+#else
+		yield();
 #endif
 		now = time_now_d();
 	}

@@ -16,6 +16,9 @@ double from_time_raw_relative(uint64_t raw_time);
 // Sleep. Does not necessarily have millisecond granularity, especially on Windows.
 void sleep_ms(int ms);
 
+// Yield. Signals that this thread is busy-waiting but wants to allow other hyperthreads to run.
+void yield();
+
 void GetTimeFormatted(char formattedTime[13]);
 
 // Rust-style Instant for clear and easy timing.
