@@ -776,7 +776,7 @@ void SystemInfoScreen::CreateTabs() {
 			if (mode == vk->GetPresentMode()) {
 				str += std::string(" (") + di->T("Current") + ")";
 			}
-			presentModes->Add(new TextView(VulkanPresentModeToString(mode), new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetFocusable(true);
+			presentModes->Add(new TextView(str, new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetFocusable(true);
 		}
 
 		CollapsibleSection *colorFormats = gpuExtensions->Add(new CollapsibleSection(si->T("Display Color Formats")));

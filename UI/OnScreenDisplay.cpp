@@ -10,6 +10,7 @@
 #include "Common/Math/math_util.h"
 #include "Common/UI/IconCache.h"
 #include "UI/RetroAchievementScreens.h"
+#include "UI/DebugOverlay.h"
 
 #include "Common/UI/Context.h"
 #include "Common/System/OSD.h"
@@ -454,6 +455,18 @@ void OSDOverlayScreen::CreateViews() {
 	root_ = new UI::AnchorLayout();
 	root_->SetTag("OSDOverlayScreen");
 	root_->Add(new OnScreenMessagesView(new UI::AnchorLayoutParams(0.0f, 0.0f, 0.0f, 0.0f)));
+}
+
+void OSDOverlayScreen::render() {
+	UIScreen::render();
+
+	DebugOverlay debugOverlay = (DebugOverlay)g_Config.iDebugOverlay;
+
+	// Special case control for now, since it uses the control mapper that's owned by EmuScreen.
+	if (debugOverlay != DebugOverlay::OFF && debugOverlay != DebugOverlay::CONTROL) {
+		UIContext *uiContext = screenManager()->getUIContext();
+		DrawDebugOverlay(uiContext, uiContext->GetLayoutBounds(), debugOverlay);
+	}
 }
 
 void NoticeView::GetContentDimensionsBySpec(const UIContext &dc, UI::MeasureSpec horiz, UI::MeasureSpec vert, float &w, float &h) const {

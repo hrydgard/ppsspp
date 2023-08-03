@@ -1427,7 +1427,7 @@ void EmuScreen::render() {
 		}
 	}
 
-	Core_UpdateDebugStats(g_Config.iDebugOverlay == DebugOverlay::DEBUG_STATS || g_Config.bLogFrameDrops);
+	Core_UpdateDebugStats((DebugOverlay)g_Config.iDebugOverlay == DebugOverlay::DEBUG_STATS || g_Config.bLogFrameDrops);
 
 	bool blockedExecution = Achievements::IsBlockingExecution();
 	if (!blockedExecution) {
@@ -1503,7 +1503,7 @@ bool EmuScreen::hasVisibleUI() {
 	if (g_Config.bEnableCardboardVR || g_Config.bEnableNetworkChat)
 		return true;
 	// Debug UI.
-	if (g_Config.iDebugOverlay != DebugOverlay::OFF)
+	if ((DebugOverlay)g_Config.iDebugOverlay != DebugOverlay::OFF)
 		return true;
 
 	// Exception information.
@@ -1538,8 +1538,9 @@ void EmuScreen::renderUI() {
 	}
 
 	if (!invalid_) {
-		DrawDebugOverlay(ctx, ctx->GetLayoutBounds(), controlMapper_, g_Config.iDebugOverlay);
-
+		if ((DebugOverlay)g_Config.iDebugOverlay == DebugOverlay::CONTROL) {
+			DrawControlMapperOverlay(ctx, ctx->GetLayoutBounds(), controlMapper_);
+		}
 		if (g_Config.iShowStatusFlags) {
 			DrawFPS(ctx, ctx->GetLayoutBounds());
 		}
