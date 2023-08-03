@@ -193,6 +193,13 @@ static void UpdateScreenDPI(SDL_Window *window) {
 	// Round up a little otherwise there would be a gap sometimes
 	// in fractional scaling
 	g_DesktopDPI = ((float) drawable_width + 1.0f) / window_width;
+
+	// Temporary hack
+#if PPSSPP_PLATFORM(MAC) || PPSSPP_PLATFORM(IOS)
+	if (g_Config.iGPUBackend == (int)GPUBackend::VULKAN) {
+		g_DesktopDPI = 1.0f;
+	}
+#endif
 }
 
 // Simple implementations of System functions
@@ -918,6 +925,11 @@ int main(int argc, char *argv[]) {
 		}
 #endif
 	}
+#if PPSSPP_PLATFORM(MAC) || PPSSPP_PLATFORM(IOS)
+	if (g_Config.iGPUBackend == (int)GPUBackend::VULKAN) {
+		g_ForcedDPI = 1.0f;
+	}
+#endif
 
 	UpdateScreenDPI(window);
 
