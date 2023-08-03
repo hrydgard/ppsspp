@@ -225,7 +225,7 @@ jobs:
       run: |
         sudo add-apt-repository -y "deb http://archive.ubuntu.com/ubuntu `lsb_release -sc` main universe restricted multiverse"
         sudo apt-get update -y -qq
-        sudo apt-get install libsdl2-dev libgl1-mesa-dev libglu1-mesa-dev
+        sudo apt-get install libsdl2-dev libgl1-mesa-dev libglu1-mesa-dev libsdl2-ttf-dev libfontconfig1-dev
 
     - name: Create macOS git-version.cpp for tagged release
       if: startsWith(github.ref, 'refs/tags/') && runner.os == 'macOS' && matrix.extra == 'test'
