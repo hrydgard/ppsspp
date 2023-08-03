@@ -545,9 +545,9 @@ TOGGLE_METHOD(FullScreen, g_Config.bFullScreen, System_MakeRequest(SystemRequest
 
 -(void)toggleShowDebugStats: (NSMenuItem *)item { \
     if ((DebugOverlay)g_Config.iDebugOverlay == DebugOverlay::DEBUG_STATS) {
-        g_Config.iDebugOverlay = DebugOverlay::OFF;
+        g_Config.iDebugOverlay = (int)DebugOverlay::OFF;
     } else {
-        g_Config.iDebugOverlay = DebugOverlay::DEBUG_STATS;
+        g_Config.iDebugOverlay = (int)DebugOverlay::DEBUG_STATS;
     }
     System_PostUIMessage("clear jit", "");
     item.state = [self controlStateForBool: (DebugOverlay)g_Config.iDebugOverlay == DebugOverlay::DEBUG_STATS]; \
