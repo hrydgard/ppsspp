@@ -113,9 +113,9 @@ VkResult FrameData::QueuePresent(VulkanContext *vulkan, FrameDataShared &shared)
 	// Can't move these into the if.
 	VkPresentIdKHR presentID{ VK_STRUCTURE_TYPE_PRESENT_ID_KHR };
 	VkPresentTimesInfoGOOGLE presentGOOGLE{ VK_STRUCTURE_TYPE_PRESENT_TIMES_INFO_GOOGLE };
-	VkPresentTimeGOOGLE presentTimeGOOGLE{ (uint32_t)frameID, 0 };  // it's ok to truncate this. it'll wrap around and work (if we ever reach 4 billion frames..)
+	VkPresentTimeGOOGLE presentTimeGOOGLE{ (uint32_t)frameId, 0 };  // it's ok to truncate this. it'll wrap around and work (if we ever reach 4 billion frames..)
 	if (vulkan->Extensions().KHR_present_id && vulkan->GetDeviceFeatures().enabled.presentId.presentId) {
-		presentID.pPresentIds = &frameID;
+		presentID.pPresentIds = &frameId;
 		presentID.swapchainCount = 1;
 		present.pNext = &presentID;
 	} else if (vulkan->Extensions().GOOGLE_display_timing) {

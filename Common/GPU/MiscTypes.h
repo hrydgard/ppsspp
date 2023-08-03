@@ -20,13 +20,14 @@ typedef std::function<void(InvalidationCallbackFlags)> InvalidationCallback;
 // These are separate from FrameData because we store some history of these.
 // Also, this might be joined with more non-GPU timing information later.
 struct FrameTimeData {
+	uint64_t frameId;
 	double frameBegin;
 	double afterFenceWait;
 	double firstSubmit;
 	double queuePresent;
+
 	double actualPresent;
 	double desiredPresentTime;
-	double actualPresentTime;
 	double earliestPresentTime;
 	double presentMargin;
 };

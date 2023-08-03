@@ -54,6 +54,9 @@ double from_time_raw(uint64_t raw_time) {
 	return (double)raw_time * (1.0 / nanos);
 }
 
+double from_time_raw_relative(uint64_t raw_time) {
+	return from_time_raw(raw_time);
+}
 
 #elif PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(LINUX) || PPSSPP_PLATFORM(MAC) || PPSSPP_PLATFORM(IOS)
 
@@ -78,6 +81,10 @@ double time_now_d() {
 	return from_time_raw(raw_time);
 }
 
+double from_time_raw_relative(uint64_t raw_time) {
+	return (double)raw_time * (1.0 / nanos);
+}
+
 #else
 
 double time_now_d() {
@@ -97,6 +104,10 @@ uint64_t time_now_raw() {
 
 double from_time_raw(uint64_t raw_time) {
 	return (double)raw_time * (1.0 / nanos);
+}
+
+double from_time_raw_relative(uint64_t raw_time) {
+	return from_time_raw(raw_time);
 }
 
 #endif

@@ -11,6 +11,7 @@ uint64_t time_now_raw();
 
 // This is only interesting for Linux, in relation to VK_GOOGLE_display_timing.
 double from_time_raw(uint64_t raw_time);
+double from_time_raw_relative(uint64_t raw_time);
 
 // Sleep. Does not necessarily have millisecond granularity, especially on Windows.
 void sleep_ms(int ms);

@@ -104,45 +104,47 @@ static void DrawFrameTiming(UIContext *ctx, const Bounds &bounds) {
 
 	char statBuf[1024]{};
 
-	FrameTimeData data = ctx->GetDrawContext()->GetFrameTimeData(4);
-
-	if (data.frameBegin == 0.0) {
-		snprintf(statBuf, sizeof(statBuf), "(Frame timing collection not supported on this backend)");
-	} else {
-		double fenceLatency_s = data.afterFenceWait - data.frameBegin;
-		double submitLatency_s = data.firstSubmit - data.frameBegin;
-		double queuePresentLatency_s = data.queuePresent - data.frameBegin;
-		double actualPresentLatency_s = data.actualPresent - data.frameBegin;
-		double margin = data.presentMargin;
-		double computedMargin = data.actualPresent - data.queuePresent;
-
-		char presentStats[256] = "";
-		if (data.actualPresent != 0.0) {
-			snprintf(presentStats, sizeof(presentStats),
-				"* Actual present: %0.1f ms\n"
-				"* Margin: %0.1f ms (%0.1f computed)\n",
-				actualPresentLatency_s * 1000.0,
-				margin * 1000.0,
-				computedMargin * 1000.0);
-		}
-		snprintf(statBuf, sizeof(statBuf),
-			"Time from start of frame to event:\n"
-			"* Past the fence: %0.1f ms\n"
-			"* First submit: %0.1f ms\n"
-			"* Queue-present: %0.1f ms\n"
-			"%s",
-			fenceLatency_s * 1000.0,
-			submitLatency_s * 1000.0,
-			queuePresentLatency_s * 1000.0,
-			presentStats
-		);
-	}
-
 	ctx->Flush();
 	ctx->BindFontTexture();
 	ctx->Draw()->SetFontScale(0.5f, 0.5f);
-	ctx->Draw()->DrawTextRect(ubuntu24, statBuf, bounds.x + 11, bounds.y + 51, bounds.w - 20, bounds.h - 30, 0xc0000000, FLAG_DYNAMIC_ASCII);
-	ctx->Draw()->DrawTextRect(ubuntu24, statBuf, bounds.x + 10, bounds.y + 50, bounds.w - 20, bounds.h - 30, 0xFFFFFFFF, FLAG_DYNAMIC_ASCII);
+
+	for (int i = 0; i < 8; i++) {
+		FrameTimeData data = ctx->GetDrawContext()->GetFrameTimeData(6 + i);
+		if (data.frameBegin == 0.0) {
+			snprintf(statBuf, sizeof(statBuf), "(Frame timing collection not supported on this backend)");
+		} else {
+			double fenceLatency_s = data.afterFenceWait - data.frameBegin;
+			double submitLatency_s = data.firstSubmit - data.frameBegin;
+			double queuePresentLatency_s = data.queuePresent - data.frameBegin;
+			double actualPresentLatency_s = data.actualPresent - data.frameBegin;
+			double presentMargin = data.presentMargin;
+			double computedMargin = data.actualPresent - data.queuePresent;
+
+			char presentStats[256] = "";
+			if (data.actualPresent != 0.0) {
+				snprintf(presentStats, sizeof(presentStats),
+					"* Present: %0.1f ms\n"
+					"* Margin: %0.1f ms\n"
+					"* Margin(c): %0.1f ms\n",
+					actualPresentLatency_s * 1000.0,
+					presentMargin * 1000.0,
+					computedMargin * 1000.0);
+			}
+			snprintf(statBuf, sizeof(statBuf),
+				"%llu: From start of frame to event:\n"
+				"* Past fence: %0.1f ms\n"
+				"* Submit #1: %0.1f ms\n"
+				"* Queue-p: %0.1f ms\n"
+				"%s",
+				(long long)data.frameId,
+				fenceLatency_s * 1000.0,
+				submitLatency_s * 1000.0,
+				queuePresentLatency_s * 1000.0,
+				presentStats
+			);
+		}
+		ctx->Draw()->DrawTextRect(ubuntu24, statBuf, bounds.x + 10 + i * 150, bounds.y + 50, bounds.w - 20, bounds.h - 30, 0xFFFFFFFF, FLAG_DYNAMIC_ASCII);
+	}
 	ctx->Draw()->SetFontScale(1.0f, 1.0f);
 	ctx->Flush();
 	ctx->RebindTexture();
