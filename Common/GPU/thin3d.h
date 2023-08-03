@@ -848,6 +848,10 @@ public:
 		return FrameTimeData{};
 	}
 
+	virtual std::string GetGpuProfileString() const {
+		return "";
+	}
+
 protected:
 	ShaderModule *vsPresets_[VS_MAX_PRESET];
 	ShaderModule *fsPresets_[FS_MAX_PRESET];

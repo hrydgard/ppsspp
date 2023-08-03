@@ -252,14 +252,6 @@ public:
 	virtual bool GetOutputFramebuffer(GPUDebugBuffer &buffer) {
 		return false;
 	}
-
-	// TODO:
-	// cached framebuffers / textures / vertices?
-	// get content of specific framebuffer / texture?
-	// vertex / texture decoding?
-
-	// Note: Wanted to name it GetProfileString but clashes with a Windows API.
-	virtual std::string GetGpuProfileString() { return ""; }
 };
 
 bool GPUDebugInitExpression(GPUDebugInterface *g, const char *str, PostfixExpression &exp);
