@@ -790,14 +790,29 @@ void SystemInfoScreen::CreateTabs() {
 #endif
 
 		CollapsibleSection *enabledExtensions = gpuExtensions->Add(new CollapsibleSection(std::string(si->T("Vulkan Extensions")) + " (" + di->T("Enabled") + ")"));
-		std::vector<std::string> extensions = draw->GetExtensionList(true);
+		std::vector<std::string> extensions = draw->GetExtensionList(true, true);
+		std::sort(extensions.begin(), extensions.end());
+		for (auto &extension : extensions) {
+			enabledExtensions->Add(new TextView(extension, new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetFocusable(true);
+		}
+		// Also get instance extensions
+		enabledExtensions->Add(new ItemHeader("Instance"));
+		extensions = draw->GetExtensionList(false, true);
 		std::sort(extensions.begin(), extensions.end());
 		for (auto &extension : extensions) {
 			enabledExtensions->Add(new TextView(extension, new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetFocusable(true);
 		}
 
 		CollapsibleSection *vulkanExtensions = gpuExtensions->Add(new CollapsibleSection(si->T("Vulkan Extensions")));
-		extensions = draw->GetExtensionList(false);
+		extensions = draw->GetExtensionList(true, false);
+		std::sort(extensions.begin(), extensions.end());
+		for (auto &extension : extensions) {
+			vulkanExtensions->Add(new TextView(extension, new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetFocusable(true);
+		}
+
+		vulkanExtensions->Add(new ItemHeader("Instance"));
+		// Also get instance extensions
+		extensions = draw->GetExtensionList(false, false);
 		std::sort(extensions.begin(), extensions.end());
 		for (auto &extension : extensions) {
 			vulkanExtensions->Add(new TextView(extension, new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetFocusable(true);
