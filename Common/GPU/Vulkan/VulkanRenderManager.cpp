@@ -582,6 +582,24 @@ void VulkanRenderManager::BeginFrame(bool enableProfiling, bool enableLogProfile
 	}
 	vkResetFences(device, 1, &frameData.fence);
 
+	// Poll for information about completed frames.
+	if (vulkan_->Extensions().GOOGLE_display_timing) {
+		uint32_t count = 0;
+		vkGetPastPresentationTimingGOOGLE(vulkan_->GetDevice(), vulkan_->GetSwapchain(), &count, nullptr);
+		if (count > 0) {
+			VkPastPresentationTimingGOOGLE *timings = new VkPastPresentationTimingGOOGLE[count];
+			vkGetPastPresentationTimingGOOGLE(vulkan_->GetDevice(), vulkan_->GetSwapchain(), &count, timings);
+			for (uint32_t i = 0; i < count; i++) {
+				uint64_t presentId = timings[i].presentID;
+				frameTimeData_[presentId].actualPresent = from_time_raw(timings[i].actualPresentTime);
+				frameTimeData_[presentId].desiredPresentTime = from_time_raw(timings[i].desiredPresentTime);
+				frameTimeData_[presentId].earliestPresentTime = from_time_raw(timings[i].earliestPresentTime);
+				frameTimeData_[presentId].presentMargin = from_time_raw(timings[i].earliestPresentTime);
+			}
+			delete[] timings;
+		}
+	}
+
 	int validBits = vulkan_->GetQueueFamilyProperties(vulkan_->GetGraphicsQueueFamilyIndex()).timestampValidBits;
 
 	// Can't set this until after the fence.
