@@ -217,7 +217,7 @@ void OSXOpenURL(const char *url) {
                     item.state = [self controlStateForBool:g_Config.bIgnoreBadMemAccess];
                     break;
                 case 12:
-                    item.state = [self controlStateForBool:g_Config.iDebugOverlay == DebugOverlay::DEBUG_STATS];
+                    item.state = [self controlStateForBool:(DebugOverlay)g_Config.iDebugOverlay == DebugOverlay::DEBUG_STATS];
                     break;
                 default:
                     item.enabled = state == UISTATE_INGAME ? YES : NO;
@@ -405,7 +405,7 @@ void OSXOpenURL(const char *url) {
     copyBaseAddr.target = self;
     copyBaseAddr.tag = 11;
 
-    MENU_ITEM(showDebugStatsAction, DESKTOPUI_LOCALIZED("Show Debug Statistics"), @selector(toggleShowDebugStats:), (g_Config.iDebugOverlay == DebugOverlay::DEBUG_STATS), 12)
+    MENU_ITEM(showDebugStatsAction, DESKTOPUI_LOCALIZED("Show Debug Statistics"), @selector(toggleShowDebugStats:), ((DebugOverlay)g_Config.iDebugOverlay == DebugOverlay::DEBUG_STATS), 12)
 
     [parent addItem:loadSymbolMapAction];
     [parent addItem:saveMapFileAction];
@@ -544,13 +544,13 @@ TOGGLE_METHOD(FullScreen, g_Config.bFullScreen, System_MakeRequest(SystemRequest
 #undef TOGGLE_METHOD
 
 -(void)toggleShowDebugStats: (NSMenuItem *)item { \
-    if (g_Config.iDebugOverlay == DebugOverlay::DEBUG_STATS) {
-        g_Config.iDebugOverlay = DebugOverlay::OFF;
+    if ((DebugOverlay)g_Config.iDebugOverlay == DebugOverlay::DEBUG_STATS) {
+        g_Config.iDebugOverlay = (int)DebugOverlay::OFF;
     } else {
-        g_Config.iDebugOverlay = DebugOverlay::DEBUG_STATS;
+        g_Config.iDebugOverlay = (int)DebugOverlay::DEBUG_STATS;
     }
     System_PostUIMessage("clear jit", "");
-    item.state = [self controlStateForBool: g_Config.iDebugOverlay == DebugOverlay::DEBUG_STATS]; \
+    item.state = [self controlStateForBool: (DebugOverlay)g_Config.iDebugOverlay == DebugOverlay::DEBUG_STATS]; \
 }
 
 -(void)setToggleShowCounterItem: (NSMenuItem *)item {

@@ -492,6 +492,10 @@ public:
 		renderManager_.SetInvalidationCallback(callback);
 	}
 
+	std::string GetGpuProfileString() const override {
+		return renderManager_.GetGpuProfileString();
+	}
+
 private:
 	void ApplySamplers();
 

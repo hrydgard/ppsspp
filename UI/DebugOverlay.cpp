@@ -150,7 +150,11 @@ static void DrawFrameTiming(UIContext *ctx, const Bounds &bounds) {
 	ctx->RebindTexture();
 }
 
-void DrawDebugOverlay(UIContext *ctx, const Bounds &bounds, const ControlMapper &controlMapper, DebugOverlay overlay) {
+void DrawControlMapperOverlay(UIContext *ctx, const Bounds &bounds, const ControlMapper &controlMapper) {
+	DrawControlDebug(ctx, controlMapper, ctx->GetLayoutBounds());
+}
+
+void DrawDebugOverlay(UIContext *ctx, const Bounds &bounds, DebugOverlay overlay) {
 	switch (overlay) {
 	case DebugOverlay::DEBUG_STATS:
 		DrawDebugStats(ctx, ctx->GetLayoutBounds());
@@ -164,11 +168,7 @@ void DrawDebugOverlay(UIContext *ctx, const Bounds &bounds, const ControlMapper 
 	case DebugOverlay::AUDIO:
 		DrawAudioDebugStats(ctx, ctx->GetLayoutBounds());
 		break;
-	case DebugOverlay::CONTROL:
-		DrawControlDebug(ctx, controlMapper, ctx->GetLayoutBounds());
-		break;
 #if !PPSSPP_PLATFORM(UWP) && !PPSSPP_PLATFORM(SWITCH)
-
 	case DebugOverlay::GPU_PROFILE:
 		if (g_Config.iGPUBackend == (int)GPUBackend::VULKAN || g_Config.iGPUBackend == (int)GPUBackend::OPENGL) {
 			DrawGPUProfilerVis(ctx, gpu);
@@ -180,5 +180,7 @@ void DrawDebugOverlay(UIContext *ctx, const Bounds &bounds, const ControlMapper 
 		}
 		break;
 #endif
+	default:
+		break;
 	}
 }

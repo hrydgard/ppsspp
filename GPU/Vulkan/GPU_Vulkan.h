@@ -59,8 +59,6 @@ public:
 		return textureCacheVulkan_;
 	}
 
-	std::string GetGpuProfileString() override;
-
 protected:
 	void FinishDeferred() override;
 	void CheckRenderResized() override;

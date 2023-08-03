@@ -28,6 +28,7 @@ class OSDOverlayScreen : public UIScreen {
 public:
 	const char *tag() const override { return "OSDOverlayScreen"; }
 	void CreateViews() override;
+	void render() override;
 };
 
 enum class NoticeLevel {
