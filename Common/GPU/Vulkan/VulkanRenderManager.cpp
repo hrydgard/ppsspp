@@ -546,15 +546,41 @@ void VulkanRenderManager::PresentWaitThreadFunc() {
 	uint64_t waitedId = frameIdGen_;
 	while (run_) {
 		const uint64_t timeout = 1000000000ULL;  // 1 sec
-		vkWaitForPresentKHR(vulkan_->GetDevice(), vulkan_->GetSwapchain(), waitedId, timeout);
-		frameTimeData_[waitedId].actualPresent = time_now_d();
-		waitedId++;
-
+		if (VK_SUCCESS == vkWaitForPresentKHR(vulkan_->GetDevice(), vulkan_->GetSwapchain(), waitedId, timeout)) {
+			frameTimeData_[waitedId].actualPresent = time_now_d();
+			waitedId++;
+		}
 		_dbg_assert_(waitedId <= frameIdGen_);
 	}
 
 	INFO_LOG(G3D, "Leaving PresentWaitThreadFunc()");
 }
+
+void VulkanRenderManager::PollPresentTiming() {
+	// For VK_GOOGLE_display_timing, we need to poll.
+
+	// Poll for information about completed frames.
+	// NOTE: We seem to get the information pretty late! Like after 6 frames, which is quite weird.
+	// Tested on POCO F4.
+	if (vulkan_->Extensions().GOOGLE_display_timing) {
+		uint32_t count = 0;
+		vkGetPastPresentationTimingGOOGLE(vulkan_->GetDevice(), vulkan_->GetSwapchain(), &count, nullptr);
+		if (count > 0) {
+			VkPastPresentationTimingGOOGLE *timings = new VkPastPresentationTimingGOOGLE[count];
+			vkGetPastPresentationTimingGOOGLE(vulkan_->GetDevice(), vulkan_->GetSwapchain(), &count, timings);
+			for (uint32_t i = 0; i < count; i++) {
+				uint64_t presentId = timings[i].presentID;
+				frameTimeData_[presentId].actualPresent = from_time_raw(timings[i].actualPresentTime);
+				frameTimeData_[presentId].desiredPresentTime = from_time_raw(timings[i].desiredPresentTime);
+				frameTimeData_[presentId].earliestPresentTime = from_time_raw(timings[i].earliestPresentTime);
+				double presentMargin = from_time_raw_relative(timings[i].presentMargin);
+				frameTimeData_[presentId].presentMargin = presentMargin;
+			}
+			delete[] timings;
+		}
+	}
+}
+
 
 void VulkanRenderManager::BeginFrame(bool enableProfiling, bool enableLogProfiler) {
 	double frameBeginTime = time_now_d()
@@ -582,17 +608,19 @@ void VulkanRenderManager::BeginFrame(bool enableProfiling, bool enableLogProfile
 	}
 	vkResetFences(device, 1, &frameData.fence);
 
+	uint64_t frameId = frameIdGen_++;
+
+	PollPresentTiming();
+
 	int validBits = vulkan_->GetQueueFamilyProperties(vulkan_->GetGraphicsQueueFamilyIndex()).timestampValidBits;
 
 	// Can't set this until after the fence.
 	frameData.profile.enabled = enableProfiling;
 	frameData.profile.timestampsEnabled = enableProfiling && validBits > 0;
-	frameData.frameID = frameIdGen_++;
-
-	uint64_t frameId = ++frameIdGen_;
 	frameData.frameId = frameId;
 
 	frameTimeData_[frameId] = {};
+	frameTimeData_[frameId].frameId = frameId;
 	frameTimeData_[frameId].frameBegin = frameBeginTime;
 	frameTimeData_[frameId].afterFenceWait = time_now_d();
 

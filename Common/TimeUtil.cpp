@@ -21,6 +21,9 @@
 
 // TODO: https://github.com/floooh/sokol/blob/9a6237fcdf213e6da48e4f9201f144bcb2dcb46f/sokol_time.h#L229-L248
 
+static const double micros = 1000000.0;
+static const double nanos = 1000000000.0;
+
 #ifdef _WIN32
 
 static LARGE_INTEGER frequency;
@@ -41,7 +44,18 @@ double time_now_d() {
 
 // Fake, but usable in a pinch. Don't, though.
 uint64_t time_now_raw() {
-	return (uint64_t)(time_now_d() * 1000000000.0);
+	return (uint64_t)(time_now_d() * nanos);
+}
+
+double from_time_raw(uint64_t raw_time) {
+	if (raw_time == 0) {
+		return 0.0; // invalid time
+	}
+	return (double)raw_time * (1.0 / nanos);
+}
+
+double from_time_raw_relative(uint64_t raw_time) {
+	return from_time_raw(raw_time);
 }
 
 #elif PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(LINUX) || PPSSPP_PLATFORM(MAC) || PPSSPP_PLATFORM(IOS)
@@ -53,13 +67,22 @@ uint64_t time_now_raw() {
 	return tp.tv_sec * 1000000000ULL + tp.tv_nsec;
 }
 
+static uint64_t g_startTime;
+
+double from_time_raw(uint64_t raw_time) {
+	return (double)(raw_time - g_startTime) * (1.0 / nanos);
+}
+
 double time_now_d() {
-	static uint64_t start;
 	uint64_t raw_time = time_now_raw();
-	if (start == 0) {
-		start = raw_time;
+	if (g_startTime == 0) {
+		g_startTime = raw_time;
 	}
-	return (double)(raw_time - start) * (1.0 / 1000000000.0);
+	return from_time_raw(raw_time);
+}
+
+double from_time_raw_relative(uint64_t raw_time) {
+	return (double)raw_time * (1.0 / nanos);
 }
 
 #else
@@ -71,12 +94,20 @@ double time_now_d() {
 	if (start == 0) {
 		start = tv.tv_sec;
 	}
-	return (double)(tv.tv_sec - start) + (double)tv.tv_usec * (1.0 / 1000000.0);
+	return (double)(tv.tv_sec - start) + (double)tv.tv_usec * (1.0 / micros);
 }
 
 // Fake, but usable in a pinch. Don't, though.
 uint64_t time_now_raw() {
-	return (uint64_t)(time_now_d() * 1000000000.0);
+	return (uint64_t)(time_now_d() * nanos);
+}
+
+double from_time_raw(uint64_t raw_time) {
+	return (double)raw_time * (1.0 / nanos);
+}
+
+double from_time_raw_relative(uint64_t raw_time) {
+	return from_time_raw(raw_time);
 }
 
 #endif

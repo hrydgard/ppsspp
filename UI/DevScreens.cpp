@@ -764,36 +764,43 @@ void SystemInfoScreen::CreateTabs() {
 
 		VulkanContext *vk = (VulkanContext *)draw->GetNativeObject(Draw::NativeObject::CONTEXT);
 
-		gpuExtensions->Add(new ItemHeader(si->T("Vulkan Features")));
+		CollapsibleSection *vulkanFeatures = gpuExtensions->Add(new CollapsibleSection(si->T("Vulkan Features")));
 		std::vector<std::string> features = draw->GetFeatureList();
 		for (auto &feature : features) {
-			gpuExtensions->Add(new TextView(feature, new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetFocusable(true);
+			vulkanFeatures->Add(new TextView(feature, new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetFocusable(true);
 		}
 
-		gpuExtensions->Add(new ItemHeader(si->T("Present Modes")));
+		CollapsibleSection *presentModes = gpuExtensions->Add(new CollapsibleSection(si->T("Present Modes")));
 		for (auto mode : vk->GetAvailablePresentModes()) {
 			std::string str = VulkanPresentModeToString(mode);
 			if (mode == vk->GetPresentMode()) {
 				str += std::string(" (") + di->T("Current") + ")";
 			}
-			gpuExtensions->Add(new TextView(VulkanPresentModeToString(mode), new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetFocusable(true);
+			presentModes->Add(new TextView(VulkanPresentModeToString(mode), new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetFocusable(true);
 		}
 
-		gpuExtensions->Add(new ItemHeader(si->T("Display Color Formats")));
+		CollapsibleSection *colorFormats = gpuExtensions->Add(new CollapsibleSection(si->T("Display Color Formats")));
 		if (vk) {
 			for (auto &format : vk->SurfaceFormats()) {
 				std::string line = StringFromFormat("%s : %s", VulkanFormatToString(format.format), VulkanColorSpaceToString(format.colorSpace));
-				gpuExtensions->Add(new TextView(line,
+				colorFormats->Add(new TextView(line,
 					new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetFocusable(true);
 			}
 		}
 #endif
 
-		gpuExtensions->Add(new ItemHeader(si->T("Vulkan Extensions")));
-		std::vector<std::string> extensions = draw->GetExtensionList();
+		CollapsibleSection *enabledExtensions = gpuExtensions->Add(new CollapsibleSection(std::string(si->T("Vulkan Extensions")) + " (" + di->T("Enabled") + ")"));
+		std::vector<std::string> extensions = draw->GetExtensionList(true);
 		std::sort(extensions.begin(), extensions.end());
 		for (auto &extension : extensions) {
-			gpuExtensions->Add(new TextView(extension, new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetFocusable(true);
+			enabledExtensions->Add(new TextView(extension, new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetFocusable(true);
+		}
+
+		CollapsibleSection *vulkanExtensions = gpuExtensions->Add(new CollapsibleSection(si->T("Vulkan Extensions")));
+		extensions = draw->GetExtensionList(false);
+		std::sort(extensions.begin(), extensions.end());
+		for (auto &extension : extensions) {
+			vulkanExtensions->Add(new TextView(extension, new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetFocusable(true);
 		}
 	}
 

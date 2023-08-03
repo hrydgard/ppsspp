@@ -517,7 +517,7 @@ public:
 	VkDescriptorSet GetOrCreateDescriptorSet(VkBuffer buffer);
 
 	std::vector<std::string> GetFeatureList() const override;
-	std::vector<std::string> GetExtensionList() const override;
+	std::vector<std::string> GetExtensionList(bool enabledOnly) const override;
 
 	uint64_t GetNativeObject(NativeObject obj, void *srcObject) override;
 
@@ -1626,10 +1626,16 @@ std::vector<std::string> VKContext::GetFeatureList() const {
 	return features;
 }
 
-std::vector<std::string> VKContext::GetExtensionList() const {
+std::vector<std::string> VKContext::GetExtensionList(bool enabledOnly) const {
 	std::vector<std::string> extensions;
-	for (auto &iter : vulkan_->GetDeviceExtensionsAvailable()) {
-		extensions.push_back(iter.extensionName);
+	if (enabledOnly) {
+		for (auto &iter : vulkan_->GetDeviceExtensionsEnabled()) {
+			extensions.push_back(iter);
+		}
+	} else {
+		for (auto &iter : vulkan_->GetDeviceExtensionsAvailable()) {
+			extensions.push_back(iter.extensionName);
+		}
 	}
 	return extensions;
 }

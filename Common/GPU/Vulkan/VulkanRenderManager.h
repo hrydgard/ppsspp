@@ -481,6 +481,7 @@ private:
 	void StopThread();
 
 	void PresentWaitThreadFunc();
+	void PollPresentTiming();
 
 	FrameDataShared frameDataShared_;
 
