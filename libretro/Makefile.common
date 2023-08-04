@@ -677,9 +677,10 @@ SOURCES_CXX += \
 	       $(COREDIR)/MIPS/IR/IRCompFPU.cpp \
 	       $(COREDIR)/MIPS/IR/IRCompLoadStore.cpp \
 	       $(COREDIR)/MIPS/IR/IRCompVFPU.cpp \
+	       $(COREDIR)/MIPS/IR/IRInst.cpp \
 	       $(COREDIR)/MIPS/IR/IRInterpreter.cpp \
 	       $(COREDIR)/MIPS/IR/IRJit.cpp \
-	       $(COREDIR)/MIPS/IR/IRInst.cpp \
+	       $(COREDIR)/MIPS/IR/IRNativeCommon.cpp \
 	       $(COREDIR)/MIPS/IR/IRPassSimplify.cpp \
 	       $(COREDIR)/MIPS/IR/IRRegCache.cpp \
 	       $(COREDIR)/MIPS/IR/IRFrontend.cpp \
