@@ -317,7 +317,7 @@ UWPGraphicsContext::UWPGraphicsContext(std::shared_ptr<DX::DeviceResources> reso
 	std::vector<std::string> adapterNames;
 
 	draw_ = Draw::T3DCreateD3D11Context(
-		resources->GetD3DDevice(), resources->GetD3DDeviceContext(), resources->GetD3DDevice(), resources->GetD3DDeviceContext(), resources->GetDeviceFeatureLevel(), 0, adapterNames);
+		resources->GetD3DDevice(), resources->GetD3DDeviceContext(), resources->GetD3DDevice(), resources->GetD3DDeviceContext(), resources->GetDeviceFeatureLevel(), 0, adapterNames, g_Config.iInflightFrames);
 	bool success = draw_->CreatePresets();
 	_assert_(success);
 }

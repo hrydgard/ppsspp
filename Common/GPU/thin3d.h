@@ -603,6 +603,7 @@ struct DeviceCaps {
 	bool multiViewSupported;
 	bool isTilingGPU;  // This means that it benefits from correct store-ops, msaa without backing memory, etc.
 	bool sampleRateShadingSupported;
+	bool setMaxFrameLatencySupported;
 
 	bool verySlowShaderCompiler;
 
