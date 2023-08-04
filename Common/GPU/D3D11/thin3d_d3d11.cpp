@@ -62,7 +62,7 @@ public:
 
 class D3D11DrawContext : public DrawContext {
 public:
-	D3D11DrawContext(ID3D11Device *device, ID3D11DeviceContext *deviceContext, ID3D11Device1 *device1, ID3D11DeviceContext1 *deviceContext1, D3D_FEATURE_LEVEL featureLevel, HWND hWnd, std::vector<std::string> deviceList);
+	D3D11DrawContext(ID3D11Device *device, ID3D11DeviceContext *deviceContext, ID3D11Device1 *device1, ID3D11DeviceContext1 *deviceContext1, D3D_FEATURE_LEVEL featureLevel, HWND hWnd, std::vector<std::string> deviceList, int maxInflightFrames);
 	~D3D11DrawContext();
 
 	const DeviceCaps &GetDeviceCaps() const override {
@@ -244,7 +244,7 @@ private:
 	std::vector<std::string> deviceList_;
 };
 
-D3D11DrawContext::D3D11DrawContext(ID3D11Device *device, ID3D11DeviceContext *deviceContext, ID3D11Device1 *device1, ID3D11DeviceContext1 *deviceContext1, D3D_FEATURE_LEVEL featureLevel, HWND hWnd, std::vector<std::string> deviceList)
+D3D11DrawContext::D3D11DrawContext(ID3D11Device *device, ID3D11DeviceContext *deviceContext, ID3D11Device1 *device1, ID3D11DeviceContext1 *deviceContext1, D3D_FEATURE_LEVEL featureLevel, HWND hWnd, std::vector<std::string> deviceList, int maxInflightFrames)
 	: hWnd_(hWnd),
 		device_(device),
 		context_(deviceContext1),
@@ -346,6 +346,13 @@ D3D11DrawContext::D3D11DrawContext(ID3D11Device *device, ID3D11DeviceContext *de
 	const size_t UP_MAX_BYTES = 65536 * 24;
 
 	upBuffer_ = CreateBuffer(UP_MAX_BYTES, BufferUsageFlag::DYNAMIC | BufferUsageFlag::VERTEXDATA);
+
+	IDXGIDevice1 *dxgiDevice1 = nullptr;
+	hr = device_->QueryInterface(__uuidof(IDXGIDevice), reinterpret_cast<void **>(&dxgiDevice1));
+	if (SUCCEEDED(hr)) {
+		caps_.setMaxFrameLatencySupported = true;
+		dxgiDevice1->SetMaximumFrameLatency(maxInflightFrames);
+	}
 }
 
 D3D11DrawContext::~D3D11DrawContext() {
@@ -1858,8 +1865,8 @@ void D3D11DrawContext::GetFramebufferDimensions(Framebuffer *fbo, int *w, int *h
 	}
 }
 
-DrawContext *T3DCreateD3D11Context(ID3D11Device *device, ID3D11DeviceContext *context, ID3D11Device1 *device1, ID3D11DeviceContext1 *context1, D3D_FEATURE_LEVEL featureLevel, HWND hWnd, std::vector<std::string> adapterNames) {
-	return new D3D11DrawContext(device, context, device1, context1, featureLevel, hWnd, adapterNames);
+DrawContext *T3DCreateD3D11Context(ID3D11Device *device, ID3D11DeviceContext *context, ID3D11Device1 *device1, ID3D11DeviceContext1 *context1, D3D_FEATURE_LEVEL featureLevel, HWND hWnd, std::vector<std::string> adapterNames, int maxInflightFrames) {
+	return new D3D11DrawContext(device, context, device1, context1, featureLevel, hWnd, adapterNames, maxInflightFrames);
 }
 
 }  // namespace Draw

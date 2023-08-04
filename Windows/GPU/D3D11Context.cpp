@@ -171,7 +171,7 @@ bool D3D11Context::Init(HINSTANCE hInst, HWND wnd, std::string *error_message) {
 	}
 #endif
 
-	draw_ = Draw::T3DCreateD3D11Context(device_, context_, device1_, context1_, featureLevel_, hWnd_, adapterNames);
+	draw_ = Draw::T3DCreateD3D11Context(device_, context_, device1_, context1_, featureLevel_, hWnd_, adapterNames, g_Config.iInflightFrames);
 	SetGPUBackend(GPUBackend::DIRECT3D11, chosenAdapterName);
 	bool success = draw_->CreatePresets();  // If we can run D3D11, there's a compiler installed. I think.
 	_assert_msg_(success, "Failed to compile preset shaders");
@@ -182,7 +182,8 @@ bool D3D11Context::Init(HINSTANCE hInst, HWND wnd, std::string *error_message) {
 
 	// Obtain DXGI factory from device (since we used nullptr for pAdapter above)
 	IDXGIFactory1* dxgiFactory = nullptr;
-	IDXGIDevice* dxgiDevice = nullptr;
+	IDXGIDevice *dxgiDevice = nullptr;
+	IDXGIDevice1* dxgiDevice1 = nullptr;
 	IDXGIAdapter* adapter = nullptr;
 	hr = device_->QueryInterface(__uuidof(IDXGIDevice), reinterpret_cast<void**>(&dxgiDevice));
 	if (SUCCEEDED(hr)) {

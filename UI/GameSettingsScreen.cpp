@@ -432,7 +432,7 @@ void GameSettingsScreen::CreateGraphicsSettings(UI::ViewGroup *graphicsSettings)
 		return !g_Config.bSkipBufferEffects && g_Config.iFrameSkip == 0;
 	});
 
-	if (GetGPUBackend() == GPUBackend::VULKAN || GetGPUBackend() == GPUBackend::OPENGL) {
+	if (draw->GetDeviceCaps().setMaxFrameLatencySupported) {
 		static const char *bufferOptions[] = { "No buffer", "Up to 1", "Up to 2" };
 		PopupMultiChoice *inflightChoice = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iInflightFrames, gr->T("Buffer graphics commands (faster, input lag)"), bufferOptions, 1, ARRAY_SIZE(bufferOptions), I18NCat::GRAPHICS, screenManager()));
 		inflightChoice->OnChoice.Handle(this, &GameSettingsScreen::OnInflightFramesChoice);
