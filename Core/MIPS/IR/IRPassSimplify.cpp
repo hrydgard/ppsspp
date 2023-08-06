@@ -716,6 +716,20 @@ bool PropagateConstants(const IRWriter &in, IRWriter &out, const IROptions &opts
 			break;
 
 		case IROp::SetCtrlVFPU:
+			gpr.MapDirty(IRREG_VFPU_CTRL_BASE + inst.dest);
+			goto doDefault;
+
+		case IROp::SetCtrlVFPUReg:
+			if (gpr.IsImm(inst.src1)) {
+				out.Write(IROp::SetCtrlVFPU, inst.dest, out.AddConstant(gpr.GetImm(inst.src1)));
+			} else {
+				gpr.MapDirtyIn(IRREG_VFPU_CTRL_BASE + inst.dest, inst.src1);
+				out.Write(inst);
+			}
+			break;
+
+		case IROp::SetCtrlVFPUFReg:
+			gpr.MapDirty(IRREG_VFPU_CTRL_BASE + inst.dest);
 			goto doDefault;
 
 		case IROp::FCvtWS:
@@ -775,6 +789,18 @@ bool PropagateConstants(const IRWriter &in, IRWriter &out, const IROptions &opts
 
 		case IROp::VfpuCtrlToReg:
 			gpr.MapDirtyIn(inst.dest, IRREG_VFPU_CTRL_BASE + inst.src1);
+			goto doDefault;
+
+		case IROp::FCmpVfpuBit:
+			gpr.MapDirty(IRREG_VFPU_CC);
+			goto doDefault;
+
+		case IROp::FCmovVfpuCC:
+			gpr.MapIn(IRREG_VFPU_CC);
+			goto doDefault;
+
+		case IROp::FCmpVfpuAggregate:
+			gpr.MapDirtyIn(IRREG_VFPU_CC, IRREG_VFPU_CC);
 			goto doDefault;
 
 		case IROp::CallReplacement:
