@@ -29,30 +29,23 @@
 
 namespace MIPSComp {
 
-// TODO: Separate.
-class RiscVJit : public RiscVGen::RiscVCodeBlock, public IRNativeJit, public IRNativeBackend {
+class RiscVJitBackend : public RiscVGen::RiscVCodeBlock, public IRNativeBackend {
 public:
-	RiscVJit(MIPSState *mipsState);
-	~RiscVJit();
+	RiscVJitBackend(MIPSState *mipsState, JitOptions &jo);
+	~RiscVJitBackend();
 
-	void RunLoopUntil(u64 globalticks) override;
+	bool DescribeCodePtr(const u8 *ptr, std::string &name) const override;
 
-	bool DescribeCodePtr(const u8 *ptr, std::string &name) override;
-	bool CodeInRange(const u8 *ptr) const override;
-	bool IsAtDispatchFetch(const u8 *ptr) const override;
-	const u8 *GetDispatcher() const override;
-	const u8 *GetCrashHandler() const override;
-
-	void ClearCache() override;
-
-	JitBlockCacheDebugInterface *GetBlockCacheDebugInterface() override;
+	void GenerateFixedCode() override;
+	bool CompileBlock(IRBlock *block, int block_num, bool preload) override;
+	void ClearAllBlocks() override;
 
 protected:
-	bool CompileTargetBlock(IRBlock *block, int block_num, bool preload) override;
+	const CodeBlockCommon &CodeBlock() const override {
+		return *this;
+	}
 
 private:
-	void GenerateFixedCode(const JitOptions &jo);
-
 	void RestoreRoundingMode(bool force = false);
 	void ApplyRoundingMode(bool force = false);
 	void MovFromPC(RiscVGen::RiscVReg r);
@@ -114,27 +107,34 @@ private:
 	void NormalizeSrc12(IRInst inst, RiscVGen::RiscVReg *lhs, RiscVGen::RiscVReg *rhs, RiscVGen::RiscVReg lhsTempReg, RiscVGen::RiscVReg rhsTempReg, bool allowOverlap);
 	RiscVGen::RiscVReg NormalizeR(IRRegIndex rs, IRRegIndex rd, RiscVGen::RiscVReg tempReg);
 
+	// TODO: Maybe just a param to GenerateFixedCode().
+	MIPSState *mips_;
+	JitOptions &jo;
 	RiscVRegCache gpr;
 	RiscVRegCacheFPU fpr;
-	IRNativeBlockCacheDebugInterface debugInterface_;
-
-	const u8 *enterDispatcher_ = nullptr;
 
 	const u8 *outerLoop_ = nullptr;
 	const u8 *outerLoopPCInSCRATCH1_ = nullptr;
 	const u8 *dispatcherCheckCoreState_ = nullptr;
 	const u8 *dispatcherPCInSCRATCH1_ = nullptr;
-	const u8 *dispatcher_ = nullptr;
 	const u8 *dispatcherNoCheck_ = nullptr;
-	const u8 *dispatcherFetch_ = nullptr;
 	const u8 *applyRoundingMode_ = nullptr;
 
 	const u8 *saveStaticRegisters_ = nullptr;
 	const u8 *loadStaticRegisters_ = nullptr;
 
-	const u8 *crashHandler_ = nullptr;
-
 	int jitStartOffset_ = 0;
+};
+
+class RiscVJit : public IRNativeJit {
+public:
+	RiscVJit(MIPSState *mipsState)
+		: IRNativeJit(mipsState), rvBackend_(mipsState, jo) {
+		Init(rvBackend_);
+	}
+
+private:
+	RiscVJitBackend rvBackend_;
 };
 
 } // namespace MIPSComp

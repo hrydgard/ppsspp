@@ -32,7 +32,7 @@ public:
 
 	virtual const u8 *GetCodePtr() const = 0;
 
-	u8 *GetBasePtr() {
+	u8 *GetBasePtr() const {
 		return region;
 	}
 

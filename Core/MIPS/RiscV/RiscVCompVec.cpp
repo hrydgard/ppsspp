@@ -34,7 +34,7 @@ namespace MIPSComp {
 using namespace RiscVGen;
 using namespace RiscVJitConstants;
 
-void RiscVJit::CompIR_VecAssign(IRInst inst) {
+void RiscVJitBackend::CompIR_VecAssign(IRInst inst) {
 	CONDITIONAL_DISABLE;
 
 	switch (inst.op) {
@@ -129,7 +129,7 @@ void RiscVJit::CompIR_VecAssign(IRInst inst) {
 	}
 }
 
-void RiscVJit::CompIR_VecArith(IRInst inst) {
+void RiscVJitBackend::CompIR_VecArith(IRInst inst) {
 	CONDITIONAL_DISABLE;
 
 	switch (inst.op) {
@@ -184,7 +184,7 @@ void RiscVJit::CompIR_VecArith(IRInst inst) {
 	}
 }
 
-void RiscVJit::CompIR_VecHoriz(IRInst inst) {
+void RiscVJitBackend::CompIR_VecHoriz(IRInst inst) {
 	CONDITIONAL_DISABLE;
 
 	switch (inst.op) {
@@ -230,7 +230,7 @@ void RiscVJit::CompIR_VecHoriz(IRInst inst) {
 	}
 }
 
-void RiscVJit::CompIR_VecPack(IRInst inst) {
+void RiscVJitBackend::CompIR_VecPack(IRInst inst) {
 	CONDITIONAL_DISABLE;
 
 	switch (inst.op) {
@@ -266,7 +266,7 @@ void RiscVJit::CompIR_VecPack(IRInst inst) {
 	}
 }
 
-void RiscVJit::CompIR_VecClamp(IRInst inst) {
+void RiscVJitBackend::CompIR_VecClamp(IRInst inst) {
 	CONDITIONAL_DISABLE;
 
 	switch (inst.op) {

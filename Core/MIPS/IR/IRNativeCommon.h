@@ -20,7 +20,8 @@
 
 class IRNativeBlockCacheDebugInterface : public JitBlockCacheDebugInterface {
 public:
-	IRNativeBlockCacheDebugInterface(MIPSComp::IRBlockCache &irBlocks, CodeBlockCommon &codeBlock);
+	IRNativeBlockCacheDebugInterface(const MIPSComp::IRBlockCache &irBlocks);
+	void Init(const CodeBlockCommon *codeBlock);
 	int GetNumBlocks() const;
 	int GetBlockNumberFromStartAddress(u32 em_address, bool realBlocksOnly = true) const;
 	JitBlockDebugInfo GetBlockDebugInfo(int blockNum) const;
@@ -29,17 +30,41 @@ public:
 private:
 	void GetBlockCodeRange(int blockNum, int *startOffset, int *size) const;
 
-	MIPSComp::IRBlockCache &irBlocks_;
-	CodeBlockCommon &codeBlock_;
+	const MIPSComp::IRBlockCache &irBlocks_;
+	const CodeBlockCommon *codeBlock_ = nullptr;
 };
 
 namespace MIPSComp {
+
+typedef void (*IRNativeFuncNoArg)();
+
+struct IRNativeHooks {
+	IRNativeFuncNoArg enterDispatcher = nullptr;
+
+	const uint8_t *dispatcher = nullptr;
+	const uint8_t *dispatchFetch = nullptr;
+	const uint8_t *crashHandler = nullptr;
+};
 
 class IRNativeBackend {
 public:
 	virtual ~IRNativeBackend() {}
 
 	void CompileIRInst(IRInst inst);
+
+	virtual bool DescribeCodePtr(const u8 *ptr, std::string &name) const;
+	bool CodeInRange(const u8 *ptr) const;
+	int OffsetFromCodePtr(const u8 *ptr);
+
+	virtual void GenerateFixedCode() = 0;
+	virtual bool CompileBlock(IRBlock *block, int block_num, bool preload) = 0;
+	virtual void ClearAllBlocks() = 0;
+
+	const IRNativeHooks &GetNativeHooks() const {
+		return hooks_;
+	}
+
+	virtual const CodeBlockCommon &CodeBlock() const = 0;
 
 protected:
 	virtual void CompIR_Arith(IRInst inst) = 0;
@@ -84,11 +109,46 @@ protected:
 	virtual void CompIR_VecPack(IRInst inst) = 0;
 	virtual void CompIR_VecStore(IRInst inst) = 0;
 	virtual void CompIR_ValidateAddress(IRInst inst) = 0;
+
+	// Returns true when debugging statistics should be compiled in.
+	bool DebugStatsEnabled() const;
+
+	// Callback (compile when DebugStatsEnabled()) to log a base interpreter hit.
+	// Call the func returned by MIPSGetInterpretFunc(op) directly for interpret.
+	static void NotifyMIPSInterpret(const char *name);
+
+	// Callback to log AND perform a base interpreter op.  Alternative to NotifyMIPSInterpret().
+	static void DoMIPSInst(uint32_t op);
+
+	// Callback to log AND perform an IR interpreter inst.  Returns 0 or a PC to jump to.
+	static uint32_t DoIRInst(uint64_t inst);
+
+	IRNativeHooks hooks_;
 };
 
 class IRNativeJit : public IRJit {
 public:
-	IRNativeJit(MIPSState *mipsState) : IRJit(mipsState) {}
+	IRNativeJit(MIPSState *mipsState);
+
+	void RunLoopUntil(u64 globalticks) override;
+
+	void ClearCache() override;
+
+	bool DescribeCodePtr(const u8 *ptr, std::string &name) override;
+	bool CodeInRange(const u8 *ptr) const override;
+	bool IsAtDispatchFetch(const u8 *ptr) const override;
+	const u8 *GetDispatcher() const override;
+	const u8 *GetCrashHandler() const override;
+
+	JitBlockCacheDebugInterface *GetBlockCacheDebugInterface() override;
+
+protected:
+	void Init(IRNativeBackend &backend);
+	bool CompileTargetBlock(IRBlock *block, int block_num, bool preload) override;
+
+	IRNativeBackend *backend_ = nullptr;
+	IRNativeHooks hooks_;
+	IRNativeBlockCacheDebugInterface debugInterface_;
 };
 
 } // namespace MIPSComp

@@ -16,11 +16,86 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "Common/Profiler/Profiler.h"
+#include "Common/StringUtils.h"
+#include "Common/TimeUtil.h"
+#include "Core/MIPS/MIPSTables.h"
 #include "Core/MIPS/IR/IRNativeCommon.h"
 
 using namespace MIPSComp;
 
 namespace MIPSComp {
+
+// Compile time flag to enable debug stats for not compiled ops.
+static constexpr bool enableDebugStats = false;
+
+// Used only for debugging when enableDebug is true above.
+static std::map<uint8_t, int> debugSeenNotCompiledIR;
+static std::map<const char *, int> debugSeenNotCompiled;
+static double lastDebugStatsLog = 0.0;
+
+static void LogDebugStats() {
+	if (!enableDebugStats)
+		return;
+
+	double now = time_now_d();
+	if (now < lastDebugStatsLog + 1.0)
+		return;
+	lastDebugStatsLog = now;
+
+	int worstIROp = -1;
+	int worstIRVal = 0;
+	for (auto it : debugSeenNotCompiledIR) {
+		if (it.second > worstIRVal) {
+			worstIRVal = it.second;
+			worstIROp = it.first;
+		}
+	}
+	debugSeenNotCompiledIR.clear();
+
+	const char *worstName = nullptr;
+	int worstVal = 0;
+	for (auto it : debugSeenNotCompiled) {
+		if (it.second > worstVal) {
+			worstVal = it.second;
+			worstName = it.first;
+		}
+	}
+	debugSeenNotCompiled.clear();
+
+	if (worstIROp != -1)
+		WARN_LOG(JIT, "Most not compiled IR op: %s (%d)", GetIRMeta((IROp)worstIROp)->name, worstIRVal);
+	if (worstName != nullptr)
+		WARN_LOG(JIT, "Most not compiled op: %s (%d)", worstName, worstVal);
+}
+
+bool IRNativeBackend::DebugStatsEnabled() const {
+	return enableDebugStats;
+}
+
+void IRNativeBackend::NotifyMIPSInterpret(const char *name) {
+	_assert_(enableDebugStats);
+	debugSeenNotCompiled[name]++;
+}
+
+void IRNativeBackend::DoMIPSInst(uint32_t value) {
+	MIPSOpcode op;
+	memcpy(&op, &value, sizeof(op));
+
+	if constexpr (enableDebugStats)
+		debugSeenNotCompiled[MIPSGetName(op)]++;
+
+	MIPSInterpret(op);
+}
+
+uint32_t IRNativeBackend::DoIRInst(uint64_t value) {
+	IRInst inst;
+	memcpy(&inst, &value, sizeof(inst));
+
+	if constexpr (enableDebugStats)
+		debugSeenNotCompiledIR[(uint8_t)inst.op]++;
+
+	return IRInterpret(currentMIPS, &inst, 1);
+}
 
 void IRNativeBackend::CompileIRInst(IRInst inst) {
 	switch (inst.op) {
@@ -312,10 +387,127 @@ void IRNativeBackend::CompileIRInst(IRInst inst) {
 	}
 }
 
+IRNativeJit::IRNativeJit(MIPSState *mipsState)
+	: IRJit(mipsState), debugInterface_(blocks_) {}
+
+void IRNativeJit::Init(IRNativeBackend &backend) {
+	backend_ = &backend;
+	debugInterface_.Init(&backend_->CodeBlock());
+	backend_->GenerateFixedCode();
+
+	// Wanted this to be a reference, but vtbls get in the way.  Shouldn't change.
+	hooks_ = backend.GetNativeHooks();
+}
+
+bool IRNativeJit::CompileTargetBlock(IRBlock *block, int block_num, bool preload) {
+	return backend_->CompileBlock(block, block_num, preload);
+}
+
+void IRNativeJit::RunLoopUntil(u64 globalticks) {
+	if constexpr (enableDebugStats) {
+		LogDebugStats();
+	}
+
+	PROFILE_THIS_SCOPE("jit");
+	hooks_.enterDispatcher();
+}
+
+void IRNativeJit::ClearCache() {
+	IRJit::ClearCache();
+	backend_->ClearAllBlocks();
+}
+
+bool IRNativeJit::DescribeCodePtr(const u8 *ptr, std::string &name) {
+	if (ptr != nullptr && backend_->DescribeCodePtr(ptr, name))
+		return true;
+
+	int offset = backend_->OffsetFromCodePtr(ptr);
+	if (offset == -1)
+		return false;
+
+	int block_num = -1;
+	for (int i = 0; i < blocks_.GetNumBlocks(); ++i) {
+		const auto &b = blocks_.GetBlock(i);
+		// We allocate linearly.
+		if (b->GetTargetOffset() <= offset)
+			block_num = i;
+		if (b->GetTargetOffset() > offset)
+			break;
+	}
+
+	if (block_num == -1) {
+		name = "(unknown or deleted block)";
+		return true;
+	}
+
+	const IRBlock *block = blocks_.GetBlock(block_num);
+	if (block) {
+		u32 start = 0, size = 0;
+		block->GetRange(start, size);
+		name = StringFromFormat("(block %d at %08x)", block_num, start);
+		return true;
+	}
+	return false;
+}
+
+bool IRNativeJit::CodeInRange(const u8 *ptr) const {
+	return backend_->CodeInRange(ptr);
+}
+
+bool IRNativeJit::IsAtDispatchFetch(const u8 *ptr) const {
+	return ptr == backend_->GetNativeHooks().dispatchFetch;
+}
+
+const u8 *IRNativeJit::GetDispatcher() const {
+	return backend_->GetNativeHooks().dispatcher;
+}
+
+const u8 *IRNativeJit::GetCrashHandler() const {
+	return backend_->GetNativeHooks().crashHandler;
+}
+
+JitBlockCacheDebugInterface *IRNativeJit::GetBlockCacheDebugInterface() {
+	return &debugInterface_;
+}
+
+bool IRNativeBackend::CodeInRange(const u8 *ptr) const {
+	return CodeBlock().IsInSpace(ptr);
+}
+
+bool IRNativeBackend::DescribeCodePtr(const u8 *ptr, std::string &name) const {
+	if (!CodeBlock().IsInSpace(ptr))
+		return false;
+
+	// Used in disassembly viewer.
+	if (ptr == (const uint8_t *)hooks_.enterDispatcher) {
+		name = "enterDispatcher";
+	} else if (ptr == hooks_.dispatcher) {
+		name = "dispatcher";
+	} else if (ptr == hooks_.dispatchFetch) {
+		name = "dispatchFetch";
+	} else if (ptr == hooks_.crashHandler) {
+		name = "crashHandler";
+	} else {
+		return false;
+	}
+	return true;
+}
+
+int IRNativeBackend::OffsetFromCodePtr(const u8 *ptr) {
+	auto &codeBlock = CodeBlock();
+	if (!codeBlock.IsInSpace(ptr))
+		return -1;
+	return (int)codeBlock.GetOffset(ptr);
+}
+
 } // namespace MIPSComp
 
-IRNativeBlockCacheDebugInterface::IRNativeBlockCacheDebugInterface(IRBlockCache &irBlocks, CodeBlockCommon &codeBlock)
-	: irBlocks_(irBlocks), codeBlock_(codeBlock) {}
+IRNativeBlockCacheDebugInterface::IRNativeBlockCacheDebugInterface(const IRBlockCache &irBlocks)
+	: irBlocks_(irBlocks) {}
+
+void IRNativeBlockCacheDebugInterface::Init(const CodeBlockCommon *codeBlock) {
+	codeBlock_ = codeBlock;
+}
 
 int IRNativeBlockCacheDebugInterface::GetNumBlocks() const {
 	return irBlocks_.GetNumBlocks();
@@ -331,7 +523,7 @@ void IRNativeBlockCacheDebugInterface::GetBlockCodeRange(int blockNum, int *star
 	// We assume linear allocation.  Maybe a bit dangerous, should always be right.
 	if (blockNum + 1 >= GetNumBlocks()) {
 		// Last block, get from current code pointer.
-		endOffset = (int)codeBlock_.GetOffset(codeBlock_.GetCodePtr());
+		endOffset = (int)codeBlock_->GetOffset(codeBlock_->GetCodePtr());
 	} else {
 		endOffset = irBlocks_.GetBlock(blockNum + 1)->GetTargetOffset();
 		_assert_msg_(endOffset >= blockOffset, "Next block not sequential, block=%d/%08x, next=%d/%08x", blockNum, blockOffset, blockNum + 1, endOffset);
@@ -348,7 +540,7 @@ JitBlockDebugInfo IRNativeBlockCacheDebugInterface::GetBlockDebugInfo(int blockN
 	GetBlockCodeRange(blockNum, &blockOffset, &codeSize);
 
 	// TODO: Normal entry?
-	const u8 *blockStart = codeBlock_.GetBasePtr() + blockOffset;
+	const u8 *blockStart = codeBlock_->GetBasePtr() + blockOffset;
 #if PPSSPP_ARCH(ARM)
 	debugInfo.targetDisasm = DisassembleArm2(blockStart, codeSize);
 #elif PPSSPP_ARCH(ARM64)
