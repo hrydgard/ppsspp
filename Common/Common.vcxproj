@@ -941,6 +941,7 @@
     <ClCompile Include="LogReporting.cpp" />
     <ClCompile Include="RiscVCPUDetect.cpp" />
     <ClCompile Include="RiscVEmitter.cpp" />
+    <ClCompile Include="LoongArchCPUDetect.cpp" />
     <ClCompile Include="Serialize\Serializer.cpp" />
     <ClCompile Include="Data\Convert\ColorConv.cpp" />
     <ClCompile Include="ConsoleListener.cpp" />
