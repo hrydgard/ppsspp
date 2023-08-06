@@ -212,6 +212,54 @@ namespace MIPSComp {
 				ir.Write(IROp::Vec4Shuffle, vregs[0], origV[0], prefix);
 				return;
 			}
+
+			if ((prefix & 0x000FF000) == 0x0000F000) {
+				// Handle some easy and common cases.
+				Vec4Init init = Vec4Init::AllZERO;
+				bool useInit;
+				switch (prefix & 0xFFF) {
+				case 0x00: useInit = true; init = Vec4Init::AllZERO; break;
+				case 0x01: useInit = true; init = Vec4Init::Set_1000; break;
+				case 0x04: useInit = true; init = Vec4Init::Set_0100; break;
+				case 0x10: useInit = true; init = Vec4Init::Set_0010; break;
+				case 0x40: useInit = true; init = Vec4Init::Set_0001; break;
+				case 0x55: useInit = true; init = Vec4Init::AllONE; break;
+				default: useInit = false; break;
+				}
+
+				if (useInit) {
+					InitRegs(vregs, tempReg);
+					ir.Write(IROp::Vec4Init, vregs[0], (int)init);
+					return;
+				}
+			}
+
+			// Check if we're just zeroing certain lanes - this is common.
+			u32 zeroedLanes = 0;
+			for (int i = 0; i < 4; ++i) {
+				int regnum = (prefix >> (i * 2)) & 3;
+				int abs = (prefix >> (8 + i)) & 1;
+				int negate = (prefix >> (16 + i)) & 1;
+				int constants = (prefix >> (12 + i)) & 1;
+
+				if (!constants && regnum == i && !abs && !negate)
+					continue;
+				if (constants && regnum == 0 && abs == 0 && !negate) {
+					zeroedLanes |= 1 << i;
+					continue;
+				}
+
+				// Nope, it has something else going on.
+				zeroedLanes = -1;
+				break;
+			}
+
+			if (zeroedLanes != -1) {
+				InitRegs(vregs, tempReg);
+				ir.Write(IROp::Vec4Init, vregs[0], (int)Vec4Init::AllZERO);
+				ir.Write({ IROp::Vec4Blend, vregs[0], origV[0], vregs[0], zeroedLanes });
+				return;
+			}
 		}
 
 		// Alright, fall back to the generic approach.
