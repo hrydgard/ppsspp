@@ -10,6 +10,10 @@
 // TODO: This should be moved here or to Common, doesn't belong in /GPU
 #include "GPU/Vulkan/DebugVisVulkan.h"
 
+// For std::max
+#include <algorithm>
+
+
 static void DrawDebugStats(UIContext *ctx, const Bounds &bounds) {
 	FontID ubuntu24("UBUNTU24");
 

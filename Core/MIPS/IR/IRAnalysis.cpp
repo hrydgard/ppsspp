@@ -17,6 +17,10 @@
 
 #include "Core/MIPS/IR/IRAnalysis.h"
 
+// For std::min
+#include <algorithm>
+
+
 static bool IRReadsFrom(const IRInst &inst, int reg, char type, bool directly = false) {
 	const IRMeta *m = GetIRMeta(inst.op);
 
