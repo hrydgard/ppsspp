@@ -782,6 +782,10 @@ namespace MIPSComp {
 		if (optype == 0) {
 			if (js.HasUnknownPrefix() || !IsPrefixWithinSize(js.prefixS, op))
 				DISABLE;
+		} else if (optype == 1 || optype == 2) {
+			// D prefix is fine for these, and used sometimes.
+			if (js.HasUnknownPrefix() || js.HasSPrefix())
+				DISABLE;
 		} else {
 			// Many of these apply the D prefix strangely or override parts of the S prefix.
 			if (!js.HasNoPrefix())
