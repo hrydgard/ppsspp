@@ -117,6 +117,14 @@ void RiscVJitBackend::CompIR_VecAssign(IRInst inst) {
 		}
 		break;
 
+	case IROp::Vec4Blend:
+		fpr.Map4DirtyInIn(inst.dest, inst.src1, inst.src2);
+		for (int i = 0; i < 4; ++i) {
+			int which = (inst.constant >> i) & 1;
+			FMV(32, fpr.R(inst.dest + i), fpr.R((which ? inst.src2 : inst.src1) + i));
+		}
+		break;
+
 	case IROp::Vec4Mov:
 		fpr.Map4DirtyIn(inst.dest, inst.src1);
 		for (int i = 0; i < 4; ++i)

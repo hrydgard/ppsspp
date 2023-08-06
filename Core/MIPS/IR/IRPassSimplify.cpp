@@ -750,6 +750,7 @@ bool PropagateConstants(const IRWriter &in, IRWriter &out, const IROptions &opts
 		case IROp::Vec4Dot:
 		case IROp::Vec4Scale:
 		case IROp::Vec4Shuffle:
+		case IROp::Vec4Blend:
 		case IROp::Vec4Neg:
 		case IROp::Vec4Abs:
 		case IROp::Vec4Pack31To8:

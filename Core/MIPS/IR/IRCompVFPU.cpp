@@ -1727,16 +1727,16 @@ namespace MIPSComp {
 		GetVectorRegs(tregs, sz, _VT);
 		GetVectorRegs(dregs, sz, _VD);
 
-		u8 tempregs[4]{};
-		for (int i = 0; i < n; ++i) {
-			if (!IsOverlapSafe(dregs[i], n, sregs, n, tregs)) {
-				tempregs[i] = IRVTEMP_PFX_T + i;   // using IRTEMP0 for other things
-			} else {
-				tempregs[i] = dregs[i];
-			}
-		}
-
 		if (sz == V_Triple) {
+			u8 tempregs[4]{};
+			for (int i = 0; i < n; ++i) {
+				if (!IsOverlapSafe(dregs[i], n, sregs, n, tregs)) {
+					tempregs[i] = IRVTEMP_PFX_T + i;   // using IRTEMP0 for other things
+				} else {
+					tempregs[i] = dregs[i];
+				}
+			}
+
 			int temp0 = IRVTEMP_0;
 			int temp1 = IRVTEMP_0 + 1;
 			// Compute X
@@ -1753,15 +1753,50 @@ namespace MIPSComp {
 			ir.Write(IROp::FMul, temp0, sregs[0], tregs[1]);
 			ir.Write(IROp::FMul, temp1, sregs[1], tregs[0]);
 			ir.Write(IROp::FSub, tempregs[2], temp0, temp1);
-		} else if (sz == V_Quad) {
-			DISABLE;
-		} else {
-			DISABLE;
-		}
 
-		for (int i = 0; i < n; i++) {
-			if (tempregs[i] != dregs[i])
-				ir.Write(IROp::FMov, dregs[i], tempregs[i]);
+			for (int i = 0; i < n; i++) {
+				if (tempregs[i] != dregs[i])
+					ir.Write(IROp::FMov, dregs[i], tempregs[i]);
+			}
+		} else if (sz == V_Quad) {
+			// Rather than using vdots, we organize this as SIMD multiplies and adds.
+			// That means flipping the logic column-wise.  Also, luckily no prefix temps used.
+			if (!IsConsecutive4(sregs) || !IsConsecutive4(tregs) || !IsConsecutive4(dregs)) {
+				DISABLE;
+			}
+
+			auto shuffleImm = [](int x, int y, int z, int w) { return x | (y << 2) | (z << 4) | (w << 6); };
+			auto blendConst = [](int x, int y, int z, int w) { return x | (y << 1) | (z << 2) | (w << 3); };
+
+			// Prepare some negatives.
+			ir.Write(IROp::Vec4Neg, IRVTEMP_0, tregs[0]);
+
+			// tmp = S[x,x,x,x] * T[w,-z,y,-x]
+			ir.Write(IROp::Vec4Shuffle, IRVTEMP_PFX_S, sregs[0], shuffleImm(0, 0, 0, 0));
+			ir.Write(IRInst{ IROp::Vec4Blend, IRVTEMP_PFX_T, tregs[0], IRVTEMP_0, blendConst(1, 0, 1, 0) });
+			ir.Write(IROp::Vec4Shuffle, IRVTEMP_PFX_T, IRVTEMP_PFX_T, shuffleImm(3, 2, 1, 0));
+			ir.Write(IROp::Vec4Mul, IRVTEMP_PFX_D, IRVTEMP_PFX_S, IRVTEMP_PFX_T);
+
+			// tmp += S[y,y,y,y] * T[z,w,-x,-y]
+			ir.Write(IROp::Vec4Shuffle, IRVTEMP_PFX_S, sregs[0], shuffleImm(1, 1, 1, 1));
+			ir.Write(IRInst{ IROp::Vec4Blend, IRVTEMP_PFX_T, tregs[0], IRVTEMP_0, blendConst(1, 1, 0, 0) });
+			ir.Write(IROp::Vec4Shuffle, IRVTEMP_PFX_T, IRVTEMP_PFX_T, shuffleImm(2, 3, 0, 1));
+			ir.Write(IROp::Vec4Mul, IRVTEMP_PFX_S, IRVTEMP_PFX_S, IRVTEMP_PFX_T);
+			ir.Write(IROp::Vec4Add, IRVTEMP_PFX_D, IRVTEMP_PFX_D, IRVTEMP_PFX_S);
+
+			// tmp += S[z,z,z,z] * T[-y,x,w,-z]
+			ir.Write(IROp::Vec4Shuffle, IRVTEMP_PFX_S, sregs[0], shuffleImm(2, 2, 2, 2));
+			ir.Write(IRInst{ IROp::Vec4Blend, IRVTEMP_PFX_T, tregs[0], IRVTEMP_0, blendConst(0, 1, 1, 0) });
+			ir.Write(IROp::Vec4Shuffle, IRVTEMP_PFX_T, IRVTEMP_PFX_T, shuffleImm(1, 0, 3, 2));
+			ir.Write(IROp::Vec4Mul, IRVTEMP_PFX_S, IRVTEMP_PFX_S, IRVTEMP_PFX_T);
+			ir.Write(IROp::Vec4Add, IRVTEMP_PFX_D, IRVTEMP_PFX_D, IRVTEMP_PFX_S);
+
+			// tmp += S[w,w,w,w] * T[x,y,z,w]
+			ir.Write(IROp::Vec4Shuffle, IRVTEMP_PFX_S, sregs[0], shuffleImm(3, 3, 3, 3));
+			ir.Write(IROp::Vec4Mul, IRVTEMP_PFX_S, IRVTEMP_PFX_S, tregs[0]);
+			ir.Write(IROp::Vec4Add, dregs[0], IRVTEMP_PFX_D, IRVTEMP_PFX_S);
+		} else {
+			INVALIDOP;
 		}
 	}
 

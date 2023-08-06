@@ -304,13 +304,17 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, int count) {
 		}
 
 		case IROp::Vec4Shuffle:
-		{
 			// Can't use the SSE shuffle here because it takes an immediate. pshufb with a table would work though,
 			// or a big switch - there are only 256 shuffles possible (4^4)
 			for (int i = 0; i < 4; i++)
 				mips->f[inst->dest + i] = mips->f[inst->src1 + ((inst->src2 >> (i * 2)) & 3)];
 			break;
-		}
+
+		case IROp::Vec4Blend:
+			// Could use _mm_blendv_ps (SSE4+BMI), vbslq_f32 (ARM), __riscv_vmerge_vvm (RISC-V)
+			for (int i = 0; i < 4; i++)
+				mips->f[inst->dest + i] = ((inst->constant >> i) & 1) ? mips->f[inst->src2 + i] : mips->f[inst->src1 + i];
+			break;
 
 		case IROp::Vec4Mov:
 		{
