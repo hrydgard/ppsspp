@@ -77,6 +77,19 @@ void RetroAchievementsListScreen::CreateTabs() {
 #endif
 }
 
+inline const char *AchievementBucketTitle(int bucketType) {
+	switch (bucketType) {
+	case RC_CLIENT_ACHIEVEMENT_BUCKET_LOCKED:               return "Locked achievements";
+	case RC_CLIENT_ACHIEVEMENT_BUCKET_UNLOCKED:             return "Unlocked achievements";
+	case RC_CLIENT_ACHIEVEMENT_BUCKET_UNSUPPORTED:          return "Unsupported achievements";
+	case RC_CLIENT_ACHIEVEMENT_BUCKET_UNOFFICIAL:           return "Unofficial achievements";
+	case RC_CLIENT_ACHIEVEMENT_BUCKET_RECENTLY_UNLOCKED:    return "Recently unlocked achievements";
+	case RC_CLIENT_ACHIEVEMENT_BUCKET_ACTIVE_CHALLENGE:     return "Achievements with active challenges";
+	case RC_CLIENT_ACHIEVEMENT_BUCKET_ALMOST_THERE:         return "Almost completed achievements";
+	default: return "?";
+	}
+}
+
 void RetroAchievementsListScreen::CreateAchievementsTab(UI::ViewGroup *achievements) {
 	auto di = GetI18NCategory(I18NCat::DIALOG);
 	auto ac = GetI18NCategory(I18NCat::ACHIEVEMENTS);
@@ -88,58 +101,28 @@ void RetroAchievementsListScreen::CreateAchievementsTab(UI::ViewGroup *achieveme
 		filter = RC_CLIENT_ACHIEVEMENT_CATEGORY_CORE_AND_UNOFFICIAL;
 	}
 
-	rc_client_achievement_list_t *list = rc_client_create_achievement_list(Achievements::GetClient(),
-		filter, RC_CLIENT_ACHIEVEMENT_LIST_GROUPING_LOCK_STATE);
-
-	std::vector<const rc_client_achievement_t *> unlockedAchievements;
-	std::vector<const rc_client_achievement_t *> lockedAchievements;
-	std::vector<const rc_client_achievement_t *> otherAchievements;
-
-	for (uint32_t i = 0; i < list->num_buckets; i++) {
-		const rc_client_achievement_bucket_t &bucket = list->buckets[i];
-		for (uint32_t j = 0; j < bucket.num_achievements; j++) {
-			switch (bucket.bucket_type) {
-			case RC_CLIENT_ACHIEVEMENT_BUCKET_LOCKED:
-				lockedAchievements.push_back(bucket.achievements[j]);
-				break;
-			case RC_CLIENT_ACHIEVEMENT_BUCKET_UNLOCKED:
-				unlockedAchievements.push_back(bucket.achievements[j]);
-				break;
-			default:
-				otherAchievements.push_back(bucket.achievements[j]);
-				break;
-			}
-		}
-	}
-
 	achievements->Add(new ItemHeader(ac->T("Achievements")));
-
 	achievements->Add(new GameAchievementSummaryView());
 
 	if (Achievements::EncoreModeActive()) {
 		achievements->Add(new NoticeView(NoticeLevel::WARN, ac->T("In Encore mode - unlock state may not be accurate"), ""));
 	}
 
-	CollapsibleSection *unlocked = new CollapsibleSection(StringFromFormat("%s (%d)", ac->T("Unlocked achievements"), (int)unlockedAchievements.size()));
-	unlocked->SetSpacing(2.0f);
-	for (auto &achievement : unlockedAchievements) {
-		unlocked->Add(new AchievementView(achievement));
-	}
-	achievements->Add(unlocked);
+	rc_client_achievement_list_t *list = rc_client_create_achievement_list(Achievements::GetClient(),
+		filter, RC_CLIENT_ACHIEVEMENT_LIST_GROUPING_PROGRESS);
 
-	CollapsibleSection *locked = new CollapsibleSection(StringFromFormat("%s (%d)", ac->T("Locked achievements"), (int)lockedAchievements.size()));
-	unlocked->SetSpacing(2.0f);
-	for (auto &achievement : lockedAchievements) {
-		locked->Add(new AchievementView(achievement));
+	for (uint32_t i = 0; i < list->num_buckets; i++) {
+		const rc_client_achievement_bucket_t &bucket = list->buckets[i];
+		if (!bucket.num_achievements) {
+			continue;
+		}
+		std::string title = StringFromFormat("%s (%d)", ac->T(AchievementBucketTitle(bucket.bucket_type)), bucket.num_achievements);
+		CollapsibleSection *section = achievements->Add(new CollapsibleSection(title));
+		section->SetSpacing(2.0f);
+		for (uint32_t j = 0; j < bucket.num_achievements; j++) {
+			section->Add(new AchievementView(bucket.achievements[j]));
+		}
 	}
-	achievements->Add(locked);
-
-	CollapsibleSection *other = new CollapsibleSection(StringFromFormat("%s (%d)", ac->T("Other achievements"), (int)otherAchievements.size()));
-	unlocked->SetSpacing(2.0f);
-	for (auto &achievement : otherAchievements) {
-		other->Add(new AchievementView(achievement));
-	}
-	achievements->Add(other);
 }
 
 void RetroAchievementsListScreen::CreateLeaderboardsTab(UI::ViewGroup *viewGroup) {
