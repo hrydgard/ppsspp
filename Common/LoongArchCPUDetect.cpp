@@ -92,6 +92,7 @@ void CPUInfo::Detect() {
 	truncate_cpy(cpu_string, GetCPUString().c_str());
 	truncate_cpy(brand_string, GetCPUBrandString().c_str());
 	num_cores = GetCoreCount();
+	logical_cpu_count = 1;
 #endif
 }
 
