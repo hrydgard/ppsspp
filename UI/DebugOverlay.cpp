@@ -115,7 +115,7 @@ static void DrawFrameTiming(UIContext *ctx, const Bounds &bounds) {
 	for (int i = 0; i < 8; i++) {
 		FrameTimeData data = ctx->GetDrawContext()->GetFrameTimeData(6 + i);
 		if (data.frameBegin == 0.0) {
-			snprintf(statBuf, sizeof(statBuf), "(Frame timing collection not supported on this backend)");
+			snprintf(statBuf, sizeof(statBuf), "(No frame time data)");
 		} else {
 			double fenceLatency_s = data.afterFenceWait - data.frameBegin;
 			double submitLatency_s = data.firstSubmit - data.frameBegin;
