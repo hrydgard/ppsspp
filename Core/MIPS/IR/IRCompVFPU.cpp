@@ -1917,6 +1917,10 @@ namespace MIPSComp {
 		int tf = (op >> 19) & 1;
 		int imm3 = (op >> 16) & 7;
 
+		if (IsVec4(sz, sregs) && IsVec4(sz, dregs)) {
+			// TODO: Could do a VfpuCC variant of Vec4Blend.
+		}
+
 		for (int i = 0; i < n; ++i) {
 			// Simplification: Disable if overlap unsafe
 			if (!IsOverlapSafeAllowS(dregs[i], i, n, sregs)) {
@@ -1986,8 +1990,18 @@ namespace MIPSComp {
 
 		u8 dregs[4];
 		GetVectorRegsPrefixD(dregs, sz, vd);
-		for (int i = 0; i < n; i++) {
-			ir.Write(IROp::SetConstF, dregs[i], ir.AddConstantFloat(cst_constants[conNum]));
+
+		if (IsVec4(sz, dregs)) {
+			ir.Write(IROp::SetConstF, IRVTEMP_0, ir.AddConstantFloat(cst_constants[conNum]));
+			ir.Write(IROp::Vec4Shuffle, dregs[0], IRVTEMP_0, 0);
+		} else {
+			for (int i = 0; i < n; i++) {
+				// Most of the time, materializing a float is slower than copying from another float.
+				if (i == 0)
+					ir.Write(IROp::SetConstF, dregs[i], ir.AddConstantFloat(cst_constants[conNum]));
+				else
+					ir.Write(IROp::FMov, dregs[i], dregs[0]);
+			}
 		}
 		ApplyPrefixD(dregs, sz, vd);
 	}
@@ -2128,21 +2142,25 @@ namespace MIPSComp {
 		GetVectorRegsPrefixT(tregs, sz, _VS);
 		GetVectorRegsPrefixD(dregs, sz, _VD);
 
-		u8 tempregs[4];
-		for (int i = 0; i < n; ++i) {
-			if (!IsOverlapSafe(dregs[i], n, sregs)) {
-				tempregs[i] = IRVTEMP_0 + i;
-			} else {
-				tempregs[i] = dregs[i];
+		if (IsVec4(sz, dregs) && IsVec4(sz, sregs) && IsVec4(sz, tregs)) {
+			ir.Write(IROp::Vec4Add, dregs[0], tregs[0], sregs[0]);
+		} else {
+			u8 tempregs[4];
+			for (int i = 0; i < n; ++i) {
+				if (!IsOverlapSafe(dregs[i], n, sregs)) {
+					tempregs[i] = IRVTEMP_0 + i;
+				} else {
+					tempregs[i] = dregs[i];
+				}
 			}
-		}
 
-		for (int i = 0; i < n; ++i) {
-			ir.Write(IROp::FAdd, tempregs[i], tregs[i], sregs[i]);
-		}
-		for (int i = 0; i < n; ++i) {
-			if (dregs[i] != tempregs[i]) {
-				ir.Write(IROp::FMov, dregs[i], tempregs[i]);
+			for (int i = 0; i < n; ++i) {
+				ir.Write(IROp::FAdd, tempregs[i], tregs[i], sregs[i]);
+			}
+			for (int i = 0; i < n; ++i) {
+				if (dregs[i] != tempregs[i]) {
+					ir.Write(IROp::FMov, dregs[i], tempregs[i]);
+				}
 			}
 		}
 
