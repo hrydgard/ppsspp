@@ -330,6 +330,13 @@ namespace MIPSComp {
 		if (js.prefixD == 0)
 			return;
 
+		if (IsVec4(sz, regs) && js.VfpuWriteMask() != 0) {
+			// Use temps for all, we'll blend in the end (keeping in Vec4.)
+			for (int i = 0; i < 4; ++i)
+				regs[i] = IRVTEMP_PFX_D + i;
+			return;
+		}
+
 		for (int i = 0; i < n; i++) {
 			// Hopefully this is rare, we'll just write it into a dumping ground reg.
 			if (js.VfpuWriteMask(i))
@@ -343,10 +350,12 @@ namespace MIPSComp {
 
 	// "D" prefix is really a post process. No need to allocate a temporary register (except
 	// dummies to simulate writemask, which is done in GetVectorRegsPrefixD
-	void IRFrontend::ApplyPrefixD(const u8 *vregs, VectorSize sz) {
+	void IRFrontend::ApplyPrefixD(u8 *vregs, VectorSize sz, int vectorReg) {
 		_assert_(js.prefixDFlag & JitState::PREFIX_KNOWN);
 		if (!js.prefixD)
 			return;
+
+		ApplyPrefixDMask(vregs, sz, vectorReg);
 
 		int n = GetNumVectorElements(sz);
 		for (int i = 0; i < n; i++) {
@@ -359,6 +368,20 @@ namespace MIPSComp {
 			} else if (sat == 3) {
 				ir.Write(IROp::FSatMinus1_1, vregs[i], vregs[i]);
 			}
+		}
+	}
+
+	void IRFrontend::ApplyPrefixDMask(u8 *vregs, VectorSize sz, int vectorReg) {
+		if (IsVec4(sz, vregs) && js.VfpuWriteMask() != 0) {
+			u8 origV[4];
+			GetVectorRegs(origV, sz, vectorReg);
+
+			// Just keep the original values where it was masked.
+			ir.Write({ IROp::Vec4Blend, origV[0], vregs[0], origV[0], js.VfpuWriteMask() });
+
+			// So that saturate works, change it back.
+			for (int i = 0; i < 4; ++i)
+				vregs[i] = origV[i];
 		}
 	}
 
@@ -458,7 +481,7 @@ namespace MIPSComp {
 				ir.Write(IROp::SetConstF, dregs[i], ir.AddConstantFloat(type == 6 ? 0.0f : 1.0f));
 			}
 		}
-		ApplyPrefixD(dregs, sz);
+		ApplyPrefixD(dregs, sz, vd);
 	}
 
 	void IRFrontend::Comp_VIdt(MIPSOpcode op) {
@@ -497,7 +520,7 @@ namespace MIPSComp {
 			}
 		}
 
-		ApplyPrefixD(dregs, sz);
+		ApplyPrefixD(dregs, sz, vd);
 	}
 
 	void IRFrontend::Comp_VMatrixInit(MIPSOpcode op) {
@@ -579,7 +602,7 @@ namespace MIPSComp {
 		}
 
 		ir.Write(IROp::FMov, dregs[0], IRVTEMP_0);
-		ApplyPrefixD(dregs, V_Single);
+		ApplyPrefixD(dregs, V_Single, vd);
 	}
 
 	alignas(16) static const float vavg_table[4] = { 1.0f, 1.0f / 2.0f, 1.0f / 3.0f, 1.0f / 4.0f };
@@ -619,7 +642,7 @@ namespace MIPSComp {
 			break;
 		}
 
-		ApplyPrefixD(dregs, V_Single);
+		ApplyPrefixD(dregs, V_Single, _VD);
 	}
 
 	void IRFrontend::Comp_VDot(MIPSOpcode op) {
@@ -646,7 +669,7 @@ namespace MIPSComp {
 
 		if (IsVec4(sz, sregs) && IsVec4(sz, tregs) && IsOverlapSafe(dregs[0], n, sregs, n, tregs)) {
 			ir.Write(IROp::Vec4Dot, dregs[0], sregs[0], tregs[0]);
-			ApplyPrefixD(dregs, V_Single);
+			ApplyPrefixD(dregs, V_Single, vd);
 			return;
 		}
 
@@ -657,7 +680,7 @@ namespace MIPSComp {
 			ir.Write(IROp::FMul, temp1, sregs[i], tregs[i]);
 			ir.Write(IROp::FAdd, i == (n - 1) ? dregs[0] : temp0, temp0, temp1);
 		}
-		ApplyPrefixD(dregs, V_Single);
+		ApplyPrefixD(dregs, V_Single, vd);
 	}
 
 	void IRFrontend::Comp_VecDo3(MIPSOpcode op) {
@@ -772,7 +795,7 @@ namespace MIPSComp {
 			} else {
 				DISABLE;
 			}
-			ApplyPrefixD(dregs, sz);
+			ApplyPrefixD(dregs, sz, _VD);
 			return;
 		}
 
@@ -821,7 +844,7 @@ namespace MIPSComp {
 			}
 		}
 
-		ApplyPrefixD(dregs, sz);
+		ApplyPrefixD(dregs, sz, _VD);
 	}
 
 	void IRFrontend::Comp_VV2Op(MIPSOpcode op) {
@@ -899,7 +922,7 @@ namespace MIPSComp {
 				ir.Write(IROp::Vec4Neg, dregs[0], sregs[0]);
 				break;
 			}
-			ApplyPrefixD(dregs, sz);
+			ApplyPrefixD(dregs, sz, vd);
 			return;
 		}
 
@@ -967,7 +990,7 @@ namespace MIPSComp {
 			}
 		}
 
-		ApplyPrefixD(dregs, sz);
+		ApplyPrefixD(dregs, sz, vd);
 	}
 
 	void IRFrontend::Comp_Vi2f(MIPSOpcode op) {
@@ -994,7 +1017,7 @@ namespace MIPSComp {
 			else
 				ir.Write(IROp::FCvtScaledSW, dregs[i], sregs[i], imm);
 		}
-		ApplyPrefixD(dregs, sz);
+		ApplyPrefixD(dregs, sz, _VD);
 	}
 
 	void IRFrontend::Comp_Vh2f(MIPSOpcode op) {
@@ -1060,6 +1083,8 @@ namespace MIPSComp {
 				}
 			}
 		}
+
+		ApplyPrefixDMask(dregs, sz, _VD);
 	}
 
 	void IRFrontend::Comp_Mftv(MIPSOpcode op) {
@@ -1310,7 +1335,7 @@ namespace MIPSComp {
 		if (IsVec4(sz, sregs) && IsVec4(sz, dregs)) {
 			if (!overlap || (vs == vd && IsOverlapSafe(treg, n, dregs))) {
 				ir.Write(IROp::Vec4Scale, dregs[0], sregs[0], treg);
-				ApplyPrefixD(dregs, sz);
+				ApplyPrefixD(dregs, sz, vd);
 				return;
 			}
 		}
@@ -1326,7 +1351,7 @@ namespace MIPSComp {
 			}
 		}
 
-		ApplyPrefixD(dregs, sz);
+		ApplyPrefixD(dregs, sz, vd);
 	}
 
 	/*
@@ -1653,7 +1678,7 @@ namespace MIPSComp {
 			}
 		}
 
-		ApplyPrefixD(dregs, outsize);
+		ApplyPrefixD(dregs, outsize, _VD);
 	}
 
 	void IRFrontend::Comp_Vx2i(MIPSOpcode op) {
@@ -1752,7 +1777,7 @@ namespace MIPSComp {
 				ir.Write(IROp::FMov, dregs[i], tempregs[i]);
 			}
 		}
-		ApplyPrefixD(dregs, outsize);
+		ApplyPrefixD(dregs, outsize, _VD);
 	}
 
 	void IRFrontend::Comp_VCrossQuat(MIPSOpcode op) {
@@ -1909,7 +1934,7 @@ namespace MIPSComp {
 				ir.Write(IROp::FCmovVfpuCC, dregs[i], sregs[i], (i) | ((!tf) << 7));
 			}
 		}
-		ApplyPrefixD(dregs, sz);
+		ApplyPrefixD(dregs, sz, _VD);
 	}
 
 	void IRFrontend::Comp_Viim(MIPSOpcode op) {
@@ -1924,7 +1949,7 @@ namespace MIPSComp {
 		u8 dreg;
 		GetVectorRegsPrefixD(&dreg, V_Single, _VT);
 		ir.Write(IROp::SetConstF, dreg, ir.AddConstantFloat((float)imm));
-		ApplyPrefixD(&dreg, V_Single);
+		ApplyPrefixD(&dreg, V_Single, _VT);
 	}
 
 	void IRFrontend::Comp_Vfim(MIPSOpcode op) {
@@ -1942,7 +1967,7 @@ namespace MIPSComp {
 		u8 dreg;
 		GetVectorRegsPrefixD(&dreg, V_Single, _VT);
 		ir.Write(IROp::SetConstF, dreg, ir.AddConstantFloat(fval.f));
-		ApplyPrefixD(&dreg, V_Single);
+		ApplyPrefixD(&dreg, V_Single, _VT);
 	}
 
 	void IRFrontend::Comp_Vcst(MIPSOpcode op) {
@@ -1964,7 +1989,7 @@ namespace MIPSComp {
 		for (int i = 0; i < n; i++) {
 			ir.Write(IROp::SetConstF, dregs[i], ir.AddConstantFloat(cst_constants[conNum]));
 		}
-		ApplyPrefixD(dregs, sz);
+		ApplyPrefixD(dregs, sz, vd);
 	}
 
 	// Very heavily used by FF:CC. Should be replaced by a fast approximation instead of
@@ -2075,7 +2100,7 @@ namespace MIPSComp {
 			}
 		}
 
-		ApplyPrefixD(dregs, sz);
+		ApplyPrefixD(dregs, sz, _VD);
 	}
 
 	void IRFrontend::Comp_Vocp(MIPSOpcode op) {
@@ -2121,7 +2146,7 @@ namespace MIPSComp {
 			}
 		}
 
-		ApplyPrefixD(dregs, sz);
+		ApplyPrefixD(dregs, sz, _VD);
 	}
 
 	void IRFrontend::Comp_ColorConv(MIPSOpcode op) {
@@ -2190,6 +2215,6 @@ namespace MIPSComp {
 				ir.Write(IROp::FMov, dregs[i], tempregs[i]);
 		}
 
-		ApplyPrefixD(dregs, sz);
+		ApplyPrefixD(dregs, sz, _VD);
 	}
 }
