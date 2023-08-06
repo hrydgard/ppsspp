@@ -426,6 +426,17 @@ int u8_is_locale_utf8(const char *locale)
   return 0;
 }
 
+bool AnyEmojiInString(const char *s, size_t byteCount) {
+	int i = 0;
+	while (i < byteCount) {
+		uint32_t c = u8_nextchar(s, &i);
+		if (CodepointIsProbablyEmoji(c)) {
+			return true;
+		}
+	}
+	return false;
+}
+
 int UTF8StringNonASCIICount(const char *utf8string) {
 	UTF8 utf(utf8string);
 	int count = 0;

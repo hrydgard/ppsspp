@@ -800,8 +800,8 @@ void LogoScreen::render() {
 	std::string apiName = screenManager()->getDrawContext()->GetInfoString(InfoField::APINAME);
 #ifdef _DEBUG
 	apiName += ", debug build ";
-	// Add some bug emoji for testing.
-	apiName += CodepointToUTF8(0x1F41B) + CodepointToUTF8(0x1FAB0) + CodepointToUTF8(0x1F41C) + CodepointToUTF8(0x1FAB2);
+	// Add some emoji for testing.
+	apiName += CodepointToUTF8(0x1F41B) + CodepointToUTF8(0x1F41C) + CodepointToUTF8(0x1F914);
 #endif
 	dc.DrawText(gr->T(apiName), bounds.centerX(), ppsspp_org_y + 50, textColor, ALIGN_CENTER);
 #endif

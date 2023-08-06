@@ -835,7 +835,7 @@ void SystemInfoScreen::CreateTabs() {
 
 	internals->Add(new ItemHeader(si->T("Notification tests")));
 	internals->Add(new Choice(si->T("Error")))->OnClick.Add([&](UI::EventParams &) {
-		std::string str = "Error " + CodepointToUTF8(0x1F41B) + CodepointToUTF8(0x1FAB0) + CodepointToUTF8(0x1F41C) + CodepointToUTF8(0x1FAB2);
+		std::string str = "Error " + CodepointToUTF8(0x1F41B) + CodepointToUTF8(0x1F41C) + CodepointToUTF8(0x1F914);
 		g_OSD.Show(OSDType::MESSAGE_ERROR, str);
 		return UI::EVENT_DONE;
 	});
