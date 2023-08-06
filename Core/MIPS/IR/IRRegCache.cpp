@@ -1,4 +1,5 @@
 #include <cstring>
+#include "Common/Log.h"
 #include "Core/MIPS/IR/IRRegCache.h"
 #include "Core/MIPS/IR/IRInst.h"
 
@@ -7,6 +8,7 @@ void IRRegCache::Flush(IRReg rd) {
 		return;
 	}
 	if (reg_[rd].isImm) {
+		_assert_((rd > 0 && rd < 32) || (rd >= IRTEMP_0 && rd < IRREG_VFPU_CTRL_BASE));
 		ir_->WriteSetConstant(rd, reg_[rd].immVal);
 		reg_[rd].isImm = false;
 	}
