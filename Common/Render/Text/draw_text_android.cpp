@@ -250,8 +250,6 @@ void TextDrawerAndroid::DrawString(DrawBuffer &target, const char *str, float x,
 	if (text.empty())
 		return;
 
-	bool emoji = AnyEmojiInString(text.c_str(), text.size());
-
 	CacheKey key{ std::string(str), fontHash_ };
 	target.Flush(true);
 
@@ -263,6 +261,7 @@ void TextDrawerAndroid::DrawString(DrawBuffer &target, const char *str, float x,
 		entry->lastUsedFrame = frameCount_;
 	} else {
 		DataFormat texFormat = use4444Format_ ? Draw::DataFormat::R4G4B4A4_UNORM_PACK16 : Draw::DataFormat::R8_UNORM;
+		bool emoji = AnyEmojiInString(text.c_str(), text.size());
 		if (emoji) {
 			texFormat = Draw::DataFormat::R8G8B8A8_UNORM;
 		}

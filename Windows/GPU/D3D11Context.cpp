@@ -181,10 +181,9 @@ bool D3D11Context::Init(HINSTANCE hInst, HWND wnd, std::string *error_message) {
 	GetRes(hWnd_, width, height);
 
 	// Obtain DXGI factory from device (since we used nullptr for pAdapter above)
-	IDXGIFactory1* dxgiFactory = nullptr;
+	IDXGIFactory1 *dxgiFactory = nullptr;
 	IDXGIDevice *dxgiDevice = nullptr;
-	IDXGIDevice1* dxgiDevice1 = nullptr;
-	IDXGIAdapter* adapter = nullptr;
+	IDXGIAdapter *adapter = nullptr;
 	hr = device_->QueryInterface(__uuidof(IDXGIDevice), reinterpret_cast<void**>(&dxgiDevice));
 	if (SUCCEEDED(hr)) {
 		hr = dxgiDevice->GetAdapter(&adapter);

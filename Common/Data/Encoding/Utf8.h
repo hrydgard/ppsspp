@@ -26,10 +26,11 @@ int u8_strlen(const char *s);
 void u8_inc(const char *s, int *i);
 void u8_dec(const char *s, int *i);
 
-// ranges grabbed from https://stackoverflow.com/a/62898106, ignoring the two bogus ranges.
-// there's probably more. Doesn't need to be perfect.
 inline bool CodepointIsProbablyEmoji(uint32_t c) {
-	return (c >= 127744 && c <= 129782) || (c >= 126980 && c <= 127569);
+	// Original check was some ranges grabbed from https://stackoverflow.com/a/62898106.
+	// But let's just go with checking if outside the BMP, it's not a big deal if we accidentally
+	// switch to color when not needed if someone uses a weird glyph.
+	return c > 0xFFFF;
 }
 
 bool AnyEmojiInString(const char *s, size_t byteCount);
