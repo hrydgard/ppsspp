@@ -558,6 +558,12 @@ std::u16string ConvertUTF8ToUCS2(const std::string &source) {
 	return dst;
 }
 
+std::string CodepointToUTF8(uint32_t codePoint) {
+	char temp[16]{};
+	UTF8::encode(temp, codePoint);
+	return std::string(temp);
+}
+
 #ifndef _WIN32
 
 // Replacements for the Win32 wstring functions. Not to be used from emulation code!

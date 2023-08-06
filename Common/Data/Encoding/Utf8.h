@@ -89,6 +89,8 @@ bool UTF8StringHasNonASCII(const char *utf8string);
 // Removes overlong encodings and similar.
 std::string SanitizeUTF8(const std::string &utf8string);
 
+std::string CodepointToUTF8(uint32_t codePoint);
+
 
 // UTF8 to Win32 UTF-16
 // Should be used when calling Win32 api calls
