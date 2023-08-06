@@ -299,6 +299,7 @@ void IRNativeBackend::CompileIRInst(IRInst inst) {
 
 	case IROp::Vec4Init:
 	case IROp::Vec4Shuffle:
+	case IROp::Vec4Blend:
 	case IROp::Vec4Mov:
 		CompIR_VecAssign(inst);
 		break;

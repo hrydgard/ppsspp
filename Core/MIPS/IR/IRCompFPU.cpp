@@ -226,7 +226,8 @@ void IRFrontend::Comp_mxc1(MIPSOpcode op) {
 			UpdateRoundingMode();
 			ApplyRoundingMode();
 		} else {
-			Comp_Generic(op);
+			// Maybe not strictly invalid?  But likely invalid.
+			INVALIDOP;
 		}
 		return;
 	default:
