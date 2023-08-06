@@ -39,6 +39,7 @@
 #endif
 #include "Common/File/AndroidStorage.h"
 #include "Common/Data/Text/I18n.h"
+#include "Common/Data/Encoding/Utf8.h"
 #include "Common/Net/HTTPClient.h"
 #include "Common/UI/Context.h"
 #include "Common/UI/View.h"
@@ -834,7 +835,8 @@ void SystemInfoScreen::CreateTabs() {
 
 	internals->Add(new ItemHeader(si->T("Notification tests")));
 	internals->Add(new Choice(si->T("Error")))->OnClick.Add([&](UI::EventParams &) {
-		g_OSD.Show(OSDType::MESSAGE_ERROR, "Error");
+		std::string str = "Error " + CodepointToUTF8(0x1F41B) + CodepointToUTF8(0x1F41C) + CodepointToUTF8(0x1F914);
+		g_OSD.Show(OSDType::MESSAGE_ERROR, str);
 		return UI::EVENT_DONE;
 	});
 	internals->Add(new Choice(si->T("Warning")))->OnClick.Add([&](UI::EventParams &) {

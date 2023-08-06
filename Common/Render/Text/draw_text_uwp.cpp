@@ -137,7 +137,6 @@ TextDrawerUWP::TextDrawerUWP(Draw::DrawContext *draw) : TextDrawer(draw), ctx_(n
 	);
 
 	m_d2dContext->CreateSolidColorBrush(D2D1::ColorF(D2D1::ColorF::White, 1.0f), &m_d2dWhiteBrush);
-
 }
 
 TextDrawerUWP::~TextDrawerUWP() {

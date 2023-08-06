@@ -897,6 +897,7 @@ VKContext::VKContext(VulkanContext *vulkan, bool useRenderThread)
 	caps_.logicOpSupported = vulkan->GetDeviceFeatures().enabled.standard.logicOp != 0;
 	caps_.multiViewSupported = vulkan->GetDeviceFeatures().enabled.multiview.multiview != 0;
 	caps_.sampleRateShadingSupported = vulkan->GetDeviceFeatures().enabled.standard.sampleRateShading != 0;
+	caps_.textureSwizzleSupported = true;
 
 	const auto &limits = vulkan->GetPhysicalDeviceProperties().properties.limits;
 

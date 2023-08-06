@@ -26,6 +26,14 @@ int u8_strlen(const char *s);
 void u8_inc(const char *s, int *i);
 void u8_dec(const char *s, int *i);
 
+// ranges grabbed from https://stackoverflow.com/a/62898106, ignoring the two bogus ranges.
+// there's probably more. Doesn't need to be perfect.
+inline bool CodepointIsProbablyEmoji(uint32_t c) {
+	return (c >= 127744 && c <= 129782) || (c >= 126980 && c <= 127569);
+}
+
+bool AnyEmojiInString(const char *s, size_t byteCount);
+
 class UTF8 {
 public:
 	static const uint32_t INVALID = (uint32_t)-1;
@@ -88,6 +96,8 @@ bool UTF8StringHasNonASCII(const char *utf8string);
 
 // Removes overlong encodings and similar.
 std::string SanitizeUTF8(const std::string &utf8string);
+
+std::string CodepointToUTF8(uint32_t codePoint);
 
 
 // UTF8 to Win32 UTF-16
