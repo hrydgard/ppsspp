@@ -1013,6 +1013,10 @@ namespace MIPSComp {
 	void IRFrontend::Comp_Mftv(MIPSOpcode op) {
 		CONDITIONAL_DISABLE(VFPU_XFER);
 
+		// Vector move from VFPU / from VFPU ctrl (no prefixes)
+		// gpr = S
+		// gpr = VFPU_CTRL[i]
+
 		int imm = op & 0xFF;
 		MIPSGPReg rt = _RT;
 		switch ((op >> 21) & 0x1f) {
@@ -1067,8 +1071,6 @@ namespace MIPSComp {
 		default:
 			INVALIDOP;
 		}
-		// This op is marked not to auto-eat prefix so we must do it manually.
-		EatPrefix();
 	}
 
 	void IRFrontend::Comp_Vmfvc(MIPSOpcode op) {
