@@ -34,7 +34,7 @@ namespace MIPSComp {
 using namespace RiscVGen;
 using namespace RiscVJitConstants;
 
-void RiscVJit::CompIR_FArith(IRInst inst) {
+void RiscVJitBackend::CompIR_FArith(IRInst inst) {
 	CONDITIONAL_DISABLE;
 
 	switch (inst.op) {
@@ -108,7 +108,7 @@ void RiscVJit::CompIR_FArith(IRInst inst) {
 	}
 }
 
-void RiscVJit::CompIR_FCondAssign(IRInst inst) {
+void RiscVJitBackend::CompIR_FCondAssign(IRInst inst) {
 	CONDITIONAL_DISABLE;
 	if (inst.op != IROp::FMin && inst.op != IROp::FMax)
 		INVALIDOP;
@@ -174,7 +174,7 @@ void RiscVJit::CompIR_FCondAssign(IRInst inst) {
 	SetJumpTarget(finish);
 }
 
-void RiscVJit::CompIR_FAssign(IRInst inst) {
+void RiscVJitBackend::CompIR_FAssign(IRInst inst) {
 	CONDITIONAL_DISABLE;
 
 	switch (inst.op) {
@@ -220,7 +220,7 @@ void RiscVJit::CompIR_FAssign(IRInst inst) {
 	}
 }
 
-void RiscVJit::CompIR_FRound(IRInst inst) {
+void RiscVJitBackend::CompIR_FRound(IRInst inst) {
 	CONDITIONAL_DISABLE;
 
 	// TODO: If this is followed by a GPR transfer, might want to combine.
@@ -251,7 +251,7 @@ void RiscVJit::CompIR_FRound(IRInst inst) {
 	FMV(FMv::W, FMv::X, fpr.R(inst.dest), SCRATCH1);
 }
 
-void RiscVJit::CompIR_FCvt(IRInst inst) {
+void RiscVJitBackend::CompIR_FCvt(IRInst inst) {
 	CONDITIONAL_DISABLE;
 
 	switch (inst.op) {
@@ -274,7 +274,7 @@ void RiscVJit::CompIR_FCvt(IRInst inst) {
 	}
 }
 
-void RiscVJit::CompIR_FSat(IRInst inst) {
+void RiscVJitBackend::CompIR_FSat(IRInst inst) {
 	CONDITIONAL_DISABLE;
 
 	RiscVReg tempReg = INVALID_REG;
@@ -334,7 +334,7 @@ void RiscVJit::CompIR_FSat(IRInst inst) {
 	}
 }
 
-void RiscVJit::CompIR_FCompare(IRInst inst) {
+void RiscVJitBackend::CompIR_FCompare(IRInst inst) {
 	CONDITIONAL_DISABLE;
 
 	constexpr IRRegIndex IRREG_VFPUL_CC = IRREG_VFPU_CTRL_BASE + VFPU_CTRL_CC;
@@ -548,7 +548,7 @@ void RiscVJit::CompIR_FCompare(IRInst inst) {
 	}
 }
 
-void RiscVJit::CompIR_RoundingMode(IRInst inst) {
+void RiscVJitBackend::CompIR_RoundingMode(IRInst inst) {
 	CONDITIONAL_DISABLE;
 
 	switch (inst.op) {
@@ -570,7 +570,7 @@ void RiscVJit::CompIR_RoundingMode(IRInst inst) {
 	}
 }
 
-void RiscVJit::CompIR_FSpecial(IRInst inst) {
+void RiscVJitBackend::CompIR_FSpecial(IRInst inst) {
 	CONDITIONAL_DISABLE;
 
 #ifdef __riscv_float_abi_soft

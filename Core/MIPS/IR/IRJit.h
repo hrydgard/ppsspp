@@ -124,6 +124,13 @@ public:
 			return nullptr;
 		}
 	}
+	const IRBlock *GetBlock(int i) const {
+		if (i >= 0 && i < (int)blocks_.size()) {
+			return &blocks_[i];
+		} else {
+			return nullptr;
+		}
+	}
 
 	int FindPreloadBlock(u32 em_address);
 	int FindByCookie(int cookie);
@@ -180,7 +187,7 @@ public:
 	void UnlinkBlock(u8 *checkedEntry, u32 originalAddress) override;
 
 protected:
-	virtual bool CompileBlock(u32 em_address, std::vector<IRInst> &instructions, u32 &mipsBytes, bool preload);
+	bool CompileBlock(u32 em_address, std::vector<IRInst> &instructions, u32 &mipsBytes, bool preload);
 	virtual bool CompileTargetBlock(IRBlock *block, int block_num, bool preload) { return true; }
 
 	JitOptions jo;

@@ -34,7 +34,7 @@ namespace MIPSComp {
 using namespace RiscVGen;
 using namespace RiscVJitConstants;
 
-void RiscVJit::CompIR_Exit(IRInst inst) {
+void RiscVJitBackend::CompIR_Exit(IRInst inst) {
 	CONDITIONAL_DISABLE;
 
 	RiscVReg exitReg = INVALID_REG;
@@ -64,7 +64,7 @@ void RiscVJit::CompIR_Exit(IRInst inst) {
 	}
 }
 
-void RiscVJit::CompIR_ExitIf(IRInst inst) {
+void RiscVJitBackend::CompIR_ExitIf(IRInst inst) {
 	CONDITIONAL_DISABLE;
 
 	RiscVReg lhs = INVALID_REG;

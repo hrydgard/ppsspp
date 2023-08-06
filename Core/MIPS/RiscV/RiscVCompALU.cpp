@@ -35,7 +35,7 @@ namespace MIPSComp {
 using namespace RiscVGen;
 using namespace RiscVJitConstants;
 
-void RiscVJit::CompIR_Arith(IRInst inst) {
+void RiscVJitBackend::CompIR_Arith(IRInst inst) {
 	CONDITIONAL_DISABLE;
 
 	bool allowPtrMath = true;
@@ -96,7 +96,7 @@ void RiscVJit::CompIR_Arith(IRInst inst) {
 	}
 }
 
-void RiscVJit::CompIR_Logic(IRInst inst) {
+void RiscVJitBackend::CompIR_Logic(IRInst inst) {
 	CONDITIONAL_DISABLE;
 
 	switch (inst.op) {
@@ -187,7 +187,7 @@ void RiscVJit::CompIR_Logic(IRInst inst) {
 	}
 }
 
-void RiscVJit::CompIR_Assign(IRInst inst) {
+void RiscVJitBackend::CompIR_Assign(IRInst inst) {
 	CONDITIONAL_DISABLE;
 
 	switch (inst.op) {
@@ -227,7 +227,7 @@ void RiscVJit::CompIR_Assign(IRInst inst) {
 	}
 }
 
-void RiscVJit::CompIR_Bits(IRInst inst) {
+void RiscVJitBackend::CompIR_Bits(IRInst inst) {
 	CONDITIONAL_DISABLE;
 
 	switch (inst.op) {
@@ -269,7 +269,7 @@ void RiscVJit::CompIR_Bits(IRInst inst) {
 	}
 }
 
-void RiscVJit::CompIR_Shift(IRInst inst) {
+void RiscVJitBackend::CompIR_Shift(IRInst inst) {
 	CONDITIONAL_DISABLE;
 
 	switch (inst.op) {
@@ -367,7 +367,7 @@ void RiscVJit::CompIR_Shift(IRInst inst) {
 	}
 }
 
-void RiscVJit::CompIR_Compare(IRInst inst) {
+void RiscVJitBackend::CompIR_Compare(IRInst inst) {
 	CONDITIONAL_DISABLE;
 
 	RiscVReg lhs = INVALID_REG;
@@ -445,7 +445,7 @@ void RiscVJit::CompIR_Compare(IRInst inst) {
 	}
 }
 
-void RiscVJit::CompIR_CondAssign(IRInst inst) {
+void RiscVJitBackend::CompIR_CondAssign(IRInst inst) {
 	CONDITIONAL_DISABLE;
 
 	RiscVReg lhs = INVALID_REG;
@@ -519,7 +519,7 @@ void RiscVJit::CompIR_CondAssign(IRInst inst) {
 	}
 }
 
-void RiscVJit::CompIR_HiLo(IRInst inst) {
+void RiscVJitBackend::CompIR_HiLo(IRInst inst) {
 	CONDITIONAL_DISABLE;
 
 	switch (inst.op) {
@@ -553,7 +553,7 @@ void RiscVJit::CompIR_HiLo(IRInst inst) {
 	}
 }
 
-void RiscVJit::CompIR_Mult(IRInst inst) {
+void RiscVJitBackend::CompIR_Mult(IRInst inst) {
 	CONDITIONAL_DISABLE;
 
 	auto makeArgsUnsigned = [&](RiscVReg *lhs, RiscVReg *rhs) {
@@ -652,7 +652,7 @@ void RiscVJit::CompIR_Mult(IRInst inst) {
 	}
 }
 
-void RiscVJit::CompIR_Div(IRInst inst) {
+void RiscVJitBackend::CompIR_Div(IRInst inst) {
 	CONDITIONAL_DISABLE;
 
 	RiscVReg numReg, denomReg;

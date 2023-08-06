@@ -38,7 +38,7 @@ namespace MIPSComp {
 using namespace RiscVGen;
 using namespace RiscVJitConstants;
 
-void RiscVJit::CompIR_Basic(IRInst inst) {
+void RiscVJitBackend::CompIR_Basic(IRInst inst) {
 	CONDITIONAL_DISABLE;
 
 	switch (inst.op) {
@@ -85,7 +85,7 @@ void RiscVJit::CompIR_Basic(IRInst inst) {
 	}
 }
 
-void RiscVJit::CompIR_Transfer(IRInst inst) {
+void RiscVJitBackend::CompIR_Transfer(IRInst inst) {
 	CONDITIONAL_DISABLE;
 
 	switch (inst.op) {
@@ -177,7 +177,7 @@ void RiscVJit::CompIR_Transfer(IRInst inst) {
 	}
 }
 
-void RiscVJit::CompIR_System(IRInst inst) {
+void RiscVJitBackend::CompIR_System(IRInst inst) {
 	CONDITIONAL_DISABLE;
 
 	switch (inst.op) {
@@ -236,7 +236,7 @@ void RiscVJit::CompIR_System(IRInst inst) {
 	}
 }
 
-void RiscVJit::CompIR_Breakpoint(IRInst inst) {
+void RiscVJitBackend::CompIR_Breakpoint(IRInst inst) {
 	CONDITIONAL_DISABLE;
 
 	switch (inst.op) {
@@ -251,7 +251,7 @@ void RiscVJit::CompIR_Breakpoint(IRInst inst) {
 	}
 }
 
-void RiscVJit::CompIR_ValidateAddress(IRInst inst) {
+void RiscVJitBackend::CompIR_ValidateAddress(IRInst inst) {
 	CONDITIONAL_DISABLE;
 
 	switch (inst.op) {

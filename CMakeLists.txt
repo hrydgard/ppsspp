@@ -1556,6 +1556,8 @@ set(CoreExtra ${CoreExtra}
 	Core/MIPS/IR/IRInterpreter.h
 	Core/MIPS/IR/IRJit.cpp
 	Core/MIPS/IR/IRJit.h
+	Core/MIPS/IR/IRNativeCommon.cpp
+	Core/MIPS/IR/IRNativeCommon.h
 	Core/MIPS/IR/IRPassSimplify.cpp
 	Core/MIPS/IR/IRPassSimplify.h
 	Core/MIPS/IR/IRRegCache.cpp

@@ -645,6 +645,9 @@
     <ClCompile Include="..\..\Core\MIPS\IR\IRJit.cpp">
       <Filter>MIPS\IR</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\Core\MIPS\IR\IRNativeCommon.cpp">
+      <Filter>MIPS\IR</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\Core\MIPS\IR\IRAnalysis.cpp">
       <Filter>MIPS\IR</Filter>
     </ClCompile>
@@ -1668,6 +1671,9 @@
       <Filter>MIPS\IR</Filter>
     </ClInclude>
     <ClInclude Include="..\..\Core\MIPS\IR\IRJit.h">
+      <Filter>MIPS\IR</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Core\MIPS\IR\IRNativeCommon.h">
       <Filter>MIPS\IR</Filter>
     </ClInclude>
     <ClInclude Include="..\..\Core\MIPS\IR\IRAnalysis.h">

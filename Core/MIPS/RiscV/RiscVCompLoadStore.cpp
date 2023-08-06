@@ -34,7 +34,7 @@ namespace MIPSComp {
 using namespace RiscVGen;
 using namespace RiscVJitConstants;
 
-void RiscVJit::SetScratch1ToSrc1Address(IRReg src1) {
+void RiscVJitBackend::SetScratch1ToSrc1Address(IRReg src1) {
 	gpr.MapReg(src1);
 #ifdef MASKED_PSP_MEMORY
 	SLLIW(SCRATCH1, gpr.R(src1), 2);
@@ -53,7 +53,7 @@ void RiscVJit::SetScratch1ToSrc1Address(IRReg src1) {
 #endif
 }
 
-int32_t RiscVJit::AdjustForAddressOffset(RiscVGen::RiscVReg *reg, int32_t constant, int32_t range) {
+int32_t RiscVJitBackend::AdjustForAddressOffset(RiscVGen::RiscVReg *reg, int32_t constant, int32_t range) {
 	if (constant < -2048 || constant + range > 2047) {
 		LI(SCRATCH2, constant);
 		ADD(SCRATCH1, *reg, SCRATCH2);
@@ -63,7 +63,7 @@ int32_t RiscVJit::AdjustForAddressOffset(RiscVGen::RiscVReg *reg, int32_t consta
 	return constant;
 }
 
-void RiscVJit::CompIR_Load(IRInst inst) {
+void RiscVJitBackend::CompIR_Load(IRInst inst) {
 	CONDITIONAL_DISABLE;
 
 	gpr.SpillLock(inst.dest, inst.src1);
@@ -124,7 +124,7 @@ void RiscVJit::CompIR_Load(IRInst inst) {
 	}
 }
 
-void RiscVJit::CompIR_LoadShift(IRInst inst) {
+void RiscVJitBackend::CompIR_LoadShift(IRInst inst) {
 	CONDITIONAL_DISABLE;
 
 	switch (inst.op) {
@@ -140,7 +140,7 @@ void RiscVJit::CompIR_LoadShift(IRInst inst) {
 	}
 }
 
-void RiscVJit::CompIR_FLoad(IRInst inst) {
+void RiscVJitBackend::CompIR_FLoad(IRInst inst) {
 	CONDITIONAL_DISABLE;
 
 	RiscVReg addrReg = INVALID_REG;
@@ -173,7 +173,7 @@ void RiscVJit::CompIR_FLoad(IRInst inst) {
 	}
 }
 
-void RiscVJit::CompIR_VecLoad(IRInst inst) {
+void RiscVJitBackend::CompIR_VecLoad(IRInst inst) {
 	CONDITIONAL_DISABLE;
 
 	RiscVReg addrReg = INVALID_REG;
@@ -210,7 +210,7 @@ void RiscVJit::CompIR_VecLoad(IRInst inst) {
 	}
 }
 
-void RiscVJit::CompIR_Store(IRInst inst) {
+void RiscVJitBackend::CompIR_Store(IRInst inst) {
 	CONDITIONAL_DISABLE;
 
 	gpr.SpillLock(inst.src3, inst.src1);
@@ -255,7 +255,7 @@ void RiscVJit::CompIR_Store(IRInst inst) {
 	}
 }
 
-void RiscVJit::CompIR_CondStore(IRInst inst) {
+void RiscVJitBackend::CompIR_CondStore(IRInst inst) {
 	CONDITIONAL_DISABLE;
 	if (inst.op != IROp::Store32Conditional)
 		INVALIDOP;
@@ -297,7 +297,7 @@ void RiscVJit::CompIR_CondStore(IRInst inst) {
 	}
 }
 
-void RiscVJit::CompIR_StoreShift(IRInst inst) {
+void RiscVJitBackend::CompIR_StoreShift(IRInst inst) {
 	CONDITIONAL_DISABLE;
 
 	switch (inst.op) {
@@ -313,7 +313,7 @@ void RiscVJit::CompIR_StoreShift(IRInst inst) {
 	}
 }
 
-void RiscVJit::CompIR_FStore(IRInst inst) {
+void RiscVJitBackend::CompIR_FStore(IRInst inst) {
 	CONDITIONAL_DISABLE;
 
 	RiscVReg addrReg = INVALID_REG;
@@ -346,7 +346,7 @@ void RiscVJit::CompIR_FStore(IRInst inst) {
 	}
 }
 
-void RiscVJit::CompIR_VecStore(IRInst inst) {
+void RiscVJitBackend::CompIR_VecStore(IRInst inst) {
 	CONDITIONAL_DISABLE;
 
 	RiscVReg addrReg = INVALID_REG;
