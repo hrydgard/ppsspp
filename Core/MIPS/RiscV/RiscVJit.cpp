@@ -26,7 +26,7 @@ using namespace RiscVGen;
 using namespace RiscVJitConstants;
 
 RiscVJitBackend::RiscVJitBackend(MIPSState *mipsState, JitOptions &jitopt)
-	: mips_(mipsState), jo(jitopt), gpr(mipsState, &jo), fpr(mipsState, &jo) {
+	: jo(jitopt), gpr(mipsState, &jo), fpr(mipsState, &jo) {
 	// Automatically disable incompatible options.
 	if (((intptr_t)Memory::base & 0x00000000FFFFFFFFUL) != 0) {
 		jo.enablePointerify = false;

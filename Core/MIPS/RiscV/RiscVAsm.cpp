@@ -44,7 +44,7 @@ static void ShowPC(u32 downcount, void *membase, void *jitbase) {
 	count++;
 }
 
-void RiscVJitBackend::GenerateFixedCode() {
+void RiscVJitBackend::GenerateFixedCode(MIPSState *mipsState) {
 	BeginWrite(GetMemoryProtectPageSize());
 	const u8 *start = AlignCodePage();
 
@@ -120,7 +120,7 @@ void RiscVJitBackend::GenerateFixedCode() {
 
 	// Fixed registers, these are always kept when in Jit context.
 	LI(MEMBASEREG, Memory::base, SCRATCH1);
-	LI(CTXREG, mips_, SCRATCH1);
+	LI(CTXREG, mipsState, SCRATCH1);
 	LI(JITBASEREG, GetBasePtr(), SCRATCH1);
 
 	LoadStaticRegisters();

@@ -36,7 +36,7 @@ public:
 
 	bool DescribeCodePtr(const u8 *ptr, std::string &name) const override;
 
-	void GenerateFixedCode() override;
+	void GenerateFixedCode(MIPSState *mipsState) override;
 	bool CompileBlock(IRBlock *block, int block_num, bool preload) override;
 	void ClearAllBlocks() override;
 
@@ -107,8 +107,6 @@ private:
 	void NormalizeSrc12(IRInst inst, RiscVGen::RiscVReg *lhs, RiscVGen::RiscVReg *rhs, RiscVGen::RiscVReg lhsTempReg, RiscVGen::RiscVReg rhsTempReg, bool allowOverlap);
 	RiscVGen::RiscVReg NormalizeR(IRRegIndex rs, IRRegIndex rd, RiscVGen::RiscVReg tempReg);
 
-	// TODO: Maybe just a param to GenerateFixedCode().
-	MIPSState *mips_;
 	JitOptions &jo;
 	RiscVRegCache gpr;
 	RiscVRegCacheFPU fpr;

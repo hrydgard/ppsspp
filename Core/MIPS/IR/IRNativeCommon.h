@@ -56,7 +56,7 @@ public:
 	bool CodeInRange(const u8 *ptr) const;
 	int OffsetFromCodePtr(const u8 *ptr);
 
-	virtual void GenerateFixedCode() = 0;
+	virtual void GenerateFixedCode(MIPSState *mipsState) = 0;
 	virtual bool CompileBlock(IRBlock *block, int block_num, bool preload) = 0;
 	virtual void ClearAllBlocks() = 0;
 
