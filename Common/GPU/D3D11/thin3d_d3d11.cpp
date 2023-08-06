@@ -181,8 +181,8 @@ private:
 
 	HWND hWnd_;
 	ID3D11Device *device_;
-	ID3D11DeviceContext *context_;
 	ID3D11Device1 *device1_;
+	ID3D11DeviceContext *context_;
 	ID3D11DeviceContext1 *context1_;
 
 	ID3D11Texture2D *bbRenderTargetTex_ = nullptr; // NOT OWNED
