@@ -19,8 +19,8 @@
 #endif
 
 // for _mm_pause
-#ifdef _M_SSE
-#include <emmintrin.h>
+#if PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)
+#include <immintrin.h>
 #endif
 
 #include <ctime>
@@ -96,7 +96,7 @@ double from_time_raw_relative(uint64_t raw_time) {
 }
 
 void yield() {
-#if PPSSPP_ARCH(AMD64)
+#if PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)
 	_mm_pause();
 #elif PPSSPP_ARCH(ARM64)
 	__builtin_arm_isb(15);
