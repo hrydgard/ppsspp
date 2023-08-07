@@ -90,6 +90,7 @@
 #include "Core/ConfigValues.h"
 #include "Core/Core.h"
 #include "Core/FileLoaders/DiskCachingFileLoader.h"
+#include "Core/FrameTiming.h"
 #include "Core/KeyMap.h"
 #include "Core/Reporting.h"
 #include "Core/RetroAchievements.h"

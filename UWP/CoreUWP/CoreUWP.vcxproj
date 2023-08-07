@@ -196,6 +196,7 @@
     <ClInclude Include="..\..\Core\FileSystems\MetaFileSystem.h" />
     <ClInclude Include="..\..\Core\FileSystems\VirtualDiscFileSystem.h" />
     <ClInclude Include="..\..\Core\Font\PGF.h" />
+    <ClInclude Include="..\..\Core\FrameTiming.h" />
     <ClInclude Include="..\..\Core\HDRemaster.h" />
     <ClInclude Include="..\..\Core\HLE\sceNp2.h" />
     <ClInclude Include="..\..\Core\Instance.h" />
@@ -439,6 +440,7 @@
     <ClCompile Include="..\..\Core\FileSystems\tlzrc.cpp" />
     <ClCompile Include="..\..\Core\FileSystems\VirtualDiscFileSystem.cpp" />
     <ClCompile Include="..\..\Core\Font\PGF.cpp" />
+    <ClCompile Include="..\..\Core\FrameTiming.cpp" />
     <ClCompile Include="..\..\Core\HDRemaster.cpp" />
     <ClCompile Include="..\..\Core\HLE\sceNp2.cpp" />
     <ClCompile Include="..\..\Core\Instance.cpp" />
