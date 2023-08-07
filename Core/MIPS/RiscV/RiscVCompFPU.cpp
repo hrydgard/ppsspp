@@ -624,7 +624,7 @@ void RiscVJitBackend::CompIR_FSpecial(IRInst inst) {
 			int offset = offsetof(MIPSState, f) + inst.src1 * 4;
 			FL(32, F10, CTXREG, offset);
 		}
-		QuickCallFunction(func);
+		QuickCallFunction(func, SCRATCH1);
 
 		fpr.MapReg(inst.dest, MIPSMap::NOINIT);
 		// If it's already F10, we're done - MapReg doesn't actually overwrite the reg in that case.

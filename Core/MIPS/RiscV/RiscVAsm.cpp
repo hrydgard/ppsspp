@@ -131,7 +131,7 @@ void RiscVJitBackend::GenerateFixedCode(MIPSState *mipsState) {
 	// Advance can change the downcount (or thread), so must save/restore around it.
 	SaveStaticRegisters();
 	RestoreRoundingMode(true);
-	QuickCallFunction(&CoreTiming::Advance);
+	QuickCallFunction(&CoreTiming::Advance, X7);
 	ApplyRoundingMode(true);
 	LoadStaticRegisters();
 
@@ -158,7 +158,7 @@ void RiscVJitBackend::GenerateFixedCode(MIPSState *mipsState) {
 		MV(X10, DOWNCOUNTREG);
 		MV(X11, MEMBASEREG);
 		MV(X12, JITBASEREG);
-		QuickCallFunction(&ShowPC);
+		QuickCallFunction(&ShowPC, X7);
 	}
 
 	LWU(SCRATCH1, CTXREG, offsetof(MIPSState, pc));
@@ -182,7 +182,7 @@ void RiscVJitBackend::GenerateFixedCode(MIPSState *mipsState) {
 
 	// No block found, let's jit.  We don't need to save static regs, they're all callee saved.
 	RestoreRoundingMode(true);
-	QuickCallFunction(&MIPSComp::JitAt);
+	QuickCallFunction(&MIPSComp::JitAt, X7);
 	ApplyRoundingMode(true);
 
 	// Try again, the block index should be set now.
