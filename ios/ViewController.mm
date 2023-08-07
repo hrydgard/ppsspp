@@ -238,8 +238,7 @@ extern float g_safeInsetBottom;
 
 		INFO_LOG(SYSTEM, "Emulation thread starting\n");
 		while (threadEnabled) {
-			NativeUpdate();
-			NativeRender(graphicsContext);
+			NativeFrame(graphicsContext);
 		}
 
 

@@ -1121,8 +1121,7 @@ extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_sendRequestResult(JNIEn
 
 void LockedNativeUpdateRender() {
 	std::lock_guard<std::mutex> renderGuard(renderLock);
-	NativeUpdate();
-	NativeRender(graphicsContext);
+	NativeFrame(graphicsContext);
 }
 
 void UpdateRunLoopAndroid(JNIEnv *env) {
