@@ -421,6 +421,7 @@ bool PropagateConstants(const IRWriter &in, IRWriter &out, const IROptions &opts
 	IRImmRegCache gpr(&out);
 
 	bool logBlocks = false;
+	bool skipNextExitToConst = false;
 	for (int i = 0; i < (int)in.GetInstructions().size(); i++) {
 		IRInst inst = in.GetInstructions()[i];
 		bool symmetric = true;
@@ -804,20 +805,67 @@ bool PropagateConstants(const IRWriter &in, IRWriter &out, const IROptions &opts
 			gpr.MapDirtyIn(IRREG_VFPU_CC, IRREG_VFPU_CC);
 			goto doDefault;
 
+		case IROp::ExitToConstIfEq:
+		case IROp::ExitToConstIfNeq:
+			if (gpr.IsImm(inst.src1) && gpr.IsImm(inst.src2)) {
+				bool passed = false;
+				switch (inst.op) {
+				case IROp::ExitToConstIfEq: passed = gpr.GetImm(inst.src1) == gpr.GetImm(inst.src2); break;
+				case IROp::ExitToConstIfNeq: passed = gpr.GetImm(inst.src1) != gpr.GetImm(inst.src2); break;
+				default: _assert_(false); break;
+				}
+
+				// This is a bit common for the first cycle of loops.
+				// Reduce bloat by skipping on fail, and const exit on pass.
+				if (passed) {
+					gpr.FlushAll();
+					out.Write(IROp::ExitToConst, out.AddConstant(inst.constant));
+					skipNextExitToConst = true;
+				}
+				break;
+			}
+			gpr.FlushAll();
+			goto doDefault;
+
+		case IROp::ExitToConstIfGtZ:
+		case IROp::ExitToConstIfGeZ:
+		case IROp::ExitToConstIfLtZ:
+		case IROp::ExitToConstIfLeZ:
+			if (gpr.IsImm(inst.src1)) {
+				bool passed = false;
+				switch (inst.op) {
+				case IROp::ExitToConstIfGtZ: passed = (s32)gpr.GetImm(inst.src1) > 0; break;
+				case IROp::ExitToConstIfGeZ: passed = (s32)gpr.GetImm(inst.src1) >= 0; break;
+				case IROp::ExitToConstIfLtZ: passed = (s32)gpr.GetImm(inst.src1) < 0; break;
+				case IROp::ExitToConstIfLeZ: passed = (s32)gpr.GetImm(inst.src1) <= 0; break;
+				default: _assert_(false); break;
+				}
+
+				if (passed) {
+					gpr.FlushAll();
+					out.Write(IROp::ExitToConst, out.AddConstant(inst.constant));
+					skipNextExitToConst = true;
+				}
+				break;
+			}
+			gpr.FlushAll();
+			goto doDefault;
+
+		case IROp::ExitToConst:
+			if (skipNextExitToConst) {
+				skipNextExitToConst = false;
+				break;
+			}
+			gpr.FlushAll();
+			goto doDefault;
+
 		case IROp::CallReplacement:
 		case IROp::Break:
 		case IROp::Syscall:
 		case IROp::Interpret:
-		case IROp::ExitToConst:
 		case IROp::ExitToReg:
-		case IROp::ExitToConstIfEq:
-		case IROp::ExitToConstIfNeq:
 		case IROp::ExitToConstIfFpFalse:
 		case IROp::ExitToConstIfFpTrue:
-		case IROp::ExitToConstIfGeZ:
-		case IROp::ExitToConstIfGtZ:
-		case IROp::ExitToConstIfLeZ:
-		case IROp::ExitToConstIfLtZ:
 		case IROp::Breakpoint:
 		case IROp::MemoryCheck:
 		default:
