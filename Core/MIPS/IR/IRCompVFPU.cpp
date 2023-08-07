@@ -526,22 +526,59 @@ namespace MIPSComp {
 	void IRFrontend::Comp_VMatrixInit(MIPSOpcode op) {
 		CONDITIONAL_DISABLE(VFPU_XFER);
 		MatrixSize sz = GetMtxSize(op);
-		if (sz != M_4x4 || !js.HasNoPrefix()) {
+		if (!js.HasNoPrefix()) {
 			DISABLE;
 		}
 
 		// Matrix init (weird prefixes)
 		// d[N,M] = CONST[N,M]
 
-		// Not really about trying here, it will work if enabled.
-		VectorSize vsz = GetVectorSize(sz);
-		u8 vecs[4];
 		int vd = _VD;
 		if (IsMatrixTransposed(vd)) {
 			// All outputs are transpositionally symmetric, so should be fine.
 			vd = TransposeMatrixReg(vd);
 		}
-		GetMatrixColumns(vd, M_4x4, vecs);
+
+		if (sz != M_4x4) {
+			// 3x3 is decently common.  It expands a lot, but let's set each.
+			u8 dregs[16];
+			GetMatrixRegs(dregs, sz, vd);
+
+			// TODO: It might be worth using Vec4Blend for 3x3 to mask w.
+			int n = GetMatrixSide(sz);
+			for (int y = 0; y < n; ++y) {
+				for (int x = 0; x < n; ++x) {
+					switch ((op >> 16) & 0xF) {
+					case 3: // vmidt
+						if (x == 0 && y == 0)
+							ir.Write(IROp::SetConstF, dregs[y * 4 + x], ir.AddConstantFloat(1.0f));
+						else if (x == y)
+							ir.Write(IROp::FMov, dregs[y * 4 + x], dregs[0]);
+						else
+							ir.Write(IROp::SetConstF, dregs[y * 4 + x], ir.AddConstantFloat(0.0f));
+						break;
+					case 6: // vmzero
+						// Likely to be fast.
+						ir.Write(IROp::SetConstF, dregs[y * 4 + x], ir.AddConstantFloat(0.0f));
+						break;
+					case 7: // vmone
+						if (x == 0 && y == 0)
+							ir.Write(IROp::SetConstF, dregs[y * 4 + x], ir.AddConstantFloat(1.0f));
+						else
+							ir.Write(IROp::FMov, dregs[y * 4 + x], dregs[0]);
+						break;
+					default:
+						INVALIDOP;
+					}
+				}
+			}
+			return;
+		}
+
+		// Not really about trying here, it will work if enabled.
+		VectorSize vsz = GetVectorSize(sz);
+		u8 vecs[4];
+		GetMatrixColumns(vd, sz, vecs);
 		for (int i = 0; i < 4; i++) {
 			u8 vec[4];
 			GetVectorRegs(vec, vsz, vecs[i]);
