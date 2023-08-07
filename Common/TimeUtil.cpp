@@ -17,6 +17,12 @@
 #include <sys/time.h>
 #include <unistd.h>
 #endif
+
+// for _mm_pause
+#if PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)
+#include <immintrin.h>
+#endif
+
 #include <ctime>
 
 // TODO: https://github.com/floooh/sokol/blob/9a6237fcdf213e6da48e4f9201f144bcb2dcb46f/sokol_time.h#L229-L248
@@ -24,7 +30,7 @@
 static const double micros = 1000000.0;
 static const double nanos = 1000000000.0;
 
-#ifdef _WIN32
+#if PPSSPP_PLATFORM(WINDOWS)
 
 static LARGE_INTEGER frequency;
 static double frequencyMult;
@@ -58,6 +64,10 @@ double from_time_raw_relative(uint64_t raw_time) {
 	return from_time_raw(raw_time);
 }
 
+void yield() {
+	YieldProcessor();
+}
+
 #elif PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(LINUX) || PPSSPP_PLATFORM(MAC) || PPSSPP_PLATFORM(IOS)
 
 // The only intended use is to match the timings in VK_GOOGLE_display_timing
@@ -85,6 +95,14 @@ double from_time_raw_relative(uint64_t raw_time) {
 	return (double)raw_time * (1.0 / nanos);
 }
 
+void yield() {
+#if PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)
+	_mm_pause();
+#elif PPSSPP_ARCH(ARM64)
+	__builtin_arm_isb(15);
+#endif
+}
+
 #else
 
 double time_now_d() {
@@ -109,6 +127,8 @@ double from_time_raw(uint64_t raw_time) {
 double from_time_raw_relative(uint64_t raw_time) {
 	return from_time_raw(raw_time);
 }
+
+void yield() {}
 
 #endif
 
