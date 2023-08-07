@@ -304,7 +304,7 @@ bool VulkanRenderManager::CreateBackbuffers() {
 		INFO_LOG(G3D, "Starting Vulkan compiler thread");
 		compileThread_ = std::thread(&VulkanRenderManager::CompileThreadFunc, this);
 
-		if (vulkan_->GetDeviceFeatures().enabled.presentWait.presentWait) {
+		if (vulkan_->Extensions().KHR_present_wait && vulkan_->GetPresentMode() == VK_PRESENT_MODE_FIFO_KHR) {
 			INFO_LOG(G3D, "Starting Vulkan present wait thread");
 			presentWaitThread_ = std::thread(&VulkanRenderManager::PresentWaitThreadFunc, this);
 		}
@@ -551,6 +551,8 @@ void VulkanRenderManager::PresentWaitThreadFunc() {
 		if (VK_SUCCESS == vkWaitForPresentKHR(vulkan_->GetDevice(), vulkan_->GetSwapchain(), waitedId, timeout)) {
 			frameTimeData_[waitedId].actualPresent = time_now_d();
 			waitedId++;
+		} else {
+			frameTimeData_[waitedId].waitCount++;
 		}
 		_dbg_assert_(waitedId <= frameIdGen_);
 	}
