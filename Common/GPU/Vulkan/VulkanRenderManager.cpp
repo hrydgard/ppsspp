@@ -543,6 +543,8 @@ void VulkanRenderManager::ThreadFunc() {
 void VulkanRenderManager::PresentWaitThreadFunc() {
 	SetCurrentThreadName("PresentWait");
 
+	_dbg_assert_(vkWaitForPresentKHR != nullptr);
+
 	uint64_t waitedId = frameIdGen_;
 	while (run_) {
 		const uint64_t timeout = 1000000000ULL;  // 1 sec
