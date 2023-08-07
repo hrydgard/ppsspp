@@ -244,11 +244,44 @@ void RiscVJitBackend::CompIR_VecPack(IRInst inst) {
 	switch (inst.op) {
 	case IROp::Vec2Unpack16To31:
 	case IROp::Vec2Unpack16To32:
-	case IROp::Vec4Unpack8To32:
-	case IROp::Vec4DuplicateUpperBitsAndShift1:
 	case IROp::Vec4Pack32To8:
 	case IROp::Vec2Pack31To16:
 		CompIR_Generic(inst);
+		break;
+
+	case IROp::Vec4Unpack8To32:
+		fpr.SpillLock(inst.src1);
+		for (int i = 0; i < 4; ++i)
+			fpr.SpillLock(inst.dest + i);
+		fpr.MapReg(inst.src1);
+		for (int i = 0; i < 4; ++i)
+			fpr.MapReg(inst.dest + i, MIPSMap::NOINIT);
+		fpr.ReleaseSpillLocksAndDiscardTemps();
+
+		FMV(FMv::X, FMv::W, SCRATCH2, fpr.R(inst.src1));
+		for (int i = 0; i < 4; ++i) {
+			// Mask using walls.
+			if (i != 0) {
+				SRLI(SCRATCH1, SCRATCH2, i * 8);
+				SLLI(SCRATCH1, SCRATCH1, 24);
+			} else {
+				SLLI(SCRATCH1, SCRATCH2, 24);
+			}
+			FMV(FMv::W, FMv::X, fpr.R(inst.dest + i), SCRATCH1);
+		}
+		break;
+
+	case IROp::Vec4DuplicateUpperBitsAndShift1:
+		fpr.Map4DirtyIn(inst.dest, inst.src1);
+		for (int i = 0; i < 4; i++) {
+			FMV(FMv::X, FMv::W, SCRATCH1, fpr.R(inst.src1 + i));
+			SRLIW(SCRATCH2, SCRATCH1, 8);
+			OR(SCRATCH1, SCRATCH1, SCRATCH2);
+			SRLIW(SCRATCH2, SCRATCH1, 16);
+			OR(SCRATCH1, SCRATCH1, SCRATCH2);
+			SRLIW(SCRATCH1, SCRATCH1, 1);
+			FMV(FMv::W, FMv::X, fpr.R(inst.dest + i), SCRATCH1);
+		}
 		break;
 
 	case IROp::Vec4Pack31To8:
