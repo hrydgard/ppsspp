@@ -859,11 +859,22 @@ bool PropagateConstants(const IRWriter &in, IRWriter &out, const IROptions &opts
 			gpr.FlushAll();
 			goto doDefault;
 
+		case IROp::ExitToReg:
+			if (gpr.IsImm(inst.src1)) {
+				// This happens sometimes near loops.
+				// Prefer ExitToConst to allow block linking.
+				u32 dest = gpr.GetImm(inst.src1);
+				gpr.FlushAll();
+				out.Write(IROp::ExitToConst, out.AddConstant(dest));
+				break;
+			}
+			gpr.FlushAll();
+			goto doDefault;
+
 		case IROp::CallReplacement:
 		case IROp::Break:
 		case IROp::Syscall:
 		case IROp::Interpret:
-		case IROp::ExitToReg:
 		case IROp::ExitToConstIfFpFalse:
 		case IROp::ExitToConstIfFpTrue:
 		case IROp::Breakpoint:
