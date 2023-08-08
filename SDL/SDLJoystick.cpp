@@ -155,7 +155,7 @@ InputKeyCode SDLJoystick::getKeycodeForButton(SDL_GameControllerButton button) {
 	}
 }
 
-void SDLJoystick::ProcessInput(SDL_Event &event){
+void SDLJoystick::ProcessInput(const SDL_Event &event){
 	switch (event.type) {
 	case SDL_CONTROLLERBUTTONDOWN:
 		if (event.cbutton.state == SDL_PRESSED) {

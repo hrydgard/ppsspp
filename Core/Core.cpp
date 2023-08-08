@@ -80,6 +80,10 @@ void Core_NotifyWindowHidden(bool hidden) {
 	// TODO: Wait until we can react?
 }
 
+bool Core_IsWindowHidden() {
+	return windowHidden;
+}
+
 void Core_NotifyActivity() {
 	lastActivity = time_now_d();
 }
