@@ -301,6 +301,7 @@ static void event_handler_callback(const rc_client_event_t *event, rc_client_t *
 		// If a progress indicator is already visible, it should be updated with the new icon and text, and the two second timer should be restarted.
 		g_OSD.ShowAchievementProgress(event->achievement->id, true);
 		break;
+		/*
 	case RC_CLIENT_EVENT_ACHIEVEMENT_PROGRESS_INDICATOR_UPDATE:
 		INFO_LOG(ACHIEVEMENTS, "Progress indicator update: %s, progress: '%s' (%f)", event->achievement->title, event->achievement->measured_progress, event->achievement->measured_percent);
 		g_OSD.ShowAchievementProgress(event->achievement->id, true);
@@ -313,6 +314,7 @@ static void event_handler_callback(const rc_client_event_t *event, rc_client_t *
 		// If a progress indicator is already visible, it should be updated with the new icon and text, and the two second timer should be restarted.
 		g_OSD.ShowAchievementProgress(0, false);
 		break;
+		*/
 	case RC_CLIENT_EVENT_LEADERBOARD_TRACKER_SHOW:
 		INFO_LOG(ACHIEVEMENTS, "Leaderboard tracker show: '%s' (id %d)", event->leaderboard_tracker->display, event->leaderboard_tracker->id);
 		// A leaderboard_tracker has become active. The handler should show the tracker text on screen.
