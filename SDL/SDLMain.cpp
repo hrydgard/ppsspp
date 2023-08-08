@@ -96,6 +96,9 @@ static float g_ForcedDPI = 0.0f; // if this is 0.0f, use g_DesktopDPI
 static float g_RefreshRate = 60.f;
 static int g_sampleRate = 44100;
 
+static int g_frameCount = 0;
+static bool g_rebootEmuThread = false;
+
 static SDL_AudioSpec g_retFmt;
 
 // Window state to be transferred to the main SDL thread.
@@ -675,6 +678,419 @@ static void EmuThreadJoin() {
 	emuThread = std::thread();
 }
 
+struct InputStateTracker {
+	void TranslateMouseWheel() {
+		// SDL2 doesn't consider the mousewheel a button anymore
+		// so let's send the KEY_UP if it was moved after some frames
+		if (mouseWheelMovedUpFrames > 0) {
+			mouseWheelMovedUpFrames--;
+			if (mouseWheelMovedUpFrames == 0) {
+				KeyInput key;
+				key.deviceId = DEVICE_ID_MOUSE;
+				key.keyCode = NKCODE_EXT_MOUSEWHEEL_UP;
+				key.flags = KEY_UP;
+				NativeKey(key);
+			}
+		}
+		if (mouseWheelMovedDownFrames > 0) {
+			mouseWheelMovedDownFrames--;
+			if (mouseWheelMovedDownFrames == 0) {
+				KeyInput key;
+				key.deviceId = DEVICE_ID_MOUSE;
+				key.keyCode = NKCODE_EXT_MOUSEWHEEL_DOWN;
+				key.flags = KEY_UP;
+				NativeKey(key);
+			}
+		}
+	}
+
+	void MouseControl() {
+		// Disabled by default, needs a workaround to map to psp keys.
+		if (g_Config.bMouseControl) {
+			float scaleFactor_x = g_display.dpi_scale_x * 0.1 * g_Config.fMouseSensitivity;
+			float scaleFactor_y = g_display.dpi_scale_y * 0.1 * g_Config.fMouseSensitivity;
+
+			AxisInput axisX, axisY;
+			axisX.axisId = JOYSTICK_AXIS_MOUSE_REL_X;
+			axisX.deviceId = DEVICE_ID_MOUSE;
+			axisX.value = std::max(-1.0f, std::min(1.0f, mouseDeltaX * scaleFactor_x));
+			axisY.axisId = JOYSTICK_AXIS_MOUSE_REL_Y;
+			axisY.deviceId = DEVICE_ID_MOUSE;
+			axisY.value = std::max(-1.0f, std::min(1.0f, mouseDeltaY * scaleFactor_y));
+
+			if (GetUIState() == UISTATE_INGAME || g_Config.bMapMouse) {
+				NativeAxis(axisX);
+				NativeAxis(axisY);
+			}
+			mouseDeltaX *= g_Config.fMouseSmoothing;
+			mouseDeltaY *= g_Config.fMouseSmoothing;
+		}
+	}
+
+	void MouseCaptureControl() {
+		bool captureMouseCondition = g_Config.bMouseControl && ((GetUIState() == UISTATE_INGAME && g_Config.bMouseConfine) || g_Config.bMapMouse);
+		if (mouseCaptured != captureMouseCondition) {
+			mouseCaptured = captureMouseCondition;
+			if (captureMouseCondition)
+				SDL_SetRelativeMouseMode(SDL_TRUE);
+			else
+				SDL_SetRelativeMouseMode(SDL_FALSE);
+		}
+	}
+
+	bool mouseDown;
+	float mouseDeltaX;
+	float mouseDeltaY;
+	int mouseWheelMovedUpFrames;
+	int mouseWheelMovedDownFrames;
+	bool mouseCaptured;
+};
+
+static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputStateTracker *inputTracker) {
+	// We have to juggle around 3 kinds of "DPI spaces" if a logical DPI is
+	// provided (through --dpi, it is equal to system DPI if unspecified):
+	// - SDL gives us motion events in "system DPI" points
+	// - UpdateScreenScale expects pixels, so in a way "96 DPI" points
+	// - The UI code expects motion events in "logical DPI" points
+	float mx = event.motion.x * g_DesktopDPI * g_display.dpi_scale_x;
+	float my = event.motion.y * g_DesktopDPI * g_display.dpi_scale_x;
+
+	switch (event.type) {
+	case SDL_QUIT:
+		g_QuitRequested = 1;
+		break;
+
+#if !defined(MOBILE_DEVICE)
+	case SDL_WINDOWEVENT:
+		switch (event.window.event) {
+		case SDL_WINDOWEVENT_SIZE_CHANGED:  // better than RESIZED, more general
+		{
+			int new_width = event.window.data1;
+			int new_height = event.window.data2;
+
+			// The size given by SDL is in point-units, convert these to
+			// pixels before passing to UpdateScreenScale()
+			int new_width_px = new_width * g_DesktopDPI;
+			int new_height_px = new_height * g_DesktopDPI;
+
+			Core_NotifyWindowHidden(false);
+
+			Uint32 window_flags = SDL_GetWindowFlags(window);
+			bool fullscreen = (window_flags & SDL_WINDOW_FULLSCREEN);
+
+			// This one calls NativeResized if the size changed.
+			UpdateScreenScale(new_width_px, new_height_px);
+
+			// Set variable here in case fullscreen was toggled by hotkey
+			if (g_Config.UseFullScreen() != fullscreen) {
+				g_Config.bFullScreen = fullscreen;
+				g_Config.iForceFullScreen = -1;
+			} else {
+				// It is possible for the monitor to change DPI, so recalculate
+				// DPI on each resize event.
+				UpdateScreenDPI(window);
+			}
+
+			if (!g_Config.bFullScreen) {
+				g_Config.iWindowWidth = new_width;
+				g_Config.iWindowHeight = new_height;
+			}
+			// Hide/Show cursor correctly toggling fullscreen
+			if (lastUIState == UISTATE_INGAME && fullscreen && !g_Config.bShowTouchControls) {
+				SDL_ShowCursor(SDL_DISABLE);
+			} else if (lastUIState != UISTATE_INGAME || !fullscreen) {
+				SDL_ShowCursor(SDL_ENABLE);
+			}
+			break;
+		}
+
+		case SDL_WINDOWEVENT_MOVED:
+		{
+			int x = event.window.data1;
+			int y = event.window.data2;
+			Uint32 window_flags = SDL_GetWindowFlags(window);
+			bool fullscreen = (window_flags & SDL_WINDOW_FULLSCREEN);
+			if (!fullscreen) {
+				g_Config.iWindowX = x;
+				g_Config.iWindowY = y;
+			}
+			break;
+		}
+
+		case SDL_WINDOWEVENT_MINIMIZED:
+		case SDL_WINDOWEVENT_HIDDEN:
+			Core_NotifyWindowHidden(true);
+			break;
+		case SDL_WINDOWEVENT_EXPOSED:
+		case SDL_WINDOWEVENT_SHOWN:
+			Core_NotifyWindowHidden(false);
+			break;
+		default:
+			break;
+		}
+		break;
+#endif
+	case SDL_KEYDOWN:
+		{
+			if (event.key.repeat > 0) { break;}
+			int k = event.key.keysym.sym;
+			KeyInput key;
+			key.flags = KEY_DOWN;
+			auto mapped = KeyMapRawSDLtoNative.find(k);
+			if (mapped == KeyMapRawSDLtoNative.end() || mapped->second == NKCODE_UNKNOWN) {
+				break;
+			}
+			key.keyCode = mapped->second;
+			key.deviceId = DEVICE_ID_KEYBOARD;
+			NativeKey(key);
+
+#ifdef _DEBUG
+			if (k == SDLK_F7) {
+				printf("f7 pressed - rebooting emuthread\n");
+				g_rebootEmuThread = true;
+			}
+#endif
+			break;
+		}
+	case SDL_KEYUP:
+		{
+			if (event.key.repeat > 0) { break;}
+			int k = event.key.keysym.sym;
+			KeyInput key;
+			key.flags = KEY_UP;
+			auto mapped = KeyMapRawSDLtoNative.find(k);
+			if (mapped == KeyMapRawSDLtoNative.end() || mapped->second == NKCODE_UNKNOWN) {
+				break;
+			}
+			key.keyCode = mapped->second;
+			key.deviceId = DEVICE_ID_KEYBOARD;
+			NativeKey(key);
+			break;
+		}
+	case SDL_TEXTINPUT:
+		{
+			int pos = 0;
+			int c = u8_nextchar(event.text.text, &pos);
+			KeyInput key;
+			key.flags = KEY_CHAR;
+			key.unicodeChar = c;
+			key.deviceId = DEVICE_ID_KEYBOARD;
+			NativeKey(key);
+			break;
+		}
+// This behavior doesn't feel right on a macbook with a touchpad.
+#if !PPSSPP_PLATFORM(MAC)
+	case SDL_FINGERMOTION:
+		{
+			int w, h;
+			SDL_GetWindowSize(window, &w, &h);
+			TouchInput input;
+			input.id = event.tfinger.fingerId;
+			input.x = event.tfinger.x * w * g_DesktopDPI * g_display.dpi_scale_x;
+			input.y = event.tfinger.y * h * g_DesktopDPI * g_display.dpi_scale_x;
+			input.flags = TOUCH_MOVE;
+			input.timestamp = event.tfinger.timestamp;
+			NativeTouch(input);
+			break;
+		}
+	case SDL_FINGERDOWN:
+		{
+			int w, h;
+			SDL_GetWindowSize(window, &w, &h);
+			TouchInput input;
+			input.id = event.tfinger.fingerId;
+			input.x = event.tfinger.x * w * g_DesktopDPI * g_display.dpi_scale_x;
+			input.y = event.tfinger.y * h * g_DesktopDPI * g_display.dpi_scale_x;
+			input.flags = TOUCH_DOWN;
+			input.timestamp = event.tfinger.timestamp;
+			NativeTouch(input);
+
+			KeyInput key;
+			key.deviceId = DEVICE_ID_MOUSE;
+			key.keyCode = NKCODE_EXT_MOUSEBUTTON_1;
+			key.flags = KEY_DOWN;
+			NativeKey(key);
+			break;
+		}
+	case SDL_FINGERUP:
+		{
+			int w, h;
+			SDL_GetWindowSize(window, &w, &h);
+			TouchInput input;
+			input.id = event.tfinger.fingerId;
+			input.x = event.tfinger.x * w * g_DesktopDPI * g_display.dpi_scale_x;
+			input.y = event.tfinger.y * h * g_DesktopDPI * g_display.dpi_scale_x;
+			input.flags = TOUCH_UP;
+			input.timestamp = event.tfinger.timestamp;
+			NativeTouch(input);
+
+			KeyInput key;
+			key.deviceId = DEVICE_ID_MOUSE;
+			key.keyCode = NKCODE_EXT_MOUSEBUTTON_1;
+			key.flags = KEY_UP;
+			NativeKey(key);
+			break;
+		}
+#endif
+	case SDL_MOUSEBUTTONDOWN:
+		switch (event.button.button) {
+		case SDL_BUTTON_LEFT:
+			{
+				inputTracker->mouseDown = true;
+				TouchInput input{};
+				input.x = mx;
+				input.y = my;
+				input.flags = TOUCH_DOWN | TOUCH_MOUSE;
+				input.id = 0;
+				NativeTouch(input);
+				KeyInput key(DEVICE_ID_MOUSE, NKCODE_EXT_MOUSEBUTTON_1, KEY_DOWN);
+				NativeKey(key);
+			}
+			break;
+		case SDL_BUTTON_RIGHT:
+			{
+				KeyInput key(DEVICE_ID_MOUSE, NKCODE_EXT_MOUSEBUTTON_2, KEY_DOWN);
+				NativeKey(key);
+			}
+			break;
+		case SDL_BUTTON_MIDDLE:
+			{
+				KeyInput key(DEVICE_ID_MOUSE, NKCODE_EXT_MOUSEBUTTON_3, KEY_DOWN);
+				NativeKey(key);
+			}
+			break;
+		case SDL_BUTTON_X1:
+			{
+				KeyInput key(DEVICE_ID_MOUSE, NKCODE_EXT_MOUSEBUTTON_4, KEY_DOWN);
+				NativeKey(key);
+			}
+			break;
+		case SDL_BUTTON_X2:
+			{
+				KeyInput key(DEVICE_ID_MOUSE, NKCODE_EXT_MOUSEBUTTON_5, KEY_DOWN);
+				NativeKey(key);
+			}
+			break;
+		}
+		break;
+	case SDL_MOUSEWHEEL:
+		{
+			KeyInput key;
+			key.deviceId = DEVICE_ID_MOUSE;
+			key.flags = KEY_DOWN;
+#if SDL_VERSION_ATLEAST(2, 0, 18)
+			if (event.wheel.preciseY != 0.0f) {
+				// Should the scale be DPI-driven?
+				const float scale = 30.0f;
+				key.keyCode = event.wheel.preciseY > 0 ? NKCODE_EXT_MOUSEWHEEL_UP : NKCODE_EXT_MOUSEWHEEL_DOWN;
+				key.flags |= KEY_HASWHEELDELTA;
+				int wheelDelta = event.wheel.preciseY * scale;
+				if (event.wheel.preciseY < 0) {
+						wheelDelta = -wheelDelta;
+				}
+				key.flags |= wheelDelta << 16;
+				NativeKey(key);
+				break;
+			}
+#endif
+			if (event.wheel.y > 0) {
+				key.keyCode = NKCODE_EXT_MOUSEWHEEL_UP;
+				inputTracker->mouseWheelMovedUpFrames = 5;
+				NativeKey(key);
+			} else if (event.wheel.y < 0) {
+				key.keyCode = NKCODE_EXT_MOUSEWHEEL_DOWN;
+				inputTracker->mouseWheelMovedDownFrames = 5;
+				NativeKey(key);
+			}
+			break;
+		}
+	case SDL_MOUSEMOTION:
+		if (inputTracker->mouseDown) {
+			TouchInput input{};
+			input.x = mx;
+			input.y = my;
+			input.flags = TOUCH_MOVE | TOUCH_MOUSE;
+			input.id = 0;
+			NativeTouch(input);
+		}
+		inputTracker->mouseDeltaX += event.motion.xrel;
+		inputTracker->mouseDeltaY += event.motion.yrel;
+		break;
+	case SDL_MOUSEBUTTONUP:
+		switch (event.button.button) {
+		case SDL_BUTTON_LEFT:
+			{
+				inputTracker->mouseDown = false;
+				TouchInput input{};
+				input.x = mx;
+				input.y = my;
+				input.flags = TOUCH_UP | TOUCH_MOUSE;
+				input.id = 0;
+				NativeTouch(input);
+				KeyInput key(DEVICE_ID_MOUSE, NKCODE_EXT_MOUSEBUTTON_1, KEY_UP);
+				NativeKey(key);
+			}
+			break;
+		case SDL_BUTTON_RIGHT:
+			{
+				KeyInput key(DEVICE_ID_MOUSE, NKCODE_EXT_MOUSEBUTTON_2, KEY_UP);
+				NativeKey(key);
+			}
+			break;
+		case SDL_BUTTON_MIDDLE:
+			{
+				KeyInput key(DEVICE_ID_MOUSE, NKCODE_EXT_MOUSEBUTTON_3, KEY_UP);
+				NativeKey(key);
+			}
+			break;
+		case SDL_BUTTON_X1:
+			{
+				KeyInput key(DEVICE_ID_MOUSE, NKCODE_EXT_MOUSEBUTTON_4, KEY_UP);
+				NativeKey(key);
+			}
+			break;
+		case SDL_BUTTON_X2:
+			{
+				KeyInput key(DEVICE_ID_MOUSE, NKCODE_EXT_MOUSEBUTTON_5, KEY_UP);
+				NativeKey(key);
+			}
+			break;
+		}
+		break;
+
+#if SDL_VERSION_ATLEAST(2, 0, 4)
+	case SDL_AUDIODEVICEADDED:
+		// Automatically switch to the new device.
+		if (event.adevice.iscapture == 0) {
+			const char *name = SDL_GetAudioDeviceName(event.adevice.which, 0);
+			if (!name) {
+				break;
+			}
+			// Don't start auto switching for a second, because some devices init on start.
+			bool doAutoSwitch = g_Config.bAutoAudioDevice && g_frameCount > 60;
+			if (doAutoSwitch || g_Config.sAudioDevice == name) {
+				StopSDLAudioDevice();
+				InitSDLAudioDevice(name ? name : "");
+			}
+		}
+		break;
+	case SDL_AUDIODEVICEREMOVED:
+		if (event.adevice.iscapture == 0 && event.adevice.which == audioDev) {
+			StopSDLAudioDevice();
+			InitSDLAudioDevice();
+		}
+		break;
+#endif
+
+	default:
+		if (joystick) {
+			joystick->ProcessInput(event);
+		}
+		break;
+	}
+
+}
+
 #ifdef _WIN32
 #undef main
 #endif
@@ -987,396 +1403,26 @@ int main(int argc, char *argv[]) {
 	}
 	EnableFZ();
 
-	int framecount = 0;
-	bool mouseDown = false;
-
 	if (useEmuThread) {
 		EmuThreadStart(graphicsContext);
 	}
 	graphicsContext->ThreadStart();
 
-	float mouseDeltaX = 0;
-	float mouseDeltaY = 0;
-	int mouseWheelMovedUpFrames = 0;
-	int mouseWheelMovedDownFrames = 0;
-	bool mouseCaptured = false;
-	bool windowHidden = false;
+	InputStateTracker inputTracker{};
 	
 #if PPSSPP_PLATFORM(MAC)
 	// setup menu items for macOS
 	initializeOSXExtras();
 #endif
 	
-	bool rebootEmuThread = false;
-
 	while (true) {
 		double startTime = time_now_d();
 
-		// SDL2 doesn't consider the mousewheel a button anymore
-		// so let's send the KEY_UP if it was moved after some frames
-		if (mouseWheelMovedUpFrames > 0) {
-			mouseWheelMovedUpFrames--;
-			if (mouseWheelMovedUpFrames == 0) {
-				KeyInput key;
-				key.deviceId = DEVICE_ID_MOUSE;
-				key.keyCode = NKCODE_EXT_MOUSEWHEEL_UP;
-				key.flags = KEY_UP;
-				NativeKey(key);
-			}
-		}
-		if (mouseWheelMovedDownFrames > 0) {
-			mouseWheelMovedDownFrames--;
-			if (mouseWheelMovedDownFrames == 0) {
-				KeyInput key;
-				key.deviceId = DEVICE_ID_MOUSE;
-				key.keyCode = NKCODE_EXT_MOUSEWHEEL_DOWN;
-				key.flags = KEY_UP;
-				NativeKey(key);
-			}
-		}
-		SDL_Event event, touchEvent;
+		inputTracker.TranslateMouseWheel();
+
+		SDL_Event event;
 		while (SDL_PollEvent(&event)) {
-			// We have to juggle around 3 kinds of "DPI spaces" if a logical DPI is
-			// provided (through --dpi, it is equal to system DPI if unspecified):
-			// - SDL gives us motion events in "system DPI" points
-			// - UpdateScreenScale expects pixels, so in a way "96 DPI" points
-			// - The UI code expects motion events in "logical DPI" points
-			float mx = event.motion.x * g_DesktopDPI * g_display.dpi_scale_x;
-			float my = event.motion.y * g_DesktopDPI * g_display.dpi_scale_x;
-
-			switch (event.type) {
-			case SDL_QUIT:
-				g_QuitRequested = 1;
-				break;
-
-#if !defined(MOBILE_DEVICE)
-			case SDL_WINDOWEVENT:
-				switch (event.window.event) {
-				case SDL_WINDOWEVENT_SIZE_CHANGED:  // better than RESIZED, more general
-				{
-					int new_width = event.window.data1;
-					int new_height = event.window.data2;
-
-					// The size given by SDL is in point-units, convert these to
-					// pixels before passing to UpdateScreenScale()
-					int new_width_px = new_width * g_DesktopDPI;
-					int new_height_px = new_height * g_DesktopDPI;
-
-					windowHidden = false;
-					Core_NotifyWindowHidden(windowHidden);
-
-					Uint32 window_flags = SDL_GetWindowFlags(window);
-					bool fullscreen = (window_flags & SDL_WINDOW_FULLSCREEN);
-
-					// This one calls NativeResized if the size changed.
-					UpdateScreenScale(new_width_px, new_height_px);
-
-					// Set variable here in case fullscreen was toggled by hotkey
-					if (g_Config.UseFullScreen() != fullscreen) {
-						g_Config.bFullScreen = fullscreen;
-						g_Config.iForceFullScreen = -1;
-					} else {
-						// It is possible for the monitor to change DPI, so recalculate
-						// DPI on each resize event. 
-						UpdateScreenDPI(window);
-					}
-
-					if (!g_Config.bFullScreen) {
-						g_Config.iWindowWidth = new_width;
-						g_Config.iWindowHeight = new_height;
-					}
-					// Hide/Show cursor correctly toggling fullscreen
-					if (lastUIState == UISTATE_INGAME && fullscreen && !g_Config.bShowTouchControls) {
-						SDL_ShowCursor(SDL_DISABLE);
-					} else if (lastUIState != UISTATE_INGAME || !fullscreen) {
-						SDL_ShowCursor(SDL_ENABLE);
-					}
-					break;
-				}
-
-				case SDL_WINDOWEVENT_MOVED:
-				{
-					int x = event.window.data1;
-					int y = event.window.data2;
-					Uint32 window_flags = SDL_GetWindowFlags(window);
-					bool fullscreen = (window_flags & SDL_WINDOW_FULLSCREEN);
-					if (!fullscreen) {
-						g_Config.iWindowX = x;
-						g_Config.iWindowY = y;
-					}
-					break;
-				}
-
-				case SDL_WINDOWEVENT_MINIMIZED:
-				case SDL_WINDOWEVENT_HIDDEN:
-					windowHidden = true;
-					Core_NotifyWindowHidden(windowHidden);
-					break;
-				case SDL_WINDOWEVENT_EXPOSED:
-				case SDL_WINDOWEVENT_SHOWN:
-					windowHidden = false;
-					Core_NotifyWindowHidden(windowHidden);
-					break;
-				default:
-					break;
-				}
-				break;
-#endif
-			case SDL_KEYDOWN:
-				{
-					if (event.key.repeat > 0) { break;}
-					int k = event.key.keysym.sym;
-					KeyInput key;
-					key.flags = KEY_DOWN;
-					auto mapped = KeyMapRawSDLtoNative.find(k);
-					if (mapped == KeyMapRawSDLtoNative.end() || mapped->second == NKCODE_UNKNOWN) {
-						break;
-					}
-					key.keyCode = mapped->second;
-					key.deviceId = DEVICE_ID_KEYBOARD;
-					NativeKey(key);
-
-#ifdef _DEBUG
-					if (k == SDLK_F7 && useEmuThread) {
-						printf("f7 pressed - rebooting emuthread\n");
-						rebootEmuThread = true;
-					}
-#endif
-					break;
-				}
-			case SDL_KEYUP:
-				{
-					if (event.key.repeat > 0) { break;}
-					int k = event.key.keysym.sym;
-					KeyInput key;
-					key.flags = KEY_UP;
-					auto mapped = KeyMapRawSDLtoNative.find(k);
-					if (mapped == KeyMapRawSDLtoNative.end() || mapped->second == NKCODE_UNKNOWN) {
-						break;
-					}
-					key.keyCode = mapped->second;
-					key.deviceId = DEVICE_ID_KEYBOARD;
-					NativeKey(key);
-					break;
-				}
-			case SDL_TEXTINPUT:
-				{
-					int pos = 0;
-					int c = u8_nextchar(event.text.text, &pos);
-					KeyInput key;
-					key.flags = KEY_CHAR;
-					key.unicodeChar = c;
-					key.deviceId = DEVICE_ID_KEYBOARD;
-					NativeKey(key);
-					break;
-				}
-// This behavior doesn't feel right on a macbook with a touchpad.
-#if !PPSSPP_PLATFORM(MAC)
-			case SDL_FINGERMOTION:
-				{
-					SDL_GetWindowSize(window, &w, &h);
-					TouchInput input;
-					input.id = event.tfinger.fingerId;
-					input.x = event.tfinger.x * w * g_DesktopDPI * g_display.dpi_scale_x;
-					input.y = event.tfinger.y * h * g_DesktopDPI * g_display.dpi_scale_x;
-					input.flags = TOUCH_MOVE;
-					input.timestamp = event.tfinger.timestamp;
-					NativeTouch(input);
-					break;
-				}
-			case SDL_FINGERDOWN:
-				{
-					SDL_GetWindowSize(window, &w, &h);
-					TouchInput input;
-					input.id = event.tfinger.fingerId;
-					input.x = event.tfinger.x * w * g_DesktopDPI * g_display.dpi_scale_x;
-					input.y = event.tfinger.y * h * g_DesktopDPI * g_display.dpi_scale_x;
-					input.flags = TOUCH_DOWN;
-					input.timestamp = event.tfinger.timestamp;
-					NativeTouch(input);
-
-					KeyInput key;
-					key.deviceId = DEVICE_ID_MOUSE;
-					key.keyCode = NKCODE_EXT_MOUSEBUTTON_1;
-					key.flags = KEY_DOWN;
-					NativeKey(key);
-					break;
-				}
-			case SDL_FINGERUP:
-				{
-					SDL_GetWindowSize(window, &w, &h);
-					TouchInput input;
-					input.id = event.tfinger.fingerId;
-					input.x = event.tfinger.x * w * g_DesktopDPI * g_display.dpi_scale_x;
-					input.y = event.tfinger.y * h * g_DesktopDPI * g_display.dpi_scale_x;
-					input.flags = TOUCH_UP;
-					input.timestamp = event.tfinger.timestamp;
-					NativeTouch(input);
-
-					KeyInput key;
-					key.deviceId = DEVICE_ID_MOUSE;
-					key.keyCode = NKCODE_EXT_MOUSEBUTTON_1;
-					key.flags = KEY_UP;
-					NativeKey(key);
-					break;
-				}
-#endif
-			case SDL_MOUSEBUTTONDOWN:
-				switch (event.button.button) {
-				case SDL_BUTTON_LEFT:
-					{
-						mouseDown = true;
-						TouchInput input{};
-						input.x = mx;
-						input.y = my;
-						input.flags = TOUCH_DOWN | TOUCH_MOUSE;
-						input.id = 0;
-						NativeTouch(input);
-						KeyInput key(DEVICE_ID_MOUSE, NKCODE_EXT_MOUSEBUTTON_1, KEY_DOWN);
-						NativeKey(key);
-					}
-					break;
-				case SDL_BUTTON_RIGHT:
-					{
-						KeyInput key(DEVICE_ID_MOUSE, NKCODE_EXT_MOUSEBUTTON_2, KEY_DOWN);
-						NativeKey(key);
-					}
-					break;
-				case SDL_BUTTON_MIDDLE:
-					{
-						KeyInput key(DEVICE_ID_MOUSE, NKCODE_EXT_MOUSEBUTTON_3, KEY_DOWN);
-						NativeKey(key);
-					}
-					break;
-				case SDL_BUTTON_X1:
-					{
-						KeyInput key(DEVICE_ID_MOUSE, NKCODE_EXT_MOUSEBUTTON_4, KEY_DOWN);
-						NativeKey(key);
-					}
-					break;
-				case SDL_BUTTON_X2:
-					{
-						KeyInput key(DEVICE_ID_MOUSE, NKCODE_EXT_MOUSEBUTTON_5, KEY_DOWN);
-						NativeKey(key);
-					}
-					break;
-				}
-				break;
-			case SDL_MOUSEWHEEL:
-				{
-					KeyInput key;
-					key.deviceId = DEVICE_ID_MOUSE;
-					key.flags = KEY_DOWN;
-#if SDL_VERSION_ATLEAST(2, 0, 18)
-					if (event.wheel.preciseY != 0.0f) {
-						// Should the scale be DPI-driven?
-						const float scale = 30.0f;
-						key.keyCode = event.wheel.preciseY > 0 ? NKCODE_EXT_MOUSEWHEEL_UP : NKCODE_EXT_MOUSEWHEEL_DOWN;
-						key.flags |= KEY_HASWHEELDELTA;
-						int wheelDelta = event.wheel.preciseY * scale;
-						if (event.wheel.preciseY < 0) {
-							 wheelDelta = -wheelDelta;
-						}
-						key.flags |= wheelDelta << 16;
-						NativeKey(key);
-						break;
-					}
-#endif
-					if (event.wheel.y > 0) {
-						key.keyCode = NKCODE_EXT_MOUSEWHEEL_UP;
-						mouseWheelMovedUpFrames = 5;
-						NativeKey(key);
-					} else if (event.wheel.y < 0) {
-						key.keyCode = NKCODE_EXT_MOUSEWHEEL_DOWN;
-						mouseWheelMovedDownFrames = 5;
-						NativeKey(key);
-					}
-					break;
-				}
-			case SDL_MOUSEMOTION:
-				if (mouseDown) {
-					TouchInput input{};
-					input.x = mx;
-					input.y = my;
-					input.flags = TOUCH_MOVE | TOUCH_MOUSE;
-					input.id = 0;
-					NativeTouch(input);
-				}
-				mouseDeltaX += event.motion.xrel;
-				mouseDeltaY += event.motion.yrel;
-				break;
-			case SDL_MOUSEBUTTONUP:
-				switch (event.button.button) {
-				case SDL_BUTTON_LEFT:
-					{
-						mouseDown = false;
-						TouchInput input{};
-						input.x = mx;
-						input.y = my;
-						input.flags = TOUCH_UP | TOUCH_MOUSE;
-						input.id = 0;
-						NativeTouch(input);
-						KeyInput key(DEVICE_ID_MOUSE, NKCODE_EXT_MOUSEBUTTON_1, KEY_UP);
-						NativeKey(key);
-					}
-					break;
-				case SDL_BUTTON_RIGHT:
-					{
-						KeyInput key(DEVICE_ID_MOUSE, NKCODE_EXT_MOUSEBUTTON_2, KEY_UP);
-						NativeKey(key);
-					}
-					break;
-				case SDL_BUTTON_MIDDLE:
-					{
-						KeyInput key(DEVICE_ID_MOUSE, NKCODE_EXT_MOUSEBUTTON_3, KEY_UP);
-						NativeKey(key);
-					}
-					break;
-				case SDL_BUTTON_X1:
-					{
-						KeyInput key(DEVICE_ID_MOUSE, NKCODE_EXT_MOUSEBUTTON_4, KEY_UP);
-						NativeKey(key);
-					}
-					break;
-				case SDL_BUTTON_X2:
-					{
-						KeyInput key(DEVICE_ID_MOUSE, NKCODE_EXT_MOUSEBUTTON_5, KEY_UP);
-						NativeKey(key);
-					}
-					break;
-				}
-				break;
-
-#if SDL_VERSION_ATLEAST(2, 0, 4)
-			case SDL_AUDIODEVICEADDED:
-				// Automatically switch to the new device.
-				if (event.adevice.iscapture == 0) {
-					const char *name = SDL_GetAudioDeviceName(event.adevice.which, 0);
-					if (!name) {
-						break;
-					}
-					// Don't start auto switching for a second, because some devices init on start.
-					bool doAutoSwitch = g_Config.bAutoAudioDevice && framecount > 60;
-					if (doAutoSwitch || g_Config.sAudioDevice == name) {
-						StopSDLAudioDevice();
-						InitSDLAudioDevice(name ? name : "");
-					}
-				}
-				break;
-			case SDL_AUDIODEVICEREMOVED:
-				if (event.adevice.iscapture == 0 && event.adevice.which == audioDev) {
-					StopSDLAudioDevice();
-					InitSDLAudioDevice();
-				}
-				break;
-#endif
-
-			default:
-				if (joystick) {
-					joystick->ProcessInput(event);
-				}
-				break;
-			}
+			ProcessSDLEvent(window, event, &inputTracker);
 		}
 		if (g_QuitRequested || g_RestartRequested)
 			break;
@@ -1397,40 +1443,10 @@ int main(int argc, char *argv[]) {
 		}
 #endif
 
-		// Disabled by default, needs a workaround to map to psp keys.
-		if (g_Config.bMouseControl) {
-			float scaleFactor_x = g_display.dpi_scale_x * 0.1 * g_Config.fMouseSensitivity;
-			float scaleFactor_y = g_display.dpi_scale_y * 0.1 * g_Config.fMouseSensitivity;
+		inputTracker.MouseControl();
+		inputTracker.MouseCaptureControl();
 
-			AxisInput axisX, axisY;
-			axisX.axisId = JOYSTICK_AXIS_MOUSE_REL_X;
-			axisX.deviceId = DEVICE_ID_MOUSE;
-			axisX.value = std::max(-1.0f, std::min(1.0f, mouseDeltaX * scaleFactor_x));
-			axisY.axisId = JOYSTICK_AXIS_MOUSE_REL_Y;
-			axisY.deviceId = DEVICE_ID_MOUSE;
-			axisY.value = std::max(-1.0f, std::min(1.0f, mouseDeltaY * scaleFactor_y));
-
-			if (GetUIState() == UISTATE_INGAME || g_Config.bMapMouse) {
-				NativeAxis(axisX);
-				NativeAxis(axisY);
-			}
-			mouseDeltaX *= g_Config.fMouseSmoothing;
-			mouseDeltaY *= g_Config.fMouseSmoothing;
-		}
-		bool captureMouseCondition = g_Config.bMouseControl && ((GetUIState() == UISTATE_INGAME && g_Config.bMouseConfine) || g_Config.bMapMouse);
-		if (mouseCaptured != captureMouseCondition) {
-			mouseCaptured = captureMouseCondition;
-			if (captureMouseCondition)
-				SDL_SetRelativeMouseMode(SDL_TRUE);
-			else
-				SDL_SetRelativeMouseMode(SDL_FALSE);
-		}
-
-		if (framecount % 60 == 0) {
-			// glsl_refresh(); // auto-reloads modified GLSL shaders once per second.
-		}
-
-		bool renderThreadPaused = windowHidden && g_Config.bPauseWhenMinimized && emuThreadState != (int)EmuThreadState::DISABLED;
+		bool renderThreadPaused = Core_IsWindowHidden() && g_Config.bPauseWhenMinimized && emuThreadState != (int)EmuThreadState::DISABLED;
 		if (emuThreadState != (int)EmuThreadState::DISABLED && !renderThreadPaused) {
 			if (!graphicsContext->ThreadFrame())
 				break;
@@ -1445,9 +1461,9 @@ int main(int argc, char *argv[]) {
 			}
 		}
 
-		if (rebootEmuThread) {
+		if (g_rebootEmuThread) {
 			printf("rebooting emu thread");
-			rebootEmuThread = false;
+			g_rebootEmuThread = false;
 			EmuThreadStop("shutdown");
 			// Skipping GL calls, the old context is gone.
 			while (graphicsContext->ThreadFrame()) {
@@ -1483,7 +1499,7 @@ int main(int argc, char *argv[]) {
 				sleep_ms(sleepTime);
 		}
 
-		framecount++;
+		g_frameCount++;
 	}
 
 	if (useEmuThread) {
