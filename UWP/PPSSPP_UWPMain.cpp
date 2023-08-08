@@ -165,7 +165,6 @@ void PPSSPP_UWPMain::CreateWindowSizeDependentResources() {
 // Returns true if the frame was rendered and is ready to be displayed.
 bool PPSSPP_UWPMain::Render() {
 	ctx_->GetDrawContext()->HandleEvent(Draw::Event::PRESENTED, 0, 0, nullptr, nullptr);
-	NativeUpdate();
 
 	static bool hasSetThreadName = false;
 	if (!hasSetThreadName) {
@@ -212,7 +211,7 @@ bool PPSSPP_UWPMain::Render() {
 
 	context->RSSetViewports(1, &viewport);
 
-	NativeRender(ctx_.get());
+	NativeFrame(ctx_.get());
 	return true;
 }
 

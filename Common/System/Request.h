@@ -29,7 +29,7 @@ public:
 	void PostSystemSuccess(int requestId, const char *responseString, int responseValue = 0);
 	void PostSystemFailure(int requestId);
 
-	// This must be called every frame from the beginning of NativeUpdate().
+	// This must be called every frame from the beginning of NativeFrame().
 	// This will call the callback of any finished requests.
 	void ProcessRequests();
 

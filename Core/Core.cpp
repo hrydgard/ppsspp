@@ -210,8 +210,7 @@ void UpdateRunLoop() {
 		sleep_ms(16);
 		return;
 	}
-	NativeUpdate();
-	NativeRender(graphicsContext);
+	NativeFrame(graphicsContext);
 }
 
 void KeepScreenAwake() {
@@ -325,7 +324,7 @@ void Core_ProcessStepping() {
 }
 
 // Many platforms, like Android, do not call this function but handle things on their own.
-// Instead they simply call NativeRender and NativeUpdate directly.
+// Instead they simply call NativeFrame directly.
 bool Core_Run(GraphicsContext *ctx) {
 	System_Notify(SystemNotification::DISASSEMBLY);
 	while (true) {

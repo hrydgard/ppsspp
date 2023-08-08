@@ -37,8 +37,7 @@
 #include "Core/HLE/HLE.h"
 
 // Temporary hacks around annoying linking errors.  Copied from Headless.
-void NativeUpdate() { }
-void NativeRender(GraphicsContext *graphicsContext) { }
+void NativeFrame(GraphicsContext *graphicsContext) { }
 void NativeResized() { }
 
 bool System_MakeRequest(SystemRequestType type, int requestId, const std::string &param1, const std::string &param2, int param3) { return false; }
