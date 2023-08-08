@@ -114,9 +114,11 @@ static void DrawFrameTiming(UIContext *ctx, const Bounds &bounds) {
 
 	for (int i = 0; i < 8; i++) {
 		FrameTimeData data = ctx->GetDrawContext()->GetFrameTimeData(6 + i);
+		FrameTimeData prevData = ctx->GetDrawContext()->GetFrameTimeData(7 + i);
 		if (data.frameBegin == 0.0) {
 			snprintf(statBuf, sizeof(statBuf), "(No frame time data)");
 		} else {
+			double stride = data.frameBegin - prevData.frameBegin;
 			double fenceLatency_s = data.afterFenceWait - data.frameBegin;
 			double submitLatency_s = data.firstSubmit - data.frameBegin;
 			double queuePresentLatency_s = data.queuePresent - data.frameBegin;
@@ -135,11 +137,14 @@ static void DrawFrameTiming(UIContext *ctx, const Bounds &bounds) {
 					computedMargin * 1000.0);
 			}
 			snprintf(statBuf, sizeof(statBuf),
-				"%llu: From start of frame to event:\n"
+				"* Stride: %0.1f (waits: %d)\n"
+				"%llu: From start:\n"
 				"* Past fence: %0.1f ms\n"
 				"* Submit #1: %0.1f ms\n"
 				"* Queue-p: %0.1f ms\n"
 				"%s",
+				stride * 1000.0,
+				data.waitCount,
 				(long long)data.frameId,
 				fenceLatency_s * 1000.0,
 				submitLatency_s * 1000.0,

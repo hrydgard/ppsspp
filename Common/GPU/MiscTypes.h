@@ -21,6 +21,9 @@ typedef std::function<void(InvalidationCallbackFlags)> InvalidationCallback;
 // Also, this might be joined with more non-GPU timing information later.
 struct FrameTimeData {
 	uint64_t frameId;
+
+	int waitCount;
+
 	double frameBegin;
 	double afterFenceWait;
 	double firstSubmit;

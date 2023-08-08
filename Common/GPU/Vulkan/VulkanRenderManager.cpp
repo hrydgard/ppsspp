@@ -25,6 +25,9 @@
 #define UINT64_MAX 0xFFFFFFFFFFFFFFFFULL
 #endif
 
+
+#define USE_PRESENT_WAIT 0
+
 using namespace PPSSPP_VK;
 
 // renderPass is an example of the "compatibility class" or RenderPassType type.
@@ -304,7 +307,7 @@ bool VulkanRenderManager::CreateBackbuffers() {
 		INFO_LOG(G3D, "Starting Vulkan compiler thread");
 		compileThread_ = std::thread(&VulkanRenderManager::CompileThreadFunc, this);
 
-		if (vulkan_->GetDeviceFeatures().enabled.presentWait.presentWait) {
+		if (USE_PRESENT_WAIT && vulkan_->Extensions().KHR_present_wait && vulkan_->GetPresentMode() == VK_PRESENT_MODE_FIFO_KHR) {
 			INFO_LOG(G3D, "Starting Vulkan present wait thread");
 			presentWaitThread_ = std::thread(&VulkanRenderManager::PresentWaitThreadFunc, this);
 		}
@@ -550,7 +553,12 @@ void VulkanRenderManager::PresentWaitThreadFunc() {
 		const uint64_t timeout = 1000000000ULL;  // 1 sec
 		if (VK_SUCCESS == vkWaitForPresentKHR(vulkan_->GetDevice(), vulkan_->GetSwapchain(), waitedId, timeout)) {
 			frameTimeData_[waitedId].actualPresent = time_now_d();
+			frameTimeData_[waitedId].waitCount++;
 			waitedId++;
+		} else {
+			// We caught up somehow, which is a bad sign (we should have blocked, right?). Maybe we should break out of the loop?
+			sleep_ms(1);
+			frameTimeData_[waitedId].waitCount++;
 		}
 		_dbg_assert_(waitedId <= frameIdGen_);
 	}
@@ -582,7 +590,6 @@ void VulkanRenderManager::PollPresentTiming() {
 		}
 	}
 }
-
 
 void VulkanRenderManager::BeginFrame(bool enableProfiling, bool enableLogProfiler) {
 	double frameBeginTime = time_now_d()
