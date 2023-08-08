@@ -676,7 +676,9 @@ VkResult VulkanContext::CreateDevice() {
 	extensionsLookup_.EXT_fragment_shader_interlock = EnableDeviceExtension(VK_EXT_FRAGMENT_SHADER_INTERLOCK_EXTENSION_NAME);
 	extensionsLookup_.ARM_rasterization_order_attachment_access = EnableDeviceExtension(VK_ARM_RASTERIZATION_ORDER_ATTACHMENT_ACCESS_EXTENSION_NAME);
 
+#if !PPSSPP_PLATFORM(MAC) && !PPSSPP_PLATFORM(IOS)
 	extensionsLookup_.GOOGLE_display_timing = EnableDeviceExtension(VK_GOOGLE_DISPLAY_TIMING_EXTENSION_NAME);
+#endif
 	if (!extensionsLookup_.GOOGLE_display_timing) {
 		extensionsLookup_.KHR_present_id = EnableDeviceExtension(VK_KHR_PRESENT_ID_EXTENSION_NAME);
 		extensionsLookup_.KHR_present_wait = EnableDeviceExtension(VK_KHR_PRESENT_WAIT_EXTENSION_NAME);
