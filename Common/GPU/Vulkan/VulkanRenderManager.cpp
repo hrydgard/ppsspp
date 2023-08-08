@@ -585,7 +585,6 @@ void VulkanRenderManager::PollPresentTiming() {
 	}
 }
 
-
 void VulkanRenderManager::BeginFrame(bool enableProfiling, bool enableLogProfiler) {
 	double frameBeginTime = time_now_d()
 	VLOG("BeginFrame");
