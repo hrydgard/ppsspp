@@ -836,6 +836,12 @@ void DrawEngineCommon::SubmitPrim(const void *verts, const void *inds, GEPrimiti
 		DecodeVertsStep(decoded_, decodeCounter_, decodedVerts_, &dc.uvScale);
 		decodeCounter_++;
 	}
+
+	if (prim == GE_PRIM_RECTANGLES && (gstate.getTextureAddress(0) & 0x3FFFFFFF) == (gstate.getFrameBufAddress() & 0x3FFFFFFF)) {
+		// This prevents issues with consecutive self-renders in Ridge Racer.
+		gstate_c.Dirty(DIRTY_TEXTURE_PARAMS);
+		DispatchFlush();
+	}
 }
 
 bool DrawEngineCommon::CanUseHardwareTransform(int prim) {
