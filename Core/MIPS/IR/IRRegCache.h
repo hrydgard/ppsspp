@@ -1,6 +1,6 @@
 #pragma once
 
-// IRRegCache is only to perform pre-constant folding. This is worth it to get cleaner
+// IRImmRegCache is only to perform pre-constant folding. This is worth it to get cleaner
 // IR.
 
 #include "Common/CommonTypes.h"
@@ -19,9 +19,9 @@ struct RegIR {
 class IRWriter;
 
 // Transient
-class IRRegCache {
+class IRImmRegCache {
 public:
-	IRRegCache(IRWriter *ir);
+	IRImmRegCache(IRWriter *ir);
 
 	void SetImm(IRReg r, u32 immVal) {
 		reg_[r].isImm = true;
