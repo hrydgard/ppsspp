@@ -255,6 +255,20 @@ void RiscVRegCacheFPU::Map4DirtyInIn(IRRegIndex rdbase, IRRegIndex rsbase, IRReg
 		ReleaseSpillLock(rdbase + i, rsbase + i, rtbase + i);
 }
 
+RiscVReg RiscVRegCacheFPU::Map4DirtyInTemp(IRRegIndex rdbase, IRRegIndex rsbase, bool avoidLoad) {
+	for (int i = 0; i < 4; ++i)
+		SpillLock(rdbase + i, rsbase + i);
+	bool load = !avoidLoad || (rdbase < rsbase + 4 && rdbase + 4 > rsbase);
+	for (int i = 0; i < 4; ++i)
+		MapReg(rdbase + i, load ? MIPSMap::DIRTY : MIPSMap::NOINIT);
+	for (int i = 0; i < 4; ++i)
+		MapReg(rsbase + i);
+	RiscVReg temp = AllocateReg();
+	for (int i = 0; i < 4; ++i)
+		ReleaseSpillLock(rdbase + i, rsbase + i);
+	return temp;
+}
+
 void RiscVRegCacheFPU::FlushRiscVReg(RiscVReg r) {
 	_dbg_assert_(r >= F0 && r <= F31);
 	int reg = r - F0;
