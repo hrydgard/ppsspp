@@ -1847,22 +1847,22 @@ namespace MIPSComp {
 			ir.Write(IROp::Vec4Neg, IRVTEMP_0, tregs[0]);
 
 			// tmp = S[x,x,x,x] * T[w,-z,y,-x]
+			ir.Write(IRInst{ IROp::Vec4Blend, IRVTEMP_PFX_S, tregs[0], IRVTEMP_0, blendConst(1, 0, 1, 0) });
+			ir.Write(IROp::Vec4Shuffle, IRVTEMP_PFX_T, IRVTEMP_PFX_S, shuffleImm(3, 2, 1, 0));
 			ir.Write(IROp::Vec4Shuffle, IRVTEMP_PFX_S, sregs[0], shuffleImm(0, 0, 0, 0));
-			ir.Write(IRInst{ IROp::Vec4Blend, IRVTEMP_PFX_T, tregs[0], IRVTEMP_0, blendConst(1, 0, 1, 0) });
-			ir.Write(IROp::Vec4Shuffle, IRVTEMP_PFX_T, IRVTEMP_PFX_T, shuffleImm(3, 2, 1, 0));
 			ir.Write(IROp::Vec4Mul, IRVTEMP_PFX_D, IRVTEMP_PFX_S, IRVTEMP_PFX_T);
 
 			// tmp += S[y,y,y,y] * T[z,w,-x,-y]
+			ir.Write(IRInst{ IROp::Vec4Blend, IRVTEMP_PFX_S, tregs[0], IRVTEMP_0, blendConst(1, 1, 0, 0) });
+			ir.Write(IROp::Vec4Shuffle, IRVTEMP_PFX_T, IRVTEMP_PFX_S, shuffleImm(2, 3, 0, 1));
 			ir.Write(IROp::Vec4Shuffle, IRVTEMP_PFX_S, sregs[0], shuffleImm(1, 1, 1, 1));
-			ir.Write(IRInst{ IROp::Vec4Blend, IRVTEMP_PFX_T, tregs[0], IRVTEMP_0, blendConst(1, 1, 0, 0) });
-			ir.Write(IROp::Vec4Shuffle, IRVTEMP_PFX_T, IRVTEMP_PFX_T, shuffleImm(2, 3, 0, 1));
 			ir.Write(IROp::Vec4Mul, IRVTEMP_PFX_S, IRVTEMP_PFX_S, IRVTEMP_PFX_T);
 			ir.Write(IROp::Vec4Add, IRVTEMP_PFX_D, IRVTEMP_PFX_D, IRVTEMP_PFX_S);
 
 			// tmp += S[z,z,z,z] * T[-y,x,w,-z]
+			ir.Write(IRInst{ IROp::Vec4Blend, IRVTEMP_PFX_S, tregs[0], IRVTEMP_0, blendConst(0, 1, 1, 0) });
+			ir.Write(IROp::Vec4Shuffle, IRVTEMP_PFX_T, IRVTEMP_PFX_S, shuffleImm(1, 0, 3, 2));
 			ir.Write(IROp::Vec4Shuffle, IRVTEMP_PFX_S, sregs[0], shuffleImm(2, 2, 2, 2));
-			ir.Write(IRInst{ IROp::Vec4Blend, IRVTEMP_PFX_T, tregs[0], IRVTEMP_0, blendConst(0, 1, 1, 0) });
-			ir.Write(IROp::Vec4Shuffle, IRVTEMP_PFX_T, IRVTEMP_PFX_T, shuffleImm(1, 0, 3, 2));
 			ir.Write(IROp::Vec4Mul, IRVTEMP_PFX_S, IRVTEMP_PFX_S, IRVTEMP_PFX_T);
 			ir.Write(IROp::Vec4Add, IRVTEMP_PFX_D, IRVTEMP_PFX_D, IRVTEMP_PFX_S);
 
