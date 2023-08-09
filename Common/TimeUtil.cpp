@@ -99,7 +99,8 @@ void yield() {
 #if PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)
 	_mm_pause();
 #elif PPSSPP_ARCH(ARM64)
-	__builtin_arm_isb(15);
+	// Took this out for now. See issue #17877
+	// __builtin_arm_isb(15);
 #endif
 }
 
