@@ -304,7 +304,7 @@ bool MainUI::HandleCustomEvent(QEvent *e) {
 		const char *filter = "All files (*.*)";
 		switch (fileType) {
 		case BrowseFileType::BOOTABLE:
-			filter = "PSP ROMs (*.iso *.cso *.pbp *.elf *.zip *.ppdmp)";
+			filter = "PSP ROMs (*.iso *.cso *.chd *.pbp *.elf *.zip *.ppdmp)";
 			break;
 		case BrowseFileType::IMAGE:
 			filter = "Pictures (*.jpg *.png)";

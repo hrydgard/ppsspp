@@ -24,8 +24,11 @@
 #include "Common/System/OSD.h"
 #include "Common/Log.h"
 #include "Common/Swap.h"
+#include "Common/File/FileUtil.h"
+#include "Common/File/DirListing.h"
 #include "Core/Loaders.h"
 #include "Core/FileSystems/BlockDevices.h"
+#include "libchdr/chd.h"
 
 extern "C"
 {
@@ -37,20 +40,29 @@ extern "C"
 std::mutex NPDRMDemoBlockDevice::mutex_;
 
 BlockDevice *constructBlockDevice(FileLoader *fileLoader) {
-	// Check for CISO
 	if (!fileLoader->Exists())
 		return nullptr;
-	char buffer[4]{};
-	size_t size = fileLoader->ReadAt(0, 1, 4, buffer);
-	if (size == 4 && !memcmp(buffer, "CISO", 4))
+	char buffer[8]{};
+	size_t size = fileLoader->ReadAt(0, 1, 8, buffer);
+	if (size != 8) {
+		// Bad or empty file
+		return nullptr;
+	}
+
+	// Check for CISO
+	if (!memcmp(buffer, "CISO", 4)) {
 		return new CISOFileBlockDevice(fileLoader);
-	if (size == 4 && !memcmp(buffer, "\x00PBP", 4)) {
+	} else if (!memcmp(buffer, "\x00PBP", 4)) {
 		uint32_t psarOffset = 0;
 		size = fileLoader->ReadAt(0x24, 1, 4, &psarOffset);
 		if (size == 4 && psarOffset < fileLoader->FileSize())
 			return new NPDRMDemoBlockDevice(fileLoader);
+	} else if (!memcmp(buffer, "MComprHD", 8)) {
+		return new CHDFileBlockDevice(fileLoader);
+	} else {
+		// Should be jsut a regular ISO.
+		return new FileBlockDevice(fileLoader);
 	}
-	return new FileBlockDevice(fileLoader);
 }
 
 u32 BlockDevice::CalculateCRC(volatile bool *cancel) {
@@ -518,5 +530,141 @@ bool NPDRMDemoBlockDevice::ReadBlock(int blockNumber, u8 *outPtr, bool uncached)
 
 	memcpy(outPtr, blockBuf+lba*2048, 2048);
 
+	return true;
+}
+
+/*
+ * CHD file
+ */
+static const UINT8 nullsha1[CHD_SHA1_BYTES] = { 0 };
+
+struct CHDImpl {
+	chd_file *chd = nullptr;
+	const chd_header *header = nullptr;
+};
+
+CHDFileBlockDevice::CHDFileBlockDevice(FileLoader *fileLoader)
+	: BlockDevice(fileLoader), impl_(new CHDImpl())
+{
+	// Default, in case of failure
+	numBlocks = 0;
+
+	chd_header childHeader;
+
+	int depth = 0;
+	Path paths[8];
+	paths[0] = fileLoader->GetPath();
+
+	chd_error err = chd_read_header(paths[0].c_str(), &childHeader);
+	if (err != CHDERR_NONE) {
+		ERROR_LOG(LOADER, "Error loading CHD header for '%s': %s", paths[0].c_str(), chd_error_string(err));
+		NotifyReadError();
+		return;
+	}
+
+	/*
+	// TODO: Support parent/child CHD files.
+	if (memcmp(nullsha1, childHeader.parentsha1, sizeof(childHeader.sha1)) != 0) {
+		chd_header parentHeader;
+
+		// Look for parent CHD in current directory
+		Path chdDir = paths[0].NavigateUp();
+
+		std::vector<File::FileInfo> files;
+		if (File::GetFilesInDir(chdDir, &files)) {
+			parentHeader.length = 0;
+
+			for (const auto &file : files) {
+				std::string extension = file.fullName.GetFileExtension();
+				if (extension != ".chd") {
+					continue;
+				}
+
+				if (chd_read_header(filepath.c_str(), &parentHeader) == CHDERR_NONE &&
+					memcmp(parentHeader.sha1, childHeader.parentsha1, sizeof(parentHeader.sha1)) == 0) {
+					// ERROR_LOG(LOADER, "Checking '%s'", filepath.c_str());
+					paths[++depth] = filepath;
+					break;
+				}
+			}
+
+			// Check if parentHeader was opened
+			if (parentHeader.length == 0) {
+				ERROR_LOG(LOADER, "Error loading CHD '%s': parents not found", fileLoader->GetPath().c_str());
+				NotifyReadError();
+				return;
+			}
+			memcpy(childHeader.parentsha1, parentHeader.parentsha1, sizeof(childHeader.parentsha1));
+		} while (memcmp(nullsha1, childHeader.parentsha1, sizeof(childHeader.sha1)) != 0);
+	}
+	*/
+
+	chd_file *parent = NULL;
+	chd_file *child = NULL;
+	err = chd_open(paths[depth].c_str(), CHD_OPEN_READ, NULL, &child);
+	if (err != CHDERR_NONE) {
+		ERROR_LOG(LOADER, "Error loading CHD '%s': %s", paths[depth].c_str(), chd_error_string(err));
+		NotifyReadError();
+		return;
+	}
+	for (int d = depth - 1; d >= 0; d--) {
+		parent = child;
+		child = NULL;
+		err = chd_open(paths[d].c_str(), CHD_OPEN_READ, parent, &child);
+		if (err != CHDERR_NONE) {
+			ERROR_LOG(LOADER, "Error loading CHD '%s': %s", paths[d].c_str(), chd_error_string(err));
+			NotifyReadError();
+			return;
+		}
+	}
+	impl_->chd = child;
+
+	impl_->header = chd_get_header(impl_->chd);
+	readBuffer = new u8[impl_->header->hunkbytes];
+	currentHunk = -1;
+	blocksPerHunk = impl_->header->hunkbytes / impl_->header->unitbytes;
+	numBlocks = impl_->header->unitcount;
+}
+
+CHDFileBlockDevice::~CHDFileBlockDevice()
+{
+	if (numBlocks > 0) {
+		chd_close(impl_->chd);
+		delete[] readBuffer;
+	}
+}
+
+bool CHDFileBlockDevice::ReadBlock(int blockNumber, u8 *outPtr, bool uncached)
+{
+	if ((u32)blockNumber >= numBlocks) {
+		memset(outPtr, 0, GetBlockSize());
+		return false;
+	}
+	u32 hunk = blockNumber / blocksPerHunk;
+	u32 blockInHunk = blockNumber % blocksPerHunk;
+
+	if (currentHunk != hunk) {
+		chd_error err = chd_read(impl_->chd, hunk, readBuffer);
+		if (err != CHDERR_NONE) {
+			ERROR_LOG(LOADER, "CHD read failed: %d %d %s", blockNumber, hunk, chd_error_string(err));
+			NotifyReadError();
+		}
+	}
+	memcpy(outPtr, readBuffer + blockInHunk * impl_->header->unitbytes, GetBlockSize());
+
+	return true;
+}
+
+bool CHDFileBlockDevice::ReadBlocks(u32 minBlock, int count, u8 *outPtr) {
+	if (minBlock >= numBlocks) {
+		memset(outPtr, 0, GetBlockSize() * count);
+		return false;
+	}
+
+	for (int i = 0; i < count; i++) {
+		if (!ReadBlock(minBlock + i, outPtr + i * GetBlockSize())) {
+			return false;
+		}
+	}
 	return true;
 }

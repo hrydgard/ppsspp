@@ -1,0 +1,72 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="libchdr\src\libchdr_bitstream.c" />
+    <ClCompile Include="libchdr\src\libchdr_cdrom.c" />
+    <ClCompile Include="libchdr\src\libchdr_chd.c" />
+    <ClCompile Include="libchdr\src\libchdr_flac.c" />
+    <ClCompile Include="libchdr\src\libchdr_huffman.c" />
+    <ClCompile Include="libchdr\deps\lzma-22.01\src\Alloc.c">
+      <Filter>LZMA</Filter>
+    </ClCompile>
+    <ClCompile Include="libchdr\deps\lzma-22.01\src\Bcj2.c">
+      <Filter>LZMA</Filter>
+    </ClCompile>
+    <ClCompile Include="libchdr\deps\lzma-22.01\src\Bcj2Enc.c">
+      <Filter>LZMA</Filter>
+    </ClCompile>
+    <ClCompile Include="libchdr\deps\lzma-22.01\src\Bra.c">
+      <Filter>LZMA</Filter>
+    </ClCompile>
+    <ClCompile Include="libchdr\deps\lzma-22.01\src\Bra86.c">
+      <Filter>LZMA</Filter>
+    </ClCompile>
+    <ClCompile Include="libchdr\deps\lzma-22.01\src\BraIA64.c">
+      <Filter>LZMA</Filter>
+    </ClCompile>
+    <ClCompile Include="libchdr\deps\lzma-22.01\src\CpuArch.c">
+      <Filter>LZMA</Filter>
+    </ClCompile>
+    <ClCompile Include="libchdr\deps\lzma-22.01\src\Delta.c">
+      <Filter>LZMA</Filter>
+    </ClCompile>
+    <ClCompile Include="libchdr\deps\lzma-22.01\src\LzFind.c">
+      <Filter>LZMA</Filter>
+    </ClCompile>
+    <ClCompile Include="libchdr\deps\lzma-22.01\src\LzFindOpt.c">
+      <Filter>LZMA</Filter>
+    </ClCompile>
+    <ClCompile Include="libchdr\deps\lzma-22.01\src\Lzma86Dec.c">
+      <Filter>LZMA</Filter>
+    </ClCompile>
+    <ClCompile Include="libchdr\deps\lzma-22.01\src\Lzma86Enc.c">
+      <Filter>LZMA</Filter>
+    </ClCompile>
+    <ClCompile Include="libchdr\deps\lzma-22.01\src\LzmaDec.c">
+      <Filter>LZMA</Filter>
+    </ClCompile>
+    <ClCompile Include="libchdr\deps\lzma-22.01\src\LzmaEnc.c">
+      <Filter>LZMA</Filter>
+    </ClCompile>
+    <ClCompile Include="libchdr\deps\lzma-22.01\src\LzmaLib.c">
+      <Filter>LZMA</Filter>
+    </ClCompile>
+    <ClCompile Include="libchdr\deps\lzma-22.01\src\Sort.c">
+      <Filter>LZMA</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="libchdr\include\dr_libs\dr_flac.h" />
+    <ClInclude Include="libchdr\include\libchdr\bitstream.h" />
+    <ClInclude Include="libchdr\include\libchdr\cdrom.h" />
+    <ClInclude Include="libchdr\include\libchdr\chd.h" />
+    <ClInclude Include="libchdr\include\libchdr\chdconfig.h" />
+    <ClInclude Include="libchdr\include\libchdr\flac.h" />
+    <ClInclude Include="libchdr\include\libchdr\huffman.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="LZMA">
+      <UniqueIdentifier>{ff31581b-3ff9-4e39-bb96-2f662896cf70}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>
