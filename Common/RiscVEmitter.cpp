@@ -1186,7 +1186,10 @@ void RiscVEmitter::QuickJAL(RiscVReg scratchreg, RiscVReg rd, const u8 *dst) {
 		int64_t pcdelta = (int64_t)dst - (int64_t)GetCodePointer();
 		int32_t lower = (int32_t)SignReduce64(pcdelta, 12);
 		uintptr_t upper = ((pcdelta - lower) >> 12) << 12;
-		LI(scratchreg, (uintptr_t)GetCodePointer() + upper);
+		if (scratchreg != rd)
+			LI(scratchreg, (uintptr_t)GetCodePointer() + upper, rd);
+		else
+			LI(scratchreg, (uintptr_t)GetCodePointer() + upper);
 		JALR(rd, scratchreg, lower);
 	} else {
 		JAL(rd, dst);

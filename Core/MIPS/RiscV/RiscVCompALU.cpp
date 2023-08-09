@@ -232,7 +232,41 @@ void RiscVJitBackend::CompIR_Bits(IRInst inst) {
 
 	switch (inst.op) {
 	case IROp::ReverseBits:
-		CompIR_Generic(inst);
+		if (cpu_info.RiscV_Zbb) {
+			gpr.MapDirtyIn(inst.dest, inst.src1);
+			// Start by reversing bytes (note: this puts in upper 32 of XLEN.)
+			REV8(gpr.R(inst.dest), gpr.R(inst.src1));
+
+			// Swap nibbles.
+			LI(SCRATCH1, (s32)0xF0F0F0F0);
+			SRLI(SCRATCH2, gpr.R(inst.dest), XLEN - 32 - 4);
+			AND(SCRATCH2, SCRATCH2, SCRATCH1);
+			if (XLEN >= 64)
+				SRLI(gpr.R(inst.dest), gpr.R(inst.dest), XLEN - 28);
+			else
+				SLLI(gpr.R(inst.dest), gpr.R(inst.dest), 4);
+			SRLIW(SCRATCH1, SCRATCH1, 4);
+			AND(gpr.R(inst.dest), gpr.R(inst.dest), SCRATCH1);
+			OR(gpr.R(inst.dest), gpr.R(inst.dest), SCRATCH2);
+
+			// Now the consecutive pairs.
+			LI(SCRATCH1, (s32)0x33333333);
+			SRLI(SCRATCH2, gpr.R(inst.dest), 2);
+			AND(SCRATCH2, SCRATCH2, SCRATCH1);
+			AND(gpr.R(inst.dest), gpr.R(inst.dest), SCRATCH1);
+			SLLIW(gpr.R(inst.dest), gpr.R(inst.dest), 2);
+			OR(gpr.R(inst.dest), gpr.R(inst.dest), SCRATCH2);
+
+			// And finally the even and odd bits.
+			LI(SCRATCH1, (s32)0x55555555);
+			SRLI(SCRATCH2, gpr.R(inst.dest), 1);
+			AND(SCRATCH2, SCRATCH2, SCRATCH1);
+			AND(gpr.R(inst.dest), gpr.R(inst.dest), SCRATCH1);
+			SLLIW(gpr.R(inst.dest), gpr.R(inst.dest), 1);
+			OR(gpr.R(inst.dest), gpr.R(inst.dest), SCRATCH2);
+		} else {
+			CompIR_Generic(inst);
+		}
 		break;
 
 	case IROp::BSwap16:

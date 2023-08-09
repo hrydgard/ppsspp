@@ -217,13 +217,13 @@ public:
 	void QuickJ(RiscVReg scratchreg, const u8 *dst) {
 		QuickJAL(scratchreg, R_ZERO, dst);
 	}
-	void QuickCallFunction(const u8 *func) {
-		QuickJAL(R_RA, R_RA, func);
+	void QuickCallFunction(const u8 *func, RiscVReg scratchreg = R_RA) {
+		QuickJAL(scratchreg, R_RA, func);
 	}
 	template <typename T>
-	void QuickCallFunction(T *func) {
+	void QuickCallFunction(T *func, RiscVReg scratchreg = R_RA) {
 		static_assert(std::is_function<T>::value, "QuickCallFunction without function");
-		QuickCallFunction((const u8 *)func);
+		QuickCallFunction((const u8 *)func, scratchreg);
 	}
 
 	void LUI(RiscVReg rd, s32 simm32);

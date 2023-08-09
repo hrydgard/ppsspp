@@ -26,7 +26,7 @@ using namespace RiscVGen;
 using namespace RiscVJitConstants;
 
 RiscVJitBackend::RiscVJitBackend(MIPSState *mipsState, JitOptions &jitopt)
-	: mips_(mipsState), jo(jitopt), gpr(mipsState, &jo), fpr(mipsState, &jo) {
+	: jo(jitopt), gpr(mipsState, &jo), fpr(mipsState, &jo) {
 	// Automatically disable incompatible options.
 	if (((intptr_t)Memory::base & 0x00000000FFFFFFFFUL) != 0) {
 		jo.enablePointerify = false;
@@ -81,7 +81,7 @@ bool RiscVJitBackend::CompileBlock(IRBlock *block, int block_num, bool preload) 
 	// We should've written an exit above.  If we didn't, bad things will happen.
 	// Only check if debug stats are enabled - needlessly wastes jit space.
 	if (DebugStatsEnabled()) {
-		QuickCallFunction(&NoBlockExits);
+		QuickCallFunction(&NoBlockExits, SCRATCH2);
 		QuickJ(R_RA, hooks_.crashHandler);
 	}
 
@@ -98,7 +98,7 @@ void RiscVJitBackend::CompIR_Generic(IRInst inst) {
 	FlushAll();
 	LI(X10, value, SCRATCH2);
 	SaveStaticRegisters();
-	QuickCallFunction(&DoIRInst);
+	QuickCallFunction(&DoIRInst, SCRATCH2);
 	LoadStaticRegisters();
 
 	// We only need to check the return value if it's a potential exit.
@@ -123,10 +123,10 @@ void RiscVJitBackend::CompIR_Interpret(IRInst inst) {
 	SaveStaticRegisters();
 	if (DebugStatsEnabled()) {
 		LI(X10, MIPSGetName(op));
-		QuickCallFunction(&NotifyMIPSInterpret);
+		QuickCallFunction(&NotifyMIPSInterpret, SCRATCH2);
 	}
 	LI(X10, (int32_t)inst.constant);
-	QuickCallFunction((const u8 *)MIPSGetInterpretFunc(op));
+	QuickCallFunction((const u8 *)MIPSGetInterpretFunc(op), SCRATCH2);
 	LoadStaticRegisters();
 }
 

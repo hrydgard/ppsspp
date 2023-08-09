@@ -44,7 +44,7 @@ static void ShowPC(u32 downcount, void *membase, void *jitbase) {
 	count++;
 }
 
-void RiscVJitBackend::GenerateFixedCode() {
+void RiscVJitBackend::GenerateFixedCode(MIPSState *mipsState) {
 	BeginWrite(GetMemoryProtectPageSize());
 	const u8 *start = AlignCodePage();
 
@@ -120,7 +120,7 @@ void RiscVJitBackend::GenerateFixedCode() {
 
 	// Fixed registers, these are always kept when in Jit context.
 	LI(MEMBASEREG, Memory::base, SCRATCH1);
-	LI(CTXREG, mips_, SCRATCH1);
+	LI(CTXREG, mipsState, SCRATCH1);
 	LI(JITBASEREG, GetBasePtr(), SCRATCH1);
 
 	LoadStaticRegisters();
@@ -131,7 +131,7 @@ void RiscVJitBackend::GenerateFixedCode() {
 	// Advance can change the downcount (or thread), so must save/restore around it.
 	SaveStaticRegisters();
 	RestoreRoundingMode(true);
-	QuickCallFunction(&CoreTiming::Advance);
+	QuickCallFunction(&CoreTiming::Advance, X7);
 	ApplyRoundingMode(true);
 	LoadStaticRegisters();
 
@@ -158,7 +158,7 @@ void RiscVJitBackend::GenerateFixedCode() {
 		MV(X10, DOWNCOUNTREG);
 		MV(X11, MEMBASEREG);
 		MV(X12, JITBASEREG);
-		QuickCallFunction(&ShowPC);
+		QuickCallFunction(&ShowPC, X7);
 	}
 
 	LWU(SCRATCH1, CTXREG, offsetof(MIPSState, pc));
@@ -182,7 +182,7 @@ void RiscVJitBackend::GenerateFixedCode() {
 
 	// No block found, let's jit.  We don't need to save static regs, they're all callee saved.
 	RestoreRoundingMode(true);
-	QuickCallFunction(&MIPSComp::JitAt);
+	QuickCallFunction(&MIPSComp::JitAt, X7);
 	ApplyRoundingMode(true);
 
 	// Try again, the block index should be set now.

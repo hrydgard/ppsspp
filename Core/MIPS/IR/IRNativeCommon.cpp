@@ -394,7 +394,7 @@ IRNativeJit::IRNativeJit(MIPSState *mipsState)
 void IRNativeJit::Init(IRNativeBackend &backend) {
 	backend_ = &backend;
 	debugInterface_.Init(&backend_->CodeBlock());
-	backend_->GenerateFixedCode();
+	backend_->GenerateFixedCode(mips_);
 
 	// Wanted this to be a reference, but vtbls get in the way.  Shouldn't change.
 	hooks_ = backend.GetNativeHooks();

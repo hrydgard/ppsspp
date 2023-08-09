@@ -254,10 +254,9 @@ void RiscVJitBackend::CompIR_FRound(IRInst inst) {
 void RiscVJitBackend::CompIR_FCvt(IRInst inst) {
 	CONDITIONAL_DISABLE;
 
+	RiscVReg tempReg = INVALID_REG;
 	switch (inst.op) {
 	case IROp::FCvtWS:
-	case IROp::FCvtScaledWS:
-	case IROp::FCvtScaledSW:
 		CompIR_Generic(inst);
 		break;
 
@@ -266,6 +265,44 @@ void RiscVJitBackend::CompIR_FCvt(IRInst inst) {
 		fpr.MapDirtyIn(inst.dest, inst.src1);
 		FMV(FMv::X, FMv::W, SCRATCH1, fpr.R(inst.src1));
 		FCVT(FConv::S, FConv::W, fpr.R(inst.dest), SCRATCH1);
+		break;
+
+	case IROp::FCvtScaledWS:
+		if (cpu_info.RiscV_D) {
+			Round rm = Round::NEAREST_EVEN;
+			switch (inst.src2 >> 6) {
+			case 0: rm = Round::NEAREST_EVEN; break;
+			case 1: rm = Round::TOZERO; break;
+			case 2: rm = Round::UP; break;
+			case 3: rm = Round::DOWN; break;
+			}
+
+			tempReg = fpr.MapDirtyInTemp(inst.dest, inst.src1);
+			// Prepare the double src1 and the multiplier.
+			FCVT(FConv::D, FConv::S, fpr.R(inst.dest), fpr.R(inst.src1));
+			LI(SCRATCH1, 1UL << (inst.src2 & 0x1F));
+			FCVT(FConv::D, FConv::WU, tempReg, SCRATCH1, rm);
+
+			FMUL(64, fpr.R(inst.dest), fpr.R(inst.dest), tempReg, rm);
+			// NAN and clamping should all be correct.
+			FCVT(FConv::W, FConv::D, SCRATCH1, fpr.R(inst.dest), rm);
+			// TODO: Could combine with a transfer, often is one...
+			FMV(FMv::W, FMv::X, fpr.R(inst.dest), SCRATCH1);
+		} else {
+			CompIR_Generic(inst);
+		}
+		break;
+
+	case IROp::FCvtScaledSW:
+		// TODO: This is probably proceeded by a GPR transfer, might be ideal to combine.
+		tempReg = fpr.MapDirtyInTemp(inst.dest, inst.src1);
+		FMV(FMv::X, FMv::W, SCRATCH1, fpr.R(inst.src1));
+		FCVT(FConv::S, FConv::W, fpr.R(inst.dest), SCRATCH1);
+
+		// Pre-divide so we can avoid any actual divide.
+		LI(SCRATCH1, 1.0f / (1UL << (inst.src2 & 0x1F)));
+		FMV(FMv::W, FMv::X, tempReg, SCRATCH1);
+		FMUL(32, fpr.R(inst.dest), fpr.R(inst.dest), tempReg);
 		break;
 
 	default:
@@ -587,7 +624,7 @@ void RiscVJitBackend::CompIR_FSpecial(IRInst inst) {
 			int offset = offsetof(MIPSState, f) + inst.src1 * 4;
 			FL(32, F10, CTXREG, offset);
 		}
-		QuickCallFunction(func);
+		QuickCallFunction(func, SCRATCH1);
 
 		fpr.MapReg(inst.dest, MIPSMap::NOINIT);
 		// If it's already F10, we're done - MapReg doesn't actually overwrite the reg in that case.

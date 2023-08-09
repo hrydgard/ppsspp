@@ -188,7 +188,7 @@ void RiscVJitBackend::CompIR_System(IRInst inst) {
 #ifdef USE_PROFILER
 		// When profiling, we can't skip CallSyscall, since it times syscalls.
 		LI(X10, (int32_t)inst.constant);
-		QuickCallFunction(&CallSyscall);
+		QuickCallFunction(&CallSyscall, SCRATCH2);
 #else
 		// Skip the CallSyscall where possible.
 		{
@@ -196,10 +196,10 @@ void RiscVJitBackend::CompIR_System(IRInst inst) {
 			void *quickFunc = GetQuickSyscallFunc(op);
 			if (quickFunc) {
 				LI(X10, (uintptr_t)GetSyscallFuncPointer(op));
-				QuickCallFunction((const u8 *)quickFunc);
+				QuickCallFunction((const u8 *)quickFunc, SCRATCH2);
 			} else {
 				LI(X10, (int32_t)inst.constant);
-				QuickCallFunction(&CallSyscall);
+				QuickCallFunction(&CallSyscall, SCRATCH2);
 			}
 		}
 #endif
@@ -211,7 +211,7 @@ void RiscVJitBackend::CompIR_System(IRInst inst) {
 	case IROp::CallReplacement:
 		FlushAll();
 		SaveStaticRegisters();
-		QuickCallFunction(GetReplacementFunc(inst.constant)->replaceFunc);
+		QuickCallFunction(GetReplacementFunc(inst.constant)->replaceFunc, SCRATCH2);
 		LoadStaticRegisters();
 		SUB(DOWNCOUNTREG, DOWNCOUNTREG, X10);
 		break;
@@ -222,7 +222,7 @@ void RiscVJitBackend::CompIR_System(IRInst inst) {
 		RestoreRoundingMode(true);
 		SaveStaticRegisters();
 		MovFromPC(X10);
-		QuickCallFunction(&Core_Break);
+		QuickCallFunction(&Core_Break, SCRATCH2);
 		LoadStaticRegisters();
 		ApplyRoundingMode(true);
 		MovFromPC(SCRATCH1);
