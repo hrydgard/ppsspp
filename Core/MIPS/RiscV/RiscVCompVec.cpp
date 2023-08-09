@@ -15,6 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <algorithm>
 #include "Core/MemMap.h"
 #include "Core/MIPS/RiscV/RiscVJit.h"
 #include "Core/MIPS/RiscV/RiscVRegCache.h"
@@ -110,10 +111,63 @@ void RiscVJitBackend::CompIR_VecAssign(IRInst inst) {
 		break;
 
 	case IROp::Vec4Shuffle:
-		fpr.Map4DirtyIn(inst.dest, inst.src1);
-		for (int i = 0; i < 4; ++i) {
-			int lane = (inst.src2 >> (i * 2)) & 3;
-			FMV(32, fpr.R(inst.dest + i), fpr.R(inst.src1 + lane));
+		if (inst.dest == inst.src1) {
+			RiscVReg tempReg = fpr.Map4DirtyInTemp(inst.dest, inst.src1);
+
+			// Try to find the least swaps needed to move in place, never worse than 6 FMVs.
+			// Would be better with a vmerge and vector regs.
+			int state[4]{ 0, 1, 2, 3 };
+			int goal[4]{ (inst.src2 >> 0) & 3, (inst.src2 >> 2) & 3, (inst.src2 >> 4) & 3, (inst.src2 >> 6) & 3 };
+
+			static constexpr int NOT_FOUND = 4;
+			auto findIndex = [](int *arr, int val, int start = 0) {
+				return (int)(std::find(arr + start, arr + 4, val) - arr);
+			};
+			auto moveChained = [&](const std::vector<int> &lanes, bool rotate) {
+				int firstState = state[lanes.front()];
+				if (rotate)
+					FMV(32, tempReg, fpr.R(inst.dest + lanes.front()));
+				for (size_t i = 1; i < lanes.size(); ++i) {
+					FMV(32, fpr.R(inst.dest + lanes[i - 1]), fpr.R(inst.dest + lanes[i]));
+					state[lanes[i - 1]] = state[lanes[i]];
+				}
+				if (rotate) {
+					FMV(32, fpr.R(inst.dest + lanes.back()), tempReg);
+					state[lanes.back()] = firstState;
+				}
+			};
+
+			for (int i = 0; i < 4; ++i) {
+				// Overlap, so if they match, nothing to do.
+				if (goal[i] == state[i])
+					continue;
+
+				int neededBy = findIndex(goal, state[i], i + 1);
+				int foundIn = findIndex(state, goal[i], 0);
+				_assert_(foundIn != NOT_FOUND);
+
+				if (neededBy == NOT_FOUND || neededBy == foundIn) {
+					moveChained({ i, foundIn }, neededBy == foundIn);
+					continue;
+				}
+
+				// Maybe we can avoid a swap and move the next thing into place.
+				int neededByDepth2 = findIndex(goal, state[neededBy], i + 1);
+				if (neededByDepth2 == NOT_FOUND || neededByDepth2 == foundIn) {
+					moveChained({ neededBy, i, foundIn }, neededByDepth2 == foundIn);
+					continue;
+				}
+
+				// Since we only have 4 items, this is as deep as the chain could go.
+				int neededByDepth3 = findIndex(goal, state[neededByDepth2], i + 1);
+				moveChained({ neededByDepth2, neededBy, i, foundIn }, neededByDepth3 == foundIn);
+			}
+		} else {
+			fpr.Map4DirtyIn(inst.dest, inst.src1);
+			for (int i = 0; i < 4; ++i) {
+				int lane = (inst.src2 >> (i * 2)) & 3;
+				FMV(32, fpr.R(inst.dest + i), fpr.R(inst.src1 + lane));
+			}
 		}
 		break;
 
