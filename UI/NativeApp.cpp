@@ -1143,11 +1143,6 @@ void NativeFrame(GraphicsContext *graphicsContext) {
 	}
 	g_draw->EndFrame();
 
-	// This, between EndFrame and Present, is where we should actually wait to do present time management.
-	// There might not be a meaningful distinction here for all backends..
-
-	g_draw->Present();
-
 	if (resized) {
 		INFO_LOG(G3D, "Resized flag set - recalculating bounds");
 		resized = false;
@@ -1187,6 +1182,11 @@ void NativeFrame(GraphicsContext *graphicsContext) {
 		// We're rendering fine, clear out failure info.
 		ClearFailedGPUBackends();
 	}
+
+	// This, between EndFrame and Present, is where we should actually wait to do present time management.
+	// There might not be a meaningful distinction here for all backends..
+
+	g_draw->Present();
 }
 
 void HandleGlobalMessage(const std::string &msg, const std::string &value) {
