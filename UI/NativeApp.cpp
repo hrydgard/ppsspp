@@ -1157,7 +1157,7 @@ void NativeFrame(GraphicsContext *graphicsContext) {
 		ClearFailedGPUBackends();
 	}
 
-	g_draw->Present();
+	g_draw->Present(1);
 
 	if (resized) {
 		INFO_LOG(G3D, "Resized flag set - recalculating bounds");

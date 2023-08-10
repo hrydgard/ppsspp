@@ -139,7 +139,7 @@ public:
 
 	void BeginFrame(DebugFlags debugFlags) override;
 	void EndFrame() override;
-	void Present() override;
+	void Present(int vblanks) override;
 
 	int GetFrameCount() override { return frameCount_; }
 
@@ -426,11 +426,6 @@ void D3D11DrawContext::HandleEvent(Event ev, int width, int height, void *param1
 		curRTHeight_ = height;
 		break;
 	}
-	case Event::PRESENTED:
-		// Make sure that we don't eliminate the next time the render target is set.
-		curRenderTargetView_ = nullptr;
-		curDepthStencilView_ = nullptr;
-		break;
 	}
 }
 
@@ -438,7 +433,10 @@ void D3D11DrawContext::EndFrame() {
 	curPipeline_ = nullptr;
 }
 
-void D3D11DrawContext::Present() {
+void D3D11DrawContext::Present(int vblanks) {
+	swapChain_->Present(1, 0);
+	curRenderTargetView_ = nullptr;
+	curDepthStencilView_ = nullptr;
 	frameCount_++;
 }
 

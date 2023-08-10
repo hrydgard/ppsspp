@@ -164,8 +164,6 @@ void PPSSPP_UWPMain::CreateWindowSizeDependentResources() {
 // Renders the current frame according to the current application state.
 // Returns true if the frame was rendered and is ready to be displayed.
 bool PPSSPP_UWPMain::Render() {
-	ctx_->GetDrawContext()->HandleEvent(Draw::Event::PRESENTED, 0, 0, nullptr, nullptr);
-
 	static bool hasSetThreadName = false;
 	if (!hasSetThreadName) {
 		SetCurrentThreadName("UWPRenderThread");
@@ -323,10 +321,6 @@ UWPGraphicsContext::UWPGraphicsContext(std::shared_ptr<DX::DeviceResources> reso
 
 void UWPGraphicsContext::Shutdown() {
 	delete draw_;
-}
-
-void UWPGraphicsContext::SwapInterval(int interval) {
-
 }
 
 std::string System_GetProperty(SystemProperty prop) {

@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 
 #include <mutex>
 
@@ -19,7 +19,7 @@ public:
 	UWPGraphicsContext(std::shared_ptr<DX::DeviceResources> resources);
 
 	void Shutdown() override;
-	void SwapInterval(int interval) override;
+	void SwapInterval(int interval) override {}
 	void SwapBuffers() override {}
 	void Resize() override {}
 	Draw::DrawContext * GetDrawContext() override {

@@ -366,7 +366,7 @@ public:
 
 	void BeginFrame(DebugFlags debugFlags) override;
 	void EndFrame() override;
-	void Present() override;
+	void Present(int vblanks) override;
 
 	int GetFrameCount() override {
 		return frameCount_;
@@ -802,7 +802,7 @@ void OpenGLContext::EndFrame() {
 	Invalidate(InvalidationFlags::CACHED_RENDER_STATE);
 }
 
-void OpenGLContext::Present() {
+void OpenGLContext::Present(int vblanks) {
 	renderManager_.Present();
 	frameCount_++;
 }

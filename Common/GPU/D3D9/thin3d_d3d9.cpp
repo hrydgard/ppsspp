@@ -580,7 +580,7 @@ public:
 	}
 
 	void EndFrame() override;
-	void Present() override;
+	void Present(int vblanks) override;
 
 	int GetFrameCount() override { return frameCount_; }
 
@@ -970,7 +970,16 @@ void D3D9Context::EndFrame() {
 	curPipeline_ = nullptr;
 }
 
-void D3D9Context::Present() {
+void D3D9Context::Present(int vblanks) {
+	if (deviceEx_) {
+		deviceEx_->EndScene();
+		deviceEx_->PresentEx(NULL, NULL, NULL, NULL, 0);
+		deviceEx_->BeginScene();
+	} else {
+		device_->EndScene();
+		device_->Present(NULL, NULL, NULL, NULL);
+		device_->BeginScene();
+	}
 	frameCount_++;
 }
 

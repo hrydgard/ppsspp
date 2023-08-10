@@ -33,11 +33,6 @@
 #error This file should not be compiled for UWP.
 #endif
 
-void D3D11Context::SwapBuffers() {
-	swapChain_->Present(swapInterval_, 0);
-	draw_->HandleEvent(Draw::Event::PRESENTED, 0, 0, nullptr, nullptr);
-}
-
 void D3D11Context::SwapInterval(int interval) {
 	swapInterval_ = interval;
 }

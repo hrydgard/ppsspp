@@ -21,18 +21,6 @@
 #include "Common/GPU/thin3d_create.h"
 #include "Common/GPU/D3D9/D3DCompilerLoader.h"
 
-void D3D9Context::SwapBuffers() {
-	if (has9Ex_) {
-		deviceEx_->EndScene();
-		deviceEx_->PresentEx(NULL, NULL, NULL, NULL, 0);
-		deviceEx_->BeginScene();
-	} else {
-		device_->EndScene();
-		device_->Present(NULL, NULL, NULL, NULL);
-		device_->BeginScene();
-	}
-}
-
 typedef HRESULT (__stdcall *DIRECT3DCREATE9EX)(UINT, IDirect3D9Ex**);
 
 void D3D9Context::SwapInterval(int interval) {
