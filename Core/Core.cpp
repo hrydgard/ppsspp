@@ -228,7 +228,7 @@ void Core_RunLoop(GraphicsContext *ctx) {
 			sleep_ms(sleepTime);
 	}
 
-	if (!windowHidden && !Core_IsStepping()) {
+	if ((!windowHidden && !Core_IsStepping()) || menuThrottle) {
 		ctx->SwapBuffers();
 	}
 }
