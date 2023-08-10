@@ -580,6 +580,8 @@ public:
 	}
 
 	void EndFrame() override;
+	void Present() override;
+
 	int GetFrameCount() override { return frameCount_; }
 
 	void UpdateDynamicUniformBuffer(const void *ub, size_t size) override;
@@ -966,6 +968,9 @@ void D3D9Context::BindNativeTexture(int index, void *nativeTexture) {
 
 void D3D9Context::EndFrame() {
 	curPipeline_ = nullptr;
+}
+
+void D3D9Context::Present() {
 	frameCount_++;
 }
 

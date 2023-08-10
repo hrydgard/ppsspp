@@ -369,6 +369,7 @@ public:
 
 	void BeginFrame() override;
 	void EndFrame() override;
+	void Present() override;
 
 	int GetFrameCount() override {
 		return frameCount_;
@@ -803,8 +804,10 @@ void OpenGLContext::EndFrame() {
 	FrameData &frameData = frameData_[renderManager_.GetCurFrame()];
 	renderManager_.EndPushBuffer(frameData.push);  // upload the data!
 	renderManager_.Finish();
-
 	Invalidate(InvalidationFlags::CACHED_RENDER_STATE);
+}
+
+void OpenGLContext::Present() {
 	frameCount_++;
 }
 
