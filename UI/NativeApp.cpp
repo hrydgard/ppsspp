@@ -1135,11 +1135,16 @@ void NativeFrame(GraphicsContext *graphicsContext) {
 		debugFlags |= Draw::DebugFlags::PROFILE_SCOPES;
 	g_screenManager->getDrawContext()->SetDebugFlags(debugFlags);
 
+	g_draw->BeginFrame();
+
 	// All actual rendering happen in here.
 	g_screenManager->render();
 	if (g_screenManager->getUIContext()->Text()) {
 		g_screenManager->getUIContext()->Text()->OncePerFrame();
 	}
+
+	// This triggers present.
+	g_draw->EndFrame();
 
 	if (resized) {
 		INFO_LOG(G3D, "Resized flag set - recalculating bounds");
