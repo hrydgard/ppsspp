@@ -200,6 +200,8 @@ enum class SystemNotification {
 	POLL_CONTROLLERS,
 	TOGGLE_DEBUG_CONSOLE,  // TODO: Kinda weird, just ported forward.
 	TEST_JAVA_EXCEPTION,
+	KEEP_SCREEN_AWAKE,
+	ACTIVITY,
 };
 
 std::string System_GetProperty(SystemProperty prop);

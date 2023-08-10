@@ -564,7 +564,7 @@ void EmuScreen::sendMessage(const char *message, const char *value) {
 }
 
 void EmuScreen::UnsyncTouch(const TouchInput &touch) {
-	Core_NotifyActivity();
+	System_Notify(SystemNotification::ACTIVITY);
 
 	if (chatMenu_ && chatMenu_->GetVisibility() == UI::V_VISIBLE) {
 		// Avoid pressing touch button behind the chat
@@ -830,7 +830,7 @@ void EmuScreen::onVKeyAnalog(int virtualKeyCode, float value) {
 }
 
 bool EmuScreen::UnsyncKey(const KeyInput &key) {
-	Core_NotifyActivity();
+	System_Notify(SystemNotification::ACTIVITY);
 
 	if (UI::IsFocusMovementEnabled()) {
 		if (UIScreen::UnsyncKey(key)) {
@@ -849,8 +849,7 @@ bool EmuScreen::UnsyncKey(const KeyInput &key) {
 }
 
 void EmuScreen::UnsyncAxis(const AxisInput &axis) {
-	Core_NotifyActivity();
-
+	System_Notify(SystemNotification::ACTIVITY);
 	return controlMapper_.Axis(axis);
 }
 
@@ -1398,6 +1397,10 @@ void EmuScreen::render() {
 		return;  // shouldn't really happen but I've seen a suspicious stack trace..
 
 	g_OSD.NudgeSidebar();
+
+	if (screenManager()->topScreen() == this) {
+		System_Notify(SystemNotification::KEEP_SCREEN_AWAKE);
+	}
 
 	if (invalid_) {
 		// Loading, or after shutdown?

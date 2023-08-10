@@ -48,10 +48,6 @@
 #include "Windows/InputDevice.h"
 #endif
 
-// Time until we stop considering the core active without user input.
-// Should this be configurable?  2 hours currently.
-static const double ACTIVITY_IDLE_TIMEOUT = 2.0 * 3600.0;
-
 static std::condition_variable m_StepCond;
 static std::mutex m_hStepMutex;
 static std::condition_variable m_InactiveCond;
@@ -63,8 +59,6 @@ static uint32_t steppingAddress = 0;
 static std::set<CoreLifecycleFunc> lifecycleFuncs;
 static std::set<CoreStopRequestFunc> stopFuncs;
 static bool windowHidden = false;
-static double lastActivity = 0.0;
-static double lastKeepAwake = 0.0;
 static GraphicsContext *graphicsContext;
 static bool powerSaving = false;
 
@@ -82,10 +76,6 @@ void Core_NotifyWindowHidden(bool hidden) {
 
 bool Core_IsWindowHidden() {
 	return windowHidden;
-}
-
-void Core_NotifyActivity() {
-	lastActivity = time_now_d();
 }
 
 void Core_ListenLifecycle(CoreLifecycleFunc func) {
@@ -217,12 +207,6 @@ void UpdateRunLoop() {
 	NativeFrame(graphicsContext);
 }
 
-void KeepScreenAwake() {
-#if defined(_WIN32) && !PPSSPP_PLATFORM(UWP)
-	SetThreadExecutionState(ES_SYSTEM_REQUIRED | ES_DISPLAY_REQUIRED);
-#endif
-}
-
 void Core_RunLoop(GraphicsContext *ctx) {
 	float refreshRate = System_GetPropertyFloat(SYSPROP_DISPLAY_REFRESH_RATE);
 
@@ -247,17 +231,6 @@ void Core_RunLoop(GraphicsContext *ctx) {
 		UpdateRunLoop();
 		if (!windowHidden && !Core_IsStepping()) {
 			ctx->SwapBuffers();
-
-			// Keep the system awake for longer than normal for cutscenes and the like.
-			const double now = time_now_d();
-			if (now < lastActivity + ACTIVITY_IDLE_TIMEOUT) {
-				// Only resetting it ever prime number seconds in case the call is expensive.
-				// Using a prime number to ensure there's no interaction with other periodic events.
-				if (now - lastKeepAwake > 89.0 || now < lastKeepAwake) {
-					KeepScreenAwake();
-					lastKeepAwake = now;
-				}
-			}
 		}
 	}
 }

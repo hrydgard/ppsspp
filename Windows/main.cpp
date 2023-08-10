@@ -43,6 +43,7 @@
 #include "Common/Thread/ThreadUtil.h"
 #include "Common/Data/Encoding/Utf8.h"
 #include "Common/Net/Resolve.h"
+#include "Common/TimeUtil.h"
 #include "W32Util/DarkMode.h"
 #include "W32Util/ShellUtil.h"
 
@@ -114,6 +115,12 @@ int g_activeWindow = 0;
 WindowsInputManager g_inputManager;
 
 int g_lastNumInstances = 0;
+
+static double g_lastActivity = 0.0;
+static double g_lastKeepAwake = 0.0;
+// Time until we stop considering the core active without user input.
+// Should this be configurable?  2 hours currently.
+static const double ACTIVITY_IDLE_TIMEOUT = 2.0 * 3600.0;
 
 void System_ShowFileInFolder(const char *path) {
 	// SHParseDisplayName can't handle relative paths, so normalize first.
@@ -444,6 +451,29 @@ void System_Notify(SystemNotification notification) {
 	case SystemNotification::TOGGLE_DEBUG_CONSOLE:
 		MainWindow::ToggleDebugConsoleVisibility();
 		break;
+
+	case SystemNotification::ACTIVITY:
+		g_lastActivity = time_now_d();
+		break;
+
+	case SystemNotification::KEEP_SCREEN_AWAKE:
+	{
+		// Keep the system awake for longer than normal for cutscenes and the like.
+		const double now = time_now_d();
+		if (now < g_lastActivity + ACTIVITY_IDLE_TIMEOUT) {
+			// Only resetting it ever prime number seconds in case the call is expensive.
+			// Using a prime number to ensure there's no interaction with other periodic events.
+			if (now - g_lastKeepAwake > 89.0 || now < g_lastKeepAwake) {
+				// Note that this needs to be called periodically.
+				// It's also possible to set ES_CONTINUOUS but let's not, for simplicity.
+#if defined(_WIN32) && !PPSSPP_PLATFORM(UWP)
+				SetThreadExecutionState(ES_SYSTEM_REQUIRED | ES_DISPLAY_REQUIRED);
+#endif
+				g_lastKeepAwake = now;
+			}
+		}
+		break;
+	}
 	}
 }
 

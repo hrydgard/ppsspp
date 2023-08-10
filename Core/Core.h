@@ -84,7 +84,6 @@ bool UpdateScreenScale(int width, int height);
 // Don't run the core when minimized etc.
 void Core_NotifyWindowHidden(bool hidden);
 bool Core_IsWindowHidden();
-void Core_NotifyActivity();
 
 void Core_SetPowerSaving(bool mode);
 bool Core_GetPowerSaving();
