@@ -13,6 +13,7 @@ enum {
 };
 
 enum class VKRRunType {
+	SUBMIT,
 	PRESENT,
 	SYNC,
 	EXIT,

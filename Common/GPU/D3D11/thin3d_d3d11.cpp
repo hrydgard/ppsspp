@@ -139,6 +139,7 @@ public:
 
 	void BeginFrame() override;
 	void EndFrame() override;
+	void Present() override;
 
 	int GetFrameCount() override { return frameCount_; }
 
@@ -433,6 +434,9 @@ void D3D11DrawContext::HandleEvent(Event ev, int width, int height, void *param1
 
 void D3D11DrawContext::EndFrame() {
 	curPipeline_ = nullptr;
+}
+
+void D3D11DrawContext::Present() {
 	frameCount_++;
 }
 

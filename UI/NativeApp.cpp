@@ -1136,14 +1136,11 @@ void NativeFrame(GraphicsContext *graphicsContext) {
 	g_screenManager->getDrawContext()->SetDebugFlags(debugFlags);
 
 	g_draw->BeginFrame();
-
 	// All actual rendering happen in here.
 	g_screenManager->render();
 	if (g_screenManager->getUIContext()->Text()) {
 		g_screenManager->getUIContext()->Text()->OncePerFrame();
 	}
-
-	// This triggers present.
 	g_draw->EndFrame();
 
 	if (resized) {
@@ -1185,6 +1182,11 @@ void NativeFrame(GraphicsContext *graphicsContext) {
 		// We're rendering fine, clear out failure info.
 		ClearFailedGPUBackends();
 	}
+
+	// This, between EndFrame and Present, is where we should actually wait to do present time management.
+	// There might not be a meaningful distinction here for all backends..
+
+	g_draw->Present();
 }
 
 void HandleGlobalMessage(const std::string &msg, const std::string &value) {

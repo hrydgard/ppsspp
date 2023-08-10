@@ -481,6 +481,8 @@ public:
 
 	void BeginFrame() override;
 	void EndFrame() override;
+	void Present() override;
+
 	void WipeQueue() override;
 
 	int GetFrameCount() override {
@@ -1115,11 +1117,14 @@ void VKContext::BeginFrame() {
 }
 
 void VKContext::EndFrame() {
+	// Do all the work to submit the command buffers etc.
 	renderManager_.Finish();
-
 	// Unbind stuff, to avoid accidentally relying on it across frames (and provide some protection against forgotten unbinds of deleted things).
 	Invalidate(InvalidationFlags::CACHED_RENDER_STATE);
+}
 
+void VKContext::Present() {
+	renderManager_.Present();
 	frameCount_++;
 }
 

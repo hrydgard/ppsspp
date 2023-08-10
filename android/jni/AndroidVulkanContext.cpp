@@ -161,9 +161,6 @@ void AndroidVulkanContext::Shutdown() {
 	INFO_LOG(G3D, "AndroidVulkanContext::Shutdown completed");
 }
 
-void AndroidVulkanContext::SwapBuffers() {
-}
-
 void AndroidVulkanContext::Resize() {
 	INFO_LOG(G3D, "AndroidVulkanContext::Resize begin (oldsize: %dx%d)", g_Vulkan->GetBackbufferWidth(), g_Vulkan->GetBackbufferHeight());
 

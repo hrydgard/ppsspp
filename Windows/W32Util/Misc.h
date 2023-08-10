@@ -15,6 +15,8 @@ namespace W32Util
 	void SpawnNewInstance(bool overrideArgs = false, const std::string &args = "");
 	void GetSelfExecuteParams(std::wstring &workingDirectory, std::wstring &moduleFilename);
 
+	void GetWindowRes(HWND hWnd, int *xres, int *yres);
+
 	struct ClipboardData {
 		ClipboardData(const char *format, size_t sz);
 		ClipboardData(UINT format, size_t sz);

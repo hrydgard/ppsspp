@@ -285,11 +285,8 @@ namespace MainWindow
 			System_PostUIMessage("window minimized", "false");
 		}
 
-		int width = 0, height = 0;
-		RECT rc;
-		GetClientRect(hwndMain, &rc);
-		width = rc.right - rc.left;
-		height = rc.bottom - rc.top;
+		int width, height;
+		W32Util::GetWindowRes(hwndMain, &width, &height);
 
 		// Moves the internal display window to match the inner size of the main window.
 		MoveWindow(hwndDisplay, 0, 0, width, height, TRUE);
