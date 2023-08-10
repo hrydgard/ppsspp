@@ -1116,6 +1116,7 @@ void VKContext::BeginFrame() {
 
 void VKContext::EndFrame() {
 	renderManager_.Finish();
+	renderManager_.Present();
 
 	// Unbind stuff, to avoid accidentally relying on it across frames (and provide some protection against forgotten unbinds of deleted things).
 	Invalidate(InvalidationFlags::CACHED_RENDER_STATE);
