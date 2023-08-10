@@ -25,7 +25,7 @@
 class GraphicsContext;
 
 // called from emu thread
-void UpdateRunLoop();
+void UpdateRunLoop(GraphicsContext *ctx);
 
 // Returns false when an UI exit state is detected.
 bool Core_Run(GraphicsContext *ctx);

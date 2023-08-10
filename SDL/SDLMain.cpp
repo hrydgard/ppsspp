@@ -656,7 +656,7 @@ static void EmuThreadFunc(GraphicsContext *graphicsContext) {
 	NativeInitGraphics(graphicsContext);
 
 	while (emuThreadState != (int)EmuThreadState::QUIT_REQUESTED) {
-		UpdateRunLoop();
+		UpdateRunLoop(graphicsContext);
 	}
 	emuThreadState = (int)EmuThreadState::STOPPED;
 	graphicsContext->StopThread();
@@ -1428,7 +1428,7 @@ int main(int argc, char *argv[]) {
 			break;
 		const uint8_t *keys = SDL_GetKeyboardState(NULL);
 		if (emuThreadState == (int)EmuThreadState::DISABLED) {
-			UpdateRunLoop();
+			UpdateRunLoop(graphicsContext);
 		}
 		if (g_QuitRequested || g_RestartRequested)
 			break;

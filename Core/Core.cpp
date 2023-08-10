@@ -59,14 +59,12 @@ static uint32_t steppingAddress = 0;
 static std::set<CoreLifecycleFunc> lifecycleFuncs;
 static std::set<CoreStopRequestFunc> stopFuncs;
 static bool windowHidden = false;
-static GraphicsContext *graphicsContext;
 static bool powerSaving = false;
 
 static MIPSExceptionInfo g_exceptionInfo;
 
 void Core_SetGraphicsContext(GraphicsContext *ctx) {
-	graphicsContext = ctx;
-	PSP_CoreParameter().graphicsContext = graphicsContext;
+	PSP_CoreParameter().graphicsContext = ctx;
 }
 
 void Core_NotifyWindowHidden(bool hidden) {
@@ -198,24 +196,28 @@ bool UpdateScreenScale(int width, int height) {
 	return false;
 }
 
-// Note: not used on Android.
-void UpdateRunLoop() {
+// Used by Windows, SDL, Qt.
+void UpdateRunLoop(GraphicsContext *ctx) {
+	NativeFrame(ctx);
 	if (windowHidden && g_Config.bPauseWhenMinimized) {
 		sleep_ms(16);
 		return;
 	}
-	NativeFrame(graphicsContext);
 }
 
+// Note: not used on Android.
 void Core_RunLoop(GraphicsContext *ctx) {
 	float refreshRate = System_GetPropertyFloat(SYSPROP_DISPLAY_REFRESH_RATE);
 
-	graphicsContext = ctx;
-	while ((GetUIState() != UISTATE_INGAME || !PSP_IsInited()) && GetUIState() != UISTATE_EXIT) {
-		// In case it was pending, we're not in game anymore.  We won't get to Core_Run().
-		Core_StateProcessed();
+	if (windowHidden && g_Config.bPauseWhenMinimized) {
+		sleep_ms(16);
+		return;
+	}
+
+	if ((GetUIState() != UISTATE_INGAME || !PSP_IsInited()) && GetUIState() != UISTATE_EXIT) {
+		// In case it was pending, we're not in game anymore.
 		double startTime = time_now_d();
-		UpdateRunLoop();
+		NativeFrame(ctx);
 
 		// Simple throttling to not burn the GPU in the menu.
 		double diffTime = time_now_d() - startTime;
@@ -227,8 +229,8 @@ void Core_RunLoop(GraphicsContext *ctx) {
 		}
 	}
 
-	while ((coreState == CORE_RUNNING || coreState == CORE_STEPPING) && GetUIState() == UISTATE_INGAME) {
-		UpdateRunLoop();
+	if ((coreState == CORE_RUNNING || coreState == CORE_STEPPING) && GetUIState() == UISTATE_INGAME) {
+		NativeFrame(ctx);
 		if (!windowHidden && !Core_IsStepping()) {
 			ctx->SwapBuffers();
 		}
@@ -308,7 +310,8 @@ bool Core_Run(GraphicsContext *ctx) {
 		if (GetUIState() != UISTATE_INGAME) {
 			Core_StateProcessed();
 			if (GetUIState() == UISTATE_EXIT) {
-				UpdateRunLoop();
+				// Not sure why we do a final frame here?
+				NativeFrame(ctx);
 				return false;
 			}
 			Core_RunLoop(ctx);
@@ -318,6 +321,7 @@ bool Core_Run(GraphicsContext *ctx) {
 		switch (coreState) {
 		case CORE_RUNNING:
 		case CORE_STEPPING:
+			Core_StateProcessed();
 			// enter a fast runloop
 			Core_RunLoop(ctx);
 			if (coreState == CORE_POWERDOWN) {
@@ -332,7 +336,6 @@ bool Core_Run(GraphicsContext *ctx) {
 		case CORE_RUNTIME_ERROR:
 			// Exit loop!!
 			Core_StateProcessed();
-
 			return true;
 
 		case CORE_NEXTFRAME:
