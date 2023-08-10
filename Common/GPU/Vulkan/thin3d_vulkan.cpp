@@ -388,7 +388,6 @@ public:
 	~VKContext();
 
 	void DebugAnnotate(const char *annotation) override;
-	void SetDebugFlags(DebugFlags flags) override;
 
 	const DeviceCaps &GetDeviceCaps() const override {
 		return caps_;
@@ -479,7 +478,7 @@ public:
 
 	void Clear(int mask, uint32_t colorval, float depthVal, int stencilVal) override;
 
-	void BeginFrame() override;
+	void BeginFrame(DebugFlags debugFlags) override;
 	void EndFrame() override;
 	void Present() override;
 
@@ -558,7 +557,6 @@ private:
 	AutoRef<VKFramebuffer> curFramebuffer_;
 
 	VkDevice device_;
-	DebugFlags debugFlags_ = DebugFlags::NONE;
 
 	enum {
 		MAX_FRAME_COMMAND_BUFFERS = 256,
@@ -1105,9 +1103,9 @@ VKContext::~VKContext() {
 	vulkan_->Delete().QueueDeletePipelineCache(pipelineCache_);
 }
 
-void VKContext::BeginFrame() {
+void VKContext::BeginFrame(DebugFlags debugFlags) {
 	// TODO: Bad dependency on g_Config here!
-	renderManager_.BeginFrame(debugFlags_ & DebugFlags::PROFILE_TIMESTAMPS, debugFlags_ & DebugFlags::PROFILE_SCOPES);
+	renderManager_.BeginFrame(debugFlags & DebugFlags::PROFILE_TIMESTAMPS, debugFlags & DebugFlags::PROFILE_SCOPES);
 
 	FrameData &frame = frame_[vulkan_->GetCurFrame()];
 
@@ -1873,10 +1871,6 @@ uint64_t VKContext::GetNativeObject(NativeObject obj, void *srcObject) {
 
 void VKContext::DebugAnnotate(const char *annotation) {
 	renderManager_.DebugAnnotate(annotation);
-}
-
-void VKContext::SetDebugFlags(DebugFlags flags) {
-	debugFlags_ = flags;
 }
 
 }  // namespace Draw

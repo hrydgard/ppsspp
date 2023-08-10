@@ -1517,8 +1517,6 @@ extern "C" bool JNICALL Java_org_ppsspp_ppsspp_NativeActivity_runVulkanRenderLoo
 
 	while (!exitRenderLoop) {
 		LockedNativeUpdateRender();
-		graphicsContext->SwapBuffers();
-
 		ProcessFrameCommands(env);
 	}
 

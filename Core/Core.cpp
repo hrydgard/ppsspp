@@ -48,10 +48,6 @@
 #include "Windows/InputDevice.h"
 #endif
 
-// Time until we stop considering the core active without user input.
-// Should this be configurable?  2 hours currently.
-static const double ACTIVITY_IDLE_TIMEOUT = 2.0 * 3600.0;
-
 static std::condition_variable m_StepCond;
 static std::mutex m_hStepMutex;
 static std::condition_variable m_InactiveCond;
@@ -63,16 +59,12 @@ static uint32_t steppingAddress = 0;
 static std::set<CoreLifecycleFunc> lifecycleFuncs;
 static std::set<CoreStopRequestFunc> stopFuncs;
 static bool windowHidden = false;
-static double lastActivity = 0.0;
-static double lastKeepAwake = 0.0;
-static GraphicsContext *graphicsContext;
 static bool powerSaving = false;
 
 static MIPSExceptionInfo g_exceptionInfo;
 
 void Core_SetGraphicsContext(GraphicsContext *ctx) {
-	graphicsContext = ctx;
-	PSP_CoreParameter().graphicsContext = graphicsContext;
+	PSP_CoreParameter().graphicsContext = ctx;
 }
 
 void Core_NotifyWindowHidden(bool hidden) {
@@ -82,10 +74,6 @@ void Core_NotifyWindowHidden(bool hidden) {
 
 bool Core_IsWindowHidden() {
 	return windowHidden;
-}
-
-void Core_NotifyActivity() {
-	lastActivity = time_now_d();
 }
 
 void Core_ListenLifecycle(CoreLifecycleFunc func) {
@@ -208,57 +196,40 @@ bool UpdateScreenScale(int width, int height) {
 	return false;
 }
 
-// Note: not used on Android.
-void UpdateRunLoop() {
+// Used by Windows, SDL, Qt.
+void UpdateRunLoop(GraphicsContext *ctx) {
+	NativeFrame(ctx);
 	if (windowHidden && g_Config.bPauseWhenMinimized) {
 		sleep_ms(16);
 		return;
 	}
-	NativeFrame(graphicsContext);
 }
 
-void KeepScreenAwake() {
-#if defined(_WIN32) && !PPSSPP_PLATFORM(UWP)
-	SetThreadExecutionState(ES_SYSTEM_REQUIRED | ES_DISPLAY_REQUIRED);
-#endif
-}
-
+// Note: not used on Android.
 void Core_RunLoop(GraphicsContext *ctx) {
 	float refreshRate = System_GetPropertyFloat(SYSPROP_DISPLAY_REFRESH_RATE);
 
-	graphicsContext = ctx;
-	while ((GetUIState() != UISTATE_INGAME || !PSP_IsInited()) && GetUIState() != UISTATE_EXIT) {
-		// In case it was pending, we're not in game anymore.  We won't get to Core_Run().
-		Core_StateProcessed();
-		double startTime = time_now_d();
-		UpdateRunLoop();
+	if (windowHidden && g_Config.bPauseWhenMinimized) {
+		sleep_ms(16);
+		return;
+	}
 
+	bool menuThrottle = (GetUIState() != UISTATE_INGAME || !PSP_IsInited()) && GetUIState() != UISTATE_EXIT;
+
+	// In case it was pending, we're not in game anymore.
+	double startTime = time_now_d();
+	NativeFrame(ctx);
+
+	if (menuThrottle) {
 		// Simple throttling to not burn the GPU in the menu.
 		double diffTime = time_now_d() - startTime;
 		int sleepTime = (int)(1000.0 / refreshRate) - (int)(diffTime * 1000.0);
 		if (sleepTime > 0)
 			sleep_ms(sleepTime);
-		if (!windowHidden) {
-			ctx->SwapBuffers();
-		}
 	}
 
-	while ((coreState == CORE_RUNNING || coreState == CORE_STEPPING) && GetUIState() == UISTATE_INGAME) {
-		UpdateRunLoop();
-		if (!windowHidden && !Core_IsStepping()) {
-			ctx->SwapBuffers();
-
-			// Keep the system awake for longer than normal for cutscenes and the like.
-			const double now = time_now_d();
-			if (now < lastActivity + ACTIVITY_IDLE_TIMEOUT) {
-				// Only resetting it ever prime number seconds in case the call is expensive.
-				// Using a prime number to ensure there's no interaction with other periodic events.
-				if (now - lastKeepAwake > 89.0 || now < lastKeepAwake) {
-					KeepScreenAwake();
-					lastKeepAwake = now;
-				}
-			}
-		}
+	if (!windowHidden && !Core_IsStepping()) {
+		ctx->SwapBuffers();
 	}
 }
 
@@ -335,7 +306,8 @@ bool Core_Run(GraphicsContext *ctx) {
 		if (GetUIState() != UISTATE_INGAME) {
 			Core_StateProcessed();
 			if (GetUIState() == UISTATE_EXIT) {
-				UpdateRunLoop();
+				// Not sure why we do a final frame here?
+				NativeFrame(ctx);
 				return false;
 			}
 			Core_RunLoop(ctx);
@@ -345,6 +317,7 @@ bool Core_Run(GraphicsContext *ctx) {
 		switch (coreState) {
 		case CORE_RUNNING:
 		case CORE_STEPPING:
+			Core_StateProcessed();
 			// enter a fast runloop
 			Core_RunLoop(ctx);
 			if (coreState == CORE_POWERDOWN) {
@@ -359,7 +332,6 @@ bool Core_Run(GraphicsContext *ctx) {
 		case CORE_RUNTIME_ERROR:
 			// Exit loop!!
 			Core_StateProcessed();
-
 			return true;
 
 		case CORE_NEXTFRAME:

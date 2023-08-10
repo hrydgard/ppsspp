@@ -137,7 +137,7 @@ public:
 	void DrawUP(const void *vdata, int vertexCount) override;
 	void Clear(int mask, uint32_t colorval, float depthVal, int stencilVal) override;
 
-	void BeginFrame() override;
+	void BeginFrame(DebugFlags debugFlags) override;
 	void EndFrame() override;
 	void Present() override;
 
@@ -1529,7 +1529,7 @@ void D3D11DrawContext::Clear(int mask, uint32_t colorval, float depthVal, int st
 	}
 }
 
-void D3D11DrawContext::BeginFrame() {
+void D3D11DrawContext::BeginFrame(DebugFlags debugFlags) {
 	context_->OMSetRenderTargets(1, &curRenderTargetView_, curDepthStencilView_);
 
 	if (curBlend_ != nullptr) {

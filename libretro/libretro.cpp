@@ -1163,7 +1163,7 @@ namespace Libretro
    {
       ctx->SetRenderTarget();
       if (ctx->GetDrawContext())
-         ctx->GetDrawContext()->BeginFrame();
+         ctx->GetDrawContext()->BeginFrame(Draw::DebugFlags::NONE);
 
       gpu->BeginHostFrame();
 
