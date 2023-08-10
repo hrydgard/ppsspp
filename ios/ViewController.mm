@@ -64,7 +64,6 @@ public:
 	}
 
 	void SwapInterval(int interval) override {}
-	void SwapBuffers() override {}
 	void Resize() override {}
 	void Shutdown() override {}
 

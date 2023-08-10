@@ -20,7 +20,6 @@ public:
 
 	void Shutdown() override;
 	void SwapInterval(int interval) override {}
-	void SwapBuffers() override {}
 	void Resize() override {}
 	Draw::DrawContext * GetDrawContext() override {
 		return draw_;

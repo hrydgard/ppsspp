@@ -132,7 +132,6 @@ bool WindowsHeadlessHost::InitGraphics(std::string *error_message, GraphicsConte
 				if (!gfx_->ThreadFrame()) {
 					break;
 				}
-				gfx_->SwapBuffers();
 			}
 
 			threadState_ = RenderThreadState::STOPPING;
@@ -173,5 +172,4 @@ void WindowsHeadlessHost::SwapBuffers() {
 		TranslateMessage(&msg);
 		DispatchMessage(&msg);
 	}
-	gfx_->SwapBuffers();
 }

@@ -39,7 +39,7 @@
 // Currently, just compile time for debugging.  May be NVIDIA only.
 static const int simulateGLES = false;
 
-void WindowsGLContext::SwapBuffers() {
+void WindowsGLContext::Poll() {
 	// We no longer call RenderManager::Swap here, it's handled by the render thread, which
 	// we're not on here.
 

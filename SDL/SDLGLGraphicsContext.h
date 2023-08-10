@@ -19,10 +19,6 @@ public:
 	void Shutdown() override;
 	void ShutdownFromRenderThread() override;
 
-	void SwapBuffers() override {
-		// Do nothing, the render thread takes care of this.
-	}
-
 	// Gets forwarded to the render thread.
 	void SwapInterval(int interval) override;
 
