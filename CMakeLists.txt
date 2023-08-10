@@ -1185,15 +1185,6 @@ set(nativeExtra)
 set(nativeExtraLibs)
 
 if(ANDROID)
-	set(nativeExtra ${nativeExtra}
-		Common/GL/GLInterface/EGLAndroid.cpp
-		Common/GL/GLInterface/EGLAndroid.h
-		Common/GL/GLInterface/EGL.cpp
-		Common/GL/GLInterface/EGL.h
-		Common/GL/GLInterface/GLInterface.cpp
-		Common/GL/GLInterfaceBase.h
-	)
-
 	set(NativeAppSource ${NativeAppSource}
 		android/jni/app-android.cpp
 		android/jni/AndroidJavaGLContext.cpp
