@@ -50,11 +50,6 @@ NATIVE_FILES :=\
   $(SRC)/Common/GPU/OpenGL/GLQueueRunner.cpp \
   $(SRC)/Common/GPU/OpenGL/DataFormatGL.cpp
 
-EGL_FILES := \
-  $(SRC)/Common/GL/GLInterface/EGL.cpp \
-  $(SRC)/Common/GL/GLInterface/EGLAndroid.cpp \
-  $(SRC)/Common/GL/GLInterface/GLInterface.cpp
-
 VULKAN_FILES := \
   $(SRC)/Common/GPU/Vulkan/thin3d_vulkan.cpp \
   $(SRC)/Common/GPU/Vulkan/VulkanQueueRunner.cpp \
@@ -175,7 +170,6 @@ EXT_FILES := \
 
 EXEC_AND_LIB_FILES := \
   $(ARCH_FILES) \
-  $(EGL_FILES) \
   $(VULKAN_FILES) \
   $(VR_FILES) \
   $(VMA_FILES) \
