@@ -1123,28 +1123,37 @@ void NativeFrame(GraphicsContext *graphicsContext) {
 		ortho = ortho * g_display.rot_matrix;
 	}
 
-	ui_draw2d.PushDrawMatrix(ortho);
-	ui_draw2d_front.PushDrawMatrix(ortho);
-
-	g_screenManager->getUIContext()->SetTintSaturation(g_Config.fUITint, g_Config.fUISaturation);
-
 	Draw::DebugFlags debugFlags = Draw::DebugFlags::NONE;
 	if ((DebugOverlay)g_Config.iDebugOverlay == DebugOverlay::GPU_PROFILE)
 		debugFlags |= Draw::DebugFlags::PROFILE_TIMESTAMPS;
 	if (g_Config.bGpuLogProfiler)
 		debugFlags |= Draw::DebugFlags::PROFILE_SCOPES;
-	g_screenManager->getDrawContext()->SetDebugFlags(debugFlags);
 
 	g_draw->BeginFrame();
+
+	ui_draw2d.PushDrawMatrix(ortho);
+	ui_draw2d_front.PushDrawMatrix(ortho);
+
+	g_screenManager->getUIContext()->SetTintSaturation(g_Config.fUITint, g_Config.fUISaturation);
+
 	// All actual rendering happen in here.
 	g_screenManager->render();
 	if (g_screenManager->getUIContext()->Text()) {
 		g_screenManager->getUIContext()->Text()->OncePerFrame();
 	}
+
+	ui_draw2d.PopDrawMatrix();
+	ui_draw2d_front.PopDrawMatrix();
+
 	g_draw->EndFrame();
 
 	// This, between EndFrame and Present, is where we should actually wait to do present time management.
 	// There might not be a meaningful distinction here for all backends..
+
+	if (renderCounter < 10 && ++renderCounter == 10) {
+		// We're rendering fine, clear out failure info.
+		ClearFailedGPUBackends();
+	}
 
 	g_draw->Present();
 
@@ -1178,14 +1187,6 @@ void NativeFrame(GraphicsContext *graphicsContext) {
 	} else {
 		// INFO_LOG(G3D, "Polling graphics context");
 		graphicsContext->Poll();
-	}
-
-	ui_draw2d.PopDrawMatrix();
-	ui_draw2d_front.PopDrawMatrix();
-
-	if (renderCounter < 10 && ++renderCounter == 10) {
-		// We're rendering fine, clear out failure info.
-		ClearFailedGPUBackends();
 	}
 }
 
