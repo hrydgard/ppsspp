@@ -16,7 +16,7 @@ public:
 
 	void Shutdown() override;
 	void SwapInterval(int interval) override;
-	void SwapBuffers() override;
+	void SwapBuffers() override {}
 	void Resize() override;
 
 	void *GetAPIContext() override { return g_Vulkan; }

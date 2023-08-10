@@ -87,6 +87,13 @@ namespace W32Util
 		SetWindowPos(hwnd, style, 0,0,0,0, SWP_NOMOVE | SWP_NOSIZE);
 	}
 
+	void GetWindowRes(HWND hWnd, int *xres, int *yres) {
+		RECT rc;
+		GetClientRect(hWnd, &rc);
+		*xres = rc.right - rc.left;
+		*yres = rc.bottom - rc.top;
+	}
+
 	static const wchar_t *RemoveExecutableFromCommandLine(const wchar_t *cmdline) {
 		if (!cmdline) {
 			return L"";
