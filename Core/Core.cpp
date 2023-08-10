@@ -214,26 +214,22 @@ void Core_RunLoop(GraphicsContext *ctx) {
 		return;
 	}
 
-	if ((GetUIState() != UISTATE_INGAME || !PSP_IsInited()) && GetUIState() != UISTATE_EXIT) {
-		// In case it was pending, we're not in game anymore.
-		double startTime = time_now_d();
-		NativeFrame(ctx);
+	bool menuThrottle = (GetUIState() != UISTATE_INGAME || !PSP_IsInited()) && GetUIState() != UISTATE_EXIT;
 
+	// In case it was pending, we're not in game anymore.
+	double startTime = time_now_d();
+	NativeFrame(ctx);
+
+	if (menuThrottle) {
 		// Simple throttling to not burn the GPU in the menu.
 		double diffTime = time_now_d() - startTime;
 		int sleepTime = (int)(1000.0 / refreshRate) - (int)(diffTime * 1000.0);
 		if (sleepTime > 0)
 			sleep_ms(sleepTime);
-		if (!windowHidden) {
-			ctx->SwapBuffers();
-		}
 	}
 
-	if ((coreState == CORE_RUNNING || coreState == CORE_STEPPING) && GetUIState() == UISTATE_INGAME) {
-		NativeFrame(ctx);
-		if (!windowHidden && !Core_IsStepping()) {
-			ctx->SwapBuffers();
-		}
+	if (!windowHidden && !Core_IsStepping()) {
+		ctx->SwapBuffers();
 	}
 }
 
