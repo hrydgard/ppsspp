@@ -238,7 +238,7 @@ bool RunAutoTest(HeadlessHost *headlessHost, CoreParameter &coreParameter, const
 	PSP_BeginHostFrame();
 	Draw::DrawContext *draw = coreParameter.graphicsContext ? coreParameter.graphicsContext->GetDrawContext() : nullptr;
 	if (draw)
-		draw->BeginFrame();
+		draw->BeginFrame(Draw::DebugFlags::NONE);
 
 	bool passed = true;
 	double deadline = time_now_d() + opt.timeout;

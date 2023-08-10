@@ -1049,6 +1049,37 @@ void RenderOverlays(UIContext *dc, void *userdata) {
 	}
 }
 
+static Matrix4x4 ComputeOrthoMatrix(float xres, float yres) {
+	Matrix4x4 ortho;
+	switch (GetGPUBackend()) {
+	case GPUBackend::VULKAN:
+		ortho.setOrthoD3D(0.0f, xres, 0, yres, -1.0f, 1.0f);
+		break;
+	case GPUBackend::DIRECT3D9:
+		ortho.setOrthoD3D(0.0f, xres, yres, 0.0f, -1.0f, 1.0f);
+		Matrix4x4 translation;
+		// Account for the small window adjustment.
+		translation.setTranslation(Vec3(
+			-0.5f * g_display.dpi_scale_x / g_display.dpi_scale_real_x,
+			-0.5f * g_display.dpi_scale_y / g_display.dpi_scale_real_y, 0.0f));
+		ortho = translation * ortho;
+		break;
+	case GPUBackend::DIRECT3D11:
+		ortho.setOrthoD3D(0.0f, xres, yres, 0.0f, -1.0f, 1.0f);
+		break;
+	case GPUBackend::OPENGL:
+	default:
+		ortho.setOrtho(0.0f, xres, yres, 0.0f, -1.0f, 1.0f);
+		break;
+	}
+
+	// Compensate for rotated display if needed.
+	if (g_display.rotation != DisplayRotation::ROTATE_0) {
+		ortho = ortho * g_display.rot_matrix;
+	}
+	return ortho;
+}
+
 void NativeFrame(GraphicsContext *graphicsContext) {
 	PROFILE_END_FRAME();
 
@@ -1090,38 +1121,9 @@ void NativeFrame(GraphicsContext *graphicsContext) {
 		g_BackgroundAudio.Update();
 	}
 
-	float xres = g_display.dp_xres;
-	float yres = g_display.dp_yres;
-
 	// Apply the UIContext bounds as a 2D transformation matrix.
 	// TODO: This should be moved into the draw context...
-	Matrix4x4 ortho;
-	switch (GetGPUBackend()) {
-	case GPUBackend::VULKAN:
-		ortho.setOrthoD3D(0.0f, xres, 0, yres, -1.0f, 1.0f);
-		break;
-	case GPUBackend::DIRECT3D9:
-		ortho.setOrthoD3D(0.0f, xres, yres, 0.0f, -1.0f, 1.0f);
-		Matrix4x4 translation;
-		// Account for the small window adjustment.
-		translation.setTranslation(Vec3(
-			-0.5f * g_display.dpi_scale_x / g_display.dpi_scale_real_x,
-			-0.5f * g_display.dpi_scale_y / g_display.dpi_scale_real_y, 0.0f));
-		ortho = translation * ortho;
-		break;
-	case GPUBackend::DIRECT3D11:
-		ortho.setOrthoD3D(0.0f, xres, yres, 0.0f, -1.0f, 1.0f);
-		break;
-	case GPUBackend::OPENGL:
-	default:
-		ortho.setOrtho(0.0f, xres, yres, 0.0f, -1.0f, 1.0f);
-		break;
-	}
-
-	// Compensate for rotated display if needed.
-	if (g_display.rotation != DisplayRotation::ROTATE_0) {
-		ortho = ortho * g_display.rot_matrix;
-	}
+	Matrix4x4 ortho = ComputeOrthoMatrix(g_display.dp_xres, g_display.dp_yres);
 
 	Draw::DebugFlags debugFlags = Draw::DebugFlags::NONE;
 	if ((DebugOverlay)g_Config.iDebugOverlay == DebugOverlay::GPU_PROFILE)
@@ -1129,7 +1131,7 @@ void NativeFrame(GraphicsContext *graphicsContext) {
 	if (g_Config.bGpuLogProfiler)
 		debugFlags |= Draw::DebugFlags::PROFILE_SCOPES;
 
-	g_draw->BeginFrame();
+	g_draw->BeginFrame(debugFlags);
 
 	ui_draw2d.PushDrawMatrix(ortho);
 	ui_draw2d_front.PushDrawMatrix(ortho);
