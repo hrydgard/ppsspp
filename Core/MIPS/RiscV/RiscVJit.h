@@ -38,7 +38,9 @@ public:
 
 	void GenerateFixedCode(MIPSState *mipsState) override;
 	bool CompileBlock(IRBlock *block, int block_num, bool preload) override;
+	void FinalizeBlock(IRBlock *block, int block_num) override;
 	void ClearAllBlocks() override;
+	void InvalidateBlock(IRBlock *block, int block_num) override;
 
 protected:
 	const CodeBlockCommon &CodeBlock() const override {

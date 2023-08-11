@@ -35,8 +35,9 @@
 #include "Core/MIPS/MIPSInt.h"
 #include "Core/MIPS/MIPSTables.h"
 #include "Core/MIPS/IR/IRRegCache.h"
-#include "Core/MIPS/IR/IRJit.h"
 #include "Core/MIPS/IR/IRInterpreter.h"
+#include "Core/MIPS/IR/IRJit.h"
+#include "Core/MIPS/IR/IRNativeCommon.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
 #include "Core/Reporting.h"
 
@@ -72,7 +73,12 @@ void IRJit::ClearCache() {
 }
 
 void IRJit::InvalidateCacheAt(u32 em_address, int length) {
-	blocks_.InvalidateICache(em_address, length);
+	std::vector<int> numbers = blocks_.FindInvalidatedBlockNumbers(em_address, length);
+	for (int block_num : numbers) {
+		auto block = blocks_.GetBlock(block_num);
+		int cookie = block->GetTargetOffset() < 0 ? block_num : block->GetTargetOffset();
+		block->Destroy(cookie);
+	}
 }
 
 void IRJit::Compile(u32 em_address) {
@@ -88,6 +94,7 @@ void IRJit::Compile(u32 em_address) {
 			b->Finalize(cookie);
 			if (b->IsValid()) {
 				// Success, we're done.
+				FinalizeTargetBlock(b, block_num);
 				return;
 			}
 		}
@@ -135,6 +142,8 @@ bool IRJit::CompileBlock(u32 em_address, std::vector<IRInst> &instructions, u32 
 		return false;
 	// Overwrites the first instruction, and also updates stats.
 	blocks_.FinalizeBlock(block_num, preload);
+	if (!preload)
+		FinalizeTargetBlock(b, block_num);
 
 	return true;
 }
@@ -271,10 +280,11 @@ void IRBlockCache::Clear() {
 	byPage_.clear();
 }
 
-void IRBlockCache::InvalidateICache(u32 address, u32 length) {
+std::vector<int> IRBlockCache::FindInvalidatedBlockNumbers(u32 address, u32 length) {
 	u32 startPage = AddressToPage(address);
 	u32 endPage = AddressToPage(address + length);
 
+	std::vector<int> found;
 	for (u32 page = startPage; page <= endPage; ++page) {
 		const auto iter = byPage_.find(page);
 		if (iter == byPage_.end())
@@ -284,11 +294,12 @@ void IRBlockCache::InvalidateICache(u32 address, u32 length) {
 		for (int i : blocksInPage) {
 			if (blocks_[i].OverlapsRange(address, length)) {
 				// Not removing from the page, hopefully doesn't build up with small recompiles.
-				int cookie = blocks_[i].GetTargetOffset() < 0 ? i : blocks_[i].GetTargetOffset();
-				blocks_[i].Destroy(cookie);
+				found.push_back(i);
 			}
 		}
 	}
+
+	return found;
 }
 
 void IRBlockCache::FinalizeBlock(int i, bool preload) {

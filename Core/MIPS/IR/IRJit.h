@@ -110,7 +110,7 @@ class IRBlockCache : public JitBlockCacheDebugInterface {
 public:
 	IRBlockCache() {}
 	void Clear();
-	void InvalidateICache(u32 address, u32 length);
+	std::vector<int> FindInvalidatedBlockNumbers(u32 address, u32 length);
 	void FinalizeBlock(int i, bool preload = false);
 	int GetNumBlocks() const override { return (int)blocks_.size(); }
 	int AllocateBlock(int emAddr) {
@@ -189,6 +189,7 @@ public:
 protected:
 	bool CompileBlock(u32 em_address, std::vector<IRInst> &instructions, u32 &mipsBytes, bool preload);
 	virtual bool CompileTargetBlock(IRBlock *block, int block_num, bool preload) { return true; }
+	virtual void FinalizeTargetBlock(IRBlock *block, int block_num) {}
 
 	JitOptions jo;
 

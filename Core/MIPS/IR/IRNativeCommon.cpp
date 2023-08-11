@@ -404,6 +404,10 @@ bool IRNativeJit::CompileTargetBlock(IRBlock *block, int block_num, bool preload
 	return backend_->CompileBlock(block, block_num, preload);
 }
 
+void IRNativeJit::FinalizeTargetBlock(IRBlock *block, int block_num) {
+	backend_->FinalizeBlock(block, block_num);
+}
+
 void IRNativeJit::RunLoopUntil(u64 globalticks) {
 	if constexpr (enableDebugStats) {
 		LogDebugStats();
@@ -416,6 +420,15 @@ void IRNativeJit::RunLoopUntil(u64 globalticks) {
 void IRNativeJit::ClearCache() {
 	IRJit::ClearCache();
 	backend_->ClearAllBlocks();
+}
+
+void IRNativeJit::InvalidateCacheAt(u32 em_address, int length) {
+	std::vector<int> numbers = blocks_.FindInvalidatedBlockNumbers(em_address, length);
+	for (int block_num : numbers) {
+		auto block = blocks_.GetBlock(block_num);
+		block->Destroy(block->GetTargetOffset());
+		backend_->InvalidateBlock(block, block_num);
+	}
 }
 
 bool IRNativeJit::DescribeCodePtr(const u8 *ptr, std::string &name) {

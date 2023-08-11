@@ -90,6 +90,10 @@ bool RiscVJitBackend::CompileBlock(IRBlock *block, int block_num, bool preload) 
 	return true;
 }
 
+void RiscVJitBackend::FinalizeBlock(IRBlock *block, int block_num) {
+	// TODO
+}
+
 void RiscVJitBackend::CompIR_Generic(IRInst inst) {
 	// If we got here, we're going the slow way.
 	uint64_t value;
@@ -156,6 +160,10 @@ bool RiscVJitBackend::DescribeCodePtr(const u8 *ptr, std::string &name) const {
 void RiscVJitBackend::ClearAllBlocks() {
 	ClearCodeSpace(jitStartOffset_);
 	FlushIcacheSection(region + jitStartOffset_, region + region_size - jitStartOffset_);
+}
+
+void RiscVJitBackend::InvalidateBlock(IRBlock *block, int block_num) {
+	// TODO
 }
 
 void RiscVJitBackend::RestoreRoundingMode(bool force) {

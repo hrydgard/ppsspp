@@ -58,7 +58,9 @@ public:
 
 	virtual void GenerateFixedCode(MIPSState *mipsState) = 0;
 	virtual bool CompileBlock(IRBlock *block, int block_num, bool preload) = 0;
+	virtual void FinalizeBlock(IRBlock *block, int block_num) = 0;
 	virtual void ClearAllBlocks() = 0;
+	virtual void InvalidateBlock(IRBlock *block, int block_num) = 0;
 
 	const IRNativeHooks &GetNativeHooks() const {
 		return hooks_;
@@ -133,6 +135,7 @@ public:
 	void RunLoopUntil(u64 globalticks) override;
 
 	void ClearCache() override;
+	void InvalidateCacheAt(u32 em_address, int length = 4) override;
 
 	bool DescribeCodePtr(const u8 *ptr, std::string &name) override;
 	bool CodeInRange(const u8 *ptr) const override;
@@ -145,6 +148,7 @@ public:
 protected:
 	void Init(IRNativeBackend &backend);
 	bool CompileTargetBlock(IRBlock *block, int block_num, bool preload) override;
+	void FinalizeTargetBlock(IRBlock *block, int block_num) override;
 
 	IRNativeBackend *backend_ = nullptr;
 	IRNativeHooks hooks_;
