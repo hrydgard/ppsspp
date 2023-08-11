@@ -85,6 +85,12 @@ bool RiscVJitBackend::CompileBlock(IRBlock *block, int block_num, bool preload) 
 		QuickJ(R_RA, hooks_.crashHandler);
 	}
 
+	int len = (int)GetOffset(GetCodePointer()) - block->GetTargetOffset();
+	if (len < 16) {
+		// We need at least 16 bytes to invalidate blocks with, but larger doesn't need to align.
+		AlignCode16();
+	}
+
 	FlushIcache();
 
 	return true;
@@ -163,7 +169,30 @@ void RiscVJitBackend::ClearAllBlocks() {
 }
 
 void RiscVJitBackend::InvalidateBlock(IRBlock *block, int block_num) {
-	// TODO
+	int offset = block->GetTargetOffset();
+	u8 *writable = GetWritablePtrFromCodePtr(GetBasePtr()) + offset;
+
+	u32 pc, len;
+	block->GetRange(pc, len);
+
+	// Overwrite the block with a jump to compile it again.
+	if (pc != 0) {
+		// Hopefully we always have at least 16 bytes, which should be all we need.
+		if (PlatformIsWXExclusive()) {
+			ProtectMemoryPages(writable, 16, MEM_PROT_READ | MEM_PROT_WRITE);
+		}
+
+		RiscVEmitter emitter(GetBasePtr() + offset, writable);
+		// We sign extend to ensure it will fit in 32-bit and 8 bytes LI.
+		// TODO: Would need to change if dispatcher doesn't reload PC.
+		emitter.LI(SCRATCH1, (int32_t)pc);
+		emitter.J(dispatcherPCInSCRATCH1_);
+		emitter.FlushIcache();
+
+		if (PlatformIsWXExclusive()) {
+			ProtectMemoryPages(writable, 16, MEM_PROT_READ | MEM_PROT_EXEC);
+		}
+	}
 }
 
 void RiscVJitBackend::RestoreRoundingMode(bool force) {

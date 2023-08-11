@@ -426,8 +426,8 @@ void IRNativeJit::InvalidateCacheAt(u32 em_address, int length) {
 	std::vector<int> numbers = blocks_.FindInvalidatedBlockNumbers(em_address, length);
 	for (int block_num : numbers) {
 		auto block = blocks_.GetBlock(block_num);
-		block->Destroy(block->GetTargetOffset());
 		backend_->InvalidateBlock(block, block_num);
+		block->Destroy(block->GetTargetOffset());
 	}
 }
 
