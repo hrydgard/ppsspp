@@ -198,9 +198,8 @@ void App::Run() {
 	while (!m_windowClosed) {
 		if (m_windowVisible) {
 			CoreWindow::GetForCurrentThread()->Dispatcher->ProcessEvents(CoreProcessEventsOption::ProcessAllIfPresent);
-			if (m_main->Render()) {
-				m_deviceResources->Present();
-			}
+			m_main->Render();
+			// TODO: Adopt some practices from m_deviceResources->Present();
 		} else {
 			CoreWindow::GetForCurrentThread()->Dispatcher->ProcessEvents(CoreProcessEventsOption::ProcessOneAndAllPending);
 		}

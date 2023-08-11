@@ -480,7 +480,7 @@ public:
 
 	void BeginFrame(DebugFlags debugFlags) override;
 	void EndFrame() override;
-	void Present() override;
+	void Present(int vblanks) override;
 
 	void WipeQueue() override;
 
@@ -1121,7 +1121,8 @@ void VKContext::EndFrame() {
 	Invalidate(InvalidationFlags::CACHED_RENDER_STATE);
 }
 
-void VKContext::Present() {
+void VKContext::Present(int vblanks) {
+	_dbg_assert_(vblanks == 0 || vblanks == 1);
 	renderManager_.Present();
 	frameCount_++;
 }

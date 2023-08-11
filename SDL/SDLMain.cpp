@@ -1452,8 +1452,6 @@ int main(int argc, char *argv[]) {
 				break;
 		}
 
-		graphicsContext->SwapBuffers();
-
 		{
 			std::lock_guard<std::mutex> guard(g_mutexWindow);
 			if (g_windowState.update) {

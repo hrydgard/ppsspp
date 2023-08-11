@@ -70,7 +70,6 @@ public:
 		// See TODO in constructor.
 		// renderManager_->SwapInterval(interval);
 	}
-	void SwapBuffers() override {}
 	void Resize() override {}
 
 	Draw::DrawContext *GetDrawContext() override {

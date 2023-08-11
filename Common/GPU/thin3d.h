@@ -815,7 +815,7 @@ public:
 	// Frame management (for the purposes of sync and resource management, necessary with modern APIs). Default implementations here.
 	virtual void BeginFrame(DebugFlags debugFlags) {}
 	virtual void EndFrame() = 0;
-	virtual void Present() = 0;
+	virtual void Present(int vblanks) = 0;  // NOTE: Not all backends support vblanks > 1.
 
 	virtual void WipeQueue() {}
 
