@@ -1504,7 +1504,7 @@ bool EmuScreen::hasVisibleUI() {
 	if (g_Config.bEnableCardboardVR || g_Config.bEnableNetworkChat)
 		return true;
 	// Debug UI.
-	if ((DebugOverlay)g_Config.iDebugOverlay != DebugOverlay::OFF)
+	if ((DebugOverlay)g_Config.iDebugOverlay != DebugOverlay::OFF || g_Config.bShowDeveloperMenu)
 		return true;
 
 	// Exception information.

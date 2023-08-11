@@ -6,6 +6,7 @@
 #include "Core/HLE/sceSas.h"
 #include "Core/ControlMapper.h"
 #include "Core/Config.h"
+#include "Core/System.h"
 #include "GPU/GPU.h"
 // TODO: This should be moved here or to Common, doesn't belong in /GPU
 #include "GPU/Vulkan/DebugVisVulkan.h"
@@ -164,12 +165,16 @@ void DrawControlMapperOverlay(UIContext *ctx, const Bounds &bounds, const Contro
 }
 
 void DrawDebugOverlay(UIContext *ctx, const Bounds &bounds, DebugOverlay overlay) {
+	bool inGame = GetUIState() == UISTATE_INGAME;
+
 	switch (overlay) {
 	case DebugOverlay::DEBUG_STATS:
-		DrawDebugStats(ctx, ctx->GetLayoutBounds());
+		if (!inGame)
+			DrawDebugStats(ctx, ctx->GetLayoutBounds());
 		break;
 	case DebugOverlay::FRAME_GRAPH:
-		DrawFrameTimes(ctx, ctx->GetLayoutBounds());
+		if (!inGame)
+			DrawFrameTimes(ctx, ctx->GetLayoutBounds());
 		break;
 	case DebugOverlay::FRAME_TIMING:
 		DrawFrameTiming(ctx, ctx->GetLayoutBounds());
