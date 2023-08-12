@@ -536,7 +536,7 @@ void IRNativeBackend::FinalizeBlock(IRBlock *block, int block_num, const JitOpti
 			}
 		}
 
-		// And also any blocks to this one, in case we're finalizing it later.
+		// And also any blocks from this one, in case we're finalizing it later.
 		auto &outgoing = nativeBlocks_[block_num].exits;
 		for (auto &blockExit : outgoing) {
 			int dstBlockNum = blocks_.GetBlockNumberFromStartAddress(blockExit.dest);
@@ -561,7 +561,7 @@ void IRNativeBackend::SetBlockCheckedOffset(int block_num, int offset) {
 }
 
 void IRNativeBackend::AddLinkableExit(int block_num, uint32_t pc, int exitStartOffset, int exitLen) {
-	linksTo_.insert(std::make_pair(block_num, pc));
+	linksTo_.insert(std::make_pair(pc, block_num));
 
 	if (block_num >= (int)nativeBlocks_.size())
 		nativeBlocks_.resize(block_num + 1);
