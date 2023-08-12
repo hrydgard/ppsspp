@@ -9,6 +9,10 @@
 #include <switch.h>
 #endif // HAVE_LIBNX
 
+#ifdef __EMSCRIPTEN__
+#include <emscripten/emscripten.h>
+#endif // __EMSCRIPTEN__
+
 #ifdef _WIN32
 #include "CommonWindows.h"
 #include <mmsystem.h>
@@ -58,6 +62,8 @@ void sleep_ms(int ms) {
 	Sleep(ms);
 #elif defined(HAVE_LIBNX)
 	svcSleepThread(ms * 1000000);
+#elif defined(__EMSCRIPTEN__)
+	emscripten_sleep(ms);
 #else
 	usleep(ms * 1000);
 #endif
