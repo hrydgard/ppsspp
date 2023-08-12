@@ -25,8 +25,12 @@ namespace MIPSComp {
 using namespace RiscVGen;
 using namespace RiscVJitConstants;
 
-RiscVJitBackend::RiscVJitBackend(MIPSState *mipsState, JitOptions &jitopt)
-	: jo(jitopt), gpr(mipsState, &jo), fpr(mipsState, &jo) {
+// Needs space for a LI and J which might both be 32-bit offsets.
+static constexpr int MIN_BLOCK_NORMAL_LEN = 16;
+static constexpr int MIN_BLOCK_EXIT_LEN = 8;
+
+RiscVJitBackend::RiscVJitBackend(MIPSState *mipsState, JitOptions &jitopt, IRBlockCache &blocks)
+	: IRNativeBackend(blocks), jo(jitopt), gpr(mipsState, &jo), fpr(mipsState, &jo) {
 	// Automatically disable incompatible options.
 	if (((intptr_t)Memory::base & 0x00000000FFFFFFFFUL) != 0) {
 		jo.enablePointerify = false;
@@ -52,10 +56,23 @@ bool RiscVJitBackend::CompileBlock(IRBlock *block, int block_num, bool preload) 
 	if (GetSpaceLeft() < 0x800)
 		return false;
 
-	// Don't worry, the codespace isn't large enough to overflow offsets.
-	block->SetTargetOffset((int)GetOffset(GetCodePointer()));
+	u32 startPC = block->GetOriginalStart();
+	bool wroteCheckedOffset = false;
+	FixupBranch lateCheckFail;
+	if (jo.enableBlocklink && !jo.useBackJump) {
+		SetBlockCheckedOffset(block_num, (int)GetOffset(GetCodePointer()));
+		wroteCheckedOffset = true;
 
-	// TODO: Block linking, checked entries and such.
+		FixupBranch normalEntry = BGE(DOWNCOUNTREG, R_ZERO);
+		LI(SCRATCH1, startPC);
+		QuickJ(R_RA, outerLoopPCInSCRATCH1_);
+		SetJumpTarget(normalEntry);
+	}
+
+	// Don't worry, the codespace isn't large enough to overflow offsets.
+	const u8 *blockStart = GetCodePointer();
+	block->SetTargetOffset((int)GetOffset(blockStart));
+	compilingBlockNum_ = block_num;
 
 	gpr.Start(block);
 	fpr.Start(block);
@@ -74,6 +91,7 @@ bool RiscVJitBackend::CompileBlock(IRBlock *block, int block_num, bool preload) 
 
 		// Safety check, in case we get a bunch of really large jit ops without a lot of branching.
 		if (GetSpaceLeft() < 0x800) {
+			compilingBlockNum_ = -1;
 			return false;
 		}
 	}
@@ -86,18 +104,82 @@ bool RiscVJitBackend::CompileBlock(IRBlock *block, int block_num, bool preload) 
 	}
 
 	int len = (int)GetOffset(GetCodePointer()) - block->GetTargetOffset();
-	if (len < 16) {
+	if (len < MIN_BLOCK_NORMAL_LEN) {
 		// We need at least 16 bytes to invalidate blocks with, but larger doesn't need to align.
-		AlignCode16();
+		ReserveCodeSpace(MIN_BLOCK_NORMAL_LEN - len);
+	}
+
+	if (!wroteCheckedOffset) {
+		// Always record this, even if block link disabled - it's used for size calc.
+		SetBlockCheckedOffset(block_num, (int)GetOffset(GetCodePointer()));
+	}
+
+	if (jo.enableBlocklink && jo.useBackJump) {
+		// Most blocks shouldn't be >= 4KB, so usually we can just BGE.
+		if (BInRange(blockStart)) {
+			BGE(DOWNCOUNTREG, R_ZERO, blockStart);
+		} else {
+			FixupBranch skip = BLT(DOWNCOUNTREG, R_ZERO);
+			J(blockStart);
+			SetJumpTarget(skip);
+		}
+		LI(SCRATCH1, startPC);
+		QuickJ(R_RA, outerLoopPCInSCRATCH1_);
 	}
 
 	FlushIcache();
+	compilingBlockNum_ = -1;
 
 	return true;
 }
 
-void RiscVJitBackend::FinalizeBlock(IRBlock *block, int block_num) {
-	// TODO
+void RiscVJitBackend::WriteConstExit(uint32_t pc) {
+	int block_num = blocks_.GetBlockNumberFromStartAddress(pc);
+	const IRNativeBlock *nativeBlock = GetNativeBlock(block_num);
+
+	int exitStart = (int)GetOffset(GetCodePointer());
+	if (block_num >= 0 && jo.enableBlocklink && nativeBlock && nativeBlock->checkedOffset != 0) {
+		// Don't bother recording, we don't every overwrite to "unlink".
+		// Instead, we would mark the target block to jump to the dispatcher.
+		QuickJ(SCRATCH1, GetBasePtr() + nativeBlock->checkedOffset);
+	} else {
+		LI(SCRATCH1, pc);
+		QuickJ(R_RA, dispatcherPCInSCRATCH1_);
+	}
+
+	if (jo.enableBlocklink) {
+		// In case of compression or early link, make sure it's large enough.
+		int len = (int)GetOffset(GetCodePointer()) - exitStart;
+		if (len < MIN_BLOCK_EXIT_LEN) {
+			ReserveCodeSpace(MIN_BLOCK_EXIT_LEN - len);
+			len = MIN_BLOCK_EXIT_LEN;
+		}
+
+		AddLinkableExit(compilingBlockNum_, pc, exitStart, len);
+	}
+}
+
+void RiscVJitBackend::OverwriteExit(int srcOffset, int len, int block_num) {
+	_dbg_assert_(len >= MIN_BLOCK_EXIT_LEN);
+
+	const IRNativeBlock *nativeBlock = GetNativeBlock(block_num);
+	if (nativeBlock) {
+		u8 *writable = GetWritablePtrFromCodePtr(GetBasePtr()) + srcOffset;
+		if (PlatformIsWXExclusive()) {
+			ProtectMemoryPages(writable, len, MEM_PROT_READ | MEM_PROT_WRITE);
+		}
+
+		RiscVEmitter emitter(GetBasePtr() + srcOffset, writable);
+		emitter.QuickJ(SCRATCH1, GetBasePtr() + nativeBlock->checkedOffset);
+		int bytesWritten = (int)(emitter.GetWritableCodePtr() - writable);
+		if (bytesWritten < len)
+			emitter.ReserveCodeSpace(len - bytesWritten);
+		emitter.FlushIcache();
+
+		if (PlatformIsWXExclusive()) {
+			ProtectMemoryPages(writable, 16, MEM_PROT_READ | MEM_PROT_EXEC);
+		}
+	}
 }
 
 void RiscVJitBackend::CompIR_Generic(IRInst inst) {
@@ -166,6 +248,7 @@ bool RiscVJitBackend::DescribeCodePtr(const u8 *ptr, std::string &name) const {
 void RiscVJitBackend::ClearAllBlocks() {
 	ClearCodeSpace(jitStartOffset_);
 	FlushIcacheSection(region + jitStartOffset_, region + region_size - jitStartOffset_);
+	EraseAllLinks(-1);
 }
 
 void RiscVJitBackend::InvalidateBlock(IRBlock *block, int block_num) {
@@ -182,15 +265,20 @@ void RiscVJitBackend::InvalidateBlock(IRBlock *block, int block_num) {
 
 		RiscVEmitter emitter(GetBasePtr() + offset, writable);
 		// We sign extend to ensure it will fit in 32-bit and 8 bytes LI.
-		// TODO: Would need to change if dispatcher doesn't reload PC.
+		// TODO: May need to change if dispatcher doesn't reload PC.
 		emitter.LI(SCRATCH1, (int32_t)pc);
-		emitter.J(dispatcherPCInSCRATCH1_);
+		emitter.QuickJ(R_RA, dispatcherPCInSCRATCH1_);
+		int bytesWritten = (int)(emitter.GetWritableCodePtr() - writable);
+		if (bytesWritten < MIN_BLOCK_NORMAL_LEN)
+			emitter.ReserveCodeSpace(MIN_BLOCK_NORMAL_LEN - bytesWritten);
 		emitter.FlushIcache();
 
 		if (PlatformIsWXExclusive()) {
 			ProtectMemoryPages(writable, 16, MEM_PROT_READ | MEM_PROT_EXEC);
 		}
 	}
+
+	EraseAllLinks(block_num);
 }
 
 void RiscVJitBackend::RestoreRoundingMode(bool force) {

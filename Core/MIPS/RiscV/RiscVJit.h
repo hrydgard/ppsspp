@@ -31,14 +31,13 @@ namespace MIPSComp {
 
 class RiscVJitBackend : public RiscVGen::RiscVCodeBlock, public IRNativeBackend {
 public:
-	RiscVJitBackend(MIPSState *mipsState, JitOptions &jo);
+	RiscVJitBackend(MIPSState *mipsState, JitOptions &jo, IRBlockCache &blocks);
 	~RiscVJitBackend();
 
 	bool DescribeCodePtr(const u8 *ptr, std::string &name) const override;
 
 	void GenerateFixedCode(MIPSState *mipsState) override;
 	bool CompileBlock(IRBlock *block, int block_num, bool preload) override;
-	void FinalizeBlock(IRBlock *block, int block_num) override;
 	void ClearAllBlocks() override;
 	void InvalidateBlock(IRBlock *block, int block_num) override;
 
@@ -58,6 +57,9 @@ private:
 
 	// Note: destroys SCRATCH1.
 	void FlushAll();
+
+	void WriteConstExit(uint32_t pc);
+	void OverwriteExit(int srcOffset, int len, int block_num) override;
 
 	void CompIR_Arith(IRInst inst) override;
 	void CompIR_Assign(IRInst inst) override;
@@ -124,12 +126,13 @@ private:
 	const u8 *loadStaticRegisters_ = nullptr;
 
 	int jitStartOffset_ = 0;
+	int compilingBlockNum_ = -1;
 };
 
 class RiscVJit : public IRNativeJit {
 public:
 	RiscVJit(MIPSState *mipsState)
-		: IRNativeJit(mipsState), rvBackend_(mipsState, jo) {
+		: IRNativeJit(mipsState), rvBackend_(mipsState, jo, blocks_) {
 		Init(rvBackend_);
 	}
 

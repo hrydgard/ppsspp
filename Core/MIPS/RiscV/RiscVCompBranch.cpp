@@ -41,8 +41,7 @@ void RiscVJitBackend::CompIR_Exit(IRInst inst) {
 	switch (inst.op) {
 	case IROp::ExitToConst:
 		FlushAll();
-		LI(SCRATCH1, inst.constant);
-		QuickJ(R_RA, dispatcherPCInSCRATCH1_);
+		WriteConstExit(inst.constant);
 		break;
 
 	case IROp::ExitToReg:
@@ -92,8 +91,7 @@ void RiscVJitBackend::CompIR_ExitIf(IRInst inst) {
 			break;
 		}
 
-		LI(SCRATCH1, inst.constant);
-		QuickJ(R_RA, dispatcherPCInSCRATCH1_);
+		WriteConstExit(inst.constant);
 		SetJumpTarget(fixup);
 		break;
 
@@ -127,8 +125,7 @@ void RiscVJitBackend::CompIR_ExitIf(IRInst inst) {
 			break;
 		}
 
-		LI(SCRATCH1, inst.constant);
-		QuickJ(R_RA, dispatcherPCInSCRATCH1_);
+		WriteConstExit(inst.constant);
 		SetJumpTarget(fixup);
 		break;
 

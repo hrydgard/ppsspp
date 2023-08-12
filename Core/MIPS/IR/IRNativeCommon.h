@@ -15,24 +15,9 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <unordered_map>
 #include "Core/MIPS/IR/IRJit.h"
 #include "Core/MIPS/JitCommon/JitBlockCache.h"
-
-class IRNativeBlockCacheDebugInterface : public JitBlockCacheDebugInterface {
-public:
-	IRNativeBlockCacheDebugInterface(const MIPSComp::IRBlockCache &irBlocks);
-	void Init(const CodeBlockCommon *codeBlock);
-	int GetNumBlocks() const;
-	int GetBlockNumberFromStartAddress(u32 em_address, bool realBlocksOnly = true) const;
-	JitBlockDebugInfo GetBlockDebugInfo(int blockNum) const;
-	void ComputeStats(BlockCacheStats &bcStats) const;
-
-private:
-	void GetBlockCodeRange(int blockNum, int *startOffset, int *size) const;
-
-	const MIPSComp::IRBlockCache &irBlocks_;
-	const CodeBlockCommon *codeBlock_ = nullptr;
-};
 
 namespace MIPSComp {
 
@@ -46,8 +31,20 @@ struct IRNativeHooks {
 	const uint8_t *crashHandler = nullptr;
 };
 
+struct IRNativeBlockExit {
+	int offset;
+	int len;
+	uint32_t dest;
+};
+
+struct IRNativeBlock {
+	int checkedOffset = 0;
+	std::vector<IRNativeBlockExit> exits;
+};
+
 class IRNativeBackend {
 public:
+	IRNativeBackend(IRBlockCache &blocks);
 	virtual ~IRNativeBackend() {}
 
 	void CompileIRInst(IRInst inst);
@@ -58,13 +55,16 @@ public:
 
 	virtual void GenerateFixedCode(MIPSState *mipsState) = 0;
 	virtual bool CompileBlock(IRBlock *block, int block_num, bool preload) = 0;
-	virtual void FinalizeBlock(IRBlock *block, int block_num) = 0;
 	virtual void ClearAllBlocks() = 0;
 	virtual void InvalidateBlock(IRBlock *block, int block_num) = 0;
+	void FinalizeBlock(IRBlock *block, int block_num, const JitOptions &jo);
 
 	const IRNativeHooks &GetNativeHooks() const {
 		return hooks_;
 	}
+
+	const IRNativeBlock *GetNativeBlock(int block_num) const;
+	void SetBlockCheckedOffset(int block_num, int offset);
 
 	virtual const CodeBlockCommon &CodeBlock() const = 0;
 
@@ -112,6 +112,8 @@ protected:
 	virtual void CompIR_VecStore(IRInst inst) = 0;
 	virtual void CompIR_ValidateAddress(IRInst inst) = 0;
 
+	virtual void OverwriteExit(int srcOffset, int len, int block_num) = 0;
+
 	// Returns true when debugging statistics should be compiled in.
 	bool DebugStatsEnabled() const;
 
@@ -125,7 +127,30 @@ protected:
 	// Callback to log AND perform an IR interpreter inst.  Returns 0 or a PC to jump to.
 	static uint32_t DoIRInst(uint64_t inst);
 
+	void AddLinkableExit(int block_num, uint32_t pc, int exitStartOffset, int exitLen);
+	void EraseAllLinks(int block_num);
+
 	IRNativeHooks hooks_;
+	IRBlockCache &blocks_;
+	std::vector<IRNativeBlock> nativeBlocks_;
+	std::unordered_multimap<uint32_t, int> linksTo_;
+};
+
+class IRNativeBlockCacheDebugInterface : public JitBlockCacheDebugInterface {
+public:
+	IRNativeBlockCacheDebugInterface(const MIPSComp::IRBlockCache &irBlocks);
+	void Init(const IRNativeBackend *backend);
+	int GetNumBlocks() const;
+	int GetBlockNumberFromStartAddress(u32 em_address, bool realBlocksOnly = true) const;
+	JitBlockDebugInfo GetBlockDebugInfo(int blockNum) const;
+	void ComputeStats(BlockCacheStats &bcStats) const;
+
+private:
+	void GetBlockCodeRange(int blockNum, int *startOffset, int *size) const;
+
+	const MIPSComp::IRBlockCache &irBlocks_;
+	const CodeBlockCommon *codeBlock_ = nullptr;
+	const IRNativeBackend *backend_ = nullptr;
 };
 
 class IRNativeJit : public IRJit {
