@@ -1216,7 +1216,7 @@ void JitCompareScreen::OnRandomBlock(int flag) {
 			currentBlock_ = rand() % numBlocks;
 			JitBlockDebugInfo b = blockCache->GetBlockDebugInfo(currentBlock_);
 			u32 mipsBytes = (u32)b.origDisasm.size() * 4;
-			for (u32 addr = b.originalAddress; addr <= b.originalAddress + mipsBytes; addr += 4) {
+			for (u32 addr = b.originalAddress; addr < b.originalAddress + mipsBytes; addr += 4) {
 				MIPSOpcode opcode = Memory::Read_Instruction(addr);
 				if (MIPSGetInfo(opcode) & flag) {
 					char temp[256];
