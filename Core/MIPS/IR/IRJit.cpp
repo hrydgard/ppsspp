@@ -332,10 +332,7 @@ int IRBlockCache::FindPreloadBlock(u32 em_address) {
 
 	const std::vector<int> &blocksInPage = iter->second;
 	for (int i : blocksInPage) {
-		u32 start, mipsBytes;
-		blocks_[i].GetRange(start, mipsBytes);
-
-		if (start == em_address) {
+		if (blocks_[i].GetOriginalStart() == em_address) {
 			if (blocks_[i].HashMatches()) {
 				return i;
 			}
@@ -457,9 +454,7 @@ int IRBlockCache::GetBlockNumberFromStartAddress(u32 em_address, bool realBlocks
 	const std::vector<int> &blocksInPage = iter->second;
 	int best = -1;
 	for (int i : blocksInPage) {
-		uint32_t start, size;
-		blocks_[i].GetRange(start, size);
-		if (start == em_address) {
+		if (blocks_[i].GetOriginalStart() == em_address) {
 			best = i;
 			if (blocks_[i].IsValid()) {
 				return i;

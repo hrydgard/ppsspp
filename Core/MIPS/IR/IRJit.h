@@ -90,6 +90,9 @@ public:
 		start = origAddr_;
 		size = origSize_;
 	}
+	u32 GetOriginalStart() const {
+		return origAddr_;
+	}
 
 	void Finalize(int number);
 	void Destroy(int number);

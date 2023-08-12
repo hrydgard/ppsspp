@@ -172,10 +172,8 @@ void RiscVJitBackend::InvalidateBlock(IRBlock *block, int block_num) {
 	int offset = block->GetTargetOffset();
 	u8 *writable = GetWritablePtrFromCodePtr(GetBasePtr()) + offset;
 
-	u32 pc, len;
-	block->GetRange(pc, len);
-
 	// Overwrite the block with a jump to compile it again.
+	u32 pc = block->GetOriginalStart();
 	if (pc != 0) {
 		// Hopefully we always have at least 16 bytes, which should be all we need.
 		if (PlatformIsWXExclusive()) {
