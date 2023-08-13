@@ -15,6 +15,8 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <cstddef>
+#include "ext/riscv-disas.h"
 #include "Core/MemMap.h"
 #include "Core/MIPS/MIPSTables.h"
 #include "Core/MIPS/RiscV/RiscVJit.h"
@@ -77,10 +79,13 @@ bool RiscVJitBackend::CompileBlock(IRBlock *block, int block_num, bool preload) 
 	gpr.Start(block);
 	fpr.Start(block);
 
+	std::map<const u8 *, IRInst> addresses;
 	for (int i = 0; i < block->GetNumInstructions(); ++i) {
 		const IRInst &inst = block->GetInstructions()[i];
 		gpr.SetIRIndex(i);
 		fpr.SetIRIndex(i);
+		// TODO: This might be a little wasteful when compiling if we're not debugging jit...
+		addresses[GetCodePtr()] = inst;
 
 		CompileIRInst(inst);
 
@@ -125,6 +130,30 @@ bool RiscVJitBackend::CompileBlock(IRBlock *block, int block_num, bool preload) 
 		}
 		LI(SCRATCH1, startPC);
 		QuickJ(R_RA, outerLoopPCInSCRATCH1_);
+	}
+
+	if (logBlocks_ > 0) {
+		--logBlocks_;
+
+		INFO_LOG(JIT, "== RISCV ==");
+		INFO_LOG(JIT, "=============== RISCV (%d bytes) ===============", len);
+		for (const u8 *p = blockStart; p < GetCodePointer(); ) {
+			char temp[512];
+			rv_inst inst;
+			size_t len;
+
+			auto it = addresses.find(p);
+			if (it != addresses.end()) {
+				DisassembleIR(temp, sizeof(temp), it->second);
+				INFO_LOG(JIT, "IR: # %s", temp);
+			}
+
+			riscv_inst_fetch(p, &inst, &len);
+			riscv_disasm_inst(temp, sizeof(temp), rv64, (uintptr_t)p, inst);
+			p += len;
+
+			INFO_LOG(JIT, "RV: %s", temp);
+		}
 	}
 
 	FlushIcache();

@@ -127,6 +127,7 @@ private:
 
 	int jitStartOffset_ = 0;
 	int compilingBlockNum_ = -1;
+	int logBlocks_ = 0;
 };
 
 class RiscVJit : public IRNativeJit {
