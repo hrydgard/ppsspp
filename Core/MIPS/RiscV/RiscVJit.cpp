@@ -31,9 +31,6 @@ using namespace RiscVJitConstants;
 static constexpr int MIN_BLOCK_NORMAL_LEN = 16;
 static constexpr int MIN_BLOCK_EXIT_LEN = 8;
 
-// Use this if you want to check a specific block (correlates IR) or -1 for all.
-static constexpr uint32_t disasmBlockAddr = 0;
-
 RiscVJitBackend::RiscVJitBackend(MIPSState *mipsState, JitOptions &jitopt, IRBlockCache &blocks)
 	: IRNativeBackend(blocks), jo(jitopt), gpr(mipsState, &jo), fpr(mipsState, &jo) {
 	// Automatically disable incompatible options.
@@ -82,15 +79,13 @@ bool RiscVJitBackend::CompileBlock(IRBlock *block, int block_num, bool preload) 
 	gpr.Start(block);
 	fpr.Start(block);
 
-	// Used only for disasmBlockAddr.
 	std::map<const u8 *, IRInst> addresses;
 	for (int i = 0; i < block->GetNumInstructions(); ++i) {
 		const IRInst &inst = block->GetInstructions()[i];
 		gpr.SetIRIndex(i);
 		fpr.SetIRIndex(i);
-		if constexpr (disasmBlockAddr != 0) {
-			addresses[GetCodePtr()] = inst;
-		}
+		// TODO: This might be a little wasteful when compiling if we're not debugging jit...
+		addresses[GetCodePtr()] = inst;
 
 		CompileIRInst(inst);
 
@@ -137,7 +132,9 @@ bool RiscVJitBackend::CompileBlock(IRBlock *block, int block_num, bool preload) 
 		QuickJ(R_RA, outerLoopPCInSCRATCH1_);
 	}
 
-	if (disasmBlockAddr == -1 || disasmBlockAddr == startPC) {
+	if (logBlocks_ > 0) {
+		--logBlocks_;
+
 		INFO_LOG(JIT, "== RISCV ==");
 		INFO_LOG(JIT, "=============== RISCV (%d bytes) ===============", len);
 		for (const u8 *p = blockStart; p < GetCodePointer(); ) {
