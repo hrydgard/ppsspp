@@ -24,6 +24,9 @@ bool IRReadsFromGPR(const IRInst &inst, int reg, bool directly = false);
 bool IRWritesToGPR(const IRInst &inst, int reg);
 bool IRWritesToFPR(const IRInst &inst, int reg);
 int IRDestGPR(const IRInst &inst);
+int IRDestFPRs(const IRInst &inst, IRReg regs[4]);
+int IRReadsFromGPRs(const IRInst &inst, IRReg regs[4]);
+int IRReadsFromFPRs(const IRInst &inst, IRReg regs[16]);
 
 struct IRSituation {
 	int lookaheadCount;
