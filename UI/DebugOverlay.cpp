@@ -169,11 +169,11 @@ void DrawDebugOverlay(UIContext *ctx, const Bounds &bounds, DebugOverlay overlay
 
 	switch (overlay) {
 	case DebugOverlay::DEBUG_STATS:
-		if (!inGame)
+		if (inGame)
 			DrawDebugStats(ctx, ctx->GetLayoutBounds());
 		break;
 	case DebugOverlay::FRAME_GRAPH:
-		if (!inGame)
+		if (inGame)
 			DrawFrameTimes(ctx, ctx->GetLayoutBounds());
 		break;
 	case DebugOverlay::FRAME_TIMING:
