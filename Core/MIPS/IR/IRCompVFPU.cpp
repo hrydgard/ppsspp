@@ -66,10 +66,12 @@ namespace MIPSComp {
 		return regs[1] == regs[0] + 1;
 	}
 
+	static bool IsConsecutive3(const u8 regs[3]) {
+		return IsConsecutive2(regs) && regs[2] == regs[1] + 1;
+	}
+
 	static bool IsConsecutive4(const u8 regs[4]) {
-		return regs[1] == regs[0] + 1 &&
-			     regs[2] == regs[1] + 1 &&
-			     regs[3] == regs[2] + 1;
+		return IsConsecutive3(regs) && regs[3] == regs[2] + 1;
 	}
 
 	static bool IsVec2(VectorSize sz, const u8 regs[2]) {
@@ -78,6 +80,10 @@ namespace MIPSComp {
 
 	static bool IsVec4(VectorSize sz, const u8 regs[4]) {
 		return sz == V_Quad && IsConsecutive4(regs) && (regs[0] & 3) == 0;
+	}
+
+	static bool IsVec3of4(VectorSize sz, const u8 regs[4]) {
+		return sz == V_Triple && IsConsecutive3(regs) && (regs[0] & 3) == 0;
 	}
 
 	static bool IsMatrixVec4(MatrixSize sz, const u8 regs[16]) {
@@ -1629,8 +1635,46 @@ namespace MIPSComp {
 		// d[0] = s[y]*t[z], d[1] = s[z]*t[x], d[2] = s[x]*t[y]
 		// To do a full cross product: vcrs tmp1, s, t; vcrs tmp2 t, s; vsub d, tmp1, tmp2;
 		// (or just use vcrsp.)
+		// Note: this is possibly just a swizzle prefix hack for vmul.
 
-		DISABLE;
+		VectorSize sz = GetVecSize(op);
+		int n = GetNumVectorElements(sz);
+		if (sz != V_Triple)
+			DISABLE;
+
+		u8 sregs[4], dregs[4], tregs[4];
+		GetVectorRegsPrefixS(sregs, sz, _VS);
+		GetVectorRegsPrefixT(tregs, sz, _VT);
+		GetVectorRegsPrefixD(dregs, sz, _VD);
+
+		if (IsVec3of4(sz, dregs) && IsVec3of4(sz, sregs) && IsVec3of4(sz, tregs)) {
+			// Use Vec4 where we can.  First, apply shuffles.
+			ir.Write(IROp::Vec4Shuffle, IRVTEMP_PFX_S, sregs[0], VFPU_SWIZZLE(1, 2, 0, 3));
+			ir.Write(IROp::Vec4Shuffle, IRVTEMP_PFX_T, tregs[0], VFPU_SWIZZLE(2, 0, 1, 3));
+			ir.Write(IROp::Vec4Mul, IRVTEMP_0, IRVTEMP_PFX_S, IRVTEMP_PFX_T);
+			// Now just retain w and blend in our values.
+			ir.Write({ IROp::Vec4Blend, dregs[0], dregs[0], IRVTEMP_0, 0x7 });
+		} else {
+			u8 tempregs[4]{};
+			if (!IsOverlapSafe(n, dregs, n, sregs, n, tregs)) {
+				for (int i = 0; i < n; ++i)
+					tempregs[i] = IRVTEMP_0 + i;
+			} else {
+				for (int i = 0; i < n; ++i)
+					tempregs[i] = dregs[i];
+			}
+
+			ir.Write(IROp::FMul, tempregs[0], sregs[1], tregs[2]);
+			ir.Write(IROp::FMul, tempregs[1], sregs[2], tregs[0]);
+			ir.Write(IROp::FMul, tempregs[2], sregs[0], tregs[1]);
+
+			for (int i = 0; i < n; i++) {
+				if (tempregs[i] != dregs[i])
+					ir.Write(IROp::FMov, dregs[i], tempregs[i]);
+			}
+		}
+
+		ApplyPrefixD(dregs, sz, _VD);
 	}
 
 	void IRFrontend::Comp_VDet(MIPSOpcode op) {
