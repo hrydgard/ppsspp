@@ -439,13 +439,6 @@ int SDLGLGraphicsContext::Init(SDL_Window *&window, int x, int y, int w, int h, 
 	return 0;
 }
 
-void SDLGLGraphicsContext::SwapInterval(int interval) {
-	renderManager_->SwapInterval(interval);
-}
-
-void SDLGLGraphicsContext::Shutdown() {
-}
-
 void SDLGLGraphicsContext::ShutdownFromRenderThread() {
 	delete draw_;
 	draw_ = nullptr;
