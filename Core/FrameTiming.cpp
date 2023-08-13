@@ -20,7 +20,7 @@ inline Draw::PresentMode GetBestImmediateMode(Draw::PresentMode supportedModes) 
 }
 
 void FrameTiming::Reset(Draw::DrawContext *draw) {
-	if (g_Config.bVSync) {
+	if (g_Config.bVSync || !(draw->GetDeviceCaps().presentModesSupported & (Draw::PresentMode::MAILBOX| Draw::PresentMode::IMMEDIATE))) {
 		presentMode = Draw::PresentMode::FIFO;
 		presentInterval = 1;
 	} else {

@@ -1301,10 +1301,6 @@ bool VulkanContext::InitSwapchain() {
 			break;
 		}
 	}
-#ifdef __ANDROID__
-	// HACK
-	swapchainPresentMode = VK_PRESENT_MODE_FIFO_KHR;
-#endif
 	delete[] presentModes;
 	// Determine the number of VkImage's to use in the swap chain (we desire to
 	// own only 1 image at a time, besides the images being displayed and
