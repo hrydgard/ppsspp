@@ -354,8 +354,8 @@ void GLRenderManager::BeginFrame(bool enableProfiling) {
 	frameData.profile.enabled = enableProfiling;
 
 	{
-		VLOG("PUSH: BeginFrame (curFrame = %d, readyForFence = %d, time=%0.3f)", curFrame, (int)frameData.readyForFence, time_now_d());
 		std::unique_lock<std::mutex> lock(frameData.fenceMutex);
+		VLOG("PUSH: BeginFrame (curFrame = %d, readyForFence = %d, time=%0.3f)", curFrame, (int)frameData.readyForFence, time_now_d());
 		while (!frameData.readyForFence) {
 			frameData.fenceCondVar.wait(lock);
 		}
@@ -477,14 +477,8 @@ bool GLRenderManager::Run(GLRRenderThreadTask &task) {
 			if (swapFunction_) {
 				VLOG("  PULL: SwapFunction()");
 				swapFunction_();
-				if (!retainControl_) {
-					// get out of here.
-					swapRequest = true;
-				}
-			} else {
-				VLOG("  PULL: SwapRequested");
-				swapRequest = true;
 			}
+			swapRequest = true;
 		} else {
 			frameData.skipSwap = false;
 		}
@@ -498,7 +492,6 @@ bool GLRenderManager::Run(GLRRenderThreadTask &task) {
 			frameData.fenceCondVar.notify_one();
 			// At this point, we're done with this framedata (for now).
 		}
-
 		break;
 
 	case GLRRunType::SYNC:
