@@ -837,6 +837,11 @@ namespace MIPSComp {
 			return;
 		}
 
+		if (type == VecDo3Op::VSGE || type == VecDo3Op::VSLT) {
+			// TODO: Consider a dedicated op?  For now, we abuse FpCond a bit.
+			ir.Write(IROp::FpCondToReg, IRTEMP_0);
+		}
+
 		for (int i = 0; i < n; ++i) {
 			switch (type) {
 			case VecDo3Op::VADD: // d[i] = s[i] + t[i]; break; //vadd
@@ -858,10 +863,23 @@ namespace MIPSComp {
 				ir.Write(IROp::FMax, tempregs[i], sregs[i], tregs[i]);
 				break;
 			case VecDo3Op::VSGE: // vsge
+				ir.Write(IROp::FCmp, (int)IRFpCompareMode::LessUnordered, sregs[i], tregs[i]);
+				ir.Write(IROp::FpCondToReg, IRTEMP_1);
+				ir.Write(IROp::XorConst, IRTEMP_1, IRTEMP_1, ir.AddConstant(1));
+				ir.Write(IROp::FMovFromGPR, tempregs[i], IRTEMP_1);
+				ir.Write(IROp::FCvtSW, tempregs[i], tempregs[i]);
+				break;
 			case VecDo3Op::VSLT: // vslt
-				DISABLE;
+				ir.Write(IROp::FCmp, (int)IRFpCompareMode::LessOrdered, sregs[i], tregs[i]);
+				ir.Write(IROp::FpCondToReg, IRTEMP_1);
+				ir.Write(IROp::FMovFromGPR, tempregs[i], IRTEMP_1);
+				ir.Write(IROp::FCvtSW, tempregs[i], tempregs[i]);
 				break;
 			}
+		}
+
+		if (type == VecDo3Op::VSGE || type == VecDo3Op::VSLT) {
+			ir.Write(IROp::FpCondFromReg, IRTEMP_0);
 		}
 
 		for (int i = 0; i < n; i++) {
