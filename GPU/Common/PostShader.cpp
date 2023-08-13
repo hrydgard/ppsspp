@@ -100,7 +100,7 @@ void LoadPostShaderInfo(Draw::DrawContext *draw, const std::vector<Path> &direct
 
 			// Alright, let's loop through the sections and see if any is a shader.
 			for (size_t i = 0; i < ini.Sections().size(); i++) {
-				Section &section = ini.Sections()[i];
+				Section &section = *(ini.Sections()[i].get());
 				std::string shaderType;
 				section.Get("Type", &shaderType, "render");
 

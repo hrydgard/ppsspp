@@ -420,42 +420,36 @@ bool Section::Delete(const char *key)
 
 // IniFile
 
-const Section* IniFile::GetSection(const char* sectionName) const
-{
-	for (std::vector<Section>::const_iterator iter = sections.begin(); iter != sections.end(); ++iter)
+const Section* IniFile::GetSection(const char* sectionName) const {
+	for (const auto &iter : sections)
 		if (!strcasecmp(iter->name().c_str(), sectionName))
-			return (&(*iter));
+			return iter.get();
+	return nullptr ;
+}
+
+Section* IniFile::GetSection(const char* sectionName) {
+	for (const auto &iter : sections)
+		if (!strcasecmp(iter->name().c_str(), sectionName))
+			return iter.get();
 	return 0;
 }
 
-Section* IniFile::GetSection(const char* sectionName)
-{
-	for (std::vector<Section>::iterator iter = sections.begin(); iter != sections.end(); ++iter)
-		if (!strcasecmp(iter->name().c_str(), sectionName))
-			return (&(*iter));
-	return 0;
-}
-
-Section* IniFile::GetOrCreateSection(const char* sectionName)
-{
+Section* IniFile::GetOrCreateSection(const char* sectionName) {
 	Section* section = GetSection(sectionName);
-	if (!section)
-	{
-		sections.push_back(Section(sectionName));
-		section = &sections[sections.size() - 1];
+	if (!section) {
+		sections.push_back(std::unique_ptr<Section>(new Section(sectionName)));
+		section = sections.back().get();
 	}
 	return section;
 }
 
-bool IniFile::DeleteSection(const char* sectionName)
-{
+bool IniFile::DeleteSection(const char* sectionName) {
 	Section* s = GetSection(sectionName);
 	if (!s)
 		return false;
-	for (std::vector<Section>::iterator iter = sections.begin(); iter != sections.end(); ++iter)
-	{
-		if (&(*iter) == s)
-		{
+
+	for (auto iter = sections.begin(); iter != sections.end(); ++iter) {
+		if (iter->get() == s) {
 			sections.erase(iter);
 			return true;
 		}
@@ -463,8 +457,7 @@ bool IniFile::DeleteSection(const char* sectionName)
 	return false;
 }
 
-bool IniFile::Exists(const char* sectionName, const char* key) const
-{
+bool IniFile::Exists(const char* sectionName, const char* key) const {
 	const Section* section = GetSection(sectionName);
 	if (!section)
 		return false;
@@ -556,7 +549,7 @@ void IniFile::SortSections()
 bool IniFile::Load(const Path &path)
 {
 	sections.clear();
-	sections.push_back(Section(""));
+	sections.push_back(std::unique_ptr<Section>(new Section("")));
 	// first section consists of the comments before the first real section
 
 	// Open file
@@ -612,16 +605,16 @@ bool IniFile::Load(std::istream &in) {
 			if (sectionNameEnd != std::string::npos) {
 				// New section!
 				std::string sub = line.substr(1, sectionNameEnd - 1);
-				sections.push_back(Section(sub));
+				sections.push_back(std::unique_ptr<Section>(new Section(sub)));
 
 				if (sectionNameEnd + 1 < line.size()) {
-					sections[sections.size() - 1].comment = line.substr(sectionNameEnd + 1);
+					sections.back()->comment = line.substr(sectionNameEnd + 1);
 				}
 			} else {
 				if (sections.empty()) {
-					sections.push_back(Section(""));
+					sections.push_back(std::unique_ptr<Section>(new Section("")));
 				}
-				sections[sections.size() - 1].lines.push_back(line);
+				sections.back()->lines.push_back(line);
 			}
 		}
 	}
@@ -641,12 +634,12 @@ bool IniFile::Save(const Path &filename)
 	// TODO: Do we still need this? It's annoying.
 	fprintf(file, "\xEF\xBB\xBF");
 
-	for (const Section &section : sections) {
-		if (!section.name().empty() && (!section.lines.empty() || !section.comment.empty())) {
-			fprintf(file, "[%s]%s\n", section.name().c_str(), section.comment.c_str());
+	for (const auto &section : sections) {
+		if (!section->name().empty() && (!section->lines.empty() || !section->comment.empty())) {
+			fprintf(file, "[%s]%s\n", section->name().c_str(), section->comment.c_str());
 		}
 
-		for (const std::string &s : section.lines) {
+		for (const std::string &s : section->lines) {
 			fprintf(file, "%s\n", s.c_str());
 		}
 	}
