@@ -15,7 +15,6 @@ public:
 	void ShutdownFromRenderThread() override;
 
 	void Shutdown() override {}
-	void SwapInterval(int interval) override {}
 	void Resize() override {}
 
 	Draw::DrawContext *GetDrawContext() override {

@@ -33,10 +33,6 @@
 #error This file should not be compiled for UWP.
 #endif
 
-void D3D11Context::SwapInterval(int interval) {
-	swapInterval_ = interval;
-}
-
 HRESULT D3D11Context::CreateTheDevice(IDXGIAdapter *adapter) {
 	bool windowed = true;
 	// D3D11 has no need for display rotation.

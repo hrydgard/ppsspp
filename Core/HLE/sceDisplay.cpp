@@ -566,12 +566,17 @@ void __DisplayFlip(int cyclesLate) {
 
 	bool fastForwardSkipFlip = g_Config.iFastForwardMode != (int)FastForwardMode::CONTINUOUS;
 
-	bool fifo = gpu && gpu->GetDrawContext() && gpu->GetDrawContext()->GetPresentMode() == Draw::PresentMode::FIFO;
+	if (gpu) {
+		Draw::DrawContext *draw = gpu->GetDrawContext();
 
-	if (fifo && GetGPUBackend() == GPUBackend::VULKAN) {
-		// Vulkan doesn't support the interval setting, so we force skipping the flip.
-		// TODO: We'll clean this up in a more backend-independent way later.
-		fastForwardSkipFlip = true;
+		g_frameTiming.presentMode = ComputePresentMode(draw, &g_frameTiming.presentInterval);
+
+		if (!draw->GetDeviceCaps().presentInstantModeChange && g_frameTiming.presentMode == Draw::PresentMode::FIFO) {
+			// Some backends can't just flip into MAILBOX/IMMEDIATE mode instantly.
+			// Vulkan doesn't support the interval setting, so we force skipping the flip.
+			// TODO: We'll clean this up in a more backend-independent way later.
+			fastForwardSkipFlip = true;
+		}
 	}
 
 	if (!g_Config.bSkipBufferEffects) {

@@ -518,10 +518,6 @@ public:
 		return (uint32_t)ShaderLanguage::HLSL_D3D9;
 	}
 	uint32_t GetDataFormatSupport(DataFormat fmt) const override;
-	PresentMode GetPresentMode() const override {
-		// TODO: Fix. Not yet used.
-		return PresentMode::FIFO;
-	}
 
 	ShaderModule *CreateShaderModule(ShaderStage stage, ShaderLanguage language, const uint8_t *data, size_t dataSize, const char *tag) override;
 	DepthStencilState *CreateDepthStencilState(const DepthStencilStateDesc &desc) override;
@@ -580,7 +576,7 @@ public:
 	}
 
 	void EndFrame() override;
-	void Present(int vblanks) override;
+	void Present(PresentMode presentMode, int vblanks) override;
 
 	int GetFrameCount() override { return frameCount_; }
 
@@ -785,6 +781,9 @@ D3D9Context::D3D9Context(IDirect3D9 *d3d, IDirect3D9Ex *d3dEx, int adapterId, ID
 	caps_.multiSampleLevelsMask = 1;  // More could be supported with some work.
 
 	caps_.clipPlanesSupported = caps.MaxUserClipPlanes;
+	caps_.presentInstantModeChange = false;
+	caps_.presentMaxInterval = 1;
+	caps_.presentModesSupported = PresentMode::FIFO;
 
 	if ((caps.RasterCaps & D3DPRASTERCAPS_ANISOTROPY) != 0 && caps.MaxAnisotropy > 1) {
 		caps_.anisoSupported = true;
@@ -970,7 +969,7 @@ void D3D9Context::EndFrame() {
 	curPipeline_ = nullptr;
 }
 
-void D3D9Context::Present(int vblanks) {
+void D3D9Context::Present(PresentMode presentMode, int vblanks) {
 	if (deviceEx_) {
 		deviceEx_->EndScene();
 		deviceEx_->PresentEx(NULL, NULL, NULL, NULL, 0);

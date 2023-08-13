@@ -404,7 +404,7 @@ public:
 	}
 	uint32_t GetDataFormatSupport(DataFormat fmt) const override;
 
-	PresentMode GetPresentMode() const override {
+	PresentMode GetPresentMode() const {
 		switch (vulkan_->GetPresentMode()) {
 		case VK_PRESENT_MODE_FIFO_KHR: return PresentMode::FIFO;
 		case VK_PRESENT_MODE_FIFO_RELAXED_KHR: return PresentMode::FIFO;  // We treat is as FIFO for now (and won't ever enable it anyway...)
@@ -480,7 +480,7 @@ public:
 
 	void BeginFrame(DebugFlags debugFlags) override;
 	void EndFrame() override;
-	void Present(int vblanks) override;
+	void Present(PresentMode presentMode, int vblanks) override;
 
 	void WipeQueue() override;
 
@@ -899,6 +899,19 @@ VKContext::VKContext(VulkanContext *vulkan, bool useRenderThread)
 	caps_.sampleRateShadingSupported = vulkan->GetDeviceFeatures().enabled.standard.sampleRateShading != 0;
 	caps_.textureSwizzleSupported = true;
 
+	// Present mode stuff
+	caps_.presentMaxInterval = 1;
+	caps_.presentInstantModeChange = false;  // TODO: Fix this with some work in VulkanContext
+	caps_.presentModesSupported = (PresentMode)0;
+	for (auto mode : vulkan->GetAvailablePresentModes()) {
+		switch (mode) {
+		case VK_PRESENT_MODE_FIFO_KHR: caps_.presentModesSupported |= PresentMode::FIFO; break;
+		case VK_PRESENT_MODE_IMMEDIATE_KHR: caps_.presentModesSupported |= PresentMode::IMMEDIATE; break;
+		case VK_PRESENT_MODE_MAILBOX_KHR: caps_.presentModesSupported |= PresentMode::MAILBOX; break;
+		default: break;  // Ignore any other modes.
+		}
+	}
+
 	const auto &limits = vulkan->GetPhysicalDeviceProperties().properties.limits;
 
 	auto deviceProps = vulkan->GetPhysicalDeviceProperties(vulkan_->GetCurrentPhysicalDeviceIndex()).properties;
@@ -1120,8 +1133,10 @@ void VKContext::EndFrame() {
 	Invalidate(InvalidationFlags::CACHED_RENDER_STATE);
 }
 
-void VKContext::Present(int vblanks) {
-	_dbg_assert_(vblanks == 0 || vblanks == 1);
+void VKContext::Present(PresentMode presentMode, int vblanks) {
+	if (presentMode == PresentMode::FIFO) {
+		_dbg_assert_(vblanks == 0 || vblanks == 1);
+	}
 	renderManager_.Present();
 	frameCount_++;
 }

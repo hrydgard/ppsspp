@@ -243,7 +243,6 @@ protected:
 	}
 
 	void BeginFrame() override;
-	void UpdateVsyncInterval(bool force);
 
 	virtual void CheckDepthUsage(VirtualFramebuffer *vfb) {}
 	virtual void FastRunLoop(DisplayList &list) = 0;

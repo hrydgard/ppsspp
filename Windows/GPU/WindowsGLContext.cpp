@@ -412,7 +412,7 @@ bool WindowsGLContext::InitFromRenderThread(std::string *error_message) {
 	resumeRequested = false;
 
 	CheckGLExtensions();
-	draw_ = Draw::T3DCreateGLContext();
+	draw_ = Draw::T3DCreateGLContext(wglSwapIntervalEXT != nullptr);
 	bool success = draw_->CreatePresets();  // if we get this far, there will always be a GLSL compiler capable of compiling these.
 	if (!success) {
 		delete draw_;
@@ -441,11 +441,6 @@ bool WindowsGLContext::InitFromRenderThread(std::string *error_message) {
 	}
 	CHECK_GL_ERROR_IF_DEBUG();
 	return true;												// Success
-}
-
-void WindowsGLContext::SwapInterval(int interval) {
-	// Delegate to the render manager to make sure it's done on the right thread.
-	renderManager_->SwapInterval(interval);
 }
 
 void WindowsGLContext::Shutdown() {

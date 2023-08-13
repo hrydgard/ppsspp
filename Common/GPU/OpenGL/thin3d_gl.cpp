@@ -322,7 +322,7 @@ class OpenGLTexture;
 
 class OpenGLContext : public DrawContext {
 public:
-	OpenGLContext();
+	OpenGLContext(bool canChangeSwapInterval);
 	~OpenGLContext();
 
 	void SetTargetSize(int w, int h) override {
@@ -347,11 +347,6 @@ public:
 		renderManager_.SetErrorCallback(callback, userdata);
 	}
 
-	PresentMode GetPresentMode() const override {
-		// TODO: Fix. Not yet used.
-		return PresentMode::FIFO;
-	}
-
 	DepthStencilState *CreateDepthStencilState(const DepthStencilStateDesc &desc) override;
 	BlendState *CreateBlendState(const BlendStateDesc &desc) override;
 	SamplerState *CreateSamplerState(const SamplerStateDesc &desc) override;
@@ -366,7 +361,7 @@ public:
 
 	void BeginFrame(DebugFlags debugFlags) override;
 	void EndFrame() override;
-	void Present(int vblanks) override;
+	void Present(PresentMode mode, int vblanks) override;
 
 	int GetFrameCount() override {
 		return frameCount_;
@@ -547,7 +542,7 @@ static bool HasIntelDualSrcBug(const int versions[4]) {
 	}
 }
 
-OpenGLContext::OpenGLContext() {
+OpenGLContext::OpenGLContext(bool canChangeSwapInterval) {
 	if (gl_extensions.IsGLES) {
 		if (gl_extensions.OES_packed_depth_stencil || gl_extensions.OES_depth24) {
 			caps_.preferredDepthBufferFormat = DataFormat::D24_S8;
@@ -778,6 +773,16 @@ OpenGLContext::OpenGLContext() {
 		}
 	}
 
+	if (canChangeSwapInterval) {
+		caps_.presentInstantModeChange = true;
+		caps_.presentMaxInterval = 4;
+		caps_.presentModesSupported = PresentMode::FIFO | PresentMode::IMMEDIATE;
+	} else {
+		caps_.presentInstantModeChange = false;
+		caps_.presentModesSupported = PresentMode::FIFO;
+		caps_.presentMaxInterval = 1;
+	}
+
 	renderManager_.SetDeviceCaps(caps_);
 }
 
@@ -802,7 +807,7 @@ void OpenGLContext::EndFrame() {
 	Invalidate(InvalidationFlags::CACHED_RENDER_STATE);
 }
 
-void OpenGLContext::Present(int vblanks) {
+void OpenGLContext::Present(PresentMode presentMode, int vblanks) {
 	renderManager_.Present();
 	frameCount_++;
 }
@@ -1414,8 +1419,8 @@ void OpenGLContext::Clear(int mask, uint32_t colorval, float depthVal, int stenc
 	renderManager_.Clear(colorval, depthVal, stencilVal, glMask, 0xF, 0, 0, targetWidth_, targetHeight_);
 }
 
-DrawContext *T3DCreateGLContext() {
-	return new OpenGLContext();
+DrawContext *T3DCreateGLContext(bool canChangeSwapInterval) {
+	return new OpenGLContext(canChangeSwapInterval);
 }
 
 OpenGLInputLayout::~OpenGLInputLayout() {

@@ -24,7 +24,7 @@ class VulkanContext;
 
 namespace Draw {
 
-DrawContext *T3DCreateGLContext();
+DrawContext *T3DCreateGLContext(bool canChangeSwapInterval);
 
 #ifdef _WIN32
 DrawContext *T3DCreateDX9Context(IDirect3D9 *d3d, IDirect3D9Ex *d3dEx, int adapterId, IDirect3DDevice9 *device, IDirect3DDevice9Ex *deviceEx);

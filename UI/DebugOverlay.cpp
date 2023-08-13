@@ -3,6 +3,7 @@
 #include "Common/System/System.h"
 #include "UI/DebugOverlay.h"
 #include "Core/HW/Display.h"
+#include "Core/FrameTiming.h"
 #include "Core/HLE/sceSas.h"
 #include "Core/ControlMapper.h"
 #include "Core/Config.h"
@@ -113,7 +114,14 @@ static void DrawFrameTiming(UIContext *ctx, const Bounds &bounds) {
 	ctx->BindFontTexture();
 	ctx->Draw()->SetFontScale(0.5f, 0.5f);
 
-	for (int i = 0; i < 8; i++) {
+	snprintf(statBuf, sizeof(statBuf),
+		"Present mode (interval): %s (%d)",
+		Draw::PresentModeToString(g_frameTiming.presentMode),
+		g_frameTiming.presentInterval);
+
+	ctx->Draw()->DrawTextRect(ubuntu24, statBuf, bounds.x + 10, bounds.y + 50, bounds.w - 20, bounds.h - 30, 0xFFFFFFFF, FLAG_DYNAMIC_ASCII);
+
+	for (int i = 0; i < 5; i++) {
 		FrameTimeData data = ctx->GetDrawContext()->GetFrameTimeData(6 + i);
 		FrameTimeData prevData = ctx->GetDrawContext()->GetFrameTimeData(7 + i);
 		if (data.frameBegin == 0.0) {
@@ -153,7 +161,7 @@ static void DrawFrameTiming(UIContext *ctx, const Bounds &bounds) {
 				presentStats
 			);
 		}
-		ctx->Draw()->DrawTextRect(ubuntu24, statBuf, bounds.x + 10 + i * 150, bounds.y + 50, bounds.w - 20, bounds.h - 30, 0xFFFFFFFF, FLAG_DYNAMIC_ASCII);
+		ctx->Draw()->DrawTextRect(ubuntu24, statBuf, bounds.x + 10 + i * 150, bounds.y + 150, bounds.w - 20, bounds.h - 30, 0xFFFFFFFF, FLAG_DYNAMIC_ASCII);
 	}
 	ctx->Draw()->SetFontScale(1.0f, 1.0f);
 	ctx->Flush();

@@ -147,6 +147,15 @@ static bool DefaultCodeGen() {
 #endif
 }
 
+static bool DefaultVSync() {
+#if PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(UWP)
+	// Previously we didn't allow turning off vsync/FIFO on Android. Let's set the default accordingly.
+	return true;
+#else
+	return false;
+#endif
+}
+
 static bool DefaultEnableStateUndo() {
 #ifdef MOBILE_DEVICE
 	// Off on mobile to save disk space.
@@ -603,7 +612,7 @@ static const ConfigSetting graphicsSettings[] = {
 	ConfigSetting("TexScalingType", &g_Config.iTexScalingType, 0, CfgFlag::PER_GAME | CfgFlag::REPORT),
 	ConfigSetting("TexDeposterize", &g_Config.bTexDeposterize, false, CfgFlag::PER_GAME | CfgFlag::REPORT),
 	ConfigSetting("TexHardwareScaling", &g_Config.bTexHardwareScaling, false, CfgFlag::PER_GAME | CfgFlag::REPORT),
-	ConfigSetting("VSyncInterval", &g_Config.bVSync, false, CfgFlag::PER_GAME),
+	ConfigSetting("VSync", &g_Config.bVSync, &DefaultVSync, CfgFlag::PER_GAME),
 	ConfigSetting("BloomHack", &g_Config.iBloomHack, 0, CfgFlag::PER_GAME | CfgFlag::REPORT),
 
 	// Not really a graphics setting...

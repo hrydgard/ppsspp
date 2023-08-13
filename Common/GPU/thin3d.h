@@ -570,6 +570,13 @@ struct PipelineDesc {
 	const Slice<SamplerDef> samplers;
 };
 
+enum class PresentMode {
+	FIFO = 1,
+	IMMEDIATE = 2,
+	MAILBOX = 4,
+};
+ENUM_CLASS_BITOPS(PresentMode);
+
 struct DeviceCaps {
 	GPUVendor vendor;
 	uint32_t deviceID;  // use caution!
@@ -613,6 +620,11 @@ struct DeviceCaps {
 
 	// Old style, for older GL or Direct3D 9.
 	u32 clipPlanesSupported;
+
+	// Presentation caps
+	int presentMaxInterval; // 1 on many backends
+	bool presentInstantModeChange; // Our VulkanContext doesn't currently support it so we mark it as such, but it can be supported with careful coding.
+	PresentMode presentModesSupported;
 
 	u32 multiSampleLevelsMask;  // Bit n is set if (1 << n) is a valid multisample level. Bit 0 is always set.
 	std::string deviceName;  // The device name to use when creating the thin3d context, to get the same one.
@@ -675,13 +687,6 @@ enum class DebugFlags {
 };
 ENUM_CLASS_BITOPS(DebugFlags);
 
-enum class PresentMode {
-	FIFO,
-	IMMEDIATE,
-	MAILBOX,
-	// Retired FIFO_RELAXED. May reintroduce at some point.
-};
-
 class DrawContext {
 public:
 	virtual ~DrawContext();
@@ -695,8 +700,6 @@ public:
 	virtual std::vector<std::string> GetFeatureList() const { return std::vector<std::string>(); }
 	virtual std::vector<std::string> GetExtensionList(bool device, bool enabledOnly) const { return std::vector<std::string>(); }
 	virtual std::vector<std::string> GetDeviceList() const { return std::vector<std::string>(); }
-
-	virtual PresentMode GetPresentMode() const = 0;
 
 	// Describes the primary shader language that this implementation prefers.
 	const ShaderLanguageDesc &GetShaderLanguageDesc() {
@@ -815,7 +818,10 @@ public:
 	// Frame management (for the purposes of sync and resource management, necessary with modern APIs). Default implementations here.
 	virtual void BeginFrame(DebugFlags debugFlags) {}
 	virtual void EndFrame() = 0;
-	virtual void Present(int vblanks) = 0;  // NOTE: Not all backends support vblanks > 1.
+
+	// vblanks is only relevant in FIFO present mode.
+	// NOTE: Not all backends support vblanks > 1. Some backends also can't change presentation mode immediately.
+	virtual void Present(PresentMode presentMode, int vblanks) = 0;
 
 	virtual void WipeQueue() {}
 
@@ -894,5 +900,7 @@ struct ShaderSource {
 };
 
 ShaderModule *CreateShader(DrawContext *draw, ShaderStage stage, const std::vector<ShaderSource> &sources);
+
+const char *PresentModeToString(PresentMode presentMode);
 
 }  // namespace Draw

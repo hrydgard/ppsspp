@@ -30,8 +30,6 @@ public:
 
 	void Poll() override;
 
-	void SwapInterval(int interval) override {
-	}
 	void *GetAPIContext() override {
 		return vulkan_;
 	}

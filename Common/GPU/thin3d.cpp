@@ -768,4 +768,15 @@ const char *Bugs::GetBugName(uint32_t bug) {
 	}
 }
 
+const char *PresentModeToString(PresentMode presentMode) {
+	switch (presentMode) {
+	case (PresentMode)0: return "NONE (bad)";
+	case PresentMode::FIFO: return "FIFO";
+	case PresentMode::IMMEDIATE: return "IMMEDIATE";
+	case PresentMode::MAILBOX: return "MAILBOX";
+	default:
+		return "COMBO";  // TODO: Hardcode all the combinations?
+	}
+}
+
 }  // namespace Draw

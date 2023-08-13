@@ -175,6 +175,3 @@ void AndroidVulkanContext::Resize() {
 	draw_->HandleEvent(Draw::Event::GOT_BACKBUFFER, g_Vulkan->GetBackbufferWidth(), g_Vulkan->GetBackbufferHeight());
 	INFO_LOG(G3D, "AndroidVulkanContext::Resize end (final size: %dx%d)", g_Vulkan->GetBackbufferWidth(), g_Vulkan->GetBackbufferHeight());
 }
-
-void AndroidVulkanContext::SwapInterval(int interval) {
-}

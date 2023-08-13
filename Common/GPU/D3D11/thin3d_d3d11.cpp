@@ -75,10 +75,6 @@ public:
 		return (uint32_t)ShaderLanguage::HLSL_D3D11;
 	}
 	uint32_t GetDataFormatSupport(DataFormat fmt) const override;
-	PresentMode GetPresentMode() const override {
-		// TODO: Fix. Not yet used.
-		return PresentMode::FIFO;
-	}
 
 	InputLayout *CreateInputLayout(const InputLayoutDesc &desc) override;
 	DepthStencilState *CreateDepthStencilState(const DepthStencilStateDesc &desc) override;
@@ -139,7 +135,7 @@ public:
 
 	void BeginFrame(DebugFlags debugFlags) override;
 	void EndFrame() override;
-	void Present(int vblanks) override;
+	void Present(PresentMode presentMode, int vblanks) override;
 
 	int GetFrameCount() override { return frameCount_; }
 
@@ -283,6 +279,10 @@ D3D11DrawContext::D3D11DrawContext(ID3D11Device *device, ID3D11DeviceContext *de
 	caps_.fragmentShaderStencilWriteSupported = false;
 	caps_.blendMinMaxSupported = true;
 	caps_.multiSampleLevelsMask = 1;   // More could be supported with some work.
+
+	caps_.presentInstantModeChange = true;
+	caps_.presentMaxInterval = 4;
+	caps_.presentModesSupported = PresentMode::FIFO | PresentMode::IMMEDIATE;
 
 	D3D11_FEATURE_DATA_D3D11_OPTIONS options{};
 	HRESULT result = device_->CheckFeatureSupport(D3D11_FEATURE_D3D11_OPTIONS, &options, sizeof(options));
@@ -433,8 +433,12 @@ void D3D11DrawContext::EndFrame() {
 	curPipeline_ = nullptr;
 }
 
-void D3D11DrawContext::Present(int vblanks) {
-	swapChain_->Present(1, 0);
+void D3D11DrawContext::Present(PresentMode presentMode, int vblanks) {
+	int interval = vblanks;
+	if (presentMode != PresentMode::FIFO) {
+		interval = 0;
+	}
+	swapChain_->Present(interval, 0);
 	curRenderTargetView_ = nullptr;
 	curDepthStencilView_ = nullptr;
 	frameCount_++;

@@ -30,7 +30,6 @@ class D3D11Context : public WindowsGraphicsContext {
 public:
 	bool Init(HINSTANCE hInst, HWND window, std::string *error_message) override;
 	void Shutdown() override;
-	void SwapInterval(int interval) override;
 
 	void Resize() override;
 

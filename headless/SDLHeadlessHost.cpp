@@ -95,7 +95,6 @@ public:
 
 	void Shutdown() override {}
 	void Resize() override {}
-	void SwapInterval(int interval) override {}
 
 private:
 	Draw::DrawContext *draw_ = nullptr;
@@ -157,7 +156,7 @@ bool GLDummyGraphicsContext::InitFromRenderThread(std::string *errorMessage) {
 #endif
 
 	CheckGLExtensions();
-	draw_ = Draw::T3DCreateGLContext();
+	draw_ = Draw::T3DCreateGLContext(false);
 	renderManager_ = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
 	renderManager_->SetInflightFrames(g_Config.iInflightFrames);
 	SetGPUBackend(GPUBackend::OPENGL);
@@ -166,6 +165,7 @@ bool GLDummyGraphicsContext::InitFromRenderThread(std::string *errorMessage) {
 	renderManager_->SetSwapFunction([&]() {
 		SDL_GL_SwapWindow(screen_);
 	});
+	// TODO: Support SwapInterval
 
 	return success;
 }
