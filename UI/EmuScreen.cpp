@@ -1547,7 +1547,7 @@ void EmuScreen::renderUI() {
 	}
 
 #ifdef USE_PROFILER
-	if (g_Config.bShowFrameProfiler && !invalid_) {
+	if ((DebugOverlay)g_Config.iDebugOverlay == DebugOverlay::FRAME_PROFILE && !invalid_) {
 		DrawProfile(*ctx);
 	}
 #endif
