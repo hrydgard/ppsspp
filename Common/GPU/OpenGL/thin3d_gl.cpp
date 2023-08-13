@@ -803,6 +803,7 @@ void OpenGLContext::EndFrame() {
 }
 
 void OpenGLContext::Present(int vblanks) {
+	renderManager_.Present();
 	frameCount_++;
 }
 

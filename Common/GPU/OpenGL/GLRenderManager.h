@@ -198,6 +198,7 @@ public:
 };
 
 enum class GLRRunType {
+	SUBMIT,
 	PRESENT,
 	SYNC,
 	EXIT,
@@ -253,7 +254,8 @@ public:
 	// Makes sure that the GPU has caught up enough that we can start writing buffers of this frame again.
 	void BeginFrame(bool enableProfiling);
 	// Can run on a different thread!
-	void Finish(); 
+	void Finish();
+	void Present();
 
 	// Creation commands. These were not needed in Vulkan since there we can do that on the main thread.
 	// We pass in width/height here even though it's not strictly needed until we support glTextureStorage
@@ -810,9 +812,8 @@ public:
 		_dbg_assert_(foundCount == 1);
 	}
 
-	void SetSwapFunction(std::function<void()> swapFunction, bool retainControl) {
+	void SetSwapFunction(std::function<void()> swapFunction) {
 		swapFunction_ = swapFunction;
-		retainControl_ = retainControl;
 	}
 
 	void SetSwapIntervalFunction(std::function<void(int)> swapIntervalFunction) {
@@ -891,7 +892,6 @@ private:
 
 	std::function<void()> swapFunction_;
 	std::function<void(int)> swapIntervalFunction_;
-	bool retainControl_ = false;
 	GLBufferStrategy bufferStrategy_ = GLBufferStrategy::SUBDATA;
 
 	int inflightFrames_ = MAX_INFLIGHT_FRAMES;
