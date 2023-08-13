@@ -97,6 +97,8 @@ uint32_t IRNativeBackend::DoIRInst(uint64_t value) {
 	return IRInterpret(currentMIPS, &inst, 1);
 }
 
+IRNativeBackend::IRNativeBackend(IRBlockCache &blocks) : blocks_(blocks) {}
+
 void IRNativeBackend::CompileIRInst(IRInst inst) {
 	switch (inst.op) {
 	case IROp::Nop:
@@ -393,7 +395,7 @@ IRNativeJit::IRNativeJit(MIPSState *mipsState)
 
 void IRNativeJit::Init(IRNativeBackend &backend) {
 	backend_ = &backend;
-	debugInterface_.Init(&backend_->CodeBlock());
+	debugInterface_.Init(backend_);
 	backend_->GenerateFixedCode(mips_);
 
 	// Wanted this to be a reference, but vtbls get in the way.  Shouldn't change.
@@ -402,6 +404,10 @@ void IRNativeJit::Init(IRNativeBackend &backend) {
 
 bool IRNativeJit::CompileTargetBlock(IRBlock *block, int block_num, bool preload) {
 	return backend_->CompileBlock(block, block_num, preload);
+}
+
+void IRNativeJit::FinalizeTargetBlock(IRBlock *block, int block_num) {
+	backend_->FinalizeBlock(block, block_num, jo);
 }
 
 void IRNativeJit::RunLoopUntil(u64 globalticks) {
@@ -416,6 +422,21 @@ void IRNativeJit::RunLoopUntil(u64 globalticks) {
 void IRNativeJit::ClearCache() {
 	IRJit::ClearCache();
 	backend_->ClearAllBlocks();
+}
+
+void IRNativeJit::InvalidateCacheAt(u32 em_address, int length) {
+	std::vector<int> numbers = blocks_.FindInvalidatedBlockNumbers(em_address, length);
+	for (int block_num : numbers) {
+		auto block = blocks_.GetBlock(block_num);
+		if (em_address != 0 || length < 0x1FFFFFFF) {
+			backend_->InvalidateBlock(block, block_num);
+		}
+		block->Destroy(block->GetTargetOffset());
+	}
+
+	if (em_address == 0 && length >= 0x1FFFFFFF) {
+		backend_->ClearAllBlocks();
+	}
 }
 
 bool IRNativeJit::DescribeCodePtr(const u8 *ptr, std::string &name) {
@@ -501,13 +522,73 @@ int IRNativeBackend::OffsetFromCodePtr(const u8 *ptr) {
 	return (int)codeBlock.GetOffset(ptr);
 }
 
-} // namespace MIPSComp
+void IRNativeBackend::FinalizeBlock(IRBlock *block, int block_num, const JitOptions &jo) {
+	if (jo.enableBlocklink) {
+		uint32_t pc = block->GetOriginalStart();
+
+		// First, link other blocks to this one now that it's finalized.
+		auto incoming = linksTo_.equal_range(pc);
+		for (auto it = incoming.first; it != incoming.second; ++it) {
+			auto &exits = nativeBlocks_[it->second].exits;
+			for (auto &blockExit : exits) {
+				if (blockExit.dest == pc)
+					OverwriteExit(blockExit.offset, blockExit.len, block_num);
+			}
+		}
+
+		// And also any blocks from this one, in case we're finalizing it later.
+		auto &outgoing = nativeBlocks_[block_num].exits;
+		for (auto &blockExit : outgoing) {
+			int dstBlockNum = blocks_.GetBlockNumberFromStartAddress(blockExit.dest);
+			const IRNativeBlock *nativeBlock = GetNativeBlock(dstBlockNum);
+			if (nativeBlock)
+				OverwriteExit(blockExit.offset, blockExit.len, dstBlockNum);
+		}
+	}
+}
+
+const IRNativeBlock *IRNativeBackend::GetNativeBlock(int block_num) const {
+	if (block_num < 0 || block_num >= (int)nativeBlocks_.size())
+		return nullptr;
+	return &nativeBlocks_[block_num];
+}
+
+void IRNativeBackend::SetBlockCheckedOffset(int block_num, int offset) {
+	if (block_num >= (int)nativeBlocks_.size())
+		nativeBlocks_.resize(block_num + 1);
+
+	nativeBlocks_[block_num].checkedOffset = offset;
+}
+
+void IRNativeBackend::AddLinkableExit(int block_num, uint32_t pc, int exitStartOffset, int exitLen) {
+	linksTo_.insert(std::make_pair(pc, block_num));
+
+	if (block_num >= (int)nativeBlocks_.size())
+		nativeBlocks_.resize(block_num + 1);
+	IRNativeBlockExit blockExit;
+	blockExit.offset = exitStartOffset;
+	blockExit.len = exitLen;
+	blockExit.dest = pc;
+	nativeBlocks_[block_num].exits.push_back(blockExit);
+}
+
+void IRNativeBackend::EraseAllLinks(int block_num) {
+	if (block_num == -1) {
+		linksTo_.clear();
+		nativeBlocks_.clear();
+	} else {
+		linksTo_.erase(block_num);
+		if (block_num < (int)nativeBlocks_.size())
+			nativeBlocks_[block_num].exits.clear();
+	}
+}
 
 IRNativeBlockCacheDebugInterface::IRNativeBlockCacheDebugInterface(const IRBlockCache &irBlocks)
 	: irBlocks_(irBlocks) {}
 
-void IRNativeBlockCacheDebugInterface::Init(const CodeBlockCommon *codeBlock) {
-	codeBlock_ = codeBlock;
+void IRNativeBlockCacheDebugInterface::Init(const IRNativeBackend *backend) {
+	codeBlock_ = &backend->CodeBlock();
+	backend_ = backend;
 }
 
 int IRNativeBlockCacheDebugInterface::GetNumBlocks() const {
@@ -520,14 +601,18 @@ int IRNativeBlockCacheDebugInterface::GetBlockNumberFromStartAddress(u32 em_addr
 
 void IRNativeBlockCacheDebugInterface::GetBlockCodeRange(int blockNum, int *startOffset, int *size) const {
 	int blockOffset = irBlocks_.GetBlock(blockNum)->GetTargetOffset();
-	int endOffset;
-	// We assume linear allocation.  Maybe a bit dangerous, should always be right.
-	if (blockNum + 1 >= GetNumBlocks()) {
-		// Last block, get from current code pointer.
-		endOffset = (int)codeBlock_->GetOffset(codeBlock_->GetCodePtr());
-	} else {
-		endOffset = irBlocks_.GetBlock(blockNum + 1)->GetTargetOffset();
-		_assert_msg_(endOffset >= blockOffset, "Next block not sequential, block=%d/%08x, next=%d/%08x", blockNum, blockOffset, blockNum + 1, endOffset);
+	int endOffset = backend_->GetNativeBlock(blockNum)->checkedOffset;
+
+	// If endOffset is before, the checked entry is before the block start.
+	if (endOffset < blockOffset) {
+		// We assume linear allocation.  Maybe a bit dangerous, should always be right.
+		if (blockNum + 1 >= GetNumBlocks()) {
+			// Last block, get from current code pointer.
+			endOffset = (int)codeBlock_->GetOffset(codeBlock_->GetCodePtr());
+		} else {
+			endOffset = irBlocks_.GetBlock(blockNum + 1)->GetTargetOffset();
+			_assert_msg_(endOffset >= blockOffset, "Next block not sequential, block=%d/%08x, next=%d/%08x", blockNum, blockOffset, blockNum + 1, endOffset);
+		}
 	}
 
 	*startOffset = blockOffset;
@@ -540,7 +625,6 @@ JitBlockDebugInfo IRNativeBlockCacheDebugInterface::GetBlockDebugInfo(int blockN
 	int blockOffset, codeSize;
 	GetBlockCodeRange(blockNum, &blockOffset, &codeSize);
 
-	// TODO: Normal entry?
 	const u8 *blockStart = codeBlock_->GetBasePtr() + blockOffset;
 #if PPSSPP_ARCH(ARM)
 	debugInfo.targetDisasm = DisassembleArm2(blockStart, codeSize);
@@ -589,3 +673,5 @@ void IRNativeBlockCacheDebugInterface::ComputeStats(BlockCacheStats &bcStats) co
 	bcStats.maxBloat = (float)maxBloat;
 	bcStats.avgBloat = (float)(totalBloat / (double)numBlocks);
 }
+
+} // namespace MIPSComp
