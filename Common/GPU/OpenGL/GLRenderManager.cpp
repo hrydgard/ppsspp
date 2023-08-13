@@ -184,7 +184,7 @@ void GLRenderManager::StopThread() {
 }
 
 std::string GLRenderManager::GetGpuProfileString() const {
-	int curFrame = GetCurFrame();
+	int curFrame = curFrame_;
 	const GLQueueProfileContext &profile = frameData_[curFrame].profile;
 
 	float cputime_ms = 1000.0f * (profile.cpuEndTime - profile.cpuStartTime);
@@ -372,28 +372,10 @@ void GLRenderManager::BeginFrame(bool enableProfiling) {
 void GLRenderManager::Finish() {
 	curRenderStep_ = nullptr;  // EndCurRenderStep is this simple here.
 
-	int curFrame = GetCurFrame();
+	int curFrame = curFrame_;
 	GLFrameData &frameData = frameData_[curFrame];
 
 	frameData_[curFrame].deleter.Take(deleter_);
-
-	VLOG("PUSH: Finish, pushing task. curFrame = %d", curFrame);
-	GLRRenderThreadTask *task = new GLRRenderThreadTask(GLRRunType::SUBMIT);
-	task->frame = curFrame;
-	{
-		std::unique_lock<std::mutex> lock(pushMutex_);
-		renderThreadQueue_.push(task);
-		renderThreadQueue_.back()->initSteps = std::move(initSteps_);
-		renderThreadQueue_.back()->steps = std::move(steps_);
-		initSteps_.clear();
-		steps_.clear();
-
-		GLRRenderThreadTask *presentTask = new GLRRenderThreadTask(GLRRunType::PRESENT);
-		presentTask->frame = curFrame;
-		renderThreadQueue_.push(presentTask);
-
-		pushCondVar_.notify_one();
-	}
 
 	if (frameData.profile.enabled) {
 		profilePassesString_ = std::move(frameData.profile.passesString);
@@ -412,9 +394,33 @@ void GLRenderManager::Finish() {
 		frameData.profile.passesString.clear();
 	}
 
-	curFrame_++;
-	if (curFrame_ >= inflightFrames_)
-		curFrame_ = 0;
+	VLOG("PUSH: Finish, pushing task. curFrame = %d", curFrame);
+	GLRRenderThreadTask *task = new GLRRenderThreadTask(GLRRunType::SUBMIT);
+	task->frame = curFrame;
+	{
+		std::unique_lock<std::mutex> lock(pushMutex_);
+		renderThreadQueue_.push(task);
+		renderThreadQueue_.back()->initSteps = std::move(initSteps_);
+		renderThreadQueue_.back()->steps = std::move(steps_);
+		initSteps_.clear();
+		steps_.clear();
+		pushCondVar_.notify_one();
+	}
+}
+
+void GLRenderManager::Present() {
+	GLRRenderThreadTask *presentTask = new GLRRenderThreadTask(GLRRunType::PRESENT);
+	presentTask->frame = curFrame_;
+	{
+		std::unique_lock<std::mutex> lock(pushMutex_);
+		renderThreadQueue_.push(presentTask);
+	}
+
+	int newCurFrame = curFrame_ + 1;
+	if (newCurFrame >= inflightFrames_) {
+		newCurFrame = 0;
+	}
+	curFrame_ = newCurFrame;
 
 	insideFrame_ = false;
 }
