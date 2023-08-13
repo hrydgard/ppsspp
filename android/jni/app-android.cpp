@@ -311,7 +311,7 @@ static void EmuThreadFunc() {
 	// Wait for render loop to get started.
 	INFO_LOG(SYSTEM, "Runloop: Waiting for displayInit...");
 	while (!graphicsContext || graphicsContext->GetState() == GraphicsContextState::PENDING) {
-		sleep_ms(20);
+		sleep_ms(5);
 	}
 
 	// Check the state of the graphics context before we try to feed it into NativeInitGraphics.
@@ -1311,7 +1311,7 @@ extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeActivity_requestExitVulkanR
 	}
 	exitRenderLoop = true;
 	while (renderLoopRunning) {
-		sleep_ms(10);
+		sleep_ms(5);
 	}
 }
 

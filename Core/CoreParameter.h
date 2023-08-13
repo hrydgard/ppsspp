@@ -19,6 +19,7 @@
 
 #include <string>
 
+#include "Common/File/Path.h"
 #include "Core/Compatibility.h"
 
 enum GPUCore {

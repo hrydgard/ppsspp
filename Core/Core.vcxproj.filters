@@ -1243,6 +1243,9 @@
     <ClCompile Include="MIPS\IR\IRNativeCommon.cpp">
       <Filter>MIPS\IR</Filter>
     </ClCompile>
+    <ClCompile Include="FrameTiming.cpp">
+      <Filter>Core</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ELF\ElfReader.h">
@@ -2003,6 +2006,9 @@
     </ClInclude>
     <ClInclude Include="MIPS\IR\IRNativeCommon.h">
       <Filter>MIPS\IR</Filter>
+    </ClInclude>
+    <ClInclude Include="FrameTiming.h">
+      <Filter>Core</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
