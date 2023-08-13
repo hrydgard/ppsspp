@@ -15,6 +15,8 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <cstddef>
+#include "ext/riscv-disas.h"
 #include "Core/MemMap.h"
 #include "Core/MIPS/MIPSTables.h"
 #include "Core/MIPS/RiscV/RiscVJit.h"
@@ -28,6 +30,9 @@ using namespace RiscVJitConstants;
 // Needs space for a LI and J which might both be 32-bit offsets.
 static constexpr int MIN_BLOCK_NORMAL_LEN = 16;
 static constexpr int MIN_BLOCK_EXIT_LEN = 8;
+
+// Use this if you want to check a specific block (correlates IR) or -1 for all.
+static constexpr uint32_t disasmBlockAddr = 0;
 
 RiscVJitBackend::RiscVJitBackend(MIPSState *mipsState, JitOptions &jitopt, IRBlockCache &blocks)
 	: IRNativeBackend(blocks), jo(jitopt), gpr(mipsState, &jo), fpr(mipsState, &jo) {
@@ -77,10 +82,15 @@ bool RiscVJitBackend::CompileBlock(IRBlock *block, int block_num, bool preload) 
 	gpr.Start(block);
 	fpr.Start(block);
 
+	// Used only for disasmBlockAddr.
+	std::map<const u8 *, IRInst> addresses;
 	for (int i = 0; i < block->GetNumInstructions(); ++i) {
 		const IRInst &inst = block->GetInstructions()[i];
 		gpr.SetIRIndex(i);
 		fpr.SetIRIndex(i);
+		if constexpr (disasmBlockAddr != 0) {
+			addresses[GetCodePtr()] = inst;
+		}
 
 		CompileIRInst(inst);
 
@@ -125,6 +135,28 @@ bool RiscVJitBackend::CompileBlock(IRBlock *block, int block_num, bool preload) 
 		}
 		LI(SCRATCH1, startPC);
 		QuickJ(R_RA, outerLoopPCInSCRATCH1_);
+	}
+
+	if (disasmBlockAddr == -1 || disasmBlockAddr == startPC) {
+		INFO_LOG(JIT, "== RISCV ==");
+		INFO_LOG(JIT, "=============== RISCV (%d bytes) ===============", len);
+		for (const u8 *p = blockStart; p < GetCodePointer(); ) {
+			char temp[512];
+			rv_inst inst;
+			size_t len;
+
+			auto it = addresses.find(p);
+			if (it != addresses.end()) {
+				DisassembleIR(temp, sizeof(temp), it->second);
+				INFO_LOG(JIT, "IR: # %s", temp);
+			}
+
+			riscv_inst_fetch(p, &inst, &len);
+			riscv_disasm_inst(temp, sizeof(temp), rv64, (uintptr_t)p, inst);
+			p += len;
+
+			INFO_LOG(JIT, "RV: %s", temp);
+		}
 	}
 
 	FlushIcache();
