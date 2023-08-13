@@ -17,7 +17,7 @@
 
 // Reference : https://stackoverflow.com/questions/6121792/how-to-check-if-a-cpu-supports-the-sse3-instruction-set
 #include "ppsspp_config.h"
-#if PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)
+#if (PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)) && !defined(__EMSCRIPTEN__)
 
 #include "ext/cpu_features/include/cpuinfo_x86.h"
 

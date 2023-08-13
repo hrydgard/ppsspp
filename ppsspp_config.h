@@ -8,7 +8,7 @@
 #define PPSSPP_API(PPSSPP_FEATURE) (PPSSPP_API_##PPSSPP_FEATURE)
 
 // ARCH defines
-#if defined(_M_IX86) || defined(__i386__)
+#if defined(_M_IX86) || defined(__i386__) || defined (__EMSCRIPTEN__)
     #define PPSSPP_ARCH_X86 1
     #define PPSSPP_ARCH_32BIT 1
     //TODO: Remove this compat define
@@ -17,7 +17,7 @@
     #endif
 #endif
 
-#if defined(_M_X64) || defined(__amd64__) || defined(__x86_64__)
+#if (defined(_M_X64) || defined(__amd64__) || defined(__x86_64__)) && !defined(__EMSCRIPTEN__)
     #define PPSSPP_ARCH_AMD64 1
     #if defined(__ILP32__)
         #define PPSSPP_ARCH_32BIT 1
