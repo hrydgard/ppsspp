@@ -741,6 +741,8 @@ namespace MIPSComp {
 			VSLT,
 		};
 		VecDo3Op type = VecDo3Op::INVALID;
+		VectorSize sz = GetVecSize(op);
+		int n = GetNumVectorElements(sz);
 
 		// Check that we can support the ops, and prepare temporary values for ops that need it.
 		switch (op >> 26) {
@@ -778,9 +780,11 @@ namespace MIPSComp {
 		case VecDo3Op::VMUL:
 			break;
 		case VecDo3Op::VDIV:
-			if (!js.HasNoPrefix()) {
+			if (js.HasUnknownPrefix() || (sz != V_Single && !js.HasNoPrefix()))
 				DISABLE;
-			}
+			// If it's single, we just need to check the prefixes are within the size.
+			if (!IsPrefixWithinSize(js.prefixS, op) || !IsPrefixWithinSize(js.prefixT, op))
+				DISABLE;
 			break;
 		case VecDo3Op::VMIN:
 		case VecDo3Op::VMAX:
@@ -789,9 +793,6 @@ namespace MIPSComp {
 			allowSIMD = false;
 			break;
 		}
-
-		VectorSize sz = GetVecSize(op);
-		int n = GetNumVectorElements(sz);
 
 		u8 sregs[4], tregs[4], dregs[4];
 		GetVectorRegsPrefixS(sregs, sz, _VS);
@@ -901,10 +902,8 @@ namespace MIPSComp {
 			// D prefix is fine for these, and used sometimes.
 			if (js.HasUnknownPrefix() || js.HasSPrefix())
 				DISABLE;
-		} else {
-			// Many of these apply the D prefix strangely or override parts of the S prefix.
-			if (!js.HasNoPrefix())
-				DISABLE;
+		} else if (optype == 5 && js.HasDPrefix()) {
+			DISABLE;
 		}
 
 		// Vector unary operation
@@ -912,22 +911,25 @@ namespace MIPSComp {
 
 		int vs = _VS;
 		int vd = _VD;
+		VectorSize sz = GetVecSize(op);
+		int n = GetNumVectorElements(sz);
 
 		if (optype >= 16 && !js.HasNoPrefix()) {
-			DISABLE;
-		} else if ((optype == 1 || optype == 2) && js.HasSPrefix()) {
-			DISABLE;
-		} else if (optype == 5 && js.HasDPrefix()) {
-			DISABLE;
+			// Many of these apply the D prefix strangely or override parts of the S prefix.
+			if (js.HasUnknownPrefix() || sz != V_Single)
+				DISABLE;
+			// If it's single, we just need to check the prefixes are within the size.
+			if (!IsPrefixWithinSize(js.prefixS, op))
+				DISABLE;
+			// The negative ones seem to use negate flags as a prefix hack.
+			if (optype >= 24 && (js.prefixS & 0x000F0000) != 0)
+				DISABLE;
 		}
 
 		// Pre-processing: Eliminate silly no-op VMOVs, common in Wipeout Pure
 		if (optype == 0 && vs == vd && js.HasNoPrefix()) {
 			return;
 		}
-
-		VectorSize sz = GetVecSize(op);
-		int n = GetNumVectorElements(sz);
 
 		u8 sregs[4]{}, dregs[4]{};
 		GetVectorRegsPrefixS(sregs, sz, vs);
