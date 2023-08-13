@@ -198,6 +198,7 @@ public:
 };
 
 enum class GLRRunType {
+	SUBMIT,
 	PRESENT,
 	SYNC,
 	EXIT,

@@ -378,9 +378,8 @@ void GLRenderManager::Finish() {
 	frameData_[curFrame].deleter.Take(deleter_);
 
 	VLOG("PUSH: Finish, pushing task. curFrame = %d", curFrame);
-	GLRRenderThreadTask *task = new GLRRenderThreadTask(GLRRunType::PRESENT);
+	GLRRenderThreadTask *task = new GLRRenderThreadTask(GLRRunType::SUBMIT);
 	task->frame = curFrame;
-
 	{
 		std::unique_lock<std::mutex> lock(pushMutex_);
 		renderThreadQueue_.push(task);
@@ -388,6 +387,11 @@ void GLRenderManager::Finish() {
 		renderThreadQueue_.back()->steps = std::move(steps_);
 		initSteps_.clear();
 		steps_.clear();
+
+		GLRRenderThreadTask *presentTask = new GLRRenderThreadTask(GLRRunType::PRESENT);
+		presentTask->frame = curFrame;
+		renderThreadQueue_.push(presentTask);
+
 		pushCondVar_.notify_one();
 	}
 
@@ -417,7 +421,40 @@ void GLRenderManager::Finish() {
 
 // Render thread. Returns true if the caller should handle a swap.
 bool GLRenderManager::Run(GLRRenderThreadTask &task) {
+	_dbg_assert_(task.frame >= 0);
+
 	GLFrameData &frameData = frameData_[task.frame];
+
+	if (task.runType == GLRRunType::PRESENT) {
+		bool swapRequest = false;
+		if (!frameData.skipSwap) {
+			if (swapIntervalChanged_) {
+				swapIntervalChanged_ = false;
+				if (swapIntervalFunction_) {
+					swapIntervalFunction_(swapInterval_);
+				}
+			}
+			// This is the swapchain framebuffer flip.
+			if (swapFunction_) {
+				VLOG("  PULL: SwapFunction()");
+				swapFunction_();
+			}
+			swapRequest = true;
+		} else {
+			frameData.skipSwap = false;
+		}
+		frameData.hasBegun = false;
+
+		VLOG("  PULL: Frame %d.readyForFence = true", task.frame);
+
+		{
+			std::lock_guard<std::mutex> lock(frameData.fenceMutex);
+			frameData.readyForFence = true;
+			frameData.fenceCondVar.notify_one();
+			// At this point, we're done with this framedata (for now).
+		}
+		return swapRequest;
+	}
 
 	if (!frameData.hasBegun) {
 		frameData.hasBegun = true;
@@ -462,36 +499,8 @@ bool GLRenderManager::Run(GLRRenderThreadTask &task) {
 		}
 	}
 
-	bool swapRequest = false;
-
 	switch (task.runType) {
-	case GLRRunType::PRESENT:
-		if (!frameData.skipSwap) {
-			if (swapIntervalChanged_) {
-				swapIntervalChanged_ = false;
-				if (swapIntervalFunction_) {
-					swapIntervalFunction_(swapInterval_);
-				}
-			}
-			// This is the swapchain framebuffer flip.
-			if (swapFunction_) {
-				VLOG("  PULL: SwapFunction()");
-				swapFunction_();
-			}
-			swapRequest = true;
-		} else {
-			frameData.skipSwap = false;
-		}
-		frameData.hasBegun = false;
-
-		VLOG("  PULL: Frame %d.readyForFence = true", task.frame);
-
-		{
-			std::lock_guard<std::mutex> lock(frameData.fenceMutex);
-			frameData.readyForFence = true;
-			frameData.fenceCondVar.notify_one();
-			// At this point, we're done with this framedata (for now).
-		}
+	case GLRRunType::SUBMIT:
 		break;
 
 	case GLRRunType::SYNC:
@@ -510,7 +519,7 @@ bool GLRenderManager::Run(GLRRenderThreadTask &task) {
 		_assert_(false);
 	}
 	VLOG("  PULL: ::Run(): Done running tasks");
-	return swapRequest;
+	return false;
 }
 
 void GLRenderManager::FlushSync() {
