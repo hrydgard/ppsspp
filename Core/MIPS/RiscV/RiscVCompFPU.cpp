@@ -50,41 +50,9 @@ void RiscVJitBackend::CompIR_FArith(IRInst inst) {
 
 	case IROp::FMul:
 		fpr.MapDirtyInIn(inst.dest, inst.src1, inst.src2);
-		// TODO: If FMUL consistently produces NAN across chip vendors, we can skip this.
-		// Luckily this does match the RISC-V canonical NAN.
-		if (inst.src1 != inst.src2) {
-			// These will output 0x80/0x01 if infinity, 0x10/0x80 if zero.
-			// We need to check if one is infinity and the other zero.
-
-			// First, try inf * zero.
-			FCLASS(32, SCRATCH1, fpr.R(inst.src1));
-			FCLASS(32, SCRATCH2, fpr.R(inst.src2));
-			ANDI(R_RA, SCRATCH1, 0x81);
-			FixupBranch lhsNotInf = BEQ(R_RA, R_ZERO);
-			ANDI(R_RA, SCRATCH2, 0x18);
-			FixupBranch infZero = BNE(R_RA, R_ZERO);
-
-			// Okay, what about the other order?
-			SetJumpTarget(lhsNotInf);
-			ANDI(R_RA, SCRATCH1, 0x18);
-			FixupBranch lhsNotZero = BEQ(R_RA, R_ZERO);
-			ANDI(R_RA, SCRATCH2, 0x81);
-			FixupBranch zeroInf = BNE(R_RA, R_ZERO);
-
-			// Nope, all good.
-			SetJumpTarget(lhsNotZero);
-			FMUL(32, fpr.R(inst.dest), fpr.R(inst.src1), fpr.R(inst.src2));
-			FixupBranch skip = J();
-
-			SetJumpTarget(infZero);
-			SetJumpTarget(zeroInf);
-			LI(SCRATCH1, 0x7FC00000);
-			FMV(FMv::W, FMv::X, fpr.R(inst.dest), SCRATCH1);
-
-			SetJumpTarget(skip);
-		} else {
-			FMUL(32, fpr.R(inst.dest), fpr.R(inst.src1), fpr.R(inst.src2));
-		}
+		// We'll assume everyone will make it such that 0 * infinity = NAN properly.
+		// See blame on this comment if that proves untrue.
+		FMUL(32, fpr.R(inst.dest), fpr.R(inst.src1), fpr.R(inst.src2));
 		break;
 
 	case IROp::FDiv:
