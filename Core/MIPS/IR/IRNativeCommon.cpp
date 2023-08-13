@@ -287,8 +287,8 @@ void IRNativeBackend::CompileIRInst(IRInst inst) {
 	case IROp::SetCtrlVFPU:
 	case IROp::SetCtrlVFPUReg:
 	case IROp::SetCtrlVFPUFReg:
+	case IROp::FpCondFromReg:
 	case IROp::FpCondToReg:
-	case IROp::ZeroFpCond:
 	case IROp::FpCtrlFromReg:
 	case IROp::FpCtrlToReg:
 	case IROp::VfpuCtrlToReg:

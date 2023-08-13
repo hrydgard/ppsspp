@@ -740,6 +740,10 @@ bool PropagateConstants(const IRWriter &in, IRWriter &out, const IROptions &opts
 			out.Write(inst);
 			break;
 
+		case IROp::FpCondFromReg:
+			gpr.MapDirtyIn(IRREG_FPCOND, inst.src1);
+			out.Write(inst);
+			break;
 		case IROp::FpCondToReg:
 			if (gpr.IsImm(IRREG_FPCOND)) {
 				gpr.SetImm(inst.dest, gpr.GetImm(IRREG_FPCOND));
@@ -779,7 +783,6 @@ bool PropagateConstants(const IRWriter &in, IRWriter &out, const IROptions &opts
 			out.Write(inst);
 			break;
 
-		case IROp::ZeroFpCond:
 		case IROp::FCmp:
 			gpr.MapDirty(IRREG_FPCOND);
 			goto doDefault;
@@ -1383,6 +1386,7 @@ bool ReorderLoadStore(const IRWriter &in, IRWriter &out, const IROptions &opts) 
 
 		case IROp::MtHi:
 		case IROp::MtLo:
+		case IROp::FpCondFromReg:
 			if (inst.src1 && otherRegs[inst.src1] != RegState::CHANGED)
 				otherRegs[inst.src1] = RegState::READ;
 			otherQueue.push_back(inst);
@@ -1391,7 +1395,6 @@ bool ReorderLoadStore(const IRWriter &in, IRWriter &out, const IROptions &opts) 
 
 		case IROp::Nop:
 		case IROp::Downcount:
-		case IROp::ZeroFpCond:
 			if (queuing) {
 				// These are freebies.  Sometimes helps with delay slots.
 				otherQueue.push_back(inst);

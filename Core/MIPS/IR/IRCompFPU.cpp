@@ -102,7 +102,7 @@ void IRFrontend::Comp_FPUComp(MIPSOpcode op) {
 	int opc = op & 0xF;
 	if (opc >= 8) opc -= 8; // alias
 	if (opc == 0) {  // f, sf (signalling false)
-		ir.Write(IROp::ZeroFpCond);
+		ir.Write(IROp::FpCondFromReg, 0, MIPS_REG_ZERO);
 		return;
 	}
 

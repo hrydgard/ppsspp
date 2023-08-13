@@ -138,12 +138,12 @@ enum class IROp : u8 {
 	FSat0_1,
 	FSatMinus1_1,
 
+	FpCondFromReg,
 	FpCondToReg,
 	FpCtrlFromReg,
 	FpCtrlToReg,
 	VfpuCtrlToReg,
 
-	ZeroFpCond,
 	FCmp,
 
 	FCmovVfpuCC,
