@@ -404,13 +404,13 @@ public:
 	}
 	uint32_t GetDataFormatSupport(DataFormat fmt) const override;
 
-	PresentationMode GetPresentationMode() const override {
+	PresentMode GetPresentMode() const override {
 		switch (vulkan_->GetPresentMode()) {
-		case VK_PRESENT_MODE_FIFO_KHR: return PresentationMode::FIFO;
-		case VK_PRESENT_MODE_FIFO_RELAXED_KHR: return PresentationMode::FIFO_RELAXED;
-		case VK_PRESENT_MODE_IMMEDIATE_KHR: return PresentationMode::IMMEDIATE;
-		case VK_PRESENT_MODE_MAILBOX_KHR: return PresentationMode::MAILBOX;
-		default: return PresentationMode::FIFO;
+		case VK_PRESENT_MODE_FIFO_KHR: return PresentMode::FIFO;
+		case VK_PRESENT_MODE_FIFO_RELAXED_KHR: return PresentMode::FIFO;  // We treat is as FIFO for now (and won't ever enable it anyway...)
+		case VK_PRESENT_MODE_IMMEDIATE_KHR: return PresentMode::IMMEDIATE;
+		case VK_PRESENT_MODE_MAILBOX_KHR: return PresentMode::MAILBOX;
+		default: return PresentMode::FIFO;
 		}
 	}
 

@@ -347,9 +347,9 @@ public:
 		renderManager_.SetErrorCallback(callback, userdata);
 	}
 
-	PresentationMode GetPresentationMode() const override {
+	PresentMode GetPresentMode() const override {
 		// TODO: Fix. Not yet used.
-		return PresentationMode::FIFO;
+		return PresentMode::FIFO;
 	}
 
 	DepthStencilState *CreateDepthStencilState(const DepthStencilStateDesc &desc) override;
