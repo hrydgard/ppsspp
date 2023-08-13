@@ -329,9 +329,6 @@ public:
 		DrawContext::SetTargetSize(w, h);
 		renderManager_.Resize(w, h);
 	}
-	void SetDebugFlags(DebugFlags flags) override {
-		debugFlags_ = flags;
-	}
 
 	const DeviceCaps &GetDeviceCaps() const override {
 		return caps_;
@@ -367,8 +364,9 @@ public:
 	Buffer *CreateBuffer(size_t size, uint32_t usageFlags) override;
 	Framebuffer *CreateFramebuffer(const FramebufferDesc &desc) override;
 
-	void BeginFrame() override;
+	void BeginFrame(DebugFlags debugFlags) override;
 	void EndFrame() override;
+	void Present(int vblanks) override;
 
 	int GetFrameCount() override {
 		return frameCount_;
@@ -492,6 +490,10 @@ public:
 		renderManager_.SetInvalidationCallback(callback);
 	}
 
+	std::string GetGpuProfileString() const override {
+		return renderManager_.GetGpuProfileString();
+	}
+
 private:
 	void ApplySamplers();
 
@@ -523,8 +525,6 @@ private:
 		GLPushBuffer *push;
 	};
 	FrameData frameData_[GLRenderManager::MAX_INFLIGHT_FRAMES]{};
-
-	DebugFlags debugFlags_ = DebugFlags::NONE;
 };
 
 static constexpr int MakeIntelSimpleVer(int v1, int v2, int v3) {
@@ -571,6 +571,7 @@ OpenGLContext::OpenGLContext() {
 		caps_.textureDepthSupported = true;
 	}
 
+	caps_.setMaxFrameLatencySupported = true;
 	caps_.dualSourceBlend = gl_extensions.ARB_blend_func_extended || gl_extensions.EXT_blend_func_extended;
 	caps_.anisoSupported = gl_extensions.EXT_texture_filter_anisotropic;
 	caps_.framebufferCopySupported = gl_extensions.OES_copy_image || gl_extensions.NV_copy_image || gl_extensions.EXT_copy_image || gl_extensions.ARB_copy_image;
@@ -788,8 +789,8 @@ OpenGLContext::~OpenGLContext() {
 	}
 }
 
-void OpenGLContext::BeginFrame() {
-	renderManager_.BeginFrame(debugFlags_ & DebugFlags::PROFILE_TIMESTAMPS);
+void OpenGLContext::BeginFrame(DebugFlags debugFlags) {
+	renderManager_.BeginFrame(debugFlags & DebugFlags::PROFILE_TIMESTAMPS);
 	FrameData &frameData = frameData_[renderManager_.GetCurFrame()];
 	renderManager_.BeginPushBuffer(frameData.push);
 }
@@ -798,8 +799,11 @@ void OpenGLContext::EndFrame() {
 	FrameData &frameData = frameData_[renderManager_.GetCurFrame()];
 	renderManager_.EndPushBuffer(frameData.push);  // upload the data!
 	renderManager_.Finish();
-
 	Invalidate(InvalidationFlags::CACHED_RENDER_STATE);
+}
+
+void OpenGLContext::Present(int vblanks) {
+	renderManager_.Present();
 	frameCount_++;
 }
 

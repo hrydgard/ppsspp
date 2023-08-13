@@ -28,12 +28,9 @@ class DrawContext;
 
 class D3D11Context : public WindowsGraphicsContext {
 public:
-	D3D11Context();
-	~D3D11Context();
 	bool Init(HINSTANCE hInst, HWND window, std::string *error_message) override;
 	void Shutdown() override;
 	void SwapInterval(int interval) override;
-	void SwapBuffers() override;
 
 	void Resize() override;
 
@@ -59,13 +56,12 @@ private:
 	ID3D11Debug *d3dDebug_ = nullptr;
 	ID3D11InfoQueue *d3dInfoQueue_ = nullptr;
 #endif
-
 	D3D_FEATURE_LEVEL featureLevel_ = D3D_FEATURE_LEVEL_11_0;
-	int adapterId;
-	HDC hDC;     // Private GDI Device Context
-	HWND hWnd_;   // Holds Our Window Handle
-	HMODULE hD3D11;
-	int width;
-	int height;
+	int adapterId = -1;
+	HDC hDC = nullptr;     // Private GDI Device Context
+	HWND hWnd_ = nullptr;   // Holds Our Window Handle
+	HMODULE hD3D11 = nullptr;
+	int width = 0;
+	int height = 0;
 	int swapInterval_ = 0;
 };

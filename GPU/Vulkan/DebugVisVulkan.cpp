@@ -98,9 +98,6 @@ void DrawGPUMemoryVis(UIContext *ui, GPUInterface *gpu) {
 }
 
 void DrawGPUProfilerVis(UIContext *ui, GPUInterface *gpu) {
-	if (!gpu) {
-		return;
-	}
 	using namespace Draw;
 	const int padding = 10 + System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_LEFT);
 	const int starty = 50 + System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_TOP);
@@ -115,8 +112,7 @@ void DrawGPUProfilerVis(UIContext *ui, GPUInterface *gpu) {
 		scale = 0.7f;
 	}
 
-	GPUCommon *gpuCommon = static_cast<GPUCommon *>(gpu);
-	std::string text = gpuCommon->GetGpuProfileString();
+	std::string text = ui->GetDrawContext()->GetGpuProfileString();
 
 	ui->SetFontScale(0.4f, 0.4f);
 	ui->DrawTextShadow(text.c_str(), x, y, 0xFFFFFFFF, FLAG_DYNAMIC_ASCII);

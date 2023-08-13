@@ -137,7 +137,6 @@ TextDrawerUWP::TextDrawerUWP(Draw::DrawContext *draw) : TextDrawer(draw), ctx_(n
 	);
 
 	m_d2dContext->CreateSolidColorBrush(D2D1::ColorF(D2D1::ColorF::White, 1.0f), &m_d2dWhiteBrush);
-
 }
 
 TextDrawerUWP::~TextDrawerUWP() {
@@ -381,7 +380,7 @@ void TextDrawerUWP::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStrin
 
 	m_d2dContext->BeginDraw();
 	m_d2dContext->Clear();
-	m_d2dContext->DrawTextLayout(D2D1::Point2F(0.0f, 0.0f), layout, m_d2dWhiteBrush);
+	m_d2dContext->DrawTextLayout(D2D1::Point2F(0.0f, 0.0f), layout, m_d2dWhiteBrush, texFormat == Draw::DataFormat::R8G8B8A8_UNORM ? D2D1_DRAW_TEXT_OPTIONS_ENABLE_COLOR_FONT : D2D1_DRAW_TEXT_OPTIONS_NONE);
 	m_d2dContext->EndDraw();
 
 	layout->Release();
@@ -396,11 +395,15 @@ void TextDrawerUWP::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStrin
 	// because we need white. Well, we could using swizzle, but not all our backends support that.
 	if (texFormat == Draw::DataFormat::R8G8B8A8_UNORM || texFormat == Draw::DataFormat::B8G8R8A8_UNORM) {
 		bitmapData.resize(entry.bmWidth * entry.bmHeight * sizeof(uint32_t));
+		bool swap = texFormat == Draw::DataFormat::R8G8B8A8_UNORM;
 		uint32_t *bitmapData32 = (uint32_t *)&bitmapData[0];
 		for (int y = 0; y < entry.bmHeight; y++) {
+			uint32_t *bmpLine = (uint32_t *)&map.bits[map.pitch * y];
 			for (int x = 0; x < entry.bmWidth; x++) {
-				uint8_t bAlpha = (uint8_t)(map.bits[map.pitch * y + x * 4] & 0xff);
-				bitmapData32[entry.bmWidth * y + x] = (bAlpha << 24) | 0x00ffffff;
+				uint32_t v = bmpLine[x];
+				if (swap)
+					v = (v & 0xFF00FF00) | ((v >> 16) & 0xFF) | ((v << 16) & 0xFF0000);
+				bitmapData32[entry.bmWidth * y + x] = v;
 			}
 		}
 	} else if (texFormat == Draw::DataFormat::B4G4R4A4_UNORM_PACK16 || texFormat == Draw::DataFormat::R4G4B4A4_UNORM_PACK16) {
@@ -452,12 +455,17 @@ void TextDrawerUWP::DrawString(DrawBuffer &target, const char *str, float x, flo
 		entry->lastUsedFrame = frameCount_;
 	} else {
 		DataFormat texFormat;
+
 		// For our purposes these are equivalent, so just choose the supported one. D3D can emulate them.
 		if (draw_->GetDataFormatSupport(Draw::DataFormat::A4R4G4B4_UNORM_PACK16) & FMT_TEXTURE)
 			texFormat = Draw::DataFormat::A4R4G4B4_UNORM_PACK16;
 		else if (draw_->GetDataFormatSupport(Draw::DataFormat::B4G4R4A4_UNORM_PACK16) & FMT_TEXTURE)
 			texFormat = Draw::DataFormat::B4G4R4A4_UNORM_PACK16;
 		else
+			texFormat = Draw::DataFormat::R8G8B8A8_UNORM;
+
+		bool emoji = AnyEmojiInString(key.text.c_str(), key.text.size());
+		if (emoji)
 			texFormat = Draw::DataFormat::R8G8B8A8_UNORM;
 
 		entry = new TextStringEntry();

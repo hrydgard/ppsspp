@@ -25,7 +25,7 @@
 class GraphicsContext;
 
 // called from emu thread
-void UpdateRunLoop();
+void UpdateRunLoop(GraphicsContext *ctx);
 
 // Returns false when an UI exit state is detected.
 bool Core_Run(GraphicsContext *ctx);
@@ -83,7 +83,7 @@ bool UpdateScreenScale(int width, int height);
 
 // Don't run the core when minimized etc.
 void Core_NotifyWindowHidden(bool hidden);
-void Core_NotifyActivity();
+bool Core_IsWindowHidden();
 
 void Core_SetPowerSaving(bool mode);
 bool Core_GetPowerSaving();

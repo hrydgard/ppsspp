@@ -21,26 +21,7 @@
 #include "Common/GPU/thin3d_create.h"
 #include "Common/GPU/D3D9/D3DCompilerLoader.h"
 
-void D3D9Context::SwapBuffers() {
-	if (has9Ex_) {
-		deviceEx_->EndScene();
-		deviceEx_->PresentEx(NULL, NULL, NULL, NULL, 0);
-		deviceEx_->BeginScene();
-	} else {
-		device_->EndScene();
-		device_->Present(NULL, NULL, NULL, NULL);
-		device_->BeginScene();
-	}
-}
-
 typedef HRESULT (__stdcall *DIRECT3DCREATE9EX)(UINT, IDirect3D9Ex**);
-
-static void GetRes(HWND hWnd, int &xres, int &yres) {
-	RECT rc;
-	GetClientRect(hWnd, &rc);
-	xres = rc.right - rc.left;
-	yres = rc.bottom - rc.top;
-}
 
 void D3D9Context::SwapInterval(int interval) {
 	swapInterval_ = interval;
@@ -126,7 +107,7 @@ bool D3D9Context::Init(HINSTANCE hInst, HWND wnd, std::string *error_message) {
 		dwBehaviorFlags |= D3DCREATE_SOFTWARE_VERTEXPROCESSING;
 
 	int xres, yres;
-	GetRes(hWnd_, xres, yres);
+	W32Util::GetWindowRes(hWnd_, &xres, &yres);
 
 	presentParams_ = {};
 	presentParams_.BackBufferWidth = xres;
@@ -183,8 +164,8 @@ bool D3D9Context::Init(HINSTANCE hInst, HWND wnd, std::string *error_message) {
 void D3D9Context::Resize() {
 	// This should only be called from the emu thread.
 	int xres, yres;
-	GetRes(hWnd_, xres, yres);
-	uint32_t newInterval = swapInterval_ == 1 ? D3DPRESENT_INTERVAL_ONE : D3DPRESENT_INTERVAL_IMMEDIATE;;
+	W32Util::GetWindowRes(hWnd_, &xres, &yres);
+	uint32_t newInterval = swapInterval_ == 1 ? D3DPRESENT_INTERVAL_ONE : D3DPRESENT_INTERVAL_IMMEDIATE;
 	bool w_changed = presentParams_.BackBufferWidth != xres;
 	bool h_changed = presentParams_.BackBufferHeight != yres;
 	bool i_changed = presentParams_.PresentationInterval != newInterval;

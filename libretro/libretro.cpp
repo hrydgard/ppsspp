@@ -474,6 +474,7 @@ static void check_variables(CoreParameter &coreParam)
          g_Config.iLanguage = PSP_SYSTEMPARAM_LANGUAGE_CHINESE_SIMPLIFIED;
    }
 
+#ifndef __EMSCRIPTEN__
    var.key = "ppsspp_cpu_core";
    if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value)
    {
@@ -491,6 +492,9 @@ static void check_variables(CoreParameter &coreParam)
        // to experiment in future iOS versions or something...
        g_Config.iCpuCore = (int)CPUCore::IR_JIT;
    }
+#else
+   g_Config.iCpuCore = (int)CPUCore::INTERPRETER;
+#endif
 
    var.key = "ppsspp_fast_memory";
    if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value)
@@ -1163,7 +1167,7 @@ namespace Libretro
    {
       ctx->SetRenderTarget();
       if (ctx->GetDrawContext())
-         ctx->GetDrawContext()->BeginFrame();
+         ctx->GetDrawContext()->BeginFrame(Draw::DebugFlags::NONE);
 
       gpu->BeginHostFrame();
 
@@ -1172,8 +1176,10 @@ namespace Libretro
 
       gpu->EndHostFrame();
 
-      if (ctx->GetDrawContext())
+      if (ctx->GetDrawContext()) {
          ctx->GetDrawContext()->EndFrame();
+         ctx->GetDrawContext()->Present(1);
+      }
    }
 
    static void EmuThreadFunc()
@@ -1704,8 +1710,7 @@ void System_Notify(SystemNotification notification) {
 }
 bool System_MakeRequest(SystemRequestType type, int requestId, const std::string &param1, const std::string &param2, int param3) { return false; }
 void System_PostUIMessage(const std::string &message, const std::string &param) {}
-void NativeUpdate() {}
-void NativeRender(GraphicsContext *graphicsContext) {}
+void NativeFrame(GraphicsContext *graphicsContext) {}
 void NativeResized() {}
 
 void System_Toast(const char *str) {}

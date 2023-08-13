@@ -50,11 +50,6 @@ NATIVE_FILES :=\
   $(SRC)/Common/GPU/OpenGL/GLQueueRunner.cpp \
   $(SRC)/Common/GPU/OpenGL/DataFormatGL.cpp
 
-EGL_FILES := \
-  $(SRC)/Common/GL/GLInterface/EGL.cpp \
-  $(SRC)/Common/GL/GLInterface/EGLAndroid.cpp \
-  $(SRC)/Common/GL/GLInterface/GLInterface.cpp
-
 VULKAN_FILES := \
   $(SRC)/Common/GPU/Vulkan/thin3d_vulkan.cpp \
   $(SRC)/Common/GPU/Vulkan/VulkanQueueRunner.cpp \
@@ -175,7 +170,6 @@ EXT_FILES := \
 
 EXEC_AND_LIB_FILES := \
   $(ARCH_FILES) \
-  $(EGL_FILES) \
   $(VULKAN_FILES) \
   $(VR_FILES) \
   $(VMA_FILES) \
@@ -400,6 +394,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Core/MIPS/IR/IRCompVFPU.cpp \
   $(SRC)/Core/MIPS/IR/IRInst.cpp \
   $(SRC)/Core/MIPS/IR/IRInterpreter.cpp \
+  $(SRC)/Core/MIPS/IR/IRNativeCommon.cpp \
   $(SRC)/Core/MIPS/IR/IRPassSimplify.cpp \
   $(SRC)/Core/MIPS/IR/IRRegCache.cpp \
   $(SRC)/GPU/Math3D.cpp \
@@ -484,6 +479,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Core/ConfigSettings.cpp \
   $(SRC)/Core/CoreTiming.cpp \
   $(SRC)/Core/CwCheat.cpp \
+  $(SRC)/Core/FrameTiming.cpp \
   $(SRC)/Core/HDRemaster.cpp \
   $(SRC)/Core/Instance.cpp \
   $(SRC)/Core/KeyMap.cpp \
@@ -763,6 +759,7 @@ LOCAL_SRC_FILES := \
   $(SRC)/UI/BackgroundAudio.cpp \
   $(SRC)/UI/DiscordIntegration.cpp \
   $(SRC)/UI/ChatScreen.cpp \
+  $(SRC)/UI/DebugOverlay.cpp \
   $(SRC)/UI/DevScreens.cpp \
   $(SRC)/UI/DisplayLayoutScreen.cpp \
   $(SRC)/UI/EmuScreen.cpp \

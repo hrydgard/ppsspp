@@ -210,7 +210,7 @@ std::string PathBrowser::GetFriendlyPath() const {
 bool PathBrowser::GetListing(std::vector<File::FileInfo> &fileInfo, const char *filter, bool *cancel) {
 	std::unique_lock<std::mutex> guard(pendingLock_);
 	while (!IsListingReady() && (!cancel || !*cancel)) {
-		// In case cancel changes, just sleep.
+		// In case cancel changes, just sleep. TODO: Replace with condition variable.
 		guard.unlock();
 		sleep_ms(50);
 		guard.lock();
@@ -221,14 +221,6 @@ bool PathBrowser::GetListing(std::vector<File::FileInfo> &fileInfo, const char *
 }
 
 bool PathBrowser::CanNavigateUp() {
-/* Leaving this commented out, not sure if there's a use in UWP for navigating up from the user data folder.
-#if PPSSPP_PLATFORM(UWP)
-	// Can't navigate up from memstick folder :(
-	if (path_ == GetSysDirectory(DIRECTORY_MEMSTICK_ROOT)) {
-		return false;
-	}
-#endif
-*/
 	return path_.CanNavigateUp();
 }
 

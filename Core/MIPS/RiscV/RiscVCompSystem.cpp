@@ -38,7 +38,7 @@ namespace MIPSComp {
 using namespace RiscVGen;
 using namespace RiscVJitConstants;
 
-void RiscVJit::CompIR_Basic(IRInst inst) {
+void RiscVJitBackend::CompIR_Basic(IRInst inst) {
 	CONDITIONAL_DISABLE;
 
 	switch (inst.op) {
@@ -85,7 +85,7 @@ void RiscVJit::CompIR_Basic(IRInst inst) {
 	}
 }
 
-void RiscVJit::CompIR_Transfer(IRInst inst) {
+void RiscVJitBackend::CompIR_Transfer(IRInst inst) {
 	CONDITIONAL_DISABLE;
 
 	switch (inst.op) {
@@ -105,14 +105,15 @@ void RiscVJit::CompIR_Transfer(IRInst inst) {
 		FMV(FMv::X, FMv::W, gpr.R(IRREG_VFPU_CTRL_BASE + inst.dest), fpr.R(inst.src1));
 		break;
 
+	case IROp::FpCondFromReg:
+		gpr.MapDirtyIn(IRREG_FPCOND, inst.src1);
+		MV(gpr.R(IRREG_FPCOND), gpr.R(inst.src1));
+		break;
+
 	case IROp::FpCondToReg:
 		gpr.MapDirtyIn(inst.dest, IRREG_FPCOND);
 		MV(gpr.R(inst.dest), gpr.R(IRREG_FPCOND));
 		gpr.MarkDirty(gpr.R(inst.dest), gpr.IsNormalized32(IRREG_FPCOND));
-		break;
-
-	case IROp::ZeroFpCond:
-		gpr.SetImm(IRREG_FPCOND, 0);
 		break;
 
 	case IROp::FpCtrlFromReg:
@@ -177,7 +178,7 @@ void RiscVJit::CompIR_Transfer(IRInst inst) {
 	}
 }
 
-void RiscVJit::CompIR_System(IRInst inst) {
+void RiscVJitBackend::CompIR_System(IRInst inst) {
 	CONDITIONAL_DISABLE;
 
 	switch (inst.op) {
@@ -188,7 +189,7 @@ void RiscVJit::CompIR_System(IRInst inst) {
 #ifdef USE_PROFILER
 		// When profiling, we can't skip CallSyscall, since it times syscalls.
 		LI(X10, (int32_t)inst.constant);
-		QuickCallFunction(&CallSyscall);
+		QuickCallFunction(&CallSyscall, SCRATCH2);
 #else
 		// Skip the CallSyscall where possible.
 		{
@@ -196,10 +197,10 @@ void RiscVJit::CompIR_System(IRInst inst) {
 			void *quickFunc = GetQuickSyscallFunc(op);
 			if (quickFunc) {
 				LI(X10, (uintptr_t)GetSyscallFuncPointer(op));
-				QuickCallFunction((const u8 *)quickFunc);
+				QuickCallFunction((const u8 *)quickFunc, SCRATCH2);
 			} else {
 				LI(X10, (int32_t)inst.constant);
-				QuickCallFunction(&CallSyscall);
+				QuickCallFunction(&CallSyscall, SCRATCH2);
 			}
 		}
 #endif
@@ -211,7 +212,7 @@ void RiscVJit::CompIR_System(IRInst inst) {
 	case IROp::CallReplacement:
 		FlushAll();
 		SaveStaticRegisters();
-		QuickCallFunction(GetReplacementFunc(inst.constant)->replaceFunc);
+		QuickCallFunction(GetReplacementFunc(inst.constant)->replaceFunc, SCRATCH2);
 		LoadStaticRegisters();
 		SUB(DOWNCOUNTREG, DOWNCOUNTREG, X10);
 		break;
@@ -222,7 +223,7 @@ void RiscVJit::CompIR_System(IRInst inst) {
 		RestoreRoundingMode(true);
 		SaveStaticRegisters();
 		MovFromPC(X10);
-		QuickCallFunction(&Core_Break);
+		QuickCallFunction(&Core_Break, SCRATCH2);
 		LoadStaticRegisters();
 		ApplyRoundingMode(true);
 		MovFromPC(SCRATCH1);
@@ -236,7 +237,7 @@ void RiscVJit::CompIR_System(IRInst inst) {
 	}
 }
 
-void RiscVJit::CompIR_Breakpoint(IRInst inst) {
+void RiscVJitBackend::CompIR_Breakpoint(IRInst inst) {
 	CONDITIONAL_DISABLE;
 
 	switch (inst.op) {
@@ -251,7 +252,7 @@ void RiscVJit::CompIR_Breakpoint(IRInst inst) {
 	}
 }
 
-void RiscVJit::CompIR_ValidateAddress(IRInst inst) {
+void RiscVJitBackend::CompIR_ValidateAddress(IRInst inst) {
 	CONDITIONAL_DISABLE;
 
 	switch (inst.op) {

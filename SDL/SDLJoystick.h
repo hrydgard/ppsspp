@@ -20,7 +20,7 @@ public:
 	~SDLJoystick();
 
 	void registerEventHandler();
-	void ProcessInput(SDL_Event &event);
+	void ProcessInput(const SDL_Event &event);
 
 private:
 	void setUpController(int deviceIndex);

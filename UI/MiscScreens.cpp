@@ -34,6 +34,7 @@
 #include "Common/File/VFS/VFS.h"
 
 #include "Common/Data/Color/RGBAUtil.h"
+#include "Common/Data/Encoding/Utf8.h"
 #include "Common/Data/Text/I18n.h"
 #include "Common/Data/Random/Rng.h"
 #include "Common/TimeUtil.h"
@@ -794,11 +795,13 @@ void LogoScreen::render() {
 	int ppsspp_org_y = bounds.h / 2 + 130;
 	dc.DrawText("www.ppsspp.org", bounds.centerX(), ppsspp_org_y, textColor, ALIGN_CENTER);
 
-#if !PPSSPP_PLATFORM(UWP)
+#if !PPSSPP_PLATFORM(UWP) || defined(_DEBUG)
 	// Draw the graphics API, except on UWP where it's always D3D11
 	std::string apiName = screenManager()->getDrawContext()->GetInfoString(InfoField::APINAME);
 #ifdef _DEBUG
-	apiName += ", debug build";
+	apiName += ", debug build ";
+	// Add some emoji for testing.
+	apiName += CodepointToUTF8(0x1F41B) + CodepointToUTF8(0x1F41C) + CodepointToUTF8(0x1F914);
 #endif
 	dc.DrawText(gr->T(apiName), bounds.centerX(), ppsspp_org_y + 50, textColor, ALIGN_CENTER);
 #endif

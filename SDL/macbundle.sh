@@ -1,10 +1,11 @@
 #!/bin/bash
 
-echo "Hello"
+echo "Hello from macbundle.sh"
 
 PPSSPP="${1}"
 PPSSPP_SHORTNAME="${2}"
 PPSSPPSDL="${PPSSPP}/Contents/MacOS/${PPSSPP_SHORTNAME}"
+MOLTENVK="${PPSSPP}/Contents/Frameworks/libMoltenVK.dylib"
 
 ls ${PPSSPPSDL}
 
@@ -35,11 +36,7 @@ install_name_tool -rpath "${RPATH}" "@executable_path/../Frameworks" "${PPSSPPSD
 
 echo "Done."
 
-GIT_VERSION_LINE=$(grep "PPSSPP_GIT_VERSION = " "$(dirname "${0}")/../git-version.cpp")
-# Hack, need to do something better here.
-if [ -z "$GIT_VERSION_LINE" ]; then
-  GIT_VERSION_LINE=$(grep "PPSSPP_GIT_VERSION = " "$(dirname "${0}")/../build/git-version.cpp")
-fi
+GIT_VERSION_LINE=$(grep "PPSSPP_GIT_VERSION = " "$(dirname "${0}")/../build/git-version.cpp")
 
 echo "Setting version to '${GIT_VERSION_LINE}'..."
 SHORT_VERSION_MATCH='.*"v([0-9\.]+(-[0-9]+)?).*";'
@@ -54,5 +51,7 @@ fi
 
 # AdHoc codesign is required for Apple Silicon.
 echo "Signing..."
-codesign -fs - --entitlements ../macOS/Entitlements.plist --timestamp "${PPSSPPSDL}" || echo "Failed signing"
-codesign -fs - --entitlements ../macOS/Entitlements.plist --timestamp "${PPSSPP}" || echo "Failed signing"
+
+codesign -fs - --entitlements ../macOS/Entitlements.plist --timestamp "${MOLTENVK}" || echo "Failed signing MoltenVK"
+codesign -fs - --entitlements ../macOS/Entitlements.plist --timestamp "${PPSSPPSDL}" || echo "Failed signing PPSSPPSDL"
+codesign -fs - --entitlements ../macOS/Entitlements.plist --timestamp "${PPSSPP}" || echo "Failed signing PPSSPP"

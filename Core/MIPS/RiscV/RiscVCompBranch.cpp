@@ -34,15 +34,14 @@ namespace MIPSComp {
 using namespace RiscVGen;
 using namespace RiscVJitConstants;
 
-void RiscVJit::CompIR_Exit(IRInst inst) {
+void RiscVJitBackend::CompIR_Exit(IRInst inst) {
 	CONDITIONAL_DISABLE;
 
 	RiscVReg exitReg = INVALID_REG;
 	switch (inst.op) {
 	case IROp::ExitToConst:
 		FlushAll();
-		LI(SCRATCH1, inst.constant);
-		QuickJ(R_RA, dispatcherPCInSCRATCH1_);
+		WriteConstExit(inst.constant);
 		break;
 
 	case IROp::ExitToReg:
@@ -64,7 +63,7 @@ void RiscVJit::CompIR_Exit(IRInst inst) {
 	}
 }
 
-void RiscVJit::CompIR_ExitIf(IRInst inst) {
+void RiscVJitBackend::CompIR_ExitIf(IRInst inst) {
 	CONDITIONAL_DISABLE;
 
 	RiscVReg lhs = INVALID_REG;
@@ -92,8 +91,7 @@ void RiscVJit::CompIR_ExitIf(IRInst inst) {
 			break;
 		}
 
-		LI(SCRATCH1, inst.constant);
-		QuickJ(R_RA, dispatcherPCInSCRATCH1_);
+		WriteConstExit(inst.constant);
 		SetJumpTarget(fixup);
 		break;
 
@@ -127,8 +125,7 @@ void RiscVJit::CompIR_ExitIf(IRInst inst) {
 			break;
 		}
 
-		LI(SCRATCH1, inst.constant);
-		QuickJ(R_RA, dispatcherPCInSCRATCH1_);
+		WriteConstExit(inst.constant);
 		SetJumpTarget(fixup);
 		break;
 

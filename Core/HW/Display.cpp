@@ -92,7 +92,7 @@ static void CalculateFPS() {
 		}
 	}
 
-	if (g_Config.bDrawFrameGraph || coreCollectDebugStats) {
+	if ((DebugOverlay)g_Config.iDebugOverlay == DebugOverlay::FRAME_GRAPH || coreCollectDebugStats) {
 		frameTimeHistory[frameTimeHistoryPos++] = now - lastFrameTimeHistory;
 		lastFrameTimeHistory = now;
 		frameTimeHistoryPos = frameTimeHistoryPos % frameTimeHistorySize;
@@ -182,6 +182,10 @@ void DisplayNotifySleep(double t, int pos) {
 
 void __DisplayGetDebugStats(char *stats, size_t bufsize) {
 	char statbuf[4096];
+	if (!gpu) {
+		snprintf(stats, bufsize, "N/A");
+		return;
+	}
 	gpu->GetStats(statbuf, sizeof(statbuf));
 
 	snprintf(stats, bufsize,

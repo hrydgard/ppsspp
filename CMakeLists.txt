@@ -257,14 +257,14 @@ endif()
 
 if(NOT LIBRETRO AND NOT IOS AND NOT MACOSX)
 	find_package(SDL2)
-	find_package(SDL2_TTF)
+	find_package(SDL2_ttf)
 	find_package(Fontconfig)
 endif()
 
 if(MACOSX AND NOT IOS)
 	if(USE_SYSTEM_LIBSDL2)
 		find_package(SDL2)
-		find_package(SDL2_TTF)
+		find_package(SDL2_ttf)
 	else()
 		find_library(SDL2Fwk SDL2 REQUIRED PATHS SDL/macOS)
 		message(STATUS "found SDL2Fwk=${SDL2Fwk}")
@@ -420,6 +420,9 @@ if(NOT MSVC)
 		add_definitions(-D_XOPEN_SOURCE=700)
 		add_definitions(-D_XOPEN_SOURCE_EXTENDED -D__BSD_VISIBLE=1 -D_BSD_SOURCE -D_DEFAULT_SOURCE)
 		add_definitions(-D_LARGEFILE64_SOURCE=1 -D_FILE_OFFSET_BITS=64)
+		if(${CMAKE_SYSTEM_NAME} STREQUAL "NetBSD")
+			add_definitions(-D_NETBSD_SOURCE)
+		endif()
 	elseif(ANDROID)
 		add_definitions(-fsigned-char)
 	endif()
@@ -750,6 +753,8 @@ add_library(Common STATIC
 	Common/Render/Text/draw_text.h
 	Common/Render/Text/draw_text_android.cpp
 	Common/Render/Text/draw_text_android.h
+	Common/Render/Text/draw_text_sdl.cpp
+	Common/Render/Text/draw_text_sdl.h
 	Common/Render/Text/draw_text_win.cpp
 	Common/Render/Text/draw_text_win.h
 	Common/Render/Text/draw_text_uwp.cpp
@@ -1180,15 +1185,6 @@ set(nativeExtra)
 set(nativeExtraLibs)
 
 if(ANDROID)
-	set(nativeExtra ${nativeExtra}
-		Common/GL/GLInterface/EGLAndroid.cpp
-		Common/GL/GLInterface/EGLAndroid.h
-		Common/GL/GLInterface/EGL.cpp
-		Common/GL/GLInterface/EGL.h
-		Common/GL/GLInterface/GLInterface.cpp
-		Common/GL/GLInterfaceBase.h
-	)
-
 	set(NativeAppSource ${NativeAppSource}
 		android/jni/app-android.cpp
 		android/jni/AndroidJavaGLContext.cpp
@@ -1319,7 +1315,7 @@ else()
 			SDL/SDLVulkanGraphicsContext.cpp
 		)
 	endif()
-	if(SDL2_TTF_FOUND)
+	if(SDL2_ttf_FOUND)
 		add_definitions(-DUSE_SDL2_TTF)
 		set(nativeExtraLibs ${nativeExtraLibs} SDL2_ttf::SDL2_ttf)
 
@@ -1389,6 +1385,8 @@ list(APPEND NativeAppSource
 	UI/BackgroundAudio.cpp
 	UI/ChatScreen.h
 	UI/ChatScreen.cpp
+	UI/DebugOverlay.cpp
+	UI/DebugOverlay.h
 	UI/DevScreens.cpp
 	UI/DevScreens.h
 	UI/DisplayLayoutScreen.cpp
@@ -1469,8 +1467,6 @@ add_library(native STATIC
 	${nativeExtra}
 	Common/Render/Text/draw_text_qt.cpp
 	Common/Render/Text/draw_text_qt.h
-	Common/Render/Text/draw_text_sdl.cpp
-	Common/Render/Text/draw_text_sdl.h
 	ext/jpge/jpgd.cpp
 	ext/jpge/jpgd.h
 	ext/jpge/jpge.cpp
@@ -1554,6 +1550,8 @@ set(CoreExtra ${CoreExtra}
 	Core/MIPS/IR/IRInterpreter.h
 	Core/MIPS/IR/IRJit.cpp
 	Core/MIPS/IR/IRJit.h
+	Core/MIPS/IR/IRNativeCommon.cpp
+	Core/MIPS/IR/IRNativeCommon.h
 	Core/MIPS/IR/IRPassSimplify.cpp
 	Core/MIPS/IR/IRPassSimplify.h
 	Core/MIPS/IR/IRRegCache.cpp

@@ -39,6 +39,7 @@
 #endif
 #include "Common/File/AndroidStorage.h"
 #include "Common/Data/Text/I18n.h"
+#include "Common/Data/Encoding/Utf8.h"
 #include "Common/Net/HTTPClient.h"
 #include "Common/UI/Context.h"
 #include "Common/UI/View.h"
@@ -88,6 +89,30 @@ static const char *logLevelList[] = {
 	"Verb."
 };
 
+static const char *g_debugOverlayList[] = {
+	"Off",
+	"Debug stats",
+	"Draw Frametimes Graph",
+	"Frame timing",
+#ifdef USE_PROFILER
+	"Frame profile",
+#endif
+	"Control Debug",
+	"Audio Debug",
+	"GPU Profile",
+	"GPU Allocator Viewer",
+};
+
+void AddOverlayList(UI::ViewGroup *items, ScreenManager *screenManager) {
+	using namespace UI;
+	auto dev = GetI18NCategory(I18NCat::DEVELOPER);
+	int numOverlays = ARRAY_SIZE(g_debugOverlayList);
+	if (!(g_Config.iGPUBackend == (int)GPUBackend::VULKAN || g_Config.iGPUBackend == (int)GPUBackend::OPENGL)) {
+		numOverlays -= 2;  // skip the last 2.
+	}
+	items->Add(new PopupMultiChoice((int *)&g_Config.iDebugOverlay, dev->T("Debug overlay"), g_debugOverlayList, 0, numOverlays, I18NCat::DEVELOPER, screenManager));
+}
+
 void DevMenuScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	using namespace UI;
 	auto dev = GetI18NCategory(I18NCat::DEVELOPER);
@@ -103,27 +128,21 @@ void DevMenuScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	items->Add(new Choice(sy->T("Developer Tools")))->OnClick.Handle(this, &DevMenuScreen::OnDeveloperTools);
 	items->Add(new Choice(dev->T("Jit Compare")))->OnClick.Handle(this, &DevMenuScreen::OnJitCompare);
 	items->Add(new Choice(dev->T("Shader Viewer")))->OnClick.Handle(this, &DevMenuScreen::OnShaderView);
-	if (g_Config.iGPUBackend == (int)GPUBackend::VULKAN || g_Config.iGPUBackend == (int)GPUBackend::OPENGL) {
-		items->Add(new CheckBox(&g_Config.bShowAllocatorDebug, dev->T("GPU Allocator Viewer")));
-	}
-	if (g_Config.iGPUBackend == (int)GPUBackend::VULKAN || g_Config.iGPUBackend == (int)GPUBackend::OPENGL) {
-		items->Add(new CheckBox(&g_Config.bShowGpuProfile, dev->T("GPU Profile")));
-	}
-	items->Add(new Choice(dev->T("Toggle Freeze")))->OnClick.Handle(this, &DevMenuScreen::OnFreezeFrame);
 
-	items->Add(new Choice(dev->T("Dump next frame to log")))->OnClick.Handle(this, &DevMenuScreen::OnDumpFrame);
-	items->Add(new Choice(dev->T("Toggle Audio Debug")))->OnClick.Add([](UI::EventParams &) {
-		g_Config.bShowAudioDebug = !g_Config.bShowAudioDebug;
+	AddOverlayList(items, screenManager());
+	items->Add(new Choice(dev->T("Toggle Freeze")))->OnClick.Add([](UI::EventParams &e) {
+		if (PSP_CoreParameter().frozen) {
+			PSP_CoreParameter().frozen = false;
+		} else {
+			PSP_CoreParameter().freezeNext = true;
+		}
 		return UI::EVENT_DONE;
 	});
-	items->Add(new Choice(dev->T("Toggle Control Debug")))->OnClick.Add([](UI::EventParams &) {
-		g_Config.bShowControlDebug = !g_Config.bShowControlDebug;
+
+	items->Add(new Choice(dev->T("Dump next frame to log")))->OnClick.Add([](UI::EventParams &e) {
+		gpu->DumpNextFrame();
 		return UI::EVENT_DONE;
 	});
-#ifdef USE_PROFILER
-	items->Add(new CheckBox(&g_Config.bShowFrameProfiler, dev->T("Frame Profiler"), ""));
-#endif
-	items->Add(new CheckBox(&g_Config.bDrawFrameGraph, dev->T("Draw Frametimes Graph")));
 	items->Add(new Choice(dev->T("Reset limited logging")))->OnClick.Handle(this, &DevMenuScreen::OnResetLimitedLogging);
 
 	scroll->Add(items);
@@ -168,20 +187,6 @@ UI::EventReturn DevMenuScreen::OnShaderView(UI::EventParams &e) {
 	UpdateUIState(UISTATE_PAUSEMENU);
 	if (gpu)  // Avoid crashing if chosen while the game is being loaded.
 		screenManager()->push(new ShaderListScreen());
-	return UI::EVENT_DONE;
-}
-
-UI::EventReturn DevMenuScreen::OnFreezeFrame(UI::EventParams &e) {
-	if (PSP_CoreParameter().frozen) {
-		PSP_CoreParameter().frozen = false;
-	} else {
-		PSP_CoreParameter().freezeNext = true;
-	}
-	return UI::EVENT_DONE;
-}
-
-UI::EventReturn DevMenuScreen::OnDumpFrame(UI::EventParams &e) {
-	gpu->DumpNextFrame();
 	return UI::EVENT_DONE;
 }
 
@@ -457,6 +462,11 @@ const char *GetCompilerABI() {
 #else
 	return "other";
 #endif
+}
+
+void SystemInfoScreen::update() {
+	TabbedUIDialogScreenWithGameBackground::update();
+	g_OSD.NudgeSidebar();
 }
 
 void SystemInfoScreen::CreateTabs() {
@@ -755,36 +765,58 @@ void SystemInfoScreen::CreateTabs() {
 
 		VulkanContext *vk = (VulkanContext *)draw->GetNativeObject(Draw::NativeObject::CONTEXT);
 
-		gpuExtensions->Add(new ItemHeader(si->T("Vulkan Features")));
+		CollapsibleSection *vulkanFeatures = gpuExtensions->Add(new CollapsibleSection(si->T("Vulkan Features")));
 		std::vector<std::string> features = draw->GetFeatureList();
 		for (auto &feature : features) {
-			gpuExtensions->Add(new TextView(feature, new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetFocusable(true);
+			vulkanFeatures->Add(new TextView(feature, new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetFocusable(true);
 		}
 
-		gpuExtensions->Add(new ItemHeader(si->T("Present Modes")));
+		CollapsibleSection *presentModes = gpuExtensions->Add(new CollapsibleSection(si->T("Present Modes")));
 		for (auto mode : vk->GetAvailablePresentModes()) {
 			std::string str = VulkanPresentModeToString(mode);
 			if (mode == vk->GetPresentMode()) {
 				str += std::string(" (") + di->T("Current") + ")";
 			}
-			gpuExtensions->Add(new TextView(VulkanPresentModeToString(mode), new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetFocusable(true);
+			presentModes->Add(new TextView(str, new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetFocusable(true);
 		}
 
-		gpuExtensions->Add(new ItemHeader(si->T("Display Color Formats")));
+		CollapsibleSection *colorFormats = gpuExtensions->Add(new CollapsibleSection(si->T("Display Color Formats")));
 		if (vk) {
 			for (auto &format : vk->SurfaceFormats()) {
 				std::string line = StringFromFormat("%s : %s", VulkanFormatToString(format.format), VulkanColorSpaceToString(format.colorSpace));
-				gpuExtensions->Add(new TextView(line,
+				colorFormats->Add(new TextView(line,
 					new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetFocusable(true);
 			}
 		}
 #endif
 
-		gpuExtensions->Add(new ItemHeader(si->T("Vulkan Extensions")));
-		std::vector<std::string> extensions = draw->GetExtensionList();
+		CollapsibleSection *enabledExtensions = gpuExtensions->Add(new CollapsibleSection(std::string(si->T("Vulkan Extensions")) + " (" + di->T("Enabled") + ")"));
+		std::vector<std::string> extensions = draw->GetExtensionList(true, true);
 		std::sort(extensions.begin(), extensions.end());
 		for (auto &extension : extensions) {
-			gpuExtensions->Add(new TextView(extension, new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetFocusable(true);
+			enabledExtensions->Add(new TextView(extension, new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetFocusable(true);
+		}
+		// Also get instance extensions
+		enabledExtensions->Add(new ItemHeader("Instance"));
+		extensions = draw->GetExtensionList(false, true);
+		std::sort(extensions.begin(), extensions.end());
+		for (auto &extension : extensions) {
+			enabledExtensions->Add(new TextView(extension, new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetFocusable(true);
+		}
+
+		CollapsibleSection *vulkanExtensions = gpuExtensions->Add(new CollapsibleSection(si->T("Vulkan Extensions")));
+		extensions = draw->GetExtensionList(true, false);
+		std::sort(extensions.begin(), extensions.end());
+		for (auto &extension : extensions) {
+			vulkanExtensions->Add(new TextView(extension, new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetFocusable(true);
+		}
+
+		vulkanExtensions->Add(new ItemHeader("Instance"));
+		// Also get instance extensions
+		extensions = draw->GetExtensionList(false, false);
+		std::sort(extensions.begin(), extensions.end());
+		for (auto &extension : extensions) {
+			vulkanExtensions->Add(new TextView(extension, new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetFocusable(true);
 		}
 	}
 
@@ -803,7 +835,8 @@ void SystemInfoScreen::CreateTabs() {
 
 	internals->Add(new ItemHeader(si->T("Notification tests")));
 	internals->Add(new Choice(si->T("Error")))->OnClick.Add([&](UI::EventParams &) {
-		g_OSD.Show(OSDType::MESSAGE_ERROR, "Error");
+		std::string str = "Error " + CodepointToUTF8(0x1F41B) + CodepointToUTF8(0x1F41C) + CodepointToUTF8(0x1F914);
+		g_OSD.Show(OSDType::MESSAGE_ERROR, str);
 		return UI::EVENT_DONE;
 	});
 	internals->Add(new Choice(si->T("Warning")))->OnClick.Add([&](UI::EventParams &) {
@@ -852,6 +885,13 @@ void SystemInfoScreen::CreateTabs() {
 		g_OSD.ShowLeaderboardTracker(1, nullptr, false);
 		return UI::EVENT_DONE;
 	});
+
+	static const char *positions[] = { "Bottom Left", "Bottom Center", "Bottom Right", "Top Left", "Top Center", "Top Right", "Center Left", "Center Right", "None" };
+	auto ac = GetI18NCategory(I18NCat::ACHIEVEMENTS);
+
+	internals->Add(new ItemHeader(ac->T("Notifications")));
+	internals->Add(new PopupMultiChoice(&g_Config.iAchievementsLeaderboardTrackerPos, ac->T("Leaderboard tracker"), positions, 0, ARRAY_SIZE(positions), I18NCat::DIALOG, screenManager()))->SetEnabledPtr(&g_Config.bAchievementsEnable);
+
 #if PPSSPP_PLATFORM(ANDROID)
 	internals->Add(new Choice(si->T("Exception")))->OnClick.Add([&](UI::EventParams &) {
 		System_Notify(SystemNotification::TEST_JAVA_EXCEPTION);
@@ -1176,7 +1216,7 @@ void JitCompareScreen::OnRandomBlock(int flag) {
 			currentBlock_ = rand() % numBlocks;
 			JitBlockDebugInfo b = blockCache->GetBlockDebugInfo(currentBlock_);
 			u32 mipsBytes = (u32)b.origDisasm.size() * 4;
-			for (u32 addr = b.originalAddress; addr <= b.originalAddress + mipsBytes; addr += 4) {
+			for (u32 addr = b.originalAddress; addr < b.originalAddress + mipsBytes; addr += 4) {
 				MIPSOpcode opcode = Memory::Read_Instruction(addr);
 				if (MIPSGetInfo(opcode) & flag) {
 					char temp[256];

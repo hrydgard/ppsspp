@@ -156,30 +156,35 @@ void ScreenManager::resized() {
 void ScreenManager::render() {
 	if (!stack_.empty()) {
 		switch (stack_.back().flags) {
-		case LAYER_SIDEMENU:
 		case LAYER_TRANSPARENT:
 			if (stack_.size() == 1) {
 				ERROR_LOG(SYSTEM, "Can't have sidemenu over nothing");
 				break;
 			} else {
-				auto iter = stack_.end();
+				auto last = stack_.end();
+				auto iter = last;
 				iter--;
-				iter--;
-				Layer backback = *iter;
-
-				_assert_(backback.screen);
+				while (iter->flags == LAYER_TRANSPARENT) {
+					iter--;
+				}
+				auto first = iter;
+				_assert_(iter->screen);
 
 				// TODO: Make really sure that this "mismatched" pre/post only happens
 				// when screens are "compatible" (both are UIScreens, for example).
-				backback.screen->preRender();
-				backback.screen->render();
+				first->screen->preRender();
+				while (iter < last) {
+					iter->screen->render();
+					iter++;
+				}
 				stack_.back().screen->render();
-				if (postRenderCb_)
+				if (postRenderCb_) {
 					postRenderCb_(getUIContext(), postRenderUserdata_);
+				}
 				if (overlayScreen_) {
 					overlayScreen_->render();
 				}
-				backback.screen->postRender();
+				first->screen->postRender();
 				break;
 			}
 		default:

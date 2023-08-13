@@ -603,6 +603,8 @@ struct DeviceCaps {
 	bool multiViewSupported;
 	bool isTilingGPU;  // This means that it benefits from correct store-ops, msaa without backing memory, etc.
 	bool sampleRateShadingSupported;
+	bool setMaxFrameLatencySupported;
+	bool textureSwizzleSupported;
 
 	bool verySlowShaderCompiler;
 
@@ -691,7 +693,7 @@ public:
 	virtual const DeviceCaps &GetDeviceCaps() const = 0;
 	virtual uint32_t GetDataFormatSupport(DataFormat fmt) const = 0;
 	virtual std::vector<std::string> GetFeatureList() const { return std::vector<std::string>(); }
-	virtual std::vector<std::string> GetExtensionList() const { return std::vector<std::string>(); }
+	virtual std::vector<std::string> GetExtensionList(bool device, bool enabledOnly) const { return std::vector<std::string>(); }
 	virtual std::vector<std::string> GetDeviceList() const { return std::vector<std::string>(); }
 
 	virtual PresentationMode GetPresentationMode() const = 0;
@@ -706,7 +708,6 @@ public:
 	virtual void SetErrorCallback(ErrorCallbackFn callback, void *userdata) {}
 
 	virtual void DebugAnnotate(const char *annotation) {}
-	virtual void SetDebugFlags(DebugFlags flags) {}
 
 	// Partial pipeline state, used to create pipelines. (in practice, in d3d11 they'll use the native state objects directly).
 	// TODO: Possibly ditch these and just put the descs directly in PipelineDesc since only D3D11 benefits.
@@ -812,8 +813,10 @@ public:
 	virtual void DrawUP(const void *vdata, int vertexCount) = 0;
 	
 	// Frame management (for the purposes of sync and resource management, necessary with modern APIs). Default implementations here.
-	virtual void BeginFrame() {}
+	virtual void BeginFrame(DebugFlags debugFlags) {}
 	virtual void EndFrame() = 0;
+	virtual void Present(int vblanks) = 0;  // NOTE: Not all backends support vblanks > 1.
+
 	virtual void WipeQueue() {}
 
 	// This should be avoided as much as possible, in favor of clearing when binding a render target, which is native
@@ -843,7 +846,14 @@ public:
 
 	// Total amount of frames rendered. Unaffected by game pause, so more robust than gpuStats.numFlips
 	virtual int GetFrameCount() = 0;
-	virtual int GetFramesInFlight() { return 3; }
+
+	virtual FrameTimeData GetFrameTimeData(int framesBack) const {
+		return FrameTimeData{};
+	}
+
+	virtual std::string GetGpuProfileString() const {
+		return "";
+	}
 
 protected:
 	ShaderModule *vsPresets_[VS_MAX_PRESET];

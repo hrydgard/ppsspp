@@ -26,10 +26,6 @@ public:
 
 	void Shutdown() override;
 
-	void SwapBuffers() override {
-		// We don't do it this way.
-	}
-
 	void Resize() override;
 
 	void Poll() override;

@@ -90,6 +90,7 @@
 #include "Core/ConfigValues.h"
 #include "Core/Core.h"
 #include "Core/FileLoaders/DiskCachingFileLoader.h"
+#include "Core/FrameTiming.h"
 #include "Core/KeyMap.h"
 #include "Core/Reporting.h"
 #include "Core/RetroAchievements.h"
@@ -150,6 +151,8 @@
 #endif
 
 #include <Core/HLE/Plugins.h>
+
+void HandleGlobalMessage(const std::string &msg, const std::string &value);
 
 ScreenManager *g_screenManager;
 std::string config_filename;
@@ -1069,23 +1072,7 @@ void RenderOverlays(UIContext *dc, void *userdata) {
 	}
 }
 
-void NativeRender(GraphicsContext *graphicsContext) {
-	_dbg_assert_(graphicsContext != nullptr);
-	_dbg_assert_(g_screenManager != nullptr);
-
-	g_GameManager.Update();
-
-	if (GetUIState() != UISTATE_INGAME) {
-		// Note: We do this from NativeRender so that the graphics context is
-		// guaranteed valid, to be safe - g_gameInfoCache messes around with textures.
-		g_BackgroundAudio.Update();
-	}
-
-	float xres = g_display.dp_xres;
-	float yres = g_display.dp_yres;
-
-	// Apply the UIContext bounds as a 2D transformation matrix.
-	// TODO: This should be moved into the draw context...
+static Matrix4x4 ComputeOrthoMatrix(float xres, float yres) {
 	Matrix4x4 ortho;
 	switch (GetGPUBackend()) {
 	case GPUBackend::VULKAN:
@@ -1113,24 +1100,87 @@ void NativeRender(GraphicsContext *graphicsContext) {
 	if (g_display.rotation != DisplayRotation::ROTATE_0) {
 		ortho = ortho * g_display.rot_matrix;
 	}
+	return ortho;
+}
+
+void NativeFrame(GraphicsContext *graphicsContext) {
+	PROFILE_END_FRAME();
+
+	std::vector<PendingMessage> toProcess;
+	{
+		std::lock_guard<std::mutex> lock(pendingMutex);
+		toProcess = std::move(pendingMessages);
+		pendingMessages.clear();
+	}
+
+	for (const auto &item : toProcess) {
+		HandleGlobalMessage(item.msg, item.value);
+		g_screenManager->sendMessage(item.msg.c_str(), item.value.c_str());
+	}
+
+	g_requestManager.ProcessRequests();
+
+	// it's ok to call this redundantly with DoFrame from EmuScreen
+	Achievements::Idle();
+
+	g_DownloadManager.Update();
+	g_screenManager->update();
+
+	g_Discord.Update();
+	g_BackgroundAudio.Play();
+
+	g_OSD.Update();
+
+	UI::SetSoundEnabled(g_Config.bUISound);
+
+	_dbg_assert_(graphicsContext != nullptr);
+	_dbg_assert_(g_screenManager != nullptr);
+
+	g_GameManager.Update();
+
+	if (GetUIState() != UISTATE_INGAME) {
+		// Note: We do this from NativeFrame so that the graphics context is
+		// guaranteed valid, to be safe - g_gameInfoCache messes around with textures.
+		g_BackgroundAudio.Update();
+	}
+
+	// Apply the UIContext bounds as a 2D transformation matrix.
+	// TODO: This should be moved into the draw context...
+	Matrix4x4 ortho = ComputeOrthoMatrix(g_display.dp_xres, g_display.dp_yres);
+
+	Draw::DebugFlags debugFlags = Draw::DebugFlags::NONE;
+	if ((DebugOverlay)g_Config.iDebugOverlay == DebugOverlay::GPU_PROFILE)
+		debugFlags |= Draw::DebugFlags::PROFILE_TIMESTAMPS;
+	if (g_Config.bGpuLogProfiler)
+		debugFlags |= Draw::DebugFlags::PROFILE_SCOPES;
+
+	g_draw->BeginFrame(debugFlags);
 
 	ui_draw2d.PushDrawMatrix(ortho);
 	ui_draw2d_front.PushDrawMatrix(ortho);
 
 	g_screenManager->getUIContext()->SetTintSaturation(g_Config.fUITint, g_Config.fUISaturation);
 
-	Draw::DebugFlags debugFlags = Draw::DebugFlags::NONE;
-	if (g_Config.bShowGpuProfile)
-		debugFlags |= Draw::DebugFlags::PROFILE_TIMESTAMPS;
-	if (g_Config.bGpuLogProfiler)
-		debugFlags |= Draw::DebugFlags::PROFILE_SCOPES;
-	g_screenManager->getDrawContext()->SetDebugFlags(debugFlags);
-
 	// All actual rendering happen in here.
 	g_screenManager->render();
 	if (g_screenManager->getUIContext()->Text()) {
 		g_screenManager->getUIContext()->Text()->OncePerFrame();
 	}
+
+	ui_draw2d.PopDrawMatrix();
+	ui_draw2d_front.PopDrawMatrix();
+
+	g_draw->EndFrame();
+
+	// This, between EndFrame and Present, is where we should actually wait to do present time management.
+	// There might not be a meaningful distinction here for all backends..
+
+	if (renderCounter < 10 && ++renderCounter == 10) {
+		// We're rendering fine, clear out failure info.
+		ClearFailedGPUBackends();
+	}
+
+	g_draw->Present(1);
 
 	if (resized) {
 		INFO_LOG(G3D, "Resized flag set - recalculating bounds");
@@ -1162,14 +1212,6 @@ void NativeRender(GraphicsContext *graphicsContext) {
 	} else {
 		// INFO_LOG(G3D, "Polling graphics context");
 		graphicsContext->Poll();
-	}
-
-	ui_draw2d.PopDrawMatrix();
-	ui_draw2d_front.PopDrawMatrix();
-
-	if (renderCounter < 10 && ++renderCounter == 10) {
-		// We're rendering fine, clear out failure info.
-		ClearFailedGPUBackends();
 	}
 }
 
@@ -1226,37 +1268,6 @@ void HandleGlobalMessage(const std::string &msg, const std::string &value) {
 		// Assume that the user may have modified things.
 		MemoryStick_NotifyWrite();
 	}
-}
-
-void NativeUpdate() {
-	PROFILE_END_FRAME();
-
-	std::vector<PendingMessage> toProcess;
-	{
-		std::lock_guard<std::mutex> lock(pendingMutex);
-		toProcess = std::move(pendingMessages);
-		pendingMessages.clear();
-	}
-
-	for (const auto &item : toProcess) {
-		HandleGlobalMessage(item.msg, item.value);
-		g_screenManager->sendMessage(item.msg.c_str(), item.value.c_str());
-	}
-
-	g_requestManager.ProcessRequests();
-
-	// it's ok to call this redundantly with DoFrame from EmuScreen
-	Achievements::Idle();
-
-	g_DownloadManager.Update();
-	g_screenManager->update();
-
-	g_Discord.Update();
-	g_BackgroundAudio.Play();
-
-	g_OSD.Update();
-
-	UI::SetSoundEnabled(g_Config.bUISound);
 }
 
 bool NativeIsAtTopLevel() {

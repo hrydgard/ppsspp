@@ -138,12 +138,12 @@ enum class IROp : u8 {
 	FSat0_1,
 	FSatMinus1_1,
 
+	FpCondFromReg,
 	FpCondToReg,
 	FpCtrlFromReg,
 	FpCtrlToReg,
 	VfpuCtrlToReg,
 
-	ZeroFpCond,
 	FCmp,
 
 	FCmovVfpuCC,
@@ -164,6 +164,7 @@ enum class IROp : u8 {
 	// support SIMD.
 	Vec4Init,
 	Vec4Shuffle,
+	Vec4Blend,
 	Vec4Mov,
 	Vec4Add,
 	Vec4Sub,
@@ -330,7 +331,7 @@ enum IRFlags {
 struct IRMeta {
 	IROp op;
 	const char *name;
-	const char types[4];  // GGG
+	const char types[5];  // GGG
 	u32 flags;
 };
 

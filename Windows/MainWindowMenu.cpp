@@ -709,7 +709,13 @@ namespace MainWindow {
 			break;
 
 		case ID_DEBUG_SHOWDEBUGSTATISTICS:
-			g_Config.bShowDebugStats = !g_Config.bShowDebugStats;
+			// This is still useful as a shortcut to tell users to use.
+			// So let's fake the enum.
+			if ((DebugOverlay)g_Config.iDebugOverlay == DebugOverlay::DEBUG_STATS) {
+				g_Config.iDebugOverlay = (int)DebugOverlay::OFF;
+			} else {
+				g_Config.iDebugOverlay = (int)DebugOverlay::DEBUG_STATS;
+			}
 			System_PostUIMessage("clear jit", "");
 			break;
 
@@ -958,7 +964,7 @@ namespace MainWindow {
 		HMENU menu = GetMenu(GetHWND());
 #define CHECKITEM(item,value) 	CheckMenuItem(menu,item,MF_BYCOMMAND | ((value) ? MF_CHECKED : MF_UNCHECKED));
 		CHECKITEM(ID_DEBUG_IGNOREILLEGALREADS, g_Config.bIgnoreBadMemAccess);
-		CHECKITEM(ID_DEBUG_SHOWDEBUGSTATISTICS, g_Config.bShowDebugStats);
+		CHECKITEM(ID_DEBUG_SHOWDEBUGSTATISTICS, (DebugOverlay)g_Config.iDebugOverlay == DebugOverlay::DEBUG_STATS);
 		CHECKITEM(ID_OPTIONS_HARDWARETRANSFORM, g_Config.bHardwareTransform);
 		CHECKITEM(ID_DEBUG_BREAKONLOAD, !g_Config.bAutoRun);
 		CHECKITEM(ID_OPTIONS_VERTEXCACHE, g_Config.bVertexCache);

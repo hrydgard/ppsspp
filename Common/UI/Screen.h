@@ -90,7 +90,6 @@ public:
 };
 
 enum {
-	LAYER_SIDEMENU = 1,
 	LAYER_TRANSPARENT = 2,
 };
 

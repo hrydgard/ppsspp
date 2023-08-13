@@ -33,17 +33,6 @@
 #error This file should not be compiled for UWP.
 #endif
 
-D3D11Context::D3D11Context() : draw_(nullptr), adapterId(-1), hDC(nullptr), hWnd_(nullptr), hD3D11(nullptr) {
-}
-
-D3D11Context::~D3D11Context() {
-}
-
-void D3D11Context::SwapBuffers() {
-	swapChain_->Present(swapInterval_, 0);
-	draw_->HandleEvent(Draw::Event::PRESENTED, 0, 0, nullptr, nullptr);
-}
-
 void D3D11Context::SwapInterval(int interval) {
 	swapInterval_ = interval;
 }
@@ -79,13 +68,6 @@ HRESULT D3D11Context::CreateTheDevice(IDXGIAdapter *adapter) {
 			D3D11_SDK_VERSION, &device_, &featureLevel_, &context_);
 	}
 	return hr;
-}
-
-static void GetRes(HWND hWnd, int &xres, int &yres) {
-	RECT rc;
-	GetClientRect(hWnd, &rc);
-	xres = rc.right - rc.left;
-	yres = rc.bottom - rc.top;
 }
 
 bool D3D11Context::Init(HINSTANCE hInst, HWND wnd, std::string *error_message) {
@@ -171,19 +153,15 @@ bool D3D11Context::Init(HINSTANCE hInst, HWND wnd, std::string *error_message) {
 	}
 #endif
 
-	draw_ = Draw::T3DCreateD3D11Context(device_, context_, device1_, context1_, featureLevel_, hWnd_, adapterNames);
-	SetGPUBackend(GPUBackend::DIRECT3D11, chosenAdapterName);
-	bool success = draw_->CreatePresets();  // If we can run D3D11, there's a compiler installed. I think.
-	_assert_msg_(success, "Failed to compile preset shaders");
 
 	int width;
 	int height;
-	GetRes(hWnd_, width, height);
+	W32Util::GetWindowRes(hWnd_, &width, &height);
 
 	// Obtain DXGI factory from device (since we used nullptr for pAdapter above)
-	IDXGIFactory1* dxgiFactory = nullptr;
-	IDXGIDevice* dxgiDevice = nullptr;
-	IDXGIAdapter* adapter = nullptr;
+	IDXGIFactory1 *dxgiFactory = nullptr;
+	IDXGIDevice *dxgiDevice = nullptr;
+	IDXGIAdapter *adapter = nullptr;
 	hr = device_->QueryInterface(__uuidof(IDXGIDevice), reinterpret_cast<void**>(&dxgiDevice));
 	if (SUCCEEDED(hr)) {
 		hr = dxgiDevice->GetAdapter(&adapter);
@@ -214,6 +192,11 @@ bool D3D11Context::Init(HINSTANCE hInst, HWND wnd, std::string *error_message) {
 	hr = dxgiFactory->CreateSwapChain(device_, &sd, &swapChain_);
 	dxgiFactory->MakeWindowAssociation(hWnd_, DXGI_MWA_NO_ALT_ENTER);
 	dxgiFactory->Release();
+
+	draw_ = Draw::T3DCreateD3D11Context(device_, context_, device1_, context1_, swapChain_, featureLevel_, hWnd_, adapterNames, g_Config.iInflightFrames);
+	SetGPUBackend(GPUBackend::DIRECT3D11, chosenAdapterName);
+	bool success = draw_->CreatePresets();  // If we can run D3D11, there's a compiler installed. I think.
+	_assert_msg_(success, "Failed to compile preset shaders");
 
 	GotBackbuffer();
 	return true;
@@ -249,7 +232,7 @@ void D3D11Context::Resize() {
 	LostBackbuffer();
 	int width;
 	int height;
-	GetRes(hWnd_, width, height);
+	W32Util::GetWindowRes(hWnd_, &width, &height);
 	swapChain_->ResizeBuffers(0, width, height, DXGI_FORMAT_UNKNOWN, 0);
 	GotBackbuffer();
 }

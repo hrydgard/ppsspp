@@ -113,7 +113,7 @@ static const IRMeta irMeta[] = {
 	{ IROp::FSatMinus1_1, "FSat(-1 - 1)", "FF" },
 	{ IROp::FMovFromGPR, "FMovFromGPR", "FG" },
 	{ IROp::FMovToGPR, "FMovToGPR", "GF" },
-	{ IROp::ZeroFpCond, "ZeroFpCond", "" },
+	{ IROp::FpCondFromReg, "FpCondFromReg", "_G" },
 	{ IROp::FpCondToReg, "FpCondToReg", "G" },
 	{ IROp::FpCtrlFromReg, "FpCtrlFromReg", "_G" },
 	{ IROp::FpCtrlToReg, "FpCtrlToReg", "G" },
@@ -126,6 +126,7 @@ static const IRMeta irMeta[] = {
 	{ IROp::FCmpVfpuAggregate, "FCmpVfpuAggregate", "I" },
 	{ IROp::Vec4Init, "Vec4Init", "Vv" },
 	{ IROp::Vec4Shuffle, "Vec4Shuffle", "VVs" },
+	{ IROp::Vec4Blend, "Vec4Blend", "VVVC" },
 	{ IROp::Vec4Mov, "Vec4Mov", "VV" },
 	{ IROp::Vec4Add, "Vec4Add", "VVV" },
 	{ IROp::Vec4Sub, "Vec4Sub", "VVV" },
@@ -328,14 +329,20 @@ void DisassembleIR(char *buf, size_t bufsize, IRInst inst) {
 	char bufDst[16];
 	char bufSrc1[16];
 	char bufSrc2[16];
+	// Only really used for constant.
+	char bufSrc3[16];
 	DisassembleParam(bufDst, sizeof(bufDst) - 2, inst.dest, meta->types[0], inst.constant);
 	DisassembleParam(bufSrc1, sizeof(bufSrc1) - 2, inst.src1, meta->types[1], inst.constant);
 	DisassembleParam(bufSrc2, sizeof(bufSrc2), inst.src2, meta->types[2], inst.constant);
+	DisassembleParam(bufSrc3, sizeof(bufSrc3), inst.src3, meta->types[3], inst.constant);
 	if (meta->types[1] && meta->types[0] != '_') {
 		strcat(bufDst, ", ");
 	}
 	if (meta->types[2] && meta->types[1] != '_') {
 		strcat(bufSrc1, ", ");
 	}
-	snprintf(buf, bufsize, "%s %s%s%s", meta->name, bufDst, bufSrc1, bufSrc2);
+	if (meta->types[3] && meta->types[2] != '_') {
+		strcat(bufSrc2, ", ");
+	}
+	snprintf(buf, bufsize, "%s %s%s%s%s", meta->name, bufDst, bufSrc1, bufSrc2, bufSrc3);
 }

@@ -65,6 +65,10 @@ namespace MIPSComp {
 		// iOS/etc. may disable at runtime if Memory::base is not nicely aligned.
 		enablePointerify = !Disabled(JitDisable::POINTERIFY);
 #endif
+#if PPSSPP_ARCH(RISCV64)
+		// Seems to perform slightly better than a checked entry at the start.
+		useBackJump = true;
+#endif
 	}
 
 	bool JitOptions::Disabled(JitDisable bit) {

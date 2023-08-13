@@ -37,18 +37,12 @@
 #include <string>
 #include <deque>
 
-#ifdef _MSC_VER
-#pragma pack(push,1)
-#endif
-typedef struct UPnPArgs {
+struct UPnPArgs {
 	int cmd;
 	std::string protocol;
 	unsigned short port;
 	unsigned short intport;
-} PACK;
-#ifdef _MSC_VER
-#pragma pack(pop)
-#endif
+};
 
 #define IP_PROTOCOL_TCP	"TCP"
 #define IP_PROTOCOL_UDP	"UDP"

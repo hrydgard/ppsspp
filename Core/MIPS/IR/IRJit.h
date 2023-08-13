@@ -90,6 +90,9 @@ public:
 		start = origAddr_;
 		size = origSize_;
 	}
+	u32 GetOriginalStart() const {
+		return origAddr_;
+	}
 
 	void Finalize(int number);
 	void Destroy(int number);
@@ -110,7 +113,7 @@ class IRBlockCache : public JitBlockCacheDebugInterface {
 public:
 	IRBlockCache() {}
 	void Clear();
-	void InvalidateICache(u32 address, u32 length);
+	std::vector<int> FindInvalidatedBlockNumbers(u32 address, u32 length);
 	void FinalizeBlock(int i, bool preload = false);
 	int GetNumBlocks() const override { return (int)blocks_.size(); }
 	int AllocateBlock(int emAddr) {
@@ -118,6 +121,13 @@ public:
 		return (int)blocks_.size() - 1;
 	}
 	IRBlock *GetBlock(int i) {
+		if (i >= 0 && i < (int)blocks_.size()) {
+			return &blocks_[i];
+		} else {
+			return nullptr;
+		}
+	}
+	const IRBlock *GetBlock(int i) const {
 		if (i >= 0 && i < (int)blocks_.size()) {
 			return &blocks_[i];
 		} else {
@@ -180,8 +190,9 @@ public:
 	void UnlinkBlock(u8 *checkedEntry, u32 originalAddress) override;
 
 protected:
-	virtual bool CompileBlock(u32 em_address, std::vector<IRInst> &instructions, u32 &mipsBytes, bool preload);
+	bool CompileBlock(u32 em_address, std::vector<IRInst> &instructions, u32 &mipsBytes, bool preload);
 	virtual bool CompileTargetBlock(IRBlock *block, int block_num, bool preload) { return true; }
+	virtual void FinalizeTargetBlock(IRBlock *block, int block_num) {}
 
 	JitOptions jo;
 

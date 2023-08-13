@@ -311,7 +311,7 @@ static void EmuThreadFunc() {
 	// Wait for render loop to get started.
 	INFO_LOG(SYSTEM, "Runloop: Waiting for displayInit...");
 	while (!graphicsContext || graphicsContext->GetState() == GraphicsContextState::PENDING) {
-		sleep_ms(20);
+		sleep_ms(5);
 	}
 
 	// Check the state of the graphics context before we try to feed it into NativeInitGraphics.
@@ -1121,8 +1121,7 @@ extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_sendRequestResult(JNIEn
 
 void LockedNativeUpdateRender() {
 	std::lock_guard<std::mutex> renderGuard(renderLock);
-	NativeUpdate();
-	NativeRender(graphicsContext);
+	NativeFrame(graphicsContext);
 }
 
 void UpdateRunLoopAndroid(JNIEnv *env) {
@@ -1312,7 +1311,7 @@ extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeActivity_requestExitVulkanR
 	}
 	exitRenderLoop = true;
 	while (renderLoopRunning) {
-		sleep_ms(10);
+		sleep_ms(5);
 	}
 }
 
@@ -1518,8 +1517,6 @@ extern "C" bool JNICALL Java_org_ppsspp_ppsspp_NativeActivity_runVulkanRenderLoo
 
 	while (!exitRenderLoop) {
 		LockedNativeUpdateRender();
-		graphicsContext->SwapBuffers();
-
 		ProcessFrameCommands(env);
 	}
 

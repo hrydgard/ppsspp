@@ -196,6 +196,7 @@
     <ClInclude Include="..\..\Core\FileSystems\MetaFileSystem.h" />
     <ClInclude Include="..\..\Core\FileSystems\VirtualDiscFileSystem.h" />
     <ClInclude Include="..\..\Core\Font\PGF.h" />
+    <ClInclude Include="..\..\Core\FrameTiming.h" />
     <ClInclude Include="..\..\Core\HDRemaster.h" />
     <ClInclude Include="..\..\Core\HLE\sceNp2.h" />
     <ClInclude Include="..\..\Core\Instance.h" />
@@ -302,6 +303,7 @@
     <ClInclude Include="..\..\Core\MIPS\IR\IRInst.h" />
     <ClInclude Include="..\..\Core\MIPS\IR\IRInterpreter.h" />
     <ClInclude Include="..\..\Core\MIPS\IR\IRJit.h" />
+    <ClInclude Include="..\..\Core\MIPS\IR\IRNativeCommon.h" />
     <ClInclude Include="..\..\Core\MIPS\IR\IRAnalysis.h" />
     <ClInclude Include="..\..\Core\MIPS\IR\IRPassSimplify.h" />
     <ClInclude Include="..\..\Core\MIPS\IR\IRRegCache.h" />
@@ -438,6 +440,7 @@
     <ClCompile Include="..\..\Core\FileSystems\tlzrc.cpp" />
     <ClCompile Include="..\..\Core\FileSystems\VirtualDiscFileSystem.cpp" />
     <ClCompile Include="..\..\Core\Font\PGF.cpp" />
+    <ClCompile Include="..\..\Core\FrameTiming.cpp" />
     <ClCompile Include="..\..\Core\HDRemaster.cpp" />
     <ClCompile Include="..\..\Core\HLE\sceNp2.cpp" />
     <ClCompile Include="..\..\Core\Instance.cpp" />
@@ -562,6 +565,7 @@
     <ClCompile Include="..\..\Core\MIPS\IR\IRInst.cpp" />
     <ClCompile Include="..\..\Core\MIPS\IR\IRInterpreter.cpp" />
     <ClCompile Include="..\..\Core\MIPS\IR\IRJit.cpp" />
+    <ClCompile Include="..\..\Core\MIPS\IR\IRNativeCommon.cpp" />
     <ClCompile Include="..\..\Core\MIPS\IR\IRAnalysis.cpp" />
     <ClCompile Include="..\..\Core\MIPS\IR\IRPassSimplify.cpp" />
     <ClCompile Include="..\..\Core\MIPS\IR\IRRegCache.cpp" />

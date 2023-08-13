@@ -26,6 +26,15 @@ int u8_strlen(const char *s);
 void u8_inc(const char *s, int *i);
 void u8_dec(const char *s, int *i);
 
+inline bool CodepointIsProbablyEmoji(uint32_t c) {
+	// Original check was some ranges grabbed from https://stackoverflow.com/a/62898106.
+	// But let's just go with checking if outside the BMP, it's not a big deal if we accidentally
+	// switch to color when not needed if someone uses a weird glyph.
+	return c > 0xFFFF;
+}
+
+bool AnyEmojiInString(const char *s, size_t byteCount);
+
 class UTF8 {
 public:
 	static const uint32_t INVALID = (uint32_t)-1;
@@ -88,6 +97,8 @@ bool UTF8StringHasNonASCII(const char *utf8string);
 
 // Removes overlong encodings and similar.
 std::string SanitizeUTF8(const std::string &utf8string);
+
+std::string CodepointToUTF8(uint32_t codePoint);
 
 
 // UTF8 to Win32 UTF-16

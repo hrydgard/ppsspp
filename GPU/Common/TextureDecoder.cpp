@@ -243,8 +243,13 @@ static u32 QuickTexHashNonSSE(const void *checkp, u32 size) {
 	if (((intptr_t)checkp & 0xf) == 0 && (size & 0x3f) == 0) {
 		static const u16 cursor2_initial[8] = {0xc00bU, 0x9bd9U, 0x4b73U, 0xb651U, 0x4d9bU, 0x4309U, 0x0083U, 0x0001U};
 		union u32x4_u16x8 {
+#if defined(__GNUC__)
+			uint32_t x32 __attribute__((vector_size(16)));
+			uint16_t x16 __attribute__((vector_size(16)));
+#else
 			u32 x32[4];
 			u16 x16[8];
+#endif
 		};
 		u32x4_u16x8 cursor{};
 		u32x4_u16x8 cursor2;

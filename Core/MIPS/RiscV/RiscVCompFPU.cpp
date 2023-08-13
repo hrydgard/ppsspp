@@ -34,7 +34,7 @@ namespace MIPSComp {
 using namespace RiscVGen;
 using namespace RiscVJitConstants;
 
-void RiscVJit::CompIR_FArith(IRInst inst) {
+void RiscVJitBackend::CompIR_FArith(IRInst inst) {
 	CONDITIONAL_DISABLE;
 
 	switch (inst.op) {
@@ -50,41 +50,9 @@ void RiscVJit::CompIR_FArith(IRInst inst) {
 
 	case IROp::FMul:
 		fpr.MapDirtyInIn(inst.dest, inst.src1, inst.src2);
-		// TODO: If FMUL consistently produces NAN across chip vendors, we can skip this.
-		// Luckily this does match the RISC-V canonical NAN.
-		if (inst.src1 != inst.src2) {
-			// These will output 0x80/0x01 if infinity, 0x10/0x80 if zero.
-			// We need to check if one is infinity and the other zero.
-
-			// First, try inf * zero.
-			FCLASS(32, SCRATCH1, fpr.R(inst.src1));
-			FCLASS(32, SCRATCH2, fpr.R(inst.src2));
-			ANDI(R_RA, SCRATCH1, 0x81);
-			FixupBranch lhsNotInf = BEQ(R_RA, R_ZERO);
-			ANDI(R_RA, SCRATCH2, 0x18);
-			FixupBranch infZero = BNE(R_RA, R_ZERO);
-
-			// Okay, what about the other order?
-			SetJumpTarget(lhsNotInf);
-			ANDI(R_RA, SCRATCH1, 0x18);
-			FixupBranch lhsNotZero = BEQ(R_RA, R_ZERO);
-			ANDI(R_RA, SCRATCH2, 0x81);
-			FixupBranch zeroInf = BNE(R_RA, R_ZERO);
-
-			// Nope, all good.
-			SetJumpTarget(lhsNotZero);
-			FMUL(32, fpr.R(inst.dest), fpr.R(inst.src1), fpr.R(inst.src2));
-			FixupBranch skip = J();
-
-			SetJumpTarget(infZero);
-			SetJumpTarget(zeroInf);
-			LI(SCRATCH1, 0x7FC00000);
-			FMV(FMv::W, FMv::X, fpr.R(inst.dest), SCRATCH1);
-
-			SetJumpTarget(skip);
-		} else {
-			FMUL(32, fpr.R(inst.dest), fpr.R(inst.src1), fpr.R(inst.src2));
-		}
+		// We'll assume everyone will make it such that 0 * infinity = NAN properly.
+		// See blame on this comment if that proves untrue.
+		FMUL(32, fpr.R(inst.dest), fpr.R(inst.src1), fpr.R(inst.src2));
 		break;
 
 	case IROp::FDiv:
@@ -108,7 +76,7 @@ void RiscVJit::CompIR_FArith(IRInst inst) {
 	}
 }
 
-void RiscVJit::CompIR_FCondAssign(IRInst inst) {
+void RiscVJitBackend::CompIR_FCondAssign(IRInst inst) {
 	CONDITIONAL_DISABLE;
 	if (inst.op != IROp::FMin && inst.op != IROp::FMax)
 		INVALIDOP;
@@ -174,7 +142,7 @@ void RiscVJit::CompIR_FCondAssign(IRInst inst) {
 	SetJumpTarget(finish);
 }
 
-void RiscVJit::CompIR_FAssign(IRInst inst) {
+void RiscVJitBackend::CompIR_FAssign(IRInst inst) {
 	CONDITIONAL_DISABLE;
 
 	switch (inst.op) {
@@ -220,7 +188,7 @@ void RiscVJit::CompIR_FAssign(IRInst inst) {
 	}
 }
 
-void RiscVJit::CompIR_FRound(IRInst inst) {
+void RiscVJitBackend::CompIR_FRound(IRInst inst) {
 	CONDITIONAL_DISABLE;
 
 	// TODO: If this is followed by a GPR transfer, might want to combine.
@@ -251,13 +219,12 @@ void RiscVJit::CompIR_FRound(IRInst inst) {
 	FMV(FMv::W, FMv::X, fpr.R(inst.dest), SCRATCH1);
 }
 
-void RiscVJit::CompIR_FCvt(IRInst inst) {
+void RiscVJitBackend::CompIR_FCvt(IRInst inst) {
 	CONDITIONAL_DISABLE;
 
+	RiscVReg tempReg = INVALID_REG;
 	switch (inst.op) {
 	case IROp::FCvtWS:
-	case IROp::FCvtScaledWS:
-	case IROp::FCvtScaledSW:
 		CompIR_Generic(inst);
 		break;
 
@@ -268,13 +235,51 @@ void RiscVJit::CompIR_FCvt(IRInst inst) {
 		FCVT(FConv::S, FConv::W, fpr.R(inst.dest), SCRATCH1);
 		break;
 
+	case IROp::FCvtScaledWS:
+		if (cpu_info.RiscV_D) {
+			Round rm = Round::NEAREST_EVEN;
+			switch (inst.src2 >> 6) {
+			case 0: rm = Round::NEAREST_EVEN; break;
+			case 1: rm = Round::TOZERO; break;
+			case 2: rm = Round::UP; break;
+			case 3: rm = Round::DOWN; break;
+			}
+
+			tempReg = fpr.MapDirtyInTemp(inst.dest, inst.src1);
+			// Prepare the double src1 and the multiplier.
+			FCVT(FConv::D, FConv::S, fpr.R(inst.dest), fpr.R(inst.src1));
+			LI(SCRATCH1, 1UL << (inst.src2 & 0x1F));
+			FCVT(FConv::D, FConv::WU, tempReg, SCRATCH1, rm);
+
+			FMUL(64, fpr.R(inst.dest), fpr.R(inst.dest), tempReg, rm);
+			// NAN and clamping should all be correct.
+			FCVT(FConv::W, FConv::D, SCRATCH1, fpr.R(inst.dest), rm);
+			// TODO: Could combine with a transfer, often is one...
+			FMV(FMv::W, FMv::X, fpr.R(inst.dest), SCRATCH1);
+		} else {
+			CompIR_Generic(inst);
+		}
+		break;
+
+	case IROp::FCvtScaledSW:
+		// TODO: This is probably proceeded by a GPR transfer, might be ideal to combine.
+		tempReg = fpr.MapDirtyInTemp(inst.dest, inst.src1);
+		FMV(FMv::X, FMv::W, SCRATCH1, fpr.R(inst.src1));
+		FCVT(FConv::S, FConv::W, fpr.R(inst.dest), SCRATCH1);
+
+		// Pre-divide so we can avoid any actual divide.
+		LI(SCRATCH1, 1.0f / (1UL << (inst.src2 & 0x1F)));
+		FMV(FMv::W, FMv::X, tempReg, SCRATCH1);
+		FMUL(32, fpr.R(inst.dest), fpr.R(inst.dest), tempReg);
+		break;
+
 	default:
 		INVALIDOP;
 		break;
 	}
 }
 
-void RiscVJit::CompIR_FSat(IRInst inst) {
+void RiscVJitBackend::CompIR_FSat(IRInst inst) {
 	CONDITIONAL_DISABLE;
 
 	RiscVReg tempReg = INVALID_REG;
@@ -334,7 +339,7 @@ void RiscVJit::CompIR_FSat(IRInst inst) {
 	}
 }
 
-void RiscVJit::CompIR_FCompare(IRInst inst) {
+void RiscVJitBackend::CompIR_FCompare(IRInst inst) {
 	CONDITIONAL_DISABLE;
 
 	constexpr IRRegIndex IRREG_VFPUL_CC = IRREG_VFPU_CTRL_BASE + VFPU_CTRL_CC;
@@ -548,7 +553,7 @@ void RiscVJit::CompIR_FCompare(IRInst inst) {
 	}
 }
 
-void RiscVJit::CompIR_RoundingMode(IRInst inst) {
+void RiscVJitBackend::CompIR_RoundingMode(IRInst inst) {
 	CONDITIONAL_DISABLE;
 
 	switch (inst.op) {
@@ -570,7 +575,7 @@ void RiscVJit::CompIR_RoundingMode(IRInst inst) {
 	}
 }
 
-void RiscVJit::CompIR_FSpecial(IRInst inst) {
+void RiscVJitBackend::CompIR_FSpecial(IRInst inst) {
 	CONDITIONAL_DISABLE;
 
 #ifdef __riscv_float_abi_soft
@@ -587,7 +592,7 @@ void RiscVJit::CompIR_FSpecial(IRInst inst) {
 			int offset = offsetof(MIPSState, f) + inst.src1 * 4;
 			FL(32, F10, CTXREG, offset);
 		}
-		QuickCallFunction(func);
+		QuickCallFunction(func, SCRATCH1);
 
 		fpr.MapReg(inst.dest, MIPSMap::NOINIT);
 		// If it's already F10, we're done - MapReg doesn't actually overwrite the reg in that case.

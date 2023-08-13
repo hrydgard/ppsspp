@@ -418,9 +418,10 @@ bool RemoveLoadStoreLeftRight(const IRWriter &in, IRWriter &out, const IROptions
 
 bool PropagateConstants(const IRWriter &in, IRWriter &out, const IROptions &opts) {
 	CONDITIONAL_DISABLE;
-	IRRegCache gpr(&out);
+	IRImmRegCache gpr(&out);
 
 	bool logBlocks = false;
+	bool skipNextExitToConst = false;
 	for (int i = 0; i < (int)in.GetInstructions().size(); i++) {
 		IRInst inst = in.GetInstructions()[i];
 		bool symmetric = true;
@@ -716,6 +717,20 @@ bool PropagateConstants(const IRWriter &in, IRWriter &out, const IROptions &opts
 			break;
 
 		case IROp::SetCtrlVFPU:
+			gpr.MapDirty(IRREG_VFPU_CTRL_BASE + inst.dest);
+			goto doDefault;
+
+		case IROp::SetCtrlVFPUReg:
+			if (gpr.IsImm(inst.src1)) {
+				out.Write(IROp::SetCtrlVFPU, inst.dest, out.AddConstant(gpr.GetImm(inst.src1)));
+			} else {
+				gpr.MapDirtyIn(IRREG_VFPU_CTRL_BASE + inst.dest, inst.src1);
+				out.Write(inst);
+			}
+			break;
+
+		case IROp::SetCtrlVFPUFReg:
+			gpr.MapDirty(IRREG_VFPU_CTRL_BASE + inst.dest);
 			goto doDefault;
 
 		case IROp::FCvtWS:
@@ -725,6 +740,10 @@ bool PropagateConstants(const IRWriter &in, IRWriter &out, const IROptions &opts
 			out.Write(inst);
 			break;
 
+		case IROp::FpCondFromReg:
+			gpr.MapDirtyIn(IRREG_FPCOND, inst.src1);
+			out.Write(inst);
+			break;
 		case IROp::FpCondToReg:
 			if (gpr.IsImm(IRREG_FPCOND)) {
 				gpr.SetImm(inst.dest, gpr.GetImm(IRREG_FPCOND));
@@ -750,6 +769,7 @@ bool PropagateConstants(const IRWriter &in, IRWriter &out, const IROptions &opts
 		case IROp::Vec4Dot:
 		case IROp::Vec4Scale:
 		case IROp::Vec4Shuffle:
+		case IROp::Vec4Blend:
 		case IROp::Vec4Neg:
 		case IROp::Vec4Abs:
 		case IROp::Vec4Pack31To8:
@@ -763,7 +783,6 @@ bool PropagateConstants(const IRWriter &in, IRWriter &out, const IROptions &opts
 			out.Write(inst);
 			break;
 
-		case IROp::ZeroFpCond:
 		case IROp::FCmp:
 			gpr.MapDirty(IRREG_FPCOND);
 			goto doDefault;
@@ -777,20 +796,90 @@ bool PropagateConstants(const IRWriter &in, IRWriter &out, const IROptions &opts
 			gpr.MapDirtyIn(inst.dest, IRREG_VFPU_CTRL_BASE + inst.src1);
 			goto doDefault;
 
+		case IROp::FCmpVfpuBit:
+			gpr.MapDirty(IRREG_VFPU_CC);
+			goto doDefault;
+
+		case IROp::FCmovVfpuCC:
+			gpr.MapIn(IRREG_VFPU_CC);
+			goto doDefault;
+
+		case IROp::FCmpVfpuAggregate:
+			gpr.MapDirtyIn(IRREG_VFPU_CC, IRREG_VFPU_CC);
+			goto doDefault;
+
+		case IROp::ExitToConstIfEq:
+		case IROp::ExitToConstIfNeq:
+			if (gpr.IsImm(inst.src1) && gpr.IsImm(inst.src2)) {
+				bool passed = false;
+				switch (inst.op) {
+				case IROp::ExitToConstIfEq: passed = gpr.GetImm(inst.src1) == gpr.GetImm(inst.src2); break;
+				case IROp::ExitToConstIfNeq: passed = gpr.GetImm(inst.src1) != gpr.GetImm(inst.src2); break;
+				default: _assert_(false); break;
+				}
+
+				// This is a bit common for the first cycle of loops.
+				// Reduce bloat by skipping on fail, and const exit on pass.
+				if (passed) {
+					gpr.FlushAll();
+					out.Write(IROp::ExitToConst, out.AddConstant(inst.constant));
+					skipNextExitToConst = true;
+				}
+				break;
+			}
+			gpr.FlushAll();
+			goto doDefault;
+
+		case IROp::ExitToConstIfGtZ:
+		case IROp::ExitToConstIfGeZ:
+		case IROp::ExitToConstIfLtZ:
+		case IROp::ExitToConstIfLeZ:
+			if (gpr.IsImm(inst.src1)) {
+				bool passed = false;
+				switch (inst.op) {
+				case IROp::ExitToConstIfGtZ: passed = (s32)gpr.GetImm(inst.src1) > 0; break;
+				case IROp::ExitToConstIfGeZ: passed = (s32)gpr.GetImm(inst.src1) >= 0; break;
+				case IROp::ExitToConstIfLtZ: passed = (s32)gpr.GetImm(inst.src1) < 0; break;
+				case IROp::ExitToConstIfLeZ: passed = (s32)gpr.GetImm(inst.src1) <= 0; break;
+				default: _assert_(false); break;
+				}
+
+				if (passed) {
+					gpr.FlushAll();
+					out.Write(IROp::ExitToConst, out.AddConstant(inst.constant));
+					skipNextExitToConst = true;
+				}
+				break;
+			}
+			gpr.FlushAll();
+			goto doDefault;
+
+		case IROp::ExitToConst:
+			if (skipNextExitToConst) {
+				skipNextExitToConst = false;
+				break;
+			}
+			gpr.FlushAll();
+			goto doDefault;
+
+		case IROp::ExitToReg:
+			if (gpr.IsImm(inst.src1)) {
+				// This happens sometimes near loops.
+				// Prefer ExitToConst to allow block linking.
+				u32 dest = gpr.GetImm(inst.src1);
+				gpr.FlushAll();
+				out.Write(IROp::ExitToConst, out.AddConstant(dest));
+				break;
+			}
+			gpr.FlushAll();
+			goto doDefault;
+
 		case IROp::CallReplacement:
 		case IROp::Break:
 		case IROp::Syscall:
 		case IROp::Interpret:
-		case IROp::ExitToConst:
-		case IROp::ExitToReg:
-		case IROp::ExitToConstIfEq:
-		case IROp::ExitToConstIfNeq:
 		case IROp::ExitToConstIfFpFalse:
 		case IROp::ExitToConstIfFpTrue:
-		case IROp::ExitToConstIfGeZ:
-		case IROp::ExitToConstIfGtZ:
-		case IROp::ExitToConstIfLeZ:
-		case IROp::ExitToConstIfLtZ:
 		case IROp::Breakpoint:
 		case IROp::MemoryCheck:
 		default:
@@ -855,11 +944,28 @@ bool PurgeTemps(const IRWriter &in, IRWriter &out, const IROptions &opts) {
 		int index;
 		// Whether the dest reg is read by any Exit.
 		bool readByExit;
+		int8_t fplen = 0;
 	};
 	std::vector<Check> checks;
 	// This tracks the last index at which each reg was modified.
 	int lastWrittenTo[256];
+	int lastReadFrom[256];
 	memset(lastWrittenTo, -1, sizeof(lastWrittenTo));
+	memset(lastReadFrom, -1, sizeof(lastReadFrom));
+
+	auto readsFromFPRCheck = [](IRInst &inst, Check &check, bool directly) {
+		if (check.reg < 32)
+			return false;
+		if (check.fplen >= 1 && IRReadsFromFPR(inst, check.reg - 32, directly))
+			return true;
+		if (check.fplen >= 2 && IRReadsFromFPR(inst, check.reg - 32 + 1, directly))
+			return true;
+		if (check.fplen >= 3 && IRReadsFromFPR(inst, check.reg - 32 + 2, directly))
+			return true;
+		if (check.fplen >= 4 && IRReadsFromFPR(inst, check.reg - 32 + 3, directly))
+			return true;
+		return false;
+	};
 
 	bool logBlocks = false;
 	for (int i = 0, n = (int)in.GetInstructions().size(); i < n; i++) {
@@ -912,6 +1018,82 @@ bool PurgeTemps(const IRWriter &in, IRWriter &out, const IROptions &opts) {
 					// Legitimately read from, so we can't optimize out.
 					check.reg = 0;
 				}
+			} else if (readsFromFPRCheck(inst, check, false) && check.fplen >= 1) {
+				// If one or the other is a Vec, they must match.
+				bool lenMismatch = false;
+
+				const IRMeta *m = GetIRMeta(inst.op);
+				auto checkMismatch = [&check, &lenMismatch](IRReg src, char type) {
+					int srclen = 1;
+					if (type == 'V')
+						srclen = 4;
+					else if (type == '2')
+						srclen = 2;
+					else if (type != 'F')
+						return;
+
+					if (src + 32 + srclen > check.reg && src + 32 < check.reg + check.fplen) {
+						if (src + 32 != check.reg || srclen != check.fplen)
+							lenMismatch = true;
+					}
+				};
+
+				checkMismatch(inst.src1, m->types[1]);
+				checkMismatch(inst.src2, m->types[2]);
+				if ((m->flags & (IRFLAG_SRC3 | IRFLAG_SRC3DST)) != 0)
+					checkMismatch(inst.src3, m->types[3]);
+
+				bool cannotReplace = !readsFromFPRCheck(inst, check, true) || lenMismatch;
+				if (!cannotReplace && check.srcReg >= 32 && lastWrittenTo[check.srcReg] < check.index) {
+					// This is probably not worth doing unless we can get rid of a temp.
+					if (!check.readByExit) {
+						if (insts[check.index].dest == inst.src1)
+							inst.src1 = check.srcReg - 32;
+						else if (insts[check.index].dest == inst.src2)
+							inst.src2 = check.srcReg - 32;
+						else
+							_assert_msg_(false, "Unexpected src3 read of FPR");
+
+						// Check if we've clobbered it entirely.
+						if (inst.dest == check.reg) {
+							check.reg = 0;
+							insts[check.index].op = IROp::Mov;
+							insts[check.index].dest = 0;
+							insts[check.index].src1 = 0;
+						}
+					} else {
+						// Let's not bother.
+						check.reg = 0;
+					}
+				} else if ((inst.op == IROp::FMov || inst.op == IROp::Vec4Mov) && !lenMismatch) {
+					// A swap could be profitable if this is a temp, and maybe in other cases.
+					// These can happen a lot from mask regs, etc.
+					// But make sure no other changes happened between.
+					bool destNotChanged = true;
+					for (int j = 0; j < check.fplen; ++j)
+						destNotChanged = destNotChanged && lastWrittenTo[inst.dest + 32 + j] < check.index;
+
+					bool destNotRead = true;
+					for (int j = 0; j < check.fplen; ++j)
+						destNotRead = destNotRead && lastReadFrom[inst.dest + 32 + j] <= check.index;
+
+					if (!check.readByExit && destNotChanged && destNotRead) {
+						_dbg_assert_(insts[check.index].dest == inst.src1);
+						insts[check.index].dest = inst.dest;
+						for (int j = 0; j < check.fplen; ++j)
+							lastWrittenTo[inst.dest + 32 + j] = check.index;
+						// If it's being read from (by inst now), we can't optimize out.
+						check.reg = 0;
+						// Swap the dest and src1 so we can optimize this out later, maybe.
+						std::swap(inst.dest, inst.src1);
+					} else {
+						// Doesn't look like a good candidate.
+						check.reg = 0;
+					}
+				} else {
+					// Legitimately read from, so we can't optimize out.
+					check.reg = 0;
+				}
 			} else if (check.readByExit && (m->flags & IRFLAG_EXIT) != 0) {
 				// This is an exit, and the reg is read by any exit.  Clear it.
 				check.reg = 0;
@@ -922,6 +1104,21 @@ bool PurgeTemps(const IRWriter &in, IRWriter &out, const IROptions &opts) {
 				insts[check.index].dest = 0;
 				insts[check.index].src1 = 0;
 				check.reg = 0;
+			} else if (IRWritesToFPR(inst, check.reg - 32) && check.fplen >= 1) {
+				IRReg destFPRs[4];
+				int numFPRs = IRDestFPRs(inst, destFPRs);
+
+				if (numFPRs == check.fplen && inst.dest + 32 == check.reg) {
+					// This means we've clobbered it, and with full overlap.
+					// Sometimes this happens for non-temps, i.e. vmmov + vinit last row.
+					insts[check.index].op = IROp::Mov;
+					insts[check.index].dest = 0;
+					insts[check.index].src1 = 0;
+					check.reg = 0;
+				} else {
+					// Since there's an overlap, we simply cannot optimize.
+					check.reg = 0;
+				}
 			}
 		}
 
@@ -965,7 +1162,46 @@ bool PurgeTemps(const IRWriter &in, IRWriter &out, const IROptions &opts) {
 			break;
 		}
 
-		// TODO: VFPU temps?  Especially for masked dregs.
+		IRReg regs[16];
+		int readGPRs = IRReadsFromGPRs(inst, regs);
+		if (readGPRs == -1) {
+			for (int j = 0; j < 256; ++j)
+				lastReadFrom[j] = i;
+		} else {
+			for (int j = 0; j < readGPRs; ++j)
+				lastReadFrom[regs[j]] = i;
+		}
+
+		int readFPRs = IRReadsFromFPRs(inst, regs);
+		if (readFPRs == -1) {
+			for (int j = 0; j < 256; ++j)
+				lastReadFrom[j] = i;
+		} else {
+			for (int j = 0; j < readFPRs; ++j)
+				lastReadFrom[regs[j] + 32] = i;
+		}
+
+		int destFPRs = IRDestFPRs(inst, regs);
+		for (int j = 0; j < destFPRs; ++j)
+			lastWrittenTo[regs[j] + 32] = i;
+
+		dest = destFPRs > 0 ? regs[0] + 32 : -1;
+		if (dest >= 32 && dest < IRTEMP_0) {
+			// Standard FPU or VFPU reg.
+			Check check(dest, i, true);
+			check.fplen = (int8_t)destFPRs;
+			checks.push_back(check);
+		} else if (dest >= IRVTEMP_PFX_S + 32 && dest < IRVTEMP_PFX_S + 32 + 16) {
+			// These are temporary regs and not read by exits.
+			Check check(dest, i, false);
+			check.fplen = (int8_t)destFPRs;
+			if (inst.op == IROp::FMov || inst.op == IROp::Vec4Mov) {
+				check.srcReg = inst.src1 + 32;
+			}
+			checks.push_back(check);
+		} else if (dest != -1) {
+			_assert_msg_(false, "Unexpected FPR output %d", dest);
+		}
 
 		insts.push_back(inst);
 	}
@@ -1297,6 +1533,7 @@ bool ReorderLoadStore(const IRWriter &in, IRWriter &out, const IROptions &opts) 
 
 		case IROp::MtHi:
 		case IROp::MtLo:
+		case IROp::FpCondFromReg:
 			if (inst.src1 && otherRegs[inst.src1] != RegState::CHANGED)
 				otherRegs[inst.src1] = RegState::READ;
 			otherQueue.push_back(inst);
@@ -1305,7 +1542,6 @@ bool ReorderLoadStore(const IRWriter &in, IRWriter &out, const IROptions &opts) 
 
 		case IROp::Nop:
 		case IROp::Downcount:
-		case IROp::ZeroFpCond:
 			if (queuing) {
 				// These are freebies.  Sometimes helps with delay slots.
 				otherQueue.push_back(inst);

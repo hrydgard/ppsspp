@@ -25,6 +25,9 @@
 #define UINT64_MAX 0xFFFFFFFFFFFFFFFFULL
 #endif
 
+
+#define USE_PRESENT_WAIT 0
+
 using namespace PPSSPP_VK;
 
 // renderPass is an example of the "compatibility class" or RenderPassType type.
@@ -303,6 +306,11 @@ bool VulkanRenderManager::CreateBackbuffers() {
 		}
 		INFO_LOG(G3D, "Starting Vulkan compiler thread");
 		compileThread_ = std::thread(&VulkanRenderManager::CompileThreadFunc, this);
+
+		if (USE_PRESENT_WAIT && vulkan_->Extensions().KHR_present_wait && vulkan_->GetPresentMode() == VK_PRESENT_MODE_FIFO_KHR) {
+			INFO_LOG(G3D, "Starting Vulkan present wait thread");
+			presentWaitThread_ = std::thread(&VulkanRenderManager::PresentWaitThreadFunc, this);
+		}
 	}
 	return true;
 }
@@ -319,8 +327,12 @@ void VulkanRenderManager::StopThread() {
 		pushCondVar_.notify_one();
 	}
 
-	// Compiler thread still relies on this.
+	// Compiler and present thread still relies on this.
 	run_ = false;
+
+	if (presentWaitThread_.joinable()) {
+		presentWaitThread_.join();
+	}
 
 	// Stop the thread.
 	if (useRenderThread_) {
@@ -531,13 +543,61 @@ void VulkanRenderManager::ThreadFunc() {
 	VLOG("PULL: Quitting");
 }
 
+void VulkanRenderManager::PresentWaitThreadFunc() {
+	SetCurrentThreadName("PresentWait");
+
+	_dbg_assert_(vkWaitForPresentKHR != nullptr);
+
+	uint64_t waitedId = frameIdGen_;
+	while (run_) {
+		const uint64_t timeout = 1000000000ULL;  // 1 sec
+		if (VK_SUCCESS == vkWaitForPresentKHR(vulkan_->GetDevice(), vulkan_->GetSwapchain(), waitedId, timeout)) {
+			frameTimeData_[waitedId].actualPresent = time_now_d();
+			frameTimeData_[waitedId].waitCount++;
+			waitedId++;
+		} else {
+			// We caught up somehow, which is a bad sign (we should have blocked, right?). Maybe we should break out of the loop?
+			sleep_ms(1);
+			frameTimeData_[waitedId].waitCount++;
+		}
+		_dbg_assert_(waitedId <= frameIdGen_);
+	}
+
+	INFO_LOG(G3D, "Leaving PresentWaitThreadFunc()");
+}
+
+void VulkanRenderManager::PollPresentTiming() {
+	// For VK_GOOGLE_display_timing, we need to poll.
+
+	// Poll for information about completed frames.
+	// NOTE: We seem to get the information pretty late! Like after 6 frames, which is quite weird.
+	// Tested on POCO F4.
+	if (vulkan_->Extensions().GOOGLE_display_timing) {
+		uint32_t count = 0;
+		vkGetPastPresentationTimingGOOGLE(vulkan_->GetDevice(), vulkan_->GetSwapchain(), &count, nullptr);
+		if (count > 0) {
+			VkPastPresentationTimingGOOGLE *timings = new VkPastPresentationTimingGOOGLE[count];
+			vkGetPastPresentationTimingGOOGLE(vulkan_->GetDevice(), vulkan_->GetSwapchain(), &count, timings);
+			for (uint32_t i = 0; i < count; i++) {
+				uint64_t presentId = timings[i].presentID;
+				frameTimeData_[presentId].actualPresent = from_time_raw(timings[i].actualPresentTime);
+				frameTimeData_[presentId].desiredPresentTime = from_time_raw(timings[i].desiredPresentTime);
+				frameTimeData_[presentId].earliestPresentTime = from_time_raw(timings[i].earliestPresentTime);
+				double presentMargin = from_time_raw_relative(timings[i].presentMargin);
+				frameTimeData_[presentId].presentMargin = presentMargin;
+			}
+			delete[] timings;
+		}
+	}
+}
+
 void VulkanRenderManager::BeginFrame(bool enableProfiling, bool enableLogProfiler) {
+	double frameBeginTime = time_now_d()
 	VLOG("BeginFrame");
 	VkDevice device = vulkan_->GetDevice();
 
 	int curFrame = vulkan_->GetCurFrame();
 	FrameData &frameData = frameData_[curFrame];
-
 	VLOG("PUSH: Fencing %d", curFrame);
 
 	// Makes sure the submission from the previous time around has happened. Otherwise
@@ -557,11 +617,21 @@ void VulkanRenderManager::BeginFrame(bool enableProfiling, bool enableLogProfile
 	}
 	vkResetFences(device, 1, &frameData.fence);
 
+	uint64_t frameId = frameIdGen_++;
+
+	PollPresentTiming();
+
 	int validBits = vulkan_->GetQueueFamilyProperties(vulkan_->GetGraphicsQueueFamilyIndex()).timestampValidBits;
 
 	// Can't set this until after the fence.
 	frameData.profile.enabled = enableProfiling;
 	frameData.profile.timestampsEnabled = enableProfiling && validBits > 0;
+	frameData.frameId = frameId;
+
+	frameTimeData_[frameId] = {};
+	frameTimeData_[frameId].frameId = frameId;
+	frameTimeData_[frameId].frameBegin = frameBeginTime;
+	frameTimeData_[frameId].afterFenceWait = time_now_d();
 
 	uint64_t queryResults[MAX_TIMESTAMP_QUERIES];
 
@@ -1269,7 +1339,7 @@ void VulkanRenderManager::Finish() {
 	FrameData &frameData = frameData_[curFrame];
 
 	VLOG("PUSH: Frame[%d]", curFrame);
-	VKRRenderThreadTask *task = new VKRRenderThreadTask(VKRRunType::PRESENT);
+	VKRRenderThreadTask *task = new VKRRenderThreadTask(VKRRunType::SUBMIT);
 	task->frame = curFrame;
 	if (useRenderThread_) {
 		std::unique_lock<std::mutex> lock(pushMutex_);
@@ -1284,6 +1354,23 @@ void VulkanRenderManager::Finish() {
 	}
 
 	steps_.clear();
+}
+
+void VulkanRenderManager::Present() {
+	int curFrame = vulkan_->GetCurFrame();
+
+	VKRRenderThreadTask *task = new VKRRenderThreadTask(VKRRunType::PRESENT);
+	task->frame = curFrame;
+	if (useRenderThread_) {
+		std::unique_lock<std::mutex> lock(pushMutex_);
+		renderThreadQueue_.push(task);
+		pushCondVar_.notify_one();
+	} else {
+		// Just do it!
+		Run(*task);
+		delete task;
+	}
+
 	vulkan_->EndFrame();
 	insideFrame_ = false;
 }
@@ -1301,7 +1388,35 @@ void VulkanRenderManager::Wipe() {
 void VulkanRenderManager::Run(VKRRenderThreadTask &task) {
 	FrameData &frameData = frameData_[task.frame];
 
+	if (task.runType == VKRRunType::PRESENT) {
+		if (!frameData.skipSwap) {
+			VkResult res = frameData.QueuePresent(vulkan_, frameDataShared_);
+			frameTimeData_[frameData.frameId].queuePresent = time_now_d();
+			if (res == VK_ERROR_OUT_OF_DATE_KHR) {
+				// We clearly didn't get this in vkAcquireNextImageKHR because of the skipSwap check above.
+				// Do the increment.
+				outOfDateFrames_++;
+			} else if (res == VK_SUBOPTIMAL_KHR) {
+				outOfDateFrames_++;
+			} else if (res != VK_SUCCESS) {
+				_assert_msg_(false, "vkQueuePresentKHR failed! result=%s", VulkanResultToString(res));
+			} else {
+				// Success
+				outOfDateFrames_ = 0;
+			}
+		} else {
+			// We only get here if vkAcquireNextImage returned VK_ERROR_OUT_OF_DATE.
+			outOfDateFrames_++;
+			frameData.skipSwap = false;
+		}
+		return;
+	}
+
 	_dbg_assert_(!frameData.hasPresentCommands);
+
+	if (!frameTimeData_[frameData.frameId].firstSubmit) {
+		frameTimeData_[frameData.frameId].firstSubmit = time_now_d();
+	}
 	frameData.SubmitPending(vulkan_, FrameSubmitType::Pending, frameDataShared_);
 
 	if (!frameData.hasMainCommands) {
@@ -1333,28 +1448,8 @@ void VulkanRenderManager::Run(VKRRenderThreadTask &task) {
 	}
 
 	switch (task.runType) {
-	case VKRRunType::PRESENT:
+	case VKRRunType::SUBMIT:
 		frameData.SubmitPending(vulkan_, FrameSubmitType::Present, frameDataShared_);
-
-		if (!frameData.skipSwap) {
-			VkResult res = frameData.QueuePresent(vulkan_, frameDataShared_);
-			if (res == VK_ERROR_OUT_OF_DATE_KHR) {
-				// We clearly didn't get this in vkAcquireNextImageKHR because of the skipSwap check above.
-				// Do the increment.
-				outOfDateFrames_++;
-			} else if (res == VK_SUBOPTIMAL_KHR) {
-				outOfDateFrames_++;
-			} else if (res != VK_SUCCESS) {
-				_assert_msg_(false, "vkQueuePresentKHR failed! result=%s", VulkanResultToString(res));
-			} else {
-				// Success
-				outOfDateFrames_ = 0;
-			}
-		} else {
-			// We only get here if vkAcquireNextImage returned VK_ERROR_OUT_OF_DATE.
-			outOfDateFrames_++;
-			frameData.skipSwap = false;
-		}
 		break;
 
 	case VKRRunType::SYNC:

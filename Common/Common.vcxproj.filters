@@ -32,15 +32,6 @@
     <ClInclude Include="ArmCommon.h" />
     <ClInclude Include="BitSet.h" />
     <ClInclude Include="CodeBlock.h" />
-    <ClInclude Include="GL\GLInterface\EGL.h">
-      <Filter>GL\GLInterface</Filter>
-    </ClInclude>
-    <ClInclude Include="GL\GLInterface\EGLAndroid.h">
-      <Filter>GL\GLInterface</Filter>
-    </ClInclude>
-    <ClInclude Include="GL\GLInterfaceBase.h">
-      <Filter>GL</Filter>
-    </ClInclude>
     <ClInclude Include="GraphicsContext.h" />
     <ClInclude Include="DbgNew.h" />
     <ClInclude Include="OSVersion.h" />
@@ -547,15 +538,6 @@
     </ClCompile>
     <ClCompile Include="MipsEmitter.cpp" />
     <ClCompile Include="Arm64Emitter.cpp" />
-    <ClCompile Include="GL\GLInterface\EGL.cpp">
-      <Filter>GL\GLInterface</Filter>
-    </ClCompile>
-    <ClCompile Include="GL\GLInterface\EGLAndroid.cpp">
-      <Filter>GL\GLInterface</Filter>
-    </ClCompile>
-    <ClCompile Include="GL\GLInterface\GLInterface.cpp">
-      <Filter>GL\GLInterface</Filter>
-    </ClCompile>
     <ClCompile Include="MemArenaPosix.cpp" />
     <ClCompile Include="MemArenaWin32.cpp" />
     <ClCompile Include="MemArenaAndroid.cpp" />
@@ -981,12 +963,6 @@
   <ItemGroup>
     <Filter Include="Crypto">
       <UniqueIdentifier>{1b593f03-7b28-4707-9228-4981796f5589}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="GL">
-      <UniqueIdentifier>{2f2ca112-9e26-499e-9cb9-38a78b4ac09d}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="GL\GLInterface">
-      <UniqueIdentifier>{2c723cf4-75b6-406a-90c0-ebb7a13ba476}</UniqueIdentifier>
     </Filter>
     <Filter Include="Serialize">
       <UniqueIdentifier>{7be79ad5-3520-46a1-a370-dce2a943978c}</UniqueIdentifier>

@@ -432,7 +432,7 @@ void GameSettingsScreen::CreateGraphicsSettings(UI::ViewGroup *graphicsSettings)
 		return !g_Config.bSkipBufferEffects && g_Config.iFrameSkip == 0;
 	});
 
-	if (GetGPUBackend() == GPUBackend::VULKAN || GetGPUBackend() == GPUBackend::OPENGL) {
+	if (draw->GetDeviceCaps().setMaxFrameLatencySupported) {
 		static const char *bufferOptions[] = { "No buffer", "Up to 1", "Up to 2" };
 		PopupMultiChoice *inflightChoice = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iInflightFrames, gr->T("Buffer graphics commands (faster, input lag)"), bufferOptions, 1, ARRAY_SIZE(bufferOptions), I18NCat::GRAPHICS, screenManager()));
 		inflightChoice->OnChoice.Handle(this, &GameSettingsScreen::OnInflightFramesChoice);
@@ -562,8 +562,7 @@ void GameSettingsScreen::CreateGraphicsSettings(UI::ViewGroup *graphicsSettings)
 #ifdef CAN_DISPLAY_CURRENT_BATTERY_CAPACITY
 	BitCheckBox *showBattery = graphicsSettings->Add(new BitCheckBox(&g_Config.iShowStatusFlags, (int)ShowStatusFlags::BATTERY_PERCENT, gr->T("Show Battery %")));
 #endif
-
-	graphicsSettings->Add(new CheckBox(&g_Config.bShowDebugStats, gr->T("Show Debug Statistics")))->OnClick.Handle(this, &GameSettingsScreen::OnJitAffectingSetting);
+	AddOverlayList(graphicsSettings, screenManager());
 }
 
 void GameSettingsScreen::CreateAudioSettings(UI::ViewGroup *audioSettings) {
@@ -1665,6 +1664,8 @@ void DeveloperToolsScreen::CreateViews() {
 	cpuTests->SetEnabled(TestsAvailable());
 #endif
 
+	AddOverlayList(list, screenManager());
+
 	if (g_Config.iGPUBackend == (int)GPUBackend::VULKAN) {
 		list->Add(new CheckBox(&g_Config.bRenderMultiThreading, dev->T("Multi-threaded rendering"), ""))->OnClick.Add([](UI::EventParams &e) {
 			// TODO: Not translating yet. Will combine with other translations of settings that need restart.
@@ -1880,7 +1881,7 @@ UI::EventReturn DeveloperToolsScreen::OnRemoteDebugger(UI::EventParams &e) {
 	}
 	// Persist the setting.  Maybe should separate?
 	g_Config.bRemoteDebuggerOnStartup = allowDebugger_;
-	return UI::EVENT_CONTINUE;
+	return UI::EVENT_DONE;
 }
 
 void DeveloperToolsScreen::update() {

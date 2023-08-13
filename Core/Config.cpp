@@ -47,6 +47,7 @@
 #include "Common/Thread/ThreadUtil.h"
 #include "Common/GPU/Vulkan/VulkanLoader.h"
 #include "Common/VR/PPSSPPVR.h"
+#include "Common/System/OSD.h"
 #include "Core/Config.h"
 #include "Core/ConfigSettings.h"
 #include "Core/ConfigValues.h"
@@ -178,6 +179,7 @@ static const ConfigSetting generalSettings[] = {
 	ConfigSetting("CwCheatRefreshRate", &g_Config.iCwCheatRefreshRate, 77, CfgFlag::PER_GAME),
 	ConfigSetting("CwCheatScrollPosition", &g_Config.fCwCheatScrollPosition, 0.0f, CfgFlag::PER_GAME),
 	ConfigSetting("GameListScrollPosition", &g_Config.fGameListScrollPosition, 0.0f, CfgFlag::DEFAULT),
+	ConfigSetting("DebugOverlay", &g_Config.iDebugOverlay, 0, CfgFlag::DONT_SAVE),
 
 	ConfigSetting("ScreenshotsAsPNG", &g_Config.bScreenshotsAsPNG, false, CfgFlag::PER_GAME),
 	ConfigSetting("UseFFV1", &g_Config.bUseFFV1, false, CfgFlag::DEFAULT),
@@ -282,6 +284,13 @@ static const ConfigSetting achievementSettings[] = {
 	ConfigSetting("AchievementsSoundEffects", &g_Config.bAchievementsSoundEffects, true, CfgFlag::DEFAULT),
 	ConfigSetting("AchievementsUnlockAudioFile", &g_Config.sAchievementsUnlockAudioFile, "", CfgFlag::DEFAULT),
 	ConfigSetting("AchievementsLeaderboardSubmitAudioFile", &g_Config.sAchievementsLeaderboardSubmitAudioFile, "", CfgFlag::DEFAULT),
+
+	ConfigSetting("AchievementsLeaderboardTrackerPos", &g_Config.iAchievementsLeaderboardTrackerPos, (int)ScreenEdgePosition::TOP_LEFT, CfgFlag::DEFAULT),
+	ConfigSetting("AchievementsLeaderboardStartedOrFailedPos", &g_Config.iAchievementsLeaderboardStartedOrFailedPos, (int)ScreenEdgePosition::TOP_LEFT, CfgFlag::DEFAULT),
+	ConfigSetting("AchievementsLeaderboardSubmittedPos", &g_Config.iAchievementsLeaderboardSubmittedPos, (int)ScreenEdgePosition::TOP_LEFT, CfgFlag::DEFAULT),
+	ConfigSetting("AchievementsProgressPos", &g_Config.iAchievementsProgressPos, (int)ScreenEdgePosition::TOP_LEFT, CfgFlag::DEFAULT),
+	ConfigSetting("AchievementsChallengePos", &g_Config.iAchievementsChallengePos, (int)ScreenEdgePosition::TOP_LEFT, CfgFlag::DEFAULT),
+	ConfigSetting("AchievementsUnlockedPos", &g_Config.iAchievementsUnlockedPos, (int)ScreenEdgePosition::TOP_CENTER, CfgFlag::DEFAULT),
 };
 
 static const ConfigSetting cpuSettings[] = {
@@ -789,8 +798,8 @@ static const ConfigSetting networkSettings[] = {
 	ConfigSetting("UPnPUseOriginalPort", &g_Config.bUPnPUseOriginalPort, false, CfgFlag::PER_GAME),
 
 	ConfigSetting("EnableNetworkChat", &g_Config.bEnableNetworkChat, false, CfgFlag::PER_GAME),
-	ConfigSetting("ChatButtonPosition",&g_Config.iChatButtonPosition,BOTTOM_LEFT, CfgFlag::PER_GAME),
-	ConfigSetting("ChatScreenPosition",&g_Config.iChatScreenPosition,BOTTOM_LEFT, CfgFlag::PER_GAME),
+	ConfigSetting("ChatButtonPosition", &g_Config.iChatButtonPosition, (int)ScreenEdgePosition::BOTTOM_LEFT, CfgFlag::PER_GAME),
+	ConfigSetting("ChatScreenPosition", &g_Config.iChatScreenPosition, (int)ScreenEdgePosition::BOTTOM_LEFT, CfgFlag::PER_GAME),
 	ConfigSetting("EnableQuickChat", &g_Config.bEnableQuickChat, true, CfgFlag::PER_GAME),
 	ConfigSetting("QuickChat1", &g_Config.sQuickChat0, "Quick Chat 1", CfgFlag::PER_GAME),
 	ConfigSetting("QuickChat2", &g_Config.sQuickChat1, "Quick Chat 2", CfgFlag::PER_GAME),
@@ -840,13 +849,10 @@ static const ConfigSetting debuggerSettings[] = {
 	ConfigSetting("DisplayStatusBar", &g_Config.bDisplayStatusBar, true, CfgFlag::DEFAULT),
 	ConfigSetting("ShowBottomTabTitles",&g_Config.bShowBottomTabTitles, true, CfgFlag::DEFAULT),
 	ConfigSetting("ShowDeveloperMenu", &g_Config.bShowDeveloperMenu, false, CfgFlag::DEFAULT),
-	ConfigSetting("ShowAllocatorDebug", &g_Config.bShowAllocatorDebug, false, CfgFlag::DONT_SAVE),
-	ConfigSetting("ShowGpuProfile", &g_Config.bShowGpuProfile, false, CfgFlag::DONT_SAVE),
 	ConfigSetting("SkipDeadbeefFilling", &g_Config.bSkipDeadbeefFilling, false, CfgFlag::DEFAULT),
 	ConfigSetting("FuncHashMap", &g_Config.bFuncHashMap, false, CfgFlag::DEFAULT),
 	ConfigSetting("SkipFuncHashMap", &g_Config.sSkipFuncHashMap, "", CfgFlag::DEFAULT),
 	ConfigSetting("MemInfoDetailed", &g_Config.bDebugMemInfoDetailed, false, CfgFlag::DEFAULT),
-	ConfigSetting("DrawFrameGraph", &g_Config.bDrawFrameGraph, false, CfgFlag::DEFAULT),
 };
 
 static const ConfigSetting jitSettings[] = {
@@ -1051,8 +1057,6 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 
 	INFO_LOG(LOADER, "Loading config: %s", iniFilename_.c_str());
 	bSaveSettings = true;
-
-	bShowFrameProfiler = true;
 
 	IniFile iniFile;
 	if (!iniFile.Load(iniFilename_)) {

@@ -96,7 +96,6 @@ public:
 	void Shutdown() override {}
 	void Resize() override {}
 	void SwapInterval(int interval) override {}
-	void SwapBuffers() override {}
 
 private:
 	Draw::DrawContext *draw_ = nullptr;
@@ -166,7 +165,7 @@ bool GLDummyGraphicsContext::InitFromRenderThread(std::string *errorMessage) {
 	_assert_(success);
 	renderManager_->SetSwapFunction([&]() {
 		SDL_GL_SwapWindow(screen_);
-	}, false);
+	});
 
 	return success;
 }
@@ -193,7 +192,6 @@ bool SDLHeadlessHost::InitGraphics(std::string *error_message, GraphicsContext *
 			if (!gfx_->ThreadFrame()) {
 				break;
 			}
-			gfx_->SwapBuffers();
 		}
 
 		threadState_ = RenderThreadState::STOPPING;
@@ -221,7 +219,6 @@ void SDLHeadlessHost::ShutdownGraphics() {
 }
 
 void SDLHeadlessHost::SwapBuffers() {
-	gfx_->SwapBuffers();
 }
 
 #endif

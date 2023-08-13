@@ -223,11 +223,16 @@ PFN_vkCmdInsertDebugUtilsLabelEXT	 vkCmdInsertDebugUtilsLabelEXT;
 PFN_vkSetDebugUtilsObjectNameEXT     vkSetDebugUtilsObjectNameEXT;
 PFN_vkSetDebugUtilsObjectTagEXT      vkSetDebugUtilsObjectTagEXT;
 
+// Assorted other extensions.
 PFN_vkGetBufferMemoryRequirements2KHR vkGetBufferMemoryRequirements2KHR;
 PFN_vkGetImageMemoryRequirements2KHR vkGetImageMemoryRequirements2KHR;
 PFN_vkGetPhysicalDeviceProperties2KHR vkGetPhysicalDeviceProperties2KHR;
 PFN_vkGetPhysicalDeviceFeatures2KHR vkGetPhysicalDeviceFeatures2KHR;
 PFN_vkCreateRenderPass2KHR vkCreateRenderPass2KHR;
+PFN_vkWaitForPresentKHR vkWaitForPresentKHR;
+PFN_vkGetPastPresentationTimingGOOGLE vkGetPastPresentationTimingGOOGLE;
+PFN_vkGetRefreshCycleDurationGOOGLE vkGetRefreshCycleDurationGOOGLE;
+
 } // namespace PPSSPP_VK
 
 using namespace PPSSPP_VK;
@@ -726,6 +731,13 @@ void VulkanLoadDeviceFunctions(VkDevice device, const VulkanExtensions &enabledE
 	LOAD_DEVICE_FUNC(device, vkCmdEndRenderPass);
 	LOAD_DEVICE_FUNC(device, vkCmdExecuteCommands);
 
+	if (enabledExtensions.KHR_present_wait) {
+		LOAD_DEVICE_FUNC(device, vkWaitForPresentKHR);
+	}
+	if (enabledExtensions.GOOGLE_display_timing) {
+		LOAD_DEVICE_FUNC(device, vkGetPastPresentationTimingGOOGLE);
+		LOAD_DEVICE_FUNC(device, vkGetRefreshCycleDurationGOOGLE);
+	}
 	if (enabledExtensions.KHR_dedicated_allocation) {
 		LOAD_DEVICE_FUNC(device, vkGetBufferMemoryRequirements2KHR);
 		LOAD_DEVICE_FUNC(device, vkGetImageMemoryRequirements2KHR);

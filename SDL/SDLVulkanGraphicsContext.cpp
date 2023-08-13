@@ -136,7 +136,11 @@ bool SDLVulkanGraphicsContext::Init(SDL_Window *&window, int x, int y, int w, in
 		return false;
 	}
 
-	draw_ = Draw::T3DCreateVulkanContext(vulkan_, g_Config.bRenderMultiThreading);
+	bool useMultiThreading = g_Config.bRenderMultiThreading;
+	if (g_Config.iInflightFrames == 1) {
+		useMultiThreading = false;
+	}
+	draw_ = Draw::T3DCreateVulkanContext(vulkan_, useMultiThreading);
 	SetGPUBackend(GPUBackend::VULKAN);
 	bool success = draw_->CreatePresets();
 	_assert_(success);

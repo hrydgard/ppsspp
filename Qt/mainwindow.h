@@ -178,10 +178,6 @@ private slots:
 
 	void fullscrAct();
 	void raiseTopMost();
-	void statsAct() {
-		g_Config.bShowDebugStats = !g_Config.bShowDebugStats;
-		System_PostUIMessage("clear jit", "");
-	}
 
 	// Help
 	void websiteAct();

@@ -587,8 +587,6 @@ void MainWindow::createMenus()
 		->addDisableState(UISTATE_MENU);
 	debugMenu->add(new MenuAction(this, SLOT(dumpNextAct()),  QT_TR_NOOP("D&ump next frame to log")))
 		->addDisableState(UISTATE_MENU);
-	debugMenu->add(new MenuAction(this, SLOT(statsAct()),   QT_TR_NOOP("Show debu&g statistics")))
-		->addEventChecked(&g_Config.bShowDebugStats);
 	debugMenu->addSeparator();
 	debugMenu->add(new MenuAction(this, SLOT(consoleAct()),   QT_TR_NOOP("&Log console"), Qt::CTRL + Qt::Key_L))
 		->addDisableState(UISTATE_MENU);

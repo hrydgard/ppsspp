@@ -35,7 +35,7 @@ namespace MIPSComp {
 using namespace RiscVGen;
 using namespace RiscVJitConstants;
 
-void RiscVJit::CompIR_Arith(IRInst inst) {
+void RiscVJitBackend::CompIR_Arith(IRInst inst) {
 	CONDITIONAL_DISABLE;
 
 	bool allowPtrMath = true;
@@ -96,7 +96,7 @@ void RiscVJit::CompIR_Arith(IRInst inst) {
 	}
 }
 
-void RiscVJit::CompIR_Logic(IRInst inst) {
+void RiscVJitBackend::CompIR_Logic(IRInst inst) {
 	CONDITIONAL_DISABLE;
 
 	switch (inst.op) {
@@ -187,7 +187,7 @@ void RiscVJit::CompIR_Logic(IRInst inst) {
 	}
 }
 
-void RiscVJit::CompIR_Assign(IRInst inst) {
+void RiscVJitBackend::CompIR_Assign(IRInst inst) {
 	CONDITIONAL_DISABLE;
 
 	switch (inst.op) {
@@ -227,12 +227,46 @@ void RiscVJit::CompIR_Assign(IRInst inst) {
 	}
 }
 
-void RiscVJit::CompIR_Bits(IRInst inst) {
+void RiscVJitBackend::CompIR_Bits(IRInst inst) {
 	CONDITIONAL_DISABLE;
 
 	switch (inst.op) {
 	case IROp::ReverseBits:
-		CompIR_Generic(inst);
+		if (cpu_info.RiscV_Zbb) {
+			gpr.MapDirtyIn(inst.dest, inst.src1);
+			// Start by reversing bytes (note: this puts in upper 32 of XLEN.)
+			REV8(gpr.R(inst.dest), gpr.R(inst.src1));
+
+			// Swap nibbles.
+			LI(SCRATCH1, (s32)0xF0F0F0F0);
+			SRLI(SCRATCH2, gpr.R(inst.dest), XLEN - 32 - 4);
+			AND(SCRATCH2, SCRATCH2, SCRATCH1);
+			if (XLEN >= 64)
+				SRLI(gpr.R(inst.dest), gpr.R(inst.dest), XLEN - 28);
+			else
+				SLLI(gpr.R(inst.dest), gpr.R(inst.dest), 4);
+			SRLIW(SCRATCH1, SCRATCH1, 4);
+			AND(gpr.R(inst.dest), gpr.R(inst.dest), SCRATCH1);
+			OR(gpr.R(inst.dest), gpr.R(inst.dest), SCRATCH2);
+
+			// Now the consecutive pairs.
+			LI(SCRATCH1, (s32)0x33333333);
+			SRLI(SCRATCH2, gpr.R(inst.dest), 2);
+			AND(SCRATCH2, SCRATCH2, SCRATCH1);
+			AND(gpr.R(inst.dest), gpr.R(inst.dest), SCRATCH1);
+			SLLIW(gpr.R(inst.dest), gpr.R(inst.dest), 2);
+			OR(gpr.R(inst.dest), gpr.R(inst.dest), SCRATCH2);
+
+			// And finally the even and odd bits.
+			LI(SCRATCH1, (s32)0x55555555);
+			SRLI(SCRATCH2, gpr.R(inst.dest), 1);
+			AND(SCRATCH2, SCRATCH2, SCRATCH1);
+			AND(gpr.R(inst.dest), gpr.R(inst.dest), SCRATCH1);
+			SLLIW(gpr.R(inst.dest), gpr.R(inst.dest), 1);
+			OR(gpr.R(inst.dest), gpr.R(inst.dest), SCRATCH2);
+		} else {
+			CompIR_Generic(inst);
+		}
 		break;
 
 	case IROp::BSwap16:
@@ -269,7 +303,7 @@ void RiscVJit::CompIR_Bits(IRInst inst) {
 	}
 }
 
-void RiscVJit::CompIR_Shift(IRInst inst) {
+void RiscVJitBackend::CompIR_Shift(IRInst inst) {
 	CONDITIONAL_DISABLE;
 
 	switch (inst.op) {
@@ -367,7 +401,7 @@ void RiscVJit::CompIR_Shift(IRInst inst) {
 	}
 }
 
-void RiscVJit::CompIR_Compare(IRInst inst) {
+void RiscVJitBackend::CompIR_Compare(IRInst inst) {
 	CONDITIONAL_DISABLE;
 
 	RiscVReg lhs = INVALID_REG;
@@ -445,7 +479,7 @@ void RiscVJit::CompIR_Compare(IRInst inst) {
 	}
 }
 
-void RiscVJit::CompIR_CondAssign(IRInst inst) {
+void RiscVJitBackend::CompIR_CondAssign(IRInst inst) {
 	CONDITIONAL_DISABLE;
 
 	RiscVReg lhs = INVALID_REG;
@@ -519,7 +553,7 @@ void RiscVJit::CompIR_CondAssign(IRInst inst) {
 	}
 }
 
-void RiscVJit::CompIR_HiLo(IRInst inst) {
+void RiscVJitBackend::CompIR_HiLo(IRInst inst) {
 	CONDITIONAL_DISABLE;
 
 	switch (inst.op) {
@@ -553,7 +587,7 @@ void RiscVJit::CompIR_HiLo(IRInst inst) {
 	}
 }
 
-void RiscVJit::CompIR_Mult(IRInst inst) {
+void RiscVJitBackend::CompIR_Mult(IRInst inst) {
 	CONDITIONAL_DISABLE;
 
 	auto makeArgsUnsigned = [&](RiscVReg *lhs, RiscVReg *rhs) {
@@ -652,7 +686,7 @@ void RiscVJit::CompIR_Mult(IRInst inst) {
 	}
 }
 
-void RiscVJit::CompIR_Div(IRInst inst) {
+void RiscVJitBackend::CompIR_Div(IRInst inst) {
 	CONDITIONAL_DISABLE;
 
 	RiscVReg numReg, denomReg;

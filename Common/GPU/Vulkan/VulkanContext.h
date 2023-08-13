@@ -291,6 +291,13 @@ public:
 		return device_extensions_enabled_;
 	}
 
+	const std::vector<VkExtensionProperties> &GetInstanceExtensionsAvailable() const {
+		return instance_extension_properties_;
+	}
+	const std::vector<const char *> &GetInstanceExtensionsEnabled() const {
+		return instance_extensions_enabled_;
+	}
+
 	const VkPhysicalDeviceMemoryProperties &GetMemoryProperties() const {
 		return memory_properties_;
 	}
@@ -314,7 +321,6 @@ public:
 		for (const auto &iter : instance_layer_properties_) {
 			for (const auto &ext : iter.extensions) {
 				if (!strcmp(extensionName, ext.extensionName)) {
-					INFO_LOG(G3D, "%s found in layer extensions: %s", extensionName, iter.properties.layerName);
 					return true;
 				}
 			}

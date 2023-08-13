@@ -94,8 +94,7 @@ public:
 };
 
 // Temporary hacks around annoying linking errors.
-void NativeUpdate() { }
-void NativeRender(GraphicsContext *graphicsContext) { }
+void NativeFrame(GraphicsContext *graphicsContext) { }
 void NativeResized() { }
 
 std::string System_GetProperty(SystemProperty prop) { return ""; }
@@ -234,12 +233,12 @@ bool RunAutoTest(HeadlessHost *headlessHost, CoreParameter &coreParameter, const
 
 	System_Notify(SystemNotification::BOOT_DONE);
 
-	Core_UpdateDebugStats(g_Config.bShowDebugStats || g_Config.bLogFrameDrops);
+	Core_UpdateDebugStats((DebugOverlay)g_Config.iDebugOverlay == DebugOverlay::DEBUG_STATS || g_Config.bLogFrameDrops);
 
 	PSP_BeginHostFrame();
 	Draw::DrawContext *draw = coreParameter.graphicsContext ? coreParameter.graphicsContext->GetDrawContext() : nullptr;
 	if (draw)
-		draw->BeginFrame();
+		draw->BeginFrame(Draw::DebugFlags::NONE);
 
 	bool passed = true;
 	double deadline = time_now_d() + opt.timeout;

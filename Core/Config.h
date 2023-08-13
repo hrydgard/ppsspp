@@ -29,17 +29,6 @@
 
 extern const char *PPSSPP_GIT_VERSION;
 
-enum ChatPositions {
-	BOTTOM_LEFT = 0,
-	BOTTOM_CENTER = 1,
-	BOTOM_RIGHT = 2,
-	TOP_LEFT = 3,
-	TOP_CENTER = 4,
-	TOP_RIGHT = 5,
-	CENTER_LEFT = 6,
-	CENTER_RIGHT = 7,
-};
-
 namespace http {
 	class Request;
 	class RequestManager;
@@ -264,10 +253,6 @@ public:
 
 	// These aren't saved, just for instant debugging.
 	bool bLogFrameDrops;
-	bool bShowDebugStats;
-	bool bShowAudioDebug;
-	bool bShowControlDebug;
-	bool bShowGpuProfile;
 
 	// Analog stick tilting
 	// This is the held base angle (from the horizon), that we compute the tilt relative from.
@@ -476,16 +461,18 @@ public:
 	bool bDisplayStatusBar;
 	bool bShowBottomTabTitles;
 	bool bShowDeveloperMenu;
-	bool bShowAllocatorDebug;
+
 	// Double edged sword: much easier debugging, but not accurate.
 	bool bSkipDeadbeefFilling;
+
 	bool bFuncHashMap;
 	std::string sSkipFuncHashMap;
 	bool bDebugMemInfoDetailed;
-	bool bDrawFrameGraph;
 
 	// Volatile development settings
-	bool bShowFrameProfiler;
+	// Overlays
+	int iDebugOverlay;
+
 	bool bGpuLogProfiler; // Controls the Vulkan logging profiler (profiles textures uploads etc).
 
 	// Retro Achievement settings
@@ -496,6 +483,14 @@ public:
 	bool bAchievementsUnofficial;
 	bool bAchievementsSoundEffects;
 	bool bAchievementsLogBadMemReads;
+
+	// Positioning of the various notifications
+	int iAchievementsLeaderboardTrackerPos;
+	int iAchievementsLeaderboardStartedOrFailedPos;
+	int iAchievementsLeaderboardSubmittedPos;
+	int iAchievementsProgressPos;
+	int iAchievementsChallengePos;
+	int iAchievementsUnlockedPos;
 
 	// Customizations
 	std::string sAchievementsUnlockAudioFile;

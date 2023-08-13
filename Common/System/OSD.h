@@ -21,6 +21,12 @@ enum class OSDType {
 	ACHIEVEMENT_CHALLENGE_INDICATOR,  // Achievement icon ONLY, no auto-hide
 
 	LEADERBOARD_TRACKER,
+	LEADERBOARD_STARTED_FAILED,
+	LEADERBOARD_SUBMITTED,
+
+	PROGRESS_BAR,
+
+	VALUE_COUNT,
 };
 
 // Data holder for on-screen messages.
@@ -47,6 +53,8 @@ public:
 	void ShowAchievementProgress(int achievementID, bool show);  // call with show=false to hide.  There can only be one of these. When hiding it's ok to not pass a valid achievementID.
 	void ShowChallengeIndicator(int achievementID, bool show);  // call with show=false to hide.
 	void ShowLeaderboardTracker(int leaderboardTrackerID, const char *trackerText, bool show);   // show=true is used both for create and update.
+	void ShowLeaderboardStartEnd(const std::string &title, const std::string &description, bool started);  // started = true for started, false for ended.
+	void ShowLeaderboardSubmitted(const std::string &title, const std::string &value);
 
 	// Progress bar controls
 	// Set is both create and update. If you set maxValue <= minValue, you'll create an "indeterminate" progress
@@ -67,31 +75,23 @@ public:
 		std::string text2;
 		std::string iconName;
 		int numericID;
-		const char *id;
+		std::string id;
 		double startTime;
 		double endTime;
-	};
 
-	struct ProgressBar {
-		std::string id;
-		std::string message;
+		// Progress-bar-only data:
 		float minValue;
 		float maxValue;
 		float progress;
-		double startTime;
-		double endTime;
 	};
 
 	std::vector<Entry> Entries();
-	std::vector<Entry> SideEntries();
-	std::vector<ProgressBar> ProgressBars();
 
+	static float FadeinTime() { return 0.1f; }
 	static float FadeoutTime() { return 0.25f; }
 
 private:
 	std::vector<Entry> entries_;
-	std::vector<Entry> sideEntries_;
-	std::vector<ProgressBar> bars_;
 	std::mutex mutex_;
 
 	double sideBarShowTime_ = 0.0;

@@ -645,6 +645,9 @@
     <ClCompile Include="..\..\Core\MIPS\IR\IRJit.cpp">
       <Filter>MIPS\IR</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\Core\MIPS\IR\IRNativeCommon.cpp">
+      <Filter>MIPS\IR</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\Core\MIPS\IR\IRAnalysis.cpp">
       <Filter>MIPS\IR</Filter>
     </ClCompile>
@@ -1134,6 +1137,7 @@
     </ClCompile>
     <ClCompile Include="..\..\Core\ConfigSettings.cpp" />
     <ClCompile Include="..\..\Core\RetroAchievements.cpp" />
+    <ClCompile Include="..\..\Core\FrameTiming.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="pch.h" />
@@ -1670,6 +1674,9 @@
     <ClInclude Include="..\..\Core\MIPS\IR\IRJit.h">
       <Filter>MIPS\IR</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\Core\MIPS\IR\IRNativeCommon.h">
+      <Filter>MIPS\IR</Filter>
+    </ClInclude>
     <ClInclude Include="..\..\Core\MIPS\IR\IRAnalysis.h">
       <Filter>MIPS\IR</Filter>
     </ClInclude>
@@ -1794,6 +1801,7 @@
     <ClInclude Include="..\..\Core\ConfigSettings.h" />
     <ClInclude Include="..\..\Core\Debugger\WebSocket\ClientConfigSubscriber.h" />
     <ClInclude Include="..\..\Core\RetroAchievements.h" />
+    <ClInclude Include="..\..\Core\FrameTiming.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\..\ext\gason\LICENSE">

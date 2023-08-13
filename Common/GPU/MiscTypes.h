@@ -2,6 +2,8 @@
 
 #include "Common/Common.h"
 
+// Flags and structs shared between backends that haven't found a good home.
+
 enum class InvalidationFlags {
 	CACHED_RENDER_STATE = 1,
 };
@@ -14,3 +16,21 @@ enum class InvalidationCallbackFlags {
 ENUM_CLASS_BITOPS(InvalidationCallbackFlags);
 
 typedef std::function<void(InvalidationCallbackFlags)> InvalidationCallback;
+
+// These are separate from FrameData because we store some history of these.
+// Also, this might be joined with more non-GPU timing information later.
+struct FrameTimeData {
+	uint64_t frameId;
+
+	int waitCount;
+
+	double frameBegin;
+	double afterFenceWait;
+	double firstSubmit;
+	double queuePresent;
+
+	double actualPresent;
+	double desiredPresentTime;
+	double earliestPresentTime;
+	double presentMargin;
+};

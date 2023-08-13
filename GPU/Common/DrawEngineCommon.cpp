@@ -106,7 +106,7 @@ int DrawEngineCommon::ComputeNumVertsToDecode() const {
 void DrawEngineCommon::DecodeVerts(u8 *dest) {
 	int decodeCounter = decodeCounter_;
 	for (; decodeCounter < numDrawCalls_; decodeCounter++) {
-		DecodeVertsStep(dest, decodeCounter, decodedVerts_, &drawCalls_[decodeCounter].uvScale);  // NOTE! DecodeVertsStep can modify decodeCounter_!
+		DecodeVertsStep(dest, decodeCounter, decodedVerts_, &drawCalls_[decodeCounter].uvScale);  // NOTE! DecodeVertsStep can modify the decodeCounter parameter!
 	}
 	decodeCounter_ = decodeCounter;
 
@@ -802,8 +802,8 @@ void DrawEngineCommon::SubmitPrim(const void *verts, const void *inds, GEPrimiti
 		prevPrim_ = prim;
 	}
 
-	// If vtype has changed, setup the vertex decoder.
-	if (vertTypeID != lastVType_ || !dec_) {
+	// If vtype has changed, setup the vertex decoder. Don't need to nullcheck dec_ since we set lastVType_ to an invalid value whenever we null it.
+	if (vertTypeID != lastVType_) {
 		dec_ = GetVertexDecoder(vertTypeID);
 		lastVType_ = vertTypeID;
 	}
@@ -811,7 +811,7 @@ void DrawEngineCommon::SubmitPrim(const void *verts, const void *inds, GEPrimiti
 	*bytesRead = vertexCount * dec_->VertexSize();
 
 	// Check that we have enough vertices to form the requested primitive.
-	if ((vertexCount < 2 && prim > 0) || (vertexCount < 3 && prim > GE_PRIM_LINE_STRIP && prim != GE_PRIM_RECTANGLES))
+	if (vertexCount < 3 && ((vertexCount < 2 && prim > 0) || (prim > GE_PRIM_LINE_STRIP && prim != GE_PRIM_RECTANGLES)))
 		return;
 
 	DeferredDrawCall &dc = drawCalls_[numDrawCalls_];
@@ -832,13 +832,13 @@ void DrawEngineCommon::SubmitPrim(const void *verts, const void *inds, GEPrimiti
 	numDrawCalls_++;
 	vertexCountInDrawCalls_ += vertexCount;
 
-	if (decOptions_.applySkinInDecode && (vertTypeID & GE_VTYPE_WEIGHT_MASK)) {
+	if ((vertTypeID & GE_VTYPE_WEIGHT_MASK) && decOptions_.applySkinInDecode) {
 		DecodeVertsStep(decoded_, decodeCounter_, decodedVerts_, &dc.uvScale);
 		decodeCounter_++;
 	}
 
 	if (prim == GE_PRIM_RECTANGLES && (gstate.getTextureAddress(0) & 0x3FFFFFFF) == (gstate.getFrameBufAddress() & 0x3FFFFFFF)) {
-		// Rendertarget == texture? Shouldn't happen. Still, try some mitigations.
+		// This prevents issues with consecutive self-renders in Ridge Racer.
 		gstate_c.Dirty(DIRTY_TEXTURE_PARAMS);
 		DispatchFlush();
 	}

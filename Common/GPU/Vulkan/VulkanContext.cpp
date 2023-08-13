@@ -549,12 +549,13 @@ void VulkanContext::ChooseDevice(int physical_device) {
 	vkGetPhysicalDeviceQueueFamilyProperties(physical_devices_[physical_device_], &queue_count, queueFamilyProperties_.data());
 	_dbg_assert_(queue_count >= 1);
 
-	// Detect preferred formats, in this order.
+	// Detect preferred depth/stencil formats, in this order. All supported devices will support at least one of these.
 	static const VkFormat depthStencilFormats[] = {
 		VK_FORMAT_D24_UNORM_S8_UINT,
 		VK_FORMAT_D32_SFLOAT_S8_UINT,
 		VK_FORMAT_D16_UNORM_S8_UINT,
 	};
+
 	deviceInfo_.preferredDepthStencilFormat = VK_FORMAT_UNDEFINED;
 	for (size_t i = 0; i < ARRAY_SIZE(depthStencilFormats); i++) {
 		VkFormatProperties props;
@@ -573,7 +574,8 @@ void VulkanContext::ChooseDevice(int physical_device) {
 		deviceInfo_.canBlitToPreferredDepthStencilFormat = true;
 	}
 
-	// This is as good a place as any to do this.
+	// This is as good a place as any to do this. Though, we don't use this much anymore after we added
+	// support for VMA.
 	vkGetPhysicalDeviceMemoryProperties(physical_devices_[physical_device_], &memory_properties_);
 	INFO_LOG(G3D, "Memory Types (%d):", memory_properties_.memoryTypeCount);
 	for (int i = 0; i < (int)memory_properties_.memoryTypeCount; i++) {
@@ -598,6 +600,7 @@ void VulkanContext::ChooseDevice(int physical_device) {
 		features2.pNext = &multiViewFeatures;
 		multiViewFeatures.pNext = &presentWaitFeatures;
 		presentWaitFeatures.pNext = &presentIdFeatures;
+		presentIdFeatures.pNext = nullptr;
 
 		vkGetPhysicalDeviceFeatures2KHR(physical_devices_[physical_device_], &features2);
 		deviceFeatures_.available.standard = features2.features;
@@ -608,24 +611,6 @@ void VulkanContext::ChooseDevice(int physical_device) {
 		vkGetPhysicalDeviceFeatures(physical_devices_[physical_device_], &deviceFeatures_.available.standard);
 		deviceFeatures_.available.multiview = {};
 	}
-
-	deviceFeatures_.enabled = {};
-	// Enable a few safe ones if they are available.
-	deviceFeatures_.enabled.standard.dualSrcBlend = deviceFeatures_.available.standard.dualSrcBlend;
-	deviceFeatures_.enabled.standard.logicOp = deviceFeatures_.available.standard.logicOp;
-	deviceFeatures_.enabled.standard.depthClamp = deviceFeatures_.available.standard.depthClamp;
-	deviceFeatures_.enabled.standard.depthBounds = deviceFeatures_.available.standard.depthBounds;
-	deviceFeatures_.enabled.standard.samplerAnisotropy = deviceFeatures_.available.standard.samplerAnisotropy;
-	deviceFeatures_.enabled.standard.shaderClipDistance = deviceFeatures_.available.standard.shaderClipDistance;
-	deviceFeatures_.enabled.standard.shaderCullDistance = deviceFeatures_.available.standard.shaderCullDistance;
-	deviceFeatures_.enabled.standard.geometryShader = deviceFeatures_.available.standard.geometryShader;
-	deviceFeatures_.enabled.standard.sampleRateShading = deviceFeatures_.available.standard.sampleRateShading;
-
-	deviceFeatures_.enabled.multiview = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MULTIVIEW_FEATURES };
-	deviceFeatures_.enabled.multiview.multiview = deviceFeatures_.available.multiview.multiview;
-	deviceFeatures_.enabled.presentId = deviceFeatures_.available.presentId;
-	deviceFeatures_.enabled.presentWait = deviceFeatures_.available.presentWait;
-	// deviceFeatures_.enabled.multiview.multiviewGeometryShader = deviceFeatures_.available.multiview.multiviewGeometryShader;
 
 	GetDeviceLayerExtensionList(nullptr, device_extension_properties_);
 
@@ -658,8 +643,8 @@ VkResult VulkanContext::CreateDevice() {
 		return VK_ERROR_INITIALIZATION_FAILED;
 	}
 
-	VkDeviceQueueCreateInfo queue_info{VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO};
-	float queue_priorities[1] = {1.0f};
+	VkDeviceQueueCreateInfo queue_info{ VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO };
+	float queue_priorities[1] = { 1.0f };
 	queue_info.queueCount = 1;
 	queue_info.pQueuePriorities = queue_priorities;
 	bool found = false;
@@ -691,9 +676,40 @@ VkResult VulkanContext::CreateDevice() {
 	extensionsLookup_.EXT_fragment_shader_interlock = EnableDeviceExtension(VK_EXT_FRAGMENT_SHADER_INTERLOCK_EXTENSION_NAME);
 	extensionsLookup_.ARM_rasterization_order_attachment_access = EnableDeviceExtension(VK_ARM_RASTERIZATION_ORDER_ATTACHMENT_ACCESS_EXTENSION_NAME);
 
-	extensionsLookup_.KHR_present_id = EnableDeviceExtension(VK_KHR_PRESENT_ID_EXTENSION_NAME);
-	extensionsLookup_.KHR_present_wait = EnableDeviceExtension(VK_KHR_PRESENT_WAIT_EXTENSION_NAME);
+#if !PPSSPP_PLATFORM(MAC) && !PPSSPP_PLATFORM(IOS)
 	extensionsLookup_.GOOGLE_display_timing = EnableDeviceExtension(VK_GOOGLE_DISPLAY_TIMING_EXTENSION_NAME);
+#endif
+	if (!extensionsLookup_.GOOGLE_display_timing) {
+		extensionsLookup_.KHR_present_id = EnableDeviceExtension(VK_KHR_PRESENT_ID_EXTENSION_NAME);
+		extensionsLookup_.KHR_present_wait = EnableDeviceExtension(VK_KHR_PRESENT_WAIT_EXTENSION_NAME);
+	}
+
+	deviceFeatures_.enabled = {};
+	// Enable a few safe ones if they are available.
+	deviceFeatures_.enabled.standard.dualSrcBlend = deviceFeatures_.available.standard.dualSrcBlend;
+	deviceFeatures_.enabled.standard.logicOp = deviceFeatures_.available.standard.logicOp;
+	deviceFeatures_.enabled.standard.depthClamp = deviceFeatures_.available.standard.depthClamp;
+	deviceFeatures_.enabled.standard.depthBounds = deviceFeatures_.available.standard.depthBounds;
+	deviceFeatures_.enabled.standard.samplerAnisotropy = deviceFeatures_.available.standard.samplerAnisotropy;
+	deviceFeatures_.enabled.standard.shaderClipDistance = deviceFeatures_.available.standard.shaderClipDistance;
+	deviceFeatures_.enabled.standard.shaderCullDistance = deviceFeatures_.available.standard.shaderCullDistance;
+	deviceFeatures_.enabled.standard.geometryShader = deviceFeatures_.available.standard.geometryShader;
+	deviceFeatures_.enabled.standard.sampleRateShading = deviceFeatures_.available.standard.sampleRateShading;
+
+	deviceFeatures_.enabled.multiview = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MULTIVIEW_FEATURES };
+	if (extensionsLookup_.KHR_multiview) {
+		deviceFeatures_.enabled.multiview.multiview = deviceFeatures_.available.multiview.multiview;
+	}
+	// Strangely, on Intel, it reports these as available even though the extension isn't in the list.
+	deviceFeatures_.enabled.presentId = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PRESENT_ID_FEATURES_KHR };
+	if (extensionsLookup_.KHR_present_id) {
+		deviceFeatures_.enabled.presentId.presentId = deviceFeatures_.available.presentId.presentId;
+	}
+	deviceFeatures_.enabled.presentWait = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PRESENT_WAIT_FEATURES_KHR };
+	if (extensionsLookup_.KHR_present_wait) {
+		deviceFeatures_.enabled.presentWait.presentWait = deviceFeatures_.available.presentWait.presentWait;
+	}
+	// deviceFeatures_.enabled.multiview.multiviewGeometryShader = deviceFeatures_.available.multiview.multiviewGeometryShader;
 
 	VkPhysicalDeviceFeatures2 features2{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2 };
 
@@ -709,6 +725,9 @@ VkResult VulkanContext::CreateDevice() {
 		device_info.pNext = &features2;
 		features2.features = deviceFeatures_.enabled.standard;
 		features2.pNext = &deviceFeatures_.enabled.multiview;
+		deviceFeatures_.enabled.multiview.pNext = &deviceFeatures_.enabled.presentWait;
+		deviceFeatures_.enabled.presentWait.pNext = &deviceFeatures_.enabled.presentId;
+		deviceFeatures_.enabled.presentId.pNext = nullptr;
 	} else {
 		device_info.pEnabledFeatures = &deviceFeatures_.enabled.standard;
 	}

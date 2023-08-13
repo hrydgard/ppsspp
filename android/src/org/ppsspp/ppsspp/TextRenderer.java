@@ -14,7 +14,7 @@ public class TextRenderer {
 		p = new Paint(Paint.SUBPIXEL_TEXT_FLAG | Paint.ANTI_ALIAS_FLAG);
 		p.setColor(Color.WHITE);
 		bg = new Paint();
-		bg.setColor(Color.BLACK);
+		bg.setColor(0);
 	}
 
 	public static void init(Context ctx) {

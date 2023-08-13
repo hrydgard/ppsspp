@@ -565,6 +565,7 @@
     <ClCompile Include="Debugger\WebSocket\SteppingSubscriber.cpp" />
     <ClCompile Include="Debugger\WebSocket\WebSocketUtils.cpp" />
     <ClCompile Include="FileSystems\BlobFileSystem.cpp" />
+    <ClCompile Include="FrameTiming.cpp" />
     <ClCompile Include="HLE\KUBridge.cpp" />
     <ClCompile Include="HLE\Plugins.cpp" />
     <ClCompile Include="HLE\sceKernelHeap.cpp" />
@@ -591,6 +592,7 @@
     <ClCompile Include="MIPS\IR\IRInst.cpp" />
     <ClCompile Include="MIPS\IR\IRInterpreter.cpp" />
     <ClCompile Include="MIPS\IR\IRJit.cpp" />
+    <ClCompile Include="MIPS\IR\IRNativeCommon.cpp" />
     <ClCompile Include="MIPS\IR\IRPassSimplify.cpp" />
     <ClCompile Include="MIPS\IR\IRRegCache.cpp" />
     <ClCompile Include="MIPS\MIPSVFPUFallbacks.cpp" />
@@ -1150,6 +1152,7 @@
     <ClInclude Include="Debugger\WebSocket\LogBroadcaster.h" />
     <ClInclude Include="Debugger\WebSocket\SteppingBroadcaster.h" />
     <ClInclude Include="FileSystems\BlobFileSystem.h" />
+    <ClInclude Include="FrameTiming.h" />
     <ClInclude Include="HLE\KernelThreadDebugInterface.h" />
     <ClInclude Include="HLE\KUBridge.h" />
     <ClInclude Include="HLE\Plugins.h" />
@@ -1170,6 +1173,7 @@
     <ClInclude Include="MIPS\IR\IRInst.h" />
     <ClInclude Include="MIPS\IR\IRInterpreter.h" />
     <ClInclude Include="MIPS\IR\IRJit.h" />
+    <ClInclude Include="MIPS\IR\IRNativeCommon.h" />
     <ClInclude Include="MIPS\IR\IRPassSimplify.h" />
     <ClInclude Include="MIPS\IR\IRRegCache.h" />
     <ClInclude Include="MIPS\MIPSVFPUFallbacks.h" />

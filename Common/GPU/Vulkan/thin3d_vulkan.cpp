@@ -388,7 +388,6 @@ public:
 	~VKContext();
 
 	void DebugAnnotate(const char *annotation) override;
-	void SetDebugFlags(DebugFlags flags) override;
 
 	const DeviceCaps &GetDeviceCaps() const override {
 		return caps_;
@@ -479,12 +478,18 @@ public:
 
 	void Clear(int mask, uint32_t colorval, float depthVal, int stencilVal) override;
 
-	void BeginFrame() override;
+	void BeginFrame(DebugFlags debugFlags) override;
 	void EndFrame() override;
+	void Present(int vblanks) override;
+
 	void WipeQueue() override;
 
 	int GetFrameCount() override {
 		return frameCount_;
+	}
+
+	FrameTimeData GetFrameTimeData(int framesBack) const override {
+		return renderManager_.GetFrameTimeData(framesBack);
 	}
 
 	void FlushState() override {}
@@ -513,7 +518,7 @@ public:
 	VkDescriptorSet GetOrCreateDescriptorSet(VkBuffer buffer);
 
 	std::vector<std::string> GetFeatureList() const override;
-	std::vector<std::string> GetExtensionList() const override;
+	std::vector<std::string> GetExtensionList(bool device, bool enabledOnly) const override;
 
 	uint64_t GetNativeObject(NativeObject obj, void *srcObject) override;
 
@@ -525,6 +530,10 @@ public:
 
 	void SetInvalidationCallback(InvalidationCallback callback) override {
 		renderManager_.SetInvalidationCallback(callback);
+	}
+
+	std::string GetGpuProfileString() const override {
+		return renderManager_.GetGpuProfileString();
 	}
 
 private:
@@ -548,7 +557,6 @@ private:
 	AutoRef<VKFramebuffer> curFramebuffer_;
 
 	VkDevice device_;
-	DebugFlags debugFlags_ = DebugFlags::NONE;
 
 	enum {
 		MAX_FRAME_COMMAND_BUFFERS = 256,
@@ -863,6 +871,7 @@ VKContext::VKContext(VulkanContext *vulkan, bool useRenderThread)
 
 	VkFormat depthStencilFormat = vulkan->GetDeviceInfo().preferredDepthStencilFormat;
 
+	caps_.setMaxFrameLatencySupported = true;
 	caps_.anisoSupported = vulkan->GetDeviceFeatures().enabled.standard.samplerAnisotropy != 0;
 	caps_.geometryShaderSupported = vulkan->GetDeviceFeatures().enabled.standard.geometryShader != 0;
 	caps_.tesselationShaderSupported = vulkan->GetDeviceFeatures().enabled.standard.tessellationShader != 0;
@@ -888,6 +897,7 @@ VKContext::VKContext(VulkanContext *vulkan, bool useRenderThread)
 	caps_.logicOpSupported = vulkan->GetDeviceFeatures().enabled.standard.logicOp != 0;
 	caps_.multiViewSupported = vulkan->GetDeviceFeatures().enabled.multiview.multiview != 0;
 	caps_.sampleRateShadingSupported = vulkan->GetDeviceFeatures().enabled.standard.sampleRateShading != 0;
+	caps_.textureSwizzleSupported = true;
 
 	const auto &limits = vulkan->GetPhysicalDeviceProperties().properties.limits;
 
@@ -1093,9 +1103,8 @@ VKContext::~VKContext() {
 	vulkan_->Delete().QueueDeletePipelineCache(pipelineCache_);
 }
 
-void VKContext::BeginFrame() {
-	// TODO: Bad dependency on g_Config here!
-	renderManager_.BeginFrame(debugFlags_ & DebugFlags::PROFILE_TIMESTAMPS, debugFlags_ & DebugFlags::PROFILE_SCOPES);
+void VKContext::BeginFrame(DebugFlags debugFlags) {
+	renderManager_.BeginFrame(debugFlags & DebugFlags::PROFILE_TIMESTAMPS, debugFlags & DebugFlags::PROFILE_SCOPES);
 
 	FrameData &frame = frame_[vulkan_->GetCurFrame()];
 
@@ -1105,11 +1114,15 @@ void VKContext::BeginFrame() {
 }
 
 void VKContext::EndFrame() {
+	// Do all the work to submit the command buffers etc.
 	renderManager_.Finish();
-
 	// Unbind stuff, to avoid accidentally relying on it across frames (and provide some protection against forgotten unbinds of deleted things).
 	Invalidate(InvalidationFlags::CACHED_RENDER_STATE);
+}
 
+void VKContext::Present(int vblanks) {
+	_dbg_assert_(vblanks == 0 || vblanks == 1);
+	renderManager_.Present();
 	frameCount_++;
 }
 
@@ -1622,10 +1635,16 @@ std::vector<std::string> VKContext::GetFeatureList() const {
 	return features;
 }
 
-std::vector<std::string> VKContext::GetExtensionList() const {
+std::vector<std::string> VKContext::GetExtensionList(bool device, bool enabledOnly) const {
 	std::vector<std::string> extensions;
-	for (auto &iter : vulkan_->GetDeviceExtensionsAvailable()) {
-		extensions.push_back(iter.extensionName);
+	if (enabledOnly) {
+		for (auto &iter : (device ? vulkan_->GetDeviceExtensionsEnabled() : vulkan_->GetInstanceExtensionsEnabled())) {
+			extensions.push_back(iter);
+		}
+	} else {
+		for (auto &iter : (device ? vulkan_->GetDeviceExtensionsAvailable() : vulkan_->GetInstanceExtensionsAvailable())) {
+			extensions.push_back(iter.extensionName);
+		}
 	}
 	return extensions;
 }
@@ -1852,10 +1871,6 @@ uint64_t VKContext::GetNativeObject(NativeObject obj, void *srcObject) {
 
 void VKContext::DebugAnnotate(const char *annotation) {
 	renderManager_.DebugAnnotate(annotation);
-}
-
-void VKContext::SetDebugFlags(DebugFlags flags) {
-	debugFlags_ = flags;
 }
 
 }  // namespace Draw

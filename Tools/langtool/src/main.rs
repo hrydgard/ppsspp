@@ -17,7 +17,10 @@ struct Opt {
 
 #[derive(StructOpt, Debug)]
 enum Command {
-    CopyMissingLines {},
+    CopyMissingLines {
+        #[structopt(short, long)]
+        dont_comment_missing: bool,
+    },
     CommentUnknownLines {},
     RemoveUnknownLines {},
     AddNewKey {
@@ -43,7 +46,11 @@ enum Command {
     },
 }
 
-fn copy_missing_lines(reference_ini: &IniFile, target_ini: &mut IniFile) -> io::Result<()> {
+fn copy_missing_lines(
+    reference_ini: &IniFile,
+    target_ini: &mut IniFile,
+    comment_missing: bool,
+) -> io::Result<()> {
     for reference_section in &reference_ini.sections {
         // Insert any missing full sections.
         if !target_ini.insert_section_if_missing(reference_section) {
@@ -53,7 +60,9 @@ fn copy_missing_lines(reference_ini: &IniFile, target_ini: &mut IniFile) -> io::
                 }
 
                 //target_section.remove_lines_if_not_in(reference_section);
-                target_section.comment_out_lines_if_not_in(reference_section);
+                if comment_missing {
+                    target_section.comment_out_lines_if_not_in(reference_section);
+                }
             }
         } else {
             // Note: insert_section_if_missing will copy the entire section,
@@ -177,8 +186,10 @@ fn main() {
         let mut target_ini = IniFile::parse(&target_ini_filename).unwrap();
 
         match opt.cmd {
-            Command::CopyMissingLines {} => {
-                copy_missing_lines(reference_ini, &mut target_ini).unwrap();
+            Command::CopyMissingLines {
+                dont_comment_missing,
+            } => {
+                copy_missing_lines(reference_ini, &mut target_ini, !dont_comment_missing).unwrap();
             }
             Command::CommentUnknownLines {} => {
                 deal_with_unknown_lines(reference_ini, &mut target_ini, false).unwrap();

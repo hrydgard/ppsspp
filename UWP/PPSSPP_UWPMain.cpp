@@ -191,12 +191,6 @@ void PPSSPP_UWPMain::BootToLaunchFile() {
 // Renders the current frame according to the current application state.
 // Returns true if the frame was rendered and is ready to be displayed.
 bool PPSSPP_UWPMain::Render() {
-	ctx_->GetDrawContext()->HandleEvent(Draw::Event::PRESENTED, 0, 0, nullptr, nullptr);
-	NativeUpdate();
-
-	// This is not perfect but it will do the job
-	BootToLaunchFile();
-
 	static bool hasSetThreadName = false;
 	if (!hasSetThreadName) {
 		SetCurrentThreadName("UWPRenderThread");
@@ -242,7 +236,7 @@ bool PPSSPP_UWPMain::Render() {
 
 	context->RSSetViewports(1, &viewport);
 
-	NativeRender(ctx_.get());
+	NativeFrame(ctx_.get());
 	return true;
 }
 
@@ -347,17 +341,13 @@ UWPGraphicsContext::UWPGraphicsContext(std::shared_ptr<DX::DeviceResources> reso
 	std::vector<std::string> adapterNames;
 
 	draw_ = Draw::T3DCreateD3D11Context(
-		resources->GetD3DDevice(), resources->GetD3DDeviceContext(), resources->GetD3DDevice(), resources->GetD3DDeviceContext(), resources->GetDeviceFeatureLevel(), 0, adapterNames);
+		resources->GetD3DDevice(), resources->GetD3DDeviceContext(), resources->GetD3DDevice(), resources->GetD3DDeviceContext(), resources->GetSwapChain(), resources->GetDeviceFeatureLevel(), 0, adapterNames, g_Config.iInflightFrames);
 	bool success = draw_->CreatePresets();
 	_assert_(success);
 }
 
 void UWPGraphicsContext::Shutdown() {
 	delete draw_;
-}
-
-void UWPGraphicsContext::SwapInterval(int interval) {
-
 }
 
 std::string System_GetProperty(SystemProperty prop) {

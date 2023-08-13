@@ -126,7 +126,8 @@ private:
 	void CompShiftVar(MIPSOpcode op, IROp shiftType);
 
 	void ApplyPrefixST(u8 *vregs, u32 prefix, VectorSize sz, int tempReg);
-	void ApplyPrefixD(const u8 *vregs, VectorSize sz);
+	void ApplyPrefixD(u8 *vregs, VectorSize sz, int vectorReg);
+	void ApplyPrefixDMask(u8 *vregs, VectorSize sz, int vectorReg);
 	void GetVectorRegsPrefixS(u8 *regs, VectorSize sz, int vectorReg);
 	void GetVectorRegsPrefixT(u8 *regs, VectorSize sz, int vectorReg);
 	void GetVectorRegsPrefixD(u8 *regs, VectorSize sz, int vectorReg);

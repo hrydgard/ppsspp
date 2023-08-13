@@ -44,17 +44,7 @@ static void ShowPC(u32 downcount, void *membase, void *jitbase) {
 	count++;
 }
 
-static void ShowBlockError(int type) {
-	if (type == 1) {
-		ERROR_LOG(JIT, "[%08x] ShowBlockError: block num was out of range in emuhack", currentMIPS->pc);
-	} else if (type == 2) {
-		ERROR_LOG(JIT, "[%08x] ShowBlockError: block num pointed to null jitblock", currentMIPS->pc);
-	} else {
-		ERROR_LOG(JIT, "[%08x] ShowBlockError: invalid error type", currentMIPS->pc);
-	}
-}
-
-void RiscVJit::GenerateFixedCode(const JitOptions &jo) {
+void RiscVJitBackend::GenerateFixedCode(MIPSState *mipsState) {
 	BeginWrite(GetMemoryProtectPageSize());
 	const u8 *start = AlignCodePage();
 
@@ -104,7 +94,7 @@ void RiscVJit::GenerateFixedCode(const JitOptions &jo) {
 		RET();
 	}
 
-	enterDispatcher_ = AlignCode16();
+	hooks_.enterDispatcher = (IRNativeFuncNoArg)AlignCode16();
 
 	// Start by saving some regs on the stack.  There are 12 GPs and 12 FPs we want.
 	// Note: we leave R_SP as, well, SP, so it doesn't need to be saved.
@@ -130,7 +120,7 @@ void RiscVJit::GenerateFixedCode(const JitOptions &jo) {
 
 	// Fixed registers, these are always kept when in Jit context.
 	LI(MEMBASEREG, Memory::base, SCRATCH1);
-	LI(CTXREG, mips_, SCRATCH1);
+	LI(CTXREG, mipsState, SCRATCH1);
 	LI(JITBASEREG, GetBasePtr(), SCRATCH1);
 
 	LoadStaticRegisters();
@@ -141,7 +131,7 @@ void RiscVJit::GenerateFixedCode(const JitOptions &jo) {
 	// Advance can change the downcount (or thread), so must save/restore around it.
 	SaveStaticRegisters();
 	RestoreRoundingMode(true);
-	QuickCallFunction(&CoreTiming::Advance);
+	QuickCallFunction(&CoreTiming::Advance, X7);
 	ApplyRoundingMode(true);
 	LoadStaticRegisters();
 
@@ -157,7 +147,7 @@ void RiscVJit::GenerateFixedCode(const JitOptions &jo) {
 	dispatcherPCInSCRATCH1_ = GetCodePtr();
 	MovToPC(SCRATCH1);
 
-	dispatcher_ = GetCodePtr();
+	hooks_.dispatcher = GetCodePtr();
 	FixupBranch bail = BLT(DOWNCOUNTREG, R_ZERO);
 	SetJumpTarget(skipToRealDispatch);
 
@@ -168,7 +158,7 @@ void RiscVJit::GenerateFixedCode(const JitOptions &jo) {
 		MV(X10, DOWNCOUNTREG);
 		MV(X11, MEMBASEREG);
 		MV(X12, JITBASEREG);
-		QuickCallFunction(&ShowPC);
+		QuickCallFunction(&ShowPC, X7);
 	}
 
 	LWU(SCRATCH1, CTXREG, offsetof(MIPSState, pc));
@@ -177,7 +167,7 @@ void RiscVJit::GenerateFixedCode(const JitOptions &jo) {
 	AND(SCRATCH1, SCRATCH1, SCRATCH2);
 #endif
 	ADD(SCRATCH1, SCRATCH1, MEMBASEREG);
-	dispatcherFetch_ = GetCodePtr();
+	hooks_.dispatchFetch = GetCodePtr();
 	LWU(SCRATCH1, SCRATCH1, 0);
 	SRLI(SCRATCH2, SCRATCH1, 24);
 	// We're in other words comparing to the top 8 bits of MIPS_EMUHACK_OPCODE by subtracting.
@@ -192,7 +182,7 @@ void RiscVJit::GenerateFixedCode(const JitOptions &jo) {
 
 	// No block found, let's jit.  We don't need to save static regs, they're all callee saved.
 	RestoreRoundingMode(true);
-	QuickCallFunction(&MIPSComp::JitAt);
+	QuickCallFunction(&MIPSComp::JitAt, X7);
 	ApplyRoundingMode(true);
 
 	// Try again, the block index should be set now.
@@ -224,7 +214,7 @@ void RiscVJit::GenerateFixedCode(const JitOptions &jo) {
 
 	RET();
 
-	crashHandler_ = GetCodePtr();
+	hooks_.crashHandler = GetCodePtr();
 	LI(SCRATCH1, &coreState, SCRATCH2);
 	LI(SCRATCH2, CORE_RUNTIME_ERROR);
 	SW(SCRATCH2, SCRATCH1, 0);

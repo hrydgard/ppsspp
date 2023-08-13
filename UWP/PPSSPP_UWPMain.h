@@ -19,8 +19,7 @@ public:
 	UWPGraphicsContext(std::shared_ptr<DX::DeviceResources> resources);
 
 	void Shutdown() override;
-	void SwapInterval(int interval) override;
-	void SwapBuffers() override {}
+	void SwapInterval(int interval) override {}
 	void Resize() override {}
 	Draw::DrawContext * GetDrawContext() override {
 		return draw_;

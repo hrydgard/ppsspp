@@ -64,7 +64,6 @@ public:
 	}
 
 	void SwapInterval(int interval) override {}
-	void SwapBuffers() override {}
 	void Resize() override {}
 	void Shutdown() override {}
 
@@ -238,8 +237,7 @@ extern float g_safeInsetBottom;
 
 		INFO_LOG(SYSTEM, "Emulation thread starting\n");
 		while (threadEnabled) {
-			NativeUpdate();
-			NativeRender(graphicsContext);
+			NativeFrame(graphicsContext);
 		}
 
 
