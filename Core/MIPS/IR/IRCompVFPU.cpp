@@ -729,47 +729,65 @@ namespace MIPSComp {
 		// Vector arithmetic
 		// d[N] = OP(s[N], t[N]) (see below)
 
+		enum class VecDo3Op : uint8_t {
+			INVALID,
+			VADD,
+			VSUB,
+			VDIV,
+			VMUL,
+			VMIN,
+			VMAX,
+			VSGE,
+			VSLT,
+		};
+		VecDo3Op type = VecDo3Op::INVALID;
+
 		// Check that we can support the ops, and prepare temporary values for ops that need it.
-		bool allowSIMD = true;
 		switch (op >> 26) {
 		case 24: //VFPU0
 			switch ((op >> 23) & 7) {
-			case 0: // d[i] = s[i] + t[i]; break; //vadd
-			case 1: // d[i] = s[i] - t[i]; break; //vsub
-				break;
-			case 7: // d[i] = s[i] / t[i]; break; //vdiv
-				if (!js.HasNoPrefix()) {
-					DISABLE;
-				}
-				break;
-			default:
-				INVALIDOP;
+			case 0: type = VecDo3Op::VADD; break;
+			case 1: type = VecDo3Op::VSUB; break;
+			case 7: type = VecDo3Op::VDIV; break;
+			default: INVALIDOP;
 			}
 			break;
 		case 25: //VFPU1
 			switch ((op >> 23) & 7) {
-			case 0: // d[i] = s[i] * t[i]; break; //vmul
-				break;
-			default:
-				INVALIDOP;
+			case 0: type = VecDo3Op::VMUL; break;
+			default: INVALIDOP;
 			}
 			break;
 		case 27: //VFPU3
 			switch ((op >> 23) & 7) {
-			case 2:  // vmin
-			case 3:  // vmax
-				allowSIMD = false;
-				break;
-			case 6:  // vsge
-			case 7:  // vslt
-				allowSIMD = false;
-				break;
-			default:
-				INVALIDOP;
+			case 2: type = VecDo3Op::VMIN; break;
+			case 3: type = VecDo3Op::VMAX; break;
+			case 6: type = VecDo3Op::VSGE; break;
+			case 7: type = VecDo3Op::VSLT; break;
+			default: INVALIDOP;
 			}
 			break;
-		default:
-			INVALIDOP;
+		default: INVALIDOP;
+		}
+		_assert_(type != VecDo3Op::INVALID);
+
+		bool allowSIMD = true;
+		switch (type) {
+		case VecDo3Op::VADD:
+		case VecDo3Op::VSUB:
+		case VecDo3Op::VMUL:
+			break;
+		case VecDo3Op::VDIV:
+			if (!js.HasNoPrefix()) {
+				DISABLE;
+			}
+			break;
+		case VecDo3Op::VMIN:
+		case VecDo3Op::VMAX:
+		case VecDo3Op::VSGE:
+		case VecDo3Op::VSLT:
+			allowSIMD = false;
+			break;
 		}
 
 		VectorSize sz = GetVecSize(op);
@@ -792,38 +810,21 @@ namespace MIPSComp {
 		// If all three are consecutive 4, we're safe regardless of if we use temps so we should not check that here.
 		if (allowSIMD && IsVec4(sz, dregs) && IsVec4(sz, sregs) && IsVec4(sz, tregs)) {
 			IROp opFunc = IROp::Nop;
-			switch (op >> 26) {
-			case 24: //VFPU0
-				switch ((op >> 23) & 7) {
-				case 0: // d[i] = s[i] + t[i]; break; //vadd
-					opFunc = IROp::Vec4Add;
-					break;
-				case 1: // d[i] = s[i] - t[i]; break; //vsub
-					opFunc = IROp::Vec4Sub;
-					break;
-				case 7: // d[i] = s[i] / t[i]; break; //vdiv
-					opFunc = IROp::Vec4Div;
-					break;
-				}
+			switch (type) {
+			case VecDo3Op::VADD: // d[i] = s[i] + t[i]; break; //vadd
+				opFunc = IROp::Vec4Add;
 				break;
-			case 25: //VFPU1
-				switch ((op >> 23) & 7)
-				{
-				case 0: // d[i] = s[i] * t[i]; break; //vmul
-					opFunc = IROp::Vec4Mul;
-					break;
-				}
+			case VecDo3Op::VSUB: // d[i] = s[i] - t[i]; break; //vsub
+				opFunc = IROp::Vec4Sub;
 				break;
-			case 27: //VFPU3
-				switch ((op >> 23) & 7)
-				{
-				case 2:  // vmin
-				case 3:  // vmax
-				case 6:  // vsge
-				case 7:  // vslt
-					DISABLE;
-					break;
-				}
+			case VecDo3Op::VDIV: // d[i] = s[i] / t[i]; break; //vdiv
+				opFunc = IROp::Vec4Div;
+				break;
+			case VecDo3Op::VMUL: // d[i] = s[i] * t[i]; break; //vmul
+				opFunc = IROp::Vec4Mul;
+				break;
+			default:
+				// Leave it Nop, disabled below.
 				break;
 			}
 
@@ -836,43 +837,49 @@ namespace MIPSComp {
 			return;
 		}
 
+		if (type == VecDo3Op::VSGE || type == VecDo3Op::VSLT) {
+			// TODO: Consider a dedicated op?  For now, we abuse FpCond a bit.
+			ir.Write(IROp::FpCondToReg, IRTEMP_0);
+		}
+
 		for (int i = 0; i < n; ++i) {
-			switch (op >> 26) {
-			case 24: //VFPU0
-				switch ((op >> 23) & 7) {
-				case 0: // d[i] = s[i] + t[i]; break; //vadd
-					ir.Write(IROp::FAdd, tempregs[i], sregs[i], tregs[i]);
-					break;
-				case 1: // d[i] = s[i] - t[i]; break; //vsub
-					ir.Write(IROp::FSub, tempregs[i], sregs[i], tregs[i]);
-					break;
-				case 7: // d[i] = s[i] / t[i]; break; //vdiv
-					ir.Write(IROp::FDiv, tempregs[i], sregs[i], tregs[i]);
-					break;
-				}
+			switch (type) {
+			case VecDo3Op::VADD: // d[i] = s[i] + t[i]; break; //vadd
+				ir.Write(IROp::FAdd, tempregs[i], sregs[i], tregs[i]);
 				break;
-			case 25: //VFPU1
-				switch ((op >> 23) & 7) {
-				case 0: // d[i] = s[i] * t[i]; break; //vmul
-					ir.Write(IROp::FMul, tempregs[i], sregs[i], tregs[i]);
-					break;
-				}
+			case VecDo3Op::VSUB: // d[i] = s[i] - t[i]; break; //vsub
+				ir.Write(IROp::FSub, tempregs[i], sregs[i], tregs[i]);
 				break;
-			case 27: //VFPU3
-				switch ((op >> 23) & 7) {
-				case 2:  // vmin
-					ir.Write(IROp::FMin, tempregs[i], sregs[i], tregs[i]);
-					break;
-				case 3:  // vmax
-					ir.Write(IROp::FMax, tempregs[i], sregs[i], tregs[i]);
-					break;
-				case 6:  // vsge
-				case 7:  // vslt
-					DISABLE;
-					break;
-				}
+			case VecDo3Op::VDIV: // d[i] = s[i] / t[i]; break; //vdiv
+				ir.Write(IROp::FDiv, tempregs[i], sregs[i], tregs[i]);
+				break;
+			case VecDo3Op::VMUL: // d[i] = s[i] * t[i]; break; //vmul
+				ir.Write(IROp::FMul, tempregs[i], sregs[i], tregs[i]);
+				break;
+			case VecDo3Op::VMIN: // vmin
+				ir.Write(IROp::FMin, tempregs[i], sregs[i], tregs[i]);
+				break;
+			case VecDo3Op::VMAX: // vmax
+				ir.Write(IROp::FMax, tempregs[i], sregs[i], tregs[i]);
+				break;
+			case VecDo3Op::VSGE: // vsge
+				ir.Write(IROp::FCmp, (int)IRFpCompareMode::LessUnordered, sregs[i], tregs[i]);
+				ir.Write(IROp::FpCondToReg, IRTEMP_1);
+				ir.Write(IROp::XorConst, IRTEMP_1, IRTEMP_1, ir.AddConstant(1));
+				ir.Write(IROp::FMovFromGPR, tempregs[i], IRTEMP_1);
+				ir.Write(IROp::FCvtSW, tempregs[i], tempregs[i]);
+				break;
+			case VecDo3Op::VSLT: // vslt
+				ir.Write(IROp::FCmp, (int)IRFpCompareMode::LessOrdered, sregs[i], tregs[i]);
+				ir.Write(IROp::FpCondToReg, IRTEMP_1);
+				ir.Write(IROp::FMovFromGPR, tempregs[i], IRTEMP_1);
+				ir.Write(IROp::FCvtSW, tempregs[i], tempregs[i]);
 				break;
 			}
+		}
+
+		if (type == VecDo3Op::VSGE || type == VecDo3Op::VSLT) {
+			ir.Write(IROp::FpCondFromReg, IRTEMP_0);
 		}
 
 		for (int i = 0; i < n; i++) {

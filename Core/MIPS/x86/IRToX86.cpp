@@ -259,6 +259,7 @@ void IRToX86::ConvertIRToNative(const IRInst *instructions, int count, const u32
 			// Cross moves
 		case IROp::FMovFromGPR:
 		case IROp::FMovToGPR:
+		case IROp::FpCondFromReg:
 		case IROp::FpCondToReg:
 		case IROp::VfpuCtrlToReg:
 
@@ -266,7 +267,6 @@ void IRToX86::ConvertIRToNative(const IRInst *instructions, int count, const u32
 		case IROp::SetCtrlVFPU:
 		case IROp::SetCtrlVFPUReg:
 		case IROp::SetCtrlVFPUFReg:
-		case IROp::ZeroFpCond:
 
 			// Block Exits
 		case IROp::ExitToConst:

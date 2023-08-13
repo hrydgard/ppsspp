@@ -850,6 +850,9 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, int count) {
 			break;
 		}
 
+		case IROp::FpCondFromReg:
+			mips->fpcond = mips->r[inst->dest];
+			break;
 		case IROp::FpCondToReg:
 			mips->r[inst->dest] = mips->fpcond;
 			break;
@@ -1000,10 +1003,6 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, int count) {
 			}
 			break;
 		}
-
-		case IROp::ZeroFpCond:
-			mips->fpcond = 0;
-			break;
 
 		case IROp::FMovFromGPR:
 			memcpy(&mips->f[inst->dest], &mips->r[inst->src1], 4);

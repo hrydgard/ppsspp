@@ -105,14 +105,15 @@ void RiscVJitBackend::CompIR_Transfer(IRInst inst) {
 		FMV(FMv::X, FMv::W, gpr.R(IRREG_VFPU_CTRL_BASE + inst.dest), fpr.R(inst.src1));
 		break;
 
+	case IROp::FpCondFromReg:
+		gpr.MapDirtyIn(IRREG_FPCOND, inst.src1);
+		MV(gpr.R(IRREG_FPCOND), gpr.R(inst.src1));
+		break;
+
 	case IROp::FpCondToReg:
 		gpr.MapDirtyIn(inst.dest, IRREG_FPCOND);
 		MV(gpr.R(inst.dest), gpr.R(IRREG_FPCOND));
 		gpr.MarkDirty(gpr.R(inst.dest), gpr.IsNormalized32(IRREG_FPCOND));
-		break;
-
-	case IROp::ZeroFpCond:
-		gpr.SetImm(IRREG_FPCOND, 0);
 		break;
 
 	case IROp::FpCtrlFromReg:
