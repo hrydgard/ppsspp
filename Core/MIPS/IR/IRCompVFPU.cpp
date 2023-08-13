@@ -336,7 +336,7 @@ namespace MIPSComp {
 		if (js.prefixD == 0)
 			return;
 
-		if (IsVec4(sz, regs) && js.VfpuWriteMask() != 0) {
+		if (IsVec4(sz, regs) && js.VfpuWriteMask() != 0 && opts.preferVec4) {
 			// Use temps for all, we'll blend in the end (keeping in Vec4.)
 			for (int i = 0; i < 4; ++i)
 				regs[i] = IRVTEMP_PFX_D + i;
@@ -378,7 +378,7 @@ namespace MIPSComp {
 	}
 
 	void IRFrontend::ApplyPrefixDMask(u8 *vregs, VectorSize sz, int vectorReg) {
-		if (IsVec4(sz, vregs) && js.VfpuWriteMask() != 0) {
+		if (IsVec4(sz, vregs) && js.VfpuWriteMask() != 0 && opts.preferVec4) {
 			u8 origV[4];
 			GetVectorRegs(origV, sz, vectorReg);
 
@@ -815,7 +815,7 @@ namespace MIPSComp {
 		}
 
 		// If all three are consecutive 4, we're safe regardless of if we use temps so we should not check that here.
-		if (allowSIMD && IsVec4(sz, dregs) && IsVec4(sz, sregs) && IsVec4(sz, tregs)) {
+		if (allowSIMD) {
 			IROp opFunc = IROp::Nop;
 			switch (type) {
 			case VecDo3Op::VADD: // d[i] = s[i] + t[i]; break; //vadd
@@ -835,13 +835,24 @@ namespace MIPSComp {
 				break;
 			}
 
-			if (opFunc != IROp::Nop) {
-				ir.Write(opFunc, dregs[0], sregs[0], tregs[0]);
-			} else {
-				DISABLE;
+			if (IsVec4(sz, dregs) && IsVec4(sz, sregs) && IsVec4(sz, tregs)) {
+				if (opFunc != IROp::Nop) {
+					ir.Write(opFunc, dregs[0], sregs[0], tregs[0]);
+				} else {
+					DISABLE;
+				}
+				ApplyPrefixD(dregs, sz, _VD);
+				return;
+			} else if (IsVec3of4(sz, dregs) && IsVec3of4(sz, sregs) && IsVec3of4(sz, tregs) && opts.preferVec4) {
+				// This is actually pretty common.  Use a temp + blend.
+				// We could post-process this, but it's easier to do it here.
+				if (opFunc == IROp::Nop)
+					DISABLE;
+				ir.Write(opFunc, IRVTEMP_0, sregs[0], tregs[0]);
+				ir.Write({ IROp::Vec4Blend, dregs[0], dregs[0], IRVTEMP_0, 0x7 });
+				ApplyPrefixD(dregs, sz, _VD);
+				return;
 			}
-			ApplyPrefixD(dregs, sz, _VD);
-			return;
 		}
 
 		if (type == VecDo3Op::VSGE || type == VecDo3Op::VSLT) {
@@ -1647,7 +1658,7 @@ namespace MIPSComp {
 		GetVectorRegsPrefixT(tregs, sz, _VT);
 		GetVectorRegsPrefixD(dregs, sz, _VD);
 
-		if (IsVec3of4(sz, dregs) && IsVec3of4(sz, sregs) && IsVec3of4(sz, tregs)) {
+		if (IsVec3of4(sz, dregs) && IsVec3of4(sz, sregs) && IsVec3of4(sz, tregs) && opts.preferVec4) {
 			// Use Vec4 where we can.  First, apply shuffles.
 			ir.Write(IROp::Vec4Shuffle, IRVTEMP_PFX_S, sregs[0], VFPU_SWIZZLE(1, 2, 0, 3));
 			ir.Write(IROp::Vec4Shuffle, IRVTEMP_PFX_T, tregs[0], VFPU_SWIZZLE(2, 0, 1, 3));

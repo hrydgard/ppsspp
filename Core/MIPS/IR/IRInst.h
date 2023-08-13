@@ -385,6 +385,7 @@ private:
 struct IROptions {
 	uint32_t disableFlags;
 	bool unalignedLoadStore;
+	bool preferVec4;
 };
 
 const IRMeta *GetIRMeta(IROp op);
