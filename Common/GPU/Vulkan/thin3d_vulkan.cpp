@@ -1104,7 +1104,6 @@ VKContext::~VKContext() {
 }
 
 void VKContext::BeginFrame(DebugFlags debugFlags) {
-	// TODO: Bad dependency on g_Config here!
 	renderManager_.BeginFrame(debugFlags & DebugFlags::PROFILE_TIMESTAMPS, debugFlags & DebugFlags::PROFILE_SCOPES);
 
 	FrameData &frame = frame_[vulkan_->GetCurFrame()];

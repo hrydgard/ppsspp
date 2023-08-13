@@ -216,12 +216,16 @@ void Core_RunLoop(GraphicsContext *ctx) {
 
 	bool menuThrottle = (GetUIState() != UISTATE_INGAME || !PSP_IsInited()) && GetUIState() != UISTATE_EXIT;
 
-	// In case it was pending, we're not in game anymore.
-	double startTime = time_now_d();
+	double startTime;
+	if (menuThrottle) {
+		startTime = time_now_d();
+	}
+
 	NativeFrame(ctx);
 
 	if (menuThrottle) {
 		// Simple throttling to not burn the GPU in the menu.
+		// TODO: This should move into NativeFrame. Also, it's only necessary in MAILBOX or IMMEDIATE presentation modes.
 		double diffTime = time_now_d() - startTime;
 		int sleepTime = (int)(1000.0 / refreshRate) - (int)(diffTime * 1000.0);
 		if (sleepTime > 0)
