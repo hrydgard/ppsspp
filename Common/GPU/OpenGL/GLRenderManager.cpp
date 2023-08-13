@@ -147,6 +147,7 @@ bool GLRenderManager::ThreadFrame() {
 		// We got a task! We can now have pushMutex_ unlocked, allowing the host to
 		// push more work when it feels like it, and just start working.
 		if (task->runType == GLRRunType::EXIT) {
+			delete task;
 			// Oh, host wanted out. Let's leave, and also let's notify the host.
 			// This is unlike Vulkan too which can just block on the thread existing.
 			std::unique_lock<std::mutex> lock(syncMutex_);
