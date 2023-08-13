@@ -140,13 +140,13 @@ bool I18NRepo::LoadIni(const std::string &languageID, const Path &overridePath) 
 
 	Clear();
 
-	const std::vector<Section> &sections = ini.Sections();
+	const std::vector<std::unique_ptr<Section>> &sections = ini.Sections();
 
 	std::lock_guard<std::mutex> guard(catsLock_);
 	for (auto &section : sections) {
 		for (size_t i = 0; i < (size_t)I18NCat::CATEGORY_COUNT; i++) {
-			if (!strcmp(section.name().c_str(), g_categoryNames[i])) {
-				cats_[i].reset(new I18NCategory(section));
+			if (!strcmp(section->name().c_str(), g_categoryNames[i])) {
+				cats_[i].reset(new I18NCategory(*section.get()));
 			}
 		}
 	}
