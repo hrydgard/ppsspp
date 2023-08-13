@@ -80,11 +80,8 @@ void RiscVJitBackend::CompIR_Load(IRInst inst) {
 		SetScratch1ToSrc1Address(inst.src1);
 		addrReg = SCRATCH1;
 	}
-	// If they're the same, MapReg may subtract MEMBASEREG, so just mark dirty.
-	if (inst.dest == inst.src1)
-		gpr.MarkDirty(gpr.R(inst.dest), true);
-	else
-		gpr.MapReg(inst.dest, MIPSMap::NOINIT | MIPSMap::MARK_NORM32);
+	// With NOINIT, MapReg won't subtract MEMBASEREG even if dest == src1.
+	gpr.MapReg(inst.dest, MIPSMap::NOINIT | MIPSMap::MARK_NORM32);
 	gpr.ReleaseSpillLock(inst.dest, inst.src1);
 
 	s32 imm = AdjustForAddressOffset(&addrReg, inst.constant);
