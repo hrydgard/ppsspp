@@ -38,7 +38,8 @@ TextDrawerSDL::~TextDrawerSDL() {
 
 #if defined(USE_SDL2_TTF_FONTCONFIG)
 	FcConfigDestroy(config);
-	FcFini();
+	// Don't call this - it crashes, see https://github.com/openframeworks/openFrameworks/issues/5061.
+	//FcFini();
 #endif
 }
 
