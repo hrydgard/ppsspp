@@ -42,7 +42,6 @@
 #include "UWPHelpers/StorageAsync.h"
 #include "UWPHelpers/LaunchItem.h"
 
-
 using namespace UWP;
 using namespace Windows::Foundation;
 using namespace Windows::Storage;
@@ -57,7 +56,7 @@ PPSSPP_UWPMain *g_main;
 extern WindowsAudioBackend *winAudioBackend;
 std::string langRegion;
 std::list<std::unique_ptr<InputDevice>> g_input;
- 
+
 // TODO: Use Microsoft::WRL::ComPtr<> for D3D11 objects?
 // TODO: See https://github.com/Microsoft/Windows-universal-samples/tree/master/Samples/WindowsAudioSession for WASAPI with UWP
 // TODO: Low latency input: https://github.com/Microsoft/Windows-universal-samples/tree/master/Samples/LowLatencyInput/cpp
@@ -123,7 +122,7 @@ PPSSPP_UWPMain::PPSSPP_UWPMain(App ^app, const std::shared_ptr<DX::DeviceResourc
 	bool debugLogLevel = false;
  
 	g_Config.iGPUBackend = (int)GPUBackend::DIRECT3D11;
-	
+
 	if (debugLogLevel) {
 		LogManager::GetInstance()->SetAllLogLevels(LogTypes::LDEBUG);
 	}
