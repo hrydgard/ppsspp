@@ -22,7 +22,7 @@ bool AndroidJavaEGLGraphicsContext::InitFromRenderThread(ANativeWindow *wnd, int
 	g_display.rotation = DisplayRotation::ROTATE_0;
 	g_display.rot_matrix.setIdentity();
 
-	draw_ = Draw::T3DCreateGLContext();  // Can't fail
+	draw_ = Draw::T3DCreateGLContext(false);  // Can't fail
 	renderManager_ = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
 	renderManager_->SetInflightFrames(g_Config.iInflightFrames);
 

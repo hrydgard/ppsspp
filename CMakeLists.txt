@@ -1855,6 +1855,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/CoreTiming.h
 	Core/CwCheat.cpp
 	Core/CwCheat.h
+	Core/FrameTiming.cpp
+	Core/FrameTiming.h
 	Core/HDRemaster.cpp
 	Core/HDRemaster.h
 	Core/Instance.cpp

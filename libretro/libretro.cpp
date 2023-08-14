@@ -1178,7 +1178,7 @@ namespace Libretro
 
       if (ctx->GetDrawContext()) {
          ctx->GetDrawContext()->EndFrame();
-         ctx->GetDrawContext()->Present(1);
+         ctx->GetDrawContext()->Present(Draw::PresentMode::FIFO, 1);
       }
    }
 

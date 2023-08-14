@@ -49,7 +49,6 @@
 
 GPU_GLES::GPU_GLES(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	: GPUCommonHW(gfxCtx, draw), drawEngine_(draw), fragmentTestCache_(draw) {
-	UpdateVsyncInterval(true);
 	gstate_c.SetUseFlags(CheckGPUFeatures());
 
 	shaderManagerGL_ = new ShaderManagerGLES(draw);
@@ -86,8 +85,6 @@ GPU_GLES::GPU_GLES(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	UpdateCmdInfo();
 
 	BuildReportingInfo();
-	// Update again after init to be sure of any silly driver problems.
-	UpdateVsyncInterval(true);
 
 	textureCache_->NotifyConfigChanged();
 
@@ -251,7 +248,6 @@ void GPU_GLES::DeviceRestore(Draw::DrawContext *draw) {
 	GPUCommonHW::DeviceRestore(draw);
 
 	fragmentTestCache_.DeviceRestore(draw_);
-	UpdateVsyncInterval(true);
 }
 
 void GPU_GLES::BeginHostFrame() {

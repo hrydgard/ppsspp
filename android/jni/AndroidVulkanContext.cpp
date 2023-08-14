@@ -82,7 +82,7 @@ bool AndroidVulkanContext::InitAPI() {
 
 	g_Vulkan->ChooseDevice(physicalDevice);
 
-	INFO_LOG(G3D, "Creating Vulkan device");
+	INFO_LOG(G3D, "Creating Vulkan device (flags: %08x)", info.flags);
 	if (g_Vulkan->CreateDevice() != VK_SUCCESS) {
 		INFO_LOG(G3D, "Failed to create vulkan device: %s", g_Vulkan->InitError().c_str());
 		System_Toast("No Vulkan driver found. Using OpenGL instead.");
@@ -174,7 +174,4 @@ void AndroidVulkanContext::Resize() {
 	g_Vulkan->InitSwapchain();
 	draw_->HandleEvent(Draw::Event::GOT_BACKBUFFER, g_Vulkan->GetBackbufferWidth(), g_Vulkan->GetBackbufferHeight());
 	INFO_LOG(G3D, "AndroidVulkanContext::Resize end (final size: %dx%d)", g_Vulkan->GetBackbufferWidth(), g_Vulkan->GetBackbufferHeight());
-}
-
-void AndroidVulkanContext::SwapInterval(int interval) {
 }

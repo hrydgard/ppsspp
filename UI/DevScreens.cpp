@@ -605,10 +605,17 @@ void SystemInfoScreen::CreateTabs() {
 		g_display.dpi)));
 #endif
 
-#if !PPSSPP_PLATFORM(WINDOWS)
 	// Don't show on Windows, since it's always treated as 60 there.
 	displayInfo->Add(new InfoItem(si->T("Refresh rate"), StringFromFormat(si->T("%0.2f Hz"), (float)System_GetPropertyFloat(SYSPROP_DISPLAY_REFRESH_RATE))));
-#endif
+	std::string presentModes;
+	if (draw->GetDeviceCaps().presentModesSupported & Draw::PresentMode::FIFO) presentModes += "FIFO, ";
+	if (draw->GetDeviceCaps().presentModesSupported & Draw::PresentMode::IMMEDIATE) presentModes += "IMMEDIATE, ";
+	if (draw->GetDeviceCaps().presentModesSupported & Draw::PresentMode::MAILBOX) presentModes += "MAILBOX, ";
+	if (!presentModes.empty()) {
+		presentModes.pop_back();
+		presentModes.pop_back();
+	}
+	displayInfo->Add(new InfoItem(si->T("Present modes"), presentModes));
 
 	CollapsibleSection *versionInfo = deviceSpecs->Add(new CollapsibleSection(si->T("Version Information")));
 	std::string apiVersion;

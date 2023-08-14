@@ -67,13 +67,11 @@ GPUCommon::GPUCommon(GraphicsContext *gfxCtx, Draw::DrawContext *draw) :
 	gstate_c.Reset();
 	gpuStats.Reset();
 
-	UpdateVsyncInterval(true);
 	PPGeSetDrawContext(draw);
 	ResetMatrices();
 }
 
 void GPUCommon::BeginHostFrame() {
-	UpdateVsyncInterval(displayResized_);
 	ReapplyGfxState();
 
 	// TODO: Assume config may have changed - maybe move to resize.
@@ -113,38 +111,6 @@ void GPUCommon::Reinitialize() {
 		textureCache_->Clear(true);
 	if (framebufferManager_)
 		framebufferManager_->DestroyAllFBOs();
-}
-
-void GPUCommon::UpdateVsyncInterval(bool force) {
-#if !(PPSSPP_PLATFORM(ANDROID) || defined(USING_QT_UI) || PPSSPP_PLATFORM(UWP) || PPSSPP_PLATFORM(IOS))
-	int desiredVSyncInterval = g_Config.bVSync ? 1 : 0;
-	if (PSP_CoreParameter().fastForward) {
-		desiredVSyncInterval = 0;
-	}
-	if (PSP_CoreParameter().fpsLimit != FPSLimit::NORMAL) {
-		int limit;
-		if (PSP_CoreParameter().fpsLimit == FPSLimit::CUSTOM1)
-			limit = g_Config.iFpsLimit1;
-		else if (PSP_CoreParameter().fpsLimit == FPSLimit::CUSTOM2)
-			limit = g_Config.iFpsLimit2;
-		else
-			limit = PSP_CoreParameter().analogFpsLimit;
-
-		// For an alternative speed that is a clean factor of 60, the user probably still wants vsync.
-		if (limit == 0 || (limit >= 0 && limit != 15 && limit != 30 && limit != 60)) {
-			desiredVSyncInterval = 0;
-		}
-	}
-
-	if (desiredVSyncInterval != lastVsync_ || force) {
-		// Disabled EXT_swap_control_tear for now, it never seems to settle at the correct timing
-		// so it just keeps tearing. Not what I hoped for... (gl_extensions.EXT_swap_control_tear)
-		// See http://developer.download.nvidia.com/opengl/specs/WGL_EXT_swap_control_tear.txt
-		if (gfxCtx_)
-			gfxCtx_->SwapInterval(desiredVSyncInterval);
-		lastVsync_ = desiredVSyncInterval;
-	}
-#endif
 }
 
 int GPUCommon::EstimatePerVertexCost() {

@@ -49,7 +49,7 @@ class QtGLGraphicsContext : public GraphicsContext {
 public:
 	QtGLGraphicsContext() {
 		CheckGLExtensions();
-		draw_ = Draw::T3DCreateGLContext();
+		draw_ = Draw::T3DCreateGLContext(false);
 		SetGPUBackend(GPUBackend::OPENGL);
 		renderManager_ = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
 		renderManager_->SetInflightFrames(g_Config.iInflightFrames);
@@ -66,10 +66,6 @@ public:
 	}
 
 	void Shutdown() override {}
-	void SwapInterval(int interval) override {
-		// See TODO in constructor.
-		// renderManager_->SwapInterval(interval);
-	}
 	void Resize() override {}
 
 	Draw::DrawContext *GetDrawContext() override {

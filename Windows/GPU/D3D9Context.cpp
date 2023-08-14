@@ -23,10 +23,6 @@
 
 typedef HRESULT (__stdcall *DIRECT3DCREATE9EX)(UINT, IDirect3D9Ex**);
 
-void D3D9Context::SwapInterval(int interval) {
-	swapInterval_ = interval;
-}
-
 bool D3D9Context::Init(HINSTANCE hInst, HWND wnd, std::string *error_message) {
 	bool windowed = true;
 	hWnd_ = wnd;

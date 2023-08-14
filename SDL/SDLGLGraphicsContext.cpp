@@ -414,7 +414,7 @@ int SDLGLGraphicsContext::Init(SDL_Window *&window, int x, int y, int w, int h, 
 
 	// Finally we can do the regular initialization.
 	CheckGLExtensions();
-	draw_ = Draw::T3DCreateGLContext();
+	draw_ = Draw::T3DCreateGLContext(true);
 	renderManager_ = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
 	renderManager_->SetInflightFrames(g_Config.iInflightFrames);
 	SetGPUBackend(GPUBackend::OPENGL);
@@ -437,13 +437,6 @@ int SDLGLGraphicsContext::Init(SDL_Window *&window, int x, int y, int w, int h, 
 	});
 	window_ = window;
 	return 0;
-}
-
-void SDLGLGraphicsContext::SwapInterval(int interval) {
-	renderManager_->SwapInterval(interval);
-}
-
-void SDLGLGraphicsContext::Shutdown() {
 }
 
 void SDLGLGraphicsContext::ShutdownFromRenderThread() {

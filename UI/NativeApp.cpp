@@ -1051,6 +1051,7 @@ void RenderOverlays(UIContext *dc, void *userdata) {
 }
 
 static Matrix4x4 ComputeOrthoMatrix(float xres, float yres) {
+	// TODO: Should be able to share the y-flip logic here with the one in postprocessing/presentation, for example.
 	Matrix4x4 ortho;
 	switch (GetGPUBackend()) {
 	case GPUBackend::VULKAN:
@@ -1132,6 +1133,8 @@ void NativeFrame(GraphicsContext *graphicsContext) {
 	if (g_Config.bGpuLogProfiler)
 		debugFlags |= Draw::DebugFlags::PROFILE_SCOPES;
 
+	g_frameTiming.Reset(g_draw);
+
 	g_draw->BeginFrame(debugFlags);
 
 	ui_draw2d.PushDrawMatrix(ortho);
@@ -1158,7 +1161,9 @@ void NativeFrame(GraphicsContext *graphicsContext) {
 		ClearFailedGPUBackends();
 	}
 
-	g_draw->Present(1);
+	int interval;
+	Draw::PresentMode presentMode = ComputePresentMode(g_draw, &interval);
+	g_draw->Present(presentMode, interval);
 
 	if (resized) {
 		INFO_LOG(G3D, "Resized flag set - recalculating bounds");
