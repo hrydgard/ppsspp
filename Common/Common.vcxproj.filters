@@ -512,6 +512,9 @@
     <ClInclude Include="Net\HTTPNaettRequest.h">
       <Filter>Net</Filter>
     </ClInclude>
+    <ClInclude Include="Render\Text\draw_text_sdl.h">
+      <Filter>Render\Text</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="ABI.cpp" />
@@ -958,6 +961,9 @@
     </ClCompile>
     <ClCompile Include="Net\HTTPNaettRequest.cpp">
       <Filter>Net</Filter>
+    </ClCompile>
+    <ClCompile Include="Render\Text\draw_text_sdl.cpp">
+      <Filter>Render\Text</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
