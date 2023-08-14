@@ -233,6 +233,7 @@ namespace MIPSComp {
 		bool downcountInRegister;
 		// ARM64 only
 		bool useASIMDVFPU;
+		// ARM64 and RV64
 		bool useStaticAlloc;
 		bool enablePointerify;
 

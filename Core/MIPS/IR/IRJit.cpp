@@ -50,9 +50,20 @@ IRJit::IRJit(MIPSState *mipsState) : frontend_(mipsState->HasDefaultPrefix()), m
 
 	IROptions opts{};
 	opts.disableFlags = g_Config.uJitDisableFlags;
-	// Assume that RISC-V always has very slow unaligned memory accesses.
-#if !PPSSPP_ARCH(RISCV64)
+#if PPSSPP_ARCH(RISCV64)
+	// Assume RISC-V always has very slow unaligned memory accesses.
+	opts.unalignedLoadStore = false;
+	opts.unalignedLoadStoreVec4 = true;
+	opts.preferVec4 = cpu_info.RiscV_V;
+#elif PPSSPP_ARCH(ARM)
 	opts.unalignedLoadStore = (opts.disableFlags & (uint32_t)JitDisable::LSU_UNALIGNED) == 0;
+	opts.unalignedLoadStoreVec4 = true;
+	opts.preferVec4 = cpu_info.bASIMD || cpu_info.bNEON;
+#else
+	opts.unalignedLoadStore = (opts.disableFlags & (uint32_t)JitDisable::LSU_UNALIGNED) == 0;
+	// TODO: Could allow on x86 pretty easily...
+	opts.unalignedLoadStoreVec4 = false;
+	opts.preferVec4 = true;
 #endif
 	frontend_.SetOptions(opts);
 }
