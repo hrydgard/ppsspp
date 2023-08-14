@@ -710,10 +710,21 @@ namespace MIPSComp {
 		GetVectorRegsPrefixT(tregs, sz, vt);
 		GetVectorRegsPrefixD(dregs, V_Single, vd);
 
-		if (IsVec4(sz, sregs) && IsVec4(sz, tregs) && IsOverlapSafe(dregs[0], n, sregs, n, tregs)) {
-			ir.Write(IROp::Vec4Dot, dregs[0], sregs[0], tregs[0]);
-			ApplyPrefixD(dregs, V_Single, vd);
-			return;
+		if (IsOverlapSafe(dregs[0], n, sregs, n, tregs)) {
+			if (IsVec4(sz, sregs) && IsVec4(sz, tregs)) {
+				ir.Write(IROp::Vec4Dot, dregs[0], sregs[0], tregs[0]);
+				ApplyPrefixD(dregs, V_Single, vd);
+				return;
+			} else if (IsVec3of4(sz, sregs) && IsVec3of4(sz, tregs) && opts.preferVec4) {
+				// Nice example of this in Fat Princess (US) in block 088181A0 (hot.)
+				// Create a temporary copy of S with the last element zeroed.
+				ir.Write(IROp::Vec4Init, IRVTEMP_0, (int)Vec4Init::AllZERO);
+				ir.Write({ IROp::Vec4Blend, IRVTEMP_0, IRVTEMP_0, sregs[0], 0x7 });
+				// Now we can just dot like normal, with the last element effectively masked.
+				ir.Write(IROp::Vec4Dot, dregs[0], IRVTEMP_0, sregs[0] == tregs[0] ? IRVTEMP_0 : tregs[0]);
+				ApplyPrefixD(dregs, V_Single, vd);
+				return;
+			}
 		}
 
 		int temp0 = IRVTEMP_0;
@@ -973,20 +984,34 @@ namespace MIPSComp {
 			break;
 		}
 
-		if (canSIMD && !usingTemps && IsVec4(sz, sregs) && IsVec4(sz, dregs)) {
+		if (canSIMD && !usingTemps) {
+			IROp irop = IROp::Nop;
 			switch (optype) {
 			case 0:  // vmov
-				ir.Write(IROp::Vec4Mov, dregs[0], sregs[0]);
+				irop = IROp::Vec4Mov;
 				break;
 			case 1:  // vabs
-				ir.Write(IROp::Vec4Abs, dregs[0], sregs[0]);
+				irop = IROp::Vec4Abs;
 				break;
 			case 2:  // vneg
-				ir.Write(IROp::Vec4Neg, dregs[0], sregs[0]);
+				irop = IROp::Vec4Neg;
 				break;
 			}
-			ApplyPrefixD(dregs, sz, vd);
-			return;
+			if (IsVec4(sz, sregs) && IsVec4(sz, dregs) && irop != IROp::Nop) {
+				ir.Write(irop, dregs[0], sregs[0]);
+				ApplyPrefixD(dregs, sz, vd);
+				return;
+			} else if (IsVec3of4(sz, sregs) && IsVec3of4(sz, dregs) && irop != IROp::Nop && opts.preferVec4) {
+				// This is a simple case of vmov.t, just blend.
+				if (irop == IROp::Vec4Mov) {
+					ir.Write({ IROp::Vec4Blend, dregs[0], dregs[0], sregs[0], 0x7 });
+				} else {
+					ir.Write(irop, IRVTEMP_0, sregs[0]);
+					ir.Write({ IROp::Vec4Blend, dregs[0], dregs[0], IRVTEMP_0, 0x7 });
+				}
+				ApplyPrefixD(dregs, sz, vd);
+				return;
+			}
 		}
 
 		for (int i = 0; i < n; ++i) {
@@ -1397,9 +1422,14 @@ namespace MIPSComp {
 			}
 		}
 
-		if (IsVec4(sz, sregs) && IsVec4(sz, dregs)) {
-			if (!overlap || (vs == vd && IsOverlapSafe(treg, n, dregs))) {
+		if (!overlap || (vs == vd && IsOverlapSafe(treg, n, dregs))) {
+			if (IsVec4(sz, sregs) && IsVec4(sz, dregs)) {
 				ir.Write(IROp::Vec4Scale, dregs[0], sregs[0], treg);
+				ApplyPrefixD(dregs, sz, vd);
+				return;
+			} else if (IsVec3of4(sz, sregs) && IsVec3of4(sz, dregs) && opts.preferVec4) {
+				ir.Write(IROp::Vec4Scale, IRVTEMP_0, sregs[0], treg);
+				ir.Write({ IROp::Vec4Blend, dregs[0], dregs[0], IRVTEMP_0, 0x7 });
 				ApplyPrefixD(dregs, sz, vd);
 				return;
 			}
@@ -2097,6 +2127,10 @@ namespace MIPSComp {
 		if (IsVec4(sz, dregs)) {
 			ir.Write(IROp::SetConstF, IRVTEMP_0, ir.AddConstantFloat(cst_constants[conNum]));
 			ir.Write(IROp::Vec4Shuffle, dregs[0], IRVTEMP_0, 0);
+		} else if (IsVec3of4(sz, dregs) && opts.preferVec4) {
+			ir.Write(IROp::SetConstF, IRVTEMP_0, ir.AddConstantFloat(cst_constants[conNum]));
+			ir.Write(IROp::Vec4Shuffle, IRVTEMP_0, IRVTEMP_0, 0);
+			ir.Write({ IROp::Vec4Blend, dregs[0], dregs[0], IRVTEMP_0, 0x7 });
 		} else {
 			for (int i = 0; i < n; i++) {
 				// Most of the time, materializing a float is slower than copying from another float.
@@ -2247,6 +2281,9 @@ namespace MIPSComp {
 
 		if (IsVec4(sz, dregs) && IsVec4(sz, sregs) && IsVec4(sz, tregs)) {
 			ir.Write(IROp::Vec4Add, dregs[0], tregs[0], sregs[0]);
+		} else if (IsVec3of4(sz, dregs) && IsVec3of4(sz, sregs) && IsVec3of4(sz, tregs) && opts.preferVec4) {
+			ir.Write(IROp::Vec4Add, IRVTEMP_0, tregs[0], sregs[0]);
+			ir.Write({ IROp::Vec4Blend, dregs[0], dregs[0], IRVTEMP_0, 0x7 });
 		} else {
 			u8 tempregs[4];
 			for (int i = 0; i < n; ++i) {
