@@ -216,7 +216,6 @@ void App::Uninitialize() {
 }
 
 // Application lifecycle event handlers.
-extern LaunchItem launchItem;
 void App::OnActivated(CoreApplicationView^ applicationView, IActivatedEventArgs^ args) {
 	// Run() won't start until the CoreWindow is activated.
 	CoreWindow::GetForCurrentThread()->Activate();
@@ -227,15 +226,8 @@ void App::OnActivated(CoreApplicationView^ applicationView, IActivatedEventArgs^
 	if (g_Config.UseFullScreen())
 		Windows::UI::ViewManagement::ApplicationView::GetForCurrentView()->TryEnterFullScreenMode();
 
-	if (args->Kind == ActivationKind::File) {
-		FileActivatedEventArgs^ protocolArgs = dynamic_cast<Windows::ApplicationModel::Activation::FileActivatedEventArgs^>(args);
-		launchItem = LaunchItem((StorageFile^)protocolArgs->Files->GetAt(0));
-	}
-	if (args->Kind == ActivationKind::Protocol)
-	{
-		ProtocolActivatedEventArgs^ protocolArgs = dynamic_cast<Windows::ApplicationModel::Activation::ProtocolActivatedEventArgs^>(args);
-		launchItem = LaunchItem(protocolArgs);
-	}
+	//Detect if app started or activated by launch item (file, uri)
+	DetectLaunchItem(args);
 }
 
 void App::OnSuspending(Platform::Object^ sender, SuspendingEventArgs^ args) {
