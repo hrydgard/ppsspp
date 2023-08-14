@@ -143,12 +143,6 @@ jobs:
           extra: android
           cc: clang
           cxx: clang++
-          args: cd android && ./ab.sh -j2 APP_ABI=x86 UNITTEST=1 HEADLESS=1
-          id: android-x86_32
-        - os: ubuntu-latest
-          extra: android
-          cc: clang
-          cxx: clang++
           args: cd android && ./ab.sh -j2 APP_ABI=x86_64 UNITTEST=1 HEADLESS=1
           id: android-x86_64
         - os: ubuntu-latest
