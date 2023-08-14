@@ -424,8 +424,42 @@ namespace MIPSComp {
 
 		CheckMemoryBreakpoint(rs, imm);
 
+		enum class LSVType {
+			INVALID,
+			LVQ,
+			SVQ,
+			LVLQ,
+			LVRQ,
+			SVLQ,
+			SVRQ,
+		};
+
+		LSVType optype = LSVType::INVALID;
 		switch (op >> 26) {
-		case 54: //lv.q
+		case 54: optype = LSVType::LVQ; break; // lv.q
+		case 62: optype = LSVType::SVQ; break; // sv.q
+		case 53: // lvl/lvr.q - highly unusual
+			optype = (op & 2) == 0 ? LSVType::LVLQ : LSVType::LVRQ;
+			break;
+		case 61: // svl/svr.q - highly unusual
+			optype = (op & 2) == 0 ? LSVType::SVLQ : LSVType::SVRQ;
+			break;
+		}
+		if (optype == LSVType::INVALID)
+			INVALIDOP;
+
+		if ((optype == LSVType::LVRQ || optype == LSVType::SVRQ) && opts.unalignedLoadStoreVec4) {
+			// We don't bother with an op for this, but we do fuse unaligned stores which happen.
+			MIPSOpcode nextOp = GetOffsetInstruction(1);
+			if ((nextOp.encoding ^ op.encoding) == 0x0000000E) {
+				// Okay, it's an svr.q/svl.q pair, same registers.  Treat as lv.q/sv.q.
+				EatInstruction(nextOp);
+				optype = optype == LSVType::LVRQ ? LSVType::LVQ : LSVType::SVQ;
+			}
+		}
+
+		switch (optype) {
+		case LSVType::LVQ:
 			if (IsVec4(V_Quad, vregs)) {
 				ir.Write(IROp::LoadVec4, vregs[0], rs, ir.AddConstant(imm));
 			} else {
@@ -439,7 +473,7 @@ namespace MIPSComp {
 			}
 			break;
 
-		case 62: //sv.q
+		case LSVType::SVQ:
 			if (IsVec4(V_Quad, vregs)) {
 				ir.Write(IROp::StoreVec4, vregs[0], rs, ir.AddConstant(imm));
 			} else {
@@ -453,8 +487,11 @@ namespace MIPSComp {
 			}
 			break;
 
-		case 53: // lvl/lvr.q - highly unusual
-		case 61: // svl/svr.q - highly unusual
+		case LSVType::LVLQ:
+		case LSVType::LVRQ:
+		case LSVType::SVLQ:
+		case LSVType::SVRQ:
+			// These are pretty uncommon unless paired.
 			DISABLE;
 			break;
 
