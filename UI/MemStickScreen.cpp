@@ -245,13 +245,14 @@ void MemStickScreen::CreateViews() {
 
 	// For legacy Android systems, so you can switch back to the old ways if you move to SD or something.
 	// Trying to avoid needing a scroll view, so only showing the explanation for one option at a time.
-
+#if !PPSSPP_PLATFORM(UWP)
 	if (!System_GetPropertyBool(SYSPROP_ANDROID_SCOPED_STORAGE)) {
 		leftColumn->Add(new RadioButton(&choice_, CHOICE_STORAGE_ROOT, iz->T("Use PSP folder at root of storage")))->OnClick.Handle(this, &MemStickScreen::OnChoiceClick);
 		if (choice_ == CHOICE_STORAGE_ROOT) {
 			AddExplanation(leftColumn, (MemStickScreen::Choice)choice_);
 		}
 	}
+#endif
 
 	if (storageBrowserWorking_) {
 		leftColumn->Add(new RadioButton(&choice_, CHOICE_BROWSE_FOLDER, iz->T("Create or Choose a PSP folder")))->OnClick.Handle(this, &MemStickScreen::OnChoiceClick);

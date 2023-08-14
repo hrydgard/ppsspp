@@ -468,7 +468,7 @@
     <ClInclude Include="UWPHelpers\StorageAsync.h" />
     <ClInclude Include="UWPHelpers\StorageManager.h" />
     <ClInclude Include="UWPHelpers\StoragePickers.h" />
-	<ClInclude Include="UWPHelpers\LaunchItem.h" />
+    <ClInclude Include="UWPHelpers\LaunchItem.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\git-version.cpp">
@@ -484,7 +484,7 @@
     <ClCompile Include="UWPHelpers\StorageAsync.cpp" />
     <ClCompile Include="UWPHelpers\StorageManager.cpp" />
     <ClCompile Include="UWPHelpers\StoragePickers.cpp" />
-	<ClCompile Include="UWPHelpers\LaunchItem.cpp" />
+    <ClCompile Include="UWPHelpers\LaunchItem.cpp" />
     <ClCompile Include="pch.cpp">
       <PrecompiledHeader>Create</PrecompiledHeader>
     </ClCompile>
