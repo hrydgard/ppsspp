@@ -846,8 +846,8 @@ namespace MIPSComp {
 		case VecDo3Op::VSLT:
 			allowSIMD = false;
 			break;
-        default:
-            break;
+		case VecDo3Op::INVALID:  // Can't happen, but to avoid compiler warnings
+			break;
 		}
 
 		u8 sregs[4], tregs[4], dregs[4];
@@ -943,8 +943,8 @@ namespace MIPSComp {
 				ir.Write(IROp::FMovFromGPR, tempregs[i], IRTEMP_1);
 				ir.Write(IROp::FCvtSW, tempregs[i], tempregs[i]);
 				break;
-            default:
-                break;
+			case VecDo3Op::INVALID:  // Can't happen, but to avoid compiler warnings
+				break;
 			}
 		}
 

@@ -165,8 +165,6 @@ bool GLDummyGraphicsContext::InitFromRenderThread(std::string *errorMessage) {
 	renderManager_->SetSwapFunction([&]() {
 		SDL_GL_SwapWindow(screen_);
 	});
-	// TODO: Support SwapInterval
-
 	return success;
 }
 

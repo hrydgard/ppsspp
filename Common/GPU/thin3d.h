@@ -623,7 +623,7 @@ struct DeviceCaps {
 
 	// Presentation caps
 	int presentMaxInterval; // 1 on many backends
-	bool presentInstantModeChange; // Our VulkanContext doesn't currently support it so we mark it as such, but it can be supported with careful coding.
+	bool presentInstantModeChange;
 	PresentMode presentModesSupported;
 
 	u32 multiSampleLevelsMask;  // Bit n is set if (1 << n) is a valid multisample level. Bit 0 is always set.

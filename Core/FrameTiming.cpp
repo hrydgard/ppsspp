@@ -52,6 +52,7 @@ Draw::PresentMode ComputePresentMode(Draw::DrawContext *draw, int *interval) {
 				limit = PSP_CoreParameter().analogFpsLimit;
 
 			// For an alternative speed that is a clean factor of 60, the user probably still wants vsync.
+			// TODO: Should take the user's display refresh rate into account...
 			if (limit == 0 || (limit >= 0 && limit != 15 && limit != 30 && limit != 60)) {
 				wantInstant = true;
 			}
@@ -63,8 +64,8 @@ Draw::PresentMode ComputePresentMode(Draw::DrawContext *draw, int *interval) {
 			wantInstant = false;
 		}
 
-		// If no instant modes are supported, stick to FIFO.
-		if (wantInstant && (draw->GetDeviceCaps().presentModesSupported & (Draw::PresentMode::MAILBOX | Draw::PresentMode::IMMEDIATE))) {
+		// The outer if checks that instant modes are available.
+		if (wantInstant) {
 			mode = GetBestImmediateMode(draw->GetDeviceCaps().presentModesSupported);
 		}
 	}
