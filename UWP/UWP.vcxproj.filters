@@ -4,10 +4,43 @@
     <Filter Include="Common">
       <UniqueIdentifier>0d070030-beb5-4f48-99a0-b1777297a468</UniqueIdentifier>
     </Filter>
+    <Filter Include="UWPHelpers">
+      <UniqueIdentifier>8d1bdedf-c546-4b7a-8aa7-e490c4e8ad60</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Audio">
+      <UniqueIdentifier>68b36d2a-4f4a-48a5-8b8f-cb15af108c93</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Input">
+      <UniqueIdentifier>5964c8ad-590e-4b46-84f2-067602f4f231</UniqueIdentifier>
+    </Filter>
     <Filter Include="Assets">
       <UniqueIdentifier>a5564d79-b131-4b27-9f5f-d80671731d94</UniqueIdentifier>
       <Extensions>bmp;fbx;gif;jpg;jpeg;tga;tiff;tif;png</Extensions>
     </Filter>
+    <ClInclude Include="UWPHelpers\StorageAccess.h">
+      <Filter>UWPHelpers</Filter>
+    </ClInclude>
+    <ClInclude Include="UWPHelpers\StorageAsync.h">
+      <Filter>UWPHelpers</Filter>
+    </ClInclude>
+    <ClInclude Include="UWPHelpers\StorageManager.h">
+      <Filter>UWPHelpers</Filter>
+    </ClInclude>
+    <ClInclude Include="UWPHelpers\StoragePickers.h">
+      <Filter>UWPHelpers</Filter>
+    </ClInclude>
+    <ClCompile Include="UWPHelpers\StorageAccess.cpp">
+      <Filter>UWPHelpers</Filter>
+    </ClCompile>
+    <ClCompile Include="UWPHelpers\StorageAsync.cpp">
+      <Filter>UWPHelpers</Filter>
+    </ClCompile>
+    <ClCompile Include="UWPHelpers\StorageManager.cpp">
+      <Filter>UWPHelpers</Filter>
+    </ClCompile>
+    <ClCompile Include="UWPHelpers\StoragePickers.cpp">
+      <Filter>UWPHelpers</Filter>
+    </ClCompile>
     <ClInclude Include="Common\DirectXHelper.h">
       <Filter>Common</Filter>
     </ClInclude>
@@ -76,22 +109,42 @@
     <ClCompile Include="App.cpp" />
     <ClCompile Include="pch.cpp" />
     <ClCompile Include="..\git-version.cpp" />
-    <ClCompile Include="XAudioSoundStream.cpp" />
+    <ClCompile Include="XAudioSoundStream.cpp">
+      <Filter>Audio</Filter>
+    </ClCompile>
     <ClCompile Include="PPSSPP_UWPMain.cpp" />
     <ClCompile Include="NKCodeFromWindowsSystem.cpp" />
-    <ClCompile Include="..\Windows\XinputDevice.cpp" />
-    <ClCompile Include="..\Windows\InputDevice.cpp" />
+    <ClCompile Include="..\Windows\XinputDevice.cpp">
+      <Filter>Input</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Windows\InputDevice.cpp">
+      <Filter>Input</Filter>
+    </ClCompile>
+    <ClInclude Include="UWPHelpers\LaunchItem.h">
+      <Filter>UWPHelpers</Filter>
+    </ClInclude>
+    <ClCompile Include="UWPHelpers\LaunchItem.cpp">
+      <Filter>UWPHelpers</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="App.h" />
     <ClInclude Include="pch.h" />
     <ClInclude Include="..\ppsspp_config.h" />
-    <ClInclude Include="XAudioSoundStream.h" />
+    <ClInclude Include="XAudioSoundStream.h">
+      <Filter>Audio</Filter>
+    </ClInclude>
     <ClInclude Include="PPSSPP_UWPMain.h" />
-    <ClInclude Include="NKCodeFromWindowsSystem.h" />
-    <ClInclude Include="..\Windows\XinputDevice.h" />
+    <ClInclude Include="NKCodeFromWindowsSystem.h">
+      <Filter>Input</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Windows\XinputDevice.h">
+      <Filter>Input</Filter>
+    </ClInclude>
     <ClInclude Include="UWPUtil.h" />
-    <ClInclude Include="..\Windows\InputDevice.h" />
+    <ClInclude Include="..\Windows\InputDevice.h">
+      <Filter>Input</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Image Include="Assets\StoreLogo.png">

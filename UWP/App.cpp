@@ -14,8 +14,10 @@
 
 #include <ppltasks.h>
 
-using namespace UWP;
+#include "UWPHelpers/LaunchItem.h"
 
+using namespace UWP;
+ 
 using namespace concurrency;
 using namespace Windows::ApplicationModel;
 using namespace Windows::ApplicationModel::Core;
@@ -25,6 +27,7 @@ using namespace Windows::UI::Input;
 using namespace Windows::System;
 using namespace Windows::Foundation;
 using namespace Windows::Graphics::Display;
+using namespace Windows::Storage;
 
 // The main function is only used to initialize our IFrameworkView class.
 [Platform::MTAThread]
@@ -213,7 +216,6 @@ void App::Uninitialize() {
 }
 
 // Application lifecycle event handlers.
-
 void App::OnActivated(CoreApplicationView^ applicationView, IActivatedEventArgs^ args) {
 	// Run() won't start until the CoreWindow is activated.
 	CoreWindow::GetForCurrentThread()->Activate();
@@ -223,6 +225,9 @@ void App::OnActivated(CoreApplicationView^ applicationView, IActivatedEventArgs^
 
 	if (g_Config.UseFullScreen())
 		Windows::UI::ViewManagement::ApplicationView::GetForCurrentView()->TryEnterFullScreenMode();
+
+	//Detect if app started or activated by launch item (file, uri)
+	DetectLaunchItem(args);
 }
 
 void App::OnSuspending(Platform::Object^ sender, SuspendingEventArgs^ args) {
@@ -234,6 +239,7 @@ void App::OnSuspending(Platform::Object^ sender, SuspendingEventArgs^ args) {
 	auto app = this;
 
 	create_task([app, deferral]() {
+		g_Config.Save("App::OnSuspending");
 		app->m_deviceResources->Trim();
 		deferral->Complete();
 	});
@@ -271,13 +277,6 @@ void App::OnWindowSizeChanged(CoreWindow^ sender, WindowSizeChangedEventArgs^ ar
 }
 
 void App::OnVisibilityChanged(CoreWindow^ sender, VisibilityChangedEventArgs^ args) {
-
-	if (args->Visible == false) {
-		// MainScreen::OnExit and even App::OnWindowClosed
-		// doesn't seem to be called when closing the window
-		// Try to save the config here
-		g_Config.Save("App::OnVisibilityChanged");
-	}
 	m_windowVisible = args->Visible;
 }
 

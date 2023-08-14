@@ -594,7 +594,7 @@ void SystemInfoScreen::CreateTabs() {
 #endif
 
 	CollapsibleSection *displayInfo = deviceSpecs->Add(new CollapsibleSection(si->T("Display Information")));
-#if PPSSPP_PLATFORM(ANDROID)
+#if PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(UWP)
 	displayInfo->Add(new InfoItem(si->T("Native Resolution"), StringFromFormat("%dx%d",
 		System_GetPropertyInt(SYSPROP_DISPLAY_XRES),
 		System_GetPropertyInt(SYSPROP_DISPLAY_YRES))));

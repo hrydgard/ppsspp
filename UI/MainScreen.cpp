@@ -1244,11 +1244,8 @@ void MainScreen::CreateViews() {
 		}
 	}
 
-#if !PPSSPP_PLATFORM(UWP)
-	// Having an exit button is against UWP guidelines.
 	rightColumnChoices->Add(new Spacer(25.0));
 	rightColumnChoices->Add(new Choice(mm->T("Exit")))->OnClick.Handle(this, &MainScreen::OnExit);
-#endif
 
 	if (vertical) {
 		root_ = new LinearLayout(ORIENT_VERTICAL);

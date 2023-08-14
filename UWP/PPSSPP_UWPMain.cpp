@@ -37,6 +37,12 @@
 #include "UWPUtil.h"
 #include "App.h"
 
+// UWP Storage helper includes
+#include "UWPHelpers/StorageManager.h"
+#include "UWPHelpers/StorageAsync.h"
+#include "UWPHelpers/LaunchItem.h"
+
+
 using namespace UWP;
 using namespace Windows::Foundation;
 using namespace Windows::Storage;
@@ -51,8 +57,7 @@ PPSSPP_UWPMain *g_main;
 extern WindowsAudioBackend *winAudioBackend;
 std::string langRegion;
 std::list<std::unique_ptr<InputDevice>> g_input;
-
-
+ 
 // TODO: Use Microsoft::WRL::ComPtr<> for D3D11 objects?
 // TODO: See https://github.com/Microsoft/Windows-universal-samples/tree/master/Samples/WindowsAudioSession for WASAPI with UWP
 // TODO: Low latency input: https://github.com/Microsoft/Windows-universal-samples/tree/master/Samples/LowLatencyInput/cpp
@@ -96,8 +101,9 @@ PPSSPP_UWPMain::PPSSPP_UWPMain(App ^app, const std::shared_ptr<DX::DeviceResourc
 		langRegion = "en_US";
 	}
 
-	std::wstring memstickFolderW = ApplicationData::Current->LocalFolder->Path->Data();
-	g_Config.memStickDirectory = Path(memstickFolderW);
+	std::wstring internalDataFolderW = ApplicationData::Current->LocalFolder->Path->Data();
+	g_Config.internalDataDirectory = Path(internalDataFolderW);
+	g_Config.memStickDirectory = g_Config.internalDataDirectory;
 
 	// On Win32 it makes more sense to initialize the system directories here
 	// because the next place it was called was in the EmuThread, and it's too late by then.
@@ -110,19 +116,35 @@ PPSSPP_UWPMain::PPSSPP_UWPMain(App ^app, const std::shared_ptr<DX::DeviceResourc
 	g_Config.SetSearchPath(GetSysDirectory(DIRECTORY_SYSTEM));
 	g_Config.Load();
 
+	if (g_Config.bFirstRun) {
+		g_Config.memStickDirectory.clear();
+	}
+
 	bool debugLogLevel = false;
-
+ 
 	g_Config.iGPUBackend = (int)GPUBackend::DIRECT3D11;
-
+	
 	if (debugLogLevel) {
 		LogManager::GetInstance()->SetAllLogLevels(LogTypes::LDEBUG);
 	}
 
+	// Set log file location
+	if (g_Config.bEnableLogging) {
+		LogManager::GetInstance()->ChangeFileLog(GetLogFile().c_str());
+	}
+
 	const char *argv[2] = { "fake", nullptr };
+	int argc = 1;
+	
+	std::string cacheFolder = ConvertWStringToUTF8(ApplicationData::Current->TemporaryFolder->Path->Data());
 
-	std::string cacheFolder = ConvertWStringToUTF8(ApplicationData::Current->LocalFolder->Path->Data());
-
-	NativeInit(1, argv, "", "", cacheFolder.c_str());
+	// 'PPSSPP_UWPMain' is getting called before 'OnActivated'
+	// this make detecting launch items on startup hard
+	// I think 'Init' process must be moved out and invoked from 'OnActivated' one time only
+	// currently launchItem will work fine but we cannot skip logo screen
+	// we should pass file path to 'argv' using 'GetLaunchItemPath(args)' 
+	// instead of depending on 'boot_filename' (LaunchItem.cpp)
+	NativeInit(argc, argv, "", "", cacheFolder.c_str());
 
 	NativeInitGraphics(ctx_.get());
 	NativeResized();
@@ -361,13 +383,6 @@ std::vector<std::string> System_GetPropertyStringVec(SystemProperty prop) {
 		// Need to resize off the null terminator either way.
 		tempPath.resize(sz);
 		result.push_back(ConvertWStringToUTF8(tempPath));
-
-		if (getenv("TMPDIR") && strlen(getenv("TMPDIR")) != 0)
-			result.push_back(getenv("TMPDIR"));
-		if (getenv("TMP") && strlen(getenv("TMP")) != 0)
-			result.push_back(getenv("TMP"));
-		if (getenv("TEMP") && strlen(getenv("TEMP")) != 0)
-			result.push_back(getenv("TEMP"));
 		return result;
 	}
 
@@ -380,6 +395,7 @@ int System_GetPropertyInt(SystemProperty prop) {
 	switch (prop) {
 	case SYSPROP_AUDIO_SAMPLE_RATE:
 		return winAudioBackend ? winAudioBackend->GetSampleRate() : -1;
+
 	case SYSPROP_DEVICE_TYPE:
 	{
 		auto ver = Windows::System::Profile::AnalyticsInfo::VersionInfo;
@@ -390,6 +406,16 @@ int System_GetPropertyInt(SystemProperty prop) {
 		} else {
 			return DEVICE_TYPE_DESKTOP;
 		}
+	}
+	case SYSPROP_DISPLAY_XRES:
+	{
+		CoreWindow^ corewindow = CoreWindow::GetForCurrentThread();
+		return  (int)corewindow->Bounds.Width;
+	}
+	case SYSPROP_DISPLAY_YRES:
+	{
+		CoreWindow^ corewindow = CoreWindow::GetForCurrentThread();
+		return (int)corewindow->Bounds.Height;
 	}
 	default:
 		return -1;
@@ -415,11 +441,14 @@ void System_Toast(const char *str) {}
 bool System_GetPropertyBool(SystemProperty prop) {
 	switch (prop) {
 	case SYSPROP_HAS_OPEN_DIRECTORY:
-		return false;
+	{
+		auto ver = Windows::System::Profile::AnalyticsInfo::VersionInfo;
+		return ver->DeviceFamily != "Windows.Xbox";
+	}
 	case SYSPROP_HAS_FILE_BROWSER:
 		return true;
 	case SYSPROP_HAS_FOLDER_BROWSER:
-		return false;  // at least I don't know a usable one
+		return true;
 	case SYSPROP_HAS_IMAGE_BROWSER:
 		return true;  // we just use the file browser
 	case SYSPROP_HAS_BACK_BUTTON:
@@ -457,51 +486,102 @@ void System_Notify(SystemNotification notification) {
 
 bool System_MakeRequest(SystemRequestType type, int requestId, const std::string &param1, const std::string &param2, int param3) {
 	switch (type) {
+
+	case SystemRequestType::EXIT_APP:
+	{
+		bool state = false;
+		ExecuteTask(state, Windows::UI::ViewManagement::ApplicationView::GetForCurrentView()->TryConsolidateAsync());
+		if (!state) {
+			// Notify the user?
+		}
+		return true;
+	}
+	case SystemRequestType::RESTART_APP:
+	{
+		Windows::ApplicationModel::Core::AppRestartFailureReason error;
+		ExecuteTask(error, Windows::ApplicationModel::Core::CoreApplication::RequestRestartAsync(nullptr));
+		if (error != Windows::ApplicationModel::Core::AppRestartFailureReason::RestartPending) {
+			// Shutdown
+			System_MakeRequest(SystemRequestType::EXIT_APP, requestId, param1, param2, param3);
+		}
+		return true;
+	}
 	case SystemRequestType::BROWSE_FOR_IMAGE:
+	{
+		std::vector<std::string> supportedExtensions = { ".jpg", ".png" };
+
+		//Call file picker
+		ChooseFile(supportedExtensions).then([requestId](std::string filePath) {
+			if (filePath.size() > 1) {
+				g_requestManager.PostSystemSuccess(requestId, filePath.c_str());
+			}
+			else {
+				g_requestManager.PostSystemFailure(requestId);
+			}
+			});
+		return true;
+	}
 	case SystemRequestType::BROWSE_FOR_FILE:
 	{
-		auto picker = ref new Windows::Storage::Pickers::FileOpenPicker();
-		picker->ViewMode = Pickers::PickerViewMode::List;
-
-		if (type == SystemRequestType::BROWSE_FOR_IMAGE) {
-			picker->FileTypeFilter->Append(".jpg");
-			picker->FileTypeFilter->Append(".png");
-		} else {
-			switch ((BrowseFileType)param3) {
-			case BrowseFileType::BOOTABLE:
-				// These are single files that can be loaded directly using StorageFileLoader.
-				picker->FileTypeFilter->Append(".cso");
-				picker->FileTypeFilter->Append(".iso");
-
-				// Can't load these this way currently, they require mounting the underlying folder.
-				picker->FileTypeFilter->Append(".bin");
-				picker->FileTypeFilter->Append(".elf");
-				break;
-			case BrowseFileType::INI:
-				picker->FileTypeFilter->Append(".ini");
-				break;
-			case BrowseFileType::DB:
-				picker->FileTypeFilter->Append(".db");
-				break;
-			case BrowseFileType::SOUND_EFFECT:
-				picker->FileTypeFilter->Append(".wav");
-				break;
-			case BrowseFileType::ANY:
-				picker->FileTypeFilter->Append("*");
-				break;
-			}
+		std::vector<std::string> supportedExtensions = {};
+		switch ((BrowseFileType)param3) {
+		case BrowseFileType::BOOTABLE:
+			supportedExtensions = { ".cso", ".bin", ".iso", ".elf", ".pbp", ".zip" };
+			break;
+		case BrowseFileType::INI:
+			supportedExtensions = { ".ini" };
+			break;
+		case BrowseFileType::DB:
+			supportedExtensions = { ".db" };
+			break;
+		case BrowseFileType::SOUND_EFFECT:
+			supportedExtensions = { ".wav" };
+			break;
+		case BrowseFileType::ANY:
+			// 'ChooseFile' will added '*' by default when there are no extensions assigned
+			break;
+		default:
+			ERROR_LOG(FILESYS, "Unexpected BrowseFileType: %d", param3);
+			return false;
 		}
 
-		picker->SuggestedStartLocation = Pickers::PickerLocationId::DocumentsLibrary;
-
-		create_task(picker->PickSingleFileAsync()).then([requestId](StorageFile ^file) {
-			if (file) {
-				std::string path = FromPlatformString(file->Path);
-				g_requestManager.PostSystemSuccess(requestId, path.c_str());
-			} else {
+		//Call file picker
+		ChooseFile(supportedExtensions).then([requestId](std::string filePath) {
+			if (filePath.size() > 1) {
+				g_requestManager.PostSystemSuccess(requestId, filePath.c_str());
+			}
+			else {
 				g_requestManager.PostSystemFailure(requestId);
 			}
 		});
+
+		return true;
+	}
+	case SystemRequestType::BROWSE_FOR_FOLDER:
+	{
+		ChooseFolder().then([requestId](std::string folderPath) {
+			if (folderPath.size() > 1) {
+				g_requestManager.PostSystemSuccess(requestId, folderPath.c_str());
+			}
+			else {
+				g_requestManager.PostSystemFailure(requestId);
+			}
+			});
+		return true;
+	}
+	case SystemRequestType::NOTIFY_UI_STATE:
+	{
+		if (!param1.empty() && !strcmp(param1.c_str(), "menu")) {
+			CloseLaunchItem();
+		}
+		return true;
+	}
+	case SystemRequestType::COPY_TO_CLIPBOARD:
+	{
+		auto dataPackage = ref new DataPackage();
+		dataPackage->RequestedOperation = DataPackageOperation::Copy;
+		dataPackage->SetText(ToPlatformString(param1));
+		Clipboard::SetContent(dataPackage);
 		return true;
 	}
 	case SystemRequestType::TOGGLE_FULLSCREEN_STATE:
@@ -526,7 +606,7 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 }
 
 void System_ShowFileInFolder(const char *path) {
-	// Unsupported
+	OpenFolder(std::string(path));
 }
 
 void System_LaunchUrl(LaunchUrlType urlType, const char *url) {

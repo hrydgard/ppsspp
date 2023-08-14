@@ -1003,7 +1003,13 @@ void GameSettingsScreen::CreateSystemSettings(UI::ViewGroup *systemSettings) {
 			systemSettings->Add(new InfoItem(sy->T("USB"), usbPath))->SetChoiceStyle(true);
 		}
 	}
-#elif defined(_WIN32) && !PPSSPP_PLATFORM(UWP)
+#elif defined(_WIN32)
+#if PPSSPP_PLATFORM(UWP)
+	memstickDisplay_ = g_Config.memStickDirectory.ToVisualString();
+	auto memstickPath = systemSettings->Add(new ChoiceWithValueDisplay(&memstickDisplay_, sy->T("Memory Stick folder", "Memory Stick folder"), I18NCat::NONE));
+	memstickPath->SetEnabled(!PSP_IsInited());
+	memstickPath->OnClick.Handle(this, &GameSettingsScreen::OnChangeMemStickDir);
+#else
 	SavePathInMyDocumentChoice = systemSettings->Add(new CheckBox(&installed_, sy->T("Save path in My Documents", "Save path in My Documents")));
 	SavePathInMyDocumentChoice->SetEnabled(!PSP_IsInited());
 	SavePathInMyDocumentChoice->OnClick.Handle(this, &GameSettingsScreen::OnSavePathMydoc);
@@ -1046,6 +1052,7 @@ void GameSettingsScreen::CreateSystemSettings(UI::ViewGroup *systemSettings) {
 			SavePathInMyDocumentChoice->SetEnabled(false);
 		}
 	}
+#endif
 #endif
 	systemSettings->Add(new CheckBox(&g_Config.bMemStickInserted, sy->T("Memory Stick inserted")));
 	UI::PopupSliderChoice *sizeChoice = systemSettings->Add(new PopupSliderChoice(&g_Config.iMemStickSizeGB, 1, 32, 16, sy->T("Memory Stick size", "Memory Stick size"), screenManager(), "GB"));

@@ -6,6 +6,7 @@
 #include <direct.h>
 #if PPSSPP_PLATFORM(UWP)
 #include <fileapifromapp.h>
+#include <UWP/UWPHelpers/StorageManager.h>
 #endif
 #else
 #include <strings.h>
@@ -220,6 +221,13 @@ bool GetFilesInDir(const Path &directory, std::vector<FileInfo> *files, const ch
 	HANDLE hFind = FindFirstFileEx((directory.ToWString() + L"\\*").c_str(), FindExInfoStandard, &ffd, FindExSearchNameMatch, NULL, 0);
 #endif
 	if (hFind == INVALID_HANDLE_VALUE) {
+#if PPSSPP_PLATFORM(UWP)
+		// This step just to avoid empty results by adding fake folders
+		// it will help also to navigate back between selected folder
+		// we must ignore this function for any request other than UI navigation
+		if (GetFakeFolders(directory, files, filter, filters))
+			return true;
+#endif
 		return false;
 	}
 	do {

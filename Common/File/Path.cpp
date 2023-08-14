@@ -12,6 +12,10 @@
 
 #include "android/jni/app-android.h"
 
+#if PPSSPP_PLATFORM(UWP) && !defined(__LIBRETRO__)
+#include "UWP/UWPHelpers/StorageManager.h"
+#endif
+
 #if HOST_IS_CASE_SENSITIVE
 #include <dirent.h>
 #include <unistd.h>
@@ -274,6 +278,9 @@ std::string Path::ToVisualString(const char *relativeRoot) const {
 		return AndroidContentURI(path_).ToVisualString();
 #if PPSSPP_PLATFORM(WINDOWS)
 	} else if (type_ == PathType::NATIVE) {
+#if PPSSPP_PLATFORM(UWP) && !defined(__LIBRETRO__)
+		return GetPreviewPath(path_);
+#else
 		// It can be useful to show the path as relative to the memstick
 		if (relativeRoot) {
 			std::string root = ReplaceAll(relativeRoot, "/", "\\");
@@ -286,6 +293,7 @@ std::string Path::ToVisualString(const char *relativeRoot) const {
 		} else {
 			return ReplaceAll(path_, "/", "\\");
 		}
+#endif
 #else
 		if (relativeRoot) {
 			std::string root = relativeRoot;

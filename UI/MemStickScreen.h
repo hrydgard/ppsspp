@@ -83,7 +83,11 @@ private:
 	bool storageBrowserWorking_;
 	bool done_ = false;
 
+#if PPSSPP_PLATFORM(UWP) && !defined(__LIBRETRO__)
+	int choice_ = CHOICE_PRIVATE_DIRECTORY;
+#else
 	int choice_ = 0;
+#endif
 };
 
 class ProgressReporter {
@@ -129,7 +133,11 @@ private:
 
 	Path newMemstickFolder_;
 	bool existingFilesInNewFolder_;
+#if PPSSPP_PLATFORM(UWP) && !defined(__LIBRETRO__)
+	bool moveData_ = false;
+#else
 	bool moveData_ = true;
+#endif
 	bool initialSetup_;
 
 	ProgressReporter progressReporter_;

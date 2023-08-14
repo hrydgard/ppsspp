@@ -80,11 +80,20 @@ static bool SwitchMemstickFolderTo(Path newMemstickFolder) {
 	}
 
 	Path memStickDirFile = g_Config.internalDataDirectory / "memstick_dir.txt";
+#if PPSSPP_PLATFORM(UWP)
+	File::Delete(memStickDirFile);
+	if (newMemstickFolder != g_Config.internalDataDirectory) {
+#endif
+
 	std::string str = newMemstickFolder.ToString();
 	if (!File::WriteDataToFile(true, str.c_str(), (unsigned int)str.size(), memStickDirFile)) {
 		ERROR_LOG(SYSTEM, "Failed to write memstick path '%s' to '%s'", newMemstickFolder.c_str(), memStickDirFile.c_str());
 		// Not sure what to do if this file can't be written.  Disk full?
 	}
+
+#if PPSSPP_PLATFORM(UWP)
+	}
+#endif
 
 	// Save so the settings, at least, are transferred.
 	g_Config.memStickDirectory = newMemstickFolder;
@@ -126,7 +135,11 @@ MemStickScreen::MemStickScreen(bool initialSetup)
 		}
 	} else {
 		// Detect the current choice, so it's preselected in the UI.
+#if PPSSPP_PLATFORM(UWP)
+		if (g_Config.memStickDirectory == g_Config.internalDataDirectory) {
+#else
 		if (g_Config.memStickDirectory == Path(g_extFilesDir)) {
+#endif
 			choice_ = CHOICE_PRIVATE_DIRECTORY;
 		} else if (g_Config.memStickDirectory == Path(g_externalDir)) {
 			choice_ = CHOICE_STORAGE_ROOT;
@@ -166,16 +179,20 @@ static void AddExplanation(UI::ViewGroup *viewGroup, MemStickScreen::Choice choi
 	case MemStickScreen::CHOICE_BROWSE_FOLDER:
 		holder->Add(new TextView(iz->T("DataWillStay", "Data will stay even if you uninstall PPSSPP"), flags, false))->SetBullet(true);
 		holder->Add(new TextView(iz->T("DataCanBeShared", "Data can be shared between PPSSPP regular/Gold"), flags, false))->SetBullet(true);
+#if !PPSSPP_PLATFORM(UWP)
 		holder->Add(new TextView(iz->T("EasyUSBAccess", "Easy USB access"), flags, false))->SetBullet(true);
+#endif
 		break;
 	case MemStickScreen::CHOICE_PRIVATE_DIRECTORY:
 		// Consider https://www.compart.com/en/unicode/U+26A0 (unicode warning sign?)? or a graphic?
 		holder->Add(new TextView(iz->T("DataWillBeLostOnUninstall", "Warning! Data will be lost when you uninstall PPSSPP!"), flags, false))->SetBullet(true);
 		holder->Add(new TextView(iz->T("DataCannotBeShared", "Data CANNOT be shared between PPSSPP regular/Gold!"), flags, false))->SetBullet(true);
+#if !PPSSPP_PLATFORM(UWP)
 #if GOLD
 		holder->Add(new TextView(iz->T("USBAccessThroughGold", "USB access through Android/data/org.ppsspp.ppssppgold/files"), flags, false))->SetBullet(true);
 #else
 		holder->Add(new TextView(iz->T("USBAccessThrough", "USB access through Android/data/org.ppsspp.ppsspp/files"), flags, false))->SetBullet(true);
+#endif
 #endif
 		break;
 	case MemStickScreen::CHOICE_SET_MANUAL:
@@ -228,13 +245,14 @@ void MemStickScreen::CreateViews() {
 
 	// For legacy Android systems, so you can switch back to the old ways if you move to SD or something.
 	// Trying to avoid needing a scroll view, so only showing the explanation for one option at a time.
-
+#if !PPSSPP_PLATFORM(UWP)
 	if (!System_GetPropertyBool(SYSPROP_ANDROID_SCOPED_STORAGE)) {
 		leftColumn->Add(new RadioButton(&choice_, CHOICE_STORAGE_ROOT, iz->T("Use PSP folder at root of storage")))->OnClick.Handle(this, &MemStickScreen::OnChoiceClick);
 		if (choice_ == CHOICE_STORAGE_ROOT) {
 			AddExplanation(leftColumn, (MemStickScreen::Choice)choice_);
 		}
 	}
+#endif
 
 	if (storageBrowserWorking_) {
 		leftColumn->Add(new RadioButton(&choice_, CHOICE_BROWSE_FOLDER, iz->T("Create or Choose a PSP folder")))->OnClick.Handle(this, &MemStickScreen::OnChoiceClick);
@@ -258,6 +276,7 @@ void MemStickScreen::CreateViews() {
 	}
 
 	std::string privateString = iz->T("Use App Private Data");
+
 	if (initialSetup_) {
 		privateString = StringFromFormat("%s (%s)", iz->T("Skip for now"), privateString.c_str());
 	}
@@ -400,7 +419,11 @@ UI::EventReturn MemStickScreen::SetFolderManually(UI::EventParams &params) {
 }
 
 UI::EventReturn MemStickScreen::UseInternalStorage(UI::EventParams &params) {
+#if PPSSPP_PLATFORM(UWP)
+	Path pendingMemStickFolder = g_Config.internalDataDirectory;
+#else
 	Path pendingMemStickFolder = Path(g_extFilesDir);
+#endif
 
 	if (initialSetup_) {
 		// There's not gonna be any files here in this case since it's a fresh install.
@@ -578,6 +601,7 @@ void ConfirmMemstickMoveScreen::CreateViews() {
 
 	if (!oldMemstickFolder.empty()) {
 		std::string oldFreeSpaceText = std::string(iz->T("Free space")) + ": " + FormatSpaceString(freeSpaceOld);
+
 		rightColumn->Add(new TextView(std::string(iz->T("Current")) + ":", ALIGN_LEFT, false));
 		rightColumn->Add(new TextView(oldMemstickFolder.ToVisualString(), ALIGN_LEFT, false));
 		rightColumn->Add(new TextView(oldFreeSpaceText, ALIGN_LEFT, false));
