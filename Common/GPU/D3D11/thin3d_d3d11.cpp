@@ -438,7 +438,10 @@ void D3D11DrawContext::Present(PresentMode presentMode, int vblanks) {
 	if (presentMode != PresentMode::FIFO) {
 		interval = 0;
 	}
-	swapChain_->Present(interval, 0);
+	// Safety for libretro
+	if (swapChain_) {
+		swapChain_->Present(interval, 0);
+	}
 	curRenderTargetView_ = nullptr;
 	curDepthStencilView_ = nullptr;
 	frameCount_++;
