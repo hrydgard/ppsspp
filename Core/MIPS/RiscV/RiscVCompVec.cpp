@@ -297,7 +297,6 @@ void RiscVJitBackend::CompIR_VecPack(IRInst inst) {
 
 	switch (inst.op) {
 	case IROp::Vec2Unpack16To31:
-	case IROp::Vec2Unpack16To32:
 	case IROp::Vec4Pack32To8:
 	case IROp::Vec2Pack31To16:
 		CompIR_Generic(inst);
@@ -323,6 +322,23 @@ void RiscVJitBackend::CompIR_VecPack(IRInst inst) {
 			}
 			FMV(FMv::W, FMv::X, fpr.R(inst.dest + i), SCRATCH1);
 		}
+		break;
+
+	case IROp::Vec2Unpack16To32:
+		fpr.SpillLock(inst.src1);
+		for (int i = 0; i < 2; ++i)
+			fpr.SpillLock(inst.dest + i);
+		fpr.MapReg(inst.src1);
+		for (int i = 0; i < 2; ++i)
+			fpr.MapReg(inst.dest + i, MIPSMap::NOINIT);
+		fpr.ReleaseSpillLocksAndDiscardTemps();
+
+		FMV(FMv::X, FMv::W, SCRATCH2, fpr.R(inst.src1));
+		SLLI(SCRATCH1, SCRATCH2, 16);
+		FMV(FMv::W, FMv::X, fpr.R(inst.dest), SCRATCH1);
+		SRLI(SCRATCH1, SCRATCH2, 16);
+		SLLI(SCRATCH1, SCRATCH1, 16);
+		FMV(FMv::W, FMv::X, fpr.R(inst.dest + 1), SCRATCH1);
 		break;
 
 	case IROp::Vec4DuplicateUpperBitsAndShift1:
