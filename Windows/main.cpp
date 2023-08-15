@@ -301,6 +301,8 @@ static int ScreenRefreshRateHz() {
 	lpDevMode.dmSize = sizeof(DEVMODE);
 	lpDevMode.dmDriverExtra = 0;
 
+	// TODO: Use QueryDisplayConfig instead (Win7+) so we can get fractional refresh rates correctly.
+
 	if (EnumDisplaySettings(NULL, ENUM_CURRENT_SETTINGS, &lpDevMode) == 0) {
 		return 60;  // default value
 	} else {

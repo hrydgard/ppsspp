@@ -2,6 +2,8 @@
 
 #include "Common/GPU/thin3d.h"
 
+// See big comment in the CPP file.
+
 namespace Draw {
 class DrawContext;
 }
