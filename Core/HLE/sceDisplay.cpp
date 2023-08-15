@@ -442,7 +442,7 @@ static void DoFrameTiming(bool throttle, bool *skipFrame, float scaledTimestep) 
 #ifdef _WIN32
 				sleep_ms(1); // Sleep for 1ms on this thread
 #else
-				const double left = g_frameTiming.nextFrameTime - g_frameTiming.curFrameTime;
+				const double left = nextFrameTime - curFrameTime;
 				usleep((long)(left * 1000000));
 #endif
 			}
@@ -637,9 +637,13 @@ void __DisplayFlip(int cyclesLate) {
 	bool throttle = FrameTimingThrottled();
 	int fpsLimit = FrameTimingLimit();
 	float scaledTimestep = (float)numVBlanksSinceFlip * timePerVblank;
+	const bool fbReallyDirty = gpu->FramebufferReallyDirty();
 	if (fpsLimit > 0 && fpsLimit != framerate) {
 		scaledTimestep *= (float)framerate / fpsLimit;
 	}
+	bool skipFrame;
+	int maxFrameskip;
+	int frameSkipNum;
 
 	// If the ideal case, use the new timing path.
 	g_frameTiming.usePresentTiming = g_Config.iFrameSkip == 0 && !refreshRateNeedsSkip;
@@ -659,7 +663,6 @@ void __DisplayFlip(int cyclesLate) {
 	}
 
 	// Setting CORE_NEXTFRAME (which Core_NextFrame does) causes a swap.
-	const bool fbReallyDirty = gpu->FramebufferReallyDirty();
 	if (fbReallyDirty || noRecentFlip || postEffectRequiresFlip) {
 		// Check first though, might've just quit / been paused.
 		if (!forceNoFlip && Core_NextFrame()) {
@@ -674,11 +677,10 @@ void __DisplayFlip(int cyclesLate) {
 		gpuStats.numFlips++;
 	}
 
-	bool skipFrame;
 	DoFrameTiming(throttle, &skipFrame, scaledTimestep);
 
-	int maxFrameskip = 8;
-	int frameSkipNum = DisplayCalculateFrameSkip();
+	maxFrameskip = 8;
+	frameSkipNum = DisplayCalculateFrameSkip();
 	if (throttle) {
 		// 4 here means 1 drawn, 4 skipped - so 12 fps minimum.
 		maxFrameskip = frameSkipNum;

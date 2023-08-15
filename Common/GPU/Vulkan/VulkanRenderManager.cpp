@@ -248,7 +248,7 @@ bool VKRComputePipeline::CreateAsync(VulkanContext *vulkan) {
 	return true;
 }
 
-VulkanRenderManager::VulkanRenderManager(VulkanContext *vulkan, bool useThread, HistoryBuffer<FrameTimeData, FRAME_TIME_HISTORY_LENGTH> &frameTimeHistory)
+VulkanRenderManager::VulkanRenderManager(VulkanContext *vulkan, bool useThread, FrameHistoryBuffer &frameTimeHistory)
 	: vulkan_(vulkan), queueRunner_(vulkan),
 	initTimeMs_("initTimeMs"),
 	totalGPUTimeMs_("totalGPUTimeMs"),

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Common/Common.h"
+#include "Common/Data/Collections/FastVec.h"
 
 // Flags and structs shared between backends that haven't found a good home.
 
@@ -34,4 +35,6 @@ struct FrameTimeData {
 	double earliestPresentTime;
 	double presentMargin;
 };
+
 constexpr size_t FRAME_TIME_HISTORY_LENGTH = 32;
+typedef HistoryBuffer<FrameTimeData, FRAME_TIME_HISTORY_LENGTH> FrameHistoryBuffer;

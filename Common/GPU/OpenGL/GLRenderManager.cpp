@@ -37,7 +37,7 @@ GLRTexture::~GLRTexture() {
 	}
 }
 
-GLRenderManager::GLRenderManager(HistoryBuffer<FrameTimeData, FRAME_TIME_HISTORY_LENGTH> &frameTimeHistory) : frameTimeHistory_(frameTimeHistory) {
+GLRenderManager::GLRenderManager(FrameHistoryBuffer &frameTimeHistory) : frameTimeHistory_(frameTimeHistory) {
 	// size_t sz = sizeof(GLRRenderData);
 	// _dbg_assert_(sz == 88);
 }

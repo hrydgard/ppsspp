@@ -96,8 +96,26 @@ Draw::PresentMode ComputePresentMode(Draw::DrawContext *draw, int *interval) {
 	return mode;
 }
 
-void FrameTiming::BeforeCPUSlice() {
+void FrameTiming::BeforeCPUSlice(const FrameHistoryBuffer &frameHistory) {
 	cpuSliceStartTime = time_now_d();
+
+	// Here we can examine the frame history for anomalies to correct.
+	nudge_ = 0.0;
+
+	const FrameTimeData &oldData = frameHistory[3];
+	if (oldData.queuePresent == 0.0) {
+		// No data to look at.
+		return;
+	}
+
+	if (oldData.afterFenceWait - oldData.frameBegin > 0.001) {
+		nudge_ = (oldData.afterFenceWait - oldData.frameBegin) * 0.1;
+	}
+
+	if (oldData.firstSubmit - oldData.afterFenceWait > cpuTime) {
+		// Not sure how this grows so large sometimes.
+		nudge_ = (oldData.firstSubmit - oldData.afterFenceWait - cpuTime) * 0.1;
+	}
 }
 
 void FrameTiming::SetTimeStep(float scaledTimeStep) {
@@ -106,9 +124,9 @@ void FrameTiming::SetTimeStep(float scaledTimeStep) {
 	double now = time_now_d();
 
 	cpuTime = now - cpuSliceStartTime;
-	this->timeStep = scaledTimeStep + nudge_;
+	this->timeStep = scaledTimeStep;
 
-	// Sync up lastPresentTime with the current time if it's way off.
+	// Sync up lastPresentTime with the current time if it's way off. TODO: This should probably drift.
 	if (lastPresentTime < now - 0.5f) {
 		lastPresentTime = now;
 	}
@@ -128,7 +146,7 @@ void FrameTiming::BeforePresent() {
 		return;
 
 	// Wait until we hit the next present time. Ideally we'll be fairly close here due to the previous AfterPresent wait.
-	nextPresentTime = lastPresentTime + this->timeStep;
+	nextPresentTime = lastPresentTime + this->timeStep + nudge_;
 	while (true) {
 		double remaining = nextPresentTime - time_now_d();
 		if (remaining <= 0.0)

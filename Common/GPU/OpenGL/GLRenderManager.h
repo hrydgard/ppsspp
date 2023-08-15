@@ -227,7 +227,7 @@ struct GLRRenderThreadTask {
 // directly in the destructor.
 class GLRenderManager {
 public:
-	GLRenderManager(HistoryBuffer<FrameTimeData, FRAME_TIME_HISTORY_LENGTH> &frameTimeHistory);
+	GLRenderManager(FrameHistoryBuffer &frameTimeHistory);
 	~GLRenderManager();
 
 	GLRenderManager(GLRenderManager &) = delete;
@@ -912,5 +912,5 @@ private:
 	InvalidationCallback invalidationCallback_;
 
 	uint64_t frameIdGen_ = FRAME_TIME_HISTORY_LENGTH;
-	HistoryBuffer<FrameTimeData, FRAME_TIME_HISTORY_LENGTH> &frameTimeHistory_;
+	FrameHistoryBuffer &frameTimeHistory_;
 };

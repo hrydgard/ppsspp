@@ -115,12 +115,13 @@ static void DrawFrameTiming(UIContext *ctx, const Bounds &bounds) {
 	ctx->Draw()->SetFontScale(0.5f, 0.5f);
 
 	snprintf(statBuf, sizeof(statBuf),
-		"Mode (interval): %s (%d)"
+		"Mode (interval): %s (%d) (%s)\n"
 		"CPU time: %0.1fms\n"
 		"Timestep: %0.1fms\n"
 		"Postsleep: %0.1fms\n",
 		Draw::PresentModeToString(g_frameTiming.presentMode),
 		g_frameTiming.presentInterval,
+		g_frameTiming.usePresentTiming ? "new" : "old",
 		g_frameTiming.cpuTime * 1000.0,
 		g_frameTiming.timeStep * 1000.0,
 		g_frameTiming.postSleep * 1000.0

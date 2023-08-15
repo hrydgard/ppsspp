@@ -27,7 +27,7 @@ public:
 
 	void Reset(Draw::DrawContext *draw);
 
-	void BeforeCPUSlice();
+	void BeforeCPUSlice(const FrameHistoryBuffer &frameHistory);
 	void SetTimeStep(float scaledTimeStep);
 	void AfterCPUSlice();
 	void BeforePresent();

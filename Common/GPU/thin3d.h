@@ -858,12 +858,12 @@ public:
 		return "";
 	}
 
-	const HistoryBuffer<FrameTimeData, FRAME_TIME_HISTORY_LENGTH> &FrameTimeHistory() const {
+	const FrameHistoryBuffer &FrameTimeHistory() const {
 		return frameTimeHistory_;
 	}
 
 protected:
-	HistoryBuffer<FrameTimeData, FRAME_TIME_HISTORY_LENGTH> frameTimeHistory_;
+	FrameHistoryBuffer frameTimeHistory_;
 
 	ShaderModule *vsPresets_[VS_MAX_PRESET];
 	ShaderModule *fsPresets_[FS_MAX_PRESET];

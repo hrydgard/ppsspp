@@ -1164,7 +1164,7 @@ void NativeFrame(GraphicsContext *graphicsContext) {
 
 	g_screenManager->getUIContext()->SetTintSaturation(g_Config.fUITint, g_Config.fUISaturation);
 
-	g_frameTiming.BeforeCPUSlice();
+	g_frameTiming.BeforeCPUSlice(g_draw->FrameTimeHistory());
 	// All actual rendering happen in here.
 	g_screenManager->render();
 	if (g_screenManager->getUIContext()->Text()) {
