@@ -454,6 +454,7 @@ static void DoFrameTiming(bool throttle, bool *skipFrame, float scaledTimestep) 
 	wasPaused = false;
 }
 
+// This is used even with the old timing method, for now.
 static void DoFrameIdleTiming() {
 	PROFILE_THIS_SCOPE("timing");
 	if (!FrameTimingThrottled() || !g_Config.bEnableSound || wasPaused) {
@@ -602,6 +603,7 @@ void __DisplayFlip(int cyclesLate) {
 
 	bool needFlip = fbDirty || noRecentFlip || postEffectRequiresFlip;
 	if (!needFlip) {
+		// TODO: Maybe ignore this path and flip anyway, unless Skip Buffer Effects is on?
 		// Okay, there's no new frame to draw, game might be sitting in a static loading screen
 		// or similar, and not long enough to trigger noRecentFlip. But audio may be playing, so we need to time still.
 		DoFrameIdleTiming();
@@ -617,8 +619,9 @@ void __DisplayFlip(int cyclesLate) {
 
 	bool forceNoFlip = false;
 	float refreshRate = System_GetPropertyFloat(SYSPROP_DISPLAY_REFRESH_RATE);
+	float frameTimingLimit = FrameTimingLimit();
 	// Avoid skipping on devices that have 58 or 59 FPS, except when alternate speed is set.
-	bool refreshRateNeedsSkip = FrameTimingLimit() != framerate && FrameTimingLimit() > refreshRate;
+	bool refreshRateNeedsSkip = frameTimingLimit != framerate && frameTimingLimit > refreshRate;
 	// Alternative to frameskip fast-forward, where we draw everything.
 	// Useful if skipping a frame breaks graphics or for checking drawing speed.
 	if (fastForwardSkipFlip && (!FrameTimingThrottled() || refreshRateNeedsSkip)) {
@@ -628,6 +631,30 @@ void __DisplayFlip(int cyclesLate) {
 			forceNoFlip = true;
 		} else {
 			lastFlip = now;
+		}
+	}
+
+	bool throttle = FrameTimingThrottled();
+	int fpsLimit = FrameTimingLimit();
+	float scaledTimestep = (float)numVBlanksSinceFlip * timePerVblank;
+	if (fpsLimit > 0 && fpsLimit != framerate) {
+		scaledTimestep *= (float)framerate / fpsLimit;
+	}
+
+	// If the ideal case, use the new timing path.
+	g_frameTiming.usePresentTiming = g_Config.iFrameSkip == 0 && !refreshRateNeedsSkip;
+
+	if (g_frameTiming.usePresentTiming) {
+		if (Core_NextFrame()) {
+			gpu->CopyDisplayToOutput(true);
+			DisplayFireActualFlip();
+			g_frameTiming.EndOfCPUSlice(scaledTimestep);
+			gpuStats.numFlips++;
+			goto finishUp;
+		} else {
+			// This should only happen if we're stepping in the debugger.
+			// Go to the old path.
+			g_frameTiming.usePresentTiming = false;
 		}
 	}
 
@@ -647,13 +674,6 @@ void __DisplayFlip(int cyclesLate) {
 		gpuStats.numFlips++;
 	}
 
-	bool throttle = FrameTimingThrottled();
-
-	int fpsLimit = FrameTimingLimit();
-	float scaledTimestep = (float)numVBlanksSinceFlip * timePerVblank;
-	if (fpsLimit > 0 && fpsLimit != framerate) {
-		scaledTimestep *= (float)framerate / fpsLimit;
-	}
 	bool skipFrame;
 	DoFrameTiming(throttle, &skipFrame, scaledTimestep);
 
@@ -679,6 +699,8 @@ void __DisplayFlip(int cyclesLate) {
 	// Returning here with coreState == CORE_NEXTFRAME causes a buffer flip to happen (next frame).
 	// Right after, we regain control for a little bit in hleAfterFlip. I think that's a great
 	// place to do housekeeping.
+
+finishUp:
 
 	CoreTiming::ScheduleEvent(0 - cyclesLate, afterFlipEvent, 0);
 	numVBlanksSinceFlip = 0;

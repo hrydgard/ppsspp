@@ -13,7 +13,23 @@ struct FrameTiming {
 	Draw::PresentMode presentMode;
 	int presentInterval;
 
+	// The new timing method.
+	bool usePresentTiming;
+
+	double cpuSliceStartTime;
+	double cpuTime;
+	double timeStep;
+	double postSleep;
+
+	double lastPresentTime;
+	double nextPresentTime;
+
 	void Reset(Draw::DrawContext *draw);
+
+	void BeforeCPUSlice();
+	void EndOfCPUSlice(float scaledTimeStep);
+	void BeforePresent();
+	void AfterPresent();
 };
 
 extern FrameTiming g_frameTiming;

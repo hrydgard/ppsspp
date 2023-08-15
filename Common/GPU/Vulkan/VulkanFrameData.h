@@ -8,6 +8,8 @@
 #include "Common/GPU/Vulkan/VulkanContext.h"
 #include "Common/Data/Collections/Hashmaps.h"
 
+#define USE_PRESENT_WAIT 0
+
 enum {
 	MAX_TIMESTAMP_QUERIES = 128,
 };
@@ -29,6 +31,7 @@ struct QueueProfileContext {
 	double cpuEndTime;
 	double descWriteTime;
 };
+
 
 class VKRFramebuffer;
 

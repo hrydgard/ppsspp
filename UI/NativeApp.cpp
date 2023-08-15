@@ -1165,6 +1165,7 @@ void NativeFrame(GraphicsContext *graphicsContext) {
 	g_screenManager->getUIContext()->SetTintSaturation(g_Config.fUITint, g_Config.fUISaturation);
 
 	// All actual rendering happen in here.
+	g_frameTiming.BeforeCPUSlice();
 	g_screenManager->render();
 	if (g_screenManager->getUIContext()->Text()) {
 		g_screenManager->getUIContext()->Text()->OncePerFrame();
@@ -1175,13 +1176,14 @@ void NativeFrame(GraphicsContext *graphicsContext) {
 
 	g_draw->EndFrame();
 
-	// This, between EndFrame and Present, is where we should actually wait to do present time management.
-	// There might not be a meaningful distinction here for all backends..
-
 	if (renderCounter < 10 && ++renderCounter == 10) {
 		// We're rendering fine, clear out failure info.
 		ClearFailedGPUBackends();
 	}
+
+	// This, between EndFrame and Present, is where we should actually wait to do present time management.
+	// There might not be a meaningful distinction here for all backends..
+	g_frameTiming.BeforePresent();
 
 	int interval;
 	Draw::PresentMode presentMode = ComputePresentMode(g_draw, &interval);
@@ -1218,6 +1220,9 @@ void NativeFrame(GraphicsContext *graphicsContext) {
 		// INFO_LOG(G3D, "Polling graphics context");
 		graphicsContext->Poll();
 	}
+
+	// TODO: Possibly this should move elsewhere, depending on the platform.
+	g_frameTiming.AfterPresent();
 }
 
 void HandleGlobalMessage(const std::string &msg, const std::string &value) {

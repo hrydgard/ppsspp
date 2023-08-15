@@ -94,3 +94,51 @@ Draw::PresentMode ComputePresentMode(Draw::DrawContext *draw, int *interval) {
 	*interval = (mode == Draw::PresentMode::FIFO) ? 1 : 0;
 	return mode;
 }
+
+void FrameTiming::BeforeCPUSlice() {
+	cpuSliceStartTime = time_now_d();
+}
+
+void FrameTiming::EndOfCPUSlice(float scaledTimeStep) {
+	_dbg_assert_(usePresentTiming);
+
+	double now = time_now_d();
+
+	cpuTime = now - cpuSliceStartTime;
+	this->timeStep = scaledTimeStep;
+
+	// Sync up lastPresentTime with the current time if it's way off.
+	if (lastPresentTime < now - 0.5f) {
+		lastPresentTime = now;
+	}
+}
+
+void FrameTiming::BeforePresent() {
+	if (!usePresentTiming)
+		return;
+
+	// Wait until we hit the next present time. Ideally we'll be fairly close here due to the previous AfterPresent wait.
+	nextPresentTime = lastPresentTime + this->timeStep;
+	while (true) {
+		double remaining = nextPresentTime - time_now_d();
+		if (remaining <= 0.0)
+			break;
+		sleep_s(remaining);
+	}
+
+	lastPresentTime = nextPresentTime;
+}
+
+void FrameTiming::AfterPresent() {
+	// Sleep slightly less time than all of the available room, in case of a CPU spike.
+	// This should be a tweakable.
+	const double margin = 2.0 * 0.001;  // 4 ms
+	postSleep = this->timeStep - margin - cpuTime;
+
+	if (postSleep > 0.0) {
+		sleep_s(postSleep);
+	}
+
+	if (!usePresentTiming)
+		return;
+}

@@ -16,6 +16,10 @@ double from_time_raw_relative(uint64_t raw_time);
 // Sleep. Does not necessarily have millisecond granularity, especially on Windows.
 void sleep_ms(int ms);
 
+// Sleep with floating point second wait. Can have higher precision than millisections if the
+// platform supports it.
+void sleep_s(double ms);
+
 // Yield. Signals that this thread is busy-waiting but wants to allow other hyperthreads to run.
 void yield();
 

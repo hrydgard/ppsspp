@@ -149,6 +149,14 @@ void sleep_ms(int ms) {
 #endif
 }
 
+void sleep_s(double s) {
+#if defined(_WIN32) || defined(__EMSCRIPTEN__) || defined(HAVE_LIBNX)
+	sleep_ms((int)(s * 1000.0));
+#else
+	usleep((int)(s * 1000000));
+#endif
+}
+
 // Return the current time formatted as Minutes:Seconds:Milliseconds
 // in the form 00:00:000.
 void GetTimeFormatted(char formattedTime[13]) {

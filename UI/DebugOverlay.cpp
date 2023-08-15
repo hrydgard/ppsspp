@@ -115,9 +115,16 @@ static void DrawFrameTiming(UIContext *ctx, const Bounds &bounds) {
 	ctx->Draw()->SetFontScale(0.5f, 0.5f);
 
 	snprintf(statBuf, sizeof(statBuf),
-		"Mode (interval): %s (%d)",
+		"Mode (interval): %s (%d)"
+		"CPU time: %0.1fms\n"
+		"Timestep: %0.1fms\n"
+		"Postsleep: %0.1fms\n",
 		Draw::PresentModeToString(g_frameTiming.presentMode),
-		g_frameTiming.presentInterval);
+		g_frameTiming.presentInterval,
+		g_frameTiming.cpuTime * 1000.0,
+		g_frameTiming.timeStep * 1000.0,
+		g_frameTiming.postSleep * 1000.0
+	);
 
 	ctx->Draw()->DrawTextRect(ubuntu24, statBuf, bounds.x + 10, bounds.y + 50, bounds.w - 20, bounds.h - 30, 0xFFFFFFFF, FLAG_DYNAMIC_ASCII);
 
