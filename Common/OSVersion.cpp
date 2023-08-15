@@ -48,6 +48,17 @@ bool GetVersionFromKernel32(uint32_t &major, uint32_t &minor, uint32_t &build) {
 
 bool DoesVersionMatchWindows(uint32_t major, uint32_t minor, uint32_t spMajor, uint32_t spMinor, bool greater) {
 #if !PPSSPP_PLATFORM(UWP)
+	if (spMajor == 0 && spMinor == 0) {
+		// "Applications not manifested for Windows 10 will return the Windows 8 OS version value (6.2)."
+		// Try to use kernel32.dll instead, for Windows 10+.  Doesn't do SP versions.
+		uint32_t actualMajor, actualMinor, actualBuild;
+		if (GetVersionFromKernel32(actualMajor, actualMinor, actualBuild)) {
+			if (greater)
+				return actualMajor > major || (major == actualMajor && actualMinor >= minor);
+			return major == actualMajor && minor == actualMinor;
+		}
+	}
+
 	uint64_t conditionMask = 0;
 	OSVERSIONINFOEX osvi;
 	ZeroMemory(&osvi, sizeof(OSVERSIONINFOEX));
@@ -75,6 +86,9 @@ bool DoesVersionMatchWindows(uint32_t major, uint32_t minor, uint32_t spMajor, u
 	return VerifyVersionInfo(&osvi, typeMask, conditionMask) != FALSE;
 
 #else
+	if (greater) {
+		return true;
+	}
 	return false;
 #endif
 }
