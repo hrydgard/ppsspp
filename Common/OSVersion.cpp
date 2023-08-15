@@ -128,21 +128,13 @@ bool DoesVersionMatchWindows(WindowsReleaseInfo release) {
 }
 
 bool IsVistaOrHigher() {
-#if PPSSPP_PLATFORM(UWP)
-	return true;
-#else
 	// Vista is 6.0
 	return DoesVersionMatchWindows(6, 0, 0, 0, true);
-#endif
 }
 
 bool IsWin7OrHigher() {
-#if PPSSPP_PLATFORM(UWP)
-	return true;
-#else
 	// Win7 is 6.1
-	return DoesVersionMatchWindows(6, 0, 0, 0, true);
-#endif
+	return DoesVersionMatchWindows(6, 1, 0, 0, true);
 }
 
 std::string GetWindowsVersion() {
