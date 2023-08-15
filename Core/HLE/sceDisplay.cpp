@@ -442,7 +442,7 @@ static void DoFrameTiming(bool throttle, bool *skipFrame, float scaledTimestep) 
 #ifdef _WIN32
 				sleep_ms(1); // Sleep for 1ms on this thread
 #else
-				const double left = nextFrameTime - curFrameTime;
+				const double left = g_frameTiming.nextFrameTime - g_frameTiming.curFrameTime;
 				usleep((long)(left * 1000000));
 #endif
 			}
