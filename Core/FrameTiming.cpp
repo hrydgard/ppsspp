@@ -48,6 +48,7 @@ void FrameTiming::Reset(Draw::DrawContext *draw) {
 		presentMode = GetBestImmediateMode(draw->GetDeviceCaps().presentModesSupported);
 		presentInterval = 0;
 	}
+	setTimestepCalled_ = false;
 }
 
 Draw::PresentMode ComputePresentMode(Draw::DrawContext *draw, int *interval) {
@@ -99,17 +100,26 @@ void FrameTiming::BeforeCPUSlice() {
 	cpuSliceStartTime = time_now_d();
 }
 
-void FrameTiming::EndOfCPUSlice(float scaledTimeStep) {
+void FrameTiming::SetTimeStep(float scaledTimeStep) {
 	_dbg_assert_(usePresentTiming);
 
 	double now = time_now_d();
 
 	cpuTime = now - cpuSliceStartTime;
-	this->timeStep = scaledTimeStep;
+	this->timeStep = scaledTimeStep + nudge_;
 
 	// Sync up lastPresentTime with the current time if it's way off.
 	if (lastPresentTime < now - 0.5f) {
 		lastPresentTime = now;
+	}
+	setTimestepCalled_ = true;
+}
+
+void FrameTiming::AfterCPUSlice() {
+	if (!setTimestepCalled_) {
+		// We're in the menu or something.
+		usePresentTiming = true;
+		SetTimeStep(1.0f / 60.0f);
 	}
 }
 

@@ -1164,12 +1164,13 @@ void NativeFrame(GraphicsContext *graphicsContext) {
 
 	g_screenManager->getUIContext()->SetTintSaturation(g_Config.fUITint, g_Config.fUISaturation);
 
-	// All actual rendering happen in here.
 	g_frameTiming.BeforeCPUSlice();
+	// All actual rendering happen in here.
 	g_screenManager->render();
 	if (g_screenManager->getUIContext()->Text()) {
 		g_screenManager->getUIContext()->Text()->OncePerFrame();
 	}
+	g_frameTiming.AfterCPUSlice();
 
 	ui_draw2d.PopDrawMatrix();
 	ui_draw2d_front.PopDrawMatrix();

@@ -648,7 +648,7 @@ void __DisplayFlip(int cyclesLate) {
 		if (Core_NextFrame()) {
 			gpu->CopyDisplayToOutput(true);
 			DisplayFireActualFlip();
-			g_frameTiming.EndOfCPUSlice(scaledTimestep);
+			g_frameTiming.SetTimeStep(scaledTimestep);
 			gpuStats.numFlips++;
 			goto finishUp;
 		} else {

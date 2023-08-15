@@ -306,9 +306,11 @@ bool VulkanRenderManager::CreateBackbuffers() {
 		INFO_LOG(G3D, "Starting Vulkan compiler thread");
 		compileThread_ = std::thread(&VulkanRenderManager::CompileThreadFunc, this);
 
-		if (USE_PRESENT_WAIT && vulkan_->Extensions().KHR_present_wait && vulkan_->GetPresentMode() == VK_PRESENT_MODE_FIFO_KHR) {
-			INFO_LOG(G3D, "Starting Vulkan present wait thread");
-			presentWaitThread_ = std::thread(&VulkanRenderManager::PresentWaitThreadFunc, this);
+		if (USE_PRESENT_WAIT) {
+			if (vulkan_->Extensions().KHR_present_wait && vulkan_->GetPresentMode() == VK_PRESENT_MODE_FIFO_KHR) {
+				INFO_LOG(G3D, "Starting Vulkan present wait thread");
+				presentWaitThread_ = std::thread(&VulkanRenderManager::PresentWaitThreadFunc, this);
+			}
 		}
 	}
 	return true;

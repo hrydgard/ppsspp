@@ -8,7 +8,8 @@ namespace Draw {
 class DrawContext;
 }
 
-struct FrameTiming {
+class FrameTiming {
+public:
 	// Some backends won't allow changing this willy nilly.
 	Draw::PresentMode presentMode;
 	int presentInterval;
@@ -27,9 +28,14 @@ struct FrameTiming {
 	void Reset(Draw::DrawContext *draw);
 
 	void BeforeCPUSlice();
-	void EndOfCPUSlice(float scaledTimeStep);
+	void SetTimeStep(float scaledTimeStep);
+	void AfterCPUSlice();
 	void BeforePresent();
 	void AfterPresent();
+
+private:
+	bool setTimestepCalled_ = false;
+	double nudge_ = 0.0;
 };
 
 extern FrameTiming g_frameTiming;
