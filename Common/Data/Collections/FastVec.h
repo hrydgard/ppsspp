@@ -161,7 +161,9 @@ template <class T, size_t size>
 class HistoryBuffer {
 public:
 	T &Add(size_t index) {
+#ifdef _DEBUG
 		_dbg_assert_((int64_t)index >= 0);
+#endif
 		if (index > maxIndex_)
 			maxIndex_ = index;
 		T &entry = data_[index % size];
@@ -170,17 +172,23 @@ public:
 	}
 
 	const T &Back(size_t index) const {
+#ifdef _DEBUG
 		_dbg_assert_(index < maxIndex_ && index < size);
+#endif
 		return data_[(maxIndex_ - index) % size];
 	}
 
 	// Out of bounds (past size() - 1) is undefined behavior.
 	T &operator[] (const size_t index) {
+#ifdef _DEBUG
 		_dbg_assert_(index <= maxIndex_);
+#endif
 		return data_[index % size];
 	}
 	const T &operator[] (const size_t index) const {
+#ifdef _DEBUG
 		_dbg_assert_(index <= maxIndex_);
+#endif
 		return data_[index % size];
 	}
 	size_t MaxIndex() const {

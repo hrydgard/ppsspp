@@ -542,7 +542,7 @@ static bool HasIntelDualSrcBug(const int versions[4]) {
 	}
 }
 
-OpenGLContext::OpenGLContext(bool canChangeSwapInterval) {
+OpenGLContext::OpenGLContext(bool canChangeSwapInterval) : renderManager_(frameTimeHistory_) {
 	if (gl_extensions.IsGLES) {
 		if (gl_extensions.OES_packed_depth_stencil || gl_extensions.OES_depth24) {
 			caps_.preferredDepthBufferFormat = DataFormat::D24_S8;

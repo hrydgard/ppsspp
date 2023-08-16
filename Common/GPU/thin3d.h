@@ -817,7 +817,7 @@ public:
 	virtual void DrawUP(const void *vdata, int vertexCount) = 0;
 	
 	// Frame management (for the purposes of sync and resource management, necessary with modern APIs). Default implementations here.
-	virtual void BeginFrame(DebugFlags debugFlags) {}
+	virtual void BeginFrame(DebugFlags debugFlags) = 0;
 	virtual void EndFrame() = 0;
 
 	// vblanks is only relevant in FIFO present mode.

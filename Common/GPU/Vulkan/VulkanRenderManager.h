@@ -541,6 +541,6 @@ private:
 
 	std::function<void(InvalidationCallbackFlags)> invalidationCallback_;
 
-	uint64_t frameIdGen_ = 31;
-	HistoryBuffer<FrameTimeData, 32> &frameTimeHistory_;
+	uint64_t frameIdGen_ = FRAME_TIME_HISTORY_LENGTH;
+	HistoryBuffer<FrameTimeData, FRAME_TIME_HISTORY_LENGTH> &frameTimeHistory_;
 };

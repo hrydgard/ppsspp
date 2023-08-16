@@ -37,7 +37,7 @@ GLRTexture::~GLRTexture() {
 	}
 }
 
-GLRenderManager::GLRenderManager() {
+GLRenderManager::GLRenderManager(HistoryBuffer<FrameTimeData, FRAME_TIME_HISTORY_LENGTH> &frameTimeHistory) : frameTimeHistory_(frameTimeHistory) {
 	// size_t sz = sizeof(GLRRenderData);
 	// _dbg_assert_(sz == 88);
 }
@@ -350,9 +350,15 @@ void GLRenderManager::BeginFrame(bool enableProfiling) {
 
 	int curFrame = GetCurFrame();
 
+	FrameTimeData &frameTimeData = frameTimeHistory_.Add(frameIdGen_);
+	frameTimeData.frameBegin = time_now_d();
+	frameTimeData.afterFenceWait = frameTimeData.frameBegin;
+
 	GLFrameData &frameData = frameData_[curFrame];
+	frameData.frameId = frameIdGen_;
 	frameData.profile.enabled = enableProfiling;
 
+	frameIdGen_++;
 	{
 		std::unique_lock<std::mutex> lock(frameData.fenceMutex);
 		VLOG("PUSH: BeginFrame (curFrame = %d, readyForFence = %d, time=%0.3f)", curFrame, (int)frameData.readyForFence, time_now_d());
@@ -374,6 +380,8 @@ void GLRenderManager::Finish() {
 
 	int curFrame = curFrame_;
 	GLFrameData &frameData = frameData_[curFrame];
+
+	frameTimeHistory_[frameData.frameId].firstSubmit = time_now_d();
 
 	frameData_[curFrame].deleter.Take(deleter_);
 
@@ -434,6 +442,7 @@ bool GLRenderManager::Run(GLRRenderThreadTask &task) {
 	if (task.runType == GLRRunType::PRESENT) {
 		bool swapRequest = false;
 		if (!frameData.skipSwap) {
+			frameTimeHistory_[frameData.frameId].queuePresent = time_now_d();
 			if (swapIntervalChanged_) {
 				swapIntervalChanged_ = false;
 				if (swapIntervalFunction_) {
