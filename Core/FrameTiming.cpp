@@ -133,6 +133,11 @@ void FrameTiming::SetTimeStep(float scaledTimeStep) {
 	setTimestepCalled_ = true;
 }
 
+void FrameTiming::DontUse() {
+	usePresentTiming = false;
+	setTimestepCalled_ = true;
+}
+
 void FrameTiming::AfterCPUSlice() {
 	if (!setTimestepCalled_) {
 		// We're in the menu or something.
@@ -147,17 +152,17 @@ void FrameTiming::BeforePresent() {
 
 	// Wait until we hit the next present time. Ideally we'll be fairly close here due to the previous AfterPresent wait.
 	nextPresentTime = lastPresentTime + this->timeStep + nudge_;
-	while (true) {
-		double remaining = nextPresentTime - time_now_d();
-		if (remaining <= 0.0)
-			break;
-		sleep_s(remaining);
-	}
+	// Not sure we need the while loop.
+	double remaining = nextPresentTime - time_now_d();
+	sleep_s(remaining);
 
 	lastPresentTime = nextPresentTime;
 }
 
 void FrameTiming::AfterPresent() {
+	if (!usePresentTiming)
+		return;
+
 	// Sleep slightly less time than all of the available room, in case of a CPU spike.
 	// This should be a tweakable.
 	const double margin = 2.0 * 0.001;  // 4 ms
@@ -166,7 +171,4 @@ void FrameTiming::AfterPresent() {
 	if (postSleep > 0.0) {
 		sleep_s(postSleep);
 	}
-
-	if (!usePresentTiming)
-		return;
 }

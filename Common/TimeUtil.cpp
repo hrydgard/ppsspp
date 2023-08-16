@@ -150,6 +150,8 @@ void sleep_ms(int ms) {
 }
 
 void sleep_s(double s) {
+	if (s <= 0.0)
+		return;
 #if defined(_WIN32) || defined(__EMSCRIPTEN__) || defined(HAVE_LIBNX)
 	sleep_ms((int)(s * 1000.0));
 #else

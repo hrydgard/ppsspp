@@ -646,7 +646,7 @@ void __DisplayFlip(int cyclesLate) {
 	int frameSkipNum;
 
 	// If the ideal case, use the new timing path.
-	g_frameTiming.usePresentTiming = g_Config.iFrameSkip == 0 && !refreshRateNeedsSkip;
+	g_frameTiming.usePresentTiming = g_Config.iFrameSkip == 0 && !refreshRateNeedsSkip && throttle;
 
 	if (g_frameTiming.usePresentTiming) {
 		if (Core_NextFrame()) {
@@ -657,10 +657,11 @@ void __DisplayFlip(int cyclesLate) {
 			goto finishUp;
 		} else {
 			// This should only happen if we're stepping in the debugger.
-			// Go to the old path.
-			g_frameTiming.usePresentTiming = false;
+			// Fall through to the old path.
 		}
 	}
+
+	g_frameTiming.DontUse();
 
 	// Setting CORE_NEXTFRAME (which Core_NextFrame does) causes a swap.
 	if (fbReallyDirty || noRecentFlip || postEffectRequiresFlip) {

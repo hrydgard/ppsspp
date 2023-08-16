@@ -471,7 +471,7 @@ public:
 
 	// Volatile development settings
 	// Overlays
-	int iDebugOverlay;
+	int iDebugOverlay;  // enum DebugOverlay
 
 	bool bGpuLogProfiler; // Controls the Vulkan logging profiler (profiles textures uploads etc).
 

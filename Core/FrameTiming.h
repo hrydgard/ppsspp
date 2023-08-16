@@ -29,6 +29,7 @@ public:
 
 	void BeforeCPUSlice(const FrameHistoryBuffer &frameHistory);
 	void SetTimeStep(float scaledTimeStep);
+	void DontUse();
 	void AfterCPUSlice();
 	void BeforePresent();
 	void AfterPresent();

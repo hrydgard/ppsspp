@@ -108,7 +108,7 @@ static void DrawFrameTimes(UIContext *ctx, const Bounds &bounds) {
 static void DrawFrameTiming(UIContext *ctx, const Bounds &bounds) {
 	FontID ubuntu24("UBUNTU24");
 
-	char statBuf[1024]{};
+	char statBuf[2048]{};
 
 	ctx->Flush();
 	ctx->BindFontTexture();
@@ -174,6 +174,12 @@ static void DrawFrameTiming(UIContext *ctx, const Bounds &bounds) {
 		}
 		ctx->Draw()->DrawTextRect(ubuntu24, statBuf, bounds.x + 10 + i * 150, bounds.y + 150, bounds.w - 20, bounds.h - 30, 0xFFFFFFFF, FLAG_DYNAMIC_ASCII);
 	}
+
+	// Also draw audio stats, because they're quite relevant.
+
+	System_AudioGetDebugStats(statBuf, sizeof(statBuf));
+	ctx->Draw()->DrawTextRect(ubuntu24, statBuf, bounds.x + 10, bounds.y + 360, bounds.w - 20, bounds.h - 30, 0xFFFFFFFF, FLAG_DYNAMIC_ASCII);
+
 	ctx->Draw()->SetFontScale(1.0f, 1.0f);
 	ctx->Flush();
 	ctx->RebindTexture();
