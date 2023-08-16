@@ -309,7 +309,6 @@ void RiscVJitBackend::CompIR_VecPack(IRInst inst) {
 		fpr.MapReg(inst.src1);
 		for (int i = 0; i < 4; ++i)
 			fpr.MapReg(inst.dest + i, MIPSMap::NOINIT);
-		fpr.ReleaseSpillLocksAndDiscardTemps();
 
 		FMV(FMv::X, FMv::W, SCRATCH2, fpr.R(inst.src1));
 		for (int i = 0; i < 4; ++i) {
@@ -331,7 +330,6 @@ void RiscVJitBackend::CompIR_VecPack(IRInst inst) {
 		fpr.MapReg(inst.src1);
 		for (int i = 0; i < 2; ++i)
 			fpr.MapReg(inst.dest + i, MIPSMap::NOINIT);
-		fpr.ReleaseSpillLocksAndDiscardTemps();
 
 		FMV(FMv::X, FMv::W, SCRATCH2, fpr.R(inst.src1));
 		SLLI(SCRATCH1, SCRATCH2, 16);
@@ -361,7 +359,6 @@ void RiscVJitBackend::CompIR_VecPack(IRInst inst) {
 			fpr.MapReg(inst.src1 + i);
 		}
 		fpr.MapReg(inst.dest, MIPSMap::NOINIT);
-		fpr.ReleaseSpillLocksAndDiscardTemps();
 
 		for (int i = 0; i < 4; ++i) {
 			FMV(FMv::X, FMv::W, SCRATCH1, fpr.R(inst.src1 + i));

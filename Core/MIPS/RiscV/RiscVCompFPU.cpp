@@ -117,8 +117,6 @@ void RiscVJitBackend::CompIR_FCondAssign(IRInst inst) {
 		SetJumpTarget(skipSwapCompare);
 	} else {
 		RiscVReg isSrc1LowerReg = gpr.GetAndLockTempR();
-		gpr.ReleaseSpillLocksAndDiscardTemps();
-
 		SLT(isSrc1LowerReg, SCRATCH1, SCRATCH2);
 		// Flip the flag (to reverse the min/max) based on if both were negative.
 		XOR(isSrc1LowerReg, isSrc1LowerReg, R_RA);
@@ -342,7 +340,7 @@ void RiscVJitBackend::CompIR_FSat(IRInst inst) {
 void RiscVJitBackend::CompIR_FCompare(IRInst inst) {
 	CONDITIONAL_DISABLE;
 
-	constexpr IRRegIndex IRREG_VFPUL_CC = IRREG_VFPU_CTRL_BASE + VFPU_CTRL_CC;
+	constexpr IRReg IRREG_VFPUL_CC = IRREG_VFPU_CTRL_BASE + VFPU_CTRL_CC;
 
 	switch (inst.op) {
 	case IROp::FCmp:

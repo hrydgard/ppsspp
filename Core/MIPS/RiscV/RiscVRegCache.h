@@ -20,6 +20,7 @@
 #include "Common/RiscVEmitter.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/IR/IRJit.h"
+#include "Core/MIPS/IR/IRRegCache.h"
 
 namespace RiscVJitConstants {
 
@@ -33,19 +34,6 @@ const RiscVGen::RiscVReg MEMBASEREG = RiscVGen::X27;
 // TODO: Experiment.  X7-X13 are compressed regs.  X8/X9 are saved so nice for static alloc, though.
 const RiscVGen::RiscVReg SCRATCH1 = RiscVGen::X10;
 const RiscVGen::RiscVReg SCRATCH2 = RiscVGen::X11;
-
-// Have to account for all of them due to temps, etc.
-constexpr int TOTAL_MAPPABLE_MIPSREGS = 256;
-
-enum class MIPSLoc {
-	IMM,
-	RVREG,
-	// In a native reg, but an adjusted pointer (not pointerified - unaligned.)
-	RVREG_AS_PTR,
-	// In a native reg, but also has a known immediate value.
-	RVREG_IMM,
-	MEM,
-};
 
 // Initing is the default so the flag is reversed.
 enum class MIPSMap {
@@ -69,129 +57,79 @@ enum class MapType {
 
 } // namespace RiscVJitConstants
 
-namespace MIPSComp {
-struct JitOptions;
-}
-
-// Not using IRReg since this can be -1.
-typedef int IRRegIndex;
-constexpr IRRegIndex IRREG_INVALID = -1;
-
-struct RegStatusRiscV {
-	IRRegIndex mipsReg;  // if -1, no mipsreg attached.
-	bool isDirty;  // Should the register be written back?
-	bool pointerified;  // Has added the memory base into the top part of the reg. Note - still usable as 32-bit reg (in only some cases.)
-	bool tempLocked; // Reserved for a temp register.
-	bool normalized32;  // 32 bits sign extended to XLEN.  RISC-V can't always address just the low 32-bits, so this matters.
-};
-
-struct RegStatusMIPS {
-	// Where is this MIPS register?
-	RiscVJitConstants::MIPSLoc loc;
-	// Data (both or only one may be used, depending on loc.)
-	u64 imm;
-	RiscVGen::RiscVReg reg;  // reg index
-	bool spillLock;  // if true, this register cannot be spilled.
-	bool isStatic;  // if true, this register will not be written back to ram by the regcache
-	// If loc == ML_MEM, it's back in its location in the CPU context struct.
-};
-
-class RiscVRegCache {
+class RiscVRegCache : public IRNativeRegCache {
 public:
-	RiscVRegCache(MIPSState *mipsState, MIPSComp::JitOptions *jo);
-	~RiscVRegCache() {}
+	RiscVRegCache(MIPSComp::JitOptions *jo);
 
 	void Init(RiscVGen::RiscVEmitter *emitter);
-	void Start(MIPSComp::IRBlock *irBlock);
-	void SetIRIndex(int index) {
-		irIndex_ = index;
-	}
 
 	// Protect the arm register containing a MIPS register from spilling, to ensure that
 	// it's being kept allocated.
-	void SpillLock(IRRegIndex reg, IRRegIndex reg2 = IRREG_INVALID, IRRegIndex reg3 = IRREG_INVALID, IRRegIndex reg4 = IRREG_INVALID);
-	void ReleaseSpillLock(IRRegIndex reg, IRRegIndex reg2 = IRREG_INVALID, IRRegIndex reg3 = IRREG_INVALID, IRRegIndex reg4 = IRREG_INVALID);
-	void ReleaseSpillLocksAndDiscardTemps();
+	void SpillLock(IRReg reg, IRReg reg2 = IRREG_INVALID, IRReg reg3 = IRREG_INVALID, IRReg reg4 = IRREG_INVALID);
+	void ReleaseSpillLock(IRReg reg, IRReg reg2 = IRREG_INVALID, IRReg reg3 = IRREG_INVALID, IRReg reg4 = IRREG_INVALID);
 
-	void SetImm(IRRegIndex reg, u64 immVal);
-	bool IsImm(IRRegIndex reg) const;
-	u64 GetImm(IRRegIndex reg) const;
+	void SetImm(IRReg reg, u64 immVal);
+	bool IsImm(IRReg reg) const;
+	u64 GetImm(IRReg reg) const;
 
 	// May fail and return INVALID_REG if it needs flushing.
-	RiscVGen::RiscVReg TryMapTempImm(IRRegIndex);
+	RiscVGen::RiscVReg TryMapTempImm(IRReg);
 
 	// Returns an ARM register containing the requested MIPS register.
-	RiscVGen::RiscVReg MapReg(IRRegIndex reg, RiscVJitConstants::MIPSMap mapFlags = RiscVJitConstants::MIPSMap::INIT);
-	RiscVGen::RiscVReg MapRegAsPointer(IRRegIndex reg);
+	RiscVGen::RiscVReg MapReg(IRReg reg, RiscVJitConstants::MIPSMap mapFlags = RiscVJitConstants::MIPSMap::INIT);
+	RiscVGen::RiscVReg MapRegAsPointer(IRReg reg);
 
-	bool IsMapped(IRRegIndex reg);
-	bool IsMappedAsPointer(IRRegIndex reg);
-	bool IsMappedAsStaticPointer(IRRegIndex reg);
-	bool IsInRAM(IRRegIndex reg);
-	bool IsNormalized32(IRRegIndex reg);
+	bool IsMapped(IRReg reg);
+	bool IsMappedAsPointer(IRReg reg);
+	bool IsMappedAsStaticPointer(IRReg reg);
+	bool IsInRAM(IRReg reg);
+	bool IsNormalized32(IRReg reg);
 
 	void MarkDirty(RiscVGen::RiscVReg reg, bool andNormalized32 = false);
 	void MarkPtrDirty(RiscVGen::RiscVReg reg);
 	// Copies to another reg if specified, otherwise same reg.
-	RiscVGen::RiscVReg Normalize32(IRRegIndex reg, RiscVGen::RiscVReg destReg = RiscVGen::INVALID_REG);
-	void MapIn(IRRegIndex rs);
-	void MapInIn(IRRegIndex rd, IRRegIndex rs);
-	void MapDirtyIn(IRRegIndex rd, IRRegIndex rs, RiscVJitConstants::MapType type = RiscVJitConstants::MapType::AVOID_LOAD);
-	void MapDirtyInIn(IRRegIndex rd, IRRegIndex rs, IRRegIndex rt, RiscVJitConstants::MapType type = RiscVJitConstants::MapType::AVOID_LOAD);
-	void MapDirtyDirtyIn(IRRegIndex rd1, IRRegIndex rd2, IRRegIndex rs, RiscVJitConstants::MapType type = RiscVJitConstants::MapType::AVOID_LOAD);
-	void MapDirtyDirtyInIn(IRRegIndex rd1, IRRegIndex rd2, IRRegIndex rs, IRRegIndex rt, RiscVJitConstants::MapType type = RiscVJitConstants::MapType::AVOID_LOAD);
+	RiscVGen::RiscVReg Normalize32(IRReg reg, RiscVGen::RiscVReg destReg = RiscVGen::INVALID_REG);
+	void MapIn(IRReg rs);
+	void MapInIn(IRReg rd, IRReg rs);
+	void MapDirtyIn(IRReg rd, IRReg rs, RiscVJitConstants::MapType type = RiscVJitConstants::MapType::AVOID_LOAD);
+	void MapDirtyInIn(IRReg rd, IRReg rs, IRReg rt, RiscVJitConstants::MapType type = RiscVJitConstants::MapType::AVOID_LOAD);
+	void MapDirtyDirtyIn(IRReg rd1, IRReg rd2, IRReg rs, RiscVJitConstants::MapType type = RiscVJitConstants::MapType::AVOID_LOAD);
+	void MapDirtyDirtyInIn(IRReg rd1, IRReg rd2, IRReg rs, IRReg rt, RiscVJitConstants::MapType type = RiscVJitConstants::MapType::AVOID_LOAD);
 	void FlushBeforeCall();
 	void FlushAll();
-	void FlushR(IRRegIndex r);
+	void FlushR(IRReg r);
 	void FlushRiscVReg(RiscVGen::RiscVReg r);
-	void DiscardR(IRRegIndex r);
+	void DiscardR(IRReg r);
 
 	RiscVGen::RiscVReg GetAndLockTempR();
 
-	RiscVGen::RiscVReg R(IRRegIndex preg); // Returns a cached register, while checking that it's NOT mapped as a pointer
-	RiscVGen::RiscVReg RPtr(IRRegIndex preg); // Returns a cached register, if it has been mapped as a pointer
+	RiscVGen::RiscVReg R(IRReg preg); // Returns a cached register, while checking that it's NOT mapped as a pointer
+	RiscVGen::RiscVReg RPtr(IRReg preg); // Returns a cached register, if it has been mapped as a pointer
 
 	// These are called once on startup to generate functions, that you should then call.
 	void EmitLoadStaticRegisters();
 	void EmitSaveStaticRegisters();
 
+protected:
+	void SetupInitialRegs() override;
+	const StaticAllocation *GetStaticAllocations(int &count) override;
+
 private:
-	struct StaticAllocation {
-		IRRegIndex mr;
-		RiscVGen::RiscVReg ar;
-		bool pointerified;
-	};
-	const StaticAllocation *GetStaticAllocations(int &count);
 	const RiscVGen::RiscVReg *GetMIPSAllocationOrder(int &count);
-	void MapRegTo(RiscVGen::RiscVReg reg, IRRegIndex mipsReg, RiscVJitConstants::MIPSMap mapFlags);
+	void MapRegTo(RiscVGen::RiscVReg reg, IRReg mipsReg, RiscVJitConstants::MIPSMap mapFlags);
 	RiscVGen::RiscVReg AllocateReg();
 	RiscVGen::RiscVReg FindBestToSpill(bool unusedOnly, bool *clobbered);
-	RiscVGen::RiscVReg RiscVRegForFlush(IRRegIndex r);
+	RiscVGen::RiscVReg RiscVRegForFlush(IRReg r);
 	void SetRegImm(RiscVGen::RiscVReg reg, u64 imm);
 	void AddMemBase(RiscVGen::RiscVReg reg);
-	int GetMipsRegOffset(IRRegIndex r);
+	int GetMipsRegOffset(IRReg r);
 
-	bool IsValidReg(IRRegIndex r) const;
-	bool IsValidRegNoZero(IRRegIndex r) const;
+	bool IsValidReg(IRReg r) const;
+	bool IsValidRegNoZero(IRReg r) const;
 
-	void SetupInitialRegs();
-
-	MIPSState *mips_;
 	RiscVGen::RiscVEmitter *emit_ = nullptr;
-	MIPSComp::JitOptions *jo_;
-	MIPSComp::IRBlock *irBlock_ = nullptr;
-	int irIndex_ = 0;
 
 	enum {
-		NUM_RVREG = 32,  // 31 actual registers, plus the zero/sp register which is not mappable.
-		NUM_MIPSREG = RiscVJitConstants::TOTAL_MAPPABLE_MIPSREGS,
+		NUM_RVREG = 32,
 	};
-
-	RegStatusRiscV ar[NUM_RVREG]{};
-	RegStatusMIPS mr[NUM_MIPSREG]{};
-
-	bool initialReady_ = false;
-	bool pendingUnlock_ = false;
-	RegStatusRiscV arInitial_[NUM_RVREG];
-	RegStatusMIPS mrInitial_[NUM_MIPSREG];
 };
