@@ -1391,8 +1391,8 @@ void VulkanRenderManager::Run(VKRRenderThreadTask &task) {
 
 	if (task.runType == VKRRunType::PRESENT) {
 		if (!frameData.skipSwap) {
-			VkResult res = frameData.QueuePresent(vulkan_, frameDataShared_);
 			frameTimeHistory_[frameData.frameId].queuePresent = time_now_d();
+			VkResult res = frameData.QueuePresent(vulkan_, frameDataShared_);
 			if (res == VK_ERROR_OUT_OF_DATE_KHR) {
 				// We clearly didn't get this in vkAcquireNextImageKHR because of the skipSwap check above.
 				// Do the increment.
