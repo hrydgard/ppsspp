@@ -182,7 +182,7 @@ struct CompileQueueEntry {
 
 class VulkanRenderManager {
 public:
-	VulkanRenderManager(VulkanContext *vulkan, bool useThread);
+	VulkanRenderManager(VulkanContext *vulkan, bool useThread, HistoryBuffer<FrameTimeData, FRAME_TIME_HISTORY_LENGTH> &frameTimeHistory);
 	~VulkanRenderManager();
 
 	// Makes sure that the GPU has caught up enough that we can start writing buffers of this frame again.
@@ -458,17 +458,6 @@ public:
 	void ResetStats();
 	void DrainCompileQueue();
 
-	// framesBack is the number of frames into the past to look.
-	FrameTimeData GetFrameTimeData(int framesBack) const {
-		FrameTimeData data;
-		if (framesBack >= frameIdGen_) {
-			data = {};
-			return data;
-		}
-		data = frameTimeData_[frameIdGen_ - framesBack];
-		return data;
-	}
-
 private:
 	void EndCurRenderStep();
 
@@ -553,5 +542,5 @@ private:
 	std::function<void(InvalidationCallbackFlags)> invalidationCallback_;
 
 	uint64_t frameIdGen_ = 31;
-	HistoryBuffer<FrameTimeData, 32> frameTimeData_;
+	HistoryBuffer<FrameTimeData, 32> &frameTimeHistory_;
 };

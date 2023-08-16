@@ -18,6 +18,7 @@
 #include "Common/GPU/Shader.h"
 #include "Common/GPU/MiscTypes.h"
 #include "Common/Data/Collections/Slice.h"
+#include "Common/Data/Collections/FastVec.h"
 
 namespace Lin {
 class Matrix4x4;
@@ -853,15 +854,17 @@ public:
 	// Total amount of frames rendered. Unaffected by game pause, so more robust than gpuStats.numFlips
 	virtual int GetFrameCount() = 0;
 
-	virtual FrameTimeData GetFrameTimeData(int framesBack) const {
-		return FrameTimeData{};
-	}
-
 	virtual std::string GetGpuProfileString() const {
 		return "";
 	}
 
+	const HistoryBuffer<FrameTimeData, FRAME_TIME_HISTORY_LENGTH> &FrameTimeHistory() const {
+		return frameTimeHistory_;
+	}
+
 protected:
+	HistoryBuffer<FrameTimeData, FRAME_TIME_HISTORY_LENGTH> frameTimeHistory_;
+
 	ShaderModule *vsPresets_[VS_MAX_PRESET];
 	ShaderModule *fsPresets_[FS_MAX_PRESET];
 

@@ -488,10 +488,6 @@ public:
 		return frameCount_;
 	}
 
-	FrameTimeData GetFrameTimeData(int framesBack) const override {
-		return renderManager_.GetFrameTimeData(framesBack);
-	}
-
 	void FlushState() override {}
 
 	void ResetStats() override {
@@ -564,7 +560,7 @@ private:
 	AutoRef<VKTexture> boundTextures_[MAX_BOUND_TEXTURES];
 	AutoRef<VKSamplerState> boundSamplers_[MAX_BOUND_TEXTURES];
 	VkImageView boundImageView_[MAX_BOUND_TEXTURES]{};
-	TextureBindFlags boundTextureFlags_[MAX_BOUND_TEXTURES];
+	TextureBindFlags boundTextureFlags_[MAX_BOUND_TEXTURES]{};
 
 	VulkanPushPool *push_ = nullptr;
 
@@ -866,7 +862,7 @@ static DataFormat DataFormatFromVulkanDepth(VkFormat fmt) {
 }
 
 VKContext::VKContext(VulkanContext *vulkan, bool useRenderThread)
-	: vulkan_(vulkan), renderManager_(vulkan, useRenderThread) {
+	: vulkan_(vulkan), renderManager_(vulkan, useRenderThread, frameTimeHistory_) {
 	shaderLanguageDesc_.Init(GLSL_VULKAN);
 
 	VkFormat depthStencilFormat = vulkan->GetDeviceInfo().preferredDepthStencilFormat;

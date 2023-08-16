@@ -34,3 +34,4 @@ struct FrameTimeData {
 	double earliestPresentTime;
 	double presentMargin;
 };
+constexpr size_t FRAME_TIME_HISTORY_LENGTH = 32;
