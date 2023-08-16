@@ -18,6 +18,7 @@
 #include "Common/GPU/Shader.h"
 #include "Common/GPU/MiscTypes.h"
 #include "Common/Data/Collections/Slice.h"
+#include "Common/Data/Collections/FastVec.h"
 
 namespace Lin {
 class Matrix4x4;
@@ -816,7 +817,7 @@ public:
 	virtual void DrawUP(const void *vdata, int vertexCount) = 0;
 	
 	// Frame management (for the purposes of sync and resource management, necessary with modern APIs). Default implementations here.
-	virtual void BeginFrame(DebugFlags debugFlags) {}
+	virtual void BeginFrame(DebugFlags debugFlags) = 0;
 	virtual void EndFrame() = 0;
 
 	// vblanks is only relevant in FIFO present mode.
@@ -853,15 +854,17 @@ public:
 	// Total amount of frames rendered. Unaffected by game pause, so more robust than gpuStats.numFlips
 	virtual int GetFrameCount() = 0;
 
-	virtual FrameTimeData GetFrameTimeData(int framesBack) const {
-		return FrameTimeData{};
-	}
-
 	virtual std::string GetGpuProfileString() const {
 		return "";
 	}
 
+	const HistoryBuffer<FrameTimeData, FRAME_TIME_HISTORY_LENGTH> &FrameTimeHistory() const {
+		return frameTimeHistory_;
+	}
+
 protected:
+	HistoryBuffer<FrameTimeData, FRAME_TIME_HISTORY_LENGTH> frameTimeHistory_;
+
 	ShaderModule *vsPresets_[VS_MAX_PRESET];
 	ShaderModule *fsPresets_[FS_MAX_PRESET];
 

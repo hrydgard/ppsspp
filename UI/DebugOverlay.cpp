@@ -115,15 +115,18 @@ static void DrawFrameTiming(UIContext *ctx, const Bounds &bounds) {
 	ctx->Draw()->SetFontScale(0.5f, 0.5f);
 
 	snprintf(statBuf, sizeof(statBuf),
-		"Present mode (interval): %s (%d)",
+		"Mode (interval): %s (%d)",
 		Draw::PresentModeToString(g_frameTiming.presentMode),
 		g_frameTiming.presentInterval);
 
 	ctx->Draw()->DrawTextRect(ubuntu24, statBuf, bounds.x + 10, bounds.y + 50, bounds.w - 20, bounds.h - 30, 0xFFFFFFFF, FLAG_DYNAMIC_ASCII);
 
 	for (int i = 0; i < 5; i++) {
-		FrameTimeData data = ctx->GetDrawContext()->GetFrameTimeData(6 + i);
-		FrameTimeData prevData = ctx->GetDrawContext()->GetFrameTimeData(7 + i);
+		size_t curIndex = i + 6;
+		size_t prevIndex = i + 7;
+
+		FrameTimeData data = ctx->GetDrawContext()->FrameTimeHistory().Back(curIndex);
+		FrameTimeData prevData = ctx->GetDrawContext()->FrameTimeHistory().Back(prevIndex);
 		if (data.frameBegin == 0.0) {
 			snprintf(statBuf, sizeof(statBuf), "(No frame time data)");
 		} else {
