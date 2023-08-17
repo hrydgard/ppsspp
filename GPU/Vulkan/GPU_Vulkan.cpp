@@ -285,10 +285,6 @@ u32 GPU_Vulkan::CheckGPUFeatures() const {
 		}
 	}
 
-	// Only a few low-power GPUs should probably avoid this.
-	// Let's figure that out later.
-	features |= GPU_USE_FRAGMENT_UBERSHADER;
-
 	// Attempt to workaround #17386
 	if (draw_->GetBugs().Has(Draw::Bugs::UNIFORM_INDEXING_BROKEN)) {
 		features &= ~GPU_USE_LIGHT_UBERSHADER;
