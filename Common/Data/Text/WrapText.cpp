@@ -177,19 +177,17 @@ void WordWrapper::AppendWord(int endIndex, int lastChar, bool addNewline) {
 }
 
 void WordWrapper::Wrap() {
-	out_.clear();
-
 	// First, let's check if it fits as-is.
 	size_t len = strlen(str_);
-
-	// We know it'll be approximately this size. It's fine if the guess is a little off.
-	out_.reserve(len + len / 16);
-
 	if (MeasureWidth(str_, len) <= maxW_) {
 		// If it fits, we don't need to go through each character.
 		out_ = str_;
 		return;
 	}
+
+	out_.clear();
+	// We know it'll be approximately this size. It's fine if the guess is a little off.
+	out_.reserve(len + len / 16);
 
 	if (flags_ & FLAG_ELLIPSIZE_TEXT) {
 		ellipsisWidth_ = MeasureWidth("...", 3);
