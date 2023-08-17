@@ -19,6 +19,7 @@
 #include "Common/CommonTypes.h"
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"
+#include "Common/System/OSD.h"
 #include "Core/ELF/ParamSFO.h"
 #include "Core/MemMapHelpers.h"
 #include "Core/Reporting.h"
@@ -37,6 +38,8 @@ const static u32 GAMEDATA_BYTES_PER_READ = 32768;
 // TODO: Could adjust based on real-time into frame?  Or eat cycles?
 // If this is too high, some games (e.g. Senjou no Valkyria 3) will lag.
 const static u32 GAMEDATA_READS_PER_UPDATE = 20;
+
+const u32 PSP_UTILITY_GAMEDATA_MODE_SHOW_PROGRESS = 1;
 
 const u32 ERROR_UTILITY_GAMEDATA_MEMSTRICK_REMOVED = 0x80111901;
 const u32 ERROR_UTILITY_GAMEDATA_MEMSTRICK_WRITE_PROTECTED = 0x80111903;
@@ -272,11 +275,36 @@ void PSPGamedataInstallDialog::UpdateProgress() {
 		progressValue = (int)((allReadSize * 100) / allFilesSize);
 	else 
 		progressValue = 100;
-	auto di = GetI18NCategory("Dialog");
-	std::string temp = di->T("Save");
-	osm.Show(temp + " "  + std::to_string(progressValue) + " / 100", 0.5f);
+
+	if (param->mode == PSP_UTILITY_GAMEDATA_MODE_SHOW_PROGRESS) {
+		RenderProgress(progressValue);
+	}
+
 	param->progress = progressValue;
 	param.NotifyWrite("DialogResult");
+}
+
+void PSPGamedataInstallDialog::RenderProgress(int percentage) {
+	StartDraw();
+
+	float barWidth = 380;
+	float barX = (480 - barWidth) / 2;
+	float barWidthDone = barWidth * percentage / 100;
+	float barH = 10.0;
+	float barY = 272 / 2 - barH / 2;
+
+	PPGeDrawRect(barX - 3, barY - 3, barX + barWidth + 3, barY + barH + 3, 0x30000000);
+	PPGeDrawRect(barX, barY, barX + barWidth, barY + barH, 0xFF707070);
+	PPGeDrawRect(barX, barY, barX + barWidthDone, barY + barH, 0xFFE0E0E0);
+
+	auto di = GetI18NCategory(I18NCat::DIALOG);
+
+	fadeValue = 255;
+	PPGeStyle textStyle = FadedStyle(PPGeAlign::BOX_HCENTER, 0.6f);
+
+	PPGeDrawText(di->T("Installing..."), 480 / 2, barY + barH + 10, textStyle);
+
+	EndDraw();
 }
 
 void PSPGamedataInstallDialog::DoState(PointerWrap &p) {

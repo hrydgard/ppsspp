@@ -54,6 +54,7 @@ protected:
 
 private:
 	void UpdateProgress();
+	void RenderProgress(int percentage);
 	void OpenNextFile();
 	void CopyCurrentFileData();
 	void CloseCurrentFile();
