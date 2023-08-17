@@ -57,6 +57,7 @@ std::string VulkanVendorString(uint32_t vendorId) {
 	case VULKAN_VENDOR_QUALCOMM: return "Qualcomm";
 	case VULKAN_VENDOR_IMGTEC: return "Imagination";
 	case VULKAN_VENDOR_APPLE: return "Apple";
+	case VULKAN_VENDOR_MESA: return "Mesa";
 	default:
 		return StringFromFormat("%08x", vendorId);
 	}
