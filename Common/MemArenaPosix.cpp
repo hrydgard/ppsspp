@@ -17,7 +17,7 @@
 
 #include "ppsspp_config.h"
 
-#if !defined(_WIN32) && !defined(ANDROID) && !defined(__APPLE__)
+#if !defined(_WIN32) && !defined(ANDROID) && !defined(__APPLE__) && !PPSSPP_PLATFORM(SWITCH)
 
 #include <sys/mman.h>
 #include <sys/stat.h>
@@ -52,6 +52,7 @@ bool MemArena::NeedsProbing() {
 }
 
 bool MemArena::GrabMemSpace(size_t size) {
+#ifndef NO_MMAP
 	constexpr mode_t mode = S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH;
 
 	// Try a few times in case multiple instances are started near each other.
@@ -98,15 +99,21 @@ bool MemArena::GrabMemSpace(size_t size) {
 		ERROR_LOG(MEMMAP, "Failed to ftruncate %d (%s) to size %08x", (int)fd, ram_temp_file.c_str(), (int)size);
 		// Should this be a failure?
 	}
+#endif
 	return true;
 }
 
 void MemArena::ReleaseSpace() {
+#ifndef NO_MMAP
 	close(fd);
+#endif
 }
 
 void *MemArena::CreateView(s64 offset, size_t size, void *base)
 {
+#ifdef NO_MMAP
+    return (void*) base;
+#else
 	void *retval = mmap(base, size, PROT_READ | PROT_WRITE, MAP_SHARED |
 // Do not sync memory to underlying file. Linux has this by default.
 #if defined(__DragonFly__) || defined(__FreeBSD__)
@@ -119,10 +126,13 @@ void *MemArena::CreateView(s64 offset, size_t size, void *base)
 		return 0;
 	}
 	return retval;
+#endif
 }
 
-void MemArena::ReleaseView(void* view, size_t size) {
+void MemArena::ReleaseView(s64 offset, void* view, size_t size) {
+#ifndef NO_MMAP
 	munmap(view, size);
+#endif
 }
 
 u8* MemArena::Find4GBBase() {
@@ -147,6 +157,9 @@ u8* MemArena::Find4GBBase() {
 		// This has been known to fail lately though, see issue #12249.
 		return hardcoded_ptr;
 	}
+#elif defined(NO_MMAP)
+    void* base = std::malloc(0x0A000000);
+    return static_cast<u8*>(base);
 #else
 	size_t size = 0x10000000;
 	void* base = mmap(0, size, PROT_READ | PROT_WRITE, MAP_ANON | MAP_SHARED | MAP_NORESERVE, -1, 0);

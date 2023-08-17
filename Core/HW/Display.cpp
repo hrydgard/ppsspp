@@ -92,7 +92,7 @@ static void CalculateFPS() {
 		}
 	}
 
-	if (g_Config.bDrawFrameGraph || coreCollectDebugStats) {
+	if ((DebugOverlay)g_Config.iDebugOverlay == DebugOverlay::FRAME_GRAPH || coreCollectDebugStats) {
 		frameTimeHistory[frameTimeHistoryPos++] = now - lastFrameTimeHistory;
 		lastFrameTimeHistory = now;
 		frameTimeHistoryPos = frameTimeHistoryPos % frameTimeHistorySize;
@@ -182,6 +182,10 @@ void DisplayNotifySleep(double t, int pos) {
 
 void __DisplayGetDebugStats(char *stats, size_t bufsize) {
 	char statbuf[4096];
+	if (!gpu) {
+		snprintf(stats, bufsize, "N/A");
+		return;
+	}
 	gpu->GetStats(statbuf, sizeof(statbuf));
 
 	snprintf(stats, bufsize,
@@ -194,6 +198,17 @@ void __DisplayGetDebugStats(char *stats, size_t bufsize) {
 		kernelStats.summedSlowestSyscallName ? kernelStats.summedSlowestSyscallName : "(none)",
 		kernelStats.summedSlowestSyscallTime * 1000.0f,
 		statbuf);
+}
+
+// On like 90hz, 144hz, etc, we return 60.0f as the framerate target. We only target other
+// framerates if they're close to 60.
+static float FramerateTarget() {
+	float target = System_GetPropertyFloat(SYSPROP_DISPLAY_REFRESH_RATE);
+	if (target < 57.0 || target > 63.0f) {
+		return 60.0f;
+	} else {
+		return target;
+	}
 }
 
 bool DisplayIsRunningSlow() {
@@ -209,7 +224,7 @@ bool DisplayIsRunningSlow() {
 			best = std::max(fpsHistory[index], best);
 		}
 
-		return best < System_GetPropertyFloat(SYSPROP_DISPLAY_REFRESH_RATE) * 0.97;
+		return best < FramerateTarget() * 0.97;
 	}
 
 	return false;

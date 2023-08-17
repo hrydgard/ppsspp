@@ -32,7 +32,7 @@ enum class PauseScreenMode {
 
 class GamePauseScreen : public UIDialogScreenWithGameBackground {
 public:
-	GamePauseScreen(const Path &filename) : UIDialogScreenWithGameBackground(filename), gamePath_(filename) {}
+	GamePauseScreen(const Path &filename);
 	~GamePauseScreen();
 
 	void dialogFinished(const Screen *dialog, DialogResult dr) override;
@@ -45,6 +45,8 @@ protected:
 	void CallbackDeleteConfig(bool yes);
 
 private:
+	void CreateSavestateControls(UI::LinearLayout *viewGroup, bool vertical);
+
 	UI::EventReturn OnGameSettings(UI::EventParams &e);
 	UI::EventReturn OnExitToMenu(UI::EventParams &e);
 	UI::EventReturn OnReportFeedback(UI::EventParams &e);
@@ -54,7 +56,6 @@ private:
 	UI::EventReturn OnLastSaveUndo(UI::EventParams &e);
 
 	UI::EventReturn OnScreenshotClicked(UI::EventParams &e);
-	UI::EventReturn OnCwCheat(UI::EventParams &e);
 
 	UI::EventReturn OnCreateConfig(UI::EventParams &e);
 	UI::EventReturn OnDeleteConfig(UI::EventParams &e);
@@ -64,6 +65,5 @@ private:
 
 	// hack
 	bool finishNextFrame_ = false;
-	Path gamePath_;
 	PauseScreenMode mode_ = PauseScreenMode::MAIN;
 };

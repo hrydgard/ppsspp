@@ -478,7 +478,7 @@ enum {
 	GPU_USE_VS_RANGE_CULLING = FLAG_BIT(3),
 	GPU_USE_BLEND_MINMAX = FLAG_BIT(4),
 	GPU_USE_LOGIC_OP = FLAG_BIT(5),
-	// Bit 6 is free.
+	GPU_USE_FRAGMENT_UBERSHADER = FLAG_BIT(6),
 	GPU_USE_TEXTURE_NPOT = FLAG_BIT(7),
 	GPU_USE_ANISOTROPY = FLAG_BIT(8),
 	GPU_USE_CLEAR_RAM_HACK = FLAG_BIT(9),
@@ -524,8 +524,10 @@ enum class SubmitType {
 };
 
 struct GPUStateCache {
-	bool Use(u32 flags) { return (useFlags_ & flags) != 0; } // Return true if ANY of flags are true.
-	bool UseAll(u32 flags) { return (useFlags_ & flags) == flags; } // Return true if ALL flags are true.
+	bool Use(u32 flags) const { return (useFlags_ & flags) != 0; } // Return true if ANY of flags are true.
+	bool UseAll(u32 flags) const { return (useFlags_ & flags) == flags; } // Return true if ALL flags are true.
+
+	u32 UseFlags() const { return useFlags_; }
 
 	uint64_t GetDirtyUniforms() { return dirty & DIRTY_ALL_UNIFORMS; }
 	void Dirty(u64 what) {
@@ -549,7 +551,7 @@ struct GPUStateCache {
 	void SetTextureFullAlpha(bool fullAlpha) {
 		if (fullAlpha != textureFullAlpha) {
 			textureFullAlpha = fullAlpha;
-			Dirty(DIRTY_FRAGMENTSHADER_STATE);
+			Dirty(DIRTY_FRAGMENTSHADER_STATE | DIRTY_TEX_ALPHA_MUL);
 		}
 	}
 	void SetNeedShaderTexclamp(bool need) {
@@ -567,8 +569,8 @@ struct GPUStateCache {
 		}
 	}
 	void SetTextureIsArray(bool isArrayTexture) {  // VK only
-		if (arrayTexture != isArrayTexture) {
-			arrayTexture = isArrayTexture;
+		if (textureIsArray != isArrayTexture) {
+			textureIsArray = isArrayTexture;
 			Dirty(DIRTY_FRAGMENTSHADER_STATE);
 		}
 	}
@@ -578,10 +580,22 @@ struct GPUStateCache {
 			Dirty(DIRTY_FRAGMENTSHADER_STATE);
 		}
 	}
+	void SetTextureIsFramebuffer(bool isFramebuffer) {
+		if (textureIsFramebuffer != isFramebuffer) {
+			textureIsFramebuffer = isFramebuffer;
+			Dirty(DIRTY_UVSCALEOFFSET);
+		} else if (isFramebuffer) {
+			// Always dirty if it's a framebuffer, since the uniform value depends both
+			// on the specified texture size and the bound texture size. Makes things easier.
+			// TODO: Look at this again later.
+			Dirty(DIRTY_UVSCALEOFFSET);
+		}
+	}
 	void SetUseFlags(u32 newFlags) {
 		if (newFlags != useFlags_) {
+			if (useFlags_ != 0)
+				useFlagsChanged = true;
 			useFlags_ = newFlags;
-			// Recompile shaders and stuff?
 		}
 	}
 
@@ -611,7 +625,9 @@ public:
 
 	bool bgraTexture;
 	bool needShaderTexClamp;
-	bool arrayTexture;
+	bool textureIsArray;
+	bool textureIsFramebuffer;
+	bool useFlagsChanged;
 
 	float morphWeights[8];
 	u32 deferredVertTypeDirty;

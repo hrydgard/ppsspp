@@ -1,4 +1,5 @@
 #include "ppsspp_config.h"
+
 #include "Common/Log.h"
 #include "Common/StringUtils.h"
 #include "Common/System/Display.h"
@@ -27,7 +28,12 @@ TextDrawerAndroid::TextDrawerAndroid(Draw::DrawContext *draw) : TextDrawer(draw)
 		ERROR_LOG(G3D, "Failed to find class: '%s'", textRendererClassName);
 	}
 	dpiScale_ = CalculateDPIScale();
-	INFO_LOG(G3D, "Initializing TextDrawerAndroid with DPI scale %f", dpiScale_);
+
+	// Pick between the two supported formats, of which at least one is supported on each platform. Prefer R8 (but only if swizzle is supported)
+	use4444Format_ = (draw->GetDataFormatSupport(Draw::DataFormat::R4G4B4A4_UNORM_PACK16) & Draw::FMT_TEXTURE) != 0;
+	if ((draw->GetDataFormatSupport(Draw::DataFormat::R8_UNORM) & Draw::FMT_TEXTURE) != 0 && draw->GetDeviceCaps().textureSwizzleSupported)
+		use4444Format_ = false;
+	INFO_LOG(G3D, "Initializing TextDrawerAndroid with DPI scale %f, use4444=%d", dpiScale_, (int)use4444Format_);
 }
 
 TextDrawerAndroid::~TextDrawerAndroid() {
@@ -44,7 +50,7 @@ bool TextDrawerAndroid::IsReady() const {
 uint32_t TextDrawerAndroid::SetFont(const char *fontName, int size, int flags) {
 	// We will only use the default font but just for consistency let's still involve
 	// the font name.
-	uint32_t fontHash = hash::Adler32((const uint8_t *)fontName, strlen(fontName));
+	uint32_t fontHash = fontName ? hash::Adler32((const uint8_t *)fontName, strlen(fontName)) : 1337;
 	fontHash ^= size;
 	fontHash ^= flags << 10;
 
@@ -202,20 +208,30 @@ void TextDrawerAndroid::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextS
 	if (texFormat == Draw::DataFormat::B4G4R4A4_UNORM_PACK16 || texFormat == Draw::DataFormat::R4G4B4A4_UNORM_PACK16) {
 		bitmapData.resize(entry.bmWidth * entry.bmHeight * sizeof(uint16_t));
 		uint16_t *bitmapData16 = (uint16_t *)&bitmapData[0];
-		for (int x = 0; x < entry.bmWidth; x++) {
-			for (int y = 0; y < entry.bmHeight; y++) {
+		for (int y = 0; y < entry.bmHeight; y++) {
+			for (int x = 0; x < entry.bmWidth; x++) {
 				uint32_t v = jimage[imageWidth * y + x];
-				v = 0xFFF0 | ((v >> 12) & 0xF);  // Just grab some bits from the green channel.
+				v = 0xFFF0 | ((v >> 28) & 0xF);  // Grab the upper bits from the alpha channel, and put directly in the 16-bit alpha channel.
 				bitmapData16[entry.bmWidth * y + x] = (uint16_t)v;
 			}
 		}
 	} else if (texFormat == Draw::DataFormat::R8_UNORM) {
 		bitmapData.resize(entry.bmWidth * entry.bmHeight);
-		for (int x = 0; x < entry.bmWidth; x++) {
-			for (int y = 0; y < entry.bmHeight; y++) {
+		for (int y = 0; y < entry.bmHeight; y++) {
+			for (int x = 0; x < entry.bmWidth; x++) {
 				uint32_t v = jimage[imageWidth * y + x];
-				v = (v >> 12) & 0xF;  // Just grab some bits from the green channel.
-				bitmapData[entry.bmWidth * y + x] = (uint8_t)(v | (v << 4));
+				bitmapData[entry.bmWidth * y + x] = (uint8_t)(v >> 24);
+			}
+		}
+	} else if (texFormat == Draw::DataFormat::R8G8B8A8_UNORM) {
+		bitmapData.resize(entry.bmWidth * entry.bmHeight * sizeof(uint32_t));
+		uint32_t *bitmapData32 = (uint32_t *)&bitmapData[0];
+		for (int y = 0; y < entry.bmHeight; y++) {
+			for (int x = 0; x < entry.bmWidth; x++) {
+				uint32_t v = jimage[imageWidth * y + x];
+				// Swap R and B, for some reason.
+				v = (v & 0xFF00FF00) | ((v >> 16) & 0xFF) | ((v << 16) & 0xFF0000);
+				bitmapData32[entry.bmWidth * y + x] = v;
 			}
 		}
 	} else {
@@ -244,7 +260,11 @@ void TextDrawerAndroid::DrawString(DrawBuffer &target, const char *str, float x,
 		entry = iter->second.get();
 		entry->lastUsedFrame = frameCount_;
 	} else {
-		DataFormat texFormat = Draw::DataFormat::R4G4B4A4_UNORM_PACK16;
+		DataFormat texFormat = use4444Format_ ? Draw::DataFormat::R4G4B4A4_UNORM_PACK16 : Draw::DataFormat::R8_UNORM;
+		bool emoji = AnyEmojiInString(text.c_str(), text.size());
+		if (emoji) {
+			texFormat = Draw::DataFormat::R8G8B8A8_UNORM;
+		}
 
 		entry = new TextStringEntry();
 
@@ -260,6 +280,7 @@ void TextDrawerAndroid::DrawString(DrawBuffer &target, const char *str, float x,
 		desc.depth = 1;
 		desc.mipLevels = 1;
 		desc.generateMips = false;
+		desc.swizzle = texFormat == Draw::DataFormat::R8_UNORM ? Draw::TextureSwizzle::R8_AS_ALPHA : Draw::TextureSwizzle::DEFAULT,
 		desc.tag = "TextDrawer";
 		entry->texture = draw_->CreateTexture(desc);
 		cache_[key] = std::unique_ptr<TextStringEntry>(entry);

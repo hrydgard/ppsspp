@@ -242,7 +242,7 @@ std::string StringFromFormat(const char* format, ...)
 std::string StringFromInt(int value)
 {
 	char temp[16];
-	sprintf(temp, "%i", value);
+	snprintf(temp, sizeof(temp), "%d", value);
 	return temp;
 }
 
@@ -341,4 +341,58 @@ std::string ReplaceAll(std::string result, const std::string& src, const std::st
 		pos += dest.size();
 	}
 	return result;
+}
+
+std::string UnescapeMenuString(const char *input, char *shortcutChar) {
+	size_t len = strlen(input);
+	std::string output;
+	output.reserve(len);
+	bool escaping = false;
+	bool escapeFound = false;
+	for (size_t i = 0; i < len; i++) {
+		if (input[i] == '&') {
+			if (escaping) {
+				output.push_back(input[i]);
+				escaping = false;
+			} else {
+				escaping = true;
+			}
+		} else {
+			output.push_back(input[i]);
+			if (escaping && shortcutChar && !escapeFound) {
+				*shortcutChar = input[i];
+				escapeFound = true;
+			}
+			escaping = false;
+		}
+	}
+	return output;
+}
+
+std::string ApplySafeSubstitutions(const char *format, const std::string &string1, const std::string &string2, const std::string &string3) {
+	size_t formatLen = strlen(format);
+	std::string output;
+	output.reserve(formatLen + 20);
+	for (size_t i = 0; i < formatLen; i++) {
+		char c = format[i];
+		if (c != '%') {
+			output.push_back(c);
+			continue;
+		}
+		if (i >= formatLen - 1) {
+			break;
+		}
+		switch (format[i + 1]) {
+		case '1':
+			output += string1; i++;
+			break;
+		case '2':
+			output += string2; i++;
+			break;
+		case '3':
+			output += string3; i++;
+			break;
+		}
+	}
+	return output;
 }

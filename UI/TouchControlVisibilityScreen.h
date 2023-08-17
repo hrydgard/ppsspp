@@ -25,7 +25,7 @@ namespace UI {
 }
 
 struct TouchButtonToggle {
-	const char *key;
+	std::string key;
 	bool *show;
 	ImageID img;
 	std::function<UI::EventReturn(UI::EventParams&)> handle;

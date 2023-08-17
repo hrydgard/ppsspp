@@ -56,7 +56,7 @@ public:
 		return NullValue;
 	}
 
-	// Returns false if we already had the key! Which is a bit different.
+	// Asserts if we already had the key!
 	bool Insert(const Key &key, Value value) {
 		// Check load factor, resize if necessary. We never shrink.
 		if (count_ > capacity_ / 2) {
@@ -69,7 +69,7 @@ public:
 			if (state[p] == BucketState::TAKEN) {
 				if (KeyEquals(key, map[p].key)) {
 					// Bad! We already got this one. Let's avoid this case.
-					_assert_msg_(false, "DenseHashMap: Duplicate key inserted");
+					_assert_msg_(false, "DenseHashMap: Duplicate key of size %d inserted", (int)sizeof(Key));
 					return false;
 				}
 				// continue looking....

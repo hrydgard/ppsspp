@@ -5,7 +5,9 @@
 #include <functional>
 #include <vector>
 
+#include "Common/Data/Collections/FastVec.h"
 #include "Common/GPU/Vulkan/VulkanContext.h"
+#include "Common/GPU/GPUBackendCommon.h"
 
 // Forward declaration
 VK_DEFINE_HANDLE(VmaAllocation);
@@ -14,19 +16,13 @@ VK_DEFINE_HANDLE(VmaAllocation);
 //
 // Vulkan memory management utils.
 
-enum class PushBufferType {
-	CPU_TO_GPU,
-	GPU_ONLY,
-};
-
 // VulkanPushBuffer
 // Simple incrementing allocator.
-// Use these to push vertex, index and uniform data. Generally you'll have two of these
+// Use these to push vertex, index and uniform data. Generally you'll have two or three of these
 // and alternate on each frame. Make sure not to reset until the fence from the last time you used it
 // has completed.
-//
-// TODO: Make it possible to suballocate pushbuffers from a large DeviceMemory block.
-class VulkanPushBuffer {
+// NOTE: This has now been replaced with VulkanPushPool for all uses except the vertex cache.
+class VulkanPushBuffer : public GPUMemoryManager {
 	struct BufInfo {
 		VkBuffer buffer;
 		VmaAllocation allocation;
@@ -36,12 +32,17 @@ public:
 	// NOTE: If you create a push buffer with PushBufferType::GPU_ONLY,
 	// then you can't use any of the push functions as pointers will not be reachable from the CPU.
 	// You must in this case use Allocate() only, and pass the returned offset and the VkBuffer to Vulkan APIs.
-	VulkanPushBuffer(VulkanContext *vulkan, const char *name, size_t size, VkBufferUsageFlags usage, PushBufferType type);
+	VulkanPushBuffer(VulkanContext *vulkan, const char *name, size_t size, VkBufferUsageFlags usage);
 	~VulkanPushBuffer();
 
 	void Destroy(VulkanContext *vulkan);
 
 	void Reset() { offset_ = 0; }
+
+	void GetDebugString(char *buffer, size_t bufSize) const override;
+	const char *Name() const override {
+		return name_;
+	}
 
 	// Needs context in case of defragment.
 	void Begin(VulkanContext *vulkan) {
@@ -49,88 +50,36 @@ public:
 		offset_ = 0;
 		// Note: we must defrag because some buffers may be smaller than size_.
 		Defragment(vulkan);
-		if (type_ == PushBufferType::CPU_TO_GPU)
-			Map();
+		Map();
 	}
 
-	void BeginNoReset() {
-		if (type_ == PushBufferType::CPU_TO_GPU)
-			Map();
-	}
-
-	void End() {
-		if (type_ == PushBufferType::CPU_TO_GPU)
-			Unmap();
-	}
+	void BeginNoReset() { Map(); }
+	void End() { Unmap(); }
 
 	void Map();
-
 	void Unmap();
 
 	// When using the returned memory, make sure to bind the returned vkbuf.
-	// This will later allow for handling overflow correctly.
-	size_t Allocate(size_t numBytes, VkBuffer *vkbuf) {
-		size_t out = offset_;
-		offset_ += (numBytes + 3) & ~3;  // Round up to 4 bytes.
-
-		if (offset_ >= size_) {
+	uint8_t *Allocate(VkDeviceSize numBytes, VkDeviceSize alignment, VkBuffer *vkbuf, uint32_t *bindOffset) {
+		size_t offset = (offset_ + alignment - 1) & ~(alignment - 1);
+		if (offset + numBytes > size_) {
 			NextBuffer(numBytes);
-			out = offset_;
-			offset_ += (numBytes + 3) & ~3;
+			offset = offset_;
 		}
+		offset_ = offset + numBytes;
+		*bindOffset = (uint32_t)offset;
 		*vkbuf = buffers_[buf_].buffer;
-		return out;
+		return writePtr_ + offset;
 	}
 
-	// Returns the offset that should be used when binding this buffer to get this data.
-	size_t Push(const void *data, size_t size, VkBuffer *vkbuf) {
-		_dbg_assert_(writePtr_);
-		size_t off = Allocate(size, vkbuf);
-		memcpy(writePtr_ + off, data, size);
-		return off;
-	}
-
-	uint32_t PushAligned(const void *data, size_t size, int align, VkBuffer *vkbuf) {
-		_dbg_assert_(writePtr_);
-		offset_ = (offset_ + align - 1) & ~(align - 1);
-		size_t off = Allocate(size, vkbuf);
-		memcpy(writePtr_ + off, data, size);
-		return (uint32_t)off;
-	}
-
-	size_t GetOffset() const {
-		return offset_;
-	}
-
-	const char *Name() const {
-		return name_;
-	}
-
-	// "Zero-copy" variant - you can write the data directly as you compute it.
-	// Recommended.
-	void *Push(size_t size, uint32_t *bindOffset, VkBuffer *vkbuf) {
-		_dbg_assert_(writePtr_);
-		size_t off = Allocate(size, vkbuf);
-		*bindOffset = (uint32_t)off;
-		return writePtr_ + off;
-	}
-	void *PushAligned(size_t size, uint32_t *bindOffset, VkBuffer *vkbuf, int align) {
-		_dbg_assert_(writePtr_);
-		offset_ = (offset_ + align - 1) & ~(align - 1);
-		size_t off = Allocate(size, vkbuf);
-		*bindOffset = (uint32_t)off;
-		return writePtr_ + off;
-	}
-
-	template<class T>
-	void PushUBOData(const T &data, VkDescriptorBufferInfo *info) {
+	VkDeviceSize Push(const void *data, VkDeviceSize numBytes, int alignment, VkBuffer *vkbuf) {
 		uint32_t bindOffset;
-		void *ptr = PushAligned(sizeof(T), &bindOffset, &info->buffer, vulkan_->GetPhysicalDeviceProperties().properties.limits.minUniformBufferOffsetAlignment);
-		memcpy(ptr, &data, sizeof(T));
-		info->offset = bindOffset;
-		info->range = sizeof(T);
+		uint8_t *ptr = Allocate(numBytes, alignment, vkbuf, &bindOffset);
+		memcpy(ptr, data, numBytes);
+		return bindOffset;
 	}
 
+	size_t GetOffset() const { return offset_; }
 	size_t GetTotalSize() const;
 
 private:
@@ -139,7 +88,6 @@ private:
 	void Defragment(VulkanContext *vulkan);
 
 	VulkanContext *vulkan_;
-	PushBufferType type_;
 
 	std::vector<BufInfo> buffers_;
 	size_t buf_ = 0;
@@ -147,6 +95,85 @@ private:
 	size_t size_ = 0;
 	uint8_t *writePtr_ = nullptr;
 	VkBufferUsageFlags usage_;
+	const char *name_;
+};
+
+// Simple memory pushbuffer pool that can share blocks between the "frames", to reduce the impact of push memory spikes -
+// a later frame can gobble up redundant buffers from an earlier frame even if they don't share frame index.
+// NOT thread safe! Can only be used from one thread (our main thread).
+class VulkanPushPool : public GPUMemoryManager {
+public:
+	VulkanPushPool(VulkanContext *vulkan, const char *name, size_t originalBlockSize, VkBufferUsageFlags usage);
+	~VulkanPushPool();
+
+	void Destroy();
+	void BeginFrame();
+
+	const char *Name() const override {
+		return name_;
+	}
+	void GetDebugString(char *buffer, size_t bufSize) const override;
+
+	// When using the returned memory, make sure to bind the returned vkbuf.
+	// It is okay to allocate 0 bytes.
+	uint8_t *Allocate(VkDeviceSize numBytes, VkDeviceSize alignment, VkBuffer *vkbuf, uint32_t *bindOffset) {
+		_dbg_assert_(curBlockIndex_ >= 0);
+		
+		Block &block = blocks_[curBlockIndex_];
+
+		VkDeviceSize offset = (block.used + (alignment - 1)) & ~(alignment - 1);
+		if (offset + numBytes <= block.size) {
+			block.used = offset + numBytes;
+			*vkbuf = block.buffer;
+			*bindOffset = (uint32_t)offset;
+			return block.writePtr + offset;
+		}
+
+		NextBlock(numBytes);
+
+		*vkbuf = blocks_[curBlockIndex_].buffer;
+		*bindOffset = 0;  // Newly allocated buffer will start at 0.
+		return blocks_[curBlockIndex_].writePtr;
+	}
+
+	// NOTE: If you can avoid this by writing the data directly into memory returned from Allocate,
+	// do so. Savings from avoiding memcpy can be significant.
+	VkDeviceSize Push(const void *data, VkDeviceSize numBytes, int alignment, VkBuffer *vkbuf) {
+		uint32_t bindOffset;
+		uint8_t *ptr = Allocate(numBytes, alignment, vkbuf, &bindOffset);
+		memcpy(ptr, data, numBytes);
+		return bindOffset;
+	}
+
+	size_t GetUsedThisFrame() const;
+
+private:
+	void NextBlock(VkDeviceSize allocationSize);
+
+	struct Block {
+		~Block();
+		VkBuffer buffer;
+		VmaAllocation allocation;
+
+		VkDeviceSize size;
+		VkDeviceSize used;
+
+		int frameIndex;
+		bool original;  // these blocks aren't garbage collected.
+		double lastUsed;
+
+		uint8_t *writePtr;
+
+		void Destroy(VulkanContext *vulkan);
+	};
+
+	Block CreateBlock(size_t sz);
+
+	VulkanContext *vulkan_;
+	VkDeviceSize originalBlockSize_;
+	std::vector<Block> blocks_;
+	VkBufferUsageFlags usage_;
+	int curBlockIndex_ = -1;
 	const char *name_;
 };
 
@@ -173,7 +200,7 @@ private:
 	const char *tag_;
 	VulkanContext *vulkan_ = nullptr;
 	VkDescriptorPool descPool_ = VK_NULL_HANDLE;
-	VkDescriptorPoolCreateInfo info_;
+	VkDescriptorPoolCreateInfo info_{};
 	std::vector<VkDescriptorPoolSize> sizes_;
 	std::function<void()> clear_;
 	uint32_t usage_ = 0;

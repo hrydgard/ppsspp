@@ -140,13 +140,14 @@ int PSPMsgDialog::Init(unsigned int paramAddr) {
 	ChangeStatusInit(MSG_INIT_DELAY_US);
 
 	UpdateButtons();
+	InitCommon();
 	StartFade(true);
 	return 0;
 }
 
 
 void PSPMsgDialog::FormatErrorCode(uint32_t code) {
-	auto err = GetI18NCategory("Dialog");
+	auto err = GetI18NCategory(I18NCat::DIALOG);
 
 	switch (code) {
 	case SCE_UTILITY_SAVEDATA_ERROR_LOAD_DATA_BROKEN:
@@ -179,7 +180,7 @@ void PSPMsgDialog::FormatErrorCode(uint32_t code) {
 }
 
 void PSPMsgDialog::DisplayMessage(std::string text, bool hasYesNo, bool hasOK) {
-	auto di = GetI18NCategory("Dialog");
+	auto di = GetI18NCategory(I18NCat::DIALOG);
 
 	PPGeStyle buttonStyle = FadedStyle(PPGeAlign::BOX_CENTER, FONT_SCALE);
 	PPGeStyle messageStyle = FadedStyle(PPGeAlign::BOX_HCENTER, FONT_SCALE);
@@ -282,19 +283,8 @@ int PSPMsgDialog::Update(int animSpeed) {
 		ChangeStatus(SCE_UTILITY_STATUS_FINISHED, 0);
 	} else {
 		UpdateButtons();
+		UpdateCommon();
 		UpdateFade(animSpeed);
-
-		okButtonImg = ImageID("I_CIRCLE");
-		cancelButtonImg = ImageID("I_CROSS");
-		okButtonFlag = CTRL_CIRCLE;
-		cancelButtonFlag = CTRL_CROSS;
-		if (messageDialog.common.buttonSwap == 1)
-		{
-			okButtonImg = ImageID("I_CROSS");
-			cancelButtonImg = ImageID("I_CIRCLE");
-			okButtonFlag = CTRL_CROSS;
-			cancelButtonFlag = CTRL_CIRCLE;
-		}
 
 		StartDraw();
 		// white -> RGB(168,173,189), black -> RGB(129,134,150)

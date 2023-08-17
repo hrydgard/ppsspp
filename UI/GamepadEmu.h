@@ -23,6 +23,7 @@
 #include "Common/UI/View.h"
 #include "Common/UI/ViewGroup.h"
 #include "Core/CoreParameter.h"
+#include "Core/HLE/sceCtrl.h"
 #include "UI/EmuScreen.h"
 
 class GamepadView : public UI::View {
@@ -36,12 +37,17 @@ public:
 	void Update() override;
 	std::string DescribeText() const override;
 
+	void SetForceVisible(bool visible) {
+		forceVisible_ = visible;
+	}
+
 protected:
 	virtual float GetButtonOpacity();
 
-	const char *key_;
+	std::string key_;
 	double lastFrameTime_;
 	float secondsWithoutTouch_ = 0.0;
+	bool forceVisible_ = false;
 };
 
 class MultiTouchButton : public GamepadView {
@@ -167,9 +173,9 @@ UI::ViewGroup *CreatePadLayout(float xres, float yres, bool *pause, bool showPau
 const int D_pad_Radius = 50;
 const int baseActionButtonSpacing = 60;
 
-class ComboKey : public MultiTouchButton {
+class CustomButton : public MultiTouchButton {
 public:
-	ComboKey(uint64_t pspButtonBit, const char *key, bool toggle, bool repeat, ControlMapper* controllMapper, ImageID bgImg, ImageID bgDownImg, ImageID img, float scale, bool invertedContextDimension, UI::LayoutParams *layoutParams)
+	CustomButton(uint64_t pspButtonBit, const char *key, bool toggle, bool repeat, ControlMapper* controllMapper, ImageID bgImg, ImageID bgDownImg, ImageID img, float scale, bool invertedContextDimension, UI::LayoutParams *layoutParams)
 		: MultiTouchButton(key, bgImg, bgDownImg, img, scale, layoutParams), pspButtonBit_(pspButtonBit), toggle_(toggle), repeat_(repeat), controlMapper_(controllMapper), on_(false), invertedContextDimension_(invertedContextDimension) {
 	}
 	bool Touch(const TouchInput &input) override;
@@ -212,13 +218,13 @@ protected:
 };
 
 // Just edit this to add new image, shape or button function
-namespace CustomKey {
+namespace CustomKeyData {
 	// Image list
 	struct keyImage {
 		ImageID i; // ImageID
 		float r; // Rotation angle in degree
 	};
-	static const keyImage comboKeyImages[] = {
+	static const keyImage customKeyImages[] = {
 		{ ImageID("I_1"), 0.0f },
 		{ ImageID("I_2"), 0.0f },
 		{ ImageID("I_3"), 0.0f },
@@ -264,7 +270,7 @@ namespace CustomKey {
 		bool f; // Flip Horizontally
 		bool d; // Invert height and width for context dimension (for example for 90 degree rot)
 	};
-	static const keyShape comboKeyShapes[] = {
+	static const keyShape customKeyShapes[] = {
 		{ ImageID("I_ROUND"), ImageID("I_ROUND_LINE"), 0.0f, false, false },
 		{ ImageID("I_RECT"), ImageID("I_RECT_LINE"), 0.0f, false, false },
 		{ ImageID("I_RECT"), ImageID("I_RECT_LINE"), 90.0f, false, true },
@@ -282,7 +288,7 @@ namespace CustomKey {
 		ImageID i; // UI ImageID
 		uint32_t c; // Key code
 	};
-	static const keyList comboKeyList[] = {
+	static const keyList customKeyList[] = {
 		{ ImageID("I_SQUARE"), CTRL_SQUARE },
 		{ ImageID("I_TRIANGLE"), CTRL_TRIANGLE },
 		{ ImageID("I_CIRCLE"), CTRL_CIRCLE },
@@ -319,8 +325,13 @@ namespace CustomKey {
 #ifndef MOBILE_DEVICE
 		{ ImageID::invalid(), VIRTKEY_RECORD },
 #endif
+		{ ImageID::invalid(), VIRTKEY_AXIS_X_MIN },
+		{ ImageID::invalid(), VIRTKEY_AXIS_Y_MIN },
+		{ ImageID::invalid(), VIRTKEY_AXIS_X_MAX },
+		{ ImageID::invalid(), VIRTKEY_AXIS_Y_MAX },
+		{ ImageID::invalid(), VIRTKEY_PREVIOUS_SLOT },
 	};
-	static_assert(ARRAY_SIZE(comboKeyList) <= 64, "Too many key for a uint64_t bit mask");
+	static_assert(ARRAY_SIZE(customKeyList) <= 64, "Too many key for a uint64_t bit mask");
 };
 
 // Gesture key only have virtual button that can work without constant press
@@ -346,6 +357,7 @@ namespace GestureKey {
 		VIRTKEY_REWIND, 
 		VIRTKEY_SAVE_STATE,
 		VIRTKEY_LOAD_STATE,
+		VIRTKEY_PREVIOUS_SLOT,
 		VIRTKEY_NEXT_SLOT,
 		VIRTKEY_TEXTURE_DUMP, 
 		VIRTKEY_TEXTURE_REPLACE,
@@ -357,5 +369,9 @@ namespace GestureKey {
 #ifndef MOBILE_DEVICE
 		VIRTKEY_RECORD,
 #endif
+		VIRTKEY_AXIS_X_MIN,
+		VIRTKEY_AXIS_Y_MIN,
+		VIRTKEY_AXIS_X_MAX,
+		VIRTKEY_AXIS_Y_MAX,
 	};
 }

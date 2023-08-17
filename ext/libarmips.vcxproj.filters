@@ -381,4 +381,7 @@
       <Filter>Archs\SuperH</Filter>
     </ClInclude>
   </ItemGroup>
+  <ItemGroup>
+    <Text Include="cmake\armips\CMakeLists.txt" />
+  </ItemGroup>
 </Project>

@@ -19,7 +19,6 @@
 #include "Common/GPU/ShaderWriter.h"
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
-#include "Core/Reporting.h"
 #include "GPU/Common/StencilCommon.h"
 #include "GPU/Common/DrawEngineCommon.h"
 #include "GPU/Common/FramebufferManagerCommon.h"
@@ -305,7 +304,7 @@ bool FramebufferManagerCommon::PerformWriteStencilFromMemory(u32 addr, int size,
 	}
 
 	Draw::Viewport viewport = { 0.0f, 0.0f, (float)w, (float)h, 0.0f, 1.0f };
-	draw_->SetViewports(1, &viewport);
+	draw_->SetViewport(viewport);
 
 	// TODO: Switch the format to a single channel format?
 	Draw::Texture *tex = MakePixelTexture(src, dstBuffer->fb_format, dstBuffer->fb_stride, dstBuffer->width, dstBuffer->height);
@@ -355,7 +354,6 @@ bool FramebufferManagerCommon::PerformWriteStencilFromMemory(u32 addr, int size,
 		draw_->BlitFramebuffer(blitFBO, 0, 0, w, h, dstBuffer->fbo, 0, 0, dstBuffer->renderWidth, dstBuffer->renderHeight, Draw::FB_STENCIL_BIT, Draw::FB_BLIT_NEAREST, "WriteStencilFromMemory_Blit");
 		RebindFramebuffer("RebindFramebuffer - Stencil");
 	}
-	tex->Release();
 
 	draw_->Invalidate(InvalidationFlags::CACHED_RENDER_STATE);
 	gstate_c.Dirty(DIRTY_ALL_RENDER_STATE);

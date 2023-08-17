@@ -17,7 +17,7 @@
 #include "Common/System/NativeApp.h"
 #include "Common/TimeUtil.h"
 #include "Common/File/VFS/VFS.h"
-#include "Common/File/VFS/AssetReader.h"
+#include "Common/File/VFS/DirectoryReader.h"
 #include "Common/Input/InputState.h"
 #include "Common/Net/Resolve.h"
 #include "Common/UI/Screen.h"
@@ -66,9 +66,9 @@
 - (void)decodeKeyEvent:(NSInteger *)eventMem {
     NSInteger eventType = eventMem[GSEVENT_TYPE];
     NSInteger eventScanCode = eventMem[GSEVENTKEY_KEYCODE];
-    
+
     //NSLog(@"Got key: %d", (int)eventScanCode);
-    
+
     if (eventType == GSEVENT_TYPE_KEYUP) {
         struct KeyInput key;
         key.flags = KEY_UP;
@@ -82,13 +82,13 @@
         key.deviceId = DEVICE_ID_KEYBOARD;
         NativeKey(key);
     }
-    
+
 }
 
 - (void)handleKeyUIEvent:(UIEvent *) event {
     if ([event respondsToSelector:@selector(_gsEvent)]) {
         NSInteger *eventMem;
-        
+
         eventMem = (NSInteger *) (__bridge void*)[event performSelector:@selector(_gsEvent)];
         if (eventMem) {
             [self decodeKeyEvent:eventMem];
@@ -100,7 +100,7 @@
     [super sendEvent:event];
     if ([event respondsToSelector:@selector(_gsEvent)]) {
         NSInteger *eventMem;
-        
+
         eventMem = (NSInteger *) (__bridge void*)[event performSelector:@selector(_gsEvent)];
         if (eventMem) {
             [self decodeKeyEvent:eventMem];

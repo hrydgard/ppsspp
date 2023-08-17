@@ -308,13 +308,8 @@ private:
 
 class SnapGrid : public UI::View {
 public:
-	SnapGrid(int leftMargin, int rightMargin, int topMargin, int bottomMargin, u32 color) {
-		x1 = leftMargin;
-		x2 = rightMargin;
-		y1 = topMargin;
-		y2 = bottomMargin;
-		col = color;
-	}
+	SnapGrid(int leftMargin, int rightMargin, int topMargin, int bottomMargin, u32 color)
+		: UI::View(), x1(leftMargin), x2(rightMargin), y1(topMargin), y2(bottomMargin), col(color) {}
 
 	void Draw(UIContext &dc) override {
 		if (g_Config.bTouchSnapToGrid) {
@@ -323,8 +318,8 @@ public:
 			float xOffset = bounds_.x;
 			float yOffset = bounds_.y;
 
-			dc.Draw()->Rect((x1+x2)/2 + xOffset - pixel_in_dps_x, y1 + yOffset, 3.0*pixel_in_dps_x, y2-y1, col);
-			dc.Draw()->Rect(x1 + xOffset, (y1+y2)/2 + yOffset - pixel_in_dps_y, x2-x1, 3.0*pixel_in_dps_y, col);
+			dc.Draw()->Rect((x1+x2)/2 + xOffset - g_display.pixel_in_dps_x, y1 + yOffset, 3.0f * g_display.pixel_in_dps_x, y2-y1, col);
+			dc.Draw()->Rect(x1 + xOffset, (y1+y2)/2 + yOffset - g_display.pixel_in_dps_y, x2-x1, 3.0f * g_display.pixel_in_dps_y, col);
 
 			for (int x = x1 + (x1+x2)/2 % g_Config.iTouchSnapGridSize; x < x2; x += g_Config.iTouchSnapGridSize)
 				dc.Draw()->vLine(x + xOffset, y1 + yOffset, y2 + yOffset, col);
@@ -459,7 +454,7 @@ void ControlLayoutView::Draw(UIContext& dc) {
 }
 
 void ControlLayoutView::CreateViews() {
-	using namespace CustomKey;
+	using namespace CustomKeyData;
 	const Bounds &bounds = GetBounds();
 	if (bounds.w == 0.0f || bounds.h == 0.0f) {
 		// Layout hasn't happened yet, return.
@@ -515,26 +510,22 @@ void ControlLayoutView::CreateViews() {
 		controls_.push_back(new PSPStickDragDrop(g_Config.touchRightAnalogStick, "Right analog stick", stickBg, stickImage, bounds, g_Config.fRightStickHeadScale));
 	}
 
-	auto addDragComboKey = [&](ConfigTouchPos &pos, const char *key, const ConfigCustomButton& cfg) {
+	auto addDragCustomKey = [&](ConfigTouchPos &pos, const char *key, const ConfigCustomButton& cfg) {
 		DragDropButton *b = nullptr;
 		if (pos.show) {
-			b = new DragDropButton(pos, key, g_Config.iTouchButtonStyle == 0 ? comboKeyShapes[cfg.shape].i : comboKeyShapes[cfg.shape].l, comboKeyImages[cfg.image].i, bounds);
-			b->FlipImageH(comboKeyShapes[cfg.shape].f);
-			b->SetAngle(comboKeyImages[cfg.image].r, comboKeyShapes[cfg.shape].r);
+			b = new DragDropButton(pos, key, g_Config.iTouchButtonStyle == 0 ? customKeyShapes[cfg.shape].i : customKeyShapes[cfg.shape].l, customKeyImages[cfg.image].i, bounds);
+			b->FlipImageH(customKeyShapes[cfg.shape].f);
+			b->SetAngle(customKeyImages[cfg.image].r, customKeyShapes[cfg.shape].r);
 			controls_.push_back(b);
 		}
 		return b;
 	};
-	addDragComboKey(g_Config.touchCombo0, "Custom 1 button", g_Config.CustomKey0);
-	addDragComboKey(g_Config.touchCombo1, "Custom 2 button", g_Config.CustomKey1);
-	addDragComboKey(g_Config.touchCombo2, "Custom 3 button", g_Config.CustomKey2);
-	addDragComboKey(g_Config.touchCombo3, "Custom 4 button", g_Config.CustomKey3);
-	addDragComboKey(g_Config.touchCombo4, "Custom 5 button", g_Config.CustomKey4);
-	addDragComboKey(g_Config.touchCombo5, "Custom 6 button", g_Config.CustomKey5);
-	addDragComboKey(g_Config.touchCombo6, "Custom 7 button", g_Config.CustomKey6);
-	addDragComboKey(g_Config.touchCombo7, "Custom 8 button", g_Config.CustomKey7);
-	addDragComboKey(g_Config.touchCombo8, "Custom 9 button", g_Config.CustomKey8);
-	addDragComboKey(g_Config.touchCombo9, "Custom 10 button", g_Config.CustomKey9);
+
+	for (int i = 0; i < Config::CUSTOM_BUTTON_COUNT; i++) {
+		char temp[64];
+		snprintf(temp, sizeof(temp), "Custom %d button", i);
+		addDragCustomKey(g_Config.touchCustom[i], temp, g_Config.CustomButton[i]);
+	}
 
 	for (size_t i = 0; i < controls_.size(); i++) {
 		Add(controls_[i]);
@@ -602,7 +593,7 @@ UI::EventReturn TouchControlLayoutScreen::OnMode(UI::EventParams &e) {
 }
 
 void TouchControlLayoutScreen::update() {
-	UIDialogScreenWithBackground::update();
+	UIDialogScreenWithGameBackground::update();
 
 	// TODO: We really, really need a cleaner solution for creating sub-views
 	// of custom compound controls.
@@ -623,8 +614,8 @@ void TouchControlLayoutScreen::CreateViews() {
 	const float leftColumnWidth = 200.0f;
 	layoutAreaScale = 1.0f - (leftColumnWidth + 10.0f) / std::max(bounds.w, 1.0f);
 
-	auto co = GetI18NCategory("Controls");
-	auto di = GetI18NCategory("Dialog");
+	auto co = GetI18NCategory(I18NCat::CONTROLS);
+	auto di = GetI18NCategory(I18NCat::DIALOG);
 
 	auto rootLayout = new LinearLayout(ORIENT_HORIZONTAL, new LayoutParams(FILL_PARENT, FILL_PARENT));
 	rootLayout->SetSpacing(0.0f);
@@ -641,7 +632,7 @@ void TouchControlLayoutScreen::CreateViews() {
 	mode_->OnChoice.Handle(this, &TouchControlLayoutScreen::OnMode);
 
 	CheckBox *snap = new CheckBox(&g_Config.bTouchSnapToGrid, di->T("Snap"));
-	PopupSliderChoice *gridSize = new PopupSliderChoice(&g_Config.iTouchSnapGridSize, 2, 256, di->T("Grid"), screenManager(), "");
+	PopupSliderChoice *gridSize = new PopupSliderChoice(&g_Config.iTouchSnapGridSize, 2, 256, 64, di->T("Grid"), screenManager(), "");
 	gridSize->SetEnabledPtr(&g_Config.bTouchSnapToGrid);
 
 	leftColumn->Add(mode_);

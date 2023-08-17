@@ -177,6 +177,14 @@ ISOFileSystem::~ISOFileSystem() {
 	delete treeroot;
 }
 
+std::string ISOFileSystem::TreeEntry::BuildPath() {
+	if (parent) {
+		return parent->BuildPath() + "/" + name;
+	} else {
+		return name;
+	}
+}
+
 void ISOFileSystem::ReadDirectory(TreeEntry *root) {
 	for (u32 secnum = root->startsector, endsector = root->startsector + (root->dirsize + 2047) / 2048; secnum < endsector; ++secnum) {
 		u8 theSector[2048];
@@ -228,12 +236,12 @@ void ISOFileSystem::ReadDirectory(TreeEntry *root) {
 			entry->startsector = dir.firstDataSector;
 			entry->dirsize = dir.dataLength;
 			entry->valid = isFile;  // Can pre-mark as valid if file, as we don't recurse into those.
-			VERBOSE_LOG(FILESYS, "%s: %s %08x %08x %i", entry->isDirectory ? "D" : "F", entry->name.c_str(), (u32)dir.firstDataSector, entry->startingPosition, entry->startingPosition);
+			VERBOSE_LOG(FILESYS, "%s: %s %08x %08x %d", entry->isDirectory ? "D" : "F", entry->name.c_str(), (u32)dir.firstDataSector, entry->startingPosition, entry->startingPosition);
 
 			// Round down to avoid any false reports.
 			if (isFile && dir.firstDataSector + (dir.dataLength / 2048) > blockDevice->GetNumBlocks()) {
 				blockDevice->NotifyReadError();
-				ERROR_LOG(FILESYS, "File '%s' starts or ends outside ISO", entry->name.c_str());
+				ERROR_LOG(FILESYS, "File '%s' starts or ends outside ISO. firstDataSector: %d len: %d", entry->BuildPath().c_str(), (int)dir.firstDataSector, (int)dir.dataLength);
 			}
 
 			if (entry->isDirectory && !relative) {
@@ -401,8 +409,8 @@ int ISOFileSystem::Ioctl(u32 handle, u32 cmd, u32 indataPtr, u32 inlen, u32 outd
 			return SCE_KERNEL_ERROR_ERRNO_FUNCTION_NOT_SUPPORTED;
 		}
 
-		if (!Memory::IsValidAddress(outdataPtr) || outlen < 0x800) {
-			WARN_LOG_REPORT(FILESYS, "sceIoIoctl: Invalid out pointer while reading ISO9660 volume descriptor");
+		if (!Memory::IsValidRange(outdataPtr, 0x800) || outlen < 0x800) {
+			WARN_LOG_REPORT(FILESYS, "sceIoIoctl: Invalid out pointer %08x while reading ISO9660 volume descriptor", outdataPtr);
 			return SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT;
 		}
 
@@ -424,7 +432,7 @@ int ISOFileSystem::Ioctl(u32 handle, u32 cmd, u32 indataPtr, u32 inlen, u32 outd
 		} else {
 			int block = (u16)desc.firstLETableSector;
 			u32 size = Memory::ValidSize(outdataPtr, (u32)desc.pathTableLength);
-			u8 *out = Memory::GetPointerWrite(outdataPtr);
+			u8 *out = Memory::GetPointerWriteRange(outdataPtr, size);
 
 			int blocks = size / blockDevice->GetBlockSize();
 			blockDevice->ReadBlocks(block, blocks, out);

@@ -1,5 +1,4 @@
 // Rough and ready CwCheats implementation, disabled by default.
-// Will not enable by default until the TOOD:s have been addressed.
 
 #pragma once
 

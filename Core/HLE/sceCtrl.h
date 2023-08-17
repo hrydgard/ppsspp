@@ -64,12 +64,8 @@ void __CtrlInit();
 void __CtrlDoState(PointerWrap &p);
 void __CtrlShutdown();
 
-// Call this whenever a button is pressed, using the above CTRL_ constants.
-// Multiple buttons may be sent in one call OR'd together.
-// Resending a currently pressed button is fine but not required.
-void __CtrlButtonDown(u32 buttonBit);
-// Call this whenever a button is released.  Similar to __CtrlButtonDown().
-void __CtrlButtonUp(u32 buttonBit);
+// Clears and sets selected buttons. NOTE: Clearing happens first.
+void __CtrlUpdateButtons(u32 bitsToSet, u32 bitsToClear);
 
 // Call this to set the position of an analog stick, ideally when it changes.
 // X and Y values should be from -1 to 1, inclusive, in a square (no need to force to a circle.)
@@ -77,11 +73,12 @@ void __CtrlButtonUp(u32 buttonBit);
 void __CtrlSetAnalogXY(int stick, float x, float y);
 
 // Call this to enable rapid-fire.  This will cause buttons other than arrows to alternate.
-void __CtrlSetRapidFire(bool state);
+void __CtrlSetRapidFire(bool state, int interval);
 bool __CtrlGetRapidFire();
 
 // For use by internal UI like MsgDialog
 u32 __CtrlPeekButtons();
+u32 __CtrlPeekButtonsVisual();  // also incorporates rapid-fire
 void __CtrlPeekAnalog(int stick, float *x, float *y);
 u32 __CtrlReadLatch();
 

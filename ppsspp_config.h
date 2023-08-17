@@ -8,7 +8,7 @@
 #define PPSSPP_API(PPSSPP_FEATURE) (PPSSPP_API_##PPSSPP_FEATURE)
 
 // ARCH defines
-#if defined(_M_IX86) || defined(__i386__)
+#if defined(_M_IX86) || defined(__i386__) || defined (__EMSCRIPTEN__)
     #define PPSSPP_ARCH_X86 1
     #define PPSSPP_ARCH_32BIT 1
     //TODO: Remove this compat define
@@ -17,9 +17,13 @@
     #endif
 #endif
 
-#if defined(_M_X64) || defined(__amd64__) || defined(__x86_64__)
+#if (defined(_M_X64) || defined(__amd64__) || defined(__x86_64__)) && !defined(__EMSCRIPTEN__)
     #define PPSSPP_ARCH_AMD64 1
-    #define PPSSPP_ARCH_64BIT 1
+    #if defined(__ILP32__)
+        #define PPSSPP_ARCH_32BIT 1
+    #else
+        #define PPSSPP_ARCH_64BIT 1
+    #endif
     //TODO: Remove this compat define
     #ifndef _M_X64
         #define _M_X64 1
@@ -104,6 +108,8 @@
     #define PPSSPP_PLATFORM_LINUX 1
 #elif defined(__linux__)
     #define PPSSPP_PLATFORM_LINUX 1
+#elif defined(__OpenBSD__)
+    #define PPSSPP_PLATFORM_OPENBSD 1
 #endif
 
 // Windows ARM/ARM64, and Windows UWP (all), are the only platform that don't do GL at all (until Apple finally removes it)

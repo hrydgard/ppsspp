@@ -19,8 +19,10 @@
 
 #include <functional>
 #include <memory>
+#include <set>
 #include <mutex>
 #include <vector>
+#include <string>
 
 #include "Common/UI/View.h"
 #include "Common/UI/UIScreen.h"
@@ -34,7 +36,7 @@ class SingleControlMapper;
 
 class ControlMappingScreen : public UIDialogScreenWithGameBackground {
 public:
-	ControlMappingScreen(const Path &gamePath) : UIDialogScreenWithGameBackground(gamePath) {}
+	explicit ControlMappingScreen(const Path &gamePath) : UIDialogScreenWithGameBackground(gamePath) {}
 	const char *tag() const override { return "ControlMapping"; }
 
 protected:
@@ -49,22 +51,20 @@ private:
 
 	void dialogFinished(const Screen *dialog, DialogResult result) override;
 
-	UI::ScrollView *rightScroll_;
+	UI::ScrollView *rightScroll_ = nullptr;
 	std::vector<SingleControlMapper *> mappers_;
 	int keyMapGeneration_ = -1;
 };
 
 class KeyMappingNewKeyDialog : public PopupScreen {
 public:
-	explicit KeyMappingNewKeyDialog(int btn, bool replace, std::function<void(KeyDef)> callback, std::shared_ptr<I18NCategory> i18n)
-		: PopupScreen(i18n->T("Map Key"), "Cancel", ""), callback_(callback) {
-		pspBtn_ = btn;
-	}
+	explicit KeyMappingNewKeyDialog(int btn, bool replace, std::function<void(KeyMap::MultiInputMapping)> callback, I18NCat i18n)
+		: PopupScreen(T(i18n, "Map Key"), "Cancel", ""), pspBtn_(btn), callback_(callback) {}
 
 	const char *tag() const override { return "KeyMappingNewKey"; }
 
 	bool key(const KeyInput &key) override;
-	bool axis(const AxisInput &axis) override;
+	void axis(const AxisInput &axis) override;
 
 	void SetDelay(float t);
 
@@ -77,22 +77,27 @@ protected:
 
 private:
 	int pspBtn_;
-	std::function<void(KeyDef)> callback_;
-	bool mapped_ = false;  // Prevent double registrations
+	std::function<void(KeyMap::MultiInputMapping)> callback_;
+
+	KeyMap::MultiInputMapping mapping_;
+
+	UI::View *comboMappingsNotEnabled_ = nullptr;
+
+	// We need to do our own detection for axis "keyup" here.
+	std::set<InputMapping> triggeredAxes_;
+
 	double delayUntil_ = 0.0f;
 };
 
 class KeyMappingNewMouseKeyDialog : public PopupScreen {
 public:
-	KeyMappingNewMouseKeyDialog(int btn, bool replace, std::function<void(KeyDef)> callback, std::shared_ptr<I18NCategory> i18n)
-		: PopupScreen(i18n->T("Map Mouse"), "", ""), callback_(callback), mapped_(false) {
-		pspBtn_ = btn;
-	}
+	KeyMappingNewMouseKeyDialog(int btn, bool replace, std::function<void(KeyMap::MultiInputMapping)> callback, I18NCat i18n)
+		: PopupScreen(T(i18n, "Map Mouse"), "", ""), pspBtn_(btn), callback_(callback) {}
 
 	const char *tag() const override { return "KeyMappingNewMouseKey"; }
 
 	bool key(const KeyInput &key) override;
-	bool axis(const AxisInput &axis) override;
+	void axis(const AxisInput &axis) override;
 
 protected:
 	void CreatePopupContents(UI::ViewGroup *parent) override;
@@ -103,8 +108,8 @@ protected:
 
 private:
 	int pspBtn_;
-	std::function<void(KeyDef)> callback_;
-	bool mapped_;  // Prevent double registrations
+	std::function<void(KeyMap::MultiInputMapping)> callback_;
+	bool mapped_ = false;  // Prevent double registrations
 };
 
 class JoystickHistoryView;
@@ -114,7 +119,7 @@ public:
 	AnalogSetupScreen(const Path &gamePath);
 
 	bool key(const KeyInput &key) override;
-	bool axis(const AxisInput &axis) override;
+	void axis(const AxisInput &axis) override;
 
 	void update() override;
 
@@ -144,11 +149,11 @@ public:
 		}
 	}
 
-	bool touch(const TouchInput &touch) override;
+	void touch(const TouchInput &touch) override;
 	void render() override;
 
 	bool key(const KeyInput &key) override;
-	bool axis(const AxisInput &axis) override;
+	void axis(const AxisInput &axis) override;
 
 	const char *tag() const override { return "TouchTest"; }
 
@@ -163,10 +168,12 @@ protected:
 	};
 	TrackedTouch touches_[MAX_TOUCH_POINTS]{};
 
-	UI::TextView *lastKeyEvent_ = nullptr;
-	UI::TextView *lastLastKeyEvent_ = nullptr;
+	std::vector<std::string> keyEventLog_;
+
+	UI::TextView *lastKeyEvents_ = nullptr;
 
 	void CreateViews() override;
+	void UpdateLogView();
 
 	UI::EventReturn OnImmersiveModeChange(UI::EventParams &e);
 	UI::EventReturn OnRenderingBackend(UI::EventParams &e);
@@ -181,6 +188,9 @@ public:
 
 	const char *tag() const override { return "VisualMapping"; }
 
+	bool key(const KeyInput &key) override;
+	void axis(const AxisInput &axis) override;
+
 protected:
 	void CreateViews() override;
 
@@ -190,7 +200,7 @@ protected:
 private:
 	UI::EventReturn OnMapButton(UI::EventParams &e);
 	UI::EventReturn OnBindAll(UI::EventParams &e);
-	void HandleKeyMapping(KeyDef key);
+	void HandleKeyMapping(KeyMap::MultiInputMapping key);
 	void MapNext(bool successive);
 
 	MockPSP *psp_ = nullptr;

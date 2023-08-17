@@ -73,18 +73,8 @@ int PSPNetconfDialog::Init(u32 paramAddr) {
 	ChangeStatusInit(NET_INIT_DELAY_US);
 
 	// Eat any keys pressed before the dialog inited.
+	InitCommon();
 	UpdateButtons();
-	okButtonImg = ImageID("I_CIRCLE");
-	cancelButtonImg = ImageID("I_CROSS");
-	okButtonFlag = CTRL_CIRCLE;
-	cancelButtonFlag = CTRL_CROSS;
-	if (request.common.buttonSwap == 1)
-	{
-		okButtonImg = ImageID("I_CROSS");
-		cancelButtonImg = ImageID("I_CIRCLE");
-		okButtonFlag = CTRL_CROSS;
-		cancelButtonFlag = CTRL_CIRCLE;
-	}
 
 	connResult = -1;
 	scanInfosAddr = 0;
@@ -104,7 +94,7 @@ void PSPNetconfDialog::DrawBanner() {
 
 	// TODO: Draw a hexagon icon
 	PPGeDrawImage(10, 5, 11.0f, 10.0f, 1, 10, 1, 10, 10, 10, FadedImageStyle());
-	auto di = GetI18NCategory("Dialog");
+	auto di = GetI18NCategory(I18NCat::DIALOG);
 	PPGeDrawText(di->T("Network Connection"), 31, 10, textStyle);
 }
 
@@ -114,7 +104,7 @@ void PSPNetconfDialog::DrawIndicator() {
 }
 
 void PSPNetconfDialog::DisplayMessage(std::string text1, std::string text2a, std::string text2b, std::string text3a, std::string text3b, bool hasYesNo, bool hasOK) {
-	auto di = GetI18NCategory("Dialog");
+	auto di = GetI18NCategory(I18NCat::DIALOG);
 
 	PPGeStyle buttonStyle = FadedStyle(PPGeAlign::BOX_CENTER, FONT_SCALE);
 	PPGeStyle messageStyle = FadedStyle(PPGeAlign::BOX_HCENTER, FONT_SCALE);
@@ -247,8 +237,9 @@ int PSPNetconfDialog::Update(int animSpeed) {
 	}
 
 	UpdateButtons();
-	auto di = GetI18NCategory("Dialog");
-	auto err = GetI18NCategory("Error");
+	UpdateCommon();
+	auto di = GetI18NCategory(I18NCat::DIALOG);
+	auto err = GetI18NCategory(I18NCat::ERRORS);
 	u64 now = (u64)(time_now_d() * 1000000.0);
 	
 	// It seems JPCSP doesn't check for NETCONF_STATUS_APNET
@@ -260,10 +251,10 @@ int PSPNetconfDialog::Update(int animSpeed) {
 
 		if (!hideNotice) {
 			const float WRAP_WIDTH = 254.0f;
-			const ImageID confirmBtnImage = g_Config.iButtonPreference == PSP_SYSTEMPARAM_BUTTON_CROSS ? ImageID("I_CROSS") : ImageID("I_CIRCLE");
 			const int confirmBtn = GetConfirmButton();
-			const ImageID cancelBtnImage = g_Config.iButtonPreference == PSP_SYSTEMPARAM_BUTTON_CROSS ? ImageID("I_CIRCLE") : ImageID("I_CROSS");
 			const int cancelBtn = GetCancelButton();
+			const ImageID confirmBtnImage = confirmBtn == CTRL_CROSS ? ImageID("I_CROSS") : ImageID("I_CIRCLE");
+			const ImageID cancelBtnImage = cancelBtn == CTRL_CIRCLE ? ImageID("I_CIRCLE") : ImageID("I_CROSS");
 
 			PPGeStyle textStyle = FadedStyle(PPGeAlign::BOX_CENTER, 0.5f);
 			PPGeStyle buttonStyle = FadedStyle(PPGeAlign::BOX_LEFT, 0.5f);

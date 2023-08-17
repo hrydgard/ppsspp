@@ -124,15 +124,10 @@ public class SizeManager implements SurfaceHolder.Callback {
 		}
 		displayUpdatePending = true;
 
-		final Runnable updater = new Runnable() {
-			public void run() {
-				Log.d(TAG, "checkDisplayMeasurements: checking now");
-				updateDisplayMeasurements();
-			}
-		};
-
-		final Handler handler = new Handler(Looper.getMainLooper());
-		handler.postDelayed(updater, 10);
+		activity.runOnUiThread(() -> {
+			Log.d(TAG, "checkDisplayMeasurements: checking now");
+			updateDisplayMeasurements();
+		});
 	}
 
 	@TargetApi(Build.VERSION_CODES.JELLY_BEAN_MR1)
@@ -208,7 +203,7 @@ public class SizeManager implements SurfaceHolder.Callback {
 				safeInsetTop = 0;
 				safeInsetBottom = 0;
 			}
-			NativeApp.sendMessage("safe_insets", safeInsetLeft + ":" + safeInsetRight + ":" + safeInsetTop + ":" + safeInsetBottom);
+			NativeApp.sendMessageFromJava("safe_insets", safeInsetLeft + ":" + safeInsetRight + ":" + safeInsetTop + ":" + safeInsetBottom);
 		}
 	}
 }

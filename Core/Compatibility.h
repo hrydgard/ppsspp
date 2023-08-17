@@ -95,11 +95,20 @@ struct CompatFlags {
 	bool OldAdrenoPixelDepthRoundingGL;
 	bool ForceCircleButtonConfirm;
 	bool DisallowFramebufferAtOffset;
+	bool RockmanDash2SoundFix;
+	bool ReadbackDepth;
+	bool BlockTransferDepth;
+	bool DaxterRotatedAnalogStick;
+	bool ForceMaxDepthResolution;
+	bool SOCOMClut8Replacement;
 	bool Fontltn12Hack;
 };
 
 struct VRCompat {
+	bool ForceMono;
+	bool ForceFlatScreen;
 	bool IdentityViewHack;
+	int MirroringVariant;
 	bool Skyplane;
 	float UnitsPerMeter;
 };
@@ -125,6 +134,7 @@ private:
 	void CheckVRSettings(IniFile &iniFile, const std::string &gameID);
 	void CheckSetting(IniFile &iniFile, const std::string &gameID, const char *option, bool *flag);
 	void CheckSetting(IniFile &iniFile, const std::string &gameID, const char *option, float *value);
+	void CheckSetting(IniFile &iniFile, const std::string &gameID, const char *option, int *value);
 
 	CompatFlags flags_{};
 	VRCompat vrCompat_{};

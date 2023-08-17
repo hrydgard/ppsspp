@@ -21,6 +21,7 @@
 #include <limits>
 #include <algorithm>
 
+#include "Common/Data/Convert/SmallDataConvert.h"
 #include "Common/Math/math_util.h"
 
 #include "Core/Compatibility.h"
@@ -100,9 +101,8 @@ inline float nanclamp(float f, float lower, float upper)
 	return nanmin(nanmax(f, lower), upper);
 }
 
-
-void ApplyPrefixST(float *r, u32 data, VectorSize size, float invalid = 0.0f) {
-	// Possible optimization shortcut:
+static void ApplyPrefixST(float *r, u32 data, VectorSize size, float invalid = 0.0f) {
+	// Check for no prefix.
 	if (data == 0xe4)
 		return;
 
@@ -123,7 +123,7 @@ void ApplyPrefixST(float *r, u32 data, VectorSize size, float invalid = 0.0f) {
 		if (!constants) {
 			if (regnum >= n) {
 				// We mostly handle this now, but still worth reporting.
-				ERROR_LOG_REPORT(CPU, "Invalid VFPU swizzle: %08x: %i / %d at PC = %08x (%s)", data, regnum, n, currentMIPS->pc, MIPSDisasmAt(currentMIPS->pc));
+				ERROR_LOG_REPORT(CPU, "Invalid VFPU swizzle: %08x: %i / %d at PC = %08x (%s)", data, regnum, n, currentMIPS->pc, MIPSDisasmAt(currentMIPS->pc).c_str());
 			}
 			r[i] = origV[regnum];
 			if (abs)
@@ -170,6 +170,7 @@ static void RetainInvalidSwizzleST(float *d, VectorSize sz) {
 	int tPrefix = currentMIPS->vfpuCtrl[VFPU_CTRL_TPREFIX];
 	int n = GetNumVectorElements(sz);
 
+	// TODO: We can probably do some faster check of sPrefix and tPrefix to skip over this loop.
 	for (int i = 0; i < n; i++) {
 		int swizzleS = (sPrefix >> (i + i)) & 3;
 		int swizzleT = (tPrefix >> (i + i)) & 3;
@@ -201,12 +202,13 @@ namespace MIPSInt
 
 	void Int_SVQ(MIPSOpcode op)
 	{
-		int imm = (signed short)(op&0xFFFC);
+		int imm = SignExtend16ToS32(op & 0xFFFC);
 		int rs = _RS;
 		int vt = (((op >> 16) & 0x1f)) | ((op&1) << 5);
 
 		u32 addr = R(rs) + imm;
 		float *f;
+		const float *cf;
 
 		switch (op >> 26)
 		{
@@ -245,9 +247,9 @@ namespace MIPSInt
 				_dbg_assert_msg_( 0, "Misaligned lv.q at %08x (pc = %08x)", addr, PC);
 			}
 #ifndef COMMON_BIG_ENDIAN
-			f = reinterpret_cast<float *>(Memory::GetPointerWrite(addr));
-			if (f)
-				WriteVector(f, V_Quad, vt);
+			cf = reinterpret_cast<const float *>(Memory::GetPointerRange(addr, 16));
+			if (cf)
+				WriteVector(cf, V_Quad, vt);
 #else
 			float lvqd[4];
 
@@ -294,7 +296,7 @@ namespace MIPSInt
 				_dbg_assert_msg_( 0, "Misaligned sv.q at %08x (pc = %08x)", addr, PC);
 			}
 #ifndef COMMON_BIG_ENDIAN
-			f = reinterpret_cast<float *>(Memory::GetPointerWrite(addr));
+			f = reinterpret_cast<float *>(Memory::GetPointerWriteRange(addr, 16));
 			if (f)
 				ReadVector(f, V_Quad, vt);
 #else
@@ -418,7 +420,7 @@ namespace MIPSInt
 
 	void Int_Viim(MIPSOpcode op) {
 		int vt = _VT;
-		s32 imm = (s16)(op&0xFFFF);
+		s32 imm = SignExtend16ToS32(op & 0xFFFF);
 		u16 uimm16 = (op&0xFFFF);
 		float f[1];
 		int type = (op >> 23) & 7;
@@ -628,18 +630,18 @@ namespace MIPSInt
 			// vsat0 changes -0.0 to +0.0, both retain NAN.
 			case 4: if (s[i] <= 0) d[i] = 0; else {if(s[i] > 1.0f) d[i] = 1.0f; else d[i] = s[i];} break;    // vsat0
 			case 5: if (s[i] < -1.0f) d[i] = -1.0f; else {if(s[i] > 1.0f) d[i] = 1.0f; else d[i] = s[i];} break;  // vsat1
-			case 16: d[i] = 1.0f / s[i]; break; //vrcp
+			case 16: { d[i] = vfpu_rcp(s[i]); } break; //vrcp
 			case 17: d[i] = USE_VFPU_SQRT ? vfpu_rsqrt(s[i]) : 1.0f / sqrtf(s[i]); break; //vrsq
 				
 			case 18: { d[i] = vfpu_sin(s[i]); } break; //vsin
 			case 19: { d[i] = vfpu_cos(s[i]); } break; //vcos
-			case 20: d[i] = powf(2.0f, s[i]); break; //vexp2
-			case 21: d[i] = logf(s[i])/log(2.0f); break; //vlog2
+			case 20: { d[i] = vfpu_exp2(s[i]); } break; //vexp2
+			case 21: { d[i] = vfpu_log2(s[i]); } break; //vlog2
 			case 22: d[i] = USE_VFPU_SQRT ? vfpu_sqrt(s[i])  : fabsf(sqrtf(s[i])); break; //vsqrt
-			case 23: d[i] = (float)(asinf(s[i]) / M_PI_2); break; //vasin
-			case 24: d[i] = -1.0f / s[i]; break; // vnrcp
+			case 23: { d[i] = vfpu_asin(s[i]); } break; //vasin
+			case 24: { d[i] = -vfpu_rcp(s[i]); } break; // vnrcp
 			case 26: { d[i] = -vfpu_sin(s[i]); } break; // vnsin
-			case 28: d[i] = 1.0f / powf(2.0, s[i]); break; // vrexp2
+			case 28: { d[i] = vfpu_rexp2(s[i]); } break; // vrexp2
 			default:
 				_dbg_assert_msg_( false, "Invalid VV2Op op type %d", optype);
 				break;
@@ -1013,9 +1015,9 @@ namespace MIPSInt
 	void Int_Vi2x(MIPSOpcode op) {
 		int s[4]{};
 		u32 d[2]{};
-		int vd = _VD;
-		int vs = _VS;
-		VectorSize sz = GetVecSize(op);
+		const int vd = _VD;
+		const int vs = _VS;
+		const VectorSize sz = GetVecSize(op);
 		VectorSize oz;
 		ReadVector(reinterpret_cast<float *>(s), sz, vs);
 		// Negate, const, etc. apply as expected.
@@ -1042,7 +1044,9 @@ namespace MIPSInt
 			break;
 
 		case 2:  //vi2us
-			for (int i = 0; i < (GetNumVectorElements(sz) + 1) / 2; i++) {
+		{
+			int elems = (GetNumVectorElements(sz) + 1) / 2;
+			for (int i = 0; i < elems; i++) {
 				int low = s[i * 2];
 				int high = s[i * 2 + 1];
 				if (low < 0) low = 0;
@@ -1062,8 +1066,11 @@ namespace MIPSInt
 				break;
 			}
 			break;
+		}
 		case 3:  //vi2s
-			for (int i = 0; i < (GetNumVectorElements(sz) + 1) / 2; i++) {
+		{
+			int elems = (GetNumVectorElements(sz) + 1) / 2;
+			for (int i = 0; i < elems; i++) {
 				u32 low = s[i * 2];
 				u32 high = s[i * 2 + 1];
 				low >>= 16;
@@ -1076,11 +1083,12 @@ namespace MIPSInt
 			case V_Pair: oz = V_Single; break;
 			case V_Single: oz = V_Single; break;
 			default:
-				_dbg_assert_msg_( 0, "Trying to interpret instruction that can't be interpreted");
+				_dbg_assert_msg_(0, "Trying to interpret instruction that can't be interpreted");
 				oz = V_Single;
 				break;
 			}
 			break;
+		}
 		default:
 			_dbg_assert_msg_( 0, "Trying to interpret instruction that can't be interpreted");
 			oz = V_Single;
@@ -1117,7 +1125,7 @@ namespace MIPSInt
 					int b = ((in >> 16) & 0xFF) >> 4;
 					int g = ((in >> 8) & 0xFF) >> 4;
 					int r = ((in) & 0xFF) >> 4;
-					col = (a << 12) | (b << 8) | (g << 4 ) | (r);
+					col = (a << 12) | (b << 8) | (g << 4) | (r);
 					break;
 				}
 			case 2:  // 5551
@@ -1541,7 +1549,7 @@ namespace MIPSInt
 		int seed = VI(vd);
 		// Swizzles apply a constant value, constants/abs/neg work to vary the seed.
 		ApplySwizzleS(reinterpret_cast<float *>(&seed), V_Single);
-		currentMIPS->rng.Init(seed);
+                vrnd_init(uint32_t(seed), currentMIPS->vfpuCtrl + VFPU_CTRL_RCX0);
 		PC += 4;
 		EatPrefixes();
 	}
@@ -1551,12 +1559,12 @@ namespace MIPSInt
 		int vd = _VD;
 		VectorSize sz = GetVecSize(op);
 		int n = GetNumVectorElements(sz);
-		for (int i = 0; i < n; i++) {
-			// TODO: Make more accurate, use and update RCX regs?
+		// Values are written in backwards order.
+		for (int i = n - 1; i >= 0; i--) {
 			switch ((op >> 16) & 0x1f) {
-			case 1: d.u[i] = currentMIPS->rng.R32(); break;  // vrndi
-			case 2: d.u[i] = 0x3F800000 | (currentMIPS->rng.R32() & 0x007FFFFF); break; // vrndf1 (>= 1, < 2)
-			case 3: d.u[i] = 0x40000000 | (currentMIPS->rng.R32() & 0x007FFFFF); break; // vrndf2 (>= 2, < 4)
+			case 1: d.u[i] = vrnd_generate(currentMIPS->vfpuCtrl + VFPU_CTRL_RCX0); break;  // vrndi
+			case 2: d.u[i] = 0x3F800000 | (vrnd_generate(currentMIPS->vfpuCtrl + VFPU_CTRL_RCX0) & 0x007FFFFF); break; // vrndf1 (>= 1, < 2)
+			case 3: d.u[i] = 0x40000000 | (vrnd_generate(currentMIPS->vfpuCtrl + VFPU_CTRL_RCX0) & 0x007FFFFF); break; // vrndf2 (>= 2, < 4)
 			default: _dbg_assert_msg_(false,"Trying to interpret instruction that can't be interpreted");
 			}
 		}
@@ -1735,7 +1743,7 @@ namespace MIPSInt
  
 	void Int_SV(MIPSOpcode op)
 	{
-		s32 imm = (signed short)(op&0xFFFC);
+		s32 imm = SignExtend16ToS32(op & 0xFFFC);
 		int vt = ((op >> 16) & 0x1f) | ((op & 3) << 5);
 		int rs = _RS;
 		u32 addr = R(rs) + imm;

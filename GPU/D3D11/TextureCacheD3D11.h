@@ -46,14 +46,14 @@ public:
 	TextureCacheD3D11(Draw::DrawContext *draw, Draw2D *draw2D);
 	~TextureCacheD3D11();
 
-	void StartFrame() override;
-
 	void SetFramebufferManager(FramebufferManagerD3D11 *fbManager);
 
 	void ForgetLastTexture() override;
-	void InvalidateLastTexture() override;
 
 	bool GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level, bool *isFramebuffer) override;
+
+	void DeviceLost() override { draw_ = nullptr; }
+	void DeviceRestore(Draw::DrawContext *draw) override { draw_ = draw; }
 
 protected:
 	void BindTexture(TexCacheEntry *entry) override;
@@ -83,8 +83,6 @@ private:
 
 	ID3D11ShaderResourceView *lastBoundTexture;
 	ID3D11Buffer *depalConstants_;
-
-	FramebufferManagerD3D11 *framebufferManagerD3D11_;
 };
 
 DXGI_FORMAT GetClutDestFormatD3D11(GEPaletteFormat format);

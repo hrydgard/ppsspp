@@ -15,6 +15,8 @@ namespace W32Util
 	void SpawnNewInstance(bool overrideArgs = false, const std::string &args = "");
 	void GetSelfExecuteParams(std::wstring &workingDirectory, std::wstring &moduleFilename);
 
+	void GetWindowRes(HWND hWnd, int *xres, int *yres);
+
 	struct ClipboardData {
 		ClipboardData(const char *format, size_t sz);
 		ClipboardData(UINT format, size_t sz);
@@ -105,4 +107,15 @@ private:
 	volatile bool inResizeColumns;
 	volatile bool updating;
 	bool updateScheduled_ = false;
+
+	enum class Action {
+		CHECK,
+		IMAGE,
+	};
+	struct PendingAction {
+		Action action;
+		int item;
+		int state;
+	};
+	std::vector<PendingAction> pendingActions_;
 };

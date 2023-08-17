@@ -33,24 +33,6 @@ namespace MIPSComp
 using namespace Gen;
 using namespace X64JitConstants;
 
-void JitMemCheck(u32 addr, int size, int isWrite)
-{
-	// Should we skip this breakpoint?
-	if (CBreakPoints::CheckSkipFirst() == currentMIPS->pc)
-		return;
-
-	// Did we already hit one?
-	if (coreState != CORE_RUNNING && coreState != CORE_NEXTFRAME)
-		return;
-
-	CBreakPoints::ExecMemCheckJitBefore(addr, isWrite == 1, size, currentMIPS->pc);
-}
-
-void JitMemCheckCleanup()
-{
-	CBreakPoints::ExecMemCheckJitCleanup();
-}
-
 JitSafeMem::JitSafeMem(Jit *jit, MIPSGPReg raddr, s32 offset, u32 alignMask)
 	: jit_(jit), raddr_(raddr), offset_(offset), needsCheck_(false), needsSkip_(false), alignMask_(alignMask)
 {
@@ -77,7 +59,6 @@ bool JitSafeMem::PrepareWrite(OpArg &dest, int size)
 	{
 		if (ImmValid())
 		{
-			MemCheckImm(MEM_WRITE);
 			u32 addr = (iaddr_ & alignMask_);
 #ifdef MASKED_PSP_MEMORY
 			addr &= Memory::MEMVIEW32_MASK;
@@ -106,7 +87,6 @@ bool JitSafeMem::PrepareRead(OpArg &src, int size)
 	{
 		if (ImmValid())
 		{
-			MemCheckImm(MEM_READ);
 			u32 addr = (iaddr_ & alignMask_);
 #ifdef MASKED_PSP_MEMORY
 			addr &= Memory::MEMVIEW32_MASK;
@@ -173,8 +153,6 @@ OpArg JitSafeMem::PrepareMemoryOpArg(MemoryOpType type)
 		jit_->MOV(32, R(EAX), jit_->gpr.R(raddr_));
 		xaddr_ = EAX;
 	}
-
-	MemCheckAsm(type);
 
 	if (!fast_)
 	{
@@ -375,83 +353,6 @@ void JitSafeMem::Finish()
 		jit_->SetJumpTarget(skip_);
 	for (auto it = skipChecks_.begin(), end = skipChecks_.end(); it != end; ++it)
 		jit_->SetJumpTarget(*it);
-}
-
-void JitSafeMem::MemCheckImm(MemoryOpType type) {
-	MemCheck check;
-	if (CBreakPoints::GetMemCheckInRange(iaddr_, size_, &check)) {
-		if (!(check.cond & MEMCHECK_READ) && type == MEM_READ)
-			return;
-		if (!(check.cond & MEMCHECK_WRITE) && type == MEM_WRITE)
-			return;
-
-		jit_->MOV(32, MIPSSTATE_VAR(pc), Imm32(jit_->GetCompilerPC()));
-		jit_->CallProtectedFunction(&JitMemCheck, iaddr_, size_, type == MEM_WRITE ? 1 : 0);
-
-		// CORE_RUNNING is <= CORE_NEXTFRAME.
-		if (jit_->RipAccessible((const void *)&coreState)) {
-			jit_->CMP(32, M(&coreState), Imm32(CORE_NEXTFRAME));  // rip accessible
-		} else {
-			// We can't safely overwrite any register, so push.  This is only while debugging.
-			jit_->PUSH(RAX);
-			jit_->MOV(PTRBITS, R(RAX), ImmPtr((const void *)&coreState));
-			jit_->CMP(32, MatR(RAX), Imm32(CORE_NEXTFRAME));
-			jit_->POP(RAX);
-		}
-		skipChecks_.push_back(jit_->J_CC(CC_G, true));
-		jit_->js.afterOp |= JitState::AFTER_CORE_STATE | JitState::AFTER_REWIND_PC_BAD_STATE | JitState::AFTER_MEMCHECK_CLEANUP;
-	}
-}
-
-void JitSafeMem::MemCheckAsm(MemoryOpType type)
-{
-	const auto memchecks = CBreakPoints::GetMemCheckRanges(type == MEM_WRITE);
-	bool possible = !memchecks.empty();
-	for (auto it = memchecks.begin(), end = memchecks.end(); it != end; ++it)
-	{
-		FixupBranch skipNext, skipNextRange;
-		if (it->end != 0)
-		{
-			jit_->CMP(32, R(xaddr_), Imm32(it->start - offset_ - size_));
-			skipNext = jit_->J_CC(CC_BE);
-			jit_->CMP(32, R(xaddr_), Imm32(it->end - offset_));
-			skipNextRange = jit_->J_CC(CC_AE);
-		}
-		else
-		{
-			jit_->CMP(32, R(xaddr_), Imm32(it->start - offset_));
-			skipNext = jit_->J_CC(CC_NE);
-		}
-
-		// Keep the stack 16-byte aligned, just PUSH/POP 4 times.
-		for (int i = 0; i < 4; ++i)
-			jit_->PUSH(xaddr_);
-		jit_->MOV(32, MIPSSTATE_VAR(pc), Imm32(jit_->GetCompilerPC()));
-		jit_->ADD(32, R(xaddr_), Imm32(offset_));
-		jit_->CallProtectedFunction(&JitMemCheck, R(xaddr_), size_, type == MEM_WRITE ? 1 : 0);
-		for (int i = 0; i < 4; ++i)
-			jit_->POP(xaddr_);
-
-		jit_->SetJumpTarget(skipNext);
-		if (it->end != 0)
-			jit_->SetJumpTarget(skipNextRange);
-	}
-
-	if (possible)
-	{
-		// CORE_RUNNING is <= CORE_NEXTFRAME.
-		if (jit_->RipAccessible((const void *)&coreState)) {
-			jit_->CMP(32, M(&coreState), Imm32(CORE_NEXTFRAME));  // rip accessible
-		} else {
-			// We can't safely overwrite any register, so push.  This is only while debugging.
-			jit_->PUSH(RAX);
-			jit_->MOV(PTRBITS, R(RAX), ImmPtr((const void *)&coreState));
-			jit_->CMP(32, MatR(RAX), Imm32(CORE_NEXTFRAME));
-			jit_->POP(RAX);
-		}
-		skipChecks_.push_back(jit_->J_CC(CC_G, true));
-		jit_->js.afterOp |= JitState::AFTER_CORE_STATE | JitState::AFTER_REWIND_PC_BAD_STATE | JitState::AFTER_MEMCHECK_CLEANUP;
-	}
 }
 
 static const int FUNCS_ARENA_SIZE = 512 * 1024;

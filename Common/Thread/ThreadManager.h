@@ -8,6 +8,15 @@
 enum class TaskType {
 	CPU_COMPUTE,
 	IO_BLOCKING,
+	DEDICATED_THREAD,  // These can never get stuck in queue behind others, but are more expensive to launch. Cannot use I/O.
+};
+
+enum class TaskPriority {
+	HIGH = 0,
+	NORMAL = 1,
+	LOW = 2,
+
+	COUNT,
 };
 
 // Implement this to make something that you can run on the thread manager.
@@ -15,6 +24,7 @@ class Task {
 public:
 	virtual ~Task() {}
 	virtual TaskType Type() const = 0;
+	virtual TaskPriority Priority() const = 0;
 	virtual void Run() = 0;
 	virtual bool Cancellable() { return false; }
 	virtual void Cancel() {}
@@ -34,7 +44,7 @@ public:
 	}
 };
 
-struct ThreadContext;
+struct TaskThreadContext;
 struct GlobalThreadContext;
 
 class ThreadManager {
@@ -48,7 +58,7 @@ public:
 	void Init(int numCores, int numLogicalCoresPerCpu);
 	void EnqueueTask(Task *task);
 	// Use enforceSequence if this must run after all previously queued tasks.
-	void EnqueueTaskOnThread(int threadNum, Task *task, bool enforceSequence = false);
+	void EnqueueTaskOnThread(int threadNum, Task *task);
 	void Teardown();
 
 	bool IsInitialized() const;
@@ -71,7 +81,7 @@ private:
 	int numThreads_ = 0;
 	int numComputeThreads_ = 0;
 
-	friend struct ThreadContext;
+	friend struct TaskThreadContext;
 };
 
 extern ThreadManager g_threadManager;

@@ -9,10 +9,6 @@
       <Configuration>Debug</Configuration>
       <Platform>ARM64</Platform>
     </ProjectConfiguration>
-    <ProjectConfiguration Include="Debug|Win32">
-      <Configuration>Debug</Configuration>
-      <Platform>Win32</Platform>
-    </ProjectConfiguration>
     <ProjectConfiguration Include="Debug|x64">
       <Configuration>Debug</Configuration>
       <Platform>x64</Platform>
@@ -25,28 +21,8 @@
       <Configuration>Release</Configuration>
       <Platform>ARM64</Platform>
     </ProjectConfiguration>
-    <ProjectConfiguration Include="Release|Win32">
-      <Configuration>Release</Configuration>
-      <Platform>Win32</Platform>
-    </ProjectConfiguration>
     <ProjectConfiguration Include="Release|x64">
       <Configuration>Release</Configuration>
-      <Platform>x64</Platform>
-    </ProjectConfiguration>
-    <ProjectConfiguration Include="UWP Gold|ARM">
-      <Configuration>UWP Gold</Configuration>
-      <Platform>ARM</Platform>
-    </ProjectConfiguration>
-    <ProjectConfiguration Include="UWP Gold|ARM64">
-      <Configuration>UWP Gold</Configuration>
-      <Platform>ARM64</Platform>
-    </ProjectConfiguration>
-    <ProjectConfiguration Include="UWP Gold|Win32">
-      <Configuration>UWP Gold</Configuration>
-      <Platform>Win32</Platform>
-    </ProjectConfiguration>
-    <ProjectConfiguration Include="UWP Gold|x64">
-      <Configuration>UWP Gold</Configuration>
       <Platform>x64</Platform>
     </ProjectConfiguration>
   </ItemGroup>
@@ -58,162 +34,33 @@
     <MinimumVisualStudioVersion>14.0</MinimumVisualStudioVersion>
     <AppContainerApplication>true</AppContainerApplication>
     <ApplicationType>Windows Store</ApplicationType>
-    <WindowsTargetPlatformMinVersion>10.0.15063.0</WindowsTargetPlatformMinVersion>
+    <WindowsTargetPlatformMinVersion>10.0.19041.0</WindowsTargetPlatformMinVersion>
     <ApplicationTypeRevision>10.0</ApplicationTypeRevision>
-    <WindowsTargetPlatformVersion>10.0.17763.0</WindowsTargetPlatformVersion>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
+  <PropertyGroup Condition="'$(Configuration)' == 'Debug'">
     <ConfigurationType>StaticLibrary</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
   </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'" Label="Configuration">
-    <ConfigurationType>StaticLibrary</ConfigurationType>
-    <UseDebugLibraries>true</UseDebugLibraries>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'" Label="Configuration">
-    <ConfigurationType>StaticLibrary</ConfigurationType>
-    <UseDebugLibraries>true</UseDebugLibraries>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
-    <ConfigurationType>StaticLibrary</ConfigurationType>
-    <UseDebugLibraries>true</UseDebugLibraries>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
-    <ConfigurationType>StaticLibrary</ConfigurationType>
-    <UseDebugLibraries>false</UseDebugLibraries>
-    <WholeProgramOptimization>true</WholeProgramOptimization>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='UWP Gold|Win32'" Label="Configuration">
-    <ConfigurationType>StaticLibrary</ConfigurationType>
-    <UseDebugLibraries>false</UseDebugLibraries>
-    <WholeProgramOptimization>true</WholeProgramOptimization>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM'" Label="Configuration">
+  <PropertyGroup Condition="'$(Configuration)' == 'Release'" Label="Configuration">
     <ConfigurationType>StaticLibrary</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
     <WholeProgramOptimization>false</WholeProgramOptimization>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'" Label="Configuration">
-    <ConfigurationType>StaticLibrary</ConfigurationType>
-    <UseDebugLibraries>false</UseDebugLibraries>
-    <WholeProgramOptimization>false</WholeProgramOptimization>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='UWP Gold|ARM'" Label="Configuration">
-    <ConfigurationType>StaticLibrary</ConfigurationType>
-    <UseDebugLibraries>false</UseDebugLibraries>
-    <WholeProgramOptimization>false</WholeProgramOptimization>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='UWP Gold|ARM64'" Label="Configuration">
-    <ConfigurationType>StaticLibrary</ConfigurationType>
-    <UseDebugLibraries>false</UseDebugLibraries>
-    <WholeProgramOptimization>false</WholeProgramOptimization>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
-    <ConfigurationType>StaticLibrary</ConfigurationType>
-    <UseDebugLibraries>false</UseDebugLibraries>
-    <WholeProgramOptimization>true</WholeProgramOptimization>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='UWP Gold|x64'" Label="Configuration">
-    <ConfigurationType>StaticLibrary</ConfigurationType>
-    <UseDebugLibraries>false</UseDebugLibraries>
-    <WholeProgramOptimization>true</WholeProgramOptimization>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <ImportGroup Label="ExtensionSettings">
   </ImportGroup>
   <ImportGroup Label="Shared">
   </ImportGroup>
-  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
-    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
-  </ImportGroup>
-  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
-    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
-  </ImportGroup>
-  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='UWP Gold|Win32'" Label="PropertySheets">
-    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
-  </ImportGroup>
-  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">
-    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
-  </ImportGroup>
-  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'" Label="PropertySheets">
-    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
-  </ImportGroup>
-  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">
-    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
-  </ImportGroup>
-  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'" Label="PropertySheets">
-    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
-  </ImportGroup>
-  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='UWP Gold|ARM'" Label="PropertySheets">
-    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
-  </ImportGroup>
-  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='UWP Gold|ARM64'" Label="PropertySheets">
-    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
-  </ImportGroup>
-  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
-  </ImportGroup>
-  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
-  </ImportGroup>
-  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='UWP Gold|x64'" Label="PropertySheets">
+  <ImportGroup Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
-  <PropertyGroup />
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+  <PropertyGroup>
     <GenerateManifest>false</GenerateManifest>
   </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
-    <GenerateManifest>false</GenerateManifest>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='UWP Gold|Win32'">
-    <GenerateManifest>false</GenerateManifest>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">
-    <GenerateManifest>false</GenerateManifest>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">
-    <GenerateManifest>false</GenerateManifest>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">
-    <GenerateManifest>false</GenerateManifest>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">
-    <GenerateManifest>false</GenerateManifest>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='UWP Gold|ARM'">
-    <GenerateManifest>false</GenerateManifest>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='UWP Gold|ARM64'">
-    <GenerateManifest>false</GenerateManifest>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <GenerateManifest>false</GenerateManifest>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <GenerateManifest>false</GenerateManifest>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='UWP Gold|x64'">
-    <GenerateManifest>false</GenerateManifest>
-  </PropertyGroup>
-  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
-    <ClCompile>
-      <CompileAsWinRT>false</CompileAsWinRT>
-      <SDLCheck>false</SDLCheck>
-      <ForcedIncludeFiles>pch.h</ForcedIncludeFiles>
-      <AdditionalIncludeDirectories>../..;../../ext/openxr;../../ext/native;../../ext/snappy;../../ext/glslang;../../ext/zlib;../../ext/libpng17;../../ext/zstd/lib;$(ProjectDir);$(GeneratedFilesDir);$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>NOMINMAX;_CRT_NONSTDC_NO_DEPRECATE;_CRT_SECURE_NO_WARNINGS;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <PrecompiledHeader>NotUsing</PrecompiledHeader>
-    </ClCompile>
-    <Link>
-      <SubSystem>Console</SubSystem>
-      <IgnoreAllDefaultLibraries>false</IgnoreAllDefaultLibraries>
-      <GenerateWindowsMetadata>false</GenerateWindowsMetadata>
-    </Link>
-  </ItemDefinitionGroup>
-  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+  <ItemDefinitionGroup Condition="'$(Platform)' == 'x64'" Label="Configuration">
     <ClCompile>
       <CompileAsWinRT>false</CompileAsWinRT>
       <SDLCheck>false</SDLCheck>
@@ -221,6 +68,7 @@
       <PreprocessorDefinitions>NOMINMAX;_CRT_NONSTDC_NO_DEPRECATE;_CRT_SECURE_NO_WARNINGS;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ForcedIncludeFiles>pch.h</ForcedIncludeFiles>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -228,22 +76,7 @@
       <GenerateWindowsMetadata>false</GenerateWindowsMetadata>
     </Link>
   </ItemDefinitionGroup>
-  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='UWP Gold|Win32'">
-    <ClCompile>
-      <CompileAsWinRT>false</CompileAsWinRT>
-      <SDLCheck>false</SDLCheck>
-      <AdditionalIncludeDirectories>../..;../../ext/openxr;../../ext/native;../../ext/snappy;../../ext/glslang;../../ext/zlib;../../ext/libpng17;../../ext/zstd/lib;$(ProjectDir);$(GeneratedFilesDir);$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>NOMINMAX;_CRT_NONSTDC_NO_DEPRECATE;_CRT_SECURE_NO_WARNINGS;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <ForcedIncludeFiles>pch.h</ForcedIncludeFiles>
-      <PrecompiledHeader>NotUsing</PrecompiledHeader>
-    </ClCompile>
-    <Link>
-      <SubSystem>Console</SubSystem>
-      <IgnoreAllDefaultLibraries>false</IgnoreAllDefaultLibraries>
-      <GenerateWindowsMetadata>false</GenerateWindowsMetadata>
-    </Link>
-  </ItemDefinitionGroup>
-  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|arm'">
+  <ItemDefinitionGroup Condition="'$(Platform)' == 'arm' or '$(Platform)' == 'ARM64'" Label="Configuration">
     <ClCompile>
       <CompileAsWinRT>false</CompileAsWinRT>
       <SDLCheck>false</SDLCheck>
@@ -251,126 +84,7 @@
       <AdditionalIncludeDirectories>../..;../../ext/openxr;../../ext/native;../../ext/snappy;../../ext/glslang;../../ext/zlib;../../ext/libpng17;../../ext/zstd/lib;$(ProjectDir);$(GeneratedFilesDir);$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>NOMINMAX;_CRT_NONSTDC_NO_DEPRECATE;_CRT_SECURE_NO_WARNINGS;_ARM_WINAPI_PARTITION_DESKTOP_SDK_AVAILABLE=1;%(ClCompile.PreprocessorDefinitions)</PreprocessorDefinitions>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-    </ClCompile>
-    <Link>
-      <SubSystem>Console</SubSystem>
-      <IgnoreAllDefaultLibraries>false</IgnoreAllDefaultLibraries>
-      <GenerateWindowsMetadata>false</GenerateWindowsMetadata>
-    </Link>
-  </ItemDefinitionGroup>
-  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">
-    <ClCompile>
-      <CompileAsWinRT>false</CompileAsWinRT>
-      <SDLCheck>false</SDLCheck>
-      <ForcedIncludeFiles>pch.h</ForcedIncludeFiles>
-      <AdditionalIncludeDirectories>../..;../../ext/openxr;../../ext/native;../../ext/snappy;../../ext/glslang;../../ext/zlib;../../ext/libpng17;../../ext/zstd/lib;$(ProjectDir);$(GeneratedFilesDir);$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>NOMINMAX;_CRT_NONSTDC_NO_DEPRECATE;_CRT_SECURE_NO_WARNINGS;_ARM64_WINAPI_PARTITION_DESKTOP_SDK_AVAILABLE=1;%(ClCompile.PreprocessorDefinitions)</PreprocessorDefinitions>
-      <PrecompiledHeader>NotUsing</PrecompiledHeader>
-    </ClCompile>
-    <Link>
-      <SubSystem>Console</SubSystem>
-      <IgnoreAllDefaultLibraries>false</IgnoreAllDefaultLibraries>
-      <GenerateWindowsMetadata>false</GenerateWindowsMetadata>
-    </Link>
-  </ItemDefinitionGroup>
-  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|arm'">
-    <ClCompile>
-      <CompileAsWinRT>false</CompileAsWinRT>
-      <SDLCheck>false</SDLCheck>
-      <AdditionalIncludeDirectories>../..;../../ext/openxr;../../ext/native;../../ext/snappy;../../ext/glslang;../../ext/zlib;../../ext/libpng17;../../ext/zstd/lib;$(ProjectDir);$(GeneratedFilesDir);$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>NOMINMAX;_CRT_NONSTDC_NO_DEPRECATE;_CRT_SECURE_NO_WARNINGS;_ARM_WINAPI_PARTITION_DESKTOP_SDK_AVAILABLE=1;%(ClCompile.PreprocessorDefinitions)</PreprocessorDefinitions>
-      <ForcedIncludeFiles>pch.h</ForcedIncludeFiles>
-      <PrecompiledHeader>NotUsing</PrecompiledHeader>
-    </ClCompile>
-    <Link>
-      <SubSystem>Console</SubSystem>
-      <IgnoreAllDefaultLibraries>false</IgnoreAllDefaultLibraries>
-      <GenerateWindowsMetadata>false</GenerateWindowsMetadata>
-    </Link>
-  </ItemDefinitionGroup>
-  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">
-    <ClCompile>
-      <CompileAsWinRT>false</CompileAsWinRT>
-      <SDLCheck>false</SDLCheck>
-      <AdditionalIncludeDirectories>../..;../../ext/openxr;../../ext/native;../../ext/snappy;../../ext/glslang;../../ext/zlib;../../ext/libpng17;../../ext/zstd/lib;$(ProjectDir);$(GeneratedFilesDir);$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>NOMINMAX;_CRT_NONSTDC_NO_DEPRECATE;_CRT_SECURE_NO_WARNINGS;_ARM64_WINAPI_PARTITION_DESKTOP_SDK_AVAILABLE=1;%(ClCompile.PreprocessorDefinitions)</PreprocessorDefinitions>
-      <ForcedIncludeFiles>pch.h</ForcedIncludeFiles>
-      <PrecompiledHeader>NotUsing</PrecompiledHeader>
-    </ClCompile>
-    <Link>
-      <SubSystem>Console</SubSystem>
-      <IgnoreAllDefaultLibraries>false</IgnoreAllDefaultLibraries>
-      <GenerateWindowsMetadata>false</GenerateWindowsMetadata>
-    </Link>
-  </ItemDefinitionGroup>
-  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='UWP Gold|arm'">
-    <ClCompile>
-      <CompileAsWinRT>false</CompileAsWinRT>
-      <SDLCheck>false</SDLCheck>
-      <AdditionalIncludeDirectories>../..;../../ext/openxr;../../ext/native;../../ext/snappy;../../ext/glslang;../../ext/zlib;../../ext/libpng17;../../ext/zstd/lib;$(ProjectDir);$(GeneratedFilesDir);$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>NOMINMAX;_CRT_NONSTDC_NO_DEPRECATE;_CRT_SECURE_NO_WARNINGS;_ARM_WINAPI_PARTITION_DESKTOP_SDK_AVAILABLE=1;%(ClCompile.PreprocessorDefinitions)</PreprocessorDefinitions>
-      <ForcedIncludeFiles>pch.h</ForcedIncludeFiles>
-      <PrecompiledHeader>NotUsing</PrecompiledHeader>
-    </ClCompile>
-    <Link>
-      <SubSystem>Console</SubSystem>
-      <IgnoreAllDefaultLibraries>false</IgnoreAllDefaultLibraries>
-      <GenerateWindowsMetadata>false</GenerateWindowsMetadata>
-    </Link>
-  </ItemDefinitionGroup>
-  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='UWP Gold|ARM64'">
-    <ClCompile>
-      <CompileAsWinRT>false</CompileAsWinRT>
-      <SDLCheck>false</SDLCheck>
-      <AdditionalIncludeDirectories>../..;../../ext/openxr;../../ext/native;../../ext/snappy;../../ext/glslang;../../ext/zlib;../../ext/libpng17;../../ext/zstd/lib;$(ProjectDir);$(GeneratedFilesDir);$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>NOMINMAX;_CRT_NONSTDC_NO_DEPRECATE;_CRT_SECURE_NO_WARNINGS;_ARM64_WINAPI_PARTITION_DESKTOP_SDK_AVAILABLE=1;%(ClCompile.PreprocessorDefinitions)</PreprocessorDefinitions>
-      <ForcedIncludeFiles>pch.h</ForcedIncludeFiles>
-      <PrecompiledHeader>NotUsing</PrecompiledHeader>
-    </ClCompile>
-    <Link>
-      <SubSystem>Console</SubSystem>
-      <IgnoreAllDefaultLibraries>false</IgnoreAllDefaultLibraries>
-      <GenerateWindowsMetadata>false</GenerateWindowsMetadata>
-    </Link>
-  </ItemDefinitionGroup>
-  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <ClCompile>
-      <CompileAsWinRT>false</CompileAsWinRT>
-      <SDLCheck>false</SDLCheck>
-      <ForcedIncludeFiles>pch.h</ForcedIncludeFiles>
-      <AdditionalIncludeDirectories>../..;../../ext/openxr;../../ext/native;../../ext/snappy;../../ext/glslang;../../ext/zlib;../../ext/libpng17;../../ext/zstd/lib;$(ProjectDir);$(GeneratedFilesDir);$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>NOMINMAX;_CRT_NONSTDC_NO_DEPRECATE;_CRT_SECURE_NO_WARNINGS;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <PrecompiledHeader>NotUsing</PrecompiledHeader>
-    </ClCompile>
-    <Link>
-      <SubSystem>Console</SubSystem>
-      <IgnoreAllDefaultLibraries>false</IgnoreAllDefaultLibraries>
-      <GenerateWindowsMetadata>false</GenerateWindowsMetadata>
-    </Link>
-  </ItemDefinitionGroup>
-  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <ClCompile>
-      <CompileAsWinRT>false</CompileAsWinRT>
-      <SDLCheck>false</SDLCheck>
-      <AdditionalIncludeDirectories>../..;../../ext/openxr;../../ext/native;../../ext/snappy;../../ext/glslang;../../ext/zlib;../../ext/libpng17;../../ext/zstd/lib;$(ProjectDir);$(GeneratedFilesDir);$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>NOMINMAX;_CRT_NONSTDC_NO_DEPRECATE;_CRT_SECURE_NO_WARNINGS;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <ForcedIncludeFiles>pch.h</ForcedIncludeFiles>
-      <PrecompiledHeader>NotUsing</PrecompiledHeader>
-    </ClCompile>
-    <Link>
-      <SubSystem>Console</SubSystem>
-      <IgnoreAllDefaultLibraries>false</IgnoreAllDefaultLibraries>
-      <GenerateWindowsMetadata>false</GenerateWindowsMetadata>
-    </Link>
-  </ItemDefinitionGroup>
-  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='UWP Gold|x64'">
-    <ClCompile>
-      <CompileAsWinRT>false</CompileAsWinRT>
-      <SDLCheck>false</SDLCheck>
-      <AdditionalIncludeDirectories>../..;../../ext/openxr;../../ext/native;../../ext/snappy;../../ext/glslang;../../ext/zlib;../../ext/libpng17;../../ext/zstd/lib;$(ProjectDir);$(GeneratedFilesDir);$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>NOMINMAX;_CRT_NONSTDC_NO_DEPRECATE;_CRT_SECURE_NO_WARNINGS;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <ForcedIncludeFiles>pch.h</ForcedIncludeFiles>
-      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -386,9 +100,14 @@
     <ClInclude Include="..\..\Common\BitScan.h" />
     <ClInclude Include="..\..\Common\BitSet.h" />
     <ClInclude Include="..\..\Common\Buffer.h" />
+    <ClInclude Include="..\..\Common\Data\Format\DDSLoad.h" />
+    <ClInclude Include="..\..\Common\File\AndroidContentURI.h" />
     <ClInclude Include="..\..\Common\File\AndroidStorage.h" />
+    <ClInclude Include="..\..\Common\GPU\GPUBackendCommon.h" />
     <ClInclude Include="..\..\Common\GPU\Vulkan\VulkanLoader.h" />
     <ClInclude Include="..\..\Common\Math\Statistics.h" />
+    <ClInclude Include="..\..\Common\Net\HTTPNaettRequest.h" />
+    <ClInclude Include="..\..\Common\Net\HTTPRequest.h" />
     <ClInclude Include="..\..\Common\Net\NetBuffer.h" />
     <ClInclude Include="..\..\Common\Data\Collections\ConstMap.h" />
     <ClInclude Include="..\..\Common\Data\Collections\FixedSizeQueue.h" />
@@ -420,7 +139,8 @@
     <ClInclude Include="..\..\Common\File\FileUtil.h" />
     <ClInclude Include="..\..\Common\File\Path.h" />
     <ClInclude Include="..\..\Common\File\PathBrowser.h" />
-    <ClInclude Include="..\..\Common\File\VFS\AssetReader.h" />
+    <ClInclude Include="..\..\Common\File\VFS\DirectoryReader.h" />
+    <ClInclude Include="..\..\Common\File\VFS\ZipFileReader.h" />
     <ClInclude Include="..\..\Common\File\VFS\VFS.h" />
     <ClInclude Include="..\..\Common\GPU\DataFormat.h" />
     <ClInclude Include="..\..\Common\GPU\OpenGL\GLFeatures.h" />
@@ -488,6 +208,8 @@
     <ClInclude Include="..\..\Common\SysError.h" />
     <ClInclude Include="..\..\Common\System\Display.h" />
     <ClInclude Include="..\..\Common\System\NativeApp.h" />
+    <ClInclude Include="..\..\Common\System\OSD.h" />
+    <ClInclude Include="..\..\Common\System\Request.h" />
     <ClInclude Include="..\..\Common\System\System.h" />
     <ClInclude Include="..\..\Common\Thread\Channel.h" />
     <ClInclude Include="..\..\Common\Thread\Promise.h" />
@@ -498,8 +220,11 @@
     <ClInclude Include="..\..\Common\TimeUtil.h" />
     <ClInclude Include="..\..\Common\UI\AsyncImageFileView.h" />
     <ClInclude Include="..\..\Common\UI\Context.h" />
+    <ClInclude Include="..\..\Common\UI\IconCache.h" />
+    <ClInclude Include="..\..\Common\UI\PopupScreens.h" />
     <ClInclude Include="..\..\Common\UI\Root.h" />
     <ClInclude Include="..\..\Common\UI\Screen.h" />
+    <ClInclude Include="..\..\Common\UI\ScrollView.h" />
     <ClInclude Include="..\..\Common\UI\Tween.h" />
     <ClInclude Include="..\..\Common\UI\UI.h" />
     <ClInclude Include="..\..\Common\UI\UIScreen.h" />
@@ -514,6 +239,13 @@
     <ClInclude Include="..\..\Common\VR\VRRenderer.h" />
     <ClInclude Include="..\..\Common\x64Analyzer.h" />
     <ClInclude Include="..\..\Common\x64Emitter.h" />
+    <ClInclude Include="..\..\ext\basis_universal\basisu.h" />
+    <ClInclude Include="..\..\ext\basis_universal\basisu_containers.h" />
+    <ClInclude Include="..\..\ext\basis_universal\basisu_containers_impl.h" />
+    <ClInclude Include="..\..\ext\basis_universal\basisu_file_headers.h" />
+    <ClInclude Include="..\..\ext\basis_universal\basisu_transcoder.h" />
+    <ClInclude Include="..\..\ext\basis_universal\basisu_transcoder_internal.h" />
+    <ClInclude Include="..\..\ext\basis_universal\basisu_transcoder_uastc.h" />
     <ClInclude Include="..\..\ext\libpng17\png.h" />
     <ClInclude Include="..\..\ext\libpng17\pngconf.h" />
     <ClInclude Include="..\..\ext\libpng17\pngdebug.h" />
@@ -521,6 +253,7 @@
     <ClInclude Include="..\..\ext\libpng17\pnglibconf.h" />
     <ClInclude Include="..\..\ext\libpng17\pngpriv.h" />
     <ClInclude Include="..\..\ext\libpng17\pngstruct.h" />
+    <ClInclude Include="..\..\ext\naett\naett.h" />
     <ClInclude Include="targetver.h" />
   </ItemGroup>
   <ItemGroup>
@@ -529,9 +262,14 @@
     <ClCompile Include="..\..\Common\ArmCPUDetect.cpp" />
     <ClCompile Include="..\..\Common\ArmEmitter.cpp" />
     <ClCompile Include="..\..\Common\Buffer.cpp" />
+    <ClCompile Include="..\..\Common\Data\Format\DDSLoad.cpp" />
+    <ClCompile Include="..\..\Common\File\AndroidContentURI.cpp" />
     <ClCompile Include="..\..\Common\File\AndroidStorage.cpp" />
+    <ClCompile Include="..\..\Common\GPU\GPUBackendCommon.cpp" />
     <ClCompile Include="..\..\Common\GPU\Vulkan\VulkanLoader.cpp" />
     <ClCompile Include="..\..\Common\Math\Statistics.cpp" />
+    <ClCompile Include="..\..\Common\Net\HTTPNaettRequest.cpp" />
+    <ClCompile Include="..\..\Common\Net\HTTPRequest.cpp" />
     <ClCompile Include="..\..\Common\Net\NetBuffer.cpp" />
     <ClCompile Include="..\..\Common\Data\Color\RGBAUtil.cpp" />
     <ClCompile Include="..\..\Common\Data\Convert\SmallDataConvert.cpp" />
@@ -555,7 +293,8 @@
     <ClCompile Include="..\..\Common\File\FileUtil.cpp" />
     <ClCompile Include="..\..\Common\File\Path.cpp" />
     <ClCompile Include="..\..\Common\File\PathBrowser.cpp" />
-    <ClCompile Include="..\..\Common\File\VFS\AssetReader.cpp" />
+    <ClCompile Include="..\..\Common\File\VFS\DirectoryReader.cpp" />
+    <ClCompile Include="..\..\Common\File\VFS\ZipFileReader.cpp" />
     <ClCompile Include="..\..\Common\File\VFS\VFS.cpp" />
     <ClCompile Include="..\..\Common\GPU\D3D11\thin3d_d3d11.cpp" />
     <ClCompile Include="..\..\Common\GPU\OpenGL\GLFeatures.cpp" />
@@ -611,6 +350,8 @@
     <ClCompile Include="..\..\Common\OSVersion.cpp" />
     <ClCompile Include="..\..\Common\StringUtils.cpp" />
     <ClCompile Include="..\..\Common\System\Display.cpp" />
+    <ClCompile Include="..\..\Common\System\OSD.cpp" />
+    <ClCompile Include="..\..\Common\System\Request.cpp" />
     <ClCompile Include="..\..\Common\Thread\ThreadUtil.cpp" />
     <ClCompile Include="..\..\Common\Thread\ThreadManager.cpp" />
     <ClCompile Include="..\..\Common\Thread\ParallelLoop.cpp" />
@@ -618,8 +359,11 @@
     <ClCompile Include="..\..\Common\TimeUtil.cpp" />
     <ClCompile Include="..\..\Common\UI\AsyncImageFileView.cpp" />
     <ClCompile Include="..\..\Common\UI\Context.cpp" />
+    <ClCompile Include="..\..\Common\UI\IconCache.cpp" />
+    <ClCompile Include="..\..\Common\UI\PopupScreens.cpp" />
     <ClCompile Include="..\..\Common\UI\Root.cpp" />
     <ClCompile Include="..\..\Common\UI\Screen.cpp" />
+    <ClCompile Include="..\..\Common\UI\ScrollView.cpp" />
     <ClCompile Include="..\..\Common\UI\Tween.cpp" />
     <ClCompile Include="..\..\Common\UI\UI.cpp" />
     <ClCompile Include="..\..\Common\UI\UIScreen.cpp" />
@@ -634,6 +378,7 @@
     <ClCompile Include="..\..\Common\VR\VRRenderer.cpp" />
     <ClCompile Include="..\..\Common\x64Analyzer.cpp" />
     <ClCompile Include="..\..\Common\x64Emitter.cpp" />
+    <ClCompile Include="..\..\ext\basis_universal\basisu_transcoder.cpp" />
     <ClCompile Include="..\..\ext\libpng17\png.c" />
     <ClCompile Include="..\..\ext\libpng17\pngerror.c" />
     <ClCompile Include="..\..\ext\libpng17\pngget.c" />
@@ -650,13 +395,29 @@
     <ClCompile Include="..\..\ext\libpng17\pngwrite.c" />
     <ClCompile Include="..\..\ext\libpng17\pngwtran.c" />
     <ClCompile Include="..\..\ext\libpng17\pngwutil.c" />
+    <ClCompile Include="..\..\ext\naett\naett.c" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="..\..\ext\basis_universal\basisu_transcoder_tables_astc.inc" />
+    <None Include="..\..\ext\basis_universal\basisu_transcoder_tables_astc_0_255.inc" />
+    <None Include="..\..\ext\basis_universal\basisu_transcoder_tables_atc_55.inc" />
+    <None Include="..\..\ext\basis_universal\basisu_transcoder_tables_atc_56.inc" />
+    <None Include="..\..\ext\basis_universal\basisu_transcoder_tables_bc7_m5_alpha.inc" />
+    <None Include="..\..\ext\basis_universal\basisu_transcoder_tables_bc7_m5_color.inc" />
+    <None Include="..\..\ext\basis_universal\basisu_transcoder_tables_dxt1_5.inc" />
+    <None Include="..\..\ext\basis_universal\basisu_transcoder_tables_dxt1_6.inc" />
+    <None Include="..\..\ext\basis_universal\basisu_transcoder_tables_pvrtc2_45.inc" />
+    <None Include="..\..\ext\basis_universal\basisu_transcoder_tables_pvrtc2_alpha_33.inc" />
     <None Include="..\..\ext\libpng17\CMakeLists.txt" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\..\Common\Math\fast\fast_matrix_neon.S" />
     <None Include="..\..\Common\Math\lin\matrix_neon.s" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\cpu_features_UWP\cpu_features_UWP.vcxproj">
+      <Project>{c249f016-7f82-45cf-bb6e-0642a988c4d3}</Project>
+    </ProjectReference>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

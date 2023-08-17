@@ -186,11 +186,12 @@
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <ForcedIncludeFiles>Common/DbgNew.h</ForcedIncludeFiles>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>mf.lib;mfplat.lib;mfreadwrite.lib;mfuuid.lib;shlwapi.lib;Winmm.lib;Ws2_32.lib;dsound.lib;avcodec.lib;avformat.lib;avutil.lib;swresample.lib;swscale.lib;comctl32.lib;d3d9.lib;d3dx9d.lib;dxguid.lib;opengl32.lib;glu32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>winhttp.lib;mf.lib;mfplat.lib;mfreadwrite.lib;mfuuid.lib;shlwapi.lib;Winmm.lib;Ws2_32.lib;dsound.lib;avcodec.lib;avformat.lib;avutil.lib;swresample.lib;swscale.lib;comctl32.lib;d3d9.lib;d3dx9d.lib;dxguid.lib;opengl32.lib;glu32.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <BaseAddress>0x00400000</BaseAddress>
       <RandomizedBaseAddress>false</RandomizedBaseAddress>
       <FixedBaseAddress>true</FixedBaseAddress>
@@ -219,11 +220,12 @@
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <ForcedIncludeFiles>Common/DbgNew.h</ForcedIncludeFiles>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>mf.lib;mfplat.lib;mfreadwrite.lib;mfuuid.lib;shlwapi.lib;Winmm.lib;Ws2_32.lib;dsound.lib;avcodec.lib;avformat.lib;avutil.lib;swresample.lib;swscale.lib;comctl32.lib;d3d9.lib;d3dx9d.lib;dxguid.lib;opengl32.lib;glu32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>winhttp.lib;mf.lib;mfplat.lib;mfreadwrite.lib;mfuuid.lib;shlwapi.lib;Winmm.lib;Ws2_32.lib;dsound.lib;avcodec.lib;avformat.lib;avutil.lib;swresample.lib;swscale.lib;comctl32.lib;d3d9.lib;d3dx9d.lib;dxguid.lib;opengl32.lib;glu32.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <BaseAddress>0x00400000</BaseAddress>
       <RandomizedBaseAddress>false</RandomizedBaseAddress>
       <FixedBaseAddress>true</FixedBaseAddress>
@@ -251,11 +253,12 @@
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <ForcedIncludeFiles>Common/DbgNew.h</ForcedIncludeFiles>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>ole32.lib;mf.lib;mfplat.lib;mfreadwrite.lib;mfuuid.lib;shlwapi.lib;Winmm.lib;Ws2_32.lib;dsound.lib;avcodec.lib;avformat.lib;avutil.lib;swresample.lib;swscale.lib;comctl32.lib;d3d9.lib;dxguid.lib;shell32.lib;advapi32.lib;gdi32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>winhttp.lib;ole32.lib;mf.lib;mfplat.lib;mfreadwrite.lib;mfuuid.lib;shlwapi.lib;Winmm.lib;Ws2_32.lib;dsound.lib;avcodec.lib;avformat.lib;avutil.lib;swresample.lib;swscale.lib;comctl32.lib;d3d9.lib;dxguid.lib;shell32.lib;advapi32.lib;gdi32.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalOptions>/ignore:4049 /ignore:4217 %(AdditionalOptions)</AdditionalOptions>
       <AdditionalLibraryDirectories>../ffmpeg/Windows/aarch64/lib</AdditionalLibraryDirectories>
     </Link>
@@ -281,11 +284,12 @@
       <ForcedIncludeFiles>
       </ForcedIncludeFiles>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>ole32.lib;mf.lib;mfplat.lib;mfreadwrite.lib;mfuuid.lib;shlwapi.lib;Winmm.lib;Ws2_32.lib;dsound.lib;avcodec.lib;avformat.lib;avutil.lib;swresample.lib;swscale.lib;comctl32.lib;d3d9.lib;dxguid.lib;shell32.lib;advapi32.lib;gdi32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>winhttp.lib;ole32.lib;mf.lib;mfplat.lib;mfreadwrite.lib;mfuuid.lib;shlwapi.lib;Winmm.lib;Ws2_32.lib;dsound.lib;avcodec.lib;avformat.lib;avutil.lib;swresample.lib;swscale.lib;comctl32.lib;d3d9.lib;dxguid.lib;shell32.lib;advapi32.lib;gdi32.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalOptions>/ignore:4049 /ignore:4217 %(AdditionalOptions)</AdditionalOptions>
       <AdditionalLibraryDirectories>../ffmpeg/Windows/arm/lib</AdditionalLibraryDirectories>
     </Link>
@@ -312,13 +316,14 @@
       <RuntimeTypeInfo>false</RuntimeTypeInfo>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
-      <AdditionalDependencies>mf.lib;mfplat.lib;mfreadwrite.lib;mfuuid.lib;shlwapi.lib;Winmm.lib;Ws2_32.lib;dsound.lib;avcodec.lib;avformat.lib;avutil.lib;swresample.lib;swscale.lib;comctl32.lib;d3d9.lib;d3dx9.lib;dxguid.lib;opengl32.lib;glu32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>winhttp.lib;mf.lib;mfplat.lib;mfreadwrite.lib;mfuuid.lib;shlwapi.lib;Winmm.lib;Ws2_32.lib;dsound.lib;avcodec.lib;avformat.lib;avutil.lib;swresample.lib;swscale.lib;comctl32.lib;d3d9.lib;d3dx9.lib;dxguid.lib;opengl32.lib;glu32.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <BaseAddress>0x00400000</BaseAddress>
       <RandomizedBaseAddress>false</RandomizedBaseAddress>
       <FixedBaseAddress>true</FixedBaseAddress>
@@ -350,13 +355,14 @@
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <StringPooling>true</StringPooling>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
-      <AdditionalDependencies>mf.lib;mfplat.lib;mfreadwrite.lib;mfuuid.lib;shlwapi.lib;Winmm.lib;Ws2_32.lib;dsound.lib;avcodec.lib;avformat.lib;avutil.lib;swresample.lib;swscale.lib;comctl32.lib;d3d9.lib;d3dx9.lib;dxguid.lib;opengl32.lib;glu32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>winhttp.lib;mf.lib;mfplat.lib;mfreadwrite.lib;mfuuid.lib;shlwapi.lib;Winmm.lib;Ws2_32.lib;dsound.lib;avcodec.lib;avformat.lib;avutil.lib;swresample.lib;swscale.lib;comctl32.lib;d3d9.lib;d3dx9.lib;dxguid.lib;opengl32.lib;glu32.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <BaseAddress>0x00400000</BaseAddress>
       <RandomizedBaseAddress>false</RandomizedBaseAddress>
       <FixedBaseAddress>true</FixedBaseAddress>
@@ -387,13 +393,14 @@
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <StringPooling>true</StringPooling>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
-      <AdditionalDependencies>ole32.lib;mf.lib;mfplat.lib;mfreadwrite.lib;mfuuid.lib;shlwapi.lib;Winmm.lib;Ws2_32.lib;dsound.lib;avcodec.lib;avformat.lib;avutil.lib;swresample.lib;swscale.lib;comctl32.lib;d3d9.lib;dxguid.lib;shell32.lib;advapi32.lib;gdi32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>winhttp.lib;ole32.lib;mf.lib;mfplat.lib;mfreadwrite.lib;mfuuid.lib;shlwapi.lib;Winmm.lib;Ws2_32.lib;dsound.lib;avcodec.lib;avformat.lib;avutil.lib;swresample.lib;swscale.lib;comctl32.lib;d3d9.lib;dxguid.lib;shell32.lib;advapi32.lib;gdi32.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalOptions>/ignore:4049 /ignore:4217 %(AdditionalOptions)</AdditionalOptions>
       <AdditionalLibraryDirectories>../ffmpeg/Windows/aarch64/lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
@@ -421,13 +428,14 @@
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <StringPooling>true</StringPooling>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
-      <AdditionalDependencies>ole32.lib;mf.lib;mfplat.lib;mfreadwrite.lib;mfuuid.lib;shlwapi.lib;Winmm.lib;Ws2_32.lib;dsound.lib;avcodec.lib;avformat.lib;avutil.lib;swresample.lib;swscale.lib;comctl32.lib;d3d9.lib;dxguid.lib;shell32.lib;advapi32.lib;gdi32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>winhttp.lib;ole32.lib;mf.lib;mfplat.lib;mfreadwrite.lib;mfuuid.lib;shlwapi.lib;Winmm.lib;Ws2_32.lib;dsound.lib;avcodec.lib;avformat.lib;avutil.lib;swresample.lib;swscale.lib;comctl32.lib;d3d9.lib;dxguid.lib;shell32.lib;advapi32.lib;gdi32.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalOptions>/ignore:4049 /ignore:4217 %(AdditionalOptions)</AdditionalOptions>
       <AdditionalLibraryDirectories>../ffmpeg/Windows/arm/lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
@@ -477,7 +485,7 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">true</ExcludedFromBuild>
     </ClCompile>
-    <ClCompile Include="StubHost.cpp" />
+    <ClCompile Include="HeadlessHost.cpp" />
     <ClCompile Include="WindowsHeadlessHost.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -500,6 +508,9 @@
     <ProjectReference Include="..\ext\libzstd.vcxproj">
       <Project>{8bfd8150-94d5-4bf9-8a50-7bd9929a0850}</Project>
     </ProjectReference>
+    <ProjectReference Include="..\ext\rcheevos-build\rcheevos.vcxproj">
+      <Project>{31694510-a8c0-40f6-b09b-e8df825adefa}</Project>
+    </ProjectReference>
     <ProjectReference Include="..\GPU\GPU.vcxproj">
       <Project>{457f45d2-556f-47bc-a31d-aff0d15beaed}</Project>
     </ProjectReference>
@@ -510,7 +521,7 @@
   <ItemGroup>
     <ClInclude Include="Compare.h" />
     <ClInclude Include="SDLHeadlessHost.h" />
-    <ClInclude Include="StubHost.h" />
+    <ClInclude Include="HeadlessHost.h" />
     <ClInclude Include="WindowsHeadlessHost.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

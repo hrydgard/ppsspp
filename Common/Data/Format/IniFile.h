@@ -5,11 +5,15 @@
 #pragma once
 
 #include <istream>
+#include <memory>
 #include <map>
 #include <string>
 #include <vector>
+#include <cstdint>
 
 #include "Common/File/Path.h"
+
+class VFSInterface;
 
 class Section {
 	friend class IniFile;
@@ -86,7 +90,7 @@ public:
 	bool Load(const Path &path);
 	bool Load(const std::string &filename) { return Load(Path(filename)); }
 	bool Load(std::istream &istream);
-	bool LoadFromVFS(const std::string &filename);
+	bool LoadFromVFS(VFSInterface &vfs, const std::string &filename);
 
 	bool Save(const Path &path);
 	bool Save(const std::string &filename) { return Save(Path(filename)); }
@@ -141,14 +145,15 @@ public:
 	bool DeleteSection(const char* sectionName);
 
 	void SortSections();
-	std::vector<Section> &Sections() { return sections; }
+
+	std::vector<std::unique_ptr<Section>> &Sections() { return sections; }
 
 	bool HasSection(const char *section) { return GetSection(section) != 0; }
 
 	Section* GetOrCreateSection(const char* section);
 
 private:
-	std::vector<Section> sections;
+	std::vector<std::unique_ptr<Section>> sections;
 
 	const Section* GetSection(const char* section) const;
 	Section* GetSection(const char* section);

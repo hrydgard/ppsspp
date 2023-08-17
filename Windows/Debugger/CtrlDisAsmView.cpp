@@ -1,5 +1,3 @@
-// NOTE: Apologies for the quality of this code, this is really from pre-opensource Dolphin - that is, 2003.
-
 #include "Windows/resource.h"
 #include "Core/MemMap.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
@@ -11,6 +9,7 @@
 
 #include "Core/MIPS/MIPSAsm.h"
 #include "Core/MIPS/MIPSAnalyst.h"
+#include "Core/MIPS/MIPSTables.h"
 #include "Core/Config.h"
 #include "Core/Debugger/SymbolMap.h"
 #include "Core/Reporting.h"
@@ -19,6 +18,7 @@
 #include "Windows/Debugger/Debugger_MemoryDlg.h"
 #include "Windows/Debugger/DebuggerShared.h"
 #include "Windows/Debugger/BreakpointWindow.h"
+#include "Windows/Debugger/EditSymbolsWindow.h"
 #include "Windows/main.h"
 
 #include "Common/CommonWindows.h"
@@ -128,6 +128,8 @@ LRESULT CALLBACK CtrlDisAsmView::wndProc(HWND hwnd, UINT msg, WPARAM wParam, LPA
 		break;
 	case WM_KILLFOCUS:
 		ccp->hasFocus=false;
+		lmbDown = false;
+		rmbDown = false;
 		ccp->redraw();
 		break;
 	case WM_GETDLGCODE:
@@ -172,7 +174,7 @@ CtrlDisAsmView::CtrlDisAsmView(HWND _wnd)
 	SetWindowLong(wnd, GWL_STYLE, GetWindowLong(wnd,GWL_STYLE) | WS_VSCROLL);
 	SetScrollRange(wnd, SB_VERT, -1, 1, TRUE);
 
-	const float fontScale = 1.0f / g_dpi_scale_real_y;
+	const float fontScale = 1.0f / g_display.dpi_scale_real_y;
 	charWidth = g_Config.iFontWidth * fontScale;
 	rowHeight = (g_Config.iFontHeight + 2) * fontScale;
 	int scaledFontHeight = g_Config.iFontHeight * fontScale;
@@ -206,7 +208,7 @@ CtrlDisAsmView::~CtrlDisAsmView()
 	manager.clear();
 }
 
-COLORREF scaleColor(COLORREF color, float factor)
+static COLORREF scaleColor(COLORREF color, float factor)
 {
 	unsigned char r = color & 0xFF;
 	unsigned char g = (color >> 8) & 0xFF;
@@ -301,7 +303,7 @@ void CtrlDisAsmView::assembleOpcode(u32 address, std::string defaultText)
 			{
 				for (int reg = 0; reg < debugger->GetNumRegsInCategory(cat); reg++)
 				{
-					if (strcasecmp(debugger->GetRegName(cat,reg),registerName.c_str()) == 0)
+					if (strcasecmp(debugger->GetRegName(cat,reg).c_str(), registerName.c_str()) == 0)
 					{
 						debugger->SetRegValue(cat,reg,value);
 						Reporting::NotifyDebugger();
@@ -315,7 +317,7 @@ void CtrlDisAsmView::assembleOpcode(u32 address, std::string defaultText)
 		// try to assemble the input if it failed
 	}
 
-	result = MIPSAsm::MipsAssembleOpcode(op.c_str(),debugger,address);
+	result = MIPSAsm::MipsAssembleOpcode(op.c_str(), debugger, address);
 	Reporting::NotifyDebugger();
 	if (result == true)
 	{
@@ -330,7 +332,6 @@ void CtrlDisAsmView::assembleOpcode(u32 address, std::string defaultText)
 		MessageBox(wnd,error.c_str(),L"Error",MB_OK);
 	}
 }
-
 
 void CtrlDisAsmView::drawBranchLine(HDC hdc, std::map<u32,int> &addressPositions, const BranchLine &line) {
 	HPEN pen;
@@ -725,7 +726,7 @@ void CtrlDisAsmView::onKeyDown(WPARAM wParam, LPARAM lParam)
 			break;
 		case 'c':
 		case VK_INSERT:
-			copyInstructions(selectRangeStart, selectRangeEnd, true);
+			CopyInstructions(selectRangeStart, selectRangeEnd, CopyInstructionsMode::DISASM);
 			break;
 		case 'x':
 			disassembleToFile();
@@ -906,10 +907,10 @@ void CtrlDisAsmView::onMouseDown(WPARAM wParam, LPARAM lParam, int button)
 	redraw();
 }
 
-void CtrlDisAsmView::copyInstructions(u32 startAddr, u32 endAddr, bool withDisasm)
-{
-	if (withDisasm == false)
-	{
+void CtrlDisAsmView::CopyInstructions(u32 startAddr, u32 endAddr, CopyInstructionsMode mode) {
+	_assert_msg_((startAddr & 3) == 0, "readMemory() can't handle unaligned reads");
+
+	if (mode != CopyInstructionsMode::DISASM) {
 		int instructionSize = debugger->getInstructionSize(0);
 		int count = (endAddr - startAddr) / instructionSize;
 		int space = count * 32;
@@ -918,7 +919,8 @@ void CtrlDisAsmView::copyInstructions(u32 startAddr, u32 endAddr, bool withDisas
 		char *p = temp, *end = temp + space;
 		for (u32 pos = startAddr; pos < endAddr && p < end; pos += instructionSize)
 		{
-			p += snprintf(p, end - p, "%08X", debugger->readMemory(pos));
+			u32 data = mode == CopyInstructionsMode::OPCODES ? debugger->readMemory(pos) : pos;
+			p += snprintf(p, end - p, "%08X", data);
 
 			// Don't leave a trailing newline.
 			if (pos + instructionSize < endAddr && p < end)
@@ -926,10 +928,19 @@ void CtrlDisAsmView::copyInstructions(u32 startAddr, u32 endAddr, bool withDisas
 		}
 		W32Util::CopyTextToClipboard(wnd, temp);
 		delete [] temp;
-	} else
-	{
+	} else {
 		std::string disassembly = disassembleRange(startAddr,endAddr-startAddr);
 		W32Util::CopyTextToClipboard(wnd, disassembly.c_str());
+	}
+}
+
+void CtrlDisAsmView::NopInstructions(u32 selectRangeStart, u32 selectRangeEnd) {
+	for (u32 addr = selectRangeStart; addr < selectRangeEnd; addr += 4) {
+		Memory::Write_U32(0, addr);
+	}
+
+	if (currentMIPS) {
+		currentMIPS->InvalidateICache(selectRangeStart, selectRangeEnd - selectRangeStart);
 	}
 }
 
@@ -956,13 +967,26 @@ void CtrlDisAsmView::onMouseUp(WPARAM wParam, LPARAM lParam, int button)
 			assembleOpcode(curAddress,"");
 			break;
 		case ID_DISASM_COPYINSTRUCTIONDISASM:
-			copyInstructions(selectRangeStart, selectRangeEnd, true);
+			CopyInstructions(selectRangeStart, selectRangeEnd, CopyInstructionsMode::DISASM);
 			break;
 		case ID_DISASM_COPYADDRESS:
+			CopyInstructions(selectRangeStart, selectRangeEnd, CopyInstructionsMode::ADDRESSES);
+			break;
+		case ID_DISASM_COPYINSTRUCTIONHEX:
+			CopyInstructions(selectRangeStart, selectRangeEnd, CopyInstructionsMode::OPCODES);
+			break;
+		case ID_DISASM_NOPINSTRUCTION:
+			NopInstructions(selectRangeStart, selectRangeEnd);
+			redraw();
+			break;
+		case ID_DISASM_EDITSYMBOLS:
 			{
-				char temp[16];
-				sprintf(temp,"%08X",curAddress);
-				W32Util::CopyTextToClipboard(wnd, temp);
+				EditSymbolsWindow esw(wnd, debugger);
+				if (esw.exec()) {
+					esw.eval();
+					SendMessage(GetParent(wnd), WM_DEB_MAPLOADED, 0, 0);
+					redraw();
+				}
 			}
 			break;
 		case ID_DISASM_SETPCTOHERE:
@@ -971,9 +995,6 @@ void CtrlDisAsmView::onMouseUp(WPARAM wParam, LPARAM lParam, int button)
 			break;
 		case ID_DISASM_FOLLOWBRANCH:
 			followBranch();
-			break;
-		case ID_DISASM_COPYINSTRUCTIONHEX:
-			copyInstructions(selectRangeStart, selectRangeEnd, false);
 			break;
 		case ID_DISASM_RUNTOHERE:
 			{
@@ -1109,14 +1130,12 @@ void CtrlDisAsmView::updateStatusBarText()
 			snprintf(text, sizeof(text), "[%08X] = \"%s\"", line.info.relevantAddress, Memory::GetCharPointer(line.info.relevantAddress));
 		}
 
-		if (line.info.isDataAccess)
-		{
-			if (!Memory::IsValidAddress(line.info.dataAddress))
-			{
+		if (line.info.isDataAccess) {
+			if (!Memory::IsValidAddress(line.info.dataAddress)) {
 				snprintf(text, sizeof(text), "Invalid address %08X",line.info.dataAddress);
 			} else {
-				switch (line.info.dataSize)
-				{
+				bool isFloat = MIPSGetInfo(line.info.encodedOpcode) & (IS_FPU | IS_VFPU);
+				switch (line.info.dataSize) {
 				case 1:
 					snprintf(text, sizeof(text), "[%08X] = %02X",line.info.dataAddress,Memory::Read_U8(line.info.dataAddress));
 					break;
@@ -1124,21 +1143,37 @@ void CtrlDisAsmView::updateStatusBarText()
 					snprintf(text, sizeof(text), "[%08X] = %04X",line.info.dataAddress,Memory::Read_U16(line.info.dataAddress));
 					break;
 				case 4:
-					// TODO: Could also be a float...
 					{
-						u32 data = Memory::Read_U32(line.info.dataAddress);
-						const std::string addressSymbol = g_symbolMap->GetLabelString(data);
-						if (!addressSymbol.empty())
-						{
-							snprintf(text, sizeof(text), "[%08X] = %s (%08X)",line.info.dataAddress,addressSymbol.c_str(),data);
+						u32 dataInt = Memory::Read_U32(line.info.dataAddress);
+						u32 dataFloat = Memory::Read_Float(line.info.dataAddress);
+						std::string dataString;
+						if (isFloat)
+							dataString = StringFromFormat("%08X / %f", dataInt, dataFloat);
+						else
+							dataString = StringFromFormat("%08X", dataInt);
+
+						const std::string addressSymbol = g_symbolMap->GetLabelString(dataInt);
+						if (!addressSymbol.empty()) {
+							snprintf(text, sizeof(text), "[%08X] = %s (%s)", line.info.dataAddress, addressSymbol.c_str(), dataString.c_str());
 						} else {
-							snprintf(text, sizeof(text), "[%08X] = %08X",line.info.dataAddress,data);
+							snprintf(text, sizeof(text), "[%08X] = %s", line.info.dataAddress, dataString.c_str());
 						}
 						break;
 					}
 				case 16:
-					// TODO: vector
-					break;
+					{
+						uint32_t dataInt[4];
+						float dataFloat[4];
+						for (int i = 0; i < 4; ++i) {
+							dataInt[i] = Memory::Read_U32(line.info.dataAddress + i * 4);
+							dataFloat[i] = Memory::Read_Float(line.info.dataAddress + i * 4);
+						}
+						std::string dataIntString = StringFromFormat("%08X,%08X,%08X,%08X", dataInt[0], dataInt[1], dataInt[2], dataInt[3]);
+						std::string dataFloatString = StringFromFormat("%f,%f,%f,%f", dataFloat[0], dataFloat[1], dataFloat[2], dataFloat[3]);
+
+						snprintf(text, sizeof(text), "[%08X] = %s / %s", line.info.dataAddress, dataIntString.c_str(), dataFloatString.c_str());
+						break;
+					}
 				}
 			}
 		}

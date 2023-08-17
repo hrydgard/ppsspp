@@ -61,6 +61,8 @@ static bool create_device(retro_vulkan_context *context, VkInstance instance, Vk
 	vk->InitSurface(WINDOWSYSTEM_WIN32, nullptr, nullptr);
 #elif defined(__ANDROID__)
 	vk->InitSurface(WINDOWSYSTEM_ANDROID, nullptr, nullptr);
+#elif defined(VK_USE_PLATFORM_METAL_EXT)
+    vk->InitSurface(WINDOWSYSTEM_METAL_EXT, nullptr, nullptr);
 #elif defined(VK_USE_PLATFORM_XLIB_KHR)
 	vk->InitSurface(WINDOWSYSTEM_XLIB, nullptr, nullptr);
 #elif defined(VK_USE_PLATFORM_XCB_KHR)
@@ -137,7 +139,11 @@ void LibretroVulkanContext::CreateDrawContext() {
       return;
    }
 
-   draw_ = Draw::T3DCreateVulkanContext(vk);
+   bool useMultiThreading = g_Config.bRenderMultiThreading;
+   if (g_Config.iInflightFrames == 1) {
+      useMultiThreading = false;
+   }
+   draw_ = Draw::T3DCreateVulkanContext(vk, useMultiThreading);
    ((VulkanRenderManager*)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER))->SetInflightFrames(g_Config.iInflightFrames);
    SetGPUBackend(GPUBackend::VULKAN);
 }

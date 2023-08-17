@@ -62,7 +62,7 @@ void DisassembleArm(const u8 *data, int size) {
 			int reg0 = (inst & 0x0000F000) >> 12;
 			int reg1 = (next & 0x0000F000) >> 12;
 			if (reg0 == reg1) {
-				sprintf(temp, "%08x MOV32 %s, %04x%04x", (u32)inst, ArmRegName(reg0), hi, low);
+				snprintf(temp, sizeof(temp), "%08x MOV32 %s, %04x%04x", (u32)inst, ArmRegName(reg0), hi, low);
 				INFO_LOG(JIT, "A:   %s", temp);
 				i += 4;
 				continue;
@@ -91,7 +91,7 @@ static u32 JitMemCheck(u32 pc) {
 
 	// Note: pc may be the delay slot.
 	const auto op = Memory::Read_Instruction(pc, true);
-	s32 offset = (s16)(op & 0xFFFF);
+	s32 offset = SignExtend16ToS32(op & 0xFFFF);
 	if (MIPSGetInfo(op) & IS_VFPU)
 		offset &= 0xFFFC;
 	u32 addr = currentMIPS->r[MIPS_GET_RS(op)] + offset;
@@ -132,10 +132,15 @@ void ArmJit::DoState(PointerWrap &p)
 	if (!s)
 		return;
 
+	if (p.mode == PointerWrap::MODE_READ && !js.startDefaultPrefix) {
+		WARN_LOG(CPU, "Jit: An uneaten prefix was previously detected. Jitting in unknown-prefix mode.");
+	}
 	Do(p, js.startDefaultPrefix);
 	if (s >= 2) {
 		Do(p, js.hasSetRounding);
-		js.lastSetRounding = 0;
+		if (p.mode == PointerWrap::MODE_READ) {
+			js.lastSetRounding = 0;
+		}
 	} else {
 		js.hasSetRounding = 1;
 	}
@@ -381,7 +386,7 @@ const u8 *ArmJit::DoJit(u32 em_address, JitBlock *b)
 	if (logBlocks > 0 && dontLogBlocks == 0) {
 		INFO_LOG(JIT, "=============== mips ===============");
 		for (u32 cpc = em_address; cpc != GetCompilerPC() + 4; cpc += 4) {
-			MIPSDisAsm(Memory::Read_Opcode_JIT(cpc), cpc, temp, true);
+			MIPSDisAsm(Memory::Read_Opcode_JIT(cpc), cpc, temp, sizeof(temp), true);
 			INFO_LOG(JIT, "M: %08x   %s", cpc, temp);
 		}
 	}
@@ -516,6 +521,14 @@ bool ArmJit::ReplaceJalTo(u32 dest) {
 
 	js.compilerPC += 4;
 	// No writing exits, keep going!
+
+	if (CBreakPoints::HasMemChecks()) {
+		// We could modify coreState, so we need to write PC and check.
+		// Otherwise, PC may end up on the jal.  We add 4 to skip the delay slot.
+		FlushAll();
+		WriteExit(GetCompilerPC() + 4, js.nextExit++);
+		js.compiling = false;
+	}
 
 	// Add a trigger so that if the inlined code changes, we invalidate this block.
 	blocks.ProxyBlock(js.blockStart, dest, funcSize / sizeof(u32), GetCodePtr());
@@ -787,7 +800,7 @@ bool ArmJit::CheckMemoryBreakpoint(int instructionOffset) {
 		MOVI2R(R0, GetCompilerPC());
 		MovToPC(R0);
 		if (off != 0)
-			ADDI2R(R0, R0, off, SCRATCHREG2);
+			ADDI2R(R0, R0, off * 4, SCRATCHREG2);
 		QuickCallFunction(SCRATCHREG2, &JitMemCheck);
 
 		// If 0, the breakpoint wasn't tripped.

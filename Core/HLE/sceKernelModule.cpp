@@ -26,6 +26,9 @@
 #include "Common/Serialize/SerializeSet.h"
 #include "Common/File/FileUtil.h"
 #include "Common/StringUtils.h"
+#include "Common/System/Request.h"
+#include "Common/System/System.h"
+
 #include "Core/Config.h"
 #include "Core/Core.h"
 #include "Core/HLE/HLE.h"
@@ -35,7 +38,6 @@
 #include "Core/HLE/ReplaceTables.h"
 #include "Core/HLE/sceDisplay.h"
 #include "Core/Reporting.h"
-#include "Core/Host.h"
 #include "Core/Loaders.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MIPSAnalyst.h"
@@ -285,7 +287,7 @@ public:
 
 	void DoState(PointerWrap &p) override
 	{
-		auto s = p.Section("Module", 1, 5);
+		auto s = p.Section("Module", 1, 6);
 		if (!s)
 			return;
 
@@ -300,6 +302,9 @@ public:
 			pnm->modid = GetUID();
 			memcpy(((uint8_t *)pnm) + 0x30, ((uint8_t *)ptemp) + 0x2C, 0xC0 - 0x2C);
 		}
+
+		if (s >= 6)
+			Do(p, crc);
 
 		Do(p, memoryBlockAddr);
 		Do(p, memoryBlockSize);
@@ -458,6 +463,7 @@ public:
 
 	u32 memoryBlockAddr = 0;
 	u32 memoryBlockSize = 0;
+	u32 crc = 0;
 	PSPPointer<NativeModule> modulePtr;
 	bool isFake = false;
 };
@@ -878,7 +884,7 @@ void PSPModule::Cleanup() {
 	}
 }
 
-static void __SaveDecryptedEbootToStorageMedia(const u8 *decryptedEbootDataPtr, const u32 length) {
+static void SaveDecryptedEbootToStorageMedia(const u8 *decryptedEbootDataPtr, const u32 length, const char *name) {
 	if (!decryptedEbootDataPtr) {
 		ERROR_LOG(SCEMODULE, "Error saving decrypted EBOOT.BIN: invalid pointer");
 		return;
@@ -889,7 +895,7 @@ static void __SaveDecryptedEbootToStorageMedia(const u8 *decryptedEbootDataPtr, 
 		return;
 	}
 
-	const std::string filenameToDumpTo = g_paramSFO.GetDiscID() + ".BIN";
+	const std::string filenameToDumpTo = StringFromFormat("%s_%s.BIN", g_paramSFO.GetDiscID().c_str(), name);
 	const Path dumpDirectory = GetSysDirectory(DIRECTORY_DUMP);
 	const Path fullPath = dumpDirectory / filenameToDumpTo;
 
@@ -1038,7 +1044,7 @@ static bool KernelImportModuleFuncs(PSPModule *module, u32 *firstImportStubAddr,
 			strncpy(func.moduleName, modulename, KERNELOBJECT_MAX_NAME_LENGTH);
 			func.moduleName[KERNELOBJECT_MAX_NAME_LENGTH] = '\0';
 
-			u32_le *nidDataPtr = (u32_le *)Memory::GetPointer(entry->nidData);
+			u32_le *nidDataPtr = (u32_le *)Memory::GetPointerUnchecked(entry->nidData);
 			for (int i = 0; i < entry->numFuncs; ++i) {
 				// This is the id of the import.
 				func.nid = nidDataPtr[i];
@@ -1076,7 +1082,7 @@ static bool KernelImportModuleFuncs(PSPModule *module, u32 *firstImportStubAddr,
 				}
 
 				WriteVarSymbolState state;
-				u32_le *varRef = (u32_le *)Memory::GetPointer(varRefsPtr);
+				u32_le *varRef = (u32_le *)Memory::GetPointerUnchecked(varRefsPtr);
 				for (; *varRef != 0; ++varRef) {
 					var.nid = nid;
 					var.stubAddr = (*varRef & 0x03FFFFFF) << 2;
@@ -1102,7 +1108,7 @@ static bool KernelImportModuleFuncs(PSPModule *module, u32 *firstImportStubAddr,
 			char temp[512];
 			const char *modulename;
 			if (Memory::IsValidAddress(entry->name)) {
-				modulename = Memory::GetCharPointer(entry->name);
+				modulename = Memory::GetCharPointerUnchecked(entry->name);
 			} else {
 				modulename = "(invalidname)";
 			}
@@ -1144,12 +1150,12 @@ static int gzipDecompress(u8 *OutBuffer, int OutBufferLength, u8 *InBuffer) {
 }
 
 static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 loadAddress, bool fromTop, std::string *error_string, u32 *magic, u32 &error) {
-	u32 crc = crc32(0, ptr, (uInt)elfSize);
 	PSPModule *module = new PSPModule();
 	kernelObjects.Create(module);
 	loadedModules.insert(module->GetUID());
 	memset(&module->nm, 0, sizeof(module->nm));
 
+	module->crc = crc32(0, ptr, (uInt)elfSize);
 	module->nm.modid = module->GetUID();
 
 	bool reportedModule = false;
@@ -1173,14 +1179,14 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 
 		if (IsHLEVersionedModule(head->modname)) {
 			int ver = (head->module_ver_hi << 8) | head->module_ver_lo;
-			INFO_LOG(SCEMODULE, "Loading module %s with version %04x, devkit %08x, crc %x", head->modname, ver, head->devkitversion, crc);
+			INFO_LOG(SCEMODULE, "Loading module %s with version %04x, devkit %08x, crc %x", head->modname, ver, head->devkitversion, module->crc);
 			reportedModule = true;
 
 			if (!strcmp(head->modname, "sceMpeg_library")) {
-				__MpegLoadModule(ver, crc);
+				__MpegLoadModule(ver, module->crc);
 			}
 			if (!strcmp(head->modname, "scePsmfP_library") || !strcmp(head->modname, "scePsmfPlayer")) {
-				__PsmfPlayerLoadModule(head->devkitversion, crc);
+				__PsmfPlayerLoadModule(head->devkitversion, module->crc);
 			}
 		}
 
@@ -1202,6 +1208,10 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 		ptr = newptr;
 		magicPtr = (u32_le *)ptr;
 		int ret = pspDecryptPRX(in, (u8*)ptr, head->psp_size);
+		if (ret <= 0 && *(u32_le *)&ptr[0x150] == 0x464c457f) {
+			ret = head->psp_size - 0x150;
+			memcpy(newptr, in + 0x150, ret);
+		}
 		if (reportedModule) {
 			// This should happen for all "kernel" modules.
 			*error_string = "Missing key";
@@ -1254,9 +1264,10 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 
 			// If we've made it this far, it should be safe to dump.
 			if (g_Config.bDumpDecryptedEboot) {
-				INFO_LOG(SCEMODULE, "Dumping decrypted EBOOT.BIN to file.");
-				const u32 dumpLength = ret;
-				__SaveDecryptedEbootToStorageMedia(ptr, dumpLength);
+				// Copy the name to ensure it's null terminated.
+				char name[32]{};
+				strncpy(name, head->modname, ARRAY_SIZE(head->modname));
+				SaveDecryptedEbootToStorageMedia(ptr, (u32)elfSize, name);
 			}
 		}
 	}
@@ -1312,7 +1323,7 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 		return nullptr;
 	}
 
-	modinfo = (PspModuleInfo *)Memory::GetPointer(modinfoaddr);
+	modinfo = (PspModuleInfo *)Memory::GetPointerUnchecked(modinfoaddr);
 
 	module->nm.nsegment = reader.GetNumSegments();
 	module->nm.attribute = modinfo->moduleAttrs;
@@ -1401,6 +1412,10 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 			// Note: scan end is inclusive.
 			u32 end = start + reader.GetSectionSize(id) - 4;
 			u32 len = end + 4 - start;
+			if (len == 0) {
+				// Seen in WWE: Smackdown vs Raw 2009. See #17435.
+				continue;
+			}
 			if (!Memory::IsValidRange(start, len)) {
 				ERROR_LOG(LOADER, "Bad section %08x (len %08x) of section %d", start, len, id);
 				continue;
@@ -1494,7 +1509,7 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 			continue;
 		}
 
-		u32_le *residentPtr = (u32_le *)Memory::GetPointer(ent->resident);
+		u32_le *residentPtr = (u32_le *)Memory::GetPointerUnchecked(ent->resident);
 		u32_le *exportPtr = residentPtr + ent->fcount + variableCount;
 
 		if (ent->size != 4 && ent->unknown1 != 0 && ent->unknown2 != 0) {
@@ -1614,12 +1629,14 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 		INFO_LOG(SCEMODULE, "Loading module %s with version %04x, devkit %08x", modinfo->name, modinfo->moduleVersion, devkitVersion);
 
 		if (!strcmp(modinfo->name, "sceMpeg_library")) {
-			__MpegLoadModule(modinfo->moduleVersion, crc);
+			__MpegLoadModule(modinfo->moduleVersion, module->crc);
 		}
 		if (!strcmp(modinfo->name, "scePsmfP_library") || !strcmp(modinfo->name, "scePsmfPlayer")) {
-			__PsmfPlayerLoadModule(devkitVersion, crc);
+			__PsmfPlayerLoadModule(devkitVersion, module->crc);
 		}
 	}
+
+	System_Notify(SystemNotification::SYMBOL_MAP_UPDATED);
 
 	u32 moduleSize = sizeof(module->nm);
 	char tag[32];
@@ -1825,11 +1842,14 @@ bool __KernelLoadExec(const char *filename, u32 paramPtr, std::string *error_str
 		return false;
 	}
 
-	host->NotifySymbolMapUpdated();
+	char moduleName[29] = { 0 };
+	int moduleVersion = module->nm.version[0] | (module->nm.version[1] << 8);
+	truncate_cpy(moduleName, module->nm.name);
+	Reporting::NotifyExecModule(moduleName, moduleVersion, module->crc);
 
 	mipsr4k.pc = module->nm.entry_addr;
 
-	INFO_LOG(LOADER, "Module entry: %08x", mipsr4k.pc);
+	INFO_LOG(LOADER, "Module entry: %08x (%s %04x)", mipsr4k.pc, moduleName, moduleVersion);
 
 	SceKernelSMOption option;
 	option.size = sizeof(SceKernelSMOption);
@@ -1923,7 +1943,7 @@ void __KernelGPUReplay() {
 		PSPPointer<u8> topaddr;
 		u32 linesize = 512;
 		__DisplayGetFramebuf(&topaddr, &linesize, nullptr, 0);
-		host->SendDebugScreenshot(topaddr, linesize, 272);
+		System_SendDebugScreenshot(std::string((const char *)&topaddr[0], linesize * 272), 272);
 		Core_Stop();
 	}
 }
@@ -2597,7 +2617,7 @@ static SceUID sceKernelLoadModuleBufferUsbWlan(u32 size, u32 bufPtr, u32 flags, 
 
 static u32 sceKernelQueryModuleInfo(u32 uid, u32 infoAddr)
 {
-	INFO_LOG(SCEMODULE, "sceKernelQueryModuleInfo(%i, %08x)", uid, infoAddr);
+	DEBUG_LOG(SCEMODULE, "sceKernelQueryModuleInfo(%i, %08x)", uid, infoAddr);
 	u32 error;
 	PSPModule *module = kernelObjects.Get<PSPModule>(uid, error);
 	if (!module)
@@ -2688,8 +2708,8 @@ const HLEFunction ModuleMgrForKernel[] =
 	{0x50F0C1EC, &WrapV_UUUUU<sceKernelStartModule>,                    "sceKernelStartModule",                    'v', "xxxxx", HLE_NOT_IN_INTERRUPT | HLE_NOT_DISPATCH_SUSPENDED | HLE_KERNEL_SYSCALL },
 	{0x977DE386, &WrapU_CUU<sceKernelLoadModule>,                       "sceKernelLoadModule",                     'x', "sxx",   HLE_KERNEL_SYSCALL },
 	{0xA1A78C58, &WrapU_CUU<sceKernelLoadModuleForLoadExecVSHDisc>,     "sceKernelLoadModuleForLoadExecVSHDisc",   'x', "sxx",   HLE_KERNEL_SYSCALL }, //fix for tiger x dragon
-	{0xCC1D3699, &WrapU_UUU<sceKernelSelfStopUnloadModule>,             "sceKernelSelfStopUnloadModule",           'x', "xxx",   HLE_KERNEL_SYSCALL }, // used  in Dissidia final fantasy chinese patch	
-	{0XD1FF982A, &WrapU_UUUUU<sceKernelStopModule>,                     "sceKernelStopModule",                     'x', "xxxxx", HLE_KERNEL_SYSCALL | HLE_NOT_IN_INTERRUPT | HLE_NOT_DISPATCH_SUSPENDED }, // used  in Dissidia final fantasy chinese patch	
+	{0xCC1D3699, &WrapU_UUU<sceKernelSelfStopUnloadModule>,             "sceKernelStopUnloadSelfModule",           'x', "xxx",   HLE_KERNEL_SYSCALL }, // used in Dissidia final fantasy chinese patch
+	{0XD1FF982A, &WrapU_UUUUU<sceKernelStopModule>,                     "sceKernelStopModule",                     'x', "xxxxx", HLE_KERNEL_SYSCALL | HLE_NOT_IN_INTERRUPT | HLE_NOT_DISPATCH_SUSPENDED }, // used in Dissidia final fantasy chinese patch
 	{0x748CBED9, &WrapU_UU<sceKernelQueryModuleInfo>,                   "sceKernelQueryModuleInfo",                'x', "xx",    HLE_KERNEL_SYSCALL },
 	{0x644395E2, &WrapU_UUU<sceKernelGetModuleIdList>,                  "sceKernelGetModuleIdList",                'x', "xxx",   HLE_KERNEL_SYSCALL },
 	{0X2E0911AA, &WrapU_U<sceKernelUnloadModule>,                       "sceKernelUnloadModule",                   'x', "x" ,    HLE_KERNEL_SYSCALL },

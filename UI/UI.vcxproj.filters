@@ -2,7 +2,6 @@
 <Project ToolsVersion="12.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
     <ClCompile Include="GameInfoCache.cpp" />
-    <ClCompile Include="GamepadEmu.cpp" />
     <ClCompile Include="NativeApp.cpp" />
     <ClCompile Include="OnScreenDisplay.cpp" />
     <ClCompile Include="EmuScreen.cpp">
@@ -38,9 +37,6 @@
     <ClCompile Include="TiltAnalogSettingsScreen.cpp">
       <Filter>Screens</Filter>
     </ClCompile>
-    <ClCompile Include="TiltEventProcessor.cpp">
-      <Filter>Screens</Filter>
-    </ClCompile>
     <ClCompile Include="InstallZipScreen.cpp">
       <Filter>Screens</Filter>
     </ClCompile>
@@ -55,9 +51,6 @@
       <Filter>Screens</Filter>
     </ClCompile>
     <ClCompile Include="ProfilerDraw.cpp">
-      <Filter>Screens</Filter>
-    </ClCompile>
-    <ClCompile Include="ComboKeyMappingScreen.cpp">
       <Filter>Screens</Filter>
     </ClCompile>
     <ClCompile Include="DisplayLayoutScreen.cpp">
@@ -80,10 +73,28 @@
       <Filter>Screens</Filter>
     </ClCompile>
     <ClCompile Include="Theme.cpp" />
+    <ClCompile Include="GamepadEmu.cpp">
+      <Filter>Views</Filter>
+    </ClCompile>
+    <ClCompile Include="JoystickHistoryView.cpp">
+      <Filter>Views</Filter>
+    </ClCompile>
+    <ClCompile Include="AudioCommon.cpp" />
+    <ClCompile Include="CustomButtonMappingScreen.cpp">
+      <Filter>Screens</Filter>
+    </ClCompile>
+    <ClCompile Include="TabbedDialogScreen.cpp">
+      <Filter>Screens</Filter>
+    </ClCompile>
+    <ClCompile Include="RetroAchievementScreens.cpp">
+      <Filter>Screens</Filter>
+    </ClCompile>
+    <ClCompile Include="DebugOverlay.cpp">
+      <Filter>Screens</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="GameInfoCache.h" />
-    <ClInclude Include="GamepadEmu.h" />
     <ClInclude Include="OnScreenDisplay.h" />
     <ClInclude Include="EmuScreen.h">
       <Filter>Screens</Filter>
@@ -118,9 +129,6 @@
     <ClInclude Include="TiltAnalogSettingsScreen.h">
       <Filter>Screens</Filter>
     </ClInclude>
-    <ClInclude Include="TiltEventProcessor.h">
-      <Filter>Screens</Filter>
-    </ClInclude>
     <ClInclude Include="InstallZipScreen.h">
       <Filter>Screens</Filter>
     </ClInclude>
@@ -137,13 +145,9 @@
     <ClInclude Include="ProfilerDraw.h">
       <Filter>Screens</Filter>
     </ClInclude>
-    <ClInclude Include="ComboKeyMappingScreen.h">
-      <Filter>Screens</Filter>
-    </ClInclude>
     <ClInclude Include="DisplayLayoutScreen.h">
       <Filter>Screens</Filter>
     </ClInclude>
-    <ClInclude Include="HostTypes.h" />
     <ClInclude Include="RemoteISOScreen.h">
       <Filter>Screens</Filter>
     </ClInclude>
@@ -161,10 +165,32 @@
       <Filter>Screens</Filter>
     </ClInclude>
     <ClInclude Include="Theme.h" />
+    <ClInclude Include="GamepadEmu.h">
+      <Filter>Views</Filter>
+    </ClInclude>
+    <ClInclude Include="JoystickHistoryView.h">
+      <Filter>Views</Filter>
+    </ClInclude>
+    <ClInclude Include="AudioCommon.h" />
+    <ClInclude Include="CustomButtonMappingScreen.h">
+      <Filter>Screens</Filter>
+    </ClInclude>
+    <ClInclude Include="TabbedDialogScreen.h">
+      <Filter>Screens</Filter>
+    </ClInclude>
+    <ClInclude Include="RetroAchievementScreens.h">
+      <Filter>Screens</Filter>
+    </ClInclude>
+    <ClInclude Include="DebugOverlay.h">
+      <Filter>Screens</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Screens">
       <UniqueIdentifier>{faee5dce-633b-4ba6-b19d-ea70ee3c1c38}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Views">
+      <UniqueIdentifier>{071baa63-c681-4ad6-945b-e126645d1b55}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
 </Project>

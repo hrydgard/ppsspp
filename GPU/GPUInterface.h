@@ -116,12 +116,13 @@ ENUM_CLASS_BITOPS(WriteStencil);
 
 enum class GPUCopyFlag {
 	NONE = 0,
-	FORCE_SRC_MEM = 1,
-	FORCE_DST_MEM = 2,
-	// Note: implies src == dst and FORCE_SRC_MEM.
+	FORCE_SRC_MATCH_MEM = 1,
+	FORCE_DST_MATCH_MEM = 2,
+	// Note: implies src == dst and FORCE_SRC_MATCH_MEM.
 	MEMSET = 4,
 	DEPTH_REQUESTED = 8,
 	DEBUG_NOTIFIED = 16,
+	DISALLOW_CREATE_VFB = 32,
 };
 ENUM_CLASS_BITOPS(GPUCopyFlag);
 
@@ -191,7 +192,7 @@ public:
 	// Initialization
 	virtual bool IsReady() = 0;
 	virtual void CancelReady() = 0;
-	virtual void InitClear() = 0;
+	virtual bool IsStarted() = 0;
 	virtual void Reinitialize() = 0;
 
 	// Frame managment
@@ -220,7 +221,6 @@ public:
 	virtual void InterruptEnd(int listid) = 0;
 	virtual void SyncEnd(GPUSyncType waitType, int listid, bool wokeThreads) = 0;
 
-	virtual void PreExecuteOp(u32 op, u32 diff) = 0;
 	virtual void ExecuteOp(u32 op, u32 diff) = 0;
 
 	// Framebuffer management
@@ -252,7 +252,7 @@ public:
 	virtual void EnableInterrupts(bool enable) = 0;
 
 	virtual void DeviceLost() = 0;
-	virtual void DeviceRestore() = 0;
+	virtual void DeviceRestore(Draw::DrawContext *draw) = 0;
 	virtual void ReapplyGfxState() = 0;
 	virtual void DoState(PointerWrap &p) = 0;
 

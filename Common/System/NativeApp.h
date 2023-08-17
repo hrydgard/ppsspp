@@ -20,12 +20,6 @@ class GraphicsContext;
 // This might get called multiple times in some implementations, you must be able to handle that.
 void NativeGetAppInfo(std::string *app_dir_name, std::string *app_nice_name, bool *landscape, std::string *version);
 
-// Generic host->C++ messaging, used for functionality like system-native popup input boxes.
-void NativeMessageReceived(const char *message, const char *value);
-
-// This is used to communicate back and thread requested input box strings.
-void NativeInputBoxReceived(std::function<void(bool, const std::string &)> cb, bool result, const std::string &value);
-
 // Easy way for the Java side to ask the C++ side for configuration options, such as
 // the rotation lock which must be controlled from Java on Android.
 // It is currently not called on non-Android platforms.
@@ -55,21 +49,16 @@ void NativeSetRestarting();
 // Retrieve current restarting flag.
 bool NativeIsRestarting();
 
-// Called ~sixty times a second, delivers the current input state.
-// Main thread.
-void NativeUpdate();
-
-// Delivers touch events "instantly", without waiting for the next frame so that NativeUpdate can deliver.
-// Useful for triggering audio events, saving a few ms.
-// If you don't care about touch latency, just do a no-op implementation of this.
-// time is not yet implemented. finger can be from 0 to 7, inclusive.
-bool NativeTouch(const TouchInput &touch);
+// Delivers touch/key/axis events "instantly", without waiting for the next frame so that NativeFrame can deliver.
+// Some systems like UI will buffer these events internally but at least in gameplay we can get the minimum possible
+// input latency - assuming your main loop is architected properly (NativeFrame called from a different thread than input event handling).
+void NativeTouch(const TouchInput &touch);
 bool NativeKey(const KeyInput &key);
-bool NativeAxis(const AxisInput &axis);
+void NativeAxis(const AxisInput &axis);
 
-// Called when it's time to render. If the device can keep up, this
-// will also be called sixty times per second. Main thread.
-void NativeRender(GraphicsContext *graphicsContext);
+// Called when it's process a frame, including rendering. If the device can keep up, this
+// will be called sixty times per second. Main thread.
+void NativeFrame(GraphicsContext *graphicsContext);
 
 // This should render num_samples 44khz stereo samples.
 // Try not to make too many assumptions on the granularity
@@ -78,8 +67,7 @@ void NativeRender(GraphicsContext *graphicsContext);
 // the rest of the game, so be careful with synchronization.
 // Returns the number of samples actually output. The app should do everything it can
 // to fill the buffer completely.
-int NativeMix(short *audio, int num_samples);
-void NativeSetMixer(void* mixer);
+int NativeMix(short *audio, int num_samples, int sampleRateHz);
 
 // Called when it's time to shutdown. After this has been called,
 // no more calls to any other function will be made from the framework
@@ -91,3 +79,6 @@ void NativeShutdownGraphics();
 void NativeShutdown();
 
 void PostLoadConfig();
+
+void NativeSaveSecret(const char *nameOfSecret, const std::string &data);
+std::string NativeLoadSecret(const char *nameOfSecret);

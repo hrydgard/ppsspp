@@ -119,6 +119,9 @@ public:
 	// to it.
 	std::mutex lock;
 
+	// Controls access to the fileLoader pointer.
+	std::mutex loaderLock;
+
 	std::string id;
 	std::string id_version;
 	int disc_total = 0;

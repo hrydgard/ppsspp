@@ -60,10 +60,14 @@ namespace MIPSComp {
 
 		useStaticAlloc = false;
 		enablePointerify = false;
-#if PPSSPP_ARCH(ARM64)
+#if PPSSPP_ARCH(ARM64) || PPSSPP_ARCH(RISCV64)
 		useStaticAlloc = !Disabled(JitDisable::STATIC_ALLOC);
 		// iOS/etc. may disable at runtime if Memory::base is not nicely aligned.
 		enablePointerify = !Disabled(JitDisable::POINTERIFY);
+#endif
+#if PPSSPP_ARCH(RISCV64)
+		// Seems to perform slightly better than a checked entry at the start.
+		useBackJump = true;
 #endif
 	}
 

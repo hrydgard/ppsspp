@@ -16,6 +16,7 @@
 // http://code.google.com/p/dolphin-emu/
 
 #include <string>
+#include <mutex>
 
 #include "ppsspp_config.h"
 
@@ -23,6 +24,7 @@
 #include "Common/Log.h"
 #include "StringUtils.h"
 #include "Common/Data/Encoding/Utf8.h"
+#include "Common/Thread/ThreadUtil.h"
 
 #if PPSSPP_PLATFORM(ANDROID)
 #include <android/log.h>
@@ -33,6 +35,14 @@
 #define LOG_BUF_SIZE 2048
 
 static bool hitAnyAsserts = false;
+
+std::mutex g_extraAssertInfoMutex;
+std::string g_extraAssertInfo = "menu";
+
+void SetExtraAssertInfo(const char *info) {
+	std::lock_guard<std::mutex> guard(g_extraAssertInfoMutex);
+	g_extraAssertInfo = info ? info : "menu";
+}
 
 bool HandleAssert(const char *function, const char *file, int line, const char *expression, const char* format, ...) {
 	// Read message and write it to the log
@@ -45,7 +55,10 @@ bool HandleAssert(const char *function, const char *file, int line, const char *
 
 	// Secondary formatting. Wonder if this can be combined into the vsnprintf somehow.
 	char formatted[LOG_BUF_SIZE + 128];
-	snprintf(formatted, sizeof(formatted), "(%s:%s:%d) %s: [%s] %s", file, function, line, caption, expression, text);
+	{
+		std::lock_guard<std::mutex> guard(g_extraAssertInfoMutex);
+		snprintf(formatted, sizeof(formatted), "(%s:%s:%d): [%s] (%s) %s", file, function, line, expression, g_extraAssertInfo.c_str(), text);
+	}
 
 	// Normal logging (will also log to Android log)
 	ERROR_LOG(SYSTEM, "%s", formatted);
@@ -59,7 +72,7 @@ bool HandleAssert(const char *function, const char *file, int line, const char *
 	if (!getenv("CI")) {
 		int msgBoxStyle = MB_ICONINFORMATION | MB_YESNO;
 		std::wstring wtext = ConvertUTF8ToWString(formatted) + L"\n\nTry to continue?";
-		std::wstring wcaption = ConvertUTF8ToWString(caption);
+		std::wstring wcaption = ConvertUTF8ToWString(std::string(caption) + " " + GetCurrentThreadName());
 		OutputDebugString(wtext.c_str());
 		if (IDYES != MessageBox(0, wtext.c_str(), wcaption.c_str(), msgBoxStyle)) {
 			return false;

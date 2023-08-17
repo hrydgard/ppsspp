@@ -70,6 +70,10 @@ namespace Reporting
 	// The latest compatibility result from the server.
 	static std::vector<std::string> lastCompatResult;
 
+	static std::string lastModuleName;
+	static int lastModuleVersion;
+	static uint32_t lastModuleCrc;
+
 	static std::mutex pendingMessageLock;
 	static std::condition_variable pendingMessageCond;
 	static std::deque<int> pendingMessages;
@@ -107,6 +111,8 @@ namespace Reporting
 	static int CalculateCRCThread() {
 		SetCurrentThreadName("ReportCRC");
 
+		AndroidJNIThreadContext jniContext;
+
 		FileLoader *fileLoader = ResolveFileLoaderTarget(ConstructFileLoader(crcFilename));
 		BlockDevice *blockDevice = constructBlockDevice(fileLoader);
 
@@ -136,8 +142,7 @@ namespace Reporting
 		}
 
 		if (crcPending) {
-			// Already in process.
-			INFO_LOG(SYSTEM, "CRC already pending");
+			// Already in process. This is OK - on the crash screen we call this in a polling fashion.
 			return;
 		}
 
@@ -267,7 +272,7 @@ namespace Reporting
 	bool SendReportRequest(const char *uri, const std::string &data, const std::string &mimeType, Buffer *output = NULL)
 	{
 		http::Client http;
-		http::RequestProgress progress(&pendingMessagesDone);
+		net::RequestProgress progress(&pendingMessagesDone);
 		Buffer theVoid = Buffer::Void();
 
 		http.SetUserAgent(StringFromFormat("PPSSPP/%s", PPSSPP_GIT_VERSION));
@@ -352,6 +357,10 @@ namespace Reporting
 		currentSupported = IsSupported();
 		pendingMessagesDone = false;
 		Reporting::SetupCallbacks(&MessageAllowed, &SendReportMessage);
+
+		lastModuleName.clear();
+		lastModuleVersion = 0;
+		lastModuleCrc = 0;
 	}
 
 	void Shutdown()
@@ -395,6 +404,12 @@ namespace Reporting
 		everUnsupported = true;
 	}
 
+	void NotifyExecModule(const char *name, int ver, uint32_t crc) {
+		lastModuleName = name;
+		lastModuleVersion = ver;
+		lastModuleCrc = crc;
+	}
+
 	std::string CurrentGameID()
 	{
 		// TODO: Maybe ParamSFOData shouldn't include nulls in std::strings?  Don't work to break savedata, though...
@@ -408,6 +423,9 @@ namespace Reporting
 		postdata.Add("game", CurrentGameID());
 		postdata.Add("game_title", StripTrailingNull(g_paramSFO.GetValueString("TITLE")));
 		postdata.Add("sdkver", sceKernelGetCompiledSdkVersion());
+		postdata.Add("module_name", lastModuleName);
+		postdata.Add("module_ver", lastModuleVersion);
+		postdata.Add("module_crc", lastModuleCrc);
 	}
 
 	void AddSystemInfo(UrlEncoder &postdata)
@@ -461,6 +479,8 @@ namespace Reporting
 	int Process(int pos)
 	{
 		SetCurrentThreadName("Report");
+
+		AndroidJNIThreadContext jniContext;  // destructor detaches
 
 		Payload &payload = payloadBuffer[pos];
 		Buffer output;
@@ -551,7 +571,7 @@ namespace Reporting
 			return false;
 #else
 		File::FileInfo fo;
-		if (!VFSGetFileInfo("flash0/font/jpn0.pgf", &fo))
+		if (!g_VFS.GetFileInfo("flash0/font/jpn0.pgf", &fo))
 			return false;
 #endif
 

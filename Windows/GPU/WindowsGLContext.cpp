@@ -22,12 +22,12 @@
 #include "Common/GPU/OpenGL/GLFeatures.h"
 #include "Common/GPU/thin3d_create.h"
 #include "Common/GPU/OpenGL/GLRenderManager.h"
+#include "Common/System/OSD.h"
 #include "GL/gl.h"
 #include "GL/wglew.h"
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
 #include "Core/Core.h"
-#include "Core/Host.h"
 #include "Common/Data/Encoding/Utf8.h"
 #include "Common/Data/Text/I18n.h"
 #include "UI/OnScreenDisplay.h"
@@ -39,7 +39,7 @@
 // Currently, just compile time for debugging.  May be NVIDIA only.
 static const int simulateGLES = false;
 
-void WindowsGLContext::SwapBuffers() {
+void WindowsGLContext::Poll() {
 	// We no longer call RenderManager::Swap here, it's handled by the render thread, which
 	// we're not on here.
 
@@ -241,7 +241,7 @@ bool WindowsGLContext::InitFromRenderThread(std::string *error_message) {
 
 	// GL_VERSION                        GL_VENDOR        GL_RENDERER
 	// "1.4.0 - Build 8.14.10.2364"      "intel"          intel Pineview Platform
-	auto err = GetI18NCategory("Error");
+	auto err = GetI18NCategory(I18NCat::ERRORS);
 
 	std::string glVersion = (const char *)glGetString(GL_VERSION);
 	std::string glRenderer = (const char *)glGetString(GL_RENDERER);
@@ -412,7 +412,7 @@ bool WindowsGLContext::InitFromRenderThread(std::string *error_message) {
 	resumeRequested = false;
 
 	CheckGLExtensions();
-	draw_ = Draw::T3DCreateGLContext();
+	draw_ = Draw::T3DCreateGLContext(wglSwapIntervalEXT != nullptr);
 	bool success = draw_->CreatePresets();  // if we get this far, there will always be a GLSL compiler capable of compiling these.
 	if (!success) {
 		delete draw_;
@@ -422,7 +422,7 @@ bool WindowsGLContext::InitFromRenderThread(std::string *error_message) {
 	}
 
 	draw_->SetErrorCallback([](const char *shortDesc, const char *details, void *userdata) {
-		host->NotifyUserMessage(details, 5.0, 0xFFFFFFFF, "error_callback");
+		g_OSD.Show(OSDType::MESSAGE_ERROR, details, 0.0f, "error_callback");
 	}, nullptr);
 
 	// These are auto-reset events.
@@ -441,11 +441,6 @@ bool WindowsGLContext::InitFromRenderThread(std::string *error_message) {
 	}
 	CHECK_GL_ERROR_IF_DEBUG();
 	return true;												// Success
-}
-
-void WindowsGLContext::SwapInterval(int interval) {
-	// Delegate to the render manager to make sure it's done on the right thread.
-	renderManager_->SwapInterval(interval);
 }
 
 void WindowsGLContext::Shutdown() {
@@ -500,6 +495,5 @@ void WindowsGLContext::ThreadEnd() {
 }
 
 void WindowsGLContext::StopThread() {
-	renderManager_->WaitUntilQueueIdle();
 	renderManager_->StopThread();
 }

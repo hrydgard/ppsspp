@@ -30,15 +30,11 @@ template <class T, int N>
 class FixedSizeQueue {
 public:
 	FixedSizeQueue() {
-		// Allocate aligned memory, just because.
-		//int sizeInBytes = N * sizeof(T);
-		//storage_ = (T *)AllocateMemoryPages(sizeInBytes);
 		storage_ = new T[N];
 		clear();
 	}
 
 	~FixedSizeQueue() {
-		// FreeMemoryPages((void *)storage_, N * sizeof(T));
 		delete [] storage_;
 	}
 
@@ -226,4 +222,3 @@ private:
 	volatile int curReadBlock;
 	volatile int curWriteBlock;
 };
-

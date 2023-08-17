@@ -34,6 +34,8 @@
 #include "Core/ControlMapper.h"
 #include "UI/GamepadEmu.h"
 
+const float TOUCH_SCALE_FACTOR = 1.5f;
+
 static uint32_t usedPointerMask = 0;
 static uint32_t analogPointerMask = 0;
 
@@ -60,11 +62,15 @@ void GamepadView::Update() {
 }
 
 std::string GamepadView::DescribeText() const {
-	auto co = GetI18NCategory("Controls");
+	auto co = GetI18NCategory(I18NCat::CONTROLS);
 	return co->T(key_);
 }
 
 float GamepadView::GetButtonOpacity() {
+	if (forceVisible_) {
+		return 1.0f;
+	}
+
 	if (coreState != CORE_RUNNING) {
 		return 0.0f;
 	}
@@ -130,7 +136,7 @@ void MultiTouchButton::Draw(UIContext &dc) {
 		if (g_Config.iTouchButtonStyle == 2) {
 			opacity *= 1.35f;
 		} else {
-			scale *= 2.0f;
+			scale *= TOUCH_SCALE_FACTOR;
 			opacity *= 1.15f;
 		}
 	}
@@ -174,20 +180,20 @@ bool PSPButton::Touch(const TouchInput &input) {
 	bool down = pointerDownMask_ != 0;
 	if (down && !lastDown) {
 		if (g_Config.bHapticFeedback) {
-			Vibrate(HAPTIC_VIRTUAL_KEY);
+			System_Vibrate(HAPTIC_VIRTUAL_KEY);
 		}
-		__CtrlButtonDown(pspButtonBit_);
+		__CtrlUpdateButtons(pspButtonBit_, 0);
 	} else if (lastDown && !down) {
-		__CtrlButtonUp(pspButtonBit_);
+		__CtrlUpdateButtons(0, pspButtonBit_);
 	}
 	return retval;
 }
 
-bool ComboKey::IsDown() {
+bool CustomButton::IsDown() {
 	return (toggle_ && on_) || (!toggle_ && pointerDownMask_ != 0);
 }
 
-void ComboKey::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
+void CustomButton::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
 	MultiTouchButton::GetContentDimensions(dc, w, h);
 	if (invertedContextDimension_) {
 		float tmp = w;
@@ -196,29 +202,29 @@ void ComboKey::GetContentDimensions(const UIContext &dc, float &w, float &h) con
 	}
 }
 
-bool ComboKey::Touch(const TouchInput &input) {
-	using namespace CustomKey;
+bool CustomButton::Touch(const TouchInput &input) {
+	using namespace CustomKeyData;
 	bool lastDown = pointerDownMask_ != 0;
 	bool retval = MultiTouchButton::Touch(input);
 	bool down = pointerDownMask_ != 0;
 
 	if (down && !lastDown) {
 		if (g_Config.bHapticFeedback)
-			Vibrate(HAPTIC_VIRTUAL_KEY);
+			System_Vibrate(HAPTIC_VIRTUAL_KEY);
 
 		if (!repeat_) {
-			for (int i = 0; i < ARRAY_SIZE(comboKeyList); i++) {
+			for (int i = 0; i < ARRAY_SIZE(customKeyList); i++) {
 				if (pspButtonBit_ & (1ULL << i)) {
-					controlMapper_->pspKey(DEVICE_ID_TOUCH, comboKeyList[i].c, (on_ && toggle_) ? KEY_UP : KEY_DOWN);
+					controlMapper_->PSPKey(DEVICE_ID_TOUCH, customKeyList[i].c, (on_ && toggle_) ? KEY_UP : KEY_DOWN);
 				}
 			}
 		}
 		on_ = toggle_ ? !on_ : true;
 	} else if (!toggle_ && lastDown && !down) {
 		if (!repeat_) {
-			for (int i = 0; i < ARRAY_SIZE(comboKeyList); i++) {
+			for (int i = 0; i < ARRAY_SIZE(customKeyList); i++) {
 				if (pspButtonBit_ & (1ULL << i)) {
-					controlMapper_->pspKey(DEVICE_ID_TOUCH, comboKeyList[i].c, KEY_UP);
+					controlMapper_->PSPKey(DEVICE_ID_TOUCH, customKeyList[i].c, KEY_UP);
 				}
 			}
 		}
@@ -227,9 +233,9 @@ bool ComboKey::Touch(const TouchInput &input) {
 	return retval;
 }
 
-void ComboKey::Update() {
+void CustomButton::Update() {
 	MultiTouchButton::Update();
-	using namespace CustomKey;
+	using namespace CustomKeyData;
 
 	if (repeat_) {
 		// Give the game some time to process the input, frame based so it's faster when fast-forwarding.
@@ -238,15 +244,15 @@ void ComboKey::Update() {
 		if (pressedFrames_ == 2*DOWN_FRAME) {
 			pressedFrames_ = 0;
 		} else if (pressedFrames_ == DOWN_FRAME) {
-			for (int i = 0; i < ARRAY_SIZE(comboKeyList); i++) {
+			for (int i = 0; i < ARRAY_SIZE(customKeyList); i++) {
 				if (pspButtonBit_ & (1ULL << i)) {
-					controlMapper_->pspKey(DEVICE_ID_TOUCH, comboKeyList[i].c, KEY_UP);
+					controlMapper_->PSPKey(DEVICE_ID_TOUCH, customKeyList[i].c, KEY_UP);
 				}
 			}
 		} else if (on_ && pressedFrames_ == 0) {
-			for (int i = 0; i < ARRAY_SIZE(comboKeyList); i++) {
+			for (int i = 0; i < ARRAY_SIZE(customKeyList); i++) {
 				if (pspButtonBit_ & (1ULL << i)) {
-					controlMapper_->pspKey(DEVICE_ID_TOUCH, comboKeyList[i].c, KEY_DOWN);
+					controlMapper_->PSPKey(DEVICE_ID_TOUCH, customKeyList[i].c, KEY_DOWN);
 				}
 			}
 			pressedFrames_ = 1;
@@ -258,7 +264,7 @@ void ComboKey::Update() {
 }
 
 bool PSPButton::IsDown() {
-	return (__CtrlPeekButtons() & pspButtonBit_) != 0;
+	return (__CtrlPeekButtonsVisual() & pspButtonBit_) != 0;
 }
 
 PSPDpad::PSPDpad(ImageID arrowIndex, const char *key, ImageID arrowDownIndex, ImageID overlayIndex, float scale, float spacing, UI::LayoutParams *layoutParams)
@@ -353,12 +359,12 @@ void PSPDpad::ProcessTouch(float x, float y, bool down) {
 	for (int i = 0; i < 4; i++) {
 		if (pressed & dir[i]) {
 			if (g_Config.bHapticFeedback) {
-				Vibrate(HAPTIC_VIRTUAL_KEY);
+				System_Vibrate(HAPTIC_VIRTUAL_KEY);
 			}
-			__CtrlButtonDown(dir[i]);
+			__CtrlUpdateButtons(dir[i], 0);
 		}
 		if (released & dir[i]) {
-			__CtrlButtonUp(dir[i]);
+			__CtrlUpdateButtons(0, dir[i]);
 		}
 	}
 }
@@ -380,8 +386,8 @@ void PSPDpad::Draw(UIContext &dc) {
 		float y = bounds_.centerY() + yoff[i] * r;
 		float x2 = bounds_.centerX() + xoff[i] * (r + 10.f * scale_);
 		float y2 = bounds_.centerY() + yoff[i] * (r + 10.f * scale_);
-		float angle = i * M_PI / 2;
-		float imgScale = isDown ? scale_ * 2 : scale_;
+		float angle = i * (M_PI / 2.0f);
+		float imgScale = isDown ? scale_ * TOUCH_SCALE_FACTOR : scale_;
 		float imgOpacity = opacity;
 
 		if (isDown && g_Config.iTouchButtonStyle == 2) {
@@ -646,10 +652,9 @@ void PSPCustomStick::ProcessTouch(float x, float y, bool down) {
 		posY_ = 0.0f;
 	}
 
-	if (release != 0)
-		__CtrlButtonUp(release);
-	if (press != 0)
-		__CtrlButtonDown(press);
+	if (release || press) {
+		__CtrlUpdateButtons(press, release);
+	}
 }
 
 void InitPadLayout(float xres, float yres, float globalScale) {
@@ -705,7 +710,7 @@ void InitPadLayout(float xres, float yres, float globalScale) {
 	//select, start, throttle--------------------------------------------
 	//space between the bottom keys (space between select, start and un-throttle)
 	float bottom_key_spacing = 100;
-	if (dp_xres < 750) {
+	if (g_display.dp_xres < 750) {
 		bottom_key_spacing *= 0.8f;
 	}
 
@@ -733,46 +738,27 @@ void InitPadLayout(float xres, float yres, float globalScale) {
 	int r_key_Y = l_key_Y;
 	initTouchPos(g_Config.touchRKey, r_key_X, r_key_Y);
 
-	//Combo key
-	int combo_key_X = halfW + bottom_key_spacing * scale * 1.2f;
-	int combo_key_Y = yres / 2;
-	initTouchPos(g_Config.touchCombo0, combo_key_X, combo_key_Y);
+	struct { float x; float y; } customButtonPositions[10] = {
+		{ 1.2f, 0.5f },
+		{ 2.2f, 0.5f },
+		{ 3.2f, 0.5f },
+		{ 1.2f, 0.333f },
+		{ 2.2f, 0.333f },
+		{ -1.2f, 0.5f },
+		{ -2.2f, 0.5f },
+		{ -3.2f, 0.5f },
+		{ -1.2f, 0.333f },
+		{ -2.2f, 0.333f },
+	};
 
-	int combo1_key_X = halfW + bottom_key_spacing * scale * 2.2f;
-	int combo1_key_Y = yres / 2;
-	initTouchPos(g_Config.touchCombo1, combo1_key_X, combo1_key_Y);
+	for (int i = 0; i < Config::CUSTOM_BUTTON_COUNT; i++) {
+		float y_offset = (float)(i / 10) * 0.08333f;
 
-	int combo2_key_X = halfW + bottom_key_spacing * scale * 3.2f;
-	int combo2_key_Y = yres / 2;
-	initTouchPos(g_Config.touchCombo2, combo2_key_X, combo2_key_Y);
+		int combo_key_X = halfW + bottom_key_spacing * scale * customButtonPositions[i % 10].x;
+		int combo_key_Y = yres * (y_offset + customButtonPositions[i % 10].y);
 
-	int combo3_key_X = halfW + bottom_key_spacing * scale * 1.2f;
-	int combo3_key_Y = yres / 3;
-	initTouchPos(g_Config.touchCombo3, combo3_key_X, combo3_key_Y);
-
-	int combo4_key_X = halfW + bottom_key_spacing * scale * 2.2f;
-	int combo4_key_Y = yres / 3;
-	initTouchPos(g_Config.touchCombo4, combo4_key_X, combo4_key_Y);
-
-	int combo5_key_X = halfW - bottom_key_spacing * scale * 1.2f;
-	int combo5_key_Y = yres / 2;
-	initTouchPos(g_Config.touchCombo5, combo5_key_X, combo5_key_Y);
-
-	int combo6_key_X = halfW - bottom_key_spacing * scale * 2.2f;
-	int combo6_key_Y = yres / 2;
-	initTouchPos(g_Config.touchCombo6, combo6_key_X, combo6_key_Y);
-
-	int combo7_key_X = halfW - bottom_key_spacing * scale * 3.2f;
-	int combo7_key_Y = yres / 2;
-	initTouchPos(g_Config.touchCombo7, combo7_key_X, combo7_key_Y);
-
-	int combo8_key_X = halfW - bottom_key_spacing * scale * 1.2f;
-	int combo8_key_Y = yres / 3;
-	initTouchPos(g_Config.touchCombo8, combo8_key_X, combo8_key_Y);
-
-	int combo9_key_X = halfW - bottom_key_spacing * scale * 2.2f;
-	int combo9_key_Y = yres / 3;
-	initTouchPos(g_Config.touchCombo9, combo9_key_X, combo9_key_Y);
+		initTouchPos(g_Config.touchCustom[i], combo_key_X, combo_key_Y);
+	}
 }
 
 UI::ViewGroup *CreatePadLayout(float xres, float yres, bool *pause, bool showPauseButton, ControlMapper* controllMapper) {
@@ -820,14 +806,14 @@ UI::ViewGroup *CreatePadLayout(float xres, float yres, bool *pause, bool showPau
 		}
 		return nullptr;
 	};
-	auto addComboKey = [=](const ConfigCustomButton& cfg, const char *key, const ConfigTouchPos &touch) -> ComboKey * {
-		using namespace CustomKey;
+	auto addCustomButton = [=](const ConfigCustomButton& cfg, const char *key, const ConfigTouchPos &touch) -> CustomButton * {
+		using namespace CustomKeyData;
 		if (touch.show) {
-			auto aux = root->Add(new ComboKey(cfg.key, key, cfg.toggle, cfg.repeat, controllMapper, 
-					g_Config.iTouchButtonStyle == 0 ? comboKeyShapes[cfg.shape].i : comboKeyShapes[cfg.shape].l, comboKeyShapes[cfg.shape].i, 
-					comboKeyImages[cfg.image].i, touch.scale, comboKeyShapes[cfg.shape].d, buttonLayoutParams(touch)));
-			aux->SetAngle(comboKeyImages[cfg.image].r, comboKeyShapes[cfg.shape].r);
-			aux->FlipImageH(comboKeyShapes[cfg.shape].f);
+			auto aux = root->Add(new CustomButton(cfg.key, key, cfg.toggle, cfg.repeat, controllMapper,
+					g_Config.iTouchButtonStyle == 0 ? customKeyShapes[cfg.shape].i : customKeyShapes[cfg.shape].l, customKeyShapes[cfg.shape].i,
+					customKeyImages[cfg.image].i, touch.scale, customKeyShapes[cfg.shape].d, buttonLayoutParams(touch)));
+			aux->SetAngle(customKeyImages[cfg.image].r, customKeyShapes[cfg.shape].r);
+			aux->FlipImageH(customKeyShapes[cfg.shape].f);
 			return aux;
 		}
 		return nullptr;
@@ -879,16 +865,11 @@ UI::ViewGroup *CreatePadLayout(float xres, float yres, bool *pause, bool showPau
 			root->Add(new PSPStick(stickBg, "Right analog stick", stickImage, ImageID("I_STICK"), 1, g_Config.touchRightAnalogStick.scale, buttonLayoutParams(g_Config.touchRightAnalogStick)));
 	}
 
-	addComboKey(g_Config.CustomKey0, "Custom 1 button", g_Config.touchCombo0);
-	addComboKey(g_Config.CustomKey1, "Custom 2 button", g_Config.touchCombo1);
-	addComboKey(g_Config.CustomKey2, "Custom 3 button", g_Config.touchCombo2);
-	addComboKey(g_Config.CustomKey3, "Custom 4 button", g_Config.touchCombo3);
-	addComboKey(g_Config.CustomKey4, "Custom 5 button", g_Config.touchCombo4);
-	addComboKey(g_Config.CustomKey5, "Custom 6 button", g_Config.touchCombo5);
-	addComboKey(g_Config.CustomKey6, "Custom 7 button", g_Config.touchCombo6);
-	addComboKey(g_Config.CustomKey7, "Custom 8 button", g_Config.touchCombo7);
-	addComboKey(g_Config.CustomKey8, "Custom 9 button", g_Config.touchCombo8);
-	addComboKey(g_Config.CustomKey9, "Custom 10 button", g_Config.touchCombo9);
+	for (int i = 0; i < Config::CUSTOM_BUTTON_COUNT; i++) {
+		char temp[64];
+		snprintf(temp, sizeof(temp), "Custom %d button", i + 1);
+		addCustomButton(g_Config.CustomButton[i], temp, g_Config.touchCustom[i]);
+	}
 
 	if (g_Config.bGestureControlEnabled)
 		root->Add(new GestureGamepad(controllMapper));
@@ -917,7 +898,7 @@ bool GestureGamepad::Touch(const TouchInput &input) {
 			const float now = time_now_d();
 			if (now - lastTapRelease_ < 0.3f && !haveDoubleTapped_) {
 				if (g_Config.iDoubleTapGesture != 0 )
-					controlMapper_->pspKey(DEVICE_ID_TOUCH, GestureKey::keyList[g_Config.iDoubleTapGesture-1], KEY_DOWN);
+					controlMapper_->PSPKey(DEVICE_ID_TOUCH, GestureKey::keyList[g_Config.iDoubleTapGesture-1], KEY_DOWN);
 				haveDoubleTapped_ = true;
 			}
 
@@ -940,7 +921,7 @@ bool GestureGamepad::Touch(const TouchInput &input) {
 
 			if (haveDoubleTapped_) {
 				if (g_Config.iDoubleTapGesture != 0)
-					controlMapper_->pspKey(DEVICE_ID_TOUCH, GestureKey::keyList[g_Config.iDoubleTapGesture-1], KEY_UP);
+					controlMapper_->PSPKey(DEVICE_ID_TOUCH, GestureKey::keyList[g_Config.iDoubleTapGesture-1], KEY_UP);
 				haveDoubleTapped_ = false;
 			}
 		}
@@ -950,41 +931,41 @@ bool GestureGamepad::Touch(const TouchInput &input) {
 
 void GestureGamepad::Update() {
 	const float th = 1.0f;
-	float dx = deltaX_ * g_dpi_scale_x * g_Config.fSwipeSensitivity;
-	float dy = deltaY_ * g_dpi_scale_y * g_Config.fSwipeSensitivity;
+	float dx = deltaX_ * g_display.dpi_scale_x * g_Config.fSwipeSensitivity;
+	float dy = deltaY_ * g_display.dpi_scale_y * g_Config.fSwipeSensitivity;
 	if (g_Config.iSwipeRight != 0) {
 		if (dx > th) {
-			controlMapper_->pspKey(DEVICE_ID_TOUCH, GestureKey::keyList[g_Config.iSwipeRight-1], KEY_DOWN);
+			controlMapper_->PSPKey(DEVICE_ID_TOUCH, GestureKey::keyList[g_Config.iSwipeRight-1], KEY_DOWN);
 			swipeRightReleased_ = false;
 		} else if (!swipeRightReleased_) {
-			controlMapper_->pspKey(DEVICE_ID_TOUCH, GestureKey::keyList[g_Config.iSwipeRight-1], KEY_UP);
+			controlMapper_->PSPKey(DEVICE_ID_TOUCH, GestureKey::keyList[g_Config.iSwipeRight-1], KEY_UP);
 			swipeRightReleased_ = true;
 		}
 	}
 	if (g_Config.iSwipeLeft != 0) {
 		if (dx < -th) {
-			controlMapper_->pspKey(DEVICE_ID_TOUCH, GestureKey::keyList[g_Config.iSwipeLeft-1], KEY_DOWN);
+			controlMapper_->PSPKey(DEVICE_ID_TOUCH, GestureKey::keyList[g_Config.iSwipeLeft-1], KEY_DOWN);
 			swipeLeftReleased_ = false;
 		} else if (!swipeLeftReleased_) {
-			controlMapper_->pspKey(DEVICE_ID_TOUCH, GestureKey::keyList[g_Config.iSwipeLeft-1], KEY_UP);
+			controlMapper_->PSPKey(DEVICE_ID_TOUCH, GestureKey::keyList[g_Config.iSwipeLeft-1], KEY_UP);
 			swipeLeftReleased_ = true;
 		}
 	}
 	if (g_Config.iSwipeUp != 0) {
 		if (dy < -th) {
-			controlMapper_->pspKey(DEVICE_ID_TOUCH, GestureKey::keyList[g_Config.iSwipeUp-1], KEY_DOWN);
+			controlMapper_->PSPKey(DEVICE_ID_TOUCH, GestureKey::keyList[g_Config.iSwipeUp-1], KEY_DOWN);
 			swipeUpReleased_ = false;
 		} else if (!swipeUpReleased_) {
-			controlMapper_->pspKey(DEVICE_ID_TOUCH, GestureKey::keyList[g_Config.iSwipeUp-1], KEY_UP);
+			controlMapper_->PSPKey(DEVICE_ID_TOUCH, GestureKey::keyList[g_Config.iSwipeUp-1], KEY_UP);
 			swipeUpReleased_ = true;
 		}
 	}
 	if (g_Config.iSwipeDown != 0) {
 		if (dy > th) {
-			controlMapper_->pspKey(DEVICE_ID_TOUCH, GestureKey::keyList[g_Config.iSwipeDown-1], KEY_DOWN);
+			controlMapper_->PSPKey(DEVICE_ID_TOUCH, GestureKey::keyList[g_Config.iSwipeDown-1], KEY_DOWN);
 			swipeDownReleased_ = false;
 		} else if (!swipeDownReleased_) {
-			controlMapper_->pspKey(DEVICE_ID_TOUCH, GestureKey::keyList[g_Config.iSwipeDown-1], KEY_UP);
+			controlMapper_->PSPKey(DEVICE_ID_TOUCH, GestureKey::keyList[g_Config.iSwipeDown-1], KEY_UP);
 			swipeDownReleased_ = true;
 		}
 	}

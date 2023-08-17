@@ -21,7 +21,7 @@
 #include "Common/Thread/ThreadUtil.h"
 #include "Common/Thread/ThreadManager.h"
 #include "Common/File/VFS/VFS.h"
-#include "Common/File/VFS/AssetReader.h"
+#include "Common/File/VFS/DirectoryReader.h"
 #include "Common/Data/Text/I18n.h"
 #include "Common/StringUtils.h"
 
@@ -32,7 +32,7 @@
 #include "Core/HLE/sceUtility.h"
 #include "Core/HLE/__sceAudio.h"
 #include "Core/HW/MemoryStick.h"
-#include "Core/Host.h"
+#include "Core/HW/StereoResampler.h"
 #include "Core/MemMap.h"
 #include "Core/System.h"
 #include "Core/CoreTiming.h"
@@ -45,6 +45,8 @@
 #include "GPU/Common/FramebufferManagerCommon.h"
 #include "GPU/Common/TextureScalerCommon.h"
 #include "GPU/Common/PresentationCommon.h"
+
+#include "UI/AudioCommon.h"
 
 #include "libretro/libretro.h"
 #include "libretro/LibretroGraphicsContext.h"
@@ -61,14 +63,11 @@
 #define DIR_SEP_CHRS "/"
 #endif
 
-#define SAMPLERATE 44100
+#ifdef HAVE_LIBRETRO_VFS
+#include "streams/file_stream.h"
+#endif
 
-#define AUDIO_RING_BUFFER_SIZE      (1 << 16)
-#define AUDIO_RING_BUFFER_SIZE_MASK (AUDIO_RING_BUFFER_SIZE - 1)
-// An alpha factor of 1/180 is *somewhat* equivalent
-// to calculating the average for the last 180
-// frames, or 3 seconds of runtime...
-#define AUDIO_FRAMES_MOVING_AVG_ALPHA (1.0f / 180.0f)
+#define SAMPLERATE 44100
 
 // Calculated swap interval is 'stable' if the same
 // value is recorded for a number of retro_run()
@@ -98,10 +97,7 @@ namespace Libretro
    static retro_audio_sample_batch_t audio_batch_cb;
    static retro_input_poll_t input_poll_cb;
    static retro_input_state_t input_state_cb;
-} // namespace Libretro
 
-namespace Libretro
-{
    static bool detectVsyncSwapInterval = false;
    static bool detectVsyncSwapIntervalOptShown = true;
 
@@ -233,172 +229,7 @@ namespace Libretro
    }
 } // namespace Libretro
 
-namespace Libretro
-{
-   static std::mutex audioSampleLock_;
-   static int16_t audioRingBuffer[AUDIO_RING_BUFFER_SIZE] = {0};
-   static uint32_t audioRingBufferBase = 0;
-   static uint32_t audioRingBufferIndex = 0;
-
-   static int16_t *audioOutBuffer = NULL;
-   static uint32_t audioOutBufferSize = 0;
-   static float audioOutFramesAvg = 0.0f;
-   // Set this to an arbitrarily large value,
-   // it will be fine tuned in AudioUploadSamples()
-   static uint32_t audioBatchFramesMax = AUDIO_RING_BUFFER_SIZE >> 1;
-
-   static void AudioBufferFlush()
-   {
-      const std::lock_guard<std::mutex> lock(audioSampleLock_);
-      audioRingBufferBase = 0;
-      audioRingBufferIndex = 0;
-      audioOutFramesAvg = (float)SAMPLERATE / (60.0f / 1.001f);
-   }
-
-   static void AudioBufferInit()
-   {
-      audioOutFramesAvg = (float)SAMPLERATE / (60.0f / 1.001f);
-      audioOutBufferSize = ((uint32_t)audioOutFramesAvg + 1) * 2;
-      audioOutBuffer = (int16_t *)malloc(audioOutBufferSize * sizeof(int16_t));
-      audioBatchFramesMax = AUDIO_RING_BUFFER_SIZE >> 1;
-
-      AudioBufferFlush();
-   }
-
-   static void AudioBufferDeinit()
-   {
-      if (audioOutBuffer)
-         free(audioOutBuffer);
-      audioOutBuffer = NULL;
-      audioOutBufferSize = 0;
-      audioOutFramesAvg = 0.0f;
-      audioBatchFramesMax = AUDIO_RING_BUFFER_SIZE >> 1;
-
-      AudioBufferFlush();
-   }
-
-   static uint32_t AudioBufferOccupancy()
-   {
-      const std::lock_guard<std::mutex> lock(audioSampleLock_);
-      uint32_t occupancy = (audioRingBufferIndex - audioRingBufferBase) &
-            AUDIO_RING_BUFFER_SIZE_MASK;
-      return occupancy >> 1;
-   }
-
-   static void AudioBufferWrite(int16_t *audio, uint32_t frames)
-   {
-      const std::lock_guard<std::mutex> lock(audioSampleLock_);
-      uint32_t frameIndex;
-      uint32_t bufferIndex = audioRingBufferIndex;
-
-      for (frameIndex = 0; frameIndex < frames; frameIndex++)
-      {
-         audioRingBuffer[audioRingBufferIndex]     = *(audio++);
-         audioRingBuffer[audioRingBufferIndex + 1] = *(audio++);
-         audioRingBufferIndex = (audioRingBufferIndex + 2) % AUDIO_RING_BUFFER_SIZE;
-      }
-   }
-
-   static uint32_t AudioBufferRead(int16_t *audio, uint32_t frames)
-   {
-      const std::lock_guard<std::mutex> lock(audioSampleLock_);
-      uint32_t framesAvailable = ((audioRingBufferIndex - audioRingBufferBase) &
-            AUDIO_RING_BUFFER_SIZE_MASK) >> 1;
-      uint32_t frameIndex;
-
-      if (frames > framesAvailable)
-         frames = framesAvailable;
-
-      for(frameIndex = 0; frameIndex < frames; frameIndex++)
-      {
-         uint32_t bufferIndex = (audioRingBufferBase + (frameIndex << 1)) &
-               AUDIO_RING_BUFFER_SIZE_MASK;
-         *(audio++) = audioRingBuffer[bufferIndex];
-         *(audio++) = audioRingBuffer[bufferIndex + 1];
-      }
-
-      audioRingBufferBase += frames << 1;
-      audioRingBufferBase &= AUDIO_RING_BUFFER_SIZE_MASK;
-
-      return frames;
-   }
-
-   static void AudioUploadSamples()
-   {
-
-      // - If 'Detect Frame Rate Changes' is disabled, then
-      //   the  core specifies a fixed frame rate of (60.0f / 1.001f)
-      // - At the audio sample rate of 44100, this means the
-      //   frontend expects exactly 735.735 sample frames per call of
-      //   retro_run()
-      // - If g_Config.bRenderDuplicateFrames is enabled and
-      //   frameskip is disabled, the mean of the buffer occupancy
-      //   willapproximate to this value in most cases
-      uint32_t framesAvailable = AudioBufferOccupancy();
-
-      if (framesAvailable > 0)
-      {
-         // Update 'running average' of buffer occupancy.
-         // Note that this is not a true running
-         // average, but just a leaky-integrator/
-         // exponential moving average, used because
-         // it is simple and fast (i.e. requires no
-         // window of samples).
-         audioOutFramesAvg = (AUDIO_FRAMES_MOVING_AVG_ALPHA * (float)framesAvailable) +
-               ((1.0f - AUDIO_FRAMES_MOVING_AVG_ALPHA) * audioOutFramesAvg);
-         uint32_t frames = (uint32_t)audioOutFramesAvg;
-
-         if (audioOutBufferSize < (frames << 1))
-         {
-            audioOutBufferSize = (frames << 1);
-            audioOutBuffer     = (int16_t *)realloc(audioOutBuffer,
-                  audioOutBufferSize * sizeof(int16_t));
-         }
-
-         frames = AudioBufferRead(audioOutBuffer, frames);
-
-         int16_t *audioOutBufferPtr = audioOutBuffer;
-         while (frames > 0)
-         {
-            uint32_t framesToWrite = (frames > audioBatchFramesMax) ?
-                  audioBatchFramesMax : frames;
-            uint32_t framesWritten = audio_batch_cb(audioOutBufferPtr,
-                  framesToWrite);
-
-            if ((framesWritten < framesToWrite) &&
-                (framesWritten > 0))
-               audioBatchFramesMax = framesWritten;
-
-            frames -= framesToWrite;
-            audioOutBufferPtr += framesToWrite << 1;
-         }
-      }
-   }
-} // namespace Libretro
-
 using namespace Libretro;
-
-class LibretroHost : public Host
-{
-   public:
-      LibretroHost() {}
-      bool InitGraphics(std::string *error_message, GraphicsContext **ctx) override { return true; }
-      void ShutdownGraphics() override {}
-      void InitSound() override {}
-      void UpdateSound() override
-      {
-         int hostAttemptBlockSize = __AudioGetHostAttemptBlockSize();
-         const int blockSizeMax = 512;
-         static int16_t audio[blockSizeMax * 2];
-         assert(hostAttemptBlockSize <= blockSizeMax);
-
-         int samples = __AudioMix(audio, hostAttemptBlockSize, SAMPLERATE);
-         AudioBufferWrite(audio, samples);
-      }
-      void ShutdownSound() override {}
-      bool IsDebuggingEnabled() override { return false; }
-      bool AttemptLoadSymbolMap() override { return false; }
-};
 
 class PrintfLogger : public LogListener
 {
@@ -516,6 +347,12 @@ void retro_set_environment(retro_environment_t cb)
    struct retro_core_options_update_display_callback update_display_cb;
    update_display_cb.callback = set_variable_visibility;
    environ_cb(RETRO_ENVIRONMENT_SET_CORE_OPTIONS_UPDATE_DISPLAY_CALLBACK, &update_display_cb);
+
+   #ifdef HAVE_LIBRETRO_VFS
+      struct retro_vfs_interface_info vfs_iface_info { 1, nullptr };
+      if (cb(RETRO_ENVIRONMENT_GET_VFS_INTERFACE, &vfs_iface_info))
+         filestream_vfs_init(&vfs_iface_info);
+   #endif
 }
 
 static int get_language_auto(void)
@@ -588,6 +425,10 @@ static std::string map_psp_language_to_i18n_locale(int val)
 
 static void check_variables(CoreParameter &coreParam)
 {
+   bool isFastForwarding;
+   if (environ_cb(RETRO_ENVIRONMENT_GET_FASTFORWARDING, &isFastForwarding))
+       coreParam.fastForward = isFastForwarding;
+
    bool updated = false;
 
    if (     coreState != CoreState::CORE_POWERUP
@@ -633,6 +474,7 @@ static void check_variables(CoreParameter &coreParam)
          g_Config.iLanguage = PSP_SYSTEMPARAM_LANGUAGE_CHINESE_SIMPLIFIED;
    }
 
+#ifndef __EMSCRIPTEN__
    var.key = "ppsspp_cpu_core";
    if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value)
    {
@@ -643,6 +485,16 @@ static void check_variables(CoreParameter &coreParam)
       else if (!strcmp(var.value, "Interpreter"))
          g_Config.iCpuCore = (int)CPUCore::INTERPRETER;
    }
+
+   if (System_GetPropertyBool(SYSPROP_CAN_JIT) == false && g_Config.iCpuCore == (int)CPUCore::JIT) {
+       // Just gonna force it to the IR interpreter on startup.
+       // We don't hide the option, but we make sure it's off on bootup. In case someone wants
+       // to experiment in future iOS versions or something...
+       g_Config.iCpuCore = (int)CPUCore::IR_JIT;
+   }
+#else
+   g_Config.iCpuCore = (int)CPUCore::INTERPRETER;
+#endif
 
    var.key = "ppsspp_fast_memory";
    if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value)
@@ -722,6 +574,16 @@ static void check_variables(CoreParameter &coreParam)
          g_Config.iButtonPreference = PSP_SYSTEMPARAM_BUTTON_CIRCLE;
    }
 
+   var.key = "ppsspp_analog_is_circular";
+   if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value)
+   {
+      if (!strcmp(var.value, "disabled"))
+         g_Config.bAnalogIsCircular = false;
+      else
+         g_Config.bAnalogIsCircular = true;
+   }
+
+
    var.key = "ppsspp_internal_resolution";
    if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value)
    {
@@ -749,6 +611,7 @@ static void check_variables(CoreParameter &coreParam)
          g_Config.iInternalResolution = 10;
    }
 
+#if 0 // see issue #16786
    var.key = "ppsspp_mulitsample_level";
    if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value)
    {
@@ -763,15 +626,7 @@ static void check_variables(CoreParameter &coreParam)
       else if (!strcmp(var.value, "x8"))
          g_Config.iMultiSampleLevel = 3;
    }
-
-   var.key = "ppsspp_skip_buffer_effects";
-   if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value)
-   {
-      if (!strcmp(var.value, "disabled"))
-         g_Config.bSkipBufferEffects = false;
-      else
-         g_Config.bSkipBufferEffects = true;
-   }
+#endif
 
    var.key = "ppsspp_skip_gpu_readbacks";
    if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value)
@@ -1096,13 +951,21 @@ static void check_variables(CoreParameter &coreParam)
    if (changeProAdhocServer == "IP address")
    {
       g_Config.proAdhocServer = "";
+      bool leadingZero = true;
       for (int i = 0; i < 12; i++)
       {
          if (i && i % 3 == 0)
+         {
             g_Config.proAdhocServer += '.';
+            leadingZero = true;
+         }
 
          int addressPt = ppsspp_pro_ad_hoc_ipv4[i];
-         g_Config.proAdhocServer += static_cast<char>('0' + addressPt);
+         if (addressPt || i % 3 == 2)
+            leadingZero = false; // We are either non-zero or the last digit of a byte
+
+         if (! leadingZero)
+            g_Config.proAdhocServer += static_cast<char>('0' + addressPt);
       }
    }
    else
@@ -1121,7 +984,7 @@ static void check_variables(CoreParameter &coreParam)
       g_Config.iLanguage = get_language_auto();
 
    g_Config.sLanguageIni = map_psp_language_to_i18n_locale(g_Config.iLanguage);
-   i18nrepo.LoadIni(g_Config.sLanguageIni);
+   g_i18nrepo.LoadIni(g_Config.sLanguageIni);
 
    // Cannot detect refresh rate changes if:
    // > Frame skipping is enabled
@@ -1153,6 +1016,7 @@ static void check_variables(CoreParameter &coreParam)
       }
    }
 
+#if 0 // see issue #16786
    if (g_Config.iMultiSampleLevel != iMultiSampleLevel_prev && PSP_IsInited())
    {
       if (gpu)
@@ -1160,6 +1024,7 @@ static void check_variables(CoreParameter &coreParam)
          gpu->NotifyRenderResized();
       }
    }
+#endif
 
    if (updateAvInfo)
    {
@@ -1167,9 +1032,6 @@ static void check_variables(CoreParameter &coreParam)
       retro_get_system_av_info(&avInfo);
       environ_cb(RETRO_ENVIRONMENT_SET_SYSTEM_AV_INFO, &avInfo);
    }
-
-   bool isFastForwarding = environ_cb(RETRO_ENVIRONMENT_GET_FASTFORWARDING, &isFastForwarding);
-   coreParam.fastForward = isFastForwarding;
 
    set_variable_visibility();
 }
@@ -1182,7 +1044,6 @@ void retro_set_input_state(retro_input_state_t cb) { input_state_cb = cb; }
 void retro_init(void)
 {
    VsyncSwapIntervalReset();
-   AudioBufferInit();
 
    g_threadManager.Init(cpu_info.num_cores, cpu_info.logical_cpu_count);
 
@@ -1249,9 +1110,7 @@ void retro_init(void)
    g_Config.bEnableNetworkChat = false;
    g_Config.bDiscordPresence = false;
 
-   VFSRegister("", new DirectoryAssetReader(retro_base_dir));
-
-   host = new LibretroHost();
+   g_VFS.Register("", new DirectoryReader(retro_base_dir));
 }
 
 void retro_deinit(void)
@@ -1262,14 +1121,10 @@ void retro_deinit(void)
    delete printfLogger;
    printfLogger = nullptr;
 
-   delete host;
-   host = nullptr;
-
    libretro_supports_bitmasks = false;
    libretro_supports_option_categories = false;
 
    VsyncSwapIntervalReset();
-   AudioBufferDeinit();
 }
 
 void retro_set_controller_port_device(unsigned port, unsigned device)
@@ -1312,7 +1167,7 @@ namespace Libretro
    {
       ctx->SetRenderTarget();
       if (ctx->GetDrawContext())
-         ctx->GetDrawContext()->BeginFrame();
+         ctx->GetDrawContext()->BeginFrame(Draw::DebugFlags::NONE);
 
       gpu->BeginHostFrame();
 
@@ -1321,8 +1176,10 @@ namespace Libretro
 
       gpu->EndHostFrame();
 
-      if (ctx->GetDrawContext())
+      if (ctx->GetDrawContext()) {
          ctx->GetDrawContext()->EndFrame();
+         ctx->GetDrawContext()->Present(Draw::PresentMode::FIFO, 1);
+      }
    }
 
    static void EmuThreadFunc()
@@ -1375,7 +1232,7 @@ namespace Libretro
 
       // Need to keep eating frames to allow the EmuThread to exit correctly.
       while (ctx->ThreadFrame())
-         AudioBufferFlush();
+         ;
 
       emuThread.join();
       emuThread = std::thread();
@@ -1390,7 +1247,6 @@ namespace Libretro
       emuThreadState = EmuThreadState::PAUSE_REQUESTED;
 
       ctx->ThreadFrame(); // Eat 1 frame
-      AudioBufferFlush();
 
       while (emuThreadState != EmuThreadState::PAUSED)
          sleep_ms(1);
@@ -1424,7 +1280,6 @@ bool retro_load_game(const struct retro_game_info *game)
    coreParam.fileToStart     = Path(std::string(game->path));
    coreParam.mountIso.clear();
    coreParam.startBreak      = false;
-   coreParam.printfEmuLog    = true;
    coreParam.headLess        = true;
    coreParam.graphicsContext = ctx;
    coreParam.gpuCore         = ctx->GetGPUCore();
@@ -1440,6 +1295,23 @@ bool retro_load_game(const struct retro_game_info *game)
       return false;
    }
 
+   struct retro_core_option_display option_display;
+
+   // Show/hide 'MSAA' and 'Texture Shader' options, Vulkan only
+   option_display.visible = (g_Config.iGPUBackend == (int)GPUBackend::VULKAN) ? true : false;
+#if 0 // see issue #16786
+   option_display.key = "ppsspp_mulitsample_level";
+   environ_cb(RETRO_ENVIRONMENT_SET_CORE_OPTIONS_DISPLAY, &option_display);
+#endif
+   option_display.key = "ppsspp_texture_shader";
+   environ_cb(RETRO_ENVIRONMENT_SET_CORE_OPTIONS_DISPLAY, &option_display);
+
+   // Show/hide 'Buffered Frames' option, Vulkan/GL only
+   option_display.visible = (g_Config.iGPUBackend == (int)GPUBackend::VULKAN ||
+         g_Config.iGPUBackend == (int)GPUBackend::OPENGL) ? true : false;
+   option_display.key = "ppsspp_inflight_frames";
+   environ_cb(RETRO_ENVIRONMENT_SET_CORE_OPTIONS_DISPLAY, &option_display);
+
    set_variable_visibility();
 
    return true;
@@ -1451,7 +1323,7 @@ void retro_unload_game(void)
 		Libretro::EmuThreadStop();
 
 	PSP_Shutdown();
-	VFSShutdown();
+	g_VFS.Clear();
 
 	delete ctx;
 	ctx = nullptr;
@@ -1514,11 +1386,11 @@ static void retro_input(void)
 
       if (pressed)
       {
-         __CtrlButtonDown(map[i].sceCtrl);
+         __CtrlUpdateButtons(map[i].sceCtrl, 0);
       }
       else
       {
-         __CtrlButtonUp(map[i].sceCtrl);
+         __CtrlUpdateButtons(0, map[i].sceCtrl);
       }
    }
 
@@ -1526,6 +1398,31 @@ static void retro_input(void)
    float y_left = input_state_cb(0, RETRO_DEVICE_ANALOG, RETRO_DEVICE_INDEX_ANALOG_LEFT, RETRO_DEVICE_ID_ANALOG_Y) / -32767.0f;
    float x_right = input_state_cb(0, RETRO_DEVICE_ANALOG, RETRO_DEVICE_INDEX_ANALOG_RIGHT, RETRO_DEVICE_ID_ANALOG_X) / 32767.0f;
    float y_right = input_state_cb(0, RETRO_DEVICE_ANALOG, RETRO_DEVICE_INDEX_ANALOG_RIGHT, RETRO_DEVICE_ID_ANALOG_Y) / -32767.0f;
+
+   __CtrlSetAnalogXY(CTRL_STICK_LEFT, x_left, y_left);
+   __CtrlSetAnalogXY(CTRL_STICK_RIGHT, x_right, y_right);
+
+   // Analog circle vs square gate compensation
+   // copied from ControlMapper.cpp's ConvertAnalogStick function
+   const bool isCircular = g_Config.bAnalogIsCircular;
+
+   float norm = std::max(fabsf(x_left), fabsf(y_left));
+
+   if (norm == 0.0f)
+      return;
+
+   if (isCircular) {
+      float newNorm = sqrtf(x_left * x_left + y_left * y_left);
+      float factor = newNorm / norm;
+      x_left *= factor;
+      y_left *= factor;
+      norm = newNorm;
+   }
+
+   float mappedNorm = norm;
+   x_left = std::clamp(x_left / norm * mappedNorm, -1.0f, 1.0f);
+   y_left = std::clamp(y_left / norm * mappedNorm, -1.0f, 1.0f);
+
    __CtrlSetAnalogXY(CTRL_STICK_LEFT, x_left, y_left);
    __CtrlSetAnalogXY(CTRL_STICK_RIGHT, x_right, y_right);
 }
@@ -1556,7 +1453,6 @@ void retro_run(void)
             emuThreadState == EmuThreadState::PAUSE_REQUESTED)
       {
          VsyncSwapIntervalDetect();
-         AudioUploadSamples();
          ctx->SwapBuffers();
          return;
       }
@@ -1567,7 +1463,6 @@ void retro_run(void)
       if (!ctx->ThreadFrame())
       {
          VsyncSwapIntervalDetect();
-         AudioUploadSamples();
          return;
       }
    }
@@ -1575,7 +1470,6 @@ void retro_run(void)
       EmuFrame();
 
    VsyncSwapIntervalDetect();
-   AudioUploadSamples();
    ctx->SwapBuffers();
 }
 
@@ -1602,8 +1496,8 @@ size_t retro_serialize_size(void)
    if (useEmuThread)
       EmuThreadPause();
 
-   return (CChunkFileReader::MeasurePtr(state) + 0x800000)
-      & ~0x7FFFFF; // We don't unpause intentionally
+   return (CChunkFileReader::MeasurePtr(state) + 0x800000) & ~0x7FFFFF;
+   // We don't unpause intentionally
 }
 
 bool retro_serialize(void *data, size_t size)
@@ -1612,16 +1506,14 @@ bool retro_serialize(void *data, size_t size)
       return false;
    }
 
-   bool retVal;
-   SaveState::SaveStart state;
    // TODO: Libretro API extension to use the savestate queue
    if (useEmuThread)
       EmuThreadPause(); // Does nothing if already paused
 
-   size_t measured = CChunkFileReader::MeasurePtr(state);
-   assert(measured <= size);
-   auto err = CChunkFileReader::SavePtr((u8 *)data, state, measured);
-   retVal = err == CChunkFileReader::ERROR_NONE;
+   size_t measuredSize;
+   SaveState::SaveStart state;
+   auto err = CChunkFileReader::MeasureAndSavePtr(state, (u8 **)&data, &measuredSize);
+   bool retVal = err == CChunkFileReader::ERROR_NONE;
 
    if (useEmuThread)
    {
@@ -1629,21 +1521,18 @@ bool retro_serialize(void *data, size_t size)
       sleep_ms(4);
    }
 
-   AudioBufferFlush();
-
    return retVal;
 }
 
 bool retro_unserialize(const void *data, size_t size)
 {
-   bool retVal;
-   SaveState::SaveStart state;
    // TODO: Libretro API extension to use the savestate queue
    if (useEmuThread)
       EmuThreadPause(); // Does nothing if already paused
 
    std::string errorString;
-   retVal = CChunkFileReader::LoadPtr((u8 *)data, state, &errorString)
+   SaveState::SaveStart state;
+   bool retVal = CChunkFileReader::LoadPtr((u8 *)data, state, &errorString)
       == CChunkFileReader::ERROR_NONE;
 
    if (useEmuThread)
@@ -1651,8 +1540,6 @@ bool retro_unserialize(const void *data, size_t size)
       EmuThreadStart();
       sleep_ms(4);
    }
-
-   AudioBufferFlush();
 
    return retVal;
 }
@@ -1801,7 +1688,12 @@ bool System_GetPropertyBool(SystemProperty prop)
    switch (prop)
    {
    case SYSPROP_CAN_JIT:
+#if PPSSPP_PLATFORM(IOS)
+      bool can_jit;
+      return (environ_cb(RETRO_ENVIRONMENT_GET_JIT_CAPABLE, &can_jit) && can_jit);
+#else
       return true;
+#endif
    default:
       return false;
    }
@@ -1810,17 +1702,58 @@ bool System_GetPropertyBool(SystemProperty prop)
 std::string System_GetProperty(SystemProperty prop) { return ""; }
 std::vector<std::string> System_GetPropertyStringVec(SystemProperty prop) { return std::vector<std::string>(); }
 
-void System_SendMessage(const char *command, const char *parameter) {}
-void NativeUpdate() {}
-void NativeRender(GraphicsContext *graphicsContext) {}
+void System_Notify(SystemNotification notification) {
+   switch (notification) {
+   default:
+      break;
+   }
+}
+bool System_MakeRequest(SystemRequestType type, int requestId, const std::string &param1, const std::string &param2, int param3) { return false; }
+void System_PostUIMessage(const std::string &message, const std::string &param) {}
+void NativeFrame(GraphicsContext *graphicsContext) {}
 void NativeResized() {}
 
 void System_Toast(const char *str) {}
 
+inline int16_t Clamp16(int32_t sample) {
+   if (sample < -32767) return -32767;
+   if (sample > 32767) return 32767;
+   return sample;
+}
+
+void System_AudioPushSamples(const int32_t *audio, int numSamples) {
+   // Convert to 16-bit audio for further processing.
+   int16_t buffer[1024 * 2];
+   while (numSamples > 0) {
+      int blockSize = std::min(1024, numSamples);
+      for (int i = 0; i < blockSize; i++) {
+         buffer[i * 2] = Clamp16(audio[i * 2]);
+         buffer[i * 2 + 1] = Clamp16(audio[i * 2 + 1]);
+      }
+
+      int framesToWrite = blockSize;
+      uint32_t framesWritten = audio_batch_cb(buffer, framesToWrite);
+      if (framesWritten != framesToWrite) {
+         // Let's just stop, and eat any left-over samples.
+         break;
+      }
+      numSamples -= blockSize;
+   }
+}
+
+void System_AudioGetDebugStats(char *buf, size_t bufSize) { if (buf) buf[0] = '\0'; }
+void System_AudioClear() {}
+
 #if PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(IOS)
-std::vector<std::string> __cameraGetDeviceList() { return std::vector<std::string>(); }
-bool audioRecording_Available() { return false; }
-bool audioRecording_State() { return false; }
+std::vector<std::string> System_GetCameraDeviceList() { return std::vector<std::string>(); }
+bool System_AudioRecordingIsAvailable() { return false; }
+bool System_AudioRecordingState() { return false; }
 
 void System_InputBoxGetString(const std::string &title, const std::string &defaultValue, std::function<void(bool, const std::string &)> cb) { cb(false, ""); }
 #endif
+
+// TODO: To avoid having to define these here, these should probably be turned into system "requests".
+void NativeSaveSecret(const char *nameOfSecret, const std::string &data) {}
+std::string NativeLoadSecret(const char *nameOfSecret) {
+   return "";
+}

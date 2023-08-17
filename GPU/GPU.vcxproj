@@ -164,7 +164,7 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
-      <AdditionalIncludeDirectories>..\dx9sdk\Include\DX11;../common;..;../ext;../ext/glew;../ext/snappy;../ext/glslang;../ext/zstd/lib</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\dx9sdk\Include\DX11;../common;..;../ext;../ext/glew;../ext/snappy;../ext/glslang;../ext/zstd/lib;../ext/libpng17</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>_CRTDBG_MAP_ALLOC;USING_WIN_UI;_CRT_SECURE_NO_WARNINGS;WIN32;_ARCH_32=1;_M_IX86=1;_DEBUG;_LIB;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
       <FloatingPointModel>Precise</FloatingPointModel>
@@ -174,6 +174,7 @@
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <ForcedIncludeFiles>Common/DbgNew.h</ForcedIncludeFiles>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -182,7 +183,7 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
-      <AdditionalIncludeDirectories>..\dx9sdk\Include\DX11;../common;..;../ext;../ext/glew;../ext/snappy;../ext/glslang;../ext/zstd/lib</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\dx9sdk\Include\DX11;../common;..;../ext;../ext/glew;../ext/snappy;../ext/glslang;../ext/zstd/lib;../ext/libpng17</AdditionalIncludeDirectories>
       <EnableEnhancedInstructionSet>NotSet</EnableEnhancedInstructionSet>
       <FloatingPointModel>Precise</FloatingPointModel>
       <OmitFramePointers>false</OmitFramePointers>
@@ -194,6 +195,7 @@
       <ForcedIncludeFiles>Common/DbgNew.h</ForcedIncludeFiles>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
       <SupportJustMyCode>false</SupportJustMyCode>
+      <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -202,7 +204,7 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
-      <AdditionalIncludeDirectories>..\dx9sdk\Include\DX11;../common;..;../ext;../ext/glew;../ext/snappy;../ext/glslang;../ext/zstd/lib</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\dx9sdk\Include\DX11;../common;..;../ext;../ext/glew;../ext/snappy;../ext/glslang;../ext/zstd/lib;../ext/libpng17</AdditionalIncludeDirectories>
       <EnableEnhancedInstructionSet>NotSet</EnableEnhancedInstructionSet>
       <FloatingPointModel>Precise</FloatingPointModel>
       <OmitFramePointers>false</OmitFramePointers>
@@ -213,6 +215,7 @@
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <ForcedIncludeFiles>Common/DbgNew.h</ForcedIncludeFiles>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -221,7 +224,7 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
-      <AdditionalIncludeDirectories>..\dx9sdk\Include\DX11;../common;..;../ext;../ext/glew;../ext/snappy;../ext/glslang;../ext/zstd/lib</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\dx9sdk\Include\DX11;../common;..;../ext;../ext/glew;../ext/snappy;../ext/glslang;../ext/zstd/lib;../ext/libpng17</AdditionalIncludeDirectories>
       <EnableEnhancedInstructionSet>NotSet</EnableEnhancedInstructionSet>
       <FloatingPointModel>Precise</FloatingPointModel>
       <OmitFramePointers>false</OmitFramePointers>
@@ -233,6 +236,7 @@
       <ForcedIncludeFiles>
       </ForcedIncludeFiles>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -244,7 +248,7 @@
       <Optimization>MaxSpeed</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
-      <AdditionalIncludeDirectories>..\dx9sdk\Include\DX11;../common;..;../ext;../ext/glew;../ext/snappy;../ext/glslang;../ext/zstd/lib</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\dx9sdk\Include\DX11;../common;..;../ext;../ext/glew;../ext/snappy;../ext/glslang;../ext/zstd/lib;../ext/libpng17</AdditionalIncludeDirectories>
       <BufferSecurityCheck>false</BufferSecurityCheck>
       <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
       <FloatingPointModel>Precise</FloatingPointModel>
@@ -254,6 +258,7 @@
       <RuntimeTypeInfo>false</RuntimeTypeInfo>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -267,7 +272,7 @@
       <Optimization>MaxSpeed</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
-      <AdditionalIncludeDirectories>..\dx9sdk\Include\DX11;../common;..;../ext;../ext/glew;../ext/snappy;../ext/glslang;../ext/zstd/lib</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\dx9sdk\Include\DX11;../common;..;../ext;../ext/glew;../ext/snappy;../ext/glslang;../ext/zstd/lib;../ext/libpng17</AdditionalIncludeDirectories>
       <BufferSecurityCheck>false</BufferSecurityCheck>
       <EnableEnhancedInstructionSet>NotSet</EnableEnhancedInstructionSet>
       <FloatingPointModel>Precise</FloatingPointModel>
@@ -279,6 +284,7 @@
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <StringPooling>true</StringPooling>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -292,7 +298,7 @@
       <Optimization>MaxSpeed</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
-      <AdditionalIncludeDirectories>..\dx9sdk\Include\DX11;../common;..;../ext;../ext/glew;../ext/snappy;../ext/glslang;../ext/zstd/lib</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\dx9sdk\Include\DX11;../common;..;../ext;../ext/glew;../ext/snappy;../ext/glslang;../ext/zstd/lib;../ext/libpng17</AdditionalIncludeDirectories>
       <BufferSecurityCheck>false</BufferSecurityCheck>
       <EnableEnhancedInstructionSet>NotSet</EnableEnhancedInstructionSet>
       <FloatingPointModel>Precise</FloatingPointModel>
@@ -304,6 +310,7 @@
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <StringPooling>true</StringPooling>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -317,7 +324,7 @@
       <Optimization>MaxSpeed</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
-      <AdditionalIncludeDirectories>..\dx9sdk\Include\DX11;../common;..;../ext;../ext/glew;../ext/snappy;../ext/glslang;../ext/zstd/lib</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\dx9sdk\Include\DX11;../common;..;../ext;../ext/glew;../ext/snappy;../ext/glslang;../ext/zstd/lib;../ext/libpng17</AdditionalIncludeDirectories>
       <BufferSecurityCheck>false</BufferSecurityCheck>
       <EnableEnhancedInstructionSet>NotSet</EnableEnhancedInstructionSet>
       <FloatingPointModel>Precise</FloatingPointModel>
@@ -329,6 +336,7 @@
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <StringPooling>true</StringPooling>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -338,6 +346,8 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="..\ext\xbrz\xbrz.h" />
+    <ClInclude Include="Common\ReplacedTexture.h" />
+    <ClInclude Include="Common\TextureReplacer.h" />
     <ClInclude Include="Common\TextureShaderCommon.h" />
     <ClInclude Include="Common\Draw2D.h" />
     <ClInclude Include="Common\GeometryShaderGenerator.h" />
@@ -427,6 +437,7 @@
     </ClInclude>
     <ClInclude Include="GPU.h" />
     <ClInclude Include="GPUCommon.h" />
+    <ClInclude Include="GPUCommonHW.h" />
     <ClInclude Include="GPUInterface.h" />
     <ClInclude Include="GPUState.h" />
     <ClInclude Include="Math3D.h" />
@@ -454,6 +465,9 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\ext\xbrz\xbrz.cpp" />
+    <ClCompile Include="Common\DepthBufferCommon.cpp" />
+    <ClCompile Include="Common\ReplacedTexture.cpp" />
+    <ClCompile Include="Common\TextureReplacer.cpp" />
     <ClCompile Include="Common\TextureShaderCommon.cpp" />
     <ClCompile Include="Common\Draw2D.cpp" />
     <ClCompile Include="Common\GeometryShaderGenerator.cpp" />
@@ -497,6 +511,7 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">true</ExcludedFromBuild>
     </ClCompile>
     <ClCompile Include="Common\VertexDecoderCommon.cpp" />
+    <ClCompile Include="Common\VertexDecoderRiscV.cpp" />
     <ClCompile Include="Common\VertexDecoderX86.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">true</ExcludedFromBuild>
@@ -525,12 +540,6 @@
     <ClCompile Include="Directx9\DrawEngineDX9.cpp" />
     <ClCompile Include="GeDisasm.cpp" />
     <ClCompile Include="GeConstants.cpp" />
-    <ClCompile Include="GLES\DepthBufferGLES.cpp">
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">true</ExcludedFromBuild>
-    </ClCompile>
     <ClCompile Include="GLES\FragmentTestCacheGLES.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">true</ExcludedFromBuild>
@@ -561,6 +570,7 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">true</ExcludedFromBuild>
     </ClCompile>
+    <ClCompile Include="GLES\StencilBufferGLES.cpp" />
     <ClCompile Include="GLES\TextureCacheGLES.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">true</ExcludedFromBuild>
@@ -575,6 +585,7 @@
     </ClCompile>
     <ClCompile Include="GPU.cpp" />
     <ClCompile Include="GPUCommon.cpp" />
+    <ClCompile Include="GPUCommonHW.cpp" />
     <ClCompile Include="GPUState.cpp" />
     <ClCompile Include="Math3D.cpp" />
     <ClCompile Include="Software\BinManager.cpp" />

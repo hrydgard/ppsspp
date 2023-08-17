@@ -22,6 +22,7 @@
 #ifndef _MSC_VER
 #include <strings.h>
 #endif
+#include "Common/Common.h"
 #include "Common/CommonFuncs.h"
 
 const int PSP_MODEL_FAT = 0;
@@ -29,6 +30,22 @@ const int PSP_MODEL_SLIM = 1;
 const int PSP_DEFAULT_FIRMWARE = 660;
 static const int8_t VOLUME_OFF = 0;
 static const int8_t VOLUME_FULL = 10;
+
+struct ConfigTouchPos {
+	float x;
+	float y;
+	float scale;
+	// Note: Show is not used for all settings.
+	bool show;
+};
+
+struct ConfigCustomButton {
+	uint64_t key;
+	int image;
+	int shape;
+	bool toggle;
+	bool repeat;
+};
 
 enum class CPUCore {
 	INTERPRETER = 0,
@@ -64,6 +81,13 @@ enum class GPUBackend {
 	DIRECT3D11 = 2,
 	VULKAN = 3,
 };
+
+enum class RestoreSettingsBits : int {
+	SETTINGS = 1,
+	CONTROLS = 2,
+	RECENT = 4,
+};
+ENUM_CLASS_BITOPS(RestoreSettingsBits);
 
 inline std::string GPUBackendToString(GPUBackend backend) {
 	switch (backend) {
@@ -124,8 +148,44 @@ enum class BackgroundAnimation {
 	MOVING_BACKGROUND = 4,
 };
 
-enum class AnalogFpsMode {
-	AUTO = 0,
-	MAPPED_DIRECTION = 1,
-	MAPPED_DIR_TO_OPPOSITE_DIR = 2,
+// for Config.iShowStatusFlags
+enum class ShowStatusFlags {
+	FPS_COUNTER = 1 << 1,
+	SPEED_COUNTER = 1 << 2,
+	BATTERY_PERCENT = 1 << 3,
+};
+
+// for iTiltInputType
+enum TiltTypes {
+	TILT_NULL = 0,
+	TILT_ANALOG,
+	TILT_DPAD,
+	TILT_ACTION_BUTTON,
+	TILT_TRIGGER_BUTTONS,
+};
+
+enum class ScreenEdgePosition {
+	BOTTOM_LEFT = 0,
+	BOTTOM_CENTER = 1,
+	BOTTOM_RIGHT = 2,
+	TOP_LEFT = 3,
+	TOP_CENTER = 4,
+	TOP_RIGHT = 5,
+	CENTER_LEFT = 6,
+	CENTER_RIGHT = 7,
+	VALUE_COUNT,
+};
+
+enum class DebugOverlay : int {
+	OFF,
+	DEBUG_STATS,
+	FRAME_GRAPH,
+	FRAME_TIMING,
+#ifdef USE_PROFILER
+	FRAME_PROFILE,
+#endif
+	CONTROL,
+	AUDIO,
+	GPU_PROFILE,
+	GPU_ALLOCATOR,
 };

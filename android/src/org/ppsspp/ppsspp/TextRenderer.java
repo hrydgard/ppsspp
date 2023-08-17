@@ -14,7 +14,7 @@ public class TextRenderer {
 		p = new Paint(Paint.SUBPIXEL_TEXT_FLAG | Paint.ANTI_ALIAS_FLAG);
 		p.setColor(Color.WHITE);
 		bg = new Paint();
-		bg.setColor(Color.BLACK);
+		bg.setColor(0);
 	}
 
 	public static void init(Context ctx) {
@@ -61,10 +61,10 @@ public class TextRenderer {
 			total.x = 1;
 		if (total.y < 1)
 			total.y = 1;
-		if (total.x > 2048)
-			total.x = 2048;
-		if (total.y > 2048)
-			total.y = 2048;
+		if (total.x > 4096)
+			total.x = 4096;
+		if (total.y > 4096)
+			total.y = 4096;
 		return total;
 	}
 

@@ -22,9 +22,9 @@
 #include "Common/Data/Format/ZIMLoad.h"
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"
+#include "Common/System/OSD.h"
 #include "Common/StringUtils.h"
 #include "Core/Config.h"
-#include "Core/Host.h"
 #include "Core/Reporting.h"
 #include "Core/System.h"
 #include "Core/Debugger/MemBlockInfo.h"
@@ -448,15 +448,15 @@ int SavedataParam::Save(SceUtilitySavedataParam* param, const std::string &saveD
 			ERROR_LOG_REPORT(SCEUTILITY, "Savedata version with missing key on save: %d", param->secureVersion);
 			return SCE_UTILITY_SAVEDATA_ERROR_SAVE_PARAM;
 		}
-		WARN_LOG_REPORT(SCEUTILITY, "Savedata version requested on save: %d", param->secureVersion);
+		WARN_LOG(SCEUTILITY, "Savedata version requested on save: %d", param->secureVersion);
 	}
 
 	std::string dirPath = GetSaveFilePath(param, GetSaveDir(param, saveDirName));
 
 	if (!pspFileSystem.GetFileInfo(dirPath).exists) {
 		if (!pspFileSystem.MkDir(dirPath)) {
-			auto err = GetI18NCategory("Error");
-			host->NotifyUserMessage(err->T("Unable to write savedata, disk may be full"));
+			auto err = GetI18NCategory(I18NCat::ERRORS);
+			g_OSD.Show(OSDType::MESSAGE_ERROR, err->T("Unable to write savedata, disk may be full"));
 		}
 	}
 
@@ -484,8 +484,8 @@ int SavedataParam::Save(SceUtilitySavedataParam* param, const std::string &saveD
 		}
 
 		if (EncryptData(decryptMode, cryptedData, &cryptedSize, &aligned_len, cryptedHash, (hasKey ? param->key : 0)) != 0) {
-			auto err = GetI18NCategory("Error");
-			host->NotifyUserMessage(err->T("Save encryption failed. This save won't work on real PSP"), 6.0f);
+			auto err = GetI18NCategory(I18NCat::ERRORS);
+			g_OSD.Show(OSDType::MESSAGE_WARNING, err->T("Save encryption failed. This save won't work on real PSP"), 6.0f);
 			ERROR_LOG(SCEUTILITY,"Save encryption failed. This save won't work on real PSP");
 			delete[] cryptedData;
 			cryptedData = 0;
@@ -774,9 +774,9 @@ u32 SavedataParam::LoadCryptedSave(SceUtilitySavedataParam *param, u8 *data, con
 
 			// Don't notify the user if we're not going to upgrade the save.
 			if (!g_Config.bEncryptSave) {
-				auto di = GetI18NCategory("Dialog");
-				host->NotifyUserMessage(di->T("When you save, it will load on a PSP, but not an older PPSSPP"), 6.0f);
-				host->NotifyUserMessage(di->T("Old savedata detected"), 6.0f);
+				auto di = GetI18NCategory(I18NCat::DIALOG);
+				g_OSD.Show(OSDType::MESSAGE_WARNING, di->T("When you save, it will load on a PSP, but not an older PPSSPP"), 6.0f);
+				g_OSD.Show(OSDType::MESSAGE_WARNING, di->T("Old savedata detected"), 6.0f);
 			}
 		} else {
 			if (decryptMode == 5 && prevCryptMode == 3) {
@@ -786,9 +786,9 @@ u32 SavedataParam::LoadCryptedSave(SceUtilitySavedataParam *param, u8 *data, con
 			}
 			if (g_Config.bSavedataUpgrade) {
 				decryptMode = prevCryptMode;
-				auto di = GetI18NCategory("Dialog");
-				host->NotifyUserMessage(di->T("When you save, it will not work on outdated PSP Firmware anymore"), 6.0f);
-				host->NotifyUserMessage(di->T("Old savedata detected"), 6.0f);
+				auto di = GetI18NCategory(I18NCat::DIALOG);
+				g_OSD.Show(OSDType::MESSAGE_WARNING, di->T("When you save, it will not work on outdated PSP Firmware anymore"), 6.0f);
+				g_OSD.Show(OSDType::MESSAGE_WARNING, di->T("Old savedata detected"), 6.0f);
 			}
 		}
 		hasKey = decryptMode > 1;
@@ -947,7 +947,7 @@ int SavedataParam::EncryptData(unsigned int mode,
 		return -5;
 
 	/* Verify encryption */
-	if (sceChnnlsv_21BE78B4_(ctx2) < 0)
+	if (sceSdCleanList_(ctx2) < 0)
 		return -6;
 
 	/* Build the file hash from this PSP */
@@ -989,7 +989,7 @@ int SavedataParam::DecryptSave(unsigned int mode, unsigned char *data, int *data
 		return -6;
 
 	/* Verify that it decrypted correctly */
-	if (sceChnnlsv_21BE78B4_(ctx2) < 0)
+	if (sceSdCleanList_(ctx2) < 0)
 		return -7;
 
 	if (expectedHash) {

@@ -82,8 +82,17 @@ namespace MIPSStackWalk {
 		const u32 LONGEST_FUNCTION = 1024 * 1024;
 		// TODO: Check if found entry is in the same symbol?  Might be wrong sometimes...
 
+		if (entry != INVALIDTARGET && frame.pc == entry) {
+			// This happens when we're at the start of a function.  Our ra is already correct.
+			frame.entry = entry;
+			// This function may consume stack, but the frame hasn't used it yet.
+			frame.stackSize = 0;
+			return true;
+		}
+
 		int ra_offset = -1;
-		const u32 start = frame.pc;
+		// Start one instruction before the current frame pc, as that hasn't run yet.
+		const u32 start = frame.pc - 4;
 		u32 stop = entry;
 		if (entry == INVALIDTARGET) {
 			if (start >= PSP_GetUserMemoryBase()) {
@@ -94,6 +103,11 @@ namespace MIPSStackWalk {
 				stop = PSP_GetScratchpadMemoryBase();
 			}
 		}
+
+		if (!Memory::IsValidAddress(start)) {
+			return false;
+		}
+
 		if (stop < start - LONGEST_FUNCTION) {
 			stop = start - LONGEST_FUNCTION;
 		}

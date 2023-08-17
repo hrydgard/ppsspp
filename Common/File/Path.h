@@ -81,18 +81,24 @@ public:
 	Path WithReplacedExtension(const std::string &oldExtension, const std::string &newExtension) const;
 	Path WithReplacedExtension(const std::string &newExtension) const;
 
-	// Removes the last component.
 	std::string GetFilename() const;  // Really, GetLastComponent. Could be a file or directory. Includes the extension.
 	std::string GetFileExtension() const;  // Always lowercase return. Includes the dot.
+	// Removes the last component.
 	std::string GetDirectory() const;
 
 	const std::string &ToString() const;
 
 #if PPSSPP_PLATFORM(WINDOWS)
 	std::wstring ToWString() const;
+	std::string ToCString() const;  // Flips the slashes back to Windows standard, but string still UTF-8.
+#else
+	std::string ToCString() const {
+		return ToString();
+	}
 #endif
 
-	std::string ToVisualString() const;
+	// Pass in a relative root to turn the path into a relative path - if it is one!
+	std::string ToVisualString(const char *relativeRoot = nullptr) const;
 
 	bool CanNavigateUp() const;
 	Path NavigateUp() const;
@@ -132,6 +138,8 @@ private:
 	PathType type_;
 };
 
+// Utility function for parsing out file extensions.
+std::string GetExtFromString(const std::string &str);
 
 // Utility function for fixing the case of paths. Only present on Unix-like systems.
 

@@ -93,8 +93,34 @@ bool DataFormatIsDepthStencil(DataFormat fmt) {
 	}
 }
 
+// We don't bother listing the formats that are irrelevant for PPSSPP, like BC6 (HDR format)
+// or weird-shaped ASTC formats. We only support 4x4 block size formats for now.
+// If you pass in a blockSize parameter, it receives byte count that a 4x4 block takes in this format.
+bool DataFormatIsBlockCompressed(DataFormat fmt, int *blockSize) {
+	switch (fmt) {
+	case DataFormat::BC1_RGBA_UNORM_BLOCK:
+	case DataFormat::BC4_UNORM_BLOCK:
+	case DataFormat::ETC2_R8G8B8_UNORM_BLOCK:
+		if (blockSize) *blockSize = 8;  // 64 bits
+		return true;
+	case DataFormat::BC2_UNORM_BLOCK:
+	case DataFormat::BC3_UNORM_BLOCK:
+	case DataFormat::BC5_UNORM_BLOCK:
+	case DataFormat::BC7_UNORM_BLOCK:
+	case DataFormat::ETC2_R8G8B8A1_UNORM_BLOCK:
+	case DataFormat::ETC2_R8G8B8A8_UNORM_BLOCK:
+	case DataFormat::ASTC_4x4_UNORM_BLOCK:
+		if (blockSize) *blockSize = 16;  // 128 bits
+		return true;
+	default:
+		if (blockSize) *blockSize = 0;
+		return false;
+	}
+}
+
 RefCountedObject::~RefCountedObject() {
-	_dbg_assert_(refcount_ == 0xDEDEDE);
+	const int rc = refcount_.load();
+	_dbg_assert_msg_(rc == 0xDEDEDE, "Unexpected refcount %d in object of type '%s'", rc, name_);
 }
 
 bool RefCountedObject::Release() {
@@ -106,6 +132,7 @@ bool RefCountedObject::Release() {
 			return true;
 		}
 	} else {
+		// No point in printing the name here if the object has already been free-d, it'll be corrupt and dangerous to print.
 		_dbg_assert_msg_(false, "Refcount (%d) invalid for object %p - corrupt?", refcount_.load(), this);
 	}
 	return false;
@@ -113,10 +140,9 @@ bool RefCountedObject::Release() {
 
 bool RefCountedObject::ReleaseAssertLast() {
 	bool released = Release();
-	_dbg_assert_msg_(released, "RefCountedObject: Expected to be the last reference, but isn't!");
+	_dbg_assert_msg_(released, "RefCountedObject: Expected to be the last reference, but isn't! (%s)", name_);
 	return released;
 }
-
 
 // ================================== PIXEL/FRAGMENT SHADERS
 
@@ -161,7 +187,7 @@ static const std::vector<ShaderSource> fsTexCol = {
 	"layout(location = 0) in vec4 oColor0;\n"
 	"layout(location = 1) in vec2 oTexCoord0;\n"
 	"layout(location = 0) out vec4 fragColor0;\n"
-	"layout(set = 1, binding = 1) uniform sampler2D Sampler0;\n"
+	"layout(set = 0, binding = 1) uniform sampler2D Sampler0;\n"
 	"void main() { fragColor0 = texture(Sampler0, oTexCoord0) * oColor0; }\n"
 	}
 };
@@ -205,7 +231,7 @@ static const std::vector<ShaderSource> fsTexColRBSwizzle = {
 	"layout(location = 0) in vec4 oColor0;\n"
 	"layout(location = 1) in vec2 oTexCoord0;\n"
 	"layout(location = 0) out vec4 fragColor0\n;"
-	"layout(set = 1, binding = 1) uniform sampler2D Sampler0;\n"
+	"layout(set = 0, binding = 1) uniform sampler2D Sampler0;\n"
 	"void main() { fragColor0 = texture(Sampler0, oTexCoord0).bgra * oColor0; }\n"
 	}
 };
@@ -294,7 +320,7 @@ static const std::vector<ShaderSource> vsCol = {
 R"(#version 450
 #extension GL_ARB_separate_shader_objects : enable
 #extension GL_ARB_shading_language_420pack : enable
-layout (std140, set = 1, binding = 0) uniform bufferVals {
+layout (std140, set = 0, binding = 0) uniform bufferVals {
 	mat4 WorldViewProj;
 	vec2 TintSaturation;
 } myBufferVals;
@@ -440,7 +466,7 @@ VS_OUTPUT main(VS_INPUT input) {
 	R"(#version 450
 #extension GL_ARB_separate_shader_objects : enable
 #extension GL_ARB_shading_language_420pack : enable
-layout (std140, set = 1, binding = 0) uniform bufferVals {
+layout (std140, set = 0, binding = 0) uniform bufferVals {
 	mat4 WorldViewProj;
 	vec2 TintSaturation;
 } myBufferVals;
@@ -523,7 +549,7 @@ void DrawContext::DestroyPresets() {
 }
 
 DrawContext::~DrawContext() {
-	DestroyPresets();
+	// TODO: Can't call DestroyPresets here, too late.
 }
 
 void ConvertFromRGBA8888(uint8_t *dst, const uint8_t *src, uint32_t dstStride, uint32_t srcStride, uint32_t width, uint32_t height, DataFormat format) {
@@ -739,6 +765,22 @@ const char *Bugs::GetBugName(uint32_t bug) {
 	case GEOMETRY_SHADERS_SLOW_OR_BROKEN: return "GEOMETRY_SHADERS_SLOW_OR_BROKEN";
 	case ADRENO_RESOURCE_DEADLOCK: return "ADRENO_RESOURCE_DEADLOCK";
 	default: return "(N/A)";
+	}
+}
+
+const char *PresentModeToString(PresentMode presentMode) {
+	// All 8 possible cases, with three flags, for simplicity.
+	switch (presentMode) {
+	case (PresentMode)0: return "NONE";
+	case PresentMode::FIFO: return "FIFO";
+	case PresentMode::IMMEDIATE: return "IMMEDIATE";
+	case PresentMode::MAILBOX: return "MAILBOX";
+	case (PresentMode)((int)PresentMode::FIFO | (int)PresentMode::MAILBOX) : return "FIFO|MAILBOX";
+	case (PresentMode)((int)PresentMode::FIFO | (int)PresentMode::IMMEDIATE) : return "FIFO|IMMEDIATE";
+	case (PresentMode)((int)PresentMode::MAILBOX | (int)PresentMode::IMMEDIATE) : return "MAILBOX|IMMEDIATE";  // Not gonna happen
+	case (PresentMode)((int)PresentMode::FIFO | (int)PresentMode::MAILBOX | (int)PresentMode::IMMEDIATE) : return "FIFO|MAILBOX|IMMEDIATE";
+	default:
+		return "INVALID";
 	}
 }
 

@@ -19,6 +19,7 @@
 
 #include "Common/Log.h"
 #include "Common/Data/Format/IniFile.h"
+#include "Common/File/VFS/VFS.h"
 #include "Common/StringUtils.h"
 #include "Core/Compatibility.h"
 #include "Core/Config.h"
@@ -38,7 +39,7 @@ void Compatibility::Load(const std::string &gameID) {
 	{
 		IniFile compat;
 		// This loads from assets.
-		if (compat.LoadFromVFS("compat.ini")) {
+		if (compat.LoadFromVFS(g_VFS, "compat.ini")) {
 			CheckSettings(compat, gameID);
 		}
 	}
@@ -47,7 +48,7 @@ void Compatibility::Load(const std::string &gameID) {
 		IniFile compat2;
 		// This one is user-editable. Need to load it after the system one.
 		Path path = GetSysDirectory(DIRECTORY_SYSTEM) / "compat.ini";
-		if (compat2.Load(path.ToString())) {
+		if (compat2.Load(path)) {
 			CheckSettings(compat2, gameID);
 		}
 	}
@@ -55,7 +56,7 @@ void Compatibility::Load(const std::string &gameID) {
 	{
 		IniFile compat;
 		// This loads from assets.
-		if (compat.LoadFromVFS("compatvr.ini")) {
+		if (compat.LoadFromVFS(g_VFS, "compatvr.ini")) {
 			CheckVRSettings(compat, gameID);
 		}
 	}
@@ -64,7 +65,7 @@ void Compatibility::Load(const std::string &gameID) {
 		IniFile compat2;
 		// This one is user-editable. Need to load it after the system one.
 		Path path = GetSysDirectory(DIRECTORY_SYSTEM) / "compatvr.ini";
-		if (compat2.Load(path.ToString())) {
+		if (compat2.Load(path)) {
 			CheckVRSettings(compat2, gameID);
 		}
 	}
@@ -124,11 +125,20 @@ void Compatibility::CheckSettings(IniFile &iniFile, const std::string &gameID) {
 	CheckSetting(iniFile, gameID, "OldAdrenoPixelDepthRoundingGL", &flags_.OldAdrenoPixelDepthRoundingGL);
 	CheckSetting(iniFile, gameID, "ForceCircleButtonConfirm", &flags_.ForceCircleButtonConfirm);
 	CheckSetting(iniFile, gameID, "DisallowFramebufferAtOffset", &flags_.DisallowFramebufferAtOffset);
+	CheckSetting(iniFile, gameID, "RockmanDash2SoundFix", &flags_.RockmanDash2SoundFix);
+	CheckSetting(iniFile, gameID, "ReadbackDepth", &flags_.ReadbackDepth);
+	CheckSetting(iniFile, gameID, "BlockTransferDepth", &flags_.BlockTransferDepth);
+	CheckSetting(iniFile, gameID, "DaxterRotatedAnalogStick", &flags_.DaxterRotatedAnalogStick);
+	CheckSetting(iniFile, gameID, "ForceMaxDepthResolution", &flags_.ForceMaxDepthResolution);
+	CheckSetting(iniFile, gameID, "SOCOMClut8Replacement", &flags_.SOCOMClut8Replacement);
 	CheckSetting(iniFile, gameID, "Fontltn12Hack", &flags_.Fontltn12Hack);
 }
 
 void Compatibility::CheckVRSettings(IniFile &iniFile, const std::string &gameID) {
+	CheckSetting(iniFile, gameID, "ForceFlatScreen", &vrCompat_.ForceFlatScreen);
+	CheckSetting(iniFile, gameID, "ForceMono", &vrCompat_.ForceMono);
 	CheckSetting(iniFile, gameID, "IdentityViewHack", &vrCompat_.IdentityViewHack);
+	CheckSetting(iniFile, gameID, "MirroringVariant", &vrCompat_.MirroringVariant);
 	CheckSetting(iniFile, gameID, "Skyplane", &vrCompat_.Skyplane);
 	CheckSetting(iniFile, gameID, "UnitsPerMeter", &vrCompat_.UnitsPerMeter);
 
@@ -147,6 +157,12 @@ void Compatibility::CheckSetting(IniFile &iniFile, const std::string &gameID, co
 }
 
 void Compatibility::CheckSetting(IniFile &iniFile, const std::string &gameID, const char *option, float *flag) {
+	std::string value;
+	iniFile.Get(option, gameID.c_str(), &value, "0");
+	*flag = stof(value);
+}
+
+void Compatibility::CheckSetting(IniFile &iniFile, const std::string &gameID, const char *option, int *flag) {
 	std::string value;
 	iniFile.Get(option, gameID.c_str(), &value, "0");
 	*flag = stof(value);

@@ -127,21 +127,27 @@ void ProcessGPUFeatures() {
 
 // http://stackoverflow.com/questions/16147700/opengl-es-using-tegra-specific-extensions-gl-ext-texture-array
 
-void CheckGLExtensions() {
-
+bool CheckGLExtensions() {
 #if PPSSPP_API(ANY_GL)
+	// Make sure to only do this once. It's okay to call CheckGLExtensions from wherever,
+	// as long as you're on the rendering thread (the one with the GL context).
+	if (extensionsDone) {
+		return true;
+	}
 
-	// Make sure to only do this once. It's okay to call CheckGLExtensions from wherever.
-	if (extensionsDone)
-		return;
-	extensionsDone = true;
-	memset(&gl_extensions, 0, sizeof(gl_extensions));
+	gl_extensions = {};
 	gl_extensions.IsCoreContext = useCoreContext;
 
 	const char *renderer = (const char *)glGetString(GL_RENDERER);
 	const char *versionStr = (const char *)glGetString(GL_VERSION);
 	const char *glslVersionStr = (const char *)glGetString(GL_SHADING_LANGUAGE_VERSION);
 
+	if (!renderer || !versionStr || !glslVersionStr) {
+		// Something is very wrong! Bail.
+		return false;
+	}
+
+	extensionsDone = true;
 
 #ifdef USING_GLES2
 	gl_extensions.IsGLES = !useCoreContext;
@@ -176,7 +182,9 @@ void CheckGLExtensions() {
 			gl_extensions.gpuVendor = GPU_VENDOR_IMGTEC;
 		} else if (vendor == "Qualcomm") {
 			gl_extensions.gpuVendor = GPU_VENDOR_QUALCOMM;
-			sscanf(renderer, "Adreno (TM) %d", &gl_extensions.modelNumber);
+			if (1 != sscanf(renderer, "Adreno (TM) %d", &gl_extensions.modelNumber)) {
+				gl_extensions.modelNumber = 300;  // or what should we default to?
+			}
 		} else if (vendor == "Broadcom") {
 			gl_extensions.gpuVendor = GPU_VENDOR_BROADCOM;
 			// Just for reference: Galaxy Y has renderer == "VideoCore IV HW"
@@ -269,12 +277,12 @@ void CheckGLExtensions() {
 
 		// If the above didn't give us a version, or gave us a crazy version, fallback.
 #ifdef USING_GLES2
-		if (gl_extensions.ver[0] < 3 || gl_extensions.ver[0] > 5) {
+		if (versionStr && (gl_extensions.ver[0] < 3 || gl_extensions.ver[0] > 5)) {
 			// Try to load GLES 3.0 only if "3.0" found in version
 			// This simple heuristic avoids issues on older devices where you can only call eglGetProcAddress a limited
 			// number of times. Make sure to check for 3.0 in the shader version too to avoid false positives, see #5584.
-			bool gl_3_0_in_string = strstr(versionStr, "3.0") && (glslVersionStr && strstr(glslVersionStr, "3.0"));
-			bool gl_3_1_in_string = strstr(versionStr, "3.1") && (glslVersionStr && strstr(glslVersionStr, "3.1"));  // intentionally left out .1
+			bool gl_3_0_in_string = versionStr && strstr(versionStr, "3.0") && glslVersionStr && strstr(glslVersionStr, "3.0");
+			bool gl_3_1_in_string = versionStr && strstr(versionStr, "3.1") && glslVersionStr && strstr(glslVersionStr, "3.1");  // intentionally left out .1
 			if ((gl_3_0_in_string || gl_3_1_in_string) && gl3stubInit()) {
 				gl_extensions.ver[0] = 3;
 				if (gl_3_1_in_string) {
@@ -372,6 +380,12 @@ void CheckGLExtensions() {
 	gl_extensions.ARB_explicit_attrib_location = g_set_gl_extensions.count("GL_ARB_explicit_attrib_location") != 0;
 	gl_extensions.ARB_texture_non_power_of_two = g_set_gl_extensions.count("GL_ARB_texture_non_power_of_two") != 0;
 	gl_extensions.ARB_shader_stencil_export = g_set_gl_extensions.count("GL_ARB_shader_stencil_export") != 0;
+	gl_extensions.ARB_texture_compression_bptc = g_set_gl_extensions.count("GL_ARB_texture_compression_bptc") != 0;
+	gl_extensions.ARB_texture_compression_rgtc = g_set_gl_extensions.count("GL_ARB_texture_compression_rgtc") != 0;
+	gl_extensions.KHR_texture_compression_astc_ldr = g_set_gl_extensions.count("GL_KHR_texture_compression_astc_ldr") != 0;
+	gl_extensions.EXT_texture_compression_s3tc = g_set_gl_extensions.count("GL_EXT_texture_compression_s3tc") != 0;
+	gl_extensions.OES_texture_compression_astc = g_set_gl_extensions.count("GL_OES_texture_compression_astc") != 0;
+
 	if (gl_extensions.IsGLES) {
 		gl_extensions.EXT_blend_func_extended = g_set_gl_extensions.count("GL_EXT_blend_func_extended") != 0;
 		gl_extensions.OES_texture_npot = g_set_gl_extensions.count("GL_OES_texture_npot") != 0;
@@ -562,6 +576,45 @@ void CheckGLExtensions() {
 		}
 	}
 
+	// Force off clip for a cmomon buggy Samsung version.
+	if (!strcmp(versionStr, "OpenGL ES 3.2 ANGLE git hash: aa8f94c52952")) {
+		// Maybe could use bugs, but for now let's just force it back off.
+		// Seeing errors that gl_ClipDistance is undefined.
+		gl_extensions.EXT_clip_cull_distance = false;
+	}
+
+	// Check the old query API. It doesn't seem to be very reliable (can miss stuff).
+	GLint numCompressedFormats = 0;
+	glGetIntegerv(GL_NUM_COMPRESSED_TEXTURE_FORMATS, &numCompressedFormats);
+	GLint *compressedFormats = new GLint[numCompressedFormats];
+	if (numCompressedFormats > 0) {
+		glGetIntegerv(GL_COMPRESSED_TEXTURE_FORMATS, compressedFormats);
+		for (int i = 0; i < numCompressedFormats; i++) {
+			switch (compressedFormats[i]) {
+			case GL_COMPRESSED_RGB8_ETC2: gl_extensions.supportsETC2 = true; break;
+			case GL_COMPRESSED_RGBA_ASTC_4x4_KHR: gl_extensions.supportsASTC = true; break;
+#ifndef USING_GLES2
+			case GL_COMPRESSED_RGBA_S3TC_DXT5_EXT: gl_extensions.supportsBC123 = true; break;
+			case GL_COMPRESSED_RGBA_BPTC_UNORM: gl_extensions.supportsBC7 = true; break;
+#endif
+			}
+		}
+	}
+
+	// Enable additional formats based on extensions.
+	if (gl_extensions.EXT_texture_compression_s3tc) gl_extensions.supportsBC123 = true;
+	if (gl_extensions.ARB_texture_compression_bptc) gl_extensions.supportsBC7 = true;
+	if (gl_extensions.ARB_texture_compression_rgtc) gl_extensions.supportsBC45 = true;
+	if (gl_extensions.KHR_texture_compression_astc_ldr) gl_extensions.supportsASTC = true;
+	if (gl_extensions.OES_texture_compression_astc) gl_extensions.supportsASTC = true;
+
+	// Now, disable known-emulated texture formats.
+	if (gl_extensions.gpuVendor == GPU_VENDOR_NVIDIA && !gl_extensions.IsGLES) {
+		gl_extensions.supportsETC2 = false;
+		gl_extensions.supportsASTC = false;
+	}
+	delete[] compressedFormats;
+
 	ProcessGPUFeatures();
 
 	int error = glGetError();
@@ -569,15 +622,17 @@ void CheckGLExtensions() {
 		ERROR_LOG(G3D, "GL error in init: %i", error);
 
 #endif
-
+	return true;
 }
 
 void SetGLCoreContext(bool flag) {
-	_assert_msg_(!extensionsDone, "SetGLCoreContext() after CheckGLExtensions()");
-
-	useCoreContext = flag;
-	// For convenience, it'll get reset later.
-	gl_extensions.IsCoreContext = useCoreContext;
+	if (!extensionsDone) {
+		useCoreContext = flag;
+		// For convenience, it'll get reset later.
+		gl_extensions.IsCoreContext = useCoreContext;
+	} else {
+		_assert_(flag == useCoreContext);
+	}
 }
 
 void ResetGLExtensions() {

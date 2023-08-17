@@ -54,8 +54,8 @@ bool TouchInputHandler::GetTouchPoint(HWND hWnd, const TOUCHINPUT &input, float 
 	point.x = (LONG)(TOUCH_COORD_TO_PIXEL(input.x));
 	point.y = (LONG)(TOUCH_COORD_TO_PIXEL(input.y));
 	if (ScreenToClient(hWnd, &point)) {
-		x = point.x * g_dpi_scale_x;
-		y = point.y * g_dpi_scale_y;
+		x = point.x * g_display.dpi_scale_x;
+		y = point.y * g_display.dpi_scale_y;
 		return true;
 	}
 
@@ -98,24 +98,18 @@ void TouchInputHandler::handleTouchEvent(HWND hWnd, UINT message, WPARAM wParam,
 
 // from http://msdn.microsoft.com/en-us/library/ms812373.aspx
 // disable the press and hold gesture for the given window
-void TouchInputHandler::disablePressAndHold(HWND hWnd)
-{
+void TouchInputHandler::disablePressAndHold(HWND hWnd) {
 	// The atom identifier and Tablet PC atom
-	ATOM atomID = 0;
 	LPCTSTR tabletAtom = _T("MicrosoftTabletPenServiceProperty");
-	
-	// Get the Tablet PC atom ID
-	atomID = GlobalAddAtom(tabletAtom);
+	ATOM atomID = GlobalAddAtom(tabletAtom);
 	
 	// If getting the ID failed, return false
-	if (atomID == 0)
-	{
-	 return;
+	if (atomID != 0) {
+		// Try to disable press and hold gesture by setting the window property.
+		SetProp(hWnd, tabletAtom, (HANDLE)1);
 	}
-	
-	// Try to disable press and hold gesture by 
-	// setting the window property, return the result
-	SetProp(hWnd, tabletAtom, (HANDLE)1);
+
+	GlobalDeleteAtom(atomID);
 }
 
 void TouchInputHandler::touchUp(int id, float x, float y){

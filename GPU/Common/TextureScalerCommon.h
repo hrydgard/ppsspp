@@ -30,9 +30,9 @@ public:
 	TextureScalerCommon();
 	~TextureScalerCommon();
 
-	void ScaleAlways(u32 *out, u32 *src, int &width, int &height, int factor);
-	bool Scale(u32 *&data, int &width, int &height, int factor);
-	bool ScaleInto(u32 *out, u32 *src, int &width, int &height, int factor);
+	void ScaleAlways(u32 *out, u32 *src, int width, int height, int *scaledWidth, int *scaledHeight, int factor);
+	bool Scale(u32 *&data, int width, int height, int *scaledWidth, int *scaledHeight, int factor);
+	bool ScaleInto(u32 *out, u32 *src, int width, int height, int *scaledWidth, int *scaledHeight, int factor);
 
 	enum { XBRZ = 0, HYBRID = 1, BICUBIC = 2, HYBRID_BICUBIC = 3 };
 
@@ -50,5 +50,5 @@ protected:
 	// depending on the factor and texture sizes, these can get pretty large 
 	// maximum is (100 MB total for a 512 by 512 texture with scaling factor 5 and hybrid scaling)
 	// of course, scaling factor 5 is totally silly anyway
-	SimpleBuf<u32> bufDeposter, bufOutput, bufTmp1, bufTmp2, bufTmp3;
+	AlignedVector<u32, 16> bufDeposter, bufOutput, bufTmp1, bufTmp2, bufTmp3;
 };

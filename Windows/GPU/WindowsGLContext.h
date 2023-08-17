@@ -17,8 +17,8 @@ public:
 	void ShutdownFromRenderThread() override;
 
 	void Shutdown() override;
-	void SwapInterval(int interval) override;
-	void SwapBuffers() override;
+
+	void Poll() override;
 
 	// Used during window resize. Must be called from the window thread,
 	// not the rendering thread or CPU thread.

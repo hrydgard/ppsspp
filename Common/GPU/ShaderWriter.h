@@ -3,8 +3,6 @@
 #include <cstring>
 
 #include "Common/GPU/Shader.h"
-#include "GPU/ge_constants.h"
-#include "GPU/GPUCommon.h"
 #include "Common/Data/Collections/Slice.h"
 
 #include "Common/GPU/thin3d.h"

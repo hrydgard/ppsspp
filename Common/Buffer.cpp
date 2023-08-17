@@ -42,7 +42,7 @@ void Buffer::Append(const Buffer &other) {
 void Buffer::AppendValue(int value) {
 	char buf[16];
 	// This is slow.
-	sprintf(buf, "%i", value);
+	snprintf(buf, sizeof(buf), "%i", value);
 	Append(buf);
 }
 

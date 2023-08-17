@@ -58,6 +58,12 @@ bool GPU_IsReady() {
 	return false;
 }
 
+bool GPU_IsStarted() {
+	if (gpu)
+		return gpu->IsReady() && gpu->IsStarted();
+	return false;
+}
+
 bool GPU_Init(GraphicsContext *ctx, Draw::DrawContext *draw) {
 	const auto &gpuCore = PSP_CoreParameter().gpuCore;
 	_assert_(draw || gpuCore == GPUCORE_SOFTWARE);
@@ -106,7 +112,10 @@ bool GPU_Init(GraphicsContext *ctx, Draw::DrawContext *draw) {
 #endif
 	}
 
-	return gpu != NULL;
+	if (gpu && gpu->IsReady() && !gpu->IsStarted())
+		SetGPU<SoftGPU>(nullptr);
+
+	return gpu != nullptr;
 #endif
 }
 #ifdef USE_CRT_DBG
@@ -126,4 +135,8 @@ void GPU_Shutdown() {
 	}
 	delete gpu;
 	gpu = nullptr;
+}
+
+const char *RasterChannelToString(RasterChannel channel) {
+	return channel == RASTER_COLOR ? "COLOR" : "DEPTH";
 }

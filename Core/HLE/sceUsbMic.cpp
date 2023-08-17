@@ -22,6 +22,7 @@
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"
 #include "Common/System/System.h"
+#include "Common/System/Request.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/HLE/sceKernelThread.h"
@@ -103,7 +104,7 @@ void __UsbMicInit() {
 	curChannels = 1;
 	curTargetAddr = 0;
 	readMicDataLength = 0;
-	micState = 0; 
+	micState = 0;
 	eventMicBlockingResume = CoreTiming::RegisterEvent("MicBlockingResume", &__MicBlockingResume);
 }
 
@@ -232,7 +233,7 @@ void QueueBuf::resize(u32 newSize) {
 	u8 *oldbuf = buf_;
 
 	buf_ = new u8[newSize];
-	pop(buf_, availableSize);
+	pop(buf_, std::min(availableSize, newSize));
 	available = availableSize;
 	end = availableSize;
 	capacity = newSize;
@@ -328,7 +329,7 @@ int Microphone::startMic(void *param) {
 	int sampleRate = micParam->at(0);
 	int channels = micParam->at(1);
 	INFO_LOG(HLE, "microphone_command : sr = %d", sampleRate);
-	System_SendMessage("microphone_command", ("startRecording:" + std::to_string(sampleRate)).c_str());
+	System_MicrophoneCommand("startRecording:" + std::to_string(sampleRate));
 #endif
 	micState = 1;
 	return 0;
@@ -339,7 +340,7 @@ int Microphone::stopMic() {
 	if (winMic)
 		winMic->sendMessage({ CAPTUREDEVIDE_COMMAND::STOP, nullptr });
 #elif PPSSPP_PLATFORM(ANDROID)
-	System_SendMessage("microphone_command", "stopRecording");
+	System_MicrophoneCommand("stopRecording");
 #endif
 	micState = 0;
 	return 0;
@@ -349,7 +350,7 @@ bool Microphone::isHaveDevice() {
 #ifdef HAVE_WIN32_MICROPHONE
 	return winMic->getDeviceCounts() >= 1;
 #elif PPSSPP_PLATFORM(ANDROID)
-	return audioRecording_Available();
+	return System_AudioRecordingIsAvailable();
 #endif
 	return false;
 }
@@ -376,18 +377,16 @@ u32 Microphone::getReadMicDataLength() {
 }
 
 int Microphone::addAudioData(u8 *buf, u32 size) {
-	if (audioBuf)
-		audioBuf->push(buf, size);
-	else
+	if (!audioBuf)
 		return 0;
-	if (Memory::IsValidAddress(curTargetAddr)) {
-		u32 addSize = std::min(audioBuf->getAvailableSize(), numNeedSamples() * 2 - getReadMicDataLength());
-		u8 *tempbuf8 = new u8[addSize];
-		getAudioData(tempbuf8, addSize);
-		Memory::Memcpy(curTargetAddr + readMicDataLength, tempbuf8, addSize);
-		delete[] tempbuf8;
-		readMicDataLength += addSize;
+	audioBuf->push(buf, size);
+
+	u32 addSize = std::min(audioBuf->getAvailableSize(), numNeedSamples() * 2 - getReadMicDataLength());
+	if (Memory::IsValidRange(curTargetAddr + readMicDataLength, addSize)) {
+		getAudioData(Memory::GetPointerWriteUnchecked(curTargetAddr + readMicDataLength), addSize);
+		NotifyMemInfo(MemBlockFlags::WRITE, curTargetAddr + readMicDataLength, addSize, "MicAddAudioData");
 	}
+	readMicDataLength += addSize;
 
 	return size;
 }
@@ -442,10 +441,10 @@ u32 __MicInput(u32 maxSamples, u32 sampleRate, u32 bufAddr, MICTYPE type, bool b
 
 	if (Microphone::availableAudioBufSize() > 0) {
 		u32 addSize = std::min(Microphone::availableAudioBufSize(), size);
-		u8 *tempbuf8 = new u8[addSize];
-		Microphone::getAudioData(tempbuf8, addSize);
-		Memory::Memcpy(curTargetAddr, tempbuf8, addSize);
-		delete[] tempbuf8;
+		if (Memory::IsValidRange(curTargetAddr, addSize)) {
+			Microphone::getAudioData(Memory::GetPointerWriteUnchecked(curTargetAddr), addSize);
+			NotifyMemInfo(MemBlockFlags::WRITE, curTargetAddr, addSize, "MicInput");
+		}
 		readMicDataLength += addSize;
 	}
 

@@ -119,6 +119,9 @@ public:
 	DrawEngineD3D11(Draw::DrawContext *draw, ID3D11Device *device, ID3D11DeviceContext *context);
 	~DrawEngineD3D11();
 
+	void DeviceLost() override { draw_ = nullptr;  }
+	void DeviceRestore(Draw::DrawContext *draw) override { draw_ = draw; }
+
 	void SetShaderManager(ShaderManagerD3D11 *shaderManager) {
 		shaderManager_ = shaderManager;
 	}
@@ -135,18 +138,22 @@ public:
 
 	// So that this can be inlined
 	void Flush() {
-		if (!numDrawCalls)
+		if (!numDrawCalls_)
 			return;
 		DoFlush();
 	}
 
 	void FinishDeferred() {
-		if (!numDrawCalls)
+		if (!numDrawCalls_)
 			return;
-		DecodeVerts(decoded);
+		DecodeVerts(decoded_);
 	}
 
-	void DispatchFlush() override { Flush(); }
+	void DispatchFlush() override {
+		if (!numDrawCalls_)
+			return;
+		Flush();
+	}
 
 	void ClearTrackedVertexArrays() override;
 

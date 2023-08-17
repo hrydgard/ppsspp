@@ -229,8 +229,6 @@ public:
 	// Temporary used around delay slots and similar.
 	u64 saved_flags;
 
-	GMRng rng;	// VFPU hardware random number generator. Probably not the right type.
-
 	// Debug stuff
 	u32 debugCount;	// can be used to count basic blocks before crashes, etc.
 

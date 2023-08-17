@@ -20,7 +20,6 @@
 
 #include "Common/TimeUtil.h"
 #include "Core/MemMap.h"
-#include "Core/Reporting.h"
 #include "GPU/ge_constants.h"
 
 #include "GPU/GPUState.h"
@@ -32,7 +31,6 @@
 #include "GPU/Common/FramebufferManagerCommon.h"
 #include "GPU/Common/TextureDecoder.h"
 #include "Core/Config.h"
-#include "Core/Host.h"
 
 #include "ext/xxhash.h"
 #include "Common/Math/math_util.h"
@@ -41,23 +39,21 @@
 
 Draw::DataFormat FromD3D9Format(u32 fmt) {
 	switch (fmt) {
-	case D3DFMT_A4R4G4B4:
-		return Draw::DataFormat::B4G4R4A4_UNORM_PACK16;
-	case D3DFMT_A1R5G5B5:
-		return Draw::DataFormat::A1R5G5B5_UNORM_PACK16;
-	case D3DFMT_R5G6B5:
-		return Draw::DataFormat::R5G6B5_UNORM_PACK16;
-	case D3DFMT_A8:
-		return Draw::DataFormat::R8_UNORM;
-	case D3DFMT_A8R8G8B8:
-	default:
-		return Draw::DataFormat::R8G8B8A8_UNORM;
+	case D3DFMT_A4R4G4B4: return Draw::DataFormat::B4G4R4A4_UNORM_PACK16;
+	case D3DFMT_A1R5G5B5: return Draw::DataFormat::A1R5G5B5_UNORM_PACK16;
+	case D3DFMT_R5G6B5: return Draw::DataFormat::R5G6B5_UNORM_PACK16;
+	case D3DFMT_A8: return Draw::DataFormat::R8_UNORM;
+	case D3DFMT_A8R8G8B8: default: return Draw::DataFormat::R8G8B8A8_UNORM;
 	}
 }
 
 D3DFORMAT ToD3D9Format(Draw::DataFormat fmt) {
 	switch (fmt) {
-	case Draw::DataFormat::R8G8B8A8_UNORM: default: return D3DFMT_A8R8G8B8;
+	case Draw::DataFormat::BC1_RGBA_UNORM_BLOCK: return D3DFMT_DXT1;
+	case Draw::DataFormat::BC2_UNORM_BLOCK: return D3DFMT_DXT3;
+	case Draw::DataFormat::BC3_UNORM_BLOCK: return D3DFMT_DXT5;
+	case Draw::DataFormat::R8G8B8A8_UNORM: return D3DFMT_A8R8G8B8;
+	default: _dbg_assert_(false); return D3DFMT_A8R8G8B8;
 	}
 }
 
@@ -72,8 +68,6 @@ static const D3DVERTEXELEMENT9 g_FramebufferVertexElements[] = {
 TextureCacheDX9::TextureCacheDX9(Draw::DrawContext *draw, Draw2D *draw2D)
 	: TextureCacheCommon(draw, draw2D) {
 	lastBoundTexture = INVALID_TEX;
-	isBgraBackend_ = true;
-
 	device_ = (LPDIRECT3DDEVICE9)draw->GetNativeObject(Draw::NativeObject::DEVICE);
 	deviceEx_ = (LPDIRECT3DDEVICE9EX)draw->GetNativeObject(Draw::NativeObject::DEVICE_EX);
 	D3DCAPS9 pCaps;
@@ -112,7 +106,7 @@ void TextureCacheDX9::ReleaseTexture(TexCacheEntry *entry, bool delete_them) {
 	}
 }
 
-void TextureCacheDX9::InvalidateLastTexture() {
+void TextureCacheDX9::ForgetLastTexture() {
 	lastBoundTexture = INVALID_TEX;
 }
 
@@ -155,22 +149,8 @@ void TextureCacheDX9::ApplySamplingParams(const SamplerCacheKey &key) {
 void TextureCacheDX9::StartFrame() {
 	TextureCacheCommon::StartFrame();
 
-	InvalidateLastTexture();
-	timesInvalidatedAllThisFrame_ = 0;
-	replacementTimeThisFrame_ = 0.0;
-
-	if (texelsScaledThisFrame_) {
-		VERBOSE_LOG(G3D, "Scaled %i texels", texelsScaledThisFrame_);
-	}
-	texelsScaledThisFrame_ = 0;
-	if (clearCacheNextFrame_) {
-		Clear(true);
-		clearCacheNextFrame_ = false;
-	} else {
-		Decimate();
-	}
-
 	if (gstate_c.Use(GPU_USE_ANISOTROPY)) {
+		// Just take the opportunity to set the global aniso level here, once per frame.
 		DWORD aniso = 1 << g_Config.iAnisotropyLevel;
 		DWORD anisotropyLevel = aniso > maxAnisotropyLevel ? maxAnisotropyLevel : aniso;
 		device_->SetSamplerState(0, D3DSAMP_MAXANISOTROPY, anisotropyLevel);
@@ -230,7 +210,7 @@ void TextureCacheDX9::BindTexture(TexCacheEntry *entry) {
 
 void TextureCacheDX9::Unbind() {
 	device_->SetTexture(0, nullptr);
-	InvalidateLastTexture();
+	ForgetLastTexture();
 }
 
 void TextureCacheDX9::BindAsClutTexture(Draw::Texture *tex, bool smooth) {
@@ -249,8 +229,8 @@ void TextureCacheDX9::BuildTexture(TexCacheEntry *const entry) {
 	}
 
 	D3DFORMAT dstFmt = GetDestFormat(GETextureFormat(entry->format), gstate.getClutPaletteFormat());
-	if (plan.replaceValid) {
-		dstFmt = ToD3D9Format(plan.replaced->Format(plan.baseLevelSrc));
+	if (plan.doReplace) {
+		dstFmt = ToD3D9Format(plan.replaced->Format());
 	} else if (plan.scaleFactor > 1 || plan.saveTexture) {
 		dstFmt = D3DFMT_A8R8G8B8;
 	} else if (plan.decodeToClut8) {
@@ -309,7 +289,7 @@ void TextureCacheDX9::BuildTexture(TexCacheEntry *const entry) {
 			}
 			uint8_t *data = (uint8_t *)rect.pBits;
 			int stride = rect.Pitch;
-			LoadTextureLevel(*entry, data, stride, *plan.replaced, (i == 0) ? plan.baseLevelSrc : i, plan.scaleFactor, FromD3D9Format(dstFmt), TexDecodeFlags{});
+			LoadTextureLevel(*entry, data, 0, stride, plan, (i == 0) ? plan.baseLevelSrc : i, FromD3D9Format(dstFmt), TexDecodeFlags{});
 			((LPDIRECT3DTEXTURE9)texture)->UnlockRect(dstLevel);
 		}
 	} else {
@@ -324,7 +304,7 @@ void TextureCacheDX9::BuildTexture(TexCacheEntry *const entry) {
 		uint8_t *data = (uint8_t *)box.pBits;
 		int stride = box.RowPitch;
 		for (int i = 0; i < plan.depth; i++) {
-			LoadTextureLevel(*entry, data, stride, *plan.replaced, (i == 0) ? plan.baseLevelSrc : i, plan.scaleFactor, FromD3D9Format(dstFmt), TexDecodeFlags{});
+			LoadTextureLevel(*entry, data, 0, stride, plan, (i == 0) ? plan.baseLevelSrc : i, FromD3D9Format(dstFmt), TexDecodeFlags{});
 			data += box.SlicePitch;
 		}
 		((LPDIRECT3DVOLUMETEXTURE9)texture)->UnlockBox(0);
@@ -335,8 +315,14 @@ void TextureCacheDX9::BuildTexture(TexCacheEntry *const entry) {
 		entry->status |= TexCacheEntry::STATUS_3D;
 	}
 
-	if (plan.replaceValid) {
+	if (plan.doReplace) {
 		entry->SetAlphaStatus(TexCacheEntry::TexStatus(plan.replaced->AlphaStatus()));
+
+		if (!Draw::DataFormatIsBlockCompressed(plan.replaced->Format(), nullptr)) {
+			entry->status |= TexCacheEntry::STATUS_BGRA;
+		}
+	} else {
+		entry->status |= TexCacheEntry::STATUS_BGRA;
 	}
 }
 

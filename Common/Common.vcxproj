@@ -143,6 +143,7 @@
       <RuntimeTypeInfo>false</RuntimeTypeInfo>
       <MinimalRebuild>false</MinimalRebuild>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -170,6 +171,7 @@
       <RuntimeTypeInfo>false</RuntimeTypeInfo>
       <MinimalRebuild>false</MinimalRebuild>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -197,6 +199,7 @@
       <RuntimeTypeInfo>false</RuntimeTypeInfo>
       <MinimalRebuild>false</MinimalRebuild>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -225,6 +228,7 @@
       <RuntimeTypeInfo>false</RuntimeTypeInfo>
       <MinimalRebuild>false</MinimalRebuild>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -256,6 +260,7 @@
       <RuntimeTypeInfo>false</RuntimeTypeInfo>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -291,6 +296,7 @@
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <StringPooling>true</StringPooling>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -326,6 +332,7 @@
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <StringPooling>true</StringPooling>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -361,6 +368,7 @@
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <StringPooling>true</StringPooling>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -377,6 +385,13 @@
     </Lib>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="..\ext\basis_universal\basisu.h" />
+    <ClInclude Include="..\ext\basis_universal\basisu_containers.h" />
+    <ClInclude Include="..\ext\basis_universal\basisu_containers_impl.h" />
+    <ClInclude Include="..\ext\basis_universal\basisu_file_headers.h" />
+    <ClInclude Include="..\ext\basis_universal\basisu_transcoder.h" />
+    <ClInclude Include="..\ext\basis_universal\basisu_transcoder_internal.h" />
+    <ClInclude Include="..\ext\basis_universal\basisu_transcoder_uastc.h" />
     <ClInclude Include="..\ext\libpng17\png.h" />
     <ClInclude Include="..\ext\libpng17\pngconf.h" />
     <ClInclude Include="..\ext\libpng17\pngdebug.h" />
@@ -384,6 +399,7 @@
     <ClInclude Include="..\ext\libpng17\pnglibconf.h" />
     <ClInclude Include="..\ext\libpng17\pngpriv.h" />
     <ClInclude Include="..\ext\libpng17\pngstruct.h" />
+    <ClInclude Include="..\ext\naett\naett.h" />
     <ClInclude Include="..\ext\vma\vk_mem_alloc.h" />
     <ClInclude Include="ABI.h" />
     <ClInclude Include="Arm64Emitter.h" />
@@ -405,6 +421,7 @@
     <ClInclude Include="Data\Encoding\Shiftjis.h" />
     <ClInclude Include="Data\Encoding\Utf16.h" />
     <ClInclude Include="Data\Encoding\Utf8.h" />
+    <ClInclude Include="Data\Format\DDSLoad.h" />
     <ClInclude Include="Data\Format\IniFile.h" />
     <ClInclude Include="Data\Format\JSONReader.h" />
     <ClInclude Include="Data\Format\JSONWriter.h" />
@@ -418,6 +435,7 @@
     <ClInclude Include="Data\Text\Parsers.h" />
     <ClInclude Include="Data\Text\WrapText.h" />
     <ClInclude Include="FakeEmitter.h" />
+    <ClInclude Include="File\AndroidContentURI.h" />
     <ClInclude Include="File\AndroidStorage.h" />
     <ClInclude Include="File\DirListing.h" />
     <ClInclude Include="File\DiskFree.h" />
@@ -425,17 +443,21 @@
     <ClInclude Include="File\FileUtil.h" />
     <ClInclude Include="File\Path.h" />
     <ClInclude Include="File\PathBrowser.h" />
+    <ClInclude Include="File\VFS\DirectoryReader.h" />
     <ClInclude Include="File\VFS\VFS.h" />
-    <ClInclude Include="File\VFS\AssetReader.h" />
+    <ClInclude Include="File\VFS\ZipFileReader.h" />
     <ClInclude Include="GPU\D3D11\D3D11Loader.h" />
     <ClInclude Include="GPU\D3D9\D3DCompilerLoader.h" />
     <ClInclude Include="GPU\D3D9\D3D9ShaderCompiler.h" />
     <ClInclude Include="GPU\D3D9\D3D9StateCache.h" />
     <ClInclude Include="GPU\DataFormat.h" />
+    <ClInclude Include="GPU\GPUBackendCommon.h" />
     <ClInclude Include="GPU\MiscTypes.h" />
     <ClInclude Include="GPU\OpenGL\DataFormatGL.h" />
     <ClInclude Include="GPU\OpenGL\gl3stub.h" />
     <ClInclude Include="GPU\OpenGL\GLFeatures.h" />
+    <ClInclude Include="GPU\OpenGL\GLFrameData.h" />
+    <ClInclude Include="GPU\OpenGL\GLMemory.h" />
     <ClInclude Include="GPU\OpenGL\GLQueueRunner.h" />
     <ClInclude Include="GPU\OpenGL\GLRenderManager.h" />
     <ClInclude Include="GPU\OpenGL\GLSLProgram.h" />
@@ -469,10 +491,12 @@
     <ClInclude Include="Math\lin\vec3.h" />
     <ClInclude Include="Math\math_util.h" />
     <ClInclude Include="Math\Statistics.h" />
+    <ClInclude Include="Net\HTTPNaettRequest.h" />
     <ClInclude Include="Net\NetBuffer.h" />
     <ClInclude Include="Net\HTTPClient.h" />
     <ClInclude Include="Net\HTTPHeaders.h" />
     <ClInclude Include="Net\HTTPServer.h" />
+    <ClInclude Include="Net\HTTPRequest.h" />
     <ClInclude Include="Net\Resolve.h" />
     <ClInclude Include="Net\Sinks.h" />
     <ClInclude Include="Net\URL.h" />
@@ -484,6 +508,7 @@
     <ClInclude Include="Render\Text\draw_text.h" />
     <ClInclude Include="Render\Text\draw_text_android.h" />
     <ClInclude Include="Render\Text\draw_text_qt.h" />
+    <ClInclude Include="Render\Text\draw_text_sdl.h" />
     <ClInclude Include="Render\Text\draw_text_uwp.h" />
     <ClInclude Include="Render\Text\draw_text_win.h" />
     <ClInclude Include="LogReporting.h" />
@@ -506,27 +531,6 @@
     <ClInclude Include="Crypto\sha256.h" />
     <ClInclude Include="DbgNew.h" />
     <ClInclude Include="ExceptionHandlerSetup.h" />
-    <ClInclude Include="GL\GLInterfaceBase.h" />
-    <ClInclude Include="GL\GLInterface\EGL.h">
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">true</ExcludedFromBuild>
-    </ClInclude>
-    <ClInclude Include="GL\GLInterface\EGLAndroid.h">
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">true</ExcludedFromBuild>
-    </ClInclude>
     <ClInclude Include="GraphicsContext.h" />
     <ClInclude Include="Log.h" />
     <ClInclude Include="LogManager.h" />
@@ -540,6 +544,8 @@
     <ClInclude Include="Swap.h" />
     <ClInclude Include="SysError.h" />
     <ClInclude Include="System\Display.h" />
+    <ClInclude Include="System\OSD.h" />
+    <ClInclude Include="System\Request.h" />
     <ClInclude Include="System\NativeApp.h" />
     <ClInclude Include="System\System.h" />
     <ClInclude Include="Thread\Barrier.h" />
@@ -554,8 +560,11 @@
     <ClInclude Include="TimeUtil.h" />
     <ClInclude Include="UI\AsyncImageFileView.h" />
     <ClInclude Include="UI\Context.h" />
+    <ClInclude Include="UI\IconCache.h" />
+    <ClInclude Include="UI\PopupScreens.h" />
     <ClInclude Include="UI\Root.h" />
     <ClInclude Include="UI\Screen.h" />
+    <ClInclude Include="UI\ScrollView.h" />
     <ClInclude Include="UI\Tween.h" />
     <ClInclude Include="UI\UI.h" />
     <ClInclude Include="UI\UIScreen.h" />
@@ -572,6 +581,7 @@
     <ClInclude Include="x64Emitter.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="..\ext\basis_universal\basisu_transcoder.cpp" />
     <ClCompile Include="..\ext\libpng17\png.c">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">NotUsing</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">NotUsing</PrecompiledHeader>
@@ -820,6 +830,7 @@
       <ForcedIncludeFiles Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
       </ForcedIncludeFiles>
     </ClCompile>
+    <ClCompile Include="..\ext\naett\naett.c" />
     <ClCompile Include="..\ext\vma\vk_mem_alloc.cpp" />
     <ClCompile Include="ABI.cpp" />
     <ClCompile Include="Arm64Emitter.cpp" />
@@ -835,11 +846,13 @@
     </ClCompile>
     <ClCompile Include="ArmEmitter.cpp" />
     <ClCompile Include="Buffer.cpp" />
+    <ClCompile Include="Data\Collections\FastVec.h" />
     <ClCompile Include="Data\Color\RGBAUtil.cpp" />
     <ClCompile Include="Data\Convert\SmallDataConvert.cpp" />
     <ClCompile Include="Data\Encoding\Base64.cpp" />
     <ClCompile Include="Data\Encoding\Compression.cpp" />
     <ClCompile Include="Data\Encoding\Utf8.cpp" />
+    <ClCompile Include="Data\Format\DDSLoad.cpp" />
     <ClCompile Include="Data\Format\IniFile.cpp" />
     <ClCompile Include="Data\Format\JSONReader.cpp" />
     <ClCompile Include="Data\Format\JSONWriter.cpp" />
@@ -851,6 +864,7 @@
     <ClCompile Include="Data\Text\I18n.cpp" />
     <ClCompile Include="Data\Text\Parsers.cpp" />
     <ClCompile Include="Data\Text\WrapText.cpp" />
+    <ClCompile Include="File\AndroidContentURI.cpp" />
     <ClCompile Include="File\AndroidStorage.cpp" />
     <ClCompile Include="File\DirListing.cpp" />
     <ClCompile Include="File\DiskFree.cpp" />
@@ -858,17 +872,21 @@
     <ClCompile Include="File\FileUtil.cpp" />
     <ClCompile Include="File\Path.cpp" />
     <ClCompile Include="File\PathBrowser.cpp" />
+    <ClCompile Include="File\VFS\DirectoryReader.cpp" />
     <ClCompile Include="File\VFS\VFS.cpp" />
-    <ClCompile Include="File\VFS\AssetReader.cpp" />
+    <ClCompile Include="File\VFS\ZipFileReader.cpp" />
     <ClCompile Include="GPU\D3D11\D3D11Loader.cpp" />
     <ClCompile Include="GPU\D3D11\thin3d_d3d11.cpp" />
     <ClCompile Include="GPU\D3D9\D3DCompilerLoader.cpp" />
     <ClCompile Include="GPU\D3D9\D3D9ShaderCompiler.cpp" />
     <ClCompile Include="GPU\D3D9\D3D9StateCache.cpp" />
     <ClCompile Include="GPU\D3D9\thin3d_d3d9.cpp" />
+    <ClCompile Include="GPU\GPUBackendCommon.cpp" />
     <ClCompile Include="GPU\OpenGL\DataFormatGL.cpp" />
     <ClCompile Include="GPU\OpenGL\gl3stub.c" />
     <ClCompile Include="GPU\OpenGL\GLFeatures.cpp" />
+    <ClCompile Include="GPU\OpenGL\GLFrameData.cpp" />
+    <ClCompile Include="GPU\OpenGL\GLMemory.cpp" />
     <ClCompile Include="GPU\OpenGL\GLQueueRunner.cpp" />
     <ClCompile Include="GPU\OpenGL\GLRenderManager.cpp" />
     <ClCompile Include="GPU\OpenGL\GLSLProgram.cpp" />
@@ -900,10 +918,12 @@
     <ClCompile Include="Math\lin\vec3.cpp" />
     <ClCompile Include="Math\math_util.cpp" />
     <ClCompile Include="Math\Statistics.cpp" />
+    <ClCompile Include="Net\HTTPNaettRequest.cpp" />
     <ClCompile Include="Net\NetBuffer.cpp" />
     <ClCompile Include="Net\HTTPClient.cpp" />
     <ClCompile Include="Net\HTTPHeaders.cpp" />
     <ClCompile Include="Net\HTTPServer.cpp" />
+    <ClCompile Include="Net\HTTPRequest.cpp" />
     <ClCompile Include="Net\Resolve.cpp" />
     <ClCompile Include="Net\Sinks.cpp" />
     <ClCompile Include="Net\URL.cpp" />
@@ -915,6 +935,7 @@
     <ClCompile Include="Render\Text\draw_text.cpp" />
     <ClCompile Include="Render\Text\draw_text_android.cpp" />
     <ClCompile Include="Render\Text\draw_text_qt.cpp" />
+    <ClCompile Include="Render\Text\draw_text_sdl.cpp" />
     <ClCompile Include="Render\Text\draw_text_uwp.cpp" />
     <ClCompile Include="Render\Text\draw_text_win.cpp" />
     <ClCompile Include="LogReporting.cpp" />
@@ -948,36 +969,6 @@
     <ClCompile Include="Crypto\sha1.cpp" />
     <ClCompile Include="Crypto\sha256.cpp" />
     <ClCompile Include="ExceptionHandlerSetup.cpp" />
-    <ClCompile Include="GL\GLInterface\EGL.cpp">
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">true</ExcludedFromBuild>
-    </ClCompile>
-    <ClCompile Include="GL\GLInterface\EGLAndroid.cpp">
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">true</ExcludedFromBuild>
-    </ClCompile>
-    <ClCompile Include="GL\GLInterface\GLInterface.cpp">
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">true</ExcludedFromBuild>
-    </ClCompile>
     <ClCompile Include="LogManager.cpp" />
     <ClCompile Include="MemArenaAndroid.cpp" />
     <ClCompile Include="MemArenaPosix.cpp" />
@@ -989,6 +980,8 @@
     <ClCompile Include="OSVersion.cpp" />
     <ClCompile Include="StringUtils.cpp" />
     <ClCompile Include="System\Display.cpp" />
+    <ClCompile Include="System\OSD.cpp" />
+    <ClCompile Include="System\Request.cpp" />
     <ClCompile Include="Thread\ParallelLoop.cpp" />
     <ClCompile Include="Thread\ThreadManager.cpp" />
     <ClCompile Include="Thread\ThreadUtil.cpp" />
@@ -996,8 +989,11 @@
     <ClCompile Include="TimeUtil.cpp" />
     <ClCompile Include="UI\AsyncImageFileView.cpp" />
     <ClCompile Include="UI\Context.cpp" />
+    <ClCompile Include="UI\IconCache.cpp" />
+    <ClCompile Include="UI\PopupScreens.cpp" />
     <ClCompile Include="UI\Root.cpp" />
     <ClCompile Include="UI\Screen.cpp" />
+    <ClCompile Include="UI\ScrollView.cpp" />
     <ClCompile Include="UI\Tween.cpp" />
     <ClCompile Include="UI\UI.cpp" />
     <ClCompile Include="UI\UIScreen.cpp" />
@@ -1017,9 +1013,24 @@
     <Text Include="..\ext\libpng17\CMakeLists.txt" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\ext\cpu_features.vcxproj">
+      <Project>{c249f016-7f82-45cf-bb6e-0642a988c4d3}</Project>
+    </ProjectReference>
     <ProjectReference Include="..\ext\zlib\zlib.vcxproj">
       <Project>{f761046e-6c38-4428-a5f1-38391a37bb34}</Project>
     </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\ext\basis_universal\basisu_transcoder_tables_astc.inc" />
+    <None Include="..\ext\basis_universal\basisu_transcoder_tables_astc_0_255.inc" />
+    <None Include="..\ext\basis_universal\basisu_transcoder_tables_atc_55.inc" />
+    <None Include="..\ext\basis_universal\basisu_transcoder_tables_atc_56.inc" />
+    <None Include="..\ext\basis_universal\basisu_transcoder_tables_bc7_m5_alpha.inc" />
+    <None Include="..\ext\basis_universal\basisu_transcoder_tables_bc7_m5_color.inc" />
+    <None Include="..\ext\basis_universal\basisu_transcoder_tables_dxt1_5.inc" />
+    <None Include="..\ext\basis_universal\basisu_transcoder_tables_dxt1_6.inc" />
+    <None Include="..\ext\basis_universal\basisu_transcoder_tables_pvrtc2_45.inc" />
+    <None Include="..\ext\basis_universal\basisu_transcoder_tables_pvrtc2_alpha_33.inc" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include <string>
 #include "Common/CommonTypes.h"
 #include "Core/MIPS/MIPS.h"
 
@@ -115,7 +116,7 @@ struct MIPSInfo {
 	u64 cycles : 16;
 };
 
-typedef void (CDECL *MIPSDisFunc)(MIPSOpcode opcode, char *out);
+typedef void (CDECL *MIPSDisFunc)(MIPSOpcode opcode, uint32_t pc, char *out, size_t outSize);
 typedef void (CDECL *MIPSInterpretFunc)(MIPSOpcode opcode);
 
 namespace MIPSComp {
@@ -123,7 +124,7 @@ namespace MIPSComp {
 }
 
 void MIPSCompileOp(MIPSOpcode op, MIPSComp::MIPSFrontendInterface *jit);
-void MIPSDisAsm(MIPSOpcode op, u32 pc, char *out, bool tabsToSpaces = false);
+void MIPSDisAsm(MIPSOpcode op, u32 pc, char *out, size_t outSize, bool tabsToSpaces = false);
 MIPSInfo MIPSGetInfo(MIPSOpcode op);
 void MIPSInterpret(MIPSOpcode op); //only for those rare ones
 int MIPSInterpret_RunUntil(u64 globalTicks);
@@ -132,4 +133,4 @@ MIPSInterpretFunc MIPSGetInterpretFunc(MIPSOpcode op);
 int MIPSGetInstructionCycleEstimate(MIPSOpcode op);
 int MIPSGetMemoryAccessSize(MIPSOpcode op);
 const char *MIPSGetName(MIPSOpcode op);
-const char *MIPSDisasmAt(u32 compilerPC);
+std::string MIPSDisasmAt(u32 compilerPC);

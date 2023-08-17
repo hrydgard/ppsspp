@@ -81,7 +81,7 @@ static u32 JitMemCheck(u32 pc) {
 
 	// Note: pc may be the delay slot.
 	const auto op = Memory::Read_Instruction(pc, true);
-	s32 offset = (s16)(op & 0xFFFF);
+	s32 offset = SignExtend16ToS32(op & 0xFFFF);
 	if (MIPSGetInfo(op) & IS_VFPU)
 		offset &= 0xFFFC;
 	u32 addr = currentMIPS->r[MIPS_GET_RS(op)] + offset;
@@ -129,9 +129,14 @@ void Arm64Jit::DoState(PointerWrap &p) {
 		return;
 
 	Do(p, js.startDefaultPrefix);
+	if (p.mode == PointerWrap::MODE_READ && !js.startDefaultPrefix) {
+		WARN_LOG(CPU, "Jit: An uneaten prefix was previously detected. Jitting in unknown-prefix mode.");
+	}
 	if (s >= 2) {
 		Do(p, js.hasSetRounding);
-		js.lastSetRounding = 0;
+		if (p.mode == PointerWrap::MODE_READ) {
+			js.lastSetRounding = 0;
+		}
 	} else {
 		js.hasSetRounding = 1;
 	}
@@ -370,7 +375,7 @@ const u8 *Arm64Jit::DoJit(u32 em_address, JitBlock *b) {
 	if (logBlocks > 0 && dontLogBlocks == 0) {
 		INFO_LOG(JIT, "=============== mips %d ===============", blocks.GetNumBlocks());
 		for (u32 cpc = em_address; cpc != GetCompilerPC() + 4; cpc += 4) {
-			MIPSDisAsm(Memory::Read_Opcode_JIT(cpc), cpc, temp, true);
+			MIPSDisAsm(Memory::Read_Opcode_JIT(cpc), cpc, temp, sizeof(temp), true);
 			INFO_LOG(JIT, "M: %08x   %s", cpc, temp);
 		}
 	}
@@ -427,12 +432,20 @@ bool Arm64Jit::DescribeCodePtr(const u8 *ptr, std::string &name) {
 		name = "loadStaticRegisters";
 	else {
 		u32 addr = blocks.GetAddressFromBlockPtr(ptr);
-		std::vector<int> numbers;
-		blocks.GetBlockNumbersFromAddress(addr, &numbers);
-		if (!numbers.empty()) {
-			const JitBlock *block = blocks.GetBlock(numbers[0]);
+		// Returns 0 when it's valid, but unknown.
+		if (addr == 0) {
+			name = "(unknown or deleted block)";
+			return true;
+		} else if (addr != (u32)-1) {
+			name = "(outside space)";
+			return true;
+		}
+
+		int number = blocks.GetBlockNumberFromAddress(addr);
+		if (number != -1) {
+			const JitBlock *block = blocks.GetBlock(number);
 			if (block) {
-				name = StringFromFormat("(block %d at %08x)", numbers[0], block->originalAddress);
+				name = StringFromFormat("(block %d at %08x)", number, block->originalAddress);
 				return true;
 			}
 		}
@@ -509,6 +522,14 @@ bool Arm64Jit::ReplaceJalTo(u32 dest) {
 
 	js.compilerPC += 4;
 	// No writing exits, keep going!
+
+	if (CBreakPoints::HasMemChecks()) {
+		// We could modify coreState, so we need to write PC and check.
+		// Otherwise, PC may end up on the jal.  We add 4 to skip the delay slot.
+		FlushAll();
+		WriteExit(GetCompilerPC() + 4, js.nextExit++);
+		js.compiling = false;
+	}
 
 	// Add a trigger so that if the inlined code changes, we invalidate this block.
 	blocks.ProxyBlock(js.blockStart, dest, funcSize / sizeof(u32), GetCodePtr());

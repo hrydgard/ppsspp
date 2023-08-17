@@ -20,6 +20,7 @@
 
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"
+#include "Common/Math/math_util.h"
 #include "Core/CoreTiming.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/FunctionWrappers.h"
@@ -28,6 +29,7 @@
 #include "Core/HLE/sceKernelThread.h"
 #include "Core/HLE/sceKernelInterrupt.h"
 #include "Core/HW/Display.h"
+#include "Core/System.h"
 #include "Core/MemMapHelpers.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/Replay.h"
@@ -101,6 +103,8 @@ static u8 vibrationRightDropout = 160;
 // Not related to sceCtrl*RapidFire(), although it may do the same thing.
 static bool emuRapidFire = false;
 static u32 emuRapidFireFrames = 0;
+static bool emuRapidFireToggle = true;
+static u32 emuRapidFireInterval = 5;
 
 // These buttons are not affected by rapid fire (neither is analog.)
 const u32 CTRL_EMU_RAPIDFIRE_MASK = CTRL_UP | CTRL_DOWN | CTRL_LEFT | CTRL_RIGHT;
@@ -111,13 +115,27 @@ static void __CtrlUpdateLatch()
 	u64 t = CoreTiming::GetGlobalTimeUs();
 
 	u32 buttons = ctrlCurrent.buttons;
-	if (emuRapidFire && (emuRapidFireFrames % 10) < 5)
+	if (emuRapidFire && emuRapidFireToggle)
 		buttons &= CTRL_EMU_RAPIDFIRE_MASK;
 
 	ReplayApplyCtrl(buttons, ctrlCurrent.analog, t);
 
 	// Copy in the current data to the current buffer.
 	ctrlBufs[ctrlBuf] = ctrlCurrent;
+
+	if (PSP_CoreParameter().compat.flags().DaxterRotatedAnalogStick) {
+		// For some reason, Daxter rotates the analog input. See #17015
+		float angle = (15.0f / 360.0f) * (2.0f * M_PI);
+		float cosAngle = cosf(angle);
+		float sinAngle = sinf(angle);
+		float x = ctrlBufs[ctrlBuf].analog[0][0] - 128;
+		float y = ctrlBufs[ctrlBuf].analog[0][1] - 128;
+		float rX = x * cosAngle - y * sinAngle;
+		float rY = x * sinAngle + y * cosAngle;
+		ctrlBufs[ctrlBuf].analog[0][0] = (u8)Clamp(rX + 128, 0.0f, 255.0f);
+		ctrlBufs[ctrlBuf].analog[0][1] = (u8)Clamp(rY + 128, 0.0f, 255.0f);
+	}
+
 	ctrlBufs[ctrlBuf].buttons = buttons;
 
 	u32 changed = buttons ^ ctrlOldButtons;
@@ -157,6 +175,19 @@ u32 __CtrlPeekButtons()
 	return ctrlCurrent.buttons;
 }
 
+u32 __CtrlPeekButtonsVisual()
+{
+	u32 buttons;
+	{
+		std::lock_guard<std::mutex> guard(ctrlMutex);
+		buttons = ctrlCurrent.buttons;
+	}
+
+	if (emuRapidFire && emuRapidFireToggle)
+		buttons &= CTRL_EMU_RAPIDFIRE_MASK;
+	return buttons;
+}
+
 void __CtrlPeekAnalog(int stick, float *x, float *y)
 {
 	std::lock_guard<std::mutex> guard(ctrlMutex);
@@ -173,19 +204,11 @@ u32 __CtrlReadLatch()
 	return ret;
 }
 
-// Functions so that the rest of the emulator can control what the sceCtrl interface should return
-// to the game:
-
-void __CtrlButtonDown(u32 buttonBit)
+void __CtrlUpdateButtons(u32 bitsToSet, u32 bitsToClear)
 {
 	std::lock_guard<std::mutex> guard(ctrlMutex);
-	ctrlCurrent.buttons |= buttonBit;
-}
-
-void __CtrlButtonUp(u32 buttonBit)
-{
-	std::lock_guard<std::mutex> guard(ctrlMutex);
-	ctrlCurrent.buttons &= ~buttonBit;
+	ctrlCurrent.buttons &= ~(bitsToClear & CTRL_MASK_USER);
+	ctrlCurrent.buttons |= (bitsToSet & CTRL_MASK_USER);
 }
 
 void __CtrlSetAnalogXY(int stick, float x, float y)
@@ -198,9 +221,11 @@ void __CtrlSetAnalogXY(int stick, float x, float y)
 	ctrlCurrent.analog[stick][CTRL_ANALOG_Y] = scaledY;
 }
 
-void __CtrlSetRapidFire(bool state)
+void __CtrlSetRapidFire(bool state, int interval)
 {
 	emuRapidFire = state;
+	emuRapidFireToggle = true;
+	emuRapidFireInterval = interval;
 }
 
 bool __CtrlGetRapidFire()
@@ -290,6 +315,10 @@ retry:
 static void __CtrlVblank()
 {
 	emuRapidFireFrames++;
+	if (emuRapidFireFrames >= emuRapidFireInterval) {
+		emuRapidFireFrames = 0;
+		emuRapidFireToggle = !emuRapidFireToggle;
+	}
 
 	// Reduce gamepad Vibration by set % each frame
 	leftVibration *= (float)vibrationLeftDropout / 256.0f;

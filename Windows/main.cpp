@@ -34,18 +34,23 @@
 #include "Common/System/Display.h"
 #include "Common/System/NativeApp.h"
 #include "Common/System/System.h"
+#include "Common/System/Request.h"
 #include "Common/File/FileUtil.h"
 #include "Common/File/VFS/VFS.h"
-#include "Common/File/VFS/AssetReader.h"
+#include "Common/File/VFS/DirectoryReader.h"
 #include "Common/Data/Text/I18n.h"
 #include "Common/Profiler/Profiler.h"
 #include "Common/Thread/ThreadUtil.h"
 #include "Common/Data/Encoding/Utf8.h"
 #include "Common/Net/Resolve.h"
+#include "Common/TimeUtil.h"
+#include "W32Util/DarkMode.h"
+#include "W32Util/ShellUtil.h"
 
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
 #include "Core/SaveState.h"
+#include "Core/Instance.h"
 #include "Windows/EmuThread.h"
 #include "Windows/WindowsAudio.h"
 #include "ext/disarm.h"
@@ -73,6 +78,7 @@
 #include "Windows/Debugger/CtrlDisAsmView.h"
 #include "Windows/Debugger/CtrlMemView.h"
 #include "Windows/Debugger/CtrlRegisterList.h"
+#include "Windows/Debugger/DebuggerShared.h"
 #include "Windows/InputBox.h"
 
 #include "Windows/WindowsHost.h"
@@ -106,10 +112,17 @@ static std::string restartArgs;
 
 int g_activeWindow = 0;
 
-static std::thread inputBoxThread;
-static bool inputBoxRunning = false;
+WindowsInputManager g_inputManager;
 
-void OpenDirectory(const char *path) {
+int g_lastNumInstances = 0;
+
+static double g_lastActivity = 0.0;
+static double g_lastKeepAwake = 0.0;
+// Time until we stop considering the core active without user input.
+// Should this be configurable?  2 hours currently.
+static const double ACTIVITY_IDLE_TIMEOUT = 2.0 * 3600.0;
+
+void System_ShowFileInFolder(const char *path) {
 	// SHParseDisplayName can't handle relative paths, so normalize first.
 	std::string resolved = ReplaceAll(File::ResolvePath(path), "/", "\\");
 
@@ -124,11 +137,11 @@ void OpenDirectory(const char *path) {
 	}
 }
 
-void LaunchBrowser(const char *url) {
+void System_LaunchUrl(LaunchUrlType urlType, const char *url) {
 	ShellExecute(NULL, L"open", ConvertUTF8ToWString(url).c_str(), NULL, NULL, SW_SHOWNORMAL);
 }
 
-void Vibrate(int length_ms) {
+void System_Vibrate(int length_ms) {
 	// Ignore on PC
 }
 
@@ -228,6 +241,8 @@ std::string System_GetProperty(SystemProperty prop) {
 			gpuDriverVersion = GetVideoCardDriverVersion();
 		}
 		return gpuDriverVersion;
+	case SYSPROP_BUILD_VERSION:
+		return PPSSPP_GIT_VERSION;
 	default:
 		return "";
 	}
@@ -280,6 +295,25 @@ static int ScreenDPI() {
 #endif
 #endif
 
+static int ScreenRefreshRateHz() {
+	DEVMODE lpDevMode;
+	memset(&lpDevMode, 0, sizeof(DEVMODE));
+	lpDevMode.dmSize = sizeof(DEVMODE);
+	lpDevMode.dmDriverExtra = 0;
+
+	// TODO: Use QueryDisplayConfig instead (Win7+) so we can get fractional refresh rates correctly.
+
+	if (EnumDisplaySettings(NULL, ENUM_CURRENT_SETTINGS, &lpDevMode) == 0) {
+		return 60;  // default value
+	} else {
+		if (lpDevMode.dmFields & DM_DISPLAYFREQUENCY) {
+			return lpDevMode.dmDisplayFrequency > 60 ? lpDevMode.dmDisplayFrequency : 60;
+		} else {
+			return 60;
+		}
+	}
+}
+
 int System_GetPropertyInt(SystemProperty prop) {
 	switch (prop) {
 	case SYSPROP_AUDIO_SAMPLE_RATE:
@@ -311,7 +345,7 @@ int System_GetPropertyInt(SystemProperty prop) {
 float System_GetPropertyFloat(SystemProperty prop) {
 	switch (prop) {
 	case SYSPROP_DISPLAY_REFRESH_RATE:
-		return 60.f;
+		return (float)ScreenRefreshRateHz();
 	case SYSPROP_DISPLAY_DPI:
 		return (float)ScreenDPI();
 	case SYSPROP_DISPLAY_SAFE_INSET_LEFT:
@@ -326,12 +360,17 @@ float System_GetPropertyFloat(SystemProperty prop) {
 
 bool System_GetPropertyBool(SystemProperty prop) {
 	switch (prop) {
+	case SYSPROP_HAS_DEBUGGER:
 	case SYSPROP_HAS_FILE_BROWSER:
 	case SYSPROP_HAS_FOLDER_BROWSER:
+	case SYSPROP_HAS_OPEN_DIRECTORY:
+	case SYSPROP_HAS_TEXT_INPUT_DIALOG:
 		return true;
 	case SYSPROP_HAS_IMAGE_BROWSER:
 		return true;
 	case SYSPROP_HAS_BACK_BUTTON:
+		return true;
+	case SYSPROP_HAS_LOGIN_DIALOG:
 		return true;
 	case SYSPROP_APP_GOLD:
 #ifdef GOLD
@@ -345,18 +384,119 @@ bool System_GetPropertyBool(SystemProperty prop) {
 		return true;
 	case SYSPROP_SUPPORTS_OPEN_FILE_IN_EDITOR:
 		return true;  // FileUtil.cpp: OpenFileInEditor
+	case SYSPROP_SUPPORTS_HTTPS:
+		return true;
 	default:
 		return false;
 	}
 }
 
-void System_SendMessage(const char *command, const char *parameter) {
-	if (!strcmp(command, "finish")) {
+static BOOL PostDialogMessage(Dialog *dialog, UINT message, WPARAM wParam = 0, LPARAM lParam = 0) {
+	return PostMessage(dialog->GetDlgHandle(), message, wParam, lParam);
+}
+
+// This can come from any thread, so this mostly uses PostMessage. Can't access most data directly.
+void System_Notify(SystemNotification notification) {
+	switch (notification) {
+	case SystemNotification::BOOT_DONE:
+	{
+		if (g_symbolMap)
+			g_symbolMap->SortSymbols();  // internal locking is performed here
+		PostMessage(MainWindow::GetHWND(), WM_USER + 1, 0, 0);
+
+		if (disasmWindow)
+			PostDialogMessage(disasmWindow, WM_DEB_SETDEBUGLPARAM, 0, (LPARAM)Core_IsStepping());
+		break;
+	}
+
+	case SystemNotification::UI:
+	{
+		PostMessage(MainWindow::GetHWND(), MainWindow::WM_USER_UPDATE_UI, 0, 0);
+
+		int peers = GetInstancePeerCount();
+		if (PPSSPP_ID >= 1 && peers != g_lastNumInstances) {
+			g_lastNumInstances = peers;
+			PostMessage(MainWindow::GetHWND(), MainWindow::WM_USER_WINDOW_TITLE_CHANGED, 0, 0);
+		}
+		break;
+	}
+
+	case SystemNotification::MEM_VIEW:
+		if (memoryWindow)
+			PostDialogMessage(memoryWindow, WM_DEB_UPDATE);
+		break;
+
+	case SystemNotification::DISASSEMBLY:
+		if (disasmWindow)
+			PostDialogMessage(disasmWindow, WM_DEB_UPDATE);
+		break;
+
+	case SystemNotification::SYMBOL_MAP_UPDATED:
+		if (g_symbolMap)
+			g_symbolMap->SortSymbols();  // internal locking is performed here
+		PostMessage(MainWindow::GetHWND(), WM_USER + 1, 0, 0);
+		break;
+
+	case SystemNotification::SWITCH_UMD_UPDATED:
+		PostMessage(MainWindow::GetHWND(), MainWindow::WM_USER_SWITCHUMD_UPDATED, 0, 0);
+		break;
+
+	case SystemNotification::DEBUG_MODE_CHANGE:
+		if (disasmWindow)
+			PostDialogMessage(disasmWindow, WM_DEB_SETDEBUGLPARAM, 0, (LPARAM)Core_IsStepping());
+		break;
+
+	case SystemNotification::POLL_CONTROLLERS:
+		g_inputManager.PollControllers();
+		break;
+
+	case SystemNotification::TOGGLE_DEBUG_CONSOLE:
+		MainWindow::ToggleDebugConsoleVisibility();
+		break;
+
+	case SystemNotification::ACTIVITY:
+		g_lastActivity = time_now_d();
+		break;
+
+	case SystemNotification::KEEP_SCREEN_AWAKE:
+	{
+		// Keep the system awake for longer than normal for cutscenes and the like.
+		const double now = time_now_d();
+		if (now < g_lastActivity + ACTIVITY_IDLE_TIMEOUT) {
+			// Only resetting it ever prime number seconds in case the call is expensive.
+			// Using a prime number to ensure there's no interaction with other periodic events.
+			if (now - g_lastKeepAwake > 89.0 || now < g_lastKeepAwake) {
+				// Note that this needs to be called periodically.
+				// It's also possible to set ES_CONTINUOUS but let's not, for simplicity.
+#if defined(_WIN32) && !PPSSPP_PLATFORM(UWP)
+				SetThreadExecutionState(ES_SYSTEM_REQUIRED | ES_DISPLAY_REQUIRED);
+#endif
+				g_lastKeepAwake = now;
+			}
+		}
+		break;
+	}
+	}
+}
+
+std::wstring MakeFilter(std::wstring filter) {
+	for (size_t i = 0; i < filter.length(); i++) {
+		if (filter[i] == '|')
+			filter[i] = '\0';
+	}
+	return filter;
+}
+
+bool System_MakeRequest(SystemRequestType type, int requestId, const std::string &param1, const std::string &param2, int param3) {
+	switch (type) {
+	case SystemRequestType::EXIT_APP:
 		if (!NativeIsRestarting()) {
 			PostMessage(MainWindow::GetHWND(), WM_CLOSE, 0, 0);
 		}
-	} else if (!strcmp(command, "graphics_restart")) {
-		restartArgs = parameter == nullptr ? "" : parameter;
+		return true;
+	case SystemRequestType::RESTART_APP:
+	{
+		restartArgs = param1;
 		if (!restartArgs.empty())
 			AddDebugRestartArgs();
 		if (IsDebuggerPresent()) {
@@ -365,32 +505,131 @@ void System_SendMessage(const char *command, const char *parameter) {
 			g_Config.bRestartRequired = true;
 			PostMessage(MainWindow::GetHWND(), WM_CLOSE, 0, 0);
 		}
-	} else if (!strcmp(command, "graphics_failedBackend")) {
-		auto err = GetI18NCategory("Error");
-		const char *backendSwitchError = err->T("GenericBackendSwitchCrash", "PPSSPP crashed while starting. This usually means a graphics driver problem. Try upgrading your graphics drivers.\n\nGraphics backend has been switched:");
-		std::wstring full_error = ConvertUTF8ToWString(StringFromFormat("%s %s", backendSwitchError, parameter));
-		std::wstring title = ConvertUTF8ToWString(err->T("GenericGraphicsError", "Graphics Error"));
-		MessageBox(MainWindow::GetHWND(), full_error.c_str(), title.c_str(), MB_OK);
-	} else if (!strcmp(command, "setclipboardtext")) {
-		std::wstring data = ConvertUTF8ToWString(parameter);
+		return true;
+	}
+	case SystemRequestType::COPY_TO_CLIPBOARD:
+	{
+		std::wstring data = ConvertUTF8ToWString(param1);
 		W32Util::CopyTextToClipboard(MainWindow::GetDisplayHWND(), data);
-	} else if (!strcmp(command, "browse_file")) {
-		MainWindow::BrowseAndBoot("");
-	} else if (!strcmp(command, "browse_folder")) {
-		auto mm = GetI18NCategory("MainMenu");
-		std::string folder = W32Util::BrowseForFolder(MainWindow::GetHWND(), mm->T("Choose folder"));
-		if (folder.size())
-			NativeMessageReceived("browse_folderSelect", folder.c_str());
-	} else if (!strcmp(command, "bgImage_browse")) {
-		MainWindow::BrowseBackground();
-	} else if (!strcmp(command, "toggle_fullscreen")) {
+		return true;
+	}
+	case SystemRequestType::SET_WINDOW_TITLE:
+	{
+		const char *name = System_GetPropertyBool(SYSPROP_APP_GOLD) ? "PPSSPP Gold " : "PPSSPP ";
+		std::wstring winTitle = ConvertUTF8ToWString(std::string(name) + PPSSPP_GIT_VERSION);
+		if (!param1.empty()) {
+			winTitle.append(ConvertUTF8ToWString(" - " + param1));
+		}
+#ifdef _DEBUG
+		winTitle.append(L" (debug)");
+#endif
+		MainWindow::SetWindowTitle(winTitle.c_str());
+		PostMessage(MainWindow::GetHWND(), MainWindow::WM_USER_WINDOW_TITLE_CHANGED, 0, 0);
+		return true;
+	}
+	case SystemRequestType::INPUT_TEXT_MODAL:
+		std::thread([=] {
+			std::string out;
+			if (InputBox_GetString(MainWindow::GetHInstance(), MainWindow::GetHWND(), ConvertUTF8ToWString(param1).c_str(), param2, out)) {
+				g_requestManager.PostSystemSuccess(requestId, out.c_str());
+			} else {
+				g_requestManager.PostSystemFailure(requestId);
+			}
+		}).detach();
+		return true;
+	case SystemRequestType::ASK_USERNAME_PASSWORD:
+		std::thread([=] {
+			std::string username;
+			std::string password;
+			if (UserPasswordBox_GetStrings(MainWindow::GetHInstance(), MainWindow::GetHWND(), ConvertUTF8ToWString(param1).c_str(), &username, &password)) {
+				g_requestManager.PostSystemSuccess(requestId, (username + '\n' + password).c_str());
+			} else {
+				g_requestManager.PostSystemFailure(requestId);
+			}
+		}).detach();
+		return true;
+	case SystemRequestType::BROWSE_FOR_IMAGE:
+		std::thread([=] {
+			std::string out;
+			if (W32Util::BrowseForFileName(true, MainWindow::GetHWND(), ConvertUTF8ToWString(param1).c_str(), nullptr,
+				MakeFilter(L"All supported images (*.jpg *.jpeg *.png)|*.jpg;*.jpeg;*.png|All files (*.*)|*.*||").c_str(), L"jpg", out)) {
+				g_requestManager.PostSystemSuccess(requestId, out.c_str());
+			} else {
+				g_requestManager.PostSystemFailure(requestId);
+			}
+		}).detach();
+		return true;
+	case SystemRequestType::BROWSE_FOR_FILE:
+	{
+		BrowseFileType type = (BrowseFileType)param3;
+		std::wstring filter;
+		switch (type) {
+		case BrowseFileType::BOOTABLE:
+			filter = MakeFilter(L"All supported file types (*.iso *.cso *.pbp *.elf *.prx *.zip *.ppdmp)|*.pbp;*.elf;*.iso;*.cso;*.prx;*.zip;*.ppdmp|PSP ROMs (*.iso *.cso *.pbp *.elf *.prx)|*.pbp;*.elf;*.iso;*.cso;*.prx|Homebrew/Demos installers (*.zip)|*.zip|All files (*.*)|*.*||");
+			break;
+		case BrowseFileType::INI:
+			filter = MakeFilter(L"Ini files (*.ini)|*.ini|All files (*.*)|*.*||");
+			break;
+		case BrowseFileType::DB:
+			filter = MakeFilter(L"Cheat db files (*.db)|*.db|All files (*.*)|*.*||");
+			break;
+		case BrowseFileType::SOUND_EFFECT:
+			filter = MakeFilter(L"WAVE files (*.wav)|*.wav|All files (*.*)|*.*||");
+			break;
+		case BrowseFileType::ANY:
+			filter = MakeFilter(L"All files (*.*)|*.*||");
+			break;
+		default:
+			return false;
+		}
+
+		std::thread([=] {
+			std::string out;
+			if (W32Util::BrowseForFileName(true, MainWindow::GetHWND(), ConvertUTF8ToWString(param1).c_str(), nullptr, filter.c_str(), L"", out)) {
+				g_requestManager.PostSystemSuccess(requestId, out.c_str());
+			} else {
+				g_requestManager.PostSystemFailure(requestId);
+			}
+		}).detach();
+		return true;
+	}
+	case SystemRequestType::BROWSE_FOR_FOLDER:
+	{
+		std::thread([=] {
+			std::string folder = W32Util::BrowseForFolder(MainWindow::GetHWND(), param1.c_str());
+			if (folder.size()) {
+				g_requestManager.PostSystemSuccess(requestId, folder.c_str());
+			} else {
+				g_requestManager.PostSystemFailure(requestId);
+			}
+		}).detach();
+		return true;
+	}
+	case SystemRequestType::TOGGLE_FULLSCREEN_STATE:
+	{
 		bool flag = !MainWindow::IsFullscreen();
-		if (strcmp(parameter, "0") == 0) {
+		if (param1 == "0") {
 			flag = false;
-		} else if (strcmp(parameter, "1") == 0) {
+		} else if (param1 == "1") {
 			flag = true;
 		}
 		MainWindow::SendToggleFullscreen(flag);
+		return true;
+	}
+	case SystemRequestType::GRAPHICS_BACKEND_FAILED_ALERT:
+	{
+		auto err = GetI18NCategory(I18NCat::ERRORS);
+		const char *backendSwitchError = err->T("GenericBackendSwitchCrash", "PPSSPP crashed while starting. This usually means a graphics driver problem. Try upgrading your graphics drivers.\n\nGraphics backend has been switched:");
+		std::wstring full_error = ConvertUTF8ToWString(StringFromFormat("%s %s", backendSwitchError, param1.c_str()));
+		std::wstring title = ConvertUTF8ToWString(err->T("GenericGraphicsError", "Graphics Error"));
+		MessageBox(MainWindow::GetHWND(), full_error.c_str(), title.c_str(), MB_OK);
+		return true;
+	}
+	case SystemRequestType::CREATE_GAME_SHORTCUT:
+		// This is not actually working, but ported it to the request framework anyway.
+		return W32Util::CreateDesktopShortcut(param1, param2);
+	default:
+		return false;
 	}
 }
 
@@ -417,22 +656,6 @@ void EnableCrashingOnCrashes() {
 		}
 	}
 	FreeLibrary(kernel32);
-}
-
-void System_InputBoxGetString(const std::string &title, const std::string &defaultValue, std::function<void(bool, const std::string &)> cb) {
-	if (inputBoxRunning) {
-		inputBoxThread.join();
-	}
-
-	inputBoxRunning = true;
-	inputBoxThread = std::thread([=] {
-		std::string out;
-		if (InputBox_GetString(MainWindow::GetHInstance(), MainWindow::GetHWND(), ConvertUTF8ToWString(title).c_str(), defaultValue, out)) {
-			NativeInputBoxReceived(cb, true, out);
-		} else {
-			NativeInputBoxReceived(cb, false, "");
-		}
-	});
 }
 
 void System_Toast(const char *text) {
@@ -536,13 +759,13 @@ static void WinMainInit() {
 	// FMA3 support in the 2013 CRT is broken on Vista and Windows 7 RTM (fixed in SP1). Just disable it.
 	_set_FMA3_enable(0);
 #endif
+
+	InitDarkMode();
 }
 
 static void WinMainCleanup() {
-	if (inputBoxRunning) {
-		inputBoxThread.join();
-		inputBoxRunning = false;
-	}
+	// This will ensure no further callbacks are called, which may prevent crashing.
+	g_requestManager.Clear();
 	net::Shutdown();
 	CoUninitialize();
 
@@ -563,8 +786,8 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 #endif
 
 	const Path &exePath = File::GetExeDirectory();
-	VFSRegister("", new DirectoryAssetReader(exePath / "assets"));
-	VFSRegister("", new DirectoryAssetReader(exePath));
+	g_VFS.Register("", new DirectoryReader(exePath / "assets"));
+	g_VFS.Register("", new DirectoryReader(exePath));
 
 	langRegion = GetDefaultLangRegion();
 	osName = GetWindowsVersion() + " " + GetWindowsSystemArchitecture();
@@ -725,6 +948,8 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 		MainWindow::Minimize();
 	}
 
+	g_inputManager.Init();
+
 	// Emu thread (and render thread, if any) is always running!
 	// Only OpenGL uses an externally managed render thread (due to GL's single-threaded context design). Vulkan
 	// manages its own render thread.
@@ -776,7 +1001,7 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 		}
 	}
 
-	VFSShutdown();
+	g_VFS.Clear();
 
 	MainWindow::DestroyDebugWindows();
 	DialogManager::DestroyAll();

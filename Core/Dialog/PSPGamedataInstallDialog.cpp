@@ -97,6 +97,7 @@ int PSPGamedataInstallDialog::Init(u32 paramAddr) {
 	memset(&request, 0, sizeof(request));
 	// Only copy the right size to support different request format
 	Memory::Memcpy(&request, paramAddr, size, "sceGamedataInstallInitStart");
+	InitCommon();
 
 	ChangeStatusInit(GAMEDATA_INIT_DELAY_US);
 	return 0;
@@ -113,6 +114,8 @@ int PSPGamedataInstallDialog::Update(int animSpeed) {
 		WARN_LOG_REPORT(SCEUTILITY, "sceUtilityGamedataInstallUpdate: invalid mode %d", param->mode);
 		return 0;
 	}
+
+	UpdateCommon();
 
 	// TODO: param->mode == 1 should show a prompt to confirm, then a progress bar.
 	// Any other mode (i.e. 0 or negative) should proceed and show no UI.

@@ -35,8 +35,8 @@ void InstallZipScreen::CreateViews() {
 	File::FileInfo fileInfo;
 	bool success = File::GetFileInfo(zipPath_, &fileInfo);
 
-	auto di = GetI18NCategory("Dialog");
-	auto iz = GetI18NCategory("InstallZip");
+	auto di = GetI18NCategory(I18NCat::DIALOG);
+	auto iz = GetI18NCategory(I18NCat::INSTALLZIP);
 
 	Margins actionMenuMargins(0, 100, 15, 0);
 
@@ -112,7 +112,7 @@ UI::EventReturn InstallZipScreen::OnInstall(UI::EventParams &params) {
 }
 
 void InstallZipScreen::update() {
-	auto iz = GetI18NCategory("InstallZip");
+	auto iz = GetI18NCategory(I18NCat::INSTALLZIP);
 
 	using namespace UI;
 	if (g_GameManager.GetState() != GameManagerState::IDLE) {

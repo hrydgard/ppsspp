@@ -1,6 +1,5 @@
 #include "Common/CommonFuncs.h"
 #include "Core/MIPS/IR/IRInst.h"
-#include "Core/MIPS/IR/IRPassSimplify.h"
 #include "Core/MIPS/MIPSDebugInterface.h"
 
 // Legend
@@ -73,6 +72,7 @@ static const IRMeta irMeta[] = {
 	{ IROp::Load32, "Load32", "GGC" },
 	{ IROp::Load32Left, "Load32Left", "GGC", IRFLAG_SRC3DST },
 	{ IROp::Load32Right, "Load32Right", "GGC", IRFLAG_SRC3DST },
+	{ IROp::Load32Linked, "Load32Linked", "GGC" },
 	{ IROp::LoadFloat, "LoadFloat", "FGC" },
 	{ IROp::LoadVec4, "LoadVec4", "VGC" },
 	{ IROp::Store8, "Store8", "GGC", IRFLAG_SRC3 },
@@ -80,6 +80,7 @@ static const IRMeta irMeta[] = {
 	{ IROp::Store32, "Store32", "GGC", IRFLAG_SRC3 },
 	{ IROp::Store32Left, "Store32Left", "GGC", IRFLAG_SRC3 },
 	{ IROp::Store32Right, "Store32Right", "GGC", IRFLAG_SRC3 },
+	{ IROp::Store32Conditional, "Store32Conditional", "GGC", IRFLAG_SRC3DST },
 	{ IROp::StoreFloat, "StoreFloat", "FGC", IRFLAG_SRC3 },
 	{ IROp::StoreVec4, "StoreVec4", "VGC", IRFLAG_SRC3 },
 	{ IROp::FAdd, "FAdd", "FFF" },
@@ -105,22 +106,27 @@ static const IRMeta irMeta[] = {
 	{ IROp::FFloor, "FFloor", "FF" },
 	{ IROp::FCvtWS, "FCvtWS", "FF" },
 	{ IROp::FCvtSW, "FCvtSW", "FF" },
+	{ IROp::FCvtScaledWS, "FCvtScaledWS", "FFI" },
+	{ IROp::FCvtScaledSW, "FCvtScaledSW", "FFI" },
 	{ IROp::FCmp, "FCmp", "mFF" },
 	{ IROp::FSat0_1, "FSat(0 - 1)", "FF" },
 	{ IROp::FSatMinus1_1, "FSat(-1 - 1)", "FF" },
 	{ IROp::FMovFromGPR, "FMovFromGPR", "FG" },
 	{ IROp::FMovToGPR, "FMovToGPR", "GF" },
-	{ IROp::ZeroFpCond, "ZeroFpCond", "" },
+	{ IROp::FpCondFromReg, "FpCondFromReg", "_G" },
 	{ IROp::FpCondToReg, "FpCondToReg", "G" },
+	{ IROp::FpCtrlFromReg, "FpCtrlFromReg", "_G" },
+	{ IROp::FpCtrlToReg, "FpCtrlToReg", "G" },
 	{ IROp::VfpuCtrlToReg, "VfpuCtrlToReg", "GI" },
 	{ IROp::SetCtrlVFPU, "SetCtrlVFPU", "TC" },
 	{ IROp::SetCtrlVFPUReg, "SetCtrlVFPUReg", "TG" },
 	{ IROp::SetCtrlVFPUFReg, "SetCtrlVFPUFReg", "TF" },
-	{ IROp::FCmovVfpuCC, "FCmovVfpuCC", "FFI" },
+	{ IROp::FCmovVfpuCC, "FCmovVfpuCC", "FFI", IRFLAG_SRC3DST },
 	{ IROp::FCmpVfpuBit, "FCmpVfpuBit", "IFF" },
 	{ IROp::FCmpVfpuAggregate, "FCmpVfpuAggregate", "I" },
 	{ IROp::Vec4Init, "Vec4Init", "Vv" },
 	{ IROp::Vec4Shuffle, "Vec4Shuffle", "VVs" },
+	{ IROp::Vec4Blend, "Vec4Blend", "VVVC" },
 	{ IROp::Vec4Mov, "Vec4Mov", "VV" },
 	{ IROp::Vec4Add, "Vec4Add", "VVV" },
 	{ IROp::Vec4Sub, "Vec4Sub", "VVV" },
@@ -208,7 +214,7 @@ int IRWriter::AddConstantFloat(float value) {
 	return AddConstant(val);
 }
 
-const char *GetGPRName(int r) {
+static std::string GetGPRName(int r) {
 	if (r < 32) {
 		return currentDebugMIPS->GetRegName(0, r);
 	}
@@ -259,25 +265,25 @@ void DisassembleParam(char *buf, int bufSize, u8 param, char type, u32 constant)
 
 	switch (type) {
 	case 'G':
-		snprintf(buf, bufSize, "%s", GetGPRName(param));
+		snprintf(buf, bufSize, "%s", GetGPRName(param).c_str());
 		break;
 	case 'F':
 		if (param >= 32) {
-			snprintf(buf, bufSize, "v%d", param - 32);
+			snprintf(buf, bufSize, "vf%d", param - 32);
 		} else {
 			snprintf(buf, bufSize, "f%d", param);
 		}
 		break;
 	case 'V':
 		if (param >= 32) {
-			snprintf(buf, bufSize, "v%d..v%d", param - 32, param - 32 + 3);
+			snprintf(buf, bufSize, "vf%d..vf%d", param - 32, param - 32 + 3);
 		} else {
 			snprintf(buf, bufSize, "f%d..f%d", param, param + 3);
 		}
 		break;
 	case '2':
 		if (param >= 32) {
-			snprintf(buf, bufSize, "v%d,v%d", param - 32, param - 32 + 1);
+			snprintf(buf, bufSize, "vf%d,vf%d", param - 32, param - 32 + 1);
 		} else {
 			snprintf(buf, bufSize, "f%d,f%d", param, param + 1);
 		}
@@ -323,14 +329,20 @@ void DisassembleIR(char *buf, size_t bufsize, IRInst inst) {
 	char bufDst[16];
 	char bufSrc1[16];
 	char bufSrc2[16];
+	// Only really used for constant.
+	char bufSrc3[16];
 	DisassembleParam(bufDst, sizeof(bufDst) - 2, inst.dest, meta->types[0], inst.constant);
 	DisassembleParam(bufSrc1, sizeof(bufSrc1) - 2, inst.src1, meta->types[1], inst.constant);
 	DisassembleParam(bufSrc2, sizeof(bufSrc2), inst.src2, meta->types[2], inst.constant);
+	DisassembleParam(bufSrc3, sizeof(bufSrc3), inst.src3, meta->types[3], inst.constant);
 	if (meta->types[1] && meta->types[0] != '_') {
 		strcat(bufDst, ", ");
 	}
 	if (meta->types[2] && meta->types[1] != '_') {
 		strcat(bufSrc1, ", ");
 	}
-	snprintf(buf, bufsize, "%s %s%s%s", meta->name, bufDst, bufSrc1, bufSrc2);
+	if (meta->types[3] && meta->types[2] != '_') {
+		strcat(bufSrc2, ", ");
+	}
+	snprintf(buf, bufsize, "%s %s%s%s%s", meta->name, bufDst, bufSrc1, bufSrc2, bufSrc3);
 }

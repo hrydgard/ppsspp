@@ -22,6 +22,7 @@
 #include "Common/CommonTypes.h"
 #include "Common/Data/Collections/Hashmaps.h"
 
+#include "GPU/Math3D.h"
 #include "GPU/GPUState.h"
 #include "GPU/Common/GPUStateUtils.h"
 #include "GPU/Common/GPUDebugInterface.h"
@@ -32,8 +33,8 @@ class VertexDecoder;
 
 enum {
 	VERTEX_BUFFER_MAX = 65536,
-	DECODED_VERTEX_BUFFER_SIZE = VERTEX_BUFFER_MAX * 64,
-	DECODED_INDEX_BUFFER_SIZE = VERTEX_BUFFER_MAX * 16,
+	DECODED_VERTEX_BUFFER_SIZE = VERTEX_BUFFER_MAX * 2 * 36,  // 36 == sizeof(SimpleVertex)
+	DECODED_INDEX_BUFFER_SIZE = VERTEX_BUFFER_MAX * 6 * 6 * 2,   // * 6 for spline tessellation, then * 6 again for converting into points/lines, and * 2 for 2 bytes per index
 };
 
 enum {
@@ -68,12 +69,21 @@ public:
 	virtual void SendDataToShader(const SimpleVertex *const *points, int size_u, int size_v, u32 vertType, const Spline::Weight2D &weights) = 0;
 };
 
+// Culling plane.
+struct Plane {
+	float x, y, z, w;
+	void Set(float _x, float _y, float _z, float _w) { x = _x; y = _y; z = _z; w = _w; }
+	float Test(const float f[3]) const { return x * f[0] + y * f[1] + z * f[2] + w; }
+};
+
 class DrawEngineCommon {
 public:
 	DrawEngineCommon();
 	virtual ~DrawEngineCommon();
 
 	void Init();
+	virtual void DeviceLost() = 0;
+	virtual void DeviceRestore(Draw::DrawContext *draw) = 0;
 
 	bool GetCurrentSimpleVertices(int count, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices);
 
@@ -110,19 +120,26 @@ public:
 	bool EverUsedExactEqualDepth() const {
 		return everUsedExactEqualDepth_;
 	}
+	void SetEverUsedExactEqualDepth(bool v) {
+		everUsedExactEqualDepth_ = v;
+	}
 
 	bool IsCodePtrVertexDecoder(const u8 *ptr) const {
-		return decJitCache_->IsInSpace(ptr);
+		if (decJitCache_)
+			return decJitCache_->IsInSpace(ptr);
+		return false;
 	}
 	int GetNumDrawCalls() const {
-		return numDrawCalls;
+		return numDrawCalls_;
 	}
 
 	VertexDecoder *GetVertexDecoder(u32 vtype);
 
-protected:
-	virtual bool UpdateUseHWTessellation(bool enabled) { return enabled; }
 	virtual void ClearTrackedVertexArrays() {}
+
+protected:
+	virtual bool UpdateUseHWTessellation(bool enabled) const { return enabled; }
+	void UpdatePlanes();
 
 	int ComputeNumVertsToDecode() const;
 	void DecodeVerts(u8 *dest);
@@ -135,7 +152,7 @@ protected:
 	uint64_t ComputeHash();
 
 	// Vertex decoding
-	void DecodeVertsStep(u8 *dest, int &i, int &decodedVerts);
+	void DecodeVertsStep(u8 *dest, int &i, int &decodedVerts, const UVScale *uvScale);
 
 	void ApplyFramebufferRead(FBOTexState *fboTexState);
 
@@ -167,6 +184,8 @@ protected:
 		}
 	}
 
+	uint32_t ComputeDrawcallsHash() const;
+
 	bool useHWTransform_ = false;
 	bool useHWTessellation_ = false;
 	// Used to prevent unnecessary flushing in softgpu.
@@ -177,18 +196,18 @@ protected:
 	bool everUsedExactEqualDepth_ = false;
 
 	// Vertex collector buffers
-	u8 *decoded = nullptr;
-	u16 *decIndex = nullptr;
+	u8 *decoded_ = nullptr;
+	u16 *decIndex_ = nullptr;
 
 	// Cached vertex decoders
-	u32 lastVType_ = -1;
+	u32 lastVType_ = -1;  // corresponds to dec_.  Could really just pick it out of dec_...
 	DenseHashMap<u32, VertexDecoder *, nullptr> decoderMap_;
 	VertexDecoder *dec_ = nullptr;
 	VertexDecoderJitCache *decJitCache_ = nullptr;
 	VertexDecoderOptions decOptions_{};
 
-	TransformedVertex *transformed = nullptr;
-	TransformedVertex *transformedExpanded = nullptr;
+	TransformedVertex *transformed_ = nullptr;
+	TransformedVertex *transformedExpanded_ = nullptr;
 
 	// Defer all vertex decoding to a "Flush" (except when software skinning)
 	struct DeferredDrawCall {
@@ -204,13 +223,12 @@ protected:
 	};
 
 	enum { MAX_DEFERRED_DRAW_CALLS = 128 };
-	DeferredDrawCall drawCalls[MAX_DEFERRED_DRAW_CALLS];
-	int numDrawCalls = 0;
+	DeferredDrawCall drawCalls_[MAX_DEFERRED_DRAW_CALLS];
+	int numDrawCalls_ = 0;
 	int vertexCountInDrawCalls_ = 0;
 
 	int decimationCounter_ = 0;
 	int decodeCounter_ = 0;
-	u32 dcid_ = 0;
 
 	// Vertex collector state
 	IndexGenerator indexGen;
@@ -227,4 +245,9 @@ protected:
 
 	// Hardware tessellation
 	TessellationDataTransfer *tessDataTransfer;
+
+	// Culling
+	Plane planes_[6];
+	Vec2f minOffset_;
+	Vec2f maxOffset_;
 };

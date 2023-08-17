@@ -4,13 +4,17 @@
 #include <cstring>
 
 #include "Common/File/Path.h"
+#include "Common/File/AndroidContentURI.h"
 #include "Common/File/FileUtil.h"
 #include "Common/StringUtils.h"
 #include "Common/Log.h"
 #include "Common/Data/Encoding/Utf8.h"
 
 #include "android/jni/app-android.h"
-#include "android/jni/AndroidContentURI.h"
+
+#if PPSSPP_PLATFORM(UWP) && !defined(__LIBRETRO__)
+#include "UWP/UWPHelpers/StorageManager.h"
+#endif
 
 #if HOST_IS_CASE_SENSITIVE
 #include <dirent.h>
@@ -131,6 +135,11 @@ Path Path::WithReplacedExtension(const std::string &oldExtension, const std::str
 }
 
 Path Path::WithReplacedExtension(const std::string &newExtension) const {
+	if (type_ == PathType::CONTENT_URI) {
+		AndroidContentURI uri(path_);
+		return Path(uri.WithReplacedExtension(newExtension).ToString());
+	}
+
 	_dbg_assert_(!newExtension.empty() && newExtension[0] == '.');
 	if (path_.empty()) {
 		return Path(*this);
@@ -152,7 +161,7 @@ std::string Path::GetFilename() const {
 	return path_;
 }
 
-static std::string GetExtFromString(const std::string &str) {
+std::string GetExtFromString(const std::string &str) {
 	size_t pos = str.rfind(".");
 	if (pos == std::string::npos) {
 		return "";
@@ -172,7 +181,7 @@ static std::string GetExtFromString(const std::string &str) {
 std::string Path::GetFileExtension() const {
 	if (type_ == PathType::CONTENT_URI) {
 		AndroidContentURI uri(path_);
-		return GetExtFromString(uri.FilePath());
+		return uri.GetFileExtension();
 	}
 	return GetExtFromString(path_);
 }
@@ -253,14 +262,49 @@ std::wstring Path::ToWString() const {
 	}
 	return w;
 }
+std::string Path::ToCString() const {
+	std::string w = path_;
+	for (size_t i = 0; i < w.size(); i++) {
+		if (w[i] == '/') {
+			w[i] = '\\';
+		}
+	}
+	return w;
+}
 #endif
 
-std::string Path::ToVisualString() const {
+std::string Path::ToVisualString(const char *relativeRoot) const {
 	if (type_ == PathType::CONTENT_URI) {
 		return AndroidContentURI(path_).ToVisualString();
 #if PPSSPP_PLATFORM(WINDOWS)
 	} else if (type_ == PathType::NATIVE) {
-		return ReplaceAll(path_, "/", "\\");
+#if PPSSPP_PLATFORM(UWP) && !defined(__LIBRETRO__)
+		return GetPreviewPath(path_);
+#else
+		// It can be useful to show the path as relative to the memstick
+		if (relativeRoot) {
+			std::string root = ReplaceAll(relativeRoot, "/", "\\");
+			std::string path = ReplaceAll(path_, "/", "\\");
+			if (startsWithNoCase(path, root)) {
+				return path.substr(root.size());
+			} else {
+				return path;
+			}
+		} else {
+			return ReplaceAll(path_, "/", "\\");
+		}
+#endif
+#else
+		if (relativeRoot) {
+			std::string root = relativeRoot;
+			if (startsWithNoCase(path_, root)) {
+				return path_.substr(root.size());
+			} else {
+				return path_;
+			}
+		} else {
+			return path_;
+		}
 #endif
 	} else {
 		return path_;
@@ -346,6 +390,11 @@ bool Path::IsAbsolute() const {
 }
 
 bool Path::ComputePathTo(const Path &other, std::string &path) const {
+	if (other == *this) {
+		path.clear();
+		return true;
+	}
+
 	if (!other.StartsWith(*this)) {
 		// Can't do this. Should return an error.
 		return false;

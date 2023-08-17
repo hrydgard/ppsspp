@@ -502,47 +502,69 @@ ReplaceBlendType ReplaceBlendWithShader(GEBufferFormat bufferFormat) {
 static const float DEPTH_SLICE_FACTOR_HIGH = 4.0f;
 static const float DEPTH_SLICE_FACTOR_16BIT = 256.0f;
 
-float DepthSliceFactor() {
-	if (gstate_c.Use(GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT)) {
-		return DEPTH_SLICE_FACTOR_16BIT;
-	}
-	if (gstate_c.Use(GPU_USE_DEPTH_CLAMP)) {
+// The supported flag combinations. TODO: Maybe they should be distilled down into an enum.
+//
+// 0 - "Old"-style GL depth.
+//     Or "Non-accurate depth" : effectively ignore minz / maxz. Map Z values based on viewport, which clamps.
+//     This skews depth in many instances. Depth can be inverted in this mode if viewport says.
+//     This is completely wrong, but works in some cases (probably because some game devs assumed it was how it worked)
+//     and avoids some depth clamp issues.
+//
+// GPU_USE_ACCURATE_DEPTH:
+//     Accurate depth: Z in the framebuffer matches the range of Z used on the PSP linearly in some way. We choose
+//     a centered range, to simulate clamping by letting otherwise out-of-range pixels survive the 0 and 1 cutoffs.
+//     Clip depth based on minz/maxz, and viewport is just a means to scale and center the value, not clipping or mapping to stored values.
+//
+// GPU_USE_ACCURATE_DEPTH | GPU_USE_DEPTH_CLAMP:
+//     Variant of GPU_USE_ACCURATE_DEPTH, just the range is the nice and convenient 0-1 since we can use
+//     hardware depth clamp. only viable in accurate depth mode, clamps depth and therefore uses the full 0-1 range. Using the full 0-1 range is not what accurate means, it's implied by depth clamp (which also means we're clamping.)
+//
+// GPU_USE_ACCURATE_DEPTH | GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT:
+// GPU_USE_ACCURATE_DEPTH | GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT | GPU_USE_DEPTH_CLAMP:
+//     Only viable in accurate depth mode, means to use a range of the 24-bit depth values available
+//     from the GPU to represent the 16-bit values the PSP had, to try to make everything round and
+//     z-fight (close to) the same way as on hardware, cheaply (cheaper than rounding depth in fragment shader).
+//     We automatically switch to this if Z tests for equality are used.
+//     Depth clamp has no effect on the depth scaling here if set, though will still be enabled
+//     and clamp wildly out of line values.
+//
+// Any other combinations of these particular flags are bogus (like for example a lonely GPU_USE_DEPTH_CLAMP).
+
+float DepthSliceFactor(u32 useFlags) {
+	if (!(useFlags & GPU_USE_ACCURATE_DEPTH)) {
+		// Old style depth.
 		return 1.0f;
 	}
+	if (useFlags & GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT) {
+		// Accurate depth but 16-bit resolution, so squish.
+		return DEPTH_SLICE_FACTOR_16BIT;
+	}
+	if (useFlags & GPU_USE_DEPTH_CLAMP) {
+		// Accurate depth, but we can use the full range since clamping is available.
+		return 1.0f;
+	}
+
+	// Standard accurate depth.
 	return DEPTH_SLICE_FACTOR_HIGH;
 }
 
-// This is used for float values which might not be integers, but are in the integer scale of 65535.
-float ToScaledDepthFromIntegerScale(float z) {
-	if (!gstate_c.Use(GPU_USE_ACCURATE_DEPTH)) {
-		return z * (1.0f / 65535.0f);
+// See class DepthScaleFactors for how to apply.
+DepthScaleFactors GetDepthScaleFactors(u32 useFlags) {
+	if (!(useFlags & GPU_USE_ACCURATE_DEPTH)) {
+		return DepthScaleFactors(0.0f, 65535.0f);
 	}
 
-	const float depthSliceFactor = DepthSliceFactor();
-	if (gstate_c.Use(GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT)) {
-		const double doffset = 0.5 * (depthSliceFactor - 1.0) * (1.0 / depthSliceFactor);
-		// Use one bit for each value, rather than 1.0 / (25535.0 * 256.0).
-		return (float)((double)z * (1.0 / 16777215.0) + doffset);
+	if (useFlags & GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT) {
+		const double offset = 0.5 * (DEPTH_SLICE_FACTOR_16BIT - 1.0) / DEPTH_SLICE_FACTOR_16BIT;
+		// Use one bit for each value, rather than 1.0 / (65535.0 * 256.0).
+		const double scale = 16777215.0;
+		return DepthScaleFactors(offset, scale);
+	} else if (useFlags & GPU_USE_DEPTH_CLAMP) {
+		return DepthScaleFactors(0.0f, 65535.0f);
 	} else {
-		const float offset = 0.5f * (depthSliceFactor - 1.0f) * (1.0f / depthSliceFactor);
-		return z * (1.0f / depthSliceFactor) * (1.0f / 65535.0f) + offset;
+		const double offset = 0.5f * (DEPTH_SLICE_FACTOR_HIGH - 1.0f) * (1.0f / DEPTH_SLICE_FACTOR_HIGH);
+		return DepthScaleFactors(offset, (float)(DEPTH_SLICE_FACTOR_HIGH * 65535.0));
 	}
-}
-
-// See struct DepthScaleFactors for how to apply.
-DepthScaleFactors GetDepthScaleFactors() {
-	DepthScaleFactors factors;
-	if (!gstate_c.Use(GPU_USE_ACCURATE_DEPTH)) {
-		factors.offset = 0;
-		factors.scale = 65535.0f;
-		return factors;
-	}
-
-	const float depthSliceFactor = DepthSliceFactor();
-	const float offset = 0.5f * (depthSliceFactor - 1.0f) * (1.0f / depthSliceFactor);
-	factors.scale = depthSliceFactor * 65535.0f;
-	factors.offset = offset;
-	return factors;
 }
 
 void ConvertViewportAndScissor(bool useBufferedRendering, float renderWidth, float renderHeight, int bufferWidth, int bufferHeight, ViewportAndScissor &out) {
@@ -561,7 +583,7 @@ void ConvertViewportAndScissor(bool useBufferedRendering, float renderWidth, flo
 		float pixelH = PSP_CoreParameter().pixelHeight;
 		FRect frame = GetScreenFrame(pixelW, pixelH);
 		FRect rc;
-		CenterDisplayOutputRect(&rc, 480, 272, frame, ROTATION_LOCKED_HORIZONTAL);
+		CalculateDisplayOutputRect(&rc, 480, 272, frame, ROTATION_LOCKED_HORIZONTAL);
 		displayOffsetX = rc.x;
 		displayOffsetY = rc.y;
 		renderWidth = rc.w;
@@ -600,6 +622,8 @@ void ConvertViewportAndScissor(bool useBufferedRendering, float renderWidth, flo
 	float offsetX = gstate.getOffsetX();
 	float offsetY = gstate.getOffsetY();
 
+	DepthScaleFactors depthScale = GetDepthScaleFactors(gstate_c.UseFlags());
+
 	if (out.throughMode) {
 		// If renderX/renderY are offset to compensate for a split framebuffer,
 		// applying the offset to the viewport isn't enough, since the viewport clips.
@@ -608,8 +632,8 @@ void ConvertViewportAndScissor(bool useBufferedRendering, float renderWidth, flo
 		out.viewportY = renderY * renderHeightFactor + displayOffsetY;
 		out.viewportW = curRTWidth * renderWidthFactor;
 		out.viewportH = curRTHeight * renderHeightFactor;
-		out.depthRangeMin = ToScaledDepthFromIntegerScale(0);
-		out.depthRangeMax = ToScaledDepthFromIntegerScale(65536);
+		out.depthRangeMin = depthScale.EncodeFromU16(0.0f);
+		out.depthRangeMax = depthScale.EncodeFromU16(65536.0f);
 	} else {
 		// These we can turn into a glViewport call, offset by offsetX and offsetY. Math after.
 		float vpXScale = gstate.getViewportXScale();
@@ -723,14 +747,21 @@ void ConvertViewportAndScissor(bool useBufferedRendering, float renderWidth, flo
 			// Here, we should "clamp."  But clamping per fragment would be slow.
 			// So, instead, we just increase the available range and hope.
 			// If depthSliceFactor is 4, it means (75% / 2) of the depth lies in each direction.
-			float fullDepthRange = 65535.0f * (DepthSliceFactor() - 1.0f) * (1.0f / 2.0f);
+			float fullDepthRange = 65535.0f * (depthScale.Scale() - 1.0f) * (1.0f / 2.0f);
 			if (minz == 0) {
 				minz -= fullDepthRange;
 			}
 			if (maxz == 65535) {
 				maxz += fullDepthRange;
 			}
+		} else if (maxz == 65535) {
+			// This means clamp isn't enabled, but we still want to allow values up to 65535.99.
+			// If DepthSliceFactor() is 1.0, though, this would make out.depthRangeMax exceed 1.
+			// Since that would clamp, it would make Z=1234 not match between draws when maxz changes.
+			if (depthScale.Scale() > 1.0f)
+				maxz = 65535.99f;
 		}
+
 		// Okay.  So, in our shader, -1 will map to minz, and +1 will map to maxz.
 		float halfActualZRange = (maxz - minz) * (1.0f / 2.0f);
 		out.depthScale = halfActualZRange < std::numeric_limits<float>::epsilon() ? 1.0f : vpZScale / halfActualZRange;
@@ -740,14 +771,15 @@ void ConvertViewportAndScissor(bool useBufferedRendering, float renderWidth, flo
 		if (!gstate_c.Use(GPU_USE_ACCURATE_DEPTH)) {
 			out.depthScale = 1.0f;
 			out.zOffset = 0.0f;
-			out.depthRangeMin = ToScaledDepthFromIntegerScale(vpZCenter - vpZScale);
-			out.depthRangeMax = ToScaledDepthFromIntegerScale(vpZCenter + vpZScale);
+			out.depthRangeMin = depthScale.EncodeFromU16(vpZCenter - vpZScale);
+			out.depthRangeMax = depthScale.EncodeFromU16(vpZCenter + vpZScale);
 		} else {
-			out.depthRangeMin = ToScaledDepthFromIntegerScale(minz);
-			out.depthRangeMax = ToScaledDepthFromIntegerScale(maxz);
+			out.depthRangeMin = depthScale.EncodeFromU16(minz);
+			out.depthRangeMax = depthScale.EncodeFromU16(maxz);
 		}
 
 		// OpenGL will clamp these for us anyway, and Direct3D will error if not clamped.
+		// Of course, if this happens we've skewed out.depthScale/out.zOffset and may get z-fighting.
 		out.depthRangeMin = std::max(out.depthRangeMin, 0.0f);
 		out.depthRangeMax = std::min(out.depthRangeMax, 1.0f);
 	}

@@ -27,8 +27,13 @@
 #include "GPU/Common/VertexShaderGenerator.h"
 #include "GPU/Common/FragmentShaderGenerator.h"
 
+class DrawEngineGLES;
 class Shader;
 struct ShaderLanguageDesc;
+
+namespace File {
+class IOFile;
+}
 
 class LinkedShader {
 public:
@@ -36,7 +41,8 @@ public:
 	~LinkedShader();
 
 	void use(const ShaderID &VSID);
-	void UpdateUniforms(u32 vertType, const ShaderID &VSID, bool useBufferedRendering, const ShaderLanguageDesc &shaderLanguage);
+	void UpdateUniforms(const ShaderID &VSID, bool useBufferedRendering, const ShaderLanguageDesc &shaderLanguage);
+	void Delete();
 
 	GLRenderManager *render_;
 	Shader *vs_;
@@ -96,6 +102,7 @@ public:
 	int u_uvscaleoffset;
 	int u_texclamp;
 	int u_texclampoff;
+	int u_texNoAlphaMul;
 
 	// Lighting
 	int u_lightControl;
@@ -157,15 +164,15 @@ public:
 	ShaderManagerGLES(Draw::DrawContext *draw);
 	~ShaderManagerGLES();
 
-	void ClearCache(bool deleteThem);  // TODO: deleteThem currently not respected
+	void ClearShaders() override;
 
 	// This is the old ApplyShader split into two parts, because of annoying information dependencies.
 	// If you call ApplyVertexShader, you MUST call ApplyFragmentShader soon afterwards.
-	Shader *ApplyVertexShader(bool useHWTransform, bool useHWTessellation, u32 vertType, bool weightsAsFloat, bool useSkinInDecode, VShaderID *VSID);
-	LinkedShader *ApplyFragmentShader(VShaderID VSID, Shader *vs, const ComputedPipelineState &pipelineState, u32 vertType, bool useBufferedRendering);
+	Shader *ApplyVertexShader(bool useHWTransform, bool useHWTessellation, VertexDecoder *vertexDecoder, bool weightsAsFloat, bool useSkinInDecode, VShaderID *VSID);
+	LinkedShader *ApplyFragmentShader(VShaderID VSID, Shader *vs, const ComputedPipelineState &pipelineState, bool useBufferedRendering);
 
-	void DeviceLost();
-	void DeviceRestore(Draw::DrawContext *draw);
+	void DeviceLost() override;
+	void DeviceRestore(Draw::DrawContext *draw) override;
 
 	void DirtyShader();
 	void DirtyLastShader() override;
@@ -174,13 +181,14 @@ public:
 	int GetNumFragmentShaders() const { return (int)fsCache_.size(); }
 	int GetNumPrograms() const { return (int)linkedShaderCache_.size(); }
 
-	std::vector<std::string> DebugGetShaderIDs(DebugShaderType type);
-	std::string DebugGetShaderString(std::string id, DebugShaderType type, DebugShaderStringType stringType);
+	std::vector<std::string> DebugGetShaderIDs(DebugShaderType type) override;
+	std::string DebugGetShaderString(std::string id, DebugShaderType type, DebugShaderStringType stringType) override;
 
-	void Load(const Path &filename);
+	bool LoadCacheFlags(File::IOFile &f, DrawEngineGLES *drawEngine);
+	bool LoadCache(File::IOFile &f);
 	bool ContinuePrecompile(float sliceTime = 1.0f / 60.0f);
 	void CancelPrecompile();
-	void Save(const Path &filename);
+	void SaveCache(const Path &filename, DrawEngineGLES *drawEngine);
 
 private:
 	void Clear();
@@ -200,7 +208,7 @@ private:
 	GLRenderManager *render_;
 	LinkedShaderCache linkedShaderCache_;
 
-	bool lastVShaderSame_;
+	bool lastVShaderSame_ = false;
 
 	FShaderID lastFSID_;
 	VShaderID lastVSID_;

@@ -195,6 +195,11 @@ PFN_vkCreateWaylandSurfaceKHR vkCreateWaylandSurfaceKHR;
 #endif
 #if defined(VK_USE_PLATFORM_DISPLAY_KHR)
 PFN_vkCreateDisplayPlaneSurfaceKHR vkCreateDisplayPlaneSurfaceKHR;
+PFN_vkGetPhysicalDeviceDisplayPropertiesKHR vkGetPhysicalDeviceDisplayPropertiesKHR;
+PFN_vkGetPhysicalDeviceDisplayPlanePropertiesKHR vkGetPhysicalDeviceDisplayPlanePropertiesKHR;
+PFN_vkGetDisplayModePropertiesKHR vkGetDisplayModePropertiesKHR;
+PFN_vkGetDisplayPlaneSupportedDisplaysKHR vkGetDisplayPlaneSupportedDisplaysKHR;
+PFN_vkGetDisplayPlaneCapabilitiesKHR vkGetDisplayPlaneCapabilitiesKHR;
 #endif
 
 PFN_vkDestroySurfaceKHR vkDestroySurfaceKHR;
@@ -218,12 +223,16 @@ PFN_vkCmdInsertDebugUtilsLabelEXT	 vkCmdInsertDebugUtilsLabelEXT;
 PFN_vkSetDebugUtilsObjectNameEXT     vkSetDebugUtilsObjectNameEXT;
 PFN_vkSetDebugUtilsObjectTagEXT      vkSetDebugUtilsObjectTagEXT;
 
-PFN_vkGetMemoryHostPointerPropertiesEXT vkGetMemoryHostPointerPropertiesEXT;
+// Assorted other extensions.
 PFN_vkGetBufferMemoryRequirements2KHR vkGetBufferMemoryRequirements2KHR;
 PFN_vkGetImageMemoryRequirements2KHR vkGetImageMemoryRequirements2KHR;
 PFN_vkGetPhysicalDeviceProperties2KHR vkGetPhysicalDeviceProperties2KHR;
 PFN_vkGetPhysicalDeviceFeatures2KHR vkGetPhysicalDeviceFeatures2KHR;
 PFN_vkCreateRenderPass2KHR vkCreateRenderPass2KHR;
+PFN_vkWaitForPresentKHR vkWaitForPresentKHR;
+PFN_vkGetPastPresentationTimingGOOGLE vkGetPastPresentationTimingGOOGLE;
+PFN_vkGetRefreshCycleDurationGOOGLE vkGetRefreshCycleDurationGOOGLE;
+
 } // namespace PPSSPP_VK
 
 using namespace PPSSPP_VK;
@@ -305,6 +314,7 @@ static void VulkanFreeLibrary(VulkanLibraryHandle &h) {
 }
 
 void VulkanSetAvailable(bool available) {
+	INFO_LOG(G3D, "Forcing Vulkan availability to true");
 	g_vulkanAvailabilityChecked = true;
 	g_vulkanMayBeAvailable = available;
 }
@@ -465,6 +475,7 @@ bool VulkanMayBeAvailable() {
 		case VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU:
 		case VK_PHYSICAL_DEVICE_TYPE_VIRTUAL_GPU:
 			anyGood = true;
+			INFO_LOG(G3D, "VulkanMayBeAvailable: Eligible device found: '%s'", props.deviceName);
 			break;
 		default:
 			INFO_LOG(G3D, "VulkanMayBeAvailable: Ineligible device found and ignored: '%s'", props.deviceName);
@@ -489,8 +500,9 @@ bail:
 	}
 	if (lib) {
 		VulkanFreeLibrary(lib);
-	} else {
-		ERROR_LOG(G3D, "Vulkan with working device not detected.");
+	}
+	if (!g_vulkanMayBeAvailable) {
+		WARN_LOG(G3D, "Vulkan with working device not detected.");
 	}
 	return g_vulkanMayBeAvailable;
 }
@@ -564,6 +576,11 @@ void VulkanLoadInstanceFunctions(VkInstance instance, const VulkanExtensions &en
 #endif
 #if defined(VK_USE_PLATFORM_DISPLAY_KHR)
 	LOAD_INSTANCE_FUNC(instance, vkCreateDisplayPlaneSurfaceKHR);
+	LOAD_INSTANCE_FUNC(instance, vkGetPhysicalDeviceDisplayPropertiesKHR);
+	LOAD_INSTANCE_FUNC(instance, vkGetPhysicalDeviceDisplayPlanePropertiesKHR);
+	LOAD_INSTANCE_FUNC(instance, vkGetDisplayModePropertiesKHR);
+	LOAD_INSTANCE_FUNC(instance, vkGetDisplayPlaneSupportedDisplaysKHR);
+	LOAD_INSTANCE_FUNC(instance, vkGetDisplayPlaneCapabilitiesKHR);
 #endif
 
 	LOAD_INSTANCE_FUNC(instance, vkDestroySurfaceKHR);
@@ -714,8 +731,12 @@ void VulkanLoadDeviceFunctions(VkDevice device, const VulkanExtensions &enabledE
 	LOAD_DEVICE_FUNC(device, vkCmdEndRenderPass);
 	LOAD_DEVICE_FUNC(device, vkCmdExecuteCommands);
 
-	if (enabledExtensions.EXT_external_memory_host) {
-		LOAD_DEVICE_FUNC(device, vkGetMemoryHostPointerPropertiesEXT);
+	if (enabledExtensions.KHR_present_wait) {
+		LOAD_DEVICE_FUNC(device, vkWaitForPresentKHR);
+	}
+	if (enabledExtensions.GOOGLE_display_timing) {
+		LOAD_DEVICE_FUNC(device, vkGetPastPresentationTimingGOOGLE);
+		LOAD_DEVICE_FUNC(device, vkGetRefreshCycleDurationGOOGLE);
 	}
 	if (enabledExtensions.KHR_dedicated_allocation) {
 		LOAD_DEVICE_FUNC(device, vkGetBufferMemoryRequirements2KHR);

@@ -38,9 +38,6 @@ public:
 		dst_ = new u8[BUFFER_SIZE];
 		cache_ = new VertexDecoderJitCache();
 
-		g_Config.bVertexDecoderJit = true;
-		// Required for jit to be enabled.
-		g_Config.iCpuCore = (int)CPUCore::JIT;
 		gstate_c.uv.uScale = 1.0f;
 		gstate_c.uv.vScale = 1.0f;
 	}
@@ -81,7 +78,7 @@ public:
 	void Execute(int vtype, int indexUpperBound, bool useJit) {
 		SetupExecute(vtype, useJit);
 
-		dec_->DecodeVerts(dst_, src_, indexLowerBound_, indexUpperBound);
+		dec_->DecodeVerts(dst_, src_, &gstate_c.uv, indexLowerBound_, indexUpperBound);
 	}
 
 	double ExecuteTimed(int vtype, int indexUpperBound, bool useJit) {
@@ -91,7 +88,7 @@ public:
 		double st = time_now_d();
 		do {
 			for (int j = 0; j < ROUNDS; ++j) {
-				dec_->DecodeVerts(dst_, src_, indexLowerBound_, indexUpperBound);
+				dec_->DecodeVerts(dst_, src_, &gstate_c.uv, indexLowerBound_, indexUpperBound);
 				++total;
 			}
 		} while (time_now_d() - st < 0.5);

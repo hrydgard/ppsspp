@@ -67,7 +67,7 @@ extern u32 g_PSPModel;
 
 // UWP has such limited memory management that we need to mask
 // even in 64-bit mode. Also, when using the sanitizer, we need to mask as well.
-#if PPSSPP_ARCH(32BIT) || PPSSPP_PLATFORM(UWP) || USE_ASAN || PPSSPP_PLATFORM(IOS)
+#if PPSSPP_ARCH(32BIT) || PPSSPP_PLATFORM(UWP) || USE_ASAN || PPSSPP_PLATFORM(IOS) || defined(__EMSCRIPTEN__)
 #define MASKED_PSP_MEMORY
 #endif
 
@@ -246,6 +246,10 @@ inline void Write_Float(float f, u32 address)
 
 u8* GetPointerWrite(const u32 address);
 const u8* GetPointer(const u32 address);
+
+u8 *GetPointerWriteRange(const u32 address, const u32 size);
+const u8 *GetPointerRange(const u32 address, const u32 size);
+
 bool IsRAMAddress(const u32 address);
 inline bool IsVRAMAddress(const u32 address) {
 	return ((address & 0x3F800000) == 0x04000000);
@@ -276,6 +280,10 @@ inline const char* GetCharPointer(const u32 address) {
 	}
 }
 
+inline const char *GetCharPointerUnchecked(const u32 address) {
+	return (const char *)GetPointerUnchecked(address);
+}
+
 inline void MemcpyUnchecked(void *to_data, const u32 from_address, const u32 len) {
 	memcpy(to_data, GetPointerUnchecked(from_address), len);
 }
@@ -285,7 +293,7 @@ inline void MemcpyUnchecked(const u32 to_address, const void *from_data, const u
 }
 
 inline void MemcpyUnchecked(const u32 to_address, const u32 from_address, const u32 len) {
-	MemcpyUnchecked(GetPointerWrite(to_address), from_address, len);
+	MemcpyUnchecked(GetPointerWriteUnchecked(to_address), from_address, len);
 }
 
 inline bool IsValidAddress(const u32 address) {
@@ -323,7 +331,7 @@ inline u32 ValidSize(const u32 address, const u32 requested_size) {
 }
 
 inline bool IsValidRange(const u32 address, const u32 size) {
-	return IsValidAddress(address) && ValidSize(address, size) == size;
+	return ValidSize(address, size) == size;
 }
 
 }  // namespace Memory

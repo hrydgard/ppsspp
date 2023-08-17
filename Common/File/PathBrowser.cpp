@@ -15,15 +15,11 @@
 #include "Common/Log.h"
 #include "Common/Thread/ThreadUtil.h"
 
-#include "Core/Config.h"
-#include "Core/System.h"
-
 #if PPSSPP_PLATFORM(ANDROID)
 #include "android/jni/app-android.h"
-#include "android/jni/AndroidContentURI.h"
 #endif
 
-bool LoadRemoteFileList(const Path &url, bool *cancel, std::vector<File::FileInfo> &files) {
+bool LoadRemoteFileList(const Path &url, const std::string &userAgent, bool *cancel, std::vector<File::FileInfo> &files) {
 	_dbg_assert_(url.Type() == PathType::HTTP);
 
 	http::Client http;
@@ -31,7 +27,7 @@ bool LoadRemoteFileList(const Path &url, bool *cancel, std::vector<File::FileInf
 	int code = 500;
 	std::vector<std::string> responseHeaders;
 
-	http.SetUserAgent(StringFromFormat("PPSSPP/%s", PPSSPP_GIT_VERSION));
+	http.SetUserAgent(userAgent);
 
 	Url baseURL(url.ToString());
 	if (!baseURL.Valid()) {
@@ -42,7 +38,7 @@ bool LoadRemoteFileList(const Path &url, bool *cancel, std::vector<File::FileInf
 	http::RequestParams req(baseURL.Resource(), "text/plain, text/html; q=0.9, */*; q=0.8");
 	if (http.Resolve(baseURL.Host().c_str(), baseURL.Port())) {
 		if (http.Connect(2, 20.0, cancel)) {
-			http::RequestProgress progress(cancel);
+			net::RequestProgress progress(cancel);
 			code = http.GET(req, &result, responseHeaders, &progress);
 			http.Disconnect();
 		}
@@ -144,6 +140,8 @@ void PathBrowser::HandlePath() {
 	pendingThread_ = std::thread([&] {
 		SetCurrentThreadName("PathBrowser");
 
+		AndroidJNIThreadContext jniContext;  // destructor detaches
+
 		std::unique_lock<std::mutex> guard(pendingLock_);
 		std::vector<File::FileInfo> results;
 		Path lastPath("NONSENSE THAT WONT EQUAL A PATH");
@@ -159,7 +157,7 @@ void PathBrowser::HandlePath() {
 			if (lastPath.Type() == PathType::HTTP) {
 				guard.unlock();
 				results.clear();
-				success = LoadRemoteFileList(lastPath, &pendingCancel_, results);
+				success = LoadRemoteFileList(lastPath, userAgent_, &pendingCancel_, results);
 				guard.lock();
 			} else if (lastPath.empty()) {
 				results.clear();
@@ -196,10 +194,8 @@ bool PathBrowser::IsListingReady() {
 std::string PathBrowser::GetFriendlyPath() const {
 	std::string str = GetPath().ToVisualString();
 	// Show relative to memstick root if there.
-	std::string root = GetSysDirectory(DIRECTORY_MEMSTICK_ROOT).ToVisualString();
-
-	if (startsWith(str, root)) {
-		return std::string("ms:") + str.substr(root.size());
+	if (startsWith(str, aliasMatch_)) {
+		return aliasDisplay_ + str.substr(aliasMatch_.size());
 	}
 
 #if PPSSPP_PLATFORM(LINUX) || PPSSPP_PLATFORM(MAC)
@@ -214,7 +210,7 @@ std::string PathBrowser::GetFriendlyPath() const {
 bool PathBrowser::GetListing(std::vector<File::FileInfo> &fileInfo, const char *filter, bool *cancel) {
 	std::unique_lock<std::mutex> guard(pendingLock_);
 	while (!IsListingReady() && (!cancel || !*cancel)) {
-		// In case cancel changes, just sleep.
+		// In case cancel changes, just sleep. TODO: Replace with condition variable.
 		guard.unlock();
 		sleep_ms(50);
 		guard.lock();
@@ -225,14 +221,6 @@ bool PathBrowser::GetListing(std::vector<File::FileInfo> &fileInfo, const char *
 }
 
 bool PathBrowser::CanNavigateUp() {
-/* Leaving this commented out, not sure if there's a use in UWP for navigating up from the user data folder.
-#if PPSSPP_PLATFORM(UWP)
-	// Can't navigate up from memstick folder :(
-	if (path_ == GetSysDirectory(DIRECTORY_MEMSTICK_ROOT)) {
-		return false;
-	}
-#endif
-*/
 	return path_.CanNavigateUp();
 }
 

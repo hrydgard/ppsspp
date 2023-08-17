@@ -105,6 +105,11 @@ public:
 		return TaskType::CPU_COMPUTE;
 	}
 
+	TaskPriority Priority() const override {
+		// Let priority emulation tasks win over this.
+		return TaskPriority::NORMAL;
+	}
+
 	void Run() override {
 		ProcessItems();
 		status_ = false;
@@ -363,8 +368,9 @@ void BinManager::UpdateClut(const void *src) {
 	PROFILE_THIS_SCOPE("bin_clut");
 	if (cluts_.Full())
 		Flush("cluts");
-	clutIndex_ = (uint16_t)cluts_.Push(BinClut());
-	memcpy(cluts_[clutIndex_].readable, src, sizeof(BinClut));
+	BinClut &clut = cluts_.PeekPush();
+	memcpy(clut.readable, src, sizeof(BinClut));
+	clutIndex_ = (uint16_t)cluts_.PushPeeked();
 }
 
 void BinManager::AddTriangle(const VertexData &v0, const VertexData &v1, const VertexData &v2) {
@@ -542,7 +548,7 @@ void BinManager::Drain(bool flushing) {
 
 			waitable_->Fill();
 			taskStatus_[i] = true;
-			g_threadManager.EnqueueTaskOnThread(i, taskLists_[i].Next(), true);
+			g_threadManager.EnqueueTaskOnThread(i, taskLists_[i].Next());
 			enqueues_++;
 		}
 

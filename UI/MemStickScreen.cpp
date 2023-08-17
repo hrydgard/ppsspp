@@ -26,8 +26,10 @@
 
 #include "Common/StringUtils.h"
 #include "Common/System/System.h"
+#include "Common/System/Request.h"
 #include "Common/System/NativeApp.h"
 #include "Common/System/Display.h"
+#include "Common/System/OSD.h"
 #include "Common/Data/Text/I18n.h"
 #include "Common/Data/Text/Parsers.h"
 
@@ -46,6 +48,7 @@
 #include "UI/MemStickScreen.h"
 #include "UI/MainScreen.h"
 #include "UI/MiscScreens.h"
+#include "UI/OnScreenDisplay.h"
 
 static bool FolderSeemsToBeUsed(Path newMemstickFolder) {
 	// Inspect the potential new folder, quickly.
@@ -77,11 +80,20 @@ static bool SwitchMemstickFolderTo(Path newMemstickFolder) {
 	}
 
 	Path memStickDirFile = g_Config.internalDataDirectory / "memstick_dir.txt";
+#if PPSSPP_PLATFORM(UWP)
+	File::Delete(memStickDirFile);
+	if (newMemstickFolder != g_Config.internalDataDirectory) {
+#endif
+
 	std::string str = newMemstickFolder.ToString();
 	if (!File::WriteDataToFile(true, str.c_str(), (unsigned int)str.size(), memStickDirFile)) {
 		ERROR_LOG(SYSTEM, "Failed to write memstick path '%s' to '%s'", newMemstickFolder.c_str(), memStickDirFile.c_str());
 		// Not sure what to do if this file can't be written.  Disk full?
 	}
+
+#if PPSSPP_PLATFORM(UWP)
+	}
+#endif
 
 	// Save so the settings, at least, are transferred.
 	g_Config.memStickDirectory = newMemstickFolder;
@@ -123,7 +135,11 @@ MemStickScreen::MemStickScreen(bool initialSetup)
 		}
 	} else {
 		// Detect the current choice, so it's preselected in the UI.
+#if PPSSPP_PLATFORM(UWP)
+		if (g_Config.memStickDirectory == g_Config.internalDataDirectory) {
+#else
 		if (g_Config.memStickDirectory == Path(g_extFilesDir)) {
+#endif
 			choice_ = CHOICE_PRIVATE_DIRECTORY;
 		} else if (g_Config.memStickDirectory == Path(g_externalDir)) {
 			choice_ = CHOICE_STORAGE_ROOT;
@@ -136,7 +152,7 @@ MemStickScreen::MemStickScreen(bool initialSetup)
 }
 
 static void AddExplanation(UI::ViewGroup *viewGroup, MemStickScreen::Choice choice, UI::View *extraView = nullptr) {
-	auto iz = GetI18NCategory("MemStick");
+	auto iz = GetI18NCategory(I18NCat::MEMSTICK);
 	using namespace UI;
 
 	int flags = FLAG_WRAP_TEXT;
@@ -163,16 +179,20 @@ static void AddExplanation(UI::ViewGroup *viewGroup, MemStickScreen::Choice choi
 	case MemStickScreen::CHOICE_BROWSE_FOLDER:
 		holder->Add(new TextView(iz->T("DataWillStay", "Data will stay even if you uninstall PPSSPP"), flags, false))->SetBullet(true);
 		holder->Add(new TextView(iz->T("DataCanBeShared", "Data can be shared between PPSSPP regular/Gold"), flags, false))->SetBullet(true);
+#if !PPSSPP_PLATFORM(UWP)
 		holder->Add(new TextView(iz->T("EasyUSBAccess", "Easy USB access"), flags, false))->SetBullet(true);
+#endif
 		break;
 	case MemStickScreen::CHOICE_PRIVATE_DIRECTORY:
 		// Consider https://www.compart.com/en/unicode/U+26A0 (unicode warning sign?)? or a graphic?
 		holder->Add(new TextView(iz->T("DataWillBeLostOnUninstall", "Warning! Data will be lost when you uninstall PPSSPP!"), flags, false))->SetBullet(true);
 		holder->Add(new TextView(iz->T("DataCannotBeShared", "Data CANNOT be shared between PPSSPP regular/Gold!"), flags, false))->SetBullet(true);
+#if !PPSSPP_PLATFORM(UWP)
 #if GOLD
 		holder->Add(new TextView(iz->T("USBAccessThroughGold", "USB access through Android/data/org.ppsspp.ppssppgold/files"), flags, false))->SetBullet(true);
 #else
 		holder->Add(new TextView(iz->T("USBAccessThrough", "USB access through Android/data/org.ppsspp.ppsspp/files"), flags, false))->SetBullet(true);
+#endif
 #endif
 		break;
 	case MemStickScreen::CHOICE_SET_MANUAL:
@@ -188,8 +208,8 @@ static void AddExplanation(UI::ViewGroup *viewGroup, MemStickScreen::Choice choi
 void MemStickScreen::CreateViews() {
 	using namespace UI;
 
-	auto di = GetI18NCategory("Dialog");
-	auto iz = GetI18NCategory("MemStick");
+	auto di = GetI18NCategory(I18NCat::DIALOG);
+	auto iz = GetI18NCategory(I18NCat::MEMSTICK);
 
 	Margins actionMenuMargins(15, 0, 15, 0);
 
@@ -225,8 +245,7 @@ void MemStickScreen::CreateViews() {
 
 	// For legacy Android systems, so you can switch back to the old ways if you move to SD or something.
 	// Trying to avoid needing a scroll view, so only showing the explanation for one option at a time.
-
-#if PPSSPP_PLATFORM(ANDROID)
+#if !PPSSPP_PLATFORM(UWP)
 	if (!System_GetPropertyBool(SYSPROP_ANDROID_SCOPED_STORAGE)) {
 		leftColumn->Add(new RadioButton(&choice_, CHOICE_STORAGE_ROOT, iz->T("Use PSP folder at root of storage")))->OnClick.Handle(this, &MemStickScreen::OnChoiceClick);
 		if (choice_ == CHOICE_STORAGE_ROOT) {
@@ -236,7 +255,6 @@ void MemStickScreen::CreateViews() {
 #endif
 
 	if (storageBrowserWorking_) {
-		//ImageID("I_FOLDER_OPEN")
 		leftColumn->Add(new RadioButton(&choice_, CHOICE_BROWSE_FOLDER, iz->T("Create or Choose a PSP folder")))->OnClick.Handle(this, &MemStickScreen::OnChoiceClick);
 
 		// TODO: Show current folder here if we have one set.
@@ -246,6 +264,9 @@ void MemStickScreen::CreateViews() {
 		leftColumn->Add(new TextView(iz->T("DataCanBeShared", "Data can be shared between PPSSPP regular/Gold.")))->SetBullet(true);
 		// TODO: Show current folder here if we have one set.
 	}
+	errorNoticeView_ = leftColumn->Add(new NoticeView(NoticeLevel::WARN, iz->T("Cancelled - try again"), ""));
+	errorNoticeView_->SetVisibility(UI::V_GONE);
+
 	if (choice_ == CHOICE_BROWSE_FOLDER || choice_ == CHOICE_SET_MANUAL) {
 		UI::View *extraView = nullptr;
 		if (!g_Config.memStickDirectory.empty()) {
@@ -255,6 +276,7 @@ void MemStickScreen::CreateViews() {
 	}
 
 	std::string privateString = iz->T("Use App Private Data");
+
 	if (initialSetup_) {
 		privateString = StringFromFormat("%s (%s)", iz->T("Skip for now"), privateString.c_str());
 	}
@@ -302,7 +324,9 @@ void MemStickScreen::CreateViews() {
 }
 
 UI::EventReturn MemStickScreen::OnHelp(UI::EventParams &params) {
-	LaunchBrowser("https://www.ppsspp.org/guide_storage.html");
+	// I'm letting the old redirect handle this one, as the target is within /docs on the website,
+	// and that structure may change a bit.
+	System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://www.ppsspp.org/guide_storage.html");
 
 	return UI::EVENT_DONE;
 }
@@ -311,7 +335,6 @@ UI::EventReturn MemStickScreen::OnChoiceClick(UI::EventParams &params) {
 	// Change the confirm button to match the choice,
 	// and change the text that we show.
 	RecreateViews();
-
 	return UI::EVENT_DONE;
 }
 
@@ -332,73 +355,75 @@ UI::EventReturn MemStickScreen::OnConfirmClick(UI::EventParams &params) {
 
 UI::EventReturn MemStickScreen::SetFolderManually(UI::EventParams &params) {
 	// The old way, from before scoped storage.
-#if PPSSPP_PLATFORM(ANDROID)
-	auto sy = GetI18NCategory("System");
-	System_InputBoxGetString(sy->T("Memory Stick Folder"), g_Config.memStickDirectory.ToString(), [&](bool result, const std::string &value) {
-		auto sy = GetI18NCategory("System");
-		auto di = GetI18NCategory("Dialog");
+#if PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(SWITCH)
+	auto sy = GetI18NCategory(I18NCat::SYSTEM);
+	System_InputBoxGetString(sy->T("Memory Stick Folder"), g_Config.memStickDirectory.ToString(), [&](const std::string &value, int) {
+		auto sy = GetI18NCategory(I18NCat::SYSTEM);
+		auto di = GetI18NCategory(I18NCat::DIALOG);
 
-		if (result) {
-			std::string newPath = value;
-			size_t pos = newPath.find_last_not_of("/");
-			// Gotta have at least something but a /, and also needs to start with a /.
-			if (newPath.empty() || pos == newPath.npos || newPath[0] != '/') {
-				settingInfo_->Show(sy->T("ChangingMemstickPathInvalid", "That path couldn't be used to save Memory Stick files."), nullptr);
-				return;
-			}
-			if (pos != newPath.size() - 1) {
-				newPath = newPath.substr(0, pos + 1);
-			}
-
-			if (newPath.empty()) {
-				// Reuse below message instead of adding yet another string.
-				System_Toast(sy->T("Path does not exist!"));
-				return;
-			}
-
-			Path pendingMemStickFolder(newPath);
-
-			if (!File::Exists(pendingMemStickFolder)) {
-				// Try to fix the path string, apparently some users got used to leaving out the /.
-				if (newPath[0] != '/') {
-					newPath = "/" + newPath;
-				}
-
-				pendingMemStickFolder = Path(newPath);
-			}
-
-			if (!File::Exists(pendingMemStickFolder) && pendingMemStickFolder.Type() == PathType::NATIVE) {
-				// Still no path? Try to automatically fix the case.
-				std::string oldNewPath = newPath;
-				FixPathCase(Path(""), newPath, FixPathCaseBehavior::FPC_FILE_MUST_EXIST);
-				if (oldNewPath != newPath) {
-					NOTICE_LOG(IO, "Fixed path case: %s -> %s", oldNewPath.c_str(), newPath.c_str());
-					pendingMemStickFolder = Path(newPath);
-				} else {
-					NOTICE_LOG(IO, "Failed to fix case of path %s (result: %s)", newPath.c_str(), oldNewPath.c_str());
-				}
-			}
-
-			if (pendingMemStickFolder == g_Config.memStickDirectory) {
-				// Same directory as before - all good. Nothing to do.
-				TriggerFinish(DialogResult::DR_OK);
-				return;
-			}
-
-			if (!File::Exists(pendingMemStickFolder)) {
-				System_Toast(sy->T("Path does not exist!"));
-				return;
-			}
-
-			screenManager()->push(new ConfirmMemstickMoveScreen(pendingMemStickFolder, false));
+		std::string newPath = value;
+		size_t pos = newPath.find_last_not_of("/");
+		// Gotta have at least something but a /, and also needs to start with a /.
+		if (newPath.empty() || pos == newPath.npos || newPath[0] != '/') {
+			settingInfo_->Show(sy->T("ChangingMemstickPathInvalid", "That path couldn't be used to save Memory Stick files."), nullptr);
+			return;
 		}
+		if (pos != newPath.size() - 1) {
+			newPath = newPath.substr(0, pos + 1);
+		}
+
+		if (newPath.empty()) {
+			// Reuse below message instead of adding yet another string.
+			System_Toast(sy->T("Path does not exist!"));
+			return;
+		}
+
+		Path pendingMemStickFolder(newPath);
+
+		if (!File::Exists(pendingMemStickFolder)) {
+			// Try to fix the path string, apparently some users got used to leaving out the /.
+			if (newPath[0] != '/') {
+				newPath = "/" + newPath;
+			}
+
+			pendingMemStickFolder = Path(newPath);
+		}
+
+		if (!File::Exists(pendingMemStickFolder) && pendingMemStickFolder.Type() == PathType::NATIVE) {
+			// Still no path? Try to automatically fix the case.
+			std::string oldNewPath = newPath;
+			FixPathCase(Path(""), newPath, FixPathCaseBehavior::FPC_FILE_MUST_EXIST);
+			if (oldNewPath != newPath) {
+				NOTICE_LOG(IO, "Fixed path case: %s -> %s", oldNewPath.c_str(), newPath.c_str());
+				pendingMemStickFolder = Path(newPath);
+			} else {
+				NOTICE_LOG(IO, "Failed to fix case of path %s (result: %s)", newPath.c_str(), oldNewPath.c_str());
+			}
+		}
+
+		if (pendingMemStickFolder == g_Config.memStickDirectory) {
+			// Same directory as before - all good. Nothing to do.
+			TriggerFinish(DialogResult::DR_OK);
+			return;
+		}
+
+		if (!File::Exists(pendingMemStickFolder)) {
+			System_Toast(sy->T("Path does not exist!"));
+			return;
+		}
+
+		screenManager()->push(new ConfirmMemstickMoveScreen(pendingMemStickFolder, false));
 	});
 #endif
 	return UI::EVENT_DONE;
 }
 
 UI::EventReturn MemStickScreen::UseInternalStorage(UI::EventParams &params) {
+#if PPSSPP_PLATFORM(UWP)
+	Path pendingMemStickFolder = g_Config.internalDataDirectory;
+#else
 	Path pendingMemStickFolder = Path(g_extFilesDir);
+#endif
 
 	if (initialSetup_) {
 		// There's not gonna be any files here in this case since it's a fresh install.
@@ -444,32 +469,24 @@ UI::EventReturn MemStickScreen::UseStorageRoot(UI::EventParams &params) {
 }
 
 UI::EventReturn MemStickScreen::Browse(UI::EventParams &params) {
-	System_SendMessage("browse_folder", "");
-	return UI::EVENT_DONE;
-}
-
-void MemStickScreen::sendMessage(const char *message, const char *value) {
-	// Always call the base class method first to handle the most common messages.
-	UIDialogScreenWithBackground::sendMessage(message, value);
-
-	if (screenManager()->topScreen() == this) {
-		if (!strcmp(message, "browse_folderSelect")) {
-			std::string filename;
-			filename = value;
-			INFO_LOG(SYSTEM, "Got folder: '%s'", filename.c_str());
-
-			// Browse finished. Let's pop up the confirmation dialog.
-			Path pendingMemStickFolder = Path(filename);
-
-			if (pendingMemStickFolder == g_Config.memStickDirectory) {
-				auto iz = GetI18NCategory("MemStick");
-				return;
-			}
-
-			bool existingFiles = FolderSeemsToBeUsed(pendingMemStickFolder);
-			screenManager()->push(new ConfirmMemstickMoveScreen(pendingMemStickFolder, initialSetup_));
+	auto mm = GetI18NCategory(I18NCat::MAINMENU);
+	System_BrowseForFolder(mm->T("Choose folder"), [=](const std::string &value, int) {
+		Path pendingMemStickFolder = Path(value);
+		INFO_LOG(SYSTEM, "Got folder: '%s'", pendingMemStickFolder.c_str());
+		// Browse finished. Let's pop up the confirmation dialog.
+		if (!pendingMemStickFolder.empty() && pendingMemStickFolder == g_Config.memStickDirectory && File::IsDirectory(pendingMemStickFolder)) {
+			auto iz = GetI18NCategory(I18NCat::MEMSTICK);
+			// Not sure how this could happen, but let's go with it.
+			g_OSD.Show(OSDType::MESSAGE_SUCCESS, iz->T("Done!"));
+			done_ = true;
+			return;
 		}
-	}
+		errorNoticeView_->SetVisibility(UI::V_GONE);
+		screenManager()->push(new ConfirmMemstickMoveScreen(pendingMemStickFolder, initialSetup_));
+	}, [=]() {
+		errorNoticeView_->SetVisibility(UI::V_VISIBLE);
+	});
+	return UI::EVENT_DONE;
 }
 
 void MemStickScreen::dialogFinished(const Screen *dialog, DialogResult result) {
@@ -507,15 +524,19 @@ static bool ListFileSuffixesRecursively(const Path &root, Path folder, std::vect
 		if (file.isDirectory) {
 			std::string dirSuffix;
 			if (root.ComputePathTo(file.fullName, dirSuffix)) {
-				dirSuffixes.push_back(dirSuffix);
-				ListFileSuffixesRecursively(root, folder / file.name, dirSuffixes, fileSuffixes);
+				if (!dirSuffix.empty()) {
+					dirSuffixes.push_back(dirSuffix);
+					ListFileSuffixesRecursively(root, folder / file.name, dirSuffixes, fileSuffixes);
+				}
 			} else {
 				ERROR_LOG_REPORT(SYSTEM, "Failed to compute PathTo from '%s' to '%s'", root.c_str(), folder.c_str());
 			}
 		} else {
 			std::string fileSuffix;
 			if (root.ComputePathTo(file.fullName, fileSuffix)) {
-				fileSuffixes.push_back(FileSuffix{ fileSuffix, file.size });
+				if (!fileSuffix.empty()) {
+					fileSuffixes.push_back(FileSuffix{ fileSuffix, file.size });
+				}
 			}
 		}
 	}
@@ -541,9 +562,9 @@ ConfirmMemstickMoveScreen::~ConfirmMemstickMoveScreen() {
 
 void ConfirmMemstickMoveScreen::CreateViews() {
 	using namespace UI;
-	auto di = GetI18NCategory("Dialog");
-	auto sy = GetI18NCategory("System");
-	auto iz = GetI18NCategory("MemStick");
+	auto di = GetI18NCategory(I18NCat::DIALOG);
+	auto sy = GetI18NCategory(I18NCat::SYSTEM);
+	auto iz = GetI18NCategory(I18NCat::MEMSTICK);
 
 	root_ = new LinearLayout(ORIENT_HORIZONTAL);
 
@@ -563,15 +584,15 @@ void ConfirmMemstickMoveScreen::CreateViews() {
 
 	leftColumn->Add(new TextView(iz->T("Selected PSP Data Folder"), ALIGN_LEFT, false));
 	if (!initialSetup_) {
-		leftColumn->Add(new TextView(iz->T("PPSSPP will restart after the change"), ALIGN_LEFT, false));
+		leftColumn->Add(new NoticeView(NoticeLevel::WARN, iz->T("PPSSPP will restart after the change"), ""));
 	}
 	leftColumn->Add(new TextView(newMemstickFolder_.ToVisualString(), ALIGN_LEFT, false));
 	std::string newFreeSpaceText = std::string(iz->T("Free space")) + ": " + FormatSpaceString(freeSpaceNew);
 	leftColumn->Add(new TextView(newFreeSpaceText, ALIGN_LEFT, false));
 	if (existingFilesInNewFolder_) {
-		leftColumn->Add(new TextView(iz->T("Already contains PSP data"), ALIGN_LEFT, false));
+		leftColumn->Add(new NoticeView(NoticeLevel::SUCCESS, iz->T("Already contains PSP data"), ""));
 		if (!moveData_) {
-			leftColumn->Add(new TextView(iz->T("No data will be changed"), ALIGN_LEFT, false));
+			leftColumn->Add(new NoticeView(NoticeLevel::INFO, iz->T("No data will be changed"), ""));
 		}
 	}
 	if (!error_.empty()) {
@@ -580,6 +601,7 @@ void ConfirmMemstickMoveScreen::CreateViews() {
 
 	if (!oldMemstickFolder.empty()) {
 		std::string oldFreeSpaceText = std::string(iz->T("Free space")) + ": " + FormatSpaceString(freeSpaceOld);
+
 		rightColumn->Add(new TextView(std::string(iz->T("Current")) + ":", ALIGN_LEFT, false));
 		rightColumn->Add(new TextView(oldMemstickFolder.ToVisualString(), ALIGN_LEFT, false));
 		rightColumn->Add(new TextView(oldFreeSpaceText, ALIGN_LEFT, false));
@@ -608,7 +630,7 @@ UI::EventReturn ConfirmMemstickMoveScreen::OnMoveDataClick(UI::EventParams &para
 
 void ConfirmMemstickMoveScreen::update() {
 	UIDialogScreenWithBackground::update();
-	auto iz = GetI18NCategory("MemStick");
+	auto iz = GetI18NCategory(I18NCat::MEMSTICK);
 
 	if (moveDataTask_) {
 		if (progressView_) {
@@ -636,18 +658,16 @@ void ConfirmMemstickMoveScreen::update() {
 }
 
 UI::EventReturn ConfirmMemstickMoveScreen::OnConfirm(UI::EventParams &params) {
-	auto sy = GetI18NCategory("System");
-	auto iz = GetI18NCategory("MemStick");
-
 	// Transfer all the files in /PSP from the original directory.
 	// Should probably be done on a background thread so we can show some UI.
 	// So we probably need another screen for this with a progress bar..
 	// If the directory itself is called PSP, don't go below.
 
 	if (moveData_) {
-		progressReporter_.Set(iz->T("Starting move..."));
+		progressReporter_.Set(T(I18NCat::MEMSTICK, "Starting move..."));
 
 		moveDataTask_ = Promise<MoveResult *>::Spawn(&g_threadManager, [&]() -> MoveResult * {
+			auto ms = GetI18NCategory(I18NCat::MEMSTICK);
 			Path moveSrc = g_Config.memStickDirectory;
 			Path moveDest = newMemstickFolder_;
 			if (moveSrc.GetFilename() != "PSP") {
@@ -669,7 +689,7 @@ UI::EventReturn ConfirmMemstickMoveScreen::OnConfirm(UI::EventParams &params) {
 				// TODO: Handle failure listing files.
 				std::string error = "Failed to read old directory";
 				INFO_LOG(SYSTEM, "%s", error.c_str());
-				progressReporter_.Set(iz->T(error.c_str()));
+				progressReporter_.Set(ms->T(error.c_str()));
 				return new MoveResult{ false, error };
 			}
 
@@ -749,7 +769,7 @@ UI::EventReturn ConfirmMemstickMoveScreen::OnConfirm(UI::EventParams &params) {
 			}
 
 			return new MoveResult{ true, "", failedFiles };
-		}, TaskType::IO_BLOCKING);
+		}, TaskType::IO_BLOCKING, TaskPriority::HIGH);
 
 		RecreateViews();
 	} else {
@@ -760,12 +780,12 @@ UI::EventReturn ConfirmMemstickMoveScreen::OnConfirm(UI::EventParams &params) {
 }
 
 void ConfirmMemstickMoveScreen::FinishFolderMove() {
-	auto iz = GetI18NCategory("MemStick");
+	auto ms = GetI18NCategory(I18NCat::MEMSTICK);
 
 	// Successful so far, switch the memstick folder.
 	if (!SwitchMemstickFolderTo(newMemstickFolder_)) {
 		// TODO: More precise errors.
-		error_ = iz->T("That folder doesn't work as a memstick folder.");
+		error_ = ms->T("That folder doesn't work as a memstick folder.");
 		return;
 	}
 
@@ -774,7 +794,7 @@ void ConfirmMemstickMoveScreen::FinishFolderMove() {
 
 	if (!initialSetup_) {
 		// We restart the app here, to get the new settings.
-		System_SendMessage("graphics_restart", "");
+		System_RestartApp("");
 	} else {
 		// This is initial setup, we now switch to the main screen, if we were successful
 		// (which we better have been...)
@@ -782,7 +802,7 @@ void ConfirmMemstickMoveScreen::FinishFolderMove() {
 			// TriggerFinish(DialogResult::DR_OK);
 			screenManager()->switchScreen(new MainScreen());
 		} else {
-			error_ = iz->T("Failed to save config");
+			error_ = ms->T("Failed to save config");
 			RecreateViews();
 		}
 	}

@@ -19,6 +19,7 @@
 #include <string>
 #include <vector>
 #include <map>
+#include <sstream>
 
 #include "Common/Thread/ParallelLoop.h"
 #include "Core/CoreTiming.h"
@@ -434,7 +435,7 @@ void __KernelMemoryInit()
 	kernelMemory.Init(PSP_GetKernelMemoryBase(), PSP_GetKernelMemoryEnd() - PSP_GetKernelMemoryBase(), false);
 	userMemory.Init(PSP_GetUserMemoryBase(), PSP_GetUserMemoryEnd() - PSP_GetUserMemoryBase(), false);
 	volatileMemory.Init(PSP_GetVolatileMemoryStart(), PSP_GetVolatileMemoryEnd() - PSP_GetVolatileMemoryStart(), false);
-	ParallelMemset(&g_threadManager, Memory::GetPointerWrite(PSP_GetKernelMemoryBase()), 0, PSP_GetUserMemoryEnd() - PSP_GetKernelMemoryBase());
+	ParallelMemset(&g_threadManager, Memory::GetPointerWrite(PSP_GetKernelMemoryBase()), 0, PSP_GetUserMemoryEnd() - PSP_GetKernelMemoryBase(), TaskPriority::HIGH);
 	NotifyMemInfo(MemBlockFlags::WRITE, PSP_GetKernelMemoryBase(), PSP_GetUserMemoryEnd() - PSP_GetKernelMemoryBase(), "MemInit");
 	INFO_LOG(SCEKERNEL, "Kernel and user memory pools initialized");
 
@@ -610,7 +611,7 @@ void __KernelFplEndCallback(SceUID threadID, SceUID prevCallbackId)
 {
 	auto result = HLEKernel::WaitEndCallback<FPL, WAITTYPE_FPL, FplWaitingThread>(threadID, prevCallbackId, fplWaitTimer, __KernelUnlockFplForThread);
 	if (result == HLEKernel::WAIT_CB_RESUMED_WAIT)
-		DEBUG_LOG(SCEKERNEL, "sceKernelReceiveMbxCB: Resuming mbx wait from callback");
+		DEBUG_LOG(SCEKERNEL, "sceKernelAllocateFplCB: Resuming mbx wait from callback");
 }
 
 static bool __FplThreadSortPriority(FplWaitingThread thread1, FplWaitingThread thread2)
@@ -1100,6 +1101,8 @@ static int sceKernelPrintf(const char *formatString)
 	char tempStr[24];
 	char tempFormat[24] = {'%'};
 	std::string result, format = formatString;
+	std::stringstream stream;
+	float f_arg;
 
 	// Each printf is a separate line already in the log, so don't double space.
 	// This does mean we break up strings, unfortunately.
@@ -1170,6 +1173,18 @@ static int sceKernelPrintf(const char *formatString)
 			snprintf(tempStr, sizeof(tempStr), "%08x", PARAM(param++));
 			result += tempStr;
 			++i;
+			break;
+
+		case 'f':
+			static_assert(sizeof(float) == 4, "sizeof(float) != sizeof(u32)!");
+
+			// Maybe worth replacing with std::bit_cast when (if) we move to C++20
+			std::memcpy(&f_arg, &PARAM(param++), sizeof(u32));
+			stream << f_arg;
+			result += stream.str();
+			
+			++i;
+			stream.str(std::string()); // Reset the stream
 			break;
 
 		default:
@@ -1452,7 +1467,7 @@ void __KernelVplEndCallback(SceUID threadID, SceUID prevCallbackId)
 {
 	auto result = HLEKernel::WaitEndCallback<VPL, WAITTYPE_VPL, VplWaitingThread>(threadID, prevCallbackId, vplWaitTimer, __KernelUnlockVplForThread);
 	if (result == HLEKernel::WAIT_CB_RESUMED_WAIT)
-		DEBUG_LOG(SCEKERNEL, "sceKernelReceiveMbxCB: Resuming mbx wait from callback");
+		DEBUG_LOG(SCEKERNEL, "sceKernelAllocateVplCB: Resuming mbx wait from callback");
 }
 
 static bool __VplThreadSortPriority(VplWaitingThread thread1, VplWaitingThread thread2)

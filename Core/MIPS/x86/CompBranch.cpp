@@ -26,7 +26,6 @@
 #include "Core/Reporting.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/HLETables.h"
-#include "Core/Host.h"
 #include "Core/MemMap.h"
 
 #include "Core/MIPS/MIPS.h"
@@ -108,7 +107,7 @@ static void JitBranchLog(MIPSOpcode op, u32 pc) {
 static void JitBranchLogMismatch(MIPSOpcode op, u32 pc)
 {
 	char temp[256];
-	MIPSDisAsm(op, pc, temp, true);
+	MIPSDisAsm(op, pc, temp, sizeof(temp), true);
 	ERROR_LOG(JIT, "Bad jump: %s - int:%08x jit:%08x", temp, currentMIPS->intBranchExit, currentMIPS->jitBranchExit);
 	Core_EnableStepping(true, "jit.branchdebug", pc);
 }

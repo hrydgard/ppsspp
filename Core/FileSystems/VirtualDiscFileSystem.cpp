@@ -29,6 +29,7 @@
 #include "Common/StringUtils.h"
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"
+#include "Common/SysError.h"
 #include "Core/FileSystems/VirtualDiscFileSystem.h"
 #include "Core/FileSystems/ISOFileSystem.h"
 #include "Core/HLE/sceKernel.h"
@@ -340,7 +341,7 @@ int VirtualDiscFileSystem::OpenFile(std::string filename, FileAccess access, con
 		return newHandle;
 	}
 
-	if (filename.compare(0,8,"/sce_lbn") == 0)
+	if (filename.compare(0, 8, "/sce_lbn") == 0)
 	{
 		u32 sectorStart = 0xFFFFFFFF, readSize = 0xFFFFFFFF;
 		parseLBN(filename, &sectorStart, &readSize);
@@ -365,11 +366,13 @@ int VirtualDiscFileSystem::OpenFile(std::string filename, FileAccess access, con
 		bool success = entry.Open(basePath, fileList[entry.fileIndex].fileName, FILEACCESS_READ);
 
 		if (!success) {
+			if (!(access & FILEACCESS_PPSSPP_QUIET)) {
 #ifdef _WIN32
-			ERROR_LOG(FILESYS, "VirtualDiscFileSystem::OpenFile: FAILED, %i", (int)GetLastError());
+				ERROR_LOG(FILESYS, "VirtualDiscFileSystem::OpenFile: FAILED, %i", (int)GetLastError());
 #else
-			ERROR_LOG(FILESYS, "VirtualDiscFileSystem::OpenFile: FAILED");
+				ERROR_LOG(FILESYS, "VirtualDiscFileSystem::OpenFile: FAILED");
 #endif
+			}
 			return 0;
 		}
 
@@ -388,15 +391,16 @@ int VirtualDiscFileSystem::OpenFile(std::string filename, FileAccess access, con
 	if (entry.fileIndex != (u32)-1 && fileList[entry.fileIndex].handler != NULL) {
 		entry.handler = fileList[entry.fileIndex].handler;
 	}
-	bool success = entry.Open(basePath, filename, access);
+	bool success = entry.Open(basePath, filename, (FileAccess)(access & FILEACCESS_PSP_FLAGS));
 
 	if (!success) {
+		if (!(access & FILEACCESS_PPSSPP_QUIET)) {
 #ifdef _WIN32
-		ERROR_LOG(FILESYS, "VirtualDiscFileSystem::OpenFile: FAILED, %i - access = %i", (int)GetLastError(), (int)access);
+			ERROR_LOG(FILESYS, "VirtualDiscFileSystem::OpenFile: FAILED, %i - access = %i", (int)GetLastError(), (int)access);
 #else
-		ERROR_LOG(FILESYS, "VirtualDiscFileSystem::OpenFile: FAILED, access = %i", (int)access);
+			ERROR_LOG(FILESYS, "VirtualDiscFileSystem::OpenFile: FAILED, access = %i", (int)access);
 #endif
-		//wwwwaaaaahh!!
+		}
 		return SCE_KERNEL_ERROR_ERRNO_FILE_NOT_FOUND;
 	} else {
 		u32 newHandle = hAlloc->GetNewHandle();
@@ -641,7 +645,7 @@ PSPFileInfo VirtualDiscFileSystem::GetFileInfo(std::string filename) {
 			localtime_r((time_t*)&mtime, &x.mtime);
 		}
 
-		x.startSector = fileList[fileIndex].firstBlock;
+		// x.startSector was set above in "if (fileIndex != -1)".
 		x.numSectors = (x.size+2047)/2048;
 	}
 
@@ -828,7 +832,8 @@ void VirtualDiscFileSystem::HandlerLogger(void *arg, HandlerHandle handle, LogTy
 	}
 }
 
-VirtualDiscFileSystem::Handler::Handler(const char *filename, VirtualDiscFileSystem *const sys) {
+VirtualDiscFileSystem::Handler::Handler(const char *filename, VirtualDiscFileSystem *const sys)
+: sys_(sys) {
 #if !PPSSPP_PLATFORM(SWITCH)
 #ifdef _WIN32
 #if PPSSPP_PLATFORM(UWP)
@@ -851,7 +856,12 @@ VirtualDiscFileSystem::Handler::Handler(const char *filename, VirtualDiscFileSys
 		Read = (ReadFunc)dlsym(library, "Read");
 		Close = (CloseFunc)dlsym(library, "Close");
 
-		if (Init == NULL || Shutdown == NULL || Open == NULL || Seek == NULL || Read == NULL || Close == NULL) {
+		VersionFunc Version = (VersionFunc)dlsym(library, "Version");
+		if (Version && Version() >= 2) {
+			ShutdownV2 = (ShutdownV2Func)Shutdown;
+		}
+
+		if (!Init || !Shutdown || !Open || !Seek || !Read || !Close) {
 			ERROR_LOG(FILESYS, "Unable to find all handler functions: %s", filename);
 			dlclose(library);
 			library = NULL;
@@ -861,7 +871,7 @@ VirtualDiscFileSystem::Handler::Handler(const char *filename, VirtualDiscFileSys
 			library = NULL;
 		}
 	} else {
-		ERROR_LOG(FILESYS, "Unable to load handler: %s", filename);
+		ERROR_LOG(FILESYS, "Unable to load handler '%s': %s", filename, GetLastErrorMsg().c_str());
 	}
 #ifdef _WIN32
 #undef dlopen
@@ -873,7 +883,10 @@ VirtualDiscFileSystem::Handler::Handler(const char *filename, VirtualDiscFileSys
 
 VirtualDiscFileSystem::Handler::~Handler() {
 	if (library != NULL) {
-		Shutdown();
+		if (ShutdownV2)
+			ShutdownV2(sys_);
+		else
+			Shutdown();
 
 #if !PPSSPP_PLATFORM(UWP) && !PPSSPP_PLATFORM(SWITCH)
 #ifdef _WIN32

@@ -14,7 +14,6 @@
 #include "Common/Log.h"
 #include "Common/OSVersion.h"
 #include "Core/ConfigValues.h"
-#include "Core/Reporting.h"
 #include "Core/Util/AudioFormat.h"
 #include "Windows/W32Util/Misc.h"
 
@@ -30,8 +29,8 @@ unsigned int WINAPI DSoundAudioBackend::soundThread(void *param) {
 }
 
 bool DSoundAudioBackend::WriteDataToBuffer(DWORD offset, // Our own write cursor.
-																		char* soundData, // Start of our data.
-																		DWORD soundBytes) { // Size of block to copy.
+										   char* soundData, // Start of our data.
+										   DWORD soundBytes) { // Size of block to copy.
 	void *ptr1, *ptr2;
 	DWORD numBytes1, numBytes2;
 	// Obtain memory address of write block. This will be in two parts if the block wraps around.
@@ -42,15 +41,16 @@ bool DSoundAudioBackend::WriteDataToBuffer(DWORD offset, // Our own write cursor
 	dsBuffer->Restore();
 	hr=dsBuffer->Lock(dwOffset, dwSoundBytes, &ptr1, &numBytes1, &ptr2, &numBytes2, 0);
 	} */
-	if (SUCCEEDED(hr)) { 
-		memcpy(ptr1, soundData, numBytes1);
-		if (ptr2)
-			memcpy(ptr2, soundData+numBytes1, numBytes2);
-		// Release the data back to DirectSound.
-		dsBuffer_->Unlock(ptr1, numBytes1, ptr2, numBytes2);
-		return true;
+	if (FAILED(hr)) {
+		return false;
 	}
-	return false;
+
+	memcpy(ptr1, soundData, numBytes1);
+	if (ptr2)
+		memcpy(ptr2, soundData + numBytes1, numBytes2);
+	// Release the data back to DirectSound.
+	dsBuffer_->Unlock(ptr1, numBytes1, ptr2, numBytes2);
+	return true;
 }
 
 bool DSoundAudioBackend::CreateBuffer() {
@@ -98,7 +98,6 @@ int DSoundAudioBackend::RunThread() {
 		return 1;
 	}
 
-	soundSyncEvent_ = CreateEvent(0, false, false, 0);
 	InitializeCriticalSection(&soundCriticalSection);
 
 	DWORD num1;
@@ -116,6 +115,8 @@ int DSoundAudioBackend::RunThread() {
 
 	dsBuffer_->Play(0, 0, DSBPLAY_LOOPING);
 
+	auto ModBufferSize = [&](int x) { return (x + bufferSize_) % bufferSize_; };
+
 	while (!threadData_) {
 		EnterCriticalSection(&soundCriticalSection);
 
@@ -123,7 +124,7 @@ int DSoundAudioBackend::RunThread() {
 		int numBytesToRender = RoundDown128(ModBufferSize(currentPos_ - lastPos_)); 
 
 		if (numBytesToRender >= 256) {
-			int numBytesRendered = 4 * (*callback_)(realtimeBuffer_, numBytesToRender >> 2, 16, 44100);
+			int numBytesRendered = 4 * (*callback_)(realtimeBuffer_, numBytesToRender >> 2, 44100);
 			//We need to copy the full buffer, regardless of what the mixer claims to have filled
 			//If we don't do this then the sound will loop if the sound stops and the mixer writes only zeroes
 			numBytesRendered = numBytesToRender;
@@ -136,7 +137,7 @@ int DSoundAudioBackend::RunThread() {
 		}
 
 		LeaveCriticalSection(&soundCriticalSection);
-		WaitForSingleObject(soundSyncEvent_, MAXWAIT);
+		Sleep(5);
 	}
 	dsBuffer_->Stop();
 
@@ -145,9 +146,6 @@ int DSoundAudioBackend::RunThread() {
 
 	threadData_ = 2;
 	return 0;
-}
-
-DSoundAudioBackend::DSoundAudioBackend() {
 }
 
 DSoundAudioBackend::~DSoundAudioBackend() {
@@ -169,10 +167,6 @@ DSoundAudioBackend::~DSoundAudioBackend() {
 		hThread_ = NULL;
 	}
 
-	if (soundSyncEvent_ != NULL) {
-		CloseHandle(soundSyncEvent_);
-	}
-	soundSyncEvent_ = NULL;
 	LeaveCriticalSection(&soundCriticalSection);
 	DeleteCriticalSection(&soundCriticalSection);
 }
@@ -187,9 +181,4 @@ bool DSoundAudioBackend::Init(HWND window, StreamCallback _callback, int sampleR
 		return false;
 	SetThreadPriority(hThread_, THREAD_PRIORITY_ABOVE_NORMAL);
 	return true;
-}
-
-void DSoundAudioBackend::Update() {
-	if (soundSyncEvent_ != NULL)
-		SetEvent(soundSyncEvent_);
 }

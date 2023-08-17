@@ -91,6 +91,12 @@
     <Filter Include="GPU\Vulkan">
       <UniqueIdentifier>{096c3d00-fcfa-4877-8cf0-3b10d56b5d72}</UniqueIdentifier>
     </Filter>
+    <Filter Include="ext\basis_universal">
+      <UniqueIdentifier>{8b92cc15-8e3e-45b1-ba80-ad39b1a9cdc8}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ext\naett">
+      <UniqueIdentifier>{403c3154-5e8a-4da1-ba82-8f69bef25e14}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\Common\ABI.cpp" />
@@ -252,7 +258,10 @@
     <ClCompile Include="..\..\Common\Data\Format\RIFF.cpp">
       <Filter>Data\Format</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\Common\File\VFS\AssetReader.cpp">
+    <ClCompile Include="..\..\Common\File\VFS\DirectoryReader.cpp">
+      <Filter>File\VFS</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\File\VFS\ZipFileReader.cpp">
       <Filter>File\VFS</Filter>
     </ClCompile>
     <ClCompile Include="..\..\Common\File\VFS\VFS.cpp">
@@ -410,6 +419,42 @@
     </ClCompile>
     <ClCompile Include="..\..\Common\Render\ManagedTexture.cpp">
       <Filter>Render</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\UI\PopupScreens.cpp">
+      <Filter>UI</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\UI\ScrollView.cpp">
+      <Filter>UI</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\Data\Format\DDSLoad.cpp">
+      <Filter>Data\Format</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\basis_universal\basisu_transcoder.cpp">
+      <Filter>ext\basis_universal</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\System\Request.cpp">
+      <Filter>System</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\File\AndroidContentURI.cpp">
+      <Filter>File</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\GPU\GPUBackendCommon.cpp">
+      <Filter>GPU</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\UI\IconCache.cpp">
+      <Filter>UI</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\System\OSD.cpp">
+      <Filter>System</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\Net\HTTPRequest.cpp">
+      <Filter>Net</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\Net\HTTPNaettRequest.cpp">
+      <Filter>Net</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\naett\naett.c">
+      <Filter>ext\naett</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -583,7 +628,10 @@
     <ClInclude Include="..\..\Common\Data\Format\RIFF.h">
       <Filter>Data\Format</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\Common\File\VFS\AssetReader.h">
+    <ClInclude Include="..\..\Common\File\VFS\DirectoryReader.h">
+      <Filter>File\VFS</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\File\VFS\ZipFileReader.h">
       <Filter>File\VFS</Filter>
     </ClInclude>
     <ClInclude Include="..\..\Common\File\VFS\VFS.h">
@@ -760,6 +808,60 @@
     <ClInclude Include="..\..\Common\Render\ManagedTexture.h">
       <Filter>Render</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\Common\UI\PopupScreens.h">
+      <Filter>UI</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\UI\ScrollView.h">
+      <Filter>UI</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\Data\Format\DDSLoad.h">
+      <Filter>Data\Format</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\basis_universal\basisu.h">
+      <Filter>ext\basis_universal</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\basis_universal\basisu_containers.h">
+      <Filter>ext\basis_universal</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\basis_universal\basisu_containers_impl.h">
+      <Filter>ext\basis_universal</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\basis_universal\basisu_file_headers.h">
+      <Filter>ext\basis_universal</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\basis_universal\basisu_transcoder.h">
+      <Filter>ext\basis_universal</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\basis_universal\basisu_transcoder_internal.h">
+      <Filter>ext\basis_universal</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\basis_universal\basisu_transcoder_uastc.h">
+      <Filter>ext\basis_universal</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\System\Request.h">
+      <Filter>System</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\File\AndroidContentURI.h">
+      <Filter>File</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\GPU\GPUBackendCommon.h">
+      <Filter>GPU</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\UI\IconCache.h">
+      <Filter>UI</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\System\OSD.h">
+      <Filter>System</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\Net\HTTPRequest.h">
+      <Filter>Net</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\Net\HTTPNaettRequest.h">
+      <Filter>Net</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\naett\naett.h">
+      <Filter>ext\naett</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="..\..\Common\Math\fast\fast_matrix_neon.S">
@@ -769,5 +871,35 @@
       <Filter>Math\lin</Filter>
     </None>
     <None Include="..\..\ext\libpng17\CMakeLists.txt" />
+    <None Include="..\..\ext\basis_universal\basisu_transcoder_tables_astc.inc">
+      <Filter>ext\basis_universal</Filter>
+    </None>
+    <None Include="..\..\ext\basis_universal\basisu_transcoder_tables_astc_0_255.inc">
+      <Filter>ext\basis_universal</Filter>
+    </None>
+    <None Include="..\..\ext\basis_universal\basisu_transcoder_tables_atc_55.inc">
+      <Filter>ext\basis_universal</Filter>
+    </None>
+    <None Include="..\..\ext\basis_universal\basisu_transcoder_tables_atc_56.inc">
+      <Filter>ext\basis_universal</Filter>
+    </None>
+    <None Include="..\..\ext\basis_universal\basisu_transcoder_tables_bc7_m5_alpha.inc">
+      <Filter>ext\basis_universal</Filter>
+    </None>
+    <None Include="..\..\ext\basis_universal\basisu_transcoder_tables_bc7_m5_color.inc">
+      <Filter>ext\basis_universal</Filter>
+    </None>
+    <None Include="..\..\ext\basis_universal\basisu_transcoder_tables_dxt1_5.inc">
+      <Filter>ext\basis_universal</Filter>
+    </None>
+    <None Include="..\..\ext\basis_universal\basisu_transcoder_tables_dxt1_6.inc">
+      <Filter>ext\basis_universal</Filter>
+    </None>
+    <None Include="..\..\ext\basis_universal\basisu_transcoder_tables_pvrtc2_45.inc">
+      <Filter>ext\basis_universal</Filter>
+    </None>
+    <None Include="..\..\ext\basis_universal\basisu_transcoder_tables_pvrtc2_alpha_33.inc">
+      <Filter>ext\basis_universal</Filter>
+    </None>
   </ItemGroup>
 </Project>

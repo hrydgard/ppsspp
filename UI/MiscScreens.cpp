@@ -29,16 +29,17 @@
 #include "Common/System/Display.h"
 #include "Common/System/NativeApp.h"
 #include "Common/System/System.h"
+#include "Common/System/Request.h"
 #include "Common/Math/curves.h"
 #include "Common/File/VFS/VFS.h"
 
 #include "Common/Data/Color/RGBAUtil.h"
+#include "Common/Data/Encoding/Utf8.h"
 #include "Common/Data/Text/I18n.h"
 #include "Common/Data/Random/Rng.h"
 #include "Common/TimeUtil.h"
 #include "Common/File/FileUtil.h"
 #include "Core/Config.h"
-#include "Core/Host.h"
 #include "Core/System.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
 #include "Core/HLE/sceUtility.h"
@@ -133,12 +134,14 @@ public:
 		dc.Flush();
 		dc.BeginNoTex();
 
-		// Be sure to not overflow our vertex buffer
-		const float step = ceil(24*bounds.w/pixel_in_dps_x) > MAX_VERTS ? 24*bounds.w/(MAX_VERTS-48) : pixel_in_dps_x;
-
+		// 500 is enough for any resolution really. 24 * 500 = 12000 which fits handily in our UI vertex buffer (max 65536 per flush).
+		const int steps = std::max(20, std::min((int)g_display.dp_xres, 500));
+		float step = (float)g_display.dp_xres / (float)steps;
 		t *= speed;
-		for (float x = 0; x < bounds.w; x += step) {
-			float i = x * 1280/bounds.w;
+
+		for (int n = 0; n < steps; n++) {
+			float x = (float)n * step;
+			float i = x * 1280 / bounds.w;
 
 			float wave0 = sin(i*0.005+t*0.8)*0.05 + sin(i*0.002+t*0.25)*0.02 + sin(i*0.001+t*0.3)*0.03 + 0.625;
 			float wave1 = sin(i*0.0044+t*0.4)*0.07 + sin(i*0.003+t*0.1)*0.02 + sin(i*0.001+t*0.3)*0.01 + 0.625;
@@ -146,8 +149,8 @@ public:
 			dc.Draw()->RectVGradient(x, wave1*bounds.h, step, (1.0-wave1)*bounds.h, color, 0x00000000);
 
 			// Add some "antialiasing"
-			dc.Draw()->RectVGradient(x, wave0*bounds.h-3*pixel_in_dps_y, step, 3*pixel_in_dps_y, 0x00000000, color);
-			dc.Draw()->RectVGradient(x, wave1*bounds.h-3*pixel_in_dps_y, step, 3*pixel_in_dps_y, 0x00000000, color);
+			dc.Draw()->RectVGradient(x, wave0*bounds.h-3.0f * g_display.pixel_in_dps_y, step, 3.0f * g_display.pixel_in_dps_y, 0x00000000, color);
+			dc.Draw()->RectVGradient(x, wave1*bounds.h-3.0f * g_display.pixel_in_dps_y, step, 3.0f * g_display.pixel_in_dps_y, 0x00000000, color);
 		}
 
 		dc.Flush();
@@ -158,6 +161,8 @@ public:
 class FloatingSymbolsAnimation : public Animation {
 public:
 	void Draw(UIContext &dc, double t, float alpha, float x, float y, float z) override {
+		dc.Flush();
+		dc.Begin();
 		float xres = dc.GetBounds().w;
 		float yres = dc.GetBounds().h;
 		if (last_xres != xres || last_yres != yres) {
@@ -171,6 +176,7 @@ public:
 			int n = i & 3;
 			ui_draw2d.DrawImageRotated(symbols[n], x, y, 1.0f, angle, colorAlpha(colors[n], alpha * 0.1f));
 		}
+		dc.Flush();
 	}
 
 private:
@@ -358,11 +364,11 @@ uint32_t GetBackgroundColorWithAlpha(const UIContext &dc) {
 	return colorAlpha(colorBlend(dc.GetTheme().backgroundColor, 0, 0.5f), 0.65f);  // 0.65 = 166 = A6
 }
 
-void DrawGameBackground(UIContext &dc, const Path &gamePath, float x, float y, float z, bool darkenBackground) {
+void DrawGameBackground(UIContext &dc, const Path &gamePath, float x, float y, float z, bool transparent, bool darkenBackground) {
 	using namespace Draw;
 	using namespace UI;
 
-	if (PSP_IsInited() && !g_Config.bSkipBufferEffects) {
+	if (transparent && PSP_IsInited() && !g_Config.bSkipBufferEffects) {
 		gpu->CheckDisplayResized();
 		gpu->CheckConfigChanged();
 		gpu->CopyDisplayToOutput(true);
@@ -371,11 +377,11 @@ void DrawGameBackground(UIContext &dc, const Path &gamePath, float x, float y, f
 		Viewport viewport;
 		viewport.TopLeftX = 0;
 		viewport.TopLeftY = 0;
-		viewport.Width = pixel_xres;
-		viewport.Height = pixel_yres;
+		viewport.Width = g_display.pixel_xres;
+		viewport.Height = g_display.pixel_yres;
 		viewport.MaxDepth = 1.0;
 		viewport.MinDepth = 0.0;
-		draw->SetViewports(1, &viewport);
+		draw->SetViewport(viewport);
 		dc.BeginFrame();
 		dc.RebindTexture();
 		dc.Begin();
@@ -427,13 +433,11 @@ void HandleCommonMessages(const char *message, const char *value, ScreenManager 
 		UpdateUIState(UISTATE_MENU);
 		manager->push(new GameSettingsScreen(Path()));
 	} else if (!strcmp(message, "language screen") && isActiveScreen) {
-		auto sy = GetI18NCategory("System");
+		auto sy = GetI18NCategory(I18NCat::SYSTEM);
 		auto langScreen = new NewLanguageScreen(sy->T("Language"));
 		langScreen->OnChoice.Add([](UI::EventParams &) {
-			NativeMessageReceived("recreateviews", "");
-			if (host) {
-				host->UpdateUI();
-			}
+			System_PostUIMessage("recreateviews", "");
+			System_Notify(SystemNotification::UI);
 			return UI::EVENT_DONE;
 		});
 		manager->push(langScreen);
@@ -457,7 +461,7 @@ void UIScreenWithGameBackground::DrawBackground(UIContext &dc) {
 	float x, y, z;
 	screenManager()->getFocusPosition(x, y, z);
 	if (!gamePath_.empty()) {
-		DrawGameBackground(dc, gamePath_, x, y, z, darkenGameBackground_);
+		DrawGameBackground(dc, gamePath_, x, y, z, (g_Config.bTransparentBackground || forceTransparent_), darkenGameBackground_);
 	} else {
 		::DrawBackground(dc, 1.0f, x, y, z);
 		dc.Flush();
@@ -477,7 +481,12 @@ void UIDialogScreenWithGameBackground::DrawBackground(UIContext &dc) {
 	using namespace Draw;
 	float x, y, z;
 	screenManager()->getFocusPosition(x, y, z);
-	DrawGameBackground(dc, gamePath_, x, y, z, darkenGameBackground_);
+	if (!gamePath_.empty()) {
+		DrawGameBackground(dc, gamePath_, x, y, z, (g_Config.bTransparentBackground || forceTransparent_), darkenGameBackground_);
+	} else {
+		::DrawBackground(dc, 1.0f, x, y, z);
+		dc.Flush();
+	}
 }
 
 void UIDialogScreenWithGameBackground::sendMessage(const char *message, const char *value) {
@@ -501,7 +510,7 @@ void UIDialogScreenWithBackground::DrawBackground(UIContext &dc) {
 
 void UIDialogScreenWithBackground::AddStandardBack(UI::ViewGroup *parent) {
 	using namespace UI;
-	auto di = GetI18NCategory("Dialog");
+	auto di = GetI18NCategory(I18NCat::DIALOG);
 	parent->Add(new Choice(di->T("Back"), "", false, new AnchorLayoutParams(150, 64, 10, NONE, NONE, 10)))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 }
 
@@ -511,7 +520,7 @@ void UIDialogScreenWithBackground::sendMessage(const char *message, const char *
 
 PromptScreen::PromptScreen(const Path &gamePath, std::string message, std::string yesButtonText, std::string noButtonText, std::function<void(bool)> callback)
 	: UIDialogScreenWithGameBackground(gamePath), message_(message), callback_(callback) {
-	auto di = GetI18NCategory("Dialog");
+	auto di = GetI18NCategory(I18NCat::DIALOG);
 	yesButtonText_ = di->T(yesButtonText.c_str());
 	noButtonText_ = di->T(noButtonText.c_str());
 }
@@ -534,8 +543,14 @@ void PromptScreen::CreateViews() {
 	Choice *yesButton = rightColumnItems->Add(new Choice(yesButtonText_));
 	yesButton->OnClick.Handle(this, &PromptScreen::OnYes);
 	root_->SetDefaultFocusView(yesButton);
-	if (!noButtonText_.empty())
+	if (!noButtonText_.empty()) {
 		rightColumnItems->Add(new Choice(noButtonText_))->OnClick.Handle(this, &PromptScreen::OnNo);
+	} else {
+		// This is an information screen, not a question.
+		// Sneak in the version of PPSSPP in the corner, for debug-reporting user screenshots.
+		std::string version = System_GetProperty(SYSPROP_BUILD_VERSION);
+		root_->Add(new TextView(version, 0, true, new AnchorLayoutParams(10.0f, NONE, NONE, 10.0f)));
+	}
 }
 
 UI::EventReturn PromptScreen::OnYes(UI::EventParams &e) {
@@ -556,7 +571,7 @@ void PromptScreen::TriggerFinish(DialogResult result) {
 TextureShaderScreen::TextureShaderScreen(const std::string &title) : ListPopupScreen(title) {}
 
 void TextureShaderScreen::CreateViews() {
-	auto ps = GetI18NCategory("TextureShaders");
+	auto ps = GetI18NCategory(I18NCat::TEXTURESHADERS);
 	ReloadAllPostShaderInfo(screenManager()->getDrawContext());
 	shaders_ = GetAllTextureShaderInfo();
 	std::vector<std::string> items;
@@ -585,7 +600,7 @@ NewLanguageScreen::NewLanguageScreen(const std::string &title) : ListPopupScreen
 	auto &langValuesMapping = g_Config.GetLangValuesMapping();
 
 	std::vector<File::FileInfo> tempLangs;
-	VFSGetFileListing("lang", &tempLangs, "ini");
+	g_VFS.GetFileListing("lang", &tempLangs, "ini");
 	std::vector<std::string> listing;
 	int selected = -1;
 	int counter = 0;
@@ -652,29 +667,20 @@ void NewLanguageScreen::OnCompleted(DialogResult result) {
 	g_Config.sLanguageIni = code;
 
 	bool iniLoadedSuccessfully = false;
-	// Allow the lang directory to be overridden for testing purposes (e.g. Android, where it's hard to 
+	// Allow the lang directory to be overridden for testing purposes (e.g. Android, where it's hard to
 	// test new languages without recompiling the entire app, which is a hassle).
 	const Path langOverridePath = GetSysDirectory(DIRECTORY_SYSTEM) / "lang";
 
 	// If we run into the unlikely case that "lang" is actually a file, just use the built-in translations.
 	if (!File::Exists(langOverridePath) || !File::IsDirectory(langOverridePath))
-		iniLoadedSuccessfully = i18nrepo.LoadIni(g_Config.sLanguageIni);
+		iniLoadedSuccessfully = g_i18nrepo.LoadIni(g_Config.sLanguageIni);
 	else
-		iniLoadedSuccessfully = i18nrepo.LoadIni(g_Config.sLanguageIni, langOverridePath);
+		iniLoadedSuccessfully = g_i18nrepo.LoadIni(g_Config.sLanguageIni, langOverridePath);
 
 	if (iniLoadedSuccessfully) {
-		// Dunno what else to do here.
-		auto &langValuesMapping = g_Config.GetLangValuesMapping();
-
-		auto iter = langValuesMapping.find(code);
-		if (iter == langValuesMapping.end()) {
-			// Fallback to English
-			g_Config.iLanguage = PSP_SYSTEMPARAM_LANGUAGE_ENGLISH;
-		} else {
-			g_Config.iLanguage = iter->second.second;
-		}
 		RecreateViews();
 	} else {
+		// Failed to load the language ini. Shouldn't really happen, but let's just switch back to the old language.
 		g_Config.sLanguageIni = oldLang;
 	}
 }
@@ -739,12 +745,10 @@ bool LogoScreen::key(const KeyInput &key) {
 	return false;
 }
 
-bool LogoScreen::touch(const TouchInput &touch) {
+void LogoScreen::touch(const TouchInput &touch) {
 	if (touch.flags & TOUCH_DOWN) {
 		Next();
-		return true;
 	}
-	return false;
 }
 
 void LogoScreen::render() {
@@ -771,8 +775,8 @@ void LogoScreen::render() {
 	screenManager()->getFocusPosition(x, y, z);
 	::DrawBackground(dc, alpha, x, y, z);
 
-	auto cr = GetI18NCategory("PSPCredits");
-	auto gr = GetI18NCategory("Graphics");
+	auto cr = GetI18NCategory(I18NCat::PSPCREDITS);
+	auto gr = GetI18NCategory(I18NCat::GRAPHICS);
 	char temp[256];
 	// Manually formatting UTF-8 is fun.  \xXX doesn't work everywhere.
 	snprintf(temp, sizeof(temp), "%s Henrik Rydg%c%crd", cr->T("created", "Created by"), 0xC3, 0xA5);
@@ -791,11 +795,13 @@ void LogoScreen::render() {
 	int ppsspp_org_y = bounds.h / 2 + 130;
 	dc.DrawText("www.ppsspp.org", bounds.centerX(), ppsspp_org_y, textColor, ALIGN_CENTER);
 
-#if !PPSSPP_PLATFORM(UWP)
+#if !PPSSPP_PLATFORM(UWP) || defined(_DEBUG)
 	// Draw the graphics API, except on UWP where it's always D3D11
 	std::string apiName = screenManager()->getDrawContext()->GetInfoString(InfoField::APINAME);
 #ifdef _DEBUG
-	apiName += ", debug build";
+	apiName += ", debug build ";
+	// Add some emoji for testing.
+	apiName += CodepointToUTF8(0x1F41B) + CodepointToUTF8(0x1F41C) + CodepointToUTF8(0x1F914);
 #endif
 	dc.DrawText(gr->T(apiName), bounds.centerX(), ppsspp_org_y + 50, textColor, ALIGN_CENTER);
 #endif
@@ -805,8 +811,8 @@ void LogoScreen::render() {
 
 void CreditsScreen::CreateViews() {
 	using namespace UI;
-	auto di = GetI18NCategory("Dialog");
-	auto cr = GetI18NCategory("PSPCredits");
+	auto di = GetI18NCategory(I18NCat::DIALOG);
+	auto cr = GetI18NCategory(I18NCat::PSPCREDITS);
 
 	root_ = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
 	Button *back = root_->Add(new Button(di->T("Back"), new AnchorLayoutParams(260, 64, NONE, NONE, 10, 10, false)));
@@ -837,45 +843,41 @@ void CreditsScreen::CreateViews() {
 
 UI::EventReturn CreditsScreen::OnSupport(UI::EventParams &e) {
 #ifdef __ANDROID__
-	LaunchBrowser("market://details?id=org.ppsspp.ppssppgold");
+	System_LaunchUrl(LaunchUrlType::BROWSER_URL, "market://details?id=org.ppsspp.ppssppgold");
 #else
-	LaunchBrowser("https://central.ppsspp.org/buygold");
+	System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://www.ppsspp.org/buygold");
 #endif
 	return UI::EVENT_DONE;
 }
 
 UI::EventReturn CreditsScreen::OnTwitter(UI::EventParams &e) {
-#ifdef __ANDROID__
-	System_SendMessage("showTwitter", "PPSSPP_emu");
-#else
-	LaunchBrowser("https://twitter.com/#!/PPSSPP_emu");
-#endif
+	System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://twitter.com/#!/PPSSPP_emu");
 	return UI::EVENT_DONE;
 }
 
 UI::EventReturn CreditsScreen::OnPPSSPPOrg(UI::EventParams &e) {
-	LaunchBrowser("https://www.ppsspp.org");
+	System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://www.ppsspp.org");
 	return UI::EVENT_DONE;
 }
 
 UI::EventReturn CreditsScreen::OnPrivacy(UI::EventParams &e) {
-	LaunchBrowser("https://www.ppsspp.org/privacy.html");
+	System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://www.ppsspp.org/privacy");
 	return UI::EVENT_DONE;
 }
 
 UI::EventReturn CreditsScreen::OnForums(UI::EventParams &e) {
-	LaunchBrowser("https://forums.ppsspp.org");
+	System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://forums.ppsspp.org");
 	return UI::EVENT_DONE;
 }
 
 UI::EventReturn CreditsScreen::OnDiscord(UI::EventParams &e) {
-	LaunchBrowser("https://discord.gg/5NJB6dD");
+	System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://discord.gg/5NJB6dD");
 	return UI::EVENT_DONE;
 }
 
 UI::EventReturn CreditsScreen::OnShare(UI::EventParams &e) {
-	auto cr = GetI18NCategory("PSPCredits");
-	System_SendMessage("sharetext", cr->T("CheckOutPPSSPP", "Check out PPSSPP, the awesome PSP emulator: https://www.ppsspp.org/"));
+	auto cr = GetI18NCategory(I18NCat::PSPCREDITS);
+	System_ShareText(cr->T("CheckOutPPSSPP", "Check out PPSSPP, the awesome PSP emulator: https://www.ppsspp.org/"));
 	return UI::EVENT_DONE;
 }
 
@@ -891,7 +893,7 @@ void CreditsScreen::update() {
 void CreditsScreen::render() {
 	UIScreen::render();
 
-	auto cr = GetI18NCategory("PSPCredits");
+	auto cr = GetI18NCategory(I18NCat::PSPCREDITS);
 
 	std::string specialthanksMaxim = "Maxim ";
 	specialthanksMaxim += cr->T("specialthanksMaxim", "for his amazing Atrac3+ decoder work");
@@ -915,8 +917,8 @@ void CreditsScreen::render() {
 	specialthankssolarmystic += cr->T("testing");
 	specialthankssolarmystic += ')';
 
-	const char * credits[] = {
-		"PPSSPP",
+	const char *credits[] = {
+		System_GetPropertyBool(SYSPROP_APP_GOLD) ? "PPSSPP Gold" : "PPSSPP",
 		"",
 		cr->T("title", "A fast and portable PSP emulator"),
 		"",
@@ -970,6 +972,7 @@ void CreditsScreen::render() {
 		"adenovan",
 		"iota97",
 		"Lubos",
+		"stenzek",  // For retroachievements integration
 		"",
 		cr->T("specialthanks", "Special thanks to:"),
 		specialthanksMaxim.c_str(),
@@ -1061,8 +1064,8 @@ void CreditsScreen::render() {
 	dc.Flush();
 }
 
-SettingInfoMessage::SettingInfoMessage(int align, UI::AnchorLayoutParams *lp)
-	: UI::LinearLayout(UI::ORIENT_HORIZONTAL, lp) {
+SettingInfoMessage::SettingInfoMessage(int align, float cutOffY, UI::AnchorLayoutParams *lp)
+	: UI::LinearLayout(UI::ORIENT_HORIZONTAL, lp), cutOffY_(cutOffY) {
 	using namespace UI;
 	SetSpacing(0.0f);
 	Add(new UI::Spacer(10.0f));
@@ -1074,10 +1077,10 @@ void SettingInfoMessage::Show(const std::string &text, const UI::View *refView) 
 	if (refView) {
 		Bounds b = refView->GetBounds();
 		const UI::AnchorLayoutParams *lp = GetLayoutParams()->As<UI::AnchorLayoutParams>();
-		if (b.y >= cutOffY_) {
+		if (cutOffY_ != -1.0f && b.y >= cutOffY_) {
 			ReplaceLayoutParams(new UI::AnchorLayoutParams(lp->width, lp->height, lp->left, 80.0f, lp->right, lp->bottom, lp->center));
 		} else {
-			ReplaceLayoutParams(new UI::AnchorLayoutParams(lp->width, lp->height, lp->left, dp_yres - 80.0f - 40.0f, lp->right, lp->bottom, lp->center));
+			ReplaceLayoutParams(new UI::AnchorLayoutParams(lp->width, lp->height, lp->left, g_display.dp_yres - 80.0f - 40.0f, lp->right, lp->bottom, lp->center));
 		}
 	}
 	text_->SetText(text);
@@ -1101,7 +1104,7 @@ void SettingInfoMessage::Draw(UIContext &dc) {
 	}
 
 	if (alpha >= 0.1f) {
-		UI::Style style = dc.theme->popupTitle;
+		UI::Style style = dc.theme->popupStyle;
 		style.background.color = colorAlpha(style.background.color, alpha - 0.1f);
 		dc.FillRect(style.background, bounds_);
 	}
@@ -1112,5 +1115,5 @@ void SettingInfoMessage::Draw(UIContext &dc) {
 }
 
 std::string SettingInfoMessage::GetText() const {
-	return showing_ && text_ ? text_->GetText() : "";
+	return (showing_ && text_) ? text_->GetText() : "";
 }

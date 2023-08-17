@@ -10,6 +10,11 @@
 #include "Common/Log.h"
 #include "Common/MemoryUtil.h"
 
+#if PPSSPP_PLATFORM(SWITCH)
+#include <cstdio>
+#include <switch.h>
+#endif // PPSSPP_PLATFORM(SWITCH)
+
 // Everything that needs to generate code should inherit from this.
 // You get memory management for free, plus, you can use all emitter functions without
 // having to prefix them with gen-> or something similar.
@@ -27,7 +32,7 @@ public:
 
 	virtual const u8 *GetCodePtr() const = 0;
 
-	u8 *GetBasePtr() {
+	u8 *GetBasePtr() const {
 		return region;
 	}
 
@@ -65,9 +70,20 @@ public:
 	// Call this before you generate any code.
 	void AllocCodeSpace(int size) {
 		region_size = size;
+#if PPSSPP_PLATFORM(SWITCH)
+		Result rc = jitCreate(&jitController, size);
+		if(R_FAILED(rc)) {
+			printf("Failed to create Jitbuffer of size 0x%x err: 0x%x\n", size, rc);
+		}
+		printf("[NXJIT]: Initialized RX: %p RW: %p\n", jitController.rx_addr, jitController.rw_addr);
+
+		region = (u8 *)jitController.rx_addr;
+		writableRegion = (u8 *)jitController.rw_addr;
+#else // PPSSPP_PLATFORM(SWITCH)
 		// The protection will be set to RW if PlatformIsWXExclusive.
 		region = (u8 *)AllocateExecutableMemory(region_size);
 		writableRegion = region;
+#endif // !PPSSPP_PLATFORM(SWITCH)
 		T::SetCodePointer(region, writableRegion);
 	}
 
@@ -135,8 +151,13 @@ public:
 
 	// Call this when shutting down. Don't rely on the destructor, even though it'll do the job.
 	void FreeCodeSpace() {
+#if !PPSSPP_PLATFORM(SWITCH)
 		ProtectMemoryPages(region, region_size, MEM_PROT_READ | MEM_PROT_WRITE);
-		FreeMemoryPages(region, region_size);
+		FreeExecutableMemory(region, region_size);
+#else // !PPSSPP_PLATFORM(SWITCH)
+		jitClose(&jitController);
+		printf("[NXJIT]: Jit closed\n");
+#endif // PPSSPP_PLATFORM(SWITCH)
 		region = nullptr;
 		writableRegion = nullptr;
 		region_size = 0;
@@ -176,5 +197,7 @@ private:
 	const uint8_t *writeStart_ = nullptr;
 	uint8_t *writableRegion = nullptr;
 	size_t writeEstimated_ = 0;
+#if PPSSPP_PLATFORM(SWITCH)
+	Jit jitController;
+#endif // PPSSPP_PLATFORM(SWITCH)
 };
-

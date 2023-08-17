@@ -18,6 +18,8 @@
 #include <algorithm>
 
 #include "ext/xxhash.h"
+
+#include "Common/System/System.h"
 #include "Common/Data/Color/RGBAUtil.h"
 #include "Common/File/VFS/VFS.h"
 #include "Common/Data/Format/ZIMLoad.h"
@@ -31,7 +33,6 @@
 #include "Core/Config.h"
 #include "Common/BitScan.h"
 #include "Core/HDRemaster.h"
-#include "Core/Host.h"
 #include "GPU/ge_constants.h"
 #include "GPU/GPUState.h"
 #include "GPU/GPUInterface.h"
@@ -237,7 +238,7 @@ void __PPGeSetupListArgs()
 
 void __PPGeInit() {
 	// PPGe isn't really important for headless, and LoadZIM takes a long time.
-	bool skipZIM = host->ShouldSkipUI();
+	bool skipZIM = System_GetPropertyBool(SYSPROP_SKIP_UI);
 
 	u8 *imageData[12]{};
 	int width[12]{};
@@ -252,7 +253,7 @@ void __PPGeInit() {
 	if (loadedZIM) {
 		size_t atlas_data_size;
 		if (!g_ppge_atlas.IsMetadataLoaded()) {
-			uint8_t *atlas_data = VFSReadFile("ppge_atlas.meta", &atlas_data_size);
+			uint8_t *atlas_data = g_VFS.ReadFile("ppge_atlas.meta", &atlas_data_size);
 			if (atlas_data)
 				g_ppge_atlas.Load(atlas_data, atlas_data_size);
 			delete[] atlas_data;
@@ -276,7 +277,7 @@ void __PPGeInit() {
 	NotifyMemInfo(MemBlockFlags::WRITE, palette.ptr, 16 * sizeof(u16_le), "PPGe Palette");
 
 	const u32_le *imagePtr = (u32_le *)imageData[0];
-	u8 *ramPtr = atlasPtr == 0 ? nullptr : (u8 *)Memory::GetPointer(atlasPtr);
+	u8 *ramPtr = atlasPtr == 0 ? nullptr : (u8 *)Memory::GetPointerRange(atlasPtr, atlasSize);
 
 	// Palettize to 4-bit, the easy way.
 	for (int i = 0; i < width[0] * height[0] / 2; i++) {
@@ -325,7 +326,7 @@ void __PPGeDoState(PointerWrap &p)
 	} else {
 		// Memory was already updated by this point, so check directly.
 		if (atlasPtr != 0) {
-			savedHash = XXH3_64bits(Memory::GetPointer(atlasPtr), atlasWidth * atlasHeight / 2);
+			savedHash = XXH3_64bits(Memory::GetPointerRange(atlasPtr, atlasWidth * atlasHeight / 2), atlasWidth * atlasHeight / 2);
 		} else {
 			savedHash ^= 1;
 		}
@@ -886,7 +887,7 @@ static PPGeTextDrawerImage PPGeGetTextImage(const char *text, const PPGeStyle &s
 
 		if (im.ptr) {
 			int wBytes = (im.entry.bmWidth + 1) / 2;
-			u8 *ramPtr = (u8 *)Memory::GetPointer(im.ptr);
+			u8 *ramPtr = Memory::GetPointerWriteRange(im.ptr, sz);
 			for (int y = 0; y < im.entry.bmHeight; ++y) {
 				for (int x = 0; x < wBytes; ++x) {
 					uint8_t c1 = bitmapData[y * im.entry.bmWidth + x * 2];
@@ -1327,7 +1328,7 @@ bool PPGeImage::Load() {
 	unsigned char *textureData;
 	int success;
 	if (filename_.empty()) {
-		success = pngLoadPtr(Memory::GetPointer(png_), size_, &width_, &height_, &textureData);
+		success = pngLoadPtr(Memory::GetPointerRange(png_, (u32)size_), size_, &width_, &height_, &textureData);
 	} else {
 		std::vector<u8> pngData;
 		if (pspFileSystem.ReadEntireFile(filename_, pngData) < 0) {

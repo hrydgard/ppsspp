@@ -7,6 +7,7 @@ GPUDIR			= $(CORE_DIR)/GPU
 EXTDIR			= $(CORE_DIR)/ext
 NATIVEDIR		= $(EXTDIR)/native
 ZSTDDIR                 = $(EXTDIR)/zstd/lib
+LIBRETROCOMMONDIR       = $(LIBRETRODIR)/libretro-common
 
 SOURCES_CXX   :=
 SOURCES_C     :=
@@ -18,8 +19,10 @@ INCFLAGS += \
 	-I$(CORE_DIR)/libretro \
 	-I$(EXTDIR)/openxr \
 	-I$(EXTDIR)/glslang \
+	-I$(EXTDIR)/glslang-build \
 	-I$(EXTDIR)/native \
 	-I$(EXTDIR)/zlib \
+	-I$(EXTDIR)/cpu_features/include \
 	-I$(ZSTDDIR) \
 	-I$(EXTDIR)/snappy \
 	-I$(FFMPEGDIR) \
@@ -190,6 +193,70 @@ SOURCES_C += \
 	$(EXTDIR)/libpng17/pngwtran.c \
 	$(EXTDIR)/libpng17/pngwutil.c
 
+INCFLAGS += -I$(EXTDIR)/rcheevos/include
+
+COREFLAGS += -DRC_DISABLE_LUA
+
+SOURCES_C += \
+	$(EXTDIR)/rcheevos/src/rapi/rc_api_common.c \
+	$(EXTDIR)/rcheevos/src/rapi/rc_api_editor.c \
+	$(EXTDIR)/rcheevos/src/rapi/rc_api_info.c \
+	$(EXTDIR)/rcheevos/src/rapi/rc_api_runtime.c \
+	$(EXTDIR)/rcheevos/src/rapi/rc_api_user.c \
+	$(EXTDIR)/rcheevos/src/rcheevos/alloc.c \
+	$(EXTDIR)/rcheevos/src/rcheevos/compat.c \
+	$(EXTDIR)/rcheevos/src/rcheevos/condition.c \
+	$(EXTDIR)/rcheevos/src/rcheevos/condset.c \
+	$(EXTDIR)/rcheevos/src/rcheevos/consoleinfo.c \
+	$(EXTDIR)/rcheevos/src/rcheevos/format.c \
+	$(EXTDIR)/rcheevos/src/rcheevos/lboard.c \
+	$(EXTDIR)/rcheevos/src/rcheevos/memref.c \
+	$(EXTDIR)/rcheevos/src/rcheevos/operand.c \
+	$(EXTDIR)/rcheevos/src/rcheevos/rc_client.c \
+	$(EXTDIR)/rcheevos/src/rcheevos/rc_validate.c \
+	$(EXTDIR)/rcheevos/src/rcheevos/richpresence.c \
+	$(EXTDIR)/rcheevos/src/rcheevos/runtime.c \
+	$(EXTDIR)/rcheevos/src/rcheevos/runtime_progress.c \
+	$(EXTDIR)/rcheevos/src/rcheevos/trigger.c \
+	$(EXTDIR)/rcheevos/src/rcheevos/value.c \
+	$(EXTDIR)/rcheevos/src/rhash/cdreader.c \
+	$(EXTDIR)/rcheevos/src/rhash/hash.c \
+	$(EXTDIR)/rcheevos/src/rhash/md5.c
+
+COREFLAGS += -DSTACK_LINE_READER_BUFFER_SIZE=1024
+COREFLAGS += -DHTTPS_NOT_AVAILABLE
+
+ifeq ($(PLATFORM_EXT), android)
+COREFLAGS += -DHAVE_DLFCN_H
+else ifneq ($(PLATFORM_EXT), win32)
+COREFLAGS += -DHAVE_STRONG_GETAUXVAL
+endif
+ifneq (,$(findstring osx,$(platform)))
+ifneq (,$(findstring x86,$(TARGET_ARCH)))
+	COREFLAGS += -DHAVE_SYSCTLBYNAME
+endif
+endif
+SOURCES_C += \
+	$(EXTDIR)/cpu_features/src/filesystem.c \
+	$(EXTDIR)/cpu_features/src/impl_aarch64_linux_or_android.c \
+	$(EXTDIR)/cpu_features/src/impl_aarch64_windows.c \
+	$(EXTDIR)/cpu_features/src/impl_arm_linux_or_android.c \
+	$(EXTDIR)/cpu_features/src/impl_mips_linux_or_android.c \
+	$(EXTDIR)/cpu_features/src/impl_ppc_linux.c \
+	$(EXTDIR)/cpu_features/src/impl_riscv_linux.c \
+	$(EXTDIR)/cpu_features/src/impl_s390x_linux.c \
+	$(EXTDIR)/cpu_features/src/impl_x86_freebsd.c \
+	$(EXTDIR)/cpu_features/src/impl_x86_linux_or_android.c \
+	$(EXTDIR)/cpu_features/src/impl_x86_macos.c \
+	$(EXTDIR)/cpu_features/src/impl_x86_windows.c \
+	$(EXTDIR)/cpu_features/src/stack_line_reader.c \
+	$(EXTDIR)/cpu_features/src/string_view.c
+
+ifneq ($(PLATFORM_EXT), win32)
+SOURCES_C += \
+	$(EXTDIR)/cpu_features/src/hwcaps.c
+endif
+
 SOURCES_CXX += \
     $(EXTDIR)/vma/vk_mem_alloc.cpp
 
@@ -210,6 +277,9 @@ SOURCES_CXX += \
 SOURCES_CXX += $(EXTDIR)/cityhash/city.cpp
 
 SOURCES_CXX += \
+	$(EXTDIR)/basis_universal/basisu_transcoder.cpp
+
+SOURCES_CXX += \
 	$(EXTDIR)/armips/Core/Types.cpp
 
 SOURCES_CXX += \
@@ -227,6 +297,7 @@ SOURCES_CXX += \
 	$(COMMONDIR)/Data/Format/IniFile.cpp \
 	$(COMMONDIR)/Data/Format/JSONReader.cpp \
 	$(COMMONDIR)/Data/Format/JSONWriter.cpp \
+	$(COMMONDIR)/Data/Format/DDSLoad.cpp \
 	$(COMMONDIR)/Data/Format/PNGLoad.cpp \
 	$(COMMONDIR)/Data/Format/ZIMLoad.cpp \
 	$(COMMONDIR)/Data/Format/ZIMSave.cpp \
@@ -235,8 +306,10 @@ SOURCES_CXX += \
 	$(COMMONDIR)/Data/Text/Parsers.cpp \
 	$(COMMONDIR)/Data/Text/WrapText.cpp \
 	$(COMMONDIR)/File/VFS/VFS.cpp \
-	$(COMMONDIR)/File/VFS/AssetReader.cpp \
+	$(COMMONDIR)/File/VFS/DirectoryReader.cpp \
+	$(COMMONDIR)/File/VFS/ZipFileReader.cpp \
 	$(COMMONDIR)/File/AndroidStorage.cpp \
+	$(COMMONDIR)/File/AndroidContentURI.cpp \
 	$(COMMONDIR)/File/DiskFree.cpp \
 	$(COMMONDIR)/File/Path.cpp \
 	$(COMMONDIR)/File/PathBrowser.cpp \
@@ -245,13 +318,16 @@ SOURCES_CXX += \
 	$(COMMONDIR)/File/DirListing.cpp \
 	$(COMMONDIR)/GPU/thin3d.cpp \
 	$(COMMONDIR)/GPU/Shader.cpp \
+	$(COMMONDIR)/GPU/GPUBackendCommon.cpp \
 	$(COMMONDIR)/GPU/ShaderWriter.cpp \
 	$(COMMONDIR)/GPU/ShaderTranslation.cpp \
 	$(COMMONDIR)/GPU/OpenGL/thin3d_gl.cpp \
 	$(COMMONDIR)/GPU/OpenGL/GLDebugLog.cpp \
 	$(COMMONDIR)/GPU/OpenGL/GLSLProgram.cpp \
 	$(COMMONDIR)/GPU/OpenGL/GLFeatures.cpp \
+	$(COMMONDIR)/GPU/OpenGL/GLFrameData.cpp \
 	$(COMMONDIR)/GPU/OpenGL/GLRenderManager.cpp \
+	$(COMMONDIR)/GPU/OpenGL/GLMemory.cpp \
 	$(COMMONDIR)/GPU/OpenGL/GLQueueRunner.cpp \
 	$(COMMONDIR)/GPU/OpenGL/DataFormatGL.cpp \
 	$(COMMONDIR)/GPU/Vulkan/thin3d_vulkan.cpp \
@@ -277,6 +353,8 @@ SOURCES_CXX += \
 	$(COMMONDIR)/Net/HTTPClient.cpp \
 	$(COMMONDIR)/Net/HTTPHeaders.cpp \
 	$(COMMONDIR)/Net/HTTPServer.cpp \
+	$(COMMONDIR)/Net/HTTPRequest.cpp \
+	$(COMMONDIR)/Net/HTTPNaettRequest.cpp \
 	$(COMMONDIR)/Net/NetBuffer.cpp \
 	$(COMMONDIR)/Net/Resolve.cpp \
 	$(COMMONDIR)/Net/Sinks.cpp \
@@ -296,9 +374,14 @@ SOURCES_CXX += \
 	$(COMMONDIR)/UI/Context.cpp \
 	$(COMMONDIR)/UI/UIScreen.cpp \
 	$(COMMONDIR)/UI/Tween.cpp \
+	$(COMMONDIR)/UI/IconCache.cpp \
 	$(COMMONDIR)/UI/View.cpp \
 	$(COMMONDIR)/UI/ViewGroup.cpp \
+	$(COMMONDIR)/UI/ScrollView.cpp \
+	$(COMMONDIR)/UI/PopupScreens.cpp \
 	$(COMMONDIR)/System/Display.cpp \
+	$(COMMONDIR)/System/Request.cpp \
+	$(COMMONDIR)/System/OSD.cpp \
 	$(COMMONDIR)/ArmCPUDetect.cpp \
 	$(COMMONDIR)/CPUDetect.cpp \
 	$(COMMONDIR)/Buffer.cpp \
@@ -348,6 +431,8 @@ SOURCES_CXX += \
 	$(GPUCOMMONDIR)/IndexGenerator.cpp \
 	$(GPUCOMMONDIR)/TextureDecoder.cpp \
 	$(GPUCOMMONDIR)/PostShader.cpp \
+	$(GPUCOMMONDIR)/TextureReplacer.cpp \
+	$(GPUCOMMONDIR)/ReplacedTexture.cpp \
 	$(COMMONDIR)/Data/Convert/ColorConv.cpp \
 	$(GPUDIR)/Debugger/Breakpoints.cpp \
 	$(GPUDIR)/Debugger/Debugger.cpp \
@@ -361,6 +446,7 @@ SOURCES_CXX += \
 	$(GPUDIR)/Common/TextureCacheCommon.cpp \
 	$(GPUDIR)/Common/TextureScalerCommon.cpp \
 	$(GPUDIR)/Common/SoftwareTransformCommon.cpp \
+	$(GPUDIR)/Common/DepthBufferCommon.cpp \
 	$(GPUDIR)/Common/StencilCommon.cpp \
 	$(GPUDIR)/Software/TransformUnit.cpp \
 	$(GPUDIR)/Software/SoftGpu.cpp \
@@ -368,6 +454,7 @@ SOURCES_CXX += \
 	$(GPUDIR)/GeConstants.cpp \
 	$(GPUDIR)/GeDisasm.cpp \
 	$(GPUDIR)/GPUCommon.cpp \
+	$(GPUDIR)/GPUCommonHW.cpp \
 	$(GPUDIR)/GPU.cpp \
 	$(GPUDIR)/GPUState.cpp \
 	$(GPUDIR)/Math3D.cpp \
@@ -379,7 +466,7 @@ SOURCES_CXX += \
 	$(GPUDIR)/Software/Rasterizer.cpp \
 	$(GPUDIR)/Software/RasterizerRectangle.cpp \
 	$(GPUDIR)/Software/RasterizerRegCache.cpp \
-	$(GPUDIR)/GLES/DepthBufferGLES.cpp \
+	$(GPUDIR)/GLES/StencilBufferGLES.cpp \
 	$(GPUDIR)/GLES/DrawEngineGLES.cpp \
 	$(GPUDIR)/GLES/GPU_GLES.cpp \
 	$(GPUDIR)/GLES/FragmentTestCacheGLES.cpp \
@@ -417,6 +504,7 @@ SOURCES_CXX += \
 	$(EXTDIR)/glslang/glslang/MachineIndependent/parseConst.cpp \
 	$(EXTDIR)/glslang/glslang/MachineIndependent/propagateNoContraction.cpp \
 	$(EXTDIR)/glslang/glslang/MachineIndependent/reflection.cpp \
+	$(EXTDIR)/glslang/glslang/MachineIndependent/SpirvIntrinsics.cpp \
 	$(EXTDIR)/glslang/SPIRV/InReadableOrder.cpp \
 	$(EXTDIR)/glslang/SPIRV/GlslangToSpv.cpp \
 	$(EXTDIR)/glslang/SPIRV/Logger.cpp \
@@ -453,8 +541,8 @@ SOURCES_CXX += \
 	       $(EXTDIR)/jpge/jpge.cpp \
 	       $(COREDIR)/AVIDump.cpp \
 	       $(COREDIR)/Config.cpp \
+	       $(COREDIR)/ConfigSettings.cpp \
 	       $(COREDIR)/ControlMapper.cpp \
-	       $(COREDIR)/TextureReplacer.cpp \
 	       $(COREDIR)/Core.cpp \
 	       $(COREDIR)/WaveFile.cpp \
 	       $(COREDIR)/KeyMap.cpp \
@@ -476,7 +564,7 @@ SOURCES_CXX += \
 	       $(COREDIR)/Dialog/PSPGamedataInstallDialog.cpp \
 	       $(COREDIR)/Dialog/PSPMsgDialog.cpp \
 	       $(COREDIR)/Dialog/PSPNetconfDialog.cpp \
-		   $(COREDIR)/Dialog/PSPNpSigninDialog.cpp \
+	       $(COREDIR)/Dialog/PSPNpSigninDialog.cpp \
 	       $(COREDIR)/Dialog/PSPOskDialog.cpp \
 	       $(COREDIR)/Dialog/PSPSaveDialog.cpp \
 	       $(COREDIR)/Dialog/PSPScreenshotDialog.cpp \
@@ -564,7 +652,7 @@ SOURCES_CXX += \
 	       $(COREDIR)/HLE/sceVaudio.cpp \
 	       $(COREDIR)/HLE/scePspNpDrm_user.cpp \
 	       $(COREDIR)/HLE/sceNp.cpp \
-		   $(COREDIR)/HLE/sceNp2.cpp \
+	       $(COREDIR)/HLE/sceNp2.cpp \
 	       $(COREDIR)/HLE/scePauth.cpp \
 	       $(COREDIR)/HLE/sceUsbGps.cpp \
 	       $(COREDIR)/HW/BufferQueue.cpp \
@@ -579,19 +667,21 @@ SOURCES_CXX += \
 	       $(COREDIR)/HW/SasReverb.cpp \
 	       $(COREDIR)/HW/StereoResampler.cpp \
 	       $(COREDIR)/Compatibility.cpp \
-	       $(COREDIR)/Host.cpp \
+	       $(COREDIR)/FrameTiming.cpp \
 	       $(COREDIR)/Loaders.cpp \
 	       $(COREDIR)/MIPS/JitCommon/JitCommon.cpp \
 	       $(COREDIR)/MIPS/JitCommon/JitState.cpp \
 	       $(COREDIR)/MIPS/JitCommon/JitBlockCache.cpp \
+	       $(COREDIR)/MIPS/IR/IRAnalysis.cpp \
 	       $(COREDIR)/MIPS/IR/IRCompALU.cpp \
 	       $(COREDIR)/MIPS/IR/IRCompBranch.cpp \
 	       $(COREDIR)/MIPS/IR/IRCompFPU.cpp \
 	       $(COREDIR)/MIPS/IR/IRCompLoadStore.cpp \
 	       $(COREDIR)/MIPS/IR/IRCompVFPU.cpp \
+	       $(COREDIR)/MIPS/IR/IRInst.cpp \
 	       $(COREDIR)/MIPS/IR/IRInterpreter.cpp \
 	       $(COREDIR)/MIPS/IR/IRJit.cpp \
-	       $(COREDIR)/MIPS/IR/IRInst.cpp \
+	       $(COREDIR)/MIPS/IR/IRNativeCommon.cpp \
 	       $(COREDIR)/MIPS/IR/IRPassSimplify.cpp \
 	       $(COREDIR)/MIPS/IR/IRRegCache.cpp \
 	       $(COREDIR)/MIPS/IR/IRFrontend.cpp \
@@ -604,13 +694,16 @@ SOURCES_CXX += \
 	       $(COREDIR)/MIPS/MIPSInt.cpp \
 	       $(COREDIR)/MIPS/MIPSIntVFPU.cpp \
 	       $(COREDIR)/MIPS/MIPSTables.cpp \
+	       $(COREDIR)/MIPS/MIPSStackWalk.cpp \
 	       $(COREDIR)/MIPS/MIPSVFPUUtils.cpp \
+	       $(COREDIR)/MIPS/MIPSVFPUFallbacks.cpp \
 	       $(COREDIR)/MemFault.cpp \
 	       $(COREDIR)/MemMap.cpp \
 	       $(COREDIR)/MemMapFunctions.cpp \
 	       $(COREDIR)/PSPLoaders.cpp \
 	       $(COREDIR)/Replay.cpp \
 	       $(COREDIR)/Reporting.cpp \
+	       $(COREDIR)/RetroAchievements.cpp \
 	       $(COREDIR)/SaveState.cpp \
 	       $(COREDIR)/Screenshot.cpp \
 	       $(COREDIR)/System.cpp \
@@ -619,7 +712,7 @@ SOURCES_CXX += \
 	       $(COREDIR)/Util/PPGeDraw.cpp \
 	       $(COREDIR)/Util/AudioFormat.cpp \
 	       $(COREDIR)/Util/PortManager.cpp \
-           $(CORE_DIR)/UI/GameInfoCache.cpp
+	       $(CORE_DIR)/UI/GameInfoCache.cpp
 
 SOURCES_CXX += $(COREDIR)/HLE/__sceAudio.cpp
 
@@ -778,7 +871,7 @@ SOURCES_CXX += \
 	$(COMMONDIR)/GPU/D3D9/thin3d_d3d9.cpp \
 	$(COMMONDIR)/GPU/D3D11/D3D11Loader.cpp \
 	$(COMMONDIR)/GPU/D3D11/thin3d_d3d11.cpp
-	
+
 INCFLAGS += -I$(CORE_DIR)/dx9sdk/Include -I$(CORE_DIR)/dx9sdk/Include/DX11
 
 endif
@@ -844,8 +937,23 @@ SOURCES_C += \
 		$(EXTDIR)/zlib/zutil.c
 endif
 
+ifeq ($(HAVE_LIBRETRO_VFS), 1)
+DEFINES += -DHAVE_LIBRETRO_VFS
+INCFLAGS += -I$(LIBRETROCOMMONDIR)/include
+SOURCES_C += $(LIBRETROCOMMONDIR)/compat/compat_posix_string.c \
+             $(LIBRETROCOMMONDIR)/compat/fopen_utf8.c \
+             $(LIBRETROCOMMONDIR)/encodings/encoding_utf.c \
+             $(LIBRETROCOMMONDIR)/compat/compat_strl.c \
+             $(LIBRETROCOMMONDIR)/file/file_path.c \
+             $(LIBRETROCOMMONDIR)/streams/file_stream.c \
+             $(LIBRETROCOMMONDIR)/streams/file_stream_transforms.c \
+             $(LIBRETROCOMMONDIR)/string/stdstring.c \
+             $(LIBRETROCOMMONDIR)/time/rtime.c \
+             $(LIBRETROCOMMONDIR)/vfs/vfs_implementation.c
+endif
+
 GIT_VERSION_SRC = $(CORE_DIR)/git-version.cpp
-GIT_VERSION := $(shell git describe --always || echo v1.7.0-git)
+GIT_VERSION := $(shell git describe --always || echo v-1.unknown)
 GIT_VERSION_NO_UPDATE = $(findstring 1,$(shell grep -s PPSSPP_GIT_VERSION_NO_UPDATE $(GIT_VERSION_SRC)))
 ifneq (,$(findstring $(GIT_VERSION),$(shell grep -s char $(GIT_VERSION_SRC))))
    GIT_VERSION_NO_UPDATE = 1

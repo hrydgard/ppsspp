@@ -19,6 +19,7 @@
 #include "Common/Math/lin/matrix4x4.h"
 #include "Common/Math/math_util.h"
 #include "Common/Math/geom2d.h"
+#include "Common/Input/KeyCodes.h"
 
 #include "Common/Common.h"
 
@@ -108,7 +109,6 @@ struct Theme {
 	Style headerStyle;
 	Style infoStyle;
 
-	Style popupTitle;
 	Style popupStyle;
 
 	uint32_t backgroundColor;
@@ -372,7 +372,7 @@ class CallbackColorTween;
 
 class View {
 public:
-	View(LayoutParams *layoutParams = 0) : layoutParams_(layoutParams), visibility_(V_VISIBLE), measuredWidth_(0), measuredHeight_(0), enabledPtr_(0), enabled_(true), enabledMeansDisabled_(false) {
+	View(LayoutParams *layoutParams = 0) : layoutParams_(layoutParams) {
 		if (!layoutParams)
 			layoutParams_.reset(new LayoutParams());
 	}
@@ -481,22 +481,22 @@ protected:
 	std::unique_ptr<LayoutParams> layoutParams_;
 
 	std::string tag_;
-	Visibility visibility_;
+	Visibility visibility_ = V_VISIBLE;
 
 	// Results of measure pass. Set these in Measure.
-	float measuredWidth_;
-	float measuredHeight_;
+	float measuredWidth_ = 0.0f;
+	float measuredHeight_ = 0.0f;
 
 	// Outputs of layout. X/Y are absolute screen coordinates, hierarchy is "gone" here.
-	Bounds bounds_;
+	Bounds bounds_{};
 
 	std::vector<Tween *> tweens_;
 
 private:
 	std::function<bool()> enabledFunc_;
-	bool *enabledPtr_;
-	bool enabled_;
-	bool enabledMeansDisabled_;
+	bool *enabledPtr_ = nullptr;
+	bool enabled_ = true;
+	bool enabledMeansDisabled_ = false;
 
 	DISALLOW_COPY_AND_ASSIGN(View);
 };
@@ -620,7 +620,7 @@ public:
 	Event OnChange;
 
 private:
-	bool ApplyKey(int keyCode);
+	bool ApplyKey(InputKeyCode keyCode);
 
 	int *value_;
 	bool showPercent_;
@@ -630,7 +630,7 @@ private:
 	float paddingRight_;
 	int step_;
 	int repeat_ = 0;
-	int repeatCode_ = 0;
+	InputKeyCode repeatCode_ = NKCODE_UNKNOWN;
 };
 
 class SliderFloat : public Clickable {
@@ -650,7 +650,7 @@ public:
 	Event OnChange;
 
 private:
-	bool ApplyKey(int keyCode);
+	bool ApplyKey(InputKeyCode keyCode);
 
 	float *value_;
 	float minValue_;
@@ -658,7 +658,7 @@ private:
 	float paddingLeft_;
 	float paddingRight_;
 	int repeat_;
-	int repeatCode_ = 0;
+	InputKeyCode repeatCode_ = NKCODE_UNKNOWN;
 };
 
 // Basic button that modifies a bitfield based on the pressed status. Supports multitouch.
@@ -719,10 +719,13 @@ public:
 	void GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert, float &w, float &h) const override;
 	void Draw(UIContext &dc) override;
 	std::string DescribeText() const override;
-	virtual void SetCentered(bool c) {
+	void SetCentered(bool c) {
 		centered_ = c;
 	}
-	virtual void SetIcon(ImageID iconImage, float scale = 1.0f, float rot = 0.0f, bool flipH = false, bool keepColor = true) {
+	void SetDrawTextFlags(u32 flags) {
+		drawTextFlags_ = flags;
+	}
+	void SetIcon(ImageID iconImage, float scale = 1.0f, float rot = 0.0f, bool flipH = false, bool keepColor = true) {
 		rightIconKeepColor_ = keepColor;
 		rightIconScale_ = scale;
 		rightIconRot_ = rot;
@@ -733,21 +736,21 @@ public:
 protected:
 	// hackery
 	virtual bool IsSticky() const { return false; }
-	virtual float CalculateTextScale(const UIContext &dc, float availWidth) const;
 
 	std::string text_;
 	std::string smallText_;
 	ImageID image_;  // Centered if no text, on the left if text.
 	ImageID rightIconImage_ = ImageID::invalid();  // Shows in the right.
-	float rightIconScale_;
-	float rightIconRot_;
-	bool rightIconFlipH_;
-	bool rightIconKeepColor_;
+	float rightIconScale_ = 0.0f;
+	float rightIconRot_ = 0.0f;
+	bool rightIconFlipH_ = false;
+	bool rightIconKeepColor_ = false;
 	Padding textPadding_;
 	bool centered_ = false;
 	float imgScale_ = 1.0f;
 	float imgRot_ = 0.0f;
 	bool imgFlipH_ = false;
+	u32 drawTextFlags_ = 0;
 
 private:
 	bool selected_ = false;
@@ -853,13 +856,24 @@ public:
 	//allow external agents to toggle the checkbox
 	virtual void Toggle();
 	virtual bool Toggled() const;
-private:
-	float CalculateTextScale(const UIContext &dc, float availWidth) const;
 
+protected:
 	bool *toggle_;
 	std::string text_;
 	std::string smallText_;
 	ImageID imageID_;
+};
+
+class CollapsibleHeader : public CheckBox {
+public:
+	CollapsibleHeader(bool *toggle, const std::string &text, LayoutParams *layoutParams = nullptr);
+	void Draw(UIContext &dc) override;
+	void GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert, float &w, float &h) const override;
+	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override;
+
+	void SetHasSubitems(bool hasSubItems) { hasSubItems_ = hasSubItems; }
+private:
+	bool hasSubItems_ = true;
 };
 
 class BitCheckBox : public CheckBox {
@@ -867,6 +881,8 @@ public:
 	BitCheckBox(uint32_t *bitfield, uint32_t bit, const std::string &text, const std::string &smallText = "", LayoutParams *layoutParams = nullptr)
 		: CheckBox(nullptr, text, smallText, layoutParams), bitfield_(bitfield), bit_(bit) {
 	}
+    
+	BitCheckBox(int *bitfield, int bit, const std::string &text, const std::string &smallText = "", LayoutParams *layoutParams = nullptr) : BitCheckBox((uint32_t *)bitfield, (uint32_t)bit, text, smallText, layoutParams) {}
 
 	void Toggle() override;
 	bool Toggled() const override;
@@ -929,6 +945,7 @@ public:
 	void SetFocusable(bool focusable) { focusable_ = focusable; }
 	void SetClip(bool clip) { clip_ = clip; }
 	void SetBullet(bool bullet) { bullet_ = bullet; }
+	void SetPadding(float pad) { pad_ = pad; }
 
 	bool CanBeFocused() const override { return focusable_; }
 
@@ -942,6 +959,7 @@ private:
 	bool focusable_;
 	bool clip_;
 	bool bullet_ = false;
+	float pad_ = 0.0f;
 };
 
 class TextEdit : public View {
@@ -1042,6 +1060,7 @@ private:
 };
 
 void MeasureBySpec(Size sz, float contentWidth, MeasureSpec spec, float *measured);
+void ApplyBoundsBySpec(Bounds &bounds, MeasureSpec horiz, MeasureSpec vert);
 
 bool IsDPadKey(const KeyInput &key);
 bool IsAcceptKey(const KeyInput &key);

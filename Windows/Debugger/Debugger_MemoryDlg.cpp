@@ -1,5 +1,3 @@
-// NOTE: Apologies for the quality of this code, this is really from pre-opensource Dolphin - that is, 2003.
-
 #include "Windows/stdafx.h"
 #include <windowsx.h>
 #include <commctrl.h>
@@ -257,7 +255,7 @@ void CMemoryDlg::Goto(u32 addr)
 
 void CMemoryDlg::Size()
 {
-	const float fontScale = 1.0f / g_dpi_scale_real_y;
+	const float fontScale = 1.0f / g_display.dpi_scale_real_y;
 
 	GetClientRect(m_hDlg,&winRect);
 	int dlg_w = winRect.right - winRect.left;

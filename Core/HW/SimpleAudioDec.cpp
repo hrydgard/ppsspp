@@ -252,7 +252,10 @@ bool SimpleAudio::Decode(const uint8_t *inbuf, int inbytes, uint8_t *outbuf, int
 		}
 
 		// convert audio to AV_SAMPLE_FMT_S16
-		int swrRet = swr_convert(swrCtx_, &outbuf, frame_->nb_samples, (const u8 **)frame_->extended_data, frame_->nb_samples);
+		int swrRet = 0;
+		if (outbuf != nullptr) {
+			swrRet = swr_convert(swrCtx_, &outbuf, frame_->nb_samples, (const u8 **)frame_->extended_data, frame_->nb_samples);
+		}
 		if (swrRet < 0) {
 			ERROR_LOG(ME, "swr_convert: Error while converting: %d", swrRet);
 			return false;
@@ -338,7 +341,7 @@ size_t AuCtx::FindNextMp3Sync() {
 // return output pcm size, <0 error
 u32 AuCtx::AuDecode(u32 pcmAddr) {
 	u32 outptr = PCMBuf + nextOutputHalf * PCMBufSize / 2;
-	auto outbuf = Memory::GetPointerWrite(outptr);
+	auto outbuf = Memory::GetPointerWriteRange(outptr, PCMBufSize / 2);
 	int outpcmbufsize = 0;
 
 	if (pcmAddr)
@@ -380,10 +383,12 @@ u32 AuCtx::AuDecode(u32 pcmAddr) {
 	if (outpcmbufsize == 0 && !end) {
 		// If we didn't decode anything, we fill this half of the buffer with zeros.
 		outpcmbufsize = PCMBufSize / 2;
-		memset(outbuf, 0, outpcmbufsize);
+		if (outbuf != nullptr)
+			memset(outbuf, 0, outpcmbufsize);
 	} else if ((u32)outpcmbufsize < PCMBufSize) {
 		// TODO: Not sure it actually zeros this out.
-		memset(outbuf + outpcmbufsize, 0, PCMBufSize / 2 - outpcmbufsize);
+		if (outbuf != nullptr)
+			memset(outbuf + outpcmbufsize, 0, PCMBufSize / 2 - outpcmbufsize);
 	}
 
 	if (outpcmbufsize != 0)

@@ -526,6 +526,7 @@
     <ClCompile Include="..\ext\libzip\zip_unchange_archive.c" />
     <ClCompile Include="..\ext\libzip\zip_unchange_data.c" />
     <ClCompile Include="..\ext\libzip\zip_utf-8.c" />
+    <ClCompile Include="..\ext\riscv-disas.cpp" />
     <ClCompile Include="..\ext\sfmt19937\SFMT.c" />
     <ClCompile Include="..\ext\sha1\sha1.cpp" />
     <ClCompile Include="..\ext\snappy\snappy-c.cpp" />
@@ -539,12 +540,14 @@
     <ClCompile Include="..\ext\udis86\syn-intel.c" />
     <ClCompile Include="..\ext\udis86\syn.c" />
     <ClCompile Include="..\ext\udis86\udis86.c" />
+    <ClCompile Include="ConfigSettings.cpp" />
     <ClCompile Include="ControlMapper.cpp" />
     <ClCompile Include="AVIDump.cpp" />
     <ClCompile Include="Debugger\MemBlockInfo.cpp" />
     <ClCompile Include="Debugger\WebSocket.cpp" />
     <ClCompile Include="Debugger\WebSocket\BreakpointSubscriber.cpp" />
     <ClCompile Include="Debugger\WebSocket\CPUCoreSubscriber.cpp" />
+    <ClCompile Include="Debugger\WebSocket\ClientConfigSubscriber.cpp" />
     <ClCompile Include="Debugger\WebSocket\GameBroadcaster.cpp" />
     <ClCompile Include="Debugger\WebSocket\GameSubscriber.cpp" />
     <ClCompile Include="Debugger\WebSocket\GPUBufferSubscriber.cpp" />
@@ -562,6 +565,7 @@
     <ClCompile Include="Debugger\WebSocket\SteppingSubscriber.cpp" />
     <ClCompile Include="Debugger\WebSocket\WebSocketUtils.cpp" />
     <ClCompile Include="FileSystems\BlobFileSystem.cpp" />
+    <ClCompile Include="FrameTiming.cpp" />
     <ClCompile Include="HLE\KUBridge.cpp" />
     <ClCompile Include="HLE\Plugins.cpp" />
     <ClCompile Include="HLE\sceKernelHeap.cpp" />
@@ -577,6 +581,7 @@
     <ClCompile Include="KeyMapDefaults.cpp" />
     <ClCompile Include="MemFault.cpp" />
     <ClCompile Include="MIPS\fake\FakeJit.cpp" />
+    <ClCompile Include="MIPS\IR\IRAnalysis.cpp" />
     <ClCompile Include="MIPS\IR\IRAsm.cpp" />
     <ClCompile Include="MIPS\IR\IRCompALU.cpp" />
     <ClCompile Include="MIPS\IR\IRCompBranch.cpp" />
@@ -587,10 +592,21 @@
     <ClCompile Include="MIPS\IR\IRInst.cpp" />
     <ClCompile Include="MIPS\IR\IRInterpreter.cpp" />
     <ClCompile Include="MIPS\IR\IRJit.cpp" />
+    <ClCompile Include="MIPS\IR\IRNativeCommon.cpp" />
     <ClCompile Include="MIPS\IR\IRPassSimplify.cpp" />
     <ClCompile Include="MIPS\IR\IRRegCache.cpp" />
+    <ClCompile Include="MIPS\MIPSVFPUFallbacks.cpp" />
+    <ClCompile Include="MIPS\RiscV\RiscVAsm.cpp" />
+    <ClCompile Include="MIPS\RiscV\RiscVCompALU.cpp" />
+    <ClCompile Include="MIPS\RiscV\RiscVCompBranch.cpp" />
+    <ClCompile Include="MIPS\RiscV\RiscVCompSystem.cpp" />
+    <ClCompile Include="MIPS\RiscV\RiscVCompFPU.cpp" />
+    <ClCompile Include="MIPS\RiscV\RiscVCompLoadStore.cpp" />
+    <ClCompile Include="MIPS\RiscV\RiscVCompVec.cpp" />
+    <ClCompile Include="MIPS\RiscV\RiscVJit.cpp" />
+    <ClCompile Include="MIPS\RiscV\RiscVRegCache.cpp" />
+    <ClCompile Include="MIPS\RiscV\RiscVRegCacheFPU.cpp" />
     <ClCompile Include="Replay.cpp" />
-    <ClCompile Include="TextureReplacer.cpp" />
     <ClCompile Include="Compatibility.cpp" />
     <ClCompile Include="Config.cpp" />
     <ClCompile Include="Core.cpp" />
@@ -711,7 +727,6 @@
     <ClCompile Include="HLE\sceUtility.cpp" />
     <ClCompile Include="HLE\sceVaudio.cpp" />
     <ClCompile Include="HLE\__sceAudio.cpp" />
-    <ClCompile Include="Host.cpp" />
     <ClCompile Include="HW\MediaEngine.cpp" />
     <ClCompile Include="HW\MemoryStick.cpp" />
     <ClCompile Include="HW\MpegDemux.cpp" />
@@ -1035,11 +1050,13 @@
     </ClCompile>
     <ClCompile Include="PSPLoaders.cpp" />
     <ClCompile Include="Reporting.cpp" />
+    <ClCompile Include="RetroAchievements.cpp" />
     <ClCompile Include="SaveState.cpp" />
     <ClCompile Include="MIPS\MIPSStackWalk.cpp" />
     <ClCompile Include="Screenshot.cpp" />
     <ClCompile Include="System.cpp" />
     <ClCompile Include="ThreadPools.cpp" />
+    <ClCompile Include="TiltEventProcessor.cpp" />
     <ClCompile Include="Util\AudioFormat.cpp" />
     <ClCompile Include="Util\BlockAllocator.cpp" />
     <ClCompile Include="Util\DisArm64.cpp" />
@@ -1091,6 +1108,7 @@
     <ClInclude Include="..\ext\libzip\zip_source_file.h" />
     <ClInclude Include="..\ext\libzip\zip_source_file_stdio.h" />
     <ClInclude Include="..\ext\libzip\zip_source_file_win32.h" />
+    <ClInclude Include="..\ext\riscv-disas.h" />
     <ClInclude Include="..\ext\sfmt19937\SFMT-common.h" />
     <ClInclude Include="..\ext\sfmt19937\SFMT-params.h" />
     <ClInclude Include="..\ext\sfmt19937\SFMT-params19937.h" />
@@ -1108,12 +1126,14 @@
     <ClInclude Include="..\ext\udis86\types.h" />
     <ClInclude Include="..\ext\udis86\udint.h" />
     <ClInclude Include="..\ext\udis86\udis86.h" />
+    <ClInclude Include="ConfigSettings.h" />
     <ClInclude Include="ControlMapper.h" />
     <ClInclude Include="AVIDump.h" />
     <ClInclude Include="ConfigValues.h" />
     <ClInclude Include="Debugger\MemBlockInfo.h" />
     <ClInclude Include="Debugger\WebSocket.h" />
     <ClInclude Include="Debugger\WebSocket\BreakpointSubscriber.h" />
+    <ClInclude Include="Debugger\WebSocket\ClientConfigSubscriber.h" />
     <ClInclude Include="Debugger\WebSocket\GameSubscriber.h" />
     <ClInclude Include="Debugger\WebSocket\DisasmSubscriber.h" />
     <ClInclude Include="Debugger\WebSocket\GPUBufferSubscriber.h" />
@@ -1132,6 +1152,7 @@
     <ClInclude Include="Debugger\WebSocket\LogBroadcaster.h" />
     <ClInclude Include="Debugger\WebSocket\SteppingBroadcaster.h" />
     <ClInclude Include="FileSystems\BlobFileSystem.h" />
+    <ClInclude Include="FrameTiming.h" />
     <ClInclude Include="HLE\KernelThreadDebugInterface.h" />
     <ClInclude Include="HLE\KUBridge.h" />
     <ClInclude Include="HLE\Plugins.h" />
@@ -1147,14 +1168,19 @@
     <ClInclude Include="KeyMapDefaults.h" />
     <ClInclude Include="MemFault.h" />
     <ClInclude Include="MIPS\fake\FakeJit.h" />
+    <ClInclude Include="MIPS\IR\IRAnalysis.h" />
     <ClInclude Include="MIPS\IR\IRFrontend.h" />
     <ClInclude Include="MIPS\IR\IRInst.h" />
     <ClInclude Include="MIPS\IR\IRInterpreter.h" />
     <ClInclude Include="MIPS\IR\IRJit.h" />
+    <ClInclude Include="MIPS\IR\IRNativeCommon.h" />
     <ClInclude Include="MIPS\IR\IRPassSimplify.h" />
     <ClInclude Include="MIPS\IR\IRRegCache.h" />
+    <ClInclude Include="MIPS\MIPSVFPUFallbacks.h" />
+    <ClInclude Include="MIPS\RiscV\RiscVJit.h" />
+    <ClInclude Include="MIPS\RiscV\RiscVRegCache.h" />
+    <ClInclude Include="MIPS\RiscV\RiscVRegCacheFPU.h" />
     <ClInclude Include="Replay.h" />
-    <ClInclude Include="TextureReplacer.h" />
     <ClInclude Include="Compatibility.h" />
     <ClInclude Include="Config.h" />
     <ClInclude Include="Core.h" />
@@ -1264,7 +1290,6 @@
     <ClInclude Include="HLE\sceVaudio.h" />
     <ClInclude Include="HLE\ThreadQueueList.h" />
     <ClInclude Include="HLE\__sceAudio.h" />
-    <ClInclude Include="Host.h" />
     <ClInclude Include="HW\BufferQueue.h" />
     <ClInclude Include="HW\MediaEngine.h" />
     <ClInclude Include="HW\MpegDemux.h" />
@@ -1389,12 +1414,14 @@
     <ClInclude Include="Opcode.h" />
     <ClInclude Include="PSPLoaders.h" />
     <ClInclude Include="Reporting.h" />
+    <ClInclude Include="RetroAchievements.h" />
     <ClInclude Include="SaveState.h" />
     <ClInclude Include="MIPS\MIPSStackWalk.h" />
     <ClInclude Include="Screenshot.h" />
     <ClInclude Include="System.h" />
     <ClInclude Include="ThreadEventQueue.h" />
     <ClInclude Include="ThreadPools.h" />
+    <ClInclude Include="TiltEventProcessor.h" />
     <ClInclude Include="Util\AudioFormat.h" />
     <ClInclude Include="Util\BlockAllocator.h" />
     <ClInclude Include="Util\DisArm64.h" />
@@ -1406,13 +1433,11 @@
     <ClInclude Include="WebServer.h" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="..\android\jni\Android.mk" />
     <None Include="..\ext\cityhash\COPYING" />
     <None Include="..\ext\cityhash\README" />
     <None Include="..\ext\gason\LICENSE" />
     <None Include="..\ext\libzip\Android.mk" />
     <None Include="..\LICENSE.TXT" />
-    <None Include="CMakeLists.txt" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Common\Common.vcxproj">
@@ -1432,6 +1457,7 @@
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
+    <Text Include="..\ext\CMakeLists.txt" />
     <Text Include="..\ext\libzip\CMakeLists.txt" />
     <Text Include="..\ext\sha1\CMakeLists.txt" />
   </ItemGroup>

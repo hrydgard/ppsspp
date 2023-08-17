@@ -2,7 +2,6 @@
 
 #include <algorithm>
 
-#include "Core/Config.h"
 #include "Common/System/Display.h"
 #include "Common/System/System.h"
 #include "Common/UI/UI.h"
@@ -16,7 +15,7 @@
 
 UIContext::UIContext() {
 	fontStyle_ = new UI::FontStyle();
-	bounds_ = Bounds(0, 0, dp_xres, dp_yres);
+	bounds_ = Bounds(0, 0, g_display.dp_xres, g_display.dp_yres);
 }
 
 UIContext::~UIContext() {
@@ -62,9 +61,12 @@ void UIContext::BeginFrame() {
 	}
 	uidrawbufferTop_->SetCurZ(0.0f);
 	uidrawbuffer_->SetCurZ(0.0f);
-	uidrawbuffer_->SetTintSaturation(g_Config.fUITint, g_Config.fUISaturation);
-	uidrawbufferTop_->SetTintSaturation(g_Config.fUITint, g_Config.fUISaturation);
 	ActivateTopScissor();
+}
+
+void UIContext::SetTintSaturation(float tint, float sat) {
+	uidrawbuffer_->SetTintSaturation(tint, sat);
+	uidrawbufferTop_->SetTintSaturation(tint, sat);
 }
 
 void UIContext::Begin() {
@@ -161,25 +163,34 @@ Bounds UIContext::GetLayoutBounds() const {
 void UIContext::ActivateTopScissor() {
 	Bounds bounds;
 	if (scissorStack_.size()) {
-		float scale_x = pixel_in_dps_x;
-		float scale_y = pixel_in_dps_y;
+		float scale_x = g_display.pixel_in_dps_x;
+		float scale_y = g_display.pixel_in_dps_y;
 		bounds = scissorStack_.back();
 		int x = floorf(scale_x * bounds.x);
 		int y = floorf(scale_y * bounds.y);
 		int w = std::max(0.0f, ceilf(scale_x * bounds.w));
 		int h = std::max(0.0f, ceilf(scale_y * bounds.h));
-		if (x < 0 || y < 0 || x + w > pixel_xres || y + h > pixel_yres) {
+		if (x < 0 || y < 0 || x + w > g_display.pixel_xres || y + h > g_display.pixel_yres) {
 			// This won't actually report outside a game, but we can try.
-			ERROR_LOG_REPORT(G3D, "UI scissor out of bounds in %sScreen: %d,%d-%d,%d / %d,%d", screenTag_ ? screenTag_ : "N/A", x, y, w, h, pixel_xres, pixel_yres);
-			x = std::max(0, x);
-			y = std::max(0, y);
-			w = std::min(w, pixel_xres - x);
-			h = std::min(h, pixel_yres - y);
+			DEBUG_LOG(G3D, "UI scissor out of bounds in %sScreen: %d,%d-%d,%d / %d,%d", screenTag_ ? screenTag_ : "N/A", x, y, w, h, g_display.pixel_xres, g_display.pixel_yres);
+			if (x < 0) { w += x; x = 0; }
+			if (y < 0) { h += y; y = 0; }
+			if (x >= g_display.pixel_xres) { x = g_display.pixel_xres - 1; }
+			if (y >= g_display.pixel_yres) { y = g_display.pixel_yres - 1; }
+			if (x + w > g_display.pixel_xres) { w = std::min(w, g_display.pixel_xres - x); }
+			if (y + w > g_display.pixel_yres) { h = std::min(h, g_display.pixel_yres - y); }
+			if (w == 0) w = 1;
+			if (h == 0) h = 1;
+			draw_->SetScissorRect(x, y, w, h);
+		} else {
+			// Avoid invalid rects
+			if (w == 0) w = 1;
+			if (h == 0) h = 1;
+			draw_->SetScissorRect(x, y, w, h);
 		}
-		draw_->SetScissorRect(x, y, w, h);
 	} else {
 		// Avoid rounding errors
-		draw_->SetScissorRect(0, 0, pixel_xres, pixel_yres);
+		draw_->SetScissorRect(0, 0, g_display.pixel_xres, g_display.pixel_yres);
 	}
 }
 
@@ -197,10 +208,12 @@ void UIContext::SetFontStyle(const UI::FontStyle &fontStyle) {
 }
 
 void UIContext::MeasureText(const UI::FontStyle &style, float scaleX, float scaleY, const char *str, float *x, float *y, int align) const {
+	_dbg_assert_(str != nullptr);
 	MeasureTextCount(style, scaleX, scaleY, str, (int)strlen(str), x, y, align);
 }
 
 void UIContext::MeasureTextCount(const UI::FontStyle &style, float scaleX, float scaleY, const char *str, int count, float *x, float *y, int align) const {
+	_dbg_assert_(str != nullptr);
 	if (!textDrawer_ || (align & FLAG_DYNAMIC_ASCII)) {
 		float sizeFactor = (float)style.sizePts / 24.0f;
 		Draw()->SetFontScale(scaleX * sizeFactor, scaleY * sizeFactor);
@@ -214,6 +227,7 @@ void UIContext::MeasureTextCount(const UI::FontStyle &style, float scaleX, float
 }
 
 void UIContext::MeasureTextRect(const UI::FontStyle &style, float scaleX, float scaleY, const char *str, int count, const Bounds &bounds, float *x, float *y, int align) const {
+	_dbg_assert_(str != nullptr);
 	if (!textDrawer_ || (align & FLAG_DYNAMIC_ASCII)) {
 		float sizeFactor = (float)style.sizePts / 24.0f;
 		Draw()->SetFontScale(scaleX * sizeFactor, scaleY * sizeFactor);
@@ -227,6 +241,7 @@ void UIContext::MeasureTextRect(const UI::FontStyle &style, float scaleX, float 
 }
 
 void UIContext::DrawText(const char *str, float x, float y, uint32_t color, int align) {
+	_dbg_assert_(str != nullptr);
 	if (!textDrawer_ || (align & FLAG_DYNAMIC_ASCII)) {
 		// Use the font texture if this font is in that texture instead.
 		bool useFontTexture = Draw()->GetFontAtlas()->getFont(fontStyle_->atlasFont) != nullptr;
@@ -275,6 +290,28 @@ void UIContext::DrawTextRect(const char *str, const Bounds &bounds, uint32_t col
 	RebindTexture();
 }
 
+static constexpr float MIN_TEXT_SCALE = 0.7f;
+
+float UIContext::CalculateTextScale(const char *text, float availWidth, float availHeight) const {
+	float actualWidth, actualHeight;
+	Bounds availBounds(0, 0, availWidth, availHeight);
+	MeasureTextRect(theme->uiFont, 1.0f, 1.0f, text, (int)strlen(text), availBounds, &actualWidth, &actualHeight, ALIGN_VCENTER);
+	if (actualWidth > availWidth) {
+		return std::max(MIN_TEXT_SCALE, availWidth / actualWidth);
+	}
+	return 1.0f;
+}
+
+void UIContext::DrawTextRectSqueeze(const char *str, const Bounds &bounds, uint32_t color, int align) {
+	float origScaleX = fontScaleX_;
+	float origScaleY = fontScaleY_;
+	float scale = CalculateTextScale(str, bounds.w / origScaleX, bounds.h / origScaleY);
+	SetFontScale(scale * origScaleX, scale * origScaleY);
+	Bounds textBounds(bounds.x, bounds.y, bounds.w, bounds.h);
+	DrawTextRect(str, textBounds, color, align);
+	SetFontScale(origScaleX, origScaleY);
+}
+
 void UIContext::DrawTextShadowRect(const char *str, const Bounds &bounds, uint32_t color, int align) {
 	uint32_t alpha = (color >> 1) & 0xFF000000;
 	Bounds shadowBounds(bounds.x+2, bounds.y+2, bounds.w, bounds.h);
@@ -300,6 +337,17 @@ void UIContext::FillRect(const UI::Drawable &drawable, const Bounds &bounds) {
 	case UI::DRAW_NOTHING:
 		break;
 	} 
+}
+
+void UIContext::DrawRectDropShadow(const Bounds &bounds, float radius, float alpha, uint32_t color) {
+	if (alpha <= 0.0f)
+		return;
+
+	color = colorAlpha(color, alpha);
+
+	// Bias the shadow downwards a bit.
+	Bounds shadowBounds = bounds.Expand(radius, 0.5 * radius, radius, 1.5 * radius);
+	Draw()->DrawImage4Grid(theme->dropShadow4Grid, shadowBounds.x, shadowBounds.y, shadowBounds.x2(), shadowBounds.y2(), color, radius * (1.0f / 24.0f) * 2.0f);
 }
 
 void UIContext::DrawImageVGradient(ImageID image, uint32_t color1, uint32_t color2, const Bounds &bounds) {
@@ -340,8 +388,8 @@ Bounds UIContext::TransformBounds(const Bounds &bounds) {
 		Bounds translated = bounds.Offset(t.translate.x, t.translate.y);
 
 		// Scale around the center as the origin.
-		float scaledX = (translated.x - dp_xres * 0.5f) * t.scale.x + dp_xres * 0.5f;
-		float scaledY = (translated.y - dp_yres * 0.5f) * t.scale.y + dp_yres * 0.5f;
+		float scaledX = (translated.x - g_display.dp_xres * 0.5f) * t.scale.x + g_display.dp_xres * 0.5f;
+		float scaledY = (translated.y - g_display.dp_yres * 0.5f) * t.scale.y + g_display.dp_yres * 0.5f;
 
 		return Bounds(scaledX, scaledY, translated.w * t.scale.x, translated.h * t.scale.y);
 	}

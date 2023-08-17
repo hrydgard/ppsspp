@@ -17,26 +17,12 @@
 
 #pragma once
 
-#include "Common/GPU/Vulkan/VulkanLoader.h"
-#include "GPU/GPUInterface.h"
-#include "GPU/Common/FramebufferManagerCommon.h"
-#include "GPU/Common/GPUDebugInterface.h"
-#include "GPU/Common/PresentationCommon.h"
-#include "GPU/Vulkan/VulkanUtil.h"
+#include "Common/GPU/thin3d.h"
 
-class TextureCacheVulkan;
-class DrawEngineVulkan;
-class VulkanContext;
-class ShaderManagerVulkan;
-class VulkanTexture;
-class VulkanPushBuffer;
+#include "GPU/Common/FramebufferManagerCommon.h"
+#include "GPU/Common/PresentationCommon.h"
 
 class FramebufferManagerVulkan : public FramebufferManagerCommon {
 public:
 	explicit FramebufferManagerVulkan(Draw::DrawContext *draw);
-	~FramebufferManagerVulkan();
-
-	// If within a render pass, this will just issue a regular clear. If beginning a new render pass,
-	// do that.
-	void NotifyClear(bool clearColor, bool clearAlpha, bool clearDepth, uint32_t color, float depth);
 };

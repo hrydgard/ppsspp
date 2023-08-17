@@ -1,3 +1,6 @@
+[submodule "libretro/libretro-common"]
+	path = libretro/libretro-common
+	url = https://github.com/libretro/libretro-common.git
 [submodule "pspautotests"]
 	path = pspautotests
 	url = https://github.com/hrydgard/pspautotests.git
@@ -12,7 +15,7 @@
 	url = https://github.com/Kingcom/armips.git
 [submodule "ext/glslang"]
 	path = ext/glslang
-	url = https://github.com/hrydgard/glslang.git
+	url = https://github.com/KhronosGroup/glslang.git
 [submodule "ext/SPIRV-Cross"]
 	path = ext/SPIRV-Cross
 	url = https://github.com/KhronosGroup/SPIRV-Cross.git
@@ -38,3 +41,12 @@
 	path = assets/debugger
 	url = https://github.com/unknownbrackets/ppsspp-debugger.git
 	branch = bundled
+[submodule "cpu_features"]
+	path = ext/cpu_features
+	url = https://github.com/google/cpu_features.git
+[submodule "ext/rcheevos"]
+	path = ext/rcheevos
+	url = https://github.com/RetroAchievements/rcheevos.git
+[submodule "ext/naett"]
+	path = ext/naett
+	url = https://github.com/erkkah/naett.git

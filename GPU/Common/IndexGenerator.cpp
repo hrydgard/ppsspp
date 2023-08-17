@@ -121,7 +121,6 @@ alignas(16) static const uint16_t offsets_counter_clockwise[24] = {
 
 void IndexGenerator::AddStrip(int numVerts, bool clockwise) {
 	int numTris = numVerts - 2;
-
 #ifdef _M_SSE
 	// In an SSE2 register we can fit 8 16-bit integers.
 	// However, we need to output a multiple of 3 indices.
@@ -130,38 +129,57 @@ void IndexGenerator::AddStrip(int numVerts, bool clockwise) {
 
 	// We allow ourselves to write some extra indices to avoid the fallback loop.
 	// That's alright as we're appending to a buffer - they will get overwritten anyway.
-	int numChunks = (numTris + 7) / 8;
+	int numChunks = (numTris + 7) >> 3;
 	__m128i ibase8 = _mm_set1_epi16(index_);
-	__m128i increment = _mm_set1_epi16(8);
 	const __m128i *offsets = (const __m128i *)(clockwise ? offsets_clockwise : offsets_counter_clockwise);
-	__m128i offsets0 = _mm_load_si128(offsets);
-	__m128i offsets1 = _mm_load_si128(offsets + 1);
-	__m128i offsets2 = _mm_load_si128(offsets + 2);
 	__m128i *dst = (__m128i *)inds_;
-	for (int i = 0; i < numChunks; i++) {
-		_mm_storeu_si128(dst, _mm_add_epi16(ibase8, offsets0));
-		_mm_storeu_si128(dst + 1, _mm_add_epi16(ibase8, offsets1));
-		_mm_storeu_si128(dst + 2, _mm_add_epi16(ibase8, offsets2));
-		ibase8 = _mm_add_epi16(ibase8, increment);
-		dst += 3;
+	__m128i offsets0 = _mm_add_epi16(ibase8, _mm_load_si128(offsets));
+	// A single store is always enough for two triangles, which is a very common case.
+	_mm_storeu_si128(dst, offsets0);
+	if (numTris > 2) {
+		__m128i offsets1 = _mm_add_epi16(ibase8, _mm_load_si128(offsets + 1));
+		_mm_storeu_si128(dst + 1, offsets1);
+		if (numTris > 5) {
+			__m128i offsets2 = _mm_add_epi16(ibase8, _mm_load_si128(offsets + 2));
+			_mm_storeu_si128(dst + 2, offsets2);
+			__m128i increment = _mm_set1_epi16(8);
+			for (int i = 1; i < numChunks; i++) {
+				dst += 3;
+				offsets0 = _mm_add_epi16(offsets0, increment);
+				offsets1 = _mm_add_epi16(offsets1, increment);
+				offsets2 = _mm_add_epi16(offsets2, increment);
+				_mm_storeu_si128(dst, offsets0);
+				_mm_storeu_si128(dst + 1, offsets1);
+				_mm_storeu_si128(dst + 2, offsets2);
+			}
+		}
 	}
 	inds_ += numTris * 3;
 	// wind doesn't need to be updated, an even number of triangles have been drawn.
 #elif PPSSPP_ARCH(ARM_NEON)
-	int numChunks = (numTris + 7) / 8;
+	int numChunks = (numTris + 7) >> 3;
 	uint16x8_t ibase8 = vdupq_n_u16(index_);
-	uint16x8_t increment = vdupq_n_u16(8);
 	const u16 *offsets = clockwise ? offsets_clockwise : offsets_counter_clockwise;
-	uint16x8_t offsets0 = vld1q_u16(offsets);
-	uint16x8_t offsets1 = vld1q_u16(offsets + 8);
-	uint16x8_t offsets2 = vld1q_u16(offsets + 16);
 	u16 *dst = inds_;
-	for (int i = 0; i < numChunks; i++) {
-		vst1q_u16(dst, vaddq_u16(ibase8, offsets0));
-		vst1q_u16(dst + 8, vaddq_u16(ibase8, offsets1));
-		vst1q_u16(dst + 16, vaddq_u16(ibase8, offsets2));
-		ibase8 = vaddq_u16(ibase8, increment);
-		dst += 3 * 8;
+	uint16x8_t offsets0 = vaddq_u16(ibase8, vld1q_u16(offsets));
+	vst1q_u16(dst, offsets0);
+	if (numTris > 2) {
+		uint16x8_t offsets1 = vaddq_u16(ibase8, vld1q_u16(offsets + 8));
+		vst1q_u16(dst + 8, offsets1);
+		if (numTris > 5) {
+			uint16x8_t offsets2 = vaddq_u16(ibase8, vld1q_u16(offsets + 16));
+			vst1q_u16(dst + 16, offsets2);
+			uint16x8_t increment = vdupq_n_u16(8);
+			for (int i = 1; i < numChunks; i++) {
+				dst += 3 * 8;
+				offsets0 = vaddq_u16(offsets0, increment);
+				offsets1 = vaddq_u16(offsets1, increment);
+				offsets2 = vaddq_u16(offsets2, increment);
+				vst1q_u16(dst, offsets0);
+				vst1q_u16(dst + 8, offsets1);
+				vst1q_u16(dst + 16, offsets2);
+			}
+		}
 	}
 	inds_ += numTris * 3;
 #else

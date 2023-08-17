@@ -28,7 +28,7 @@ struct Point {
 
 // Resolved bounds on screen after layout.
 struct Bounds {
-	Bounds() : x(0), y(0), w(0), h(0) {}
+	Bounds() : x(0.0f), y(0.0f), w(0.0f), h(0.0f) {}
 	Bounds(float x_, float y_, float w_, float h_) : x(x_), y(y_), w(w_), h(h_) {}
 
 	bool Contains(float px, float py) const {
@@ -69,8 +69,21 @@ struct Bounds {
 	Bounds Expand(float xAmount, float yAmount) const {
 		return Bounds(x - xAmount, y - yAmount, w + xAmount * 2, h + yAmount * 2);
 	}
+	Bounds Expand(float left, float top, float right, float bottom) const {
+		return Bounds(x - left, y - top, w + left + right, h + top + bottom);
+	}
 	Bounds Offset(float xAmount, float yAmount) const {
 		return Bounds(x + xAmount, y + yAmount, w, h);
+	}
+	Bounds Inset(float left, float top, float right, float bottom) {
+		return Bounds(x + left, y + top, w - left - right, h - bottom - top);
+	}
+
+	Bounds Inset(float xAmount, float yAmount) const {
+		return Bounds(x + xAmount, y + yAmount, w - xAmount * 2, h - yAmount * 2);
+	}
+	Bounds Inset(float left, float top, float right, float bottom) const {
+		return Bounds(x + left, y + top, w - left - right, h - top - bottom);
 	}
 
 	float x;

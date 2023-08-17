@@ -5,13 +5,14 @@
 
 #include <unordered_map>
 #include <vector>
+#include <string>
 
-#include "Common/Math/lin/vec3.h"
 #include "Common/Input/KeyCodes.h"
+#include "Common/Log.h"
 
 // Default device IDs
 
-enum {
+enum InputDeviceID {
 	DEVICE_ID_ANY = -1,  // Represents any device ID
 	DEVICE_ID_DEFAULT = 0,  // Old Android
 	DEVICE_ID_KEYBOARD = 1,  // PC keyboard, android keyboards
@@ -31,72 +32,97 @@ enum {
 	DEVICE_ID_XINPUT_2 = 22,
 	DEVICE_ID_XINPUT_3 = 23,
 	DEVICE_ID_ACCELEROMETER = 30,
+	DEVICE_ID_XR_HMD = 39,
 	DEVICE_ID_XR_CONTROLLER_LEFT = 40,
 	DEVICE_ID_XR_CONTROLLER_RIGHT = 41,
 	DEVICE_ID_TOUCH = 42,
 };
+
+inline InputDeviceID operator +(InputDeviceID deviceID, int addend) {
+	return (InputDeviceID)((int)deviceID + addend);
+}
 
 //number of contiguous generic joypad IDs
 const int MAX_NUM_PADS = 10;
 
 const char *GetDeviceName(int deviceId);
 
-enum {
-	PAD_BUTTON_A = 1,
-	PAD_BUTTON_B = 2,
-	PAD_BUTTON_X = 4,
-	PAD_BUTTON_Y = 8,
-	PAD_BUTTON_LBUMPER = 16,
-	PAD_BUTTON_RBUMPER = 32,
-	PAD_BUTTON_START = 64,
-	PAD_BUTTON_SELECT = 128,
-	PAD_BUTTON_UP = 256,
-	PAD_BUTTON_DOWN = 512,
-	PAD_BUTTON_LEFT = 1024,
-	PAD_BUTTON_RIGHT = 2048,
-
-	PAD_BUTTON_MENU = 4096,
-	PAD_BUTTON_BACK = 8192,
-
-	// For Qt
-	PAD_BUTTON_JOY_UP = 1<<14,
-	PAD_BUTTON_JOY_DOWN = 1<<15,
-	PAD_BUTTON_JOY_LEFT = 1<<16,
-	PAD_BUTTON_JOY_RIGHT = 1<<17,
-
-	PAD_BUTTON_LEFT_THUMB = 1 << 18,   // Click left thumb stick on X360
-	PAD_BUTTON_RIGHT_THUMB = 1 << 19,   // Click right thumb stick on X360
-
-	PAD_BUTTON_LEFT_TRIGGER = 1 << 21,   // Click left thumb stick on X360
-	PAD_BUTTON_RIGHT_TRIGGER = 1 << 22,   // Click left thumb stick on X360
-
-	PAD_BUTTON_FASTFORWARD = 1 << 20, // Click Tab to unthrottle
-};
-
 #ifndef MAX_KEYQUEUESIZE
 #define MAX_KEYQUEUESIZE 20
 #endif
 
 // Represents a single bindable key
-class KeyDef {
+static const int AXIS_BIND_NKCODE_START = 4000;
+
+inline int TranslateKeyCodeToAxis(int keyCode, int *direction) {
+	if (keyCode < AXIS_BIND_NKCODE_START)
+		return 0;
+	int k = keyCode - AXIS_BIND_NKCODE_START;
+	// Even/odd for direction.
+	if (direction)
+		*direction = k & 1 ? -1 : 1;
+	return k / 2;
+}
+
+class InputMapping {
+private:
+	inline int TranslateKeyCodeFromAxis(int axisId, int direction) {
+		return AXIS_BIND_NKCODE_START + axisId * 2 + (direction < 0 ? 1 : 0);
+	}
 public:
-	KeyDef() : deviceId(0), keyCode(0) {}
-	KeyDef(int devId, int k) : deviceId(devId), keyCode(k) {}
-	int deviceId;
-	int keyCode;
+	InputMapping() : deviceId(DEVICE_ID_DEFAULT), keyCode(0) {}
+	// From a key mapping
+	InputMapping(InputDeviceID _deviceId, int key) : deviceId(_deviceId), keyCode(key) {}
+	// From an axis
+	InputMapping(InputDeviceID _deviceId, int axis, int direction) : deviceId(_deviceId), keyCode(TranslateKeyCodeFromAxis(axis, direction)) {
+		_dbg_assert_(direction != 0);
+	}
+
+	static InputMapping FromConfigString(const std::string &str);
+	std::string ToConfigString() const;
+
+	InputDeviceID deviceId;
+	int keyCode;  // Can also represent an axis with direction, if encoded properly.
+
+	bool IsAxis() const {
+		return keyCode >= AXIS_BIND_NKCODE_START;
+	}
+
+	int Axis(int *direction) const {
+		_dbg_assert_(IsAxis());
+		return TranslateKeyCodeToAxis(keyCode, direction);
+	}
+
+	InputMapping FlipDirection() const {
+		_dbg_assert_(IsAxis());
+		InputMapping other = *this;
+		other.keyCode ^= 1;
+		return other;
+	}
 
 	// If you want to use std::find and match ANY, you need to perform an explicit search for that.
-	bool operator < (const KeyDef &other) const {
+	bool operator < (const InputMapping &other) const {
 		if (deviceId < other.deviceId) return true;
 		if (deviceId > other.deviceId) return false;
 		if (keyCode < other.keyCode) return true;
 		return false;
 	}
-	bool operator == (const KeyDef &other) const {
+	// Needed for composition.
+	bool operator > (const InputMapping &other) const {
+		if (deviceId > other.deviceId) return true;
+		if (deviceId < other.deviceId) return false;
+		if (keyCode > other.keyCode) return true;
+		return false;
+	}
+
+	// This one is iffy with the != ANY checks. Should probably be a named method.
+	bool operator == (const InputMapping &other) const {
 		if (deviceId != other.deviceId && deviceId != DEVICE_ID_ANY && other.deviceId != DEVICE_ID_ANY) return false;
 		if (keyCode != other.keyCode) return false;
 		return true;
 	}
+
+	void FormatDebug(char *buffer, size_t bufSize) const;
 };
 
 enum {
@@ -141,30 +167,33 @@ enum {
 
 struct KeyInput {
 	KeyInput() {}
-	KeyInput(int devId, int code, int fl) : deviceId(devId), keyCode(code), flags(fl) {}
-	int deviceId;
-	int keyCode;  // Android keycodes are the canonical keycodes, everyone else map to them.
+	KeyInput(InputDeviceID devId, InputKeyCode code, int fl) : deviceId(devId), keyCode(code), flags(fl) {}
+	KeyInput(InputDeviceID devId, int unicode) : deviceId(devId), unicodeChar(unicode), flags(KEY_CHAR) {}
+	InputDeviceID deviceId;
+	union {
+		InputKeyCode keyCode;  // Android keycodes are the canonical keycodes, everyone else map to them.
+		int unicodeChar;  // for KEY_CHAR
+	};
 	int flags;
 };
 
 struct AxisInput {
-	int deviceId;
-	int axisId;  // Android axis Ids are the canonical ones.
+	InputDeviceID deviceId;
+	InputAxis axisId;
 	float value;
-	int flags;
 };
 
 // Is there a nicer place for this stuff? It's here to avoid dozens of linking errors in UnitTest..
-extern std::vector<KeyDef> dpadKeys;
-extern std::vector<KeyDef> confirmKeys;
-extern std::vector<KeyDef> cancelKeys;
-extern std::vector<KeyDef> tabLeftKeys;
-extern std::vector<KeyDef> tabRightKeys;
-void SetDPadKeys(const std::vector<KeyDef> &leftKey, const std::vector<KeyDef> &rightKey,
-		const std::vector<KeyDef> &upKey, const std::vector<KeyDef> &downKey);
-void SetConfirmCancelKeys(const std::vector<KeyDef> &confirm, const std::vector<KeyDef> &cancel);
-void SetTabLeftRightKeys(const std::vector<KeyDef> &tabLeft, const std::vector<KeyDef> &tabRight);
+extern std::vector<InputMapping> dpadKeys;
+extern std::vector<InputMapping> confirmKeys;
+extern std::vector<InputMapping> cancelKeys;
+extern std::vector<InputMapping> tabLeftKeys;
+extern std::vector<InputMapping> tabRightKeys;
+void SetDPadKeys(const std::vector<InputMapping> &leftKey, const std::vector<InputMapping> &rightKey,
+		const std::vector<InputMapping> &upKey, const std::vector<InputMapping> &downKey);
+void SetConfirmCancelKeys(const std::vector<InputMapping> &confirm, const std::vector<InputMapping> &cancel);
+void SetTabLeftRightKeys(const std::vector<InputMapping> &tabLeft, const std::vector<InputMapping> &tabRight);
 
 // 0 means unknown (attempt autodetect), -1 means flip, 1 means original direction.
-void SetAnalogFlipY(std::unordered_map<int, int> flipYByDeviceId);
-int GetAnalogYDirection(int deviceId);
+void SetAnalogFlipY(std::unordered_map<InputDeviceID, int> flipYByDeviceId);
+int GetAnalogYDirection(InputDeviceID deviceId);

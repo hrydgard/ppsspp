@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "ppsspp_config.h"
+#include <algorithm>
 #include <map>
 #include <set>
 #include <unordered_map>
@@ -27,6 +28,7 @@
 
 #include "Common/File/FileUtil.h"
 #include "Common/Log.h"
+#include "Common/StringUtils.h"
 #include "Common/TimeUtil.h"
 #include "Core/Config.h"
 #include "Core/MemMap.h"
@@ -673,10 +675,9 @@ namespace MIPSAnalyst {
 			int vt = (((op >> 16) & 0x1f)) | ((op & 1) << 5);
 			float rd[4];
 			ReadVector(rd, V_Quad, vt);
-			return memcmp(rd, Memory::GetPointer(addr), sizeof(float) * 4) != 0;
+			return memcmp(rd, Memory::GetPointerRange(addr, 16), sizeof(float) * 4) != 0;
 		}
 
-		// TODO: Technically, the break might be for 1 byte in the middle of a sw.
 		return writeVal != prevVal;
 	}
 
@@ -812,7 +813,7 @@ namespace MIPSAnalyst {
 			break;
 		}
 
-		if (reg > 32) {
+		if (reg >= 32) {
 			return USAGE_UNKNOWN;
 		}
 
@@ -931,7 +932,7 @@ skip:
 	}
 
 	static const char *DefaultFunctionName(char buffer[256], u32 startAddr) {
-		sprintf(buffer, "z_un_%08x", startAddr);
+		snprintf(buffer, 256, "z_un_%08x", startAddr);
 		return buffer;
 	}
 
@@ -940,6 +941,10 @@ skip:
 			// Must be I guess?
 			return true;
 		}
+
+		// Un named stubs, just in case.
+		if (!strncmp(name, "[UNK:", strlen("[UNK:")))
+			return true;
 
 		// Assume any z_un, not just the address, is a default func.
 		return !strncmp(name, "z_un_", strlen("z_un_")) || !strncmp(name, "u_un_", strlen("u_un_"));
@@ -1190,6 +1195,12 @@ skip:
 		}
 	}
 
+	bool SkipFuncHash(const std::string &name) {
+		std::vector<std::string> funcs;
+		SplitString(g_Config.sSkipFuncHashMap, ',', funcs);
+		return std::find(funcs.begin(), funcs.end(), name) != funcs.end();
+	}
+
 	void RegisterFunction(u32 startAddr, u32 size, const char *name) {
 		std::lock_guard<std::recursive_mutex> guard(functions_lock);
 
@@ -1197,7 +1208,7 @@ skip:
 		for (auto iter = functions.begin(); iter != functions.end(); iter++) {
 			if (iter->start == startAddr) {
 				// Let's just add it to the hashmap.
-				if (iter->hasHash && size > 16) {
+				if (iter->hasHash && size > 16 && SkipFuncHash(name)) {
 					HashMapFunc hfun;
 					hfun.hash = iter->hash;
 					strncpy(hfun.name, name, 64);
@@ -1279,7 +1290,7 @@ skip:
 			}
 			// Functions with default names aren't very interesting either.
 			const std::string name = g_symbolMap->GetLabelString(f.start);
-			if (IsDefaultFunction(name)) {
+			if (IsDefaultFunction(name) || SkipFuncHash(name)) {
 				continue;
 			}
 
@@ -1449,7 +1460,7 @@ skip:
 		case 0x08:	// addi
 		case 0x09:	// addiu
 			info.hasRelevantAddress = true;
-			info.relevantAddress = cpu->GetRegValue(0,MIPS_GET_RS(op))+((s16)(op & 0xFFFF));
+			info.relevantAddress = cpu->GetRegValue(0, MIPS_GET_RS(op)) + SignExtend16ToS32(op & 0xFFFF);
 			break;
 		}
 

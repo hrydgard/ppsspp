@@ -24,11 +24,11 @@
 #include "Common/CPUDetect.h"
 #include "Common/Data/Convert/ColorConv.h"
 #include "Common/Log.h"
+#include "Common/LogReporting.h"
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
 #include "Core/MemMap.h"
 #include "Core/HDRemaster.h"
-#include "Core/Reporting.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
 #include "Core/Util/AudioFormat.h"  // for clamp_u8
 #include "GPU/Common/ShaderCommon.h"
@@ -42,6 +42,8 @@ static const u8 colsize[8] = { 0, 0, 0, 0, 2, 2, 2, 4 }, colalign[8] = { 0, 0, 0
 static const u8 nrmsize[4] = { 0, 3, 6, 12 }, nrmalign[4] = { 0, 1, 2, 4 };
 static const u8 possize[4] = { 3, 3, 6, 12 }, posalign[4] = { 1, 1, 2, 4 };
 static const u8 wtsize[4] = { 0, 1, 2, 4 }, wtalign[4] = { 0, 1, 2, 4 };
+
+static constexpr bool validateJit = false;
 
 // When software skinning. This array is only used when non-jitted - when jitted, the matrix
 // is kept in registers.
@@ -340,29 +342,29 @@ void VertexDecoder::Step_TcFloatThrough() const
 void VertexDecoder::Step_TcU8Prescale() const {
 	float *uv = (float *)(decoded_ + decFmt.uvoff);
 	const u8 *uvdata = (const u8 *)(ptr_ + tcoff);
-	uv[0] = (float)uvdata[0] * (1.f / 128.f) * gstate_c.uv.uScale + gstate_c.uv.uOff;
-	uv[1] = (float)uvdata[1] * (1.f / 128.f) * gstate_c.uv.vScale + gstate_c.uv.vOff;
+	uv[0] = (float)uvdata[0] * (1.f / 128.f) * prescaleUV_->uScale + prescaleUV_->uOff;
+	uv[1] = (float)uvdata[1] * (1.f / 128.f) * prescaleUV_->vScale + prescaleUV_->vOff;
 }
 
 void VertexDecoder::Step_TcU16Prescale() const {
 	float *uv = (float *)(decoded_ + decFmt.uvoff);
 	const u16_le *uvdata = (const u16_le *)(ptr_ + tcoff);
-	uv[0] = (float)uvdata[0] * (1.f / 32768.f) * gstate_c.uv.uScale + gstate_c.uv.uOff;
-	uv[1] = (float)uvdata[1] * (1.f / 32768.f) * gstate_c.uv.vScale + gstate_c.uv.vOff;
+	uv[0] = (float)uvdata[0] * (1.f / 32768.f) * prescaleUV_->uScale + prescaleUV_->uOff;
+	uv[1] = (float)uvdata[1] * (1.f / 32768.f) * prescaleUV_->vScale + prescaleUV_->vOff;
 }
 
 void VertexDecoder::Step_TcU16DoublePrescale() const {
 	float *uv = (float *)(decoded_ + decFmt.uvoff);
 	const u16_le *uvdata = (const u16_le *)(ptr_ + tcoff);
-	uv[0] = (float)uvdata[0] * (1.f / 16384.f) * gstate_c.uv.uScale + gstate_c.uv.uOff;
-	uv[1] = (float)uvdata[1] * (1.f / 16384.f) * gstate_c.uv.vScale + gstate_c.uv.vOff;
+	uv[0] = (float)uvdata[0] * (1.f / 16384.f) * prescaleUV_->uScale + prescaleUV_->uOff;
+	uv[1] = (float)uvdata[1] * (1.f / 16384.f) * prescaleUV_->vScale + prescaleUV_->vOff;
 }
 
 void VertexDecoder::Step_TcFloatPrescale() const {
 	float *uv = (float *)(decoded_ + decFmt.uvoff);
 	const float_le *uvdata = (const float_le *)(ptr_ + tcoff);
-	uv[0] = uvdata[0] * gstate_c.uv.uScale + gstate_c.uv.uOff;
-	uv[1] = uvdata[1] * gstate_c.uv.vScale + gstate_c.uv.vOff;
+	uv[0] = uvdata[0] * prescaleUV_->uScale + prescaleUV_->uOff;
+	uv[1] = uvdata[1] * prescaleUV_->vScale + prescaleUV_->vOff;
 }
 
 void VertexDecoder::Step_TcU8MorphToFloat() const {
@@ -436,8 +438,8 @@ void VertexDecoder::Step_TcU8PrescaleMorph() const {
 	}
 
 	float *out = (float *)(decoded_ + decFmt.uvoff);
-	out[0] = uv[0] * gstate_c.uv.uScale + gstate_c.uv.uOff;
-	out[1] = uv[1] * gstate_c.uv.vScale + gstate_c.uv.vOff;
+	out[0] = uv[0] * prescaleUV_->uScale + prescaleUV_->uOff;
+	out[1] = uv[1] * prescaleUV_->vScale + prescaleUV_->vOff;
 }
 
 void VertexDecoder::Step_TcU16PrescaleMorph() const {
@@ -451,8 +453,8 @@ void VertexDecoder::Step_TcU16PrescaleMorph() const {
 	}
 
 	float *out = (float *)(decoded_ + decFmt.uvoff);
-	out[0] = uv[0] * gstate_c.uv.uScale + gstate_c.uv.uOff;
-	out[1] = uv[1] * gstate_c.uv.vScale + gstate_c.uv.vOff;
+	out[0] = uv[0] * prescaleUV_->uScale + prescaleUV_->uOff;
+	out[1] = uv[1] * prescaleUV_->vScale + prescaleUV_->vOff;
 }
 
 void VertexDecoder::Step_TcU16DoublePrescaleMorph() const {
@@ -466,8 +468,8 @@ void VertexDecoder::Step_TcU16DoublePrescaleMorph() const {
 	}
 
 	float *out = (float *)(decoded_ + decFmt.uvoff);
-	out[0] = uv[0] * gstate_c.uv.uScale + gstate_c.uv.uOff;
-	out[1] = uv[1] * gstate_c.uv.vScale + gstate_c.uv.vOff;
+	out[0] = uv[0] * prescaleUV_->uScale + prescaleUV_->uOff;
+	out[1] = uv[1] * prescaleUV_->vScale + prescaleUV_->vOff;
 }
 
 void VertexDecoder::Step_TcFloatPrescaleMorph() const {
@@ -481,8 +483,8 @@ void VertexDecoder::Step_TcFloatPrescaleMorph() const {
 	}
 
 	float *out = (float *)(decoded_ + decFmt.uvoff);
-	out[0] = uv[0] * gstate_c.uv.uScale + gstate_c.uv.uOff;
-	out[1] = uv[1] * gstate_c.uv.vScale + gstate_c.uv.vOff;
+	out[0] = uv[0] * prescaleUV_->uScale + prescaleUV_->uOff;
+	out[1] = uv[1] * prescaleUV_->vScale + prescaleUV_->vOff;
 }
 
 void VertexDecoder::Step_ColorInvalid() const
@@ -1176,7 +1178,7 @@ void VertexDecoder::SetVertexType(u32 fmt, const VertexDecoderOptions &options, 
 
 		steps_[numSteps_++] = morphcount == 1 ? colstep[col] : colstep_morph[col];
 
-		// All color formats decode to DEC_U8_4 currently.
+		// All color formats decode to DEC_U8_4.
 		// They can become floats later during transform though.
 		decFmt.c0fmt = DEC_U8_4;
 		decFmt.c0off = decOff;
@@ -1254,7 +1256,7 @@ void VertexDecoder::SetVertexType(u32 fmt, const VertexDecoderOptions &options, 
 		decOff += DecFmtSize(decFmt.posfmt);
 	}
 
-	decFmt.stride = decOff;
+	decFmt.stride = options.alignOutputToWord ? align(decOff, 4) : decOff;
 
 	decFmt.ComputeID();
 
@@ -1274,7 +1276,7 @@ void VertexDecoder::SetVertexType(u32 fmt, const VertexDecoderOptions &options, 
 
 	// Attempt to JIT as well. But only do that if the main CPU JIT is enabled, in order to aid
 	// debugging attempts - if the main JIT doesn't work, this one won't do any better, probably.
-	if (jitCache && g_Config.bVertexDecoderJit && g_Config.iCpuCore == (int)CPUCore::JIT) {
+	if (jitCache) {
 		jitted_ = jitCache->Compile(*this, &jittedSize_);
 		if (!jitted_) {
 			WARN_LOG(G3D, "Vertex decoder JIT failed! fmt = %08x (%s)", fmt_, GetString(SHADER_STRING_SHORT_DESC).c_str());
@@ -1282,11 +1284,10 @@ void VertexDecoder::SetVertexType(u32 fmt, const VertexDecoderOptions &options, 
 	}
 }
 
-void VertexDecoder::DecodeVerts(u8 *decodedptr, const void *verts, int indexLowerBound, int indexUpperBound) const {
+void VertexDecoder::DecodeVerts(u8 *decodedptr, const void *verts, const UVScale *uvScaleOffset, int indexLowerBound, int indexUpperBound) const {
 	// Decode the vertices within the found bounds, once each
 	// decoded_ and ptr_ are used in the steps, so can't be turned into locals for speed.
-	decoded_ = decodedptr;
-	ptr_ = (const u8*)verts + indexLowerBound * size;
+	const u8 *startPtr = (const u8*)verts + indexLowerBound * size;
 
 	int count = indexUpperBound - indexLowerBound + 1;
 	int stride = decFmt.stride;
@@ -1298,10 +1299,13 @@ void VertexDecoder::DecodeVerts(u8 *decodedptr, const void *verts, int indexLowe
 		return;
 	}
 
-	if (jitted_) {
+	if (jitted_ && !validateJit) {
 		// We've compiled the steps into optimized machine code, so just jump!
-		jitted_(ptr_, decoded_, count);
+		jitted_(startPtr, decodedptr, count, uvScaleOffset);
 	} else {
+		ptr_ = startPtr;
+		decoded_ = decodedptr;
+		prescaleUV_ = uvScaleOffset;
 		// Interpret the decode steps
 		for (; count; count--) {
 			for (int i = 0; i < numSteps_; i++) {
@@ -1309,6 +1313,127 @@ void VertexDecoder::DecodeVerts(u8 *decodedptr, const void *verts, int indexLowe
 			}
 			ptr_ += size;
 			decoded_ += stride;
+		}
+
+		if (jitted_ && validateJit) {
+			CompareToJit(startPtr, decodedptr, indexUpperBound - indexLowerBound + 1, uvScaleOffset);
+		}
+	}
+}
+
+static float LargestAbsDiff(Vec4f a, Vec4f b, int n) {
+	Vec4f delta = a - b;
+	float largest = 0;
+	for (int i = 0; i < n; ++ i) {
+		largest = std::max(largest, fabsf(delta[i]));
+	}
+	return largest;
+}
+
+static bool DecodedVertsAreSimilar(const VertexReader &vtx1, const VertexReader &vtx2) {
+	Vec4f vec1{}, vec2{};
+	if (vtx1.hasNormal()) {
+		vtx1.ReadNrm(vec1.AsArray());
+		vtx2.ReadNrm(vec2.AsArray());
+		float diff = LargestAbsDiff(vec1, vec2, 3);
+		if (diff >= 1.0 / 512.0f) {
+			WARN_LOG(G3D, "Normal diff %f", diff);
+			return false;
+		}
+	}
+	if (vtx1.hasUV()) {
+		vtx1.ReadUV(vec1.AsArray());
+		vtx2.ReadUV(vec2.AsArray());
+		float diff = LargestAbsDiff(vec1, vec2, 2);
+		if (diff >= 1.0 / 512.0f) {
+			WARN_LOG(G3D, "UV diff %f", diff);
+			return false;
+		}
+	}
+	if (vtx1.hasColor0()) {
+		vtx1.ReadColor0(vec1.AsArray());
+		vtx2.ReadColor0(vec2.AsArray());
+		float diff = LargestAbsDiff(vec1, vec2, 4);
+		if (diff >= 1.0 / 255.0f) {
+			WARN_LOG(G3D, "Color0 diff %f", diff);
+			return false;
+		}
+	}
+	if (vtx1.hasColor1()) {
+		vtx1.ReadColor1(vec1.AsArray());
+		vtx2.ReadColor1(vec2.AsArray());
+		float diff = LargestAbsDiff(vec1, vec2, 4);
+		if (diff >= 1.0 / 255.0f) {
+			WARN_LOG(G3D, "Color1 diff %f", diff);
+			return false;
+		}
+	}
+	vtx1.ReadPos(vec1.AsArray());
+	vtx2.ReadPos(vec2.AsArray());
+	float diff = LargestAbsDiff(vec1, vec2, 3);
+	if (diff >= 1.0 / 512.0f) {
+		WARN_LOG(G3D, "Pos diff %f", diff);
+		return false;
+	}
+
+	return true;
+}
+
+void VertexDecoder::CompareToJit(const u8 *startPtr, u8 *decodedptr, int count, const UVScale *uvScaleOffset) const {
+	std::vector<uint8_t> jittedBuffer(decFmt.stride * count);
+	jitted_(startPtr, &jittedBuffer[0], count, uvScaleOffset);
+
+	VertexReader controlReader(decodedptr, GetDecVtxFmt(), fmt_);
+	VertexReader jittedReader(&jittedBuffer[0], GetDecVtxFmt(), fmt_);
+	for (int i = 0; i < count; ++i) {
+		int off = decFmt.stride * i;
+		controlReader.Goto(i);
+		jittedReader.Goto(i);
+		if (!DecodedVertsAreSimilar(controlReader, jittedReader)) {
+			char name[512]{};
+			ToString(name);
+			ERROR_LOG(G3D, "Encountered vertexjit mismatch at %d/%d for %s", i, count, name);
+			if (morphcount > 1) {
+				printf("Morph:\n");
+				for (int j = 0; j < morphcount; ++j) {
+					printf("  %f\n", gstate_c.morphWeights[j]);
+				}
+			}
+			if (weighttype) {
+				printf("Bones:\n");
+				for (int j = 0; j < nweights; ++j) {
+					for (int k = 0; k < 4; ++k) {
+						if (k == 0)
+							printf(" *");
+						else
+							printf("  ");
+						printf(" %f,%f,%f\n", gstate.boneMatrix[j * 12 + k * 3 + 0], gstate.boneMatrix[j * 12 + k * 3 + 1], gstate.boneMatrix[j * 12 + k * 3 + 2]);
+					}
+				}
+			}
+			printf("Src:\n");
+			const u8 *s = startPtr + i * size;
+			for (int j = 0; j < size; ++j) {
+				int oneoffset = j % onesize_;
+				if (oneoffset == weightoff && weighttype)
+					printf(" W:");
+				else if (oneoffset == tcoff && tc)
+					printf(" T:");
+				else if (oneoffset == coloff && col)
+					printf(" C:");
+				else if (oneoffset == nrmoff && nrm)
+					printf(" N:");
+				else if (oneoffset == posoff)
+					printf(" P:");
+				printf("%02x ", s[j]);
+				if (oneoffset == onesize_ - 1)
+					printf("\n");
+			}
+			printf("Interpreted vertex:\n");
+			PrintDecodedVertex(controlReader);
+			printf("Jit vertex:\n");
+			PrintDecodedVertex(jittedReader);
+			Crash();
 		}
 	}
 }
@@ -1359,6 +1484,8 @@ std::string VertexDecoder::GetString(DebugShaderStringType stringType) {
 			lines = DisassembleArm2((const u8 *)jitted_, jittedSize_);
 #elif PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)
 			lines = DisassembleX86((const u8 *)jitted_, jittedSize_);
+#elif PPSSPP_ARCH(RISCV64)
+			lines = DisassembleRV64((const u8 *)jitted_, jittedSize_);
 #else
 			// No disassembler defined
 #endif

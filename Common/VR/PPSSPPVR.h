@@ -1,7 +1,8 @@
 #pragma once
 
-#include "Common/Input/InputState.h"
-#include "Common/Input/KeyCodes.h"
+struct AxisInput;
+struct TouchInput;
+struct KeyInput;
 
 enum VRCompatFlag {
 	//compatibility tweaks
@@ -29,7 +30,7 @@ bool IsVREnabled();
 void InitVROnAndroid(void* vm, void* activity, const char* system, int version, const char* name);
 void EnterVR(bool firstStart, void* vulkanContext);
 void GetVRResolutionPerEye(int* width, int* height);
-void SetVRCallbacks(bool(*axis)(const AxisInput &axis), bool(*key)(const KeyInput &key), bool(*touch)(const TouchInput &touch));
+void SetVRCallbacks(void(*axis)(const AxisInput &axis), bool(*key)(const KeyInput &key), void(*touch)(const TouchInput &touch));
 
 // VR input integration
 void SetVRAppMode(VRAppMode mode);
@@ -50,10 +51,12 @@ void PostVRFrameRender();
 int GetVRFBOIndex();
 int GetVRPassesCount();
 bool IsMultiviewSupported();
+bool IsPassthroughSupported();
 bool IsFlatVRGame();
 bool IsFlatVRScene();
 bool IsGameVRScene();
 bool Is2DVRObject(float* projMatrix, bool ortho);
-void UpdateVRParams(float* projMatrix, float* viewMatrix);
+void UpdateVRParams(float* projMatrix);
 void UpdateVRProjection(float* projMatrix, float* leftEye, float* rightEye);
 void UpdateVRView(float* leftEye, float* rightEye);
+void UpdateVRViewMatrices();

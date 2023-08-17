@@ -28,7 +28,6 @@
 #include "GPU/Common/GPUStateUtils.h"
 #include "Core/System.h"
 #include "Core/Config.h"
-#include "Core/Reporting.h"
 
 #include "GPU/Common/FramebufferManagerCommon.h"
 #include "GPU/D3D11/DrawEngineD3D11.h"
@@ -159,7 +158,7 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 				ApplyStencilReplaceAndLogicOpIgnoreBlend(blendState.replaceAlphaWithStencil, blendState);
 
 				if (fboTexBindState == FBO_TEX_COPY_BIND_TEX) {
-					framebufferManager_->BindFramebufferAsColorTexture(1, framebufferManager_->GetCurrentRenderVFB(), BINDFBCOLOR_MAY_COPY, 0);
+					framebufferManager_->BindFramebufferAsColorTexture(1, framebufferManager_->GetCurrentRenderVFB(), BINDFBCOLOR_MAY_COPY | BINDFBCOLOR_UNCACHED, 0);
 					// No sampler required, we do a plain Load in the pixel shader.
 					fboTexBound_ = true;
 					fboTexBindState = FBO_TEX_NONE;
@@ -443,7 +442,7 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 void DrawEngineD3D11::ApplyDrawStateLate(bool applyStencilRef, uint8_t stencilRef) {
 	// we go through Draw here because it automatically handles screen rotation, as needed in UWP on mobiles.
 	if (gstate_c.IsDirty(DIRTY_VIEWPORTSCISSOR_STATE)) {
-		draw_->SetViewports(1, &dynState_.viewport);
+		draw_->SetViewport(dynState_.viewport);
 		draw_->SetScissorRect(dynState_.scissor.left, dynState_.scissor.top, dynState_.scissor.right - dynState_.scissor.left, dynState_.scissor.bottom - dynState_.scissor.top);
 	}
 	if (gstate_c.IsDirty(DIRTY_RASTER_STATE)) {

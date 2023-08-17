@@ -19,6 +19,7 @@
 
 #include <cstdio>
 #include <cstdint>
+#include <mutex>
 
 #include "Common/Thread/Promise.h"
 #include "Common/Data/Collections/Hashmaps.h"
@@ -32,7 +33,8 @@
 #include "GPU/Common/ShaderUniforms.h"
 
 class VulkanContext;
-class VulkanPushBuffer;
+class DrawEngineVulkan;
+class VulkanPushPool;
 
 class VulkanFragmentShader {
 public:
@@ -112,11 +114,11 @@ public:
 	ShaderManagerVulkan(Draw::DrawContext *draw);
 	~ShaderManagerVulkan();
 
-	void DeviceLost();
-	void DeviceRestore(Draw::DrawContext *draw);
+	void DeviceLost() override;
+	void DeviceRestore(Draw::DrawContext *draw) override;
 
-	void GetShaders(int prim, u32 vertType, VulkanVertexShader **vshader, VulkanFragmentShader **fshader, VulkanGeometryShader **gshader, const ComputedPipelineState &pipelineState, bool useHWTransform, bool useHWTessellation, bool weightsAsFloat, bool useSkinInDecode);
-	void ClearShaders();
+	void GetShaders(int prim, VertexDecoder *decoder, VulkanVertexShader **vshader, VulkanFragmentShader **fshader, VulkanGeometryShader **gshader, const ComputedPipelineState &pipelineState, bool useHWTransform, bool useHWTessellation, bool weightsAsFloat, bool useSkinInDecode);
+	void ClearShaders() override;
 	void DirtyShader();
 	void DirtyLastShader() override;
 
@@ -132,8 +134,8 @@ public:
 	VulkanFragmentShader *GetFragmentShaderFromModule(VkShaderModule module);
 	VulkanGeometryShader *GetGeometryShaderFromModule(VkShaderModule module);
 
-	std::vector<std::string> DebugGetShaderIDs(DebugShaderType type);
-	std::string DebugGetShaderString(std::string id, DebugShaderType type, DebugShaderStringType stringType);
+	std::vector<std::string> DebugGetShaderIDs(DebugShaderType type) override;
+	std::string DebugGetShaderString(std::string id, DebugShaderType type, DebugShaderStringType stringType) override;
 
 	uint64_t UpdateUniforms(bool useBufferedRendering);
 
@@ -143,19 +145,20 @@ public:
 	bool IsLightDirty() { return true; }
 	bool IsBoneDirty() { return true; }
 
-	uint32_t PushBaseBuffer(VulkanPushBuffer *dest, VkBuffer *buf) {
-		return dest->PushAligned(&ub_base, sizeof(ub_base), uboAlignment_, buf);
+	uint32_t PushBaseBuffer(VulkanPushPool *dest, VkBuffer *buf) {
+		return dest->Push(&ub_base, sizeof(ub_base), uboAlignment_, buf);
 	}
-	uint32_t PushLightBuffer(VulkanPushBuffer *dest, VkBuffer *buf) {
-		return dest->PushAligned(&ub_lights, sizeof(ub_lights), uboAlignment_, buf);
+	uint32_t PushLightBuffer(VulkanPushPool *dest, VkBuffer *buf) {
+		return dest->Push(&ub_lights, sizeof(ub_lights), uboAlignment_, buf);
 	}
 	// TODO: Only push half the bone buffer if we only have four bones.
-	uint32_t PushBoneBuffer(VulkanPushBuffer *dest, VkBuffer *buf) {
-		return dest->PushAligned(&ub_bones, sizeof(ub_bones), uboAlignment_, buf);
+	uint32_t PushBoneBuffer(VulkanPushPool *dest, VkBuffer *buf) {
+		return dest->Push(&ub_bones, sizeof(ub_bones), uboAlignment_, buf);
 	}
 
+	bool LoadCacheFlags(FILE *f, DrawEngineVulkan *drawEngine);
 	bool LoadCache(FILE *f);
-	void SaveCache(FILE *f);
+	void SaveCache(FILE *f, DrawEngineVulkan *drawEngine);
 
 private:
 	void Clear();
@@ -172,6 +175,7 @@ private:
 	GSCache gsCache_;
 
 	char *codeBuffer_;
+	std::mutex cacheLock_;
 
 	uint64_t uboAlignment_;
 	// Uniform block scratchpad. These (the relevant ones) are copied to the current pushbuffer at draw time.

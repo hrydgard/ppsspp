@@ -14,6 +14,7 @@
 
 #include "Common/Profiler/Profiler.h"
 #include "Common/System/NativeApp.h"
+#include "Common/System/Request.h"
 #include "Common/System/System.h"
 
 #include "Common/CommonWindows.h"
@@ -24,7 +25,8 @@
 #endif
 #include "Common/CPUDetect.h"
 #include "Common/File/VFS/VFS.h"
-#include "Common/File/VFS/AssetReader.h"
+#include "Common/File/VFS/ZipFileReader.h"
+#include "Common/File/VFS/DirectoryReader.h"
 #include "Common/File/FileUtil.h"
 #include "Common/GraphicsContext.h"
 #include "Common/TimeUtil.h"
@@ -36,19 +38,20 @@
 #include "Core/System.h"
 #include "Core/WebServer.h"
 #include "Core/HLE/sceUtility.h"
-#include "Core/Host.h"
 #include "Core/SaveState.h"
 #include "GPU/Common/FramebufferManagerCommon.h"
 #include "Log.h"
 #include "LogManager.h"
 
 #include "Compare.h"
-#include "StubHost.h"
+#include "HeadlessHost.h"
 #if defined(_WIN32)
 #include "WindowsHeadlessHost.h"
 #elif defined(SDL)
 #include "SDLHeadlessHost.h"
 #endif
+
+static HeadlessHost *g_headlessHost;
 
 #if PPSSPP_PLATFORM(ANDROID)
 JNIEnv *getEnv() {
@@ -59,8 +62,8 @@ jclass findClass(const char *name) {
 	return nullptr;
 }
 
-bool audioRecording_Available() { return false; }
-bool audioRecording_State() { return false; }
+bool System_AudioRecordingIsAvailable() { return false; }
+bool System_AudioRecordingState() { return false; }
 #endif
 
 class PrintfLogger : public LogListener {
@@ -91,8 +94,7 @@ public:
 };
 
 // Temporary hacks around annoying linking errors.
-void NativeUpdate() { }
-void NativeRender(GraphicsContext *graphicsContext) { }
+void NativeFrame(GraphicsContext *graphicsContext) { }
 void NativeResized() { }
 
 std::string System_GetProperty(SystemProperty prop) { return ""; }
@@ -103,19 +105,48 @@ int System_GetPropertyInt(SystemProperty prop) {
 	return -1;
 }
 float System_GetPropertyFloat(SystemProperty prop) { return -1.0f; }
-bool System_GetPropertyBool(SystemProperty prop) { 
+bool System_GetPropertyBool(SystemProperty prop) {
 	switch (prop) {
 		case SYSPROP_CAN_JIT:
+			return true;
+		case SYSPROP_SKIP_UI:
 			return true;
 		default:
 			return false;
 	}
 }
-
-void System_SendMessage(const char *command, const char *parameter) {}
+void System_Notify(SystemNotification notification) {}
+void System_PostUIMessage(const std::string &message, const std::string &param) {}
+bool System_MakeRequest(SystemRequestType type, int requestId, const std::string &param1, const std::string &param2, int param3) {
+	switch (type) {
+	case SystemRequestType::SEND_DEBUG_OUTPUT:
+		if (g_headlessHost) {
+			g_headlessHost->SendDebugOutput(param1);
+			return true;
+		}
+		return false;
+	case SystemRequestType::SEND_DEBUG_SCREENSHOT:
+		if (g_headlessHost) {
+			g_headlessHost->SendDebugScreenshot((const u8 *)param1.data(), (uint32_t)(param1.size() / param3), param3);
+			return true;
+		}
+		return false;
+	default:
+		return false;
+	}
+}
 void System_InputBoxGetString(const std::string &title, const std::string &defaultValue, std::function<void(bool, const std::string &)> cb) { cb(false, ""); }
 void System_AskForPermission(SystemPermission permission) {}
 PermissionStatus System_GetPermissionStatus(SystemPermission permission) { return PERMISSION_STATUS_GRANTED; }
+void System_AudioGetDebugStats(char *buf, size_t bufSize) { if (buf) buf[0] = '\0'; }
+void System_AudioClear() {}
+void System_AudioPushSamples(const s32 *audio, int numSamples) {}
+
+// TODO: To avoid having to define these here, these should probably be turned into system "requests".
+void NativeSaveSecret(const char *nameOfSecret, const std::string &data) {}
+std::string NativeLoadSecret(const char *nameOfSecret) {
+	return "";
+}
 
 int printUsage(const char *progname, const char *reason)
 {
@@ -175,7 +206,7 @@ bool RunAutoTest(HeadlessHost *headlessHost, CoreParameter &coreParameter, const
 
 	std::string output;
 	if (opt.compare || opt.bench)
-		coreParameter.collectEmuLog = &output;
+		coreParameter.collectDebugOutput = &output;
 
 	std::string error_string;
 	if (!PSP_InitStart(coreParameter, &error_string)) {
@@ -200,14 +231,14 @@ bool RunAutoTest(HeadlessHost *headlessHost, CoreParameter &coreParameter, const
 		return false;
 	}
 
-	host->BootDone();
+	System_Notify(SystemNotification::BOOT_DONE);
 
-	Core_UpdateDebugStats(g_Config.bShowDebugStats || g_Config.bLogFrameDrops);
+	Core_UpdateDebugStats((DebugOverlay)g_Config.iDebugOverlay == DebugOverlay::DEBUG_STATS || g_Config.bLogFrameDrops);
 
 	PSP_BeginHostFrame();
 	Draw::DrawContext *draw = coreParameter.graphicsContext ? coreParameter.graphicsContext->GetDrawContext() : nullptr;
 	if (draw)
-		draw->BeginFrame();
+		draw->BeginFrame(Draw::DebugFlags::NONE);
 
 	bool passed = true;
 	double deadline = time_now_d() + opt.timeout;
@@ -230,7 +261,7 @@ bool RunAutoTest(HeadlessHost *headlessHost, CoreParameter &coreParameter, const
 			if (!opt.bench) {
 				printf("%s", output.c_str());
 
-				host->SendDebugOutput("TIMEOUT\n");
+				System_SendDebugOutput("TIMEOUT\n");
 				TeamCityPrint("testFailed name='%s' message='Test timeout'", currentTestName.c_str());
 				GitHubActionsPrint("error", "Test timeout for %s", currentTestName.c_str());
 			}
@@ -261,6 +292,28 @@ bool RunAutoTest(HeadlessHost *headlessHost, CoreParameter &coreParameter, const
 	TeamCityPrint("testFinished name='%s'", currentTestName.c_str());
 
 	return passed;
+}
+
+std::vector<std::string> ReadFromListFile(const std::string &listFilename) {
+	std::vector<std::string> testFilenames;
+	char temp[2048]{};
+
+	if (listFilename == "-") {
+		while (scanf("%2047s", temp) == 1)
+			testFilenames.push_back(temp);
+	} else {
+		FILE *fp = File::OpenCFile(Path(listFilename), "rt");
+		if (!fp) {
+			fprintf(stderr, "Unable to open '%s' as a list file\n", listFilename.c_str());
+			return testFilenames;
+		}
+
+		while (fscanf(fp, "%2047s", temp) == 1)
+			testFilenames.push_back(temp);
+		fclose(fp);
+	}
+
+	return testFilenames;
 }
 
 int main(int argc, const char* argv[])
@@ -362,16 +415,8 @@ int main(int argc, const char* argv[])
 			testFilenames.push_back(argv[i]);
 	}
 
-	// TODO: Allow a filename here?
-	if (testFilenames.size() == 1 && testFilenames[0] == "@-")
-	{
-		testFilenames.clear();
-		char temp[2048];
-		temp[2047] = '\0';
-
-		while (scanf("%2047s", temp) == 1)
-			testFilenames.push_back(temp);
-	}
+	if (testFilenames.size() == 1 && testFilenames[0][0] == '@')
+		testFilenames = ReadFromListFile(testFilenames[0].substr(1));
 
 	if (testFilenames.empty())
 		return printUsage(argv[0], argc <= 1 ? NULL : "No executables specified");
@@ -392,12 +437,11 @@ int main(int argc, const char* argv[])
 	g_threadManager.Init(cpu_info.num_cores, cpu_info.logical_cpu_count);
 
 	HeadlessHost *headlessHost = getHost(gpuCore);
-	headlessHost->SetGraphicsCore(gpuCore);
-	host = headlessHost;
+	g_headlessHost = headlessHost;
 
 	std::string error_string;
 	GraphicsContext *graphicsContext = nullptr;
-	bool glWorking = host->InitGraphics(&error_string, &graphicsContext);
+	bool glWorking = headlessHost->InitGraphics(&error_string, &graphicsContext, gpuCore);
 
 	CoreParameter coreParameter;
 	coreParameter.cpuCore = cpuCore;
@@ -407,7 +451,6 @@ int main(int argc, const char* argv[])
 	coreParameter.mountIso = mountIso ? Path(std::string(mountIso)) : Path();
 	coreParameter.mountRoot = mountRoot ? Path(std::string(mountRoot)) : Path();
 	coreParameter.startBreak = false;
-	coreParameter.printfEmuLog = !testOptions.compare;
 	coreParameter.headLess = true;
 	coreParameter.renderScaleFactor = 1;
 	coreParameter.renderWidth = 480;
@@ -459,36 +502,46 @@ int main(int argc, const char* argv[])
 	InitSysDirectories();
 #endif
 
+	Path executablePath = File::GetExeDirectory();
 #if !PPSSPP_PLATFORM(ANDROID) && !PPSSPP_PLATFORM(WINDOWS)
 	g_Config.memStickDirectory = Path(std::string(getenv("HOME"))) / ".ppsspp";
-	g_Config.flash0Directory = File::GetExeDirectory() / "assets/flash0";
+	g_Config.flash0Directory = executablePath / "assets/flash0";
 #endif
 
 	// Try to find the flash0 directory.  Often this is from a subdirectory.
-	for (int i = 0; i < 4 && !File::Exists(g_Config.flash0Directory); ++i) {
-		if (File::Exists(g_Config.flash0Directory / ".." / "assets/flash0"))
-			g_Config.flash0Directory = g_Config.flash0Directory / ".." / "assets/flash0";
-		else
-			g_Config.flash0Directory = g_Config.flash0Directory / ".." / ".." / "flash0";
+	Path nextPath = executablePath;
+	for (int i = 0; i < 5; ++i) {
+		if (File::Exists(nextPath / "assets/flash0")) {
+			g_Config.flash0Directory = nextPath / "assets/flash0";
+#if !PPSSPP_PLATFORM(ANDROID)
+			g_VFS.Register("", new DirectoryReader(nextPath / "assets"));
+#endif
+			break;
+		}
+
+		if (!nextPath.CanNavigateUp())
+			break;
+		nextPath = nextPath.NavigateUp();
 	}
-	// Or else, maybe in the executable's dir.
-	if (!File::Exists(g_Config.flash0Directory))
-		g_Config.flash0Directory = File::GetExeDirectory() / "assets/flash0";
 
 	if (screenshotFilename)
 		headlessHost->SetComparisonScreenshot(Path(std::string(screenshotFilename)), testOptions.maxScreenshotError);
 	headlessHost->SetWriteFailureScreenshot(!teamCityMode && !getenv("GITHUB_ACTIONS") && !testOptions.bench);
+	headlessHost->SetWriteDebugOutput(!testOptions.compare && !testOptions.bench);
 
 #if PPSSPP_PLATFORM(ANDROID)
 	// For some reason the debugger installs it with this name?
 	if (File::Exists(Path("/data/app/org.ppsspp.ppsspp-2.apk"))) {
-		VFSRegister("", new ZipAssetReader("/data/app/org.ppsspp.ppsspp-2.apk", "assets/"));
+		g_VFS.Register("", ZipFileReader::Create(Path("/data/app/org.ppsspp.ppsspp-2.apk"), "assets/"));
 	}
 	if (File::Exists(Path("/data/app/org.ppsspp.ppsspp.apk"))) {
-		VFSRegister("", new ZipAssetReader("/data/app/org.ppsspp.ppsspp.apk", "assets/"));
+		g_VFS.Register("", ZipFileReader::Create(Path("/data/app/org.ppsspp.ppsspp.apk"), "assets/"));
 	}
-#elif !PPSSPP_PLATFORM(WINDOWS)
-	VFSRegister("", new DirectoryAssetReader(g_Config.flash0Directory / ".."));
+#elif PPSSPP_PLATFORM(LINUX)
+	g_VFS.Register("", new DirectoryReader(Path("/usr/local/share/ppsspp/assets")));
+	g_VFS.Register("", new DirectoryReader(Path("/usr/local/share/games/ppsspp/assets")));
+	g_VFS.Register("", new DirectoryReader(Path("/usr/share/ppsspp/assets")));
+	g_VFS.Register("", new DirectoryReader(Path("/usr/share/games/ppsspp/assets")));
 #endif
 
 	UpdateUIState(UISTATE_INGAME);
@@ -552,12 +605,12 @@ int main(int argc, const char* argv[])
 		ShutdownWebServer();
 	}
 
-	host->ShutdownGraphics();
-	delete host;
-	host = nullptr;
+	headlessHost->ShutdownGraphics();
+	delete headlessHost;
 	headlessHost = nullptr;
+	g_headlessHost = nullptr;
 
-	VFSShutdown();
+	g_VFS.Clear();
 	LogManager::Shutdown();
 	delete printfLogger;
 

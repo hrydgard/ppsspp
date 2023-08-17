@@ -974,7 +974,9 @@ static bool decodePmpVideo(PSPPointer<SceMpegRingBuffer> ringbuffer, u32 pmpctxA
 		for (int i = 0; i < pmp_nBlocks; i++){
 			auto lli = PSPPointer<SceMpegLLI>::Create(pmp_videoSource);
 			// add source block into pmpframes
-			pmpframes->add(Memory::GetPointerWrite(lli->pSrc), lli->iSize);
+			const uint8_t *ptr = Memory::GetPointerRange(lli->pSrc, lli->iSize);
+			if (ptr)
+				pmpframes->add(ptr, lli->iSize);
 			// get next block
 			pmp_videoSource += sizeof(SceMpegLLI);
 		}
@@ -1203,8 +1205,14 @@ static u32 sceMpegAvcDecode(u32 mpeg, u32 auAddr, u32 frameWidth, u32 bufferAddr
 	// Flush structs back to memory
 	avcAu.write(auAddr);
 
-	// Save the current frame's status to initAddr 
-	Memory::Write_U32(ctx->avc.avcFrameStatus, initAddr);
+	if (mpegLibVersion >= 0x0105 && mpegLibVersion < 0x010a) {
+		//Killzone - Liberation expect , issue #16727
+		Memory::Write_U32(1, initAddr);
+	}
+	else {
+		// Save the current frame's status to initAddr 
+		Memory::Write_U32(ctx->avc.avcFrameStatus, initAddr);
+	}
 	ctx->avc.avcDecodeResult = MPEG_AVC_DECODE_SUCCESS;
 
 	DEBUG_LOG(ME, "sceMpegAvcDecode(%08x, %08x, %i, %08x, %08x)", mpeg, auAddr, frameWidth, bufferAddr, initAddr);
@@ -1496,7 +1504,6 @@ void PostPutAction::run(MipsCall &call) {
 
 	MpegContext *ctx = getMpegCtx(ringbuffer->mpeg);
 	int writeOffset = ringbuffer->packetsWritePos % (s32)ringbuffer->packets;
-	const u8 *data = Memory::GetPointer(ringbuffer->data + writeOffset * 2048);
 
 	int packetsAddedThisRound = currentMIPS->r[MIPS_REG_V0];
 	if (packetsAddedThisRound > 0) {
@@ -1508,9 +1515,10 @@ void PostPutAction::run(MipsCall &call) {
 		// TODO: Faster / less wasteful validation.
 		std::unique_ptr<MpegDemux> demuxer(new MpegDemux(packetsAddedThisRound * 2048, 0));
 		int readOffset = ringbuffer->packetsRead % (s32)ringbuffer->packets;
+		uint32_t bufSize = Memory::ValidSize(ringbuffer->data + readOffset * 2048, packetsAddedThisRound * 2048);
 		const u8 *buf = Memory::GetPointer(ringbuffer->data + readOffset * 2048);
 		bool invalid = false;
-		for (int i = 0; i < packetsAddedThisRound; ++i) {
+		for (uint32_t i = 0; i < bufSize / 2048; ++i) {
 			demuxer->addStreamData(buf, 2048);
 			buf += 2048;
 
@@ -1542,7 +1550,9 @@ void PostPutAction::run(MipsCall &call) {
 			WARN_LOG(ME, "sceMpegRingbufferPut clamping packetsAdded old=%i new=%i", packetsAddedThisRound, ringbuffer->packets - ringbuffer->packetsAvail);
 			packetsAddedThisRound = ringbuffer->packets - ringbuffer->packetsAvail;
 		}
-		int actuallyAdded = ctx->mediaengine == NULL ? 8 : ctx->mediaengine->addStreamData(data, packetsAddedThisRound * 2048) / 2048;
+		const u8 *data = Memory::GetPointer(ringbuffer->data + writeOffset * 2048);
+		uint32_t dataSize = Memory::ValidSize(ringbuffer->data + writeOffset * 2048, packetsAddedThisRound * 2048);
+		int actuallyAdded = ctx->mediaengine == NULL ? 8 : ctx->mediaengine->addStreamData(data, dataSize) / 2048;
 		if (actuallyAdded != packetsAddedThisRound) {
 			WARN_LOG_REPORT(ME, "sceMpegRingbufferPut(): unable to enqueue all added packets, going to overwrite some frames.");
 		}
@@ -2081,7 +2091,7 @@ static u32 sceMpegAvcInitYCbCr(u32 mpeg, int mode, int width, int height, u32 yc
 		return -1;
 	}
 
-	ERROR_LOG(ME, "UNIMPL sceMpegAvcInitYCbCr(%08x, %i, %i, %i, %08x)", mpeg, mode, width, height, ycbcr_addr);
+	WARN_LOG_ONCE(sceMpegAvcInitYCbCr, ME, "UNIMPL sceMpegAvcInitYCbCr(%08x, %i, %i, %i, %08x)", mpeg, mode, width, height, ycbcr_addr);
 	return 0;
 }
 
@@ -2165,13 +2175,17 @@ static u32 convertABGRToYCbCr(u32 abgr) {
 	return (y << 16) | (cb << 8) | cr;
 }
 
+// bufferOutputAddr is checked in the caller.
 static int __MpegAvcConvertToYuv420(const void *data, u32 bufferOutputAddr, int width, int height) {
 	u32 *imageBuffer = (u32*)data;
 	int sizeY = width * height;
 	int sizeCb = sizeY >> 2;
-	u8 *Y = (u8*)Memory::GetPointer(bufferOutputAddr);
+	u8 *Y = Memory::GetPointerWriteRange(bufferOutputAddr, sizeY + sizeCb + sizeCb);
 	u8 *Cb = Y + sizeY;
 	u8 *Cr = Cb + sizeCb;
+
+	if (!Y)
+		return hleLogError(ME, 0, "Bad output buffer pointer for yuv conv: %08x", bufferOutputAddr);
 
 	for (int y = 0; y < height; y += 2) {
 		for (int x = 0; x < width; x += 2) {

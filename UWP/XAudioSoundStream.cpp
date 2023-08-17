@@ -19,8 +19,7 @@ public:
 	~XAudioBackend() override;
 
 	bool Init(HWND window, StreamCallback callback, int sampleRate) override;  // If fails, can safely delete the object
-	void Update() override;
-	int GetSampleRate() override { return sampleRate_; }
+	int GetSampleRate() const override { return sampleRate_; }
 
 private:
 	bool RunSound();
@@ -133,9 +132,6 @@ bool XAudioBackend::Init(HWND window, StreamCallback _callback, int sampleRate) 
 	return RunSound();
 }
 
-void XAudioBackend::Update() {
-}
-
 void XAudioBackend::PollLoop() {
 	ResetEvent(exitEvent_);
 
@@ -159,7 +155,7 @@ void XAudioBackend::PollLoop() {
 		// take ownership of the data. It needs to be big enough to fit the max number of buffers we check for
 		// above, which it is, easily.
 
-		int stereoSamplesRendered = (*callback_)((short*)&realtimeBuffer_[cursor_], readCount / 4, 16, sampleRate_);
+		int stereoSamplesRendered = (*callback_)((short*)&realtimeBuffer_[cursor_], readCount / 4, sampleRate_);
 		int numBytesRendered = 2 * sizeof(short) * stereoSamplesRendered;
 
 		XAUDIO2_BUFFER xaudioBuffer{};

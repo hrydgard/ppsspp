@@ -38,6 +38,7 @@
 #include "Common/Log.h"
 #include "Common/File/FileUtil.h"
 #include "Common/StringUtils.h"
+#include "Common/Thread/ThreadUtil.h"
 #include "Core/Config.h"
 #include "Core/Loaders.h"
 #include "Core/ELF/ParamSFO.h"
@@ -101,7 +102,7 @@ bool GameManager::DownloadAndInstall(std::string storeFileUrl) {
 
 	Path filename = GetTempFilename();
 	const char *acceptMime = "application/zip, application/x-cso, application/x-iso9660-image, application/octet-stream; q=0.9, */*; q=0.8";
-	curDownload_ = g_DownloadManager.StartDownload(storeFileUrl, filename, acceptMime);
+	curDownload_ = g_DownloadManager.StartDownload(storeFileUrl, filename, http::ProgressBarMode::VISIBLE, acceptMime);
 	return true;
 }
 
@@ -278,10 +279,14 @@ ZipFileContents DetectZipFileContents(struct zip *z, ZipFileInfo *info) {
 
 // Parameters need to be by value, since this is a thread func.
 bool GameManager::InstallGame(Path url, Path fileName, bool deleteAfter) {
-	if (installInProgress_) {
+	SetCurrentThreadName("InstallGame");
+
+	if (installInProgress_ || installDonePending_) {
 		ERROR_LOG(HLE, "Cannot have two installs in progress at the same time");
 		return false;
 	}
+
+	AndroidJNIThreadContext context;  // Destructor detaches.
 
 	if (!File::Exists(fileName)) {
 		ERROR_LOG(HLE, "Game file '%s' doesn't exist", fileName.c_str());
@@ -296,7 +301,7 @@ bool GameManager::InstallGame(Path url, Path fileName, bool deleteAfter) {
 		return InstallRawISO(fileName, shortFilename, deleteAfter);
 	}
 
-	auto sy = GetI18NCategory("System");
+	auto sy = GetI18NCategory(I18NCat::SYSTEM);
 	installInProgress_ = true;
 
 	Path pspGame = GetSysDirectory(DIRECTORY_GAME);
@@ -305,7 +310,7 @@ bool GameManager::InstallGame(Path url, Path fileName, bool deleteAfter) {
 
 	struct zip *z = ZipOpenPath(fileName);
 	if (!z) {
-		installInProgress_ = false;
+		SetInstallError(sy->T("Unable to open zip file"));
 		return false;
 	}
 
@@ -347,7 +352,7 @@ bool GameManager::InstallGame(Path url, Path fileName, bool deleteAfter) {
 }
 
 bool GameManager::DetectTexturePackDest(struct zip *z, int iniIndex, Path &dest) {
-	auto iz = GetI18NCategory("InstallZip");
+	auto iz = GetI18NCategory(I18NCat::INSTALLZIP);
 
 	struct zip_stat zstat;
 	zip_stat_index(z, iniIndex, 0, &zstat);
@@ -445,6 +450,7 @@ std::string GameManager::GetISOGameID(FileLoader *loader) const {
 	if (!bd) {
 		return "";
 	}
+
 	ISOFileSystem umd(&handles, bd);
 
 	PSPFileInfo info = umd.GetFileInfo("/PSP_GAME/PARAM.SFO");
@@ -526,7 +532,7 @@ bool GameManager::InstallMemstickGame(struct zip *z, const Path &zipfile, const 
 	size_t allBytes = 0;
 	size_t bytesCopied = 0;
 
-	auto sy = GetI18NCategory("System");
+	auto sy = GetI18NCategory(I18NCat::SYSTEM);
 
 	auto fileAllowed = [&](const char *fn) {
 		if (!allowRoot && strchr(fn, '/') == 0)
@@ -624,7 +630,7 @@ bool GameManager::InstallMemstickZip(struct zip *z, const Path &zipfile, const P
 	size_t allBytes = 0;
 	size_t bytesCopied = 0;
 
-	auto sy = GetI18NCategory("System");
+	auto sy = GetI18NCategory(I18NCat::SYSTEM);
 
 	// We don't need the zip anymore, as we're going to copy it as-is.
 	zip_close(z);
@@ -708,7 +714,7 @@ bool GameManager::InstallZippedISO(struct zip *z, int isoFileIndex, const Path &
 }
 
 bool GameManager::InstallGameOnThread(const Path &url, const Path &fileName, bool deleteAfter) {
-	if (installInProgress_) {
+	if (installInProgress_ || installDonePending_) {
 		return false;
 	}
 	installThread_.reset(new std::thread(std::bind(&GameManager::InstallGame, this, url, fileName, deleteAfter)));
@@ -736,6 +742,6 @@ void GameManager::ResetInstallError() {
 }
 
 void GameManager::InstallDone() {
-	installInProgress_ = false;
 	installDonePending_ = true;
+	installInProgress_ = false;
 }

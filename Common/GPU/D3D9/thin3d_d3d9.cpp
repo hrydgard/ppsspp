@@ -25,6 +25,7 @@
 #include "Common/GPU/D3D9/D3D9StateCache.h"
 #include "Common/OSVersion.h"
 #include "Common/StringUtils.h"
+#include "Common/TimeUtil.h"
 
 #include "Common/Log.h"
 
@@ -113,7 +114,7 @@ static const D3DSTENCILOP stencilOpToD3D9[] = {
 	D3DSTENCILOP_DECR,
 };
 
-D3DFORMAT FormatToD3DFMT(DataFormat fmt) {
+static D3DFORMAT FormatToD3DFMT(DataFormat fmt) {
 	switch (fmt) {
 	case DataFormat::R16_UNORM: return D3DFMT_L16;  // closest match, should be a fine substitution if we ignore channels except R.
 	case DataFormat::R8G8B8A8_UNORM: return D3DFMT_A8R8G8B8;
@@ -125,6 +126,9 @@ D3DFORMAT FormatToD3DFMT(DataFormat fmt) {
 	case DataFormat::A1R5G5B5_UNORM_PACK16: return D3DFMT_A1R5G5B5;
 	case DataFormat::D24_S8: return D3DFMT_D24S8;
 	case DataFormat::D16: return D3DFMT_D16;
+	case DataFormat::BC1_RGBA_UNORM_BLOCK: return D3DFMT_DXT1;
+	case DataFormat::BC2_UNORM_BLOCK: return D3DFMT_DXT3;  // DXT3 is indeed BC2.
+	case DataFormat::BC3_UNORM_BLOCK: return D3DFMT_DXT5;  // DXT5 is indeed BC3
 	default: return D3DFMT_UNKNOWN;
 	}
 }
@@ -177,6 +181,8 @@ public:
 	void Apply(LPDIRECT3DDEVICE9 device) {
 		dxstate.cullMode.set(cullMode);
 		dxstate.scissorTest.enable();
+		// Force user clipping off.
+		dxstate.clipPlaneEnable.set(0);
 	}
 };
 
@@ -303,14 +309,14 @@ public:
 			return nullptr;
 		}
 	}
+	void UpdateTextureLevels(const uint8_t * const *data, int numLevels, TextureCallback initDataCallback);
 
 private:
-	void SetImageData(int x, int y, int z, int width, int height, int depth, int level, int stride, const uint8_t *data, TextureCallback callback);
+	void SetImageData(int x, int y, int z, int width, int height, int depth, int level, int stride, const uint8_t *data, TextureCallback initDataCallback);
 	bool Create(const TextureDesc &desc);
 	LPDIRECT3DDEVICE9 device_;
 	LPDIRECT3DDEVICE9EX deviceEx_;
 	TextureType type_;
-	DataFormat format_;
 	D3DFORMAT d3dfmt_;
 	LPDIRECT3DTEXTURE9 tex_ = nullptr;
 	LPDIRECT3DVOLUMETEXTURE9 volTex_ = nullptr;
@@ -369,25 +375,29 @@ bool D3D9Texture::Create(const TextureDesc &desc) {
 		break;
 	}
 	if (FAILED(hr)) {
-		ERROR_LOG(G3D,  "Texture creation failed");
+		ERROR_LOG(G3D, "D3D9 Texture creation failed");
 		return false;
 	}
 
 	if (desc.initData.size()) {
 		// In D3D9, after setting D3DUSAGE_AUTOGENMIPS, we can only access the top layer. The rest will be
 		// automatically generated.
-		int maxLevel = desc.generateMips ? 1 : (int)desc.initData.size();
-		int w = desc.width;
-		int h = desc.height;
-		int d = desc.depth;
-		for (int i = 0; i < maxLevel; i++) {
-			SetImageData(0, 0, 0, w, h, d, i, 0, desc.initData[i], desc.initDataCallback);
-			w = (w + 1) / 2;
-			h = (h + 1) / 2;
-			d = (d + 1) / 2;
-		}
+		int numLevels = desc.generateMips ? 1 : (int)desc.initData.size();
+		UpdateTextureLevels(desc.initData.data(), numLevels, desc.initDataCallback);
 	}
 	return true;
+}
+
+void D3D9Texture::UpdateTextureLevels(const uint8_t * const *data, int numLevels, TextureCallback initDataCallback) {
+	int w = width_;
+	int h = height_;
+	int d = depth_;
+	for (int i = 0; i < numLevels; i++) {
+		SetImageData(0, 0, 0, w, h, d, i, 0, data[i], initDataCallback);
+		w = (w + 1) / 2;
+		h = (h + 1) / 2;
+		d = (d + 1) / 2;
+	}
 }
 
 // Just switches R and G.
@@ -523,12 +533,13 @@ public:
 	Framebuffer *CreateFramebuffer(const FramebufferDesc &desc) override;
 
 	void UpdateBuffer(Buffer *buffer, const uint8_t *data, size_t offset, size_t size, UpdateBufferFlags flags) override;
+	void UpdateTextureLevels(Texture *texture, const uint8_t **data, TextureCallback initDataCallback, int numLevels) override;
 
 	void CopyFramebufferImage(Framebuffer *src, int level, int x, int y, int z, Framebuffer *dst, int dstLevel, int dstX, int dstY, int dstZ, int width, int height, int depth, int channelBits, const char *tag) override {
 		// Not implemented
 	}
 	bool BlitFramebuffer(Framebuffer *src, int srcX1, int srcY1, int srcX2, int srcY2, Framebuffer *dst, int dstX1, int dstY1, int dstX2, int dstY2, int channelBits, FBBlitFilter filter, const char *tag) override;
-	bool CopyFramebufferToMemorySync(Framebuffer *src, int channelBits, int x, int y, int w, int h, Draw::DataFormat format, void *pixels, int pixelStride, const char *tag) override;
+	bool CopyFramebufferToMemory(Framebuffer *src, int channelBits, int x, int y, int w, int h, Draw::DataFormat format, void *pixels, int pixelStride, ReadbackMode mode, const char *tag) override;
 
 	// These functions should be self explanatory.
 	void BindFramebufferAsRenderTarget(Framebuffer *fbo, const RenderPassInfo &rp, const char *tag) override;
@@ -565,13 +576,17 @@ public:
 		curPipeline_ = (D3D9Pipeline *)pipeline;
 	}
 
+	void BeginFrame(Draw::DebugFlags debugFlags) override;
 	void EndFrame() override;
+	void Present(PresentMode presentMode, int vblanks) override;
+
+	int GetFrameCount() override { return frameCount_; }
 
 	void UpdateDynamicUniformBuffer(const void *ub, size_t size) override;
 
 	// Raster state
 	void SetScissorRect(int left, int top, int width, int height) override;
-	void SetViewports(int count, Viewport *viewports) override;
+	void SetViewport(const Viewport &viewport) override;
 	void SetBlendFactor(float color[4]) override;
 	void SetStencilParams(uint8_t refValue, uint8_t writeMask, uint8_t compareMask) override;
 
@@ -626,6 +641,7 @@ private:
 	D3DCAPS9 d3dCaps_;
 	char shadeLangVersion_[64]{};
 	DeviceCaps caps_{};
+	int frameCount_ = FRAME_TIME_HISTORY_LENGTH;
 
 	// Bound state
 	AutoRef<D3D9Pipeline> curPipeline_;
@@ -742,10 +758,10 @@ D3D9Context::D3D9Context(IDirect3D9 *d3d, IDirect3D9Ex *d3dEx, int adapterId, ID
 	}
 
 	if (SUCCEEDED(result)) {
-		sprintf(shadeLangVersion_, "PS: %04x VS: %04x", d3dCaps_.PixelShaderVersion & 0xFFFF, d3dCaps_.VertexShaderVersion & 0xFFFF);
+		snprintf(shadeLangVersion_, sizeof(shadeLangVersion_), "PS: %04x VS: %04x", d3dCaps_.PixelShaderVersion & 0xFFFF, d3dCaps_.VertexShaderVersion & 0xFFFF);
 	} else {
 		WARN_LOG(G3D, "Direct3D9: Failed to get the device caps!");
-		strcpy(shadeLangVersion_, "N/A");
+		truncate_cpy(shadeLangVersion_, "N/A");
 	}
 
 	caps_.deviceID = identifier_.DeviceId;
@@ -765,6 +781,11 @@ D3D9Context::D3D9Context(IDirect3D9 *d3d, IDirect3D9Ex *d3dEx, int adapterId, ID
 	caps_.blendMinMaxSupported = true;
 	caps_.isTilingGPU = false;
 	caps_.multiSampleLevelsMask = 1;  // More could be supported with some work.
+
+	caps_.clipPlanesSupported = caps.MaxUserClipPlanes;
+	caps_.presentInstantModeChange = false;
+	caps_.presentMaxInterval = 1;
+	caps_.presentModesSupported = PresentMode::FIFO;
 
 	if ((caps.RasterCaps & D3DPRASTERCAPS_ANISOTROPY) != 0 && caps.MaxAnisotropy > 1) {
 		caps_.anisoSupported = true;
@@ -811,6 +832,7 @@ D3D9Context::D3D9Context(IDirect3D9 *d3d, IDirect3D9Ex *d3dEx, int adapterId, ID
 }
 
 D3D9Context::~D3D9Context() {
+	DestroyPresets();
 }
 
 ShaderModule *D3D9Context::CreateShaderModule(ShaderStage stage, ShaderLanguage language, const uint8_t *data, size_t size, const char *tag) {
@@ -922,6 +944,12 @@ Texture *D3D9Context::CreateTexture(const TextureDesc &desc) {
 	return tex;
 }
 
+void D3D9Context::UpdateTextureLevels(Texture *texture, const uint8_t **data, TextureCallback initDataCallback, int numLevels) {
+	D3D9Texture *tex = (D3D9Texture *)texture;
+	tex->UpdateTextureLevels(data, numLevels, initDataCallback);
+}
+
+
 void D3D9Context::BindTextures(int start, int count, Texture **textures, TextureBindFlags flags) {
 	_assert_(start + count <= MAX_BOUND_TEXTURES);
 	for (int i = start; i < start + count; i++) {
@@ -939,8 +967,29 @@ void D3D9Context::BindNativeTexture(int index, void *nativeTexture) {
 	device_->SetTexture(index, texture);
 }
 
+void D3D9Context::BeginFrame(Draw::DebugFlags debugFlags) {
+	FrameTimeData frameTimeData = frameTimeHistory_.Add(frameCount_);
+	frameTimeData.frameBegin = time_now_d();
+	frameTimeData.afterFenceWait = frameTimeData.frameBegin;  // no fence wait
+}
+
 void D3D9Context::EndFrame() {
+	frameTimeHistory_[frameCount_].firstSubmit = time_now_d();
 	curPipeline_ = nullptr;
+}
+
+void D3D9Context::Present(PresentMode presentMode, int vblanks) {
+	frameTimeHistory_[frameCount_].queuePresent = time_now_d();
+	if (deviceEx_) {
+		deviceEx_->EndScene();
+		deviceEx_->PresentEx(NULL, NULL, NULL, NULL, 0);
+		deviceEx_->BeginScene();
+	} else {
+		device_->EndScene();
+		device_->Present(NULL, NULL, NULL, NULL);
+		device_->BeginScene();
+	}
+	frameCount_++;
 }
 
 static void SemanticToD3D9UsageAndIndex(int semantic, BYTE *usage, BYTE *index) {
@@ -1168,12 +1217,12 @@ void D3D9Context::SetScissorRect(int left, int top, int width, int height) {
 	dxstate.scissorTest.set(true);
 }
 
-void D3D9Context::SetViewports(int count, Viewport *viewports) {
-	int x = (int)viewports[0].TopLeftX;
-	int y = (int)viewports[0].TopLeftY;
-	int w = (int)viewports[0].Width;
-	int h = (int)viewports[0].Height;
-	dxstate.viewport.set(x, y, w, h, viewports[0].MinDepth, viewports[0].MaxDepth);
+void D3D9Context::SetViewport(const Viewport &viewport) {
+	int x = (int)viewport.TopLeftX;
+	int y = (int)viewport.TopLeftY;
+	int w = (int)viewport.Width;
+	int h = (int)viewport.Height;
+	dxstate.viewport.set(x, y, w, h, viewport.MinDepth, viewport.MaxDepth);
 }
 
 void D3D9Context::SetBlendFactor(float color[4]) {
@@ -1421,7 +1470,7 @@ bool D3D9Context::BlitFramebuffer(Framebuffer *srcfb, int srcX1, int srcY1, int 
 	return SUCCEEDED(device_->StretchRect(srcSurf, &srcRect, dstSurf, &dstRect, (filter == FB_BLIT_LINEAR && channelBits == FB_COLOR_BIT) ? D3DTEXF_LINEAR : D3DTEXF_POINT));
 }
 
-bool D3D9Context::CopyFramebufferToMemorySync(Framebuffer *src, int channelBits, int bx, int by, int bw, int bh, Draw::DataFormat destFormat, void *pixels, int pixelStride, const char *tag) {
+bool D3D9Context::CopyFramebufferToMemory(Framebuffer *src, int channelBits, int bx, int by, int bw, int bh, Draw::DataFormat destFormat, void *pixels, int pixelStride, ReadbackMode mode, const char *tag) {
 	D3D9Framebuffer *fb = (D3D9Framebuffer *)src;
 
 	if (fb) {
@@ -1449,18 +1498,21 @@ bool D3D9Context::CopyFramebufferToMemorySync(Framebuffer *src, int channelBits,
 
 	LPDIRECT3DSURFACE9 offscreen = nullptr;
 	HRESULT hr = E_UNEXPECTED;
-	_assert_(fb != nullptr);
 	if (channelBits == FB_COLOR_BIT) {
-		fb->tex->GetLevelDesc(0, &desc);
+		if (fb)
+			fb->tex->GetLevelDesc(0, &desc);
+		else
+			deviceRTsurf->GetDesc(&desc);
 
 		hr = device_->CreateOffscreenPlainSurface(desc.Width, desc.Height, desc.Format, D3DPOOL_SYSTEMMEM, &offscreen, nullptr);
 		if (SUCCEEDED(hr)) {
-			hr = device_->GetRenderTargetData(fb->surf, offscreen);
+			hr = device_->GetRenderTargetData(fb ? fb->surf : deviceRTsurf, offscreen);
 			if (SUCCEEDED(hr)) {
 				hr = offscreen->LockRect(&locked, &rect, D3DLOCK_READONLY);
 			}
 		}
 	} else {
+		_assert_(fb->depthstenciltex != nullptr);
 		fb->depthstenciltex->GetLevelDesc(0, &desc);
 		hr = fb->depthstenciltex->LockRect(0, &locked, &rect, D3DLOCK_READONLY);
 	}
@@ -1581,6 +1633,7 @@ uint32_t D3D9Context::GetDataFormatSupport(DataFormat fmt) const {
 	case DataFormat::BC1_RGBA_UNORM_BLOCK:
 	case DataFormat::BC2_UNORM_BLOCK:
 	case DataFormat::BC3_UNORM_BLOCK:
+		// DXT1, DXT3, DXT5.
 		return FMT_TEXTURE;
 	default:
 		return 0;

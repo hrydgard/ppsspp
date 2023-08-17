@@ -18,6 +18,7 @@
 #include "Common/GPU/Shader.h"
 #include "Common/GPU/MiscTypes.h"
 #include "Common/Data/Collections/Slice.h"
+#include "Common/Data/Collections/FastVec.h"
 
 namespace Lin {
 class Matrix4x4;
@@ -251,8 +252,8 @@ enum class NativeObject {
 	TEXTURE_VIEW,
 	NULL_IMAGEVIEW,
 	NULL_IMAGEVIEW_ARRAY,
-	FRAME_DATA_DESC_SET_LAYOUT,
 	THIN3D_PIPELINE_LAYOUT,
+	PUSH_POOL,
 };
 
 enum FBChannel {
@@ -291,6 +292,11 @@ enum class Event {
 
 	RESIZED,
 	PRESENTED,
+};
+
+enum class ReadbackMode {
+	BLOCK,
+	OLD_DATA_OK,  // Lets the backend return old results that won't need any waiting to get.
 };
 
 constexpr uint32_t MAX_TEXTURE_SLOTS = 3;
@@ -342,6 +348,7 @@ public:
 		SUBPASS_FEEDBACK_BROKEN = 10,
 		GEOMETRY_SHADERS_SLOW_OR_BROKEN = 11,
 		ADRENO_RESOURCE_DEADLOCK = 12,
+		UNIFORM_INDEXING_BROKEN = 13,  // not a properly diagnosed issue, a workaround attempt: #17386
 		MAX_BUG,
 	};
 
@@ -353,7 +360,7 @@ protected:
 
 class RefCountedObject {
 public:
-	RefCountedObject() {
+	explicit RefCountedObject(const char *name) : name_(name) {
 		refcount_ = 1;
 	}
 	RefCountedObject(const RefCountedObject &other) = delete;
@@ -366,6 +373,7 @@ public:
 
 private:
 	std::atomic<int> refcount_;
+	const char * const name_;
 };
 
 template <typename T>
@@ -422,18 +430,22 @@ struct AutoRef {
 
 class BlendState : public RefCountedObject {
 public:
+	BlendState() : RefCountedObject("BlendState") {}
 };
 
 class SamplerState : public RefCountedObject {
 public:
+	SamplerState() : RefCountedObject("SamplerState") {}
 };
 
 class DepthStencilState : public RefCountedObject {
 public:
+	DepthStencilState() : RefCountedObject("DepthStencilState") {}
 };
 
 class Framebuffer : public RefCountedObject {
 public:
+	Framebuffer() : RefCountedObject("Framebuffer") {}
 	int Width() { return width_; }
 	int Height() { return height_; }
 	int Layers() { return layers_; }
@@ -446,15 +458,20 @@ protected:
 
 class Buffer : public RefCountedObject {
 public:
+	Buffer() : RefCountedObject("Buffer") {}
 };
 
 class Texture : public RefCountedObject {
 public:
-	int Width() { return width_; }
-	int Height() { return height_; }
-	int Depth() { return depth_; }
+	Texture() : RefCountedObject("Texture") {}
+	int Width() const { return width_; }
+	int Height() const { return height_; }
+	int Depth() const { return depth_; }
+	DataFormat Format() const { return format_; }
+
 protected:
 	int width_ = -1, height_ = -1, depth_ = -1;
+	DataFormat format_ = DataFormat::UNDEFINED;
 };
 
 struct BindingDesc {
@@ -474,18 +491,28 @@ struct InputLayoutDesc {
 	std::vector<AttributeDesc> attributes;
 };
 
-class InputLayout : public RefCountedObject { };
+class InputLayout : public RefCountedObject {
+public:
+	InputLayout() : RefCountedObject("InputLayout") {}
+};
 
 // Uniform types have moved to Shader.h.
 
 class ShaderModule : public RefCountedObject {
 public:
+	ShaderModule() : RefCountedObject("ShaderModule") {}
 	virtual ShaderStage GetStage() const = 0;
 };
 
-class Pipeline : public RefCountedObject { };
+class Pipeline : public RefCountedObject {
+public:
+	Pipeline() : RefCountedObject("Pipeline") {}
+};
 
-class RasterState : public RefCountedObject {};
+class RasterState : public RefCountedObject {
+public:
+	RasterState() : RefCountedObject("RasterState") {}
+};
 
 struct StencilSetup {
 	StencilOp failOp;
@@ -544,6 +571,13 @@ struct PipelineDesc {
 	const Slice<SamplerDef> samplers;
 };
 
+enum class PresentMode {
+	FIFO = 1,
+	IMMEDIATE = 2,
+	MAILBOX = 4,
+};
+ENUM_CLASS_BITOPS(PresentMode);
+
 struct DeviceCaps {
 	GPUVendor vendor;
 	uint32_t deviceID;  // use caution!
@@ -577,9 +611,21 @@ struct DeviceCaps {
 	bool multiViewSupported;
 	bool isTilingGPU;  // This means that it benefits from correct store-ops, msaa without backing memory, etc.
 	bool sampleRateShadingSupported;
+	bool setMaxFrameLatencySupported;
+	bool textureSwizzleSupported;
+
+	bool verySlowShaderCompiler;
 
 	// From the other backends, we can detect if D3D9 support is known bad (like on Xe) and disable it.
 	bool supportsD3D9;
+
+	// Old style, for older GL or Direct3D 9.
+	u32 clipPlanesSupported;
+
+	// Presentation caps
+	int presentMaxInterval; // 1 on many backends
+	bool presentInstantModeChange;
+	PresentMode presentModesSupported;
 
 	u32 multiSampleLevelsMask;  // Bit n is set if (1 << n) is a valid multisample level. Bit 0 is always set.
 	std::string deviceName;  // The device name to use when creating the thin3d context, to get the same one.
@@ -588,6 +634,11 @@ struct DeviceCaps {
 // Use to write data directly to texture memory.  initData is the pointer passed in TextureDesc.
 // Important: only write to the provided pointer, don't read from it.
 typedef std::function<bool(uint8_t *data, const uint8_t *initData, uint32_t w, uint32_t h, uint32_t d, uint32_t byteStride, uint32_t sliceByteStride)> TextureCallback;
+
+enum class TextureSwizzle {
+	DEFAULT,
+	R8_AS_ALPHA,
+};
 
 struct TextureDesc {
 	TextureType type;
@@ -598,6 +649,7 @@ struct TextureDesc {
 	int depth;
 	int mipLevels;
 	bool generateMips;
+	TextureSwizzle swizzle;
 	// Optional, for tracking memory usage and graphcis debuggers.
 	const char *tag;
 	// Does not take ownership over pointed-to data.
@@ -629,6 +681,13 @@ enum class TextureBindFlags {
 };
 ENUM_CLASS_BITOPS(TextureBindFlags);
 
+enum class DebugFlags {
+	NONE = 0,
+	PROFILE_TIMESTAMPS = 1,
+	PROFILE_SCOPES = 2,
+};
+ENUM_CLASS_BITOPS(DebugFlags);
+
 class DrawContext {
 public:
 	virtual ~DrawContext();
@@ -640,7 +699,7 @@ public:
 	virtual const DeviceCaps &GetDeviceCaps() const = 0;
 	virtual uint32_t GetDataFormatSupport(DataFormat fmt) const = 0;
 	virtual std::vector<std::string> GetFeatureList() const { return std::vector<std::string>(); }
-	virtual std::vector<std::string> GetExtensionList() const { return std::vector<std::string>(); }
+	virtual std::vector<std::string> GetExtensionList(bool device, bool enabledOnly) const { return std::vector<std::string>(); }
 	virtual std::vector<std::string> GetDeviceList() const { return std::vector<std::string>(); }
 
 	// Describes the primary shader language that this implementation prefers.
@@ -679,9 +738,16 @@ public:
 	// Copies data from the CPU over into the buffer, at a specific offset. This does not change the size of the buffer and cannot write outside it.
 	virtual void UpdateBuffer(Buffer *buffer, const uint8_t *data, size_t offset, size_t size, UpdateBufferFlags flags) = 0;
 
+	// Used to optimize DrawPixels by re-using previously allocated temp textures.
+	// Do not try to update a texture that might be used by an in-flight command buffer! In OpenGL and D3D, this will cause stalls
+	// while in Vulkan this might cause various strangeness like image corruption.
+	virtual void UpdateTextureLevels(Texture *texture, const uint8_t **data, TextureCallback initDataCallback, int numLevels) = 0;
+
 	virtual void CopyFramebufferImage(Framebuffer *src, int level, int x, int y, int z, Framebuffer *dst, int dstLevel, int dstX, int dstY, int dstZ, int width, int height, int depth, int channelBits, const char *tag) = 0;
 	virtual bool BlitFramebuffer(Framebuffer *src, int srcX1, int srcY1, int srcX2, int srcY2, Framebuffer *dst, int dstX1, int dstY1, int dstX2, int dstY2, int channelBits, FBBlitFilter filter, const char *tag) = 0;
-	virtual bool CopyFramebufferToMemorySync(Framebuffer *src, int channelBits, int x, int y, int w, int h, Draw::DataFormat format, void *pixels, int pixelStride, const char *tag) {
+
+	// If the backend doesn't support old data, it's "OK" to block.
+	virtual bool CopyFramebufferToMemory(Framebuffer *src, int channelBits, int x, int y, int w, int h, Draw::DataFormat format, void *pixels, int pixelStride, ReadbackMode mode, const char *tag) {
 		return false;
 	}
 	virtual DataFormat PreferredFramebufferReadbackFormat(Framebuffer *src) {
@@ -714,7 +780,7 @@ public:
 
 	// Dynamic state
 	virtual void SetScissorRect(int left, int top, int width, int height) = 0;
-	virtual void SetViewports(int count, Viewport *viewports) = 0;
+	virtual void SetViewport(const Viewport &viewport) = 0;
 	virtual void SetBlendFactor(float color[4]) = 0;
 	virtual void SetStencilParams(uint8_t refValue, uint8_t writeMask, uint8_t compareMask) = 0;
 
@@ -751,8 +817,13 @@ public:
 	virtual void DrawUP(const void *vdata, int vertexCount) = 0;
 	
 	// Frame management (for the purposes of sync and resource management, necessary with modern APIs). Default implementations here.
-	virtual void BeginFrame() {}
+	virtual void BeginFrame(DebugFlags debugFlags) = 0;
 	virtual void EndFrame() = 0;
+
+	// vblanks is only relevant in FIFO present mode.
+	// NOTE: Not all backends support vblanks > 1. Some backends also can't change presentation mode immediately.
+	virtual void Present(PresentMode presentMode, int vblanks) = 0;
+
 	virtual void WipeQueue() {}
 
 	// This should be avoided as much as possible, in favor of clearing when binding a render target, which is native
@@ -780,7 +851,20 @@ public:
 	// Not very elegant, but more elegant than the old passId hack.
 	virtual void SetInvalidationCallback(InvalidationCallback callback) = 0;
 
+	// Total amount of frames rendered. Unaffected by game pause, so more robust than gpuStats.numFlips
+	virtual int GetFrameCount() = 0;
+
+	virtual std::string GetGpuProfileString() const {
+		return "";
+	}
+
+	const HistoryBuffer<FrameTimeData, FRAME_TIME_HISTORY_LENGTH> &FrameTimeHistory() const {
+		return frameTimeHistory_;
+	}
+
 protected:
+	HistoryBuffer<FrameTimeData, FRAME_TIME_HISTORY_LENGTH> frameTimeHistory_;
+
 	ShaderModule *vsPresets_[VS_MAX_PRESET];
 	ShaderModule *fsPresets_[FS_MAX_PRESET];
 
@@ -819,5 +903,7 @@ struct ShaderSource {
 };
 
 ShaderModule *CreateShader(DrawContext *draw, ShaderStage stage, const std::vector<ShaderSource> &sources);
+
+const char *PresentModeToString(PresentMode presentMode);
 
 }  // namespace Draw

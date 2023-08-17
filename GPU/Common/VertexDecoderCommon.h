@@ -25,7 +25,7 @@
 #include "Common/Data/Collections/Hashmaps.h"
 #include "Common/Data/Convert/SmallDataConvert.h"
 #include "Common/Log.h"
-#include "Core/Reporting.h"
+#include "Common/LogReporting.h"
 #include "GPU/ge_constants.h"
 #include "GPU/Common/ShaderCommon.h"
 #include "GPU/GPUCommon.h"
@@ -37,6 +37,8 @@
 #include "Common/Arm64Emitter.h"
 #elif PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)
 #include "Common/x64Emitter.h"
+#elif PPSSPP_ARCH(RISCV64)
+#include "Common/RiscVEmitter.h"
 #else
 #include "Common/FakeEmitter.h"
 #endif
@@ -318,12 +320,13 @@ struct JitLookup {
 // Collapse to less skinning shaders to reduce shader switching, which is expensive.
 int TranslateNumBones(int bones);
 
-typedef void(*JittedVertexDecoder)(const u8 *src, u8 *dst, int count);
+typedef void (*JittedVertexDecoder)(const u8 *src, u8 *dst, int count, const UVScale *uvScaleOffset);
 
 struct VertexDecoderOptions {
 	bool expandAllWeightsToFloat;
 	bool expand8BitNormalsToFloat;
 	bool applySkinInDecode;
+	bool alignOutputToWord;
 };
 
 class VertexDecoder {
@@ -333,12 +336,10 @@ public:
 
 	u32 VertexType() const { return fmt_; }
 
-	const DecVtxFormat &GetDecVtxFmt() { return decFmt; }
+	const DecVtxFormat &GetDecVtxFmt() const { return decFmt; }
 
-	void DecodeVerts(u8 *decoded, const void *verts, int indexLowerBound, int indexUpperBound) const;
+	void DecodeVerts(u8 *decoded, const void *verts, const UVScale *uvScaleOffset, int indexLowerBound, int indexUpperBound) const;
 
-	bool hasColor() const { return col != 0; }
-	bool hasTexcoord() const { return tc != 0; }
 	int VertexSize() const { return size; }  // PSP format size
 
 	std::string GetString(DebugShaderStringType stringType);
@@ -435,6 +436,7 @@ public:
 	// Mutable decoder state
 	mutable u8 *decoded_ = nullptr;
 	mutable const u8 *ptr_ = nullptr;
+	mutable const UVScale *prescaleUV_ = nullptr;
 	JittedVertexDecoder jitted_ = 0;
 	int32_t jittedSize_ = 0;
 
@@ -471,6 +473,9 @@ public:
 	u8 biggest;  // in practice, alignment.
 
 	friend class VertexDecoderJitCache;
+
+private:
+	void CompareToJit(const u8 *startPtr, u8 *decodedptr, int count, const UVScale *uvScaleOffset) const;
 };
 
 
@@ -490,6 +495,8 @@ public:
 #define VERTEXDECODER_JIT_BACKEND Arm64Gen::ARM64CodeBlock
 #elif PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)
 #define VERTEXDECODER_JIT_BACKEND Gen::XCodeBlock
+#elif PPSSPP_ARCH(RISCV64)
+#define VERTEXDECODER_JIT_BACKEND RiscVGen::RiscVCodeBlock
 #endif
 
 
@@ -546,7 +553,6 @@ public:
 	void Jit_NormalFloatSkin();
 
 	void Jit_PosS8();
-	void Jit_PosS8ToFloat();
 	void Jit_PosS16();
 	void Jit_PosFloat();
 	void Jit_PosS8Through();
@@ -561,9 +567,17 @@ public:
 	void Jit_NormalS16Morph();
 	void Jit_NormalFloatMorph();
 
+	void Jit_NormalS8MorphSkin();
+	void Jit_NormalS16MorphSkin();
+	void Jit_NormalFloatMorphSkin();
+
 	void Jit_PosS8Morph();
 	void Jit_PosS16Morph();
 	void Jit_PosFloatMorph();
+
+	void Jit_PosS8MorphSkin();
+	void Jit_PosS16MorphSkin();
+	void Jit_PosFloatMorphSkin();
 
 	void Jit_Color8888Morph();
 	void Jit_Color4444Morph();

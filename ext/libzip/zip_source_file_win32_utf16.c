@@ -41,6 +41,29 @@ static HANDLE __stdcall utf16_create_file(const char *name, DWORD access, DWORD 
 static void utf16_make_tempname(char *buf, size_t len, const char *name, zip_uint32_t i);
 static char *utf16_strdup(const char *string);
 
+#ifdef MS_UWP
+static BOOL __stdcall GetFileAttr(const void* name, GET_FILEEX_INFO_LEVELS info_level, void* lpFileInformation) {
+	BOOL state = GetFileAttributesExFromAppW(name, info_level, lpFileInformation);
+	return state;
+}
+
+static BOOL __stdcall DelFile(const void* name) {
+	BOOL state = DeleteFileFromAppW(name);
+	return state;
+}
+
+zip_win32_file_operations_t ops_utf16 = {
+	utf16_allocate_tempname,
+	utf16_create_file,
+	DelFile,
+	GetFileAttributesW,
+	GetFileAttr,
+	utf16_make_tempname,
+	MoveFileExW,
+	SetFileAttributesW,
+	utf16_strdup
+};
+#else
 zip_win32_file_operations_t ops_utf16 = {
     utf16_allocate_tempname,
     utf16_create_file,
@@ -52,6 +75,7 @@ zip_win32_file_operations_t ops_utf16 = {
     SetFileAttributesW,
     utf16_strdup
 };
+#endif
 
 ZIP_EXTERN zip_source_t *
 zip_source_win32w(zip_t *za, const wchar_t *fname, zip_uint64_t start, zip_int64_t len) {

@@ -14,8 +14,10 @@
 
 #include <ppltasks.h>
 
-using namespace UWP;
+#include "UWPHelpers/LaunchItem.h"
 
+using namespace UWP;
+ 
 using namespace concurrency;
 using namespace Windows::ApplicationModel;
 using namespace Windows::ApplicationModel::Core;
@@ -25,6 +27,7 @@ using namespace Windows::UI::Input;
 using namespace Windows::System;
 using namespace Windows::Foundation;
 using namespace Windows::Graphics::Display;
+using namespace Windows::Storage;
 
 // The main function is only used to initialize our IFrameworkView class.
 [Platform::MTAThread]
@@ -198,9 +201,8 @@ void App::Run() {
 	while (!m_windowClosed) {
 		if (m_windowVisible) {
 			CoreWindow::GetForCurrentThread()->Dispatcher->ProcessEvents(CoreProcessEventsOption::ProcessAllIfPresent);
-			if (m_main->Render()) {
-				m_deviceResources->Present();
-			}
+			m_main->Render();
+			// TODO: Adopt some practices from m_deviceResources->Present();
 		} else {
 			CoreWindow::GetForCurrentThread()->Dispatcher->ProcessEvents(CoreProcessEventsOption::ProcessOneAndAllPending);
 		}
@@ -214,7 +216,6 @@ void App::Uninitialize() {
 }
 
 // Application lifecycle event handlers.
-
 void App::OnActivated(CoreApplicationView^ applicationView, IActivatedEventArgs^ args) {
 	// Run() won't start until the CoreWindow is activated.
 	CoreWindow::GetForCurrentThread()->Activate();
@@ -224,6 +225,9 @@ void App::OnActivated(CoreApplicationView^ applicationView, IActivatedEventArgs^
 
 	if (g_Config.UseFullScreen())
 		Windows::UI::ViewManagement::ApplicationView::GetForCurrentView()->TryEnterFullScreenMode();
+
+	//Detect if app started or activated by launch item (file, uri)
+	DetectLaunchItem(args);
 }
 
 void App::OnSuspending(Platform::Object^ sender, SuspendingEventArgs^ args) {
@@ -235,6 +239,7 @@ void App::OnSuspending(Platform::Object^ sender, SuspendingEventArgs^ args) {
 	auto app = this;
 
 	create_task([app, deferral]() {
+		g_Config.Save("App::OnSuspending");
 		app->m_deviceResources->Trim();
 		deferral->Complete();
 	});
@@ -267,18 +272,11 @@ void App::OnWindowSizeChanged(CoreWindow^ sender, WindowSizeChangedEventArgs^ ar
 	PSP_CoreParameter().pixelWidth = (int)(width * scale);
 	PSP_CoreParameter().pixelHeight = (int)(height * scale);
 	if (UpdateScreenScale((int)width, (int)height)) {
-		NativeMessageReceived("gpu_displayResized", "");
+		System_PostUIMessage("gpu_displayResized", "");
 	}
 }
 
 void App::OnVisibilityChanged(CoreWindow^ sender, VisibilityChangedEventArgs^ args) {
-
-	if (args->Visible == false) {
-		// MainScreen::OnExit and even App::OnWindowClosed
-		// doesn't seem to be called when closing the window
-		// Try to save the config here
-		g_Config.Save("App::OnVisibilityChanged");
-	}
 	m_windowVisible = args->Visible;
 }
 

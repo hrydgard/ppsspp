@@ -129,7 +129,7 @@ public:
 	u64  FreeSpace(const std::string &path) override;
 
 	// Convenience helper - returns < 0 on failure.
-	int ReadEntireFile(const std::string &filename, std::vector<u8> &data);
+	int ReadEntireFile(const std::string &filename, std::vector<u8> &data, bool quiet = false);
 
 	void SetStartingDirectory(const std::string &dir) {
 		std::lock_guard<std::recursive_mutex> guard(lock);

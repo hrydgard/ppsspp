@@ -2,8 +2,7 @@
 
 #if XR_USE_GRAPHICS_API_OPENGL_ES
 
-#include <GLES3/gl3.h>
-#include <GLES3/gl3ext.h>
+#include "Common/GPU/OpenGL/GLCommon.h"
 
 #endif
 
@@ -109,6 +108,15 @@ static bool ovrFramebuffer_CreateGLES(XrSession session, ovrFramebuffer* frameBu
 	swapChainCreateInfo.mipCount = 1;
 	swapChainCreateInfo.arraySize = multiview ? 2 : 1;
 
+#ifdef ANDROID
+	if (VR_GetPlatformFlag(VR_PLATFORM_EXTENSION_FOVEATION)) {
+		XrSwapchainCreateInfoFoveationFB swapChainFoveationCreateInfo;
+		memset(&swapChainFoveationCreateInfo, 0, sizeof(swapChainFoveationCreateInfo));
+		swapChainFoveationCreateInfo.type = XR_TYPE_SWAPCHAIN_CREATE_INFO_FOVEATION_FB;
+		swapChainCreateInfo.next = &swapChainFoveationCreateInfo;
+	}
+#endif
+
 	frameBuffer->ColorSwapChain.Width = swapChainCreateInfo.width;
 	frameBuffer->ColorSwapChain.Height = swapChainCreateInfo.height;
 	frameBuffer->DepthSwapChain.Width = swapChainCreateInfo.width;
@@ -193,6 +201,15 @@ static bool ovrFramebuffer_CreateVK(XrSession session, ovrFramebuffer* frameBuff
 	swapChainCreateInfo.faceCount = 1;
 	swapChainCreateInfo.mipCount = 1;
 	swapChainCreateInfo.arraySize = multiview ? 2 : 1;
+
+#ifdef ANDROID
+	if (VR_GetPlatformFlag(VR_PLATFORM_EXTENSION_FOVEATION)) {
+		XrSwapchainCreateInfoFoveationFB swapChainFoveationCreateInfo;
+		memset(&swapChainFoveationCreateInfo, 0, sizeof(swapChainFoveationCreateInfo));
+		swapChainFoveationCreateInfo.type = XR_TYPE_SWAPCHAIN_CREATE_INFO_FOVEATION_FB;
+		swapChainCreateInfo.next = &swapChainFoveationCreateInfo;
+	}
+#endif
 
 	frameBuffer->ColorSwapChain.Width = swapChainCreateInfo.width;
 	frameBuffer->ColorSwapChain.Height = swapChainCreateInfo.height;
@@ -324,17 +341,8 @@ void ovrFramebuffer_Acquire(ovrFramebuffer* frameBuffer) {
 	XrSwapchainImageWaitInfo waitInfo;
 	waitInfo.type = XR_TYPE_SWAPCHAIN_IMAGE_WAIT_INFO;
 	waitInfo.next = NULL;
-	waitInfo.timeout = 1000000; /* timeout in nanoseconds */
+	waitInfo.timeout = XR_INFINITE_DURATION;
 	XrResult res = xrWaitSwapchainImage(frameBuffer->ColorSwapChain.Handle, &waitInfo);
-	int i = 0;
-	while ((res != XR_SUCCESS) && (i < 10)) {
-		res = xrWaitSwapchainImage(frameBuffer->ColorSwapChain.Handle, &waitInfo);
-		i++;
-		ALOGV(
-				" Retry xrWaitSwapchainImage %d times due to XR_TIMEOUT_EXPIRED (duration %f micro seconds)",
-				i,
-				waitInfo.timeout * (1E-9));
-	}
 	frameBuffer->Acquired = res == XR_SUCCESS;
 
 	ovrFramebuffer_SetCurrent(frameBuffer);
@@ -426,6 +434,47 @@ void ovrRenderer_MouseCursor(ovrRenderer* renderer, int x, int y, int sx, int sy
 	}
 }
 
+#ifdef ANDROID
+void ovrRenderer_SetFoveation(XrInstance* instance, XrSession* session, ovrRenderer* renderer, XrFoveationLevelFB level, float verticalOffset, XrFoveationDynamicFB dynamic) {
+	PFN_xrCreateFoveationProfileFB pfnCreateFoveationProfileFB;
+	OXR(xrGetInstanceProcAddr(*instance, "xrCreateFoveationProfileFB", (PFN_xrVoidFunction*)(&pfnCreateFoveationProfileFB)));
+
+	PFN_xrDestroyFoveationProfileFB pfnDestroyFoveationProfileFB;
+	OXR(xrGetInstanceProcAddr(*instance, "xrDestroyFoveationProfileFB", (PFN_xrVoidFunction*)(&pfnDestroyFoveationProfileFB)));
+
+	PFN_xrUpdateSwapchainFB pfnUpdateSwapchainFB;
+	OXR(xrGetInstanceProcAddr(*instance, "xrUpdateSwapchainFB", (PFN_xrVoidFunction*)(&pfnUpdateSwapchainFB)));
+
+	int instances = renderer->Multiview ? 1 : ovrMaxNumEyes;
+	for (int eye = 0; eye < instances; eye++) {
+		XrFoveationLevelProfileCreateInfoFB levelProfileCreateInfo;
+		memset(&levelProfileCreateInfo, 0, sizeof(levelProfileCreateInfo));
+		levelProfileCreateInfo.type = XR_TYPE_FOVEATION_LEVEL_PROFILE_CREATE_INFO_FB;
+		levelProfileCreateInfo.level = level;
+		levelProfileCreateInfo.verticalOffset = verticalOffset;
+		levelProfileCreateInfo.dynamic = dynamic;
+
+		XrFoveationProfileCreateInfoFB profileCreateInfo;
+		memset(&profileCreateInfo, 0, sizeof(profileCreateInfo));
+		profileCreateInfo.type = XR_TYPE_FOVEATION_PROFILE_CREATE_INFO_FB;
+		profileCreateInfo.next = &levelProfileCreateInfo;
+
+		XrFoveationProfileFB foveationProfile;
+
+		pfnCreateFoveationProfileFB(*session, &profileCreateInfo, &foveationProfile);
+
+		XrSwapchainStateFoveationFB foveationUpdateState;
+		memset(&foveationUpdateState, 0, sizeof(foveationUpdateState));
+		foveationUpdateState.type = XR_TYPE_SWAPCHAIN_STATE_FOVEATION_FB;
+		foveationUpdateState.profile = foveationProfile;
+
+		pfnUpdateSwapchainFB(renderer->FrameBuffer[eye].ColorSwapChain.Handle, (XrSwapchainStateBaseHeaderFB*)(&foveationUpdateState));
+
+		pfnDestroyFoveationProfileFB(foveationProfile);
+	}
+}
+#endif
+
 /*
 ================================================================================
 
@@ -475,9 +524,9 @@ void ovrApp_HandleSessionStateChanges(ovrApp* app, XrSessionState state) {
 		app->SessionActive = (result == XR_SUCCESS);
 
 #ifdef ANDROID
-		if (app->SessionActive && VR_GetPlatformFlag(VR_PLATFORM_PERFORMANCE_EXT)) {
-			XrPerfSettingsLevelEXT cpuPerfLevel = XR_PERF_SETTINGS_LEVEL_BOOST_EXT;
-			XrPerfSettingsLevelEXT gpuPerfLevel = XR_PERF_SETTINGS_LEVEL_BOOST_EXT;
+		if (app->SessionActive && VR_GetPlatformFlag(VR_PLATFORM_EXTENSION_PERFORMANCE)) {
+			XrPerfSettingsLevelEXT cpuPerfLevel = XR_PERF_SETTINGS_LEVEL_PERFORMANCE_MAX_EXT;
+			XrPerfSettingsLevelEXT gpuPerfLevel = XR_PERF_SETTINGS_LEVEL_PERFORMANCE_MAX_EXT;
 
 			PFN_xrPerfSettingsSetPerformanceLevelEXT pfnPerfSettingsSetPerformanceLevelEXT = NULL;
 			OXR(xrGetInstanceProcAddr(

@@ -115,7 +115,7 @@ namespace MIPSComp {
 	void Arm64Jit::Comp_ITypeMemLR(MIPSOpcode op, bool load) {
 		CONDITIONAL_DISABLE(LSU);
 		CheckMemoryBreakpoint();
-		int offset = (signed short)(op & 0xFFFF);
+		int offset = SignExtend16ToS32(op & 0xFFFF);
 		MIPSGPReg rt = _RT;
 		MIPSGPReg rs = _RS;
 		int o = op >> 26;
@@ -267,7 +267,7 @@ namespace MIPSComp {
 		CONDITIONAL_DISABLE(LSU);
 		CheckMemoryBreakpoint();
 
-		int offset = (signed short)(op & 0xFFFF);
+		int offset = SignExtend16ToS32(op & 0xFFFF);
 		bool load = false;
 		MIPSGPReg rt = _RT;
 		MIPSGPReg rs = _RS;
@@ -432,6 +432,12 @@ namespace MIPSComp {
 			Comp_Generic(op);
 			return;
 		}
+	}
+
+	void Arm64Jit::Comp_StoreSync(MIPSOpcode op) {
+		CONDITIONAL_DISABLE(LSU);
+
+		DISABLE;
 	}
 
 	void Arm64Jit::Comp_Cache(MIPSOpcode op) {

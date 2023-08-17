@@ -62,6 +62,7 @@ public:
 
 	// Ops
 	void Comp_ITypeMem(MIPSOpcode op) override;
+	void Comp_StoreSync(MIPSOpcode op) override;
 	void Comp_Cache(MIPSOpcode op) override;
 
 	void Comp_RelBranch(MIPSOpcode op) override;
@@ -213,7 +214,9 @@ private:
 
 	bool ReplaceJalTo(u32 dest);
 
+	// Clobbers SCRATCH2.
 	void SaveStaticRegisters();
+	// Clobbers SCRATCH2.
 	void LoadStaticRegisters();
 
 	void WriteExit(u32 destination, int exit_num);

@@ -584,11 +584,11 @@ ARMReg ArmRegCacheFPU::R(int mipsReg) {
 		return (ARMReg)(mr[mipsReg].reg + S0);
 	} else {
 		if (mipsReg < 32) {
-			ERROR_LOG(JIT, "FReg %i not in ARM reg. compilerPC = %08x : %s", mipsReg, js_->compilerPC, MIPSDisasmAt(js_->compilerPC));
+			ERROR_LOG(JIT, "FReg %i not in ARM reg. compilerPC = %08x : %s", mipsReg, js_->compilerPC, MIPSDisasmAt(js_->compilerPC).c_str());
 		} else if (mipsReg < 32 + 128) {
-			ERROR_LOG(JIT, "VReg %i not in ARM reg. compilerPC = %08x : %s", mipsReg - 32, js_->compilerPC, MIPSDisasmAt(js_->compilerPC));
+			ERROR_LOG(JIT, "VReg %i not in ARM reg. compilerPC = %08x : %s", mipsReg - 32, js_->compilerPC, MIPSDisasmAt(js_->compilerPC).c_str());
 		} else {
-			ERROR_LOG(JIT, "Tempreg %i not in ARM reg. compilerPC = %08x : %s", mipsReg - 128 - 32, js_->compilerPC, MIPSDisasmAt(js_->compilerPC));
+			ERROR_LOG(JIT, "Tempreg %i not in ARM reg. compilerPC = %08x : %s", mipsReg - 128 - 32, js_->compilerPC, MIPSDisasmAt(js_->compilerPC).c_str());
 		}
 		return INVALID_REG;  // BAAAD
 	}
@@ -618,7 +618,7 @@ void ArmRegCacheFPU::QFlush(int quad) {
 	}
 
 	if (qr[quad].isDirty && !qr[quad].isTemp) {
-		INFO_LOG(JIT, "Flushing Q%i (%s)", quad, GetVectorNotation(qr[quad].mipsVec, qr[quad].sz));
+		INFO_LOG(JIT, "Flushing Q%i (%s)", quad, GetVectorNotation(qr[quad].mipsVec, qr[quad].sz).c_str());
 
 		ARMReg q = QuadAsQ(quad);
 		// Unlike reads, when writing to the register file we need to be careful to write the correct
@@ -881,7 +881,7 @@ ARMReg ArmRegCacheFPU::QMapReg(int vreg, VectorSize sz, int flags) {
 	// We didn't find the extra register, but we got a list of regs to flush. Flush 'em.
 	// Here we can check for opportunities to do a "transpose-flush" of row vectors, etc.
 	if (!quadsToFlush.empty()) {
-		INFO_LOG(JIT, "New mapping %s collided with %d quads, flushing them.", GetVectorNotation(vreg, sz), (int)quadsToFlush.size());
+		INFO_LOG(JIT, "New mapping %s collided with %d quads, flushing them.", GetVectorNotation(vreg, sz).c_str(), (int)quadsToFlush.size());
 	}
 	for (size_t i = 0; i < quadsToFlush.size(); i++) {
 		QFlush(quadsToFlush[i]);
@@ -973,7 +973,7 @@ ARMReg ArmRegCacheFPU::QMapReg(int vreg, VectorSize sz, int flags) {
 	qr[quad].isDirty = (flags & MAP_DIRTY) != 0;
 	qr[quad].spillLock = true;
 
-	INFO_LOG(JIT, "Mapped Q%i to vfpu %i (%s), sz=%i, dirty=%i", quad, vreg, GetVectorNotation(vreg, sz), (int)sz, qr[quad].isDirty);
+	INFO_LOG(JIT, "Mapped Q%i to vfpu %i (%s), sz=%i, dirty=%i", quad, vreg, GetVectorNotation(vreg, sz).c_str(), (int)sz, qr[quad].isDirty);
 	if (sz == V_Single || sz == V_Pair) {
 		return D_0(QuadAsQ(quad));
 	} else {

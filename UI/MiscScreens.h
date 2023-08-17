@@ -23,6 +23,7 @@
 #include <vector>
 
 #include "Common/UI/UIScreen.h"
+#include "Common/UI/PopupScreens.h"
 #include "Common/File/DirListing.h"
 #include "Common/File/Path.h"
 
@@ -52,7 +53,8 @@ public:
 protected:
 	Path gamePath_;
 
-	bool darkenGameBackground_ = false;
+	bool forceTransparent_ = false;
+	bool darkenGameBackground_ = true;
 };
 
 class UIDialogScreenWithBackground : public UIDialogScreen {
@@ -73,6 +75,8 @@ public:
 	void sendMessage(const char *message, const char *value) override;
 protected:
 	Path gamePath_;
+
+	bool forceTransparent_ = false;
 	bool darkenGameBackground_ = true;
 };
 
@@ -97,7 +101,7 @@ private:
 	std::function<void(bool)> callback_;
 };
 
-class NewLanguageScreen : public ListPopupScreen {
+class NewLanguageScreen : public UI::ListPopupScreen {
 public:
 	NewLanguageScreen(const std::string &title);
 
@@ -109,7 +113,7 @@ private:
 	std::vector<File::FileInfo> langs_;
 };
 
-class TextureShaderScreen : public ListPopupScreen {
+class TextureShaderScreen : public UI::ListPopupScreen {
 public:
 	TextureShaderScreen(const std::string &title);
 
@@ -134,7 +138,7 @@ public:
 	LogoScreen(AfterLogoScreen afterLogoScreen = AfterLogoScreen::DEFAULT);
 
 	bool key(const KeyInput &key) override;
-	bool touch(const TouchInput &touch) override;
+	void touch(const TouchInput &touch) override;
 	void update() override;
 	void render() override;
 	void sendMessage(const char *message, const char *value) override;
@@ -174,11 +178,8 @@ private:
 
 class SettingInfoMessage : public UI::LinearLayout {
 public:
-	SettingInfoMessage(int align, UI::AnchorLayoutParams *lp);
+	SettingInfoMessage(int align, float cutOffY, UI::AnchorLayoutParams *lp);
 
-	void SetBottomCutoff(float y) {
-		cutOffY_ = y;
-	}
 	void Show(const std::string &text, const UI::View *refView = nullptr);
 
 	void Draw(UIContext &dc) override;

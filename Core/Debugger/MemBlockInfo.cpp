@@ -411,6 +411,9 @@ static inline bool MergeRecentMemInfo(const PendingNotifyMem &info, size_t copyL
 
 	for (size_t i = 1; i <= 4; ++i) {
 		auto &prev = pendingNotifies[pendingNotifies.size() - i];
+		if (prev.flags != info.flags)
+			continue;
+
 		if (prev.start >= info.start + info.size || prev.start + prev.size <= info.start)
 			continue;
 
@@ -546,17 +549,6 @@ static const char *FindWriteTagByFlag(MemBlockFlags flags, uint32_t start, uint3
 			return tag;
 	}
 	return nullptr;
-}
-
-std::string GetMemWriteTagAt(const char *prefix, uint32_t start, uint32_t size) {
-	const char *tag = FindWriteTagByFlag(MemBlockFlags::WRITE, start, size);
-	if (tag && strcmp(tag, "MemInit") != 0)
-		return std::string(prefix) + tag;
-	// Fall back to alloc and texture, especially for VRAM.  We prefer write above.
-	tag = FindWriteTagByFlag(MemBlockFlags::ALLOC | MemBlockFlags::TEXTURE, start, size);
-	if (tag)
-		return std::string(prefix) + tag;
-	return StringFromFormat("%s%08x_size_%08x", prefix, start, size);
 }
 
 size_t FormatMemWriteTagAt(char *buf, size_t sz, const char *prefix, uint32_t start, uint32_t size) {

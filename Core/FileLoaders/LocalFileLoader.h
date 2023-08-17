@@ -27,6 +27,11 @@
 typedef void *HANDLE;
 #endif
 
+#ifdef HAVE_LIBRETRO_VFS
+#include <streams/file_stream.h>
+typedef RFILE* HANDLE;
+#endif
+
 class LocalFileLoader : public FileLoader {
 public:
 	LocalFileLoader(const Path &filename);
@@ -41,7 +46,7 @@ public:
 	size_t ReadAt(s64 absolutePos, size_t bytes, size_t count, void *data, Flags flags = Flags::NONE) override;
 
 private:
-#ifndef _WIN32
+#if !defined(_WIN32) && !defined(HAVE_LIBRETRO_VFS)
 	void DetectSizeFd();
 	int fd_ = -1;
 #else

@@ -8,7 +8,8 @@
 #import "AppDelegate.h"
 #import "ViewController.h"
 #import "DisplayManager.h"
-#import "SubtleVolume.h"
+#import "iOSCoreAudio.h"
+
 #import <GLKit/GLKit.h>
 #include <cassert>
 
@@ -21,6 +22,7 @@
 
 #include "Common/System/Display.h"
 #include "Common/System/System.h"
+#include "Common/System/OSD.h"
 #include "Common/System/NativeApp.h"
 #include "Common/File/VFS/VFS.h"
 #include "Common/Log.h"
@@ -35,7 +37,6 @@
 #include "Core/System.h"
 #include "Core/HLE/sceUsbCam.h"
 #include "Core/HLE/sceUsbGps.h"
-#include "Core/Host.h"
 
 #include <sys/types.h>
 #include <sys/sysctl.h>
@@ -48,7 +49,7 @@ class IOSGraphicsContext : public GraphicsContext {
 public:
 	IOSGraphicsContext() {
 		CheckGLExtensions();
-		draw_ = Draw::T3DCreateGLContext();
+		draw_ = Draw::T3DCreateGLContext(false);
 		renderManager_ = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
 		renderManager_->SetInflightFrames(g_Config.iInflightFrames);
 		SetGPUBackend(GPUBackend::OPENGL);
@@ -62,8 +63,6 @@ public:
 		return draw_;
 	}
 
-	void SwapInterval(int interval) override {}
-	void SwapBuffers() override {}
 	void Resize() override {}
 	void Shutdown() override {}
 
@@ -80,7 +79,6 @@ public:
 	}
 
 	void StopThread() override {
-		renderManager_->WaitUntilQueueIdle();
 		renderManager_->StopThread();
 	}
 
@@ -106,7 +104,7 @@ static CameraHelper *cameraHelper;
 static LocationHelper *locationHelper;
 
 @interface ViewController () {
-	std::map<uint16_t, uint16_t> iCadeToKeyMap;
+	std::map<uint16_t, InputKeyCode> iCadeToKeyMap;
 }
 
 @property (nonatomic, strong) EAGLContext* context;
@@ -117,12 +115,6 @@ static LocationHelper *locationHelper;
 #endif
 
 @end
-
-@interface ViewController () <SubtleVolumeDelegate> {
-	SubtleVolume *volume;
-}
-@end
-
 
 @implementation ViewController
 
@@ -158,9 +150,8 @@ static LocationHelper *locationHelper;
 	return self;
 }
 
-- (void)subtleVolume:(SubtleVolume *)volumeView willChange:(CGFloat)value {
-}
-- (void)subtleVolume:(SubtleVolume *)volumeView didChange:(CGFloat)value {
+- (BOOL)prefersHomeIndicatorAutoHidden {
+    return YES;
 }
 
 - (void)shareText:(NSString *)text {
@@ -171,15 +162,20 @@ static LocationHelper *locationHelper;
 	});
 }
 
+extern float g_safeInsetLeft;
+extern float g_safeInsetRight;
+extern float g_safeInsetTop;
+extern float g_safeInsetBottom;
+
 - (void)viewSafeAreaInsetsDidChange {
 	if (@available(iOS 11.0, *)) {
 		[super viewSafeAreaInsetsDidChange];
 		char safeArea[100];
 		// we use 0.0f instead of safeAreaInsets.bottom because the bottom overlay isn't disturbing (for now)
-		snprintf(safeArea, sizeof(safeArea), "%f:%f:%f:%f",
-				self.view.safeAreaInsets.left, self.view.safeAreaInsets.right,
-				self.view.safeAreaInsets.top, 0.0f);
-		System_SendMessage("safe_insets", safeArea);
+		g_safeInsetLeft = self.view.safeAreaInsets.left;
+		g_safeInsetRight = self.view.safeAreaInsets.right;
+		g_safeInsetTop = self.view.safeAreaInsets.top;
+		g_safeInsetBottom = 0.0f;
 	}
 }
 
@@ -191,7 +187,7 @@ static LocationHelper *locationHelper;
 	self.view.frame = [screen bounds];
 	self.view.multipleTouchEnabled = YES;
 	self.context = [[EAGLContext alloc] initWithAPI:kEAGLRenderingAPIOpenGLES3];
-	
+
 	if (!self.context) {
 		self.context = [[EAGLContext alloc] initWithAPI:kEAGLRenderingAPIOpenGLES2];
 	}
@@ -206,21 +202,21 @@ static LocationHelper *locationHelper;
 	[[DisplayManager shared] updateResolution:[UIScreen mainScreen]];
 
 	graphicsContext = new IOSGraphicsContext();
-	
+
 	graphicsContext->GetDrawContext()->SetErrorCallback([](const char *shortDesc, const char *details, void *userdata) {
-		host->NotifyUserMessage(details, 5.0, 0xFFFFFFFF, "error_callback");
+		g_OSD.Show(OSDType::MESSAGE_ERROR, details, 0.0f, "error_callback");
 	}, nullptr);
 
 	graphicsContext->ThreadStart();
 
-	dp_xscale = (float)dp_xres / (float)pixel_xres;
-	dp_yscale = (float)dp_yres / (float)pixel_yres;
-	
+	dp_xscale = (float)g_display.dp_xres / (float)g_display.pixel_xres;
+	dp_yscale = (float)g_display.dp_yres / (float)g_display.pixel_yres;
+
 	/*self.iCadeView = [[iCadeReaderView alloc] init];
 	[self.view addSubview:self.iCadeView];
 	self.iCadeView.delegate = self;
 	self.iCadeView.active = YES;*/
-	
+
 #if __IPHONE_OS_VERSION_MAX_ALLOWED > __IPHONE_6_1
 	if ([GCController class]) {
 		if ([[GCController controllers] count] > 0) {
@@ -228,39 +224,19 @@ static LocationHelper *locationHelper;
 		}
 	}
 #endif
-	
-	CGFloat margin = 0;
-	CGFloat height = 16;
-	volume = [[SubtleVolume alloc]
-			  initWithStyle:SubtleVolumeStylePlain
-			  frame:CGRectMake(
-							   margin,   // X
-							   0,        // Y
-							   self.view.frame.size.width-(margin*2), // width
-							   height    // height
-							)];
-	
-	volume.padding = 7;
-	volume.barTintColor = [UIColor blackColor];
-	volume.barBackgroundColor = [UIColor whiteColor];
-	volume.animation = SubtleVolumeAnimationSlideDown;
-	volume.delegate = self;
-	[self.view addSubview:volume];
-	[self.view bringSubviewToFront:volume];
 
 	cameraHelper = [[CameraHelper alloc] init];
 	[cameraHelper setDelegate:self];
 
 	locationHelper = [[LocationHelper alloc] init];
 	[locationHelper setDelegate:self];
-	
+
 	dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH, 0), ^{
 		NativeInitGraphics(graphicsContext);
 
 		INFO_LOG(SYSTEM, "Emulation thread starting\n");
 		while (threadEnabled) {
-			NativeUpdate();
-			NativeRender(graphicsContext);
+			NativeFrame(graphicsContext);
 		}
 
 
@@ -270,14 +246,9 @@ static LocationHelper *locationHelper;
 		// Also ask the main thread to stop, so it doesn't hang waiting for a new frame.
 		INFO_LOG(SYSTEM, "Emulation thread stopping\n");
 		graphicsContext->StopThread();
-		
+
 		threadStopped = true;
 	});
-}
-
-- (void)didReceiveMemoryWarning
-{
-	[super didReceiveMemoryWarning];
 }
 
 - (void)appWillTerminate:(NSNotification *)notification
@@ -290,13 +261,8 @@ static LocationHelper *locationHelper;
 	if (sharedViewController == nil) {
 		return;
 	}
-	
-	if(volume) {
-		[volume removeFromSuperview];
-		volume = nil;
-	}
 
-	Audio_Shutdown();
+	iOSCoreAudioShutdown();
 
 	if (threadEnabled) {
 		threadEnabled = false;
@@ -359,7 +325,7 @@ static LocationHelper *locationHelper;
 - (void)touchX:(float)x y:(float)y code:(int)code pointerId:(int)pointerId
 {
 	float scale = [UIScreen mainScreen].scale;
-	
+
 	if ([[UIScreen mainScreen] respondsToSelector:@selector(nativeScale)]) {
 		scale = [UIScreen mainScreen].nativeScale;
 	}
@@ -476,27 +442,26 @@ int ToTouchID(UITouch *uiTouch, bool allowAllocate) {
 					axis.axisId = JOYSTICK_AXIS_Y;
 					axis.value = -1.0f;
 					break;
-					
+
 				case iCadeJoystickDown :
 					axis.axisId = JOYSTICK_AXIS_Y;
 					axis.value = 1.0f;
 					break;
-					
+
 				case iCadeJoystickLeft :
 					axis.axisId = JOYSTICK_AXIS_X;
 					axis.value = -1.0f;
 					break;
-					
+
 				case iCadeJoystickRight :
 					axis.axisId = JOYSTICK_AXIS_X;
 					axis.value = 1.0f;
 					break;
-					
+
 				default:
 					break;
 			}
 			axis.deviceId = DEVICE_ID_PAD_0;
-			axis.flags = 0;
 			NativeAxis(axis);
 		} else {
 			KeyInput key;
@@ -521,7 +486,7 @@ int ToTouchID(UITouch *uiTouch, bool allowAllocate) {
 			simulateAnalog = !simulateAnalog;
 		lastSelectPress = time_now_d();
 	}
-	
+
 	if (button == iCadeButtonC) {
 		// Pressing Start twice within 1 second will take to the Emu menu
 		if ((lastStartPress + 1.0f) > time_now_d()) {
@@ -534,7 +499,7 @@ int ToTouchID(UITouch *uiTouch, bool allowAllocate) {
 		}
 		lastStartPress = time_now_d();
 	}
-	
+
 	if (simulateAnalog &&
 		((button == iCadeJoystickUp) ||
 		 (button == iCadeJoystickDown) ||
@@ -546,27 +511,26 @@ int ToTouchID(UITouch *uiTouch, bool allowAllocate) {
 				axis.axisId = JOYSTICK_AXIS_Y;
 				axis.value = 0.0f;
 				break;
-				
+
 			case iCadeJoystickDown :
 				axis.axisId = JOYSTICK_AXIS_Y;
 				axis.value = 0.0f;
 				break;
-				
+
 			case iCadeJoystickLeft :
 				axis.axisId = JOYSTICK_AXIS_X;
 				axis.value = 0.0f;
 				break;
-				
+
 			case iCadeJoystickRight :
 				axis.axisId = JOYSTICK_AXIS_X;
 				axis.value = 0.0f;
 				break;
-				
+
 			default:
 				break;
 		}
 		axis.deviceId = DEVICE_ID_PAD_0;
-		axis.flags = 0;
 		NativeAxis(axis);
 	} else {
 		KeyInput key;
@@ -575,16 +539,16 @@ int ToTouchID(UITouch *uiTouch, bool allowAllocate) {
 		key.deviceId = DEVICE_ID_PAD_0;
 		NativeKey(key);
 	}
-	
+
 }
 
 #if __IPHONE_OS_VERSION_MAX_ALLOWED > __IPHONE_6_1
 - (void)controllerDidConnect:(NSNotification *)note
 {
 	if (![[GCController controllers] containsObject:self.gameController]) self.gameController = nil;
-	
+
 	if (self.gameController != nil) return; // already have a connected controller
-	
+
 	[self setupController:(GCController *)note.object];
 }
 
@@ -592,7 +556,7 @@ int ToTouchID(UITouch *uiTouch, bool allowAllocate) {
 {
 	if (self.gameController == note.object) {
 		self.gameController = nil;
-		
+
 		if ([[GCController controllers] count] > 0) {
 			[self setupController:[[GCController controllers] firstObject]];
 		} else {
@@ -601,7 +565,7 @@ int ToTouchID(UITouch *uiTouch, bool allowAllocate) {
 	}
 }
 
-- (void)controllerButtonPressed:(BOOL)pressed keyCode:(keycode_t)keyCode
+- (void)controllerButtonPressed:(BOOL)pressed keyCode:(InputKeyCode)keyCode
 {
 	KeyInput key;
 	key.deviceId = DEVICE_ID_PAD_0;
@@ -619,15 +583,15 @@ int ToTouchID(UITouch *uiTouch, bool allowAllocate) {
 - (void)setupController:(GCController *)controller
 {
 	self.gameController = controller;
-	
+
 	GCGamepad *baseProfile = self.gameController.gamepad;
 	if (baseProfile == nil) {
 		self.gameController = nil;
 		return;
 	}
-	
+
 	[[UIApplication sharedApplication] setIdleTimerDisabled:YES];   // prevent auto-lock
-	
+
 	self.gameController.controllerPausedHandler = ^(GCController *controller) {
 		KeyInput key;
 		key.flags = KEY_DOWN;
@@ -635,55 +599,55 @@ int ToTouchID(UITouch *uiTouch, bool allowAllocate) {
 		key.deviceId = DEVICE_ID_KEYBOARD;
 		NativeKey(key);
 	};
-	
+
 	baseProfile.buttonA.valueChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
 		[self controllerButtonPressed:pressed keyCode:NKCODE_BUTTON_2]; // Cross
 	};
-	
+
 	baseProfile.buttonB.valueChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
 		[self controllerButtonPressed:pressed keyCode:NKCODE_BUTTON_3]; // Circle
 	};
-	
+
 	baseProfile.buttonX.valueChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
 		[self controllerButtonPressed:pressed keyCode:NKCODE_BUTTON_4]; // Square
 	};
-	
+
 	baseProfile.buttonY.valueChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
 		[self controllerButtonPressed:pressed keyCode:NKCODE_BUTTON_1]; // Triangle
 	};
-	
+
 	baseProfile.leftShoulder.valueChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
 		[self controllerButtonPressed:pressed keyCode:NKCODE_BUTTON_7]; // LTrigger
 	};
-	
+
 	baseProfile.rightShoulder.valueChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
 		[self controllerButtonPressed:pressed keyCode:NKCODE_BUTTON_8]; // RTrigger
 	};
-	
+
 	baseProfile.dpad.up.valueChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
 		[self controllerButtonPressed:pressed keyCode:NKCODE_DPAD_UP];
 	};
-	
+
 	baseProfile.dpad.down.valueChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
 		[self controllerButtonPressed:pressed keyCode:NKCODE_DPAD_DOWN];
 	};
-	
+
 	baseProfile.dpad.left.valueChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
 		[self controllerButtonPressed:pressed keyCode:NKCODE_DPAD_LEFT];
 	};
-	
+
 	baseProfile.dpad.right.valueChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
 		[self controllerButtonPressed:pressed keyCode:NKCODE_DPAD_RIGHT];
 	};
-	
+
 	GCExtendedGamepad *extendedProfile = self.gameController.extendedGamepad;
 	if (extendedProfile == nil)
 		return; // controller doesn't support extendedGamepad profile
-	
+
 	extendedProfile.leftTrigger.valueChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
 		[self controllerButtonPressed:pressed keyCode:NKCODE_BUTTON_9]; // Select
 	};
-	
+
 	extendedProfile.rightTrigger.valueChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
 		[self controllerButtonPressed:pressed keyCode:NKCODE_BUTTON_10]; // Start
 	};
@@ -719,39 +683,35 @@ int ToTouchID(UITouch *uiTouch, bool allowAllocate) {
 		};
 	}
 #endif
-	
+
 	extendedProfile.leftThumbstick.xAxis.valueChangedHandler = ^(GCControllerAxisInput *axis, float value) {
 		AxisInput axisInput;
 		axisInput.deviceId = DEVICE_ID_PAD_0;
-		axisInput.flags = 0;
 		axisInput.axisId = JOYSTICK_AXIS_X;
 		axisInput.value = value;
 		NativeAxis(axisInput);
 	};
-	
+
 	extendedProfile.leftThumbstick.yAxis.valueChangedHandler = ^(GCControllerAxisInput *axis, float value) {
 		AxisInput axisInput;
 		axisInput.deviceId = DEVICE_ID_PAD_0;
-		axisInput.flags = 0;
 		axisInput.axisId = JOYSTICK_AXIS_Y;
 		axisInput.value = -value;
 		NativeAxis(axisInput);
 	};
-	
+
 	// Map right thumbstick as another analog stick, particularly useful for controllers like the DualShock 3/4 when connected to an iOS device
 	extendedProfile.rightThumbstick.xAxis.valueChangedHandler = ^(GCControllerAxisInput *axis, float value) {
 		AxisInput axisInput;
 		axisInput.deviceId = DEVICE_ID_PAD_0;
-		axisInput.flags = 0;
 		axisInput.axisId = JOYSTICK_AXIS_Z;
 		axisInput.value = value;
 		NativeAxis(axisInput);
 	};
-	
+
 	extendedProfile.rightThumbstick.yAxis.valueChangedHandler = ^(GCControllerAxisInput *axis, float value) {
 		AxisInput axisInput;
 		axisInput.deviceId = DEVICE_ID_PAD_0;
-		axisInput.flags = 0;
 		axisInput.axisId = JOYSTICK_AXIS_RZ;
 		axisInput.value = -value;
 		NativeAxis(axisInput);
@@ -794,11 +754,11 @@ void stopLocation() {
 
 @end
 
-void OpenDirectory(const char *path) {
+void System_ShowFileInFolder(const char *path) {
 	// Unsupported
 }
 
-void LaunchBrowser(char const* url)
+void System_LaunchUrl(LaunchUrlType urlType, char const* url)
 {
 	[[UIApplication sharedApplication] openURL:[NSURL URLWithString:[NSString stringWithCString:url encoding:NSStringEncodingConversionAllowLossy]]];
 }

@@ -24,13 +24,13 @@
 #include "Common/Data/Text/I18n.h"
 #include "Common/Net/HTTPClient.h"
 #include "Common/UI/UIScreen.h"
-
+#include "UI/TabbedDialogScreen.h"
 #include "UI/MiscScreens.h"
 #include "GPU/Common/ShaderCommon.h"
 
 class DevMenuScreen : public PopupScreen {
 public:
-	DevMenuScreen(const Path &gamePath, std::shared_ptr<I18NCategory> i18n) : PopupScreen(i18n->T("Dev Tools")), gamePath_(gamePath) {}
+	DevMenuScreen(const Path &gamePath, I18NCat cat) : PopupScreen(T(cat, "Dev Tools")), gamePath_(gamePath) {}
 
 	const char *tag() const override { return "DevMenu"; }
 
@@ -42,10 +42,7 @@ protected:
 	UI::EventReturn OnLogConfig(UI::EventParams &e);
 	UI::EventReturn OnJitCompare(UI::EventParams &e);
 	UI::EventReturn OnShaderView(UI::EventParams &e);
-	UI::EventReturn OnFreezeFrame(UI::EventParams &e);
-	UI::EventReturn OnDumpFrame(UI::EventParams &e);
 	UI::EventReturn OnDeveloperTools(UI::EventParams &e);
-	UI::EventReturn OnToggleAudioDebug(UI::EventParams &e);
 	UI::EventReturn OnResetLimitedLogging(UI::EventParams &e);
 
 private:
@@ -81,7 +78,6 @@ private:
 
 class LogScreen : public UIDialogScreenWithBackground {
 public:
-	LogScreen() : toBottom_(false) {}
 	void CreateViews() override;
 	void update() override;
 
@@ -90,13 +86,14 @@ public:
 private:
 	void UpdateLog();
 	UI::EventReturn OnSubmit(UI::EventParams &e);
-	UI::TextEdit *cmdLine_;
-	UI::LinearLayout *vert_;
-	UI::ScrollView *scroll_;
-	bool toBottom_;
+
+	UI::TextEdit *cmdLine_ = nullptr;
+	UI::LinearLayout *vert_ = nullptr;
+	UI::ScrollView *scroll_ = nullptr;
+	bool toBottom_ = false;
 };
 
-class LogLevelScreen : public ListPopupScreen {
+class LogLevelScreen : public UI::ListPopupScreen {
 public:
 	LogLevelScreen(const std::string &title);
 
@@ -106,11 +103,18 @@ private:
 	void OnCompleted(DialogResult result) override;
 };
 
-class SystemInfoScreen : public UIDialogScreenWithBackground {
+class SystemInfoScreen : public TabbedUIDialogScreenWithGameBackground {
 public:
+	SystemInfoScreen(const Path &filename) : TabbedUIDialogScreenWithGameBackground(filename) {}
+
 	const char *tag() const override { return "SystemInfo"; }
 
-	void CreateViews() override;
+	void CreateTabs() override;
+
+	void update() override;
+
+protected:
+	bool ShowSearchControls() const override { return false; }
 };
 
 class AddressPromptScreen : public PopupScreen {
@@ -214,9 +218,11 @@ private:
 	UI::EventReturn OnLoadDump(UI::EventParams &e);
 
 	std::vector<std::string> files_;
-	std::shared_ptr<http::Download> listing_;
-	std::shared_ptr<http::Download> dumpDownload_;
+	std::shared_ptr<http::Request> listing_;
+	std::shared_ptr<http::Request> dumpDownload_;
 };
 
 void DrawProfile(UIContext &ui);
 const char *GetCompilerABI();
+
+void AddOverlayList(UI::ViewGroup *items, ScreenManager *screenManager);

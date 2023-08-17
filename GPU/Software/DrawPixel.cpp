@@ -15,6 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "ppsspp_config.h"
 #include <mutex>
 #include "Common/Common.h"
 #include "Common/Data/Convert/ColorConv.h"
@@ -416,6 +417,8 @@ static inline Vec3<int> GetSourceFactor(PixelBlendFactor factor, const Vec4<int>
 	case PixelBlendFactor::SRCALPHA:
 #if defined(_M_SSE)
 		return Vec3<int>(_mm_shuffle_epi32(source.ivec, _MM_SHUFFLE(3, 3, 3, 3)));
+#elif PPSSPP_ARCH(ARM64_NEON)
+		return Vec3<int>(vdupq_laneq_s32(source.ivec, 3));
 #else
 		return Vec3<int>::AssignToAll(source.a());
 #endif
@@ -423,6 +426,8 @@ static inline Vec3<int> GetSourceFactor(PixelBlendFactor factor, const Vec4<int>
 	case PixelBlendFactor::INVSRCALPHA:
 #if defined(_M_SSE)
 		return Vec3<int>(_mm_sub_epi32(_mm_set1_epi32(255), _mm_shuffle_epi32(source.ivec, _MM_SHUFFLE(3, 3, 3, 3))));
+#elif PPSSPP_ARCH(ARM64_NEON)
+		return Vec3<int>(vsubq_s32(vdupq_n_s32(255), vdupq_laneq_s32(source.ivec, 3)));
 #else
 		return Vec3<int>::AssignToAll(255 - source.a());
 #endif
@@ -469,6 +474,8 @@ static inline Vec3<int> GetDestFactor(PixelBlendFactor factor, const Vec4<int> &
 	case PixelBlendFactor::SRCALPHA:
 #if defined(_M_SSE)
 		return Vec3<int>(_mm_shuffle_epi32(source.ivec, _MM_SHUFFLE(3, 3, 3, 3)));
+#elif PPSSPP_ARCH(ARM64_NEON)
+		return Vec3<int>(vdupq_laneq_s32(source.ivec, 3));
 #else
 		return Vec3<int>::AssignToAll(source.a());
 #endif
@@ -476,6 +483,8 @@ static inline Vec3<int> GetDestFactor(PixelBlendFactor factor, const Vec4<int> &
 	case PixelBlendFactor::INVSRCALPHA:
 #if defined(_M_SSE)
 		return Vec3<int>(_mm_sub_epi32(_mm_set1_epi32(255), _mm_shuffle_epi32(source.ivec, _MM_SHUFFLE(3, 3, 3, 3))));
+#elif PPSSPP_ARCH(ARM64_NEON)
+		return Vec3<int>(vsubq_s32(vdupq_n_s32(255), vdupq_laneq_s32(source.ivec, 3)));
 #else
 		return Vec3<int>::AssignToAll(255 - source.a());
 #endif
@@ -533,6 +542,18 @@ static Vec3<int> AlphaBlendingResult(const PixelFuncID &pixelID, const Vec4<int>
 		const __m128i d = _mm_mulhi_epi16(drgb, df);
 
 		return Vec3<int>(_mm_unpacklo_epi16(_mm_adds_epi16(s, d), _mm_setzero_si128()));
+#elif PPSSPP_ARCH(ARM64_NEON)
+		const int32x4_t half = vdupq_n_s32(1);
+
+		const int32x4_t srgb = vaddq_s32(vshlq_n_s32(source.ivec, 1), half);
+		const int32x4_t sf = vaddq_s32(vshlq_n_s32(srcfactor.ivec, 1), half);
+		const int32x4_t s = vshrq_n_s32(vmulq_s32(srgb, sf), 10);
+
+		const int32x4_t drgb = vaddq_s32(vshlq_n_s32(dst.ivec, 1), half);
+		const int32x4_t df = vaddq_s32(vshlq_n_s32(dstfactor.ivec, 1), half);
+		const int32x4_t d = vshrq_n_s32(vmulq_s32(drgb, df), 10);
+
+		return Vec3<int>(vaddq_s32(s, d));
 #else
 		static constexpr Vec3<int> half = Vec3<int>::AssignToAll(1);
 		Vec3<int> lhs = ((source.rgb() * 2 + half) * (srcfactor * 2 + half)) / 1024;
@@ -555,6 +576,18 @@ static Vec3<int> AlphaBlendingResult(const PixelFuncID &pixelID, const Vec4<int>
 		const __m128i d = _mm_mulhi_epi16(drgb, df);
 
 		return Vec3<int>(_mm_unpacklo_epi16(_mm_max_epi16(_mm_subs_epi16(s, d), _mm_setzero_si128()), _mm_setzero_si128()));
+#elif PPSSPP_ARCH(ARM64_NEON)
+		const int32x4_t half = vdupq_n_s32(1);
+
+		const int32x4_t srgb = vaddq_s32(vshlq_n_s32(source.ivec, 1), half);
+		const int32x4_t sf = vaddq_s32(vshlq_n_s32(srcfactor.ivec, 1), half);
+		const int32x4_t s = vshrq_n_s32(vmulq_s32(srgb, sf), 10);
+
+		const int32x4_t drgb = vaddq_s32(vshlq_n_s32(dst.ivec, 1), half);
+		const int32x4_t df = vaddq_s32(vshlq_n_s32(dstfactor.ivec, 1), half);
+		const int32x4_t d = vshrq_n_s32(vmulq_s32(drgb, df), 10);
+
+		return Vec3<int>(vqsubq_s32(s, d));
 #else
 		static constexpr Vec3<int> half = Vec3<int>::AssignToAll(1);
 		Vec3<int> lhs = ((source.rgb() * 2 + half) * (srcfactor * 2 + half)) / 1024;
@@ -577,6 +610,18 @@ static Vec3<int> AlphaBlendingResult(const PixelFuncID &pixelID, const Vec4<int>
 		const __m128i d = _mm_mulhi_epi16(drgb, df);
 
 		return Vec3<int>(_mm_unpacklo_epi16(_mm_max_epi16(_mm_subs_epi16(d, s), _mm_setzero_si128()), _mm_setzero_si128()));
+#elif PPSSPP_ARCH(ARM64_NEON)
+		const int32x4_t half = vdupq_n_s32(1);
+
+		const int32x4_t srgb = vaddq_s32(vshlq_n_s32(source.ivec, 1), half);
+		const int32x4_t sf = vaddq_s32(vshlq_n_s32(srcfactor.ivec, 1), half);
+		const int32x4_t s = vshrq_n_s32(vmulq_s32(srgb, sf), 10);
+
+		const int32x4_t drgb = vaddq_s32(vshlq_n_s32(dst.ivec, 1), half);
+		const int32x4_t df = vaddq_s32(vshlq_n_s32(dstfactor.ivec, 1), half);
+		const int32x4_t d = vshrq_n_s32(vmulq_s32(drgb, df), 10);
+
+		return Vec3<int>(vqsubq_s32(d, s));
 #else
 		static constexpr Vec3<int> half = Vec3<int>::AssignToAll(1);
 		Vec3<int> lhs = ((source.rgb() * 2 + half) * (srcfactor * 2 + half)) / 1024;
@@ -586,19 +631,31 @@ static Vec3<int> AlphaBlendingResult(const PixelFuncID &pixelID, const Vec4<int>
 	}
 
 	case GE_BLENDMODE_MIN:
+#if PPSSPP_ARCH(ARM64_NEON)
+		return Vec3<int>(vminq_s32(source.ivec, dst.ivec));
+#else
 		return Vec3<int>(std::min(source.r(), dst.r()),
 			std::min(source.g(), dst.g()),
 			std::min(source.b(), dst.b()));
+#endif
 
 	case GE_BLENDMODE_MAX:
+#if PPSSPP_ARCH(ARM64_NEON)
+		return Vec3<int>(vmaxq_s32(source.ivec, dst.ivec));
+#else
 		return Vec3<int>(std::max(source.r(), dst.r()),
 			std::max(source.g(), dst.g()),
 			std::max(source.b(), dst.b()));
+#endif
 
 	case GE_BLENDMODE_ABSDIFF:
+#if PPSSPP_ARCH(ARM64_NEON)
+		return Vec3<int>(vabdq_s32(source.ivec, dst.ivec));
+#else
 		return Vec3<int>(::abs(source.r() - dst.r()),
 			::abs(source.g() - dst.g()),
 			::abs(source.b() - dst.b()));
+#endif
 
 	default:
 		return source.rgb();
@@ -684,7 +741,7 @@ void SOFTRAST_CALL DrawSinglePixel(int x, int y, int z, int fog, Vec4IntArg colo
 			prim_color += Vec4<int>::AssignToAll(pixelID.cached.ditherMatrix[(y & 3) * 4 + (x & 3)]);
 		}
 
-#if defined(_M_SSE)
+#if defined(_M_SSE) || PPSSPP_ARCH(ARM64_NEON)
 		new_color = Vec3<int>(prim_color.ivec).ToRGB();
 		new_color |= stencil << 24;
 #else
@@ -745,10 +802,12 @@ SingleFunc PixelJitCache::GenericSingle(const PixelFuncID &id) {
 }
 
 thread_local PixelJitCache::LastCache PixelJitCache::lastSingle_;
+int PixelJitCache::clearGen_ = 0;
 
 // 256k should be plenty of space for plenty of variations.
 PixelJitCache::PixelJitCache() : CodeBlock(1024 * 64 * 4), cache_(64) {
 	lastSingle_.gen = -1;
+	clearGen_++;
 }
 
 void PixelJitCache::Clear() {

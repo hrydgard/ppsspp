@@ -287,7 +287,7 @@ static const u8 *mymemmem(const u8 *haystack, size_t off, size_t hlen, const u8 
 			p++;
 			alignp();
 		}
-	}, 0, range, 128 * 1024);
+	}, 0, range, 128 * 1024, TaskPriority::LOW);
 
 	return result;
 }
@@ -780,7 +780,7 @@ void NotifyDisplay(u32 framebuf, int stride, int fmt) {
 	if (active && HasDrawCommands()) {
 		writePending = true;
 	}
-	if (nextFrame && (gstate_c.skipDrawReason & SKIPDRAW_SKIPFRAME) == 0) {
+	if (!active && nextFrame && (gstate_c.skipDrawReason & SKIPDRAW_SKIPFRAME) == 0) {
 		NOTICE_LOG(SYSTEM, "Recording starting on display...");
 		BeginRecording();
 	}
@@ -835,7 +835,7 @@ void NotifyBeginFrame() {
 
 		FinishRecording();
 	}
-	if (nextFrame && (gstate_c.skipDrawReason & SKIPDRAW_SKIPFRAME) == 0 && noDisplayAction) {
+	if (!active && nextFrame && (gstate_c.skipDrawReason & SKIPDRAW_SKIPFRAME) == 0 && noDisplayAction) {
 		NOTICE_LOG(SYSTEM, "Recording starting on frame...");
 		BeginRecording();
 		// If we began on a BeginFrame, end on a BeginFrame.

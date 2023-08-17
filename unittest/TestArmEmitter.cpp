@@ -243,8 +243,8 @@ bool TestArmEmitter() {
 	int R001 = GetRowName(0, M_4x4, 1, 0);
 	int R002 = GetRowName(0, M_4x4, 2, 0);
 	int R003 = GetRowName(0, M_4x4, 3, 0);
-	printf("Col 010: %s\n", GetVectorNotation(C010, V_Quad));
-	printf("Row 003: %s\n", GetVectorNotation(R003, V_Quad));
+	printf("Col 010: %s\n", GetVectorNotation(C010, V_Quad).c_str());
+	printf("Row 003: %s\n", GetVectorNotation(R003, V_Quad).c_str());
 	
 	MIPSAnalyst::AnalysisResults results;
 	memset(&results, 0, sizeof(results));

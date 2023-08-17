@@ -72,10 +72,6 @@ void CalcCullRange(float minValues[4], float maxValues[4], bool flipViewport, bo
 	maxValues[3] = NAN;
 }
 
-void FrameUpdateUniforms(UB_Frame *ub, bool useBufferedRendering) {
-	ub->rotation = useBufferedRendering ? 0 : (float)g_display_rotation;
-}
-
 void BaseUpdateUniforms(UB_VS_FS_Base *ub, uint64_t dirtyUniforms, bool flipViewport, bool useBufferedRendering) {
 	if (dirtyUniforms & DIRTY_TEXENV) {
 		Uint8x3ToFloat3(ub->texEnvColor, gstate.texenvcolor);
@@ -139,10 +135,12 @@ void BaseUpdateUniforms(UB_VS_FS_Base *ub, uint64_t dirtyUniforms, bool flipView
 			ConvertProjMatrixToVulkan(flippedMatrix);
 		}
 
-		if (!useBufferedRendering && g_display_rotation != DisplayRotation::ROTATE_0) {
-			flippedMatrix = flippedMatrix * g_display_rot_matrix;
+		if (!useBufferedRendering && g_display.rotation != DisplayRotation::ROTATE_0) {
+			flippedMatrix = flippedMatrix * g_display.rot_matrix;
 		}
 		CopyMatrix4x4(ub->proj, flippedMatrix.getReadPtr());
+
+		ub->rotation = useBufferedRendering ? 0 : (float)g_display.rotation;
 	}
 
 	if (dirtyUniforms & DIRTY_PROJTHROUGHMATRIX) {
@@ -152,8 +150,8 @@ void BaseUpdateUniforms(UB_VS_FS_Base *ub, uint64_t dirtyUniforms, bool flipView
 		} else {
 			proj_through.setOrthoVulkan(0.0f, gstate_c.curRTWidth, 0, gstate_c.curRTHeight, 0, 1);
 		}
-		if (!useBufferedRendering && g_display_rotation != DisplayRotation::ROTATE_0) {
-			proj_through = proj_through * g_display_rot_matrix;
+		if (!useBufferedRendering && g_display.rotation != DisplayRotation::ROTATE_0) {
+			proj_through = proj_through * g_display.rot_matrix;
 		}
 
 		// Negative RT offsets come from split framebuffers (Killzone)
@@ -193,8 +191,17 @@ void BaseUpdateUniforms(UB_VS_FS_Base *ub, uint64_t dirtyUniforms, bool flipView
 		CopyFloat2(ub->fogCoef, fogcoef);
 	}
 
+	if (dirtyUniforms & DIRTY_TEX_ALPHA_MUL) {
+		bool doTextureAlpha = gstate.isTextureAlphaUsed();
+		if (gstate_c.textureFullAlpha && gstate.getTextureFunction() != GE_TEXFUNC_REPLACE) {
+			doTextureAlpha = false;
+		}
+		ub->texNoAlpha = doTextureAlpha ? 0.0f : 1.0f;
+		ub->texMul = gstate.isColorDoublingEnabled() ? 2.0f : 1.0f;
+	}
+
 	if (dirtyUniforms & DIRTY_STENCILREPLACEVALUE) {
-		ub->stencil = (float)gstate.getStencilTestRef() / 255.0;
+		ub->stencilReplaceValue = (float)gstate.getStencilTestRef() * (1.0 / 255.0);
 	}
 
 	// Note - this one is not in lighting but in transformCommon as it has uses beyond lighting
@@ -208,12 +215,16 @@ void BaseUpdateUniforms(UB_VS_FS_Base *ub, uint64_t dirtyUniforms, bool flipView
 
 	// Texturing
 	if (dirtyUniforms & DIRTY_UVSCALEOFFSET) {
-		const float invW = 1.0f / (float)gstate_c.curTextureWidth;
-		const float invH = 1.0f / (float)gstate_c.curTextureHeight;
-		const int w = gstate.getTextureWidth(0);
-		const int h = gstate.getTextureHeight(0);
-		const float widthFactor = (float)w * invW;
-		const float heightFactor = (float)h * invH;
+		float widthFactor = 1.0f;
+		float heightFactor = 1.0f;
+		if (gstate_c.textureIsFramebuffer) {
+			const float invW = 1.0f / (float)gstate_c.curTextureWidth;
+			const float invH = 1.0f / (float)gstate_c.curTextureHeight;
+			const int w = gstate.getTextureWidth(0);
+			const int h = gstate.getTextureHeight(0);
+			widthFactor = (float)w * invW;
+			heightFactor = (float)h * invH;
+		}
 		if (gstate_c.submitType == SubmitType::HW_BEZIER || gstate_c.submitType == SubmitType::HW_SPLINE) {
 			// When we are generating UV coordinates through the bezier/spline, we need to apply the scaling.
 			// However, this is missing a check that we're not getting our UV:s supplied for us in the vertices.
@@ -237,16 +248,16 @@ void BaseUpdateUniforms(UB_VS_FS_Base *ub, uint64_t dirtyUniforms, bool flipView
 		float vpZCenter = gstate.getViewportZCenter();
 
 		// These are just the reverse of the formulas in GPUStateUtils.
-		float halfActualZRange = vpZScale / gstate_c.vpDepthScale;
+		float halfActualZRange = gstate_c.vpDepthScale != 0.0f ? vpZScale / gstate_c.vpDepthScale : 0.0f;
+		float inverseDepthScale = gstate_c.vpDepthScale != 0.0f ? 1.0f / gstate_c.vpDepthScale : 0.0f;
 		float minz = -((gstate_c.vpZOffset * halfActualZRange) - vpZCenter) - halfActualZRange;
 		float viewZScale = halfActualZRange * 2.0f;
-		// Account for the half pixel offset.
-		float viewZCenter = minz + (DepthSliceFactor() / 256.0f) * 0.5f;
+		float viewZCenter = minz;
 
 		ub->depthRange[0] = viewZScale;
 		ub->depthRange[1] = viewZCenter;
 		ub->depthRange[2] = gstate_c.vpZOffset * 0.5f + 0.5f;
-		ub->depthRange[3] = 2.0f * (1.0f / gstate_c.vpDepthScale);
+		ub->depthRange[3] = 2.0f * inverseDepthScale;
 	}
 
 	if (dirtyUniforms & DIRTY_CULLRANGE) {
@@ -269,6 +280,7 @@ void BaseUpdateUniforms(UB_VS_FS_Base *ub, uint64_t dirtyUniforms, bool flipView
 	}
 }
 
+// For "light ubershader" bits.
 uint32_t PackLightControlBits() {
 	// Bit organization
 	// Bottom 4 bits are enable bits for each light.
@@ -283,12 +295,13 @@ uint32_t PackLightControlBits() {
 
 		u32 computation = (u32)gstate.getLightComputation(i);  // 2 bits
 		u32 type = (u32)gstate.getLightType(i);  // 2 bits
+		if (type == 3) { type = 0; }  // Don't want to handle this degenerate case in the shader.
 		lightControl |= computation << (4 + i * 4);
 		lightControl |= type << (4 + i * 4 + 2);
 	}
 
+	// Material update is 3 bits.
 	lightControl |= gstate.getMaterialUpdate() << 20;
-
 	return lightControl;
 }
 
@@ -314,20 +327,12 @@ void LightUpdateUniforms(UB_VS_Lights *ub, uint64_t dirtyUniforms) {
 		if (dirtyUniforms & (DIRTY_LIGHT0 << i)) {
 			if (gstate.isDirectionalLight(i)) {
 				// Prenormalize
-				float x = getFloat24(gstate.lpos[i * 3 + 0]);
-				float y = getFloat24(gstate.lpos[i * 3 + 1]);
-				float z = getFloat24(gstate.lpos[i * 3 + 2]);
-				float len = sqrtf(x*x + y*y + z*z);
-				if (len == 0.0f)
-					len = 1.0f;
-				else
-					len = 1.0f / len;
-				float vec[3] = { x * len, y * len, z * len };
-				CopyFloat3To4(ub->lpos[i], vec);
+				ExpandFloat24x3ToFloat4AndNormalize(ub->lpos[i], &gstate.lpos[i * 3]);
 			} else {
 				ExpandFloat24x3ToFloat4(ub->lpos[i], &gstate.lpos[i * 3]);
 			}
-			ExpandFloat24x3ToFloat4(ub->ldir[i], &gstate.ldir[i * 3]);
+			// ldir is only used for spotlights. Prenormalize it.
+			ExpandFloat24x3ToFloat4AndNormalize(ub->ldir[i], &gstate.ldir[i * 3]);
 			ExpandFloat24x3ToFloat4(ub->latt[i], &gstate.latt[i * 3]);
 			float lightAngle_spotCoef[2] = { getFloat24(gstate.lcutoff[i]), getFloat24(gstate.lconv[i]) };
 			CopyFloat2To4(ub->lightAngle_SpotCoef[i], lightAngle_spotCoef);

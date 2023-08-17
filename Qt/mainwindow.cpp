@@ -100,7 +100,7 @@ void MainWindow::updateMenus()
 	updateMenuGroupInt(frameSkippingGroup, g_Config.iFrameSkip);
 	updateMenuGroupInt(frameSkippingTypeGroup, g_Config.iFrameSkipType);
 	updateMenuGroupInt(textureFilteringGroup, g_Config.iTexFiltering);
-	updateMenuGroupInt(screenScalingFilterGroup, g_Config.iBufFilter);
+	updateMenuGroupInt(screenScalingFilterGroup, g_Config.iDisplayFilter);
 	updateMenuGroupInt(textureScalingLevelGroup, g_Config.iTexScalingLevel);
 	updateMenuGroupInt(textureScalingTypeGroup, g_Config.iTexScalingType);
 
@@ -130,7 +130,7 @@ void MainWindow::loadAct()
 	{
 		QFileInfo info(filename);
 		g_Config.currentDirectory = Path(info.absolutePath().toStdString());
-		NativeMessageReceived("boot", filename.toStdString().c_str());
+		System_PostUIMessage("boot", filename.toStdString().c_str());
 	}
 }
 
@@ -138,7 +138,7 @@ void MainWindow::closeAct()
 {
 	updateMenus();
 
-	NativeMessageReceived("stop", "");
+	System_PostUIMessage("stop", "");
 	SetGameTitle("");
 }
 
@@ -232,25 +232,25 @@ void MainWindow::exitAct()
 
 void MainWindow::runAct()
 {
-	NativeMessageReceived("run", "");
+	System_PostUIMessage("run", "");
 }
 
 void MainWindow::pauseAct()
 {
-	NativeMessageReceived("pause", "");
+	System_PostUIMessage("pause", "");
 }
 
 void MainWindow::stopAct()
 {
 	Core_Stop();
-	NativeMessageReceived("stop", "");
+	System_PostUIMessage("stop", "");
 }
 
 void MainWindow::resetAct()
 {
 	updateMenus();
 
-	NativeMessageReceived("reset", "");
+	System_PostUIMessage("reset", "");
 }
 
 void MainWindow::switchUMDAct()
@@ -375,7 +375,7 @@ void MainWindow::SetFullScreen(bool fullscreen) {
 #endif
 
 		showFullScreen();
-		InitPadLayout(dp_xres, dp_yres);
+		InitPadLayout(g_display.dp_xres, g_display.dp_yres);
 
 		if (GetUIState() == UISTATE_INGAME && !g_Config.bShowTouchControls)
 			QApplication::setOverrideCursor(QCursor(Qt::BlankCursor));
@@ -387,7 +387,7 @@ void MainWindow::SetFullScreen(bool fullscreen) {
 
 		showNormal();
 		SetWindowScale(-1);
-		InitPadLayout(dp_xres, dp_yres);
+		InitPadLayout(g_display.dp_xres, g_display.dp_yres);
 
 		if (GetUIState() == UISTATE_INGAME && QApplication::overrideCursor())
 			QApplication::restoreOverrideCursor();
@@ -423,7 +423,7 @@ void MainWindow::forumAct()
 
 void MainWindow::goldAct()
 {
-	QDesktopServices::openUrl(QUrl("https://central.ppsspp.org/buygold"));
+	QDesktopServices::openUrl(QUrl("https://www.ppsspp.org/buygold"));
 }
 
 void MainWindow::gitAct()
@@ -587,8 +587,6 @@ void MainWindow::createMenus()
 		->addDisableState(UISTATE_MENU);
 	debugMenu->add(new MenuAction(this, SLOT(dumpNextAct()),  QT_TR_NOOP("D&ump next frame to log")))
 		->addDisableState(UISTATE_MENU);
-	debugMenu->add(new MenuAction(this, SLOT(statsAct()),   QT_TR_NOOP("Show debu&g statistics")))
-		->addEventChecked(&g_Config.bShowDebugStats);
 	debugMenu->addSeparator();
 	debugMenu->add(new MenuAction(this, SLOT(consoleAct()),   QT_TR_NOOP("&Log console"), Qt::CTRL + Qt::Key_L))
 		->addDisableState(UISTATE_MENU);
@@ -655,8 +653,6 @@ void MainWindow::createMenus()
 		->addEventChecked(&g_Config.bHardwareTransform);
 	gameSettingsMenu->add(new MenuAction(this, SLOT(vertexCacheAct()),   QT_TR_NOOP("&Vertex cache")))
 		->addEventChecked(&g_Config.bVertexCache);
-	gameSettingsMenu->add(new MenuAction(this, SLOT(showFPSAct()), QT_TR_NOOP("&Show FPS counter")))
-		->addEventChecked(&g_Config.iShowFPSCounter);
 	gameSettingsMenu->addSeparator();
 	gameSettingsMenu->add(new MenuAction(this, SLOT(audioAct()),   QT_TR_NOOP("Enable s&ound")))
 		->addEventChecked(&g_Config.bEnableSound);

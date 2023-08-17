@@ -24,7 +24,7 @@
 #include "Common/Data/Text/I18n.h"
 #include "Common/Math/curves.h"
 #include "Common/System/NativeApp.h"
-#include "Common/System/System.h"
+#include "Common/System/Request.h"
 #include "Common/Data/Encoding/Utf8.h"
 #include "Common/UI/Context.h"
 #include "Common/UI/View.h"
@@ -38,7 +38,6 @@
 #include "Common/File/FileUtil.h"
 #include "Common/TimeUtil.h"
 #include "Common/StringUtils.h"
-#include "Core/Host.h"
 #include "Core/Config.h"
 #include "Core/Loaders.h"
 #include "Core/SaveState.h"
@@ -99,7 +98,7 @@ public:
 		LinearLayout *toprow = new LinearLayout(ORIENT_HORIZONTAL, new LayoutParams(FILL_PARENT, WRAP_CONTENT));
 		content->Add(toprow);
 
-		auto sa = GetI18NCategory("Savedata");
+		auto sa = GetI18NCategory(I18NCat::SAVEDATA);
 		if (ginfo->fileType == IdentifiedFileType::PSP_SAVEDATA_DIRECTORY) {
 			std::string savedata_detail = ginfo->paramSFO.GetValueString("SAVEDATA_DETAIL");
 			std::string savedata_title = ginfo->paramSFO.GetValueString("SAVEDATA_TITLE");
@@ -126,7 +125,7 @@ public:
 			content->Add(new TextView(GetFileDateAsString(savePath_), 0, true, new LinearLayoutParams(Margins(10, 5))))->SetTextColor(textStyle.fgColor);
 		}
 
-		auto di = GetI18NCategory("Dialog");
+		auto di = GetI18NCategory(I18NCat::DIALOG);
 		LinearLayout *buttons = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 		buttons->SetSpacing(0);
 		Margins buttonMargins(5, 5);
@@ -409,8 +408,8 @@ void SavedataButton::Draw(UIContext &dc) {
 }
 
 std::string SavedataButton::DescribeText() const {
-	auto u = GetI18NCategory("UI Elements");
-	return ReplaceAll(u->T("%1 button"), "%1", title_) + "\n" + subtitle_;
+	auto u = GetI18NCategory(I18NCat::UI_ELEMENTS);
+	return ApplySafeSubstitutions(u->T("%1 button"), title_) + "\n" + subtitle_;
 }
 
 SavedataBrowser::SavedataBrowser(const Path &path, UI::LayoutParams *layoutParams)
@@ -458,7 +457,7 @@ void SavedataBrowser::Update() {
 }
 
 void SavedataBrowser::SetSearchFilter(const std::string &filter) {
-	auto sa = GetI18NCategory("Savedata");
+	auto sa = GetI18NCategory(I18NCat::SAVEDATA);
 
 	searchFilter_.resize(filter.size());
 	std::transform(filter.begin(), filter.end(), searchFilter_.begin(), tolower);
@@ -466,9 +465,9 @@ void SavedataBrowser::SetSearchFilter(const std::string &filter) {
 	if (gameList_)
 		searchPending_ = true;
 	if (noMatchView_)
-		noMatchView_->SetText(ReplaceAll(sa->T("Nothing matching '%1' was found."), "%1", filter));
+		noMatchView_->SetText(ApplySafeSubstitutions(sa->T("Nothing matching '%1' was found."), filter));
 	if (searchingView_)
-		searchingView_->SetText(ReplaceAll(sa->T("Showing matches for '%1'."), "%1", filter));
+		searchingView_->SetText(ApplySafeSubstitutions(sa->T("Showing matches for '%1'."), filter));
 }
 
 void SavedataBrowser::SetSortOption(SavedataSortOption opt) {
@@ -539,8 +538,8 @@ void SavedataBrowser::Refresh() {
 	Clear();
 
 	Add(new Spacer(1.0f));
-	auto mm = GetI18NCategory("MainMenu");
-	auto sa = GetI18NCategory("Savedata");
+	auto mm = GetI18NCategory(I18NCat::MAINMENU);
+	auto sa = GetI18NCategory(I18NCat::SAVEDATA);
 
 	// Find games in the current directory and create new ones.
 	std::vector<SavedataButton *> savedataButtons;
@@ -613,8 +612,8 @@ SavedataScreen::~SavedataScreen() {
 
 void SavedataScreen::CreateViews() {
 	using namespace UI;
-	auto sa = GetI18NCategory("Savedata");
-	auto di = GetI18NCategory("Dialog");
+	auto sa = GetI18NCategory(I18NCat::SAVEDATA);
+	auto di = GetI18NCategory(I18NCat::DIALOG);
 	Path savedata_dir = GetSysDirectory(DIRECTORY_SAVEDATA);
 	Path savestate_dir = GetSysDirectory(DIRECTORY_SAVESTATE);
 
@@ -655,8 +654,9 @@ void SavedataScreen::CreateViews() {
 	sortStrip->OnChoice.Handle<SavedataScreen>(this, &SavedataScreen::OnSortClick);
 
 	AddStandardBack(root_);
-	if (System_GetPropertyBool(SYSPROP_HAS_KEYBOARD))
+	if (System_GetPropertyBool(SYSPROP_HAS_TEXT_INPUT_DIALOG)) {
 		root_->Add(new Choice(di->T("Search"), "", false, new AnchorLayoutParams(WRAP_CONTENT, 64, NONE, NONE, 10, 10)))->OnClick.Handle<SavedataScreen>(this, &SavedataScreen::OnSearch);
+	}
 
 	root_->Add(main);
 	root_->Add(sortStrip);
@@ -672,14 +672,14 @@ UI::EventReturn SavedataScreen::OnSortClick(UI::EventParams &e) {
 }
 
 UI::EventReturn SavedataScreen::OnSearch(UI::EventParams &e) {
-	auto di = GetI18NCategory("Dialog");
-#if PPSSPP_PLATFORM(WINDOWS) || defined(USING_QT_UI) || defined(__ANDROID__)
-	System_InputBoxGetString(di->T("Filter"), searchFilter_, [](bool result, const std::string &value) {
-		if (result) {
-			NativeMessageReceived("savedatascreen_search", value.c_str());
-		}
-	});
-#endif
+	auto di = GetI18NCategory(I18NCat::DIALOG);
+	if (System_GetPropertyBool(SYSPROP_HAS_TEXT_INPUT_DIALOG)) {
+		System_InputBoxGetString(di->T("Filter"), searchFilter_, [](const std::string &value, int ivalue) {
+			if (ivalue) {
+				System_PostUIMessage("savedatascreen_search", value.c_str());
+			}
+		});
+	}
 	return UI::EVENT_DONE;
 }
 

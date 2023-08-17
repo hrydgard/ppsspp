@@ -38,12 +38,12 @@ public:
 
 	void SetFramebufferManager(FramebufferManagerDX9 *fbManager);
 
-	void ForgetLastTexture() override {
-		InvalidateLastTexture();
-	}
-	void InvalidateLastTexture() override;
+	void ForgetLastTexture() override;
 
 	bool GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level, bool *isFramebuffer) override;
+
+	void DeviceLost() override { draw_ = nullptr; }
+	void DeviceRestore(Draw::DrawContext *draw) override { draw_ = draw; }
 
 protected:
 	void BindTexture(TexCacheEntry *entry) override;

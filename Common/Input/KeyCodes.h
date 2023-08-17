@@ -1,6 +1,7 @@
 #pragma once
 
-typedef enum _keycode_t {
+// These mostly match Android keycodes.
+enum InputKeyCode {
 	NKCODE_BUTTON_CROSS = 23, // trackpad or X button(Xperia Play) is pressed
 	NKCODE_BUTTON_CROSS_PS3 = 96, // PS3 X button is pressed
 	NKCODE_BUTTON_CIRCLE = 1004, // Special custom keycode generated from 'O' button by our java code. Or 'O' button if Alt is pressed (TODO)
@@ -234,24 +235,6 @@ typedef enum _keycode_t {
 	NKCODE_LEFTBRACE = 221,
 	NKCODE_RIGHTBRACE = 222,
 
-	// Ouya buttons. Just here for reference, they map straight to regular android buttons
-	// and will be mapped the same way.
-	NKCODE_OUYA_BUTTON_A = 97,
-	NKCODE_OUYA_BUTTON_DPAD_DOWN = 20,
-	NKCODE_OUYA_BUTTON_DPAD_LEFT = 21,
-	NKCODE_OUYA_BUTTON_DPAD_RIGHT = 22,
-	NKCODE_OUYA_BUTTON_DPAD_UP = 19,
-	NKCODE_OUYA_BUTTON_L1 = 102,
-	NKCODE_OUYA_BUTTON_L2 = 104,
-	NKCODE_OUYA_BUTTON_L3 = 106,
-	NKCODE_OUYA_BUTTON_MENU = 82,
-	NKCODE_OUYA_BUTTON_O = 96,
-	NKCODE_OUYA_BUTTON_R1 = 103,
-	NKCODE_OUYA_BUTTON_R2 = 105,
-	NKCODE_OUYA_BUTTON_R3 = 107,
-	NKCODE_OUYA_BUTTON_U = 99,
-	NKCODE_OUYA_BUTTON_Y = 100,
-
 	// Extended keycodes, not available on Android
 	NKCODE_EXT_PIPE = 1001,  // The key next to Z on euro 102-key keyboards.
 
@@ -263,15 +246,24 @@ typedef enum _keycode_t {
 	NKCODE_EXT_MOUSEWHEEL_UP = 1008,
 	NKCODE_EXT_MOUSEWHEEL_DOWN = 1009,
 
-	// Virtual reality controller motion
+	// Virtual reality motion
 	NKCODE_EXT_MOTION_UP = 1101,
 	NKCODE_EXT_MOTION_DOWN = 1102,
 	NKCODE_EXT_MOTION_LEFT = 1103,
 	NKCODE_EXT_MOTION_RIGHT = 1104,
 	NKCODE_EXT_MOTION_FORWARD = 1105,
-} keycode_t;
 
-enum AndroidJoystickAxis {
+	// Virtual reality rotation
+	NKCODE_EXT_ROTATION_UP = 1111,
+	NKCODE_EXT_ROTATION_DOWN = 1112,
+	NKCODE_EXT_ROTATION_LEFT = 1113,
+	NKCODE_EXT_ROTATION_RIGHT = 1114,
+
+	NKCODE_MAX
+};
+
+// These mostly match Android axis IDs.
+enum InputAxis {
 	// Field descriptor #15 I
 	JOYSTICK_AXIS_X = 0,
 	JOYSTICK_AXIS_Y = 1,
@@ -313,16 +305,11 @@ enum AndroidJoystickAxis {
 	JOYSTICK_AXIS_MOUSE_REL_X = 26,
 	JOYSTICK_AXIS_MOUSE_REL_Y = 27,
 
-	// Getting these on Ouya, no clue what they are.
-	JOYSTICK_AXIS_OUYA_UNKNOWN1 = 32,
-	JOYSTICK_AXIS_OUYA_UNKNOWN2 = 33,
-	JOYSTICK_AXIS_OUYA_UNKNOWN3 = 34,
-	JOYSTICK_AXIS_OUYA_UNKNOWN4 = 35,
-
 	// Mobile device accelerometer/gyro
 	JOYSTICK_AXIS_ACCELEROMETER_X = 40,
 	JOYSTICK_AXIS_ACCELEROMETER_Y = 41,
 	JOYSTICK_AXIS_ACCELEROMETER_Z = 42,
 
+	// The numbers must NOT be changed, only additions are allowed
 	JOYSTICK_AXIS_MAX = 44
 };

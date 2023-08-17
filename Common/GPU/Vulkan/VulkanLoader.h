@@ -33,6 +33,11 @@
 
 #include "ext/vulkan/vulkan.h"
 
+// Hacky X11 header workaround
+#ifdef Opposite
+#undef Opposite
+#endif
+
 namespace PPSSPP_VK {
 // Putting our own Vulkan function pointers in a namespace ensures that ppsspp_libretro.so doesn't collide with libvulkan.so.
 extern PFN_vkCreateInstance vkCreateInstance;
@@ -194,6 +199,11 @@ extern PFN_vkCreateWaylandSurfaceKHR vkCreateWaylandSurfaceKHR;
 #endif
 #if defined(VK_USE_PLATFORM_DISPLAY_KHR)
 extern PFN_vkCreateDisplayPlaneSurfaceKHR vkCreateDisplayPlaneSurfaceKHR;
+extern PFN_vkGetPhysicalDeviceDisplayPropertiesKHR vkGetPhysicalDeviceDisplayPropertiesKHR;
+extern PFN_vkGetPhysicalDeviceDisplayPlanePropertiesKHR vkGetPhysicalDeviceDisplayPlanePropertiesKHR;
+extern PFN_vkGetDisplayModePropertiesKHR vkGetDisplayModePropertiesKHR;
+extern PFN_vkGetDisplayPlaneSupportedDisplaysKHR vkGetDisplayPlaneSupportedDisplaysKHR;
+extern PFN_vkGetDisplayPlaneCapabilitiesKHR vkGetDisplayPlaneCapabilitiesKHR;
 #endif
 
 extern PFN_vkDestroySurfaceKHR vkDestroySurfaceKHR;
@@ -225,6 +235,9 @@ extern PFN_vkGetMemoryHostPointerPropertiesEXT vkGetMemoryHostPointerPropertiesE
 extern PFN_vkGetPhysicalDeviceProperties2KHR vkGetPhysicalDeviceProperties2KHR;
 extern PFN_vkGetPhysicalDeviceFeatures2KHR vkGetPhysicalDeviceFeatures2KHR;
 extern PFN_vkCreateRenderPass2KHR vkCreateRenderPass2KHR;
+extern PFN_vkWaitForPresentKHR vkWaitForPresentKHR;
+extern PFN_vkGetPastPresentationTimingGOOGLE vkGetPastPresentationTimingGOOGLE;
+extern PFN_vkGetRefreshCycleDurationGOOGLE vkGetRefreshCycleDurationGOOGLE;
 } // namespace PPSSPP_VK
 
 // For fast extension-enabled checks.
@@ -237,13 +250,15 @@ struct VulkanExtensions {
 	bool KHR_get_memory_requirements2;
 	bool KHR_dedicated_allocation;
 	bool KHR_create_renderpass2;
-	bool EXT_external_memory_host;
 	bool KHR_get_physical_device_properties2;
 	bool KHR_depth_stencil_resolve;
 	bool EXT_shader_stencil_export;
 	bool EXT_swapchain_colorspace;
 	bool ARM_rasterization_order_attachment_access;
 	bool EXT_fragment_shader_interlock;
+	bool KHR_present_id;  // Should probably check the feature flags instead.
+	bool KHR_present_wait;  // Same
+	bool GOOGLE_display_timing;
 	// bool EXT_depth_range_unrestricted;  // Allows depth outside [0.0, 1.0] in 32-bit float depth buffers.
 };
 

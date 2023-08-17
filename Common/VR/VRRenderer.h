@@ -4,8 +4,8 @@
 #include "VRMath.h"
 
 enum VRConfig {
-	//switching between 2D and 3D
-	VR_CONFIG_MODE,
+	//switching between mode
+	VR_CONFIG_MODE, VR_CONFIG_PASSTHROUGH, VR_CONFIG_CANVAS_6DOF,
 	//mouse cursor
 	VR_CONFIG_MOUSE_SIZE, VR_CONFIG_MOUSE_X, VR_CONFIG_MOUSE_Y,
 	//viewport setup
@@ -48,3 +48,4 @@ void VR_SetConfigFloat( VRConfigFloat config, float value );
 
 void* VR_BindFramebuffer(engine_t *engine);
 XrView VR_GetView(int eye);
+XrVector3f VR_GetHMDAngles();

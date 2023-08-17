@@ -87,6 +87,13 @@ namespace W32Util
 		SetWindowPos(hwnd, style, 0,0,0,0, SWP_NOMOVE | SWP_NOSIZE);
 	}
 
+	void GetWindowRes(HWND hWnd, int *xres, int *yres) {
+		RECT rc;
+		GetClientRect(hWnd, &rc);
+		*xres = rc.right - rc.left;
+		*yres = rc.bottom - rc.top;
+	}
+
 	static const wchar_t *RemoveExecutableFromCommandLine(const wchar_t *cmdline) {
 		if (!cmdline) {
 			return L"";
@@ -402,27 +409,36 @@ void GenericListControl::ProcessUpdate() {
 		ListView_DeleteItem(handle,--items);
 	}
 
+	for (auto &act : pendingActions_) {
+		switch (act.action) {
+		case Action::CHECK:
+			ListView_SetCheckState(handle, act.item, act.state ? TRUE : FALSE);
+			break;
+
+		case Action::IMAGE:
+			ListView_SetItemState(handle, act.item, (act.state & 0xF) << 12, LVIS_STATEIMAGEMASK);
+			break;
+		}
+	}
+	pendingActions_.clear();
+
 	ResizeColumns();
 
 	InvalidateRect(handle, nullptr, TRUE);
-	UpdateWindow(handle);
 	ListView_RedrawItems(handle, 0, newRows - 1);
+	UpdateWindow(handle);
 	updating = false;
 }
 
 
-void GenericListControl::SetCheckState(int item, bool state)
-{
-	updating = true;
-	ListView_SetCheckState(handle,item,state ? TRUE : FALSE);
-	updating = false;
+void GenericListControl::SetCheckState(int item, bool state) {
+	pendingActions_.push_back({ Action::CHECK, item, state ? 1 : 0 });
+	Update();
 }
 
 void GenericListControl::SetItemState(int item, uint8_t state) {
-	updating = true;
-	ListView_SetItemState(handle, item, (state & 0xF) << 12, LVIS_STATEIMAGEMASK);
-	ListView_RedrawItems(handle, item, item);
-	updating = false;
+	pendingActions_.push_back({ Action::IMAGE, item, (int)state });
+	Update();
 }
 
 void GenericListControl::ResizeColumns()

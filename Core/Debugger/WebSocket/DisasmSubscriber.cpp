@@ -263,7 +263,7 @@ void WebSocketDisasmState::WriteBranchGuide(JsonWriter &json, const BranchLine &
 void WebSocketDisasmState::Base(DebuggerRequest &req) {
 	JsonWriter &json = req.Respond();
 	Reporting::NotifyDebugger();
-	json.writeString("addressHex", StringFromFormat("%016llx", (uintptr_t)Memory::base));
+	json.writeString("addressHex", StringFromFormat("%016llx", (uint64_t)(uintptr_t)Memory::base));
 }
 
 // Disassemble a range of memory as CPU instructions (memory.disasm)

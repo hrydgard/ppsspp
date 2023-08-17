@@ -17,6 +17,7 @@
 
 #include "Common/Log.h"
 #include "Common/Math/expression_parser.h"
+#include "Common/StringUtils.h"
 #include "Core/Debugger/SymbolMap.h"
 #include "GPU/Common/GPUDebugInterface.h"
 #include "GPU/Debugger/Debugger.h"
@@ -516,7 +517,7 @@ public:
 	bool parseSymbol(char *str, uint32_t &symbolValue) override;
 	uint32_t getReferenceValue(uint32_t referenceIndex) override;
 	ExpressionType getReferenceType(uint32_t referenceIndex) override;
-	bool getMemoryValue(uint32_t address, int size, uint32_t &dest, char *error) override;
+	bool getMemoryValue(uint32_t address, int size, uint32_t &dest, std::string *error) override;
 
 private:
 	bool parseFieldReference(const char *ref, const char *field, uint32_t &referenceIndex);
@@ -926,24 +927,27 @@ ExpressionType GEExpressionFunctions::getFieldType(GECmdFormat fmt, GECmdField f
 	return EXPR_TYPE_UINT;
 }
 
-bool GEExpressionFunctions::getMemoryValue(uint32_t address, int size, uint32_t &dest, char *error) {
+bool GEExpressionFunctions::getMemoryValue(uint32_t address, int size, uint32_t &dest, std::string *error) {
 	// We allow, but ignore, bad access.
 	// If we didn't, log/condition statements that reference registers couldn't be configured.
-	bool valid = Memory::IsValidRange(address, size);
+	uint32_t valid = Memory::ValidSize(address, size);
+	uint8_t buf[4]{};
+	if (valid != 0)
+		memcpy(buf, Memory::GetPointerUnchecked(address), valid);
 
 	switch (size) {
 	case 1:
-		dest = valid ? Memory::Read_U8(address) : 0;
+		dest = buf[0];
 		return true;
 	case 2:
-		dest = valid ? Memory::Read_U16(address) : 0;
+		dest = (buf[1] << 8) | buf[0];
 		return true;
 	case 4:
-		dest = valid ? Memory::Read_U32(address) : 0;
+		dest = (buf[3] << 24) | (buf[2] << 16) | (buf[1] << 8) | buf[0];
 		return true;
 	}
 
-	sprintf(error, "Unexpected memory access size %d", size);
+	*error = StringFromFormat("Unexpected memory access size %d", size);
 	return false;
 }
 

@@ -406,6 +406,10 @@ public:
 	const u8 *AlignCode4();
 	const u8 *AlignCode16();
 	const u8 *AlignCodePage();
+
+	// Nops until the code pointer is 16-byte aligned. Good for loops.
+	const u8 *NopAlignCode16();
+
 	u8 *GetWritableCodePtr();
 
 	void LockFlags() { flags_locked = true; }

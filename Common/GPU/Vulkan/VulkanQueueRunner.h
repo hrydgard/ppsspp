@@ -6,6 +6,7 @@
 
 #include "Common/Thread/Promise.h"
 #include "Common/Data/Collections/Hashmaps.h"
+#include "Common/Data/Collections/FastVec.h"
 #include "Common/GPU/Vulkan/VulkanContext.h"
 #include "Common/GPU/Vulkan/VulkanBarrier.h"
 #include "Common/GPU/Vulkan/VulkanFrameData.h"
@@ -38,9 +39,7 @@ enum class VKRRenderCommand : uint8_t {
 	DRAW,
 	DRAW_INDEXED,
 	PUSH_CONSTANTS,
-	SELF_DEPENDENCY_BARRIER,
 	DEBUG_ANNOTATION,
-	BIND_DESCRIPTOR_SET,
 	NUM_RENDER_COMMANDS,
 };
 
@@ -48,10 +47,9 @@ enum class PipelineFlags : u8 {
 	NONE = 0,
 	USES_BLEND_CONSTANT = (1 << 1),
 	USES_DEPTH_STENCIL = (1 << 2),  // Reads or writes the depth or stencil buffers.
-	USES_INPUT_ATTACHMENT = (1 << 3),
-	USES_GEOMETRY_SHADER = (1 << 4),
-	USES_MULTIVIEW = (1 << 5),  // Inherited from the render pass it was created with.
-	USES_DISCARD = (1 << 6),
+	USES_GEOMETRY_SHADER = (1 << 3),
+	USES_MULTIVIEW = (1 << 4),  // Inherited from the render pass it was created with.
+	USES_DISCARD = (1 << 5),
 };
 ENUM_CLASS_BITOPS(PipelineFlags);
 
@@ -81,15 +79,14 @@ struct VkRenderData {
 		} draw;
 		struct {
 			VkDescriptorSet ds;
-			int numUboOffsets;
 			uint32_t uboOffsets[3];
+			uint16_t numUboOffsets;
+			uint16_t instances;
 			VkBuffer vbuffer;
 			VkBuffer ibuffer;
 			uint32_t voffset;
 			uint32_t ioffset;
 			uint32_t count;
-			int16_t instances;
-			int16_t indexType;
 		} drawIndexed;
 		struct {
 			uint32_t clearColor;
@@ -154,7 +151,7 @@ struct VKRStep {
 	~VKRStep() {}
 
 	VKRStepType stepType;
-	std::vector<VkRenderData> commands;
+	FastVec<VkRenderData> commands;
 	TinySet<TransitionRequest, 4> preTransitions;
 	TinySet<VKRFramebuffer *, 8> dependencies;
 	const char *tag;
@@ -200,6 +197,7 @@ struct VKRStep {
 			int aspectMask;
 			VKRFramebuffer *src;
 			VkRect2D srcRect;
+			bool delayed;
 		} readback;
 		struct {
 			VkImage image;
@@ -212,9 +210,14 @@ struct VKRStep {
 // These are enqueued from the main thread,
 // and the render thread pops them off
 struct VKRRenderThreadTask {
+	VKRRenderThreadTask(VKRRunType _runType) : runType(_runType) {}
 	std::vector<VKRStep *> steps;
-	int frame;
+	int frame = -1;
 	VKRRunType runType;
+
+	// Avoid copying these by accident.
+	VKRRenderThreadTask(VKRRenderThreadTask &) = delete;
+	VKRRenderThreadTask &operator =(VKRRenderThreadTask &) = delete;
 };
 
 class VulkanQueueRunner {
@@ -253,7 +256,8 @@ public:
 		return (int)depth * 3 + (int)color;
 	}
 
-	void CopyReadbackBuffer(int width, int height, Draw::DataFormat srcFormat, Draw::DataFormat destFormat, int pixelStride, uint8_t *pixels);
+	// src == 0 means to copy from the sync readback buffer.
+	bool CopyReadbackBuffer(FrameData &frameData, VKRFramebuffer *src, int width, int height, Draw::DataFormat srcFormat, Draw::DataFormat destFormat, int pixelStride, uint8_t *pixels);
 
 	VKRRenderPass *GetRenderPass(const RPKey &key);
 
@@ -289,7 +293,7 @@ private:
 	void PerformRenderPass(const VKRStep &pass, VkCommandBuffer cmd);
 	void PerformCopy(const VKRStep &pass, VkCommandBuffer cmd);
 	void PerformBlit(const VKRStep &pass, VkCommandBuffer cmd);
-	void PerformReadback(const VKRStep &pass, VkCommandBuffer cmd);
+	void PerformReadback(const VKRStep &pass, VkCommandBuffer cmd, FrameData &frameData);
 	void PerformReadbackImage(const VKRStep &pass, VkCommandBuffer cmd);
 
 	void LogRenderPass(const VKRStep &pass, bool verbose);
@@ -298,7 +302,7 @@ private:
 	void LogReadback(const VKRStep &pass);
 	void LogReadbackImage(const VKRStep &pass);
 
-	void ResizeReadbackBuffer(VkDeviceSize requiredSize);
+	void ResizeReadbackBuffer(CachedReadback *readback, VkDeviceSize requiredSize);
 
 	void ApplyMGSHack(std::vector<VKRStep *> &steps);
 	void ApplySonicHack(std::vector<VKRStep *> &steps);
@@ -307,8 +311,6 @@ private:
 	static void SetupTransitionToTransferSrc(VKRImage &img, VkImageAspectFlags aspect, VulkanBarrier *recordBarrier);
 	static void SetupTransitionToTransferDst(VKRImage &img, VkImageAspectFlags aspect, VulkanBarrier *recordBarrier);
 	static void SetupTransferDstWriteAfterWrite(VKRImage &img, VkImageAspectFlags aspect, VulkanBarrier *recordBarrier);
-
-	static void SelfDependencyBarrier(VKRImage &img, VkImageAspectFlags aspect, VulkanBarrier *recordBarrier);
 
 	VulkanContext *vulkan_;
 
@@ -324,10 +326,7 @@ private:
 
 	// Readback buffer. Currently we only support synchronous readback, so we only really need one.
 	// We size it generously.
-	VkDeviceMemory readbackMemory_ = VK_NULL_HANDLE;
-	VkBuffer readbackBuffer_ = VK_NULL_HANDLE;
-	VkDeviceSize readbackBufferSize_ = 0;
-	bool readbackBufferIsCoherent_ = false;
+	CachedReadback syncReadback_{};
 
 	// TODO: Enable based on compat.ini.
 	uint32_t hacksEnabled_ = 0;

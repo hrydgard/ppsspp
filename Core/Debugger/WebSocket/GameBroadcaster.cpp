@@ -64,7 +64,7 @@ struct GameStatusEvent {
 //     - version: string disc version.
 //     - title: string game title.
 
-// Game resumed (game.pause)
+// Game resumed (game.resume)
 //
 // Note: this is not the same as stepping.  This means the user resumed from the pause menu.
 //

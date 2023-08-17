@@ -55,12 +55,13 @@ public:
 	virtual void postRender() {}
 	virtual void resized() {}
 	virtual void dialogFinished(const Screen *dialog, DialogResult result) {}
-	virtual bool touch(const TouchInput &touch) { return false;  }
-	virtual bool key(const KeyInput &key) { return false; }
-	virtual bool axis(const AxisInput &touch) { return false; }
 	virtual void sendMessage(const char *msg, const char *value) {}
 	virtual void deviceLost() {}
 	virtual void deviceRestored() {}
+
+	virtual void UnsyncTouch(const TouchInput &touch) = 0;
+	virtual bool UnsyncKey(const KeyInput &touch) = 0;
+	virtual void UnsyncAxis(const AxisInput &touch) = 0;
 
 	virtual void RecreateViews() {}
 
@@ -89,7 +90,6 @@ public:
 };
 
 enum {
-	LAYER_SIDEMENU = 1,
 	LAYER_TRANSPARENT = 2,
 };
 
@@ -97,7 +97,6 @@ typedef void(*PostRenderCallback)(UIContext *ui, void *userdata);
 
 class ScreenManager {
 public:
-	ScreenManager();
 	virtual ~ScreenManager();
 
 	void switchScreen(Screen *screen);
@@ -132,9 +131,9 @@ public:
 	Screen *dialogParent(const Screen *dialog) const;
 
 	// Instant touch, separate from the update() mechanism.
-	bool touch(const TouchInput &touch);
+	void touch(const TouchInput &touch);
 	bool key(const KeyInput &key);
-	bool axis(const AxisInput &touch);
+	void axis(const AxisInput &touch);
 
 	// Generic facility for gross hacks :P
 	void sendMessage(const char *msg, const char *value);
@@ -143,6 +142,9 @@ public:
 
 	void getFocusPosition(float &x, float &y, float &z);
 
+	// Will delete any existing overlay screen.
+	void SetOverlayScreen(Screen *screen);
+
 	std::recursive_mutex inputLock_;
 
 private:
@@ -150,14 +152,16 @@ private:
 	void switchToNext();
 	void processFinishDialog();
 
-	UIContext *uiContext_;
-	Draw::DrawContext *thin3DContext_;
+	UIContext *uiContext_ = nullptr;
+	Draw::DrawContext *thin3DContext_ = nullptr;
 
 	PostRenderCallback postRenderCb_ = nullptr;
 	void *postRenderUserdata_ = nullptr;
 
-	const Screen *dialogFinished_;
-	DialogResult dialogResult_;
+	const Screen *dialogFinished_ = nullptr;
+	DialogResult dialogResult_{};
+
+	Screen *overlayScreen_ = nullptr;
 
 	struct Layer {
 		Screen *screen;

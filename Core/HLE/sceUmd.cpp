@@ -17,13 +17,13 @@
 
 #include <vector>
 
+#include "Common/System/System.h"
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"
 #include "Common/Serialize/SerializeMap.h"
 #include "Core/Loaders.h"
 #include "Core/MemMap.h"
 #include "Core/System.h"
-#include "Core/Host.h"
 #include "Core/CoreTiming.h"
 #include "Core/Reporting.h"
 #include "Core/MIPS/MIPS.h"
@@ -34,6 +34,7 @@
 #include "Core/HLE/sceKernelInterrupt.h"
 #include "Core/HLE/sceKernelMemory.h"
 #include "Core/HLE/KernelWaitHelpers.h"
+#include "Core/RetroAchievements.h"
 
 #include "Core/FileSystems/BlockDevices.h"
 #include "Core/FileSystems/MetaFileSystem.h"
@@ -104,8 +105,9 @@ void __UmdDoState(PointerWrap &p)
 
 	if (s > 1) {
 		Do(p, UMDReplacePermit);
-		if (UMDReplacePermit)
-			host->UpdateUI();
+		if (UMDReplacePermit) {
+			System_Notify(SystemNotification::UI);
+		}
 	}
 	if (s > 2) {
 		Do(p, umdInsertChangeEvent);
@@ -482,12 +484,14 @@ static u32 sceUmdGetErrorStat()
 	return umdErrorStat;
 }
 
-void __UmdReplace(Path filepath) {
+void __UmdReplace(const Path &filepath) {
 	std::string error = "";
 	if (!UmdReplace(filepath, error)) {
 		ERROR_LOG(SCEIO, "UMD Replace failed: %s", error.c_str());
 		return;
 	}
+
+	Achievements::ChangeUMD(filepath);
 
 	UMDInserted = false;
 	// Wake any threads waiting for the disc to be removed.
@@ -509,7 +513,7 @@ static u32 sceUmdReplaceProhibit()
 	DEBUG_LOG(SCEIO,"sceUmdReplaceProhibit()");
 	if (UMDReplacePermit) {
 		UMDReplacePermit = false;
-		host->NotifySwitchUMDUpdated();
+		System_Notify(SystemNotification::SWITCH_UMD_UPDATED);
 	}
 	return 0;
 }
@@ -519,7 +523,7 @@ static u32 sceUmdReplacePermit()
 	DEBUG_LOG(SCEIO,"sceUmdReplacePermit()");
 	if (!UMDReplacePermit) {
 		UMDReplacePermit = true;
-		host->NotifySwitchUMDUpdated();
+		System_Notify(SystemNotification::SWITCH_UMD_UPDATED);
 	}
 	return 0;
 }

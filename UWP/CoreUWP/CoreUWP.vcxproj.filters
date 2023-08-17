@@ -62,6 +62,9 @@
     <Filter Include="Ext\disarm">
       <UniqueIdentifier>{e0604f48-5522-43e8-ba22-6d08bc2ccacd}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Ext\riscv-disas">
+      <UniqueIdentifier>{e0604f48-5522-43e8-ba22-6d08bc2ccaee}</UniqueIdentifier>
+    </Filter>
     <Filter Include="MIPS\IR">
       <UniqueIdentifier>{9c6552c2-9858-41da-a920-31ea5628d417}</UniqueIdentifier>
     </Filter>
@@ -93,7 +96,6 @@
     <ClCompile Include="..\..\Core\CwCheat.cpp" />
     <ClCompile Include="..\..\Core\HDRemaster.cpp" />
     <ClCompile Include="..\..\Core\Instance.cpp" />
-    <ClCompile Include="..\..\Core\Host.cpp" />
     <ClCompile Include="..\..\Core\Loaders.cpp" />
     <ClCompile Include="..\..\Core\MemFault.cpp" />
     <ClCompile Include="..\..\Core\MemMap.cpp" />
@@ -105,7 +107,6 @@
     <ClCompile Include="..\..\Core\SaveState.cpp" />
     <ClCompile Include="..\..\Core\Screenshot.cpp" />
     <ClCompile Include="..\..\Core\System.cpp" />
-    <ClCompile Include="..\..\Core\TextureReplacer.cpp" />
     <ClCompile Include="..\..\Core\WaveFile.cpp" />
     <ClCompile Include="..\..\Core\MIPS\ARM\ArmAsm.cpp">
       <Filter>MIPS\ARM</Filter>
@@ -608,6 +609,9 @@
     <ClCompile Include="..\..\ext\disarm.cpp">
       <Filter>Ext\disarm</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\ext\riscv-disas.cpp">
+      <Filter>Ext\riscv-disas</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\ext\xxhash.c">
       <Filter>Ext</Filter>
     </ClCompile>
@@ -641,6 +645,12 @@
     <ClCompile Include="..\..\Core\MIPS\IR\IRJit.cpp">
       <Filter>MIPS\IR</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\Core\MIPS\IR\IRNativeCommon.cpp">
+      <Filter>MIPS\IR</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Core\MIPS\IR\IRAnalysis.cpp">
+      <Filter>MIPS\IR</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\Core\MIPS\IR\IRPassSimplify.cpp">
       <Filter>MIPS\IR</Filter>
     </ClCompile>
@@ -665,6 +675,9 @@
       <Filter>Debugger\WebSocket</Filter>
     </ClCompile>
     <ClCompile Include="..\..\Core\Debugger\WebSocket\CPUCoreSubscriber.cpp">
+      <Filter>Debugger\WebSocket</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Core\Debugger\WebSocket\ClientConfigSubscriber.cpp">
       <Filter>Debugger\WebSocket</Filter>
     </ClCompile>
     <ClCompile Include="..\..\Core\Debugger\WebSocket\DisasmSubscriber.cpp">
@@ -1118,6 +1131,13 @@
     <ClCompile Include="..\..\Core\HLE\sceNp2.cpp">
       <Filter>HLE</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\Core\TiltEventProcessor.cpp" />
+    <ClCompile Include="..\..\Core\MIPS\MIPSVFPUFallbacks.cpp">
+      <Filter>MIPS</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Core\ConfigSettings.cpp" />
+    <ClCompile Include="..\..\Core\RetroAchievements.cpp" />
+    <ClCompile Include="..\..\Core\FrameTiming.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="pch.h" />
@@ -1130,7 +1150,6 @@
     <ClInclude Include="..\..\Core\CwCheat.h" />
     <ClInclude Include="..\..\Core\HDRemaster.h" />
     <ClInclude Include="..\..\Core\Instance.h" />
-    <ClInclude Include="..\..\Core\Host.h" />
     <ClInclude Include="..\..\Core\Loaders.h" />
     <ClInclude Include="..\..\Core\MemFault.h" />
     <ClInclude Include="..\..\Core\MemMap.h" />
@@ -1143,7 +1162,6 @@
     <ClInclude Include="..\..\Core\SaveState.h" />
     <ClInclude Include="..\..\Core\Screenshot.h" />
     <ClInclude Include="..\..\Core\System.h" />
-    <ClInclude Include="..\..\Core\TextureReplacer.h" />
     <ClInclude Include="..\..\Core\ThreadEventQueue.h" />
     <ClInclude Include="..\..\Core\WaveFile.h" />
     <ClInclude Include="..\..\Core\MIPS\ARM\ArmCompVFPUNEONUtil.h">
@@ -1638,6 +1656,9 @@
     <ClInclude Include="..\..\ext\disarm.h">
       <Filter>Ext\disarm</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\ext\riscv-disas.h">
+      <Filter>Ext\riscv-disas</Filter>
+    </ClInclude>
     <ClInclude Include="..\..\ext\xxhash.h">
       <Filter>Ext</Filter>
     </ClInclude>
@@ -1651,6 +1672,12 @@
       <Filter>MIPS\IR</Filter>
     </ClInclude>
     <ClInclude Include="..\..\Core\MIPS\IR\IRJit.h">
+      <Filter>MIPS\IR</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Core\MIPS\IR\IRNativeCommon.h">
+      <Filter>MIPS\IR</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Core\MIPS\IR\IRAnalysis.h">
       <Filter>MIPS\IR</Filter>
     </ClInclude>
     <ClInclude Include="..\..\Core\MIPS\IR\IRPassSimplify.h">
@@ -1767,6 +1794,14 @@
     <ClInclude Include="..\..\Core\HLE\sceNp2.h">
       <Filter>HLE</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\Core\TiltEventProcessor.h" />
+    <ClInclude Include="..\..\Core\MIPS\MIPSVFPUFallbacks.h">
+      <Filter>MIPS</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Core\ConfigSettings.h" />
+    <ClInclude Include="..\..\Core\Debugger\WebSocket\ClientConfigSubscriber.h" />
+    <ClInclude Include="..\..\Core\RetroAchievements.h" />
+    <ClInclude Include="..\..\Core\FrameTiming.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\..\ext\gason\LICENSE">

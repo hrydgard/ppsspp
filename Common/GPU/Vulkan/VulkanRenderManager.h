@@ -17,6 +17,7 @@
 #include "Common/System/Display.h"
 #include "Common/GPU/Vulkan/VulkanContext.h"
 #include "Common/Data/Convert/SmallDataConvert.h"
+#include "Common/Data/Collections/FastVec.h"
 #include "Common/Math/math_util.h"
 #include "Common/GPU/DataFormat.h"
 #include "Common/GPU/MiscTypes.h"
@@ -76,7 +77,10 @@ struct BoundingRect {
 
 // All the data needed to create a graphics pipeline.
 // TODO: Compress this down greatly.
-struct VKRGraphicsPipelineDesc : Draw::RefCountedObject {
+class VKRGraphicsPipelineDesc : public Draw::RefCountedObject {
+public:
+	VKRGraphicsPipelineDesc() : Draw::RefCountedObject("VKRGraphicsPipelineDesc") {}
+
 	VkPipelineCache pipelineCache = VK_NULL_HANDLE;
 	VkPipelineColorBlendStateCreateInfo cbs{ VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO };
 	VkPipelineColorBlendAttachmentState blend0{};
@@ -118,15 +122,9 @@ struct VKRComputePipelineDesc {
 // Wrapped pipeline. Doesn't own desc.
 struct VKRGraphicsPipeline {
 	VKRGraphicsPipeline(PipelineFlags flags, const char *tag) : flags_(flags), tag_(tag) {}
-	~VKRGraphicsPipeline() {
-		for (size_t i = 0; i < (size_t)RenderPassType::TYPE_COUNT; i++) {
-			delete pipeline[i];
-		}
-		if (desc)
-			desc->Release();
-	}
+	~VKRGraphicsPipeline();
 
-	bool Create(VulkanContext *vulkan, VkRenderPass compatibleRenderPass, RenderPassType rpType, VkSampleCountFlagBits sampleCount);
+	bool Create(VulkanContext *vulkan, VkRenderPass compatibleRenderPass, RenderPassType rpType, VkSampleCountFlagBits sampleCount, double scheduleTime, int countToCompile);
 
 	void DestroyVariants(VulkanContext *vulkan, bool msaaOnly);
 
@@ -141,7 +139,12 @@ struct VKRGraphicsPipeline {
 	Promise<VkPipeline> *pipeline[(size_t)RenderPassType::TYPE_COUNT]{};
 
 	VkSampleCountFlagBits SampleCount() const { return sampleCount_; }
+
+	const char *Tag() const { return tag_.c_str(); }
+
 private:
+	void DestroyVariantsInstant(VkDevice device);
+
 	std::string tag_;
 	PipelineFlags flags_;
 	VkSampleCountFlagBits sampleCount_ = VK_SAMPLE_COUNT_FLAG_BITS_MAX_ENUM;
@@ -155,7 +158,7 @@ struct VKRComputePipeline {
 	VKRComputePipelineDesc *desc = nullptr;
 	Promise<VkPipeline> *pipeline = nullptr;
 
-	bool Create(VulkanContext *vulkan);
+	bool CreateAsync(VulkanContext *vulkan);
 	bool Pending() const {
 		return pipeline == VK_NULL_HANDLE && desc != nullptr;
 	}
@@ -164,7 +167,7 @@ struct VKRComputePipeline {
 struct CompileQueueEntry {
 	CompileQueueEntry(VKRGraphicsPipeline *p, VkRenderPass _compatibleRenderPass, RenderPassType _renderPassType, VkSampleCountFlagBits _sampleCount)
 		: type(Type::GRAPHICS), graphics(p), compatibleRenderPass(_compatibleRenderPass), renderPassType(_renderPassType), sampleCount(_sampleCount) {}
-	CompileQueueEntry(VKRComputePipeline *p) : type(Type::COMPUTE), compute(p), renderPassType(RenderPassType::HAS_DEPTH), sampleCount(VK_SAMPLE_COUNT_1_BIT) {}  // renderpasstype here shouldn't matter
+	CompileQueueEntry(VKRComputePipeline *p) : type(Type::COMPUTE), compute(p), renderPassType(RenderPassType::DEFAULT), sampleCount(VK_SAMPLE_COUNT_1_BIT), compatibleRenderPass(VK_NULL_HANDLE) {}  // renderpasstype here shouldn't matter
 	enum class Type {
 		GRAPHICS,
 		COMPUTE,
@@ -179,13 +182,14 @@ struct CompileQueueEntry {
 
 class VulkanRenderManager {
 public:
-	VulkanRenderManager(VulkanContext *vulkan);
+	VulkanRenderManager(VulkanContext *vulkan, bool useThread, HistoryBuffer<FrameTimeData, FRAME_TIME_HISTORY_LENGTH> &frameTimeHistory);
 	~VulkanRenderManager();
 
 	// Makes sure that the GPU has caught up enough that we can start writing buffers of this frame again.
 	void BeginFrame(bool enableProfiling, bool enableLogProfiler);
-	// Can run on a different thread!
+	// These can run on a different thread!
 	void Finish();
+	void Present();
 	// Zaps queued up commands. Use if you know there's a risk you've queued up stuff that has already been deleted. Can happen during in-game shutdown.
 	void Wipe();
 
@@ -216,9 +220,7 @@ public:
 	// get an array texture view.
 	VkImageView BindFramebufferAsTexture(VKRFramebuffer *fb, int binding, VkImageAspectFlags aspectBits, int layer);
 
-	void BindCurrentFramebufferAsInputAttachment0(VkImageAspectFlags aspectBits);
-
-	bool CopyFramebufferToMemorySync(VKRFramebuffer *src, VkImageAspectFlags aspectBits, int x, int y, int w, int h, Draw::DataFormat destFormat, uint8_t *pixels, int pixelStride, const char *tag);
+	bool CopyFramebufferToMemory(VKRFramebuffer *src, VkImageAspectFlags aspectBits, int x, int y, int w, int h, Draw::DataFormat destFormat, uint8_t *pixels, int pixelStride, Draw::ReadbackMode mode, const char *tag);
 	void CopyImageToMemorySync(VkImage image, int mipLevel, int x, int y, int w, int h, Draw::DataFormat destFormat, uint8_t *pixels, int pixelStride, const char *tag);
 
 	void CopyFramebuffer(VKRFramebuffer *src, VkRect2D srcRect, VKRFramebuffer *dst, VkOffset2D dstPos, VkImageAspectFlags aspectMask, const char *tag);
@@ -229,7 +231,7 @@ public:
 	// We delay creating pipelines until the end of the current render pass, so we can create the right type immediately.
 	// Unless a variantBitmask is passed in, in which case we can just go ahead.
 	// WARNING: desc must stick around during the lifetime of the pipeline! It's not enough to build it on the stack and drop it.
-	VKRGraphicsPipeline *CreateGraphicsPipeline(VKRGraphicsPipelineDesc *desc, PipelineFlags pipelineFlags, uint32_t variantBitmask, VkSampleCountFlagBits sampleCount, const char *tag);
+	VKRGraphicsPipeline *CreateGraphicsPipeline(VKRGraphicsPipelineDesc *desc, PipelineFlags pipelineFlags, uint32_t variantBitmask, VkSampleCountFlagBits sampleCount, bool cacheLoad, const char *tag);
 	VKRComputePipeline *CreateComputePipeline(VKRComputePipelineDesc *desc);
 
 	void NudgeCompilerThread() {
@@ -238,20 +240,11 @@ public:
 		compileMutex_.unlock();
 	}
 
-	// Mainly used to bind the frame-global desc set.
-	// Can be done before binding a pipeline, so not asserting on that.
-	void BindDescriptorSet(int setNumber, VkDescriptorSet set, VkPipelineLayout pipelineLayout) {
-		VkRenderData data{ VKRRenderCommand::BIND_DESCRIPTOR_SET };
-		data.bindDescSet.setNumber = setNumber;
-		data.bindDescSet.set = set;
-		data.bindDescSet.pipelineLayout = pipelineLayout;
-		curRenderStep_->commands.push_back(data);
-	}
-
 	void BindPipeline(VKRGraphicsPipeline *pipeline, PipelineFlags flags, VkPipelineLayout pipelineLayout) {
 		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == VKRStepType::RENDER);
 		_dbg_assert_(pipeline != nullptr);
-		VkRenderData data{ VKRRenderCommand::BIND_GRAPHICS_PIPELINE };
+		VkRenderData &data = curRenderStep_->commands.push_uninitialized();
+		data.cmd = VKRRenderCommand::BIND_GRAPHICS_PIPELINE;
 		pipelinesToCheck_.push_back(pipeline);
 		data.graphics_pipeline.pipeline = pipeline;
 		data.graphics_pipeline.pipelineLayout = pipelineLayout;
@@ -260,24 +253,24 @@ public:
 		//     DebugBreak();
 		// }
 		curPipelineFlags_ |= flags;
-		curRenderStep_->commands.push_back(data);
 	}
 
 	void BindPipeline(VKRComputePipeline *pipeline, PipelineFlags flags, VkPipelineLayout pipelineLayout) {
 		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == VKRStepType::RENDER);
 		_dbg_assert_(pipeline != nullptr);
-		VkRenderData data{ VKRRenderCommand::BIND_COMPUTE_PIPELINE };
+		VkRenderData &data = curRenderStep_->commands.push_uninitialized();
+		data.cmd = VKRRenderCommand::BIND_COMPUTE_PIPELINE;
 		data.compute_pipeline.pipeline = pipeline;
 		data.compute_pipeline.pipelineLayout = pipelineLayout;
 		curPipelineFlags_ |= flags;
-		curRenderStep_->commands.push_back(data);
 	}
 
 	void SetViewport(const VkViewport &vp) {
 		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == VKRStepType::RENDER);
 		_dbg_assert_((int)vp.width >= 0);
 		_dbg_assert_((int)vp.height >= 0);
-		VkRenderData data{ VKRRenderCommand::VIEWPORT };
+		VkRenderData &data = curRenderStep_->commands.push_uninitialized();
+		data.cmd = VKRRenderCommand::VIEWPORT;
 		data.viewport.vp.x = vp.x;
 		data.viewport.vp.y = vp.y;
 		data.viewport.vp.width = vp.width;
@@ -287,7 +280,6 @@ public:
 		// TODO: This should be fixed at the source.
 		data.viewport.vp.minDepth = clamp_value(vp.minDepth, 0.0f, 1.0f);
 		data.viewport.vp.maxDepth = clamp_value(vp.maxDepth, 0.0f, 1.0f);
-		curRenderStep_->commands.push_back(data);
 		curStepHasViewport_ = true;
 	}
 
@@ -329,37 +321,37 @@ public:
 
 		curRenderArea_.Apply(rc);
 
-		VkRenderData data{ VKRRenderCommand::SCISSOR };
+		VkRenderData &data = curRenderStep_->commands.push_uninitialized();
+		data.cmd = VKRRenderCommand::SCISSOR;
 		data.scissor.scissor = rc;
-		curRenderStep_->commands.push_back(data);
 		curStepHasScissor_ = true;
 	}
 
 	void SetStencilParams(uint8_t writeMask, uint8_t compareMask, uint8_t refValue) {
 		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == VKRStepType::RENDER);
-		VkRenderData data{ VKRRenderCommand::STENCIL };
+		VkRenderData &data = curRenderStep_->commands.push_uninitialized();
+		data.cmd = VKRRenderCommand::STENCIL;
 		data.stencil.stencilWriteMask = writeMask;
 		data.stencil.stencilCompareMask = compareMask;
 		data.stencil.stencilRef = refValue;
-		curRenderStep_->commands.push_back(data);
 	}
 
 	void SetBlendFactor(uint32_t color) {
 		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == VKRStepType::RENDER);
-		VkRenderData data{ VKRRenderCommand::BLEND };
+		VkRenderData &data = curRenderStep_->commands.push_uninitialized();
+		data.cmd = VKRRenderCommand::BLEND;
 		data.blendColor.color = color;
-		curRenderStep_->commands.push_back(data);
 	}
 
 	void PushConstants(VkPipelineLayout pipelineLayout, VkShaderStageFlags stages, int offset, int size, void *constants) {
 		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == VKRStepType::RENDER);
 		_dbg_assert_(size + offset < 40);
-		VkRenderData data{ VKRRenderCommand::PUSH_CONSTANTS };
+		VkRenderData &data = curRenderStep_->commands.push_uninitialized();
+		data.cmd = VKRRenderCommand::PUSH_CONSTANTS;
 		data.push.stages = stages;
 		data.push.offset = offset;
 		data.push.size = size;
 		memcpy(data.push.data, constants, size);
-		curRenderStep_->commands.push_back(data);
 	}
 
 	void Clear(uint32_t clearColor, float clearZ, int clearStencil, int clearMask);
@@ -391,7 +383,8 @@ public:
 
 	void Draw(VkDescriptorSet descSet, int numUboOffsets, const uint32_t *uboOffsets, VkBuffer vbuffer, int voffset, int count, int offset = 0) {
 		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == VKRStepType::RENDER && curStepHasViewport_ && curStepHasScissor_);
-		VkRenderData data{ VKRRenderCommand::DRAW };
+		VkRenderData &data = curRenderStep_->commands.push_uninitialized();
+		data.cmd = VKRRenderCommand::DRAW;
 		data.draw.count = count;
 		data.draw.offset = offset;
 		data.draw.ds = descSet;
@@ -401,13 +394,13 @@ public:
 		_dbg_assert_(numUboOffsets <= ARRAY_SIZE(data.draw.uboOffsets));
 		for (int i = 0; i < numUboOffsets; i++)
 			data.draw.uboOffsets[i] = uboOffsets[i];
-		curRenderStep_->commands.push_back(data);
 		curRenderStep_->render.numDraws++;
 	}
 
-	void DrawIndexed(VkDescriptorSet descSet, int numUboOffsets, const uint32_t *uboOffsets, VkBuffer vbuffer, int voffset, VkBuffer ibuffer, int ioffset, int count, int numInstances, VkIndexType indexType) {
+	void DrawIndexed(VkDescriptorSet descSet, int numUboOffsets, const uint32_t *uboOffsets, VkBuffer vbuffer, int voffset, VkBuffer ibuffer, int ioffset, int count, int numInstances) {
 		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == VKRStepType::RENDER && curStepHasViewport_ && curStepHasScissor_);
-		VkRenderData data{ VKRRenderCommand::DRAW_INDEXED };
+		VkRenderData &data = curRenderStep_->commands.push_uninitialized();
+		data.cmd = VKRRenderCommand::DRAW_INDEXED;
 		data.drawIndexed.count = count;
 		data.drawIndexed.instances = numInstances;
 		data.drawIndexed.ds = descSet;
@@ -419,15 +412,15 @@ public:
 		_dbg_assert_(numUboOffsets <= ARRAY_SIZE(data.drawIndexed.uboOffsets));
 		for (int i = 0; i < numUboOffsets; i++)
 			data.drawIndexed.uboOffsets[i] = uboOffsets[i];
-		data.drawIndexed.indexType = indexType;
-		curRenderStep_->commands.push_back(data);
 		curRenderStep_->render.numDraws++;
 	}
 
 	// These can be useful both when inspecting in RenderDoc, and when manually inspecting recorded commands
 	// in the debugger.
 	void DebugAnnotate(const char *annotation) {
-		VkRenderData data{ VKRRenderCommand::DEBUG_ANNOTATION };
+		_dbg_assert_(curRenderStep_);
+		VkRenderData &data = curRenderStep_->commands.push_uninitialized();
+		data.cmd = VKRRenderCommand::DEBUG_ANNOTATION;
 		data.debugAnnotation.annotation = annotation;
 	}
 
@@ -462,22 +455,23 @@ public:
 		return outOfDateFrames_ > VulkanContext::MAX_INFLIGHT_FRAMES;
 	}
 
-	void Invalidate(InvalidationFlags flags);
-
 	void ResetStats();
+	void DrainCompileQueue();
 
 private:
 	void EndCurRenderStep();
 
 	void ThreadFunc();
 	void CompileThreadFunc();
-	void DrainCompileQueue();
 
 	void Run(VKRRenderThreadTask &task);
 
 	// Bad for performance but sometimes necessary for synchronous CPU readbacks (screenshots and whatnot).
 	void FlushSync();
 	void StopThread();
+
+	void PresentWaitThreadFunc();
+	void PollPresentTiming();
 
 	FrameDataShared frameDataShared_;
 
@@ -500,6 +494,8 @@ private:
 	bool insideFrame_ = false;
 	bool run_ = false;
 
+	bool useRenderThread_ = true;
+
 	// This is the offset within this frame, in case of a mid-frame sync.
 	VKRStep *curRenderStep_ = nullptr;
 	bool curStepHasViewport_ = false;
@@ -518,7 +514,7 @@ private:
 	std::mutex pushMutex_;
 	std::condition_variable pushCondVar_;
 
-	std::queue<VKRRenderThreadTask> renderThreadQueue_;
+	std::queue<VKRRenderThreadTask *> renderThreadQueue_;
 
 	// For readbacks and other reasons we need to sync with the render thread.
 	std::mutex syncMutex_;
@@ -532,6 +528,9 @@ private:
 	std::mutex compileMutex_;
 	std::vector<CompileQueueEntry> compileQueue_;
 
+	// Thread for measuring presentation delay.
+	std::thread presentWaitThread_;
+
 	// pipelines to check and possibly create at the end of the current render pass.
 	std::vector<VKRGraphicsPipeline *> pipelinesToCheck_;
 
@@ -541,4 +540,7 @@ private:
 	SimpleStat renderCPUTimeMs_;
 
 	std::function<void(InvalidationCallbackFlags)> invalidationCallback_;
+
+	uint64_t frameIdGen_ = FRAME_TIME_HISTORY_LENGTH;
+	HistoryBuffer<FrameTimeData, FRAME_TIME_HISTORY_LENGTH> &frameTimeHistory_;
 };

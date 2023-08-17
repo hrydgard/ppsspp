@@ -45,7 +45,7 @@ bool TestParallelLoop(ThreadManager *threadMan) {
 	printf("tester thread ID: %d\n", GetCurrentThreadIdForDebug());
 
 	printf("waitable test\n");
-	WaitableCounter *waitable = ParallelRangeLoopWaitable(threadMan, rangeFunc, 0, 7, 1);
+	WaitableCounter *waitable = ParallelRangeLoopWaitable(threadMan, rangeFunc, 0, 7, 1, TaskPriority::HIGH);
 	// Can do stuff here if we like.
 	waitable->WaitAndRelease();
 	// Now it's done.
@@ -58,7 +58,7 @@ bool TestParallelLoop(ThreadManager *threadMan) {
 	ParallelRangeLoop(threadMan, rangeFunc, 0, 100, 40);
 	// Try a loop with minimum size larger than range.
 	printf("waitable test [10-30)\n");
-	WaitableCounter *waitable2 = ParallelRangeLoopWaitable(threadMan, rangeFunc, 10, 30, 40);
+	WaitableCounter *waitable2 = ParallelRangeLoopWaitable(threadMan, rangeFunc, 10, 30, 40, TaskPriority::LOW);
 	waitable2->WaitAndRelease();
 	return true;
 }
@@ -75,6 +75,9 @@ public:
 	IncrementTask(TaskType type, LimitedWaitable *waitable) : type_(type), waitable_(waitable) {}
 	~IncrementTask() {}
 	TaskType Type() const override { return type_; }
+	TaskPriority Priority() const override {
+		return TaskPriority::NORMAL;
+	}
 	void Run() override {
 		g_atomicCounter++;
 		waitable_->Notify();

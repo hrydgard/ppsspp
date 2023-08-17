@@ -63,7 +63,6 @@ public class NativeSurfaceView extends SurfaceView implements SensorEventListene
 	public boolean onTouchEvent(final MotionEvent ev) {
 		boolean canReadToolType = Build.VERSION.SDK_INT >= Build.VERSION_CODES.ICE_CREAM_SANDWICH;
 
-		int numTouchesHandled = 0;
 		for (int i = 0; i < ev.getPointerCount(); i++) {
 			int pid = ev.getPointerId(i);
 			int code = 0;
@@ -95,10 +94,10 @@ public class NativeSurfaceView extends SurfaceView implements SensorEventListene
 					code |= tool << 10; // We use the Android tool type codes
 				}
 				// Can't use || due to short circuit evaluation
-				numTouchesHandled += NativeApp.touch(ev.getX(i), ev.getY(i), code, pid) ? 1 : 0;
+				NativeApp.touch(ev.getX(i), ev.getY(i), code, pid);
 			}
 		}
-		return numTouchesHandled > 0;
+		return true;
 	}
 
 	// Sensor management
@@ -187,11 +186,11 @@ public class NativeSurfaceView extends SurfaceView implements SensorEventListene
 			case StateEvent.ACTION_CONNECTED:
 				Log.i(TAG, "Moga Connected");
 				if (mController.getState(Controller.STATE_CURRENT_PRODUCT_VERSION) == Controller.ACTION_VERSION_MOGA) {
-					NativeApp.sendMessage("moga", "Moga");
+					NativeApp.sendMessageFromJava("moga", "Moga");
 				} else {
 					Log.i(TAG, "MOGA Pro detected");
 					isMogaPro = true;
-					NativeApp.sendMessage("moga", "MogaPro");
+					NativeApp.sendMessageFromJava("moga", "MogaPro");
 				}
 				break;
 			case StateEvent.ACTION_CONNECTING:
@@ -199,7 +198,7 @@ public class NativeSurfaceView extends SurfaceView implements SensorEventListene
 				break;
 			case StateEvent.ACTION_DISCONNECTED:
 				Log.i(TAG, "Moga Disconnected (or simply Not connected)");
-				NativeApp.sendMessage("moga", "");
+				NativeApp.sendMessageFromJava("moga", "");
 				break;
 			}
 			break;

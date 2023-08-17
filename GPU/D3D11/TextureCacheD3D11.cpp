@@ -23,7 +23,6 @@
 
 #include "Common/TimeUtil.h"
 #include "Core/MemMap.h"
-#include "Core/Reporting.h"
 #include "GPU/ge_constants.h"
 #include "GPU/GPUState.h"
 #include "GPU/Common/GPUStateUtils.h"
@@ -36,7 +35,6 @@
 #include "GPU/Common/FramebufferManagerCommon.h"
 #include "GPU/Common/TextureDecoder.h"
 #include "Core/Config.h"
-#include "Core/Host.h"
 
 #include "ext/xxhash.h"
 #include "Common/Math/math_util.h"
@@ -57,25 +55,26 @@ static const D3D11_INPUT_ELEMENT_DESC g_QuadVertexElements[] = {
 
 // NOTE: In the D3D backends, we flip R and B in the shaders, so while these look wrong, they're OK.
 
-Draw::DataFormat FromD3D11Format(u32 fmt) {
+static Draw::DataFormat FromD3D11Format(u32 fmt) {
 	switch (fmt) {
-	case DXGI_FORMAT_B4G4R4A4_UNORM:
-		return Draw::DataFormat::A4R4G4B4_UNORM_PACK16;
-	case DXGI_FORMAT_B5G5R5A1_UNORM:
-		return Draw::DataFormat::A1R5G5B5_UNORM_PACK16;
-	case DXGI_FORMAT_B5G6R5_UNORM:
-		return Draw::DataFormat::R5G6B5_UNORM_PACK16;
-	case DXGI_FORMAT_R8_UNORM:
-		return Draw::DataFormat::R8_UNORM;
-	case DXGI_FORMAT_B8G8R8A8_UNORM:
-	default:
-		return Draw::DataFormat::R8G8B8A8_UNORM;
+	case DXGI_FORMAT_B4G4R4A4_UNORM: return Draw::DataFormat::A4R4G4B4_UNORM_PACK16;
+	case DXGI_FORMAT_B5G5R5A1_UNORM: return Draw::DataFormat::A1R5G5B5_UNORM_PACK16;
+	case DXGI_FORMAT_B5G6R5_UNORM: return Draw::DataFormat::R5G6B5_UNORM_PACK16;
+	case DXGI_FORMAT_R8_UNORM: return Draw::DataFormat::R8_UNORM;
+	case DXGI_FORMAT_B8G8R8A8_UNORM: default: return Draw::DataFormat::R8G8B8A8_UNORM;
 	}
 }
 
-DXGI_FORMAT ToDXGIFormat(Draw::DataFormat fmt) {
+static DXGI_FORMAT ToDXGIFormat(Draw::DataFormat fmt) {
 	switch (fmt) {
-	case Draw::DataFormat::R8G8B8A8_UNORM: default: return DXGI_FORMAT_B8G8R8A8_UNORM;
+	case Draw::DataFormat::BC1_RGBA_UNORM_BLOCK: return DXGI_FORMAT_BC1_UNORM;
+	case Draw::DataFormat::BC2_UNORM_BLOCK: return DXGI_FORMAT_BC2_UNORM;
+	case Draw::DataFormat::BC3_UNORM_BLOCK: return DXGI_FORMAT_BC3_UNORM;
+	case Draw::DataFormat::BC4_UNORM_BLOCK: return DXGI_FORMAT_BC4_UNORM;
+	case Draw::DataFormat::BC5_UNORM_BLOCK: return DXGI_FORMAT_BC5_UNORM;
+	case Draw::DataFormat::BC7_UNORM_BLOCK: return DXGI_FORMAT_BC7_UNORM;
+	case Draw::DataFormat::R8G8B8A8_UNORM: return DXGI_FORMAT_B8G8R8A8_UNORM;
+	default: _dbg_assert_(false); return DXGI_FORMAT_UNKNOWN;
 	}
 }
 
@@ -142,7 +141,6 @@ TextureCacheD3D11::TextureCacheD3D11(Draw::DrawContext *draw, Draw2D *draw2D)
 	device_ = (ID3D11Device *)draw->GetNativeObject(Draw::NativeObject::DEVICE);
 	context_ = (ID3D11DeviceContext *)draw->GetNativeObject(Draw::NativeObject::CONTEXT);
 
-	isBgraBackend_ = true;
 	lastBoundTexture = INVALID_TEX;
 
 	D3D11_BUFFER_DESC desc{ sizeof(DepthPushConstants), D3D11_USAGE_DYNAMIC, D3D11_BIND_CONSTANT_BUFFER, D3D11_CPU_ACCESS_WRITE };
@@ -162,7 +160,6 @@ TextureCacheD3D11::~TextureCacheD3D11() {
 }
 
 void TextureCacheD3D11::SetFramebufferManager(FramebufferManagerD3D11 *fbManager) {
-	framebufferManagerD3D11_ = fbManager;
 	framebufferManager_ = fbManager;
 }
 
@@ -180,33 +177,10 @@ void TextureCacheD3D11::ReleaseTexture(TexCacheEntry *entry, bool delete_them) {
 }
 
 void TextureCacheD3D11::ForgetLastTexture() {
-	InvalidateLastTexture();
+	lastBoundTexture = INVALID_TEX;
 
 	ID3D11ShaderResourceView *nullTex[4]{};
 	context_->PSSetShaderResources(0, 4, nullTex);
-}
-
-void TextureCacheD3D11::InvalidateLastTexture() {
-	lastBoundTexture = INVALID_TEX;
-}
-
-void TextureCacheD3D11::StartFrame() {
-	TextureCacheCommon::StartFrame();
-
-	InvalidateLastTexture();
-	timesInvalidatedAllThisFrame_ = 0;
-	replacementTimeThisFrame_ = 0.0;
-
-	if (texelsScaledThisFrame_) {
-		// INFO_LOG(G3D, "Scaled %i texels", texelsScaledThisFrame_);
-	}
-	texelsScaledThisFrame_ = 0;
-	if (clearCacheNextFrame_) {
-		Clear(true);
-		clearCacheNextFrame_ = false;
-	} else {
-		Decimate();
-	}
 }
 
 void TextureCacheD3D11::UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutBase, bool clutIndexIsSimple) {
@@ -269,9 +243,7 @@ void TextureCacheD3D11::ApplySamplingParams(const SamplerCacheKey &key) {
 }
 
 void TextureCacheD3D11::Unbind() {
-	ID3D11ShaderResourceView *nullView = nullptr;
-	context_->PSSetShaderResources(0, 1, &nullView);
-	InvalidateLastTexture();
+	ForgetLastTexture();
 }
 
 void TextureCacheD3D11::BindAsClutTexture(Draw::Texture *tex, bool smooth) {
@@ -288,8 +260,8 @@ void TextureCacheD3D11::BuildTexture(TexCacheEntry *const entry) {
 	}
 
 	DXGI_FORMAT dstFmt = GetDestFormat(GETextureFormat(entry->format), gstate.getClutPaletteFormat());
-	if (plan.replaceValid) {
-		dstFmt = ToDXGIFormat(plan.replaced->Format(plan.baseLevelSrc));
+	if (plan.doReplace) {
+		dstFmt = ToDXGIFormat(plan.replaced->Format());
 	} else if (plan.scaleFactor > 1 || plan.saveTexture) {
 		dstFmt = DXGI_FORMAT_B8G8R8A8_UNORM;
 	} else if (plan.decodeToClut8) {
@@ -302,6 +274,72 @@ void TextureCacheD3D11::BuildTexture(TexCacheEntry *const entry) {
 	ID3D11Resource *texture = DxTex(entry);
 	_assert_(texture == nullptr);
 
+	// The PSP only supports 8 mip levels, but we support 12 in the texture replacer (4k textures down to 1).
+	D3D11_SUBRESOURCE_DATA subresData[12]{};
+
+	if (plan.depth == 1) {
+		// We don't yet have mip generation, so clamp the number of levels to the ones we can load directly.
+		levels = std::min(plan.levelsToCreate, plan.levelsToLoad);
+	} else {
+		levels = plan.depth;
+	}
+
+	Draw::DataFormat texFmt = FromD3D11Format(dstFmt);
+
+	for (int i = 0; i < levels; i++) {
+		int srcLevel = (i == 0) ? plan.baseLevelSrc : i;
+
+		int mipWidth;
+		int mipHeight;
+		plan.GetMipSize(i, &mipWidth, &mipHeight);
+
+		u8 *data = nullptr;
+		int stride = 0;
+
+		int dataSize;
+		if (plan.doReplace) {
+			int blockSize = 0;
+			if (Draw::DataFormatIsBlockCompressed(plan.replaced->Format(), &blockSize)) {
+				stride = ((mipWidth + 3) & ~3) * blockSize / 4;  // Number of blocks * 4 * Size of a block / 4
+				dataSize = plan.replaced->GetLevelDataSizeAfterCopy(i);
+			} else {
+				int bpp = (int)Draw::DataFormatSizeInBytes(plan.replaced->Format());
+				stride = std::max(mipWidth * bpp, 16);
+				dataSize = stride * mipHeight;
+			}
+		} else {
+			int bpp = 0;
+			if (plan.scaleFactor > 1) {
+				bpp = 4;
+			} else {
+				bpp = dstFmt == DXGI_FORMAT_B8G8R8A8_UNORM ? 4 : 2;
+			}
+			stride = std::max(mipWidth * bpp, 16);
+			dataSize = stride * mipHeight;
+		}
+
+		if (plan.depth == 1) {
+			data = (u8 *)AllocateAlignedMemory(dataSize, 16);
+			subresData[i].pSysMem = data;
+			subresData[i].SysMemPitch = stride;
+			subresData[i].SysMemSlicePitch = 0;
+		} else {
+			if (i == 0) {
+				subresData[0].pSysMem = AllocateAlignedMemory(stride * mipHeight * plan.depth, 16);
+				subresData[0].SysMemPitch = stride;
+				subresData[0].SysMemSlicePitch = stride * mipHeight;
+			}
+			data = (uint8_t *)subresData[0].pSysMem + stride * mipHeight * i;
+		}
+
+		if (!data) {
+			ERROR_LOG(G3D, "Ran out of RAM trying to allocate a temporary texture upload buffer (%dx%d)", mipWidth, mipHeight);
+			return;
+		}
+
+		LoadTextureLevel(*entry, data, 0, stride, plan, srcLevel, texFmt, TexDecodeFlags{});
+	}
+
 	int tw;
 	int th;
 	plan.GetMipSize(0, &tw, &th);
@@ -309,6 +347,14 @@ void TextureCacheD3D11::BuildTexture(TexCacheEntry *const entry) {
 		tw = 16384;
 	if (th > 16384)
 		th = 16384;
+
+	// NOTE: For block-compressed textures, we'll force the size up to the closest 4x4. This is due to an
+	// unfortunate restriction in D3D11 (and early D3D12). We'll warn about it in the log to give texture pack
+	// authors notice to fix it.
+	if (plan.doReplace && Draw::DataFormatIsBlockCompressed(plan.replaced->Format(), nullptr)) {
+		tw = (tw + 3) & ~3;
+		th = (th + 3) & ~3;
+	}
 
 	if (plan.depth == 1) {
 		// We don't yet have mip generation, so clamp the number of levels to the ones we can load directly.
@@ -325,8 +371,7 @@ void TextureCacheD3D11::BuildTexture(TexCacheEntry *const entry) {
 		desc.Format = dstFmt;
 		desc.MipLevels = levels;
 		desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
-
-		ASSERT_SUCCESS(device_->CreateTexture2D(&desc, nullptr, &tex));
+		ASSERT_SUCCESS(device_->CreateTexture2D(&desc, subresData, &tex));
 		texture = tex;
 	} else {
 		ID3D11Texture3D *tex = nullptr;
@@ -339,7 +384,7 @@ void TextureCacheD3D11::BuildTexture(TexCacheEntry *const entry) {
 		desc.Format = dstFmt;
 		desc.MipLevels = 1;
 		desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
-		ASSERT_SUCCESS(device_->CreateTexture3D(&desc, nullptr, &tex));
+		ASSERT_SUCCESS(device_->CreateTexture3D(&desc, subresData, &tex));
 		texture = tex;
 
 		levels = plan.depth;
@@ -349,51 +394,10 @@ void TextureCacheD3D11::BuildTexture(TexCacheEntry *const entry) {
 	entry->texturePtr = texture;
 	entry->textureView = view;
 
-	Draw::DataFormat texFmt = FromD3D11Format(dstFmt);
-
-	for (int i = 0; i < levels; i++) {
-		int srcLevel = (i == 0) ? plan.baseLevelSrc : i;
-
-		int mipWidth;
-		int mipHeight;
-		plan.GetMipSize(i, &mipWidth, &mipHeight);
-
-		u8 *data = nullptr;
-		int stride = 0;
-		int bpp = 0;
-
-		// For UpdateSubresource, we can't decode directly into the texture so we allocate a buffer :(
-		// NOTE: Could reuse it between levels or textures!
-		if (plan.replaceValid) {
-			bpp = (int)Draw::DataFormatSizeInBytes(plan.replaced->Format(srcLevel));
-		} else {
-			if (plan.scaleFactor > 1) {
-				bpp = 4;
-			} else {
-				bpp = dstFmt == DXGI_FORMAT_B8G8R8A8_UNORM ? 4 : 2;
-			}
+	for (int i = 0; i < 12; i++) {
+		if (subresData[i].pSysMem) {
+			FreeAlignedMemory((void *)subresData[i].pSysMem);
 		}
-
-		stride = std::max(mipWidth * bpp, 16);
-		data = (u8 *)AllocateAlignedMemory(stride * mipHeight, 16);
-
-		if (!data) {
-			ERROR_LOG(G3D, "Ran out of RAM trying to allocate a temporary texture upload buffer (%dx%d)", mipWidth, mipHeight);
-			return;
-		}
-
-		LoadTextureLevel(*entry, data, stride, *plan.replaced, srcLevel, plan.scaleFactor, texFmt, TexDecodeFlags{});
-		if (plan.depth == 1) {
-			context_->UpdateSubresource(texture, i, nullptr, data, stride, 0);
-		} else {
-			D3D11_BOX box{};
-			box.front = i;
-			box.back = i + 1;
-			box.right = mipWidth;
-			box.bottom = mipHeight;
-			context_->UpdateSubresource(texture, 0, &box, data, stride, 0);
-		}
-		FreeAlignedMemory(data);
 	}
 
 	// Signal that we support depth textures so use it as one.
@@ -407,8 +411,14 @@ void TextureCacheD3D11::BuildTexture(TexCacheEntry *const entry) {
 		entry->status &= ~TexCacheEntry::STATUS_NO_MIPS;
 	}
 
-	if (plan.replaceValid) {
+	if (plan.doReplace) {
 		entry->SetAlphaStatus(TexCacheEntry::TexStatus(plan.replaced->AlphaStatus()));
+
+		if (!Draw::DataFormatIsBlockCompressed(plan.replaced->Format(), nullptr)) {
+			entry->status |= TexCacheEntry::STATUS_BGRA;
+		}
+	} else {
+		entry->status |= TexCacheEntry::STATUS_BGRA;
 	}
 }
 

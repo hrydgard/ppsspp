@@ -9,7 +9,7 @@
 
 using namespace PPSSPP_VK;
 
-// Debug help: adb logcat -s DEBUG PPSSPPNativeActivity PPSSPP NativeGLView NativeRenderer NativeSurfaceView PowerSaveModeReceiver InputDeviceState
+// Debug help: adb logcat -s DEBUG AndroidRuntime PPSSPPNativeActivity PPSSPP NativeGLView NativeRenderer NativeSurfaceView PowerSaveModeReceiver InputDeviceState PpssppActivity CameraHelper
 
 static void MergeRenderAreaRectInto(VkRect2D *dest, const VkRect2D &src) {
 	if (dest->offset.x > src.offset.x) {
@@ -67,72 +67,10 @@ void VulkanQueueRunner::CreateDeviceObjects() {
 #endif
 }
 
-void VulkanQueueRunner::ResizeReadbackBuffer(VkDeviceSize requiredSize) {
-	if (readbackBuffer_ && requiredSize <= readbackBufferSize_) {
-		return;
-	}
-	if (readbackMemory_) {
-		vulkan_->Delete().QueueDeleteDeviceMemory(readbackMemory_);
-	}
-	if (readbackBuffer_) {
-		vulkan_->Delete().QueueDeleteBuffer(readbackBuffer_);
-	}
-
-	readbackBufferSize_ = requiredSize;
-
-	VkDevice device = vulkan_->GetDevice();
-
-	VkBufferCreateInfo buf{ VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
-	buf.size = readbackBufferSize_;
-	buf.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT;
-
-	VkResult res = vkCreateBuffer(device, &buf, nullptr, &readbackBuffer_);
-	_assert_(res == VK_SUCCESS);
-
-	VkMemoryRequirements reqs{};
-	vkGetBufferMemoryRequirements(device, readbackBuffer_, &reqs);
-
-	VkMemoryAllocateInfo allocInfo{ VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO };
-	allocInfo.allocationSize = reqs.size;
-
-	// For speedy readbacks, we want the CPU cache to be enabled. However on most hardware we then have to
-	// sacrifice coherency, which means manual flushing. But try to find such memory first! If no cached
-	// memory type is available we fall back to just coherent.
-	const VkFlags desiredTypes[] = {
-		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_HOST_CACHED_BIT,
-		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_CACHED_BIT,
-		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-	};
-	VkFlags successTypeReqs = 0;
-	for (VkFlags typeReqs : desiredTypes) {
-		if (vulkan_->MemoryTypeFromProperties(reqs.memoryTypeBits, typeReqs, &allocInfo.memoryTypeIndex)) {
-			successTypeReqs = typeReqs;
-			break;
-		}
-	}
-	_assert_(successTypeReqs != 0);
-	readbackBufferIsCoherent_ = (successTypeReqs & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT) != 0;
-
-	res = vkAllocateMemory(device, &allocInfo, nullptr, &readbackMemory_);
-	if (res != VK_SUCCESS) {
-		readbackMemory_ = VK_NULL_HANDLE;
-		vkDestroyBuffer(device, readbackBuffer_, nullptr);
-		readbackBuffer_ = VK_NULL_HANDLE;
-		return;
-	}
-	uint32_t offset = 0;
-	vkBindBufferMemory(device, readbackBuffer_, readbackMemory_, offset);
-}
-
 void VulkanQueueRunner::DestroyDeviceObjects() {
 	INFO_LOG(G3D, "VulkanQueueRunner::DestroyDeviceObjects");
-	if (readbackMemory_) {
-		vulkan_->Delete().QueueDeleteDeviceMemory(readbackMemory_);
-	}
-	if (readbackBuffer_) {
-		vulkan_->Delete().QueueDeleteBuffer(readbackBuffer_);
-	}
-	readbackBufferSize_ = 0;
+
+	syncReadback_.Destroy(vulkan_);
 
 	renderPasses_.IterateMut([&](const RPKey &rpkey, VKRRenderPass *rp) {
 		_assert_(rp);
@@ -323,31 +261,6 @@ VKRRenderPass *VulkanQueueRunner::GetRenderPass(const RPKey &key) {
 	return pass;
 }
 
-// Must match the subpass self-dependency declared above.
-void VulkanQueueRunner::SelfDependencyBarrier(VKRImage &img, VkImageAspectFlags aspect, VulkanBarrier *recordBarrier) {
-	if (aspect & VK_IMAGE_ASPECT_COLOR_BIT) {
-		VkAccessFlags srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-		VkAccessFlags dstAccessMask = VK_ACCESS_INPUT_ATTACHMENT_READ_BIT;
-		VkPipelineStageFlags srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-		VkPipelineStageFlags dstStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-		recordBarrier->TransitionImage(
-			img.image,
-			0,
-			1,
-			img.numLayers,
-			aspect,
-			VK_IMAGE_LAYOUT_GENERAL,
-			VK_IMAGE_LAYOUT_GENERAL,
-			srcAccessMask,
-			dstAccessMask,
-			srcStageMask,
-			dstStageMask
-		);
-	} else {
-		_assert_msg_(false, "Depth self-dependencies not yet supported");
-	}
-}
-
 void VulkanQueueRunner::PreprocessSteps(std::vector<VKRStep *> &steps) {
 	// Optimizes renderpasses, then sequences them.
 	// Planned optimizations: 
@@ -426,7 +339,7 @@ void VulkanQueueRunner::PreprocessSteps(std::vector<VKRStep *> &steps) {
 }
 
 void VulkanQueueRunner::RunSteps(std::vector<VKRStep *> &steps, FrameData &frameData, FrameDataShared &frameDataShared, bool keepSteps) {
-	QueueProfileContext *profile = frameData.profilingEnabled_ ? &frameData.profile : nullptr;
+	QueueProfileContext *profile = frameData.profile.enabled ? &frameData.profile : nullptr;
 
 	if (profile)
 		profile->cpuStartTime = time_now_d();
@@ -447,12 +360,15 @@ void VulkanQueueRunner::RunSteps(std::vector<VKRStep *> &steps, FrameData &frame
 			} else {
 				labelInfo.pLabelName = step.tag;
 			}
-			vkCmdBeginDebugUtilsLabelEXT(frameData.mainCmd, &labelInfo);
+			vkCmdBeginDebugUtilsLabelEXT(cmd, &labelInfo);
 		}
 
 		switch (step.stepType) {
 		case VKRStepType::RENDER:
 			if (!step.render.framebuffer) {
+				if (emitLabels) {
+					vkCmdEndDebugUtilsLabelEXT(cmd);
+				}
 				frameData.SubmitPending(vulkan_, FrameSubmitType::Pending, frameDataShared);
 
 				// When stepping in the GE debugger, we can end up here multiple times in a "frame".
@@ -472,6 +388,11 @@ void VulkanQueueRunner::RunSteps(std::vector<VKRStep *> &steps, FrameData &frame
 					frameData.hasPresentCommands = true;
 				}
 				cmd = frameData.presentCmd;
+				if (emitLabels) {
+					VkDebugUtilsLabelEXT labelInfo{ VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT };
+					labelInfo.pLabelName = "present";
+					vkCmdBeginDebugUtilsLabelEXT(cmd, &labelInfo);
+				}
 			}
 			PerformRenderPass(step, cmd);
 			break;
@@ -482,7 +403,7 @@ void VulkanQueueRunner::RunSteps(std::vector<VKRStep *> &steps, FrameData &frame
 			PerformBlit(step, cmd);
 			break;
 		case VKRStepType::READBACK:
-			PerformReadback(step, cmd);
+			PerformReadback(step, cmd, frameData);
 			break;
 		case VKRStepType::READBACK_IMAGE:
 			PerformReadbackImage(step, cmd);
@@ -491,7 +412,7 @@ void VulkanQueueRunner::RunSteps(std::vector<VKRStep *> &steps, FrameData &frame
 			break;
 		}
 
-		if (profile && profile->timestampDescriptions.size() + 1 < MAX_TIMESTAMP_QUERIES) {
+		if (profile && profile->timestampsEnabled && profile->timestampDescriptions.size() + 1 < MAX_TIMESTAMP_QUERIES) {
 			vkCmdWriteTimestamp(cmd, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, profile->queryPool, (uint32_t)profile->timestampDescriptions.size());
 			profile->timestampDescriptions.push_back(StepToString(step));
 		}
@@ -535,7 +456,7 @@ void VulkanQueueRunner::ApplyMGSHack(std::vector<VKRStep *> &steps) {
 					last = j - 1;
 				// should really also check descriptor sets...
 				if (steps[j]->commands.size()) {
-					VkRenderData &cmd = steps[j]->commands.back();
+					const VkRenderData &cmd = steps[j]->commands.back();
 					if (cmd.cmd == VKRRenderCommand::DRAW_INDEXED && cmd.draw.count != 6)
 						last = j - 1;
 				}
@@ -972,9 +893,6 @@ void VulkanQueueRunner::LogRenderPass(const VKRStep &pass, bool verbose) {
 			case VKRRenderCommand::REMOVED:
 				INFO_LOG(G3D, "  (Removed)");
 				break;
-			case VKRRenderCommand::SELF_DEPENDENCY_BARRIER:
-				INFO_LOG(G3D, "  SelfBarrier()");
-				break;
 			case VKRRenderCommand::BIND_GRAPHICS_PIPELINE:
 				INFO_LOG(G3D, "  BindGraphicsPipeline(%x)", (int)(intptr_t)cmd.graphics_pipeline.pipeline);
 				break;
@@ -1007,9 +925,6 @@ void VulkanQueueRunner::LogRenderPass(const VKRStep &pass, bool verbose) {
 				break;
 			case VKRRenderCommand::DEBUG_ANNOTATION:
 				INFO_LOG(G3D, "  DebugAnnotation(%s)", cmd.debugAnnotation.annotation);
-				break;
-			case VKRRenderCommand::BIND_DESCRIPTOR_SET:
-				INFO_LOG(G3D, "  BindDescSet(%d)", cmd.bindDescSet.setNumber);
 				break;
 
 			case VKRRenderCommand::NUM_RENDER_COMMANDS:
@@ -1298,7 +1213,7 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 	VKRGraphicsPipeline *lastGraphicsPipeline = nullptr;
 	VKRComputePipeline *lastComputePipeline = nullptr;
 
-	auto &commands = step.commands;
+	const auto &commands = step.commands;
 
 	// We can do a little bit of state tracking here to eliminate some calls into the driver.
 	// The stencil ones are very commonly mostly redundant so let's eliminate them where possible.
@@ -1339,7 +1254,7 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 					// Maybe a middle pass. But let's try to just block and compile here for now, this doesn't
 					// happen all that much.
 					graphicsPipeline->pipeline[(size_t)rpType] = Promise<VkPipeline>::CreateEmpty();
-					graphicsPipeline->Create(vulkan_, renderPass->Get(vulkan_, rpType, fbSampleCount), rpType, fbSampleCount);
+					graphicsPipeline->Create(vulkan_, renderPass->Get(vulkan_, rpType, fbSampleCount), rpType, fbSampleCount, time_now_d(), -1);
 				}
 
 				VkPipeline pipeline = graphicsPipeline->pipeline[(size_t)rpType]->BlockUntilReady();
@@ -1418,21 +1333,6 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 			break;
 		}
 
-		case VKRRenderCommand::SELF_DEPENDENCY_BARRIER:
-		{
-			_assert_(step.render.pipelineFlags & PipelineFlags::USES_INPUT_ATTACHMENT);
-			_assert_(fb);
-			VulkanBarrier barrier;
-			if (fb->sampleCount != VK_SAMPLE_COUNT_1_BIT) {
-				// Rendering is happening to the multisample buffer, not the color buffer.
-				SelfDependencyBarrier(fb->msaaColor, VK_IMAGE_ASPECT_COLOR_BIT, &barrier);
-			} else {
-				SelfDependencyBarrier(fb->color, VK_IMAGE_ASPECT_COLOR_BIT, &barrier);
-			}
-			barrier.Flush(cmd);
-			break;
-		}
-
 		case VKRRenderCommand::PUSH_CONSTANTS:
 			if (pipelineOK) {
 				vkCmdPushConstants(cmd, pipelineLayout, c.push.stages, c.push.offset, c.push.size, c.push.data);
@@ -1456,8 +1356,8 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 
 		case VKRRenderCommand::DRAW_INDEXED:
 			if (pipelineOK) {
-				vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 1, 1, &c.drawIndexed.ds, c.drawIndexed.numUboOffsets, c.drawIndexed.uboOffsets);
-				vkCmdBindIndexBuffer(cmd, c.drawIndexed.ibuffer, c.drawIndexed.ioffset, (VkIndexType)c.drawIndexed.indexType);
+				vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &c.drawIndexed.ds, c.drawIndexed.numUboOffsets, c.drawIndexed.uboOffsets);
+				vkCmdBindIndexBuffer(cmd, c.drawIndexed.ibuffer, c.drawIndexed.ioffset, VK_INDEX_TYPE_UINT16);
 				VkDeviceSize voffset = c.drawIndexed.voffset;
 				vkCmdBindVertexBuffers(cmd, 0, 1, &c.drawIndexed.vbuffer, &voffset);
 				vkCmdDrawIndexed(cmd, c.drawIndexed.count, c.drawIndexed.instances, 0, 0, 0);
@@ -1466,7 +1366,7 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 
 		case VKRRenderCommand::DRAW:
 			if (pipelineOK) {
-				vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 1, 1, &c.draw.ds, c.draw.numUboOffsets, c.draw.uboOffsets);
+				vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &c.draw.ds, c.draw.numUboOffsets, c.draw.uboOffsets);
 				if (c.draw.vbuffer) {
 					vkCmdBindVertexBuffers(cmd, 0, 1, &c.draw.vbuffer, &c.draw.voffset);
 				}
@@ -1514,10 +1414,6 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 				labelInfo.pLabelName = c.debugAnnotation.annotation;
 				vkCmdInsertDebugUtilsLabelEXT(cmd, &labelInfo);
 			}
-			break;
-
-		case VKRRenderCommand::BIND_DESCRIPTOR_SET:
-			vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, c.bindDescSet.pipelineLayout, c.bindDescSet.setNumber, 1, &c.bindDescSet.set, 0, nullptr);
 			break;
 
 		default:
@@ -2014,18 +1910,35 @@ void VulkanQueueRunner::SetupTransferDstWriteAfterWrite(VKRImage &img, VkImageAs
 	);
 }
 
-void VulkanQueueRunner::PerformReadback(const VKRStep &step, VkCommandBuffer cmd) {
-	ResizeReadbackBuffer(sizeof(uint32_t) * step.readback.srcRect.extent.width * step.readback.srcRect.extent.height);
+void VulkanQueueRunner::ResizeReadbackBuffer(CachedReadback *readback, VkDeviceSize requiredSize) {
+	if (readback->buffer && requiredSize <= readback->bufferSize) {
+		return;
+	}
 
-	VkBufferImageCopy region{};
-	region.imageOffset = { step.readback.srcRect.offset.x, step.readback.srcRect.offset.y, 0 };
-	region.imageExtent = { step.readback.srcRect.extent.width, step.readback.srcRect.extent.height, 1 };
-	region.imageSubresource.aspectMask = step.readback.aspectMask;
-	region.imageSubresource.layerCount = 1;
-	region.bufferOffset = 0;
-	region.bufferRowLength = step.readback.srcRect.extent.width;
-	region.bufferImageHeight = step.readback.srcRect.extent.height;
+	if (readback->buffer) {
+		vulkan_->Delete().QueueDeleteBufferAllocation(readback->buffer, readback->allocation);
+	}
 
+	readback->bufferSize = requiredSize;
+
+	VkDevice device = vulkan_->GetDevice();
+
+	VkBufferCreateInfo buf{ VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
+	buf.size = readback->bufferSize;
+	buf.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+
+	VmaAllocationCreateInfo allocCreateInfo{};
+	allocCreateInfo.usage = VMA_MEMORY_USAGE_GPU_TO_CPU;
+	VmaAllocationInfo allocInfo{};
+
+	VkResult res = vmaCreateBuffer(vulkan_->Allocator(), &buf, &allocCreateInfo, &readback->buffer, &readback->allocation, &allocInfo);
+	_assert_(res == VK_SUCCESS);
+
+	const VkMemoryType &memoryType = vulkan_->GetMemoryProperties().memoryTypes[allocInfo.memoryType];
+	readback->isCoherent = (memoryType.propertyFlags & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT) != 0;
+}
+
+void VulkanQueueRunner::PerformReadback(const VKRStep &step, VkCommandBuffer cmd, FrameData &frameData) {
 	VkImage image;
 	VkImageLayout copyLayout;
 	// Special case for backbuffer readbacks.
@@ -2059,7 +1972,40 @@ void VulkanQueueRunner::PerformReadback(const VKRStep &step, VkCommandBuffer cmd
 		copyLayout = srcImage->layout;
 	}
 
-	vkCmdCopyImageToBuffer(cmd, image, copyLayout, readbackBuffer_, 1, &region);
+	// TODO: Handle different readback formats!
+	u32 readbackSizeInBytes = sizeof(uint32_t) * step.readback.srcRect.extent.width * step.readback.srcRect.extent.height;
+
+	CachedReadback *cached = nullptr;
+
+	if (step.readback.delayed) {
+		ReadbackKey key;
+		key.framebuf = step.readback.src;
+		key.width = step.readback.srcRect.extent.width;
+		key.height = step.readback.srcRect.extent.height;
+
+		// See if there's already a buffer we can reuse
+		cached = frameData.readbacks_.Get(key);
+		if (!cached) {
+			cached = new CachedReadback();
+			cached->bufferSize = 0;
+			frameData.readbacks_.Insert(key, cached);
+		}
+	} else {
+		cached = &syncReadback_;
+	}
+
+	ResizeReadbackBuffer(cached, readbackSizeInBytes);
+
+	VkBufferImageCopy region{};
+	region.imageOffset = { step.readback.srcRect.offset.x, step.readback.srcRect.offset.y, 0 };
+	region.imageExtent = { step.readback.srcRect.extent.width, step.readback.srcRect.extent.height, 1 };
+	region.imageSubresource.aspectMask = step.readback.aspectMask;
+	region.imageSubresource.layerCount = 1;
+	region.bufferOffset = 0;
+	region.bufferRowLength = step.readback.srcRect.extent.width;
+	region.bufferImageHeight = step.readback.srcRect.extent.height;
+
+	vkCmdCopyImageToBuffer(cmd, image, copyLayout, cached->buffer, 1, &region);
 
 	// NOTE: Can't read the buffer using the CPU here - need to sync first.
 
@@ -2086,7 +2032,7 @@ void VulkanQueueRunner::PerformReadbackImage(const VKRStep &step, VkCommandBuffe
 	SetupTransitionToTransferSrc(srcImage, VK_IMAGE_ASPECT_COLOR_BIT, &recordBarrier_);
 	recordBarrier_.Flush(cmd);
 
-	ResizeReadbackBuffer(sizeof(uint32_t) * step.readback_image.srcRect.extent.width * step.readback_image.srcRect.extent.height);
+	ResizeReadbackBuffer(&syncReadback_, sizeof(uint32_t) * step.readback_image.srcRect.extent.width * step.readback_image.srcRect.extent.height);
 
 	VkBufferImageCopy region{};
 	region.imageOffset = { step.readback_image.srcRect.offset.x, step.readback_image.srcRect.offset.y, 0 };
@@ -2097,7 +2043,7 @@ void VulkanQueueRunner::PerformReadbackImage(const VKRStep &step, VkCommandBuffe
 	region.bufferOffset = 0;
 	region.bufferRowLength = step.readback_image.srcRect.extent.width;
 	region.bufferImageHeight = step.readback_image.srcRect.extent.height;
-	vkCmdCopyImageToBuffer(cmd, step.readback_image.image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, readbackBuffer_, 1, &region);
+	vkCmdCopyImageToBuffer(cmd, step.readback_image.image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, syncReadback_.buffer, 1, &region);
 
 	// Now transfer it back to a texture.
 	TransitionImageLayout2(cmd, step.readback_image.image, 0, 1, 1,  // I don't think we have any multilayer cases for regular textures. Above in PerformReadback, though..
@@ -2110,26 +2056,39 @@ void VulkanQueueRunner::PerformReadbackImage(const VKRStep &step, VkCommandBuffe
 	// Doing that will also act like a heavyweight barrier ensuring that device writes are visible on the host.
 }
 
-void VulkanQueueRunner::CopyReadbackBuffer(int width, int height, Draw::DataFormat srcFormat, Draw::DataFormat destFormat, int pixelStride, uint8_t *pixels) {
-	if (!readbackMemory_)
-		return;  // Something has gone really wrong.
+bool VulkanQueueRunner::CopyReadbackBuffer(FrameData &frameData, VKRFramebuffer *src, int width, int height, Draw::DataFormat srcFormat, Draw::DataFormat destFormat, int pixelStride, uint8_t *pixels) {
+	CachedReadback *readback = &syncReadback_;
+
+	// Look up in readback cache.
+	if (src) {
+		ReadbackKey key;
+		key.framebuf = src;
+		key.width = width;
+		key.height = height;
+		CachedReadback *cached = frameData.readbacks_.Get(key);
+		if (cached) {
+			readback = cached;
+		} else {
+			// Didn't have a cached image ready yet
+			return false;
+		}
+	}
+
+	if (!readback->buffer)
+		return false;  // Didn't find anything in cache, or something has gone really wrong.
 
 	// Read back to the requested address in ram from buffer.
 	void *mappedData;
 	const size_t srcPixelSize = DataFormatSizeInBytes(srcFormat);
-
-	VkResult res = vkMapMemory(vulkan_->GetDevice(), readbackMemory_, 0, width * height * srcPixelSize, 0, &mappedData);
-	if (!readbackBufferIsCoherent_) {
-		VkMappedMemoryRange range{};
-		range.memory = readbackMemory_;
-		range.offset = 0;
-		range.size = width * height * srcPixelSize;
-		vkInvalidateMappedMemoryRanges(vulkan_->GetDevice(), 1, &range);
-	}
+	VkResult res = vmaMapMemory(vulkan_->Allocator(), readback->allocation, &mappedData);
 
 	if (res != VK_SUCCESS) {
 		ERROR_LOG(G3D, "CopyReadbackBuffer: vkMapMemory failed! result=%d", (int)res);
-		return;
+		return false;
+	}
+
+	if (!readback->isCoherent) {
+		vmaInvalidateAllocation(vulkan_->Allocator(), readback->allocation, 0, width * height * srcPixelSize);
 	}
 
 	// TODO: Perform these conversions in a compute shader on the GPU.
@@ -2155,5 +2114,7 @@ void VulkanQueueRunner::CopyReadbackBuffer(int width, int height, Draw::DataForm
 		ERROR_LOG(G3D, "CopyReadbackBuffer: Unknown format");
 		_assert_msg_(false, "CopyReadbackBuffer: Unknown src format %d", (int)srcFormat);
 	}
-	vkUnmapMemory(vulkan_->GetDevice(), readbackMemory_);
+
+	vmaUnmapMemory(vulkan_->Allocator(), readback->allocation);
+	return true;
 }

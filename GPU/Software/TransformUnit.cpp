@@ -41,26 +41,26 @@
 #define TRANSFORM_BUF_SIZE (65536 * 48)
 
 TransformUnit::TransformUnit() {
-	decoded_ = (u8 *)AllocateMemoryPages(TRANSFORM_BUF_SIZE, MEM_PROT_READ | MEM_PROT_WRITE);
+	decoded_ = (u8 *)AllocateAlignedMemory(TRANSFORM_BUF_SIZE, 16);
+	if (!decoded_)
+		return;
 	binner_ = new BinManager();
 }
 
 TransformUnit::~TransformUnit() {
-	FreeMemoryPages(decoded_, TRANSFORM_BUF_SIZE);
+	FreeAlignedMemory(decoded_);
 	delete binner_;
 }
 
+bool TransformUnit::IsStarted() {
+	return binner_ && decoded_;
+}
+
 SoftwareDrawEngine::SoftwareDrawEngine() {
-	// All this is a LOT of memory, need to see if we can cut down somehow.  Used for splines.
-	decoded = (u8 *)AllocateMemoryPages(DECODED_VERTEX_BUFFER_SIZE, MEM_PROT_READ | MEM_PROT_WRITE);
-	decIndex = (u16 *)AllocateMemoryPages(DECODED_INDEX_BUFFER_SIZE, MEM_PROT_READ | MEM_PROT_WRITE);
 	flushOnParams_ = false;
 }
 
-SoftwareDrawEngine::~SoftwareDrawEngine() {
-	FreeMemoryPages(decoded, DECODED_VERTEX_BUFFER_SIZE);
-	FreeMemoryPages(decIndex, DECODED_INDEX_BUFFER_SIZE);
-}
+SoftwareDrawEngine::~SoftwareDrawEngine() {}
 
 void SoftwareDrawEngine::NotifyConfigChanged() {
 	DrawEngineCommon::NotifyConfigChanged();
@@ -171,7 +171,7 @@ static ScreenCoords ClipToScreenInternal(Vec3f scaled, const ClipCoords &coords,
 	const float SCREEN_BOUND = 4095.0f + (15.5f / 16.0f);
 
 	// This matches hardware tests - depth is clamped when this flag is on.
-	if (depthClamp) {
+	if constexpr (depthClamp) {
 		// Note: if the depth is clipped (z/w <= -1.0), the outside_range_flag should NOT be set, even for x and y.
 		if ((alwaysCheckRange || coords.z > -coords.w) && (scaled.x >= SCREEN_BOUND || scaled.y >= SCREEN_BOUND || scaled.x < 0 || scaled.y < 0)) {
 			*outside_range_flag = true;
@@ -267,12 +267,9 @@ void ComputeTransformState(TransformState *state, const VertexReader &vreader) {
 		bool canSkipWorldPos = true;
 		if (state->enableLighting) {
 			Lighting::ComputeState(&state->lightingState, vreader.hasColor0());
-			for (int i = 0; i < 4; ++i) {
-				if (!state->lightingState.lights[i].enabled)
-					continue;
-				if (!state->lightingState.lights[i].directional)
-					canSkipWorldPos = false;
-			}
+			canSkipWorldPos = !state->lightingState.usesWorldPos;
+		} else {
+			state->lightingState.usesWorldNormal = state->uvGenMode == GE_TEXMAP_ENVIRONMENT_MAP;
 		}
 
 		float world[16];
@@ -333,6 +330,31 @@ void ComputeTransformState(TransformState *state, const VertexReader &vreader) {
 		state->roundToScreen = &ClipToScreenInternal<true, false>;
 	else
 		state->roundToScreen = &ClipToScreenInternal<false, false>;
+}
+
+#if defined(_M_SSE)
+#if defined(__GNUC__) || defined(__clang__) || defined(__INTEL_COMPILER)
+[[gnu::target("sse4.1")]]
+#endif
+static inline __m128 Dot43SSE4(__m128 a, __m128 b) {
+	__m128 multiplied = _mm_mul_ps(a, _mm_insert_ps(b, _mm_set1_ps(1.0f), 0x30));
+	__m128 lanes3311 = _mm_movehdup_ps(multiplied);
+	__m128 partial = _mm_add_ps(multiplied, lanes3311);
+	return _mm_add_ss(partial, _mm_movehl_ps(lanes3311, partial));
+}
+#endif
+
+static inline float Dot43(const Vec4f &a, const Vec3f &b) {
+#if defined(_M_SSE) && !PPSSPP_ARCH(X86)
+	if (cpu_info.bSSE4_1)
+		return _mm_cvtss_f32(Dot43SSE4(a.vec, b.vec));
+#elif PPSSPP_ARCH(ARM64_NEON)
+	float32x4_t multipled = vmulq_f32(a.vec, vsetq_lane_f32(1.0f, b.vec, 3));
+	float32x2_t add1 = vget_low_f32(vpaddq_f32(multipled, multipled));
+	float32x2_t add2 = vpadd_f32(add1, add1);
+	return vget_lane_f32(add2, 0);
+#endif
+	return Dot(a, Vec4f(b, 1.0f));
 }
 
 ClipVertexData TransformUnit::ReadVertex(const VertexReader &vreader, const TransformState &state) {
@@ -399,14 +421,14 @@ ClipVertexData TransformUnit::ReadVertex(const VertexReader &vreader, const Tran
 		}
 
 		if (state.enableFog) {
-			vertex.v.fogdepth = Dot(state.posToFog, Vec4f(pos, 1.0f));
+			vertex.v.fogdepth = Dot43(state.posToFog, pos);
 		} else {
 			vertex.v.fogdepth = 1.0f;
 		}
 		vertex.v.clipw = vertex.clippos.w;
 
 		Vec3<float> worldnormal;
-		if (state.enableLighting || state.uvGenMode == GE_TEXMAP_ENVIRONMENT_MAP) {
+		if (state.lightingState.usesWorldNormal) {
 			worldnormal = TransformUnit::ModelToWorldNormal(normal);
 			worldnormal.NormalizeOr001();
 		}
@@ -472,7 +494,7 @@ public:
 		if (useIndices_)
 			GetIndexBounds(indices, vertex_count, vertex_type, &lowerBound_, &upperBound_);
 		if (vertex_count != 0)
-			vdecoder.DecodeVerts(base, vertices, lowerBound_, upperBound_);
+			vdecoder.DecodeVerts(base, vertices, &gstate_c.uv, lowerBound_, upperBound_);
 
 		// If we're only using a subset of verts, it's better to decode with random access (usually.)
 		// However, if we're reusing a lot of verts, we should read and cache them.

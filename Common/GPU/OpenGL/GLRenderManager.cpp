@@ -6,7 +6,9 @@
 #include "Common/VR/PPSSPPVR.h"
 
 #include "Common/Log.h"
+#include "Common/TimeUtil.h"
 #include "Common/MemoryUtil.h"
+#include "Common/StringUtils.h"
 #include "Common/Math/math_util.h"
 
 #if 0 // def _DEBUG
@@ -15,12 +17,7 @@
 #define VLOG(...)
 #endif
 
-static std::thread::id renderThreadId;
-#if MAX_LOGLEVEL >= DEBUG_LEVEL
-static bool OnRenderThread() {
-	return std::this_thread::get_id() == renderThreadId;
-}
-#endif
+std::thread::id renderThreadId;
 
 GLRTexture::GLRTexture(const Draw::DeviceCaps &caps, int width, int height, int depth, int numMips) {
 	if (caps.textureNPOTFullySupported) {
@@ -40,78 +37,14 @@ GLRTexture::~GLRTexture() {
 	}
 }
 
-void GLDeleter::Take(GLDeleter &other) {
-	_assert_msg_(IsEmpty(), "Deleter already has stuff");
-	shaders = std::move(other.shaders);
-	programs = std::move(other.programs);
-	buffers = std::move(other.buffers);
-	textures = std::move(other.textures);
-	inputLayouts = std::move(other.inputLayouts);
-	framebuffers = std::move(other.framebuffers);
-	pushBuffers = std::move(other.pushBuffers);
-	other.shaders.clear();
-	other.programs.clear();
-	other.buffers.clear();
-	other.textures.clear();
-	other.inputLayouts.clear();
-	other.framebuffers.clear();
-	other.pushBuffers.clear();
-}
-
-// Runs on the GPU thread.
-void GLDeleter::Perform(GLRenderManager *renderManager, bool skipGLCalls) {
-	for (auto pushBuffer : pushBuffers) {
-		renderManager->UnregisterPushBuffer(pushBuffer);
-		if (skipGLCalls) {
-			pushBuffer->Destroy(false);
-		}
-		delete pushBuffer;
-	}
-	pushBuffers.clear();
-	for (auto shader : shaders) {
-		if (skipGLCalls)
-			shader->shader = 0;  // prevent the glDeleteShader
-		delete shader;
-	}
-	shaders.clear();
-	for (auto program : programs) {
-		if (skipGLCalls)
-			program->program = 0;  // prevent the glDeleteProgram
-		delete program;
-	}
-	programs.clear();
-	for (auto buffer : buffers) {
-		if (skipGLCalls)
-			buffer->buffer_ = 0;
-		delete buffer;
-	}
-	buffers.clear();
-	for (auto texture : textures) {
-		if (skipGLCalls)
-			texture->texture = 0;
-		delete texture;
-	}
-	textures.clear();
-	for (auto inputLayout : inputLayouts) {
-		// No GL objects in an inputLayout yet
-		delete inputLayout;
-	}
-	inputLayouts.clear();
-	for (auto framebuffer : framebuffers) {
-		if (skipGLCalls) {
-			framebuffer->handle = 0;
-			framebuffer->color_texture.texture = 0;
-			framebuffer->z_stencil_buffer = 0;
-			framebuffer->z_stencil_texture.texture = 0;
-			framebuffer->z_buffer = 0;
-			framebuffer->stencil_buffer = 0;
-		}
-		delete framebuffer;
-	}
-	framebuffers.clear();
+GLRenderManager::GLRenderManager(HistoryBuffer<FrameTimeData, FRAME_TIME_HISTORY_LENGTH> &frameTimeHistory) : frameTimeHistory_(frameTimeHistory) {
+	// size_t sz = sizeof(GLRRenderData);
+	// _dbg_assert_(sz == 88);
 }
 
 GLRenderManager::~GLRenderManager() {
+	_dbg_assert_(!run_);
+
 	for (int i = 0; i < MAX_INFLIGHT_FRAMES; i++) {
 		_assert_(frameData_[i].deleter.IsEmpty());
 		_assert_(frameData_[i].deleter_prev.IsEmpty());
@@ -123,7 +56,6 @@ GLRenderManager::~GLRenderManager() {
 
 void GLRenderManager::ThreadStart(Draw::DrawContext *draw) {
 	queueRunner_.CreateDeviceObjects();
-	threadFrame_ = threadInitFrame_;
 	renderThreadId = std::this_thread::get_id();
 
 	if (newInflightFrames_ != -1) {
@@ -169,24 +101,16 @@ void GLRenderManager::ThreadStart(Draw::DrawContext *draw) {
 void GLRenderManager::ThreadEnd() {
 	INFO_LOG(G3D, "ThreadEnd");
 
-	// Wait for any shutdown to complete in StopThread().
-	std::unique_lock<std::mutex> lock(mutex_);
 	queueRunner_.DestroyDeviceObjects();
-	VLOG("PULL: Quitting");
+	VLOG("  PULL: Quitting");
 
-	// Good point to run all the deleters to get rid of leftover objects.
+	// Good time to run all the deleters to get rid of leftover objects.
 	for (int i = 0; i < MAX_INFLIGHT_FRAMES; i++) {
 		// Since we're in shutdown, we should skip the GL calls on Android.
 		frameData_[i].deleter.Perform(this, skipGLCalls_);
 		frameData_[i].deleter_prev.Perform(this, skipGLCalls_);
-		for (int j = 0; j < (int)frameData_[i].steps.size(); j++) {
-			delete frameData_[i].steps[j];
-		}
-		frameData_[i].steps.clear();
-		frameData_[i].initSteps.clear();
 	}
 	deleter_.Perform(this, skipGLCalls_);
-
 	for (int i = 0; i < (int)steps_.size(); i++) {
 		delete steps_[i];
 	}
@@ -194,105 +118,77 @@ void GLRenderManager::ThreadEnd() {
 	initSteps_.clear();
 }
 
+// Unlike in Vulkan, this isn't a full independent function, instead it gets called every frame.
+//
+// This means that we have to block and run the render queue until we've presented one frame,
+// at which point we can leave.
+//
+// NOTE: If run_ is true, we WILL run a task!
 bool GLRenderManager::ThreadFrame() {
-	std::unique_lock<std::mutex> lock(mutex_);
-	if (!run_)
+	if (!run_) {
 		return false;
+	}
+
+	GLRRenderThreadTask *task = nullptr;
 
 	// In case of syncs or other partial completion, we keep going until we complete a frame.
-	do {
-		if (nextFrame) {
-			threadFrame_++;
-			if (threadFrame_ >= inflightFrames_)
-				threadFrame_ = 0;
-		}
-		FrameData &frameData = frameData_[threadFrame_];
+	while (true) {
+		// Pop a task of the queue and execute it.
+		// NOTE: We need to actually wait for a task, we can't just bail!
 		{
-			std::unique_lock<std::mutex> lock(frameData.pull_mutex);
-			while (!frameData.readyForRun && run_) {
-				VLOG("PULL: Waiting for frame[%d].readyForRun", threadFrame_);
-				frameData.pull_condVar.wait(lock);
+			std::unique_lock<std::mutex> lock(pushMutex_);
+			while (renderThreadQueue_.empty()) {
+				pushCondVar_.wait(lock);
 			}
-			if (!frameData.readyForRun && !run_) {
-				// This means we're out of frames to render and run_ is false, so bail.
-				return false;
-			}
-			VLOG("PULL: Setting frame[%d].readyForRun = false", threadFrame_);
-			frameData.readyForRun = false;
-			frameData.deleter_prev.Perform(this, skipGLCalls_);
-			frameData.deleter_prev.Take(frameData.deleter);
-			// Previously we had a quick exit here that avoided calling Run() if run_ was suddenly false,
-			// but that created a race condition where frames could end up not finished properly on resize etc.
-
-			// Only increment next time if we're done.
-			nextFrame = frameData.type == GLRRunType::END;
-			_assert_(frameData.type == GLRRunType::END || frameData.type == GLRRunType::SYNC);
+			task = std::move(renderThreadQueue_.front());
+			renderThreadQueue_.pop();
 		}
-		VLOG("PULL: Running frame %d", threadFrame_);
-		if (firstFrame) {
-			INFO_LOG(G3D, "Running first frame (%d)", threadFrame_);
-			firstFrame = false;
+
+		// We got a task! We can now have pushMutex_ unlocked, allowing the host to
+		// push more work when it feels like it, and just start working.
+		if (task->runType == GLRRunType::EXIT) {
+			delete task;
+			// Oh, host wanted out. Let's leave, and also let's notify the host.
+			// This is unlike Vulkan too which can just block on the thread existing.
+			std::unique_lock<std::mutex> lock(syncMutex_);
+			syncCondVar_.notify_one();
+			syncDone_ = true;
+			break;
 		}
 
 		// Render the scene.
-		Run(threadFrame_);
-
-		VLOG("PULL: Finished frame %d", threadFrame_);
-	} while (!nextFrame);
+		VLOG("  PULL: Frame %d RUN (%0.3f)", task->frame, time_now_d());
+		if (Run(*task)) {
+			// Swap requested, so we just bail the loop.
+			delete task;
+			break;
+		}
+		delete task;
+	};
 
 	return true;
 }
 
 void GLRenderManager::StopThread() {
-	// Since we don't control the thread directly, this will only pause the thread.
-
+	// There's not really a lot to do here anymore.
+	INFO_LOG(G3D, "GLRenderManager::StopThread()");
 	if (run_) {
 		run_ = false;
-		for (int i = 0; i < MAX_INFLIGHT_FRAMES; i++) {
-			auto &frameData = frameData_[i];
-			{
-				std::unique_lock<std::mutex> lock(frameData.push_mutex);
-				frameData.push_condVar.notify_all();
-			}
-			{
-				std::unique_lock<std::mutex> lock(frameData.pull_mutex);
-				frameData.pull_condVar.notify_all();
-			}
-		}
 
-		// Wait until we've definitely stopped the threadframe.
-		std::unique_lock<std::mutex> lock(mutex_);
-
-		INFO_LOG(G3D, "GL submission thread paused. Frame=%d", curFrame_);
-
-		// Eat whatever has been queued up for this frame if anything.
-		Wipe();
-
-		// Wait for any fences to finish and be resignaled, so we don't have sync issues.
-		// Also clean out any queued data, which might refer to things that might not be valid
-		// when we restart...
-		for (int i = 0; i < MAX_INFLIGHT_FRAMES; i++) {
-			auto &frameData = frameData_[i];
-			std::unique_lock<std::mutex> lock(frameData.push_mutex);
-			if (frameData.readyForRun || frameData.steps.size() != 0) {
-				Crash();
-			}
-			frameData.readyForRun = false;
-			frameData.readyForSubmit = false;
-			for (size_t i = 0; i < frameData.steps.size(); i++) {
-				delete frameData.steps[i];
-			}
-			frameData.steps.clear();
-			frameData.initSteps.clear();
-
-			while (!frameData.readyForFence) {
-				VLOG("PUSH: Waiting for frame[%d].readyForFence = 1 (stop)", i);
-				frameData.push_condVar.wait(lock);
-			}
-		}
+		std::unique_lock<std::mutex> lock(pushMutex_);
+		renderThreadQueue_.push(new GLRRenderThreadTask(GLRRunType::EXIT));
+		pushCondVar_.notify_one();
 	} else {
-		INFO_LOG(G3D, "GL submission thread was already paused.");
+		WARN_LOG(G3D, "GL submission thread was already paused.");
 	}
+}
+
+std::string GLRenderManager::GetGpuProfileString() const {
+	int curFrame = curFrame_;
+	const GLQueueProfileContext &profile = frameData_[curFrame].profile;
+
+	float cputime_ms = 1000.0f * (profile.cpuEndTime - profile.cpuStartTime);
+	return StringFromFormat("CPU time to run the list: %0.2f ms\n\n%s", cputime_ms, profilePassesString_.c_str());
 }
 
 void GLRenderManager::BindFramebufferAsRenderTarget(GLRFramebuffer *fb, GLRRenderPassAction color, GLRRenderPassAction depth, GLRRenderPassAction stencil, uint32_t clearColor, float clearDepth, uint8_t clearStencil, const char *tag) {
@@ -302,7 +198,7 @@ void GLRenderManager::BindFramebufferAsRenderTarget(GLRFramebuffer *fb, GLRRende
 #endif
 
 	// Eliminate dupes.
-	if (steps_.size() && steps_.back()->render.framebuffer == fb && steps_.back()->stepType == GLRStepType::RENDER) {
+	if (steps_.size() && steps_.back()->stepType == GLRStepType::RENDER && steps_.back()->render.framebuffer == fb) {
 		if (color != GLRRenderPassAction::CLEAR && depth != GLRRenderPassAction::CLEAR && stencil != GLRRenderPassAction::CLEAR) {
 			// We don't move to a new step, this bind was unnecessary and we can safely skip it.
 			curRenderStep_ = steps_.back();
@@ -310,7 +206,7 @@ void GLRenderManager::BindFramebufferAsRenderTarget(GLRFramebuffer *fb, GLRRende
 		}
 	}
 	if (curRenderStep_ && curRenderStep_->commands.size() == 0) {
-		VLOG("Empty render step. Usually happens after uploading pixels..");
+		VLOG("Empty render step. Usually happens after uploading pixels.");
 	}
 
 	GLRStep *step = new GLRStep{ GLRStepType::RENDER };
@@ -319,13 +215,11 @@ void GLRenderManager::BindFramebufferAsRenderTarget(GLRFramebuffer *fb, GLRRende
 	step->render.color = color;
 	step->render.depth = depth;
 	step->render.stencil = stencil;
-	step->render.numDraws = 0;
 	step->tag = tag;
 	steps_.push_back(step);
 
 	GLuint clearMask = 0;
-	GLRRenderData data;
-	data.cmd = GLRRenderCommand::CLEAR;
+	GLRRenderData data(GLRRenderCommand::CLEAR);
 	if (color == GLRRenderPassAction::CLEAR) {
 		clearMask |= GL_COLOR_BUFFER_BIT;
 		data.clear.clearColor = clearColor;
@@ -402,7 +296,7 @@ void GLRenderManager::BlitFramebuffer(GLRFramebuffer *src, GLRect2D srcRect, GLR
 	steps_.push_back(step);
 }
 
-bool GLRenderManager::CopyFramebufferToMemorySync(GLRFramebuffer *src, int aspectBits, int x, int y, int w, int h, Draw::DataFormat destFormat, uint8_t *pixels, int pixelStride, const char *tag) {
+bool GLRenderManager::CopyFramebufferToMemory(GLRFramebuffer *src, int aspectBits, int x, int y, int w, int h, Draw::DataFormat destFormat, uint8_t *pixels, int pixelStride, Draw::ReadbackMode mode, const char *tag) {
 	_assert_(pixels);
 
 	GLRStep *step = new GLRStep{ GLRStepType::READBACK };
@@ -429,7 +323,7 @@ bool GLRenderManager::CopyFramebufferToMemorySync(GLRFramebuffer *src, int aspec
 	} else {
 		return false;
 	}
-	queueRunner_.CopyReadbackBuffer(w, h, srcFormat, destFormat, pixelStride, pixels);
+	queueRunner_.CopyFromReadbackBuffer(src, w, h, srcFormat, destFormat, pixelStride, pixels);
 	return true;
 }
 
@@ -446,131 +340,146 @@ void GLRenderManager::CopyImageToMemorySync(GLRTexture *texture, int mipLevel, i
 	curRenderStep_ = nullptr;
 	FlushSync();
 
-	queueRunner_.CopyReadbackBuffer(w, h, Draw::DataFormat::R8G8B8A8_UNORM, destFormat, pixelStride, pixels);
+	queueRunner_.CopyFromReadbackBuffer(nullptr, w, h, Draw::DataFormat::R8G8B8A8_UNORM, destFormat, pixelStride, pixels);
 }
 
-void GLRenderManager::BeginFrame() {
-	VLOG("BeginFrame");
-
+void GLRenderManager::BeginFrame(bool enableProfiling) {
 #ifdef _DEBUG
 	curProgram_ = nullptr;
 #endif
 
 	int curFrame = GetCurFrame();
-	FrameData &frameData = frameData_[curFrame];
 
-	// Make sure the very last command buffer from the frame before the previous has been fully executed.
+	FrameTimeData &frameTimeData = frameTimeHistory_.Add(frameIdGen_);
+	frameTimeData.frameBegin = time_now_d();
+	frameTimeData.afterFenceWait = frameTimeData.frameBegin;
+
+	GLFrameData &frameData = frameData_[curFrame];
+	frameData.frameId = frameIdGen_;
+	frameData.profile.enabled = enableProfiling;
+
+	frameIdGen_++;
 	{
-		std::unique_lock<std::mutex> lock(frameData.push_mutex);
+		std::unique_lock<std::mutex> lock(frameData.fenceMutex);
+		VLOG("PUSH: BeginFrame (curFrame = %d, readyForFence = %d, time=%0.3f)", curFrame, (int)frameData.readyForFence, time_now_d());
 		while (!frameData.readyForFence) {
-			VLOG("PUSH: Waiting for frame[%d].readyForFence = 1", curFrame);
-			frameData.push_condVar.wait(lock);
+			frameData.fenceCondVar.wait(lock);
 		}
 		frameData.readyForFence = false;
-		frameData.readyForSubmit = true;
 	}
 
-	VLOG("PUSH: Fencing %d", curFrame);
-
-	// glFenceSync(&frameData.fence...)
-
-	// Must be after the fence - this performs deletes.
-	VLOG("PUSH: BeginFrame %d", curFrame);
 	if (!run_) {
 		WARN_LOG(G3D, "BeginFrame while !run_!");
 	}
-
-	// vulkan_->BeginFrame();
-	// In GL, we have to do deletes on the submission thread.
 
 	insideFrame_ = true;
 }
 
 void GLRenderManager::Finish() {
-	curRenderStep_ = nullptr;
-	int curFrame = GetCurFrame();
-	FrameData &frameData = frameData_[curFrame];
-	{
-		std::unique_lock<std::mutex> lock(frameData.pull_mutex);
-		VLOG("PUSH: Frame[%d].readyForRun = true, notifying pull", curFrame);
-		frameData.steps = std::move(steps_);
-		steps_.clear();
-		frameData.initSteps = std::move(initSteps_);
-		initSteps_.clear();
-		frameData.readyForRun = true;
-		frameData.type = GLRRunType::END;
-		frameData_[curFrame_].deleter.Take(deleter_);
+	curRenderStep_ = nullptr;  // EndCurRenderStep is this simple here.
+
+	int curFrame = curFrame_;
+	GLFrameData &frameData = frameData_[curFrame];
+
+	frameTimeHistory_[frameData.frameId].firstSubmit = time_now_d();
+
+	frameData_[curFrame].deleter.Take(deleter_);
+
+	if (frameData.profile.enabled) {
+		profilePassesString_ = std::move(frameData.profile.passesString);
+
+#ifdef _DEBUG
+		std::string cmdString;
+		for (int i = 0; i < ARRAY_SIZE(frameData.profile.commandCounts); i++) {
+			if (frameData.profile.commandCounts[i] > 0) {
+				cmdString += StringFromFormat("%s: %d\n", RenderCommandToString((GLRRenderCommand)i), frameData.profile.commandCounts[i]);
+			}
+		}
+		memset(frameData.profile.commandCounts, 0, sizeof(frameData.profile.commandCounts));
+		profilePassesString_ = cmdString + profilePassesString_;
+#endif
+
+		frameData.profile.passesString.clear();
 	}
 
-	// Notify calls do not in fact need to be done with the mutex locked.
-	frameData.pull_condVar.notify_all();
+	VLOG("PUSH: Finish, pushing task. curFrame = %d", curFrame);
+	GLRRenderThreadTask *task = new GLRRenderThreadTask(GLRRunType::SUBMIT);
+	task->frame = curFrame;
+	{
+		std::unique_lock<std::mutex> lock(pushMutex_);
+		renderThreadQueue_.push(task);
+		renderThreadQueue_.back()->initSteps = std::move(initSteps_);
+		renderThreadQueue_.back()->steps = std::move(steps_);
+		initSteps_.clear();
+		steps_.clear();
+		pushCondVar_.notify_one();
+	}
+}
 
-	curFrame_++;
-	if (curFrame_ >= inflightFrames_)
-		curFrame_ = 0;
+void GLRenderManager::Present() {
+	GLRRenderThreadTask *presentTask = new GLRRenderThreadTask(GLRRunType::PRESENT);
+	presentTask->frame = curFrame_;
+	{
+		std::unique_lock<std::mutex> lock(pushMutex_);
+		renderThreadQueue_.push(presentTask);
+	}
+
+	int newCurFrame = curFrame_ + 1;
+	if (newCurFrame >= inflightFrames_) {
+		newCurFrame = 0;
+	}
+	curFrame_ = newCurFrame;
 
 	insideFrame_ = false;
 }
 
-void GLRenderManager::BeginSubmitFrame(int frame) {
-	FrameData &frameData = frameData_[frame];
+// Render thread. Returns true if the caller should handle a swap.
+bool GLRenderManager::Run(GLRRenderThreadTask &task) {
+	_dbg_assert_(task.frame >= 0);
+
+	GLFrameData &frameData = frameData_[task.frame];
+
+	if (task.runType == GLRRunType::PRESENT) {
+		bool swapRequest = false;
+		if (!frameData.skipSwap) {
+			frameTimeHistory_[frameData.frameId].queuePresent = time_now_d();
+			if (swapIntervalChanged_) {
+				swapIntervalChanged_ = false;
+				if (swapIntervalFunction_) {
+					swapIntervalFunction_(swapInterval_);
+				}
+			}
+			// This is the swapchain framebuffer flip.
+			if (swapFunction_) {
+				VLOG("  PULL: SwapFunction()");
+				swapFunction_();
+			}
+			swapRequest = true;
+		} else {
+			frameData.skipSwap = false;
+		}
+		frameData.hasBegun = false;
+
+		VLOG("  PULL: Frame %d.readyForFence = true", task.frame);
+
+		{
+			std::lock_guard<std::mutex> lock(frameData.fenceMutex);
+			frameData.readyForFence = true;
+			frameData.fenceCondVar.notify_one();
+			// At this point, we're done with this framedata (for now).
+		}
+		return swapRequest;
+	}
+
 	if (!frameData.hasBegun) {
 		frameData.hasBegun = true;
+
+		frameData.deleter_prev.Perform(this, skipGLCalls_);
+		frameData.deleter_prev.Take(frameData.deleter);
 	}
-}
 
-// Render thread
-void GLRenderManager::Submit(int frame, bool triggerFence) {
-	FrameData &frameData = frameData_[frame];
-
-	// In GL, submission happens automatically in Run().
-
-	// When !triggerFence, we notify after syncing with Vulkan.
-
-	if (triggerFence) {
-		VLOG("PULL: Frame %d.readyForFence = true", frame);
-
-		std::unique_lock<std::mutex> lock(frameData.push_mutex);
-		_assert_(frameData.readyForSubmit);
-		frameData.readyForFence = true;
-		frameData.readyForSubmit = false;
-		frameData.push_condVar.notify_all();
-	}
-}
-
-// Render thread
-void GLRenderManager::EndSubmitFrame(int frame) {
-	FrameData &frameData = frameData_[frame];
-	frameData.hasBegun = false;
-
-	Submit(frame, true);
-
-	if (!frameData.skipSwap) {
-		if (swapIntervalChanged_) {
-			swapIntervalChanged_ = false;
-			if (swapIntervalFunction_) {
-				swapIntervalFunction_(swapInterval_);
-			}
-		}
-		if (swapFunction_) {
-			swapFunction_();
-		}
-	} else {
-		frameData.skipSwap = false;
-	}
-}
-
-// Render thread
-void GLRenderManager::Run(int frame) {
-	BeginSubmitFrame(frame);
-
-	FrameData &frameData = frameData_[frame];
-
-	auto &stepsOnThread = frameData_[frame].steps;
-	auto &initStepsOnThread = frameData_[frame].initSteps;
 	// queueRunner_.LogSteps(stepsOnThread);
-	queueRunner_.RunInitSteps(initStepsOnThread, skipGLCalls_);
-	initStepsOnThread.clear();
+	queueRunner_.RunInitSteps(task.initSteps, skipGLCalls_);
 
 	// Run this after RunInitSteps so any fresh GLRBuffers for the pushbuffers can get created.
 	if (!skipGLCalls_) {
@@ -580,17 +489,24 @@ void GLRenderManager::Run(int frame) {
 		}
 	}
 
+	if (frameData.profile.enabled) {
+		frameData.profile.cpuStartTime = time_now_d();
+	}
+
 	if (IsVREnabled()) {
 		int passes = GetVRPassesCount();
 		for (int i = 0; i < passes; i++) {
 			PreVRFrameRender(i);
-			queueRunner_.RunSteps(stepsOnThread, skipGLCalls_, i < passes - 1, true);
+			queueRunner_.RunSteps(task.steps, frameData, skipGLCalls_, i < passes - 1, true);
 			PostVRFrameRender();
 		}
 	} else {
-		queueRunner_.RunSteps(stepsOnThread, skipGLCalls_, false, false);
+		queueRunner_.RunSteps(task.steps, frameData, skipGLCalls_, false, false);
 	}
-	stepsOnThread.clear();
+
+	if (frameData.profile.enabled) {
+		frameData.profile.cpuEndTime = time_now_d();
+	}
 
 	if (!skipGLCalls_) {
 		for (auto iter : frameData.activePushBuffers) {
@@ -598,339 +514,51 @@ void GLRenderManager::Run(int frame) {
 		}
 	}
 
-	switch (frameData.type) {
-	case GLRRunType::END:
-		EndSubmitFrame(frame);
+	switch (task.runType) {
+	case GLRRunType::SUBMIT:
 		break;
 
 	case GLRRunType::SYNC:
-		EndSyncFrame(frame);
+		frameData.hasBegun = false;
+
+		// glFinish is not actually necessary here, and won't be unless we start using
+		// glBufferStorage. Then we need to use fences.
+		{
+			std::unique_lock<std::mutex> lock(syncMutex_);
+			syncDone_ = true;
+			syncCondVar_.notify_one();
+		}
 		break;
 
 	default:
 		_assert_(false);
 	}
-
-	VLOG("PULL: Finished running frame %d", frame);
+	VLOG("  PULL: ::Run(): Done running tasks");
+	return false;
 }
 
 void GLRenderManager::FlushSync() {
-	int curFrame = curFrame_;
-	FrameData &frameData = frameData_[curFrame];
 	{
-		std::unique_lock<std::mutex> lock(frameData.pull_mutex);
-		VLOG("PUSH: Frame[%d].readyForRun = true (sync)", curFrame);
-		frameData.initSteps = std::move(initSteps_);
-		initSteps_.clear();
-		frameData.steps = std::move(steps_);
+		VLOG("PUSH: Frame[%d].readyForRun = true (sync)", curFrame_);
+
+		GLRRenderThreadTask *task = new GLRRenderThreadTask(GLRRunType::SYNC);
+		task->frame = curFrame_;
+
+		std::unique_lock<std::mutex> lock(pushMutex_);
+		renderThreadQueue_.push(task);
+		renderThreadQueue_.back()->initSteps = std::move(initSteps_);
+		renderThreadQueue_.back()->steps = std::move(steps_);
+		pushCondVar_.notify_one();
 		steps_.clear();
-		frameData.readyForRun = true;
-		_assert_(frameData.readyForFence == false);
-		frameData.type = GLRRunType::SYNC;
-		frameData.pull_condVar.notify_all();
 	}
+
 	{
-		std::unique_lock<std::mutex> lock(frameData.push_mutex);
+		std::unique_lock<std::mutex> lock(syncMutex_);
 		// Wait for the flush to be hit, since we're syncing.
-		while (!frameData.readyForFence) {
-			VLOG("PUSH: Waiting for frame[%d].readyForFence = 1 (sync)", curFrame);
-			frameData.push_condVar.wait(lock);
+		while (!syncDone_) {
+			VLOG("PUSH: Waiting for frame[%d].readyForFence = 1 (sync)", curFrame_);
+			syncCondVar_.wait(lock);
 		}
-		frameData.readyForFence = false;
-		frameData.readyForSubmit = true;
+		syncDone_ = false;
 	}
-}
-
-// Render thread
-void GLRenderManager::EndSyncFrame(int frame) {
-	FrameData &frameData = frameData_[frame];
-	Submit(frame, false);
-
-	// glFinish is not actually necessary here, and won't be until we start using
-	// glBufferStorage. Then we need to use fences.
-	// glFinish();
-
-	// At this point we can resume filling the command buffers for the current frame since
-	// we know the device is idle - and thus all previously enqueued command buffers have been processed.
-	// No need to switch to the next frame number.
-
-	{
-		std::unique_lock<std::mutex> lock(frameData.push_mutex);
-		frameData.readyForFence = true;
-		frameData.readyForSubmit = true;
-		frameData.push_condVar.notify_all();
-	}
-}
-
-void GLRenderManager::Wipe() {
-	initSteps_.clear();
-	for (auto step : steps_) {
-		delete step;
-	}
-	steps_.clear();
-}
-
-void GLRenderManager::WaitUntilQueueIdle() {
-	// Just wait for all frames to be ready.
-	for (int i = 0; i < MAX_INFLIGHT_FRAMES; i++) {
-		FrameData &frameData = frameData_[i];
-
-		std::unique_lock<std::mutex> lock(frameData.push_mutex);
-		// Ignore unsubmitted frames.
-		while (!frameData.readyForFence && frameData.readyForRun) {
-			VLOG("PUSH: Waiting for frame[%d].readyForFence = 1 (wait idle)", i);
-			frameData.push_condVar.wait(lock);
-		}
-	}
-}
-
-GLPushBuffer::GLPushBuffer(GLRenderManager *render, GLuint target, size_t size) : render_(render), size_(size), target_(target) {
-	bool res = AddBuffer();
-	_assert_(res);
-}
-
-GLPushBuffer::~GLPushBuffer() {
-	Destroy(true);
-}
-
-void GLPushBuffer::Map() {
-	_assert_(!writePtr_);
-	auto &info = buffers_[buf_];
-	writePtr_ = info.deviceMemory ? info.deviceMemory : info.localMemory;
-	info.flushOffset = 0;
-	// Force alignment.  This is needed for PushAligned() to work as expected.
-	while ((intptr_t)writePtr_ & 15) {
-		writePtr_++;
-		offset_++;
-		info.flushOffset++;
-	}
-	_assert_(writePtr_);
-}
-
-void GLPushBuffer::Unmap() {
-	_assert_(writePtr_);
-	if (!buffers_[buf_].deviceMemory) {
-		// Here we simply upload the data to the last buffer.
-		// Might be worth trying with size_ instead of offset_, so the driver can replace
-		// the whole buffer. At least if it's close.
-		render_->BufferSubdata(buffers_[buf_].buffer, 0, offset_, buffers_[buf_].localMemory, false);
-	} else {
-		buffers_[buf_].flushOffset = offset_;
-	}
-	writePtr_ = nullptr;
-}
-
-void GLPushBuffer::Flush() {
-	// Must be called from the render thread.
-	_dbg_assert_(OnRenderThread());
-
-	buffers_[buf_].flushOffset = offset_;
-	if (!buffers_[buf_].deviceMemory && writePtr_) {
-		auto &info = buffers_[buf_];
-		if (info.flushOffset != 0) {
-			_assert_(info.buffer->buffer_);
-			glBindBuffer(target_, info.buffer->buffer_);
-			glBufferSubData(target_, 0, info.flushOffset, info.localMemory);
-		}
-
-		// Here we will submit all the draw calls, with the already known buffer and offsets.
-		// Might as well reset the write pointer here and start over the current buffer.
-		writePtr_ = info.localMemory;
-		offset_ = 0;
-		info.flushOffset = 0;
-	}
-
-	// For device memory, we flush all buffers here.
-	if ((strategy_ & GLBufferStrategy::MASK_FLUSH) != 0) {
-		for (auto &info : buffers_) {
-			if (info.flushOffset == 0 || !info.deviceMemory)
-				continue;
-
-			glBindBuffer(target_, info.buffer->buffer_);
-			glFlushMappedBufferRange(target_, 0, info.flushOffset);
-			info.flushOffset = 0;
-		}
-	}
-}
-
-bool GLPushBuffer::AddBuffer() {
-	BufInfo info;
-	info.localMemory = (uint8_t *)AllocateAlignedMemory(size_, 16);
-	if (!info.localMemory)
-		return false;
-	info.buffer = render_->CreateBuffer(target_, size_, GL_DYNAMIC_DRAW);
-	buf_ = buffers_.size();
-	buffers_.push_back(info);
-	return true;
-}
-
-void GLPushBuffer::Destroy(bool onRenderThread) {
-	if (buf_ == -1)
-		return;  // Already destroyed
-	for (BufInfo &info : buffers_) {
-		// This will automatically unmap device memory, if needed.
-		// NOTE: We immediately delete the buffer, don't go through the deleter, if we're on the render thread.
-		if (onRenderThread) {
-			delete info.buffer;
-		} else {
-			render_->DeleteBuffer(info.buffer);
-		}
-
-		FreeAlignedMemory(info.localMemory);
-	}
-	buffers_.clear();
-	buf_ = -1;
-}
-
-void GLPushBuffer::NextBuffer(size_t minSize) {
-	// First, unmap the current memory.
-	Unmap();
-
-	buf_++;
-	if (buf_ >= buffers_.size() || minSize > size_) {
-		// Before creating the buffer, adjust to the new size_ if necessary.
-		while (size_ < minSize) {
-			size_ <<= 1;
-		}
-
-		bool res = AddBuffer();
-		_assert_(res);
-		if (!res) {
-			// Let's try not to crash at least?
-			buf_ = 0;
-		}
-	}
-
-	// Now, move to the next buffer and map it.
-	offset_ = 0;
-	Map();
-}
-
-void GLPushBuffer::Defragment() {
-	_dbg_assert_msg_(!OnRenderThread(), "Defragment must not run on the render thread");
-
-	if (buffers_.size() <= 1) {
-		// Let's take this chance to jetison localMemory we don't need.
-		for (auto &info : buffers_) {
-			if (info.deviceMemory) {
-				FreeAlignedMemory(info.localMemory);
-				info.localMemory = nullptr;
-			}
-		}
-
-		return;
-	}
-
-	// Okay, we have more than one.  Destroy them all and start over with a larger one.
-	size_t newSize = size_ * buffers_.size();
-	Destroy(false);
-
-	size_ = newSize;
-	bool res = AddBuffer();
-	_assert_msg_(res, "AddBuffer failed");
-}
-
-size_t GLPushBuffer::GetTotalSize() const {
-	size_t sum = 0;
-	if (buffers_.size() > 1)
-		sum += size_ * (buffers_.size() - 1);
-	sum += offset_;
-	return sum;
-}
-
-void GLPushBuffer::MapDevice(GLBufferStrategy strategy) {
-	_dbg_assert_msg_(OnRenderThread(), "MapDevice must run on render thread");
-
-	strategy_ = strategy;
-	if (strategy_ == GLBufferStrategy::SUBDATA) {
-		return;
-	}
-
-	bool mapChanged = false;
-	for (auto &info : buffers_) {
-		if (!info.buffer->buffer_ || info.deviceMemory) {
-			// Can't map - no device buffer associated yet or already mapped.
-			continue;
-		}
-
-		info.deviceMemory = (uint8_t *)info.buffer->Map(strategy_);
-		mapChanged = mapChanged || info.deviceMemory != nullptr;
-
-		if (!info.deviceMemory && !info.localMemory) {
-			// Somehow it failed, let's dodge crashing.
-			info.localMemory = (uint8_t *)AllocateAlignedMemory(info.buffer->size_, 16);
-			mapChanged = true;
-		}
-
-		_dbg_assert_msg_(info.localMemory || info.deviceMemory, "Local or device memory must succeed");
-	}
-
-	if (writePtr_ && mapChanged) {
-		// This can happen during a sync.  Remap.
-		writePtr_ = nullptr;
-		Map();
-	}
-}
-
-void GLPushBuffer::UnmapDevice() {
-	_dbg_assert_msg_(OnRenderThread(), "UnmapDevice must run on render thread");
-
-	for (auto &info : buffers_) {
-		if (info.deviceMemory) {
-			// TODO: Technically this can return false?
-			info.buffer->Unmap();
-			info.deviceMemory = nullptr;
-		}
-	}
-}
-
-void *GLRBuffer::Map(GLBufferStrategy strategy) {
-	_assert_(buffer_ != 0);
-
-	GLbitfield access = GL_MAP_WRITE_BIT;
-	if ((strategy & GLBufferStrategy::MASK_FLUSH) != 0) {
-		access |= GL_MAP_FLUSH_EXPLICIT_BIT;
-	}
-	if ((strategy & GLBufferStrategy::MASK_INVALIDATE) != 0) {
-		access |= GL_MAP_INVALIDATE_BUFFER_BIT;
-	}
-
-	void *p = nullptr;
-	bool allowNativeBuffer = strategy != GLBufferStrategy::SUBDATA;
-	if (allowNativeBuffer) {
-		glBindBuffer(target_, buffer_);
-
-		if (gl_extensions.ARB_buffer_storage || gl_extensions.EXT_buffer_storage) {
-#if !PPSSPP_PLATFORM(IOS)
-			if (!hasStorage_) {
-				GLbitfield storageFlags = access & ~(GL_MAP_INVALIDATE_BUFFER_BIT | GL_MAP_FLUSH_EXPLICIT_BIT);
-#ifdef USING_GLES2
-#ifdef GL_EXT_buffer_storage
-				glBufferStorageEXT(target_, size_, nullptr, storageFlags);
-#endif
-#else
-				glBufferStorage(target_, size_, nullptr, storageFlags);
-#endif
-				hasStorage_ = true;
-			}
-#endif
-			p = glMapBufferRange(target_, 0, size_, access);
-		} else if (gl_extensions.VersionGEThan(3, 0, 0)) {
-			// GLES3 or desktop 3.
-			p = glMapBufferRange(target_, 0, size_, access);
-		} else if (!gl_extensions.IsGLES) {
-#ifndef USING_GLES2
-			p = glMapBuffer(target_, GL_READ_WRITE);
-#endif
-		}
-	}
-
-	mapped_ = p != nullptr;
-	return p;
-}
-
-bool GLRBuffer::Unmap() {
-	glBindBuffer(target_, buffer_);
-	mapped_ = false;
-	return glUnmapBuffer(target_) == GL_TRUE;
 }

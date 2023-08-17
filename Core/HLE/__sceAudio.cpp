@@ -23,6 +23,7 @@
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"
 #include "Common/Data/Collections/FixedSizeQueue.h"
+#include "Common/System/System.h"
 
 #ifdef _M_SSE
 #include <emmintrin.h>
@@ -30,7 +31,6 @@
 
 #include "Core/Config.h"
 #include "Core/CoreTiming.h"
-#include "Core/Host.h"
 #include "Core/MemMapHelpers.h"
 #include "Core/Reporting.h"
 #include "Core/System.h"
@@ -44,10 +44,7 @@
 #include "Core/HLE/sceAudio.h"
 #include "Core/HLE/sceKernel.h"
 #include "Core/HLE/sceKernelThread.h"
-#include "Core/HW/StereoResampler.h"
 #include "Core/Util/AudioFormat.h"
-
-StereoResampler resampler;
 
 // Should be used to lock anything related to the outAudioQueue.
 // atomic locks are used on the lock. TODO: make this lock-free
@@ -58,14 +55,15 @@ std::atomic_flag atomicLock_;
 FixedSizeQueue<s16, 32768 * 8> chanSampleQueues[PSP_AUDIO_CHANNEL_MAX + 1];
 
 int eventAudioUpdate = -1;
+
+// TODO: This is now useless and should be removed. Just scared of breaking states.
 int eventHostAudioUpdate = -1;
+
 int mixFrequency = 44100;
 int srcFrequency = 0;
 
 const int hwSampleRate = 44100;
-
 const int hwBlockSize = 64;
-const int hostAttemptBlockSize = 512;
 
 static int audioIntervalCycles;
 static int audioHostIntervalCycles;
@@ -82,11 +80,6 @@ static bool m_logAudio;
 static int chanQueueMaxSizeFactor;
 static int chanQueueMinSizeFactor;
 
-// Accessor for libretro
-int __AudioGetHostAttemptBlockSize() {
-	return hostAttemptBlockSize;
-}
-
 static void hleAudioUpdate(u64 userdata, int cyclesLate) {
 	// Schedule the next cycle first.  __AudioUpdate() may consume cycles.
 	CoreTiming::ScheduleEvent(audioIntervalCycles - cyclesLate, eventAudioUpdate, 0);
@@ -96,20 +89,17 @@ static void hleAudioUpdate(u64 userdata, int cyclesLate) {
 
 static void hleHostAudioUpdate(u64 userdata, int cyclesLate) {
 	CoreTiming::ScheduleEvent(audioHostIntervalCycles - cyclesLate, eventHostAudioUpdate, 0);
-
-	// Not all hosts need this call to poke their audio system once in a while, but those that don't
-	// can just ignore it.
-	host->UpdateSound();
 }
 
 static void __AudioCPUMHzChange() {
 	audioIntervalCycles = (int)(usToCycles(1000000ULL) * hwBlockSize / hwSampleRate);
-	audioHostIntervalCycles = (int)(usToCycles(1000000ULL) * hostAttemptBlockSize / hwSampleRate);
+
+	// Soon to be removed.
+	audioHostIntervalCycles = (int)(usToCycles(1000000ULL) * 512 / hwSampleRate);
 }
 
-
 void __AudioInit() {
-	resampler.ResetStatCounters();
+	System_AudioResetStatCounters();
 	mixFrequency = 44100;
 	srcFrequency = 0;
 
@@ -132,7 +122,7 @@ void __AudioInit() {
 	clampedMixBuffer = new s16[hwBlockSize * 2];
 	memset(mixBuffer, 0, hwBlockSize * 2 * sizeof(s32));
 
-	resampler.Clear();
+	System_AudioClear();
 	CoreTiming::RegisterMHzChangeCallback(&__AudioCPUMHzChange);
 }
 
@@ -155,15 +145,18 @@ void __AudioDoState(PointerWrap &p) {
 		mixFrequency = 44100;
 	}
 
-	// TODO: This never happens because maxVer=1.
 	if (s >= 2) {
-		resampler.DoState(p);
+		// TODO: Next time we bump, get rid of this. It's kinda useless.
+		auto s = p.Section("resampler", 1);
+		if (p.mode == p.MODE_READ) {
+			System_AudioClear();
+		}
 	} else {
 		// Only to preserve the previous file format. Might cause a slight audio glitch on upgrades?
 		FixedSizeQueue<s16, 512 * 16> outAudioQueue;
 		outAudioQueue.DoState(p);
 
-		resampler.Clear();
+		System_AudioClear();
 	}
 
 	int chanCount = ARRAY_SIZE(chans);
@@ -333,9 +326,7 @@ void __AudioSetSRCFrequency(int freq) {
 	srcFrequency = freq;
 }
 
-// Mix samples from the various audio channels into a single sample queue.
-// This single sample queue is where __AudioMix should read from. If the sample queue is full, we should
-// just sleep the main emulator thread a little.
+// Mix samples from the various audio channels into a single sample queue, managed by the backend implementation.
 void __AudioUpdate(bool resetRecording) {
 	// Audio throttle doesn't really work on the PSP since the mixing intervals are so closely tied
 	// to the CPU. Much better to throttle the frame rate on frame display and just throw away audio
@@ -427,7 +418,7 @@ void __AudioUpdate(bool resetRecording) {
 	}
 
 	if (g_Config.bEnableSound) {
-		resampler.PushSamples(mixBuffer, hwBlockSize);
+		System_AudioPushSamples(mixBuffer, hwBlockSize);
 #ifndef MOBILE_DEVICE
 		if (g_Config.bSaveLoadResetsAVdumping && resetRecording) {
 			__StopLogAudio();
@@ -465,23 +456,6 @@ void __AudioUpdate(bool resetRecording) {
 	}
 }
 
-// numFrames is number of stereo frames.
-// This is called from *outside* the emulator thread.
-int __AudioMix(short *outstereo, int numFrames, int sampleRate) {
-	return resampler.Mix(outstereo, numFrames, false, sampleRate);
-}
-
-void __AudioGetDebugStats(char *buf, size_t bufSize) {
-	resampler.GetAudioDebugStats(buf, bufSize);
-}
-
-void __PushExternalAudio(const s32 *audio, int numSamples) {
-	if (audio) {
-		resampler.PushSamples(audio, numSamples);
-	} else {
-		resampler.Clear();
-	}
-}
 #ifndef MOBILE_DEVICE
 void __StartLogAudio(const Path& filename) {
 	if (!m_logAudio) {

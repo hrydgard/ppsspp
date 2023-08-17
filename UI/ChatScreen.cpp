@@ -5,11 +5,12 @@
 #include "Common/UI/Context.h"
 #include "Common/UI/View.h"
 #include "Common/UI/ViewGroup.h"
+#include "Common/UI/ScrollView.h"
 #include "Common/UI/UI.h"
 
 #include "Common/Data/Text/I18n.h"
 #include "Common/Data/Encoding/Utf8.h"
-#include "Common/System/System.h"
+#include "Common/System/Request.h"
 #include "Core/Config.h"
 #include "Core/System.h"
 #include "Core/HLE/proAdhoc.h"
@@ -17,7 +18,7 @@
 
 void ChatMenu::CreateContents(UI::ViewGroup *parent) {
 	using namespace UI;
-	auto n = GetI18NCategory("Networking");
+	auto n = GetI18NCategory(I18NCat::NETWORKING);
 	LinearLayout *outer = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT,400));
 	scroll_ = outer->Add(new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT, 1.0)));
 	LinearLayout *bottom = outer->Add(new LinearLayout(ORIENT_HORIZONTAL, new LayoutParams(FILL_PARENT, WRAP_CONTENT)));
@@ -46,7 +47,7 @@ void ChatMenu::CreateContents(UI::ViewGroup *parent) {
 void ChatMenu::CreateSubviews(const Bounds &screenBounds) {
 	using namespace UI;
 
-	auto n = GetI18NCategory("Networking");
+	auto n = GetI18NCategory(I18NCat::NETWORKING);
 	float width = 550.0f;
 
 	switch (g_Config.iChatScreenPosition) {
@@ -89,14 +90,14 @@ void ChatMenu::CreateSubviews(const Bounds &screenBounds) {
 }
 
 UI::EventReturn ChatMenu::OnSubmit(UI::EventParams &e) {
-#if PPSSPP_PLATFORM(WINDOWS) || defined(USING_QT_UI) || defined(SDL)
+#if PPSSPP_PLATFORM(WINDOWS) || defined(USING_QT_UI) || (defined(SDL) && !PPSSPP_PLATFORM(SWITCH))
 	std::string chat = chatEdit_->GetText();
 	chatEdit_->SetText("");
 	chatEdit_->SetFocus();
 	sendChat(chat);
-#elif PPSSPP_PLATFORM(ANDROID)
-	auto n = GetI18NCategory("Networking");
-	System_InputBoxGetString(n->T("Chat"), "", [](bool result, const std::string &value) {
+#elif PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(SWITCH)
+	auto n = GetI18NCategory(I18NCat::NETWORKING);
+	System_InputBoxGetString(n->T("Chat"), "", [](const std::string &value, int) {
 		sendChat(value);
 	});
 #endif
@@ -164,7 +165,7 @@ void ChatMenu::UpdateChat() {
 }
 
 void ChatMenu::Update() {
-	auto n = GetI18NCategory("Networking");
+	auto n = GetI18NCategory(I18NCat::NETWORKING);
 
 	AnchorLayout::Update();
 	if (scroll_ && toBottom_) {
@@ -180,10 +181,8 @@ void ChatMenu::Update() {
 #if defined(USING_WIN_UI)
 	// Could remove the fullscreen check here, it works now.
 	if (promptInput_ && g_Config.bBypassOSKWithKeyboard && !g_Config.UseFullScreen()) {
-		System_InputBoxGetString(n->T("Chat"), n->T("Chat Here"), [](bool result, const std::string &value) {
-			if (result) {
-				sendChat(value);
-			}
+		System_InputBoxGetString(n->T("Chat"), n->T("Chat Here"), [](const std::string &value, int) {
+			sendChat(value);
 		});
 		promptInput_ = false;
 	}

@@ -13,8 +13,8 @@ namespace KeyMap {
 
 struct DefMappingStruct {
 	int pspKey;
-	int key;
-	int direction;
+	int keyOrAxis;
+	int direction;  // if 0, it's a key, otherwise an axis.
 };
 
 static const DefMappingStruct defaultQwertyKeyboardKeyMap[] = {
@@ -338,12 +338,12 @@ static const DefMappingStruct defaultVRRightController[] = {
 	{VIRTKEY_AXIS_X_MAX, NKCODE_DPAD_RIGHT},
 };
 
-static void SetDefaultKeyMap(int deviceId, const DefMappingStruct *array, size_t count, bool replace) {
+static void SetDefaultKeyMap(InputDeviceID deviceId, const DefMappingStruct *array, size_t count, bool replace) {
 	for (size_t i = 0; i < count; i++) {
 		if (array[i].direction == 0)
-			SetKeyMapping(array[i].pspKey, KeyDef(deviceId, array[i].key), replace);
+			SetInputMapping(array[i].pspKey, MultiInputMapping(InputMapping(deviceId, array[i].keyOrAxis)), replace);
 		else
-			SetAxisMapping(array[i].pspKey, deviceId, array[i].key, array[i].direction, replace);
+			SetInputMapping(array[i].pspKey, MultiInputMapping(InputMapping(deviceId, array[i].keyOrAxis, array[i].direction)), replace);
 	}
 	g_seenDeviceIds.insert(deviceId);
 }

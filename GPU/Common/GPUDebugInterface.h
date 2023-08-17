@@ -252,11 +252,6 @@ public:
 	virtual bool GetOutputFramebuffer(GPUDebugBuffer &buffer) {
 		return false;
 	}
-
-	// TODO:
-	// cached framebuffers / textures / vertices?
-	// get content of specific framebuffer / texture?
-	// vertex / texture decoding?
 };
 
 bool GPUDebugInitExpression(GPUDebugInterface *g, const char *str, PostfixExpression &exp);

@@ -4,6 +4,12 @@ SRC := ../..
 include $(CLEAR_VARS)
 include $(LOCAL_PATH)/Locals.mk
 
+LOCAL_C_INCLUDES += \
+  $(LOCAL_PATH)/../../ext/cpu_features/include \
+  $(LOCAL_PATH)/../../ext/rcheevos/include
+
+LOCAL_CFLAGS += -DSTACK_LINE_READER_BUFFER_SIZE=1024 -DHAVE_DLFCN_H -DRC_DISABLE_LUA
+
 # http://software.intel.com/en-us/articles/getting-started-on-optimizing-ndk-project-for-multiple-cpu-architectures
 
 ifeq ($(TARGET_ARCH_ABI),x86)
@@ -38,14 +44,11 @@ NATIVE_FILES :=\
   $(SRC)/Common/GPU/OpenGL/GLDebugLog.cpp \
   $(SRC)/Common/GPU/OpenGL/GLSLProgram.cpp \
   $(SRC)/Common/GPU/OpenGL/GLFeatures.cpp \
+  $(SRC)/Common/GPU/OpenGL/GLFrameData.cpp \
+  $(SRC)/Common/GPU/OpenGL/GLMemory.cpp \
   $(SRC)/Common/GPU/OpenGL/GLRenderManager.cpp \
   $(SRC)/Common/GPU/OpenGL/GLQueueRunner.cpp \
   $(SRC)/Common/GPU/OpenGL/DataFormatGL.cpp
-
-EGL_FILES := \
-  $(SRC)/Common/GL/GLInterface/EGL.cpp \
-  $(SRC)/Common/GL/GLInterface/EGLAndroid.cpp \
-  $(SRC)/Common/GL/GLInterface/GLInterface.cpp
 
 VULKAN_FILES := \
   $(SRC)/Common/GPU/Vulkan/thin3d_vulkan.cpp \
@@ -71,6 +74,35 @@ SPIRV_CROSS_FILES := \
   $(SRC)/ext/SPIRV-Cross/spirv_glsl.cpp \
   $(SRC)/ext/SPIRV-Cross/spirv_parser.cpp \
   $(SRC)/ext/SPIRV-Cross/spirv_cross_parsed_ir.cpp
+
+NAETT_FILES := \
+  ${SRC}/ext/naett/naett.c
+
+RCHEEVOS_FILES := \
+  ${SRC}/ext/rcheevos/src/rapi/rc_api_common.c \
+  ${SRC}/ext/rcheevos/src/rapi/rc_api_editor.c \
+  ${SRC}/ext/rcheevos/src/rapi/rc_api_info.c \
+  ${SRC}/ext/rcheevos/src/rapi/rc_api_runtime.c \
+  ${SRC}/ext/rcheevos/src/rapi/rc_api_user.c \
+  ${SRC}/ext/rcheevos/src/rcheevos/alloc.c \
+  ${SRC}/ext/rcheevos/src/rcheevos/compat.c \
+  ${SRC}/ext/rcheevos/src/rcheevos/condition.c \
+  ${SRC}/ext/rcheevos/src/rcheevos/condset.c \
+  ${SRC}/ext/rcheevos/src/rcheevos/consoleinfo.c \
+  ${SRC}/ext/rcheevos/src/rcheevos/format.c \
+  ${SRC}/ext/rcheevos/src/rcheevos/lboard.c \
+  ${SRC}/ext/rcheevos/src/rcheevos/memref.c \
+  ${SRC}/ext/rcheevos/src/rcheevos/operand.c \
+  ${SRC}/ext/rcheevos/src/rcheevos/rc_client.c \
+  ${SRC}/ext/rcheevos/src/rcheevos/rc_validate.c \
+  ${SRC}/ext/rcheevos/src/rcheevos/richpresence.c \
+  ${SRC}/ext/rcheevos/src/rcheevos/runtime.c \
+  ${SRC}/ext/rcheevos/src/rcheevos/runtime_progress.c \
+  ${SRC}/ext/rcheevos/src/rcheevos/trigger.c \
+  ${SRC}/ext/rcheevos/src/rcheevos/value.c \
+  ${SRC}/ext/rcheevos/src/rhash/cdreader.c \
+  ${SRC}/ext/rcheevos/src/rhash/hash.c \
+  ${SRC}/ext/rcheevos/src/rhash/md5.c
 
 VR_FILES := \
   $(SRC)/Common/VR/OpenXRLoader.cpp \
@@ -98,6 +130,7 @@ EXT_FILES := \
   $(SRC)/ext/libpng17/pngwrite.c \
   $(SRC)/ext/libpng17/pngwtran.c \
   $(SRC)/ext/libpng17/pngwutil.c \
+  $(SRC)/ext/basis_universal/basisu_transcoder.cpp \
   $(SRC)/ext/jpge/jpgd.cpp \
   $(SRC)/ext/jpge/jpge.cpp \
   $(SRC)/ext/sha1/sha1.cpp \
@@ -119,15 +152,30 @@ EXT_FILES := \
   $(SRC)/ext/udis86/syn-intel.c \
   $(SRC)/ext/udis86/syn.c \
   $(SRC)/ext/udis86/udis86.c \
-  $(SRC)/ext/xbrz/xbrz.cpp
+  $(SRC)/ext/xbrz/xbrz.cpp \
+  $(SRC)/ext/cpu_features/src/filesystem.c \
+  $(SRC)/ext/cpu_features/src/hwcaps.c \
+  $(SRC)/ext/cpu_features/src/impl_aarch64_linux_or_android.c \
+  $(SRC)/ext/cpu_features/src/impl_arm_linux_or_android.c \
+  $(SRC)/ext/cpu_features/src/impl_mips_linux_or_android.c \
+  $(SRC)/ext/cpu_features/src/impl_ppc_linux.c \
+  $(SRC)/ext/cpu_features/src/impl_riscv_linux.c \
+  $(SRC)/ext/cpu_features/src/impl_s390x_linux.c \
+  $(SRC)/ext/cpu_features/src/impl_x86_freebsd.c \
+  $(SRC)/ext/cpu_features/src/impl_x86_linux_or_android.c \
+  $(SRC)/ext/cpu_features/src/impl_x86_macos.c \
+  $(SRC)/ext/cpu_features/src/impl_x86_windows.c \
+  $(SRC)/ext/cpu_features/src/stack_line_reader.c \
+  $(SRC)/ext/cpu_features/src/string_view.c
 
 EXEC_AND_LIB_FILES := \
   $(ARCH_FILES) \
-  $(EGL_FILES) \
   $(VULKAN_FILES) \
   $(VR_FILES) \
   $(VMA_FILES) \
   $(SPIRV_CROSS_FILES) \
+  $(RCHEEVOS_FILES) \
+  $(NAETT_FILES) \
   $(EXT_FILES) \
   $(NATIVE_FILES) \
   $(SRC)/Common/Buffer.cpp \
@@ -144,6 +192,8 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Common/Data/Format/IniFile.cpp \
   $(SRC)/Common/Data/Format/JSONReader.cpp \
   $(SRC)/Common/Data/Format/JSONWriter.cpp \
+  $(SRC)/Common/Data/Format/DDSLoad.cpp \
+  $(SRC)/Common/Data/Format/DDSLoad.h \
   $(SRC)/Common/Data/Format/PNGLoad.cpp \
   $(SRC)/Common/Data/Format/PNGLoad.h \
   $(SRC)/Common/Data/Format/ZIMLoad.cpp \
@@ -155,8 +205,10 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Common/Data/Text/Parsers.cpp \
   $(SRC)/Common/Data/Text/WrapText.cpp \
   $(SRC)/Common/File/AndroidStorage.cpp \
+  $(SRC)/Common/File/AndroidContentURI.cpp \
   $(SRC)/Common/File/VFS/VFS.cpp \
-  $(SRC)/Common/File/VFS/AssetReader.cpp \
+  $(SRC)/Common/File/VFS/ZipFileReader.cpp \
+  $(SRC)/Common/File/VFS/DirectoryReader.cpp \
   $(SRC)/Common/File/DiskFree.cpp \
   $(SRC)/Common/File/Path.cpp \
   $(SRC)/Common/File/PathBrowser.cpp \
@@ -164,6 +216,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Common/File/DirListing.cpp \
   $(SRC)/Common/File/FileDescriptor.cpp \
   $(SRC)/Common/GPU/thin3d.cpp \
+  $(SRC)/Common/GPU/GPUBackendCommon.cpp \
   $(SRC)/Common/GPU/Shader.cpp \
   $(SRC)/Common/GPU/ShaderWriter.cpp \
   $(SRC)/Common/GPU/ShaderTranslation.cpp \
@@ -183,6 +236,8 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Common/Math/lin/matrix4x4.cpp.arm \
   $(SRC)/Common/Net/HTTPClient.cpp \
   $(SRC)/Common/Net/HTTPHeaders.cpp \
+  $(SRC)/Common/Net/HTTPRequest.cpp \
+  $(SRC)/Common/Net/HTTPNaettRequest.cpp \
   $(SRC)/Common/Net/HTTPServer.cpp \
   $(SRC)/Common/Net/NetBuffer.cpp \
   $(SRC)/Common/Net/Resolve.cpp \
@@ -191,6 +246,8 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Common/Net/WebsocketServer.cpp \
   $(SRC)/Common/Profiler/Profiler.cpp \
   $(SRC)/Common/System/Display.cpp \
+  $(SRC)/Common/System/Request.cpp \
+  $(SRC)/Common/System/OSD.cpp \
   $(SRC)/Common/Thread/ThreadUtil.cpp \
   $(SRC)/Common/Thread/ThreadManager.cpp \
   $(SRC)/Common/Thread/ParallelLoop.cpp \
@@ -201,8 +258,11 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Common/UI/Context.cpp \
   $(SRC)/Common/UI/UIScreen.cpp \
   $(SRC)/Common/UI/Tween.cpp \
+  $(SRC)/Common/UI/IconCache.cpp \
   $(SRC)/Common/UI/View.cpp \
   $(SRC)/Common/UI/ViewGroup.cpp \
+  $(SRC)/Common/UI/ScrollView.cpp \
+  $(SRC)/Common/UI/PopupScreens.cpp \
   $(SRC)/Common/Serialize/Serializer.cpp \
   $(SRC)/Common/ArmCPUDetect.cpp \
   $(SRC)/Common/CPUDetect.cpp \
@@ -230,23 +290,7 @@ include $(CLEAR_VARS)
 include $(LOCAL_PATH)/Locals.mk
 LOCAL_WHOLE_STATIC_LIBRARIES += ppsspp_common
 
-ifeq ($(TARGET_ARCH_ABI),x86)
-ARCH_FILES := \
-  $(SRC)/Core/MIPS/x86/CompALU.cpp \
-  $(SRC)/Core/MIPS/x86/CompBranch.cpp \
-  $(SRC)/Core/MIPS/x86/CompFPU.cpp \
-  $(SRC)/Core/MIPS/x86/CompLoadStore.cpp \
-  $(SRC)/Core/MIPS/x86/CompVFPU.cpp \
-  $(SRC)/Core/MIPS/x86/CompReplace.cpp \
-  $(SRC)/Core/MIPS/x86/Asm.cpp \
-  $(SRC)/Core/MIPS/x86/Jit.cpp \
-  $(SRC)/Core/MIPS/x86/JitSafeMem.cpp \
-  $(SRC)/Core/MIPS/x86/RegCache.cpp \
-  $(SRC)/Core/MIPS/x86/RegCacheFPU.cpp \
-  $(SRC)/GPU/Common/VertexDecoderX86.cpp \
-  $(SRC)/GPU/Software/DrawPixelX86.cpp \
-  $(SRC)/GPU/Software/SamplerX86.cpp
-else ifeq ($(TARGET_ARCH_ABI),x86_64)
+ifeq ($(TARGET_ARCH_ABI),x86_64)
 ARCH_FILES := \
   $(SRC)/Core/MIPS/x86/CompALU.cpp \
   $(SRC)/Core/MIPS/x86/CompBranch.cpp \
@@ -321,8 +365,10 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Core/MIPS/MIPSStackWalk.cpp \
   $(SRC)/Core/MIPS/MIPSTables.cpp \
   $(SRC)/Core/MIPS/MIPSVFPUUtils.cpp.arm \
+  $(SRC)/Core/MIPS/MIPSVFPUFallbacks.cpp.arm \
   $(SRC)/Core/MIPS/MIPSCodeUtils.cpp.arm \
   $(SRC)/Core/MIPS/MIPSDebugInterface.cpp \
+  $(SRC)/Core/MIPS/IR/IRAnalysis.cpp \
   $(SRC)/Core/MIPS/IR/IRFrontend.cpp \
   $(SRC)/Core/MIPS/IR/IRJit.cpp \
   $(SRC)/Core/MIPS/IR/IRCompALU.cpp \
@@ -332,11 +378,13 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Core/MIPS/IR/IRCompVFPU.cpp \
   $(SRC)/Core/MIPS/IR/IRInst.cpp \
   $(SRC)/Core/MIPS/IR/IRInterpreter.cpp \
+  $(SRC)/Core/MIPS/IR/IRNativeCommon.cpp \
   $(SRC)/Core/MIPS/IR/IRPassSimplify.cpp \
   $(SRC)/Core/MIPS/IR/IRRegCache.cpp \
   $(SRC)/GPU/Math3D.cpp \
   $(SRC)/GPU/GPU.cpp \
   $(SRC)/GPU/GPUCommon.cpp \
+  $(SRC)/GPU/GPUCommonHW.cpp \
   $(SRC)/GPU/GPUState.cpp \
   $(SRC)/GPU/GeConstants.cpp \
   $(SRC)/GPU/GeDisasm.cpp \
@@ -352,6 +400,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/GPU/Common/GPUStateUtils.cpp.arm \
   $(SRC)/GPU/Common/SoftwareTransformCommon.cpp.arm \
   $(SRC)/GPU/Common/ReinterpretFramebuffer.cpp \
+  $(SRC)/GPU/Common/DepthBufferCommon.cpp \
   $(SRC)/GPU/Common/VertexDecoderCommon.cpp.arm \
   $(SRC)/GPU/Common/TextureCacheCommon.cpp.arm \
   $(SRC)/GPU/Common/TextureScalerCommon.cpp.arm \
@@ -365,6 +414,8 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/GPU/Common/ShaderUniforms.cpp \
   $(SRC)/GPU/Common/VertexShaderGenerator.cpp \
   $(SRC)/GPU/Common/GeometryShaderGenerator.cpp \
+  $(SRC)/GPU/Common/TextureReplacer.cpp \
+  $(SRC)/GPU/Common/ReplacedTexture.cpp \
   $(SRC)/GPU/Debugger/Breakpoints.cpp \
   $(SRC)/GPU/Debugger/Debugger.cpp \
   $(SRC)/GPU/Debugger/GECommandTable.cpp \
@@ -372,7 +423,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/GPU/Debugger/Record.cpp \
   $(SRC)/GPU/Debugger/Stepping.cpp \
   $(SRC)/GPU/GLES/FramebufferManagerGLES.cpp \
-  $(SRC)/GPU/GLES/DepthBufferGLES.cpp \
+  $(SRC)/GPU/GLES/StencilBufferGLES.cpp \
   $(SRC)/GPU/GLES/GPU_GLES.cpp.arm \
   $(SRC)/GPU/GLES/TextureCacheGLES.cpp.arm \
   $(SRC)/GPU/GLES/DrawEngineGLES.cpp.arm \
@@ -409,13 +460,14 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Core/Core.cpp \
   $(SRC)/Core/Compatibility.cpp \
   $(SRC)/Core/Config.cpp \
+  $(SRC)/Core/ConfigSettings.cpp \
   $(SRC)/Core/CoreTiming.cpp \
   $(SRC)/Core/CwCheat.cpp \
+  $(SRC)/Core/FrameTiming.cpp \
   $(SRC)/Core/HDRemaster.cpp \
   $(SRC)/Core/Instance.cpp \
   $(SRC)/Core/KeyMap.cpp \
   $(SRC)/Core/KeyMapDefaults.cpp \
-  $(SRC)/Core/Host.cpp \
   $(SRC)/Core/Loaders.cpp \
   $(SRC)/Core/PSPLoaders.cpp \
   $(SRC)/Core/FileLoaders/CachingFileLoader.cpp \
@@ -429,10 +481,11 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Core/MemMapFunctions.cpp \
   $(SRC)/Core/Reporting.cpp \
   $(SRC)/Core/Replay.cpp \
+  $(SRC)/Core/RetroAchievements.cpp \
   $(SRC)/Core/SaveState.cpp \
   $(SRC)/Core/Screenshot.cpp \
   $(SRC)/Core/System.cpp \
-  $(SRC)/Core/TextureReplacer.cpp \
+  $(SRC)/Core/TiltEventProcessor.cpp \
   $(SRC)/Core/ThreadPools.cpp \
   $(SRC)/Core/WebServer.cpp \
   $(SRC)/Core/Debugger/Breakpoints.cpp \
@@ -442,6 +495,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Core/Debugger/WebSocket.cpp \
   $(SRC)/Core/Debugger/WebSocket/BreakpointSubscriber.cpp \
   $(SRC)/Core/Debugger/WebSocket/CPUCoreSubscriber.cpp \
+  $(SRC)/Core/Debugger/WebSocket/ClientConfigSubscriber.cpp \
   $(SRC)/Core/Debugger/WebSocket/DisasmSubscriber.cpp \
   $(SRC)/Core/Debugger/WebSocket/GameBroadcaster.cpp \
   $(SRC)/Core/Debugger/WebSocket/GameSubscriber.cpp \
@@ -681,18 +735,20 @@ LOCAL_STATIC_LIBRARIES += ppsspp_common ppsspp_core libarmips libzstd
 LOCAL_MODULE := ppsspp_jni
 LOCAL_SRC_FILES := \
   $(SRC)/android/jni/app-android.cpp \
-  $(SRC)/android/jni/AndroidEGLContext.cpp \
   $(SRC)/android/jni/AndroidJavaGLContext.cpp \
   $(SRC)/android/jni/AndroidVulkanContext.cpp \
   $(SRC)/android/jni/AndroidAudio.cpp \
   $(SRC)/android/jni/OpenSLContext.cpp \
+  $(SRC)/UI/AudioCommon.cpp \
   $(SRC)/UI/BackgroundAudio.cpp \
   $(SRC)/UI/DiscordIntegration.cpp \
   $(SRC)/UI/ChatScreen.cpp \
+  $(SRC)/UI/DebugOverlay.cpp \
   $(SRC)/UI/DevScreens.cpp \
   $(SRC)/UI/DisplayLayoutScreen.cpp \
   $(SRC)/UI/EmuScreen.cpp \
   $(SRC)/UI/MainScreen.cpp \
+  $(SRC)/UI/TabbedDialogScreen.cpp \
   $(SRC)/UI/MemStickScreen.cpp \
   $(SRC)/UI/MiscScreens.cpp \
   $(SRC)/UI/RemoteISOScreen.cpp \
@@ -701,13 +757,13 @@ LOCAL_SRC_FILES := \
   $(SRC)/UI/SavedataScreen.cpp \
   $(SRC)/UI/Store.cpp \
   $(SRC)/UI/GamepadEmu.cpp \
+  $(SRC)/UI/JoystickHistoryView.cpp \
   $(SRC)/UI/GameInfoCache.cpp \
   $(SRC)/UI/GameScreen.cpp \
   $(SRC)/UI/ControlMappingScreen.cpp \
   $(SRC)/UI/GameSettingsScreen.cpp \
   $(SRC)/UI/GPUDriverTestScreen.cpp \
   $(SRC)/UI/TiltAnalogSettingsScreen.cpp \
-  $(SRC)/UI/TiltEventProcessor.cpp \
   $(SRC)/UI/TouchControlLayoutScreen.cpp \
   $(SRC)/UI/TouchControlVisibilityScreen.cpp \
   $(SRC)/UI/CwCheatScreen.cpp \
@@ -716,7 +772,8 @@ LOCAL_SRC_FILES := \
   $(SRC)/UI/ProfilerDraw.cpp \
   $(SRC)/UI/NativeApp.cpp \
   $(SRC)/UI/Theme.cpp \
-  $(SRC)/UI/ComboKeyMappingScreen.cpp
+  $(SRC)/UI/CustomButtonMappingScreen.cpp \
+  $(SRC)/UI/RetroAchievementScreens.cpp
 
 ifneq ($(SKIPAPP),1)
   include $(BUILD_SHARED_LIBRARY)
@@ -734,7 +791,7 @@ ifeq ($(HEADLESS),1)
   LOCAL_MODULE := ppsspp_headless
   LOCAL_SRC_FILES := \
     $(SRC)/headless/Headless.cpp \
-    $(SRC)/headless/StubHost.cpp \
+    $(SRC)/headless/HeadlessHost.cpp \
     $(SRC)/headless/Compare.cpp
 
   include $(BUILD_EXECUTABLE)
@@ -742,14 +799,6 @@ endif
 
 ifeq ($(OPENXR),1)
   LOCAL_CFLAGS += -DOPENXR
-endif
-
-ifeq ($(OPENXR_PLATFORM_QUEST),1)
-  LOCAL_CFLAGS += -DOPENXR_PLATFORM_QUEST
-endif
-
-ifeq ($(OPENXR_PLATFORM_PICO),1)
-  LOCAL_CFLAGS += -DOPENXR_PLATFORM_PICO
 endif
 
 ifeq ($(UNITTEST),1)
@@ -773,6 +822,7 @@ ifeq ($(UNITTEST),1)
       $(SRC)/Core/MIPS/ARM/ArmRegCacheFPU.cpp \
       $(SRC)/Core/Util/DisArm64.cpp \
       $(SRC)/ext/disarm.cpp \
+      $(SRC)/ext/riscv-disas.cpp \
       $(SRC)/unittest/TestArmEmitter.cpp \
       $(SRC)/unittest/TestArm64Emitter.cpp \
       $(SRC)/unittest/TestRiscVEmitter.cpp \
@@ -787,6 +837,7 @@ ifeq ($(UNITTEST),1)
     $(SRC)/unittest/TestSoftwareGPUJit.cpp \
     $(SRC)/unittest/TestThreadManager.cpp \
     $(SRC)/unittest/TestVertexJit.cpp \
+    $(SRC)/unittest/TestVFS.cpp \
     $(TESTARMEMITTER_FILE) \
     $(SRC)/unittest/UnitTest.cpp
 

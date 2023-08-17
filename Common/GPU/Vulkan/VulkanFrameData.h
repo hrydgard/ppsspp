@@ -6,23 +6,45 @@
 #include <condition_variable>
 
 #include "Common/GPU/Vulkan/VulkanContext.h"
+#include "Common/Data/Collections/Hashmaps.h"
 
 enum {
 	MAX_TIMESTAMP_QUERIES = 128,
 };
 
 enum class VKRRunType {
+	SUBMIT,
 	PRESENT,
 	SYNC,
 	EXIT,
 };
 
 struct QueueProfileContext {
+	bool enabled = false;
+	bool timestampsEnabled = false;
 	VkQueryPool queryPool;
 	std::vector<std::string> timestampDescriptions;
 	std::string profileSummary;
 	double cpuStartTime;
 	double cpuEndTime;
+	double descWriteTime;
+};
+
+class VKRFramebuffer;
+
+struct ReadbackKey {
+	const VKRFramebuffer *framebuf;
+	int width;
+	int height;
+};
+
+struct CachedReadback {
+	VkBuffer buffer;
+	VmaAllocation allocation;
+	VkDeviceSize bufferSize;
+	bool isCoherent;
+
+	void Destroy(VulkanContext *vulkan);
 };
 
 struct FrameDataShared {
@@ -30,7 +52,11 @@ struct FrameDataShared {
 	VkSemaphore acquireSemaphore = VK_NULL_HANDLE;
 	VkSemaphore renderingCompleteSemaphore = VK_NULL_HANDLE;
 
-	void Init(VulkanContext *vulkan);
+	// For synchronous readbacks.
+	VkFence readbackFence = VK_NULL_HANDLE;
+	bool useMultiThreading;
+
+	void Init(VulkanContext *vulkan, bool useMultiThreading);
 	void Destroy(VulkanContext *vulkan);
 };
 
@@ -49,7 +75,6 @@ struct FrameData {
 	bool readyForFence = true;
 
 	VkFence fence = VK_NULL_HANDLE;
-	VkFence readbackFence = VK_NULL_HANDLE;  // Strictly speaking we might only need one global of these.
 
 	// These are on different threads so need separate pools.
 	VkCommandPool cmdPoolInit = VK_NULL_HANDLE;  // Written to from main thread
@@ -71,9 +96,17 @@ struct FrameData {
 	// Swapchain.
 	uint32_t curSwapchainImage = -1;
 
+	// Frames need unique IDs to wait for present on, let's keep them here.
+	// Also used for indexing into the frame timing history buffer.
+	uint64_t frameId;
+
 	// Profiling.
-	QueueProfileContext profile;
-	bool profilingEnabled_ = false;
+	QueueProfileContext profile{};
+
+	// Async readback cache.
+	DenseHashMap<ReadbackKey, CachedReadback*, nullptr> readbacks_;
+
+	FrameData() : readbacks_(8) {}
 
 	void Init(VulkanContext *vulkan, int index);
 	void Destroy(VulkanContext *vulkan);
@@ -89,5 +122,5 @@ struct FrameData {
 
 private:
 	// Metadata for logging etc
-	int index;
+	int index = -1;
 };

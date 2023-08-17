@@ -17,6 +17,9 @@
 
 #pragma once
 
+#include <cstdint>
+#include "Input/KeyCodes.h"
+
 class PointerWrap;
 
 namespace HLEPlugins {
@@ -31,4 +34,9 @@ void DoState(PointerWrap &p);
 
 bool HasEnabled();
 
-};
+void SetKey(int key, uint8_t value);
+uint8_t GetKey(int key);
+
+extern float PluginDataAxis[JOYSTICK_AXIS_MAX];
+
+}  // namespace

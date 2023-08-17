@@ -1271,9 +1271,10 @@ u32 _AtracDecodeData(int atracID, u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u3
 							if (outbufPtr != 0) {
 								u32 outBytes = numSamples * atrac->outputChannels_ * sizeof(s16);
 								if (packetAddr != 0 && MemBlockInfoDetailed()) {
-									const std::string tag = GetMemWriteTagAt("AtracDecode/", packetAddr, packetSize);
-									NotifyMemInfo(MemBlockFlags::READ, packetAddr, packetSize, tag.c_str(), tag.size());
-									NotifyMemInfo(MemBlockFlags::WRITE, outbufPtr, outBytes, tag.c_str(), tag.size());
+									char tagData[128];
+									size_t tagSize = FormatMemWriteTagAt(tagData, sizeof(tagData), "AtracDecode/", packetAddr, packetSize);
+									NotifyMemInfo(MemBlockFlags::READ, packetAddr, packetSize, tagData, tagSize);
+									NotifyMemInfo(MemBlockFlags::WRITE, outbufPtr, outBytes, tagData, tagSize);
 								} else {
 									NotifyMemInfo(MemBlockFlags::WRITE, outbufPtr, outBytes, "AtracDecode");
 								}
@@ -1850,6 +1851,11 @@ int __AtracSetContext(Atrac *atrac) {
 		ff_codec = AV_CODEC_ID_ATRAC3P;
 	} else {
 		return hleReportError(ME, ATRAC_ERROR_UNKNOWN_FORMAT, "unknown codec type in set context");
+	}
+
+	if (atrac->codecCtx_) {
+		// Shouldn't happen, but just in case.
+		atrac->ReleaseFFMPEGContext();
 	}
 
 	const AVCodec *codec = avcodec_find_decoder(ff_codec);

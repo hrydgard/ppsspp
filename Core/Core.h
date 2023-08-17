@@ -25,10 +25,12 @@
 class GraphicsContext;
 
 // called from emu thread
-void UpdateRunLoop();
+void UpdateRunLoop(GraphicsContext *ctx);
 
-void Core_Run(GraphicsContext *ctx);
+// Returns false when an UI exit state is detected.
+bool Core_Run(GraphicsContext *ctx);
 void Core_Stop();
+
 // For platforms that don't call Core_Run
 void Core_SetGraphicsContext(GraphicsContext *ctx);
 
@@ -81,7 +83,7 @@ bool UpdateScreenScale(int width, int height);
 
 // Don't run the core when minimized etc.
 void Core_NotifyWindowHidden(bool hidden);
-void Core_NotifyActivity();
+bool Core_IsWindowHidden();
 
 void Core_SetPowerSaving(bool mode);
 bool Core_GetPowerSaving();
@@ -101,38 +103,40 @@ enum class ExecExceptionType {
 };
 
 // Separate one for without info, to avoid having to allocate a string
-void Core_MemoryException(u32 address, u32 pc, MemoryExceptionType type);
+void Core_MemoryException(u32 address, u32 accessSize, u32 pc, MemoryExceptionType type);
 
-void Core_MemoryExceptionInfo(u32 address, u32 pc, MemoryExceptionType type, std::string additionalInfo);
+void Core_MemoryExceptionInfo(u32 address, u32 accessSize, u32 pc, MemoryExceptionType type, std::string additionalInfo, bool forceReport);
 
 void Core_ExecException(u32 address, u32 pc, ExecExceptionType type);
 void Core_Break(u32 pc);
 // Call when loading save states, etc.
 void Core_ResetException();
 
-enum class ExceptionType {
+enum class MIPSExceptionType {
 	NONE,
 	MEMORY,
 	BREAK,
 	BAD_EXEC_ADDR,
 };
 
-struct ExceptionInfo {
-	ExceptionType type;
+struct MIPSExceptionInfo {
+	MIPSExceptionType type;
 	std::string info;
+	std::string stackTrace;  // if available.
 
 	// Memory exception info
 	MemoryExceptionType memory_type;
 	uint32_t pc;
 	uint32_t address;
+	uint32_t accessSize;
 	uint32_t ra = 0;
 
 	// Reuses pc and address from memory type, where address is the failed destination.
 	ExecExceptionType exec_type;
 };
 
-const ExceptionInfo &Core_GetExceptionInfo();
+const MIPSExceptionInfo &Core_GetExceptionInfo();
 
-const char *ExceptionTypeAsString(ExceptionType type);
+const char *ExceptionTypeAsString(MIPSExceptionType type);
 const char *MemoryExceptionTypeAsString(MemoryExceptionType type);
 const char *ExecExceptionTypeAsString(ExecExceptionType type);

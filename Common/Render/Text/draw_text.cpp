@@ -11,6 +11,7 @@
 #include "Common/Render/Text/draw_text_uwp.h"
 #include "Common/Render/Text/draw_text_qt.h"
 #include "Common/Render/Text/draw_text_android.h"
+#include "Common/Render/Text/draw_text_sdl.h"
 
 TextDrawer::TextDrawer(Draw::DrawContext *draw) : draw_(draw) {
 	// These probably shouldn't be state.
@@ -38,7 +39,7 @@ void TextDrawer::SetFontScale(float xscale, float yscale) {
 float TextDrawer::CalculateDPIScale() {
 	if (ignoreGlobalDpi_)
 		return dpiScale_;
-	float scale = g_dpi_scale_y;
+	float scale = g_display.dpi_scale_y;
 	if (scale >= 1.0f) {
 		scale = 1.0f;
 	}
@@ -92,6 +93,8 @@ TextDrawer *TextDrawer::Create(Draw::DrawContext *draw) {
 	drawer = new TextDrawerQt(draw);
 #elif PPSSPP_PLATFORM(ANDROID)
 	drawer = new TextDrawerAndroid(draw);
+#elif USE_SDL2_TTF
+	drawer = new TextDrawerSDL(draw);
 #endif
 	if (drawer && !drawer->IsReady()) {
 		delete drawer;

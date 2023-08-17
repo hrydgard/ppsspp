@@ -20,7 +20,6 @@
 #include <cstring>
 
 #include "Common/CommonTypes.h"
-#include "Core/Reporting.h"
 #include "GPU/ge_constants.h"
 #include "GPU/Math3D.h"
 

@@ -92,11 +92,17 @@ bool VulkanTexture::CreateDirect(VkCommandBuffer cmd, int w, int h, int depth, i
 	if (initialLayout != VK_IMAGE_LAYOUT_UNDEFINED && initialLayout != VK_IMAGE_LAYOUT_PREINITIALIZED) {
 		switch (initialLayout) {
 		case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
-		case VK_IMAGE_LAYOUT_GENERAL:
 			TransitionImageLayout2(cmd, image_, 0, numMips, 1, VK_IMAGE_ASPECT_COLOR_BIT,
 				VK_IMAGE_LAYOUT_UNDEFINED, initialLayout,
-				VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
+				VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
 				0, VK_ACCESS_TRANSFER_WRITE_BIT);
+			break;
+		case VK_IMAGE_LAYOUT_GENERAL:
+			// We use this initial layout when we're about to write to the image using a compute shader, only.
+			TransitionImageLayout2(cmd, image_, 0, numMips, 1, VK_IMAGE_ASPECT_COLOR_BIT,
+				VK_IMAGE_LAYOUT_UNDEFINED, initialLayout,
+				VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+				0, VK_ACCESS_SHADER_WRITE_BIT);
 			break;
 		default:
 			// If you planned to use UploadMip, you want VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL. After the
@@ -142,8 +148,7 @@ bool VulkanTexture::CreateDirect(VkCommandBuffer cmd, int w, int h, int depth, i
 	return true;
 }
 
-// TODO: Batch these.
-void VulkanTexture::UploadMip(VkCommandBuffer cmd, int mip, int mipWidth, int mipHeight, int depthLayer, VkBuffer buffer, uint32_t offset, size_t rowLength) {
+void VulkanTexture::CopyBufferToMipLevel(VkCommandBuffer cmd, TextureCopyBatch *copyBatch, int mip, int mipWidth, int mipHeight, int depthLayer, VkBuffer buffer, uint32_t offset, size_t rowLength) {
 	VkBufferImageCopy copy_region{};
 	copy_region.bufferOffset = offset;
 	copy_region.bufferRowLength = (uint32_t)rowLength;
@@ -157,7 +162,23 @@ void VulkanTexture::UploadMip(VkCommandBuffer cmd, int mip, int mipWidth, int mi
 	copy_region.imageSubresource.baseArrayLayer = 0;
 	copy_region.imageSubresource.layerCount = 1;
 
-	vkCmdCopyBufferToImage(cmd, buffer, image_, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copy_region);
+	_dbg_assert_(mip < numMips_);
+
+	if (!copyBatch->buffer) {
+		copyBatch->buffer = buffer;
+	} else if (copyBatch->buffer != buffer) {
+		// Need to flush the batch if this image isn't from the same buffer as the previous ones.
+		FinishCopyBatch(cmd, copyBatch);
+		copyBatch->buffer = buffer;
+	}
+	copyBatch->copies.push_back(copy_region);
+}
+
+void VulkanTexture::FinishCopyBatch(VkCommandBuffer cmd, TextureCopyBatch *copyBatch) {
+	if (!copyBatch->copies.empty()) {
+		vkCmdCopyBufferToImage(cmd, copyBatch->buffer, image_, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, (uint32_t)copyBatch->copies.size(), copyBatch->copies.data());
+		copyBatch->copies.clear();
+	}
 }
 
 void VulkanTexture::ClearMip(VkCommandBuffer cmd, int mip, uint32_t value) {
@@ -188,7 +209,7 @@ void VulkanTexture::GenerateMips(VkCommandBuffer cmd, int firstMipToGenerate, bo
 		fromCompute ? VK_ACCESS_SHADER_WRITE_BIT : VK_ACCESS_TRANSFER_WRITE_BIT,
 		VK_ACCESS_TRANSFER_READ_BIT);
 
-	// Do the same with the uninitialized levels.
+	// Do the same with the uninitialized levels, transition from UNDEFINED.
 	TransitionImageLayout2(cmd, image_, firstMipToGenerate, numMips_ - firstMipToGenerate, 1,
 		VK_IMAGE_ASPECT_COLOR_BIT,
 		VK_IMAGE_LAYOUT_UNDEFINED,
@@ -235,6 +256,22 @@ void VulkanTexture::EndCreate(VkCommandBuffer cmd, bool vertexTexture, VkPipelin
 		layout, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
 		prevStage, vertexTexture ? VK_PIPELINE_STAGE_VERTEX_SHADER_BIT : VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
 		prevStage == VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT ? VK_ACCESS_SHADER_WRITE_BIT : VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT);
+}
+
+void VulkanTexture::PrepareForTransferDst(VkCommandBuffer cmd, int levels) {
+	TransitionImageLayout2(cmd, image_, 0, levels, 1,
+		VK_IMAGE_ASPECT_COLOR_BIT,
+		VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+		VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
+		VK_ACCESS_SHADER_READ_BIT, VK_ACCESS_TRANSFER_WRITE_BIT);
+}
+
+void VulkanTexture::RestoreAfterTransferDst(VkCommandBuffer cmd, int levels) {
+	TransitionImageLayout2(cmd, image_, 0, levels, 1,
+		VK_IMAGE_ASPECT_COLOR_BIT,
+		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+		VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+		VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT);
 }
 
 VkImageView VulkanTexture::CreateViewForMip(int mip) {

@@ -4,10 +4,43 @@
     <Filter Include="Common">
       <UniqueIdentifier>0d070030-beb5-4f48-99a0-b1777297a468</UniqueIdentifier>
     </Filter>
+    <Filter Include="UWPHelpers">
+      <UniqueIdentifier>8d1bdedf-c546-4b7a-8aa7-e490c4e8ad60</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Audio">
+      <UniqueIdentifier>68b36d2a-4f4a-48a5-8b8f-cb15af108c93</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Input">
+      <UniqueIdentifier>5964c8ad-590e-4b46-84f2-067602f4f231</UniqueIdentifier>
+    </Filter>
     <Filter Include="Assets">
       <UniqueIdentifier>a5564d79-b131-4b27-9f5f-d80671731d94</UniqueIdentifier>
       <Extensions>bmp;fbx;gif;jpg;jpeg;tga;tiff;tif;png</Extensions>
     </Filter>
+    <ClInclude Include="UWPHelpers\StorageAccess.h">
+      <Filter>UWPHelpers</Filter>
+    </ClInclude>
+    <ClInclude Include="UWPHelpers\StorageAsync.h">
+      <Filter>UWPHelpers</Filter>
+    </ClInclude>
+    <ClInclude Include="UWPHelpers\StorageManager.h">
+      <Filter>UWPHelpers</Filter>
+    </ClInclude>
+    <ClInclude Include="UWPHelpers\StoragePickers.h">
+      <Filter>UWPHelpers</Filter>
+    </ClInclude>
+    <ClCompile Include="UWPHelpers\StorageAccess.cpp">
+      <Filter>UWPHelpers</Filter>
+    </ClCompile>
+    <ClCompile Include="UWPHelpers\StorageAsync.cpp">
+      <Filter>UWPHelpers</Filter>
+    </ClCompile>
+    <ClCompile Include="UWPHelpers\StorageManager.cpp">
+      <Filter>UWPHelpers</Filter>
+    </ClCompile>
+    <ClCompile Include="UWPHelpers\StoragePickers.cpp">
+      <Filter>UWPHelpers</Filter>
+    </ClCompile>
     <ClInclude Include="Common\DirectXHelper.h">
       <Filter>Common</Filter>
     </ClInclude>
@@ -53,29 +86,65 @@
     <Filter Include="Content\themes">
       <UniqueIdentifier>{da2113a6-e616-4fc9-8be3-ff75b963664b}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Content\debugger">
+      <UniqueIdentifier>{55147387-68fc-487e-abed-7a763f850ef1}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Content\debugger\static">
+      <UniqueIdentifier>{e5d2759b-3511-4ab9-a9ca-070dd9715f3b}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Content\debugger\static\css">
+      <UniqueIdentifier>{0fb972a9-20a9-4eba-be70-c408f9306939}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Content\debugger\static\js">
+      <UniqueIdentifier>{47d54a48-ca53-4d57-8bfd-9c86fd97d84b}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Content\debugger\static\media">
+      <UniqueIdentifier>{83476056-57b8-409f-b729-754d6401e3d5}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Content\vfpu">
+      <UniqueIdentifier>{eebef4bc-52b6-460d-946d-c70c8a4ee337}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="App.cpp" />
     <ClCompile Include="pch.cpp" />
     <ClCompile Include="..\git-version.cpp" />
-    <ClCompile Include="XAudioSoundStream.cpp" />
+    <ClCompile Include="XAudioSoundStream.cpp">
+      <Filter>Audio</Filter>
+    </ClCompile>
     <ClCompile Include="PPSSPP_UWPMain.cpp" />
     <ClCompile Include="NKCodeFromWindowsSystem.cpp" />
-    <ClCompile Include="UWPHost.cpp" />
-    <ClCompile Include="..\Windows\XinputDevice.cpp" />
-    <ClCompile Include="..\Windows\InputDevice.cpp" />
+    <ClCompile Include="..\Windows\XinputDevice.cpp">
+      <Filter>Input</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Windows\InputDevice.cpp">
+      <Filter>Input</Filter>
+    </ClCompile>
+    <ClInclude Include="UWPHelpers\LaunchItem.h">
+      <Filter>UWPHelpers</Filter>
+    </ClInclude>
+    <ClCompile Include="UWPHelpers\LaunchItem.cpp">
+      <Filter>UWPHelpers</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="App.h" />
     <ClInclude Include="pch.h" />
     <ClInclude Include="..\ppsspp_config.h" />
-    <ClInclude Include="XAudioSoundStream.h" />
+    <ClInclude Include="XAudioSoundStream.h">
+      <Filter>Audio</Filter>
+    </ClInclude>
     <ClInclude Include="PPSSPP_UWPMain.h" />
-    <ClInclude Include="NKCodeFromWindowsSystem.h" />
-    <ClInclude Include="UWPHost.h" />
-    <ClInclude Include="..\Windows\XinputDevice.h" />
+    <ClInclude Include="NKCodeFromWindowsSystem.h">
+      <Filter>Input</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Windows\XinputDevice.h">
+      <Filter>Input</Filter>
+    </ClInclude>
     <ClInclude Include="UWPUtil.h" />
-    <ClInclude Include="..\Windows\InputDevice.h" />
+    <ClInclude Include="..\Windows\InputDevice.h">
+      <Filter>Input</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Image Include="Assets\StoreLogo.png">
@@ -90,17 +159,23 @@
     <Image Include="Content\zip.png">
       <Filter>Content</Filter>
     </Image>
+    <Image Include="Content\rargray.png">
+      <Filter>Content</Filter>
+    </Image>
     <Image Include="Content\ui_atlas.zim">
       <Filter>Content</Filter>
     </Image>
     <Image Include="AssetsGold\StoreLogo.scale-100.png">
       <Filter>Assets</Filter>
     </Image>
-    <Image Include="Content\rargray.png">
-      <Filter>Assets</Filter>
-    </Image>
     <Image Include="Content\asciifont_atlas.zim">
       <Filter>Content</Filter>
+    </Image>
+    <Image Include="Content\font_atlas.zim">
+      <Filter>Content</Filter>
+    </Image>
+    <Image Include="Content\debugger\favicon.ico">
+      <Filter>Content\debugger</Filter>
     </Image>
   </ItemGroup>
   <ItemGroup>
@@ -171,7 +246,13 @@
     <None Include="Content\lang\he_IL.ini">
       <Filter>Content\lang</Filter>
     </None>
+    <None Include="Content\lang\he_IL_invert.ini">
+      <Filter>Content\lang</Filter>
+    </None>
     <None Include="Content\lang\hu_HU.ini">
+      <Filter>Content\lang</Filter>
+    </None>
+    <None Include="Content\lang\hr_HR.ini">
       <Filter>Content\lang</Filter>
     </None>
     <None Include="Content\lang\id_ID.ini">
@@ -246,19 +327,37 @@
     <None Include="Content\shaders\4xhqglsl.fsh">
       <Filter>Content\shaders</Filter>
     </None>
+    <None Include="Content\shaders\4xhqglsl.vsh">
+      <Filter>Content\shaders</Filter>
+    </None>
     <None Include="Content\shaders\5xBR.fsh">
       <Filter>Content\shaders</Filter>
     </None>
-    <None Include="Content\shaders\5xBR-lv2.fsh">
+    <None Include="Content\shaders\5xBR.vsh">
       <Filter>Content\shaders</Filter>
     </None>
     <None Include="Content\shaders\aacolor.fsh">
       <Filter>Content\shaders</Filter>
     </None>
+    <None Include="Content\shaders\aacolor.vsh">
+      <Filter>Content\shaders</Filter>
+    </None>
     <None Include="Content\shaders\bloom.fsh">
       <Filter>Content\shaders</Filter>
     </None>
+    <None Include="Content\shaders\bloomnoblur.fsh">
+      <Filter>Content\shaders</Filter>
+    </None>
     <None Include="Content\shaders\cartoon.fsh">
+      <Filter>Content\shaders</Filter>
+    </None>
+    <None Include="Content\shaders\cartoon.vsh">
+      <Filter>Content\shaders</Filter>
+    </None>
+    <None Include="Content\shaders\checkers.fsh">
+      <Filter>Content\shaders</Filter>
+    </None>
+    <None Include="Content\shaders\colorcorrection.fsh">
       <Filter>Content\shaders</Filter>
     </None>
     <None Include="Content\shaders\crt.fsh">
@@ -267,10 +366,70 @@
     <None Include="Content\shaders\defaultshaders.ini">
       <Filter>Content\shaders</Filter>
     </None>
+    <None Include="Content\shaders\fakereflections.fsh">
+      <Filter>Content\shaders</Filter>
+    </None>
     <None Include="Content\shaders\fxaa.fsh">
       <Filter>Content\shaders</Filter>
     </None>
+    <None Include="Content\shaders\fxaa.vsh">
+      <Filter>Content\shaders</Filter>
+    </None>
     <None Include="Content\shaders\GaussianDownscale.fsh">
+      <Filter>Content\shaders</Filter>
+    </None>
+    <None Include="Content\shaders\natural.fsh">
+      <Filter>Content\shaders</Filter>
+    </None>
+    <None Include="Content\shaders\naturalA.fsh">
+      <Filter>Content\shaders</Filter>
+    </None>
+    <None Include="Content\shaders\naturalA.vsh">
+      <Filter>Content\shaders</Filter>
+    </None>
+    <None Include="Content\shaders\persistence.fsh">
+      <Filter>Content\shaders</Filter>
+    </None>
+    <None Include="Content\shaders\psp_color.fsh">
+      <Filter>Content\shaders</Filter>
+    </None>
+    <None Include="Content\shaders\scanlines.fsh">
+      <Filter>Content\shaders</Filter>
+    </None>
+    <None Include="Content\shaders\sharpen.fsh">
+      <Filter>Content\shaders</Filter>
+    </None>
+    <None Include="Content\shaders\stereo_red_blue.fsh">
+      <Filter>Content\shaders</Filter>
+    </None>
+    <None Include="Content\shaders\stereo_sbs.fsh">
+      <Filter>Content\shaders</Filter>
+    </None>
+    <None Include="Content\shaders\tex_2xbrz.csh">
+      <Filter>Content\shaders</Filter>
+    </None>
+    <None Include="Content\shaders\tex_4xbrz.csh">
+      <Filter>Content\shaders</Filter>
+    </None>
+    <None Include="Content\shaders\tex_mmpx.csh">
+      <Filter>Content\shaders</Filter>
+    </None>
+    <None Include="Content\shaders\upscale_bicubic.fsh">
+      <Filter>Content\shaders</Filter>
+    </None>
+    <None Include="Content\shaders\upscale_bicubic.vsh">
+      <Filter>Content\shaders</Filter>
+    </None>
+    <None Include="Content\shaders\upscale_spline36.fsh">
+      <Filter>Content\shaders</Filter>
+    </None>
+    <None Include="Content\shaders\upscale_spline36.vsh">
+      <Filter>Content\shaders</Filter>
+    </None>
+    <None Include="Content\shaders\videoAA.fsh">
+      <Filter>Content\shaders</Filter>
+    </None>
+    <None Include="Content\shaders\vignette.fsh">
       <Filter>Content\shaders</Filter>
     </None>
     <None Include="Content\flash0\font\jpn0.pgf">
@@ -327,44 +486,130 @@
     <None Include="Content\flash0\font\ltn15.pgf">
       <Filter>Content\flash0\font</Filter>
     </None>
-    <None Include="Content\shaders\natural.fsh">
-      <Filter>Content\shaders</Filter>
-    </None>
-    <None Include="Content\shaders\naturalA.fsh">
-      <Filter>Content\shaders</Filter>
-    </None>
-    <None Include="Content\shaders\scanlines.fsh">
-      <Filter>Content\shaders</Filter>
-    </None>
-    <None Include="Content\shaders\sharpen.fsh">
-      <Filter>Content\shaders</Filter>
-    </None>
-    <None Include="Content\shaders\upscale_spline36.fsh">
-      <Filter>Content\shaders</Filter>
-    </None>
-    <None Include="Content\shaders\vignette.fsh">
-      <Filter>Content\shaders</Filter>
-    </None>
-    <None Include="Content\shaders\videoAA.fsh">
-      <Filter>Content\shaders</Filter>
-    </None>
-    <None Include="..\assets\ppge_atlas.meta">
+    <None Include="Content\ppge_atlas.meta">
       <Filter>Content</Filter>
     </None>
-    <None Include="..\assets\ui_atlas.meta">
+    <None Include="Content\ui_atlas.meta">
       <Filter>Content</Filter>
     </None>
-    <None Include="..\assets\themes\defaultthemes.ini">
+    <None Include="Content\themes\defaultthemes.ini">
       <Filter>Content\themes</Filter>
     </None>
     <None Include="Content\asciifont_atlas.meta">
       <Filter>Content</Filter>
+    </None>
+    <None Include="Content\font_atlas.meta">
+      <Filter>Content</Filter>
+    </None>
+    <None Include="Content\sfx_achievement_unlocked.wav">
+      <Filter>Content</Filter>
+    </None>
+    <None Include="Content\sfx_back.wav">
+      <Filter>Content</Filter>
+    </None>
+    <None Include="Content\sfx_confirm.wav">
+      <Filter>Content</Filter>
+    </None>
+    <None Include="Content\sfx_leaderbord_submitted.wav">
+      <Filter>Content</Filter>
+    </None>
+    <None Include="Content\sfx_select.wav">
+      <Filter>Content</Filter>
+    </None>
+    <None Include="Content\sfx_toggle_off.wav">
+      <Filter>Content</Filter>
+    </None>
+    <None Include="Content\sfx_toggle_on.wav">
+      <Filter>Content</Filter>
+    </None>
+    <None Include="Content\shaders\5xBR-lv2.fsh">
+      <Filter>Content\shaders</Filter>
+    </None>
+    <None Include="Content\shaders\natural.vsh">
+      <Filter>Content\shaders</Filter>
+    </None>
+    <None Include="Content\debugger\.nojekyll">
+      <Filter>Content\debugger</Filter>
+    </None>
+    <None Include="Content\debugger\asset-manifest.json">
+      <Filter>Content\debugger</Filter>
+    </None>
+    <None Include="Content\debugger\index.html">
+      <Filter>Content\debugger</Filter>
+    </None>
+    <None Include="Content\debugger\manifest.json">
+      <Filter>Content\debugger</Filter>
+    </None>
+    <None Include="Content\debugger\static\css\*.css">
+      <Filter>Content\debugger\static\css</Filter>
+    </None>
+    <None Include="Content\debugger\static\css\*.map">
+      <Filter>Content\debugger\static\css</Filter>
+    </None>
+    <None Include="Content\debugger\static\js\*.js">
+      <Filter>Content\debugger\static\js</Filter>
+    </None>
+    <None Include="Content\debugger\static\js\*.map">
+      <Filter>Content\debugger\static\js</Filter>
+    </None>
+    <None Include="Content\debugger\static\media\*.svg">
+      <Filter>Content\debugger\static\media</Filter>
+    </None>
+    <None Include="Content\vfpu\vfpu_sqrt_lut.dat">
+      <Filter>Content\vfpu</Filter>
+    </None>
+    <None Include="Content\vfpu\vfpu_asin_lut_deltas.dat">
+      <Filter>Content\vfpu</Filter>
+    </None>
+    <None Include="Content\vfpu\vfpu_asin_lut_indices.dat">
+      <Filter>Content\vfpu</Filter>
+    </None>
+    <None Include="Content\vfpu\vfpu_asin_lut65536.dat">
+      <Filter>Content\vfpu</Filter>
+    </None>
+    <None Include="Content\vfpu\vfpu_exp2_lut.dat">
+      <Filter>Content\vfpu</Filter>
+    </None>
+    <None Include="Content\vfpu\vfpu_exp2_lut65536.dat">
+      <Filter>Content\vfpu</Filter>
+    </None>
+    <None Include="Content\vfpu\vfpu_log2_lut.dat">
+      <Filter>Content\vfpu</Filter>
+    </None>
+    <None Include="Content\vfpu\vfpu_log2_lut65536.dat">
+      <Filter>Content\vfpu</Filter>
+    </None>
+    <None Include="Content\vfpu\vfpu_log2_lut65536_quadratic.dat">
+      <Filter>Content\vfpu</Filter>
+    </None>
+    <None Include="Content\vfpu\vfpu_rcp_lut.dat">
+      <Filter>Content\vfpu</Filter>
+    </None>
+    <None Include="Content\vfpu\vfpu_rsqrt_lut.dat">
+      <Filter>Content\vfpu</Filter>
+    </None>
+    <None Include="Content\vfpu\vfpu_sin_lut_delta.dat">
+      <Filter>Content\vfpu</Filter>
+    </None>
+    <None Include="Content\vfpu\vfpu_sin_lut_exceptions.dat">
+      <Filter>Content\vfpu</Filter>
+    </None>
+    <None Include="Content\vfpu\vfpu_sin_lut_interval_delta.dat">
+      <Filter>Content\vfpu</Filter>
+    </None>
+    <None Include="Content\vfpu\vfpu_sin_lut8192.dat">
+      <Filter>Content\vfpu</Filter>
     </None>
   </ItemGroup>
   <ItemGroup>
     <Text Include="Content\gamecontrollerdb.txt">
       <Filter>Content</Filter>
     </Text>
+    <Text Include="Content\debugger\static\js\*.txt">
+      <Filter>Content\debugger\static\js</Filter>
+    </Text>
+    <Text Include="Content\debugger\static\js\*.txt" />
+    <Text Include="Content\debugger\static\js\*.txt" />
   </ItemGroup>
   <ItemGroup>
     <Font Include="Content\Roboto-Condensed.ttf">
