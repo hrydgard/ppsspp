@@ -213,6 +213,8 @@ public:
 	int iSplineBezierQuality; // 0 = low , 1 = Intermediate , 2 = High
 	bool bHardwareTessellation;
 	bool bShaderCache;  // Hidden ini-only setting, useful for debugging shader compile times.
+	bool bUberShaderVertex;
+	bool bUberShaderFragment;
 
 	std::vector<std::string> vPostShaderNames; // Off for chain end (only Off for no shader)
 	std::map<std::string, float> mPostShaderSetting;
