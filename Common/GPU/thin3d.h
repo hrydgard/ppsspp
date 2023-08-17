@@ -231,6 +231,7 @@ enum class GPUVendor {
 	VENDOR_BROADCOM,  // Raspberry
 	VENDOR_VIVANTE,
 	VENDOR_APPLE,
+	VENDOR_MESA,
 };
 
 enum class NativeObject {

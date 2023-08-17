@@ -126,6 +126,8 @@ void LoadPostShaderInfo(Draw::DrawContext *draw, const std::vector<Path> &direct
 						blacklistedVendor = Draw::GPUVendor::VENDOR_APPLE;
 					} else if (item == "Intel") {
 						blacklistedVendor = Draw::GPUVendor::VENDOR_INTEL;
+					} else if (item == "Mesa") {
+						blacklistedVendor = Draw::GPUVendor::VENDOR_MESA;
 					}
 					if (blacklistedVendor == gpuVendor && blacklistedVendor != Draw::GPUVendor::VENDOR_UNKNOWN) {
 						skipped = true;
