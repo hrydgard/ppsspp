@@ -13,11 +13,11 @@
 
 struct WindowsReleaseInfo
 {
-	int major;
-	int minor;
-	int spMajor;
-	int spMinor;
-	int build;
+	uint32_t major;
+	uint32_t minor;
+	uint32_t spMajor;
+	uint32_t spMinor;
+	uint32_t build;
 	bool greater = false;
 };
 
@@ -96,9 +96,9 @@ bool DoesVersionMatchWindows(uint32_t major, uint32_t minor, uint32_t spMajor, u
 bool DoesVersionMatchWindows(WindowsReleaseInfo release) {
 	if (release.spMajor == 0 && release.spMinor == 0) {
 		// Compare Info
-		int major = release.major;
-		int minor = release.minor;
-		int build = release.build;
+		uint32_t major = release.major;
+		uint32_t minor = release.minor;
+		uint32_t build = release.build;
 		bool greater = release.greater;
 
 		OSVERSIONINFOEX osvi;
@@ -124,7 +124,11 @@ bool DoesVersionMatchWindows(WindowsReleaseInfo release) {
 			}
 		}
 	}
-	return DoesVersionMatchWindows(release.major, release.minor, release.spMajor, release.spMinor, release.greater);
+	else {
+		return DoesVersionMatchWindows(release.major, release.minor, release.spMajor, release.spMinor, release.greater);
+	}
+
+	return false;
 }
 
 bool IsVistaOrHigher() {
