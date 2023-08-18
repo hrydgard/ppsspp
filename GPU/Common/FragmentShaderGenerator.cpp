@@ -739,7 +739,14 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 				}
 				WRITE(p, "  vec2 tsize = vec2(textureSize(tex, 0).xy);\n");
 				WRITE(p, "  vec2 fraction;\n");
+				WRITE(p, "  bool bilinear = (u_depal_mask_shift_off_fmt >> 0x2Fu) != 0x0u;\n");
+				WRITE(p, "  if (bilinear) {\n");
+				WRITE(p, "    uv_round = uv * tsize - vec2(0.5, 0.5);\n");
+				WRITE(p, "    fraction = fract(uv_round);\n");
+				WRITE(p, "    uv_round = (uv_round - fraction + vec2(0.5, 0.5)) / tsize;\n");  // We want to take our four point samples at pixel centers.
+				WRITE(p, "  } else {\n");
 				WRITE(p, "    uv_round = uv;\n");
+				WRITE(p, "  }\n");
 				p.C("  highp vec4 t = ").SampleTexture2D("tex", "uv_round").C(";\n");
 				p.C("  highp vec4 t1 = ").SampleTexture2DOffset("tex", "uv_round", 1, 0).C(";\n");
 				p.C("  highp vec4 t2 = ").SampleTexture2DOffset("tex", "uv_round", 0, 1).C(";\n");
@@ -753,22 +760,65 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 				WRITE(p, "  case 0:\n");  // 565
 				WRITE(p, "    col = uvec4(t.rgb * vec3(31.99, 63.99, 31.99), 0);\n");
 				WRITE(p, "    index0 = (col.b << 0xBu) | (col.g << 0x5u) | (col.r);\n");
+				WRITE(p, "    if (bilinear) {\n");
+				WRITE(p, "      col = uvec4(t1.rgb * vec3(31.99, 63.99, 31.99), 0);\n");
+				WRITE(p, "      index1 = (col.b << 0xBu) | (col.g << 0x5u) | (col.r);\n");
+				WRITE(p, "      col = uvec4(t2.rgb * vec3(31.99, 63.99, 31.99), 0);\n");
+				WRITE(p, "      index2 = (col.b << 0xBu) | (col.g << 0x5u) | (col.r);\n");
+				WRITE(p, "      col = uvec4(t3.rgb * vec3(31.99, 63.99, 31.99), 0);\n");
+				WRITE(p, "      index3 = (col.b << 0xBu) | (col.g << 0x5u) | (col.r);\n");
+				WRITE(p, "    }\n");
 				WRITE(p, "    break;\n");
 				WRITE(p, "  case 1:\n");  // 5551
 				WRITE(p, "    col = uvec4(t.rgba * vec4(31.99, 31.99, 31.99, 1.0));\n");
 				WRITE(p, "    index0 = (col.a << 0xFu) | (col.b << 0xAu) | (col.g << 0x5u) | (col.r);\n");
+				WRITE(p, "    if (bilinear) {\n");
+				WRITE(p, "      col = uvec4(t1.rgba * vec4(31.99, 31.99, 31.99, 1.0));\n");
+				WRITE(p, "      index1 = (col.a << 0xFu) | (col.b << 0xAu) | (col.g << 0x5u) | (col.r);\n");
+				WRITE(p, "      col = uvec4(t2.rgba * vec4(31.99, 31.99, 31.99, 1.0));\n");
+				WRITE(p, "      index2 = (col.a << 0xFu) | (col.b << 0xAu) | (col.g << 0x5u) | (col.r);\n");
+				WRITE(p, "      col = uvec4(t3.rgba * vec4(31.99, 31.99, 31.99, 1.0));\n");
+				WRITE(p, "      index3 = (col.a << 0xFu) | (col.b << 0xAu) | (col.g << 0x5u) | (col.r);\n");
+				WRITE(p, "    }\n");
 				WRITE(p, "    break;\n");
 				WRITE(p, "  case 2:\n");  // 4444
 				WRITE(p, "    col = uvec4(t.rgba * 15.99);\n");
 				WRITE(p, "    index0 = (col.a << 0xCu) | (col.b << 0x8u) | (col.g << 0x4u) | (col.r);\n");
+				WRITE(p, "    if (bilinear) {\n");
+				WRITE(p, "      col = uvec4(t1.rgba * 15.99);\n");
+				WRITE(p, "      index1 = (col.a << 0xCu) | (col.b << 0x8u) | (col.g << 0x4u) | (col.r);\n");
+				WRITE(p, "      col = uvec4(t2.rgba * 15.99);\n");
+				WRITE(p, "      index2 = (col.a << 0xCu) | (col.b << 0x8u) | (col.g << 0x4u) | (col.r);\n");
+				WRITE(p, "      col = uvec4(t3.rgba * 15.99);\n");
+				WRITE(p, "      index3 = (col.a << 0xCu) | (col.b << 0x8u) | (col.g << 0x4u) | (col.r);\n");
+				WRITE(p, "    }\n");
 				WRITE(p, "    break;\n");
 				WRITE(p, "  case 3:\n");  // 8888
 				WRITE(p, "    col = uvec4(t.rgba * 255.99);\n");
 				WRITE(p, "    index0 = (col.a << 0x18u) | (col.b << 0x10u) | (col.g << 0x8u) | (col.r);\n");
+				WRITE(p, "    if (bilinear) {\n");
+				WRITE(p, "      col = uvec4(t1.rgba * 255.99);\n");
+				WRITE(p, "      index1 = (col.a << 0x18u) | (col.b << 0x10u) | (col.g << 0x8u) | (col.r);\n");
+				WRITE(p, "      col = uvec4(t2.rgba * 255.99);\n");
+				WRITE(p, "      index2 = (col.a << 0x18u) | (col.b << 0x10u) | (col.g << 0x8u) | (col.r);\n");
+				WRITE(p, "      col = uvec4(t3.rgba * 255.99);\n");
+				WRITE(p, "      index3 = (col.a << 0x18u) | (col.b << 0x10u) | (col.g << 0x8u) | (col.r);\n");
+				WRITE(p, "    }\n");
 				WRITE(p, "    break;\n");
 				WRITE(p, "  };\n");
 				WRITE(p, "  index0 = ((index0 >> depalShift) & depalMask) | depalOffset;\n");
 				p.C("  t = ").LoadTexture2D("pal", "ivec2(index0, 0)", 0).C(";\n");
+				WRITE(p, "  if (bilinear && !(index0 == index1 && index1 == index2 && index2 == index3)) {\n");
+				WRITE(p, "    index1 = ((index1 >> depalShift) & depalMask) | depalOffset;\n");
+				WRITE(p, "    index2 = ((index2 >> depalShift) & depalMask) | depalOffset;\n");
+				WRITE(p, "    index3 = ((index3 >> depalShift) & depalMask) | depalOffset;\n");
+				p.C("  t1 = ").LoadTexture2D("pal", "ivec2(index1, 0)", 0).C(";\n");
+				p.C("  t2 = ").LoadTexture2D("pal", "ivec2(index2, 0)", 0).C(";\n");
+				p.C("  t3 = ").LoadTexture2D("pal", "ivec2(index3, 0)", 0).C(";\n");
+				WRITE(p, "    t = mix(t, t1, fraction.x);\n");
+				WRITE(p, "    t2 = mix(t2, t3, fraction.x);\n");
+				WRITE(p, "    t = mix(t, t2, fraction.y);\n");
+				WRITE(p, "  }\n");
 				break;
 			case ShaderDepalMode::CLUT8_8888:
 				if (doTextureProjection) {

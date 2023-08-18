@@ -317,12 +317,6 @@ namespace MainWindow {
 	void BrowseAndBootDone(std::string filename);
 
 	void BrowseAndBoot(std::string defaultPath, bool browseDirectory) {
-		static std::wstring filter = L"All supported file types (*.iso *.cso *.pbp *.elf *.prx *.zip *.ppdmp)|*.pbp;*.elf;*.iso;*.cso;*.prx;*.zip;*.ppdmp|PSP ROMs (*.iso *.cso *.pbp *.elf *.prx)|*.pbp;*.elf;*.iso;*.cso;*.prx|Homebrew/Demos installers (*.zip)|*.zip|All files (*.*)|*.*||";
-		for (int i = 0; i < (int)filter.length(); i++) {
-			if (filter[i] == '|')
-				filter[i] = '\0';
-		}
-
 		browsePauseAfter = false;
 		if (GetUIState() == UISTATE_INGAME) {
 			browsePauseAfter = Core_IsStepping();
@@ -354,17 +348,10 @@ namespace MainWindow {
 	}
 
 	static void UmdSwitchAction() {
-		std::string fn;
-		std::string filter = "PSP ROMs (*.iso *.cso *.pbp *.elf)|*.pbp;*.elf;*.iso;*.cso;*.prx|All files (*.*)|*.*||";
-
-		for (int i = 0; i < (int)filter.length(); i++) {
-			if (filter[i] == '|')
-				filter[i] = '\0';
-		}
-
-		if (W32Util::BrowseForFileName(true, GetHWND(), L"Switch UMD", 0, ConvertUTF8ToWString(filter).c_str(), L"*.pbp;*.elf;*.iso;*.cso;", fn)) {
-			__UmdReplace(Path(fn));
-		}
+		auto mm = GetI18NCategory(I18NCat::MAINMENU);
+		System_BrowseForFile(mm->T("Switch UMD"), BrowseFileType::BOOTABLE, [](const std::string &value, int) {
+			__UmdReplace(Path(value));
+		});
 	}
 
 	static void SaveStateActionFinished(SaveState::Status status, const std::string &message, void *userdata) {
