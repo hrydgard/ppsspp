@@ -465,6 +465,11 @@ std::string System_GetProperty(SystemProperty prop) {
 		}
 	case SYSPROP_BUILD_VERSION:
 		return PPSSPP_GIT_VERSION;
+	case SYSPROP_USER_DOCUMENTS_DIR:
+	{
+		const char *home = getenv("HOME");
+		return home ? std::string(home) : "/";
+	}
 	default:
 		return "";
 	}

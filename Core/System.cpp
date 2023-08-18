@@ -707,18 +707,42 @@ Path GetSysDirectory(PSPDirectories directoryType) {
 	}
 }
 
-void CreateSysDirectories() {
+bool CreateSysDirectories() {
+#if PPSSPP_PLATFORM(ANDROID)
+	const bool createNoMedia = true;
+#else
+	const bool createNoMedia = false;
+#endif
+
+	Path pspDir = GetSysDirectory(DIRECTORY_PSP);
+	INFO_LOG(IO, "Creating '%s' and subdirs:", pspDir.c_str());
+	File::CreateDir(pspDir);
+	if (!File::Exists(pspDir)) {
+		INFO_LOG(IO, "Not a workable memstick directory. Giving up");
+		return false;
+	}
+
 	// Create the default directories that a real PSP creates. Good for homebrew so they can
 	// expect a standard environment. Skipping THEME though, that's pointless.
-	File::CreateDir(GetSysDirectory(DIRECTORY_PSP));
-	File::CreateDir(GetSysDirectory(DIRECTORY_PSP) / "COMMON");
-	File::CreateDir(GetSysDirectory(DIRECTORY_GAME));
-	File::CreateDir(GetSysDirectory(DIRECTORY_SAVEDATA));
-	File::CreateDir(GetSysDirectory(DIRECTORY_SAVESTATE));
-	File::CreateDir(GetSysDirectory(DIRECTORY_SYSTEM));
-	File::CreateDir(GetSysDirectory(DIRECTORY_TEXTURES));
+	static const PSPDirectories sysDirs[] = {
+		DIRECTORY_CHEATS,
+		DIRECTORY_SAVEDATA,
+		DIRECTORY_SAVESTATE,
+		DIRECTORY_GAME,
+		DIRECTORY_SYSTEM,
+		DIRECTORY_TEXTURES,
+		DIRECTORY_PLUGINS,
+		DIRECTORY_CACHE,
+	};
 
-	if (g_Config.currentDirectory.empty()) {
-		g_Config.currentDirectory = GetSysDirectory(DIRECTORY_GAME);
+	for (auto dir : sysDirs) {
+		Path path = GetSysDirectory(dir);
+		File::CreateFullPath(path);
+		if (createNoMedia) {
+			// Create a nomedia file in each specified subdirectory.
+			File::CreateEmptyFile(path / ".nomedia");
+		}
 	}
+
+	return true;
 }
