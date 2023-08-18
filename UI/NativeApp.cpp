@@ -290,13 +290,14 @@ static bool CheckFontIsUsable(const wchar_t *fontFace) {
 }
 #endif
 
-bool CreateDirectoriesAndroid();
-
 void PostLoadConfig() {
-	// On Windows, we deal with currentDirectory in InitSysDirectories().
 #if !PPSSPP_PLATFORM(WINDOWS)
 	if (g_Config.currentDirectory.empty()) {
 		g_Config.currentDirectory = g_Config.defaultCurrentDirectory;
+	}
+#else
+	if (g_Config.currentDirectory.empty()) {
+		g_Config.currentDirectory = GetSysDirectory(DIRECTORY_GAME);
 	}
 #endif
 
@@ -310,49 +311,9 @@ void PostLoadConfig() {
 	else
 		g_i18nrepo.LoadIni(g_Config.sLanguageIni, langOverridePath);
 
-#if PPSSPP_PLATFORM(ANDROID)
-	CreateDirectoriesAndroid();
+#if !PPSSPP_PLATFORM(WINDOWS) && !PPSSPP_PLATFORM(UWP)
+	CreateSysDirectories();
 #endif
-}
-
-bool CreateDirectoriesAndroid() {
-	// TODO: We should probably simply use this as the shared function to create memstick directories.
-#if PPSSPP_PLATFORM(ANDROID)
-	const bool createNoMedia = true;
-#else
-	const bool createNoMedia = false;
-#endif
-
-	Path pspDir = GetSysDirectory(DIRECTORY_PSP);
-
-	INFO_LOG(IO, "Creating '%s' and subdirs:", pspDir.c_str());
-	File::CreateFullPath(pspDir);
-	if (!File::Exists(pspDir)) {
-		INFO_LOG(IO, "Not a workable memstick directory. Giving up");
-		return false;
-	}
-
-	static const PSPDirectories sysDirs[] = {
-		DIRECTORY_CHEATS,
-		DIRECTORY_SAVEDATA,
-		DIRECTORY_SAVESTATE,
-		DIRECTORY_GAME,
-		DIRECTORY_SYSTEM,
-		DIRECTORY_TEXTURES,
-		DIRECTORY_PLUGINS,
-		DIRECTORY_CACHE,
-	};
-
-	for (auto dir : sysDirs) {
-		Path path = GetSysDirectory(dir);
-		File::CreateFullPath(path);
-		if (createNoMedia) {
-			// Create a nomedia file in each specified subdirectory.
-			File::CreateEmptyFile(path / ".nomedia");
-		}
-	}
-
-	return true;
 }
 
 static void CheckFailedGPUBackends() {

@@ -106,7 +106,7 @@ void UpdateLoadedFile(FileLoader *fileLoader);
 // they are not stored anywhere.
 Path GetSysDirectory(PSPDirectories directoryType);
 
-void CreateSysDirectories();
+bool CreateSysDirectories();
 
 // RUNNING must be at 0, NEXTFRAME must be at 1.
 enum CoreState {
