@@ -179,8 +179,6 @@ protected:
 
 private:
 	UI::EventReturn OnGameSelected(UI::EventParams &e);
-	UI::EventReturn OnGameSelectedInstant(UI::EventParams &e);
-
 	UI::EventReturn OnGameSettings(UI::EventParams &e);
 };
 
