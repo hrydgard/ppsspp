@@ -166,7 +166,13 @@ void GameScreen::CreateViews() {
 
 	rightColumnItems->Add(AddOtherChoice(new Choice(ga->T("Delete Game"))))->OnClick.Handle(this, &GameScreen::OnDeleteGame);
 	if (System_GetPropertyBool(SYSPROP_CAN_CREATE_SHORTCUT)) {
-		rightColumnItems->Add(AddOtherChoice(new Choice(ga->T("Create Shortcut"))))->OnClick.Handle(this, &GameScreen::OnCreateShortcut);
+		rightColumnItems->Add(AddOtherChoice(new Choice(ga->T("Create Shortcut"))))->OnClick.Add([=](UI::EventParams &e) {
+			std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(NULL, gamePath_, 0);
+			if (info) {
+				System_CreateGameShortcut(gamePath_, info->GetTitle());
+			}
+			return UI::EVENT_DONE;
+		});
 	}
 	if (isRecentGame(gamePath_)) {
 		rightColumnItems->Add(AddOtherChoice(new Choice(ga->T("Remove From Recent"))))->OnClick.Handle(this, &GameScreen::OnRemoveFromRecent);
@@ -412,14 +418,6 @@ void GameScreen::CallbackDeleteGame(bool yes) {
 		g_gameInfoCache->Clear();
 		screenManager()->switchScreen(new MainScreen());
 	}
-}
-
-UI::EventReturn GameScreen::OnCreateShortcut(UI::EventParams &e) {
-	std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(NULL, gamePath_, 0);
-	if (info) {
-		System_CreateGameShortcut(gamePath_, info->GetTitle());
-	}
-	return UI::EVENT_DONE;
 }
 
 bool GameScreen::isRecentGame(const Path &gamePath) {
