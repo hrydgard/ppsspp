@@ -791,6 +791,7 @@ void ConfirmMemstickMoveScreen::FinishFolderMove() {
 
 	// If the chosen folder already had a config, reload it!
 	g_Config.Load();
+	PostLoadConfig();
 
 	if (!initialSetup_) {
 		// We restart the app here, to get the new settings.
