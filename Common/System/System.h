@@ -182,6 +182,8 @@ enum SystemProperty {
 	SYSPROP_KEYBOARD_LAYOUT,
 
 	SYSPROP_SKIP_UI,
+
+	SYSPROP_USER_DOCUMENTS_DIR,
 };
 
 enum class SystemNotification {

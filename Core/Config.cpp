@@ -149,6 +149,7 @@ static bool DefaultCodeGen() {
 
 static bool DefaultVSync() {
 #if PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(UWP)
+	ERROR_LOG(SYSTEM, "Default vsync true");
 	// Previously we didn't allow turning off vsync/FIFO on Android. Let's set the default accordingly.
 	return true;
 #else
@@ -1225,7 +1226,7 @@ bool Config::Save(const char *saveReason) {
 		CleanRecent();
 		IniFile iniFile;
 		if (!iniFile.Load(iniFilename_)) {
-			ERROR_LOG(LOADER, "Error saving config - can't read ini '%s'", iniFilename_.c_str());
+			WARN_LOG(LOADER, "Likely saving config for first time - couldn't read ini '%s'", iniFilename_.c_str());
 		}
 
 		// Need to do this somewhere...

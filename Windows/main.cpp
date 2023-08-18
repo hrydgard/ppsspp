@@ -243,6 +243,8 @@ std::string System_GetProperty(SystemProperty prop) {
 		return gpuDriverVersion;
 	case SYSPROP_BUILD_VERSION:
 		return PPSSPP_GIT_VERSION;
+	case SYSPROP_USER_DOCUMENTS_DIR:
+		return Path(W32Util::UserDocumentsPath()).ToString();  // this'll reverse the slashes.
 	default:
 		return "";
 	}
