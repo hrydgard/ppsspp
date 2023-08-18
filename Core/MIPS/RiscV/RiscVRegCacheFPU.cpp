@@ -30,7 +30,7 @@ using namespace RiscVGen;
 using namespace RiscVJitConstants;
 
 RiscVRegCacheFPU::RiscVRegCacheFPU(MIPSComp::JitOptions *jo)
-	: IRNativeRegCache(jo) {
+	: IRNativeRegCacheBase(jo) {
 	totalNativeRegs_ = NUM_RVFPUREG;
 }
 
@@ -38,137 +38,65 @@ void RiscVRegCacheFPU::Init(RiscVEmitter *emitter) {
 	emit_ = emitter;
 }
 
-const RiscVReg *RiscVRegCacheFPU::GetMIPSAllocationOrder(int &count) {
+const int *RiscVRegCacheFPU::GetAllocationOrder(MIPSLoc type, int &count, int &base) const {
+	_assert_(type == MIPSLoc::FREG);
 	// F8 through F15 are used for compression, so they are great.
 	// TODO: Maybe we could remove some saved regs since we rarely need that many?  Or maybe worth it?
-	static const RiscVReg allocationOrder[] = {
+	static const int allocationOrder[] = {
 		F8, F9, F10, F11, F12, F13, F14, F15,
 		F0, F1, F2, F3, F4, F5, F6, F7,
 		F16, F17, F18, F19, F20, F21, F22, F23, F24, F25, F26, F27, F28, F29, F30, F31,
 	};
 
 	count = ARRAY_SIZE(allocationOrder);
+	base = F0;
 	return allocationOrder;
 }
 
 bool RiscVRegCacheFPU::IsInRAM(IRReg reg) {
-	_dbg_assert_(IsValidReg(reg));
-	return mr[reg].loc == MIPSLoc::MEM;
+	_dbg_assert_(IsValidFPR(reg));
+	return mr[reg + 32].loc == MIPSLoc::MEM;
 }
 
 bool RiscVRegCacheFPU::IsMapped(IRReg mipsReg) {
-	_dbg_assert_(IsValidReg(mipsReg));
-	return mr[mipsReg].loc == MIPSLoc::FREG;
+	_dbg_assert_(IsValidFPR(mipsReg));
+	return mr[mipsReg + 32].loc == MIPSLoc::FREG;
 }
 
 RiscVReg RiscVRegCacheFPU::MapReg(IRReg mipsReg, MIPSMap mapFlags) {
-	_dbg_assert_(IsValidReg(mipsReg));
-	_dbg_assert_(mr[mipsReg].loc == MIPSLoc::MEM || mr[mipsReg].loc == MIPSLoc::FREG);
+	_dbg_assert_(IsValidFPR(mipsReg));
+	_dbg_assert_(mr[mipsReg + 32].loc == MIPSLoc::MEM || mr[mipsReg + 32].loc == MIPSLoc::FREG);
 
 	pendingFlush_ = true;
 
 	// Let's see if it's already mapped. If so we just need to update the dirty flag.
 	// We don't need to check for NOINIT because we assume that anyone who maps
 	// with that flag immediately writes a "known" value to the register.
-	if (mr[mipsReg].loc == MIPSLoc::FREG) {
-		_assert_msg_(nr[mr[mipsReg].nReg].mipsReg == mipsReg, "GPU mapping out of sync, IR=%i", mipsReg);
+	if (mr[mipsReg + 32].loc == MIPSLoc::FREG) {
+		_assert_msg_(nr[mr[mipsReg + 32].nReg].mipsReg == mipsReg + 32, "FPR mapping out of sync, IR=%i", mipsReg);
 		if ((mapFlags & MIPSMap::DIRTY) == MIPSMap::DIRTY) {
-			nr[mr[mipsReg].nReg].isDirty = true;
+			nr[mr[mipsReg + 32].nReg].isDirty = true;
 		}
-		return (RiscVReg)(mr[mipsReg].nReg + F0);
+		return (RiscVReg)(mr[mipsReg + 32].nReg + F0);
 	}
 
 	// Okay, not mapped, so we need to allocate an RV register.
-	RiscVReg reg = AllocateReg();
-	if (reg != INVALID_REG) {
+	IRNativeReg nreg = AllocateReg(MIPSLoc::FREG);
+	if (nreg != -1) {
 		// That means it's free. Grab it, and load the value into it (if requested).
-		nr[reg - F0].isDirty = (mapFlags & MIPSMap::DIRTY) == MIPSMap::DIRTY;
+		nr[nreg].isDirty = (mapFlags & MIPSMap::DIRTY) == MIPSMap::DIRTY;
 		if ((mapFlags & MIPSMap::NOINIT) != MIPSMap::NOINIT) {
-			if (mr[mipsReg].loc == MIPSLoc::MEM) {
-				emit_->FL(32, reg, CTXREG, GetMipsRegOffset(mipsReg));
+			if (mr[mipsReg + 32].loc == MIPSLoc::MEM) {
+				emit_->FL(32, (RiscVReg)(F0 + nreg), CTXREG, GetMipsRegOffset(mipsReg + 32));
 			}
 		}
-		nr[reg - F0].mipsReg = mipsReg;
-		mr[mipsReg].loc = MIPSLoc::FREG;
-		mr[mipsReg].nReg = reg - F0;
-		return reg;
+		nr[nreg].mipsReg = mipsReg + 32;
+		mr[mipsReg + 32].loc = MIPSLoc::FREG;
+		mr[mipsReg + 32].nReg = nreg;
+		return (RiscVReg)(F0 + nreg);
 	}
 
-	return reg;
-}
-
-RiscVReg RiscVRegCacheFPU::AllocateReg() {
-	int allocCount = 0;
-	const RiscVReg *allocOrder = GetMIPSAllocationOrder(allocCount);
-
-allocate:
-	for (int i = 0; i < allocCount; i++) {
-		RiscVReg reg = allocOrder[i];
-
-		if (nr[reg - F0].mipsReg == IRREG_INVALID) {
-			return reg;
-		}
-	}
-
-	// Still nothing. Let's spill a reg and goto 10.
-	bool clobbered;
-	RiscVReg bestToSpill = FindBestToSpill(true, &clobbered);
-	if (bestToSpill == INVALID_REG) {
-		bestToSpill = FindBestToSpill(false, &clobbered);
-	}
-
-	if (bestToSpill != INVALID_REG) {
-		if (clobbered) {
-			DiscardR(nr[bestToSpill - F0].mipsReg);
-		} else {
-			FlushRiscVReg(bestToSpill);
-		}
-		// Now one must be free.
-		goto allocate;
-	}
-
-	// Uh oh, we have all of them spilllocked....
-	ERROR_LOG_REPORT(JIT, "Out of spillable registers in block PC %08x, index %d", irBlock_->GetOriginalStart(), irIndex_);
-	_assert_(bestToSpill != INVALID_REG);
-	return INVALID_REG;
-}
-
-RiscVReg RiscVRegCacheFPU::FindBestToSpill(bool unusedOnly, bool *clobbered) {
-	int allocCount = 0;
-	const RiscVReg *allocOrder = GetMIPSAllocationOrder(allocCount);
-
-	static const int UNUSED_LOOKAHEAD_OPS = 30;
-
-	IRSituation info;
-	info.lookaheadCount = UNUSED_LOOKAHEAD_OPS;
-	info.currentIndex = irIndex_;
-	info.instructions = irBlock_->GetInstructions();
-	info.numInstructions = irBlock_->GetNumInstructions();
-
-	*clobbered = false;
-	for (int i = 0; i < allocCount; i++) {
-		RiscVReg reg = allocOrder[i];
-		if (nr[reg - F0].mipsReg != IRREG_INVALID && mr[nr[reg - F0].mipsReg].spillLockIRIndex >= irIndex_)
-			continue;
-
-		// As it's in alloc-order, we know it's not static so we don't need to check for that.
-		IRUsage usage = IRNextFPRUsage(nr[reg - F0].mipsReg, info);
-
-		// Awesome, a clobbered reg.  Let's use it.
-		if (usage == IRUsage::CLOBBERED) {
-			*clobbered = true;
-			return reg;
-		}
-
-		// Not awesome.  A used reg.  Let's try to avoid spilling.
-		if (!unusedOnly || usage == IRUsage::UNUSED) {
-			// TODO: Use age or something to choose which register to spill?
-			// TODO: Spill dirty regs first? or opposite?
-			return reg;
-		}
-	}
-
-	return INVALID_REG;
+	return (RiscVReg)(F0 + nreg);
 }
 
 void RiscVRegCacheFPU::MapInIn(IRReg rd, IRReg rs) {
@@ -200,7 +128,7 @@ RiscVReg RiscVRegCacheFPU::MapDirtyInTemp(IRReg rd, IRReg rs, bool avoidLoad) {
 	bool load = !avoidLoad || rd == rs;
 	MapReg(rd, load ? MIPSMap::DIRTY : MIPSMap::NOINIT);
 	MapReg(rs);
-	RiscVReg temp = AllocateReg();
+	RiscVReg temp = (RiscVReg)(F0 + AllocateReg(MIPSLoc::FREG));
 	ReleaseSpillLock(rd, rs);
 	return temp;
 }
@@ -239,44 +167,40 @@ RiscVReg RiscVRegCacheFPU::Map4DirtyInTemp(IRReg rdbase, IRReg rsbase, bool avoi
 		MapReg(rdbase + i, load ? MIPSMap::DIRTY : MIPSMap::NOINIT);
 	for (int i = 0; i < 4; ++i)
 		MapReg(rsbase + i);
-	RiscVReg temp = AllocateReg();
+	RiscVReg temp = (RiscVReg)(F0 + AllocateReg(MIPSLoc::FREG));
 	for (int i = 0; i < 4; ++i)
 		ReleaseSpillLock(rdbase + i, rsbase + i);
 	return temp;
 }
 
-void RiscVRegCacheFPU::FlushRiscVReg(RiscVReg r) {
+void RiscVRegCacheFPU::StoreNativeReg(IRNativeReg nreg, IRReg first, int lanes) {
+	RiscVReg r = (RiscVReg)(F0 + nreg);
 	_dbg_assert_(r >= F0 && r <= F31);
-	int reg = r - F0;
-	if (nr[reg].mipsReg == IRREG_INVALID) {
-		// Nothing to do, reg not mapped.
-		return;
+	// Multilane not yet supported.
+	_assert_(lanes == 1);
+	if (mr[first].loc == MIPSLoc::FREG) {
+		emit_->FS(32, r, CTXREG, GetMipsRegOffset(first));
+	} else {
+		_assert_msg_(mr[first].loc == MIPSLoc::FREG, "Cannot store this type: %d", (int)mr[first].loc);
 	}
-	if (nr[reg].isDirty && mr[nr[reg].mipsReg].loc == MIPSLoc::FREG) {
-		emit_->FS(32, r, CTXREG, GetMipsRegOffset(nr[reg].mipsReg));
-	}
-	mr[nr[reg].mipsReg].loc = MIPSLoc::MEM;
-	mr[nr[reg].mipsReg].nReg = (int)INVALID_REG;
-	nr[reg].mipsReg = IRREG_INVALID;
-	nr[reg].isDirty = false;
 }
 
 void RiscVRegCacheFPU::FlushR(IRReg r) {
-	_dbg_assert_(IsValidReg(r));
+	_dbg_assert_(IsValidFPR(r));
 	RiscVReg reg = RiscVRegForFlush(r);
 	if (reg != INVALID_REG)
-		FlushRiscVReg(reg);
+		FlushNativeReg((IRNativeReg)(reg - F0));
 }
 
 RiscVReg RiscVRegCacheFPU::RiscVRegForFlush(IRReg r) {
-	_dbg_assert_(IsValidReg(r));
-	switch (mr[r].loc) {
+	_dbg_assert_(IsValidFPR(r));
+	switch (mr[r + 32].loc) {
 	case MIPSLoc::FREG:
-		_assert_msg_(mr[r].nReg != INVALID_REG, "RiscVRegForFlush: IR %d had bad RiscVReg", r);
-		if (mr[r].nReg == INVALID_REG) {
+		_assert_msg_(mr[r + 32].nReg != INVALID_REG, "RiscVRegForFlush: IR %d had bad RiscVReg", r + 32);
+		if (mr[r + 32].nReg == INVALID_REG) {
 			return INVALID_REG;
 		}
-		return (RiscVReg)(F0 + mr[r].nReg);
+		return (RiscVReg)(F0 + mr[r + 32].nReg);
 
 	case MIPSLoc::MEM:
 		return INVALID_REG;
@@ -295,13 +219,13 @@ void RiscVRegCacheFPU::FlushBeforeCall() {
 
 	// These registers are not preserved by function calls.
 	for (int i = 0; i <= 7; ++i) {
-		FlushRiscVReg(RiscVReg(F0 + i));
+		FlushNativeReg(i);
 	}
 	for (int i = 10; i <= 17; ++i) {
-		FlushRiscVReg(RiscVReg(F0 + i));
+		FlushNativeReg(i);
 	}
 	for (int i = 28; i <= 31; ++i) {
-		FlushRiscVReg(RiscVReg(F0 + i));
+		FlushNativeReg(i);
 	}
 }
 
@@ -311,16 +235,16 @@ void RiscVRegCacheFPU::FlushAll() {
 		return;
 	}
 
-	int numRVRegs = 0;
-	const RiscVReg *order = GetMIPSAllocationOrder(numRVRegs);
+	int numRVRegs = 0, baseIndex = 0;
+	const int *order = GetAllocationOrder(MIPSLoc::FREG, numRVRegs, baseIndex);
 
 	for (int i = 0; i < numRVRegs; i++) {
-		int a = order[i] - F0;
+		int a = order[i] - baseIndex;
 		int m = nr[a].mipsReg;
 
 		if (nr[a].isDirty) {
 			_assert_(m != MIPS_REG_INVALID);
-			emit_->FS(32, order[i], CTXREG, GetMipsRegOffset(m));
+			emit_->FS(32, (RiscVReg)(F0 + a), CTXREG, GetMipsRegOffset(m));
 
 			mr[m].loc = MIPSLoc::MEM;
 			mr[m].nReg = (int)INVALID_REG;
@@ -339,15 +263,12 @@ void RiscVRegCacheFPU::FlushAll() {
 }
 
 void RiscVRegCacheFPU::DiscardR(IRReg r) {
-	_dbg_assert_(IsValidReg(r));
-	switch (mr[r].loc) {
+	_dbg_assert_(IsValidFPR(r));
+	switch (mr[r + 32].loc) {
 	case MIPSLoc::FREG:
-		_assert_(mr[r].nReg != INVALID_REG);
-		if (mr[r].nReg != INVALID_REG) {
-			// Note that we DO NOT write it back here. That's the whole point of Discard.
-			nr[mr[r].nReg].isDirty = false;
-			nr[mr[r].nReg].mipsReg = IRREG_INVALID;
-		}
+		_assert_(mr[r + 32].nReg != INVALID_REG);
+		// Note that we DO NOT write it back here. That's the whole point of Discard.
+		DiscardNativeReg(mr[r + 32].nReg);
 		break;
 
 	case MIPSLoc::MEM:
@@ -358,77 +279,59 @@ void RiscVRegCacheFPU::DiscardR(IRReg r) {
 		_assert_(false);
 		break;
 	}
-	mr[r].loc = MIPSLoc::MEM;
-	mr[r].nReg = (int)INVALID_REG;
-	mr[r].spillLockIRIndex = -1;
+	mr[r + 32].loc = MIPSLoc::MEM;
+	mr[r + 32].nReg = -1;
+	mr[r + 32].spillLockIRIndex = -1;
 }
 
 int RiscVRegCacheFPU::GetMipsRegOffset(IRReg r) {
-	_assert_(IsValidReg(r));
+	_assert_(IsValidFPR(r - 32));
 	// These are offsets within the MIPSState structure.
 	// IR gives us an index that is already 32 after the state index (skipping GPRs.)
-	return (32 + r) * 4;
+	return (r) * 4;
 }
 
 void RiscVRegCacheFPU::SpillLock(IRReg r1, IRReg r2, IRReg r3, IRReg r4) {
-	_dbg_assert_(IsValidReg(r1));
-	_dbg_assert_(r2 == IRREG_INVALID || IsValidReg(r2));
-	_dbg_assert_(r3 == IRREG_INVALID || IsValidReg(r3));
-	_dbg_assert_(r4 == IRREG_INVALID || IsValidReg(r4));
-	mr[r1].spillLockIRIndex = irIndex_;
+	_dbg_assert_(IsValidFPR(r1));
+	_dbg_assert_(r2 == IRREG_INVALID || IsValidFPR(r2));
+	_dbg_assert_(r3 == IRREG_INVALID || IsValidFPR(r3));
+	_dbg_assert_(r4 == IRREG_INVALID || IsValidFPR(r4));
+	mr[r1 + 32].spillLockIRIndex = irIndex_;
 	if (r2 != IRREG_INVALID)
-		mr[r2].spillLockIRIndex = irIndex_;
+		mr[r2 + 32].spillLockIRIndex = irIndex_;
 	if (r3 != IRREG_INVALID)
-		mr[r3].spillLockIRIndex = irIndex_;
+		mr[r3 + 32].spillLockIRIndex = irIndex_;
 	if (r4 != IRREG_INVALID)
-		mr[r4].spillLockIRIndex = irIndex_;
+		mr[r4 + 32].spillLockIRIndex = irIndex_;
 }
 
 void RiscVRegCacheFPU::ReleaseSpillLock(IRReg r1, IRReg r2, IRReg r3, IRReg r4) {
-	_dbg_assert_(IsValidReg(r1));
-	_dbg_assert_(r2 == IRREG_INVALID || IsValidReg(r2));
-	_dbg_assert_(r3 == IRREG_INVALID || IsValidReg(r3));
-	_dbg_assert_(r4 == IRREG_INVALID || IsValidReg(r4));
-	mr[r1].spillLockIRIndex = -1;
+	_dbg_assert_(IsValidFPR(r1));
+	_dbg_assert_(r2 == IRREG_INVALID || IsValidFPR(r2));
+	_dbg_assert_(r3 == IRREG_INVALID || IsValidFPR(r3));
+	_dbg_assert_(r4 == IRREG_INVALID || IsValidFPR(r4));
+	mr[r1 + 32].spillLockIRIndex = -1;
 	if (r2 != IRREG_INVALID)
-		mr[r2].spillLockIRIndex = -1;
+		mr[r2 + 32].spillLockIRIndex = -1;
 	if (r3 != IRREG_INVALID)
-		mr[r3].spillLockIRIndex = -1;
+		mr[r3 + 32].spillLockIRIndex = -1;
 	if (r4 != IRREG_INVALID)
-		mr[r4].spillLockIRIndex = -1;
+		mr[r4 + 32].spillLockIRIndex = -1;
 }
 
 RiscVReg RiscVRegCacheFPU::R(IRReg mipsReg) {
-	_dbg_assert_(IsValidReg(mipsReg));
-	_dbg_assert_(mr[mipsReg].loc == MIPSLoc::FREG);
-	if (mr[mipsReg].loc == MIPSLoc::FREG) {
-		return (RiscVReg)(mr[mipsReg].nReg + F0);
+	_dbg_assert_(IsValidFPR(mipsReg));
+	_dbg_assert_(mr[mipsReg + 32].loc == MIPSLoc::FREG);
+	if (mr[mipsReg + 32].loc == MIPSLoc::FREG) {
+		return (RiscVReg)(mr[mipsReg + 32].nReg + F0);
 	} else {
 		ERROR_LOG_REPORT(JIT, "Reg %i not in riscv reg", mipsReg);
 		return INVALID_REG;  // BAAAD
 	}
 }
 
-bool RiscVRegCacheFPU::IsValidReg(IRReg r) const {
-	if (r < 0 || r >= NUM_MIPSFPUREG)
-		return false;
-
-	// See MIPSState for these offsets.
-	int index = r + 32;
-
-	// Allow FPU or VFPU regs here.
-	if (index >= 32 && index < 32 + 32 + 128)
-		return true;
-	// Also allow VFPU temps.
-	if (index >= 224 && index < 224 + 16)
-		return true;
-
-	// Nothing else is allowed for the FPU side cache.
-	return false;
-}
-
 void RiscVRegCacheFPU::SetupInitialRegs() {
-	IRNativeRegCache::SetupInitialRegs();
+	IRNativeRegCacheBase::SetupInitialRegs();
 
 	// TODO: Move to a shared cache?
 	mrInitial_[0].loc = MIPSLoc::MEM;

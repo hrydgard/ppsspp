@@ -25,7 +25,7 @@ namespace MIPSComp {
 struct JitOptions;
 }
 
-class RiscVRegCacheFPU : public IRNativeRegCache {
+class RiscVRegCacheFPU : public IRNativeRegCacheBase {
 public:
 	RiscVRegCacheFPU(MIPSComp::JitOptions *jo);
 
@@ -52,22 +52,18 @@ public:
 	void FlushBeforeCall();
 	void FlushAll();
 	void FlushR(IRReg r);
-	void FlushRiscVReg(RiscVGen::RiscVReg r);
 	void DiscardR(IRReg r);
 
 	RiscVGen::RiscVReg R(IRReg preg); // Returns a cached register
 
 protected:
 	void SetupInitialRegs() override;
+	const int *GetAllocationOrder(MIPSLoc type, int &count, int &base) const override;
+	void StoreNativeReg(IRNativeReg nreg, IRReg first, int lanes) override;
 
 private:
-	const RiscVGen::RiscVReg *GetMIPSAllocationOrder(int &count);
-	RiscVGen::RiscVReg AllocateReg();
-	RiscVGen::RiscVReg FindBestToSpill(bool unusedOnly, bool *clobbered);
 	RiscVGen::RiscVReg RiscVRegForFlush(IRReg r);
 	int GetMipsRegOffset(IRReg r);
-
-	bool IsValidReg(IRReg r) const;
 
 	RiscVGen::RiscVEmitter *emit_ = nullptr;
 

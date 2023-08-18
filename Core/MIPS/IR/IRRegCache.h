@@ -30,6 +30,8 @@ constexpr int TOTAL_MAPPABLE_IRREGS = 256;
 // Arbitrary - increase if your backend has more.
 constexpr int TOTAL_POSSIBLE_NATIVEREGS = 128;
 
+typedef int8_t IRNativeReg;
+
 constexpr IRReg IRREG_INVALID = 255;
 
 class IRWriter;
@@ -75,7 +77,7 @@ private:
 	IRWriter *ir_;
 };
 
-class IRNativeRegCache {
+class IRNativeRegCacheBase {
 protected:
 	enum class MIPSLoc {
 		// Known immediate value (only in regcache.)
@@ -95,10 +97,10 @@ protected:
 	};
 
 	struct RegStatusMIPS {
-		// Where is this IR/MIPS register?
+		// Where is this IR/MIPS register?  Note: base reg if vector.
 		MIPSLoc loc = MIPSLoc::MEM;
 		// If in a register, what index (into nr array)?
-		int8_t nReg = -1;
+		IRNativeReg nReg = -1;
 		// If a known immediate value, what value?
 		uint64_t imm = 0;
 		// Locked from spilling (i.e. used by current instruction) as of what IR instruction?
@@ -125,7 +127,9 @@ protected:
 
 	struct StaticAllocation {
 		IRReg mr;
-		int8_t nr;
+		IRNativeReg nr;
+		// Register type.
+		MIPSLoc loc;
 		// Whether the reg should be marked pointerified by default.
 		bool pointerified = false;
 		// Whether the reg should be considered always normalized at the start of a block.
@@ -133,8 +137,8 @@ protected:
 	};
 
 public:
-	IRNativeRegCache(MIPSComp::JitOptions *jo);
-	virtual ~IRNativeRegCache() {}
+	IRNativeRegCacheBase(MIPSComp::JitOptions *jo);
+	virtual ~IRNativeRegCacheBase() {}
 
 	virtual void Start(MIPSComp::IRBlock *irBlock);
 	void SetIRIndex(int index) {
@@ -143,13 +147,26 @@ public:
 
 protected:
 	virtual void SetupInitialRegs();
-	virtual const StaticAllocation *GetStaticAllocations(int &count) {
+	virtual const int *GetAllocationOrder(MIPSLoc type, int &count, int &base) const = 0;
+	virtual const StaticAllocation *GetStaticAllocations(int &count) const {
 		count = 0;
 		return nullptr;
 	}
 
+	IRNativeReg AllocateReg(MIPSLoc type);
+	IRNativeReg FindFreeReg(MIPSLoc type) const;
+	IRNativeReg FindBestToSpill(MIPSLoc type, bool unusedOnly, bool *clobbered) const;
+	virtual void DiscardNativeReg(IRNativeReg nreg);
+	virtual void FlushNativeReg(IRNativeReg nreg);
+	virtual void AdjustNativeRegAsPtr(IRNativeReg nreg, bool state);
+	virtual void StoreNativeReg(IRNativeReg nreg, IRReg first, int lanes) = 0;
+
+	bool IsValidGPR(IRReg r) const;
+	bool IsValidGPRNoZero(IRReg r) const;
+	bool IsValidFPR(IRReg r) const;
+
 	MIPSComp::JitOptions *jo_;
-	MIPSComp::IRBlock *irBlock_ = nullptr;
+	const MIPSComp::IRBlock *irBlock_ = nullptr;
 	int irIndex_ = 0;
 	int totalNativeRegs_ = 0;
 

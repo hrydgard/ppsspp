@@ -57,7 +57,7 @@ enum class MapType {
 
 } // namespace RiscVJitConstants
 
-class RiscVRegCache : public IRNativeRegCache {
+class RiscVRegCache : public IRNativeRegCacheBase {
 public:
 	RiscVRegCache(MIPSComp::JitOptions *jo);
 
@@ -98,7 +98,6 @@ public:
 	void FlushBeforeCall();
 	void FlushAll();
 	void FlushR(IRReg r);
-	void FlushRiscVReg(RiscVGen::RiscVReg r);
 	void DiscardR(IRReg r);
 
 	RiscVGen::RiscVReg GetAndLockTempR();
@@ -112,20 +111,17 @@ public:
 
 protected:
 	void SetupInitialRegs() override;
-	const StaticAllocation *GetStaticAllocations(int &count) override;
+	const StaticAllocation *GetStaticAllocations(int &count) const override;
+	const int *GetAllocationOrder(MIPSLoc type, int &count, int &base) const override;
+	void AdjustNativeRegAsPtr(IRNativeReg nreg, bool state) override;
+	void StoreNativeReg(IRNativeReg nreg, IRReg first, int lanes) override;
 
 private:
-	const RiscVGen::RiscVReg *GetMIPSAllocationOrder(int &count);
 	void MapRegTo(RiscVGen::RiscVReg reg, IRReg mipsReg, RiscVJitConstants::MIPSMap mapFlags);
-	RiscVGen::RiscVReg AllocateReg();
-	RiscVGen::RiscVReg FindBestToSpill(bool unusedOnly, bool *clobbered);
 	RiscVGen::RiscVReg RiscVRegForFlush(IRReg r);
 	void SetRegImm(RiscVGen::RiscVReg reg, u64 imm);
 	void AddMemBase(RiscVGen::RiscVReg reg);
 	int GetMipsRegOffset(IRReg r);
-
-	bool IsValidReg(IRReg r) const;
-	bool IsValidRegNoZero(IRReg r) const;
 
 	RiscVGen::RiscVEmitter *emit_ = nullptr;
 
