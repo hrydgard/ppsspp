@@ -355,9 +355,9 @@ void RiscVJitBackend::NormalizeSrc12(IRInst inst, RiscVReg *lhs, RiscVReg *rhs, 
 RiscVReg RiscVJitBackend::NormalizeR(IRReg rs, IRReg rd, RiscVReg tempReg) {
 	// For proper compare, we must sign extend so they both match or don't match.
 	// But don't change pointers, in case one is SP (happens in LittleBigPlanet.)
-	if (gpr.IsImm(rs) && gpr.GetImm(rs) == 0) {
+	if (gpr.IsGPRImm(rs) && gpr.GetGPRImm(rs) == 0) {
 		return R_ZERO;
-	} else if (gpr.IsMappedAsPointer(rs) || rs == rd) {
+	} else if (gpr.IsGPRMappedAsPointer(rs) || rs == rd) {
 		return gpr.Normalize32(rs, tempReg);
 	} else {
 		return gpr.Normalize32(rs);

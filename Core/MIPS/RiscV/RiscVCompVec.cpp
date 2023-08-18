@@ -41,11 +41,9 @@ void RiscVJitBackend::CompIR_VecAssign(IRInst inst) {
 	switch (inst.op) {
 	case IROp::Vec4Init:
 		for (int i = 0; i < 4; ++i)
-			fpr.SpillLock(inst.dest + i);
+			fpr.SpillLockFPR(inst.dest + i);
 		for (int i = 0; i < 4; ++i)
 			fpr.MapReg(inst.dest + i, MIPSMap::NOINIT);
-		for (int i = 0; i < 4; ++i)
-			fpr.ReleaseSpillLock(inst.dest + i);
 
 		// TODO: Check if FCVT/FMV/FL is better.
 		switch ((Vec4Init)inst.src1) {
@@ -220,10 +218,9 @@ void RiscVJitBackend::CompIR_VecArith(IRInst inst) {
 		break;
 
 	case IROp::Vec4Scale:
-		fpr.SpillLock(inst.src2);
+		fpr.SpillLockFPR(inst.src2);
 		fpr.MapReg(inst.src2);
 		fpr.Map4DirtyIn(inst.dest, inst.src1);
-		fpr.ReleaseSpillLock(inst.src2);
 		for (int i = 0; i < 4; ++i)
 			FMUL(32, fpr.R(inst.dest + i), fpr.R(inst.src1 + i), fpr.R(inst.src2));
 		break;
@@ -252,21 +249,16 @@ void RiscVJitBackend::CompIR_VecHoriz(IRInst inst) {
 	switch (inst.op) {
 	case IROp::Vec4Dot:
 		// TODO: Maybe some option to call the slow accurate mode?
-		fpr.SpillLock(inst.dest);
+		fpr.SpillLockFPR(inst.dest);
 		for (int i = 0; i < 4; ++i) {
-			fpr.SpillLock(inst.src1 + i);
-			fpr.SpillLock(inst.src2 + i);
+			fpr.SpillLockFPR(inst.src1 + i);
+			fpr.SpillLockFPR(inst.src2 + i);
 		}
 		for (int i = 0; i < 4; ++i) {
 			fpr.MapReg(inst.src1 + i);
 			fpr.MapReg(inst.src2 + i);
 		}
 		fpr.MapReg(inst.dest, MIPSMap::NOINIT);
-		for (int i = 0; i < 4; ++i) {
-			fpr.ReleaseSpillLock(inst.src1 + i);
-			fpr.ReleaseSpillLock(inst.src2 + i);
-		}
-		fpr.ReleaseSpillLock(inst.dest);
 
 		if ((inst.dest < inst.src1 + 4 && inst.dest >= inst.src1) || (inst.dest < inst.src2 + 4 && inst.dest >= inst.src2)) {
 			// This means inst.dest overlaps one of src1 or src2.  We have to do that one first.
@@ -303,9 +295,9 @@ void RiscVJitBackend::CompIR_VecPack(IRInst inst) {
 		break;
 
 	case IROp::Vec4Unpack8To32:
-		fpr.SpillLock(inst.src1);
+		fpr.SpillLockFPR(inst.src1);
 		for (int i = 0; i < 4; ++i)
-			fpr.SpillLock(inst.dest + i);
+			fpr.SpillLockFPR(inst.dest + i);
 		fpr.MapReg(inst.src1);
 		for (int i = 0; i < 4; ++i)
 			fpr.MapReg(inst.dest + i, MIPSMap::NOINIT);
@@ -324,9 +316,9 @@ void RiscVJitBackend::CompIR_VecPack(IRInst inst) {
 		break;
 
 	case IROp::Vec2Unpack16To32:
-		fpr.SpillLock(inst.src1);
+		fpr.SpillLockFPR(inst.src1);
 		for (int i = 0; i < 2; ++i)
-			fpr.SpillLock(inst.dest + i);
+			fpr.SpillLockFPR(inst.dest + i);
 		fpr.MapReg(inst.src1);
 		for (int i = 0; i < 2; ++i)
 			fpr.MapReg(inst.dest + i, MIPSMap::NOINIT);
@@ -353,9 +345,9 @@ void RiscVJitBackend::CompIR_VecPack(IRInst inst) {
 		break;
 
 	case IROp::Vec4Pack31To8:
-		fpr.SpillLock(inst.dest);
+		fpr.SpillLockFPR(inst.dest);
 		for (int i = 0; i < 4; ++i) {
-			fpr.SpillLock(inst.src1 + i);
+			fpr.SpillLockFPR(inst.src1 + i);
 			fpr.MapReg(inst.src1 + i);
 		}
 		fpr.MapReg(inst.dest, MIPSMap::NOINIT);

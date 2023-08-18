@@ -130,6 +130,158 @@ void IRNativeRegCacheBase::SetupInitialRegs() {
 	mrInitial_[MIPS_REG_ZERO].imm = 0;
 }
 
+bool IRNativeRegCacheBase::IsGPRInRAM(IRReg gpr) {
+	_dbg_assert_(IsValidGPR(gpr));
+	return mr[gpr].loc == MIPSLoc::MEM;
+}
+
+bool IRNativeRegCacheBase::IsFPRInRAM(IRReg fpr) {
+	_dbg_assert_(IsValidFPR(fpr));
+	return mr[fpr + 32].loc == MIPSLoc::MEM;
+}
+
+bool IRNativeRegCacheBase::IsGPRMapped(IRReg gpr) {
+	_dbg_assert_(IsValidGPR(gpr));
+	return mr[gpr].loc == MIPSLoc::REG || mr[gpr].loc == MIPSLoc::REG_IMM;
+}
+
+bool IRNativeRegCacheBase::IsFPRMapped(IRReg fpr) {
+	_dbg_assert_(IsValidFPR(fpr));
+	return mr[fpr + 32].loc == MIPSLoc::FREG || mr[fpr + 32].loc == MIPSLoc::VREG;
+}
+
+bool IRNativeRegCacheBase::IsGPRMappedAsPointer(IRReg gpr) {
+	_dbg_assert_(IsValidGPR(gpr));
+	if (mr[gpr].loc == MIPSLoc::REG) {
+		return nr[mr[gpr].nReg].pointerified;
+	} else if (mr[gpr].loc == MIPSLoc::REG_IMM) {
+		_assert_msg_(!nr[mr[gpr].nReg].pointerified, "Really shouldn't be pointerified here");
+	} else if (mr[gpr].loc == MIPSLoc::REG_AS_PTR) {
+		return true;
+	}
+	return false;
+}
+
+bool IRNativeRegCacheBase::IsGPRMappedAsStaticPointer(IRReg gpr) {
+	if (IsGPRMappedAsPointer(gpr)) {
+		return mr[gpr].isStatic;
+	}
+	return false;
+}
+
+bool IRNativeRegCacheBase::IsGPRImm(IRReg gpr) {
+	_dbg_assert_(IsValidGPR(gpr));
+	if (gpr == MIPS_REG_ZERO)
+		return true;
+	return mr[gpr].loc == MIPSLoc::IMM || mr[gpr].loc == MIPSLoc::REG_IMM;
+}
+
+bool IRNativeRegCacheBase::IsGPR2Imm(IRReg base) {
+	return IsGPRImm(base) && IsGPRImm(base + 1);
+}
+
+uint32_t IRNativeRegCacheBase::GetGPRImm(IRReg gpr) {
+	_dbg_assert_(IsValidGPR(gpr));
+	if (gpr == MIPS_REG_ZERO)
+		return 0;
+	if (mr[gpr].loc != MIPSLoc::IMM && mr[gpr].loc != MIPSLoc::REG_IMM) {
+		_assert_msg_(mr[gpr].loc == MIPSLoc::IMM || mr[gpr].loc == MIPSLoc::REG_IMM, "GPR %d not in an imm", gpr);
+	}
+	return mr[gpr].imm;
+}
+
+uint64_t IRNativeRegCacheBase::GetGPR2Imm(IRReg base) {
+	return (uint64_t)GetGPRImm(base) | ((uint64_t)GetGPRImm(base + 1) << 32);
+}
+
+void IRNativeRegCacheBase::SetGPRImm(IRReg gpr, uint32_t immVal) {
+	_dbg_assert_(IsValidGPR(gpr));
+	if (gpr == MIPS_REG_ZERO && immVal != 0) {
+		ERROR_LOG_REPORT(JIT, "Trying to set immediate %08x to r0", immVal);
+		return;
+	}
+
+	if (mr[gpr].loc == MIPSLoc::REG_IMM && mr[gpr].imm == immVal) {
+		// Already have that value, let's keep it in the reg.
+		return;
+	}
+
+	if (mr[gpr].nReg != -1) {
+		// Zap existing value if cached in a reg.
+		_assert_msg_(mr[gpr].lane == -1, "Should not be a multilane reg");
+		DiscardNativeReg(mr[gpr].nReg);
+	}
+
+	mr[gpr].loc = MIPSLoc::IMM;
+	mr[gpr].imm = immVal;
+}
+
+void IRNativeRegCacheBase::SetGPR2Imm(IRReg base, uint64_t immVal) {
+	_dbg_assert_(IsValidGPRNoZero(base));
+	uint32_t imm0 = (uint32_t)(immVal & 0xFFFFFFFF);
+	uint32_t imm1 = (uint32_t)(immVal >> 32);
+
+	if (IsGPRImm(base) && IsGPRImm(base + 1) && GetGPRImm(base) == imm0 && GetGPRImm(base + 1) == imm1) {
+		// Already set to this, don't bother.
+		return;
+	}
+
+	if (mr[base].nReg != -1) {
+		// Zap existing value if cached in a reg.
+		DiscardNativeReg(mr[base].nReg);
+		if (mr[base + 1].nReg != -1)
+			DiscardNativeReg(mr[base + 1].nReg);
+	}
+
+	mr[base].loc = MIPSLoc::IMM;
+	mr[base].imm = imm0;
+	mr[base + 1].loc = MIPSLoc::IMM;
+	mr[base + 1].imm = imm1;
+}
+
+void IRNativeRegCacheBase::SpillLockGPR(IRReg r1, IRReg r2, IRReg r3, IRReg r4) {
+	_dbg_assert_(IsValidGPR(r1));
+	_dbg_assert_(r2 == IRREG_INVALID || IsValidGPR(r2));
+	_dbg_assert_(r3 == IRREG_INVALID || IsValidGPR(r3));
+	_dbg_assert_(r4 == IRREG_INVALID || IsValidGPR(r4));
+	SetSpillLockIRIndex(r1, r2, r3, r4, 0, irIndex_);
+}
+
+void IRNativeRegCacheBase::SpillLockFPR(IRReg r1, IRReg r2, IRReg r3, IRReg r4) {
+	_dbg_assert_(IsValidFPR(r1));
+	_dbg_assert_(r2 == IRREG_INVALID || IsValidFPR(r2));
+	_dbg_assert_(r3 == IRREG_INVALID || IsValidFPR(r3));
+	_dbg_assert_(r4 == IRREG_INVALID || IsValidFPR(r4));
+	SetSpillLockIRIndex(r1, r2, r3, r4, 32, irIndex_);
+}
+
+void IRNativeRegCacheBase::ReleaseSpillLockGPR(IRReg r1, IRReg r2, IRReg r3, IRReg r4) {
+	_dbg_assert_(IsValidGPR(r1));
+	_dbg_assert_(r2 == IRREG_INVALID || IsValidGPR(r2));
+	_dbg_assert_(r3 == IRREG_INVALID || IsValidGPR(r3));
+	_dbg_assert_(r4 == IRREG_INVALID || IsValidGPR(r4));
+	SetSpillLockIRIndex(r1, r2, r3, r4, 0, -1);
+}
+
+void IRNativeRegCacheBase::ReleaseSpillLockFPR(IRReg r1, IRReg r2, IRReg r3, IRReg r4) {
+	_dbg_assert_(IsValidFPR(r1));
+	_dbg_assert_(r2 == IRREG_INVALID || IsValidFPR(r2));
+	_dbg_assert_(r3 == IRREG_INVALID || IsValidFPR(r3));
+	_dbg_assert_(r4 == IRREG_INVALID || IsValidFPR(r4));
+	SetSpillLockIRIndex(r1, r2, r3, r4, 32, -1);
+}
+
+void IRNativeRegCacheBase::SetSpillLockIRIndex(IRReg r1, IRReg r2, IRReg r3, IRReg r4, int offset, int index) {
+	if (!mr[r1 + offset].isStatic)
+		mr[r1 + offset].spillLockIRIndex = index;
+	if (r2 != IRREG_INVALID && !mr[r2 + offset].isStatic)
+		mr[r2 + offset].spillLockIRIndex = index;
+	if (r3 != IRREG_INVALID && !mr[r3 + offset].isStatic)
+		mr[r3 + offset].spillLockIRIndex = index;
+	if (r4 != IRREG_INVALID && !mr[r4 + offset].isStatic)
+		mr[r4 + offset].spillLockIRIndex = index;
+}
+
 IRNativeReg IRNativeRegCacheBase::AllocateReg(MIPSLoc type) {
 	_dbg_assert_(type == MIPSLoc::REG || type == MIPSLoc::FREG || type == MIPSLoc::VREG);
 
@@ -248,7 +400,7 @@ void IRNativeRegCacheBase::DiscardNativeReg(IRNativeReg nreg) {
 
 			// If it's not currently marked as in a reg, throw it away.
 			for (IRReg m = nr[nreg].mipsReg; m < nr[nreg].mipsReg + lanes; ++m) {
-				_assert_msg_(!mr[m].isStatic, "Reg in lane %d mismatched static status", m - nr[nreg].mipsReg);
+				_assert_msg_(mr[m].isStatic, "Reg in lane %d mismatched static status", m - nr[nreg].mipsReg);
 				for (int i = 0; i < numStatics; i++) {
 					if (m == statics[i].mr)
 						mr[m].loc = statics[i].loc;
@@ -259,6 +411,7 @@ void IRNativeRegCacheBase::DiscardNativeReg(IRNativeReg nreg) {
 				mr[m].loc = MIPSLoc::MEM;
 				mr[m].nReg = -1;
 				mr[m].imm = 0;
+				mr[m].lane = -1;
 				_assert_msg_(!mr[m].isStatic, "Reg in lane %d mismatched static status", m - nr[nreg].mipsReg);
 			}
 
@@ -289,7 +442,9 @@ void IRNativeRegCacheBase::FlushNativeReg(IRNativeReg nreg) {
 	bool isDirty = nr[nreg].isDirty;
 	int8_t lanes = 0;
 	for (IRReg m = nr[nreg].mipsReg; mr[m].nReg == nreg && m < IRREG_INVALID; ++m) {
-		_dbg_assert_(!mr[m].isStatic);
+		_assert_(!mr[m].isStatic);
+		// If we're flushing a native reg, better not be partially in mem or an imm.
+		_assert_(mr[m].loc != MIPSLoc::MEM && mr[m].loc != MIPSLoc::IMM);
 		lanes++;
 	}
 
@@ -310,6 +465,7 @@ void IRNativeRegCacheBase::FlushNativeReg(IRNativeReg nreg) {
 		// Note that it loses its imm status, because imms are always dirty.
 		mreg.loc = MIPSLoc::MEM;
 		mreg.imm = 0;
+		mreg.lane = -1;
 	}
 
 	nr[nreg].mipsReg = IRREG_INVALID;

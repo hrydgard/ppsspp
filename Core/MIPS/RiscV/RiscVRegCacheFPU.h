@@ -31,16 +31,8 @@ public:
 
 	void Init(RiscVGen::RiscVEmitter *emitter);
 
-	// Protect the RISC-V register containing a MIPS register from spilling, to ensure that
-	// it's being kept allocated.
-	void SpillLock(IRReg reg, IRReg reg2 = IRREG_INVALID, IRReg reg3 = IRREG_INVALID, IRReg reg4 = IRREG_INVALID);
-	void ReleaseSpillLock(IRReg reg, IRReg reg2 = IRREG_INVALID, IRReg reg3 = IRREG_INVALID, IRReg reg4 = IRREG_INVALID);
-
 	// Returns a RISC-V register containing the requested MIPS register.
 	RiscVGen::RiscVReg MapReg(IRReg reg, RiscVJitConstants::MIPSMap mapFlags = RiscVJitConstants::MIPSMap::INIT);
-
-	bool IsMapped(IRReg r);
-	bool IsInRAM(IRReg r);
 
 	void MapInIn(IRReg rd, IRReg rs);
 	void MapDirtyIn(IRReg rd, IRReg rs, bool avoidLoad = true);
@@ -62,7 +54,6 @@ protected:
 	void StoreNativeReg(IRNativeReg nreg, IRReg first, int lanes) override;
 
 private:
-	RiscVGen::RiscVReg RiscVRegForFlush(IRReg r);
 	int GetMipsRegOffset(IRReg r);
 
 	RiscVGen::RiscVEmitter *emit_ = nullptr;

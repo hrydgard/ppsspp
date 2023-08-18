@@ -127,37 +127,6 @@ void RiscVRegCache::FlushBeforeCall() {
 	}
 }
 
-bool RiscVRegCache::IsInRAM(IRReg reg) {
-	_dbg_assert_(IsValidGPR(reg));
-	return mr[reg].loc == MIPSLoc::MEM;
-}
-
-bool RiscVRegCache::IsMapped(IRReg mipsReg) {
-	_dbg_assert_(IsValidGPR(mipsReg));
-	return mr[mipsReg].loc == MIPSLoc::REG || mr[mipsReg].loc == MIPSLoc::REG_IMM;
-}
-
-bool RiscVRegCache::IsMappedAsPointer(IRReg mipsReg) {
-	_dbg_assert_(IsValidGPR(mipsReg));
-	if (mr[mipsReg].loc == MIPSLoc::REG) {
-		return nr[mr[mipsReg].nReg].pointerified;
-	} else if (mr[mipsReg].loc == MIPSLoc::REG_IMM) {
-		if (nr[mr[mipsReg].nReg].pointerified) {
-			ERROR_LOG(JIT, "Really shouldn't be pointerified here");
-		}
-	} else if (mr[mipsReg].loc == MIPSLoc::REG_AS_PTR) {
-		return true;
-	}
-	return false;
-}
-
-bool RiscVRegCache::IsMappedAsStaticPointer(IRReg reg) {
-	if (IsMappedAsPointer(reg)) {
-		return mr[reg].isStatic;
-	}
-	return false;
-}
-
 bool RiscVRegCache::IsNormalized32(IRReg mipsReg) {
 	_dbg_assert_(IsValidGPR(mipsReg));
 	if (XLEN == 32)
@@ -321,7 +290,7 @@ void RiscVRegCache::MapRegTo(RiscVReg reg, IRReg mipsReg, MIPSMap mapFlags) {
 RiscVReg RiscVRegCache::TryMapTempImm(IRReg r) {
 	_dbg_assert_(IsValidGPR(r));
 	// If already mapped, no need for a temporary.
-	if (IsMapped(r)) {
+	if (IsGPRMapped(r)) {
 		return R(r);
 	}
 
@@ -513,44 +482,44 @@ void RiscVRegCache::MapIn(IRReg rs) {
 }
 
 void RiscVRegCache::MapInIn(IRReg rd, IRReg rs) {
-	SpillLock(rd, rs);
+	SpillLockGPR(rd, rs);
 	MapReg(rd);
 	MapReg(rs);
-	ReleaseSpillLock(rd, rs);
+	ReleaseSpillLockGPR(rd, rs);
 }
 
 void RiscVRegCache::MapDirtyIn(IRReg rd, IRReg rs, MapType type) {
-	SpillLock(rd, rs);
+	SpillLockGPR(rd, rs);
 	bool load = type == MapType::ALWAYS_LOAD || rd == rs;
 	MIPSMap norm32 = type == MapType::AVOID_LOAD_MARK_NORM32 ? MIPSMap::MARK_NORM32 : MIPSMap::INIT;
 	MapReg(rd, (load ? MIPSMap::DIRTY : MIPSMap::NOINIT) | norm32);
 	MapReg(rs);
-	ReleaseSpillLock(rd, rs);
+	ReleaseSpillLockGPR(rd, rs);
 }
 
 void RiscVRegCache::MapDirtyInIn(IRReg rd, IRReg rs, IRReg rt, MapType type) {
-	SpillLock(rd, rs, rt);
+	SpillLockGPR(rd, rs, rt);
 	bool load = type == MapType::ALWAYS_LOAD || (rd == rs || rd == rt);
 	MIPSMap norm32 = type == MapType::AVOID_LOAD_MARK_NORM32 ? MIPSMap::MARK_NORM32 : MIPSMap::INIT;
 	MapReg(rd, (load ? MIPSMap::DIRTY : MIPSMap::NOINIT) | norm32);
 	MapReg(rt);
 	MapReg(rs);
-	ReleaseSpillLock(rd, rs, rt);
+	ReleaseSpillLockGPR(rd, rs, rt);
 }
 
 void RiscVRegCache::MapDirtyDirtyIn(IRReg rd1, IRReg rd2, IRReg rs, MapType type) {
-	SpillLock(rd1, rd2, rs);
+	SpillLockGPR(rd1, rd2, rs);
 	bool load1 = type == MapType::ALWAYS_LOAD || rd1 == rs;
 	bool load2 = type == MapType::ALWAYS_LOAD || rd2 == rs;
 	MIPSMap norm32 = type == MapType::AVOID_LOAD_MARK_NORM32 ? MIPSMap::MARK_NORM32 : MIPSMap::INIT;
 	MapReg(rd1, (load1 ? MIPSMap::DIRTY : MIPSMap::NOINIT) | norm32);
 	MapReg(rd2, (load2 ? MIPSMap::DIRTY : MIPSMap::NOINIT) | norm32);
 	MapReg(rs);
-	ReleaseSpillLock(rd1, rd2, rs);
+	ReleaseSpillLockGPR(rd1, rd2, rs);
 }
 
 void RiscVRegCache::MapDirtyDirtyInIn(IRReg rd1, IRReg rd2, IRReg rs, IRReg rt, MapType type) {
-	SpillLock(rd1, rd2, rs, rt);
+	SpillLockGPR(rd1, rd2, rs, rt);
 	bool load1 = type == MapType::ALWAYS_LOAD || (rd1 == rs || rd1 == rt);
 	bool load2 = type == MapType::ALWAYS_LOAD || (rd2 == rs || rd2 == rt);
 	MIPSMap norm32 = type == MapType::AVOID_LOAD_MARK_NORM32 ? MIPSMap::MARK_NORM32 : MIPSMap::INIT;
@@ -558,7 +527,7 @@ void RiscVRegCache::MapDirtyDirtyInIn(IRReg rd1, IRReg rd2, IRReg rs, IRReg rt, 
 	MapReg(rd2, (load2 ? MIPSMap::DIRTY : MIPSMap::NOINIT) | norm32);
 	MapReg(rt);
 	MapReg(rs);
-	ReleaseSpillLock(rd1, rd2, rs, rt);
+	ReleaseSpillLockGPR(rd1, rd2, rs, rt);
 }
 
 void RiscVRegCache::AdjustNativeRegAsPtr(IRNativeReg nreg, bool state) {
@@ -579,9 +548,14 @@ void RiscVRegCache::StoreNativeReg(IRNativeReg nreg, IRReg first, int lanes) {
 	_dbg_assert_(r > X0 && r <= X31);
 	_dbg_assert_(first != MIPS_REG_ZERO);
 	// Multilane not yet supported.
-	_assert_(lanes == 1);
+	_assert_(lanes == 1 || (lanes == 2 && first == IRREG_LO));
 	_assert_(mr[first].loc == MIPSLoc::REG || mr[first].loc == MIPSLoc::REG_IMM);
-	emit_->SW(r, CTXREG, GetMipsRegOffset(first));
+	if (lanes == 1)
+		emit_->SW(r, CTXREG, GetMipsRegOffset(first));
+	else if (lanes == 2)
+		emit_->SD(r, CTXREG, GetMipsRegOffset(first));
+	else
+		_assert_(false);
 }
 
 void RiscVRegCache::DiscardR(IRReg mipsReg) {
@@ -625,20 +599,7 @@ RiscVReg RiscVRegCache::RiscVRegForFlush(IRReg r) {
 
 	case MIPSLoc::REG:
 	case MIPSLoc::REG_IMM:
-		if (mr[r].nReg == INVALID_REG) {
-			ERROR_LOG_REPORT(JIT, "RiscVRegForFlush: MipsReg %d had bad riscvReg", r);
-			return INVALID_REG;
-		}
-		// No need to flush if it's zero or not dirty.
-		if (r == MIPS_REG_ZERO || !nr[mr[r].nReg].isDirty) {
-			return INVALID_REG;
-		}
-		// TODO: Lo/hi optimization?
-		return (RiscVReg)mr[r].nReg;
-
 	case MIPSLoc::REG_AS_PTR:
-		return INVALID_REG;
-
 	case MIPSLoc::MEM:
 		return INVALID_REG;
 
@@ -667,28 +628,21 @@ void RiscVRegCache::FlushR(IRReg r) {
 				storeReg = SCRATCH1;
 			}
 			emit_->SW(storeReg, CTXREG, GetMipsRegOffset(r));
+			mr[r].loc = MIPSLoc::MEM;
+			mr[r].nReg = (int)INVALID_REG;
+			mr[r].imm = -1;
+		} else {
+			mr[r].loc = MIPSLoc::REG_IMM;
+			mr[r].nReg = R_ZERO;
+			mr[r].imm = 0;
 		}
 		break;
 
 	case MIPSLoc::REG:
 	case MIPSLoc::REG_IMM:
-		if (nr[mr[r].nReg].isDirty) {
-			StoreNativeReg(mr[r].nReg, r, 1);
-			nr[mr[r].nReg].isDirty = false;
-		}
-		nr[mr[r].nReg].mipsReg = IRREG_INVALID;
-		nr[mr[r].nReg].pointerified = false;
-		break;
-
 	case MIPSLoc::REG_AS_PTR:
-		if (nr[mr[r].nReg].isDirty) {
-			AdjustNativeRegAsPtr(mr[r].nReg, false);
-			// We set this so StoreNativeReg knows it's no longer a pointer.
-			mr[r].loc = MIPSLoc::REG;
-			StoreNativeReg(mr[r].nReg, r, 1);
-			nr[mr[r].nReg].isDirty = false;
-		}
-		nr[mr[r].nReg].mipsReg = IRREG_INVALID;
+		// Might be in a native reg with multiple IR regs, flush together.
+		FlushNativeReg(mr[r].nReg);
 		break;
 
 	case MIPSLoc::MEM:
@@ -698,15 +652,6 @@ void RiscVRegCache::FlushR(IRReg r) {
 	default:
 		ERROR_LOG_REPORT(JIT, "FlushR: MipsReg %d with invalid location %d", r, (int)mr[r].loc);
 		break;
-	}
-	if (r == MIPS_REG_ZERO) {
-		mr[r].loc = MIPSLoc::REG_IMM;
-		mr[r].nReg = R_ZERO;
-		mr[r].imm = 0;
-	} else {
-		mr[r].loc = MIPSLoc::MEM;
-		mr[r].nReg = (int)INVALID_REG;
-		mr[r].imm = -1;
 	}
 }
 
@@ -772,89 +717,9 @@ void RiscVRegCache::FlushAll() {
 	}
 }
 
-void RiscVRegCache::SetImm(IRReg r, u64 immVal) {
-	_dbg_assert_(IsValidGPR(r));
-	if (r == MIPS_REG_ZERO && immVal != 0) {
-		ERROR_LOG_REPORT(JIT, "Trying to set immediate %08x to r0", (u32)immVal);
-		return;
-	}
-
-	if (mr[r].loc == MIPSLoc::REG_IMM && mr[r].imm == immVal) {
-		// Already have that value, let's keep it in the reg.
-		return;
-	}
-
-	// TODO: HI/LO optimization?
-	// All regs on the PSP are 32 bit, but LO we treat as HI:LO so is 64 full bits.
-	immVal = immVal & 0xFFFFFFFF;
-
-	if (mr[r].isStatic) {
-		mr[r].loc = MIPSLoc::IMM;
-		mr[r].imm = immVal;
-		nr[mr[r].nReg].pointerified = false;
-		nr[mr[r].nReg].normalized32 = false;
-		// We do not change reg to INVALID_REG for obvious reasons..
-	} else {
-		// Zap existing value if cached in a reg
-		if (mr[r].nReg != INVALID_REG) {
-			nr[mr[r].nReg].mipsReg = IRREG_INVALID;
-			nr[mr[r].nReg].isDirty = false;
-			nr[mr[r].nReg].pointerified = false;
-			nr[mr[r].nReg].normalized32 = false;
-		}
-		mr[r].loc = MIPSLoc::IMM;
-		mr[r].imm = immVal;
-		mr[r].nReg = (int)INVALID_REG;
-	}
-}
-
-bool RiscVRegCache::IsImm(IRReg r) const {
-	_dbg_assert_(IsValidGPR(r));
-	if (r == MIPS_REG_ZERO)
-		return true;
-	else
-		return mr[r].loc == MIPSLoc::IMM || mr[r].loc == MIPSLoc::REG_IMM;
-}
-
-u64 RiscVRegCache::GetImm(IRReg r) const {
-	_dbg_assert_(IsValidGPR(r));
-	if (r == MIPS_REG_ZERO)
-		return 0;
-	if (mr[r].loc != MIPSLoc::IMM && mr[r].loc != MIPSLoc::REG_IMM) {
-		ERROR_LOG_REPORT(JIT, "Trying to get imm from non-imm register %i", r);
-	}
-	return mr[r].imm;
-}
-
 int RiscVRegCache::GetMipsRegOffset(IRReg r) {
 	_dbg_assert_(IsValidGPR(r));
 	return r * 4;
-}
-
-void RiscVRegCache::SpillLock(IRReg r1, IRReg r2, IRReg r3, IRReg r4) {
-	_dbg_assert_(IsValidGPR(r1));
-	_dbg_assert_(r2 == IRREG_INVALID || IsValidGPR(r2));
-	_dbg_assert_(r3 == IRREG_INVALID || IsValidGPR(r3));
-	_dbg_assert_(r4 == IRREG_INVALID || IsValidGPR(r4));
-	mr[r1].spillLockIRIndex = irIndex_;
-	if (r2 != IRREG_INVALID) mr[r2].spillLockIRIndex = irIndex_;
-	if (r3 != IRREG_INVALID) mr[r3].spillLockIRIndex = irIndex_;
-	if (r4 != IRREG_INVALID) mr[r4].spillLockIRIndex = irIndex_;
-}
-
-void RiscVRegCache::ReleaseSpillLock(IRReg r1, IRReg r2, IRReg r3, IRReg r4) {
-	_dbg_assert_(IsValidGPR(r1));
-	_dbg_assert_(r2 == IRREG_INVALID || IsValidGPR(r2));
-	_dbg_assert_(r3 == IRREG_INVALID || IsValidGPR(r3));
-	_dbg_assert_(r4 == IRREG_INVALID || IsValidGPR(r4));
-	if (!mr[r1].isStatic)
-		mr[r1].spillLockIRIndex = -1;
-	if (r2 != IRREG_INVALID && !mr[r2].isStatic)
-		mr[r2].spillLockIRIndex = -1;
-	if (r3 != IRREG_INVALID && !mr[r3].isStatic)
-		mr[r3].spillLockIRIndex = -1;
-	if (r4 != IRREG_INVALID && !mr[r4].isStatic)
-		mr[r4].spillLockIRIndex = -1;
 }
 
 RiscVReg RiscVRegCache::R(IRReg mipsReg) {

@@ -63,15 +63,6 @@ public:
 
 	void Init(RiscVGen::RiscVEmitter *emitter);
 
-	// Protect the arm register containing a MIPS register from spilling, to ensure that
-	// it's being kept allocated.
-	void SpillLock(IRReg reg, IRReg reg2 = IRREG_INVALID, IRReg reg3 = IRREG_INVALID, IRReg reg4 = IRREG_INVALID);
-	void ReleaseSpillLock(IRReg reg, IRReg reg2 = IRREG_INVALID, IRReg reg3 = IRREG_INVALID, IRReg reg4 = IRREG_INVALID);
-
-	void SetImm(IRReg reg, u64 immVal);
-	bool IsImm(IRReg reg) const;
-	u64 GetImm(IRReg reg) const;
-
 	// May fail and return INVALID_REG if it needs flushing.
 	RiscVGen::RiscVReg TryMapTempImm(IRReg);
 
@@ -79,10 +70,6 @@ public:
 	RiscVGen::RiscVReg MapReg(IRReg reg, RiscVJitConstants::MIPSMap mapFlags = RiscVJitConstants::MIPSMap::INIT);
 	RiscVGen::RiscVReg MapRegAsPointer(IRReg reg);
 
-	bool IsMapped(IRReg reg);
-	bool IsMappedAsPointer(IRReg reg);
-	bool IsMappedAsStaticPointer(IRReg reg);
-	bool IsInRAM(IRReg reg);
 	bool IsNormalized32(IRReg reg);
 
 	void MarkDirty(RiscVGen::RiscVReg reg, bool andNormalized32 = false);

@@ -53,16 +53,6 @@ const int *RiscVRegCacheFPU::GetAllocationOrder(MIPSLoc type, int &count, int &b
 	return allocationOrder;
 }
 
-bool RiscVRegCacheFPU::IsInRAM(IRReg reg) {
-	_dbg_assert_(IsValidFPR(reg));
-	return mr[reg + 32].loc == MIPSLoc::MEM;
-}
-
-bool RiscVRegCacheFPU::IsMapped(IRReg mipsReg) {
-	_dbg_assert_(IsValidFPR(mipsReg));
-	return mr[mipsReg + 32].loc == MIPSLoc::FREG;
-}
-
 RiscVReg RiscVRegCacheFPU::MapReg(IRReg mipsReg, MIPSMap mapFlags) {
 	_dbg_assert_(IsValidFPR(mipsReg));
 	_dbg_assert_(mr[mipsReg + 32].loc == MIPSLoc::MEM || mr[mipsReg + 32].loc == MIPSLoc::FREG);
@@ -100,54 +90,54 @@ RiscVReg RiscVRegCacheFPU::MapReg(IRReg mipsReg, MIPSMap mapFlags) {
 }
 
 void RiscVRegCacheFPU::MapInIn(IRReg rd, IRReg rs) {
-	SpillLock(rd, rs);
+	SpillLockFPR(rd, rs);
 	MapReg(rd);
 	MapReg(rs);
-	ReleaseSpillLock(rd, rs);
+	ReleaseSpillLockFPR(rd, rs);
 }
 
 void RiscVRegCacheFPU::MapDirtyIn(IRReg rd, IRReg rs, bool avoidLoad) {
-	SpillLock(rd, rs);
+	SpillLockFPR(rd, rs);
 	bool load = !avoidLoad || rd == rs;
 	MapReg(rd, load ? MIPSMap::DIRTY : MIPSMap::NOINIT);
 	MapReg(rs);
-	ReleaseSpillLock(rd, rs);
+	ReleaseSpillLockFPR(rd, rs);
 }
 
 void RiscVRegCacheFPU::MapDirtyInIn(IRReg rd, IRReg rs, IRReg rt, bool avoidLoad) {
-	SpillLock(rd, rs, rt);
+	SpillLockFPR(rd, rs, rt);
 	bool load = !avoidLoad || (rd == rs || rd == rt);
 	MapReg(rd, load ? MIPSMap::DIRTY : MIPSMap::NOINIT);
 	MapReg(rt);
 	MapReg(rs);
-	ReleaseSpillLock(rd, rs, rt);
+	ReleaseSpillLockFPR(rd, rs, rt);
 }
 
 RiscVReg RiscVRegCacheFPU::MapDirtyInTemp(IRReg rd, IRReg rs, bool avoidLoad) {
-	SpillLock(rd, rs);
+	SpillLockFPR(rd, rs);
 	bool load = !avoidLoad || rd == rs;
 	MapReg(rd, load ? MIPSMap::DIRTY : MIPSMap::NOINIT);
 	MapReg(rs);
 	RiscVReg temp = (RiscVReg)(F0 + AllocateReg(MIPSLoc::FREG));
-	ReleaseSpillLock(rd, rs);
+	ReleaseSpillLockFPR(rd, rs);
 	return temp;
 }
 
 void RiscVRegCacheFPU::Map4DirtyIn(IRReg rdbase, IRReg rsbase, bool avoidLoad) {
 	for (int i = 0; i < 4; ++i)
-		SpillLock(rdbase + i, rsbase + i);
+		SpillLockFPR(rdbase + i, rsbase + i);
 	bool load = !avoidLoad || (rdbase < rsbase + 4 && rdbase + 4 > rsbase);
 	for (int i = 0; i < 4; ++i)
 		MapReg(rdbase + i, load ? MIPSMap::DIRTY : MIPSMap::NOINIT);
 	for (int i = 0; i < 4; ++i)
 		MapReg(rsbase + i);
 	for (int i = 0; i < 4; ++i)
-		ReleaseSpillLock(rdbase + i, rsbase + i);
+		ReleaseSpillLockFPR(rdbase + i, rsbase + i);
 }
 
 void RiscVRegCacheFPU::Map4DirtyInIn(IRReg rdbase, IRReg rsbase, IRReg rtbase, bool avoidLoad) {
 	for (int i = 0; i < 4; ++i)
-		SpillLock(rdbase + i, rsbase + i, rtbase + i);
+		SpillLockFPR(rdbase + i, rsbase + i, rtbase + i);
 	bool load = !avoidLoad || (rdbase < rsbase + 4 && rdbase + 4 > rsbase) || (rdbase < rtbase + 4 && rdbase + 4 > rtbase);
 	for (int i = 0; i < 4; ++i)
 		MapReg(rdbase + i, load ? MIPSMap::DIRTY : MIPSMap::NOINIT);
@@ -156,12 +146,12 @@ void RiscVRegCacheFPU::Map4DirtyInIn(IRReg rdbase, IRReg rsbase, IRReg rtbase, b
 	for (int i = 0; i < 4; ++i)
 		MapReg(rtbase + i);
 	for (int i = 0; i < 4; ++i)
-		ReleaseSpillLock(rdbase + i, rsbase + i, rtbase + i);
+		ReleaseSpillLockFPR(rdbase + i, rsbase + i, rtbase + i);
 }
 
 RiscVReg RiscVRegCacheFPU::Map4DirtyInTemp(IRReg rdbase, IRReg rsbase, bool avoidLoad) {
 	for (int i = 0; i < 4; ++i)
-		SpillLock(rdbase + i, rsbase + i);
+		SpillLockFPR(rdbase + i, rsbase + i);
 	bool load = !avoidLoad || (rdbase < rsbase + 4 && rdbase + 4 > rsbase);
 	for (int i = 0; i < 4; ++i)
 		MapReg(rdbase + i, load ? MIPSMap::DIRTY : MIPSMap::NOINIT);
@@ -169,7 +159,7 @@ RiscVReg RiscVRegCacheFPU::Map4DirtyInTemp(IRReg rdbase, IRReg rsbase, bool avoi
 		MapReg(rsbase + i);
 	RiscVReg temp = (RiscVReg)(F0 + AllocateReg(MIPSLoc::FREG));
 	for (int i = 0; i < 4; ++i)
-		ReleaseSpillLock(rdbase + i, rsbase + i);
+		ReleaseSpillLockFPR(rdbase + i, rsbase + i);
 	return temp;
 }
 
@@ -187,27 +177,19 @@ void RiscVRegCacheFPU::StoreNativeReg(IRNativeReg nreg, IRReg first, int lanes) 
 
 void RiscVRegCacheFPU::FlushR(IRReg r) {
 	_dbg_assert_(IsValidFPR(r));
-	RiscVReg reg = RiscVRegForFlush(r);
-	if (reg != INVALID_REG)
-		FlushNativeReg((IRNativeReg)(reg - F0));
-}
-
-RiscVReg RiscVRegCacheFPU::RiscVRegForFlush(IRReg r) {
-	_dbg_assert_(IsValidFPR(r));
 	switch (mr[r + 32].loc) {
 	case MIPSLoc::FREG:
-		_assert_msg_(mr[r + 32].nReg != INVALID_REG, "RiscVRegForFlush: IR %d had bad RiscVReg", r + 32);
-		if (mr[r + 32].nReg == INVALID_REG) {
-			return INVALID_REG;
-		}
-		return (RiscVReg)(F0 + mr[r + 32].nReg);
+	case MIPSLoc::VREG:
+		_assert_msg_(mr[r + 32].nReg != INVALID_REG, "FlushR: IR %d had bad RiscVReg", r + 32);
+		FlushNativeReg(mr[r + 32].nReg);
+		break;
 
 	case MIPSLoc::MEM:
-		return INVALID_REG;
+		break;
 
 	default:
-		_assert_(false);
-		return INVALID_REG;
+		_assert_msg_(false, "Unexpected register location %d", (int)mr[r + 32].loc);
+		break;
 	}
 }
 
@@ -279,8 +261,6 @@ void RiscVRegCacheFPU::DiscardR(IRReg r) {
 		_assert_(false);
 		break;
 	}
-	mr[r + 32].loc = MIPSLoc::MEM;
-	mr[r + 32].nReg = -1;
 	mr[r + 32].spillLockIRIndex = -1;
 }
 
@@ -289,34 +269,6 @@ int RiscVRegCacheFPU::GetMipsRegOffset(IRReg r) {
 	// These are offsets within the MIPSState structure.
 	// IR gives us an index that is already 32 after the state index (skipping GPRs.)
 	return (r) * 4;
-}
-
-void RiscVRegCacheFPU::SpillLock(IRReg r1, IRReg r2, IRReg r3, IRReg r4) {
-	_dbg_assert_(IsValidFPR(r1));
-	_dbg_assert_(r2 == IRREG_INVALID || IsValidFPR(r2));
-	_dbg_assert_(r3 == IRREG_INVALID || IsValidFPR(r3));
-	_dbg_assert_(r4 == IRREG_INVALID || IsValidFPR(r4));
-	mr[r1 + 32].spillLockIRIndex = irIndex_;
-	if (r2 != IRREG_INVALID)
-		mr[r2 + 32].spillLockIRIndex = irIndex_;
-	if (r3 != IRREG_INVALID)
-		mr[r3 + 32].spillLockIRIndex = irIndex_;
-	if (r4 != IRREG_INVALID)
-		mr[r4 + 32].spillLockIRIndex = irIndex_;
-}
-
-void RiscVRegCacheFPU::ReleaseSpillLock(IRReg r1, IRReg r2, IRReg r3, IRReg r4) {
-	_dbg_assert_(IsValidFPR(r1));
-	_dbg_assert_(r2 == IRREG_INVALID || IsValidFPR(r2));
-	_dbg_assert_(r3 == IRREG_INVALID || IsValidFPR(r3));
-	_dbg_assert_(r4 == IRREG_INVALID || IsValidFPR(r4));
-	mr[r1 + 32].spillLockIRIndex = -1;
-	if (r2 != IRREG_INVALID)
-		mr[r2 + 32].spillLockIRIndex = -1;
-	if (r3 != IRREG_INVALID)
-		mr[r3 + 32].spillLockIRIndex = -1;
-	if (r4 != IRREG_INVALID)
-		mr[r4 + 32].spillLockIRIndex = -1;
 }
 
 RiscVReg RiscVRegCacheFPU::R(IRReg mipsReg) {

@@ -346,7 +346,7 @@ void RiscVJitBackend::CompIR_FCompare(IRInst inst) {
 	case IROp::FCmp:
 		switch (inst.dest) {
 		case IRFpCompareMode::False:
-			gpr.SetImm(IRREG_FPCOND, 0);
+			gpr.SetGPRImm(IRREG_FPCOND, 0);
 			break;
 
 		case IRFpCompareMode::EitherUnordered:
@@ -584,7 +584,7 @@ void RiscVJitBackend::CompIR_FSpecial(IRInst inst) {
 		gpr.FlushBeforeCall();
 		fpr.FlushBeforeCall();
 		// It might be in a non-volatile register.
-		if (fpr.IsMapped(inst.src1)) {
+		if (fpr.IsFPRMapped(inst.src1)) {
 			FMV(32, F10, fpr.R(inst.src1));
 		} else {
 			int offset = offsetof(MIPSState, f) + inst.src1 * 4;

@@ -102,7 +102,7 @@ protected:
 		// If in a register, what index (into nr array)?
 		IRNativeReg nReg = -1;
 		// If a known immediate value, what value?
-		uint64_t imm = 0;
+		uint32_t imm = 0;
 		// Locked from spilling (i.e. used by current instruction) as of what IR instruction?
 		int spillLockIRIndex = -1;
 		// If in a multipart reg (vector or HI/LO), which lane?
@@ -145,6 +145,27 @@ public:
 		irIndex_ = index;
 	}
 
+	bool IsGPRInRAM(IRReg gpr);
+	bool IsFPRInRAM(IRReg fpr);
+	bool IsGPRMapped(IRReg gpr);
+	bool IsFPRMapped(IRReg fpr);
+	bool IsGPRMappedAsPointer(IRReg gpr);
+	bool IsGPRMappedAsStaticPointer(IRReg gpr);
+
+	bool IsGPRImm(IRReg gpr);
+	bool IsGPR2Imm(IRReg base);
+	uint32_t GetGPRImm(IRReg gpr);
+	uint64_t GetGPR2Imm(IRReg first);
+	void SetGPRImm(IRReg gpr, uint32_t immval);
+	void SetGPR2Imm(IRReg first, uint64_t immval);
+
+	// Protect the native registers containing register froms spilling, to ensure that
+	// it's being kept allocated.
+	void SpillLockGPR(IRReg reg, IRReg reg2 = IRREG_INVALID, IRReg reg3 = IRREG_INVALID, IRReg reg4 = IRREG_INVALID);
+	void SpillLockFPR(IRReg reg, IRReg reg2 = IRREG_INVALID, IRReg reg3 = IRREG_INVALID, IRReg reg4 = IRREG_INVALID);
+	void ReleaseSpillLockGPR(IRReg reg, IRReg reg2 = IRREG_INVALID, IRReg reg3 = IRREG_INVALID, IRReg reg4 = IRREG_INVALID);
+	void ReleaseSpillLockFPR(IRReg reg, IRReg reg2 = IRREG_INVALID, IRReg reg3 = IRREG_INVALID, IRReg reg4 = IRREG_INVALID);
+
 protected:
 	virtual void SetupInitialRegs();
 	virtual const int *GetAllocationOrder(MIPSLoc type, int &count, int &base) const = 0;
@@ -160,6 +181,8 @@ protected:
 	virtual void FlushNativeReg(IRNativeReg nreg);
 	virtual void AdjustNativeRegAsPtr(IRNativeReg nreg, bool state);
 	virtual void StoreNativeReg(IRNativeReg nreg, IRReg first, int lanes) = 0;
+
+	void SetSpillLockIRIndex(IRReg reg, IRReg reg2, IRReg reg3, IRReg reg4, int offset, int index);
 
 	bool IsValidGPR(IRReg r) const;
 	bool IsValidGPRNoZero(IRReg r) const;

@@ -66,7 +66,7 @@ int32_t RiscVJitBackend::AdjustForAddressOffset(RiscVGen::RiscVReg *reg, int32_t
 void RiscVJitBackend::CompIR_Load(IRInst inst) {
 	CONDITIONAL_DISABLE;
 
-	gpr.SpillLock(inst.dest, inst.src1);
+	gpr.SpillLockGPR(inst.dest, inst.src1);
 	RiscVReg addrReg = INVALID_REG;
 	if (inst.src1 == MIPS_REG_ZERO) {
 		// This will get changed by AdjustForAddressOffset.
@@ -74,7 +74,7 @@ void RiscVJitBackend::CompIR_Load(IRInst inst) {
 #ifdef MASKED_PSP_MEMORY
 		inst.constant &= Memory::MEMVIEW32_MASK;
 #endif
-	} else if (jo.cachePointers || gpr.IsMappedAsPointer(inst.src1)) {
+	} else if (jo.cachePointers || gpr.IsGPRMappedAsPointer(inst.src1)) {
 		addrReg = gpr.MapRegAsPointer(inst.src1);
 	} else {
 		SetScratch1ToSrc1Address(inst.src1);
@@ -82,7 +82,6 @@ void RiscVJitBackend::CompIR_Load(IRInst inst) {
 	}
 	// With NOINIT, MapReg won't subtract MEMBASEREG even if dest == src1.
 	gpr.MapReg(inst.dest, MIPSMap::NOINIT | MIPSMap::MARK_NORM32);
-	gpr.ReleaseSpillLock(inst.dest, inst.src1);
 
 	s32 imm = AdjustForAddressOffset(&addrReg, inst.constant);
 
@@ -112,7 +111,7 @@ void RiscVJitBackend::CompIR_Load(IRInst inst) {
 	case IROp::Load32Linked:
 		if (inst.dest != MIPS_REG_ZERO)
 			LW(gpr.R(inst.dest), addrReg, imm);
-		gpr.SetImm(IRREG_LLBIT, 1);
+		gpr.SetGPRImm(IRREG_LLBIT, 1);
 		break;
 
 	default:
@@ -147,7 +146,7 @@ void RiscVJitBackend::CompIR_FLoad(IRInst inst) {
 #ifdef MASKED_PSP_MEMORY
 		inst.constant &= Memory::MEMVIEW32_MASK;
 #endif
-	} else if (jo.cachePointers || gpr.IsMappedAsPointer(inst.src1)) {
+	} else if (jo.cachePointers || gpr.IsGPRMappedAsPointer(inst.src1)) {
 		addrReg = gpr.MapRegAsPointer(inst.src1);
 	} else {
 		SetScratch1ToSrc1Address(inst.src1);
@@ -180,7 +179,7 @@ void RiscVJitBackend::CompIR_VecLoad(IRInst inst) {
 #ifdef MASKED_PSP_MEMORY
 		inst.constant &= Memory::MEMVIEW32_MASK;
 #endif
-	} else if (jo.cachePointers || gpr.IsMappedAsPointer(inst.src1)) {
+	} else if (jo.cachePointers || gpr.IsGPRMappedAsPointer(inst.src1)) {
 		addrReg = gpr.MapRegAsPointer(inst.src1);
 	} else {
 		SetScratch1ToSrc1Address(inst.src1);
@@ -210,7 +209,7 @@ void RiscVJitBackend::CompIR_VecLoad(IRInst inst) {
 void RiscVJitBackend::CompIR_Store(IRInst inst) {
 	CONDITIONAL_DISABLE;
 
-	gpr.SpillLock(inst.src3, inst.src1);
+	gpr.SpillLockGPR(inst.src3, inst.src1);
 	RiscVReg addrReg = INVALID_REG;
 	if (inst.src1 == MIPS_REG_ZERO) {
 		// This will get changed by AdjustForAddressOffset.
@@ -218,7 +217,7 @@ void RiscVJitBackend::CompIR_Store(IRInst inst) {
 #ifdef MASKED_PSP_MEMORY
 		inst.constant &= Memory::MEMVIEW32_MASK;
 #endif
-	} else if ((jo.cachePointers || gpr.IsMappedAsPointer(inst.src1)) && inst.src3 != inst.src1) {
+	} else if ((jo.cachePointers || gpr.IsGPRMappedAsPointer(inst.src1)) && inst.src3 != inst.src1) {
 		addrReg = gpr.MapRegAsPointer(inst.src1);
 	} else {
 		SetScratch1ToSrc1Address(inst.src1);
@@ -227,7 +226,6 @@ void RiscVJitBackend::CompIR_Store(IRInst inst) {
 	RiscVReg valueReg = gpr.TryMapTempImm(inst.src3);
 	if (valueReg == INVALID_REG)
 		valueReg = gpr.MapReg(inst.src3);
-	gpr.ReleaseSpillLock(inst.src3, inst.src1);
 
 	s32 imm = AdjustForAddressOffset(&addrReg, inst.constant);
 
@@ -257,7 +255,7 @@ void RiscVJitBackend::CompIR_CondStore(IRInst inst) {
 	if (inst.op != IROp::Store32Conditional)
 		INVALIDOP;
 
-	gpr.SpillLock(IRREG_LLBIT, inst.src3, inst.src1);
+	gpr.SpillLockGPR(IRREG_LLBIT, inst.src3, inst.src1);
 	RiscVReg addrReg = INVALID_REG;
 	if (inst.src1 == MIPS_REG_ZERO) {
 		// This will get changed by AdjustForAddressOffset.
@@ -265,7 +263,7 @@ void RiscVJitBackend::CompIR_CondStore(IRInst inst) {
 #ifdef MASKED_PSP_MEMORY
 		inst.constant &= Memory::MEMVIEW32_MASK;
 #endif
-	} else if ((jo.cachePointers || gpr.IsMappedAsPointer(inst.src1)) && inst.src3 != inst.src1) {
+	} else if ((jo.cachePointers || gpr.IsGPRMappedAsPointer(inst.src1)) && inst.src3 != inst.src1) {
 		addrReg = gpr.MapRegAsPointer(inst.src1);
 	} else {
 		SetScratch1ToSrc1Address(inst.src1);
@@ -273,7 +271,6 @@ void RiscVJitBackend::CompIR_CondStore(IRInst inst) {
 	}
 	gpr.MapReg(inst.src3, inst.dest == MIPS_REG_ZERO ? MIPSMap::INIT : MIPSMap::DIRTY);
 	gpr.MapReg(IRREG_LLBIT);
-	gpr.ReleaseSpillLock(IRREG_LLBIT, inst.src3, inst.src1);
 
 	s32 imm = AdjustForAddressOffset(&addrReg, inst.constant);
 
@@ -320,7 +317,7 @@ void RiscVJitBackend::CompIR_FStore(IRInst inst) {
 #ifdef MASKED_PSP_MEMORY
 		inst.constant &= Memory::MEMVIEW32_MASK;
 #endif
-	} else if (jo.cachePointers || gpr.IsMappedAsPointer(inst.src1)) {
+	} else if (jo.cachePointers || gpr.IsGPRMappedAsPointer(inst.src1)) {
 		addrReg = gpr.MapRegAsPointer(inst.src1);
 	} else {
 		SetScratch1ToSrc1Address(inst.src1);
@@ -353,7 +350,7 @@ void RiscVJitBackend::CompIR_VecStore(IRInst inst) {
 #ifdef MASKED_PSP_MEMORY
 		inst.constant &= Memory::MEMVIEW32_MASK;
 #endif
-	} else if (jo.cachePointers || gpr.IsMappedAsPointer(inst.src1)) {
+	} else if (jo.cachePointers || gpr.IsGPRMappedAsPointer(inst.src1)) {
 		addrReg = gpr.MapRegAsPointer(inst.src1);
 	} else {
 		SetScratch1ToSrc1Address(inst.src1);

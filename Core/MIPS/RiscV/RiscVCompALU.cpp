@@ -65,7 +65,7 @@ void RiscVJitBackend::CompIR_Arith(IRInst inst) {
 	case IROp::AddConst:
 		if ((int32_t)inst.constant >= -2048 && (int32_t)inst.constant <= 2047) {
 			// Typical of stack pointer updates.
-			if (gpr.IsMappedAsPointer(inst.src1) && inst.dest == inst.src1 && allowPtrMath) {
+			if (gpr.IsGPRMappedAsPointer(inst.src1) && inst.dest == inst.src1 && allowPtrMath) {
 				gpr.MarkPtrDirty(gpr.RPtr(inst.dest));
 				ADDI(gpr.RPtr(inst.dest), gpr.RPtr(inst.dest), inst.constant);
 			} else {
@@ -127,7 +127,7 @@ void RiscVJitBackend::CompIR_Logic(IRInst inst) {
 
 	case IROp::Xor:
 		if (inst.src1 == inst.src2) {
-			gpr.SetImm(inst.dest, 0);
+			gpr.SetGPRImm(inst.dest, 0);
 		} else {
 			gpr.MapDirtyInIn(inst.dest, inst.src1, inst.src2);
 			XOR(gpr.R(inst.dest), gpr.R(inst.src1), gpr.R(inst.src2));
@@ -334,7 +334,7 @@ void RiscVJitBackend::CompIR_Shift(IRInst inst) {
 	case IROp::ShlImm:
 		// Shouldn't happen, but let's be safe of any passes that modify the ops.
 		if (inst.src2 >= 32) {
-			gpr.SetImm(inst.dest, 0);
+			gpr.SetGPRImm(inst.dest, 0);
 		} else if (inst.src2 == 0) {
 			if (inst.dest != inst.src1) {
 				gpr.MapDirtyIn(inst.dest, inst.src1);
@@ -350,7 +350,7 @@ void RiscVJitBackend::CompIR_Shift(IRInst inst) {
 	case IROp::ShrImm:
 		// Shouldn't happen, but let's be safe of any passes that modify the ops.
 		if (inst.src2 >= 32) {
-			gpr.SetImm(inst.dest, 0);
+			gpr.SetGPRImm(inst.dest, 0);
 		} else if (inst.src2 == 0) {
 			if (inst.dest != inst.src1) {
 				gpr.MapDirtyIn(inst.dest, inst.src1);
@@ -408,12 +408,11 @@ void RiscVJitBackend::CompIR_Compare(IRInst inst) {
 	RiscVReg rhs = INVALID_REG;
 	switch (inst.op) {
 	case IROp::Slt:
-		gpr.SpillLock(inst.dest, inst.src1, inst.src2);
+		gpr.SpillLockGPR(inst.dest, inst.src1, inst.src2);
 		gpr.MapReg(inst.src1);
 		gpr.MapReg(inst.src2);
 		NormalizeSrc12(inst, &lhs, &rhs, SCRATCH1, SCRATCH2, true);
 		gpr.MapReg(inst.dest, MIPSMap::NOINIT | MIPSMap::MARK_NORM32);
-		gpr.ReleaseSpillLock(inst.dest, inst.src1, inst.src2);
 
 		SLT(gpr.R(inst.dest), lhs, rhs);
 		break;
@@ -424,11 +423,10 @@ void RiscVJitBackend::CompIR_Compare(IRInst inst) {
 			gpr.MapDirtyIn(inst.dest, inst.src1, MapType::AVOID_LOAD_MARK_NORM32);
 			SRLIW(gpr.R(inst.dest), gpr.R(inst.src1), 31);
 		} else {
-			gpr.SpillLock(inst.dest, inst.src1);
+			gpr.SpillLockGPR(inst.dest, inst.src1);
 			gpr.MapReg(inst.src1);
 			NormalizeSrc1(inst, &lhs, SCRATCH1, false);
 			gpr.MapReg(inst.dest, MIPSMap::NOINIT | MIPSMap::MARK_NORM32);
-			gpr.ReleaseSpillLock(inst.dest, inst.src1);
 
 			if ((int32_t)inst.constant >= -2048 && (int32_t)inst.constant <= 2047) {
 				SLTI(gpr.R(inst.dest), lhs, (int32_t)inst.constant);
@@ -441,26 +439,24 @@ void RiscVJitBackend::CompIR_Compare(IRInst inst) {
 		break;
 
 	case IROp::SltU:
-		gpr.SpillLock(inst.dest, inst.src1, inst.src2);
+		gpr.SpillLockGPR(inst.dest, inst.src1, inst.src2);
 		gpr.MapReg(inst.src1);
 		gpr.MapReg(inst.src2);
 		// It's still fine to sign extend, the biggest just get even bigger.
 		NormalizeSrc12(inst, &lhs, &rhs, SCRATCH1, SCRATCH2, true);
 		gpr.MapReg(inst.dest, MIPSMap::NOINIT | MIPSMap::MARK_NORM32);
-		gpr.ReleaseSpillLock(inst.dest, inst.src1, inst.src2);
 
 		SLTU(gpr.R(inst.dest), lhs, rhs);
 		break;
 
 	case IROp::SltUConst:
 		if (inst.constant == 0) {
-			gpr.SetImm(inst.dest, 0);
+			gpr.SetGPRImm(inst.dest, 0);
 		} else {
-			gpr.SpillLock(inst.dest, inst.src1);
+			gpr.SpillLockGPR(inst.dest, inst.src1);
 			gpr.MapReg(inst.src1);
 			NormalizeSrc1(inst, &lhs, SCRATCH1, false);
 			gpr.MapReg(inst.dest, MIPSMap::NOINIT | MIPSMap::MARK_NORM32);
-			gpr.ReleaseSpillLock(inst.dest, inst.src1);
 
 			// We sign extend because we're comparing against something normalized.
 			// It's also the most efficient to set.

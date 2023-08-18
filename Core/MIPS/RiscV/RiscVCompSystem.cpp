@@ -45,7 +45,7 @@ void RiscVJitBackend::CompIR_Basic(IRInst inst) {
 	case IROp::SetConst:
 		// Sign extend all constants.  We get 0xFFFFFFFF sometimes, and it's more work to truncate.
 		// The register only holds 32 bits in the end anyway.
-		gpr.SetImm(inst.dest, (int32_t)inst.constant);
+		gpr.SetGPRImm(inst.dest, (int32_t)inst.constant);
 		break;
 
 	case IROp::SetConstF:
@@ -90,7 +90,7 @@ void RiscVJitBackend::CompIR_Transfer(IRInst inst) {
 
 	switch (inst.op) {
 	case IROp::SetCtrlVFPU:
-		gpr.SetImm(IRREG_VFPU_CTRL_BASE + inst.dest, (int32_t)inst.constant);
+		gpr.SetGPRImm(IRREG_VFPU_CTRL_BASE + inst.dest, (int32_t)inst.constant);
 		break;
 
 	case IROp::SetCtrlVFPUReg:
@@ -158,7 +158,7 @@ void RiscVJitBackend::CompIR_Transfer(IRInst inst) {
 
 	case IROp::FMovFromGPR:
 		fpr.MapReg(inst.dest, MIPSMap::NOINIT);
-		if (gpr.IsImm(inst.src1) && gpr.GetImm(inst.src1) == 0) {
+		if (gpr.IsGPRImm(inst.src1) && gpr.GetGPRImm(inst.src1) == 0) {
 			FCVT(FConv::S, FConv::W, fpr.R(inst.dest), R_ZERO);
 		} else {
 			gpr.MapReg(inst.src1);
