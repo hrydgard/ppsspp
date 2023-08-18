@@ -291,15 +291,9 @@ static bool CheckFontIsUsable(const wchar_t *fontFace) {
 #endif
 
 void PostLoadConfig() {
-#if !PPSSPP_PLATFORM(WINDOWS)
 	if (g_Config.currentDirectory.empty()) {
 		g_Config.currentDirectory = g_Config.defaultCurrentDirectory;
 	}
-#else
-	if (g_Config.currentDirectory.empty()) {
-		g_Config.currentDirectory = GetSysDirectory(DIRECTORY_GAME);
-	}
-#endif
 
 	// Allow the lang directory to be overridden for testing purposes (e.g. Android, where it's hard to
 	// test new languages without recompiling the entire app, which is a hassle).
@@ -437,7 +431,12 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 #endif
 	g_VFS.Register("", new DirectoryReader(Path(savegame_dir)));
 
+#if !PPSSPP_PLATFORM(WINDOWS)
 	g_Config.defaultCurrentDirectory = Path("/");
+#else
+	g_Config.defaultCurrentDirectory = GetSysDirectory(DIRECTORY_GAME);
+#endif
+
 #if !PPSSPP_PLATFORM(UWP)
 	g_Config.internalDataDirectory = Path(savegame_dir);
 #endif
@@ -537,11 +536,9 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	}
 #endif
 
-#if (PPSSPP_PLATFORM(WINDOWS) && !PPSSPP_PLATFORM(UWP)) || PPSSPP_PLATFORM(MAC)
 	if (g_Config.currentDirectory.empty()) {
-		g_Config.currentDirectory = Path("/");
+		g_Config.currentDirectory = g_Config.defaultCurrentDirectory;
 	}
-#endif
 
 	if (cache_dir && strlen(cache_dir)) {
 		g_Config.appCacheDirectory = Path(cache_dir);
