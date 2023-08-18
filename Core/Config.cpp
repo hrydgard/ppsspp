@@ -396,6 +396,12 @@ static int DefaultGPUBackend() {
 	if (System_GetPropertyInt(SYSPROP_SYSTEMVERSION) >= 27) {
 		return (int)GPUBackend::VULKAN;
 	}
+#else
+	// There are some newer devices that benefit from Vulkan as default, but are 32-bit. Example: Redmi 9A.
+	// Let's only allow the very newest generation though.
+	if (System_GetPropertyInt(SYSPROP_SYSTEMVERSION) >= 30) {
+		return (int)GPUBackend::VULKAN;
+	}
 #endif
 #elif PPSSPP_PLATFORM(MAC)
 #if PPSSPP_ARCH(ARM64)
