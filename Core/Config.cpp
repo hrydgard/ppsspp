@@ -149,7 +149,6 @@ static bool DefaultCodeGen() {
 
 static bool DefaultVSync() {
 #if PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(UWP)
-	ERROR_LOG(SYSTEM, "Default vsync true");
 	// Previously we didn't allow turning off vsync/FIFO on Android. Let's set the default accordingly.
 	return true;
 #else
@@ -1197,11 +1196,6 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	}
 
 	CleanRecent();
-
-#if PPSSPP_PLATFORM(ANDROID)
-	// The on path here is untested, since we don't expose it.
-	g_Config.bVSync = false;
-#endif
 
 	PostLoadCleanup(false);
 

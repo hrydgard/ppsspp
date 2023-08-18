@@ -804,12 +804,10 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	std::string sysName = System_GetProperty(SYSPROP_NAME);
 	isOuya = KeyMap::IsOuya(sysName);
 
-	ERROR_LOG(G3D, "Backend: %d", g_Config.iGPUBackend);
-
 	// We do this here, instead of in NativeInitGraphics, because the display may be reset.
 	// When it's reset we don't want to forget all our managed things.
 	CheckFailedGPUBackends();
-	SetGPUBackend((GPUBackend) g_Config.iGPUBackend);
+	SetGPUBackend((GPUBackend)g_Config.iGPUBackend);
 	renderCounter = 0;
 
 	// Initialize retro achievements runtime.
