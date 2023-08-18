@@ -257,6 +257,9 @@ SamplerCacheKey TextureCacheCommon::GetSamplingParams(int maxLevel, const TexCac
 			key.mipEnable = true;
 			key.mipFilt = 1;
 			key.maxLevel = 9 * 256;
+			if (gstate_c.Use(GPU_USE_ANISOTROPY) && g_Config.iAnisotropyLevel > 0) {
+				key.aniso = true;
+			}
 		}
 		useReplacerFiltering = entry->replacedTexture->ForceFiltering(&forceFiltering);
 	}
