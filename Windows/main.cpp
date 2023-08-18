@@ -822,6 +822,7 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 	// because the next place it was called was in the EmuThread, and it's too late by then.
 	g_Config.internalDataDirectory = Path(W32Util::UserDocumentsPath());
 	InitSysDirectories();
+	CreateSysDirectories();
 
 	// Check for the Vulkan workaround before any serious init.
 	for (size_t i = 1; i < wideArgs.size(); ++i) {
@@ -838,6 +839,7 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 			}
 		}
 	}
+
 
 	// Load config up here, because those changes below would be overwritten
 	// if it's not loaded here first.

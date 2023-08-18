@@ -713,10 +713,9 @@ void InitSysDirectories() {
 	if (!g_Config.memStickDirectory.empty() && !g_Config.flash0Directory.empty())
 		return;
 
-	const Path &path = File::GetExeDirectory();
-
+	const Path &exePath = File::GetExeDirectory();
 	// Mount a filesystem
-	g_Config.flash0Directory = path / "assets/flash0";
+	g_Config.flash0Directory = exePath / "assets/flash0";
 
 	// Detect the "My Documents"(XP) or "Documents"(on Vista/7/8) folder.
 #if PPSSPP_PLATFORM(UWP)
@@ -726,7 +725,7 @@ void InitSysDirectories() {
 	// Caller sets this to the Documents folder.
 	const Path rootMyDocsPath = g_Config.internalDataDirectory;
 	const Path myDocsPath = rootMyDocsPath / "PPSSPP";
-	const Path installedFile = path / "installed.txt";
+	const Path installedFile = exePath / "installed.txt";
 	const bool installed = File::Exists(installedFile);
 
 	// If installed.txt exists(and we can determine the Documents directory)
@@ -751,7 +750,7 @@ void InitSysDirectories() {
 		if (g_Config.memStickDirectory.empty())
 			g_Config.memStickDirectory = myDocsPath;
 	} else {
-		g_Config.memStickDirectory = path / "memstick";
+		g_Config.memStickDirectory = exePath / "memstick";
 	}
 
 	// Create the memstickpath before trying to write to it, and fall back on Documents yet again
@@ -773,7 +772,10 @@ void InitSysDirectories() {
 	if (File::Exists(testFile))
 		File::Delete(testFile);
 #endif
+}
+#endif
 
+void CreateSysDirectories() {
 	// Create the default directories that a real PSP creates. Good for homebrew so they can
 	// expect a standard environment. Skipping THEME though, that's pointless.
 	File::CreateDir(GetSysDirectory(DIRECTORY_PSP));
@@ -788,4 +790,3 @@ void InitSysDirectories() {
 		g_Config.currentDirectory = GetSysDirectory(DIRECTORY_GAME);
 	}
 }
-#endif

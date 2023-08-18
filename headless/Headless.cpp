@@ -499,17 +499,22 @@ int main(int argc, const char* argv[])
 
 #if PPSSPP_PLATFORM(WINDOWS)
 	g_Config.internalDataDirectory.clear();
-	InitSysDirectories();
+
+	Path exePath = File::GetExeDirectory();
+	// Mount a filesystem
+	g_Config.flash0Directory = exePath / "assets/flash0";
+	g_Config.memStickDirectory = exePath / "memstick";
+	File::CreateDir(g_Config.memStickDirectory);
+	CreateSysDirectories();
 #endif
 
-	Path executablePath = File::GetExeDirectory();
 #if !PPSSPP_PLATFORM(ANDROID) && !PPSSPP_PLATFORM(WINDOWS)
 	g_Config.memStickDirectory = Path(std::string(getenv("HOME"))) / ".ppsspp";
 	g_Config.flash0Directory = executablePath / "assets/flash0";
 #endif
 
 	// Try to find the flash0 directory.  Often this is from a subdirectory.
-	Path nextPath = executablePath;
+	Path nextPath = exePath;
 	for (int i = 0; i < 5; ++i) {
 		if (File::Exists(nextPath / "assets/flash0")) {
 			g_Config.flash0Directory = nextPath / "assets/flash0";

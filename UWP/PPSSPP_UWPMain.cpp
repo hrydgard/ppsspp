@@ -103,10 +103,12 @@ PPSSPP_UWPMain::PPSSPP_UWPMain(App ^app, const std::shared_ptr<DX::DeviceResourc
 	std::wstring internalDataFolderW = ApplicationData::Current->LocalFolder->Path->Data();
 	g_Config.internalDataDirectory = Path(internalDataFolderW);
 	g_Config.memStickDirectory = g_Config.internalDataDirectory;
+	// Mount a filesystem
+	g_Config.flash0Directory = exePath / "assets/flash0";
 
 	// On Win32 it makes more sense to initialize the system directories here
 	// because the next place it was called was in the EmuThread, and it's too late by then.
-	InitSysDirectories();
+	CreateSysDirectories();
 
 	LogManager::Init(&g_Config.bEnableLogging);
 

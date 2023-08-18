@@ -110,6 +110,8 @@ Path GetSysDirectory(PSPDirectories directoryType);
 void InitSysDirectories();
 #endif
 
+void CreateSysDirectories();
+
 // RUNNING must be at 0, NEXTFRAME must be at 1.
 enum CoreState {
 	// Emulation is running normally.

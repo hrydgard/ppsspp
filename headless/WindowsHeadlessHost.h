@@ -25,7 +25,6 @@
 
 #include "Common/CommonWindows.h"
 
-// TODO: Get rid of this junk
 class WindowsHeadlessHost : public HeadlessHost
 {
 public:
