@@ -1598,7 +1598,7 @@ void UmdReplaceScreen::CreateViews() {
 			new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
 		scrollRecentGames->Add(tabRecentGames);
 		leftColumn->AddTab(mm->T("Recent"), scrollRecentGames);
-		tabRecentGames->OnChoice.Handle(this, &UmdReplaceScreen::OnGameSelectedInstant);
+		tabRecentGames->OnChoice.Handle(this, &UmdReplaceScreen::OnGameSelected);
 		tabRecentGames->OnHoldChoice.Handle(this, &UmdReplaceScreen::OnGameSelected);
 	}
 	ScrollView *scrollAllGames = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
@@ -1612,7 +1612,7 @@ void UmdReplaceScreen::CreateViews() {
 
 	leftColumn->AddTab(mm->T("Games"), scrollAllGames);
 
-	tabAllGames->OnChoice.Handle(this, &UmdReplaceScreen::OnGameSelectedInstant);
+	tabAllGames->OnChoice.Handle(this, &UmdReplaceScreen::OnGameSelected);
 
 	tabAllGames->OnHoldChoice.Handle(this, &UmdReplaceScreen::OnGameSelected);
 
@@ -1643,12 +1643,6 @@ UI::EventReturn UmdReplaceScreen::OnGameSelected(UI::EventParams &e) {
 
 UI::EventReturn UmdReplaceScreen::OnGameSettings(UI::EventParams &e) {
 	screenManager()->push(new GameSettingsScreen(Path()));
-	return UI::EVENT_DONE;
-}
-
-UI::EventReturn UmdReplaceScreen::OnGameSelectedInstant(UI::EventParams &e) {
-	__UmdReplace(Path(e.s));
-	TriggerFinish(DR_OK);
 	return UI::EVENT_DONE;
 }
 
