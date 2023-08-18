@@ -656,7 +656,7 @@ void identify_and_load_callback(int result, const char *error_message, rc_client
 
 		char temp[512];
 		if (RC_OK == rc_client_game_get_image_url(gameInfo, temp, sizeof(temp))) {
-			Achievements::DownloadImageIfMissing(cacheId, std::move(std::string(temp)));
+			Achievements::DownloadImageIfMissing(cacheId, std::string(temp));
 		}
 		g_OSD.Show(OSDType::MESSAGE_INFO, std::string(gameInfo->title), GetGameAchievementSummary(), cacheId, 5.0f);
 		break;

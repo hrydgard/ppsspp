@@ -739,6 +739,65 @@ std::vector<std::wstring> GetWideCmdLine() {
 	return wideArgs;
 }
 
+static void InitMemstickDirectory() {
+	if (!g_Config.memStickDirectory.empty() && !g_Config.flash0Directory.empty())
+		return;
+
+	const Path &exePath = File::GetExeDirectory();
+	// Mount a filesystem
+	g_Config.flash0Directory = exePath / "assets/flash0";
+
+	// Caller sets this to the Documents folder.
+	const Path rootMyDocsPath = g_Config.internalDataDirectory;
+	const Path myDocsPath = rootMyDocsPath / "PPSSPP";
+	const Path installedFile = exePath / "installed.txt";
+	const bool installed = File::Exists(installedFile);
+
+	// If installed.txt exists(and we can determine the Documents directory)
+	if (installed && !rootMyDocsPath.empty()) {
+		FILE *fp = File::OpenCFile(installedFile, "rt");
+		if (fp) {
+			char temp[2048];
+			char *tempStr = fgets(temp, sizeof(temp), fp);
+			// Skip UTF-8 encoding bytes if there are any. There are 3 of them.
+			if (tempStr && strncmp(tempStr, "\xEF\xBB\xBF", 3) == 0) {
+				tempStr += 3;
+			}
+			std::string tempString = tempStr ? tempStr : "";
+			if (!tempString.empty() && tempString.back() == '\n')
+				tempString.resize(tempString.size() - 1);
+
+			g_Config.memStickDirectory = Path(tempString);
+			fclose(fp);
+		}
+
+		// Check if the file is empty first, before appending the slash.
+		if (g_Config.memStickDirectory.empty())
+			g_Config.memStickDirectory = myDocsPath;
+	} else {
+		g_Config.memStickDirectory = exePath / "memstick";
+	}
+
+	// Create the memstickpath before trying to write to it, and fall back on Documents yet again
+	// if we can't make it.
+	if (!File::Exists(g_Config.memStickDirectory)) {
+		if (!File::CreateDir(g_Config.memStickDirectory))
+			g_Config.memStickDirectory = myDocsPath;
+		INFO_LOG(COMMON, "Memstick directory not present, creating at '%s'", g_Config.memStickDirectory.c_str());
+	}
+
+	Path testFile = g_Config.memStickDirectory / "_writable_test.$$$";
+
+	// If any directory is read-only, fall back to the Documents directory.
+	// We're screwed anyway if we can't write to Documents, or can't detect it.
+	if (!File::CreateEmptyFile(testFile))
+		g_Config.memStickDirectory = myDocsPath;
+
+	// Clean up our mess.
+	if (File::Exists(testFile))
+		File::Delete(testFile);
+}
+
 static void WinMainInit() {
 	CoInitializeEx(NULL, COINIT_MULTITHREADED);
 	net::Init();  // This needs to happen before we load the config. So on Windows we also run it in Main. It's fine to call multiple times.
@@ -822,7 +881,8 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 	// On Win32 it makes more sense to initialize the system directories here
 	// because the next place it was called was in the EmuThread, and it's too late by then.
 	g_Config.internalDataDirectory = Path(W32Util::UserDocumentsPath());
-	InitSysDirectories();
+	InitMemstickDirectory();
+	CreateSysDirectories();
 
 	// Check for the Vulkan workaround before any serious init.
 	for (size_t i = 1; i < wideArgs.size(); ++i) {
@@ -839,6 +899,7 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 			}
 		}
 	}
+
 
 	// Load config up here, because those changes below would be overwritten
 	// if it's not loaded here first.

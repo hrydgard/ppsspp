@@ -351,6 +351,4 @@ private:
 	// Debug stats.
 	double timeSteppingStarted_;
 	double timeSpentStepping_;
-
-	int lastVsync_ = -1;
 };
