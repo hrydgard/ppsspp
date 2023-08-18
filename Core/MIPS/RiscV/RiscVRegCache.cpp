@@ -137,35 +137,6 @@ bool RiscVRegCache::IsNormalized32(IRReg mipsReg) {
 	return false;
 }
 
-void RiscVRegCache::MarkDirty(RiscVReg reg, bool andNormalized32) {
-	// Can't mark X0 dirty.
-	_dbg_assert_(reg > X0 && reg <= X31);
-	nr[reg].isDirty = true;
-	nr[reg].normalized32 = andNormalized32;
-	// If reg is written to, pointerification is lost.
-	nr[reg].pointerified = false;
-	if (nr[reg].mipsReg != IRREG_INVALID) {
-		RegStatusMIPS &m = mr[nr[reg].mipsReg];
-		if (m.loc == MIPSLoc::REG_AS_PTR || m.loc == MIPSLoc::REG_IMM) {
-			m.loc = MIPSLoc::REG;
-			m.imm = -1;
-		}
-		_dbg_assert_(m.loc == MIPSLoc::REG);
-	}
-}
-
-void RiscVRegCache::MarkPtrDirty(RiscVReg reg) {
-	// Can't mark X0 dirty.
-	_dbg_assert_(reg > X0 && reg <= X31);
-	_dbg_assert_(!nr[reg].normalized32);
-	nr[reg].isDirty = true;
-	if (nr[reg].mipsReg != IRREG_INVALID) {
-		_dbg_assert_(mr[nr[reg].mipsReg].loc == MIPSLoc::REG_AS_PTR);
-	} else {
-		_dbg_assert_(nr[reg].pointerified);
-	}
-}
-
 RiscVGen::RiscVReg RiscVRegCache::Normalize32(IRReg mipsReg, RiscVGen::RiscVReg destReg) {
 	_dbg_assert_(IsValidGPR(mipsReg));
 	_dbg_assert_(destReg == INVALID_REG || (destReg > X0 && destReg <= X31));

@@ -72,8 +72,6 @@ public:
 
 	bool IsNormalized32(IRReg reg);
 
-	void MarkDirty(RiscVGen::RiscVReg reg, bool andNormalized32 = false);
-	void MarkPtrDirty(RiscVGen::RiscVReg reg);
 	// Copies to another reg if specified, otherwise same reg.
 	RiscVGen::RiscVReg Normalize32(IRReg reg, RiscVGen::RiscVReg destReg = RiscVGen::INVALID_REG);
 	void MapIn(IRReg rs);

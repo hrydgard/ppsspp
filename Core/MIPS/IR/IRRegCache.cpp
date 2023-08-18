@@ -22,6 +22,7 @@
 #include <cstring>
 #include "Common/Log.h"
 #include "Common/LogReporting.h"
+#include "Core/MemMap.h"
 #include "Core/MIPS/IR/IRAnalysis.h"
 #include "Core/MIPS/IR/IRRegCache.h"
 #include "Core/MIPS/IR/IRInst.h"
@@ -280,6 +281,40 @@ void IRNativeRegCacheBase::SetSpillLockIRIndex(IRReg r1, IRReg r2, IRReg r3, IRR
 		mr[r3 + offset].spillLockIRIndex = index;
 	if (r4 != IRREG_INVALID && !mr[r4 + offset].isStatic)
 		mr[r4 + offset].spillLockIRIndex = index;
+}
+
+void IRNativeRegCacheBase::MarkGPRDirty(IRReg gpr, bool andNormalized32) {
+	_assert_(IsGPRMapped(gpr));
+	if (!IsGPRMapped(gpr))
+		return;
+
+	IRNativeReg nreg = mr[gpr].nReg;
+	nr[nreg].isDirty = true;
+	nr[nreg].normalized32 = andNormalized32;
+	// If reg is written to, pointerification is assumed lost.
+	nr[nreg].pointerified = false;
+	if (mr[gpr].loc == MIPSLoc::REG_AS_PTR || mr[gpr].loc == MIPSLoc::REG_IMM) {
+		mr[gpr].loc = MIPSLoc::REG;
+		mr[gpr].imm = -1;
+	}
+	_dbg_assert_(mr[gpr].loc == MIPSLoc::REG);
+}
+
+void IRNativeRegCacheBase::MarkGPRAsPointerDirty(IRReg gpr) {
+	_assert_(IsGPRMappedAsPointer(gpr));
+	if (!IsGPRMappedAsPointer(gpr))
+		return;
+
+#ifdef MASKED_PSP_MEMORY
+	if (mr[gpr].loc == MIPSLoc::REG_AS_PTR) {
+		_assert_msg_(false, "MarkGPRAsPointerDirty is not possible when using MASKED_PSP_MEMORY");
+	}
+#endif
+
+	IRNativeReg nreg = mr[gpr].nReg;
+	_dbg_assert_(!nr[nreg].normalized32);
+	nr[nreg].isDirty = true;
+	// Stays pointerified or REG_AS_PTR.
 }
 
 IRNativeReg IRNativeRegCacheBase::AllocateReg(MIPSLoc type) {

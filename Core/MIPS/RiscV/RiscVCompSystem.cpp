@@ -96,7 +96,7 @@ void RiscVJitBackend::CompIR_Transfer(IRInst inst) {
 	case IROp::SetCtrlVFPUReg:
 		gpr.MapDirtyIn(IRREG_VFPU_CTRL_BASE + inst.dest, inst.src1);
 		MV(gpr.R(IRREG_VFPU_CTRL_BASE + inst.dest), gpr.R(inst.src1));
-		gpr.MarkDirty(gpr.R(IRREG_VFPU_CTRL_BASE + inst.dest), gpr.IsNormalized32(inst.src1));
+		gpr.MarkGPRDirty(IRREG_VFPU_CTRL_BASE + inst.dest, gpr.IsNormalized32(inst.src1));
 		break;
 
 	case IROp::SetCtrlVFPUFReg:
@@ -113,7 +113,7 @@ void RiscVJitBackend::CompIR_Transfer(IRInst inst) {
 	case IROp::FpCondToReg:
 		gpr.MapDirtyIn(inst.dest, IRREG_FPCOND);
 		MV(gpr.R(inst.dest), gpr.R(IRREG_FPCOND));
-		gpr.MarkDirty(gpr.R(inst.dest), gpr.IsNormalized32(IRREG_FPCOND));
+		gpr.MarkGPRDirty(inst.dest, gpr.IsNormalized32(IRREG_FPCOND));
 		break;
 
 	case IROp::FpCtrlFromReg:
@@ -153,7 +153,7 @@ void RiscVJitBackend::CompIR_Transfer(IRInst inst) {
 	case IROp::VfpuCtrlToReg:
 		gpr.MapDirtyIn(inst.dest, IRREG_VFPU_CTRL_BASE + inst.src1);
 		MV(gpr.R(inst.dest), gpr.R(IRREG_VFPU_CTRL_BASE + inst.src1));
-		gpr.MarkDirty(gpr.R(inst.dest), gpr.IsNormalized32(IRREG_VFPU_CTRL_BASE + inst.src1));
+		gpr.MarkGPRDirty(inst.dest, gpr.IsNormalized32(IRREG_VFPU_CTRL_BASE + inst.src1));
 		break;
 
 	case IROp::FMovFromGPR:

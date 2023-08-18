@@ -166,6 +166,9 @@ public:
 	void ReleaseSpillLockGPR(IRReg reg, IRReg reg2 = IRREG_INVALID, IRReg reg3 = IRREG_INVALID, IRReg reg4 = IRREG_INVALID);
 	void ReleaseSpillLockFPR(IRReg reg, IRReg reg2 = IRREG_INVALID, IRReg reg3 = IRREG_INVALID, IRReg reg4 = IRREG_INVALID);
 
+	void MarkGPRDirty(IRReg gpr, bool andNormalized32 = false);
+	void MarkGPRAsPointerDirty(IRReg gpr);
+
 protected:
 	virtual void SetupInitialRegs();
 	virtual const int *GetAllocationOrder(MIPSLoc type, int &count, int &base) const = 0;
