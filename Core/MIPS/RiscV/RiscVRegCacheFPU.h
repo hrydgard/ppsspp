@@ -32,7 +32,7 @@ public:
 	void Init(RiscVGen::RiscVEmitter *emitter);
 
 	// Returns a RISC-V register containing the requested MIPS register.
-	RiscVGen::RiscVReg MapReg(IRReg reg, RiscVJitConstants::MIPSMap mapFlags = RiscVJitConstants::MIPSMap::INIT);
+	RiscVGen::RiscVReg MapReg(IRReg reg, MIPSMap mapFlags = MIPSMap::INIT);
 
 	void MapInIn(IRReg rd, IRReg rs);
 	void MapDirtyIn(IRReg rd, IRReg rs, bool avoidLoad = true);
@@ -51,7 +51,11 @@ public:
 protected:
 	void SetupInitialRegs() override;
 	const int *GetAllocationOrder(MIPSLoc type, int &count, int &base) const override;
+
+	void LoadNativeReg(IRNativeReg nreg, IRReg first, int lanes) override;
 	void StoreNativeReg(IRNativeReg nreg, IRReg first, int lanes) override;
+	void SetNativeRegValue(IRNativeReg nreg, uint32_t imm) override;
+	void StoreRegValue(IRReg mreg, uint32_t imm) override;
 
 private:
 	int GetMipsRegOffset(IRReg r);

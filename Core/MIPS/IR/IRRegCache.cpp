@@ -509,6 +509,200 @@ void IRNativeRegCacheBase::FlushNativeReg(IRNativeReg nreg) {
 	nr[nreg].normalized32 = false;
 }
 
+IRNativeReg IRNativeRegCacheBase::MapNativeReg(MIPSLoc type, IRReg first, int lanes, MIPSMap flags) {
+	_assert_msg_(first != IRREG_INVALID, "Cannot map invalid register");
+	_assert_msg_(lanes >= 1 && lanes <= 4, "Cannot map %d lanes", lanes);
+	if (first == IRREG_INVALID || lanes < 0)
+		return -1;
+
+	// Let's see if it's already mapped or we need a new reg.
+	IRNativeReg nreg = mr[first].nReg;
+	if (mr[first].isStatic) {
+		_assert_msg_(nreg != -1, "MapIRReg on static without an nReg?");
+	} else {
+		switch (mr[first].loc) {
+		case MIPSLoc::REG_IMM:
+		case MIPSLoc::REG_AS_PTR:
+		case MIPSLoc::REG:
+			if (type != MIPSLoc::REG)
+				nreg = AllocateReg(type);
+			break;
+
+		case MIPSLoc::FREG:
+			if (type != MIPSLoc::FREG)
+				nreg = AllocateReg(type);
+			break;
+
+		case MIPSLoc::VREG:
+			if (type != MIPSLoc::VREG)
+				nreg = AllocateReg(type);
+			break;
+
+		case MIPSLoc::IMM:
+		case MIPSLoc::MEM:
+			nreg = AllocateReg(type);
+			break;
+		}
+	}
+
+	if (nreg != -1) {
+		// This will handle already mapped and new mappings.
+		MapNativeReg(type, nreg, first, lanes, flags);
+	}
+
+	return nreg;
+}
+
+void IRNativeRegCacheBase::MapNativeReg(MIPSLoc type, IRNativeReg nreg, IRReg first, int lanes, MIPSMap flags) {
+	pendingFlush_ = true;
+
+	// First, try to clean up any lane mismatches.
+	// It must either be in the same nreg and lane count, or not in an nreg.
+	for (int i = 0; i < lanes; ++i) {
+		auto &mreg = mr[first + i];
+		if (mreg.nReg != -1) {
+			// How many lanes is it currently in?
+			int oldlanes = 0;
+			for (IRReg m = nr[mreg.nReg].mipsReg; mr[m].nReg == mreg.nReg && m < IRREG_INVALID; ++m)
+				oldlanes++;
+
+			// We may need to flush if it goes outside or we're initing.
+			bool mismatch = oldlanes != lanes || mreg.lane != (lanes == 1 ? -1 : i);
+			if (mismatch) {
+				_assert_msg_(!mreg.isStatic, "Cannot MapNativeReg a static reg mismatch");
+				if ((flags & MIPSMap::NOINIT) != MIPSMap::NOINIT) {
+					// If we need init, we have to flush mismatches.
+					// TODO: Do a shuffle if interior only?
+					// TODO: We may also be motivated to have multiple read-only "views" or an IRReg.
+					// For example Vec4Scale v0..v3, v0..v3, v3
+					FlushNativeReg(mreg.nReg);
+				} else if (oldlanes != 1) {
+					// Even if we don't care about the current contents, we can't discard outside.
+					bool extendsBefore = mreg.lane > i;
+					bool extendsAfter = i + oldlanes - mreg.lane > lanes;
+					if (extendsBefore || extendsAfter)
+						FlushNativeReg(mreg.nReg);
+				}
+			}
+
+			// If it's still in a different reg, either discard or possibly transfer.
+			if (mreg.nReg != -1 && mreg.nReg != nreg) {
+				_assert_msg_(!mreg.isStatic, "Cannot MapNativeReg a static reg to a new reg");
+				if ((flags & MIPSMap::NOINIT) != MIPSMap::NOINIT) {
+					// We better not be trying to map to a different nreg if it's in one now.
+					// This might happen on some sort of transfer...
+					// TODO: Make a direct transfer, i.e. FREG -> VREG?
+					FlushNativeReg(mreg.nReg);
+				} else {
+					DiscardNativeReg(mreg.nReg);
+				}
+			}
+		}
+
+		// If somehow this is an imm and mapping to a multilane native reg (HI/LO?), we store it.
+		// TODO: Could check the others are imm and be smarter, but seems an unlikely case.
+		if (mreg.loc == MIPSLoc::IMM && lanes > 1) {
+			if ((flags & MIPSMap::NOINIT) != MIPSMap::NOINIT)
+				StoreRegValue(first + i, mreg.imm);
+			mreg.loc = MIPSLoc::MEM;
+			if (!mreg.isStatic)
+				mreg.nReg = -1;
+			mreg.imm = 0;
+		}
+	}
+
+	// Double check: everything should be in the same loc for multilane now.
+	for (int i = 1; i < lanes; ++i) {
+		_assert_(mr[first + i].loc == mr[first].loc);
+	}
+
+	bool markDirty = (flags & MIPSMap::DIRTY) == MIPSMap::DIRTY;
+	if (mr[first].nReg != nreg) {
+		nr[nreg].isDirty = markDirty;
+		nr[nreg].pointerified = false;
+		nr[nreg].normalized32 = (flags & MIPSMap::MARK_NORM32) == MIPSMap::MARK_NORM32;
+	}
+
+	// Alright, now to actually map.
+	if ((flags & MIPSMap::NOINIT) != MIPSMap::NOINIT) {
+		if (first == MIPS_REG_ZERO) {
+			_assert_msg_(lanes == 1, "Cannot use MIPS_REG_ZERO in multilane");
+			SetNativeRegValue(nreg, 0);
+			mr[first].loc = MIPSLoc::REG_IMM;
+			mr[first].imm = 0;
+		} else {
+			// Note: we checked above, everything is in the same loc if multilane.
+			switch (mr[first].loc) {
+			case MIPSLoc::IMM:
+				_assert_msg_(lanes == 1, "Not handling multilane imm here");
+				SetNativeRegValue(nreg, mr[first].imm);
+				// IMM is always dirty unless static.
+				if (!mr[first].isStatic)
+					nr[nreg].isDirty = true;
+
+				// If we are mapping dirty, it means we're gonna overwrite.
+				// So the imm value is no longer valid.
+				if ((flags & MIPSMap::DIRTY) == MIPSMap::DIRTY)
+					mr[first].loc = MIPSLoc::REG;
+				else
+					mr[first].loc = MIPSLoc::REG_IMM;
+				break;
+
+			case MIPSLoc::REG_IMM:
+				// If it's not dirty, we can keep it.
+				_assert_msg_(type == MIPSLoc::REG, "Should have flushed this reg already");
+				if ((flags & MIPSMap::DIRTY) == MIPSMap::DIRTY || lanes != 1)
+					mr[first].loc = MIPSLoc::REG;
+				for (int i = 1; i < lanes; ++i)
+					mr[first + i].loc = type;
+				break;
+
+			case MIPSLoc::REG_AS_PTR:
+				_assert_msg_(lanes == 1, "Should have flushed before getting here");
+				_assert_msg_(type == MIPSLoc::REG, "Should have flushed this reg already");
+				AdjustNativeRegAsPtr(nreg, false);
+				for (int i = 0; i < lanes; ++i)
+					mr[first + i].loc = type;
+				break;
+
+			case MIPSLoc::REG:
+			case MIPSLoc::FREG:
+			case MIPSLoc::VREG:
+				// Might be flipping from FREG -> VREG or something.
+				_assert_msg_(type == mr[first].loc, "Should have flushed this reg already");
+				for (int i = 0; i < lanes; ++i)
+					mr[first + i].loc = type;
+				break;
+
+			case MIPSLoc::MEM:
+				for (int i = 0; i < lanes; ++i)
+					mr[first + i].loc = type;
+				LoadNativeReg(nreg, first, lanes);
+				break;
+			}
+		}
+	} else {
+		for (int i = 0; i < lanes; ++i)
+			mr[first + i].loc = type;
+	}
+
+	for (int i = 0; i < lanes; ++i) {
+		mr[first + i].nReg = nreg;
+		mr[first + i].lane = lanes == 1 ? -1 : i;
+	}
+
+	nr[nreg].mipsReg = first;
+
+	if (markDirty) {
+		nr[nreg].isDirty = true;
+		nr[nreg].pointerified = false;
+		nr[nreg].normalized32 = (flags & MIPSMap::MARK_NORM32) == MIPSMap::MARK_NORM32;
+		_assert_(first != MIPS_REG_ZERO);
+	} else if ((flags & MIPSMap::MARK_NORM32) == MIPSMap::MARK_NORM32) {
+		nr[nreg].normalized32 = true;
+	}
+}
+
 void IRNativeRegCacheBase::AdjustNativeRegAsPtr(IRNativeReg nreg, bool state) {
 	// This isn't necessary to implement if REG_AS_PTR is unsupported entirely.
 	_assert_msg_(false, "AdjustNativeRegAsPtr unimplemented");

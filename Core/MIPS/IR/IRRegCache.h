@@ -77,6 +77,20 @@ private:
 	IRWriter *ir_;
 };
 
+// Initing is the default so the flag is reversed.
+enum class MIPSMap {
+	INIT = 0,
+	DIRTY = 1,
+	NOINIT = 2 | DIRTY,
+	MARK_NORM32 = 4,
+};
+static inline MIPSMap operator |(const MIPSMap &lhs, const MIPSMap &rhs) {
+	return MIPSMap((int)lhs | (int)rhs);
+}
+static inline MIPSMap operator &(const MIPSMap &lhs, const MIPSMap &rhs) {
+	return MIPSMap((int)lhs & (int)rhs);
+}
+
 class IRNativeRegCacheBase {
 protected:
 	enum class MIPSLoc {
@@ -90,7 +104,7 @@ protected:
 		REG_IMM,
 		// In a native floating-point reg.
 		FREG,
-		// In a native vector reg.
+		// In a native vector reg.  Note: if FREGs and VREGS overlap, just use FREG.
 		VREG,
 		// Away in memory (in the mips context struct.)
 		MEM,
@@ -183,7 +197,17 @@ protected:
 	virtual void DiscardNativeReg(IRNativeReg nreg);
 	virtual void FlushNativeReg(IRNativeReg nreg);
 	virtual void AdjustNativeRegAsPtr(IRNativeReg nreg, bool state);
+	virtual void MapNativeReg(MIPSLoc type, IRNativeReg nreg, IRReg first, int lanes, MIPSMap flags);
+	virtual IRNativeReg MapNativeReg(MIPSLoc type, IRReg first, int lanes, MIPSMap flags);
+
+	// Load data from memory (possibly multiple lanes) into a native reg.
+	virtual void LoadNativeReg(IRNativeReg nreg, IRReg first, int lanes) = 0;
+	// Store data in a native reg back into memory.
 	virtual void StoreNativeReg(IRNativeReg nreg, IRReg first, int lanes) = 0;
+	// Set a native reg to a specific integer value.
+	virtual void SetNativeRegValue(IRNativeReg nreg, uint32_t imm) = 0;
+	// Store the imm value for a reg to memory (not currently in a native reg.)
+	virtual void StoreRegValue(IRReg mreg, uint32_t imm) = 0;
 
 	void SetSpillLockIRIndex(IRReg reg, IRReg reg2, IRReg reg3, IRReg reg4, int offset, int index);
 

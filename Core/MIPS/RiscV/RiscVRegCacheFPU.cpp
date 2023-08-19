@@ -57,36 +57,10 @@ RiscVReg RiscVRegCacheFPU::MapReg(IRReg mipsReg, MIPSMap mapFlags) {
 	_dbg_assert_(IsValidFPR(mipsReg));
 	_dbg_assert_(mr[mipsReg + 32].loc == MIPSLoc::MEM || mr[mipsReg + 32].loc == MIPSLoc::FREG);
 
-	pendingFlush_ = true;
-
-	// Let's see if it's already mapped. If so we just need to update the dirty flag.
-	// We don't need to check for NOINIT because we assume that anyone who maps
-	// with that flag immediately writes a "known" value to the register.
-	if (mr[mipsReg + 32].loc == MIPSLoc::FREG) {
-		_assert_msg_(nr[mr[mipsReg + 32].nReg].mipsReg == mipsReg + 32, "FPR mapping out of sync, IR=%i", mipsReg);
-		if ((mapFlags & MIPSMap::DIRTY) == MIPSMap::DIRTY) {
-			nr[mr[mipsReg + 32].nReg].isDirty = true;
-		}
-		return (RiscVReg)(mr[mipsReg + 32].nReg + F0);
-	}
-
-	// Okay, not mapped, so we need to allocate an RV register.
-	IRNativeReg nreg = AllocateReg(MIPSLoc::FREG);
-	if (nreg != -1) {
-		// That means it's free. Grab it, and load the value into it (if requested).
-		nr[nreg].isDirty = (mapFlags & MIPSMap::DIRTY) == MIPSMap::DIRTY;
-		if ((mapFlags & MIPSMap::NOINIT) != MIPSMap::NOINIT) {
-			if (mr[mipsReg + 32].loc == MIPSLoc::MEM) {
-				emit_->FL(32, (RiscVReg)(F0 + nreg), CTXREG, GetMipsRegOffset(mipsReg + 32));
-			}
-		}
-		nr[nreg].mipsReg = mipsReg + 32;
-		mr[mipsReg + 32].loc = MIPSLoc::FREG;
-		mr[mipsReg + 32].nReg = nreg;
+	IRNativeReg nreg = MapNativeReg(MIPSLoc::FREG, mipsReg + 32, 1, mapFlags);
+	if (nreg != -1)
 		return (RiscVReg)(F0 + nreg);
-	}
-
-	return (RiscVReg)(F0 + nreg);
+	return INVALID_REG;
 }
 
 void RiscVRegCacheFPU::MapInIn(IRReg rd, IRReg rs) {
@@ -163,6 +137,18 @@ RiscVReg RiscVRegCacheFPU::Map4DirtyInTemp(IRReg rdbase, IRReg rsbase, bool avoi
 	return temp;
 }
 
+void RiscVRegCacheFPU::LoadNativeReg(IRNativeReg nreg, IRReg first, int lanes) {
+	RiscVReg r = (RiscVReg)(F0 + nreg);
+	_dbg_assert_(r >= F0 && r <= F31);
+	// Multilane not yet supported.
+	_assert_(lanes == 1);
+	if (mr[first].loc == MIPSLoc::FREG) {
+		emit_->FL(32, r, CTXREG, GetMipsRegOffset(first));
+	} else {
+		_assert_msg_(mr[first].loc == MIPSLoc::FREG, "Cannot store this type: %d", (int)mr[first].loc);
+	}
+}
+
 void RiscVRegCacheFPU::StoreNativeReg(IRNativeReg nreg, IRReg first, int lanes) {
 	RiscVReg r = (RiscVReg)(F0 + nreg);
 	_dbg_assert_(r >= F0 && r <= F31);
@@ -173,6 +159,14 @@ void RiscVRegCacheFPU::StoreNativeReg(IRNativeReg nreg, IRReg first, int lanes) 
 	} else {
 		_assert_msg_(mr[first].loc == MIPSLoc::FREG, "Cannot store this type: %d", (int)mr[first].loc);
 	}
+}
+
+void RiscVRegCacheFPU::SetNativeRegValue(IRNativeReg nreg, uint32_t imm) {
+	_assert_msg_(false, "Set float to imm is unsupported");
+}
+
+void RiscVRegCacheFPU::StoreRegValue(IRReg mreg, uint32_t imm) {
+	_assert_msg_(false, "Storing imms to floats is unsupported");
 }
 
 void RiscVRegCacheFPU::FlushR(IRReg r) {
@@ -226,7 +220,7 @@ void RiscVRegCacheFPU::FlushAll() {
 
 		if (nr[a].isDirty) {
 			_assert_(m != MIPS_REG_INVALID);
-			emit_->FS(32, (RiscVReg)(F0 + a), CTXREG, GetMipsRegOffset(m));
+			StoreNativeReg(a, m, 1);
 
 			mr[m].loc = MIPSLoc::MEM;
 			mr[m].nReg = (int)INVALID_REG;

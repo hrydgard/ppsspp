@@ -35,20 +35,6 @@ const RiscVGen::RiscVReg MEMBASEREG = RiscVGen::X27;
 const RiscVGen::RiscVReg SCRATCH1 = RiscVGen::X10;
 const RiscVGen::RiscVReg SCRATCH2 = RiscVGen::X11;
 
-// Initing is the default so the flag is reversed.
-enum class MIPSMap {
-	INIT = 0,
-	DIRTY = 1,
-	NOINIT = 2 | DIRTY,
-	MARK_NORM32 = 4,
-};
-static inline MIPSMap operator |(const MIPSMap &lhs, const MIPSMap &rhs) {
-	return MIPSMap((int)lhs | (int)rhs);
-}
-static inline MIPSMap operator &(const MIPSMap &lhs, const MIPSMap &rhs) {
-	return MIPSMap((int)lhs & (int)rhs);
-}
-
 enum class MapType {
 	AVOID_LOAD,
 	AVOID_LOAD_MARK_NORM32,
@@ -67,7 +53,7 @@ public:
 	RiscVGen::RiscVReg TryMapTempImm(IRReg);
 
 	// Returns an ARM register containing the requested MIPS register.
-	RiscVGen::RiscVReg MapReg(IRReg reg, RiscVJitConstants::MIPSMap mapFlags = RiscVJitConstants::MIPSMap::INIT);
+	RiscVGen::RiscVReg MapReg(IRReg reg, MIPSMap mapFlags = MIPSMap::INIT);
 	RiscVGen::RiscVReg MapRegAsPointer(IRReg reg);
 
 	bool IsNormalized32(IRReg reg);
@@ -99,13 +85,13 @@ protected:
 	const StaticAllocation *GetStaticAllocations(int &count) const override;
 	const int *GetAllocationOrder(MIPSLoc type, int &count, int &base) const override;
 	void AdjustNativeRegAsPtr(IRNativeReg nreg, bool state) override;
+
+	void LoadNativeReg(IRNativeReg nreg, IRReg first, int lanes) override;
 	void StoreNativeReg(IRNativeReg nreg, IRReg first, int lanes) override;
+	void SetNativeRegValue(IRNativeReg nreg, uint32_t imm) override;
+	void StoreRegValue(IRReg mreg, uint32_t imm) override;
 
 private:
-	void MapRegTo(RiscVGen::RiscVReg reg, IRReg mipsReg, RiscVJitConstants::MIPSMap mapFlags);
-	RiscVGen::RiscVReg RiscVRegForFlush(IRReg r);
-	void SetRegImm(RiscVGen::RiscVReg reg, u64 imm);
-	void AddMemBase(RiscVGen::RiscVReg reg);
 	int GetMipsRegOffset(IRReg r);
 
 	RiscVGen::RiscVEmitter *emit_ = nullptr;

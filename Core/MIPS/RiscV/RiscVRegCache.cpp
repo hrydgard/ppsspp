@@ -171,7 +171,7 @@ RiscVGen::RiscVReg RiscVRegCache::Normalize32(IRReg mipsReg, RiscVGen::RiscVReg 
 		if (destReg == INVALID_REG) {
 			// If we can pointerify, SEXT_W will be enough.
 			if (!jo_->enablePointerify)
-				emit_->SUB((RiscVReg)mr[mipsReg].nReg, (RiscVReg)mr[mipsReg].nReg, MEMBASEREG);
+				AdjustNativeRegAsPtr(mr[mipsReg].nReg, false);
 			emit_->SEXT_W((RiscVReg)mr[mipsReg].nReg, (RiscVReg)mr[mipsReg].nReg);
 			mr[mipsReg].loc = MIPSLoc::REG;
 			nr[mr[mipsReg].nReg].normalized32 = true;
@@ -186,76 +186,6 @@ RiscVGen::RiscVReg RiscVRegCache::Normalize32(IRReg mipsReg, RiscVGen::RiscVReg 
 	}
 
 	return destReg == INVALID_REG ? reg : destReg;
-}
-
-void RiscVRegCache::SetRegImm(RiscVReg reg, u64 imm) {
-	_dbg_assert_(reg != R_ZERO || imm == 0);
-	_dbg_assert_(reg >= X0 && reg <= X31);
-	// TODO: Could optimize this more for > 32 bit constants.
-	emit_->LI(reg, imm);
-	_dbg_assert_(!nr[reg].pointerified);
-	nr[reg].normalized32 = imm == (u64)(s64)(s32)imm;
-}
-
-void RiscVRegCache::MapRegTo(RiscVReg reg, IRReg mipsReg, MIPSMap mapFlags) {
-	_dbg_assert_(reg > X0 && reg <= X31);
-	_dbg_assert_(IsValidGPR(mipsReg));
-	_dbg_assert_(!mr[mipsReg].isStatic);
-	if (mr[mipsReg].isStatic) {
-		ERROR_LOG(JIT, "Cannot MapRegTo static register %d", mipsReg);
-		return;
-	}
-	nr[reg].isDirty = (mapFlags & MIPSMap::DIRTY) == MIPSMap::DIRTY;
-	if ((mapFlags & MIPSMap::NOINIT) != MIPSMap::NOINIT) {
-		if (mipsReg == MIPS_REG_ZERO) {
-			// If we get a request to load the zero register, at least we won't spend
-			// time on a memory access...
-			emit_->LI(reg, 0);
-
-			// This way, if we SetImm() it, we'll keep it.
-			mr[mipsReg].loc = MIPSLoc::REG_IMM;
-			mr[mipsReg].imm = 0;
-			nr[reg].normalized32 = true;
-		} else {
-			switch (mr[mipsReg].loc) {
-			case MIPSLoc::MEM:
-				emit_->LW(reg, CTXREG, GetMipsRegOffset(mipsReg));
-				mr[mipsReg].loc = MIPSLoc::REG;
-				nr[reg].normalized32 = true;
-				break;
-			case MIPSLoc::IMM:
-				SetRegImm(reg, mr[mipsReg].imm);
-				// IMM is always dirty.
-				nr[reg].isDirty = true;
-
-				// If we are mapping dirty, it means we're gonna overwrite.
-				// So the imm value is no longer valid.
-				if ((mapFlags & MIPSMap::DIRTY) == MIPSMap::DIRTY)
-					mr[mipsReg].loc = MIPSLoc::REG;
-				else
-					mr[mipsReg].loc = MIPSLoc::REG_IMM;
-				break;
-			case MIPSLoc::REG_IMM:
-				// If it's not dirty, we can keep it.
-				if (nr[reg].isDirty)
-					mr[mipsReg].loc = MIPSLoc::REG;
-				break;
-			default:
-				_assert_msg_(mr[mipsReg].loc != MIPSLoc::REG_AS_PTR, "MapRegTo with a pointer?");
-				mr[mipsReg].loc = MIPSLoc::REG;
-				break;
-			}
-		}
-	} else {
-		_dbg_assert_(mipsReg != MIPS_REG_ZERO);
-		_dbg_assert_(nr[reg].isDirty);
-		mr[mipsReg].loc = MIPSLoc::REG;
-	}
-	nr[reg].mipsReg = mipsReg;
-	nr[reg].pointerified = false;
-	if (nr[reg].isDirty)
-		nr[reg].normalized32 = (mapFlags & MIPSMap::MARK_NORM32) == MIPSMap::MARK_NORM32;
-	mr[mipsReg].nReg = reg;
 }
 
 RiscVReg RiscVRegCache::TryMapTempImm(IRReg r) {
@@ -293,103 +223,14 @@ RiscVReg RiscVRegCache::GetAndLockTempR() {
 RiscVReg RiscVRegCache::MapReg(IRReg mipsReg, MIPSMap mapFlags) {
 	_dbg_assert_(IsValidGPR(mipsReg));
 
-	// TODO: Optimization to force HI/LO to be combined?
-
 	if (mipsReg == IRREG_INVALID) {
 		ERROR_LOG(JIT, "Cannot map invalid register");
 		return INVALID_REG;
 	}
 
-	RiscVReg riscvReg = (RiscVReg)mr[mipsReg].nReg;
-
-	if (mr[mipsReg].isStatic) {
-		_dbg_assert_(riscvReg != INVALID_REG);
-		if (riscvReg == INVALID_REG) {
-			ERROR_LOG(JIT, "MapReg on statically mapped reg %d failed - riscvReg got lost", mipsReg);
-		}
-		if (mr[mipsReg].loc == MIPSLoc::IMM) {
-			// Back into the register, with or without the imm value.
-			// If noinit, the MAP_DIRTY check below will take care of the rest.
-			if ((mapFlags & MIPSMap::NOINIT) != MIPSMap::NOINIT) {
-				// This may set normalized32 to true.
-				SetRegImm(riscvReg, mr[mipsReg].imm);
-				mr[mipsReg].loc = MIPSLoc::REG_IMM;
-				nr[riscvReg].pointerified = false;
-			}
-			if ((mapFlags & MIPSMap::MARK_NORM32) == MIPSMap::MARK_NORM32)
-				nr[riscvReg].normalized32 = true;
-		} else if (mr[mipsReg].loc == MIPSLoc::REG_AS_PTR) {
-			// Was mapped as pointer, now we want it mapped as a value, presumably to
-			// add or subtract stuff to it.
-			if ((mapFlags & MIPSMap::NOINIT) != MIPSMap::NOINIT) {
-#ifdef MASKED_PSP_MEMORY
-				_dbg_assert_(!nr[riscvReg].isDirty && (mapFlags & MIPSMap::DIRTY) != MIPSMap::DIRTY);
-#endif
-				emit_->SUB(riscvReg, riscvReg, MEMBASEREG);
-			}
-			mr[mipsReg].loc = MIPSLoc::REG;
-			nr[riscvReg].normalized32 = false;
-		}
-		// Erasing the imm on dirty (necessary since otherwise we will still think it's ML_RVREG_IMM and return
-		// true for IsImm and calculate crazily wrong things).  /unknown
-		if ((mapFlags & MIPSMap::DIRTY) == MIPSMap::DIRTY) {
-			// As we are dirty, can't keep RVREG_IMM, we will quickly drift out of sync
-			mr[mipsReg].loc = MIPSLoc::REG;
-			nr[riscvReg].pointerified = false;
-			nr[riscvReg].isDirty = true;
-			nr[riscvReg].normalized32 = (mapFlags & MIPSMap::MARK_NORM32) == MIPSMap::MARK_NORM32;
-		} else if ((mapFlags & MIPSMap::MARK_NORM32) == MIPSMap::MARK_NORM32) {
-			nr[riscvReg].normalized32 = true;
-		}
-		return (RiscVReg)mr[mipsReg].nReg;
-	}
-
-	// Let's see if it's already mapped. If so we just need to update the dirty flag.
-	// We don't need to check for ML_NOINIT because we assume that anyone who maps
-	// with that flag immediately writes a "known" value to the register.
-	if (mr[mipsReg].loc == MIPSLoc::REG || mr[mipsReg].loc == MIPSLoc::REG_IMM) {
-		_dbg_assert_(riscvReg != INVALID_REG && nr[riscvReg].mipsReg == mipsReg);
-		if (nr[riscvReg].mipsReg != mipsReg) {
-			ERROR_LOG_REPORT(JIT, "Register mapping out of sync! %i", mipsReg);
-		}
-		if ((mapFlags & MIPSMap::DIRTY) == MIPSMap::DIRTY) {
-			// Mapping dirty means the old imm value is invalid.
-			mr[mipsReg].loc = MIPSLoc::REG;
-			nr[riscvReg].isDirty = true;
-			// If reg is written to, pointerification is lost.
-			nr[riscvReg].pointerified = false;
-			nr[riscvReg].normalized32 = (mapFlags & MIPSMap::MARK_NORM32) == MIPSMap::MARK_NORM32;
-		} else if ((mapFlags & MIPSMap::MARK_NORM32) == MIPSMap::MARK_NORM32) {
-			nr[riscvReg].normalized32 = true;
-		}
-
-		return (RiscVReg)mr[mipsReg].nReg;
-	} else if (mr[mipsReg].loc == MIPSLoc::REG_AS_PTR) {
-		// Was mapped as pointer, now we want it mapped as a value, presumably to
-		// add or subtract stuff to it.
-		if ((mapFlags & MIPSMap::NOINIT) != MIPSMap::NOINIT) {
-#ifdef MASKED_PSP_MEMORY
-			_dbg_assert_(!nr[riscvReg].isDirty && (mapFlags & MAP_DIRTY) == 0);
-#endif
-			emit_->SUB(riscvReg, riscvReg, MEMBASEREG);
-		}
-		mr[mipsReg].loc = MIPSLoc::REG;
-		if ((mapFlags & MIPSMap::DIRTY) == MIPSMap::DIRTY) {
-			nr[riscvReg].isDirty = true;
-		}
-		// Let's always set this false, the SUB won't normalize.
-		nr[riscvReg].normalized32 = false;
-		return (RiscVReg)mr[mipsReg].nReg;
-	}
-
 	// Okay, not mapped, so we need to allocate an RV register.
-	RiscVReg reg = (RiscVReg)AllocateReg(MIPSLoc::REG);
-	if (reg != INVALID_REG) {
-		// Grab it, and load the value into it (if requested).
-		MapRegTo(reg, mipsReg, mapFlags);
-	}
-
-	return reg;
+	IRNativeReg nreg = MapNativeReg(MIPSLoc::REG, mipsReg, 1, mapFlags);
+	return (RiscVReg)nreg;
 }
 
 RiscVReg RiscVRegCache::MapRegAsPointer(IRReg reg) {
@@ -413,10 +254,10 @@ RiscVReg RiscVRegCache::MapRegAsPointer(IRReg reg) {
 		if (!jo_->enablePointerify) {
 			// Convert to a pointer by adding the base and clearing off the top bits.
 			// If SP, we can probably avoid the top bit clear, let's play with that later.
-			AddMemBase(riscvReg);
+			AdjustNativeRegAsPtr(mr[reg].nReg, true);
 			mr[reg].loc = MIPSLoc::REG_AS_PTR;
 		} else if (!nr[riscvReg].pointerified) {
-			AddMemBase(riscvReg);
+			AdjustNativeRegAsPtr(mr[reg].nReg, true);
 			nr[riscvReg].pointerified = true;
 		}
 		nr[riscvReg].normalized32 = false;
@@ -424,28 +265,6 @@ RiscVReg RiscVRegCache::MapRegAsPointer(IRReg reg) {
 		ERROR_LOG(JIT, "MapRegAsPointer : MapReg failed to allocate a register?");
 	}
 	return riscvReg;
-}
-
-void RiscVRegCache::AddMemBase(RiscVGen::RiscVReg reg) {
-	_assert_(reg >= X0 && reg <= X31);
-#ifdef MASKED_PSP_MEMORY
-	// This destroys the value...
-	_dbg_assert_(!nr[reg].isDirty);
-	emit_->SLLIW(reg, reg, 2);
-	emit_->SRLIW(reg, reg, 2);
-	emit_->ADD(reg, reg, MEMBASEREG);
-#else
-	// Clear the top bits to be safe.
-	if (cpu_info.RiscV_Zba) {
-		emit_->ADD_UW(reg, reg, MEMBASEREG);
-	} else {
-		_assert_(XLEN == 64);
-		emit_->SLLI(reg, reg, 32);
-		emit_->SRLI(reg, reg, 32);
-		emit_->ADD(reg, reg, MEMBASEREG);
-	}
-#endif
-	nr[reg].normalized32 = false;
 }
 
 void RiscVRegCache::MapIn(IRReg rs) {
@@ -503,8 +322,26 @@ void RiscVRegCache::MapDirtyDirtyInIn(IRReg rd1, IRReg rd2, IRReg rs, IRReg rt, 
 
 void RiscVRegCache::AdjustNativeRegAsPtr(IRNativeReg nreg, bool state) {
 	RiscVReg r = (RiscVReg)(X0 + nreg);
+	_assert_(r >= X0 && r <= X31);
 	if (state) {
-		AddMemBase(r);
+#ifdef MASKED_PSP_MEMORY
+		// This destroys the value...
+		_dbg_assert_(!nr[nreg].isDirty);
+		emit_->SLLIW(r, r, 2);
+		emit_->SRLIW(r, r, 2);
+		emit_->ADD(r, r, MEMBASEREG);
+#else
+		// Clear the top bits to be safe.
+		if (cpu_info.RiscV_Zba) {
+			emit_->ADD_UW(r, r, MEMBASEREG);
+		} else {
+			_assert_(XLEN == 64);
+			emit_->SLLI(r, r, 32);
+			emit_->SRLI(r, r, 32);
+			emit_->ADD(r, r, MEMBASEREG);
+		}
+#endif
+		nr[nreg].normalized32 = false;
 	} else {
 #ifdef MASKED_PSP_MEMORY
 		_dbg_assert_(!nr[nreg].isDirty);
@@ -512,6 +349,21 @@ void RiscVRegCache::AdjustNativeRegAsPtr(IRNativeReg nreg, bool state) {
 		emit_->SUB(r, r, MEMBASEREG);
 		nr[nreg].normalized32 = false;
 	}
+}
+
+void RiscVRegCache::LoadNativeReg(IRNativeReg nreg, IRReg first, int lanes) {
+	RiscVReg r = (RiscVReg)(X0 + nreg);
+	_dbg_assert_(r > X0 && r <= X31);
+	_dbg_assert_(first != MIPS_REG_ZERO);
+	// Multilane not yet supported.
+	_assert_(lanes == 1 || (lanes == 2 && first == IRREG_LO));
+	if (lanes == 1)
+		emit_->LW(r, CTXREG, GetMipsRegOffset(first));
+	else if (lanes == 2)
+		emit_->LD(r, CTXREG, GetMipsRegOffset(first));
+	else
+		_assert_(false);
+	nr[nreg].normalized32 = true;
 }
 
 void RiscVRegCache::StoreNativeReg(IRNativeReg nreg, IRReg first, int lanes) {
@@ -527,6 +379,44 @@ void RiscVRegCache::StoreNativeReg(IRNativeReg nreg, IRReg first, int lanes) {
 		emit_->SD(r, CTXREG, GetMipsRegOffset(first));
 	else
 		_assert_(false);
+}
+
+void RiscVRegCache::SetNativeRegValue(IRNativeReg nreg, uint32_t imm) {
+	RiscVReg r = (RiscVReg)(X0 + nreg);
+	if (r == R_ZERO && imm == 0)
+		return;
+	_dbg_assert_(r > X0 && r <= X31);
+	emit_->LI(r, (int32_t)imm);
+
+	// We always use 32-bit immediates, so this is normalized now.
+	nr[nreg].normalized32 = true;
+}
+
+void RiscVRegCache::StoreRegValue(IRReg mreg, uint32_t imm) {
+	_assert_(mreg != MIPS_REG_ZERO);
+	// Try to optimize using a different reg.
+	RiscVReg storeReg = INVALID_REG;
+
+	// Zero is super easy.
+	if (imm == 0) {
+		storeReg = R_ZERO;
+	} else {
+		// Could we get lucky?  Check for an exact match in another rvreg.
+		for (int i = 0; i < TOTAL_MAPPABLE_IRREGS; ++i) {
+			if (mr[i].loc == MIPSLoc::REG_IMM && mr[i].imm == imm) {
+				// Awesome, let's just store this reg.
+				storeReg = (RiscVReg)mr[i].nReg;
+				break;
+			}
+		}
+
+		if (storeReg == INVALID_REG) {
+			emit_->LI(SCRATCH1, imm);
+			storeReg = SCRATCH1;
+		}
+	}
+
+	emit_->SW(storeReg, CTXREG, GetMipsRegOffset(mreg));
 }
 
 void RiscVRegCache::DiscardR(IRReg mipsReg) {
@@ -545,41 +435,6 @@ void RiscVRegCache::DiscardR(IRReg mipsReg) {
 	}
 }
 
-RiscVReg RiscVRegCache::RiscVRegForFlush(IRReg r) {
-	_dbg_assert_(IsValidGPR(r));
-	if (mr[r].isStatic)
-		return INVALID_REG;  // No flushing needed
-
-	switch (mr[r].loc) {
-	case MIPSLoc::IMM:
-		if (r == MIPS_REG_ZERO) {
-			return INVALID_REG;
-		}
-		// Zero is super easy.
-		if (mr[r].imm == 0) {
-			return R_ZERO;
-		}
-		// Could we get lucky?  Check for an exact match in another rvreg.
-		for (int i = 0; i < TOTAL_MAPPABLE_IRREGS; ++i) {
-			if (mr[i].loc == MIPSLoc::REG_IMM && mr[i].imm == mr[r].imm) {
-				// Awesome, let's just store this reg.
-				return (RiscVReg)mr[i].nReg;
-			}
-		}
-		return INVALID_REG;
-
-	case MIPSLoc::REG:
-	case MIPSLoc::REG_IMM:
-	case MIPSLoc::REG_AS_PTR:
-	case MIPSLoc::MEM:
-		return INVALID_REG;
-
-	default:
-		ERROR_LOG_REPORT(JIT, "RiscVRegForFlush: MipsReg %d with invalid location %d", r, (int)mr[r].loc);
-		return INVALID_REG;
-	}
-}
-
 void RiscVRegCache::FlushR(IRReg r) {
 	_dbg_assert_(IsValidGPRNoZero(r));
 	if (mr[r].isStatic) {
@@ -590,15 +445,8 @@ void RiscVRegCache::FlushR(IRReg r) {
 	switch (mr[r].loc) {
 	case MIPSLoc::IMM:
 		// IMM is always "dirty".
-		// TODO: HI/LO optimization?
 		if (r != MIPS_REG_ZERO) {
-			// Try to optimize using a different reg.
-			RiscVReg storeReg = RiscVRegForFlush(r);
-			if (storeReg == INVALID_REG) {
-				SetRegImm(SCRATCH1, mr[r].imm);
-				storeReg = SCRATCH1;
-			}
-			emit_->SW(storeReg, CTXREG, GetMipsRegOffset(r));
+			StoreRegValue(r, mr[r].imm);
 			mr[r].loc = MIPSLoc::MEM;
 			mr[r].nReg = (int)INVALID_REG;
 			mr[r].imm = -1;
@@ -636,10 +484,10 @@ void RiscVRegCache::FlushAll() {
 		IRReg mipsReg = IRReg(i);
 		if (mr[i].isStatic) {
 			RiscVReg riscvReg = (RiscVReg)mr[i].nReg;
-			// Cannot leave any IMMs in registers, not even ML_ARMREG_IMM, can confuse the regalloc later if this flush is mid-block
+			// Cannot leave any IMMs in registers, not even MIPSLoc::REG_IMM, can confuse the regalloc later if this flush is mid-block
 			// due to an interpreter fallback that changes the register.
 			if (mr[i].loc == MIPSLoc::IMM) {
-				SetRegImm((RiscVReg)mr[i].nReg, mr[i].imm);
+				SetNativeRegValue(mr[i].nReg, mr[i].imm);
 				mr[i].loc = MIPSLoc::REG;
 				nr[riscvReg].pointerified = false;
 			} else if (mr[i].loc == MIPSLoc::REG_IMM) {
@@ -650,10 +498,7 @@ void RiscVRegCache::FlushAll() {
 				}
 				mr[i].loc = MIPSLoc::REG;
 			} else if (mr[i].loc == MIPSLoc::REG_AS_PTR) {
-#ifdef MASKED_PSP_MEMORY
-				_dbg_assert_(!nr[riscvReg].isDirty);
-#endif
-				emit_->SUB(riscvReg, riscvReg, MEMBASEREG);
+				AdjustNativeRegAsPtr(mr[i].nReg, false);
 				mr[i].loc = MIPSLoc::REG;
 			}
 			if (i != MIPS_REG_ZERO && mr[i].nReg == INVALID_REG) {
@@ -671,7 +516,7 @@ void RiscVRegCache::FlushAll() {
 		if (allocs[i].pointerified && !nr[allocs[i].nr].pointerified && jo_->enablePointerify) {
 			// Re-pointerify
 			_dbg_assert_(mr[allocs[i].mr].loc == MIPSLoc::REG);
-			AddMemBase((RiscVReg)allocs[i].nr);
+			AdjustNativeRegAsPtr(allocs[i].nr, true);
 			nr[allocs[i].nr].pointerified = true;
 		} else if (!allocs[i].pointerified) {
 			// If this register got pointerified on the way, mark it as not.
