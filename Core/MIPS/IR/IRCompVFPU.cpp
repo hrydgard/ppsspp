@@ -263,7 +263,7 @@ namespace MIPSComp {
 			if (zeroedLanes != -1) {
 				InitRegs(vregs, tempReg);
 				ir.Write(IROp::Vec4Init, vregs[0], (int)Vec4Init::AllZERO);
-				ir.Write({ IROp::Vec4Blend, vregs[0], origV[0], vregs[0], zeroedLanes });
+				ir.Write(IROp::Vec4Blend, vregs[0], origV[0], vregs[0], zeroedLanes);
 				return;
 			}
 		}
@@ -383,7 +383,7 @@ namespace MIPSComp {
 			GetVectorRegs(origV, sz, vectorReg);
 
 			// Just keep the original values where it was masked.
-			ir.Write({ IROp::Vec4Blend, origV[0], vregs[0], origV[0], js.VfpuWriteMask() });
+			ir.Write(IROp::Vec4Blend, origV[0], vregs[0], origV[0], js.VfpuWriteMask());
 
 			// So that saturate works, change it back.
 			for (int i = 0; i < 4; ++i)
@@ -465,7 +465,7 @@ namespace MIPSComp {
 			} else {
 				// Let's not even bother with "vertical" loads for now.
 				if (!g_Config.bFastMemory)
-					ir.Write({ IROp::ValidateAddress128, { 0 }, (u8)rs, 0, (u32)imm });
+					ir.Write(IROp::ValidateAddress128, 0, (u8)rs, 0, (u32)imm);
 				ir.Write(IROp::LoadFloat, vregs[0], rs, ir.AddConstant(imm));
 				ir.Write(IROp::LoadFloat, vregs[1], rs, ir.AddConstant(imm + 4));
 				ir.Write(IROp::LoadFloat, vregs[2], rs, ir.AddConstant(imm + 8));
@@ -479,7 +479,7 @@ namespace MIPSComp {
 			} else {
 				// Let's not even bother with "vertical" stores for now.
 				if (!g_Config.bFastMemory)
-					ir.Write({ IROp::ValidateAddress128, { 0 }, (u8)rs, 1, (u32)imm });
+					ir.Write(IROp::ValidateAddress128, 0, (u8)rs, 1, (u32)imm);
 				ir.Write(IROp::StoreFloat, vregs[0], rs, ir.AddConstant(imm));
 				ir.Write(IROp::StoreFloat, vregs[1], rs, ir.AddConstant(imm + 4));
 				ir.Write(IROp::StoreFloat, vregs[2], rs, ir.AddConstant(imm + 8));
@@ -756,7 +756,7 @@ namespace MIPSComp {
 				// Nice example of this in Fat Princess (US) in block 088181A0 (hot.)
 				// Create a temporary copy of S with the last element zeroed.
 				ir.Write(IROp::Vec4Init, IRVTEMP_0, (int)Vec4Init::AllZERO);
-				ir.Write({ IROp::Vec4Blend, IRVTEMP_0, IRVTEMP_0, sregs[0], 0x7 });
+				ir.Write(IROp::Vec4Blend, IRVTEMP_0, IRVTEMP_0, sregs[0], 0x7);
 				// Now we can just dot like normal, with the last element effectively masked.
 				ir.Write(IROp::Vec4Dot, dregs[0], IRVTEMP_0, sregs[0] == tregs[0] ? IRVTEMP_0 : tregs[0]);
 				ApplyPrefixD(dregs, V_Single, vd);
@@ -899,7 +899,7 @@ namespace MIPSComp {
 				if (opFunc == IROp::Nop)
 					DISABLE;
 				ir.Write(opFunc, IRVTEMP_0, sregs[0], tregs[0]);
-				ir.Write({ IROp::Vec4Blend, dregs[0], dregs[0], IRVTEMP_0, 0x7 });
+				ir.Write(IROp::Vec4Blend, dregs[0], dregs[0], IRVTEMP_0, 0x7);
 				ApplyPrefixD(dregs, sz, _VD);
 				return;
 			}
@@ -1045,10 +1045,10 @@ namespace MIPSComp {
 			} else if (IsVec3of4(sz, sregs) && IsVec3of4(sz, dregs) && irop != IROp::Nop && opts.preferVec4) {
 				// This is a simple case of vmov.t, just blend.
 				if (irop == IROp::Vec4Mov) {
-					ir.Write({ IROp::Vec4Blend, dregs[0], dregs[0], sregs[0], 0x7 });
+					ir.Write(IROp::Vec4Blend, dregs[0], dregs[0], sregs[0], 0x7);
 				} else {
 					ir.Write(irop, IRVTEMP_0, sregs[0]);
-					ir.Write({ IROp::Vec4Blend, dregs[0], dregs[0], IRVTEMP_0, 0x7 });
+					ir.Write(IROp::Vec4Blend, dregs[0], dregs[0], IRVTEMP_0, 0x7);
 				}
 				ApplyPrefixD(dregs, sz, vd);
 				return;
@@ -1470,7 +1470,7 @@ namespace MIPSComp {
 				return;
 			} else if (IsVec3of4(sz, sregs) && IsVec3of4(sz, dregs) && opts.preferVec4) {
 				ir.Write(IROp::Vec4Scale, IRVTEMP_0, sregs[0], treg);
-				ir.Write({ IROp::Vec4Blend, dregs[0], dregs[0], IRVTEMP_0, 0x7 });
+				ir.Write(IROp::Vec4Blend, dregs[0], dregs[0], IRVTEMP_0, 0x7);
 				ApplyPrefixD(dregs, sz, vd);
 				return;
 			}
@@ -1735,7 +1735,7 @@ namespace MIPSComp {
 			ir.Write(IROp::Vec4Shuffle, IRVTEMP_PFX_T, tregs[0], VFPU_SWIZZLE(2, 0, 1, 3));
 			ir.Write(IROp::Vec4Mul, IRVTEMP_0, IRVTEMP_PFX_S, IRVTEMP_PFX_T);
 			// Now just retain w and blend in our values.
-			ir.Write({ IROp::Vec4Blend, dregs[0], dregs[0], IRVTEMP_0, 0x7 });
+			ir.Write(IROp::Vec4Blend, dregs[0], dregs[0], IRVTEMP_0, 0x7);
 		} else {
 			u8 tempregs[4]{};
 			if (!IsOverlapSafe(n, dregs, n, sregs, n, tregs)) {
@@ -2019,20 +2019,20 @@ namespace MIPSComp {
 			ir.Write(IROp::Vec4Neg, IRVTEMP_0, tregs[0]);
 
 			// tmp = S[x,x,x,x] * T[w,-z,y,-x]
-			ir.Write(IRInst{ IROp::Vec4Blend, IRVTEMP_PFX_S, tregs[0], IRVTEMP_0, blendConst(1, 0, 1, 0) });
+			ir.Write(IROp::Vec4Blend, IRVTEMP_PFX_S, tregs[0], IRVTEMP_0, blendConst(1, 0, 1, 0));
 			ir.Write(IROp::Vec4Shuffle, IRVTEMP_PFX_T, IRVTEMP_PFX_S, shuffleImm(3, 2, 1, 0));
 			ir.Write(IROp::Vec4Shuffle, IRVTEMP_PFX_S, sregs[0], shuffleImm(0, 0, 0, 0));
 			ir.Write(IROp::Vec4Mul, IRVTEMP_PFX_D, IRVTEMP_PFX_S, IRVTEMP_PFX_T);
 
 			// tmp += S[y,y,y,y] * T[z,w,-x,-y]
-			ir.Write(IRInst{ IROp::Vec4Blend, IRVTEMP_PFX_S, tregs[0], IRVTEMP_0, blendConst(1, 1, 0, 0) });
+			ir.Write(IROp::Vec4Blend, IRVTEMP_PFX_S, tregs[0], IRVTEMP_0, blendConst(1, 1, 0, 0));
 			ir.Write(IROp::Vec4Shuffle, IRVTEMP_PFX_T, IRVTEMP_PFX_S, shuffleImm(2, 3, 0, 1));
 			ir.Write(IROp::Vec4Shuffle, IRVTEMP_PFX_S, sregs[0], shuffleImm(1, 1, 1, 1));
 			ir.Write(IROp::Vec4Mul, IRVTEMP_PFX_S, IRVTEMP_PFX_S, IRVTEMP_PFX_T);
 			ir.Write(IROp::Vec4Add, IRVTEMP_PFX_D, IRVTEMP_PFX_D, IRVTEMP_PFX_S);
 
 			// tmp += S[z,z,z,z] * T[-y,x,w,-z]
-			ir.Write(IRInst{ IROp::Vec4Blend, IRVTEMP_PFX_S, tregs[0], IRVTEMP_0, blendConst(0, 1, 1, 0) });
+			ir.Write(IROp::Vec4Blend, IRVTEMP_PFX_S, tregs[0], IRVTEMP_0, blendConst(0, 1, 1, 0));
 			ir.Write(IROp::Vec4Shuffle, IRVTEMP_PFX_T, IRVTEMP_PFX_S, shuffleImm(1, 0, 3, 2));
 			ir.Write(IROp::Vec4Shuffle, IRVTEMP_PFX_S, sregs[0], shuffleImm(2, 2, 2, 2));
 			ir.Write(IROp::Vec4Mul, IRVTEMP_PFX_S, IRVTEMP_PFX_S, IRVTEMP_PFX_T);
@@ -2171,7 +2171,7 @@ namespace MIPSComp {
 		} else if (IsVec3of4(sz, dregs) && opts.preferVec4) {
 			ir.Write(IROp::SetConstF, IRVTEMP_0, ir.AddConstantFloat(cst_constants[conNum]));
 			ir.Write(IROp::Vec4Shuffle, IRVTEMP_0, IRVTEMP_0, 0);
-			ir.Write({ IROp::Vec4Blend, dregs[0], dregs[0], IRVTEMP_0, 0x7 });
+			ir.Write(IROp::Vec4Blend, dregs[0], dregs[0], IRVTEMP_0, 0x7);
 		} else {
 			for (int i = 0; i < n; i++) {
 				// Most of the time, materializing a float is slower than copying from another float.
@@ -2324,7 +2324,7 @@ namespace MIPSComp {
 			ir.Write(IROp::Vec4Add, dregs[0], tregs[0], sregs[0]);
 		} else if (IsVec3of4(sz, dregs) && IsVec3of4(sz, sregs) && IsVec3of4(sz, tregs) && opts.preferVec4) {
 			ir.Write(IROp::Vec4Add, IRVTEMP_0, tregs[0], sregs[0]);
-			ir.Write({ IROp::Vec4Blend, dregs[0], dregs[0], IRVTEMP_0, 0x7 });
+			ir.Write(IROp::Vec4Blend, dregs[0], dregs[0], IRVTEMP_0, 0x7);
 		} else {
 			u8 tempregs[4];
 			for (int i = 0; i < n; ++i) {
