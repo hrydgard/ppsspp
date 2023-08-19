@@ -223,48 +223,13 @@ RiscVReg RiscVRegCache::GetAndLockTempR() {
 RiscVReg RiscVRegCache::MapReg(IRReg mipsReg, MIPSMap mapFlags) {
 	_dbg_assert_(IsValidGPR(mipsReg));
 
-	if (mipsReg == IRREG_INVALID) {
-		ERROR_LOG(JIT, "Cannot map invalid register");
-		return INVALID_REG;
-	}
-
 	// Okay, not mapped, so we need to allocate an RV register.
 	IRNativeReg nreg = MapNativeReg(MIPSLoc::REG, mipsReg, 1, mapFlags);
 	return (RiscVReg)nreg;
 }
 
 RiscVReg RiscVRegCache::MapRegAsPointer(IRReg reg) {
-	_dbg_assert_(IsValidGPRNoZero(reg));
-
-	// Already mapped.
-	if (mr[reg].loc == MIPSLoc::REG_AS_PTR) {
-		return (RiscVReg)mr[reg].nReg;
-	}
-
-	RiscVReg riscvReg = INVALID_REG;
-	if (mr[reg].loc != MIPSLoc::REG && mr[reg].loc != MIPSLoc::REG_IMM) {
-		riscvReg = MapReg(reg);
-	} else {
-		riscvReg = (RiscVReg)mr[reg].nReg;
-	}
-
-	if (mr[reg].loc == MIPSLoc::REG || mr[reg].loc == MIPSLoc::REG_IMM) {
-		// If there was an imm attached, discard it.
-		mr[reg].loc = MIPSLoc::REG;
-		if (!jo_->enablePointerify) {
-			// Convert to a pointer by adding the base and clearing off the top bits.
-			// If SP, we can probably avoid the top bit clear, let's play with that later.
-			AdjustNativeRegAsPtr(mr[reg].nReg, true);
-			mr[reg].loc = MIPSLoc::REG_AS_PTR;
-		} else if (!nr[riscvReg].pointerified) {
-			AdjustNativeRegAsPtr(mr[reg].nReg, true);
-			nr[riscvReg].pointerified = true;
-		}
-		nr[riscvReg].normalized32 = false;
-	} else {
-		ERROR_LOG(JIT, "MapRegAsPointer : MapReg failed to allocate a register?");
-	}
-	return riscvReg;
+	return (RiscVReg)MapNativeRegAsPointer(reg);
 }
 
 void RiscVRegCache::MapIn(IRReg rs) {

@@ -703,6 +703,37 @@ void IRNativeRegCacheBase::MapNativeReg(MIPSLoc type, IRNativeReg nreg, IRReg fi
 	}
 }
 
+IRNativeReg IRNativeRegCacheBase::MapNativeRegAsPointer(IRReg gpr) {
+	_dbg_assert_(IsValidGPRNoZero(gpr));
+
+	// Already mapped.
+	if (mr[gpr].loc == MIPSLoc::REG_AS_PTR) {
+		return mr[gpr].nReg;
+	}
+
+	IRNativeReg nreg = mr[gpr].nReg;
+	if (mr[gpr].loc != MIPSLoc::REG && mr[gpr].loc != MIPSLoc::REG_IMM) {
+		nreg = MapNativeReg(MIPSLoc::REG, gpr, 1, MIPSMap::INIT);
+	}
+
+	if (mr[gpr].loc == MIPSLoc::REG || mr[gpr].loc == MIPSLoc::REG_IMM) {
+		// If there was an imm attached, discard it.
+		mr[gpr].loc = MIPSLoc::REG;
+		mr[gpr].imm = 0;
+
+		if (!jo_->enablePointerify) {
+			AdjustNativeRegAsPtr(nreg, true);
+			mr[gpr].loc = MIPSLoc::REG_AS_PTR;
+		} else if (!nr[nreg].pointerified) {
+			AdjustNativeRegAsPtr(nreg, true);
+			nr[nreg].pointerified = true;
+		}
+	} else {
+		ERROR_LOG(JIT, "MapNativeRegAsPointer: MapNativeReg failed to allocate a register?");
+	}
+	return nreg;
+}
+
 void IRNativeRegCacheBase::AdjustNativeRegAsPtr(IRNativeReg nreg, bool state) {
 	// This isn't necessary to implement if REG_AS_PTR is unsupported entirely.
 	_assert_msg_(false, "AdjustNativeRegAsPtr unimplemented");

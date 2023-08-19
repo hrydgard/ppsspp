@@ -199,6 +199,7 @@ protected:
 	virtual void AdjustNativeRegAsPtr(IRNativeReg nreg, bool state);
 	virtual void MapNativeReg(MIPSLoc type, IRNativeReg nreg, IRReg first, int lanes, MIPSMap flags);
 	virtual IRNativeReg MapNativeReg(MIPSLoc type, IRReg first, int lanes, MIPSMap flags);
+	IRNativeReg MapNativeRegAsPointer(IRReg gpr);
 
 	// Load data from memory (possibly multiple lanes) into a native reg.
 	virtual void LoadNativeReg(IRNativeReg nreg, IRReg first, int lanes) = 0;
