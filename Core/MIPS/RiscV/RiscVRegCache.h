@@ -67,7 +67,6 @@ public:
 	void MapDirtyDirtyIn(IRReg rd1, IRReg rd2, IRReg rs, RiscVJitConstants::MapType type = RiscVJitConstants::MapType::AVOID_LOAD);
 	void MapDirtyDirtyInIn(IRReg rd1, IRReg rd2, IRReg rs, IRReg rt, RiscVJitConstants::MapType type = RiscVJitConstants::MapType::AVOID_LOAD);
 	void FlushBeforeCall();
-	void FlushAll();
 	void FlushR(IRReg r);
 	void DiscardR(IRReg r);
 
@@ -92,8 +91,6 @@ protected:
 	void StoreRegValue(IRReg mreg, uint32_t imm) override;
 
 private:
-	int GetMipsRegOffset(IRReg r);
-
 	RiscVGen::RiscVEmitter *emit_ = nullptr;
 
 	enum {

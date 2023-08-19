@@ -42,7 +42,6 @@ public:
 	void Map4DirtyInIn(IRReg rdbase, IRReg rsbase, IRReg rtbase, bool avoidLoad = true);
 	RiscVGen::RiscVReg Map4DirtyInTemp(IRReg rdbase, IRReg rsbase, bool avoidLoad = true);
 	void FlushBeforeCall();
-	void FlushAll();
 	void FlushR(IRReg r);
 	void DiscardR(IRReg r);
 
@@ -58,13 +57,9 @@ protected:
 	void StoreRegValue(IRReg mreg, uint32_t imm) override;
 
 private:
-	int GetMipsRegOffset(IRReg r);
-
 	RiscVGen::RiscVEmitter *emit_ = nullptr;
 
 	enum {
-		// On RiscV, each of the 32 registers are full 128-bit. No sharing of components!
 		NUM_RVFPUREG = 32,
-		NUM_MIPSFPUREG = TOTAL_MAPPABLE_IRREGS - 32,
 	};
 };

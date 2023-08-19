@@ -386,121 +386,12 @@ void RiscVRegCache::StoreRegValue(IRReg mreg, uint32_t imm) {
 
 void RiscVRegCache::DiscardR(IRReg mipsReg) {
 	_dbg_assert_(IsValidGPRNoZero(mipsReg));
-	if (mr[mipsReg].isStatic) {
-		DiscardNativeReg(mr[mipsReg].nReg);
-		return;
-	}
-	const MIPSLoc prevLoc = mr[mipsReg].loc;
-	if (prevLoc == MIPSLoc::REG || prevLoc == MIPSLoc::REG_IMM || prevLoc == MIPSLoc::REG_AS_PTR) {
-		DiscardNativeReg(mr[mipsReg].nReg);
-	}
-	if (prevLoc == MIPSLoc::IMM && mipsReg != MIPS_REG_ZERO) {
-		mr[mipsReg].loc = MIPSLoc::MEM;
-		mr[mipsReg].imm = -1;
-	}
+	DiscardReg(mipsReg);
 }
 
 void RiscVRegCache::FlushR(IRReg r) {
 	_dbg_assert_(IsValidGPRNoZero(r));
-	if (mr[r].isStatic) {
-		ERROR_LOG(JIT, "Cannot flush static reg %d", r);
-		return;
-	}
-
-	switch (mr[r].loc) {
-	case MIPSLoc::IMM:
-		// IMM is always "dirty".
-		if (r != MIPS_REG_ZERO) {
-			StoreRegValue(r, mr[r].imm);
-			mr[r].loc = MIPSLoc::MEM;
-			mr[r].nReg = (int)INVALID_REG;
-			mr[r].imm = -1;
-		} else {
-			mr[r].loc = MIPSLoc::REG_IMM;
-			mr[r].nReg = R_ZERO;
-			mr[r].imm = 0;
-		}
-		break;
-
-	case MIPSLoc::REG:
-	case MIPSLoc::REG_IMM:
-	case MIPSLoc::REG_AS_PTR:
-		// Might be in a native reg with multiple IR regs, flush together.
-		FlushNativeReg(mr[r].nReg);
-		break;
-
-	case MIPSLoc::MEM:
-		// Already there, nothing to do.
-		break;
-
-	default:
-		ERROR_LOG_REPORT(JIT, "FlushR: MipsReg %d with invalid location %d", r, (int)mr[r].loc);
-		break;
-	}
-}
-
-void RiscVRegCache::FlushAll() {
-	// Note: make sure not to change the registers when flushing:
-	// Branching code expects the native reg to retain its value.
-
-	// TODO: HI/LO optimization?
-
-	for (int i = 1; i < TOTAL_MAPPABLE_IRREGS; i++) {
-		IRReg mipsReg = IRReg(i);
-		if (mr[i].isStatic) {
-			RiscVReg riscvReg = (RiscVReg)mr[i].nReg;
-			// Cannot leave any IMMs in registers, not even MIPSLoc::REG_IMM, can confuse the regalloc later if this flush is mid-block
-			// due to an interpreter fallback that changes the register.
-			if (mr[i].loc == MIPSLoc::IMM) {
-				SetNativeRegValue(mr[i].nReg, mr[i].imm);
-				mr[i].loc = MIPSLoc::REG;
-				nr[riscvReg].pointerified = false;
-			} else if (mr[i].loc == MIPSLoc::REG_IMM) {
-				// The register already contains the immediate.
-				if (nr[riscvReg].pointerified) {
-					ERROR_LOG(JIT, "RVREG_IMM but pointerified. Wrong.");
-					nr[riscvReg].pointerified = false;
-				}
-				mr[i].loc = MIPSLoc::REG;
-			} else if (mr[i].loc == MIPSLoc::REG_AS_PTR) {
-				AdjustNativeRegAsPtr(mr[i].nReg, false);
-				mr[i].loc = MIPSLoc::REG;
-			}
-			if (i != MIPS_REG_ZERO && mr[i].nReg == INVALID_REG) {
-				ERROR_LOG(JIT, "RV reg of static %i is invalid", i);
-				continue;
-			}
-		} else if (IsValidGPRNoZero(mipsReg)) {
-			FlushR(mipsReg);
-		}
-	}
-
-	int count = 0;
-	const StaticAllocation *allocs = GetStaticAllocations(count);
-	for (int i = 0; i < count; i++) {
-		if (allocs[i].pointerified && !nr[allocs[i].nr].pointerified && jo_->enablePointerify) {
-			// Re-pointerify
-			_dbg_assert_(mr[allocs[i].mr].loc == MIPSLoc::REG);
-			AdjustNativeRegAsPtr(allocs[i].nr, true);
-			nr[allocs[i].nr].pointerified = true;
-		} else if (!allocs[i].pointerified) {
-			// If this register got pointerified on the way, mark it as not.
-			// This is so that after save/reload (like in an interpreter fallback),
-			// it won't be regarded as such, as it may no longer be.
-			nr[allocs[i].nr].pointerified = false;
-		}
-	}
-	// Sanity check
-	for (int i = 0; i < NUM_RVREG; i++) {
-		if (nr[i].mipsReg != IRREG_INVALID && mr[nr[i].mipsReg].isStatic == false) {
-			ERROR_LOG_REPORT(JIT, "Flush fail: nr[%i].mipsReg=%i", i, nr[i].mipsReg);
-		}
-	}
-}
-
-int RiscVRegCache::GetMipsRegOffset(IRReg r) {
-	_dbg_assert_(IsValidGPR(r));
-	return r * 4;
+	FlushReg(r);
 }
 
 RiscVReg RiscVRegCache::R(IRReg mipsReg) {

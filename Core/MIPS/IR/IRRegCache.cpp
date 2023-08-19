@@ -104,7 +104,6 @@ void IRNativeRegCacheBase::Start(MIPSComp::IRBlock *irBlock) {
 
 	memcpy(nr, nrInitial_, sizeof(nr[0]) * totalNativeRegs_);
 	memcpy(mr, mrInitial_, sizeof(mr));
-	pendingFlush_ = false;
 
 	int numStatics;
 	const StaticAllocation *statics = GetStaticAllocations(numStatics);
@@ -509,6 +508,119 @@ void IRNativeRegCacheBase::FlushNativeReg(IRNativeReg nreg) {
 	nr[nreg].normalized32 = false;
 }
 
+void IRNativeRegCacheBase::DiscardReg(IRReg mreg) {
+	if (mr[mreg].isStatic) {
+		DiscardNativeReg(mr[mreg].nReg);
+		return;
+	}
+	switch (mr[mreg].loc) {
+	case MIPSLoc::IMM:
+		if (mreg != MIPS_REG_ZERO) {
+			mr[mreg].loc = MIPSLoc::MEM;
+			mr[mreg].imm = 0;
+		}
+		break;
+
+	case MIPSLoc::REG:
+	case MIPSLoc::REG_AS_PTR:
+	case MIPSLoc::REG_IMM:
+	case MIPSLoc::FREG:
+	case MIPSLoc::VREG:
+		DiscardNativeReg(mr[mreg].nReg);
+		break;
+
+	case MIPSLoc::MEM:
+		// Already discarded.
+		break;
+	}
+	mr[mreg].spillLockIRIndex = -1;
+}
+
+void IRNativeRegCacheBase::FlushReg(IRReg mreg) {
+	_assert_msg_(!mr[mreg].isStatic, "Cannot flush static reg %d", mreg);
+
+	switch (mr[mreg].loc) {
+	case MIPSLoc::IMM:
+		// IMM is always "dirty".
+		StoreRegValue(mreg, mr[mreg].imm);
+		mr[mreg].loc = MIPSLoc::MEM;
+		mr[mreg].nReg = -1;
+		mr[mreg].imm = 0;
+		break;
+
+	case MIPSLoc::REG:
+	case MIPSLoc::REG_IMM:
+	case MIPSLoc::REG_AS_PTR:
+	case MIPSLoc::FREG:
+	case MIPSLoc::VREG:
+		// Might be in a native reg with multiple IR regs, flush together.
+		FlushNativeReg(mr[mreg].nReg);
+		break;
+
+	case MIPSLoc::MEM:
+		// Already there, nothing to do.
+		break;
+	}
+}
+
+void IRNativeRegCacheBase::FlushAll() {
+	// Note: make sure not to change the registers when flushing.
+	// Branching code may expect the native reg to retain its value.
+
+	for (int i = 1; i < TOTAL_MAPPABLE_IRREGS; i++) {
+		IRReg mipsReg = (IRReg)i;
+		if (mr[i].isStatic) {
+			IRNativeReg nreg = mr[i].nReg;
+			// Cannot leave any IMMs in registers, not even MIPSLoc::REG_IMM.
+			// Can confuse the regalloc later if this flush is mid-block
+			// due to an interpreter fallback that changes the register.
+			if (mr[i].loc == MIPSLoc::IMM) {
+				SetNativeRegValue(mr[i].nReg, mr[i].imm);
+				_assert_(IsValidGPR(mipsReg));
+				mr[i].loc = MIPSLoc::REG;
+				nr[nreg].pointerified = false;
+			} else if (mr[i].loc == MIPSLoc::REG_IMM) {
+				// The register already contains the immediate.
+				if (nr[nreg].pointerified) {
+					ERROR_LOG(JIT, "RVREG_IMM but pointerified. Wrong.");
+					nr[nreg].pointerified = false;
+				}
+				mr[i].loc = MIPSLoc::REG;
+			} else if (mr[i].loc == MIPSLoc::REG_AS_PTR) {
+				AdjustNativeRegAsPtr(mr[i].nReg, false);
+				mr[i].loc = MIPSLoc::REG;
+			}
+			_assert_(mr[i].nReg != -1);
+		} else if (mr[i].loc != MIPSLoc::MEM) {
+			FlushReg(mipsReg);
+		}
+	}
+
+	int count = 0;
+	const StaticAllocation *allocs = GetStaticAllocations(count);
+	for (int i = 0; i < count; i++) {
+		if (allocs[i].pointerified && !nr[allocs[i].nr].pointerified && jo_->enablePointerify) {
+			// Re-pointerify
+			if (mr[allocs[i].mr].loc == MIPSLoc::REG_IMM)
+				mr[allocs[i].mr].loc = MIPSLoc::REG;
+			_dbg_assert_(mr[allocs[i].mr].loc == MIPSLoc::REG);
+			AdjustNativeRegAsPtr(allocs[i].nr, true);
+			nr[allocs[i].nr].pointerified = true;
+		} else if (!allocs[i].pointerified) {
+			// If this register got pointerified on the way, mark it as not.
+			// This is so that after save/reload (like in an interpreter fallback),
+			// it won't be regarded as such, as it may no longer be.
+			nr[allocs[i].nr].pointerified = false;
+		}
+	}
+	// Sanity check
+	for (int i = 0; i < totalNativeRegs_; i++) {
+		if (nr[i].mipsReg != IRREG_INVALID && !mr[nr[i].mipsReg].isStatic) {
+			ERROR_LOG_REPORT(JIT, "Flush fail: nr[%i].mipsReg=%i", i, nr[i].mipsReg);
+		}
+	}
+}
+
 IRNativeReg IRNativeRegCacheBase::MapNativeReg(MIPSLoc type, IRReg first, int lanes, MIPSMap flags) {
 	_assert_msg_(first != IRREG_INVALID, "Cannot map invalid register");
 	_assert_msg_(lanes >= 1 && lanes <= 4, "Cannot map %d lanes", lanes);
@@ -554,8 +666,6 @@ IRNativeReg IRNativeRegCacheBase::MapNativeReg(MIPSLoc type, IRReg first, int la
 }
 
 void IRNativeRegCacheBase::MapNativeReg(MIPSLoc type, IRNativeReg nreg, IRReg first, int lanes, MIPSMap flags) {
-	pendingFlush_ = true;
-
 	// First, try to clean up any lane mismatches.
 	// It must either be in the same nreg and lane count, or not in an nreg.
 	for (int i = 0; i < lanes; ++i) {
@@ -737,6 +847,11 @@ IRNativeReg IRNativeRegCacheBase::MapNativeRegAsPointer(IRReg gpr) {
 void IRNativeRegCacheBase::AdjustNativeRegAsPtr(IRNativeReg nreg, bool state) {
 	// This isn't necessary to implement if REG_AS_PTR is unsupported entirely.
 	_assert_msg_(false, "AdjustNativeRegAsPtr unimplemented");
+}
+
+int IRNativeRegCacheBase::GetMipsRegOffset(IRReg r) {
+	_dbg_assert_(IsValidGPR(r) || (r >= 32 && IsValidFPR(r - 32)));
+	return r * 4;
 }
 
 bool IRNativeRegCacheBase::IsValidGPR(IRReg r) const {

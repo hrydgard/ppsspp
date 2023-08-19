@@ -171,28 +171,10 @@ void RiscVRegCacheFPU::StoreRegValue(IRReg mreg, uint32_t imm) {
 
 void RiscVRegCacheFPU::FlushR(IRReg r) {
 	_dbg_assert_(IsValidFPR(r));
-	switch (mr[r + 32].loc) {
-	case MIPSLoc::FREG:
-	case MIPSLoc::VREG:
-		_assert_msg_(mr[r + 32].nReg != INVALID_REG, "FlushR: IR %d had bad RiscVReg", r + 32);
-		FlushNativeReg(mr[r + 32].nReg);
-		break;
-
-	case MIPSLoc::MEM:
-		break;
-
-	default:
-		_assert_msg_(false, "Unexpected register location %d", (int)mr[r + 32].loc);
-		break;
-	}
+	FlushReg(r + 32);
 }
 
 void RiscVRegCacheFPU::FlushBeforeCall() {
-	// Note: don't set this false at the end, since we don't flush everything.
-	if (!pendingFlush_) {
-		return;
-	}
-
 	// These registers are not preserved by function calls.
 	for (int i = 0; i <= 7; ++i) {
 		FlushNativeReg(i);
@@ -205,64 +187,9 @@ void RiscVRegCacheFPU::FlushBeforeCall() {
 	}
 }
 
-void RiscVRegCacheFPU::FlushAll() {
-	if (!pendingFlush_) {
-		// Nothing allocated.  FPU regs are not nearly as common as GPR.
-		return;
-	}
-
-	int numRVRegs = 0, baseIndex = 0;
-	const int *order = GetAllocationOrder(MIPSLoc::FREG, numRVRegs, baseIndex);
-
-	for (int i = 0; i < numRVRegs; i++) {
-		int a = order[i] - baseIndex;
-		int m = nr[a].mipsReg;
-
-		if (nr[a].isDirty) {
-			_assert_(m != MIPS_REG_INVALID);
-			StoreNativeReg(a, m, 1);
-
-			mr[m].loc = MIPSLoc::MEM;
-			mr[m].nReg = (int)INVALID_REG;
-			nr[a].mipsReg = IRREG_INVALID;
-			nr[a].isDirty = false;
-		} else {
-			if (m != IRREG_INVALID) {
-				mr[m].loc = MIPSLoc::MEM;
-				mr[m].nReg = (int)INVALID_REG;
-			}
-			nr[a].mipsReg = IRREG_INVALID;
-		}
-	}
-
-	pendingFlush_ = false;
-}
-
 void RiscVRegCacheFPU::DiscardR(IRReg r) {
 	_dbg_assert_(IsValidFPR(r));
-	switch (mr[r + 32].loc) {
-	case MIPSLoc::FREG:
-		_assert_(mr[r + 32].nReg != INVALID_REG);
-		// Note that we DO NOT write it back here. That's the whole point of Discard.
-		DiscardNativeReg(mr[r + 32].nReg);
-		break;
-
-	case MIPSLoc::MEM:
-		// Already there, nothing to do.
-		break;
-
-	default:
-		_assert_(false);
-		break;
-	}
-	mr[r + 32].spillLockIRIndex = -1;
-}
-
-int RiscVRegCacheFPU::GetMipsRegOffset(IRReg r) {
-	_assert_(IsValidFPR(r - 32));
-	// These are offsets within the MIPSState structure.
-	// IR gives us an index that is already 32 after the state index (skipping GPRs.)
-	return (r) * 4;
+	DiscardReg(r + 32);
 }
 
 RiscVReg RiscVRegCacheFPU::R(IRReg mipsReg) {

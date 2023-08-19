@@ -183,6 +183,8 @@ public:
 	void MarkGPRDirty(IRReg gpr, bool andNormalized32 = false);
 	void MarkGPRAsPointerDirty(IRReg gpr);
 
+	virtual void FlushAll();
+
 protected:
 	virtual void SetupInitialRegs();
 	virtual const int *GetAllocationOrder(MIPSLoc type, int &count, int &base) const = 0;
@@ -196,6 +198,8 @@ protected:
 	IRNativeReg FindBestToSpill(MIPSLoc type, bool unusedOnly, bool *clobbered) const;
 	virtual void DiscardNativeReg(IRNativeReg nreg);
 	virtual void FlushNativeReg(IRNativeReg nreg);
+	virtual void DiscardReg(IRReg mreg);
+	virtual void FlushReg(IRReg mreg);
 	virtual void AdjustNativeRegAsPtr(IRNativeReg nreg, bool state);
 	virtual void MapNativeReg(MIPSLoc type, IRNativeReg nreg, IRReg first, int lanes, MIPSMap flags);
 	virtual IRNativeReg MapNativeReg(MIPSLoc type, IRReg first, int lanes, MIPSMap flags);
@@ -211,6 +215,7 @@ protected:
 	virtual void StoreRegValue(IRReg mreg, uint32_t imm) = 0;
 
 	void SetSpillLockIRIndex(IRReg reg, IRReg reg2, IRReg reg3, IRReg reg4, int offset, int index);
+	int GetMipsRegOffset(IRReg r);
 
 	bool IsValidGPR(IRReg r) const;
 	bool IsValidGPRNoZero(IRReg r) const;
@@ -227,5 +232,4 @@ protected:
 	RegStatusMIPS mrInitial_[TOTAL_MAPPABLE_IRREGS];
 
 	bool initialReady_ = false;
-	bool pendingFlush_ = false;
 };
