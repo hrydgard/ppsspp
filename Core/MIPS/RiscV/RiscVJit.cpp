@@ -31,8 +31,8 @@ using namespace RiscVJitConstants;
 static constexpr int MIN_BLOCK_NORMAL_LEN = 16;
 static constexpr int MIN_BLOCK_EXIT_LEN = 8;
 
-RiscVJitBackend::RiscVJitBackend(MIPSState *mipsState, JitOptions &jitopt, IRBlockCache &blocks)
-	: IRNativeBackend(blocks), jo(jitopt), gpr(mipsState, &jo), fpr(mipsState, &jo) {
+RiscVJitBackend::RiscVJitBackend(JitOptions &jitopt, IRBlockCache &blocks)
+	: IRNativeBackend(blocks), jo(jitopt), gpr(&jo), fpr(&jo) {
 	// Automatically disable incompatible options.
 	if (((intptr_t)Memory::base & 0x00000000FFFFFFFFUL) != 0) {
 		jo.enablePointerify = false;
@@ -352,12 +352,12 @@ void RiscVJitBackend::NormalizeSrc12(IRInst inst, RiscVReg *lhs, RiscVReg *rhs, 
 	*rhs = NormalizeR(inst.src2, allowOverlap ? 0 : inst.dest, rhsTempReg);
 }
 
-RiscVReg RiscVJitBackend::NormalizeR(IRRegIndex rs, IRRegIndex rd, RiscVReg tempReg) {
+RiscVReg RiscVJitBackend::NormalizeR(IRReg rs, IRReg rd, RiscVReg tempReg) {
 	// For proper compare, we must sign extend so they both match or don't match.
 	// But don't change pointers, in case one is SP (happens in LittleBigPlanet.)
-	if (gpr.IsImm(rs) && gpr.GetImm(rs) == 0) {
+	if (gpr.IsGPRImm(rs) && gpr.GetGPRImm(rs) == 0) {
 		return R_ZERO;
-	} else if (gpr.IsMappedAsPointer(rs) || rs == rd) {
+	} else if (gpr.IsGPRMappedAsPointer(rs) || rs == rd) {
 		return gpr.Normalize32(rs, tempReg);
 	} else {
 		return gpr.Normalize32(rs);

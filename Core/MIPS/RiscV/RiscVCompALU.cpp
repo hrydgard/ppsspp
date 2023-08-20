@@ -65,8 +65,8 @@ void RiscVJitBackend::CompIR_Arith(IRInst inst) {
 	case IROp::AddConst:
 		if ((int32_t)inst.constant >= -2048 && (int32_t)inst.constant <= 2047) {
 			// Typical of stack pointer updates.
-			if (gpr.IsMappedAsPointer(inst.src1) && inst.dest == inst.src1 && allowPtrMath) {
-				gpr.MarkPtrDirty(gpr.RPtr(inst.dest));
+			if (gpr.IsGPRMappedAsPointer(inst.dest) && inst.dest == inst.src1 && allowPtrMath) {
+				gpr.MarkGPRAsPointerDirty(inst.dest);
 				ADDI(gpr.RPtr(inst.dest), gpr.RPtr(inst.dest), inst.constant);
 			} else {
 				gpr.MapDirtyIn(inst.dest, inst.src1, MapType::AVOID_LOAD_MARK_NORM32);
@@ -107,7 +107,7 @@ void RiscVJitBackend::CompIR_Logic(IRInst inst) {
 		} else if (inst.src1 != inst.dest) {
 			gpr.MapDirtyIn(inst.dest, inst.src1);
 			MV(gpr.R(inst.dest), gpr.R(inst.src1));
-			gpr.MarkDirty(gpr.R(inst.dest), gpr.IsNormalized32(inst.src1));
+			gpr.MarkGPRDirty(inst.dest, gpr.IsNormalized32(inst.src1));
 		}
 		break;
 
@@ -117,17 +117,17 @@ void RiscVJitBackend::CompIR_Logic(IRInst inst) {
 			OR(gpr.R(inst.dest), gpr.R(inst.src1), gpr.R(inst.src2));
 			// If both were normalized before, the result is normalized.
 			if (gpr.IsNormalized32(inst.src1) && gpr.IsNormalized32(inst.src2))
-				gpr.MarkDirty(gpr.R(inst.dest), true);
+				gpr.MarkGPRDirty(inst.dest, true);
 		} else if (inst.src1 != inst.dest) {
 			gpr.MapDirtyIn(inst.dest, inst.src1);
 			MV(gpr.R(inst.dest), gpr.R(inst.src1));
-			gpr.MarkDirty(gpr.R(inst.dest), gpr.IsNormalized32(inst.src1));
+			gpr.MarkGPRDirty(inst.dest, gpr.IsNormalized32(inst.src1));
 		}
 		break;
 
 	case IROp::Xor:
 		if (inst.src1 == inst.src2) {
-			gpr.SetImm(inst.dest, 0);
+			gpr.SetGPRImm(inst.dest, 0);
 		} else {
 			gpr.MapDirtyInIn(inst.dest, inst.src1, inst.src2);
 			XOR(gpr.R(inst.dest), gpr.R(inst.src1), gpr.R(inst.src2));
@@ -145,10 +145,10 @@ void RiscVJitBackend::CompIR_Logic(IRInst inst) {
 		}
 		// If the sign bits aren't cleared, and it was normalized before - it still is.
 		if ((inst.constant & 0x80000000) != 0 && gpr.IsNormalized32(inst.src1))
-			gpr.MarkDirty(gpr.R(inst.dest), true);
+			gpr.MarkGPRDirty(inst.dest, true);
 		// Otherwise, if we cleared the sign bits, it's naturally normalized.
 		else if ((inst.constant & 0x80000000) == 0)
-			gpr.MarkDirty(gpr.R(inst.dest), true);
+			gpr.MarkGPRDirty(inst.dest, true);
 		break;
 
 	case IROp::OrConst:
@@ -162,7 +162,7 @@ void RiscVJitBackend::CompIR_Logic(IRInst inst) {
 		}
 		// Since our constant is normalized, oring its bits in won't hurt normalization.
 		if (gpr.IsNormalized32(inst.src1))
-			gpr.MarkDirty(gpr.R(inst.dest), true);
+			gpr.MarkGPRDirty(inst.dest, true);
 		break;
 
 	case IROp::XorConst:
@@ -195,7 +195,7 @@ void RiscVJitBackend::CompIR_Assign(IRInst inst) {
 		if (inst.dest != inst.src1) {
 			gpr.MapDirtyIn(inst.dest, inst.src1);
 			MV(gpr.R(inst.dest), gpr.R(inst.src1));
-			gpr.MarkDirty(gpr.R(inst.dest), gpr.IsNormalized32(inst.src1));
+			gpr.MarkGPRDirty(inst.dest, gpr.IsNormalized32(inst.src1));
 		}
 		break;
 
@@ -280,7 +280,7 @@ void RiscVJitBackend::CompIR_Bits(IRInst inst) {
 			if (XLEN >= 64) {
 				// REV8 swaps the entire register, so get the 32 highest bits.
 				SRAI(gpr.R(inst.dest), gpr.R(inst.dest), XLEN - 32);
-				gpr.MarkDirty(gpr.R(inst.dest), true);
+				gpr.MarkGPRDirty(inst.dest, true);
 			}
 		} else {
 			CompIR_Generic(inst);
@@ -334,12 +334,12 @@ void RiscVJitBackend::CompIR_Shift(IRInst inst) {
 	case IROp::ShlImm:
 		// Shouldn't happen, but let's be safe of any passes that modify the ops.
 		if (inst.src2 >= 32) {
-			gpr.SetImm(inst.dest, 0);
+			gpr.SetGPRImm(inst.dest, 0);
 		} else if (inst.src2 == 0) {
 			if (inst.dest != inst.src1) {
 				gpr.MapDirtyIn(inst.dest, inst.src1);
 				MV(gpr.R(inst.dest), gpr.R(inst.src1));
-				gpr.MarkDirty(gpr.R(inst.dest), gpr.IsNormalized32(inst.src1));
+				gpr.MarkGPRDirty(inst.dest, gpr.IsNormalized32(inst.src1));
 			}
 		} else {
 			gpr.MapDirtyIn(inst.dest, inst.src1, MapType::AVOID_LOAD_MARK_NORM32);
@@ -350,12 +350,12 @@ void RiscVJitBackend::CompIR_Shift(IRInst inst) {
 	case IROp::ShrImm:
 		// Shouldn't happen, but let's be safe of any passes that modify the ops.
 		if (inst.src2 >= 32) {
-			gpr.SetImm(inst.dest, 0);
+			gpr.SetGPRImm(inst.dest, 0);
 		} else if (inst.src2 == 0) {
 			if (inst.dest != inst.src1) {
 				gpr.MapDirtyIn(inst.dest, inst.src1);
 				MV(gpr.R(inst.dest), gpr.R(inst.src1));
-				gpr.MarkDirty(gpr.R(inst.dest), gpr.IsNormalized32(inst.src1));
+				gpr.MarkGPRDirty(inst.dest, gpr.IsNormalized32(inst.src1));
 			}
 		} else {
 			gpr.MapDirtyIn(inst.dest, inst.src1, MapType::AVOID_LOAD_MARK_NORM32);
@@ -372,7 +372,7 @@ void RiscVJitBackend::CompIR_Shift(IRInst inst) {
 			if (inst.dest != inst.src1) {
 				gpr.MapDirtyIn(inst.dest, inst.src1);
 				MV(gpr.R(inst.dest), gpr.R(inst.src1));
-				gpr.MarkDirty(gpr.R(inst.dest), gpr.IsNormalized32(inst.src1));
+				gpr.MarkGPRDirty(inst.dest, gpr.IsNormalized32(inst.src1));
 			}
 		} else {
 			gpr.MapDirtyIn(inst.dest, inst.src1, MapType::AVOID_LOAD_MARK_NORM32);
@@ -385,7 +385,7 @@ void RiscVJitBackend::CompIR_Shift(IRInst inst) {
 			if (inst.dest != inst.src1) {
 				gpr.MapDirtyIn(inst.dest, inst.src1);
 				MV(gpr.R(inst.dest), gpr.R(inst.src1));
-				gpr.MarkDirty(gpr.R(inst.dest), gpr.IsNormalized32(inst.src1));
+				gpr.MarkGPRDirty(inst.dest, gpr.IsNormalized32(inst.src1));
 			}
 		} else if (cpu_info.RiscV_Zbb) {
 			gpr.MapDirtyIn(inst.dest, inst.src1, MapType::AVOID_LOAD_MARK_NORM32);
@@ -408,12 +408,11 @@ void RiscVJitBackend::CompIR_Compare(IRInst inst) {
 	RiscVReg rhs = INVALID_REG;
 	switch (inst.op) {
 	case IROp::Slt:
-		gpr.SpillLock(inst.dest, inst.src1, inst.src2);
+		gpr.SpillLockGPR(inst.dest, inst.src1, inst.src2);
 		gpr.MapReg(inst.src1);
 		gpr.MapReg(inst.src2);
 		NormalizeSrc12(inst, &lhs, &rhs, SCRATCH1, SCRATCH2, true);
 		gpr.MapReg(inst.dest, MIPSMap::NOINIT | MIPSMap::MARK_NORM32);
-		gpr.ReleaseSpillLock(inst.dest, inst.src1, inst.src2);
 
 		SLT(gpr.R(inst.dest), lhs, rhs);
 		break;
@@ -424,11 +423,10 @@ void RiscVJitBackend::CompIR_Compare(IRInst inst) {
 			gpr.MapDirtyIn(inst.dest, inst.src1, MapType::AVOID_LOAD_MARK_NORM32);
 			SRLIW(gpr.R(inst.dest), gpr.R(inst.src1), 31);
 		} else {
-			gpr.SpillLock(inst.dest, inst.src1);
+			gpr.SpillLockGPR(inst.dest, inst.src1);
 			gpr.MapReg(inst.src1);
 			NormalizeSrc1(inst, &lhs, SCRATCH1, false);
 			gpr.MapReg(inst.dest, MIPSMap::NOINIT | MIPSMap::MARK_NORM32);
-			gpr.ReleaseSpillLock(inst.dest, inst.src1);
 
 			if ((int32_t)inst.constant >= -2048 && (int32_t)inst.constant <= 2047) {
 				SLTI(gpr.R(inst.dest), lhs, (int32_t)inst.constant);
@@ -436,31 +434,29 @@ void RiscVJitBackend::CompIR_Compare(IRInst inst) {
 				LI(SCRATCH2, (int32_t)inst.constant);
 				SLT(gpr.R(inst.dest), lhs, SCRATCH2);
 			}
-			gpr.MarkDirty(gpr.R(inst.dest), true);
+			gpr.MarkGPRDirty(inst.dest, true);
 		}
 		break;
 
 	case IROp::SltU:
-		gpr.SpillLock(inst.dest, inst.src1, inst.src2);
+		gpr.SpillLockGPR(inst.dest, inst.src1, inst.src2);
 		gpr.MapReg(inst.src1);
 		gpr.MapReg(inst.src2);
 		// It's still fine to sign extend, the biggest just get even bigger.
 		NormalizeSrc12(inst, &lhs, &rhs, SCRATCH1, SCRATCH2, true);
 		gpr.MapReg(inst.dest, MIPSMap::NOINIT | MIPSMap::MARK_NORM32);
-		gpr.ReleaseSpillLock(inst.dest, inst.src1, inst.src2);
 
 		SLTU(gpr.R(inst.dest), lhs, rhs);
 		break;
 
 	case IROp::SltUConst:
 		if (inst.constant == 0) {
-			gpr.SetImm(inst.dest, 0);
+			gpr.SetGPRImm(inst.dest, 0);
 		} else {
-			gpr.SpillLock(inst.dest, inst.src1);
+			gpr.SpillLockGPR(inst.dest, inst.src1);
 			gpr.MapReg(inst.src1);
 			NormalizeSrc1(inst, &lhs, SCRATCH1, false);
 			gpr.MapReg(inst.dest, MIPSMap::NOINIT | MIPSMap::MARK_NORM32);
-			gpr.ReleaseSpillLock(inst.dest, inst.src1);
 
 			// We sign extend because we're comparing against something normalized.
 			// It's also the most efficient to set.
@@ -518,14 +514,14 @@ void RiscVJitBackend::CompIR_CondAssign(IRInst inst) {
 				NormalizeSrc12(inst, &lhs, &rhs, SCRATCH1, SCRATCH2, true);
 				MAX(gpr.R(inst.dest), lhs, rhs);
 				// Because we had to normalize the inputs, the output is normalized.
-				gpr.MarkDirty(gpr.R(inst.dest), true);
+				gpr.MarkGPRDirty(inst.dest, true);
 			} else {
 				CompIR_Generic(inst);
 			}
 		} else if (inst.dest != inst.src1) {
 			gpr.MapDirtyIn(inst.dest, inst.src1);
 			MV(gpr.R(inst.dest), gpr.R(inst.src1));
-			gpr.MarkDirty(gpr.R(inst.dest), gpr.IsNormalized32(inst.src1));
+			gpr.MarkGPRDirty(inst.dest, gpr.IsNormalized32(inst.src1));
 		}
 		break;
 
@@ -536,14 +532,14 @@ void RiscVJitBackend::CompIR_CondAssign(IRInst inst) {
 				NormalizeSrc12(inst, &lhs, &rhs, SCRATCH1, SCRATCH2, true);
 				MIN(gpr.R(inst.dest), lhs, rhs);
 				// Because we had to normalize the inputs, the output is normalized.
-				gpr.MarkDirty(gpr.R(inst.dest), true);
+				gpr.MarkGPRDirty(inst.dest, true);
 			} else {
 				CompIR_Generic(inst);
 			}
 		} else if (inst.dest != inst.src1) {
 			gpr.MapDirtyIn(inst.dest, inst.src1);
 			MV(gpr.R(inst.dest), gpr.R(inst.src1));
-			gpr.MarkDirty(gpr.R(inst.dest), gpr.IsNormalized32(inst.src1));
+			gpr.MarkGPRDirty(inst.dest, gpr.IsNormalized32(inst.src1));
 		}
 		break;
 
@@ -560,25 +556,25 @@ void RiscVJitBackend::CompIR_HiLo(IRInst inst) {
 	case IROp::MtLo:
 		gpr.MapDirtyIn(IRREG_LO, inst.src1);
 		MV(gpr.R(IRREG_LO), gpr.R(inst.src1));
-		gpr.MarkDirty(gpr.R(IRREG_LO), gpr.IsNormalized32(inst.src1));
+		gpr.MarkGPRDirty(IRREG_LO, gpr.IsNormalized32(inst.src1));
 		break;
 
 	case IROp::MtHi:
 		gpr.MapDirtyIn(IRREG_HI, inst.src1);
 		MV(gpr.R(IRREG_HI), gpr.R(inst.src1));
-		gpr.MarkDirty(gpr.R(IRREG_HI), gpr.IsNormalized32(inst.src1));
+		gpr.MarkGPRDirty(IRREG_HI, gpr.IsNormalized32(inst.src1));
 		break;
 
 	case IROp::MfLo:
 		gpr.MapDirtyIn(inst.dest, IRREG_LO);
 		MV(gpr.R(inst.dest), gpr.R(IRREG_LO));
-		gpr.MarkDirty(gpr.R(inst.dest), gpr.IsNormalized32(IRREG_LO));
+		gpr.MarkGPRDirty(inst.dest, gpr.IsNormalized32(IRREG_LO));
 		break;
 
 	case IROp::MfHi:
 		gpr.MapDirtyIn(inst.dest, IRREG_HI);
 		MV(gpr.R(inst.dest), gpr.R(IRREG_HI));
-		gpr.MarkDirty(gpr.R(inst.dest), gpr.IsNormalized32(IRREG_HI));
+		gpr.MarkGPRDirty(inst.dest, gpr.IsNormalized32(IRREG_HI));
 		break;
 
 	default:
@@ -616,7 +612,7 @@ void RiscVJitBackend::CompIR_Mult(IRInst inst) {
 	};
 	auto splitMulResult = [&] {
 		SRAI(gpr.R(IRREG_HI), gpr.R(IRREG_LO), 32);
-		gpr.MarkDirty(gpr.R(IRREG_HI), true);
+		gpr.MarkGPRDirty(IRREG_HI, true);
 	};
 
 	RiscVReg lhs = INVALID_REG;

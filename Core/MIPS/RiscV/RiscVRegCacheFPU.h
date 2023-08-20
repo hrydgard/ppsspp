@@ -21,92 +21,45 @@
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/RiscV/RiscVRegCache.h"
 
-struct FPURegStatusRiscV {
-	int mipsReg;  // if -1, no mipsreg attached.
-	bool isDirty;  // Should the register be written back?
-};
-
-struct FPURegStatusMIPS {
-	// Where is this MIPS register?
-	RiscVJitConstants::MIPSLoc loc;
-	// Index from F0.
-	int reg;
-
-	bool spillLock;  // if true, this register cannot be spilled.
-	// If loc == ML_MEM, it's back in its location in the CPU context struct.
-};
-
 namespace MIPSComp {
 struct JitOptions;
 }
 
-class RiscVRegCacheFPU {
+class RiscVRegCacheFPU : public IRNativeRegCacheBase {
 public:
-	RiscVRegCacheFPU(MIPSState *mipsState, MIPSComp::JitOptions *jo);
-	~RiscVRegCacheFPU() {}
+	RiscVRegCacheFPU(MIPSComp::JitOptions *jo);
 
 	void Init(RiscVGen::RiscVEmitter *emitter);
-	void Start(MIPSComp::IRBlock *irBlock);
-	void SetIRIndex(int index) {
-		irIndex_ = index;
-	}
-
-	// Protect the RISC-V register containing a MIPS register from spilling, to ensure that
-	// it's being kept allocated.
-	void SpillLock(IRRegIndex reg, IRRegIndex reg2 = IRREG_INVALID, IRRegIndex reg3 = IRREG_INVALID, IRRegIndex reg4 = IRREG_INVALID);
-	void ReleaseSpillLock(IRRegIndex reg, IRRegIndex reg2 = IRREG_INVALID, IRRegIndex reg3 = IRREG_INVALID, IRRegIndex reg4 = IRREG_INVALID);
-	void ReleaseSpillLocksAndDiscardTemps();
 
 	// Returns a RISC-V register containing the requested MIPS register.
-	RiscVGen::RiscVReg MapReg(IRRegIndex reg, RiscVJitConstants::MIPSMap mapFlags = RiscVJitConstants::MIPSMap::INIT);
+	RiscVGen::RiscVReg MapReg(IRReg reg, MIPSMap mapFlags = MIPSMap::INIT);
 
-	bool IsMapped(IRRegIndex r);
-	bool IsInRAM(IRRegIndex r);
-
-	void MapInIn(IRRegIndex rd, IRRegIndex rs);
-	void MapDirtyIn(IRRegIndex rd, IRRegIndex rs, bool avoidLoad = true);
-	void MapDirtyInIn(IRRegIndex rd, IRRegIndex rs, IRRegIndex rt, bool avoidLoad = true);
-	RiscVGen::RiscVReg MapDirtyInTemp(IRRegIndex rd, IRRegIndex rs, bool avoidLoad = true);
-	void Map4DirtyIn(IRRegIndex rdbase, IRRegIndex rsbase, bool avoidLoad = true);
-	void Map4DirtyInIn(IRRegIndex rdbase, IRRegIndex rsbase, IRRegIndex rtbase, bool avoidLoad = true);
-	RiscVGen::RiscVReg Map4DirtyInTemp(IRRegIndex rdbase, IRRegIndex rsbase, bool avoidLoad = true);
+	void MapInIn(IRReg rd, IRReg rs);
+	void MapDirtyIn(IRReg rd, IRReg rs, bool avoidLoad = true);
+	void MapDirtyInIn(IRReg rd, IRReg rs, IRReg rt, bool avoidLoad = true);
+	RiscVGen::RiscVReg MapDirtyInTemp(IRReg rd, IRReg rs, bool avoidLoad = true);
+	void Map4DirtyIn(IRReg rdbase, IRReg rsbase, bool avoidLoad = true);
+	void Map4DirtyInIn(IRReg rdbase, IRReg rsbase, IRReg rtbase, bool avoidLoad = true);
+	RiscVGen::RiscVReg Map4DirtyInTemp(IRReg rdbase, IRReg rsbase, bool avoidLoad = true);
 	void FlushBeforeCall();
-	void FlushAll();
-	void FlushR(IRRegIndex r);
-	void FlushRiscVReg(RiscVGen::RiscVReg r);
-	void DiscardR(IRRegIndex r);
+	void FlushR(IRReg r);
+	void DiscardR(IRReg r);
 
-	RiscVGen::RiscVReg R(int preg); // Returns a cached register
+	RiscVGen::RiscVReg R(IRReg preg); // Returns a cached register
+
+protected:
+	void SetupInitialRegs() override;
+	const int *GetAllocationOrder(MIPSLoc type, int &count, int &base) const override;
+
+	void LoadNativeReg(IRNativeReg nreg, IRReg first, int lanes) override;
+	void StoreNativeReg(IRNativeReg nreg, IRReg first, int lanes) override;
+	void SetNativeRegValue(IRNativeReg nreg, uint32_t imm) override;
+	void StoreRegValue(IRReg mreg, uint32_t imm) override;
 
 private:
-	const RiscVGen::RiscVReg *GetMIPSAllocationOrder(int &count);
-	RiscVGen::RiscVReg AllocateReg();
-	RiscVGen::RiscVReg FindBestToSpill(bool unusedOnly, bool *clobbered);
-	RiscVGen::RiscVReg RiscVRegForFlush(IRRegIndex r);
-	int GetMipsRegOffset(IRRegIndex r);
-
-	bool IsValidReg(IRRegIndex r) const;
-
-	void SetupInitialRegs();
-
-	MIPSState *mips_;
 	RiscVGen::RiscVEmitter *emit_ = nullptr;
-	MIPSComp::JitOptions *jo_;
-	MIPSComp::IRBlock *irBlock_ = nullptr;
-	int irIndex_ = 0;
 
 	enum {
-		// On RiscV, each of the 32 registers are full 128-bit. No sharing of components!
 		NUM_RVFPUREG = 32,
-		NUM_MIPSFPUREG = RiscVJitConstants::TOTAL_MAPPABLE_MIPSREGS - 32,
 	};
-
-	FPURegStatusRiscV ar[NUM_RVFPUREG];
-	FPURegStatusMIPS mr[NUM_MIPSFPUREG];
-
-	bool pendingFlush_ = false;
-	bool pendingUnlock_ = false;
-	bool initialReady_ = false;
-	FPURegStatusRiscV arInitial_[NUM_RVFPUREG];
-	FPURegStatusMIPS mrInitial_[NUM_MIPSFPUREG];
 };

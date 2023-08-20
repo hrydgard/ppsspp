@@ -31,7 +31,7 @@ namespace MIPSComp {
 
 class RiscVJitBackend : public RiscVGen::RiscVCodeBlock, public IRNativeBackend {
 public:
-	RiscVJitBackend(MIPSState *mipsState, JitOptions &jo, IRBlockCache &blocks);
+	RiscVJitBackend(JitOptions &jo, IRBlockCache &blocks);
 	~RiscVJitBackend();
 
 	bool DescribeCodePtr(const u8 *ptr, std::string &name) const override;
@@ -109,7 +109,7 @@ private:
 	int32_t AdjustForAddressOffset(RiscVGen::RiscVReg *reg, int32_t constant, int32_t range = 0);
 	void NormalizeSrc1(IRInst inst, RiscVGen::RiscVReg *reg, RiscVGen::RiscVReg tempReg, bool allowOverlap);
 	void NormalizeSrc12(IRInst inst, RiscVGen::RiscVReg *lhs, RiscVGen::RiscVReg *rhs, RiscVGen::RiscVReg lhsTempReg, RiscVGen::RiscVReg rhsTempReg, bool allowOverlap);
-	RiscVGen::RiscVReg NormalizeR(IRRegIndex rs, IRRegIndex rd, RiscVGen::RiscVReg tempReg);
+	RiscVGen::RiscVReg NormalizeR(IRReg rs, IRReg rd, RiscVGen::RiscVReg tempReg);
 
 	JitOptions &jo;
 	RiscVRegCache gpr;
@@ -133,7 +133,7 @@ private:
 class RiscVJit : public IRNativeJit {
 public:
 	RiscVJit(MIPSState *mipsState)
-		: IRNativeJit(mipsState), rvBackend_(mipsState, jo, blocks_) {
+		: IRNativeJit(mipsState), rvBackend_(jo, blocks_) {
 		Init(rvBackend_);
 	}
 
