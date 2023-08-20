@@ -35,11 +35,6 @@ const RiscVGen::RiscVReg MEMBASEREG = RiscVGen::X27;
 const RiscVGen::RiscVReg SCRATCH1 = RiscVGen::X10;
 const RiscVGen::RiscVReg SCRATCH2 = RiscVGen::X11;
 
-enum class MapType {
-	AVOID_LOAD,
-	ALWAYS_LOAD,
-};
-
 } // namespace RiscVJitConstants
 
 class RiscVRegCache : public IRNativeRegCacheBase {
@@ -55,8 +50,8 @@ public:
 	RiscVGen::RiscVReg MapGPR(IRReg reg, MIPSMap mapFlags = MIPSMap::INIT);
 	RiscVGen::RiscVReg MapGPRAsPointer(IRReg reg);
 
-	void MapGPRDirtyIn(IRReg rd, IRReg rs, RiscVJitConstants::MapType type = RiscVJitConstants::MapType::AVOID_LOAD);
-	void MapGPRDirtyDirtyInIn(IRReg rd1, IRReg rd2, IRReg rs, IRReg rt, RiscVJitConstants::MapType type = RiscVJitConstants::MapType::AVOID_LOAD);
+	void MapGPRDirtyIn(IRReg rd, IRReg rs, bool avoidLoad = true);
+	void MapGPRDirtyDirtyInIn(IRReg rd1, IRReg rd2, IRReg rs, IRReg rt, bool avoidLoad = true);
 
 	// Returns a RISC-V register containing the requested MIPS register.
 	RiscVGen::RiscVReg MapFPR(IRReg reg, MIPSMap mapFlags = MIPSMap::INIT);

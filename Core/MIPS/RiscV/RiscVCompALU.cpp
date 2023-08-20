@@ -646,7 +646,7 @@ void RiscVJitBackend::CompIR_Mult(IRInst inst) {
 		break;
 
 	case IROp::Madd:
-		regs_.MapGPRDirtyDirtyInIn(IRREG_LO, IRREG_HI, inst.src1, inst.src2, MapType::ALWAYS_LOAD);
+		regs_.MapGPRDirtyDirtyInIn(IRREG_LO, IRREG_HI, inst.src1, inst.src2, false);
 		NormalizeSrc12(inst, &lhs, &rhs, SCRATCH1, SCRATCH2, true);
 		MUL(SCRATCH1, lhs, rhs);
 
@@ -656,7 +656,7 @@ void RiscVJitBackend::CompIR_Mult(IRInst inst) {
 		break;
 
 	case IROp::MaddU:
-		regs_.MapGPRDirtyDirtyInIn(IRREG_LO, IRREG_HI, inst.src1, inst.src2, MapType::ALWAYS_LOAD);
+		regs_.MapGPRDirtyDirtyInIn(IRREG_LO, IRREG_HI, inst.src1, inst.src2, false);
 		makeArgsUnsigned(&lhs, &rhs);
 		MUL(SCRATCH1, lhs, rhs);
 
@@ -666,7 +666,7 @@ void RiscVJitBackend::CompIR_Mult(IRInst inst) {
 		break;
 
 	case IROp::Msub:
-		regs_.MapGPRDirtyDirtyInIn(IRREG_LO, IRREG_HI, inst.src1, inst.src2, MapType::ALWAYS_LOAD);
+		regs_.MapGPRDirtyDirtyInIn(IRREG_LO, IRREG_HI, inst.src1, inst.src2, false);
 		NormalizeSrc12(inst, &lhs, &rhs, SCRATCH1, SCRATCH2, true);
 		MUL(SCRATCH1, lhs, rhs);
 
@@ -676,7 +676,7 @@ void RiscVJitBackend::CompIR_Mult(IRInst inst) {
 		break;
 
 	case IROp::MsubU:
-		regs_.MapGPRDirtyDirtyInIn(IRREG_LO, IRREG_HI, inst.src1, inst.src2, MapType::ALWAYS_LOAD);
+		regs_.MapGPRDirtyDirtyInIn(IRREG_LO, IRREG_HI, inst.src1, inst.src2, false);
 		makeArgsUnsigned(&lhs, &rhs);
 		MUL(SCRATCH1, lhs, rhs);
 

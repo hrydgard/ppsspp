@@ -94,14 +94,13 @@ void RiscVJitBackend::CompIR_Transfer(IRInst inst) {
 		break;
 
 	case IROp::SetCtrlVFPUReg:
-		regs_.MapGPRDirtyIn(IRREG_VFPU_CTRL_BASE + inst.dest, inst.src1);
+		regs_.Map(inst);
 		MV(regs_.R(IRREG_VFPU_CTRL_BASE + inst.dest), regs_.R(inst.src1));
 		regs_.MarkGPRDirty(IRREG_VFPU_CTRL_BASE + inst.dest, regs_.IsNormalized32(inst.src1));
 		break;
 
 	case IROp::SetCtrlVFPUFReg:
-		regs_.MapGPR(IRREG_VFPU_CTRL_BASE + inst.dest, MIPSMap::NOINIT);
-		regs_.MapFPR(inst.src1);
+		regs_.Map(inst);
 		FMV(FMv::X, FMv::W, regs_.R(IRREG_VFPU_CTRL_BASE + inst.dest), regs_.F(inst.src1));
 		regs_.MarkGPRDirty(IRREG_VFPU_CTRL_BASE + inst.dest, true);
 		break;
@@ -154,7 +153,7 @@ void RiscVJitBackend::CompIR_Transfer(IRInst inst) {
 		break;
 
 	case IROp::VfpuCtrlToReg:
-		regs_.MapGPRDirtyIn(inst.dest, IRREG_VFPU_CTRL_BASE + inst.src1);
+		regs_.Map(inst);
 		MV(regs_.R(inst.dest), regs_.R(IRREG_VFPU_CTRL_BASE + inst.src1));
 		regs_.MarkGPRDirty(inst.dest, regs_.IsNormalized32(IRREG_VFPU_CTRL_BASE + inst.src1));
 		break;
