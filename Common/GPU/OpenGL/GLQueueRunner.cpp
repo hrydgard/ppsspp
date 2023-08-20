@@ -73,7 +73,9 @@ void GLQueueRunner::CreateDeviceObjects() {
 	populate(GL_SHADING_LANGUAGE_VERSION);
 	CHECK_GL_ERROR_IF_DEBUG();
 
+#if !PPSSPP_ARCH(X86)  // Doesn't work on AMD for some reason. See issue #17787
 	useDebugGroups_ = !gl_extensions.IsGLES && gl_extensions.VersionGEThan(4, 3);
+#endif
 }
 
 void GLQueueRunner::DestroyDeviceObjects() {

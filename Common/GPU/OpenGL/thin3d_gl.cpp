@@ -463,6 +463,7 @@ public:
 				case GPUVendor::VENDOR_BROADCOM: return "VENDOR_BROADCOM";
 				case GPUVendor::VENDOR_VIVANTE: return "VENDOR_VIVANTE";
 				case GPUVendor::VENDOR_APPLE: return "VENDOR_APPLE";
+				case GPUVendor::VENDOR_MESA: return "VENDOR_MESA";
 				case GPUVendor::VENDOR_UNKNOWN:
 				default:
 					return "VENDOR_UNKNOWN";
@@ -542,7 +543,7 @@ static bool HasIntelDualSrcBug(const int versions[4]) {
 	}
 }
 
-OpenGLContext::OpenGLContext(bool canChangeSwapInterval) {
+OpenGLContext::OpenGLContext(bool canChangeSwapInterval) : renderManager_(frameTimeHistory_) {
 	if (gl_extensions.IsGLES) {
 		if (gl_extensions.OES_packed_depth_stencil || gl_extensions.OES_depth24) {
 			caps_.preferredDepthBufferFormat = DataFormat::D24_S8;
@@ -615,6 +616,7 @@ OpenGLContext::OpenGLContext(bool canChangeSwapInterval) {
 	case GPU_VENDOR_IMGTEC: caps_.vendor = GPUVendor::VENDOR_IMGTEC; break;
 	case GPU_VENDOR_VIVANTE: caps_.vendor = GPUVendor::VENDOR_VIVANTE; break;
 	case GPU_VENDOR_APPLE: caps_.vendor = GPUVendor::VENDOR_APPLE; break;
+	case GPU_VENDOR_MESA: caps_.vendor = GPUVendor::VENDOR_MESA; break;
 	case GPU_VENDOR_UNKNOWN:
 	default:
 		caps_.vendor = GPUVendor::VENDOR_UNKNOWN;

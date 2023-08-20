@@ -290,15 +290,10 @@ static bool CheckFontIsUsable(const wchar_t *fontFace) {
 }
 #endif
 
-bool CreateDirectoriesAndroid();
-
 void PostLoadConfig() {
-	// On Windows, we deal with currentDirectory in InitSysDirectories().
-#if !PPSSPP_PLATFORM(WINDOWS)
 	if (g_Config.currentDirectory.empty()) {
 		g_Config.currentDirectory = g_Config.defaultCurrentDirectory;
 	}
-#endif
 
 	// Allow the lang directory to be overridden for testing purposes (e.g. Android, where it's hard to
 	// test new languages without recompiling the entire app, which is a hassle).
@@ -310,49 +305,9 @@ void PostLoadConfig() {
 	else
 		g_i18nrepo.LoadIni(g_Config.sLanguageIni, langOverridePath);
 
-#if PPSSPP_PLATFORM(ANDROID)
-	CreateDirectoriesAndroid();
+#if !PPSSPP_PLATFORM(WINDOWS) && !PPSSPP_PLATFORM(UWP)
+	CreateSysDirectories();
 #endif
-}
-
-bool CreateDirectoriesAndroid() {
-	// TODO: We should probably simply use this as the shared function to create memstick directories.
-#if PPSSPP_PLATFORM(ANDROID)
-	const bool createNoMedia = true;
-#else
-	const bool createNoMedia = false;
-#endif
-
-	Path pspDir = GetSysDirectory(DIRECTORY_PSP);
-
-	INFO_LOG(IO, "Creating '%s' and subdirs:", pspDir.c_str());
-	File::CreateFullPath(pspDir);
-	if (!File::Exists(pspDir)) {
-		INFO_LOG(IO, "Not a workable memstick directory. Giving up");
-		return false;
-	}
-
-	static const PSPDirectories sysDirs[] = {
-		DIRECTORY_CHEATS,
-		DIRECTORY_SAVEDATA,
-		DIRECTORY_SAVESTATE,
-		DIRECTORY_GAME,
-		DIRECTORY_SYSTEM,
-		DIRECTORY_TEXTURES,
-		DIRECTORY_PLUGINS,
-		DIRECTORY_CACHE,
-	};
-
-	for (auto dir : sysDirs) {
-		Path path = GetSysDirectory(dir);
-		File::CreateFullPath(path);
-		if (createNoMedia) {
-			// Create a nomedia file in each specified subdirectory.
-			File::CreateEmptyFile(path / ".nomedia");
-		}
-	}
-
-	return true;
 }
 
 static void CheckFailedGPUBackends() {
@@ -476,7 +431,12 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 #endif
 	g_VFS.Register("", new DirectoryReader(Path(savegame_dir)));
 
+#if PPSSPP_PLATFORM(WINDOWS) || PPSSPP_PLATFORM(MAC)
+	g_Config.defaultCurrentDirectory = Path(System_GetProperty(SYSPROP_USER_DOCUMENTS_DIR));
+#else
 	g_Config.defaultCurrentDirectory = Path("/");
+#endif
+
 #if !PPSSPP_PLATFORM(UWP)
 	g_Config.internalDataDirectory = Path(savegame_dir);
 #endif
@@ -522,7 +482,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 
 	// Attempt to create directories after reading the path.
 	if (!System_GetPropertyBool(SYSPROP_ANDROID_SCOPED_STORAGE)) {
-		CreateDirectoriesAndroid();
+		CreateSysDirectories();
 	}
 #elif PPSSPP_PLATFORM(UWP) && !defined(__LIBRETRO__)
 	Path memstickDirFile = g_Config.internalDataDirectory / "memstick_dir.txt";
@@ -550,7 +510,6 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	g_Config.memStickDirectory = DarwinFileSystemServices::appropriateMemoryStickDirectoryToUse();
 	g_Config.flash0Directory = Path(std::string(external_dir)) / "flash0";
 #elif PPSSPP_PLATFORM(MAC)
-	g_Config.defaultCurrentDirectory = Path(getenv("HOME"));
 	g_Config.memStickDirectory = DarwinFileSystemServices::appropriateMemoryStickDirectoryToUse();
 	g_Config.flash0Directory = Path(std::string(external_dir)) / "flash0";
 #elif PPSSPP_PLATFORM(SWITCH)
@@ -576,11 +535,9 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	}
 #endif
 
-#if (PPSSPP_PLATFORM(WINDOWS) && !PPSSPP_PLATFORM(UWP)) || PPSSPP_PLATFORM(MAC)
 	if (g_Config.currentDirectory.empty()) {
-		g_Config.currentDirectory = Path("/");
+		g_Config.currentDirectory = g_Config.defaultCurrentDirectory;
 	}
-#endif
 
 	if (cache_dir && strlen(cache_dir)) {
 		g_Config.appCacheDirectory = Path(cache_dir);
@@ -850,7 +807,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	// We do this here, instead of in NativeInitGraphics, because the display may be reset.
 	// When it's reset we don't want to forget all our managed things.
 	CheckFailedGPUBackends();
-	SetGPUBackend((GPUBackend) g_Config.iGPUBackend);
+	SetGPUBackend((GPUBackend)g_Config.iGPUBackend);
 	renderCounter = 0;
 
 	// Initialize retro achievements runtime.
@@ -1255,15 +1212,12 @@ void HandleGlobalMessage(const std::string &msg, const std::string &value) {
 		Core_SetPowerSaving(value != "false");
 	}
 	else if (msg == "permission_granted" && value == "storage") {
-#if PPSSPP_PLATFORM(ANDROID)
-		CreateDirectoriesAndroid();
-#endif
+		CreateSysDirectories();
 		// We must have failed to load the config before, so load it now to avoid overwriting the old config
 		// with a freshly generated one.
 		// NOTE: If graphics backend isn't what's in the config (due to error fallback, or not matching the default
 		// and then getting permission), it will get out of sync. So we save and restore g_Config.iGPUBackend.
-		// Ideally we should simply reinitialize graphics to the mode from the config, but there are potential issues
-		// and I can't risk it before 1.9.0.
+		// Ideally we should simply reinitialize graphics to the mode from the config, but there are potential issues.
 		int gpuBackend = g_Config.iGPUBackend;
 		INFO_LOG(IO, "Reloading config after storage permission grant.");
 		g_Config.Reload();

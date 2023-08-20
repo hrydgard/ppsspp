@@ -49,6 +49,10 @@ struct GLQueueProfileContext {
 struct GLFrameData {
 	bool skipSwap = false;
 
+	// Frames need unique IDs to wait for present on, let's keep them here.
+	// Also used for indexing into the frame timing history buffer.
+	uint64_t frameId;
+
 	std::mutex fenceMutex;
 	std::condition_variable fenceCondVar;
 	bool readyForFence = true;

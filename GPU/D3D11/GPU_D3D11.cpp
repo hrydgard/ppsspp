@@ -108,8 +108,6 @@ u32 GPU_D3D11::CheckGPUFeatures() const {
 		features |= GPU_USE_16BIT_FORMATS;
 	}
 
-	features |= GPU_USE_FRAGMENT_UBERSHADER;
-
 	return CheckGPUFeaturesLate(features);
 }
 

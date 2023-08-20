@@ -707,85 +707,42 @@ Path GetSysDirectory(PSPDirectories directoryType) {
 	}
 }
 
-#if PPSSPP_PLATFORM(WINDOWS)
-// Run this at startup time. Please use GetSysDirectory if you need to query where folders are.
-void InitSysDirectories() {
-	if (!g_Config.memStickDirectory.empty() && !g_Config.flash0Directory.empty())
-		return;
-
-	const Path &path = File::GetExeDirectory();
-
-	// Mount a filesystem
-	g_Config.flash0Directory = path / "assets/flash0";
-
-	// Detect the "My Documents"(XP) or "Documents"(on Vista/7/8) folder.
-#if PPSSPP_PLATFORM(UWP)
-	// We set g_Config.memStickDirectory outside.
-
+bool CreateSysDirectories() {
+#if PPSSPP_PLATFORM(ANDROID)
+	const bool createNoMedia = true;
 #else
-	// Caller sets this to the Documents folder.
-	const Path rootMyDocsPath = g_Config.internalDataDirectory;
-	const Path myDocsPath = rootMyDocsPath / "PPSSPP";
-	const Path installedFile = path / "installed.txt";
-	const bool installed = File::Exists(installedFile);
-
-	// If installed.txt exists(and we can determine the Documents directory)
-	if (installed && !rootMyDocsPath.empty()) {
-		FILE *fp = File::OpenCFile(installedFile, "rt");
-		if (fp) {
-			char temp[2048];
-			char *tempStr = fgets(temp, sizeof(temp), fp);
-			// Skip UTF-8 encoding bytes if there are any. There are 3 of them.
-			if (tempStr && strncmp(tempStr, "\xEF\xBB\xBF", 3) == 0) {
-				tempStr += 3;
-			}
-			std::string tempString = tempStr ? tempStr : "";
-			if (!tempString.empty() && tempString.back() == '\n')
-				tempString.resize(tempString.size() - 1);
-
-			g_Config.memStickDirectory = Path(tempString);
-			fclose(fp);
-		}
-
-		// Check if the file is empty first, before appending the slash.
-		if (g_Config.memStickDirectory.empty())
-			g_Config.memStickDirectory = myDocsPath;
-	} else {
-		g_Config.memStickDirectory = path / "memstick";
-	}
-
-	// Create the memstickpath before trying to write to it, and fall back on Documents yet again
-	// if we can't make it.
-	if (!File::Exists(g_Config.memStickDirectory)) {
-		if (!File::CreateDir(g_Config.memStickDirectory))
-			g_Config.memStickDirectory = myDocsPath;
-		INFO_LOG(COMMON, "Memstick directory not present, creating at '%s'", g_Config.memStickDirectory.c_str());
-	}
-
-	Path testFile = g_Config.memStickDirectory / "_writable_test.$$$";
-
-	// If any directory is read-only, fall back to the Documents directory.
-	// We're screwed anyway if we can't write to Documents, or can't detect it.
-	if (!File::CreateEmptyFile(testFile))
-		g_Config.memStickDirectory = myDocsPath;
-
-	// Clean up our mess.
-	if (File::Exists(testFile))
-		File::Delete(testFile);
+	const bool createNoMedia = false;
 #endif
+
+	Path pspDir = GetSysDirectory(DIRECTORY_PSP);
+	INFO_LOG(IO, "Creating '%s' and subdirs:", pspDir.c_str());
+	File::CreateDir(pspDir);
+	if (!File::Exists(pspDir)) {
+		INFO_LOG(IO, "Not a workable memstick directory. Giving up");
+		return false;
+	}
 
 	// Create the default directories that a real PSP creates. Good for homebrew so they can
 	// expect a standard environment. Skipping THEME though, that's pointless.
-	File::CreateDir(GetSysDirectory(DIRECTORY_PSP));
-	File::CreateDir(GetSysDirectory(DIRECTORY_PSP) / "COMMON");
-	File::CreateDir(GetSysDirectory(DIRECTORY_GAME));
-	File::CreateDir(GetSysDirectory(DIRECTORY_SAVEDATA));
-	File::CreateDir(GetSysDirectory(DIRECTORY_SAVESTATE));
-	File::CreateDir(GetSysDirectory(DIRECTORY_SYSTEM));
-	File::CreateDir(GetSysDirectory(DIRECTORY_TEXTURES));
+	static const PSPDirectories sysDirs[] = {
+		DIRECTORY_CHEATS,
+		DIRECTORY_SAVEDATA,
+		DIRECTORY_SAVESTATE,
+		DIRECTORY_GAME,
+		DIRECTORY_SYSTEM,
+		DIRECTORY_TEXTURES,
+		DIRECTORY_PLUGINS,
+		DIRECTORY_CACHE,
+	};
 
-	if (g_Config.currentDirectory.empty()) {
-		g_Config.currentDirectory = GetSysDirectory(DIRECTORY_GAME);
+	for (auto dir : sysDirs) {
+		Path path = GetSysDirectory(dir);
+		File::CreateFullPath(path);
+		if (createNoMedia) {
+			// Create a nomedia file in each specified subdirectory.
+			File::CreateEmptyFile(path / ".nomedia");
+		}
 	}
+
+	return true;
 }
-#endif

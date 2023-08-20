@@ -117,8 +117,6 @@ void RiscVJitBackend::CompIR_FCondAssign(IRInst inst) {
 		SetJumpTarget(skipSwapCompare);
 	} else {
 		RiscVReg isSrc1LowerReg = gpr.GetAndLockTempR();
-		gpr.ReleaseSpillLocksAndDiscardTemps();
-
 		SLT(isSrc1LowerReg, SCRATCH1, SCRATCH2);
 		// Flip the flag (to reverse the min/max) based on if both were negative.
 		XOR(isSrc1LowerReg, isSrc1LowerReg, R_RA);
@@ -342,13 +340,13 @@ void RiscVJitBackend::CompIR_FSat(IRInst inst) {
 void RiscVJitBackend::CompIR_FCompare(IRInst inst) {
 	CONDITIONAL_DISABLE;
 
-	constexpr IRRegIndex IRREG_VFPUL_CC = IRREG_VFPU_CTRL_BASE + VFPU_CTRL_CC;
+	constexpr IRReg IRREG_VFPUL_CC = IRREG_VFPU_CTRL_BASE + VFPU_CTRL_CC;
 
 	switch (inst.op) {
 	case IROp::FCmp:
 		switch (inst.dest) {
 		case IRFpCompareMode::False:
-			gpr.SetImm(IRREG_FPCOND, 0);
+			gpr.SetGPRImm(IRREG_FPCOND, 0);
 			break;
 
 		case IRFpCompareMode::EitherUnordered:
@@ -586,7 +584,7 @@ void RiscVJitBackend::CompIR_FSpecial(IRInst inst) {
 		gpr.FlushBeforeCall();
 		fpr.FlushBeforeCall();
 		// It might be in a non-volatile register.
-		if (fpr.IsMapped(inst.src1)) {
+		if (fpr.IsFPRMapped(inst.src1)) {
 			FMV(32, F10, fpr.R(inst.src1));
 		} else {
 			int offset = offsetof(MIPSState, f) + inst.src1 * 4;

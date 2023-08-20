@@ -177,6 +177,11 @@ u32 GPU_GLES::CheckGPUFeatures() const {
 		features |= GPU_USE_SINGLE_PASS_STEREO;
 	}
 
+	if (!gl_extensions.GLES3) {
+		// Heuristic.
+		features &= ~GPU_USE_FRAGMENT_UBERSHADER;
+	}
+
 	features = CheckGPUFeaturesLate(features);
 
 	if (draw_->GetBugs().Has(Draw::Bugs::ADRENO_RESOURCE_DEADLOCK) && g_Config.bVendorBugChecksEnabled) {
@@ -193,11 +198,6 @@ u32 GPU_GLES::CheckGPUFeatures() const {
 			features |= GPU_ROUND_DEPTH_TO_16BIT;
 		}
 	}
-
-	if (gl_extensions.GLES3) {
-		features |= GPU_USE_FRAGMENT_UBERSHADER;
-	}
-
 	return features;
 }
 

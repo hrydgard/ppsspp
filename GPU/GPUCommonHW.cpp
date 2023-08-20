@@ -611,7 +611,7 @@ u32 GPUCommonHW::CheckGPUFeatures() const {
 		features |= GPU_USE_FRAMEBUFFER_FETCH;
 	}
 
-	if (draw_->GetShaderLanguageDesc().bitwiseOps) {
+	if (draw_->GetShaderLanguageDesc().bitwiseOps && g_Config.bUberShaderVertex) {
 		features |= GPU_USE_LIGHT_UBERSHADER;
 	}
 
@@ -622,6 +622,11 @@ u32 GPUCommonHW::CheckGPUFeatures() const {
 	// Even without depth clamp, force accurate depth on for some games that break without it.
 	if (PSP_CoreParameter().compat.flags().DepthRangeHack) {
 		features |= GPU_USE_ACCURATE_DEPTH;
+	}
+
+	// Some backends will turn this off again in the calling function.
+	if (g_Config.bUberShaderFragment) {
+		features |= GPU_USE_FRAGMENT_UBERSHADER;
 	}
 
 	return features;

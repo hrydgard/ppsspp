@@ -349,6 +349,7 @@ void __DisplaySetWasPaused() {
 	wasPaused = true;
 }
 
+// TOOD: Should return 59.997?
 static int FrameTimingLimit() {
 	bool challenge = Achievements::ChallengeModeActive();
 
@@ -388,23 +389,17 @@ static void DoFrameDropLogging(float scaledTimestep) {
 	}
 }
 
-// Let's collect all the throttling and frameskipping logic here.
-static void DoFrameTiming(bool &throttle, bool &skipFrame, float timestep) {
+// All the throttling and frameskipping logic is here.
+// This is called just before we drop out of the main loop, in order to allow the submit and present to happen.
+static void DoFrameTiming(bool throttle, bool *skipFrame, float scaledTimestep) {
 	PROFILE_THIS_SCOPE("timing");
-	int fpsLimit = FrameTimingLimit();
-	throttle = FrameTimingThrottled();
-	skipFrame = false;
+	*skipFrame = false;
 
 	// Check if the frameskipping code should be enabled. If neither throttling or frameskipping is on,
 	// we have nothing to do here.
 	bool doFrameSkip = g_Config.iFrameSkip != 0;
 	if (!throttle && !doFrameSkip)
 		return;
-
-	float scaledTimestep = timestep;
-	if (fpsLimit > 0 && fpsLimit != framerate) {
-		scaledTimestep *= (float)framerate / fpsLimit;
-	}
 
 	if (lastFrameTime == 0.0 || wasPaused) {
 		nextFrameTime = time_now_d() + scaledTimestep;
@@ -427,18 +422,15 @@ static void DoFrameTiming(bool &throttle, bool &skipFrame, float timestep) {
 		// autoframeskip
 		// Argh, we are falling behind! Let's skip a frame and see if we catch up.
 		if (curFrameTime > nextFrameTime && doFrameSkip) {
-			skipFrame = true;
+			*skipFrame = true;
 		}
 	} else if (frameSkipNum >= 1) {
 		// fixed frameskip
 		if (numSkippedFrames >= frameSkipNum)
-			skipFrame = false;
+			*skipFrame = false;
 		else
-			skipFrame = true;
+			*skipFrame = true;
 	}
-
-	// TODO: This is NOT where we should wait, really! We should mark each outgoing frame with the desired
-	// timestamp to push it to display, and sleep in the render thread to achieve that.
 
 	if (curFrameTime < nextFrameTime && throttle) {
 		// If time gap is huge just jump (somebody fast-forwarded)
@@ -503,7 +495,6 @@ static void DoFrameIdleTiming() {
 	}
 }
 
-
 void hleEnterVblank(u64 userdata, int cyclesLate) {
 	int vbCount = userdata;
 
@@ -552,6 +543,26 @@ void hleEnterVblank(u64 userdata, int cyclesLate) {
 	}
 }
 
+static void NotifyUserIfSlow() {
+	// Let the user know if we're running slow, so they know to adjust settings.
+	// Sometimes users just think the sound emulation is broken.
+	static bool hasNotifiedSlow = false;
+	if (!g_Config.bHideSlowWarnings &&
+		!hasNotifiedSlow &&
+		PSP_CoreParameter().fpsLimit == FPSLimit::NORMAL &&
+		DisplayIsRunningSlow()) {
+#ifndef _DEBUG
+		auto err = GetI18NCategory(I18NCat::ERRORS);
+		if (g_Config.bSoftwareRendering) {
+			g_OSD.Show(OSDType::MESSAGE_INFO, err->T("Running slow: Try turning off Software Rendering"), 5.0f);
+		} else {
+			g_OSD.Show(OSDType::MESSAGE_INFO, err->T("Running slow: try frameskip, sound is choppy when slow"));
+		}
+#endif
+		hasNotifiedSlow = true;
+	}
+}
+
 void __DisplayFlip(int cyclesLate) {
 	flippedThisFrame = true;
 	// We flip only if the framebuffer was dirty. This eliminates flicker when using
@@ -589,96 +600,92 @@ void __DisplayFlip(int cyclesLate) {
 
 	const bool fbDirty = gpu->FramebufferDirty();
 
-	if (fbDirty || noRecentFlip || postEffectRequiresFlip) {
-		int frameSleepPos = DisplayGetSleepPos();
-		double frameSleepStart = time_now_d();
-		DisplayFireFlip();
-
-		// Let the user know if we're running slow, so they know to adjust settings.
-		// Sometimes users just think the sound emulation is broken.
-		static bool hasNotifiedSlow = false;
-		if (!g_Config.bHideSlowWarnings &&
-			!hasNotifiedSlow &&
-			PSP_CoreParameter().fpsLimit == FPSLimit::NORMAL &&
-			DisplayIsRunningSlow()) {
-#ifndef _DEBUG
-			auto err = GetI18NCategory(I18NCat::ERRORS);
-			if (g_Config.bSoftwareRendering) {
-				g_OSD.Show(OSDType::MESSAGE_INFO, err->T("Running slow: Try turning off Software Rendering"), 5.0f);
-			} else {
-				g_OSD.Show(OSDType::MESSAGE_INFO, err->T("Running slow: try frameskip, sound is choppy when slow"));
-			}
-#endif
-			hasNotifiedSlow = true;
-		}
-
-		bool forceNoFlip = false;
-		float refreshRate = System_GetPropertyFloat(SYSPROP_DISPLAY_REFRESH_RATE);
-		// Avoid skipping on devices that have 58 or 59 FPS, except when alternate speed is set.
-		bool refreshRateNeedsSkip = FrameTimingLimit() != framerate && FrameTimingLimit() > refreshRate;
-		// Alternative to frameskip fast-forward, where we draw everything.
-		// Useful if skipping a frame breaks graphics or for checking drawing speed.
-		if (fastForwardSkipFlip && (!FrameTimingThrottled() || refreshRateNeedsSkip)) {
-			static double lastFlip = 0;
-			double now = time_now_d();
-			if ((now - lastFlip) < 1.0f / refreshRate) {
-				forceNoFlip = true;
-			} else {
-				lastFlip = now;
-			}
-		}
-
-		// Setting CORE_NEXTFRAME (which Core_NextFrame does) causes a swap.
-		const bool fbReallyDirty = gpu->FramebufferReallyDirty();
-		if (fbReallyDirty || noRecentFlip || postEffectRequiresFlip) {
-			// Check first though, might've just quit / been paused.
-			if (!forceNoFlip && Core_NextFrame()) {
-				gpu->CopyDisplayToOutput(fbReallyDirty);
-				if (fbReallyDirty) {
-					DisplayFireActualFlip();
-				}
-			}
-		}
-
-		if (fbDirty) {
-			gpuStats.numFlips++;
-		}
-
-		bool throttle, skipFrame;
-		DoFrameTiming(throttle, skipFrame, (float)numVBlanksSinceFlip * timePerVblank);
-
-		int maxFrameskip = 8;
-		int frameSkipNum = DisplayCalculateFrameSkip();
-		if (throttle) {
-			// 4 here means 1 drawn, 4 skipped - so 12 fps minimum.
-			maxFrameskip = frameSkipNum;
-		}
-		if (numSkippedFrames >= maxFrameskip || GPURecord::IsActivePending()) {
-			skipFrame = false;
-		}
-
-		if (skipFrame) {
-			gstate_c.skipDrawReason |= SKIPDRAW_SKIPFRAME;
-			numSkippedFrames++;
-		} else {
-			gstate_c.skipDrawReason &= ~SKIPDRAW_SKIPFRAME;
-			numSkippedFrames = 0;
-		}
-
-		// Returning here with coreState == CORE_NEXTFRAME causes a buffer flip to happen (next frame).
-		// Right after, we regain control for a little bit in hleAfterFlip. I think that's a great
-		// place to do housekeeping.
-
-		CoreTiming::ScheduleEvent(0 - cyclesLate, afterFlipEvent, 0);
-		numVBlanksSinceFlip = 0;
-
-		if ((DebugOverlay)g_Config.iDebugOverlay == DebugOverlay::FRAME_GRAPH || coreCollectDebugStats) {
-			// Track how long we sleep (whether vsync or sleep_ms.)
-			DisplayNotifySleep(time_now_d() - frameSleepStart, frameSleepPos);
-		}
-	} else {
-		// Okay, there's no new frame to draw.  But audio may be playing, so we need to time still.
+	bool needFlip = fbDirty || noRecentFlip || postEffectRequiresFlip;
+	if (!needFlip) {
+		// Okay, there's no new frame to draw, game might be sitting in a static loading screen
+		// or similar, and not long enough to trigger noRecentFlip. But audio may be playing, so we need to time still.
 		DoFrameIdleTiming();
+		return;
+	}
+
+	// Debugger integration
+	int frameSleepPos = DisplayGetSleepPos();
+	double frameSleepStart = time_now_d();
+	DisplayFireFlip();
+
+	NotifyUserIfSlow();
+
+	bool forceNoFlip = false;
+	float refreshRate = System_GetPropertyFloat(SYSPROP_DISPLAY_REFRESH_RATE);
+	// Avoid skipping on devices that have 58 or 59 FPS, except when alternate speed is set.
+	bool refreshRateNeedsSkip = FrameTimingLimit() != framerate && FrameTimingLimit() > refreshRate;
+	// Alternative to frameskip fast-forward, where we draw everything.
+	// Useful if skipping a frame breaks graphics or for checking drawing speed.
+	if (fastForwardSkipFlip && (!FrameTimingThrottled() || refreshRateNeedsSkip)) {
+		static double lastFlip = 0;
+		double now = time_now_d();
+		if ((now - lastFlip) < 1.0f / refreshRate) {
+			forceNoFlip = true;
+		} else {
+			lastFlip = now;
+		}
+	}
+
+	// Setting CORE_NEXTFRAME (which Core_NextFrame does) causes a swap.
+	const bool fbReallyDirty = gpu->FramebufferReallyDirty();
+	if (fbReallyDirty || noRecentFlip || postEffectRequiresFlip) {
+		// Check first though, might've just quit / been paused.
+		if (!forceNoFlip && Core_NextFrame()) {
+			gpu->CopyDisplayToOutput(fbReallyDirty);
+			if (fbReallyDirty) {
+				DisplayFireActualFlip();
+			}
+		}
+	}
+
+	if (fbDirty) {
+		gpuStats.numFlips++;
+	}
+
+	bool throttle = FrameTimingThrottled();
+
+	int fpsLimit = FrameTimingLimit();
+	float scaledTimestep = (float)numVBlanksSinceFlip * timePerVblank;
+	if (fpsLimit > 0 && fpsLimit != framerate) {
+		scaledTimestep *= (float)framerate / fpsLimit;
+	}
+	bool skipFrame;
+	DoFrameTiming(throttle, &skipFrame, scaledTimestep);
+
+	int maxFrameskip = 8;
+	int frameSkipNum = DisplayCalculateFrameSkip();
+	if (throttle) {
+		// 4 here means 1 drawn, 4 skipped - so 12 fps minimum.
+		maxFrameskip = frameSkipNum;
+	}
+	if (numSkippedFrames >= maxFrameskip || GPURecord::IsActivePending()) {
+		skipFrame = false;
+	}
+
+	if (skipFrame) {
+		// Tell the emulated GPU to skip the next frame.
+		gstate_c.skipDrawReason |= SKIPDRAW_SKIPFRAME;
+		numSkippedFrames++;
+	} else {
+		gstate_c.skipDrawReason &= ~SKIPDRAW_SKIPFRAME;
+		numSkippedFrames = 0;
+	}
+
+	// Returning here with coreState == CORE_NEXTFRAME causes a buffer flip to happen (next frame).
+	// Right after, we regain control for a little bit in hleAfterFlip. I think that's a great
+	// place to do housekeeping.
+
+	CoreTiming::ScheduleEvent(0 - cyclesLate, afterFlipEvent, 0);
+	numVBlanksSinceFlip = 0;
+
+	if ((DebugOverlay)g_Config.iDebugOverlay == DebugOverlay::FRAME_GRAPH || coreCollectDebugStats) {
+		// Track how long we sleep (whether vsync or sleep_ms.)
+		DisplayNotifySleep(time_now_d() - frameSleepStart, frameSleepPos);
 	}
 }
 

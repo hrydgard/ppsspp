@@ -488,10 +488,6 @@ public:
 		return frameCount_;
 	}
 
-	FrameTimeData GetFrameTimeData(int framesBack) const override {
-		return renderManager_.GetFrameTimeData(framesBack);
-	}
-
 	void FlushState() override {}
 
 	void ResetStats() override {
@@ -564,7 +560,7 @@ private:
 	AutoRef<VKTexture> boundTextures_[MAX_BOUND_TEXTURES];
 	AutoRef<VKSamplerState> boundSamplers_[MAX_BOUND_TEXTURES];
 	VkImageView boundImageView_[MAX_BOUND_TEXTURES]{};
-	TextureBindFlags boundTextureFlags_[MAX_BOUND_TEXTURES];
+	TextureBindFlags boundTextureFlags_[MAX_BOUND_TEXTURES]{};
 
 	VulkanPushPool *push_ = nullptr;
 
@@ -866,7 +862,7 @@ static DataFormat DataFormatFromVulkanDepth(VkFormat fmt) {
 }
 
 VKContext::VKContext(VulkanContext *vulkan, bool useRenderThread)
-	: vulkan_(vulkan), renderManager_(vulkan, useRenderThread) {
+	: vulkan_(vulkan), renderManager_(vulkan, useRenderThread, frameTimeHistory_) {
 	shaderLanguageDesc_.Init(GLSL_VULKAN);
 
 	VkFormat depthStencilFormat = vulkan->GetDeviceInfo().preferredDepthStencilFormat;
@@ -924,6 +920,7 @@ VKContext::VKContext(VulkanContext *vulkan, bool useRenderThread)
 	case VULKAN_VENDOR_QUALCOMM: caps_.vendor = GPUVendor::VENDOR_QUALCOMM; break;
 	case VULKAN_VENDOR_INTEL: caps_.vendor = GPUVendor::VENDOR_INTEL; break;
 	case VULKAN_VENDOR_APPLE: caps_.vendor = GPUVendor::VENDOR_APPLE; break;
+	case VULKAN_VENDOR_MESA: caps_.vendor = GPUVendor::VENDOR_MESA; break;
 	default:
 		WARN_LOG(G3D, "Unknown vendor ID %08x", deviceProps.vendorID);
 		caps_.vendor = GPUVendor::VENDOR_UNKNOWN;

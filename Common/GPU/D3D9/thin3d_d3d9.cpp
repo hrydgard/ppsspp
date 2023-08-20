@@ -25,6 +25,7 @@
 #include "Common/GPU/D3D9/D3D9StateCache.h"
 #include "Common/OSVersion.h"
 #include "Common/StringUtils.h"
+#include "Common/TimeUtil.h"
 
 #include "Common/Log.h"
 
@@ -575,6 +576,7 @@ public:
 		curPipeline_ = (D3D9Pipeline *)pipeline;
 	}
 
+	void BeginFrame(Draw::DebugFlags debugFlags) override;
 	void EndFrame() override;
 	void Present(PresentMode presentMode, int vblanks) override;
 
@@ -639,7 +641,7 @@ private:
 	D3DCAPS9 d3dCaps_;
 	char shadeLangVersion_[64]{};
 	DeviceCaps caps_{};
-	int frameCount_ = 0;
+	int frameCount_ = FRAME_TIME_HISTORY_LENGTH;
 
 	// Bound state
 	AutoRef<D3D9Pipeline> curPipeline_;
@@ -965,11 +967,19 @@ void D3D9Context::BindNativeTexture(int index, void *nativeTexture) {
 	device_->SetTexture(index, texture);
 }
 
+void D3D9Context::BeginFrame(Draw::DebugFlags debugFlags) {
+	FrameTimeData frameTimeData = frameTimeHistory_.Add(frameCount_);
+	frameTimeData.frameBegin = time_now_d();
+	frameTimeData.afterFenceWait = frameTimeData.frameBegin;  // no fence wait
+}
+
 void D3D9Context::EndFrame() {
+	frameTimeHistory_[frameCount_].firstSubmit = time_now_d();
 	curPipeline_ = nullptr;
 }
 
 void D3D9Context::Present(PresentMode presentMode, int vblanks) {
+	frameTimeHistory_[frameCount_].queuePresent = time_now_d();
 	if (deviceEx_) {
 		deviceEx_->EndScene();
 		deviceEx_->PresentEx(NULL, NULL, NULL, NULL, 0);

@@ -396,6 +396,12 @@ static int DefaultGPUBackend() {
 	if (System_GetPropertyInt(SYSPROP_SYSTEMVERSION) >= 27) {
 		return (int)GPUBackend::VULKAN;
 	}
+#else
+	// There are some newer devices that benefit from Vulkan as default, but are 32-bit. Example: Redmi 9A.
+	// Let's only allow the very newest generation though.
+	if (System_GetPropertyInt(SYSPROP_SYSTEMVERSION) >= 30) {
+		return (int)GPUBackend::VULKAN;
+	}
 #endif
 #elif PPSSPP_PLATFORM(MAC)
 #if PPSSPP_ARCH(ARM64)
@@ -633,6 +639,9 @@ static const ConfigSetting graphicsSettings[] = {
 
 	ConfigSetting("ShaderCache", &g_Config.bShaderCache, true, CfgFlag::DONT_SAVE),  // Doesn't save. Ini-only.
 	ConfigSetting("GpuLogProfiler", &g_Config.bGpuLogProfiler, false, CfgFlag::DEFAULT),
+
+	ConfigSetting("UberShaderVertex", &g_Config.bUberShaderVertex, true, CfgFlag::DEFAULT),
+	ConfigSetting("UberShaderFragment", &g_Config.bUberShaderFragment, true, CfgFlag::DEFAULT),
 };
 
 static const ConfigSetting soundSettings[] = {
@@ -1194,11 +1203,6 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 
 	CleanRecent();
 
-#if PPSSPP_PLATFORM(ANDROID)
-	// The on path here is untested, since we don't expose it.
-	g_Config.bVSync = false;
-#endif
-
 	PostLoadCleanup(false);
 
 	INFO_LOG(LOADER, "Config loaded: '%s'", iniFilename_.c_str());
@@ -1222,7 +1226,7 @@ bool Config::Save(const char *saveReason) {
 		CleanRecent();
 		IniFile iniFile;
 		if (!iniFile.Load(iniFilename_)) {
-			ERROR_LOG(LOADER, "Error saving config - can't read ini '%s'", iniFilename_.c_str());
+			WARN_LOG(LOADER, "Likely saving config for first time - couldn't read ini '%s'", iniFilename_.c_str());
 		}
 
 		// Need to do this somewhere...

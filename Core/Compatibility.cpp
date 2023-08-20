@@ -131,6 +131,7 @@ void Compatibility::CheckSettings(IniFile &iniFile, const std::string &gameID) {
 	CheckSetting(iniFile, gameID, "DaxterRotatedAnalogStick", &flags_.DaxterRotatedAnalogStick);
 	CheckSetting(iniFile, gameID, "ForceMaxDepthResolution", &flags_.ForceMaxDepthResolution);
 	CheckSetting(iniFile, gameID, "SOCOMClut8Replacement", &flags_.SOCOMClut8Replacement);
+	CheckSetting(iniFile, gameID, "Fontltn12Hack", &flags_.Fontltn12Hack);
 }
 
 void Compatibility::CheckVRSettings(IniFile &iniFile, const std::string &gameID) {

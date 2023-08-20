@@ -363,6 +363,10 @@ public:
 	}
 
 	void Write(IROp op, u8 dst = 0, u8 src1 = 0, u8 src2 = 0);
+	void Write(IROp op, IRReg dst, IRReg src1, IRReg src2, uint32_t c) {
+		AddConstant(c);
+		Write(op, dst, src1, src2);
+	}
 	void Write(IRInst inst) {
 		insts_.push_back(inst);
 	}

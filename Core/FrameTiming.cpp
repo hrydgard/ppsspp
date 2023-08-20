@@ -1,3 +1,24 @@
+// Frame timing
+//
+// A frame on the main thread should look a bit like this:
+//
+// 1. -- Wait for the right time to start the frame  (alternatively, see this is step 8).
+// 2. Sample inputs (on some platforms, this is done continouously during step 3)
+// 3. Run CPU
+// 4. Submit GPU commands (there's no reason to ever wait before this).
+// 5. -- Wait for the right time to present
+// 6. Send Present command
+// 7. Do other end-of-frame stuff
+//
+// To minimize latency, we should *maximize* 1 and *minimize* 5 (while still keeping some margin to soak up hitches).
+// Additionally, if too many completed frames have been buffered up, we need a feedback mechanism, so we can temporarily
+// artificially increase 1 in order to "catch the CPU up".
+//
+// There are some other things that can influence the frame timing:
+// * Unthrottling. If vsync is off or the backend can change present mode dynamically, we can simply disable all waits during unthrottle.
+// * Frame skipping. This gets complicated.
+// * The game not actually asking for flips, like in static loading screens
+
 #include "Common/Profiler/Profiler.h"
 #include "Common/Log.h"
 #include "Common/TimeUtil.h"
@@ -20,7 +41,7 @@ inline Draw::PresentMode GetBestImmediateMode(Draw::PresentMode supportedModes) 
 }
 
 void FrameTiming::Reset(Draw::DrawContext *draw) {
-	if (g_Config.bVSync || !(draw->GetDeviceCaps().presentModesSupported & (Draw::PresentMode::MAILBOX| Draw::PresentMode::IMMEDIATE))) {
+	if (g_Config.bVSync || !(draw->GetDeviceCaps().presentModesSupported & (Draw::PresentMode::MAILBOX | Draw::PresentMode::IMMEDIATE))) {
 		presentMode = Draw::PresentMode::FIFO;
 		presentInterval = 1;
 	} else {

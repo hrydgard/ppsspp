@@ -11,6 +11,7 @@
 #include "Common/Data/Convert/ColorConv.h"
 #include "Common/Data/Convert/SmallDataConvert.h"
 #include "Common/Data/Encoding/Utf8.h"
+#include "Common/TimeUtil.h"
 #include "Common/Log.h"
 
 #include <map>
@@ -221,7 +222,7 @@ private:
 	int nextIndexBufferOffset_ = 0;
 
 	InvalidationCallback invalidationCallback_;
-	int frameCount_ = 0;
+	int frameCount_ = FRAME_TIME_HISTORY_LENGTH;
 
 	// Dynamic state
 	float blendFactor_[4]{};
@@ -430,10 +431,14 @@ void D3D11DrawContext::HandleEvent(Event ev, int width, int height, void *param1
 }
 
 void D3D11DrawContext::EndFrame() {
+	// Fake a submit time.
+	frameTimeHistory_[frameCount_].firstSubmit = time_now_d();
 	curPipeline_ = nullptr;
 }
 
 void D3D11DrawContext::Present(PresentMode presentMode, int vblanks) {
+	frameTimeHistory_[frameCount_].queuePresent = time_now_d();
+
 	int interval = vblanks;
 	if (presentMode != PresentMode::FIFO) {
 		interval = 0;
@@ -1537,6 +1542,10 @@ void D3D11DrawContext::Clear(int mask, uint32_t colorval, float depthVal, int st
 }
 
 void D3D11DrawContext::BeginFrame(DebugFlags debugFlags) {
+	FrameTimeData &frameTimeData = frameTimeHistory_.Add(frameCount_);
+	frameTimeData.afterFenceWait = time_now_d();
+	frameTimeData.frameBegin = frameTimeData.afterFenceWait;
+
 	context_->OMSetRenderTargets(1, &curRenderTargetView_, curDepthStencilView_);
 
 	if (curBlend_ != nullptr) {
