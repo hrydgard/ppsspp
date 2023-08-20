@@ -962,40 +962,57 @@ bool PurgeTemps(const IRWriter &in, IRWriter &out, const IROptions &opts) {
 	memset(lastWrittenTo, -1, sizeof(lastWrittenTo));
 	memset(lastReadFrom, -1, sizeof(lastReadFrom));
 
-	auto readsFromFPRCheck = [](IRInst &inst, Check &check, bool directly) {
+	auto readsFromFPRCheck = [](IRInst &inst, Check &check, bool *directly) {
 		if (check.reg < 32)
 			return false;
-		if (check.fplen >= 1 && IRReadsFromFPR(inst, check.reg - 32, directly))
-			return true;
-		if (check.fplen >= 2 && IRReadsFromFPR(inst, check.reg - 32 + 1, directly))
-			return true;
-		if (check.fplen >= 3 && IRReadsFromFPR(inst, check.reg - 32 + 2, directly))
-			return true;
-		if (check.fplen >= 4 && IRReadsFromFPR(inst, check.reg - 32 + 3, directly))
-			return true;
-		return false;
+
+		bool result = false;
+		*directly = true;
+		for (int i = 0; i < 4; ++i) {
+			bool laneDirectly;
+			if (check.fplen >= i + 1 && IRReadsFromFPR(inst, check.reg - 32 + i, &laneDirectly)) {
+				result = true;
+				if (!laneDirectly) {
+					*directly = false;
+					break;
+				}
+			}
+		}
+		return result;
 	};
 
 	bool logBlocks = false;
+	size_t firstCheck = 0;
 	for (int i = 0, n = (int)in.GetInstructions().size(); i < n; i++) {
 		IRInst inst = in.GetInstructions()[i];
 		const IRMeta *m = GetIRMeta(inst.op);
 
+		// It helps to skip through rechecking ones we already discarded.
+		for (size_t ch = firstCheck; ch < checks.size(); ++ch) {
+			Check &check = checks[ch];
+			if (check.reg != 0) {
+				firstCheck = ch;
+				break;
+			}
+		}
+
 		// Check if we can optimize by running through all the writes we've previously found.
-		for (Check &check : checks) {
+		for (size_t ch = firstCheck; ch < checks.size(); ++ch) {
+			Check &check = checks[ch];
 			if (check.reg == 0) {
 				// This means we already optimized this or a later inst depends on it.
 				continue;
 			}
 
-			if (IRReadsFromGPR(inst, check.reg)) {
+			bool readsDirectly;
+			if (IRReadsFromGPR(inst, check.reg, &readsDirectly)) {
 				// If this reads from the reg, we either depend on it or we can fold or swap.
 				// That's determined below.
 
 				// If this reads and writes the reg (e.g. MovZ, Load32Left), we can't just swap.
 				bool mutatesReg = IRMutatesDestGPR(inst, check.reg);
 				// If this doesn't directly read (i.e. Interpret), we can't swap.
-				bool cannotReplace = !IRReadsFromGPR(inst, check.reg, true);
+				bool cannotReplace = !readsDirectly;
 				if (!mutatesReg && !cannotReplace && check.srcReg >= 0 && lastWrittenTo[check.srcReg] < check.index) {
 					// Replace with the srcReg instead.  This happens with non-nice delay slots.
 					// We're changing "Mov A, B; Add C, C, A" to "Mov A, B; Add C, C, B" here.
@@ -1027,7 +1044,7 @@ bool PurgeTemps(const IRWriter &in, IRWriter &out, const IROptions &opts) {
 					// Legitimately read from, so we can't optimize out.
 					check.reg = 0;
 				}
-			} else if (readsFromFPRCheck(inst, check, false) && check.fplen >= 1) {
+			} else if (check.fplen >= 1 && readsFromFPRCheck(inst, check, &readsDirectly)) {
 				// If one or the other is a Vec, they must match.
 				bool lenMismatch = false;
 
@@ -1052,7 +1069,7 @@ bool PurgeTemps(const IRWriter &in, IRWriter &out, const IROptions &opts) {
 				if ((m->flags & (IRFLAG_SRC3 | IRFLAG_SRC3DST)) != 0)
 					checkMismatch(inst.src3, m->types[3]);
 
-				bool cannotReplace = !readsFromFPRCheck(inst, check, true) || lenMismatch;
+				bool cannotReplace = !readsDirectly || lenMismatch;
 				if (!cannotReplace && check.srcReg >= 32 && lastWrittenTo[check.srcReg] < check.index) {
 					// This is probably not worth doing unless we can get rid of a temp.
 					if (!check.readByExit) {
