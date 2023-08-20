@@ -63,8 +63,6 @@ public:
 	void MapDirtyIn(IRReg rd, IRReg rs, RiscVJitConstants::MapType type = RiscVJitConstants::MapType::AVOID_LOAD);
 	void MapDirtyDirtyInIn(IRReg rd1, IRReg rd2, IRReg rs, IRReg rt, RiscVJitConstants::MapType type = RiscVJitConstants::MapType::AVOID_LOAD);
 	void FlushBeforeCall();
-	void FlushR(IRReg r);
-	void DiscardR(IRReg r);
 
 	RiscVGen::RiscVReg GetAndLockTempR();
 

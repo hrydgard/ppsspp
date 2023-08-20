@@ -352,16 +352,6 @@ void RiscVRegCache::StoreRegValue(IRReg mreg, uint32_t imm) {
 	emit_->SW(storeReg, CTXREG, GetMipsRegOffset(mreg));
 }
 
-void RiscVRegCache::DiscardR(IRReg mipsReg) {
-	_dbg_assert_(IsValidGPRNoZero(mipsReg));
-	DiscardReg(mipsReg);
-}
-
-void RiscVRegCache::FlushR(IRReg r) {
-	_dbg_assert_(IsValidGPRNoZero(r));
-	FlushReg(r);
-}
-
 RiscVReg RiscVRegCache::R(IRReg mipsReg) {
 	_dbg_assert_(IsValidGPR(mipsReg));
 	_dbg_assert_(mr[mipsReg].loc == MIPSLoc::REG || mr[mipsReg].loc == MIPSLoc::REG_IMM);

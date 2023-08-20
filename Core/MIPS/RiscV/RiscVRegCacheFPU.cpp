@@ -143,11 +143,6 @@ void RiscVRegCacheFPU::StoreRegValue(IRReg mreg, uint32_t imm) {
 	_assert_msg_(false, "Storing imms to floats is unsupported");
 }
 
-void RiscVRegCacheFPU::FlushR(IRReg r) {
-	_dbg_assert_(IsValidFPR(r));
-	FlushReg(r + 32);
-}
-
 void RiscVRegCacheFPU::FlushBeforeCall() {
 	// These registers are not preserved by function calls.
 	for (int i = 0; i <= 7; ++i) {
@@ -159,11 +154,6 @@ void RiscVRegCacheFPU::FlushBeforeCall() {
 	for (int i = 28; i <= 31; ++i) {
 		FlushNativeReg(i);
 	}
-}
-
-void RiscVRegCacheFPU::DiscardR(IRReg r) {
-	_dbg_assert_(IsValidFPR(r));
-	DiscardReg(r + 32);
 }
 
 RiscVReg RiscVRegCacheFPU::R(IRReg mipsReg) {

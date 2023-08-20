@@ -39,8 +39,6 @@ public:
 	void Map4DirtyIn(IRReg rdbase, IRReg rsbase, bool avoidLoad = true);
 	RiscVGen::RiscVReg Map4DirtyInTemp(IRReg rdbase, IRReg rsbase, bool avoidLoad = true);
 	void FlushBeforeCall();
-	void FlushR(IRReg r);
-	void DiscardR(IRReg r);
 
 	RiscVGen::RiscVReg R(IRReg preg); // Returns a cached register
 
