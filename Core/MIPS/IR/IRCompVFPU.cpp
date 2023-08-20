@@ -1658,28 +1658,18 @@ namespace MIPSComp {
 				}
 			}
 			return;
-		} else if (msz == M_4x4 && IsMatrixVec4(msz, sregs)) {
-			// Consecutive, which is harder.
-			DISABLE;
-			int s0 = IRVTEMP_0;
-			int s1 = IRVTEMP_PFX_S;
-			// Doesn't make complete sense to me why this works.... (because it doesn't.)
-			ir.Write(IROp::Vec4Scale, s0, sregs[0], tregs[0]);
-			for (int i = 1; i < 4; i++) {
-				if (!homogenous || (i != n - 1)) {
-					ir.Write(IROp::Vec4Scale, s1, sregs[i], tregs[i]);
-					ir.Write(IROp::Vec4Add, s0, s0, s1);
-				} else {
-					ir.Write(IROp::Vec4Add, s0, s0, sregs[i]);
-				}
+		} else if (msz == M_4x4 && IsMatrixVec4(msz, sregs) && IsVec4(sz, tregs)) {
+			IRReg t = tregs[0];
+			if (homogenous) {
+				// This is probably even what the hardware basically does, wiring t[3] to 1.0f.
+				ir.Write(IROp::Vec4Init, IRVTEMP_PFX_T, (int)Vec4Init::AllONE);
+				ir.Write(IROp::Vec4Blend, IRVTEMP_PFX_T, t, IRVTEMP_PFX_T, 0x7);
+				t = IRVTEMP_PFX_T;
 			}
-			if (IsVec4(sz, dregs)) {
-				ir.Write(IROp::Vec4Mov, dregs[0], s0);
-			} else {
-				for (int i = 0; i < 4; i++) {
-					ir.Write(IROp::FMov, dregs[i], s0 + i);
-				}
-			}
+			for (int i = 0; i < 4; i++)
+				ir.Write(IROp::Vec4Dot, IRVTEMP_PFX_D + i, sregs[i * 4], t);
+			for (int i = 0; i < 4; i++)
+				ir.Write(IROp::FMov, dregs[i], IRVTEMP_PFX_D + i);
 			return;
 		}
 
