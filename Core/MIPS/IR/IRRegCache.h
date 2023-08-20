@@ -183,6 +183,7 @@ public:
 	void MarkGPRDirty(IRReg gpr, bool andNormalized32 = false);
 	void MarkGPRAsPointerDirty(IRReg gpr);
 
+	virtual void Map(const IRInst &inst);
 	virtual void FlushAll();
 
 protected:
@@ -224,7 +225,12 @@ protected:
 	MIPSComp::JitOptions *jo_;
 	const MIPSComp::IRBlock *irBlock_ = nullptr;
 	int irIndex_ = 0;
-	int totalNativeRegs_ = 0;
+
+	struct {
+		int totalNativeRegs = 0;
+		bool mapSIMD = false;
+		bool mapUseVRegs = false;
+	} config_;
 
 	RegStatusNative nr[TOTAL_POSSIBLE_NATIVEREGS];
 	RegStatusMIPS mr[TOTAL_MAPPABLE_IRREGS];

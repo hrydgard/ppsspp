@@ -32,14 +32,11 @@ public:
 	void Init(RiscVGen::RiscVEmitter *emitter);
 
 	// Returns a RISC-V register containing the requested MIPS register.
-	RiscVGen::RiscVReg MapReg(IRReg reg, MIPSMap mapFlags = MIPSMap::INIT);
+	RiscVGen::RiscVReg MapFPR(IRReg reg, MIPSMap mapFlags = MIPSMap::INIT);
 
-	void MapInIn(IRReg rd, IRReg rs);
-	void MapDirtyIn(IRReg rd, IRReg rs, bool avoidLoad = true);
 	void MapDirtyInIn(IRReg rd, IRReg rs, IRReg rt, bool avoidLoad = true);
 	RiscVGen::RiscVReg MapDirtyInTemp(IRReg rd, IRReg rs, bool avoidLoad = true);
 	void Map4DirtyIn(IRReg rdbase, IRReg rsbase, bool avoidLoad = true);
-	void Map4DirtyInIn(IRReg rdbase, IRReg rsbase, IRReg rtbase, bool avoidLoad = true);
 	RiscVGen::RiscVReg Map4DirtyInTemp(IRReg rdbase, IRReg rsbase, bool avoidLoad = true);
 	void FlushBeforeCall();
 	void FlushR(IRReg r);

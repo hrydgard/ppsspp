@@ -102,7 +102,7 @@ void IRNativeRegCacheBase::Start(MIPSComp::IRBlock *irBlock) {
 		initialReady_ = true;
 	}
 
-	memcpy(nr, nrInitial_, sizeof(nr[0]) * totalNativeRegs_);
+	memcpy(nr, nrInitial_, sizeof(nr[0]) * config_.totalNativeRegs);
 	memcpy(mr, mrInitial_, sizeof(mr));
 
 	int numStatics;
@@ -123,7 +123,7 @@ void IRNativeRegCacheBase::Start(MIPSComp::IRBlock *irBlock) {
 }
 
 void IRNativeRegCacheBase::SetupInitialRegs() {
-	_assert_msg_(totalNativeRegs_ > 0, "totalNativeRegs_ was never set by backend");
+	_assert_msg_(config_.totalNativeRegs > 0, "totalNativeRegs was never set by backend");
 
 	// Everything else is initialized in the struct.
 	mrInitial_[MIPS_REG_ZERO].loc = MIPSLoc::IMM;
@@ -421,7 +421,7 @@ IRNativeReg IRNativeRegCacheBase::FindBestToSpill(MIPSLoc type, bool unusedOnly,
 }
 
 void IRNativeRegCacheBase::DiscardNativeReg(IRNativeReg nreg) {
-	_assert_msg_(nreg >= 0 && nreg < totalNativeRegs_, "DiscardNativeReg on invalid register %d", nreg);
+	_assert_msg_(nreg >= 0 && nreg < config_.totalNativeRegs, "DiscardNativeReg on invalid register %d", nreg);
 	if (nr[nreg].mipsReg != IRREG_INVALID) {
 		_assert_(nr[nreg].mipsReg != MIPS_REG_ZERO);
 		int8_t lanes = 0;
@@ -460,7 +460,7 @@ void IRNativeRegCacheBase::DiscardNativeReg(IRNativeReg nreg) {
 }
 
 void IRNativeRegCacheBase::FlushNativeReg(IRNativeReg nreg) {
-	_assert_msg_(nreg >= 0 && nreg < totalNativeRegs_, "FlushNativeReg on invalid register %d", nreg);
+	_assert_msg_(nreg >= 0 && nreg < config_.totalNativeRegs, "FlushNativeReg on invalid register %d", nreg);
 	if (nr[nreg].mipsReg == IRREG_INVALID || nr[nreg].mipsReg == MIPS_REG_ZERO) {
 		// Nothing to do, reg not mapped or mapped to fixed zero.
 		_dbg_assert_(!nr[nreg].isDirty);
@@ -614,9 +614,114 @@ void IRNativeRegCacheBase::FlushAll() {
 		}
 	}
 	// Sanity check
-	for (int i = 0; i < totalNativeRegs_; i++) {
+	for (int i = 0; i < config_.totalNativeRegs; i++) {
 		if (nr[i].mipsReg != IRREG_INVALID && !mr[nr[i].mipsReg].isStatic) {
 			ERROR_LOG_REPORT(JIT, "Flush fail: nr[%i].mipsReg=%i", i, nr[i].mipsReg);
+		}
+	}
+}
+
+void IRNativeRegCacheBase::Map(const IRInst &inst) {
+	const IRMeta *m = GetIRMeta(inst.op);
+	IRReg regs[3]{ inst.dest, inst.src1, inst.src2 };
+	MIPSLoc regTypes[3]{ MIPSLoc::MEM, MIPSLoc::MEM, MIPSLoc::MEM };
+	int regLanes[3]{ 1, 1, 1 };
+	for (int i = 0; i < 3; ++i) {
+		switch (m->types[i]) {
+		case 'G':
+			regTypes[i] = MIPSLoc::REG;
+			_assert_msg_(IsValidGPR(regs[i]), "G was not valid GPR?");
+			break;
+
+		case 'F':
+			regs[i] += 32;
+			regTypes[i] = MIPSLoc::FREG;
+			_assert_msg_(IsValidFPR(regs[i] - 32), "F was not valid FPR?");
+			break;
+
+		case 'V':
+		case '2':
+			regs[i] += 32;
+			regTypes[i] = config_.mapUseVRegs ? MIPSLoc::VREG : MIPSLoc::FREG;
+			regLanes[i] = m->types[i] == 'V' ? 4 : (m->types[i] == '2' ? 2 : 1);
+			_assert_msg_(IsValidFPR(regs[i] - 32), "%c was not valid FPR?", m->types[i]);
+			break;
+
+		case 'T':
+			regTypes[i] = MIPSLoc::REG;
+			_assert_msg_(regs[i] < VFPU_CTRL_MAX, "T was not valid VFPU CTRL?");
+			regs[i] += IRREG_VFPU_CTRL_BASE;
+			break;
+
+		case '\0':
+		case '_':
+		case 'C':
+		case 'I':
+		case 'v':
+		case 's':
+		case 'm':
+			regs[i] = IRREG_INVALID;
+			regLanes[i] = 0;
+			break;
+
+		default:
+			_assert_msg_(regs[i] == IRREG_INVALID, "Unexpected register type %c", m->types[i]);
+			break;
+		}
+	}
+
+	SetSpillLockIRIndex(regs[0], regs[1], regs[2], IRREG_INVALID, 0, irIndex_);
+	for (int i = 0; i < 3 && !config_.mapSIMD; ++i) {
+		for (int j = 1; j < regLanes[i]; ++j)
+			SetSpillLockIRIndex(regs[i] + j, IRREG_INVALID, IRREG_INVALID, IRREG_INVALID, 0, irIndex_);
+	}
+
+	auto mapRegs = [&](int i, MIPSMap flags) {
+		if (config_.mapSIMD) {
+			MapNativeReg(regTypes[i], regs[i], regLanes[i], flags);
+			return;
+		}
+
+		for (int j = 0; j < regLanes[i]; ++j)
+			MapNativeReg(regTypes[i], regs[i] + j, 1, flags);
+	};
+
+	if (regs[1] != IRREG_INVALID)
+		mapRegs(1, MIPSMap::INIT);
+	if (regs[2] != IRREG_INVALID)
+		mapRegs(2, MIPSMap::INIT);
+	if (regs[0] != IRREG_INVALID) {
+		MIPSMap flags = MIPSMap::NOINIT;
+		if ((m->flags & IRFLAG_SRC3DST) != 0)
+			flags = MIPSMap::DIRTY;
+		else if ((m->flags & IRFLAG_SRC3) != 0)
+			flags = MIPSMap::INIT;
+
+		mapRegs(0, flags);
+	}
+
+	SetSpillLockIRIndex(regs[0], regs[1], regs[2], IRREG_INVALID, 0, -1);
+	for (int i = 0; i < 3 && !config_.mapSIMD; ++i) {
+		for (int j = 1; j < regLanes[i]; ++j)
+			SetSpillLockIRIndex(regs[i] + j, IRREG_INVALID, IRREG_INVALID, IRREG_INVALID, 0, -1);
+	}
+
+	// Sanity check.  If these don't pass, we may have Vec overlap issues or etc.
+	for (int i = 0; i < 3; ++i) {
+		if (regs[i] != IRREG_INVALID) {
+			_dbg_assert_(mr[regs[i]].nReg != -1);
+			if (regTypes[i] == MIPSLoc::REG) {
+				_dbg_assert_(mr[regs[i]].loc == MIPSLoc::REG || mr[regs[i]].loc == MIPSLoc::REG_AS_PTR || mr[regs[i]].loc == MIPSLoc::REG_IMM);
+			} else {
+				_dbg_assert_(mr[regs[i]].loc == regTypes[i]);
+			}
+			if (regLanes[i] != 1 && config_.mapSIMD) {
+				_dbg_assert_(mr[regs[i]].lane == 0);
+				_dbg_assert_(mr[regs[i] + regLanes[i] - 1].lane == regLanes[i] - 1);
+				_dbg_assert_(mr[regs[i]].nReg == mr[regs[i] + regLanes[i] - 1].nReg);
+			} else {
+				_dbg_assert_(mr[regs[i]].lane == -1);
+			}
 		}
 	}
 }

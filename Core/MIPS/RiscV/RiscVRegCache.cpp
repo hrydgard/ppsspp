@@ -32,7 +32,7 @@ using namespace RiscVJitConstants;
 RiscVRegCache::RiscVRegCache(MIPSComp::JitOptions *jo)
 	: IRNativeRegCacheBase(jo) {
 	// TODO: Move to using for FPRs and VPRs too?
-	totalNativeRegs_ = NUM_RVREG;
+	config_.totalNativeRegs = NUM_RVREG;
 }
 
 void RiscVRegCache::Init(RiscVEmitter *emitter) {
@@ -220,7 +220,7 @@ RiscVReg RiscVRegCache::GetAndLockTempR() {
 	return reg;
 }
 
-RiscVReg RiscVRegCache::MapReg(IRReg mipsReg, MIPSMap mapFlags) {
+RiscVReg RiscVRegCache::MapGPR(IRReg mipsReg, MIPSMap mapFlags) {
 	_dbg_assert_(IsValidGPR(mipsReg));
 
 	// Okay, not mapped, so we need to allocate an RV register.
@@ -228,49 +228,17 @@ RiscVReg RiscVRegCache::MapReg(IRReg mipsReg, MIPSMap mapFlags) {
 	return (RiscVReg)nreg;
 }
 
-RiscVReg RiscVRegCache::MapRegAsPointer(IRReg reg) {
+RiscVReg RiscVRegCache::MapGPRAsPointer(IRReg reg) {
 	return (RiscVReg)MapNativeRegAsPointer(reg);
-}
-
-void RiscVRegCache::MapIn(IRReg rs) {
-	MapReg(rs);
-}
-
-void RiscVRegCache::MapInIn(IRReg rd, IRReg rs) {
-	SpillLockGPR(rd, rs);
-	MapReg(rd);
-	MapReg(rs);
-	ReleaseSpillLockGPR(rd, rs);
 }
 
 void RiscVRegCache::MapDirtyIn(IRReg rd, IRReg rs, MapType type) {
 	SpillLockGPR(rd, rs);
 	bool load = type == MapType::ALWAYS_LOAD || rd == rs;
 	MIPSMap norm32 = type == MapType::AVOID_LOAD_MARK_NORM32 ? MIPSMap::MARK_NORM32 : MIPSMap::INIT;
-	MapReg(rd, (load ? MIPSMap::DIRTY : MIPSMap::NOINIT) | norm32);
-	MapReg(rs);
+	MapGPR(rd, (load ? MIPSMap::DIRTY : MIPSMap::NOINIT) | norm32);
+	MapGPR(rs);
 	ReleaseSpillLockGPR(rd, rs);
-}
-
-void RiscVRegCache::MapDirtyInIn(IRReg rd, IRReg rs, IRReg rt, MapType type) {
-	SpillLockGPR(rd, rs, rt);
-	bool load = type == MapType::ALWAYS_LOAD || (rd == rs || rd == rt);
-	MIPSMap norm32 = type == MapType::AVOID_LOAD_MARK_NORM32 ? MIPSMap::MARK_NORM32 : MIPSMap::INIT;
-	MapReg(rd, (load ? MIPSMap::DIRTY : MIPSMap::NOINIT) | norm32);
-	MapReg(rt);
-	MapReg(rs);
-	ReleaseSpillLockGPR(rd, rs, rt);
-}
-
-void RiscVRegCache::MapDirtyDirtyIn(IRReg rd1, IRReg rd2, IRReg rs, MapType type) {
-	SpillLockGPR(rd1, rd2, rs);
-	bool load1 = type == MapType::ALWAYS_LOAD || rd1 == rs;
-	bool load2 = type == MapType::ALWAYS_LOAD || rd2 == rs;
-	MIPSMap norm32 = type == MapType::AVOID_LOAD_MARK_NORM32 ? MIPSMap::MARK_NORM32 : MIPSMap::INIT;
-	MapReg(rd1, (load1 ? MIPSMap::DIRTY : MIPSMap::NOINIT) | norm32);
-	MapReg(rd2, (load2 ? MIPSMap::DIRTY : MIPSMap::NOINIT) | norm32);
-	MapReg(rs);
-	ReleaseSpillLockGPR(rd1, rd2, rs);
 }
 
 void RiscVRegCache::MapDirtyDirtyInIn(IRReg rd1, IRReg rd2, IRReg rs, IRReg rt, MapType type) {
@@ -278,10 +246,10 @@ void RiscVRegCache::MapDirtyDirtyInIn(IRReg rd1, IRReg rd2, IRReg rs, IRReg rt, 
 	bool load1 = type == MapType::ALWAYS_LOAD || (rd1 == rs || rd1 == rt);
 	bool load2 = type == MapType::ALWAYS_LOAD || (rd2 == rs || rd2 == rt);
 	MIPSMap norm32 = type == MapType::AVOID_LOAD_MARK_NORM32 ? MIPSMap::MARK_NORM32 : MIPSMap::INIT;
-	MapReg(rd1, (load1 ? MIPSMap::DIRTY : MIPSMap::NOINIT) | norm32);
-	MapReg(rd2, (load2 ? MIPSMap::DIRTY : MIPSMap::NOINIT) | norm32);
-	MapReg(rt);
-	MapReg(rs);
+	MapGPR(rd1, (load1 ? MIPSMap::DIRTY : MIPSMap::NOINIT) | norm32);
+	MapGPR(rd2, (load2 ? MIPSMap::DIRTY : MIPSMap::NOINIT) | norm32);
+	MapGPR(rt);
+	MapGPR(rs);
 	ReleaseSpillLockGPR(rd1, rd2, rs, rt);
 }
 

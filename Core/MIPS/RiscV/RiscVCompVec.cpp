@@ -40,10 +40,7 @@ void RiscVJitBackend::CompIR_VecAssign(IRInst inst) {
 
 	switch (inst.op) {
 	case IROp::Vec4Init:
-		for (int i = 0; i < 4; ++i)
-			fpr.SpillLockFPR(inst.dest + i);
-		for (int i = 0; i < 4; ++i)
-			fpr.MapReg(inst.dest + i, MIPSMap::NOINIT);
+		fpr.Map(inst);
 
 		// TODO: Check if FCVT/FMV/FL is better.
 		switch ((Vec4Init)inst.src1) {
@@ -161,7 +158,7 @@ void RiscVJitBackend::CompIR_VecAssign(IRInst inst) {
 				moveChained({ neededByDepth2, neededBy, i, foundIn }, neededByDepth3 == foundIn);
 			}
 		} else {
-			fpr.Map4DirtyIn(inst.dest, inst.src1);
+			fpr.Map(inst);
 			for (int i = 0; i < 4; ++i) {
 				int lane = (inst.src2 >> (i * 2)) & 3;
 				FMV(32, fpr.R(inst.dest + i), fpr.R(inst.src1 + lane));
@@ -170,7 +167,7 @@ void RiscVJitBackend::CompIR_VecAssign(IRInst inst) {
 		break;
 
 	case IROp::Vec4Blend:
-		fpr.Map4DirtyInIn(inst.dest, inst.src1, inst.src2);
+		fpr.Map(inst);
 		for (int i = 0; i < 4; ++i) {
 			int which = (inst.constant >> i) & 1;
 			FMV(32, fpr.R(inst.dest + i), fpr.R((which ? inst.src2 : inst.src1) + i));
@@ -178,7 +175,7 @@ void RiscVJitBackend::CompIR_VecAssign(IRInst inst) {
 		break;
 
 	case IROp::Vec4Mov:
-		fpr.Map4DirtyIn(inst.dest, inst.src1);
+		fpr.Map(inst);
 		for (int i = 0; i < 4; ++i)
 			FMV(32, fpr.R(inst.dest + i), fpr.R(inst.src1 + i));
 		break;
@@ -194,45 +191,45 @@ void RiscVJitBackend::CompIR_VecArith(IRInst inst) {
 
 	switch (inst.op) {
 	case IROp::Vec4Add:
-		fpr.Map4DirtyInIn(inst.dest, inst.src1, inst.src2);
+		fpr.Map(inst);
 		for (int i = 0; i < 4; ++i)
 			FADD(32, fpr.R(inst.dest + i), fpr.R(inst.src1 + i), fpr.R(inst.src2 + i));
 		break;
 
 	case IROp::Vec4Sub:
-		fpr.Map4DirtyInIn(inst.dest, inst.src1, inst.src2);
+		fpr.Map(inst);
 		for (int i = 0; i < 4; ++i)
 			FSUB(32, fpr.R(inst.dest + i), fpr.R(inst.src1 + i), fpr.R(inst.src2 + i));
 		break;
 
 	case IROp::Vec4Mul:
-		fpr.Map4DirtyInIn(inst.dest, inst.src1, inst.src2);
+		fpr.Map(inst);
 		for (int i = 0; i < 4; ++i)
 			FMUL(32, fpr.R(inst.dest + i), fpr.R(inst.src1 + i), fpr.R(inst.src2 + i));
 		break;
 
 	case IROp::Vec4Div:
-		fpr.Map4DirtyInIn(inst.dest, inst.src1, inst.src2);
+		fpr.Map(inst);
 		for (int i = 0; i < 4; ++i)
 			FDIV(32, fpr.R(inst.dest + i), fpr.R(inst.src1 + i), fpr.R(inst.src2 + i));
 		break;
 
 	case IROp::Vec4Scale:
 		fpr.SpillLockFPR(inst.src2);
-		fpr.MapReg(inst.src2);
+		fpr.MapFPR(inst.src2);
 		fpr.Map4DirtyIn(inst.dest, inst.src1);
 		for (int i = 0; i < 4; ++i)
 			FMUL(32, fpr.R(inst.dest + i), fpr.R(inst.src1 + i), fpr.R(inst.src2));
 		break;
 
 	case IROp::Vec4Neg:
-		fpr.Map4DirtyIn(inst.dest, inst.src1);
+		fpr.Map(inst);
 		for (int i = 0; i < 4; ++i)
 			FNEG(32, fpr.R(inst.dest + i), fpr.R(inst.src1 + i));
 		break;
 
 	case IROp::Vec4Abs:
-		fpr.Map4DirtyIn(inst.dest, inst.src1);
+		fpr.Map(inst);
 		for (int i = 0; i < 4; ++i)
 			FABS(32, fpr.R(inst.dest + i), fpr.R(inst.src1 + i));
 		break;
@@ -255,10 +252,10 @@ void RiscVJitBackend::CompIR_VecHoriz(IRInst inst) {
 			fpr.SpillLockFPR(inst.src2 + i);
 		}
 		for (int i = 0; i < 4; ++i) {
-			fpr.MapReg(inst.src1 + i);
-			fpr.MapReg(inst.src2 + i);
+			fpr.MapFPR(inst.src1 + i);
+			fpr.MapFPR(inst.src2 + i);
 		}
-		fpr.MapReg(inst.dest, MIPSMap::NOINIT);
+		fpr.MapFPR(inst.dest, MIPSMap::NOINIT);
 
 		if ((inst.dest < inst.src1 + 4 && inst.dest >= inst.src1) || (inst.dest < inst.src2 + 4 && inst.dest >= inst.src2)) {
 			// This means inst.dest overlaps one of src1 or src2.  We have to do that one first.
@@ -298,9 +295,9 @@ void RiscVJitBackend::CompIR_VecPack(IRInst inst) {
 		fpr.SpillLockFPR(inst.src1);
 		for (int i = 0; i < 4; ++i)
 			fpr.SpillLockFPR(inst.dest + i);
-		fpr.MapReg(inst.src1);
+		fpr.MapFPR(inst.src1);
 		for (int i = 0; i < 4; ++i)
-			fpr.MapReg(inst.dest + i, MIPSMap::NOINIT);
+			fpr.MapFPR(inst.dest + i, MIPSMap::NOINIT);
 
 		FMV(FMv::X, FMv::W, SCRATCH2, fpr.R(inst.src1));
 		for (int i = 0; i < 4; ++i) {
@@ -319,9 +316,9 @@ void RiscVJitBackend::CompIR_VecPack(IRInst inst) {
 		fpr.SpillLockFPR(inst.src1);
 		for (int i = 0; i < 2; ++i)
 			fpr.SpillLockFPR(inst.dest + i);
-		fpr.MapReg(inst.src1);
+		fpr.MapFPR(inst.src1);
 		for (int i = 0; i < 2; ++i)
-			fpr.MapReg(inst.dest + i, MIPSMap::NOINIT);
+			fpr.MapFPR(inst.dest + i, MIPSMap::NOINIT);
 
 		FMV(FMv::X, FMv::W, SCRATCH2, fpr.R(inst.src1));
 		SLLI(SCRATCH1, SCRATCH2, 16);
@@ -332,7 +329,7 @@ void RiscVJitBackend::CompIR_VecPack(IRInst inst) {
 		break;
 
 	case IROp::Vec4DuplicateUpperBitsAndShift1:
-		fpr.Map4DirtyIn(inst.dest, inst.src1);
+		fpr.Map(inst);
 		for (int i = 0; i < 4; i++) {
 			FMV(FMv::X, FMv::W, SCRATCH1, fpr.R(inst.src1 + i));
 			SRLIW(SCRATCH2, SCRATCH1, 8);
@@ -348,9 +345,9 @@ void RiscVJitBackend::CompIR_VecPack(IRInst inst) {
 		fpr.SpillLockFPR(inst.dest);
 		for (int i = 0; i < 4; ++i) {
 			fpr.SpillLockFPR(inst.src1 + i);
-			fpr.MapReg(inst.src1 + i);
+			fpr.MapFPR(inst.src1 + i);
 		}
-		fpr.MapReg(inst.dest, MIPSMap::NOINIT);
+		fpr.MapFPR(inst.dest, MIPSMap::NOINIT);
 
 		for (int i = 0; i < 4; ++i) {
 			FMV(FMv::X, FMv::W, SCRATCH1, fpr.R(inst.src1 + i));
@@ -394,7 +391,7 @@ void RiscVJitBackend::CompIR_VecClamp(IRInst inst) {
 
 	switch (inst.op) {
 	case IROp::Vec4ClampToZero:
-		fpr.Map4DirtyIn(inst.dest, inst.src1);
+		fpr.Map(inst);
 		for (int i = 0; i < 4; i++) {
 			FMV(FMv::X, FMv::W, SCRATCH1, fpr.R(inst.src1 + i));
 			SRAIW(SCRATCH2, SCRATCH1, 31);

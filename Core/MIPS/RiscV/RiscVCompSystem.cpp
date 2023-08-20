@@ -49,7 +49,7 @@ void RiscVJitBackend::CompIR_Basic(IRInst inst) {
 		break;
 
 	case IROp::SetConstF:
-		fpr.MapReg(inst.dest, MIPSMap::NOINIT);
+		fpr.Map(inst);
 		if (inst.constant == 0) {
 			FCVT(FConv::S, FConv::W, fpr.R(inst.dest), R_ZERO);
 		} else {
@@ -70,7 +70,7 @@ void RiscVJitBackend::CompIR_Basic(IRInst inst) {
 		break;
 
 	case IROp::SetPC:
-		gpr.MapIn(inst.src1);
+		gpr.Map(inst);
 		MovToPC(gpr.R(inst.src1));
 		break;
 
@@ -100,8 +100,8 @@ void RiscVJitBackend::CompIR_Transfer(IRInst inst) {
 		break;
 
 	case IROp::SetCtrlVFPUFReg:
-		gpr.MapReg(IRREG_VFPU_CTRL_BASE + inst.dest, MIPSMap::NOINIT | MIPSMap::MARK_NORM32);
-		fpr.MapReg(inst.src1);
+		gpr.MapGPR(IRREG_VFPU_CTRL_BASE + inst.dest, MIPSMap::NOINIT | MIPSMap::MARK_NORM32);
+		fpr.MapFPR(inst.src1);
 		FMV(FMv::X, FMv::W, gpr.R(IRREG_VFPU_CTRL_BASE + inst.dest), fpr.R(inst.src1));
 		break;
 
@@ -157,18 +157,18 @@ void RiscVJitBackend::CompIR_Transfer(IRInst inst) {
 		break;
 
 	case IROp::FMovFromGPR:
-		fpr.MapReg(inst.dest, MIPSMap::NOINIT);
+		fpr.MapFPR(inst.dest, MIPSMap::NOINIT);
 		if (gpr.IsGPRImm(inst.src1) && gpr.GetGPRImm(inst.src1) == 0) {
 			FCVT(FConv::S, FConv::W, fpr.R(inst.dest), R_ZERO);
 		} else {
-			gpr.MapReg(inst.src1);
+			gpr.MapGPR(inst.src1);
 			FMV(FMv::W, FMv::X, fpr.R(inst.dest), gpr.R(inst.src1));
 		}
 		break;
 
 	case IROp::FMovToGPR:
-		gpr.MapReg(inst.dest, MIPSMap::NOINIT | MIPSMap::MARK_NORM32);
-		fpr.MapReg(inst.src1);
+		gpr.MapGPR(inst.dest, MIPSMap::NOINIT | MIPSMap::MARK_NORM32);
+		fpr.MapFPR(inst.src1);
 		FMV(FMv::X, FMv::W, gpr.R(inst.dest), fpr.R(inst.src1));
 		break;
 

@@ -39,34 +39,34 @@ void RiscVJitBackend::CompIR_FArith(IRInst inst) {
 
 	switch (inst.op) {
 	case IROp::FAdd:
-		fpr.MapDirtyInIn(inst.dest, inst.src1, inst.src2);
+		fpr.Map(inst);
 		FADD(32, fpr.R(inst.dest), fpr.R(inst.src1), fpr.R(inst.src2));
 		break;
 
 	case IROp::FSub:
-		fpr.MapDirtyInIn(inst.dest, inst.src1, inst.src2);
+		fpr.Map(inst);
 		FSUB(32, fpr.R(inst.dest), fpr.R(inst.src1), fpr.R(inst.src2));
 		break;
 
 	case IROp::FMul:
-		fpr.MapDirtyInIn(inst.dest, inst.src1, inst.src2);
+		fpr.Map(inst);
 		// We'll assume everyone will make it such that 0 * infinity = NAN properly.
 		// See blame on this comment if that proves untrue.
 		FMUL(32, fpr.R(inst.dest), fpr.R(inst.src1), fpr.R(inst.src2));
 		break;
 
 	case IROp::FDiv:
-		fpr.MapDirtyInIn(inst.dest, inst.src1, inst.src2);
+		fpr.Map(inst);
 		FDIV(32, fpr.R(inst.dest), fpr.R(inst.src1), fpr.R(inst.src2));
 		break;
 
 	case IROp::FSqrt:
-		fpr.MapDirtyIn(inst.dest, inst.src1);
+		fpr.Map(inst);
 		FSQRT(32, fpr.R(inst.dest), fpr.R(inst.src1));
 		break;
 
 	case IROp::FNeg:
-		fpr.MapDirtyIn(inst.dest, inst.src1);
+		fpr.Map(inst);
 		FNEG(32, fpr.R(inst.dest), fpr.R(inst.src1));
 		break;
 
@@ -83,7 +83,7 @@ void RiscVJitBackend::CompIR_FCondAssign(IRInst inst) {
 	bool maxCondition = inst.op == IROp::FMax;
 
 	// FMin and FMax are used by VFPU and handle NAN/INF as just a larger exponent.
-	fpr.MapDirtyInIn(inst.dest, inst.src1, inst.src2);
+	fpr.Map(inst);
 	FCLASS(32, SCRATCH1, fpr.R(inst.src1));
 	FCLASS(32, SCRATCH2, fpr.R(inst.src2));
 
@@ -146,19 +146,19 @@ void RiscVJitBackend::CompIR_FAssign(IRInst inst) {
 	switch (inst.op) {
 	case IROp::FMov:
 		if (inst.dest != inst.src1) {
-			fpr.MapDirtyIn(inst.dest, inst.src1);
+			fpr.Map(inst);
 			FMV(32, fpr.R(inst.dest), fpr.R(inst.src1));
 		}
 		break;
 
 	case IROp::FAbs:
-		fpr.MapDirtyIn(inst.dest, inst.src1);
+		fpr.Map(inst);
 		FABS(32, fpr.R(inst.dest), fpr.R(inst.src1));
 		break;
 
 	case IROp::FSign:
 	{
-		fpr.MapDirtyIn(inst.dest, inst.src1);
+		fpr.Map(inst);
 		// Check if it's negative zero, either 0x10/0x08 is zero.
 		FCLASS(32, SCRATCH1, fpr.R(inst.src1));
 		ANDI(SCRATCH1, SCRATCH1, 0x18);
@@ -190,7 +190,7 @@ void RiscVJitBackend::CompIR_FRound(IRInst inst) {
 	CONDITIONAL_DISABLE;
 
 	// TODO: If this is followed by a GPR transfer, might want to combine.
-	fpr.MapDirtyIn(inst.dest, inst.src1);
+	fpr.Map(inst);
 
 	switch (inst.op) {
 	case IROp::FRound:
@@ -228,7 +228,7 @@ void RiscVJitBackend::CompIR_FCvt(IRInst inst) {
 
 	case IROp::FCvtSW:
 		// TODO: This is probably proceeded by a GPR transfer, might be ideal to combine.
-		fpr.MapDirtyIn(inst.dest, inst.src1);
+		fpr.Map(inst);
 		FMV(FMv::X, FMv::W, SCRATCH1, fpr.R(inst.src1));
 		FCVT(FConv::S, FConv::W, fpr.R(inst.dest), SCRATCH1);
 		break;
@@ -340,7 +340,7 @@ void RiscVJitBackend::CompIR_FSat(IRInst inst) {
 void RiscVJitBackend::CompIR_FCompare(IRInst inst) {
 	CONDITIONAL_DISABLE;
 
-	constexpr IRReg IRREG_VFPUL_CC = IRREG_VFPU_CTRL_BASE + VFPU_CTRL_CC;
+	constexpr IRReg IRREG_VFPU_CC = IRREG_VFPU_CTRL_BASE + VFPU_CTRL_CC;
 
 	switch (inst.op) {
 	case IROp::FCmp:
@@ -350,8 +350,8 @@ void RiscVJitBackend::CompIR_FCompare(IRInst inst) {
 			break;
 
 		case IRFpCompareMode::EitherUnordered:
-			fpr.MapInIn(inst.src1, inst.src2);
-			gpr.MapReg(IRREG_FPCOND, MIPSMap::NOINIT | MIPSMap::MARK_NORM32);
+			fpr.Map(inst);
+			gpr.MapGPR(IRREG_FPCOND, MIPSMap::NOINIT | MIPSMap::MARK_NORM32);
 			FCLASS(32, SCRATCH1, fpr.R(inst.src1));
 			FCLASS(32, SCRATCH2, fpr.R(inst.src2));
 			OR(SCRATCH1, SCRATCH1, SCRATCH2);
@@ -361,14 +361,14 @@ void RiscVJitBackend::CompIR_FCompare(IRInst inst) {
 			break;
 
 		case IRFpCompareMode::EqualOrdered:
-			fpr.MapInIn(inst.src1, inst.src2);
-			gpr.MapReg(IRREG_FPCOND, MIPSMap::NOINIT | MIPSMap::MARK_NORM32);
+			fpr.Map(inst);
+			gpr.MapGPR(IRREG_FPCOND, MIPSMap::NOINIT | MIPSMap::MARK_NORM32);
 			FEQ(32, gpr.R(IRREG_FPCOND), fpr.R(inst.src1), fpr.R(inst.src2));
 			break;
 
 		case IRFpCompareMode::EqualUnordered:
-			fpr.MapInIn(inst.src1, inst.src2);
-			gpr.MapReg(IRREG_FPCOND, MIPSMap::NOINIT | MIPSMap::MARK_NORM32);
+			fpr.Map(inst);
+			gpr.MapGPR(IRREG_FPCOND, MIPSMap::NOINIT | MIPSMap::MARK_NORM32);
 			FEQ(32, gpr.R(IRREG_FPCOND), fpr.R(inst.src1), fpr.R(inst.src2));
 
 			// Now let's just OR in the unordered check.
@@ -382,27 +382,27 @@ void RiscVJitBackend::CompIR_FCompare(IRInst inst) {
 			break;
 
 		case IRFpCompareMode::LessEqualOrdered:
-			fpr.MapInIn(inst.src1, inst.src2);
-			gpr.MapReg(IRREG_FPCOND, MIPSMap::NOINIT | MIPSMap::MARK_NORM32);
+			fpr.Map(inst);
+			gpr.MapGPR(IRREG_FPCOND, MIPSMap::NOINIT | MIPSMap::MARK_NORM32);
 			FLE(32, gpr.R(IRREG_FPCOND), fpr.R(inst.src1), fpr.R(inst.src2));
 			break;
 
 		case IRFpCompareMode::LessEqualUnordered:
-			fpr.MapInIn(inst.src1, inst.src2);
-			gpr.MapReg(IRREG_FPCOND, MIPSMap::NOINIT | MIPSMap::MARK_NORM32);
+			fpr.Map(inst);
+			gpr.MapGPR(IRREG_FPCOND, MIPSMap::NOINIT | MIPSMap::MARK_NORM32);
 			FLT(32, gpr.R(IRREG_FPCOND), fpr.R(inst.src2), fpr.R(inst.src1));
 			SEQZ(gpr.R(IRREG_FPCOND), gpr.R(IRREG_FPCOND));
 			break;
 
 		case IRFpCompareMode::LessOrdered:
-			fpr.MapInIn(inst.src1, inst.src2);
-			gpr.MapReg(IRREG_FPCOND, MIPSMap::NOINIT | MIPSMap::MARK_NORM32);
+			fpr.Map(inst);
+			gpr.MapGPR(IRREG_FPCOND, MIPSMap::NOINIT | MIPSMap::MARK_NORM32);
 			FLT(32, gpr.R(IRREG_FPCOND), fpr.R(inst.src1), fpr.R(inst.src2));
 			break;
 
 		case IRFpCompareMode::LessUnordered:
-			fpr.MapInIn(inst.src1, inst.src2);
-			gpr.MapReg(IRREG_FPCOND, MIPSMap::NOINIT | MIPSMap::MARK_NORM32);
+			fpr.Map(inst);
+			gpr.MapGPR(IRREG_FPCOND, MIPSMap::NOINIT | MIPSMap::MARK_NORM32);
 			FLE(32, gpr.R(IRREG_FPCOND), fpr.R(inst.src2), fpr.R(inst.src1));
 			SEQZ(gpr.R(IRREG_FPCOND), gpr.R(IRREG_FPCOND));
 			break;
@@ -410,14 +410,14 @@ void RiscVJitBackend::CompIR_FCompare(IRInst inst) {
 		break;
 
 	case IROp::FCmovVfpuCC:
-		gpr.MapReg(IRREG_VFPUL_CC);
-		fpr.MapDirtyIn(inst.dest, inst.src1, false);
+		gpr.MapGPR(IRREG_VFPU_CC);
+		fpr.Map(inst);
 		if ((inst.src2 & 0xF) == 0) {
-			ANDI(SCRATCH1, gpr.R(IRREG_VFPUL_CC), 1);
+			ANDI(SCRATCH1, gpr.R(IRREG_VFPU_CC), 1);
 		} else if (cpu_info.RiscV_Zbs) {
-			BEXTI(SCRATCH1, gpr.R(IRREG_VFPUL_CC), inst.src2 & 0xF);
+			BEXTI(SCRATCH1, gpr.R(IRREG_VFPU_CC), inst.src2 & 0xF);
 		} else {
-			SRLI(SCRATCH1, gpr.R(IRREG_VFPUL_CC), inst.src2 & 0xF);
+			SRLI(SCRATCH1, gpr.R(IRREG_VFPU_CC), inst.src2 & 0xF);
 			ANDI(SCRATCH1, SCRATCH1, 1);
 		}
 		if ((inst.src2 >> 7) & 1) {
@@ -432,15 +432,15 @@ void RiscVJitBackend::CompIR_FCompare(IRInst inst) {
 		break;
 
 	case IROp::FCmpVfpuBit:
-		gpr.MapReg(IRREG_VFPUL_CC, MIPSMap::DIRTY);
+		gpr.MapGPR(IRREG_VFPU_CC, MIPSMap::DIRTY);
 
 		switch (VCondition(inst.dest & 0xF)) {
 		case VC_EQ:
-			fpr.MapInIn(inst.src1, inst.src2);
+			fpr.Map(inst);
 			FEQ(32, SCRATCH1, fpr.R(inst.src1), fpr.R(inst.src2));
 			break;
 		case VC_NE:
-			fpr.MapInIn(inst.src1, inst.src2);
+			fpr.Map(inst);
 			// We could almost negate FEQ, except NAN != NAN.
 			// Anything != NAN is false and NAN != NAN is within that, so we only check one side.
 			FCLASS(32, SCRATCH2, fpr.R(inst.src2));
@@ -454,24 +454,24 @@ void RiscVJitBackend::CompIR_FCompare(IRInst inst) {
 			OR(SCRATCH1, SCRATCH1, SCRATCH2);
 			break;
 		case VC_LT:
-			fpr.MapInIn(inst.src1, inst.src2);
+			fpr.Map(inst);
 			FLT(32, SCRATCH1, fpr.R(inst.src1), fpr.R(inst.src2));
 			break;
 		case VC_LE:
-			fpr.MapInIn(inst.src1, inst.src2);
+			fpr.Map(inst);
 			FLE(32, SCRATCH1, fpr.R(inst.src1), fpr.R(inst.src2));
 			break;
 		case VC_GT:
-			fpr.MapInIn(inst.src1, inst.src2);
+			fpr.Map(inst);
 			FLT(32, SCRATCH1, fpr.R(inst.src2), fpr.R(inst.src1));
 			break;
 		case VC_GE:
-			fpr.MapInIn(inst.src1, inst.src2);
+			fpr.Map(inst);
 			FLE(32, SCRATCH1, fpr.R(inst.src2), fpr.R(inst.src1));
 			break;
 		case VC_EZ:
 		case VC_NZ:
-			fpr.MapReg(inst.src1);
+			fpr.MapFPR(inst.src1);
 			// Zero is either 0x10 or 0x08.
 			FCLASS(32, SCRATCH1, fpr.R(inst.src1));
 			ANDI(SCRATCH1, SCRATCH1, 0x18);
@@ -482,7 +482,7 @@ void RiscVJitBackend::CompIR_FCompare(IRInst inst) {
 			break;
 		case VC_EN:
 		case VC_NN:
-			fpr.MapReg(inst.src1);
+			fpr.MapFPR(inst.src1);
 			// NAN is either 0x100 or 0x200.
 			FCLASS(32, SCRATCH1, fpr.R(inst.src1));
 			ANDI(SCRATCH1, SCRATCH1, 0x300);
@@ -493,7 +493,7 @@ void RiscVJitBackend::CompIR_FCompare(IRInst inst) {
 			break;
 		case VC_EI:
 		case VC_NI:
-			fpr.MapReg(inst.src1);
+			fpr.MapFPR(inst.src1);
 			// Infinity is either 0x80 or 0x01.
 			FCLASS(32, SCRATCH1, fpr.R(inst.src1));
 			ANDI(SCRATCH1, SCRATCH1, 0x81);
@@ -504,7 +504,7 @@ void RiscVJitBackend::CompIR_FCompare(IRInst inst) {
 			break;
 		case VC_ES:
 		case VC_NS:
-			fpr.MapReg(inst.src1);
+			fpr.MapFPR(inst.src1);
 			// Infinity is either 0x80 or 0x01, NAN is either 0x100 or 0x200.
 			FCLASS(32, SCRATCH1, fpr.R(inst.src1));
 			ANDI(SCRATCH1, SCRATCH1, 0x381);
@@ -521,15 +521,15 @@ void RiscVJitBackend::CompIR_FCompare(IRInst inst) {
 			break;
 		}
 
-		ANDI(gpr.R(IRREG_VFPUL_CC), gpr.R(IRREG_VFPUL_CC), ~(1 << (inst.dest >> 4)));
+		ANDI(gpr.R(IRREG_VFPU_CC), gpr.R(IRREG_VFPU_CC), ~(1 << (inst.dest >> 4)));
 		if ((inst.dest >> 4) != 0)
 			SLLI(SCRATCH1, SCRATCH1, inst.dest >> 4);
-		OR(gpr.R(IRREG_VFPUL_CC), gpr.R(IRREG_VFPUL_CC), SCRATCH1);
+		OR(gpr.R(IRREG_VFPU_CC), gpr.R(IRREG_VFPU_CC), SCRATCH1);
 		break;
 
 	case IROp::FCmpVfpuAggregate:
-		gpr.MapReg(IRREG_VFPUL_CC, MIPSMap::DIRTY);
-		ANDI(SCRATCH1, gpr.R(IRREG_VFPUL_CC), inst.dest);
+		gpr.MapGPR(IRREG_VFPU_CC, MIPSMap::DIRTY);
+		ANDI(SCRATCH1, gpr.R(IRREG_VFPU_CC), inst.dest);
 		// This is the "any bit", easy.
 		SNEZ(SCRATCH2, SCRATCH1);
 		// To compare to inst.dest for "all", let's simply subtract it and compare to zero.
@@ -541,8 +541,8 @@ void RiscVJitBackend::CompIR_FCompare(IRInst inst) {
 		OR(SCRATCH1, SCRATCH1, SCRATCH2);
 
 		// Reject those any/all bits and replace them with our own.
-		ANDI(gpr.R(IRREG_VFPUL_CC), gpr.R(IRREG_VFPUL_CC), ~0x30);
-		OR(gpr.R(IRREG_VFPUL_CC), gpr.R(IRREG_VFPUL_CC), SCRATCH1);
+		ANDI(gpr.R(IRREG_VFPU_CC), gpr.R(IRREG_VFPU_CC), ~0x30);
+		OR(gpr.R(IRREG_VFPU_CC), gpr.R(IRREG_VFPU_CC), SCRATCH1);
 		break;
 
 	default:
@@ -592,7 +592,7 @@ void RiscVJitBackend::CompIR_FSpecial(IRInst inst) {
 		}
 		QuickCallFunction(func, SCRATCH1);
 
-		fpr.MapReg(inst.dest, MIPSMap::NOINIT);
+		fpr.MapFPR(inst.dest, MIPSMap::NOINIT);
 		// If it's already F10, we're done - MapReg doesn't actually overwrite the reg in that case.
 		if (fpr.R(inst.dest) != F10) {
 			FMV(32, fpr.R(inst.dest), F10);
@@ -622,7 +622,7 @@ void RiscVJitBackend::CompIR_FSpecial(IRInst inst) {
 	case IROp::FRecip:
 		if (inst.dest != inst.src1) {
 			// This is the easy case.
-			fpr.MapDirtyIn(inst.dest, inst.src1);
+			fpr.Map(inst);
 			LI(SCRATCH1, 1.0f);
 			FMV(FMv::W, FMv::X, fpr.R(inst.dest), SCRATCH1);
 			FDIV(32, fpr.R(inst.dest), fpr.R(inst.dest), fpr.R(inst.src1));

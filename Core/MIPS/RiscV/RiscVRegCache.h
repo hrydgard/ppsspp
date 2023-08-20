@@ -52,19 +52,15 @@ public:
 	// May fail and return INVALID_REG if it needs flushing.
 	RiscVGen::RiscVReg TryMapTempImm(IRReg);
 
-	// Returns an ARM register containing the requested MIPS register.
-	RiscVGen::RiscVReg MapReg(IRReg reg, MIPSMap mapFlags = MIPSMap::INIT);
-	RiscVGen::RiscVReg MapRegAsPointer(IRReg reg);
+	// Returns an RV register containing the requested MIPS register.
+	RiscVGen::RiscVReg MapGPR(IRReg reg, MIPSMap mapFlags = MIPSMap::INIT);
+	RiscVGen::RiscVReg MapGPRAsPointer(IRReg reg);
 
 	bool IsNormalized32(IRReg reg);
 
 	// Copies to another reg if specified, otherwise same reg.
 	RiscVGen::RiscVReg Normalize32(IRReg reg, RiscVGen::RiscVReg destReg = RiscVGen::INVALID_REG);
-	void MapIn(IRReg rs);
-	void MapInIn(IRReg rd, IRReg rs);
 	void MapDirtyIn(IRReg rd, IRReg rs, RiscVJitConstants::MapType type = RiscVJitConstants::MapType::AVOID_LOAD);
-	void MapDirtyInIn(IRReg rd, IRReg rs, IRReg rt, RiscVJitConstants::MapType type = RiscVJitConstants::MapType::AVOID_LOAD);
-	void MapDirtyDirtyIn(IRReg rd1, IRReg rd2, IRReg rs, RiscVJitConstants::MapType type = RiscVJitConstants::MapType::AVOID_LOAD);
 	void MapDirtyDirtyInIn(IRReg rd1, IRReg rd2, IRReg rs, IRReg rt, RiscVJitConstants::MapType type = RiscVJitConstants::MapType::AVOID_LOAD);
 	void FlushBeforeCall();
 	void FlushR(IRReg r);
