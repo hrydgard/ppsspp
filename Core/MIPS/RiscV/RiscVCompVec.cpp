@@ -107,7 +107,7 @@ void RiscVJitBackend::CompIR_VecAssign(IRInst inst) {
 
 	case IROp::Vec4Shuffle:
 		if (inst.dest == inst.src1) {
-			RiscVReg tempReg = regs_.MapFPR4DirtyInTemp(inst.dest, inst.src1);
+			RiscVReg tempReg = regs_.MapWithFPRTemp(inst);
 
 			// Try to find the least swaps needed to move in place, never worse than 6 FMVs.
 			// Would be better with a vmerge and vector regs.

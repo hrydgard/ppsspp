@@ -57,9 +57,9 @@ public:
 	RiscVGen::RiscVReg MapFPR(IRReg reg, MIPSMap mapFlags = MIPSMap::INIT);
 
 	void MapFPRDirtyInIn(IRReg rd, IRReg rs, IRReg rt, bool avoidLoad = true);
-	RiscVGen::RiscVReg MapFPRDirtyInTemp(IRReg rd, IRReg rs, bool avoidLoad = true);
 	void MapFPR4DirtyIn(IRReg rdbase, IRReg rsbase, bool avoidLoad = true);
-	RiscVGen::RiscVReg MapFPR4DirtyInTemp(IRReg rdbase, IRReg rsbase, bool avoidLoad = true);
+
+	RiscVGen::RiscVReg MapWithFPRTemp(IRInst &inst);
 
 	bool IsNormalized32(IRReg reg);
 

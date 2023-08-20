@@ -243,6 +243,10 @@ RiscVReg RiscVRegCache::GetAndLockTempR() {
 	return reg;
 }
 
+RiscVReg RiscVRegCache::MapWithFPRTemp(IRInst &inst) {
+	return (RiscVReg)MapWithTemp(inst, MIPSLoc::FREG);
+}
+
 RiscVReg RiscVRegCache::MapGPR(IRReg mipsReg, MIPSMap mapFlags) {
 	_dbg_assert_(IsValidGPR(mipsReg));
 
@@ -293,16 +297,6 @@ void RiscVRegCache::MapFPRDirtyInIn(IRReg rd, IRReg rs, IRReg rt, bool avoidLoad
 	ReleaseSpillLockFPR(rd, rs, rt);
 }
 
-RiscVReg RiscVRegCache::MapFPRDirtyInTemp(IRReg rd, IRReg rs, bool avoidLoad) {
-	SpillLockFPR(rd, rs);
-	bool load = !avoidLoad || rd == rs;
-	MapFPR(rd, load ? MIPSMap::DIRTY : MIPSMap::NOINIT);
-	MapFPR(rs);
-	RiscVReg temp = (RiscVReg)AllocateReg(MIPSLoc::FREG);
-	ReleaseSpillLockFPR(rd, rs);
-	return temp;
-}
-
 void RiscVRegCache::MapFPR4DirtyIn(IRReg rdbase, IRReg rsbase, bool avoidLoad) {
 	for (int i = 0; i < 4; ++i)
 		SpillLockFPR(rdbase + i, rsbase + i);
@@ -313,20 +307,6 @@ void RiscVRegCache::MapFPR4DirtyIn(IRReg rdbase, IRReg rsbase, bool avoidLoad) {
 		MapFPR(rsbase + i);
 	for (int i = 0; i < 4; ++i)
 		ReleaseSpillLockFPR(rdbase + i, rsbase + i);
-}
-
-RiscVReg RiscVRegCache::MapFPR4DirtyInTemp(IRReg rdbase, IRReg rsbase, bool avoidLoad) {
-	for (int i = 0; i < 4; ++i)
-		SpillLockFPR(rdbase + i, rsbase + i);
-	bool load = !avoidLoad || (rdbase < rsbase + 4 && rdbase + 4 > rsbase);
-	for (int i = 0; i < 4; ++i)
-		MapFPR(rdbase + i, load ? MIPSMap::DIRTY : MIPSMap::NOINIT);
-	for (int i = 0; i < 4; ++i)
-		MapFPR(rsbase + i);
-	RiscVReg temp = (RiscVReg)AllocateReg(MIPSLoc::FREG);
-	for (int i = 0; i < 4; ++i)
-		ReleaseSpillLockFPR(rdbase + i, rsbase + i);
-	return temp;
 }
 
 void RiscVRegCache::AdjustNativeRegAsPtr(IRNativeReg nreg, bool state) {

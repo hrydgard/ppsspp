@@ -243,7 +243,7 @@ void RiscVJitBackend::CompIR_FCvt(IRInst inst) {
 			case 3: rm = Round::DOWN; break;
 			}
 
-			tempReg = regs_.MapFPRDirtyInTemp(inst.dest, inst.src1);
+			tempReg = regs_.MapWithFPRTemp(inst);
 			// Prepare the double src1 and the multiplier.
 			FCVT(FConv::D, FConv::S, regs_.F(inst.dest), regs_.F(inst.src1));
 			LI(SCRATCH1, 1UL << (inst.src2 & 0x1F));
@@ -261,7 +261,7 @@ void RiscVJitBackend::CompIR_FCvt(IRInst inst) {
 
 	case IROp::FCvtScaledSW:
 		// TODO: This is probably proceeded by a GPR transfer, might be ideal to combine.
-		tempReg = regs_.MapFPRDirtyInTemp(inst.dest, inst.src1);
+		tempReg = regs_.MapWithFPRTemp(inst);
 		FMV(FMv::X, FMv::W, SCRATCH1, regs_.F(inst.src1));
 		FCVT(FConv::S, FConv::W, regs_.F(inst.dest), SCRATCH1);
 
@@ -286,7 +286,7 @@ void RiscVJitBackend::CompIR_FSat(IRInst inst) {
 	FixupBranch skipHigher;
 	switch (inst.op) {
 	case IROp::FSat0_1:
-		tempReg = regs_.MapFPRDirtyInTemp(inst.dest, inst.src1);
+		tempReg = regs_.MapWithFPRTemp(inst);
 		if (inst.dest != inst.src1)
 			FMV(32, regs_.F(inst.dest), regs_.F(inst.src1));
 
@@ -312,7 +312,7 @@ void RiscVJitBackend::CompIR_FSat(IRInst inst) {
 		break;
 
 	case IROp::FSatMinus1_1:
-		tempReg = regs_.MapFPRDirtyInTemp(inst.dest, inst.src1);
+		tempReg = regs_.MapWithFPRTemp(inst);
 		if (inst.dest != inst.src1)
 			FMV(32, regs_.F(inst.dest), regs_.F(inst.src1));
 
@@ -616,7 +616,7 @@ void RiscVJitBackend::CompIR_FSpecial(IRInst inst) {
 		break;
 
 	case IROp::FRSqrt:
-		tempReg = regs_.MapFPRDirtyInTemp(inst.dest, inst.src1);
+		tempReg = regs_.MapWithFPRTemp(inst);
 		FSQRT(32, regs_.F(inst.dest), regs_.F(inst.src1));
 
 		// Ugh, we can't really avoid a temp here.  Probably not worth a permanent one.
@@ -633,7 +633,7 @@ void RiscVJitBackend::CompIR_FSpecial(IRInst inst) {
 			FMV(FMv::W, FMv::X, regs_.F(inst.dest), SCRATCH1);
 			FDIV(32, regs_.F(inst.dest), regs_.F(inst.dest), regs_.F(inst.src1));
 		} else {
-			tempReg = regs_.MapFPRDirtyInTemp(inst.dest, inst.src1);
+			tempReg = regs_.MapWithFPRTemp(inst);
 			LI(SCRATCH1, 1.0f);
 			FMV(FMv::W, FMv::X, tempReg, SCRATCH1);
 			FDIV(32, regs_.F(inst.dest), tempReg, regs_.F(inst.src1));
