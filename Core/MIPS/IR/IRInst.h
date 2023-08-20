@@ -375,6 +375,9 @@ public:
 	int AddConstant(u32 value);
 	int AddConstantFloat(float value);
 
+	void Reserve(size_t s) {
+		insts_.reserve(s);
+	}
 	void Clear() {
 		insts_.clear();
 	}
