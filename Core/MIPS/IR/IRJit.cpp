@@ -168,6 +168,7 @@ void IRJit::CompileFunction(u32 start_address, u32 length) {
 	// We may go up and down from branches, so track all block starts done here.
 	std::set<u32> doneAddresses;
 	std::vector<u32> pendingAddresses;
+	pendingAddresses.reserve(16);
 	pendingAddresses.push_back(start_address);
 	while (!pendingAddresses.empty()) {
 		u32 em_address = pendingAddresses.back();

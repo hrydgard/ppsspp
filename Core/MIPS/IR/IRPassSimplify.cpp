@@ -86,6 +86,8 @@ IROp ShiftToShiftImm(IROp op) {
 }
 
 bool IRApplyPasses(const IRPassFunc *passes, size_t c, const IRWriter &in, IRWriter &out, const IROptions &opts) {
+	out.Reserve(in.GetInstructions().size());
+
 	if (c == 1) {
 		return passes[0](in, out, opts);
 	}
@@ -95,6 +97,7 @@ bool IRApplyPasses(const IRPassFunc *passes, size_t c, const IRWriter &in, IRWri
 	IRWriter temp[2];
 	const IRWriter *nextIn = &in;
 	IRWriter *nextOut = &temp[1];
+	temp[1].Reserve(nextIn->GetInstructions().size());
 	for (size_t i = 0; i < c - 1; ++i) {
 		if (passes[i](*nextIn, *nextOut, opts)) {
 			logBlocks = true;
@@ -102,8 +105,12 @@ bool IRApplyPasses(const IRPassFunc *passes, size_t c, const IRWriter &in, IRWri
 
 		temp[0] = std::move(temp[1]);
 		nextIn = &temp[0];
+
+		temp[1].Clear();
+		temp[1].Reserve(nextIn->GetInstructions().size());
 	}
 
+	out.Reserve(nextIn->GetInstructions().size());
 	if (passes[c - 1](*nextIn, out, opts)) {
 		logBlocks = true;
 	}
@@ -947,6 +954,8 @@ bool PurgeTemps(const IRWriter &in, IRWriter &out, const IROptions &opts) {
 		int8_t fplen = 0;
 	};
 	std::vector<Check> checks;
+	checks.reserve(insts.size() / 2);
+
 	// This tracks the last index at which each reg was modified.
 	int lastWrittenTo[256];
 	int lastReadFrom[256];
