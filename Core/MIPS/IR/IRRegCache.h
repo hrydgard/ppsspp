@@ -48,12 +48,12 @@ public:
 	IRImmRegCache(IRWriter *ir);
 
 	void SetImm(IRReg r, u32 immVal) {
-		reg_[r].isImm = true;
-		reg_[r].immVal = immVal;
+		isImm_[r] = true;
+		immVal_[r] = immVal;
 	}
 
-	bool IsImm(IRReg r) const { return reg_[r].isImm; }
-	u32 GetImm(IRReg r) const { return reg_[r].immVal; }
+	bool IsImm(IRReg r) const { return isImm_[r]; }
+	u32 GetImm(IRReg r) const { return immVal_[r]; }
 
 	void FlushAll();
 
@@ -68,12 +68,8 @@ private:
 	void Flush(IRReg rd);
 	void Discard(IRReg rd);
 
-	struct RegIR {
-		bool isImm;
-		u32 immVal;
-	};
-
-	RegIR reg_[TOTAL_MAPPABLE_IRREGS];
+	bool isImm_[TOTAL_MAPPABLE_IRREGS];
+	uint32_t immVal_[TOTAL_MAPPABLE_IRREGS];
 	IRWriter *ir_;
 };
 
