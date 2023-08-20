@@ -190,6 +190,7 @@ public:
 	};
 
 	void Map(const IRInst &inst);
+	void MapWithExtra(const IRInst &inst, std::vector<Mapping> extra);
 	virtual void FlushAll(bool gprs = true, bool fprs = true);
 
 protected:

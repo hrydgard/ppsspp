@@ -49,15 +49,7 @@ public:
 	// Returns an RV register containing the requested MIPS register.
 	RiscVGen::RiscVReg MapGPR(IRReg reg, MIPSMap mapFlags = MIPSMap::INIT);
 	RiscVGen::RiscVReg MapGPRAsPointer(IRReg reg);
-
-	void MapGPRDirtyIn(IRReg rd, IRReg rs, bool avoidLoad = true);
-	void MapGPRDirtyDirtyInIn(IRReg rd1, IRReg rd2, IRReg rs, IRReg rt, bool avoidLoad = true);
-
-	// Returns a RISC-V register containing the requested MIPS register.
 	RiscVGen::RiscVReg MapFPR(IRReg reg, MIPSMap mapFlags = MIPSMap::INIT);
-
-	void MapFPRDirtyInIn(IRReg rd, IRReg rs, IRReg rt, bool avoidLoad = true);
-	void MapFPR4DirtyIn(IRReg rdbase, IRReg rsbase, bool avoidLoad = true);
 
 	RiscVGen::RiscVReg MapWithFPRTemp(IRInst &inst);
 

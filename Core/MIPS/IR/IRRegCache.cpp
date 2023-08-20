@@ -643,6 +643,14 @@ void IRNativeRegCacheBase::Map(const IRInst &inst) {
 	CleanupMapping(mapping, 3);
 }
 
+void IRNativeRegCacheBase::MapWithExtra(const IRInst &inst, std::vector<Mapping> extra) {
+	extra.resize(extra.size() + 3);
+	MappingFromInst(inst, &extra[extra.size() - 3]);
+
+	ApplyMapping(extra.data(), (int)extra.size());
+	CleanupMapping(extra.data(), (int)extra.size());
+}
+
 IRNativeReg IRNativeRegCacheBase::MapWithTemp(const IRInst &inst, MIPSLoc type) {
 	Mapping mapping[3];
 	MappingFromInst(inst, mapping);

@@ -350,8 +350,7 @@ void RiscVJitBackend::CompIR_FCompare(IRInst inst) {
 			break;
 
 		case IRFpCompareMode::EitherUnordered:
-			regs_.Map(inst);
-			regs_.MapGPR(IRREG_FPCOND, MIPSMap::NOINIT);
+			regs_.MapWithExtra(inst, { { 'G', IRREG_FPCOND, 1, MIPSMap::NOINIT } });
 			FCLASS(32, SCRATCH1, regs_.F(inst.src1));
 			FCLASS(32, SCRATCH2, regs_.F(inst.src2));
 			OR(SCRATCH1, SCRATCH1, SCRATCH2);
@@ -362,15 +361,13 @@ void RiscVJitBackend::CompIR_FCompare(IRInst inst) {
 			break;
 
 		case IRFpCompareMode::EqualOrdered:
-			regs_.Map(inst);
-			regs_.MapGPR(IRREG_FPCOND, MIPSMap::NOINIT);
+			regs_.MapWithExtra(inst, { { 'G', IRREG_FPCOND, 1, MIPSMap::NOINIT } });
 			FEQ(32, regs_.R(IRREG_FPCOND), regs_.F(inst.src1), regs_.F(inst.src2));
 			regs_.MarkGPRDirty(IRREG_FPCOND, true);
 			break;
 
 		case IRFpCompareMode::EqualUnordered:
-			regs_.Map(inst);
-			regs_.MapGPR(IRREG_FPCOND, MIPSMap::NOINIT);
+			regs_.MapWithExtra(inst, { { 'G', IRREG_FPCOND, 1, MIPSMap::NOINIT } });
 			FEQ(32, regs_.R(IRREG_FPCOND), regs_.F(inst.src1), regs_.F(inst.src2));
 
 			// Now let's just OR in the unordered check.
@@ -385,30 +382,26 @@ void RiscVJitBackend::CompIR_FCompare(IRInst inst) {
 			break;
 
 		case IRFpCompareMode::LessEqualOrdered:
-			regs_.Map(inst);
-			regs_.MapGPR(IRREG_FPCOND, MIPSMap::NOINIT);
+			regs_.MapWithExtra(inst, { { 'G', IRREG_FPCOND, 1, MIPSMap::NOINIT } });
 			FLE(32, regs_.R(IRREG_FPCOND), regs_.F(inst.src1), regs_.F(inst.src2));
 			regs_.MarkGPRDirty(IRREG_FPCOND, true);
 			break;
 
 		case IRFpCompareMode::LessEqualUnordered:
-			regs_.Map(inst);
-			regs_.MapGPR(IRREG_FPCOND, MIPSMap::NOINIT);
+			regs_.MapWithExtra(inst, { { 'G', IRREG_FPCOND, 1, MIPSMap::NOINIT } });
 			FLT(32, regs_.R(IRREG_FPCOND), regs_.F(inst.src2), regs_.F(inst.src1));
 			SEQZ(regs_.R(IRREG_FPCOND), regs_.R(IRREG_FPCOND));
 			regs_.MarkGPRDirty(IRREG_FPCOND, true);
 			break;
 
 		case IRFpCompareMode::LessOrdered:
-			regs_.Map(inst);
-			regs_.MapGPR(IRREG_FPCOND, MIPSMap::NOINIT);
+			regs_.MapWithExtra(inst, { { 'G', IRREG_FPCOND, 1, MIPSMap::NOINIT } });
 			FLT(32, regs_.R(IRREG_FPCOND), regs_.F(inst.src1), regs_.F(inst.src2));
 			regs_.MarkGPRDirty(IRREG_FPCOND, true);
 			break;
 
 		case IRFpCompareMode::LessUnordered:
-			regs_.Map(inst);
-			regs_.MapGPR(IRREG_FPCOND, MIPSMap::NOINIT);
+			regs_.MapWithExtra(inst, { { 'G', IRREG_FPCOND, 1, MIPSMap::NOINIT } });
 			FLE(32, regs_.R(IRREG_FPCOND), regs_.F(inst.src2), regs_.F(inst.src1));
 			SEQZ(regs_.R(IRREG_FPCOND), regs_.R(IRREG_FPCOND));
 			regs_.MarkGPRDirty(IRREG_FPCOND, true);
@@ -417,8 +410,7 @@ void RiscVJitBackend::CompIR_FCompare(IRInst inst) {
 		break;
 
 	case IROp::FCmovVfpuCC:
-		regs_.MapGPR(IRREG_VFPU_CC);
-		regs_.Map(inst);
+		regs_.MapWithExtra(inst, { { 'G', IRREG_VFPU_CC, 1, MIPSMap::INIT } });
 		if ((inst.src2 & 0xF) == 0) {
 			ANDI(SCRATCH1, regs_.R(IRREG_VFPU_CC), 1);
 		} else if (cpu_info.RiscV_Zbs) {

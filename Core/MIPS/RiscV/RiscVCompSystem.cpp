@@ -106,18 +106,18 @@ void RiscVJitBackend::CompIR_Transfer(IRInst inst) {
 		break;
 
 	case IROp::FpCondFromReg:
-		regs_.MapGPRDirtyIn(IRREG_FPCOND, inst.src1);
+		regs_.MapWithExtra(inst, { { 'G', IRREG_FPCOND, 1, MIPSMap::NOINIT } });
 		MV(regs_.R(IRREG_FPCOND), regs_.R(inst.src1));
 		break;
 
 	case IROp::FpCondToReg:
-		regs_.MapGPRDirtyIn(inst.dest, IRREG_FPCOND);
+		regs_.MapWithExtra(inst, { { 'G', IRREG_FPCOND, 1, MIPSMap::INIT } });
 		MV(regs_.R(inst.dest), regs_.R(IRREG_FPCOND));
 		regs_.MarkGPRDirty(inst.dest, regs_.IsNormalized32(IRREG_FPCOND));
 		break;
 
 	case IROp::FpCtrlFromReg:
-		regs_.MapGPRDirtyIn(IRREG_FPCOND, inst.src1);
+		regs_.MapWithExtra(inst, { { 'G', IRREG_FPCOND, 1, MIPSMap::NOINIT } });
 		LI(SCRATCH1, 0x0181FFFF);
 		AND(SCRATCH1, regs_.R(inst.src1), SCRATCH1);
 		// Extract the new fpcond value.
@@ -132,7 +132,7 @@ void RiscVJitBackend::CompIR_Transfer(IRInst inst) {
 		break;
 
 	case IROp::FpCtrlToReg:
-		regs_.MapGPRDirtyIn(inst.dest, IRREG_FPCOND);
+		regs_.MapWithExtra(inst, { { 'G', IRREG_FPCOND, 1, MIPSMap::INIT } });
 		// Load fcr31 and clear the fpcond bit.
 		LW(SCRATCH1, CTXREG, IRREG_FCR31 * 4);
 		if (cpu_info.RiscV_Zbs) {

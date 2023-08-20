@@ -259,25 +259,6 @@ RiscVReg RiscVRegCache::MapGPRAsPointer(IRReg reg) {
 	return (RiscVReg)MapNativeRegAsPointer(reg);
 }
 
-void RiscVRegCache::MapGPRDirtyIn(IRReg rd, IRReg rs, bool avoidLoad) {
-	SpillLockGPR(rd, rs);
-	bool load = !avoidLoad || rd == rs;
-	MapGPR(rd, load ? MIPSMap::DIRTY : MIPSMap::NOINIT);
-	MapGPR(rs);
-	ReleaseSpillLockGPR(rd, rs);
-}
-
-void RiscVRegCache::MapGPRDirtyDirtyInIn(IRReg rd1, IRReg rd2, IRReg rs, IRReg rt, bool avoidLoad) {
-	SpillLockGPR(rd1, rd2, rs, rt);
-	bool load1 = !avoidLoad || (rd1 == rs || rd1 == rt);
-	bool load2 = !avoidLoad || (rd2 == rs || rd2 == rt);
-	MapGPR(rd1, load1 ? MIPSMap::DIRTY : MIPSMap::NOINIT);
-	MapGPR(rd2, load2 ? MIPSMap::DIRTY : MIPSMap::NOINIT);
-	MapGPR(rt);
-	MapGPR(rs);
-	ReleaseSpillLockGPR(rd1, rd2, rs, rt);
-}
-
 RiscVReg RiscVRegCache::MapFPR(IRReg mipsReg, MIPSMap mapFlags) {
 	_dbg_assert_(IsValidFPR(mipsReg));
 	_dbg_assert_(mr[mipsReg + 32].loc == MIPSLoc::MEM || mr[mipsReg + 32].loc == MIPSLoc::FREG);
@@ -286,27 +267,6 @@ RiscVReg RiscVRegCache::MapFPR(IRReg mipsReg, MIPSMap mapFlags) {
 	if (nreg != -1)
 		return (RiscVReg)nreg;
 	return INVALID_REG;
-}
-
-void RiscVRegCache::MapFPRDirtyInIn(IRReg rd, IRReg rs, IRReg rt, bool avoidLoad) {
-	SpillLockFPR(rd, rs, rt);
-	bool load = !avoidLoad || (rd == rs || rd == rt);
-	MapFPR(rd, load ? MIPSMap::DIRTY : MIPSMap::NOINIT);
-	MapFPR(rt);
-	MapFPR(rs);
-	ReleaseSpillLockFPR(rd, rs, rt);
-}
-
-void RiscVRegCache::MapFPR4DirtyIn(IRReg rdbase, IRReg rsbase, bool avoidLoad) {
-	for (int i = 0; i < 4; ++i)
-		SpillLockFPR(rdbase + i, rsbase + i);
-	bool load = !avoidLoad || (rdbase < rsbase + 4 && rdbase + 4 > rsbase);
-	for (int i = 0; i < 4; ++i)
-		MapFPR(rdbase + i, load ? MIPSMap::DIRTY : MIPSMap::NOINIT);
-	for (int i = 0; i < 4; ++i)
-		MapFPR(rsbase + i);
-	for (int i = 0; i < 4; ++i)
-		ReleaseSpillLockFPR(rdbase + i, rsbase + i);
 }
 
 void RiscVRegCache::AdjustNativeRegAsPtr(IRNativeReg nreg, bool state) {

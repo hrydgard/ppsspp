@@ -215,9 +215,8 @@ void RiscVJitBackend::CompIR_VecArith(IRInst inst) {
 		break;
 
 	case IROp::Vec4Scale:
-		regs_.SpillLockFPR(inst.src2);
-		regs_.MapFPR(inst.src2);
-		regs_.MapFPR4DirtyIn(inst.dest, inst.src1);
+		// TODO: This works for now, but may need to handle aliasing for vectors.
+		regs_.Map(inst);
 		for (int i = 0; i < 4; ++i)
 			FMUL(32, regs_.F(inst.dest + i), regs_.F(inst.src1 + i), regs_.F(inst.src2));
 		break;
@@ -245,18 +244,8 @@ void RiscVJitBackend::CompIR_VecHoriz(IRInst inst) {
 
 	switch (inst.op) {
 	case IROp::Vec4Dot:
-		// TODO: Maybe some option to call the slow accurate mode?
-		regs_.SpillLockFPR(inst.dest);
-		for (int i = 0; i < 4; ++i) {
-			regs_.SpillLockFPR(inst.src1 + i);
-			regs_.SpillLockFPR(inst.src2 + i);
-		}
-		for (int i = 0; i < 4; ++i) {
-			regs_.MapFPR(inst.src1 + i);
-			regs_.MapFPR(inst.src2 + i);
-		}
-		regs_.MapFPR(inst.dest, MIPSMap::NOINIT);
-
+		// TODO: This works for now, but may need to handle aliasing for vectors.
+		regs_.Map(inst);
 		if ((inst.dest < inst.src1 + 4 && inst.dest >= inst.src1) || (inst.dest < inst.src2 + 4 && inst.dest >= inst.src2)) {
 			// This means inst.dest overlaps one of src1 or src2.  We have to do that one first.
 			// Technically this may impact -0.0 and such, but dots accurately need to be aligned anyway.
@@ -292,13 +281,8 @@ void RiscVJitBackend::CompIR_VecPack(IRInst inst) {
 		break;
 
 	case IROp::Vec4Unpack8To32:
-		regs_.SpillLockFPR(inst.src1);
-		for (int i = 0; i < 4; ++i)
-			regs_.SpillLockFPR(inst.dest + i);
-		regs_.MapFPR(inst.src1);
-		for (int i = 0; i < 4; ++i)
-			regs_.MapFPR(inst.dest + i, MIPSMap::NOINIT);
-
+		// TODO: This works for now, but may need to handle aliasing for vectors.
+		regs_.Map(inst);
 		FMV(FMv::X, FMv::W, SCRATCH2, regs_.F(inst.src1));
 		for (int i = 0; i < 4; ++i) {
 			// Mask using walls.
@@ -313,13 +297,8 @@ void RiscVJitBackend::CompIR_VecPack(IRInst inst) {
 		break;
 
 	case IROp::Vec2Unpack16To32:
-		regs_.SpillLockFPR(inst.src1);
-		for (int i = 0; i < 2; ++i)
-			regs_.SpillLockFPR(inst.dest + i);
-		regs_.MapFPR(inst.src1);
-		for (int i = 0; i < 2; ++i)
-			regs_.MapFPR(inst.dest + i, MIPSMap::NOINIT);
-
+		// TODO: This works for now, but may need to handle aliasing for vectors.
+		regs_.Map(inst);
 		FMV(FMv::X, FMv::W, SCRATCH2, regs_.F(inst.src1));
 		SLLI(SCRATCH1, SCRATCH2, 16);
 		FMV(FMv::W, FMv::X, regs_.F(inst.dest), SCRATCH1);
@@ -342,13 +321,8 @@ void RiscVJitBackend::CompIR_VecPack(IRInst inst) {
 		break;
 
 	case IROp::Vec4Pack31To8:
-		regs_.SpillLockFPR(inst.dest);
-		for (int i = 0; i < 4; ++i) {
-			regs_.SpillLockFPR(inst.src1 + i);
-			regs_.MapFPR(inst.src1 + i);
-		}
-		regs_.MapFPR(inst.dest, MIPSMap::NOINIT);
-
+		// TODO: This works for now, but may need to handle aliasing for vectors.
+		regs_.Map(inst);
 		for (int i = 0; i < 4; ++i) {
 			FMV(FMv::X, FMv::W, SCRATCH1, regs_.F(inst.src1 + i));
 			SRLI(SCRATCH1, SCRATCH1, 23);
@@ -365,7 +339,8 @@ void RiscVJitBackend::CompIR_VecPack(IRInst inst) {
 		break;
 
 	case IROp::Vec2Pack32To16:
-		regs_.MapFPRDirtyInIn(inst.dest, inst.src1, inst.src1 + 1);
+		// TODO: This works for now, but may need to handle aliasing for vectors.
+		regs_.Map(inst);
 		FMV(FMv::X, FMv::W, SCRATCH1, regs_.F(inst.src1));
 		FMV(FMv::X, FMv::W, SCRATCH2, regs_.F(inst.src1 + 1));
 		// Keep in mind, this was sign-extended, so we have to zero the upper.

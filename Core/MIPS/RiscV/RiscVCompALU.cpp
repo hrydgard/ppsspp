@@ -563,25 +563,25 @@ void RiscVJitBackend::CompIR_HiLo(IRInst inst) {
 
 	switch (inst.op) {
 	case IROp::MtLo:
-		regs_.MapGPRDirtyIn(IRREG_LO, inst.src1);
+		regs_.MapWithExtra(inst, { { 'G', IRREG_LO, 1, MIPSMap::NOINIT } });
 		MV(regs_.R(IRREG_LO), regs_.R(inst.src1));
 		regs_.MarkGPRDirty(IRREG_LO, regs_.IsNormalized32(inst.src1));
 		break;
 
 	case IROp::MtHi:
-		regs_.MapGPRDirtyIn(IRREG_HI, inst.src1);
+		regs_.MapWithExtra(inst, { { 'G', IRREG_HI, 1, MIPSMap::NOINIT } });
 		MV(regs_.R(IRREG_HI), regs_.R(inst.src1));
 		regs_.MarkGPRDirty(IRREG_HI, regs_.IsNormalized32(inst.src1));
 		break;
 
 	case IROp::MfLo:
-		regs_.MapGPRDirtyIn(inst.dest, IRREG_LO);
+		regs_.MapWithExtra(inst, { { 'G', IRREG_LO, 1, MIPSMap::INIT } });
 		MV(regs_.R(inst.dest), regs_.R(IRREG_LO));
 		regs_.MarkGPRDirty(inst.dest, regs_.IsNormalized32(IRREG_LO));
 		break;
 
 	case IROp::MfHi:
-		regs_.MapGPRDirtyIn(inst.dest, IRREG_HI);
+		regs_.MapWithExtra(inst, { { 'G', IRREG_HI, 1, MIPSMap::INIT } });
 		MV(regs_.R(inst.dest), regs_.R(IRREG_HI));
 		regs_.MarkGPRDirty(inst.dest, regs_.IsNormalized32(IRREG_HI));
 		break;
@@ -630,7 +630,7 @@ void RiscVJitBackend::CompIR_Mult(IRInst inst) {
 	case IROp::Mult:
 		// TODO: Maybe IR could simplify when HI is not needed or clobbered?
 		// TODO: HI/LO merge optimization?  Have to be careful of passes that split them...
-		regs_.MapGPRDirtyDirtyInIn(IRREG_LO, IRREG_HI, inst.src1, inst.src2);
+		regs_.MapWithExtra(inst, { { 'G', IRREG_LO, 1, MIPSMap::NOINIT }, { 'G', IRREG_HI, 1, MIPSMap::NOINIT } });
 		NormalizeSrc12(inst, &lhs, &rhs, SCRATCH1, SCRATCH2, true);
 		MUL(regs_.R(IRREG_LO), lhs, rhs);
 		splitMulResult();
@@ -639,14 +639,14 @@ void RiscVJitBackend::CompIR_Mult(IRInst inst) {
 	case IROp::MultU:
 		// This is an "anti-norm32" case.  Let's just zero always.
 		// TODO: If we could know that LO was only needed, we could use MULW and be done.
-		regs_.MapGPRDirtyDirtyInIn(IRREG_LO, IRREG_HI, inst.src1, inst.src2);
+		regs_.MapWithExtra(inst, { { 'G', IRREG_LO, 1, MIPSMap::NOINIT }, { 'G', IRREG_HI, 1, MIPSMap::NOINIT } });
 		makeArgsUnsigned(&lhs, &rhs);
 		MUL(regs_.R(IRREG_LO), lhs, rhs);
 		splitMulResult();
 		break;
 
 	case IROp::Madd:
-		regs_.MapGPRDirtyDirtyInIn(IRREG_LO, IRREG_HI, inst.src1, inst.src2, false);
+		regs_.MapWithExtra(inst, { { 'G', IRREG_LO, 1, MIPSMap::DIRTY }, { 'G', IRREG_HI, 1, MIPSMap::DIRTY } });
 		NormalizeSrc12(inst, &lhs, &rhs, SCRATCH1, SCRATCH2, true);
 		MUL(SCRATCH1, lhs, rhs);
 
@@ -656,7 +656,7 @@ void RiscVJitBackend::CompIR_Mult(IRInst inst) {
 		break;
 
 	case IROp::MaddU:
-		regs_.MapGPRDirtyDirtyInIn(IRREG_LO, IRREG_HI, inst.src1, inst.src2, false);
+		regs_.MapWithExtra(inst, { { 'G', IRREG_LO, 1, MIPSMap::DIRTY }, { 'G', IRREG_HI, 1, MIPSMap::DIRTY } });
 		makeArgsUnsigned(&lhs, &rhs);
 		MUL(SCRATCH1, lhs, rhs);
 
@@ -666,7 +666,7 @@ void RiscVJitBackend::CompIR_Mult(IRInst inst) {
 		break;
 
 	case IROp::Msub:
-		regs_.MapGPRDirtyDirtyInIn(IRREG_LO, IRREG_HI, inst.src1, inst.src2, false);
+		regs_.MapWithExtra(inst, { { 'G', IRREG_LO, 1, MIPSMap::DIRTY }, { 'G', IRREG_HI, 1, MIPSMap::DIRTY } });
 		NormalizeSrc12(inst, &lhs, &rhs, SCRATCH1, SCRATCH2, true);
 		MUL(SCRATCH1, lhs, rhs);
 
@@ -676,7 +676,7 @@ void RiscVJitBackend::CompIR_Mult(IRInst inst) {
 		break;
 
 	case IROp::MsubU:
-		regs_.MapGPRDirtyDirtyInIn(IRREG_LO, IRREG_HI, inst.src1, inst.src2, false);
+		regs_.MapWithExtra(inst, { { 'G', IRREG_LO, 1, MIPSMap::DIRTY }, { 'G', IRREG_HI, 1, MIPSMap::DIRTY } });
 		makeArgsUnsigned(&lhs, &rhs);
 		MUL(SCRATCH1, lhs, rhs);
 
@@ -697,7 +697,7 @@ void RiscVJitBackend::CompIR_Div(IRInst inst) {
 	RiscVReg numReg, denomReg;
 	switch (inst.op) {
 	case IROp::Div:
-		regs_.MapGPRDirtyDirtyInIn(IRREG_LO, IRREG_HI, inst.src1, inst.src2);
+		regs_.MapWithExtra(inst, { { 'G', IRREG_LO, 1, MIPSMap::NOINIT }, { 'G', IRREG_HI, 1, MIPSMap::NOINIT } });
 		// We have to do this because of the divide by zero and overflow checks below.
 		NormalizeSrc12(inst, &numReg, &denomReg, SCRATCH1, SCRATCH2, true);
 		DIVW(regs_.R(IRREG_LO), numReg, denomReg);
@@ -727,7 +727,7 @@ void RiscVJitBackend::CompIR_Div(IRInst inst) {
 		break;
 
 	case IROp::DivU:
-		regs_.MapGPRDirtyDirtyInIn(IRREG_LO, IRREG_HI, inst.src1, inst.src2);
+		regs_.MapWithExtra(inst, { { 'G', IRREG_LO, 1, MIPSMap::NOINIT }, { 'G', IRREG_HI, 1, MIPSMap::NOINIT } });
 		// We have to do this because of the divide by zero check below.
 		NormalizeSrc12(inst, &numReg, &denomReg, SCRATCH1, SCRATCH2, true);
 		DIVUW(regs_.R(IRREG_LO), numReg, denomReg);
