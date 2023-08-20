@@ -563,27 +563,43 @@ void RiscVJitBackend::CompIR_HiLo(IRInst inst) {
 
 	switch (inst.op) {
 	case IROp::MtLo:
-		regs_.MapWithExtra(inst, { { 'G', IRREG_LO, 1, MIPSMap::NOINIT } });
-		MV(regs_.R(IRREG_LO), regs_.R(inst.src1));
-		regs_.MarkGPRDirty(IRREG_LO, regs_.IsNormalized32(inst.src1));
+		regs_.MapWithExtra(inst, { { 'G', IRREG_LO, 2, MIPSMap::DIRTY } });
+		// First, clear the bits we're replacing.
+		SRLI(regs_.R(IRREG_LO), regs_.R(IRREG_LO), XLEN - 32);
+		SLLI(regs_.R(IRREG_LO), regs_.R(IRREG_LO), XLEN - 32);
+		// And now, insert the low 32 bits of src1.
+		if (cpu_info.RiscV_Zba) {
+			ADD_UW(regs_.R(IRREG_LO), regs_.R(inst.src1), regs_.R(IRREG_LO));
+		} else {
+			SLLI(SCRATCH1, regs_.R(inst.src1), XLEN - 32);
+			SRLI(SCRATCH1, SCRATCH1, XLEN - 32);
+			ADD(regs_.R(IRREG_LO), regs_.R(IRREG_LO), SCRATCH1);
+		}
 		break;
 
 	case IROp::MtHi:
-		regs_.MapWithExtra(inst, { { 'G', IRREG_HI, 1, MIPSMap::NOINIT } });
-		MV(regs_.R(IRREG_HI), regs_.R(inst.src1));
-		regs_.MarkGPRDirty(IRREG_HI, regs_.IsNormalized32(inst.src1));
+		regs_.MapWithExtra(inst, { { 'G', IRREG_LO, 2, MIPSMap::DIRTY } });
+		SLLI(SCRATCH1, regs_.R(inst.src1), XLEN - 32);
+		if (cpu_info.RiscV_Zba) {
+			ADD_UW(regs_.R(IRREG_LO), regs_.R(IRREG_LO), SCRATCH1);
+		} else {
+			SLLI(regs_.R(IRREG_LO), regs_.R(IRREG_LO), XLEN - 32);
+			SRLI(regs_.R(IRREG_LO), regs_.R(IRREG_LO), XLEN - 32);
+			ADD(regs_.R(IRREG_LO), regs_.R(IRREG_LO), SCRATCH1);
+		}
 		break;
 
 	case IROp::MfLo:
-		regs_.MapWithExtra(inst, { { 'G', IRREG_LO, 1, MIPSMap::INIT } });
+		regs_.MapWithExtra(inst, { { 'G', IRREG_LO, 2, MIPSMap::INIT } });
+		// It won't be normalized, but that's fine...
 		MV(regs_.R(inst.dest), regs_.R(IRREG_LO));
-		regs_.MarkGPRDirty(inst.dest, regs_.IsNormalized32(IRREG_LO));
 		break;
 
 	case IROp::MfHi:
-		regs_.MapWithExtra(inst, { { 'G', IRREG_HI, 1, MIPSMap::INIT } });
-		MV(regs_.R(inst.dest), regs_.R(IRREG_HI));
-		regs_.MarkGPRDirty(inst.dest, regs_.IsNormalized32(IRREG_HI));
+		regs_.MapWithExtra(inst, { { 'G', IRREG_LO, 2, MIPSMap::INIT } });
+		SRAI(regs_.R(inst.dest), regs_.R(IRREG_LO), 32);
+		if (XLEN == 64)
+			regs_.MarkGPRDirty(inst.dest, true);
 		break;
 
 	default:
@@ -608,81 +624,51 @@ void RiscVJitBackend::CompIR_Mult(IRInst inst) {
 		*lhs = SCRATCH1;
 		*rhs = SCRATCH2;
 	};
-	auto combinePrevMulResult = [&] {
-		// TODO: Using a single reg for HI/LO would make this less ugly.
-		if (cpu_info.RiscV_Zba) {
-			ZEXT_W(regs_.R(IRREG_LO), regs_.R(IRREG_LO));
-		} else {
-			SLLI(regs_.R(IRREG_LO), regs_.R(IRREG_LO), XLEN - 32);
-			SRLI(regs_.R(IRREG_LO), regs_.R(IRREG_LO), XLEN - 32);
-		}
-		SLLI(regs_.R(IRREG_HI), regs_.R(IRREG_HI), 32);
-		OR(regs_.R(IRREG_LO), regs_.R(IRREG_LO), regs_.R(IRREG_HI));
-	};
-	auto splitMulResult = [&] {
-		SRAI(regs_.R(IRREG_HI), regs_.R(IRREG_LO), 32);
-		regs_.MarkGPRDirty(IRREG_HI, true);
-	};
 
 	RiscVReg lhs = INVALID_REG;
 	RiscVReg rhs = INVALID_REG;
 	switch (inst.op) {
 	case IROp::Mult:
 		// TODO: Maybe IR could simplify when HI is not needed or clobbered?
-		// TODO: HI/LO merge optimization?  Have to be careful of passes that split them...
-		regs_.MapWithExtra(inst, { { 'G', IRREG_LO, 1, MIPSMap::NOINIT }, { 'G', IRREG_HI, 1, MIPSMap::NOINIT } });
+		regs_.MapWithExtra(inst, { { 'G', IRREG_LO, 2, MIPSMap::NOINIT } });
 		NormalizeSrc12(inst, &lhs, &rhs, SCRATCH1, SCRATCH2, true);
 		MUL(regs_.R(IRREG_LO), lhs, rhs);
-		splitMulResult();
 		break;
 
 	case IROp::MultU:
 		// This is an "anti-norm32" case.  Let's just zero always.
-		// TODO: If we could know that LO was only needed, we could use MULW and be done.
-		regs_.MapWithExtra(inst, { { 'G', IRREG_LO, 1, MIPSMap::NOINIT }, { 'G', IRREG_HI, 1, MIPSMap::NOINIT } });
+		// TODO: If we could know that LO was only needed, we could use MULW.
+		regs_.MapWithExtra(inst, { { 'G', IRREG_LO, 2, MIPSMap::NOINIT } });
 		makeArgsUnsigned(&lhs, &rhs);
 		MUL(regs_.R(IRREG_LO), lhs, rhs);
-		splitMulResult();
 		break;
 
 	case IROp::Madd:
-		regs_.MapWithExtra(inst, { { 'G', IRREG_LO, 1, MIPSMap::DIRTY }, { 'G', IRREG_HI, 1, MIPSMap::DIRTY } });
+		regs_.MapWithExtra(inst, { { 'G', IRREG_LO, 2, MIPSMap::DIRTY } });
 		NormalizeSrc12(inst, &lhs, &rhs, SCRATCH1, SCRATCH2, true);
 		MUL(SCRATCH1, lhs, rhs);
-
-		combinePrevMulResult();
 		ADD(regs_.R(IRREG_LO), regs_.R(IRREG_LO), SCRATCH1);
-		splitMulResult();
 		break;
 
 	case IROp::MaddU:
-		regs_.MapWithExtra(inst, { { 'G', IRREG_LO, 1, MIPSMap::DIRTY }, { 'G', IRREG_HI, 1, MIPSMap::DIRTY } });
+		regs_.MapWithExtra(inst, { { 'G', IRREG_LO, 2, MIPSMap::DIRTY } });
 		makeArgsUnsigned(&lhs, &rhs);
 		MUL(SCRATCH1, lhs, rhs);
-
-		combinePrevMulResult();
 		ADD(regs_.R(IRREG_LO), regs_.R(IRREG_LO), SCRATCH1);
-		splitMulResult();
 		break;
 
 	case IROp::Msub:
-		regs_.MapWithExtra(inst, { { 'G', IRREG_LO, 1, MIPSMap::DIRTY }, { 'G', IRREG_HI, 1, MIPSMap::DIRTY } });
+		regs_.MapWithExtra(inst, { { 'G', IRREG_LO, 2, MIPSMap::DIRTY } });
 		NormalizeSrc12(inst, &lhs, &rhs, SCRATCH1, SCRATCH2, true);
 		MUL(SCRATCH1, lhs, rhs);
-
-		combinePrevMulResult();
 		SUB(regs_.R(IRREG_LO), regs_.R(IRREG_LO), SCRATCH1);
-		splitMulResult();
 		break;
 
 	case IROp::MsubU:
-		regs_.MapWithExtra(inst, { { 'G', IRREG_LO, 1, MIPSMap::DIRTY }, { 'G', IRREG_HI, 1, MIPSMap::DIRTY } });
+		regs_.MapWithExtra(inst, { { 'G', IRREG_LO, 2, MIPSMap::DIRTY } });
 		makeArgsUnsigned(&lhs, &rhs);
 		MUL(SCRATCH1, lhs, rhs);
-
-		combinePrevMulResult();
 		SUB(regs_.R(IRREG_LO), regs_.R(IRREG_LO), SCRATCH1);
-		splitMulResult();
 		break;
 
 	default:
@@ -697,18 +683,30 @@ void RiscVJitBackend::CompIR_Div(IRInst inst) {
 	RiscVReg numReg, denomReg;
 	switch (inst.op) {
 	case IROp::Div:
-		regs_.MapWithExtra(inst, { { 'G', IRREG_LO, 1, MIPSMap::NOINIT }, { 'G', IRREG_HI, 1, MIPSMap::NOINIT } });
+		regs_.MapWithExtra(inst, { { 'G', IRREG_LO, 2, MIPSMap::NOINIT } });
 		// We have to do this because of the divide by zero and overflow checks below.
 		NormalizeSrc12(inst, &numReg, &denomReg, SCRATCH1, SCRATCH2, true);
 		DIVW(regs_.R(IRREG_LO), numReg, denomReg);
-		REMW(regs_.R(IRREG_HI), numReg, denomReg);
+		REMW(R_RA, numReg, denomReg);
+		// Now to combine them.  We'll do more with them below...
+		SLLI(R_RA, R_RA, 32);
+		if (cpu_info.RiscV_Zba) {
+			ADD_UW(regs_.R(IRREG_LO), regs_.R(IRREG_LO), R_RA);
+		} else {
+			SLLI(regs_.R(IRREG_LO), regs_.R(IRREG_LO), XLEN - 32);
+			SRLI(regs_.R(IRREG_LO), regs_.R(IRREG_LO), XLEN - 32);
+			ADD(regs_.R(IRREG_LO), regs_.R(IRREG_LO), R_RA);
+		}
 
 		// Now some tweaks for divide by zero and overflow.
 		{
 			// Start with divide by zero, remainder is fine.
 			FixupBranch skipNonZero = BNE(denomReg, R_ZERO);
 			FixupBranch keepNegOne = BGE(numReg, R_ZERO);
-			LI(regs_.R(IRREG_LO), 1);
+			// Clear the -1 and replace it with 1.
+			SRLI(regs_.R(IRREG_LO), regs_.R(IRREG_LO), 32);
+			SLLI(regs_.R(IRREG_LO), regs_.R(IRREG_LO), 32);
+			ADDI(regs_.R(IRREG_LO), regs_.R(IRREG_LO), 1);
 			SetJumpTarget(keepNegOne);
 			SetJumpTarget(skipNonZero);
 
@@ -718,20 +716,20 @@ void RiscVJitBackend::CompIR_Div(IRInst inst) {
 			FixupBranch notMostNegative = BNE(numReg, R_RA);
 			LI(R_RA, -1);
 			FixupBranch notNegativeOne = BNE(denomReg, R_RA);
-			LI(regs_.R(IRREG_HI), -1);
+			// Take our R_RA and put it in the high bits.
+			SLLI(R_RA, R_RA, 32);
+			OR(regs_.R(IRREG_LO), regs_.R(IRREG_LO), R_RA);
 			SetJumpTarget(notNegativeOne);
 			SetJumpTarget(notMostNegative);
 		}
-		regs_.MarkGPRDirty(IRREG_LO, true);
-		regs_.MarkGPRDirty(IRREG_HI, true);
 		break;
 
 	case IROp::DivU:
-		regs_.MapWithExtra(inst, { { 'G', IRREG_LO, 1, MIPSMap::NOINIT }, { 'G', IRREG_HI, 1, MIPSMap::NOINIT } });
+		regs_.MapWithExtra(inst, { { 'G', IRREG_LO, 2, MIPSMap::NOINIT } });
 		// We have to do this because of the divide by zero check below.
 		NormalizeSrc12(inst, &numReg, &denomReg, SCRATCH1, SCRATCH2, true);
 		DIVUW(regs_.R(IRREG_LO), numReg, denomReg);
-		REMUW(regs_.R(IRREG_HI), numReg, denomReg);
+		REMUW(R_RA, numReg, denomReg);
 
 		// On divide by zero, everything is correct already except the 0xFFFF case.
 		{
@@ -743,8 +741,16 @@ void RiscVJitBackend::CompIR_Div(IRInst inst) {
 			SetJumpTarget(keepNegOne);
 			SetJumpTarget(skipNonZero);
 		}
-		regs_.MarkGPRDirty(IRREG_LO, true);
-		regs_.MarkGPRDirty(IRREG_HI, true);
+
+		// Now combine the remainder in.
+		SLLI(R_RA, R_RA, 32);
+		if (cpu_info.RiscV_Zba) {
+			ADD_UW(regs_.R(IRREG_LO), regs_.R(IRREG_LO), R_RA);
+		} else {
+			SLLI(regs_.R(IRREG_LO), regs_.R(IRREG_LO), XLEN - 32);
+			SRLI(regs_.R(IRREG_LO), regs_.R(IRREG_LO), XLEN - 32);
+			ADD(regs_.R(IRREG_LO), regs_.R(IRREG_LO), R_RA);
+		}
 		break;
 
 	default:
