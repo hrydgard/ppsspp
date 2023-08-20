@@ -184,7 +184,7 @@ public:
 	void MarkGPRAsPointerDirty(IRReg gpr);
 
 	virtual void Map(const IRInst &inst);
-	virtual void FlushAll();
+	virtual void FlushAll(bool gprs = true, bool fprs = true);
 
 protected:
 	virtual void SetupInitialRegs();

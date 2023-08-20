@@ -45,7 +45,7 @@ void RiscVJitBackend::CompIR_Exit(IRInst inst) {
 		break;
 
 	case IROp::ExitToReg:
-		exitReg = gpr.MapGPR(inst.src1);
+		exitReg = regs_.MapGPR(inst.src1);
 		FlushAll();
 		// TODO: If ever we don't read this back in dispatcherPCInSCRATCH1_, we should zero upper.
 		MV(SCRATCH1, exitReg);
@@ -72,7 +72,7 @@ void RiscVJitBackend::CompIR_ExitIf(IRInst inst) {
 	switch (inst.op) {
 	case IROp::ExitToConstIfEq:
 	case IROp::ExitToConstIfNeq:
-		gpr.Map(inst);
+		regs_.Map(inst);
 		// We can't use SCRATCH1, which is destroyed by FlushAll()... but cheat and use R_RA.
 		NormalizeSrc12(inst, &lhs, &rhs, R_RA, SCRATCH2, true);
 		FlushAll();
@@ -99,7 +99,7 @@ void RiscVJitBackend::CompIR_ExitIf(IRInst inst) {
 	case IROp::ExitToConstIfGeZ:
 	case IROp::ExitToConstIfLtZ:
 	case IROp::ExitToConstIfLeZ:
-		gpr.Map(inst);
+		regs_.Map(inst);
 		NormalizeSrc1(inst, &lhs, SCRATCH2, true);
 		FlushAll();
 

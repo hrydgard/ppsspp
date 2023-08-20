@@ -563,12 +563,17 @@ void IRNativeRegCacheBase::FlushReg(IRReg mreg) {
 	}
 }
 
-void IRNativeRegCacheBase::FlushAll() {
+void IRNativeRegCacheBase::FlushAll(bool gprs, bool fprs) {
 	// Note: make sure not to change the registers when flushing.
 	// Branching code may expect the native reg to retain its value.
 
 	for (int i = 1; i < TOTAL_MAPPABLE_IRREGS; i++) {
 		IRReg mipsReg = (IRReg)i;
+		if (!fprs && i >= 32 && IsValidFPR(mipsReg))
+			continue;
+		if (!gprs && IsValidGPR(mipsReg))
+			continue;
+
 		if (mr[i].isStatic) {
 			IRNativeReg nreg = mr[i].nReg;
 			// Cannot leave any IMMs in registers, not even MIPSLoc::REG_IMM.
@@ -599,6 +604,10 @@ void IRNativeRegCacheBase::FlushAll() {
 	int count = 0;
 	const StaticAllocation *allocs = GetStaticAllocations(count);
 	for (int i = 0; i < count; i++) {
+		if (!fprs && allocs[i].loc != MIPSLoc::FREG && allocs[i].loc != MIPSLoc::VREG)
+			continue;
+		if (!gprs && allocs[i].loc != MIPSLoc::REG)
+			continue;
 		if (allocs[i].pointerified && !nr[allocs[i].nr].pointerified && jo_->enablePointerify) {
 			// Re-pointerify
 			if (mr[allocs[i].mr].loc == MIPSLoc::REG_IMM)

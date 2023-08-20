@@ -51,11 +51,11 @@ void RiscVJitBackend::GenerateFixedCode(MIPSState *mipsState) {
 	if (jo.useStaticAlloc) {
 		saveStaticRegisters_ = AlignCode16();
 		SW(DOWNCOUNTREG, CTXREG, offsetof(MIPSState, downcount));
-		gpr.EmitSaveStaticRegisters();
+		regs_.EmitSaveStaticRegisters();
 		RET();
 
 		loadStaticRegisters_ = AlignCode16();
-		gpr.EmitLoadStaticRegisters();
+		regs_.EmitLoadStaticRegisters();
 		LW(DOWNCOUNTREG, CTXREG, offsetof(MIPSState, downcount));
 		RET();
 

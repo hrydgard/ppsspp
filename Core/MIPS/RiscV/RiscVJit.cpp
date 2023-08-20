@@ -32,7 +32,7 @@ static constexpr int MIN_BLOCK_NORMAL_LEN = 16;
 static constexpr int MIN_BLOCK_EXIT_LEN = 8;
 
 RiscVJitBackend::RiscVJitBackend(JitOptions &jitopt, IRBlockCache &blocks)
-	: IRNativeBackend(blocks), jo(jitopt), gpr(&jo), fpr(&jo) {
+	: IRNativeBackend(blocks), jo(jitopt), regs_(&jo) {
 	// Automatically disable incompatible options.
 	if (((intptr_t)Memory::base & 0x00000000FFFFFFFFUL) != 0) {
 		jo.enablePointerify = false;
@@ -43,8 +43,7 @@ RiscVJitBackend::RiscVJitBackend(JitOptions &jitopt, IRBlockCache &blocks)
 	AllocCodeSpace(1024 * 1024 * 16);
 	SetAutoCompress(true);
 
-	gpr.Init(this);
-	fpr.Init(this);
+	regs_.Init(this);
 }
 
 RiscVJitBackend::~RiscVJitBackend() {
@@ -76,23 +75,19 @@ bool RiscVJitBackend::CompileBlock(IRBlock *block, int block_num, bool preload) 
 	block->SetTargetOffset((int)GetOffset(blockStart));
 	compilingBlockNum_ = block_num;
 
-	gpr.Start(block);
-	fpr.Start(block);
+	regs_.Start(block);
 
 	std::map<const u8 *, IRInst> addresses;
 	for (int i = 0; i < block->GetNumInstructions(); ++i) {
 		const IRInst &inst = block->GetInstructions()[i];
-		gpr.SetIRIndex(i);
-		fpr.SetIRIndex(i);
+		regs_.SetIRIndex(i);
 		// TODO: This might be a little wasteful when compiling if we're not debugging jit...
 		addresses[GetCodePtr()] = inst;
 
 		CompileIRInst(inst);
 
-		if (jo.Disabled(JitDisable::REGALLOC_GPR))
-			gpr.FlushAll();
-		if (jo.Disabled(JitDisable::REGALLOC_FPR))
-			fpr.FlushAll();
+		if (jo.Disabled(JitDisable::REGALLOC_GPR) || jo.Disabled(JitDisable::REGALLOC_FPR))
+			regs_.FlushAll(jo.Disabled(JitDisable::REGALLOC_GPR), jo.Disabled(JitDisable::REGALLOC_FPR));
 
 		// Safety check, in case we get a bunch of really large jit ops without a lot of branching.
 		if (GetSpaceLeft() < 0x800) {
@@ -252,8 +247,7 @@ void RiscVJitBackend::CompIR_Interpret(IRInst inst) {
 }
 
 void RiscVJitBackend::FlushAll() {
-	gpr.FlushAll();
-	fpr.FlushAll();
+	regs_.FlushAll();
 }
 
 bool RiscVJitBackend::DescribeCodePtr(const u8 *ptr, std::string &name) const {
@@ -355,12 +349,12 @@ void RiscVJitBackend::NormalizeSrc12(IRInst inst, RiscVReg *lhs, RiscVReg *rhs, 
 RiscVReg RiscVJitBackend::NormalizeR(IRReg rs, IRReg rd, RiscVReg tempReg) {
 	// For proper compare, we must sign extend so they both match or don't match.
 	// But don't change pointers, in case one is SP (happens in LittleBigPlanet.)
-	if (gpr.IsGPRImm(rs) && gpr.GetGPRImm(rs) == 0) {
+	if (regs_.IsGPRImm(rs) && regs_.GetGPRImm(rs) == 0) {
 		return R_ZERO;
-	} else if (gpr.IsGPRMappedAsPointer(rs) || rs == rd) {
-		return gpr.Normalize32(rs, tempReg);
+	} else if (regs_.IsGPRMappedAsPointer(rs) || rs == rd) {
+		return regs_.Normalize32(rs, tempReg);
 	} else {
-		return gpr.Normalize32(rs);
+		return regs_.Normalize32(rs);
 	}
 }
 

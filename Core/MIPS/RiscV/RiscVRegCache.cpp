@@ -31,8 +31,10 @@ using namespace RiscVJitConstants;
 
 RiscVRegCache::RiscVRegCache(MIPSComp::JitOptions *jo)
 	: IRNativeRegCacheBase(jo) {
-	// TODO: Move to using for FPRs and VPRs too?
-	config_.totalNativeRegs = NUM_RVREG;
+	// TODO: Update these when using RISC-V V.
+	config_.totalNativeRegs = NUM_RVGPR + NUM_RVFPR;
+	config_.mapUseVRegs = false;
+	config_.mapSIMD = false;
 }
 
 void RiscVRegCache::Init(RiscVEmitter *emitter) {
@@ -54,23 +56,40 @@ void RiscVRegCache::SetupInitialRegs() {
 }
 
 const int *RiscVRegCache::GetAllocationOrder(MIPSLoc type, int &count, int &base) const {
-	_assert_(type == MIPSLoc::REG);
-	// X8 and X9 are the most ideal for static alloc because they can be used with compression.
-	// Otherwise we stick to saved regs - might not be necessary.
-	static const int allocationOrder[] = {
-		X8, X9, X12, X13, X14, X15, X5, X6, X7, X16, X17, X18, X19, X20, X21, X22, X23, X28, X29, X30, X31,
-	};
-	static const int allocationOrderStaticAlloc[] = {
-		X12, X13, X14, X15, X5, X6, X7, X16, X17, X21, X22, X23, X28, X29, X30, X31,
-	};
-
 	base = X0;
-	if (jo_->useStaticAlloc) {
-		count = ARRAY_SIZE(allocationOrderStaticAlloc);
-		return allocationOrderStaticAlloc;
-	} else {
+
+	if (type == MIPSLoc::REG) {
+		// X8 and X9 are the most ideal for static alloc because they can be used with compression.
+		// Otherwise we stick to saved regs - might not be necessary.
+		static const int allocationOrder[] = {
+			X8, X9, X12, X13, X14, X15, X5, X6, X7, X16, X17, X18, X19, X20, X21, X22, X23, X28, X29, X30, X31,
+		};
+		static const int allocationOrderStaticAlloc[] = {
+			X12, X13, X14, X15, X5, X6, X7, X16, X17, X21, X22, X23, X28, X29, X30, X31,
+		};
+
+		if (jo_->useStaticAlloc) {
+			count = ARRAY_SIZE(allocationOrderStaticAlloc);
+			return allocationOrderStaticAlloc;
+		} else {
+			count = ARRAY_SIZE(allocationOrder);
+			return allocationOrder;
+		}
+	} else if (type == MIPSLoc::FREG) {
+		// F8 through F15 are used for compression, so they are great.
+		// TODO: Maybe we could remove some saved regs since we rarely need that many?  Or maybe worth it?
+		static const int allocationOrder[] = {
+			F8, F9, F10, F11, F12, F13, F14, F15,
+			F0, F1, F2, F3, F4, F5, F6, F7,
+			F16, F17, F18, F19, F20, F21, F22, F23, F24, F25, F26, F27, F28, F29, F30, F31,
+		};
+
 		count = ARRAY_SIZE(allocationOrder);
 		return allocationOrder;
+	} else {
+		_assert_msg_(false, "Allocation order not yet implemented");
+		count = 0;
+		return nullptr;
 	}
 }
 
@@ -116,14 +135,18 @@ void RiscVRegCache::EmitSaveStaticRegisters() {
 
 void RiscVRegCache::FlushBeforeCall() {
 	// These registers are not preserved by function calls.
+	// They match between X0 and F0, conveniently.
 	for (int i = 5; i <= 7; ++i) {
-		FlushNativeReg(i);
+		FlushNativeReg(X0 + i);
+		FlushNativeReg(F0 + i);
 	}
 	for (int i = 10; i <= 17; ++i) {
-		FlushNativeReg(i);
+		FlushNativeReg(X0 + i);
+		FlushNativeReg(F0 + i);
 	}
 	for (int i = 28; i <= 31; ++i) {
-		FlushNativeReg(i);
+		FlushNativeReg(X0 + i);
+		FlushNativeReg(F0 + i);
 	}
 }
 
@@ -232,7 +255,7 @@ RiscVReg RiscVRegCache::MapGPRAsPointer(IRReg reg) {
 	return (RiscVReg)MapNativeRegAsPointer(reg);
 }
 
-void RiscVRegCache::MapDirtyIn(IRReg rd, IRReg rs, MapType type) {
+void RiscVRegCache::MapGPRDirtyIn(IRReg rd, IRReg rs, MapType type) {
 	SpillLockGPR(rd, rs);
 	bool load = type == MapType::ALWAYS_LOAD || rd == rs;
 	MIPSMap norm32 = type == MapType::AVOID_LOAD_MARK_NORM32 ? MIPSMap::MARK_NORM32 : MIPSMap::INIT;
@@ -241,7 +264,7 @@ void RiscVRegCache::MapDirtyIn(IRReg rd, IRReg rs, MapType type) {
 	ReleaseSpillLockGPR(rd, rs);
 }
 
-void RiscVRegCache::MapDirtyDirtyInIn(IRReg rd1, IRReg rd2, IRReg rs, IRReg rt, MapType type) {
+void RiscVRegCache::MapGPRDirtyDirtyInIn(IRReg rd1, IRReg rd2, IRReg rs, IRReg rt, MapType type) {
 	SpillLockGPR(rd1, rd2, rs, rt);
 	bool load1 = type == MapType::ALWAYS_LOAD || (rd1 == rs || rd1 == rt);
 	bool load2 = type == MapType::ALWAYS_LOAD || (rd2 == rs || rd2 == rt);
@@ -251,6 +274,61 @@ void RiscVRegCache::MapDirtyDirtyInIn(IRReg rd1, IRReg rd2, IRReg rs, IRReg rt, 
 	MapGPR(rt);
 	MapGPR(rs);
 	ReleaseSpillLockGPR(rd1, rd2, rs, rt);
+}
+
+RiscVReg RiscVRegCache::MapFPR(IRReg mipsReg, MIPSMap mapFlags) {
+	_dbg_assert_(IsValidFPR(mipsReg));
+	_dbg_assert_(mr[mipsReg + 32].loc == MIPSLoc::MEM || mr[mipsReg + 32].loc == MIPSLoc::FREG);
+
+	IRNativeReg nreg = MapNativeReg(MIPSLoc::FREG, mipsReg + 32, 1, mapFlags);
+	if (nreg != -1)
+		return (RiscVReg)nreg;
+	return INVALID_REG;
+}
+
+void RiscVRegCache::MapFPRDirtyInIn(IRReg rd, IRReg rs, IRReg rt, bool avoidLoad) {
+	SpillLockFPR(rd, rs, rt);
+	bool load = !avoidLoad || (rd == rs || rd == rt);
+	MapFPR(rd, load ? MIPSMap::DIRTY : MIPSMap::NOINIT);
+	MapFPR(rt);
+	MapFPR(rs);
+	ReleaseSpillLockFPR(rd, rs, rt);
+}
+
+RiscVReg RiscVRegCache::MapFPRDirtyInTemp(IRReg rd, IRReg rs, bool avoidLoad) {
+	SpillLockFPR(rd, rs);
+	bool load = !avoidLoad || rd == rs;
+	MapFPR(rd, load ? MIPSMap::DIRTY : MIPSMap::NOINIT);
+	MapFPR(rs);
+	RiscVReg temp = (RiscVReg)AllocateReg(MIPSLoc::FREG);
+	ReleaseSpillLockFPR(rd, rs);
+	return temp;
+}
+
+void RiscVRegCache::MapFPR4DirtyIn(IRReg rdbase, IRReg rsbase, bool avoidLoad) {
+	for (int i = 0; i < 4; ++i)
+		SpillLockFPR(rdbase + i, rsbase + i);
+	bool load = !avoidLoad || (rdbase < rsbase + 4 && rdbase + 4 > rsbase);
+	for (int i = 0; i < 4; ++i)
+		MapFPR(rdbase + i, load ? MIPSMap::DIRTY : MIPSMap::NOINIT);
+	for (int i = 0; i < 4; ++i)
+		MapFPR(rsbase + i);
+	for (int i = 0; i < 4; ++i)
+		ReleaseSpillLockFPR(rdbase + i, rsbase + i);
+}
+
+RiscVReg RiscVRegCache::MapFPR4DirtyInTemp(IRReg rdbase, IRReg rsbase, bool avoidLoad) {
+	for (int i = 0; i < 4; ++i)
+		SpillLockFPR(rdbase + i, rsbase + i);
+	bool load = !avoidLoad || (rdbase < rsbase + 4 && rdbase + 4 > rsbase);
+	for (int i = 0; i < 4; ++i)
+		MapFPR(rdbase + i, load ? MIPSMap::DIRTY : MIPSMap::NOINIT);
+	for (int i = 0; i < 4; ++i)
+		MapFPR(rsbase + i);
+	RiscVReg temp = (RiscVReg)AllocateReg(MIPSLoc::FREG);
+	for (int i = 0; i < 4; ++i)
+		ReleaseSpillLockFPR(rdbase + i, rsbase + i);
+	return temp;
 }
 
 void RiscVRegCache::AdjustNativeRegAsPtr(IRNativeReg nreg, bool state) {
@@ -286,32 +364,54 @@ void RiscVRegCache::AdjustNativeRegAsPtr(IRNativeReg nreg, bool state) {
 
 void RiscVRegCache::LoadNativeReg(IRNativeReg nreg, IRReg first, int lanes) {
 	RiscVReg r = (RiscVReg)(X0 + nreg);
-	_dbg_assert_(r > X0 && r <= X31);
+	_dbg_assert_(r > X0);
 	_dbg_assert_(first != MIPS_REG_ZERO);
-	// Multilane not yet supported.
-	_assert_(lanes == 1 || (lanes == 2 && first == IRREG_LO));
-	if (lanes == 1)
-		emit_->LW(r, CTXREG, GetMipsRegOffset(first));
-	else if (lanes == 2)
-		emit_->LD(r, CTXREG, GetMipsRegOffset(first));
-	else
-		_assert_(false);
-	nr[nreg].normalized32 = true;
+	if (r <= X31) {
+		// Multilane not yet supported.
+		_assert_(lanes == 1 || (lanes == 2 && first == IRREG_LO));
+		if (lanes == 1)
+			emit_->LW(r, CTXREG, GetMipsRegOffset(first));
+		else if (lanes == 2)
+			emit_->LD(r, CTXREG, GetMipsRegOffset(first));
+		else
+			_assert_(false);
+		nr[nreg].normalized32 = true;
+	} else {
+		_dbg_assert_(r >= F0 && r <= F31);
+		// Multilane not yet supported.
+		_assert_(lanes == 1);
+		if (mr[first].loc == MIPSLoc::FREG) {
+			emit_->FL(32, r, CTXREG, GetMipsRegOffset(first));
+		} else {
+			_assert_msg_(mr[first].loc == MIPSLoc::FREG, "Cannot store this type: %d", (int)mr[first].loc);
+		}
+	}
 }
 
 void RiscVRegCache::StoreNativeReg(IRNativeReg nreg, IRReg first, int lanes) {
 	RiscVReg r = (RiscVReg)(X0 + nreg);
-	_dbg_assert_(r > X0 && r <= X31);
+	_dbg_assert_(r > X0);
 	_dbg_assert_(first != MIPS_REG_ZERO);
-	// Multilane not yet supported.
-	_assert_(lanes == 1 || (lanes == 2 && first == IRREG_LO));
-	_assert_(mr[first].loc == MIPSLoc::REG || mr[first].loc == MIPSLoc::REG_IMM);
-	if (lanes == 1)
-		emit_->SW(r, CTXREG, GetMipsRegOffset(first));
-	else if (lanes == 2)
-		emit_->SD(r, CTXREG, GetMipsRegOffset(first));
-	else
-		_assert_(false);
+	if (r <= X31) {
+		// Multilane not yet supported.
+		_assert_(lanes == 1 || (lanes == 2 && first == IRREG_LO));
+		_assert_(mr[first].loc == MIPSLoc::REG || mr[first].loc == MIPSLoc::REG_IMM);
+		if (lanes == 1)
+			emit_->SW(r, CTXREG, GetMipsRegOffset(first));
+		else if (lanes == 2)
+			emit_->SD(r, CTXREG, GetMipsRegOffset(first));
+		else
+			_assert_(false);
+	} else {
+		_dbg_assert_(r >= F0 && r <= F31);
+		// Multilane not yet supported.
+		_assert_(lanes == 1);
+		if (mr[first].loc == MIPSLoc::FREG) {
+			emit_->FS(32, r, CTXREG, GetMipsRegOffset(first));
+		} else {
+			_assert_msg_(mr[first].loc == MIPSLoc::FREG, "Cannot store this type: %d", (int)mr[first].loc);
+		}
+	}
 }
 
 void RiscVRegCache::SetNativeRegValue(IRNativeReg nreg, uint32_t imm) {
@@ -326,7 +426,7 @@ void RiscVRegCache::SetNativeRegValue(IRNativeReg nreg, uint32_t imm) {
 }
 
 void RiscVRegCache::StoreRegValue(IRReg mreg, uint32_t imm) {
-	_assert_(mreg != MIPS_REG_ZERO);
+	_assert_(IsValidGPRNoZero(mreg));
 	// Try to optimize using a different reg.
 	RiscVReg storeReg = INVALID_REG;
 
@@ -377,6 +477,17 @@ RiscVReg RiscVRegCache::RPtr(IRReg mipsReg) {
 			ERROR_LOG(JIT, "Tried to use a non-pointer register as a pointer");
 			return INVALID_REG;
 		}
+	} else {
+		ERROR_LOG_REPORT(JIT, "Reg %i not in riscv reg", mipsReg);
+		return INVALID_REG;  // BAAAD
+	}
+}
+
+RiscVReg RiscVRegCache::F(IRReg mipsReg) {
+	_dbg_assert_(IsValidFPR(mipsReg));
+	_dbg_assert_(mr[mipsReg + 32].loc == MIPSLoc::FREG);
+	if (mr[mipsReg + 32].loc == MIPSLoc::FREG) {
+		return (RiscVReg)mr[mipsReg + 32].nReg;
 	} else {
 		ERROR_LOG_REPORT(JIT, "Reg %i not in riscv reg", mipsReg);
 		return INVALID_REG;  // BAAAD

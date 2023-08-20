@@ -56,18 +56,29 @@ public:
 	RiscVGen::RiscVReg MapGPR(IRReg reg, MIPSMap mapFlags = MIPSMap::INIT);
 	RiscVGen::RiscVReg MapGPRAsPointer(IRReg reg);
 
+	void MapGPRDirtyIn(IRReg rd, IRReg rs, RiscVJitConstants::MapType type = RiscVJitConstants::MapType::AVOID_LOAD);
+	void MapGPRDirtyDirtyInIn(IRReg rd1, IRReg rd2, IRReg rs, IRReg rt, RiscVJitConstants::MapType type = RiscVJitConstants::MapType::AVOID_LOAD);
+
+	// Returns a RISC-V register containing the requested MIPS register.
+	RiscVGen::RiscVReg MapFPR(IRReg reg, MIPSMap mapFlags = MIPSMap::INIT);
+
+	void MapFPRDirtyInIn(IRReg rd, IRReg rs, IRReg rt, bool avoidLoad = true);
+	RiscVGen::RiscVReg MapFPRDirtyInTemp(IRReg rd, IRReg rs, bool avoidLoad = true);
+	void MapFPR4DirtyIn(IRReg rdbase, IRReg rsbase, bool avoidLoad = true);
+	RiscVGen::RiscVReg MapFPR4DirtyInTemp(IRReg rdbase, IRReg rsbase, bool avoidLoad = true);
+
 	bool IsNormalized32(IRReg reg);
 
 	// Copies to another reg if specified, otherwise same reg.
 	RiscVGen::RiscVReg Normalize32(IRReg reg, RiscVGen::RiscVReg destReg = RiscVGen::INVALID_REG);
-	void MapDirtyIn(IRReg rd, IRReg rs, RiscVJitConstants::MapType type = RiscVJitConstants::MapType::AVOID_LOAD);
-	void MapDirtyDirtyInIn(IRReg rd1, IRReg rd2, IRReg rs, IRReg rt, RiscVJitConstants::MapType type = RiscVJitConstants::MapType::AVOID_LOAD);
+
 	void FlushBeforeCall();
 
 	RiscVGen::RiscVReg GetAndLockTempR();
 
 	RiscVGen::RiscVReg R(IRReg preg); // Returns a cached register, while checking that it's NOT mapped as a pointer
 	RiscVGen::RiscVReg RPtr(IRReg preg); // Returns a cached register, if it has been mapped as a pointer
+	RiscVGen::RiscVReg F(IRReg preg);
 
 	// These are called once on startup to generate functions, that you should then call.
 	void EmitLoadStaticRegisters();
@@ -88,6 +99,8 @@ private:
 	RiscVGen::RiscVEmitter *emit_ = nullptr;
 
 	enum {
-		NUM_RVREG = 32,
+		NUM_RVGPR = 32,
+		NUM_RVFPR = 32,
+		NUM_RVVPR = 32,
 	};
 };

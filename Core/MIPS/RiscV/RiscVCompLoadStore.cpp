@@ -35,18 +35,18 @@ using namespace RiscVGen;
 using namespace RiscVJitConstants;
 
 void RiscVJitBackend::SetScratch1ToSrc1Address(IRReg src1) {
-	gpr.MapGPR(src1);
+	regs_.MapGPR(src1);
 #ifdef MASKED_PSP_MEMORY
-	SLLIW(SCRATCH1, gpr.R(src1), 2);
+	SLLIW(SCRATCH1, regs_.R(src1), 2);
 	SRLIW(SCRATCH1, SCRATCH1, 2);
 	ADD(SCRATCH1, SCRATCH1, MEMBASEREG);
 #else
 	// Clear the top bits to be safe.
 	if (cpu_info.RiscV_Zba) {
-		ADD_UW(SCRATCH1, gpr.R(src1), MEMBASEREG);
+		ADD_UW(SCRATCH1, regs_.R(src1), MEMBASEREG);
 	} else {
 		_assert_(XLEN == 64);
-		SLLI(SCRATCH1, gpr.R(src1), 32);
+		SLLI(SCRATCH1, regs_.R(src1), 32);
 		SRLI(SCRATCH1, SCRATCH1, 32);
 		ADD(SCRATCH1, SCRATCH1, MEMBASEREG);
 	}
@@ -66,7 +66,7 @@ int32_t RiscVJitBackend::AdjustForAddressOffset(RiscVGen::RiscVReg *reg, int32_t
 void RiscVJitBackend::CompIR_Load(IRInst inst) {
 	CONDITIONAL_DISABLE;
 
-	gpr.SpillLockGPR(inst.dest, inst.src1);
+	regs_.SpillLockGPR(inst.dest, inst.src1);
 	RiscVReg addrReg = INVALID_REG;
 	if (inst.src1 == MIPS_REG_ZERO) {
 		// This will get changed by AdjustForAddressOffset.
@@ -74,14 +74,14 @@ void RiscVJitBackend::CompIR_Load(IRInst inst) {
 #ifdef MASKED_PSP_MEMORY
 		inst.constant &= Memory::MEMVIEW32_MASK;
 #endif
-	} else if (jo.cachePointers || gpr.IsGPRMappedAsPointer(inst.src1)) {
-		addrReg = gpr.MapGPRAsPointer(inst.src1);
+	} else if (jo.cachePointers || regs_.IsGPRMappedAsPointer(inst.src1)) {
+		addrReg = regs_.MapGPRAsPointer(inst.src1);
 	} else {
 		SetScratch1ToSrc1Address(inst.src1);
 		addrReg = SCRATCH1;
 	}
 	// With NOINIT, MapReg won't subtract MEMBASEREG even if dest == src1.
-	gpr.MapGPR(inst.dest, MIPSMap::NOINIT | MIPSMap::MARK_NORM32);
+	regs_.MapGPR(inst.dest, MIPSMap::NOINIT | MIPSMap::MARK_NORM32);
 
 	s32 imm = AdjustForAddressOffset(&addrReg, inst.constant);
 
@@ -89,29 +89,29 @@ void RiscVJitBackend::CompIR_Load(IRInst inst) {
 
 	switch (inst.op) {
 	case IROp::Load8:
-		LBU(gpr.R(inst.dest), addrReg, imm);
+		LBU(regs_.R(inst.dest), addrReg, imm);
 		break;
 
 	case IROp::Load8Ext:
-		LB(gpr.R(inst.dest), addrReg, imm);
+		LB(regs_.R(inst.dest), addrReg, imm);
 		break;
 
 	case IROp::Load16:
-		LHU(gpr.R(inst.dest), addrReg, imm);
+		LHU(regs_.R(inst.dest), addrReg, imm);
 		break;
 
 	case IROp::Load16Ext:
-		LH(gpr.R(inst.dest), addrReg, imm);
+		LH(regs_.R(inst.dest), addrReg, imm);
 		break;
 
 	case IROp::Load32:
-		LW(gpr.R(inst.dest), addrReg, imm);
+		LW(regs_.R(inst.dest), addrReg, imm);
 		break;
 
 	case IROp::Load32Linked:
 		if (inst.dest != MIPS_REG_ZERO)
-			LW(gpr.R(inst.dest), addrReg, imm);
-		gpr.SetGPRImm(IRREG_LLBIT, 1);
+			LW(regs_.R(inst.dest), addrReg, imm);
+		regs_.SetGPRImm(IRREG_LLBIT, 1);
 		break;
 
 	default:
@@ -146,8 +146,8 @@ void RiscVJitBackend::CompIR_FLoad(IRInst inst) {
 #ifdef MASKED_PSP_MEMORY
 		inst.constant &= Memory::MEMVIEW32_MASK;
 #endif
-	} else if (jo.cachePointers || gpr.IsGPRMappedAsPointer(inst.src1)) {
-		addrReg = gpr.MapGPRAsPointer(inst.src1);
+	} else if (jo.cachePointers || regs_.IsGPRMappedAsPointer(inst.src1)) {
+		addrReg = regs_.MapGPRAsPointer(inst.src1);
 	} else {
 		SetScratch1ToSrc1Address(inst.src1);
 		addrReg = SCRATCH1;
@@ -159,8 +159,8 @@ void RiscVJitBackend::CompIR_FLoad(IRInst inst) {
 
 	switch (inst.op) {
 	case IROp::LoadFloat:
-		fpr.MapFPR(inst.dest, MIPSMap::NOINIT);
-		FL(32, fpr.R(inst.dest), addrReg, imm);
+		regs_.MapFPR(inst.dest, MIPSMap::NOINIT);
+		FL(32, regs_.F(inst.dest), addrReg, imm);
 		break;
 
 	default:
@@ -179,8 +179,8 @@ void RiscVJitBackend::CompIR_VecLoad(IRInst inst) {
 #ifdef MASKED_PSP_MEMORY
 		inst.constant &= Memory::MEMVIEW32_MASK;
 #endif
-	} else if (jo.cachePointers || gpr.IsGPRMappedAsPointer(inst.src1)) {
-		addrReg = gpr.MapGPRAsPointer(inst.src1);
+	} else if (jo.cachePointers || regs_.IsGPRMappedAsPointer(inst.src1)) {
+		addrReg = regs_.MapGPRAsPointer(inst.src1);
 	} else {
 		SetScratch1ToSrc1Address(inst.src1);
 		addrReg = SCRATCH1;
@@ -195,8 +195,8 @@ void RiscVJitBackend::CompIR_VecLoad(IRInst inst) {
 	case IROp::LoadVec4:
 		for (int i = 0; i < 4; ++i) {
 			// Spilling is okay.
-			fpr.MapFPR(inst.dest + i, MIPSMap::NOINIT);
-			FL(32, fpr.R(inst.dest + i), addrReg, imm + 4 * i);
+			regs_.MapFPR(inst.dest + i, MIPSMap::NOINIT);
+			FL(32, regs_.F(inst.dest + i), addrReg, imm + 4 * i);
 		}
 		break;
 
@@ -209,7 +209,7 @@ void RiscVJitBackend::CompIR_VecLoad(IRInst inst) {
 void RiscVJitBackend::CompIR_Store(IRInst inst) {
 	CONDITIONAL_DISABLE;
 
-	gpr.SpillLockGPR(inst.src3, inst.src1);
+	regs_.SpillLockGPR(inst.src3, inst.src1);
 	RiscVReg addrReg = INVALID_REG;
 	if (inst.src1 == MIPS_REG_ZERO) {
 		// This will get changed by AdjustForAddressOffset.
@@ -217,15 +217,15 @@ void RiscVJitBackend::CompIR_Store(IRInst inst) {
 #ifdef MASKED_PSP_MEMORY
 		inst.constant &= Memory::MEMVIEW32_MASK;
 #endif
-	} else if ((jo.cachePointers || gpr.IsGPRMappedAsPointer(inst.src1)) && inst.src3 != inst.src1) {
-		addrReg = gpr.MapGPRAsPointer(inst.src1);
+	} else if ((jo.cachePointers || regs_.IsGPRMappedAsPointer(inst.src1)) && inst.src3 != inst.src1) {
+		addrReg = regs_.MapGPRAsPointer(inst.src1);
 	} else {
 		SetScratch1ToSrc1Address(inst.src1);
 		addrReg = SCRATCH1;
 	}
-	RiscVReg valueReg = gpr.TryMapTempImm(inst.src3);
+	RiscVReg valueReg = regs_.TryMapTempImm(inst.src3);
 	if (valueReg == INVALID_REG)
-		valueReg = gpr.MapGPR(inst.src3);
+		valueReg = regs_.MapGPR(inst.src3);
 
 	s32 imm = AdjustForAddressOffset(&addrReg, inst.constant);
 
@@ -255,7 +255,7 @@ void RiscVJitBackend::CompIR_CondStore(IRInst inst) {
 	if (inst.op != IROp::Store32Conditional)
 		INVALIDOP;
 
-	gpr.SpillLockGPR(IRREG_LLBIT, inst.src3, inst.src1);
+	regs_.SpillLockGPR(IRREG_LLBIT, inst.src3, inst.src1);
 	RiscVReg addrReg = INVALID_REG;
 	if (inst.src1 == MIPS_REG_ZERO) {
 		// This will get changed by AdjustForAddressOffset.
@@ -263,28 +263,28 @@ void RiscVJitBackend::CompIR_CondStore(IRInst inst) {
 #ifdef MASKED_PSP_MEMORY
 		inst.constant &= Memory::MEMVIEW32_MASK;
 #endif
-	} else if ((jo.cachePointers || gpr.IsGPRMappedAsPointer(inst.src1)) && inst.src3 != inst.src1) {
-		addrReg = gpr.MapGPRAsPointer(inst.src1);
+	} else if ((jo.cachePointers || regs_.IsGPRMappedAsPointer(inst.src1)) && inst.src3 != inst.src1) {
+		addrReg = regs_.MapGPRAsPointer(inst.src1);
 	} else {
 		SetScratch1ToSrc1Address(inst.src1);
 		addrReg = SCRATCH1;
 	}
-	gpr.MapGPR(inst.src3, inst.dest == MIPS_REG_ZERO ? MIPSMap::INIT : MIPSMap::DIRTY);
-	gpr.MapGPR(IRREG_LLBIT);
+	regs_.MapGPR(inst.src3, inst.dest == MIPS_REG_ZERO ? MIPSMap::INIT : MIPSMap::DIRTY);
+	regs_.MapGPR(IRREG_LLBIT);
 
 	s32 imm = AdjustForAddressOffset(&addrReg, inst.constant);
 
 	// TODO: Safe memory?  Or enough to have crash handler + validate?
 
-	FixupBranch condFailed = BEQ(gpr.R(IRREG_LLBIT), R_ZERO);
-	SW(gpr.R(inst.src3), addrReg, imm);
+	FixupBranch condFailed = BEQ(regs_.R(IRREG_LLBIT), R_ZERO);
+	SW(regs_.R(inst.src3), addrReg, imm);
 
 	if (inst.dest != MIPS_REG_ZERO) {
-		LI(gpr.R(inst.dest), 1);
+		LI(regs_.R(inst.dest), 1);
 		FixupBranch finish = J();
 
 		SetJumpTarget(condFailed);
-		LI(gpr.R(inst.dest), 0);
+		LI(regs_.R(inst.dest), 0);
 		SetJumpTarget(finish);
 	} else {
 		SetJumpTarget(condFailed);
@@ -317,8 +317,8 @@ void RiscVJitBackend::CompIR_FStore(IRInst inst) {
 #ifdef MASKED_PSP_MEMORY
 		inst.constant &= Memory::MEMVIEW32_MASK;
 #endif
-	} else if (jo.cachePointers || gpr.IsGPRMappedAsPointer(inst.src1)) {
-		addrReg = gpr.MapGPRAsPointer(inst.src1);
+	} else if (jo.cachePointers || regs_.IsGPRMappedAsPointer(inst.src1)) {
+		addrReg = regs_.MapGPRAsPointer(inst.src1);
 	} else {
 		SetScratch1ToSrc1Address(inst.src1);
 		addrReg = SCRATCH1;
@@ -330,8 +330,8 @@ void RiscVJitBackend::CompIR_FStore(IRInst inst) {
 
 	switch (inst.op) {
 	case IROp::StoreFloat:
-		fpr.MapFPR(inst.src3);
-		FS(32, fpr.R(inst.src3), addrReg, imm);
+		regs_.MapFPR(inst.src3);
+		FS(32, regs_.F(inst.src3), addrReg, imm);
 		break;
 
 	default:
@@ -350,8 +350,8 @@ void RiscVJitBackend::CompIR_VecStore(IRInst inst) {
 #ifdef MASKED_PSP_MEMORY
 		inst.constant &= Memory::MEMVIEW32_MASK;
 #endif
-	} else if (jo.cachePointers || gpr.IsGPRMappedAsPointer(inst.src1)) {
-		addrReg = gpr.MapGPRAsPointer(inst.src1);
+	} else if (jo.cachePointers || regs_.IsGPRMappedAsPointer(inst.src1)) {
+		addrReg = regs_.MapGPRAsPointer(inst.src1);
 	} else {
 		SetScratch1ToSrc1Address(inst.src1);
 		addrReg = SCRATCH1;
@@ -366,8 +366,8 @@ void RiscVJitBackend::CompIR_VecStore(IRInst inst) {
 	case IROp::StoreVec4:
 		for (int i = 0; i < 4; ++i) {
 			// Spilling is okay, though not ideal.
-			fpr.MapFPR(inst.src3 + i);
-			FS(32, fpr.R(inst.src3 + i), addrReg, imm + 4 * i);
+			regs_.MapFPR(inst.src3 + i);
+			FS(32, regs_.F(inst.src3 + i), addrReg, imm + 4 * i);
 		}
 		break;
 

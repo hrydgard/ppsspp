@@ -25,7 +25,6 @@
 #include "Core/MIPS/JitCommon/JitState.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
 #include "Core/MIPS/RiscV/RiscVRegCache.h"
-#include "Core/MIPS/RiscV/RiscVRegCacheFPU.h"
 
 namespace MIPSComp {
 
@@ -112,8 +111,7 @@ private:
 	RiscVGen::RiscVReg NormalizeR(IRReg rs, IRReg rd, RiscVGen::RiscVReg tempReg);
 
 	JitOptions &jo;
-	RiscVRegCache gpr;
-	RiscVRegCacheFPU fpr;
+	RiscVRegCache regs_;
 
 	const u8 *outerLoop_ = nullptr;
 	const u8 *outerLoopPCInSCRATCH1_ = nullptr;
