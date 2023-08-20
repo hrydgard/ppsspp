@@ -665,7 +665,7 @@ IRNativeReg IRNativeRegCacheBase::MapWithTemp(const IRInst &inst, MIPSLoc type) 
 void IRNativeRegCacheBase::ApplyMapping(const Mapping *mapping, int count) {
 	for (int i = 0; i < count; ++i) {
 		SetSpillLockIRIndex(mapping[i].reg, irIndex_);
-		if (!config_.mapSIMD) {
+		if (!config_.mapFPUSIMD && mapping[i].type != 'G') {
 			for (int j = 1; j < mapping[i].lanes; ++j)
 				SetSpillLockIRIndex(mapping[i].reg + j, irIndex_);
 		}
@@ -687,7 +687,7 @@ void IRNativeRegCacheBase::ApplyMapping(const Mapping *mapping, int count) {
 			return;
 		}
 
-		if (config_.mapSIMD) {
+		if (config_.mapFPUSIMD || mapping[i].type == 'G') {
 			MapNativeReg(type, mapping[i].reg, mapping[i].lanes, mapping[i].flags);
 			return;
 		}
@@ -710,7 +710,7 @@ void IRNativeRegCacheBase::ApplyMapping(const Mapping *mapping, int count) {
 void IRNativeRegCacheBase::CleanupMapping(const Mapping *mapping, int count) {
 	for (int i = 0; i < count; ++i) {
 		SetSpillLockIRIndex(mapping[i].reg, -1);
-		if (!config_.mapSIMD) {
+		if (!config_.mapFPUSIMD && mapping[i].type != 'G') {
 			for (int j = 1; j < mapping[i].lanes; ++j)
 				SetSpillLockIRIndex(mapping[i].reg + j, -1);
 		}
@@ -728,7 +728,7 @@ void IRNativeRegCacheBase::CleanupMapping(const Mapping *mapping, int count) {
 			} else if (mapping[i].type == 'V') {
 				_dbg_assert_(mreg.loc == MIPSLoc::VREG);
 			}
-			if (mapping[i].lanes != 1 && config_.mapSIMD) {
+			if (mapping[i].lanes != 1 && (config_.mapFPUSIMD || mapping[i].type == 'G')) {
 				_dbg_assert_(mreg.lane == 0);
 				_dbg_assert_(mr[mapping[i].reg + mapping[i].lanes - 1].lane == mapping[i].lanes - 1);
 				_dbg_assert_(mreg.nReg == mr[mapping[i].reg + mapping[i].lanes - 1].nReg);

@@ -242,7 +242,7 @@ protected:
 
 	struct {
 		int totalNativeRegs = 0;
-		bool mapSIMD = false;
+		bool mapFPUSIMD = false;
 		bool mapUseVRegs = false;
 	} config_;
 

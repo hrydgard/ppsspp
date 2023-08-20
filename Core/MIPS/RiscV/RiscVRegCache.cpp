@@ -34,7 +34,7 @@ RiscVRegCache::RiscVRegCache(MIPSComp::JitOptions *jo)
 	// TODO: Update these when using RISC-V V.
 	config_.totalNativeRegs = NUM_RVGPR + NUM_RVFPR;
 	config_.mapUseVRegs = false;
-	config_.mapSIMD = false;
+	config_.mapFPUSIMD = false;
 }
 
 void RiscVRegCache::Init(RiscVEmitter *emitter) {
