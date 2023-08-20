@@ -37,7 +37,6 @@ const RiscVGen::RiscVReg SCRATCH2 = RiscVGen::X11;
 
 enum class MapType {
 	AVOID_LOAD,
-	AVOID_LOAD_MARK_NORM32,
 	ALWAYS_LOAD,
 };
 

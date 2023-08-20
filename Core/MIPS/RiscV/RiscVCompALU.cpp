@@ -697,7 +697,7 @@ void RiscVJitBackend::CompIR_Div(IRInst inst) {
 	RiscVReg numReg, denomReg;
 	switch (inst.op) {
 	case IROp::Div:
-		regs_.MapGPRDirtyDirtyInIn(IRREG_LO, IRREG_HI, inst.src1, inst.src2, MapType::AVOID_LOAD_MARK_NORM32);
+		regs_.MapGPRDirtyDirtyInIn(IRREG_LO, IRREG_HI, inst.src1, inst.src2);
 		// We have to do this because of the divide by zero and overflow checks below.
 		NormalizeSrc12(inst, &numReg, &denomReg, SCRATCH1, SCRATCH2, true);
 		DIVW(regs_.R(IRREG_LO), numReg, denomReg);
@@ -722,10 +722,12 @@ void RiscVJitBackend::CompIR_Div(IRInst inst) {
 			SetJumpTarget(notNegativeOne);
 			SetJumpTarget(notMostNegative);
 		}
+		regs_.MarkGPRDirty(IRREG_LO, true);
+		regs_.MarkGPRDirty(IRREG_HI, true);
 		break;
 
 	case IROp::DivU:
-		regs_.MapGPRDirtyDirtyInIn(IRREG_LO, IRREG_HI, inst.src1, inst.src2, MapType::AVOID_LOAD_MARK_NORM32);
+		regs_.MapGPRDirtyDirtyInIn(IRREG_LO, IRREG_HI, inst.src1, inst.src2);
 		// We have to do this because of the divide by zero check below.
 		NormalizeSrc12(inst, &numReg, &denomReg, SCRATCH1, SCRATCH2, true);
 		DIVUW(regs_.R(IRREG_LO), numReg, denomReg);
@@ -741,6 +743,8 @@ void RiscVJitBackend::CompIR_Div(IRInst inst) {
 			SetJumpTarget(keepNegOne);
 			SetJumpTarget(skipNonZero);
 		}
+		regs_.MarkGPRDirty(IRREG_LO, true);
+		regs_.MarkGPRDirty(IRREG_HI, true);
 		break;
 
 	default:

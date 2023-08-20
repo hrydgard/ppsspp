@@ -100,9 +100,10 @@ void RiscVJitBackend::CompIR_Transfer(IRInst inst) {
 		break;
 
 	case IROp::SetCtrlVFPUFReg:
-		regs_.MapGPR(IRREG_VFPU_CTRL_BASE + inst.dest, MIPSMap::NOINIT | MIPSMap::MARK_NORM32);
+		regs_.MapGPR(IRREG_VFPU_CTRL_BASE + inst.dest, MIPSMap::NOINIT);
 		regs_.MapFPR(inst.src1);
 		FMV(FMv::X, FMv::W, regs_.R(IRREG_VFPU_CTRL_BASE + inst.dest), regs_.F(inst.src1));
+		regs_.MarkGPRDirty(IRREG_VFPU_CTRL_BASE + inst.dest, true);
 		break;
 
 	case IROp::FpCondFromReg:
@@ -117,7 +118,7 @@ void RiscVJitBackend::CompIR_Transfer(IRInst inst) {
 		break;
 
 	case IROp::FpCtrlFromReg:
-		regs_.MapGPRDirtyIn(IRREG_FPCOND, inst.src1, MapType::AVOID_LOAD_MARK_NORM32);
+		regs_.MapGPRDirtyIn(IRREG_FPCOND, inst.src1);
 		LI(SCRATCH1, 0x0181FFFF);
 		AND(SCRATCH1, regs_.R(inst.src1), SCRATCH1);
 		// Extract the new fpcond value.
@@ -128,10 +129,11 @@ void RiscVJitBackend::CompIR_Transfer(IRInst inst) {
 			ANDI(regs_.R(IRREG_FPCOND), regs_.R(IRREG_FPCOND), 1);
 		}
 		SW(SCRATCH1, CTXREG, IRREG_FCR31 * 4);
+		regs_.MarkGPRDirty(IRREG_FPCOND, true);
 		break;
 
 	case IROp::FpCtrlToReg:
-		regs_.MapGPRDirtyIn(inst.dest, IRREG_FPCOND, MapType::AVOID_LOAD_MARK_NORM32);
+		regs_.MapGPRDirtyIn(inst.dest, IRREG_FPCOND);
 		// Load fcr31 and clear the fpcond bit.
 		LW(SCRATCH1, CTXREG, IRREG_FCR31 * 4);
 		if (cpu_info.RiscV_Zbs) {
@@ -148,6 +150,7 @@ void RiscVJitBackend::CompIR_Transfer(IRInst inst) {
 
 		// Also update mips->fcr31 while we're here.
 		SW(regs_.R(inst.dest), CTXREG, IRREG_FCR31 * 4);
+		regs_.MarkGPRDirty(inst.dest, true);
 		break;
 
 	case IROp::VfpuCtrlToReg:
@@ -157,19 +160,19 @@ void RiscVJitBackend::CompIR_Transfer(IRInst inst) {
 		break;
 
 	case IROp::FMovFromGPR:
-		regs_.MapFPR(inst.dest, MIPSMap::NOINIT);
 		if (regs_.IsGPRImm(inst.src1) && regs_.GetGPRImm(inst.src1) == 0) {
+			regs_.MapFPR(inst.dest, MIPSMap::NOINIT);
 			FCVT(FConv::S, FConv::W, regs_.F(inst.dest), R_ZERO);
 		} else {
-			regs_.MapGPR(inst.src1);
+			regs_.Map(inst);
 			FMV(FMv::W, FMv::X, regs_.F(inst.dest), regs_.R(inst.src1));
 		}
 		break;
 
 	case IROp::FMovToGPR:
-		regs_.MapGPR(inst.dest, MIPSMap::NOINIT | MIPSMap::MARK_NORM32);
-		regs_.MapFPR(inst.src1);
+		regs_.Map(inst);
 		FMV(FMv::X, FMv::W, regs_.R(inst.dest), regs_.F(inst.src1));
+		regs_.MarkGPRDirty(inst.dest, true);
 		break;
 
 	default:

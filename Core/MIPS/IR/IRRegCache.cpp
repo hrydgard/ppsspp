@@ -844,7 +844,7 @@ void IRNativeRegCacheBase::MapNativeReg(MIPSLoc type, IRNativeReg nreg, IRReg fi
 	if (mr[first].nReg != nreg) {
 		nr[nreg].isDirty = markDirty;
 		nr[nreg].pointerified = false;
-		nr[nreg].normalized32 = (flags & MIPSMap::MARK_NORM32) == MIPSMap::MARK_NORM32;
+		nr[nreg].normalized32 = false;
 	}
 
 	// Alright, now to actually map.
@@ -920,10 +920,8 @@ void IRNativeRegCacheBase::MapNativeReg(MIPSLoc type, IRNativeReg nreg, IRReg fi
 	if (markDirty) {
 		nr[nreg].isDirty = true;
 		nr[nreg].pointerified = false;
-		nr[nreg].normalized32 = (flags & MIPSMap::MARK_NORM32) == MIPSMap::MARK_NORM32;
+		nr[nreg].normalized32 = false;
 		_assert_(first != MIPS_REG_ZERO);
-	} else if ((flags & MIPSMap::MARK_NORM32) == MIPSMap::MARK_NORM32) {
-		nr[nreg].normalized32 = true;
 	}
 }
 

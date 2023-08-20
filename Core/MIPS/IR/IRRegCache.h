@@ -82,7 +82,6 @@ enum class MIPSMap {
 	INIT = 0,
 	DIRTY = 1,
 	NOINIT = 2 | DIRTY,
-	MARK_NORM32 = 4,
 };
 static inline MIPSMap operator |(const MIPSMap &lhs, const MIPSMap &rhs) {
 	return MIPSMap((int)lhs | (int)rhs);
