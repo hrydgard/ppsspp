@@ -45,18 +45,18 @@ void RiscVJitBackend::CompIR_Basic(IRInst inst) {
 	case IROp::SetConst:
 		// Sign extend all constants.  We get 0xFFFFFFFF sometimes, and it's more work to truncate.
 		// The register only holds 32 bits in the end anyway.
-		gpr.SetGPRImm(inst.dest, (int32_t)inst.constant);
+		regs_.SetGPRImm(inst.dest, (int32_t)inst.constant);
 		break;
 
 	case IROp::SetConstF:
-		fpr.MapReg(inst.dest, MIPSMap::NOINIT);
+		regs_.Map(inst);
 		if (inst.constant == 0) {
-			FCVT(FConv::S, FConv::W, fpr.R(inst.dest), R_ZERO);
+			FCVT(FConv::S, FConv::W, regs_.F(inst.dest), R_ZERO);
 		} else {
 			// TODO: In the future, could use FLI if it's approved.
 			// Also, is FCVT faster?
 			LI(SCRATCH1, (int32_t)inst.constant);
-			FMV(FMv::W, FMv::X, fpr.R(inst.dest), SCRATCH1);
+			FMV(FMv::W, FMv::X, regs_.F(inst.dest), SCRATCH1);
 		}
 		break;
 
@@ -70,8 +70,8 @@ void RiscVJitBackend::CompIR_Basic(IRInst inst) {
 		break;
 
 	case IROp::SetPC:
-		gpr.MapIn(inst.src1);
-		MovToPC(gpr.R(inst.src1));
+		regs_.Map(inst);
+		MovToPC(regs_.R(inst.src1));
 		break;
 
 	case IROp::SetPCConst:
@@ -90,48 +90,49 @@ void RiscVJitBackend::CompIR_Transfer(IRInst inst) {
 
 	switch (inst.op) {
 	case IROp::SetCtrlVFPU:
-		gpr.SetGPRImm(IRREG_VFPU_CTRL_BASE + inst.dest, (int32_t)inst.constant);
+		regs_.SetGPRImm(IRREG_VFPU_CTRL_BASE + inst.dest, (int32_t)inst.constant);
 		break;
 
 	case IROp::SetCtrlVFPUReg:
-		gpr.MapDirtyIn(IRREG_VFPU_CTRL_BASE + inst.dest, inst.src1);
-		MV(gpr.R(IRREG_VFPU_CTRL_BASE + inst.dest), gpr.R(inst.src1));
-		gpr.MarkGPRDirty(IRREG_VFPU_CTRL_BASE + inst.dest, gpr.IsNormalized32(inst.src1));
+		regs_.Map(inst);
+		MV(regs_.R(IRREG_VFPU_CTRL_BASE + inst.dest), regs_.R(inst.src1));
+		regs_.MarkGPRDirty(IRREG_VFPU_CTRL_BASE + inst.dest, regs_.IsNormalized32(inst.src1));
 		break;
 
 	case IROp::SetCtrlVFPUFReg:
-		gpr.MapReg(IRREG_VFPU_CTRL_BASE + inst.dest, MIPSMap::NOINIT | MIPSMap::MARK_NORM32);
-		fpr.MapReg(inst.src1);
-		FMV(FMv::X, FMv::W, gpr.R(IRREG_VFPU_CTRL_BASE + inst.dest), fpr.R(inst.src1));
+		regs_.Map(inst);
+		FMV(FMv::X, FMv::W, regs_.R(IRREG_VFPU_CTRL_BASE + inst.dest), regs_.F(inst.src1));
+		regs_.MarkGPRDirty(IRREG_VFPU_CTRL_BASE + inst.dest, true);
 		break;
 
 	case IROp::FpCondFromReg:
-		gpr.MapDirtyIn(IRREG_FPCOND, inst.src1);
-		MV(gpr.R(IRREG_FPCOND), gpr.R(inst.src1));
+		regs_.MapWithExtra(inst, { { 'G', IRREG_FPCOND, 1, MIPSMap::NOINIT } });
+		MV(regs_.R(IRREG_FPCOND), regs_.R(inst.src1));
 		break;
 
 	case IROp::FpCondToReg:
-		gpr.MapDirtyIn(inst.dest, IRREG_FPCOND);
-		MV(gpr.R(inst.dest), gpr.R(IRREG_FPCOND));
-		gpr.MarkGPRDirty(inst.dest, gpr.IsNormalized32(IRREG_FPCOND));
+		regs_.MapWithExtra(inst, { { 'G', IRREG_FPCOND, 1, MIPSMap::INIT } });
+		MV(regs_.R(inst.dest), regs_.R(IRREG_FPCOND));
+		regs_.MarkGPRDirty(inst.dest, regs_.IsNormalized32(IRREG_FPCOND));
 		break;
 
 	case IROp::FpCtrlFromReg:
-		gpr.MapDirtyIn(IRREG_FPCOND, inst.src1, MapType::AVOID_LOAD_MARK_NORM32);
+		regs_.MapWithExtra(inst, { { 'G', IRREG_FPCOND, 1, MIPSMap::NOINIT } });
 		LI(SCRATCH1, 0x0181FFFF);
-		AND(SCRATCH1, gpr.R(inst.src1), SCRATCH1);
+		AND(SCRATCH1, regs_.R(inst.src1), SCRATCH1);
 		// Extract the new fpcond value.
 		if (cpu_info.RiscV_Zbs) {
-			BEXTI(gpr.R(IRREG_FPCOND), SCRATCH1, 23);
+			BEXTI(regs_.R(IRREG_FPCOND), SCRATCH1, 23);
 		} else {
-			SRLI(gpr.R(IRREG_FPCOND), SCRATCH1, 23);
-			ANDI(gpr.R(IRREG_FPCOND), gpr.R(IRREG_FPCOND), 1);
+			SRLI(regs_.R(IRREG_FPCOND), SCRATCH1, 23);
+			ANDI(regs_.R(IRREG_FPCOND), regs_.R(IRREG_FPCOND), 1);
 		}
 		SW(SCRATCH1, CTXREG, IRREG_FCR31 * 4);
+		regs_.MarkGPRDirty(IRREG_FPCOND, true);
 		break;
 
 	case IROp::FpCtrlToReg:
-		gpr.MapDirtyIn(inst.dest, IRREG_FPCOND, MapType::AVOID_LOAD_MARK_NORM32);
+		regs_.MapWithExtra(inst, { { 'G', IRREG_FPCOND, 1, MIPSMap::INIT } });
 		// Load fcr31 and clear the fpcond bit.
 		LW(SCRATCH1, CTXREG, IRREG_FCR31 * 4);
 		if (cpu_info.RiscV_Zbs) {
@@ -142,34 +143,35 @@ void RiscVJitBackend::CompIR_Transfer(IRInst inst) {
 		}
 
 		// Now get the correct fpcond bit.
-		ANDI(SCRATCH2, gpr.R(IRREG_FPCOND), 1);
+		ANDI(SCRATCH2, regs_.R(IRREG_FPCOND), 1);
 		SLLI(SCRATCH2, SCRATCH2, 23);
-		OR(gpr.R(inst.dest), SCRATCH1, SCRATCH2);
+		OR(regs_.R(inst.dest), SCRATCH1, SCRATCH2);
 
 		// Also update mips->fcr31 while we're here.
-		SW(gpr.R(inst.dest), CTXREG, IRREG_FCR31 * 4);
+		SW(regs_.R(inst.dest), CTXREG, IRREG_FCR31 * 4);
+		regs_.MarkGPRDirty(inst.dest, true);
 		break;
 
 	case IROp::VfpuCtrlToReg:
-		gpr.MapDirtyIn(inst.dest, IRREG_VFPU_CTRL_BASE + inst.src1);
-		MV(gpr.R(inst.dest), gpr.R(IRREG_VFPU_CTRL_BASE + inst.src1));
-		gpr.MarkGPRDirty(inst.dest, gpr.IsNormalized32(IRREG_VFPU_CTRL_BASE + inst.src1));
+		regs_.Map(inst);
+		MV(regs_.R(inst.dest), regs_.R(IRREG_VFPU_CTRL_BASE + inst.src1));
+		regs_.MarkGPRDirty(inst.dest, regs_.IsNormalized32(IRREG_VFPU_CTRL_BASE + inst.src1));
 		break;
 
 	case IROp::FMovFromGPR:
-		fpr.MapReg(inst.dest, MIPSMap::NOINIT);
-		if (gpr.IsGPRImm(inst.src1) && gpr.GetGPRImm(inst.src1) == 0) {
-			FCVT(FConv::S, FConv::W, fpr.R(inst.dest), R_ZERO);
+		if (regs_.IsGPRImm(inst.src1) && regs_.GetGPRImm(inst.src1) == 0) {
+			regs_.MapFPR(inst.dest, MIPSMap::NOINIT);
+			FCVT(FConv::S, FConv::W, regs_.F(inst.dest), R_ZERO);
 		} else {
-			gpr.MapReg(inst.src1);
-			FMV(FMv::W, FMv::X, fpr.R(inst.dest), gpr.R(inst.src1));
+			regs_.Map(inst);
+			FMV(FMv::W, FMv::X, regs_.F(inst.dest), regs_.R(inst.src1));
 		}
 		break;
 
 	case IROp::FMovToGPR:
-		gpr.MapReg(inst.dest, MIPSMap::NOINIT | MIPSMap::MARK_NORM32);
-		fpr.MapReg(inst.src1);
-		FMV(FMv::X, FMv::W, gpr.R(inst.dest), fpr.R(inst.src1));
+		regs_.Map(inst);
+		FMV(FMv::X, FMv::W, regs_.R(inst.dest), regs_.F(inst.src1));
+		regs_.MarkGPRDirty(inst.dest, true);
 		break;
 
 	default:

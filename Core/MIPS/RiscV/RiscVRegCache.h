@@ -35,12 +35,6 @@ const RiscVGen::RiscVReg MEMBASEREG = RiscVGen::X27;
 const RiscVGen::RiscVReg SCRATCH1 = RiscVGen::X10;
 const RiscVGen::RiscVReg SCRATCH2 = RiscVGen::X11;
 
-enum class MapType {
-	AVOID_LOAD,
-	AVOID_LOAD_MARK_NORM32,
-	ALWAYS_LOAD,
-};
-
 } // namespace RiscVJitConstants
 
 class RiscVRegCache : public IRNativeRegCacheBase {
@@ -52,28 +46,25 @@ public:
 	// May fail and return INVALID_REG if it needs flushing.
 	RiscVGen::RiscVReg TryMapTempImm(IRReg);
 
-	// Returns an ARM register containing the requested MIPS register.
-	RiscVGen::RiscVReg MapReg(IRReg reg, MIPSMap mapFlags = MIPSMap::INIT);
-	RiscVGen::RiscVReg MapRegAsPointer(IRReg reg);
+	// Returns an RV register containing the requested MIPS register.
+	RiscVGen::RiscVReg MapGPR(IRReg reg, MIPSMap mapFlags = MIPSMap::INIT);
+	RiscVGen::RiscVReg MapGPRAsPointer(IRReg reg);
+	RiscVGen::RiscVReg MapFPR(IRReg reg, MIPSMap mapFlags = MIPSMap::INIT);
+
+	RiscVGen::RiscVReg MapWithFPRTemp(IRInst &inst);
 
 	bool IsNormalized32(IRReg reg);
 
 	// Copies to another reg if specified, otherwise same reg.
 	RiscVGen::RiscVReg Normalize32(IRReg reg, RiscVGen::RiscVReg destReg = RiscVGen::INVALID_REG);
-	void MapIn(IRReg rs);
-	void MapInIn(IRReg rd, IRReg rs);
-	void MapDirtyIn(IRReg rd, IRReg rs, RiscVJitConstants::MapType type = RiscVJitConstants::MapType::AVOID_LOAD);
-	void MapDirtyInIn(IRReg rd, IRReg rs, IRReg rt, RiscVJitConstants::MapType type = RiscVJitConstants::MapType::AVOID_LOAD);
-	void MapDirtyDirtyIn(IRReg rd1, IRReg rd2, IRReg rs, RiscVJitConstants::MapType type = RiscVJitConstants::MapType::AVOID_LOAD);
-	void MapDirtyDirtyInIn(IRReg rd1, IRReg rd2, IRReg rs, IRReg rt, RiscVJitConstants::MapType type = RiscVJitConstants::MapType::AVOID_LOAD);
+
 	void FlushBeforeCall();
-	void FlushR(IRReg r);
-	void DiscardR(IRReg r);
 
 	RiscVGen::RiscVReg GetAndLockTempR();
 
 	RiscVGen::RiscVReg R(IRReg preg); // Returns a cached register, while checking that it's NOT mapped as a pointer
 	RiscVGen::RiscVReg RPtr(IRReg preg); // Returns a cached register, if it has been mapped as a pointer
+	RiscVGen::RiscVReg F(IRReg preg);
 
 	// These are called once on startup to generate functions, that you should then call.
 	void EmitLoadStaticRegisters();
@@ -94,6 +85,8 @@ private:
 	RiscVGen::RiscVEmitter *emit_ = nullptr;
 
 	enum {
-		NUM_RVREG = 32,
+		NUM_RVGPR = 32,
+		NUM_RVFPR = 32,
+		NUM_RVVPR = 32,
 	};
 };
