@@ -325,48 +325,6 @@ void X64JitBackend::LoadStaticRegisters() {
 	}
 }
 
-// TODO: Move out to files.
-void X64JitBackend::CompIR_Arith(IRInst inst) { CompIR_Generic(inst); }
-void X64JitBackend::CompIR_Assign(IRInst inst) { CompIR_Generic(inst); }
-void X64JitBackend::CompIR_Basic(IRInst inst) { CompIR_Generic(inst); }
-void X64JitBackend::CompIR_Bits(IRInst inst) { CompIR_Generic(inst); }
-void X64JitBackend::CompIR_Breakpoint(IRInst inst) { CompIR_Generic(inst); }
-void X64JitBackend::CompIR_Compare(IRInst inst) { CompIR_Generic(inst); }
-void X64JitBackend::CompIR_CondAssign(IRInst inst) { CompIR_Generic(inst); }
-void X64JitBackend::CompIR_CondStore(IRInst inst) { CompIR_Generic(inst); }
-void X64JitBackend::CompIR_Div(IRInst inst) { CompIR_Generic(inst); }
-void X64JitBackend::CompIR_Exit(IRInst inst) { CompIR_Generic(inst); }
-void X64JitBackend::CompIR_ExitIf(IRInst inst) { CompIR_Generic(inst); }
-void X64JitBackend::CompIR_FArith(IRInst inst) { CompIR_Generic(inst); }
-void X64JitBackend::CompIR_FAssign(IRInst inst) { CompIR_Generic(inst); }
-void X64JitBackend::CompIR_FCompare(IRInst inst) { CompIR_Generic(inst); }
-void X64JitBackend::CompIR_FCondAssign(IRInst inst) { CompIR_Generic(inst); }
-void X64JitBackend::CompIR_FCvt(IRInst inst) { CompIR_Generic(inst); }
-void X64JitBackend::CompIR_FLoad(IRInst inst) { CompIR_Generic(inst); }
-void X64JitBackend::CompIR_FRound(IRInst inst) { CompIR_Generic(inst); }
-void X64JitBackend::CompIR_FSat(IRInst inst) { CompIR_Generic(inst); }
-void X64JitBackend::CompIR_FSpecial(IRInst inst) { CompIR_Generic(inst); }
-void X64JitBackend::CompIR_FStore(IRInst inst) { CompIR_Generic(inst); }
-void X64JitBackend::CompIR_HiLo(IRInst inst) { CompIR_Generic(inst); }
-void X64JitBackend::CompIR_Load(IRInst inst) { CompIR_Generic(inst); }
-void X64JitBackend::CompIR_LoadShift(IRInst inst) { CompIR_Generic(inst); }
-void X64JitBackend::CompIR_Logic(IRInst inst) { CompIR_Generic(inst); }
-void X64JitBackend::CompIR_Mult(IRInst inst) { CompIR_Generic(inst); }
-void X64JitBackend::CompIR_RoundingMode(IRInst inst) { CompIR_Generic(inst); }
-void X64JitBackend::CompIR_Shift(IRInst inst) { CompIR_Generic(inst); }
-void X64JitBackend::CompIR_Store(IRInst inst) { CompIR_Generic(inst); }
-void X64JitBackend::CompIR_StoreShift(IRInst inst) { CompIR_Generic(inst); }
-void X64JitBackend::CompIR_System(IRInst inst) { CompIR_Generic(inst); }
-void X64JitBackend::CompIR_Transfer(IRInst inst) { CompIR_Generic(inst); }
-void X64JitBackend::CompIR_VecArith(IRInst inst) { CompIR_Generic(inst); }
-void X64JitBackend::CompIR_VecAssign(IRInst inst) { CompIR_Generic(inst); }
-void X64JitBackend::CompIR_VecClamp(IRInst inst) { CompIR_Generic(inst); }
-void X64JitBackend::CompIR_VecHoriz(IRInst inst) { CompIR_Generic(inst); }
-void X64JitBackend::CompIR_VecLoad(IRInst inst) { CompIR_Generic(inst); }
-void X64JitBackend::CompIR_VecPack(IRInst inst) { CompIR_Generic(inst); }
-void X64JitBackend::CompIR_VecStore(IRInst inst) { CompIR_Generic(inst); }
-void X64JitBackend::CompIR_ValidateAddress(IRInst inst) { CompIR_Generic(inst); }
-
 } // namespace MIPSComp
 
 #endif

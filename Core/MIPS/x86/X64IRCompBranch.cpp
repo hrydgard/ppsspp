@@ -15,8 +15,11 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "Core/MIPS/RiscV/RiscVJit.h"
-#include "Core/MIPS/RiscV/RiscVRegCache.h"
+#include "ppsspp_config.h"
+#if PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)
+
+#include "Core/MIPS/x86/X64IRJit.h"
+#include "Core/MIPS/x86/X64IRRegCache.h"
 
 // This file contains compilation for exits.
 //
@@ -30,30 +33,17 @@
 
 namespace MIPSComp {
 
-using namespace RiscVGen;
-using namespace RiscVJitConstants;
+using namespace Gen;
+using namespace X64IRJitConstants;
 
-void RiscVJitBackend::CompIR_Exit(IRInst inst) {
+void X64JitBackend::CompIR_Exit(IRInst inst) {
 	CONDITIONAL_DISABLE;
 
-	RiscVReg exitReg = INVALID_REG;
 	switch (inst.op) {
 	case IROp::ExitToConst:
-		FlushAll();
-		WriteConstExit(inst.constant);
-		break;
-
 	case IROp::ExitToReg:
-		exitReg = regs_.MapGPR(inst.src1);
-		FlushAll();
-		// TODO: If ever we don't read this back in dispatcherPCInSCRATCH1_, we should zero upper.
-		MV(SCRATCH1, exitReg);
-		QuickJ(R_RA, dispatcherPCInSCRATCH1_);
-		break;
-
 	case IROp::ExitToPC:
-		FlushAll();
-		QuickJ(R_RA, dispatcherCheckCoreState_);
+		CompIR_Generic(inst);
 		break;
 
 	default:
@@ -62,70 +52,17 @@ void RiscVJitBackend::CompIR_Exit(IRInst inst) {
 	}
 }
 
-void RiscVJitBackend::CompIR_ExitIf(IRInst inst) {
+void X64JitBackend::CompIR_ExitIf(IRInst inst) {
 	CONDITIONAL_DISABLE;
 
-	RiscVReg lhs = INVALID_REG;
-	RiscVReg rhs = INVALID_REG;
-	FixupBranch fixup;
 	switch (inst.op) {
 	case IROp::ExitToConstIfEq:
 	case IROp::ExitToConstIfNeq:
-		regs_.Map(inst);
-		// We can't use SCRATCH1, which is destroyed by FlushAll()... but cheat and use R_RA.
-		NormalizeSrc12(inst, &lhs, &rhs, R_RA, SCRATCH2, true);
-		FlushAll();
-
-		switch (inst.op) {
-		case IROp::ExitToConstIfEq:
-			fixup = BNE(lhs, rhs);
-			break;
-
-		case IROp::ExitToConstIfNeq:
-			fixup = BEQ(lhs, rhs);
-			break;
-
-		default:
-			INVALIDOP;
-			break;
-		}
-
-		WriteConstExit(inst.constant);
-		SetJumpTarget(fixup);
-		break;
-
 	case IROp::ExitToConstIfGtZ:
 	case IROp::ExitToConstIfGeZ:
 	case IROp::ExitToConstIfLtZ:
 	case IROp::ExitToConstIfLeZ:
-		regs_.Map(inst);
-		NormalizeSrc1(inst, &lhs, SCRATCH2, true);
-		FlushAll();
-
-		switch (inst.op) {
-		case IROp::ExitToConstIfGtZ:
-			fixup = BGE(R_ZERO, lhs);
-			break;
-
-		case IROp::ExitToConstIfGeZ:
-			fixup = BLT(lhs, R_ZERO);
-			break;
-
-		case IROp::ExitToConstIfLtZ:
-			fixup = BGE(lhs, R_ZERO);
-			break;
-
-		case IROp::ExitToConstIfLeZ:
-			fixup = BLT(R_ZERO, lhs);
-			break;
-
-		default:
-			INVALIDOP;
-			break;
-		}
-
-		WriteConstExit(inst.constant);
-		SetJumpTarget(fixup);
+		CompIR_Generic(inst);
 		break;
 
 	case IROp::ExitToConstIfFpTrue:
@@ -141,3 +78,5 @@ void RiscVJitBackend::CompIR_ExitIf(IRInst inst) {
 }
 
 } // namespace MIPSComp
+
+#endif

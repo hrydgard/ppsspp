@@ -304,6 +304,12 @@ ARCH_FILES := \
   $(SRC)/Core/MIPS/x86/RegCache.cpp \
   $(SRC)/Core/MIPS/x86/RegCacheFPU.cpp \
   $(SRC)/Core/MIPS/x86/X64IRAsm.cpp \
+  $(SRC)/Core/MIPS/x86/X64IRCompALU.cpp \
+  $(SRC)/Core/MIPS/x86/X64IRCompBranch.cpp \
+  $(SRC)/Core/MIPS/x86/X64IRCompFPU.cpp \
+  $(SRC)/Core/MIPS/x86/X64IRCompLoadStore.cpp \
+  $(SRC)/Core/MIPS/x86/X64IRCompSystem.cpp \
+  $(SRC)/Core/MIPS/x86/X64IRCompVec.cpp \
   $(SRC)/Core/MIPS/x86/X64IRJit.cpp \
   $(SRC)/Core/MIPS/x86/X64IRRegCache.cpp \
   $(SRC)/GPU/Common/VertexDecoderX86.cpp \
