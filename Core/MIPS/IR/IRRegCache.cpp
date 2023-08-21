@@ -437,12 +437,13 @@ IRNativeReg IRNativeRegCacheBase::FindBestToSpill(MIPSLoc type, bool unusedOnly,
 void IRNativeRegCacheBase::DiscardNativeReg(IRNativeReg nreg) {
 	_assert_msg_(nreg >= 0 && nreg < config_.totalNativeRegs, "DiscardNativeReg on invalid register %d", nreg);
 	if (nr[nreg].mipsReg != IRREG_INVALID) {
-		_assert_(nr[nreg].mipsReg != MIPS_REG_ZERO);
 		int8_t lanes = 0;
 		for (IRReg m = nr[nreg].mipsReg; mr[m].nReg == nreg && m < IRREG_INVALID; ++m)
 			lanes++;
 
 		if (mr[nr[nreg].mipsReg].isStatic) {
+			_assert_(nr[nreg].mipsReg != MIPS_REG_ZERO);
+
 			int numStatics;
 			const StaticAllocation *statics = GetStaticAllocations(numStatics);
 
@@ -580,6 +581,9 @@ void IRNativeRegCacheBase::FlushReg(IRReg mreg) {
 void IRNativeRegCacheBase::FlushAll(bool gprs, bool fprs) {
 	// Note: make sure not to change the registers when flushing.
 	// Branching code may expect the native reg to retain its value.
+
+	if (!mr[MIPS_REG_ZERO].isStatic && mr[MIPS_REG_ZERO].nReg != -1)
+		DiscardNativeReg(mr[MIPS_REG_ZERO].nReg);
 
 	for (int i = 1; i < TOTAL_MAPPABLE_IRREGS; i++) {
 		IRReg mipsReg = (IRReg)i;
