@@ -133,9 +133,9 @@ static int DefaultCpuCore() {
 #if PPSSPP_ARCH(ARM) || PPSSPP_ARCH(ARM64) || PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64) || PPSSPP_ARCH(RISCV64)
 	if (System_GetPropertyBool(SYSPROP_CAN_JIT))
 		return (int)CPUCore::JIT;
-	return (int)CPUCore::IR_JIT;
+	return (int)CPUCore::IR_INTERPRETER;
 #else
-	return (int)CPUCore::IR_JIT;
+	return (int)CPUCore::IR_INTERPRETER;
 #endif
 }
 
@@ -1313,9 +1313,9 @@ bool Config::Save(const char *saveReason) {
 
 void Config::PostLoadCleanup(bool gameSpecific) {
 	// Override ppsspp.ini JIT value to prevent crashing
-	jitForcedOff = DefaultCpuCore() != (int)CPUCore::JIT && g_Config.iCpuCore == (int)CPUCore::JIT;
+	jitForcedOff = DefaultCpuCore() != (int)CPUCore::JIT && (g_Config.iCpuCore == (int)CPUCore::JIT || g_Config.iCpuCore == (int)CPUCore::JIT_IR);
 	if (jitForcedOff) {
-		g_Config.iCpuCore = (int)CPUCore::IR_JIT;
+		g_Config.iCpuCore = (int)CPUCore::IR_INTERPRETER;
 	}
 
 	// This caps the exponent 4 (so 16x.)
@@ -1345,7 +1345,7 @@ void Config::PostLoadCleanup(bool gameSpecific) {
 void Config::PreSaveCleanup(bool gameSpecific) {
 	if (jitForcedOff) {
 		// If we forced jit off and it's still set to IR, change it back to jit.
-		if (g_Config.iCpuCore == (int)CPUCore::IR_JIT)
+		if (g_Config.iCpuCore == (int)CPUCore::IR_INTERPRETER)
 			g_Config.iCpuCore = (int)CPUCore::JIT;
 	}
 }
@@ -1354,12 +1354,12 @@ void Config::PostSaveCleanup(bool gameSpecific) {
 	if (jitForcedOff) {
 		// Force JIT off again just in case Config::Save() is called without exiting PPSSPP.
 		if (g_Config.iCpuCore == (int)CPUCore::JIT)
-			g_Config.iCpuCore = (int)CPUCore::IR_JIT;
+			g_Config.iCpuCore = (int)CPUCore::IR_INTERPRETER;
 	}
 }
 
 void Config::NotifyUpdatedCpuCore() {
-	if (jitForcedOff && g_Config.iCpuCore == (int)CPUCore::IR_JIT) {
+	if (jitForcedOff && g_Config.iCpuCore == (int)CPUCore::IR_INTERPRETER) {
 		// No longer forced off, the user set it to IR jit.
 		jitForcedOff = false;
 	}

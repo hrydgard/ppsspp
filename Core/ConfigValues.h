@@ -50,7 +50,8 @@ struct ConfigCustomButton {
 enum class CPUCore {
 	INTERPRETER = 0,
 	JIT = 1,
-	IR_JIT = 2,
+	IR_INTERPRETER = 2,
+	JIT_IR = 3,
 };
 
 enum {

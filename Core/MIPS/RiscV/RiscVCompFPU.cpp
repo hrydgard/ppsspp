@@ -15,7 +15,6 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "Core/MemMap.h"
 #include "Core/MIPS/RiscV/RiscVJit.h"
 #include "Core/MIPS/RiscV/RiscVRegCache.h"
 
