@@ -58,17 +58,20 @@ const int *X64IRRegCache::GetAllocationOrder(MIPSLoc type, int &count, int &base
 #else
 			RBP, R8, R9, R10, R11, R12, R13,
 #endif
+			// Intentionally last.
+			R15,
 #elif PPSSPP_ARCH(X86)
 			ESI, EDI, EDX, ECX, EBX,
 #endif
-			// Intentionally last.
-			R15,
 		};
 
-		if (!jo_->reserveR15ForAsm)
+#if !PPSSPP_ARCH(X86)
+		if (jo_->reserveR15ForAsm) {
 			count = ARRAY_SIZE(allocationOrder) - 1;
-		else
-			count = ARRAY_SIZE(allocationOrder);
+			return allocationOrder;
+		}
+#endif
+		count = ARRAY_SIZE(allocationOrder);
 		return allocationOrder;
 	} else if (type == MIPSLoc::FREG) {
 		base = -NUM_X_REGS;
@@ -285,7 +288,7 @@ X64Reg X64IRRegCache::R(IRReg mipsReg) {
 	if (mr[mipsReg].loc == MIPSLoc::REG || mr[mipsReg].loc == MIPSLoc::REG_IMM) {
 		return FromNativeReg(mr[mipsReg].nReg);
 	} else {
-		ERROR_LOG_REPORT(JIT, "Reg %i not in riscv reg", mipsReg);
+		ERROR_LOG_REPORT(JIT, "Reg %i not in x64 reg", mipsReg);
 		return INVALID_REG;  // BAAAD
 	}
 }

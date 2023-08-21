@@ -171,7 +171,10 @@ void X64JitBackend::GenerateFixedCode(MIPSState *mipsState) {
 			// Debug
 			if (enableDebug) {
 #if PPSSPP_ARCH(AMD64)
-				ABI_CallFunctionAA(reinterpret_cast<void *>(&ShowPC), R(MEMBASEREG), R(JITBASEREG));
+				if (jo.reserveR15ForAsm)
+					ABI_CallFunctionAA(reinterpret_cast<void *>(&ShowPC), R(MEMBASEREG), R(JITBASEREG));
+				else
+					ABI_CallFunctionAC(reinterpret_cast<void *>(&ShowPC), R(MEMBASEREG), (u32)jitbase);
 #else
 				ABI_CallFunctionCC(reinterpret_cast<void *>(&ShowPC), Menory::base, (u32)jitbase);
 #endif
