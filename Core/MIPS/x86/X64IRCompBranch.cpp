@@ -41,6 +41,10 @@ void X64JitBackend::CompIR_Exit(IRInst inst) {
 
 	switch (inst.op) {
 	case IROp::ExitToConst:
+		FlushAll();
+		WriteConstExit(inst.constant);
+		break;
+
 	case IROp::ExitToReg:
 	case IROp::ExitToPC:
 		CompIR_Generic(inst);

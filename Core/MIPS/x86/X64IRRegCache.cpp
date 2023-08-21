@@ -286,6 +286,10 @@ OpArg X64IRRegCache::R(IRReg mipsReg) {
 	return ::R(RX(mipsReg));
 }
 
+OpArg X64IRRegCache::RPtr(IRReg mipsReg) {
+	return ::R(RXPtr(mipsReg));
+}
+
 OpArg X64IRRegCache::F(IRReg mipsReg) {
 	return ::R(FX(mipsReg));
 }

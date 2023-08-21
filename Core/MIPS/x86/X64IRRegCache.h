@@ -59,6 +59,7 @@ public:
 	Gen::X64Reg GetAndLockTempR();
 
 	Gen::OpArg R(IRReg preg);
+	Gen::OpArg RPtr(IRReg preg);
 	Gen::OpArg F(IRReg preg);
 	Gen::X64Reg RX(IRReg preg); // Returns a cached register, while checking that it's NOT mapped as a pointer
 	Gen::X64Reg RXPtr(IRReg preg); // Returns a cached register, if it has been mapped as a pointer

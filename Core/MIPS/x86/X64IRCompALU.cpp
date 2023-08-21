@@ -41,11 +41,73 @@ using namespace X64IRJitConstants;
 void X64JitBackend::CompIR_Arith(IRInst inst) {
 	CONDITIONAL_DISABLE;
 
+	bool allowPtrMath = inst.constant <= 0x7FFFFFFF;
+#ifdef MASKED_PSP_MEMORY
+	// Since we modify it, we can't safely.
+	allowPtrMath = false;
+#endif
+
 	switch (inst.op) {
 	case IROp::Add:
+		regs_.Map(inst);
+		if (inst.dest == inst.src2) {
+			ADD(32, regs_.R(inst.dest), regs_.R(inst.src1));
+		} else if (inst.dest == inst.src1) {
+			ADD(32, regs_.R(inst.dest), regs_.R(inst.src2));
+		} else {
+			MOV(32, regs_.R(inst.dest), regs_.R(inst.src1));
+			ADD(32, regs_.R(inst.dest), regs_.R(inst.src2));
+		}
+		break;
+
 	case IROp::Sub:
+		if (regs_.IsGPRImm(inst.src1) && regs_.GetGPRImm(inst.src1) == 0) {
+			// TODO: Might be nice to have a pass to turn this into Neg.
+			// Special cased to avoid wasting a reg on zero.
+			regs_.MapGPR(inst.src2);
+			regs_.MapGPR(inst.dest, MIPSMap::NOINIT);
+			if (inst.dest != inst.src2)
+				MOV(32, regs_.R(inst.dest), regs_.R(inst.src2));
+			NEG(32, regs_.R(inst.dest));
+		} else if (inst.dest == inst.src2) {
+			regs_.Map(inst);
+			MOV(32, R(SCRATCH1), regs_.R(inst.src2));
+			MOV(32, regs_.R(inst.dest), regs_.R(inst.src1));
+			SUB(32, regs_.R(inst.dest), R(SCRATCH1));
+		} else if (inst.dest == inst.src1) {
+			regs_.Map(inst);
+			SUB(32, regs_.R(inst.dest), regs_.R(inst.src2));
+		} else {
+			regs_.Map(inst);
+			MOV(32, regs_.R(inst.dest), regs_.R(inst.src1));
+			SUB(32, regs_.R(inst.dest), regs_.R(inst.src2));
+		}
+		break;
+
 	case IROp::AddConst:
+		if (regs_.IsGPRMappedAsPointer(inst.dest) && inst.dest == inst.src1 && allowPtrMath) {
+			regs_.MarkGPRAsPointerDirty(inst.dest);
+			ADD(PTRBITS, regs_.RPtr(inst.dest), SImmAuto(inst.constant));
+		} else {
+			regs_.Map(inst);
+			if (inst.dest != inst.src1)
+				MOV(32, regs_.R(inst.dest), regs_.R(inst.src1));
+			ADD(32, regs_.R(inst.dest), SImmAuto(inst.constant));
+		}
+		break;
+
 	case IROp::SubConst:
+		if (regs_.IsGPRMappedAsPointer(inst.dest) && inst.dest == inst.src1 && allowPtrMath) {
+			regs_.MarkGPRAsPointerDirty(inst.dest);
+			SUB(PTRBITS, regs_.RPtr(inst.dest), SImmAuto(inst.constant));
+		} else {
+			regs_.Map(inst);
+			if (inst.dest != inst.src1)
+				MOV(32, regs_.R(inst.dest), regs_.R(inst.src1));
+			SUB(32, regs_.R(inst.dest), SImmAuto(inst.constant));
+		}
+		break;
+
 	case IROp::Neg:
 		CompIR_Generic(inst);
 		break;
@@ -61,6 +123,12 @@ void X64JitBackend::CompIR_Assign(IRInst inst) {
 
 	switch (inst.op) {
 	case IROp::Mov:
+		if (inst.dest != inst.src1) {
+			regs_.Map(inst);
+			MOV(32, regs_.R(inst.dest), regs_.R(inst.src1));
+		}
+		break;
+
 	case IROp::Ext8to32:
 	case IROp::Ext16to32:
 		CompIR_Generic(inst);
@@ -162,8 +230,23 @@ void X64JitBackend::CompIR_Logic(IRInst inst) {
 	case IROp::And:
 	case IROp::Or:
 	case IROp::Xor:
+		CompIR_Generic(inst);
+		break;
+
 	case IROp::AndConst:
+		regs_.Map(inst);
+		if (inst.dest != inst.src1)
+			MOV(32, regs_.R(inst.dest), regs_.R(inst.src1));
+		AND(32, regs_.R(inst.dest), UImmAuto(inst.constant));
+		break;
+
 	case IROp::OrConst:
+		regs_.Map(inst);
+		if (inst.dest != inst.src1)
+			MOV(32, regs_.R(inst.dest), regs_.R(inst.src1));
+		OR(32, regs_.R(inst.dest), UImmAuto(inst.constant));
+		break;
+
 	case IROp::XorConst:
 	case IROp::Not:
 		CompIR_Generic(inst);
