@@ -176,7 +176,7 @@ void X64JitBackend::GenerateFixedCode(MIPSState *mipsState) {
 				else
 					ABI_CallFunctionAC(reinterpret_cast<void *>(&ShowPC), R(MEMBASEREG), (u32)jitbase);
 #else
-				ABI_CallFunctionCC(reinterpret_cast<void *>(&ShowPC), Menory::base, (u32)jitbase);
+				ABI_CallFunctionCC(reinterpret_cast<void *>(&ShowPC), (u32)Memory::base, (u32)GetBasePtr());
 #endif
 			}
 
