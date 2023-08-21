@@ -36,6 +36,11 @@ const Gen::X64Reg CTXREG = Gen::EBP;
 #endif
 const Gen::X64Reg SCRATCH1 = Gen::EAX;
 
+static constexpr auto downcountOffset = offsetof(MIPSState, downcount) - 128;
+static constexpr auto tempOffset = offsetof(MIPSState, temp) - 128;
+static constexpr auto fcr31Offset = offsetof(MIPSState, fcr31) - 128;
+static constexpr auto pcOffset = offsetof(MIPSState, pc) - 128;
+
 } // namespace X64IRJitConstants
 
 class X64IRRegCache : public IRNativeRegCacheBase {

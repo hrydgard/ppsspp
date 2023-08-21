@@ -47,7 +47,7 @@ void X64JitBackend::CompIR_Basic(IRInst inst) {
 	switch (inst.op) {
 	case IROp::Downcount:
 		//ADD(32, R(DOWNCOUNTREG), R(DOWNCOUNTREG), Imm32(-(s32)inst.constant));
-		SUB(32, MDisp(CTXREG, -128 + offsetof(MIPSState, downcount)), Imm32((s32)inst.constant));
+		SUB(32, MDisp(CTXREG, downcountOffset), Imm32((s32)inst.constant));
 		break;
 
 	case IROp::SetConst:
