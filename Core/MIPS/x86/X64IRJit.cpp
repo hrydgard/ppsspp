@@ -15,23 +15,25 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "ppsspp_config.h"
+#if PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)
+
 #include <cstddef>
-#include "ext/riscv-disas.h"
 #include "Core/MemMap.h"
 #include "Core/MIPS/MIPSTables.h"
-#include "Core/MIPS/RiscV/RiscVJit.h"
-#include "Core/MIPS/RiscV/RiscVRegCache.h"
+#include "Core/MIPS/x86/X64IRJit.h"
+#include "Core/MIPS/x86/X64IRRegCache.h"
 
 namespace MIPSComp {
 
-using namespace RiscVGen;
-using namespace RiscVJitConstants;
+using namespace Gen;
+using namespace X64IRJitConstants;
 
-// Needs space for a LI and J which might both be 32-bit offsets.
+// This should be enough for exits and invalidations.
 static constexpr int MIN_BLOCK_NORMAL_LEN = 16;
-static constexpr int MIN_BLOCK_EXIT_LEN = 8;
+static constexpr int MIN_BLOCK_EXIT_LEN = 16;
 
-RiscVJitBackend::RiscVJitBackend(JitOptions &jitopt, IRBlockCache &blocks)
+X64JitBackend::X64JitBackend(JitOptions &jitopt, IRBlockCache &blocks)
 	: IRNativeBackend(blocks), jo(jitopt), regs_(&jo) {
 	// Automatically disable incompatible options.
 	if (((intptr_t)Memory::base & 0x00000000FFFFFFFFUL) != 0) {
@@ -39,21 +41,18 @@ RiscVJitBackend::RiscVJitBackend(JitOptions &jitopt, IRBlockCache &blocks)
 	}
 
 	// Since we store the offset, this is as big as it can be.
-	// We could shift off one bit to double it, would need to change RiscVAsm.
 	AllocCodeSpace(1024 * 1024 * 16);
-	SetAutoCompress(true);
 
 	regs_.Init(this);
 }
 
-RiscVJitBackend::~RiscVJitBackend() {
-}
+X64JitBackend::~X64JitBackend() {}
 
 static void NoBlockExits() {
 	_assert_msg_(false, "Never exited block, invalid IR?");
 }
 
-bool RiscVJitBackend::CompileBlock(IRBlock *block, int block_num, bool preload) {
+bool X64JitBackend::CompileBlock(IRBlock *block, int block_num, bool preload) {
 	if (GetSpaceLeft() < 0x800)
 		return false;
 
@@ -63,9 +62,12 @@ bool RiscVJitBackend::CompileBlock(IRBlock *block, int block_num, bool preload) 
 		SetBlockCheckedOffset(block_num, (int)GetOffset(GetCodePointer()));
 		wroteCheckedOffset = true;
 
-		FixupBranch normalEntry = BGE(DOWNCOUNTREG, R_ZERO);
-		LI(SCRATCH1, startPC);
-		QuickJ(R_RA, outerLoopPCInSCRATCH1_);
+		// TODO: See if we can get flags to always have the downcount compare.
+		//CMP(32, R(DOWNCOUNTREG), Imm32(0));
+		CMP(32, MDisp(CTXREG, -128 + offsetof(MIPSState, downcount)), Imm32(0));
+		FixupBranch normalEntry = J_CC(CC_NS);
+		MOV(32, R(SCRATCH1), Imm32(startPC));
+		JMP(outerLoopPCInSCRATCH1_, true);
 		SetJumpTarget(normalEntry);
 	}
 
@@ -98,8 +100,8 @@ bool RiscVJitBackend::CompileBlock(IRBlock *block, int block_num, bool preload) 
 	// We should've written an exit above.  If we didn't, bad things will happen.
 	// Only check if debug stats are enabled - needlessly wastes jit space.
 	if (DebugStatsEnabled()) {
-		QuickCallFunction(&NoBlockExits, SCRATCH2);
-		QuickJ(R_RA, hooks_.crashHandler);
+		ABI_CallFunction((const void *)&NoBlockExits);
+		JMP(hooks_.crashHandler, true);
 	}
 
 	int len = (int)GetOffset(GetCodePointer()) - block->GetTargetOffset();
@@ -114,48 +116,43 @@ bool RiscVJitBackend::CompileBlock(IRBlock *block, int block_num, bool preload) 
 	}
 
 	if (jo.enableBlocklink && jo.useBackJump) {
-		// Most blocks shouldn't be >= 4KB, so usually we can just BGE.
-		if (BInRange(blockStart)) {
-			BGE(DOWNCOUNTREG, R_ZERO, blockStart);
-		} else {
-			FixupBranch skip = BLT(DOWNCOUNTREG, R_ZERO);
-			J(blockStart);
-			SetJumpTarget(skip);
-		}
-		LI(SCRATCH1, startPC);
-		QuickJ(R_RA, outerLoopPCInSCRATCH1_);
+		//CMP(32, R(DOWNCOUNTREG), Imm32(0));
+		CMP(32, MDisp(CTXREG, -128 + offsetof(MIPSState, downcount)), Imm32(0));
+		J_CC(CC_NS, blockStart, true);
+
+		MOV(32, R(SCRATCH1), Imm32(startPC));
+		JMP(outerLoopPCInSCRATCH1_, true);
 	}
 
 	if (logBlocks_ > 0) {
 		--logBlocks_;
 
-		INFO_LOG(JIT, "=============== RISCV (%d bytes) ===============", len);
+		INFO_LOG(JIT, "=============== x86 (%d bytes) ===============", len);
 		for (const u8 *p = blockStart; p < GetCodePointer(); ) {
-			char temp[512];
-			rv_inst inst;
-			size_t len;
-
 			auto it = addresses.find(p);
 			if (it != addresses.end()) {
+
+				char temp[512];
 				DisassembleIR(temp, sizeof(temp), it->second);
 				INFO_LOG(JIT, "IR: # %s", temp);
 			}
 
-			riscv_inst_fetch(p, &inst, &len);
-			riscv_disasm_inst(temp, sizeof(temp), rv64, (uintptr_t)p, inst);
-			p += len;
+			auto next = std::next(it);
+			const u8 *nextp = next == addresses.end() ? GetCodePointer() : next->first;
 
-			INFO_LOG(JIT, "RV: %s", temp);
+			auto lines = DisassembleX86(p, (int)(nextp - p));
+			for (const auto &line : lines)
+				INFO_LOG(JIT, " X: %s", line.c_str());
+			p = nextp;
 		}
 	}
 
-	FlushIcache();
 	compilingBlockNum_ = -1;
 
 	return true;
 }
 
-void RiscVJitBackend::WriteConstExit(uint32_t pc) {
+void X64JitBackend::WriteConstExit(uint32_t pc) {
 	int block_num = blocks_.GetBlockNumberFromStartAddress(pc);
 	const IRNativeBlock *nativeBlock = GetNativeBlock(block_num);
 
@@ -163,10 +160,10 @@ void RiscVJitBackend::WriteConstExit(uint32_t pc) {
 	if (block_num >= 0 && jo.enableBlocklink && nativeBlock && nativeBlock->checkedOffset != 0) {
 		// Don't bother recording, we don't ever overwrite to "unlink".
 		// Instead, we would mark the target block to jump to the dispatcher.
-		QuickJ(SCRATCH1, GetBasePtr() + nativeBlock->checkedOffset);
+		JMP(GetBasePtr() + nativeBlock->checkedOffset, true);
 	} else {
-		LI(SCRATCH1, pc);
-		QuickJ(R_RA, dispatcherPCInSCRATCH1_);
+		MOV(32, R(SCRATCH1), Imm32(pc));
+		JMP(dispatcherPCInSCRATCH1_, true);
 	}
 
 	if (jo.enableBlocklink) {
@@ -181,7 +178,7 @@ void RiscVJitBackend::WriteConstExit(uint32_t pc) {
 	}
 }
 
-void RiscVJitBackend::OverwriteExit(int srcOffset, int len, int block_num) {
+void X64JitBackend::OverwriteExit(int srcOffset, int len, int block_num) {
 	_dbg_assert_(len >= MIN_BLOCK_EXIT_LEN);
 
 	const IRNativeBlock *nativeBlock = GetNativeBlock(block_num);
@@ -191,12 +188,11 @@ void RiscVJitBackend::OverwriteExit(int srcOffset, int len, int block_num) {
 			ProtectMemoryPages(writable, len, MEM_PROT_READ | MEM_PROT_WRITE);
 		}
 
-		RiscVEmitter emitter(GetBasePtr() + srcOffset, writable);
-		emitter.QuickJ(SCRATCH1, GetBasePtr() + nativeBlock->checkedOffset);
+		XEmitter emitter(writable);
+		emitter.JMP(GetBasePtr() + nativeBlock->checkedOffset, true);
 		int bytesWritten = (int)(emitter.GetWritableCodePtr() - writable);
 		if (bytesWritten < len)
 			emitter.ReserveCodeSpace(len - bytesWritten);
-		emitter.FlushIcache();
 
 		if (PlatformIsWXExclusive()) {
 			ProtectMemoryPages(writable, 16, MEM_PROT_READ | MEM_PROT_EXEC);
@@ -204,51 +200,47 @@ void RiscVJitBackend::OverwriteExit(int srcOffset, int len, int block_num) {
 	}
 }
 
-void RiscVJitBackend::CompIR_Generic(IRInst inst) {
+void X64JitBackend::CompIR_Generic(IRInst inst) {
 	// If we got here, we're going the slow way.
 	uint64_t value;
 	memcpy(&value, &inst, sizeof(inst));
 
 	FlushAll();
-	LI(X10, value, SCRATCH2);
 	SaveStaticRegisters();
-	QuickCallFunction(&DoIRInst, SCRATCH2);
+#if PPSSPP_ARCH(AMD64)
+	ABI_CallFunctionP((const void *)&DoIRInst, (void *)value);
+#else
+	ABI_CallFunctionCC((const void *)&DoIRInst, (u32)(value & 0xFFFFFFFF), (u32)(value >> 32));
+#endif
 	LoadStaticRegisters();
 
 	// We only need to check the return value if it's a potential exit.
 	if ((GetIRMeta(inst.op)->flags & IRFLAG_EXIT) != 0) {
-		// Result in X10 aka SCRATCH1.
-		_assert_(X10 == SCRATCH1);
-		if (BInRange(dispatcherPCInSCRATCH1_)) {
-			BNE(X10, R_ZERO, dispatcherPCInSCRATCH1_);
-		} else {
-			FixupBranch skip = BEQ(X10, R_ZERO);
-			QuickJ(R_RA, dispatcherPCInSCRATCH1_);
-			SetJumpTarget(skip);
-		}
+		// Result in RAX aka SCRATCH1.
+		_assert_(RAX == SCRATCH1);
+		CMP(32, R(SCRATCH1), Imm32(0));
+		J_CC(CC_NE, dispatcherPCInSCRATCH1_);
 	}
 }
 
-void RiscVJitBackend::CompIR_Interpret(IRInst inst) {
+void X64JitBackend::CompIR_Interpret(IRInst inst) {
 	MIPSOpcode op(inst.constant);
 
 	// IR protects us against this being a branching instruction (well, hopefully.)
 	FlushAll();
 	SaveStaticRegisters();
 	if (DebugStatsEnabled()) {
-		LI(X10, MIPSGetName(op));
-		QuickCallFunction(&NotifyMIPSInterpret, SCRATCH2);
+		ABI_CallFunctionP((const void *)&NotifyMIPSInterpret, (void *)MIPSGetName(op));
 	}
-	LI(X10, (int32_t)inst.constant);
-	QuickCallFunction((const u8 *)MIPSGetInterpretFunc(op), SCRATCH2);
+	ABI_CallFunctionC((const void *)MIPSGetInterpretFunc(op), inst.constant);
 	LoadStaticRegisters();
 }
 
-void RiscVJitBackend::FlushAll() {
+void X64JitBackend::FlushAll() {
 	regs_.FlushAll();
 }
 
-bool RiscVJitBackend::DescribeCodePtr(const u8 *ptr, std::string &name) const {
+bool X64JitBackend::DescribeCodePtr(const u8 *ptr, std::string &name) const {
 	// Used in disassembly viewer.
 	if (ptr == dispatcherPCInSCRATCH1_) {
 		name = "dispatcher (PC in SCRATCH1)";
@@ -258,6 +250,8 @@ bool RiscVJitBackend::DescribeCodePtr(const u8 *ptr, std::string &name) const {
 		name = "saveStaticRegisters";
 	} else if (ptr == loadStaticRegisters_) {
 		name = "loadStaticRegisters";
+	} else if (ptr == restoreRoundingMode_) {
+		name = "restoreRoundingMode";
 	} else if (ptr == applyRoundingMode_) {
 		name = "applyRoundingMode";
 	} else {
@@ -266,13 +260,12 @@ bool RiscVJitBackend::DescribeCodePtr(const u8 *ptr, std::string &name) const {
 	return true;
 }
 
-void RiscVJitBackend::ClearAllBlocks() {
+void X64JitBackend::ClearAllBlocks() {
 	ClearCodeSpace(jitStartOffset_);
-	FlushIcacheSection(region + jitStartOffset_, region + region_size - jitStartOffset_);
 	EraseAllLinks(-1);
 }
 
-void RiscVJitBackend::InvalidateBlock(IRBlock *block, int block_num) {
+void X64JitBackend::InvalidateBlock(IRBlock *block, int block_num) {
 	int offset = block->GetTargetOffset();
 	u8 *writable = GetWritablePtrFromCodePtr(GetBasePtr()) + offset;
 
@@ -284,15 +277,12 @@ void RiscVJitBackend::InvalidateBlock(IRBlock *block, int block_num) {
 			ProtectMemoryPages(writable, MIN_BLOCK_NORMAL_LEN, MEM_PROT_READ | MEM_PROT_WRITE);
 		}
 
-		RiscVEmitter emitter(GetBasePtr() + offset, writable);
-		// We sign extend to ensure it will fit in 32-bit and 8 bytes LI.
-		// TODO: May need to change if dispatcher doesn't reload PC.
-		emitter.LI(SCRATCH1, (int32_t)pc);
-		emitter.QuickJ(R_RA, dispatcherPCInSCRATCH1_);
+		XEmitter emitter(writable);
+		emitter.MOV(32, R(SCRATCH1), Imm32(pc));
+		emitter.JMP(dispatcherPCInSCRATCH1_, true);
 		int bytesWritten = (int)(emitter.GetWritableCodePtr() - writable);
 		if (bytesWritten < MIN_BLOCK_NORMAL_LEN)
 			emitter.ReserveCodeSpace(MIN_BLOCK_NORMAL_LEN - bytesWritten);
-		emitter.FlushIcache();
 
 		if (PlatformIsWXExclusive()) {
 			ProtectMemoryPages(writable, MIN_BLOCK_NORMAL_LEN, MEM_PROT_READ | MEM_PROT_EXEC);
@@ -302,58 +292,81 @@ void RiscVJitBackend::InvalidateBlock(IRBlock *block, int block_num) {
 	EraseAllLinks(block_num);
 }
 
-void RiscVJitBackend::RestoreRoundingMode(bool force) {
-	FSRMI(Round::NEAREST_EVEN);
+void X64JitBackend::RestoreRoundingMode(bool force) {
+	CALL(restoreRoundingMode_);
 }
 
-void RiscVJitBackend::ApplyRoundingMode(bool force) {
-	QuickCallFunction(applyRoundingMode_);
+void X64JitBackend::ApplyRoundingMode(bool force) {
+	CALL(applyRoundingMode_);
 }
 
-void RiscVJitBackend::MovFromPC(RiscVReg r) {
-	LWU(r, CTXREG, offsetof(MIPSState, pc));
+void X64JitBackend::MovFromPC(X64Reg r) {
+	MOV(32, R(r), MDisp(CTXREG, -128 + offsetof(MIPSState, pc)));
 }
 
-void RiscVJitBackend::MovToPC(RiscVReg r) {
-	SW(r, CTXREG, offsetof(MIPSState, pc));
+void X64JitBackend::MovToPC(X64Reg r) {
+	MOV(32, MDisp(CTXREG, -128 + offsetof(MIPSState, pc)), R(r));
 }
 
-void RiscVJitBackend::SaveStaticRegisters() {
+void X64JitBackend::SaveStaticRegisters() {
 	if (jo.useStaticAlloc) {
-		QuickCallFunction(saveStaticRegisters_);
+		//CALL(saveStaticRegisters_);
 	} else {
 		// Inline the single operation
-		SW(DOWNCOUNTREG, CTXREG, offsetof(MIPSState, downcount));
+		//MOV(32, MDisp(CTXREG, -128 + offsetof(MIPSState, downcount)), R(DOWNCOUNTREG));
 	}
 }
 
-void RiscVJitBackend::LoadStaticRegisters() {
+void X64JitBackend::LoadStaticRegisters() {
 	if (jo.useStaticAlloc) {
-		QuickCallFunction(loadStaticRegisters_);
+		//CALL(loadStaticRegisters_);
 	} else {
-		LW(DOWNCOUNTREG, CTXREG, offsetof(MIPSState, downcount));
+		//MOV(32, R(DOWNCOUNTREG), MDisp(CTXREG, -128 + offsetof(MIPSState, downcount)));
 	}
 }
 
-void RiscVJitBackend::NormalizeSrc1(IRInst inst, RiscVReg *reg, RiscVReg tempReg, bool allowOverlap) {
-	*reg = NormalizeR(inst.src1, allowOverlap ? 0 : inst.dest, tempReg);
-}
-
-void RiscVJitBackend::NormalizeSrc12(IRInst inst, RiscVReg *lhs, RiscVReg *rhs, RiscVReg lhsTempReg, RiscVReg rhsTempReg, bool allowOverlap) {
-	*lhs = NormalizeR(inst.src1, allowOverlap ? 0 : inst.dest, lhsTempReg);
-	*rhs = NormalizeR(inst.src2, allowOverlap ? 0 : inst.dest, rhsTempReg);
-}
-
-RiscVReg RiscVJitBackend::NormalizeR(IRReg rs, IRReg rd, RiscVReg tempReg) {
-	// For proper compare, we must sign extend so they both match or don't match.
-	// But don't change pointers, in case one is SP (happens in LittleBigPlanet.)
-	if (regs_.IsGPRImm(rs) && regs_.GetGPRImm(rs) == 0) {
-		return R_ZERO;
-	} else if (regs_.IsGPRMappedAsPointer(rs) || rs == rd) {
-		return regs_.Normalize32(rs, tempReg);
-	} else {
-		return regs_.Normalize32(rs);
-	}
-}
+// TODO: Move out to files.
+void X64JitBackend::CompIR_Arith(IRInst inst) { CompIR_Generic(inst); }
+void X64JitBackend::CompIR_Assign(IRInst inst) { CompIR_Generic(inst); }
+void X64JitBackend::CompIR_Basic(IRInst inst) { CompIR_Generic(inst); }
+void X64JitBackend::CompIR_Bits(IRInst inst) { CompIR_Generic(inst); }
+void X64JitBackend::CompIR_Breakpoint(IRInst inst) { CompIR_Generic(inst); }
+void X64JitBackend::CompIR_Compare(IRInst inst) { CompIR_Generic(inst); }
+void X64JitBackend::CompIR_CondAssign(IRInst inst) { CompIR_Generic(inst); }
+void X64JitBackend::CompIR_CondStore(IRInst inst) { CompIR_Generic(inst); }
+void X64JitBackend::CompIR_Div(IRInst inst) { CompIR_Generic(inst); }
+void X64JitBackend::CompIR_Exit(IRInst inst) { CompIR_Generic(inst); }
+void X64JitBackend::CompIR_ExitIf(IRInst inst) { CompIR_Generic(inst); }
+void X64JitBackend::CompIR_FArith(IRInst inst) { CompIR_Generic(inst); }
+void X64JitBackend::CompIR_FAssign(IRInst inst) { CompIR_Generic(inst); }
+void X64JitBackend::CompIR_FCompare(IRInst inst) { CompIR_Generic(inst); }
+void X64JitBackend::CompIR_FCondAssign(IRInst inst) { CompIR_Generic(inst); }
+void X64JitBackend::CompIR_FCvt(IRInst inst) { CompIR_Generic(inst); }
+void X64JitBackend::CompIR_FLoad(IRInst inst) { CompIR_Generic(inst); }
+void X64JitBackend::CompIR_FRound(IRInst inst) { CompIR_Generic(inst); }
+void X64JitBackend::CompIR_FSat(IRInst inst) { CompIR_Generic(inst); }
+void X64JitBackend::CompIR_FSpecial(IRInst inst) { CompIR_Generic(inst); }
+void X64JitBackend::CompIR_FStore(IRInst inst) { CompIR_Generic(inst); }
+void X64JitBackend::CompIR_HiLo(IRInst inst) { CompIR_Generic(inst); }
+void X64JitBackend::CompIR_Load(IRInst inst) { CompIR_Generic(inst); }
+void X64JitBackend::CompIR_LoadShift(IRInst inst) { CompIR_Generic(inst); }
+void X64JitBackend::CompIR_Logic(IRInst inst) { CompIR_Generic(inst); }
+void X64JitBackend::CompIR_Mult(IRInst inst) { CompIR_Generic(inst); }
+void X64JitBackend::CompIR_RoundingMode(IRInst inst) { CompIR_Generic(inst); }
+void X64JitBackend::CompIR_Shift(IRInst inst) { CompIR_Generic(inst); }
+void X64JitBackend::CompIR_Store(IRInst inst) { CompIR_Generic(inst); }
+void X64JitBackend::CompIR_StoreShift(IRInst inst) { CompIR_Generic(inst); }
+void X64JitBackend::CompIR_System(IRInst inst) { CompIR_Generic(inst); }
+void X64JitBackend::CompIR_Transfer(IRInst inst) { CompIR_Generic(inst); }
+void X64JitBackend::CompIR_VecArith(IRInst inst) { CompIR_Generic(inst); }
+void X64JitBackend::CompIR_VecAssign(IRInst inst) { CompIR_Generic(inst); }
+void X64JitBackend::CompIR_VecClamp(IRInst inst) { CompIR_Generic(inst); }
+void X64JitBackend::CompIR_VecHoriz(IRInst inst) { CompIR_Generic(inst); }
+void X64JitBackend::CompIR_VecLoad(IRInst inst) { CompIR_Generic(inst); }
+void X64JitBackend::CompIR_VecPack(IRInst inst) { CompIR_Generic(inst); }
+void X64JitBackend::CompIR_VecStore(IRInst inst) { CompIR_Generic(inst); }
+void X64JitBackend::CompIR_ValidateAddress(IRInst inst) { CompIR_Generic(inst); }
 
 } // namespace MIPSComp
+
+#endif
