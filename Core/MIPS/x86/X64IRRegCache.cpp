@@ -61,7 +61,7 @@ const int *X64IRRegCache::GetAllocationOrder(MIPSLoc type, int &count, int &base
 			// Intentionally last.
 			R15,
 #elif PPSSPP_ARCH(X86)
-			ESI, EDI, EDX, ECX, EBX,
+			ESI, EDI, EDX, EBX, ECX,
 #endif
 		};
 
@@ -79,9 +79,9 @@ const int *X64IRRegCache::GetAllocationOrder(MIPSLoc type, int &count, int &base
 		// TODO: Might have to change this if we can't live without dedicated temps.
 		static const int allocationOrder[] = {
 #if PPSSPP_ARCH(AMD64)
-		XMM6, XMM7, XMM8, XMM9, XMM10, XMM11, XMM12, XMM13, XMM14, XMM15, XMM0, XMM1, XMM2, XMM3, XMM4, XMM5
+		XMM6, XMM7, XMM8, XMM9, XMM10, XMM11, XMM12, XMM13, XMM14, XMM15, XMM1, XMM2, XMM3, XMM4, XMM5, XMM0,
 #elif PPSSPP_ARCH(X86)
-		XMM0, XMM1, XMM2, XMM3, XMM4, XMM5, XMM6, XMM7,
+		XMM1, XMM2, XMM3, XMM4, XMM5, XMM6, XMM7, XMM0,
 #endif
 		};
 

@@ -64,6 +64,7 @@ void X64JitBackend::CompIR_Arith(IRInst inst) {
 		if (regs_.IsGPRImm(inst.src1) && regs_.GetGPRImm(inst.src1) == 0) {
 			// TODO: Might be nice to have a pass to turn this into Neg.
 			// Special cased to avoid wasting a reg on zero.
+			regs_.SpillLockGPR(inst.dest, inst.src2);
 			regs_.MapGPR(inst.src2);
 			regs_.MapGPR(inst.dest, MIPSMap::NOINIT);
 			if (inst.dest != inst.src2)
