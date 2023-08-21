@@ -110,7 +110,11 @@ void X64JitBackend::CompIR_Arith(IRInst inst) {
 		break;
 
 	case IROp::Neg:
-		CompIR_Generic(inst);
+		regs_.Map(inst);
+		if (inst.dest != inst.src1) {
+			MOV(32, regs_.R(inst.dest), regs_.R(inst.src1));
+		}
+		NEG(32, regs_.R(inst.dest));
 		break;
 
 	default:
@@ -131,8 +135,13 @@ void X64JitBackend::CompIR_Assign(IRInst inst) {
 		break;
 
 	case IROp::Ext8to32:
+		regs_.Map(inst);
+		MOVZX(32, 8, regs_.RX(inst.dest), regs_.R(inst.src1));
+		break;
+
 	case IROp::Ext16to32:
-		CompIR_Generic(inst);
+		regs_.Map(inst);
+		MOVZX(32, 16, regs_.RX(inst.dest), regs_.R(inst.src1));
 		break;
 
 	default:
@@ -229,9 +238,38 @@ void X64JitBackend::CompIR_Logic(IRInst inst) {
 
 	switch (inst.op) {
 	case IROp::And:
+		regs_.Map(inst);
+		if (inst.dest == inst.src1) {
+			AND(32, regs_.R(inst.dest), regs_.R(inst.src2));
+		} else if (inst.dest == inst.src2) {
+			AND(32, regs_.R(inst.dest), regs_.R(inst.src1));
+		} else {
+			MOV(32, regs_.R(inst.dest), regs_.R(inst.src1));
+			AND(32, regs_.R(inst.dest), regs_.R(inst.src2));
+		}
+		break;
 	case IROp::Or:
+		regs_.Map(inst);
+		if (inst.dest == inst.src1) {
+			OR(32, regs_.R(inst.dest), regs_.R(inst.src2));
+		} else if (inst.dest == inst.src2) {
+			OR(32, regs_.R(inst.dest), regs_.R(inst.src1));
+		} else {
+			MOV(32, regs_.R(inst.dest), regs_.R(inst.src1));
+			OR(32, regs_.R(inst.dest), regs_.R(inst.src2));
+		}
+		break;
+
 	case IROp::Xor:
-		CompIR_Generic(inst);
+		regs_.Map(inst);
+		if (inst.dest == inst.src1) {
+			XOR(32, regs_.R(inst.dest), regs_.R(inst.src2));
+		} else if (inst.dest == inst.src2) {
+			XOR(32, regs_.R(inst.dest), regs_.R(inst.src1));
+		} else {
+			MOV(32, regs_.R(inst.dest), regs_.R(inst.src1));
+			XOR(32, regs_.R(inst.dest), regs_.R(inst.src2));
+		}
 		break;
 
 	case IROp::AndConst:
