@@ -603,7 +603,11 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 				g_Config.bSaveSettings = false;
 				break;
 			case 'r':
-				g_Config.iCpuCore = (int)CPUCore::IR_JIT;
+				g_Config.iCpuCore = (int)CPUCore::IR_INTERPRETER;
+				g_Config.bSaveSettings = false;
+				break;
+			case 'J':
+				g_Config.iCpuCore = (int)CPUCore::JIT_IR;
 				g_Config.bSaveSettings = false;
 				break;
 			case '-':

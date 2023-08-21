@@ -303,6 +303,9 @@ ARCH_FILES := \
   $(SRC)/Core/MIPS/x86/JitSafeMem.cpp \
   $(SRC)/Core/MIPS/x86/RegCache.cpp \
   $(SRC)/Core/MIPS/x86/RegCacheFPU.cpp \
+  $(SRC)/Core/MIPS/x86/X64IRAsm.cpp \
+  $(SRC)/Core/MIPS/x86/X64IRJit.cpp \
+  $(SRC)/Core/MIPS/x86/X64IRRegCache.cpp \
   $(SRC)/GPU/Common/VertexDecoderX86.cpp \
   $(SRC)/GPU/Software/DrawPixelX86.cpp \
   $(SRC)/GPU/Software/SamplerX86.cpp

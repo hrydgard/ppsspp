@@ -43,6 +43,7 @@
 #include "../ARM64/Arm64Jit.h"
 #elif PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)
 #include "../x86/Jit.h"
+#include "../x86/X64IRJit.h"
 #elif PPSSPP_ARCH(MIPS)
 #include "../MIPS/MipsJit.h"
 #elif PPSSPP_ARCH(RISCV64)
@@ -101,12 +102,14 @@ namespace MIPSComp {
 		return notTakenTarget;
 }
 
-	JitInterface *CreateNativeJit(MIPSState *mipsState) {
+	JitInterface *CreateNativeJit(MIPSState *mipsState, bool useIR) {
 #if PPSSPP_ARCH(ARM)
 		return new MIPSComp::ArmJit(mipsState);
 #elif PPSSPP_ARCH(ARM64)
 		return new MIPSComp::Arm64Jit(mipsState);
 #elif PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)
+		if (useIR)
+			return new MIPSComp::X64IRJit(mipsState);
 		return new MIPSComp::Jit(mipsState);
 #elif PPSSPP_ARCH(MIPS)
 		return new MIPSComp::MipsJit(mipsState);

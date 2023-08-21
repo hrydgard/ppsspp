@@ -1243,6 +1243,15 @@
     <ClCompile Include="FrameTiming.cpp">
       <Filter>Core</Filter>
     </ClCompile>
+    <ClCompile Include="MIPS\x86\X64IRRegCache.cpp">
+      <Filter>MIPS\x86</Filter>
+    </ClCompile>
+    <ClCompile Include="MIPS\x86\X64IRAsm.cpp">
+      <Filter>MIPS\x86</Filter>
+    </ClCompile>
+    <ClCompile Include="MIPS\x86\X64IRJit.cpp">
+      <Filter>MIPS\x86</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ELF\ElfReader.h">
@@ -2003,6 +2012,12 @@
     </ClInclude>
     <ClInclude Include="FrameTiming.h">
       <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="MIPS\x86\X64IRRegCache.h">
+      <Filter>MIPS\x86</Filter>
+    </ClInclude>
+    <ClInclude Include="MIPS\x86\X64IRJit.h">
+      <Filter>MIPS\x86</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
