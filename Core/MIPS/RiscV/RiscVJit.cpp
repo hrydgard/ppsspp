@@ -16,7 +16,6 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <cstddef>
-#include "ext/riscv-disas.h"
 #include "Core/MemMap.h"
 #include "Core/MIPS/MIPSTables.h"
 #include "Core/MIPS/RiscV/RiscVJit.h"
@@ -76,12 +75,12 @@ bool RiscVJitBackend::CompileBlock(IRBlock *block, int block_num, bool preload) 
 
 	regs_.Start(block);
 
-	std::map<const u8 *, IRInst> addresses;
+	std::map<const u8 *, int> addresses;
 	for (int i = 0; i < block->GetNumInstructions(); ++i) {
 		const IRInst &inst = block->GetInstructions()[i];
 		regs_.SetIRIndex(i);
 		// TODO: This might be a little wasteful when compiling if we're not debugging jit...
-		addresses[GetCodePtr()] = inst;
+		addresses[GetCodePtr()] = i;
 
 		CompileIRInst(inst);
 
@@ -129,23 +128,26 @@ bool RiscVJitBackend::CompileBlock(IRBlock *block, int block_num, bool preload) 
 	if (logBlocks_ > 0) {
 		--logBlocks_;
 
-		INFO_LOG(JIT, "=============== RISCV (%d bytes) ===============", len);
+		INFO_LOG(JIT, "=============== RISCV (%08x, %d bytes) ===============", startPC, len);
 		for (const u8 *p = blockStart; p < GetCodePointer(); ) {
-			char temp[512];
-			rv_inst inst;
-			size_t len;
-
 			auto it = addresses.find(p);
 			if (it != addresses.end()) {
-				DisassembleIR(temp, sizeof(temp), it->second);
-				INFO_LOG(JIT, "IR: # %s", temp);
+				const IRInst &inst = block->GetInstructions()[it->second];
+
+				char temp[512];
+				DisassembleIR(temp, sizeof(temp), inst);
+				INFO_LOG(JIT, "IR: #%d %s", it->second, temp);
 			}
 
-			riscv_inst_fetch(p, &inst, &len);
-			riscv_disasm_inst(temp, sizeof(temp), rv64, (uintptr_t)p, inst);
-			p += len;
+			auto next = std::next(it);
+			const u8 *nextp = next == addresses.end() ? GetCodePointer() : next->first;
 
-			INFO_LOG(JIT, "RV: %s", temp);
+#if PPSSPP_ARCH(RISCV64) || (PPSSPP_PLATFORM(WINDOWS) && !defined(__LIBRETRO__))
+			auto lines = DisassembleRV64(p, (int)(nextp - p));
+			for (const auto &line : lines)
+				INFO_LOG(JIT, "RV: %s", line.c_str());
+#endif
+			p = nextp;
 		}
 	}
 

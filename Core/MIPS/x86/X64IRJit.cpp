@@ -78,12 +78,12 @@ bool X64JitBackend::CompileBlock(IRBlock *block, int block_num, bool preload) {
 
 	regs_.Start(block);
 
-	std::map<const u8 *, IRInst> addresses;
+	std::map<const u8 *, int> addresses;
 	for (int i = 0; i < block->GetNumInstructions(); ++i) {
 		const IRInst &inst = block->GetInstructions()[i];
 		regs_.SetIRIndex(i);
 		// TODO: This might be a little wasteful when compiling if we're not debugging jit...
-		addresses[GetCodePtr()] = inst;
+		addresses[GetCodePtr()] = i;
 
 		CompileIRInst(inst);
 
@@ -127,14 +127,15 @@ bool X64JitBackend::CompileBlock(IRBlock *block, int block_num, bool preload) {
 	if (logBlocks_ > 0) {
 		--logBlocks_;
 
-		INFO_LOG(JIT, "=============== x86 (%d bytes) ===============", len);
+		INFO_LOG(JIT, "=============== x86 (%08x, %d bytes) ===============", startPC, len);
 		for (const u8 *p = blockStart; p < GetCodePointer(); ) {
 			auto it = addresses.find(p);
 			if (it != addresses.end()) {
+				const IRInst &inst = block->GetInstructions()[it->second];
 
 				char temp[512];
-				DisassembleIR(temp, sizeof(temp), it->second);
-				INFO_LOG(JIT, "IR: # %s", temp);
+				DisassembleIR(temp, sizeof(temp), inst);
+				INFO_LOG(JIT, "IR: #%d %s", it->second, temp);
 			}
 
 			auto next = std::next(it);
