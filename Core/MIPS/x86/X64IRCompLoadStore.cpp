@@ -82,14 +82,54 @@ void X64JitBackend::CompIR_FStore(IRInst inst) {
 void X64JitBackend::CompIR_Load(IRInst inst) {
 	CONDITIONAL_DISABLE;
 
+	regs_.SpillLockGPR(inst.dest, inst.src1);
+	OpArg addrArg;
+	if (inst.src1 == MIPS_REG_ZERO) {
+#ifdef MASKED_PSP_MEMORY
+		inst.constant &= Memory::MEMVIEW32_MASK;
+#endif
+#if PPSSPP_ARCH(AMD64)
+		addrArg = MDisp(MEMBASEREG, inst.constant & 0x7FFFFFFF);
+#else
+		addrArg = M(Memory::base + inst.constant);
+#endif
+	} else if (jo.cachePointers || regs_.IsGPRMappedAsPointer(inst.src1)) {
+		X64Reg src1 = regs_.MapGPRAsPointer(inst.src1);
+		addrArg = MDisp(src1, inst.constant & 0x7FFFFFFF);
+	} else {
+		regs_.MapGPR(inst.src1);
+		addrArg = MComplex(MEMBASEREG, regs_.RX(inst.src1), SCALE_1, inst.constant & 0x7FFFFFFF);
+	}
+	// With NOINIT, MapReg won't subtract MEMBASEREG even if dest == src1.
+	regs_.MapGPR(inst.dest, MIPSMap::NOINIT);
+
+	// TODO: Safe memory?  Or enough to have crash handler + validate?
+
 	switch (inst.op) {
 	case IROp::Load8:
+		MOVZX(32, 8, regs_.RX(inst.dest), addrArg);
+		break;
+
 	case IROp::Load8Ext:
+		MOVSX(32, 8, regs_.RX(inst.dest), addrArg);
+		break;
+
 	case IROp::Load16:
+		MOVZX(32, 16, regs_.RX(inst.dest), addrArg);
+		break;
+
 	case IROp::Load16Ext:
+		MOVSX(32, 16, regs_.RX(inst.dest), addrArg);
+		break;
+
 	case IROp::Load32:
+		MOV(32, regs_.R(inst.dest), addrArg);
+		break;
+
 	case IROp::Load32Linked:
-		CompIR_Generic(inst);
+		if (inst.dest != MIPS_REG_ZERO)
+			MOV(32, regs_.R(inst.dest), addrArg);
+		regs_.SetGPRImm(IRREG_LLBIT, 1);
 		break;
 
 	default:
@@ -117,11 +157,56 @@ void X64JitBackend::CompIR_LoadShift(IRInst inst) {
 void X64JitBackend::CompIR_Store(IRInst inst) {
 	CONDITIONAL_DISABLE;
 
+	regs_.SpillLockGPR(inst.src3, inst.src1);
+	OpArg addrArg;
+	if (inst.src1 == MIPS_REG_ZERO) {
+#ifdef MASKED_PSP_MEMORY
+		inst.constant &= Memory::MEMVIEW32_MASK;
+#endif
+#if PPSSPP_ARCH(AMD64)
+		addrArg = MDisp(MEMBASEREG, inst.constant & 0x7FFFFFFF);
+#else
+		addrArg = M(Memory::base + inst.constant);
+#endif
+	} else if ((jo.cachePointers || regs_.IsGPRMappedAsPointer(inst.src1)) && inst.src3 != inst.src1) {
+		X64Reg src1 = regs_.MapGPRAsPointer(inst.src1);
+		addrArg = MDisp(src1, inst.constant & 0x7FFFFFFF);
+	} else {
+		regs_.MapGPR(inst.src1);
+		addrArg = MComplex(MEMBASEREG, regs_.RX(inst.src1), SCALE_1, inst.constant & 0x7FFFFFFF);
+	}
+
+	OpArg valueArg;
+	X64Reg valueReg = regs_.TryMapTempImm(inst.src3);
+	if (valueReg != INVALID_REG) {
+		valueArg = R(valueReg);
+	} else if (regs_.IsGPRImm(inst.src3)) {
+		u32 imm = regs_.GetGPRImm(inst.src3);
+		switch (inst.op) {
+		case IROp::Store8: valueArg = Imm8((u8)imm); break;
+		case IROp::Store16: valueArg = Imm16((u16)imm); break;
+		case IROp::Store32: valueArg = Imm32(imm); break;
+		default:
+			INVALIDOP;
+			break;
+		}
+	} else {
+		valueArg = R(regs_.MapGPR(inst.src3));
+	}
+
+	// TODO: Safe memory?  Or enough to have crash handler + validate?
+
 	switch (inst.op) {
 	case IROp::Store8:
+		MOV(8, addrArg, valueArg);
+		break;
+
 	case IROp::Store16:
+		MOV(16, addrArg, valueArg);
+		break;
+
 	case IROp::Store32:
-		CompIR_Generic(inst);
+		MOV(32, addrArg, valueArg);
 		break;
 
 	default:

@@ -126,7 +126,7 @@ X64Reg X64IRRegCache::TryMapTempImm(IRReg r) {
 	_dbg_assert_(IsValidGPR(r));
 	// If already mapped, no need for a temporary.
 	if (IsGPRMapped(r)) {
-		return R(r);
+		return RX(r);
 	}
 
 	if (mr[r].loc == MIPSLoc::IMM) {
@@ -282,7 +282,15 @@ void X64IRRegCache::StoreRegValue(IRReg mreg, uint32_t imm) {
 		emit_->MOV(32, MDisp(CTXREG, -128 + GetMipsRegOffset(mreg)), ::R(storeReg));
 }
 
-X64Reg X64IRRegCache::R(IRReg mipsReg) {
+OpArg X64IRRegCache::R(IRReg mipsReg) {
+	return ::R(RX(mipsReg));
+}
+
+OpArg X64IRRegCache::F(IRReg mipsReg) {
+	return ::R(FX(mipsReg));
+}
+
+X64Reg X64IRRegCache::RX(IRReg mipsReg) {
 	_dbg_assert_(IsValidGPR(mipsReg));
 	_dbg_assert_(mr[mipsReg].loc == MIPSLoc::REG || mr[mipsReg].loc == MIPSLoc::REG_IMM);
 	if (mr[mipsReg].loc == MIPSLoc::REG || mr[mipsReg].loc == MIPSLoc::REG_IMM) {
@@ -293,7 +301,7 @@ X64Reg X64IRRegCache::R(IRReg mipsReg) {
 	}
 }
 
-X64Reg X64IRRegCache::RPtr(IRReg mipsReg) {
+X64Reg X64IRRegCache::RXPtr(IRReg mipsReg) {
 	_dbg_assert_(IsValidGPR(mipsReg));
 	_dbg_assert_(mr[mipsReg].loc == MIPSLoc::REG || mr[mipsReg].loc == MIPSLoc::REG_IMM || mr[mipsReg].loc == MIPSLoc::REG_AS_PTR);
 	if (mr[mipsReg].loc == MIPSLoc::REG_AS_PTR) {
@@ -313,7 +321,7 @@ X64Reg X64IRRegCache::RPtr(IRReg mipsReg) {
 	}
 }
 
-X64Reg X64IRRegCache::F(IRReg mipsReg) {
+X64Reg X64IRRegCache::FX(IRReg mipsReg) {
 	_dbg_assert_(IsValidFPR(mipsReg));
 	_dbg_assert_(mr[mipsReg + 32].loc == MIPSLoc::FREG);
 	if (mr[mipsReg + 32].loc == MIPSLoc::FREG) {

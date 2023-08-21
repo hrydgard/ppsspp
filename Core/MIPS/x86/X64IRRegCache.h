@@ -58,9 +58,11 @@ public:
 
 	Gen::X64Reg GetAndLockTempR();
 
-	Gen::X64Reg R(IRReg preg); // Returns a cached register, while checking that it's NOT mapped as a pointer
-	Gen::X64Reg RPtr(IRReg preg); // Returns a cached register, if it has been mapped as a pointer
-	Gen::X64Reg F(IRReg preg);
+	Gen::OpArg R(IRReg preg);
+	Gen::OpArg F(IRReg preg);
+	Gen::X64Reg RX(IRReg preg); // Returns a cached register, while checking that it's NOT mapped as a pointer
+	Gen::X64Reg RXPtr(IRReg preg); // Returns a cached register, if it has been mapped as a pointer
+	Gen::X64Reg FX(IRReg preg);
 
 protected:
 	const int *GetAllocationOrder(MIPSLoc type, int &count, int &base) const override;

@@ -106,10 +106,6 @@ private:
 	void CompIR_VecStore(IRInst inst) override;
 	void CompIR_ValidateAddress(IRInst inst) override;
 
-	void SetScratch1ToSrc1Address(IRReg src1);
-	// Modifies SCRATCH regs.
-	int32_t AdjustForAddressOffset(Gen::X64Reg *reg, int32_t constant, int32_t range = 0);
-
 	JitOptions &jo;
 	X64IRRegCache regs_;
 
