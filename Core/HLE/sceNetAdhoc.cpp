@@ -2540,12 +2540,8 @@ u32 NetAdhocctl_Disconnect() {
 		adhocctlCurrentMode = ADHOCCTL_MODE_NONE;
 		// Notify Event Handlers (even if we weren't connected, not doing this will freeze games like God Eater, which expect this behaviour)
 		// FIXME: When there are no handler the state will immediately became ADHOCCTL_STATE_DISCONNECTED ?
-		if (adhocctlHandlers.empty()) {
-			adhocctlState = ADHOCCTL_STATE_DISCONNECTED;
-		}
-		else {
-			notifyAdhocctlHandlers(ADHOCCTL_EVENT_DISCONNECT, 0);
-		}
+		// Note: Metal Gear Acid [2] never register a handler until it's successfully connected to a group and have a connected socket to other player, thus adhocctlHandlers is always empty here.
+		notifyAdhocctlHandlers(ADHOCCTL_EVENT_DISCONNECT, 0);
 
 		// Return Success, some games might ignore returned value and always treat it as success, otherwise repeatedly calling this function
 		return 0;
