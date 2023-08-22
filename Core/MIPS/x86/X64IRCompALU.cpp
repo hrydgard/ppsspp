@@ -160,9 +160,16 @@ void X64JitBackend::CompIR_Bits(IRInst inst) {
 	CONDITIONAL_DISABLE;
 
 	switch (inst.op) {
+	case IROp::BSwap32:
+		regs_.Map(inst);
+		if (inst.src1 != inst.dest) {
+			MOV(32, regs_.R(inst.dest), regs_.R(inst.src1));
+		}
+		BSWAP(32, regs_.RX(inst.dest));
+		break;
+
 	case IROp::ReverseBits:
 	case IROp::BSwap16:
-	case IROp::BSwap32:
 	case IROp::Clz:
 		CompIR_Generic(inst);
 		break;
