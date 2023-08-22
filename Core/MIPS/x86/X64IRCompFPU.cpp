@@ -43,8 +43,36 @@ void X64JitBackend::CompIR_FArith(IRInst inst) {
 
 	switch (inst.op) {
 	case IROp::FAdd:
+		regs_.Map(inst);
+		if (inst.dest == inst.src1) {
+			ADDSS(regs_.FX(inst.dest), regs_.F(inst.src2));
+		} else if (inst.dest == inst.src2) {
+			ADDSS(regs_.FX(inst.dest), regs_.F(inst.src1));
+		} else if (cpu_info.bAVX) {
+			VADDSS(regs_.FX(inst.dest), regs_.FX(inst.src1), regs_.F(inst.src2));
+		} else {
+			MOVAPS(regs_.FX(inst.dest), regs_.F(inst.src1));
+			ADDSS(regs_.FX(inst.dest), regs_.F(inst.src2));
+		}
+		break;
+
 	case IROp::FSub:
-		CompIR_Generic(inst);
+		if (inst.dest == inst.src1) {
+			regs_.Map(inst);
+			SUBSS(regs_.FX(inst.dest), regs_.F(inst.src2));
+		} else if (cpu_info.bAVX) {
+			regs_.Map(inst);
+			VSUBSS(regs_.FX(inst.dest), regs_.FX(inst.src1), regs_.F(inst.src2));
+		} else if (inst.dest == inst.src2) {
+			X64Reg tempReg = regs_.MapWithFPRTemp(inst);
+			MOVAPS(tempReg, regs_.F(inst.src2));
+			MOVAPS(regs_.FX(inst.dest), regs_.F(inst.src1));
+			SUBSS(regs_.FX(inst.dest), R(tempReg));
+		} else {
+			regs_.Map(inst);
+			MOVAPS(regs_.FX(inst.dest), regs_.F(inst.src1));
+			SUBSS(regs_.FX(inst.dest), regs_.F(inst.src2));
+		}
 		break;
 
 	case IROp::FMul:
@@ -101,6 +129,12 @@ void X64JitBackend::CompIR_FAssign(IRInst inst) {
 
 	switch (inst.op) {
 	case IROp::FMov:
+		if (inst.dest != inst.src1) {
+			regs_.Map(inst);
+			MOVAPS(regs_.FX(inst.dest), regs_.F(inst.src1));
+		}
+		break;
+
 	case IROp::FAbs:
 	case IROp::FSign:
 		CompIR_Generic(inst);
