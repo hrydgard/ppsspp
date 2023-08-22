@@ -36,13 +36,54 @@ namespace MIPSComp {
 using namespace Gen;
 using namespace X64IRJitConstants;
 
+alignas(16) const u32 reverseQNAN[4] = { 0x803FFFFF, 0x803FFFFF, 0x803FFFFF, 0x803FFFFF };
+
 void X64JitBackend::CompIR_FArith(IRInst inst) {
 	CONDITIONAL_DISABLE;
 
 	switch (inst.op) {
 	case IROp::FAdd:
 	case IROp::FSub:
+		CompIR_Generic(inst);
+		break;
+
 	case IROp::FMul:
+	{
+		X64Reg tempReg = regs_.MapWithFPRTemp(inst);
+
+		// tempReg = !my_isnan(src1) && !my_isnan(src2)
+		MOVSS(tempReg, regs_.F(inst.src1));
+		CMPORDSS(tempReg, regs_.F(inst.src2));
+		if (inst.dest == inst.src1) {
+			MULSS(regs_.FX(inst.dest), regs_.F(inst.src2));
+		} else if (inst.dest == inst.src2) {
+			MULSS(regs_.FX(inst.dest), regs_.F(inst.src1));
+		} else if (cpu_info.bAVX) {
+			VMULSS(regs_.FX(inst.dest), regs_.FX(inst.src1), regs_.F(inst.src2));
+		} else {
+			MOVAPS(regs_.FX(inst.dest), regs_.F(inst.src1));
+			MULSS(regs_.FX(inst.dest), regs_.F(inst.src2));
+		}
+
+		// Abuse a lane of tempReg to remember dest: NAN, NAN, res, res.
+		SHUFPS(tempReg, regs_.F(inst.dest), 0);
+		// dest = my_isnan(dest) && !my_isnan(src1) && !my_isnan(src2)
+		CMPUNORDSS(regs_.FX(inst.dest), regs_.F(inst.dest));
+		ANDPS(regs_.FX(inst.dest), R(tempReg));
+		// At this point fd = FFFFFFFF if non-NAN inputs produced a NAN output.
+		// We'll AND it with the inverse QNAN bits to clear (00000000 means no change.)
+		if (RipAccessible(&reverseQNAN)) {
+			ANDPS(regs_.FX(inst.dest), M(&reverseQNAN));  // rip accessible
+		} else {
+			MOV(PTRBITS, R(SCRATCH1), ImmPtr(&reverseQNAN));
+			ANDPS(regs_.FX(inst.dest), MatR(SCRATCH1));
+		}
+		// ANDN is backwards, which is why we saved XMM0 to start.  Now put it back.
+		SHUFPS(tempReg, R(tempReg), 0xFF);
+		ANDNPS(regs_.FX(inst.dest), R(tempReg));
+		break;
+	}
+
 	case IROp::FDiv:
 	case IROp::FSqrt:
 	case IROp::FNeg:
