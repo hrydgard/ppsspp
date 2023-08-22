@@ -172,11 +172,6 @@ X64Reg X64IRRegCache::MapWithFPRTemp(IRInst &inst) {
 X64Reg X64IRRegCache::MapGPR(IRReg mipsReg, MIPSMap mapFlags) {
 	_dbg_assert_(IsValidGPR(mipsReg));
 
-	if ((mapFlags & X64Map::LOW_SUBREG) == X64Map::LOW_SUBREG && IsGPRMapped(mipsReg) && !HasLowSubregister(RX(mipsReg))) {
-		// Unfortunate.  For now, let's flush it.  We'll realloc a better one.
-		FlushNativeReg(mr[mipsReg].nReg);
-	}
-
 	// Okay, not mapped, so we need to allocate an RV register.
 	IRNativeReg nreg = MapNativeReg(MIPSLoc::REG, mipsReg, 1, mapFlags);
 	return FromNativeReg(nreg);

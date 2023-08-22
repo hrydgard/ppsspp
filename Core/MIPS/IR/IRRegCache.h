@@ -201,6 +201,7 @@ protected:
 	IRNativeReg AllocateReg(MIPSLoc type, MIPSMap flags);
 	IRNativeReg FindFreeReg(MIPSLoc type, MIPSMap flags) const;
 	IRNativeReg FindBestToSpill(MIPSLoc type, MIPSMap flags, bool unusedOnly, bool *clobbered) const;
+	virtual bool IsNativeRegCompatible(IRNativeReg nreg, MIPSLoc type, MIPSMap flags);
 	virtual void DiscardNativeReg(IRNativeReg nreg);
 	virtual void FlushNativeReg(IRNativeReg nreg);
 	virtual void DiscardReg(IRReg mreg);

@@ -434,6 +434,19 @@ IRNativeReg IRNativeRegCacheBase::FindBestToSpill(MIPSLoc type, MIPSMap flags, b
 	return -1;
 }
 
+bool IRNativeRegCacheBase::IsNativeRegCompatible(IRNativeReg nreg, MIPSLoc type, MIPSMap flags) {
+	int allocCount = 0, base = 0;
+	const int *allocOrder = GetAllocationOrder(type, flags, allocCount, base);
+
+	for (int i = 0; i < allocCount; i++) {
+		IRNativeReg allocReg = IRNativeReg(allocOrder[i] - base);
+		if (allocReg == nreg)
+			return true;
+	}
+
+	return false;
+}
+
 void IRNativeRegCacheBase::DiscardNativeReg(IRNativeReg nreg) {
 	_assert_msg_(nreg >= 0 && nreg < config_.totalNativeRegs, "DiscardNativeReg on invalid register %d", nreg);
 	if (nr[nreg].mipsReg != IRREG_INVALID) {
@@ -828,18 +841,24 @@ IRNativeReg IRNativeRegCacheBase::MapNativeReg(MIPSLoc type, IRReg first, int la
 		case MIPSLoc::REG_IMM:
 		case MIPSLoc::REG_AS_PTR:
 		case MIPSLoc::REG:
-			if (type != MIPSLoc::REG)
+			if (type != MIPSLoc::REG) {
 				nreg = AllocateReg(type, flags);
+			} else if (!IsNativeRegCompatible(nreg, type, flags)) {
+				// If it's not compatible, we'll need to reallocate.
+				// TODO: Could do a transfer and avoid memory flush.
+				FlushNativeReg(nreg);
+				nreg = AllocateReg(type, flags);
+			}
 			break;
 
 		case MIPSLoc::FREG:
-			if (type != MIPSLoc::FREG)
-				nreg = AllocateReg(type, flags);
-			break;
-
 		case MIPSLoc::VREG:
-			if (type != MIPSLoc::VREG)
+			if (type != mr[first].loc) {
 				nreg = AllocateReg(type, flags);
+			} else if (!IsNativeRegCompatible(nreg, type, flags)) {
+				FlushNativeReg(nreg);
+				nreg = AllocateReg(type, flags);
+			}
 			break;
 
 		case MIPSLoc::IMM:
