@@ -3,17 +3,20 @@
 #include "pch.h"
 #include "App.h"
 
+#include <ppltasks.h>
 #include <mutex>
 
+#include "Common/Net/HTTPClient.h"
+#include "Common/Net/Resolve.h"
+
+#include "Common/Data/Encoding/Utf8.h"
 #include "Common/Input/InputState.h"
 #include "Common/System/NativeApp.h"
 #include "Common/System/System.h"
+#include "Common/LogManager.h"
 #include "Core/System.h"
 #include "Core/Config.h"
 #include "Core/Core.h"
-
-#include <ppltasks.h>
-
 #include "UWPHelpers/LaunchItem.h"
 
 using namespace UWP;
@@ -27,7 +30,6 @@ using namespace Windows::UI::Input;
 using namespace Windows::System;
 using namespace Windows::Foundation;
 using namespace Windows::Graphics::Display;
-using namespace Windows::Storage;
 
 // The main function is only used to initialize our IFrameworkView class.
 [Platform::MTAThread]
@@ -47,6 +49,50 @@ App::App() :
 {
 }
 
+void App::InitialPPSSPP() {
+	// Initial net
+	net::Init();
+
+	//Prepare for initialization
+	std::wstring internalDataFolderW = ApplicationData::Current->LocalFolder->Path->Data();
+	g_Config.internalDataDirectory = Path(internalDataFolderW);
+	g_Config.memStickDirectory = g_Config.internalDataDirectory;
+
+	// On Win32 it makes more sense to initialize the system directories here
+	// because the next place it was called was in the EmuThread, and it's too late by then.
+	CreateSysDirectories();
+
+	LogManager::Init(&g_Config.bEnableLogging);
+
+	// Set the config path to local state by default
+	// it will be overrided by `NativeInit` if there is custom memStick
+	g_Config.SetSearchPath(GetSysDirectory(DIRECTORY_SYSTEM));
+	g_Config.Load();
+
+	if (g_Config.bFirstRun) {
+		// Clear `memStickDirectory` to show memory stick screen on first start
+		g_Config.memStickDirectory.clear();
+	}
+
+	// Since we don't have any async operation in `NativeInit`
+	// it's better to call it here
+	const char* argv[2] = { "fake", nullptr };
+	std::string cacheFolder = ConvertWStringToUTF8(ApplicationData::Current->TemporaryFolder->Path->Data());
+	// Ee will not be able to use `argv`
+	// since launch parameters usually handled by `OnActivated`
+	// and `OnActivated` will be invoked later, even after `PPSSPP_UWPMain(..)`
+	// so we are handling launch cases using `LaunchItem`
+	NativeInit(1, argv, "", "", cacheFolder.c_str());
+
+	// Override backend, `DIRECT3D11` is the only way for UWP apps
+	g_Config.iGPUBackend = (int)GPUBackend::DIRECT3D11;
+
+	// Calling `NativeInit` before will help us to deal with custom configs
+	// such as custom adapter, so it's better to initial render device here
+	m_deviceResources = std::make_shared<DX::DeviceResources>();
+	m_deviceResources->CreateWindowSizeDependentResources();
+}
+
 // The first method called when the IFrameworkView is being created.
 void App::Initialize(CoreApplicationView^ applicationView) {
 	// Register event handlers for app lifecycle. This example includes Activated, so that we
@@ -59,10 +105,6 @@ void App::Initialize(CoreApplicationView^ applicationView) {
 
 	CoreApplication::Resuming +=
 		ref new EventHandler<Platform::Object^>(this, &App::OnResuming);
-
-	// At this point we have access to the device.
-	// We can create the device-dependent resources.
-	m_deviceResources = std::make_shared<DX::DeviceResources>();
 }
 
 // Called when the CoreWindow object is created (or re-created).
@@ -89,6 +131,7 @@ void App::SetWindow(CoreWindow^ window) {
 
 	window->KeyDown += ref new TypedEventHandler<CoreWindow^, KeyEventArgs^>(this, &App::OnKeyDown);
 	window->KeyUp += ref new TypedEventHandler<CoreWindow^, KeyEventArgs^>(this, &App::OnKeyUp);
+	window->CharacterReceived += ref new TypedEventHandler<CoreWindow^, CharacterReceivedEventArgs^>(this, &App::OnCharacterReceived);
 
 	window->PointerMoved += ref new TypedEventHandler<CoreWindow^, PointerEventArgs^>(this, &App::OnPointerMoved);
 	window->PointerEntered += ref new TypedEventHandler<CoreWindow^, PointerEventArgs^>(this, &App::OnPointerEntered);
@@ -111,7 +154,7 @@ void App::SetWindow(CoreWindow^ window) {
 		Windows::UI::Core::BackRequestedEventArgs^>(
 			this, &App::App_BackRequested);
 
-	m_deviceResources->SetWindow(window);
+	InitialPPSSPP();
 }
 
 bool App::HasBackButton() {
@@ -135,6 +178,10 @@ void App::OnKeyDown(Windows::UI::Core::CoreWindow^ sender, Windows::UI::Core::Ke
 
 void App::OnKeyUp(Windows::UI::Core::CoreWindow^ sender, Windows::UI::Core::KeyEventArgs^ args) {
 	m_main->OnKeyUp(args->KeyStatus.ScanCode, args->VirtualKey);
+}
+
+void App::OnCharacterReceived(Windows::UI::Core::CoreWindow^ sender, Windows::UI::Core::CharacterReceivedEventArgs^ args) {
+	m_main->OnCharacterReceived(args->KeyStatus.ScanCode, args->KeyCode);
 }
 
 void App::OnPointerMoved(Windows::UI::Core::CoreWindow^ sender, Windows::UI::Core::PointerEventArgs^ args) {

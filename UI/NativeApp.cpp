@@ -305,7 +305,7 @@ void PostLoadConfig() {
 	else
 		g_i18nrepo.LoadIni(g_Config.sLanguageIni, langOverridePath);
 
-#if !PPSSPP_PLATFORM(WINDOWS) && !PPSSPP_PLATFORM(UWP)
+#if !PPSSPP_PLATFORM(WINDOWS) || PPSSPP_PLATFORM(UWP)
 	CreateSysDirectories();
 #endif
 }

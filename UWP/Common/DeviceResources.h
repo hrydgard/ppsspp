@@ -1,4 +1,7 @@
-﻿#pragma once
+#pragma once
+
+#include <vector>
+#include <string>
 
 namespace DX
 {
@@ -14,6 +17,7 @@ namespace DX
 	{
 	public:
 		DeviceResources();
+		void CreateWindowSizeDependentResources();
 		void SetWindow(Windows::UI::Core::CoreWindow^ window);
 		void SetLogicalSize(Windows::Foundation::Size logicalSize);
 		void SetCurrentOrientation(Windows::Graphics::Display::DisplayOrientations currentOrientation);
@@ -52,16 +56,24 @@ namespace DX
 
 		DXGI_MODE_ROTATION ComputeDisplayRotation();
 
+		std::vector <std::string>	GetAdapters() const						{ return m_vAdapters; };
+
 	private:
 		void CreateDeviceIndependentResources();
-		void CreateDeviceResources();
-		void CreateWindowSizeDependentResources();
+		void CreateDeviceResources(IDXGIAdapter* vAdapter = nullptr);
 		void UpdateRenderTargetSize();
+		bool CreateAdaptersList(Microsoft::WRL::ComPtr<ID3D11Device> device);
 
 		// Direct3D objects.
 		Microsoft::WRL::ComPtr<ID3D11Device3>			m_d3dDevice;
 		Microsoft::WRL::ComPtr<ID3D11DeviceContext3>	m_d3dContext;
 		Microsoft::WRL::ComPtr<IDXGISwapChain3>			m_swapChain;
+		Microsoft::WRL::ComPtr<IDXGIDevice3>			m_dxgiDevice;
+		Microsoft::WRL::ComPtr<IDXGIFactory4>			m_dxgiFactory;
+		Microsoft::WRL::ComPtr<IDXGIAdapter>			m_dxgiAdapter;
+
+		// Direct3D adapters
+		std::vector <std::string> m_vAdapters;
 
 		// Direct3D rendering objects. Required for 3D.
 		Microsoft::WRL::ComPtr<ID3D11RenderTargetView1>	m_d3dRenderTargetView;
@@ -76,9 +88,6 @@ namespace DX
 		// DirectWrite drawing components.
 		Microsoft::WRL::ComPtr<IDWriteFactory3>		m_dwriteFactory;
 		Microsoft::WRL::ComPtr<IWICImagingFactory2>	m_wicFactory;
-
-		// Cached reference to the Window.
-		Platform::Agile<Windows::UI::Core::CoreWindow> m_window;
 
 		// Cached device properties.
 		D3D_FEATURE_LEVEL								m_d3dFeatureLevel;

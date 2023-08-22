@@ -126,6 +126,9 @@
     <ClCompile Include="UWPHelpers\LaunchItem.cpp">
       <Filter>UWPHelpers</Filter>
     </ClCompile>
+    <ClCompile Include="UWPHelpers\InputHelpers.cpp">
+      <Filter>UWPHelpers</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="App.h" />
@@ -144,6 +147,9 @@
     <ClInclude Include="UWPUtil.h" />
     <ClInclude Include="..\Windows\InputDevice.h">
       <Filter>Input</Filter>
+    </ClInclude>
+    <ClInclude Include="UWPHelpers\InputHelpers.h">
+      <Filter>UWPHelpers</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

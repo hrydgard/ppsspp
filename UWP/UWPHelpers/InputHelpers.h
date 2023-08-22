@@ -15,18 +15,23 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-// This header meant to be included within the storage manager
-// don't use it within PPSSPP core
-
 #pragma once
-
-#include <list>
 #include <string>
 
-using namespace Windows::Storage;
+// Input Devices
+bool isKeybaordAvailable();
+bool isTouchAvailable();
 
-// Local settings
-std::string GetDataFromLocalSettings(std::string key);
-bool AddDataToLocalSettings(std::string key, std::string data, bool replace);
-void AddItemToFutureList(IStorageItem^ item);
-std::list<std::string> GetFutureAccessList();
+// Input Pane
+bool InputPaneVisible();
+void ShowInputPane();
+void HideInputPane();
+
+
+// Keys Status
+bool IsCapsLockOn();
+bool IsShiftOnHold();
+bool IsCtrlOnHold();
+
+// Misc
+std::string GetLangRegion();
