@@ -17,21 +17,24 @@
 
 #pragma once
 
+#include "ppsspp_config.h"
+#if PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)
+
 #include <string>
 #include <vector>
-#include "Common/RiscVEmitter.h"
+#include "Common/x64Emitter.h"
 #include "Core/MIPS/IR/IRJit.h"
 #include "Core/MIPS/IR/IRNativeCommon.h"
 #include "Core/MIPS/JitCommon/JitState.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
-#include "Core/MIPS/RiscV/RiscVRegCache.h"
+#include "Core/MIPS/x86/X64IRRegCache.h"
 
 namespace MIPSComp {
 
-class RiscVJitBackend : public RiscVGen::RiscVCodeBlock, public IRNativeBackend {
+class X64JitBackend : public Gen::XCodeBlock, public IRNativeBackend {
 public:
-	RiscVJitBackend(JitOptions &jo, IRBlockCache &blocks);
-	~RiscVJitBackend();
+	X64JitBackend(JitOptions &jo, IRBlockCache &blocks);
+	~X64JitBackend();
 
 	bool DescribeCodePtr(const u8 *ptr, std::string &name) const override;
 
@@ -48,8 +51,8 @@ protected:
 private:
 	void RestoreRoundingMode(bool force = false);
 	void ApplyRoundingMode(bool force = false);
-	void MovFromPC(RiscVGen::RiscVReg r);
-	void MovToPC(RiscVGen::RiscVReg r);
+	void MovFromPC(Gen::X64Reg r);
+	void MovToPC(Gen::X64Reg r);
 
 	void SaveStaticRegisters();
 	void LoadStaticRegisters();
@@ -103,21 +106,17 @@ private:
 	void CompIR_VecStore(IRInst inst) override;
 	void CompIR_ValidateAddress(IRInst inst) override;
 
-	void SetScratch1ToSrc1Address(IRReg src1);
-	// Modifies SCRATCH regs.
-	int32_t AdjustForAddressOffset(RiscVGen::RiscVReg *reg, int32_t constant, int32_t range = 0);
-	void NormalizeSrc1(IRInst inst, RiscVGen::RiscVReg *reg, RiscVGen::RiscVReg tempReg, bool allowOverlap);
-	void NormalizeSrc12(IRInst inst, RiscVGen::RiscVReg *lhs, RiscVGen::RiscVReg *rhs, RiscVGen::RiscVReg lhsTempReg, RiscVGen::RiscVReg rhsTempReg, bool allowOverlap);
-	RiscVGen::RiscVReg NormalizeR(IRReg rs, IRReg rd, RiscVGen::RiscVReg tempReg);
+	Gen::OpArg PrepareSrc1Address(IRInst inst);
 
 	JitOptions &jo;
-	RiscVRegCache regs_;
+	X64IRRegCache regs_;
 
 	const u8 *outerLoop_ = nullptr;
 	const u8 *outerLoopPCInSCRATCH1_ = nullptr;
 	const u8 *dispatcherCheckCoreState_ = nullptr;
 	const u8 *dispatcherPCInSCRATCH1_ = nullptr;
 	const u8 *dispatcherNoCheck_ = nullptr;
+	const u8 *restoreRoundingMode_ = nullptr;
 	const u8 *applyRoundingMode_ = nullptr;
 
 	const u8 *saveStaticRegisters_ = nullptr;
@@ -128,15 +127,17 @@ private:
 	int logBlocks_ = 0;
 };
 
-class RiscVJit : public IRNativeJit {
+class X64IRJit : public IRNativeJit {
 public:
-	RiscVJit(MIPSState *mipsState)
+	X64IRJit(MIPSState *mipsState)
 		: IRNativeJit(mipsState), rvBackend_(jo, blocks_) {
 		Init(rvBackend_);
 	}
 
 private:
-	RiscVJitBackend rvBackend_;
+	X64JitBackend rvBackend_;
 };
 
 } // namespace MIPSComp
+
+#endif

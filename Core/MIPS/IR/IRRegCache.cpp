@@ -30,13 +30,13 @@
 #include "Core/MIPS/JitCommon/JitState.h"
 
 void IRImmRegCache::Flush(IRReg rd) {
-	if (rd == 0) {
-		return;
-	}
-	if (reg_[rd].isImm) {
+	if (isImm_[rd]) {
+		if (rd == 0) {
+			return;
+		}
 		_assert_((rd > 0 && rd < 32) || (rd >= IRTEMP_0 && rd < IRREG_VFPU_CTRL_BASE));
-		ir_->WriteSetConstant(rd, reg_[rd].immVal);
-		reg_[rd].isImm = false;
+		ir_->WriteSetConstant(rd, immVal_[rd]);
+		isImm_[rd] = false;
 	}
 }
 
@@ -44,18 +44,27 @@ void IRImmRegCache::Discard(IRReg rd) {
 	if (rd == 0) {
 		return;
 	}
-	reg_[rd].isImm = false;
+	isImm_[rd] = false;
 }
 
 IRImmRegCache::IRImmRegCache(IRWriter *ir) : ir_(ir) {
-	memset(&reg_, 0, sizeof(reg_));
-	reg_[0].isImm = true;
+	memset(&isImm_, 0, sizeof(isImm_));
+	memset(&immVal_, 0, sizeof(immVal_));
+	isImm_[0] = true;
 	ir_ = ir;
 }
 
 void IRImmRegCache::FlushAll() {
-	for (int i = 0; i < TOTAL_MAPPABLE_IRREGS; i++) {
-		Flush(i);
+	for (int i = 1; i < TOTAL_MAPPABLE_IRREGS; ) {
+		if (isImm_[i]) {
+			Flush(i);
+		}
+
+		// Most of the time, lots are not.  This speeds it up a lot.
+		bool *next = (bool *)memchr(&isImm_[i], 1, TOTAL_MAPPABLE_IRREGS - i);
+		if (!next)
+			break;
+		i = (int)(next - &isImm_[0]);
 	}
 }
 
@@ -102,7 +111,7 @@ void IRNativeRegCacheBase::Start(MIPSComp::IRBlock *irBlock) {
 		initialReady_ = true;
 	}
 
-	memcpy(nr, nrInitial_, sizeof(nr[0]) * totalNativeRegs_);
+	memcpy(nr, nrInitial_, sizeof(nr[0]) * config_.totalNativeRegs);
 	memcpy(mr, mrInitial_, sizeof(mr));
 
 	int numStatics;
@@ -123,7 +132,7 @@ void IRNativeRegCacheBase::Start(MIPSComp::IRBlock *irBlock) {
 }
 
 void IRNativeRegCacheBase::SetupInitialRegs() {
-	_assert_msg_(totalNativeRegs_ > 0, "totalNativeRegs_ was never set by backend");
+	_assert_msg_(config_.totalNativeRegs > 0, "totalNativeRegs was never set by backend");
 
 	// Everything else is initialized in the struct.
 	mrInitial_[MIPS_REG_ZERO].loc = MIPSLoc::IMM;
@@ -282,6 +291,11 @@ void IRNativeRegCacheBase::SetSpillLockIRIndex(IRReg r1, IRReg r2, IRReg r3, IRR
 		mr[r4 + offset].spillLockIRIndex = index;
 }
 
+void IRNativeRegCacheBase::SetSpillLockIRIndex(IRReg r1, int index) {
+	if (!mr[r1].isStatic)
+		mr[r1].spillLockIRIndex = index;
+}
+
 void IRNativeRegCacheBase::MarkGPRDirty(IRReg gpr, bool andNormalized32) {
 	_assert_(IsGPRMapped(gpr));
 	if (!IsGPRMapped(gpr))
@@ -316,18 +330,18 @@ void IRNativeRegCacheBase::MarkGPRAsPointerDirty(IRReg gpr) {
 	// Stays pointerified or REG_AS_PTR.
 }
 
-IRNativeReg IRNativeRegCacheBase::AllocateReg(MIPSLoc type) {
+IRNativeReg IRNativeRegCacheBase::AllocateReg(MIPSLoc type, MIPSMap flags) {
 	_dbg_assert_(type == MIPSLoc::REG || type == MIPSLoc::FREG || type == MIPSLoc::VREG);
 
-	IRNativeReg nreg = FindFreeReg(type);
+	IRNativeReg nreg = FindFreeReg(type, flags);
 	if (nreg != -1)
 		return nreg;
 
 	// Still nothing. Let's spill a reg and goto 10.
 	bool clobbered;
-	IRNativeReg bestToSpill = FindBestToSpill(type, true, &clobbered);
+	IRNativeReg bestToSpill = FindBestToSpill(type, flags, true, &clobbered);
 	if (bestToSpill == -1) {
-		bestToSpill = FindBestToSpill(type, false, &clobbered);
+		bestToSpill = FindBestToSpill(type, flags, false, &clobbered);
 	}
 
 	if (bestToSpill != -1) {
@@ -337,7 +351,7 @@ IRNativeReg IRNativeRegCacheBase::AllocateReg(MIPSLoc type) {
 			FlushNativeReg(bestToSpill);
 		}
 		// Now one must be free.
-		return FindFreeReg(type);
+		return FindFreeReg(type, flags);
 	}
 
 	// Uh oh, we have all of them spilllocked....
@@ -346,9 +360,9 @@ IRNativeReg IRNativeRegCacheBase::AllocateReg(MIPSLoc type) {
 	return -1;
 }
 
-IRNativeReg IRNativeRegCacheBase::FindFreeReg(MIPSLoc type) const {
+IRNativeReg IRNativeRegCacheBase::FindFreeReg(MIPSLoc type, MIPSMap flags) const {
 	int allocCount = 0, base = 0;
-	const int *allocOrder = GetAllocationOrder(type, allocCount, base);
+	const int *allocOrder = GetAllocationOrder(type, flags, allocCount, base);
 
 	for (int i = 0; i < allocCount; i++) {
 		IRNativeReg nreg = IRNativeReg(allocOrder[i] - base);
@@ -361,9 +375,9 @@ IRNativeReg IRNativeRegCacheBase::FindFreeReg(MIPSLoc type) const {
 	return -1;
 }
 
-IRNativeReg IRNativeRegCacheBase::FindBestToSpill(MIPSLoc type, bool unusedOnly, bool *clobbered) const {
+IRNativeReg IRNativeRegCacheBase::FindBestToSpill(MIPSLoc type, MIPSMap flags, bool unusedOnly, bool *clobbered) const {
 	int allocCount = 0, base = 0;
-	const int *allocOrder = GetAllocationOrder(type, allocCount, base);
+	const int *allocOrder = GetAllocationOrder(type, flags, allocCount, base);
 
 	static const int UNUSED_LOOKAHEAD_OPS = 30;
 
@@ -420,15 +434,29 @@ IRNativeReg IRNativeRegCacheBase::FindBestToSpill(MIPSLoc type, bool unusedOnly,
 	return -1;
 }
 
+bool IRNativeRegCacheBase::IsNativeRegCompatible(IRNativeReg nreg, MIPSLoc type, MIPSMap flags) {
+	int allocCount = 0, base = 0;
+	const int *allocOrder = GetAllocationOrder(type, flags, allocCount, base);
+
+	for (int i = 0; i < allocCount; i++) {
+		IRNativeReg allocReg = IRNativeReg(allocOrder[i] - base);
+		if (allocReg == nreg)
+			return true;
+	}
+
+	return false;
+}
+
 void IRNativeRegCacheBase::DiscardNativeReg(IRNativeReg nreg) {
-	_assert_msg_(nreg >= 0 && nreg < totalNativeRegs_, "DiscardNativeReg on invalid register %d", nreg);
+	_assert_msg_(nreg >= 0 && nreg < config_.totalNativeRegs, "DiscardNativeReg on invalid register %d", nreg);
 	if (nr[nreg].mipsReg != IRREG_INVALID) {
-		_assert_(nr[nreg].mipsReg != MIPS_REG_ZERO);
 		int8_t lanes = 0;
 		for (IRReg m = nr[nreg].mipsReg; mr[m].nReg == nreg && m < IRREG_INVALID; ++m)
 			lanes++;
 
 		if (mr[nr[nreg].mipsReg].isStatic) {
+			_assert_(nr[nreg].mipsReg != MIPS_REG_ZERO);
+
 			int numStatics;
 			const StaticAllocation *statics = GetStaticAllocations(numStatics);
 
@@ -460,7 +488,7 @@ void IRNativeRegCacheBase::DiscardNativeReg(IRNativeReg nreg) {
 }
 
 void IRNativeRegCacheBase::FlushNativeReg(IRNativeReg nreg) {
-	_assert_msg_(nreg >= 0 && nreg < totalNativeRegs_, "FlushNativeReg on invalid register %d", nreg);
+	_assert_msg_(nreg >= 0 && nreg < config_.totalNativeRegs, "FlushNativeReg on invalid register %d", nreg);
 	if (nr[nreg].mipsReg == IRREG_INVALID || nr[nreg].mipsReg == MIPS_REG_ZERO) {
 		// Nothing to do, reg not mapped or mapped to fixed zero.
 		_dbg_assert_(!nr[nreg].isDirty);
@@ -563,12 +591,20 @@ void IRNativeRegCacheBase::FlushReg(IRReg mreg) {
 	}
 }
 
-void IRNativeRegCacheBase::FlushAll() {
+void IRNativeRegCacheBase::FlushAll(bool gprs, bool fprs) {
 	// Note: make sure not to change the registers when flushing.
 	// Branching code may expect the native reg to retain its value.
 
+	if (!mr[MIPS_REG_ZERO].isStatic && mr[MIPS_REG_ZERO].nReg != -1)
+		DiscardNativeReg(mr[MIPS_REG_ZERO].nReg);
+
 	for (int i = 1; i < TOTAL_MAPPABLE_IRREGS; i++) {
 		IRReg mipsReg = (IRReg)i;
+		if (!fprs && i >= 32 && IsValidFPR(mipsReg))
+			continue;
+		if (!gprs && IsValidGPR(mipsReg))
+			continue;
+
 		if (mr[i].isStatic) {
 			IRNativeReg nreg = mr[i].nReg;
 			// Cannot leave any IMMs in registers, not even MIPSLoc::REG_IMM.
@@ -599,6 +635,10 @@ void IRNativeRegCacheBase::FlushAll() {
 	int count = 0;
 	const StaticAllocation *allocs = GetStaticAllocations(count);
 	for (int i = 0; i < count; i++) {
+		if (!fprs && allocs[i].loc != MIPSLoc::FREG && allocs[i].loc != MIPSLoc::VREG)
+			continue;
+		if (!gprs && allocs[i].loc != MIPSLoc::REG)
+			continue;
 		if (allocs[i].pointerified && !nr[allocs[i].nr].pointerified && jo_->enablePointerify) {
 			// Re-pointerify
 			if (mr[allocs[i].mr].loc == MIPSLoc::REG_IMM)
@@ -614,10 +654,175 @@ void IRNativeRegCacheBase::FlushAll() {
 		}
 	}
 	// Sanity check
-	for (int i = 0; i < totalNativeRegs_; i++) {
+	for (int i = 0; i < config_.totalNativeRegs; i++) {
 		if (nr[i].mipsReg != IRREG_INVALID && !mr[nr[i].mipsReg].isStatic) {
 			ERROR_LOG_REPORT(JIT, "Flush fail: nr[%i].mipsReg=%i", i, nr[i].mipsReg);
 		}
+	}
+}
+
+void IRNativeRegCacheBase::Map(const IRInst &inst) {
+	Mapping mapping[3];
+	MappingFromInst(inst, mapping);
+
+	ApplyMapping(mapping, 3);
+	CleanupMapping(mapping, 3);
+}
+
+void IRNativeRegCacheBase::MapWithExtra(const IRInst &inst, std::vector<Mapping> extra) {
+	extra.resize(extra.size() + 3);
+	MappingFromInst(inst, &extra[extra.size() - 3]);
+
+	ApplyMapping(extra.data(), (int)extra.size());
+	CleanupMapping(extra.data(), (int)extra.size());
+}
+
+IRNativeReg IRNativeRegCacheBase::MapWithTemp(const IRInst &inst, MIPSLoc type) {
+	Mapping mapping[3];
+	MappingFromInst(inst, mapping);
+
+	ApplyMapping(mapping, 3);
+	// Grab a temp while things are spill locked.
+	IRNativeReg temp = AllocateReg(type, MIPSMap::INIT);
+	CleanupMapping(mapping, 3);
+	return temp;
+}
+
+void IRNativeRegCacheBase::ApplyMapping(const Mapping *mapping, int count) {
+	for (int i = 0; i < count; ++i) {
+		SetSpillLockIRIndex(mapping[i].reg, irIndex_);
+		if (!config_.mapFPUSIMD && mapping[i].type != 'G') {
+			for (int j = 1; j < mapping[i].lanes; ++j)
+				SetSpillLockIRIndex(mapping[i].reg + j, irIndex_);
+		}
+	}
+
+	auto mapRegs = [&](int i) {
+		MIPSLoc type = MIPSLoc::MEM;
+		switch (mapping[i].type) {
+		case 'G': type = MIPSLoc::REG; break;
+		case 'F': type = MIPSLoc::FREG; break;
+		case 'V': type = MIPSLoc::VREG; break;
+
+		case '_':
+			// Ignored intentionally.
+			return;
+
+		default:
+			_assert_msg_(false, "Unexpected type: %c", mapping[i].type);
+			return;
+		}
+
+		if (config_.mapFPUSIMD || mapping[i].type == 'G') {
+			MapNativeReg(type, mapping[i].reg, mapping[i].lanes, mapping[i].flags);
+			return;
+		}
+
+		for (int j = 0; j < mapping[i].lanes; ++j)
+			MapNativeReg(type, mapping[i].reg + j, 1, mapping[i].flags);
+	};
+
+	// Do two passes: first any without NOINIT, then NOINIT.
+	for (int i = 0; i < count; ++i) {
+		if ((mapping[i].flags & MIPSMap::NOINIT) != MIPSMap::NOINIT)
+			mapRegs(i);
+	}
+	for (int i = 0; i < count; ++i) {
+		if ((mapping[i].flags & MIPSMap::NOINIT) == MIPSMap::NOINIT)
+			mapRegs(i);
+	}
+}
+
+void IRNativeRegCacheBase::CleanupMapping(const Mapping *mapping, int count) {
+	for (int i = 0; i < count; ++i) {
+		SetSpillLockIRIndex(mapping[i].reg, -1);
+		if (!config_.mapFPUSIMD && mapping[i].type != 'G') {
+			for (int j = 1; j < mapping[i].lanes; ++j)
+				SetSpillLockIRIndex(mapping[i].reg + j, -1);
+		}
+	}
+
+	// Sanity check.  If these don't pass, we may have Vec overlap issues or etc.
+	for (int i = 0; i < count; ++i) {
+		if (mapping[i].reg != IRREG_INVALID) {
+			auto &mreg = mr[mapping[i].reg];
+			_dbg_assert_(mreg.nReg != -1);
+			if (mapping[i].type == 'G') {
+				_dbg_assert_(mreg.loc == MIPSLoc::REG || mreg.loc == MIPSLoc::REG_AS_PTR || mreg.loc == MIPSLoc::REG_IMM);
+			} else if (mapping[i].type == 'F') {
+				_dbg_assert_(mreg.loc == MIPSLoc::FREG);
+			} else if (mapping[i].type == 'V') {
+				_dbg_assert_(mreg.loc == MIPSLoc::VREG);
+			}
+			if (mapping[i].lanes != 1 && (config_.mapFPUSIMD || mapping[i].type == 'G')) {
+				_dbg_assert_(mreg.lane == 0);
+				_dbg_assert_(mr[mapping[i].reg + mapping[i].lanes - 1].lane == mapping[i].lanes - 1);
+				_dbg_assert_(mreg.nReg == mr[mapping[i].reg + mapping[i].lanes - 1].nReg);
+			} else {
+				_dbg_assert_(mreg.lane == -1);
+			}
+		}
+	}
+}
+
+void IRNativeRegCacheBase::MappingFromInst(const IRInst &inst, Mapping mapping[3]) {
+	mapping[0].reg = inst.dest;
+	mapping[1].reg = inst.src1;
+	mapping[2].reg = inst.src2;
+
+	const IRMeta *m = GetIRMeta(inst.op);
+	for (int i = 0; i < 3; ++i) {
+		switch (m->types[i]) {
+		case 'G':
+			mapping[i].type = 'G';
+			_assert_msg_(IsValidGPR(mapping[i].reg), "G was not valid GPR?");
+			break;
+
+		case 'F':
+			mapping[i].reg += 32;
+			mapping[i].type = 'F';
+			_assert_msg_(IsValidFPR(mapping[i].reg - 32), "F was not valid FPR?");
+			break;
+
+		case 'V':
+		case '2':
+			mapping[i].reg += 32;
+			mapping[i].type = config_.mapUseVRegs ? 'V' : 'F';
+			mapping[i].lanes = m->types[i] == 'V' ? 4 : (m->types[i] == '2' ? 2 : 1);
+			_assert_msg_(IsValidFPR(mapping[i].reg - 32), "%c was not valid FPR?", m->types[i]);
+			break;
+
+		case 'T':
+			mapping[i].type = 'G';
+			_assert_msg_(mapping[i].reg < VFPU_CTRL_MAX, "T was not valid VFPU CTRL?");
+			mapping[i].reg += IRREG_VFPU_CTRL_BASE;
+			break;
+
+		case '\0':
+		case '_':
+		case 'C':
+		case 'I':
+		case 'v':
+		case 's':
+		case 'm':
+			mapping[i].type = '_';
+			mapping[i].reg = IRREG_INVALID;
+			mapping[i].lanes = 0;
+			break;
+
+		default:
+			_assert_msg_(mapping[i].reg == IRREG_INVALID, "Unexpected register type %c", m->types[i]);
+			break;
+		}
+	}
+
+	if (mapping[0].type != '_') {
+		if ((m->flags & IRFLAG_SRC3DST) != 0)
+			mapping[0].flags = MIPSMap::DIRTY;
+		else if ((m->flags & IRFLAG_SRC3) != 0)
+			mapping[0].flags = MIPSMap::INIT;
+		else
+			mapping[0].flags = MIPSMap::NOINIT;
 	}
 }
 
@@ -636,23 +841,29 @@ IRNativeReg IRNativeRegCacheBase::MapNativeReg(MIPSLoc type, IRReg first, int la
 		case MIPSLoc::REG_IMM:
 		case MIPSLoc::REG_AS_PTR:
 		case MIPSLoc::REG:
-			if (type != MIPSLoc::REG)
-				nreg = AllocateReg(type);
+			if (type != MIPSLoc::REG) {
+				nreg = AllocateReg(type, flags);
+			} else if (!IsNativeRegCompatible(nreg, type, flags)) {
+				// If it's not compatible, we'll need to reallocate.
+				// TODO: Could do a transfer and avoid memory flush.
+				FlushNativeReg(nreg);
+				nreg = AllocateReg(type, flags);
+			}
 			break;
 
 		case MIPSLoc::FREG:
-			if (type != MIPSLoc::FREG)
-				nreg = AllocateReg(type);
-			break;
-
 		case MIPSLoc::VREG:
-			if (type != MIPSLoc::VREG)
-				nreg = AllocateReg(type);
+			if (type != mr[first].loc) {
+				nreg = AllocateReg(type, flags);
+			} else if (!IsNativeRegCompatible(nreg, type, flags)) {
+				FlushNativeReg(nreg);
+				nreg = AllocateReg(type, flags);
+			}
 			break;
 
 		case MIPSLoc::IMM:
 		case MIPSLoc::MEM:
-			nreg = AllocateReg(type);
+			nreg = AllocateReg(type, flags);
 			break;
 		}
 	}
@@ -696,7 +907,7 @@ void IRNativeRegCacheBase::MapNativeReg(MIPSLoc type, IRNativeReg nreg, IRReg fi
 			}
 
 			// If it's still in a different reg, either discard or possibly transfer.
-			if (mreg.nReg != -1 && mreg.nReg != nreg) {
+			if (mreg.nReg != -1 && (mreg.nReg != nreg || mismatch)) {
 				_assert_msg_(!mreg.isStatic, "Cannot MapNativeReg a static reg to a new reg");
 				if ((flags & MIPSMap::NOINIT) != MIPSMap::NOINIT) {
 					// We better not be trying to map to a different nreg if it's in one now.
@@ -730,7 +941,7 @@ void IRNativeRegCacheBase::MapNativeReg(MIPSLoc type, IRNativeReg nreg, IRReg fi
 	if (mr[first].nReg != nreg) {
 		nr[nreg].isDirty = markDirty;
 		nr[nreg].pointerified = false;
-		nr[nreg].normalized32 = (flags & MIPSMap::MARK_NORM32) == MIPSMap::MARK_NORM32;
+		nr[nreg].normalized32 = false;
 	}
 
 	// Alright, now to actually map.
@@ -806,10 +1017,8 @@ void IRNativeRegCacheBase::MapNativeReg(MIPSLoc type, IRNativeReg nreg, IRReg fi
 	if (markDirty) {
 		nr[nreg].isDirty = true;
 		nr[nreg].pointerified = false;
-		nr[nreg].normalized32 = (flags & MIPSMap::MARK_NORM32) == MIPSMap::MARK_NORM32;
+		nr[nreg].normalized32 = false;
 		_assert_(first != MIPS_REG_ZERO);
-	} else if ((flags & MIPSMap::MARK_NORM32) == MIPSMap::MARK_NORM32) {
-		nr[nreg].normalized32 = true;
 	}
 }
 

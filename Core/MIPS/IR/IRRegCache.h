@@ -48,12 +48,12 @@ public:
 	IRImmRegCache(IRWriter *ir);
 
 	void SetImm(IRReg r, u32 immVal) {
-		reg_[r].isImm = true;
-		reg_[r].immVal = immVal;
+		isImm_[r] = true;
+		immVal_[r] = immVal;
 	}
 
-	bool IsImm(IRReg r) const { return reg_[r].isImm; }
-	u32 GetImm(IRReg r) const { return reg_[r].immVal; }
+	bool IsImm(IRReg r) const { return isImm_[r]; }
+	u32 GetImm(IRReg r) const { return immVal_[r]; }
 
 	void FlushAll();
 
@@ -68,27 +68,23 @@ private:
 	void Flush(IRReg rd);
 	void Discard(IRReg rd);
 
-	struct RegIR {
-		bool isImm;
-		u32 immVal;
-	};
-
-	RegIR reg_[TOTAL_MAPPABLE_IRREGS];
+	bool isImm_[TOTAL_MAPPABLE_IRREGS];
+	uint32_t immVal_[TOTAL_MAPPABLE_IRREGS];
 	IRWriter *ir_;
 };
 
 // Initing is the default so the flag is reversed.
-enum class MIPSMap {
+// 8 bits - upper 4 are reserved for backend purposes.
+enum class MIPSMap : uint8_t {
 	INIT = 0,
 	DIRTY = 1,
 	NOINIT = 2 | DIRTY,
-	MARK_NORM32 = 4,
 };
 static inline MIPSMap operator |(const MIPSMap &lhs, const MIPSMap &rhs) {
-	return MIPSMap((int)lhs | (int)rhs);
+	return MIPSMap((uint8_t)lhs | (uint8_t)rhs);
 }
 static inline MIPSMap operator &(const MIPSMap &lhs, const MIPSMap &rhs) {
-	return MIPSMap((int)lhs & (int)rhs);
+	return MIPSMap((uint8_t)lhs & (uint8_t)rhs);
 }
 
 class IRNativeRegCacheBase {
@@ -183,19 +179,29 @@ public:
 	void MarkGPRDirty(IRReg gpr, bool andNormalized32 = false);
 	void MarkGPRAsPointerDirty(IRReg gpr);
 
-	virtual void FlushAll();
+	struct Mapping {
+		char type = '?';
+		IRReg reg = IRREG_INVALID;
+		uint8_t lanes = 1;
+		MIPSMap flags = MIPSMap::INIT;
+	};
+
+	void Map(const IRInst &inst);
+	void MapWithExtra(const IRInst &inst, std::vector<Mapping> extra);
+	virtual void FlushAll(bool gprs = true, bool fprs = true);
 
 protected:
 	virtual void SetupInitialRegs();
-	virtual const int *GetAllocationOrder(MIPSLoc type, int &count, int &base) const = 0;
+	virtual const int *GetAllocationOrder(MIPSLoc type, MIPSMap flags, int &count, int &base) const = 0;
 	virtual const StaticAllocation *GetStaticAllocations(int &count) const {
 		count = 0;
 		return nullptr;
 	}
 
-	IRNativeReg AllocateReg(MIPSLoc type);
-	IRNativeReg FindFreeReg(MIPSLoc type) const;
-	IRNativeReg FindBestToSpill(MIPSLoc type, bool unusedOnly, bool *clobbered) const;
+	IRNativeReg AllocateReg(MIPSLoc type, MIPSMap flags);
+	IRNativeReg FindFreeReg(MIPSLoc type, MIPSMap flags) const;
+	IRNativeReg FindBestToSpill(MIPSLoc type, MIPSMap flags, bool unusedOnly, bool *clobbered) const;
+	virtual bool IsNativeRegCompatible(IRNativeReg nreg, MIPSLoc type, MIPSMap flags);
 	virtual void DiscardNativeReg(IRNativeReg nreg);
 	virtual void FlushNativeReg(IRNativeReg nreg);
 	virtual void DiscardReg(IRReg mreg);
@@ -204,6 +210,12 @@ protected:
 	virtual void MapNativeReg(MIPSLoc type, IRNativeReg nreg, IRReg first, int lanes, MIPSMap flags);
 	virtual IRNativeReg MapNativeReg(MIPSLoc type, IRReg first, int lanes, MIPSMap flags);
 	IRNativeReg MapNativeRegAsPointer(IRReg gpr);
+
+	IRNativeReg MapWithTemp(const IRInst &inst, MIPSLoc type);
+
+	void MappingFromInst(const IRInst &inst, Mapping mapping[3]);
+	void ApplyMapping(const Mapping *mapping, int count);
+	void CleanupMapping(const Mapping *mapping, int count);
 
 	// Load data from memory (possibly multiple lanes) into a native reg.
 	virtual void LoadNativeReg(IRNativeReg nreg, IRReg first, int lanes) = 0;
@@ -215,6 +227,7 @@ protected:
 	virtual void StoreRegValue(IRReg mreg, uint32_t imm) = 0;
 
 	void SetSpillLockIRIndex(IRReg reg, IRReg reg2, IRReg reg3, IRReg reg4, int offset, int index);
+	void SetSpillLockIRIndex(IRReg reg, int index);
 	int GetMipsRegOffset(IRReg r);
 
 	bool IsValidGPR(IRReg r) const;
@@ -224,7 +237,12 @@ protected:
 	MIPSComp::JitOptions *jo_;
 	const MIPSComp::IRBlock *irBlock_ = nullptr;
 	int irIndex_ = 0;
-	int totalNativeRegs_ = 0;
+
+	struct {
+		int totalNativeRegs = 0;
+		bool mapFPUSIMD = false;
+		bool mapUseVRegs = false;
+	} config_;
 
 	RegStatusNative nr[TOTAL_POSSIBLE_NATIVEREGS];
 	RegStatusMIPS mr[TOTAL_MAPPABLE_IRREGS];

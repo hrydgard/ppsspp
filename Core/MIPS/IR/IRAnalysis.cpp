@@ -21,28 +21,35 @@
 #include <algorithm>
 
 
-static bool IRReadsFrom(const IRInst &inst, int reg, char type, bool directly = false) {
+static bool IRReadsFrom(const IRInst &inst, int reg, char type, bool *directly) {
 	const IRMeta *m = GetIRMeta(inst.op);
 
 	if (m->types[1] == type && inst.src1 == reg) {
+		if (directly)
+			*directly = true;
 		return true;
 	}
 	if (m->types[2] == type && inst.src2 == reg) {
+		if (directly)
+			*directly = true;
 		return true;
 	}
 	if ((m->flags & (IRFLAG_SRC3 | IRFLAG_SRC3DST)) != 0 && m->types[0] == type && inst.src3 == reg) {
+		if (directly)
+			*directly = true;
 		return true;
 	}
-	if (!directly) {
-		if (inst.op == IROp::Interpret || inst.op == IROp::CallReplacement || inst.op == IROp::Syscall || inst.op == IROp::Break)
-			return true;
-		if (inst.op == IROp::Breakpoint || inst.op == IROp::MemoryCheck)
-			return true;
-	}
+
+	if (directly)
+		*directly = false;
+	if (inst.op == IROp::Interpret || inst.op == IROp::CallReplacement)
+		return true;
+	if ((m->flags & IRFLAG_EXIT) != 0)
+		return true;
 	return false;
 }
 
-bool IRReadsFromFPR(const IRInst &inst, int reg, bool directly) {
+bool IRReadsFromFPR(const IRInst &inst, int reg, bool *directly) {
 	if (IRReadsFrom(inst, reg, 'F', directly))
 		return true;
 
@@ -85,7 +92,7 @@ static int IRReadsFromList(const IRInst &inst, IRReg regs[4], char type) {
 	return c;
 }
 
-bool IRReadsFromGPR(const IRInst &inst, int reg, bool directly) {
+bool IRReadsFromGPR(const IRInst &inst, int reg, bool *directly) {
 	return IRReadsFrom(inst, reg, 'G', directly);
 }
 

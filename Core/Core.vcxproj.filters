@@ -1216,9 +1216,6 @@
     <ClCompile Include="MIPS\RiscV\RiscVRegCache.cpp">
       <Filter>MIPS\RiscV</Filter>
     </ClCompile>
-    <ClCompile Include="MIPS\RiscV\RiscVRegCacheFPU.cpp">
-      <Filter>MIPS\RiscV</Filter>
-    </ClCompile>
     <ClCompile Include="MIPS\RiscV\RiscVCompFPU.cpp">
       <Filter>MIPS\RiscV</Filter>
     </ClCompile>
@@ -1245,6 +1242,33 @@
     </ClCompile>
     <ClCompile Include="FrameTiming.cpp">
       <Filter>Core</Filter>
+    </ClCompile>
+    <ClCompile Include="MIPS\x86\X64IRRegCache.cpp">
+      <Filter>MIPS\x86</Filter>
+    </ClCompile>
+    <ClCompile Include="MIPS\x86\X64IRAsm.cpp">
+      <Filter>MIPS\x86</Filter>
+    </ClCompile>
+    <ClCompile Include="MIPS\x86\X64IRJit.cpp">
+      <Filter>MIPS\x86</Filter>
+    </ClCompile>
+    <ClCompile Include="MIPS\x86\X64IRCompBranch.cpp">
+      <Filter>MIPS\x86</Filter>
+    </ClCompile>
+    <ClCompile Include="MIPS\x86\X64IRCompFPU.cpp">
+      <Filter>MIPS\x86</Filter>
+    </ClCompile>
+    <ClCompile Include="MIPS\x86\X64IRCompLoadStore.cpp">
+      <Filter>MIPS\x86</Filter>
+    </ClCompile>
+    <ClCompile Include="MIPS\x86\X64IRCompSystem.cpp">
+      <Filter>MIPS\x86</Filter>
+    </ClCompile>
+    <ClCompile Include="MIPS\x86\X64IRCompVec.cpp">
+      <Filter>MIPS\x86</Filter>
+    </ClCompile>
+    <ClCompile Include="MIPS\x86\X64IRCompALU.cpp">
+      <Filter>MIPS\x86</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -1998,9 +2022,6 @@
     <ClInclude Include="MIPS\RiscV\RiscVRegCache.h">
       <Filter>MIPS\RiscV</Filter>
     </ClInclude>
-    <ClInclude Include="MIPS\RiscV\RiscVRegCacheFPU.h">
-      <Filter>MIPS\RiscV</Filter>
-    </ClInclude>
     <ClInclude Include="MIPS\IR\IRAnalysis.h">
       <Filter>MIPS\IR</Filter>
     </ClInclude>
@@ -2009,6 +2030,12 @@
     </ClInclude>
     <ClInclude Include="FrameTiming.h">
       <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="MIPS\x86\X64IRRegCache.h">
+      <Filter>MIPS\x86</Filter>
+    </ClInclude>
+    <ClInclude Include="MIPS\x86\X64IRJit.h">
+      <Filter>MIPS\x86</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

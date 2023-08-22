@@ -1177,6 +1177,7 @@ static const char *CPUCoreAsString(int core) {
 	case 0: return "Interpreter";
 	case 1: return "JIT";
 	case 2: return "IR Interpreter";
+	case 3: return "JIT Using IR";
 	default: return "N/A";
 	}
 }

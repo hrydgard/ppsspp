@@ -481,7 +481,7 @@ static void check_variables(CoreParameter &coreParam)
       if (!strcmp(var.value, "JIT"))
          g_Config.iCpuCore = (int)CPUCore::JIT;
       else if (!strcmp(var.value, "IR JIT"))
-         g_Config.iCpuCore = (int)CPUCore::IR_JIT;
+         g_Config.iCpuCore = (int)CPUCore::IR_INTERPRETER;
       else if (!strcmp(var.value, "Interpreter"))
          g_Config.iCpuCore = (int)CPUCore::INTERPRETER;
    }
@@ -490,7 +490,7 @@ static void check_variables(CoreParameter &coreParam)
        // Just gonna force it to the IR interpreter on startup.
        // We don't hide the option, but we make sure it's off on bootup. In case someone wants
        // to experiment in future iOS versions or something...
-       g_Config.iCpuCore = (int)CPUCore::IR_JIT;
+       g_Config.iCpuCore = (int)CPUCore::IR_INTERPRETER;
    }
 #else
    g_Config.iCpuCore = (int)CPUCore::INTERPRETER;

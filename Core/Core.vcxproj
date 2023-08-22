@@ -605,7 +605,14 @@
     <ClCompile Include="MIPS\RiscV\RiscVCompVec.cpp" />
     <ClCompile Include="MIPS\RiscV\RiscVJit.cpp" />
     <ClCompile Include="MIPS\RiscV\RiscVRegCache.cpp" />
-    <ClCompile Include="MIPS\RiscV\RiscVRegCacheFPU.cpp" />
+    <ClCompile Include="MIPS\x86\X64IRAsm.cpp" />
+    <ClCompile Include="MIPS\x86\X64IRCompALU.cpp" />
+    <ClCompile Include="MIPS\x86\X64IRCompBranch.cpp" />
+    <ClCompile Include="MIPS\x86\X64IRCompFPU.cpp" />
+    <ClCompile Include="MIPS\x86\X64IRCompLoadStore.cpp" />
+    <ClCompile Include="MIPS\x86\X64IRCompSystem.cpp" />
+    <ClCompile Include="MIPS\x86\X64IRCompVec.cpp" />
+    <ClCompile Include="MIPS\x86\X64IRJit.cpp" />
     <ClCompile Include="Replay.cpp" />
     <ClCompile Include="Compatibility.cpp" />
     <ClCompile Include="Config.cpp" />
@@ -1092,6 +1099,7 @@
     </ClCompile>
     <ClCompile Include="WaveFile.cpp" />
     <ClCompile Include="WebServer.cpp" />
+    <ClCompile Include="MIPS\x86\X64IRRegCache.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\ext\cityhash\city.h" />
@@ -1179,7 +1187,7 @@
     <ClInclude Include="MIPS\MIPSVFPUFallbacks.h" />
     <ClInclude Include="MIPS\RiscV\RiscVJit.h" />
     <ClInclude Include="MIPS\RiscV\RiscVRegCache.h" />
-    <ClInclude Include="MIPS\RiscV\RiscVRegCacheFPU.h" />
+    <ClInclude Include="MIPS\x86\X64IRJit.h" />
     <ClInclude Include="Replay.h" />
     <ClInclude Include="Compatibility.h" />
     <ClInclude Include="Config.h" />
@@ -1431,6 +1439,7 @@
     <ClInclude Include="..\ext\xxhash.h" />
     <ClInclude Include="WaveFile.h" />
     <ClInclude Include="WebServer.h" />
+    <ClInclude Include="MIPS\x86\X64IRRegCache.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\ext\cityhash\COPYING" />

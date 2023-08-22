@@ -1611,6 +1611,17 @@ list(APPEND CoreExtra
 	Core/MIPS/x86/RegCache.h
 	Core/MIPS/x86/RegCacheFPU.cpp
 	Core/MIPS/x86/RegCacheFPU.h
+	Core/MIPS/x86/X64IRAsm.cpp
+	Core/MIPS/x86/X64IRCompALU.cpp
+	Core/MIPS/x86/X64IRCompBranch.cpp
+	Core/MIPS/x86/X64IRCompFPU.cpp
+	Core/MIPS/x86/X64IRCompLoadStore.cpp
+	Core/MIPS/x86/X64IRCompSystem.cpp
+	Core/MIPS/x86/X64IRCompVec.cpp
+	Core/MIPS/x86/X64IRJit.cpp
+	Core/MIPS/x86/X64IRJit.h
+	Core/MIPS/x86/X64IRRegCache.cpp
+	Core/MIPS/x86/X64IRRegCache.h
 	GPU/Common/VertexDecoderX86.cpp
 	GPU/Software/DrawPixelX86.cpp
 	GPU/Software/SamplerX86.cpp
@@ -1633,8 +1644,6 @@ list(APPEND CoreExtra
 	Core/MIPS/RiscV/RiscVJit.h
 	Core/MIPS/RiscV/RiscVRegCache.cpp
 	Core/MIPS/RiscV/RiscVRegCache.h
-	Core/MIPS/RiscV/RiscVRegCacheFPU.cpp
-	Core/MIPS/RiscV/RiscVRegCacheFPU.h
 	GPU/Common/VertexDecoderRiscV.cpp
 )
 

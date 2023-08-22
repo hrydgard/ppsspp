@@ -177,5 +177,5 @@ namespace MIPSComp {
 
 	void DoDummyJitState(PointerWrap &p);
 
-	JitInterface *CreateNativeJit(MIPSState *mipsState);
+	JitInterface *CreateNativeJit(MIPSState *mipsState, bool useIR);
 }

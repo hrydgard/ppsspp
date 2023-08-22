@@ -365,8 +365,10 @@ int main(int argc, const char* argv[])
 			cpuCore = CPUCore::INTERPRETER;
 		else if (!strcmp(argv[i], "-j"))
 			cpuCore = CPUCore::JIT;
+		else if (!strcmp(argv[i], "--jit-ir"))
+			cpuCore = CPUCore::JIT_IR;
 		else if (!strcmp(argv[i], "--ir"))
-			cpuCore = CPUCore::IR_JIT;
+			cpuCore = CPUCore::IR_INTERPRETER;
 		else if (!strcmp(argv[i], "-c") || !strcmp(argv[i], "--compare"))
 			testOptions.compare = true;
 		else if (!strcmp(argv[i], "--bench"))

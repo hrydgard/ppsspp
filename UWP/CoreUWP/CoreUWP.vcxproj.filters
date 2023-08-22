@@ -189,6 +189,33 @@
     <ClCompile Include="..\..\Core\MIPS\x86\RegCacheFPU.cpp">
       <Filter>MIPS\x86</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\Core\MIPS\x86\X64IRAsm.cpp">
+      <Filter>MIPS\x86</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Core\MIPS\x86\X64IRCompALU.cpp">
+      <Filter>MIPS\x86</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Core\MIPS\x86\X64IRCompBranch.cpp">
+      <Filter>MIPS\x86</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Core\MIPS\x86\X64IRCompFPU.cpp">
+      <Filter>MIPS\x86</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Core\MIPS\x86\X64IRCompLoadStore.cpp">
+      <Filter>MIPS\x86</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Core\MIPS\x86\X64IRCompSystem.cpp">
+      <Filter>MIPS\x86</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Core\MIPS\x86\X64IRCompVec.cpp">
+      <Filter>MIPS\x86</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Core\MIPS\x86\X64IRJit.cpp">
+      <Filter>MIPS\x86</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Core\MIPS\x86\X64IRRegCache.cpp">
+      <Filter>MIPS\x86</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\Core\FileSystems\BlobFileSystem.cpp">
       <Filter>FileSystems</Filter>
     </ClCompile>
@@ -1198,6 +1225,12 @@
       <Filter>MIPS\x86</Filter>
     </ClInclude>
     <ClInclude Include="..\..\Core\MIPS\x86\RegCacheFPU.h">
+      <Filter>MIPS\x86</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Core\MIPS\x86\X64IRJit.h">
+      <Filter>MIPS\x86</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Core\MIPS\x86\X64IRRegCache.h">
       <Filter>MIPS\x86</Filter>
     </ClInclude>
     <ClInclude Include="..\..\Core\FileSystems\BlobFileSystem.h">
