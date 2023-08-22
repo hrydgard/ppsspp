@@ -46,7 +46,7 @@ void X64IRRegCache::Init(XEmitter *emitter) {
 	emit_ = emitter;
 }
 
-const int *X64IRRegCache::GetAllocationOrder(MIPSLoc type, int &count, int &base) const {
+const int *X64IRRegCache::GetAllocationOrder(MIPSLoc type, MIPSMap flags, int &count, int &base) const {
 	if (type == MIPSLoc::REG) {
 		base = RAX;
 
@@ -143,7 +143,7 @@ X64Reg X64IRRegCache::TryMapTempImm(IRReg r) {
 }
 
 X64Reg X64IRRegCache::GetAndLockTempR() {
-	X64Reg reg = FromNativeReg(AllocateReg(MIPSLoc::REG));
+	X64Reg reg = FromNativeReg(AllocateReg(MIPSLoc::REG, MIPSMap::INIT));
 	if (reg != INVALID_REG) {
 		nr[reg].tempLockIRIndex = irIndex_;
 	}

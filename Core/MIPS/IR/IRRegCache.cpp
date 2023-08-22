@@ -330,18 +330,18 @@ void IRNativeRegCacheBase::MarkGPRAsPointerDirty(IRReg gpr) {
 	// Stays pointerified or REG_AS_PTR.
 }
 
-IRNativeReg IRNativeRegCacheBase::AllocateReg(MIPSLoc type) {
+IRNativeReg IRNativeRegCacheBase::AllocateReg(MIPSLoc type, MIPSMap flags) {
 	_dbg_assert_(type == MIPSLoc::REG || type == MIPSLoc::FREG || type == MIPSLoc::VREG);
 
-	IRNativeReg nreg = FindFreeReg(type);
+	IRNativeReg nreg = FindFreeReg(type, flags);
 	if (nreg != -1)
 		return nreg;
 
 	// Still nothing. Let's spill a reg and goto 10.
 	bool clobbered;
-	IRNativeReg bestToSpill = FindBestToSpill(type, true, &clobbered);
+	IRNativeReg bestToSpill = FindBestToSpill(type, flags, true, &clobbered);
 	if (bestToSpill == -1) {
-		bestToSpill = FindBestToSpill(type, false, &clobbered);
+		bestToSpill = FindBestToSpill(type, flags, false, &clobbered);
 	}
 
 	if (bestToSpill != -1) {
@@ -351,7 +351,7 @@ IRNativeReg IRNativeRegCacheBase::AllocateReg(MIPSLoc type) {
 			FlushNativeReg(bestToSpill);
 		}
 		// Now one must be free.
-		return FindFreeReg(type);
+		return FindFreeReg(type, flags);
 	}
 
 	// Uh oh, we have all of them spilllocked....
@@ -360,9 +360,9 @@ IRNativeReg IRNativeRegCacheBase::AllocateReg(MIPSLoc type) {
 	return -1;
 }
 
-IRNativeReg IRNativeRegCacheBase::FindFreeReg(MIPSLoc type) const {
+IRNativeReg IRNativeRegCacheBase::FindFreeReg(MIPSLoc type, MIPSMap flags) const {
 	int allocCount = 0, base = 0;
-	const int *allocOrder = GetAllocationOrder(type, allocCount, base);
+	const int *allocOrder = GetAllocationOrder(type, flags, allocCount, base);
 
 	for (int i = 0; i < allocCount; i++) {
 		IRNativeReg nreg = IRNativeReg(allocOrder[i] - base);
@@ -375,9 +375,9 @@ IRNativeReg IRNativeRegCacheBase::FindFreeReg(MIPSLoc type) const {
 	return -1;
 }
 
-IRNativeReg IRNativeRegCacheBase::FindBestToSpill(MIPSLoc type, bool unusedOnly, bool *clobbered) const {
+IRNativeReg IRNativeRegCacheBase::FindBestToSpill(MIPSLoc type, MIPSMap flags, bool unusedOnly, bool *clobbered) const {
 	int allocCount = 0, base = 0;
-	const int *allocOrder = GetAllocationOrder(type, allocCount, base);
+	const int *allocOrder = GetAllocationOrder(type, flags, allocCount, base);
 
 	static const int UNUSED_LOOKAHEAD_OPS = 30;
 
@@ -670,7 +670,7 @@ IRNativeReg IRNativeRegCacheBase::MapWithTemp(const IRInst &inst, MIPSLoc type) 
 
 	ApplyMapping(mapping, 3);
 	// Grab a temp while things are spill locked.
-	IRNativeReg temp = AllocateReg(type);
+	IRNativeReg temp = AllocateReg(type, MIPSMap::INIT);
 	CleanupMapping(mapping, 3);
 	return temp;
 }
@@ -829,22 +829,22 @@ IRNativeReg IRNativeRegCacheBase::MapNativeReg(MIPSLoc type, IRReg first, int la
 		case MIPSLoc::REG_AS_PTR:
 		case MIPSLoc::REG:
 			if (type != MIPSLoc::REG)
-				nreg = AllocateReg(type);
+				nreg = AllocateReg(type, flags);
 			break;
 
 		case MIPSLoc::FREG:
 			if (type != MIPSLoc::FREG)
-				nreg = AllocateReg(type);
+				nreg = AllocateReg(type, flags);
 			break;
 
 		case MIPSLoc::VREG:
 			if (type != MIPSLoc::VREG)
-				nreg = AllocateReg(type);
+				nreg = AllocateReg(type, flags);
 			break;
 
 		case MIPSLoc::IMM:
 		case MIPSLoc::MEM:
-			nreg = AllocateReg(type);
+			nreg = AllocateReg(type, flags);
 			break;
 		}
 	}

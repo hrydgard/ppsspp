@@ -73,7 +73,7 @@ public:
 protected:
 	void SetupInitialRegs() override;
 	const StaticAllocation *GetStaticAllocations(int &count) const override;
-	const int *GetAllocationOrder(MIPSLoc type, int &count, int &base) const override;
+	const int *GetAllocationOrder(MIPSLoc type, MIPSMap flags, int &count, int &base) const override;
 	void AdjustNativeRegAsPtr(IRNativeReg nreg, bool state) override;
 
 	void LoadNativeReg(IRNativeReg nreg, IRReg first, int lanes) override;
