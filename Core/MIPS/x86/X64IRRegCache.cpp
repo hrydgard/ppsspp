@@ -191,9 +191,9 @@ X64Reg X64IRRegCache::MapFPR(IRReg mipsReg, MIPSMap mapFlags) {
 }
 
 X64Reg X64IRRegCache::MapVec4(IRReg first, MIPSMap mapFlags) {
-	_dbg_assert_(IsValidFPR(mipsReg));
-	_dbg_assert_((mipsReg & 3) == 0);
-	_dbg_assert_(mr[mipsReg + 32].loc == MIPSLoc::MEM || mr[mipsReg + 32].loc == MIPSLoc::FREG);
+	_dbg_assert_(IsValidFPR(first));
+	_dbg_assert_((first & 3) == 0);
+	_dbg_assert_(mr[first + 32].loc == MIPSLoc::MEM || mr[first + 32].loc == MIPSLoc::FREG);
 
 	IRNativeReg nreg = MapNativeReg(MIPSLoc::FREG, first + 32, 4, mapFlags);
 	if (nreg != -1)
