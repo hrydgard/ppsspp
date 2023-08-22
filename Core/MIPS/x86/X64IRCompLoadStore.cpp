@@ -180,8 +180,11 @@ void X64JitBackend::CompIR_Store(IRInst inst) {
 	regs_.SpillLockGPR(inst.src3, inst.src1);
 	OpArg addrArg = PrepareSrc1Address(inst);
 
+	// i386 can only use certain regs for 8-bit operations.
+	X64Map valueFlags = inst.op == IROp::Store8 ? X64Map::LOW_SUBREG : X64Map::NONE;
+
 	OpArg valueArg;
-	X64Reg valueReg = regs_.TryMapTempImm(inst.src3);
+	X64Reg valueReg = regs_.TryMapTempImm(inst.src3, valueFlags);
 	if (valueReg != INVALID_REG) {
 		valueArg = R(valueReg);
 	} else if (regs_.IsGPRImm(inst.src3)) {
@@ -195,7 +198,7 @@ void X64JitBackend::CompIR_Store(IRInst inst) {
 			break;
 		}
 	} else {
-		valueArg = R(regs_.MapGPR(inst.src3));
+		valueArg = R(regs_.MapGPR(inst.src3, MIPSMap::INIT | valueFlags));
 	}
 
 	// TODO: Safe memory?  Or enough to have crash handler + validate?

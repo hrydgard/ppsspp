@@ -65,7 +65,15 @@ const int *X64IRRegCache::GetAllocationOrder(MIPSLoc type, MIPSMap flags, int &c
 #endif
 		};
 
-#if !PPSSPP_ARCH(X86)
+#if PPSSPP_ARCH(X86)
+		if ((flags & X64Map::LOW_SUBREG) == X64Map::LOW_SUBREG) {
+			static const int lowSubRegAllocationOrder[] = {
+				EDX, EBX, ECX,
+			};
+			count = ARRAY_SIZE(lowSubRegAllocationOrder);
+			return lowSubRegAllocationOrder;
+		}
+#else
 		if (jo_->reserveR15ForAsm) {
 			count = ARRAY_SIZE(allocationOrder) - 1;
 			return allocationOrder;
@@ -122,11 +130,17 @@ void X64IRRegCache::FlushBeforeCall() {
 #endif
 }
 
-X64Reg X64IRRegCache::TryMapTempImm(IRReg r) {
+X64Reg X64IRRegCache::TryMapTempImm(IRReg r, X64Map flags) {
 	_dbg_assert_(IsValidGPR(r));
+
+	auto canUseReg = [flags](X64Reg r) {
+		return (flags & X64Map::LOW_SUBREG) != X64Map::LOW_SUBREG || HasLowSubregister(r);
+	};
+
 	// If already mapped, no need for a temporary.
 	if (IsGPRMapped(r)) {
-		return RX(r);
+		if (canUseReg(RX(r)))
+			return RX(r);
 	}
 
 	if (mr[r].loc == MIPSLoc::IMM) {
@@ -134,7 +148,8 @@ X64Reg X64IRRegCache::TryMapTempImm(IRReg r) {
 		for (int i = 0; i < TOTAL_MAPPABLE_IRREGS; ++i) {
 			if (mr[i].loc == MIPSLoc::REG_IMM && mr[i].imm == mr[r].imm) {
 				// Awesome, let's just use this reg.
-				return FromNativeReg(mr[i].nReg);
+				if (canUseReg(FromNativeReg(mr[i].nReg)))
+					return FromNativeReg(mr[i].nReg);
 			}
 		}
 	}
@@ -156,6 +171,11 @@ X64Reg X64IRRegCache::MapWithFPRTemp(IRInst &inst) {
 
 X64Reg X64IRRegCache::MapGPR(IRReg mipsReg, MIPSMap mapFlags) {
 	_dbg_assert_(IsValidGPR(mipsReg));
+
+	if ((mapFlags & X64Map::LOW_SUBREG) == X64Map::LOW_SUBREG && IsGPRMapped(mipsReg) && !HasLowSubregister(RX(mipsReg))) {
+		// Unfortunate.  For now, let's flush it.  We'll realloc a better one.
+		FlushNativeReg(mr[mipsReg].nReg);
+	}
 
 	// Okay, not mapped, so we need to allocate an RV register.
 	IRNativeReg nreg = MapNativeReg(MIPSLoc::REG, mipsReg, 1, mapFlags);
@@ -334,6 +354,15 @@ X64Reg X64IRRegCache::FX(IRReg mipsReg) {
 		ERROR_LOG_REPORT(JIT, "Reg %i not in x64 reg", mipsReg);
 		return INVALID_REG;  // BAAAD
 	}
+}
+
+bool X64IRRegCache::HasLowSubregister(Gen::X64Reg reg) {
+#if !PPSSPP_ARCH(AMD64)
+	// Can't use ESI or EDI (which we use), no 8-bit versions.  Only these.
+	return reg == EAX || reg == EBX || reg == ECX || reg == EDX;
+#else
+	return true;
+#endif
 }
 
 #endif
