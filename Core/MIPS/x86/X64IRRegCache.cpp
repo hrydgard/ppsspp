@@ -46,7 +46,7 @@ void X64IRRegCache::Init(XEmitter *emitter) {
 	emit_ = emitter;
 }
 
-const int *X64IRRegCache::GetAllocationOrder(MIPSLoc type, int &count, int &base) const {
+const int *X64IRRegCache::GetAllocationOrder(MIPSLoc type, MIPSMap flags, int &count, int &base) const {
 	if (type == MIPSLoc::REG) {
 		base = RAX;
 
@@ -61,11 +61,19 @@ const int *X64IRRegCache::GetAllocationOrder(MIPSLoc type, int &count, int &base
 			// Intentionally last.
 			R15,
 #elif PPSSPP_ARCH(X86)
-			ESI, EDI, EDX, ECX, EBX,
+			ESI, EDI, EDX, EBX, ECX,
 #endif
 		};
 
-#if !PPSSPP_ARCH(X86)
+#if PPSSPP_ARCH(X86)
+		if ((flags & X64Map::LOW_SUBREG) == X64Map::LOW_SUBREG) {
+			static const int lowSubRegAllocationOrder[] = {
+				EDX, EBX, ECX,
+			};
+			count = ARRAY_SIZE(lowSubRegAllocationOrder);
+			return lowSubRegAllocationOrder;
+		}
+#else
 		if (jo_->reserveR15ForAsm) {
 			count = ARRAY_SIZE(allocationOrder) - 1;
 			return allocationOrder;
@@ -79,9 +87,9 @@ const int *X64IRRegCache::GetAllocationOrder(MIPSLoc type, int &count, int &base
 		// TODO: Might have to change this if we can't live without dedicated temps.
 		static const int allocationOrder[] = {
 #if PPSSPP_ARCH(AMD64)
-		XMM6, XMM7, XMM8, XMM9, XMM10, XMM11, XMM12, XMM13, XMM14, XMM15, XMM0, XMM1, XMM2, XMM3, XMM4, XMM5
+		XMM6, XMM7, XMM8, XMM9, XMM10, XMM11, XMM12, XMM13, XMM14, XMM15, XMM1, XMM2, XMM3, XMM4, XMM5, XMM0,
 #elif PPSSPP_ARCH(X86)
-		XMM0, XMM1, XMM2, XMM3, XMM4, XMM5, XMM6, XMM7,
+		XMM1, XMM2, XMM3, XMM4, XMM5, XMM6, XMM7, XMM0,
 #endif
 		};
 
@@ -122,11 +130,17 @@ void X64IRRegCache::FlushBeforeCall() {
 #endif
 }
 
-X64Reg X64IRRegCache::TryMapTempImm(IRReg r) {
+X64Reg X64IRRegCache::TryMapTempImm(IRReg r, X64Map flags) {
 	_dbg_assert_(IsValidGPR(r));
+
+	auto canUseReg = [flags](X64Reg r) {
+		return (flags & X64Map::LOW_SUBREG) != X64Map::LOW_SUBREG || HasLowSubregister(r);
+	};
+
 	// If already mapped, no need for a temporary.
 	if (IsGPRMapped(r)) {
-		return RX(r);
+		if (canUseReg(RX(r)))
+			return RX(r);
 	}
 
 	if (mr[r].loc == MIPSLoc::IMM) {
@@ -134,7 +148,8 @@ X64Reg X64IRRegCache::TryMapTempImm(IRReg r) {
 		for (int i = 0; i < TOTAL_MAPPABLE_IRREGS; ++i) {
 			if (mr[i].loc == MIPSLoc::REG_IMM && mr[i].imm == mr[r].imm) {
 				// Awesome, let's just use this reg.
-				return FromNativeReg(mr[i].nReg);
+				if (canUseReg(FromNativeReg(mr[i].nReg)))
+					return FromNativeReg(mr[i].nReg);
 			}
 		}
 	}
@@ -143,7 +158,7 @@ X64Reg X64IRRegCache::TryMapTempImm(IRReg r) {
 }
 
 X64Reg X64IRRegCache::GetAndLockTempR() {
-	X64Reg reg = FromNativeReg(AllocateReg(MIPSLoc::REG));
+	X64Reg reg = FromNativeReg(AllocateReg(MIPSLoc::REG, MIPSMap::INIT));
 	if (reg != INVALID_REG) {
 		nr[reg].tempLockIRIndex = irIndex_;
 	}
@@ -334,6 +349,15 @@ X64Reg X64IRRegCache::FX(IRReg mipsReg) {
 		ERROR_LOG_REPORT(JIT, "Reg %i not in x64 reg", mipsReg);
 		return INVALID_REG;  // BAAAD
 	}
+}
+
+bool X64IRRegCache::HasLowSubregister(Gen::X64Reg reg) {
+#if !PPSSPP_ARCH(AMD64)
+	// Can't use ESI or EDI (which we use), no 8-bit versions.  Only these.
+	return reg == EAX || reg == EBX || reg == ECX || reg == EDX;
+#else
+	return true;
+#endif
 }
 
 #endif

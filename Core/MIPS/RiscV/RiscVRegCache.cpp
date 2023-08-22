@@ -55,7 +55,7 @@ void RiscVRegCache::SetupInitialRegs() {
 	mrInitial_[MIPS_REG_ZERO].isStatic = true;
 }
 
-const int *RiscVRegCache::GetAllocationOrder(MIPSLoc type, int &count, int &base) const {
+const int *RiscVRegCache::GetAllocationOrder(MIPSLoc type, MIPSMap flags, int &count, int &base) const {
 	base = X0;
 
 	if (type == MIPSLoc::REG) {
@@ -236,7 +236,7 @@ RiscVReg RiscVRegCache::TryMapTempImm(IRReg r) {
 }
 
 RiscVReg RiscVRegCache::GetAndLockTempR() {
-	RiscVReg reg = (RiscVReg)AllocateReg(MIPSLoc::REG);
+	RiscVReg reg = (RiscVReg)AllocateReg(MIPSLoc::REG, MIPSMap::INIT);
 	if (reg != INVALID_REG) {
 		nr[reg].tempLockIRIndex = irIndex_;
 	}
@@ -298,6 +298,13 @@ void RiscVRegCache::AdjustNativeRegAsPtr(IRNativeReg nreg, bool state) {
 		emit_->SUB(r, r, MEMBASEREG);
 		nr[nreg].normalized32 = false;
 	}
+}
+
+bool RiscVRegCache::IsNativeRegCompatible(IRNativeReg nreg, MIPSLoc type, MIPSMap flags) {
+	// No special flags except VREG, skip the check for a little speed.
+	if (type != MIPSLoc::VREG)
+		return true;
+	return IRNativeRegCacheBase::IsNativeRegCompatible(nreg, type, flags);
 }
 
 void RiscVRegCache::LoadNativeReg(IRNativeReg nreg, IRReg first, int lanes) {

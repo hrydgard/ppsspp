@@ -74,6 +74,7 @@ private:
 };
 
 // Initing is the default so the flag is reversed.
+// 8 bits - upper 4 are reserved for backend purposes.
 enum class MIPSMap : uint8_t {
 	INIT = 0,
 	DIRTY = 1,
@@ -191,15 +192,16 @@ public:
 
 protected:
 	virtual void SetupInitialRegs();
-	virtual const int *GetAllocationOrder(MIPSLoc type, int &count, int &base) const = 0;
+	virtual const int *GetAllocationOrder(MIPSLoc type, MIPSMap flags, int &count, int &base) const = 0;
 	virtual const StaticAllocation *GetStaticAllocations(int &count) const {
 		count = 0;
 		return nullptr;
 	}
 
-	IRNativeReg AllocateReg(MIPSLoc type);
-	IRNativeReg FindFreeReg(MIPSLoc type) const;
-	IRNativeReg FindBestToSpill(MIPSLoc type, bool unusedOnly, bool *clobbered) const;
+	IRNativeReg AllocateReg(MIPSLoc type, MIPSMap flags);
+	IRNativeReg FindFreeReg(MIPSLoc type, MIPSMap flags) const;
+	IRNativeReg FindBestToSpill(MIPSLoc type, MIPSMap flags, bool unusedOnly, bool *clobbered) const;
+	virtual bool IsNativeRegCompatible(IRNativeReg nreg, MIPSLoc type, MIPSMap flags);
 	virtual void DiscardNativeReg(IRNativeReg nreg);
 	virtual void FlushNativeReg(IRNativeReg nreg);
 	virtual void DiscardReg(IRReg mreg);

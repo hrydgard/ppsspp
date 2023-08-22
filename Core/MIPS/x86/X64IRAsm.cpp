@@ -54,13 +54,13 @@ void X64JitBackend::GenerateFixedCode(MIPSState *mipsState) {
 
 	if (jo.useStaticAlloc && false) {
 		saveStaticRegisters_ = AlignCode16();
-		//MOV(32, MDisp(CTXREG, -128 + offsetof(MIPSState, downcount)), R(DOWNCOUNTREG));
+		//MOV(32, MDisp(CTXREG, downcountOffset), R(DOWNCOUNTREG));
 		//regs_.EmitSaveStaticRegisters();
 		RET();
 
 		loadStaticRegisters_ = AlignCode16();
 		//regs_.EmitLoadStaticRegisters();
-		//MOV(32, R(DOWNCOUNTREG), MDisp(CTXREG, -128 + offsetof(MIPSState, downcount)));
+		//MOV(32, R(DOWNCOUNTREG), MDisp(CTXREG, downcountOffset));
 		RET();
 
 		start = saveStaticRegisters_;
@@ -71,22 +71,22 @@ void X64JitBackend::GenerateFixedCode(MIPSState *mipsState) {
 
 	restoreRoundingMode_ = AlignCode16();
 	{
-		STMXCSR(MDisp(CTXREG, -128 + offsetof(MIPSState, temp)));
+		STMXCSR(MDisp(CTXREG, tempOffset));
 		// Clear the rounding mode and flush-to-zero bits back to 0.
-		AND(32, MDisp(CTXREG, -128 + offsetof(MIPSState, temp)), Imm32(~(7 << 13)));
-		LDMXCSR(MDisp(CTXREG, -128 + offsetof(MIPSState, temp)));
+		AND(32, MDisp(CTXREG, tempOffset), Imm32(~(7 << 13)));
+		LDMXCSR(MDisp(CTXREG, tempOffset));
 		RET();
 	}
 
 	applyRoundingMode_ = AlignCode16();
 	{
-		MOV(32, R(SCRATCH1), MDisp(CTXREG, -128 + offsetof(MIPSState, fcr31)));
+		MOV(32, R(SCRATCH1), MDisp(CTXREG, fcr31Offset));
 		AND(32, R(SCRATCH1), Imm32(0x01000003));
 
 		// If it's 0 (nearest + no flush0), we don't actually bother setting - we cleared the rounding
 		// mode out in restoreRoundingMode anyway. This is the most common.
 		FixupBranch skip = J_CC(CC_Z);
-		STMXCSR(MDisp(CTXREG, -128 + offsetof(MIPSState, temp)));
+		STMXCSR(MDisp(CTXREG, tempOffset));
 
 		// The MIPS bits don't correspond exactly, so we have to adjust.
 		// 0 -> 0 (skip2), 1 -> 3, 2 -> 2 (skip2), 3 -> 1
@@ -99,15 +99,15 @@ void X64JitBackend::GenerateFixedCode(MIPSState *mipsState) {
 		SHL(32, R(SCRATCH1), Imm8(13));
 		// Before setting new bits, we must clear the old ones.
 		// Clearing bits 13-14 (rounding mode) and 15 (flush to zero.)
-		AND(32, MDisp(CTXREG, -128 + offsetof(MIPSState, temp)), Imm32(~(7 << 13)));
-		OR(32, MDisp(CTXREG, -128 + offsetof(MIPSState, temp)), R(SCRATCH1));
+		AND(32, MDisp(CTXREG, tempOffset), Imm32(~(7 << 13)));
+		OR(32, MDisp(CTXREG, tempOffset), R(SCRATCH1));
 
-		TEST(32, MDisp(CTXREG, -128 + offsetof(MIPSState, fcr31)), Imm32(1 << 24));
+		TEST(32, MDisp(CTXREG, fcr31Offset), Imm32(1 << 24));
 		FixupBranch skip3 = J_CC(CC_Z);
-		OR(32, MDisp(CTXREG, -128 + offsetof(MIPSState, temp)), Imm32(1 << 15));
+		OR(32, MDisp(CTXREG, tempOffset), Imm32(1 << 15));
 		SetJumpTarget(skip3);
 
-		LDMXCSR(MDisp(CTXREG, -128 + offsetof(MIPSState, temp)));
+		LDMXCSR(MDisp(CTXREG, tempOffset));
 		SetJumpTarget(skip);
 		RET();
 	}
@@ -151,7 +151,7 @@ void X64JitBackend::GenerateFixedCode(MIPSState *mipsState) {
 		FixupBranch badCoreState = J_CC(CC_NZ, true);
 
 		//CMP(32, R(DOWNCOUNTREG), Imm32(0));
-		CMP(32, MDisp(CTXREG, -128 + offsetof(MIPSState, downcount)), Imm32(0));
+		CMP(32, MDisp(CTXREG, downcountOffset), Imm32(0));
 		J_CC(CC_S, outerLoop_);
 		FixupBranch skipToRealDispatch = J();
 
@@ -162,7 +162,7 @@ void X64JitBackend::GenerateFixedCode(MIPSState *mipsState) {
 
 			// TODO: See if we can get the slice decrement to line up with IR.
 			//CMP(32, R(DOWNCOUNTREG), Imm32(0));
-			CMP(32, MDisp(CTXREG, -128 + offsetof(MIPSState, downcount)), Imm32(0));
+			CMP(32, MDisp(CTXREG, downcountOffset), Imm32(0));
 			FixupBranch bail = J_CC(CC_S, true);
 			SetJumpTarget(skipToRealDispatch);
 
@@ -176,7 +176,7 @@ void X64JitBackend::GenerateFixedCode(MIPSState *mipsState) {
 				else
 					ABI_CallFunctionAC(reinterpret_cast<void *>(&ShowPC), R(MEMBASEREG), (u32)jitbase);
 #else
-				ABI_CallFunctionCC(reinterpret_cast<void *>(&ShowPC), Menory::base, (u32)jitbase);
+				ABI_CallFunctionCC(reinterpret_cast<void *>(&ShowPC), (u32)Memory::base, (u32)GetBasePtr());
 #endif
 			}
 

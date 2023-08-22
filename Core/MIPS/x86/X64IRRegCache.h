@@ -36,6 +36,28 @@ const Gen::X64Reg CTXREG = Gen::EBP;
 #endif
 const Gen::X64Reg SCRATCH1 = Gen::EAX;
 
+static constexpr auto downcountOffset = offsetof(MIPSState, downcount) - 128;
+static constexpr auto tempOffset = offsetof(MIPSState, temp) - 128;
+static constexpr auto fcr31Offset = offsetof(MIPSState, fcr31) - 128;
+static constexpr auto pcOffset = offsetof(MIPSState, pc) - 128;
+
+enum class X64Map : uint8_t {
+	NONE = 0,
+	LOW_SUBREG = 0x10,
+};
+static inline MIPSMap operator |(const MIPSMap &lhs, const X64Map &rhs) {
+	return MIPSMap((uint8_t)lhs | (uint8_t)rhs);
+}
+static inline X64Map operator |(const X64Map &lhs, const X64Map &rhs) {
+	return X64Map((uint8_t)lhs | (uint8_t)rhs);
+}
+static inline X64Map operator &(const MIPSMap &lhs, const X64Map &rhs) {
+	return X64Map((uint8_t)lhs & (uint8_t)rhs);
+}
+static inline X64Map operator &(const X64Map &lhs, const X64Map &rhs) {
+	return X64Map((uint8_t)lhs & (uint8_t)rhs);
+}
+
 } // namespace X64IRJitConstants
 
 class X64IRRegCache : public IRNativeRegCacheBase {
@@ -45,7 +67,7 @@ public:
 	void Init(Gen::XEmitter *emitter);
 
 	// May fail and return INVALID_REG if it needs flushing.
-	Gen::X64Reg TryMapTempImm(IRReg);
+	Gen::X64Reg TryMapTempImm(IRReg, X64IRJitConstants::X64Map flags = X64IRJitConstants::X64Map::NONE);
 
 	// Returns an RV register containing the requested MIPS register.
 	Gen::X64Reg MapGPR(IRReg reg, MIPSMap mapFlags = MIPSMap::INIT);
@@ -65,8 +87,10 @@ public:
 	Gen::X64Reg RXPtr(IRReg preg); // Returns a cached register, if it has been mapped as a pointer
 	Gen::X64Reg FX(IRReg preg);
 
+	static bool HasLowSubregister(Gen::X64Reg reg);
+
 protected:
-	const int *GetAllocationOrder(MIPSLoc type, int &count, int &base) const override;
+	const int *GetAllocationOrder(MIPSLoc type, MIPSMap flags, int &count, int &base) const override;
 	void AdjustNativeRegAsPtr(IRNativeReg nreg, bool state) override;
 
 	void LoadNativeReg(IRNativeReg nreg, IRReg first, int lanes) override;

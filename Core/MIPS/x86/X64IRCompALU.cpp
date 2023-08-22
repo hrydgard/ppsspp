@@ -64,6 +64,7 @@ void X64JitBackend::CompIR_Arith(IRInst inst) {
 		if (regs_.IsGPRImm(inst.src1) && regs_.GetGPRImm(inst.src1) == 0) {
 			// TODO: Might be nice to have a pass to turn this into Neg.
 			// Special cased to avoid wasting a reg on zero.
+			regs_.SpillLockGPR(inst.dest, inst.src2);
 			regs_.MapGPR(inst.src2);
 			regs_.MapGPR(inst.dest, MIPSMap::NOINIT);
 			if (inst.dest != inst.src2)
@@ -285,11 +286,75 @@ void X64JitBackend::CompIR_Shift(IRInst inst) {
 	case IROp::Shr:
 	case IROp::Sar:
 	case IROp::Ror:
-	case IROp::ShlImm:
-	case IROp::ShrImm:
-	case IROp::SarImm:
-	case IROp::RorImm:
 		CompIR_Generic(inst);
+		break;
+
+	case IROp::ShlImm:
+		// Shouldn't happen, but let's be safe of any passes that modify the ops.
+		if (inst.src2 >= 32) {
+			regs_.SetGPRImm(inst.dest, 0);
+		} else if (inst.src2 == 0) {
+			if (inst.dest != inst.src1) {
+				regs_.Map(inst);
+				MOV(32, regs_.R(inst.dest), regs_.R(inst.src1));
+			}
+		} else {
+			regs_.Map(inst);
+			if (inst.dest != inst.src1)
+				MOV(32, regs_.R(inst.dest), regs_.R(inst.src1));
+			SHL(32, regs_.R(inst.dest), Imm8(inst.src2));
+		}
+		break;
+
+	case IROp::ShrImm:
+		// Shouldn't happen, but let's be safe of any passes that modify the ops.
+		if (inst.src2 >= 32) {
+			regs_.SetGPRImm(inst.dest, 0);
+		} else if (inst.src2 == 0) {
+			if (inst.dest != inst.src1) {
+				regs_.Map(inst);
+				MOV(32, regs_.R(inst.dest), regs_.R(inst.src1));
+			}
+		} else {
+			regs_.Map(inst);
+			if (inst.dest != inst.src1)
+				MOV(32, regs_.R(inst.dest), regs_.R(inst.src1));
+			SHR(32, regs_.R(inst.dest), Imm8(inst.src2));
+		}
+		break;
+
+	case IROp::SarImm:
+		// Shouldn't happen, but let's be safe of any passes that modify the ops.
+		if (inst.src2 >= 32) {
+			regs_.Map(inst);
+			if (inst.dest != inst.src1)
+				MOV(32, regs_.R(inst.dest), regs_.R(inst.src1));
+			SAR(32, regs_.R(inst.dest), Imm8(31));
+		} else if (inst.src2 == 0) {
+			if (inst.dest != inst.src1) {
+				regs_.Map(inst);
+				MOV(32, regs_.R(inst.dest), regs_.R(inst.src1));
+			}
+		} else {
+			regs_.Map(inst);
+			if (inst.dest != inst.src1)
+				MOV(32, regs_.R(inst.dest), regs_.R(inst.src1));
+			SAR(32, regs_.R(inst.dest), Imm8(inst.src2));
+		}
+		break;
+
+	case IROp::RorImm:
+		if (inst.src2 == 0) {
+			if (inst.dest != inst.src1) {
+				regs_.Map(inst);
+				MOV(32, regs_.R(inst.dest), regs_.R(inst.src1));
+			}
+		} else {
+			regs_.Map(inst);
+			if (inst.dest != inst.src1)
+				MOV(32, regs_.R(inst.dest), regs_.R(inst.src1));
+			ROR(32, regs_.R(inst.dest), Imm8(inst.src2 & 31));
+		}
 		break;
 
 	default:

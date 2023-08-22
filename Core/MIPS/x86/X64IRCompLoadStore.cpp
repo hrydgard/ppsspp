@@ -37,6 +37,42 @@ namespace MIPSComp {
 using namespace Gen;
 using namespace X64IRJitConstants;
 
+Gen::OpArg X64JitBackend::PrepareSrc1Address(IRInst inst) {
+	const IRMeta *m = GetIRMeta(inst.op);
+	bool readsFromSrc1 = inst.src1 == inst.src3 && (m->flags & (IRFLAG_SRC3 | IRFLAG_SRC3DST)) != 0;
+
+	OpArg addrArg;
+	if (inst.src1 == MIPS_REG_ZERO) {
+#ifdef MASKED_PSP_MEMORY
+		inst.constant &= Memory::MEMVIEW32_MASK;
+#endif
+#if PPSSPP_ARCH(AMD64)
+		addrArg = MDisp(MEMBASEREG, inst.constant & 0x7FFFFFFF);
+#else
+		addrArg = M(Memory::base + inst.constant);
+#endif
+	} else if ((jo.cachePointers || regs_.IsGPRMappedAsPointer(inst.src1)) && !readsFromSrc1) {
+		X64Reg src1 = regs_.MapGPRAsPointer(inst.src1);
+		addrArg = MDisp(src1, (int)inst.constant);
+	} else {
+		regs_.MapGPR(inst.src1);
+#ifdef MASKED_PSP_MEMORY
+		LEA(PTRBITS, SCRATCH1, MDisp(regs_.RX(inst.src1), (int)inst.constant));
+		AND(PTRBITS, R(SCRATCH1), Imm32(Memory::MEMVIEW32_MASK));
+		ADD(PTRBITS, R(SCRATCH1), ImmPtr(Memory::base));
+		addrArg = MatR(SCRATCH1);
+#else
+#if PPSSPP_ARCH(AMD64)
+		addrArg = MComplex(MEMBASEREG, regs_.RX(inst.src1), SCALE_1, (int)inst.constant);
+#else
+		addrArg = MDisp(regs_.RX(inst.src1), Memory::base + inst.constant);
+#endif
+#endif
+	}
+
+	return addrArg;
+}
+
 void X64JitBackend::CompIR_CondStore(IRInst inst) {
 	CONDITIONAL_DISABLE;
 
@@ -83,23 +119,7 @@ void X64JitBackend::CompIR_Load(IRInst inst) {
 	CONDITIONAL_DISABLE;
 
 	regs_.SpillLockGPR(inst.dest, inst.src1);
-	OpArg addrArg;
-	if (inst.src1 == MIPS_REG_ZERO) {
-#ifdef MASKED_PSP_MEMORY
-		inst.constant &= Memory::MEMVIEW32_MASK;
-#endif
-#if PPSSPP_ARCH(AMD64)
-		addrArg = MDisp(MEMBASEREG, inst.constant & 0x7FFFFFFF);
-#else
-		addrArg = M(Memory::base + inst.constant);
-#endif
-	} else if (jo.cachePointers || regs_.IsGPRMappedAsPointer(inst.src1)) {
-		X64Reg src1 = regs_.MapGPRAsPointer(inst.src1);
-		addrArg = MDisp(src1, inst.constant & 0x7FFFFFFF);
-	} else {
-		regs_.MapGPR(inst.src1);
-		addrArg = MComplex(MEMBASEREG, regs_.RX(inst.src1), SCALE_1, inst.constant & 0x7FFFFFFF);
-	}
+	OpArg addrArg = PrepareSrc1Address(inst);
 	// With NOINIT, MapReg won't subtract MEMBASEREG even if dest == src1.
 	regs_.MapGPR(inst.dest, MIPSMap::NOINIT);
 
@@ -158,26 +178,13 @@ void X64JitBackend::CompIR_Store(IRInst inst) {
 	CONDITIONAL_DISABLE;
 
 	regs_.SpillLockGPR(inst.src3, inst.src1);
-	OpArg addrArg;
-	if (inst.src1 == MIPS_REG_ZERO) {
-#ifdef MASKED_PSP_MEMORY
-		inst.constant &= Memory::MEMVIEW32_MASK;
-#endif
-#if PPSSPP_ARCH(AMD64)
-		addrArg = MDisp(MEMBASEREG, inst.constant & 0x7FFFFFFF);
-#else
-		addrArg = M(Memory::base + inst.constant);
-#endif
-	} else if ((jo.cachePointers || regs_.IsGPRMappedAsPointer(inst.src1)) && inst.src3 != inst.src1) {
-		X64Reg src1 = regs_.MapGPRAsPointer(inst.src1);
-		addrArg = MDisp(src1, inst.constant & 0x7FFFFFFF);
-	} else {
-		regs_.MapGPR(inst.src1);
-		addrArg = MComplex(MEMBASEREG, regs_.RX(inst.src1), SCALE_1, inst.constant & 0x7FFFFFFF);
-	}
+	OpArg addrArg = PrepareSrc1Address(inst);
+
+	// i386 can only use certain regs for 8-bit operations.
+	X64Map valueFlags = inst.op == IROp::Store8 ? X64Map::LOW_SUBREG : X64Map::NONE;
 
 	OpArg valueArg;
-	X64Reg valueReg = regs_.TryMapTempImm(inst.src3);
+	X64Reg valueReg = regs_.TryMapTempImm(inst.src3, valueFlags);
 	if (valueReg != INVALID_REG) {
 		valueArg = R(valueReg);
 	} else if (regs_.IsGPRImm(inst.src3)) {
@@ -191,7 +198,7 @@ void X64JitBackend::CompIR_Store(IRInst inst) {
 			break;
 		}
 	} else {
-		valueArg = R(regs_.MapGPR(inst.src3));
+		valueArg = R(regs_.MapGPR(inst.src3, MIPSMap::INIT | valueFlags));
 	}
 
 	// TODO: Safe memory?  Or enough to have crash handler + validate?

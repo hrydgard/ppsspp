@@ -106,6 +106,8 @@ private:
 	void CompIR_VecStore(IRInst inst) override;
 	void CompIR_ValidateAddress(IRInst inst) override;
 
+	Gen::OpArg PrepareSrc1Address(IRInst inst);
+
 	JitOptions &jo;
 	X64IRRegCache regs_;
 
