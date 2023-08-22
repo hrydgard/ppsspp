@@ -65,8 +65,12 @@ void X64JitBackend::CompIR_VecAssign(IRInst inst) {
 	case IROp::Vec4Init:
 	case IROp::Vec4Shuffle:
 	case IROp::Vec4Blend:
-	case IROp::Vec4Mov:
 		CompIR_Generic(inst);
+		break;
+
+	case IROp::Vec4Mov:
+		regs_.Map(inst);
+		MOVAPS(regs_.FX(inst.dest), regs_.F(inst.src1));
 		break;
 
 	default:
