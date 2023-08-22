@@ -45,9 +45,8 @@ android {
 		}
 	}
 
-	compileSdkVersion 33
+	compileSdk 33
 	ndkVersion "21.4.7075529"
-
 
 	defaultConfig {
 		applicationId 'org.ppsspp.ppsspp'
@@ -63,8 +62,8 @@ android {
 		new File("versionname.txt").write(androidGitVersion.name())
 		new File("versioncode.txt").write(androidGitVersion.code().toString())
 
-		minSdkVersion 9
-		targetSdkVersion 33
+		minSdk 9
+		targetSdk 33
 		if (project.hasProperty("ANDROID_VERSION_CODE") && project.hasProperty("ANDROID_VERSION_NAME")) {
 			versionCode ANDROID_VERSION_CODE
 			versionName ANDROID_VERSION_NAME
