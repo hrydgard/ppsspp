@@ -135,11 +135,17 @@ void X64JitBackend::CompIR_Assign(IRInst inst) {
 		break;
 
 	case IROp::Ext8to32:
+#if PPSSPP_ARCH(X86)
+		DISABLE;  // 8-bit registers need special handling
+#endif
 		regs_.Map(inst);
 		MOVZX(32, 8, regs_.RX(inst.dest), regs_.R(inst.src1));
 		break;
 
 	case IROp::Ext16to32:
+#if PPSSPP_ARCH(X86)
+		DISABLE;  // 8-bit registers need special handling
+#endif
 		regs_.Map(inst);
 		MOVZX(32, 16, regs_.RX(inst.dest), regs_.R(inst.src1));
 		break;
