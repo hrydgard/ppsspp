@@ -73,6 +73,7 @@ public:
 	Gen::X64Reg MapGPR(IRReg reg, MIPSMap mapFlags = MIPSMap::INIT);
 	Gen::X64Reg MapGPRAsPointer(IRReg reg);
 	Gen::X64Reg MapFPR(IRReg reg, MIPSMap mapFlags = MIPSMap::INIT);
+	Gen::X64Reg MapVec4(IRReg first, MIPSMap mapFlags = MIPSMap::INIT);
 
 	Gen::X64Reg MapWithFPRTemp(IRInst &inst);
 

@@ -90,9 +90,12 @@ void X64JitBackend::CompIR_CondStore(IRInst inst) {
 void X64JitBackend::CompIR_FLoad(IRInst inst) {
 	CONDITIONAL_DISABLE;
 
+	OpArg addrArg = PrepareSrc1Address(inst);
+
 	switch (inst.op) {
 	case IROp::LoadFloat:
-		CompIR_Generic(inst);
+		regs_.MapFPR(inst.dest, MIPSMap::NOINIT);
+		MOVSS(regs_.FX(inst.dest), addrArg);
 		break;
 
 	default:
@@ -104,9 +107,12 @@ void X64JitBackend::CompIR_FLoad(IRInst inst) {
 void X64JitBackend::CompIR_FStore(IRInst inst) {
 	CONDITIONAL_DISABLE;
 
+	OpArg addrArg = PrepareSrc1Address(inst);
+
 	switch (inst.op) {
 	case IROp::StoreFloat:
-		CompIR_Generic(inst);
+		regs_.MapFPR(inst.src3);
+		MOVSS(addrArg, regs_.FX(inst.dest));
 		break;
 
 	default:
@@ -241,9 +247,12 @@ void X64JitBackend::CompIR_StoreShift(IRInst inst) {
 void X64JitBackend::CompIR_VecLoad(IRInst inst) {
 	CONDITIONAL_DISABLE;
 
+	OpArg addrArg = PrepareSrc1Address(inst);
+
 	switch (inst.op) {
 	case IROp::LoadVec4:
-		CompIR_Generic(inst);
+		regs_.MapVec4(inst.dest, MIPSMap::NOINIT);
+		MOVUPS(regs_.FX(inst.dest), addrArg);
 		break;
 
 	default:
@@ -255,9 +264,12 @@ void X64JitBackend::CompIR_VecLoad(IRInst inst) {
 void X64JitBackend::CompIR_VecStore(IRInst inst) {
 	CONDITIONAL_DISABLE;
 
+	OpArg addrArg = PrepareSrc1Address(inst);
+
 	switch (inst.op) {
 	case IROp::StoreVec4:
-		CompIR_Generic(inst);
+		regs_.MapVec4(inst.src3);
+		MOVUPS(addrArg, regs_.FX(inst.dest));
 		break;
 
 	default:

@@ -35,9 +35,8 @@ using namespace X64IRJitConstants;
 
 X64IRRegCache::X64IRRegCache(MIPSComp::JitOptions *jo)
 	: IRNativeRegCacheBase(jo) {
-	// TODO: Enable SIMD.
 	config_.totalNativeRegs = NUM_X_REGS + NUM_X_FREGS;
-	config_.mapFPUSIMD = false;
+	config_.mapFPUSIMD = true;
 	// XMM regs are used for both FPU and Vec, so we don't need VREGs.
 	config_.mapUseVRegs = false;
 }
@@ -186,6 +185,17 @@ X64Reg X64IRRegCache::MapFPR(IRReg mipsReg, MIPSMap mapFlags) {
 	_dbg_assert_(mr[mipsReg + 32].loc == MIPSLoc::MEM || mr[mipsReg + 32].loc == MIPSLoc::FREG);
 
 	IRNativeReg nreg = MapNativeReg(MIPSLoc::FREG, mipsReg + 32, 1, mapFlags);
+	if (nreg != -1)
+		return FromNativeReg(nreg);
+	return INVALID_REG;
+}
+
+X64Reg X64IRRegCache::MapVec4(IRReg first, MIPSMap mapFlags) {
+	_dbg_assert_(IsValidFPR(mipsReg));
+	_dbg_assert_((mipsReg & 3) == 0);
+	_dbg_assert_(mr[mipsReg + 32].loc == MIPSLoc::MEM || mr[mipsReg + 32].loc == MIPSLoc::FREG);
+
+	IRNativeReg nreg = MapNativeReg(MIPSLoc::FREG, first + 32, 4, mapFlags);
 	if (nreg != -1)
 		return FromNativeReg(nreg);
 	return INVALID_REG;

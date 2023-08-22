@@ -907,7 +907,7 @@ void IRNativeRegCacheBase::MapNativeReg(MIPSLoc type, IRNativeReg nreg, IRReg fi
 			}
 
 			// If it's still in a different reg, either discard or possibly transfer.
-			if (mreg.nReg != -1 && mreg.nReg != nreg) {
+			if (mreg.nReg != -1 && (mreg.nReg != nreg || mismatch)) {
 				_assert_msg_(!mreg.isStatic, "Cannot MapNativeReg a static reg to a new reg");
 				if ((flags & MIPSMap::NOINIT) != MIPSMap::NOINIT) {
 					// We better not be trying to map to a different nreg if it's in one now.
