@@ -55,6 +55,15 @@ void X64JitBackend::CompIR_Basic(IRInst inst) {
 		break;
 
 	case IROp::SetConstF:
+		regs_.Map(inst);
+		if (inst.constant == 0) {
+			XORPS(regs_.FX(inst.dest), regs_.F(inst.dest));
+		} else {
+			MOV(32, R(SCRATCH1), Imm32(inst.constant));
+			MOVD_xmm(regs_.FX(inst.dest), R(SCRATCH1));
+		}
+		break;
+
 	case IROp::SetPC:
 	case IROp::SetPCConst:
 		CompIR_Generic(inst);
@@ -109,9 +118,22 @@ void X64JitBackend::CompIR_Transfer(IRInst inst) {
 	case IROp::FpCtrlFromReg:
 	case IROp::FpCtrlToReg:
 	case IROp::VfpuCtrlToReg:
-	case IROp::FMovFromGPR:
-	case IROp::FMovToGPR:
 		CompIR_Generic(inst);
+		break;
+
+	case IROp::FMovFromGPR:
+		if (regs_.IsGPRImm(inst.src1) && regs_.GetGPRImm(inst.src1) == 0) {
+			regs_.MapFPR(inst.dest, MIPSMap::NOINIT);
+			XORPS(regs_.FX(inst.dest), regs_.F(inst.dest));
+		} else {
+			regs_.Map(inst);
+			MOVD_xmm(regs_.FX(inst.dest), regs_.R(inst.src1));
+		}
+		break;
+
+	case IROp::FMovToGPR:
+		regs_.Map(inst);
+		MOVD_xmm(regs_.R(inst.dest), regs_.FX(inst.src1));
 		break;
 
 	default:
