@@ -161,7 +161,7 @@ void ControlMapper::ForceReleaseVKey(int vkey) {
 			for (const auto &mapping : entry.mappings) {
 				curInput_[mapping] = { 0.0f, now };
 				// Different logic for signed axes?
-				UpdatePSPState(mapping);
+				UpdatePSPState(mapping, now);
 			}
 		}
 	}
@@ -179,8 +179,11 @@ static int RotatePSPKeyCode(int x) {
 }
 
 // Used to decay analog values when clashing with digital ones.
-static ControlMapper::InputSample ReduceMagnitude(ControlMapper::InputSample sample) {
-	sample.value *= 0.75f;
+static ControlMapper::InputSample ReduceMagnitude(ControlMapper::InputSample sample, double now) {
+	float reduction = std::min(std::max(0.0f, (float)(now - sample.timestamp) - 2.0f), 1.0f);
+	if (reduction > 0.0f) {
+		sample.value *= (1.0f - reduction);
+	}
 	if ((sample.value > 0.0f && sample.value < 0.05f) || (sample.value < 0.0f && sample.value > -0.05f)) {
 		sample.value = 0.0f;
 	}
@@ -248,7 +251,8 @@ void ControlMapper::SwapMappingIfEnabled(uint32_t *vkey) {
 }
 
 // Can only be called from Key or Axis.
-bool ControlMapper::UpdatePSPState(const InputMapping &changedMapping) {
+// TODO: We should probably make a batched version of this.
+bool ControlMapper::UpdatePSPState(const InputMapping &changedMapping, double now) {
 	// Instead of taking an input key and finding what it outputs, we loop through the OUTPUTS and
 	// see if the input that corresponds to it has a value. That way we can easily implement all sorts
 	// of crazy input combos if needed.
@@ -363,7 +367,11 @@ bool ControlMapper::UpdatePSPState(const InputMapping &changedMapping) {
 		if (!changedMapping.IsAxis()) {
 			for (auto &multiMapping : inputMappings) {
 				for (auto &mapping : multiMapping.mappings) {
-					curInput_[mapping] = ReduceMagnitude(curInput_[mapping]);
+					if (mapping != changedMapping && curInput_[mapping].value > 0.0f) {
+						// Note that this takes the time into account now - values will
+						// decay after a while, not immediately.
+						curInput_[mapping] = ReduceMagnitude(curInput_[mapping], now);
+					}
 				}
 			}
 		}
@@ -414,15 +422,19 @@ bool ControlMapper::Key(const KeyInput &key, bool *pauseTrigger) {
 		// Claim that we handled this. Prevents volume key repeats from popping up the volume control on Android.
 		return true;
 	}
-
-	std::lock_guard<std::mutex> guard(mutex_);
+	double now = time_now_d();
+	if (key.deviceId < DEVICE_ID_COUNT) {
+		deviceTimestamps_[(int)key.deviceId] = now;
+	}
 
 	InputMapping mapping(key.deviceId, key.keyCode);
 
+	std::lock_guard<std::mutex> guard(mutex_);
+
 	if (key.flags & KEY_DOWN) {
-		curInput_[mapping] = { 1.0f, time_now_d() };
+		curInput_[mapping] = { 1.0f, now };
 	} else if (key.flags & KEY_UP) {
-		curInput_[mapping] = { 0.0f, time_now_d() };
+		curInput_[mapping] = { 0.0f, now};
 	}
 
 	// TODO: See if this can be simplified further somehow.
@@ -435,7 +447,7 @@ bool ControlMapper::Key(const KeyInput &key, bool *pauseTrigger) {
 		}
 	}
 
-	return UpdatePSPState(mapping);
+	return UpdatePSPState(mapping, now);
 }
 
 void ControlMapper::ToggleSwapAxes() {
@@ -464,35 +476,37 @@ void ControlMapper::ToggleSwapAxes() {
 }
 
 void ControlMapper::Axis(const AxisInput &axis) {
-	std::lock_guard<std::mutex> guard(mutex_);
 	double now = time_now_d();
+
+	std::lock_guard<std::mutex> guard(mutex_);
+	if (axis.deviceId < DEVICE_ID_COUNT) {
+		deviceTimestamps_[(int)axis.deviceId] = now;
+	}
 	if (axis.value >= 0.0f) {
 		InputMapping mapping(axis.deviceId, axis.axisId, 1);
 		InputMapping opposite(axis.deviceId, axis.axisId, -1);
 		curInput_[mapping] = { axis.value, now };
 		curInput_[opposite] = { 0.0f, now };
-		UpdatePSPState(mapping);
-		UpdatePSPState(opposite);
+		UpdatePSPState(mapping, now);
+		UpdatePSPState(opposite, now);
 	} else if (axis.value < 0.0f) {
 		InputMapping mapping(axis.deviceId, axis.axisId, -1);
 		InputMapping opposite(axis.deviceId, axis.axisId, 1);
 		curInput_[mapping] = { -axis.value, now };
 		curInput_[opposite] = { 0.0f, now };
-		UpdatePSPState(mapping);
-		UpdatePSPState(opposite);
+		UpdatePSPState(mapping, now);
+		UpdatePSPState(opposite, now);
 	}
 }
 
-void ControlMapper::Update() {
+void ControlMapper::Update(double now) {
 	if (autoRotatingAnalogCW_) {
-		const double now = time_now_d();
 		// Clamp to a square
 		float x = std::min(1.0f, std::max(-1.0f, 1.42f * (float)cos(now * -g_Config.fAnalogAutoRotSpeed)));
 		float y = std::min(1.0f, std::max(-1.0f, 1.42f * (float)sin(now * -g_Config.fAnalogAutoRotSpeed)));
 
 		setPSPAnalog_(0, x, y);
 	} else if (autoRotatingAnalogCCW_) {
-		const double now = time_now_d();
 		float x = std::min(1.0f, std::max(-1.0f, 1.42f * (float)cos(now * g_Config.fAnalogAutoRotSpeed)));
 		float y = std::min(1.0f, std::max(-1.0f, 1.42f * (float)sin(now * g_Config.fAnalogAutoRotSpeed)));
 

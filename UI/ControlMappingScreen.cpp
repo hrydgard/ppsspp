@@ -512,7 +512,7 @@ AnalogSetupScreen::AnalogSetupScreen(const Path &gamePath) : UIDialogScreenWithG
 }
 
 void AnalogSetupScreen::update() {
-	mapper_.Update();
+	mapper_.Update(time_now_d());
 	// We ignore the secondary stick for now and just use the two views
 	// for raw and psp input.
 	if (stickView_[0]) {
