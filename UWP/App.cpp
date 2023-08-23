@@ -9,6 +9,8 @@
 #include "Common/Net/HTTPClient.h"
 #include "Common/Net/Resolve.h"
 
+#include "Common/File/VFS/VFS.h"
+#include "Common/File/VFS/DirectoryReader.h"
 #include "Common/Data/Encoding/Utf8.h"
 #include "Common/Input/InputState.h"
 #include "Common/System/NativeApp.h"
@@ -18,6 +20,7 @@
 #include "Core/Config.h"
 #include "Core/Core.h"
 #include "UWPHelpers/LaunchItem.h"
+#include <UWPUtil.h>
 
 using namespace UWP;
  
@@ -52,6 +55,15 @@ App::App() :
 void App::InitialPPSSPP() {
 	// Initial net
 	net::Init();
+
+	// Get install location
+	auto packageDirectory = Package::Current->InstalledPath;
+	const Path& exePath = Path(FromPlatformString(packageDirectory));
+	g_VFS.Register("", new DirectoryReader(exePath / "Content"));
+	g_VFS.Register("", new DirectoryReader(exePath));
+
+	// Mount a filesystem
+	g_Config.flash0Directory = exePath / "assets/flash0";
 
 	// Prepare for initialization
 	std::wstring internalDataFolderW = ApplicationData::Current->LocalFolder->Path->Data();

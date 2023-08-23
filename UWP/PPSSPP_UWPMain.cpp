@@ -13,7 +13,6 @@
 #include "Common/Common.h"
 #include "Common/Input/InputState.h"
 #include "Common/File/VFS/VFS.h"
-#include "Common/File/VFS/DirectoryReader.h"
 #include "Common/Thread/ThreadUtil.h"
 #include "Common/Data/Encoding/Utf8.h"
 #include "Common/DirectXHelper.h"
@@ -70,15 +69,6 @@ PPSSPP_UWPMain::PPSSPP_UWPMain(App ^app, const std::shared_ptr<DX::DeviceResourc
 	m_deviceResources->RegisterDeviceNotify(this);
 
 	ctx_.reset(new UWPGraphicsContext(deviceResources));
-
-	// Get install location
-	auto packageDirectory = Package::Current->InstalledPath;
-	const Path &exePath = Path(FromPlatformString(packageDirectory));
-	g_VFS.Register("", new DirectoryReader(exePath / "Content"));
-	g_VFS.Register("", new DirectoryReader(exePath));
-
-	// Mount a filesystem
-	g_Config.flash0Directory = exePath / "assets/flash0";
 
 #if _DEBUG
 		LogManager::GetInstance()->SetAllLogLevels(LogTypes::LDEBUG);

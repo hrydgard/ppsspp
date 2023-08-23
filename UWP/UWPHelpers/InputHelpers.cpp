@@ -54,13 +54,7 @@ bool isTouchAvailable() {
 bool keyboardActive = false;
 bool inputPaneVisible = false;
 bool isInputPaneVisible() {
-	// On Xbox we can check this using input pan
-	if (IsXBox()) {
-		return InputPane::GetForCurrentView()->Visible;
-	}
-	else {
-		return inputPaneVisible;
-	}
+	return inputPaneVisible;
 }
 
 bool isKeyboardActive() {
@@ -69,7 +63,6 @@ bool isKeyboardActive() {
 
 void ActivateKeyboardInput() {
 	DEBUG_LOG(COMMON, "Activate input keyboard");
-	// When no
 	inputPaneVisible = InputPane::GetForCurrentView()->TryShow();
 	keyboardActive = true;
 
