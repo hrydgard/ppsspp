@@ -139,7 +139,7 @@ void X64JitBackend::CompIR_Assign(IRInst inst) {
 		DISABLE;  // 8-bit registers need special handling
 #endif
 		regs_.Map(inst);
-		MOVZX(32, 8, regs_.RX(inst.dest), regs_.R(inst.src1));
+		MOVSX(32, 8, regs_.RX(inst.dest), regs_.R(inst.src1));
 		break;
 
 	case IROp::Ext16to32:
@@ -147,7 +147,7 @@ void X64JitBackend::CompIR_Assign(IRInst inst) {
 		DISABLE;  // 8-bit registers need special handling
 #endif
 		regs_.Map(inst);
-		MOVZX(32, 16, regs_.RX(inst.dest), regs_.R(inst.src1));
+		MOVSX(32, 16, regs_.RX(inst.dest), regs_.R(inst.src1));
 		break;
 
 	default:

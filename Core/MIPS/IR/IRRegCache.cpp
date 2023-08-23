@@ -427,6 +427,7 @@ IRNativeReg IRNativeRegCacheBase::FindBestToSpill(MIPSLoc type, MIPSMap flags, b
 		if (!unusedOnly || usage == IRUsage::UNUSED) {
 			// TODO: Use age or something to choose which register to spill?
 			// TODO: Spill dirty regs first? or opposite?
+			*clobbered = mipsReg == MIPS_REG_ZERO;
 			return nreg;
 		}
 	}
@@ -1030,6 +1031,11 @@ IRNativeReg IRNativeRegCacheBase::MapNativeRegAsPointer(IRReg gpr) {
 		return mr[gpr].nReg;
 	}
 
+	// Cannot use if somehow multilane.
+	if (mr[gpr].nReg != -1 && mr[gpr].lane != -1) {
+		FlushNativeReg(mr[gpr].nReg);
+	}
+
 	IRNativeReg nreg = mr[gpr].nReg;
 	if (mr[gpr].loc != MIPSLoc::REG && mr[gpr].loc != MIPSLoc::REG_IMM) {
 		nreg = MapNativeReg(MIPSLoc::REG, gpr, 1, MIPSMap::INIT);
@@ -1039,6 +1045,13 @@ IRNativeReg IRNativeRegCacheBase::MapNativeRegAsPointer(IRReg gpr) {
 		// If there was an imm attached, discard it.
 		mr[gpr].loc = MIPSLoc::REG;
 		mr[gpr].imm = 0;
+
+#ifdef MASKED_PSP_MEMORY
+		if (nr[mr[gpr].nReg].isDirty) {
+			StoreNativeReg(mr[gpr].nReg, gpr, 1);
+			nr[mr[gpr].nReg].isDirty = false;
+		}
+#endif
 
 		if (!jo_->enablePointerify) {
 			AdjustNativeRegAsPtr(nreg, true);
