@@ -359,8 +359,8 @@ bool TakeGameScreenshot(const Path &filename, ScreenshotFormat fmt, ScreenshotTy
 		return false;
 	}
 
-	u8 *flipbuffer = nullptr;
 	if (success) {
+		u8 *flipbuffer = nullptr;
 		const u8 *buffer = ConvertBufferToScreenshot(buf, false, flipbuffer, w, h);
 		success = buffer != nullptr;
 		if (success) {
@@ -371,12 +371,13 @@ bool TakeGameScreenshot(const Path &filename, ScreenshotFormat fmt, ScreenshotTy
 
 			success = Save888RGBScreenshot(filename, fmt, buffer, w, h);
 		}
+		delete[] flipbuffer;
 	}
-	delete [] flipbuffer;
 
 	if (!success) {
 		ERROR_LOG(IO, "Failed to write screenshot.");
 	}
+
 	return success;
 }
 
