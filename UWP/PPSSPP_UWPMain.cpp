@@ -42,7 +42,7 @@
 #include "UWPHelpers/StorageManager.h"
 #include "UWPHelpers/StorageAsync.h"
 #include "UWPHelpers/LaunchItem.h"
-#include <UWPHelpers/InputHelpers.h>
+#include "UWPHelpers/InputHelpers.h"
 
 using namespace UWP;
 using namespace Windows::Foundation;
@@ -198,6 +198,7 @@ void PPSSPP_UWPMain::OnDeviceRestored() {
 }
 
 void PPSSPP_UWPMain::OnKeyDown(int scanCode, Windows::System::VirtualKey virtualKey, int repeatCount) {
+	// TODO: Look like (Ctrl, Alt, Shift) don't trigger this event
 	auto iter = virtualKeyCodeToNKCode.find(virtualKey);
 	if (iter != virtualKeyCodeToNKCode.end()) {
 		KeyInput key{};
@@ -220,12 +221,12 @@ void PPSSPP_UWPMain::OnKeyUp(int scanCode, Windows::System::VirtualKey virtualKe
 }
 
 void PPSSPP_UWPMain::OnCharacterReceived(int scanCode, unsigned int keyCode) {
-	// TODO: Once on-screen keyboard show/hide solved, add `InputPaneVisible()` as extra condition
-	if (!PSP_IsInited() && !IsCtrlOnHold()) {
+	// This event triggered only in chars case, (Arrows, Delete..etc don't call it)
+	if (isKeyboardActive() && !IsCtrlOnHold()) {
 		KeyInput key{};
 		key.deviceId = DEVICE_ID_KEYBOARD;
 		key.keyCode = (InputKeyCode)keyCode;
-		key.flags = KEY_DOWN | KEY_CHAR;
+		key.flags = KEY_DOWN | KEY_UP | KEY_CHAR;
 		NativeKey(key);
 	}
 }
@@ -359,10 +360,9 @@ int System_GetPropertyInt(SystemProperty prop) {
 
 	case SYSPROP_DEVICE_TYPE:
 	{
-		auto ver = Windows::System::Profile::AnalyticsInfo::VersionInfo;
-		if (ver->DeviceFamily == "Windows.Mobile") {
+		if (IsMobile()) {
 			return DEVICE_TYPE_MOBILE;
-		} else if (ver->DeviceFamily == "Windows.Xbox") {
+		} else if (IsXBox()) {
 			return DEVICE_TYPE_TV;
 		} else {
 			return DEVICE_TYPE_DESKTOP;
@@ -407,8 +407,7 @@ bool System_GetPropertyBool(SystemProperty prop) {
 	switch (prop) {
 	case SYSPROP_HAS_OPEN_DIRECTORY:
 	{
-		auto ver = Windows::System::Profile::AnalyticsInfo::VersionInfo;
-		return ver->DeviceFamily != "Windows.Xbox";
+		return !IsXBox();
 	}
 	case SYSPROP_HAS_FILE_BROWSER:
 		return true;
@@ -550,7 +549,7 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 			CoreDispatcherPriority::Normal,
 			ref new Windows::UI::Core::DispatchedHandler([]()
 			{
-				ShowInputPane();
+				ActivateKeyboardInput();
 			}));
 		}
 		else if (!strcmp(param1.c_str(), "hide_keyboard")) {
@@ -559,7 +558,7 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 			CoreDispatcherPriority::Normal, 
 			ref new Windows::UI::Core::DispatchedHandler([]()
 			{
-				HideInputPane();
+				DeactivateKeyboardInput();
 			}));
 		}
 		return true;

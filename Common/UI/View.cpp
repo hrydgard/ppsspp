@@ -272,6 +272,13 @@ static bool MatchesKeyDef(const std::vector<InputMapping> &defs, const KeyInput 
 // TODO: O/X confirm preference for xperia play?
 
 bool IsDPadKey(const KeyInput &key) {
+#if PPSSPP_PLATFORM(UWP)
+	if (key.flags & KEY_CHAR) {
+		// Better not to check if flags has `KEY_CHAR`
+		// many of Windows chars has similar codes to `NKCODE` actions buttons 
+		return false;
+	}
+#endif#
 	if (dpadKeys.empty()) {
 		return key.keyCode >= NKCODE_DPAD_UP && key.keyCode <= NKCODE_DPAD_RIGHT;
 	} else {
@@ -280,6 +287,13 @@ bool IsDPadKey(const KeyInput &key) {
 }
 
 bool IsAcceptKey(const KeyInput &key) {
+#if PPSSPP_PLATFORM(UWP)
+	if (key.flags & KEY_CHAR) {
+		// Better not to check if flags has `KEY_CHAR`
+		// many of Windows chars has similar codes to `NKCODE` actions buttons 
+		return false;
+	}
+#endif#
 	if (confirmKeys.empty()) {
 		// This path is pretty much not used, confirmKeys should be set.
 		// TODO: Get rid of this stuff?
@@ -294,6 +308,12 @@ bool IsAcceptKey(const KeyInput &key) {
 }
 
 bool IsEscapeKey(const KeyInput &key) {
+#if PPSSPP_PLATFORM(UWP)
+	if (key.flags & KEY_CHAR) {
+		// `a` char has equal value to `NKCODE_BUTTON_CIRCLE_PS3` = 97
+		return false;
+	}
+#endif#
 	if (cancelKeys.empty()) {
 		// This path is pretty much not used, cancelKeys should be set.
 		// TODO: Get rid of this stuff?
@@ -308,6 +328,12 @@ bool IsEscapeKey(const KeyInput &key) {
 }
 
 bool IsTabLeftKey(const KeyInput &key) {
+#if PPSSPP_PLATFORM(UWP)
+	if (key.flags & KEY_CHAR) {
+		// `f` char has equal value to `NKCODE_BUTTON_L1` = 102
+		return false;
+	}
+#endif
 	if (tabLeftKeys.empty()) {
 		// This path is pretty much not used, tabLeftKeys should be set.
 		// TODO: Get rid of this stuff?
@@ -318,6 +344,13 @@ bool IsTabLeftKey(const KeyInput &key) {
 }
 
 bool IsTabRightKey(const KeyInput &key) {
+#if PPSSPP_PLATFORM(UWP)
+	if (key.flags & KEY_CHAR) {
+		// Better not to check if flags has `KEY_CHAR`
+		// many of Windows chars has similar codes to `NKCODE` actions buttons 
+		return false;
+	}
+#endif#
 	if (tabRightKeys.empty()) {
 		// This path is pretty much not used, tabRightKeys should be set.
 		// TODO: Get rid of this stuff?
@@ -1079,6 +1112,17 @@ TextEdit::TextEdit(const std::string &text, const std::string &title, const std:
 	caret_ = (int)text_.size();
 }
 
+void TextEdit::FocusChanged(int focusFlags) {
+#if PPSSPP_PLATFORM(UWP)
+	if (focusFlags == FF_GOTFOCUS) {
+		System_NotifyUIState("show_keyboard");
+	}
+	else {
+		System_NotifyUIState("hide_keyboard");
+	}
+#endif
+}
+
 void TextEdit::Draw(UIContext &dc) {
 	dc.PushScissor(bounds_);
 	dc.SetFontStyle(dc.theme->uiFont);
@@ -1155,7 +1199,14 @@ bool TextEdit::Key(const KeyInput &input) {
 		return false;
 	bool textChanged = false;
 	// Process hardcoded navigation keys. These aren't chars.
+#if PPSSPP_PLATFORM(UWP)
+	// In Windows (UWP) [chars event], some chars like `z` has equal value to `NKCODE_MOVE_HOME` = 122
+	// we already excluded non-char keys from being sent as `KEY_CHAR` (in keyboard/OSK mode)
+	// so if flags has `KEY_CHAR` then it's char 100%
+	if (input.flags & KEY_DOWN && !(input.flags & KEY_CHAR)) {
+#else
 	if (input.flags & KEY_DOWN) {
+#endif
 		switch (input.keyCode) {
 		case NKCODE_CTRL_LEFT:
 		case NKCODE_CTRL_RIGHT:

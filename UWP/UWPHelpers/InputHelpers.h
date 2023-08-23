@@ -22,11 +22,12 @@
 bool isKeybaordAvailable();
 bool isTouchAvailable();
 
-// Input Pane
-bool InputPaneVisible();
-void ShowInputPane();
-void HideInputPane();
-
+// Input Keyboard/Pane
+bool isInputPaneVisible();
+bool isKeyboardActive();
+void ActivateKeyboardInput();
+void DeactivateKeyboardInput();
+bool IgnoreInput(int keyCode);
 
 // Keys Status
 bool IsCapsLockOn();
@@ -35,3 +36,5 @@ bool IsCtrlOnHold();
 
 // Misc
 std::string GetLangRegion();
+bool IsXBox();
+bool IsMobile();

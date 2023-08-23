@@ -256,21 +256,40 @@ bool DX::DeviceResources::CreateAdaptersList(ComPtr<ID3D11Device> device) {
 	Microsoft::WRL::ComPtr<IDXGIFactory4> deviceFactory;
 	deviceAdapter->GetParent(IID_PPV_ARGS(&deviceFactory));
 
+	// Current adapter (Get current adapter name) 
+	DXGI_ADAPTER_DESC currentDefaultAdapterDesc;
+	deviceAdapter->GetDesc(&currentDefaultAdapterDesc);
+	std::string currentDefaultAdapterName = ConvertWStringToUTF8(currentDefaultAdapterDesc.Description);
+
 	UINT i = 0;
 	IDXGIAdapter* pAdapter;
 	IDXGIAdapter* customAdapter = nullptr;
+	auto deviceInfo = Windows::System::Profile::AnalyticsInfo::VersionInfo;
+	bool isXbox = deviceInfo->DeviceFamily == "Windows.Xbox";
 	while (deviceFactory->EnumAdapters(i, &pAdapter) != DXGI_ERROR_NOT_FOUND)
 	{
+		++i;
 		DXGI_ADAPTER_DESC vAdapterDesc;
 		pAdapter->GetDesc(&vAdapterDesc);
 		auto adapterDescription = ConvertWStringToUTF8(vAdapterDesc.Description);
-		m_vAdapters.push_back(adapterDescription);
-		if (g_Config.sD3D11Device == adapterDescription) {
-			customAdapter = pAdapter;
+		if (isXbox && adapterDescription == "Microsoft Basic Render Driver") {
+			// Skip, very slow and not usefull for Xbox
+			continue;
 		}
-		++i;
+		m_vAdapters.push_back(adapterDescription);
+		if (!g_Config.sD3D11Device.empty() && g_Config.sD3D11Device == adapterDescription) {
+			// Double check if it's the same default adapter
+			if (adapterDescription != currentDefaultAdapterName) {
+				customAdapter = pAdapter;
+			}
+		}
 	}
 	deviceFactory->Release();
+
+	if (m_vAdapters.size() == 1) {
+		// Only one (default) adapter, clear the list to hide device option from settings
+		m_vAdapters.clear();
+	}
 
 	bool reCreateDevice = false;
 	if (customAdapter) {

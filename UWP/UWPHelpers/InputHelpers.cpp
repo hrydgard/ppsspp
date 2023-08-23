@@ -15,6 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <list>
 
 #include "InputHelpers.h"
 #include "UWPUtil.h"
@@ -28,6 +29,13 @@ using namespace Windows::UI::ViewManagement;
 using namespace Windows::ApplicationModel::Core;
 using namespace Windows::Data::Xml::Dom;
 using namespace Windows::UI::Notifications;
+
+#pragma region Extenstions
+template<typename T>
+bool findInList(std::list<T>& inputList, T& str) {
+	return (std::find(inputList.begin(), inputList.end(), str) != inputList.end());
+};
+#pragma endregion
 
 #pragma region Input Keyboard
 
@@ -43,24 +51,89 @@ bool isTouchAvailable() {
 	return hasTouch;
 }
 
-bool keyboardVisible = false;
-bool InputPaneVisible() {
-	return keyboardVisible;
+bool keyboardActive = false;
+bool inputPaneVisible = false;
+bool isInputPaneVisible() {
+	// On Xbox we can check this using input pan
+	if (IsXBox()) {
+		return InputPane::GetForCurrentView()->Visible;
+	}
+	else {
+		return inputPaneVisible;
+	}
 }
 
-
-void ShowInputPane() {
-	VERBOSE_LOG(COMMON, "ShowInputKeyboard");
-	InputPane::GetForCurrentView()->TryShow();
-	keyboardVisible = true;
+bool isKeyboardActive() {
+	return keyboardActive;
 }
 
-void HideInputPane() {
-	VERBOSE_LOG(COMMON, "HideInputKeyboard");
-	InputPane::GetForCurrentView()->TryHide();
-	keyboardVisible = false;
+void ActivateKeyboardInput() {
+	DEBUG_LOG(COMMON, "Activate input keyboard");
+	// When no
+	inputPaneVisible = InputPane::GetForCurrentView()->TryShow();
+	keyboardActive = true;
+
+	if (inputPaneVisible) {
+		DEBUG_LOG(COMMON, "Input pane: TryShow accepted");
+	}
+	else {
+		DEBUG_LOG(COMMON, "Input pane: (TryShow is not accepted or pane is not supported)");
+
+	}
 }
 
+void DeactivateKeyboardInput() {
+	DEBUG_LOG(COMMON, "Deactivate input keyboard");
+	if (InputPane::GetForCurrentView()->TryHide()) {
+		inputPaneVisible = false;
+		DEBUG_LOG(COMMON, "Input pane: TryHide accepted");
+	}
+	else {
+		DEBUG_LOG(COMMON, "Input pane: TryHide is not accepted, or pane is not visible");
+	}
+	keyboardActive = false;
+}
+
+bool IgnoreInput(int keyCode) {
+	// When keyboard mode active and char is passed this function return 'true'
+	// it will help to prevent KeyDown from sending the same code again
+	bool ignoreInput = false;
+	if (isKeyboardActive() && !IsCtrlOnHold()) {
+		// To avoid bothering KeyDown to check this case always
+		// we don't get here unless keyboard mode is active
+		std::list<int> nonCharList = { 
+			NKCODE_CTRL_LEFT, 
+			NKCODE_CTRL_RIGHT,
+			NKCODE_MOVE_HOME,
+			NKCODE_PAGE_UP,
+			NKCODE_MOVE_END,
+			NKCODE_PAGE_DOWN,
+			NKCODE_FORWARD_DEL,
+			NKCODE_DEL,
+			NKCODE_ENTER,
+			NKCODE_NUMPAD_ENTER,
+			NKCODE_EXT_MOUSEBUTTON_1,
+			NKCODE_EXT_MOUSEBUTTON_2,
+			NKCODE_EXT_MOUSEBUTTON_3,
+			NKCODE_EXT_MOUSEBUTTON_4,
+			NKCODE_EXT_MOUSEBUTTON_5,
+			NKCODE_ESCAPE 
+		};
+		if (!isInputPaneVisible()) {
+			// Keyboard active but no on-screen keyboard
+			// allow arrow keys for navigation
+			nonCharList.push_back(NKCODE_DPAD_UP);
+			nonCharList.push_back(NKCODE_DPAD_DOWN);
+			nonCharList.push_back(NKCODE_DPAD_LEFT);
+			nonCharList.push_back(NKCODE_DPAD_RIGHT);
+			nonCharList.push_back(NKCODE_BACK);
+		}
+
+		ignoreInput = !findInList(nonCharList, keyCode);
+	}
+
+	return ignoreInput;
+}
 #pragma endregion
 
 #pragma region Keys Status
@@ -91,5 +164,15 @@ std::string GetLangRegion() {
 		}
 	}
 	return langRegion;
+}
+
+bool IsXBox() {
+	auto deviceInfo = Windows::System::Profile::AnalyticsInfo::VersionInfo;
+	return deviceInfo->DeviceFamily == "Windows.Xbox";
+}
+
+bool IsMobile() {
+	auto deviceInfo = Windows::System::Profile::AnalyticsInfo::VersionInfo;
+	return deviceInfo->DeviceFamily == "Windows.Mobile";
 }
 #pragma endregion

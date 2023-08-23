@@ -129,6 +129,7 @@
 #endif
 #if PPSSPP_PLATFORM(UWP)
 #include <dwrite_3.h>
+#include "UWP/UWPHelpers/InputHelpers.h"
 #endif
 #if PPSSPP_PLATFORM(ANDROID)
 #include "android/jni/app-android.h"
@@ -1268,6 +1269,14 @@ bool NativeKey(const KeyInput &key) {
 	if (IsVREnabled() && !UpdateVRKeys(key)) {
 		return false;
 	}
+
+#if PPSSPP_PLATFORM(UWP)
+	// Ignore if key sent from OnKeyDown/OnKeyUp/XInput while keyboard mode active 
+	// it's already handled by `OnCharacterReceived`
+	if (IgnoreInput(key.keyCode) && !(key.flags & KEY_CHAR)) {
+		return false;
+	}
+#endif
 
 	// INFO_LOG(SYSTEM, "Key code: %i flags: %i", key.keyCode, key.flags);
 #if !defined(MOBILE_DEVICE)

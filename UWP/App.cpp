@@ -53,7 +53,7 @@ void App::InitialPPSSPP() {
 	// Initial net
 	net::Init();
 
-	//Prepare for initialization
+	// Prepare for initialization
 	std::wstring internalDataFolderW = ApplicationData::Current->LocalFolder->Path->Data();
 	g_Config.internalDataDirectory = Path(internalDataFolderW);
 	g_Config.memStickDirectory = g_Config.internalDataDirectory;
@@ -78,7 +78,7 @@ void App::InitialPPSSPP() {
 	// it's better to call it here
 	const char* argv[2] = { "fake", nullptr };
 	std::string cacheFolder = ConvertWStringToUTF8(ApplicationData::Current->TemporaryFolder->Path->Data());
-	// Ee will not be able to use `argv`
+	// We will not be able to use `argv`
 	// since launch parameters usually handled by `OnActivated`
 	// and `OnActivated` will be invoked later, even after `PPSSPP_UWPMain(..)`
 	// so we are handling launch cases using `LaunchItem`
