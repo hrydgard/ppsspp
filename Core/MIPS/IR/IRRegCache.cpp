@@ -427,6 +427,7 @@ IRNativeReg IRNativeRegCacheBase::FindBestToSpill(MIPSLoc type, MIPSMap flags, b
 		if (!unusedOnly || usage == IRUsage::UNUSED) {
 			// TODO: Use age or something to choose which register to spill?
 			// TODO: Spill dirty regs first? or opposite?
+			*clobbered = mipsReg == MIPS_REG_ZERO;
 			return nreg;
 		}
 	}
