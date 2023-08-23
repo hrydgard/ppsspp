@@ -19,6 +19,10 @@
 #include "Common/StringUtils.h"
 #include "Common/Log.h"
 
+#if PPSSPP_PLATFORM(UWP)
+#include <UWP/UWPHelpers/InputHelpers.h>
+#endif 
+
 namespace UI {
 
 static constexpr Size ITEM_HEIGHT = 64.f;
@@ -287,13 +291,6 @@ bool IsDPadKey(const KeyInput &key) {
 }
 
 bool IsAcceptKey(const KeyInput &key) {
-#if PPSSPP_PLATFORM(UWP)
-	if (key.flags & KEY_CHAR) {
-		// Better not to check if flags has `KEY_CHAR`
-		// many of Windows chars has similar codes to `NKCODE` actions buttons 
-		return false;
-	}
-#endif#
 	if (confirmKeys.empty()) {
 		// This path is pretty much not used, confirmKeys should be set.
 		// TODO: Get rid of this stuff?
@@ -308,12 +305,6 @@ bool IsAcceptKey(const KeyInput &key) {
 }
 
 bool IsEscapeKey(const KeyInput &key) {
-#if PPSSPP_PLATFORM(UWP)
-	if (key.flags & KEY_CHAR) {
-		// `a` char has equal value to `NKCODE_BUTTON_CIRCLE_PS3` = 97
-		return false;
-	}
-#endif#
 	if (cancelKeys.empty()) {
 		// This path is pretty much not used, cancelKeys should be set.
 		// TODO: Get rid of this stuff?
@@ -328,12 +319,6 @@ bool IsEscapeKey(const KeyInput &key) {
 }
 
 bool IsTabLeftKey(const KeyInput &key) {
-#if PPSSPP_PLATFORM(UWP)
-	if (key.flags & KEY_CHAR) {
-		// `f` char has equal value to `NKCODE_BUTTON_L1` = 102
-		return false;
-	}
-#endif
 	if (tabLeftKeys.empty()) {
 		// This path is pretty much not used, tabLeftKeys should be set.
 		// TODO: Get rid of this stuff?
@@ -344,13 +329,6 @@ bool IsTabLeftKey(const KeyInput &key) {
 }
 
 bool IsTabRightKey(const KeyInput &key) {
-#if PPSSPP_PLATFORM(UWP)
-	if (key.flags & KEY_CHAR) {
-		// Better not to check if flags has `KEY_CHAR`
-		// many of Windows chars has similar codes to `NKCODE` actions buttons 
-		return false;
-	}
-#endif#
 	if (tabRightKeys.empty()) {
 		// This path is pretty much not used, tabRightKeys should be set.
 		// TODO: Get rid of this stuff?
@@ -1118,7 +1096,10 @@ void TextEdit::FocusChanged(int focusFlags) {
 		System_NotifyUIState("show_keyboard");
 	}
 	else {
-		System_NotifyUIState("hide_keyboard");
+		// OSK will be hidden by `Back` button and no reason to check focus
+		if (!isInputPaneVisible()) {
+			System_NotifyUIState("hide_keyboard");
+		}
 	}
 #endif
 }
@@ -1199,14 +1180,7 @@ bool TextEdit::Key(const KeyInput &input) {
 		return false;
 	bool textChanged = false;
 	// Process hardcoded navigation keys. These aren't chars.
-#if PPSSPP_PLATFORM(UWP)
-	// In Windows (UWP) [chars event], some chars like `z` has equal value to `NKCODE_MOVE_HOME` = 122
-	// we already excluded non-char keys from being sent as `KEY_CHAR` (in keyboard/OSK mode)
-	// so if flags has `KEY_CHAR` then it's char 100%
-	if (input.flags & KEY_DOWN && !(input.flags & KEY_CHAR)) {
-#else
 	if (input.flags & KEY_DOWN) {
-#endif
 		switch (input.keyCode) {
 		case NKCODE_CTRL_LEFT:
 		case NKCODE_CTRL_RIGHT:

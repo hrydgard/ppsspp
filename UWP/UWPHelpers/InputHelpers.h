@@ -23,6 +23,7 @@ bool isKeybaordAvailable();
 bool isTouchAvailable();
 
 // Input Keyboard/Pane
+void PrepareInputPane();
 bool isInputPaneVisible();
 bool isKeyboardActive();
 void ActivateKeyboardInput();

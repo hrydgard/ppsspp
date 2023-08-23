@@ -22,6 +22,9 @@
 #include "NKCodeFromWindowsSystem.h"
 #include "Common/Log.h"
 
+#include <ppl.h>
+#include <ppltasks.h>
+
 using namespace Windows::System;
 using namespace Windows::Foundation;
 using namespace Windows::UI::Core;
@@ -29,6 +32,7 @@ using namespace Windows::UI::ViewManagement;
 using namespace Windows::ApplicationModel::Core;
 using namespace Windows::Data::Xml::Dom;
 using namespace Windows::UI::Notifications;
+using namespace Windows::UI::ViewManagement;
 
 #pragma region Extenstions
 template<typename T>
@@ -53,6 +57,21 @@ bool isTouchAvailable() {
 
 bool keyboardActive = false;
 bool inputPaneVisible = false;
+Platform::Agile<Windows::UI::ViewManagement::InputPane> inputPane = nullptr;
+
+void OnShowing(InputPane^ pane, InputPaneVisibilityEventArgs^ args) {
+	inputPaneVisible = true;
+}
+void OnHiding(InputPane^ pane, InputPaneVisibilityEventArgs^ args) {
+	inputPaneVisible = false;
+}
+
+void PrepareInputPane() {
+	inputPane = InputPane::GetForCurrentView();
+	inputPane->Showing += ref new Windows::Foundation::TypedEventHandler<InputPane^, InputPaneVisibilityEventArgs^>(&OnShowing);
+	inputPane->Hiding += ref new Windows::Foundation::TypedEventHandler<InputPane^, InputPaneVisibilityEventArgs^>(&OnHiding);
+}
+
 bool isInputPaneVisible() {
 	return inputPaneVisible;
 }
@@ -63,22 +82,19 @@ bool isKeyboardActive() {
 
 void ActivateKeyboardInput() {
 	DEBUG_LOG(COMMON, "Activate input keyboard");
-	inputPaneVisible = InputPane::GetForCurrentView()->TryShow();
-	keyboardActive = true;
-
-	if (inputPaneVisible) {
+	if (inputPane->TryShow()) {
 		DEBUG_LOG(COMMON, "Input pane: TryShow accepted");
 	}
 	else {
 		DEBUG_LOG(COMMON, "Input pane: (TryShow is not accepted or pane is not supported)");
 
 	}
+	keyboardActive = true;
 }
 
 void DeactivateKeyboardInput() {
 	DEBUG_LOG(COMMON, "Deactivate input keyboard");
-	if (InputPane::GetForCurrentView()->TryHide()) {
-		inputPaneVisible = false;
+	if (inputPane->TryHide()) {
 		DEBUG_LOG(COMMON, "Input pane: TryHide accepted");
 	}
 	else {
@@ -91,7 +107,8 @@ bool IgnoreInput(int keyCode) {
 	// When keyboard mode active and char is passed this function return 'true'
 	// it will help to prevent KeyDown from sending the same code again
 	bool ignoreInput = false;
-	if (isKeyboardActive() && !IsCtrlOnHold()) {
+	// TODO: Add ` && !IsCtrlOnHold()` once it's ready and implemented
+	if (isKeyboardActive()) {
 		// To avoid bothering KeyDown to check this case always
 		// we don't get here unless keyboard mode is active
 		std::list<int> nonCharList = { 
@@ -131,14 +148,17 @@ bool IgnoreInput(int keyCode) {
 
 #pragma region Keys Status
 bool IsCapsLockOn() {
+	// TODO: Perform this on UI thread, delayed as currently `KeyDown` don't detect those anyway
 	auto capsLockState = CoreApplication::MainView->CoreWindow->GetKeyState(VirtualKey::CapitalLock);
 	return (capsLockState == CoreVirtualKeyStates::Locked);
 }
 bool IsShiftOnHold() {
+	// TODO: Perform this on UI thread, delayed as currently `KeyDown` don't detect those anyway
 	auto shiftState = CoreApplication::MainView->CoreWindow->GetKeyState(VirtualKey::Shift);
 	return (shiftState == CoreVirtualKeyStates::Down);
 }
 bool IsCtrlOnHold() {
+	// TODO: Perform this on UI thread, delayed as currently `KeyDown` don't detect those anyway
 	auto ctrlState = CoreApplication::MainView->CoreWindow->GetKeyState(VirtualKey::Control);
 	return (ctrlState == CoreVirtualKeyStates::Down);
 }

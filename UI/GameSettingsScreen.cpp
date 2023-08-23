@@ -2113,11 +2113,6 @@ bool HostnameSelectScreen::CanComplete(DialogResult result) {
 void HostnameSelectScreen::OnCompleted(DialogResult result) {
 	if (result == DR_OK)
 		*value_ = StripSpaces(addrView_->GetText());
-
-#if PPSSPP_PLATFORM(UWP)
-	// Inform UI to hide OSK and to disable keyboard mode
-	System_NotifyUIState("hide_keyboard");
-#endif
 }
 
 void GestureMappingScreen::CreateViews() {

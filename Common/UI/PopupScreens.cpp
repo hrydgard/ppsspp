@@ -475,10 +475,6 @@ void SliderPopupScreen::OnCompleted(DialogResult result) {
 		e.a = *value_;
 		OnChange.Trigger(e);
 	}
-#if PPSSPP_PLATFORM(UWP)
-	// Inform UI to hide OSK and to disable keyboard mode
-	System_NotifyUIState("hide_keyboard");
-#endif
 }
 
 void SliderFloatPopupScreen::OnCompleted(DialogResult result) {
@@ -492,10 +488,6 @@ void SliderFloatPopupScreen::OnCompleted(DialogResult result) {
 	} else {
 		*value_ = originalValue_;
 	}
-#if PPSSPP_PLATFORM(UWP)
-	// Inform UI to hide OSK and to disable keyboard mode
-	System_NotifyUIState("hide_keyboard");
-#endif
 }
 
 PopupTextInputChoice::PopupTextInputChoice(std::string *value, const std::string &title, const std::string &placeholder, int maxLen, ScreenManager *screenManager, LayoutParams *layoutParams)
@@ -559,10 +551,6 @@ void TextEditPopupScreen::OnCompleted(DialogResult result) {
 		e.v = edit_;
 		OnChange.Trigger(e);
 	}
-#if PPSSPP_PLATFORM(UWP)
-	// Inform UI to hide OSK and to disable keyboard mode
-	System_NotifyUIState("hide_keyboard");
-#endif
 }
 
 void AbstractChoiceWithValueDisplay::GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert, float &w, float &h) const {

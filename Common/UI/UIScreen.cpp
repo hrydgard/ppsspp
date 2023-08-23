@@ -11,6 +11,7 @@
 #include "Common/Data/Text/I18n.h"
 #include "Common/Render/DrawBuffer.h"
 #include "Common/Log.h"
+#include <Common/System/Request.h>
 
 static const bool ClickDebug = false;
 
@@ -389,6 +390,10 @@ void PopupScreen::TriggerFinish(DialogResult result) {
 
 		OnCompleted(result);
 	}
+#if PPSSPP_PLATFORM(UWP)
+	// Inform UI to hide OSK and to disable keyboard mode
+	System_NotifyUIState("hide_keyboard");
+#endif
 }
 
 void PopupScreen::CreateViews() {

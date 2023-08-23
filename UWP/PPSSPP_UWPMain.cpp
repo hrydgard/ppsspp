@@ -91,6 +91,9 @@ PPSSPP_UWPMain::PPSSPP_UWPMain(App ^app, const std::shared_ptr<DX::DeviceResourc
 	g_input.push_back(std::make_unique<XinputDevice>());
 
 	InputDevice::BeginPolling();
+
+	// Prepare input pane (for Xbox & touch devices)
+	PrepareInputPane();
 }
 
 PPSSPP_UWPMain::~PPSSPP_UWPMain() {
@@ -212,11 +215,14 @@ void PPSSPP_UWPMain::OnKeyUp(int scanCode, Windows::System::VirtualKey virtualKe
 
 void PPSSPP_UWPMain::OnCharacterReceived(int scanCode, unsigned int keyCode) {
 	// This event triggered only in chars case, (Arrows, Delete..etc don't call it)
-	if (isKeyboardActive() && !IsCtrlOnHold()) {
+	// TODO: Add ` && !IsCtrlOnHold()` once it's ready and implemented
+	if (isKeyboardActive()) {
 		KeyInput key{};
 		key.deviceId = DEVICE_ID_KEYBOARD;
 		key.keyCode = (InputKeyCode)keyCode;
-		key.flags = KEY_DOWN | KEY_UP | KEY_CHAR;
+		// After many tests turns out for char just add `KEY_CHAR` for the flags
+		// any other flag like `KEY_DOWN` will cause conflict and trigger something else
+		key.flags = KEY_CHAR;
 		NativeKey(key);
 	}
 }
