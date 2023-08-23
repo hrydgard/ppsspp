@@ -243,10 +243,82 @@ void X64JitBackend::CompIR_FCompare(IRInst inst) {
 void X64JitBackend::CompIR_FCondAssign(IRInst inst) {
 	CONDITIONAL_DISABLE;
 
+	FixupBranch skipNAN;
+	FixupBranch finishNAN;
+	FixupBranch negativeSigns;
+	FixupBranch finishNANSigns;
+	X64Reg tempReg = INVALID_REG;
 	switch (inst.op) {
 	case IROp::FMin:
+		tempReg = regs_.GetAndLockTempR();
+		regs_.Map(inst);
+		UCOMISS(regs_.FX(inst.src1), regs_.F(inst.src1));
+		skipNAN = J_CC(CC_NP, true);
+
+		// Slow path: NAN case.  Check if both are negative.
+		MOVD_xmm(R(tempReg), regs_.FX(inst.src1));
+		MOVD_xmm(R(SCRATCH1), regs_.FX(inst.src2));
+		TEST(32, R(SCRATCH1), R(tempReg));
+		negativeSigns = J_CC(CC_S);
+
+		// Okay, one or the other positive.
+		CMP(32, R(tempReg), R(SCRATCH1));
+		CMOVcc(32, tempReg, R(SCRATCH1), CC_G);
+		MOVD_xmm(regs_.FX(inst.dest), R(tempReg));
+		finishNAN = J();
+
+		// Okay, both negative.
+		SetJumpTarget(negativeSigns);
+		CMP(32, R(tempReg), R(SCRATCH1));
+		CMOVcc(32, tempReg, R(SCRATCH1), CC_L);
+		MOVD_xmm(regs_.FX(inst.dest), R(tempReg));
+		finishNANSigns = J();
+
+		SetJumpTarget(skipNAN);
+		if (cpu_info.bAVX) {
+			VMINSS(regs_.FX(inst.dest), regs_.FX(inst.src1), regs_.F(inst.src2));
+		} else {
+			MOVAPS(regs_.FX(inst.dest), regs_.F(inst.src1));
+			MINSS(regs_.FX(inst.dest), regs_.F(inst.src2));
+		}
+		SetJumpTarget(finishNAN);
+		SetJumpTarget(finishNANSigns);
+		break;
+
 	case IROp::FMax:
-		CompIR_Generic(inst);
+		tempReg = regs_.GetAndLockTempR();
+		regs_.Map(inst);
+		UCOMISS(regs_.FX(inst.src1), regs_.F(inst.src1));
+		skipNAN = J_CC(CC_NP, true);
+
+		// Slow path: NAN case.  Check if both are negative.
+		MOVD_xmm(R(tempReg), regs_.FX(inst.src1));
+		MOVD_xmm(R(SCRATCH1), regs_.FX(inst.src2));
+		TEST(32, R(SCRATCH1), R(tempReg));
+		negativeSigns = J_CC(CC_S);
+
+		// Okay, one or the other positive.
+		CMP(32, R(tempReg), R(SCRATCH1));
+		CMOVcc(32, tempReg, R(SCRATCH1), CC_L);
+		MOVD_xmm(regs_.FX(inst.dest), R(tempReg));
+		finishNAN = J();
+
+		// Okay, both negative.
+		SetJumpTarget(negativeSigns);
+		CMP(32, R(tempReg), R(SCRATCH1));
+		CMOVcc(32, tempReg, R(SCRATCH1), CC_G);
+		MOVD_xmm(regs_.FX(inst.dest), R(tempReg));
+		finishNANSigns = J();
+
+		SetJumpTarget(skipNAN);
+		if (cpu_info.bAVX) {
+			VMAXSS(regs_.FX(inst.dest), regs_.FX(inst.src1), regs_.F(inst.src2));
+		} else {
+			MOVAPS(regs_.FX(inst.dest), regs_.F(inst.src1));
+			MAXSS(regs_.FX(inst.dest), regs_.F(inst.src2));
+		}
+		SetJumpTarget(finishNAN);
+		SetJumpTarget(finishNANSigns);
 		break;
 
 	default:
