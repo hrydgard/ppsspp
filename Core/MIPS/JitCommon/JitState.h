@@ -77,6 +77,7 @@ namespace MIPSComp {
 
 		// VFPU prefix magic
 		bool startDefaultPrefix = true;
+		bool blockWrotePrefixes = false;
 		u32 prefixS;
 		u32 prefixT;
 		u32 prefixD;

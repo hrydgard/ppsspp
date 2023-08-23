@@ -71,8 +71,9 @@
 #define OUT_EAT_PREFIX  0x08000000ULL
 
 #define VFPU_NO_PREFIX  0x10000000ULL
-#define IS_VFPU         0x20000000ULL
-#define IS_FPU          0x40000000ULL
+#define OUT_VFPU_PREFIX 0x20000000ULL
+#define IS_VFPU         0x40000000ULL
+#define IS_FPU          0x80000000ULL
 
 #define IN_FS           0x000100000000ULL
 #define IN_FT           0x000200000000ULL
