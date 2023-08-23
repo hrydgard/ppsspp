@@ -50,12 +50,11 @@ const int *X64IRRegCache::GetAllocationOrder(MIPSLoc type, MIPSMap flags, int &c
 		base = RAX;
 
 		static const int allocationOrder[] = {
-			// On x64, RCX and RDX are the first args.  CallProtectedFunction() assumes they're not regcached.
 #if PPSSPP_ARCH(AMD64)
 #ifdef _WIN32
-			RSI, RDI, R8, R9, R10, R11, R12, R13,
+			RSI, RDI, R8, R9, R10, R11, R12, R13, RDX, RCX,
 #else
-			RBP, R8, R9, R10, R11, R12, R13,
+			RBP, R8, R9, R10, R11, R12, R13, RDX, RCX,
 #endif
 			// Intentionally last.
 			R15,
