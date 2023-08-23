@@ -156,9 +156,10 @@ void ControlMapper::UpdateAnalogOutput(int stick) {
 void ControlMapper::ForceReleaseVKey(int vkey) {
 	std::vector<KeyMap::MultiInputMapping> multiMappings;
 	if (KeyMap::InputMappingsFromPspButton(vkey, &multiMappings, true)) {
+		double now = time_now_d();
 		for (const auto &entry : multiMappings) {
 			for (const auto &mapping : entry.mappings) {
-				curInput_[mapping] = 0.0f;
+				curInput_[mapping] = { 0.0f, now };
 				// Different logic for signed axes?
 				UpdatePSPState(mapping);
 			}
@@ -178,12 +179,12 @@ static int RotatePSPKeyCode(int x) {
 }
 
 // Used to decay analog values when clashing with digital ones.
-static float ReduceMagnitude(float value) {
-	value *= 0.75f;
-	if ((value > 0.0f && value < 0.05f) || (value < 0.0f && value > -0.05f)) {
-		value = 0.0f;
+static ControlMapper::InputSample ReduceMagnitude(ControlMapper::InputSample sample) {
+	sample.value *= 0.75f;
+	if ((sample.value > 0.0f && sample.value < 0.05f) || (sample.value < 0.0f && sample.value > -0.05f)) {
+		sample.value = 0.0f;
 	}
-	return value;
+	return sample;
 }
 
 float ControlMapper::MapAxisValue(float value, int vkId, const InputMapping &mapping, const InputMapping &changedMapping, bool *oppositeTouched) {
@@ -199,7 +200,7 @@ float ControlMapper::MapAxisValue(float value, int vkId, const InputMapping &map
 			if (other == changedMapping) {
 				*oppositeTouched = true;
 			}
-			float valueOther = curInput_[other];
+			float valueOther = curInput_[other].value;
 			float signedValue = value - valueOther;
 			float ranged = (signedValue + 1.0f) * 0.5f;
 			if (direction == -1) {
@@ -290,7 +291,7 @@ bool ControlMapper::UpdatePSPState(const InputMapping &changedMapping) {
 			bool all = true;
 			for (auto mapping : multiMapping.mappings) {
 				auto iter = curInput_.find(mapping);
-				bool down = iter != curInput_.end() && iter->second > GetDeviceAxisThreshold(iter->first.deviceId);
+				bool down = iter != curInput_.end() && iter->second.value > GetDeviceAxisThreshold(iter->first.deviceId);
 				if (!down)
 					all = false;
 			}
@@ -307,6 +308,7 @@ bool ControlMapper::UpdatePSPState(const InputMapping &changedMapping) {
 	bool updateAnalogSticks = false;
 
 	// OK, handle all the virtual keys next. For these we need to do deltas here and send events.
+	// Note that virtual keys include the analog directions, as they are driven by them.
 	for (int i = 0; i < VIRTKEY_COUNT; i++) {
 		int vkId = i + VIRTKEY_FIRST;
 		std::vector<MultiInputMapping> inputMappings;
@@ -334,9 +336,9 @@ bool ControlMapper::UpdatePSPState(const InputMapping &changedMapping) {
 				if (iter != curInput_.end()) {
 					if (mapping.IsAxis()) {
 						threshold = GetDeviceAxisThreshold(iter->first.deviceId);
-						product *= MapAxisValue(iter->second, idForMapping, mapping, changedMapping, &touchedByMapping);
+						product *= MapAxisValue(iter->second.value, idForMapping, mapping, changedMapping, &touchedByMapping);
 					} else {
-						product *= iter->second;
+						product *= iter->second.value;
 					}
 				} else {
 					product = 0.0f;
@@ -418,9 +420,9 @@ bool ControlMapper::Key(const KeyInput &key, bool *pauseTrigger) {
 	InputMapping mapping(key.deviceId, key.keyCode);
 
 	if (key.flags & KEY_DOWN) {
-		curInput_[mapping] = 1.0f;
+		curInput_[mapping] = { 1.0f, time_now_d() };
 	} else if (key.flags & KEY_UP) {
-		curInput_[mapping] = 0.0f;
+		curInput_[mapping] = { 0.0f, time_now_d() };
 	}
 
 	// TODO: See if this can be simplified further somehow.
@@ -463,18 +465,19 @@ void ControlMapper::ToggleSwapAxes() {
 
 void ControlMapper::Axis(const AxisInput &axis) {
 	std::lock_guard<std::mutex> guard(mutex_);
+	double now = time_now_d();
 	if (axis.value >= 0.0f) {
 		InputMapping mapping(axis.deviceId, axis.axisId, 1);
 		InputMapping opposite(axis.deviceId, axis.axisId, -1);
-		curInput_[mapping] = axis.value;
-		curInput_[opposite] = 0.0f;
+		curInput_[mapping] = { axis.value, now };
+		curInput_[opposite] = { 0.0f, now };
 		UpdatePSPState(mapping);
 		UpdatePSPState(opposite);
 	} else if (axis.value < 0.0f) {
 		InputMapping mapping(axis.deviceId, axis.axisId, -1);
 		InputMapping opposite(axis.deviceId, axis.axisId, 1);
-		curInput_[mapping] = -axis.value;
-		curInput_[opposite] = 0.0f;
+		curInput_[mapping] = { -axis.value, now };
+		curInput_[opposite] = { 0.0f, now };
 		UpdatePSPState(mapping);
 		UpdatePSPState(opposite);
 	}
@@ -583,7 +586,7 @@ void ControlMapper::GetDebugString(char *buffer, size_t bufSize) const {
 	for (auto iter : curInput_) {
 		char temp[256];
 		iter.first.FormatDebug(temp, sizeof(temp));
-		str << temp << ": " << iter.second << std::endl;
+		str << temp << ": " << iter.second.value << std::endl;
 	}
 	for (int i = 0; i < ARRAY_SIZE(virtKeys_); i++) {
 		int vkId = VIRTKEY_FIRST + i;

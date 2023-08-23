@@ -42,6 +42,11 @@ public:
 
 	void GetDebugString(char *buffer, size_t bufSize) const;
 
+	struct InputSample {
+		float value;
+		double timestamp;
+	};
+
 private:
 	bool UpdatePSPState(const InputMapping &changedMapping);
 	float MapAxisValue(float value, int vkId, const InputMapping &mapping, const InputMapping &changedMapping, bool *oppositeTouched);
@@ -71,7 +76,7 @@ private:
 	// Protects basically all the state.
 	std::mutex mutex_;
 
-	std::map<InputMapping, float> curInput_;
+	std::map<InputMapping, InputSample> curInput_;
 
 	// Callbacks
 	std::function<void(int, bool)> onVKey_;
