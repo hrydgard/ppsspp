@@ -276,13 +276,6 @@ static bool MatchesKeyDef(const std::vector<InputMapping> &defs, const KeyInput 
 // TODO: O/X confirm preference for xperia play?
 
 bool IsDPadKey(const KeyInput &key) {
-#if PPSSPP_PLATFORM(UWP)
-	if (key.flags & KEY_CHAR) {
-		// Better not to check if flags has `KEY_CHAR`
-		// many of Windows chars has similar codes to `NKCODE` actions buttons 
-		return false;
-	}
-#endif#
 	if (dpadKeys.empty()) {
 		return key.keyCode >= NKCODE_DPAD_UP && key.keyCode <= NKCODE_DPAD_RIGHT;
 	} else {
