@@ -179,10 +179,43 @@ void X64JitBackend::CompIR_Compare(IRInst inst) {
 
 	switch (inst.op) {
 	case IROp::Slt:
+		regs_.Map(inst);
+		CMP(32, regs_.R(inst.src1), regs_.R(inst.src2));
+		SETcc(CC_L, R(SCRATCH1));
+		MOVZX(32, 8, regs_.RX(inst.dest), R(SCRATCH1));
+		break;
+
 	case IROp::SltConst:
+		if (inst.constant == 0) {
+			// Basically, getting the sign bit.  Let's shift instead.
+			regs_.Map(inst);
+			if (inst.dest != inst.src1)
+				MOV(32, regs_.R(inst.dest), regs_.R(inst.src1));
+			SHR(32, regs_.R(inst.dest), Imm8(31));
+		} else {
+			regs_.Map(inst);
+			CMP(32, regs_.R(inst.src1), Imm32(inst.constant));
+			SETcc(CC_L, R(SCRATCH1));
+			MOVZX(32, 8, regs_.RX(inst.dest), R(SCRATCH1));
+		}
+		break;
+
 	case IROp::SltU:
+		regs_.Map(inst);
+		CMP(32, regs_.R(inst.src1), regs_.R(inst.src2));
+		SETcc(CC_B, R(SCRATCH1));
+		MOVZX(32, 8, regs_.RX(inst.dest), R(SCRATCH1));
+		break;
+
 	case IROp::SltUConst:
-		CompIR_Generic(inst);
+		if (inst.constant == 0) {
+			regs_.SetGPRImm(inst.dest, 0);
+		} else {
+			regs_.Map(inst);
+			CMP(32, regs_.R(inst.src1), Imm32(inst.constant));
+			SETcc(CC_B, R(SCRATCH1));
+			MOVZX(32, 8, regs_.RX(inst.dest), R(SCRATCH1));
+		}
 		break;
 
 	default:
