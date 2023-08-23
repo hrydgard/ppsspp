@@ -168,6 +168,18 @@ X64Reg X64IRRegCache::MapWithFPRTemp(IRInst &inst) {
 	return FromNativeReg(MapWithTemp(inst, MIPSLoc::FREG));
 }
 
+void X64IRRegCache::MapWithFlags(IRInst inst, X64Map destFlags, X64Map src1Flags, X64Map src2Flags) {
+	Mapping mapping[3];
+	MappingFromInst(inst, mapping);
+
+	mapping[0].flags = mapping[0].flags | destFlags;
+	mapping[1].flags = mapping[1].flags | src1Flags;
+	mapping[2].flags = mapping[2].flags | src2Flags;
+
+	ApplyMapping(mapping, 3);
+	CleanupMapping(mapping, 3);
+}
+
 X64Reg X64IRRegCache::MapGPR(IRReg mipsReg, MIPSMap mapFlags) {
 	_dbg_assert_(IsValidGPR(mipsReg));
 
