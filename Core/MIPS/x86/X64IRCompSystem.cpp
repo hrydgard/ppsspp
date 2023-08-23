@@ -113,8 +113,19 @@ void X64JitBackend::CompIR_Transfer(IRInst inst) {
 	case IROp::SetCtrlVFPU:
 	case IROp::SetCtrlVFPUReg:
 	case IROp::SetCtrlVFPUFReg:
+		CompIR_Generic(inst);
+		break;
+
 	case IROp::FpCondFromReg:
+		regs_.MapWithExtra(inst, { { 'G', IRREG_FPCOND, 1, MIPSMap::NOINIT } });
+		MOV(32, regs_.R(IRREG_FPCOND), regs_.R(inst.src1));
+		break;
+
 	case IROp::FpCondToReg:
+		regs_.MapWithExtra(inst, { { 'G', IRREG_FPCOND, 1, MIPSMap::INIT } });
+		MOV(32, regs_.R(inst.dest), regs_.R(IRREG_FPCOND));
+		break;
+
 	case IROp::FpCtrlFromReg:
 	case IROp::FpCtrlToReg:
 	case IROp::VfpuCtrlToReg:

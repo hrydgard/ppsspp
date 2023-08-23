@@ -153,6 +153,81 @@ void X64JitBackend::CompIR_FCompare(IRInst inst) {
 
 	switch (inst.op) {
 	case IROp::FCmp:
+		switch (inst.dest) {
+		case IRFpCompareMode::False:
+			regs_.SetGPRImm(IRREG_FPCOND, 0);
+			break;
+
+		case IRFpCompareMode::EitherUnordered:
+			regs_.MapWithExtra(inst, { { 'G', IRREG_FPCOND, 1, MIPSMap::NOINIT } });
+			UCOMISS(regs_.FX(inst.src1), regs_.F(inst.src2));
+			// PF = UNORDERED.
+			SETcc(CC_P, R(SCRATCH1));
+			MOVZX(32, 8, regs_.RX(IRREG_FPCOND), R(SCRATCH1));
+			break;
+
+		case IRFpCompareMode::EqualOrdered:
+			regs_.MapWithExtra(inst, { { 'G', IRREG_FPCOND, 1, MIPSMap::NOINIT } });
+			// Clear the upper bits of SCRATCH1 so we can AND later.
+			XOR(32, R(SCRATCH1), R(SCRATCH1));
+			UCOMISS(regs_.FX(inst.src1), regs_.F(inst.src2));
+			// E/ZF = EQUAL or UNORDERED (not exactly what we want.)
+			SETcc(CC_E, R(SCRATCH1));
+			if (regs_.HasLowSubregister(regs_.RX(IRREG_FPCOND))) {
+				// NP/!PF = ORDERED.
+				SETcc(CC_NP, regs_.R(IRREG_FPCOND));
+				AND(32, regs_.R(IRREG_FPCOND), R(SCRATCH1));
+			} else {
+				MOVZX(32, 8, regs_.RX(IRREG_FPCOND), R(SCRATCH1));
+				// Neither of those affected flags, luckily.
+				// NP/!PF = ORDERED.
+				SETcc(CC_NP, R(SCRATCH1));
+				AND(32, regs_.R(IRREG_FPCOND), R(SCRATCH1));
+			}
+			break;
+
+		case IRFpCompareMode::EqualUnordered:
+			regs_.MapWithExtra(inst, { { 'G', IRREG_FPCOND, 1, MIPSMap::NOINIT } });
+			UCOMISS(regs_.FX(inst.src1), regs_.F(inst.src2));
+			// E/ZF = EQUAL or UNORDERED.
+			SETcc(CC_E, R(SCRATCH1));
+			MOVZX(32, 8, regs_.RX(IRREG_FPCOND), R(SCRATCH1));
+			break;
+
+		case IRFpCompareMode::LessEqualOrdered:
+			regs_.MapWithExtra(inst, { { 'G', IRREG_FPCOND, 1, MIPSMap::NOINIT } });
+			UCOMISS(regs_.FX(inst.src2), regs_.F(inst.src1));
+			// AE/!CF = GREATER or EQUAL (src2/src1 reversed.)
+			SETcc(CC_AE, R(SCRATCH1));
+			MOVZX(32, 8, regs_.RX(IRREG_FPCOND), R(SCRATCH1));
+			break;
+
+		case IRFpCompareMode::LessEqualUnordered:
+			regs_.MapWithExtra(inst, { { 'G', IRREG_FPCOND, 1, MIPSMap::NOINIT } });
+			UCOMISS(regs_.FX(inst.src1), regs_.F(inst.src2));
+			// BE/CF||ZF = LESS THAN or EQUAL or UNORDERED.
+			SETcc(CC_BE, R(SCRATCH1));
+			MOVZX(32, 8, regs_.RX(IRREG_FPCOND), R(SCRATCH1));
+			break;
+
+		case IRFpCompareMode::LessOrdered:
+			regs_.MapWithExtra(inst, { { 'G', IRREG_FPCOND, 1, MIPSMap::NOINIT } });
+			UCOMISS(regs_.FX(inst.src2), regs_.F(inst.src1));
+			// A/!CF&&!ZF = GREATER (src2/src1 reversed.)
+			SETcc(CC_A, R(SCRATCH1));
+			MOVZX(32, 8, regs_.RX(IRREG_FPCOND), R(SCRATCH1));
+			break;
+
+		case IRFpCompareMode::LessUnordered:
+			regs_.MapWithExtra(inst, { { 'G', IRREG_FPCOND, 1, MIPSMap::NOINIT } });
+			UCOMISS(regs_.FX(inst.src1), regs_.F(inst.src2));
+			// B/CF = LESS THAN or UNORDERED.
+			SETcc(CC_B, R(SCRATCH1));
+			MOVZX(32, 8, regs_.RX(IRREG_FPCOND), R(SCRATCH1));
+			break;
+		}
+		break;
+
 	case IROp::FCmovVfpuCC:
 	case IROp::FCmpVfpuBit:
 	case IROp::FCmpVfpuAggregate:
