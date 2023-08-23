@@ -488,7 +488,7 @@ void OSXOpenURL(const char *url) {
 }
 
 -(void)takeScreenshot {
-    g_takeScreenshot = true;
+    g_TakeScreenshot = true;
 }
 
 -(void)resetSymbolTable {
