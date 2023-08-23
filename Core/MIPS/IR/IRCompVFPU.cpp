@@ -1264,10 +1264,13 @@ namespace MIPSComp {
 
 				if (imm - 128 == VFPU_CTRL_SPREFIX) {
 					js.prefixSFlag = JitState::PREFIX_UNKNOWN;
+					js.blockWrotePrefixes = true;
 				} else if (imm - 128 == VFPU_CTRL_TPREFIX) {
 					js.prefixTFlag = JitState::PREFIX_UNKNOWN;
+					js.blockWrotePrefixes = true;
 				} else if (imm - 128 == VFPU_CTRL_DPREFIX) {
 					js.prefixDFlag = JitState::PREFIX_UNKNOWN;
+					js.blockWrotePrefixes = true;
 				}
 			} else {
 				INVALIDOP;
@@ -1316,10 +1319,13 @@ namespace MIPSComp {
 			}
 			if (imm == VFPU_CTRL_SPREFIX) {
 				js.prefixSFlag = JitState::PREFIX_UNKNOWN;
+				js.blockWrotePrefixes = true;
 			} else if (imm == VFPU_CTRL_TPREFIX) {
 				js.prefixTFlag = JitState::PREFIX_UNKNOWN;
+				js.blockWrotePrefixes = true;
 			} else if (imm == VFPU_CTRL_DPREFIX) {
 				js.prefixDFlag = JitState::PREFIX_UNKNOWN;
+				js.blockWrotePrefixes = true;
 			}
 		} else {
 			INVALIDOP;
