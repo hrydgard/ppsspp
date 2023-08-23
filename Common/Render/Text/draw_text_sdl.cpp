@@ -173,7 +173,6 @@ bool TextDrawerSDL::FindFallbackFonts(uint32_t missingGlyph, int ptSize) {
 
 		if (TTF_GlyphIsProvided32(font, missingGlyph)) {
 			fallbackFonts_.insert(fallbackFonts_.begin(), font);
-			fallbackFontPaths_.erase(fallbackFontPaths_.begin() + i);
 			return true;
 		} else {
 			TTF_CloseFont(font);
