@@ -821,7 +821,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	restarting = false;
 }
 
-void RenderOverlays(UIContext *dc, void *userdata);
+void CallbackPostRender(UIContext *dc, void *userdata);
 bool CreateGlobalPipelines();
 
 bool NativeInitGraphics(GraphicsContext *graphicsContext) {
@@ -860,7 +860,7 @@ bool NativeInitGraphics(GraphicsContext *graphicsContext) {
 
 	g_screenManager->setUIContext(uiContext);
 	g_screenManager->setDrawContext(g_draw);
-	g_screenManager->setPostRenderCallback(&RenderOverlays, nullptr);
+	g_screenManager->setPostRenderCallback(&CallbackPostRender, nullptr);
 	g_screenManager->deviceRestored();
 
 #ifdef _WIN32
@@ -993,9 +993,7 @@ void NativeShutdownGraphics() {
 	INFO_LOG(SYSTEM, "NativeShutdownGraphics done");
 }
 
-void TakeScreenshot() {
-	g_TakeScreenshot = false;
-
+static void TakeScreenshot() {
 	Path path = GetSysDirectory(DIRECTORY_SCREENSHOT);
 	if (!File::Exists(path)) {
 		File::CreateDir(path);
@@ -1027,9 +1025,10 @@ void TakeScreenshot() {
 	}
 }
 
-void RenderOverlays(UIContext *dc, void *userdata) {
+void CallbackPostRender(UIContext *dc, void *userdata) {
 	if (g_TakeScreenshot) {
 		TakeScreenshot();
+		g_TakeScreenshot = false;
 	}
 }
 

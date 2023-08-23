@@ -24,11 +24,11 @@
 #include "Common/Data/Text/I18n.h"
 #include "Common/StringUtils.h"
 
-void TakeScreenshot();
-
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+extern bool g_TakeScreenshot;
 
 #define MENU_ITEM(variableName, localizedTitleName, SEL, ConfigurationValueName, Tag) \
 NSMenuItem *variableName = [[NSMenuItem alloc] initWithTitle:localizedTitleName action:SEL keyEquivalent:@""]; \
@@ -488,7 +488,7 @@ void OSXOpenURL(const char *url) {
 }
 
 -(void)takeScreenshot {
-    TakeScreenshot();
+    g_takeScreenshot = true;
 }
 
 -(void)resetSymbolTable {
