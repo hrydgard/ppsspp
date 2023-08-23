@@ -794,10 +794,10 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, int count) {
 		case IROp::FMin:
 			if (my_isnan(mips->f[inst->src1]) || my_isnan(mips->f[inst->src2])) {
 				// See interpreter for this logic: this is for vmin, we're comparing mantissa+exp.
-				if (mips->fi[inst->src1] < 0 && mips->fi[inst->src2] < 0) {
-					mips->fi[inst->dest] = std::max(mips->fi[inst->src1], mips->fi[inst->src2]);
+				if (mips->fs[inst->src1] < 0 && mips->fs[inst->src2] < 0) {
+					mips->fs[inst->dest] = std::max(mips->fs[inst->src1], mips->fs[inst->src2]);
 				} else {
-					mips->fi[inst->dest] = std::min(mips->fi[inst->src1], mips->fi[inst->src2]);
+					mips->fs[inst->dest] = std::min(mips->fs[inst->src1], mips->fs[inst->src2]);
 				}
 			} else {
 				mips->f[inst->dest] = std::min(mips->f[inst->src1], mips->f[inst->src2]);
@@ -806,10 +806,10 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, int count) {
 		case IROp::FMax:
 			if (my_isnan(mips->f[inst->src1]) || my_isnan(mips->f[inst->src2])) {
 				// See interpreter for this logic: this is for vmax, we're comparing mantissa+exp.
-				if (mips->fi[inst->src1] < 0 && mips->fi[inst->src2] < 0) {
-					mips->fi[inst->dest] = std::min(mips->fi[inst->src1], mips->fi[inst->src2]);
+				if (mips->fs[inst->src1] < 0 && mips->fs[inst->src2] < 0) {
+					mips->fs[inst->dest] = std::min(mips->fs[inst->src1], mips->fs[inst->src2]);
 				} else {
-					mips->fi[inst->dest] = std::max(mips->fi[inst->src1], mips->fi[inst->src2]);
+					mips->fs[inst->dest] = std::max(mips->fs[inst->src1], mips->fs[inst->src2]);
 				}
 			} else {
 				mips->f[inst->dest] = std::max(mips->f[inst->src1], mips->f[inst->src2]);
