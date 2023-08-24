@@ -115,3 +115,7 @@ void RequestManager::Clear() {
 void System_CreateGameShortcut(const Path &path, const std::string &title) {
 	g_requestManager.MakeSystemRequest(SystemRequestType::CREATE_GAME_SHORTCUT, nullptr, nullptr, path.ToString(), title, 0);
 }
+
+void System_ShowFileInFolder(const Path &path) {
+	g_requestManager.MakeSystemRequest(SystemRequestType::SHOW_FILE_IN_FOLDER, nullptr, nullptr, path.ToString(), "", 0);
+}
