@@ -5,6 +5,7 @@
 #include "Common/StringUtils.h"
 #include "Common/Log.h"
 #include "Common/System/OSD.h"
+#include "Common/System/System.h"
 
 namespace http {
 
@@ -37,7 +38,7 @@ bool RequestManager::IsHttpsUrl(const std::string &url) {
 
 std::shared_ptr<Request> RequestManager::StartDownload(const std::string &url, const Path &outfile, ProgressBarMode mode, const char *acceptMime) {
 	std::shared_ptr<Request> dl;
-	if (IsHttpsUrl(url)) {
+	if (IsHttpsUrl(url) && System_GetPropertyBool(SYSPROP_SUPPORTS_HTTPS)) {
 #ifndef HTTPS_NOT_AVAILABLE
 		dl.reset(new HTTPSRequest(RequestMethod::GET, url, "", "", outfile, mode));
 #else
@@ -64,7 +65,7 @@ std::shared_ptr<Request> RequestManager::StartDownloadWithCallback(
 	const std::string &name,
 	const char *acceptMime) {
 	std::shared_ptr<Request> dl;
-	if (IsHttpsUrl(url)) {
+	if (IsHttpsUrl(url) && System_GetPropertyBool(SYSPROP_SUPPORTS_HTTPS)) {
 #ifndef HTTPS_NOT_AVAILABLE
 		dl.reset(new HTTPSRequest(RequestMethod::GET, url, "", "", outfile, mode, name));
 #else
@@ -91,7 +92,7 @@ std::shared_ptr<Request> RequestManager::AsyncPostWithCallback(
 	std::function<void(Request &)> callback,
 	const std::string &name) {
 	std::shared_ptr<Request> dl;
-	if (IsHttpsUrl(url)) {
+	if (IsHttpsUrl(url) && System_GetPropertyBool(SYSPROP_SUPPORTS_HTTPS)) {
 #ifndef HTTPS_NOT_AVAILABLE
 		dl.reset(new HTTPSRequest(RequestMethod::POST, url, postData, postMime, Path(), mode, name));
 #else

@@ -533,7 +533,7 @@ bool System_GetPropertyBool(SystemProperty prop) {
 		return deviceType != DEVICE_TYPE_VR;
 #ifndef HTTPS_NOT_AVAILABLE
 	case SYSPROP_SUPPORTS_HTTPS:
-		return true;
+		return !g_Config.bDisableHTTPS;
 #endif
 	default:
 		return false;
