@@ -19,10 +19,6 @@
 #include "Common/StringUtils.h"
 #include "Common/Log.h"
 
-#if PPSSPP_PLATFORM(UWP)
-#include <UWP/UWPHelpers/InputHelpers.h>
-#endif 
-
 namespace UI {
 
 static constexpr Size ITEM_HEIGHT = 64.f;

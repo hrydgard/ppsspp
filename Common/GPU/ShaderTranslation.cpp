@@ -63,7 +63,6 @@ static EShLanguage GetShLanguageFromStage(const ShaderStage stage) {
 }
 
 void ShaderTranslationInit() {
-	// TODO: We have TLS issues on UWP
 	glslang::InitializeProcess();
 }
 void ShaderTranslationShutdown() {
