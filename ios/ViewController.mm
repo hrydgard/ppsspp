@@ -754,10 +754,6 @@ void stopLocation() {
 
 @end
 
-void System_ShowFileInFolder(const char *path) {
-	// Unsupported
-}
-
 void System_LaunchUrl(LaunchUrlType urlType, char const* url)
 {
 	[[UIApplication sharedApplication] openURL:[NSURL URLWithString:[NSString stringWithCString:url encoding:NSStringEncodingConversionAllowLossy]]];

@@ -29,6 +29,7 @@
 #include "Common/Data/Text/Parsers.h"
 #include "Common/StringUtils.h"
 #include "Common/System/System.h"
+#include "Common/System/Request.h"
 
 #include "Core/Config.h"
 #include "Core/Screenshot.h"
@@ -1213,7 +1214,7 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 		case IDC_GEDBG_RECORD:
 			GPURecord::SetCallback([](const Path &path) {
 				// Opens a Windows Explorer window with the file.
-				System_ShowFileInFolder(path.c_str());
+				System_ShowFileInFolder(path);
 			});
 			GPURecord::Activate();
 			break;

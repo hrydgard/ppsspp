@@ -602,13 +602,12 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 		}
 		return true;
 	}
+	case SystemRequestType::SHOW_FILE_IN_FOLDER:
+		OpenFolder(param1);
+		return true;
 	default:
 		return false;
 	}
-}
-
-void System_ShowFileInFolder(const char *path) {
-	OpenFolder(std::string(path));
 }
 
 void System_LaunchUrl(LaunchUrlType urlType, const char *url) {

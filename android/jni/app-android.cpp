@@ -391,10 +391,6 @@ void System_Vibrate(int length_ms) {
 	PushCommand("vibrate", temp);
 }
 
-void System_ShowFileInFolder(const char *path) {
-	// Unsupported
-}
-
 void System_LaunchUrl(LaunchUrlType urlType, const char *url) {
 	switch (urlType) {
 	case LaunchUrlType::BROWSER_URL: PushCommand("launchBrowser", url); break;

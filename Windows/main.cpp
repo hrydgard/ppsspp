@@ -26,10 +26,10 @@
 #include "Common/GPU/Vulkan/VulkanLoader.h"
 #include "ppsspp_config.h"
 
-#include <Wbemidl.h>
-#include <shellapi.h>
-#include <ShlObj.h>
 #include <mmsystem.h>
+#include <shellapi.h>
+#include <Wbemidl.h>
+#include <ShlObj.h>
 
 #include "Common/System/Display.h"
 #include "Common/System/NativeApp.h"
@@ -121,21 +121,6 @@ static double g_lastKeepAwake = 0.0;
 // Time until we stop considering the core active without user input.
 // Should this be configurable?  2 hours currently.
 static const double ACTIVITY_IDLE_TIMEOUT = 2.0 * 3600.0;
-
-void System_ShowFileInFolder(const char *path) {
-	// SHParseDisplayName can't handle relative paths, so normalize first.
-	std::string resolved = ReplaceAll(File::ResolvePath(path), "/", "\\");
-
-	SFGAOF flags{};
-	PIDLIST_ABSOLUTE pidl = nullptr;
-	HRESULT hr = SHParseDisplayName(ConvertUTF8ToWString(resolved).c_str(), nullptr, &pidl, 0, &flags);
-
-	if (pidl) {
-		if (SUCCEEDED(hr))
-			SHOpenFolderAndSelectItems(pidl, 0, nullptr, 0);
-		CoTaskMemFree(pidl);
-	}
-}
 
 void System_LaunchUrl(LaunchUrlType urlType, const char *url) {
 	ShellExecute(NULL, L"open", ConvertUTF8ToWString(url).c_str(), NULL, NULL, SW_SHOWNORMAL);
@@ -368,6 +353,7 @@ bool System_GetPropertyBool(SystemProperty prop) {
 	case SYSPROP_HAS_OPEN_DIRECTORY:
 	case SYSPROP_HAS_TEXT_INPUT_DIALOG:
 	case SYSPROP_CAN_CREATE_SHORTCUT:
+	case SYSPROP_CAN_SHOW_FILE:
 		return true;
 	case SYSPROP_HAS_IMAGE_BROWSER:
 		return true;
@@ -608,6 +594,11 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 		}).detach();
 		return true;
 	}
+
+	case SystemRequestType::SHOW_FILE_IN_FOLDER:
+		W32Util::ShowFileInFolder(param1);
+		break;
+
 	case SystemRequestType::TOGGLE_FULLSCREEN_STATE:
 	{
 		bool flag = !MainWindow::IsFullscreen();

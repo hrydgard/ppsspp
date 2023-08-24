@@ -49,7 +49,6 @@ enum class LaunchUrlType {
 };
 
 void System_Vibrate(int length_ms);
-void System_ShowFileInFolder(const char *path);
 void System_LaunchUrl(LaunchUrlType urlType, const char *url);
 
 // It's sometimes a little unclear what should be a request, and what should be a separate function.
@@ -72,6 +71,7 @@ enum class SystemRequestType {
 	TOGGLE_FULLSCREEN_STATE,
 	GRAPHICS_BACKEND_FAILED_ALERT,
 	CREATE_GAME_SHORTCUT,
+	SHOW_FILE_IN_FOLDER,
 
 	// Commonly ignored, used when automated tests generate output.
 	SEND_DEBUG_OUTPUT,
@@ -135,6 +135,7 @@ enum SystemProperty {
 	SYSPROP_HAS_TEXT_INPUT_DIALOG,  // Indicates that System_InputBoxGetString is available.
 
 	SYSPROP_CAN_CREATE_SHORTCUT,
+	SYSPROP_CAN_SHOW_FILE,
 
 	SYSPROP_SUPPORTS_HTTPS,
 

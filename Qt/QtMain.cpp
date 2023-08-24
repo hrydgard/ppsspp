@@ -252,6 +252,7 @@ bool System_GetPropertyBool(SystemProperty prop) {
 	case SYSPROP_HAS_FOLDER_BROWSER:
 	case SYSPROP_HAS_OPEN_DIRECTORY:
 	case SYSPROP_HAS_TEXT_INPUT_DIALOG:
+	case SYSPROP_CAN_SHOW_FILE:
 		return true;
 	case SYSPROP_SUPPORTS_OPEN_FILE_IN_EDITOR:
 		return true;  // FileUtil.cpp: OpenFileInEditor
@@ -407,6 +408,9 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 			emit(qtcamera->onStopCamera());
 		}
 		return true;
+	case SystemRequestType::SHOW_FILE_IN_FOLDER:
+		QDesktopServices::openUrl(QUrl::fromLocalFile(QString::fromUtf8(param1.c_str())));
+		return true;
 	default:
 		return false;
 	}
@@ -422,10 +426,6 @@ void System_Vibrate(int length_ms) {
 		length_ms = 50;
 	else if (length_ms == -2)
 		length_ms = 25;
-}
-
-void System_ShowFileInFolder(const char *path) {
-	QDesktopServices::openUrl(QUrl::fromLocalFile(QString::fromUtf8(path)));
 }
 
 void System_LaunchUrl(LaunchUrlType urlType, const char *url)
