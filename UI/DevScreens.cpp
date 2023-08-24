@@ -63,6 +63,7 @@
 #include "Core/MIPS/JitCommon/JitBlockCache.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
 #include "Core/MIPS/JitCommon/JitState.h"
+#include "GPU/Debugger/Record.h"
 #include "GPU/GPUInterface.h"
 #include "GPU/GPUState.h"
 #include "UI/MiscScreens.h"
@@ -139,11 +140,27 @@ void DevMenuScreen::CreatePopupContents(UI::ViewGroup *parent) {
 		return UI::EVENT_DONE;
 	});
 
-	items->Add(new Choice(dev->T("Dump next frame to log")))->OnClick.Add([](UI::EventParams &e) {
-		gpu->DumpNextFrame();
+	items->Add(new Choice(dev->T("Reset limited logging")))->OnClick.Handle(this, &DevMenuScreen::OnResetLimitedLogging);
+
+	items->Add(new Choice(dev->T("Create frame dump")))->OnClick.Add([](UI::EventParams &e) {
+		GPURecord::RecordNextFrame([](const Path &dumpPath) {
+			NOTICE_LOG(SYSTEM, "Frame dump created at '%s'", dumpPath.c_str());
+			if (System_GetPropertyBool(SYSPROP_CAN_SHOW_FILE)) {
+				System_ShowFileInFolder(dumpPath);
+			} else {
+				g_OSD.Show(OSDType::MESSAGE_SUCCESS, dumpPath.ToVisualString(), 7.0f);
+			}
+		});
 		return UI::EVENT_DONE;
 	});
-	items->Add(new Choice(dev->T("Reset limited logging")))->OnClick.Handle(this, &DevMenuScreen::OnResetLimitedLogging);
+
+	// This one is not very useful these days, and only really on desktop. Hide it on other platforms.
+	if (System_GetPropertyInt(SYSPROP_DEVICE_TYPE) == DEVICE_TYPE_DESKTOP) {
+		items->Add(new Choice(dev->T("Dump next frame to log")))->OnClick.Add([](UI::EventParams &e) {
+			gpu->DumpNextFrame();
+			return UI::EVENT_DONE;
+		});
+	}
 
 	scroll->Add(items);
 	parent->Add(scroll);
