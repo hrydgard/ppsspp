@@ -44,10 +44,7 @@ protected:
 	void update() override;
 
 private:
-	UI::EventReturn OnDefaultMapping(UI::EventParams &params);
-	UI::EventReturn OnClearMapping(UI::EventParams &params);
 	UI::EventReturn OnAutoConfigure(UI::EventParams &params);
-	UI::EventReturn OnVisualizeMapping(UI::EventParams &params);
 
 	void dialogFinished(const Screen *dialog, DialogResult result) override;
 
