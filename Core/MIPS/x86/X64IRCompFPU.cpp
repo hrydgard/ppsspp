@@ -18,6 +18,10 @@
 #include "ppsspp_config.h"
 #if PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)
 
+#ifndef offsetof
+#include <cstddef>
+#endif
+
 #include "Core/MIPS/x86/X64IRJit.h"
 #include "Core/MIPS/x86/X64IRRegCache.h"
 
@@ -36,7 +40,11 @@ namespace MIPSComp {
 using namespace Gen;
 using namespace X64IRJitConstants;
 
+struct SimdConstants {
 alignas(16) const u32 reverseQNAN[4] = { 0x803FFFFF, 0x803FFFFF, 0x803FFFFF, 0x803FFFFF };
+alignas(16) const u32 noSignMask[4] = { 0x7FFFFFFF, 0x7FFFFFFF, 0x7FFFFFFF, 0x7FFFFFFF };
+alignas(16) const u32 positiveInfinity[4] = { 0x7F800000, 0x7F800000, 0x7F800000, 0x7F800000 };
+} simdConstants;
 
 void X64JitBackend::CompIR_FArith(IRInst inst) {
 	CONDITIONAL_DISABLE;
@@ -100,10 +108,10 @@ void X64JitBackend::CompIR_FArith(IRInst inst) {
 		ANDPS(regs_.FX(inst.dest), R(tempReg));
 		// At this point fd = FFFFFFFF if non-NAN inputs produced a NAN output.
 		// We'll AND it with the inverse QNAN bits to clear (00000000 means no change.)
-		if (RipAccessible(&reverseQNAN)) {
-			ANDPS(regs_.FX(inst.dest), M(&reverseQNAN));  // rip accessible
+		if (RipAccessible(&simdConstants.reverseQNAN)) {
+			ANDPS(regs_.FX(inst.dest), M(&simdConstants.reverseQNAN));  // rip accessible
 		} else {
-			MOV(PTRBITS, R(SCRATCH1), ImmPtr(&reverseQNAN));
+			MOV(PTRBITS, R(SCRATCH1), ImmPtr(&simdConstants.reverseQNAN));
 			ANDPS(regs_.FX(inst.dest), MatR(SCRATCH1));
 		}
 		// ANDN is backwards, which is why we saved XMM0 to start.  Now put it back.
@@ -229,9 +237,152 @@ void X64JitBackend::CompIR_FCompare(IRInst inst) {
 		break;
 
 	case IROp::FCmovVfpuCC:
-	case IROp::FCmpVfpuBit:
-	case IROp::FCmpVfpuAggregate:
 		CompIR_Generic(inst);
+		break;
+
+	case IROp::FCmpVfpuBit:
+	{
+		regs_.MapGPR(IRREG_VFPU_CC, MIPSMap::DIRTY);
+		X64Reg tempReg = regs_.MapWithFPRTemp(inst);
+		uint8_t affectedBit = 1 << (inst.dest >> 4);
+		bool condNegated = (inst.dest & 4) != 0;
+
+		bool takeBitFromTempReg = true;
+		switch (VCondition(inst.dest & 0xF)) {
+		case VC_EQ:
+			if (cpu_info.bAVX) {
+				VCMPSS(tempReg, regs_.FX(inst.src1), regs_.F(inst.src2), CMP_EQ);
+			} else {
+				MOVAPS(tempReg, regs_.F(inst.src1));
+				CMPSS(tempReg, regs_.F(inst.src2), CMP_EQ);
+			}
+			break;
+		case VC_NE:
+			if (cpu_info.bAVX) {
+				VCMPSS(tempReg, regs_.FX(inst.src1), regs_.F(inst.src2), CMP_NEQ);
+			} else {
+				MOVAPS(tempReg, regs_.F(inst.src1));
+				CMPSS(tempReg, regs_.F(inst.src2), CMP_NEQ);
+			}
+			break;
+		case VC_LT:
+			if (cpu_info.bAVX) {
+				VCMPSS(tempReg, regs_.FX(inst.src1), regs_.F(inst.src2), CMP_LT);
+			} else {
+				MOVAPS(tempReg, regs_.F(inst.src1));
+				CMPSS(tempReg, regs_.F(inst.src2), CMP_LT);
+			}
+			break;
+		case VC_LE:
+			if (cpu_info.bAVX) {
+				VCMPSS(tempReg, regs_.FX(inst.src1), regs_.F(inst.src2), CMP_LE);
+			} else {
+				MOVAPS(tempReg, regs_.F(inst.src1));
+				CMPSS(tempReg, regs_.F(inst.src2), CMP_LE);
+			}
+			break;
+		case VC_GT:
+			// This is just LT with src1/src2 swapped.
+			if (cpu_info.bAVX) {
+				VCMPSS(tempReg, regs_.FX(inst.src2), regs_.F(inst.src1), CMP_LT);
+			} else {
+				MOVAPS(tempReg, regs_.F(inst.src2));
+				CMPSS(tempReg, regs_.F(inst.src1), CMP_LT);
+			}
+			break;
+		case VC_GE:
+			// This is just LE with src1/src2 swapped.
+			if (cpu_info.bAVX) {
+				VCMPSS(tempReg, regs_.FX(inst.src2), regs_.F(inst.src1), CMP_LE);
+			} else {
+				MOVAPS(tempReg, regs_.F(inst.src2));
+				CMPSS(tempReg, regs_.F(inst.src1), CMP_LE);
+			}
+			break;
+		case VC_EZ:
+		case VC_NZ:
+			XORPS(tempReg, R(tempReg));
+			CMPSS(tempReg, regs_.F(inst.src1), !condNegated ? CMP_EQ : CMP_NEQ);
+			break;
+		case VC_EN:
+		case VC_NN:
+			CMPSS(tempReg, regs_.F(inst.src1), !condNegated ? CMP_UNORD : CMP_ORD);
+			break;
+		case VC_EI:
+		case VC_NI:
+			regs_.MapFPR(inst.src1);
+			if (!RipAccessible(&simdConstants.noSignMask) || !RipAccessible(&simdConstants.positiveInfinity)) {
+				MOV(PTRBITS, R(SCRATCH1), ImmPtr(&simdConstants));
+			}
+			if (cpu_info.bAVX) {
+				if (RipAccessible(&simdConstants.noSignMask)) {
+					VANDPS(128, tempReg, regs_.FX(inst.src1), M(&simdConstants.noSignMask));  // rip accessible
+				} else {
+					VANDPS(128, tempReg, regs_.FX(inst.src1), MDisp(SCRATCH1, offsetof(SimdConstants, noSignMask)));
+				}
+			} else {
+				MOVAPS(tempReg, regs_.F(inst.src1));
+				if (RipAccessible(&simdConstants.noSignMask)) {
+					ANDPS(tempReg, M(&simdConstants.noSignMask));  // rip accessible
+				} else {
+					ANDPS(tempReg, MDisp(SCRATCH1, offsetof(SimdConstants, noSignMask)));
+				}
+			}
+			if (RipAccessible(&simdConstants.positiveInfinity)) {
+				CMPSS(tempReg, M(&simdConstants.positiveInfinity), !condNegated ? CMP_EQ : CMP_LT);  // rip accessible
+			} else {
+				CMPSS(tempReg, MDisp(SCRATCH1, offsetof(SimdConstants, positiveInfinity)), !condNegated ? CMP_EQ : CMP_LT);
+			}
+			break;
+		case VC_ES:
+		case VC_NS:
+			// NAN - NAN is NAN, and Infinity - Infinity is also NAN.
+			if (cpu_info.bAVX) {
+				VSUBSS(tempReg, regs_.FX(inst.src1), regs_.F(inst.src1));
+			} else {
+				MOVAPS(tempReg, regs_.F(inst.src1));
+				SUBSS(tempReg, regs_.F(inst.src1));
+			}
+			CMPSS(tempReg, regs_.F(inst.src1), !condNegated ? CMP_UNORD : CMP_ORD);
+			break;
+		case VC_TR:
+			OR(32, regs_.R(IRREG_VFPU_CC), Imm8(affectedBit));
+			takeBitFromTempReg = true;
+			break;
+		case VC_FL:
+			AND(32, regs_.R(IRREG_VFPU_CC), Imm8(~affectedBit));
+			takeBitFromTempReg = false;
+			break;
+		}
+
+		if (takeBitFromTempReg) {
+			MOVD_xmm(R(SCRATCH1), tempReg);
+			AND(32, R(SCRATCH1), Imm8(affectedBit));
+			AND(32, regs_.R(IRREG_VFPU_CC), Imm8(~affectedBit));
+			OR(32, regs_.R(IRREG_VFPU_CC), R(SCRATCH1));
+		}
+		break;
+	}
+
+	case IROp::FCmpVfpuAggregate:
+		regs_.MapGPR(IRREG_VFPU_CC, MIPSMap::DIRTY);
+		// First, clear out the bits we're aggregating.
+		// The register refuses writes to bits outside 0x3F, and we're setting 0x30.
+		AND(32, regs_.R(IRREG_VFPU_CC), Imm8(0xF));
+
+		// Set the any bit.
+		TEST(32, regs_.R(IRREG_VFPU_CC), Imm32(inst.dest));
+		SETcc(CC_NZ, R(SCRATCH1));
+		SHL(32, R(SCRATCH1), Imm8(4));
+		OR(32, regs_.R(IRREG_VFPU_CC), R(SCRATCH1));
+
+		// Next up, the "all" bit.  A bit annoying...
+		MOV(32, R(SCRATCH1), regs_.R(IRREG_VFPU_CC));
+		AND(32, R(SCRATCH1), Imm8(inst.dest));
+		CMP(32, R(SCRATCH1), Imm8(inst.dest));
+		SETcc(CC_E, R(SCRATCH1));
+		SHL(32, R(SCRATCH1), Imm8(5));
+		OR(32, regs_.R(IRREG_VFPU_CC), R(SCRATCH1));
 		break;
 
 	default:
