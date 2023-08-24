@@ -49,7 +49,7 @@
 namespace GPURecord {
 
 static bool active = false;
-static bool nextFrame = false;
+static std::atomic<bool> nextFrame = false;
 static int flipLastAction = -1;
 static int flipFinishAt = -1;
 static uint32_t lastEdramTrans = 0x400;
@@ -601,18 +601,20 @@ bool IsActivePending() {
 	return nextFrame || active;
 }
 
-bool Activate() {
+bool RecordNextFrame(const std::function<void(const Path &)> callback) {
 	if (!nextFrame) {
-		nextFrame = true;
 		flipLastAction = gpuStats.numFlips;
 		flipFinishAt = -1;
+		writeCallback = callback;
+		nextFrame = true;
 		return true;
 	}
 	return false;
 }
 
-void SetCallback(const std::function<void(const Path &)> callback) {
-	writeCallback = callback;
+void ClearCallback() {
+	// Not super thread safe..
+	writeCallback = nullptr;
 }
 
 static void FinishRecording() {

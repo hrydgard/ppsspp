@@ -1212,11 +1212,10 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 			break;
 
 		case IDC_GEDBG_RECORD:
-			GPURecord::SetCallback([](const Path &path) {
-				// Opens a Windows Explorer window with the file.
+			GPURecord::RecordNextFrame([](const Path &path) {
+				// Opens a Windows Explorer window with the file, when done.
 				System_ShowFileInFolder(path);
 			});
-			GPURecord::Activate();
 			break;
 
 		case IDC_GEDBG_FLUSH:
