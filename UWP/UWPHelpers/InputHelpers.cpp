@@ -41,9 +41,8 @@ bool findInList(std::list<T>& inputList, T& str) {
 };
 #pragma endregion
 
-#pragma region Input Keyboard
-
-bool isKeybaordAvailable() {
+#pragma region Input Devices
+bool isKeyboardAvailable() {
 	Windows::Devices::Input::KeyboardCapabilities^ keyboardCapabilities = ref new Windows::Devices::Input::KeyboardCapabilities();
 	bool hasKeyboard = keyboardCapabilities->KeyboardPresent != 0;
 	return hasKeyboard;
@@ -54,8 +53,12 @@ bool isTouchAvailable() {
 	bool hasTouch = touchCapabilities->TouchPresent != 0;
 	return hasTouch;
 }
+#pragma endregion
 
-bool keyboardActive = false;
+#pragma region Input Keyboard
+
+bool dPadInputActive = false;
+bool textEditActive = false;
 bool inputPaneVisible = false;
 Platform::Agile<Windows::UI::ViewManagement::InputPane> inputPane = nullptr;
 
@@ -72,45 +75,87 @@ void PrepareInputPane() {
 	inputPane->Hiding += ref new Windows::Foundation::TypedEventHandler<InputPane^, InputPaneVisibilityEventArgs^>(&OnHiding);
 }
 
+// Show input pane (OSK)
+bool ShowInputPane() {
+	return !isInputPaneVisible() ? inputPane->TryShow() : true;
+}
+// Hide input pane (OSK)
+bool HideInputPane() {
+	return isInputPaneVisible() ? inputPane->TryHide() : true;
+}
+
+// Check if input pane (OSK) visible
 bool isInputPaneVisible() {
 	return inputPaneVisible;
 }
 
-bool isKeyboardActive() {
-	return keyboardActive;
+// Check if text edit active (got focus)
+bool isTextEditActive() {
+	return textEditActive;
 }
 
-void ActivateKeyboardInput() {
-	DEBUG_LOG(COMMON, "Activate input keyboard");
-	if (inputPane->TryShow()) {
-		DEBUG_LOG(COMMON, "Input pane: TryShow accepted");
-	}
-	else {
-		DEBUG_LOG(COMMON, "Input pane: (TryShow is not accepted or pane is not supported)");
-
-	}
-	keyboardActive = true;
+// Set if the current input is DPad
+void DPadInputState(bool inputState) {
+	dPadInputActive = inputState;
 }
 
-void DeactivateKeyboardInput() {
-	DEBUG_LOG(COMMON, "Deactivate input keyboard");
-	if (inputPane->TryHide()) {
-		DEBUG_LOG(COMMON, "Input pane: TryHide accepted");
-	}
-	else {
-		DEBUG_LOG(COMMON, "Input pane: TryHide is not accepted, or pane is not visible");
-	}
-	keyboardActive = false;
+// Check if the current input is DPad
+bool isDPadActive() {
+	return dPadInputActive;
+}
+
+void ActivateTextEditInput(bool byFocus) {
+	// Must be performed from UI thread
+	Windows::ApplicationModel::Core::CoreApplication::MainView->CoreWindow->Dispatcher->RunAsync(
+	CoreDispatcherPriority::Normal,
+	ref new Windows::UI::Core::DispatchedHandler([=]()
+	{
+		if (byFocus) {
+			std::this_thread::sleep_for(std::chrono::milliseconds(100));
+		}
+		
+		if (!isInputPaneVisible() && (isDPadActive() || !IsXBox())) {
+			if (ShowInputPane()) {
+				DEBUG_LOG(COMMON, "Input pane: TryShow accepted");
+			}
+			else {
+				DEBUG_LOG(COMMON, "Input pane: (TryShow is not accepted or not supported)");
+			}
+		}
+		DEBUG_LOG(COMMON, "Text edit active");
+		textEditActive = true;
+	}));
+}
+
+void DeactivateTextEditInput(bool byFocus) {
+	// Must be performed from UI thread
+	Windows::ApplicationModel::Core::CoreApplication::MainView->CoreWindow->Dispatcher->RunAsync(
+	CoreDispatcherPriority::Normal,
+	ref new Windows::UI::Core::DispatchedHandler([=]()
+	{
+		if (isInputPaneVisible()) {
+			if (HideInputPane()) {
+				DEBUG_LOG(COMMON, "Input pane: TryHide accepted");
+			}
+			else {
+				DEBUG_LOG(COMMON, "Input pane: TryHide is not accepted, or not supported");
+			}
+		}
+		if (isTextEditActive()) {
+			DEBUG_LOG(COMMON, "Text edit inactive");
+			textEditActive = false;
+		}
+	}));
 }
 
 bool IgnoreInput(int keyCode) {
-	// When keyboard mode active and char is passed this function return 'true'
+	// When text edit active and char is passed this function return 'true'
 	// it will help to prevent KeyDown from sending the same code again
 	bool ignoreInput = false;
 	// TODO: Add ` && !IsCtrlOnHold()` once it's ready and implemented
-	if (isKeyboardActive()) {
+	if (isTextEditActive()) {
 		// To avoid bothering KeyDown to check this case always
-		// we don't get here unless keyboard mode is active
+		// we don't get here unless text edit is active
 		std::list<int> nonCharList = { 
 			NKCODE_CTRL_LEFT, 
 			NKCODE_CTRL_RIGHT,
@@ -127,7 +172,6 @@ bool IgnoreInput(int keyCode) {
 			NKCODE_EXT_MOUSEBUTTON_3,
 			NKCODE_EXT_MOUSEBUTTON_4,
 			NKCODE_EXT_MOUSEBUTTON_5,
-			NKCODE_ESCAPE 
 		};
 		if (!isInputPaneVisible()) {
 			// Keyboard active but no on-screen keyboard
@@ -137,6 +181,7 @@ bool IgnoreInput(int keyCode) {
 			nonCharList.push_back(NKCODE_DPAD_LEFT);
 			nonCharList.push_back(NKCODE_DPAD_RIGHT);
 			nonCharList.push_back(NKCODE_BACK);
+			nonCharList.push_back(NKCODE_ESCAPE);
 		}
 
 		ignoreInput = !findInList(nonCharList, keyCode);

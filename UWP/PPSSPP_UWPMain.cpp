@@ -192,6 +192,9 @@ void PPSSPP_UWPMain::OnDeviceRestored() {
 
 void PPSSPP_UWPMain::OnKeyDown(int scanCode, Windows::System::VirtualKey virtualKey, int repeatCount) {
 	// TODO: Look like (Ctrl, Alt, Shift) don't trigger this event
+	bool isDPad = (int)virtualKey >= 195 && (int)virtualKey <= 218; // DPad buttons range
+	DPadInputState(isDPad);
+
 	auto iter = virtualKeyCodeToNKCode.find(virtualKey);
 	if (iter != virtualKeyCodeToNKCode.end()) {
 		KeyInput key{};
@@ -216,7 +219,7 @@ void PPSSPP_UWPMain::OnKeyUp(int scanCode, Windows::System::VirtualKey virtualKe
 void PPSSPP_UWPMain::OnCharacterReceived(int scanCode, unsigned int keyCode) {
 	// This event triggered only in chars case, (Arrows, Delete..etc don't call it)
 	// TODO: Add ` && !IsCtrlOnHold()` once it's ready and implemented
-	if (isKeyboardActive()) {
+	if (isTextEditActive()) {
 		KeyInput key{};
 		key.deviceId = DEVICE_ID_KEYBOARD;
 		key.keyCode = (InputKeyCode)keyCode;
@@ -426,7 +429,7 @@ bool System_GetPropertyBool(SystemProperty prop) {
 		// Do actual check 
 		// touch devices has input pane, we need to depend on it
 		// I don't know any possible way to display input dialog in non-xaml apps
-		return isKeybaordAvailable() || isTouchAvailable();
+		return isKeyboardAvailable() || isTouchAvailable();
 	}
 	default:
 		return false;
@@ -536,26 +539,19 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 	}
 	case SystemRequestType::NOTIFY_UI_STATE:
 	{
-		if (!param1.empty() && !strcmp(param1.c_str(), "menu")) {
-			CloseLaunchItem();
-		}
-		else if (!strcmp(param1.c_str(), "show_keyboard")) {
-			// Must be performed from UI thread
-			Windows::ApplicationModel::Core::CoreApplication::MainView->CoreWindow->Dispatcher->RunAsync(
-			CoreDispatcherPriority::Normal,
-			ref new Windows::UI::Core::DispatchedHandler([]()
-			{
-				ActivateKeyboardInput();
-			}));
-		}
-		else if (!strcmp(param1.c_str(), "hide_keyboard")) {
-			// Must be performed from UI thread
-			Windows::ApplicationModel::Core::CoreApplication::MainView->CoreWindow->Dispatcher->RunAsync(
-			CoreDispatcherPriority::Normal, 
-			ref new Windows::UI::Core::DispatchedHandler([]()
-			{
-				DeactivateKeyboardInput();
-			}));
+		if (!param1.empty()) {
+			if (!strcmp(param1.c_str(), "menu")) {
+				CloseLaunchItem();
+			}
+			else if (!strcmp(param1.c_str(), "popup_closed")) {
+				DeactivateTextEditInput();
+			}
+			else if (!strcmp(param1.c_str(), "text_gotfocus")) {
+				ActivateTextEditInput(true);
+			}
+			else if (!strcmp(param1.c_str(), "text_lostfocus")) {
+				DeactivateTextEditInput(true);
+			}
 		}
 		return true;
 	}

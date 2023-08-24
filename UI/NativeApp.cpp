@@ -1271,7 +1271,7 @@ bool NativeKey(const KeyInput &key) {
 	}
 
 #if PPSSPP_PLATFORM(UWP)
-	// Ignore if key sent from OnKeyDown/OnKeyUp/XInput while keyboard mode active 
+	// Ignore if key sent from OnKeyDown/OnKeyUp/XInput while text edit active 
 	// it's already handled by `OnCharacterReceived`
 	if (IgnoreInput(key.keyCode) && !(key.flags & KEY_CHAR)) {
 		return false;

@@ -1086,13 +1086,10 @@ TextEdit::TextEdit(const std::string &text, const std::string &title, const std:
 void TextEdit::FocusChanged(int focusFlags) {
 #if PPSSPP_PLATFORM(UWP)
 	if (focusFlags == FF_GOTFOCUS) {
-		System_NotifyUIState("show_keyboard");
+		System_NotifyUIState("text_gotfocus");
 	}
 	else {
-		// OSK will be hidden by `Back` button and no reason to check focus
-		if (!isInputPaneVisible()) {
-			System_NotifyUIState("hide_keyboard");
-		}
+		System_NotifyUIState("text_lostfocus");
 	}
 #endif
 }

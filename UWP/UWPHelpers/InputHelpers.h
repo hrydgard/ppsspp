@@ -19,16 +19,24 @@
 #include <string>
 
 // Input Devices
-bool isKeybaordAvailable();
+bool isKeyboardAvailable();
 bool isTouchAvailable();
 
-// Input Keyboard/Pane
+// Input Pane
 void PrepareInputPane();
 bool isInputPaneVisible();
-bool isKeyboardActive();
-void ActivateKeyboardInput();
-void DeactivateKeyboardInput();
+bool ShowInputPane();
+bool HideInputPane();
+
+// Text Edit
+bool isTextEditActive();
+void ActivateTextEditInput(bool byFocus = false);
+void DeactivateTextEditInput(bool byFocus = false);
 bool IgnoreInput(int keyCode);
+
+// Input DPad
+void DPadInputState(bool inputState);
+bool isDPadActive();
 
 // Keys Status
 bool IsCapsLockOn();

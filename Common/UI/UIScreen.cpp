@@ -391,8 +391,8 @@ void PopupScreen::TriggerFinish(DialogResult result) {
 		OnCompleted(result);
 	}
 #if PPSSPP_PLATFORM(UWP)
-	// Inform UI to hide OSK and to disable keyboard mode
-	System_NotifyUIState("hide_keyboard");
+	// Inform UI that popup close to hide OSK (if visible)
+	System_NotifyUIState("popup_closed");
 #endif
 }
 
