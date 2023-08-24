@@ -243,16 +243,24 @@ void ControlMappingScreen::CreateViews() {
 	root_ = new LinearLayout(ORIENT_HORIZONTAL);
 
 	LinearLayout *leftColumn = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(200, FILL_PARENT, Margins(10, 0, 0, 10)));
-	leftColumn->Add(new Choice(km->T("Clear All")))->OnClick.Handle(this, &ControlMappingScreen::OnClearMapping);
-	leftColumn->Add(new Choice(km->T("Default All")))->OnClick.Handle(this, &ControlMappingScreen::OnDefaultMapping);
-
+	leftColumn->Add(new Choice(km->T("Clear All")))->OnClick.Add([](UI::EventParams &) {
+		KeyMap::ClearAllMappings();
+		return UI::EVENT_DONE;
+	});
+	leftColumn->Add(new Choice(km->T("Default All")))->OnClick.Add([](UI::EventParams &) {
+		KeyMap::RestoreDefault();
+		return UI::EVENT_DONE;
+	});
 	std::string sysName = System_GetProperty(SYSPROP_NAME);
 	// If there's a builtin controller, restore to default should suffice. No need to conf the controller on top.
 	if (!KeyMap::HasBuiltinController(sysName) && KeyMap::GetSeenPads().size()) {
 		leftColumn->Add(new Choice(km->T("Autoconfigure")))->OnClick.Handle(this, &ControlMappingScreen::OnAutoConfigure);
 	}
 
-	leftColumn->Add(new Choice(km->T("Show PSP")))->OnClick.Handle(this, &ControlMappingScreen::OnVisualizeMapping);
+	leftColumn->Add(new Choice(km->T("Show PSP")))->OnClick.Add([=](UI::EventParams &) {
+		screenManager()->push(new VisualMappingScreen(gamePath_));
+		return UI::EVENT_DONE;
+	});
 	leftColumn->Add(new CheckBox(&g_Config.bAllowMappingCombos, km->T("Allow combo mappings")));
 
 	leftColumn->Add(new Spacer(new LinearLayoutParams(1.0f)));
@@ -287,16 +295,6 @@ void ControlMappingScreen::update() {
 	SetVRAppMode(VRAppMode::VR_MENU_MODE);
 }
 
-UI::EventReturn ControlMappingScreen::OnClearMapping(UI::EventParams &params) {
-	KeyMap::ClearAllMappings();
-	return UI::EVENT_DONE;
-}
-
-UI::EventReturn ControlMappingScreen::OnDefaultMapping(UI::EventParams &params) {
-	KeyMap::RestoreDefault();
-	return UI::EVENT_DONE;
-}
-
 UI::EventReturn ControlMappingScreen::OnAutoConfigure(UI::EventParams &params) {
 	std::vector<std::string> items;
 	const auto seenPads = KeyMap::GetSeenPads();
@@ -308,12 +306,6 @@ UI::EventReturn ControlMappingScreen::OnAutoConfigure(UI::EventParams &params) {
 	if (params.v)
 		autoConfList->SetPopupOrigin(params.v);
 	screenManager()->push(autoConfList);
-	return UI::EVENT_DONE;
-}
-
-UI::EventReturn ControlMappingScreen::OnVisualizeMapping(UI::EventParams &params) {
-	VisualMappingScreen *visualMapping = new VisualMappingScreen(gamePath_);
-	screenManager()->push(visualMapping);
 	return UI::EVENT_DONE;
 }
 
