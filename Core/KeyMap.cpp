@@ -431,6 +431,8 @@ const KeyMap_IntStrPair psp_button_names[] = {
 	{VIRTKEY_SCREEN_ROTATION_HORIZONTAL180, "Display Landscape Reversed"},
 #endif
 
+	{VIRTKEY_TOGGLE_WLAN, "Toggle WLAN"},
+
 	{CTRL_HOME, "Home"},
 	{CTRL_HOLD, "Hold"},
 	{CTRL_WLAN, "Wlan"},

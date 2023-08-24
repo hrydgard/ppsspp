@@ -794,6 +794,16 @@ void EmuScreen::onVKey(int virtualKeyCode, bool down) {
 		if (down)
 			g_Config.iInternalScreenRotation = ROTATION_LOCKED_HORIZONTAL180;
 		break;
+	case VIRTKEY_TOGGLE_WLAN:
+		if (down) {
+			auto n = GetI18NCategory(I18NCat::NETWORKING);
+			auto di = GetI18NCategory(I18NCat::DIALOG);
+			g_Config.bEnableWlan = !g_Config.bEnableWlan;
+			// Try to avoid adding more strings so we piece together a message from existing ones.
+			g_OSD.Show(OSDType::MESSAGE_INFO, StringFromFormat(
+				"%s: %s", n->T("Enable networking"), g_Config.bEnableWlan ? di->T("Enabled") : di->T("Disabled")), 2.0, "toggle_wlan");
+		}
+		break;
 	}
 }
 
