@@ -573,7 +573,7 @@ bool System_GetPropertyBool(SystemProperty prop) {
 		return true;  // FileUtil.cpp: OpenFileInEditor
 #ifndef HTTPS_NOT_AVAILABLE
 	case SYSPROP_SUPPORTS_HTTPS:
-		return true;
+		return !g_Config.bDisableHTTPS;
 #endif
 #if PPSSPP_PLATFORM(MAC)
 	case SYSPROP_HAS_FOLDER_BROWSER:

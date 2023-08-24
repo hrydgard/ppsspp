@@ -374,7 +374,7 @@ bool System_GetPropertyBool(SystemProperty prop) {
 	case SYSPROP_SUPPORTS_OPEN_FILE_IN_EDITOR:
 		return true;  // FileUtil.cpp: OpenFileInEditor
 	case SYSPROP_SUPPORTS_HTTPS:
-		return true;
+		return !g_Config.bDisableHTTPS;
 	default:
 		return false;
 	}
@@ -597,7 +597,7 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 
 	case SystemRequestType::SHOW_FILE_IN_FOLDER:
 		W32Util::ShowFileInFolder(param1);
-		break;
+		return true;
 
 	case SystemRequestType::TOGGLE_FULLSCREEN_STATE:
 	{
@@ -620,7 +620,6 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 		return true;
 	}
 	case SystemRequestType::CREATE_GAME_SHORTCUT:
-		// This is not actually working, but ported it to the request framework anyway.
 		return W32Util::CreateDesktopShortcut(param1, param2);
 	default:
 		return false;
