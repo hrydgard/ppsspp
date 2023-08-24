@@ -111,6 +111,11 @@ void ActivateTextEditInput(bool byFocus) {
 	ref new Windows::UI::Core::DispatchedHandler([=]()
 	{
 		if (byFocus) {
+			// Why we should delay? (Mostly happen on XBox)
+			// once the popup appear, UI is reporting 3 focus events for text edit (got, lost, got)
+			// it might be caused by the input pane it self but anyway..
+			// because this has to on UI thread and async, we will end with input pane hidden
+			// the small delay will ensure that last recieved event is (got focus)
 			std::this_thread::sleep_for(std::chrono::milliseconds(100));
 		}
 		
