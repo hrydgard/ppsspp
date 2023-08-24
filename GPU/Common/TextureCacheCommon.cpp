@@ -1355,7 +1355,8 @@ void TextureCacheCommon::LoadClut(u32 clutAddr, u32 loadBytes) {
 				// the framebuffer with the smallest offset. This is yet another framebuffer matching
 				// loop with its own rules, eventually we'll probably want to do something
 				// more systematic.
-				if (matchRange && !inMargin && offset < (int)clutRenderOffset_) {
+				bool okAge = !PSP_CoreParameter().compat.flags().LoadCLUTFromCurrentFrameOnly || framebuffer->last_frame_used == gpuStats.numFlips;
+				if (matchRange && !inMargin && offset < (int)clutRenderOffset_ && okAge) {
 					WARN_LOG_N_TIMES(clutfb, 5, G3D, "Detected LoadCLUT(%d bytes) from framebuffer %08x (%s), byte offset %d, pixel offset %d",
 						loadBytes, fb_address, GeBufferFormatToString(framebuffer->fb_format), offset, offset / fb_bpp);
 					framebuffer->last_frame_clut = gpuStats.numFlips;
