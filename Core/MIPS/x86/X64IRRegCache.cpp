@@ -50,12 +50,11 @@ const int *X64IRRegCache::GetAllocationOrder(MIPSLoc type, MIPSMap flags, int &c
 		base = RAX;
 
 		static const int allocationOrder[] = {
-			// On x64, RCX and RDX are the first args.  CallProtectedFunction() assumes they're not regcached.
 #if PPSSPP_ARCH(AMD64)
 #ifdef _WIN32
-			RSI, RDI, R8, R9, R10, R11, R12, R13,
+			RSI, RDI, R8, R9, R10, R11, R12, R13, RDX, RCX,
 #else
-			RBP, R8, R9, R10, R11, R12, R13,
+			RBP, R8, R9, R10, R11, R12, R13, RDX, RCX,
 #endif
 			// Intentionally last.
 			R15,
@@ -166,6 +165,18 @@ X64Reg X64IRRegCache::GetAndLockTempR() {
 
 X64Reg X64IRRegCache::MapWithFPRTemp(IRInst &inst) {
 	return FromNativeReg(MapWithTemp(inst, MIPSLoc::FREG));
+}
+
+void X64IRRegCache::MapWithFlags(IRInst inst, X64Map destFlags, X64Map src1Flags, X64Map src2Flags) {
+	Mapping mapping[3];
+	MappingFromInst(inst, mapping);
+
+	mapping[0].flags = mapping[0].flags | destFlags;
+	mapping[1].flags = mapping[1].flags | src1Flags;
+	mapping[2].flags = mapping[2].flags | src2Flags;
+
+	ApplyMapping(mapping, 3);
+	CleanupMapping(mapping, 3);
 }
 
 X64Reg X64IRRegCache::MapGPR(IRReg mipsReg, MIPSMap mapFlags) {
