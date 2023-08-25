@@ -77,56 +77,53 @@ bool GenericLogEnabled(LogLevel level, LogType type) {
 
 LogManager *LogManager::logManager_ = NULL;
 
-struct LogNameTableEntry {
-	LogType logType;
-	const char *name;
-};
+// NOTE: Needs to be kept in sync with the LogType enum.
+static const char *g_logTypeNames[] = {
+	"SYSTEM",
+	"BOOT",
+	"COMMON",
+	"CPU",
+	"FILESYS",
+	"G3D",
+	"HLE",
+	"JIT",
+	"LOADER",
+	"ME",  // Media Engine
+	"MEMMAP",
+	"SASMIX",
+	"SAVESTATE",
+	"FRAMEBUF",
+	"AUDIO",
+	"IO",
 
-static const LogNameTableEntry logTable[] = {
-	{LogType::SYSTEM,     "SYSTEM"},
-	{LogType::BOOT,       "BOOT"},
-	{LogType::COMMON,     "COMMON"},
-	{LogType::CPU,        "CPU"},
-	{LogType::FILESYS,    "FILESYS"},
-	{LogType::G3D,        "G3D"},
-	{LogType::HLE,        "HLE"},
-	{LogType::JIT,        "JIT"},
-	{LogType::LOADER,     "LOADER"},
-	{LogType::ME,         "ME"},  // Media Engine
-	{LogType::MEMMAP,     "MEMMAP"},
-	{LogType::SASMIX,     "SASMIX"},
-	{LogType::SAVESTATE,  "SAVESTATE"},
-	{LogType::FRAMEBUF,   "FRAMEBUF"},
-	{LogType::AUDIO,      "AUDIO"},
-	{LogType::IO,         "IO"},
-
-	{LogType::SCEAUDIO,   "SCEAUDIO"},
-	{LogType::SCECTRL,    "SCECTRL"},
-	{LogType::SCEDISPLAY, "SCEDISP"},
-	{LogType::SCEFONT,    "SCEFONT"},
-	{LogType::SCEGE,      "SCEGE"},
-	{LogType::SCEINTC,    "SCEINTC"},
-	{LogType::SCEIO,      "SCEIO"},
-	{LogType::SCEKERNEL,  "SCEKERNEL"},
-	{LogType::SCEMODULE,  "SCEMODULE"},
-	{LogType::SCENET,     "SCENET"},
-	{LogType::SCERTC,     "SCERTC"},
-	{LogType::SCESAS,     "SCESAS"},
-	{LogType::SCEUTILITY, "SCEUTIL"},
-	{LogType::SCEMISC,    "SCEMISC"},
+	"SCEAUDIO",
+	"SCECTRL",
+	"SCEDISP",
+	"SCEFONT",
+	"SCEGE",
+	"SCEINTC",
+	"SCEIO",
+	"SCEKERNEL",
+	"SCEMODULE",
+	"SCENET",
+	"SCERTC",
+	"SCESAS",
+	"SCEUTIL",
+	"SCEMISC",
 };
 
 LogManager::LogManager(bool *enabledSetting) {
 	g_bLogEnabledSetting = enabledSetting;
 
-	for (size_t i = 0; i < ARRAY_SIZE(logTable); i++) {
-		_assert_msg_((LogType)i == logTable[i].logType, "Bad logtable at %i", (int)i);
-		truncate_cpy(log_[(size_t)logTable[i].logType].m_shortName, logTable[i].name);
-		log_[(size_t)logTable[i].logType].enabled = true;
+	_dbg_assert_(ARRAY_SIZE(g_logTypeNames) == (size_t)LogType::NUMBER_OF_LOGS);
+
+	for (size_t i = 0; i < ARRAY_SIZE(g_logTypeNames); i++) {
+		truncate_cpy(log_[i].m_shortName, g_logTypeNames[i]);
+		log_[i].enabled = true;
 #if defined(_DEBUG)
-		log_[(size_t)logTable[i].logType].level = LogLevel::LDEBUG;
+		log_[i].level = LogLevel::LDEBUG;
 #else
-		log_[(size_t)logTable[i].logType].level = LogLevel::LINFO;
+		log_[i].level = LogLevel::LINFO;
 #endif
 	}
 

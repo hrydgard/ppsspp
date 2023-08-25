@@ -26,6 +26,7 @@
 #define	DEBUG_LEVEL   5  // Detailed debugging - might make things slow.
 #define	VERBOSE_LEVEL 6  // Noisy debugging - sometimes needed but usually unimportant.
 
+// NOTE: Needs to be kept in sync with the g_logTypeNames array.
 enum class LogType {
 	SYSTEM = 0,  // Catch-all for uncategorized things
 	BOOT,
