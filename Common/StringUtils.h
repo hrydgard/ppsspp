@@ -35,6 +35,14 @@ std::string IndentString(const std::string &str, const std::string &sep, bool sk
 
 // Other simple string utilities.
 
+// Optimized for string constants.
+inline bool startsWith(const std::string &str, const char *key) {
+	size_t keyLen = strlen(key);
+	if (str.size() < keyLen)
+		return false;
+	return !memcmp(str.data(), key, keyLen);
+}
+
 inline bool startsWith(const std::string &str, const std::string &what) {
 	if (str.size() < what.size())
 		return false;
