@@ -1492,7 +1492,8 @@ static int sceNetAdhocPdpCreate(const char *mac, int port, int bufferSize, u32 f
 								changeBlockingMode(usocket, 1);
 
 								// Success
-								return hleLogDebug(SCENET, i + 1, "success");
+								INFO_LOG(SCENET, "sceNetAdhocPdpCreate - PSP Socket id: %i, Host Socket id: %i", i + 1, usocket);
+								return i + 1;
 							} 
 
 							// Free Memory for Internal Data
@@ -3509,8 +3510,9 @@ static int sceNetAdhocPtpOpen(const char *srcmac, int sport, const char *dstmac,
 								if (g_Config.bForcedFirstConnect && internal->attemptCount == 1)
 									hleDelayResult(i + 1, "delayed ptpopen", rexmt_int);
 
-								// Return PTP Socket Pointer
-								return hleLogDebug(SCENET, i + 1, "success");
+								// Return PTP Socket id
+								INFO_LOG(SCENET, "sceNetAdhocPtpOpen - PSP Socket id: %i, Host Socket id: %i", i + 1, tcpsocket);
+								return i + 1;
 							}
 
 							// Free Memory
@@ -3635,7 +3637,7 @@ int AcceptPtpSocket(int ptpId, int newsocket, sockaddr_in& peeraddr, SceNetEther
 					// Switch to non-blocking for futher usage
 					changeBlockingMode(newsocket, 1);
 
-					INFO_LOG(SCENET, "sceNetAdhocPtpAccept[%i->%i:%u]: Established (%s:%u) - state: %d", ptpId, i + 1, internal->data.ptp.lport, ip2str(peeraddr.sin_addr).c_str(), internal->data.ptp.pport, internal->data.ptp.state);
+					INFO_LOG(SCENET, "sceNetAdhocPtpAccept[%i->%i(%i):%u]: Established (%s:%u) - state: %d", ptpId, i + 1, newsocket, internal->data.ptp.lport, ip2str(peeraddr.sin_addr).c_str(), internal->data.ptp.pport, internal->data.ptp.state);
 
 					// Return Socket
 					return i + 1;
@@ -4102,8 +4104,9 @@ static int sceNetAdhocPtpListen(const char *srcmac, int sport, int bufsize, int 
 									// Switch to non-blocking for futher usage
 									changeBlockingMode(tcpsocket, 1);
 
-									// Return PTP Socket Pointer
-									return hleLogDebug(SCENET, i + 1, "success");
+									// Return PTP Socket id
+									INFO_LOG(SCENET, "sceNetAdhocPtpListen - PSP Socket id: %i, Host Socket id: %i", i + 1, tcpsocket);
+									return i + 1;
 								}
 
 								// Free Memory
