@@ -159,6 +159,18 @@ void X64JitBackend::CompIR_FCompare(IRInst inst) {
 
 	constexpr IRReg IRREG_VFPU_CC = IRREG_VFPU_CTRL_BASE + VFPU_CTRL_CC;
 
+	auto ccToFpcond = [&](IRReg lhs, IRReg rhs, CCFlags cc) {
+		if (regs_.HasLowSubregister(regs_.RX(IRREG_FPCOND))) {
+			XOR(32, regs_.R(IRREG_FPCOND), regs_.R(IRREG_FPCOND));
+			UCOMISS(regs_.FX(lhs), regs_.F(rhs));
+			SETcc(cc, regs_.R(IRREG_FPCOND));
+		} else {
+			UCOMISS(regs_.FX(lhs), regs_.F(rhs));
+			SETcc(cc, R(SCRATCH1));
+			MOVZX(32, 8, regs_.RX(IRREG_FPCOND), R(SCRATCH1));
+		}
+	};
+
 	switch (inst.op) {
 	case IROp::FCmp:
 		switch (inst.dest) {
@@ -168,15 +180,14 @@ void X64JitBackend::CompIR_FCompare(IRInst inst) {
 
 		case IRFpCompareMode::EitherUnordered:
 			regs_.MapWithExtra(inst, { { 'G', IRREG_FPCOND, 1, MIPSMap::NOINIT } });
-			UCOMISS(regs_.FX(inst.src1), regs_.F(inst.src2));
 			// PF = UNORDERED.
-			SETcc(CC_P, R(SCRATCH1));
-			MOVZX(32, 8, regs_.RX(IRREG_FPCOND), R(SCRATCH1));
+			ccToFpcond(inst.src1, inst.src2, CC_P);
 			break;
 
 		case IRFpCompareMode::EqualOrdered:
 			regs_.MapWithExtra(inst, { { 'G', IRREG_FPCOND, 1, MIPSMap::NOINIT } });
 			// Clear the upper bits of SCRATCH1 so we can AND later.
+			// We don't have a single flag we can check, unfortunately.
 			XOR(32, R(SCRATCH1), R(SCRATCH1));
 			UCOMISS(regs_.FX(inst.src1), regs_.F(inst.src2));
 			// E/ZF = EQUAL or UNORDERED (not exactly what we want.)
@@ -196,42 +207,32 @@ void X64JitBackend::CompIR_FCompare(IRInst inst) {
 
 		case IRFpCompareMode::EqualUnordered:
 			regs_.MapWithExtra(inst, { { 'G', IRREG_FPCOND, 1, MIPSMap::NOINIT } });
-			UCOMISS(regs_.FX(inst.src1), regs_.F(inst.src2));
 			// E/ZF = EQUAL or UNORDERED.
-			SETcc(CC_E, R(SCRATCH1));
-			MOVZX(32, 8, regs_.RX(IRREG_FPCOND), R(SCRATCH1));
+			ccToFpcond(inst.src1, inst.src2, CC_E);
 			break;
 
 		case IRFpCompareMode::LessEqualOrdered:
 			regs_.MapWithExtra(inst, { { 'G', IRREG_FPCOND, 1, MIPSMap::NOINIT } });
-			UCOMISS(regs_.FX(inst.src2), regs_.F(inst.src1));
 			// AE/!CF = GREATER or EQUAL (src2/src1 reversed.)
-			SETcc(CC_AE, R(SCRATCH1));
-			MOVZX(32, 8, regs_.RX(IRREG_FPCOND), R(SCRATCH1));
+			ccToFpcond(inst.src2, inst.src1, CC_AE);
 			break;
 
 		case IRFpCompareMode::LessEqualUnordered:
 			regs_.MapWithExtra(inst, { { 'G', IRREG_FPCOND, 1, MIPSMap::NOINIT } });
-			UCOMISS(regs_.FX(inst.src1), regs_.F(inst.src2));
 			// BE/CF||ZF = LESS THAN or EQUAL or UNORDERED.
-			SETcc(CC_BE, R(SCRATCH1));
-			MOVZX(32, 8, regs_.RX(IRREG_FPCOND), R(SCRATCH1));
+			ccToFpcond(inst.src1, inst.src2, CC_BE);
 			break;
 
 		case IRFpCompareMode::LessOrdered:
 			regs_.MapWithExtra(inst, { { 'G', IRREG_FPCOND, 1, MIPSMap::NOINIT } });
-			UCOMISS(regs_.FX(inst.src2), regs_.F(inst.src1));
 			// A/!CF&&!ZF = GREATER (src2/src1 reversed.)
-			SETcc(CC_A, R(SCRATCH1));
-			MOVZX(32, 8, regs_.RX(IRREG_FPCOND), R(SCRATCH1));
+			ccToFpcond(inst.src2, inst.src1, CC_A);
 			break;
 
 		case IRFpCompareMode::LessUnordered:
 			regs_.MapWithExtra(inst, { { 'G', IRREG_FPCOND, 1, MIPSMap::NOINIT } });
-			UCOMISS(regs_.FX(inst.src1), regs_.F(inst.src2));
 			// B/CF = LESS THAN or UNORDERED.
-			SETcc(CC_B, R(SCRATCH1));
-			MOVZX(32, 8, regs_.RX(IRREG_FPCOND), R(SCRATCH1));
+			ccToFpcond(inst.src1, inst.src2, CC_B);
 			break;
 		}
 		break;
@@ -429,7 +430,8 @@ void X64JitBackend::CompIR_FCondAssign(IRInst inst) {
 		if (cpu_info.bAVX) {
 			VMINSS(regs_.FX(inst.dest), regs_.FX(inst.src1), regs_.F(inst.src2));
 		} else {
-			MOVAPS(regs_.FX(inst.dest), regs_.F(inst.src1));
+			if (inst.dest != inst.src1)
+				MOVAPS(regs_.FX(inst.dest), regs_.F(inst.src1));
 			MINSS(regs_.FX(inst.dest), regs_.F(inst.src2));
 		}
 		SetJumpTarget(finishNAN);
@@ -465,7 +467,8 @@ void X64JitBackend::CompIR_FCondAssign(IRInst inst) {
 		if (cpu_info.bAVX) {
 			VMAXSS(regs_.FX(inst.dest), regs_.FX(inst.src1), regs_.F(inst.src2));
 		} else {
-			MOVAPS(regs_.FX(inst.dest), regs_.F(inst.src1));
+			if (inst.dest != inst.src1)
+				MOVAPS(regs_.FX(inst.dest), regs_.F(inst.src1));
 			MAXSS(regs_.FX(inst.dest), regs_.F(inst.src2));
 		}
 		SetJumpTarget(finishNAN);

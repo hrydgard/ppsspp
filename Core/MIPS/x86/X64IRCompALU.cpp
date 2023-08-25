@@ -177,12 +177,22 @@ void X64JitBackend::CompIR_Bits(IRInst inst) {
 void X64JitBackend::CompIR_Compare(IRInst inst) {
 	CONDITIONAL_DISABLE;
 
+	auto setCC = [&](const OpArg &arg, CCFlags cc) {
+		if (regs_.HasLowSubregister(regs_.RX(inst.dest)) && inst.dest != inst.src1 && inst.dest != inst.src2) {
+			XOR(32, regs_.R(inst.dest), regs_.R(inst.dest));
+			CMP(32, regs_.R(inst.src1), arg);
+			SETcc(cc, regs_.R(inst.dest));
+		} else {
+			CMP(32, regs_.R(inst.src1), arg);
+			SETcc(cc, R(SCRATCH1));
+			MOVZX(32, 8, regs_.RX(inst.dest), R(SCRATCH1));
+		}
+	};
+
 	switch (inst.op) {
 	case IROp::Slt:
 		regs_.Map(inst);
-		CMP(32, regs_.R(inst.src1), regs_.R(inst.src2));
-		SETcc(CC_L, R(SCRATCH1));
-		MOVZX(32, 8, regs_.RX(inst.dest), R(SCRATCH1));
+		setCC(regs_.R(inst.src2), CC_L);
 		break;
 
 	case IROp::SltConst:
@@ -194,17 +204,13 @@ void X64JitBackend::CompIR_Compare(IRInst inst) {
 			SHR(32, regs_.R(inst.dest), Imm8(31));
 		} else {
 			regs_.Map(inst);
-			CMP(32, regs_.R(inst.src1), Imm32(inst.constant));
-			SETcc(CC_L, R(SCRATCH1));
-			MOVZX(32, 8, regs_.RX(inst.dest), R(SCRATCH1));
+			setCC(Imm32(inst.constant), CC_L);
 		}
 		break;
 
 	case IROp::SltU:
 		regs_.Map(inst);
-		CMP(32, regs_.R(inst.src1), regs_.R(inst.src2));
-		SETcc(CC_B, R(SCRATCH1));
-		MOVZX(32, 8, regs_.RX(inst.dest), R(SCRATCH1));
+		setCC(regs_.R(inst.src2), CC_B);
 		break;
 
 	case IROp::SltUConst:
@@ -212,9 +218,7 @@ void X64JitBackend::CompIR_Compare(IRInst inst) {
 			regs_.SetGPRImm(inst.dest, 0);
 		} else {
 			regs_.Map(inst);
-			CMP(32, regs_.R(inst.src1), Imm32(inst.constant));
-			SETcc(CC_B, R(SCRATCH1));
-			MOVZX(32, 8, regs_.RX(inst.dest), R(SCRATCH1));
+			setCC(Imm32(inst.constant), CC_B);
 		}
 		break;
 
