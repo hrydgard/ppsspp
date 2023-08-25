@@ -74,7 +74,7 @@
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup>
-    <AppxAutoIncrementPackageRevision>True</AppxAutoIncrementPackageRevision>
+    <AppxAutoIncrementPackageRevision>False</AppxAutoIncrementPackageRevision>
     <AppxSymbolPackageEnabled>False</AppxSymbolPackageEnabled>
     <AppxBundle>Never</AppxBundle>
     <PackageCertificateThumbprint>C8DEB388B9BC89D1DC61324E4E9D9FE6A796B7AA</PackageCertificateThumbprint>
@@ -477,23 +477,23 @@
     <None Include="Content\debugger\manifest.json">
       <DeploymentContent>true</DeploymentContent>
     </None>
-    <None Include="Content\debugger\static\css\*.css">
+    <None Include="..\Assets\debugger\static\css\*.css">
       <DeploymentContent>true</DeploymentContent>
       <Link>Content\debugger\static\css\%(Filename)%(Extension)</Link>
     </None>
-    <None Include="Content\debugger\static\css\*.map">
+    <None Include="..\Assets\debugger\static\css\*.map">
       <DeploymentContent>true</DeploymentContent>
       <Link>Content\debugger\static\css\%(Filename)%(Extension)</Link>
     </None>
-    <None Include="Content\debugger\static\js\*.js">
+    <None Include="..\Assets\debugger\static\js\*.js">
       <DeploymentContent>true</DeploymentContent>
       <Link>Content\debugger\static\js\%(Filename)%(Extension)</Link>
     </None>
-    <None Include="Content\debugger\static\js\*.map">
+    <None Include="..\Assets\debugger\static\js\*.map">
       <DeploymentContent>true</DeploymentContent>
       <Link>Content\debugger\static\js\%(Filename)%(Extension)</Link>
     </None>
-    <None Include="Content\debugger\static\media\*.svg">
+    <None Include="..\Assets\debugger\static\media\*.svg">
       <DeploymentContent>true</DeploymentContent>
       <Link>Content\debugger\static\media\%(Filename)%(Extension)</Link>
     </None>
@@ -874,7 +874,7 @@
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
-    <Text Include="Content\debugger\static\js\*.txt">
+    <Text Include="..\Assets\debugger\static\js\*.txt">
       <DeploymentContent>true</DeploymentContent>
       <Link>Content\debugger\static\js\%(Filename)%(Extension)</Link>
     </Text>
