@@ -63,8 +63,14 @@ const int *X64IRRegCache::GetAllocationOrder(MIPSLoc type, MIPSMap flags, int &c
 #endif
 		};
 
+		if ((flags & X64Map::MASK) == X64Map::SHIFT) {
+			// It's a single option for shifts.
+			static const int shiftReg[] = { ECX };
+			count = 1;
+			return shiftReg;
+		}
 #if PPSSPP_ARCH(X86)
-		if ((flags & X64Map::LOW_SUBREG) == X64Map::LOW_SUBREG) {
+		if ((flags & X64Map::MASK) == X64Map::LOW_SUBREG) {
 			static const int lowSubRegAllocationOrder[] = {
 				EDX, EBX, ECX,
 			};
@@ -132,7 +138,17 @@ X64Reg X64IRRegCache::TryMapTempImm(IRReg r, X64Map flags) {
 	_dbg_assert_(IsValidGPR(r));
 
 	auto canUseReg = [flags](X64Reg r) {
-		return (flags & X64Map::LOW_SUBREG) != X64Map::LOW_SUBREG || HasLowSubregister(r);
+		switch (flags & X64Map::MASK) {
+		case X64Map::NONE:
+			return true;
+		case X64Map::LOW_SUBREG:
+			return HasLowSubregister(r);
+		case X64Map::SHIFT:
+			return r == RCX;
+		default:
+			_assert_msg_(false, "Unexpected flags");
+		}
+		return false;
 	};
 
 	// If already mapped, no need for a temporary.
@@ -174,6 +190,30 @@ void X64IRRegCache::MapWithFlags(IRInst inst, X64Map destFlags, X64Map src1Flags
 	mapping[0].flags = mapping[0].flags | destFlags;
 	mapping[1].flags = mapping[1].flags | src1Flags;
 	mapping[2].flags = mapping[2].flags | src2Flags;
+
+	auto flushReg = [&](IRNativeReg nreg) {
+		for (int i = 0; i < 3; ++i) {
+			if (mapping[i].reg == nr[nreg].mipsReg && (mapping[i].flags & MIPSMap::NOINIT) == MIPSMap::NOINIT) {
+				DiscardNativeReg(nreg);
+				return;
+			}
+		}
+
+		FlushNativeReg(nreg);
+	};
+
+	// If there are any special rules, we might need to spill.
+	for (int i = 0; i < 3; ++i) {
+		switch (mapping[i].flags & X64Map::MASK) {
+		case X64Map::SHIFT:
+			if (nr[RCX].mipsReg != mapping[i].reg)
+				flushReg(RCX);
+			break;
+
+		default:
+			break;
+		}
+	}
 
 	ApplyMapping(mapping, 3);
 	CleanupMapping(mapping, 3);

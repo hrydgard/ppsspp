@@ -365,10 +365,74 @@ void X64JitBackend::CompIR_Shift(IRInst inst) {
 
 	switch (inst.op) {
 	case IROp::Shl:
+		if (cpu_info.bBMI2) {
+			regs_.Map(inst);
+			SHLX(32, regs_.RX(inst.dest), regs_.R(inst.src1), regs_.RX(inst.src2));
+		} else {
+			regs_.MapWithFlags(inst, X64Map::NONE, X64Map::NONE, X64Map::SHIFT);
+			if (inst.dest == inst.src1) {
+				SHL(32, regs_.R(inst.dest), regs_.R(inst.src2));
+			} else if (inst.dest == inst.src2) {
+				MOV(32, R(SCRATCH1), regs_.R(inst.src1));
+				SHL(32, R(SCRATCH1), regs_.R(inst.src2));
+				MOV(32, regs_.R(inst.dest), R(SCRATCH1));
+			} else {
+				MOV(32, regs_.R(inst.dest), regs_.R(inst.src1));
+				SHL(32, regs_.R(inst.dest), regs_.R(inst.src2));
+			}
+		}
+		break;
+
 	case IROp::Shr:
+		if (cpu_info.bBMI2) {
+			regs_.Map(inst);
+			SHRX(32, regs_.RX(inst.dest), regs_.R(inst.src1), regs_.RX(inst.src2));
+		} else {
+			regs_.MapWithFlags(inst, X64Map::NONE, X64Map::NONE, X64Map::SHIFT);
+			if (inst.dest == inst.src1) {
+				SHR(32, regs_.R(inst.dest), regs_.R(inst.src2));
+			} else if (inst.dest == inst.src2) {
+				MOV(32, R(SCRATCH1), regs_.R(inst.src1));
+				SHR(32, R(SCRATCH1), regs_.R(inst.src2));
+				MOV(32, regs_.R(inst.dest), R(SCRATCH1));
+			} else {
+				MOV(32, regs_.R(inst.dest), regs_.R(inst.src1));
+				SHR(32, regs_.R(inst.dest), regs_.R(inst.src2));
+			}
+		}
+		break;
+
 	case IROp::Sar:
+		if (cpu_info.bBMI2) {
+			regs_.Map(inst);
+			SARX(32, regs_.RX(inst.dest), regs_.R(inst.src1), regs_.RX(inst.src2));
+		} else {
+			regs_.MapWithFlags(inst, X64Map::NONE, X64Map::NONE, X64Map::SHIFT);
+			if (inst.dest == inst.src1) {
+				SAR(32, regs_.R(inst.dest), regs_.R(inst.src2));
+			} else if (inst.dest == inst.src2) {
+				MOV(32, R(SCRATCH1), regs_.R(inst.src1));
+				SAR(32, R(SCRATCH1), regs_.R(inst.src2));
+				MOV(32, regs_.R(inst.dest), R(SCRATCH1));
+			} else {
+				MOV(32, regs_.R(inst.dest), regs_.R(inst.src1));
+				SAR(32, regs_.R(inst.dest), regs_.R(inst.src2));
+			}
+		}
+		break;
+
 	case IROp::Ror:
-		CompIR_Generic(inst);
+		regs_.MapWithFlags(inst, X64Map::NONE, X64Map::NONE, X64Map::SHIFT);
+		if (inst.dest == inst.src1) {
+			ROR(32, regs_.R(inst.dest), regs_.R(inst.src2));
+		} else if (inst.dest == inst.src2) {
+			MOV(32, R(SCRATCH1), regs_.R(inst.src1));
+			ROR(32, R(SCRATCH1), regs_.R(inst.src2));
+			MOV(32, regs_.R(inst.dest), R(SCRATCH1));
+		} else {
+			MOV(32, regs_.R(inst.dest), regs_.R(inst.src1));
+			ROR(32, regs_.R(inst.dest), regs_.R(inst.src2));
+		}
 		break;
 
 	case IROp::ShlImm:
@@ -431,6 +495,9 @@ void X64JitBackend::CompIR_Shift(IRInst inst) {
 				regs_.Map(inst);
 				MOV(32, regs_.R(inst.dest), regs_.R(inst.src1));
 			}
+		} else if (cpu_info.bBMI2) {
+			regs_.Map(inst);
+			RORX(32, regs_.RX(inst.dest), regs_.R(inst.src1), inst.src2 & 31);
 		} else {
 			regs_.Map(inst);
 			if (inst.dest != inst.src1)

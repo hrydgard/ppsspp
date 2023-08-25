@@ -44,6 +44,8 @@ static constexpr auto pcOffset = offsetof(MIPSState, pc) - 128;
 enum class X64Map : uint8_t {
 	NONE = 0,
 	LOW_SUBREG = 0x10,
+	SHIFT = 0x20,
+	MASK = 0xF0,
 };
 static inline MIPSMap operator |(const MIPSMap &lhs, const X64Map &rhs) {
 	return MIPSMap((uint8_t)lhs | (uint8_t)rhs);

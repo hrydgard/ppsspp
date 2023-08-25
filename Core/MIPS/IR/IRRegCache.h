@@ -79,6 +79,8 @@ enum class MIPSMap : uint8_t {
 	INIT = 0,
 	DIRTY = 1,
 	NOINIT = 2 | DIRTY,
+
+	BACKEND_MASK = 0xF0,
 };
 static inline MIPSMap operator |(const MIPSMap &lhs, const MIPSMap &rhs) {
 	return MIPSMap((uint8_t)lhs | (uint8_t)rhs);
