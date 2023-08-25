@@ -367,7 +367,7 @@ IRNativeReg IRNativeRegCacheBase::FindFreeReg(MIPSLoc type, MIPSMap flags) const
 	for (int i = 0; i < allocCount; i++) {
 		IRNativeReg nreg = IRNativeReg(allocOrder[i] - base);
 
-		if (nr[nreg].mipsReg == IRREG_INVALID) {
+		if (nr[nreg].mipsReg == IRREG_INVALID && nr[nreg].tempLockIRIndex < irIndex_) {
 			return nreg;
 		}
 	}

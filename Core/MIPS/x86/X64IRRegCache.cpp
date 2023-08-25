@@ -69,6 +69,12 @@ const int *X64IRRegCache::GetAllocationOrder(MIPSLoc type, MIPSMap flags, int &c
 			count = 1;
 			return shiftReg;
 		}
+		if ((flags & X64Map::MASK) == X64Map::HIGH_DATA) {
+			// It's a single option for shifts.
+			static const int shiftReg[] = { EDX };
+			count = 1;
+			return shiftReg;
+		}
 #if PPSSPP_ARCH(X86)
 		if ((flags & X64Map::MASK) == X64Map::LOW_SUBREG) {
 			static const int lowSubRegAllocationOrder[] = {
@@ -145,6 +151,8 @@ X64Reg X64IRRegCache::TryMapTempImm(IRReg r, X64Map flags) {
 			return HasLowSubregister(r);
 		case X64Map::SHIFT:
 			return r == RCX;
+		case X64Map::HIGH_DATA:
+			return r == RCX;
 		default:
 			_assert_msg_(false, "Unexpected flags");
 		}
@@ -179,6 +187,13 @@ X64Reg X64IRRegCache::GetAndLockTempR() {
 	return reg;
 }
 
+void X64IRRegCache::ReserveAndLockXGPR(Gen::X64Reg r) {
+	IRNativeReg nreg = GPRToNativeReg(r);
+	if (nr[nreg].mipsReg != -1)
+		FlushNativeReg(nreg);
+	nr[r].tempLockIRIndex = irIndex_;
+}
+
 X64Reg X64IRRegCache::MapWithFPRTemp(IRInst &inst) {
 	return FromNativeReg(MapWithTemp(inst, MIPSLoc::FREG));
 }
@@ -208,6 +223,11 @@ void X64IRRegCache::MapWithFlags(IRInst inst, X64Map destFlags, X64Map src1Flags
 		case X64Map::SHIFT:
 			if (nr[RCX].mipsReg != mapping[i].reg)
 				flushReg(RCX);
+			break;
+
+		case X64Map::HIGH_DATA:
+			if (nr[RDX].mipsReg != mapping[i].reg)
+				flushReg(RDX);
 			break;
 
 		default:

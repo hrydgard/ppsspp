@@ -43,8 +43,12 @@ static constexpr auto pcOffset = offsetof(MIPSState, pc) - 128;
 
 enum class X64Map : uint8_t {
 	NONE = 0,
+	// On 32-bit: EAX, EBX, ECX, EDX
 	LOW_SUBREG = 0x10,
-	SHIFT = 0x20,
+	// EDX/RDX
+	HIGH_DATA = 0x20,
+	// ECX/RCX
+	SHIFT = 0x30,
 	MASK = 0xF0,
 };
 static inline MIPSMap operator |(const MIPSMap &lhs, const X64Map &rhs) {
@@ -84,6 +88,7 @@ public:
 	void FlushBeforeCall();
 
 	Gen::X64Reg GetAndLockTempR();
+	void ReserveAndLockXGPR(Gen::X64Reg r);
 
 	Gen::OpArg R(IRReg preg);
 	Gen::OpArg RPtr(IRReg preg);

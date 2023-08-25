@@ -265,10 +265,54 @@ void X64JitBackend::CompIR_HiLo(IRInst inst) {
 
 	switch (inst.op) {
 	case IROp::MtLo:
+#if PPSSPP_ARCH(AMD64)
+		regs_.MapWithExtra(inst, { { 'G', IRREG_LO, 2, MIPSMap::DIRTY } });
+		// First, clear the bits we're replacing.
+		MOV(64, R(SCRATCH1), Imm64(0xFFFFFFFF00000000ULL));
+		AND(64, regs_.R(IRREG_LO), R(SCRATCH1));
+		// Now clear the high bits and merge.
+		MOVZX(64, 32, regs_.RX(inst.src1), regs_.R(inst.src1));
+		OR(64, regs_.R(IRREG_LO), regs_.R(inst.src1));
+#else
+		regs_.MapWithExtra(inst, { { 'G', IRREG_LO, 1, MIPSMap::DIRTY } });
+		MOV(32, regs_.R(IRREG_LO), regs_.R(inst.src1));
+#endif
+		break;
+
 	case IROp::MtHi:
+#if PPSSPP_ARCH(AMD64)
+		regs_.MapWithExtra(inst, { { 'G', IRREG_LO, 2, MIPSMap::DIRTY } });
+		// First, clear the bits we're replacing.
+		MOVZX(64, 32, regs_.RX(IRREG_LO), regs_.R(IRREG_LO));
+		// Then move the new bits into place.
+		MOV(32, R(SCRATCH1), regs_.R(inst.src1));
+		SHL(64, R(SCRATCH1), Imm8(32));
+		OR(64, regs_.R(IRREG_LO), R(SCRATCH1));
+#else
+		regs_.MapWithExtra(inst, { { 'G', IRREG_HI, 1, MIPSMap::DIRTY } });
+		MOV(32, regs_.R(IRREG_HI), regs_.R(inst.src1));
+#endif
+		break;
+
 	case IROp::MfLo:
+#if PPSSPP_ARCH(AMD64)
+		regs_.MapWithExtra(inst, { { 'G', IRREG_LO, 2, MIPSMap::INIT } });
+		MOV(32, regs_.R(inst.dest), regs_.R(IRREG_LO));
+#else
+		regs_.MapWithExtra(inst, { { 'G', IRREG_LO, 1, MIPSMap::INIT } });
+		MOV(32, regs_.R(inst.dest), regs_.R(IRREG_LO));
+#endif
+		break;
+
 	case IROp::MfHi:
-		CompIR_Generic(inst);
+#if PPSSPP_ARCH(AMD64)
+		regs_.MapWithExtra(inst, { { 'G', IRREG_LO, 2, MIPSMap::INIT } });
+		MOV(64, regs_.R(inst.dest), regs_.R(IRREG_LO));
+		SHR(64, regs_.R(inst.dest), Imm8(32));
+#else
+		regs_.MapWithExtra(inst, { { 'G', IRREG_HI, 1, MIPSMap::INIT } });
+		MOV(32, regs_.R(inst.dest), regs_.R(IRREG_HI));
+#endif
 		break;
 
 	default:
@@ -346,12 +390,111 @@ void X64JitBackend::CompIR_Mult(IRInst inst) {
 
 	switch (inst.op) {
 	case IROp::Mult:
+#if PPSSPP_ARCH(AMD64)
+		regs_.MapWithExtra(inst, { { 'G', IRREG_LO, 2, MIPSMap::NOINIT } });
+		MOVSX(64, 32, regs_.RX(IRREG_LO), regs_.R(inst.src1));
+		MOVSX(64, 32, regs_.RX(inst.src2), regs_.R(inst.src2));
+		IMUL(64, regs_.RX(IRREG_LO), regs_.R(inst.src2));
+#else
+		// Force a spill (before spill locks.)
+		regs_.MapGPR(IRREG_HI, MIPSMap::NOINIT | X64Map::HIGH_DATA);
+		// We keep it here so it stays locked.
+		regs_.MapWithExtra(inst, { { 'G', IRREG_LO, 1, MIPSMap::NOINIT }, { 'G', IRREG_HI, 1, MIPSMap::NOINIT | X64Map::HIGH_DATA } });
+		MOV(32, R(EAX), regs_.R(inst.src1));
+		IMUL(32, regs_.R(inst.src2));
+		MOV(32, regs_.R(IRREG_LO), R(EAX));
+		// IRREG_HI was mapped to EDX.
+#endif
+		break;
+
 	case IROp::MultU:
+#if PPSSPP_ARCH(AMD64)
+		regs_.MapWithExtra(inst, { { 'G', IRREG_LO, 2, MIPSMap::NOINIT } });
+		MOVZX(64, 32, regs_.RX(IRREG_LO), regs_.R(inst.src1));
+		MOVZX(64, 32, regs_.RX(inst.src2), regs_.R(inst.src2));
+		IMUL(64, regs_.RX(IRREG_LO), regs_.R(inst.src2));
+#else
+		// Force a spill (before spill locks.)
+		regs_.MapGPR(IRREG_HI, MIPSMap::NOINIT | X64Map::HIGH_DATA);
+		// We keep it here so it stays locked.
+		regs_.MapWithExtra(inst, { { 'G', IRREG_LO, 1, MIPSMap::NOINIT }, { 'G', IRREG_HI, 1, MIPSMap::NOINIT | X64Map::HIGH_DATA } });
+		MOV(32, R(EAX), regs_.R(inst.src1));
+		MUL(32, regs_.R(inst.src2));
+		MOV(32, regs_.R(IRREG_LO), R(EAX));
+		// IRREG_HI was mapped to EDX.
+#endif
+		break;
+
 	case IROp::Madd:
+#if PPSSPP_ARCH(AMD64)
+		regs_.MapWithExtra(inst, { { 'G', IRREG_LO, 2, MIPSMap::DIRTY } });
+		MOVSX(64, 32, SCRATCH1, regs_.R(inst.src1));
+		MOVSX(64, 32, regs_.RX(inst.src2), regs_.R(inst.src2));
+		IMUL(64, SCRATCH1, regs_.R(inst.src2));
+		ADD(64, regs_.R(IRREG_LO), R(SCRATCH1));
+#else
+		// For ones that modify LO/HI, we can't have anything else in EDX.
+		regs_.ReserveAndLockXGPR(EDX);
+		regs_.MapWithExtra(inst, { { 'G', IRREG_LO, 1, MIPSMap::DIRTY }, { 'G', IRREG_HI, 1, MIPSMap::DIRTY } });
+		MOV(32, R(EAX), regs_.R(inst.src1));
+		IMUL(32, regs_.R(inst.src2));
+		ADD(32, regs_.R(IRREG_LO), R(EAX));
+		ADC(32, regs_.R(IRREG_HI), R(EDX));
+#endif
+		break;
+
 	case IROp::MaddU:
+#if PPSSPP_ARCH(AMD64)
+		regs_.MapWithExtra(inst, { { 'G', IRREG_LO, 2, MIPSMap::DIRTY } });
+		MOVZX(64, 32, SCRATCH1, regs_.R(inst.src1));
+		MOVZX(64, 32, regs_.RX(inst.src2), regs_.R(inst.src2));
+		IMUL(64, SCRATCH1, regs_.R(inst.src2));
+		ADD(64, regs_.R(IRREG_LO), R(SCRATCH1));
+#else
+		// For ones that modify LO/HI, we can't have anything else in EDX.
+		regs_.ReserveAndLockXGPR(EDX);
+		regs_.MapWithExtra(inst, { { 'G', IRREG_LO, 1, MIPSMap::DIRTY }, { 'G', IRREG_HI, 1, MIPSMap::DIRTY } });
+		MOV(32, R(EAX), regs_.R(inst.src1));
+		MUL(32, regs_.R(inst.src2));
+		ADD(32, regs_.R(IRREG_LO), R(EAX));
+		ADC(32, regs_.R(IRREG_HI), R(EDX));
+#endif
+		break;
+
 	case IROp::Msub:
+#if PPSSPP_ARCH(AMD64)
+		regs_.MapWithExtra(inst, { { 'G', IRREG_LO, 2, MIPSMap::DIRTY } });
+		MOVSX(64, 32, SCRATCH1, regs_.R(inst.src1));
+		MOVSX(64, 32, regs_.RX(inst.src2), regs_.R(inst.src2));
+		IMUL(64, SCRATCH1, regs_.R(inst.src2));
+		SUB(64, regs_.R(IRREG_LO), R(SCRATCH1));
+#else
+		// For ones that modify LO/HI, we can't have anything else in EDX.
+		regs_.ReserveAndLockXGPR(EDX);
+		regs_.MapWithExtra(inst, { { 'G', IRREG_LO, 1, MIPSMap::DIRTY }, { 'G', IRREG_HI, 1, MIPSMap::DIRTY } });
+		MOV(32, R(EAX), regs_.R(inst.src1));
+		IMUL(32, regs_.R(inst.src2));
+		SUB(32, regs_.R(IRREG_LO), R(EAX));
+		SBB(32, regs_.R(IRREG_HI), R(EDX));
+#endif
+		break;
+
 	case IROp::MsubU:
-		CompIR_Generic(inst);
+#if PPSSPP_ARCH(AMD64)
+		regs_.MapWithExtra(inst, { { 'G', IRREG_LO, 2, MIPSMap::DIRTY } });
+		MOVZX(64, 32, SCRATCH1, regs_.R(inst.src1));
+		MOVZX(64, 32, regs_.RX(inst.src2), regs_.R(inst.src2));
+		IMUL(64, SCRATCH1, regs_.R(inst.src2));
+		SUB(64, regs_.R(IRREG_LO), R(SCRATCH1));
+#else
+		// For ones that modify LO/HI, we can't have anything else in EDX.
+		regs_.ReserveAndLockXGPR(EDX);
+		regs_.MapWithExtra(inst, { { 'G', IRREG_LO, 1, MIPSMap::DIRTY }, { 'G', IRREG_HI, 1, MIPSMap::DIRTY } });
+		MOV(32, R(EAX), regs_.R(inst.src1));
+		MUL(32, regs_.R(inst.src2));
+		SUB(32, regs_.R(IRREG_LO), R(EAX));
+		SBB(32, regs_.R(IRREG_HI), R(EDX));
+#endif
 		break;
 
 	default:
