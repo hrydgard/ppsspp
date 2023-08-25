@@ -233,10 +233,53 @@ void X64JitBackend::CompIR_CondAssign(IRInst inst) {
 
 	switch (inst.op) {
 	case IROp::MovZ:
+		if (inst.dest != inst.src2) {
+			regs_.Map(inst);
+			CMP(32, regs_.R(inst.src1), Imm32(0));
+			CMOVcc(32, regs_.RX(inst.dest), regs_.R(inst.src2), CC_Z);
+		}
+		break;
+
 	case IROp::MovNZ:
+		if (inst.dest != inst.src2) {
+			regs_.Map(inst);
+			CMP(32, regs_.R(inst.src1), Imm32(0));
+			CMOVcc(32, regs_.RX(inst.dest), regs_.R(inst.src2), CC_NZ);
+		}
+		break;
+
 	case IROp::Max:
+		regs_.Map(inst);
+		if (inst.src1 == inst.src2) {
+			MOV(32, regs_.R(inst.dest), regs_.R(inst.src1));
+		} else if (inst.dest == inst.src1) {
+			CMP(32, regs_.R(inst.src1), regs_.R(inst.src2));
+			CMOVcc(32, regs_.RX(inst.dest), regs_.R(inst.src2), CC_L);
+		} else if (inst.dest == inst.src2) {
+			CMP(32, regs_.R(inst.src1), regs_.R(inst.src2));
+			CMOVcc(32, regs_.RX(inst.dest), regs_.R(inst.src1), CC_G);
+		} else {
+			MOV(32, regs_.R(inst.dest), regs_.R(inst.src1));
+			CMP(32, regs_.R(inst.dest), regs_.R(inst.src2));
+			CMOVcc(32, regs_.RX(inst.dest), regs_.R(inst.src2), CC_L);
+		}
+		break;
+
 	case IROp::Min:
-		CompIR_Generic(inst);
+		regs_.Map(inst);
+		if (inst.src1 == inst.src2) {
+			MOV(32, regs_.R(inst.dest), regs_.R(inst.src1));
+		} else if (inst.dest == inst.src1) {
+			CMP(32, regs_.R(inst.src1), regs_.R(inst.src2));
+			CMOVcc(32, regs_.RX(inst.dest), regs_.R(inst.src2), CC_G);
+		} else if (inst.dest == inst.src2) {
+			CMP(32, regs_.R(inst.src1), regs_.R(inst.src2));
+			CMOVcc(32, regs_.RX(inst.dest), regs_.R(inst.src1), CC_L);
+		} else {
+			MOV(32, regs_.R(inst.dest), regs_.R(inst.src1));
+			CMP(32, regs_.R(inst.dest), regs_.R(inst.src2));
+			CMOVcc(32, regs_.RX(inst.dest), regs_.R(inst.src2), CC_G);
+		}
 		break;
 
 	default:
