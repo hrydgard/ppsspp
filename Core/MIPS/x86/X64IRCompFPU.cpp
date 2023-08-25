@@ -122,8 +122,27 @@ void X64JitBackend::CompIR_FArith(IRInst inst) {
 	}
 
 	case IROp::FDiv:
+		if (inst.dest == inst.src1) {
+			regs_.Map(inst);
+			DIVSS(regs_.FX(inst.dest), regs_.F(inst.src2));
+		} else if (cpu_info.bAVX) {
+			regs_.Map(inst);
+			VDIVSS(regs_.FX(inst.dest), regs_.FX(inst.src1), regs_.F(inst.src2));
+		} else if (inst.dest == inst.src2) {
+			X64Reg tempReg = regs_.MapWithFPRTemp(inst);
+			MOVAPS(tempReg, regs_.F(inst.src2));
+			MOVAPS(regs_.FX(inst.dest), regs_.F(inst.src1));
+			DIVSS(regs_.FX(inst.dest), R(tempReg));
+		} else {
+			regs_.Map(inst);
+			MOVAPS(regs_.FX(inst.dest), regs_.F(inst.src1));
+			DIVSS(regs_.FX(inst.dest), regs_.F(inst.src2));
+		}
+		break;
+
 	case IROp::FSqrt:
-		CompIR_Generic(inst);
+		regs_.Map(inst);
+		SQRTSS(regs_.FX(inst.dest), regs_.F(inst.src1));
 		break;
 
 	case IROp::FNeg:
@@ -165,6 +184,26 @@ void X64JitBackend::CompIR_FAssign(IRInst inst) {
 		break;
 
 	case IROp::FAbs:
+		regs_.Map(inst);
+		if (cpu_info.bAVX) {
+			if (RipAccessible(&simdConstants.noSignMask)) {
+				VANDPS(128, regs_.FX(inst.dest), regs_.FX(inst.src1), M(&simdConstants.noSignMask));  // rip accessible
+			} else {
+				MOV(PTRBITS, R(SCRATCH1), ImmPtr(&simdConstants.noSignMask));
+				VANDPS(128, regs_.FX(inst.dest), regs_.FX(inst.src1), MatR(SCRATCH1));
+			}
+		} else {
+			if (inst.dest != inst.src1)
+				MOVAPS(regs_.FX(inst.dest), regs_.F(inst.src1));
+			if (RipAccessible(&simdConstants.noSignMask)) {
+				ANDPS(regs_.FX(inst.dest), M(&simdConstants.noSignMask));  // rip accessible
+			} else {
+				MOV(PTRBITS, R(SCRATCH1), ImmPtr(&simdConstants.noSignMask));
+				ANDPS(regs_.FX(inst.dest), MatR(SCRATCH1));
+			}
+		}
+		break;
+
 	case IROp::FSign:
 		CompIR_Generic(inst);
 		break;
