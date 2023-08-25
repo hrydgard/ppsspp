@@ -84,7 +84,7 @@
 #define EALREADY WSAEALREADY
 #define ETIMEDOUT WSAETIMEDOUT
 #define EOPNOTSUPP WSAEOPNOTSUPP
-inline bool connectInProgress(int errcode){ return (errcode == WSAEWOULDBLOCK || errcode == WSAEINPROGRESS || errcode == WSAEALREADY); }
+inline bool connectInProgress(int errcode){ return (errcode == WSAEWOULDBLOCK || errcode == WSAEINPROGRESS || errcode == WSAEALREADY || errcode == WSAEINVAL); } // WSAEINVAL should be treated as WSAEALREADY during connect for backward-compatibility with Winsock 1.1 
 inline bool isDisconnected(int errcode) { return (errcode == WSAECONNRESET || errcode == WSAECONNABORTED || errcode == WSAESHUTDOWN); }
 #else
 #define INVALID_SOCKET -1
