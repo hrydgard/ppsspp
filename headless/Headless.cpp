@@ -70,22 +70,22 @@ class PrintfLogger : public LogListener {
 public:
 	void Log(const LogMessage &message) override {
 		switch (message.level) {
-		case LogTypes::LVERBOSE:
+		case LogLevel::LVERBOSE:
 			fprintf(stderr, "V %s", message.msg.c_str());
 			break;
-		case LogTypes::LDEBUG:
+		case LogLevel::LDEBUG:
 			fprintf(stderr, "D %s", message.msg.c_str());
 			break;
-		case LogTypes::LINFO:
+		case LogLevel::LINFO:
 			fprintf(stderr, "I %s", message.msg.c_str());
 			break;
-		case LogTypes::LERROR:
+		case LogLevel::LERROR:
 			fprintf(stderr, "E %s", message.msg.c_str());
 			break;
-		case LogTypes::LWARNING:
+		case LogLevel::LWARNING:
 			fprintf(stderr, "W %s", message.msg.c_str());
 			break;
-		case LogTypes::LNOTICE:
+		case LogLevel::LNOTICE:
 		default:
 			fprintf(stderr, "N %s", message.msg.c_str());
 			break;
@@ -428,10 +428,10 @@ int main(int argc, const char* argv[])
 
 	PrintfLogger *printfLogger = new PrintfLogger();
 
-	for (int i = 0; i < LogTypes::NUMBER_OF_LOGS; i++) {
-		LogTypes::LOG_TYPE type = (LogTypes::LOG_TYPE)i;
+	for (int i = 0; i < (int)LogType::NUMBER_OF_LOGS; i++) {
+		LogType type = (LogType)i;
 		logman->SetEnabled(type, fullLog);
-		logman->SetLogLevel(type, LogTypes::LDEBUG);
+		logman->SetLogLevel(type, LogLevel::LDEBUG);
 	}
 	logman->AddListener(printfLogger);
 

@@ -813,7 +813,7 @@ bool VirtualDiscFileSystem::RemoveFile(const std::string &filename)
 	return false;
 }
 
-void VirtualDiscFileSystem::HandlerLogger(void *arg, HandlerHandle handle, LogTypes::LOG_LEVELS level, const char *msg) {
+void VirtualDiscFileSystem::HandlerLogger(void *arg, HandlerHandle handle, LogLevel level, const char *msg) {
 	VirtualDiscFileSystem *sys = static_cast<VirtualDiscFileSystem *>(arg);
 
 	// TODO: Probably could do this smarter / use a lookup.
@@ -826,9 +826,9 @@ void VirtualDiscFileSystem::HandlerLogger(void *arg, HandlerHandle handle, LogTy
 	}
 
 	if (filename != NULL) {
-		GENERIC_LOG(LogTypes::FILESYS, level, "%s: %s", filename, msg);
+		GENERIC_LOG(LogType::FILESYS, level, "%s: %s", filename, msg);
 	} else {
-		GENERIC_LOG(LogTypes::FILESYS, level, "%s", msg);
+		GENERIC_LOG(LogType::FILESYS, level, "%s", msg);
 	}
 }
 

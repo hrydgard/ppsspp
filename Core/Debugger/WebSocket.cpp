@@ -160,14 +160,14 @@ void HandleDebuggerRequest(const http::ServerRequest &request) {
 	ws->SetTextHandler([&](const std::string &t) {
 		JsonReader reader(t.c_str(), t.size());
 		if (!reader.ok()) {
-			ws->Send(DebuggerErrorEvent("Bad message: invalid JSON", LogTypes::LERROR));
+			ws->Send(DebuggerErrorEvent("Bad message: invalid JSON", LogLevel::LERROR));
 			return;
 		}
 
 		const JsonGet root = reader.root();
 		const char *event = root ? root.getString("event", nullptr) : nullptr;
 		if (!event) {
-			ws->Send(DebuggerErrorEvent("Bad message: no event property", LogTypes::LERROR, root));
+			ws->Send(DebuggerErrorEvent("Bad message: no event property", LogLevel::LERROR, root));
 			return;
 		}
 
@@ -185,7 +185,7 @@ void HandleDebuggerRequest(const http::ServerRequest &request) {
 		}
 	});
 	ws->SetBinaryHandler([&](const std::vector<uint8_t> &d) {
-		ws->Send(DebuggerErrorEvent("Bad message", LogTypes::LERROR));
+		ws->Send(DebuggerErrorEvent("Bad message", LogLevel::LERROR));
 	});
 
 	while (ws->Process(highActivity ? 1.0f / 1000.0f : 1.0f / 60.0f)) {

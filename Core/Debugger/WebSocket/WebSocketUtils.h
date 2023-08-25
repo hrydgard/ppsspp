@@ -42,7 +42,7 @@ struct WebSocketClientInfo {
 };
 
 struct DebuggerErrorEvent {
-	DebuggerErrorEvent(const std::string m, LogTypes::LOG_LEVELS l, const JsonGet data = JsonValue(JSON_NULL))
+	DebuggerErrorEvent(const std::string m, LogLevel l, const JsonGet data = JsonValue(JSON_NULL))
 		: message(m), level(l) {
 		// Need to format right away, before it's out of scope.
 		if (data) {
@@ -53,7 +53,7 @@ struct DebuggerErrorEvent {
 	}
 
 	std::string message;
-	LogTypes::LOG_LEVELS level;
+	LogLevel level;
 	std::string ticketRaw;
 
 	operator std::string() const {
@@ -61,7 +61,7 @@ struct DebuggerErrorEvent {
 		j.begin();
 		j.writeString("event", "error");
 		j.writeString("message", message);
-		j.writeInt("level", level);
+		j.writeInt("level", (int)level);
 		if (!ticketRaw.empty()) {
 			j.writeRaw("ticket", ticketRaw);
 		}
@@ -88,7 +88,7 @@ struct DebuggerRequest {
 	WebSocketClientInfo *client;
 
 	void Fail(const std::string &message) {
-		ws->Send(DebuggerErrorEvent(message, LogTypes::LERROR, data));
+		ws->Send(DebuggerErrorEvent(message, LogLevel::LERROR, data));
 		responseSent_ = true;
 	}
 

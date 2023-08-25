@@ -95,7 +95,7 @@ struct DebuggerLogEvent {
 		j.writeString("timestamp", l.timestamp);
 		j.writeString("header", l.header);
 		j.writeString("message", l.msg);
-		j.writeInt("level", l.level);
+		j.writeInt("level", (int)l.level);
 		j.writeString("channel", l.log);
 		j.end();
 		return j.str();

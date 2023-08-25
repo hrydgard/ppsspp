@@ -127,7 +127,7 @@ PPSSPP_UWPMain::PPSSPP_UWPMain(App ^app, const std::shared_ptr<DX::DeviceResourc
 	g_Config.iGPUBackend = (int)GPUBackend::DIRECT3D11;
 
 	if (debugLogLevel) {
-		LogManager::GetInstance()->SetAllLogLevels(LogTypes::LDEBUG);
+		LogManager::GetInstance()->SetAllLogLevels(LogLevel::LDEBUG);
 	}
 
 	// Set log file location

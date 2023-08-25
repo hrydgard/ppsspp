@@ -972,7 +972,7 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 	LogManager::GetInstance()->GetConsoleListener()->Init(showLog, 150, 120, "PPSSPP Debug Console");
 
 	if (debugLogLevel) {
-		LogManager::GetInstance()->SetAllLogLevels(LogTypes::LDEBUG);
+		LogManager::GetInstance()->SetAllLogLevels(LogLevel::LDEBUG);
 	}
 
 	// This still seems to improve performance noticeably.
