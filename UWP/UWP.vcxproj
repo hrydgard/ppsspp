@@ -104,35 +104,7 @@
     <PreBuildEvent>
       <Command>
 				copy PackageNormal.appxmanifest Package.appxmanifest /Y
-				mkdir Assets
 				copy AssetsNormal\*.* Assets /Y
-				robocopy "..\Assets\." "Content\." /xd "mime" /E /R:0 /W:0
-				../Windows/git-version-gen.cmd
-				EXIT 0
-      </Command>
-    </PreBuildEvent>
-  </ItemDefinitionGroup>
-  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|ARM64'">
-    <Link>
-      <AdditionalDependencies>xinputuap.lib;libavcodec.a;libavformat.a;libavutil.a;libswresample.a;libswscale.a;d2d1.lib;d3d11.lib;dxgi.lib;windowscodecs.lib;dwrite.lib; %(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalLibraryDirectories>../ffmpeg/Windows10/ARM64/lib;%(AdditionalLibraryDirectories); $(VCInstallDir)\lib\store\arm; $(VCInstallDir)\lib\arm</AdditionalLibraryDirectories>
-    </Link>
-    <ClCompile>
-      <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
-      <PrecompiledHeaderOutputFile>$(IntDir)pch.pch</PrecompiledHeaderOutputFile>
-      <AdditionalIncludeDirectories>..;../ext/native;../ext/snappy;$(ProjectDir);$(IntermediateOutputPath);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <AdditionalOptions>/bigobj %(AdditionalOptions)</AdditionalOptions>
-      <DisableSpecificWarnings>4453;28204</DisableSpecificWarnings>
-      <PreprocessorDefinitions>_DEBUG;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <ForcedIncludeFiles>pch.h</ForcedIncludeFiles>
-      <LanguageStandard>stdcpp17</LanguageStandard>
-    </ClCompile>
-    <PreBuildEvent>
-      <Command>
-				copy PackageNormal.appxmanifest Package.appxmanifest /Y
-				mkdir Assets
-				copy AssetsNormal\*.* Assets /Y
-				robocopy "..\Assets\." "Content\." /xd "mime" /E /R:0 /W:0
 				../Windows/git-version-gen.cmd
 				EXIT 0
       </Command>
@@ -156,35 +128,7 @@
     <PreBuildEvent>
       <Command>
 				copy PackageNormal.appxmanifest Package.appxmanifest /Y
-				mkdir Assets
 				copy AssetsNormal\*.* Assets /Y
-				robocopy "..\Assets\." "Content\." /xd "mime" /E /R:0 /W:0
-				../Windows/git-version-gen.cmd
-				EXIT 0
-      </Command>
-    </PreBuildEvent>
-  </ItemDefinitionGroup>
-  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)' == 'Release|ARM64'">
-    <Link>
-      <AdditionalDependencies>xinputuap.lib;libavcodec.a;libavformat.a;libavutil.a;libswresample.a;libswscale.a;d2d1.lib;d3d11.lib;dxgi.lib;windowscodecs.lib;dwrite.lib; %(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalLibraryDirectories>../ffmpeg/Windows10/ARM64/lib;%(AdditionalLibraryDirectories); $(VCInstallDir)\lib\store\arm; $(VCInstallDir)\lib\arm</AdditionalLibraryDirectories>
-    </Link>
-    <ClCompile>
-      <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
-      <PrecompiledHeaderOutputFile>$(IntDir)pch.pch</PrecompiledHeaderOutputFile>
-      <AdditionalIncludeDirectories>..;../ext/native;../ext/snappy;$(ProjectDir);$(IntermediateOutputPath);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <AdditionalOptions>/bigobj %(AdditionalOptions)</AdditionalOptions>
-      <DisableSpecificWarnings>4453;28204</DisableSpecificWarnings>
-      <PreprocessorDefinitions>NDEBUG;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <ForcedIncludeFiles>pch.h</ForcedIncludeFiles>
-      <LanguageStandard>stdcpp17</LanguageStandard>
-    </ClCompile>
-    <PreBuildEvent>
-      <Command>
-				copy PackageNormal.appxmanifest Package.appxmanifest /Y
-				mkdir Assets
-				copy AssetsNormal\*.* Assets /Y
-				robocopy "..\Assets\." "Content\." /xd "mime" /E /R:0 /W:0
 				../Windows/git-version-gen.cmd
 				EXIT 0
       </Command>
@@ -208,9 +152,55 @@
     <PreBuildEvent>
       <Command>
 				copy PackageGold.appxmanifest Package.appxmanifest /Y
-				mkdir Assets
 				copy AssetsGold\*.* Assets /Y
-				robocopy "..\Assets\." "Content\." /xd "mime" /E /R:0 /W:0
+				../Windows/git-version-gen.cmd
+				EXIT 0
+      </Command>
+    </PreBuildEvent>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|ARM64'">
+    <Link>
+      <AdditionalDependencies>xinputuap.lib;libavcodec.a;libavformat.a;libavutil.a;libswresample.a;libswscale.a;d2d1.lib;d3d11.lib;dxgi.lib;windowscodecs.lib;dwrite.lib; %(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>../ffmpeg/Windows10/ARM64/lib;%(AdditionalLibraryDirectories); $(VCInstallDir)\lib\store\arm; $(VCInstallDir)\lib\arm</AdditionalLibraryDirectories>
+    </Link>
+    <ClCompile>
+      <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
+      <PrecompiledHeaderOutputFile>$(IntDir)pch.pch</PrecompiledHeaderOutputFile>
+      <AdditionalIncludeDirectories>..;../ext/native;../ext/snappy;$(ProjectDir);$(IntermediateOutputPath);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalOptions>/bigobj %(AdditionalOptions)</AdditionalOptions>
+      <DisableSpecificWarnings>4453;28204</DisableSpecificWarnings>
+      <PreprocessorDefinitions>_DEBUG;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ForcedIncludeFiles>pch.h</ForcedIncludeFiles>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+    </ClCompile>
+    <PreBuildEvent>
+      <Command>
+				copy PackageNormal.appxmanifest Package.appxmanifest /Y
+				copy AssetsNormal\*.* Assets /Y
+				../Windows/git-version-gen.cmd
+				EXIT 0
+      </Command>
+    </PreBuildEvent>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)' == 'Release|ARM64'">
+    <Link>
+      <AdditionalDependencies>xinputuap.lib;libavcodec.a;libavformat.a;libavutil.a;libswresample.a;libswscale.a;d2d1.lib;d3d11.lib;dxgi.lib;windowscodecs.lib;dwrite.lib; %(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>../ffmpeg/Windows10/ARM64/lib;%(AdditionalLibraryDirectories); $(VCInstallDir)\lib\store\arm; $(VCInstallDir)\lib\arm</AdditionalLibraryDirectories>
+    </Link>
+    <ClCompile>
+      <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
+      <PrecompiledHeaderOutputFile>$(IntDir)pch.pch</PrecompiledHeaderOutputFile>
+      <AdditionalIncludeDirectories>..;../ext/native;../ext/snappy;$(ProjectDir);$(IntermediateOutputPath);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalOptions>/bigobj %(AdditionalOptions)</AdditionalOptions>
+      <DisableSpecificWarnings>4453;28204</DisableSpecificWarnings>
+      <PreprocessorDefinitions>NDEBUG;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ForcedIncludeFiles>pch.h</ForcedIncludeFiles>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+    </ClCompile>
+    <PreBuildEvent>
+      <Command>
+				copy PackageNormal.appxmanifest Package.appxmanifest /Y
+				copy AssetsNormal\*.* Assets /Y
 				../Windows/git-version-gen.cmd
 				EXIT 0
       </Command>
@@ -234,9 +224,7 @@
     <PreBuildEvent>
       <Command>
 				copy PackageGold.appxmanifest Package.appxmanifest /Y
-				mkdir Assets
 				copy AssetsGold\*.* Assets /Y
-				robocopy "..\Assets\." "Content\." /xd "mime" /E /R:0 /W:0
 				../Windows/git-version-gen.cmd
 				EXIT 0
       </Command>
@@ -260,9 +248,7 @@
     <PreBuildEvent>
       <Command>
 				copy PackageNormal.appxmanifest Package.appxmanifest /Y
-				mkdir Assets
 				copy AssetsNormal\*.* Assets /Y
-				robocopy "..\Assets\." "Content\." /xd "mime" /E /R:0 /W:0
 				../Windows/git-version-gen.cmd
 				EXIT 0
       </Command>
@@ -286,9 +272,7 @@
     <PreBuildEvent>
       <Command>
 				copy PackageNormal.appxmanifest Package.appxmanifest /Y
-				mkdir Assets
 				copy AssetsNormal\*.* Assets /Y
-				robocopy "..\Assets\." "Content\." /xd "mime" /E /R:0 /W:0
 				../Windows/git-version-gen.cmd
 				EXIT 0
       </Command>
@@ -312,17 +296,19 @@
     <PreBuildEvent>
       <Command>
 				copy PackageGold.appxmanifest Package.appxmanifest /Y
-				mkdir Assets
 				copy AssetsGold\*.* Assets /Y
-				robocopy "..\Assets\." "Content\." /xd "mime" /E /R:0 /W:0
 				../Windows/git-version-gen.cmd
 				EXIT 0
       </Command>
     </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <Image Include="AssetsGold\StoreLogo.scale-100.png">
-      <DeploymentContent>false</DeploymentContent>
+    <AppxManifest Include="Package.appxmanifest">
+      <SubType>Designer</SubType>
+      <FileType>Document</FileType>
+    </AppxManifest>
+    <Image Include="Assets\StoreLogo.png">
+      <DeploymentContent>True</DeploymentContent>
     </Image>
     <Image Include="Assets\LockScreenLogo.scale-200.png">
       <DeploymentContent>true</DeploymentContent>
@@ -339,25 +325,7 @@
     <Image Include="Assets\Square44x44Logo.targetsize-24_altform-unplated.png">
       <DeploymentContent>true</DeploymentContent>
     </Image>
-    <Image Include="Assets\StoreLogo.png">
-      <DeploymentContent>true</DeploymentContent>
-    </Image>
     <Image Include="Assets\Wide310x150Logo.scale-200.png">
-      <DeploymentContent>true</DeploymentContent>
-    </Image>
-    <Image Include="Content\7z.png">
-      <DeploymentContent>true</DeploymentContent>
-    </Image>
-    <Image Include="Content\debugger\favicon.ico">
-      <DeploymentContent>true</DeploymentContent>
-    </Image>
-    <Image Include="Content\unknown.png">
-      <DeploymentContent>true</DeploymentContent>
-    </Image>
-    <Image Include="Content\zip.png">
-      <DeploymentContent>true</DeploymentContent>
-    </Image>
-    <Image Include="Content\rargray.png">
       <DeploymentContent>true</DeploymentContent>
     </Image>
   </ItemGroup>
@@ -402,81 +370,34 @@
     <ClCompile Include="XAudioSoundStream.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <AppxManifest Include="Package.appxmanifest">
-      <SubType>Designer</SubType>
-      <FileType>Document</FileType>
-    </AppxManifest>
-    <Image Include="Content\ui_atlas.zim">
+    <Image Include="..\Assets\*.png">
       <DeploymentContent>true</DeploymentContent>
-      <FileType>Document</FileType>
+      <Link>Content\%(Filename)%(Extension)</Link>
     </Image>
-    <Image Include="Content\asciifont_atlas.zim">
+    <Image Include="..\Assets\debugger\favicon.ico">
+      <DeploymentContent>true</DeploymentContent>
+      <Link>Content\debugger\%(Filename)%(Extension)</Link>
+    </Image>
+    <Image Include="..\Assets\*.zim">
       <DeploymentContent>true</DeploymentContent>
       <FileType>Document</FileType>
+      <Link>Content\%(Filename)%(Extension)</Link>
     </Image>
-    <Image Include="Content\font_atlas.zim">
+    <None Include="..\Assets\vfpu\*.dat">
       <DeploymentContent>true</DeploymentContent>
-      <FileType>Document</FileType>
-    </Image>
-    <None Include="Content\vfpu\vfpu_asin_lut65536.dat">
-      <DeploymentContent>true</DeploymentContent>
+      <Link>Content\vfpu\%(Filename)%(Extension)</Link>
     </None>
-    <None Include="Content\vfpu\vfpu_asin_lut_deltas.dat">
+    <None Include="..\Assets\debugger\.nojekyll">
       <DeploymentContent>true</DeploymentContent>
+      <Link>Content\debugger\%(Filename)%(Extension)</Link>
     </None>
-    <None Include="Content\vfpu\vfpu_asin_lut_indices.dat">
+    <None Include="..\Assets\debugger\*.json">
       <DeploymentContent>true</DeploymentContent>
+      <Link>Content\debugger\%(Filename)%(Extension)</Link>
     </None>
-    <None Include="Content\vfpu\vfpu_exp2_lut.dat">
+    <None Include="..\Assets\debugger\index.html">
       <DeploymentContent>true</DeploymentContent>
-    </None>
-    <None Include="Content\vfpu\vfpu_exp2_lut65536.dat">
-      <DeploymentContent>true</DeploymentContent>
-    </None>
-    <None Include="Content\vfpu\vfpu_log2_lut.dat">
-      <DeploymentContent>true</DeploymentContent>
-    </None>
-    <None Include="Content\vfpu\vfpu_log2_lut65536.dat">
-      <DeploymentContent>true</DeploymentContent>
-    </None>
-    <None Include="Content\vfpu\vfpu_log2_lut65536_quadratic.dat">
-      <DeploymentContent>true</DeploymentContent>
-    </None>
-    <None Include="Content\vfpu\vfpu_rcp_lut.dat">
-      <DeploymentContent>true</DeploymentContent>
-    </None>
-    <None Include="Content\vfpu\vfpu_rsqrt_lut.dat">
-      <DeploymentContent>true</DeploymentContent>
-    </None>
-    <None Include="Content\vfpu\vfpu_sin_lut8192.dat">
-      <DeploymentContent>true</DeploymentContent>
-    </None>
-    <None Include="Content\vfpu\vfpu_sin_lut_delta.dat">
-      <DeploymentContent>true</DeploymentContent>
-    </None>
-    <None Include="Content\vfpu\vfpu_sin_lut_exceptions.dat">
-      <DeploymentContent>true</DeploymentContent>
-    </None>
-    <None Include="Content\vfpu\vfpu_sin_lut_interval_delta.dat">
-      <DeploymentContent>true</DeploymentContent>
-    </None>
-    <None Include="Content\vfpu\vfpu_sqrt_lut.dat">
-      <DeploymentContent>true</DeploymentContent>
-    </None>
-    <None Include="Content\asciifont_atlas.meta">
-      <DeploymentContent>true</DeploymentContent>
-    </None>
-    <None Include="Content\debugger\.nojekyll">
-      <DeploymentContent>true</DeploymentContent>
-    </None>
-    <None Include="Content\debugger\asset-manifest.json">
-      <DeploymentContent>true</DeploymentContent>
-    </None>
-    <None Include="Content\debugger\index.html">
-      <DeploymentContent>true</DeploymentContent>
-    </None>
-    <None Include="Content\debugger\manifest.json">
-      <DeploymentContent>true</DeploymentContent>
+      <Link>Content\debugger\%(Filename)%(Extension)</Link>
     </None>
     <None Include="..\Assets\debugger\static\css\*.css">
       <DeploymentContent>true</DeploymentContent>
@@ -498,347 +419,53 @@
       <DeploymentContent>true</DeploymentContent>
       <Link>Content\debugger\static\media\%(Filename)%(Extension)</Link>
     </None>
-    <None Include="Content\ppge_atlas.meta">
+    <None Include="..\Assets\*.meta">
       <DeploymentContent>true</DeploymentContent>
+      <Link>Content\%(Filename)%(Extension)</Link>
     </None>
-    <None Include="Content\font_atlas.meta">
+    <None Include="..\Assets\themes\defaultthemes.ini">
       <DeploymentContent>true</DeploymentContent>
+      <Link>Content\themes\%(Filename)%(Extension)</Link>
     </None>
-    <None Include="Content\themes\defaultthemes.ini">
+    <None Include="..\Assets\compat.ini">
       <DeploymentContent>true</DeploymentContent>
+      <Link>Content\%(Filename)%(Extension)</Link>
     </None>
-    <None Include="Content\ui_atlas.meta">
+    <None Include="..\Assets\*.wav">
       <DeploymentContent>true</DeploymentContent>
+      <Link>Content\%(Filename)%(Extension)</Link>
     </None>
-    <None Include="Content\compat.ini">
+    <None Include="..\Assets\flash0\font\*.pgf">
       <DeploymentContent>true</DeploymentContent>
+      <Link>Content\flash0\font\%(Filename)%(Extension)</Link>
     </None>
-    <None Include="Content\sfx_achievement_unlocked.wav">
+    <None Include="..\Assets\knownfuncs.ini">
       <DeploymentContent>true</DeploymentContent>
+      <Link>Content\%(Filename)%(Extension)</Link>
     </None>
-    <None Include="Content\sfx_back.wav">
+    <None Include="..\Assets\langregion.ini">
       <DeploymentContent>true</DeploymentContent>
+      <Link>Content\%(Filename)%(Extension)</Link>
     </None>
-    <None Include="Content\sfx_confirm.wav">
+    <None Include="..\Assets\lang\*.ini">
       <DeploymentContent>true</DeploymentContent>
+      <Link>Content\lang\%(Filename)%(Extension)</Link>
     </None>
-    <None Include="Content\sfx_leaderbord_submitted.wav">
+    <None Include="..\Assets\shaders\defaultshaders.ini">
       <DeploymentContent>true</DeploymentContent>
+      <Link>Content\shaders\%(Filename)%(Extension)</Link>
     </None>
-    <None Include="Content\sfx_select.wav">
+    <None Include="..\Assets\shaders\*.fsh">
       <DeploymentContent>true</DeploymentContent>
+      <Link>Content\shaders\%(Filename)%(Extension)</Link>
     </None>
-    <None Include="Content\sfx_toggle_off.wav">
+    <None Include="..\Assets\shaders\*.csh">
       <DeploymentContent>true</DeploymentContent>
+      <Link>Content\shaders\%(Filename)%(Extension)</Link>
     </None>
-    <None Include="Content\sfx_toggle_on.wav">
+    <None Include="..\Assets\shaders\*.vsh">
       <DeploymentContent>true</DeploymentContent>
-    </None>
-    <None Include="Content\flash0\font\jpn0.pgf">
-      <DeploymentContent>true</DeploymentContent>
-    </None>
-    <None Include="Content\flash0\font\kr0.pgf">
-      <DeploymentContent>true</DeploymentContent>
-    </None>
-    <None Include="Content\flash0\font\ltn0.pgf">
-      <DeploymentContent>true</DeploymentContent>
-    </None>
-    <None Include="Content\flash0\font\ltn1.pgf">
-      <DeploymentContent>true</DeploymentContent>
-    </None>
-    <None Include="Content\flash0\font\ltn10.pgf">
-      <DeploymentContent>true</DeploymentContent>
-    </None>
-    <None Include="Content\flash0\font\ltn11.pgf">
-      <DeploymentContent>true</DeploymentContent>
-    </None>
-    <None Include="Content\flash0\font\ltn12.pgf">
-      <DeploymentContent>true</DeploymentContent>
-    </None>
-    <None Include="Content\flash0\font\ltn13.pgf">
-      <DeploymentContent>true</DeploymentContent>
-    </None>
-    <None Include="Content\flash0\font\ltn14.pgf">
-      <DeploymentContent>true</DeploymentContent>
-    </None>
-    <None Include="Content\flash0\font\ltn15.pgf">
-      <DeploymentContent>true</DeploymentContent>
-    </None>
-    <None Include="Content\flash0\font\ltn2.pgf">
-      <DeploymentContent>true</DeploymentContent>
-    </None>
-    <None Include="Content\flash0\font\ltn3.pgf">
-      <DeploymentContent>true</DeploymentContent>
-    </None>
-    <None Include="Content\flash0\font\ltn4.pgf">
-      <DeploymentContent>true</DeploymentContent>
-    </None>
-    <None Include="Content\flash0\font\ltn5.pgf">
-      <DeploymentContent>true</DeploymentContent>
-    </None>
-    <None Include="Content\flash0\font\ltn6.pgf">
-      <DeploymentContent>true</DeploymentContent>
-    </None>
-    <None Include="Content\flash0\font\ltn7.pgf">
-      <DeploymentContent>true</DeploymentContent>
-    </None>
-    <None Include="Content\flash0\font\ltn8.pgf">
-      <DeploymentContent>true</DeploymentContent>
-    </None>
-    <None Include="Content\flash0\font\ltn9.pgf">
-      <DeploymentContent>true</DeploymentContent>
-    </None>
-    <None Include="Content\knownfuncs.ini">
-      <DeploymentContent>true</DeploymentContent>
-    </None>
-    <None Include="Content\langregion.ini">
-      <DeploymentContent>true</DeploymentContent>
-    </None>
-    <None Include="Content\lang\ar_AE.ini">
-      <DeploymentContent>true</DeploymentContent>
-    </None>
-    <None Include="Content\lang\az_AZ.ini">
-      <DeploymentContent>true</DeploymentContent>
-    </None>
-    <None Include="Content\lang\bg_BG.ini">
-      <DeploymentContent>true</DeploymentContent>
-    </None>
-    <None Include="Content\lang\ca_ES.ini">
-      <DeploymentContent>true</DeploymentContent>
-    </None>
-    <None Include="Content\lang\cz_CZ.ini">
-      <DeploymentContent>true</DeploymentContent>
-    </None>
-    <None Include="Content\lang\da_DK.ini">
-      <DeploymentContent>true</DeploymentContent>
-    </None>
-    <None Include="Content\lang\de_DE.ini">
-      <DeploymentContent>true</DeploymentContent>
-    </None>
-    <None Include="Content\lang\dr_ID.ini">
-      <DeploymentContent>true</DeploymentContent>
-    </None>
-    <None Include="Content\lang\en_US.ini">
-      <DeploymentContent>true</DeploymentContent>
-    </None>
-    <None Include="Content\lang\es_ES.ini">
-      <DeploymentContent>true</DeploymentContent>
-    </None>
-    <None Include="Content\lang\es_LA.ini">
-      <DeploymentContent>true</DeploymentContent>
-    </None>
-    <None Include="Content\lang\fa_IR.ini">
-      <DeploymentContent>true</DeploymentContent>
-    </None>
-    <None Include="Content\lang\fi_FI.ini">
-      <DeploymentContent>true</DeploymentContent>
-    </None>
-    <None Include="Content\lang\fr_FR.ini">
-      <DeploymentContent>true</DeploymentContent>
-    </None>
-    <None Include="Content\lang\gl_ES.ini">
-      <DeploymentContent>true</DeploymentContent>
-    </None>
-    <None Include="Content\lang\gr_EL.ini">
-      <DeploymentContent>true</DeploymentContent>
-    </None>
-    <None Include="Content\lang\he_IL.ini">
-      <DeploymentContent>true</DeploymentContent>
-    </None>
-    <None Include="Content\lang\he_IL_invert.ini">
-      <DeploymentContent>true</DeploymentContent>
-    </None>
-    <None Include="Content\lang\hr_HR.ini">
-      <DeploymentContent>true</DeploymentContent>
-    </None>
-    <None Include="Content\lang\hu_HU.ini">
-      <DeploymentContent>true</DeploymentContent>
-    </None>
-    <None Include="Content\lang\id_ID.ini">
-      <DeploymentContent>true</DeploymentContent>
-    </None>
-    <None Include="Content\lang\it_IT.ini">
-      <DeploymentContent>true</DeploymentContent>
-    </None>
-    <None Include="Content\lang\ja_JP.ini">
-      <DeploymentContent>true</DeploymentContent>
-    </None>
-    <None Include="Content\lang\jv_ID.ini">
-      <DeploymentContent>true</DeploymentContent>
-    </None>
-    <None Include="Content\lang\ko_KR.ini">
-      <DeploymentContent>true</DeploymentContent>
-    </None>
-    <None Include="Content\lang\lo_LA.ini">
-      <DeploymentContent>true</DeploymentContent>
-    </None>
-    <None Include="Content\lang\lt-LT.ini">
-      <DeploymentContent>true</DeploymentContent>
-    </None>
-    <None Include="Content\lang\ms_MY.ini">
-      <DeploymentContent>true</DeploymentContent>
-    </None>
-    <None Include="Content\lang\nl_NL.ini">
-      <DeploymentContent>true</DeploymentContent>
-    </None>
-    <None Include="Content\lang\no_NO.ini">
-      <DeploymentContent>true</DeploymentContent>
-    </None>
-    <None Include="Content\lang\pl_PL.ini">
-      <DeploymentContent>true</DeploymentContent>
-    </None>
-    <None Include="Content\lang\pt_BR.ini">
-      <DeploymentContent>true</DeploymentContent>
-    </None>
-    <None Include="Content\lang\pt_PT.ini">
-      <DeploymentContent>true</DeploymentContent>
-    </None>
-    <None Include="Content\lang\ro_RO.ini">
-      <DeploymentContent>true</DeploymentContent>
-    </None>
-    <None Include="Content\lang\ru_RU.ini">
-      <DeploymentContent>true</DeploymentContent>
-    </None>
-    <None Include="Content\lang\sv_SE.ini">
-      <DeploymentContent>true</DeploymentContent>
-    </None>
-    <None Include="Content\lang\tg_PH.ini">
-      <DeploymentContent>true</DeploymentContent>
-    </None>
-    <None Include="Content\lang\th_TH.ini">
-      <DeploymentContent>true</DeploymentContent>
-    </None>
-    <None Include="Content\lang\tr_TR.ini">
-      <DeploymentContent>true</DeploymentContent>
-    </None>
-    <None Include="Content\lang\uk_UA.ini">
-      <DeploymentContent>true</DeploymentContent>
-    </None>
-    <None Include="Content\lang\vi_VN.ini">
-      <DeploymentContent>true</DeploymentContent>
-    </None>
-    <None Include="Content\lang\zh_CN.ini">
-      <DeploymentContent>true</DeploymentContent>
-    </None>
-    <None Include="Content\lang\zh_TW.ini">
-      <DeploymentContent>true</DeploymentContent>
-    </None>
-    <None Include="Content\ppge_atlas.zim">
-      <DeploymentContent>true</DeploymentContent>
-    </None>
-    <None Include="Content\shaders\4xhqglsl.fsh">
-      <DeploymentContent>true</DeploymentContent>
-    </None>
-    <None Include="Content\shaders\4xhqglsl.vsh">
-      <DeploymentContent>true</DeploymentContent>
-    </None>
-    <None Include="Content\shaders\5xBR.fsh">
-      <DeploymentContent>true</DeploymentContent>
-    </None>
-    <None Include="Content\shaders\5xBR.vsh">
-      <DeploymentContent>true</DeploymentContent>
-    </None>
-    <None Include="Content\shaders\5xBR-lv2.fsh">
-      <DeploymentContent>true</DeploymentContent>
-    </None>
-    <None Include="Content\shaders\aacolor.fsh">
-      <DeploymentContent>true</DeploymentContent>
-    </None>
-    <None Include="Content\shaders\aacolor.vsh">
-      <DeploymentContent>true</DeploymentContent>
-    </None>
-    <None Include="Content\shaders\bloom.fsh">
-      <DeploymentContent>true</DeploymentContent>
-    </None>
-    <None Include="Content\shaders\bloomnoblur.fsh">
-      <DeploymentContent>true</DeploymentContent>
-    </None>
-    <None Include="Content\shaders\cartoon.fsh">
-      <DeploymentContent>true</DeploymentContent>
-    </None>
-    <None Include="Content\shaders\cartoon.vsh">
-      <DeploymentContent>true</DeploymentContent>
-    </None>
-    <None Include="Content\shaders\checkers.fsh">
-      <DeploymentContent>true</DeploymentContent>
-    </None>
-    <None Include="Content\shaders\colorcorrection.fsh">
-      <DeploymentContent>true</DeploymentContent>
-    </None>
-    <None Include="Content\shaders\crt.fsh">
-      <DeploymentContent>true</DeploymentContent>
-    </None>
-    <None Include="Content\shaders\defaultshaders.ini">
-      <DeploymentContent>true</DeploymentContent>
-    </None>
-    <None Include="Content\shaders\fakereflections.fsh">
-      <DeploymentContent>true</DeploymentContent>
-    </None>
-    <None Include="Content\shaders\fxaa.fsh">
-      <DeploymentContent>true</DeploymentContent>
-    </None>
-    <None Include="Content\shaders\fxaa.vsh">
-      <DeploymentContent>true</DeploymentContent>
-    </None>
-    <None Include="Content\shaders\GaussianDownscale.fsh">
-      <DeploymentContent>true</DeploymentContent>
-    </None>
-    <None Include="Content\shaders\natural.fsh">
-      <DeploymentContent>true</DeploymentContent>
-    </None>
-    <None Include="Content\shaders\natural.vsh">
-      <DeploymentContent>true</DeploymentContent>
-    </None>
-    <None Include="Content\shaders\naturalA.fsh">
-      <DeploymentContent>true</DeploymentContent>
-    </None>
-    <None Include="Content\shaders\naturalA.vsh">
-      <DeploymentContent>true</DeploymentContent>
-    </None>
-    <None Include="Content\shaders\persistence.fsh">
-      <DeploymentContent>true</DeploymentContent>
-    </None>
-    <None Include="Content\shaders\psp_color.fsh">
-      <DeploymentContent>true</DeploymentContent>
-    </None>
-    <None Include="Content\shaders\scanlines.fsh">
-      <DeploymentContent>true</DeploymentContent>
-    </None>
-    <None Include="Content\shaders\sharpen.fsh">
-      <DeploymentContent>true</DeploymentContent>
-    </None>
-    <None Include="Content\shaders\stereo_red_blue.fsh">
-      <DeploymentContent>true</DeploymentContent>
-    </None>
-    <None Include="Content\shaders\stereo_sbs.fsh">
-      <DeploymentContent>true</DeploymentContent>
-    </None>
-    <None Include="Content\shaders\tex_2xbrz.csh">
-      <DeploymentContent>true</DeploymentContent>
-    </None>
-    <None Include="Content\shaders\tex_4xbrz.csh">
-      <DeploymentContent>true</DeploymentContent>
-    </None>
-    <None Include="Content\shaders\tex_mmpx.csh">
-      <DeploymentContent>true</DeploymentContent>
-    </None>
-    <None Include="Content\shaders\upscale_bicubic.fsh">
-      <DeploymentContent>true</DeploymentContent>
-    </None>
-    <None Include="Content\shaders\upscale_bicubic.vsh">
-      <DeploymentContent>true</DeploymentContent>
-    </None>
-    <None Include="Content\shaders\upscale_spline36.fsh">
-      <DeploymentContent>true</DeploymentContent>
-    </None>
-    <None Include="Content\shaders\upscale_spline36.vsh">
-      <DeploymentContent>true</DeploymentContent>
-    </None>
-    <None Include="Content\shaders\videoAA.fsh">
-      <DeploymentContent>true</DeploymentContent>
-    </None>
-    <None Include="Content\shaders\vignette.fsh">
-      <DeploymentContent>true</DeploymentContent>
+      <Link>Content\shaders\%(Filename)%(Extension)</Link>
     </None>
     <None Include="PPSSPP_UWP_TemporaryKey.pfx" />
   </ItemGroup>
@@ -879,12 +506,15 @@
       <DeploymentContent>true</DeploymentContent>
       <Link>Content\debugger\static\js\%(Filename)%(Extension)</Link>
     </Text>
-    <Text Include="Content\gamecontrollerdb.txt">
+    <Text Include="..\Assets\gamecontrollerdb.txt">
       <DeploymentContent>true</DeploymentContent>
+      <Link>Content\%(Filename)%(Extension)</Link>
     </Text>
   </ItemGroup>
   <ItemGroup>
-    <Font Include="Content\Roboto-Condensed.ttf" />
+    <Font Include="..\Assets\Roboto-Condensed.ttf">
+      <Link>Content\%(Filename)%(Extension)</Link>
+    </Font>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
