@@ -1,7 +1,6 @@
 # We copy other files on top of these at build time, depending on configuration (Normal/Gold)
 
 Assets
-Package.appxmanifest
 AppPackages
 x64
 ARM

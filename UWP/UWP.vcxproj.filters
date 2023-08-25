@@ -95,6 +95,9 @@
     <ClCompile Include="Common\DeviceResources.cpp">
       <Filter>Common</Filter>
     </ClCompile>
+    <Image Include="Assets\StoreLogo.png">
+      <Filter>Assets</Filter>
+    </Image>
     <Image Include="Assets\LockScreenLogo.scale-200.png">
       <Filter>Assets</Filter>
     </Image>
@@ -168,6 +171,7 @@
   </ItemGroup>
   <ItemGroup>
     <AppxManifest Include="Package.appxmanifest" />
+    <None Include="PackageGold.appxmanifest" />
   </ItemGroup>
   <ItemGroup>
     <Image Include="..\Assets\*.png">
