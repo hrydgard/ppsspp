@@ -26,7 +26,7 @@
     </Filter>
     <Filter Include="Content\shaders">
       <UniqueIdentifier>{a861f712-3285-448d-b7a0-f6d39ac4c4b9}</UniqueIdentifier>
-      <Extensions>vsh;fsh;csh;ini</Extensions>	  
+      <Extensions>vsh;fsh;csh;ini</Extensions>
     </Filter>
     <Filter Include="Content\flash0">
       <UniqueIdentifier>{d51ae335-1279-4484-bfbf-2caa2efba6d9}</UniqueIdentifier>
