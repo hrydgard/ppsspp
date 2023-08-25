@@ -40,10 +40,11 @@ namespace MIPSComp {
 using namespace Gen;
 using namespace X64IRJitConstants;
 
-struct SimdConstants {
+static struct SimdConstants {
 alignas(16) const u32 reverseQNAN[4] = { 0x803FFFFF, 0x803FFFFF, 0x803FFFFF, 0x803FFFFF };
 alignas(16) const u32 noSignMask[4] = { 0x7FFFFFFF, 0x7FFFFFFF, 0x7FFFFFFF, 0x7FFFFFFF };
 alignas(16) const u32 positiveInfinity[4] = { 0x7F800000, 0x7F800000, 0x7F800000, 0x7F800000 };
+alignas(16) const u32 signBitAll[4] = { 0x80000000, 0x80000000, 0x80000000, 0x80000000 };
 } simdConstants;
 
 void X64JitBackend::CompIR_FArith(IRInst inst) {
@@ -122,8 +123,28 @@ void X64JitBackend::CompIR_FArith(IRInst inst) {
 
 	case IROp::FDiv:
 	case IROp::FSqrt:
-	case IROp::FNeg:
 		CompIR_Generic(inst);
+		break;
+
+	case IROp::FNeg:
+		regs_.Map(inst);
+		if (cpu_info.bAVX) {
+			if (RipAccessible(&simdConstants.signBitAll)) {
+				VXORPS(128, regs_.FX(inst.dest), regs_.FX(inst.src1), M(&simdConstants.signBitAll));  // rip accessible
+			} else {
+				MOV(PTRBITS, R(SCRATCH1), ImmPtr(&simdConstants.signBitAll));
+				VXORPS(128, regs_.FX(inst.dest), regs_.FX(inst.src1), MatR(SCRATCH1));
+			}
+		} else {
+			if (inst.dest != inst.src1)
+				MOVAPS(regs_.FX(inst.dest), regs_.F(inst.src1));
+			if (RipAccessible(&simdConstants.signBitAll)) {
+				XORPS(regs_.FX(inst.dest), M(&simdConstants.signBitAll));  // rip accessible
+			} else {
+				MOV(PTRBITS, R(SCRATCH1), ImmPtr(&simdConstants.signBitAll));
+				XORPS(regs_.FX(inst.dest), MatR(SCRATCH1));
+			}
+		}
 		break;
 
 	default:

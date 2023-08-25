@@ -39,6 +39,11 @@ namespace MIPSComp {
 using namespace Gen;
 using namespace X64IRJitConstants;
 
+static struct SimdConstants {
+	alignas(16) const u32 noSignMask[4] = { 0x7FFFFFFF, 0x7FFFFFFF, 0x7FFFFFFF, 0x7FFFFFFF };
+	alignas(16) const u32 signBitAll[4] = { 0x80000000, 0x80000000, 0x80000000, 0x80000000 };
+} simdConstants;
+
 alignas(16) static const float vec4InitValues[8][4] = {
 	{ 0.0f, 0.0f, 0.0f, 0.0f },
 	{ 1.0f, 1.0f, 1.0f, 1.0f },
@@ -143,8 +148,45 @@ void X64JitBackend::CompIR_VecArith(IRInst inst) {
 		break;
 
 	case IROp::Vec4Neg:
+		regs_.Map(inst);
+		if (cpu_info.bAVX) {
+			if (RipAccessible(&simdConstants.signBitAll)) {
+				VXORPS(128, regs_.FX(inst.dest), regs_.FX(inst.src1), M(&simdConstants.signBitAll));  // rip accessible
+			} else {
+				MOV(PTRBITS, R(SCRATCH1), ImmPtr(&simdConstants.signBitAll));
+				VXORPS(128, regs_.FX(inst.dest), regs_.FX(inst.src1), MatR(SCRATCH1));
+			}
+		} else {
+			if (inst.dest != inst.src1)
+				MOVAPS(regs_.FX(inst.dest), regs_.F(inst.src1));
+			if (RipAccessible(&simdConstants.signBitAll)) {
+				XORPS(regs_.FX(inst.dest), M(&simdConstants.signBitAll));  // rip accessible
+			} else {
+				MOV(PTRBITS, R(SCRATCH1), ImmPtr(&simdConstants.signBitAll));
+				XORPS(regs_.FX(inst.dest), MatR(SCRATCH1));
+			}
+		}
+		break;
+
 	case IROp::Vec4Abs:
-		CompIR_Generic(inst);
+		regs_.Map(inst);
+		if (cpu_info.bAVX) {
+			if (RipAccessible(&simdConstants.noSignMask)) {
+				VANDPS(128, regs_.FX(inst.dest), regs_.FX(inst.src1), M(&simdConstants.noSignMask));  // rip accessible
+			} else {
+				MOV(PTRBITS, R(SCRATCH1), ImmPtr(&simdConstants.noSignMask));
+				VANDPS(128, regs_.FX(inst.dest), regs_.FX(inst.src1), MatR(SCRATCH1));
+			}
+		} else {
+			if (inst.dest != inst.src1)
+				MOVAPS(regs_.FX(inst.dest), regs_.F(inst.src1));
+			if (RipAccessible(&simdConstants.noSignMask)) {
+				ANDPS(regs_.FX(inst.dest), M(&simdConstants.noSignMask));  // rip accessible
+			} else {
+				MOV(PTRBITS, R(SCRATCH1), ImmPtr(&simdConstants.noSignMask));
+				ANDPS(regs_.FX(inst.dest), MatR(SCRATCH1));
+			}
+		}
 		break;
 
 	default:
