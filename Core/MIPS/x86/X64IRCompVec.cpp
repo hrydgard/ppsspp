@@ -266,7 +266,23 @@ void X64JitBackend::CompIR_VecHoriz(IRInst inst) {
 
 	switch (inst.op) {
 	case IROp::Vec4Dot:
-		CompIR_Generic(inst);
+		// TODO: Handle "aliasing" of sizes.  In theory it should be fine if not dirty...
+		if (Overlap(inst.dest, 1, inst.src1, 4) || Overlap(inst.dest, 1, inst.src2, 4))
+			DISABLE;
+
+		regs_.Map(inst);
+		if (cpu_info.bSSE4_1 && inst.dest == inst.src1) {
+			DPPS(regs_.FX(inst.dest), regs_.F(inst.src2), 0xF1);
+		} else if (cpu_info.bSSE4_1 && inst.dest == inst.src2) {
+			DPPS(regs_.FX(inst.dest), regs_.F(inst.src1), 0xF1);
+		} else if (cpu_info.bAVX) {
+			VDPPS(128, regs_.FX(inst.dest), regs_.FX(inst.src1), regs_.F(inst.src2), 0xF1);
+		} else if (cpu_info.bSSE4_1) {
+			MOVAPS(regs_.FX(inst.dest), regs_.F(inst.src1));
+			DPPS(regs_.FX(inst.dest), regs_.F(inst.src2), 0xF1);
+		} else {
+			CompIR_Generic(inst);
+		}
 		break;
 
 	default:
