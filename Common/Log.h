@@ -44,6 +44,8 @@ enum class LogType {
 	FRAMEBUF,
 	AUDIO,
 	IO,
+	ACHIEVEMENTS,
+	HTTP,
 
 	SCEAUDIO,
 	SCECTRL,
@@ -61,9 +63,6 @@ enum class LogType {
 	SCEMISC,
 
 	NUMBER_OF_LOGS,  // Must be last
-
-	// Temporary aliases
-	ACHIEVEMENTS = HLE,  // TODO: Make a real category
 };
 
 enum class LogLevel : int {

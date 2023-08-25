@@ -509,6 +509,8 @@ void FrameUpdate() {
 	if (!g_rcClient)
 		return;
 	rc_client_do_frame(g_rcClient);
+
+	// TODO: If failed to log in, occasionally try again.
 }
 
 void Idle() {

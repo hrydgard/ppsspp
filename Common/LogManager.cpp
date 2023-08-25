@@ -95,6 +95,8 @@ static const char *g_logTypeNames[] = {
 	"FRAMEBUF",
 	"AUDIO",
 	"IO",
+	"ACHIEVEMENTS",
+	"HTTP",
 
 	"SCEAUDIO",
 	"SCECTRL",
