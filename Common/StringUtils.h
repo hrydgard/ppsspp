@@ -20,6 +20,7 @@
 #include <cstdarg>
 #include <cstdint>
 #include <string>
+#include <cstring>
 #include <vector>
 
 #ifdef _MSC_VER
