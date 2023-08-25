@@ -339,13 +339,13 @@ int Client::ReadResponseHeaders(net::Buffer *readbuf, std::vector<std::string> &
 			return -1;
 		ready = fd_util::WaitUntilReady(sock(), CANCEL_INTERVAL, false);
 		if (!ready && time_now_d() > endTimeout) {
-			ERROR_LOG(IO, "HTTP headers timed out");
+			ERROR_LOG(HTTP, "HTTP headers timed out");
 			return -1;
 		}
 	};
 	// Let's hope all the headers are available in a single packet...
 	if (readbuf->Read(sock(), 4096) < 0) {
-		ERROR_LOG(IO, "Failed to read HTTP headers :(");
+		ERROR_LOG(HTTP, "Failed to read HTTP headers :(");
 		return -1;
 	}
 
@@ -363,7 +363,7 @@ int Client::ReadResponseHeaders(net::Buffer *readbuf, std::vector<std::string> &
 	if (code_pos != line.npos) {
 		code = atoi(&line[code_pos]);
 	} else {
-		ERROR_LOG(IO, "Could not parse HTTP status code: %s", line.c_str());
+		ERROR_LOG(HTTP, "Could not parse HTTP status code: %s", line.c_str());
 		return -1;
 	}
 
@@ -375,7 +375,7 @@ int Client::ReadResponseHeaders(net::Buffer *readbuf, std::vector<std::string> &
 	}
 
 	if (responseHeaders.size() == 0) {
-		ERROR_LOG(IO, "No HTTP response headers");
+		ERROR_LOG(HTTP, "No HTTP response headers");
 		return -1;
 	}
 
@@ -412,7 +412,7 @@ int Client::ReadResponseEntity(net::Buffer *readbuf, const std::vector<std::stri
 	}
 
 	if (contentLength < 0) {
-		WARN_LOG(IO, "Negative content length %d", contentLength);
+		WARN_LOG(HTTP, "Negative content length %d", contentLength);
 		// Just sanity checking...
 		contentLength = 0;
 	}
@@ -434,7 +434,7 @@ int Client::ReadResponseEntity(net::Buffer *readbuf, const std::vector<std::stri
 			output->TakeAll(&compressed);
 			bool result = decompress_string(compressed, &decompressed);
 			if (!result) {
-				ERROR_LOG(IO, "Error decompressing using zlib");
+				ERROR_LOG(HTTP, "Error decompressing using zlib");
 				progress->Update(0, 0, true);
 				return -1;
 			}
@@ -462,7 +462,7 @@ void HTTPRequest::Start() {
 
 void HTTPRequest::Join() {
 	if (joined_) {
-		ERROR_LOG(IO, "Already joined thread!");
+		ERROR_LOG(HTTP, "Already joined thread!");
 	}
 	thread_.join();
 	joined_ = true;
@@ -486,7 +486,7 @@ int HTTPRequest::Perform(const std::string &url) {
 	}
 
 	if (!client.Resolve(fileUrl.Host().c_str(), fileUrl.Port())) {
-		ERROR_LOG(IO, "Failed resolving %s", url.c_str());
+		ERROR_LOG(HTTP, "Failed resolving %s", url.c_str());
 		return -1;
 	}
 
@@ -495,7 +495,7 @@ int HTTPRequest::Perform(const std::string &url) {
 	}
 
 	if (!client.Connect(2, 20.0, &cancelled_)) {
-		ERROR_LOG(IO, "Failed connecting to server or cancelled.");
+		ERROR_LOG(HTTP, "Failed connecting to server or cancelled.");
 		return -1;
 	}
 
@@ -539,7 +539,7 @@ void HTTPRequest::Do() {
 		if (resultCode == 301 || resultCode == 302 || resultCode == 303 || resultCode == 307 || resultCode == 308) {
 			std::string redirectURL = RedirectLocation(downloadURL);
 			if (redirectURL.empty()) {
-				ERROR_LOG(IO, "Could not find Location header for redirect");
+				ERROR_LOG(HTTP, "Could not find Location header for redirect");
 				resultCode_ = resultCode;
 			} else if (redirectURL == downloadURL || redirectURL == url_) {
 				// Simple loop detected, bail out.
@@ -548,18 +548,18 @@ void HTTPRequest::Do() {
 
 			// Perform the next GET.
 			if (resultCode_ == 0)
-				INFO_LOG(IO, "Download of %s redirected to %s", downloadURL.c_str(), redirectURL.c_str());
+				INFO_LOG(HTTP, "Download of %s redirected to %s", downloadURL.c_str(), redirectURL.c_str());
 			downloadURL = redirectURL;
 			continue;
 		}
 
 		if (resultCode == 200) {
-			INFO_LOG(IO, "Completed requesting %s (storing result to %s)", url_.c_str(), outfile_.empty() ? "memory" : outfile_.c_str());
+			INFO_LOG(HTTP, "Completed requesting %s (storing result to %s)", url_.c_str(), outfile_.empty() ? "memory" : outfile_.c_str());
 			if (!outfile_.empty() && !buffer_.FlushToFile(outfile_)) {
-				ERROR_LOG(IO, "Failed writing download to '%s'", outfile_.c_str());
+				ERROR_LOG(HTTP, "Failed writing download to '%s'", outfile_.c_str());
 			}
 		} else {
-			ERROR_LOG(IO, "Error requesting '%s' (storing result to '%s'): %i", url_.c_str(), outfile_.empty() ? "memory" : outfile_.c_str(), resultCode);
+			ERROR_LOG(HTTP, "Error requesting '%s' (storing result to '%s'): %i", url_.c_str(), outfile_.empty() ? "memory" : outfile_.c_str(), resultCode);
 		}
 		resultCode_ = resultCode;
 	}
