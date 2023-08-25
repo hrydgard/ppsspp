@@ -65,8 +65,13 @@ void X64JitBackend::CompIR_Basic(IRInst inst) {
 		break;
 
 	case IROp::SetPC:
+		regs_.Map(inst);
+		MovToPC(regs_.RX(inst.src1));
+		break;
+
 	case IROp::SetPCConst:
-		CompIR_Generic(inst);
+		MOV(32, R(SCRATCH1), Imm32(inst.constant));
+		MovToPC(SCRATCH1);
 		break;
 
 	default:
@@ -95,6 +100,29 @@ void X64JitBackend::CompIR_System(IRInst inst) {
 
 	switch (inst.op) {
 	case IROp::Syscall:
+		FlushAll();
+		SaveStaticRegisters();
+
+#ifdef USE_PROFILER
+		// When profiling, we can't skip CallSyscall, since it times syscalls.
+		ABI_CallFunctionC((const u8 *)&CallSyscall, inst.constant);
+#else
+		// Skip the CallSyscall where possible.
+		{
+			MIPSOpcode op(inst.constant);
+			void *quickFunc = GetQuickSyscallFunc(op);
+			if (quickFunc) {
+				ABI_CallFunctionP((const u8 *)quickFunc, (void *)GetSyscallFuncPointer(op));
+			} else {
+				ABI_CallFunctionC((const u8 *)&CallSyscall, inst.constant);
+			}
+		}
+#endif
+
+		LoadStaticRegisters();
+		// This is always followed by an ExitToPC, where we check coreState.
+		break;
+
 	case IROp::CallReplacement:
 	case IROp::Break:
 		CompIR_Generic(inst);
@@ -111,9 +139,17 @@ void X64JitBackend::CompIR_Transfer(IRInst inst) {
 
 	switch (inst.op) {
 	case IROp::SetCtrlVFPU:
+		regs_.SetGPRImm(IRREG_VFPU_CTRL_BASE + inst.dest, (int32_t)inst.constant);
+		break;
+
 	case IROp::SetCtrlVFPUReg:
+		regs_.Map(inst);
+		MOV(32, regs_.R(IRREG_VFPU_CTRL_BASE + inst.dest), regs_.R(inst.src1));
+		break;
+
 	case IROp::SetCtrlVFPUFReg:
-		CompIR_Generic(inst);
+		regs_.Map(inst);
+		MOVD_xmm(regs_.R(IRREG_VFPU_CTRL_BASE + inst.dest), regs_.FX(inst.src1));
 		break;
 
 	case IROp::FpCondFromReg:
@@ -128,8 +164,12 @@ void X64JitBackend::CompIR_Transfer(IRInst inst) {
 
 	case IROp::FpCtrlFromReg:
 	case IROp::FpCtrlToReg:
-	case IROp::VfpuCtrlToReg:
 		CompIR_Generic(inst);
+		break;
+
+	case IROp::VfpuCtrlToReg:
+		regs_.Map(inst);
+		MOV(32, regs_.R(inst.dest), regs_.R(IRREG_VFPU_CTRL_BASE + inst.src1));
 		break;
 
 	case IROp::FMovFromGPR:
