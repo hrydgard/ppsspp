@@ -26,9 +26,7 @@
 #define	DEBUG_LEVEL   5  // Detailed debugging - might make things slow.
 #define	VERBOSE_LEVEL 6  // Noisy debugging - sometimes needed but usually unimportant.
 
-namespace LogTypes {
-
-enum LOG_TYPE {
+enum class LogType {
 	SYSTEM = 0,  // Catch-all for uncategorized things
 	BOOT,
 	COMMON,
@@ -67,7 +65,7 @@ enum LOG_TYPE {
 	ACHIEVEMENTS = HLE,  // TODO: Make a real category
 };
 
-enum LOG_LEVELS : int {
+enum class LogLevel : int {
 	LNOTICE = NOTICE_LEVEL,
 	LERROR = ERROR_LEVEL,
 	LWARNING = WARNING_LEVEL,
@@ -76,19 +74,18 @@ enum LOG_LEVELS : int {
 	LVERBOSE = VERBOSE_LEVEL,
 };
 
-}  // namespace
-
-void GenericLog(LogTypes::LOG_LEVELS level, LogTypes::LOG_TYPE type,
+void GenericLog(LogLevel level, LogType type,
 		const char *file, int line, const char *fmt, ...)
 #ifdef __GNUC__
 		__attribute__((format(printf, 5, 6)))
 #endif
 		;
-bool GenericLogEnabled(LogTypes::LOG_LEVELS level, LogTypes::LOG_TYPE type);
+bool GenericLogEnabled(LogLevel level, LogType type);
 
 // Exception for Windows - enable more log levels in release mode than on other platforms.
 #if defined(_DEBUG) || defined(_WIN32)
 
+// Needs to be an int (and not use the enum) because it's used by the preprocessor!
 #define MAX_LOGLEVEL DEBUG_LEVEL
 
 #else
@@ -102,16 +99,16 @@ bool GenericLogEnabled(LogTypes::LOG_LEVELS level, LogTypes::LOG_TYPE type);
 // Let the compiler optimize this out.
 // TODO: Compute a dynamic max level as well that can be checked here.
 #define GENERIC_LOG(t, v, ...) { \
-	if (v <= MAX_LOGLEVEL) \
+	if ((int)v <= MAX_LOGLEVEL) \
 		GenericLog(v, t, __FILE__, __LINE__, __VA_ARGS__); \
 	}
 
-#define ERROR_LOG(t,...)   do { GENERIC_LOG(LogTypes::t, LogTypes::LERROR,   __VA_ARGS__) } while (false)
-#define WARN_LOG(t,...)    do { GENERIC_LOG(LogTypes::t, LogTypes::LWARNING, __VA_ARGS__) } while (false)
-#define NOTICE_LOG(t,...)  do { GENERIC_LOG(LogTypes::t, LogTypes::LNOTICE,  __VA_ARGS__) } while (false)
-#define INFO_LOG(t,...)    do { GENERIC_LOG(LogTypes::t, LogTypes::LINFO,    __VA_ARGS__) } while (false)
-#define DEBUG_LOG(t,...)   do { GENERIC_LOG(LogTypes::t, LogTypes::LDEBUG,   __VA_ARGS__) } while (false)
-#define VERBOSE_LOG(t,...) do { GENERIC_LOG(LogTypes::t, LogTypes::LVERBOSE, __VA_ARGS__) } while (false)
+#define ERROR_LOG(t,...)   do { GENERIC_LOG(LogType::t, LogLevel::LERROR,   __VA_ARGS__) } while (false)
+#define WARN_LOG(t,...)    do { GENERIC_LOG(LogType::t, LogLevel::LWARNING, __VA_ARGS__) } while (false)
+#define NOTICE_LOG(t,...)  do { GENERIC_LOG(LogType::t, LogLevel::LNOTICE,  __VA_ARGS__) } while (false)
+#define INFO_LOG(t,...)    do { GENERIC_LOG(LogType::t, LogLevel::LINFO,    __VA_ARGS__) } while (false)
+#define DEBUG_LOG(t,...)   do { GENERIC_LOG(LogType::t, LogLevel::LDEBUG,   __VA_ARGS__) } while (false)
+#define VERBOSE_LOG(t,...) do { GENERIC_LOG(LogType::t, LogLevel::LVERBOSE, __VA_ARGS__) } while (false)
 
 // Currently only actually shows a dialog box on Windows.
 bool HandleAssert(const char *function, const char *file, int line, const char *expression, const char* format, ...)

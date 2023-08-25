@@ -54,8 +54,8 @@ private:
 
 	static unsigned int WINAPI RunThread(void *lpParam);
 	void LogWriterThread();
-	void SendToThread(LogTypes::LOG_LEVELS Level, const char *Text);
-	void WriteToConsole(LogTypes::LOG_LEVELS Level, const char *Text, size_t Len);
+	void SendToThread(LogLevel Level, const char *Text);
+	void WriteToConsole(LogLevel Level, const char *Text, size_t Len);
 
 	static int refCount;
 	static HANDLE hThread;

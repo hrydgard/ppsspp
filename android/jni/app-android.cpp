@@ -202,10 +202,10 @@ int utimensat(int fd, const char *path, const struct timespec times[2]) {
 void AndroidLogger::Log(const LogMessage &message) {
 	int mode;
 	switch (message.level) {
-	case LogTypes::LWARNING:
+	case LogLevel::LWARNING:
 		mode = ANDROID_LOG_WARN;
 		break;
-	case LogTypes::LERROR:
+	case LogLevel::LERROR:
 		mode = ANDROID_LOG_ERROR;
 		break;
 	default:

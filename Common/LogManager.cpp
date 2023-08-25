@@ -47,7 +47,7 @@ static const char level_to_char[8] = "-NEWIDV";
 #define LOG_MSC_OUTPUTDEBUG false
 #endif
 
-void GenericLog(LogTypes::LOG_LEVELS level, LogTypes::LOG_TYPE type, const char *file, int line, const char* fmt, ...) {
+void GenericLog(LogLevel level, LogType type, const char *file, int line, const char* fmt, ...) {
 	if (g_bLogEnabledSetting && !(*g_bLogEnabledSetting))
 		return;
 	va_list args;
@@ -69,7 +69,7 @@ void GenericLog(LogTypes::LOG_LEVELS level, LogTypes::LOG_TYPE type, const char 
 	va_end(args);
 }
 
-bool GenericLogEnabled(LogTypes::LOG_LEVELS level, LogTypes::LOG_TYPE type) {
+bool GenericLogEnabled(LogLevel level, LogType type) {
 	if (LogManager::GetInstance())
 		return (*g_bLogEnabledSetting) && LogManager::GetInstance()->IsEnabled(level, type);
 	return false;
@@ -78,55 +78,55 @@ bool GenericLogEnabled(LogTypes::LOG_LEVELS level, LogTypes::LOG_TYPE type) {
 LogManager *LogManager::logManager_ = NULL;
 
 struct LogNameTableEntry {
-	LogTypes::LOG_TYPE logType;
+	LogType logType;
 	const char *name;
 };
 
 static const LogNameTableEntry logTable[] = {
-	{LogTypes::SYSTEM,     "SYSTEM"},
-	{LogTypes::BOOT,       "BOOT"},
-	{LogTypes::COMMON,     "COMMON"},
-	{LogTypes::CPU,        "CPU"},
-	{LogTypes::FILESYS,    "FILESYS"},
-	{LogTypes::G3D,        "G3D"},
-	{LogTypes::HLE,        "HLE"},
-	{LogTypes::JIT,        "JIT"},
-	{LogTypes::LOADER,     "LOADER"},
-	{LogTypes::ME,         "ME"},  // Media Engine
-	{LogTypes::MEMMAP,     "MEMMAP"},
-	{LogTypes::SASMIX,     "SASMIX"},
-	{LogTypes::SAVESTATE,  "SAVESTATE"},
-	{LogTypes::FRAMEBUF,   "FRAMEBUF"},
-	{LogTypes::AUDIO,      "AUDIO"},
-	{LogTypes::IO,         "IO"},
+	{LogType::SYSTEM,     "SYSTEM"},
+	{LogType::BOOT,       "BOOT"},
+	{LogType::COMMON,     "COMMON"},
+	{LogType::CPU,        "CPU"},
+	{LogType::FILESYS,    "FILESYS"},
+	{LogType::G3D,        "G3D"},
+	{LogType::HLE,        "HLE"},
+	{LogType::JIT,        "JIT"},
+	{LogType::LOADER,     "LOADER"},
+	{LogType::ME,         "ME"},  // Media Engine
+	{LogType::MEMMAP,     "MEMMAP"},
+	{LogType::SASMIX,     "SASMIX"},
+	{LogType::SAVESTATE,  "SAVESTATE"},
+	{LogType::FRAMEBUF,   "FRAMEBUF"},
+	{LogType::AUDIO,      "AUDIO"},
+	{LogType::IO,         "IO"},
 
-	{LogTypes::SCEAUDIO,   "SCEAUDIO"},
-	{LogTypes::SCECTRL,    "SCECTRL"},
-	{LogTypes::SCEDISPLAY, "SCEDISP"},
-	{LogTypes::SCEFONT,    "SCEFONT"},
-	{LogTypes::SCEGE,      "SCEGE"},
-	{LogTypes::SCEINTC,    "SCEINTC"},
-	{LogTypes::SCEIO,      "SCEIO"},
-	{LogTypes::SCEKERNEL,  "SCEKERNEL"},
-	{LogTypes::SCEMODULE,  "SCEMODULE"},
-	{LogTypes::SCENET,     "SCENET"},
-	{LogTypes::SCERTC,     "SCERTC"},
-	{LogTypes::SCESAS,     "SCESAS"},
-	{LogTypes::SCEUTILITY, "SCEUTIL"},
-	{LogTypes::SCEMISC,    "SCEMISC"},
+	{LogType::SCEAUDIO,   "SCEAUDIO"},
+	{LogType::SCECTRL,    "SCECTRL"},
+	{LogType::SCEDISPLAY, "SCEDISP"},
+	{LogType::SCEFONT,    "SCEFONT"},
+	{LogType::SCEGE,      "SCEGE"},
+	{LogType::SCEINTC,    "SCEINTC"},
+	{LogType::SCEIO,      "SCEIO"},
+	{LogType::SCEKERNEL,  "SCEKERNEL"},
+	{LogType::SCEMODULE,  "SCEMODULE"},
+	{LogType::SCENET,     "SCENET"},
+	{LogType::SCERTC,     "SCERTC"},
+	{LogType::SCESAS,     "SCESAS"},
+	{LogType::SCEUTILITY, "SCEUTIL"},
+	{LogType::SCEMISC,    "SCEMISC"},
 };
 
 LogManager::LogManager(bool *enabledSetting) {
 	g_bLogEnabledSetting = enabledSetting;
 
 	for (size_t i = 0; i < ARRAY_SIZE(logTable); i++) {
-		_assert_msg_(i == logTable[i].logType, "Bad logtable at %i", (int)i);
-		truncate_cpy(log_[logTable[i].logType].m_shortName, logTable[i].name);
-		log_[logTable[i].logType].enabled = true;
+		_assert_msg_((LogType)i == logTable[i].logType, "Bad logtable at %i", (int)i);
+		truncate_cpy(log_[(size_t)logTable[i].logType].m_shortName, logTable[i].name);
+		log_[(size_t)logTable[i].logType].enabled = true;
 #if defined(_DEBUG)
-		log_[logTable[i].logType].level = LogTypes::LDEBUG;
+		log_[(size_t)logTable[i].logType].level = LogLevel::LDEBUG;
 #else
-		log_[logTable[i].logType].level = LogTypes::LINFO;
+		log_[(size_t)logTable[i].logType].level = LogLevel::LINFO;
 #endif
 	}
 
@@ -158,7 +158,7 @@ LogManager::LogManager(bool *enabledSetting) {
 }
 
 LogManager::~LogManager() {
-	for (int i = 0; i < LogTypes::NUMBER_OF_LOGS; ++i) {
+	for (int i = 0; i < (int)LogType::NUMBER_OF_LOGS; ++i) {
 #if !defined(MOBILE_DEVICE) || defined(_DEBUG)
 		RemoveListener(fileLog_);
 		RemoveListener(consoleLog_);
@@ -194,25 +194,25 @@ void LogManager::ChangeFileLog(const char *filename) {
 }
 
 void LogManager::SaveConfig(Section *section) {
-	for (int i = 0; i < LogTypes::NUMBER_OF_LOGS; i++) {
+	for (int i = 0; i < (int)LogType::NUMBER_OF_LOGS; i++) {
 		section->Set((std::string(log_[i].m_shortName) + "Enabled").c_str(), log_[i].enabled);
 		section->Set((std::string(log_[i].m_shortName) + "Level").c_str(), (int)log_[i].level);
 	}
 }
 
 void LogManager::LoadConfig(const Section *section, bool debugDefaults) {
-	for (int i = 0; i < LogTypes::NUMBER_OF_LOGS; i++) {
+	for (int i = 0; i < (int)LogType::NUMBER_OF_LOGS; i++) {
 		bool enabled = false;
 		int level = 0;
 		section->Get((std::string(log_[i].m_shortName) + "Enabled").c_str(), &enabled, true);
-		section->Get((std::string(log_[i].m_shortName) + "Level").c_str(), &level, debugDefaults ? (int)LogTypes::LDEBUG : (int)LogTypes::LERROR);
+		section->Get((std::string(log_[i].m_shortName) + "Level").c_str(), &level, (int)(debugDefaults ? LogLevel::LDEBUG : LogLevel::LERROR));
 		log_[i].enabled = enabled;
-		log_[i].level = (LogTypes::LOG_LEVELS)level;
+		log_[i].level = (LogLevel)level;
 	}
 }
 
-void LogManager::Log(LogTypes::LOG_LEVELS level, LogTypes::LOG_TYPE type, const char *file, int line, const char *format, va_list args) {
-	const LogChannel &log = log_[type];
+void LogManager::Log(LogLevel level, LogType type, const char *file, int line, const char *format, va_list args) {
+	const LogChannel &log = log_[(size_t)type];
 	if (level > log.level || !log.enabled)
 		return;
 
@@ -268,8 +268,8 @@ void LogManager::Log(LogTypes::LOG_LEVELS level, LogTypes::LOG_TYPE type, const 
 	}
 }
 
-bool LogManager::IsEnabled(LogTypes::LOG_LEVELS level, LogTypes::LOG_TYPE type) {
-	LogChannel &log = log_[type];
+bool LogManager::IsEnabled(LogLevel level, LogType type) {
+	LogChannel &log = log_[(size_t)type];
 	if (level > log.level || !log.enabled)
 		return false;
 	return true;
