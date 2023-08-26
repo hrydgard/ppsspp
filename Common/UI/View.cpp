@@ -1079,6 +1079,17 @@ TextEdit::TextEdit(const std::string &text, const std::string &title, const std:
 	caret_ = (int)text_.size();
 }
 
+void TextEdit::FocusChanged(int focusFlags) {
+#if PPSSPP_PLATFORM(UWP)
+	if (focusFlags == FF_GOTFOCUS) {
+		System_NotifyUIState("text_gotfocus");
+	}
+	else {
+		System_NotifyUIState("text_lostfocus");
+	}
+#endif
+}
+
 void TextEdit::Draw(UIContext &dc) {
 	dc.PushScissor(bounds_);
 	dc.SetFontStyle(dc.theme->uiFont);

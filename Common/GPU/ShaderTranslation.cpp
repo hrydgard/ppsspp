@@ -63,15 +63,10 @@ static EShLanguage GetShLanguageFromStage(const ShaderStage stage) {
 }
 
 void ShaderTranslationInit() {
-	// TODO: We have TLS issues on UWP
-#if !PPSSPP_PLATFORM(UWP)
 	glslang::InitializeProcess();
-#endif
 }
 void ShaderTranslationShutdown() {
-#if !PPSSPP_PLATFORM(UWP)
 	glslang::FinalizeProcess();
-#endif
 }
 
 struct Builtin {
@@ -228,11 +223,6 @@ bool TranslateShader(std::string *dest, ShaderLanguage destLang, const ShaderLan
 		bool result = ConvertToVulkanGLSL(dest, destMetadata, src, stage, errorMessage);
 		return result;
 	}
-
-#if PPSSPP_PLATFORM(UWP)
-	*errorMessage = "No shader translation available (UWP)";
-	return false;
-#endif
 
 	errorMessage->clear();
 

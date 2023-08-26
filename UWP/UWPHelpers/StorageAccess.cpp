@@ -21,7 +21,6 @@
 #include "Common/File/Path.h"
 
 using namespace Platform;
-using namespace Windows::Storage;
 using namespace Windows::Foundation;
 using namespace Windows::Foundation::Collections;
 using namespace Windows::Storage::AccessCache;

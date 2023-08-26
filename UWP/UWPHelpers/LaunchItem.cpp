@@ -21,18 +21,15 @@
 #include <regex>
 
 #include "LaunchItem.h"
+#include "StorageAccess.h"
 
 #include "Common/Log.h"
-#include <Common/System/System.h>
-#include <Common/File/Path.h>
+#include "Common/System/System.h"
+#include "Common/File/Path.h"
 #include "UWPUtil.h"
 
-
-extern void AddItemToFutureList(IStorageItem^ item);
-
-// Temporary to handle startup items
-// See remarks at 'PPSSPP_UWPMain.cpp', above 'NativeInit(..)'
-extern Path boot_filename;  
+#include <ppl.h>
+#include <ppltasks.h>
 
 #pragma region LaunchItemClass
 class LaunchItem {
@@ -93,10 +90,13 @@ public:
 
 	void Start() {
 		if (IsValid()) {
-			SetState(true);
-			std::string path = GetFilePath();
-			System_PostUIMessage("boot", path.c_str());
-			boot_filename = Path(path); // Temporary to handle startup items
+			concurrency::create_task([&] {
+				SetState(true);
+				std::string path = GetFilePath();
+				// Delay to be able to launch on startup too
+				std::this_thread::sleep_for(std::chrono::milliseconds(100));
+				System_PostUIMessage("boot", path.c_str());
+			});
 		}
 	}
 
@@ -135,7 +135,6 @@ public:
 			}
 		}
 		launchOnExit = std::string();
-		boot_filename.clear(); // Temporary to handle startup items
 	}
 
 private:

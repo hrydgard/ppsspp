@@ -87,7 +87,7 @@ std::string GetMusicFolder() {
 std::string GetPreviewPath(std::string path) {
 	std::string pathView = path;
 	pathView = ReplaceAll(pathView, "/", "\\");
-	std::string currentMemoryStick = ConvertWStringToUTF8(g_Config.memStickDirectory.ToWString());
+	std::string currentMemoryStick = GetPSPFolder();
 	// Ensure memStick sub path replaced by 'ms:'
 	pathView = ReplaceAll(pathView, currentMemoryStick + "\\", "ms:\\");
 	auto appData = ReplaceAll(GetLocalFolder(), "\\LocalState", "");
@@ -349,6 +349,13 @@ bool OpenFolder(std::string path) {
 bool GetDriveFreeSpace(Path path, int64_t& space) {
 
 	bool state = false;
+	if (path.empty()) {
+		// This case happen on first start only
+		path = Path(GetPSPFolder());
+		if (g_Config.memStickDirectory.empty()) {
+			g_Config.memStickDirectory = path;
+		}
+	}
 	Platform::String^ wString = ref new Platform::String(path.ToWString().c_str());
 	StorageFolder^ storageItem;
 	ExecuteTask(storageItem, StorageFolder::GetFolderFromPathAsync(wString));
@@ -377,7 +384,7 @@ bool GetDriveFreeSpace(Path path, int64_t& space) {
 #pragma region Logs
 std::string GetLogFile() {
 	std::string logFile;
-	Path logFilePath = Path(GetPSPFolder() + "\\PSP\\ppsspp.txt");
+	Path logFilePath = Path(GetPSPFolder() + "\\PSP\\ppsspplog.txt");
 	HANDLE h = CreateFile2FromAppW(logFilePath.ToWString().c_str(), GENERIC_WRITE, FILE_SHARE_WRITE, CREATE_ALWAYS, nullptr);
 	if (h != INVALID_HANDLE_VALUE) {
 		logFile = logFilePath.ToString();

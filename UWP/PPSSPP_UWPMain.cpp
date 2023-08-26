@@ -13,7 +13,6 @@
 #include "Common/Common.h"
 #include "Common/Input/InputState.h"
 #include "Common/File/VFS/VFS.h"
-#include "Common/File/VFS/DirectoryReader.h"
 #include "Common/Thread/ThreadUtil.h"
 #include "Common/Data/Encoding/Utf8.h"
 #include "Common/DirectXHelper.h"
@@ -25,7 +24,7 @@
 #include "Common/System/Display.h"
 #include "Common/System/NativeApp.h"
 #include "Common/System/Request.h"
-#include <Common/OSVersion.h>
+#include "Common/OSVersion.h"
 
 #include "Core/System.h"
 #include "Core/Loaders.h"
@@ -38,10 +37,11 @@
 #include "UWPUtil.h"
 #include "App.h"
 
-// UWP Storage helper includes
+// UWP Helpers includes
 #include "UWPHelpers/StorageManager.h"
 #include "UWPHelpers/StorageAsync.h"
 #include "UWPHelpers/LaunchItem.h"
+#include "UWPHelpers/InputHelpers.h"
 
 using namespace UWP;
 using namespace Windows::Foundation;
@@ -53,9 +53,7 @@ using namespace Windows::Devices::Enumeration;
 using namespace Concurrency;
 
 // UGLY!
-PPSSPP_UWPMain *g_main;
 extern WindowsAudioBackend *winAudioBackend;
-std::string langRegion;
 std::list<std::unique_ptr<InputDevice>> g_input;
 
 // TODO: Use Microsoft::WRL::ComPtr<> for D3D11 objects?
@@ -67,87 +65,20 @@ PPSSPP_UWPMain::PPSSPP_UWPMain(App ^app, const std::shared_ptr<DX::DeviceResourc
 	app_(app),
 	m_deviceResources(deviceResources)
 {
-	g_main = this;
-
-	net::Init();
-
 	// Register to be notified if the Device is lost or recreated
 	m_deviceResources->RegisterDeviceNotify(this);
 
-	// create_task(KnownFolders::GetFolderForUserAsync(nullptr, KnownFolderId::RemovableDevices)).then([this](StorageFolder ^));
-
-	// TODO: Change the timer settings if you want something other than the default variable timestep mode.
-	// e.g. for 60 FPS fixed timestep update logic, call:
-	/*
-	m_timer.SetFixedTimeStep(true);
-	m_timer.SetTargetElapsedSeconds(1.0 / 60);
-	*/
-
 	ctx_.reset(new UWPGraphicsContext(deviceResources));
 
-	const Path &exePath = File::GetExeDirectory();
-	g_VFS.Register("", new DirectoryReader(exePath / "Content"));
-	g_VFS.Register("", new DirectoryReader(exePath));
-
-	wchar_t lcCountry[256];
-
-	if (0 != GetLocaleInfoEx(LOCALE_NAME_USER_DEFAULT, LOCALE_SNAME, lcCountry, 256)) {
-		langRegion = ConvertWStringToUTF8(lcCountry);
-		for (size_t i = 0; i < langRegion.size(); i++) {
-			if (langRegion[i] == '-')
-				langRegion[i] = '_';
-		}
-	} else {
-		langRegion = "en_US";
-	}
-
-	std::wstring internalDataFolderW = ApplicationData::Current->LocalFolder->Path->Data();
-	g_Config.internalDataDirectory = Path(internalDataFolderW);
-	g_Config.memStickDirectory = g_Config.internalDataDirectory;
-	// Mount a filesystem
-	g_Config.flash0Directory = exePath / "assets/flash0";
-
-	// On Win32 it makes more sense to initialize the system directories here
-	// because the next place it was called was in the EmuThread, and it's too late by then.
-	CreateSysDirectories();
-
-	LogManager::Init(&g_Config.bEnableLogging);
-
-	// Load config up here, because those changes below would be overwritten
-	// if it's not loaded here first.
-	g_Config.SetSearchPath(GetSysDirectory(DIRECTORY_SYSTEM));
-	g_Config.Load();
-
-	if (g_Config.bFirstRun) {
-		g_Config.memStickDirectory.clear();
-	}
-
-	bool debugLogLevel = false;
- 
-	g_Config.iGPUBackend = (int)GPUBackend::DIRECT3D11;
-
-	if (debugLogLevel) {
+#if _DEBUG
 		LogManager::GetInstance()->SetAllLogLevels(LogLevel::LDEBUG);
-	}
 
-	// Set log file location
-	if (g_Config.bEnableLogging) {
-		LogManager::GetInstance()->ChangeFileLog(GetLogFile().c_str());
-	}
+		if (g_Config.bEnableLogging) {
+			LogManager::GetInstance()->ChangeFileLog(GetLogFile().c_str());
+		}
+#endif
 
-	const char *argv[2] = { "fake", nullptr };
-	int argc = 1;
-	
-	std::string cacheFolder = ConvertWStringToUTF8(ApplicationData::Current->TemporaryFolder->Path->Data());
-
-	// 'PPSSPP_UWPMain' is getting called before 'OnActivated'
-	// this make detecting launch items on startup hard
-	// I think 'Init' process must be moved out and invoked from 'OnActivated' one time only
-	// currently launchItem will work fine but we cannot skip logo screen
-	// we should pass file path to 'argv' using 'GetLaunchItemPath(args)' 
-	// instead of depending on 'boot_filename' (LaunchItem.cpp)
-	NativeInit(argc, argv, "", "", cacheFolder.c_str());
-
+	// At this point we have main requirements initialized (Log, Config, NativeInit, Device)
 	NativeInitGraphics(ctx_.get());
 	NativeResized();
 
@@ -160,6 +91,9 @@ PPSSPP_UWPMain::PPSSPP_UWPMain(App ^app, const std::shared_ptr<DX::DeviceResourc
 	g_input.push_back(std::make_unique<XinputDevice>());
 
 	InputDevice::BeginPolling();
+
+	// Prepare input pane (for Xbox & touch devices)
+	PrepareInputPane();
 }
 
 PPSSPP_UWPMain::~PPSSPP_UWPMain() {
@@ -185,15 +119,10 @@ void PPSSPP_UWPMain::CreateWindowSizeDependentResources() {
 	ctx_->GetDrawContext()->HandleEvent(Draw::Event::GOT_BACKBUFFER, width, height, m_deviceResources->GetBackBufferRenderTargetView());
 }
 
-// Renders the current frame according to the current application state.
-// Returns true if the frame was rendered and is ready to be displayed.
-bool PPSSPP_UWPMain::Render() {
-	static bool hasSetThreadName = false;
-	if (!hasSetThreadName) {
-		SetCurrentThreadName("UWPRenderThread");
-		hasSetThreadName = true;
-	}
-
+void PPSSPP_UWPMain::UpdateScreenState() {
+	// This code was included into the render loop directly
+	// based on my test I don't understand why it should be called each loop
+	// is it better to call it on demand only, like when screen state changed?
 	auto context = m_deviceResources->GetD3DDeviceContext();
 
 	switch (m_deviceResources->ComputeDisplayRotation()) {
@@ -232,6 +161,18 @@ bool PPSSPP_UWPMain::Render() {
 	g_display.dp_yres = g_display.pixel_yres * g_display.dpi_scale_y;
 
 	context->RSSetViewports(1, &viewport);
+}
+
+// Renders the current frame according to the current application state.
+// Returns true if the frame was rendered and is ready to be displayed.
+bool PPSSPP_UWPMain::Render() {
+	static bool hasSetThreadName = false;
+	if (!hasSetThreadName) {
+		SetCurrentThreadName("UWPRenderThread");
+		hasSetThreadName = true;
+	}
+
+	UpdateScreenState();
 
 	NativeFrame(ctx_.get());
 	return true;
@@ -250,6 +191,10 @@ void PPSSPP_UWPMain::OnDeviceRestored() {
 }
 
 void PPSSPP_UWPMain::OnKeyDown(int scanCode, Windows::System::VirtualKey virtualKey, int repeatCount) {
+	// TODO: Look like (Ctrl, Alt, Shift) don't trigger this event
+	bool isDPad = (int)virtualKey >= 195 && (int)virtualKey <= 218; // DPad buttons range
+	DPadInputState(isDPad);
+
 	auto iter = virtualKeyCodeToNKCode.find(virtualKey);
 	if (iter != virtualKeyCodeToNKCode.end()) {
 		KeyInput key{};
@@ -267,6 +212,20 @@ void PPSSPP_UWPMain::OnKeyUp(int scanCode, Windows::System::VirtualKey virtualKe
 		key.deviceId = DEVICE_ID_KEYBOARD;
 		key.keyCode = iter->second;
 		key.flags = KEY_UP;
+		NativeKey(key);
+	}
+}
+
+void PPSSPP_UWPMain::OnCharacterReceived(int scanCode, unsigned int keyCode) {
+	// This event triggered only in chars case, (Arrows, Delete..etc don't call it)
+	// TODO: Add ` && !IsCtrlOnHold()` once it's ready and implemented
+	if (isTextEditActive()) {
+		KeyInput key{};
+		key.deviceId = DEVICE_ID_KEYBOARD;
+		key.keyCode = (InputKeyCode)keyCode;
+		// After many tests turns out for char just add `KEY_CHAR` for the flags
+		// any other flag like `KEY_DOWN` will cause conflict and trigger something else
+		key.flags = KEY_CHAR;
 		NativeKey(key);
 	}
 }
@@ -335,7 +294,7 @@ void PPSSPP_UWPMain::OnSuspend() {
 
 
 UWPGraphicsContext::UWPGraphicsContext(std::shared_ptr<DX::DeviceResources> resources) {
-	std::vector<std::string> adapterNames;
+	std::vector<std::string> adapterNames = resources->GetAdapters();
 
 	draw_ = Draw::T3DCreateD3D11Context(
 		resources->GetD3DDevice(), resources->GetD3DDeviceContext(), resources->GetD3DDevice(), resources->GetD3DDeviceContext(), resources->GetSwapChain(), resources->GetDeviceFeatureLevel(), 0, adapterNames, g_Config.iInflightFrames);
@@ -353,7 +312,7 @@ std::string System_GetProperty(SystemProperty prop) {
 	case SYSPROP_NAME:
 		return GetWindowsVersion();
 	case SYSPROP_LANGREGION:
-		return langRegion;
+		return GetLangRegion();
 	case SYSPROP_CLIPBOARD_TEXT:
 		/* TODO: Need to either change this API or do this on a thread in an ugly fashion.
 		DataPackageView ^view = Clipboard::GetContent();
@@ -400,10 +359,9 @@ int System_GetPropertyInt(SystemProperty prop) {
 
 	case SYSPROP_DEVICE_TYPE:
 	{
-		auto ver = Windows::System::Profile::AnalyticsInfo::VersionInfo;
-		if (ver->DeviceFamily == "Windows.Mobile") {
+		if (IsMobile()) {
 			return DEVICE_TYPE_MOBILE;
-		} else if (ver->DeviceFamily == "Windows.Xbox") {
+		} else if (IsXBox()) {
 			return DEVICE_TYPE_TV;
 		} else {
 			return DEVICE_TYPE_DESKTOP;
@@ -412,12 +370,16 @@ int System_GetPropertyInt(SystemProperty prop) {
 	case SYSPROP_DISPLAY_XRES:
 	{
 		CoreWindow^ corewindow = CoreWindow::GetForCurrentThread();
-		return  (int)corewindow->Bounds.Width;
+		if (corewindow) {
+			return  (int)corewindow->Bounds.Width;
+		}
 	}
 	case SYSPROP_DISPLAY_YRES:
 	{
 		CoreWindow^ corewindow = CoreWindow::GetForCurrentThread();
-		return (int)corewindow->Bounds.Height;
+		if (corewindow) {
+			return (int)corewindow->Bounds.Height;
+		}
 	}
 	default:
 		return -1;
@@ -444,8 +406,7 @@ bool System_GetPropertyBool(SystemProperty prop) {
 	switch (prop) {
 	case SYSPROP_HAS_OPEN_DIRECTORY:
 	{
-		auto ver = Windows::System::Profile::AnalyticsInfo::VersionInfo;
-		return ver->DeviceFamily != "Windows.Xbox";
+		return !IsXBox();
 	}
 	case SYSPROP_HAS_FILE_BROWSER:
 		return true;
@@ -464,7 +425,12 @@ bool System_GetPropertyBool(SystemProperty prop) {
 	case SYSPROP_CAN_JIT:
 		return true;
 	case SYSPROP_HAS_KEYBOARD:
-		return true;
+	{
+		// Do actual check 
+		// touch devices has input pane, we need to depend on it
+		// I don't know any possible way to display input dialog in non-xaml apps
+		return isKeyboardAvailable() || isTouchAvailable();
+	}
 	default:
 		return false;
 	}
@@ -573,8 +539,19 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 	}
 	case SystemRequestType::NOTIFY_UI_STATE:
 	{
-		if (!param1.empty() && !strcmp(param1.c_str(), "menu")) {
-			CloseLaunchItem();
+		if (!param1.empty()) {
+			if (!strcmp(param1.c_str(), "menu")) {
+				CloseLaunchItem();
+			}
+			else if (!strcmp(param1.c_str(), "popup_closed")) {
+				DeactivateTextEditInput();
+			}
+			else if (!strcmp(param1.c_str(), "text_gotfocus")) {
+				ActivateTextEditInput(true);
+			}
+			else if (!strcmp(param1.c_str(), "text_lostfocus")) {
+				DeactivateTextEditInput(true);
+			}
 		}
 		return true;
 	}
@@ -693,21 +670,4 @@ std::string GetCPUBrandString() {
 	} else {
 		return "Unknown";
 	}
-}
-
-// Emulation of TlsAlloc for Windows 10. Used by glslang. Doesn't actually seem to work, other than fixing the linking errors?
-
-extern "C" {
-DWORD WINAPI __imp_TlsAlloc() {
-	return FlsAlloc(nullptr);
-}
-BOOL WINAPI __imp_TlsFree(DWORD index) {
-	return FlsFree(index);
-}
-BOOL WINAPI __imp_TlsSetValue(DWORD dwTlsIndex, LPVOID lpTlsValue) {
-	return FlsSetValue(dwTlsIndex, lpTlsValue);
-}
-LPVOID WINAPI __imp_TlsGetValue(DWORD dwTlsIndex) {
-	return FlsGetValue(dwTlsIndex);
-}
 }

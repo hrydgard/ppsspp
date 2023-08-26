@@ -19,10 +19,9 @@
 
 #include <list>
 #include <set>
+#include <string>
 
 #include "Common/File/DirListing.h"
-
-#include "StorageAccess.h"
 #include "StoragePickers.h"
 
 // Locations
