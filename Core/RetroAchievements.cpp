@@ -695,6 +695,10 @@ void SetGame(const Path &path, FileLoader *fileLoader) {
 	}
 
 	if (!g_rcClient || !IsLoggedIn()) {
+		if (HasToken()) {
+			auto ac = GetI18NCategory(I18NCat::ACHIEVEMENTS);
+			g_OSD.Show(OSDType::MESSAGE_WARNING, ac->T("RetroAchievements: Not logged in! Achievements will not unlock."));
+		}
 		// Nothing to do.
 		return;
 	}
