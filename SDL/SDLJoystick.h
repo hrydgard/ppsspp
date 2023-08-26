@@ -16,7 +16,7 @@
 
 class SDLJoystick{
 public:
-	SDLJoystick(bool init_SDL = false);
+	SDLJoystick(bool init_SDL = false, int njoy = 0);
 	~SDLJoystick();
 
 	void registerEventHandler();
@@ -30,4 +30,5 @@ private:
 	bool registeredAsEventHandler;
 	std::vector<SDL_GameController *> controllers;
 	std::map<int, int> controllerDeviceMap;
+	int njoy_;
 };
