@@ -71,22 +71,27 @@ static void MeasureNotice(const UIContext &dc, NoticeLevel level, const std::str
 		*height += 5.0f + height2;
 	}
 
-	float iconSize = 0.0f;
-
-	if (!iconName.empty()) {
+	float iconW = 0.0f;
+	float iconH = 0.0f;
+	if (!iconName.empty() && !startsWith(iconName, "I_")) {  // Check for atlas image. Bit hacky, but we choose prefixes for icon IDs anyway in a way that this is safe.
 		// Normal entry but with a cached icon.
 		int iconWidth, iconHeight;
 		if (g_iconCache.GetDimensions(iconName, &iconWidth, &iconHeight)) {
 			*width += 5.0f + iconWidth;
-			iconSize = iconWidth + 5.0f;
+			iconW = iconWidth;
+			iconH = iconHeight;
 		}
-	} else if (!GetOSDIcon(level).isInvalid()) {
-		// Atlas icon.
-		iconSize = g_atlasIconSize + 5.0f;
+	} else {
+		ImageID iconID = iconName.empty() ? GetOSDIcon(level) : ImageID(iconName.c_str());
+		if (iconID.isValid()) {
+			dc.Draw()->GetAtlas()->measureImage(iconID, &iconW, &iconH);
+		}
 	}
 
-	*width += iconSize + 12.0f;
-	*height = std::max(*height, iconSize + 5.0f);
+	iconW += 5.0f;
+
+	*width += iconW + 12.0f;
+	*height = std::max(*height, iconH + 5.0f);
 }
 
 // Align only matters here for the ASCII-only flag.
@@ -109,29 +114,38 @@ static void RenderNotice(UIContext &dc, Bounds bounds, float height1, NoticeLeve
 	dc.DrawRectDropShadow(bounds, 12.0f, 0.7f * alpha);
 	dc.FillRect(background, bounds);
 
-	ImageID iconID = GetOSDIcon(level);
-
-	float iconSize = 0.0f;
-	if (!iconName.empty()) {
+	float iconW = 0.0f;
+	float iconH = 0.0f;
+	if (!iconName.empty() && !startsWith(iconName, "I_")) {
 		dc.Flush();
 		// Normal entry but with a cached icon.
 		Draw::Texture *texture = g_iconCache.BindIconTexture(&dc, iconName);
 		if (texture) {
-			iconSize = texture->Width();
-			dc.Draw()->DrawTexRect(Bounds(bounds.x + 2.5f, bounds.y + 2.5f, iconSize, iconSize), 0.0f, 0.0f, 1.0f, 1.0f, foreGround);
+			iconW = texture->Width();
+			iconH = texture->Height();
+			dc.Draw()->DrawTexRect(Bounds(bounds.x + 2.5f, bounds.y + 2.5f, iconW, iconH), 0.0f, 0.0f, 1.0f, 1.0f, foreGround);
 			dc.Flush();
 			dc.RebindTexture();
 		}
 		dc.Begin();
-	} else if (iconID.isValid()) {
-		// Atlas icon.
-		dc.DrawImageVGradient(iconID, foreGround, foreGround, Bounds(bounds.x + 2.5f, bounds.y + 2.5f, g_atlasIconSize, g_atlasIconSize));
-		iconSize = g_atlasIconSize;
+	} else {
+		ImageID iconID = iconName.empty() ? GetOSDIcon(level) : ImageID(iconName.c_str());
+		if (iconID.isValid()) {
+			// Atlas icon.
+			dc.Draw()->GetAtlas()->measureImage(iconID, &iconW, &iconH);
+			Bounds iconBounds = Bounds(bounds.x + 2.5f, bounds.y + 2.5f, iconW, iconH);
+			if (!iconName.empty()) {
+				// If it's not a preset OSD icon, give it some background to blend in. The RA icon for example
+				// easily melts into the orange of warnings otherwise.
+				dc.FillRect(UI::Drawable(0x50000000), iconBounds.Expand(2.0f));
+			}
+			dc.DrawImageVGradient(iconID, foreGround, foreGround, Bounds(bounds.x + 2.5f, bounds.y + 2.5f, iconW, iconH));
+		}
 	}
 
 	// Make room
-	bounds.x += iconSize + 5.0f;
-	bounds.w -= iconSize + 5.0f;
+	bounds.x += iconW + 5.0f;
+	bounds.w -= iconW + 5.0f;
 
 	dc.DrawTextShadowRect(text.c_str(), bounds.Inset(0.0f, 1.0f, 0.0f, 0.0f), foreGround, (align & FLAG_DYNAMIC_ASCII));
 
