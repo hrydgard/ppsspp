@@ -16,10 +16,10 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "ppsspp_config.h"
+#include "Common/Log.h"
 
 #if PPSSPP_ARCH(ARM64)
 
-#include "Common/Log.h"
 #include "Common/MemoryUtil.h"
 #include "Common/CPUDetect.h"
 #include "Common/Arm64Emitter.h"
