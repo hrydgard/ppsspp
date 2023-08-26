@@ -4,9 +4,12 @@
 #include <WinUser.h>
 #include <shellapi.h>
 #include <commctrl.h>
+#include <ShlObj.h>
 
 #include "Misc.h"
 #include "Common/Data/Encoding/Utf8.h"
+#include "Common/StringUtils.h"
+#include "Common/File/FileUtil.h"
 
 bool KeyDownAsync(int vkey) {
 #if PPSSPP_PLATFORM(UWP)
@@ -92,6 +95,21 @@ namespace W32Util
 		GetClientRect(hWnd, &rc);
 		*xres = rc.right - rc.left;
 		*yres = rc.bottom - rc.top;
+	}
+
+	void ShowFileInFolder(const std::string &path) {
+		// SHParseDisplayName can't handle relative paths, so normalize first.
+		std::string resolved = ReplaceAll(File::ResolvePath(path), "/", "\\");
+
+		SFGAOF flags{};
+		PIDLIST_ABSOLUTE pidl = nullptr;
+		HRESULT hr = SHParseDisplayName(ConvertUTF8ToWString(resolved).c_str(), nullptr, &pidl, 0, &flags);
+
+		if (pidl) {
+			if (SUCCEEDED(hr))
+				SHOpenFolderAndSelectItems(pidl, 0, nullptr, 0);
+			CoTaskMemFree(pidl);
+		}
 	}
 
 	static const wchar_t *RemoveExecutableFromCommandLine(const wchar_t *cmdline) {

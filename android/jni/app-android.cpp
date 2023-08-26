@@ -202,10 +202,10 @@ int utimensat(int fd, const char *path, const struct timespec times[2]) {
 void AndroidLogger::Log(const LogMessage &message) {
 	int mode;
 	switch (message.level) {
-	case LogTypes::LWARNING:
+	case LogLevel::LWARNING:
 		mode = ANDROID_LOG_WARN;
 		break;
-	case LogTypes::LERROR:
+	case LogLevel::LERROR:
 		mode = ANDROID_LOG_ERROR;
 		break;
 	default:
@@ -391,10 +391,6 @@ void System_Vibrate(int length_ms) {
 	PushCommand("vibrate", temp);
 }
 
-void System_ShowFileInFolder(const char *path) {
-	// Unsupported
-}
-
 void System_LaunchUrl(LaunchUrlType urlType, const char *url) {
 	switch (urlType) {
 	case LaunchUrlType::BROWSER_URL: PushCommand("launchBrowser", url); break;
@@ -537,7 +533,7 @@ bool System_GetPropertyBool(SystemProperty prop) {
 		return deviceType != DEVICE_TYPE_VR;
 #ifndef HTTPS_NOT_AVAILABLE
 	case SYSPROP_SUPPORTS_HTTPS:
-		return true;
+		return !g_Config.bDisableHTTPS;
 #endif
 	default:
 		return false;

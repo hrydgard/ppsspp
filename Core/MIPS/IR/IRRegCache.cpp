@@ -367,7 +367,7 @@ IRNativeReg IRNativeRegCacheBase::FindFreeReg(MIPSLoc type, MIPSMap flags) const
 	for (int i = 0; i < allocCount; i++) {
 		IRNativeReg nreg = IRNativeReg(allocOrder[i] - base);
 
-		if (nr[nreg].mipsReg == IRREG_INVALID) {
+		if (nr[nreg].mipsReg == IRREG_INVALID && nr[nreg].tempLockIRIndex < irIndex_) {
 			return nreg;
 		}
 	}
@@ -427,6 +427,7 @@ IRNativeReg IRNativeRegCacheBase::FindBestToSpill(MIPSLoc type, MIPSMap flags, b
 		if (!unusedOnly || usage == IRUsage::UNUSED) {
 			// TODO: Use age or something to choose which register to spill?
 			// TODO: Spill dirty regs first? or opposite?
+			*clobbered = mipsReg == MIPS_REG_ZERO;
 			return nreg;
 		}
 	}
@@ -697,6 +698,10 @@ void IRNativeRegCacheBase::ApplyMapping(const Mapping *mapping, int count) {
 		}
 	}
 
+	auto isNoinit = [](MIPSMap f) {
+		return (f & MIPSMap::NOINIT) == MIPSMap::NOINIT;
+	};
+
 	auto mapRegs = [&](int i) {
 		MIPSLoc type = MIPSLoc::MEM;
 		switch (mapping[i].type) {
@@ -713,24 +718,39 @@ void IRNativeRegCacheBase::ApplyMapping(const Mapping *mapping, int count) {
 			return;
 		}
 
+		MIPSMap flags = mapping[i].flags;
+		for (int j = 0; j < count; ++j) {
+			if (mapping[j].type == mapping[i].type && mapping[j].reg == mapping[i].reg && i != j) {
+				_assert_msg_(mapping[j].lanes == mapping[i].lanes, "Lane aliasing not supported yet");
+
+				if (!isNoinit(mapping[j].flags) && isNoinit(flags)) {
+					flags = (flags & MIPSMap::BACKEND_MASK) | MIPSMap::DIRTY;
+				}
+			}
+		}
+
 		if (config_.mapFPUSIMD || mapping[i].type == 'G') {
-			MapNativeReg(type, mapping[i].reg, mapping[i].lanes, mapping[i].flags);
+			MapNativeReg(type, mapping[i].reg, mapping[i].lanes, flags);
 			return;
 		}
 
 		for (int j = 0; j < mapping[i].lanes; ++j)
-			MapNativeReg(type, mapping[i].reg + j, 1, mapping[i].flags);
+			MapNativeReg(type, mapping[i].reg + j, 1, flags);
+	};
+	auto mapFilteredRegs = [&](auto pred) {
+		for (int i = 0; i < count; ++i) {
+			if (pred(mapping[i].flags))
+				mapRegs(i);
+		}
 	};
 
-	// Do two passes: first any without NOINIT, then NOINIT.
-	for (int i = 0; i < count; ++i) {
-		if ((mapping[i].flags & MIPSMap::NOINIT) != MIPSMap::NOINIT)
-			mapRegs(i);
-	}
-	for (int i = 0; i < count; ++i) {
-		if ((mapping[i].flags & MIPSMap::NOINIT) == MIPSMap::NOINIT)
-			mapRegs(i);
-	}
+	// Do two passes: with backend special flags, and without.
+	mapFilteredRegs([](MIPSMap flags) {
+		return (flags & MIPSMap::BACKEND_MASK) != MIPSMap::INIT;
+	});
+	mapFilteredRegs([](MIPSMap flags) {
+		return (flags & MIPSMap::BACKEND_MASK) == MIPSMap::INIT;
+	});
 }
 
 void IRNativeRegCacheBase::CleanupMapping(const Mapping *mapping, int count) {
@@ -1030,6 +1050,11 @@ IRNativeReg IRNativeRegCacheBase::MapNativeRegAsPointer(IRReg gpr) {
 		return mr[gpr].nReg;
 	}
 
+	// Cannot use if somehow multilane.
+	if (mr[gpr].nReg != -1 && mr[gpr].lane != -1) {
+		FlushNativeReg(mr[gpr].nReg);
+	}
+
 	IRNativeReg nreg = mr[gpr].nReg;
 	if (mr[gpr].loc != MIPSLoc::REG && mr[gpr].loc != MIPSLoc::REG_IMM) {
 		nreg = MapNativeReg(MIPSLoc::REG, gpr, 1, MIPSMap::INIT);
@@ -1039,6 +1064,13 @@ IRNativeReg IRNativeRegCacheBase::MapNativeRegAsPointer(IRReg gpr) {
 		// If there was an imm attached, discard it.
 		mr[gpr].loc = MIPSLoc::REG;
 		mr[gpr].imm = 0;
+
+#ifdef MASKED_PSP_MEMORY
+		if (nr[mr[gpr].nReg].isDirty) {
+			StoreNativeReg(mr[gpr].nReg, gpr, 1);
+			nr[mr[gpr].nReg].isDirty = false;
+		}
+#endif
 
 		if (!jo_->enablePointerify) {
 			AdjustNativeRegAsPtr(nreg, true);

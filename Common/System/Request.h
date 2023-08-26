@@ -166,4 +166,4 @@ inline void System_SendDebugScreenshot(const std::string &data, int height) {
 
 // Non-inline to avoid including Path.h
 void System_CreateGameShortcut(const Path &path, const std::string &title);
-
+void System_ShowFileInFolder(const Path &path);

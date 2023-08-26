@@ -54,7 +54,8 @@ void X64JitBackend::CompIR_Exit(IRInst inst) {
 		break;
 
 	case IROp::ExitToPC:
-		CompIR_Generic(inst);
+		FlushAll();
+		JMP(dispatcherCheckCoreState_, true);
 		break;
 
 	default:

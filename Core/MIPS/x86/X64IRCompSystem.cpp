@@ -55,9 +55,23 @@ void X64JitBackend::CompIR_Basic(IRInst inst) {
 		break;
 
 	case IROp::SetConstF:
+		regs_.Map(inst);
+		if (inst.constant == 0) {
+			XORPS(regs_.FX(inst.dest), regs_.F(inst.dest));
+		} else {
+			MOV(32, R(SCRATCH1), Imm32(inst.constant));
+			MOVD_xmm(regs_.FX(inst.dest), R(SCRATCH1));
+		}
+		break;
+
 	case IROp::SetPC:
+		regs_.Map(inst);
+		MovToPC(regs_.RX(inst.src1));
+		break;
+
 	case IROp::SetPCConst:
-		CompIR_Generic(inst);
+		MOV(32, R(SCRATCH1), Imm32(inst.constant));
+		MovToPC(SCRATCH1);
 		break;
 
 	default:
@@ -86,6 +100,29 @@ void X64JitBackend::CompIR_System(IRInst inst) {
 
 	switch (inst.op) {
 	case IROp::Syscall:
+		FlushAll();
+		SaveStaticRegisters();
+
+#ifdef USE_PROFILER
+		// When profiling, we can't skip CallSyscall, since it times syscalls.
+		ABI_CallFunctionC((const u8 *)&CallSyscall, inst.constant);
+#else
+		// Skip the CallSyscall where possible.
+		{
+			MIPSOpcode op(inst.constant);
+			void *quickFunc = GetQuickSyscallFunc(op);
+			if (quickFunc) {
+				ABI_CallFunctionP((const u8 *)quickFunc, (void *)GetSyscallFuncPointer(op));
+			} else {
+				ABI_CallFunctionC((const u8 *)&CallSyscall, inst.constant);
+			}
+		}
+#endif
+
+		LoadStaticRegisters();
+		// This is always followed by an ExitToPC, where we check coreState.
+		break;
+
 	case IROp::CallReplacement:
 	case IROp::Break:
 		CompIR_Generic(inst);
@@ -102,16 +139,52 @@ void X64JitBackend::CompIR_Transfer(IRInst inst) {
 
 	switch (inst.op) {
 	case IROp::SetCtrlVFPU:
+		regs_.SetGPRImm(IRREG_VFPU_CTRL_BASE + inst.dest, (int32_t)inst.constant);
+		break;
+
 	case IROp::SetCtrlVFPUReg:
+		regs_.Map(inst);
+		MOV(32, regs_.R(IRREG_VFPU_CTRL_BASE + inst.dest), regs_.R(inst.src1));
+		break;
+
 	case IROp::SetCtrlVFPUFReg:
+		regs_.Map(inst);
+		MOVD_xmm(regs_.R(IRREG_VFPU_CTRL_BASE + inst.dest), regs_.FX(inst.src1));
+		break;
+
 	case IROp::FpCondFromReg:
+		regs_.MapWithExtra(inst, { { 'G', IRREG_FPCOND, 1, MIPSMap::NOINIT } });
+		MOV(32, regs_.R(IRREG_FPCOND), regs_.R(inst.src1));
+		break;
+
 	case IROp::FpCondToReg:
+		regs_.MapWithExtra(inst, { { 'G', IRREG_FPCOND, 1, MIPSMap::INIT } });
+		MOV(32, regs_.R(inst.dest), regs_.R(IRREG_FPCOND));
+		break;
+
 	case IROp::FpCtrlFromReg:
 	case IROp::FpCtrlToReg:
-	case IROp::VfpuCtrlToReg:
-	case IROp::FMovFromGPR:
-	case IROp::FMovToGPR:
 		CompIR_Generic(inst);
+		break;
+
+	case IROp::VfpuCtrlToReg:
+		regs_.Map(inst);
+		MOV(32, regs_.R(inst.dest), regs_.R(IRREG_VFPU_CTRL_BASE + inst.src1));
+		break;
+
+	case IROp::FMovFromGPR:
+		if (regs_.IsGPRImm(inst.src1) && regs_.GetGPRImm(inst.src1) == 0) {
+			regs_.MapFPR(inst.dest, MIPSMap::NOINIT);
+			XORPS(regs_.FX(inst.dest), regs_.F(inst.dest));
+		} else {
+			regs_.Map(inst);
+			MOVD_xmm(regs_.FX(inst.dest), regs_.R(inst.src1));
+		}
+		break;
+
+	case IROp::FMovToGPR:
+		regs_.Map(inst);
+		MOVD_xmm(regs_.R(inst.dest), regs_.FX(inst.src1));
 		break;
 
 	default:

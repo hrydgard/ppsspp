@@ -29,6 +29,19 @@
 #include "Core/MIPS/JitCommon/JitCommon.h"
 #include "Core/MIPS/x86/X64IRRegCache.h"
 
+#if PPSSPP_PLATFORM(WINDOWS) && (defined(_MSC_VER) || defined(__clang__) || defined(__INTEL_COMPILER))
+#define X64JIT_XMM_CALL __vectorcall
+#define X64JIT_USE_XMM_CALL 1
+#elif PPSSPP_ARCH(AMD64) && !PPSSPP_PLATFORM(WINDOWS)
+// SystemV ABI supports XMM registers.
+#define X64JIT_XMM_CALL
+#define X64JIT_USE_XMM_CALL 1
+#else
+// GCC on x86 doesn't support vectorcall.
+#define X64JIT_XMM_CALL
+#define X64JIT_USE_XMM_CALL 0
+#endif
+
 namespace MIPSComp {
 
 class X64JitBackend : public Gen::XCodeBlock, public IRNativeBackend {

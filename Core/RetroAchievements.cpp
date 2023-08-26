@@ -81,6 +81,7 @@ int g_loginResult;
 
 // rc_client implementation
 static rc_client_t *g_rcClient;
+static const std::string g_RAImageID = "I_RETROACHIEVEMENTS_LOGO";
 
 #define PSP_MEMORY_OFFSET 0x08000000
 
@@ -124,7 +125,7 @@ bool WarnUserIfChallengeModeActive(const char *message) {
 		showMessage = ac->T("This feature is not available in Challenge Mode");
 	}
 
-	g_OSD.Show(OSDType::MESSAGE_WARNING, showMessage, 3.0f);
+	g_OSD.Show(OSDType::MESSAGE_WARNING, showMessage, "", g_RAImageID, 3.0f);
 	return true;
 }
 
@@ -335,7 +336,7 @@ static void event_handler_callback(const rc_client_event_t *event, rc_client_t *
 		break;
 	case RC_CLIENT_EVENT_SERVER_ERROR:
 		ERROR_LOG(ACHIEVEMENTS, "Server error: %s: %s", event->server_error->api, event->server_error->error_message);
-		g_OSD.Show(OSDType::MESSAGE_ERROR, "Server error");
+		g_OSD.Show(OSDType::MESSAGE_ERROR, "Server error", "", g_RAImageID);
 		break;
 	default:
 		WARN_LOG(ACHIEVEMENTS, "Unhandled rc_client event %d, ignoring", event->type);
@@ -352,7 +353,7 @@ static void login_token_callback(int result, const char *error_message, rc_clien
 	case RC_NO_RESPONSE:
 	{
 		auto di = GetI18NCategory(I18NCat::DIALOG);
-		g_OSD.Show(OSDType::MESSAGE_WARNING, di->T("Failed to connect to server, check your internet connection."));
+		g_OSD.Show(OSDType::MESSAGE_WARNING, di->T("Failed to connect to server, check your internet connection."), "", g_RAImageID);
 		break;
 	}
 	case RC_API_FAILURE:
@@ -363,7 +364,7 @@ static void login_token_callback(int result, const char *error_message, rc_clien
 	{
 		auto ac = GetI18NCategory(I18NCat::ACHIEVEMENTS);
 		ERROR_LOG(ACHIEVEMENTS, "Callback: Failure logging in via token: %d, %s", result, error_message);
-		g_OSD.Show(OSDType::MESSAGE_WARNING, ac->T("Failed logging in to RetroAchievements"));
+		g_OSD.Show(OSDType::MESSAGE_WARNING, ac->T("Failed logging in to RetroAchievements"), "", g_RAImageID);
 		OnAchievementsLoginStateChange();
 		break;
 	}
@@ -428,13 +429,13 @@ static void login_password_callback(int result, const char *error_message, rc_cl
 		g_Config.sAchievementsUserName = user->username;
 		NativeSaveSecret(RA_TOKEN_SECRET_NAME, std::string(user->token));
 		OnAchievementsLoginStateChange();
-		g_OSD.Show(OSDType::MESSAGE_SUCCESS, di->T("Logged in!"));
+		g_OSD.Show(OSDType::MESSAGE_SUCCESS, di->T("Logged in!"), "", g_RAImageID);
 		break;
 	}
 	case RC_NO_RESPONSE:
 	{
 		auto di = GetI18NCategory(I18NCat::DIALOG);
-		g_OSD.Show(OSDType::MESSAGE_WARNING, di->T("Failed to connect to server, check your internet connection."));
+		g_OSD.Show(OSDType::MESSAGE_WARNING, di->T("Failed to connect to server, check your internet connection."), "", g_RAImageID);
 		break;
 	}
 	case RC_INVALID_STATE:
@@ -444,7 +445,7 @@ static void login_password_callback(int result, const char *error_message, rc_cl
 	default:
 	{
 		ERROR_LOG(ACHIEVEMENTS, "Failure logging in via password: %d, %s", result, error_message);
-		g_OSD.Show(OSDType::MESSAGE_WARNING, di->T("Failed to log in, check your username and password."));
+		g_OSD.Show(OSDType::MESSAGE_WARNING, di->T("Failed to log in, check your username and password."), "", g_RAImageID);
 		OnAchievementsLoginStateChange();
 		break;
 	}
@@ -509,6 +510,8 @@ void FrameUpdate() {
 	if (!g_rcClient)
 		return;
 	rc_client_do_frame(g_rcClient);
+
+	// TODO: If failed to log in, occasionally try again.
 }
 
 void Idle() {
@@ -522,7 +525,7 @@ void DoState(PointerWrap &p) {
 		// Reset the runtime.
 		if (HasAchievementsOrLeaderboards()) {
 			auto ac = GetI18NCategory(I18NCat::ACHIEVEMENTS);
-			g_OSD.Show(OSDType::MESSAGE_WARNING, ac->T("Save state loaded without achievement data"), 5.0f);
+			g_OSD.Show(OSDType::MESSAGE_WARNING, ac->T("Save state loaded without achievement data"), "", g_RAImageID, 5.0f, "");
 		}
 		rc_client_reset(g_rcClient);
 		return;
@@ -581,7 +584,7 @@ void DoState(PointerWrap &p) {
 	} else {
 		if (IsActive()) {
 			auto ac = GetI18NCategory(I18NCat::ACHIEVEMENTS);
-			g_OSD.Show(OSDType::MESSAGE_WARNING, ac->T("Save state loaded without achievement data"), 5.0f);
+			g_OSD.Show(OSDType::MESSAGE_WARNING, ac->T("Save state loaded without achievement data"), "", g_RAImageID, 5.0f);
 		}
 		rc_client_reset(g_rcClient);
 	}
@@ -663,7 +666,7 @@ void identify_and_load_callback(int result, const char *error_message, rc_client
 	}
 	case RC_NO_GAME_LOADED:
 		// The current game does not support achievements.
-		g_OSD.Show(OSDType::MESSAGE_INFO, ac->T("RetroAchievements are not available for this game"), 3.0f);
+		g_OSD.Show(OSDType::MESSAGE_INFO, ac->T("RetroAchievements are not available for this game"), "", g_RAImageID, 3.0f);
 		break;
 	default:
 		// Other various errors.

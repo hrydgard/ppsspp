@@ -189,18 +189,18 @@ public:
 	void Log(const LogMessage &message) override {
 		// Log with simplified headers as Android already provides timestamp etc.
 		switch (message.level) {
-		case LogTypes::LVERBOSE:
-		case LogTypes::LDEBUG:
-		case LogTypes::LINFO:
+		case LogLevel::LVERBOSE:
+		case LogLevel::LDEBUG:
+		case LogLevel::LINFO:
 			printf("INFO [%s] %s", message.log, message.msg.c_str());
 			break;
-		case LogTypes::LERROR:
+		case LogLevel::LERROR:
 			printf("ERR  [%s] %s", message.log, message.msg.c_str());
 			break;
-		case LogTypes::LWARNING:
+		case LogLevel::LWARNING:
 			printf("WARN [%s] %s", message.log, message.msg.c_str());
 			break;
-		case LogTypes::LNOTICE:
+		case LogLevel::LNOTICE:
 		default:
 			printf("NOTE [%s] !!! %s", message.log, message.msg.c_str());
 			break;
@@ -568,9 +568,9 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	boot_filename.clear();
 
 	// Parse command line
-	LogTypes::LOG_LEVELS logLevel = LogTypes::LINFO;
+	LogLevel logLevel = LogLevel::LINFO;
 	bool forceLogLevel = false;
-	const auto setLogLevel = [&logLevel, &forceLogLevel](LogTypes::LOG_LEVELS level) {
+	const auto setLogLevel = [&logLevel, &forceLogLevel](LogLevel level) {
 		logLevel = level;
 		forceLogLevel = true;
 	};
@@ -588,12 +588,12 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 			case 'd':
 				// Enable debug logging
 				// Note that you must also change the max log level in Log.h.
-				setLogLevel(LogTypes::LDEBUG);
+				setLogLevel(LogLevel::LDEBUG);
 				break;
 			case 'v':
 				// Enable verbose logging
 				// Note that you must also change the max log level in Log.h.
-				setLogLevel(LogTypes::LVERBOSE);
+				setLogLevel(LogLevel::LVERBOSE);
 				break;
 			case 'j':
 				g_Config.iCpuCore = (int)CPUCore::JIT;
@@ -613,7 +613,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 				break;
 			case '-':
 				if (!strncmp(argv[i], "--loglevel=", strlen("--loglevel=")) && strlen(argv[i]) > strlen("--loglevel="))
-					setLogLevel(static_cast<LogTypes::LOG_LEVELS>(std::atoi(argv[i] + strlen("--loglevel="))));
+					setLogLevel(static_cast<LogLevel>(std::atoi(argv[i] + strlen("--loglevel="))));
 				if (!strncmp(argv[i], "--log=", strlen("--log=")) && strlen(argv[i]) > strlen("--log="))
 					fileToLog = argv[i] + strlen("--log=");
 				if (!strncmp(argv[i], "--state=", strlen("--state=")) && strlen(argv[i]) > strlen("--state="))
@@ -822,7 +822,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	restarting = false;
 }
 
-void RenderOverlays(UIContext *dc, void *userdata);
+void CallbackPostRender(UIContext *dc, void *userdata);
 bool CreateGlobalPipelines();
 
 bool NativeInitGraphics(GraphicsContext *graphicsContext) {
@@ -861,7 +861,7 @@ bool NativeInitGraphics(GraphicsContext *graphicsContext) {
 
 	g_screenManager->setUIContext(uiContext);
 	g_screenManager->setDrawContext(g_draw);
-	g_screenManager->setPostRenderCallback(&RenderOverlays, nullptr);
+	g_screenManager->setPostRenderCallback(&CallbackPostRender, nullptr);
 	g_screenManager->deviceRestored();
 
 #ifdef _WIN32
@@ -994,9 +994,7 @@ void NativeShutdownGraphics() {
 	INFO_LOG(SYSTEM, "NativeShutdownGraphics done");
 }
 
-void TakeScreenshot() {
-	g_TakeScreenshot = false;
-
+static void TakeScreenshot() {
 	Path path = GetSysDirectory(DIRECTORY_SCREENSHOT);
 	if (!File::Exists(path)) {
 		File::CreateDir(path);
@@ -1028,9 +1026,10 @@ void TakeScreenshot() {
 	}
 }
 
-void RenderOverlays(UIContext *dc, void *userdata) {
+void CallbackPostRender(UIContext *dc, void *userdata) {
 	if (g_TakeScreenshot) {
 		TakeScreenshot();
+		g_TakeScreenshot = false;
 	}
 }
 

@@ -64,6 +64,15 @@ void IRFrontend::FlushAll() {
 }
 
 void IRFrontend::FlushPrefixV() {
+	if (js.startDefaultPrefix && !js.blockWrotePrefixes && js.HasNoPrefix()) {
+		// They started default, we never modified in memory, and they're default now.
+		// No reason to modify memory.  This is common at end of blocks.  Just clear dirty.
+		js.prefixSFlag = (JitState::PrefixState)(js.prefixSFlag & ~JitState::PREFIX_DIRTY);
+		js.prefixTFlag = (JitState::PrefixState)(js.prefixTFlag & ~JitState::PREFIX_DIRTY);
+		js.prefixDFlag = (JitState::PrefixState)(js.prefixDFlag & ~JitState::PREFIX_DIRTY);
+		return;
+	}
+
 	if ((js.prefixSFlag & JitState::PREFIX_DIRTY) != 0) {
 		ir.Write(IROp::SetCtrlVFPU, VFPU_CTRL_SPREFIX, ir.AddConstant(js.prefixS));
 		js.prefixSFlag = (JitState::PrefixState) (js.prefixSFlag & ~JitState::PREFIX_DIRTY);
@@ -78,6 +87,9 @@ void IRFrontend::FlushPrefixV() {
 		ir.Write(IROp::SetCtrlVFPU, VFPU_CTRL_DPREFIX, ir.AddConstant(js.prefixD));
 		js.prefixDFlag = (JitState::PrefixState) (js.prefixDFlag & ~JitState::PREFIX_DIRTY);
 	}
+
+	// If we got here, we must've written prefixes to memory in this block.
+	js.blockWrotePrefixes = true;
 }
 
 void IRFrontend::EatInstruction(MIPSOpcode op) {
@@ -120,8 +132,7 @@ bool IRFrontend::CheckRounding(u32 blockAddress) {
 
 		// Let's try that one more time.  We won't get back here because we toggled the value.
 		js.startDefaultPrefix = false;
-		// TODO: Make sure this works.
-		// cleanSlate = true;
+		cleanSlate = true;
 	}
 
 	return cleanSlate;
@@ -179,6 +190,10 @@ void IRFrontend::Comp_Generic(MIPSOpcode op) {
 		// If it does eat them, it'll happen in MIPSCompileOp().
 		if ((info & OUT_EAT_PREFIX) == 0)
 			js.PrefixUnknown();
+
+		// Even if DISABLE'd, we want to set this flag so we overwrite.
+		if ((info & OUT_VFPU_PREFIX) != 0)
+			js.blockWrotePrefixes = true;
 	}
 }
 
@@ -233,6 +248,7 @@ void IRFrontend::DoJit(u32 em_address, std::vector<IRInst> &instructions, u32 &m
 	js.curBlock = nullptr;
 	js.compiling = true;
 	js.hadBreakpoints = false;
+	js.blockWrotePrefixes = false;
 	js.inDelaySlot = false;
 	js.PrefixStart();
 	ir.Clear();

@@ -63,6 +63,7 @@
 #include "Core/MIPS/JitCommon/JitBlockCache.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
 #include "Core/MIPS/JitCommon/JitState.h"
+#include "GPU/Debugger/Record.h"
 #include "GPU/GPUInterface.h"
 #include "GPU/GPUState.h"
 #include "UI/MiscScreens.h"
@@ -139,11 +140,27 @@ void DevMenuScreen::CreatePopupContents(UI::ViewGroup *parent) {
 		return UI::EVENT_DONE;
 	});
 
-	items->Add(new Choice(dev->T("Dump next frame to log")))->OnClick.Add([](UI::EventParams &e) {
-		gpu->DumpNextFrame();
+	items->Add(new Choice(dev->T("Reset limited logging")))->OnClick.Handle(this, &DevMenuScreen::OnResetLimitedLogging);
+
+	items->Add(new Choice(dev->T("Create frame dump")))->OnClick.Add([](UI::EventParams &e) {
+		GPURecord::RecordNextFrame([](const Path &dumpPath) {
+			NOTICE_LOG(SYSTEM, "Frame dump created at '%s'", dumpPath.c_str());
+			if (System_GetPropertyBool(SYSPROP_CAN_SHOW_FILE)) {
+				System_ShowFileInFolder(dumpPath);
+			} else {
+				g_OSD.Show(OSDType::MESSAGE_SUCCESS, dumpPath.ToVisualString(), 7.0f);
+			}
+		});
 		return UI::EVENT_DONE;
 	});
-	items->Add(new Choice(dev->T("Reset limited logging")))->OnClick.Handle(this, &DevMenuScreen::OnResetLimitedLogging);
+
+	// This one is not very useful these days, and only really on desktop. Hide it on other platforms.
+	if (System_GetPropertyInt(SYSPROP_DEVICE_TYPE) == DEVICE_TYPE_DESKTOP) {
+		items->Add(new Choice(dev->T("Dump next frame to log")))->OnClick.Add([](UI::EventParams &e) {
+			gpu->DumpNextFrame();
+			return UI::EVENT_DONE;
+		});
+	}
 
 	scroll->Add(items);
 	parent->Add(scroll);
@@ -207,12 +224,12 @@ void LogScreen::UpdateLog() {
 		TextView *v = vert_->Add(new TextView(ring->TextAt(i), FLAG_DYNAMIC_ASCII, false));
 		uint32_t color = 0xFFFFFF;
 		switch (ring->LevelAt(i)) {
-		case LogTypes::LDEBUG: color = 0xE0E0E0; break;
-		case LogTypes::LWARNING: color = 0x50FFFF; break;
-		case LogTypes::LERROR: color = 0x5050FF; break;
-		case LogTypes::LNOTICE: color = 0x30FF30; break;
-		case LogTypes::LINFO: color = 0xFFFFFF; break;
-		case LogTypes::LVERBOSE: color = 0xC0C0C0; break;
+		case LogLevel::LDEBUG: color = 0xE0E0E0; break;
+		case LogLevel::LWARNING: color = 0x50FFFF; break;
+		case LogLevel::LERROR: color = 0x5050FF; break;
+		case LogLevel::LNOTICE: color = 0x30FF30; break;
+		case LogLevel::LINFO: color = 0xFFFFFF; break;
+		case LogLevel::LVERBOSE: color = 0xC0C0C0; break;
 		}
 		v->SetTextColor(0xFF000000 | color);
 	}
@@ -291,7 +308,7 @@ void LogConfigScreen::CreateViews() {
 	GridLayout *grid = vert->Add(new GridLayoutList(gridsettings, new LayoutParams(FILL_PARENT, WRAP_CONTENT)));
 
 	for (int i = 0; i < LogManager::GetNumChannels(); i++) {
-		LogTypes::LOG_TYPE type = (LogTypes::LOG_TYPE)i;
+		LogType type = (LogType)i;
 		LogChannel *chan = logMan->GetLogChannel(type);
 		LinearLayout *row = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(cellSize - 50, WRAP_CONTENT));
 		row->SetSpacing(0);
@@ -304,7 +321,7 @@ void LogConfigScreen::CreateViews() {
 UI::EventReturn LogConfigScreen::OnToggleAll(UI::EventParams &e) {
 	LogManager *logMan = LogManager::GetInstance();
 	for (int i = 0; i < LogManager::GetNumChannels(); i++) {
-		LogChannel *chan = logMan->GetLogChannel((LogTypes::LOG_TYPE)i);
+		LogChannel *chan = logMan->GetLogChannel((LogType)i);
 		chan->enabled = !chan->enabled;
 	}
 	return UI::EVENT_DONE;
@@ -313,7 +330,7 @@ UI::EventReturn LogConfigScreen::OnToggleAll(UI::EventParams &e) {
 UI::EventReturn LogConfigScreen::OnEnableAll(UI::EventParams &e) {
 	LogManager *logMan = LogManager::GetInstance();
 	for (int i = 0; i < LogManager::GetNumChannels(); i++) {
-		LogChannel *chan = logMan->GetLogChannel((LogTypes::LOG_TYPE)i);
+		LogChannel *chan = logMan->GetLogChannel((LogType)i);
 		chan->enabled = true;
 	}
 	return UI::EVENT_DONE;
@@ -322,7 +339,7 @@ UI::EventReturn LogConfigScreen::OnEnableAll(UI::EventParams &e) {
 UI::EventReturn LogConfigScreen::OnDisableAll(UI::EventParams &e) {
 	LogManager *logMan = LogManager::GetInstance();
 	for (int i = 0; i < LogManager::GetNumChannels(); i++) {
-		LogChannel *chan = logMan->GetLogChannel((LogTypes::LOG_TYPE)i);
+		LogChannel *chan = logMan->GetLogChannel((LogType)i);
 		chan->enabled = false;
 	}
 	return UI::EVENT_DONE;
@@ -360,10 +377,10 @@ void LogLevelScreen::OnCompleted(DialogResult result) {
 	LogManager *logMan = LogManager::GetInstance();
 	
 	for (int i = 0; i < LogManager::GetNumChannels(); ++i) {
-		LogTypes::LOG_TYPE type = (LogTypes::LOG_TYPE)i;
+		LogType type = (LogType)i;
 		LogChannel *chan = logMan->GetLogChannel(type);
 		if (chan->enabled)
-			chan->level = (LogTypes::LOG_LEVELS)(selected + 1);
+			chan->level = (LogLevel)(selected + 1);
 	}
 }
 
@@ -475,6 +492,7 @@ void SystemInfoScreen::CreateTabs() {
 
 	auto di = GetI18NCategory(I18NCat::DIALOG);
 	auto si = GetI18NCategory(I18NCat::SYSINFO);
+	auto sy = GetI18NCategory(I18NCat::SYSTEM);
 	auto gr = GetI18NCategory(I18NCat::GRAPHICS);
 
 	TabHolder *tabHolder = new TabHolder(ORIENT_VERTICAL, 225, new AnchorLayoutParams(10, 0, 10, 0, false));
@@ -856,6 +874,10 @@ void SystemInfoScreen::CreateTabs() {
 	});
 	internals->Add(new Choice(si->T("Success")))->OnClick.Add([&](UI::EventParams &) {
 		g_OSD.Show(OSDType::MESSAGE_SUCCESS, "Success");
+		return UI::EVENT_DONE;
+	});
+	internals->Add(new Choice(sy->T("RetroAchievements")))->OnClick.Add([&](UI::EventParams &) {
+		g_OSD.Show(OSDType::MESSAGE_WARNING, "RetroAchievements warning", "", "I_RETROACHIEVEMENTS_LOGO");
 		return UI::EVENT_DONE;
 	});
 	internals->Add(new ItemHeader(si->T("Progress tests")));

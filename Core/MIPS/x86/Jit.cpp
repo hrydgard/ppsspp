@@ -182,6 +182,15 @@ void Jit::FlushAll() {
 }
 
 void Jit::FlushPrefixV() {
+	if (js.startDefaultPrefix && !js.blockWrotePrefixes && js.HasNoPrefix()) {
+		// They started default, we never modified in memory, and they're default now.
+		// No reason to modify memory.  This is common at end of blocks.  Just clear dirty.
+		js.prefixSFlag = (JitState::PrefixState)(js.prefixSFlag & ~JitState::PREFIX_DIRTY);
+		js.prefixTFlag = (JitState::PrefixState)(js.prefixTFlag & ~JitState::PREFIX_DIRTY);
+		js.prefixDFlag = (JitState::PrefixState)(js.prefixDFlag & ~JitState::PREFIX_DIRTY);
+		return;
+	}
+
 	if ((js.prefixSFlag & JitState::PREFIX_DIRTY) != 0) {
 		MOV(32, MIPSSTATE_VAR(vfpuCtrl[VFPU_CTRL_SPREFIX]), Imm32(js.prefixS));
 		js.prefixSFlag = (JitState::PrefixState) (js.prefixSFlag & ~JitState::PREFIX_DIRTY);
@@ -196,6 +205,9 @@ void Jit::FlushPrefixV() {
 		MOV(32, MIPSSTATE_VAR(vfpuCtrl[VFPU_CTRL_DPREFIX]), Imm32(js.prefixD));
 		js.prefixDFlag = (JitState::PrefixState) (js.prefixDFlag & ~JitState::PREFIX_DIRTY);
 	}
+
+	// If we got here, we must've written prefixes to memory in this block.
+	js.blockWrotePrefixes = true;
 }
 
 void Jit::WriteDowncount(int offset) {
@@ -356,6 +368,7 @@ const u8 *Jit::DoJit(u32 em_address, JitBlock *b) {
 	js.curBlock = b;
 	js.compiling = true;
 	js.inDelaySlot = false;
+	js.blockWrotePrefixes = false;
 	js.afterOp = JitState::AFTER_NONE;
 	js.PrefixStart();
 
@@ -681,6 +694,10 @@ void Jit::Comp_Generic(MIPSOpcode op) {
 		// If it does eat them, it'll happen in MIPSCompileOp().
 		if ((info & OUT_EAT_PREFIX) == 0)
 			js.PrefixUnknown();
+
+		// Even if DISABLE'd, we want to set this flag so we overwrite.
+		if ((info & OUT_VFPU_PREFIX) != 0)
+			js.blockWrotePrefixes = true;
 	}
 }
 

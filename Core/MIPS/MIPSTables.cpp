@@ -340,7 +340,7 @@ static const MIPSInstruction tableCop2[32] = // 010010 xxxxx ..... .............
 	INSTR("mtc2", JITFUNC(Comp_Generic), Dis_Generic, 0, IN_RT),
 	INVALID,
 	INSTR("ctc2", JITFUNC(Comp_Generic), Dis_Generic, 0, 0),
-	INSTR("mtv", JITFUNC(Comp_Mftv), Dis_Mftv, Int_Mftv, IN_RT|OUT_VFPU_CC|OUT_OTHER|IS_VFPU),
+	INSTR("mtv", JITFUNC(Comp_Mftv), Dis_Mftv, Int_Mftv, IN_RT|OUT_VFPU_CC|OUT_OTHER|IS_VFPU|OUT_VFPU_PREFIX),
 	//8
 	ENCODING(Cop2BC2),
 	INSTR("??", JITFUNC(Comp_Generic), Dis_Generic, 0, 0),
@@ -749,7 +749,7 @@ static const MIPSInstruction tableVFPU9[32] = // 110100 00010 xxxxx . ....... . 
 
 	//16
 	INSTR("vmfvc", JITFUNC(Comp_Vmfvc), Dis_Vmfvc, Int_Vmfvc, IN_OTHER|IN_VFPU_CC|OUT_OTHER|IS_VFPU),
-	INSTR("vmtvc", JITFUNC(Comp_Vmtvc), Dis_Vmtvc, Int_Vmtvc, IN_OTHER|OUT_VFPU_CC|OUT_OTHER|IS_VFPU),
+	INSTR("vmtvc", JITFUNC(Comp_Vmtvc), Dis_Vmtvc, Int_Vmtvc, IN_OTHER|OUT_VFPU_CC|OUT_OTHER|IS_VFPU|OUT_VFPU_PREFIX),
 	INVALID,
 	INVALID,
 

@@ -64,9 +64,9 @@ private:
 	typedef void *HandlerLibrary;
 	typedef int HandlerHandle;
 	typedef s64 HandlerOffset;
-	typedef void (*HandlerLogFunc)(void *arg, HandlerHandle handle, LogTypes::LOG_LEVELS level, const char *msg);
+	typedef void (*HandlerLogFunc)(void *arg, HandlerHandle handle, LogLevel level, const char *msg);
 
-	static void HandlerLogger(void *arg, HandlerHandle handle, LogTypes::LOG_LEVELS level, const char *msg);
+	static void HandlerLogger(void *arg, HandlerHandle handle, LogLevel level, const char *msg);
 
 	// The primary purpose of handlers is to make it easier to work with large archives.
 	// However, they have other uses as well, such as patching individual files.

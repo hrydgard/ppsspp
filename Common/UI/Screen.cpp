@@ -178,11 +178,12 @@ void ScreenManager::render() {
 					iter++;
 				}
 				stack_.back().screen->render();
-				if (postRenderCb_) {
-					postRenderCb_(getUIContext(), postRenderUserdata_);
-				}
 				if (overlayScreen_) {
 					overlayScreen_->render();
+				}
+				if (postRenderCb_) {
+					// Really can't render anything after this! Will crash the screenshot mechanism if we do.
+					postRenderCb_(getUIContext(), postRenderUserdata_);
 				}
 				first->screen->postRender();
 				break;
@@ -191,10 +192,12 @@ void ScreenManager::render() {
 			_assert_(stack_.back().screen);
 			stack_.back().screen->preRender();
 			stack_.back().screen->render();
-			if (postRenderCb_)
-				postRenderCb_(getUIContext(), postRenderUserdata_);
 			if (overlayScreen_) {
 				overlayScreen_->render();
+			}
+			if (postRenderCb_) {
+				// Really can't render anything after this! Will crash the screenshot mechanism if we do.
+				postRenderCb_(getUIContext(), postRenderUserdata_);
 			}
 			stack_.back().screen->postRender();
 			break;

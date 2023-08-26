@@ -37,7 +37,7 @@ extern const char *hleCurrentThreadName;
 struct LogMessage {
 	char timestamp[16];
 	char header[64];  // Filename/thread/etc. in front.
-	LogTypes::LOG_LEVELS level;
+	LogLevel level;
 	const char *log;
 	std::string msg;  // The actual log message.
 };
@@ -83,7 +83,7 @@ public:
 
 	int GetCount() const { return count_ < MAX_LOGS ? count_ : MAX_LOGS; }
 	const char *TextAt(int i) const { return messages_[(curMessage_ - i - 1) & (MAX_LOGS - 1)].msg.c_str(); }
-	LogTypes::LOG_LEVELS LevelAt(int i) const { return messages_[(curMessage_ - i - 1) & (MAX_LOGS - 1)].level; }
+	LogLevel LevelAt(int i) const { return messages_[(curMessage_ - i - 1) & (MAX_LOGS - 1)].level; }
 
 private:
 	enum { MAX_LOGS = 128 };
@@ -99,7 +99,7 @@ private:
 
 struct LogChannel {
 	char m_shortName[32]{};
-	LogTypes::LOG_LEVELS level;
+	LogLevel level;
 	bool enabled;
 };
 
@@ -114,7 +114,7 @@ private:
 	LogManager(const LogManager &) = delete;
 	void operator=(const LogManager &) = delete;
 
-	LogChannel log_[LogTypes::NUMBER_OF_LOGS];
+	LogChannel log_[(size_t)LogType::NUMBER_OF_LOGS];
 	FileLogListener *fileLog_ = nullptr;
 	ConsoleListener *consoleLog_ = nullptr;
 	OutputDebugStringLogListener *debuggerLog_ = nullptr;
@@ -128,33 +128,33 @@ public:
 	void AddListener(LogListener *listener);
 	void RemoveListener(LogListener *listener);
 
-	static u32 GetMaxLevel() { return MAX_LOGLEVEL;	}
-	static int GetNumChannels() { return LogTypes::NUMBER_OF_LOGS; }
+	static u32 GetMaxLevel() { return (u32)MAX_LOGLEVEL;	}
+	static int GetNumChannels() { return (int)LogType::NUMBER_OF_LOGS; }
 
-	void Log(LogTypes::LOG_LEVELS level, LogTypes::LOG_TYPE type, 
+	void Log(LogLevel level, LogType type,
 			 const char *file, int line, const char *fmt, va_list args);
-	bool IsEnabled(LogTypes::LOG_LEVELS level, LogTypes::LOG_TYPE type);
+	bool IsEnabled(LogLevel level, LogType type);
 
-	LogChannel *GetLogChannel(LogTypes::LOG_TYPE type) {
-		return &log_[type];
+	LogChannel *GetLogChannel(LogType type) {
+		return &log_[(size_t)type];
 	}
 
-	void SetLogLevel(LogTypes::LOG_TYPE type, LogTypes::LOG_LEVELS level) {
-		log_[type].level = level;
+	void SetLogLevel(LogType type, LogLevel level) {
+		log_[(size_t)type].level = level;
 	}
 
-	void SetAllLogLevels(LogTypes::LOG_LEVELS level) {
-		for (int i = 0; i < LogTypes::NUMBER_OF_LOGS; ++i) {
+	void SetAllLogLevels(LogLevel level) {
+		for (int i = 0; i < (int)LogType::NUMBER_OF_LOGS; ++i) {
 			log_[i].level = level;
 		}
 	}
 
-	void SetEnabled(LogTypes::LOG_TYPE type, bool enable) {
-		log_[type].enabled = enable;
+	void SetEnabled(LogType type, bool enable) {
+		log_[(size_t)type].enabled = enable;
 	}
 
-	LogTypes::LOG_LEVELS GetLogLevel(LogTypes::LOG_TYPE type) {
-		return log_[type].level;
+	LogLevel GetLogLevel(LogType type) {
+		return log_[(size_t)type].level;
 	}
 
 	ConsoleListener *GetConsoleListener() const {

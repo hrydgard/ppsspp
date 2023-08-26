@@ -124,4 +124,12 @@ private:
 	std::string userAgent_;
 };
 
+inline const char *RequestMethodToString(RequestMethod method) {
+	switch (method) {
+	case RequestMethod::GET: return "GET";
+	case RequestMethod::POST: return "POST";
+	default: return "N/A";
+	}
+}
+
 }  // namespace net

@@ -92,6 +92,8 @@ public:
 	bool bPreloadFunctions;
 	uint32_t uJitDisableFlags;
 
+	bool bDisableHTTPS;
+
 	bool bSeparateSASThread;
 	int iIOTimingMethod;
 	int iLockedCPUSpeed;

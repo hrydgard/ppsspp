@@ -358,7 +358,7 @@ void ConsoleListener::LogWriterThread()
 
 		for (char *Text = logLocal, *End = logLocal + logLocalSize; Text < End; )
 		{
-			LogTypes::LOG_LEVELS Level = LogTypes::LINFO;
+			LogLevel Level = LogLevel::LINFO;
 
 			char *next = (char *) memchr(Text + 1, '\033', End - Text);
 			size_t Len = next - Text;
@@ -367,7 +367,7 @@ void ConsoleListener::LogWriterThread()
 
 			if (Text[0] == '\033' && Text + 1 < End)
 			{
-				Level = (LogTypes::LOG_LEVELS) (Text[1] - '0');
+				Level = (LogLevel)(Text[1] - '0');
 				Len -= 2;
 				Text += 2;
 			}
@@ -384,7 +384,7 @@ void ConsoleListener::LogWriterThread()
 	delete [] logLocal;
 }
 
-void ConsoleListener::SendToThread(LogTypes::LOG_LEVELS Level, const char *Text)
+void ConsoleListener::SendToThread(LogLevel Level, const char *Text)
 {
 	// Oops, we're already quitting.  Just do nothing.
 	if (logPendingWritePos == (u32) -1)
@@ -462,7 +462,7 @@ void ConsoleListener::SendToThread(LogTypes::LOG_LEVELS Level, const char *Text)
 	SetEvent(hTriggerEvent);
 }
 
-void ConsoleListener::WriteToConsole(LogTypes::LOG_LEVELS Level, const char *Text, size_t Len)
+void ConsoleListener::WriteToConsole(LogLevel Level, const char *Text, size_t Len)
 {
 	_dbg_assert_msg_(IsOpen(), "Don't call this before opening the console.");
 
@@ -479,21 +479,20 @@ void ConsoleListener::WriteToConsole(LogTypes::LOG_LEVELS Level, const char *Tex
 	WORD Color;
 	static wchar_t tempBuf[2048];
 
-	switch (Level)
-	{
-	case NOTICE_LEVEL: // light green
+	switch (Level) {
+	case LogLevel::LNOTICE: // light green
 		Color = FOREGROUND_GREEN | FOREGROUND_INTENSITY;
 		break;
-	case ERROR_LEVEL: // light red
+	case LogLevel::LERROR: // light red
 		Color = FOREGROUND_RED | FOREGROUND_INTENSITY;
 		break;
-	case WARNING_LEVEL: // light yellow
+	case LogLevel::LWARNING: // light yellow
 		Color = FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_INTENSITY;
 		break;
-	case INFO_LEVEL: // cyan
+	case LogLevel::LINFO: // cyan
 		Color = FOREGROUND_GREEN | FOREGROUND_BLUE | FOREGROUND_INTENSITY;
 		break;
-	case DEBUG_LEVEL: // gray
+	case LogLevel::LDEBUG: // gray
 		Color = FOREGROUND_INTENSITY;
 		break;
 	default: // off-white
@@ -593,7 +592,7 @@ void ConsoleListener::PixelSpace(int Left, int Top, int Width, int Height, bool 
 	COORD Coo = GetCoordinates(OldCursor, LBufWidth);
 	SetConsoleCursorPosition(hConsole, Coo);
 
-	// if (SLog.length() > 0) Log(LogTypes::LNOTICE, SLog.c_str());
+	// if (SLog.length() > 0) Log(LogLevel::LNOTICE, SLog.c_str());
 
 	// Resize the window too
 	if (Resize) MoveWindow(GetConsoleWindow(), Left,Top, (Width + 100),Height, true);
@@ -615,18 +614,16 @@ void ConsoleListener::Log(const LogMessage &msg) {
 	char ColorAttr[16] = "";
 	char ResetAttr[16] = "";
 
-	if (bUseColor)
-	{
+	if (bUseColor) {
 		strcpy(ResetAttr, "\033[0m");
-		switch (msg.level)
-		{
-		case NOTICE_LEVEL: // light green
+		switch (msg.level) {
+		case LogLevel::LNOTICE: // light green
 			strcpy(ColorAttr, "\033[92m");
 			break;
-		case ERROR_LEVEL: // light red
+		case LogLevel::LERROR: // light red
 			strcpy(ColorAttr, "\033[91m");
 			break;
-		case WARNING_LEVEL: // light yellow
+		case LogLevel::LWARNING: // light yellow
 			strcpy(ColorAttr, "\033[93m");
 			break;
 		default:
@@ -656,5 +653,3 @@ void ConsoleListener::ClearScreen(bool Cursor)
 	if (Cursor) SetConsoleCursorPosition(hConsole, coordScreen); 
 #endif
 }
-
-

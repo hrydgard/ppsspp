@@ -794,6 +794,16 @@ void EmuScreen::onVKey(int virtualKeyCode, bool down) {
 		if (down)
 			g_Config.iInternalScreenRotation = ROTATION_LOCKED_HORIZONTAL180;
 		break;
+	case VIRTKEY_TOGGLE_WLAN:
+		if (down) {
+			auto n = GetI18NCategory(I18NCat::NETWORKING);
+			auto di = GetI18NCategory(I18NCat::DIALOG);
+			g_Config.bEnableWlan = !g_Config.bEnableWlan;
+			// Try to avoid adding more strings so we piece together a message from existing ones.
+			g_OSD.Show(OSDType::MESSAGE_INFO, StringFromFormat(
+				"%s: %s", n->T("Enable networking"), g_Config.bEnableWlan ? di->T("Enabled") : di->T("Disabled")), 2.0, "toggle_wlan");
+		}
+		break;
 	}
 }
 
@@ -1117,7 +1127,9 @@ void EmuScreen::update() {
 	if (invalid_)
 		return;
 
-	controlMapper_.Update();
+	double now = time_now_d();
+
+	controlMapper_.Update(now);
 
 	if (pauseTrigger_) {
 		pauseTrigger_ = false;
@@ -1137,7 +1149,7 @@ void EmuScreen::update() {
 			saveStatePreview_->SetFilename(fn);
 			if (!fn.empty()) {
 				saveStatePreview_->SetVisibility(UI::V_VISIBLE);
-				saveStatePreviewShownTime_ = time_now_d();
+				saveStatePreviewShownTime_ = now;
 			} else {
 				saveStatePreview_->SetVisibility(UI::V_GONE);
 			}
@@ -1145,10 +1157,10 @@ void EmuScreen::update() {
 
 		if (saveStatePreview_->GetVisibility() == UI::V_VISIBLE) {
 			double endTime = saveStatePreviewShownTime_ + 2.0;
-			float alpha = clamp_value((endTime - time_now_d()) * 4.0, 0.0, 1.0);
+			float alpha = clamp_value((endTime - now) * 4.0, 0.0, 1.0);
 			saveStatePreview_->SetColor(colorAlpha(0x00FFFFFF, alpha));
 
-			if (time_now_d() - saveStatePreviewShownTime_ > 2) {
+			if (now - saveStatePreviewShownTime_ > 2) {
 				saveStatePreview_->SetVisibility(UI::V_GONE);
 			}
 		}

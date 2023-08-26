@@ -334,7 +334,7 @@ void GameScreen::render() {
 }
 
 UI::EventReturn GameScreen::OnShowInFolder(UI::EventParams &e) {
-	System_ShowFileInFolder(gamePath_.c_str());
+	System_ShowFileInFolder(gamePath_);
 	return UI::EVENT_DONE;
 }
 

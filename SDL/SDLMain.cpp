@@ -325,6 +325,31 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 		g_windowState.update = true;
 		return true;
 	}
+	case SystemRequestType::SHOW_FILE_IN_FOLDER:
+	{
+#if PPSSPP_PLATFORM(WINDOWS)
+		SFGAOF flags;
+		PIDLIST_ABSOLUTE pidl = nullptr;
+		HRESULT hr = SHParseDisplayName(ConvertUTF8ToWString(ReplaceAll(path, "/", "\\")).c_str(), nullptr, &pidl, 0, &flags);
+		if (pidl) {
+			if (SUCCEEDED(hr))
+				SHOpenFolderAndSelectItems(pidl, 0, NULL, 0);
+			CoTaskMemFree(pidl);
+		}
+#elif PPSSPP_PLATFORM(MAC)
+		OSXShowInFinder(param1.c_str());
+#elif (PPSSPP_PLATFORM(LINUX) && !PPSSPP_PLATFORM(ANDROID))
+		pid_t pid = fork();
+		if (pid < 0)
+			return true;
+
+		if (pid == 0) {
+			execlp("xdg-open", "xdg-open", param1.c_str(), nullptr);
+			exit(1);
+		}
+#endif /* PPSSPP_PLATFORM(WINDOWS) */
+		return true;
+	}
 	default:
 		return false;
 	}
@@ -332,30 +357,6 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 
 void System_AskForPermission(SystemPermission permission) {}
 PermissionStatus System_GetPermissionStatus(SystemPermission permission) { return PERMISSION_STATUS_GRANTED; }
-
-void System_ShowFileInFolder(const char *path) {
-#if PPSSPP_PLATFORM(WINDOWS)
-	SFGAOF flags;
-	PIDLIST_ABSOLUTE pidl = nullptr;
-	HRESULT hr = SHParseDisplayName(ConvertUTF8ToWString(ReplaceAll(path, "/", "\\")).c_str(), nullptr, &pidl, 0, &flags);
-	if (pidl) {
-		if (SUCCEEDED(hr))
-			SHOpenFolderAndSelectItems(pidl, 0, NULL, 0);
-		CoTaskMemFree(pidl);
-	}
-#elif PPSSPP_PLATFORM(MAC)
-	OSXShowInFinder(path);
-#elif (PPSSPP_PLATFORM(LINUX) && !PPSSPP_PLATFORM(ANDROID))
-	pid_t pid = fork();
-	if (pid < 0)
-		return;
-
-	if (pid == 0) {
-		execlp("xdg-open", "xdg-open", path, nullptr);
-		exit(1);
-	}
-#endif /* PPSSPP_PLATFORM(WINDOWS) */
-}
 
 void System_LaunchUrl(LaunchUrlType urlType, const char *url) {
 	switch (urlType) {
@@ -546,6 +547,8 @@ float System_GetPropertyFloat(SystemProperty prop) {
 
 bool System_GetPropertyBool(SystemProperty prop) {
 	switch (prop) {
+	case SYSPROP_CAN_SHOW_FILE:
+		return true;
 	case SYSPROP_HAS_OPEN_DIRECTORY:
 #if PPSSPP_PLATFORM(WINDOWS)
 		return true;
@@ -570,7 +573,7 @@ bool System_GetPropertyBool(SystemProperty prop) {
 		return true;  // FileUtil.cpp: OpenFileInEditor
 #ifndef HTTPS_NOT_AVAILABLE
 	case SYSPROP_SUPPORTS_HTTPS:
-		return true;
+		return !g_Config.bDisableHTTPS;
 #endif
 #if PPSSPP_PLATFORM(MAC)
 	case SYSPROP_HAS_FOLDER_BROWSER:

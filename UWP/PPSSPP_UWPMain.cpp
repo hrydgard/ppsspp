@@ -71,7 +71,7 @@ PPSSPP_UWPMain::PPSSPP_UWPMain(App ^app, const std::shared_ptr<DX::DeviceResourc
 	ctx_.reset(new UWPGraphicsContext(deviceResources));
 
 #if _DEBUG
-		LogManager::GetInstance()->SetAllLogLevels(LogTypes::LDEBUG);
+		LogManager::GetInstance()->SetAllLogLevels(LogLevel::LDEBUG);
 
 		if (g_Config.bEnableLogging) {
 			LogManager::GetInstance()->ChangeFileLog(GetLogFile().c_str());
@@ -579,13 +579,12 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 		}
 		return true;
 	}
+	case SystemRequestType::SHOW_FILE_IN_FOLDER:
+		OpenFolder(param1);
+		return true;
 	default:
 		return false;
 	}
-}
-
-void System_ShowFileInFolder(const char *path) {
-	OpenFolder(std::string(path));
 }
 
 void System_LaunchUrl(LaunchUrlType urlType, const char *url) {

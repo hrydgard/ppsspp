@@ -431,6 +431,8 @@ const KeyMap_IntStrPair psp_button_names[] = {
 	{VIRTKEY_SCREEN_ROTATION_HORIZONTAL180, "Display Landscape Reversed"},
 #endif
 
+	{VIRTKEY_TOGGLE_WLAN, "Toggle WLAN"},
+
 	{CTRL_HOME, "Home"},
 	{CTRL_HOLD, "Hold"},
 	{CTRL_WLAN, "Wlan"},
@@ -796,6 +798,8 @@ void AutoConfForPad(const std::string &name) {
 		SetDefaultKeyMap(DEFAULT_MAPPING_ANDROID_XBOX, false);
 	} else if (name == "Retro Station Controller") {
 		SetDefaultKeyMap(DEFAULT_MAPPING_RETRO_STATION_CONTROLLER, false);
+	} else {
+		SetDefaultKeyMap(DEFAULT_MAPPING_ANDROID_PAD, false);
 	}
 #else
 	// TODO: Should actually check for XInput?
