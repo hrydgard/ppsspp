@@ -266,24 +266,32 @@ void X64JitBackend::CompIR_VecHoriz(IRInst inst) {
 
 	switch (inst.op) {
 	case IROp::Vec4Dot:
+	{
 		// TODO: Handle "aliasing" of sizes.  In theory it should be fine if not dirty...
 		if (Overlap(inst.dest, 1, inst.src1, 4) || Overlap(inst.dest, 1, inst.src2, 4))
 			DISABLE;
 
-		regs_.Map(inst);
-		if (cpu_info.bSSE4_1 && inst.dest == inst.src1) {
-			DPPS(regs_.FX(inst.dest), regs_.F(inst.src2), 0xF1);
-		} else if (cpu_info.bSSE4_1 && inst.dest == inst.src2) {
-			DPPS(regs_.FX(inst.dest), regs_.F(inst.src1), 0xF1);
+		X64Reg tempReg = regs_.MapWithFPRTemp(inst);
+
+		if (inst.dest == inst.src1) {
+			MULPS(regs_.FX(inst.dest), regs_.F(inst.src2));
+		} else if (inst.dest == inst.src2) {
+			MULPS(regs_.FX(inst.dest), regs_.F(inst.src1));
 		} else if (cpu_info.bAVX) {
-			VDPPS(128, regs_.FX(inst.dest), regs_.FX(inst.src1), regs_.F(inst.src2), 0xF1);
+			VMULPS(128, regs_.FX(inst.dest), regs_.FX(inst.src1), regs_.F(inst.src2));
 		} else if (cpu_info.bSSE4_1) {
 			MOVAPS(regs_.FX(inst.dest), regs_.F(inst.src1));
-			DPPS(regs_.FX(inst.dest), regs_.F(inst.src2), 0xF1);
-		} else {
-			CompIR_Generic(inst);
+			MULPS(regs_.FX(inst.dest), regs_.F(inst.src2));
 		}
+
+		// This shuffle can be done in one op for SSE3/AVX, but it's not always faster.
+		MOVAPS(tempReg, regs_.F(inst.dest));
+		SHUFPS(tempReg, regs_.F(inst.dest), VFPU_SWIZZLE(1, 0, 3, 2));
+		ADDPS(regs_.FX(inst.dest), R(tempReg));
+		MOVHLPS(tempReg, regs_.FX(inst.dest));
+		ADDSS(regs_.FX(inst.dest), R(tempReg));
 		break;
+	}
 
 	default:
 		INVALIDOP;
