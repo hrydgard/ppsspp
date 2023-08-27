@@ -124,6 +124,14 @@ void X64JitBackend::CompIR_System(IRInst inst) {
 		break;
 
 	case IROp::CallReplacement:
+		FlushAll();
+		SaveStaticRegisters();
+		ABI_CallFunction(GetReplacementFunc(inst.constant)->replaceFunc);
+		LoadStaticRegisters();
+		//SUB(32, R(DOWNCOUNTREG), R(DOWNCOUNTREG), R(EAX));
+		SUB(32, MDisp(CTXREG, downcountOffset), R(EAX));
+		break;
+
 	case IROp::Break:
 		CompIR_Generic(inst);
 		break;
