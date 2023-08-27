@@ -252,8 +252,11 @@ void RiscVJitBackend::FlushAll() {
 
 bool RiscVJitBackend::DescribeCodePtr(const u8 *ptr, std::string &name) const {
 	// Used in disassembly viewer.
+	// Don't use spaces; profilers get confused or truncate them.
 	if (ptr == dispatcherPCInSCRATCH1_) {
-		name = "dispatcher (PC in SCRATCH1)";
+		name = "dispatcherPCInSCRATCH1";
+	} else if (ptr == outerLoopPCInSCRATCH1_) {
+		name = "outerLoopPCInSCRATCH1";
 	} else if (ptr == dispatcherNoCheck_) {
 		name = "dispatcherNoCheck";
 	} else if (ptr == saveStaticRegisters_) {
@@ -262,6 +265,8 @@ bool RiscVJitBackend::DescribeCodePtr(const u8 *ptr, std::string &name) const {
 		name = "loadStaticRegisters";
 	} else if (ptr == applyRoundingMode_) {
 		name = "applyRoundingMode";
+	} else if (ptr >= GetBasePtr() && ptr < GetBasePtr() + jitStartOffset_) {
+		name = "fixedCode";
 	} else {
 		return IRNativeBackend::DescribeCodePtr(ptr, name);
 	}
