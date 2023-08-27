@@ -115,7 +115,7 @@ void RiscVJitBackend::CompIR_FCondAssign(IRInst inst) {
 			MAX(SCRATCH1, SCRATCH1, SCRATCH2);
 		SetJumpTarget(skipSwapCompare);
 	} else {
-		RiscVReg isSrc1LowerReg = regs_.GetAndLockTempR();
+		RiscVReg isSrc1LowerReg = regs_.GetAndLockTempGPR();
 		SLT(isSrc1LowerReg, SCRATCH1, SCRATCH2);
 		// Flip the flag (to reverse the min/max) based on if both were negative.
 		XOR(isSrc1LowerReg, isSrc1LowerReg, R_RA);

@@ -298,7 +298,22 @@ void X64JitBackend::CompIR_FCompare(IRInst inst) {
 		break;
 
 	case IROp::FCmovVfpuCC:
-		CompIR_Generic(inst);
+		regs_.MapWithExtra(inst, { { 'G', IRREG_VFPU_CC, 1, MIPSMap::INIT } });
+		if (regs_.HasLowSubregister(regs_.RX(IRREG_VFPU_CC))) {
+			TEST(8, regs_.R(IRREG_VFPU_CC), Imm8(1 << (inst.src2 & 7)));
+		} else {
+			TEST(32, regs_.R(IRREG_VFPU_CC), Imm32(1 << (inst.src2 & 7)));
+		}
+
+		if ((inst.src2 >> 7) & 1) {
+			FixupBranch skip = J_CC(CC_Z);
+			MOVAPS(regs_.FX(inst.dest), regs_.F(inst.src1));
+			SetJumpTarget(skip);
+		} else {
+			FixupBranch skip = J_CC(CC_NZ);
+			MOVAPS(regs_.FX(inst.dest), regs_.F(inst.src1));
+			SetJumpTarget(skip);
+		}
 		break;
 
 	case IROp::FCmpVfpuBit:
@@ -462,7 +477,7 @@ void X64JitBackend::CompIR_FCondAssign(IRInst inst) {
 	X64Reg tempReg = INVALID_REG;
 	switch (inst.op) {
 	case IROp::FMin:
-		tempReg = regs_.GetAndLockTempR();
+		tempReg = regs_.GetAndLockTempGPR();
 		regs_.Map(inst);
 		UCOMISS(regs_.FX(inst.src1), regs_.F(inst.src1));
 		skipNAN = J_CC(CC_NP, true);
@@ -499,7 +514,7 @@ void X64JitBackend::CompIR_FCondAssign(IRInst inst) {
 		break;
 
 	case IROp::FMax:
-		tempReg = regs_.GetAndLockTempR();
+		tempReg = regs_.GetAndLockTempGPR();
 		regs_.Map(inst);
 		UCOMISS(regs_.FX(inst.src1), regs_.F(inst.src1));
 		skipNAN = J_CC(CC_NP, true);
@@ -546,7 +561,14 @@ void X64JitBackend::CompIR_FCvt(IRInst inst) {
 
 	switch (inst.op) {
 	case IROp::FCvtWS:
+		CompIR_Generic(inst);
+		break;
+
 	case IROp::FCvtSW:
+		regs_.Map(inst);
+		CVTDQ2PS(regs_.FX(inst.dest), regs_.F(inst.src1));
+		break;
+
 	case IROp::FCvtScaledWS:
 	case IROp::FCvtScaledSW:
 		CompIR_Generic(inst);
@@ -563,7 +585,41 @@ void X64JitBackend::CompIR_FRound(IRInst inst) {
 
 	switch (inst.op) {
 	case IROp::FRound:
+		CompIR_Generic(inst);
+		break;
+
 	case IROp::FTrunc:
+	{
+		regs_.SpillLockFPR(inst.dest, inst.src1);
+		X64Reg tempZero = regs_.GetAndLockTempFPR();
+		regs_.Map(inst);
+
+		CVTTSS2SI(SCRATCH1, regs_.F(inst.src1));
+
+		// Did we get an indefinite integer value?
+		CMP(32, R(SCRATCH1), Imm32(0x80000000));
+		FixupBranch wasExact = J_CC(CC_NE);
+
+		XORPS(tempZero, R(tempZero));
+		if (inst.dest == inst.src1) {
+			CMPSS(regs_.FX(inst.dest), R(tempZero), CMP_LT);
+		} else if (cpu_info.bAVX) {
+			VCMPSS(regs_.FX(inst.dest), regs_.FX(inst.src1), R(tempZero), CMP_LT);
+		} else {
+			MOVAPS(regs_.FX(inst.dest), regs_.F(inst.src1));
+			CMPSS(regs_.FX(inst.dest), R(tempZero), CMP_LT);
+		}
+
+		// At this point, -inf = 0xffffffff, inf/nan = 0x00000000.
+		// We want -inf to be 0x80000000 inf/nan to be 0x7fffffff, so we flip those bits.
+		MOVD_xmm(R(SCRATCH1), regs_.FX(inst.dest));
+		XOR(32, R(SCRATCH1), Imm32(0x7fffffff));
+
+		SetJumpTarget(wasExact);
+		MOVD_xmm(regs_.FX(inst.dest), R(SCRATCH1));
+		break;
+	}
+
 	case IROp::FCeil:
 	case IROp::FFloor:
 		CompIR_Generic(inst);

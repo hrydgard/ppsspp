@@ -179,12 +179,20 @@ X64Reg X64IRRegCache::TryMapTempImm(IRReg r, X64Map flags) {
 	return INVALID_REG;
 }
 
-X64Reg X64IRRegCache::GetAndLockTempR() {
-	X64Reg reg = FromNativeReg(AllocateReg(MIPSLoc::REG, MIPSMap::INIT));
-	if (reg != INVALID_REG) {
+X64Reg X64IRRegCache::GetAndLockTempGPR() {
+	IRNativeReg reg = AllocateReg(MIPSLoc::REG, MIPSMap::INIT);
+	if (reg != -1) {
 		nr[reg].tempLockIRIndex = irIndex_;
 	}
-	return reg;
+	return FromNativeReg(reg);
+}
+
+X64Reg X64IRRegCache::GetAndLockTempFPR() {
+	IRNativeReg reg = AllocateReg(MIPSLoc::FREG, MIPSMap::INIT);
+	if (reg != -1) {
+		nr[reg].tempLockIRIndex = irIndex_;
+	}
+	return FromNativeReg(reg);
 }
 
 void X64IRRegCache::ReserveAndLockXGPR(Gen::X64Reg r) {
@@ -194,7 +202,7 @@ void X64IRRegCache::ReserveAndLockXGPR(Gen::X64Reg r) {
 	nr[r].tempLockIRIndex = irIndex_;
 }
 
-X64Reg X64IRRegCache::MapWithFPRTemp(IRInst &inst) {
+X64Reg X64IRRegCache::MapWithFPRTemp(const IRInst &inst) {
 	return FromNativeReg(MapWithTemp(inst, MIPSLoc::FREG));
 }
 
@@ -282,7 +290,6 @@ void X64IRRegCache::AdjustNativeRegAsPtr(IRNativeReg nreg, bool state) {
 		emit_->AND(PTRBITS, ::R(r), Imm32(Memory::MEMVIEW32_MASK));
 		emit_->ADD(PTRBITS, ::R(r), ImmPtr(Memory::base));
 #else
-		// Clear the top bits to be safe.
 		emit_->ADD(PTRBITS, ::R(r), ::R(MEMBASEREG));
 #endif
 	} else {

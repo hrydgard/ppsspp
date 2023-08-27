@@ -81,13 +81,14 @@ public:
 	Gen::X64Reg MapFPR(IRReg reg, MIPSMap mapFlags = MIPSMap::INIT);
 	Gen::X64Reg MapVec4(IRReg first, MIPSMap mapFlags = MIPSMap::INIT);
 
-	Gen::X64Reg MapWithFPRTemp(IRInst &inst);
+	Gen::X64Reg MapWithFPRTemp(const IRInst &inst);
 
 	void MapWithFlags(IRInst inst, X64IRJitConstants::X64Map destFlags, X64IRJitConstants::X64Map src1Flags = X64IRJitConstants::X64Map::NONE, X64IRJitConstants::X64Map src2Flags = X64IRJitConstants::X64Map::NONE);
 
 	void FlushBeforeCall();
 
-	Gen::X64Reg GetAndLockTempR();
+	Gen::X64Reg GetAndLockTempGPR();
+	Gen::X64Reg GetAndLockTempFPR();
 	void ReserveAndLockXGPR(Gen::X64Reg r);
 
 	Gen::OpArg R(IRReg preg);
