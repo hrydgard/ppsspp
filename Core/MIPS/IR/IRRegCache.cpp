@@ -908,7 +908,8 @@ void IRNativeRegCacheBase::MapNativeReg(MIPSLoc type, IRNativeReg nreg, IRReg fi
 				oldlanes++;
 
 			// We may need to flush if it goes outside or we're initing.
-			bool mismatch = oldlanes != lanes || mreg.lane != (lanes == 1 ? -1 : i);
+			int oldlane = mreg.lane == -1 ? 0 : mreg.lane;
+			bool mismatch = oldlanes != lanes || oldlane != i;
 			if (mismatch) {
 				_assert_msg_(!mreg.isStatic, "Cannot MapNativeReg a static reg mismatch");
 				if ((flags & MIPSMap::NOINIT) != MIPSMap::NOINIT) {
@@ -919,10 +920,37 @@ void IRNativeRegCacheBase::MapNativeReg(MIPSLoc type, IRNativeReg nreg, IRReg fi
 					FlushNativeReg(mreg.nReg);
 				} else if (oldlanes != 1) {
 					// Even if we don't care about the current contents, we can't discard outside.
-					bool extendsBefore = mreg.lane > i;
-					bool extendsAfter = i + oldlanes - mreg.lane > lanes;
-					if (extendsBefore || extendsAfter)
-						FlushNativeReg(mreg.nReg);
+					bool extendsBefore = oldlane > i;
+					bool extendsAfter = i + oldlanes - oldlane > lanes;
+					if (extendsBefore || extendsAfter) {
+						// Usually, this is 4->1.  Check for clobber.
+						bool clobbered = false;
+						if (lanes == 1) {
+							IRSituation info;
+							info.lookaheadCount = 16;
+							info.currentIndex = irIndex_;
+							info.instructions = irBlock_->GetInstructions();
+							info.numInstructions = irBlock_->GetNumInstructions();
+
+							IRReg basefpr = first - oldlane - 32;
+							clobbered = true;
+							for (int l = 0; l < oldlanes; ++l) {
+								// Ignore the one we're modifying.
+								if (l == oldlane)
+									continue;
+
+								if (IRNextFPRUsage(basefpr + l, info) != IRUsage::CLOBBERED) {
+									clobbered = false;
+									break;
+								}
+							}
+						}
+
+						if (clobbered)
+							DiscardNativeReg(mreg.nReg);
+						else
+							FlushNativeReg(mreg.nReg);
+					}
 				}
 			}
 
