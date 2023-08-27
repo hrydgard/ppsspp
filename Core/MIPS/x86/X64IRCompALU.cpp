@@ -164,8 +164,26 @@ void X64JitBackend::CompIR_Bits(IRInst inst) {
 
 	case IROp::ReverseBits:
 	case IROp::BSwap16:
-	case IROp::Clz:
 		CompIR_Generic(inst);
+		break;
+
+	case IROp::Clz:
+		regs_.Map(inst);
+		if (cpu_info.bLZCNT) {
+			LZCNT(32, regs_.RX(inst.dest), regs_.R(inst.src1));
+		} else {
+			BSR(32, SCRATCH1, regs_.R(inst.src1));
+			FixupBranch notFound = J_CC(CC_Z);
+
+			MOV(32, regs_.R(inst.dest), Imm32(31));
+			SUB(32, regs_.R(inst.dest), R(SCRATCH1));
+			FixupBranch skip = J();
+
+			SetJumpTarget(notFound);
+			MOV(32, regs_.R(inst.dest), Imm32(32));
+
+			SetJumpTarget(skip);
+		}
 		break;
 
 	default:
@@ -407,19 +425,28 @@ void X64JitBackend::CompIR_Logic(IRInst inst) {
 		regs_.Map(inst);
 		if (inst.dest != inst.src1)
 			MOV(32, regs_.R(inst.dest), regs_.R(inst.src1));
-		AND(32, regs_.R(inst.dest), UImmAuto(inst.constant));
+		AND(32, regs_.R(inst.dest), SImmAuto((s32)inst.constant));
 		break;
 
 	case IROp::OrConst:
 		regs_.Map(inst);
 		if (inst.dest != inst.src1)
 			MOV(32, regs_.R(inst.dest), regs_.R(inst.src1));
-		OR(32, regs_.R(inst.dest), UImmAuto(inst.constant));
+		OR(32, regs_.R(inst.dest), SImmAuto((s32)inst.constant));
 		break;
 
 	case IROp::XorConst:
+		regs_.Map(inst);
+		if (inst.dest != inst.src1)
+			MOV(32, regs_.R(inst.dest), regs_.R(inst.src1));
+		XOR(32, regs_.R(inst.dest), SImmAuto((s32)inst.constant));
+		break;
+
 	case IROp::Not:
-		CompIR_Generic(inst);
+		regs_.Map(inst);
+		if (inst.dest != inst.src1)
+			MOV(32, regs_.R(inst.dest), regs_.R(inst.src1));
+		NOT(32, regs_.R(inst.dest));
 		break;
 
 	default:
