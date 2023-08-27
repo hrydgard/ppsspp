@@ -88,24 +88,20 @@ void X64JitBackend::CompIR_Arith(IRInst inst) {
 	case IROp::AddConst:
 		if (regs_.IsGPRMappedAsPointer(inst.dest) && inst.dest == inst.src1 && allowPtrMath) {
 			regs_.MarkGPRAsPointerDirty(inst.dest);
-			ADD(PTRBITS, regs_.RPtr(inst.dest), SImmAuto(inst.constant));
+			LEA(PTRBITS, regs_.RXPtr(inst.dest), MDisp(regs_.RXPtr(inst.dest), inst.constant));
 		} else {
 			regs_.Map(inst);
-			if (inst.dest != inst.src1)
-				MOV(32, regs_.R(inst.dest), regs_.R(inst.src1));
-			ADD(32, regs_.R(inst.dest), SImmAuto(inst.constant));
+			LEA(32, regs_.RX(inst.dest), MDisp(regs_.RX(inst.src1), inst.constant));
 		}
 		break;
 
 	case IROp::SubConst:
 		if (regs_.IsGPRMappedAsPointer(inst.dest) && inst.dest == inst.src1 && allowPtrMath) {
 			regs_.MarkGPRAsPointerDirty(inst.dest);
-			SUB(PTRBITS, regs_.RPtr(inst.dest), SImmAuto(inst.constant));
+			LEA(PTRBITS, regs_.RXPtr(inst.dest), MDisp(regs_.RXPtr(inst.dest), -(int)inst.constant));
 		} else {
 			regs_.Map(inst);
-			if (inst.dest != inst.src1)
-				MOV(32, regs_.R(inst.dest), regs_.R(inst.src1));
-			SUB(32, regs_.R(inst.dest), SImmAuto(inst.constant));
+			LEA(32, regs_.RX(inst.dest), MDisp(regs_.RX(inst.src1), -(int)inst.constant));
 		}
 		break;
 
@@ -630,6 +626,9 @@ void X64JitBackend::CompIR_Shift(IRInst inst) {
 				regs_.Map(inst);
 				MOV(32, regs_.R(inst.dest), regs_.R(inst.src1));
 			}
+		} else if (inst.src2 <= 3) {
+			regs_.Map(inst);
+			LEA(32, regs_.RX(inst.dest), MScaled(regs_.RX(inst.src1), 1 << inst.src2, 0));
 		} else {
 			regs_.Map(inst);
 			if (inst.dest != inst.src1)
