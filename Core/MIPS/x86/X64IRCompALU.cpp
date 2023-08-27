@@ -311,8 +311,123 @@ void X64JitBackend::CompIR_Div(IRInst inst) {
 
 	switch (inst.op) {
 	case IROp::Div:
+#if PPSSPP_ARCH(AMD64)
+		// We need EDX specifically, so force a spill (before spill locks happen.)
+		regs_.MapGPR2(IRREG_LO, MIPSMap::NOINIT | X64Map::HIGH_DATA);
+		regs_.MapWithExtra(inst, { { 'G', IRREG_LO, 2, MIPSMap::NOINIT | X64Map::HIGH_DATA } });
+#else // PPSSPP_ARCH(X86)
+		// Force a spill, it's HI in this path.
+		regs_.MapGPR(IRREG_HI, MIPSMap::NOINIT | X64Map::HIGH_DATA);
+		regs_.MapWithExtra(inst, { { 'G', IRREG_LO, 1, MIPSMap::NOINIT }, { 'G', IRREG_HI, 1, MIPSMap::NOINIT | X64Map::HIGH_DATA } });
+#endif
+		{
+			TEST(32, regs_.R(inst.src2), regs_.R(inst.src2));
+			FixupBranch divideByZero = J_CC(CC_E, false);
+
+			// Sign extension sets HI to -1 for us on x64.
+			MOV(PTRBITS, regs_.R(IRREG_LO), Imm32(0x80000000));
+#if PPSSPP_ARCH(X86)
+			MOV(PTRBITS, regs_.R(IRREG_HI), Imm32(-1));
+#endif
+			CMP(32, regs_.R(inst.src1), regs_.R(IRREG_LO));
+			FixupBranch numeratorNotOverflow = J_CC(CC_NE, false);
+			CMP(32, regs_.R(inst.src2), Imm32(-1));
+			FixupBranch denominatorOverflow = J_CC(CC_E, false);
+
+			SetJumpTarget(numeratorNotOverflow);
+
+			// It's finally time to actually divide.
+			MOV(32, R(EAX), regs_.R(inst.src1));
+			CDQ();
+			IDIV(32, regs_.R(inst.src2));
+#if PPSSPP_ARCH(AMD64)
+			// EDX == RX(IRREG_LO).  Put the remainder in the upper bits, done.
+			SHL(64, R(EDX), Imm8(32));
+			OR(64, R(EDX), R(EAX));
+#else // PPSSPP_ARCH(X86)
+			// EDX is already good (HI), just move EAX into place.
+			MOV(32, regs_.R(IRREG_LO), R(EAX));
+#endif
+			FixupBranch done = J(false);
+
+			SetJumpTarget(divideByZero);
+			X64Reg loReg = SCRATCH1;
+#if PPSSPP_ARCH(X86)
+			if (regs_.HasLowSubregister(regs_.RX(IRREG_LO)))
+				loReg = regs_.RX(IRREG_LO);
+#endif
+			// Set to -1 if numerator positive using SF.
+			XOR(32, R(loReg), R(loReg));
+			TEST(32, regs_.R(inst.src1), regs_.R(inst.src1));
+			SETcc(CC_NS, R(loReg));
+			NEG(32, R(loReg));
+			// If it was negative, OR in 1 (so we get -1 or 1.)
+			OR(32, R(loReg), Imm8(1));
+
+#if PPSSPP_ARCH(AMD64)
+			// Move the numerator into the high bits.
+			MOV(32, regs_.R(IRREG_LO), regs_.R(inst.src1));
+			SHL(64, regs_.R(IRREG_LO), Imm8(32));
+			OR(64, regs_.R(IRREG_LO), R(loReg));
+#else // PPSSPP_ARCH(X86)
+			// If we didn't have a subreg, move into place.
+			if (loReg != regs_.RX(IRREG_LO))
+				MOV(32, regs_.R(IRREG_LO), R(loReg));
+			MOV(32, regs_.R(IRREG_HI), regs_.R(inst.src1));
+#endif
+
+			SetJumpTarget(denominatorOverflow);
+			SetJumpTarget(done);
+		}
+		break;
+
 	case IROp::DivU:
-		CompIR_Generic(inst);
+#if PPSSPP_ARCH(AMD64)
+		// We need EDX specifically, so force a spill (before spill locks happen.)
+		regs_.MapGPR2(IRREG_LO, MIPSMap::NOINIT | X64Map::HIGH_DATA);
+		regs_.MapWithExtra(inst, { { 'G', IRREG_LO, 2, MIPSMap::NOINIT | X64Map::HIGH_DATA } });
+#else // PPSSPP_ARCH(X86)
+		// Force a spill, it's HI in this path.
+		regs_.MapGPR(IRREG_HI, MIPSMap::NOINIT | X64Map::HIGH_DATA);
+		regs_.MapWithExtra(inst, { { 'G', IRREG_LO, 1, MIPSMap::NOINIT }, { 'G', IRREG_HI, 1, MIPSMap::NOINIT | X64Map::HIGH_DATA } });
+#endif
+		{
+			TEST(32, regs_.R(inst.src2), regs_.R(inst.src2));
+			FixupBranch divideByZero = J_CC(CC_E, false);
+
+			MOV(32, R(EAX), regs_.R(inst.src1));
+			XOR(32, R(EDX), R(EDX));
+			DIV(32, regs_.R(inst.src2));
+#if PPSSPP_ARCH(AMD64)
+			// EDX == RX(IRREG_LO).  Put the remainder in the upper bits, done.
+			SHL(64, R(EDX), Imm8(32));
+			OR(64, R(EDX), R(EAX));
+#else // PPSSPP_ARCH(X86)
+			// EDX is already good (HI), just move EAX into place.
+			MOV(32, regs_.R(IRREG_LO), R(EAX));
+#endif
+			FixupBranch done = J(false);
+
+			SetJumpTarget(divideByZero);
+			// First, set LO to 0xFFFF if numerator was <= that value.
+			MOV(32, regs_.R(IRREG_LO), Imm32(0xFFFF));
+			XOR(32, R(SCRATCH1), R(SCRATCH1));
+			CMP(32, regs_.R(IRREG_LO), regs_.R(inst.src1));
+			// If 0xFFFF was less, CF was set - SBB will subtract 1 from 0, netting -1.
+			SBB(32, R(SCRATCH1), Imm8(0));
+			OR(32, regs_.R(IRREG_LO), R(SCRATCH1));
+
+#if PPSSPP_ARCH(AMD64)
+			// Move the numerator into the high bits.
+			MOV(32, R(SCRATCH1), regs_.R(inst.src1));
+			SHL(64, R(SCRATCH1), Imm8(32));
+			OR(64, regs_.R(IRREG_LO), R(SCRATCH1));
+#else // PPSSPP_ARCH(X86)
+			MOV(32, regs_.R(IRREG_HI), regs_.R(inst.src1));
+#endif
+
+			SetJumpTarget(done);
+		}
 		break;
 
 	default:
