@@ -747,12 +747,18 @@ namespace MIPSComp {
 		GetVectorRegsPrefixT(tregs, sz, vt);
 		GetVectorRegsPrefixD(dregs, V_Single, vd);
 
-		if (IsOverlapSafe(dregs[0], n, sregs, n, tregs)) {
-			if (IsVec4(sz, sregs) && IsVec4(sz, tregs)) {
+		if (IsVec4(sz, sregs) && IsVec4(sz, tregs)) {
+			if (IsOverlapSafe(dregs[0], n, sregs, n, tregs)) {
 				ir.Write(IROp::Vec4Dot, dregs[0], sregs[0], tregs[0]);
-				ApplyPrefixD(dregs, V_Single, vd);
-				return;
-			} else if (IsVec3of4(sz, sregs) && IsVec3of4(sz, tregs) && opts.preferVec4) {
+			} else {
+				ir.Write(IROp::Vec4Dot, IRVTEMP_0, sregs[0], tregs[0]);
+				ir.Write(IROp::FMov, dregs[0], IRVTEMP_0);
+			}
+			ApplyPrefixD(dregs, V_Single, vd);
+			return;
+		} else if (IsVec3of4(sz, sregs) && IsVec3of4(sz, tregs) && opts.preferVec4Dot) {
+			// Note: this is often worse than separate muliplies and adds on x86.
+			if (IsOverlapSafe(dregs[0], n, tregs) || sregs[0] == tregs[0]) {
 				// Nice example of this in Fat Princess (US) in block 088181A0 (hot.)
 				// Create a temporary copy of S with the last element zeroed.
 				ir.Write(IROp::Vec4Init, IRVTEMP_0, (int)Vec4Init::AllZERO);

@@ -394,6 +394,7 @@ struct IROptions {
 	bool unalignedLoadStore;
 	bool unalignedLoadStoreVec4;
 	bool preferVec4;
+	bool preferVec4Dot;
 };
 
 const IRMeta *GetIRMeta(IROp op);
