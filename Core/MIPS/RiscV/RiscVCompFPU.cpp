@@ -578,9 +578,10 @@ void RiscVJitBackend::CompIR_FSpecial(IRInst inst) {
 #error Currently hard float is required.
 #endif
 
-	auto callFuncF_F = [&](float (*func)(float)){
+	auto callFuncF_F = [&](float (*func)(float)) {
 		regs_.FlushBeforeCall();
 		// It might be in a non-volatile register.
+		// TODO: May have to handle a transfer if SIMD here.
 		if (regs_.IsFPRMapped(inst.src1)) {
 			FMV(32, F10, regs_.F(inst.src1));
 		} else {

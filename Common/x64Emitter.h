@@ -746,6 +746,10 @@ public:
 	void MOVD_xmm(const OpArg &arg, X64Reg src);
 	void MOVQ_xmm(OpArg arg, X64Reg src);
 
+	// SSE3: Some additional moves.
+	void MOVSHDUP(X64Reg regOp1, OpArg arg);
+	void MOVSLDUP(X64Reg regOp1, OpArg arg);
+
 	// SSE/SSE2: Generates a mask from the high bits of the components of the packed register in question.
 	void MOVMSKPS(X64Reg dest, OpArg arg);
 	void MOVMSKPD(X64Reg dest, OpArg arg);

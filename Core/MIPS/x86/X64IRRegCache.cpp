@@ -103,6 +103,13 @@ const int *X64IRRegCache::GetAllocationOrder(MIPSLoc type, MIPSMap flags, int &c
 #endif
 		};
 
+		if ((flags & X64Map::MASK) == X64Map::XMM0) {
+			// Certain cases require this reg.
+			static const int blendReg[] = { XMM0 };
+			count = 1;
+			return blendReg;
+		}
+
 		count = ARRAY_SIZE(allocationOrder);
 		return allocationOrder;
 	} else {
@@ -236,6 +243,11 @@ void X64IRRegCache::MapWithFlags(IRInst inst, X64Map destFlags, X64Map src1Flags
 		case X64Map::HIGH_DATA:
 			if (nr[RDX].mipsReg != mapping[i].reg)
 				flushReg(RDX);
+			break;
+
+		case X64Map::XMM0:
+			if (nr[XMMToNativeReg(XMM0)].mipsReg != mapping[i].reg)
+				flushReg(XMMToNativeReg(XMM0));
 			break;
 
 		default:

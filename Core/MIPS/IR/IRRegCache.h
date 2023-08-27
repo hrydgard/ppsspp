@@ -163,6 +163,7 @@ public:
 	bool IsFPRMapped(IRReg fpr);
 	bool IsGPRMappedAsPointer(IRReg gpr);
 	bool IsGPRMappedAsStaticPointer(IRReg gpr);
+	int GetFPRLane(IRReg fpr);
 
 	bool IsGPRImm(IRReg gpr);
 	bool IsGPR2Imm(IRReg base);

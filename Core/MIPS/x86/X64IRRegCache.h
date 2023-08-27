@@ -45,10 +45,12 @@ enum class X64Map : uint8_t {
 	NONE = 0,
 	// On 32-bit: EAX, EBX, ECX, EDX
 	LOW_SUBREG = 0x10,
-	// EDX/RDX
+	// EDX/RDX for DIV/MUL/similar.
 	HIGH_DATA = 0x20,
-	// ECX/RCX
+	// ECX/RCX only, for shifts.
 	SHIFT = 0x30,
+	// XMM0 for BLENDVPS, funcs.
+	XMM0 = 0x40,
 	MASK = 0xF0,
 };
 static inline MIPSMap operator |(const MIPSMap &lhs, const X64Map &rhs) {
