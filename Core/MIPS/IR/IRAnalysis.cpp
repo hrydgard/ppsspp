@@ -42,9 +42,7 @@ static bool IRReadsFrom(const IRInst &inst, int reg, char type, bool *directly) 
 
 	if (directly)
 		*directly = false;
-	if (inst.op == IROp::Interpret || inst.op == IROp::CallReplacement)
-		return true;
-	if ((m->flags & IRFLAG_EXIT) != 0)
+	if ((m->flags & (IRFLAG_EXIT | IRFLAG_BARRIER)) != 0)
 		return true;
 	return false;
 }

@@ -1042,7 +1042,9 @@ bool PurgeTemps(const IRWriter &in, IRWriter &out, const IROptions &opts) {
 					std::swap(inst.dest, inst.src1);
 				} else {
 					// Legitimately read from, so we can't optimize out.
-					check.reg = 0;
+					// Unless this is an exit and a temp not read directly by the exit.
+					if ((m->flags & IRFLAG_EXIT) == 0 || check.readByExit || readsDirectly)
+						check.reg = 0;
 				}
 			} else if (check.fplen >= 1 && readsFromFPRCheck(inst, check, &readsDirectly)) {
 				// If one or the other is a Vec, they must match.
@@ -1118,7 +1120,8 @@ bool PurgeTemps(const IRWriter &in, IRWriter &out, const IROptions &opts) {
 					}
 				} else {
 					// Legitimately read from, so we can't optimize out.
-					check.reg = 0;
+					if ((m->flags & IRFLAG_EXIT) == 0 || check.readByExit || readsDirectly)
+						check.reg = 0;
 				}
 			} else if (check.readByExit && (m->flags & IRFLAG_EXIT) != 0) {
 				// This is an exit, and the reg is read by any exit.  Clear it.
@@ -1267,7 +1270,7 @@ bool ReduceLoads(const IRWriter &in, IRWriter &out, const IROptions &opts) {
 				const IRInst &laterInst = in.GetInstructions()[j];
 				const IRMeta *m = GetIRMeta(laterInst.op);
 
-				if ((m->flags & IRFLAG_EXIT) != 0) {
+				if ((m->flags & (IRFLAG_EXIT | IRFLAG_BARRIER)) != 0) {
 					// Exit, so we can't do the optimization.
 					break;
 				}

@@ -326,6 +326,8 @@ enum IRFlags {
 	IRFLAG_SRC3DST = 0x0002,
 	// Exit instruction (maybe conditional.)
 	IRFLAG_EXIT = 0x0004,
+	// Instruction like Interpret which may read anything, but not an exit.
+	IRFLAG_BARRIER = 0x0008,
 };
 
 struct IRMeta {
