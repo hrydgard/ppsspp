@@ -212,7 +212,13 @@ void X64JitBackend::CompIR_VecAssign(IRInst inst) {
 		break;
 
 	case IROp::Vec4Shuffle:
-		regs_.Map(inst);
+		if (regs_.GetFPRLaneCount(inst.src1) == 1 && (inst.src1 & 3) == 0 && inst.src2 == 0) {
+			// This is a broadcast.  If dest == src1, this won't clear it.
+			regs_.SpillLockFPR(inst.src1);
+			regs_.MapVec4(inst.dest, MIPSMap::NOINIT);
+		} else {
+			regs_.Map(inst);
+		}
 		if (cpu_info.bAVX) {
 			VPERMILPS(128, regs_.FX(inst.dest), regs_.F(inst.src1), inst.src2);
 		} else {
