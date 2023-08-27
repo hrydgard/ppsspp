@@ -105,6 +105,7 @@ Windows/*.ipch
 # For vim
 *.swp
 tags
+*.ctags
 
 # Other VCS
 .bzr/
