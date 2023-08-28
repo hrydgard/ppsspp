@@ -2769,9 +2769,10 @@ bool TextureCacheCommon::PrepareBuildTexture(BuildTexturePlan &plan, TexCacheEnt
 		plan.scaleFactor = plan.scaleFactor > 4 ? 4 : (plan.scaleFactor > 2 ? 2 : 1);
 	}
 
-	bool isFakeMipmapChange = IsFakeMipmapChange();
-
+	bool isFakeMipmapChange = false;
 	if (plan.badMipSizes) {
+		isFakeMipmapChange = IsFakeMipmapChange();
+
 		// Check for pure 3D texture.
 		int tw = gstate.getTextureWidth(0);
 		int th = gstate.getTextureHeight(0);
@@ -2784,6 +2785,7 @@ bool TextureCacheCommon::PrepareBuildTexture(BuildTexturePlan &plan, TexCacheEnt
 				}
 			}
 		} else {
+			// We don't want to create a volume texture, if this is a "fake mipmap change".
 			pure3D = false;
 		}
 
@@ -2911,6 +2913,13 @@ bool TextureCacheCommon::PrepareBuildTexture(BuildTexturePlan &plan, TexCacheEnt
 	if (isFakeMipmapChange) {
 		// NOTE: Since the level is not part of the cache key, we assume it never changes.
 		plan.baseLevelSrc = std::max(0, gstate.getTexLevelOffset16() / 16);
+		// If this is level 1 and it has the same texture address as level 0, let's just say it's
+		// level 0 for the purposes of replacement. Seen in Tactics Ogre.
+		// I assume this is done to avoid blending between levels accidentally?
+		// The Japanese version uses more levels, but similarly in pairs.
+		if (plan.baseLevelSrc == 1 && gstate.getTextureAddress(1) == gstate.getTextureAddress(0)) {
+			plan.baseLevelSrc = 0;
+		}
 		plan.levelsToCreate = 1;
 		plan.levelsToLoad = 1;
 		// Make sure we already decided not to do a 3D texture above.
