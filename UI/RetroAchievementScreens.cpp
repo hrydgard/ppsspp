@@ -297,12 +297,6 @@ void RetroAchievementsSettingsScreen::CreateAccountTab(UI::ViewGroup *viewGroup)
 		std::string errorMessage;
 		if (Achievements::LoginProblems(&errorMessage)) {
 			viewGroup->Add(new NoticeView(NoticeLevel::WARN, ac->T("Failed logging in to RetroAchievements"), errorMessage));
-			if (Achievements::HasToken()) {
-				viewGroup->Add(new Choice(di->T("Retry")))->OnClick.Add([=](UI::EventParams &) -> UI::EventReturn {
-					Achievements::TryLoginByToken();
-					return UI::EVENT_DONE;
-				});
-			}
 			viewGroup->Add(new Choice(di->T("Log out")))->OnClick.Add([=](UI::EventParams &) -> UI::EventReturn {
 				Achievements::Logout();
 				return UI::EVENT_DONE;
