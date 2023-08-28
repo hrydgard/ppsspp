@@ -533,7 +533,7 @@ void Idle() {
 
 	// If failed to log in, occasionally try again while the user is at the menu.
 	// Do not try if if in-game, that could get confusing.
-	if (GetUIState() == UISTATE_MENU && now > g_lastLoginAttemptTime + LOGIN_ATTEMPT_INTERVAL_S) {
+	if (g_Config.bAchievementsEnable && GetUIState() == UISTATE_MENU && now > g_lastLoginAttemptTime + LOGIN_ATTEMPT_INTERVAL_S) {
 		g_lastLoginAttemptTime = now;
 		if (g_rcClient && IsLoggedIn()) {
 			return;  // All good.
@@ -740,7 +740,7 @@ void SetGame(const Path &path, FileLoader *fileLoader) {
 	}
 
 	if (!g_rcClient || !IsLoggedIn()) {
-		if (HasToken()) {
+		if (g_Config.bAchievementsEnable && HasToken()) {
 			ShowNotLoggedInMessage();
 		}
 		// Nothing to do.
