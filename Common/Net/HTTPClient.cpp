@@ -366,7 +366,7 @@ int Client::SendRequestWithData(const char *method, const RequestParams &req, co
 	return 0;
 }
 
-int Client::ReadResponseHeaders(net::Buffer *readbuf, std::vector<std::string> &responseHeaders, net::RequestProgress *progress) {
+int Client::ReadResponseHeaders(net::Buffer *readbuf, std::vector<std::string> &responseHeaders, net::RequestProgress *progress, std::string * httpCode) {
 	// Snarf all the data we can into RAM. A little unsafe but hey.
 	static constexpr float CANCEL_INTERVAL = 0.25f;
 	bool ready = false;
@@ -403,6 +403,9 @@ int Client::ReadResponseHeaders(net::Buffer *readbuf, std::vector<std::string> &
 		ERROR_LOG(HTTP, "Could not parse HTTP status code: %s", line.c_str());
 		return -1;
 	}
+
+	if (httpCode)
+		*httpCode = line;
 
 	while (true) {
 		int sz = readbuf->TakeLineCRLF(&line);

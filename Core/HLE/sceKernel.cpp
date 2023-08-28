@@ -85,6 +85,7 @@
 #include "sceDmac.h"
 #include "sceMp4.h"
 #include "sceOpenPSID.h"
+#include "sceHttp.h"
 #include "Core/Util/PPGeDraw.h"
 
 /*
@@ -150,6 +151,7 @@ void __KernelInit()
 	__UsbCamInit();
 	__UsbMicInit();
 	__OpenPSIDInit();
+	__HttpInit();
 	
 	SaveState::Init();  // Must be after IO, as it may create a directory
 	Reporting::Init();
@@ -173,6 +175,7 @@ void __KernelShutdown()
 	hleCurrentThreadName = NULL;
 	kernelObjects.Clear();
 
+	__HttpShutdown();
 	__OpenPSIDShutdown();
 	__UsbCamShutdown();
 	__UsbMicShutdown();

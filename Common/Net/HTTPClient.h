@@ -72,7 +72,7 @@ public:
 
 	int SendRequest(const char *method, const RequestParams &req, const char *otherHeaders, net::RequestProgress *progress);
 	int SendRequestWithData(const char *method, const RequestParams &req, const std::string &data, const char *otherHeaders, net::RequestProgress *progress);
-	int ReadResponseHeaders(net::Buffer *readbuf, std::vector<std::string> &responseHeaders, net::RequestProgress *progress);
+	int ReadResponseHeaders(net::Buffer *readbuf, std::vector<std::string> &responseHeaders, net::RequestProgress *progress, std::string* httpCode = nullptr);
 	// If your response contains a response, you must read it.
 	int ReadResponseEntity(net::Buffer *readbuf, const std::vector<std::string> &responseHeaders, Buffer *output, net::RequestProgress *progress);
 
@@ -82,6 +82,10 @@ public:
 
 	void SetUserAgent(const std::string &value) {
 		userAgent_ = value;
+	}
+
+	void SetHttpVersion(const char* version) {
+		httpVersion_ = version;
 	}
 
 protected:
