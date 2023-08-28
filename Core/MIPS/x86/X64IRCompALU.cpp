@@ -160,11 +160,11 @@ void X64JitBackend::CompIR_Bits(IRInst inst) {
 		if (cpu_info.bLZCNT) {
 			LZCNT(32, regs_.RX(inst.dest), regs_.R(inst.src1));
 		} else {
-			BSR(32, SCRATCH1, regs_.R(inst.src1));
+			BSR(32, regs_.RX(inst.dest), regs_.R(inst.src1));
 			FixupBranch notFound = J_CC(CC_Z);
 
-			MOV(32, regs_.R(inst.dest), Imm32(31));
-			SUB(32, regs_.R(inst.dest), R(SCRATCH1));
+			// Since one of these bits must be set, and none outside, this subtracts from 31.
+			XOR(32, regs_.R(inst.dest), Imm8(31));
 			FixupBranch skip = J();
 
 			SetJumpTarget(notFound);
