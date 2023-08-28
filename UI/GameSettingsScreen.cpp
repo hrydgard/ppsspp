@@ -977,9 +977,7 @@ void GameSettingsScreen::CreateSystemSettings(UI::ViewGroup *systemSettings) {
 
 	if (System_GetPropertyBool(SYSPROP_HAS_OPEN_DIRECTORY)) {
 		systemSettings->Add(new Choice(sy->T("Show Memory Stick folder")))->OnClick.Add([](UI::EventParams &p) {
-			// TODO: Should build ResolvePath into System_ShowFileInFolder()?
-			std::string resolved = File::ResolvePath(g_Config.memStickDirectory.ToString());
-			System_ShowFileInFolder(Path(resolved));
+			System_ShowFileInFolder(g_Config.memStickDirectory);
 			return UI::EVENT_DONE;
 		});
 	}
