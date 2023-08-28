@@ -45,6 +45,7 @@ alignas(16) const u32 reverseQNAN[4] = { 0x803FFFFF, 0x803FFFFF, 0x803FFFFF, 0x8
 alignas(16) const u32 noSignMask[4] = { 0x7FFFFFFF, 0x7FFFFFFF, 0x7FFFFFFF, 0x7FFFFFFF };
 alignas(16) const u32 positiveInfinity[4] = { 0x7F800000, 0x7F800000, 0x7F800000, 0x7F800000 };
 alignas(16) const u32 signBitAll[4] = { 0x80000000, 0x80000000, 0x80000000, 0x80000000 };
+alignas(16) const u32 ones[4] = { 0x3F800000, 0x3F800000, 0x3F800000, 0x3F800000 };
 } simdConstants;
 
 void X64JitBackend::CompIR_FArith(IRInst inst) {
@@ -298,7 +299,22 @@ void X64JitBackend::CompIR_FCompare(IRInst inst) {
 		break;
 
 	case IROp::FCmovVfpuCC:
-		CompIR_Generic(inst);
+		regs_.MapWithExtra(inst, { { 'G', IRREG_VFPU_CC, 1, MIPSMap::INIT } });
+		if (regs_.HasLowSubregister(regs_.RX(IRREG_VFPU_CC))) {
+			TEST(8, regs_.R(IRREG_VFPU_CC), Imm8(1 << (inst.src2 & 7)));
+		} else {
+			TEST(32, regs_.R(IRREG_VFPU_CC), Imm32(1 << (inst.src2 & 7)));
+		}
+
+		if ((inst.src2 >> 7) & 1) {
+			FixupBranch skip = J_CC(CC_Z);
+			MOVAPS(regs_.FX(inst.dest), regs_.F(inst.src1));
+			SetJumpTarget(skip);
+		} else {
+			FixupBranch skip = J_CC(CC_NZ);
+			MOVAPS(regs_.FX(inst.dest), regs_.F(inst.src1));
+			SetJumpTarget(skip);
+		}
 		break;
 
 	case IROp::FCmpVfpuBit:
@@ -462,7 +478,7 @@ void X64JitBackend::CompIR_FCondAssign(IRInst inst) {
 	X64Reg tempReg = INVALID_REG;
 	switch (inst.op) {
 	case IROp::FMin:
-		tempReg = regs_.GetAndLockTempR();
+		tempReg = regs_.GetAndLockTempGPR();
 		regs_.Map(inst);
 		UCOMISS(regs_.FX(inst.src1), regs_.F(inst.src1));
 		skipNAN = J_CC(CC_NP, true);
@@ -499,7 +515,7 @@ void X64JitBackend::CompIR_FCondAssign(IRInst inst) {
 		break;
 
 	case IROp::FMax:
-		tempReg = regs_.GetAndLockTempR();
+		tempReg = regs_.GetAndLockTempGPR();
 		regs_.Map(inst);
 		UCOMISS(regs_.FX(inst.src1), regs_.F(inst.src1));
 		skipNAN = J_CC(CC_NP, true);
@@ -546,7 +562,14 @@ void X64JitBackend::CompIR_FCvt(IRInst inst) {
 
 	switch (inst.op) {
 	case IROp::FCvtWS:
+		CompIR_Generic(inst);
+		break;
+
 	case IROp::FCvtSW:
+		regs_.Map(inst);
+		CVTDQ2PS(regs_.FX(inst.dest), regs_.F(inst.src1));
+		break;
+
 	case IROp::FCvtScaledWS:
 	case IROp::FCvtScaledSW:
 		CompIR_Generic(inst);
@@ -563,7 +586,41 @@ void X64JitBackend::CompIR_FRound(IRInst inst) {
 
 	switch (inst.op) {
 	case IROp::FRound:
+		CompIR_Generic(inst);
+		break;
+
 	case IROp::FTrunc:
+	{
+		regs_.SpillLockFPR(inst.dest, inst.src1);
+		X64Reg tempZero = regs_.GetAndLockTempFPR();
+		regs_.Map(inst);
+
+		CVTTSS2SI(SCRATCH1, regs_.F(inst.src1));
+
+		// Did we get an indefinite integer value?
+		CMP(32, R(SCRATCH1), Imm32(0x80000000));
+		FixupBranch wasExact = J_CC(CC_NE);
+
+		XORPS(tempZero, R(tempZero));
+		if (inst.dest == inst.src1) {
+			CMPSS(regs_.FX(inst.dest), R(tempZero), CMP_LT);
+		} else if (cpu_info.bAVX) {
+			VCMPSS(regs_.FX(inst.dest), regs_.FX(inst.src1), R(tempZero), CMP_LT);
+		} else {
+			MOVAPS(regs_.FX(inst.dest), regs_.F(inst.src1));
+			CMPSS(regs_.FX(inst.dest), R(tempZero), CMP_LT);
+		}
+
+		// At this point, -inf = 0xffffffff, inf/nan = 0x00000000.
+		// We want -inf to be 0x80000000 inf/nan to be 0x7fffffff, so we flip those bits.
+		MOVD_xmm(R(SCRATCH1), regs_.FX(inst.dest));
+		XOR(32, R(SCRATCH1), Imm32(0x7fffffff));
+
+		SetJumpTarget(wasExact);
+		MOVD_xmm(regs_.FX(inst.dest), R(SCRATCH1));
+		break;
+	}
+
 	case IROp::FCeil:
 	case IROp::FFloor:
 		CompIR_Generic(inst);
@@ -590,16 +647,154 @@ void X64JitBackend::CompIR_FSat(IRInst inst) {
 	}
 }
 
+#if X64JIT_USE_XMM_CALL
+static float X64JIT_XMM_CALL x64_sin(float f) {
+	return vfpu_sin(f);
+}
+
+static float X64JIT_XMM_CALL x64_cos(float f) {
+	return vfpu_cos(f);
+}
+
+static float X64JIT_XMM_CALL x64_asin(float f) {
+	return vfpu_asin(f);
+}
+#else
+static uint32_t x64_sin(uint32_t v) {
+	float f;
+	memcpy(&f, &v, sizeof(v));
+	f = vfpu_sin(f);
+	memcpy(&v, &f, sizeof(v));
+	return v;
+}
+
+static uint32_t x64_cos(uint32_t v) {
+	float f;
+	memcpy(&f, &v, sizeof(v));
+	f = vfpu_cos(f);
+	memcpy(&v, &f, sizeof(v));
+	return v;
+}
+
+static uint32_t x64_asin(uint32_t v) {
+	float f;
+	memcpy(&f, &v, sizeof(v));
+	f = vfpu_asin(f);
+	memcpy(&v, &f, sizeof(v));
+	return v;
+}
+#endif
+
 void X64JitBackend::CompIR_FSpecial(IRInst inst) {
 	CONDITIONAL_DISABLE;
 
+	// TODO: Regcache... maybe emitter helper too?
+	auto laneToReg0 = [&](X64Reg dest, X64Reg src, int lane) {
+		if (lane == 0) {
+			if (dest != src)
+				MOVAPS(dest, R(src));
+		} else if (lane == 1 && cpu_info.bSSE3) {
+			MOVSHDUP(dest, R(src));
+		} else if (lane == 2) {
+			MOVHLPS(dest, src);
+		} else if (cpu_info.bAVX) {
+			VPERMILPS(128, dest, R(src), VFPU_SWIZZLE(lane, lane, lane, lane));
+		} else {
+			if (dest != src)
+				MOVAPS(dest, R(src));
+			SHUFPS(dest, R(dest), VFPU_SWIZZLE(lane, lane, lane, lane));
+		}
+	};
+
+	auto callFuncF_F = [&](const void *func) {
+		regs_.FlushBeforeCall();
+
+#if X64JIT_USE_XMM_CALL
+		if (regs_.IsFPRMapped(inst.src1)) {
+			int lane = regs_.GetFPRLane(inst.src1);
+			laneToReg0(XMM0, regs_.FX(inst.src1), lane);
+		} else {
+			// Account for CTXREG being increased by 128 to reduce imm sizes.
+			int offset = offsetof(MIPSState, f) + inst.src1 * 4 - 128;
+			MOVSS(XMM0, MDisp(CTXREG, offset));
+		}
+		ABI_CallFunction((const void *)func);
+
+		// It's already in place, NOINIT won't modify.
+		regs_.MapFPR(inst.dest, MIPSMap::NOINIT | X64Map::XMM0);
+#else
+		if (regs_.IsFPRMapped(inst.src1)) {
+			int lane = regs_.GetFPRLane(inst.src1);
+			if (lane == 0) {
+				MOVD_xmm(R(SCRATCH1), regs_.FX(inst.src1));
+			} else {
+				laneToReg0(XMM0, regs_.FX(inst.src1), lane);
+				MOVD_xmm(R(SCRATCH1), XMM0);
+			}
+		} else {
+			int offset = offsetof(MIPSState, f) + inst.src1 * 4;
+			MOV(32, R(SCRATCH1), MDisp(CTXREG, offset));
+		}
+		ABI_CallFunctionR((const void *)func, SCRATCH1);
+
+		regs_.MapFPR(inst.dest, MIPSMap::NOINIT);
+		MOVD_xmm(regs_.FX(inst.dest), R(SCRATCH1));
+#endif
+	};
+
 	switch (inst.op) {
 	case IROp::FSin:
+		callFuncF_F((const void *)&x64_sin);
+		break;
+
 	case IROp::FCos:
+		callFuncF_F((const void *)&x64_cos);
+		break;
+
 	case IROp::FRSqrt:
+		{
+			X64Reg tempReg = regs_.MapWithFPRTemp(inst);
+			SQRTSS(tempReg, regs_.F(inst.src1));
+
+			if (RipAccessible(&simdConstants.ones)) {
+				MOVSS(regs_.FX(inst.dest), M(&simdConstants.ones));  // rip accessible
+			} else {
+				MOV(PTRBITS, R(SCRATCH1), ImmPtr(&simdConstants.ones));
+				MOVSS(regs_.FX(inst.dest), MatR(SCRATCH1));
+			}
+			DIVSS(regs_.FX(inst.dest), R(tempReg));
+			break;
+		}
+
 	case IROp::FRecip:
+		if (inst.dest != inst.src1) {
+			regs_.Map(inst);
+			if (RipAccessible(&simdConstants.ones)) {
+				MOVSS(regs_.FX(inst.dest), M(&simdConstants.ones));  // rip accessible
+			} else {
+				MOV(PTRBITS, R(SCRATCH1), ImmPtr(&simdConstants.ones));
+				MOVSS(regs_.FX(inst.dest), MatR(SCRATCH1));
+			}
+			DIVSS(regs_.FX(inst.dest), regs_.F(inst.src1));
+		} else {
+			X64Reg tempReg = regs_.MapWithFPRTemp(inst);
+			if (RipAccessible(&simdConstants.ones)) {
+				MOVSS(tempReg, M(&simdConstants.ones));  // rip accessible
+			} else {
+				MOV(PTRBITS, R(SCRATCH1), ImmPtr(&simdConstants.ones));
+				MOVSS(tempReg, MatR(SCRATCH1));
+			}
+			if (cpu_info.bAVX) {
+				VDIVSS(regs_.FX(inst.dest), tempReg, regs_.F(inst.src1));
+			} else {
+				DIVSS(tempReg, regs_.F(inst.src1));
+				MOVSS(regs_.FX(inst.dest), R(tempReg));
+			}
+		}
+		break;
+
 	case IROp::FAsin:
-		CompIR_Generic(inst);
+		callFuncF_F((const void *)&x64_asin);
 		break;
 
 	default:

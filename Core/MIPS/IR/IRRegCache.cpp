@@ -159,6 +159,34 @@ bool IRNativeRegCacheBase::IsFPRMapped(IRReg fpr) {
 	return mr[fpr + 32].loc == MIPSLoc::FREG || mr[fpr + 32].loc == MIPSLoc::VREG;
 }
 
+int IRNativeRegCacheBase::GetFPRLaneCount(IRReg fpr) {
+	if (!IsFPRMapped(fpr) || mr[fpr].lane > 0)
+		return 0;
+	if (mr[fpr].lane == -1)
+		return 1;
+
+	int c = 1;
+	for (int i = 1; i < 4; ++i) {
+		if (mr[fpr + i].nReg != mr[fpr].nReg || mr[fpr + i].loc != mr[fpr].loc)
+			return c;
+		if (mr[fpr + i].lane != i)
+			return c;
+
+		c++;
+	}
+
+	return c;
+}
+
+int IRNativeRegCacheBase::GetFPRLane(IRReg fpr) {
+	_dbg_assert_(IsValidFPR(fpr));
+	if (mr[fpr + 32].loc == MIPSLoc::FREG || mr[fpr + 32].loc == MIPSLoc::VREG) {
+		int l = mr[fpr + 32].lane;
+		return l == -1 ? 0 : l;
+	}
+	return -1;
+}
+
 bool IRNativeRegCacheBase::IsGPRMappedAsPointer(IRReg gpr) {
 	_dbg_assert_(IsValidGPR(gpr));
 	if (mr[gpr].loc == MIPSLoc::REG) {

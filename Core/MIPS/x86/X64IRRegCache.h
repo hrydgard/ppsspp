@@ -45,10 +45,12 @@ enum class X64Map : uint8_t {
 	NONE = 0,
 	// On 32-bit: EAX, EBX, ECX, EDX
 	LOW_SUBREG = 0x10,
-	// EDX/RDX
+	// EDX/RDX for DIV/MUL/similar.
 	HIGH_DATA = 0x20,
-	// ECX/RCX
+	// ECX/RCX only, for shifts.
 	SHIFT = 0x30,
+	// XMM0 for BLENDVPS, funcs.
+	XMM0 = 0x40,
 	MASK = 0xF0,
 };
 static inline MIPSMap operator |(const MIPSMap &lhs, const X64Map &rhs) {
@@ -82,13 +84,14 @@ public:
 	Gen::X64Reg MapFPR(IRReg reg, MIPSMap mapFlags = MIPSMap::INIT);
 	Gen::X64Reg MapVec4(IRReg first, MIPSMap mapFlags = MIPSMap::INIT);
 
-	Gen::X64Reg MapWithFPRTemp(IRInst &inst);
+	Gen::X64Reg MapWithFPRTemp(const IRInst &inst);
 
 	void MapWithFlags(IRInst inst, X64IRJitConstants::X64Map destFlags, X64IRJitConstants::X64Map src1Flags = X64IRJitConstants::X64Map::NONE, X64IRJitConstants::X64Map src2Flags = X64IRJitConstants::X64Map::NONE);
 
 	void FlushBeforeCall();
 
-	Gen::X64Reg GetAndLockTempR();
+	Gen::X64Reg GetAndLockTempGPR();
+	Gen::X64Reg GetAndLockTempFPR();
 	void ReserveAndLockXGPR(Gen::X64Reg r);
 
 	Gen::OpArg R(IRReg preg);

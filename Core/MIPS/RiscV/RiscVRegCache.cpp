@@ -235,7 +235,7 @@ RiscVReg RiscVRegCache::TryMapTempImm(IRReg r) {
 	return INVALID_REG;
 }
 
-RiscVReg RiscVRegCache::GetAndLockTempR() {
+RiscVReg RiscVRegCache::GetAndLockTempGPR() {
 	RiscVReg reg = (RiscVReg)AllocateReg(MIPSLoc::REG, MIPSMap::INIT);
 	if (reg != INVALID_REG) {
 		nr[reg].tempLockIRIndex = irIndex_;
@@ -243,7 +243,7 @@ RiscVReg RiscVRegCache::GetAndLockTempR() {
 	return reg;
 }
 
-RiscVReg RiscVRegCache::MapWithFPRTemp(IRInst &inst) {
+RiscVReg RiscVRegCache::MapWithFPRTemp(const IRInst &inst) {
 	return (RiscVReg)MapWithTemp(inst, MIPSLoc::FREG);
 }
 

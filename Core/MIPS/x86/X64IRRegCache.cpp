@@ -103,6 +103,13 @@ const int *X64IRRegCache::GetAllocationOrder(MIPSLoc type, MIPSMap flags, int &c
 #endif
 		};
 
+		if ((flags & X64Map::MASK) == X64Map::XMM0) {
+			// Certain cases require this reg.
+			static const int blendReg[] = { XMM0 };
+			count = 1;
+			return blendReg;
+		}
+
 		count = ARRAY_SIZE(allocationOrder);
 		return allocationOrder;
 	} else {
@@ -179,12 +186,20 @@ X64Reg X64IRRegCache::TryMapTempImm(IRReg r, X64Map flags) {
 	return INVALID_REG;
 }
 
-X64Reg X64IRRegCache::GetAndLockTempR() {
-	X64Reg reg = FromNativeReg(AllocateReg(MIPSLoc::REG, MIPSMap::INIT));
-	if (reg != INVALID_REG) {
+X64Reg X64IRRegCache::GetAndLockTempGPR() {
+	IRNativeReg reg = AllocateReg(MIPSLoc::REG, MIPSMap::INIT);
+	if (reg != -1) {
 		nr[reg].tempLockIRIndex = irIndex_;
 	}
-	return reg;
+	return FromNativeReg(reg);
+}
+
+X64Reg X64IRRegCache::GetAndLockTempFPR() {
+	IRNativeReg reg = AllocateReg(MIPSLoc::FREG, MIPSMap::INIT);
+	if (reg != -1) {
+		nr[reg].tempLockIRIndex = irIndex_;
+	}
+	return FromNativeReg(reg);
 }
 
 void X64IRRegCache::ReserveAndLockXGPR(Gen::X64Reg r) {
@@ -194,7 +209,7 @@ void X64IRRegCache::ReserveAndLockXGPR(Gen::X64Reg r) {
 	nr[r].tempLockIRIndex = irIndex_;
 }
 
-X64Reg X64IRRegCache::MapWithFPRTemp(IRInst &inst) {
+X64Reg X64IRRegCache::MapWithFPRTemp(const IRInst &inst) {
 	return FromNativeReg(MapWithTemp(inst, MIPSLoc::FREG));
 }
 
@@ -228,6 +243,11 @@ void X64IRRegCache::MapWithFlags(IRInst inst, X64Map destFlags, X64Map src1Flags
 		case X64Map::HIGH_DATA:
 			if (nr[RDX].mipsReg != mapping[i].reg)
 				flushReg(RDX);
+			break;
+
+		case X64Map::XMM0:
+			if (nr[XMMToNativeReg(XMM0)].mipsReg != mapping[i].reg)
+				flushReg(XMMToNativeReg(XMM0));
 			break;
 
 		default:
@@ -290,7 +310,6 @@ void X64IRRegCache::AdjustNativeRegAsPtr(IRNativeReg nreg, bool state) {
 		emit_->AND(PTRBITS, ::R(r), Imm32(Memory::MEMVIEW32_MASK));
 		emit_->ADD(PTRBITS, ::R(r), ImmPtr(Memory::base));
 #else
-		// Clear the top bits to be safe.
 		emit_->ADD(PTRBITS, ::R(r), ::R(MEMBASEREG));
 #endif
 	} else {

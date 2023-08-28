@@ -32,7 +32,7 @@
 #if PPSSPP_PLATFORM(WINDOWS) && (defined(_MSC_VER) || defined(__clang__) || defined(__INTEL_COMPILER))
 #define X64JIT_XMM_CALL __vectorcall
 #define X64JIT_USE_XMM_CALL 1
-#elif PPSSPP_ARCH(AMD64) && !PPSSPP_PLATFORM(WINDOWS)
+#elif PPSSPP_ARCH(AMD64)
 // SystemV ABI supports XMM registers.
 #define X64JIT_XMM_CALL
 #define X64JIT_USE_XMM_CALL 1

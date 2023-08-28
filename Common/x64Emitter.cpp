@@ -1689,6 +1689,9 @@ void XEmitter::CVTTPD2DQ(X64Reg regOp, OpArg arg) {WriteSSEOp(0x66, 0xE6, regOp,
 
 void XEmitter::MASKMOVDQU(X64Reg dest, X64Reg src)  {WriteSSEOp(0x66, sseMASKMOVDQU, dest, R(src));}
 
+void XEmitter::MOVSHDUP(X64Reg regOp, OpArg arg) { WriteSSEOp(0xF3, sseMOVHPfromRM, regOp, arg); }
+void XEmitter::MOVSLDUP(X64Reg regOp, OpArg arg) { WriteSSEOp(0xF3, sseMOVLPfromRM, regOp, arg); }
+
 void XEmitter::MOVMSKPS(X64Reg dest, OpArg arg) {WriteSSEOp(0x00, 0x50, dest, arg);}
 void XEmitter::MOVMSKPD(X64Reg dest, OpArg arg) {WriteSSEOp(0x66, 0x50, dest, arg);}
 
