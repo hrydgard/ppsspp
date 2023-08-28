@@ -231,13 +231,15 @@ bool TextureReplacer::LoadIniValues(IniFile &ini, VFSBackend *dir, bool isOverri
 	std::map<ReplacementCacheKey, std::map<int, std::string>> filenameMap;
 
 	if (ini.HasSection("hashes")) {
-		auto hashes = ini.GetOrCreateSection("hashes")->ToMap();
+		auto hashes = ini.GetOrCreateSection("hashes")->ToVec();
 		// Format: hashname = filename.png
 		bool checkFilenames = g_Config.bSaveNewTextures && !g_Config.bIgnoreTextureFilenames && !vfsIsZip_;
 
 		for (const auto &item : hashes) {
 			ReplacementCacheKey key(0, 0);
-			int level = 0;  // sscanf might fail to pluck the level, but that's ok, we default to 0. sscanf doesn't write to non-matched outputs.
+			// sscanf might fail to pluck the level if omitted from the line, but that's ok, we default level to 0.
+			// sscanf doesn't write to non-matched outputs.
+			int level = 0;
 			if (sscanf(item.first.c_str(), "%16llx%8x_%d", &key.cachekey, &key.hash, &level) >= 1) {
 				filenameMap[key][level] = item.second;
 				if (checkFilenames) {
@@ -249,8 +251,10 @@ bool TextureReplacer::LoadIniValues(IniFile &ini, VFSBackend *dir, bool isOverri
 					filenameWarning = filenameWarning || item.second.find_first_of("\\:<>|?*") != std::string::npos;
 #endif
 				}
+			} else if (item.first.empty()) {
+				INFO_LOG(G3D, "Ignoring [hashes] line with empty key: '= %s'", item.second.c_str());
 			} else {
-				ERROR_LOG(G3D, "Unsupported syntax under [hashes]: %s", item.first.c_str());
+				ERROR_LOG(G3D, "Unsupported syntax under [hashes], ignoring: %s = ", item.first.c_str());
 			}
 		}
 	}

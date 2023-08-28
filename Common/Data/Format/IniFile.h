@@ -28,6 +28,7 @@ public:
 	void Clear();
 
 	std::map<std::string, std::string> ToMap() const;
+	std::vector<std::pair<std::string, std::string>> ToVec() const;  // Often more appropriate than ToMap() - doesn't artifically remove duplicates.
 
 	std::string *GetLine(const char* key, std::string* valueOut, std::string* commentOut);
 	const std::string *GetLine(const char* key, std::string* valueOut, std::string* commentOut) const;
