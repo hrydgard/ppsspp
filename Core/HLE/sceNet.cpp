@@ -1083,6 +1083,17 @@ static int sceNetApctlDelHandler(u32 handlerID) {
 	return NetApctl_DelHandler(handlerID);
 }
 
+static u32_le sceNetInetInetAddr(const char* hostname) {
+	INFO_LOG(SCENET, "sceNetInetInetAddr(%s)", safe_string(hostname));
+	if (hostname == nullptr || hostname[0] == '\0')
+		return hleLogError(SCENET, INADDR_NONE, "invalid arg");
+
+	u32 ipv4 = INADDR_NONE;
+	inet_pton(AF_INET, hostname, &ipv4); // Alternative to the deprecated inet_addr(hostname)
+
+	return hleLogSuccessX(SCENET, ipv4);
+}
+
 static int sceNetInetInetAton(const char *hostname, u32 addrPtr) {
 	ERROR_LOG(SCENET, "UNIMPL sceNetInetInetAton(%s, %08x)", hostname, addrPtr);
 	return -1;
@@ -1524,7 +1535,7 @@ const HLEFunction sceNetInet[] = {
 	{0X774E36F4, nullptr,                            "sceNetInetSendmsg",               '?', ""     },
 	{0XFBABE411, &WrapI_V<sceNetInetGetErrno>,       "sceNetInetGetErrno",              'i', ""     },
 	{0X1A33F9AE, nullptr,                            "sceNetInetBind",                  '?', ""     },
-	{0XB75D5B0A, nullptr,                            "sceNetInetInetAddr",              '?', ""     },
+	{0XB75D5B0A, &WrapU_C<sceNetInetInetAddr>,       "sceNetInetInetAddr",              'x', "s"    },
 	{0X1BDF5D13, &WrapI_CU<sceNetInetInetAton>,      "sceNetInetInetAton",              'i', "sx"   },
 	{0XD0792666, nullptr,                            "sceNetInetInetNtop",              '?', ""     },
 	{0XE30B8C19, nullptr,                            "sceNetInetInetPton",              '?', ""     },
