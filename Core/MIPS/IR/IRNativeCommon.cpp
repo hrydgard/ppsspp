@@ -18,6 +18,7 @@
 #include "Common/Profiler/Profiler.h"
 #include "Common/StringUtils.h"
 #include "Common/TimeUtil.h"
+#include "Core/Debugger/SymbolMap.h"
 #include "Core/MIPS/MIPSTables.h"
 #include "Core/MIPS/IR/IRNativeCommon.h"
 
@@ -451,8 +452,9 @@ bool IRNativeJit::DescribeCodePtr(const u8 *ptr, std::string &name) {
 			break;
 	}
 
+	// Used by profiling tools that don't like spaces.
 	if (block_num == -1) {
-		name = "(unknown or deleted block)";
+		name = "unknownOrDeletedBlock";
 		return true;
 	}
 
@@ -460,7 +462,13 @@ bool IRNativeJit::DescribeCodePtr(const u8 *ptr, std::string &name) {
 	if (block) {
 		u32 start = 0, size = 0;
 		block->GetRange(start, size);
-		name = StringFromFormat("(block %d at %08x)", block_num, start);
+
+		// It helps to know which func this block is inside.
+		const std::string label = g_symbolMap ? g_symbolMap->GetDescription(start) : "";
+		if (!label.empty())
+			name = StringFromFormat("block%d_%08x_%s", block_num, start, label.c_str());
+		else
+			name = StringFromFormat("block%d_%08x", block_num, start);
 		return true;
 	}
 	return false;

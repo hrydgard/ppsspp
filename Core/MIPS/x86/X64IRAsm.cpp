@@ -58,6 +58,7 @@ void X64JitBackend::GenerateFixedCode(MIPSState *mipsState) {
 		//regs_.EmitSaveStaticRegisters();
 		RET();
 
+		// Note: needs to not modify EAX, or to save it if it does.
 		loadStaticRegisters_ = AlignCode16();
 		//regs_.EmitLoadStaticRegisters();
 		//MOV(32, R(DOWNCOUNTREG), MDisp(CTXREG, downcountOffset));

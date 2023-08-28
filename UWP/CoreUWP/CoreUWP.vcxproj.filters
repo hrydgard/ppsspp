@@ -174,9 +174,6 @@
     <ClCompile Include="..\..\Core\MIPS\x86\CompVFPU.cpp">
       <Filter>MIPS\x86</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\Core\MIPS\x86\IRToX86.cpp">
-      <Filter>MIPS\x86</Filter>
-    </ClCompile>
     <ClCompile Include="..\..\Core\MIPS\x86\Jit.cpp">
       <Filter>MIPS\x86</Filter>
     </ClCompile>
@@ -1211,9 +1208,6 @@
     </ClInclude>
     <ClInclude Include="..\..\Core\MIPS\JitCommon\JitState.h">
       <Filter>MIPS\JitCommon</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\Core\MIPS\x86\IRToX86.h">
-      <Filter>MIPS\x86</Filter>
     </ClInclude>
     <ClInclude Include="..\..\Core\MIPS\x86\Jit.h">
       <Filter>MIPS\x86</Filter>

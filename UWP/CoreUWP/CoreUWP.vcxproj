@@ -299,7 +299,6 @@
     <ClInclude Include="..\..\Core\MIPS\MIPSTables.h" />
     <ClInclude Include="..\..\Core\MIPS\MIPSVFPUFallbacks.h" />
     <ClInclude Include="..\..\Core\MIPS\MIPSVFPUUtils.h" />
-    <ClInclude Include="..\..\Core\MIPS\x86\IRToX86.h" />
     <ClInclude Include="..\..\Core\MIPS\x86\Jit.h" />
     <ClInclude Include="..\..\Core\MIPS\x86\JitSafeMem.h" />
     <ClInclude Include="..\..\Core\MIPS\x86\RegCache.h" />
@@ -570,7 +569,6 @@
     <ClCompile Include="..\..\Core\MIPS\x86\CompLoadStore.cpp" />
     <ClCompile Include="..\..\Core\MIPS\x86\CompReplace.cpp" />
     <ClCompile Include="..\..\Core\MIPS\x86\CompVFPU.cpp" />
-    <ClCompile Include="..\..\Core\MIPS\x86\IRToX86.cpp" />
     <ClCompile Include="..\..\Core\MIPS\x86\Jit.cpp" />
     <ClCompile Include="..\..\Core\MIPS\x86\JitSafeMem.cpp" />
     <ClCompile Include="..\..\Core\MIPS\x86\RegCache.cpp" />

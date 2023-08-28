@@ -236,7 +236,7 @@ void MIPSState::UpdateCore(CPUCore desired) {
 	switch (PSP_CoreParameter().cpuCore) {
 	case CPUCore::JIT:
 	case CPUCore::JIT_IR:
-		INFO_LOG(CPU, "Switching to JIT");
+		INFO_LOG(CPU, "Switching to JIT%s", PSP_CoreParameter().cpuCore == CPUCore::JIT_IR ? " IR" : "");
 		if (oldjit) {
 			std::lock_guard<std::recursive_mutex> guard(MIPSComp::jitLock);
 			MIPSComp::jit = nullptr;
@@ -246,7 +246,7 @@ void MIPSState::UpdateCore(CPUCore desired) {
 		break;
 
 	case CPUCore::IR_INTERPRETER:
-		INFO_LOG(CPU, "Switching to IRJIT");
+		INFO_LOG(CPU, "Switching to IR interpreter");
 		if (oldjit) {
 			std::lock_guard<std::recursive_mutex> guard(MIPSComp::jitLock);
 			MIPSComp::jit = nullptr;
