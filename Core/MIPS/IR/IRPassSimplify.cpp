@@ -445,6 +445,10 @@ bool PropagateConstants(const IRWriter &in, IRWriter &out, const IROptions &opts
 				gpr.MapDirtyIn(inst.dest, inst.src2);
 				out.Write(IROp::Neg, inst.dest, inst.src2);
 				break;
+			} else if (inst.src1 == inst.src2) {
+				// Seen sometimes, yet another way of producing zero.
+				gpr.SetImm(inst.dest, 0);
+				break;
 			}
 #if  __cplusplus >= 201703 || _MSC_VER > 1910
 			[[fallthrough]];
