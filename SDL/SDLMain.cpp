@@ -548,7 +548,11 @@ float System_GetPropertyFloat(SystemProperty prop) {
 bool System_GetPropertyBool(SystemProperty prop) {
 	switch (prop) {
 	case SYSPROP_CAN_SHOW_FILE:
+#if PPSSPP_PLATFORM(WINDOWS) || PPSSPP_PLATFORM(MAC) || (PPSSPP_PLATFORM(LINUX) && !PPSSPP_PLATFORM(ANDROID))
 		return true;
+#else
+		return false;
+#endif
 	case SYSPROP_HAS_OPEN_DIRECTORY:
 #if PPSSPP_PLATFORM(WINDOWS)
 		return true;
@@ -569,7 +573,7 @@ bool System_GetPropertyBool(SystemProperty prop) {
 #endif
 	case SYSPROP_CAN_JIT:
 		return true;
-	case SYSPROP_SUPPORTS_OPEN_FILE_IN_EDITOR:
+	case SYSPROP_SUPPORTS_OPEN_FILE_IN_EDITOR: 
 		return true;  // FileUtil.cpp: OpenFileInEditor
 #ifndef HTTPS_NOT_AVAILABLE
 	case SYSPROP_SUPPORTS_HTTPS:
