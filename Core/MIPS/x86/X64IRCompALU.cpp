@@ -164,8 +164,26 @@ void X64JitBackend::CompIR_Bits(IRInst inst) {
 
 	case IROp::ReverseBits:
 	case IROp::BSwap16:
-	case IROp::Clz:
 		CompIR_Generic(inst);
+		break;
+
+	case IROp::Clz:
+		regs_.Map(inst);
+		if (cpu_info.bLZCNT) {
+			LZCNT(32, regs_.RX(inst.dest), regs_.R(inst.src1));
+		} else {
+			BSR(32, SCRATCH1, regs_.R(inst.src1));
+			FixupBranch notFound = J_CC(CC_Z);
+
+			MOV(32, regs_.R(inst.dest), Imm32(31));
+			SUB(32, regs_.R(inst.dest), R(SCRATCH1));
+			FixupBranch skip = J();
+
+			SetJumpTarget(notFound);
+			MOV(32, regs_.R(inst.dest), Imm32(32));
+
+			SetJumpTarget(skip);
+		}
 		break;
 
 	default:
@@ -235,7 +253,7 @@ void X64JitBackend::CompIR_CondAssign(IRInst inst) {
 	case IROp::MovZ:
 		if (inst.dest != inst.src2) {
 			regs_.Map(inst);
-			CMP(32, regs_.R(inst.src1), Imm32(0));
+			TEST(32, regs_.R(inst.src1), regs_.R(inst.src1));
 			CMOVcc(32, regs_.RX(inst.dest), regs_.R(inst.src2), CC_Z);
 		}
 		break;
@@ -243,7 +261,7 @@ void X64JitBackend::CompIR_CondAssign(IRInst inst) {
 	case IROp::MovNZ:
 		if (inst.dest != inst.src2) {
 			regs_.Map(inst);
-			CMP(32, regs_.R(inst.src1), Imm32(0));
+			TEST(32, regs_.R(inst.src1), regs_.R(inst.src1));
 			CMOVcc(32, regs_.RX(inst.dest), regs_.R(inst.src2), CC_NZ);
 		}
 		break;
@@ -293,8 +311,123 @@ void X64JitBackend::CompIR_Div(IRInst inst) {
 
 	switch (inst.op) {
 	case IROp::Div:
+#if PPSSPP_ARCH(AMD64)
+		// We need EDX specifically, so force a spill (before spill locks happen.)
+		regs_.MapGPR2(IRREG_LO, MIPSMap::NOINIT | X64Map::HIGH_DATA);
+		regs_.MapWithExtra(inst, { { 'G', IRREG_LO, 2, MIPSMap::NOINIT | X64Map::HIGH_DATA } });
+#else // PPSSPP_ARCH(X86)
+		// Force a spill, it's HI in this path.
+		regs_.MapGPR(IRREG_HI, MIPSMap::NOINIT | X64Map::HIGH_DATA);
+		regs_.MapWithExtra(inst, { { 'G', IRREG_LO, 1, MIPSMap::NOINIT }, { 'G', IRREG_HI, 1, MIPSMap::NOINIT | X64Map::HIGH_DATA } });
+#endif
+		{
+			TEST(32, regs_.R(inst.src2), regs_.R(inst.src2));
+			FixupBranch divideByZero = J_CC(CC_E, false);
+
+			// Sign extension sets HI to -1 for us on x64.
+			MOV(PTRBITS, regs_.R(IRREG_LO), Imm32(0x80000000));
+#if PPSSPP_ARCH(X86)
+			MOV(PTRBITS, regs_.R(IRREG_HI), Imm32(-1));
+#endif
+			CMP(32, regs_.R(inst.src1), regs_.R(IRREG_LO));
+			FixupBranch numeratorNotOverflow = J_CC(CC_NE, false);
+			CMP(32, regs_.R(inst.src2), Imm32(-1));
+			FixupBranch denominatorOverflow = J_CC(CC_E, false);
+
+			SetJumpTarget(numeratorNotOverflow);
+
+			// It's finally time to actually divide.
+			MOV(32, R(EAX), regs_.R(inst.src1));
+			CDQ();
+			IDIV(32, regs_.R(inst.src2));
+#if PPSSPP_ARCH(AMD64)
+			// EDX == RX(IRREG_LO).  Put the remainder in the upper bits, done.
+			SHL(64, R(EDX), Imm8(32));
+			OR(64, R(EDX), R(EAX));
+#else // PPSSPP_ARCH(X86)
+			// EDX is already good (HI), just move EAX into place.
+			MOV(32, regs_.R(IRREG_LO), R(EAX));
+#endif
+			FixupBranch done = J(false);
+
+			SetJumpTarget(divideByZero);
+			X64Reg loReg = SCRATCH1;
+#if PPSSPP_ARCH(X86)
+			if (regs_.HasLowSubregister(regs_.RX(IRREG_LO)))
+				loReg = regs_.RX(IRREG_LO);
+#endif
+			// Set to -1 if numerator positive using SF.
+			XOR(32, R(loReg), R(loReg));
+			TEST(32, regs_.R(inst.src1), regs_.R(inst.src1));
+			SETcc(CC_NS, R(loReg));
+			NEG(32, R(loReg));
+			// If it was negative, OR in 1 (so we get -1 or 1.)
+			OR(32, R(loReg), Imm8(1));
+
+#if PPSSPP_ARCH(AMD64)
+			// Move the numerator into the high bits.
+			MOV(32, regs_.R(IRREG_LO), regs_.R(inst.src1));
+			SHL(64, regs_.R(IRREG_LO), Imm8(32));
+			OR(64, regs_.R(IRREG_LO), R(loReg));
+#else // PPSSPP_ARCH(X86)
+			// If we didn't have a subreg, move into place.
+			if (loReg != regs_.RX(IRREG_LO))
+				MOV(32, regs_.R(IRREG_LO), R(loReg));
+			MOV(32, regs_.R(IRREG_HI), regs_.R(inst.src1));
+#endif
+
+			SetJumpTarget(denominatorOverflow);
+			SetJumpTarget(done);
+		}
+		break;
+
 	case IROp::DivU:
-		CompIR_Generic(inst);
+#if PPSSPP_ARCH(AMD64)
+		// We need EDX specifically, so force a spill (before spill locks happen.)
+		regs_.MapGPR2(IRREG_LO, MIPSMap::NOINIT | X64Map::HIGH_DATA);
+		regs_.MapWithExtra(inst, { { 'G', IRREG_LO, 2, MIPSMap::NOINIT | X64Map::HIGH_DATA } });
+#else // PPSSPP_ARCH(X86)
+		// Force a spill, it's HI in this path.
+		regs_.MapGPR(IRREG_HI, MIPSMap::NOINIT | X64Map::HIGH_DATA);
+		regs_.MapWithExtra(inst, { { 'G', IRREG_LO, 1, MIPSMap::NOINIT }, { 'G', IRREG_HI, 1, MIPSMap::NOINIT | X64Map::HIGH_DATA } });
+#endif
+		{
+			TEST(32, regs_.R(inst.src2), regs_.R(inst.src2));
+			FixupBranch divideByZero = J_CC(CC_E, false);
+
+			MOV(32, R(EAX), regs_.R(inst.src1));
+			XOR(32, R(EDX), R(EDX));
+			DIV(32, regs_.R(inst.src2));
+#if PPSSPP_ARCH(AMD64)
+			// EDX == RX(IRREG_LO).  Put the remainder in the upper bits, done.
+			SHL(64, R(EDX), Imm8(32));
+			OR(64, R(EDX), R(EAX));
+#else // PPSSPP_ARCH(X86)
+			// EDX is already good (HI), just move EAX into place.
+			MOV(32, regs_.R(IRREG_LO), R(EAX));
+#endif
+			FixupBranch done = J(false);
+
+			SetJumpTarget(divideByZero);
+			// First, set LO to 0xFFFF if numerator was <= that value.
+			MOV(32, regs_.R(IRREG_LO), Imm32(0xFFFF));
+			XOR(32, R(SCRATCH1), R(SCRATCH1));
+			CMP(32, regs_.R(IRREG_LO), regs_.R(inst.src1));
+			// If 0xFFFF was less, CF was set - SBB will subtract 1 from 0, netting -1.
+			SBB(32, R(SCRATCH1), Imm8(0));
+			OR(32, regs_.R(IRREG_LO), R(SCRATCH1));
+
+#if PPSSPP_ARCH(AMD64)
+			// Move the numerator into the high bits.
+			MOV(32, R(SCRATCH1), regs_.R(inst.src1));
+			SHL(64, R(SCRATCH1), Imm8(32));
+			OR(64, regs_.R(IRREG_LO), R(SCRATCH1));
+#else // PPSSPP_ARCH(X86)
+			MOV(32, regs_.R(IRREG_HI), regs_.R(inst.src1));
+#endif
+
+			SetJumpTarget(done);
+		}
 		break;
 
 	default:
@@ -311,12 +444,12 @@ void X64JitBackend::CompIR_HiLo(IRInst inst) {
 #if PPSSPP_ARCH(AMD64)
 		regs_.MapWithExtra(inst, { { 'G', IRREG_LO, 2, MIPSMap::DIRTY } });
 		// First, clear the bits we're replacing.
-		MOV(64, R(SCRATCH1), Imm64(0xFFFFFFFF00000000ULL));
-		AND(64, regs_.R(IRREG_LO), R(SCRATCH1));
+		SHR(64, regs_.R(IRREG_LO), Imm8(32));
+		SHL(64, regs_.R(IRREG_LO), Imm8(32));
 		// Now clear the high bits and merge.
 		MOVZX(64, 32, regs_.RX(inst.src1), regs_.R(inst.src1));
 		OR(64, regs_.R(IRREG_LO), regs_.R(inst.src1));
-#else
+#else // PPSSPP_ARCH(X86)
 		regs_.MapWithExtra(inst, { { 'G', IRREG_LO, 1, MIPSMap::DIRTY } });
 		MOV(32, regs_.R(IRREG_LO), regs_.R(inst.src1));
 #endif
@@ -331,7 +464,7 @@ void X64JitBackend::CompIR_HiLo(IRInst inst) {
 		MOV(32, R(SCRATCH1), regs_.R(inst.src1));
 		SHL(64, R(SCRATCH1), Imm8(32));
 		OR(64, regs_.R(IRREG_LO), R(SCRATCH1));
-#else
+#else // PPSSPP_ARCH(X86)
 		regs_.MapWithExtra(inst, { { 'G', IRREG_HI, 1, MIPSMap::DIRTY } });
 		MOV(32, regs_.R(IRREG_HI), regs_.R(inst.src1));
 #endif
@@ -341,7 +474,7 @@ void X64JitBackend::CompIR_HiLo(IRInst inst) {
 #if PPSSPP_ARCH(AMD64)
 		regs_.MapWithExtra(inst, { { 'G', IRREG_LO, 2, MIPSMap::INIT } });
 		MOV(32, regs_.R(inst.dest), regs_.R(IRREG_LO));
-#else
+#else // PPSSPP_ARCH(X86)
 		regs_.MapWithExtra(inst, { { 'G', IRREG_LO, 1, MIPSMap::INIT } });
 		MOV(32, regs_.R(inst.dest), regs_.R(IRREG_LO));
 #endif
@@ -352,7 +485,7 @@ void X64JitBackend::CompIR_HiLo(IRInst inst) {
 		regs_.MapWithExtra(inst, { { 'G', IRREG_LO, 2, MIPSMap::INIT } });
 		MOV(64, regs_.R(inst.dest), regs_.R(IRREG_LO));
 		SHR(64, regs_.R(inst.dest), Imm8(32));
-#else
+#else // PPSSPP_ARCH(X86)
 		regs_.MapWithExtra(inst, { { 'G', IRREG_HI, 1, MIPSMap::INIT } });
 		MOV(32, regs_.R(inst.dest), regs_.R(IRREG_HI));
 #endif
@@ -407,19 +540,28 @@ void X64JitBackend::CompIR_Logic(IRInst inst) {
 		regs_.Map(inst);
 		if (inst.dest != inst.src1)
 			MOV(32, regs_.R(inst.dest), regs_.R(inst.src1));
-		AND(32, regs_.R(inst.dest), UImmAuto(inst.constant));
+		AND(32, regs_.R(inst.dest), SImmAuto((s32)inst.constant));
 		break;
 
 	case IROp::OrConst:
 		regs_.Map(inst);
 		if (inst.dest != inst.src1)
 			MOV(32, regs_.R(inst.dest), regs_.R(inst.src1));
-		OR(32, regs_.R(inst.dest), UImmAuto(inst.constant));
+		OR(32, regs_.R(inst.dest), SImmAuto((s32)inst.constant));
 		break;
 
 	case IROp::XorConst:
+		regs_.Map(inst);
+		if (inst.dest != inst.src1)
+			MOV(32, regs_.R(inst.dest), regs_.R(inst.src1));
+		XOR(32, regs_.R(inst.dest), SImmAuto((s32)inst.constant));
+		break;
+
 	case IROp::Not:
-		CompIR_Generic(inst);
+		regs_.Map(inst);
+		if (inst.dest != inst.src1)
+			MOV(32, regs_.R(inst.dest), regs_.R(inst.src1));
+		NOT(32, regs_.R(inst.dest));
 		break;
 
 	default:
@@ -438,7 +580,7 @@ void X64JitBackend::CompIR_Mult(IRInst inst) {
 		MOVSX(64, 32, regs_.RX(IRREG_LO), regs_.R(inst.src1));
 		MOVSX(64, 32, regs_.RX(inst.src2), regs_.R(inst.src2));
 		IMUL(64, regs_.RX(IRREG_LO), regs_.R(inst.src2));
-#else
+#else // PPSSPP_ARCH(X86)
 		// Force a spill (before spill locks.)
 		regs_.MapGPR(IRREG_HI, MIPSMap::NOINIT | X64Map::HIGH_DATA);
 		// We keep it here so it stays locked.
@@ -456,7 +598,7 @@ void X64JitBackend::CompIR_Mult(IRInst inst) {
 		MOVZX(64, 32, regs_.RX(IRREG_LO), regs_.R(inst.src1));
 		MOVZX(64, 32, regs_.RX(inst.src2), regs_.R(inst.src2));
 		IMUL(64, regs_.RX(IRREG_LO), regs_.R(inst.src2));
-#else
+#else // PPSSPP_ARCH(X86)
 		// Force a spill (before spill locks.)
 		regs_.MapGPR(IRREG_HI, MIPSMap::NOINIT | X64Map::HIGH_DATA);
 		// We keep it here so it stays locked.
@@ -475,7 +617,7 @@ void X64JitBackend::CompIR_Mult(IRInst inst) {
 		MOVSX(64, 32, regs_.RX(inst.src2), regs_.R(inst.src2));
 		IMUL(64, SCRATCH1, regs_.R(inst.src2));
 		ADD(64, regs_.R(IRREG_LO), R(SCRATCH1));
-#else
+#else // PPSSPP_ARCH(X86)
 		// For ones that modify LO/HI, we can't have anything else in EDX.
 		regs_.ReserveAndLockXGPR(EDX);
 		regs_.MapWithExtra(inst, { { 'G', IRREG_LO, 1, MIPSMap::DIRTY }, { 'G', IRREG_HI, 1, MIPSMap::DIRTY } });
@@ -493,7 +635,7 @@ void X64JitBackend::CompIR_Mult(IRInst inst) {
 		MOVZX(64, 32, regs_.RX(inst.src2), regs_.R(inst.src2));
 		IMUL(64, SCRATCH1, regs_.R(inst.src2));
 		ADD(64, regs_.R(IRREG_LO), R(SCRATCH1));
-#else
+#else // PPSSPP_ARCH(X86)
 		// For ones that modify LO/HI, we can't have anything else in EDX.
 		regs_.ReserveAndLockXGPR(EDX);
 		regs_.MapWithExtra(inst, { { 'G', IRREG_LO, 1, MIPSMap::DIRTY }, { 'G', IRREG_HI, 1, MIPSMap::DIRTY } });
@@ -511,7 +653,7 @@ void X64JitBackend::CompIR_Mult(IRInst inst) {
 		MOVSX(64, 32, regs_.RX(inst.src2), regs_.R(inst.src2));
 		IMUL(64, SCRATCH1, regs_.R(inst.src2));
 		SUB(64, regs_.R(IRREG_LO), R(SCRATCH1));
-#else
+#else // PPSSPP_ARCH(X86)
 		// For ones that modify LO/HI, we can't have anything else in EDX.
 		regs_.ReserveAndLockXGPR(EDX);
 		regs_.MapWithExtra(inst, { { 'G', IRREG_LO, 1, MIPSMap::DIRTY }, { 'G', IRREG_HI, 1, MIPSMap::DIRTY } });
@@ -529,7 +671,7 @@ void X64JitBackend::CompIR_Mult(IRInst inst) {
 		MOVZX(64, 32, regs_.RX(inst.src2), regs_.R(inst.src2));
 		IMUL(64, SCRATCH1, regs_.R(inst.src2));
 		SUB(64, regs_.R(IRREG_LO), R(SCRATCH1));
-#else
+#else // PPSSPP_ARCH(X86)
 		// For ones that modify LO/HI, we can't have anything else in EDX.
 		regs_.ReserveAndLockXGPR(EDX);
 		regs_.MapWithExtra(inst, { { 'G', IRREG_LO, 1, MIPSMap::DIRTY }, { 'G', IRREG_HI, 1, MIPSMap::DIRTY } });

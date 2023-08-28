@@ -77,6 +77,7 @@ public:
 
 	// Returns an RV register containing the requested MIPS register.
 	Gen::X64Reg MapGPR(IRReg reg, MIPSMap mapFlags = MIPSMap::INIT);
+	Gen::X64Reg MapGPR2(IRReg reg, MIPSMap mapFlags = MIPSMap::INIT);
 	Gen::X64Reg MapGPRAsPointer(IRReg reg);
 	Gen::X64Reg MapFPR(IRReg reg, MIPSMap mapFlags = MIPSMap::INIT);
 	Gen::X64Reg MapVec4(IRReg first, MIPSMap mapFlags = MIPSMap::INIT);

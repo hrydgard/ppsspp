@@ -247,6 +247,14 @@ X64Reg X64IRRegCache::MapGPR(IRReg mipsReg, MIPSMap mapFlags) {
 	return FromNativeReg(nreg);
 }
 
+X64Reg X64IRRegCache::MapGPR2(IRReg mipsReg, MIPSMap mapFlags) {
+	_dbg_assert_(IsValidGPR(mipsReg) && IsValidGPR(mipsReg + 1));
+
+	// Okay, not mapped, so we need to allocate an RV register.
+	IRNativeReg nreg = MapNativeReg(MIPSLoc::REG, mipsReg, 2, mapFlags);
+	return FromNativeReg(nreg);
+}
+
 X64Reg X64IRRegCache::MapGPRAsPointer(IRReg reg) {
 	return FromNativeReg(MapNativeRegAsPointer(reg));
 }
