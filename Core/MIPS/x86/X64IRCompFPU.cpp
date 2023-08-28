@@ -41,7 +41,7 @@ using namespace Gen;
 using namespace X64IRJitConstants;
 
 static struct SimdConstants {
-alignas(16) const u32 reverseQNAN[4] = { 0x803FFFFF, 0x803FFFFF, 0x803FFFFF, 0x803FFFFF };
+alignas(16) const u32 qNAN[4] = { 0x7FC00000, 0x7FC00000, 0x7FC00000, 0x7FC00000 };
 alignas(16) const u32 noSignMask[4] = { 0x7FFFFFFF, 0x7FFFFFFF, 0x7FFFFFFF, 0x7FFFFFFF };
 alignas(16) const u32 positiveInfinity[4] = { 0x7F800000, 0x7F800000, 0x7F800000, 0x7F800000 };
 alignas(16) const u32 signBitAll[4] = { 0x80000000, 0x80000000, 0x80000000, 0x80000000 };
@@ -87,11 +87,11 @@ void X64JitBackend::CompIR_FArith(IRInst inst) {
 
 	case IROp::FMul:
 	{
-		X64Reg tempReg = regs_.MapWithFPRTemp(inst);
+		regs_.Map(inst);
 
-		// tempReg = !my_isnan(src1) && !my_isnan(src2)
-		MOVSS(tempReg, regs_.F(inst.src1));
-		CMPORDSS(tempReg, regs_.F(inst.src2));
+		UCOMISS(regs_.FX(inst.src1), regs_.F(inst.src2));
+		SETcc(CC_P, R(SCRATCH1));
+
 		if (inst.dest == inst.src1) {
 			MULSS(regs_.FX(inst.dest), regs_.F(inst.src2));
 		} else if (inst.dest == inst.src2) {
@@ -103,22 +103,23 @@ void X64JitBackend::CompIR_FArith(IRInst inst) {
 			MULSS(regs_.FX(inst.dest), regs_.F(inst.src2));
 		}
 
-		// Abuse a lane of tempReg to remember dest: NAN, NAN, res, res.
-		SHUFPS(tempReg, regs_.F(inst.dest), 0);
-		// dest = my_isnan(dest) && !my_isnan(src1) && !my_isnan(src2)
-		CMPUNORDSS(regs_.FX(inst.dest), regs_.F(inst.dest));
-		ANDPS(regs_.FX(inst.dest), R(tempReg));
-		// At this point fd = FFFFFFFF if non-NAN inputs produced a NAN output.
-		// We'll AND it with the inverse QNAN bits to clear (00000000 means no change.)
-		if (RipAccessible(&simdConstants.reverseQNAN)) {
-			ANDPS(regs_.FX(inst.dest), M(&simdConstants.reverseQNAN));  // rip accessible
+		UCOMISS(regs_.FX(inst.dest), regs_.F(inst.dest));
+		FixupBranch handleNAN = J_CC(CC_P);
+		FixupBranch finish = J();
+
+		SetJumpTarget(handleNAN);
+		TEST(8, R(SCRATCH1), R(SCRATCH1));
+		FixupBranch keepNAN = J_CC(CC_NZ);
+
+		if (RipAccessible(&simdConstants.qNAN)) {
+			MOVSS(regs_.FX(inst.dest), M(&simdConstants.qNAN));  // rip accessible
 		} else {
-			MOV(PTRBITS, R(SCRATCH1), ImmPtr(&simdConstants.reverseQNAN));
-			ANDPS(regs_.FX(inst.dest), MatR(SCRATCH1));
+			MOV(PTRBITS, R(SCRATCH1), ImmPtr(&simdConstants.qNAN));
+			MOVSS(regs_.FX(inst.dest), MatR(SCRATCH1));
 		}
-		// ANDN is backwards, which is why we saved XMM0 to start.  Now put it back.
-		SHUFPS(tempReg, R(tempReg), 0xFF);
-		ANDNPS(regs_.FX(inst.dest), R(tempReg));
+
+		SetJumpTarget(keepNAN);
+		SetJumpTarget(finish);
 		break;
 	}
 
