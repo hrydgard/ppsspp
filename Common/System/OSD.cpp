@@ -123,7 +123,7 @@ void OnScreenDisplay::ShowAchievementProgress(int achievementID, bool show) {
 			}
 			// Else update it.
 			entry.numericID = achievementID;
-			entry.endTime = now + 2.0f; // forever_s;
+			entry.endTime = now + forever_s;
 			return;
 		}
 	}
@@ -138,7 +138,7 @@ void OnScreenDisplay::ShowAchievementProgress(int achievementID, bool show) {
 	entry.numericID = achievementID;
 	entry.type = OSDType::ACHIEVEMENT_PROGRESS;
 	entry.startTime = now;
-	entry.endTime = now + 2.0f; // forever_s;
+	entry.endTime = now + forever_s;
 	entries_.insert(entries_.begin(), entry);
 }
 
