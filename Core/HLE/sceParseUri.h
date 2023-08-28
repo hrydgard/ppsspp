@@ -17,4 +17,28 @@
 
 #pragma once
 
+#ifdef _MSC_VER
+#define PACK  // on MSVC we use #pragma pack() instead so let's kill this.
+#pragma pack(push, 1)
+#else
+#define PACK __attribute__((packed))
+#endif
+
+typedef struct PSPParsedUri {
+	s32 noSlash;
+	s32 schemeAddr;
+	s32 userInfoUserNameAddr;
+	s32 userInfoPasswordAddr;
+	s32 hostAddr;
+	s32 pathAddr;
+	s32 queryAddr;
+	s32 fragmentAddr;
+	u16 port;
+	u8 unknown[10]; // padding might be included here?
+} PACK PSPParsedUri;
+
+#ifdef _MSC_VER 
+#pragma pack(pop)
+#endif
+
 void Register_sceParseUri();
