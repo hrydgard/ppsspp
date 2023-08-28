@@ -1355,20 +1355,24 @@ void TextureCacheCommon::LoadClut(u32 clutAddr, u32 loadBytes) {
 				// the framebuffer with the smallest offset. This is yet another framebuffer matching
 				// loop with its own rules, eventually we'll probably want to do something
 				// more systematic.
-				bool okAge = !PSP_CoreParameter().compat.flags().LoadCLUTFromCurrentFrameOnly || framebuffer->last_frame_used == gpuStats.numFlips;
-				if (matchRange && !inMargin && offset < (int)clutRenderOffset_ && okAge) {
-					WARN_LOG_N_TIMES(clutfb, 5, G3D, "Detected LoadCLUT(%d bytes) from framebuffer %08x (%s), byte offset %d, pixel offset %d",
-						loadBytes, fb_address, GeBufferFormatToString(framebuffer->fb_format), offset, offset / fb_bpp);
-					framebuffer->last_frame_clut = gpuStats.numFlips;
-					// Also mark used so it's not decimated.
-					framebuffer->last_frame_used = gpuStats.numFlips;
-					framebuffer->usageFlags |= FB_USAGE_CLUT;
-					bestClutAddress = framebuffer->fb_address;
-					clutRenderOffset_ = (u32)offset;
-					chosenFramebuffer = framebuffer;
-					if (offset == 0) {
-						// Not gonna find a better match according to the smallest-offset rule, so we'll go with this one.
-						break;
+				bool okAge = !PSP_CoreParameter().compat.flags().LoadCLUTFromCurrentFrameOnly || framebuffer->last_frame_render == gpuStats.numFlips;  // Here we can try heuristics.
+				if (matchRange && !inMargin && offset < (int)clutRenderOffset_) {
+					if (okAge) {
+						WARN_LOG_N_TIMES(clutfb, 5, G3D, "Detected LoadCLUT(%d bytes) from framebuffer %08x (%s), last render %d frames ago, byte offset %d, pixel offset %d",
+							loadBytes, fb_address, GeBufferFormatToString(framebuffer->fb_format), gpuStats.numFlips - framebuffer->last_frame_render, offset, offset / fb_bpp);
+						framebuffer->last_frame_clut = gpuStats.numFlips;
+						// Also mark used so it's not decimated.
+						framebuffer->last_frame_used = gpuStats.numFlips;
+						framebuffer->usageFlags |= FB_USAGE_CLUT;
+						bestClutAddress = framebuffer->fb_address;
+						clutRenderOffset_ = (u32)offset;
+						chosenFramebuffer = framebuffer;
+						if (offset == 0) {
+							// Not gonna find a better match according to the smallest-offset rule, so we'll go with this one.
+							break;
+						}
+					} else {
+						WARN_LOG(G3D, "Ignoring CLUT load from %d frames old buffer at %08x", gpuStats.numFlips - framebuffer->last_frame_render, fb_address);
 					}
 				}
 			}
