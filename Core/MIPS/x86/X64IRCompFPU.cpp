@@ -46,6 +46,16 @@ alignas(16) const u32 noSignMask[4] = { 0x7FFFFFFF, 0x7FFFFFFF, 0x7FFFFFFF, 0x7F
 alignas(16) const u32 positiveInfinity[4] = { 0x7F800000, 0x7F800000, 0x7F800000, 0x7F800000 };
 alignas(16) const u32 signBitAll[4] = { 0x80000000, 0x80000000, 0x80000000, 0x80000000 };
 alignas(16) const u32 ones[4] = { 0x3F800000, 0x3F800000, 0x3F800000, 0x3F800000 };
+alignas(16) const float mulTableVi2f[32] = {
+	1.0f / (1UL << 0), 1.0f / (1UL << 1), 1.0f / (1UL << 2), 1.0f / (1UL << 3),
+	1.0f / (1UL << 4), 1.0f / (1UL << 5), 1.0f / (1UL << 6), 1.0f / (1UL << 7),
+	1.0f / (1UL << 8), 1.0f / (1UL << 9), 1.0f / (1UL << 10), 1.0f / (1UL << 11),
+	1.0f / (1UL << 12), 1.0f / (1UL << 13), 1.0f / (1UL << 14), 1.0f / (1UL << 15),
+	1.0f / (1UL << 16), 1.0f / (1UL << 17), 1.0f / (1UL << 18), 1.0f / (1UL << 19),
+	1.0f / (1UL << 20), 1.0f / (1UL << 21), 1.0f / (1UL << 22), 1.0f / (1UL << 23),
+	1.0f / (1UL << 24), 1.0f / (1UL << 25), 1.0f / (1UL << 26), 1.0f / (1UL << 27),
+	1.0f / (1UL << 28), 1.0f / (1UL << 29), 1.0f / (1UL << 30), 1.0f / (1UL << 31),
+};
 } simdConstants;
 
 void X64JitBackend::CompIR_FArith(IRInst inst) {
@@ -572,8 +582,18 @@ void X64JitBackend::CompIR_FCvt(IRInst inst) {
 		break;
 
 	case IROp::FCvtScaledWS:
-	case IROp::FCvtScaledSW:
 		CompIR_Generic(inst);
+		break;
+
+	case IROp::FCvtScaledSW:
+		regs_.Map(inst);
+		CVTDQ2PS(regs_.FX(inst.dest), regs_.F(inst.src1));
+		if (RipAccessible(&simdConstants.mulTableVi2f[inst.src2 & 0x1F])) {
+			MULSS(regs_.FX(inst.dest), M(&simdConstants.mulTableVi2f[inst.src2 & 0x1F]));  // rip accessible
+		} else {
+			MOV(PTRBITS, R(SCRATCH1), ImmPtr(&simdConstants.mulTableVi2f[inst.src2 & 0x1F]));
+			MULSS(regs_.FX(inst.dest), MatR(SCRATCH1));
+		}
 		break;
 
 	default:
