@@ -1981,6 +1981,20 @@ bool ReduceVec4Flush(const IRWriter &in, IRWriter &out, const IROptions &opts) {
 			return false;
 		};
 
+		auto usedLaterAsVec4 = [&](IRReg r) {
+			for (int j = i + 1; j < inCount; ++j) {
+				IRInst inst = in.GetInstructions()[j];
+				const IRMeta *m = GetIRMeta(inst.op);
+				if (m->types[0] == 'V' && inst.dest == r)
+					return true;
+				if (m->types[1] == 'V' && inst.src1 == r)
+					return true;
+				if (m->types[2] == 'V' && inst.src2 == r)
+					return true;
+			}
+			return false;
+		};
+
 		switch (inst.op) {
 		case IROp::SetConstF:
 			if (isVec4[inst.dest & ~3] && findAvailTempVec4()) {
@@ -2063,7 +2077,7 @@ bool ReduceVec4Flush(const IRWriter &in, IRWriter &out, const IROptions &opts) {
 		case IROp::FSub:
 		case IROp::FMul:
 		case IROp::FDiv:
-			if (isVec4[inst.dest & ~3] && isVec4Dirty[inst.dest & ~3] && findAvailTempVec4()) {
+			if (isVec4[inst.dest & ~3] && isVec4Dirty[inst.dest & ~3] && usedLaterAsVec4(inst.dest & ~3) && findAvailTempVec4()) {
 				u8 blendMask = 1 << (inst.dest & 3);
 				out.Write(inst.op, temp, inst.src1, inst.src2);
 				out.Write(IROp::Vec4Shuffle, temp, temp, 0);
