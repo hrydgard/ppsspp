@@ -42,9 +42,7 @@ static bool IRReadsFrom(const IRInst &inst, int reg, char type, bool *directly) 
 
 	if (directly)
 		*directly = false;
-	if (inst.op == IROp::Interpret || inst.op == IROp::CallReplacement)
-		return true;
-	if ((m->flags & IRFLAG_EXIT) != 0)
+	if ((m->flags & (IRFLAG_EXIT | IRFLAG_BARRIER)) != 0)
 		return true;
 	return false;
 }
@@ -206,13 +204,24 @@ IRUsage IRNextFPRUsage(int fpr, const IRSituation &info) {
 	for (int i = 0; i < count; ++i) {
 		const IRInst inst = info.instructions[info.currentIndex + i];
 
-		if (IRReadsFromFPR(inst, fpr))
-			return IRUsage::READ;
+		if (IRReadsFromFPR(inst, fpr)) {
+			// Special case a broadcast that clobbers it.
+			if (inst.op == IROp::Vec4Shuffle && inst.src2 == 0 && inst.dest == inst.src1)
+				return inst.src1 == fpr ? IRUsage::READ : IRUsage::CLOBBERED;
+
+			// If this is an exit reading a temp, ignore it.
+			if (fpr < IRVTEMP_PFX_S || (GetIRMeta(inst.op)->flags & IRFLAG_EXIT) == 0)
+				return IRUsage::READ;
+		}
 		// We say WRITE when the current instruction writes.  It's not useful for spilling.
 		if (IRWritesToFPR(inst, fpr)) {
 			return i == 0 ? IRUsage::WRITE : IRUsage::CLOBBERED;
 		}
 	}
+
+	// This means we only had exits and hit the end.
+	if (fpr >= IRVTEMP_PFX_S && count == info.numInstructions - info.currentIndex)
+		return IRUsage::CLOBBERED;
 
 	return IRUsage::UNUSED;
 }
