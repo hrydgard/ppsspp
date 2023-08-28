@@ -1723,55 +1723,134 @@ bool MergeLoadStore(const IRWriter &in, IRWriter &out, const IROptions &opts) {
 	return logBlocks;
 }
 
+struct IRMemoryOpInfo {
+	int size;
+	bool isWrite;
+	bool isWordLR;
+};
+
+static IRMemoryOpInfo IROpMemoryAccessSize(IROp op) {
+	// Assumes all take src1 + constant.
+	switch (op) {
+	case IROp::Load8:
+	case IROp::Load8Ext:
+	case IROp::Store8:
+		return { 1, op == IROp::Store8 };
+
+	case IROp::Load16:
+	case IROp::Load16Ext:
+	case IROp::Store16:
+		return { 2, op == IROp::Store16 };
+
+	case IROp::Load32:
+	case IROp::Load32Linked:
+	case IROp::LoadFloat:
+	case IROp::Store32:
+	case IROp::Store32Conditional:
+	case IROp::StoreFloat:
+		return { 4, op == IROp::Store32 || op == IROp::Store32Conditional || op == IROp::StoreFloat };
+
+	case IROp::LoadVec4:
+	case IROp::StoreVec4:
+		return { 16, op == IROp::StoreVec4 };
+
+	case IROp::Load32Left:
+	case IROp::Load32Right:
+	case IROp::Store32Left:
+	case IROp::Store32Right:
+		// This explicitly does not require alignment, so validate as an 8-bit operation.
+		return { 1, op == IROp::Store32Left || op == IROp::Store32Right, true };
+
+	default:
+		return { 0 };
+	}
+}
+
 bool ApplyMemoryValidation(const IRWriter &in, IRWriter &out, const IROptions &opts) {
 	CONDITIONAL_DISABLE;
 	if (g_Config.bFastMemory)
 		DISABLE;
 
-	const auto addValidate = [&out](IROp validate, const IRInst &inst, bool isStore) {
-		out.Write({ validate, { 0 }, inst.src1, isStore ? (u8)1 : (u8)0, inst.constant });
+	int spLower = 0;
+	int spUpper = -1;
+	bool spWrite = false;
+	bool spModified = false;
+	for (IRInst inst : in.GetInstructions()) {
+		IRMemoryOpInfo info = IROpMemoryAccessSize(inst.op);
+		if (info.size != 0 && inst.src1 == MIPS_REG_SP) {
+			if (spModified) {
+				// No good, it was modified and then we did more accesses.  Can't combine.
+				spUpper = -1;
+				break;
+			}
+			if ((int)inst.constant < 0 || (int)inst.constant >= 0x4000) {
+				// Let's assume this might cross boundaries or something.  Uncommon.
+				spUpper = -1;
+				break;
+			}
+			if (info.size == 16 && (inst.constant & 0xF) != 0) {
+				// Shouldn't happen, sp should always be aligned.
+				spUpper = -1;
+				break;
+			}
+
+			spLower = std::min(spLower, (int)inst.constant);
+			spUpper = std::max(spUpper, (int)inst.constant + info.size);
+			spWrite = spWrite || info.isWrite;
+		}
+
+		const IRMeta *m = GetIRMeta(inst.op);
+		if (m->types[0] == 'G' && (m->flags & IRFLAG_SRC3) == 0 && inst.dest == MIPS_REG_SP) {
+			// We only care if it changes after we start combining.
+			spModified = spUpper != -1;
+		}
+	}
+
+	bool skipSP = spUpper != -1;
+	bool flushedSP = false;
+
+	std::map<uint64_t, uint8_t> checks;
+	const auto addValidate = [&](IROp validate, uint8_t sz, const IRInst &inst, bool isStore) {
+		if (inst.src1 == MIPS_REG_SP && skipSP) {
+			if (!flushedSP) {
+				out.Write(IROp::ValidateAddress32, 0, MIPS_REG_SP, spWrite ? 1U : 0U, spLower);
+				if (spUpper > spLower + 4)
+					out.Write(IROp::ValidateAddress32, 0, MIPS_REG_SP, spWrite ? 1U : 0U, spUpper - 4);
+				flushedSP = true;
+			}
+			return;
+		}
+
+		uint64_t key = ((uint64_t)inst.src1 << 32) | inst.constant;
+		auto it = checks.find(key);
+		if (it == checks.end() || it->second < sz) {
+			out.Write(validate, 0, inst.src1, isStore ? 1U : 0U, inst.constant);
+			checks[key] = sz;
+		}
 	};
 
-	// TODO: Could be smart about not double-validating an address that has a load / store, etc.
 	bool logBlocks = false;
 	for (IRInst inst : in.GetInstructions()) {
-		switch (inst.op) {
-		case IROp::Load8:
-		case IROp::Load8Ext:
-		case IROp::Store8:
-			addValidate(IROp::ValidateAddress8, inst, inst.op == IROp::Store8);
-			break;
+		IRMemoryOpInfo info = IROpMemoryAccessSize(inst.op);
+		IROp validateOp = IROp::Nop;
+		switch (info.size) {
+		case 1: validateOp = IROp::ValidateAddress8; break;
+		case 2: validateOp = IROp::ValidateAddress16; break;
+		case 4: validateOp = IROp::ValidateAddress32; break;
+		case 16: validateOp = IROp::ValidateAddress128; break;
+		case 0: break;
+		default: _assert_msg_(false, "Unexpected memory access size");
+		}
 
-		case IROp::Load16:
-		case IROp::Load16Ext:
-		case IROp::Store16:
-			addValidate(IROp::ValidateAddress16, inst, inst.op == IROp::Store16);
-			break;
+		if (validateOp != IROp::Nop) {
+			addValidate(validateOp, info.size, inst, info.isWrite);
+		}
 
-		case IROp::Load32:
-		case IROp::Load32Linked:
-		case IROp::LoadFloat:
-		case IROp::Store32:
-		case IROp::Store32Conditional:
-		case IROp::StoreFloat:
-			addValidate(IROp::ValidateAddress32, inst, inst.op == IROp::Store32 || inst.op == IROp::Store32Conditional || inst.op == IROp::StoreFloat);
-			break;
-
-		case IROp::LoadVec4:
-		case IROp::StoreVec4:
-			addValidate(IROp::ValidateAddress128, inst, inst.op == IROp::StoreVec4);
-			break;
-
-		case IROp::Load32Left:
-		case IROp::Load32Right:
-		case IROp::Store32Left:
-		case IROp::Store32Right:
-			// This explicitly does not require alignment, so validate as an 8-bit operation.
-			addValidate(IROp::ValidateAddress8, inst, inst.op == IROp::Store32Left || inst.op == IROp::Store32Right);
-			break;
-
-		default:
-			break;
+		const IRMeta *m = GetIRMeta(inst.op);
+		if (m->types[0] == 'G' && (m->flags & IRFLAG_SRC3) == 0) {
+			uint64_t key = (uint64_t)inst.dest << 32;
+			// Wipe out all the already done checks since this was modified.
+			checks.erase(checks.lower_bound(key), checks.upper_bound(key | 0xFFFFFFFFULL));
 		}
 
 		// Always write out the original.  We're only adding.

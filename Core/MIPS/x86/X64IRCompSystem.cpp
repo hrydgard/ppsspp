@@ -201,21 +201,90 @@ void X64JitBackend::CompIR_Transfer(IRInst inst) {
 	}
 }
 
+int ReportBadAddress(uint32_t addr, uint32_t alignment, uint32_t isWrite) {
+	const auto toss = [&](MemoryExceptionType t) {
+		Core_MemoryException(addr, alignment, currentMIPS->pc, t);
+		return coreState != CORE_RUNNING ? 1 : 0;
+	};
+
+	if (!Memory::IsValidRange(addr, alignment)) {
+		MemoryExceptionType t = isWrite == 1 ? MemoryExceptionType::WRITE_WORD : MemoryExceptionType::READ_WORD;
+		if (alignment > 4)
+			t = isWrite ? MemoryExceptionType::WRITE_BLOCK : MemoryExceptionType::READ_BLOCK;
+		return toss(t);
+	} else if (alignment > 1 && (addr & (alignment - 1)) != 0) {
+		return toss(MemoryExceptionType::ALIGNMENT);
+	}
+	return 0;
+};
+
 void X64JitBackend::CompIR_ValidateAddress(IRInst inst) {
 	CONDITIONAL_DISABLE;
 
+	bool isWrite = inst.src2 & 1;
+	int alignment = 0;
 	switch (inst.op) {
 	case IROp::ValidateAddress8:
+		alignment = 1;
+		break;
+
 	case IROp::ValidateAddress16:
+		alignment = 2;
+		break;
+
 	case IROp::ValidateAddress32:
+		alignment = 4;
+		break;
+
 	case IROp::ValidateAddress128:
-		CompIR_Generic(inst);
+		alignment = 16;
 		break;
 
 	default:
 		INVALIDOP;
 		break;
 	}
+
+	// This is unfortunate...
+	FlushAll();
+	regs_.Map(inst);
+	LEA(PTRBITS, SCRATCH1, MDisp(regs_.RX(inst.src1), inst.constant));
+	AND(32, R(SCRATCH1), Imm32(0x3FFFFFFF));
+
+	std::vector<FixupBranch> validJumps;
+
+	FixupBranch unaligned;
+	if (alignment != 1) {
+		TEST(32, R(SCRATCH1), Imm32(alignment - 1));
+		unaligned = J_CC(CC_NZ);
+	}
+
+	CMP(32, R(SCRATCH1), Imm32(PSP_GetUserMemoryEnd() - alignment));
+	FixupBranch tooHighRAM = J_CC(CC_A);
+	CMP(32, R(SCRATCH1), Imm32(PSP_GetKernelMemoryBase()));
+	validJumps.push_back(J_CC(CC_AE));
+
+	CMP(32, R(SCRATCH1), Imm32(PSP_GetVidMemEnd() - alignment));
+	FixupBranch tooHighVid = J_CC(CC_A);
+	CMP(32, R(SCRATCH1), Imm32(PSP_GetVidMemBase()));
+	validJumps.push_back(J_CC(CC_AE));
+
+	CMP(32, R(SCRATCH1), Imm32(PSP_GetScratchpadMemoryEnd() - alignment));
+	FixupBranch tooHighScratch = J_CC(CC_A);
+	CMP(32, R(SCRATCH1), Imm32(PSP_GetScratchpadMemoryBase()));
+	validJumps.push_back(J_CC(CC_AE));
+
+	SetJumpTarget(tooHighRAM);
+	SetJumpTarget(tooHighVid);
+	SetJumpTarget(tooHighScratch);
+
+	ABI_CallFunctionACC((const void *)&ReportBadAddress, R(SCRATCH1), alignment, isWrite);
+	TEST(32, R(EAX), R(EAX));
+	validJumps.push_back(J_CC(CC_Z));
+	JMP(dispatcherCheckCoreState_, true);
+
+	for (FixupBranch &b : validJumps)
+		SetJumpTarget(b);
 }
 
 } // namespace MIPSComp
