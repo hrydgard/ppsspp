@@ -440,9 +440,21 @@ bool PropagateConstants(const IRWriter &in, IRWriter &out, const IROptions &opts
 			goto doDefault;
 
 		case IROp::Sub:
+			if (gpr.IsImm(inst.src1) && gpr.GetImm(inst.src1) == 0 && !gpr.IsImm(inst.src2)) {
+				// Morph into a Neg.
+				gpr.MapDirtyIn(inst.dest, inst.src2);
+				out.Write(IROp::Neg, inst.dest, inst.src2);
+				break;
+			}
+#if  __cplusplus >= 201703 || _MSC_VER > 1910
+			[[fallthrough]];
+#endif
 		case IROp::Slt:
 		case IROp::SltU:
-			symmetric = false;  // fallthrough
+			symmetric = false;
+#if  __cplusplus >= 201703 || _MSC_VER > 1910
+			[[fallthrough]];
+#endif
 		case IROp::Add:
 		case IROp::And:
 		case IROp::Or:

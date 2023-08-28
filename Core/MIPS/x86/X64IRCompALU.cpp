@@ -61,25 +61,15 @@ void X64JitBackend::CompIR_Arith(IRInst inst) {
 		break;
 
 	case IROp::Sub:
-		if (regs_.IsGPRImm(inst.src1) && regs_.GetGPRImm(inst.src1) == 0) {
-			// TODO: Might be nice to have a pass to turn this into Neg.
-			// Special cased to avoid wasting a reg on zero.
-			regs_.SpillLockGPR(inst.dest, inst.src2);
-			regs_.MapGPR(inst.src2);
-			regs_.MapGPR(inst.dest, MIPSMap::NOINIT);
-			if (inst.dest != inst.src2)
-				MOV(32, regs_.R(inst.dest), regs_.R(inst.src2));
-			NEG(32, regs_.R(inst.dest));
+		regs_.Map(inst);
+		if (inst.dest == inst.src2 && inst.dest == inst.src1) {
+			regs_.SetGPRImm(inst.dest, 0);
 		} else if (inst.dest == inst.src2) {
-			regs_.Map(inst);
-			MOV(32, R(SCRATCH1), regs_.R(inst.src2));
-			MOV(32, regs_.R(inst.dest), regs_.R(inst.src1));
-			SUB(32, regs_.R(inst.dest), R(SCRATCH1));
+			NEG(32, regs_.R(inst.src2));
+			ADD(32, regs_.R(inst.dest), regs_.R(inst.src1));
 		} else if (inst.dest == inst.src1) {
-			regs_.Map(inst);
 			SUB(32, regs_.R(inst.dest), regs_.R(inst.src2));
 		} else {
-			regs_.Map(inst);
 			MOV(32, regs_.R(inst.dest), regs_.R(inst.src1));
 			SUB(32, regs_.R(inst.dest), regs_.R(inst.src2));
 		}
