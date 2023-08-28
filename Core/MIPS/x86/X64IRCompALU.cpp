@@ -182,7 +182,12 @@ void X64JitBackend::CompIR_Compare(IRInst inst) {
 	CONDITIONAL_DISABLE;
 
 	auto setCC = [&](const OpArg &arg, CCFlags cc) {
-		if (regs_.HasLowSubregister(regs_.RX(inst.dest)) && inst.dest != inst.src1 && inst.dest != inst.src2) {
+		// If it's carry, we can take advantage of ADC to avoid subregisters.
+		if (cc == CC_C && inst.dest != inst.src1 && inst.dest != inst.src2) {
+			XOR(32, regs_.R(inst.dest), regs_.R(inst.dest));
+			CMP(32, regs_.R(inst.src1), arg);
+			ADC(32, regs_.R(inst.dest), Imm8(0));
+		} else if (regs_.HasLowSubregister(regs_.RX(inst.dest)) && inst.dest != inst.src1 && inst.dest != inst.src2) {
 			XOR(32, regs_.R(inst.dest), regs_.R(inst.dest));
 			CMP(32, regs_.R(inst.src1), arg);
 			SETcc(cc, regs_.R(inst.dest));
