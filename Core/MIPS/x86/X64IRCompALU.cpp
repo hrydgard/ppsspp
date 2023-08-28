@@ -50,7 +50,9 @@ void X64JitBackend::CompIR_Arith(IRInst inst) {
 	switch (inst.op) {
 	case IROp::Add:
 		regs_.Map(inst);
-		if (inst.dest == inst.src2) {
+		if (inst.src1 == inst.src2) {
+			LEA(32, regs_.RX(inst.dest), MScaled(regs_.RX(inst.src1), 2, 0));
+		} else if (inst.dest == inst.src2) {
 			ADD(32, regs_.R(inst.dest), regs_.R(inst.src1));
 		} else if (inst.dest == inst.src1) {
 			ADD(32, regs_.R(inst.dest), regs_.R(inst.src2));
