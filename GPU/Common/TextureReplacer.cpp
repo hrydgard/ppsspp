@@ -232,7 +232,7 @@ bool TextureReplacer::LoadIniValues(IniFile &ini, VFSBackend *dir, bool isOverri
 	std::string badFilenames;
 
 	if (ini.HasSection("hashes")) {
-		auto hashes = ini.GetOrCreateSection("hashes")->ToVec();
+		auto hashes = ini.GetOrCreateSection("hashes")->ToMap();
 		// Format: hashname = filename.png
 		bool checkFilenames = g_Config.bSaveNewTextures && !g_Config.bIgnoreTextureFilenames && !vfsIsZip_;
 
@@ -242,10 +242,7 @@ bool TextureReplacer::LoadIniValues(IniFile &ini, VFSBackend *dir, bool isOverri
 			// sscanf doesn't write to non-matched outputs.
 			int level = 0;
 			if (sscanf(item.first.c_str(), "%16llx%8x_%d", &key.cachekey, &key.hash, &level) >= 1) {
-				if (item.second.empty()) {
-					WARN_LOG(G3D, "Texture replacement: Ignoring hash mapping to empty filename: '%s ='", item.first.c_str());
-					continue;
-				}
+				// We allow empty filenames, to mark textures that we don't want to keep saving.
 				filenameMap[key][level] = item.second;
 				if (checkFilenames) {
 					// TODO: We should check for the union of these on all platforms, really.
