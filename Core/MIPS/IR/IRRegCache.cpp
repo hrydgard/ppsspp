@@ -160,16 +160,17 @@ bool IRNativeRegCacheBase::IsFPRMapped(IRReg fpr) {
 }
 
 int IRNativeRegCacheBase::GetFPRLaneCount(IRReg fpr) {
-	if (!IsFPRMapped(fpr) || mr[fpr].lane > 0)
+	if (!IsFPRMapped(fpr) || mr[fpr + 32].lane > 0)
 		return 0;
-	if (mr[fpr].lane == -1)
+	if (mr[fpr + 32].lane == -1)
 		return 1;
 
+	IRReg base = fpr + 32 - mr[fpr + 32].lane;
 	int c = 1;
 	for (int i = 1; i < 4; ++i) {
-		if (mr[fpr + i].nReg != mr[fpr].nReg || mr[fpr + i].loc != mr[fpr].loc)
+		if (mr[base + i].nReg != mr[base].nReg || mr[base + i].loc != mr[base].loc)
 			return c;
-		if (mr[fpr + i].lane != i)
+		if (mr[base + i].lane != i)
 			return c;
 
 		c++;
