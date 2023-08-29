@@ -2040,12 +2040,20 @@ bool ReduceVec4Flush(const IRWriter &in, IRWriter &out, const IROptions &opts) {
 			break;
 
 		case IROp::LoadFloat:
-			if (isVec4[inst.dest & ~3] && isVec4Dirty[inst.dest & ~3] && findAvailTempVec4()) {
+			if (isVec4[inst.dest & ~3] && isVec4Dirty[inst.dest & ~3] && usedLaterAsVec4(inst.dest & ~3) && findAvailTempVec4()) {
 				u8 blendMask = 1 << (inst.dest & 3);
 				out.Write(inst.op, temp, inst.src1, inst.src2, inst.constant);
 				out.Write(IROp::Vec4Shuffle, temp, temp, 0);
 				out.Write(IROp::Vec4Blend, inst.dest & ~3, inst.dest & ~3, temp, blendMask);
 				isVec4Dirty[inst.dest & ~3] = true;
+				continue;
+			}
+			break;
+
+		case IROp::StoreFloat:
+			if (isVec4[inst.src3 & ~3] && isVec4Dirty[inst.src3 & ~3] && usedLaterAsVec4(inst.src3 & ~3) && findAvailTempVec4()) {
+				out.Write(IROp::FMov, temp, inst.src3, 0);
+				out.Write(inst.op, temp, inst.src1, inst.src2, inst.constant);
 				continue;
 			}
 			break;
@@ -2059,14 +2067,15 @@ bool ReduceVec4Flush(const IRWriter &in, IRWriter &out, const IROptions &opts) {
 				out.Write(IROp::Vec4Shuffle, inst.dest & ~3, inst.dest & ~3, shuffle);
 				isVec4Dirty[inst.dest & ~3] = true;
 				continue;
-			} else if (isVec4[inst.dest & ~3] && isVec4[inst.src1 & ~3] && (inst.dest & 3) == (inst.src1 & 3)) {
+			} else if (isVec4[inst.dest & ~3] && (inst.dest & 3) == (inst.src1 & 3)) {
 				// We can turn this directly into a blend, since it's the same lane.
 				out.Write(IROp::Vec4Blend, inst.dest & ~3, inst.dest & ~3, inst.src1 & ~3, 1 << (inst.dest & 3));
 				isVec4Dirty[inst.dest & ~3] = true;
 				continue;
 			} else if (isVec4[inst.dest & ~3] && isVec4[inst.src1 & ~3] && findAvailTempVec4()) {
 				// For this, we'll need a temporary to move to the right lane.
-				uint8_t shuffle = (uint8_t)VFPU_SWIZZLE(inst.src1 & 3, inst.src1 & 3, inst.src1 & 3, inst.src1 & 3);
+				int lane = inst.src1 & 3;
+				uint8_t shuffle = (uint8_t)VFPU_SWIZZLE(lane, lane, lane, lane);
 				out.Write(IROp::Vec4Shuffle, temp, inst.src1 & ~3, shuffle);
 				out.Write(IROp::Vec4Blend, inst.dest & ~3, inst.dest & ~3, temp, 1 << (inst.dest & 3));
 				isVec4Dirty[inst.dest & ~3] = true;
@@ -2095,7 +2104,15 @@ bool ReduceVec4Flush(const IRWriter &in, IRWriter &out, const IROptions &opts) {
 		case IROp::Vec4Dot:
 			if (overlapped(inst.dest, 1, inst.src1, 4, inst.src2, 4) && findAvailTempVec4()) {
 				out.Write(inst.op, temp, inst.src1, inst.src2, inst.constant);
-				out.Write(IROp::FMov, inst.dest, temp);
+				if (usedLaterAsVec4(inst.dest & ~3)) {
+					out.Write(IROp::Vec4Shuffle, temp, inst.src1 & ~3, 0);
+					out.Write(IROp::Vec4Blend, inst.dest & ~3, inst.dest & ~3, temp, 1 << (inst.dest & 3));
+					// It's overlapped, so it'll get marked as Vec4 and used anyway.
+					isVec4Dirty[inst.dest & ~3] = true;
+					inst.dest = IRREG_INVALID;
+				} else {
+					out.Write(IROp::FMov, inst.dest, temp);
+				}
 				skip = true;
 			}
 			break;
@@ -2105,6 +2122,12 @@ bool ReduceVec4Flush(const IRWriter &in, IRWriter &out, const IROptions &opts) {
 				out.Write(IROp::FMov, temp, inst.src2);
 				out.Write(inst.op, inst.dest, inst.src1, temp, inst.constant);
 				skip = true;
+				inst.src2 = IRREG_INVALID;
+			} else if (isVec4[inst.src2 & 3] && usedLaterAsVec4(inst.src2 & ~3) && findAvailTempVec4()) {
+				out.Write(IROp::FMov, temp, inst.src2);
+				out.Write(inst.op, inst.dest, inst.src1, temp, inst.constant);
+				skip = true;
+				inst.src2 = IRREG_INVALID;
 			}
 			break;
 
@@ -2113,11 +2136,11 @@ bool ReduceVec4Flush(const IRWriter &in, IRWriter &out, const IROptions &opts) {
 		}
 
 		bool downgrade = false;
-		if (updateVec4(m->types[1], inst.src1))
+		if (inst.src1 != IRREG_INVALID && updateVec4(m->types[1], inst.src1))
 			downgrade = true;
-		if (updateVec4(m->types[2], inst.src2))
+		if (inst.src2 != IRREG_INVALID && updateVec4(m->types[2], inst.src2))
 			downgrade = true;
-		if (updateVec4Dest(m->types[0], inst.dest, m->flags))
+		if (inst.dest != IRREG_INVALID && updateVec4Dest(m->types[0], inst.dest, m->flags))
 			downgrade = true;
 
 		if (downgrade) {
