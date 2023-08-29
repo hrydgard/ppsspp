@@ -2913,12 +2913,12 @@ bool TextureCacheCommon::PrepareBuildTexture(BuildTexturePlan &plan, TexCacheEnt
 	if (isFakeMipmapChange) {
 		// NOTE: Since the level is not part of the cache key, we assume it never changes.
 		plan.baseLevelSrc = std::max(0, gstate.getTexLevelOffset16() / 16);
-		// If this is level 1 and it has the same texture address as level 0, let's just say it's
-		// level 0 for the purposes of replacement. Seen in Tactics Ogre.
+		// Tactics Ogre: If this is an odd level and it has the same texture address the below even level,
+		// let's just say it's the even level for the purposes of replacement.
 		// I assume this is done to avoid blending between levels accidentally?
-		// The Japanese version uses more levels, but similarly in pairs.
-		if (plan.baseLevelSrc == 1 && gstate.getTextureAddress(1) == gstate.getTextureAddress(0)) {
-			plan.baseLevelSrc = 0;
+		// The Japanese version of Tactics Ogre uses multiple of these "double" levels to fit more characters.
+		if ((plan.baseLevelSrc & 1) && gstate.getTextureAddress(plan.baseLevelSrc) == gstate.getTextureAddress(plan.baseLevelSrc & ~1)) {
+			plan.baseLevelSrc &= ~1;
 		}
 		plan.levelsToCreate = 1;
 		plan.levelsToLoad = 1;
