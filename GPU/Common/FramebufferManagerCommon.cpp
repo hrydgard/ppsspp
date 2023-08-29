@@ -1858,7 +1858,16 @@ bool FramebufferManagerCommon::NotifyFramebufferCopy(u32 src, u32 dst, int size,
 		if (!ignoreDstBuffer && vfb_address == dst && ((size == 0x44000 && vfb_size == 0x88000) || (size == 0x88000 && vfb_size == 0x44000))) {
 			// Not likely to be a correct color format copy for this buffer. Ignore it, there will either be RAM
 			// that can be displayed from, or another matching buffer with the right format if rendering is going on.
+			// If we had scoring here, we should strongly penalize this target instead of ignoring it.
 			WARN_LOG_N_TIMES(notify_copy_2x, 5, G3D, "Framebuffer size %08x conspicuously not matching copy size %08x in NotifyFramebufferCopy. Ignoring.", size, vfb_size);
+			continue;
+		}
+
+		if ((u32)size > vfb_size + 0x1000 && vfb->fb_format != GE_FORMAT_8888 && vfb->last_frame_render < gpuStats.numFlips) {
+			// Seems likely we are looking at a potential copy of 32-bit pixels (like video) to an old 16-bit buffer,
+			// which is very likely simply the wrong target, so skip it. See issue #17740 where this happens in Naruto Ultimate Ninja Heroes 2.
+			// If we had scoring here, we should strongly penalize this target instead of ignoring it.
+			WARN_LOG_N_TIMES(notify_copy_2x, 5, G3D, "Framebuffer size %08x too small for %08x bytes of data and also 16-bit (%s), and not rendered to this frame. Ignoring.", vfb_size, size, GeBufferFormatToString(vfb->fb_format));
 			continue;
 		}
 
