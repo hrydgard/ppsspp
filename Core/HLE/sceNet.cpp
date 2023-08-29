@@ -1390,6 +1390,12 @@ static int sceNetResolverInit()
 	return 0;
 }
 
+static int sceNetResolverTerm()
+{
+	ERROR_LOG(SCENET, "UNIMPL %s()", __FUNCTION__);
+	return 0;
+}
+
 static int sceNetApctlAddInternalHandler(u32 handlerPtr, u32 handlerArg) {
 	ERROR_LOG(SCENET, "UNIMPL %s(%08x, %08x)", __FUNCTION__, handlerPtr, handlerArg);
 	// This seems to be a 2nd kind of handler
@@ -1505,7 +1511,7 @@ const HLEFunction sceNetResolver[] = {
 	{0X94523E09, nullptr,                            "sceNetResolverDelete",            '?', ""     },
 	{0XF3370E61, &WrapI_V<sceNetResolverInit>,       "sceNetResolverInit",              'i', ""     },
 	{0X808F6063, nullptr,                            "sceNetResolverStop",              '?', ""     },
-	{0X6138194A, nullptr,                            "sceNetResolverTerm",              '?', ""     },
+	{0X6138194A, &WrapI_V<sceNetResolverTerm>,       "sceNetResolverTerm",              'i', ""     },
 	{0X629E2FB7, nullptr,                            "sceNetResolverStartAtoN",         '?', ""     },
 	{0X14C17EF9, nullptr,                            "sceNetResolverStartNtoAAsync",    '?', ""     },
 	{0XAAC09184, nullptr,                            "sceNetResolverStartAtoNAsync",    '?', ""     },
