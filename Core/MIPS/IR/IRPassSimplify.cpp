@@ -1995,6 +1995,7 @@ bool ReduceVec4Flush(const IRWriter &in, IRWriter &out, const IROptions &opts) {
 			return false;
 		};
 
+		bool skip = false;
 		switch (inst.op) {
 		case IROp::SetConstF:
 			if (isVec4[inst.dest & ~3] && findAvailTempVec4()) {
@@ -2077,30 +2078,54 @@ bool ReduceVec4Flush(const IRWriter &in, IRWriter &out, const IROptions &opts) {
 		case IROp::FSub:
 		case IROp::FMul:
 		case IROp::FDiv:
-			if (isVec4[inst.dest & ~3] && isVec4Dirty[inst.dest & ~3] && usedLaterAsVec4(inst.dest & ~3) && findAvailTempVec4()) {
-				u8 blendMask = 1 << (inst.dest & 3);
-				out.Write(inst.op, temp, inst.src1, inst.src2);
-				out.Write(IROp::Vec4Shuffle, temp, temp, 0);
-				out.Write(IROp::Vec4Blend, inst.dest & ~3, inst.dest & ~3, temp, blendMask);
-				isVec4Dirty[inst.dest & ~3] = true;
-				continue;
+			if (isVec4[inst.dest & ~3] && isVec4Dirty[inst.dest & ~3] && usedLaterAsVec4(inst.dest & ~3)) {
+				if (!overlapped(inst.dest & ~3, 4, inst.src1, 1, inst.src2, 1) && findAvailTempVec4()) {
+					u8 blendMask = 1 << (inst.dest & 3);
+					out.Write(inst.op, temp, inst.src1, inst.src2);
+					out.Write(IROp::Vec4Shuffle, temp, temp, 0);
+					out.Write(IROp::Vec4Blend, inst.dest & ~3, inst.dest & ~3, temp, blendMask);
+					updateVec4('F', inst.src1);
+					updateVec4('F', inst.src2);
+					isVec4Dirty[inst.dest & ~3] = true;
+					continue;
+				}
 			}
+			break;
+
+		case IROp::Vec4Dot:
+			if (overlapped(inst.dest, 1, inst.src1, 4, inst.src2, 4) && findAvailTempVec4()) {
+				out.Write(inst.op, temp, inst.src1, inst.src2, inst.constant);
+				out.Write(IROp::FMov, inst.dest, temp);
+				skip = true;
+			}
+			break;
+
+		case IROp::Vec4Scale:
+			if (overlapped(inst.src2, 1, inst.src1, 4, inst.dest, 4) && findAvailTempVec4()) {
+				out.Write(IROp::FMov, temp, inst.src2);
+				out.Write(inst.op, inst.dest, inst.src1, temp, inst.constant);
+				skip = true;
+			}
+			break;
+
+		default:
 			break;
 		}
 
 		bool downgrade = false;
-		if (updateVec4Dest(m->types[0], inst.dest, m->flags))
-			downgrade = true;
 		if (updateVec4(m->types[1], inst.src1))
 			downgrade = true;
 		if (updateVec4(m->types[2], inst.src2))
+			downgrade = true;
+		if (updateVec4Dest(m->types[0], inst.dest, m->flags))
 			downgrade = true;
 
 		if (downgrade) {
 			//WARN_LOG(JIT, "Vec4 downgrade by: %s", m->name);
 		}
 
-		out.Write(inst);
+		if (!skip)
+			out.Write(inst);
 	}
 	return logBlocks;
 }
