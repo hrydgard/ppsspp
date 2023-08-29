@@ -45,7 +45,8 @@ void X64JitBackend::EmitFPUConstants() {
 	EmitConst4x32(&constants.signBitAll, 0x80000000);
 	EmitConst4x32(&constants.positiveInfinity, 0x7F800000);
 	EmitConst4x32(&constants.qNAN, 0x7FC00000);
-	EmitConst4x32(&constants.ones, 0x3F800000);
+	EmitConst4x32(&constants.positiveOnes, 0x3F800000);
+	EmitConst4x32(&constants.negativeOnes, 0xBF800000);
 
 	constants.mulTableVi2f = (const float *)GetCodePointer();
 	for (uint8_t i = 0; i < 32; ++i) {
@@ -610,10 +611,37 @@ void X64JitBackend::CompIR_FRound(IRInst inst) {
 void X64JitBackend::CompIR_FSat(IRInst inst) {
 	CONDITIONAL_DISABLE;
 
+	X64Reg tempReg = INVALID_REG;
 	switch (inst.op) {
 	case IROp::FSat0_1:
+		tempReg = regs_.MapWithFPRTemp(inst);
+
+		// The second argument's NAN is taken if either is NAN, so put known first.
+		MOVSS(tempReg, M(constants.positiveOnes));
+		MINSS(tempReg, regs_.F(inst.src1));
+
+		// Now for NAN, we want known first again.
+		// Unfortunately, this will retain -0.0, which we'll fix next.
+		XORPS(tempReg, R(tempReg));
+		MAXSS(tempReg, regs_.F(inst.dest));
+
+		// Important: this should clamp -0.0 to +0.0.
+		XORPS(regs_.FX(inst.dest), regs_.F(inst.dest));
+		CMPEQSS(regs_.FX(inst.dest), R(tempReg));
+		// This will zero all bits if it was -0.0, and keep them otherwise.
+		ANDNPS(regs_.FX(inst.dest), R(tempReg));
+		break;
+
 	case IROp::FSatMinus1_1:
-		CompIR_Generic(inst);
+		tempReg = regs_.MapWithFPRTemp(inst);
+
+		// The second argument's NAN is taken if either is NAN, so put known first.
+		MOVSS(tempReg, M(constants.negativeOnes));
+		MAXSS(tempReg, regs_.F(inst.src1));
+
+		// Again, stick with the first argument being known.
+		MOVSS(regs_.FX(inst.dest), M(constants.positiveOnes));
+		MINSS(regs_.FX(inst.dest), R(tempReg));
 		break;
 
 	default:
@@ -731,7 +759,7 @@ void X64JitBackend::CompIR_FSpecial(IRInst inst) {
 			X64Reg tempReg = regs_.MapWithFPRTemp(inst);
 			SQRTSS(tempReg, regs_.F(inst.src1));
 
-			MOVSS(regs_.FX(inst.dest), M(constants.ones));  // rip accessible
+			MOVSS(regs_.FX(inst.dest), M(constants.positiveOnes));  // rip accessible
 			DIVSS(regs_.FX(inst.dest), R(tempReg));
 			break;
 		}
@@ -739,11 +767,11 @@ void X64JitBackend::CompIR_FSpecial(IRInst inst) {
 	case IROp::FRecip:
 		if (inst.dest != inst.src1) {
 			regs_.Map(inst);
-			MOVSS(regs_.FX(inst.dest), M(constants.ones));  // rip accessible
+			MOVSS(regs_.FX(inst.dest), M(constants.positiveOnes));  // rip accessible
 			DIVSS(regs_.FX(inst.dest), regs_.F(inst.src1));
 		} else {
 			X64Reg tempReg = regs_.MapWithFPRTemp(inst);
-			MOVSS(tempReg, M(constants.ones));  // rip accessible
+			MOVSS(tempReg, M(constants.positiveOnes));  // rip accessible
 			if (cpu_info.bAVX) {
 				VDIVSS(regs_.FX(inst.dest), tempReg, regs_.F(inst.src1));
 			} else {

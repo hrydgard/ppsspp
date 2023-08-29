@@ -144,7 +144,8 @@ private:
 		const void *noSignMask;
 		const void *signBitAll;
 		const void *positiveInfinity;
-		const void *ones;
+		const void *positiveOnes;
+		const void *negativeOnes;
 		const void *qNAN;
 		const float *mulTableVi2f;
 		const Float4Constant *vec4InitValues;
