@@ -75,15 +75,30 @@ Gen::OpArg X64JitBackend::PrepareSrc1Address(IRInst inst) {
 
 void X64JitBackend::CompIR_CondStore(IRInst inst) {
 	CONDITIONAL_DISABLE;
-
-	switch (inst.op) {
-	case IROp::Store32Conditional:
-		CompIR_Generic(inst);
-		break;
-
-	default:
+	if (inst.op != IROp::Store32Conditional)
 		INVALIDOP;
-		break;
+
+	regs_.SpillLockGPR(IRREG_LLBIT, inst.src3, inst.src1);
+	OpArg addrArg = PrepareSrc1Address(inst);
+	OpArg valueArg = R(regs_.MapGPR(inst.src3, MIPSMap::INIT));
+
+	regs_.MapGPR(IRREG_LLBIT, MIPSMap::INIT);
+
+	// TODO: Safe memory?  Or enough to have crash handler + validate?
+
+	TEST(32, regs_.R(IRREG_LLBIT), regs_.R(IRREG_LLBIT));
+	FixupBranch condFailed = J_CC(CC_Z);
+	MOV(32, addrArg, valueArg);
+
+	if (inst.dest != MIPS_REG_ZERO) {
+		MOV(32, regs_.R(inst.dest), Imm32(1));
+		FixupBranch finish = J();
+
+		SetJumpTarget(condFailed);
+		XOR(32, regs_.R(inst.dest), regs_.R(inst.dest));
+		SetJumpTarget(finish);
+	} else {
+		SetJumpTarget(condFailed);
 	}
 }
 
