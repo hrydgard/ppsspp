@@ -337,6 +337,12 @@ void X64JitBackend::LoadStaticRegisters() {
 	}
 }
 
+void X64JitBackend::EmitConst4x32(const void **c, uint32_t v) {
+	*c = AlignCode16();
+	for (int i = 0; i < 4; ++i)
+		Write32(v);
+}
+
 } // namespace MIPSComp
 
 #endif

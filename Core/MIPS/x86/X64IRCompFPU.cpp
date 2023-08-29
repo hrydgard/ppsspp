@@ -40,13 +40,23 @@ namespace MIPSComp {
 using namespace Gen;
 using namespace X64IRJitConstants;
 
-static struct SimdConstants {
-alignas(16) const u32 reverseQNAN[4] = { 0x803FFFFF, 0x803FFFFF, 0x803FFFFF, 0x803FFFFF };
-alignas(16) const u32 noSignMask[4] = { 0x7FFFFFFF, 0x7FFFFFFF, 0x7FFFFFFF, 0x7FFFFFFF };
-alignas(16) const u32 positiveInfinity[4] = { 0x7F800000, 0x7F800000, 0x7F800000, 0x7F800000 };
-alignas(16) const u32 signBitAll[4] = { 0x80000000, 0x80000000, 0x80000000, 0x80000000 };
-alignas(16) const u32 ones[4] = { 0x3F800000, 0x3F800000, 0x3F800000, 0x3F800000 };
-} simdConstants;
+void X64JitBackend::EmitFPUConstants() {
+	EmitConst4x32(&constants.noSignMask, 0x7FFFFFFF);
+	EmitConst4x32(&constants.signBitAll, 0x80000000);
+	EmitConst4x32(&constants.positiveInfinity, 0x7F800000);
+	EmitConst4x32(&constants.qNAN, 0x7FC00000);
+	EmitConst4x32(&constants.positiveOnes, 0x3F800000);
+	EmitConst4x32(&constants.negativeOnes, 0xBF800000);
+
+	constants.mulTableVi2f = (const float *)GetCodePointer();
+	for (uint8_t i = 0; i < 32; ++i) {
+		float fval = 1.0f / (1UL << i);
+		uint32_t val;
+		memcpy(&val, &fval, sizeof(val));
+
+		Write32(val);
+	}
+}
 
 void X64JitBackend::CompIR_FArith(IRInst inst) {
 	CONDITIONAL_DISABLE;
@@ -87,11 +97,11 @@ void X64JitBackend::CompIR_FArith(IRInst inst) {
 
 	case IROp::FMul:
 	{
-		X64Reg tempReg = regs_.MapWithFPRTemp(inst);
+		regs_.Map(inst);
 
-		// tempReg = !my_isnan(src1) && !my_isnan(src2)
-		MOVSS(tempReg, regs_.F(inst.src1));
-		CMPORDSS(tempReg, regs_.F(inst.src2));
+		UCOMISS(regs_.FX(inst.src1), regs_.F(inst.src2));
+		SETcc(CC_P, R(SCRATCH1));
+
 		if (inst.dest == inst.src1) {
 			MULSS(regs_.FX(inst.dest), regs_.F(inst.src2));
 		} else if (inst.dest == inst.src2) {
@@ -103,22 +113,18 @@ void X64JitBackend::CompIR_FArith(IRInst inst) {
 			MULSS(regs_.FX(inst.dest), regs_.F(inst.src2));
 		}
 
-		// Abuse a lane of tempReg to remember dest: NAN, NAN, res, res.
-		SHUFPS(tempReg, regs_.F(inst.dest), 0);
-		// dest = my_isnan(dest) && !my_isnan(src1) && !my_isnan(src2)
-		CMPUNORDSS(regs_.FX(inst.dest), regs_.F(inst.dest));
-		ANDPS(regs_.FX(inst.dest), R(tempReg));
-		// At this point fd = FFFFFFFF if non-NAN inputs produced a NAN output.
-		// We'll AND it with the inverse QNAN bits to clear (00000000 means no change.)
-		if (RipAccessible(&simdConstants.reverseQNAN)) {
-			ANDPS(regs_.FX(inst.dest), M(&simdConstants.reverseQNAN));  // rip accessible
-		} else {
-			MOV(PTRBITS, R(SCRATCH1), ImmPtr(&simdConstants.reverseQNAN));
-			ANDPS(regs_.FX(inst.dest), MatR(SCRATCH1));
-		}
-		// ANDN is backwards, which is why we saved XMM0 to start.  Now put it back.
-		SHUFPS(tempReg, R(tempReg), 0xFF);
-		ANDNPS(regs_.FX(inst.dest), R(tempReg));
+		UCOMISS(regs_.FX(inst.dest), regs_.F(inst.dest));
+		FixupBranch handleNAN = J_CC(CC_P);
+		FixupBranch finish = J();
+
+		SetJumpTarget(handleNAN);
+		TEST(8, R(SCRATCH1), R(SCRATCH1));
+		FixupBranch keepNAN = J_CC(CC_NZ);
+
+		MOVSS(regs_.FX(inst.dest), M(constants.qNAN));  // rip accessible
+
+		SetJumpTarget(keepNAN);
+		SetJumpTarget(finish);
 		break;
 	}
 
@@ -149,21 +155,11 @@ void X64JitBackend::CompIR_FArith(IRInst inst) {
 	case IROp::FNeg:
 		regs_.Map(inst);
 		if (cpu_info.bAVX) {
-			if (RipAccessible(&simdConstants.signBitAll)) {
-				VXORPS(128, regs_.FX(inst.dest), regs_.FX(inst.src1), M(&simdConstants.signBitAll));  // rip accessible
-			} else {
-				MOV(PTRBITS, R(SCRATCH1), ImmPtr(&simdConstants.signBitAll));
-				VXORPS(128, regs_.FX(inst.dest), regs_.FX(inst.src1), MatR(SCRATCH1));
-			}
+			VXORPS(128, regs_.FX(inst.dest), regs_.FX(inst.src1), M(constants.signBitAll));  // rip accessible
 		} else {
 			if (inst.dest != inst.src1)
 				MOVAPS(regs_.FX(inst.dest), regs_.F(inst.src1));
-			if (RipAccessible(&simdConstants.signBitAll)) {
-				XORPS(regs_.FX(inst.dest), M(&simdConstants.signBitAll));  // rip accessible
-			} else {
-				MOV(PTRBITS, R(SCRATCH1), ImmPtr(&simdConstants.signBitAll));
-				XORPS(regs_.FX(inst.dest), MatR(SCRATCH1));
-			}
+			XORPS(regs_.FX(inst.dest), M(constants.signBitAll));  // rip accessible
 		}
 		break;
 
@@ -187,21 +183,11 @@ void X64JitBackend::CompIR_FAssign(IRInst inst) {
 	case IROp::FAbs:
 		regs_.Map(inst);
 		if (cpu_info.bAVX) {
-			if (RipAccessible(&simdConstants.noSignMask)) {
-				VANDPS(128, regs_.FX(inst.dest), regs_.FX(inst.src1), M(&simdConstants.noSignMask));  // rip accessible
-			} else {
-				MOV(PTRBITS, R(SCRATCH1), ImmPtr(&simdConstants.noSignMask));
-				VANDPS(128, regs_.FX(inst.dest), regs_.FX(inst.src1), MatR(SCRATCH1));
-			}
+			VANDPS(128, regs_.FX(inst.dest), regs_.FX(inst.src1), M(constants.noSignMask));  // rip accessible
 		} else {
 			if (inst.dest != inst.src1)
 				MOVAPS(regs_.FX(inst.dest), regs_.F(inst.src1));
-			if (RipAccessible(&simdConstants.noSignMask)) {
-				ANDPS(regs_.FX(inst.dest), M(&simdConstants.noSignMask));  // rip accessible
-			} else {
-				MOV(PTRBITS, R(SCRATCH1), ImmPtr(&simdConstants.noSignMask));
-				ANDPS(regs_.FX(inst.dest), MatR(SCRATCH1));
-			}
+			ANDPS(regs_.FX(inst.dest), M(constants.noSignMask));  // rip accessible
 		}
 		break;
 
@@ -388,28 +374,13 @@ void X64JitBackend::CompIR_FCompare(IRInst inst) {
 		case VC_EI:
 		case VC_NI:
 			regs_.MapFPR(inst.src1);
-			if (!RipAccessible(&simdConstants.noSignMask) || !RipAccessible(&simdConstants.positiveInfinity)) {
-				MOV(PTRBITS, R(SCRATCH1), ImmPtr(&simdConstants));
-			}
 			if (cpu_info.bAVX) {
-				if (RipAccessible(&simdConstants.noSignMask)) {
-					VANDPS(128, tempReg, regs_.FX(inst.src1), M(&simdConstants.noSignMask));  // rip accessible
-				} else {
-					VANDPS(128, tempReg, regs_.FX(inst.src1), MDisp(SCRATCH1, offsetof(SimdConstants, noSignMask)));
-				}
+				VANDPS(128, tempReg, regs_.FX(inst.src1), M(constants.noSignMask));  // rip accessible
 			} else {
 				MOVAPS(tempReg, regs_.F(inst.src1));
-				if (RipAccessible(&simdConstants.noSignMask)) {
-					ANDPS(tempReg, M(&simdConstants.noSignMask));  // rip accessible
-				} else {
-					ANDPS(tempReg, MDisp(SCRATCH1, offsetof(SimdConstants, noSignMask)));
-				}
+				ANDPS(tempReg, M(constants.noSignMask));  // rip accessible
 			}
-			if (RipAccessible(&simdConstants.positiveInfinity)) {
-				CMPSS(tempReg, M(&simdConstants.positiveInfinity), !condNegated ? CMP_EQ : CMP_LT);  // rip accessible
-			} else {
-				CMPSS(tempReg, MDisp(SCRATCH1, offsetof(SimdConstants, positiveInfinity)), !condNegated ? CMP_EQ : CMP_LT);
-			}
+			CMPSS(tempReg, M(constants.positiveInfinity), !condNegated ? CMP_EQ : CMP_LT);  // rip accessible
 			break;
 		case VC_ES:
 		case VC_NS:
@@ -571,8 +542,13 @@ void X64JitBackend::CompIR_FCvt(IRInst inst) {
 		break;
 
 	case IROp::FCvtScaledWS:
-	case IROp::FCvtScaledSW:
 		CompIR_Generic(inst);
+		break;
+
+	case IROp::FCvtScaledSW:
+		regs_.Map(inst);
+		CVTDQ2PS(regs_.FX(inst.dest), regs_.F(inst.src1));
+		MULSS(regs_.FX(inst.dest), M(&constants.mulTableVi2f[inst.src2 & 0x1F]));  // rip accessible
 		break;
 
 	default:
@@ -635,10 +611,37 @@ void X64JitBackend::CompIR_FRound(IRInst inst) {
 void X64JitBackend::CompIR_FSat(IRInst inst) {
 	CONDITIONAL_DISABLE;
 
+	X64Reg tempReg = INVALID_REG;
 	switch (inst.op) {
 	case IROp::FSat0_1:
+		tempReg = regs_.MapWithFPRTemp(inst);
+
+		// The second argument's NAN is taken if either is NAN, so put known first.
+		MOVSS(tempReg, M(constants.positiveOnes));
+		MINSS(tempReg, regs_.F(inst.src1));
+
+		// Now for NAN, we want known first again.
+		// Unfortunately, this will retain -0.0, which we'll fix next.
+		XORPS(tempReg, R(tempReg));
+		MAXSS(tempReg, regs_.F(inst.dest));
+
+		// Important: this should clamp -0.0 to +0.0.
+		XORPS(regs_.FX(inst.dest), regs_.F(inst.dest));
+		CMPEQSS(regs_.FX(inst.dest), R(tempReg));
+		// This will zero all bits if it was -0.0, and keep them otherwise.
+		ANDNPS(regs_.FX(inst.dest), R(tempReg));
+		break;
+
 	case IROp::FSatMinus1_1:
-		CompIR_Generic(inst);
+		tempReg = regs_.MapWithFPRTemp(inst);
+
+		// The second argument's NAN is taken if either is NAN, so put known first.
+		MOVSS(tempReg, M(constants.negativeOnes));
+		MAXSS(tempReg, regs_.F(inst.src1));
+
+		// Again, stick with the first argument being known.
+		MOVSS(regs_.FX(inst.dest), M(constants.positiveOnes));
+		MINSS(regs_.FX(inst.dest), R(tempReg));
 		break;
 
 	default:
@@ -756,12 +759,7 @@ void X64JitBackend::CompIR_FSpecial(IRInst inst) {
 			X64Reg tempReg = regs_.MapWithFPRTemp(inst);
 			SQRTSS(tempReg, regs_.F(inst.src1));
 
-			if (RipAccessible(&simdConstants.ones)) {
-				MOVSS(regs_.FX(inst.dest), M(&simdConstants.ones));  // rip accessible
-			} else {
-				MOV(PTRBITS, R(SCRATCH1), ImmPtr(&simdConstants.ones));
-				MOVSS(regs_.FX(inst.dest), MatR(SCRATCH1));
-			}
+			MOVSS(regs_.FX(inst.dest), M(constants.positiveOnes));  // rip accessible
 			DIVSS(regs_.FX(inst.dest), R(tempReg));
 			break;
 		}
@@ -769,21 +767,11 @@ void X64JitBackend::CompIR_FSpecial(IRInst inst) {
 	case IROp::FRecip:
 		if (inst.dest != inst.src1) {
 			regs_.Map(inst);
-			if (RipAccessible(&simdConstants.ones)) {
-				MOVSS(regs_.FX(inst.dest), M(&simdConstants.ones));  // rip accessible
-			} else {
-				MOV(PTRBITS, R(SCRATCH1), ImmPtr(&simdConstants.ones));
-				MOVSS(regs_.FX(inst.dest), MatR(SCRATCH1));
-			}
+			MOVSS(regs_.FX(inst.dest), M(constants.positiveOnes));  // rip accessible
 			DIVSS(regs_.FX(inst.dest), regs_.F(inst.src1));
 		} else {
 			X64Reg tempReg = regs_.MapWithFPRTemp(inst);
-			if (RipAccessible(&simdConstants.ones)) {
-				MOVSS(tempReg, M(&simdConstants.ones));  // rip accessible
-			} else {
-				MOV(PTRBITS, R(SCRATCH1), ImmPtr(&simdConstants.ones));
-				MOVSS(tempReg, MatR(SCRATCH1));
-			}
+			MOVSS(tempReg, M(constants.positiveOnes));  // rip accessible
 			if (cpu_info.bAVX) {
 				VDIVSS(regs_.FX(inst.dest), tempReg, regs_.F(inst.src1));
 			} else {
