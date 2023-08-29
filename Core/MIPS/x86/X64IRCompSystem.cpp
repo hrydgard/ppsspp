@@ -46,8 +46,11 @@ void X64JitBackend::CompIR_Basic(IRInst inst) {
 
 	switch (inst.op) {
 	case IROp::Downcount:
-		//SUB(32, R(DOWNCOUNTREG), R(DOWNCOUNTREG), Imm32((s32)inst.constant));
-		SUB(32, MDisp(CTXREG, downcountOffset), Imm32((s32)inst.constant));
+		// As long as we don't care about flags, just use LEA.
+		if (jo.downcountInRegister)
+			LEA(32, DOWNCOUNTREG, MDisp(DOWNCOUNTREG, -(s32)inst.constant));
+		else
+			SUB(32, MDisp(CTXREG, downcountOffset), SImmAuto((s32)inst.constant));
 		break;
 
 	case IROp::SetConst:

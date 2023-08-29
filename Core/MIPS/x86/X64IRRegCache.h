@@ -31,8 +31,10 @@ namespace X64IRJitConstants {
 const Gen::X64Reg MEMBASEREG = Gen::RBX;
 const Gen::X64Reg CTXREG = Gen::R14;
 const Gen::X64Reg JITBASEREG = Gen::R15;
+const Gen::X64Reg DOWNCOUNTREG = Gen::R15;
 #else
 const Gen::X64Reg CTXREG = Gen::EBP;
+const Gen::X64Reg DOWNCOUNTREG = Gen::INVALID_REG;
 #endif
 const Gen::X64Reg SCRATCH1 = Gen::EAX;
 

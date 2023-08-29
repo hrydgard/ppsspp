@@ -32,7 +32,7 @@
 namespace MIPSComp {
 
 IRFrontend::IRFrontend(bool startDefaultPrefix) {
-	js.startDefaultPrefix = true;
+	js.startDefaultPrefix = startDefaultPrefix;
 	js.hasSetRounding = false;
 	// js.currentRoundingFunc = convertS0ToSCRATCH1[0];
 

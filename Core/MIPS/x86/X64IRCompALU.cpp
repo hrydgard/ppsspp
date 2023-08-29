@@ -50,7 +50,9 @@ void X64JitBackend::CompIR_Arith(IRInst inst) {
 	switch (inst.op) {
 	case IROp::Add:
 		regs_.Map(inst);
-		if (inst.dest == inst.src2) {
+		if (inst.src1 == inst.src2) {
+			LEA(32, regs_.RX(inst.dest), MScaled(regs_.RX(inst.src1), 2, 0));
+		} else if (inst.dest == inst.src2) {
 			ADD(32, regs_.R(inst.dest), regs_.R(inst.src1));
 		} else if (inst.dest == inst.src1) {
 			ADD(32, regs_.R(inst.dest), regs_.R(inst.src2));
@@ -61,25 +63,15 @@ void X64JitBackend::CompIR_Arith(IRInst inst) {
 		break;
 
 	case IROp::Sub:
-		if (regs_.IsGPRImm(inst.src1) && regs_.GetGPRImm(inst.src1) == 0) {
-			// TODO: Might be nice to have a pass to turn this into Neg.
-			// Special cased to avoid wasting a reg on zero.
-			regs_.SpillLockGPR(inst.dest, inst.src2);
-			regs_.MapGPR(inst.src2);
-			regs_.MapGPR(inst.dest, MIPSMap::NOINIT);
-			if (inst.dest != inst.src2)
-				MOV(32, regs_.R(inst.dest), regs_.R(inst.src2));
-			NEG(32, regs_.R(inst.dest));
+		regs_.Map(inst);
+		if (inst.dest == inst.src2 && inst.dest == inst.src1) {
+			regs_.SetGPRImm(inst.dest, 0);
 		} else if (inst.dest == inst.src2) {
-			regs_.Map(inst);
-			MOV(32, R(SCRATCH1), regs_.R(inst.src2));
-			MOV(32, regs_.R(inst.dest), regs_.R(inst.src1));
-			SUB(32, regs_.R(inst.dest), R(SCRATCH1));
+			NEG(32, regs_.R(inst.src2));
+			ADD(32, regs_.R(inst.dest), regs_.R(inst.src1));
 		} else if (inst.dest == inst.src1) {
-			regs_.Map(inst);
 			SUB(32, regs_.R(inst.dest), regs_.R(inst.src2));
 		} else {
-			regs_.Map(inst);
 			MOV(32, regs_.R(inst.dest), regs_.R(inst.src1));
 			SUB(32, regs_.R(inst.dest), regs_.R(inst.src2));
 		}
@@ -168,11 +160,11 @@ void X64JitBackend::CompIR_Bits(IRInst inst) {
 		if (cpu_info.bLZCNT) {
 			LZCNT(32, regs_.RX(inst.dest), regs_.R(inst.src1));
 		} else {
-			BSR(32, SCRATCH1, regs_.R(inst.src1));
+			BSR(32, regs_.RX(inst.dest), regs_.R(inst.src1));
 			FixupBranch notFound = J_CC(CC_Z);
 
-			MOV(32, regs_.R(inst.dest), Imm32(31));
-			SUB(32, regs_.R(inst.dest), R(SCRATCH1));
+			// Since one of these bits must be set, and none outside, this subtracts from 31.
+			XOR(32, regs_.R(inst.dest), Imm8(31));
 			FixupBranch skip = J();
 
 			SetJumpTarget(notFound);
@@ -192,7 +184,12 @@ void X64JitBackend::CompIR_Compare(IRInst inst) {
 	CONDITIONAL_DISABLE;
 
 	auto setCC = [&](const OpArg &arg, CCFlags cc) {
-		if (regs_.HasLowSubregister(regs_.RX(inst.dest)) && inst.dest != inst.src1 && inst.dest != inst.src2) {
+		// If it's carry, we can take advantage of ADC to avoid subregisters.
+		if (cc == CC_C && inst.dest != inst.src1 && inst.dest != inst.src2) {
+			XOR(32, regs_.R(inst.dest), regs_.R(inst.dest));
+			CMP(32, regs_.R(inst.src1), arg);
+			ADC(32, regs_.R(inst.dest), Imm8(0));
+		} else if (regs_.HasLowSubregister(regs_.RX(inst.dest)) && inst.dest != inst.src1 && inst.dest != inst.src2) {
 			XOR(32, regs_.R(inst.dest), regs_.R(inst.dest));
 			CMP(32, regs_.R(inst.src1), arg);
 			SETcc(cc, regs_.R(inst.dest));

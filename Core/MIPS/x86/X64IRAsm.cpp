@@ -52,16 +52,31 @@ void X64JitBackend::GenerateFixedCode(MIPSState *mipsState) {
 	BeginWrite(GetMemoryProtectPageSize());
 	const u8 *start = AlignCodePage();
 
+	jo.downcountInRegister = false;
+#if PPSSPP_ARCH(AMD64)
+	bool jitbaseInR15 = false;
+	uintptr_t jitbase = (uintptr_t)GetBasePtr();
+	if (jitbase > 0x7FFFFFFFULL) {
+		jo.reserveR15ForAsm = true;
+		jitbaseInR15 = true;
+	} else {
+		jo.downcountInRegister = true;
+		jo.reserveR15ForAsm = true;
+	}
+#endif
+
 	if (jo.useStaticAlloc && false) {
 		saveStaticRegisters_ = AlignCode16();
-		//MOV(32, MDisp(CTXREG, downcountOffset), R(DOWNCOUNTREG));
+		if (jo.downcountInRegister)
+			MOV(32, MDisp(CTXREG, downcountOffset), R(DOWNCOUNTREG));
 		//regs_.EmitSaveStaticRegisters();
 		RET();
 
 		// Note: needs to not modify EAX, or to save it if it does.
 		loadStaticRegisters_ = AlignCode16();
 		//regs_.EmitLoadStaticRegisters();
-		//MOV(32, R(DOWNCOUNTREG), MDisp(CTXREG, downcountOffset));
+		if (jo.downcountInRegister)
+			MOV(32, R(DOWNCOUNTREG), MDisp(CTXREG, downcountOffset));
 		RET();
 
 		start = saveStaticRegisters_;
@@ -119,11 +134,8 @@ void X64JitBackend::GenerateFixedCode(MIPSState *mipsState) {
 #if PPSSPP_ARCH(AMD64)
 	// Two x64-specific statically allocated registers.
 	MOV(64, R(MEMBASEREG), ImmPtr(Memory::base));
-	uintptr_t jitbase = (uintptr_t)GetBasePtr();
-	if (jitbase > 0x7FFFFFFFULL) {
+	if (jitbaseInR15)
 		MOV(64, R(JITBASEREG), ImmPtr(GetBasePtr()));
-		jo.reserveR15ForAsm = true;
-	}
 #endif
 	// From the start of the FP reg, a single byte offset can reach all GPR + all FPR (but not VFPR.)
 	MOV(PTRBITS, R(CTXREG), ImmPtr(&mipsState->f[0]));
@@ -144,15 +156,18 @@ void X64JitBackend::GenerateFixedCode(MIPSState *mipsState) {
 		// TODO: See if we can get the slice decrement to line up with IR.
 
 		if (RipAccessible((const void *)&coreState)) {
-			CMP(32, M(&coreState), Imm32(0));  // rip accessible
+			CMP(32, M(&coreState), Imm8(0));  // rip accessible
 		} else {
 			MOV(PTRBITS, R(RAX), ImmPtr((const void *)&coreState));
-			CMP(32, MatR(RAX), Imm32(0));
+			CMP(32, MatR(RAX), Imm8(0));
 		}
 		FixupBranch badCoreState = J_CC(CC_NZ, true);
 
-		//CMP(32, R(DOWNCOUNTREG), Imm32(0));
-		CMP(32, MDisp(CTXREG, downcountOffset), Imm32(0));
+		if (jo.downcountInRegister) {
+			TEST(32, R(DOWNCOUNTREG), R(DOWNCOUNTREG));
+		} else {
+			CMP(32, MDisp(CTXREG, downcountOffset), Imm8(0));
+		}
 		J_CC(CC_S, outerLoop_);
 		FixupBranch skipToRealDispatch = J();
 
@@ -162,8 +177,11 @@ void X64JitBackend::GenerateFixedCode(MIPSState *mipsState) {
 		hooks_.dispatcher = GetCodePtr();
 
 			// TODO: See if we can get the slice decrement to line up with IR.
-			//CMP(32, R(DOWNCOUNTREG), Imm32(0));
-			CMP(32, MDisp(CTXREG, downcountOffset), Imm32(0));
+			if (jo.downcountInRegister) {
+				TEST(32, R(DOWNCOUNTREG), R(DOWNCOUNTREG));
+			} else {
+				CMP(32, MDisp(CTXREG, downcountOffset), Imm8(0));
+			}
 			FixupBranch bail = J_CC(CC_S, true);
 			SetJumpTarget(skipToRealDispatch);
 
@@ -172,7 +190,7 @@ void X64JitBackend::GenerateFixedCode(MIPSState *mipsState) {
 			// Debug
 			if (enableDebug) {
 #if PPSSPP_ARCH(AMD64)
-				if (jo.reserveR15ForAsm)
+				if (jitbaseInR15)
 					ABI_CallFunctionAA(reinterpret_cast<void *>(&ShowPC), R(MEMBASEREG), R(JITBASEREG));
 				else
 					ABI_CallFunctionAC(reinterpret_cast<void *>(&ShowPC), R(MEMBASEREG), (u32)jitbase);
@@ -192,21 +210,26 @@ void X64JitBackend::GenerateFixedCode(MIPSState *mipsState) {
 #elif PPSSPP_ARCH(AMD64)
 			MOV(32, R(SCRATCH1), MComplex(MEMBASEREG, SCRATCH1, SCALE_1, 0));
 #endif
-			MOV(32, R(EDX), R(SCRATCH1));
 			_assert_msg_(MIPS_JITBLOCK_MASK == 0xFF000000, "Hardcoded assumption of emuhack mask");
-			SHR(32, R(EDX), Imm8(24));
-			CMP(32, R(EDX), Imm8(MIPS_EMUHACK_OPCODE >> 24));
+			if (cpu_info.bBMI2) {
+				RORX(32, EDX, R(SCRATCH1), 24);
+				CMP(8, R(EDX), Imm8(MIPS_EMUHACK_OPCODE >> 24));
+			} else {
+				MOV(32, R(EDX), R(SCRATCH1));
+				SHR(32, R(EDX), Imm8(24));
+				CMP(32, R(EDX), Imm8(MIPS_EMUHACK_OPCODE >> 24));
+			}
 			FixupBranch needsCompile = J_CC(CC_NE);
 				// Mask by 0x00FFFFFF and extract the block jit offset.
 				AND(32, R(SCRATCH1), Imm32(MIPS_EMUHACK_VALUE_MASK));
 #if PPSSPP_ARCH(X86)
-				ADD(32, R(SCRATCH1), ImmPtr(GetBasePtr()));
+				LEA(32, SCRATCH1, MDisp(SCRATCH1, (u32)GetBasePtr()));
 #elif PPSSPP_ARCH(AMD64)
-				if (jo.reserveR15ForAsm) {
+				if (jitbaseInR15) {
 					ADD(64, R(SCRATCH1), R(JITBASEREG));
 				} else {
 					// See above, reserveR15ForAsm is used when above 0x7FFFFFFF.
-					ADD(64, R(SCRATCH1), Imm32((u32)jitbase));
+					LEA(64, SCRATCH1, MDisp(SCRATCH1, (u32)jitbase));
 				}
 #endif
 				JMPptr(R(SCRATCH1));
@@ -222,10 +245,10 @@ void X64JitBackend::GenerateFixedCode(MIPSState *mipsState) {
 		SetJumpTarget(bail);
 
 		if (RipAccessible((const void *)&coreState)) {
-			CMP(32, M(&coreState), Imm32(0));  // rip accessible
+			CMP(32, M(&coreState), Imm8(0));  // rip accessible
 		} else {
 			MOV(PTRBITS, R(RAX), ImmPtr((const void *)&coreState));
-			CMP(32, MatR(RAX), Imm32(0));
+			CMP(32, MatR(RAX), Imm8(0));
 		}
 		J_CC(CC_Z, outerLoop_, true);
 

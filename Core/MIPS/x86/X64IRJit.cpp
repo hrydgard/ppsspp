@@ -63,8 +63,11 @@ bool X64JitBackend::CompileBlock(IRBlock *block, int block_num, bool preload) {
 		wroteCheckedOffset = true;
 
 		// TODO: See if we can get flags to always have the downcount compare.
-		//CMP(32, R(DOWNCOUNTREG), Imm32(0));
-		CMP(32, MDisp(CTXREG, downcountOffset), Imm32(0));
+		if (jo.downcountInRegister) {
+			TEST(32, R(DOWNCOUNTREG), R(DOWNCOUNTREG));
+		} else {
+			CMP(32, MDisp(CTXREG, downcountOffset), Imm32(0));
+		}
 		FixupBranch normalEntry = J_CC(CC_NS);
 		MOV(32, R(SCRATCH1), Imm32(startPC));
 		JMP(outerLoopPCInSCRATCH1_, true);
@@ -116,8 +119,11 @@ bool X64JitBackend::CompileBlock(IRBlock *block, int block_num, bool preload) {
 	}
 
 	if (jo.enableBlocklink && jo.useBackJump) {
-		//CMP(32, R(DOWNCOUNTREG), Imm32(0));
-		CMP(32, MDisp(CTXREG, downcountOffset), Imm32(0));
+		if (jo.downcountInRegister) {
+			TEST(32, R(DOWNCOUNTREG), R(DOWNCOUNTREG));
+		} else {
+			CMP(32, MDisp(CTXREG, downcountOffset), Imm32(0));
+		}
 		J_CC(CC_NS, blockStart, true);
 
 		MOV(32, R(SCRATCH1), Imm32(startPC));
@@ -317,17 +323,17 @@ void X64JitBackend::MovToPC(X64Reg r) {
 void X64JitBackend::SaveStaticRegisters() {
 	if (jo.useStaticAlloc) {
 		//CALL(saveStaticRegisters_);
-	} else {
+	} else if (jo.downcountInRegister) {
 		// Inline the single operation
-		//MOV(32, MDisp(CTXREG, downcountOffset), R(DOWNCOUNTREG));
+		MOV(32, MDisp(CTXREG, downcountOffset), R(DOWNCOUNTREG));
 	}
 }
 
 void X64JitBackend::LoadStaticRegisters() {
 	if (jo.useStaticAlloc) {
 		//CALL(loadStaticRegisters_);
-	} else {
-		//MOV(32, R(DOWNCOUNTREG), MDisp(CTXREG, downcountOffset));
+	} else if (jo.downcountInRegister) {
+		MOV(32, R(DOWNCOUNTREG), MDisp(CTXREG, downcountOffset));
 	}
 }
 
