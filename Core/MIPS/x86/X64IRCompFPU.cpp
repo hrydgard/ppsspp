@@ -40,23 +40,22 @@ namespace MIPSComp {
 using namespace Gen;
 using namespace X64IRJitConstants;
 
-static struct SimdConstants {
-alignas(16) const u32 qNAN[4] = { 0x7FC00000, 0x7FC00000, 0x7FC00000, 0x7FC00000 };
-alignas(16) const u32 noSignMask[4] = { 0x7FFFFFFF, 0x7FFFFFFF, 0x7FFFFFFF, 0x7FFFFFFF };
-alignas(16) const u32 positiveInfinity[4] = { 0x7F800000, 0x7F800000, 0x7F800000, 0x7F800000 };
-alignas(16) const u32 signBitAll[4] = { 0x80000000, 0x80000000, 0x80000000, 0x80000000 };
-alignas(16) const u32 ones[4] = { 0x3F800000, 0x3F800000, 0x3F800000, 0x3F800000 };
-alignas(16) const float mulTableVi2f[32] = {
-	1.0f / (1UL << 0), 1.0f / (1UL << 1), 1.0f / (1UL << 2), 1.0f / (1UL << 3),
-	1.0f / (1UL << 4), 1.0f / (1UL << 5), 1.0f / (1UL << 6), 1.0f / (1UL << 7),
-	1.0f / (1UL << 8), 1.0f / (1UL << 9), 1.0f / (1UL << 10), 1.0f / (1UL << 11),
-	1.0f / (1UL << 12), 1.0f / (1UL << 13), 1.0f / (1UL << 14), 1.0f / (1UL << 15),
-	1.0f / (1UL << 16), 1.0f / (1UL << 17), 1.0f / (1UL << 18), 1.0f / (1UL << 19),
-	1.0f / (1UL << 20), 1.0f / (1UL << 21), 1.0f / (1UL << 22), 1.0f / (1UL << 23),
-	1.0f / (1UL << 24), 1.0f / (1UL << 25), 1.0f / (1UL << 26), 1.0f / (1UL << 27),
-	1.0f / (1UL << 28), 1.0f / (1UL << 29), 1.0f / (1UL << 30), 1.0f / (1UL << 31),
-};
-} simdConstants;
+void X64JitBackend::EmitFPUConstants() {
+	EmitConst4x32(&constants.noSignMask, 0x7FFFFFFF);
+	EmitConst4x32(&constants.signBitAll, 0x80000000);
+	EmitConst4x32(&constants.positiveInfinity, 0x7F800000);
+	EmitConst4x32(&constants.qNAN, 0x7FC00000);
+	EmitConst4x32(&constants.ones, 0x3F800000);
+
+	constants.mulTableVi2f = (const float *)GetCodePointer();
+	for (uint8_t i = 0; i < 32; ++i) {
+		float fval = 1.0f / (1UL << i);
+		uint32_t val;
+		memcpy(&val, &fval, sizeof(val));
+
+		Write32(val);
+	}
+}
 
 void X64JitBackend::CompIR_FArith(IRInst inst) {
 	CONDITIONAL_DISABLE;
@@ -121,12 +120,7 @@ void X64JitBackend::CompIR_FArith(IRInst inst) {
 		TEST(8, R(SCRATCH1), R(SCRATCH1));
 		FixupBranch keepNAN = J_CC(CC_NZ);
 
-		if (RipAccessible(&simdConstants.qNAN)) {
-			MOVSS(regs_.FX(inst.dest), M(&simdConstants.qNAN));  // rip accessible
-		} else {
-			MOV(PTRBITS, R(SCRATCH1), ImmPtr(&simdConstants.qNAN));
-			MOVSS(regs_.FX(inst.dest), MatR(SCRATCH1));
-		}
+		MOVSS(regs_.FX(inst.dest), M(constants.qNAN));  // rip accessible
 
 		SetJumpTarget(keepNAN);
 		SetJumpTarget(finish);
@@ -160,21 +154,11 @@ void X64JitBackend::CompIR_FArith(IRInst inst) {
 	case IROp::FNeg:
 		regs_.Map(inst);
 		if (cpu_info.bAVX) {
-			if (RipAccessible(&simdConstants.signBitAll)) {
-				VXORPS(128, regs_.FX(inst.dest), regs_.FX(inst.src1), M(&simdConstants.signBitAll));  // rip accessible
-			} else {
-				MOV(PTRBITS, R(SCRATCH1), ImmPtr(&simdConstants.signBitAll));
-				VXORPS(128, regs_.FX(inst.dest), regs_.FX(inst.src1), MatR(SCRATCH1));
-			}
+			VXORPS(128, regs_.FX(inst.dest), regs_.FX(inst.src1), M(constants.signBitAll));  // rip accessible
 		} else {
 			if (inst.dest != inst.src1)
 				MOVAPS(regs_.FX(inst.dest), regs_.F(inst.src1));
-			if (RipAccessible(&simdConstants.signBitAll)) {
-				XORPS(regs_.FX(inst.dest), M(&simdConstants.signBitAll));  // rip accessible
-			} else {
-				MOV(PTRBITS, R(SCRATCH1), ImmPtr(&simdConstants.signBitAll));
-				XORPS(regs_.FX(inst.dest), MatR(SCRATCH1));
-			}
+			XORPS(regs_.FX(inst.dest), M(constants.signBitAll));  // rip accessible
 		}
 		break;
 
@@ -198,21 +182,11 @@ void X64JitBackend::CompIR_FAssign(IRInst inst) {
 	case IROp::FAbs:
 		regs_.Map(inst);
 		if (cpu_info.bAVX) {
-			if (RipAccessible(&simdConstants.noSignMask)) {
-				VANDPS(128, regs_.FX(inst.dest), regs_.FX(inst.src1), M(&simdConstants.noSignMask));  // rip accessible
-			} else {
-				MOV(PTRBITS, R(SCRATCH1), ImmPtr(&simdConstants.noSignMask));
-				VANDPS(128, regs_.FX(inst.dest), regs_.FX(inst.src1), MatR(SCRATCH1));
-			}
+			VANDPS(128, regs_.FX(inst.dest), regs_.FX(inst.src1), M(constants.noSignMask));  // rip accessible
 		} else {
 			if (inst.dest != inst.src1)
 				MOVAPS(regs_.FX(inst.dest), regs_.F(inst.src1));
-			if (RipAccessible(&simdConstants.noSignMask)) {
-				ANDPS(regs_.FX(inst.dest), M(&simdConstants.noSignMask));  // rip accessible
-			} else {
-				MOV(PTRBITS, R(SCRATCH1), ImmPtr(&simdConstants.noSignMask));
-				ANDPS(regs_.FX(inst.dest), MatR(SCRATCH1));
-			}
+			ANDPS(regs_.FX(inst.dest), M(constants.noSignMask));  // rip accessible
 		}
 		break;
 
@@ -399,28 +373,13 @@ void X64JitBackend::CompIR_FCompare(IRInst inst) {
 		case VC_EI:
 		case VC_NI:
 			regs_.MapFPR(inst.src1);
-			if (!RipAccessible(&simdConstants.noSignMask) || !RipAccessible(&simdConstants.positiveInfinity)) {
-				MOV(PTRBITS, R(SCRATCH1), ImmPtr(&simdConstants));
-			}
 			if (cpu_info.bAVX) {
-				if (RipAccessible(&simdConstants.noSignMask)) {
-					VANDPS(128, tempReg, regs_.FX(inst.src1), M(&simdConstants.noSignMask));  // rip accessible
-				} else {
-					VANDPS(128, tempReg, regs_.FX(inst.src1), MDisp(SCRATCH1, offsetof(SimdConstants, noSignMask)));
-				}
+				VANDPS(128, tempReg, regs_.FX(inst.src1), M(constants.noSignMask));  // rip accessible
 			} else {
 				MOVAPS(tempReg, regs_.F(inst.src1));
-				if (RipAccessible(&simdConstants.noSignMask)) {
-					ANDPS(tempReg, M(&simdConstants.noSignMask));  // rip accessible
-				} else {
-					ANDPS(tempReg, MDisp(SCRATCH1, offsetof(SimdConstants, noSignMask)));
-				}
+				ANDPS(tempReg, M(constants.noSignMask));  // rip accessible
 			}
-			if (RipAccessible(&simdConstants.positiveInfinity)) {
-				CMPSS(tempReg, M(&simdConstants.positiveInfinity), !condNegated ? CMP_EQ : CMP_LT);  // rip accessible
-			} else {
-				CMPSS(tempReg, MDisp(SCRATCH1, offsetof(SimdConstants, positiveInfinity)), !condNegated ? CMP_EQ : CMP_LT);
-			}
+			CMPSS(tempReg, M(constants.positiveInfinity), !condNegated ? CMP_EQ : CMP_LT);  // rip accessible
 			break;
 		case VC_ES:
 		case VC_NS:
@@ -588,12 +547,7 @@ void X64JitBackend::CompIR_FCvt(IRInst inst) {
 	case IROp::FCvtScaledSW:
 		regs_.Map(inst);
 		CVTDQ2PS(regs_.FX(inst.dest), regs_.F(inst.src1));
-		if (RipAccessible(&simdConstants.mulTableVi2f[inst.src2 & 0x1F])) {
-			MULSS(regs_.FX(inst.dest), M(&simdConstants.mulTableVi2f[inst.src2 & 0x1F]));  // rip accessible
-		} else {
-			MOV(PTRBITS, R(SCRATCH1), ImmPtr(&simdConstants.mulTableVi2f[inst.src2 & 0x1F]));
-			MULSS(regs_.FX(inst.dest), MatR(SCRATCH1));
-		}
+		MULSS(regs_.FX(inst.dest), M(&constants.mulTableVi2f[inst.src2 & 0x1F]));  // rip accessible
 		break;
 
 	default:
@@ -777,12 +731,7 @@ void X64JitBackend::CompIR_FSpecial(IRInst inst) {
 			X64Reg tempReg = regs_.MapWithFPRTemp(inst);
 			SQRTSS(tempReg, regs_.F(inst.src1));
 
-			if (RipAccessible(&simdConstants.ones)) {
-				MOVSS(regs_.FX(inst.dest), M(&simdConstants.ones));  // rip accessible
-			} else {
-				MOV(PTRBITS, R(SCRATCH1), ImmPtr(&simdConstants.ones));
-				MOVSS(regs_.FX(inst.dest), MatR(SCRATCH1));
-			}
+			MOVSS(regs_.FX(inst.dest), M(constants.ones));  // rip accessible
 			DIVSS(regs_.FX(inst.dest), R(tempReg));
 			break;
 		}
@@ -790,21 +739,11 @@ void X64JitBackend::CompIR_FSpecial(IRInst inst) {
 	case IROp::FRecip:
 		if (inst.dest != inst.src1) {
 			regs_.Map(inst);
-			if (RipAccessible(&simdConstants.ones)) {
-				MOVSS(regs_.FX(inst.dest), M(&simdConstants.ones));  // rip accessible
-			} else {
-				MOV(PTRBITS, R(SCRATCH1), ImmPtr(&simdConstants.ones));
-				MOVSS(regs_.FX(inst.dest), MatR(SCRATCH1));
-			}
+			MOVSS(regs_.FX(inst.dest), M(constants.ones));  // rip accessible
 			DIVSS(regs_.FX(inst.dest), regs_.F(inst.src1));
 		} else {
 			X64Reg tempReg = regs_.MapWithFPRTemp(inst);
-			if (RipAccessible(&simdConstants.ones)) {
-				MOVSS(tempReg, M(&simdConstants.ones));  // rip accessible
-			} else {
-				MOV(PTRBITS, R(SCRATCH1), ImmPtr(&simdConstants.ones));
-				MOVSS(tempReg, MatR(SCRATCH1));
-			}
+			MOVSS(tempReg, M(constants.ones));  // rip accessible
 			if (cpu_info.bAVX) {
 				VDIVSS(regs_.FX(inst.dest), tempReg, regs_.F(inst.src1));
 			} else {

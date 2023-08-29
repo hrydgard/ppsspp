@@ -280,6 +280,9 @@ void X64JitBackend::GenerateFixedCode(MIPSState *mipsState) {
 #endif
 	}
 
+	EmitFPUConstants();
+	EmitVecConstants();
+
 	// Let's spare the pre-generated code from unprotect-reprotect.
 	AlignCodePage();
 	jitStartOffset_ = (int)(GetCodePtr() - start);

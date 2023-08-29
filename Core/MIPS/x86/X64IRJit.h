@@ -119,6 +119,10 @@ private:
 	void CompIR_VecStore(IRInst inst) override;
 	void CompIR_ValidateAddress(IRInst inst) override;
 
+	void EmitConst4x32(const void **c, uint32_t v);
+	void EmitFPUConstants();
+	void EmitVecConstants();
+
 	Gen::OpArg PrepareSrc1Address(IRInst inst);
 
 	JitOptions &jo;
@@ -134,6 +138,18 @@ private:
 
 	const u8 *saveStaticRegisters_ = nullptr;
 	const u8 *loadStaticRegisters_ = nullptr;
+
+	typedef struct { float f[4]; } Float4Constant;
+	struct Constants {
+		const void *noSignMask;
+		const void *signBitAll;
+		const void *positiveInfinity;
+		const void *ones;
+		const void *qNAN;
+		const float *mulTableVi2f;
+		const Float4Constant *vec4InitValues;
+	};
+	Constants constants;
 
 	int jitStartOffset_ = 0;
 	int compilingBlockNum_ = -1;

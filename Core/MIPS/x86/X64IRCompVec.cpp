@@ -39,23 +39,29 @@ namespace MIPSComp {
 using namespace Gen;
 using namespace X64IRJitConstants;
 
-static struct SimdConstants {
-	alignas(16) const u32 noSignMask[4] = { 0x7FFFFFFF, 0x7FFFFFFF, 0x7FFFFFFF, 0x7FFFFFFF };
-	alignas(16) const u32 signBitAll[4] = { 0x80000000, 0x80000000, 0x80000000, 0x80000000 };
-} simdConstants;
-
-alignas(16) static const float vec4InitValues[8][4] = {
-	{ 0.0f, 0.0f, 0.0f, 0.0f },
-	{ 1.0f, 1.0f, 1.0f, 1.0f },
-	{ -1.0f, -1.0f, -1.0f, -1.0f },
-	{ 1.0f, 0.0f, 0.0f, 0.0f },
-	{ 0.0f, 1.0f, 0.0f, 0.0f },
-	{ 0.0f, 0.0f, 1.0f, 0.0f },
-	{ 0.0f, 0.0f, 0.0f, 1.0f },
-};
-
 static bool Overlap(IRReg r1, int l1, IRReg r2, int l2) {
 	return r1 < r2 + l2 && r1 + l1 > r2;
+}
+
+void X64JitBackend::EmitVecConstants() {
+	static const float vec4InitData[8][4] = {
+		{ 0.0f, 0.0f, 0.0f, 0.0f },
+		{ 1.0f, 1.0f, 1.0f, 1.0f },
+		{ -1.0f, -1.0f, -1.0f, -1.0f },
+		{ 1.0f, 0.0f, 0.0f, 0.0f },
+		{ 0.0f, 1.0f, 0.0f, 0.0f },
+		{ 0.0f, 0.0f, 1.0f, 0.0f },
+		{ 0.0f, 0.0f, 0.0f, 1.0f },
+	};
+
+	constants.vec4InitValues = (const Float4Constant *)GetCodePointer();
+	for (size_t type = 0; type < ARRAY_SIZE(vec4InitData); ++type) {
+		for (int i = 0; i < 4; ++i) {
+			uint32_t val;
+			memcpy(&val, &vec4InitData[type][i], sizeof(val));
+			Write32(val);
+		}
+	}
 }
 
 void X64JitBackend::CompIR_VecArith(IRInst inst) {
@@ -150,42 +156,22 @@ void X64JitBackend::CompIR_VecArith(IRInst inst) {
 	case IROp::Vec4Neg:
 		regs_.Map(inst);
 		if (cpu_info.bAVX) {
-			if (RipAccessible(&simdConstants.signBitAll)) {
-				VXORPS(128, regs_.FX(inst.dest), regs_.FX(inst.src1), M(&simdConstants.signBitAll));  // rip accessible
-			} else {
-				MOV(PTRBITS, R(SCRATCH1), ImmPtr(&simdConstants.signBitAll));
-				VXORPS(128, regs_.FX(inst.dest), regs_.FX(inst.src1), MatR(SCRATCH1));
-			}
+			VXORPS(128, regs_.FX(inst.dest), regs_.FX(inst.src1), M(constants.signBitAll));  // rip accessible
 		} else {
 			if (inst.dest != inst.src1)
 				MOVAPS(regs_.FX(inst.dest), regs_.F(inst.src1));
-			if (RipAccessible(&simdConstants.signBitAll)) {
-				XORPS(regs_.FX(inst.dest), M(&simdConstants.signBitAll));  // rip accessible
-			} else {
-				MOV(PTRBITS, R(SCRATCH1), ImmPtr(&simdConstants.signBitAll));
-				XORPS(regs_.FX(inst.dest), MatR(SCRATCH1));
-			}
+			XORPS(regs_.FX(inst.dest), M(constants.signBitAll));  // rip accessible
 		}
 		break;
 
 	case IROp::Vec4Abs:
 		regs_.Map(inst);
 		if (cpu_info.bAVX) {
-			if (RipAccessible(&simdConstants.noSignMask)) {
-				VANDPS(128, regs_.FX(inst.dest), regs_.FX(inst.src1), M(&simdConstants.noSignMask));  // rip accessible
-			} else {
-				MOV(PTRBITS, R(SCRATCH1), ImmPtr(&simdConstants.noSignMask));
-				VANDPS(128, regs_.FX(inst.dest), regs_.FX(inst.src1), MatR(SCRATCH1));
-			}
+			VANDPS(128, regs_.FX(inst.dest), regs_.FX(inst.src1), M(constants.noSignMask));  // rip accessible
 		} else {
 			if (inst.dest != inst.src1)
 				MOVAPS(regs_.FX(inst.dest), regs_.F(inst.src1));
-			if (RipAccessible(&simdConstants.noSignMask)) {
-				ANDPS(regs_.FX(inst.dest), M(&simdConstants.noSignMask));  // rip accessible
-			} else {
-				MOV(PTRBITS, R(SCRATCH1), ImmPtr(&simdConstants.noSignMask));
-				ANDPS(regs_.FX(inst.dest), MatR(SCRATCH1));
-			}
+			ANDPS(regs_.FX(inst.dest), M(constants.noSignMask));  // rip accessible
 		}
 		break;
 
@@ -203,11 +189,8 @@ void X64JitBackend::CompIR_VecAssign(IRInst inst) {
 		regs_.Map(inst);
 		if (inst.src1 == (int)Vec4Init::AllZERO) {
 			XORPS(regs_.FX(inst.dest), regs_.F(inst.dest));
-		} else if (RipAccessible(&vec4InitValues[inst.src1])) {
-			MOVAPS(regs_.FX(inst.dest), M(&vec4InitValues[inst.src1]));  // rip accessible
-		} else {
-			MOV(PTRBITS, R(SCRATCH1), ImmPtr(&vec4InitValues[inst.src1]));
-			MOVAPS(regs_.FX(inst.dest), MatR(SCRATCH1));
+		} else  {
+			MOVAPS(regs_.FX(inst.dest), M(&constants.vec4InitValues[inst.src1]));  // rip accessible
 		}
 		break;
 
