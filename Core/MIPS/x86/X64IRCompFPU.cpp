@@ -58,6 +58,24 @@ void X64JitBackend::EmitFPUConstants() {
 	}
 }
 
+void X64JitBackend::CopyVec4ToFPRLane0(Gen::X64Reg dest, Gen::X64Reg src, int lane) {
+	// TODO: Move to regcache or emitter maybe?
+	if (lane == 0) {
+		if (dest != src)
+			MOVAPS(dest, R(src));
+	} else if (lane == 1 && cpu_info.bSSE3) {
+		MOVSHDUP(dest, R(src));
+	} else if (lane == 2) {
+		MOVHLPS(dest, src);
+	} else if (cpu_info.bAVX) {
+		VPERMILPS(128, dest, R(src), VFPU_SWIZZLE(lane, lane, lane, lane));
+	} else {
+		if (dest != src)
+			MOVAPS(dest, R(src));
+		SHUFPS(dest, R(dest), VFPU_SWIZZLE(lane, lane, lane, lane));
+	}
+}
+
 void X64JitBackend::CompIR_FArith(IRInst inst) {
 	CONDITIONAL_DISABLE;
 
@@ -174,7 +192,15 @@ void X64JitBackend::CompIR_FAssign(IRInst inst) {
 
 	switch (inst.op) {
 	case IROp::FMov:
-		if (inst.dest != inst.src1) {
+		// Just to make sure we don't generate bad code.
+		if (inst.dest == inst.src1)
+			break;
+		if (regs_.IsFPRMapped(inst.src1 & 3) && regs_.GetFPRLaneCount(inst.src1 & ~3) == 4 && (inst.dest & ~3) != (inst.src1 & ~3)) {
+			// Okay, this is an extract.  Avoid unvec4ing src1.
+			regs_.SpillLockFPR(inst.src1);
+			regs_.MapFPR(inst.dest, MIPSMap::NOINIT);
+			CopyVec4ToFPRLane0(regs_.FX(inst.dest), regs_.FX(inst.src1 & ~3), inst.src1 & 3);
+		} else {
 			regs_.Map(inst);
 			MOVAPS(regs_.FX(inst.dest), regs_.F(inst.src1));
 		}
@@ -688,31 +714,13 @@ static uint32_t x64_asin(uint32_t v) {
 void X64JitBackend::CompIR_FSpecial(IRInst inst) {
 	CONDITIONAL_DISABLE;
 
-	// TODO: Regcache... maybe emitter helper too?
-	auto laneToReg0 = [&](X64Reg dest, X64Reg src, int lane) {
-		if (lane == 0) {
-			if (dest != src)
-				MOVAPS(dest, R(src));
-		} else if (lane == 1 && cpu_info.bSSE3) {
-			MOVSHDUP(dest, R(src));
-		} else if (lane == 2) {
-			MOVHLPS(dest, src);
-		} else if (cpu_info.bAVX) {
-			VPERMILPS(128, dest, R(src), VFPU_SWIZZLE(lane, lane, lane, lane));
-		} else {
-			if (dest != src)
-				MOVAPS(dest, R(src));
-			SHUFPS(dest, R(dest), VFPU_SWIZZLE(lane, lane, lane, lane));
-		}
-	};
-
 	auto callFuncF_F = [&](const void *func) {
 		regs_.FlushBeforeCall();
 
 #if X64JIT_USE_XMM_CALL
 		if (regs_.IsFPRMapped(inst.src1)) {
 			int lane = regs_.GetFPRLane(inst.src1);
-			laneToReg0(XMM0, regs_.FX(inst.src1), lane);
+			CopyVec4ToFPRLane0(XMM0, regs_.FX(inst.src1), lane);
 		} else {
 			// Account for CTXREG being increased by 128 to reduce imm sizes.
 			int offset = offsetof(MIPSState, f) + inst.src1 * 4 - 128;
@@ -728,7 +736,7 @@ void X64JitBackend::CompIR_FSpecial(IRInst inst) {
 			if (lane == 0) {
 				MOVD_xmm(R(SCRATCH1), regs_.FX(inst.src1));
 			} else {
-				laneToReg0(XMM0, regs_.FX(inst.src1), lane);
+				CopyVec4ToFPRLane0(XMM0, regs_.FX(inst.src1), lane);
 				MOVD_xmm(R(SCRATCH1), XMM0);
 			}
 		} else {
