@@ -1114,8 +1114,8 @@ bool TextureCacheCommon::MatchFramebuffer(
 				return true;
 			}
 		} else {
-			WARN_LOG_ONCE(diffFormat2, G3D, "Ignoring possible texturing from framebuffer with incompatible format %s != %s at %08x (+%dx%d)",
-				GeTextureFormatToString(entry.format), GeBufferFormatToString(fb_format), fb_address, matchInfo->xOffset, matchInfo->yOffset);
+			WARN_LOG_ONCE(diffFormat2, G3D, "Ignoring possible texturing from framebuffer at %08x with incompatible format %s != %s (+%dx%d)",
+				fb_address, GeTextureFormatToString(entry.format), GeBufferFormatToString(fb_format), matchInfo->xOffset, matchInfo->yOffset);
 			return false;
 		}
 	}
@@ -2769,9 +2769,10 @@ bool TextureCacheCommon::PrepareBuildTexture(BuildTexturePlan &plan, TexCacheEnt
 		plan.scaleFactor = plan.scaleFactor > 4 ? 4 : (plan.scaleFactor > 2 ? 2 : 1);
 	}
 
-	bool isFakeMipmapChange = IsFakeMipmapChange();
-
+	bool isFakeMipmapChange = false;
 	if (plan.badMipSizes) {
+		isFakeMipmapChange = IsFakeMipmapChange();
+
 		// Check for pure 3D texture.
 		int tw = gstate.getTextureWidth(0);
 		int th = gstate.getTextureHeight(0);
@@ -2784,6 +2785,7 @@ bool TextureCacheCommon::PrepareBuildTexture(BuildTexturePlan &plan, TexCacheEnt
 				}
 			}
 		} else {
+			// We don't want to create a volume texture, if this is a "fake mipmap change".
 			pure3D = false;
 		}
 
@@ -2911,6 +2913,13 @@ bool TextureCacheCommon::PrepareBuildTexture(BuildTexturePlan &plan, TexCacheEnt
 	if (isFakeMipmapChange) {
 		// NOTE: Since the level is not part of the cache key, we assume it never changes.
 		plan.baseLevelSrc = std::max(0, gstate.getTexLevelOffset16() / 16);
+		// Tactics Ogre: If this is an odd level and it has the same texture address the below even level,
+		// let's just say it's the even level for the purposes of replacement.
+		// I assume this is done to avoid blending between levels accidentally?
+		// The Japanese version of Tactics Ogre uses multiple of these "double" levels to fit more characters.
+		if ((plan.baseLevelSrc & 1) && gstate.getTextureAddress(plan.baseLevelSrc) == gstate.getTextureAddress(plan.baseLevelSrc & ~1)) {
+			plan.baseLevelSrc &= ~1;
+		}
 		plan.levelsToCreate = 1;
 		plan.levelsToLoad = 1;
 		// Make sure we already decided not to do a 3D texture above.
