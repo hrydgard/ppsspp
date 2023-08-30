@@ -97,15 +97,6 @@
 // GL_UNSIGNED_BYTE/RGBA:  AAAAAAAABBBBBBBBGGGGGGGGRRRRRRRR  (match)
 // These are Data::Format:: B4G4R4A4_PACK16, B5G6R6_PACK16, B5G5R5A1_PACK16, R8G8B8A8
 
-// Allow the extra bits from the remasters for the purposes of this.
-inline int dimWidth(u16 dim) {
-	return 1 << (dim & 0xFF);
-}
-
-inline int dimHeight(u16 dim) {
-	return 1 << ((dim >> 8) & 0xFF);
-}
-
 TextureCacheCommon::TextureCacheCommon(Draw::DrawContext *draw, Draw2D *draw2D)
 	: draw_(draw), draw2D_(draw2D), replacer_(draw) {
 	decimationCounter_ = TEXCACHE_DECIMATION_INTERVAL;
@@ -581,7 +572,6 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 
 			if (rehash) {
 				// Update in case any of these changed.
-				entry->sizeInRAM = (textureBitsPerPixel[texFormat] * bufw * h / 2) / 8;
 				entry->bufw = bufw;
 				entry->cluthash = cluthash;
 			}
@@ -675,9 +665,6 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 	entry->maxLevel = maxLevel;
 	entry->status &= ~TexCacheEntry::STATUS_BGRA;
 
-	// This would overestimate the size in many cases so we underestimate instead
-	// to avoid excessive clearing caused by cache invalidations.
-	entry->sizeInRAM = (textureBitsPerPixel[texFormat] * bufw * h / 2) / 8;
 	entry->bufw = bufw;
 
 	entry->cluthash = cluthash;
@@ -2657,7 +2644,8 @@ void TextureCacheCommon::Invalidate(u32 addr, int size, GPUInvalidationType type
 	for (TexCache::iterator iter = cache_.lower_bound(startKey), end = cache_.upper_bound(endKey); iter != end; ++iter) {
 		auto &entry = iter->second;
 		u32 texAddr = entry->addr;
-		u32 texEnd = entry->addr + entry->sizeInRAM;
+		// Intentional underestimate here.
+		u32 texEnd = entry->addr + entry->SizeInRAM() / 2;
 
 		// Quick check for overlap. Yes the check is right.
 		if (addr < texEnd && addr_end > texAddr) {

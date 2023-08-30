@@ -97,6 +97,15 @@ struct SamplerCacheKey {
 class GLRTexture;
 class VulkanTexture;
 
+// Allow the extra bits from the remasters for the purposes of this.
+inline int dimWidth(u16 dim) {
+	return 1 << (dim & 0xFF);
+}
+
+inline int dimHeight(u16 dim) {
+	return 1 << ((dim >> 8) & 0xFF);
+}
+
 // Enough information about a texture to match it to framebuffers.
 struct TextureDefinition {
 	u32 addr;
@@ -165,7 +174,6 @@ struct TexCacheEntry {
 
 	u32 addr;
 	u32 minihash;
-	u32 sizeInRAM;  // Could be computed
 	u8 format;  // GeTextureFormat
 	u8 maxLevel;
 	u16 dim;
@@ -212,6 +220,11 @@ struct TexCacheEntry {
 		if (newStatus == STATUS_ALPHA_UNKNOWN || level == 0) {
 			SetAlphaStatus(newStatus);
 		}
+	}
+
+	// This is the full size in RAM, not the half size we use sometimes as a "safe" underestimate.
+	u32 SizeInRAM() const {
+		return (textureBitsPerPixel[format] * bufw * dimHeight(dim)) / 8;
 	}
 
 	bool Matches(u16 dim2, u8 format2, u8 maxLevel2) const;
