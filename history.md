@@ -1,5 +1,142 @@
 This is history moved out from README.md, which was getting a bit long.
 
+What's new in 1.14.4
+====================
+* Multiple shader compatibility fixes for older devices/drivers: ([#16710], [#16709], [#16708])
+* A few other minor fixes: ([#16703], [#16706])
+
+What's new in 1.14.3
+====================
+* Several crash/hang fixes ([#16690], [#16689], [#16683], [#16685], [#16680], [#16697], [#16681], more)
+* Minor UI fixes ([#16698], [#16684], [#16674], [#16677])
+* Fix confirm/cancel button reversal ([#16692])
+
+What's new in 1.14.2
+====================
+* Fix Toca/DTM and others (culling) on Mali again ([#16645])
+* Fix line rendering bugs in the homebrew Tempest clone Webfest ([#16656])
+* Assorted cleanup and bugfixes ([#16673], [#16662], [#16655], [#16644], [#16636], [#16639] etc)
+
+What's new in 1.14.1
+====================
+* Fix black screen in Vulkan on some older Android devices (Android version 7) ([#16599])
+* Fix error message in Medal of Honor ([#16614])
+* Various minor bugfixes ([#16617], [#16609], [#16608], [#16615], [#16619])
+* Add an option to turn off the new transparent menu background ([#16595])
+
+What's new in 1.14
+==================
+* Massive number of rendering fixes
+  - Water in Outrun 2006 and DiRT 2 now renders correctly (logic op fixes) ([#15960], [#16208], [#16032], [#16024], [#15967])
+  - Split/Second now renders all effects correctly
+  - Multiple fixes workarounds for clipping/culling, both through clip planes and geometry shaders, fixing
+    graphical issues in many, many games and getting rid of hacks ([#16142], [#16504], [#16442], [#16383], [#16165], [#16162], [#16049], others)
+  - Killzone color effect now renders efficiently and correctly (in-game only, not title screen) ([#15934])
+  - Ridge Racer speedometers and lens flares fixed ([#16084], [#16188], [#16115])
+  - Lens flare effect fixed in Burnout Dominator, Ridge Racer, Colin McRae, several others ([#16014], [#16081], [#16076], [#16073])
+  - Shadows in Colin McRae are no longer flickering (side effect of other fixes)
+  - Spongebob: Yellow Avenger renders correctly (previously very broken) ([#15907], [#15903])
+  - Cars: Race-o-Rama, and MX vs ATV Reflex render correctly (at 1x resolution only) ([#15898], [#15907])
+  - Asphalt 2 depth occlusion problems fixed ([#15854], [#15853])
+  - Fix performance regression in Juiced 2 while also fixing the graphics ([#15888])
+  - Silent Hill games are less broken ([#16127])
+  - Depth occlusion and other problems fixed in Kurohyou (both games) and Ratchet & Clank ([#16454], [#15772], [#15728], [#15859])
+  - Misshitsu no Sacrifice intro animation and Macross water rendering fixed (3D texture) ([#15727])
+  - Tekken 6 Nancy laser beam fixed, plus line rendering fixes in rRootage and other games ([#16067])
+  - Tiger & Bunny, Yu-Gi-Oh, GEB, and PlayView games - JPEG image display issues ([#16179], [#16184], [#15924])
+  - Many, many others like Hunter x Hunter, Crash: Mind over Mutant, Boundless Trails, etc. ([#16265], [#16043], [#16379], [#15822], [#16358])
+* Software renderer performance and accuracy improvements
+  - Better performance ([#15998], [#16001], [#16011], [#16039], [#16054], [#16080], [#16085], [#16094], [#16102], [#16387], [#16486], [#16502], [#16518])
+  - Improved accuracy, clipping ([#15999], [#16005], [#16042], [#16086], [#16117], [#16231], [#16241], [#16265], [#16274], [#16469], [#16470], [#16478], [#16480], [#16485])
+* New features
+  - Initial VR support added (Quest and PICO only for now, PC in the future) ([#15659], [#15901], [#16246], [#16262], [#16273])
+  - MSAA antialiasing added to the Vulkan backend (desktop only) ([#16458])
+  - New API for plugins to access aspect ratio, scaling and fast-forward ([#16441]), other new APIs & improvements ([#15748], [#16121], [#16187], [#16198], [#16389])
+  - Read texture replacement packs directly from ZIP files ([#16304])
+* UI improvements
+  - New interactive Display Layout & Effects screen, replacing the old Display Layout Editor ([#16409], [#16415], [#16417], [#16445])
+  - Add default shader for LCD persistence simulation ([#16531])
+  - Game being played can now be seen as a background in most menus ([#16404], more)
+  - Reorganize speed hack settings ([#16346], [#16347], [#16348], [#16432])
+* Stability fixes
+  - Workaround for hangs on older Adreno GPUs ([#16422])
+  - Input handling fixes for deadzones and touch controls ([#16419], [#16450])
+  - Avoid game bugs in Twinbee Portable ([#16388]) and Shining Ark ([#16449])
+  - Fixes to D3D9 backend issues ([#15723], [#15815], [#15926], [#16100], [#16232], [#16550])
+* IR interpreter (iOS, etc.) bug fixes
+  - Metal Gear Solid - Peace Walker no longer bugged out ([#16396])
+  - VFPU fixes for Dissidia, others ([#16302], [#16305], [#16306])
+* Performance improvements
+  - Vulkan bandwidth and synchronization optimizations ([#16434], [#16099], [#16090], [#16072], [#16061], [#16060], [#16035], [#15917])
+  - Lighting "ubershader" optimization to prevent hitches ([#16104], [#16111])
+  - Assorted minor other improvements ([#15589], [#15843], [#16190])
+  - Improve texture replacement memory usage ([#15884], [#16304], [#16314])
+  - Texture upscaling speedup and fixes ([#15803], [#16125])
+* Other
+  - HLE/CPU accuracy improvements helping Brooktown High, Frontier Gate, Madoka Magicka, some language patches ([#16413], [#16070], [#16052], [#15952], [#15957], more)
+  - Many GE debugger improvements ([#15839], [#15851], [#15894], [#15925], [#15974], [#16007], [#16047], [#16096], [#16201])
+  - Optional memory alignment validation in IR mode ([#15879], [#15880])
+  - Fix netplay assertion in Cars ([#16089])
+
+What's new in 1.13.2
+====================
+* Crashfix on Android 12 when playing certain background music ([#15990])
+* Fix Star Ocean battles in D3D backends ([#15889])
+* Minor fixes that might fix some other crashes
+
+What's new in 1.13.1
+====================
+
+* Confirmation dialog added before change of MAC address ([#15738])
+* IR interpreter regression fixed ([#15739])
+* Fix clearing of replacement texture cache ([#15740])
+* Improved Portuguese-pt translation ([#15734])
+* Fix graphical regression in Split/Second ([#15733])
+* Couple of minor crash fixes
+
+What's new in 1.13
+==================
+
+General
+
+* Fix assorted Android "scoped storage"-related bugs and performance issues ([#15237], [#15487]), etc.
+* Analog mapping for fast-forward ([#15645])
+* Major softgpu accuracy fixes and speedups, including a JIT ([#15163], [#15345], [#15389], [#15529], [#15440], [#15410], [#15405], [#15400]) and many, many more
+* Fixed some NEON code paths ([#15481])
+* Fix performance of texture uploads with Vulkan ([#15474])
+* Don't include the large font atlas when we don't need it
+* Improved upscaling shaders ([#15566])
+* Vulkan texture upscaling performance improvements ([#15238]), etc.
+* Vulkan correctness fixes ([#15217], [#15211]), use the VMA allocator ([#15162]), etc.
+* Fixes to depth culling ([#15106]), many more
+* Background loading of texture replacement ([#15025])
+* Threading manager improvements and fixes ([#15470]), etc.
+* Added search in settings ([#14414])
+* Added fast button repeats on custom touch buttons ([#15613])
+* Two new bicubic upscaling shader: Catmull-Rom and Mitchell-Netravali ([#15569])
+* Allow to change screen rotation per game and to bind a key to change it ([#15494], [#15510])
+* Re-enabled software rendering option on Android ([#12958])
+
+Game fixes
+
+* Add more workarounds for Mali driver bugs ([#15016])
+* Vortex in God of War: Ghost of Sparta can now be passed ([#15640])
+* Various proAdhoc fixes ([#15213], [#15215]), and many more
+* Correct flickering text in Sol Trigger and Last Ranker. ([#15549])
+* Fix and improve line drawing in Echochrome ([#15583]), after line refactoring ([#15073], [#15075])
+* Fix HUD graphics in Split/Second ([#15500], [#15501])
+* Fix bad screen overlay issues in Clone Wars and Force Unleashed ([#15691], [#15696], [#12949], [#9572])
+* Zettai Zetsumei Toshi 3 no longer hangs on character select screen ([#15687])
+* Juiced 2: Bloom effect no longer covering the screen ([#7295], [#15717])
+* Fix keyboard shift issue in a few games ([#15698])
+
+UI
+
+* Windows/Xbox UWP directory navigation improvements ([#15652])
+* Color change and basic theme support ([#15396], [#15394])
+* Fix input focus bug ([#15560])
+* New GE debugger features and other UI fixes ([#15393], [#15324], [#15377], [#15424], [#15402], [#15378], [#15338]), etc.
+
 What's new in 1.12.3
 ====================
 * Fix background music speed. A couple translation fixes.
