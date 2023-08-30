@@ -454,6 +454,8 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 		plan.levelsToCreate = plan.maxPossibleLevels;
 	}
 
+	_dbg_assert_(plan.levelsToCreate >= plan.levelsToLoad);
+
 	// Any texture scaling is gonna move away from the original 16-bit format, if any.
 	VkFormat actualFmt = plan.scaleFactor > 1 ? VULKAN_8888_FORMAT : dstFmt;
 	bool bcFormat = false;

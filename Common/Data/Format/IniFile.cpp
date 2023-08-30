@@ -403,18 +403,6 @@ std::map<std::string, std::string> Section::ToMap() const
 	return outMap;
 }
 
-std::vector<std::pair<std::string, std::string>> Section::ToVec() const {
-	std::vector<std::pair<std::string, std::string>> outVec;
-	for (std::vector<std::string>::const_iterator iter = lines.begin(); iter != lines.end(); ++iter)
-	{
-		std::string lineKey, lineValue;
-		if (ParseLine(*iter, &lineKey, &lineValue, NULL)) {
-			outVec.push_back(std::pair<std::string, std::string>(lineKey, lineValue));
-		}
-	}
-	return outVec;
-}
-
 bool Section::Delete(const char *key)
 {
 	std::string* line = GetLine(key, 0, 0);
