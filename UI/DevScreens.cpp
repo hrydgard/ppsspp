@@ -616,12 +616,25 @@ void SystemInfoScreen::CreateTabs() {
 	displayInfo->Add(new InfoItem(si->T("Native Resolution"), StringFromFormat("%dx%d",
 		System_GetPropertyInt(SYSPROP_DISPLAY_XRES),
 		System_GetPropertyInt(SYSPROP_DISPLAY_YRES))));
+#endif
 	displayInfo->Add(new InfoItem(si->T("UI Resolution"), StringFromFormat("%dx%d (%s: %0.2f)",
 		g_display.dp_xres,
 		g_display.dp_yres,
 		si->T("DPI"),
 		g_display.dpi)));
-#endif
+	displayInfo->Add(new InfoItem(si->T("Pixel Resolution"), StringFromFormat("%dx%d",
+		g_display.pixel_xres,
+		g_display.pixel_yres)));
+
+	const float insets[4] = {
+		System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_LEFT),
+		System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_TOP),
+		System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_RIGHT),
+		System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_BOTTOM),
+	};
+	if (insets[0] != 0.0f || insets[1] != 0.0f || insets[2] != 0.0f || insets[3] != 0.0f) {
+		displayInfo->Add(new InfoItem(si->T("Screen notch insets"), StringFromFormat("%0.1f %0.1f %0.1f %0.1f", insets[0], insets[1], insets[2], insets[3])));
+	}
 
 	// Don't show on Windows, since it's always treated as 60 there.
 	displayInfo->Add(new InfoItem(si->T("Refresh rate"), StringFromFormat(si->T("%0.2f Hz"), (float)System_GetPropertyFloat(SYSPROP_DISPLAY_REFRESH_RATE))));
