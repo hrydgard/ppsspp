@@ -116,14 +116,17 @@ VkResult FrameData::QueuePresent(VulkanContext *vulkan, FrameDataShared &shared)
 
 	uint64_t frameId = this->frameId;
 	VkPresentTimeGOOGLE presentTimeGOOGLE{ (uint32_t)frameId, 0 };  // it's ok to truncate this. it'll wrap around and work (if we ever reach 4 billion frames..)
-	if (vulkan->Extensions().KHR_present_id && vulkan->GetDeviceFeatures().enabled.presentId.presentId) {
-		presentID.pPresentIds = &frameId;
-		presentID.swapchainCount = 1;
-		present.pNext = &presentID;
-	} else if (vulkan->Extensions().GOOGLE_display_timing) {
-		presentGOOGLE.pTimes = &presentTimeGOOGLE;
-		presentGOOGLE.swapchainCount = 1;
-		present.pNext = &presentGOOGLE;
+
+	if (shared.measurePresentTime) {
+		if (vulkan->Extensions().KHR_present_id && vulkan->GetDeviceFeatures().enabled.presentId.presentId) {
+			presentID.pPresentIds = &frameId;
+			presentID.swapchainCount = 1;
+			present.pNext = &presentID;
+		} else if (vulkan->Extensions().GOOGLE_display_timing) {
+			presentGOOGLE.pTimes = &presentTimeGOOGLE;
+			presentGOOGLE.swapchainCount = 1;
+			present.pNext = &presentGOOGLE;
+		}
 	}
 
 	return vkQueuePresentKHR(vulkan->GetGraphicsQueue(), &present);
@@ -245,7 +248,7 @@ void FrameData::SubmitPending(VulkanContext *vulkan, FrameSubmitType type, Frame
 	}
 }
 
-void FrameDataShared::Init(VulkanContext *vulkan, bool useMultiThreading) {
+void FrameDataShared::Init(VulkanContext *vulkan, bool useMultiThreading, bool measurePresentTime) {
 	VkSemaphoreCreateInfo semaphoreCreateInfo = { VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO };
 	semaphoreCreateInfo.flags = 0;
 	VkResult res = vkCreateSemaphore(vulkan->GetDevice(), &semaphoreCreateInfo, nullptr, &acquireSemaphore);
@@ -258,6 +261,7 @@ void FrameDataShared::Init(VulkanContext *vulkan, bool useMultiThreading) {
 	vulkan->SetDebugName(readbackFence, VK_OBJECT_TYPE_FENCE, "readbackFence");
 
 	this->useMultiThreading = useMultiThreading;
+	this->measurePresentTime = measurePresentTime;
 }
 
 void FrameDataShared::Destroy(VulkanContext *vulkan) {

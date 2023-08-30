@@ -495,6 +495,7 @@ private:
 	bool run_ = false;
 
 	bool useRenderThread_ = true;
+	bool measurePresentTime_ = false;
 
 	// This is the offset within this frame, in case of a mid-frame sync.
 	VKRStep *curRenderStep_ = nullptr;
