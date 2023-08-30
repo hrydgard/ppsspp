@@ -25,6 +25,49 @@ If you want to download regularly updated builds for Android, Windows x86 and x6
 
 For game compatibility, see [community compatibility feedback](https://report.ppsspp.org/games).
 
+What's new in 1.16
+==================
+- RetroAchievements support ([#17589], [#17631], many more). See [RetroAchievements on ppsspp.org](https://www.ppsspp.org/docs/reference/retro-achievements).
+- New JIT backends:
+  - RISC-V, based on IR, by unknownbrackets
+  - x86 based on IR, by unknownbrackets. May end up faster than the existing one.
+- Input fixes
+  - Improve behavior when analog and digital inputs clash ([#17960])
+  - Combo mapping is now disabled by default ([#17673])
+  - Android: Better tracking of devices names ([#17562], auto config)
+  - Fix mapping custom touch buttons to analog inputs ([#17433])
+- Rendering performance and fixes
+  - Fix flicker in WWE Smackdown vs Raw 2006 ([#18009]), video flicker in Naruto 2 ([#18008])
+  - Fix bad colors in Syphon Filter: Logan's Shadow menu ([#17965])
+  - On lower-end, revert shaders to be less "uber" ([#17449], [#17922])
+  - Allow disabling V-sync on Android with Vulkan ([#17903])
+  - On Vulkan, disable multithreaded rendering if buffered commands are set to off ([#17831])
+  - Assorted minor perf ([#17810], [#17505], [#17478], [#17471], [#17452], [#17446], [#17442])
+  - Fix shadows in MotorStorm ([#17602]) (not actually a rendering problem)
+  - Fix rendering issue in Lunar Silver Star ([#17451])
+  - Add a cache for MakePixelsTexture, improving perf in God of War ([#17534])
+  - Lots of software renderer improvements ([#17571], [#17569], [#17619], [#17621], [#17618], [#17609], ...)
+- Networking
+  - HTTPS support now enabled in store and for RA on Windows, Android, Mac, iOS ([#17744], ...)
+  - Ad-hoc: Fix for Metal Gear Acid issue with Link Battle ([#17947])
+- Texture replacement fixes
+  - Fix Tactics Ogre texture issues ([#18001], [#18011])
+  - Fix problem with anisotropic filtering ([#17930])
+  - Fix glitches on D3D11 with KTX2 textures ([#17749])
+- UI changes
+  - Color emoji support on some platforms ([#17854], [#17856])
+  - Use TTF fonts on SDL where available ([#17844]), support HiDPI ([#17651])
+  - Allow setting the PSP's MAC address directly ([#17755])
+  - Better looking notifications ([#17606], [#17674], [#17672])
+- Cheats
+  - Fix loading cheat dbs on Android devices with scoped storage ([#17834])
+- Other
+  - Fix timing issue causing slowdowns in MLB games ([#17676], [#17677])
+  - UWP keyboard support, many other updates ([#17952], [#17974])
+  - Make vrnd instruction much more accurate ([#17506], [#17549])
+  - Allow choosing the display resolution on Android again ([#17473])
+  - Fix issue running some file types out of the Download folder on Android ([#17466])
+
 What's new in 1.15.4
 ====================
 - Tilt controls: Restore "Low end radius" control ([#17489])
