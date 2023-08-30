@@ -2622,6 +2622,8 @@ void FramebufferManagerCommon::NotifyDisplayResized() {
 	pixelHeight_ = PSP_CoreParameter().pixelHeight;
 	presentation_->UpdateDisplaySize(pixelWidth_, pixelHeight_);
 
+	INFO_LOG(G3D, "FramebufferManagerCommon::NotifyDisplayResized: %dx%d", pixelWidth_, pixelHeight_);
+
 	// No drawing is allowed here. This includes anything that might potentially touch a command buffer, like creating images!
 	// So we need to defer the post processing initialization.
 	updatePostShaders_ = true;
