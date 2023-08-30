@@ -25,9 +25,6 @@
 #define UINT64_MAX 0xFFFFFFFFFFFFFFFFULL
 #endif
 
-
-#define USE_PRESENT_WAIT 0
-
 using namespace PPSSPP_VK;
 
 // renderPass is an example of the "compatibility class" or RenderPassType type.
@@ -260,7 +257,10 @@ VulkanRenderManager::VulkanRenderManager(VulkanContext *vulkan, bool useThread, 
 {
 	inflightFramesAtStart_ = vulkan_->GetInflightFrames();
 
-	frameDataShared_.Init(vulkan, useThread);
+	// For present timing experiments. Disabled for now.
+	measurePresentTime_ = false;
+
+	frameDataShared_.Init(vulkan, useThread, measurePresentTime_);
 
 	for (int i = 0; i < inflightFramesAtStart_; i++) {
 		frameData_[i].Init(vulkan, i);
@@ -308,7 +308,7 @@ bool VulkanRenderManager::CreateBackbuffers() {
 		INFO_LOG(G3D, "Starting Vulkan compiler thread");
 		compileThread_ = std::thread(&VulkanRenderManager::CompileThreadFunc, this);
 
-		if (USE_PRESENT_WAIT && vulkan_->Extensions().KHR_present_wait && vulkan_->GetPresentMode() == VK_PRESENT_MODE_FIFO_KHR) {
+		if (measurePresentTime_ && vulkan_->Extensions().KHR_present_wait && vulkan_->GetPresentMode() == VK_PRESENT_MODE_FIFO_KHR) {
 			INFO_LOG(G3D, "Starting Vulkan present wait thread");
 			presentWaitThread_ = std::thread(&VulkanRenderManager::PresentWaitThreadFunc, this);
 		}
