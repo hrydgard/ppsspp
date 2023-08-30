@@ -199,10 +199,6 @@ SamplerCacheKey TextureCacheCommon::GetSamplingParams(int maxLevel, const TexCac
 
 	// If mip level is forced to zero, disable mipmapping.
 	bool noMip = maxLevel == 0 || (!autoMip && lodBias <= 0.0f);
-	if (IsFakeMipmapChange()) {
-		noMip = noMip || !autoMip;
-	}
-
 	if (noMip) {
 		// Enforce no mip filtering, for safety.
 		key.mipEnable = false;
@@ -2786,8 +2782,8 @@ bool TextureCacheCommon::PrepareBuildTexture(BuildTexturePlan &plan, TexCacheEnt
 
 		// Check early for the degenerate case from Tactics Ogre.
 		if (pure3D && plan.levelsToLoad == 2 && gstate.getTextureAddress(0) == gstate.getTextureAddress(1)) {
-			// Simply treat it as a regular 2D texture, no fake mipmaps or anything
-			plan.levelsToLoad = 1;
+			// Simply treat it as a regular 2D texture, no fake mipmaps or anything.
+			// levelsToLoad/Create gets set to 1 on the way out from the surrounding if.
 			isFakeMipmapChange = false;
 			pure3D = false;
 		} else if (isFakeMipmapChange) {
