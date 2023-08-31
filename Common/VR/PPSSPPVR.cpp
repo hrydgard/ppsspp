@@ -56,9 +56,9 @@ static bool vrMirroring[VR_MIRRORING_COUNT];
 static int vrMirroringVariant = 0;
 static XrView vrView[2];
 
-static void (*NativeAxis)(const AxisInput &axis);
-static bool (*NativeKey)(const KeyInput &key);
-static void (*NativeTouch)(const TouchInput &touch);
+static void (*cbNativeAxis)(const AxisInput *axis, size_t count);
+static bool (*cbNativeKey)(const KeyInput &key);
+static void (*cbNativeTouch)(const TouchInput &touch);
 
 /*
 ================================================================================
@@ -205,10 +205,10 @@ void GetVRResolutionPerEye(int* width, int* height) {
 	}
 }
 
-void SetVRCallbacks(void (*axis)(const AxisInput &axis), bool(*key)(const KeyInput &key), void (*touch)(const TouchInput &touch)) {
-	NativeAxis = axis;
-	NativeKey = key;
-	NativeTouch = touch;
+void SetVRCallbacks(void (*axis)(const AxisInput *axis, size_t count), bool(*key)(const KeyInput &key), void (*touch)(const TouchInput &touch)) {
+	cbNativeAxis = axis;
+	cbNativeKey = key;
+	cbNativeTouch = touch;
 }
 
 /*
@@ -226,20 +226,20 @@ void SetVRAppMode(VRAppMode mode) {
 void UpdateVRInput(bool haptics, float dp_xscale, float dp_yscale) {
 	//axis
 	if (pspKeys[(int)VIRTKEY_VR_CAMERA_ADJUST]) {
-		AxisInput axis = {};
+		AxisInput axis[2] = {};
+		axis[0].deviceId = DEVICE_ID_DEFAULT;
+		axis[1].deviceId = DEVICE_ID_DEFAULT;
 		for (int j = 0; j < 2; j++) {
 			XrVector2f joystick = IN_VRGetJoystickState(j);
-			axis.deviceId = DEVICE_ID_DEFAULT;
 
 			//horizontal
-			axis.axisId = j == 0 ? JOYSTICK_AXIS_X : JOYSTICK_AXIS_Z;
-			axis.value = joystick.x;
-			NativeAxis(axis);
+			axis[0].axisId = j == 0 ? JOYSTICK_AXIS_X : JOYSTICK_AXIS_Z;
+			axis[0].value = joystick.x;
 
 			//vertical
-			axis.axisId = j == 0 ? JOYSTICK_AXIS_Y : JOYSTICK_AXIS_RZ;
-			axis.value = -joystick.y;
-			NativeAxis(axis);
+			axis[1].axisId = j == 0 ? JOYSTICK_AXIS_Y : JOYSTICK_AXIS_RZ;
+			axis[1].value = -joystick.y;
+			cbNativeAxis(axis, 2);
 		}
 	}
 
@@ -261,12 +261,12 @@ void UpdateVRInput(bool haptics, float dp_xscale, float dp_yscale) {
 				if (pressed && haptics) {
 					INVR_Vibrate(100, j, 1000);
 				}
-				NativeKey(keyInput);
+				cbNativeKey(keyInput);
 				m.pressed = pressed;
 				m.repeat = 0;
 			} else if (pressed && (m.repeat > 30)) {
 				keyInput.flags |= KEY_IS_REPEAT;
-				NativeKey(keyInput);
+				cbNativeKey(keyInput);
 				m.repeat = 0;
 			} else {
 				m.repeat++;
@@ -289,7 +289,7 @@ void UpdateVRInput(bool haptics, float dp_xscale, float dp_yscale) {
 			keyInput.flags = activate ? KEY_DOWN : KEY_UP;
 			keyInput.keyCode = NKCODE_EXT_MOTION_UP;
 			keyInput.deviceId = controllerIds[j];
-			if (controllerMotion[j][0] != activate) NativeKey(keyInput);
+			if (controllerMotion[j][0] != activate) cbNativeKey(keyInput);
 			controllerMotion[j][0] = activate;
 
 			//down
@@ -297,7 +297,7 @@ void UpdateVRInput(bool haptics, float dp_xscale, float dp_yscale) {
 			keyInput.flags = activate ? KEY_DOWN : KEY_UP;
 			keyInput.keyCode = NKCODE_EXT_MOTION_DOWN;
 			keyInput.deviceId = controllerIds[j];
-			if (controllerMotion[j][1] != activate) NativeKey(keyInput);
+			if (controllerMotion[j][1] != activate) cbNativeKey(keyInput);
 			controllerMotion[j][1] = activate;
 
 			//left
@@ -305,7 +305,7 @@ void UpdateVRInput(bool haptics, float dp_xscale, float dp_yscale) {
 			keyInput.flags = activate ? KEY_DOWN : KEY_UP;
 			keyInput.keyCode = NKCODE_EXT_MOTION_LEFT;
 			keyInput.deviceId = controllerIds[j];
-			if (controllerMotion[j][2] != activate) NativeKey(keyInput);
+			if (controllerMotion[j][2] != activate) cbNativeKey(keyInput);
 			controllerMotion[j][2] = activate;
 
 			//right
@@ -313,7 +313,7 @@ void UpdateVRInput(bool haptics, float dp_xscale, float dp_yscale) {
 			keyInput.flags = activate ? KEY_DOWN : KEY_UP;
 			keyInput.keyCode = NKCODE_EXT_MOTION_RIGHT;
 			keyInput.deviceId = controllerIds[j];
-			if (controllerMotion[j][3] != activate) NativeKey(keyInput);
+			if (controllerMotion[j][3] != activate) cbNativeKey(keyInput);
 			controllerMotion[j][3] = activate;
 
 			//forward
@@ -321,7 +321,7 @@ void UpdateVRInput(bool haptics, float dp_xscale, float dp_yscale) {
 			keyInput.flags = activate ? KEY_DOWN : KEY_UP;
 			keyInput.keyCode = NKCODE_EXT_MOTION_FORWARD;
 			keyInput.deviceId = controllerIds[j];
-			if (controllerMotion[j][4] != activate) NativeKey(keyInput);
+			if (controllerMotion[j][4] != activate) cbNativeKey(keyInput);
 			controllerMotion[j][4] = activate;
 		}
 	}
@@ -358,7 +358,7 @@ void UpdateVRInput(bool haptics, float dp_xscale, float dp_yscale) {
 		activate = !disable && yaw < -limit;
 		keyInput.flags = activate ? KEY_DOWN : KEY_UP;
 		keyInput.keyCode = NKCODE_EXT_ROTATION_LEFT;
-		if (hmdMotion[2] != activate) NativeKey(keyInput);
+		if (hmdMotion[2] != activate) cbNativeKey(keyInput);
 		if (isVR && activate) hmdMotionDiff[1] += limit;
 		hmdMotion[2] = activate;
 
@@ -366,7 +366,7 @@ void UpdateVRInput(bool haptics, float dp_xscale, float dp_yscale) {
 		activate = !disable && yaw > limit;
 		keyInput.flags = activate ? KEY_DOWN : KEY_UP;
 		keyInput.keyCode = NKCODE_EXT_ROTATION_RIGHT;
-		if (hmdMotion[3] != activate) NativeKey(keyInput);
+		if (hmdMotion[3] != activate) cbNativeKey(keyInput);
 		if (isVR && activate) hmdMotionDiff[1] -= limit;
 		hmdMotion[3] = activate;
 	}
@@ -449,9 +449,9 @@ void UpdateVRInput(bool haptics, float dp_xscale, float dp_yscale) {
 		if (mousePressed != pressed) {
 			if (pressed) {
 				touch.flags = TOUCH_DOWN;
-				NativeTouch(touch);
+				cbNativeTouch(touch);
 				touch.flags = TOUCH_UP;
-				NativeTouch(touch);
+				cbNativeTouch(touch);
 			}
 			mousePressed = pressed;
 		}
@@ -463,10 +463,10 @@ void UpdateVRInput(bool haptics, float dp_xscale, float dp_yscale) {
 			float scroll = -IN_VRGetJoystickState(j).y;
 			keyInput.flags = scroll < -0.5f ? KEY_DOWN : KEY_UP;
 			keyInput.keyCode = NKCODE_EXT_MOUSEWHEEL_UP;
-			NativeKey(keyInput);
+			cbNativeKey(keyInput);
 			keyInput.flags = scroll > 0.5f ? KEY_DOWN : KEY_UP;
 			keyInput.keyCode = NKCODE_EXT_MOUSEWHEEL_DOWN;
-			NativeKey(keyInput);
+			cbNativeKey(keyInput);
 		}
 	} else {
 		VR_SetConfig(VR_CONFIG_MOUSE_SIZE, 0);
@@ -525,7 +525,7 @@ bool UpdateVRKeys(const KeyInput &key) {
 		for (auto& pspKey : pspKeys) {
 			if (pspKey.second) {
 				keyUp.keyCode = (InputKeyCode)pspKey.first;
-				NativeKey(keyUp);
+				cbNativeKey(keyUp);
 			}
 		}
 		pspKeys[VIRTKEY_VR_CAMERA_ADJUST] = true;

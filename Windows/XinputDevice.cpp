@@ -218,14 +218,17 @@ void XinputDevice::UpdatePad(int pad, const XINPUT_STATE &state, XINPUT_VIBRATIO
 	ApplyButtons(pad, state);
 	ApplyVibration(pad, vibration);
 
-	AxisInput axis;
-	axis.deviceId = (InputDeviceID)(DEVICE_ID_XINPUT_0 + pad);
+	AxisInput axis[6];
+	int axisCount = 0;
+	for (int i = 0; i < ARRAY_SIZE(axis); i++) {
+		axis[i].deviceId = (InputDeviceID)(DEVICE_ID_XINPUT_0 + pad);
+	}
 	auto sendAxis = [&](InputAxis axisId, float value, int axisIndex) {
 		if (value != prevAxisValue_[pad][axisIndex]) {
 			prevAxisValue_[pad][axisIndex] = value;
-			axis.axisId = axisId;
-			axis.value = value;
-			NativeAxis(axis);
+			axis[axisCount].axisId = axisId;
+			axis[axisCount].value = value;
+			axisCount++;
 		}
 	};
 
@@ -240,6 +243,10 @@ void XinputDevice::UpdatePad(int pad, const XINPUT_STATE &state, XINPUT_VIBRATIO
 
 	if (NormalizedDeadzoneDiffers(prevState[pad].Gamepad.bRightTrigger, state.Gamepad.bRightTrigger, XINPUT_GAMEPAD_TRIGGER_THRESHOLD)) {
 		sendAxis(JOYSTICK_AXIS_RTRIGGER, (float)state.Gamepad.bRightTrigger / 255.0f, 5);
+	}
+
+	if (axisCount) {
+		NativeAxis(axis, axisCount);
 	}
 
 	prevState[pad] = state;

@@ -724,17 +724,16 @@ struct InputStateTracker {
 			float scaleFactor_x = g_display.dpi_scale_x * 0.1 * g_Config.fMouseSensitivity;
 			float scaleFactor_y = g_display.dpi_scale_y * 0.1 * g_Config.fMouseSensitivity;
 
-			AxisInput axisX, axisY;
-			axisX.axisId = JOYSTICK_AXIS_MOUSE_REL_X;
-			axisX.deviceId = DEVICE_ID_MOUSE;
-			axisX.value = std::max(-1.0f, std::min(1.0f, mouseDeltaX * scaleFactor_x));
-			axisY.axisId = JOYSTICK_AXIS_MOUSE_REL_Y;
-			axisY.deviceId = DEVICE_ID_MOUSE;
-			axisY.value = std::max(-1.0f, std::min(1.0f, mouseDeltaY * scaleFactor_y));
+			AxisInput axis[2];
+			axis[0].axisId = JOYSTICK_AXIS_MOUSE_REL_X;
+			axis[0].deviceId = DEVICE_ID_MOUSE;
+			axis[0].value = std::max(-1.0f, std::min(1.0f, mouseDeltaX * scaleFactor_x));
+			axis[1].axisId = JOYSTICK_AXIS_MOUSE_REL_Y;
+			axis[1].deviceId = DEVICE_ID_MOUSE;
+			axis[1].value = std::max(-1.0f, std::min(1.0f, mouseDeltaY * scaleFactor_y));
 
 			if (GetUIState() == UISTATE_INGAME || g_Config.bMapMouse) {
-				NativeAxis(axisX);
-				NativeAxis(axisY);
+				NativeAxis(axis, 2);
 			}
 			mouseDeltaX *= g_Config.fMouseSmoothing;
 			mouseDeltaY *= g_Config.fMouseSmoothing;

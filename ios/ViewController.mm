@@ -462,7 +462,7 @@ int ToTouchID(UITouch *uiTouch, bool allowAllocate) {
 					break;
 			}
 			axis.deviceId = DEVICE_ID_PAD_0;
-			NativeAxis(axis);
+			NativeAxis(&axis, 1);
 		} else {
 			KeyInput key;
 			key.flags = KEY_DOWN;
@@ -531,7 +531,7 @@ int ToTouchID(UITouch *uiTouch, bool allowAllocate) {
 				break;
 		}
 		axis.deviceId = DEVICE_ID_PAD_0;
-		NativeAxis(axis);
+		NativeAxis(&axis, 1);
 	} else {
 		KeyInput key;
 		key.flags = KEY_UP;
@@ -689,7 +689,7 @@ int ToTouchID(UITouch *uiTouch, bool allowAllocate) {
 		axisInput.deviceId = DEVICE_ID_PAD_0;
 		axisInput.axisId = JOYSTICK_AXIS_X;
 		axisInput.value = value;
-		NativeAxis(axisInput);
+		NativeAxis(&axisInput, 1);
 	};
 
 	extendedProfile.leftThumbstick.yAxis.valueChangedHandler = ^(GCControllerAxisInput *axis, float value) {
@@ -697,7 +697,7 @@ int ToTouchID(UITouch *uiTouch, bool allowAllocate) {
 		axisInput.deviceId = DEVICE_ID_PAD_0;
 		axisInput.axisId = JOYSTICK_AXIS_Y;
 		axisInput.value = -value;
-		NativeAxis(axisInput);
+		NativeAxis(&axisInput, 1);
 	};
 
 	// Map right thumbstick as another analog stick, particularly useful for controllers like the DualShock 3/4 when connected to an iOS device
@@ -706,7 +706,7 @@ int ToTouchID(UITouch *uiTouch, bool allowAllocate) {
 		axisInput.deviceId = DEVICE_ID_PAD_0;
 		axisInput.axisId = JOYSTICK_AXIS_Z;
 		axisInput.value = value;
-		NativeAxis(axisInput);
+		NativeAxis(&axisInput, 1);
 	};
 
 	extendedProfile.rightThumbstick.yAxis.valueChangedHandler = ^(GCControllerAxisInput *axis, float value) {
@@ -714,7 +714,7 @@ int ToTouchID(UITouch *uiTouch, bool allowAllocate) {
 		axisInput.deviceId = DEVICE_ID_PAD_0;
 		axisInput.axisId = JOYSTICK_AXIS_RZ;
 		axisInput.value = -value;
-		NativeAxis(axisInput);
+		NativeAxis(&axisInput, 1);
 	};
 }
 #endif

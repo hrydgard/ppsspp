@@ -1319,7 +1319,7 @@ bool NativeKey(const KeyInput &key) {
 	return retval;
 }
 
-void NativeAxis(const AxisInput &axis) {
+static void ProcessOneAxisEvent(const AxisInput &axis) {
 	// VR actions
 	if (IsVREnabled() && !UpdateVRAxis(axis)) {
 		return;
@@ -1330,28 +1330,31 @@ void NativeAxis(const AxisInput &axis) {
 		return;
 	}
 
-	using namespace TiltEventProcessor;
-
 	// only do special handling of tilt events if tilt is enabled.
 	HLEPlugins::PluginDataAxis[axis.axisId] = axis.value;
 	g_screenManager->axis(axis);
+}
 
-	if (g_Config.iTiltInputType == TILT_NULL) {
-		// if tilt events are disabled, don't do anything special.
-		return;
-	}
-
+void NativeAxis(const AxisInput *axes, size_t count) {
 	// figure out what the current tilt orientation is by checking the axis event
 	// This is static, since we need to remember where we last were (in terms of orientation)
 	static float tiltX;
 	static float tiltY;
 	static float tiltZ;
 
-	switch (axis.axisId) {
-		case JOYSTICK_AXIS_ACCELEROMETER_X: tiltX = axis.value; break;
-		case JOYSTICK_AXIS_ACCELEROMETER_Y: tiltY = axis.value; break;
-		case JOYSTICK_AXIS_ACCELEROMETER_Z: tiltZ = axis.value; break;
+	for (size_t i = 0; i < count; i++) {
+		ProcessOneAxisEvent(axes[i]);
+		switch (axes[i].axisId) {
+		case JOYSTICK_AXIS_ACCELEROMETER_X: tiltX = axes[i].value; break;
+		case JOYSTICK_AXIS_ACCELEROMETER_Y: tiltY = axes[i].value; break;
+		case JOYSTICK_AXIS_ACCELEROMETER_Z: tiltZ = axes[i].value; break;
 		default: break;
+		}
+	}
+
+	if (g_Config.iTiltInputType == TILT_NULL) {
+		// if tilt events are disabled, don't do anything special.
+		return;
 	}
 
 	// create the base coordinate tilt system from the calibration data.
@@ -1371,7 +1374,7 @@ void NativeAxis(const AxisInput &axis) {
 	// see [http://developer.android.com/guide/topics/sensors/sensors_overview.html] for details
 	bool landscape = g_display.dp_yres < g_display.dp_xres;
 	// now transform out current tilt to the calibrated coordinate system
-	ProcessTilt(landscape, tiltBaseAngleY, tiltX, tiltY, tiltZ,
+	TiltEventProcessor::ProcessTilt(landscape, tiltBaseAngleY, tiltX, tiltY, tiltZ,
 		g_Config.bInvertTiltX, g_Config.bInvertTiltY,
 		xSensitivity, ySensitivity);
 }
