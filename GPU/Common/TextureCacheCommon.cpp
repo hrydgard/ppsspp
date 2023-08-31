@@ -190,10 +190,6 @@ SamplerCacheKey TextureCacheCommon::GetSamplingParams(int maxLevel, const TexCac
 
 	// If mip level is forced to zero, disable mipmapping.
 	bool noMip = maxLevel == 0 || (!autoMip && lodBias <= 0.0f);
-	if (IsFakeMipmapChange()) {
-		noMip = noMip || !autoMip;
-	}
-
 	if (noMip) {
 		// Enforce no mip filtering, for safety.
 		key.mipEnable = false;
@@ -2765,15 +2761,22 @@ bool TextureCacheCommon::PrepareBuildTexture(BuildTexturePlan &plan, TexCacheEnt
 		int tw = gstate.getTextureWidth(0);
 		int th = gstate.getTextureHeight(0);
 		bool pure3D = true;
-		if (!isFakeMipmapChange) {
-			for (int i = 0; i < plan.levelsToLoad; i++) {
-				if (gstate.getTextureWidth(i) != gstate.getTextureWidth(0) || gstate.getTextureHeight(i) != gstate.getTextureHeight(0)) {
-					pure3D = false;
-					break;
-				}
+		for (int i = 0; i < plan.levelsToLoad; i++) {
+			if (gstate.getTextureWidth(i) != gstate.getTextureWidth(0) || gstate.getTextureHeight(i) != gstate.getTextureHeight(0)) {
+				pure3D = false;
+				break;
 			}
-		} else {
+		}
+
+		// Check early for the degenerate case from Tactics Ogre.
+		if (pure3D && plan.levelsToLoad == 2 && gstate.getTextureAddress(0) == gstate.getTextureAddress(1)) {
+			// Simply treat it as a regular 2D texture, no fake mipmaps or anything.
+			// levelsToLoad/Create gets set to 1 on the way out from the surrounding if.
+			isFakeMipmapChange = false;
+			pure3D = false;
+		} else if (isFakeMipmapChange) {
 			// We don't want to create a volume texture, if this is a "fake mipmap change".
+			// In practice due to the compat flag, the only time we end up here is in JP Tactics Ogre.
 			pure3D = false;
 		}
 
