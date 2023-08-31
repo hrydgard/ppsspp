@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Common/Input/InputState.h"
+
 namespace TiltEventProcessor {
 
 // generates a tilt in the correct coordinate system based on
