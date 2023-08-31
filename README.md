@@ -27,10 +27,12 @@ For game compatibility, see [community compatibility feedback](https://report.pp
 
 What's new in 1.16
 ==================
+Special thanks to unknownbrackets for the new JIT compilers, and fp64 for finally cracking the vrnd instruction.
+
 - RetroAchievements support ([#17589], [#17631], many more). See [RetroAchievements on ppsspp.org](https://www.ppsspp.org/docs/reference/retro-achievements).
 - New JIT backends:
-  - RISC-V, based on IR, by unknownbrackets
-  - x86 based on IR, by unknownbrackets. May end up faster than the existing one.
+  - RISC-V, based on IR
+  - x86 JIT based on IR. May end up faster than the existing one, already at parity.
 - Input fixes
   - Improve behavior when analog and digital inputs clash ([#17960])
   - Combo mapping is now disabled by default ([#17673])
@@ -39,9 +41,9 @@ What's new in 1.16
 - Rendering performance and fixes
   - Fix flicker in WWE Smackdown vs Raw 2006 ([#18009]), video flicker in Naruto 2 ([#18008])
   - Fix bad colors in Syphon Filter: Logan's Shadow menu ([#17965])
-  - On lower-end, revert shaders to be less "uber" ([#17449], [#17922])
+  - On lower-end devices, avoid "uber" shaders due to performance and driver bugs ([#17449], [#17922])
   - Allow disabling V-sync on Android with Vulkan ([#17903])
-  - On Vulkan, disable multithreaded rendering if buffered commands are set to off ([#17831])
+  - On Vulkan, reduce input lag when "Buffer graphics commands" is set to off ([#17831])
   - Assorted minor perf ([#17810], [#17505], [#17478], [#17471], [#17452], [#17446], [#17442])
   - Fix shadows in MotorStorm ([#17602]) (not actually a rendering problem)
   - Fix rendering issue in Lunar Silver Star ([#17451])
@@ -56,15 +58,15 @@ What's new in 1.16
   - Fix glitches on D3D11 with KTX2 textures ([#17749])
 - UI changes
   - Color emoji support on some platforms ([#17854], [#17856])
-  - Use TTF fonts on SDL where available ([#17844]), support HiDPI ([#17651])
+  - Use TTF fonts on SDL where available (macOS, Linux/Steam Deck) ([#17844]), support HiDPI ([#17651])
   - Allow setting the PSP's MAC address directly ([#17755])
   - Better looking notifications ([#17606], [#17674], [#17672])
 - Cheats
   - Fix loading cheat dbs on Android devices with scoped storage ([#17834])
 - Other
+  - Emulate the vrnd instruction accurately ([#17506], [#17549])
   - Fix timing issue causing slowdowns in MLB games ([#17676], [#17677])
   - UWP keyboard support, many other updates ([#17952], [#17974])
-  - Make vrnd instruction much more accurate ([#17506], [#17549])
   - Allow choosing the display resolution on Android again ([#17473])
   - Fix issue running some file types out of the Download folder on Android ([#17466])
 
