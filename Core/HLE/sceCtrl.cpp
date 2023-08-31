@@ -206,9 +206,12 @@ u32 __CtrlReadLatch()
 
 void __CtrlUpdateButtons(u32 bitsToSet, u32 bitsToClear)
 {
+	bitsToClear &= CTRL_MASK_USER;
+	bitsToSet &= CTRL_MASK_USER;
+
 	std::lock_guard<std::mutex> guard(ctrlMutex);
-	ctrlCurrent.buttons &= ~(bitsToClear & CTRL_MASK_USER);
-	ctrlCurrent.buttons |= (bitsToSet & CTRL_MASK_USER);
+	// There's no atomic operation for this, so mutex it is.
+	ctrlCurrent.buttons = (ctrlCurrent.buttons & ~bitsToClear) | bitsToSet;
 }
 
 void __CtrlSetAnalogXY(int stick, float x, float y)
