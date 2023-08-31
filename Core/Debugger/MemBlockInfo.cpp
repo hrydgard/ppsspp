@@ -57,7 +57,7 @@ private:
 	};
 
 	static constexpr uint32_t MAX_SIZE = 0x40000000;
-	static constexpr uint32_t SLICES = 16384;
+	static constexpr uint32_t SLICES = 65536;
 	static constexpr uint32_t SLICE_SIZE = MAX_SIZE / SLICES;
 
 	Slab *FindSlab(uint32_t addr);
@@ -371,7 +371,7 @@ void MemSlabMap::FillHeads(Slab *slab) {
 
 void FlushPendingMemInfo() {
 	std::lock_guard<std::mutex> guard(pendingMutex);
-	for (auto info : pendingNotifies) {
+	for (const auto &info : pendingNotifies) {
 		if (info.flags & MemBlockFlags::ALLOC) {
 			allocMap.Mark(info.start, info.size, info.ticks, info.pc, true, info.tag);
 		} else if (info.flags & MemBlockFlags::FREE) {
