@@ -447,6 +447,8 @@ void GPUCommonHW::DeviceLost() {
 // Call at the start of the GPU implementation's DeviceRestore
 void GPUCommonHW::DeviceRestore(Draw::DrawContext *draw) {
 	draw_ = draw;
+	displayResized_ = true;  // re-check display bounds.
+	renderResized_ = true;
 	framebufferManager_->DeviceRestore(draw_);
 	textureCache_->DeviceRestore(draw_);
 	shaderManager_->DeviceRestore(draw_);

@@ -153,7 +153,7 @@
 
 #include <Core/HLE/Plugins.h>
 
-void HandleGlobalMessage(const std::string &msg, const std::string &value);
+bool HandleGlobalMessage(const std::string &msg, const std::string &value);
 
 ScreenManager *g_screenManager;
 std::string config_filename;
@@ -885,6 +885,8 @@ bool NativeInitGraphics(GraphicsContext *graphicsContext) {
 	g_gameInfoCache = new GameInfoCache();
 
 	if (gpu) {
+		PSP_CoreParameter().pixelWidth = g_display.pixel_xres;
+		PSP_CoreParameter().pixelHeight = g_display.pixel_yres;
 		gpu->DeviceRestore(g_draw);
 	}
 
@@ -1076,7 +1078,9 @@ void NativeFrame(GraphicsContext *graphicsContext) {
 	}
 
 	for (const auto &item : toProcess) {
-		HandleGlobalMessage(item.msg, item.value);
+		if (HandleGlobalMessage(item.msg, item.value)) {
+			INFO_LOG(SYSTEM, "Handled global message: %s / %s", item.msg.c_str(), item.value.c_str());
+		}
 		g_screenManager->sendMessage(item.msg.c_str(), item.value.c_str());
 	}
 
@@ -1181,28 +1185,32 @@ void NativeFrame(GraphicsContext *graphicsContext) {
 	}
 }
 
-void HandleGlobalMessage(const std::string &msg, const std::string &value) {
+bool HandleGlobalMessage(const std::string &msg, const std::string &value) {
 	if (msg == "savestate_displayslot") {
 		auto sy = GetI18NCategory(I18NCat::SYSTEM);
 		std::string msg = StringFromFormat("%s: %d", sy->T("Savestate Slot"), SaveState::GetCurrentSlot() + 1);
 		// Show for the same duration as the preview.
 		g_OSD.Show(OSDType::MESSAGE_INFO, msg, 2.0f, "savestate_slot");
+		return true;
 	}
 	else if (msg == "gpu_displayResized") {
 		if (gpu) {
 			gpu->NotifyDisplayResized();
 		}
+		return true;
 	}
 	else if (msg == "gpu_renderResized") {
 		if (gpu) {
 			gpu->NotifyRenderResized();
 		}
+		return true;
 	}
 	else if (msg == "gpu_configChanged") {
 		if (gpu) {
 			gpu->NotifyConfigChanged();
 		}
 		Reporting::UpdateConfig();
+		return true;
 	}
 	else if (msg == "core_powerSaving") {
 		if (value != "false") {
@@ -1214,6 +1222,7 @@ void HandleGlobalMessage(const std::string &msg, const std::string &value) {
 #endif
 		}
 		Core_SetPowerSaving(value != "false");
+		return true;
 	}
 	else if (msg == "permission_granted" && value == "storage") {
 		CreateSysDirectories();
@@ -1227,9 +1236,13 @@ void HandleGlobalMessage(const std::string &msg, const std::string &value) {
 		g_Config.Reload();
 		PostLoadConfig();
 		g_Config.iGPUBackend = gpuBackend;
+		return true;
 	} else if (msg == "app_resumed" || msg == "got_focus") {
 		// Assume that the user may have modified things.
 		MemoryStick_NotifyWrite();
+		return true;
+	} else {
+		return false;
 	}
 }
 
