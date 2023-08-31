@@ -622,14 +622,11 @@ void X64JitBackend::CompIR_FSat(IRInst inst) {
 
 		// Now for NAN, we want known first again.
 		// Unfortunately, this will retain -0.0, which we'll fix next.
-		XORPS(tempReg, R(tempReg));
+		XORPS(regs_.FX(inst.dest), regs_.F(inst.dest));
 		MAXSS(tempReg, regs_.F(inst.dest));
 
 		// Important: this should clamp -0.0 to +0.0.
-		XORPS(regs_.FX(inst.dest), regs_.F(inst.dest));
-		CMPEQSS(regs_.FX(inst.dest), R(tempReg));
-		// This will zero all bits if it was -0.0, and keep them otherwise.
-		ANDNPS(regs_.FX(inst.dest), R(tempReg));
+		ADDSS(regs_.FX(inst.dest), R(tempReg));
 		break;
 
 	case IROp::FSatMinus1_1:
