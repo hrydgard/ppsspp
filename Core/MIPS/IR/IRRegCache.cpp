@@ -443,7 +443,7 @@ IRNativeReg IRNativeRegCacheBase::FindBestToSpill(MIPSLoc type, MIPSMap flags, b
 			// Note: mipsReg points to the lowest numbered IRReg.
 			bool canClobber = true;
 			for (IRReg m = mipsReg + 1; mr[m].nReg == nreg && m < IRREG_INVALID && canClobber; ++m)
-				canClobber = getUsage(mipsReg) == IRUsage::CLOBBERED;
+				canClobber = getUsage(m) == IRUsage::CLOBBERED;
 
 			// Okay, if all can be clobbered, we're good to go.
 			if (canClobber) {
