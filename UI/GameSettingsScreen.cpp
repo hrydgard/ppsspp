@@ -688,6 +688,10 @@ void GameSettingsScreen::CreateControlsSettings(UI::ViewGroup *controlsSettings)
 		CheckBox *hideStickBackground = controlsSettings->Add(new CheckBox(&g_Config.bHideStickBackground, co->T("Hide touch analog stick background circle")));
 		hideStickBackground->SetEnabledPtr(&g_Config.bShowTouchControls);
 
+		// Sticky D-pad.
+		CheckBox *stickyDpad = controlsSettings->Add(new CheckBox(&g_Config.bStickyTouchDPad, co->T("Sticky D-Pad (easier sweeping movements)")));
+		stickyDpad->SetEnabledPtr(&g_Config.bShowTouchControls);
+
 		// Re-centers itself to the touch location on touch-down.
 		CheckBox *floatingAnalog = controlsSettings->Add(new CheckBox(&g_Config.bAutoCenterTouchAnalog, co->T("Auto-centering analog stick")));
 		floatingAnalog->SetEnabledPtr(&g_Config.bShowTouchControls);
