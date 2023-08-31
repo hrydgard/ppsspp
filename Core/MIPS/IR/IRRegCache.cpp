@@ -1058,9 +1058,14 @@ void IRNativeRegCacheBase::MapNativeReg(MIPSLoc type, IRNativeReg nreg, IRReg fi
 			case MIPSLoc::REG_AS_PTR:
 				_assert_msg_(lanes == 1, "Should have flushed before getting here");
 				_assert_msg_(type == MIPSLoc::REG, "Should have flushed this reg already");
+#ifndef MASKED_PSP_MEMORY
 				AdjustNativeRegAsPtr(nreg, false);
+#endif
 				for (int i = 0; i < lanes; ++i)
 					mr[first + i].loc = type;
+#ifdef MASKED_PSP_MEMORY
+				LoadNativeReg(nreg, first, lanes);
+#endif
 				break;
 
 			case MIPSLoc::REG:
