@@ -1210,6 +1210,7 @@ extern "C" jboolean Java_org_ppsspp_ppsspp_NativeApp_keyUp(JNIEnv *, jclass, jin
 	return NativeKey(keyInput);
 }
 
+// TODO: Make a batched interface, since we get these in batches on the Android side.
 extern "C" void Java_org_ppsspp_ppsspp_NativeApp_joystickAxis(
 		JNIEnv *env, jclass, jint deviceId, jint axisId, jfloat value) {
 	if (!renderer_inited)
@@ -1219,7 +1220,7 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_joystickAxis(
 	axis.deviceId = (InputDeviceID)deviceId;
 	axis.axisId = (InputAxis)axisId;
 	axis.value = value;
-	NativeAxis(axis);
+	NativeAxis(&axis, 1);
 }
 
 extern "C" jboolean Java_org_ppsspp_ppsspp_NativeApp_mouseWheelEvent(
@@ -1234,20 +1235,17 @@ extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_accelerometer(JNIEnv *,
 	if (!renderer_inited)
 		return;
 
-	AxisInput axis;
-	axis.deviceId = DEVICE_ID_ACCELEROMETER;
-
-	axis.axisId = JOYSTICK_AXIS_ACCELEROMETER_X;
-	axis.value = x;
-	NativeAxis(axis);
-
-	axis.axisId = JOYSTICK_AXIS_ACCELEROMETER_Y;
-	axis.value = y;
-	NativeAxis(axis);
-
-	axis.axisId = JOYSTICK_AXIS_ACCELEROMETER_Z;
-	axis.value = z;
-	NativeAxis(axis);
+	AxisInput axis[3];
+	for (int i = 0; i < 3; i++) {
+		axis[i].deviceId = DEVICE_ID_ACCELEROMETER;
+	}
+	axis[0].axisId = JOYSTICK_AXIS_ACCELEROMETER_X;
+	axis[0].value = x;
+	axis[1].axisId = JOYSTICK_AXIS_ACCELEROMETER_Y;
+	axis[1].value = y;
+	axis[2].axisId = JOYSTICK_AXIS_ACCELEROMETER_Z;
+	axis[2].value = z;
+	NativeAxis(axis, 3);
 }
 
 extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_sendMessageFromJava(JNIEnv *env, jclass, jstring message, jstring param) {

@@ -731,20 +731,18 @@ void MainUI::updateAccelerometer() {
 	// TODO: Toggle it depending on whether it is enabled
 	QAccelerometerReading *reading = acc->reading();
 	if (reading) {
-		AxisInput axis;
-		axis.deviceId = DEVICE_ID_ACCELEROMETER;
+		AxisInput axis[3];
+		for (int i = 0; i < 3; i++) {
+			axis[i].deviceId = DEVICE_ID_ACCELEROMETER;
+		}
 
-		axis.axisId = JOYSTICK_AXIS_ACCELEROMETER_X;
-		axis.value = reading->x();
-		NativeAxis(axis);
-
-		axis.axisId = JOYSTICK_AXIS_ACCELEROMETER_Y;
-		axis.value = reading->y();
-		NativeAxis(axis);
-
-		axis.axisId = JOYSTICK_AXIS_ACCELEROMETER_Z;
-		axis.value = reading->z();
-		NativeAxis(axis);
+		axis[0].axisId = JOYSTICK_AXIS_ACCELEROMETER_X;
+		axis[0].value = reading->x();
+		axis[1].axisId = JOYSTICK_AXIS_ACCELEROMETER_Y;
+		axis[1].value = reading->y();
+		axis[2].axisId = JOYSTICK_AXIS_ACCELEROMETER_Z;
+		axis[2].value = reading->z();
+		NativeAxis(axis, 3);
 	}
 #endif
 }

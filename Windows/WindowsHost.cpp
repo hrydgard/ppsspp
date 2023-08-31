@@ -107,17 +107,16 @@ void WindowsInputManager::PollControllers() {
 
 		float mx = std::max(-1.0f, std::min(1.0f, mouseDeltaX_ * scaleFactor_x));
 		float my = std::max(-1.0f, std::min(1.0f, mouseDeltaY_ * scaleFactor_y));
-		AxisInput axisX{}, axisY{};
-		axisX.axisId = JOYSTICK_AXIS_MOUSE_REL_X;
-		axisX.deviceId = DEVICE_ID_MOUSE;
-		axisX.value = mx;
-		axisY.axisId = JOYSTICK_AXIS_MOUSE_REL_Y;
-		axisY.deviceId = DEVICE_ID_MOUSE;
-		axisY.value = my;
+		AxisInput axis[2];
+		axis[0].axisId = JOYSTICK_AXIS_MOUSE_REL_X;
+		axis[0].deviceId = DEVICE_ID_MOUSE;
+		axis[0].value = mx;
+		axis[1].axisId = JOYSTICK_AXIS_MOUSE_REL_Y;
+		axis[1].deviceId = DEVICE_ID_MOUSE;
+		axis[1].value = my;
 
 		if (GetUIState() == UISTATE_INGAME || g_Config.bMapMouse) {
-			NativeAxis(axisX);
-			NativeAxis(axisY);
+			NativeAxis(axis, 2);
 		}
 	}
 

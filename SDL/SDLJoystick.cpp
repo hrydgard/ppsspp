@@ -189,7 +189,7 @@ void SDLJoystick::ProcessInput(const SDL_Event &event){
 		if (axis.value > 1.0f) axis.value = 1.0f;
 		if (axis.value < -1.0f) axis.value = -1.0f;
 		axis.deviceId = DEVICE_ID_PAD_0 + getDeviceIndex(event.caxis.which);
-		NativeAxis(axis);
+		NativeAxis(&axis, 1);
 		break;
 	case SDL_CONTROLLERDEVICEREMOVED:
 		// for removal events, "which" is the instance ID for SDL_CONTROLLERDEVICEREMOVED

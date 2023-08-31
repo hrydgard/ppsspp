@@ -208,7 +208,7 @@ void SendNativeAxis(InputDeviceID deviceId, int value, int &lastValue, InputAxis
 	axis.deviceId = deviceId;
 	axis.axisId = axisId;
 	axis.value = (float)value * (1.0f / 10000.0f); // Convert axis to normalised float
-	NativeAxis(axis);
+	NativeAxis(&axis, 1);
 
 	lastValue = value;
 }
@@ -241,6 +241,7 @@ int DinputDevice::UpdateState() {
 	ApplyButtons(js);
 
 	if (analog)	{
+		// TODO: Use the batched interface.
 		AxisInput axis;
 		axis.deviceId = DEVICE_ID_PAD_0 + pDevNum;
 
