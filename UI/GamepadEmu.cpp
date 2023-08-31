@@ -319,7 +319,7 @@ void PSPDpad::ProcessTouch(float x, float y, bool down) {
 	float dx = (x - bounds_.centerX()) * inv_stick_size;
 	float dy = (y - bounds_.centerY()) * inv_stick_size;
 	float rad = sqrtf(dx * dx + dy * dy);
-	if (rad < deadzone || fabs(dx) > 0.5f || fabs(dy) > 0.5)
+	if (!g_Config.bStickyTouchDPad && (rad < deadzone || fabs(dx) > 0.5f || fabs(dy) > 0.5))
 		down = false;
 
 	int ctrlMask = 0;

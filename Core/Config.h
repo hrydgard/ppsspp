@@ -314,6 +314,9 @@ public:
 	// Floating analog stick (recenters on thumb on press).
 	bool bAutoCenterTouchAnalog;
 
+	// Sticky D-pad (can't glide off it)
+	bool bStickyTouchDPad;
+
 	//space between PSP buttons
 	//the PSP button's center (triangle, circle, square, cross)
 	ConfigTouchPos touchActionButtonCenter;
