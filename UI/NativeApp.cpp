@@ -1330,10 +1330,11 @@ void NativeAxis(const AxisInput *axes, size_t count) {
 		return;
 	}
 
+	g_screenManager->axis(axes, count);
+
 	for (size_t i = 0; i < count; i++) {
 		// only do special handling of tilt events if tilt is enabled.
 		HLEPlugins::PluginDataAxis[axes[i].axisId] = axes[i].value;
-		g_screenManager->axis(axes[i]);
 	}
 
 	if (g_Config.iTiltInputType != TILT_NULL) {

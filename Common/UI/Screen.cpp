@@ -109,26 +109,28 @@ bool ScreenManager::key(const KeyInput &key) {
 	return result;
 }
 
-void ScreenManager::axis(const AxisInput &axis) {
+void ScreenManager::axis(const AxisInput *axis, size_t count) {
 	std::lock_guard<std::recursive_mutex> guard(inputLock_);
-
-	// Ignore duplicate values to prevent axis values overwriting each other.
-	uint64_t key = ((uint64_t)axis.axisId << 32) | axis.deviceId;
-	// Center value far from zero just to ensure we send the first zero.
-	// PSP games can't see higher resolution than this.
-	int value = 128 + ceilf(axis.value * 127.5f + 127.5f);
-	if (lastAxis_[key] == value) {
-		return;
-	}
-	lastAxis_[key] = value;
-
-	// Send center axis to every screen layer.
-	if (axis.value == 0) {
-		for (auto &layer : stack_) {
-			layer.screen->UnsyncAxis(axis);
+	for (size_t i = 0; i < count; i++) {
+		// Ignore duplicate values to prevent axis values overwriting each other.
+		// TODO: Should we really do this de-duplication here?
+		uint64_t key = ((uint64_t)axis[i].axisId << 32) | axis[i].deviceId;
+		// Center value far from zero just to ensure we send the first zero.
+		// PSP games can't see higher resolution than this.
+		int value = 128 + ceilf(axis[i].value * 127.5f + 127.5f);
+		if (lastAxis_[key] == value) {
+			return;
 		}
-	} else if (!stack_.empty()) {
-		stack_.back().screen->UnsyncAxis(axis);
+		lastAxis_[key] = value;
+
+		// Send center axis to every screen layer.
+		if (axis[i].value == 0) {
+			for (auto &layer : stack_) {
+				layer.screen->UnsyncAxis(axis[i]);
+			}
+		} else if (!stack_.empty()) {
+			stack_.back().screen->UnsyncAxis(axis[i]);
+		}
 	}
 }
 
