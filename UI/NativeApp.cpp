@@ -1336,47 +1336,13 @@ static void ProcessOneAxisEvent(const AxisInput &axis) {
 }
 
 void NativeAxis(const AxisInput *axes, size_t count) {
-	// figure out what the current tilt orientation is by checking the axis event
-	// This is static, since we need to remember where we last were (in terms of orientation)
-	static float tiltX;
-	static float tiltY;
-	static float tiltZ;
-
 	for (size_t i = 0; i < count; i++) {
 		ProcessOneAxisEvent(axes[i]);
-		switch (axes[i].axisId) {
-		case JOYSTICK_AXIS_ACCELEROMETER_X: tiltX = axes[i].value; break;
-		case JOYSTICK_AXIS_ACCELEROMETER_Y: tiltY = axes[i].value; break;
-		case JOYSTICK_AXIS_ACCELEROMETER_Z: tiltZ = axes[i].value; break;
-		default: break;
-		}
 	}
 
-	if (g_Config.iTiltInputType == TILT_NULL) {
-		// if tilt events are disabled, don't do anything special.
-		return;
+	if (g_Config.iTiltInputType != TILT_NULL) {
+		TiltEventProcessor::ProcessAxisInput(axes, count);
 	}
-
-	// create the base coordinate tilt system from the calibration data.
-	float tiltBaseAngleY = g_Config.fTiltBaseAngleY;
-
-	// Figure out the sensitivity of the tilt. (sensitivity is originally 0 - 100)
-	// We divide by 50, so that the rest of the 50 units can be used to overshoot the
-	// target. If you want precise control, you'd keep the sensitivity ~50.
-	// For games that don't need much control but need fast reactions,
-	// then a value of 70-80 is the way to go.
-	float xSensitivity = g_Config.iTiltSensitivityX / 50.0;
-	float ySensitivity = g_Config.iTiltSensitivityY / 50.0;
-
-	// x and y are flipped if we are in landscape orientation. The events are
-	// sent with respect to the portrait coordinate system, while we
-	// take all events in landscape.
-	// see [http://developer.android.com/guide/topics/sensors/sensors_overview.html] for details
-	bool landscape = g_display.dp_yres < g_display.dp_xres;
-	// now transform out current tilt to the calibrated coordinate system
-	TiltEventProcessor::ProcessTilt(landscape, tiltBaseAngleY, tiltX, tiltY, tiltZ,
-		g_Config.bInvertTiltX, g_Config.bInvertTiltY,
-		xSensitivity, ySensitivity);
 }
 
 void System_PostUIMessage(const std::string &message, const std::string &value) {

@@ -4,7 +4,7 @@ namespace TiltEventProcessor {
 
 // generates a tilt in the correct coordinate system based on
 // calibration. x, y, z is the current accelerometer reading (with no conversion).
-void ProcessTilt(bool landscape, const float calibrationAngle, float x, float y, float z, bool invertX, bool invertY, float xSensitivity, float ySensitivity);
+void ProcessAxisInput(const AxisInput *axes, size_t count);
 void ResetTiltEvents();
 
 // Lets you preview the amount of tilt in TiltAnalogSettingsScreen.

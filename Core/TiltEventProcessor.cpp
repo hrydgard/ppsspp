@@ -3,10 +3,12 @@
 #include <algorithm>
 #include <cmath>
 
+#include "Common/Input/InputState.h"
 #include "Common/Math/math_util.h"
 #include "Common/Math/lin/vec3.h"
 #include "Common/Math/lin/matrix4x4.h"
 #include "Common/Log.h"
+#include "Common/System/Display.h"
 
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
@@ -21,10 +23,10 @@ float rawTiltAnalogY;
 
 // These functions generate tilt events given the current Tilt amount,
 // and the deadzone radius.
-void GenerateAnalogStickEvent(float analogX, float analogY);
-void GenerateDPadEvent(int digitalX, int digitalY);
-void GenerateActionButtonEvent(int digitalX, int digitalY);
-void GenerateTriggerButtonEvent(int digitalX, int digitalY);
+static void GenerateAnalogStickEvent(float analogX, float analogY);
+static void GenerateDPadEvent(int digitalX, int digitalY);
+static void GenerateActionButtonEvent(int digitalX, int digitalY);
+static void GenerateTriggerButtonEvent(int digitalX, int digitalY);
 
 // deadzone is normalized - 0 to 1
 // sensitivity controls how fast the deadzone reaches max value
@@ -58,7 +60,7 @@ inline void ApplyInverseDeadzone(float x, float y, float *outX, float *outY, flo
 	}
 }
 
-void ProcessTilt(bool landscape, float calibrationAngle, float x, float y, float z, bool invertX, bool invertY, float xSensitivity, float ySensitivity) {
+static void ProcessTilt(bool landscape, float calibrationAngle, float x, float y, float z, bool invertX, bool invertY, float xSensitivity, float ySensitivity) {
 	if (g_Config.iTiltInputType == TILT_NULL) {
 		// Turned off - nothing to do.
 		return;
@@ -146,6 +148,51 @@ void ProcessTilt(bool landscape, float calibrationAngle, float x, float y, float
 	}
 }
 
+void ProcessAxisInput(const AxisInput *axes, size_t count) {
+	// figure out what the current tilt orientation is by checking the axis event
+	// This is static, since we need to remember where we last were (in terms of orientation)
+	static float tiltX;
+	static float tiltY;
+	static float tiltZ;
+
+	bool anyAccelerometerChanged = false;
+
+	for (size_t i = 0; i < count; i++) {
+		switch (axes[i].axisId) {
+		case JOYSTICK_AXIS_ACCELEROMETER_X: tiltX = axes[i].value; anyAccelerometerChanged = true; break;
+		case JOYSTICK_AXIS_ACCELEROMETER_Y: tiltY = axes[i].value; anyAccelerometerChanged = true; break;
+		case JOYSTICK_AXIS_ACCELEROMETER_Z: tiltZ = axes[i].value; anyAccelerometerChanged = true; break;
+		default: break;
+		}
+	}
+
+	if (!anyAccelerometerChanged) {
+		return;
+	}
+
+	// create the base coordinate tilt system from the calibration data.
+	float tiltBaseAngleY = g_Config.fTiltBaseAngleY;
+
+	// Figure out the sensitivity of the tilt. (sensitivity is originally 0 - 100)
+	// We divide by 50, so that the rest of the 50 units can be used to overshoot the
+	// target. If you want precise control, you'd keep the sensitivity ~50.
+	// For games that don't need much control but need fast reactions,
+	// then a value of 70-80 is the way to go.
+	float xSensitivity = g_Config.iTiltSensitivityX / 50.0;
+	float ySensitivity = g_Config.iTiltSensitivityY / 50.0;
+
+	// x and y are flipped if we are in landscape orientation. The events are
+	// sent with respect to the portrait coordinate system, while we
+	// take all events in landscape.
+	// see [http://developer.android.com/guide/topics/sensors/sensors_overview.html] for details
+	bool landscape = g_display.dp_yres < g_display.dp_xres;
+
+	// now transform out current tilt to the calibrated coordinate system
+	ProcessTilt(landscape, tiltBaseAngleY, tiltX, tiltY, tiltZ,
+		g_Config.bInvertTiltX, g_Config.bInvertTiltY,
+		xSensitivity, ySensitivity);
+}
+
 inline float clamp(float f) {
 	if (f > 1.0f) return 1.0f;
 	if (f < -1.0f) return -1.0f;
@@ -154,11 +201,11 @@ inline float clamp(float f) {
 
 // TODO: Instead of __Ctrl, route data into the ControlMapper.
 
-void GenerateAnalogStickEvent(float tiltX, float tiltY) {
+static void GenerateAnalogStickEvent(float tiltX, float tiltY) {
 	__CtrlSetAnalogXY(CTRL_STICK_LEFT, clamp(tiltX), clamp(tiltY));
 }
 
-void GenerateDPadEvent(int digitalX, int digitalY) {
+static void GenerateDPadEvent(int digitalX, int digitalY) {
 	static const int dir[4] = { CTRL_RIGHT, CTRL_DOWN, CTRL_LEFT, CTRL_UP };
 
 	if (digitalX == 0) {
@@ -186,7 +233,7 @@ void GenerateDPadEvent(int digitalX, int digitalY) {
 	tiltButtonsDown |= ctrlMask;
 }
 
-void GenerateActionButtonEvent(int digitalX, int digitalY) {
+static void GenerateActionButtonEvent(int digitalX, int digitalY) {
 	static const int buttons[4] = { CTRL_CIRCLE, CTRL_CROSS, CTRL_SQUARE, CTRL_TRIANGLE };
 
 	if (digitalX == 0) {
@@ -214,7 +261,7 @@ void GenerateActionButtonEvent(int digitalX, int digitalY) {
 	tiltButtonsDown |= ctrlMask;
 }
 
-void GenerateTriggerButtonEvent(int digitalX, int digitalY) {
+static void GenerateTriggerButtonEvent(int digitalX, int digitalY) {
 	u32 upButtons = 0;
 	u32 downButtons = 0;
 	// Y axis up for both
