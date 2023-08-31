@@ -319,7 +319,10 @@ void GameSettingsScreen::CreateGraphicsSettings(UI::ViewGroup *graphicsSettings)
 			max_res_temp = 4;  // At least allow 2x
 		int max_res = std::min(max_res_temp, (int)ARRAY_SIZE(deviceResolutions));
 		UI::PopupMultiChoice *hwscale = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iAndroidHwScale, gr->T("Display Resolution (HW scaler)"), deviceResolutions, 0, max_res, I18NCat::GRAPHICS, screenManager()));
-		hwscale->OnChoice.Handle(this, &GameSettingsScreen::OnHwScaleChange);  // To refresh the display mode
+		hwscale->OnChoice.Add([](UI::EventParams &) {
+			System_RecreateActivity();
+			return UI::EVENT_DONE;
+		});
 	}
 #endif
 
@@ -1330,11 +1333,6 @@ UI::EventReturn GameSettingsScreen::OnResolutionChange(UI::EventParams &e) {
 	}
 	Reporting::UpdateConfig();
 	System_PostUIMessage("gpu_renderResized", "");
-	return UI::EVENT_DONE;
-}
-
-UI::EventReturn GameSettingsScreen::OnHwScaleChange(UI::EventParams &e) {
-	System_RecreateActivity();
 	return UI::EVENT_DONE;
 }
 
