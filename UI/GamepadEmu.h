@@ -199,6 +199,7 @@ public:
 
 	bool Touch(const TouchInput &input) override;
 	void Update() override;
+	void Draw(UIContext &dc) override;
 
 protected:
 
@@ -206,6 +207,8 @@ protected:
 	float lastY_ = 0.0f;
 	float deltaX_ = 0.0f;
 	float deltaY_ = 0.0f;
+	float downX_;
+	float downY_;
 	float lastTapRelease_ = 0.0f;
 	float lastTouchDown_ = 0.0f;
 	int dragPointerId_ = -1;
