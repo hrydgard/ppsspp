@@ -2133,6 +2133,41 @@ void GestureMappingScreen::CreateViews() {
 	LinearLayout *vert = rightPanel->Add(new LinearLayout(ORIENT_VERTICAL, new LayoutParams(FILL_PARENT, FILL_PARENT)));
 	vert->SetSpacing(0);
 
+	Choice *global = vert->Add(new Choice(co->T("Global gesture mapping")));
+	global->OnClick.Add([=](EventParams &e) {
+		screenManager()->push(new GestureMappingGlobalScreen(gamePath_));
+		return UI::EVENT_DONE;
+	});
+
+	Choice *left = vert->Add(new Choice(co->T("Left side gesture mapping")));
+	left->OnClick.Add([=](EventParams &e) {
+		screenManager()->push(new GestureMappingLeftScreen(gamePath_));
+		return UI::EVENT_DONE;
+	});
+
+	Choice *right = vert->Add(new Choice(co->T("Right side gesture mapping")));
+	right->OnClick.Add([=](EventParams &e) {
+		screenManager()->push(new GestureMappingRightScreen(gamePath_));
+		return UI::EVENT_DONE;
+	});
+}
+
+void GestureMappingGlobalScreen::CreateViews() {
+	using namespace UI;
+
+	auto di = GetI18NCategory(I18NCat::DIALOG);
+	auto co = GetI18NCategory(I18NCat::CONTROLS);
+	auto mc = GetI18NCategory(I18NCat::MAPPABLECONTROLS);
+
+	root_ = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
+	AddStandardBack(root_);
+	TabHolder *tabHolder = new TabHolder(ORIENT_VERTICAL, 200, new AnchorLayoutParams(10, 0, 10, 0, false));
+	root_->Add(tabHolder);
+	ScrollView *rightPanel = new ScrollView(ORIENT_VERTICAL);
+	tabHolder->AddTab(co->T("Gesture"), rightPanel);
+	LinearLayout *vert = rightPanel->Add(new LinearLayout(ORIENT_VERTICAL, new LayoutParams(FILL_PARENT, FILL_PARENT)));
+	vert->SetSpacing(0);
+
 	static const char *gestureButton[ARRAY_SIZE(GestureKey::keyList)+1];
 	gestureButton[0] = "None";
 	for (int i = 1; i < ARRAY_SIZE(gestureButton); ++i) {
@@ -2155,6 +2190,86 @@ void GestureMappingScreen::CreateViews() {
 	vert->Add(new ItemHeader(co->T("Analog Stick")));
 	vert->Add(new CheckBox(&g_Config.bAnalogGesture, co->T("Enable analog stick gesture")));
 	vert->Add(new PopupSliderChoiceFloat(&g_Config.fAnalogGestureSensibility, 0.01f, 5.0f, 1.0f, co->T("Sensitivity"), 0.01f, screenManager(), "x"))->SetEnabledPtr(&g_Config.bAnalogGesture);
+}
+
+void GestureMappingLeftScreen::CreateViews() {
+	using namespace UI;
+
+	auto di = GetI18NCategory(I18NCat::DIALOG);
+	auto co = GetI18NCategory(I18NCat::CONTROLS);
+	auto mc = GetI18NCategory(I18NCat::MAPPABLECONTROLS);
+
+	root_ = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
+	AddStandardBack(root_);
+	TabHolder *tabHolder = new TabHolder(ORIENT_VERTICAL, 200, new AnchorLayoutParams(10, 0, 10, 0, false));
+	root_->Add(tabHolder);
+	ScrollView *rightPanel = new ScrollView(ORIENT_VERTICAL);
+	tabHolder->AddTab(co->T("Gesture"), rightPanel);
+	LinearLayout *vert = rightPanel->Add(new LinearLayout(ORIENT_VERTICAL, new LayoutParams(FILL_PARENT, FILL_PARENT)));
+	vert->SetSpacing(0);
+
+	static const char *gestureButton[ARRAY_SIZE(GestureKey::keyList)+1];
+	gestureButton[0] = "None";
+	for (int i = 1; i < ARRAY_SIZE(gestureButton); ++i) {
+		gestureButton[i] = KeyMap::GetPspButtonNameCharPointer(GestureKey::keyList[i-1]);
+	}
+
+	vert->Add(new CheckBox(&g_Config.bGestureControlEnabledLeft, co->T("Enable gesture control - left side")));
+
+	vert->Add(new ItemHeader(co->T("Swipe")));
+	vert->Add(new PopupMultiChoice(&g_Config.iSwipeUpLeft, mc->T("Swipe Up"), gestureButton, 0, ARRAY_SIZE(gestureButton), I18NCat::MAPPABLECONTROLS, screenManager()))->SetEnabledPtr(&g_Config.bGestureControlEnabledLeft);
+	vert->Add(new PopupMultiChoice(&g_Config.iSwipeDownLeft, mc->T("Swipe Down"), gestureButton, 0, ARRAY_SIZE(gestureButton), I18NCat::MAPPABLECONTROLS, screenManager()))->SetEnabledPtr(&g_Config.bGestureControlEnabledLeft);
+	vert->Add(new PopupMultiChoice(&g_Config.iSwipeLeftLeft, mc->T("Swipe Left"), gestureButton, 0, ARRAY_SIZE(gestureButton), I18NCat::MAPPABLECONTROLS, screenManager()))->SetEnabledPtr(&g_Config.bGestureControlEnabledLeft);
+	vert->Add(new PopupMultiChoice(&g_Config.iSwipeRightLeft, mc->T("Swipe Right"), gestureButton, 0, ARRAY_SIZE(gestureButton), I18NCat::MAPPABLECONTROLS, screenManager()))->SetEnabledPtr(&g_Config.bGestureControlEnabledLeft);
+	vert->Add(new PopupSliderChoiceFloat(&g_Config.fSwipeSensitivityLeft, 0.01f, 1.0f, 1.0f, co->T("Swipe sensitivity"), 0.01f, screenManager(), "x"))->SetEnabledPtr(&g_Config.bGestureControlEnabledLeft);
+	vert->Add(new PopupSliderChoiceFloat(&g_Config.fSwipeSmoothingLeft, 0.0f, 0.95f, 0.3f, co->T("Swipe smoothing"), 0.05f, screenManager(), "x"))->SetEnabledPtr(&g_Config.bGestureControlEnabledLeft);
+
+	vert->Add(new ItemHeader(co->T("Double tap")));
+	vert->Add(new PopupMultiChoice(&g_Config.iDoubleTapGestureLeft, mc->T("Double tap button"), gestureButton, 0, ARRAY_SIZE(gestureButton), I18NCat::MAPPABLECONTROLS, screenManager()))->SetEnabledPtr(&g_Config.bGestureControlEnabledLeft);
+
+	vert->Add(new ItemHeader(co->T("Analog Stick")));
+	vert->Add(new CheckBox(&g_Config.bAnalogGestureLeft, co->T("Enable analog stick gesture")));
+	vert->Add(new PopupSliderChoiceFloat(&g_Config.fAnalogGestureSensibilityLeft, 0.01f, 5.0f, 1.0f, co->T("Sensitivity"), 0.01f, screenManager(), "x"))->SetEnabledPtr(&g_Config.bAnalogGestureLeft);
+}
+
+void GestureMappingRightScreen::CreateViews() {
+	using namespace UI;
+
+	auto di = GetI18NCategory(I18NCat::DIALOG);
+	auto co = GetI18NCategory(I18NCat::CONTROLS);
+	auto mc = GetI18NCategory(I18NCat::MAPPABLECONTROLS);
+
+	root_ = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
+	AddStandardBack(root_);
+	TabHolder *tabHolder = new TabHolder(ORIENT_VERTICAL, 200, new AnchorLayoutParams(10, 0, 10, 0, false));
+	root_->Add(tabHolder);
+	ScrollView *rightPanel = new ScrollView(ORIENT_VERTICAL);
+	tabHolder->AddTab(co->T("Gesture"), rightPanel);
+	LinearLayout *vert = rightPanel->Add(new LinearLayout(ORIENT_VERTICAL, new LayoutParams(FILL_PARENT, FILL_PARENT)));
+	vert->SetSpacing(0);
+
+	static const char *gestureButton[ARRAY_SIZE(GestureKey::keyList)+1];
+	gestureButton[0] = "None";
+	for (int i = 1; i < ARRAY_SIZE(gestureButton); ++i) {
+		gestureButton[i] = KeyMap::GetPspButtonNameCharPointer(GestureKey::keyList[i-1]);
+	}
+
+	vert->Add(new CheckBox(&g_Config.bGestureControlEnabledRight, co->T("Enable gesture control")));
+
+	vert->Add(new ItemHeader(co->T("Swipe")));
+	vert->Add(new PopupMultiChoice(&g_Config.iSwipeUpRight, mc->T("Swipe Up"), gestureButton, 0, ARRAY_SIZE(gestureButton), I18NCat::MAPPABLECONTROLS, screenManager()))->SetEnabledPtr(&g_Config.bGestureControlEnabledRight);
+	vert->Add(new PopupMultiChoice(&g_Config.iSwipeDownRight, mc->T("Swipe Down"), gestureButton, 0, ARRAY_SIZE(gestureButton), I18NCat::MAPPABLECONTROLS, screenManager()))->SetEnabledPtr(&g_Config.bGestureControlEnabledRight);
+	vert->Add(new PopupMultiChoice(&g_Config.iSwipeLeftRight, mc->T("Swipe Left"), gestureButton, 0, ARRAY_SIZE(gestureButton), I18NCat::MAPPABLECONTROLS, screenManager()))->SetEnabledPtr(&g_Config.bGestureControlEnabledRight);
+	vert->Add(new PopupMultiChoice(&g_Config.iSwipeRightRight, mc->T("Swipe Right"), gestureButton, 0, ARRAY_SIZE(gestureButton), I18NCat::MAPPABLECONTROLS, screenManager()))->SetEnabledPtr(&g_Config.bGestureControlEnabledRight);
+	vert->Add(new PopupSliderChoiceFloat(&g_Config.fSwipeSensitivityRight, 0.01f, 1.0f, 1.0f, co->T("Swipe sensitivity"), 0.01f, screenManager(), "x"))->SetEnabledPtr(&g_Config.bGestureControlEnabledRight);
+	vert->Add(new PopupSliderChoiceFloat(&g_Config.fSwipeSmoothingRight, 0.0f, 0.95f, 0.3f, co->T("Swipe smoothing"), 0.05f, screenManager(), "x"))->SetEnabledPtr(&g_Config.bGestureControlEnabledRight);
+
+	vert->Add(new ItemHeader(co->T("Double tap")));
+	vert->Add(new PopupMultiChoice(&g_Config.iDoubleTapGestureRight, mc->T("Double tap button"), gestureButton, 0, ARRAY_SIZE(gestureButton), I18NCat::MAPPABLECONTROLS, screenManager()))->SetEnabledPtr(&g_Config.bGestureControlEnabledRight);
+
+	vert->Add(new ItemHeader(co->T("Analog Stick")));
+	vert->Add(new CheckBox(&g_Config.bAnalogGestureRight, co->T("Enable analog stick gesture")));
+	vert->Add(new PopupSliderChoiceFloat(&g_Config.fAnalogGestureSensibilityRight, 0.01f, 5.0f, 1.0f, co->T("Sensitivity"), 0.01f, screenManager(), "x"))->SetEnabledPtr(&g_Config.bAnalogGestureRight);
 }
 
 RestoreSettingsScreen::RestoreSettingsScreen(const char *title)

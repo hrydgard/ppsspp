@@ -872,8 +872,16 @@ UI::ViewGroup *CreatePadLayout(float xres, float yres, bool *pause, bool showPau
 	}
 
 	if (g_Config.bGestureControlEnabled)
-		root->Add(new GestureGamepad(controllMapper, g_Config.iDoubleTapGesture, g_Config.bAnalogGesture, g_Config.fAnalogGestureSensibility,
+		root->Add(new GestureGamepad(controllMapper, GestureArea::GLOBAL, g_Config.iDoubleTapGesture, g_Config.bAnalogGesture, g_Config.fAnalogGestureSensibility,
 			g_Config.fSwipeSensitivity, g_Config.fSwipeSmoothing, g_Config.iSwipeRight, g_Config.iSwipeDown, g_Config.iSwipeLeft, g_Config.iSwipeUp));
+
+	if (g_Config.bGestureControlEnabledLeft)
+		root->Add(new GestureGamepad(controllMapper, GestureArea::LEFT, g_Config.iDoubleTapGestureLeft, g_Config.bAnalogGestureLeft, g_Config.fAnalogGestureSensibilityLeft,
+			g_Config.fSwipeSensitivityLeft, g_Config.fSwipeSmoothingLeft, g_Config.iSwipeRightLeft, g_Config.iSwipeDownLeft, g_Config.iSwipeLeftLeft, g_Config.iSwipeUpLeft));
+
+	if (g_Config.bGestureControlEnabledRight)
+		root->Add(new GestureGamepad(controllMapper, GestureArea::RIGHT, g_Config.iDoubleTapGestureRight, g_Config.bAnalogGestureRight, g_Config.fAnalogGestureSensibilityRight,
+			g_Config.fSwipeSensitivityRight, g_Config.fSwipeSmoothingRight, g_Config.iSwipeRightRight, g_Config.iSwipeDownRight, g_Config.iSwipeLeftRight, g_Config.iSwipeUpRight));
 
 	return root;
 }
@@ -891,6 +899,10 @@ bool GestureGamepad::Touch(const TouchInput &input) {
 	}
 
 	if (input.flags & TOUCH_DOWN) {
+		if ((area_ == GestureArea::LEFT && input.x > g_display.pixel_xres*0.5f) || (area_ == GestureArea::RIGHT && input.x < g_display.pixel_xres*0.5f)) {
+			return false;
+		}
+
 		if (dragPointerId_ == -1) {
 			dragPointerId_ = input.id;
 			lastX_ = input.x;

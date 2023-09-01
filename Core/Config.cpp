@@ -807,6 +807,28 @@ static const ConfigSetting controlSettings[] = {
 
 	ConfigSetting("AnalogGesture", &g_Config.bAnalogGesture, false, CfgFlag::PER_GAME),
 	ConfigSetting("AnalogGestureSensibility", &g_Config.fAnalogGestureSensibility, 1.0f, CfgFlag::PER_GAME),
+
+	ConfigSetting("SwipeUpLeft", &g_Config.iSwipeUpLeft, 0, CfgFlag::PER_GAME),
+	ConfigSetting("SwipeDownLeft", &g_Config.iSwipeDownLeft, 0, CfgFlag::PER_GAME),
+	ConfigSetting("SwipeLeftLeft", &g_Config.iSwipeLeftLeft, 0, CfgFlag::PER_GAME),
+	ConfigSetting("SwipeRightLeft", &g_Config.iSwipeRightLeft, 0, CfgFlag::PER_GAME),
+	ConfigSetting("SwipeSensitivityLeft", &g_Config.fSwipeSensitivityLeft, 1.0f, CfgFlag::PER_GAME),
+	ConfigSetting("SwipeSmoothingLeft", &g_Config.fSwipeSmoothingLeft, 0.3f, CfgFlag::PER_GAME),
+	ConfigSetting("DoubleTapGestureLeft", &g_Config.iDoubleTapGestureLeft, 0, CfgFlag::PER_GAME),
+	ConfigSetting("GestureControlEnabledLeft", &g_Config.bGestureControlEnabledLeft, false, CfgFlag::PER_GAME),
+	ConfigSetting("AnalogGestureLeft", &g_Config.bAnalogGestureLeft, false, CfgFlag::PER_GAME),
+	ConfigSetting("AnalogGestureSensibilityLeft", &g_Config.fAnalogGestureSensibilityLeft, 1.0f, CfgFlag::PER_GAME),
+
+	ConfigSetting("SwipeUpRight", &g_Config.iSwipeUpRight, 0, CfgFlag::PER_GAME),
+	ConfigSetting("SwipeDownRight", &g_Config.iSwipeDownRight, 0, CfgFlag::PER_GAME),
+	ConfigSetting("SwipeLeftRight", &g_Config.iSwipeLeftRight, 0, CfgFlag::PER_GAME),
+	ConfigSetting("SwipeRightRight", &g_Config.iSwipeRightRight, 0, CfgFlag::PER_GAME),
+	ConfigSetting("SwipeSensitivityRight", &g_Config.fSwipeSensitivityRight, 1.0f, CfgFlag::PER_GAME),
+	ConfigSetting("SwipeSmoothingRight", &g_Config.fSwipeSmoothingRight, 0.3f, CfgFlag::PER_GAME),
+	ConfigSetting("DoubleTapGestureRight", &g_Config.iDoubleTapGestureRight, 0, CfgFlag::PER_GAME),
+	ConfigSetting("GestureControlEnabledRight", &g_Config.bGestureControlEnabledRight, false, CfgFlag::PER_GAME),
+	ConfigSetting("AnalogGestureRight", &g_Config.bAnalogGestureRight, false, CfgFlag::PER_GAME),
+	ConfigSetting("AnalogGestureSensibilityRight", &g_Config.fAnalogGestureSensibilityRight, 1.0f, CfgFlag::PER_GAME),
 };
 
 static const ConfigSetting networkSettings[] = {

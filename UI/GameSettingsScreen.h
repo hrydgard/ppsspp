@@ -235,6 +235,30 @@ public:
 	const char *tag() const override { return "GestureMapping"; }
 };
 
+class GestureMappingGlobalScreen : public UIDialogScreenWithGameBackground {
+public:
+	GestureMappingGlobalScreen(const Path &gamePath) : UIDialogScreenWithGameBackground(gamePath) {}
+	void CreateViews() override;
+
+	const char *tag() const override { return "GestureMapping global"; }
+};
+
+class GestureMappingLeftScreen : public UIDialogScreenWithGameBackground {
+public:
+	GestureMappingLeftScreen(const Path &gamePath) : UIDialogScreenWithGameBackground(gamePath) {}
+	void CreateViews() override;
+
+	const char *tag() const override { return "GestureMapping left"; }
+};
+
+class GestureMappingRightScreen : public UIDialogScreenWithGameBackground {
+public:
+	GestureMappingRightScreen(const Path &gamePath) : UIDialogScreenWithGameBackground(gamePath) {}
+	void CreateViews() override;
+
+	const char *tag() const override { return "GestureMapping right"; }
+};
+
 class RestoreSettingsScreen : public PopupScreen {
 public:
 	RestoreSettingsScreen(const char *title);

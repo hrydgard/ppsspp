@@ -301,6 +301,28 @@ public:
 	bool bAnalogGesture;
 	float fAnalogGestureSensibility;
 
+	bool bGestureControlEnabledLeft;
+	int iSwipeUpLeft;
+	int iSwipeDownLeft;
+	int iSwipeLeftLeft;
+	int iSwipeRightLeft;
+	float fSwipeSensitivityLeft;
+	float fSwipeSmoothingLeft;
+	int iDoubleTapGestureLeft;
+	bool bAnalogGestureLeft;
+	float fAnalogGestureSensibilityLeft;
+
+	bool bGestureControlEnabledRight;
+	int iSwipeUpRight;
+	int iSwipeDownRight;
+	int iSwipeLeftRight;
+	int iSwipeRightRight;
+	float fSwipeSensitivityRight;
+	float fSwipeSmoothingRight;
+	int iDoubleTapGestureRight;
+	bool bAnalogGestureRight;
+	float fAnalogGestureSensibilityRight;
+	
 	// Disable diagonals
 	bool bDisableDpadDiagonals;
 	bool bGamepadOnlyFocused;

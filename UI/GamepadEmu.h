@@ -193,11 +193,17 @@ private:
 	bool invertedContextDimension_; // Swap width and height
 };
 
+enum class GestureArea {
+	GLOBAL,
+	LEFT,
+	RIGHT,
+};
+
 class GestureGamepad : public UI::View {
 public:
-	GestureGamepad(ControlMapper* controllMapper, int doubleTapGesture,	bool analogGesture,	
+	GestureGamepad(ControlMapper* controllMapper, GestureArea area, int doubleTapGesture,	bool analogGesture,	
 		float analogGestureSensibility,	float swipeSensitivity,	float swipeSmoothing,
-		int swipeRight,	int swipeDown,	int swipeLeft,	int swipeUp) : controlMapper_(controllMapper),
+		int swipeRight,	int swipeDown,	int swipeLeft,	int swipeUp) : controlMapper_(controllMapper), area_(area),
 		doubleTapGesture_(doubleTapGesture), analogGesture_(analogGesture),	
 		analogGestureSensibility_(analogGestureSensibility), swipeSensitivity_(swipeSensitivity), swipeSmoothing_(swipeSmoothing),
 		swipeRight_(swipeRight), swipeDown_(swipeDown), swipeLeft_(swipeLeft), swipeUp_(swipeUp) {}
@@ -207,6 +213,7 @@ public:
 	void Draw(UIContext &dc) override;
 
 protected:
+	GestureArea area_;
 	int doubleTapGesture_;
 	bool analogGesture_;
 	float analogGestureSensibility_;
