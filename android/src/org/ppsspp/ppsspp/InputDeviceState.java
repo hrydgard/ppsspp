@@ -20,6 +20,10 @@ public class InputDeviceState {
 	private int[] mAxes;
 	private float[] mAxisPrevValue;
 
+	// Buffers for the native calls.
+	private int[] mAxisIds = null;
+	private float[] mValues = null;
+
 	private int sources;
 
 	InputDevice getDevice() {
@@ -125,6 +129,8 @@ public class InputDeviceState {
 
 		mAxes = new int[numAxes];
 		mAxisPrevValue = new float[numAxes];
+		mAxisIds = new int[numAxes];
+		mValues = new float[numAxes];
 
 		int i = 0;
 		for (MotionRange range : device.getMotionRanges()) {
@@ -157,14 +163,18 @@ public class InputDeviceState {
 			Log.i(TAG, "Not a joystick event: source = " + event.getSource());
 			return false;
 		}
+		int count = 0;
 		for (int i = 0; i < mAxes.length; i++) {
 			int axisId = mAxes[i];
 			float value = event.getAxisValue(axisId);
 			if (value != mAxisPrevValue[i]) {
-				NativeApp.joystickAxis(deviceId, axisId, value);
+				mAxisIds[count] = axisId;
+				mValues[count] = value;
+				count++;
 				mAxisPrevValue[i] = value;
 			}
 		}
+		NativeApp.joystickAxis(deviceId, mAxisIds, mValues, count);
 		return true;
 	}
 }
