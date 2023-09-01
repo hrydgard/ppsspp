@@ -872,7 +872,8 @@ UI::ViewGroup *CreatePadLayout(float xres, float yres, bool *pause, bool showPau
 	}
 
 	if (g_Config.bGestureControlEnabled)
-		root->Add(new GestureGamepad(controllMapper));
+		root->Add(new GestureGamepad(controllMapper, g_Config.iDoubleTapGesture, g_Config.bAnalogGesture, g_Config.fAnalogGestureSensibility,
+			g_Config.fSwipeSensitivity, g_Config.fSwipeSmoothing, g_Config.iSwipeRight, g_Config.iSwipeDown, g_Config.iSwipeLeft, g_Config.iSwipeUp));
 
 	return root;
 }
@@ -898,8 +899,8 @@ bool GestureGamepad::Touch(const TouchInput &input) {
 			downY_ = input.y;
 			const float now = time_now_d();
 			if (now - lastTapRelease_ < 0.3f && !haveDoubleTapped_) {
-				if (g_Config.iDoubleTapGesture != 0 )
-					controlMapper_->PSPKey(DEVICE_ID_TOUCH, GestureKey::keyList[g_Config.iDoubleTapGesture-1], KEY_DOWN);
+				if (doubleTapGesture_ != 0 )
+					controlMapper_->PSPKey(DEVICE_ID_TOUCH, GestureKey::keyList[doubleTapGesture_-1], KEY_DOWN);
 				haveDoubleTapped_ = true;
 			}
 
@@ -913,8 +914,8 @@ bool GestureGamepad::Touch(const TouchInput &input) {
 			lastX_ = input.x;
 			lastY_ = input.y;
 
-			if (g_Config.bAnalogGesture) {
-				const float k = g_Config.fAnalogGestureSensibility * 0.02;
+			if (analogGesture_) {
+				const float k = analogGestureSensibility_ * 0.02;
 				float dx = (input.x - downX_)*g_display.dpi_scale_x * k;
 				float dy = (input.y - downY_)*g_display.dpi_scale_y * k;
 				dx = std::min(1.0f, std::max(-1.0f, dx));
@@ -930,12 +931,12 @@ bool GestureGamepad::Touch(const TouchInput &input) {
 				lastTapRelease_ = time_now_d();
 
 			if (haveDoubleTapped_) {
-				if (g_Config.iDoubleTapGesture != 0)
-					controlMapper_->PSPKey(DEVICE_ID_TOUCH, GestureKey::keyList[g_Config.iDoubleTapGesture-1], KEY_UP);
+				if (doubleTapGesture_ != 0)
+					controlMapper_->PSPKey(DEVICE_ID_TOUCH, GestureKey::keyList[doubleTapGesture_-1], KEY_UP);
 				haveDoubleTapped_ = false;
 			}
 
-			if (g_Config.bAnalogGesture)
+			if (analogGesture_)
 				__CtrlSetAnalogXY(0, 0, 0);
 		}
 	}
@@ -949,7 +950,7 @@ void GestureGamepad::Draw(UIContext &dc) {
 
 	uint32_t colorBg = colorAlpha(GetButtonColor(), opacity);
 
-	if (g_Config.bAnalogGesture && dragPointerId_ != -1) {
+	if (analogGesture_ && dragPointerId_ != -1) {
 		dc.Draw()->DrawImage(ImageID("I_CIRCLE"), downX_, downY_, 0.7f, colorBg, ALIGN_CENTER);
 	}
 }
@@ -957,44 +958,44 @@ void GestureGamepad::Draw(UIContext &dc) {
 
 void GestureGamepad::Update() {
 	const float th = 1.0f;
-	float dx = deltaX_ * g_display.dpi_scale_x * g_Config.fSwipeSensitivity;
-	float dy = deltaY_ * g_display.dpi_scale_y * g_Config.fSwipeSensitivity;
-	if (g_Config.iSwipeRight != 0) {
+	float dx = deltaX_ * g_display.dpi_scale_x * swipeSensitivity_;
+	float dy = deltaY_ * g_display.dpi_scale_y * swipeSensitivity_;
+	if (swipeRight_ != 0) {
 		if (dx > th) {
-			controlMapper_->PSPKey(DEVICE_ID_TOUCH, GestureKey::keyList[g_Config.iSwipeRight-1], KEY_DOWN);
+			controlMapper_->PSPKey(DEVICE_ID_TOUCH, GestureKey::keyList[swipeRight_-1], KEY_DOWN);
 			swipeRightReleased_ = false;
 		} else if (!swipeRightReleased_) {
-			controlMapper_->PSPKey(DEVICE_ID_TOUCH, GestureKey::keyList[g_Config.iSwipeRight-1], KEY_UP);
+			controlMapper_->PSPKey(DEVICE_ID_TOUCH, GestureKey::keyList[swipeRight_-1], KEY_UP);
 			swipeRightReleased_ = true;
 		}
 	}
-	if (g_Config.iSwipeLeft != 0) {
+	if (swipeLeft_ != 0) {
 		if (dx < -th) {
-			controlMapper_->PSPKey(DEVICE_ID_TOUCH, GestureKey::keyList[g_Config.iSwipeLeft-1], KEY_DOWN);
+			controlMapper_->PSPKey(DEVICE_ID_TOUCH, GestureKey::keyList[swipeLeft_-1], KEY_DOWN);
 			swipeLeftReleased_ = false;
 		} else if (!swipeLeftReleased_) {
-			controlMapper_->PSPKey(DEVICE_ID_TOUCH, GestureKey::keyList[g_Config.iSwipeLeft-1], KEY_UP);
+			controlMapper_->PSPKey(DEVICE_ID_TOUCH, GestureKey::keyList[swipeLeft_-1], KEY_UP);
 			swipeLeftReleased_ = true;
 		}
 	}
-	if (g_Config.iSwipeUp != 0) {
+	if (swipeUp_ != 0) {
 		if (dy < -th) {
-			controlMapper_->PSPKey(DEVICE_ID_TOUCH, GestureKey::keyList[g_Config.iSwipeUp-1], KEY_DOWN);
+			controlMapper_->PSPKey(DEVICE_ID_TOUCH, GestureKey::keyList[swipeUp_-1], KEY_DOWN);
 			swipeUpReleased_ = false;
 		} else if (!swipeUpReleased_) {
-			controlMapper_->PSPKey(DEVICE_ID_TOUCH, GestureKey::keyList[g_Config.iSwipeUp-1], KEY_UP);
+			controlMapper_->PSPKey(DEVICE_ID_TOUCH, GestureKey::keyList[swipeUp_-1], KEY_UP);
 			swipeUpReleased_ = true;
 		}
 	}
-	if (g_Config.iSwipeDown != 0) {
+	if (swipeDown_ != 0) {
 		if (dy > th) {
-			controlMapper_->PSPKey(DEVICE_ID_TOUCH, GestureKey::keyList[g_Config.iSwipeDown-1], KEY_DOWN);
+			controlMapper_->PSPKey(DEVICE_ID_TOUCH, GestureKey::keyList[swipeDown_-1], KEY_DOWN);
 			swipeDownReleased_ = false;
 		} else if (!swipeDownReleased_) {
-			controlMapper_->PSPKey(DEVICE_ID_TOUCH, GestureKey::keyList[g_Config.iSwipeDown-1], KEY_UP);
+			controlMapper_->PSPKey(DEVICE_ID_TOUCH, GestureKey::keyList[swipeDown_-1], KEY_UP);
 			swipeDownReleased_ = true;
 		}
 	}
-	deltaX_ *= g_Config.fSwipeSmoothing;
-	deltaY_ *= g_Config.fSwipeSmoothing;
+	deltaX_ *= swipeSmoothing_;
+	deltaY_ *= swipeSmoothing_;
 }

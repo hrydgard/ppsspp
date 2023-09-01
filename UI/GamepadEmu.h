@@ -195,13 +195,27 @@ private:
 
 class GestureGamepad : public UI::View {
 public:
-	GestureGamepad(ControlMapper* controllMapper) : controlMapper_(controllMapper) {};
+	GestureGamepad(ControlMapper* controllMapper, int doubleTapGesture,	bool analogGesture,	
+		float analogGestureSensibility,	float swipeSensitivity,	float swipeSmoothing,
+		int swipeRight,	int swipeDown,	int swipeLeft,	int swipeUp) : controlMapper_(controllMapper),
+		doubleTapGesture_(doubleTapGesture), analogGesture_(analogGesture),	
+		analogGestureSensibility_(analogGestureSensibility), swipeSensitivity_(swipeSensitivity), swipeSmoothing_(swipeSmoothing),
+		swipeRight_(swipeRight), swipeDown_(swipeDown), swipeLeft_(swipeLeft), swipeUp_(swipeUp) {}
 
 	bool Touch(const TouchInput &input) override;
 	void Update() override;
 	void Draw(UIContext &dc) override;
 
 protected:
+	int doubleTapGesture_;
+	bool analogGesture_;
+	float analogGestureSensibility_;
+	float swipeSensitivity_;
+	float swipeSmoothing_;
+	int swipeRight_;
+	int swipeDown_;
+	int swipeLeft_;
+	int swipeUp_;
 
 	float lastX_ = 0.0f;
 	float lastY_ = 0.0f;
