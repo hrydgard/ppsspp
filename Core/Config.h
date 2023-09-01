@@ -298,6 +298,8 @@ public:
 	float fSwipeSensitivity;
 	float fSwipeSmoothing;
 	int iDoubleTapGesture;
+	bool bAnalogGesture;
+	float fAnalogGestureSensibility;
 
 	// Disable diagonals
 	bool bDisableDpadDiagonals;

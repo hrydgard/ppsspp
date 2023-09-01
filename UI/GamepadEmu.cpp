@@ -894,7 +894,8 @@ bool GestureGamepad::Touch(const TouchInput &input) {
 			dragPointerId_ = input.id;
 			lastX_ = input.x;
 			lastY_ = input.y;
-
+			downX_ = input.x;
+			downY_ = input.y;
 			const float now = time_now_d();
 			if (now - lastTapRelease_ < 0.3f && !haveDoubleTapped_) {
 				if (g_Config.iDoubleTapGesture != 0 )
@@ -911,6 +912,15 @@ bool GestureGamepad::Touch(const TouchInput &input) {
 			deltaY_ += input.y - lastY_;
 			lastX_ = input.x;
 			lastY_ = input.y;
+
+			if (g_Config.bAnalogGesture) {
+				const float k = g_Config.fAnalogGestureSensibility * 0.02;
+				float dx = (input.x - downX_)*g_display.dpi_scale_x * k;
+				float dy = (input.y - downY_)*g_display.dpi_scale_y * k;
+				dx = std::min(1.0f, std::max(-1.0f, dx));
+				dy = std::min(1.0f, std::max(-1.0f, dy));
+				__CtrlSetAnalogXY(0, dx, -dy);
+			}
 		}
 	}
 	if (input.flags & TOUCH_UP) {
@@ -924,10 +934,26 @@ bool GestureGamepad::Touch(const TouchInput &input) {
 					controlMapper_->PSPKey(DEVICE_ID_TOUCH, GestureKey::keyList[g_Config.iDoubleTapGesture-1], KEY_UP);
 				haveDoubleTapped_ = false;
 			}
+
+			if (g_Config.bAnalogGesture)
+				__CtrlSetAnalogXY(0, 0, 0);
 		}
 	}
 	return true;
 }
+
+void GestureGamepad::Draw(UIContext &dc) {
+	float opacity = g_Config.iTouchButtonOpacity / 100.0;
+	if (opacity <= 0.0f)
+		return;
+
+	uint32_t colorBg = colorAlpha(GetButtonColor(), opacity);
+
+	if (g_Config.bAnalogGesture && dragPointerId_ != -1) {
+		dc.Draw()->DrawImage(ImageID("I_CIRCLE"), downX_, downY_, 0.7f, colorBg, ALIGN_CENTER);
+	}
+}
+
 
 void GestureGamepad::Update() {
 	const float th = 1.0f;
