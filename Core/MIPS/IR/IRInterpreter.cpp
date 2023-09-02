@@ -966,11 +966,11 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, int count) {
 				mips->fs[inst->dest] = my_isinf(src) && src < 0.0f ? -2147483648LL : 2147483647LL;
 				break;
 			}
-			switch (mips->fcr31 & 3) {
-			case 0: mips->fs[inst->dest] = (int)round_ieee_754(src); break;  // RINT_0
-			case 1: mips->fs[inst->dest] = (int)src; break;  // CAST_1
-			case 2: mips->fs[inst->dest] = (int)ceilf(src); break;  // CEIL_2
-			case 3: mips->fs[inst->dest] = (int)floorf(src); break;  // FLOOR_3
+			switch (IRRoundMode(mips->fcr31 & 3)) {
+			case IRRoundMode::RINT_0: mips->fs[inst->dest] = (int)round_ieee_754(src); break;
+			case IRRoundMode::CAST_1: mips->fs[inst->dest] = (int)src; break;
+			case IRRoundMode::CEIL_2: mips->fs[inst->dest] = (int)ceilf(src); break;
+			case IRRoundMode::FLOOR_3: mips->fs[inst->dest] = (int)floorf(src); break;
 			}
 			break; //cvt.w.s
 		}
@@ -994,11 +994,11 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, int count) {
 			} else if (sv <= (double)(int)0x80000000) {
 				mips->fs[inst->dest] = 0x80000000;
 			} else {
-				switch (inst->src2 >> 6) {
-				case 0: mips->fs[inst->dest] = (int)round_ieee_754(sv); break;
-				case 1: mips->fs[inst->dest] = src >= 0 ? (int)floor(sv) : (int)ceil(sv); break;
-				case 2: mips->fs[inst->dest] = (int)ceil(sv); break;
-				case 3: mips->fs[inst->dest] = (int)floor(sv); break;
+				switch (IRRoundMode(inst->src2 >> 6)) {
+				case IRRoundMode::RINT_0: mips->fs[inst->dest] = (int)round_ieee_754(sv); break;
+				case IRRoundMode::CAST_1: mips->fs[inst->dest] = src >= 0 ? (int)floor(sv) : (int)ceil(sv); break;
+				case IRRoundMode::CEIL_2: mips->fs[inst->dest] = (int)ceil(sv); break;
+				case IRRoundMode::FLOOR_3: mips->fs[inst->dest] = (int)floor(sv); break;
 				}
 			}
 			break;
