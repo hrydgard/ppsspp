@@ -148,6 +148,9 @@ private:
 		const void *negativeOnes;
 		const void *qNAN;
 		const float *mulTableVi2f;
+		const double *mulTableVf2i;
+		const double *minIntAsDouble;
+		const double *maxIntAsDouble;
 		const Float4Constant *vec4InitValues;
 	};
 	Constants constants;

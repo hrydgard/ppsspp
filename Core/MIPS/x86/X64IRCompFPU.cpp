@@ -56,6 +56,21 @@ void X64JitBackend::EmitFPUConstants() {
 
 		Write32(val);
 	}
+
+	constants.mulTableVf2i = (const double *)GetCodePointer();
+	for (uint8_t i = 0; i < 32; ++i) {
+		double fval = (1UL << i);
+		uint64_t val;
+		memcpy(&val, &fval, sizeof(val));
+
+		Write64(val);
+	}
+
+	// Note: this first one is (double)(int)0x80000000, sign extended.
+	constants.minIntAsDouble = (const double *)GetCodePointer();
+	Write64(0xC1E0000000000000ULL);
+	constants.maxIntAsDouble = (const double *)GetCodePointer();
+	Write64(0x41DFFFFFFFC00000ULL);
 }
 
 void X64JitBackend::CompIR_FArith(IRInst inst) {
@@ -533,8 +548,18 @@ void X64JitBackend::CompIR_FCvt(IRInst inst) {
 
 	switch (inst.op) {
 	case IROp::FCvtWS:
-		CompIR_Generic(inst);
+	{
+		regs_.Map(inst);
+		UCOMISS(regs_.FX(inst.src1), M(constants.positiveInfinity));  // rip accessible
+
+		CVTPS2DQ(regs_.FX(inst.dest), regs_.F(inst.src1));
+		// UCOMISS set ZF if EQUAL (to infinity) or UNORDERED.
+		FixupBranch skip = J_CC(CC_NZ);
+		MOVAPS(regs_.FX(inst.dest), M(constants.noSignMask));  // rip accessible
+
+		SetJumpTarget(skip);
 		break;
+	}
 
 	case IROp::FCvtSW:
 		regs_.Map(inst);
@@ -542,7 +567,96 @@ void X64JitBackend::CompIR_FCvt(IRInst inst) {
 		break;
 
 	case IROp::FCvtScaledWS:
-		CompIR_Generic(inst);
+		regs_.Map(inst);
+		if (cpu_info.bSSE4_1) {
+			int scale = inst.src2 & 0x1F;
+			int rmode = inst.src2 >> 6;
+
+			CVTSS2SD(regs_.FX(inst.dest), regs_.F(inst.src1));
+			if (scale != 0)
+				MULSD(regs_.FX(inst.dest), M(&constants.mulTableVf2i[scale]));  // rip accessible
+
+			// On NAN, we want maxInt anyway, so let's let it be the second param.
+			MAXSD(regs_.FX(inst.dest), M(constants.minIntAsDouble));  // rip accessible
+			MINSD(regs_.FX(inst.dest), M(constants.maxIntAsDouble));  // rip accessible
+
+			switch (rmode) {
+			case 0:
+				ROUNDNEARPD(regs_.FX(inst.dest), regs_.F(inst.dest));
+				CVTPD2DQ(regs_.FX(inst.dest), regs_.F(inst.dest));
+				break;
+
+			case 1:
+				CVTTPD2DQ(regs_.FX(inst.dest), regs_.F(inst.dest));
+				break;
+
+			case 2:
+				ROUNDCEILPD(regs_.FX(inst.dest), regs_.F(inst.dest));
+				CVTPD2DQ(regs_.FX(inst.dest), regs_.F(inst.dest));
+				break;
+
+			case 3:
+				ROUNDFLOORPD(regs_.FX(inst.dest), regs_.F(inst.dest));
+				CVTPD2DQ(regs_.FX(inst.dest), regs_.F(inst.dest));
+				break;
+			}
+		} else {
+			int scale = inst.src2 & 0x1F;
+			int rmode = inst.src2 >> 6;
+
+			int setMXCSR = -1;
+			bool useTrunc = false;
+			switch (rmode) {
+			case 0:
+				// TODO: Could skip if hasSetRounding, but we don't have the flag.
+				setMXCSR = 0;
+				break;
+			case 1:
+				useTrunc = true;
+				break;
+			case 2:
+				setMXCSR = 2;
+				break;
+			case 3:
+				setMXCSR = 1;
+				break;
+			}
+
+			// Except for truncate, we need to update MXCSR to our preferred rounding mode.
+			// TODO: Might be possible to cache this and update between instructions?
+			// Probably kinda expensive to switch each time...
+			if (setMXCSR != -1) {
+				STMXCSR(MDisp(CTXREG, mxcsrTempOffset));
+				MOV(32, R(SCRATCH1), MDisp(CTXREG, mxcsrTempOffset));
+				AND(32, R(SCRATCH1), Imm32(~(3 << 13)));
+				if (setMXCSR != 0) {
+					OR(32, R(SCRATCH1), Imm32(setMXCSR << 13));
+				}
+				MOV(32, MDisp(CTXREG, tempOffset), R(SCRATCH1));
+				LDMXCSR(MDisp(CTXREG, tempOffset));
+			}
+
+			CVTSS2SD(regs_.FX(inst.dest), regs_.F(inst.src1));
+			if (scale != 0)
+				MULSD(regs_.FX(inst.dest), M(&constants.mulTableVf2i[scale]));
+
+			// On NAN, we want maxInt anyway, so let's let it be the second param.
+			MAXSD(regs_.FX(inst.dest), M(constants.minIntAsDouble));
+			MINSD(regs_.FX(inst.dest), M(constants.maxIntAsDouble));
+
+			if (useTrunc) {
+				CVTTSD2SI(SCRATCH1, regs_.F(inst.dest));
+			} else {
+				CVTSD2SI(SCRATCH1, regs_.F(inst.dest));
+			}
+
+			MOVD_xmm(regs_.FX(inst.dest), R(SCRATCH1));
+
+			// Return MXCSR to its previous value.
+			if (setMXCSR != -1) {
+				LDMXCSR(MDisp(CTXREG, mxcsrTempOffset));
+			}
+		}
 		break;
 
 	case IROp::FCvtScaledSW:

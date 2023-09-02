@@ -42,6 +42,7 @@ static constexpr auto downcountOffset = offsetof(MIPSState, downcount) - 128;
 static constexpr auto tempOffset = offsetof(MIPSState, temp) - 128;
 static constexpr auto fcr31Offset = offsetof(MIPSState, fcr31) - 128;
 static constexpr auto pcOffset = offsetof(MIPSState, pc) - 128;
+static constexpr auto mxcsrTempOffset = offsetof(MIPSState, mxcsrTemp) - 128;
 
 enum class X64Map : uint8_t {
 	NONE = 0,
