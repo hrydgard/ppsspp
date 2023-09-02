@@ -1196,20 +1196,20 @@ namespace MIPSComp {
 				ir.Write(IROp::FCvtScaledWS, dregs[i], sregs[i], imm | (rmode << 6));
 		} else {
 			for (int i = 0; i < n; i++) {
-				switch (rmode) {
-				case 0: // vf2in
+				switch (IRRoundMode(rmode)) {
+				case IRRoundMode::RINT_0: // vf2in
 					ir.Write(IROp::FRound, dregs[i], sregs[i]);
 					break;
 
-				case 1: // vf2iz
+				case IRRoundMode::CAST_1: // vf2iz
 					ir.Write(IROp::FTrunc, dregs[i], sregs[i]);
 					break;
 
-				case 2: // vf2iu
+				case IRRoundMode::CEIL_2: // vf2iu
 					ir.Write(IROp::FCeil, dregs[i], sregs[i]);
 					break;
 
-				case 3: // vf2id
+				case IRRoundMode::FLOOR_3: // vf2id
 					ir.Write(IROp::FFloor, dregs[i], sregs[i]);
 					break;
 

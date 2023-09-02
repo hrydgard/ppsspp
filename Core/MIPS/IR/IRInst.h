@@ -252,6 +252,13 @@ enum class Vec4Init {
 	Set_0001,
 };
 
+enum class IRRoundMode : uint8_t {
+	RINT_0 = 0,
+	CAST_1 = 1,
+	CEIL_2 = 2,
+	FLOOR_3 = 3,
+};
+
 // Hm, unused
 inline IRComparison Invert(IRComparison comp) {
 	switch (comp) {
