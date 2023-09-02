@@ -858,7 +858,19 @@ void SystemInfoScreen::CreateTabs() {
 		}
 	}
 
+#ifdef _DEBUG
 	LinearLayout *internals = AddTab("DevSystemInfoInternals", si->T("Internals"));
+	CreateInternalsTab(internals);
+#endif
+}
+
+void SystemInfoScreen::CreateInternalsTab(UI::ViewGroup *internals) {
+	using namespace UI;
+
+	auto di = GetI18NCategory(I18NCat::DIALOG);
+	auto si = GetI18NCategory(I18NCat::SYSINFO);
+	auto sy = GetI18NCategory(I18NCat::SYSTEM);
+	auto ac = GetI18NCategory(I18NCat::ACHIEVEMENTS);
 
 	internals->Add(new ItemHeader(si->T("Icon cache")));
 	IconCacheStats iconStats = g_iconCache.GetStats();
@@ -929,7 +941,6 @@ void SystemInfoScreen::CreateTabs() {
 	});
 
 	static const char *positions[] = { "Bottom Left", "Bottom Center", "Bottom Right", "Top Left", "Top Center", "Top Right", "Center Left", "Center Right", "None" };
-	auto ac = GetI18NCategory(I18NCat::ACHIEVEMENTS);
 
 	internals->Add(new ItemHeader(ac->T("Notifications")));
 	internals->Add(new PopupMultiChoice(&g_Config.iAchievementsLeaderboardTrackerPos, ac->T("Leaderboard tracker"), positions, 0, ARRAY_SIZE(positions), I18NCat::DIALOG, screenManager()))->SetEnabledPtr(&g_Config.bAchievementsEnable);

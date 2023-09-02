@@ -110,11 +110,11 @@ public:
 	const char *tag() const override { return "SystemInfo"; }
 
 	void CreateTabs() override;
-
 	void update() override;
 
 protected:
 	bool ShowSearchControls() const override { return false; }
+	void CreateInternalsTab(UI::ViewGroup *internals);
 };
 
 class AddressPromptScreen : public PopupScreen {
