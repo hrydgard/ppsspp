@@ -39,7 +39,11 @@ using namespace X64IRJitConstants;
 
 Gen::OpArg X64JitBackend::PrepareSrc1Address(IRInst inst) {
 	const IRMeta *m = GetIRMeta(inst.op);
+
+	bool src1IsPointer = regs_.IsGPRMappedAsPointer(inst.src1);
 	bool readsFromSrc1 = inst.src1 == inst.src3 && (m->flags & (IRFLAG_SRC3 | IRFLAG_SRC3DST)) != 0;
+	// If it's about to be clobbered, don't waste time pointerifying.  Use displacement.
+	bool clobbersSrc1 = !readsFromSrc1 && regs_.IsGPRClobbered(inst.src1);
 
 	OpArg addrArg;
 	if (inst.src1 == MIPS_REG_ZERO) {
@@ -51,7 +55,7 @@ Gen::OpArg X64JitBackend::PrepareSrc1Address(IRInst inst) {
 #else
 		addrArg = M(Memory::base + inst.constant);
 #endif
-	} else if ((jo.cachePointers || regs_.IsGPRMappedAsPointer(inst.src1)) && !readsFromSrc1) {
+	} else if ((jo.cachePointers || src1IsPointer) && !readsFromSrc1 && (!clobbersSrc1 || src1IsPointer)) {
 		X64Reg src1 = regs_.MapGPRAsPointer(inst.src1);
 		addrArg = MDisp(src1, (int)inst.constant);
 	} else {
@@ -59,8 +63,7 @@ Gen::OpArg X64JitBackend::PrepareSrc1Address(IRInst inst) {
 #ifdef MASKED_PSP_MEMORY
 		LEA(PTRBITS, SCRATCH1, MDisp(regs_.RX(inst.src1), (int)inst.constant));
 		AND(PTRBITS, R(SCRATCH1), Imm32(Memory::MEMVIEW32_MASK));
-		ADD(PTRBITS, R(SCRATCH1), ImmPtr(Memory::base));
-		addrArg = MatR(SCRATCH1);
+		addrArg = MDisp(SCRATCH1, (intptr_t)Memory::base);
 #else
 #if PPSSPP_ARCH(AMD64)
 		addrArg = MComplex(MEMBASEREG, regs_.RX(inst.src1), SCALE_1, (int)inst.constant);
