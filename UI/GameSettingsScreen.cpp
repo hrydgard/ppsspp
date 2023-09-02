@@ -642,8 +642,10 @@ void GameSettingsScreen::CreateControlsSettings(UI::ViewGroup *controlsSettings)
 	controlsSettings->Add(new Choice(co->T("Control Mapping")))->OnClick.Handle(this, &GameSettingsScreen::OnControlMapping);
 	controlsSettings->Add(new Choice(co->T("Calibrate Analog Stick")))->OnClick.Handle(this, &GameSettingsScreen::OnCalibrateAnalogs);
 
-#if defined(USING_WIN_UI)
+#if defined(USING_WIN_UI) || (PPSSPP_PLATFORM(LINUX) && !PPSSPP_PLATFORM(ANDROID))
 	controlsSettings->Add(new CheckBox(&g_Config.bSystemControls, co->T("Enable standard shortcut keys")));
+#endif
+#if defined(USING_WIN_UI)
 	controlsSettings->Add(new CheckBox(&g_Config.bGamepadOnlyFocused, co->T("Ignore gamepads when not focused")));
 #endif
 
