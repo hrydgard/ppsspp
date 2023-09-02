@@ -6,6 +6,7 @@
 #include "Common/Data/Convert/SmallDataConvert.h"
 #include "Common/Log.h"
 #include "Core/Config.h"
+#include "Core/MIPS/MIPSVFPUUtils.h"
 #include "Core/MIPS/IR/IRAnalysis.h"
 #include "Core/MIPS/IR/IRInterpreter.h"
 #include "Core/MIPS/IR/IRPassSimplify.h"
@@ -1871,6 +1872,283 @@ bool ApplyMemoryValidation(const IRWriter &in, IRWriter &out, const IROptions &o
 
 		// Always write out the original.  We're only adding.
 		out.Write(inst);
+	}
+	return logBlocks;
+}
+
+bool ReduceVec4Flush(const IRWriter &in, IRWriter &out, const IROptions &opts) {
+	CONDITIONAL_DISABLE;
+	// Only do this when using a SIMD backend.
+	if (!opts.preferVec4) {
+		DISABLE;
+	}
+
+	bool isVec4[256]{};
+	bool isUsed[256]{};
+	bool isVec4Dirty[256]{};
+	auto updateVec4 = [&](char type, IRReg r) {
+		bool downgraded = false;
+		switch (type) {
+		case 'F':
+			downgraded = isVec4[r & ~3];
+			isVec4[r & ~3] = false;
+			isUsed[r] = true;
+			break;
+
+		case 'V':
+			_dbg_assert_((r & 3) == 0);
+			isVec4[r] = true;
+			for (int i = 0; i < 4; ++i)
+				isUsed[r + i] = true;
+			break;
+
+		case '2':
+			downgraded = isVec4[r & ~3];
+			isVec4[r & ~3] = false;
+			for (int i = 0; i < 2; ++i)
+				isUsed[r + i] = true;
+			break;
+
+		default:
+			break;
+		}
+
+		return downgraded;
+	};
+	auto updateVec4Dest = [&](char type, IRReg r, uint32_t flags) {
+		if ((flags & IRFLAG_SRC3) == 0) {
+			switch (type) {
+			case 'F':
+				isVec4Dirty[r & ~3] = false;
+				break;
+
+			case 'V':
+				_dbg_assert_((r & 3) == 0);
+				isVec4Dirty[r] = true;
+				break;
+
+			case '2':
+				isVec4Dirty[r & ~3] = false;
+				break;
+
+			default:
+				break;
+			}
+		}
+		return updateVec4(type, r);
+	};
+
+	// Checks overlap from r1 to other params.
+	auto overlapped = [](IRReg r1, int l1, IRReg r2, int l2, IRReg r3 = IRREG_INVALID, int l3 = 0) {
+		if (r1 < r2 + l2 && r1 + l1 > r2)
+			return true;
+		if (r1 < r3 + l3 && r1 + l1 > r3)
+			return true;
+		return false;
+	};
+
+	bool logBlocks = false;
+	int inCount = (int)in.GetInstructions().size();
+	for (int i = 0; i < inCount; ++i) {
+		IRInst inst = in.GetInstructions()[i];
+		const IRMeta *m = GetIRMeta(inst.op);
+
+		if ((m->flags & (IRFLAG_EXIT | IRFLAG_BARRIER)) != 0) {
+			memset(isVec4, 0, sizeof(isVec4));
+			out.Write(inst);
+			continue;
+		}
+
+		IRReg temp = IRREG_INVALID;
+		auto findAvailTempVec4 = [&]() {
+			// If it's not used yet in this block, we can use it.
+			// Note: even if the instruction uses it to write, that should be fine.
+			for (IRReg r = IRVTEMP_PFX_S; r < IRVTEMP_0 + 4; r += 4) {
+				if (isUsed[r])
+					continue;
+
+				bool usable = true;
+				for (int j = 1; j < 4; ++j)
+					usable = usable && !isUsed[r + j];
+
+				if (usable) {
+					temp = r;
+					// We don't update isUsed because our temporary doesn't need to last.
+					return true;
+				}
+			}
+
+			return false;
+		};
+
+		auto usedLaterAsVec4 = [&](IRReg r) {
+			for (int j = i + 1; j < inCount; ++j) {
+				IRInst inst = in.GetInstructions()[j];
+				const IRMeta *m = GetIRMeta(inst.op);
+				if (m->types[0] == 'V' && inst.dest == r)
+					return true;
+				if (m->types[1] == 'V' && inst.src1 == r)
+					return true;
+				if (m->types[2] == 'V' && inst.src2 == r)
+					return true;
+			}
+			return false;
+		};
+
+		bool skip = false;
+		switch (inst.op) {
+		case IROp::SetConstF:
+			if (isVec4[inst.dest & ~3] && findAvailTempVec4()) {
+				// Check if we're setting multiple in a row, this is a bit common.
+				u8 blendMask = 1 << (inst.dest & 3);
+				while (i + 1 < inCount) {
+					IRInst next = in.GetInstructions()[i + 1];
+					if (next.op != IROp::SetConstF || (next.dest & ~3) != (inst.dest & ~3))
+						break;
+					if (next.constant != inst.constant)
+						break;
+
+					blendMask |= 1 << (next.dest & 3);
+					i++;
+				}
+
+				if (inst.constant == 0) {
+					out.Write(IROp::Vec4Init, temp, (int)Vec4Init::AllZERO);
+				} else if (inst.constant == 0x3F800000) {
+					out.Write(IROp::Vec4Init, temp, (int)Vec4Init::AllONE);
+				} else if (inst.constant == 0xBF800000) {
+					out.Write(IROp::Vec4Init, temp, (int)Vec4Init::AllMinusONE);
+				} else {
+					out.Write(IROp::SetConstF, temp, out.AddConstant(inst.constant));
+					out.Write(IROp::Vec4Shuffle, temp, temp, 0);
+				}
+				out.Write(IROp::Vec4Blend, inst.dest & ~3, inst.dest & ~3, temp, blendMask);
+				isVec4Dirty[inst.dest & ~3] = true;
+				continue;
+			}
+			break;
+
+		case IROp::FMovFromGPR:
+			if (isVec4[inst.dest & ~3] && findAvailTempVec4()) {
+				u8 blendMask = 1 << (inst.dest & 3);
+				out.Write(IROp::FMovFromGPR, temp, inst.src1);
+				out.Write(IROp::Vec4Shuffle, temp, temp, 0);
+				out.Write(IROp::Vec4Blend, inst.dest & ~3, inst.dest & ~3, temp, blendMask);
+				isVec4Dirty[inst.dest & ~3] = true;
+				continue;
+			}
+			break;
+
+		case IROp::LoadFloat:
+			if (isVec4[inst.dest & ~3] && isVec4Dirty[inst.dest & ~3] && usedLaterAsVec4(inst.dest & ~3) && findAvailTempVec4()) {
+				u8 blendMask = 1 << (inst.dest & 3);
+				out.Write(inst.op, temp, inst.src1, inst.src2, inst.constant);
+				out.Write(IROp::Vec4Shuffle, temp, temp, 0);
+				out.Write(IROp::Vec4Blend, inst.dest & ~3, inst.dest & ~3, temp, blendMask);
+				isVec4Dirty[inst.dest & ~3] = true;
+				continue;
+			}
+			break;
+
+		case IROp::StoreFloat:
+			if (isVec4[inst.src3 & ~3] && isVec4Dirty[inst.src3 & ~3] && usedLaterAsVec4(inst.src3 & ~3) && findAvailTempVec4()) {
+				out.Write(IROp::FMov, temp, inst.src3, 0);
+				out.Write(inst.op, temp, inst.src1, inst.src2, inst.constant);
+				continue;
+			}
+			break;
+
+		case IROp::FMov:
+			if (isVec4[inst.dest & ~3] && (inst.dest & ~3) == (inst.src1 & ~3)) {
+				// Oh, actually a shuffle?
+				uint8_t shuffle = (uint8_t)VFPU_SWIZZLE(0, 1, 2, 3);
+				uint8_t destShift = (inst.dest & 3) * 2;
+				shuffle = (shuffle & ~(3 << destShift)) | ((inst.src1 & 3) << destShift);
+				out.Write(IROp::Vec4Shuffle, inst.dest & ~3, inst.dest & ~3, shuffle);
+				isVec4Dirty[inst.dest & ~3] = true;
+				continue;
+			} else if (isVec4[inst.dest & ~3] && (inst.dest & 3) == (inst.src1 & 3)) {
+				// We can turn this directly into a blend, since it's the same lane.
+				out.Write(IROp::Vec4Blend, inst.dest & ~3, inst.dest & ~3, inst.src1 & ~3, 1 << (inst.dest & 3));
+				isVec4Dirty[inst.dest & ~3] = true;
+				continue;
+			} else if (isVec4[inst.dest & ~3] && isVec4[inst.src1 & ~3] && findAvailTempVec4()) {
+				// For this, we'll need a temporary to move to the right lane.
+				int lane = inst.src1 & 3;
+				uint8_t shuffle = (uint8_t)VFPU_SWIZZLE(lane, lane, lane, lane);
+				out.Write(IROp::Vec4Shuffle, temp, inst.src1 & ~3, shuffle);
+				out.Write(IROp::Vec4Blend, inst.dest & ~3, inst.dest & ~3, temp, 1 << (inst.dest & 3));
+				isVec4Dirty[inst.dest & ~3] = true;
+				continue;
+			}
+			break;
+
+		case IROp::FAdd:
+		case IROp::FSub:
+		case IROp::FMul:
+		case IROp::FDiv:
+			if (isVec4[inst.dest & ~3] && isVec4Dirty[inst.dest & ~3] && usedLaterAsVec4(inst.dest & ~3)) {
+				if (!overlapped(inst.dest & ~3, 4, inst.src1, 1, inst.src2, 1) && findAvailTempVec4()) {
+					u8 blendMask = 1 << (inst.dest & 3);
+					out.Write(inst.op, temp, inst.src1, inst.src2);
+					out.Write(IROp::Vec4Shuffle, temp, temp, 0);
+					out.Write(IROp::Vec4Blend, inst.dest & ~3, inst.dest & ~3, temp, blendMask);
+					updateVec4('F', inst.src1);
+					updateVec4('F', inst.src2);
+					isVec4Dirty[inst.dest & ~3] = true;
+					continue;
+				}
+			}
+			break;
+
+		case IROp::Vec4Dot:
+			if (overlapped(inst.dest, 1, inst.src1, 4, inst.src2, 4) && findAvailTempVec4()) {
+				out.Write(inst.op, temp, inst.src1, inst.src2, inst.constant);
+				if (usedLaterAsVec4(inst.dest & ~3)) {
+					out.Write(IROp::Vec4Shuffle, temp, inst.src1 & ~3, 0);
+					out.Write(IROp::Vec4Blend, inst.dest & ~3, inst.dest & ~3, temp, 1 << (inst.dest & 3));
+					// It's overlapped, so it'll get marked as Vec4 and used anyway.
+					isVec4Dirty[inst.dest & ~3] = true;
+					inst.dest = IRREG_INVALID;
+				} else {
+					out.Write(IROp::FMov, inst.dest, temp);
+				}
+				skip = true;
+			}
+			break;
+
+		case IROp::Vec4Scale:
+			if (overlapped(inst.src2, 1, inst.src1, 4, inst.dest, 4) && findAvailTempVec4()) {
+				out.Write(IROp::FMov, temp, inst.src2);
+				out.Write(inst.op, inst.dest, inst.src1, temp, inst.constant);
+				skip = true;
+				inst.src2 = IRREG_INVALID;
+			} else if (isVec4[inst.src2 & 3] && usedLaterAsVec4(inst.src2 & ~3) && findAvailTempVec4()) {
+				out.Write(IROp::FMov, temp, inst.src2);
+				out.Write(inst.op, inst.dest, inst.src1, temp, inst.constant);
+				skip = true;
+				inst.src2 = IRREG_INVALID;
+			}
+			break;
+
+		default:
+			break;
+		}
+
+		bool downgrade = false;
+		if (inst.src1 != IRREG_INVALID && updateVec4(m->types[1], inst.src1))
+			downgrade = true;
+		if (inst.src2 != IRREG_INVALID && updateVec4(m->types[2], inst.src2))
+			downgrade = true;
+		if (inst.dest != IRREG_INVALID && updateVec4Dest(m->types[0], inst.dest, m->flags))
+			downgrade = true;
+
+		if (downgrade) {
+			//WARN_LOG(JIT, "Vec4 downgrade by: %s", m->name);
+		}
+
+		if (!skip)
+			out.Write(inst);
 	}
 	return logBlocks;
 }

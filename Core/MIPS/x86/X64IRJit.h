@@ -124,6 +124,7 @@ private:
 	void EmitVecConstants();
 
 	Gen::OpArg PrepareSrc1Address(IRInst inst);
+	void CopyVec4ToFPRLane0(Gen::X64Reg dest, Gen::X64Reg src, int lane);
 
 	JitOptions &jo;
 	X64IRRegCache regs_;
