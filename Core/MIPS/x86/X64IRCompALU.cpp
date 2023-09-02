@@ -64,7 +64,7 @@ void X64JitBackend::CompIR_Arith(IRInst inst) {
 
 	case IROp::Sub:
 		regs_.Map(inst);
-		if (inst.dest == inst.src2 && inst.dest == inst.src1) {
+		if (inst.src1 == inst.src2) {
 			regs_.SetGPRImm(inst.dest, 0);
 		} else if (inst.dest == inst.src2) {
 			NEG(32, regs_.R(inst.src2));
