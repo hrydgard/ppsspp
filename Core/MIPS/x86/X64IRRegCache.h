@@ -30,6 +30,7 @@ namespace X64IRJitConstants {
 #if PPSSPP_ARCH(AMD64)
 const Gen::X64Reg MEMBASEREG = Gen::RBX;
 const Gen::X64Reg CTXREG = Gen::R14;
+// Note: this is actually offset from the base.
 const Gen::X64Reg JITBASEREG = Gen::R15;
 const Gen::X64Reg DOWNCOUNTREG = Gen::R15;
 #else

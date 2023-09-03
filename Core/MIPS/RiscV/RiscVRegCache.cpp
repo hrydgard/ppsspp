@@ -206,6 +206,10 @@ RiscVGen::RiscVReg RiscVRegCache::Normalize32(IRReg mipsReg, RiscVGen::RiscVReg 
 			emit_->SEXT_W(destReg, (RiscVReg)mr[mipsReg].nReg);
 		}
 		break;
+
+	default:
+		_assert_msg_(false, "Should not normalize32 floats");
+		break;
 	}
 
 	return destReg == INVALID_REG ? reg : destReg;
