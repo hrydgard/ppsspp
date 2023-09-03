@@ -55,13 +55,17 @@ void X64JitBackend::GenerateFixedCode(MIPSState *mipsState) {
 	jo.downcountInRegister = false;
 #if PPSSPP_ARCH(AMD64)
 	bool jitbaseInR15 = false;
+	int jitbaseCtxDisp = 0;
 	uintptr_t jitbase = (uintptr_t)GetBasePtr();
-	if (jitbase > 0x7FFFFFFFULL) {
+	if (jitbase > 0x7FFFFFFFULL && !Accessible((const u8 *)&mipsState->f[0], GetBasePtr())) {
 		jo.reserveR15ForAsm = true;
 		jitbaseInR15 = true;
 	} else {
 		jo.downcountInRegister = true;
 		jo.reserveR15ForAsm = true;
+		if (jitbase > 0x7FFFFFFFULL) {
+			jitbaseCtxDisp = (int)(GetBasePtr() - (const u8 *)&mipsState->f[0]);
+		}
 	}
 #endif
 
@@ -190,10 +194,14 @@ void X64JitBackend::GenerateFixedCode(MIPSState *mipsState) {
 			// Debug
 			if (enableDebug) {
 #if PPSSPP_ARCH(AMD64)
-				if (jitbaseInR15)
+				if (jitbaseInR15) {
 					ABI_CallFunctionAA(reinterpret_cast<void *>(&ShowPC), R(MEMBASEREG), R(JITBASEREG));
-				else
+				} else if (jitbaseCtxDisp != 0) {
+					LEA(64, SCRATCH1, MDisp(CTXREG, jitbaseCtxDisp));
+					ABI_CallFunctionAA(reinterpret_cast<void *>(&ShowPC), R(MEMBASEREG), R(SCRATCH1));
+				} else {
 					ABI_CallFunctionAC(reinterpret_cast<void *>(&ShowPC), R(MEMBASEREG), (u32)jitbase);
+				}
 #else
 				ABI_CallFunctionCC(reinterpret_cast<void *>(&ShowPC), (u32)Memory::base, (u32)GetBasePtr());
 #endif
@@ -227,6 +235,8 @@ void X64JitBackend::GenerateFixedCode(MIPSState *mipsState) {
 #elif PPSSPP_ARCH(AMD64)
 				if (jitbaseInR15) {
 					ADD(64, R(SCRATCH1), R(JITBASEREG));
+				} else if (jitbaseCtxDisp) {
+					LEA(64, SCRATCH1, MComplex(CTXREG, SCRATCH1, SCALE_1, jitbaseCtxDisp));
 				} else {
 					// See above, reserveR15ForAsm is used when above 0x7FFFFFFF.
 					LEA(64, SCRATCH1, MDisp(SCRATCH1, (u32)jitbase));
