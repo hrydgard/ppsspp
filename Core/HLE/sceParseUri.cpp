@@ -38,27 +38,26 @@ int workAreaAddString(u32 workAreaAddr, int workAreaSize, int offset, const char
 	return offset + length;
 }
 
-// FIXME: parsedUriArea, workArea, and workAreaSizeAddr can be 0/null?
+// FIXME: parsedUriArea, workArea can be 0/null? LittelBigPlanet seems to set workAreaSizeAddr to 0
 static int sceUriParse(u32 parsedUriAreaAddr, const char* url, u32 workAreaAddr, u32 workAreaSizeAddr, int workAreaSize) {
 	WARN_LOG(SCENET, "UNTESTED sceUriParse(%x, %s, %x, %x, %d) at %08x", parsedUriAreaAddr, safe_string(url), workAreaAddr, workAreaSizeAddr, workAreaSize, currentMIPS->pc);
 	if (url == nullptr)
 		return hleLogError(SCENET, -1, "invalid arg");
 
-	if (!Memory::IsValidRange(workAreaSizeAddr, 4))
-		return hleLogError(SCENET, -1, "invalid arg");
+	auto workAreaSz = PSPPointer<u32>::Create(workAreaSizeAddr);
 
 	// Size returner
 	if (parsedUriAreaAddr == 0 || workAreaAddr == 0) {
-		// Based on JPCSP: The required workArea size if maximum the size if the URL + 7 times the null-byte for string termination.
-		int urllen = (int)strlen(url);
-		Memory::WriteUnchecked_U32(urllen + 7, workAreaSizeAddr);
-		NotifyMemInfo(MemBlockFlags::WRITE, workAreaSizeAddr, 4, "UriParse");
-		return hleLogSuccessI(SCENET, 0, "workAreaSize: %d, %d", urllen + 7, workAreaSize);
+		// Based on JPCSP: The required workArea size is maximum the size of the URL + 7 times the null-byte for string termination.
+		int sz = (int)strlen(url) + 7;
+		if (workAreaSz.IsValid()) {
+			*workAreaSz = sz;
+			workAreaSz.NotifyWrite("UriParse");
+		}
+		return hleLogSuccessI(SCENET, 0, "workAreaSize: %d, %d", sz, workAreaSize);
 	}
 
 	auto parsedUri = PSPPointer<PSPParsedUri>::Create(parsedUriAreaAddr);
-	if (!parsedUri.IsValid()) 
-		return hleLogError(SCENET, -1, "invalid arg");
 	
 	// Parse the URL into URI components
 	// Full URI = scheme ":" ["//" [username [":" password] "@"] host [":" port]] path ["?" query] ["#" fragment]
@@ -106,37 +105,50 @@ static int sceUriParse(u32 parsedUriAreaAddr, const char* url, u32 workAreaAddr,
 	
 	// FIXME: Related to "scheme-specific-part" (ie. parts after the scheme + ":") ? 0 = start with "//"
 	pos = std::string(url).find("://");
-	parsedUri->noSlash = (pos != std::string::npos) ? 0 : 1;
+	if (parsedUri.IsValid())
+		parsedUri->noSlash = (pos != std::string::npos) ? 0 : 1;
 
 	// Store the URI components in sequence into workAreanand store the respective addresses into the parsedUri structure.
 	int offset = 0;
-	parsedUri->schemeAddr = workAreaAddr + offset;
+	if (parsedUri.IsValid())
+		parsedUri->schemeAddr = workAreaAddr + offset;
 	offset = workAreaAddString(workAreaAddr, workAreaSize, offset, uri.Protocol().c_str()); // FiXME: scheme in lowercase, while protocol in uppercase?
 
-	parsedUri->userInfoUserNameAddr = workAreaAddr + offset;
+	if (parsedUri.IsValid())
+		parsedUri->userInfoUserNameAddr = workAreaAddr + offset;
 	offset = workAreaAddString(workAreaAddr, workAreaSize, offset, userInfoUserName.c_str());
 
-	parsedUri->userInfoPasswordAddr = workAreaAddr + offset;
+	if (parsedUri.IsValid())
+		parsedUri->userInfoPasswordAddr = workAreaAddr + offset;
 	offset = workAreaAddString(workAreaAddr, workAreaSize, offset, userInfoPassword.c_str());
 
-	parsedUri->hostAddr = workAreaAddr + offset;
+	if (parsedUri.IsValid())
+		parsedUri->hostAddr = workAreaAddr + offset;
 	offset = workAreaAddString(workAreaAddr, workAreaSize, offset, host.c_str());
 
-	parsedUri->pathAddr = workAreaAddr + offset;
+	if (parsedUri.IsValid())
+		parsedUri->pathAddr = workAreaAddr + offset;
 	offset = workAreaAddString(workAreaAddr, workAreaSize, offset, path.c_str());
 
-	parsedUri->queryAddr = workAreaAddr + offset;
+	if (parsedUri.IsValid())
+		parsedUri->queryAddr = workAreaAddr + offset;
 	offset = workAreaAddString(workAreaAddr, workAreaSize, offset, query.c_str());
 
-	parsedUri->fragmentAddr = workAreaAddr + offset;
+	if (parsedUri.IsValid())
+		parsedUri->fragmentAddr = workAreaAddr + offset;
 	offset = workAreaAddString(workAreaAddr, workAreaSize, offset, fragment.c_str());
 
-	parsedUri->port = uri.Port();
-	memset(parsedUri->unknown, 0, sizeof(parsedUri->unknown));
-	parsedUri.NotifyWrite("UriParse");
+	if (parsedUri.IsValid()) {
+		parsedUri->port = uri.Port();
+		memset(parsedUri->unknown, 0, sizeof(parsedUri->unknown));
+		parsedUri.NotifyWrite("UriParse");
+	}
 
-	Memory::WriteUnchecked_U32(offset, workAreaSizeAddr);
-	NotifyMemInfo(MemBlockFlags::WRITE, workAreaSizeAddr, 4, "UriParse");
+	// Update the size
+	if (workAreaSz.IsValid()) {
+		*workAreaSz = offset;
+		workAreaSz.NotifyWrite("UriParse");
+	}
 
 	return 0;
 }
