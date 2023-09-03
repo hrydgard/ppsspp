@@ -784,10 +784,11 @@ void IRNativeRegCacheBase::ApplyMapping(const Mapping *mapping, int count) {
 			return;
 		}
 
+		bool mapSIMD = config_.mapFPUSIMD || mapping[i].type == 'G';
 		MIPSMap flags = mapping[i].flags;
 		for (int j = 0; j < count; ++j) {
 			if (mapping[j].type == mapping[i].type && mapping[j].reg == mapping[i].reg && i != j) {
-				_assert_msg_(mapping[j].lanes == mapping[i].lanes, "Lane aliasing not supported yet");
+				_assert_msg_(!mapSIMD || mapping[j].lanes == mapping[i].lanes, "Lane aliasing not supported yet");
 
 				if (!isNoinit(mapping[j].flags) && isNoinit(flags)) {
 					flags = (flags & MIPSMap::BACKEND_MASK) | MIPSMap::DIRTY;
@@ -795,7 +796,7 @@ void IRNativeRegCacheBase::ApplyMapping(const Mapping *mapping, int count) {
 			}
 		}
 
-		if (config_.mapFPUSIMD || mapping[i].type == 'G') {
+		if (mapSIMD) {
 			MapNativeReg(type, mapping[i].reg, mapping[i].lanes, flags);
 			return;
 		}

@@ -56,15 +56,16 @@ void X64JitBackend::GenerateFixedCode(MIPSState *mipsState) {
 #if PPSSPP_ARCH(AMD64)
 	bool jitbaseInR15 = false;
 	int jitbaseCtxDisp = 0;
-	uintptr_t jitbase = (uintptr_t)GetBasePtr();
-	if (jitbase > 0x7FFFFFFFULL && !Accessible((const u8 *)&mipsState->f[0], GetBasePtr())) {
+	// We pre-bake the MIPS_EMUHACK_OPCODE subtraction into our jitbase value.
+	intptr_t jitbase = (intptr_t)GetBasePtr() - MIPS_EMUHACK_OPCODE;
+	if ((jitbase < -0x80000000ULL || jitbase > 0x7FFFFFFFULL) && !Accessible((const u8 *)&mipsState->f[0], GetBasePtr())) {
 		jo.reserveR15ForAsm = true;
 		jitbaseInR15 = true;
 	} else {
 		jo.downcountInRegister = true;
 		jo.reserveR15ForAsm = true;
-		if (jitbase > 0x7FFFFFFFULL) {
-			jitbaseCtxDisp = (int)(GetBasePtr() - (const u8 *)&mipsState->f[0]);
+		if (jitbase < -0x80000000ULL || jitbase > 0x7FFFFFFFULL) {
+			jitbaseCtxDisp = (int)(jitbase - (intptr_t)&mipsState->f[0]);
 		}
 	}
 #endif
@@ -139,7 +140,7 @@ void X64JitBackend::GenerateFixedCode(MIPSState *mipsState) {
 	// Two x64-specific statically allocated registers.
 	MOV(64, R(MEMBASEREG), ImmPtr(Memory::base));
 	if (jitbaseInR15)
-		MOV(64, R(JITBASEREG), ImmPtr(GetBasePtr()));
+		MOV(64, R(JITBASEREG), ImmPtr((const void *)jitbase));
 #endif
 	// From the start of the FP reg, a single byte offset can reach all GPR + all FPR (but not VFPR.)
 	MOV(PTRBITS, R(CTXREG), ImmPtr(&mipsState->f[0]));
@@ -228,10 +229,9 @@ void X64JitBackend::GenerateFixedCode(MIPSState *mipsState) {
 				CMP(32, R(EDX), Imm8(MIPS_EMUHACK_OPCODE >> 24));
 			}
 			FixupBranch needsCompile = J_CC(CC_NE);
-				// Mask by 0x00FFFFFF and extract the block jit offset.
-				AND(32, R(SCRATCH1), Imm32(MIPS_EMUHACK_VALUE_MASK));
+				// We don't mask here - that's baked into jitbase.
 #if PPSSPP_ARCH(X86)
-				LEA(32, SCRATCH1, MDisp(SCRATCH1, (u32)GetBasePtr()));
+				LEA(32, SCRATCH1, MDisp(SCRATCH1, (u32)GetBasePtr() - MIPS_EMUHACK_VALUE_MASK));
 #elif PPSSPP_ARCH(AMD64)
 				if (jitbaseInR15) {
 					ADD(64, R(SCRATCH1), R(JITBASEREG));
@@ -239,7 +239,7 @@ void X64JitBackend::GenerateFixedCode(MIPSState *mipsState) {
 					LEA(64, SCRATCH1, MComplex(CTXREG, SCRATCH1, SCALE_1, jitbaseCtxDisp));
 				} else {
 					// See above, reserveR15ForAsm is used when above 0x7FFFFFFF.
-					LEA(64, SCRATCH1, MDisp(SCRATCH1, (u32)jitbase));
+					LEA(64, SCRATCH1, MDisp(SCRATCH1, (s32)jitbase));
 				}
 #endif
 				JMPptr(R(SCRATCH1));

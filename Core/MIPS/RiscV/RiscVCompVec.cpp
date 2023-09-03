@@ -35,6 +35,10 @@ namespace MIPSComp {
 using namespace RiscVGen;
 using namespace RiscVJitConstants;
 
+static bool Overlap(IRReg r1, int l1, IRReg r2, int l2) {
+	return r1 < r2 + l2 && r1 + l1 > r2;
+}
+
 void RiscVJitBackend::CompIR_VecAssign(IRInst inst) {
 	CONDITIONAL_DISABLE;
 
@@ -215,10 +219,21 @@ void RiscVJitBackend::CompIR_VecArith(IRInst inst) {
 		break;
 
 	case IROp::Vec4Scale:
-		// TODO: This works for now, but may need to handle aliasing for vectors.
 		regs_.Map(inst);
-		for (int i = 0; i < 4; ++i)
-			FMUL(32, regs_.F(inst.dest + i), regs_.F(inst.src1 + i), regs_.F(inst.src2));
+		if (Overlap(inst.src2, 1, inst.dest, 3)) {
+			// We have to handle overlap, doing dest == src2 last.
+			for (int i = 0; i < 4; ++i) {
+				if (inst.src2 != inst.dest + i)
+					FMUL(32, regs_.F(inst.dest + i), regs_.F(inst.src1 + i), regs_.F(inst.src2));
+			}
+			for (int i = 0; i < 4; ++i) {
+				if (inst.src2 == inst.dest + i)
+					FMUL(32, regs_.F(inst.dest + i), regs_.F(inst.src1 + i), regs_.F(inst.src2));
+			}
+		} else {
+			for (int i = 0; i < 4; ++i)
+				FMUL(32, regs_.F(inst.dest + i), regs_.F(inst.src1 + i), regs_.F(inst.src2));
+		}
 		break;
 
 	case IROp::Vec4Neg:
@@ -244,9 +259,8 @@ void RiscVJitBackend::CompIR_VecHoriz(IRInst inst) {
 
 	switch (inst.op) {
 	case IROp::Vec4Dot:
-		// TODO: This works for now, but may need to handle aliasing for vectors.
 		regs_.Map(inst);
-		if ((inst.dest < inst.src1 + 4 && inst.dest >= inst.src1) || (inst.dest < inst.src2 + 4 && inst.dest >= inst.src2)) {
+		if (Overlap(inst.dest, 1, inst.src1, 4) || Overlap(inst.dest, 1, inst.src2, 4)) {
 			// This means inst.dest overlaps one of src1 or src2.  We have to do that one first.
 			// Technically this may impact -0.0 and such, but dots accurately need to be aligned anyway.
 			for (int i = 0; i < 4; ++i) {
