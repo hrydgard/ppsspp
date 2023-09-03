@@ -220,7 +220,13 @@ int HTTPRequest::sendRequest(u32 postDataPtr, u32 postDataSize) {
 
 	// TODO: Do this on a separate thread, since this may blocks "Emu" thread here
 	// Try to resolve first
-	Url fileUrl(url);
+	// Note: LittleBigPlanet onlu passed the path (ie. /LITTLEBIGPLANETPSP_XML/login?) during sceHttpCreateRequest without the host domain, thus will need to be construced into a valid URI using the data from sceHttpCreateConnection upon validating/parsing the URL.
+	std::string fullURL = url;
+	if (startsWithNoCase(url, "/")) {
+		fullURL = scheme + "://" + hostString + ":" + std::to_string(port) + fullURL;
+	}
+
+	Url fileUrl(fullURL);
 	if (!fileUrl.Valid()) {
 		return SCE_HTTP_ERROR_INVALID_URL;
 	}
@@ -331,7 +337,7 @@ int sceHttpSetResolveRetry(int id, int retryCount) {
 }
 
 static int sceHttpInit(int poolSize) {
-	WARN_LOG(SCENET, "UNTESTED sceHttpInit(%i)", poolSize);
+	WARN_LOG(SCENET, "UNTESTED sceHttpInit(%i) at %08x", poolSize, currentMIPS->pc);
 	if (httpInited)
 		return hleLogError(SCENET, SCE_HTTP_ERROR_ALREADY_INITED, "http already inited");
 
