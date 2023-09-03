@@ -121,7 +121,7 @@ void RiscVJitBackend::GenerateFixedCode(MIPSState *mipsState) {
 	// Fixed registers, these are always kept when in Jit context.
 	LI(MEMBASEREG, Memory::base, SCRATCH1);
 	LI(CTXREG, mipsState, SCRATCH1);
-	LI(JITBASEREG, GetBasePtr(), SCRATCH1);
+	LI(JITBASEREG, GetBasePtr() - MIPS_EMUHACK_OPCODE, SCRATCH1);
 
 	LoadStaticRegisters();
 	MovFromPC(SCRATCH1);
@@ -173,9 +173,7 @@ void RiscVJitBackend::GenerateFixedCode(MIPSState *mipsState) {
 	// We're in other words comparing to the top 8 bits of MIPS_EMUHACK_OPCODE by subtracting.
 	ADDI(SCRATCH2, SCRATCH2, -(MIPS_EMUHACK_OPCODE >> 24));
 	FixupBranch needsCompile = BNE(SCRATCH2, R_ZERO);
-	// Use a wall to mask by 0x00FFFFFF and extract the block jit offset.
-	SLLI(SCRATCH1, SCRATCH1, XLEN - 24);
-	SRLI(SCRATCH1, SCRATCH1, XLEN - 24);
+	// No need to mask, JITBASEREG has already accounted for the upper bits.
 	ADD(SCRATCH1, JITBASEREG, SCRATCH1);
 	JR(SCRATCH1);
 	SetJumpTarget(needsCompile);
