@@ -401,15 +401,7 @@ public:
 		FreeStack();
 
 		bool fromTop = (nt.attr & PSP_THREAD_ATTR_LOW_STACK) == 0;
-		if (nt.attr & PSP_THREAD_ATTR_KERNEL)
-		{
-			// Allocate stacks for kernel threads (idle) in kernel RAM
-			currentStack.start = kernelMemory.Alloc(stackSize, fromTop, (std::string("stack/") + nt.name).c_str());
-		}
-		else
-		{
-			currentStack.start = userMemory.Alloc(stackSize, fromTop, (std::string("stack/") + nt.name).c_str());
-		}
+		currentStack.start = StackAllocator().Alloc(stackSize, fromTop, StringFromFormat("stack/%s", nt.name).c_str());
 		if (currentStack.start == (u32)-1)
 		{
 			currentStack.start = 0;
@@ -453,18 +445,14 @@ public:
 				Memory::Memset(nt.initialStack, 0, nt.stackSize, "ThreadFreeStack");
 			}
 
-			if (nt.attr & PSP_THREAD_ATTR_KERNEL) {
-				kernelMemory.Free(currentStack.start);
-			} else {
-				userMemory.Free(currentStack.start);
-			}
+			StackAllocator().Free(currentStack.start);
 			currentStack.start = 0;
 		}
 	}
 
 	bool PushExtendedStack(u32 size)
 	{
-		u32 stack = userMemory.Alloc(size, true, (std::string("extended/") + nt.name).c_str());
+		u32 stack = userMemory.Alloc(size, true, StringFromFormat("extended/%s", nt.name).c_str());
 		if (stack == (u32)-1)
 			return false;
 
@@ -507,6 +495,13 @@ public:
 				userMemory.Free(pushedStacks[i].start);
 		}
 		FreeStack();
+	}
+
+	BlockAllocator &StackAllocator() {
+		if (nt.attr & PSP_THREAD_ATTR_KERNEL) {
+			return kernelMemory;
+		}
+		return userMemory;
 	}
 
 	void setReturnValue(u32 retval);
