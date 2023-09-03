@@ -146,8 +146,8 @@ int HTTPRequest::getAllResponseHeaders(u32 headerAddrPtr, u32 headerSizePtr) {
 	const std::string& s = httpLine_ + delim + imploded.str();
 	u32 sz = (u32)s.size();
 
-	u32* headerAddr = (u32*)Memory::GetPointerUnchecked(headerAddrPtr);
-	u32* headerSize = (u32*)Memory::GetPointerUnchecked(headerSizePtr);
+	auto headerAddr = PSPPointer<u32>::Create(headerAddrPtr);
+	auto headerSize = PSPPointer<u32>::Create(headerSizePtr);
 	// Resize internal header buffer (should probably be part of network memory pool?)
 	// FIXME: Do we still need to provides a valid address for the game even when header size is 0 ?
 	if (headerSize_ != sz && sz > 0) {
@@ -159,8 +159,8 @@ int HTTPRequest::getAllResponseHeaders(u32 headerAddrPtr, u32 headerSizePtr) {
 	}
 
 	u8* header = Memory::GetPointerWrite(headerAddr_);
-	DEBUG_LOG(Log::sceNet, "headerAddr: %08x => %08x", *headerAddr, headerAddr_);
-	DEBUG_LOG(Log::sceNet, "headerSize: %d => %d", *headerSize, sz);
+	DEBUG_LOG(Log::sceNet, "headerAddr: %08x => %08x", headerAddr.IsValid() ? *headerAddr : 0, headerAddr_);
+	DEBUG_LOG(Log::sceNet, "headerSize: %d => %d", headerSize.IsValid() ? *headerSize : 0, sz);
 	if (!header && sz > 0) {
 		ERROR_LOG(Log::sceNet, "Failed to allocate internal header buffer.");
 		//*headerSize = 0;
@@ -172,11 +172,17 @@ int HTTPRequest::getAllResponseHeaders(u32 headerAddrPtr, u32 headerSizePtr) {
 		memcpy(header, s.c_str(), sz);
 		NotifyMemInfo(MemBlockFlags::WRITE, headerAddr_, sz, "HttpGetAllHeader");
 	}
-	*headerSize = sz;
-	NotifyMemInfo(MemBlockFlags::WRITE, headerSizePtr, 4, "HttpGetAllHeader");
 
-	*headerAddr = headerAddr_;
-	NotifyMemInfo(MemBlockFlags::WRITE, headerAddrPtr, 4, "HttpGetAllHeader");
+	// Set the output
+	if (headerSize.IsValid()) {
+		*headerSize = sz;
+		headerSize.NotifyWrite("HttpGetAllHeader");
+	}
+
+	if (headerAddr.IsValid()) {
+		*headerAddr = headerAddr_;
+		headerAddr.NotifyWrite("HttpGetAllHeader");
+	}
 
 	DEBUG_LOG(Log::sceNet, "Headers: %s", s.c_str());
 	return 0;
