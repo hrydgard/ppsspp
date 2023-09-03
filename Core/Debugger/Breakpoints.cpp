@@ -311,7 +311,7 @@ BreakAction CBreakPoints::ExecBreakPoint(u32 addr) {
 	std::unique_lock<std::mutex> guard(breakPointsMutex_);
 	size_t bp = FindBreakpoint(addr, false);
 	if (bp != INVALID_BREAKPOINT) {
-		BreakPoint info = breakPoints_[bp];
+		const BreakPoint &info = breakPoints_[bp];
 		guard.unlock();
 
 		if (info.hasCond) {
