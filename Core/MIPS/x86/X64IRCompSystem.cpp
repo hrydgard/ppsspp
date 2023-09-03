@@ -23,6 +23,7 @@
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/ReplaceTables.h"
 #include "Core/MemMap.h"
+#include "Core/MIPS/IR/IRInterpreter.h"
 #include "Core/MIPS/x86/X64IRJit.h"
 #include "Core/MIPS/x86/X64IRRegCache.h"
 
@@ -88,9 +89,25 @@ void X64JitBackend::CompIR_Breakpoint(IRInst inst) {
 
 	switch (inst.op) {
 	case IROp::Breakpoint:
-	case IROp::MemoryCheck:
-		CompIR_Generic(inst);
+		FlushAll();
+		// Note: the constant could be a delay slot.
+		ABI_CallFunctionC((const void *)&IRRunBreakpoint, inst.constant);
+		TEST(32, R(EAX), R(EAX));
+		J_CC(CC_NZ, dispatcherCheckCoreState_, true);
 		break;
+
+	case IROp::MemoryCheck:
+	{
+		X64Reg addrBase = regs_.MapGPR(inst.src1);
+		FlushAll();
+		LEA(32, addrBase, MDisp(addrBase, inst.constant));
+		MovFromPC(SCRATCH1);
+		LEA(32, SCRATCH1, MDisp(SCRATCH1, inst.dest));
+		ABI_CallFunctionRR((const void *)&IRRunMemCheck, SCRATCH1, addrBase);
+		TEST(32, R(EAX), R(EAX));
+		J_CC(CC_NZ, dispatcherCheckCoreState_, true);
+		break;
+	}
 
 	default:
 		INVALIDOP;
