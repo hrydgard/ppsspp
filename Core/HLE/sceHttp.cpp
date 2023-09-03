@@ -310,6 +310,9 @@ void __HttpInit() {
 
 void __HttpShutdown() {
 	std::lock_guard<std::mutex> guard(httpLock);
+	httpInited = false;
+	httpsInited = false;
+	httpCacheInited = false;
 	httpObjects.clear();
 }
 
