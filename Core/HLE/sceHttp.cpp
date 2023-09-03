@@ -107,15 +107,13 @@ int HTTPRequest::getResponseContentLength() {
 	//if (progress_.progress == 0.0f)
 	//	return SCE_HTTP_ERROR_BEFORE_SEND;
 
-	entityLength_ = -1;
+	entityLength_ = -1; // FIXME: should we default to 0 instead?
 	for (std::string& line : responseHeaders_) {
-		if (startsWithNoCase(line, "Content-Length:")) {
-			size_t size_pos = line.find_first_of(' ');
-			if (size_pos != line.npos) {
-				size_pos = line.find_first_not_of(' ', size_pos);
-			}
-			if (size_pos != line.npos) {
-				entityLength_ = atoi(&line[size_pos]);
+		if (startsWithNoCase(line, "Content-Length")) {
+			size_t pos = line.find_first_of(':');
+			if (pos != line.npos) {
+				pos++;
+				entityLength_ = atoi(&line[pos]);
 			}
 		}
 	}
