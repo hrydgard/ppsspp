@@ -349,7 +349,7 @@ void IRFrontend::CheckBreakpoint(u32 addr) {
 		ir.Write(IROp::Downcount, 0, ir.AddConstant(downcountAmount));
 		// Note that this means downcount can't be metadata on the block.
 		js.downcountAmount = -downcountOffset;
-		ir.Write(IROp::Breakpoint);
+		ir.Write(IROp::Breakpoint, 0, ir.AddConstant(addr));
 		ApplyRoundingMode();
 
 		js.hadBreakpoints = true;
@@ -372,7 +372,7 @@ void IRFrontend::CheckMemoryBreakpoint(int rs, int offset) {
 		ir.Write(IROp::Downcount, 0, ir.AddConstant(downcountAmount));
 		// Note that this means downcount can't be metadata on the block.
 		js.downcountAmount = -downcountOffset;
-		ir.Write(IROp::MemoryCheck, 0, rs, ir.AddConstant(offset));
+		ir.Write(IROp::MemoryCheck, js.inDelaySlot ? 4 : 0, rs, ir.AddConstant(offset));
 		ApplyRoundingMode();
 
 		js.hadBreakpoints = true;

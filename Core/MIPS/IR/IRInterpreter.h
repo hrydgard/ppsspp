@@ -20,4 +20,7 @@ inline static u32 ReverseBits32(u32 v) {
 	return v;
 }
 
+u32 IRRunBreakpoint(u32 pc);
+u32 IRRunMemCheck(u32 pc, u32 addr);
+
 u32 IRInterpret(MIPSState *ms, const IRInst *inst, int count);
