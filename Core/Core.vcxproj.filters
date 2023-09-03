@@ -1270,6 +1270,33 @@
     <ClCompile Include="MIPS\x86\X64IRCompALU.cpp">
       <Filter>MIPS\x86</Filter>
     </ClCompile>
+    <ClCompile Include="MIPS\ARM64\Arm64IRCompLoadStore.cpp">
+      <Filter>MIPS\ARM64</Filter>
+    </ClCompile>
+    <ClCompile Include="MIPS\ARM64\Arm64IRCompSystem.cpp">
+      <Filter>MIPS\ARM64</Filter>
+    </ClCompile>
+    <ClCompile Include="MIPS\ARM64\Arm64IRCompVec.cpp">
+      <Filter>MIPS\ARM64</Filter>
+    </ClCompile>
+    <ClCompile Include="MIPS\ARM64\Arm64IRJit.cpp">
+      <Filter>MIPS\ARM64</Filter>
+    </ClCompile>
+    <ClCompile Include="MIPS\ARM64\Arm64IRRegCache.cpp">
+      <Filter>MIPS\ARM64</Filter>
+    </ClCompile>
+    <ClCompile Include="MIPS\ARM64\Arm64IRAsm.cpp">
+      <Filter>MIPS\ARM64</Filter>
+    </ClCompile>
+    <ClCompile Include="MIPS\ARM64\Arm64IRCompALU.cpp">
+      <Filter>MIPS\ARM64</Filter>
+    </ClCompile>
+    <ClCompile Include="MIPS\ARM64\Arm64IRCompBranch.cpp">
+      <Filter>MIPS\ARM64</Filter>
+    </ClCompile>
+    <ClCompile Include="MIPS\ARM64\Arm64IRCompFPU.cpp">
+      <Filter>MIPS\ARM64</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ELF\ElfReader.h">
@@ -2036,6 +2063,12 @@
     </ClInclude>
     <ClInclude Include="MIPS\x86\X64IRJit.h">
       <Filter>MIPS\x86</Filter>
+    </ClInclude>
+    <ClInclude Include="MIPS\ARM64\Arm64IRJit.h">
+      <Filter>MIPS\ARM64</Filter>
+    </ClInclude>
+    <ClInclude Include="MIPS\ARM64\Arm64IRRegCache.h">
+      <Filter>MIPS\ARM64</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

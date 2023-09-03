@@ -78,9 +78,9 @@ public:
 	void Init(Gen::XEmitter *emitter);
 
 	// May fail and return INVALID_REG if it needs flushing.
-	Gen::X64Reg TryMapTempImm(IRReg, X64IRJitConstants::X64Map flags = X64IRJitConstants::X64Map::NONE);
+	Gen::X64Reg TryMapTempImm(IRReg reg, X64IRJitConstants::X64Map flags = X64IRJitConstants::X64Map::NONE);
 
-	// Returns an RV register containing the requested MIPS register.
+	// Returns an X64 register containing the requested MIPS register.
 	Gen::X64Reg MapGPR(IRReg reg, MIPSMap mapFlags = MIPSMap::INIT);
 	Gen::X64Reg MapGPR2(IRReg reg, MIPSMap mapFlags = MIPSMap::INIT);
 	Gen::X64Reg MapGPRAsPointer(IRReg reg);

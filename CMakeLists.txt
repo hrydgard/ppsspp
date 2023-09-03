@@ -1591,6 +1591,17 @@ list(APPEND CoreExtra
 	Core/MIPS/ARM64/Arm64RegCache.h
 	Core/MIPS/ARM64/Arm64RegCacheFPU.cpp
 	Core/MIPS/ARM64/Arm64RegCacheFPU.h
+	Core/MIPS/ARM64/Arm64IRAsm.cpp
+	Core/MIPS/ARM64/Arm64IRCompALU.cpp
+	Core/MIPS/ARM64/Arm64IRCompBranch.cpp
+	Core/MIPS/ARM64/Arm64IRCompFPU.cpp
+	Core/MIPS/ARM64/Arm64IRCompLoadStore.cpp
+	Core/MIPS/ARM64/Arm64IRCompSystem.cpp
+	Core/MIPS/ARM64/Arm64IRCompVec.cpp
+	Core/MIPS/ARM64/Arm64IRJit.cpp
+	Core/MIPS/ARM64/Arm64IRJit.h
+	Core/MIPS/ARM64/Arm64IRRegCache.cpp
+	Core/MIPS/ARM64/Arm64IRRegCache.h
 	GPU/Common/VertexDecoderArm64.cpp
 	Core/Util/DisArm64.cpp
 )

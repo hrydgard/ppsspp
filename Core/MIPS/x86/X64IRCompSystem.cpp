@@ -236,7 +236,7 @@ int ReportBadAddress(uint32_t addr, uint32_t alignment, uint32_t isWrite) {
 		return toss(MemoryExceptionType::ALIGNMENT);
 	}
 	return 0;
-};
+}
 
 void X64JitBackend::CompIR_ValidateAddress(IRInst inst) {
 	CONDITIONAL_DISABLE;

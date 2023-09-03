@@ -34,7 +34,6 @@ namespace MIPSComp {
 IRFrontend::IRFrontend(bool startDefaultPrefix) {
 	js.startDefaultPrefix = startDefaultPrefix;
 	js.hasSetRounding = false;
-	// js.currentRoundingFunc = convertS0ToSCRATCH1[0];
 
 	// The debugger sets this so that "go" on a breakpoint will actually... go.
 	// But if they reset, we can end up hitting it by mistake, since it's based on PC and ticks.

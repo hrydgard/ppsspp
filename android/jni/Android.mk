@@ -343,6 +343,15 @@ ARCH_FILES := \
   $(SRC)/Core/MIPS/ARM64/Arm64Jit.cpp \
   $(SRC)/Core/MIPS/ARM64/Arm64RegCache.cpp \
   $(SRC)/Core/MIPS/ARM64/Arm64RegCacheFPU.cpp \
+  $(SRC)/Core/MIPS/ARM64/Arm64IRAsm.cpp \
+  $(SRC)/Core/MIPS/ARM64/Arm64IRCompALU.cpp \
+  $(SRC)/Core/MIPS/ARM64/Arm64IRCompBranch.cpp \
+  $(SRC)/Core/MIPS/ARM64/Arm64IRCompFPU.cpp \
+  $(SRC)/Core/MIPS/ARM64/Arm64IRCompLoadStore.cpp \
+  $(SRC)/Core/MIPS/ARM64/Arm64IRCompSystem.cpp \
+  $(SRC)/Core/MIPS/ARM64/Arm64IRCompVec.cpp \
+  $(SRC)/Core/MIPS/ARM64/Arm64IRJit.cpp \
+  $(SRC)/Core/MIPS/ARM64/Arm64IRRegCache.cpp \
   $(SRC)/Core/Util/DisArm64.cpp \
   $(SRC)/GPU/Common/VertexDecoderArm64.cpp \
   Arm64EmitterTest.cpp
