@@ -51,8 +51,29 @@ void Arm64JitBackend::CompIR_Arith(IRInst inst) {
 	switch (inst.op) {
 	case IROp::Add:
 	case IROp::Sub:
+		CompIR_Generic(inst);
+		break;
+
 	case IROp::AddConst:
+		if (regs_.IsGPRMappedAsPointer(inst.dest) && inst.dest == inst.src1 && allowPtrMath) {
+			regs_.MarkGPRAsPointerDirty(inst.dest);
+			ADDI2R(regs_.RPtr(inst.dest), regs_.RPtr(inst.src1), (int)inst.constant, SCRATCH1_64);
+		} else {
+			regs_.Map(inst);
+			ADDI2R(regs_.R(inst.dest), regs_.R(inst.src1), inst.constant, SCRATCH1);
+		}
+		break;
+
 	case IROp::SubConst:
+		if (regs_.IsGPRMappedAsPointer(inst.dest) && inst.dest == inst.src1 && allowPtrMath) {
+			regs_.MarkGPRAsPointerDirty(inst.dest);
+			SUBI2R(regs_.RPtr(inst.dest), regs_.RPtr(inst.src1), (int)inst.constant, SCRATCH1_64);
+		} else {
+			regs_.Map(inst);
+			SUBI2R(regs_.R(inst.dest), regs_.R(inst.src1), inst.constant, SCRATCH1);
+		}
+		break;
+
 	case IROp::Neg:
 		CompIR_Generic(inst);
 		break;
@@ -68,6 +89,12 @@ void Arm64JitBackend::CompIR_Assign(IRInst inst) {
 
 	switch (inst.op) {
 	case IROp::Mov:
+		if (inst.dest != inst.src1) {
+			regs_.Map(inst);
+			MOV(regs_.R(inst.dest), regs_.R(inst.src1));
+		}
+		break;
+
 	case IROp::Ext8to32:
 	case IROp::Ext16to32:
 		CompIR_Generic(inst);

@@ -47,11 +47,30 @@ void Arm64JitBackend::CompIR_Basic(IRInst inst) {
 
 	switch (inst.op) {
 	case IROp::Downcount:
+		SUBI2R(DOWNCOUNTREG, DOWNCOUNTREG, (s64)(s32)inst.constant, SCRATCH1);
+		break;
+
 	case IROp::SetConst:
+		regs_.SetGPRImm(inst.dest, inst.constant);
+		break;
+
 	case IROp::SetConstF:
+	{
+		regs_.Map(inst);
+		float f;
+		memcpy(&f, &inst.constant, sizeof(f));
+		fp_.MOVI2F(regs_.F(inst.dest), f, SCRATCH1);
+		break;
+	}
+
 	case IROp::SetPC:
+		regs_.Map(inst);
+		MovToPC(regs_.R(inst.src1));
+		break;
+
 	case IROp::SetPCConst:
-		CompIR_Generic(inst);
+		MOVI2R(SCRATCH1, inst.constant);
+		MovToPC(SCRATCH1);
 		break;
 
 	default:
