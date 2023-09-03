@@ -272,6 +272,10 @@ if(MACOSX AND NOT IOS)
 	endif()
 endif()
 
+if(IOS)
+	add_definitions(-DHAVE_SYSCTLBYNAME)
+endif()
+
 include(FindThreads)
 
 if(APPLE)
