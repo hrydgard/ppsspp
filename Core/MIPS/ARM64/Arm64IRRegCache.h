@@ -70,6 +70,7 @@ public:
 	Arm64Gen::ARM64Reg GetAndLockTempFPR();
 
 	Arm64Gen::ARM64Reg R(IRReg preg); // Returns a cached register, while checking that it's NOT mapped as a pointer
+	Arm64Gen::ARM64Reg R64(IRReg preg);
 	Arm64Gen::ARM64Reg RPtr(IRReg preg); // Returns a cached register, if it has been mapped as a pointer
 	Arm64Gen::ARM64Reg F(IRReg preg);
 	Arm64Gen::ARM64Reg FD(IRReg preg);
