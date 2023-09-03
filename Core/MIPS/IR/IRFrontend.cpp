@@ -340,13 +340,24 @@ void IRFrontend::CheckBreakpoint(u32 addr) {
 	if (CBreakPoints::IsAddressBreakPoint(addr)) {
 		FlushAll();
 
+		if (GetCompilerPC() != js.blockStart)
+			ir.Write(IROp::SetPCConst, 0, ir.AddConstant(GetCompilerPC()));
+
 		RestoreRoundingMode();
-		ir.Write(IROp::SetPCConst, 0, ir.AddConstant(GetCompilerPC()));
-		// 0 because we normally execute before increasing.
-		// TODO: In likely branches, downcount will be incorrect.
-		int downcountOffset = js.inDelaySlot && js.downcountAmount >= 2 ? -2 : 0;
+		// At this point, downcount HAS the delay slot, but not the instruction itself.
+		int downcountOffset = 0;
+		if (js.inDelaySlot) {
+			MIPSOpcode branchOp = Memory::Read_Opcode_JIT(GetCompilerPC());
+			MIPSOpcode delayOp = Memory::Read_Opcode_JIT(addr);
+			downcountOffset = -MIPSGetInstructionCycleEstimate(delayOp);
+			if ((MIPSGetInfo(branchOp) & LIKELY) != 0) {
+				// Okay, we're in a likely branch.  Also negate the branch cycles.
+				downcountOffset += -MIPSGetInstructionCycleEstimate(branchOp);
+			}
+		}
 		int downcountAmount = js.downcountAmount + downcountOffset;
-		ir.Write(IROp::Downcount, 0, ir.AddConstant(downcountAmount));
+		if (downcountAmount != 0)
+			ir.Write(IROp::Downcount, 0, ir.AddConstant(downcountAmount));
 		// Note that this means downcount can't be metadata on the block.
 		js.downcountAmount = -downcountOffset;
 		ir.Write(IROp::Breakpoint, 0, ir.AddConstant(addr));
@@ -360,16 +371,25 @@ void IRFrontend::CheckMemoryBreakpoint(int rs, int offset) {
 	if (CBreakPoints::HasMemChecks()) {
 		FlushAll();
 
+		if (GetCompilerPC() != js.blockStart)
+			ir.Write(IROp::SetPCConst, 0, ir.AddConstant(GetCompilerPC()));
+
 		RestoreRoundingMode();
-		ir.Write(IROp::SetPCConst, 0, ir.AddConstant(GetCompilerPC()));
-		// 0 because we normally execute before increasing.
-		int downcountOffset = js.inDelaySlot ? -2 : -1;
-		// TODO: In likely branches, downcount will be incorrect.  This might make resume fail.
-		if (js.downcountAmount == 0) {
-			downcountOffset = 0;
+		// At this point, downcount HAS the delay slot, but not the instruction itself.
+		int downcountOffset = 0;
+		if (js.inDelaySlot) {
+			// We assume delay slot in compilerPC + 4.
+			MIPSOpcode branchOp = Memory::Read_Opcode_JIT(GetCompilerPC());
+			MIPSOpcode delayOp = Memory::Read_Opcode_JIT(GetCompilerPC() + 4);
+			downcountOffset = -MIPSGetInstructionCycleEstimate(delayOp);
+			if ((MIPSGetInfo(branchOp) & LIKELY) != 0) {
+				// Okay, we're in a likely branch.  Also negate the branch cycles.
+				downcountOffset += -MIPSGetInstructionCycleEstimate(branchOp);
+			}
 		}
 		int downcountAmount = js.downcountAmount + downcountOffset;
-		ir.Write(IROp::Downcount, 0, ir.AddConstant(downcountAmount));
+		if (downcountAmount != 0)
+			ir.Write(IROp::Downcount, 0, ir.AddConstant(downcountAmount));
 		// Note that this means downcount can't be metadata on the block.
 		js.downcountAmount = -downcountOffset;
 		ir.Write(IROp::MemoryCheck, js.inDelaySlot ? 4 : 0, rs, ir.AddConstant(offset));

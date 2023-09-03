@@ -1053,7 +1053,7 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, int count) {
 			break;
 
 		case IROp::Downcount:
-			mips->downcount -= inst->constant;
+			mips->downcount -= (int)inst->constant;
 			break;
 
 		case IROp::SetPC:
