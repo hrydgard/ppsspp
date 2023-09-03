@@ -302,13 +302,6 @@ static void __HttpRequestStop() {
 void __HttpInit() {
 	Core_ListenLifecycle(&__HttpNotifyLifecycle);
 	Core_ListenStopRequest(&__HttpRequestStop);
-
-	// Finding memory leaks by object numbers
-	//_CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
-	//_CrtSetBreakAlloc(2407638);
-	//_CrtSetBreakAlloc(1691236);
-	//_CrtSetBreakAlloc(1691235);
-	//_CrtSetBreakAlloc(1691231);
 }
 
 void __HttpShutdown() {
