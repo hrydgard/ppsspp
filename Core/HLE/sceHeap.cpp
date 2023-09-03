@@ -19,6 +19,7 @@
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"
 #include "Common/Serialize/SerializeMap.h"
+#include "Common/StringUtils.h"
 #include "Core/MemMap.h"
 #include "Core/Reporting.h"
 #include "Core/HLE/HLE.h"
@@ -193,7 +194,7 @@ static int sceHeapCreateHeap(const char* name, u32 heapSize, int attr, u32 param
 	Heap *heap = new Heap;
 	heap->size = allocSize;
 	heap->fromtop = (attr & PSP_HEAP_ATTR_HIGHMEM) != 0;
-	u32 addr = userMemory.Alloc(heap->size, heap->fromtop, "Heap");
+	u32 addr = userMemory.Alloc(heap->size, heap->fromtop, StringFromFormat("Heap/%s", name).c_str());
 	if (addr == (u32)-1) {
 		ERROR_LOG(HLE, "sceHeapCreateHeap(): Failed to allocate %i bytes memory", allocSize);	
 		delete heap;
