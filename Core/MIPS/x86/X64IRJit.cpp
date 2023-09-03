@@ -166,8 +166,6 @@ void X64JitBackend::WriteConstExit(uint32_t pc) {
 
 	int exitStart = (int)GetOffset(GetCodePointer());
 	if (block_num >= 0 && jo.enableBlocklink && nativeBlock && nativeBlock->checkedOffset != 0) {
-		// Don't bother recording, we don't ever overwrite to "unlink".
-		// Instead, we would mark the target block to jump to the dispatcher.
 		JMP(GetBasePtr() + nativeBlock->checkedOffset, true);
 	} else {
 		MOV(32, R(SCRATCH1), Imm32(pc));

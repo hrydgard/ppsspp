@@ -757,6 +757,15 @@ ifeq ($(WITH_DYNAREC),1)
 		     $(COREDIR)/MIPS/ARM64/Arm64Jit.cpp \
 		     $(COREDIR)/MIPS/ARM64/Arm64RegCache.cpp \
 		     $(COREDIR)/MIPS/ARM64/Arm64RegCacheFPU.cpp \
+		     $(COREDIR)/MIPS/ARM64/Arm64IRAsm.cpp \
+		     $(COREDIR)/MIPS/ARM64/Arm64IRCompALU.cpp \
+		     $(COREDIR)/MIPS/ARM64/Arm64IRCompBranch.cpp \
+		     $(COREDIR)/MIPS/ARM64/Arm64IRCompFPU.cpp \
+		     $(COREDIR)/MIPS/ARM64/Arm64IRCompLoadStore.cpp \
+		     $(COREDIR)/MIPS/ARM64/Arm64IRCompSystem.cpp \
+		     $(COREDIR)/MIPS/ARM64/Arm64IRCompVec.cpp \
+		     $(COREDIR)/MIPS/ARM64/Arm64IRJit.cpp \
+		     $(COREDIR)/MIPS/ARM64/Arm64IRRegCache.cpp \
 		     $(COREDIR)/Util/DisArm64.cpp \
 		     $(GPUCOMMONDIR)/VertexDecoderArm64.cpp
 

@@ -490,6 +490,10 @@ const u8 *IRNativeJit::GetCrashHandler() const {
 	return backend_->GetNativeHooks().crashHandler;
 }
 
+void IRNativeJit::UpdateFCR31() {
+	backend_->UpdateFCR31(mips_);
+}
+
 JitBlockCacheDebugInterface *IRNativeJit::GetBlockCacheDebugInterface() {
 	return &debugInterface_;
 }

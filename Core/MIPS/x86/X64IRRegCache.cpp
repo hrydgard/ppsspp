@@ -262,7 +262,7 @@ void X64IRRegCache::MapWithFlags(IRInst inst, X64Map destFlags, X64Map src1Flags
 X64Reg X64IRRegCache::MapGPR(IRReg mipsReg, MIPSMap mapFlags) {
 	_dbg_assert_(IsValidGPR(mipsReg));
 
-	// Okay, not mapped, so we need to allocate an RV register.
+	// Okay, not mapped, so we need to allocate an x64 register.
 	IRNativeReg nreg = MapNativeReg(MIPSLoc::REG, mipsReg, 1, mapFlags);
 	return FromNativeReg(nreg);
 }
@@ -270,7 +270,7 @@ X64Reg X64IRRegCache::MapGPR(IRReg mipsReg, MIPSMap mapFlags) {
 X64Reg X64IRRegCache::MapGPR2(IRReg mipsReg, MIPSMap mapFlags) {
 	_dbg_assert_(IsValidGPR(mipsReg) && IsValidGPR(mipsReg + 1));
 
-	// Okay, not mapped, so we need to allocate an RV register.
+	// Okay, not mapped, so we need to allocate an x64 register.
 	IRNativeReg nreg = MapNativeReg(MIPSLoc::REG, mipsReg, 2, mapFlags);
 	return FromNativeReg(nreg);
 }
@@ -326,7 +326,6 @@ void X64IRRegCache::LoadNativeReg(IRNativeReg nreg, IRReg first, int lanes) {
 	X64Reg r = FromNativeReg(nreg);
 	_dbg_assert_(first != MIPS_REG_ZERO);
 	if (nreg < NUM_X_REGS) {
-		// Multilane not yet supported.
 		_assert_(lanes == 1 || (lanes == 2 && first == IRREG_LO));
 		if (lanes == 1)
 			emit_->MOV(32, ::R(r), MDisp(CTXREG, -128 + GetMipsRegOffset(first)));
@@ -354,7 +353,6 @@ void X64IRRegCache::StoreNativeReg(IRNativeReg nreg, IRReg first, int lanes) {
 	X64Reg r = FromNativeReg(nreg);
 	_dbg_assert_(first != MIPS_REG_ZERO);
 	if (nreg < NUM_X_REGS) {
-		// Multilane not yet supported.
 		_assert_(lanes == 1 || (lanes == 2 && first == IRREG_LO));
 		_assert_(mr[first].loc == MIPSLoc::REG || mr[first].loc == MIPSLoc::REG_IMM);
 		if (lanes == 1)
@@ -434,9 +432,9 @@ X64Reg X64IRRegCache::RXPtr(IRReg mipsReg) {
 	if (mr[mipsReg].loc == MIPSLoc::REG_AS_PTR) {
 		return FromNativeReg(mr[mipsReg].nReg);
 	} else if (mr[mipsReg].loc == MIPSLoc::REG || mr[mipsReg].loc == MIPSLoc::REG_IMM) {
-		int rv = mr[mipsReg].nReg;
-		_dbg_assert_(nr[rv].pointerified);
-		if (nr[rv].pointerified) {
+		int r = mr[mipsReg].nReg;
+		_dbg_assert_(nr[r].pointerified);
+		if (nr[r].pointerified) {
 			return FromNativeReg(mr[mipsReg].nReg);
 		} else {
 			ERROR_LOG(JIT, "Tried to use a non-pointer register as a pointer");

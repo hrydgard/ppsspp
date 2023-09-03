@@ -44,7 +44,7 @@ public:
 	void Init(RiscVGen::RiscVEmitter *emitter);
 
 	// May fail and return INVALID_REG if it needs flushing.
-	RiscVGen::RiscVReg TryMapTempImm(IRReg);
+	RiscVGen::RiscVReg TryMapTempImm(IRReg reg);
 
 	// Returns an RV register containing the requested MIPS register.
 	RiscVGen::RiscVReg MapGPR(IRReg reg, MIPSMap mapFlags = MIPSMap::INIT);

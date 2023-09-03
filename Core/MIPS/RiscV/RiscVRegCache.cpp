@@ -77,7 +77,6 @@ const int *RiscVRegCache::GetAllocationOrder(MIPSLoc type, MIPSMap flags, int &c
 		}
 	} else if (type == MIPSLoc::FREG) {
 		// F8 through F15 are used for compression, so they are great.
-		// TODO: Maybe we could remove some saved regs since we rarely need that many?  Or maybe worth it?
 		static const int allocationOrder[] = {
 			F8, F9, F10, F11, F12, F13, F14, F15,
 			F0, F1, F2, F3, F4, F5, F6, F7,
@@ -312,7 +311,6 @@ void RiscVRegCache::LoadNativeReg(IRNativeReg nreg, IRReg first, int lanes) {
 	_dbg_assert_(r > X0);
 	_dbg_assert_(first != MIPS_REG_ZERO);
 	if (r <= X31) {
-		// Multilane not yet supported.
 		_assert_(lanes == 1 || (lanes == 2 && first == IRREG_LO));
 		if (lanes == 1)
 			emit_->LW(r, CTXREG, GetMipsRegOffset(first));

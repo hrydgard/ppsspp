@@ -18,36 +18,24 @@
 #pragma once
 
 #include "ppsspp_config.h"
-#if PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)
+// In other words, PPSSPP_ARCH(ARM64) || DISASM_ALL.
+#if PPSSPP_ARCH(ARM64) || (PPSSPP_PLATFORM(WINDOWS) && !defined(__LIBRETRO__))
 
 #include <string>
 #include <vector>
-#include "Common/x64Emitter.h"
+#include "Common/Arm64Emitter.h"
 #include "Core/MIPS/IR/IRJit.h"
 #include "Core/MIPS/IR/IRNativeCommon.h"
 #include "Core/MIPS/JitCommon/JitState.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
-#include "Core/MIPS/x86/X64IRRegCache.h"
-
-#if PPSSPP_PLATFORM(WINDOWS) && (defined(_MSC_VER) || defined(__clang__) || defined(__INTEL_COMPILER))
-#define X64JIT_XMM_CALL __vectorcall
-#define X64JIT_USE_XMM_CALL 1
-#elif PPSSPP_ARCH(AMD64)
-// SystemV ABI supports XMM registers.
-#define X64JIT_XMM_CALL
-#define X64JIT_USE_XMM_CALL 1
-#else
-// GCC on x86 doesn't support vectorcall.
-#define X64JIT_XMM_CALL
-#define X64JIT_USE_XMM_CALL 0
-#endif
+#include "Core/MIPS/ARM64/Arm64IRRegCache.h"
 
 namespace MIPSComp {
 
-class X64JitBackend : public Gen::XCodeBlock, public IRNativeBackend {
+class Arm64JitBackend : public Arm64Gen::ARM64CodeBlock, public IRNativeBackend {
 public:
-	X64JitBackend(JitOptions &jo, IRBlockCache &blocks);
-	~X64JitBackend();
+	Arm64JitBackend(JitOptions &jo, IRBlockCache &blocks);
+	~Arm64JitBackend();
 
 	bool DescribeCodePtr(const u8 *ptr, std::string &name) const override;
 
@@ -55,6 +43,8 @@ public:
 	bool CompileBlock(IRBlock *block, int block_num, bool preload) override;
 	void ClearAllBlocks() override;
 	void InvalidateBlock(IRBlock *block, int block_num) override;
+
+	void UpdateFCR31(MIPSState *mipsState) override;
 
 protected:
 	const CodeBlockCommon &CodeBlock() const override {
@@ -64,8 +54,9 @@ protected:
 private:
 	void RestoreRoundingMode(bool force = false);
 	void ApplyRoundingMode(bool force = false);
-	void MovFromPC(Gen::X64Reg r);
-	void MovToPC(Gen::X64Reg r);
+	void UpdateRoundingMode(bool force = false);
+	void MovFromPC(Arm64Gen::ARM64Reg r);
+	void MovToPC(Arm64Gen::ARM64Reg r);
 
 	void SaveStaticRegisters();
 	void LoadStaticRegisters();
@@ -119,15 +110,9 @@ private:
 	void CompIR_VecStore(IRInst inst) override;
 	void CompIR_ValidateAddress(IRInst inst) override;
 
-	void EmitConst4x32(const void **c, uint32_t v);
-	void EmitFPUConstants();
-	void EmitVecConstants();
-
-	Gen::OpArg PrepareSrc1Address(IRInst inst);
-	void CopyVec4ToFPRLane0(Gen::X64Reg dest, Gen::X64Reg src, int lane);
-
 	JitOptions &jo;
-	X64IRRegCache regs_;
+	Arm64IRRegCache regs_;
+	Arm64Gen::ARM64FloatEmitter fp_;
 
 	const u8 *outerLoop_ = nullptr;
 	const u8 *outerLoopPCInSCRATCH1_ = nullptr;
@@ -136,40 +121,31 @@ private:
 	const u8 *dispatcherNoCheck_ = nullptr;
 	const u8 *restoreRoundingMode_ = nullptr;
 	const u8 *applyRoundingMode_ = nullptr;
+	const u8 *updateRoundingMode_ = nullptr;
 
 	const u8 *saveStaticRegisters_ = nullptr;
 	const u8 *loadStaticRegisters_ = nullptr;
 
-	typedef struct { float f[4]; } Float4Constant;
-	struct Constants {
-		const void *noSignMask;
-		const void *signBitAll;
-		const void *positiveInfinity;
-		const void *positiveOnes;
-		const void *negativeOnes;
-		const void *qNAN;
-		const float *mulTableVi2f;
-		const double *mulTableVf2i;
-		const double *minIntAsDouble;
-		const double *maxIntAsDouble;
-		const Float4Constant *vec4InitValues;
-	};
-	Constants constants;
+	// Indexed by FPCR FZ:RN bits for convenience.  Uses SCRATCH2.
+	const u8 *convertS0ToSCRATCH1_[8];
+
+	// Note: mutable state used at runtime.
+	const u8 *currentRoundingFunc_ = nullptr;
 
 	int jitStartOffset_ = 0;
 	int compilingBlockNum_ = -1;
 	int logBlocks_ = 0;
 };
 
-class X64IRJit : public IRNativeJit {
+class Arm64IRJit : public IRNativeJit {
 public:
-	X64IRJit(MIPSState *mipsState)
-		: IRNativeJit(mipsState), x64Backend_(jo, blocks_) {
-		Init(x64Backend_);
+	Arm64IRJit(MIPSState *mipsState)
+		: IRNativeJit(mipsState), arm64Backend_(jo, blocks_) {
+		Init(arm64Backend_);
 	}
 
 private:
-	X64JitBackend x64Backend_;
+	Arm64JitBackend arm64Backend_;
 };
 
 } // namespace MIPSComp

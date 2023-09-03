@@ -505,6 +505,7 @@ void X64JitBackend::CompIR_Logic(IRInst inst) {
 			AND(32, regs_.R(inst.dest), regs_.R(inst.src2));
 		}
 		break;
+
 	case IROp::Or:
 		regs_.Map(inst);
 		if (inst.dest == inst.src1) {
