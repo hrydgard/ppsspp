@@ -875,6 +875,7 @@
       <Filter>GPU\Vulkan</Filter>
     </ClCompile>
     <ClCompile Include="RiscVEmitter.cpp" />
+    <ClCompile Include="LoongArchCPUDetect.cpp" />
     <ClCompile Include="GPU\Vulkan\VulkanFrameData.cpp">
       <Filter>GPU\Vulkan</Filter>
     </ClCompile>
