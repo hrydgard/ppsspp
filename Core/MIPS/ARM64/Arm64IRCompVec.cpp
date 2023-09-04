@@ -106,8 +106,10 @@ enum class Arm64Shuffle {
 	REV64_EXT8_DCAB,
 	EXT4_UZP1_BDAC,
 	EXT4_UZP2_CABD,
+	EXT8_ZIP1_ACBD,
+	EXT8_ZIP2_CADB,
 
-	// Any that mutate dest must be after this point.
+	// Any that don't fully replace dest must be after this point.
 	INS0_TO_1,
 	INS0_TO_2,
 	INS0_TO_3,
@@ -122,7 +124,12 @@ enum class Arm64Shuffle {
 	INS3_TO_2,
 	XTN2,
 
-	COUNT,
+	// These hacks to prevent 4 instructions, but scoring isn't smart enough to avoid.
+	EXT12_ZIP1_ADBA,
+	DUP3_UZP1_DDAC,
+
+	COUNT_NORMAL = EXT12_ZIP1_ADBA,
+	COUNT_SIMPLE = REV64_EXT8_CDBA,
 	COUNT_NOPREV = INS0_TO_1,
 };
 
@@ -148,6 +155,8 @@ uint8_t Arm64ShuffleMask(Arm64Shuffle method) {
 	case Arm64Shuffle::REV64_EXT8_DCAB: return 0x4B;
 	case Arm64Shuffle::EXT4_UZP1_BDAC: return 0x8D;
 	case Arm64Shuffle::EXT4_UZP2_CABD: return 0xD2;
+	case Arm64Shuffle::EXT8_ZIP1_ACBD: return 0xD8;
+	case Arm64Shuffle::EXT8_ZIP2_CADB: return 0x72;
 	case Arm64Shuffle::INS0_TO_1: return 0xE0;
 	case Arm64Shuffle::INS0_TO_2: return 0xC4;
 	case Arm64Shuffle::INS0_TO_3: return 0x24;
@@ -161,6 +170,8 @@ uint8_t Arm64ShuffleMask(Arm64Shuffle method) {
 	case Arm64Shuffle::INS3_TO_1: return 0xEC;
 	case Arm64Shuffle::INS3_TO_2: return 0xF4;
 	case Arm64Shuffle::XTN2: return 0x84;
+	case Arm64Shuffle::EXT12_ZIP1_ADBA: return 0x1C;
+	case Arm64Shuffle::DUP3_UZP1_DDAC: return 0x8F;
 	default:
 		_assert_(false);
 		return 0;
@@ -205,6 +216,16 @@ void Arm64ShuffleApply(ARM64FloatEmitter &fp, Arm64Shuffle method, ARM64Reg vd, 
 		fp.UZP2(32, vd, EncodeRegToQuad(SCRATCHF1), vs);
 		return;
 
+	case Arm64Shuffle::EXT8_ZIP1_ACBD:
+		fp.EXT(EncodeRegToQuad(SCRATCHF1), vs, vs, 8);
+		fp.ZIP1(32, vd, vs, EncodeRegToQuad(SCRATCHF1));
+		return;
+
+	case Arm64Shuffle::EXT8_ZIP2_CADB:
+		fp.EXT(EncodeRegToQuad(SCRATCHF1), vs, vs, 8);
+		fp.ZIP2(32, vd, vs, EncodeRegToQuad(SCRATCHF1));
+		return;
+
 	case Arm64Shuffle::INS0_TO_1: fp.INS(32, vd, 1, vs, 0); return;
 	case Arm64Shuffle::INS0_TO_2: fp.INS(32, vd, 2, vs, 0); return;
 	case Arm64Shuffle::INS0_TO_3: fp.INS(32, vd, 3, vs, 0); return;
@@ -219,6 +240,16 @@ void Arm64ShuffleApply(ARM64FloatEmitter &fp, Arm64Shuffle method, ARM64Reg vd, 
 	case Arm64Shuffle::INS3_TO_2: fp.INS(32, vd, 2, vs, 3); return;
 
 	case Arm64Shuffle::XTN2: fp.XTN2(32, vd, vs); return;
+
+	case Arm64Shuffle::EXT12_ZIP1_ADBA:
+		fp.EXT(EncodeRegToQuad(SCRATCHF1), vs, vs, 12);
+		fp.ZIP1(32, vd, vs, EncodeRegToQuad(SCRATCHF1));
+		return;
+
+	case Arm64Shuffle::DUP3_UZP1_DDAC:
+		fp.DUP(32, EncodeRegToQuad(SCRATCHF1), vs, 3);
+		fp.UZP1(32, vd, EncodeRegToQuad(SCRATCHF1), vs);
+		return;
 
 	default:
 		_assert_(false);
@@ -262,13 +293,16 @@ int Arm64ShuffleScore(uint8_t shuf, uint8_t goal, int steps = 1) {
 	// We need to look one level deeper to solve some, such as 1B (common) well.
 	if (steps > 0) {
 		int bestNextScore = 0;
-		for (int m = 0; m < (int)Arm64Shuffle::COUNT; ++m) {
+		for (int m = 0; m < (int)Arm64Shuffle::COUNT_NORMAL; ++m) {
 			uint8_t next = Arm64ShuffleResult(Arm64ShuffleMask((Arm64Shuffle)m), shuf);
 			int nextScore = Arm64ShuffleScore(next, goal, steps - 1);
 			if (nextScore > score) {
 				bestNextScore = nextScore;
-				if (bestNextScore == 100)
+				if (bestNextScore == 100) {
+					// Take the earliest that gives us two steps, it's cheaper (not 2 instructions.)
+					score = 0;
 					break;
+				}
 			}
 		}
 
@@ -279,14 +313,27 @@ int Arm64ShuffleScore(uint8_t shuf, uint8_t goal, int steps = 1) {
 }
 
 Arm64Shuffle Arm64BestShuffle(uint8_t goal, uint8_t prev, bool needsCopy) {
+	// A couple special cases for optimal shuffles.
+	if (goal == 0x7C && prev == 0xE4)
+		return Arm64Shuffle::REV64_BADC;
+	if (goal == 0x2B && prev == 0xE4)
+		return Arm64Shuffle::EXT8_CDAB;
+	if ((goal == 0x07 || goal == 0x1C) && prev == 0xE4)
+		return Arm64Shuffle::EXT12_ZIP1_ADBA;
+	if ((goal == 0x8F || goal == 0x2F) && prev == 0xE4)
+		return Arm64Shuffle::DUP3_UZP1_DDAC;
+
 	// needsCopy true means insert isn't possible.
-	int attempts = needsCopy ? (int)Arm64Shuffle::COUNT_NOPREV : (int)Arm64Shuffle::COUNT;
+	int attempts = needsCopy ? (int)Arm64Shuffle::COUNT_NOPREV : (int)Arm64Shuffle::COUNT_NORMAL;
 
 	Arm64Shuffle best = Arm64Shuffle::MOV_ABCD;
 	int bestScore = 0;
 	for (int m = 0; m < attempts; ++m) {
 		uint8_t result = Arm64ShuffleResult(Arm64ShuffleMask((Arm64Shuffle)m), prev);
 		int score = Arm64ShuffleScore(result, goal);
+		// Slightly discount options that involve an extra instruction.
+		if (m >= (int)Arm64Shuffle::COUNT_SIMPLE && m < (int)Arm64Shuffle::COUNT_NOPREV)
+			score--;
 		if (score > bestScore) {
 			best = (Arm64Shuffle)m;
 			bestScore = score;
