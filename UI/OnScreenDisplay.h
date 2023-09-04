@@ -21,14 +21,30 @@ class OnScreenMessagesView : public UI::InertView {
 public:
 	OnScreenMessagesView(UI::LayoutParams *layoutParams = nullptr) : UI::InertView(layoutParams) {}
 	void Draw(UIContext &dc) override;
+	bool Dismiss(float x, float y);  // Not reusing Touch since it's asynchronous.
 	std::string DescribeText() const override;
+private:
+	struct ClickZone {
+		int index;
+		Bounds bounds;
+	};
+
+	// Argh, would really like to avoid this.
+	std::mutex clickMutex_;
+	std::vector<ClickZone> clickZones_;
 };
 
 class OSDOverlayScreen : public UIScreen {
 public:
 	const char *tag() const override { return "OSDOverlayScreen"; }
+
+	bool UnsyncTouch(const TouchInput &touch) override;
+
 	void CreateViews() override;
 	void render() override;
+
+private:
+	OnScreenMessagesView *osmView_ = nullptr;
 };
 
 enum class NoticeLevel {

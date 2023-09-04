@@ -87,6 +87,9 @@ public:
 
 	std::vector<Entry> Entries();
 
+	// TODO: Use something more stable than the index.
+	void DismissEntry(size_t index, double now);
+
 	static float FadeinTime() { return 0.1f; }
 	static float FadeoutTime() { return 0.25f; }
 

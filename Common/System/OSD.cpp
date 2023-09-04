@@ -39,6 +39,13 @@ float OnScreenDisplay::SidebarAlpha() const {
 	return saturatef(1.0f - ((float)timeSinceNudge - 0.1f) * 4.0f);
 }
 
+void OnScreenDisplay::DismissEntry(size_t index, double now) {
+	std::lock_guard<std::mutex> guard(mutex_);
+	if (index < entries_.size() && entries_[index].type != OSDType::ACHIEVEMENT_CHALLENGE_INDICATOR) {
+		entries_[index].endTime = std::min(now + FadeoutTime(), entries_[index].endTime);
+	}
+}
+
 void OnScreenDisplay::Show(OSDType type, const std::string &text, const std::string &text2, const std::string &icon, float duration_s, const char *id) {
 	// Automatic duration based on type.
 	if (duration_s <= 0.0f) {
