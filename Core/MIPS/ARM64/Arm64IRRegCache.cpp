@@ -514,6 +514,10 @@ ARM64Reg Arm64IRRegCache::R(IRReg mipsReg) {
 	}
 }
 
+ARM64Reg Arm64IRRegCache::R64(IRReg mipsReg) {
+	return EncodeRegTo64(R(mipsReg));
+}
+
 ARM64Reg Arm64IRRegCache::RPtr(IRReg mipsReg) {
 	_dbg_assert_(IsValidGPR(mipsReg));
 	_dbg_assert_(mr[mipsReg].loc == MIPSLoc::REG || mr[mipsReg].loc == MIPSLoc::REG_IMM || mr[mipsReg].loc == MIPSLoc::REG_AS_PTR);

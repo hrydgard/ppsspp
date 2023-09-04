@@ -45,6 +45,11 @@ Gen::OpArg X64JitBackend::PrepareSrc1Address(IRInst inst) {
 	// If it's about to be clobbered, don't waste time pointerifying.  Use displacement.
 	bool clobbersSrc1 = !readsFromSrc1 && regs_.IsGPRClobbered(inst.src1);
 
+#ifdef MASKED_PSP_MEMORY
+	if (inst.constant > 0)
+		inst.constant &= Memory::MEMVIEW32_MASK;
+#endif
+
 	OpArg addrArg;
 	if (inst.src1 == MIPS_REG_ZERO) {
 #ifdef MASKED_PSP_MEMORY
@@ -130,7 +135,7 @@ void X64JitBackend::CompIR_FStore(IRInst inst) {
 	switch (inst.op) {
 	case IROp::StoreFloat:
 		regs_.MapFPR(inst.src3);
-		MOVSS(addrArg, regs_.FX(inst.dest));
+		MOVSS(addrArg, regs_.FX(inst.src3));
 		break;
 
 	default:
@@ -287,7 +292,7 @@ void X64JitBackend::CompIR_VecStore(IRInst inst) {
 	switch (inst.op) {
 	case IROp::StoreVec4:
 		regs_.MapVec4(inst.src3);
-		MOVUPS(addrArg, regs_.FX(inst.dest));
+		MOVUPS(addrArg, regs_.FX(inst.src3));
 		break;
 
 	default:

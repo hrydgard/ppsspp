@@ -50,8 +50,13 @@ void Arm64JitBackend::CompIR_Arith(IRInst inst) {
 
 	switch (inst.op) {
 	case IROp::Add:
+		regs_.Map(inst);
+		ADD(regs_.R(inst.dest), regs_.R(inst.src1), regs_.R(inst.src2));
+		break;
+
 	case IROp::Sub:
-		CompIR_Generic(inst);
+		regs_.Map(inst);
+		SUB(regs_.R(inst.dest), regs_.R(inst.src1), regs_.R(inst.src2));
 		break;
 
 	case IROp::AddConst:
@@ -75,7 +80,8 @@ void Arm64JitBackend::CompIR_Arith(IRInst inst) {
 		break;
 
 	case IROp::Neg:
-		CompIR_Generic(inst);
+		regs_.Map(inst);
+		NEG(regs_.R(inst.dest), regs_.R(inst.src1));
 		break;
 
 	default:
@@ -96,8 +102,13 @@ void Arm64JitBackend::CompIR_Assign(IRInst inst) {
 		break;
 
 	case IROp::Ext8to32:
+		regs_.Map(inst);
+		SXTB(regs_.R(inst.dest), regs_.R(inst.src1));
+		break;
+
 	case IROp::Ext16to32:
-		CompIR_Generic(inst);
+		regs_.Map(inst);
+		SXTH(regs_.R(inst.dest), regs_.R(inst.src1));
 		break;
 
 	default:
@@ -110,11 +121,24 @@ void Arm64JitBackend::CompIR_Bits(IRInst inst) {
 	CONDITIONAL_DISABLE;
 
 	switch (inst.op) {
-	case IROp::BSwap32:
-	case IROp::ReverseBits:
 	case IROp::BSwap16:
+		regs_.Map(inst);
+		REV16(regs_.R(inst.dest), regs_.R(inst.src1));
+		break;
+
+	case IROp::BSwap32:
+		regs_.Map(inst);
+		REV32(regs_.R(inst.dest), regs_.R(inst.src1));
+		break;
+
 	case IROp::Clz:
-		CompIR_Generic(inst);
+		regs_.Map(inst);
+		CLZ(regs_.R(inst.dest), regs_.R(inst.src1));
+		break;
+
+	case IROp::ReverseBits:
+		regs_.Map(inst);
+		RBIT(regs_.R(inst.dest), regs_.R(inst.src1));
 		break;
 
 	default:
@@ -128,10 +152,37 @@ void Arm64JitBackend::CompIR_Compare(IRInst inst) {
 
 	switch (inst.op) {
 	case IROp::Slt:
+		regs_.Map(inst);
+		CMP(regs_.R(inst.src1), regs_.R(inst.src2));
+		CSET(regs_.R(inst.dest), CC_LT);
+		break;
+
 	case IROp::SltConst:
+		if (inst.constant == 0) {
+			// Basically, getting the sign bit.
+			regs_.Map(inst);
+			UBFX(regs_.R(inst.dest), regs_.R(inst.src1), 31, 1);
+		} else {
+			regs_.Map(inst);
+			CMPI2R(regs_.R(inst.src1), (int32_t)inst.constant, SCRATCH1);
+			CSET(regs_.R(inst.dest), CC_LT);
+		}
+		break;
+
 	case IROp::SltU:
+		regs_.Map(inst);
+		CMP(regs_.R(inst.src1), regs_.R(inst.src2));
+		CSET(regs_.R(inst.dest), CC_LO);
+		break;
+
 	case IROp::SltUConst:
-		CompIR_Generic(inst);
+		if (inst.constant == 0) {
+			regs_.SetGPRImm(inst.dest, 0);
+		} else {
+			regs_.Map(inst);
+			CMPI2R(regs_.R(inst.src1), (int32_t)inst.constant, SCRATCH1);
+			CSET(regs_.R(inst.dest), CC_LO);
+		}
 		break;
 
 	default:
@@ -145,10 +196,41 @@ void Arm64JitBackend::CompIR_CondAssign(IRInst inst) {
 
 	switch (inst.op) {
 	case IROp::MovZ:
+		if (inst.dest != inst.src2) {
+			regs_.Map(inst);
+			CMP(regs_.R(inst.src1), 0);
+			CSEL(regs_.R(inst.dest), regs_.R(inst.src2), regs_.R(inst.dest), CC_EQ);
+		}
+		break;
+
 	case IROp::MovNZ:
+		if (inst.dest != inst.src2) {
+			regs_.Map(inst);
+			CMP(regs_.R(inst.src1), 0);
+			CSEL(regs_.R(inst.dest), regs_.R(inst.src2), regs_.R(inst.dest), CC_NEQ);
+		}
+		break;
+
 	case IROp::Max:
+		if (inst.src1 != inst.src2) {
+			regs_.Map(inst);
+			CMP(regs_.R(inst.src1), regs_.R(inst.src2));
+			CSEL(regs_.R(inst.dest), regs_.R(inst.src1), regs_.R(inst.src2), CC_GE);
+		} else if (inst.dest != inst.src1) {
+			regs_.Map(inst);
+			MOV(regs_.R(inst.dest), regs_.R(inst.src1));
+		}
+		break;
+
 	case IROp::Min:
-		CompIR_Generic(inst);
+		if (inst.src1 != inst.src2) {
+			regs_.Map(inst);
+			CMP(regs_.R(inst.src1), regs_.R(inst.src2));
+			CSEL(regs_.R(inst.dest), regs_.R(inst.src1), regs_.R(inst.src2), CC_LE);
+		} else if (inst.dest != inst.src1) {
+			regs_.Map(inst);
+			MOV(regs_.R(inst.dest), regs_.R(inst.src1));
+		}
 		break;
 
 	default:
@@ -177,10 +259,23 @@ void Arm64JitBackend::CompIR_HiLo(IRInst inst) {
 
 	switch (inst.op) {
 	case IROp::MtLo:
+		regs_.MapWithExtra(inst, { { 'G', IRREG_LO, 2, MIPSMap::DIRTY } });
+		BFI(regs_.R64(IRREG_LO), regs_.R64(inst.src1), 0, 32);
+		break;
+
 	case IROp::MtHi:
+		regs_.MapWithExtra(inst, { { 'G', IRREG_LO, 2, MIPSMap::DIRTY } });
+		BFI(regs_.R64(IRREG_LO), regs_.R64(inst.src1), 32, 32);
+		break;
+
 	case IROp::MfLo:
+		regs_.MapWithExtra(inst, { { 'G', IRREG_LO, 2, MIPSMap::INIT } });
+		MOV(regs_.R(inst.dest), regs_.R(IRREG_LO));
+		break;
+
 	case IROp::MfHi:
-		CompIR_Generic(inst);
+		regs_.MapWithExtra(inst, { { 'G', IRREG_LO, 2, MIPSMap::INIT } });
+		UBFX(regs_.R64(inst.dest), regs_.R64(IRREG_LO), 32, 32);
 		break;
 
 	default:
@@ -194,13 +289,52 @@ void Arm64JitBackend::CompIR_Logic(IRInst inst) {
 
 	switch (inst.op) {
 	case IROp::And:
+		if (inst.src1 != inst.src2) {
+			regs_.Map(inst);
+			AND(regs_.R(inst.dest), regs_.R(inst.src1), regs_.R(inst.src2));
+		} else if (inst.src1 != inst.dest) {
+			regs_.Map(inst);
+			MOV(regs_.R(inst.dest), regs_.R(inst.src1));
+		}
+		break;
+
 	case IROp::Or:
+		if (inst.src1 != inst.src2) {
+			regs_.Map(inst);
+			ORR(regs_.R(inst.dest), regs_.R(inst.src1), regs_.R(inst.src2));
+		} else if (inst.src1 != inst.dest) {
+			regs_.Map(inst);
+			MOV(regs_.R(inst.dest), regs_.R(inst.src1));
+		}
+		break;
+
 	case IROp::Xor:
+		if (inst.src1 == inst.src2) {
+			regs_.SetGPRImm(inst.dest, 0);
+		} else {
+			regs_.Map(inst);
+			EOR(regs_.R(inst.dest), regs_.R(inst.src1), regs_.R(inst.src2));
+		}
+		break;
+
 	case IROp::AndConst:
+		regs_.Map(inst);
+		ANDI2R(regs_.R(inst.dest), regs_.R(inst.src1), inst.constant, SCRATCH1);
+		break;
+
 	case IROp::OrConst:
+		regs_.Map(inst);
+		ORRI2R(regs_.R(inst.dest), regs_.R(inst.src1), inst.constant, SCRATCH1);
+		break;
+
 	case IROp::XorConst:
+		regs_.Map(inst);
+		EORI2R(regs_.R(inst.dest), regs_.R(inst.src1), inst.constant, SCRATCH1);
+		break;
+
 	case IROp::Not:
-		CompIR_Generic(inst);
+		regs_.Map(inst);
+		MVN(regs_.R(inst.dest), regs_.R(inst.src1));
 		break;
 
 	default:
@@ -233,14 +367,81 @@ void Arm64JitBackend::CompIR_Shift(IRInst inst) {
 
 	switch (inst.op) {
 	case IROp::Shl:
+		regs_.Map(inst);
+		LSLV(regs_.R(inst.dest), regs_.R(inst.src1), regs_.R(inst.src2));
+		break;
+
 	case IROp::Shr:
+		regs_.Map(inst);
+		LSRV(regs_.R(inst.dest), regs_.R(inst.src1), regs_.R(inst.src2));
+		break;
+
 	case IROp::Sar:
+		regs_.Map(inst);
+		ASRV(regs_.R(inst.dest), regs_.R(inst.src1), regs_.R(inst.src2));
+		break;
+
 	case IROp::Ror:
+		regs_.Map(inst);
+		RORV(regs_.R(inst.dest), regs_.R(inst.src1), regs_.R(inst.src2));
+		break;
+
 	case IROp::ShlImm:
+		// Shouldn't happen, but let's be safe of any passes that modify the ops.
+		if (inst.src2 >= 32) {
+			regs_.SetGPRImm(inst.dest, 0);
+		} else if (inst.src2 == 0) {
+			if (inst.dest != inst.src1) {
+				regs_.Map(inst);
+				MOV(regs_.R(inst.dest), regs_.R(inst.src1));
+			}
+		} else {
+			regs_.Map(inst);
+			MOV(regs_.R(inst.dest), regs_.R(inst.src1), ArithOption(regs_.R(inst.src1), ST_LSL, inst.src2));
+		}
+		break;
+
 	case IROp::ShrImm:
+		// Shouldn't happen, but let's be safe of any passes that modify the ops.
+		if (inst.src2 >= 32) {
+			regs_.SetGPRImm(inst.dest, 0);
+		} else if (inst.src2 == 0) {
+			if (inst.dest != inst.src1) {
+				regs_.Map(inst);
+				MOV(regs_.R(inst.dest), regs_.R(inst.src1));
+			}
+		} else {
+			regs_.Map(inst);
+			MOV(regs_.R(inst.dest), regs_.R(inst.src1), ArithOption(regs_.R(inst.src1), ST_LSR, inst.src2));
+		}
+		break;
+
 	case IROp::SarImm:
+		// Shouldn't happen, but let's be safe of any passes that modify the ops.
+		if (inst.src2 >= 32) {
+			regs_.Map(inst);
+			MOV(regs_.R(inst.dest), regs_.R(inst.src1), ArithOption(regs_.R(inst.src1), ST_ASR, 31));
+		} else if (inst.src2 == 0) {
+			if (inst.dest != inst.src1) {
+				regs_.Map(inst);
+				MOV(regs_.R(inst.dest), regs_.R(inst.src1));
+			}
+		} else {
+			regs_.Map(inst);
+			MOV(regs_.R(inst.dest), regs_.R(inst.src1), ArithOption(regs_.R(inst.src1), ST_ASR, inst.src2));
+		}
+		break;
+
 	case IROp::RorImm:
-		CompIR_Generic(inst);
+		if (inst.src2 == 0) {
+			if (inst.dest != inst.src1) {
+				regs_.Map(inst);
+				MOV(regs_.R(inst.dest), regs_.R(inst.src1));
+			}
+		} else {
+			regs_.Map(inst);
+			MOV(regs_.R(inst.dest), regs_.R(inst.src1), ArithOption(regs_.R(inst.src1), ST_ROR, inst.src2 & 31));
+		}
 		break;
 
 	default:
