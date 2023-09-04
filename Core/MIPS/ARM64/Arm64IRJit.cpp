@@ -15,44 +15,53 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "ppsspp_config.h"
+// In other words, PPSSPP_ARCH(ARM64) || DISASM_ALL.
+#if PPSSPP_ARCH(ARM64) || (PPSSPP_PLATFORM(WINDOWS) && !defined(__LIBRETRO__))
+
 #include <cstddef>
 #include "Core/MemMap.h"
 #include "Core/MIPS/MIPSTables.h"
-#include "Core/MIPS/RiscV/RiscVJit.h"
-#include "Core/MIPS/RiscV/RiscVRegCache.h"
+#include "Core/MIPS/ARM64/Arm64IRJit.h"
+#include "Core/MIPS/ARM64/Arm64IRRegCache.h"
 
 namespace MIPSComp {
 
-using namespace RiscVGen;
-using namespace RiscVJitConstants;
+using namespace Arm64Gen;
+using namespace Arm64IRJitConstants;
 
-// Needs space for a LI and J which might both be 32-bit offsets.
-static constexpr int MIN_BLOCK_NORMAL_LEN = 16;
-static constexpr int MIN_BLOCK_EXIT_LEN = 8;
+// Invalidations just need at most two MOVs and B.
+static constexpr int MIN_BLOCK_NORMAL_LEN = 12;
+// As long as we can fit a B, we should be fine.
+static constexpr int MIN_BLOCK_EXIT_LEN = 4;
 
-RiscVJitBackend::RiscVJitBackend(JitOptions &jitopt, IRBlockCache &blocks)
-	: IRNativeBackend(blocks), jo(jitopt), regs_(&jo) {
+Arm64JitBackend::Arm64JitBackend(JitOptions &jitopt, IRBlockCache &blocks)
+	: IRNativeBackend(blocks), jo(jitopt), regs_(&jo), fp_(this) {
 	// Automatically disable incompatible options.
 	if (((intptr_t)Memory::base & 0x00000000FFFFFFFFUL) != 0) {
 		jo.enablePointerify = false;
 	}
+#ifdef MASKED_PSP_MEMORY
+	jo.enablePointerify = false;
+#endif
 
 	// Since we store the offset, this is as big as it can be.
-	// We could shift off one bit to double it, would need to change RiscVAsm.
 	AllocCodeSpace(1024 * 1024 * 16);
-	SetAutoCompress(true);
 
-	regs_.Init(this);
+	regs_.Init(this, &fp_);
 }
 
-RiscVJitBackend::~RiscVJitBackend() {
+Arm64JitBackend::~Arm64JitBackend() {}
+
+void Arm64JitBackend::UpdateFCR31(MIPSState *mipsState) {
+	currentRoundingFunc_ = convertS0ToSCRATCH1_[mipsState->fcr31 & 3];
 }
 
 static void NoBlockExits() {
 	_assert_msg_(false, "Never exited block, invalid IR?");
 }
 
-bool RiscVJitBackend::CompileBlock(IRBlock *block, int block_num, bool preload) {
+bool Arm64JitBackend::CompileBlock(IRBlock *block, int block_num, bool preload) {
 	if (GetSpaceLeft() < 0x800)
 		return false;
 
@@ -64,9 +73,10 @@ bool RiscVJitBackend::CompileBlock(IRBlock *block, int block_num, bool preload) 
 		SetBlockCheckedOffset(block_num, (int)GetOffset(GetCodePointer()));
 		wroteCheckedOffset = true;
 
-		FixupBranch normalEntry = BGE(DOWNCOUNTREG, R_ZERO);
-		LI(SCRATCH1, startPC);
-		QuickJ(R_RA, outerLoopPCInSCRATCH1_);
+		// Check the sign bit to check if negative.
+		FixupBranch normalEntry = TBZ(DOWNCOUNTREG, 31);
+		MOVI2R(SCRATCH1, startPC);
+		B(outerLoopPCInSCRATCH1_);
 		SetJumpTarget(normalEntry);
 	}
 
@@ -99,13 +109,13 @@ bool RiscVJitBackend::CompileBlock(IRBlock *block, int block_num, bool preload) 
 	// We should've written an exit above.  If we didn't, bad things will happen.
 	// Only check if debug stats are enabled - needlessly wastes jit space.
 	if (DebugStatsEnabled()) {
-		QuickCallFunction(&NoBlockExits, SCRATCH2);
-		QuickJ(R_RA, hooks_.crashHandler);
+		QuickCallFunction(SCRATCH2_64, &NoBlockExits);
+		B(hooks_.crashHandler);
 	}
 
 	int len = (int)GetOffset(GetCodePointer()) - block->GetTargetOffset();
 	if (len < MIN_BLOCK_NORMAL_LEN) {
-		// We need at least 16 bytes to invalidate blocks with, but larger doesn't need to align.
+		// We need at least 10 bytes to invalidate blocks with.
 		ReserveCodeSpace(MIN_BLOCK_NORMAL_LEN - len);
 	}
 
@@ -115,22 +125,24 @@ bool RiscVJitBackend::CompileBlock(IRBlock *block, int block_num, bool preload) 
 	}
 
 	if (jo.enableBlocklink && jo.useBackJump) {
-		// Most blocks shouldn't be >= 4KB, so usually we can just BGE.
-		if (BInRange(blockStart)) {
-			BGE(DOWNCOUNTREG, R_ZERO, blockStart);
+		// Small blocks are common, check if it's < 32KB long.
+		ptrdiff_t distance = blockStart - GetCodePointer();
+		if (distance >= -0x8000 && distance < 0x8000) {
+			TBZ(DOWNCOUNTREG, 31, blockStart);
 		} else {
-			FixupBranch skip = BLT(DOWNCOUNTREG, R_ZERO);
-			J(blockStart);
-			SetJumpTarget(skip);
+			FixupBranch toDispatch = TBNZ(DOWNCOUNTREG, 31);
+			B(blockStart);
+			SetJumpTarget(toDispatch);
 		}
-		LI(SCRATCH1, startPC);
-		QuickJ(R_RA, outerLoopPCInSCRATCH1_);
+
+		MOVI2R(SCRATCH1, startPC);
+		B(outerLoopPCInSCRATCH1_);
 	}
 
 	if (logBlocks_ > 0) {
 		--logBlocks_;
 
-		INFO_LOG(JIT, "=============== RISCV (%08x, %d bytes) ===============", startPC, len);
+		INFO_LOG(JIT, "=============== ARM64 (%08x, %d bytes) ===============", startPC, len);
 		for (const u8 *p = blockStart; p < GetCodePointer(); ) {
 			auto it = addresses.find(p);
 			if (it != addresses.end()) {
@@ -144,11 +156,9 @@ bool RiscVJitBackend::CompileBlock(IRBlock *block, int block_num, bool preload) 
 			auto next = std::next(it);
 			const u8 *nextp = next == addresses.end() ? GetCodePointer() : next->first;
 
-#if PPSSPP_ARCH(RISCV64) || (PPSSPP_PLATFORM(WINDOWS) && !defined(__LIBRETRO__))
-			auto lines = DisassembleRV64(p, (int)(nextp - p));
+			auto lines = DisassembleArm64(p, (int)(nextp - p));
 			for (const auto &line : lines)
-				INFO_LOG(JIT, "RV: %s", line.c_str());
-#endif
+				INFO_LOG(JIT, " A: %s", line.c_str());
 			p = nextp;
 		}
 	}
@@ -160,16 +170,16 @@ bool RiscVJitBackend::CompileBlock(IRBlock *block, int block_num, bool preload) 
 	return true;
 }
 
-void RiscVJitBackend::WriteConstExit(uint32_t pc) {
+void Arm64JitBackend::WriteConstExit(uint32_t pc) {
 	int block_num = blocks_.GetBlockNumberFromStartAddress(pc);
 	const IRNativeBlock *nativeBlock = GetNativeBlock(block_num);
 
 	int exitStart = (int)GetOffset(GetCodePointer());
 	if (block_num >= 0 && jo.enableBlocklink && nativeBlock && nativeBlock->checkedOffset != 0) {
-		QuickJ(SCRATCH1, GetBasePtr() + nativeBlock->checkedOffset);
+		B(GetBasePtr() + nativeBlock->checkedOffset);
 	} else {
-		LI(SCRATCH1, pc);
-		QuickJ(R_RA, dispatcherPCInSCRATCH1_);
+		MOVI2R(SCRATCH1, pc);
+		B(dispatcherPCInSCRATCH1_);
 	}
 
 	if (jo.enableBlocklink) {
@@ -184,7 +194,7 @@ void RiscVJitBackend::WriteConstExit(uint32_t pc) {
 	}
 }
 
-void RiscVJitBackend::OverwriteExit(int srcOffset, int len, int block_num) {
+void Arm64JitBackend::OverwriteExit(int srcOffset, int len, int block_num) {
 	_dbg_assert_(len >= MIN_BLOCK_EXIT_LEN);
 
 	const IRNativeBlock *nativeBlock = GetNativeBlock(block_num);
@@ -194,9 +204,10 @@ void RiscVJitBackend::OverwriteExit(int srcOffset, int len, int block_num) {
 			ProtectMemoryPages(writable, len, MEM_PROT_READ | MEM_PROT_WRITE);
 		}
 
-		RiscVEmitter emitter(GetBasePtr() + srcOffset, writable);
-		emitter.QuickJ(SCRATCH1, GetBasePtr() + nativeBlock->checkedOffset);
+		ARM64XEmitter emitter(GetBasePtr() + srcOffset, writable);
+		emitter.B(GetBasePtr() + nativeBlock->checkedOffset);
 		int bytesWritten = (int)(emitter.GetWritableCodePtr() - writable);
+		_dbg_assert_(bytesWritten <= MIN_BLOCK_EXIT_LEN);
 		if (bytesWritten < len)
 			emitter.ReserveCodeSpace(len - bytesWritten);
 		emitter.FlushIcache();
@@ -207,52 +218,55 @@ void RiscVJitBackend::OverwriteExit(int srcOffset, int len, int block_num) {
 	}
 }
 
-void RiscVJitBackend::CompIR_Generic(IRInst inst) {
+void Arm64JitBackend::CompIR_Generic(IRInst inst) {
 	// If we got here, we're going the slow way.
 	uint64_t value;
 	memcpy(&value, &inst, sizeof(inst));
 
 	FlushAll();
-	LI(X10, value, SCRATCH2);
 	SaveStaticRegisters();
-	QuickCallFunction(&DoIRInst, SCRATCH2);
+	MOVI2R(X0, value);
+	QuickCallFunction(SCRATCH2_64, &DoIRInst);
 	LoadStaticRegisters();
 
 	// We only need to check the return value if it's a potential exit.
 	if ((GetIRMeta(inst.op)->flags & IRFLAG_EXIT) != 0) {
-		// Result in X10 aka SCRATCH1.
-		_assert_(X10 == SCRATCH1);
-		if (BInRange(dispatcherPCInSCRATCH1_)) {
-			BNE(X10, R_ZERO, dispatcherPCInSCRATCH1_);
+		MOV(SCRATCH1, X0);
+
+		ptrdiff_t distance = dispatcherPCInSCRATCH1_ - GetCodePointer();
+		if (distance >= -0x100000 && distance < 0x100000) {
+			// Convenient, we can do a simple branch if within 1MB.
+			CBNZ(W0, dispatcherPCInSCRATCH1_);
 		} else {
-			FixupBranch skip = BEQ(X10, R_ZERO);
-			QuickJ(R_RA, dispatcherPCInSCRATCH1_);
-			SetJumpTarget(skip);
+			// That's a shame, we need a long branch.
+			FixupBranch keepOnKeepingOn = CBZ(W0);
+			B(dispatcherPCInSCRATCH1_);
+			SetJumpTarget(keepOnKeepingOn);
 		}
 	}
 }
 
-void RiscVJitBackend::CompIR_Interpret(IRInst inst) {
+void Arm64JitBackend::CompIR_Interpret(IRInst inst) {
 	MIPSOpcode op(inst.constant);
 
 	// IR protects us against this being a branching instruction (well, hopefully.)
 	FlushAll();
 	SaveStaticRegisters();
 	if (DebugStatsEnabled()) {
-		LI(X10, MIPSGetName(op));
-		QuickCallFunction(&NotifyMIPSInterpret, SCRATCH2);
+		MOVP2R(X0, MIPSGetName(op));
+		QuickCallFunction(SCRATCH2_64, &NotifyMIPSInterpret);
 	}
-	LI(X10, (int32_t)inst.constant);
-	QuickCallFunction((const u8 *)MIPSGetInterpretFunc(op), SCRATCH2);
+	MOVI2R(X0, inst.constant);
+	QuickCallFunction(SCRATCH2_64, MIPSGetInterpretFunc(op));
 	LoadStaticRegisters();
 }
 
-void RiscVJitBackend::FlushAll() {
+void Arm64JitBackend::FlushAll() {
 	regs_.FlushAll();
 }
 
-bool RiscVJitBackend::DescribeCodePtr(const u8 *ptr, std::string &name) const {
-	// Used in disassembly viewer.
+bool Arm64JitBackend::DescribeCodePtr(const u8 *ptr, std::string &name) const {
+	// Used in disassembly viewer and profiling tools.
 	// Don't use spaces; profilers get confused or truncate them.
 	if (ptr == dispatcherPCInSCRATCH1_) {
 		name = "dispatcherPCInSCRATCH1";
@@ -264,8 +278,16 @@ bool RiscVJitBackend::DescribeCodePtr(const u8 *ptr, std::string &name) const {
 		name = "saveStaticRegisters";
 	} else if (ptr == loadStaticRegisters_) {
 		name = "loadStaticRegisters";
+	} else if (ptr == restoreRoundingMode_) {
+		name = "restoreRoundingMode";
 	} else if (ptr == applyRoundingMode_) {
 		name = "applyRoundingMode";
+	} else if (ptr == updateRoundingMode_) {
+		name = "updateRoundingMode";
+	} else if (ptr == currentRoundingFunc_) {
+		name = "currentRoundingFunc";
+	} else if (ptr >= convertS0ToSCRATCH1_[0] && ptr <= convertS0ToSCRATCH1_[7]) {
+		name = "convertS0ToSCRATCH1";
 	} else if (ptr >= GetBasePtr() && ptr < GetBasePtr() + jitStartOffset_) {
 		name = "fixedCode";
 	} else {
@@ -274,13 +296,13 @@ bool RiscVJitBackend::DescribeCodePtr(const u8 *ptr, std::string &name) const {
 	return true;
 }
 
-void RiscVJitBackend::ClearAllBlocks() {
+void Arm64JitBackend::ClearAllBlocks() {
 	ClearCodeSpace(jitStartOffset_);
 	FlushIcacheSection(region + jitStartOffset_, region + region_size - jitStartOffset_);
 	EraseAllLinks(-1);
 }
 
-void RiscVJitBackend::InvalidateBlock(IRBlock *block, int block_num) {
+void Arm64JitBackend::InvalidateBlock(IRBlock *block, int block_num) {
 	int offset = block->GetTargetOffset();
 	u8 *writable = GetWritablePtrFromCodePtr(GetBasePtr()) + offset;
 
@@ -292,11 +314,9 @@ void RiscVJitBackend::InvalidateBlock(IRBlock *block, int block_num) {
 			ProtectMemoryPages(writable, MIN_BLOCK_NORMAL_LEN, MEM_PROT_READ | MEM_PROT_WRITE);
 		}
 
-		RiscVEmitter emitter(GetBasePtr() + offset, writable);
-		// We sign extend to ensure it will fit in 32-bit and 8 bytes LI.
-		// TODO: May need to change if dispatcher doesn't reload PC.
-		emitter.LI(SCRATCH1, (int32_t)pc);
-		emitter.QuickJ(R_RA, dispatcherPCInSCRATCH1_);
+		ARM64XEmitter emitter(GetBasePtr() + offset, writable);
+		emitter.MOVI2R(SCRATCH1, pc);
+		emitter.B(dispatcherPCInSCRATCH1_);
 		int bytesWritten = (int)(emitter.GetWritableCodePtr() - writable);
 		if (bytesWritten < MIN_BLOCK_NORMAL_LEN)
 			emitter.ReserveCodeSpace(MIN_BLOCK_NORMAL_LEN - bytesWritten);
@@ -310,58 +330,43 @@ void RiscVJitBackend::InvalidateBlock(IRBlock *block, int block_num) {
 	EraseAllLinks(block_num);
 }
 
-void RiscVJitBackend::RestoreRoundingMode(bool force) {
-	FSRMI(Round::NEAREST_EVEN);
+void Arm64JitBackend::RestoreRoundingMode(bool force) {
+	QuickCallFunction(SCRATCH2_64, restoreRoundingMode_);
 }
 
-void RiscVJitBackend::ApplyRoundingMode(bool force) {
-	QuickCallFunction(applyRoundingMode_);
+void Arm64JitBackend::ApplyRoundingMode(bool force) {
+	QuickCallFunction(SCRATCH2_64, applyRoundingMode_);
 }
 
-void RiscVJitBackend::MovFromPC(RiscVReg r) {
-	LWU(r, CTXREG, offsetof(MIPSState, pc));
+void Arm64JitBackend::UpdateRoundingMode(bool force) {
+	QuickCallFunction(SCRATCH2_64, updateRoundingMode_);
 }
 
-void RiscVJitBackend::MovToPC(RiscVReg r) {
-	SW(r, CTXREG, offsetof(MIPSState, pc));
+void Arm64JitBackend::MovFromPC(ARM64Reg r) {
+	LDR(INDEX_UNSIGNED, r, CTXREG, offsetof(MIPSState, pc));
 }
 
-void RiscVJitBackend::SaveStaticRegisters() {
+void Arm64JitBackend::MovToPC(ARM64Reg r) {
+	STR(INDEX_UNSIGNED, r, CTXREG, offsetof(MIPSState, pc));
+}
+
+void Arm64JitBackend::SaveStaticRegisters() {
 	if (jo.useStaticAlloc) {
-		QuickCallFunction(saveStaticRegisters_);
+		QuickCallFunction(SCRATCH2_64, saveStaticRegisters_);
 	} else {
 		// Inline the single operation
-		SW(DOWNCOUNTREG, CTXREG, offsetof(MIPSState, downcount));
+		STR(INDEX_UNSIGNED, DOWNCOUNTREG, CTXREG, offsetof(MIPSState, downcount));
 	}
 }
 
-void RiscVJitBackend::LoadStaticRegisters() {
+void Arm64JitBackend::LoadStaticRegisters() {
 	if (jo.useStaticAlloc) {
-		QuickCallFunction(loadStaticRegisters_);
+		QuickCallFunction(SCRATCH2_64, loadStaticRegisters_);
 	} else {
-		LW(DOWNCOUNTREG, CTXREG, offsetof(MIPSState, downcount));
-	}
-}
-
-void RiscVJitBackend::NormalizeSrc1(IRInst inst, RiscVReg *reg, RiscVReg tempReg, bool allowOverlap) {
-	*reg = NormalizeR(inst.src1, allowOverlap ? 0 : inst.dest, tempReg);
-}
-
-void RiscVJitBackend::NormalizeSrc12(IRInst inst, RiscVReg *lhs, RiscVReg *rhs, RiscVReg lhsTempReg, RiscVReg rhsTempReg, bool allowOverlap) {
-	*lhs = NormalizeR(inst.src1, allowOverlap ? 0 : inst.dest, lhsTempReg);
-	*rhs = NormalizeR(inst.src2, allowOverlap ? 0 : inst.dest, rhsTempReg);
-}
-
-RiscVReg RiscVJitBackend::NormalizeR(IRReg rs, IRReg rd, RiscVReg tempReg) {
-	// For proper compare, we must sign extend so they both match or don't match.
-	// But don't change pointers, in case one is SP (happens in LittleBigPlanet.)
-	if (regs_.IsGPRImm(rs) && regs_.GetGPRImm(rs) == 0) {
-		return R_ZERO;
-	} else if (regs_.IsGPRMappedAsPointer(rs) || rs == rd) {
-		return regs_.Normalize32(rs, tempReg);
-	} else {
-		return regs_.Normalize32(rs);
+		LDR(INDEX_UNSIGNED, DOWNCOUNTREG, CTXREG, offsetof(MIPSState, downcount));
 	}
 }
 
 } // namespace MIPSComp
+
+#endif

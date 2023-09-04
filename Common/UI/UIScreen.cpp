@@ -81,7 +81,7 @@ bool UIScreen::key(const KeyInput &key) {
 	}
 }
 
-void UIScreen::UnsyncTouch(const TouchInput &touch) {
+bool UIScreen::UnsyncTouch(const TouchInput &touch) {
 	if (ClickDebug && root_ && (touch.flags & TOUCH_DOWN)) {
 		INFO_LOG(SYSTEM, "Touch down!");
 		std::vector<UI::View *> views;
@@ -96,6 +96,7 @@ void UIScreen::UnsyncTouch(const TouchInput &touch) {
 	ev.type = QueuedEventType::TOUCH;
 	ev.touch = touch;
 	eventQueue_.push_back(ev);
+	return false;
 }
 
 void UIScreen::UnsyncAxis(const AxisInput &axis) {

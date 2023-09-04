@@ -147,8 +147,8 @@ static const IRMeta irMeta[] = {
 	{ IROp::Vec2ClampToZero, "Vec2ClampToZero", "22" },
 	{ IROp::Vec4Pack32To8, "Vec4Pack32To8", "FV" },
 	{ IROp::Vec4Pack31To8, "Vec4Pack31To8", "FV" },
-	{ IROp::Vec2Pack32To16, "Vec2Pack32To16", "2V" },
-	{ IROp::Vec2Pack31To16, "Vec2Pack31To16", "2V" },
+	{ IROp::Vec2Pack32To16, "Vec2Pack32To16", "F2" },
+	{ IROp::Vec2Pack31To16, "Vec2Pack31To16", "F2" },
 
 	{ IROp::Interpret, "Interpret", "_C", IRFLAG_BARRIER },
 	{ IROp::Downcount, "Downcount", "_C" },
@@ -166,8 +166,8 @@ static const IRMeta irMeta[] = {
 	{ IROp::SetPC, "SetPC", "_G" },
 	{ IROp::SetPCConst, "SetPC", "_C" },
 	{ IROp::CallReplacement, "CallRepl", "_C", IRFLAG_BARRIER },
-	{ IROp::Breakpoint, "Breakpoint", "", IRFLAG_BARRIER },
-	{ IROp::MemoryCheck, "MemoryCheck", "_GC", IRFLAG_BARRIER },
+	{ IROp::Breakpoint, "Breakpoint", "_C", IRFLAG_BARRIER },
+	{ IROp::MemoryCheck, "MemoryCheck", "IGC", IRFLAG_BARRIER },
 
 	{ IROp::ValidateAddress8, "ValidAddr8", "_GC", IRFLAG_BARRIER },
 	{ IROp::ValidateAddress16, "ValidAddr16", "_GC", IRFLAG_BARRIER },

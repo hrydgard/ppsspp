@@ -29,9 +29,10 @@ namespace MIPSComp {
 using namespace Gen;
 using namespace X64IRJitConstants;
 
-// This should be enough for exits and invalidations.
-static constexpr int MIN_BLOCK_NORMAL_LEN = 16;
-static constexpr int MIN_BLOCK_EXIT_LEN = 16;
+// Invalidations just need a MOV and JMP.
+static constexpr int MIN_BLOCK_NORMAL_LEN = 10;
+// As long as we can fit a JMP, we should be fine.
+static constexpr int MIN_BLOCK_EXIT_LEN = 5;
 
 X64JitBackend::X64JitBackend(JitOptions &jitopt, IRBlockCache &blocks)
 	: IRNativeBackend(blocks), jo(jitopt), regs_(&jo) {
@@ -109,7 +110,7 @@ bool X64JitBackend::CompileBlock(IRBlock *block, int block_num, bool preload) {
 
 	int len = (int)GetOffset(GetCodePointer()) - block->GetTargetOffset();
 	if (len < MIN_BLOCK_NORMAL_LEN) {
-		// We need at least 16 bytes to invalidate blocks with, but larger doesn't need to align.
+		// We need at least 10 bytes to invalidate blocks with.
 		ReserveCodeSpace(MIN_BLOCK_NORMAL_LEN - len);
 	}
 
@@ -165,8 +166,6 @@ void X64JitBackend::WriteConstExit(uint32_t pc) {
 
 	int exitStart = (int)GetOffset(GetCodePointer());
 	if (block_num >= 0 && jo.enableBlocklink && nativeBlock && nativeBlock->checkedOffset != 0) {
-		// Don't bother recording, we don't ever overwrite to "unlink".
-		// Instead, we would mark the target block to jump to the dispatcher.
 		JMP(GetBasePtr() + nativeBlock->checkedOffset, true);
 	} else {
 		MOV(32, R(SCRATCH1), Imm32(pc));
@@ -198,6 +197,7 @@ void X64JitBackend::OverwriteExit(int srcOffset, int len, int block_num) {
 		XEmitter emitter(writable);
 		emitter.JMP(GetBasePtr() + nativeBlock->checkedOffset, true);
 		int bytesWritten = (int)(emitter.GetWritableCodePtr() - writable);
+		_dbg_assert_(bytesWritten <= MIN_BLOCK_EXIT_LEN);
 		if (bytesWritten < len)
 			emitter.ReserveCodeSpace(len - bytesWritten);
 

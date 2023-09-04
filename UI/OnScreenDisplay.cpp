@@ -367,6 +367,8 @@ void OnScreenMessagesView::Draw(UIContext &dc) {
 		edges[(size_t)pos].maxWidth = std::max(edges[(size_t)pos].maxWidth, measuredEntry.w);
 	}
 
+	std::vector<ClickZone> dismissZones;
+
 	// Now, perform layout for all 8 edges.
 	for (size_t i = 0; i < (size_t)ScreenEdgePosition::VALUE_COUNT; i++) {
 		if (edges[i].height == 0.0f) {
@@ -444,13 +446,30 @@ void OnScreenMessagesView::Draw(UIContext &dc) {
 
 				float alpha = Clamp((float)(entry.endTime - now) * 4.0f, 0.0f, 1.0f);
 				RenderOSDEntry(dc, entry, b, measuredEntry.h1, measuredEntry.align, alpha);
+
+				switch (entry.type) {
+				case OSDType::MESSAGE_INFO:
+				case OSDType::MESSAGE_SUCCESS:
+				case OSDType::MESSAGE_WARNING:
+				case OSDType::MESSAGE_ERROR:
+				case OSDType::MESSAGE_ERROR_DUMP:
+				case OSDType::MESSAGE_FILE_LINK:
+				case OSDType::ACHIEVEMENT_UNLOCKED:
+					// Save the location of the popup, for easy dismissal.
+					dismissZones.push_back(ClickZone{ (int)j, b });
+					break;
+				}
 				break;
 			}
 			}
 
+
 			y += (measuredEntry.h + 4.0f) * measuredEntry.alpha;
 		}
 	}
+
+	std::lock_guard<std::mutex> lock(clickMutex_);
+	clickZones_ = dismissZones;
 }
 
 std::string OnScreenMessagesView::DescribeText() const {
@@ -465,10 +484,34 @@ std::string OnScreenMessagesView::DescribeText() const {
 	return ss.str();
 }
 
+// Asynchronous!
+bool OnScreenMessagesView::Dismiss(float x, float y) {
+	bool dismissed = false;
+	std::lock_guard<std::mutex> lock(clickMutex_);
+	double now = time_now_d();
+	for (auto &zone : clickZones_) {
+		if (zone.bounds.Contains(x, y)) {
+			g_OSD.DismissEntry(zone.index, now);
+			dismissed = true;
+		}
+	}
+	return dismissed;
+}
+
+bool OSDOverlayScreen::UnsyncTouch(const TouchInput &touch) {
+	// Don't really need to forward.
+	// UIScreen::UnsyncTouch(touch);
+	if ((touch.flags & TOUCH_DOWN) && osmView_) {
+		return osmView_->Dismiss(touch.x, touch.y);
+	} else {
+		return false;
+	}
+}
+
 void OSDOverlayScreen::CreateViews() {
 	root_ = new UI::AnchorLayout();
 	root_->SetTag("OSDOverlayScreen");
-	root_->Add(new OnScreenMessagesView(new UI::AnchorLayoutParams(0.0f, 0.0f, 0.0f, 0.0f)));
+	osmView_ = root_->Add(new OnScreenMessagesView(new UI::AnchorLayoutParams(0.0f, 0.0f, 0.0f, 0.0f)));
 }
 
 void OSDOverlayScreen::render() {

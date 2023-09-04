@@ -56,6 +56,39 @@ void X64JitBackend::EmitFPUConstants() {
 
 		Write32(val);
 	}
+
+	constants.mulTableVf2i = (const double *)GetCodePointer();
+	for (uint8_t i = 0; i < 32; ++i) {
+		double fval = (1UL << i);
+		uint64_t val;
+		memcpy(&val, &fval, sizeof(val));
+
+		Write64(val);
+	}
+
+	// Note: this first one is (double)(int)0x80000000, sign extended.
+	constants.minIntAsDouble = (const double *)GetCodePointer();
+	Write64(0xC1E0000000000000ULL);
+	constants.maxIntAsDouble = (const double *)GetCodePointer();
+	Write64(0x41DFFFFFFFC00000ULL);
+}
+
+void X64JitBackend::CopyVec4ToFPRLane0(Gen::X64Reg dest, Gen::X64Reg src, int lane) {
+	// TODO: Move to regcache or emitter maybe?
+	if (lane == 0) {
+		if (dest != src)
+			MOVAPS(dest, R(src));
+	} else if (lane == 1 && cpu_info.bSSE3) {
+		MOVSHDUP(dest, R(src));
+	} else if (lane == 2) {
+		MOVHLPS(dest, src);
+	} else if (cpu_info.bAVX) {
+		VPERMILPS(128, dest, R(src), VFPU_SWIZZLE(lane, lane, lane, lane));
+	} else {
+		if (dest != src)
+			MOVAPS(dest, R(src));
+		SHUFPS(dest, R(dest), VFPU_SWIZZLE(lane, lane, lane, lane));
+	}
 }
 
 void X64JitBackend::CompIR_FArith(IRInst inst) {
@@ -174,7 +207,15 @@ void X64JitBackend::CompIR_FAssign(IRInst inst) {
 
 	switch (inst.op) {
 	case IROp::FMov:
-		if (inst.dest != inst.src1) {
+		// Just to make sure we don't generate bad code.
+		if (inst.dest == inst.src1)
+			break;
+		if (regs_.IsFPRMapped(inst.src1 & 3) && regs_.GetFPRLaneCount(inst.src1 & ~3) == 4 && (inst.dest & ~3) != (inst.src1 & ~3)) {
+			// Okay, this is an extract.  Avoid unvec4ing src1.
+			regs_.SpillLockFPR(inst.src1);
+			regs_.MapFPR(inst.dest, MIPSMap::NOINIT);
+			CopyVec4ToFPRLane0(regs_.FX(inst.dest), regs_.FX(inst.src1 & ~3), inst.src1 & 3);
+		} else {
 			regs_.Map(inst);
 			MOVAPS(regs_.FX(inst.dest), regs_.F(inst.src1));
 		}
@@ -533,8 +574,18 @@ void X64JitBackend::CompIR_FCvt(IRInst inst) {
 
 	switch (inst.op) {
 	case IROp::FCvtWS:
-		CompIR_Generic(inst);
+	{
+		regs_.Map(inst);
+		UCOMISS(regs_.FX(inst.src1), M(constants.positiveInfinity));  // rip accessible
+
+		CVTPS2DQ(regs_.FX(inst.dest), regs_.F(inst.src1));
+		// UCOMISS set ZF if EQUAL (to infinity) or UNORDERED.
+		FixupBranch skip = J_CC(CC_NZ);
+		MOVAPS(regs_.FX(inst.dest), M(constants.noSignMask));  // rip accessible
+
+		SetJumpTarget(skip);
 		break;
+	}
 
 	case IROp::FCvtSW:
 		regs_.Map(inst);
@@ -542,7 +593,96 @@ void X64JitBackend::CompIR_FCvt(IRInst inst) {
 		break;
 
 	case IROp::FCvtScaledWS:
-		CompIR_Generic(inst);
+		regs_.Map(inst);
+		if (cpu_info.bSSE4_1) {
+			int scale = inst.src2 & 0x1F;
+			int rmode = inst.src2 >> 6;
+
+			CVTSS2SD(regs_.FX(inst.dest), regs_.F(inst.src1));
+			if (scale != 0)
+				MULSD(regs_.FX(inst.dest), M(&constants.mulTableVf2i[scale]));  // rip accessible
+
+			// On NAN, we want maxInt anyway, so let's let it be the second param.
+			MAXSD(regs_.FX(inst.dest), M(constants.minIntAsDouble));  // rip accessible
+			MINSD(regs_.FX(inst.dest), M(constants.maxIntAsDouble));  // rip accessible
+
+			switch (rmode) {
+			case 0:
+				ROUNDNEARPD(regs_.FX(inst.dest), regs_.F(inst.dest));
+				CVTPD2DQ(regs_.FX(inst.dest), regs_.F(inst.dest));
+				break;
+
+			case 1:
+				CVTTPD2DQ(regs_.FX(inst.dest), regs_.F(inst.dest));
+				break;
+
+			case 2:
+				ROUNDCEILPD(regs_.FX(inst.dest), regs_.F(inst.dest));
+				CVTPD2DQ(regs_.FX(inst.dest), regs_.F(inst.dest));
+				break;
+
+			case 3:
+				ROUNDFLOORPD(regs_.FX(inst.dest), regs_.F(inst.dest));
+				CVTPD2DQ(regs_.FX(inst.dest), regs_.F(inst.dest));
+				break;
+			}
+		} else {
+			int scale = inst.src2 & 0x1F;
+			int rmode = inst.src2 >> 6;
+
+			int setMXCSR = -1;
+			bool useTrunc = false;
+			switch (rmode) {
+			case 0:
+				// TODO: Could skip if hasSetRounding, but we don't have the flag.
+				setMXCSR = 0;
+				break;
+			case 1:
+				useTrunc = true;
+				break;
+			case 2:
+				setMXCSR = 2;
+				break;
+			case 3:
+				setMXCSR = 1;
+				break;
+			}
+
+			// Except for truncate, we need to update MXCSR to our preferred rounding mode.
+			// TODO: Might be possible to cache this and update between instructions?
+			// Probably kinda expensive to switch each time...
+			if (setMXCSR != -1) {
+				STMXCSR(MDisp(CTXREG, mxcsrTempOffset));
+				MOV(32, R(SCRATCH1), MDisp(CTXREG, mxcsrTempOffset));
+				AND(32, R(SCRATCH1), Imm32(~(3 << 13)));
+				if (setMXCSR != 0) {
+					OR(32, R(SCRATCH1), Imm32(setMXCSR << 13));
+				}
+				MOV(32, MDisp(CTXREG, tempOffset), R(SCRATCH1));
+				LDMXCSR(MDisp(CTXREG, tempOffset));
+			}
+
+			CVTSS2SD(regs_.FX(inst.dest), regs_.F(inst.src1));
+			if (scale != 0)
+				MULSD(regs_.FX(inst.dest), M(&constants.mulTableVf2i[scale]));
+
+			// On NAN, we want maxInt anyway, so let's let it be the second param.
+			MAXSD(regs_.FX(inst.dest), M(constants.minIntAsDouble));
+			MINSD(regs_.FX(inst.dest), M(constants.maxIntAsDouble));
+
+			if (useTrunc) {
+				CVTTSD2SI(SCRATCH1, regs_.F(inst.dest));
+			} else {
+				CVTSD2SI(SCRATCH1, regs_.F(inst.dest));
+			}
+
+			MOVD_xmm(regs_.FX(inst.dest), R(SCRATCH1));
+
+			// Return MXCSR to its previous value.
+			if (setMXCSR != -1) {
+				LDMXCSR(MDisp(CTXREG, mxcsrTempOffset));
+			}
+		}
 		break;
 
 	case IROp::FCvtScaledSW:
@@ -688,31 +828,13 @@ static uint32_t x64_asin(uint32_t v) {
 void X64JitBackend::CompIR_FSpecial(IRInst inst) {
 	CONDITIONAL_DISABLE;
 
-	// TODO: Regcache... maybe emitter helper too?
-	auto laneToReg0 = [&](X64Reg dest, X64Reg src, int lane) {
-		if (lane == 0) {
-			if (dest != src)
-				MOVAPS(dest, R(src));
-		} else if (lane == 1 && cpu_info.bSSE3) {
-			MOVSHDUP(dest, R(src));
-		} else if (lane == 2) {
-			MOVHLPS(dest, src);
-		} else if (cpu_info.bAVX) {
-			VPERMILPS(128, dest, R(src), VFPU_SWIZZLE(lane, lane, lane, lane));
-		} else {
-			if (dest != src)
-				MOVAPS(dest, R(src));
-			SHUFPS(dest, R(dest), VFPU_SWIZZLE(lane, lane, lane, lane));
-		}
-	};
-
 	auto callFuncF_F = [&](const void *func) {
 		regs_.FlushBeforeCall();
 
 #if X64JIT_USE_XMM_CALL
 		if (regs_.IsFPRMapped(inst.src1)) {
 			int lane = regs_.GetFPRLane(inst.src1);
-			laneToReg0(XMM0, regs_.FX(inst.src1), lane);
+			CopyVec4ToFPRLane0(XMM0, regs_.FX(inst.src1), lane);
 		} else {
 			// Account for CTXREG being increased by 128 to reduce imm sizes.
 			int offset = offsetof(MIPSState, f) + inst.src1 * 4 - 128;
@@ -728,7 +850,7 @@ void X64JitBackend::CompIR_FSpecial(IRInst inst) {
 			if (lane == 0) {
 				MOVD_xmm(R(SCRATCH1), regs_.FX(inst.src1));
 			} else {
-				laneToReg0(XMM0, regs_.FX(inst.src1), lane);
+				CopyVec4ToFPRLane0(XMM0, regs_.FX(inst.src1), lane);
 				MOVD_xmm(R(SCRATCH1), XMM0);
 			}
 		} else {

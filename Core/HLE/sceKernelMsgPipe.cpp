@@ -687,7 +687,7 @@ int sceKernelCreateMsgPipe(const char *name, int partition, u32 attr, u32 size, 
 	if (size != 0) {
 		// We ignore the upalign to 256.
 		u32 allocSize = size;
-		memBlockPtr = allocator->Alloc(allocSize, (attr & SCE_KERNEL_MPA_HIGHMEM) != 0, "MsgPipe");
+		memBlockPtr = allocator->Alloc(allocSize, (attr & SCE_KERNEL_MPA_HIGHMEM) != 0, StringFromFormat("MsgPipe/%s", name).c_str());
 		if (memBlockPtr == (u32)-1)
 			return hleLogError(SCEKERNEL, SCE_KERNEL_ERROR_NO_MEMORY, "failed to allocate %i bytes for buffer", size);
 	}

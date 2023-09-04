@@ -290,6 +290,23 @@ public:
 		}
 		m_shifttype = ST_LSL;
 	}
+	ArithOption(ARM64Reg Rd, bool index, bool signExtend) {
+		if (index)
+			m_shift = 4;
+		else
+			m_shift = 0;
+
+		m_destReg = Rd;
+		m_type = TYPE_EXTENDEDREG;
+		if (Is64Bit(Rd)) {
+			m_width = WIDTH_64BIT;
+			m_extend = EXTEND_UXTX;
+		} else {
+			m_width = WIDTH_32BIT;
+			m_extend = signExtend ? EXTEND_SXTW : EXTEND_UXTW;
+		}
+		m_shifttype = ST_LSL;
+	}
 	ArithOption(ARM64Reg Rd, ShiftType shift_type, u32 shift)
 	{
 		m_destReg = Rd;

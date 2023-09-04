@@ -678,7 +678,7 @@ int sceKernelCreateFpl(const char *name, u32 mpid, u32 attr, u32 blockSize, u32 
 	int alignedSize = ((int)blockSize + alignment - 1) & ~(alignment - 1);
 	u32 totalSize = alignedSize * numBlocks;
 	bool atEnd = (attr & PSP_FPL_ATTR_HIGHMEM) != 0;
-	u32 address = allocator->Alloc(totalSize, atEnd, "FPL");
+	u32 address = allocator->Alloc(totalSize, atEnd, StringFromFormat("FPL/%s", name).c_str());
 	if (address == (u32)-1) {
 		DEBUG_LOG(SCEKERNEL, "sceKernelCreateFpl(\"%s\", partition=%i, attr=%08x, bsize=%i, nb=%i) FAILED - out of ram", 
 			name, mpid, attr, blockSize, numBlocks);
@@ -1521,7 +1521,7 @@ SceUID sceKernelCreateVpl(const char *name, int partition, u32 attr, u32 vplSize
 
 	// We ignore the upalign to 256 and do it ourselves by 8.
 	u32 allocSize = vplSize;
-	u32 memBlockPtr = allocator->Alloc(allocSize, (attr & PSP_VPL_ATTR_HIGHMEM) != 0, "VPL");
+	u32 memBlockPtr = allocator->Alloc(allocSize, (attr & PSP_VPL_ATTR_HIGHMEM) != 0, StringFromFormat("VPL/%s", name).c_str());
 	if (memBlockPtr == (u32)-1)
 		return hleLogError(SCEKERNEL, SCE_KERNEL_ERROR_NO_MEMORY, "failed to allocate %i bytes of pool data", vplSize);
 
@@ -2124,7 +2124,7 @@ SceUID sceKernelCreateTlspl(const char *name, u32 partition, u32 attr, u32 block
 	u32 alignedSize = (blockSize + alignment - 1) & ~(alignment - 1);
 
 	u32 totalSize = alignedSize * count;
-	u32 blockPtr = allocator->Alloc(totalSize, (attr & PSP_TLSPL_ATTR_HIGHMEM) != 0, name);
+	u32 blockPtr = allocator->Alloc(totalSize, (attr & PSP_TLSPL_ATTR_HIGHMEM) != 0, StringFromFormat("TLS/%s", name).c_str());
 #ifdef _DEBUG
 	allocator->ListBlocks();
 #endif

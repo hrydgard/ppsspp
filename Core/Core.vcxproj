@@ -580,6 +580,15 @@
     <ClCompile Include="KeyMap.cpp" />
     <ClCompile Include="KeyMapDefaults.cpp" />
     <ClCompile Include="MemFault.cpp" />
+    <ClCompile Include="MIPS\ARM64\Arm64IRAsm.cpp" />
+    <ClCompile Include="MIPS\ARM64\Arm64IRCompALU.cpp" />
+    <ClCompile Include="MIPS\ARM64\Arm64IRCompBranch.cpp" />
+    <ClCompile Include="MIPS\ARM64\Arm64IRCompFPU.cpp" />
+    <ClCompile Include="MIPS\ARM64\Arm64IRCompLoadStore.cpp" />
+    <ClCompile Include="MIPS\ARM64\Arm64IRCompSystem.cpp" />
+    <ClCompile Include="MIPS\ARM64\Arm64IRCompVec.cpp" />
+    <ClCompile Include="MIPS\ARM64\Arm64IRJit.cpp" />
+    <ClCompile Include="MIPS\ARM64\Arm64IRRegCache.cpp" />
     <ClCompile Include="MIPS\fake\FakeJit.cpp" />
     <ClCompile Include="MIPS\IR\IRAnalysis.cpp" />
     <ClCompile Include="MIPS\IR\IRAsm.cpp" />
@@ -1175,6 +1184,8 @@
     <ClInclude Include="KeyMap.h" />
     <ClInclude Include="KeyMapDefaults.h" />
     <ClInclude Include="MemFault.h" />
+    <ClInclude Include="MIPS\ARM64\Arm64IRJit.h" />
+    <ClInclude Include="MIPS\ARM64\Arm64IRRegCache.h" />
     <ClInclude Include="MIPS\fake\FakeJit.h" />
     <ClInclude Include="MIPS\IR\IRAnalysis.h" />
     <ClInclude Include="MIPS\IR\IRFrontend.h" />

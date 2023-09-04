@@ -30,6 +30,7 @@ namespace X64IRJitConstants {
 #if PPSSPP_ARCH(AMD64)
 const Gen::X64Reg MEMBASEREG = Gen::RBX;
 const Gen::X64Reg CTXREG = Gen::R14;
+// Note: this is actually offset from the base.
 const Gen::X64Reg JITBASEREG = Gen::R15;
 const Gen::X64Reg DOWNCOUNTREG = Gen::R15;
 #else
@@ -42,6 +43,7 @@ static constexpr auto downcountOffset = offsetof(MIPSState, downcount) - 128;
 static constexpr auto tempOffset = offsetof(MIPSState, temp) - 128;
 static constexpr auto fcr31Offset = offsetof(MIPSState, fcr31) - 128;
 static constexpr auto pcOffset = offsetof(MIPSState, pc) - 128;
+static constexpr auto mxcsrTempOffset = offsetof(MIPSState, mxcsrTemp) - 128;
 
 enum class X64Map : uint8_t {
 	NONE = 0,
@@ -77,9 +79,9 @@ public:
 	void Init(Gen::XEmitter *emitter);
 
 	// May fail and return INVALID_REG if it needs flushing.
-	Gen::X64Reg TryMapTempImm(IRReg, X64IRJitConstants::X64Map flags = X64IRJitConstants::X64Map::NONE);
+	Gen::X64Reg TryMapTempImm(IRReg reg, X64IRJitConstants::X64Map flags = X64IRJitConstants::X64Map::NONE);
 
-	// Returns an RV register containing the requested MIPS register.
+	// Returns an X64 register containing the requested MIPS register.
 	Gen::X64Reg MapGPR(IRReg reg, MIPSMap mapFlags = MIPSMap::INIT);
 	Gen::X64Reg MapGPR2(IRReg reg, MIPSMap mapFlags = MIPSMap::INIT);
 	Gen::X64Reg MapGPRAsPointer(IRReg reg);

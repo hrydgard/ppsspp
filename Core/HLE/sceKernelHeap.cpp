@@ -2,6 +2,7 @@
 
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"
+#include "Common/StringUtils.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/HLE/sceKernel.h"
@@ -52,7 +53,7 @@ static int sceKernelCreateHeap(int partitionId, int size, int flags, const char 
 		return hleLogError(SCEKERNEL, SCE_KERNEL_ERROR_ILLEGAL_ARGUMENT, "invalid partition");
 
 	// TODO: This should probably actually use flags?  Name?
-	u32 addr = allocator->Alloc(allocSize, g_fromBottom, "SysMemForKernel-Heap");
+	u32 addr = allocator->Alloc(allocSize, g_fromBottom, StringFromFormat("KernelHeap/%s", Name).c_str());
 	if (addr == (u32)-1) {
 		// TODO: Validate error code.
 		return hleLogError(SCEKERNEL, SCE_KERNEL_ERROR_NO_MEMORY, "fFailed to allocate %d bytes of memory", size);

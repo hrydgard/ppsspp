@@ -48,6 +48,9 @@ void ScreenManager::update() {
 		switchToNext();
 	}
 
+	if (overlayScreen_) {
+		overlayScreen_->update();
+	}
 	if (stack_.size()) {
 		stack_.back().screen->update();
 	}
@@ -90,8 +93,15 @@ void ScreenManager::touch(const TouchInput &touch) {
 			layer.screen->UnsyncTouch(screen->transformTouch(touch));
 		}
 	} else if (!stack_.empty()) {
-		Screen *screen = stack_.back().screen;
-		stack_.back().screen->UnsyncTouch(screen->transformTouch(touch));
+		// Let the overlay know about touch-downs, to be able to dismiss popups.
+		bool skip = false;
+		if (overlayScreen_ && (touch.flags & TOUCH_DOWN)) {
+			skip = overlayScreen_->UnsyncTouch(overlayScreen_->transformTouch(touch));
+		}
+		if (!skip) {
+			Screen *screen = stack_.back().screen;
+			stack_.back().screen->UnsyncTouch(screen->transformTouch(touch));
+		}
 	}
 }
 

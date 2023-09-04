@@ -22,6 +22,7 @@
 
 #include "Common/CommonTypes.h"
 #include "Core/MIPS/MIPS.h"
+#include "Core/MIPS/IR/IRAnalysis.h"
 #include "Core/MIPS/IR/IRInst.h"
 
 
@@ -183,6 +184,9 @@ public:
 	void MarkGPRDirty(IRReg gpr, bool andNormalized32 = false);
 	void MarkGPRAsPointerDirty(IRReg gpr);
 
+	bool IsGPRClobbered(IRReg gpr) const;
+	bool IsFPRClobbered(IRReg gpr) const;
+
 	struct Mapping {
 		char type = '?';
 		IRReg reg = IRREG_INVALID;
@@ -233,6 +237,9 @@ protected:
 	void SetSpillLockIRIndex(IRReg reg, IRReg reg2, IRReg reg3, IRReg reg4, int offset, int index);
 	void SetSpillLockIRIndex(IRReg reg, int index);
 	int GetMipsRegOffset(IRReg r);
+
+	bool IsRegClobbered(MIPSLoc type, MIPSMap flags, IRReg r) const;
+	IRUsage GetNextRegUsage(const IRSituation &info, MIPSLoc type, IRReg r) const;
 
 	bool IsValidGPR(IRReg r) const;
 	bool IsValidGPRNoZero(IRReg r) const;

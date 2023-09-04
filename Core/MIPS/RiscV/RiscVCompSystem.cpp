@@ -90,7 +90,7 @@ void RiscVJitBackend::CompIR_Transfer(IRInst inst) {
 
 	switch (inst.op) {
 	case IROp::SetCtrlVFPU:
-		regs_.SetGPRImm(IRREG_VFPU_CTRL_BASE + inst.dest, (int32_t)inst.constant);
+		regs_.SetGPRImm(IRREG_VFPU_CTRL_BASE + inst.dest, inst.constant);
 		break;
 
 	case IROp::SetCtrlVFPUReg:
