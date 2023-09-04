@@ -99,9 +99,52 @@ void Arm64JitBackend::CompIR_System(IRInst inst) {
 
 	switch (inst.op) {
 	case IROp::Syscall:
+		FlushAll();
+		SaveStaticRegisters();
+
+#ifdef USE_PROFILER
+		// When profiling, we can't skip CallSyscall, since it times syscalls.
+		MOVI2R(W0, inst.constant);
+		QuickCallFunction(SCRATCH2_64, &CallSyscall);
+#else
+		// Skip the CallSyscall where possible.
+		{
+			MIPSOpcode op(inst.constant);
+			void *quickFunc = GetQuickSyscallFunc(op);
+			if (quickFunc) {
+				MOVP2R(X0, GetSyscallFuncPointer(op));
+				QuickCallFunction(SCRATCH2_64, (const u8 *)quickFunc);
+			} else {
+				MOVI2R(W0, inst.constant);
+				QuickCallFunction(SCRATCH2_64, &CallSyscall);
+			}
+		}
+#endif
+
+		LoadStaticRegisters();
+		// This is always followed by an ExitToPC, where we check coreState.
+		break;
+
 	case IROp::CallReplacement:
+		FlushAll();
+		SaveStaticRegisters();
+		QuickCallFunction(SCRATCH2_64, GetReplacementFunc(inst.constant)->replaceFunc);
+		LoadStaticRegisters();
+		SUB(DOWNCOUNTREG, DOWNCOUNTREG, W0);
+		break;
+
 	case IROp::Break:
-		CompIR_Generic(inst);
+		FlushAll();
+		// This doesn't naturally have restore/apply around it.
+		RestoreRoundingMode(true);
+		SaveStaticRegisters();
+		MovFromPC(W0);
+		QuickCallFunction(SCRATCH2_64, &Core_Break);
+		LoadStaticRegisters();
+		ApplyRoundingMode(true);
+		MovFromPC(SCRATCH1);
+		ADDI2R(SCRATCH1, SCRATCH1, 4, SCRATCH2);
+		B(dispatcherPCInSCRATCH1_);
 		break;
 
 	default:
@@ -115,16 +158,64 @@ void Arm64JitBackend::CompIR_Transfer(IRInst inst) {
 
 	switch (inst.op) {
 	case IROp::SetCtrlVFPU:
+		regs_.SetGPRImm(IRREG_VFPU_CTRL_BASE + inst.dest, inst.constant);
+		break;
+
 	case IROp::SetCtrlVFPUReg:
+		regs_.Map(inst);
+		MOV(regs_.R(IRREG_VFPU_CTRL_BASE + inst.dest), regs_.R(inst.src1));
+		break;
+
 	case IROp::SetCtrlVFPUFReg:
+		regs_.Map(inst);
+		fp_.FMOV(regs_.R(IRREG_VFPU_CTRL_BASE + inst.dest), regs_.F(inst.src1));
+		break;
+
 	case IROp::FpCondFromReg:
+		regs_.MapWithExtra(inst, { { 'G', IRREG_FPCOND, 1, MIPSMap::NOINIT } });
+		MOV(regs_.R(IRREG_FPCOND), regs_.R(inst.src1));
+		break;
+
 	case IROp::FpCondToReg:
+		regs_.MapWithExtra(inst, { { 'G', IRREG_FPCOND, 1, MIPSMap::INIT } });
+		MOV(regs_.R(inst.dest), regs_.R(IRREG_FPCOND));
+		break;
+
 	case IROp::FpCtrlFromReg:
+		regs_.MapWithExtra(inst, { { 'G', IRREG_FPCOND, 1, MIPSMap::NOINIT } });
+		ANDI2R(SCRATCH1, regs_.R(inst.src1), 0x0181FFFF, SCRATCH2);
+		// Extract the new fpcond value.
+		UBFX(regs_.R(IRREG_FPCOND), SCRATCH1, 23, 1);
+		STR(INDEX_UNSIGNED, SCRATCH1, CTXREG, IRREG_FCR31 * 4);
+		break;
+
 	case IROp::FpCtrlToReg:
+		regs_.MapWithExtra(inst, { { 'G', IRREG_FPCOND, 1, MIPSMap::INIT } });
+		// Load fcr31 and clear the fpcond bit.
+		LDR(INDEX_UNSIGNED, regs_.R(inst.dest), CTXREG, IRREG_FCR31 * 4);
+		BFI(regs_.R(inst.dest), regs_.R(IRREG_FPCOND), 23, 1);
+		// Also update mips->fcr31 while we're here.
+		STR(INDEX_UNSIGNED, regs_.R(inst.dest), CTXREG, IRREG_FCR31 * 4);
+		break;
+
 	case IROp::VfpuCtrlToReg:
+		regs_.Map(inst);
+		MOV(regs_.R(inst.dest), regs_.R(IRREG_VFPU_CTRL_BASE + inst.src1));
+		break;
+
 	case IROp::FMovFromGPR:
+		if (regs_.IsGPRImm(inst.src1) && regs_.GetGPRImm(inst.src1) == 0) {
+			regs_.MapFPR(inst.dest, MIPSMap::NOINIT);
+			fp_.MOVI2F(regs_.F(inst.dest), 0.0f, SCRATCH1);
+		} else {
+			regs_.Map(inst);
+			fp_.FMOV(regs_.F(inst.dest), regs_.R(inst.src1));
+		}
+		break;
+
 	case IROp::FMovToGPR:
-		CompIR_Generic(inst);
+		regs_.Map(inst);
+		fp_.FMOV(regs_.R(inst.dest), regs_.F(inst.src1));
 		break;
 
 	default:
