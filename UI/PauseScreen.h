@@ -60,7 +60,6 @@ private:
 	UI::EventReturn OnCreateConfig(UI::EventParams &e);
 	UI::EventReturn OnDeleteConfig(UI::EventParams &e);
 
-	UI::EventReturn OnSwitchUMD(UI::EventParams &e);
 	UI::EventReturn OnState(UI::EventParams &e);
 
 	// hack

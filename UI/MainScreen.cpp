@@ -1616,7 +1616,19 @@ void UmdReplaceScreen::CreateViews() {
 
 	tabAllGames->OnHoldChoice.Handle(this, &UmdReplaceScreen::OnGameSelected);
 
+	if (System_GetPropertyBool(SYSPROP_HAS_FILE_BROWSER)) {
+		rightColumnItems->Add(new Choice(mm->T("Load", "Load...")))->OnClick.Add([&](UI::EventParams &e) {
+			auto mm = GetI18NCategory(I18NCat::MAINMENU);
+			System_BrowseForFile(mm->T("Load"), BrowseFileType::BOOTABLE, [&](const std::string &value, int) {
+				__UmdReplace(Path(value));
+				TriggerFinish(DR_OK);
+			});
+			return EVENT_DONE;
+		});
+	}
+
 	rightColumnItems->Add(new Choice(di->T("Cancel")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnCancel);
+	rightColumnItems->Add(new Spacer());
 	rightColumnItems->Add(new Choice(mm->T("Game Settings")))->OnClick.Handle(this, &UmdReplaceScreen::OnGameSettings);
 
 	if (g_Config.HasRecentIsos()) {
