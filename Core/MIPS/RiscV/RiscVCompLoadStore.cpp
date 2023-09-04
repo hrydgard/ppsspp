@@ -55,6 +55,10 @@ void RiscVJitBackend::SetScratch1ToSrc1Address(IRReg src1) {
 
 int32_t RiscVJitBackend::AdjustForAddressOffset(RiscVGen::RiscVReg *reg, int32_t constant, int32_t range) {
 	if (constant < -2048 || constant + range > 2047) {
+#ifdef MASKED_PSP_MEMORY
+		if (constant > 0)
+			constant &= Memory::MEMVIEW32_MASK;
+#endif
 		LI(SCRATCH2, constant);
 		ADD(SCRATCH1, *reg, SCRATCH2);
 		*reg = SCRATCH1;

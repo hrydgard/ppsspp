@@ -110,6 +110,16 @@ private:
 	void CompIR_VecStore(IRInst inst) override;
 	void CompIR_ValidateAddress(IRInst inst) override;
 
+	struct LoadStoreArg {
+		Arm64Gen::ARM64Reg base = Arm64Gen::INVALID_REG;
+		Arm64Gen::ARM64Reg regOffset = Arm64Gen::INVALID_REG;
+		int immOffset = 0;
+		bool useUnscaled = false;
+		bool useRegisterOffset = false;
+		bool signExtendRegOffset = false;
+	};
+	LoadStoreArg PrepareSrc1Address(IRInst inst);
+
 	JitOptions &jo;
 	Arm64IRRegCache regs_;
 	Arm64Gen::ARM64FloatEmitter fp_;
