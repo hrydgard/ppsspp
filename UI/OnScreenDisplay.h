@@ -24,7 +24,14 @@ public:
 	bool Touch(const TouchInput &input) override;
 	std::string DescribeText() const override;
 private:
-	std::vector<TouchInput> touches_;
+	struct DismissZone {
+		int index;
+		Bounds bounds;
+	};
+
+	// Argh, would really like to avoid this.
+	std::mutex dismissMutex_;
+	std::vector<DismissZone> dismissZones_;
 };
 
 class OSDOverlayScreen : public UIScreen {

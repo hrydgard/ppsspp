@@ -367,6 +367,8 @@ void OnScreenMessagesView::Draw(UIContext &dc) {
 		edges[(size_t)pos].maxWidth = std::max(edges[(size_t)pos].maxWidth, measuredEntry.w);
 	}
 
+	std::vector<DismissZone> dismissZones;
+
 	// Now, perform layout for all 8 edges.
 	for (size_t i = 0; i < (size_t)ScreenEdgePosition::VALUE_COUNT; i++) {
 		if (edges[i].height == 0.0f) {
@@ -448,19 +450,15 @@ void OnScreenMessagesView::Draw(UIContext &dc) {
 			}
 			}
 
-			// Quick hack for dismissing messages by touch.
-			for (auto &touch : touches_) {
-				if (b.Contains(touch.x, touch.y)) {
-					INFO_LOG(G3D, "Dismissing entry %d (%0.1f %0.1f vs %0.1f %0.1f %0.1f %0.f)", j, touch.x, touch.y, bounds_.x, bounds_.y, bounds_.w, bounds_.h);
-					g_OSD.DismissEntry(j, now);
-				}
-			}
+			// Save the location of the popup, for easy dismissal.
+			dismissZones.push_back(DismissZone{ (int)j, b });
 
 			y += (measuredEntry.h + 4.0f) * measuredEntry.alpha;
 		}
 	}
 
-	touches_.clear();
+	std::lock_guard<std::mutex> lock(dismissMutex_);
+	dismissZones_ = dismissZones;
 }
 
 std::string OnScreenMessagesView::DescribeText() const {
@@ -477,9 +475,19 @@ std::string OnScreenMessagesView::DescribeText() const {
 
 bool OnScreenMessagesView::Touch(const TouchInput &input) {
 	if (input.flags & TOUCH_DOWN) {
-		touches_.push_back(input);
+		bool dismissed = false;
+		std::lock_guard<std::mutex> lock(dismissMutex_);
+		double now = time_now_d();
+		for (auto &zone : dismissZones_) {
+			if (zone.bounds.Contains(input.x, input.y)) {
+				g_OSD.DismissEntry(zone.index, now);
+				dismissed = true;
+			}
+		}
+		return dismissed;
+	} else {
+		return false;
 	}
-	return true;
 }
 
 void OSDOverlayScreen::CreateViews() {
