@@ -448,9 +448,19 @@ void OnScreenMessagesView::Draw(UIContext &dc) {
 			}
 			}
 
+			// Quick hack for dismissing messages by touch.
+			for (auto &touch : touches_) {
+				if (b.Contains(touch.x, touch.y)) {
+					INFO_LOG(G3D, "Dismissing entry %d (%0.1f %0.1f vs %0.1f %0.1f %0.1f %0.f)", j, touch.x, touch.y, bounds_.x, bounds_.y, bounds_.w, bounds_.h);
+					g_OSD.DismissEntry(j, now);
+				}
+			}
+
 			y += (measuredEntry.h + 4.0f) * measuredEntry.alpha;
 		}
 	}
+
+	touches_.clear();
 }
 
 std::string OnScreenMessagesView::DescribeText() const {
@@ -463,6 +473,13 @@ std::string OnScreenMessagesView::DescribeText() const {
 		ss << iter->text;
 	}
 	return ss.str();
+}
+
+bool OnScreenMessagesView::Touch(const TouchInput &input) {
+	if (input.flags & TOUCH_DOWN) {
+		touches_.push_back(input);
+	}
+	return true;
 }
 
 void OSDOverlayScreen::CreateViews() {

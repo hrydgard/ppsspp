@@ -21,7 +21,10 @@ class OnScreenMessagesView : public UI::InertView {
 public:
 	OnScreenMessagesView(UI::LayoutParams *layoutParams = nullptr) : UI::InertView(layoutParams) {}
 	void Draw(UIContext &dc) override;
+	bool Touch(const TouchInput &input) override;
 	std::string DescribeText() const override;
+private:
+	std::vector<TouchInput> touches_;
 };
 
 class OSDOverlayScreen : public UIScreen {
