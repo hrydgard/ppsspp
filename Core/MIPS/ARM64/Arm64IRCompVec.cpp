@@ -45,13 +45,37 @@ void Arm64JitBackend::CompIR_VecArith(IRInst inst) {
 
 	switch (inst.op) {
 	case IROp::Vec4Add:
+		regs_.Map(inst);
+		fp_.FADD(32, regs_.FQ(inst.dest), regs_.FQ(inst.src1), regs_.FQ(inst.src2));
+		break;
+
 	case IROp::Vec4Sub:
+		regs_.Map(inst);
+		fp_.FSUB(32, regs_.FQ(inst.dest), regs_.FQ(inst.src1), regs_.FQ(inst.src2));
+		break;
+
 	case IROp::Vec4Mul:
+		regs_.Map(inst);
+		fp_.FMUL(32, regs_.FQ(inst.dest), regs_.FQ(inst.src1), regs_.FQ(inst.src2));
+		break;
+
 	case IROp::Vec4Div:
+		regs_.Map(inst);
+		fp_.FDIV(32, regs_.FQ(inst.dest), regs_.FQ(inst.src1), regs_.FQ(inst.src2));
+		break;
+
 	case IROp::Vec4Scale:
-	case IROp::Vec4Neg:
-	case IROp::Vec4Abs:
 		CompIR_Generic(inst);
+		break;
+
+	case IROp::Vec4Neg:
+		regs_.Map(inst);
+		fp_.FNEG(32, regs_.FQ(inst.dest), regs_.FQ(inst.src1));
+		break;
+
+	case IROp::Vec4Abs:
+		regs_.Map(inst);
+		fp_.FABS(32, regs_.FQ(inst.dest), regs_.FQ(inst.src1));
 		break;
 
 	default:
@@ -67,8 +91,12 @@ void Arm64JitBackend::CompIR_VecAssign(IRInst inst) {
 	case IROp::Vec4Init:
 	case IROp::Vec4Shuffle:
 	case IROp::Vec4Blend:
-	case IROp::Vec4Mov:
 		CompIR_Generic(inst);
+		break;
+
+	case IROp::Vec4Mov:
+		regs_.Map(inst);
+		fp_.MOV(regs_.FQ(inst.dest), regs_.FQ(inst.src1));
 		break;
 
 	default:

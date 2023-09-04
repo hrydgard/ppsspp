@@ -46,12 +46,33 @@ void Arm64JitBackend::CompIR_FArith(IRInst inst) {
 
 	switch (inst.op) {
 	case IROp::FAdd:
+		regs_.Map(inst);
+		fp_.FADD(regs_.F(inst.dest), regs_.F(inst.src1), regs_.F(inst.src2));
+		break;
+
 	case IROp::FSub:
+		regs_.Map(inst);
+		fp_.FSUB(regs_.F(inst.dest), regs_.F(inst.src1), regs_.F(inst.src2));
+		break;
+
 	case IROp::FMul:
+		regs_.Map(inst);
+		fp_.FMUL(regs_.F(inst.dest), regs_.F(inst.src1), regs_.F(inst.src2));
+		break;
+
 	case IROp::FDiv:
+		regs_.Map(inst);
+		fp_.FDIV(regs_.F(inst.dest), regs_.F(inst.src1), regs_.F(inst.src2));
+		break;
+
 	case IROp::FSqrt:
+		regs_.Map(inst);
+		fp_.FSQRT(regs_.F(inst.dest), regs_.F(inst.src1));
+		break;
+
 	case IROp::FNeg:
-		CompIR_Generic(inst);
+		regs_.Map(inst);
+		fp_.FNEG(regs_.F(inst.dest), regs_.F(inst.src1));
 		break;
 
 	default:
@@ -65,7 +86,17 @@ void Arm64JitBackend::CompIR_FAssign(IRInst inst) {
 
 	switch (inst.op) {
 	case IROp::FMov:
+		if (inst.dest != inst.src1) {
+			regs_.Map(inst);
+			fp_.FMOV(regs_.F(inst.dest), regs_.F(inst.src1));
+		}
+		break;
+
 	case IROp::FAbs:
+		regs_.Map(inst);
+		fp_.FABS(regs_.F(inst.dest), regs_.F(inst.src1));
+		break;
+
 	case IROp::FSign:
 		CompIR_Generic(inst);
 		break;
