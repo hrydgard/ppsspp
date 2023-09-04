@@ -94,11 +94,14 @@ void ScreenManager::touch(const TouchInput &touch) {
 		}
 	} else if (!stack_.empty()) {
 		// Let the overlay know about touch-downs, to be able to dismiss popups.
+		bool skip = false;
 		if (overlayScreen_ && (touch.flags & TOUCH_DOWN)) {
-			overlayScreen_->UnsyncTouch(overlayScreen_->transformTouch(touch));
+			skip = overlayScreen_->UnsyncTouch(overlayScreen_->transformTouch(touch));
 		}
-		Screen *screen = stack_.back().screen;
-		stack_.back().screen->UnsyncTouch(screen->transformTouch(touch));
+		if (!skip) {
+			Screen *screen = stack_.back().screen;
+			stack_.back().screen->UnsyncTouch(screen->transformTouch(touch));
+		}
 	}
 }
 

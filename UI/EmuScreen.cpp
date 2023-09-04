@@ -563,14 +563,14 @@ void EmuScreen::sendMessage(const char *message, const char *value) {
 	}
 }
 
-void EmuScreen::UnsyncTouch(const TouchInput &touch) {
+bool EmuScreen::UnsyncTouch(const TouchInput &touch) {
 	System_Notify(SystemNotification::ACTIVITY);
 
 	if (chatMenu_ && chatMenu_->GetVisibility() == UI::V_VISIBLE) {
 		// Avoid pressing touch button behind the chat
 		if (chatMenu_->Contains(touch.x, touch.y)) {
 			chatMenu_->Touch(touch);
-			return;
+			return true;
 		} else if ((touch.flags & TOUCH_DOWN) != 0) {
 			chatMenu_->Close();
 			if (chatButton_)
@@ -582,6 +582,7 @@ void EmuScreen::UnsyncTouch(const TouchInput &touch) {
 	if (root_) {
 		root_->Touch(touch);
 	}
+	return true;
 }
 
 void EmuScreen::onVKey(int virtualKeyCode, bool down) {
