@@ -40,11 +40,23 @@ using namespace Arm64IRJitConstants;
 void Arm64JitBackend::CompIR_Exit(IRInst inst) {
 	CONDITIONAL_DISABLE;
 
+	ARM64Reg exitReg = INVALID_REG;
 	switch (inst.op) {
 	case IROp::ExitToConst:
+		FlushAll();
+		WriteConstExit(inst.constant);
+		break;
+
 	case IROp::ExitToReg:
+		exitReg = regs_.MapGPR(inst.src1);
+		FlushAll();
+		MOV(SCRATCH1, exitReg);
+		B(dispatcherPCInSCRATCH1_);
+		break;
+
 	case IROp::ExitToPC:
-		CompIR_Generic(inst);
+		FlushAll();
+		B(dispatcherCheckCoreState_);
 		break;
 
 	default:
@@ -56,14 +68,85 @@ void Arm64JitBackend::CompIR_Exit(IRInst inst) {
 void Arm64JitBackend::CompIR_ExitIf(IRInst inst) {
 	CONDITIONAL_DISABLE;
 
+	ARM64Reg lhs = INVALID_REG;
+	ARM64Reg rhs = INVALID_REG;
+	FixupBranch fixup;
 	switch (inst.op) {
 	case IROp::ExitToConstIfEq:
 	case IROp::ExitToConstIfNeq:
+		if (regs_.IsGPRImm(inst.src1) && regs_.GetGPRImm(inst.src1) == 0) {
+			lhs = regs_.MapGPR(inst.src2);
+			FlushAll();
+
+			if (inst.op == IROp::ExitToConstIfEq)
+				fixup = CBNZ(lhs);
+			else if (inst.op == IROp::ExitToConstIfNeq)
+				fixup = CBZ(lhs);
+			else
+				_assert_(false);
+		} else if (regs_.IsGPRImm(inst.src2) && regs_.GetGPRImm(inst.src2) == 0) {
+			lhs = regs_.MapGPR(inst.src1);
+			FlushAll();
+
+			if (inst.op == IROp::ExitToConstIfEq)
+				fixup = CBNZ(lhs);
+			else if (inst.op == IROp::ExitToConstIfNeq)
+				fixup = CBZ(lhs);
+			else
+				_assert_(false);
+		} else {
+			regs_.Map(inst);
+			lhs = regs_.R(inst.src1);
+			rhs = regs_.R(inst.src2);
+			FlushAll();
+
+			CMP(lhs, rhs);
+			if (inst.op == IROp::ExitToConstIfEq)
+				fixup = B(CC_NEQ);
+			else if (inst.op == IROp::ExitToConstIfNeq)
+				fixup = B(CC_EQ);
+			else
+				_assert_(false);
+		}
+
+		WriteConstExit(inst.constant);
+		SetJumpTarget(fixup);
+		break;
+
 	case IROp::ExitToConstIfGtZ:
+		lhs = regs_.MapGPR(inst.src1);
+		FlushAll();
+		CMP(lhs, 0);
+		fixup = B(CC_LE);
+		WriteConstExit(inst.constant);
+		SetJumpTarget(fixup);
+		break;
+
 	case IROp::ExitToConstIfGeZ:
+		// In other words, exit if sign bit is 0.
+		lhs = regs_.MapGPR(inst.src1);
+		FlushAll();
+		fixup = TBNZ(lhs, 31);
+		WriteConstExit(inst.constant);
+		SetJumpTarget(fixup);
+		break;
+
 	case IROp::ExitToConstIfLtZ:
+		// In other words, exit if sign bit is 1.
+		lhs = regs_.MapGPR(inst.src1);
+		FlushAll();
+		fixup = TBZ(lhs, 31);
+		WriteConstExit(inst.constant);
+		SetJumpTarget(fixup);
+		break;
+
 	case IROp::ExitToConstIfLeZ:
-		CompIR_Generic(inst);
+		lhs = regs_.MapGPR(inst.src1);
+		FlushAll();
+		CMP(lhs, 0);
+		fixup = B(CC_GT);
+		WriteConstExit(inst.constant);
+		SetJumpTarget(fixup);
 		break;
 
 	case IROp::ExitToConstIfFpTrue:
