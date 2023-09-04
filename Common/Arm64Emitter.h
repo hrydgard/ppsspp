@@ -934,6 +934,8 @@ public:
 	void UZP2(u8 size, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);
 	void TRN2(u8 size, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);
 	void ZIP2(u8 size, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);
+	// Related to permute, extract vector from pair (always by byte arrangement.)
+	void EXT(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm, int index);
 
 	// Shift by immediate
 	void SSHLL(u8 src_size, ARM64Reg Rd, ARM64Reg Rn, u32 shift);
