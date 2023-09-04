@@ -147,8 +147,8 @@ static const IRMeta irMeta[] = {
 	{ IROp::Vec2ClampToZero, "Vec2ClampToZero", "22" },
 	{ IROp::Vec4Pack32To8, "Vec4Pack32To8", "FV" },
 	{ IROp::Vec4Pack31To8, "Vec4Pack31To8", "FV" },
-	{ IROp::Vec2Pack32To16, "Vec2Pack32To16", "2V" },
-	{ IROp::Vec2Pack31To16, "Vec2Pack31To16", "2V" },
+	{ IROp::Vec2Pack32To16, "Vec2Pack32To16", "F2" },
+	{ IROp::Vec2Pack31To16, "Vec2Pack31To16", "F2" },
 
 	{ IROp::Interpret, "Interpret", "_C", IRFLAG_BARRIER },
 	{ IROp::Downcount, "Downcount", "_C" },
