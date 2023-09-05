@@ -244,8 +244,51 @@ void Arm64JitBackend::CompIR_Div(IRInst inst) {
 
 	switch (inst.op) {
 	case IROp::Div:
+		regs_.MapWithExtra(inst, { { 'G', IRREG_LO, 2, MIPSMap::NOINIT } });
+		// INT_MIN divided by -1 = INT_MIN, anything divided by 0 = 0.
+		SDIV(regs_.R(IRREG_LO), regs_.R(inst.src1), regs_.R(inst.src2));
+		MSUB(SCRATCH1, regs_.R(inst.src2), regs_.R(IRREG_LO), regs_.R(inst.src1));
+
+		// Now some tweaks for divide by zero and overflow.
+		{
+			// Start with divide by zero, remainder is fine.
+			FixupBranch skipNonZero = CBNZ(regs_.R(inst.src2));
+			MOVI2R(regs_.R(IRREG_LO), 1);
+			CMP(regs_.R(inst.src1), 0);
+			// mips->lo = numerator < 0 ? 1 : -1
+			CSNEG(regs_.R(IRREG_LO), regs_.R(IRREG_LO), regs_.R(IRREG_LO), CC_LT);
+			SetJumpTarget(skipNonZero);
+
+			// For overflow, we end up with remainder as zero, need to fix.
+			MOVI2R(SCRATCH2, 0x80000000);
+			CMP(regs_.R(inst.src1), SCRATCH2);
+			FixupBranch notMostNegative = B(CC_NEQ);
+			CMPI2R(regs_.R(inst.src2), -1);
+			// If it's not equal, keep SCRATCH1.  Otherwise (equal), invert 0 = -1.
+			CSINV(SCRATCH1, SCRATCH1, WZR, CC_NEQ);
+			SetJumpTarget(notMostNegative);
+		}
+
+		BFI(regs_.R64(IRREG_LO), SCRATCH1_64, 32, 32);
+		break;
+
 	case IROp::DivU:
-		CompIR_Generic(inst);
+		regs_.MapWithExtra(inst, { { 'G', IRREG_LO, 2, MIPSMap::NOINIT } });
+		// Anything divided by 0 = 0.
+		UDIV(regs_.R(IRREG_LO), regs_.R(inst.src1), regs_.R(inst.src2));
+		MSUB(SCRATCH1, regs_.R(inst.src2), regs_.R(IRREG_LO), regs_.R(inst.src1));
+
+		// On divide by zero, we have to update LO - remainder is correct.
+		{
+			FixupBranch skipNonZero = CBNZ(regs_.R(inst.src2));
+			MOVI2R(regs_.R(IRREG_LO), 0xFFFF);
+			CMP(regs_.R(inst.src1), regs_.R(IRREG_LO));
+			// If it's <= 0xFFFF, keep 0xFFFF.  Otherwise, invert 0 = -1.
+			CSINV(regs_.R(IRREG_LO), regs_.R(IRREG_LO), WZR, CC_LE);
+			SetJumpTarget(skipNonZero);
+		}
+
+		BFI(regs_.R64(IRREG_LO), SCRATCH1_64, 32, 32);
 		break;
 
 	default:
@@ -348,12 +391,37 @@ void Arm64JitBackend::CompIR_Mult(IRInst inst) {
 
 	switch (inst.op) {
 	case IROp::Mult:
+		regs_.MapWithExtra(inst, { { 'G', IRREG_LO, 2, MIPSMap::NOINIT } });
+		SMULL(regs_.R64(IRREG_LO), regs_.R(inst.src1), regs_.R(inst.src2));
+		break;
+
 	case IROp::MultU:
+		regs_.MapWithExtra(inst, { { 'G', IRREG_LO, 2, MIPSMap::NOINIT } });
+		UMULL(regs_.R64(IRREG_LO), regs_.R(inst.src1), regs_.R(inst.src2));
+		break;
+
 	case IROp::Madd:
+		regs_.MapWithExtra(inst, { { 'G', IRREG_LO, 2, MIPSMap::DIRTY } });
+		// Accumulator is at the end, "standard" syntax.
+		SMADDL(regs_.R64(IRREG_LO), regs_.R(inst.src1), regs_.R(inst.src2), regs_.R64(IRREG_LO));
+		break;
+
 	case IROp::MaddU:
+		regs_.MapWithExtra(inst, { { 'G', IRREG_LO, 2, MIPSMap::DIRTY } });
+		// Accumulator is at the end, "standard" syntax.
+		UMADDL(regs_.R64(IRREG_LO), regs_.R(inst.src1), regs_.R(inst.src2), regs_.R64(IRREG_LO));
+		break;
+
 	case IROp::Msub:
+		regs_.MapWithExtra(inst, { { 'G', IRREG_LO, 2, MIPSMap::DIRTY } });
+		// Accumulator is at the end, "standard" syntax.
+		SMSUBL(regs_.R64(IRREG_LO), regs_.R(inst.src1), regs_.R(inst.src2), regs_.R64(IRREG_LO));
+		break;
+
 	case IROp::MsubU:
-		CompIR_Generic(inst);
+		regs_.MapWithExtra(inst, { { 'G', IRREG_LO, 2, MIPSMap::DIRTY } });
+		// Accumulator is at the end, "standard" syntax.
+		UMSUBL(regs_.R64(IRREG_LO), regs_.R(inst.src1), regs_.R(inst.src2), regs_.R64(IRREG_LO));
 		break;
 
 	default:
