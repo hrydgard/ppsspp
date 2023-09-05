@@ -73,12 +73,13 @@ protected:
 	bool ignoreInsets_ = false;
 	bool ignoreInput_ = false;
 
-private:
+protected:
 	void DoRecreateViews();
 
 	bool recreateViews_ = true;
 	bool lastVertical_;
 
+private:
 	std::mutex eventQueueLock_;
 	std::deque<QueuedEvent> eventQueue_;
 };

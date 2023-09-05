@@ -42,6 +42,7 @@ public:
 
 	void CreateViews() override;
 	void render() override;
+	void update() override;
 
 private:
 	OnScreenMessagesView *osmView_ = nullptr;

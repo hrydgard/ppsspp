@@ -49,14 +49,12 @@ void ScreenManager::update() {
 	}
 
 	if (overlayScreen_) {
+		// NOTE: This is not a full UIScreen update, to avoid double global event processing.
 		overlayScreen_->update();
 	}
 	if (stack_.size()) {
 		stack_.back().screen->update();
 	}
-
-	// NOTE: We should not update the OverlayScreen. In fact, we must never update more than one
-	// UIScreen in here, because we might end up double-processing the stuff in Root.cpp.
 
 	g_iconCache.FrameUpdate();
 }

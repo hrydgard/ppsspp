@@ -11,6 +11,7 @@
 #include "Common/UI/IconCache.h"
 #include "UI/RetroAchievementScreens.h"
 #include "UI/DebugOverlay.h"
+#include "UI/Root.h"
 
 #include "Common/UI/Context.h"
 #include "Common/System/OSD.h"
@@ -524,6 +525,17 @@ void OSDOverlayScreen::render() {
 		UIContext *uiContext = screenManager()->getUIContext();
 		DrawDebugOverlay(uiContext, uiContext->GetLayoutBounds(), debugOverlay);
 	}
+}
+
+void OSDOverlayScreen::update() {
+	// Partial version of UIScreen::update() but doesn't do event processing to avoid duplicate event processing.
+	bool vertical = UseVerticalLayout();
+	if (vertical != lastVertical_) {
+		RecreateViews();
+		lastVertical_ = vertical;
+	}
+
+	DoRecreateViews();
 }
 
 void NoticeView::GetContentDimensionsBySpec(const UIContext &dc, UI::MeasureSpec horiz, UI::MeasureSpec vert, float &w, float &h) const {
