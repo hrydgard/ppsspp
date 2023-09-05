@@ -28,36 +28,41 @@
 
 class PointerWrap;
 
+// General constants.
 enum {
 	PSP_SAS_VOICES_MAX = 32,
-
+	PSP_SAS_VOL_MAX = 0x1000,
+	PSP_SAS_MAX_GRAIN = 2048,   // Matches the max value of the parameter to sceSasInit
 	PSP_SAS_PITCH_MIN = 0x0000,
 	PSP_SAS_PITCH_BASE = 0x1000,
 	PSP_SAS_PITCH_MASK = 0xFFF,
 	PSP_SAS_PITCH_BASE_SHIFT = 12,
 	PSP_SAS_PITCH_MAX = 0x4000,
+	PSP_SAS_ENVELOPE_HEIGHT_MAX = 0x40000000,
+	PSP_SAS_ENVELOPE_FREQ_MAX = 0x7FFFFFFF,
+};
 
-	PSP_SAS_VOL_MAX = 0x1000,
-	PSP_SAS_MAX_GRAIN = 2048,   // Matches the max value of the parameter to sceSasInit
-
+// The type of these are baked into savestates.
+enum SasADSRCurveMode : int {
 	PSP_SAS_ADSR_CURVE_MODE_LINEAR_INCREASE = 0,
 	PSP_SAS_ADSR_CURVE_MODE_LINEAR_DECREASE = 1,
 	PSP_SAS_ADSR_CURVE_MODE_LINEAR_BENT = 2,
 	PSP_SAS_ADSR_CURVE_MODE_EXPONENT_DECREASE = 3,
 	PSP_SAS_ADSR_CURVE_MODE_EXPONENT_INCREASE = 4,
 	PSP_SAS_ADSR_CURVE_MODE_DIRECT = 5,
+};
 
+enum {
 	PSP_SAS_ADSR_ATTACK = 1,
 	PSP_SAS_ADSR_DECAY = 2,
 	PSP_SAS_ADSR_SUSTAIN = 4,
 	PSP_SAS_ADSR_RELEASE = 8,
+};
 
-	PSP_SAS_ENVELOPE_HEIGHT_MAX = 0x40000000,
-	PSP_SAS_ENVELOPE_FREQ_MAX = 0x7FFFFFFF,
-
+enum SasEffectType {
 	PSP_SAS_EFFECT_TYPE_OFF = -1,
 	PSP_SAS_EFFECT_TYPE_ROOM = 0,
-	PSP_SAS_EFFECT_TYPE_STUDIO_SMALL= 1,
+	PSP_SAS_EFFECT_TYPE_STUDIO_SMALL = 1,
 	PSP_SAS_EFFECT_TYPE_STUDIO_MEDIUM = 2,
 	PSP_SAS_EFFECT_TYPE_STUDIO_LARGE = 3,
 	PSP_SAS_EFFECT_TYPE_HALL = 4,
@@ -66,7 +71,9 @@ enum {
 	PSP_SAS_EFFECT_TYPE_DELAY = 7,
 	PSP_SAS_EFFECT_TYPE_PIPE = 8,
 	PSP_SAS_EFFECT_TYPE_MAX = 8,
+};
 
+enum SasOutputMode {
 	PSP_SAS_OUTPUTMODE_MIXED = 0,
 	PSP_SAS_OUTPUTMODE_RAW = 1,
 };
@@ -149,7 +156,6 @@ private:
 
 class ADSREnvelope {
 public:
-	ADSREnvelope();
 	void SetSimpleEnvelope(u32 ADSREnv1, u32 ADSREnv2);
 	void SetEnvelope(int flag, int a, int d, int s, int r);
 	void SetRate(int flag, int a, int d, int s, int r);
@@ -177,6 +183,17 @@ public:
 
 	void DoState(PointerWrap &p);
 
+	int attackRate = 0;
+	int decayRate = 0;
+	int sustainRate = 0;
+	int sustainLevel = 0;
+	int releaseRate = 0;
+
+	SasADSRCurveMode attackType = PSP_SAS_ADSR_CURVE_MODE_LINEAR_INCREASE;
+	SasADSRCurveMode decayType = PSP_SAS_ADSR_CURVE_MODE_LINEAR_DECREASE;
+	SasADSRCurveMode sustainType = PSP_SAS_ADSR_CURVE_MODE_LINEAR_DECREASE;
+	SasADSRCurveMode releaseType = PSP_SAS_ADSR_CURVE_MODE_LINEAR_DECREASE;
+
 private:
 	// Actual PSP values.
 	enum ADSRState {
@@ -192,18 +209,8 @@ private:
 	};
 	void SetState(ADSRState state);
 
-	int attackRate;
-	int decayRate;
-	int sustainRate;
-	int releaseRate;
-	int attackType;
-	int decayType;
-	int sustainType;
-	int sustainLevel;
-	int releaseType;
-
-	ADSRState state_;
-	s64 height_;  // s64 to avoid having to care about overflow when calculating. TODO: this should be fine as s32
+	ADSRState state_ = STATE_OFF;
+	s64 height_ = 0;  // s64 to avoid having to care about overflow when calculating. TODO: this should be fine as s32
 };
 
 // A SAS voice.
@@ -243,6 +250,15 @@ struct SasVoice {
 	void ReadSamples(s16 *output, int numSamples);
 	bool HaveSamplesEnded() const;
 
+	// For debugging.
+	u32 GetReadAddress() const {
+		if (type == VOICETYPE_VAG) {
+			return vag.GetReadPtr();
+		} else {
+			return 0;  // TODO.
+		}
+	}
+
 	bool playing;
 	bool paused;  // a voice can be playing AND paused. In that case, it won't play.
 	bool on;   // key-on, key-off.
@@ -273,6 +289,7 @@ struct SasVoice {
 
 	ADSREnvelope envelope;
 
+	// TODO: Union these two?
 	VagDecoder vag;
 	SasAtrac3 atrac3;
 };
@@ -318,3 +335,5 @@ private:
 	int grainSize = 0;
 	int16_t mixTemp_[PSP_SAS_MAX_GRAIN * 4 + 2 + 8];  // some extra margin for very high pitches.
 };
+
+const char *ADSRCurveModeAsString(SasADSRCurveMode mode);
