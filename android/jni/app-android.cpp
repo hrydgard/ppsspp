@@ -252,7 +252,7 @@ void Android_AttachThreadToJNI() {
 	JNIEnv *env;
 	int status = gJvm->GetEnv((void **)&env, JNI_VERSION_1_6);
 	if (status < 0) {
-		INFO_LOG(SYSTEM, "Attaching thread '%s' (not already attached) to JNI.", GetCurrentThreadName());
+		DEBUG_LOG(SYSTEM, "Attaching thread '%s' (not already attached) to JNI.", GetCurrentThreadName());
 		JavaVMAttachArgs args{};
 		args.version = JNI_VERSION_1_6;
 		args.name = GetCurrentThreadName();
@@ -269,7 +269,7 @@ void Android_AttachThreadToJNI() {
 
 void Android_DetachThreadFromJNI() {
 	if (gJvm->DetachCurrentThread() == JNI_OK) {
-		INFO_LOG(SYSTEM, "Detached thread from JNI: '%s'", GetCurrentThreadName());
+		DEBUG_LOG(SYSTEM, "Detached thread from JNI: '%s'", GetCurrentThreadName());
 	} else {
 		WARN_LOG(SYSTEM, "Failed to detach thread '%s' from JNI - never attached?", GetCurrentThreadName());
 	}
