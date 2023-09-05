@@ -174,14 +174,18 @@ void RiscVJitBackend::CompIR_VecAssign(IRInst inst) {
 		regs_.Map(inst);
 		for (int i = 0; i < 4; ++i) {
 			int which = (inst.constant >> i) & 1;
-			FMV(32, regs_.F(inst.dest + i), regs_.F((which ? inst.src2 : inst.src1) + i));
+			IRReg srcReg = which ? inst.src2 : inst.src1;
+			if (inst.dest != srcReg)
+				FMV(32, regs_.F(inst.dest + i), regs_.F(srcReg + i));
 		}
 		break;
 
 	case IROp::Vec4Mov:
-		regs_.Map(inst);
-		for (int i = 0; i < 4; ++i)
-			FMV(32, regs_.F(inst.dest + i), regs_.F(inst.src1 + i));
+		if (inst.dest != inst.src1) {
+			regs_.Map(inst);
+			for (int i = 0; i < 4; ++i)
+				FMV(32, regs_.F(inst.dest + i), regs_.F(inst.src1 + i));
+		}
 		break;
 
 	default:

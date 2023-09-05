@@ -406,7 +406,138 @@ void Arm64JitBackend::CompIR_VecAssign(IRInst inst) {
 		break;
 
 	case IROp::Vec4Blend:
-		CompIR_Generic(inst);
+		regs_.Map(inst);
+		if (inst.src1 == inst.src2) {
+			// Shouldn't really happen, just making sure the below doesn't have to think about it.
+			if (inst.dest != inst.src1)
+				fp_.MOV(regs_.FQ(inst.dest), regs_.FQ(inst.src1));
+			break;
+		}
+
+		// To reduce overlap cases to consider, let's inverse src1/src2 if dest == src2.
+		// Thus, dest could be src1, but no other overlap is possible.
+		if (inst.dest == inst.src2) {
+			std::swap(inst.src1, inst.src2);
+			inst.constant ^= 0xF;
+		}
+
+		switch (inst.constant & 0xF) {
+		case 0b0000:
+			if (inst.dest != inst.src1)
+				fp_.MOV(regs_.FQ(inst.dest), regs_.FQ(inst.src1));
+			break;
+
+		case 0b0001:
+			if (inst.dest != inst.src1)
+				fp_.MOV(regs_.FQ(inst.dest), regs_.FQ(inst.src1));
+			fp_.INS(32, regs_.FQ(inst.dest), 0, regs_.FQ(inst.src2), 0);
+			break;
+
+		case 0b0010:
+			if (inst.dest != inst.src1)
+				fp_.MOV(regs_.FQ(inst.dest), regs_.FQ(inst.src1));
+			fp_.INS(32, regs_.FQ(inst.dest), 1, regs_.FQ(inst.src2), 1);
+			break;
+
+		case 0b0011:
+			if (inst.dest != inst.src1)
+				fp_.MOV(regs_.FQ(inst.dest), regs_.FQ(inst.src1));
+			fp_.INS(64, regs_.FQ(inst.dest), 0, regs_.FQ(inst.src2), 0);
+			break;
+
+		case 0b0100:
+			if (inst.dest != inst.src1)
+				fp_.MOV(regs_.FQ(inst.dest), regs_.FQ(inst.src1));
+			fp_.INS(32, regs_.FQ(inst.dest), 2, regs_.FQ(inst.src2), 2);
+			break;
+
+		case 0b0101:
+			// To get AbCd: REV64 to BADC, then TRN2 xAxC, xbxd.
+			fp_.REV64(32, EncodeRegToQuad(SCRATCHF1), regs_.FQ(inst.src2));
+			fp_.TRN2(32, regs_.FQ(inst.dest), EncodeRegToQuad(SCRATCHF1), regs_.FQ(inst.src1));
+			break;
+
+		case 0b0110:
+			if (inst.dest != inst.src1)
+				fp_.MOV(regs_.FQ(inst.dest), regs_.FQ(inst.src1));
+			fp_.INS(32, regs_.FQ(inst.dest), 1, regs_.FQ(inst.src2), 1);
+			fp_.INS(32, regs_.FQ(inst.dest), 2, regs_.FQ(inst.src2), 2);
+			break;
+
+		case 0b0111:
+			if (inst.dest != inst.src1) {
+				fp_.MOV(regs_.FQ(inst.dest), regs_.FQ(inst.src2));
+				fp_.INS(32, regs_.FQ(inst.dest), 3, regs_.FQ(inst.src1), 3);
+			} else {
+				fp_.MOV(EncodeRegToQuad(SCRATCHF1), regs_.FQ(inst.src1));
+				fp_.MOV(regs_.FQ(inst.dest), regs_.FQ(inst.src2));
+				fp_.INS(32, regs_.FQ(inst.dest), 3, EncodeRegToQuad(SCRATCHF1), 3);
+			}
+			break;
+
+		case 0b1000:
+			if (inst.dest != inst.src1)
+				fp_.MOV(regs_.FQ(inst.dest), regs_.FQ(inst.src1));
+			fp_.INS(32, regs_.FQ(inst.dest), 3, regs_.FQ(inst.src2), 3);
+			break;
+
+		case 0b1001:
+			if (inst.dest != inst.src1)
+				fp_.MOV(regs_.FQ(inst.dest), regs_.FQ(inst.src1));
+			fp_.INS(32, regs_.FQ(inst.dest), 0, regs_.FQ(inst.src2), 0);
+			fp_.INS(32, regs_.FQ(inst.dest), 3, regs_.FQ(inst.src2), 3);
+			break;
+
+		case 0b1010:
+			// To get aBcD: REV64 to badc, then TRN2 xaxc, xBxD.
+			fp_.REV64(32, regs_.FQ(inst.dest), regs_.FQ(inst.src1));
+			fp_.TRN2(32, regs_.FQ(inst.dest), regs_.FQ(inst.dest), regs_.FQ(inst.src2));
+			break;
+
+		case 0b1011:
+			if (inst.dest != inst.src1) {
+				fp_.MOV(regs_.FQ(inst.dest), regs_.FQ(inst.src2));
+				fp_.INS(32, regs_.FQ(inst.dest), 2, regs_.FQ(inst.src1), 2);
+			} else {
+				fp_.MOV(EncodeRegToQuad(SCRATCHF1), regs_.FQ(inst.src1));
+				fp_.MOV(regs_.FQ(inst.dest), regs_.FQ(inst.src2));
+				fp_.INS(32, regs_.FQ(inst.dest), 2, EncodeRegToQuad(SCRATCHF1), 2);
+			}
+			break;
+
+		case 0b1100:
+			if (inst.dest != inst.src1)
+				fp_.MOV(regs_.FQ(inst.dest), regs_.FQ(inst.src1));
+			fp_.INS(64, regs_.FQ(inst.dest), 1, regs_.FQ(inst.src2), 1);
+			break;
+
+		case 0b1101:
+			if (inst.dest != inst.src1) {
+				fp_.MOV(regs_.FQ(inst.dest), regs_.FQ(inst.src2));
+				fp_.INS(32, regs_.FQ(inst.dest), 1, regs_.FQ(inst.src1), 1);
+			} else {
+				fp_.MOV(EncodeRegToQuad(SCRATCHF1), regs_.FQ(inst.src1));
+				fp_.MOV(regs_.FQ(inst.dest), regs_.FQ(inst.src2));
+				fp_.INS(32, regs_.FQ(inst.dest), 1, EncodeRegToQuad(SCRATCHF1), 1);
+			}
+			break;
+
+		case 0b1110:
+			if (inst.dest != inst.src1) {
+				fp_.MOV(regs_.FQ(inst.dest), regs_.FQ(inst.src2));
+				fp_.INS(32, regs_.FQ(inst.dest), 0, regs_.FQ(inst.src1), 0);
+			} else {
+				fp_.MOV(EncodeRegToQuad(SCRATCHF1), regs_.FQ(inst.src1));
+				fp_.MOV(regs_.FQ(inst.dest), regs_.FQ(inst.src2));
+				fp_.INS(32, regs_.FQ(inst.dest), 0, EncodeRegToQuad(SCRATCHF1), 0);
+			}
+			break;
+
+		case 0b1111:
+			if (inst.dest != inst.src2)
+				fp_.MOV(regs_.FQ(inst.dest), regs_.FQ(inst.src2));
+			break;
+		}
 		break;
 
 	case IROp::Vec4Mov:
