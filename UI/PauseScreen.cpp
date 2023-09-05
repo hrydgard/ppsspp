@@ -352,7 +352,10 @@ void GamePauseScreen::CreateViews() {
 
 	rightColumnItems->SetSpacing(0.0f);
 	if (getUMDReplacePermit()) {
-		rightColumnItems->Add(new Choice(pa->T("Switch UMD")))->OnClick.Handle(this, &GamePauseScreen::OnSwitchUMD);
+		rightColumnItems->Add(new Choice(pa->T("Switch UMD")))->OnClick.Add([=](UI::EventParams &) {
+			screenManager()->push(new UmdReplaceScreen());
+			return UI::EVENT_DONE;
+		});
 	}
 	Choice *continueChoice = rightColumnItems->Add(new Choice(pa->T("Continue")));
 	root_->SetDefaultFocusView(continueChoice);
@@ -466,11 +469,6 @@ UI::EventReturn GamePauseScreen::OnLastSaveUndo(UI::EventParams &e) {
 	SaveState::UndoLastSave(gamePath_);
 
 	RecreateViews();
-	return UI::EVENT_DONE;
-}
-
-UI::EventReturn GamePauseScreen::OnSwitchUMD(UI::EventParams &e) {
-	screenManager()->push(new UmdReplaceScreen());
 	return UI::EVENT_DONE;
 }
 
