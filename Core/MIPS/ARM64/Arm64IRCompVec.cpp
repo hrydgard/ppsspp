@@ -40,6 +40,10 @@ namespace MIPSComp {
 using namespace Arm64Gen;
 using namespace Arm64IRJitConstants;
 
+static bool Overlap(IRReg r1, int l1, IRReg r2, int l2) {
+	return r1 < r2 + l2 && r1 + l1 > r2;
+}
+
 void Arm64JitBackend::CompIR_VecArith(IRInst inst) {
 	CONDITIONAL_DISABLE;
 
@@ -65,7 +69,17 @@ void Arm64JitBackend::CompIR_VecArith(IRInst inst) {
 		break;
 
 	case IROp::Vec4Scale:
-		CompIR_Generic(inst);
+		if (Overlap(inst.dest, 4, inst.src2, 1) || Overlap(inst.src1, 4, inst.src2, 1)) {
+			// ARM64 can handle this, but we have to map specially.
+			regs_.SpillLockFPR(inst.dest, inst.src1);
+			regs_.MapVec4(inst.src1);
+			regs_.MapVec4(inst.src2 & ~3);
+			regs_.MapVec4(inst.dest, MIPSMap::NOINIT);
+			fp_.FMUL(32, regs_.FQ(inst.dest), regs_.FQ(inst.src1), regs_.FQ(inst.src2 & ~3), inst.src2 & 3);
+		} else {
+			regs_.Map(inst);
+			fp_.FMUL(32, regs_.FQ(inst.dest), regs_.FQ(inst.src1), regs_.FQ(inst.src2), 0);
+		}
 		break;
 
 	case IROp::Vec4Neg:
