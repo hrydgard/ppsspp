@@ -673,10 +673,9 @@ void VertexDecoderJitCache::Jit_PosFloat() {
 
 void VertexDecoderJitCache::Jit_PosS8Through() {
 	// 8-bit positions in throughmode always decode to 0, depth included.
-	fp.EOR(fpScratchReg, fpScratchReg, fpScratchReg);
-	STR(INDEX_UNSIGNED, fpScratchReg, dstReg, dec_->decFmt.posoff);
-	STR(INDEX_UNSIGNED, fpScratchReg, dstReg, dec_->decFmt.posoff + 4);
-	STR(INDEX_UNSIGNED, fpScratchReg, dstReg, dec_->decFmt.posoff + 8);
+	STR(INDEX_UNSIGNED, WZR, dstReg, dec_->decFmt.posoff);
+	STR(INDEX_UNSIGNED, WZR, dstReg, dec_->decFmt.posoff + 4);
+	STR(INDEX_UNSIGNED, WZR, dstReg, dec_->decFmt.posoff + 8);
 }
 
 void VertexDecoderJitCache::Jit_PosS16Through() {
