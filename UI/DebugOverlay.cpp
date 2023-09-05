@@ -44,11 +44,11 @@ static void DrawAudioDebugStats(UIContext *ctx, const Bounds &bounds) {
 
 	ctx->Flush();
 	ctx->BindFontTexture();
-	ctx->Draw()->SetFontScale(0.7f, 0.7f);
+	ctx->Draw()->SetFontScale(0.5f, 0.5f);
 	ctx->Draw()->DrawTextRect(ubuntu24, statbuf, bounds.x + 11, bounds.y + 31, bounds.w - 20, bounds.h - 30, 0xc0000000, FLAG_DYNAMIC_ASCII);
 	ctx->Draw()->DrawTextRect(ubuntu24, statbuf, bounds.x + 10, bounds.y + 30, bounds.w - 20, bounds.h - 30, 0xFFFFFFFF, FLAG_DYNAMIC_ASCII);
 
-	float left = std::max(bounds.w / 2 - 20.0f, 550.0f);
+	float left = std::max(bounds.w / 2 - 20.0f, 500.0f);
 
 	__SasGetDebugStats(statbuf, sizeof(statbuf));
 	ctx->Draw()->DrawTextRect(ubuntu24, statbuf, bounds.x + left + 21, bounds.y + 31, bounds.w - left, bounds.h - 30, 0xc0000000, FLAG_DYNAMIC_ASCII);
