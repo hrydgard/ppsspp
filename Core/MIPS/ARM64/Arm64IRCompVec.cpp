@@ -573,7 +573,22 @@ void Arm64JitBackend::CompIR_VecHoriz(IRInst inst) {
 
 	switch (inst.op) {
 	case IROp::Vec4Dot:
-		CompIR_Generic(inst);
+		if (Overlap(inst.dest, 1, inst.src1, 4) || Overlap(inst.dest, 1, inst.src2, 4)) {
+			// To avoid overlap problems, map a little carefully.
+			regs_.SpillLockFPR(inst.src1, inst.src2);
+			regs_.MapVec4(inst.src1);
+			regs_.MapVec4(inst.src2);
+			// It must overlap, so inst.dest is already mapped.
+			fp_.FMUL(32, EncodeRegToQuad(SCRATCHF1), regs_.FQ(inst.src1), regs_.FQ(inst.src2));
+			fp_.FADDP(32, EncodeRegToQuad(SCRATCHF1), EncodeRegToQuad(SCRATCHF1), EncodeRegToQuad(SCRATCHF1));
+			fp_.FADDP(32, EncodeRegToQuad(SCRATCHF1), EncodeRegToQuad(SCRATCHF1), EncodeRegToQuad(SCRATCHF1));
+			fp_.INS(32, regs_.FQ(inst.dest & ~3), inst.dest & 3, EncodeRegToQuad(SCRATCHF1), 0);
+		} else {
+			regs_.Map(inst);
+			fp_.FMUL(32, regs_.FQ(inst.dest), regs_.FQ(inst.src1), regs_.FQ(inst.src2));
+			fp_.FADDP(32, regs_.FQ(inst.dest), regs_.FQ(inst.dest), regs_.FQ(inst.dest));
+			fp_.FADDP(32, regs_.FQ(inst.dest), regs_.FQ(inst.dest), regs_.FQ(inst.dest));
+		}
 		break;
 
 	default:

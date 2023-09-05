@@ -2128,6 +2128,13 @@ void ARM64FloatEmitter::EmitCopy(bool Q, u32 op, u32 imm5, u32 imm4, ARM64Reg Rd
 	        (1 << 10) | (Rn << 5) | Rd);
 }
 
+void ARM64FloatEmitter::EmitScalarPairwise(bool U, u32 size, u32 opcode, ARM64Reg Rd, ARM64Reg Rn) {
+	Rd = DecodeReg(Rd);
+	Rn = DecodeReg(Rn);
+
+	Write32((1 << 30) | (U << 29) | (0b111100011 << 20) | (size << 22) | (opcode << 12) | (1 << 11) | (Rn << 5) | Rd);
+}
+
 void ARM64FloatEmitter::Emit2RegMisc(bool Q, bool U, u32 size, u32 opcode, ARM64Reg Rd, ARM64Reg Rn)
 {
 	_assert_msg_(!IsSingle(Rd), "%s doesn't support singles!", __FUNCTION__);
@@ -2906,6 +2913,22 @@ void ARM64FloatEmitter::FSQRT(ARM64Reg Rd, ARM64Reg Rn)
 	EmitScalar1Source(0, 0, IsDouble(Rd), 3, Rd, Rn);
 }
 
+// Scalar - pairwise
+void ARM64FloatEmitter::FADDP(ARM64Reg Rd, ARM64Reg Rn) {
+	EmitScalarPairwise(1, IsDouble(Rd), 0b01101, Rd, Rn);
+}
+void ARM64FloatEmitter::FMAXP(ARM64Reg Rd, ARM64Reg Rn) {
+	EmitScalarPairwise(1, IsDouble(Rd), 0b01111, Rd, Rn);
+}
+void ARM64FloatEmitter::FMINP(ARM64Reg Rd, ARM64Reg Rn) {
+	EmitScalarPairwise(1, IsDouble(Rd) ? 3 : 2, 0b01111, Rd, Rn);
+}
+void ARM64FloatEmitter::FMAXNMP(ARM64Reg Rd, ARM64Reg Rn) {
+	EmitScalarPairwise(1, IsDouble(Rd), 0b01100, Rd, Rn);
+}
+void ARM64FloatEmitter::FMINNMP(ARM64Reg Rd, ARM64Reg Rn) {
+	EmitScalarPairwise(1, IsDouble(Rd) ? 3 : 2, 0b01100, Rd, Rn);
+}
 
 // Scalar - 2 Source
 void ARM64FloatEmitter::FADD(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm)
@@ -3022,6 +3045,9 @@ void ARM64FloatEmitter::FABS(u8 size, ARM64Reg Rd, ARM64Reg Rn)
 void ARM64FloatEmitter::FADD(u8 size, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm)
 {
 	EmitThreeSame(0, size >> 6, 0x1A, Rd, Rn, Rm);
+}
+void ARM64FloatEmitter::FADDP(u8 size, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm) {
+	EmitThreeSame(1, size >> 6, 0x1A, Rd, Rn, Rm);
 }
 void ARM64FloatEmitter::FMAX(u8 size, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm)
 {
