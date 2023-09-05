@@ -815,12 +815,10 @@ void SasVoice::KeyOff() {
 }
 
 void SasVoice::ChangedParams(bool changedVag) {
-	if (!playing && on) {
+	if (type == VOICETYPE_VAG) {
 		playing = true;
-		if (changedVag)
-			vag.Start(vagAddr, vagSize, loop);
+		vag.Start(vagAddr, vagSize, loop);
 	}
-	// TODO: restart VAG somehow
 }
 
 void SasVoice::DoState(PointerWrap &p) {
