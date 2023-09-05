@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include <map>
 #include "Common/Net/HTTPClient.h"
 
 // Based on https://docs.vitasdk.org/group__SceHttpUser.html
