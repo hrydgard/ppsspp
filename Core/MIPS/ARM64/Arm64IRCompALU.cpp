@@ -348,12 +348,37 @@ void Arm64JitBackend::CompIR_Mult(IRInst inst) {
 
 	switch (inst.op) {
 	case IROp::Mult:
+		regs_.MapWithExtra(inst, { { 'G', IRREG_LO, 2, MIPSMap::NOINIT } });
+		SMULL(regs_.R64(IRREG_LO), regs_.R(inst.src1), regs_.R(inst.src2));
+		break;
+
 	case IROp::MultU:
+		regs_.MapWithExtra(inst, { { 'G', IRREG_LO, 2, MIPSMap::NOINIT } });
+		UMULL(regs_.R64(IRREG_LO), regs_.R(inst.src1), regs_.R(inst.src2));
+		break;
+
 	case IROp::Madd:
+		regs_.MapWithExtra(inst, { { 'G', IRREG_LO, 2, MIPSMap::DIRTY } });
+		// Accumulator is at the end, "standard" syntax.
+		SMADDL(regs_.R64(IRREG_LO), regs_.R(inst.src1), regs_.R(inst.src2), regs_.R64(IRREG_LO));
+		break;
+
 	case IROp::MaddU:
+		regs_.MapWithExtra(inst, { { 'G', IRREG_LO, 2, MIPSMap::DIRTY } });
+		// Accumulator is at the end, "standard" syntax.
+		UMADDL(regs_.R64(IRREG_LO), regs_.R(inst.src1), regs_.R(inst.src2), regs_.R64(IRREG_LO));
+		break;
+
 	case IROp::Msub:
+		regs_.MapWithExtra(inst, { { 'G', IRREG_LO, 2, MIPSMap::DIRTY } });
+		// Accumulator is at the end, "standard" syntax.
+		SMSUBL(regs_.R64(IRREG_LO), regs_.R(inst.src1), regs_.R(inst.src2), regs_.R64(IRREG_LO));
+		break;
+
 	case IROp::MsubU:
-		CompIR_Generic(inst);
+		regs_.MapWithExtra(inst, { { 'G', IRREG_LO, 2, MIPSMap::DIRTY } });
+		// Accumulator is at the end, "standard" syntax.
+		UMSUBL(regs_.R64(IRREG_LO), regs_.R(inst.src1), regs_.R(inst.src2), regs_.R64(IRREG_LO));
 		break;
 
 	default:
