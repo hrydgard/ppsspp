@@ -3316,6 +3316,95 @@ void ARM64FloatEmitter::SMOV(u8 size, ARM64Reg Rd, ARM64Reg Rn, u8 index)
 	EmitCopy(b64Bit, 0, imm5, 5, Rd, Rn);
 }
 
+void ARM64FloatEmitter::EncodeModImm(bool Q, u8 op, u8 cmode, u8 o2, ARM64Reg Rd, u8 abcdefgh) {
+	Rd = DecodeReg(Rd);
+	u8 abc = abcdefgh >> 5;
+	u8 defgh = abcdefgh & 0x1F;
+	Write32((Q << 30) | (op << 29) | (0xF << 24) | (abc << 16) | (cmode << 12) | (o2 << 11) | (1 << 10) | (defgh << 5) | Rd);
+}
+
+void ARM64FloatEmitter::FMOV(u8 size, ARM64Reg Rd, u8 imm8) {
+	_assert_msg_(!IsSingle(Rd), "%s doesn't support singles", __FUNCTION__);
+	_assert_msg_(size == 32 || size == 64, "%s: unsupported size", __FUNCTION__);
+	_assert_msg_(IsQuad(Rd) || size == 32, "Use non-SIMD FMOV to load one double imm8");
+	EncodeModImm(IsQuad(Rd), size >> 6, 0b1111, 0, Rd, imm8);
+}
+
+void ARM64FloatEmitter::MOVI(u8 size, ARM64Reg Rd, u8 imm8, u8 shift, bool MSL) {
+	_assert_msg_(!IsSingle(Rd), "%s doesn't support singles", __FUNCTION__);
+	_assert_msg_(size == 8 || size == 16 || size == 32 || size == 64, "%s: unsupported size %d", __FUNCTION__, size);
+	_assert_msg_((shift & 7) == 0 && shift < size, "%s: unsupported shift %d", __FUNCTION__, shift);
+	_assert_msg_(!MSL || (size == 32 && shift > 0 && shift <= 16), "MOVI MSL shift requires size 32, shift must be 8 or 16");
+	_assert_msg_(size != 64 || shift == 0, "MOVI 64-bit imm cannot be shifted");
+
+	u8 cmode = 0;
+	if (size == 8)
+		cmode = 0b1110;
+	else if (size == 16)
+		cmode = 0b1000 | (shift >> 2);
+	else if (MSL)
+		cmode = 0b1100 | (shift >> 3);
+	else if (size == 32)
+		cmode = (shift >> 2);
+	else if (size == 64)
+		cmode = 0b1110;
+	else
+		_assert_msg_(false, "%s: unhandled case", __FUNCTION__);
+
+	EncodeModImm(IsQuad(Rd), size >> 6, cmode, 0, Rd, imm8);
+}
+
+void ARM64FloatEmitter::MVNI(u8 size, ARM64Reg Rd, u8 imm8, u8 shift, bool MSL) {
+	_assert_msg_(!IsSingle(Rd), "%s doesn't support singles", __FUNCTION__);
+	_assert_msg_(size == 16 || size == 32, "%s: unsupported size %d", __FUNCTION__, size);
+	_assert_msg_((shift & 7) == 0 && shift < size, "%s: unsupported shift %d", __FUNCTION__, shift);
+	_assert_msg_(!MSL || (size == 32 && shift > 0 && shift <= 16), "MVNI MSL shift requires size 32, shift must be 8 or 16");
+
+	u8 cmode = 0;
+	if (size == 16)
+		cmode = 0b1000 | (shift >> 2);
+	else if (MSL)
+		cmode = 0b1100 | (shift >> 3);
+	else if (size == 32)
+		cmode = (shift >> 2);
+	else
+		_assert_msg_(false, "%s: unhandled case", __FUNCTION__);
+
+	EncodeModImm(IsQuad(Rd), 1, cmode, 0, Rd, imm8);
+}
+
+void ARM64FloatEmitter::ORR(u8 size, ARM64Reg Rd, u8 imm8, u8 shift) {
+	_assert_msg_(!IsSingle(Rd), "%s doesn't support singles", __FUNCTION__);
+	_assert_msg_(size == 16 || size == 32, "%s: unsupported size %d", __FUNCTION__, size);
+	_assert_msg_((shift & 7) == 0 && shift < size, "%s: unsupported shift %d", __FUNCTION__, shift);
+
+	u8 cmode = 0;
+	if (size == 16)
+		cmode = 0b1001 | (shift >> 2);
+	else if (size == 32)
+		cmode = 0b0001 | (shift >> 2);
+	else
+		_assert_msg_(false, "%s: unhandled case", __FUNCTION__);
+
+	EncodeModImm(IsQuad(Rd), 0, cmode, 0, Rd, imm8);
+}
+
+void ARM64FloatEmitter::BIC(u8 size, ARM64Reg Rd, u8 imm8, u8 shift) {
+	_assert_msg_(!IsSingle(Rd), "%s doesn't support singles", __FUNCTION__);
+	_assert_msg_(size == 16 || size == 32, "%s: unsupported size %d", __FUNCTION__, size);
+	_assert_msg_((shift & 7) == 0 && shift < size, "%s: unsupported shift %d", __FUNCTION__, shift);
+
+	u8 cmode = 0;
+	if (size == 16)
+		cmode = 0b1001 | (shift >> 2);
+	else if (size == 32)
+		cmode = 0b0001 | (shift >> 2);
+	else
+		_assert_msg_(false, "%s: unhandled case", __FUNCTION__);
+
+	EncodeModImm(IsQuad(Rd), 1, cmode, 0, Rd, imm8);
+}
+
 // One source
 void ARM64FloatEmitter::FCVT(u8 size_to, u8 size_from, ARM64Reg Rd, ARM64Reg Rn)
 {
@@ -3944,17 +4033,32 @@ void ARM64FloatEmitter::MOVI2F(ARM64Reg Rd, float value, ARM64Reg scratch, bool 
 }
 
 // TODO: Quite a few values could be generated easily using the MOVI instruction and friends.
-void ARM64FloatEmitter::MOVI2FDUP(ARM64Reg Rd, float value, ARM64Reg scratch) {
+void ARM64FloatEmitter::MOVI2FDUP(ARM64Reg Rd, float value, ARM64Reg scratch, bool negate) {
+	_assert_msg_(!IsSingle(Rd), "%s doesn't support singles", __FUNCTION__);
 	// TODO: Make it work with more element sizes
-	// TODO: Optimize - there are shorter solution for many values
 	ARM64Reg s = (ARM64Reg)(S0 + DecodeReg(Rd));
 	int ival;
 	memcpy(&ival, &value, 4);
+	uint8_t imm8;
 	if (ival == 0) {  // Make sure to not catch negative zero here
-		EOR(Rd, Rd, Rd);
+		// Prefer MOVI 0, which may have no latency on some CPUs.
+		MOVI(32, Rd, 0);
+		if (negate)
+			FNEG(32, Rd, Rd);
+	} else if (negate && FPImm8FromFloat(-value, &imm8)) {
+		FMOV(32, Rd, imm8);
+	} else if (FPImm8FromFloat(value, &imm8)) {
+		FMOV(32, Rd, imm8);
+		if (negate) {
+			FNEG(32, Rd, Rd);
+		}
 	} else {
-		MOVI2F(s, value, scratch);
-		DUP(32, Rd, Rd, 0);
+		_assert_msg_(scratch != INVALID_REG, "Failed to find a way to generate FP immediate %f without scratch", value);
+		if (negate) {
+			ival ^= 0x80000000;
+		}
+		m_emit->MOVI2R(scratch, ival);
+		DUP(32, Rd, scratch);
 	}
 }
 

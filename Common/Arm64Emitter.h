@@ -901,6 +901,14 @@ public:
 	void UMOV(u8 size, ARM64Reg Rd, ARM64Reg Rn, u8 index);
 	void SMOV(u8 size, ARM64Reg Rd, ARM64Reg Rn, u8 index);
 
+	// Vector immediates
+	void FMOV(u8 size, ARM64Reg Rd, u8 imm8);
+	// MSL means bits shifted in are 1s.  For size=64, each bit of imm8 is expanded to 8 actual bits.
+	void MOVI(u8 size, ARM64Reg Rd, u8 imm8, u8 shift = 0, bool MSL = false);
+	void MVNI(u8 size, ARM64Reg Rd, u8 imm8, u8 shift = 0, bool MSL = false);
+	void ORR(u8 size, ARM64Reg Rd, u8 imm8, u8 shift = 0);
+	void BIC(u8 size, ARM64Reg Rd, u8 imm8, u8 shift = 0);
+
 	// One source
 	void FCVT(u8 size_to, u8 size_from, ARM64Reg Rd, ARM64Reg Rn);
 
@@ -966,7 +974,7 @@ public:
 	void FMLA(u8 esize, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm, u8 index);
 
 	void MOVI2F(ARM64Reg Rd, float value, ARM64Reg scratch = INVALID_REG, bool negate = false);
-	void MOVI2FDUP(ARM64Reg Rd, float value, ARM64Reg scratch = INVALID_REG);
+	void MOVI2FDUP(ARM64Reg Rd, float value, ARM64Reg scratch = INVALID_REG, bool negate = false);
 
 	// ABI related
 	void ABI_PushRegisters(uint32_t gpr_registers, uint32_t fp_registers);
@@ -1003,6 +1011,7 @@ private:
 	void EmitScalar3Source(bool isDouble, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm, ARM64Reg Ra, int opcode);
 	void EncodeLoadStorePair(u32 size, bool load, IndexType type, ARM64Reg Rt, ARM64Reg Rt2, ARM64Reg Rn, s32 imm);
 	void EncodeLoadStoreRegisterOffset(u32 size, bool load, ARM64Reg Rt, ARM64Reg Rn, ArithOption Rm);
+	void EncodeModImm(bool Q, u8 op, u8 cmode, u8 o2, ARM64Reg Rd, u8 abcdefgh);
 
 	void SSHLL(u8 src_size, ARM64Reg Rd, ARM64Reg Rn, u32 shift, bool upper);
 	void USHLL(u8 src_size, ARM64Reg Rd, ARM64Reg Rn, u32 shift, bool upper);

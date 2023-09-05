@@ -384,7 +384,30 @@ void Arm64JitBackend::CompIR_VecAssign(IRInst inst) {
 
 	switch (inst.op) {
 	case IROp::Vec4Init:
-		CompIR_Generic(inst);
+		regs_.Map(inst);
+		switch (Vec4Init(inst.src1)) {
+		case Vec4Init::AllZERO:
+			fp_.MOVI(32, regs_.FQ(inst.dest), 0);
+			break;
+
+		case Vec4Init::AllONE:
+		case Vec4Init::AllMinusONE:
+			fp_.MOVI2FDUP(regs_.FQ(inst.dest), 1.0f, INVALID_REG, Vec4Init(inst.src1) == Vec4Init::AllMinusONE);
+			break;
+
+		case Vec4Init::Set_1000:
+		case Vec4Init::Set_0100:
+		case Vec4Init::Set_0010:
+		case Vec4Init::Set_0001:
+			fp_.MOVI(32, regs_.FQ(inst.dest), 0);
+			fp_.MOVI2FDUP(EncodeRegToQuad(SCRATCHF1), 1.0f);
+			fp_.INS(32, regs_.FQ(inst.dest), inst.src1 - (int)Vec4Init::Set_1000, EncodeRegToQuad(SCRATCHF1), inst.src1 - (int)Vec4Init::Set_1000);
+			break;
+
+		default:
+			_assert_msg_(false, "Unexpected Vec4Init value %d", inst.src1);
+			DISABLE;
+		}
 		break;
 
 	case IROp::Vec4Shuffle:
