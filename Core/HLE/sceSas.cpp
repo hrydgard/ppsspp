@@ -296,7 +296,7 @@ static u32 _sceSasCore(u32 core, u32 outAddr) {
 
 	__SasEnqueueMix(outAddr);
 
-	return hleLogSuccessI(SCESAS, delaySasResult(0));
+	return hleLogSuccessVerboseI(SCESAS, delaySasResult(0));
 }
 
 // Another way of running the mixer, the inoutAddr should be both input and output
@@ -315,7 +315,7 @@ static u32 _sceSasCoreWithMix(u32 core, u32 inoutAddr, int leftVolume, int right
 
 	__SasEnqueueMix(inoutAddr, inoutAddr, leftVolume, rightVolume);
 
-	return hleLogSuccessI(SCESAS, delaySasResult(0));
+	return hleLogSuccessVerboseI(SCESAS, delaySasResult(0));
 }
 
 static u32 sceSasSetVoice(u32 core, int voiceNum, u32 vagAddr, int size, int loop) {
