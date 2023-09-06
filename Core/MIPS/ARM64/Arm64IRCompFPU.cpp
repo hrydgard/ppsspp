@@ -237,7 +237,14 @@ void Arm64JitBackend::CompIR_FCvt(IRInst inst) {
 
 	switch (inst.op) {
 	case IROp::FCvtWS:
+		CompIR_Generic(inst);
+		break;
+
 	case IROp::FCvtSW:
+		regs_.Map(inst);
+		fp_.SCVTF(regs_.F(inst.dest), regs_.F(inst.src1));
+		break;
+
 	case IROp::FCvtScaledWS:
 	case IROp::FCvtScaledSW:
 		CompIR_Generic(inst);
