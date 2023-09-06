@@ -1465,18 +1465,21 @@ static Path GetSecretPath(const char *nameOfSecret) {
 }
 
 // name should be simple alphanumerics to avoid problems on Windows.
-void NativeSaveSecret(const char *nameOfSecret, const std::string &data) {
+bool NativeSaveSecret(const char *nameOfSecret, const std::string &data) {
 	Path path = GetSecretPath(nameOfSecret);
 	if (!File::WriteDataToFile(false, data.data(), (unsigned int)data.size(), path)) {
 		WARN_LOG(SYSTEM, "Failed to write secret '%s' to path '%s'", nameOfSecret, path.c_str());
+		return false;
 	}
+	return true;
 }
 
+// On failure, returns an empty string. Good enough since any real secret is non-empty.
 std::string NativeLoadSecret(const char *nameOfSecret) {
 	Path path = GetSecretPath(nameOfSecret);
 	std::string data;
 	if (!File::ReadFileToString(false, path, data)) {
-		WARN_LOG(SYSTEM, "Failed to read secret '%s' from path '%s'", nameOfSecret, path.c_str());
+		data.clear();  // just to be sure.
 	}
 	return data;
 }

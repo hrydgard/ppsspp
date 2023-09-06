@@ -80,5 +80,7 @@ void NativeShutdown();
 
 void PostLoadConfig();
 
-void NativeSaveSecret(const char *nameOfSecret, const std::string &data);
+// Returns false on failure. Shouldn't really happen, though.
+bool NativeSaveSecret(const char *nameOfSecret, const std::string &data);
+// On failure, returns an empty string. Good enough since any real secret is non-empty.
 std::string NativeLoadSecret(const char *nameOfSecret);

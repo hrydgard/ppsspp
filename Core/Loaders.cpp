@@ -259,7 +259,6 @@ Path ResolvePBPFile(const Path &filename) {
 
 bool LoadFile(FileLoader **fileLoaderPtr, std::string *error_string) {
 	FileLoader *&fileLoader = *fileLoaderPtr;
-	// Note that this can modify filename!
 	IdentifiedFileType type = Identify_File(fileLoader, error_string);
 	switch (type) {
 	case IdentifiedFileType::PSP_PBP_DIRECTORY:
@@ -401,7 +400,6 @@ bool UmdReplace(const Path &filepath, std::string &error) {
 	UpdateLoadedFile(loadedFile);
 
 	loadedFile = ResolveFileLoaderTarget(loadedFile);
-
 
 	std::string errorString;
 	IdentifiedFileType type = Identify_File(loadedFile, &errorString);

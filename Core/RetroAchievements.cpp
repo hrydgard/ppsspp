@@ -424,6 +424,10 @@ bool LoginProblems(std::string *errorString) {
 }
 
 static void TryLoginByToken(bool isInitialAttempt) {
+	if (g_Config.sAchievementsUserName.empty()) {
+		// Don't even look for a token - without a username we can't login.
+		return;
+	}
 	std::string api_token = NativeLoadSecret(RA_TOKEN_SECRET_NAME);
 	if (!api_token.empty()) {
 		g_isLoggingIn = true;
@@ -536,8 +540,8 @@ void Idle() {
 		if (g_rcClient && IsLoggedIn()) {
 			return;  // All good.
 		}
-		if (!HasToken() || g_isLoggingIn) {
-			// Didn't login yet or is in the process of logging in. Also OK.
+		if (g_Config.sAchievementsUserName.empty() || g_isLoggingIn || !HasToken()) {
+			// Didn't try to login yet or is in the process of logging in. Also OK.
 			return;
 		}
 
@@ -730,7 +734,19 @@ bool IsReadyToStart() {
 	return !g_isLoggingIn;
 }
 
-void SetGame(const Path &path, FileLoader *fileLoader) {
+void SetGame(const Path &path, IdentifiedFileType fileType, FileLoader *fileLoader) {
+	switch (fileType) {
+	case IdentifiedFileType::PSP_ISO:
+	case IdentifiedFileType::PSP_ISO_NP:
+		// These file types are OK.
+		break;
+	default:
+		// Other file types are not yet supported.
+		// TODO: Should we show an OSD popup here?
+		WARN_LOG(ACHIEVEMENTS, "File type of '%s' is not yet compatible with RetroAchievements", path.c_str());
+		return;
+	}
+
 	if (g_isLoggingIn) {
 		// IsReadyToStart should have been checked the same frame, so we shouldn't be here.
 		// Maybe there's a race condition possible, but don't think so.
