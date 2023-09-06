@@ -1753,7 +1753,7 @@ void System_InputBoxGetString(const std::string &title, const std::string &defau
 #endif
 
 // TODO: To avoid having to define these here, these should probably be turned into system "requests".
-void NativeSaveSecret(const char *nameOfSecret, const std::string &data) {}
+bool NativeSaveSecret(const char *nameOfSecret, const std::string &data) { return false; }
 std::string NativeLoadSecret(const char *nameOfSecret) {
    return "";
 }

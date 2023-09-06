@@ -730,7 +730,19 @@ bool IsReadyToStart() {
 	return !g_isLoggingIn;
 }
 
-void SetGame(const Path &path, FileLoader *fileLoader) {
+void SetGame(const Path &path, IdentifiedFileType fileType, FileLoader *fileLoader) {
+	switch (fileType) {
+	case IdentifiedFileType::PSP_ISO:
+	case IdentifiedFileType::PSP_ISO_NP:
+		// These file types are OK.
+		break;
+	default:
+		// Other file types are not yet supported.
+		// TODO: Should we show an OSD popup here?
+		WARN_LOG(ACHIEVEMENTS, "File type of '%s' is not yet compatible with RetroAchievements", path.c_str());
+		return;
+	}
+
 	if (g_isLoggingIn) {
 		// IsReadyToStart should have been checked the same frame, so we shouldn't be here.
 		// Maybe there's a race condition possible, but don't think so.

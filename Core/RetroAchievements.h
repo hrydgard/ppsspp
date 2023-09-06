@@ -19,6 +19,7 @@
 
 #include "Common/StringUtils.h"
 #include "Common/CommonTypes.h"
+#include "Core/Loaders.h"  // for IdentifiedFileType
 
 #include "ext/rcheevos/include/rc_client.h"
 
@@ -106,7 +107,7 @@ bool LoginAsync(const char *username, const char *password);
 void Logout();
 
 bool IsReadyToStart();
-void SetGame(const Path &path, FileLoader *fileLoader);
+void SetGame(const Path &path, IdentifiedFileType fileType, FileLoader *fileLoader);
 void ChangeUMD(const Path &path);  // for in-game UMD change
 void UnloadGame();  // Call when leaving a game.
 

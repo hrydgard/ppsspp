@@ -448,7 +448,7 @@ bool PSP_InitStart(const CoreParameter &coreParam, std::string *error_string) {
 	}
 #endif
 
-	Achievements::SetGame(filename, loadedFile);
+	Achievements::SetGame(filename, IdentifiedFileType::PSP_ISO, loadedFile);
 
 	if (!CPU_Init(&g_CoreParameter.errorString, loadedFile)) {
 		*error_string = g_CoreParameter.errorString;
