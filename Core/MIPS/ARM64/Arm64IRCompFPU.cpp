@@ -252,18 +252,36 @@ void Arm64JitBackend::CompIR_FCvt(IRInst inst) {
 void Arm64JitBackend::CompIR_FRound(IRInst inst) {
 	CONDITIONAL_DISABLE;
 
+	regs_.Map(inst);
+	// Invert 0x80000000 -> 0x7FFFFFFF for the NAN result.
+	fp_.MVNI(32, EncodeRegToDouble(SCRATCHF1), 0x80, 24);
+	fp_.FCMP(regs_.F(inst.src1), regs_.F(inst.src1));
+
+	// Luckily, these already saturate.
 	switch (inst.op) {
 	case IROp::FRound:
+		fp_.FCVTS(regs_.F(inst.dest), regs_.F(inst.src1), ROUND_N);
+		break;
+
 	case IROp::FTrunc:
+		fp_.FCVTS(regs_.F(inst.dest), regs_.F(inst.src1), ROUND_Z);
+		break;
+
 	case IROp::FCeil:
+		fp_.FCVTS(regs_.F(inst.dest), regs_.F(inst.src1), ROUND_P);
+		break;
+
 	case IROp::FFloor:
-		CompIR_Generic(inst);
+		fp_.FCVTS(regs_.F(inst.dest), regs_.F(inst.src1), ROUND_M);
 		break;
 
 	default:
 		INVALIDOP;
 		break;
 	}
+
+	// Switch to INT_MAX if it was NAN.
+	fp_.FCSEL(regs_.F(inst.dest), regs_.F(inst.dest), SCRATCHF1, CC_VC);
 }
 
 void Arm64JitBackend::CompIR_FSat(IRInst inst) {
