@@ -246,7 +246,7 @@ static Vec4<int> LightColorScaleBy512(const Vec4<int> &factor, const Vec4<int> &
 		return LightColorScaleBy512SSE4(factor.ivec, color.ivec, _mm_set1_epi32(scale));
 #elif PPSSPP_ARCH(ARM64_NEON)
 	int32x4_t multiplied = vmulq_n_s32(vmulq_s32(factor.ivec, color.ivec), scale);
-	return vshrq_n_s32(multiplied, 10 + 19);
+	return vshrq_n_s32(multiplied, 10 + 9);
 #endif
 	return (factor * color * scale) >> (10 + 9);
 }
