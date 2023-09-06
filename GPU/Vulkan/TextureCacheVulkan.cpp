@@ -478,14 +478,6 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 	entry->vkTex = new VulkanTexture(vulkan, texName);
 	VulkanTexture *image = entry->vkTex;
 
-	const VkComponentMapping *mapping;
-	switch (actualFmt) {
-	case VULKAN_4444_FORMAT: mapping = &VULKAN_4444_SWIZZLE; break;
-	case VULKAN_1555_FORMAT: mapping = &VULKAN_1555_SWIZZLE; break;
-	case VULKAN_565_FORMAT:  mapping = &VULKAN_565_SWIZZLE;  break;
-	default:                 mapping = &VULKAN_8888_SWIZZLE; break;  // no swizzle
-	}
-
 	VkImageLayout imageLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
 	VkImageUsageFlags usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
 
@@ -504,6 +496,14 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 
 	if (plan.saveTexture) {
 		actualFmt = VULKAN_8888_FORMAT;
+	}
+
+	const VkComponentMapping *mapping;
+	switch (actualFmt) {
+	case VULKAN_4444_FORMAT: mapping = &VULKAN_4444_SWIZZLE; break;
+	case VULKAN_1555_FORMAT: mapping = &VULKAN_1555_SWIZZLE; break;
+	case VULKAN_565_FORMAT:  mapping = &VULKAN_565_SWIZZLE;  break;
+	default:                 mapping = &VULKAN_8888_SWIZZLE; break;  // no swizzle
 	}
 
 	bool allocSuccess = image->CreateDirect(cmdInit, plan.createW, plan.createH, plan.depth, plan.levelsToCreate, actualFmt, imageLayout, usage, mapping);
