@@ -424,6 +424,10 @@ bool LoginProblems(std::string *errorString) {
 }
 
 static void TryLoginByToken(bool isInitialAttempt) {
+	if (g_Config.sAchievementsUserName.empty()) {
+		// Don't even look for a token - without a username we can't login.
+		return;
+	}
 	std::string api_token = NativeLoadSecret(RA_TOKEN_SECRET_NAME);
 	if (!api_token.empty()) {
 		g_isLoggingIn = true;

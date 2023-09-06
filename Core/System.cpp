@@ -448,7 +448,13 @@ bool PSP_InitStart(const CoreParameter &coreParam, std::string *error_string) {
 	}
 #endif
 
-	Achievements::SetGame(filename, IdentifiedFileType::PSP_ISO, loadedFile);
+	if (g_Config.bAchievementsEnable) {
+		// Need to re-identify after ResolveFileLoaderTarget - although in practice probably not,
+		// but also, re-using the identification would require some plumbing, to be done later.
+		std::string errorString;
+		IdentifiedFileType type = Identify_File(loadedFile, &errorString);
+		Achievements::SetGame(filename, type, loadedFile);
+	}
 
 	if (!CPU_Init(&g_CoreParameter.errorString, loadedFile)) {
 		*error_string = g_CoreParameter.errorString;
