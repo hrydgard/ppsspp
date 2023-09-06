@@ -229,6 +229,8 @@ jobs:
 
     - name: Setup ccache
       uses: hendrikmuhs/ccache-action@v1.2
+      # Disable ccache on macos for now, it's become buggy for some reason.
+      if: matrix.id != 'macos'
       with:
         key: ${{ matrix.id }}
 
