@@ -442,6 +442,8 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 		dstFmt = VULKAN_CLUT8_FORMAT;
 	}
 
+	_dbg_assert_(plan.levelsToLoad <= plan.maxPossibleLevels);
+
 	// We don't generate mipmaps for 512x512 textures because they're almost exclusively used for menu backgrounds
 	// and similar, which don't really need it.
 	// Also, if using replacements, check that we really can generate mips for this format - that's not possible for compressed ones.

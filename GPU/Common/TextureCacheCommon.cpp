@@ -2918,6 +2918,7 @@ bool TextureCacheCommon::PrepareBuildTexture(BuildTexturePlan &plan, TexCacheEnt
 	}
 
 	if (plan.isVideo || plan.depth != 1 || plan.decodeToClut8) {
+		plan.levelsToLoad = 1;
 		plan.maxPossibleLevels = 1;
 	} else {
 		plan.maxPossibleLevels = log2i(std::min(plan.createW, plan.createH)) + 1;
