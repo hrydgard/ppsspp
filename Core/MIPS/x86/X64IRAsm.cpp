@@ -64,7 +64,7 @@ void X64JitBackend::GenerateFixedCode(MIPSState *mipsState) {
 	} else {
 		jo.downcountInRegister = true;
 		jo.reserveR15ForAsm = true;
-		if (jitbase < -0x8000000ULL || jitbase > 0x7FFFFFFFLL) {
+		if (jitbase < -0x80000000LL || jitbase > 0x7FFFFFFFLL) {
 			jitbaseCtxDisp = (int)(jitbase - (intptr_t)&mipsState->f[0]);
 		}
 	}
