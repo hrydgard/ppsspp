@@ -536,8 +536,8 @@ void Idle() {
 		if (g_rcClient && IsLoggedIn()) {
 			return;  // All good.
 		}
-		if (!HasToken() || g_isLoggingIn) {
-			// Didn't login yet or is in the process of logging in. Also OK.
+		if (g_Config.sAchievementsUserName.empty() || g_isLoggingIn || !HasToken()) {
+			// Didn't try to login yet or is in the process of logging in. Also OK.
 			return;
 		}
 
