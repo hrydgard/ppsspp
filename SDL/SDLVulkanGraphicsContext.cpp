@@ -27,9 +27,14 @@ static const bool g_Validate = true;
 static const bool g_Validate = false;
 #endif
 
+// TODO: Share this between backends.
 static uint32_t FlagsFromConfig() {
-	uint32_t flags = 0;
-	flags = g_Config.bVSync ? VULKAN_FLAG_PRESENT_FIFO : VULKAN_FLAG_PRESENT_MAILBOX;
+	uint32_t flags;
+	if (g_Config.bVSync) {
+		flags = VULKAN_FLAG_PRESENT_FIFO;
+	} else {
+		flags = VULKAN_FLAG_PRESENT_MAILBOX | VULKAN_FLAG_PRESENT_IMMEDIATE;
+	}
 	if (g_Validate) {
 		flags |= VULKAN_FLAG_VALIDATE;
 	}

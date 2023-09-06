@@ -13,25 +13,32 @@
 #include "Core/ConfigValues.h"
 #include "Core/System.h"
 
+
+#ifdef _DEBUG
+static const bool g_Validate = true;
+#else
+static const bool g_Validate = false;
+#endif
+
+// TODO: Share this between backends.
+static uint32_t FlagsFromConfig() {
+	uint32_t flags;
+	if (g_Config.bVSync) {
+		flags = VULKAN_FLAG_PRESENT_FIFO;
+	} else {
+		flags = VULKAN_FLAG_PRESENT_MAILBOX | VULKAN_FLAG_PRESENT_IMMEDIATE;
+	}
+	if (g_Validate) {
+		flags |= VULKAN_FLAG_VALIDATE;
+	}
+	return flags;
+}
+
 AndroidVulkanContext::AndroidVulkanContext() {}
 
 AndroidVulkanContext::~AndroidVulkanContext() {
 	delete g_Vulkan;
 	g_Vulkan = nullptr;
-}
-
-static uint32_t FlagsFromConfig() {
-	uint32_t flags;
-
-	if (g_Config.bVSync) {
-		flags = VULKAN_FLAG_PRESENT_FIFO;
-	} else {
-		flags = VULKAN_FLAG_PRESENT_MAILBOX | VULKAN_FLAG_PRESENT_FIFO_RELAXED;
-	}
-#ifdef _DEBUG
-	flags |= VULKAN_FLAG_VALIDATE;
-#endif
-	return flags;
 }
 
 bool AndroidVulkanContext::InitAPI() {
