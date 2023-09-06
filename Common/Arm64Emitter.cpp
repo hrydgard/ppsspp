@@ -3011,6 +3011,12 @@ void ARM64FloatEmitter::BSL(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm)
 {
 	EmitThreeSame(1, 1, 3, Rd, Rn, Rm);
 }
+void ARM64FloatEmitter::BIT(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm) {
+	EmitThreeSame(1, 2, 3, Rd, Rn, Rm);
+}
+void ARM64FloatEmitter::BIF(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm) {
+	EmitThreeSame(1, 3, 3, Rd, Rn, Rm);
+}
 void ARM64FloatEmitter::DUP(u8 size, ARM64Reg Rd, ARM64Reg Rn, u8 index)
 {
 	u32 imm5 = 0;
@@ -3182,6 +3188,61 @@ void ARM64FloatEmitter::XTN(u8 dest_size, ARM64Reg Rd, ARM64Reg Rn)
 void ARM64FloatEmitter::XTN2(u8 dest_size, ARM64Reg Rd, ARM64Reg Rn)
 {
 	Emit2RegMisc(true, 0, dest_size >> 4, 0x12, Rd, Rn);
+}
+
+void ARM64FloatEmitter::CMEQ(u8 size, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm) {
+	_assert_msg_(!IsQuad(Rd) || size != 64, "%s cannot be used for scalar double", __FUNCTION__);
+	EmitThreeSame(true, size >> 4, 0b10001, Rd, Rn, Rm);
+}
+
+void ARM64FloatEmitter::CMGE(u8 size, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm) {
+	_assert_msg_(!IsQuad(Rd) || size != 64, "%s cannot be used for scalar double", __FUNCTION__);
+	EmitThreeSame(false, size >> 4, 0b00111, Rd, Rn, Rm);
+}
+
+void ARM64FloatEmitter::CMGT(u8 size, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm) {
+	_assert_msg_(!IsQuad(Rd) || size != 64, "%s cannot be used for scalar double", __FUNCTION__);
+	EmitThreeSame(false, size >> 4, 0b00110, Rd, Rn, Rm);
+}
+
+void ARM64FloatEmitter::CMHI(u8 size, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm) {
+	_assert_msg_(!IsQuad(Rd) || size != 64, "%s cannot be used for scalar double", __FUNCTION__);
+	EmitThreeSame(true, size >> 4, 0b00110, Rd, Rn, Rm);
+}
+
+void ARM64FloatEmitter::CMHS(u8 size, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm) {
+	_assert_msg_(!IsQuad(Rd) || size != 64, "%s cannot be used for scalar double", __FUNCTION__);
+	EmitThreeSame(true, size >> 4, 0b00111, Rd, Rn, Rm);
+}
+
+void ARM64FloatEmitter::CMTST(u8 size, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm) {
+	_assert_msg_(!IsQuad(Rd) || size != 64, "%s cannot be used for scalar double", __FUNCTION__);
+	EmitThreeSame(false, size >> 4, 0b10001, Rd, Rn, Rm);
+}
+
+void ARM64FloatEmitter::CMEQ(u8 size, ARM64Reg Rd, ARM64Reg Rn) {
+	_assert_msg_(!IsQuad(Rd) || size != 64, "%s cannot be used for scalar double", __FUNCTION__);
+	Emit2RegMisc(IsQuad(Rd), false, size >> 4, 0b01001, Rd, Rn);
+}
+
+void ARM64FloatEmitter::CMGE(u8 size, ARM64Reg Rd, ARM64Reg Rn) {
+	_assert_msg_(!IsQuad(Rd) || size != 64, "%s cannot be used for scalar double", __FUNCTION__);
+	Emit2RegMisc(IsQuad(Rd), true, size >> 4, 0b01000, Rd, Rn);
+}
+
+void ARM64FloatEmitter::CMGT(u8 size, ARM64Reg Rd, ARM64Reg Rn) {
+	_assert_msg_(!IsQuad(Rd) || size != 64, "%s cannot be used for scalar double", __FUNCTION__);
+	Emit2RegMisc(IsQuad(Rd), false, size >> 4, 0b01000, Rd, Rn);
+}
+
+void ARM64FloatEmitter::CMLE(u8 size, ARM64Reg Rd, ARM64Reg Rn) {
+	_assert_msg_(!IsQuad(Rd) || size != 64, "%s cannot be used for scalar double", __FUNCTION__);
+	Emit2RegMisc(IsQuad(Rd), true, size >> 4, 0b01001, Rd, Rn);
+}
+
+void ARM64FloatEmitter::CMLT(u8 size, ARM64Reg Rd, ARM64Reg Rn) {
+	_assert_msg_(!IsQuad(Rd) || size != 64, "%s cannot be used for scalar double", __FUNCTION__);
+	Emit2RegMisc(IsQuad(Rd), false, size >> 4, 0b01010, Rd, Rn);
 }
 
 // Move

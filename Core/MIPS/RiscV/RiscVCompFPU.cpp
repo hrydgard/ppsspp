@@ -405,6 +405,9 @@ void RiscVJitBackend::CompIR_FCompare(IRInst inst) {
 			SEQZ(regs_.R(IRREG_FPCOND), regs_.R(IRREG_FPCOND));
 			regs_.MarkGPRDirty(IRREG_FPCOND, true);
 			break;
+
+		default:
+			_assert_msg_(false, "Unexpected IRFpCompareMode %d", inst.dest);
 		}
 		break;
 

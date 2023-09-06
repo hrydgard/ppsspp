@@ -240,12 +240,11 @@ void Arm64JitBackend::GenerateFixedCode(MIPSState *mipsState) {
 	for (size_t i = 0; i < ARRAY_SIZE(roundModes); ++i) {
 		convertS0ToSCRATCH1_[i] = AlignCode16();
 
+		// Invert 0x80000000 -> 0x7FFFFFFF for the NAN result.
+		fp_.MVNI(32, EncodeRegToDouble(SCRATCHF2), 0x80, 24);
 		fp_.FCMP(S0, S0);  // Detect NaN
 		fp_.FCVTS(S0, S0, roundModes[i]);
-		FixupBranch skip = B(CC_VC);
-		MOVI2R(SCRATCH2, 0x7FFFFFFF);
-		fp_.FMOV(S0, SCRATCH2);
-		SetJumpTarget(skip);
+		fp_.FCSEL(S0, S0, SCRATCHF2, CC_VC);
 
 		RET();
 	}

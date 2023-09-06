@@ -851,6 +851,8 @@ public:
 	void AND(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);
 	void EOR(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);
 	void BSL(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);
+	void BIT(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);
+	void BIF(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);
 	void DUP(u8 size, ARM64Reg Rd, ARM64Reg Rn, u8 index);
 	void FABS(u8 size, ARM64Reg Rd, ARM64Reg Rn);
 	void FADD(u8 size, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);
@@ -893,6 +895,18 @@ public:
 	void UQXTN2(u8 dest_size, ARM64Reg Rd, ARM64Reg Rn);
 	void XTN(u8 dest_size, ARM64Reg Rd, ARM64Reg Rn);
 	void XTN2(u8 dest_size, ARM64Reg Rd, ARM64Reg Rn);
+
+	void CMEQ(u8 size, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);
+	void CMGE(u8 size, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);
+	void CMGT(u8 size, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);
+	void CMHI(u8 size, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);
+	void CMHS(u8 size, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);
+	void CMTST(u8 size, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);
+	void CMEQ(u8 size, ARM64Reg Rd, ARM64Reg Rn);
+	void CMGE(u8 size, ARM64Reg Rd, ARM64Reg Rn);
+	void CMGT(u8 size, ARM64Reg Rd, ARM64Reg Rn);
+	void CMLE(u8 size, ARM64Reg Rd, ARM64Reg Rn);
+	void CMLT(u8 size, ARM64Reg Rd, ARM64Reg Rn);
 
 	// Move
 	void DUP(u8 size, ARM64Reg Rd, ARM64Reg Rn);

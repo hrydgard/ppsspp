@@ -116,15 +116,55 @@ void Arm64JitBackend::CompIR_FCompare(IRInst inst) {
 	case IROp::FCmp:
 		switch (inst.dest) {
 		case IRFpCompareMode::False:
-		case IRFpCompareMode::EitherUnordered:
-		case IRFpCompareMode::EqualOrdered:
-		case IRFpCompareMode::EqualUnordered:
-		case IRFpCompareMode::LessEqualOrdered:
-		case IRFpCompareMode::LessEqualUnordered:
-		case IRFpCompareMode::LessOrdered:
-		case IRFpCompareMode::LessUnordered:
-			CompIR_Generic(inst);
+			regs_.SetGPRImm(IRREG_FPCOND, 0);
 			break;
+
+		case IRFpCompareMode::EitherUnordered:
+			regs_.MapWithExtra(inst, { { 'G', IRREG_FPCOND, 1, MIPSMap::NOINIT } });
+			fp_.FCMP(regs_.F(inst.src1), regs_.F(inst.src2));
+			CSET(regs_.R(IRREG_FPCOND), CC_VS);
+			break;
+
+		case IRFpCompareMode::EqualOrdered:
+			regs_.MapWithExtra(inst, { { 'G', IRREG_FPCOND, 1, MIPSMap::NOINIT } });
+			fp_.FCMP(regs_.F(inst.src1), regs_.F(inst.src2));
+			CSET(regs_.R(IRREG_FPCOND), CC_EQ);
+			break;
+
+		case IRFpCompareMode::EqualUnordered:
+			regs_.MapWithExtra(inst, { { 'G', IRREG_FPCOND, 1, MIPSMap::NOINIT } });
+			fp_.FCMP(regs_.F(inst.src1), regs_.F(inst.src2));
+			CSET(regs_.R(IRREG_FPCOND), CC_EQ);
+			// If ordered, use the above result.  If unordered, use ZR+1 (being 1.)
+			CSINC(regs_.R(IRREG_FPCOND), regs_.R(IRREG_FPCOND), WZR, CC_VC);
+			break;
+
+		case IRFpCompareMode::LessEqualOrdered:
+			regs_.MapWithExtra(inst, { { 'G', IRREG_FPCOND, 1, MIPSMap::NOINIT } });
+			fp_.FCMP(regs_.F(inst.src1), regs_.F(inst.src2));
+			CSET(regs_.R(IRREG_FPCOND), CC_LS);
+			break;
+
+		case IRFpCompareMode::LessEqualUnordered:
+			regs_.MapWithExtra(inst, { { 'G', IRREG_FPCOND, 1, MIPSMap::NOINIT } });
+			fp_.FCMP(regs_.F(inst.src1), regs_.F(inst.src2));
+			CSET(regs_.R(IRREG_FPCOND), CC_LE);
+			break;
+
+		case IRFpCompareMode::LessOrdered:
+			regs_.MapWithExtra(inst, { { 'G', IRREG_FPCOND, 1, MIPSMap::NOINIT } });
+			fp_.FCMP(regs_.F(inst.src1), regs_.F(inst.src2));
+			CSET(regs_.R(IRREG_FPCOND), CC_LO);
+			break;
+
+		case IRFpCompareMode::LessUnordered:
+			regs_.MapWithExtra(inst, { { 'G', IRREG_FPCOND, 1, MIPSMap::NOINIT } });
+			fp_.FCMP(regs_.F(inst.src1), regs_.F(inst.src2));
+			CSET(regs_.R(IRREG_FPCOND), CC_LT);
+			break;
+
+		default:
+			_assert_msg_(false, "Unexpected IRFpCompareMode %d", inst.dest);
 		}
 		break;
 
@@ -143,16 +183,53 @@ void Arm64JitBackend::CompIR_FCompare(IRInst inst) {
 void Arm64JitBackend::CompIR_FCondAssign(IRInst inst) {
 	CONDITIONAL_DISABLE;
 
+	// For Vec4, we could basically just ORR FCMPGE/FCMPLE together, but overlap is trickier.
+	regs_.Map(inst);
+	fp_.FCMP(regs_.F(inst.src1), regs_.F(inst.src2));
+	FixupBranch unordered = B(CC_VS);
+
 	switch (inst.op) {
 	case IROp::FMin:
+		fp_.FMIN(regs_.F(inst.dest), regs_.F(inst.src1), regs_.F(inst.src2));
+		break;
+
 	case IROp::FMax:
-		CompIR_Generic(inst);
+		fp_.FMAX(regs_.F(inst.dest), regs_.F(inst.src1), regs_.F(inst.src2));
 		break;
 
 	default:
 		INVALIDOP;
 		break;
 	}
+
+	FixupBranch orderedDone = B();
+
+	// Not sure if this path is fast, trying to optimize it to be small but correct.
+	// Probably an uncommon path.
+	SetJumpTarget(unordered);
+	fp_.AND(EncodeRegToDouble(SCRATCHF1), regs_.FD(inst.src1), regs_.FD(inst.src2));
+	// SCRATCHF1 = 0xFFFFFFFF if sign bit set on both, 0x00000000 otherwise.
+	fp_.CMLT(32, EncodeRegToDouble(SCRATCHF1), EncodeRegToDouble(SCRATCHF1));
+
+	switch (inst.op) {
+	case IROp::FMin:
+		fp_.SMAX(32, EncodeRegToDouble(SCRATCHF2), regs_.FD(inst.src1), regs_.FD(inst.src2));
+		fp_.SMIN(32, regs_.FD(inst.dest), regs_.FD(inst.src1), regs_.FD(inst.src2));
+		break;
+
+	case IROp::FMax:
+		fp_.SMIN(32, EncodeRegToDouble(SCRATCHF2), regs_.FD(inst.src1), regs_.FD(inst.src2));
+		fp_.SMAX(32, regs_.FD(inst.dest), regs_.FD(inst.src1), regs_.FD(inst.src2));
+		break;
+
+	default:
+		INVALIDOP;
+		break;
+	}
+	// Replace dest with SCRATCHF2 if both were less than zero.
+	fp_.BIT(regs_.FD(inst.dest), EncodeRegToDouble(SCRATCHF2), EncodeRegToDouble(SCRATCHF1));
+
+	SetJumpTarget(orderedDone);
 }
 
 void Arm64JitBackend::CompIR_FCvt(IRInst inst) {
@@ -160,7 +237,14 @@ void Arm64JitBackend::CompIR_FCvt(IRInst inst) {
 
 	switch (inst.op) {
 	case IROp::FCvtWS:
+		CompIR_Generic(inst);
+		break;
+
 	case IROp::FCvtSW:
+		regs_.Map(inst);
+		fp_.SCVTF(regs_.F(inst.dest), regs_.F(inst.src1));
+		break;
+
 	case IROp::FCvtScaledWS:
 	case IROp::FCvtScaledSW:
 		CompIR_Generic(inst);
@@ -175,18 +259,36 @@ void Arm64JitBackend::CompIR_FCvt(IRInst inst) {
 void Arm64JitBackend::CompIR_FRound(IRInst inst) {
 	CONDITIONAL_DISABLE;
 
+	regs_.Map(inst);
+	// Invert 0x80000000 -> 0x7FFFFFFF for the NAN result.
+	fp_.MVNI(32, EncodeRegToDouble(SCRATCHF1), 0x80, 24);
+	fp_.FCMP(regs_.F(inst.src1), regs_.F(inst.src1));
+
+	// Luckily, these already saturate.
 	switch (inst.op) {
 	case IROp::FRound:
+		fp_.FCVTS(regs_.F(inst.dest), regs_.F(inst.src1), ROUND_N);
+		break;
+
 	case IROp::FTrunc:
+		fp_.FCVTS(regs_.F(inst.dest), regs_.F(inst.src1), ROUND_Z);
+		break;
+
 	case IROp::FCeil:
+		fp_.FCVTS(regs_.F(inst.dest), regs_.F(inst.src1), ROUND_P);
+		break;
+
 	case IROp::FFloor:
-		CompIR_Generic(inst);
+		fp_.FCVTS(regs_.F(inst.dest), regs_.F(inst.src1), ROUND_M);
 		break;
 
 	default:
 		INVALIDOP;
 		break;
 	}
+
+	// Switch to INT_MAX if it was NAN.
+	fp_.FCSEL(regs_.F(inst.dest), regs_.F(inst.dest), SCRATCHF1, CC_VC);
 }
 
 void Arm64JitBackend::CompIR_FSat(IRInst inst) {
