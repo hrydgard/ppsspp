@@ -364,7 +364,9 @@ static u32 sceSasSetVoice(u32 core, int voiceNum, u32 vagAddr, int size, int loo
 	v.vagAddr = vagAddr;  // Real VAG header is 0x30 bytes behind the vagAddr
 	v.vagSize = size;
 	v.loop = loop != 0;
-	v.playing = true;
+	if (v.on) {
+		v.playing = true;
+	}
 	v.vag.Start(vagAddr, size, loop != 0);
 	return 0;
 }
