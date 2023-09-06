@@ -32,7 +32,7 @@ Special thanks to unknownbrackets for the new JIT compilers, and fp64 for finall
 - RetroAchievements support ([#17589], [#17631], many more). See [RetroAchievements on ppsspp.org](https://www.ppsspp.org/docs/reference/retro-achievements).
 - New JIT backends:
   - RISC-V, based on IR
-  - x86 JIT based on IR. May end up faster than the existing one, already at parity.
+  - x86 JIT based on IR. Often faster than the existing one.
 - Input fixes
   - Improve behavior when analog and digital inputs clash ([#17960])
   - Combo mapping is now disabled by default ([#17673])
@@ -42,7 +42,7 @@ Special thanks to unknownbrackets for the new JIT compilers, and fp64 for finall
   - Fix flicker in WWE Smackdown vs Raw 2006 ([#18009]), video flicker in Naruto 2 ([#18008])
   - Fix bad colors in Syphon Filter: Logan's Shadow menu ([#17965])
   - On lower-end devices, avoid "uber" shaders due to performance and driver bugs ([#17449], [#17922])
-  - Allow disabling V-sync on Android with Vulkan ([#17903])
+  - Allow disabling V-sync on Android with Vulkan, more SDL platforms ([#17903], [#18087])
   - On Vulkan, reduce input lag when "Buffer graphics commands" is set to off ([#17831])
   - Assorted minor perf ([#17810], [#17505], [#17478], [#17471], [#17452], [#17446], [#17442])
   - Fix shadows in MotorStorm ([#17602]) (not actually a rendering problem)
@@ -64,6 +64,7 @@ Special thanks to unknownbrackets for the new JIT compilers, and fp64 for finall
 - Cheats
   - Fix loading cheat dbs on Android devices with scoped storage ([#17834])
 - Other
+  - Fix horrible audio glitch in After Burner ([#18076])
   - Emulate the vrnd instruction accurately ([#17506], [#17549])
   - Fix timing issue causing slowdowns in MLB games ([#17676], [#17677])
   - UWP keyboard support, many other updates ([#17952], [#17974])
