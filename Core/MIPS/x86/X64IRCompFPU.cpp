@@ -322,6 +322,9 @@ void X64JitBackend::CompIR_FCompare(IRInst inst) {
 			// B/CF = LESS THAN or UNORDERED.
 			ccToFpcond(inst.src1, inst.src2, CC_B);
 			break;
+
+		default:
+			_assert_msg_(false, "Unexpected IRFpCompareMode %d", inst.dest);
 		}
 		break;
 

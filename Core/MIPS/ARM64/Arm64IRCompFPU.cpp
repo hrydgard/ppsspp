@@ -116,15 +116,55 @@ void Arm64JitBackend::CompIR_FCompare(IRInst inst) {
 	case IROp::FCmp:
 		switch (inst.dest) {
 		case IRFpCompareMode::False:
-		case IRFpCompareMode::EitherUnordered:
-		case IRFpCompareMode::EqualOrdered:
-		case IRFpCompareMode::EqualUnordered:
-		case IRFpCompareMode::LessEqualOrdered:
-		case IRFpCompareMode::LessEqualUnordered:
-		case IRFpCompareMode::LessOrdered:
-		case IRFpCompareMode::LessUnordered:
-			CompIR_Generic(inst);
+			regs_.SetGPRImm(IRREG_FPCOND, 0);
 			break;
+
+		case IRFpCompareMode::EitherUnordered:
+			regs_.MapWithExtra(inst, { { 'G', IRREG_FPCOND, 1, MIPSMap::NOINIT } });
+			fp_.FCMP(regs_.F(inst.src1), regs_.F(inst.src2));
+			CSET(regs_.R(IRREG_FPCOND), CC_VS);
+			break;
+
+		case IRFpCompareMode::EqualOrdered:
+			regs_.MapWithExtra(inst, { { 'G', IRREG_FPCOND, 1, MIPSMap::NOINIT } });
+			fp_.FCMP(regs_.F(inst.src1), regs_.F(inst.src2));
+			CSET(regs_.R(IRREG_FPCOND), CC_EQ);
+			break;
+
+		case IRFpCompareMode::EqualUnordered:
+			regs_.MapWithExtra(inst, { { 'G', IRREG_FPCOND, 1, MIPSMap::NOINIT } });
+			fp_.FCMP(regs_.F(inst.src1), regs_.F(inst.src2));
+			CSET(regs_.R(IRREG_FPCOND), CC_EQ);
+			// If ordered, use the above result.  If unordered, use ZR+1 (being 1.)
+			CSINC(regs_.R(IRREG_FPCOND), regs_.R(IRREG_FPCOND), WZR, CC_VC);
+			break;
+
+		case IRFpCompareMode::LessEqualOrdered:
+			regs_.MapWithExtra(inst, { { 'G', IRREG_FPCOND, 1, MIPSMap::NOINIT } });
+			fp_.FCMP(regs_.F(inst.src1), regs_.F(inst.src2));
+			CSET(regs_.R(IRREG_FPCOND), CC_LS);
+			break;
+
+		case IRFpCompareMode::LessEqualUnordered:
+			regs_.MapWithExtra(inst, { { 'G', IRREG_FPCOND, 1, MIPSMap::NOINIT } });
+			fp_.FCMP(regs_.F(inst.src1), regs_.F(inst.src2));
+			CSET(regs_.R(IRREG_FPCOND), CC_LE);
+			break;
+
+		case IRFpCompareMode::LessOrdered:
+			regs_.MapWithExtra(inst, { { 'G', IRREG_FPCOND, 1, MIPSMap::NOINIT } });
+			fp_.FCMP(regs_.F(inst.src1), regs_.F(inst.src2));
+			CSET(regs_.R(IRREG_FPCOND), CC_LO);
+			break;
+
+		case IRFpCompareMode::LessUnordered:
+			regs_.MapWithExtra(inst, { { 'G', IRREG_FPCOND, 1, MIPSMap::NOINIT } });
+			fp_.FCMP(regs_.F(inst.src1), regs_.F(inst.src2));
+			CSET(regs_.R(IRREG_FPCOND), CC_LT);
+			break;
+
+		default:
+			_assert_msg_(false, "Unexpected IRFpCompareMode %d", inst.dest);
 		}
 		break;
 
