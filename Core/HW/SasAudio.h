@@ -243,7 +243,6 @@ struct SasVoice {
 	void Reset();
 	void KeyOn();
 	void KeyOff();
-	void ChangedParams(bool changedVag);
 
 	void DoState(PointerWrap &p);
 

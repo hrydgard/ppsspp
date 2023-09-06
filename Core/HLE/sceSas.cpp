@@ -363,8 +363,9 @@ static u32 sceSasSetVoice(u32 core, int voiceNum, u32 vagAddr, int size, int loo
 	v.type = VOICETYPE_VAG;
 	v.vagAddr = vagAddr;  // Real VAG header is 0x30 bytes behind the vagAddr
 	v.vagSize = size;
-	v.loop = loop ? true : false;
-	v.ChangedParams(vagAddr == prevVagAddr);
+	v.loop = loop != 0;
+	v.playing = true;
+	v.vag.Start(vagAddr, size, loop != 0);
 	return 0;
 }
 
@@ -401,7 +402,6 @@ static u32 sceSasSetVoicePCM(u32 core, int voiceNum, u32 pcmAddr, int size, int 
 	v.pcmLoopPos = loopPos >= 0 ? loopPos : 0;
 	v.loop = loopPos >= 0 ? true : false;
 	v.playing = true;
-	v.ChangedParams(pcmAddr == prevPcmAddr);
 	return 0;
 }
 
@@ -424,7 +424,7 @@ static u32 sceSasSetPause(u32 core, u32 voicebit, int pause) {
 	for (int i = 0; voicebit != 0; i++, voicebit >>= 1) {
 		if (i < PSP_SAS_VOICES_MAX && i >= 0) {
 			if ((voicebit & 1) != 0)
-				sas->voices[i].paused = pause ? true : false;
+				sas->voices[i].paused = pause != 0;
 		}
 	}
 
@@ -466,7 +466,6 @@ static u32 sceSasSetPitch(u32 core, int voiceNum, int pitch) {
 	__SasDrain();
 	SasVoice &v = sas->voices[voiceNum];
 	v.pitch = pitch;
-	v.ChangedParams(false);
 	return 0;
 }
 
@@ -523,7 +522,6 @@ static u32 sceSasSetNoise(u32 core, int voiceNum, int freq) {
 	SasVoice &v = sas->voices[voiceNum];
 	v.type = VOICETYPE_NOISE;
 	v.noiseFreq = freq;
-	v.ChangedParams(true);
 	return 0;
 }
 

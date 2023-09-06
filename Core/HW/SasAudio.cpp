@@ -814,13 +814,6 @@ void SasVoice::KeyOff() {
 	envelope.KeyOff();
 }
 
-void SasVoice::ChangedParams(bool changedVag) {
-	if (type == VOICETYPE_VAG) {
-		playing = true;
-		vag.Start(vagAddr, vagSize, loop);
-	}
-}
-
 void SasVoice::DoState(PointerWrap &p) {
 	auto s = p.Section("SasVoice", 1, 3);
 	if (!s)
