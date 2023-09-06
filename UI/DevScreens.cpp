@@ -566,13 +566,13 @@ void SystemInfoScreen::CreateTabs() {
 		int highp_float_min = gl_extensions.range[1][2][0];
 		int highp_float_max = gl_extensions.range[1][2][1];
 		if (highp_int_max != 0) {
-			char temp[512];
-			snprintf(temp, sizeof(temp), "Highp int range: %d-%d", highp_int_min, highp_int_max);
+			char temp[128];
+			snprintf(temp, sizeof(temp), "%d-%d", highp_int_min, highp_int_max);
 			gpuInfo->Add(new InfoItem(si->T("High precision int range"), temp));
 		}
 		if (highp_float_max != 0) {
-			char temp[512];
-			snprintf(temp, sizeof(temp), "Highp float range: %d-%d", highp_int_min, highp_int_max);
+			char temp[128];
+			snprintf(temp, sizeof(temp), "%d-%d", highp_int_min, highp_int_max);
 			gpuInfo->Add(new InfoItem(si->T("High precision float range"), temp));
 		}
 	}
