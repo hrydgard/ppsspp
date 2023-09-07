@@ -2921,7 +2921,7 @@ bool TextureCacheCommon::PrepareBuildTexture(BuildTexturePlan &plan, TexCacheEnt
 		plan.levelsToLoad = 1;
 		plan.maxPossibleLevels = 1;
 	} else {
-		plan.maxPossibleLevels = log2i(std::min(plan.createW, plan.createH)) + 1;
+		plan.maxPossibleLevels = log2i(std::max(plan.createW, plan.createH)) + 1;
 	}
 
 	if (plan.levelsToCreate == 1) {
