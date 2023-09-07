@@ -169,9 +169,133 @@ void Arm64JitBackend::CompIR_FCompare(IRInst inst) {
 		break;
 
 	case IROp::FCmovVfpuCC:
+		regs_.MapWithExtra(inst, { { 'G', IRREG_VFPU_CC, 1, MIPSMap::INIT } });
+		TSTI2R(regs_.R(IRREG_VFPU_CC), 1ULL << (inst.src2 & 0xF));
+		if ((inst.src2 >> 7) & 1) {
+			fp_.FCSEL(regs_.F(inst.dest), regs_.F(inst.dest), regs_.F(inst.src1), CC_EQ);
+		} else {
+			fp_.FCSEL(regs_.F(inst.dest), regs_.F(inst.dest), regs_.F(inst.src1), CC_NEQ);
+		}
+		break;
+
 	case IROp::FCmpVfpuBit:
+		regs_.MapGPR(IRREG_VFPU_CC, MIPSMap::DIRTY);
+
+		switch (VCondition(inst.dest & 0xF)) {
+		case VC_EQ:
+			regs_.Map(inst);
+			fp_.FCMP(regs_.F(inst.src1), regs_.F(inst.src2));
+			CSET(SCRATCH1, CC_EQ);
+			break;
+		case VC_NE:
+			regs_.Map(inst);
+			fp_.FCMP(regs_.F(inst.src1), regs_.F(inst.src2));
+			CSET(SCRATCH1, CC_NEQ);
+			break;
+		case VC_LT:
+			regs_.Map(inst);
+			fp_.FCMP(regs_.F(inst.src1), regs_.F(inst.src2));
+			CSET(SCRATCH1, CC_LO);
+			break;
+		case VC_LE:
+			regs_.Map(inst);
+			fp_.FCMP(regs_.F(inst.src1), regs_.F(inst.src2));
+			CSET(SCRATCH1, CC_LS);
+			break;
+		case VC_GT:
+			regs_.Map(inst);
+			fp_.FCMP(regs_.F(inst.src1), regs_.F(inst.src2));
+			CSET(SCRATCH1, CC_GT);
+			break;
+		case VC_GE:
+			regs_.Map(inst);
+			fp_.FCMP(regs_.F(inst.src1), regs_.F(inst.src2));
+			CSET(SCRATCH1, CC_GE);
+			break;
+		case VC_EZ:
+			regs_.MapFPR(inst.src1);
+			fp_.FCMP(regs_.F(inst.src1));
+			CSET(SCRATCH1, CC_EQ);
+			break;
+		case VC_NZ:
+			regs_.MapFPR(inst.src1);
+			fp_.FCMP(regs_.F(inst.src1));
+			CSET(SCRATCH1, CC_NEQ);
+			break;
+		case VC_EN:
+			regs_.MapFPR(inst.src1);
+			fp_.FCMP(regs_.F(inst.src1));
+			CSET(SCRATCH1, CC_VS);
+			break;
+		case VC_NN:
+			regs_.MapFPR(inst.src1);
+			fp_.FCMP(regs_.F(inst.src1));
+			CSET(SCRATCH1, CC_VC);
+			break;
+		case VC_EI:
+			regs_.MapFPR(inst.src1);
+			// Compare abs(f) >= Infinity.  Could use FACGE for vector.
+			MOVI2R(SCRATCH1, 0x7F800000);
+			fp_.FMOV(SCRATCHF2, SCRATCH1);
+			fp_.FABS(SCRATCHF1, regs_.F(inst.src1));
+			fp_.FCMP(SCRATCHF1, SCRATCHF2);
+			CSET(SCRATCH1, CC_GE);
+			break;
+		case VC_NI:
+			regs_.MapFPR(inst.src1);
+			// Compare abs(f) < Infinity.
+			MOVI2R(SCRATCH1, 0x7F800000);
+			fp_.FMOV(SCRATCHF2, SCRATCH1);
+			fp_.FABS(SCRATCHF1, regs_.F(inst.src1));
+			fp_.FCMP(SCRATCHF1, SCRATCHF2);
+			// Less than or NAN.
+			CSET(SCRATCH1, CC_LT);
+			break;
+		case VC_ES:
+			regs_.MapFPR(inst.src1);
+			// Compare abs(f) < Infinity.
+			MOVI2R(SCRATCH1, 0x7F800000);
+			fp_.FMOV(SCRATCHF2, SCRATCH1);
+			fp_.FABS(SCRATCHF1, regs_.F(inst.src1));
+			fp_.FCMP(SCRATCHF1, SCRATCHF2);
+			// Greater than or equal to Infinity, or NAN.
+			CSET(SCRATCH1, CC_HS);
+			break;
+		case VC_NS:
+			regs_.MapFPR(inst.src1);
+			// Compare abs(f) < Infinity.
+			MOVI2R(SCRATCH1, 0x7F800000);
+			fp_.FMOV(SCRATCHF2, SCRATCH1);
+			fp_.FABS(SCRATCHF1, regs_.F(inst.src1));
+			fp_.FCMP(SCRATCHF1, SCRATCHF2);
+			// Less than Infinity, but not NAN.
+			CSET(SCRATCH1, CC_LO);
+			break;
+			break;
+		case VC_TR:
+			MOVI2R(SCRATCH1, 1);
+			break;
+		case VC_FL:
+			MOVI2R(SCRATCH1, 0);
+			break;
+		}
+
+		BFI(regs_.R(IRREG_VFPU_CC), SCRATCH1, inst.dest >> 4, 1);
+		break;
+
 	case IROp::FCmpVfpuAggregate:
-		CompIR_Generic(inst);
+		regs_.MapGPR(IRREG_VFPU_CC, MIPSMap::DIRTY);
+		MOVI2R(SCRATCH1, inst.dest);
+		// Grab the any bit.
+		TST(regs_.R(IRREG_VFPU_CC), SCRATCH1);
+		CSET(SCRATCH2, CC_NEQ);
+		// Now the all bit, by clearing our mask to zero.
+		BICS(WZR, SCRATCH1, regs_.R(IRREG_VFPU_CC));
+		CSET(SCRATCH1, CC_EQ);
+
+		// Insert the bits into place.
+		BFI(regs_.R(IRREG_VFPU_CC), SCRATCH2, 4, 1);
+		BFI(regs_.R(IRREG_VFPU_CC), SCRATCH1, 5, 1);
 		break;
 
 	default:
