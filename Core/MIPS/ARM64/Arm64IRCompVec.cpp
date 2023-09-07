@@ -601,7 +601,7 @@ void Arm64JitBackend::CompIR_VecHoriz(IRInst inst) {
 			regs_.SpillLockFPR(inst.src1, inst.src2);
 			regs_.MapVec4(inst.src1);
 			regs_.MapVec4(inst.src2);
-			// It must overlap, so inst.dest is already mapped.
+			regs_.MapVec4(inst.dest, MIPSMap::DIRTY);
 			fp_.FMUL(32, EncodeRegToQuad(SCRATCHF1), regs_.FQ(inst.src1), regs_.FQ(inst.src2));
 			fp_.FADDP(32, EncodeRegToQuad(SCRATCHF1), EncodeRegToQuad(SCRATCHF1), EncodeRegToQuad(SCRATCHF1));
 			fp_.FADDP(32, EncodeRegToQuad(SCRATCHF1), EncodeRegToQuad(SCRATCHF1), EncodeRegToQuad(SCRATCHF1));
@@ -631,8 +631,19 @@ void Arm64JitBackend::CompIR_VecPack(IRInst inst) {
 	case IROp::Vec2Unpack16To32:
 	case IROp::Vec4DuplicateUpperBitsAndShift1:
 	case IROp::Vec4Pack31To8:
-	case IROp::Vec2Pack32To16:
 		CompIR_Generic(inst);
+		break;
+
+	case IROp::Vec2Pack32To16:
+		// Viewed as 16 bit lanes: xAxB -> AB00... that's UZP2.
+		if (Overlap(inst.dest, 1, inst.src1, 2)) {
+			regs_.MapVec2(inst.src1, MIPSMap::DIRTY);
+			fp_.UZP2(16, EncodeRegToDouble(SCRATCHF1), regs_.FD(inst.src1), regs_.FD(inst.src1));
+			fp_.INS(32, regs_.FD(inst.dest), inst.dest & 1, EncodeRegToDouble(SCRATCHF1), 0);
+		} else {
+			regs_.Map(inst);
+			fp_.UZP2(16, regs_.FD(inst.dest), regs_.FD(inst.src1), regs_.FD(inst.src1));
+		}
 		break;
 
 	default:

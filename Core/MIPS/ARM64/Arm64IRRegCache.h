@@ -59,6 +59,7 @@ public:
 	Arm64Gen::ARM64Reg MapGPR2(IRReg reg, MIPSMap mapFlags = MIPSMap::INIT);
 	Arm64Gen::ARM64Reg MapGPRAsPointer(IRReg reg);
 	Arm64Gen::ARM64Reg MapFPR(IRReg reg, MIPSMap mapFlags = MIPSMap::INIT);
+	Arm64Gen::ARM64Reg MapVec2(IRReg first, MIPSMap mapFlags = MIPSMap::INIT);
 	Arm64Gen::ARM64Reg MapVec4(IRReg first, MIPSMap mapFlags = MIPSMap::INIT);
 
 	Arm64Gen::ARM64Reg MapWithFPRTemp(const IRInst &inst);
