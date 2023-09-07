@@ -1,4 +1,6 @@
 #include <cstring>
+#include <algorithm>
+// for std::min
 
 #include "Common/System/OSD.h"
 #include "Common/TimeUtil.h"
