@@ -1379,6 +1379,80 @@ static int sceNetResolverInit()
 	return 0;
 }
 
+static int sceNetResolverTerm()
+{
+	ERROR_LOG(SCENET, "UNIMPL %s()", __FUNCTION__);
+	return 0;
+}
+
+int NetResolver_StartNtoA(int rid, u32 hostnamePtr, u32 inAddrPtr, int timeout, int retry)
+{
+	addrinfo* resolved = nullptr;
+	std::string err, hostname = std::string(safe_string(Memory::GetCharPointer(hostnamePtr)));
+	SockAddrIN4 addr{};
+	addr.in.sin_addr.s_addr = INADDR_NONE;
+	// TODO: Use a lightweight DNS Resolver library (https://github.com/wahern/dns or https://github.com/CesiumComputer/sldr or https://github.com/b17v134/dns may be), 
+	//       So we can support Custom DNS Server without users messing around with Network adapter settings.
+	//       Also need to implement built-in hosts file to avoid users from changing system hosts file which requires admin/sudo (for users with enforced DNS server by their ISP, thus unable to use custom DNS server).
+	if (!net::DNSResolve(hostname, "", &resolved, err)) {
+		// TODO: Return an error based on the outputted "err" (unfortunately it's already converted to string), Most of the time probably ERROR_NET_RESOLVER_NO_RECORD
+		return hleLogError(SCENET, ERROR_NET_RESOLVER_INTERNAL, "DNS Error Resolving %s (%s)\n", hostname.c_str(), err.c_str());
+	}
+	if (resolved) {
+		for (auto ptr = resolved; ptr != NULL; ptr = ptr->ai_next) {
+			switch (ptr->ai_family) {
+			case AF_INET:
+				addr.in = *(sockaddr_in*)ptr->ai_addr;
+				break;
+			}
+		}
+		net::DNSResolveFree(resolved);
+
+		Memory::Write_U32(addr.in.sin_addr.s_addr, inAddrPtr);
+		INFO_LOG(SCENET, "%s - Hostname: %s => IPv4: %s", __FUNCTION__, hostname.c_str(), ip2str(addr.in.sin_addr, false).c_str());
+	}
+
+	return 0;
+}
+
+static int sceNetResolverStartNtoA(int rid, u32 hostnamePtr, u32 inAddrPtr, int timeout, int retry)
+{
+	ERROR_LOG(SCENET, "UNIMPL %s(%d, %08x, %08x, %d, %d) at %08x", __FUNCTION__, rid, hostnamePtr, inAddrPtr, timeout, retry, currentMIPS->pc);
+	return NetResolver_StartNtoA(rid, hostnamePtr, inAddrPtr, timeout, retry);
+}
+
+static int sceNetResolverStartNtoAAsync(int rid, u32 hostnamePtr, u32 inAddrPtr, int timeout, int retry)
+{
+	ERROR_LOG(SCENET, "UNIMPL %s(%d, %08x, %08x, %d, %d) at %08x", __FUNCTION__, rid, hostnamePtr, inAddrPtr, timeout, retry, currentMIPS->pc);
+	return NetResolver_StartNtoA(rid, hostnamePtr, inAddrPtr, timeout, retry);
+}
+
+static int sceNetResolverPollAsync(int rid, u32 unknown)
+{
+	ERROR_LOG(SCENET, "UNIMPL %s(%d, %08x) at %08x", __FUNCTION__, rid, unknown, currentMIPS->pc);
+	return 0;
+}
+
+static int sceNetResolverCreate(u32 ridPtr, u32 bufferPtr, int bufferLen)
+{
+	ERROR_LOG(SCENET, "UNIMPL %s(%08x[%d], %08x, %d) at %08x", __FUNCTION__, ridPtr, Memory::Read_U32(ridPtr), bufferPtr, bufferLen, currentMIPS->pc);
+
+	Memory::Write_U32(1, ridPtr); // dummy id
+	return 0;
+}
+
+static int sceNetResolverStop(int rid)
+{
+	ERROR_LOG(SCENET, "UNIMPL %s(%d) at %08x", __FUNCTION__, rid, currentMIPS->pc);
+	return 0;
+}
+
+static int sceNetResolverDelete(int rid)
+{
+	ERROR_LOG(SCENET, "UNIMPL %s(%d) at %08x", __FUNCTION__, rid, currentMIPS->pc);
+	return 0;
+}
+
 static int sceNetApctlAddInternalHandler(u32 handlerPtr, u32 handlerArg) {
 	ERROR_LOG(SCENET, "UNIMPL %s(%08x, %08x)", __FUNCTION__, handlerPtr, handlerArg);
 	// This seems to be a 2nd kind of handler
@@ -1489,18 +1563,18 @@ const HLEFunction sceNet[] = {
 };
 
 const HLEFunction sceNetResolver[] = {
-	{0X224C5F44, nullptr,                            "sceNetResolverStartNtoA",         '?', ""     },
-	{0X244172AF, nullptr,                            "sceNetResolverCreate",            '?', ""     },
-	{0X94523E09, nullptr,                            "sceNetResolverDelete",            '?', ""     },
-	{0XF3370E61, &WrapI_V<sceNetResolverInit>,       "sceNetResolverInit",              'i', ""     },
-	{0X808F6063, nullptr,                            "sceNetResolverStop",              '?', ""     },
-	{0X6138194A, nullptr,                            "sceNetResolverTerm",              '?', ""     },
-	{0X629E2FB7, nullptr,                            "sceNetResolverStartAtoN",         '?', ""     },
-	{0X14C17EF9, nullptr,                            "sceNetResolverStartNtoAAsync",    '?', ""     },
-	{0XAAC09184, nullptr,                            "sceNetResolverStartAtoNAsync",    '?', ""     },
-	{0X12748EB9, nullptr,                            "sceNetResolverWaitAsync",         '?', ""     },
-	{0X4EE99358, nullptr,                            "sceNetResolverPollAsync",         '?', ""     },
-};					 
+	{0X224C5F44, &WrapI_IUUII<sceNetResolverStartNtoA>,      "sceNetResolverStartNtoA",         'i', "ixxii" },
+	{0X244172AF, &WrapI_UUI<sceNetResolverCreate>,           "sceNetResolverCreate",            'i', "xxi"   },
+	{0X94523E09, &WrapI_I<sceNetResolverDelete>,             "sceNetResolverDelete",            'i', "i"     },
+	{0XF3370E61, &WrapI_V<sceNetResolverInit>,               "sceNetResolverInit",              'i', ""      },
+	{0X808F6063, &WrapI_I<sceNetResolverStop>,               "sceNetResolverStop",              'i', "i"     },
+	{0X6138194A, &WrapI_V<sceNetResolverTerm>,               "sceNetResolverTerm",              'i', ""      },
+	{0X629E2FB7, nullptr,                                    "sceNetResolverStartAtoN",         '?', ""      },
+	{0X14C17EF9, &WrapI_IUUII<sceNetResolverStartNtoAAsync>, "sceNetResolverStartNtoAAsync",    'i', "ixxii" },
+	{0XAAC09184, nullptr,                                    "sceNetResolverStartAtoNAsync",    '?', ""      },
+	{0X12748EB9, nullptr,                                    "sceNetResolverWaitAsync",         '?', ""      },
+	{0X4EE99358, &WrapI_IU<sceNetResolverPollAsync>,         "sceNetResolverPollAsync",         'i', "ix"    },
+};
 
 const HLEFunction sceNetInet[] = {
 	{0X17943399, &WrapI_V<sceNetInetInit>,           "sceNetInetInit",                  'i', ""     },
