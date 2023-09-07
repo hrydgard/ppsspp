@@ -447,13 +447,53 @@ void Arm64JitBackend::CompIR_FSat(IRInst inst) {
 void Arm64JitBackend::CompIR_FSpecial(IRInst inst) {
 	CONDITIONAL_DISABLE;
 
+	auto callFuncF_F = [&](float (*func)(float)) {
+		regs_.FlushBeforeCall();
+		// It might be in a non-volatile register.
+		// TODO: May have to handle a transfer if SIMD here.
+		if (regs_.IsFPRMapped(inst.src1)) {
+			int lane = regs_.GetFPRLane(inst.src1);
+			if (lane == 0)
+				fp_.FMOV(S0, regs_.F(inst.src1));
+			else
+				fp_.DUP(32, Q0, regs_.F(inst.src1), lane);
+		} else {
+			int offset = offsetof(MIPSState, f) + inst.src1 * 4;
+			fp_.LDR(32, INDEX_UNSIGNED, S0, CTXREG, offset);
+		}
+		QuickCallFunction(SCRATCH2_64, func);
+
+		regs_.MapFPR(inst.dest, MIPSMap::NOINIT);
+		// If it's already F10, we're done - MapReg doesn't actually overwrite the reg in that case.
+		if (regs_.F(inst.dest) != S0) {
+			fp_.FMOV(regs_.F(inst.dest), S0);
+		}
+	};
+
 	switch (inst.op) {
 	case IROp::FSin:
+		callFuncF_F(&vfpu_sin);
+		break;
+
 	case IROp::FCos:
+		callFuncF_F(&vfpu_cos);
+		break;
+
 	case IROp::FRSqrt:
+		regs_.Map(inst);
+		fp_.MOVI2F(SCRATCHF1, 1.0f);
+		fp_.FSQRT(regs_.F(inst.dest), regs_.F(inst.src1));
+		fp_.FDIV(regs_.F(inst.dest), SCRATCHF1, regs_.F(inst.dest));
+		break;
+
 	case IROp::FRecip:
+		regs_.Map(inst);
+		fp_.MOVI2F(SCRATCHF1, 1.0f);
+		fp_.FDIV(regs_.F(inst.dest), SCRATCHF1, regs_.F(inst.src1));
+		break;
+
 	case IROp::FAsin:
-		CompIR_Generic(inst);
+		callFuncF_F(&vfpu_asin);
 		break;
 
 	default:
