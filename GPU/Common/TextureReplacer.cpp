@@ -92,6 +92,13 @@ void TextureReplacer::NotifyConfigChanged() {
 		}
 
 		enabled_ = File::IsDirectory(basePath_);
+
+		if (g_Config.bSaveNewTextures) {
+			// Somewhat crude message, re-using translation strings.
+			auto d = GetI18NCategory(I18NCat::DEVELOPER);
+			auto di = GetI18NCategory(I18NCat::DIALOG);
+			g_OSD.Show(OSDType::MESSAGE_INFO, std::string(d->T("Save new textures")) + ": " + di->T("Enabled"), 2.0f);
+		}
 	} else if (wasEnabled) {
 		delete vfs_;
 		vfs_ = nullptr;
@@ -356,7 +363,7 @@ bool TextureReplacer::LoadIniValues(IniFile &ini, VFSBackend *dir, bool isOverri
 
 	auto gr = GetI18NCategory(I18NCat::GRAPHICS);
 
-	g_OSD.Show(OSDType::MESSAGE_SUCCESS, gr->T("Texture replacement pack activated"));
+	g_OSD.Show(OSDType::MESSAGE_SUCCESS, gr->T("Texture replacement pack activated"), 2.0f);
 	return true;
 }
 
