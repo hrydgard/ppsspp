@@ -1211,9 +1211,9 @@ static int sceKernelPrintf(const char *formatString)
 		result.resize(result.size() - 1);
 
 	if (supported)
-		INFO_LOG(SCEKERNEL, "sceKernelPrintf: %s", result.c_str());
+		NOTICE_LOG(KERNELPRINTF, "sceKernelPrintf: %s", result.c_str());
 	else
-		ERROR_LOG(SCEKERNEL, "UNIMPL sceKernelPrintf(%s, %08x, %08x, %08x)", format.c_str(), PARAM(1), PARAM(2), PARAM(3));
+		ERROR_LOG(KERNELPRINTF, "UNIMPL sceKernelPrintf(%s, %08x, %08x, %08x)", format.c_str(), PARAM(1), PARAM(2), PARAM(3));
 	return 0;
 }
 
