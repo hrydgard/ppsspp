@@ -25,6 +25,9 @@
 #include "Core/MIPS/ARM64/Arm64IRJit.h"
 #include "Core/MIPS/ARM64/Arm64IRRegCache.h"
 
+#include <algorithm>
+// for std::min
+
 namespace MIPSComp {
 
 using namespace Arm64Gen;

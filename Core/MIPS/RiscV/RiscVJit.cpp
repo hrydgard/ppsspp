@@ -21,6 +21,9 @@
 #include "Core/MIPS/RiscV/RiscVJit.h"
 #include "Core/MIPS/RiscV/RiscVRegCache.h"
 
+#include <algorithm>
+// for std::min
+
 namespace MIPSComp {
 
 using namespace RiscVGen;
