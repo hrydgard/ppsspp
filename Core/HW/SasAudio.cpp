@@ -71,6 +71,8 @@ void VagDecoder::DecodeBlock(const u8 *&read_pointer) {
 		return;
 	}
 
+	_dbg_assert_(curBlock_ < numBlocks_);
+
 	const u8 *readp = read_pointer;
 	int predict_nr = *readp++;
 	int shift_factor = predict_nr & 0xf;
@@ -810,15 +812,6 @@ void SasVoice::KeyOn() {
 void SasVoice::KeyOff() {
 	on = false;
 	envelope.KeyOff();
-}
-
-void SasVoice::ChangedParams(bool changedVag) {
-	if (!playing && on) {
-		playing = true;
-		if (changedVag)
-			vag.Start(vagAddr, vagSize, loop);
-	}
-	// TODO: restart VAG somehow
 }
 
 void SasVoice::DoState(PointerWrap &p) {
