@@ -98,7 +98,21 @@ void Arm64JitBackend::CompIR_FAssign(IRInst inst) {
 		break;
 
 	case IROp::FSign:
-		CompIR_Generic(inst);
+		regs_.Map(inst);
+		// We'll need this flag later.  Vector could use a temp and FCMEQ.
+		fp_.FCMP(regs_.F(inst.src1));
+
+		fp_.MOVI2FDUP(EncodeRegToDouble(SCRATCHF1), 1.0f);
+		// Invert 0x80000000 -> 0x7FFFFFFF as a mask for sign.
+		fp_.MVNI(32, EncodeRegToDouble(SCRATCHF2), 0x80, 24);
+		// Keep the sign bit in dest, replace all other bits from 1.0f.
+		if (inst.dest != inst.src1)
+			fp_.FMOV(regs_.FD(inst.dest), regs_.FD(inst.src1));
+		fp_.BIT(regs_.FD(inst.dest), EncodeRegToDouble(SCRATCHF1), EncodeRegToDouble(SCRATCHF2));
+
+		// It's later now, let's replace with zero if that FCmp was EQ to zero.
+		fp_.MOVI2FDUP(EncodeRegToDouble(SCRATCHF1), 0.0f);
+		fp_.FCSEL(regs_.F(inst.dest), SCRATCHF1, regs_.F(inst.dest), CC_EQ);
 		break;
 
 	default:
