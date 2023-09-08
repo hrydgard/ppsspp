@@ -79,6 +79,8 @@ def update(file_name):
 		footer = cont[d + len(footer_delimiter):]
 		cont = cont[0 : d]
 		re.sub(r"\[#(\d+)\]:", already_added_id, footer)
+		if footer[-1] != "\n":
+			footer += "\n"
 
 	# Add brackets if missing
 	added_bracket = re.sub(r"([^[])#(\d+)", add_bracket, cont)
