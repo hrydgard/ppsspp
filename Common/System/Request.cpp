@@ -40,7 +40,7 @@ bool RequestManager::MakeSystemRequest(SystemRequestType type, RequestCallback c
 		callbackMap_[requestId] = { callback, failedCallback };
 	}
 
-	DEBUG_LOG(SYSTEM, "Making system request %s: id %d", RequestTypeAsString(type), requestId);
+	VERBOSE_LOG(SYSTEM, "Making system request %s: id %d", RequestTypeAsString(type), requestId);
 	if (!System_MakeRequest(type, requestId, param1, param2, param3)) {
 		if (callback || failedCallback) {
 			std::lock_guard<std::mutex> guard(callbackMutex_);
