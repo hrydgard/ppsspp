@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <vector>
 #include <utility>
 
@@ -16,7 +17,7 @@
 // even be directly JIT-ed, but the gains will probably be tiny over our older direct
 // MIPS->target JITs.
 
-enum class IROp : u8 {
+enum class IROp : uint8_t {
 	Nop,
 
 	SetConst,

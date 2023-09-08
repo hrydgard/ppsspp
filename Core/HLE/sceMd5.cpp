@@ -15,13 +15,14 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "Common/Crypto/md5.h"
+#include "Common/Crypto/sha1.h"
+#include "Common/Data/Random/Rng.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/HLE/sceMd5.h"
 #include "Core/MemMap.h"
 #include "Core/Reporting.h"
-#include "Common/Crypto/md5.h"
-#include "Common/Crypto/sha1.h"
 
 #ifdef USE_CRT_DBG
 #undef new
