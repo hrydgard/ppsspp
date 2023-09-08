@@ -54,6 +54,7 @@ void TiltAnalogSettingsScreen::CreateViews() {
 		tilt_ = new JoystickHistoryView(StickHistoryViewType::OTHER, "", new LinearLayoutParams(1.0f));
 		root_->Add(tilt_);
 	} else {
+		tilt_ = nullptr;
 		AnchorLayout *rightSide = new AnchorLayout(new LinearLayoutParams(1.0));
 		root_->Add(rightSide);
 		switch (g_Config.iTiltInputType) {
@@ -98,7 +99,6 @@ void TiltAnalogSettingsScreen::CreateViews() {
 	};
 
 	settings->SetSpacing(0);
-
 
 	static const char *tiltTypes[] = { "None (Disabled)", "Analog Stick", "D-PAD", "PSP Action Buttons", "L/R Trigger Buttons" };
 	settings->Add(new ItemHeader(co->T("Tilt control setup")));
