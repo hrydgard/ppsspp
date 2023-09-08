@@ -46,6 +46,7 @@ enum class LogType {
 	IO,
 	ACHIEVEMENTS,
 	HTTP,
+	PRINTF,
 
 	SCEAUDIO,
 	SCECTRL,
