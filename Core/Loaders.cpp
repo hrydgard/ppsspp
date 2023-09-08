@@ -18,6 +18,7 @@
 #include <algorithm>
 #include <cstdio>
 
+#include "Common/File/AndroidContentURI.h"
 #include "Common/File/FileUtil.h"
 #include "Common/File/Path.h"
 #include "Common/StringUtils.h"
@@ -263,10 +264,9 @@ bool LoadFile(FileLoader **fileLoaderPtr, std::string *error_string) {
 	switch (type) {
 	case IdentifiedFileType::PSP_PBP_DIRECTORY:
 		{
-			// TODO: Perhaps we should/can never get here now?
 			fileLoader = ResolveFileLoaderTarget(fileLoader);
 			if (fileLoader->Exists()) {
-				INFO_LOG(LOADER, "File is a PBP in a directory!");
+				INFO_LOG(LOADER, "File is a PBP in a directory: %s", fileLoader->GetPath().c_str());
 				IdentifiedFileType ebootType = Identify_File(fileLoader, error_string);
 				if (ebootType == IdentifiedFileType::PSP_ISO_NP) {
 					InitMemoryForGameISO(fileLoader);
@@ -284,6 +284,9 @@ bool LoadFile(FileLoader **fileLoaderPtr, std::string *error_string) {
 				}
 
 				std::string dir = fileLoader->GetPath().GetDirectory();
+				if (fileLoader->GetPath().Type() == PathType::CONTENT_URI) {
+					dir = AndroidContentURI(dir.c_str()).FilePath();
+				}
 				size_t pos = dir.find("PSP/GAME/");
 				if (pos != std::string::npos) {
 					dir = ResolvePBPDirectory(Path(dir)).ToString();
