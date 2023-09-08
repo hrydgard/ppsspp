@@ -382,7 +382,7 @@ bool Load_PSP_ELF_PBP(FileLoader *fileLoader, std::string *error_string) {
 	std::string file = full_path.GetFilename();
 
 	if (full_path.Type() == PathType::CONTENT_URI) {
-		path = AndroidContentURI(full_path.c_str()).FilePath();
+		path = AndroidContentURI(full_path.GetDirectory().c_str()).FilePath();
 	}
 
 	size_t pos = path.find("PSP/GAME/");
