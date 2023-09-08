@@ -2234,6 +2234,45 @@ void ARM64FloatEmitter::FCVTU(ARM64Reg Rd, ARM64Reg Rn, RoundingMode round) {
 	EmitConvertScalarToInt(Rd, Rn, round, true);
 }
 
+void ARM64FloatEmitter::FCVTZS(ARM64Reg Rd, ARM64Reg Rn, int scale) {
+	if (IsScalar(Rd)) {
+		int imm = (IsDouble(Rn) ? 64 : 32) * 2 - scale;
+		Rd = DecodeReg(Rd);
+		Rn = DecodeReg(Rn);
+
+		Write32((1 << 30) | (0 << 29) | (0x1F << 24) | (imm << 16) | (0x1F << 11) | (1 << 10) | (Rn << 5) | Rd);
+	} else {
+		bool sf = Is64Bit(Rd);
+		u32 type = 0;
+		if (IsDouble(Rd))
+			type = 1;
+		int rmode = 3;
+		int opcode = 0;
+
+		Write32((sf << 31) | (0 << 29) | (0x1E << 24) | (type << 22) | (rmode << 19) | (opcode << 16) | (scale << 10) | (Rn << 5) | Rd);
+
+	}
+}
+
+void ARM64FloatEmitter::FCVTZU(ARM64Reg Rd, ARM64Reg Rn, int scale) {
+	if (IsScalar(Rd)) {
+		int imm = (IsDouble(Rn) ? 64 : 32) * 2 - scale;
+		Rd = DecodeReg(Rd);
+		Rn = DecodeReg(Rn);
+
+		Write32((1 << 30) | (1 << 29) | (0x1F << 24) | (imm << 16) | (0x1F << 11) | (1 << 10) | (Rn << 5) | Rd);
+	} else {
+		bool sf = Is64Bit(Rd);
+		u32 type = 0;
+		if (IsDouble(Rd))
+			type = 1;
+		int rmode = 3;
+		int opcode = 1;
+
+		Write32((sf << 31) | (0 << 29) | (0x1E << 24) | (type << 22) | (rmode << 19) | (opcode << 16) | (scale << 10) | (Rn << 5) | Rd);
+	}
+}
+
 void ARM64FloatEmitter::EmitConversion2(bool sf, bool S, bool direction, u32 type, u32 rmode, u32 opcode, int scale, ARM64Reg Rd, ARM64Reg Rn)
 {
 	Rd = DecodeReg(Rd);
@@ -3098,6 +3137,14 @@ void ARM64FloatEmitter::FCVTZU(u8 size, ARM64Reg Rd, ARM64Reg Rn)
 {
 	Emit2RegMisc(IsQuad(Rd), 1, 2 | (size >> 6), 0x1B, Rd, Rn);
 }
+void ARM64FloatEmitter::FCVTZS(u8 size, ARM64Reg Rd, ARM64Reg Rn, int scale) {
+	int imm = size * 2 - scale;
+	EmitShiftImm(IsQuad(Rd), false, imm >> 3, imm & 7, 0x1F, Rd, Rn);
+}
+void ARM64FloatEmitter::FCVTZU(u8 size, ARM64Reg Rd, ARM64Reg Rn, int scale) {
+	int imm = size * 2 - scale;
+	EmitShiftImm(IsQuad(Rd), true, imm >> 3, imm & 7, 0x1F, Rd, Rn);
+}
 void ARM64FloatEmitter::FDIV(u8 size, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm)
 {
 	EmitThreeSame(1, size >> 6, 0x1F, Rd, Rn, Rm);
@@ -3539,22 +3586,38 @@ void ARM64FloatEmitter::UCVTF(ARM64Reg Rd, ARM64Reg Rn)
 
 void ARM64FloatEmitter::SCVTF(ARM64Reg Rd, ARM64Reg Rn, int scale)
 {
-	bool sf = Is64Bit(Rn);
-	u32 type = 0;
-	if (IsDouble(Rd))
-		type = 1;
+	if (IsScalar(Rn)) {
+		int imm = (IsDouble(Rn) ? 64 : 32) * 2 - scale;
+		Rd = DecodeReg(Rd);
+		Rn = DecodeReg(Rn);
 
-	EmitConversion2(sf, 0, false, type, 0, 2, 64 - scale, Rd, Rn);
+		Write32((1 << 30) | (0 << 29) | (0x1F << 24) | (imm << 16) | (0x1C << 11) | (1 << 10) | (Rn << 5) | Rd);
+	} else {
+		bool sf = Is64Bit(Rn);
+		u32 type = 0;
+		if (IsDouble(Rd))
+			type = 1;
+
+		EmitConversion2(sf, 0, false, type, 0, 2, 64 - scale, Rd, Rn);
+	}
 }
 
 void ARM64FloatEmitter::UCVTF(ARM64Reg Rd, ARM64Reg Rn, int scale)
 {
-	bool sf = Is64Bit(Rn);
-	u32 type = 0;
-	if (IsDouble(Rd))
-		type = 1;
+	if (IsScalar(Rn)) {
+		int imm = (IsDouble(Rn) ? 64 : 32) * 2 - scale;
+		Rd = DecodeReg(Rd);
+		Rn = DecodeReg(Rn);
 
-	EmitConversion2(sf, 0, false, type, 0, 3, 64 - scale, Rd, Rn);
+		Write32((1 << 30) | (1 << 29) | (0x1F << 24) | (imm << 16) | (0x1C << 11) | (1 << 10) | (Rn << 5) | Rd);
+	} else {
+		bool sf = Is64Bit(Rn);
+		u32 type = 0;
+		if (IsDouble(Rd))
+			type = 1;
+
+		EmitConversion2(sf, 0, false, type, 0, 3, 64 - scale, Rd, Rn);
+	}
 }
 
 void ARM64FloatEmitter::FCMP(ARM64Reg Rn, ARM64Reg Rm)

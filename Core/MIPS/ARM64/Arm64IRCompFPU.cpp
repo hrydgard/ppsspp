@@ -374,7 +374,15 @@ void Arm64JitBackend::CompIR_FCvt(IRInst inst) {
 
 	switch (inst.op) {
 	case IROp::FCvtWS:
-		CompIR_Generic(inst);
+		// TODO: Unfortunately, we don't currently have the hasSetRounding flag, could skip lookup.
+		regs_.Map(inst);
+		fp_.FMOV(S0, regs_.F(inst.src1));
+
+		MOVP2R(SCRATCH1_64, &currentRoundingFunc_);
+		LDR(INDEX_UNSIGNED, SCRATCH1_64, SCRATCH1_64, 0);
+		BLR(SCRATCH1_64);
+
+		fp_.FMOV(regs_.F(inst.dest), S0);
 		break;
 
 	case IROp::FCvtSW:
@@ -383,8 +391,40 @@ void Arm64JitBackend::CompIR_FCvt(IRInst inst) {
 		break;
 
 	case IROp::FCvtScaledWS:
+		if (IRRoundMode(inst.src2 >> 6) == IRRoundMode::CAST_1) {
+			regs_.Map(inst);
+			// NAN would convert to zero, so detect it specifically and replace with 0x7FFFFFFF.
+			fp_.MVNI(32, EncodeRegToDouble(SCRATCHF2), 0x80, 24);
+			fp_.FCMP(regs_.F(inst.src1), regs_.F(inst.src1));
+			fp_.FCVTZS(regs_.F(inst.dest), regs_.F(inst.src1), inst.src2 & 0x1F);
+			fp_.FCSEL(regs_.F(inst.dest), regs_.F(inst.dest), SCRATCHF2, CC_VC);
+		} else {
+			RoundingMode rm;
+			switch (IRRoundMode(inst.src2 >> 6)) {
+			case IRRoundMode::RINT_0: rm = RoundingMode::ROUND_N; break;
+			case IRRoundMode::CEIL_2: rm = RoundingMode::ROUND_P; break;
+			case IRRoundMode::FLOOR_3: rm = RoundingMode::ROUND_M; break;
+			default:
+				_assert_msg_(false, "Invalid rounding mode for FCvtScaledWS");
+			}
+
+			// Unfortunately, only Z has a direct scaled instruction.
+			// We'll have to multiply.
+			regs_.Map(inst);
+			fp_.MOVI2F(SCRATCHF1, (float)(1UL << (inst.src2 & 0x1F)), SCRATCH1);
+			// This is for the NAN result.
+			fp_.MVNI(32, EncodeRegToDouble(SCRATCHF2), 0x80, 24);
+			fp_.FCMP(regs_.F(inst.src1), regs_.F(inst.src1));
+			fp_.FMUL(regs_.F(inst.dest), regs_.F(inst.src1), SCRATCHF1);
+			fp_.FCVTS(regs_.F(inst.dest), regs_.F(inst.dest), rm);
+			fp_.FCSEL(regs_.F(inst.dest), regs_.F(inst.dest), SCRATCHF2, CC_VC);
+		}
+		break;
+
 	case IROp::FCvtScaledSW:
-		CompIR_Generic(inst);
+		// TODO: This is probably proceeded by a GPR transfer, might be ideal to combine.
+		regs_.Map(inst);
+		fp_.SCVTF(regs_.F(inst.dest), regs_.F(inst.src1), inst.src2 & 0x1F);
 		break;
 
 	default:

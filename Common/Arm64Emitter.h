@@ -866,6 +866,8 @@ public:
 	void FCVTN(u8 dest_size, ARM64Reg Rd, ARM64Reg Rn);
 	void FCVTZS(u8 size, ARM64Reg Rd, ARM64Reg Rn);
 	void FCVTZU(u8 size, ARM64Reg Rd, ARM64Reg Rn);
+	void FCVTZS(u8 size, ARM64Reg Rd, ARM64Reg Rn, int scale);
+	void FCVTZU(u8 size, ARM64Reg Rd, ARM64Reg Rn, int scale);
 	void FDIV(u8 size, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);
 	void FMUL(u8 size, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);
 	void FNEG(u8 size, ARM64Reg Rd, ARM64Reg Rn);
@@ -931,6 +933,8 @@ public:
 	// and one that outputs to a scalar fp register.
 	void FCVTS(ARM64Reg Rd, ARM64Reg Rn, RoundingMode round);
 	void FCVTU(ARM64Reg Rd, ARM64Reg Rn, RoundingMode round);
+	void FCVTZS(ARM64Reg Rd, ARM64Reg Rn, int scale);
+	void FCVTZU(ARM64Reg Rd, ARM64Reg Rn, int scale);
 
 	// Scalar convert int to float. No rounding mode specifier necessary.
 	void SCVTF(ARM64Reg Rd, ARM64Reg Rn);
