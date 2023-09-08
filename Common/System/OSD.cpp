@@ -59,6 +59,9 @@ void OnScreenDisplay::Show(OSDType type, const std::string &text, const std::str
 		case OSDType::MESSAGE_FILE_LINK:
 			duration_s = 5.0f;
 			break;
+		case OSDType::MESSAGE_INFO:
+			duration_s = 3.0f;
+			break;
 		case OSDType::MESSAGE_SUCCESS:
 			duration_s = 2.0f;
 			break;
