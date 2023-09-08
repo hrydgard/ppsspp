@@ -433,8 +433,22 @@ void Arm64JitBackend::CompIR_FSat(IRInst inst) {
 
 	switch (inst.op) {
 	case IROp::FSat0_1:
+		regs_.Map(inst);
+		fp_.MOVI2F(SCRATCHF1, 1.0f);
+		// Note that FMAX takes the larger of the two zeros, which is what we want.
+		fp_.MOVI2F(SCRATCHF2, 0.0f);
+
+		fp_.FMIN(regs_.F(inst.dest), regs_.F(inst.src1), SCRATCHF1);
+		fp_.FMAX(regs_.F(inst.dest), regs_.F(inst.dest), SCRATCHF2);
+		break;
+
 	case IROp::FSatMinus1_1:
-		CompIR_Generic(inst);
+		regs_.Map(inst);
+		fp_.MOVI2F(SCRATCHF1, 1.0f);
+		fp_.FNEG(SCRATCHF2, SCRATCHF1);
+
+		fp_.FMIN(regs_.F(inst.dest), regs_.F(inst.src1), SCRATCHF1);
+		fp_.FMAX(regs_.F(inst.dest), regs_.F(inst.dest), SCRATCHF2);
 		break;
 
 	default:
