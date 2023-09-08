@@ -24,6 +24,7 @@
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/ReplaceTables.h"
 #include "Core/MemMap.h"
+#include "Core/MIPS/IR/IRInterpreter.h"
 #include "Core/MIPS/ARM64/Arm64IRJit.h"
 #include "Core/MIPS/ARM64/Arm64IRRegCache.h"
 
@@ -84,13 +85,36 @@ void Arm64JitBackend::CompIR_Breakpoint(IRInst inst) {
 
 	switch (inst.op) {
 	case IROp::Breakpoint:
-	case IROp::MemoryCheck:
-		CompIR_Generic(inst);
+		FlushAll();
+		// Note: the constant could be a delay slot.
+		MOVI2R(W0, inst.constant);
+		QuickCallFunction(SCRATCH2_64, &IRRunBreakpoint);
 		break;
+
+	case IROp::MemoryCheck:
+	{
+		ARM64Reg addrBase = regs_.MapGPR(inst.src1);
+		FlushAll();
+		ADDI2R(W1, addrBase, inst.constant, SCRATCH1);
+		MovFromPC(W0);
+		ADDI2R(W0, W0, inst.dest, SCRATCH1);
+		QuickCallFunction(SCRATCH2_64, &IRRunMemCheck);
+		break;
+	}
 
 	default:
 		INVALIDOP;
 		break;
+	}
+
+	// Both return a flag on whether to bail out.
+	ptrdiff_t distance = dispatcherCheckCoreState_ - GetCodePointer();
+	if (distance >= -0x100000 && distance < 0x100000) {
+		CBNZ(W0, dispatcherCheckCoreState_);
+	} else {
+		FixupBranch keepOnKeepingOn = CBZ(W0);
+		B(dispatcherCheckCoreState_);
+		SetJumpTarget(keepOnKeepingOn);
 	}
 }
 

@@ -233,30 +233,29 @@ void RiscVJitBackend::CompIR_FCvt(IRInst inst) {
 		break;
 
 	case IROp::FCvtScaledWS:
-		if (cpu_info.RiscV_D) {
-			Round rm = Round::NEAREST_EVEN;
-			switch (inst.src2 >> 6) {
-			case 0: rm = Round::NEAREST_EVEN; break;
-			case 1: rm = Round::TOZERO; break;
-			case 2: rm = Round::UP; break;
-			case 3: rm = Round::DOWN; break;
-			}
-
-			tempReg = regs_.MapWithFPRTemp(inst);
-			// Prepare the double src1 and the multiplier.
-			FCVT(FConv::D, FConv::S, regs_.F(inst.dest), regs_.F(inst.src1));
-			LI(SCRATCH1, 1UL << (inst.src2 & 0x1F));
-			FCVT(FConv::D, FConv::WU, tempReg, SCRATCH1, rm);
-
-			FMUL(64, regs_.F(inst.dest), regs_.F(inst.dest), tempReg, rm);
-			// NAN and clamping should all be correct.
-			FCVT(FConv::W, FConv::D, SCRATCH1, regs_.F(inst.dest), rm);
-			// TODO: Could combine with a transfer, often is one...
-			FMV(FMv::W, FMv::X, regs_.F(inst.dest), SCRATCH1);
-		} else {
-			CompIR_Generic(inst);
+	{
+		Round rm = Round::NEAREST_EVEN;
+		switch (inst.src2 >> 6) {
+		case 0: rm = Round::NEAREST_EVEN; break;
+		case 1: rm = Round::TOZERO; break;
+		case 2: rm = Round::UP; break;
+		case 3: rm = Round::DOWN; break;
+		default:
+			_assert_msg_(false, "Invalid rounding mode for FCvtScaledWS");
 		}
+
+		tempReg = regs_.MapWithFPRTemp(inst);
+		// Prepare the multiplier.
+		LI(SCRATCH1, 1UL << (inst.src2 & 0x1F));
+		FCVT(FConv::S, FConv::WU, tempReg, SCRATCH1, rm);
+
+		FMUL(32, regs_.F(inst.dest), regs_.F(inst.src1), tempReg, rm);
+		// NAN and clamping should all be correct.
+		FCVT(FConv::W, FConv::S, SCRATCH1, regs_.F(inst.dest), rm);
+		// TODO: Could combine with a transfer, often is one...
+		FMV(FMv::W, FMv::X, regs_.F(inst.dest), SCRATCH1);
 		break;
+	}
 
 	case IROp::FCvtScaledSW:
 		// TODO: This is probably proceeded by a GPR transfer, might be ideal to combine.

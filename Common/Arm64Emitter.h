@@ -866,6 +866,8 @@ public:
 	void FCVTN(u8 dest_size, ARM64Reg Rd, ARM64Reg Rn);
 	void FCVTZS(u8 size, ARM64Reg Rd, ARM64Reg Rn);
 	void FCVTZU(u8 size, ARM64Reg Rd, ARM64Reg Rn);
+	void FCVTZS(u8 size, ARM64Reg Rd, ARM64Reg Rn, int scale);
+	void FCVTZU(u8 size, ARM64Reg Rd, ARM64Reg Rn, int scale);
 	void FDIV(u8 size, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);
 	void FMUL(u8 size, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);
 	void FNEG(u8 size, ARM64Reg Rd, ARM64Reg Rn);
@@ -931,6 +933,8 @@ public:
 	// and one that outputs to a scalar fp register.
 	void FCVTS(ARM64Reg Rd, ARM64Reg Rn, RoundingMode round);
 	void FCVTU(ARM64Reg Rd, ARM64Reg Rn, RoundingMode round);
+	void FCVTZS(ARM64Reg Rd, ARM64Reg Rn, int scale);
+	void FCVTZU(ARM64Reg Rd, ARM64Reg Rn, int scale);
 
 	// Scalar convert int to float. No rounding mode specifier necessary.
 	void SCVTF(ARM64Reg Rd, ARM64Reg Rn);
@@ -976,6 +980,9 @@ public:
 	void SSHLL2(u8 src_size, ARM64Reg Rd, ARM64Reg Rn, u32 shift);
 	void USHLL(u8 src_size, ARM64Reg Rd, ARM64Reg Rn, u32 shift);
 	void USHLL2(u8 src_size, ARM64Reg Rd, ARM64Reg Rn, u32 shift);
+	// Shift == src_size for these.
+	void SHLL(u8 src_size, ARM64Reg Rd, ARM64Reg Rn);
+	void SHLL2(u8 src_size, ARM64Reg Rd, ARM64Reg Rn);
 	void SHRN(u8 dest_size, ARM64Reg Rd, ARM64Reg Rn, u32 shift);
 	void SHRN2(u8 dest_size, ARM64Reg Rd, ARM64Reg Rn, u32 shift);
 	void SXTL(u8 src_size, ARM64Reg Rd, ARM64Reg Rn);
@@ -1034,6 +1041,7 @@ private:
 
 	void SSHLL(u8 src_size, ARM64Reg Rd, ARM64Reg Rn, u32 shift, bool upper);
 	void USHLL(u8 src_size, ARM64Reg Rd, ARM64Reg Rn, u32 shift, bool upper);
+	void SHLL(u8 src_size, ARM64Reg Rd, ARM64Reg Rn, bool upper);
 	void SHRN(u8 dest_size, ARM64Reg Rd, ARM64Reg Rn, u32 shift, bool upper);
 	void SXTL(u8 src_size, ARM64Reg Rd, ARM64Reg Rn, bool upper);
 	void UXTL(u8 src_size, ARM64Reg Rd, ARM64Reg Rn, bool upper);
