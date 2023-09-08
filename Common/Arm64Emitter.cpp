@@ -3684,6 +3684,12 @@ void ARM64FloatEmitter::USHLL2(u8 src_size, ARM64Reg Rd, ARM64Reg Rn, u32 shift)
 {
 	USHLL(src_size, Rd, Rn, shift, true);
 }
+void ARM64FloatEmitter::SHLL(u8 src_size, ARM64Reg Rd, ARM64Reg Rn) {
+	SHLL(src_size, Rd, Rn, false);
+}
+void ARM64FloatEmitter::SHLL2(u8 src_size, ARM64Reg Rd, ARM64Reg Rn) {
+	SHLL(src_size, Rd, Rn, true);
+}
 void ARM64FloatEmitter::SXTL(u8 src_size, ARM64Reg Rd, ARM64Reg Rn)
 {
 	SXTL(src_size, Rd, Rn, false);
@@ -3721,6 +3727,11 @@ void ARM64FloatEmitter::USHLL(u8 src_size, ARM64Reg Rd, ARM64Reg Rn, u32 shift, 
 	_assert_msg_(shift < src_size, "%s shift amount must less than the element size!", __FUNCTION__);
 	u32 imm = EncodeImmShiftLeft(src_size, shift);
 	EmitShiftImm(upper, 1, imm >> 3, imm & 7, 0x14, Rd, Rn);
+}
+
+void ARM64FloatEmitter::SHLL(u8 src_size, ARM64Reg Rd, ARM64Reg Rn, bool upper) {
+	_assert_msg_(src_size <= 32, "%s shift amount cannot be 64", __FUNCTION__);
+	Emit2RegMisc(upper, 1, src_size >> 4, 0b10011, Rd, Rn);
 }
 
 void ARM64FloatEmitter::SHRN(u8 dest_size, ARM64Reg Rd, ARM64Reg Rn, u32 shift, bool upper)

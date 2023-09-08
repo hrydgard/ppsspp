@@ -976,6 +976,9 @@ public:
 	void SSHLL2(u8 src_size, ARM64Reg Rd, ARM64Reg Rn, u32 shift);
 	void USHLL(u8 src_size, ARM64Reg Rd, ARM64Reg Rn, u32 shift);
 	void USHLL2(u8 src_size, ARM64Reg Rd, ARM64Reg Rn, u32 shift);
+	// Shift == src_size for these.
+	void SHLL(u8 src_size, ARM64Reg Rd, ARM64Reg Rn);
+	void SHLL2(u8 src_size, ARM64Reg Rd, ARM64Reg Rn);
 	void SHRN(u8 dest_size, ARM64Reg Rd, ARM64Reg Rn, u32 shift);
 	void SHRN2(u8 dest_size, ARM64Reg Rd, ARM64Reg Rn, u32 shift);
 	void SXTL(u8 src_size, ARM64Reg Rd, ARM64Reg Rn);
@@ -1034,6 +1037,7 @@ private:
 
 	void SSHLL(u8 src_size, ARM64Reg Rd, ARM64Reg Rn, u32 shift, bool upper);
 	void USHLL(u8 src_size, ARM64Reg Rd, ARM64Reg Rn, u32 shift, bool upper);
+	void SHLL(u8 src_size, ARM64Reg Rd, ARM64Reg Rn, bool upper);
 	void SHRN(u8 dest_size, ARM64Reg Rd, ARM64Reg Rn, u32 shift, bool upper);
 	void SXTL(u8 src_size, ARM64Reg Rd, ARM64Reg Rn, bool upper);
 	void UXTL(u8 src_size, ARM64Reg Rd, ARM64Reg Rn, bool upper);

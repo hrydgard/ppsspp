@@ -713,9 +713,52 @@ void Arm64JitBackend::CompIR_VecPack(IRInst inst) {
 		break;
 
 	case IROp::Vec2Unpack16To31:
-	case IROp::Vec4Unpack8To32:
+		// Viewed as 16-bit: ABxx -> 0A0B, then shift a zero into the sign place.
+		if (Overlap(inst.dest, 2, inst.src1, 1)) {
+			regs_.MapVec2(inst.dest, MIPSMap::DIRTY);
+		} else {
+			regs_.Map(inst);
+		}
+		if (inst.src1 == inst.dest + 1) {
+			fp_.USHLL2(16, regs_.FQ(inst.dest), regs_.FD(inst.src1), 15);
+		} else {
+			fp_.USHLL(16, regs_.FQ(inst.dest), regs_.FD(inst.src1), 15);
+		}
+		break;
+
 	case IROp::Vec2Unpack16To32:
-		CompIR_Generic(inst);
+		// Just Vec2Unpack16To31, without the shift.
+		if (Overlap(inst.dest, 2, inst.src1, 1)) {
+			regs_.MapVec2(inst.dest, MIPSMap::DIRTY);
+		} else {
+			regs_.Map(inst);
+		}
+		if (inst.src1 == inst.dest + 1) {
+			fp_.SHLL2(16, regs_.FQ(inst.dest), regs_.FD(inst.src1));
+		} else {
+			fp_.SHLL(16, regs_.FQ(inst.dest), regs_.FD(inst.src1));
+		}
+		break;
+
+	case IROp::Vec4Unpack8To32:
+		// Viewed as 8-bit: ABCD -> 000A000B000C000D.
+		if (Overlap(inst.dest, 4, inst.src1, 1)) {
+			regs_.MapVec4(inst.dest, MIPSMap::DIRTY);
+			if (inst.dest == inst.src1 + 2) {
+				fp_.SHLL2(8, regs_.FQ(inst.dest), regs_.FD(inst.src1 & ~3));
+			} else if (inst.dest != inst.src1) {
+				fp_.DUP(32, regs_.FQ(inst.dest), regs_.FQ(inst.src1), inst.src1 & 3);
+				fp_.SHLL(8, regs_.FQ(inst.dest), regs_.FD(inst.dest));
+			} else {
+				fp_.SHLL(8, regs_.FQ(inst.dest), regs_.FD(inst.src1));
+			}
+			fp_.SHLL(16, regs_.FQ(inst.dest), regs_.FD(inst.dest));
+		} else {
+			regs_.Map(inst);
+			// Two steps: ABCD -> 0A0B0C0D, then to 000A000B000C000D.
+			fp_.SHLL(8, regs_.FQ(inst.dest), regs_.FD(inst.src1));
+			fp_.SHLL(16, regs_.FQ(inst.dest), regs_.FD(inst.dest));
+		}
 		break;
 
 	default:
