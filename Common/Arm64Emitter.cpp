@@ -2268,6 +2268,17 @@ void ARM64FloatEmitter::EmitCondSelect(bool M, bool S, CCFlags cond, ARM64Reg Rd
 	        (cond << 12) | (3 << 10) | (Rn << 5) | Rd);
 }
 
+void ARM64FloatEmitter::EmitCondCompare(bool M, bool S, CCFlags cond, int op, u8 nzcv, ARM64Reg Rn, ARM64Reg Rm) {
+	_assert_msg_(!IsQuad(Rn), "%s doesn't support vector!", __FUNCTION__);
+	bool is_double = IsDouble(Rn);
+
+	Rn = DecodeReg(Rn);
+	Rm = DecodeReg(Rm);
+
+	Write32((M << 31) | (S << 29) | (0xF1 << 21) | (is_double << 22) | (Rm << 16) | \
+		(cond << 12) | (1 << 10) | (Rn << 5) | (op << 4) | nzcv);
+}
+
 void ARM64FloatEmitter::EmitPermute(u32 size, u32 op, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm)
 {
 	_assert_msg_(!IsSingle(Rd), "%s doesn't support singles!", __FUNCTION__);
@@ -3600,6 +3611,14 @@ void ARM64FloatEmitter::FCSEL(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm, CCFlags con
 	EmitCondSelect(0, 0, cond, Rd, Rn, Rm);
 }
 
+void ARM64FloatEmitter::FCCMP(ARM64Reg Rn, ARM64Reg Rm, u8 nzcv, CCFlags cond) {
+	EmitCondCompare(0, 0, cond, 0, nzcv, Rn, Rm);
+}
+
+void ARM64FloatEmitter::FCCMPE(ARM64Reg Rn, ARM64Reg Rm, u8 nzcv, CCFlags cond) {
+	EmitCondCompare(0, 0, cond, 1, nzcv, Rn, Rm);
+}
+
 // Permute
 void ARM64FloatEmitter::UZP1(u8 size, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm)
 {
@@ -4096,8 +4115,6 @@ void ARM64FloatEmitter::MOVI2F(ARM64Reg Rd, float value, ARM64Reg scratch, bool 
 // TODO: Quite a few values could be generated easily using the MOVI instruction and friends.
 void ARM64FloatEmitter::MOVI2FDUP(ARM64Reg Rd, float value, ARM64Reg scratch, bool negate) {
 	_assert_msg_(!IsSingle(Rd), "%s doesn't support singles", __FUNCTION__);
-	// TODO: Make it work with more element sizes
-	ARM64Reg s = (ARM64Reg)(S0 + DecodeReg(Rd));
 	int ival;
 	memcpy(&ival, &value, 4);
 	uint8_t imm8;

@@ -442,17 +442,8 @@ void RiscVJitBackend::CompIR_FCompare(IRInst inst) {
 			break;
 		case VC_NE:
 			regs_.Map(inst);
-			// We could almost negate FEQ, except NAN != NAN.
-			// Anything != NAN is false and NAN != NAN is within that, so we only check one side.
-			FCLASS(32, SCRATCH2, regs_.F(inst.src2));
-			// NAN is 0x100 or 0x200.
-			ANDI(SCRATCH2, SCRATCH2, 0x300);
-			SNEZ(SCRATCH2, SCRATCH2);
-
 			FEQ(32, SCRATCH1, regs_.F(inst.src1), regs_.F(inst.src2));
 			SEQZ(SCRATCH1, SCRATCH1);
-			// Just OR in whether that side was a NAN so it's always not equal.
-			OR(SCRATCH1, SCRATCH1, SCRATCH2);
 			break;
 		case VC_LT:
 			regs_.Map(inst);

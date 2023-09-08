@@ -957,6 +957,10 @@ public:
 	// Conditional select
 	void FCSEL(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm, CCFlags cond);
 
+	// Conditional compare
+	void FCCMP(ARM64Reg Rn, ARM64Reg Rm, u8 nzcv, CCFlags cond);
+	void FCCMPE(ARM64Reg Rn, ARM64Reg Rm, u8 nzcv, CCFlags cond);
+
 	// Permute
 	void UZP1(u8 size, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);
 	void TRN1(u8 size, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);
@@ -1012,6 +1016,7 @@ private:
 	void EmitConversion2(bool sf, bool S, bool direction, u32 type, u32 rmode, u32 opcode, int scale, ARM64Reg Rd, ARM64Reg Rn);
 	void EmitCompare(bool M, bool S, u32 op, u32 opcode2, ARM64Reg Rn, ARM64Reg Rm);
 	void EmitCondSelect(bool M, bool S, CCFlags cond, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);
+	void EmitCondCompare(bool M, bool S, CCFlags cond, int op, u8 nzcv, ARM64Reg Rn, ARM64Reg Rm);
 	void EmitPermute(u32 size, u32 op, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);
 	void EmitScalarImm(bool M, bool S, u32 type, u32 imm5, ARM64Reg Rd, u32 imm8);
 	void EmitShiftImm(bool Q, bool U, u32 immh, u32 immb, u32 opcode, ARM64Reg Rd, ARM64Reg Rn);

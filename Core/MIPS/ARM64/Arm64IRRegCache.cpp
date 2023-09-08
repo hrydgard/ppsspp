@@ -296,6 +296,17 @@ ARM64Reg Arm64IRRegCache::MapFPR(IRReg mipsReg, MIPSMap mapFlags) {
 	return INVALID_REG;
 }
 
+ARM64Reg Arm64IRRegCache::MapVec2(IRReg first, MIPSMap mapFlags) {
+	_dbg_assert_(IsValidFPR(first));
+	_dbg_assert_((first & 1) == 0);
+	_dbg_assert_(mr[first + 32].loc == MIPSLoc::MEM || mr[first + 32].loc == MIPSLoc::FREG);
+
+	IRNativeReg nreg = MapNativeReg(MIPSLoc::FREG, first + 32, 2, mapFlags);
+	if (nreg != -1)
+		return EncodeRegToDouble(FromNativeReg(nreg));
+	return INVALID_REG;
+}
+
 ARM64Reg Arm64IRRegCache::MapVec4(IRReg first, MIPSMap mapFlags) {
 	_dbg_assert_(IsValidFPR(first));
 	_dbg_assert_((first & 3) == 0);
