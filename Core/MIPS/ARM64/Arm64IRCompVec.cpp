@@ -631,11 +631,19 @@ void Arm64JitBackend::CompIR_VecPack(IRInst inst) {
 	CONDITIONAL_DISABLE;
 
 	switch (inst.op) {
-	case IROp::Vec2Unpack16To31:
-	case IROp::Vec4Unpack8To32:
-	case IROp::Vec2Unpack16To32:
 	case IROp::Vec4DuplicateUpperBitsAndShift1:
-		CompIR_Generic(inst);
+		// This operation swizzles the high 8 bits and converts to a signed int.
+		// It's always after Vec4Unpack8To32.
+		// 000A000B000C000D -> AAAABBBBCCCCDDDD and then shift right one (to match INT_MAX.)
+		regs_.Map(inst);
+		// First, USHR+ORR to get 0A0A0B0B0C0C0D0D.
+		fp_.USHR(32, EncodeRegToQuad(SCRATCHF1), regs_.FQ(inst.src1), 16);
+		fp_.ORR(EncodeRegToQuad(SCRATCHF1), EncodeRegToQuad(SCRATCHF1), regs_.FQ(inst.src1));
+		// Now again, but by 8.
+		fp_.USHR(32, regs_.FQ(inst.dest), EncodeRegToQuad(SCRATCHF1), 8);
+		fp_.ORR(regs_.FQ(inst.dest), regs_.FQ(inst.dest), EncodeRegToQuad(SCRATCHF1));
+		// Finally, shift away the sign.  The goal is to saturate 0xFF -> 0x7FFFFFFF.
+		fp_.USHR(32, regs_.FQ(inst.dest), regs_.FQ(inst.dest), 1);
 		break;
 
 	case IROp::Vec2Pack31To16:
@@ -702,6 +710,12 @@ void Arm64JitBackend::CompIR_VecPack(IRInst inst) {
 		} else {
 			fp_.UZP1(8, regs_.FQ(inst.dest), EncodeRegToQuad(SCRATCHF1), EncodeRegToQuad(SCRATCHF1));
 		}
+		break;
+
+	case IROp::Vec2Unpack16To31:
+	case IROp::Vec4Unpack8To32:
+	case IROp::Vec2Unpack16To32:
+		CompIR_Generic(inst);
 		break;
 
 	default:

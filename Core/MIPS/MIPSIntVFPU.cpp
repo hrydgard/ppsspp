@@ -926,10 +926,8 @@ namespace MIPSInt
 		switch ((op >> 16) & 3) {
 		case 0:  // vuc2i  
 			// Quad is the only option.
-			// This operation is weird. This particular way of working matches hw but does not 
-			// seem quite sane.
-			// I guess it's used for fixed-point math, and fills more bits to facilitate
-			// conversion between 8-bit and 16-bit values.  But then why not do it in vc2i?
+			// This converts 8-bit unsigned to 31-bit signed, swizzling to saturate.
+			// Similar to 5-bit to 8-bit color swizzling, but clamping to INT_MAX.
 			{
 				u32 value = s[0];
 				for (int i = 0; i < 4; i++) {
@@ -942,6 +940,8 @@ namespace MIPSInt
 
 		case 1:  // vc2i
 			// Quad is the only option
+			// Unlike vuc2i, the source and destination are signed so there is no shift.
+			// It lacks the swizzle because of negative values.
 			{
 				u32 value = s[0];
 				d[0] = (value & 0xFF) << 24;
@@ -953,6 +953,7 @@ namespace MIPSInt
 			break;
 
 		case 2:  // vus2i
+			// Note: for some reason, this skips swizzle such that 0xFFFF -> 0x7FFF8000 unlike vuc2i.
 			oz = V_Pair;
 			switch (sz) {
 			case V_Quad:
