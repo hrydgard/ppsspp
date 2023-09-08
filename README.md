@@ -63,6 +63,10 @@ Special thanks to unknownbrackets for the new JIT compilers, and fp64 for finall
   - Better looking notifications ([#17606], [#17674], [#17672])
 - Cheats
   - Fix loading cheat dbs on Android devices with scoped storage ([#17834])
+- VR (Quest, other Android VR devices)
+  - Cinema screen mode improvements ([#17704], [#17752])
+  - Quest-only passthrough mode ([#17591])
+  - Cleanups, compatibility fixes, make VR settings per-game ([#17636], [#17656], [#17598], [#17518])
 - Other
   - Fix horrible audio glitch in After Burner ([#18076])
   - Emulate the vrnd instruction accurately ([#17506], [#17549])
