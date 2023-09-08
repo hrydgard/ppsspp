@@ -15,6 +15,8 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#pragma once
+
 #include <cstdio>
 #include "Core/HLE/sceKernelThread.h"
 #include "Core/MIPS/MIPSDebugInterface.h"
