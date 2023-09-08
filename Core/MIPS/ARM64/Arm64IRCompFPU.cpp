@@ -285,7 +285,6 @@ void Arm64JitBackend::CompIR_FCompare(IRInst inst) {
 			// Less than Infinity, but not NAN.
 			CSET(SCRATCH1, CC_LO);
 			break;
-			break;
 		case VC_TR:
 			MOVI2R(SCRATCH1, 1);
 			break;

@@ -4115,8 +4115,6 @@ void ARM64FloatEmitter::MOVI2F(ARM64Reg Rd, float value, ARM64Reg scratch, bool 
 // TODO: Quite a few values could be generated easily using the MOVI instruction and friends.
 void ARM64FloatEmitter::MOVI2FDUP(ARM64Reg Rd, float value, ARM64Reg scratch, bool negate) {
 	_assert_msg_(!IsSingle(Rd), "%s doesn't support singles", __FUNCTION__);
-	// TODO: Make it work with more element sizes
-	ARM64Reg s = (ARM64Reg)(S0 + DecodeReg(Rd));
 	int ival;
 	memcpy(&ival, &value, 4);
 	uint8_t imm8;
