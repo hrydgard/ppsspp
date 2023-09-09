@@ -362,6 +362,9 @@ static int FrameTimingLimit() {
 		}
 	};
 
+	// Note: Fast-forward is OK in challenge mode.
+	if (PSP_CoreParameter().fastForward)
+		return 0;
 	// Can't slow down in challenge mode.
 	if (PSP_CoreParameter().fpsLimit == FPSLimit::CUSTOM1)
 		return fixRate(g_Config.iFpsLimit1);
@@ -369,9 +372,6 @@ static int FrameTimingLimit() {
 		return fixRate(g_Config.iFpsLimit2);
 	if (PSP_CoreParameter().fpsLimit == FPSLimit::ANALOG)
 		return fixRate(PSP_CoreParameter().analogFpsLimit);
-	// Note: Fast-forward is OK in challenge mode.
-	if (PSP_CoreParameter().fastForward)
-		return 0;
 	return framerate;
 }
 
