@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include <cstdint>
 #include <string>
 #include <stdint.h>
 #include "Common/CommonTypes.h"
