@@ -296,6 +296,7 @@ void ScreenManager::pop() {
 }
 
 void ScreenManager::RecreateAllViews() {
+	std::lock_guard<std::recursive_mutex> guard(inputLock_);
 	for (auto it = stack_.begin(); it != stack_.end(); ++it) {
 		it->screen->RecreateViews();
 	}
