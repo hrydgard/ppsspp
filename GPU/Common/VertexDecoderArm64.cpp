@@ -27,7 +27,6 @@
 #include "GPU/Common/VertexDecoderCommon.h"
 
 alignas(16) static float bones[16 * 8];  // First four are kept in registers
-alignas(16) static float boneMask[4] = {1.0f, 1.0f, 1.0f, 0.0f};
 
 static const float by128 = 1.0f / 128.0f;
 static const float by32768 = 1.0f / 32768.0f;
@@ -185,8 +184,7 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec, int
 
 	// Keep the scale/offset in a few fp registers if we need it.
 	if (prescaleStep) {
-		fp.LDR(64, INDEX_UNSIGNED, neonUVScaleReg, X3, 0);
-		fp.LDR(64, INDEX_UNSIGNED, neonUVOffsetReg, X3, 8);
+		fp.LDP(64, INDEX_SIGNED, neonUVScaleReg, neonUVOffsetReg, X3, 0);
 		if ((dec.VertexType() & GE_VTYPE_TC_MASK) == GE_VTYPE_TC_8BIT) {
 			fp.MOVI2FDUP(neonScratchRegD, by128, scratchReg);
 			fp.FMUL(32, neonUVScaleReg, neonUVScaleReg, neonScratchRegD);
@@ -201,33 +199,38 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec, int
 	if (dec.skinInDecode) {
 		// Copying from R3 to R4
 		MOVP2R(X3, gstate.boneMatrix);
-		MOVP2R(X4, bones);
-		MOVP2R(X5, boneMask);
-		fp.LDR(128, INDEX_UNSIGNED, Q3, X5, 0);
+		// This is only used with more than 4 weights, and points to the first of them.
+		if (dec.nweights > 4)
+			MOVP2R(X4, &bones[16 * 4]);
+
+		// Construct a mask to zero out the top lane with.
+		fp.MVNI(32, Q3, 0);
+		fp.MOVI(32, Q4, 0);
+		fp.EXT(Q3, Q3, Q4, 4);
+
 		for (int i = 0; i < dec.nweights; i++) {
-			// Note that INDEX_UNSIGNED does not support offsets not aligned to the data size so we must use POST.
-			fp.LDR(128, INDEX_POST, Q4, X3, 12);  // Load 128 bits even though we just want 96
-			fp.LDR(128, INDEX_POST, Q5, X3, 12);
-			fp.LDR(128, INDEX_POST, Q6, X3, 12);
-			fp.LDR(128, INDEX_POST, Q7, X3, 12);
+			// This loads Q4,Q5,Q6 with 12 floats and increases X3, all in one go.
+			fp.LD1(32, 3, INDEX_POST, Q4, X3);
+			// Now sort those floats into 4 regs: ABCD EFGH IJKL -> ABC0 DEF0 GHI0 JKL0.
+			// Go backwards to avoid overwriting.
+			fp.EXT(Q7, Q6, Q6, 4); // I[JKLI]JKL
+			fp.EXT(Q6, Q5, Q6, 8); // EF[GHIJ]KL
+			fp.EXT(Q5, Q4, Q5, 12); // ABC[DEFG]H
+
+			ARM64Reg matrixRow[4]{ Q4, Q5, Q6, Q7 };
 			// First four matrices are in registers Q16+.
 			if (i < 4) {
-				fp.FMUL(32, (ARM64Reg)(Q16 + i * 4), Q4, Q3);
-				fp.FMUL(32, (ARM64Reg)(Q17 + i * 4), Q5, Q3);
-				fp.FMUL(32, (ARM64Reg)(Q18 + i * 4), Q6, Q3);
-				fp.FMUL(32, (ARM64Reg)(Q19 + i * 4), Q7, Q3);
-				ADDI2R(X4, X4, 16 * 4);
-			} else {
-				fp.FMUL(32, Q4, Q4, Q3);
-				fp.FMUL(32, Q5, Q5, Q3);
-				fp.FMUL(32, Q6, Q6, Q3);
-				fp.FMUL(32, Q7, Q7, Q3);
-				fp.STR(128, INDEX_UNSIGNED, Q4, X4, 0);
-				fp.STR(128, INDEX_UNSIGNED, Q5, X4, 16);
-				fp.STR(128, INDEX_UNSIGNED, Q6, X4, 32);
-				fp.STR(128, INDEX_UNSIGNED, Q7, X4, 48);
-				ADDI2R(X4, X4, 16 * 4);
+				for (int w = 0; w < 4; ++w)
+					matrixRow[w] = (ARM64Reg)(Q16 + i * 4 + w);
 			}
+			// Zero out the top lane of each one with the mask created above.
+			fp.AND(matrixRow[0], Q4, Q3);
+			fp.AND(matrixRow[1], Q5, Q3);
+			fp.AND(matrixRow[2], Q6, Q3);
+			fp.AND(matrixRow[3], Q7, Q3);
+
+			if (i >= 4)
+				fp.ST1(32, 4, INDEX_POST, matrixRow[0], X4);
 		}
 	}
 
@@ -346,13 +349,11 @@ void VertexDecoderJitCache::Jit_ApplyWeights() {
 			break;
 		default:
 			// Matrices 4+ need to be loaded from memory.
-			fp.LDP(128, INDEX_SIGNED, Q8, Q9, scratchReg64, 0);
-			fp.LDP(128, INDEX_SIGNED, Q10, Q11, scratchReg64, 2 * 16);
+			fp.LD1(32, 4, INDEX_POST, Q8, scratchReg64);
 			fp.FMLA(32, Q4, Q8, neonWeightRegsQ[i >> 2], i & 3);
 			fp.FMLA(32, Q5, Q9, neonWeightRegsQ[i >> 2], i & 3);
 			fp.FMLA(32, Q6, Q10, neonWeightRegsQ[i >> 2], i & 3);
 			fp.FMLA(32, Q7, Q11, neonWeightRegsQ[i >> 2], i & 3);
-			ADDI2R(scratchReg64, scratchReg64, 4 * 16);
 			break;
 		}
 	}
