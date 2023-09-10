@@ -422,6 +422,7 @@ void GLRenderManager::Present() {
 	{
 		std::unique_lock<std::mutex> lock(pushMutex_);
 		renderThreadQueue_.push(presentTask);
+		pushCondVar_.notify_one();
 	}
 
 	int newCurFrame = curFrame_ + 1;
@@ -524,7 +525,7 @@ bool GLRenderManager::Run(GLRRenderThreadTask &task) {
 		// glFinish is not actually necessary here, and won't be unless we start using
 		// glBufferStorage. Then we need to use fences.
 		{
-			std::unique_lock<std::mutex> lock(syncMutex_);
+			std::lock_guard<std::mutex> lock(syncMutex_);
 			syncDone_ = true;
 			syncCondVar_.notify_one();
 		}
