@@ -232,8 +232,6 @@ void IconCache::Cancel(const std::string &key) {
 }
 
 bool IconCache::InsertIcon(const std::string &key, IconFormat format, std::string &&data) {
-	std::unique_lock<std::mutex> lock(lock_);
-
 	if (key.empty()) {
 		return false;
 	}
@@ -244,6 +242,7 @@ bool IconCache::InsertIcon(const std::string &key, IconFormat format, std::strin
 		return false;
 	}
 
+	std::unique_lock<std::mutex> lock(lock_);
 	if (cache_.find(key) != cache_.end()) {
 		// Already have this entry.
 		return false;
@@ -261,6 +260,10 @@ bool IconCache::InsertIcon(const std::string &key, IconFormat format, std::strin
 }
 
 Draw::Texture *IconCache::BindIconTexture(UIContext *context, const std::string &key) {
+	if (key.empty()) {
+		return nullptr;
+	}
+
 	std::unique_lock<std::mutex> lock(lock_);
 	auto iter = cache_.find(key);
 	if (iter == cache_.end()) {
