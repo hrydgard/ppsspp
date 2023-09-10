@@ -443,6 +443,11 @@ template<int func(int, u32, u32, int, int)> void WrapI_IUUII() {
 	RETURN(retval);
 }
 
+template<int func(int, u32, u32, int, int, int)> void WrapI_IUUIII() {
+	int retval = func(PARAM(0), PARAM(1), PARAM(2), PARAM(3), PARAM(4), PARAM(5));
+	RETURN(retval);
+}
+
 template<int func(int, const char *, int, u32, u32)> void WrapI_ICIUU() {
 	int retval = func(PARAM(0), Memory::GetCharPointer(PARAM(1)), PARAM(2), PARAM(3), PARAM(4));
 	RETURN(retval);
