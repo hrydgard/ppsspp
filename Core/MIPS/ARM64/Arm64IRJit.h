@@ -57,6 +57,11 @@ private:
 	void UpdateRoundingMode(bool force = false);
 	void MovFromPC(Arm64Gen::ARM64Reg r);
 	void MovToPC(Arm64Gen::ARM64Reg r);
+	// Destroys SCRATCH2.
+	void WriteDebugPC(uint32_t pc);
+	void WriteDebugPC(Arm64Gen::ARM64Reg r);
+	// Destroys SCRATCH2.
+	void WriteDebugProfilerStatus(IRProfilerStatus status);
 
 	void SaveStaticRegisters();
 	void LoadStaticRegisters();

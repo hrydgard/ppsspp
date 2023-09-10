@@ -49,8 +49,21 @@ static void ShowPC(void *membase, void *jitbase) {
 }
 
 void X64JitBackend::GenerateFixedCode(MIPSState *mipsState) {
-	BeginWrite(GetMemoryProtectPageSize());
+	// This will be used as a writable scratch area, always 32-bit accessible.
 	const u8 *start = AlignCodePage();
+	if (DebugProfilerEnabled()) {
+		ProtectMemoryPages(start, GetMemoryProtectPageSize(), MEM_PROT_READ | MEM_PROT_WRITE);
+		hooks_.profilerPC = (uint32_t *)GetWritableCodePtr();
+		Write32(0);
+		hooks_.profilerStatus = (IRProfilerStatus *)GetWritableCodePtr();
+		Write32(0);
+	}
+
+	EmitFPUConstants();
+	EmitVecConstants();
+
+	const u8 *disasmStart = AlignCodePage();
+	BeginWrite(GetMemoryProtectPageSize());
 
 	jo.downcountInRegister = false;
 #if PPSSPP_ARCH(AMD64)
@@ -83,8 +96,6 @@ void X64JitBackend::GenerateFixedCode(MIPSState *mipsState) {
 		if (jo.downcountInRegister)
 			MOV(32, R(DOWNCOUNTREG), MDisp(CTXREG, downcountOffset));
 		RET();
-
-		start = saveStaticRegisters_;
 	} else {
 		saveStaticRegisters_ = nullptr;
 		loadStaticRegisters_ = nullptr;
@@ -146,14 +157,18 @@ void X64JitBackend::GenerateFixedCode(MIPSState *mipsState) {
 	MOV(PTRBITS, R(CTXREG), ImmPtr(&mipsState->f[0]));
 
 	LoadStaticRegisters();
+	WriteDebugProfilerStatus(IRProfilerStatus::IN_JIT);
 	MovFromPC(SCRATCH1);
+	WriteDebugPC(SCRATCH1);
 	outerLoopPCInSCRATCH1_ = GetCodePtr();
 	MovToPC(SCRATCH1);
 	outerLoop_ = GetCodePtr();
 		// Advance can change the downcount (or thread), so must save/restore around it.
 		SaveStaticRegisters();
 		RestoreRoundingMode(true);
+		WriteDebugProfilerStatus(IRProfilerStatus::TIMER_ADVANCE);
 		ABI_CallFunction(reinterpret_cast<void *>(&CoreTiming::Advance));
+		WriteDebugProfilerStatus(IRProfilerStatus::IN_JIT);
 		ApplyRoundingMode(true);
 		LoadStaticRegisters();
 
@@ -209,6 +224,7 @@ void X64JitBackend::GenerateFixedCode(MIPSState *mipsState) {
 			}
 
 			MovFromPC(SCRATCH1);
+			WriteDebugPC(SCRATCH1);
 #ifdef MASKED_PSP_MEMORY
 			AND(32, R(SCRATCH1), Imm32(Memory::MEMVIEW32_MASK));
 #endif
@@ -247,7 +263,9 @@ void X64JitBackend::GenerateFixedCode(MIPSState *mipsState) {
 
 			// No block found, let's jit.  We don't need to save static regs, they're all callee saved.
 			RestoreRoundingMode(true);
+			WriteDebugProfilerStatus(IRProfilerStatus::COMPILING);
 			ABI_CallFunction(&MIPSComp::JitAt);
+			WriteDebugProfilerStatus(IRProfilerStatus::IN_JIT);
 			ApplyRoundingMode(true);
 			// Let's just dispatch again, we'll enter the block since we know it's there.
 			JMP(dispatcherNoCheck_, true);
@@ -265,6 +283,7 @@ void X64JitBackend::GenerateFixedCode(MIPSState *mipsState) {
 	const uint8_t *quitLoop = GetCodePtr();
 	SetJumpTarget(badCoreState);
 
+	WriteDebugProfilerStatus(IRProfilerStatus::NOT_RUNNING);
 	SaveStaticRegisters();
 	RestoreRoundingMode(true);
 	ABI_PopAllCalleeSavedRegsAndAdjustStack();
@@ -283,15 +302,12 @@ void X64JitBackend::GenerateFixedCode(MIPSState *mipsState) {
 	// Leave this at the end, add more stuff above.
 	if (enableDisasm) {
 #if PPSSPP_ARCH(AMD64)
-		std::vector<std::string> lines = DisassembleX86(start, (int)(GetCodePtr() - start));
+		std::vector<std::string> lines = DisassembleX86(disasmStart, (int)(GetCodePtr() - disasmStart));
 		for (auto s : lines) {
 			INFO_LOG(JIT, "%s", s.c_str());
 		}
 #endif
 	}
-
-	EmitFPUConstants();
-	EmitVecConstants();
 
 	// Let's spare the pre-generated code from unprotect-reprotect.
 	AlignCodePage();

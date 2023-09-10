@@ -188,6 +188,7 @@ void RiscVJitBackend::CompIR_System(IRInst inst) {
 		FlushAll();
 		SaveStaticRegisters();
 
+		WriteDebugProfilerStatus(IRProfilerStatus::SYSCALL);
 #ifdef USE_PROFILER
 		// When profiling, we can't skip CallSyscall, since it times syscalls.
 		LI(X10, (int32_t)inst.constant);
@@ -207,6 +208,7 @@ void RiscVJitBackend::CompIR_System(IRInst inst) {
 		}
 #endif
 
+		WriteDebugProfilerStatus(IRProfilerStatus::IN_JIT);
 		LoadStaticRegisters();
 		// This is always followed by an ExitToPC, where we check coreState.
 		break;
@@ -214,7 +216,9 @@ void RiscVJitBackend::CompIR_System(IRInst inst) {
 	case IROp::CallReplacement:
 		FlushAll();
 		SaveStaticRegisters();
+		WriteDebugProfilerStatus(IRProfilerStatus::REPLACEMENT);
 		QuickCallFunction(GetReplacementFunc(inst.constant)->replaceFunc, SCRATCH2);
+		WriteDebugProfilerStatus(IRProfilerStatus::IN_JIT);
 		LoadStaticRegisters();
 		SUB(DOWNCOUNTREG, DOWNCOUNTREG, X10);
 		break;

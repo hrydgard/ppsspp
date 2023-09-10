@@ -203,6 +203,7 @@ void X64JitBackend::CompIR_System(IRInst inst) {
 		FlushAll();
 		SaveStaticRegisters();
 
+		WriteDebugProfilerStatus(IRProfilerStatus::SYSCALL);
 #ifdef USE_PROFILER
 		// When profiling, we can't skip CallSyscall, since it times syscalls.
 		ABI_CallFunctionC((const u8 *)&CallSyscall, inst.constant);
@@ -219,6 +220,7 @@ void X64JitBackend::CompIR_System(IRInst inst) {
 		}
 #endif
 
+		WriteDebugProfilerStatus(IRProfilerStatus::IN_JIT);
 		LoadStaticRegisters();
 		// This is always followed by an ExitToPC, where we check coreState.
 		break;
@@ -226,7 +228,9 @@ void X64JitBackend::CompIR_System(IRInst inst) {
 	case IROp::CallReplacement:
 		FlushAll();
 		SaveStaticRegisters();
+		WriteDebugProfilerStatus(IRProfilerStatus::REPLACEMENT);
 		ABI_CallFunction(GetReplacementFunc(inst.constant)->replaceFunc);
+		WriteDebugProfilerStatus(IRProfilerStatus::IN_JIT);
 		LoadStaticRegisters();
 		//SUB(32, R(DOWNCOUNTREG), R(DOWNCOUNTREG), R(EAX));
 		SUB(32, MDisp(CTXREG, downcountOffset), R(EAX));

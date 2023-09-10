@@ -64,6 +64,8 @@ bool X64JitBackend::CompileBlock(IRBlock *block, int block_num, bool preload) {
 		SetBlockCheckedOffset(block_num, (int)GetOffset(GetCodePointer()));
 		wroteCheckedOffset = true;
 
+		WriteDebugPC(startPC);
+
 		// TODO: See if we can get flags to always have the downcount compare.
 		if (jo.downcountInRegister) {
 			TEST(32, R(DOWNCOUNTREG), R(DOWNCOUNTREG));
@@ -122,6 +124,8 @@ bool X64JitBackend::CompileBlock(IRBlock *block, int block_num, bool preload) {
 	}
 
 	if (jo.enableBlocklink && jo.useBackJump) {
+		WriteDebugPC(startPC);
+
 		if (jo.downcountInRegister) {
 			TEST(32, R(DOWNCOUNTREG), R(DOWNCOUNTREG));
 		} else {
@@ -216,11 +220,13 @@ void X64JitBackend::CompIR_Generic(IRInst inst) {
 
 	FlushAll();
 	SaveStaticRegisters();
+	WriteDebugProfilerStatus(IRProfilerStatus::IR_INTERPRET);
 #if PPSSPP_ARCH(AMD64)
 	ABI_CallFunctionP((const void *)&DoIRInst, (void *)value);
 #else
 	ABI_CallFunctionCC((const void *)&DoIRInst, (u32)(value & 0xFFFFFFFF), (u32)(value >> 32));
 #endif
+	WriteDebugProfilerStatus(IRProfilerStatus::IN_JIT);
 	LoadStaticRegisters();
 
 	// We only need to check the return value if it's a potential exit.
@@ -238,10 +244,12 @@ void X64JitBackend::CompIR_Interpret(IRInst inst) {
 	// IR protects us against this being a branching instruction (well, hopefully.)
 	FlushAll();
 	SaveStaticRegisters();
+	WriteDebugProfilerStatus(IRProfilerStatus::INTERPRET);
 	if (DebugStatsEnabled()) {
 		ABI_CallFunctionP((const void *)&NotifyMIPSInterpret, (void *)MIPSGetName(op));
 	}
 	ABI_CallFunctionC((const void *)MIPSGetInterpretFunc(op), inst.constant);
+	WriteDebugProfilerStatus(IRProfilerStatus::IN_JIT);
 	LoadStaticRegisters();
 }
 
@@ -344,6 +352,21 @@ void X64JitBackend::MovFromPC(X64Reg r) {
 
 void X64JitBackend::MovToPC(X64Reg r) {
 	MOV(32, MDisp(CTXREG, pcOffset), R(r));
+}
+
+void X64JitBackend::WriteDebugPC(uint32_t pc) {
+	if (hooks_.profilerPC)
+		MOV(32, M(hooks_.profilerPC), Imm32(pc));
+}
+
+void X64JitBackend::WriteDebugPC(Gen::X64Reg r) {
+	if (hooks_.profilerPC)
+		MOV(32, M(hooks_.profilerPC), R(r));
+}
+
+void X64JitBackend::WriteDebugProfilerStatus(IRProfilerStatus status) {
+	if (hooks_.profilerPC)
+		MOV(32, M(hooks_.profilerStatus), Imm32((int32_t)status));
 }
 
 void X64JitBackend::SaveStaticRegisters() {
