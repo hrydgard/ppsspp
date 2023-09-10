@@ -64,6 +64,8 @@ u32 netThread2Addr = 0;
 
 static struct SceNetMallocStat netMallocStat;
 
+static std::map<int, NetResolver> netResolvers;
+
 static std::map<int, ApctlHandler> apctlHandlers;
 
 SceNetApctlInfoInternal netApctlInfo;
@@ -194,6 +196,10 @@ void __NetCallbackInit() {
 	actionAfterApctlMipsCall = __KernelRegisterActionType(AfterApctlMipsCall::Create);
 }
 
+void __NetResolverInit() {
+	netResolvers.clear();
+}
+
 void __NetInit() {
 	// Windows: Assuming WSAStartup already called beforehand
 	portOffset = g_Config.iPortOffset;
@@ -218,6 +224,7 @@ void __NetInit() {
 	__ResetInitNetLib();
 	__NetApctlInit();
 	__NetCallbackInit();
+	__NetResolverInit();
 }
 
 void __NetApctlShutdown() {
@@ -229,10 +236,15 @@ void __NetApctlShutdown() {
 	apctlEvents.clear();
 }
 
+void __NetResolverShutdown() {
+	netResolvers.clear();
+}
+
 void __NetShutdown() {
 	// Network Cleanup
 	Net_Term();
 
+	__NetResolverShutdown();
 	__NetApctlShutdown();
 	__ResetInitNetLib();
 
@@ -1382,11 +1394,17 @@ static int sceNetResolverInit()
 static int sceNetResolverTerm()
 {
 	ERROR_LOG(SCENET, "UNIMPL %s()", __FUNCTION__);
+	netResolvers.clear(); // Let's not leaks! JPCSP doesn't clear or removes created resolvers on Term, may be because it uses SceUID ?
 	return 0;
 }
 
+// Note: timeouts are in seconds
 int NetResolver_StartNtoA(int rid, u32 hostnamePtr, u32 inAddrPtr, int timeout, int retry)
 {
+	if (netResolvers.find(rid) == netResolvers.end())
+		return hleLogError(SCENET, ERROR_NET_RESOLVER_BAD_ID, "Bad Resolver Id: %i", rid);
+
+	auto& resolver = netResolvers[rid];
 	addrinfo* resolved = nullptr;
 	std::string err, hostname = std::string(safe_string(Memory::GetCharPointer(hostnamePtr)));
 	SockAddrIN4 addr{};
@@ -1394,9 +1412,12 @@ int NetResolver_StartNtoA(int rid, u32 hostnamePtr, u32 inAddrPtr, int timeout, 
 	// TODO: Use a lightweight DNS Resolver library (https://github.com/wahern/dns or https://github.com/CesiumComputer/sldr or https://github.com/b17v134/dns may be), 
 	//       So we can support Custom DNS Server without users messing around with Network adapter settings.
 	//       Also need to implement built-in hosts file to avoid users from changing system hosts file which requires admin/sudo (for users with enforced DNS server by their ISP, thus unable to use custom DNS server).
+	// TODO: Resolves using Primary DNS (& Secondary DNS) Server set on Apctl.
+	// FIXME: Should probably do this on a background thread, at least for the Async version
+	resolver.isRunning = true;
 	if (!net::DNSResolve(hostname, "", &resolved, err)) {
-		// TODO: Return an error based on the outputted "err" (unfortunately it's already converted to string), Most of the time probably ERROR_NET_RESOLVER_NO_RECORD
-		return hleLogError(SCENET, ERROR_NET_RESOLVER_INTERNAL, "DNS Error Resolving %s (%s)\n", hostname.c_str(), err.c_str());
+		// TODO: Return an error based on the outputted "err" (unfortunately it's already converted to string)
+		return hleLogError(SCENET, ERROR_NET_RESOLVER_INVALID_HOST, "DNS Error Resolving %s (%s)\n", hostname.c_str(), err.c_str());
 	}
 	if (resolved) {
 		for (auto ptr = resolved; ptr != NULL; ptr = ptr->ai_next) {
@@ -1411,45 +1432,97 @@ int NetResolver_StartNtoA(int rid, u32 hostnamePtr, u32 inAddrPtr, int timeout, 
 		Memory::Write_U32(addr.in.sin_addr.s_addr, inAddrPtr);
 		INFO_LOG(SCENET, "%s - Hostname: %s => IPv4: %s", __FUNCTION__, hostname.c_str(), ip2str(addr.in.sin_addr, false).c_str());
 	}
+	resolver.isRunning = false;
 
 	return 0;
 }
 
 static int sceNetResolverStartNtoA(int rid, u32 hostnamePtr, u32 inAddrPtr, int timeout, int retry)
 {
-	ERROR_LOG(SCENET, "UNIMPL %s(%d, %08x, %08x, %d, %d) at %08x", __FUNCTION__, rid, hostnamePtr, inAddrPtr, timeout, retry, currentMIPS->pc);
+	WARN_LOG(SCENET, "UNTESTED %s(%d, %08x, %08x, %d, %d) at %08x", __FUNCTION__, rid, hostnamePtr, inAddrPtr, timeout, retry, currentMIPS->pc);
 	return NetResolver_StartNtoA(rid, hostnamePtr, inAddrPtr, timeout, retry);
 }
 
 static int sceNetResolverStartNtoAAsync(int rid, u32 hostnamePtr, u32 inAddrPtr, int timeout, int retry)
 {
-	ERROR_LOG(SCENET, "UNIMPL %s(%d, %08x, %08x, %d, %d) at %08x", __FUNCTION__, rid, hostnamePtr, inAddrPtr, timeout, retry, currentMIPS->pc);
+	ERROR_LOG_REPORT_ONCE(sceNetResolverStartNtoAAsync, SCENET, "UNIMPL %s(%d, %08x, %08x, %d, %d) at %08x", __FUNCTION__, rid, hostnamePtr, inAddrPtr, timeout, retry, currentMIPS->pc);
 	return NetResolver_StartNtoA(rid, hostnamePtr, inAddrPtr, timeout, retry);
 }
 
+// FIXME: May be used to get the resolver.isRunning of one or more resolver(s)?
 static int sceNetResolverPollAsync(int rid, u32 unknown)
 {
-	ERROR_LOG(SCENET, "UNIMPL %s(%d, %08x) at %08x", __FUNCTION__, rid, unknown, currentMIPS->pc);
+	ERROR_LOG_REPORT_ONCE(sceNetResolverPollAsync, SCENET, "UNIMPL %s(%d, %08x) at %08x", __FUNCTION__, rid, unknown, currentMIPS->pc);
 	return 0;
 }
 
+// FIXME: May be used to block current thread until resolver.isRunning = false?
+static int sceNetResolverWaitAsync(int rid, u32 unknown)
+{
+	ERROR_LOG_REPORT_ONCE(sceNetResolverWaitAsync, SCENET, "UNIMPL %s(%d, %08x) at %08x", __FUNCTION__, rid, unknown, currentMIPS->pc);
+	return 0;
+}
+
+// FIXME: Something like [the deprecated] gethostbyname may be?
+static int sceNetResolverStartAtoN(int rid, u32 inAddr, u32 hostnamePtr, int hostnameLength, int timeout, int retry)
+{
+	ERROR_LOG_REPORT_ONCE(sceNetResolverStartAtoN, SCENET, "UNIMPL %s(%d, %08x[%s], %08x, %i, %i, %i) at %08x", __FUNCTION__, rid, inAddr, ip2str(*(in_addr*)&inAddr, false).c_str(), hostnamePtr, hostnameLength, timeout, retry, currentMIPS->pc);
+	return 0;
+}
+
+static int sceNetResolverStartAtoNAsync(int rid, u32 inAddr, u32 hostnamePtr, int hostnameLength, int timeout, int retry)
+{
+	ERROR_LOG_REPORT_ONCE(sceNetResolverStartAtoNAsync, SCENET, "UNIMPL %s(%d, %08x[%s], %08x, %i, %i, %i) at %08x", __FUNCTION__, rid, inAddr, ip2str(*(in_addr*)&inAddr, false).c_str(), hostnamePtr, hostnameLength, timeout, retry, currentMIPS->pc);
+	return 0;
+}
+
+// FIXME: What to do with the [temporary] buffer Args? as input or output? is it mandatory or optional?
 static int sceNetResolverCreate(u32 ridPtr, u32 bufferPtr, int bufferLen)
 {
-	ERROR_LOG(SCENET, "UNIMPL %s(%08x[%d], %08x, %d) at %08x", __FUNCTION__, ridPtr, Memory::Read_U32(ridPtr), bufferPtr, bufferLen, currentMIPS->pc);
+	WARN_LOG(SCENET, "UNTESTED %s(%08x[%d], %08x, %d) at %08x", __FUNCTION__, ridPtr, Memory::Read_U32(ridPtr), bufferPtr, bufferLen, currentMIPS->pc);
+	if (!Memory::IsValidRange(ridPtr, 4))
+		return hleLogError(SCENET, ERROR_NET_RESOLVER_INVALID_PTR, "Invalid Ptr: %08x", ridPtr);
 
-	Memory::Write_U32(1, ridPtr); // dummy id
+	if (Memory::IsValidRange(bufferPtr, 4) && bufferLen < 1)
+		return hleLogError(SCENET, ERROR_NET_RESOLVER_INVALID_BUFLEN, "Invalid Buffer Length: %i", bufferLen);
+
+	// Note: JPCSP uses SceUidManager to generate the id
+	NetResolver resolver = { 0 };
+	int rid = 1; // FIXME: Is this id starts from 1 (as most id) ? There should be MAX_RESOLVERS_ID too (may be 32 ?) as there is ERROR_NET_RESOLVER_ID_MAX error
+	while (netResolvers.find(rid) != netResolvers.end())
+		++rid;
+
+	// TODO: Need to confirm the isRunning status right after creation, JPCSP seems to set the value to true on Create instead of on Start
+	resolver.id = rid;
+	resolver.bufferAddr = bufferPtr;
+	resolver.bufferLen = bufferLen;
+	netResolvers[rid] = resolver;
+
+	Memory::Write_U32(rid, ridPtr);
 	return 0;
 }
 
 static int sceNetResolverStop(int rid)
 {
-	ERROR_LOG(SCENET, "UNIMPL %s(%d) at %08x", __FUNCTION__, rid, currentMIPS->pc);
+	WARN_LOG(SCENET, "UNTESTED %s(%d) at %08x", __FUNCTION__, rid, currentMIPS->pc);
+	if (netResolvers.find(rid) == netResolvers.end())
+		return hleLogError(SCENET, ERROR_NET_RESOLVER_BAD_ID, "Bad Resolver Id: %i", rid);
+
+	auto& resolver = netResolvers[rid];
+	if (!resolver.isRunning)
+		return hleLogError(SCENET, ERROR_NET_RESOLVER_ALREADY_STOPPED, "Resolver Already Stopped (Id: %i)", rid);
+
+	resolver.isRunning = false;
 	return 0;
 }
 
 static int sceNetResolverDelete(int rid)
 {
-	ERROR_LOG(SCENET, "UNIMPL %s(%d) at %08x", __FUNCTION__, rid, currentMIPS->pc);
+	WARN_LOG(SCENET, "UNTESTED %s(%d) at %08x", __FUNCTION__, rid, currentMIPS->pc);
+	if (netResolvers.find(rid) == netResolvers.end())
+		return hleLogError(SCENET, ERROR_NET_RESOLVER_BAD_ID, "Bad Resolver Id: %i", rid);
+
+	netResolvers.erase(rid);
 	return 0;
 }
 
@@ -1569,10 +1642,10 @@ const HLEFunction sceNetResolver[] = {
 	{0XF3370E61, &WrapI_V<sceNetResolverInit>,               "sceNetResolverInit",              'i', ""      },
 	{0X808F6063, &WrapI_I<sceNetResolverStop>,               "sceNetResolverStop",              'i', "i"     },
 	{0X6138194A, &WrapI_V<sceNetResolverTerm>,               "sceNetResolverTerm",              'i', ""      },
-	{0X629E2FB7, nullptr,                                    "sceNetResolverStartAtoN",         '?', ""      },
+	{0X629E2FB7, &WrapI_IUUIII<sceNetResolverStartAtoN>,     "sceNetResolverStartAtoN",         'i', "ixxiii"},
 	{0X14C17EF9, &WrapI_IUUII<sceNetResolverStartNtoAAsync>, "sceNetResolverStartNtoAAsync",    'i', "ixxii" },
-	{0XAAC09184, nullptr,                                    "sceNetResolverStartAtoNAsync",    '?', ""      },
-	{0X12748EB9, nullptr,                                    "sceNetResolverWaitAsync",         '?', ""      },
+	{0XAAC09184, &WrapI_IUUIII<sceNetResolverStartAtoNAsync>,"sceNetResolverStartAtoNAsync",    'i', "ixxiii"},
+	{0X12748EB9, &WrapI_IU<sceNetResolverWaitAsync>,         "sceNetResolverWaitAsync",         'i', "ix"    },
 	{0X4EE99358, &WrapI_IU<sceNetResolverPollAsync>,         "sceNetResolverPollAsync",         'i', "ix"    },
 };
 
