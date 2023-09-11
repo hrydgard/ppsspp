@@ -180,6 +180,7 @@ static std::string CutFromMain(std::string str) {
 static VulkanPipeline *CreateVulkanPipeline(VulkanRenderManager *renderManager, VkPipelineCache pipelineCache,
 	VkPipelineLayout layout, PipelineFlags pipelineFlags, VkSampleCountFlagBits sampleCount, const VulkanPipelineRasterStateKey &key,
 	const DecVtxFormat *decFmt, VulkanVertexShader *vs, VulkanFragmentShader *fs, VulkanGeometryShader *gs, bool useHwTransform, u32 variantBitmask, bool cacheLoad) {
+	_assert_(fs && vs);
 
 	if (!fs->GetModule()) {
 		ERROR_LOG(G3D, "Fragment shader missing in CreateVulkanPipeline");
@@ -187,6 +188,10 @@ static VulkanPipeline *CreateVulkanPipeline(VulkanRenderManager *renderManager, 
 	}
 	if (!vs->GetModule()) {
 		ERROR_LOG(G3D, "Vertex shader missing in CreateVulkanPipeline");
+		return nullptr;
+	}
+	if (gs && !gs->GetModule()) {
+		ERROR_LOG(G3D, "Geometry shader missing in CreateVulkanPipeline");
 		return nullptr;
 	}
 

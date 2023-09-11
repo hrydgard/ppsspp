@@ -844,16 +844,16 @@ bool EmuScreen::UnsyncKey(const KeyInput &key) {
 	System_Notify(SystemNotification::ACTIVITY);
 
 	if (UI::IsFocusMovementEnabled()) {
-		if (UIScreen::UnsyncKey(key)) {
-			return true;
-		} else if ((key.flags & KEY_DOWN) != 0 && UI::IsEscapeKey(key)) {
+		bool retval = UIScreen::UnsyncKey(key);
+		if ((key.flags & KEY_DOWN) != 0 && UI::IsEscapeKey(key)) {
 			if (chatMenu_)
 				chatMenu_->Close();
 			if (chatButton_)
 				chatButton_->SetVisibility(UI::V_VISIBLE);
 			UI::EnableFocusMovement(false);
-			return true;
+			retval = true;
 		}
+		return retval;
 	}
 
 	return controlMapper_.Key(key, &pauseTrigger_);
