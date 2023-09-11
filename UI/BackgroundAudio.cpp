@@ -42,6 +42,11 @@ struct WavData {
 		free(raw_data);
 		raw_data = nullptr;
 	}
+
+	bool IsSimpleWAV() const {
+		bool isBad = raw_bytes_per_frame > sizeof(int16_t) * num_channels;
+		return !isBad && num_channels > 0 && sample_rate >= 8000 && codec == 0;
+	}
 };
 
 void WavData::Read(RIFFReader &file_) {
@@ -389,7 +394,7 @@ Sample *Sample::Load(const std::string &path) {
 
 	delete[] data;
 
-	if (wave.num_channels > 2 || wave.raw_bytes_per_frame > sizeof(int16_t) * wave.num_channels) {
+	if (!wave.IsSimpleWAV()) {
 		ERROR_LOG(AUDIO, "Wave format not supported for mixer playback. Must be 8-bit or 16-bit raw mono or stereo. '%s'", path.c_str());
 		return nullptr;
 	}
