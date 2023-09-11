@@ -591,7 +591,7 @@ bool ShaderManagerVulkan::LoadCache(FILE *f) {
 		uint64_t uniformMask = 0;
 		VertexShaderFlags flags;
 		if (!GenerateVertexShader(id, codeBuffer_, compat_, draw_->GetBugs(), &attributeMask, &uniformMask, &flags, &genErrorString)) {
-			WARN_LOG(G3D, "Failed to generate vertex shader during cache load");
+			ERROR_LOG(G3D, "Failed to generate vertex shader during cache load");
 			// We just ignore this one and carry on.
 			failCount++;
 			continue;
@@ -619,7 +619,7 @@ bool ShaderManagerVulkan::LoadCache(FILE *f) {
 		uint64_t uniformMask = 0;
 		FragmentShaderFlags flags;
 		if (!GenerateFragmentShader(id, codeBuffer_, compat_, draw_->GetBugs(), &uniformMask, &flags, &genErrorString)) {
-			WARN_LOG(G3D, "Failed to generate fragment shader during cache load");
+			ERROR_LOG(G3D, "Failed to generate fragment shader during cache load");
 			// We just ignore this one and carry on.
 			failCount++;
 			continue;
@@ -643,7 +643,7 @@ bool ShaderManagerVulkan::LoadCache(FILE *f) {
 		}
 		std::string genErrorString;
 		if (!GenerateGeometryShader(id, codeBuffer_, compat_, draw_->GetBugs(), &genErrorString)) {
-			WARN_LOG(G3D, "Failed to generate geometry shader during cache load");
+			ERROR_LOG(G3D, "Failed to generate geometry shader during cache load");
 			// We just ignore this one and carry on.
 			failCount++;
 			continue;

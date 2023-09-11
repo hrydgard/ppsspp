@@ -334,6 +334,7 @@ void DrawBackground(UIContext &dc, float alpha, float x, float y, float z) {
 
 	if (bgTexture != nullptr) {
 		dc.Flush();
+		dc.Begin();
 		dc.GetDrawContext()->BindTexture(0, bgTexture->GetTexture());
 		dc.Draw()->DrawTexRect(dc.GetBounds(), 0, 0, 1, 1, bgColor);
 
@@ -342,7 +343,9 @@ void DrawBackground(UIContext &dc, float alpha, float x, float y, float z) {
 	} else {
 		// I_BG original color: 0xFF754D24
 		ImageID img = ImageID("I_BG");
-		ui_draw2d.DrawImageStretch(img, dc.GetBounds(), bgColor & dc.theme->backgroundColor);
+		dc.Begin();
+		dc.Draw()->DrawImageStretch(img, dc.GetBounds(), bgColor & dc.theme->backgroundColor);
+		dc.Flush();
 	}
 
 #if PPSSPP_PLATFORM(IOS)
