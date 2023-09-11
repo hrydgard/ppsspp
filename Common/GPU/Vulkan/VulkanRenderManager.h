@@ -241,8 +241,7 @@ public:
 	}
 
 	void BindPipeline(VKRGraphicsPipeline *pipeline, PipelineFlags flags, VkPipelineLayout pipelineLayout) {
-		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == VKRStepType::RENDER);
-		_dbg_assert_(pipeline != nullptr);
+		_assert_(curRenderStep_ && curRenderStep_->stepType == VKRStepType::RENDER && pipeline != nullptr);
 		VkRenderData &data = curRenderStep_->commands.push_uninitialized();
 		data.cmd = VKRRenderCommand::BIND_GRAPHICS_PIPELINE;
 		pipelinesToCheck_.push_back(pipeline);
