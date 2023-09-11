@@ -672,6 +672,7 @@ ReplacedTexture::LoadLevelResult ReplacedTexture::LoadLevelData(VFSFileReference
 		png.format = PNG_FORMAT_RGBA;
 
 		std::vector<uint8_t> &out = data_[mipLevel];
+		// TODO: Should probably try to handle out-of-memory gracefully here.
 		out.resize(level.w * level.h * 4);
 		if (!png_image_finish_read(&png, nullptr, &out[0], level.w * 4, nullptr)) {
 			ERROR_LOG(G3D, "Could not load texture replacement: %s - %s", filename.c_str(), png.message);

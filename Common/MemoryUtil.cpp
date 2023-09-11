@@ -26,6 +26,7 @@
 #include "Common/MemoryUtil.h"
 #include "Common/StringUtils.h"
 #include "Common/SysError.h"
+#include "Common/Data/Text/Parsers.h"
 
 #ifdef _WIN32
 #include "Common/CommonWindows.h"
@@ -257,8 +258,9 @@ void *AllocateAlignedMemory(size_t size, size_t alignment) {
 	}
 #endif
 #endif
-
-	_assert_msg_(ptr != nullptr, "Failed to allocate aligned memory of size %llu", (unsigned long long)size);
+	char temp[32];
+	NiceSizeFormat(size, temp, sizeof(temp));
+	_assert_msg_(ptr != nullptr, "Failed to allocate aligned memory of size %s (%llu)", temp, (unsigned long long)size);
 	return ptr;
 }
 
