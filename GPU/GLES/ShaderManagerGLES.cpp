@@ -850,11 +850,15 @@ LinkedShader *ShaderManagerGLES::ApplyFragmentShader(VShaderID VSID, Shader *vs,
 	lastFSID_ = FSID;
 
 	Shader *fs;
-	if (!fsCache_.Get(FSID, &fs))	{
+	if (!fsCache_.Get(FSID, &fs)) {
 		// Fragment shader not in cache. Let's compile it.
 		// Can't really tell if we succeeded since the compile is on the GPU thread later.
 		// Could fail to generate, in which case we're kinda screwed.
 		fs = CompileFragmentShader(FSID);
+		if (!fs) {
+			ERROR_LOG(G3D, "Failed to generate fragment shader with ID %08x:%08x", FSID.d[0], FSID.d[1]);
+			// Still insert it so we don't end up spamming generation.
+		}
 		fsCache_.Insert(FSID, fs);
 		diskCacheDirty_ = true;
 	}
@@ -878,7 +882,7 @@ LinkedShader *ShaderManagerGLES::ApplyFragmentShader(VShaderID VSID, Shader *vs,
 		_dbg_assert_(FSID.Bit(FS_BIT_FLATSHADE) == VSID.Bit(VS_BIT_FLATSHADE));
 
 		if (vs == nullptr || fs == nullptr) {
-			// Can't draw. This shouldn't really happen.
+			// Can't draw. This shouldn't really happen (but can happen if fragment shader generation fails)
 			return nullptr;
 		}
 
