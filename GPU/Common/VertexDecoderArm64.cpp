@@ -28,9 +28,6 @@
 
 alignas(16) static float bones[16 * 8];  // First four are kept in registers
 
-static const float by128 = 1.0f / 128.0f;
-static const float by32768 = 1.0f / 32768.0f;
-
 using namespace Arm64Gen;
 
 // Pointers, X regs (X0 - X17 safe to use.)
@@ -62,6 +59,8 @@ static const ARM64Reg fpScratchReg4 = S7;
 
 static const ARM64Reg neonScratchRegD = D2;
 static const ARM64Reg neonScratchRegQ = Q2;
+static const ARM64Reg neonScratchReg2D = D3;
+static const ARM64Reg neonScratchReg2Q = Q3;
 
 static const ARM64Reg neonUVScaleReg = D0;
 static const ARM64Reg neonUVOffsetReg = D1;
@@ -191,13 +190,6 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec, int
 	// Keep the scale/offset in a few fp registers if we need it.
 	if (prescaleStep) {
 		fp.LDP(64, INDEX_SIGNED, neonUVScaleReg, neonUVOffsetReg, X3, 0);
-		if ((dec.VertexType() & GE_VTYPE_TC_MASK) == GE_VTYPE_TC_8BIT) {
-			fp.MOVI2FDUP(neonScratchRegD, by128, scratchReg);
-			fp.FMUL(32, neonUVScaleReg, neonUVScaleReg, neonScratchRegD);
-		} else if ((dec.VertexType() & GE_VTYPE_TC_MASK) == GE_VTYPE_TC_16BIT) {
-			fp.MOVI2FDUP(neonScratchRegD, by32768, scratchReg);
-			fp.FMUL(32, neonUVScaleReg, neonUVScaleReg, neonScratchRegD);
-		}
 	}
 
 	// Add code to convert matrices to 4x4.
@@ -603,12 +595,12 @@ void VertexDecoderJitCache::Jit_TcFloat() {
 }
 
 void VertexDecoderJitCache::Jit_TcU8Prescale() {
-	fp.LDUR(16, neonScratchRegD, srcReg, dec_->tcoff);
-	fp.UXTL(8, neonScratchRegQ, neonScratchRegD); // Widen to 16-bit
-	fp.UXTL(16, neonScratchRegQ, neonScratchRegD); // Widen to 32-bit
-	fp.UCVTF(32, neonScratchRegD, neonScratchRegD);
-	fp.FMUL(32, neonScratchRegD, neonScratchRegD, neonUVScaleReg);  // TODO: FMLA
-	fp.FADD(32, neonScratchRegD, neonScratchRegD, neonUVOffsetReg);
+	fp.LDUR(16, neonScratchReg2D, srcReg, dec_->tcoff);
+	fp.UXTL(8, neonScratchReg2Q, neonScratchReg2D); // Widen to 16-bit
+	fp.UXTL(16, neonScratchReg2Q, neonScratchReg2D); // Widen to 32-bit
+	fp.UCVTF(32, neonScratchReg2D, neonScratchReg2D, 7);
+	fp.MOV(neonScratchRegD, neonUVOffsetReg);
+	fp.FMLA(32, neonScratchRegD, neonScratchReg2D, neonUVScaleReg);
 	fp.STUR(64, neonScratchRegD, dstReg, dec_->decFmt.uvoff);
 }
 
@@ -621,11 +613,11 @@ void VertexDecoderJitCache::Jit_TcU8ToFloat() {
 }
 
 void VertexDecoderJitCache::Jit_TcU16Prescale() {
-	fp.LDUR(32, neonScratchRegD, srcReg, dec_->tcoff);
-	fp.UXTL(16, neonScratchRegQ, neonScratchRegD); // Widen to 32-bit
-	fp.UCVTF(32, neonScratchRegD, neonScratchRegD);
-	fp.FMUL(32, neonScratchRegD, neonScratchRegD, neonUVScaleReg);  // TODO: FMLA
-	fp.FADD(32, neonScratchRegD, neonScratchRegD, neonUVOffsetReg);
+	fp.LDUR(32, neonScratchReg2D, srcReg, dec_->tcoff);
+	fp.UXTL(16, neonScratchReg2Q, neonScratchReg2D); // Widen to 32-bit
+	fp.UCVTF(32, neonScratchReg2D, neonScratchReg2D, 15);
+	fp.MOV(neonScratchRegD, neonUVOffsetReg);
+	fp.FMLA(32, neonScratchRegD, neonScratchReg2D, neonUVScaleReg);
 	fp.STUR(64, neonScratchRegD, dstReg, dec_->decFmt.uvoff);
 }
 
@@ -637,9 +629,9 @@ void VertexDecoderJitCache::Jit_TcU16ToFloat() {
 }
 
 void VertexDecoderJitCache::Jit_TcFloatPrescale() {
-	fp.LDUR(64, neonScratchRegD, srcReg, dec_->tcoff);
-	fp.FMUL(32, neonScratchRegD, neonScratchRegD, neonUVScaleReg);  // TODO: FMLA
-	fp.FADD(32, neonScratchRegD, neonScratchRegD, neonUVOffsetReg);
+	fp.LDUR(64, neonScratchReg2D, srcReg, dec_->tcoff);
+	fp.MOV(neonScratchRegD, neonUVOffsetReg);
+	fp.FMLA(32, neonScratchRegD, neonScratchReg2D, neonUVScaleReg);
 	fp.STUR(64, neonScratchRegD, dstReg, dec_->decFmt.uvoff);
 }
 
