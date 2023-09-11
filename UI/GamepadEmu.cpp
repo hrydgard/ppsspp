@@ -351,21 +351,22 @@ void PSPDpad::ProcessTouch(float x, float y, bool down) {
 	}
 
 	int lastDown = down_;
+	int pressed = ctrlMask & ~lastDown;
+	int released = (~ctrlMask) & lastDown;
 	down_ = ctrlMask;
-	__CtrlUpdateButtons(ctrlMask, CTRL_LEFT | CTRL_RIGHT | CTRL_UP | CTRL_DOWN);
-
-	if (g_Config.bHapticFeedback) {
-		int pressed = down_ & ~lastDown;
-		static const int dir[4] = { CTRL_RIGHT, CTRL_DOWN, CTRL_LEFT, CTRL_UP };
-		bool vibrate = false;
-		for (int i = 0; i < 4; i++) {
-			if (pressed & dir[i]) {
-				vibrate = true;
-			}
+	bool vibrate = false;
+	static const int dir[4] = { CTRL_RIGHT, CTRL_DOWN, CTRL_LEFT, CTRL_UP };
+	for (int i = 0; i < 4; i++) {
+		if (pressed & dir[i]) {
+			vibrate = true;
+			__CtrlUpdateButtons(dir[i], 0);
 		}
-		if (vibrate) {
-			System_Vibrate(HAPTIC_VIRTUAL_KEY);
+		if (released & dir[i]) {
+			__CtrlUpdateButtons(0, dir[i]);
 		}
+	}
+	if (vibrate && g_Config.bHapticFeedback) {
+		System_Vibrate(HAPTIC_VIRTUAL_KEY);
 	}
 }
 
