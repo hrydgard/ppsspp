@@ -121,9 +121,10 @@ SamplerCache::~SamplerCache() {
 }
 
 VkSampler SamplerCache::GetOrCreateSampler(const SamplerCacheKey &key) {
-	VkSampler sampler = cache_.Get(key);
-	if (sampler != VK_NULL_HANDLE)
+	VkSampler sampler;
+	if (cache_.Get(key, &sampler)) {
 		return sampler;
+	}
 
 	VkSamplerCreateInfo samp = { VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO };
 	samp.addressModeU = key.sClamp ? VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE : VK_SAMPLER_ADDRESS_MODE_REPEAT;

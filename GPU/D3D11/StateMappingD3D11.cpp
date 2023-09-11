@@ -356,8 +356,8 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 	// There might have been interactions between depth and blend above.
 	if (gstate_c.IsDirty(DIRTY_BLEND_STATE)) {
 		if (!device1_) {
-			ID3D11BlendState *bs = blendCache_.Get(keys_.blend.value);
-			if (bs == nullptr) {
+			ID3D11BlendState *bs = nullptr;
+			if (!blendCache_.Get(keys_.blend.value, &bs) || !bs) {
 				D3D11_BLEND_DESC desc{};
 				D3D11_RENDER_TARGET_BLEND_DESC &rt = desc.RenderTarget[0];
 				rt.BlendEnable = keys_.blend.blendEnable;
@@ -373,8 +373,8 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 			}
 			blendState_ = bs;
 		} else {
-			ID3D11BlendState1 *bs1 = blendCache1_.Get(keys_.blend.value);
-			if (bs1 == nullptr) {
+			ID3D11BlendState1 *bs1 = nullptr;
+			if (!blendCache1_.Get(keys_.blend.value, &bs1) || !bs1) {
 				D3D11_BLEND_DESC1 desc1{};
 				D3D11_RENDER_TARGET_BLEND_DESC1 &rt = desc1.RenderTarget[0];
 				rt.BlendEnable = keys_.blend.blendEnable;
@@ -395,8 +395,8 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 	}
 
 	if (gstate_c.IsDirty(DIRTY_RASTER_STATE)) {
-		ID3D11RasterizerState *rs = rasterCache_.Get(keys_.raster.value);
-		if (rs == nullptr) {
+		ID3D11RasterizerState *rs;
+		if (!rasterCache_.Get(keys_.raster.value, &rs) || !rs) {
 			D3D11_RASTERIZER_DESC desc{};
 			desc.CullMode = (D3D11_CULL_MODE)(keys_.raster.cullMode);
 			desc.FillMode = D3D11_FILL_SOLID;
@@ -410,8 +410,8 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 	}
 
 	if (gstate_c.IsDirty(DIRTY_DEPTHSTENCIL_STATE)) {
-		ID3D11DepthStencilState *ds = depthStencilCache_.Get(keys_.depthStencil.value);
-		if (ds == nullptr) {
+		ID3D11DepthStencilState *ds;
+		if (!depthStencilCache_.Get(keys_.depthStencil.value, &ds) || !ds) {
 			D3D11_DEPTH_STENCIL_DESC desc{};
 			desc.DepthEnable = keys_.depthStencil.depthTestEnable;
 			desc.DepthWriteMask = keys_.depthStencil.depthWriteEnable ? D3D11_DEPTH_WRITE_MASK_ALL : D3D11_DEPTH_WRITE_MASK_ZERO;

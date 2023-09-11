@@ -166,7 +166,7 @@ void SamplerJitCache::Flush() {
 	for (const auto &queued : compileQueue_) {
 		// Might've been compiled after enqueue, but before now.
 		size_t queuedKey = std::hash<SamplerID>()(queued);
-		if (!cache_.Get(queuedKey))
+		if (!cache_.ContainsKey(queuedKey))
 			Compile(queued);
 	}
 	compileQueue_.clear();
@@ -174,9 +174,11 @@ void SamplerJitCache::Flush() {
 
 NearestFunc SamplerJitCache::GetByID(const SamplerID &id, size_t key, BinManager *binner) {
 	std::unique_lock<std::mutex> guard(jitCacheLock);
-	auto it = cache_.Get(key);
-	if (it != nullptr)
-		return it;
+	
+	NearestFunc func;
+	if (cache_.Get(key, &func)) {
+		return func;
+	}
 
 	if (!binner) {
 		// Can't compile, let's try to do it later when there's an opportunity.
@@ -191,16 +193,20 @@ NearestFunc SamplerJitCache::GetByID(const SamplerID &id, size_t key, BinManager
 	for (const auto &queued : compileQueue_) {
 		// Might've been compiled after enqueue, but before now.
 		size_t queuedKey = std::hash<SamplerID>()(queued);
-		if (!cache_.Get(queuedKey))
+		if (!cache_.ContainsKey(queuedKey))
 			Compile(queued);
 	}
 	compileQueue_.clear();
 
-	if (!cache_.Get(key))
+	if (!cache_.ContainsKey(key))
 		Compile(id);
 
 	// Okay, should be there now.
-	return cache_.Get(key);
+	if (cache_.Get(key, &func)) {
+		return func;
+	} else {
+		return nullptr;
+	}
 }
 
 NearestFunc SamplerJitCache::GetNearest(const SamplerID &id, BinManager *binner) {

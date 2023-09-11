@@ -125,7 +125,7 @@ private:
 		}
 	};
 
-	DenseHashMap<size_t, SingleFunc, nullptr> cache_;
+	DenseHashMap<size_t, SingleFunc> cache_;
 	std::unordered_map<PixelFuncID, const u8 *> addresses_;
 	std::unordered_set<PixelFuncID> compileQueue_;
 	static int clearGen_;

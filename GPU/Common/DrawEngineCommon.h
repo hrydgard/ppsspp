@@ -201,7 +201,7 @@ protected:
 
 	// Cached vertex decoders
 	u32 lastVType_ = -1;  // corresponds to dec_.  Could really just pick it out of dec_...
-	DenseHashMap<u32, VertexDecoder *, nullptr> decoderMap_;
+	DenseHashMap<u32, VertexDecoder *> decoderMap_;
 	VertexDecoder *dec_ = nullptr;
 	VertexDecoderJitCache *decJitCache_ = nullptr;
 	VertexDecoderOptions decOptions_{};

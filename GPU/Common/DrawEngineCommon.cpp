@@ -62,8 +62,8 @@ void DrawEngineCommon::Init() {
 }
 
 VertexDecoder *DrawEngineCommon::GetVertexDecoder(u32 vtype) {
-	VertexDecoder *dec = decoderMap_.Get(vtype);
-	if (dec)
+	VertexDecoder *dec;
+	if (decoderMap_.Get(vtype, &dec))
 		return dec;
 	dec = new VertexDecoder();
 	_assert_(dec);
@@ -132,8 +132,12 @@ std::vector<std::string> DrawEngineCommon::DebugGetVertexLoaderIDs() {
 std::string DrawEngineCommon::DebugGetVertexLoaderString(std::string id, DebugShaderStringType stringType) {
 	u32 mapId;
 	memcpy(&mapId, &id[0], sizeof(mapId));
-	VertexDecoder *dec = decoderMap_.Get(mapId);
-	return dec ? dec->GetString(stringType) : "N/A";
+	VertexDecoder *dec;
+	if (decoderMap_.Get(mapId, &dec)) {
+		return dec->GetString(stringType);
+	} else {
+		return "N/A";
+	}
 }
 
 static Vec3f ClipToScreen(const Vec4f& coords) {

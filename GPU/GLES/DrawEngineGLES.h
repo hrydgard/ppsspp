@@ -128,7 +128,7 @@ private:
 	};
 	FrameData frameData_[GLRenderManager::MAX_INFLIGHT_FRAMES];
 
-	DenseHashMap<uint32_t, GLRInputLayout *, nullptr> inputLayoutMap_;
+	DenseHashMap<uint32_t, GLRInputLayout *> inputLayoutMap_;
 
 	GLRInputLayout *softwareInputLayout_ = nullptr;
 	GLRenderManager *render_;

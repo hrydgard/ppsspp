@@ -383,9 +383,10 @@ VkDescriptorSet DrawEngineVulkan::GetOrCreateDescriptorSet(VkImageView imageView
 	FrameData &frame = GetCurFrame();
 	// See if we already have this descriptor set cached.
 	if (!tess) { // Don't cache descriptors for HW tessellation.
-		VkDescriptorSet d = frame.descSets.Get(key);
-		if (d != VK_NULL_HANDLE)
+		VkDescriptorSet d;
+		if (frame.descSets.Get(key, &d)) {
 			return d;
+		}
 	}
 
 	// Didn't find one in the frame descriptor set cache, let's make a new one.
@@ -550,8 +551,8 @@ bool DrawEngineVulkan::VertexCacheLookup(int &vertexCount, GEPrimitiveType &prim
 	u32 dcid = ComputeDrawcallsHash() ^ gstate.getUVGenMode();
 
 	PROFILE_THIS_SCOPE("vcache");
-	VertexArrayInfoVulkan *vai = vai_.Get(dcid);
-	if (!vai) {
+	VertexArrayInfoVulkan *vai;
+	if (!vai_.Get(dcid, &vai)) {
 		vai = new VertexArrayInfoVulkan();
 		vai_.Insert(dcid, vai);
 	}

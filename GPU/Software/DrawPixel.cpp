@@ -844,7 +844,7 @@ void PixelJitCache::Flush() {
 	for (const auto &queued : compileQueue_) {
 		// Might've been compiled after enqueue, but before now.
 		size_t queuedKey = std::hash<PixelFuncID>()(queued);
-		if (!cache_.Get(queuedKey))
+		if (!cache_.ContainsKey(queuedKey))
 			Compile(queued);
 	}
 	compileQueue_.clear();
@@ -859,10 +859,10 @@ SingleFunc PixelJitCache::GetSingle(const PixelFuncID &id, BinManager *binner) {
 		return lastSingle_.func;
 
 	std::unique_lock<std::mutex> guard(jitCacheLock);
-	auto it = cache_.Get(key);
-	if (it != nullptr) {
-		lastSingle_.Set(key, it, clearGen_);
-		return it;
+	SingleFunc singleFunc;
+	if (cache_.Get(key, &singleFunc)) {
+		lastSingle_.Set(key, singleFunc, clearGen_);
+		return singleFunc;
 	}
 
 	if (!binner) {
@@ -878,18 +878,19 @@ SingleFunc PixelJitCache::GetSingle(const PixelFuncID &id, BinManager *binner) {
 	for (const auto &queued : compileQueue_) {
 		// Might've been compiled after enqueue, but before now.
 		size_t queuedKey = std::hash<PixelFuncID>()(queued);
-		if (!cache_.Get(queuedKey))
+		if (!cache_.ContainsKey(queuedKey))
 			Compile(queued);
 	}
 	compileQueue_.clear();
 
 	// Might've been in the queue.
-	if (!cache_.Get(key))
+	if (!cache_.ContainsKey(key))
 		Compile(id);
 
-	it = cache_.Get(key);
-	lastSingle_.Set(key, it, clearGen_);
-	return it;
+	if (cache_.Get(key, &singleFunc)) {
+		lastSingle_.Set(key, singleFunc, clearGen_);
+	}
+	return singleFunc;
 }
 
 void PixelJitCache::Compile(const PixelFuncID &id) {

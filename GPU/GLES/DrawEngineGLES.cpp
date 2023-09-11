@@ -206,8 +206,8 @@ static inline void VertexAttribSetup(int attrib, int fmt, int stride, int offset
 // TODO: Use VBO and get rid of the vertexData pointers - with that, we will supply only offsets
 GLRInputLayout *DrawEngineGLES::SetupDecFmtForDraw(const DecVtxFormat &decFmt) {
 	uint32_t key = decFmt.id;
-	GLRInputLayout *inputLayout = inputLayoutMap_.Get(key);
-	if (inputLayout) {
+	GLRInputLayout *inputLayout;
+	if (inputLayoutMap_.Get(key, &inputLayout)) {
 		return inputLayout;
 	}
 

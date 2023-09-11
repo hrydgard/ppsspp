@@ -104,7 +104,7 @@ public:
 	void CancelCache();
 
 private:
-	DenseHashMap<VulkanPipelineKey, VulkanPipeline *, nullptr> pipelines_;
+	DenseHashMap<VulkanPipelineKey, VulkanPipeline *> pipelines_;
 	VkPipelineCache pipelineCache_ = VK_NULL_HANDLE;
 	VulkanContext *vulkan_;
 	bool cancelCache_ = false;

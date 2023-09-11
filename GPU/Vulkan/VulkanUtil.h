@@ -85,7 +85,7 @@ private:
 		VkShaderModule module;
 	};
 	
-	DenseHashMap<PipelineKey, VkPipeline, (VkPipeline)VK_NULL_HANDLE> pipelines_;
+	DenseHashMap<PipelineKey, VkPipeline> pipelines_;
 };
 
 

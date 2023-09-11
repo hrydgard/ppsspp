@@ -99,13 +99,13 @@ struct FrameData {
 
 	// Frames need unique IDs to wait for present on, let's keep them here.
 	// Also used for indexing into the frame timing history buffer.
-	uint64_t frameId;
+	uint64_t frameId = 0;
 
 	// Profiling.
 	QueueProfileContext profile{};
 
 	// Async readback cache.
-	DenseHashMap<ReadbackKey, CachedReadback*, nullptr> readbacks_;
+	DenseHashMap<ReadbackKey, CachedReadback *> readbacks_;
 
 	FrameData() : readbacks_(8) {}
 
