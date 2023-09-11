@@ -91,19 +91,19 @@ bool UIScreen::UnsyncTouch(const TouchInput &touch) {
 		}
 	}
 
-	std::lock_guard<std::mutex> guard(eventQueueLock_);
 	QueuedEvent ev{};
 	ev.type = QueuedEventType::TOUCH;
 	ev.touch = touch;
+	std::lock_guard<std::mutex> guard(eventQueueLock_);
 	eventQueue_.push_back(ev);
 	return false;
 }
 
 void UIScreen::UnsyncAxis(const AxisInput &axis) {
-	std::lock_guard<std::mutex> guard(eventQueueLock_);
 	QueuedEvent ev{};
 	ev.type = QueuedEventType::AXIS;
 	ev.axis = axis;
+	std::lock_guard<std::mutex> guard(eventQueueLock_);
 	eventQueue_.push_back(ev);
 }
 
@@ -123,10 +123,10 @@ bool UIScreen::UnsyncKey(const KeyInput &key) {
 		}
 	}
 
-	std::lock_guard<std::mutex> guard(eventQueueLock_);
 	QueuedEvent ev{};
 	ev.type = QueuedEventType::KEY;
 	ev.key = key;
+	std::lock_guard<std::mutex> guard(eventQueueLock_);
 	eventQueue_.push_back(ev);
 	return retval;
 }
