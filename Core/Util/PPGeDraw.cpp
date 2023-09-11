@@ -197,9 +197,11 @@ static void Vertex(float x, float y, float u, float v, int tw, int th, u32 color
 
 static void EndVertexDataAndDraw(int prim) {
 	_assert_msg_(vertexStart != 0, "Missing matching call to BeginVertexData()");
-	NotifyMemInfo(MemBlockFlags::WRITE, vertexStart, dataWritePtr - vertexStart, "PPGe Vertex");
-	WriteCmdAddrWithBase(GE_CMD_VADDR, vertexStart);
-	WriteCmd(GE_CMD_PRIM, (prim << 16) | vertexCount);
+	if (vertexCount != 0) {
+		NotifyMemInfo(MemBlockFlags::WRITE, vertexStart, dataWritePtr - vertexStart, "PPGe Vertex");
+		WriteCmdAddrWithBase(GE_CMD_VADDR, vertexStart);
+		WriteCmd(GE_CMD_PRIM, (prim << 16) | vertexCount);
+	}
 	vertexStart = 0;
 }
 
@@ -822,30 +824,67 @@ static void PPGeResetCurrentText() {
 	char_lines_metrics = zeroBox;
 }
 
-// Draws some text using the one font we have.
-// Mostly rewritten.
-void PPGeDrawCurrentText(u32 color)
-{
-	if (dlPtr)
-	{
+// Draws some text using the one font we have in the atlas.
+void PPGeDrawCurrentText(u32 color) {
+	// If the atlas is larger than 512x512, need to use windows into it.
+	bool useTextureWindow = atlasWidth > 512 || atlasHeight > 512;
+	uint32_t texturePosX = 0;
+	uint32_t texturePosY = 0;
+
+	// Use half the available size just in case a character straddles a boundary.
+	const float textureMaxPosX = !useTextureWindow ? 1.0f : atlasWidth / 256.0f;
+	const float textureMaxPosY = !useTextureWindow ? 1.0f : atlasHeight / 256.0f;
+	// These are the actual scale used.
+	const float textureWindowW = !useTextureWindow ? atlasWidth : 512.0f;
+	const float textureWindowH = !useTextureWindow ? atlasHeight : 512.0f;
+	const float textureScaleX = !useTextureWindow ? 1.0f : atlasWidth / 512.0f;
+	const float textureScaleY = !useTextureWindow ? 1.0f : atlasWidth / 512.0f;
+
+	if (dlPtr) {
 		float scale = char_lines_metrics.scale;
+
+		if (useTextureWindow) {
+			WriteCmd(GE_CMD_TEXWRAP, 0);
+			WriteCmd(GE_CMD_TEXSIZE0, 9 | (9 << 8));
+		}
+
 		BeginVertexData();
-		for (auto i = char_lines.begin(); i != char_lines.end(); ++i)
-		{
-			for (auto j = i->begin(); j != i->end(); ++j)
-			{
+		for (auto i = char_lines.begin(); i != char_lines.end(); ++i) {
+			for (auto j = i->begin(); j != i->end(); ++j) {
+				const AtlasChar &c = *j->c;
+
+				int wantedPosX = (int)floorf(c.sx * textureMaxPosX);
+				int wantedPosY = (int)floorf(c.sy * textureMaxPosY);
+				if (useTextureWindow && wantedPosX != texturePosX || wantedPosY != texturePosY) {
+					EndVertexDataAndDraw(GE_PRIM_RECTANGLES);
+
+					uint32_t offset = atlasWidth * wantedPosY * 256 + wantedPosX * 256;
+					WriteCmd(GE_CMD_TEXADDR0, (atlasPtr & 0xFFFFF0) + offset / 2);
+					texturePosX = wantedPosX;
+					texturePosY = wantedPosY;
+
+					BeginVertexData();
+				}
+
+				float sx = (c.sx - texturePosX / textureMaxPosX) * textureScaleX;
+				float sy = (c.sy - texturePosY / textureMaxPosY) * textureScaleY;
+				float ex = (c.ex - texturePosX / textureMaxPosX) * textureScaleX;
+				float ey = (c.ey - texturePosY / textureMaxPosY) * textureScaleY;
+
 				float cx1 = j->x;
 				float cy1 = j->y;
-				const AtlasChar &c = *j->c;
 				float cx2 = cx1 + c.pw * scale;
 				float cy2 = cy1 + c.ph * scale;
-				Vertex(cx1, cy1, c.sx, c.sy, atlasWidth, atlasHeight, color);
-				Vertex(cx2, cy2, c.ex, c.ey, atlasWidth, atlasHeight, color);
+				Vertex(cx1, cy1, sx, sy, textureWindowW, textureWindowH, color);
+				Vertex(cx2, cy2, ex, ey, textureWindowW, textureWindowH, color);
 			}
 		}
 		EndVertexDataAndDraw(GE_PRIM_RECTANGLES);
 	}
 	PPGeResetCurrentText();
+	if (useTextureWindow) {
+		PPGeSetDefaultTexture();
+	}
 }
 
 // Return a value such that (1 << value) >= x
