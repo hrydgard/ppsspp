@@ -162,9 +162,8 @@ static void VertexAttribSetup(D3DVERTEXELEMENT9 * VertexElement, u8 fmt, u8 offs
 }
 
 IDirect3DVertexDeclaration9 *DrawEngineDX9::SetupDecFmtForDraw(const DecVtxFormat &decFmt, u32 pspFmt) {
-	IDirect3DVertexDeclaration9 *vertexDeclCached = vertexDeclMap_.Get(pspFmt);
-
-	if (vertexDeclCached) {
+	IDirect3DVertexDeclaration9 *vertexDeclCached;
+	if (vertexDeclMap_.Get(pspFmt, &vertexDeclCached)) {
 		return vertexDeclCached;
 	} else {
 		D3DVERTEXELEMENT9 VertexElements[8];
@@ -347,8 +346,8 @@ void DrawEngineDX9::DoFlush() {
 		if (useCache) {
 			// getUVGenMode can have an effect on which UV decoder we need to use! And hence what the decoded data will look like. See #9263
 			u32 dcid = (u32)XXH3_64bits(&drawCalls_, sizeof(DeferredDrawCall) * numDrawCalls_) ^ gstate.getUVGenMode();
-			VertexArrayInfoDX9 *vai = vai_.Get(dcid);
-			if (!vai) {
+			VertexArrayInfoDX9 *vai;
+			if (!vai_.Get(dcid, &vai)) {
 				vai = new VertexArrayInfoDX9();
 				vai_.Insert(dcid, vai);
 			}

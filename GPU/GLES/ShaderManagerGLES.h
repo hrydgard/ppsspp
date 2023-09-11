@@ -217,10 +217,10 @@ private:
 	u64 shaderSwitchDirtyUniforms_ = 0;
 	char *codeBuffer_;
 
-	typedef DenseHashMap<FShaderID, Shader *, nullptr> FSCache;
+	typedef DenseHashMap<FShaderID, Shader *> FSCache;
 	FSCache fsCache_;
 
-	typedef DenseHashMap<VShaderID, Shader *, nullptr> VSCache;
+	typedef DenseHashMap<VShaderID, Shader *> VSCache;
 	VSCache vsCache_;
 
 	bool diskCacheDirty_ = false;

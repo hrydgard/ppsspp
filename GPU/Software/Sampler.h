@@ -144,7 +144,7 @@ private:
 		}
 	};
 
-	DenseHashMap<size_t, NearestFunc, nullptr> cache_;
+	DenseHashMap<size_t, NearestFunc> cache_;
 	std::unordered_map<SamplerID, const u8 *> addresses_;
 	std::unordered_set<SamplerID> compileQueue_;
 	static int clearGen_;

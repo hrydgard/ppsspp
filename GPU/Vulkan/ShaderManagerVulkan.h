@@ -127,9 +127,9 @@ public:
 	int GetNumGeometryShaders() const { return (int)gsCache_.size(); }
 
 	// Used for saving/loading the cache. Don't need to be particularly fast.
-	VulkanVertexShader *GetVertexShaderFromID(VShaderID id) { return vsCache_.Get(id); }
-	VulkanFragmentShader *GetFragmentShaderFromID(FShaderID id) { return fsCache_.Get(id); }
-	VulkanGeometryShader *GetGeometryShaderFromID(GShaderID id) { return gsCache_.Get(id); }
+	VulkanVertexShader *GetVertexShaderFromID(VShaderID id) { return vsCache_.GetOrNull(id); }
+	VulkanFragmentShader *GetFragmentShaderFromID(FShaderID id) { return fsCache_.GetOrNull(id); }
+	VulkanGeometryShader *GetGeometryShaderFromID(GShaderID id) { return gsCache_.GetOrNull(id); }
 	VulkanVertexShader *GetVertexShaderFromModule(VkShaderModule module);
 	VulkanFragmentShader *GetFragmentShaderFromModule(VkShaderModule module);
 	VulkanGeometryShader *GetGeometryShaderFromModule(VkShaderModule module);
@@ -165,13 +165,13 @@ private:
 
 	ShaderLanguageDesc compat_;
 
-	typedef DenseHashMap<FShaderID, VulkanFragmentShader *, nullptr> FSCache;
+	typedef DenseHashMap<FShaderID, VulkanFragmentShader *> FSCache;
 	FSCache fsCache_;
 
-	typedef DenseHashMap<VShaderID, VulkanVertexShader *, nullptr> VSCache;
+	typedef DenseHashMap<VShaderID, VulkanVertexShader *> VSCache;
 	VSCache vsCache_;
 
-	typedef DenseHashMap<GShaderID, VulkanGeometryShader *, nullptr> GSCache;
+	typedef DenseHashMap<GShaderID, VulkanGeometryShader *> GSCache;
 	GSCache gsCache_;
 
 	char *codeBuffer_;

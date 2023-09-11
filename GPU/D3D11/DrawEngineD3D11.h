@@ -179,7 +179,7 @@ private:
 	ID3D11DeviceContext *context_;
 	ID3D11DeviceContext1 *context1_;
 
-	PrehashMap<VertexArrayInfoD3D11 *, nullptr> vai_;
+	PrehashMap<VertexArrayInfoD3D11 *> vai_;
 
 	struct InputLayoutKey {
 		D3D11VertexShader *vshader;
@@ -193,7 +193,7 @@ private:
 		}
 	};
 
-	DenseHashMap<InputLayoutKey, ID3D11InputLayout *, nullptr> inputLayoutMap_;
+	DenseHashMap<InputLayoutKey, ID3D11InputLayout *> inputLayoutMap_;
 
 	// Other
 	ShaderManagerD3D11 *shaderManager_ = nullptr;
@@ -205,10 +205,10 @@ private:
 	PushBufferD3D11 *pushInds_;
 
 	// D3D11 state object caches.
-	DenseHashMap<uint64_t, ID3D11BlendState *, nullptr> blendCache_;
-	DenseHashMap<uint64_t, ID3D11BlendState1 *, nullptr> blendCache1_;
-	DenseHashMap<uint64_t, ID3D11DepthStencilState *, nullptr> depthStencilCache_;
-	DenseHashMap<uint32_t, ID3D11RasterizerState *, nullptr> rasterCache_;
+	DenseHashMap<uint64_t, ID3D11BlendState *> blendCache_;
+	DenseHashMap<uint64_t, ID3D11BlendState1 *> blendCache1_;
+	DenseHashMap<uint64_t, ID3D11DepthStencilState *> depthStencilCache_;
+	DenseHashMap<uint32_t, ID3D11RasterizerState *> rasterCache_;
 
 	// Keep the depth state between ApplyDrawState and ApplyDrawStateLate
 	ID3D11RasterizerState *rasterState_ = nullptr;

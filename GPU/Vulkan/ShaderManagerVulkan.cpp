@@ -342,8 +342,8 @@ void ShaderManagerVulkan::GetShaders(int prim, VertexDecoder *decoder, VulkanVer
 	}
 
 	VulkanContext *vulkan = (VulkanContext *)draw_->GetNativeObject(Draw::NativeObject::CONTEXT);
-	VulkanVertexShader *vs = vsCache_.Get(VSID);
-	if (!vs)	{
+	VulkanVertexShader *vs = nullptr;
+	if (!vsCache_.Get(VSID, &vs)) {
 		// Vertex shader not in cache. Let's compile it.
 		std::string genErrorString;
 		uint64_t uniformMask = 0;  // Not used
@@ -354,15 +354,14 @@ void ShaderManagerVulkan::GetShaders(int prim, VertexDecoder *decoder, VulkanVer
 		_assert_msg_(strlen(codeBuffer_) < CODE_BUFFER_SIZE, "VS length error: %d", (int)strlen(codeBuffer_));
 
 		std::lock_guard<std::mutex> guard(cacheLock_);
-		vs = vsCache_.Get(VSID);
-		if (!vs) {
+		if (!vsCache_.Get(VSID, &vs)) {
 			vs = new VulkanVertexShader(vulkan, VSID, flags, codeBuffer_, useHWTransform);
 			vsCache_.Insert(VSID, vs);
 		}
 	}
 
-	VulkanFragmentShader *fs = fsCache_.Get(FSID);
-	if (!fs) {
+	VulkanFragmentShader *fs;
+	if (!fsCache_.Get(FSID, &fs)) {
 		// Fragment shader not in cache. Let's compile it.
 		std::string genErrorString;
 		uint64_t uniformMask = 0;  // Not used
@@ -372,8 +371,7 @@ void ShaderManagerVulkan::GetShaders(int prim, VertexDecoder *decoder, VulkanVer
 		_assert_msg_(strlen(codeBuffer_) < CODE_BUFFER_SIZE, "FS length error: %d", (int)strlen(codeBuffer_));
 
 		std::lock_guard<std::mutex> guard(cacheLock_);
-		fs = fsCache_.Get(FSID);
-		if (!fs) {
+		if (!fsCache_.Get(FSID, &fs)) {
 			fs = new VulkanFragmentShader(vulkan, FSID, flags, codeBuffer_);
 			fsCache_.Insert(FSID, fs);
 		}
@@ -381,8 +379,7 @@ void ShaderManagerVulkan::GetShaders(int prim, VertexDecoder *decoder, VulkanVer
 
 	VulkanGeometryShader *gs;
 	if (GSID.Bit(GS_BIT_ENABLED)) {
-		gs = gsCache_.Get(GSID);
-		if (!gs) {
+		if (!gsCache_.Get(GSID, &gs)) {
 			// Geometry shader not in cache. Let's compile it.
 			std::string genErrorString;
 			bool success = GenerateGeometryShader(GSID, codeBuffer_, compat_, draw_->GetBugs(), &genErrorString);
@@ -390,8 +387,7 @@ void ShaderManagerVulkan::GetShaders(int prim, VertexDecoder *decoder, VulkanVer
 			_assert_msg_(strlen(codeBuffer_) < CODE_BUFFER_SIZE, "GS length error: %d", (int)strlen(codeBuffer_));
 
 			std::lock_guard<std::mutex> guard(cacheLock_);
-			gs = gsCache_.Get(GSID);
-			if (!gs) {
+			if (!gsCache_.Get(GSID, &gs)) {
 				gs = new VulkanGeometryShader(vulkan, GSID, codeBuffer_);
 				gsCache_.Insert(GSID, gs);
 			}
@@ -456,18 +452,30 @@ std::string ShaderManagerVulkan::DebugGetShaderString(std::string id, DebugShade
 	switch (type) {
 	case SHADER_TYPE_VERTEX:
 	{
-		VulkanVertexShader *vs = vsCache_.Get(VShaderID(shaderId));
-		return vs ? vs->GetShaderString(stringType) : "";
+		VulkanVertexShader *vs;
+		if (vsCache_.Get(VShaderID(shaderId), &vs)) {
+			return vs ? vs->GetShaderString(stringType) : "null (bad)";
+		} else {
+			return "";
+		}
 	}
 	case SHADER_TYPE_FRAGMENT:
 	{
-		VulkanFragmentShader *fs = fsCache_.Get(FShaderID(shaderId));
-		return fs ? fs->GetShaderString(stringType) : "";
+		VulkanFragmentShader *fs;
+		if (fsCache_.Get(FShaderID(shaderId), &fs)) {
+			return fs ? fs->GetShaderString(stringType) : "null (bad)";
+		} else {
+			return "";
+		}
 	}
 	case SHADER_TYPE_GEOMETRY:
 	{
-		VulkanGeometryShader *gs = gsCache_.Get(GShaderID(shaderId));
-		return gs ? gs->GetShaderString(stringType) : "";
+		VulkanGeometryShader *gs;
+		if (gsCache_.Get(GShaderID(shaderId), &gs)) {
+			return gs ? gs->GetShaderString(stringType) : "null (bad)";
+		} else {
+			return "";
+		}
 	}
 	default:
 		return "N/A";
@@ -592,8 +600,8 @@ bool ShaderManagerVulkan::LoadCache(FILE *f) {
 		VulkanVertexShader *vs = new VulkanVertexShader(vulkan, id, flags, codeBuffer_, useHWTransform);
 		// Remove first, just to be safe (we are loading on a background thread.)
 		std::lock_guard<std::mutex> guard(cacheLock_);
-		VulkanVertexShader *old = vsCache_.Get(id);
-		if (old) {
+		VulkanVertexShader *old;
+		if (vsCache_.Get(id, &old)) {
 			vsCache_.Remove(id);
 			delete old;
 		}
@@ -619,8 +627,8 @@ bool ShaderManagerVulkan::LoadCache(FILE *f) {
 		_assert_msg_(strlen(codeBuffer_) < CODE_BUFFER_SIZE, "FS length error: %d", (int)strlen(codeBuffer_));
 		VulkanFragmentShader *fs = new VulkanFragmentShader(vulkan, id, flags, codeBuffer_);
 		std::lock_guard<std::mutex> guard(cacheLock_);
-		VulkanFragmentShader *old = fsCache_.Get(id);
-		if (old) {
+		VulkanFragmentShader *old;
+		if (fsCache_.Get(id, &old)) {
 			fsCache_.Remove(id);
 			delete old;
 		}
@@ -643,8 +651,8 @@ bool ShaderManagerVulkan::LoadCache(FILE *f) {
 		_assert_msg_(strlen(codeBuffer_) < CODE_BUFFER_SIZE, "GS length error: %d", (int)strlen(codeBuffer_));
 		VulkanGeometryShader *gs = new VulkanGeometryShader(vulkan, id, codeBuffer_);
 		std::lock_guard<std::mutex> guard(cacheLock_);
-		VulkanGeometryShader *old = gsCache_.Get(id);
-		if (old) {
+		VulkanGeometryShader *old;
+		if (gsCache_.Get(id, &old)) {
 			gsCache_.Remove(id);
 			delete old;
 		}

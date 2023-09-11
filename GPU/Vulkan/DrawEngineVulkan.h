@@ -251,7 +251,7 @@ private:
 	VkSampler samplerSecondaryLinear_ = VK_NULL_HANDLE;
 	VkSampler samplerSecondaryNearest_ = VK_NULL_HANDLE;
 
-	PrehashMap<VertexArrayInfoVulkan *, nullptr> vai_;
+	PrehashMap<VertexArrayInfoVulkan *> vai_;
 	VulkanPushBuffer *vertexCache_;
 	int descDecimationCounter_ = 0;
 
@@ -273,7 +273,7 @@ private:
 		VulkanDescSetPool descPool;
 
 		// We do rolling allocation and reset instead of caching across frames. That we might do later.
-		DenseHashMap<DescriptorSetKey, VkDescriptorSet, (VkDescriptorSet)VK_NULL_HANDLE> descSets;
+		DenseHashMap<DescriptorSetKey, VkDescriptorSet> descSets;
 
 		void Destroy(VulkanContext *vulkan);
 	};

@@ -185,9 +185,10 @@ VkDescriptorSet VulkanComputeShaderManager::GetDescriptorSet(VkImageView image, 
 
 VkPipeline VulkanComputeShaderManager::GetPipeline(VkShaderModule cs) {
 	PipelineKey key{ cs };
-	VkPipeline pipeline = pipelines_.Get(key);
-	if (pipeline)
+	VkPipeline pipeline;
+	if (pipelines_.Get(key, &pipeline)) {
 		return pipeline;
+	}
 
 	VkComputePipelineCreateInfo pci{ VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO };
 	pci.stage.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;

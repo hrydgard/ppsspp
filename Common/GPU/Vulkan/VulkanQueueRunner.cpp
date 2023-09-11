@@ -251,8 +251,8 @@ void VulkanQueueRunner::DestroyBackBuffers() {
 // Self-dependency: https://github.com/gpuweb/gpuweb/issues/442#issuecomment-547604827
 // Also see https://www.khronos.org/registry/vulkan/specs/1.3-extensions/html/vkspec.html#synchronization-pipeline-barriers-subpass-self-dependencies
 VKRRenderPass *VulkanQueueRunner::GetRenderPass(const RPKey &key) {
-	auto foundPass = renderPasses_.Get(key);
-	if (foundPass) {
+	VKRRenderPass *foundPass;
+	if (renderPasses_.Get(key, &foundPass)) {
 		return foundPass;
 	}
 
@@ -1984,8 +1984,7 @@ void VulkanQueueRunner::PerformReadback(const VKRStep &step, VkCommandBuffer cmd
 		key.height = step.readback.srcRect.extent.height;
 
 		// See if there's already a buffer we can reuse
-		cached = frameData.readbacks_.Get(key);
-		if (!cached) {
+		if (!frameData.readbacks_.Get(key, &cached)) {
 			cached = new CachedReadback();
 			cached->bufferSize = 0;
 			frameData.readbacks_.Insert(key, cached);
@@ -2065,8 +2064,8 @@ bool VulkanQueueRunner::CopyReadbackBuffer(FrameData &frameData, VKRFramebuffer 
 		key.framebuf = src;
 		key.width = width;
 		key.height = height;
-		CachedReadback *cached = frameData.readbacks_.Get(key);
-		if (cached) {
+		CachedReadback *cached;
+		if (frameData.readbacks_.Get(key, &cached)) {
 			readback = cached;
 		} else {
 			// Didn't have a cached image ready yet

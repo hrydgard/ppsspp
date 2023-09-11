@@ -322,7 +322,7 @@ private:
 
 	// Renderpasses, all combinations of preserving or clearing or dont-care-ing fb contents.
 	// Each VKRRenderPass contains all compatibility classes (which attachments they have, etc).
-	DenseHashMap<RPKey, VKRRenderPass *, nullptr> renderPasses_;
+	DenseHashMap<RPKey, VKRRenderPass *> renderPasses_;
 
 	// Readback buffer. Currently we only support synchronous readback, so we only really need one.
 	// We size it generously.
