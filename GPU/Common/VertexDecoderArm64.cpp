@@ -149,6 +149,7 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec, int
 
 	bool prescaleStep = false;
 	bool skinning = false;
+	bool updateTexBounds = false;
 
 	bool log = false;
 
@@ -164,6 +165,9 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec, int
 			dec.steps_[i] == &VertexDecoder::Step_WeightsFloatSkin) {
 			skinning = true;
 		}
+		if (dec.steps_[i] == &VertexDecoder::Step_TcU16ThroughToFloat) {
+			updateTexBounds = true;
+		}
 	}
 
 	// Not used below, but useful for logging.
@@ -177,10 +181,12 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec, int
 
 	// GPRs 0-15 do not need to be saved.
 	// We don't use any higher GPRs than 16. So:
-	uint64_t regs_to_save = 1 << 16; // Arm64Gen::ALL_CALLEE_SAVED;
+	uint64_t regs_to_save = updateTexBounds ? 1 << 16 : 0;
 	// We only need to save Q8-Q15 if skinning is used.
 	uint64_t regs_to_save_fp = dec.skinInDecode ? Arm64Gen::ALL_CALLEE_SAVED_FP : 0;
-	fp.ABI_PushRegisters(regs_to_save, regs_to_save_fp);
+	// Only bother making stack space and setting up FP if there are saved regs.
+	if (regs_to_save || regs_to_save_fp)
+		fp.ABI_PushRegisters(regs_to_save, regs_to_save_fp);
 
 	// Keep the scale/offset in a few fp registers if we need it.
 	if (prescaleStep) {
@@ -240,8 +246,7 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec, int
 		MOVI2R(alphaNonFullReg, 0);
 	}
 
-	if (dec.tc && dec.throughmode) {
-		// TODO: Smarter, only when doing bounds.
+	if (updateTexBounds) {
 		MOVP2R(scratchReg64, &gstate_c.vertBounds.minU);
 		LDRH(INDEX_UNSIGNED, boundsMinUReg, scratchReg64, offsetof(KnownVertexBounds, minU));
 		LDRH(INDEX_UNSIGNED, boundsMaxUReg, scratchReg64, offsetof(KnownVertexBounds, maxU));
@@ -274,8 +279,7 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec, int
 		SetJumpTarget(skip);
 	}
 
-	if (dec.tc && dec.throughmode) {
-		// TODO: Smarter, only when doing bounds.
+	if (updateTexBounds) {
 		MOVP2R(scratchReg64, &gstate_c.vertBounds.minU);
 		STRH(INDEX_UNSIGNED, boundsMinUReg, scratchReg64, offsetof(KnownVertexBounds, minU));
 		STRH(INDEX_UNSIGNED, boundsMaxUReg, scratchReg64, offsetof(KnownVertexBounds, maxU));
@@ -283,7 +287,8 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec, int
 		STRH(INDEX_UNSIGNED, boundsMaxVReg, scratchReg64, offsetof(KnownVertexBounds, maxV));
 	}
 
-	fp.ABI_PopRegisters(regs_to_save, regs_to_save_fp);
+	if (regs_to_save || regs_to_save_fp)
+		fp.ABI_PopRegisters(regs_to_save, regs_to_save_fp);
 
 	RET();
 
