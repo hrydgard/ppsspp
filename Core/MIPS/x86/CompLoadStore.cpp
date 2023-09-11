@@ -429,6 +429,7 @@ namespace MIPSComp {
 			skipStore = J_CC(CC_NE);
 
 			CompITypeMemWrite(op, 32, safeMemFuncs.writeU32);
+			gpr.MapReg(rt, true, true);
 			MOV(32, gpr.R(rt), Imm32(1));
 			finish = J();
 
