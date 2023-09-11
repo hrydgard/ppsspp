@@ -275,8 +275,7 @@ namespace WindowsRawInput {
 
 			if (key.keyCode) {
 				NativeKey(key);
-
-				auto keyDown = std::find(keyboardKeysDown.begin(), keyboardKeysDown.end(), key.keyCode);
+				auto keyDown = keyboardKeysDown.find(key.keyCode);
 				if (keyDown != keyboardKeysDown.end())
 					keyboardKeysDown.erase(keyDown);
 			}

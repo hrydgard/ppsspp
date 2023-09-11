@@ -251,6 +251,7 @@ void ControlMapper::SwapMappingIfEnabled(uint32_t *vkey) {
 }
 
 // Can only be called from Key or Axis.
+// mutex_ should be locked.
 // TODO: We should probably make a batched version of this.
 bool ControlMapper::UpdatePSPState(const InputMapping &changedMapping, double now) {
 	// Instead of taking an input key and finding what it outputs, we loop through the OUTPUTS and
