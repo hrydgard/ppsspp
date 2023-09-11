@@ -827,7 +827,7 @@ static void PPGeResetCurrentText() {
 // Draws some text using the one font we have in the atlas.
 void PPGeDrawCurrentText(u32 color) {
 	// If the atlas is larger than 512x512, need to use windows into it.
-	bool useTextureWindow = atlasWidth > 512 || atlasHeight > 512;
+	bool useTextureWindow = g_Config.bSoftwareRendering && atlasWidth > 512 || atlasHeight > 512;
 	uint32_t texturePosX = 0;
 	uint32_t texturePosY = 0;
 
