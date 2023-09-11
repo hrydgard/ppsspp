@@ -128,6 +128,8 @@ void PopupMultiChoice::UpdateText() {
 
 void PopupMultiChoice::ChoiceCallback(int num) {
 	if (num != -1) {
+		_assert_(value_ != nullptr);
+
 		*value_ = num + minVal_;
 		UpdateText();
 

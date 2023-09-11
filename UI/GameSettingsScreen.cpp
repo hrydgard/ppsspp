@@ -894,11 +894,30 @@ void GameSettingsScreen::CreateToolsSettings(UI::ViewGroup *tools) {
 	auto ri = GetI18NCategory(I18NCat::REMOTEISO);
 
 	tools->Add(new ItemHeader(ms->T("Tools")));
+
+	auto retro = tools->Add(new Choice(sy->T("RetroAchievements")));
+	retro->OnClick.Add([=](UI::EventParams &) -> UI::EventReturn {
+		screenManager()->push(new RetroAchievementsSettingsScreen(gamePath_));
+		return UI::EVENT_DONE;
+	});
+	retro->SetIcon(ImageID("I_RETROACHIEVEMENTS_LOGO"));
 	// These were moved here so use the wrong translation objects, to avoid having to change all inis... This isn't a sustainable situation :P
-	tools->Add(new Choice(sa->T("Savedata Manager")))->OnClick.Handle(this, &GameSettingsScreen::OnSavedataManager);
-	tools->Add(new Choice(dev->T("System Information")))->OnClick.Handle(this, &GameSettingsScreen::OnSysInfo);
-	tools->Add(new Choice(sy->T("Developer Tools")))->OnClick.Handle(this, &GameSettingsScreen::OnDeveloperTools);
-	tools->Add(new Choice(ri->T("Remote disc streaming")))->OnClick.Handle(this, &GameSettingsScreen::OnRemoteISO);
+	tools->Add(new Choice(sa->T("Savedata Manager")))->OnClick.Add([=](UI::EventParams &) {
+		screenManager()->push(new SavedataScreen(gamePath_));
+		return UI::EVENT_DONE;
+	});
+	tools->Add(new Choice(dev->T("System Information")))->OnClick.Add([=](UI::EventParams &) {
+		screenManager()->push(new SystemInfoScreen(gamePath_));
+		return UI::EVENT_DONE;
+	});
+	tools->Add(new Choice(sy->T("Developer Tools")))->OnClick.Add([=](UI::EventParams &) {
+		screenManager()->push(new DeveloperToolsScreen(gamePath_));
+		return UI::EVENT_DONE;
+	});
+	tools->Add(new Choice(ri->T("Remote disc streaming")))->OnClick.Add([=](UI::EventParams &) {
+		screenManager()->push(new RemoteISOScreen(gamePath_));
+		return UI::EVENT_DONE;
+	});
 }
 
 void GameSettingsScreen::CreateSystemSettings(UI::ViewGroup *systemSettings) {
@@ -909,15 +928,6 @@ void GameSettingsScreen::CreateSystemSettings(UI::ViewGroup *systemSettings) {
 	auto vr = GetI18NCategory(I18NCat::VR);
 	auto th = GetI18NCategory(I18NCat::THEMES);
 	auto psps = GetI18NCategory(I18NCat::PSPSETTINGS);  // TODO: Should move more into this section.
-
-	systemSettings->Add(new ItemHeader(sy->T("RetroAchievements")));
-	auto retro = systemSettings->Add(new Choice(sy->T("RetroAchievements")));
-
-	retro->OnClick.Add([&](UI::EventParams &) -> UI::EventReturn {
-		screenManager()->push(new RetroAchievementsSettingsScreen(gamePath_));
-		return UI::EVENT_DONE;
-	});
-	retro->SetIcon(ImageID("I_RETROACHIEVEMENTS_LOGO"));
 
 	systemSettings->Add(new ItemHeader(sy->T("UI")));
 
@@ -1582,16 +1592,6 @@ UI::EventReturn GameSettingsScreen::OnTextureShaderChange(UI::EventParams &e) {
 	return UI::EVENT_DONE;
 }
 
-UI::EventReturn GameSettingsScreen::OnDeveloperTools(UI::EventParams &e) {
-	screenManager()->push(new DeveloperToolsScreen(gamePath_));
-	return UI::EVENT_DONE;
-}
-
-UI::EventReturn GameSettingsScreen::OnRemoteISO(UI::EventParams &e) {
-	screenManager()->push(new RemoteISOScreen(gamePath_));
-	return UI::EVENT_DONE;
-}
-
 UI::EventReturn GameSettingsScreen::OnControlMapping(UI::EventParams &e) {
 	screenManager()->push(new ControlMappingScreen(gamePath_));
 	return UI::EVENT_DONE;
@@ -1611,17 +1611,6 @@ UI::EventReturn GameSettingsScreen::OnTiltCustomize(UI::EventParams &e) {
 	screenManager()->push(new TiltAnalogSettingsScreen(gamePath_));
 	return UI::EVENT_DONE;
 };
-
-UI::EventReturn GameSettingsScreen::OnSavedataManager(UI::EventParams &e) {
-	auto saveData = new SavedataScreen(gamePath_);
-	screenManager()->push(saveData);
-	return UI::EVENT_DONE;
-}
-
-UI::EventReturn GameSettingsScreen::OnSysInfo(UI::EventParams &e) {
-	screenManager()->push(new SystemInfoScreen(gamePath_));
-	return UI::EVENT_DONE;
-}
 
 void DeveloperToolsScreen::CreateViews() {
 	using namespace UI;

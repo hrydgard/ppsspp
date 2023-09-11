@@ -221,7 +221,7 @@ void OnScreenDisplay::ShowLeaderboardStartEnd(const std::string &title, const st
 }
 
 void OnScreenDisplay::ShowLeaderboardSubmitted(const std::string &title, const std::string &value) {
-	g_OSD.Show(OSDType::MESSAGE_SUCCESS, title, value, 3.0f);
+	g_OSD.Show(OSDType::LEADERBOARD_SUBMITTED, title, value, 3.0f);
 }
 
 void OnScreenDisplay::SetProgressBar(std::string id, std::string &&message, float minValue, float maxValue, float progress, float delay) {
