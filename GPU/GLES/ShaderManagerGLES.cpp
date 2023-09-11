@@ -753,7 +753,7 @@ Shader *ShaderManagerGLES::CompileFragmentShader(FShaderID FSID) {
 	std::string errorString;
 	FragmentShaderFlags flags;
 	if (!GenerateFragmentShader(FSID, codeBuffer_, draw_->GetShaderLanguageDesc(), draw_->GetBugs(), &uniformMask, &flags, &errorString)) {
-		ERROR_LOG(G3D, "Shader gen error: %s", errorString.c_str());
+		ERROR_LOG_REPORT(G3D, "FS shader gen error: %s (%s: %08x:%08x)", errorString.c_str(), "GLES", FSID.d[0], FSID.d[1]);
 		return nullptr;
 	}
 	_assert_msg_(strlen(codeBuffer_) < CODE_BUFFER_SIZE, "FS length error: %d", (int)strlen(codeBuffer_));
@@ -769,7 +769,7 @@ Shader *ShaderManagerGLES::CompileVertexShader(VShaderID VSID) {
 	std::string errorString;
 	VertexShaderFlags flags;
 	if (!GenerateVertexShader(VSID, codeBuffer_, draw_->GetShaderLanguageDesc(), draw_->GetBugs(), &attrMask, &uniformMask, &flags, &errorString)) {
-		ERROR_LOG(G3D, "Shader gen error: %s", errorString.c_str());
+		ERROR_LOG_REPORT(G3D, "VS shader gen error: %s (%s: %08x:%08x)", errorString.c_str(), "GLES", VSID.d[0], VSID.d[1]);
 		return nullptr;
 	}
 	_assert_msg_(strlen(codeBuffer_) < CODE_BUFFER_SIZE, "VS length error: %d", (int)strlen(codeBuffer_));
@@ -1099,7 +1099,7 @@ bool ShaderManagerGLES::ContinuePrecompile(float sliceTime) {
 			}
 
 			Shader *vs = CompileVertexShader(id);
-			if (vs->Failed()) {
+			if (!vs || vs->Failed()) {
 				// Give up on using the cache, just bail. We can't safely create the fallback shaders here
 				// without trying to deduce the vertType from the VSID.
 				ERROR_LOG(G3D, "Failed to compile a vertex shader loading from cache. Skipping rest of shader cache.");
