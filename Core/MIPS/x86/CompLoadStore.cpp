@@ -428,6 +428,12 @@ namespace MIPSComp {
 			break;
 
 		case 56: // sc
+			// Map before the jump in case any regs spill.  Unlock happens inside CompITypeMemWrite().
+			// This is not a very common op, but it's in jit so memory breakpoints can trip.
+			gpr.Lock(rt, rs);
+			gpr.MapReg(rt, true, true);
+			gpr.MapReg(rs, true, false);
+
 			CMP(8, MDisp(X64JitConstants::CTXREG, -128 + offsetof(MIPSState, llBit)), Imm8(1));
 			skipStore = J_CC(CC_NE);
 
