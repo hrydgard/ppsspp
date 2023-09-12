@@ -1957,8 +1957,12 @@ bool FramebufferManagerCommon::NotifyFramebufferCopy(u32 src, u32 dst, int size,
 		if (flags & GPUCopyFlag::MEMSET) {
 			gpuStats.numClears++;
 		}
-		WARN_LOG_ONCE(btucpy, G3D, "Memcpy fbo upload %08x -> %08x (size: %x)", src, dst, size);
+		WARN_LOG_N_TIMES(btucpy, 5, G3D, "Memcpy fbo upload %08x -> %08x (size: %x)", src, dst, size);
 		FlushBeforeCopy();
+
+		// TODO: Hot Shots Golf makes a lot of these during the "meter", to copy back the image to the screen, it copies line by line.
+		// We could collect these in a buffer and flush on the next draw, or something like that, to avoid that. The line copies cause
+		// awkward visual artefacts.
 		const u8 *srcBase = Memory::GetPointerUnchecked(src);
 		GEBufferFormat srcFormat = channel == RASTER_DEPTH ? GE_FORMAT_DEPTH16 : dstBuffer->fb_format;
 		int srcStride = channel == RASTER_DEPTH ? dstBuffer->z_stride : dstBuffer->fb_stride;
@@ -1968,8 +1972,10 @@ bool FramebufferManagerCommon::NotifyFramebufferCopy(u32 src, u32 dst, int size,
 		// This is a memcpy, let's still copy just in case.
 		return false;
 	} else if (srcBuffer) {
-		WARN_LOG_ONCE(btdcpy, G3D, "Memcpy fbo download %08x -> %08x", src, dst);
+		WARN_LOG_N_TIMES(btdcpy, 5, G3D, "Memcpy fbo download %08x -> %08x", src, dst);
 		FlushBeforeCopy();
+		// TODO: In Hot Shots Golf, check if we can do a readback to a framebuffer here.
+		// Again we have the problem though that it's doing a lot of small copies here, one for each line.
 		if (srcH == 0 || srcY + srcH > srcBuffer->bufferHeight) {
 			WARN_LOG_ONCE(btdcpyheight, G3D, "Memcpy fbo download %08x -> %08x skipped, %d+%d is taller than %d", src, dst, srcY, srcH, srcBuffer->bufferHeight);
 		} else if (!g_Config.bSkipGPUReadbacks && (!srcBuffer->memoryUpdated || channel == RASTER_DEPTH)) {

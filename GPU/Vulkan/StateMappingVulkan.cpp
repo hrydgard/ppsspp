@@ -378,6 +378,8 @@ void DrawEngineVulkan::BindShaderBlendTex() {
 		} else {
 			boundSecondary_ = VK_NULL_HANDLE;
 		}
+	} else {
+		boundSecondary_ = VK_NULL_HANDLE;
 	}
 }
 
