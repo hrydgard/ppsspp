@@ -844,17 +844,47 @@ void UnloadGame() {
 }
 
 void change_media_callback(int result, const char *error_message, rc_client_t *client, void *userdata) {
+	auto ac = GetI18NCategory(I18NCat::ACHIEVEMENTS);
 	NOTICE_LOG(ACHIEVEMENTS, "Change media callback: %d (%s)", result, error_message);
 	g_isIdentifying = false;
+
+	switch (result) {
+	case RC_OK:
+	{
+		// Successful! Later, show a message that we succeeded.
+		break;
+	}
+	case RC_NO_GAME_LOADED:
+		// The current game does not support achievements.
+		g_OSD.Show(OSDType::MESSAGE_INFO, ac->T("RetroAchievements are not available for this game"), "", g_RAImageID, 3.0f);
+		break;
+	case RC_NO_RESPONSE:
+		// We lost the internet connection at some point and can't report achievements.
+		ShowNotLoggedInMessage();
+		break;
+	default:
+		// Other various errors.
+		ERROR_LOG(ACHIEVEMENTS, "Failed to identify/load game: %d (%s)", result, error_message);
+		g_OSD.Show(OSDType::MESSAGE_ERROR, ac->T("Failed to identify game. Achievements will not unlock."), "", g_RAImageID, 6.0f);
+		break;
+	}
 }
 
-void ChangeUMD(const Path &path) {
+void ChangeUMD(const Path &path, FileLoader *fileLoader) {
 	if (!IsActive()) {
 		// Nothing to do.
 		return;
 	}
 
-	rc_client_begin_change_media(g_rcClient, 
+	g_blockDevice = constructBlockDevice(fileLoader);
+	if (!g_blockDevice) {
+		ERROR_LOG(ACHIEVEMENTS, "Failed to construct block device for '%s' - can't identify", path.c_str());
+		return;
+	}
+
+	g_isIdentifying = true;
+
+	rc_client_begin_change_media(g_rcClient,
 		path.c_str(),
 		nullptr,
 		0,
@@ -862,7 +892,8 @@ void ChangeUMD(const Path &path) {
 		nullptr
 	);
 
-	g_isIdentifying = true;
+	// fclose above will have deleted it.
+	g_blockDevice = nullptr;
 }
 
 std::set<uint32_t> GetActiveChallengeIDs() {
