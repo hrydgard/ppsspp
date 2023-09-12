@@ -25,6 +25,18 @@ If you want to download regularly updated builds for Android, Windows x86 and x6
 
 For game compatibility, see [community compatibility feedback](https://report.ppsspp.org/games).
 
+What's new in 1.16.1
+====================
+
+- Move RetroAchievements to the Tools tab in settings ([#18127])
+- Fix graphics regressions in Hot Shots Golf 2 / Everybody's Golf 2 and Final Fantasy Tactics ([#18142])
+- Fix hang when switching UMD with RetroAchievements enabled ([#18143])
+- Fix hang on startup with OpenGL, that happened often if "buffer commands" was set to off.
+- Fix problem with the sc instruction that broke Beats ([#18133], [#18140])
+- Fix problem with the chat window accidentally closing on typing X ([#18135])
+- Fix some crashes, add some asserts and reporting hooks ([#18129])
+- Fix some text rendering in the software renderer ([#18126])
+
 What's new in 1.16
 ==================
 Special thanks to unknownbrackets for the new JIT compilers, and fp64 for finally cracking the vrnd instruction.
@@ -369,3 +381,11 @@ Credit goes to:
 [#17677]: https://github.com/hrydgard/ppsspp/issues/17677 "Kernel: Use lower profiler func timing"
 [#17952]: https://github.com/hrydgard/ppsspp/issues/17952 "[UWP] Improvements 2 (Configs, Render, Input)"
 [#17974]: https://github.com/hrydgard/ppsspp/issues/17974 "(UWP) Another Round of Code Cleanups"
+[#18127]: https://github.com/hrydgard/ppsspp/issues/18127 "Move RetroAchievements to the tools tab, fix leaderboard submitted notification positioning"
+[#18142]: https://github.com/hrydgard/ppsspp/issues/18142 "Revert \"Merge pull request #18008 from hrydgard/naruto-video-flicker-heuristic\""
+[#18143]: https://github.com/hrydgard/ppsspp/issues/18143 "Fix UMD disc swap with Retroachievements enabled"
+[#18133]: https://github.com/hrydgard/ppsspp/issues/18133 "More sensible approach to the sc problem that broke Beats"
+[#18140]: https://github.com/hrydgard/ppsspp/issues/18140 "x86jit: Fix spill on sc in longer block"
+[#18135]: https://github.com/hrydgard/ppsspp/issues/18135 "Fix closing the chat window with ESC, add some asserts"
+[#18129]: https://github.com/hrydgard/ppsspp/issues/18129 "Fix the semantics of DenseHashMap to be consistent even when inserting nulls"
+[#18126]: https://github.com/hrydgard/ppsspp/issues/18126 "PPGe: Use texture windows for atlas text"
