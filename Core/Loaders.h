@@ -157,4 +157,4 @@ void RegisterFileLoaderFactory(std::string prefix, std::unique_ptr<FileLoaderFac
 // Can modify the string filename, as it calls IdentifyFile above.
 bool LoadFile(FileLoader **fileLoaderPtr, std::string *error_string);
 
-bool UmdReplace(const Path &filepath, std::string &error);
+bool UmdReplace(const Path &filepath, FileLoader **fileLoader, std::string &error);

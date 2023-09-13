@@ -108,7 +108,7 @@ void Logout();
 
 bool IsReadyToStart();
 void SetGame(const Path &path, IdentifiedFileType fileType, FileLoader *fileLoader);
-void ChangeUMD(const Path &path);  // for in-game UMD change
+void ChangeUMD(const Path &path, FileLoader *fileLoader);  // for in-game UMD change
 void UnloadGame();  // Call when leaving a game.
 
 Statistics GetStatistics();

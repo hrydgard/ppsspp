@@ -487,12 +487,13 @@ static u32 sceUmdGetErrorStat()
 
 void __UmdReplace(const Path &filepath) {
 	std::string error = "";
-	if (!UmdReplace(filepath, error)) {
+	FileLoader *fileLoader;
+	if (!UmdReplace(filepath, &fileLoader, error)) {
 		ERROR_LOG(SCEIO, "UMD Replace failed: %s", error.c_str());
 		return;
 	}
 
-	Achievements::ChangeUMD(filepath);
+	Achievements::ChangeUMD(filepath, fileLoader);
 
 	UMDInserted = false;
 	// Wake any threads waiting for the disc to be removed.

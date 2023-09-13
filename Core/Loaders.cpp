@@ -385,7 +385,7 @@ bool LoadFile(FileLoader **fileLoaderPtr, std::string *error_string) {
 	return false;
 }
 
-bool UmdReplace(const Path &filepath, std::string &error) {
+bool UmdReplace(const Path &filepath, FileLoader **fileLoader, std::string &error) {
 	IFileSystem *currentUMD = pspFileSystem.GetSystem("disc0:");
 
 	if (!currentUMD) {
@@ -404,6 +404,8 @@ bool UmdReplace(const Path &filepath, std::string &error) {
 
 	loadedFile = ResolveFileLoaderTarget(loadedFile);
 
+	*fileLoader = loadedFile;
+
 	std::string errorString;
 	IdentifiedFileType type = Identify_File(loadedFile, &errorString);
 
@@ -415,7 +417,6 @@ bool UmdReplace(const Path &filepath, std::string &error) {
 			error = "reinit memory failed";
 			return false;
 		}
-
 		break;
 	default:
 		error = "Unsupported file type: " + std::to_string((int)type) + " " + errorString;
