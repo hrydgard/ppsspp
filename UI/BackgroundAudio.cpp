@@ -261,6 +261,7 @@ BackgroundAudio::BackgroundAudio() {
 }
 
 BackgroundAudio::~BackgroundAudio() {
+	delete at3Reader_;
 	delete[] buffer;
 }
 

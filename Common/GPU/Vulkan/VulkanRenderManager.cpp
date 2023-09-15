@@ -713,6 +713,7 @@ VKRGraphicsPipeline *VulkanRenderManager::CreateGraphicsPipeline(VKRGraphicsPipe
 
 	if (!desc->vertexShader || !desc->fragmentShader) {
 		ERROR_LOG(G3D, "Can't create graphics pipeline with missing vs/ps: %p %p", desc->vertexShader, desc->fragmentShader);
+		delete pipeline;
 		return nullptr;
 	}
 
