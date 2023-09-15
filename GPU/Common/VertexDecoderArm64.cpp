@@ -315,7 +315,7 @@ bool VertexDecoderJitCache::CompileStep(const VertexDecoder &dec, int step) {
 
 void VertexDecoderJitCache::Jit_ApplyWeights() {
 	// We construct a matrix in Q4-Q7
-	if (dec_->nweights >= 4) {
+	if (dec_->nweights > 4) {
 		MOVP2R(scratchReg64, bones + 16 * 4);
 	}
 	for (int i = 0; i < dec_->nweights; i++) {
