@@ -80,7 +80,9 @@ bool IconCache::LoadFromFile(FILE *file) {
 			break;
 		}
 
-		fread(&key[0], 1, entryHeader.keyLen, file);
+		if (fread(&key[0], 1, entryHeader.keyLen, file) != entryHeader.keyLen) {
+			break;
+		}
 
 		// Check if we already have the entry somehow.
 		if (cache_.find(key) != cache_.end()) {
