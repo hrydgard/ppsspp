@@ -889,8 +889,10 @@ SingleFunc PixelJitCache::GetSingle(const PixelFuncID &id, BinManager *binner) {
 
 	if (cache_.Get(key, &singleFunc)) {
 		lastSingle_.Set(key, singleFunc, clearGen_);
+		return singleFunc;
+	} else {
+		return nullptr;
 	}
-	return singleFunc;
 }
 
 void PixelJitCache::Compile(const PixelFuncID &id) {
