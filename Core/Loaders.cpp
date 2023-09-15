@@ -285,7 +285,7 @@ bool LoadFile(FileLoader **fileLoaderPtr, std::string *error_string) {
 
 				std::string dir = fileLoader->GetPath().GetDirectory();
 				if (fileLoader->GetPath().Type() == PathType::CONTENT_URI) {
-					dir = AndroidContentURI(dir.c_str()).FilePath();
+					dir = AndroidContentURI(dir).FilePath();
 				}
 				size_t pos = dir.find("PSP/GAME/");
 				if (pos != std::string::npos) {

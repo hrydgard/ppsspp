@@ -1225,7 +1225,7 @@ bool TextEdit::Key(const KeyInput &input) {
 			switch (input.keyCode) {
 			case NKCODE_C:
 				// Just copy the entire text contents, until we get selection support.
-				System_CopyStringToClipboard(text_.c_str());
+				System_CopyStringToClipboard(text_);
 				break;
 			case NKCODE_V:
 				{

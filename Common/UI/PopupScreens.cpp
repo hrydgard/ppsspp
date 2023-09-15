@@ -265,7 +265,7 @@ std::string PopupSliderChoiceFloat::ValueText() const {
 	temp[0] = '\0';
 	if (zeroLabel_.size() && *value_ == 0.0f) {
 		truncate_cpy(temp, zeroLabel_.c_str());
-	} else if (IsValidNumberFormatString(fmt_.c_str())) {
+	} else if (IsValidNumberFormatString(fmt_)) {
 		snprintf(temp, sizeof(temp), fmt_.c_str(), *value_);
 	} else {
 		snprintf(temp, sizeof(temp), "%0.2f", *value_);

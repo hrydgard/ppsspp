@@ -343,7 +343,7 @@ namespace MainWindow {
 			Core_EnableStepping(false);
 		}
 		filename = ReplaceAll(filename, "\\", "/");
-		System_PostUIMessage("boot", filename.c_str());
+		System_PostUIMessage("boot", filename);
 		W32Util::MakeTopMost(GetHWND(), g_Config.bTopMost);
 	}
 

@@ -322,7 +322,7 @@ bool Section::Get(const char* key, int* value, int defaultValue) const
 {
 	std::string temp;
 	bool retval = Get(key, &temp, 0);
-	if (retval && TryParse(temp.c_str(), value))
+	if (retval && TryParse(temp, value))
 		return true;
 	*value = defaultValue;
 	return false;
@@ -352,7 +352,7 @@ bool Section::Get(const char* key, bool* value, bool defaultValue) const
 {
 	std::string temp;
 	bool retval = Get(key, &temp, 0);
-	if (retval && TryParse(temp.c_str(), value))
+	if (retval && TryParse(temp, value))
 		return true;
 	*value = defaultValue;
 	return false;
@@ -362,7 +362,7 @@ bool Section::Get(const char* key, float* value, float defaultValue) const
 {
 	std::string temp;
 	bool retval = Get(key, &temp, 0);
-	if (retval && TryParse(temp.c_str(), value))
+	if (retval && TryParse(temp, value))
 		return true;
 	*value = defaultValue;
 	return false;
@@ -372,7 +372,7 @@ bool Section::Get(const char* key, double* value, double defaultValue) const
 {
 	std::string temp;
 	bool retval = Get(key, &temp, 0);
-	if (retval && TryParse(temp.c_str(), value))
+	if (retval && TryParse(temp, value))
 		return true;
 	*value = defaultValue;
 	return false;

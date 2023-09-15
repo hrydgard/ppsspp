@@ -1029,7 +1029,7 @@ namespace MainWindow
 					TCHAR filename[512];
 					if (DragQueryFile(hdrop, 0, filename, 512) != 0) {
 						const std::string utf8_filename = ReplaceAll(ConvertWStringToUTF8(filename), "\\", "/");
-						System_PostUIMessage("boot", utf8_filename.c_str());
+						System_PostUIMessage("boot", utf8_filename);
 						Core_EnableStepping(false);
 					}
 				}
