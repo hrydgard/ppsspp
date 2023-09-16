@@ -399,6 +399,8 @@ if(NOT MSVC)
 		set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -parallel -fopenmp")
 	endif()
 
+	add_definitions(-fno-math-errno)
+
 	if(X86 OR X86_64)
 		# enable sse2 code generation
 		add_definitions(-msse2)
