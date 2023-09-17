@@ -117,12 +117,23 @@ bool Connection::Connect(int maxTries, double timeout, bool *cancelConnect) {
 			fd_util::SetNonBlocking(sock, true);
 
 			// Start trying to connect (async with timeout.)
-			connect(sock, possible->ai_addr, (int)possible->ai_addrlen);
+			errno = 0;
+			if (connect(sock, possible->ai_addr, (int)possible->ai_addrlen) < 0) {
+				if (errno != EINPROGRESS) {
+					ERROR_LOG(HTTP, "connect(%d) call failed (%d: %s)", sock, errno, strerror(errno));
+					continue;
+				}
+			}
 			sockets.push_back(sock);
 			FD_SET(sock, &fds);
 			if (maxfd < sock + 1) {
 				maxfd = sock + 1;
 			}
+		}
+
+		if (sockets.empty()) {
+			ERROR_LOG(HTTP, "No resolved address would connect!");
+			// TODO: What do we do here?
 		}
 
 		int selectResult = 0;
