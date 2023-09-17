@@ -220,8 +220,24 @@ void X64JitBackend::CompIR_Compare(IRInst inst) {
 		break;
 
 	case IROp::SltU:
-		regs_.Map(inst);
-		setCC(regs_.R(inst.src2), CC_B);
+		if (regs_.IsGPRImm(inst.src1) && regs_.GetGPRImm(inst.src1) == 0) {
+			// This is kinda common, same as != 0.  Avoid flushing src1.
+			regs_.SpillLockGPR(inst.src2, inst.dest);
+			regs_.MapGPR(inst.src2);
+			regs_.MapGPR(inst.dest, MIPSMap::NOINIT);
+			if (inst.dest != inst.src2 && regs_.HasLowSubregister(regs_.RX(inst.dest))) {
+				XOR(32, regs_.R(inst.dest), regs_.R(inst.dest));
+				TEST(32, regs_.R(inst.src2), regs_.R(inst.src2));
+				SETcc(CC_NE, regs_.R(inst.dest));
+			} else {
+				CMP(32, regs_.R(inst.src2), Imm8(0));
+				SETcc(CC_NE, R(SCRATCH1));
+				MOVZX(32, 8, regs_.RX(inst.dest), R(SCRATCH1));
+			}
+		} else {
+			regs_.Map(inst);
+			setCC(regs_.R(inst.src2), CC_B);
+		}
 		break;
 
 	case IROp::SltUConst:

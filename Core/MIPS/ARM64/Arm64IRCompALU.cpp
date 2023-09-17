@@ -170,9 +170,18 @@ void Arm64JitBackend::CompIR_Compare(IRInst inst) {
 		break;
 
 	case IROp::SltU:
-		regs_.Map(inst);
-		CMP(regs_.R(inst.src1), regs_.R(inst.src2));
-		CSET(regs_.R(inst.dest), CC_LO);
+		if (regs_.IsGPRImm(inst.src1) && regs_.GetGPRImm(inst.src1) == 0) {
+			// This is kinda common, same as != 0.  Avoid flushing src1.
+			regs_.SpillLockGPR(inst.src2, inst.dest);
+			regs_.MapGPR(inst.src2);
+			regs_.MapGPR(inst.dest, MIPSMap::NOINIT);
+			CMP(regs_.R(inst.src2), 0);
+			CSET(regs_.R(inst.dest), CC_NEQ);
+		} else {
+			regs_.Map(inst);
+			CMP(regs_.R(inst.src1), regs_.R(inst.src2));
+			CSET(regs_.R(inst.dest), CC_LO);
+		}
 		break;
 
 	case IROp::SltUConst:
