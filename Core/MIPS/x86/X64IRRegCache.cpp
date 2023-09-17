@@ -222,14 +222,25 @@ void X64IRRegCache::MapWithFlags(IRInst inst, X64Map destFlags, X64Map src1Flags
 	mapping[2].flags = mapping[2].flags | src2Flags;
 
 	auto flushReg = [&](IRNativeReg nreg) {
+		bool mustKeep = false;
+		bool canDiscard = false;
 		for (int i = 0; i < 3; ++i) {
-			if (mapping[i].reg == nr[nreg].mipsReg && (mapping[i].flags & MIPSMap::NOINIT) == MIPSMap::NOINIT) {
-				DiscardNativeReg(nreg);
-				return;
+			if (mapping[i].reg != nr[nreg].mipsReg)
+				continue;
+
+			if ((mapping[i].flags & MIPSMap::NOINIT) != MIPSMap::NOINIT) {
+				mustKeep = true;
+				break;
+			} else {
+				canDiscard = true;
 			}
 		}
 
-		FlushNativeReg(nreg);
+		if (mustKeep || !canDiscard) {
+			FlushNativeReg(nreg);
+		} else {
+			DiscardNativeReg(nreg);
+		}
 	};
 
 	// If there are any special rules, we might need to spill.

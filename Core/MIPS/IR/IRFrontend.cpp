@@ -339,8 +339,8 @@ void IRFrontend::CheckBreakpoint(u32 addr) {
 	if (CBreakPoints::IsAddressBreakPoint(addr)) {
 		FlushAll();
 
-		if (GetCompilerPC() != js.blockStart)
-			ir.Write(IROp::SetPCConst, 0, ir.AddConstant(GetCompilerPC()));
+		// Can't skip this even at the start of a block, might impact block linking.
+		ir.Write(IROp::SetPCConst, 0, ir.AddConstant(GetCompilerPC()));
 
 		RestoreRoundingMode();
 		// At this point, downcount HAS the delay slot, but not the instruction itself.
@@ -370,8 +370,8 @@ void IRFrontend::CheckMemoryBreakpoint(int rs, int offset) {
 	if (CBreakPoints::HasMemChecks()) {
 		FlushAll();
 
-		if (GetCompilerPC() != js.blockStart)
-			ir.Write(IROp::SetPCConst, 0, ir.AddConstant(GetCompilerPC()));
+		// Can't skip this even at the start of a block, might impact block linking.
+		ir.Write(IROp::SetPCConst, 0, ir.AddConstant(GetCompilerPC()));
 
 		RestoreRoundingMode();
 		// At this point, downcount HAS the delay slot, but not the instruction itself.
