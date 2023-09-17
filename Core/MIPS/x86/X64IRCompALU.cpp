@@ -151,6 +151,37 @@ void X64JitBackend::CompIR_Bits(IRInst inst) {
 		break;
 
 	case IROp::ReverseBits:
+		regs_.Map(inst);
+		if (inst.src1 != inst.dest) {
+			MOV(32, regs_.R(inst.dest), regs_.R(inst.src1));
+		}
+
+		// Swap even/odd bits (in bits: 0123 -> 1032.)
+		LEA(32, SCRATCH1, MScaled(regs_.RX(inst.dest), 2, 0));
+		SHR(32, regs_.R(inst.dest), Imm8(1));
+		XOR(32, regs_.R(inst.dest), R(SCRATCH1));
+		AND(32, regs_.R(inst.dest), Imm32(0x55555555));
+		XOR(32, regs_.R(inst.dest), R(SCRATCH1));
+
+		// Swap pairs of bits (in bits: 10325476 -> 32107654.)
+		LEA(32, SCRATCH1, MScaled(regs_.RX(inst.dest), 4, 0));
+		SHR(32, regs_.R(inst.dest), Imm8(2));
+		XOR(32, regs_.R(inst.dest), R(SCRATCH1));
+		AND(32, regs_.R(inst.dest), Imm32(0x33333333));
+		XOR(32, regs_.R(inst.dest), R(SCRATCH1));
+
+		// Swap nibbles (in nibbles: ABCD -> BADC.)
+		MOV(32, R(SCRATCH1), regs_.R(inst.dest));
+		SHL(32, R(SCRATCH1), Imm8(4));
+		SHR(32, regs_.R(inst.dest), Imm8(4));
+		XOR(32, regs_.R(inst.dest), R(SCRATCH1));
+		AND(32, regs_.R(inst.dest), Imm32(0x0F0F0F0F));
+		XOR(32, regs_.R(inst.dest), R(SCRATCH1));
+
+		// Finally, swap the bytes to drop everything into place (nibbles: BADCFEHG -> HGFEDCBA.)
+		BSWAP(32, regs_.RX(inst.dest));
+		break;
+
 	case IROp::BSwap16:
 		CompIR_Generic(inst);
 		break;
