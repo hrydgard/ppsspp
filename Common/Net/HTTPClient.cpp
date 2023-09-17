@@ -121,6 +121,7 @@ bool Connection::Connect(int maxTries, double timeout, bool *cancelConnect) {
 			if (connect(sock, possible->ai_addr, (int)possible->ai_addrlen) < 0) {
 				if (errno != EINPROGRESS) {
 					ERROR_LOG(HTTP, "connect(%d) call failed (%d: %s)", sock, errno, strerror(errno));
+					closesocket(sock);
 					continue;
 				}
 			}
