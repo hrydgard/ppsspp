@@ -150,11 +150,6 @@ bool Connection::Connect(int maxTries, double timeout, bool *cancelConnect) {
 			}
 		}
 
-		if (sockets.empty()) {
-			ERROR_LOG(HTTP, "No resolved address would connect!");
-			// TODO: What do we do here?
-		}
-
 		int selectResult = 0;
 		long timeoutHalfSeconds = floor(2 * timeout);
 		while (timeoutHalfSeconds >= 0 && selectResult == 0) {
