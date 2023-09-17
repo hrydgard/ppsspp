@@ -183,7 +183,20 @@ void X64JitBackend::CompIR_Bits(IRInst inst) {
 		break;
 
 	case IROp::BSwap16:
-		CompIR_Generic(inst);
+		regs_.Map(inst);
+		if (cpu_info.bBMI2) {
+			// Rotate to put it into the correct register, then swap.
+			if (inst.dest != inst.src1)
+				RORX(32, regs_.RX(inst.dest), regs_.R(inst.src1), 16);
+			else
+				ROR(32, regs_.R(inst.dest), Imm8(16));
+			BSWAP(32, regs_.RX(inst.dest));
+		} else {
+			if (inst.dest != inst.src1)
+				MOV(32, regs_.R(inst.dest), regs_.R(inst.src1));
+			BSWAP(32, regs_.RX(inst.dest));
+			ROR(32, regs_.R(inst.dest), Imm8(16));
+		}
 		break;
 
 	case IROp::Clz:
