@@ -153,7 +153,17 @@ void X64JitBackend::CompIR_System(IRInst inst) {
 		break;
 
 	case IROp::Break:
-		CompIR_Generic(inst);
+		FlushAll();
+		// This doesn't naturally have restore/apply around it.
+		RestoreRoundingMode(true);
+		SaveStaticRegisters();
+		MovFromPC(SCRATCH1);
+		ABI_CallFunctionR((const void *)&Core_Break, SCRATCH1);
+		LoadStaticRegisters();
+		ApplyRoundingMode(true);
+		MovFromPC(SCRATCH1);
+		LEA(32, SCRATCH1, MDisp(SCRATCH1, 4));
+		JMP(dispatcherPCInSCRATCH1_, true);
 		break;
 
 	default:
@@ -191,8 +201,34 @@ void X64JitBackend::CompIR_Transfer(IRInst inst) {
 		break;
 
 	case IROp::FpCtrlFromReg:
+		regs_.MapWithExtra(inst, { { 'G', IRREG_FPCOND, 1, MIPSMap::NOINIT } });
+		// Mask out the unused bits, and store fcr31 (using fpcond as a temp.)
+		MOV(32, regs_.R(IRREG_FPCOND), Imm32(0x0181FFFF));
+		AND(32, regs_.R(IRREG_FPCOND), regs_.R(inst.src1));
+		MOV(32, MDisp(CTXREG, fcr31Offset), regs_.R(IRREG_FPCOND));
+
+		// With that done, grab bit 23, the actual fpcond.
+		SHR(32, regs_.R(IRREG_FPCOND), Imm8(23));
+		AND(32, regs_.R(IRREG_FPCOND), Imm32(1));
+		break;
+
 	case IROp::FpCtrlToReg:
-		CompIR_Generic(inst);
+		regs_.MapWithExtra(inst, { { 'G', IRREG_FPCOND, 1, MIPSMap::INIT } });
+		// Start by clearing the fpcond bit (might as well mask while we're here.)
+		MOV(32, regs_.R(inst.dest), Imm32(0x0101FFFF));
+		AND(32, regs_.R(inst.dest), MDisp(CTXREG, fcr31Offset));
+
+		AND(32, regs_.R(IRREG_FPCOND), Imm32(1));
+		if (cpu_info.bBMI2) {
+			RORX(32, SCRATCH1, regs_.R(IRREG_FPCOND), 32 - 23);
+		} else {
+			MOV(32, R(SCRATCH1), regs_.R(IRREG_FPCOND));
+			SHL(32, R(SCRATCH1), Imm8(23));
+		}
+		OR(32, regs_.R(inst.dest), R(SCRATCH1));
+
+		// Update fcr31 while we were here, for consistency.
+		MOV(32, MDisp(CTXREG, fcr31Offset), regs_.R(inst.dest));
 		break;
 
 	case IROp::VfpuCtrlToReg:
