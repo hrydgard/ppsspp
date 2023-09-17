@@ -210,7 +210,7 @@ void X64JitBackend::CompIR_FAssign(IRInst inst) {
 		// Just to make sure we don't generate bad code.
 		if (inst.dest == inst.src1)
 			break;
-		if (regs_.IsFPRMapped(inst.src1 & 3) && regs_.GetFPRLaneCount(inst.src1 & ~3) == 4 && (inst.dest & ~3) != (inst.src1 & ~3)) {
+		if (regs_.IsFPRMapped(inst.src1 & 3) && regs_.GetFPRLaneCount(inst.src1) == 4 && (inst.dest & ~3) != (inst.src1 & ~3)) {
 			// Okay, this is an extract.  Avoid unvec4ing src1.
 			regs_.SpillLockFPR(inst.src1);
 			regs_.MapFPR(inst.dest, MIPSMap::NOINIT);
