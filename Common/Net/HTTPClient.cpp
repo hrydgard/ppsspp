@@ -93,6 +93,18 @@ bool Connection::Resolve(const char *host, int port, DNSType type) {
 	return true;
 }
 
+static void FormatAddr(char *addrbuf, size_t bufsize, const addrinfo *info) {
+	switch (info->ai_family) {
+	case AF_INET:
+	case AF_INET6:
+		inet_ntop(info->ai_family, info->ai_addr, addrbuf, bufsize);
+		break;
+	default:
+		snprintf(addrbuf, bufsize, "(Unknown AF %d)", info->ai_family);
+		break;
+	}
+}
+
 bool Connection::Connect(int maxTries, double timeout, bool *cancelConnect) {
 	if (port_ <= 0) {
 		ERROR_LOG(IO, "Bad port");
@@ -120,7 +132,13 @@ bool Connection::Connect(int maxTries, double timeout, bool *cancelConnect) {
 			errno = 0;
 			if (connect(sock, possible->ai_addr, (int)possible->ai_addrlen) < 0) {
 				if (errno != EINPROGRESS) {
-					ERROR_LOG(HTTP, "connect(%d) call failed (%d: %s)", sock, errno, strerror(errno));
+					char addrStr[128];
+					FormatAddr(addrStr, sizeof(addrStr), possible);
+					if (errno != ENETUNREACH) {
+						ERROR_LOG(HTTP, "connect(%d) call to %s failed (%d: %s)", sock, addrStr, errno, strerror(errno));
+					} else {
+						INFO_LOG(HTTP, "connect(%d): Ignoring unreachable resolved address %s", sock, addrStr);
+					}
 					closesocket(sock);
 					continue;
 				}
