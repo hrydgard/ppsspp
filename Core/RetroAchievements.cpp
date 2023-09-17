@@ -618,6 +618,7 @@ void Initialize() {
 	// Provide a logging function to simplify debugging
 	rc_client_enable_logging(g_rcClient, RC_CLIENT_LOG_LEVEL_VERBOSE, log_message_callback);
 	if (!System_GetPropertyBool(SYSPROP_SUPPORTS_HTTPS)) {
+		INFO_LOG(Log::Achievements, "Falling back to HTTP host, no HTTPS support detected");
 		// Disable SSL if not supported by our platform implementation.
 		rc_client_set_host(g_rcClient, "http://retroachievements.org");
 	}
