@@ -131,7 +131,7 @@ bool Connection::Connect(int maxTries, double timeout, bool *cancelConnect) {
 			// Start trying to connect (async with timeout.)
 			errno = 0;
 			if (connect(sock, possible->ai_addr, (int)possible->ai_addrlen) < 0) {
-				if (errno != EINPROGRESS) {
+				if (errno != 0 && errno != EINPROGRESS) {
 					char addrStr[128];
 					FormatAddr(addrStr, sizeof(addrStr), possible);
 					if (errno != ENETUNREACH) {
