@@ -290,6 +290,7 @@ u32 GPU_Vulkan::CheckGPUFeatures() const {
 		features &= ~GPU_USE_LIGHT_UBERSHADER;
 	}
 
+	features |= GPU_USE_FRAMEBUFFER_ARRAYS;
 	return CheckGPUFeaturesLate(features);
 }
 
