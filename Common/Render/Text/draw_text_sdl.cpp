@@ -316,6 +316,10 @@ void TextDrawerSDL::DrawString(DrawBuffer &target, const char *str, float x, flo
 		entry->lastUsedFrame = frameCount_;
 	} else {
 		DataFormat texFormat = Draw::DataFormat::R4G4B4A4_UNORM_PACK16;
+		if ((draw_->GetDataFormatSupport(texFormat) & Draw::FMT_TEXTURE) == 0) {
+			// This is always supported in Vulkan. The other format is the common OpenGL one.
+			texFormat = Draw::DataFormat::B4G4R4A4_UNORM_PACK16;
+		}
 
 		entry = new TextStringEntry();
 
