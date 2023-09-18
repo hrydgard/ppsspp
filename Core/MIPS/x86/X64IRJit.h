@@ -144,6 +144,7 @@ private:
 	struct Constants {
 		const void *noSignMask;
 		const void *signBitAll;
+		const void *positiveZeroes;
 		const void *positiveInfinity;
 		const void *positiveOnes;
 		const void *negativeOnes;

@@ -43,6 +43,7 @@ using namespace X64IRJitConstants;
 void X64JitBackend::EmitFPUConstants() {
 	EmitConst4x32(&constants.noSignMask, 0x7FFFFFFF);
 	EmitConst4x32(&constants.signBitAll, 0x80000000);
+	EmitConst4x32(&constants.positiveZeroes, 0x00000000);
 	EmitConst4x32(&constants.positiveInfinity, 0x7F800000);
 	EmitConst4x32(&constants.qNAN, 0x7FC00000);
 	EmitConst4x32(&constants.positiveOnes, 0x3F800000);
@@ -233,8 +234,30 @@ void X64JitBackend::CompIR_FAssign(IRInst inst) {
 		break;
 
 	case IROp::FSign:
-		CompIR_Generic(inst);
+	{
+		X64Reg tempReg = regs_.MapWithFPRTemp(inst);
+
+		// Set tempReg to +1.0 or -1.0 per sign bit.
+		if (cpu_info.bAVX) {
+			VANDPS(128, tempReg, regs_.FX(inst.src1), M(constants.signBitAll));  // rip accessible
+		} else {
+			MOVAPS(tempReg, regs_.F(inst.src1));
+			ANDPS(tempReg, M(constants.signBitAll));  // rip accessible
+		}
+		ORPS(tempReg, M(constants.positiveOnes));  // rip accessible
+
+		// Set dest = 0xFFFFFFFF if +0.0 or -0.0.
+		if (inst.dest != inst.src1) {
+			XORPS(regs_.FX(inst.dest), regs_.F(inst.dest));
+			CMPPS(regs_.FX(inst.dest), regs_.F(inst.src1), CMP_EQ);
+		} else {
+			CMPPS(regs_.FX(inst.dest), M(constants.positiveZeroes), CMP_EQ);  // rip accessible
+		}
+
+		// Now not the mask to keep zero if it was zero.
+		ANDNPS(regs_.FX(inst.dest), R(tempReg));
 		break;
+	}
 
 	default:
 		INVALIDOP;
