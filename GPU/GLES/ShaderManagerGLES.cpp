@@ -748,6 +748,8 @@ void ShaderManagerGLES::DirtyLastShader() {
 	lastVShaderSame_ = false;
 }
 
+// Can only fail by failing to generate the code (bad FSID).
+// Any actual failures driver-side happens later in the render manager.
 Shader *ShaderManagerGLES::CompileFragmentShader(FShaderID FSID) {
 	uint64_t uniformMask;
 	std::string errorString;
@@ -762,6 +764,8 @@ Shader *ShaderManagerGLES::CompileFragmentShader(FShaderID FSID) {
 	return new Shader(render_, codeBuffer_, desc, params);
 }
 
+// Can only fail by failing to generate the code (bad VSID).
+// Any actual failures driver-side happens later in the render manager.
 Shader *ShaderManagerGLES::CompileVertexShader(VShaderID VSID) {
 	bool useHWTransform = VSID.Bit(VS_BIT_USE_HW_TRANSFORM);
 	uint32_t attrMask;
@@ -802,13 +806,12 @@ Shader *ShaderManagerGLES::ApplyVertexShader(bool useHWTransform, bool useHWTess
 
 	// Vertex shader not in cache. Let's compile it.
 	vs = CompileVertexShader(*VSID);
-	if (!vs || vs->Failed()) {
+	if (!vs) {
 		auto gr = GetI18NCategory(I18NCat::GRAPHICS);
 		ERROR_LOG(G3D, "Vertex shader generation failed, falling back to software transform");
 		if (!g_Config.bHideSlowWarnings) {
 			g_OSD.Show(OSDType::MESSAGE_ERROR, gr->T("hardware transform error - falling back to software"), 2.5f);
 		}
-		delete vs;
 
 		// TODO: Look for existing shader with the appropriate ID, use that instead of generating a new one - however, need to make sure
 		// that that shader ID is not used when computing the linked shader ID below, because then IDs won't match
@@ -1099,7 +1102,7 @@ bool ShaderManagerGLES::ContinuePrecompile(float sliceTime) {
 			}
 
 			Shader *vs = CompileVertexShader(id);
-			if (!vs || vs->Failed()) {
+			if (!vs) {
 				// Give up on using the cache, just bail. We can't safely create the fallback shaders here
 				// without trying to deduce the vertType from the VSID.
 				ERROR_LOG(G3D, "Failed to compile a vertex shader loading from cache. Skipping rest of shader cache.");
@@ -1121,7 +1124,16 @@ bool ShaderManagerGLES::ContinuePrecompile(float sliceTime) {
 
 		const FShaderID &id = pending.frag[i];
 		if (!fsCache_.ContainsKey(id)) {
-			fsCache_.Insert(id, CompileFragmentShader(id));
+			Shader *fs = CompileFragmentShader(id);
+			if (!fs) {
+				// Give up on using the cache - something went wrong.
+				// We'll still keep the shaders we generated so far around.
+				ERROR_LOG(G3D, "Failed to compile a fragment shader loading from cache. Skipping rest of shader cache.");
+				delete fs;
+				pending.Clear();
+				return false;
+			}
+			fsCache_.Insert(id, fs);
 		} else {
 			WARN_LOG(G3D, "Duplicate fragment shader found in GL shader cache, ignoring");
 		}
