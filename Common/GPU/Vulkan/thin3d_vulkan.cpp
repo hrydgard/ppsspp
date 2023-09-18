@@ -821,6 +821,7 @@ void VKTexture::UpdateInternal(VkCommandBuffer cmd, VulkanPushPool *pushBuffer, 
 	int bpp = GetBpp(vulkanFormat);
 	int bytesPerPixel = bpp / 8;
 	TextureCopyBatch batch;
+	batch.reserve(numLevels);
 	for (i = 0; i < numLevels; i++) {
 		uint32_t offset;
 		VkBuffer buf;

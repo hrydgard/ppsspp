@@ -182,7 +182,7 @@ void GPU_Vulkan::SaveCache(const Path &filename) {
 GPU_Vulkan::~GPU_Vulkan() {
 	if (draw_) {
 		VulkanRenderManager *rm = (VulkanRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
-		rm->DrainCompileQueue();
+		rm->DrainAndBlockCompileQueue();
 	}
 
 	SaveCache(shaderCachePath_);
@@ -193,6 +193,11 @@ GPU_Vulkan::~GPU_Vulkan() {
 
 	delete pipelineManager_;
 	// other managers are deleted in ~GPUCommonHW.
+
+	if (draw_) {
+		VulkanRenderManager *rm = (VulkanRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
+		rm->ReleaseCompileQueue();
+	}
 }
 
 u32 GPU_Vulkan::CheckGPUFeatures() const {
@@ -290,6 +295,7 @@ u32 GPU_Vulkan::CheckGPUFeatures() const {
 		features &= ~GPU_USE_LIGHT_UBERSHADER;
 	}
 
+	features |= GPU_USE_FRAMEBUFFER_ARRAYS;
 	return CheckGPUFeaturesLate(features);
 }
 

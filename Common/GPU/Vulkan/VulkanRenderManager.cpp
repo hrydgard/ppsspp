@@ -500,12 +500,18 @@ void VulkanRenderManager::CompileThreadFunc() {
 	}
 }
 
-void VulkanRenderManager::DrainCompileQueue() {
+void VulkanRenderManager::DrainAndBlockCompileQueue() {
 	std::unique_lock<std::mutex> lock(compileMutex_);
+	compileBlocked_ = true;
 	compileCond_.notify_all();
 	while (!compileQueue_.empty()) {
 		queueRunner_.WaitForCompileNotification();
 	}
+}
+
+void VulkanRenderManager::ReleaseCompileQueue() {
+	std::unique_lock<std::mutex> lock(compileMutex_);
+	compileBlocked_ = false;
 }
 
 void VulkanRenderManager::ThreadFunc() {
@@ -709,14 +715,12 @@ VkCommandBuffer VulkanRenderManager::GetInitCmd() {
 }
 
 VKRGraphicsPipeline *VulkanRenderManager::CreateGraphicsPipeline(VKRGraphicsPipelineDesc *desc, PipelineFlags pipelineFlags, uint32_t variantBitmask, VkSampleCountFlagBits sampleCount, bool cacheLoad, const char *tag) {
-	VKRGraphicsPipeline *pipeline = new VKRGraphicsPipeline(pipelineFlags, tag);
-
 	if (!desc->vertexShader || !desc->fragmentShader) {
 		ERROR_LOG(G3D, "Can't create graphics pipeline with missing vs/ps: %p %p", desc->vertexShader, desc->fragmentShader);
-		delete pipeline;
 		return nullptr;
 	}
 
+	VKRGraphicsPipeline *pipeline = new VKRGraphicsPipeline(pipelineFlags, tag);
 	pipeline->desc = desc;
 	pipeline->desc->AddRef();
 	if (curRenderStep_ && !cacheLoad) {
@@ -733,7 +737,11 @@ VKRGraphicsPipeline *VulkanRenderManager::CreateGraphicsPipeline(VKRGraphicsPipe
 			VKRRenderPassStoreAction::STORE, VKRRenderPassStoreAction::DONT_CARE, VKRRenderPassStoreAction::DONT_CARE,
 		};
 		VKRRenderPass *compatibleRenderPass = queueRunner_.GetRenderPass(key);
-		compileMutex_.lock();
+		std::lock_guard<std::mutex> lock(compileMutex_);
+		if (compileBlocked_) {
+			delete pipeline;
+			return nullptr;
+		}
 		bool needsCompile = false;
 		for (size_t i = 0; i < (size_t)RenderPassType::TYPE_COUNT; i++) {
 			if (!(variantBitmask & (1 << i)))
@@ -757,18 +765,19 @@ VKRGraphicsPipeline *VulkanRenderManager::CreateGraphicsPipeline(VKRGraphicsPipe
 		}
 		if (needsCompile)
 			compileCond_.notify_one();
-		compileMutex_.unlock();
 	}
 	return pipeline;
 }
 
 VKRComputePipeline *VulkanRenderManager::CreateComputePipeline(VKRComputePipelineDesc *desc) {
+	std::lock_guard<std::mutex> lock(compileMutex_);
+	if (compileBlocked_) {
+		return nullptr;
+	}
 	VKRComputePipeline *pipeline = new VKRComputePipeline();
 	pipeline->desc = desc;
-	compileMutex_.lock();
 	compileQueue_.push_back(CompileQueueEntry(pipeline));
 	compileCond_.notify_one();
-	compileMutex_.unlock();
 	return pipeline;
 }
 
@@ -814,7 +823,7 @@ void VulkanRenderManager::EndCurRenderStep() {
 	compileMutex_.lock();
 	bool needsCompile = false;
 	for (VKRGraphicsPipeline *pipeline : pipelinesToCheck_) {
-		if (!pipeline) {
+		if (!pipeline || compileBlocked_) {
 			// Not good, but let's try not to crash.
 			continue;
 		}

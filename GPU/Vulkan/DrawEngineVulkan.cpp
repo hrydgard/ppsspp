@@ -792,7 +792,7 @@ void DrawEngineVulkan::DoFlush() {
 
 			shaderManager_->GetShaders(prim, dec_, &vshader, &fshader, &gshader, pipelineState_, true, useHWTessellation_, decOptions_.expandAllWeightsToFloat, decOptions_.applySkinInDecode);
 			if (!vshader) {
-				// We're screwed.
+				// We're screwed, can't do anything.
 				return;
 			}
 			_dbg_assert_msg_(vshader->UseHWTransform(), "Bad vshader");

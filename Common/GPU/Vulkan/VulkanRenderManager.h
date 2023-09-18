@@ -455,7 +455,8 @@ public:
 	}
 
 	void ResetStats();
-	void DrainCompileQueue();
+	void DrainAndBlockCompileQueue();
+	void ReleaseCompileQueue();
 
 private:
 	void EndCurRenderStep();
@@ -527,6 +528,7 @@ private:
 	std::condition_variable compileCond_;
 	std::mutex compileMutex_;
 	std::vector<CompileQueueEntry> compileQueue_;
+	bool compileBlocked_ = false;
 
 	// Thread for measuring presentation delay.
 	std::thread presentWaitThread_;
