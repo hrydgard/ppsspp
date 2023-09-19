@@ -2,6 +2,35 @@
 #include "Common/GPU/Vulkan/VulkanFramebuffer.h"
 #include "Common/GPU/Vulkan/VulkanQueueRunner.h"
 
+static const char *rpTypeDebugNames[] = {
+	"RENDER",
+	"RENDER_DEPTH",
+	"RENDER_INPUT",
+	"RENDER_DEPTH_INPUT",
+	"MV_RENDER",
+	"MV_RENDER_DEPTH",
+	"MV_RENDER_INPUT",
+	"MV_RENDER_DEPTH_INPUT",
+	"MS_RENDER",
+	"MS_RENDER_DEPTH",
+	"MS_RENDER_INPUT",
+	"MS_RENDER_DEPTH_INPUT",
+	"MS_MV_RENDER",
+	"MS_MV_RENDER_DEPTH",
+	"MS_MV_RENDER_INPUT",
+	"MS_MV_RENDER_DEPTH_INPUT",
+	"BACKBUF",
+};
+
+const char *GetRPTypeName(RenderPassType rpType) {
+	uint32_t index = (uint32_t)rpType;
+	if (index < ARRAY_SIZE(rpTypeDebugNames)) {
+		return rpTypeDebugNames[index];
+	} else {
+		return "N/A";
+	}
+}
+
 VkSampleCountFlagBits MultiSampleLevelToFlagBits(int count) {
 	// TODO: Check hardware support here, or elsewhere?
 	// Some hardware only supports 4x.
@@ -492,6 +521,10 @@ VkRenderPass CreateRenderPass(VulkanContext *vulkan, const RPKey &key, RenderPas
 		res = vkCreateRenderPass2KHR(vulkan->GetDevice(), &rp2, nullptr, &pass);
 	} else {
 		res = vkCreateRenderPass(vulkan->GetDevice(), &rp, nullptr, &pass);
+	}
+
+	if (pass) {
+		vulkan->SetDebugName(pass, VK_OBJECT_TYPE_RENDER_PASS, GetRPTypeName(rpType));
 	}
 
 	_assert_(res == VK_SUCCESS);
