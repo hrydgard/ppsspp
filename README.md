@@ -25,12 +25,20 @@ If you want to download regularly updated builds for Android, Windows x86 and x6
 
 For game compatibility, see [community compatibility feedback](https://report.ppsspp.org/games).
 
+What's new in 1.16.2
+====================
+- Fix for HTTP support on Linux on networks with shaky or incomplete IPv6 support
+- Assorted fixes for leaks and crashes ([#18169], [#18151])
+- Fix hang when switching UMD with RetroAchievements enabled ([#18143])
+- Fix math bug in new IR JIT for x86 ([#18165])
+- Minor math optimization -fno-math-errno ([#18158])
+- Fix for software renderer crash
+
 What's new in 1.16.1
 ====================
 
 - Move RetroAchievements to the Tools tab in settings ([#18127])
 - Fix graphics regressions in Hot Shots Golf 2 / Everybody's Golf 2 and Final Fantasy Tactics ([#18142])
-- Fix hang when switching UMD with RetroAchievements enabled ([#18143])
 - Fix hang on startup with OpenGL, that happened often if "buffer commands" was set to off.
 - Fix problem with the sc instruction that broke Beats ([#18133], [#18140])
 - Fix problem with the chat window accidentally closing on typing X ([#18135])
@@ -389,3 +397,7 @@ Credit goes to:
 [#18135]: https://github.com/hrydgard/ppsspp/issues/18135 "Fix closing the chat window with ESC, add some asserts"
 [#18129]: https://github.com/hrydgard/ppsspp/issues/18129 "Fix the semantics of DenseHashMap to be consistent even when inserting nulls"
 [#18126]: https://github.com/hrydgard/ppsspp/issues/18126 "PPGe: Use texture windows for atlas text"
+[#18169]: https://github.com/hrydgard/ppsspp/issues/18169 "Better handling of shadergen failures, other minor things"
+[#18151]: https://github.com/hrydgard/ppsspp/issues/18151 "GPU, VFS, UI: Fixed minor memleaks"
+[#18165]: https://github.com/hrydgard/ppsspp/issues/18165 "x86jit: Fix flush for special-purpose reg"
+[#18158]: https://github.com/hrydgard/ppsspp/issues/18158 "Add -fno-math-errno"
