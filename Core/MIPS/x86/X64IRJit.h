@@ -159,6 +159,8 @@ private:
 	int jitStartOffset_ = 0;
 	int compilingBlockNum_ = -1;
 	int logBlocks_ = 0;
+	// Only useful in breakpoints, where it's set immediately prior.
+	uint32_t lastConstPC_ = 0;
 };
 
 class X64IRJit : public IRNativeJit {

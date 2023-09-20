@@ -20,9 +20,11 @@
 
 #include "Common/Profiler/Profiler.h"
 #include "Core/Core.h"
+#include "Core/Debugger/Breakpoints.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/ReplaceTables.h"
 #include "Core/MemMap.h"
+#include "Core/MIPS/MIPSAnalyst.h"
 #include "Core/MIPS/IR/IRInterpreter.h"
 #include "Core/MIPS/x86/X64IRJit.h"
 #include "Core/MIPS/x86/X64IRRegCache.h"
@@ -74,6 +76,7 @@ void X64JitBackend::CompIR_Basic(IRInst inst) {
 		break;
 
 	case IROp::SetPCConst:
+		lastConstPC_ = inst.constant;
 		MOV(32, R(SCRATCH1), Imm32(inst.constant));
 		MovToPC(SCRATCH1);
 		break;
@@ -97,17 +100,80 @@ void X64JitBackend::CompIR_Breakpoint(IRInst inst) {
 		break;
 
 	case IROp::MemoryCheck:
-	{
-		X64Reg addrBase = regs_.MapGPR(inst.src1);
-		FlushAll();
-		LEA(32, addrBase, MDisp(addrBase, inst.constant));
-		MovFromPC(SCRATCH1);
-		LEA(32, SCRATCH1, MDisp(SCRATCH1, inst.dest));
-		ABI_CallFunctionRR((const void *)&IRRunMemCheck, SCRATCH1, addrBase);
-		TEST(32, R(EAX), R(EAX));
-		J_CC(CC_NZ, dispatcherCheckCoreState_, true);
+		if (regs_.IsGPRImm(inst.src1)) {
+			uint32_t iaddr = regs_.GetGPRImm(inst.src1) + inst.constant;
+			uint32_t checkedPC = lastConstPC_ + inst.dest;
+			int size = MIPSAnalyst::OpMemoryAccessSize(checkedPC);
+			if (size == 0) {
+				checkedPC += 4;
+				size = MIPSAnalyst::OpMemoryAccessSize(checkedPC);
+			}
+			bool isWrite = MIPSAnalyst::IsOpMemoryWrite(checkedPC);
+
+			MemCheck check;
+			if (CBreakPoints::GetMemCheckInRange(iaddr, size, &check)) {
+				if (!(check.cond & MEMCHECK_READ) && !isWrite)
+					break;
+				if (!(check.cond & (MEMCHECK_WRITE | MEMCHECK_WRITE_ONCHANGE)) && isWrite)
+					break;
+
+				// We need to flush, or conditions and log expressions will see old register values.
+				FlushAll();
+
+				ABI_CallFunctionCC((const void *)&IRRunMemCheck, checkedPC, iaddr);
+				TEST(32, R(EAX), R(EAX));
+				J_CC(CC_NZ, dispatcherCheckCoreState_, true);
+			}
+		} else {
+			uint32_t checkedPC = lastConstPC_ + inst.dest;
+			int size = MIPSAnalyst::OpMemoryAccessSize(checkedPC);
+			if (size == 0) {
+				checkedPC += 4;
+				size = MIPSAnalyst::OpMemoryAccessSize(checkedPC);
+			}
+			bool isWrite = MIPSAnalyst::IsOpMemoryWrite(checkedPC);
+
+			const auto memchecks = CBreakPoints::GetMemCheckRanges(isWrite);
+			// We can trivially skip if there are no checks for this type (i.e. read vs write.)
+			if (memchecks.empty())
+				break;
+
+			X64Reg addrBase = regs_.MapGPR(inst.src1);
+			LEA(32, SCRATCH1, MDisp(addrBase, inst.constant));
+
+			// We need to flush, or conditions and log expressions will see old register values.
+			FlushAll();
+
+			std::vector<FixupBranch> hitChecks;
+			for (auto it : memchecks) {
+				if (it.end != 0) {
+					CMP(32, R(SCRATCH1), Imm32(it.start - size));
+					FixupBranch skipNext = J_CC(CC_BE);
+
+					CMP(32, R(SCRATCH1), Imm32(it.end));
+					hitChecks.push_back(J_CC(CC_B, true));
+
+					SetJumpTarget(skipNext);
+				} else {
+					CMP(32, R(SCRATCH1), Imm32(it.start));
+					hitChecks.push_back(J_CC(CC_E, true));
+				}
+			}
+
+			FixupBranch noHits = J(true);
+
+			// Okay, now land any hit here.
+			for (auto &fixup : hitChecks)
+				SetJumpTarget(fixup);
+			hitChecks.clear();
+
+			ABI_CallFunctionAA((const void *)&IRRunMemCheck, Imm32(checkedPC), R(SCRATCH1));
+			TEST(32, R(EAX), R(EAX));
+			J_CC(CC_NZ, dispatcherCheckCoreState_, true);
+
+			SetJumpTarget(noHits);
+		}
 		break;
-	}
 
 	default:
 		INVALIDOP;
