@@ -822,6 +822,13 @@ static void WinMainCleanup() {
 	CoUninitialize();
 
 	if (g_Config.bRestartRequired) {
+		// TODO: ExitAndRestart prevents the Config::~Config destructor from running,
+		// which normally would have done this instance counter update.
+		// ExitAndRestart calls ExitProcess which really bad, we should do something better that
+		// allows us to fall out of main() properly.
+		if (g_Config.bUpdatedInstanceCounter) {
+			ShutdownInstanceCounter();
+		}
 		W32Util::ExitAndRestart(!restartArgs.empty(), restartArgs);
 	}
 }
