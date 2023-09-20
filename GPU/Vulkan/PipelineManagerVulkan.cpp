@@ -191,11 +191,11 @@ static VulkanPipeline *CreateVulkanPipeline(VulkanRenderManager *renderManager, 
 	const DecVtxFormat *decFmt, VulkanVertexShader *vs, VulkanFragmentShader *fs, VulkanGeometryShader *gs, bool useHwTransform, u32 variantBitmask, bool cacheLoad) {
 	_assert_(fs && vs);
 
-	if (!fs->GetModule()) {
+	if (!fs || !fs->GetModule()) {
 		ERROR_LOG(G3D, "Fragment shader missing in CreateVulkanPipeline");
 		return nullptr;
 	}
-	if (!vs->GetModule()) {
+	if (!vs || !vs->GetModule()) {
 		ERROR_LOG(G3D, "Vertex shader missing in CreateVulkanPipeline");
 		return nullptr;
 	}

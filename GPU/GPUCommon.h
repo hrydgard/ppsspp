@@ -254,7 +254,7 @@ protected:
 	void FlushImm();
 	void DoBlockTransfer(u32 skipDrawReason);
 
-	// TODO: Unify this. The only backend that differs is Vulkan.
+	// TODO: Unify this. Vulkan and OpenGL are different due to how they buffer data.
 	virtual void FinishDeferred() {}
 
 	void AdvanceVerts(u32 vertType, int count, int bytesRead) {

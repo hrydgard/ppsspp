@@ -233,7 +233,7 @@ public:
 	void RunSteps(std::vector<VKRStep *> &steps, FrameData &frameData, FrameDataShared &frameDataShared, bool keepSteps = false);
 	void LogSteps(const std::vector<VKRStep *> &steps, bool verbose);
 
-	std::string StepToString(const VKRStep &step) const;
+	static std::string StepToString(VulkanContext *vulkan, const VKRStep &step);
 
 	void CreateDeviceObjects();
 	void DestroyDeviceObjects();

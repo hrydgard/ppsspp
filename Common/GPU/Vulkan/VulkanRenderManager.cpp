@@ -12,6 +12,7 @@
 #include "Common/GPU/Vulkan/VulkanContext.h"
 #include "Common/GPU/Vulkan/VulkanRenderManager.h"
 
+#include "Common/LogReporting.h"
 #include "Common/Thread/ThreadUtil.h"
 #include "Common/VR/PPSSPPVR.h"
 
@@ -724,6 +725,21 @@ void VulkanRenderManager::BeginFrame(bool enableProfiling, bool enableLogProfile
 VkCommandBuffer VulkanRenderManager::GetInitCmd() {
 	int curFrame = vulkan_->GetCurFrame();
 	return frameData_[curFrame].GetInitCmd(vulkan_);
+}
+
+void VulkanRenderManager::ReportBadStateForDraw() {
+	const char *cause1 = "";
+	char cause2[256];
+	cause2[0] = '\0';
+	if (!curRenderStep_) {
+		cause1 = "No current render step";
+	}
+	if (curRenderStep_ && curRenderStep_->stepType != VKRStepType::RENDER) {
+		cause1 = "Not a render step: ";
+		std::string str = VulkanQueueRunner::StepToString(vulkan_, *curRenderStep_);
+		truncate_cpy(cause2, str.c_str());
+	}
+	ERROR_LOG_REPORT_ONCE(baddraw, G3D, "Can't draw: %s%s. Step count: %d", cause1, cause2, (int)steps_.size());
 }
 
 VKRGraphicsPipeline *VulkanRenderManager::CreateGraphicsPipeline(VKRGraphicsPipelineDesc *desc, PipelineFlags pipelineFlags, uint32_t variantBitmask, VkSampleCountFlagBits sampleCount, bool cacheLoad, const char *tag) {
