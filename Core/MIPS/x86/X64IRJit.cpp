@@ -19,6 +19,7 @@
 #if PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)
 
 #include <cstddef>
+#include "Common/StringUtils.h"
 #include "Core/MemMap.h"
 #include "Core/MIPS/MIPSTables.h"
 #include "Core/MIPS/x86/X64IRJit.h"
@@ -265,7 +266,31 @@ bool X64JitBackend::DescribeCodePtr(const u8 *ptr, std::string &name) const {
 	} else if (ptr == applyRoundingMode_) {
 		name = "applyRoundingMode";
 	} else if (ptr >= GetBasePtr() && ptr < GetBasePtr() + jitStartOffset_) {
-		name = "fixedCode";
+		if (ptr == constants.noSignMask) {
+			name = "constants.noSignMask";
+		} else if (ptr == constants.signBitAll) {
+			name = "constants.signBitAll";
+		} else if (ptr == constants.positiveZeroes) {
+			name = "constants.positiveZeroes";
+		} else if (ptr == constants.positiveInfinity) {
+			name = "constants.positiveInfinity";
+		} else if (ptr == constants.positiveOnes) {
+			name = "constants.positiveOnes";
+		} else if (ptr == constants.negativeOnes) {
+			name = "constants.negativeOnes";
+		} else if (ptr == constants.qNAN) {
+			name = "constants.qNAN";
+		} else if (ptr == constants.maxIntBelowAsFloat) {
+			name = "constants.maxIntBelowAsFloat";
+		} else if ((const float *)ptr >= constants.mulTableVi2f && (const float *)ptr < constants.mulTableVi2f + 32) {
+			name = StringFromFormat("constants.mulTableVi2f[%d]", (int)((const float *)ptr - constants.mulTableVi2f));
+		} else if ((const float *)ptr >= constants.mulTableVf2i && (const float *)ptr < constants.mulTableVf2i + 32) {
+			name = StringFromFormat("constants.mulTableVf2i[%d]", (int)((const float *)ptr - constants.mulTableVf2i));
+		} else if ((const Float4Constant *)ptr >= constants.vec4InitValues && (const Float4Constant *)ptr < constants.vec4InitValues + 8) {
+			name = StringFromFormat("constants.vec4InitValues[%d]", (int)((const Float4Constant *)ptr - constants.vec4InitValues));
+		} else {
+			name = "fixedCode";
+		}
 	} else {
 		return IRNativeBackend::DescribeCodePtr(ptr, name);
 	}
