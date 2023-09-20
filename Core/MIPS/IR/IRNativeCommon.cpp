@@ -15,6 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <climits>
 #include "Common/Profiler/Profiler.h"
 #include "Common/StringUtils.h"
 #include "Common/TimeUtil.h"
@@ -443,13 +444,27 @@ bool IRNativeJit::DescribeCodePtr(const u8 *ptr, std::string &name) {
 		return false;
 
 	int block_num = -1;
+	int block_offset = INT_MAX;
 	for (int i = 0; i < blocks_.GetNumBlocks(); ++i) {
 		const auto &b = blocks_.GetBlock(i);
-		// We allocate linearly.
-		if (b->GetTargetOffset() <= offset)
+		int b_start = b->GetTargetOffset();
+		if (b_start > offset)
+			continue;
+
+		int b_end = backend_->GetNativeBlock(i)->checkedOffset;
+		int b_offset = offset - b_start;
+		if (b_end > b_start && b_end >= offset) {
+			// For sure within the block.
 			block_num = i;
-		if (b->GetTargetOffset() > offset)
+			block_offset = b_offset;
 			break;
+		}
+
+		if (b_offset < block_offset) {
+			// Possibly within the block, unless in some other block...
+			block_num = i;
+			block_offset = b_offset;
+		}
 	}
 
 	// Used by profiling tools that don't like spaces.
@@ -466,9 +481,9 @@ bool IRNativeJit::DescribeCodePtr(const u8 *ptr, std::string &name) {
 		// It helps to know which func this block is inside.
 		const std::string label = g_symbolMap ? g_symbolMap->GetDescription(start) : "";
 		if (!label.empty())
-			name = StringFromFormat("block%d_%08x_%s", block_num, start, label.c_str());
+			name = StringFromFormat("block%d_%08x_%s_0x%x", block_num, start, label.c_str(), block_offset);
 		else
-			name = StringFromFormat("block%d_%08x", block_num, start);
+			name = StringFromFormat("block%d_%08x_0x%x", block_num, start, block_offset);
 		return true;
 	}
 	return false;
