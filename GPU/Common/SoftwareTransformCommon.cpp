@@ -547,7 +547,7 @@ void SoftwareTransform::DetectOffsetTexture(int maxIndex) {
 }
 
 // NOTE: The viewport must be up to date!
-void SoftwareTransform::BuildDrawingParams(int prim, int vertexCount, u32 vertType, u16 *&inds, int &maxIndex, SoftwareTransformResult *result) {
+void SoftwareTransform::BuildDrawingParams(int prim, int vertexCount, u32 vertType, u16 *inds, int &indsOffset, int indexBufferSize, int &maxIndex, SoftwareTransformResult *result) {
 	TransformedVertex *transformed = params_.transformed;
 	TransformedVertex *transformedExpanded = params_.transformedExpanded;
 	bool throughmode = (vertType & GE_VTYPE_THROUGH_MASK) != 0;
@@ -560,7 +560,11 @@ void SoftwareTransform::BuildDrawingParams(int prim, int vertexCount, u32 vertTy
 	bool useBufferedRendering = fbman->UseBufferedRendering();
 
 	if (prim == GE_PRIM_RECTANGLES) {
-		ExpandRectangles(vertexCount, maxIndex, inds, transformed, transformedExpanded, numTrans, throughmode);
+		if (!ExpandRectangles(vertexCount, maxIndex, inds, indsOffset, indexBufferSize, transformed, transformedExpanded, numTrans, throughmode)) {
+			result->drawIndexed = false;
+			result->drawNumTrans = 0;
+			return;
+		}
 		result->drawBuffer = transformedExpanded;
 		result->drawIndexed = true;
 
@@ -578,11 +582,19 @@ void SoftwareTransform::BuildDrawingParams(int prim, int vertexCount, u32 vertTy
 			}
 		}
 	} else if (prim == GE_PRIM_POINTS) {
-		ExpandPoints(vertexCount, maxIndex, inds, transformed, transformedExpanded, numTrans, throughmode);
+		if (!ExpandPoints(vertexCount, maxIndex, inds, indsOffset, indexBufferSize, transformed, transformedExpanded, numTrans, throughmode)) {
+			result->drawIndexed = false;
+			result->drawNumTrans = 0;
+			return;
+		}
 		result->drawBuffer = transformedExpanded;
 		result->drawIndexed = true;
 	} else if (prim == GE_PRIM_LINES) {
-		ExpandLines(vertexCount, maxIndex, inds, transformed, transformedExpanded, numTrans, throughmode);
+		if (!ExpandLines(vertexCount, maxIndex, inds, indsOffset, indexBufferSize, transformed, transformedExpanded, numTrans, throughmode)) {
+			result->drawIndexed = false;
+			result->drawNumTrans = 0;
+			return;
+		}
 		result->drawBuffer = transformedExpanded;
 		result->drawIndexed = true;
 	} else {
@@ -674,15 +686,21 @@ void SoftwareTransform::CalcCullParams(float &minZValue, float &maxZValue) {
 		std::swap(minZValue, maxZValue);
 }
 
-void SoftwareTransform::ExpandRectangles(int vertexCount, int &maxIndex, u16 *&inds, const TransformedVertex *transformed, TransformedVertex *transformedExpanded, int &numTrans, bool throughmode) {
+bool SoftwareTransform::ExpandRectangles(int vertexCount, int &maxIndex, u16 *inds, int &indsOffset, int indexBufferSize, const TransformedVertex *transformed, TransformedVertex *transformedExpanded, int &numTrans, bool throughmode) {
+	// Before we start, do a sanity check - does the output fit?
+	if ((vertexCount / 2) * 6 > indexBufferSize - indsOffset) {
+		// Won't fit, kill the draw.
+		return false;
+	}
+
 	// Rectangles always need 2 vertices, disregard the last one if there's an odd number.
 	vertexCount = vertexCount & ~1;
 	numTrans = 0;
 	TransformedVertex *trans = &transformedExpanded[0];
 
-	const u16 *indsIn = (const u16 *)inds;
-	u16 *newInds = inds + vertexCount;
-	u16 *indsOut = newInds;
+	const u16 *indsIn = (const u16 *)(inds + indsOffset);
+	int newIndsOffset = indsOffset + vertexCount;
+	u16 *indsOut = inds + newIndsOffset;
 
 	maxIndex = 4 * (vertexCount / 2);
 	for (int i = 0; i < vertexCount; i += 2) {
@@ -727,23 +745,33 @@ void SoftwareTransform::ExpandRectangles(int vertexCount, int &maxIndex, u16 *&i
 		indsOut[3] = i * 2 + 3;
 		indsOut[4] = i * 2 + 0;
 		indsOut[5] = i * 2 + 2;
+
 		trans += 4;
 		indsOut += 6;
 
 		numTrans += 6;
 	}
-	inds = newInds;
+
+	indsOffset = newIndsOffset;
+	return true;
 }
 
-void SoftwareTransform::ExpandLines(int vertexCount, int &maxIndex, u16 *&inds, const TransformedVertex *transformed, TransformedVertex *transformedExpanded, int &numTrans, bool throughmode) {
+bool SoftwareTransform::ExpandLines(int vertexCount, int &maxIndex, u16 *inds, int &indsOffset, int indexBufferSize, const TransformedVertex *transformed, TransformedVertex *transformedExpanded, int &numTrans, bool throughmode) {
+	// Before we start, do a sanity check - does the output fit?
+	if ((vertexCount / 2) * 6 > indexBufferSize - indsOffset) {
+		// Won't fit, kill the draw.
+		return false;
+	}
+
 	// Lines always need 2 vertices, disregard the last one if there's an odd number.
 	vertexCount = vertexCount & ~1;
 	numTrans = 0;
 	TransformedVertex *trans = &transformedExpanded[0];
 
-	const u16 *indsIn = (const u16 *)inds;
-	u16 *newInds = inds + vertexCount;
-	u16 *indsOut = newInds;
+
+	const u16 *indsIn = (const u16 *)(inds + indsOffset);
+	int newIndsOffset = indsOffset + vertexCount;
+	u16 *indsOut = inds + newIndsOffset;
 
 	float dx = 1.0f * gstate_c.vpWidthScale * (1.0f / fabsf(gstate.getViewportXScale()));
 	float dy = 1.0f * gstate_c.vpHeightScale * (1.0f / fabsf(gstate.getViewportYScale()));
@@ -856,16 +884,23 @@ void SoftwareTransform::ExpandLines(int vertexCount, int &maxIndex, u16 *&inds, 
 		}
 	}
 
-	inds = newInds;
+	indsOffset = newIndsOffset;
+	return true;
 }
 
-void SoftwareTransform::ExpandPoints(int vertexCount, int &maxIndex, u16 *&inds, const TransformedVertex *transformed, TransformedVertex *transformedExpanded, int &numTrans, bool throughmode) {
+bool SoftwareTransform::ExpandPoints(int vertexCount, int &maxIndex, u16 *inds, int &indsOffset, int indexBufferSize, const TransformedVertex *transformed, TransformedVertex *transformedExpanded, int &numTrans, bool throughmode) {
+	// Before we start, do a sanity check - does the output fit?
+	if (vertexCount * 6 > indexBufferSize - indsOffset) {
+		// Won't fit, kill the draw.
+		return false;
+	}
+
 	numTrans = 0;
 	TransformedVertex *trans = &transformedExpanded[0];
 
-	const u16 *indsIn = (const u16 *)inds;
-	u16 *newInds = inds + vertexCount;
-	u16 *indsOut = newInds;
+	const u16 *indsIn = (const u16 *)(inds + indsOffset);
+	int newIndsOffset = indsOffset + vertexCount;
+	u16 *indsOut = inds + newIndsOffset;
 
 	float dx = 1.0f * gstate_c.vpWidthScale * (1.0f / gstate.getViewportXScale());
 	float dy = 1.0f * gstate_c.vpHeightScale * (1.0f / gstate.getViewportYScale());
@@ -924,5 +959,7 @@ void SoftwareTransform::ExpandPoints(int vertexCount, int &maxIndex, u16 *&inds,
 
 		numTrans += 6;
 	}
-	inds = newInds;
+
+	indsOffset = newIndsOffset;
+	return true;
 }
