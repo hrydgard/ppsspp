@@ -474,11 +474,6 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 
 	delete entry->vkTex;
 
-	char texName[64]{};
-	snprintf(texName, sizeof(texName), "tex_%08x_%s", entry->addr, GeTextureFormatToString((GETextureFormat)entry->format, gstate.getClutPaletteFormat()));
-	entry->vkTex = new VulkanTexture(vulkan, texName);
-	VulkanTexture *image = entry->vkTex;
-
 	VkImageLayout imageLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
 	VkImageUsageFlags usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
 
@@ -507,6 +502,10 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 	default:                 mapping = &VULKAN_8888_SWIZZLE; break;  // no swizzle
 	}
 
+	char texName[64]{};
+	snprintf(texName, sizeof(texName), "tex_%08x_%s", entry->addr, GeTextureFormatToString((GETextureFormat)entry->format, gstate.getClutPaletteFormat()));
+	entry->vkTex = new VulkanTexture(vulkan, texName);
+	VulkanTexture *image = entry->vkTex;
 	bool allocSuccess = image->CreateDirect(cmdInit, plan.createW, plan.createH, plan.depth, plan.levelsToCreate, actualFmt, imageLayout, usage, mapping);
 	if (!allocSuccess && !lowMemoryMode_) {
 		WARN_LOG_REPORT(G3D, "Texture cache ran out of GPU memory; switching to low memory mode");
