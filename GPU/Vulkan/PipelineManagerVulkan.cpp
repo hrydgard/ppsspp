@@ -29,6 +29,15 @@ PipelineManagerVulkan::PipelineManagerVulkan(VulkanContext *vulkan) : pipelines_
 }
 
 PipelineManagerVulkan::~PipelineManagerVulkan() {
+	// Block on all pipelines to make sure any background compiles are done.
+	// This is very important to do before we start trying to tear down the shaders - otherwise, we might
+	// be deleting shaders before queued pipeline creations that use them are performed.
+	pipelines_.Iterate([&](const VulkanPipelineKey &key, VulkanPipeline *value) {
+		if (value->pipeline) {
+			value->pipeline->BlockUntilCompiled();
+		}
+	});
+
 	Clear();
 	if (pipelineCache_ != VK_NULL_HANDLE)
 		vulkan_->Delete().QueueDeletePipelineCache(pipelineCache_);
