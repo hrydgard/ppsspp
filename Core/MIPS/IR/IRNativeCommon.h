@@ -131,6 +131,8 @@ protected:
 	// Callback to log AND perform an IR interpreter inst.  Returns 0 or a PC to jump to.
 	static uint32_t DoIRInst(uint64_t inst);
 
+	static int ReportBadAddress(uint32_t addr, uint32_t alignment, uint32_t isWrite);
+
 	void AddLinkableExit(int block_num, uint32_t pc, int exitStartOffset, int exitLen);
 	void EraseAllLinks(int block_num);
 

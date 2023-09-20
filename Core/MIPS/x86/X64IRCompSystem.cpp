@@ -323,23 +323,6 @@ void X64JitBackend::CompIR_Transfer(IRInst inst) {
 	}
 }
 
-int ReportBadAddress(uint32_t addr, uint32_t alignment, uint32_t isWrite) {
-	const auto toss = [&](MemoryExceptionType t) {
-		Core_MemoryException(addr, alignment, currentMIPS->pc, t);
-		return coreState != CORE_RUNNING ? 1 : 0;
-	};
-
-	if (!Memory::IsValidRange(addr, alignment)) {
-		MemoryExceptionType t = isWrite == 1 ? MemoryExceptionType::WRITE_WORD : MemoryExceptionType::READ_WORD;
-		if (alignment > 4)
-			t = isWrite ? MemoryExceptionType::WRITE_BLOCK : MemoryExceptionType::READ_BLOCK;
-		return toss(t);
-	} else if (alignment > 1 && (addr & (alignment - 1)) != 0) {
-		return toss(MemoryExceptionType::ALIGNMENT);
-	}
-	return 0;
-}
-
 void X64JitBackend::CompIR_ValidateAddress(IRInst inst) {
 	CONDITIONAL_DISABLE;
 
