@@ -367,10 +367,17 @@ void X64JitBackend::CompIR_ValidateAddress(IRInst inst) {
 		break;
 	}
 
-	// This is unfortunate...
-	FlushAll();
-	regs_.Map(inst);
-	LEA(PTRBITS, SCRATCH1, MDisp(regs_.RX(inst.src1), inst.constant));
+	if (regs_.IsGPRMappedAsPointer(inst.src1)) {
+		LEA(PTRBITS, SCRATCH1, MDisp(regs_.RXPtr(inst.src1), inst.constant));
+#if defined(MASKED_PSP_MEMORY)
+		SUB(PTRBITS, R(SCRATCH1), ImmPtr(Memory::base));
+#else
+		SUB(PTRBITS, R(SCRATCH1), R(MEMBASEREG));
+#endif
+	} else {
+		regs_.Map(inst);
+		LEA(PTRBITS, SCRATCH1, MDisp(regs_.RX(inst.src1), inst.constant));
+	}
 	AND(32, R(SCRATCH1), Imm32(0x3FFFFFFF));
 
 	std::vector<FixupBranch> validJumps;
@@ -384,25 +391,32 @@ void X64JitBackend::CompIR_ValidateAddress(IRInst inst) {
 	CMP(32, R(SCRATCH1), Imm32(PSP_GetUserMemoryEnd() - alignment));
 	FixupBranch tooHighRAM = J_CC(CC_A);
 	CMP(32, R(SCRATCH1), Imm32(PSP_GetKernelMemoryBase()));
-	validJumps.push_back(J_CC(CC_AE));
+	validJumps.push_back(J_CC(CC_AE, true));
 
 	CMP(32, R(SCRATCH1), Imm32(PSP_GetVidMemEnd() - alignment));
 	FixupBranch tooHighVid = J_CC(CC_A);
 	CMP(32, R(SCRATCH1), Imm32(PSP_GetVidMemBase()));
-	validJumps.push_back(J_CC(CC_AE));
+	validJumps.push_back(J_CC(CC_AE, true));
 
 	CMP(32, R(SCRATCH1), Imm32(PSP_GetScratchpadMemoryEnd() - alignment));
 	FixupBranch tooHighScratch = J_CC(CC_A);
 	CMP(32, R(SCRATCH1), Imm32(PSP_GetScratchpadMemoryBase()));
-	validJumps.push_back(J_CC(CC_AE));
+	validJumps.push_back(J_CC(CC_AE, true));
 
+	if (alignment != 1)
+		SetJumpTarget(unaligned);
 	SetJumpTarget(tooHighRAM);
 	SetJumpTarget(tooHighVid);
 	SetJumpTarget(tooHighScratch);
 
+	// If we got here, something unusual and bad happened, so we'll always go back to the dispatcher.
+	// Because of that, we can avoid flushing outside this case.
+	auto regsCopy = regs_;
+	regsCopy.FlushAll();
+
+	// Ignores the return value, always returns to the dispatcher.
+	// Otherwise would need a thunk to restore regs.
 	ABI_CallFunctionACC((const void *)&ReportBadAddress, R(SCRATCH1), alignment, isWrite);
-	TEST(32, R(EAX), R(EAX));
-	validJumps.push_back(J_CC(CC_Z));
 	JMP(dispatcherCheckCoreState_, true);
 
 	for (FixupBranch &b : validJumps)
