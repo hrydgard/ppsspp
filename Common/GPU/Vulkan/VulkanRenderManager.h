@@ -131,6 +131,10 @@ struct VKRGraphicsPipeline {
 	// This deletes the whole VKRGraphicsPipeline, you must remove your last pointer to it when doing this.
 	void QueueForDeletion(VulkanContext *vulkan);
 
+	// This blocks until any background compiles are finished.
+	// Used during game shutdown before we clear out shaders that these compiles depend on.
+	void BlockUntilCompiled();
+
 	u32 GetVariantsBitmask() const;
 
 	void LogCreationFailure() const;

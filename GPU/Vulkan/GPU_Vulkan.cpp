@@ -186,12 +186,16 @@ GPU_Vulkan::~GPU_Vulkan() {
 	}
 
 	SaveCache(shaderCachePath_);
+
+	// Super important to delete pipeline manager FIRST, before clearing shaders, so we wait for all pending pipelines to finish compiling.
+	delete pipelineManager_;
+	pipelineManager_ = nullptr;
+
 	// Note: We save the cache in DeviceLost
 	DestroyDeviceObjects();
 	drawEngine_.DeviceLost();
 	shaderManager_->ClearShaders();
 
-	delete pipelineManager_;
 	// other managers are deleted in ~GPUCommonHW.
 
 	if (draw_) {

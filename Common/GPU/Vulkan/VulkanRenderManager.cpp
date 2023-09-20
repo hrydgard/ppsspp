@@ -199,6 +199,14 @@ VKRGraphicsPipeline::~VKRGraphicsPipeline() {
 		desc->Release();
 }
 
+void VKRGraphicsPipeline::BlockUntilCompiled() {
+	for (size_t i = 0; i < (size_t)RenderPassType::TYPE_COUNT; i++) {
+		if (pipeline[i]) {
+			pipeline[i]->BlockUntilReady();
+		}
+	}
+}
+
 void VKRGraphicsPipeline::QueueForDeletion(VulkanContext *vulkan) {
 	// Can't destroy variants here, the pipeline still lives for a while.
 	vulkan->Delete().QueueCallback([](VulkanContext *vulkan, void *p) {
