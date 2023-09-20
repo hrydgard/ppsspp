@@ -273,25 +273,22 @@ void X64JitBackend::CompIR_FCompare(IRInst inst) {
 			break;
 
 		case IRFpCompareMode::EqualOrdered:
+		{
+			// Since UCOMISS doesn't give us ordered == directly, CMPSS is better.
+			regs_.SpillLockFPR(inst.src1, inst.src2);
+			X64Reg tempReg = regs_.GetAndLockTempFPR();
 			regs_.MapWithExtra(inst, { { 'G', IRREG_FPCOND, 1, MIPSMap::NOINIT } });
-			// Clear the upper bits of SCRATCH1 so we can AND later.
-			// We don't have a single flag we can check, unfortunately.
-			XOR(32, R(SCRATCH1), R(SCRATCH1));
-			UCOMISS(regs_.FX(inst.src1), regs_.F(inst.src2));
-			// E/ZF = EQUAL or UNORDERED (not exactly what we want.)
-			SETcc(CC_E, R(SCRATCH1));
-			if (regs_.HasLowSubregister(regs_.RX(IRREG_FPCOND))) {
-				// NP/!PF = ORDERED.
-				SETcc(CC_NP, regs_.R(IRREG_FPCOND));
-				AND(32, regs_.R(IRREG_FPCOND), R(SCRATCH1));
+
+			if (cpu_info.bAVX) {
+				VCMPSS(tempReg, regs_.FX(inst.src1), regs_.F(inst.src2), CMP_EQ);
 			} else {
-				MOVZX(32, 8, regs_.RX(IRREG_FPCOND), R(SCRATCH1));
-				// Neither of those affected flags, luckily.
-				// NP/!PF = ORDERED.
-				SETcc(CC_NP, R(SCRATCH1));
-				AND(32, regs_.R(IRREG_FPCOND), R(SCRATCH1));
+				MOVAPS(tempReg, regs_.F(inst.src1));
+				CMPSS(tempReg, regs_.F(inst.src2), CMP_EQ);
 			}
+			MOVD_xmm(regs_.R(IRREG_FPCOND), tempReg);
+			AND(32, regs_.R(IRREG_FPCOND), Imm32(1));
 			break;
+		}
 
 		case IRFpCompareMode::EqualUnordered:
 			regs_.MapWithExtra(inst, { { 'G', IRREG_FPCOND, 1, MIPSMap::NOINIT } });
