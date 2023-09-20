@@ -63,25 +63,28 @@ public:
 
 		if (useIconCache && g_iconCache.MarkPending(path_)) {
 			const char *acceptMime = "image/png, image/jpeg, image/*; q=0.9, */*; q=0.8";
-			requestManager_->StartDownloadWithCallback(path_, Path(), http::ProgressBarMode::DELAYED, [&](http::Request &download) {
+			requestManager_->StartDownloadWithCallback(path_, Path(), http::ProgressBarMode::DELAYED, [](http::Request &download) {
+				// Can't touch 'this' in this function! Don't use captures!
+				std::string path = download.url();
 				if (download.ResultCode() == 200) {
 					std::string data;
 					download.buffer().TakeAll(&data);
 					if (!data.empty()) {
-						g_iconCache.InsertIcon(path_, IconFormat::PNG, std::move(data));
+						g_iconCache.InsertIcon(path, IconFormat::PNG, std::move(data));
 					} else {
-						g_iconCache.Cancel(path_);
+						g_iconCache.CancelPending(path);
 					}
 				} else {
-					g_iconCache.Cancel(path_);
+					g_iconCache.CancelPending(path);
 				}
 			}, acceptMime);
 		}
 	}
 
 	~HttpImageFileView() {
-		if (download_)
+		if (download_) {
 			download_->Cancel();
+		}
 	}
 
 	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override;

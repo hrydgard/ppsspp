@@ -396,6 +396,8 @@ void SasInstance::GetDebugText(char *text, size_t bufsize) {
 					indicator = " (BAD!)";
 				}
 				break;
+			default:
+				break;
 			}
 			p += snprintf(p, sizeof(voiceBuf) - (p - voiceBuf), " %d: Pitch %04x L/R,FX: %d,%d|%d,%d VAG: %08x:%d:%08x%s Height:%d%%\n", i,
 				voices[i].pitch, voices[i].volumeLeft, voices[i].volumeRight, voices[i].effectLeft, voices[i].effectRight,
