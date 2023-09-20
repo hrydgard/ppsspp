@@ -228,7 +228,7 @@ bool IconCache::MarkPending(const std::string &key) {
 	return true;
 }
 
-void IconCache::Cancel(const std::string &key) {
+void IconCache::CancelPending(const std::string &key) {
 	std::unique_lock<std::mutex> lock(lock_);
 	pending_.erase(key);
 }
@@ -266,6 +266,7 @@ Draw::Texture *IconCache::BindIconTexture(UIContext *context, const std::string 
 		return nullptr;
 	}
 
+	// TODO: Cut down on how long we're holding this lock here.
 	std::unique_lock<std::mutex> lock(lock_);
 	auto iter = cache_.find(key);
 	if (iter == cache_.end()) {
