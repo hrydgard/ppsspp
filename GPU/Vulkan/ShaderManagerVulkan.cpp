@@ -597,15 +597,12 @@ bool ShaderManagerVulkan::LoadCache(FILE *f) {
 			continue;
 		}
 		_assert_msg_(strlen(codeBuffer_) < CODE_BUFFER_SIZE, "VS length error: %d", (int)strlen(codeBuffer_));
-		VulkanVertexShader *vs = new VulkanVertexShader(vulkan, id, flags, codeBuffer_, useHWTransform);
-		// Remove first, just to be safe (we are loading on a background thread.)
+		// Don't add the new shader if already compiled (can happen since this is a background thread).
 		std::lock_guard<std::mutex> guard(cacheLock_);
-		VulkanVertexShader *old;
-		if (vsCache_.Get(id, &old)) {
-			vsCache_.Remove(id);
-			delete old;
+		if (!vsCache_.ContainsKey(id)) {
+			VulkanVertexShader *vs = new VulkanVertexShader(vulkan, id, flags, codeBuffer_, useHWTransform);
+			vsCache_.Insert(id, vs);
 		}
-		vsCache_.Insert(id, vs);
 	}
 	uint32_t vendorID = vulkan->GetPhysicalDeviceProperties().properties.vendorID;
 
@@ -625,14 +622,11 @@ bool ShaderManagerVulkan::LoadCache(FILE *f) {
 			continue;
 		}
 		_assert_msg_(strlen(codeBuffer_) < CODE_BUFFER_SIZE, "FS length error: %d", (int)strlen(codeBuffer_));
-		VulkanFragmentShader *fs = new VulkanFragmentShader(vulkan, id, flags, codeBuffer_);
 		std::lock_guard<std::mutex> guard(cacheLock_);
-		VulkanFragmentShader *old;
-		if (fsCache_.Get(id, &old)) {
-			fsCache_.Remove(id);
-			delete old;
+		if (!fsCache_.ContainsKey(id)) {
+			VulkanFragmentShader *fs = new VulkanFragmentShader(vulkan, id, flags, codeBuffer_);
+			fsCache_.Insert(id, fs);
 		}
-		fsCache_.Insert(id, fs);
 	}
 
 	for (int i = 0; i < header.numGeometryShaders; i++) {
@@ -649,14 +643,11 @@ bool ShaderManagerVulkan::LoadCache(FILE *f) {
 			continue;
 		}
 		_assert_msg_(strlen(codeBuffer_) < CODE_BUFFER_SIZE, "GS length error: %d", (int)strlen(codeBuffer_));
-		VulkanGeometryShader *gs = new VulkanGeometryShader(vulkan, id, codeBuffer_);
 		std::lock_guard<std::mutex> guard(cacheLock_);
-		VulkanGeometryShader *old;
-		if (gsCache_.Get(id, &old)) {
-			gsCache_.Remove(id);
-			delete old;
+		if (!gsCache_.ContainsKey(id)) {
+			VulkanGeometryShader *gs = new VulkanGeometryShader(vulkan, id, codeBuffer_);
+			gsCache_.Insert(id, gs);
 		}
-		gsCache_.Insert(id, gs);
 	}
 
 	NOTICE_LOG(G3D, "ShaderCache: Loaded %d vertex, %d fragment shaders and %d geometry shaders (failed %d)", header.numVertexShaders, header.numFragmentShaders, header.numGeometryShaders, failCount);
