@@ -315,6 +315,7 @@ void Jit::Compile(u32 em_address) {
 	int block_num = blocks.AllocateBlock(em_address);
 	JitBlock *b = blocks.GetBlock(block_num);
 	DoJit(em_address, b);
+	_assert_msg_(b->originalAddress == em_address, "original %08x != em_address %08x (block %d)", b->originalAddress, em_address, b->blockNum);
 	blocks.FinalizeBlock(block_num, jo.enableBlocklink);
 
 	EndWrite();
@@ -360,7 +361,8 @@ MIPSOpcode Jit::GetOffsetInstruction(int offset) {
 
 const u8 *Jit::DoJit(u32 em_address, JitBlock *b) {
 	js.cancel = false;
-	js.blockStart = js.compilerPC = mips_->pc;
+	js.blockStart = em_address;
+	js.compilerPC = em_address;
 	js.lastContinuedPC = 0;
 	js.initialBlockSize = 0;
 	js.nextExit = 0;
