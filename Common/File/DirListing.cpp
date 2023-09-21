@@ -185,7 +185,6 @@ bool GetFilesInDir(const Path &directory, std::vector<FileInfo> *files, const ch
 		while (*filter) {
 			if (*filter == ':') {
 				filters.insert(std::move(tmp));
-				tmp.clear();
 			} else {
 				tmp.push_back(*filter);
 			}
