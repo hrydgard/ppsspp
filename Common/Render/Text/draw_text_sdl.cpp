@@ -378,12 +378,14 @@ void TextDrawerSDL::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStrin
 		font = fallbackFonts_[0];
 	}
 
+#ifndef USE_SDL2_TTF_PKGCONFIG
 	if (align & ALIGN_HCENTER)
 		TTF_SetFontWrappedAlign(font, TTF_WRAPPED_ALIGN_CENTER);
 	else if (align & ALIGN_RIGHT)
 		TTF_SetFontWrappedAlign(font, TTF_WRAPPED_ALIGN_RIGHT);
 	else
 		TTF_SetFontWrappedAlign(font, TTF_WRAPPED_ALIGN_LEFT);
+#endif
 
 	SDL_Color fgColor = { 0xFF, 0xFF, 0xFF, 0xFF };
 	SDL_Surface *text = TTF_RenderUTF8_Blended_Wrapped(font, processedStr.c_str(), fgColor, 0);
