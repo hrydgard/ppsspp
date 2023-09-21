@@ -238,14 +238,22 @@ public:
 	VKRGraphicsPipeline *CreateGraphicsPipeline(VKRGraphicsPipelineDesc *desc, PipelineFlags pipelineFlags, uint32_t variantBitmask, VkSampleCountFlagBits sampleCount, bool cacheLoad, const char *tag);
 	VKRComputePipeline *CreateComputePipeline(VKRComputePipelineDesc *desc);
 
+	void ReportBadStateForDraw();
+
 	void NudgeCompilerThread() {
 		compileMutex_.lock();
 		compileCond_.notify_one();
 		compileMutex_.unlock();
 	}
 
-	void BindPipeline(VKRGraphicsPipeline *pipeline, PipelineFlags flags, VkPipelineLayout pipelineLayout) {
-		_assert_(curRenderStep_ && curRenderStep_->stepType == VKRStepType::RENDER && pipeline != nullptr);
+	// This is the first call in a draw operation. Instead of asserting like we used to, you can now check the
+	// return value and skip the draw if we're in a bad state. In that case, call ReportBadState.
+	// The old assert wasn't very helpful in figuring out what caused it anyway...
+	bool BindPipeline(VKRGraphicsPipeline *pipeline, PipelineFlags flags, VkPipelineLayout pipelineLayout) {
+		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == VKRStepType::RENDER && pipeline != nullptr);
+		if (!curRenderStep_ || curRenderStep_->stepType != VKRStepType::RENDER) {
+			return false;
+		}
 		VkRenderData &data = curRenderStep_->commands.push_uninitialized();
 		data.cmd = VKRRenderCommand::BIND_GRAPHICS_PIPELINE;
 		pipelinesToCheck_.push_back(pipeline);
@@ -256,6 +264,7 @@ public:
 		//     DebugBreak();
 		// }
 		curPipelineFlags_ |= flags;
+		return true;
 	}
 
 	void BindPipeline(VKRComputePipeline *pipeline, PipelineFlags flags, VkPipelineLayout pipelineLayout) {

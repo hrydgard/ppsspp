@@ -791,20 +791,20 @@ void DrawEngineVulkan::DoFlush() {
 			VulkanGeometryShader *gshader = nullptr;
 
 			shaderManager_->GetShaders(prim, dec_, &vshader, &fshader, &gshader, pipelineState_, true, useHWTessellation_, decOptions_.expandAllWeightsToFloat, decOptions_.applySkinInDecode);
-			if (!vshader) {
-				// We're screwed, can't do anything.
-				return;
-			}
 			_dbg_assert_msg_(vshader->UseHWTransform(), "Bad vshader");
-
 			VulkanPipeline *pipeline = pipelineManager_->GetOrCreatePipeline(renderManager, pipelineLayout_, pipelineKey_, &dec_->decFmt, vshader, fshader, gshader, true, 0, framebufferManager_->GetMSAALevel(), false);
 			if (!pipeline || !pipeline->pipeline) {
 				// Already logged, let's bail out.
+				ResetAfterDraw();
 				return;
 			}
 			BindShaderBlendTex();  // This might cause copies so important to do before BindPipeline.
 
-			renderManager->BindPipeline(pipeline->pipeline, pipeline->pipelineFlags, pipelineLayout_);
+			if (!renderManager->BindPipeline(pipeline->pipeline, pipeline->pipelineFlags, pipelineLayout_)) {
+				renderManager->ReportBadStateForDraw();
+				ResetAfterDraw();
+				return;
+			}
 			if (pipeline != lastPipeline_) {
 				if (lastPipeline_ && !(lastPipeline_->UsesBlendConstant() && pipeline->UsesBlendConstant())) {
 					gstate_c.Dirty(DIRTY_BLEND_STATE);
@@ -932,15 +932,16 @@ void DrawEngineVulkan::DoFlush() {
 				VulkanPipeline *pipeline = pipelineManager_->GetOrCreatePipeline(renderManager, pipelineLayout_, pipelineKey_, &dec_->decFmt, vshader, fshader, gshader, false, 0, framebufferManager_->GetMSAALevel(), false);
 				if (!pipeline || !pipeline->pipeline) {
 					// Already logged, let's bail out.
-					decodedVerts_ = 0;
-					numDrawCalls_ = 0;
-					decodeCounter_ = 0;
-					decOptions_.applySkinInDecode = g_Config.bSoftwareSkinning;
+					ResetAfterDraw();
 					return;
 				}
 				BindShaderBlendTex();  // This might cause copies so super important to do before BindPipeline.
 
-				renderManager->BindPipeline(pipeline->pipeline, pipeline->pipelineFlags, pipelineLayout_);
+				if (!renderManager->BindPipeline(pipeline->pipeline, pipeline->pipelineFlags, pipelineLayout_)) {
+					renderManager->ReportBadStateForDraw();
+					ResetAfterDraw();
+					return;
+				}
 				if (pipeline != lastPipeline_) {
 					if (lastPipeline_ && !lastPipeline_->UsesBlendConstant() && pipeline->UsesBlendConstant()) {
 						gstate_c.Dirty(DIRTY_BLEND_STATE);
@@ -1025,6 +1026,15 @@ void DrawEngineVulkan::DoFlush() {
 	gstate_c.vertBounds.maxV = 0;
 
 	GPUDebug::NotifyDraw();
+}
+
+void DrawEngineVulkan::ResetAfterDraw() {
+	indexGen.Reset();
+	decodedVerts_ = 0;
+	numDrawCalls_ = 0;
+	decodeCounter_ = 0;
+	decOptions_.applySkinInDecode = g_Config.bSoftwareSkinning;
+	gstate_c.vertexFullAlpha = true;
 }
 
 void DrawEngineVulkan::UpdateUBOs(FrameData *frame) {
