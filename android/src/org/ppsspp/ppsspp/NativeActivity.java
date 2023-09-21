@@ -724,6 +724,7 @@ public abstract class NativeActivity extends Activity {
 				mRenderLoopThread = null;
 			} catch (InterruptedException e) {
 				e.printStackTrace();
+				mRenderLoopThread = null;
 			}
 		}
 	}
@@ -766,6 +767,7 @@ public abstract class NativeActivity extends Activity {
 		} else {
 			mSurfaceView.onDestroy();
 			mSurfaceView = null;
+			mSurface = null;
 		}
 
 		// Probably vain attempt to help the garbage collector...
