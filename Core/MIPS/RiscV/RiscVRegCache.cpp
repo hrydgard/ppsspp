@@ -303,11 +303,11 @@ void RiscVRegCache::AdjustNativeRegAsPtr(IRNativeReg nreg, bool state) {
 	}
 }
 
-bool RiscVRegCache::IsNativeRegCompatible(IRNativeReg nreg, MIPSLoc type, MIPSMap flags) {
+bool RiscVRegCache::IsNativeRegCompatible(IRNativeReg nreg, MIPSLoc type, MIPSMap flags, int lanes) {
 	// No special flags except VREG, skip the check for a little speed.
 	if (type != MIPSLoc::VREG)
 		return true;
-	return IRNativeRegCacheBase::IsNativeRegCompatible(nreg, type, flags);
+	return IRNativeRegCacheBase::IsNativeRegCompatible(nreg, type, flags, lanes);
 }
 
 void RiscVRegCache::LoadNativeReg(IRNativeReg nreg, IRReg first, int lanes) {

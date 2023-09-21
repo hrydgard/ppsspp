@@ -347,7 +347,7 @@ void Arm64IRRegCache::AdjustNativeRegAsPtr(IRNativeReg nreg, bool state) {
 	}
 }
 
-bool Arm64IRRegCache::IsNativeRegCompatible(IRNativeReg nreg, MIPSLoc type, MIPSMap flags) {
+bool Arm64IRRegCache::IsNativeRegCompatible(IRNativeReg nreg, MIPSLoc type, MIPSMap flags, int lanes) {
 	// No special flags, skip the check for a little speed.
 	return true;
 }
