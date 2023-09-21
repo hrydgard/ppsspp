@@ -76,6 +76,7 @@ LinkedShader::LinkedShader(GLRenderManager *render, VShaderID VSID, Shader *vs, 
 		: render_(render), useHWTransform_(useHWTransform) {
 	PROFILE_THIS_SCOPE("shaderlink");
 
+	_assert_(render);
 	_assert_(vs);
 	_assert_(fs);
 

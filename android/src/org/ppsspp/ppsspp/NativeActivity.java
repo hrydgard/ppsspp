@@ -62,10 +62,10 @@ public abstract class NativeActivity extends Activity {
 	// Allows us to skip a lot of initialization on secondary calls to onCreate.
 	private static boolean initialized = false;
 
-	// False to use C++ EGL, queried from C++ after NativeApp.init.
+	// False to use Vulkan, queried from C++ after NativeApp.init.
 	private static boolean javaGL = true;
 
-	// Graphics and audio interfaces for EGL (javaGL = false)
+	// Graphics and audio interfaces for Vulkan (javaGL = false)
 	private NativeSurfaceView mSurfaceView;
 	private Surface mSurface;
 	private Thread mRenderLoopThread = null;

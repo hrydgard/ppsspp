@@ -173,7 +173,7 @@ std::string* Section::GetLine(const char* key, std::string* valueOut, std::strin
 		if (!strcasecmp(lineKey.c_str(), key))
 			return &line;
 	}
-	return 0;
+	return nullptr;
 }
 
 const std::string* Section::GetLine(const char* key, std::string* valueOut, std::string* commentOut) const
@@ -186,7 +186,7 @@ const std::string* Section::GetLine(const char* key, std::string* valueOut, std:
 		if (!strcasecmp(lineKey.c_str(), key))
 			return &line;
 	}
-	return 0;
+	return nullptr;
 }
 
 void Section::Set(const char* key, uint32_t newValue) {
@@ -423,14 +423,14 @@ const Section* IniFile::GetSection(const char* sectionName) const {
 	for (const auto &iter : sections)
 		if (!strcasecmp(iter->name().c_str(), sectionName))
 			return iter.get();
-	return nullptr ;
+	return nullptr;
 }
 
 Section* IniFile::GetSection(const char* sectionName) {
 	for (const auto &iter : sections)
 		if (!strcasecmp(iter->name().c_str(), sectionName))
 			return iter.get();
-	return 0;
+	return nullptr;
 }
 
 Section* IniFile::GetOrCreateSection(const char* sectionName) {
