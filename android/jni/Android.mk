@@ -6,9 +6,7 @@ include $(LOCAL_PATH)/Locals.mk
 
 LOCAL_C_INCLUDES += \
   $(LOCAL_PATH)/../../ext/cpu_features/include \
-  $(LOCAL_PATH)/../../ext/rcheevos/include \
-  $(LOCAL_PATH)/../../ext/libchdr/deps/lzma-22.01/include \
-  $(LOCAL_PATH)/../../ext/libchdr/include
+  $(LOCAL_PATH)/../../ext/rcheevos/include
 
 LOCAL_CFLAGS += -DSTACK_LINE_READER_BUFFER_SIZE=1024 -DHAVE_DLFCN_H -DRC_DISABLE_LUA -D_7ZIP_ST
 
@@ -140,6 +138,8 @@ CHDR_FILES := \
 	$(SRC)/ext/libchdr/src/libchdr_huffman.c
 
 EXT_FILES := \
+  $(LZMA_FILES) \
+  $(CHDR_FILES) \
   $(SRC)/ext/cityhash/city.cpp \
   $(SRC)/ext/libpng17/png.c \
   $(SRC)/ext/libpng17/pngerror.c \
@@ -204,8 +204,6 @@ EXEC_AND_LIB_FILES := \
   $(NAETT_FILES) \
   $(EXT_FILES) \
   $(NATIVE_FILES) \
-  $(LZMA_FILES) \
-  $(CHDR_FILES) \
   $(SRC)/Common/Buffer.cpp \
   $(SRC)/Common/Crypto/md5.cpp \
   $(SRC)/Common/Crypto/sha1.cpp \
@@ -385,7 +383,7 @@ ARCH_FILES := \
   Arm64EmitterTest.cpp
 endif
 
-VULKAN_FILES := \
+GPU_VULKAN_FILES := \
   $(SRC)/GPU/Vulkan/DrawEngineVulkan.cpp \
   $(SRC)/GPU/Vulkan/FramebufferManagerVulkan.cpp \
   $(SRC)/GPU/Vulkan/GPU_Vulkan.cpp \
@@ -398,7 +396,7 @@ VULKAN_FILES := \
 
 EXEC_AND_LIB_FILES := \
   $(ARCH_FILES) \
-  $(VULKAN_FILES) \
+  $(GPU_VULKAN_FILES) \
   $(SRC)/ext/xxhash.c \
   TestRunner.cpp \
   $(SRC)/Core/MIPS/MIPS.cpp.arm \
