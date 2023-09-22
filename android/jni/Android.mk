@@ -24,7 +24,7 @@ LZMA_FILES := \
 	$(SRC)/ext/libchdr/deps/lzma-22.01/src/Sort.c
 
 CHDR_FILES := \
-	${LZMA_FILES}
+	${LZMA_FILES} \
 	$(SRC)/ext/libchdr/src/libchdr_bitstream.c \
 	$(SRC)/ext/libchdr/src/libchdr_cdrom.c \
 	$(SRC)/ext/libchdr/src/libchdr_chd.c \
