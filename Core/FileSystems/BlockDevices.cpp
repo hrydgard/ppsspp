@@ -59,10 +59,10 @@ BlockDevice *constructBlockDevice(FileLoader *fileLoader) {
 			return new NPDRMDemoBlockDevice(fileLoader);
 	} else if (!memcmp(buffer, "MComprHD", 8)) {
 		return new CHDFileBlockDevice(fileLoader);
-	} else {
-		// Should be jsut a regular ISO.
-		return new FileBlockDevice(fileLoader);
 	}
+
+	// Should be just a regular ISO. Let's open it as a plain block device and let the other systems take over.
+	return new FileBlockDevice(fileLoader);
 }
 
 u32 BlockDevice::CalculateCRC(volatile bool *cancel) {
@@ -600,15 +600,25 @@ CHDFileBlockDevice::CHDFileBlockDevice(FileLoader *fileLoader)
 
 	chd_file *parent = NULL;
 	chd_file *child = NULL;
-	err = chd_open(paths[depth].c_str(), CHD_OPEN_READ, NULL, &child);
+
+	FILE *file = File::OpenCFile(paths[depth], "rb");
+	if (!file) {
+		ERROR_LOG(LOADER, "Error opening CHD file '%s'", paths[depth].c_str());
+		NotifyReadError();
+		return;
+	}
+	err = chd_open_file(file, CHD_OPEN_READ, NULL, &child);
 	if (err != CHDERR_NONE) {
 		ERROR_LOG(LOADER, "Error loading CHD '%s': %s", paths[depth].c_str(), chd_error_string(err));
 		NotifyReadError();
 		return;
 	}
+
+	// We won't enter this loop until we enable the parent/child stuff above.
 	for (int d = depth - 1; d >= 0; d--) {
 		parent = child;
 		child = NULL;
+		// TODO: Use chd_open_file
 		err = chd_open(paths[d].c_str(), CHD_OPEN_READ, parent, &child);
 		if (err != CHDERR_NONE) {
 			ERROR_LOG(LOADER, "Error loading CHD '%s': %s", paths[d].c_str(), chd_error_string(err));
