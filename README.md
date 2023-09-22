@@ -25,6 +25,13 @@ If you want to download regularly updated builds for Android, Windows x86 and x6
 
 For game compatibility, see [community compatibility feedback](https://report.ppsspp.org/games).
 
+What's new in 1.16.3
+====================
+- Fix crash bug and performance issue in Vulkan shader cache ([#18183], [#18189])
+- Fix crash in icon loading in homebrew store ([#18185])
+- Add some memory safety check ([#18184], [#18194])
+- Fix problem when changing backend from the Windows menu ([#18182])
+
 What's new in 1.16.2
 ====================
 - Fix for HTTP support on Linux on networks with shaky or incomplete IPv6 support
