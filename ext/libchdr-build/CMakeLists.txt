@@ -9,6 +9,9 @@ include_directories(../libchdr/include)
 
 add_definitions(-D_7ZIP_ST)
 
+# Hack - CpuArch.c has a workaround that we reuse.
+add_definitions(-D__SWITCH__)
+
 set(ALL_SOURCE_FILES
 	${LZMA_DIR}/Alloc.c
 	${LZMA_DIR}/Bcj2.c
