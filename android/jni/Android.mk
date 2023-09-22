@@ -24,6 +24,7 @@ LZMA_FILES := \
 	$(SRC)/ext/libchdr/deps/lzma-22.01/src/Sort.c
 
 CHDR_FILES := \
+	${LZMA_FILES}
 	$(SRC)/ext/libchdr/src/libchdr_bitstream.c \
 	$(SRC)/ext/libchdr/src/libchdr_cdrom.c \
 	$(SRC)/ext/libchdr/src/libchdr_chd.c \
@@ -31,7 +32,7 @@ CHDR_FILES := \
 	$(SRC)/ext/libchdr/src/libchdr_huffman.c
 
 LOCAL_MODULE := libchdr
-LOCAL_SRC_FILES := $(EXEC_AND_LIB_FILES)
+LOCAL_SRC_FILES := $(CHDR_FILES)
 include $(BUILD_STATIC_LIBRARY)
 
 include $(CLEAR_VARS)
@@ -147,8 +148,6 @@ VR_FILES := \
   $(SRC)/Common/VR/VRRenderer.cpp
 
 EXT_FILES := \
-  $(LZMA_FILES) \
-  $(CHDR_FILES) \
   $(SRC)/ext/cityhash/city.cpp \
   $(SRC)/ext/libpng17/png.c \
   $(SRC)/ext/libpng17/pngerror.c \
