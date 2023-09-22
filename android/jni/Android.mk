@@ -8,7 +8,7 @@ LOCAL_C_INCLUDES += \
   $(LOCAL_PATH)/../../ext/cpu_features/include \
   $(LOCAL_PATH)/../../ext/rcheevos/include
 
-LOCAL_CFLAGS += -DSTACK_LINE_READER_BUFFER_SIZE=1024 -DHAVE_DLFCN_H -DRC_DISABLE_LUA
+LOCAL_CFLAGS += -DSTACK_LINE_READER_BUFFER_SIZE=1024 -DHAVE_DLFCN_H -DRC_DISABLE_LUA -D_7ZIP_ST
 
 # http://software.intel.com/en-us/articles/getting-started-on-optimizing-ndk-project-for-multiple-cpu-architectures
 
@@ -113,7 +113,33 @@ VR_FILES := \
   $(SRC)/Common/VR/VRMath.cpp \
   $(SRC)/Common/VR/VRRenderer.cpp
 
+LZMA_FILES := \
+	$(SRC)/ext/libchdr/deps/lzma-22.01/src/Alloc.c \
+	$(SRC)/ext/libchdr/deps/lzma-22.01/src/Bcj2.c \
+	$(SRC)/ext/libchdr/deps/lzma-22.01/src/Bcj2Enc.c \
+	$(SRC)/ext/libchdr/deps/lzma-22.01/src/Bra.c \
+	$(SRC)/ext/libchdr/deps/lzma-22.01/src/Bra86.c \
+	$(SRC)/ext/libchdr/deps/lzma-22.01/src/CpuArch.c \
+	$(SRC)/ext/libchdr/deps/lzma-22.01/src/Delta.c \
+	$(SRC)/ext/libchdr/deps/lzma-22.01/src/LzFind.c \
+	$(SRC)/ext/libchdr/deps/lzma-22.01/src/LzFindOpt.c \
+	$(SRC)/ext/libchdr/deps/lzma-22.01/src/LzmaDec.c \
+	$(SRC)/ext/libchdr/deps/lzma-22.01/src/LzmaEnc.c \
+	$(SRC)/ext/libchdr/deps/lzma-22.01/src/Lzma86Dec.c \
+	$(SRC)/ext/libchdr/deps/lzma-22.01/src/Lzma86Enc.c \
+	$(SRC)/ext/libchdr/deps/lzma-22.01/src/LzmaLib.c \
+	$(SRC)/ext/libchdr/deps/lzma-22.01/src/Sort.c
+
+CHDR_FILES := \
+	$(SRC)/ext/libchdr/src/libchdr_bitstream.c \
+	$(SRC)/ext/libchdr/src/libchdr_cdrom.c \
+	$(SRC)/ext/libchdr/src/libchdr_chd.c \
+	$(SRC)/ext/libchdr/src/libchdr_flac.c \
+	$(SRC)/ext/libchdr/src/libchdr_huffman.c
+
 EXT_FILES := \
+  $(LZMA_FILES) \
+  $(CHDR_FILES) \
   $(SRC)/ext/cityhash/city.cpp \
   $(SRC)/ext/libpng17/png.c \
   $(SRC)/ext/libpng17/pngerror.c \
@@ -357,7 +383,7 @@ ARCH_FILES := \
   Arm64EmitterTest.cpp
 endif
 
-VULKAN_FILES := \
+GPU_VULKAN_FILES := \
   $(SRC)/GPU/Vulkan/DrawEngineVulkan.cpp \
   $(SRC)/GPU/Vulkan/FramebufferManagerVulkan.cpp \
   $(SRC)/GPU/Vulkan/GPU_Vulkan.cpp \
@@ -370,7 +396,7 @@ VULKAN_FILES := \
 
 EXEC_AND_LIB_FILES := \
   $(ARCH_FILES) \
-  $(VULKAN_FILES) \
+  $(GPU_VULKAN_FILES) \
   $(SRC)/ext/xxhash.c \
   TestRunner.cpp \
   $(SRC)/Core/MIPS/MIPS.cpp.arm \

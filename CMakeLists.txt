@@ -2317,7 +2317,9 @@ else()
 	include_directories(ext/zstd/lib)
 endif()
 
-target_link_libraries(${CoreLibName} Common native kirk cityhash sfmt19937 xbrz xxhash rcheevos ${GlslangLibs}
+include_directories(ext/libchdr/include)
+
+target_link_libraries(${CoreLibName} Common native chdr-static kirk cityhash sfmt19937 xbrz xxhash rcheevos ${GlslangLibs}
 	${CoreExtraLibs} ${OPENGL_LIBRARIES} ${X11_LIBRARIES} ${CMAKE_DL_LIBS})
 
 if(NOT HTTPS_NOT_AVAILABLE)
