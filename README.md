@@ -25,6 +25,13 @@ If you want to download regularly updated builds for Android, Windows x86 and x6
 
 For game compatibility, see [community compatibility feedback](https://report.ppsspp.org/games).
 
+What's new in 1.16.3
+====================
+- Fix crash bug and performance issue in Vulkan shader cache ([#18183], [#18189])
+- Fix crash in icon loading in homebrew store ([#18185])
+- Add some memory safety check ([#18184], [#18194])
+- Fix problem when changing backend from the Windows menu ([#18182])
+
 What's new in 1.16.2
 ====================
 - Fix for HTTP support on Linux on networks with shaky or incomplete IPv6 support
@@ -401,3 +408,9 @@ Credit goes to:
 [#18151]: https://github.com/hrydgard/ppsspp/issues/18151 "GPU, VFS, UI: Fixed minor memleaks"
 [#18165]: https://github.com/hrydgard/ppsspp/issues/18165 "x86jit: Fix flush for special-purpose reg"
 [#18158]: https://github.com/hrydgard/ppsspp/issues/18158 "Add -fno-math-errno"
+[#18183]: https://github.com/hrydgard/ppsspp/issues/18183 "Pipeline/shader race-condition-during-shutdown crash fix"
+[#18189]: https://github.com/hrydgard/ppsspp/issues/18189 "Be a bit smarter when loading the shader cache, avoid duplicating work"
+[#18185]: https://github.com/hrydgard/ppsspp/issues/18185 "Store: Fix race condition causing crashes if looking at another game before an icon finishes downloading"
+[#18184]: https://github.com/hrydgard/ppsspp/issues/18184 "Add memory bounds-check when expanding points, rects and lines to triangles"
+[#18194]: https://github.com/hrydgard/ppsspp/issues/18194 "Cleanups and comment clarifications"
+[#18182]: https://github.com/hrydgard/ppsspp/issues/18182 "Backend change from Win32 menu: Add quick workaround for instance counter misbehavior"
