@@ -459,6 +459,8 @@ void OnScreenMessagesView::Draw(UIContext &dc) {
 					// Save the location of the popup, for easy dismissal.
 					dismissZones.push_back(ClickZone{ (int)j, b });
 					break;
+				default:
+					break;
 				}
 				break;
 			}

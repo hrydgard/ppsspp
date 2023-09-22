@@ -314,7 +314,7 @@ static void VulkanFreeLibrary(VulkanLibraryHandle &h) {
 }
 
 void VulkanSetAvailable(bool available) {
-	INFO_LOG(G3D, "Forcing Vulkan availability to true");
+	INFO_LOG(G3D, "Setting Vulkan availability to true");
 	g_vulkanAvailabilityChecked = true;
 	g_vulkanMayBeAvailable = available;
 }
