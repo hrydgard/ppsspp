@@ -686,10 +686,17 @@ void SoftwareTransform::CalcCullParams(float &minZValue, float &maxZValue) {
 		std::swap(minZValue, maxZValue);
 }
 
+static void ReportExpandOverflow(const char *primName, int vertexCount, int indexSpaceLeft) {
+	ERROR_LOG_REPORT_ONCE(expandoverflow, G3D, "%s expansion overflow: vertexCount=%d (left: %d)", primName, vertexCount, indexSpaceLeft);
+}
+
+// indsOffset is in indices, so half what the byte offset would be.
+// indexBufferSize is also in indices, not bytes.
 bool SoftwareTransform::ExpandRectangles(int vertexCount, int &maxIndex, u16 *inds, int &indsOffset, int indexBufferSize, const TransformedVertex *transformed, TransformedVertex *transformedExpanded, int &numTrans, bool throughmode) {
 	// Before we start, do a sanity check - does the output fit?
 	if ((vertexCount / 2) * 6 > indexBufferSize - indsOffset) {
-		// Won't fit, kill the draw.
+		// Won't fit, report and kill the draw.
+		ReportExpandOverflow("rects", vertexCount, indexBufferSize - indsOffset);
 		return false;
 	}
 
@@ -698,7 +705,7 @@ bool SoftwareTransform::ExpandRectangles(int vertexCount, int &maxIndex, u16 *in
 	numTrans = 0;
 	TransformedVertex *trans = &transformedExpanded[0];
 
-	const u16 *indsIn = (const u16 *)(inds + indsOffset);
+	const u16 *indsIn = inds + indsOffset;
 	int newIndsOffset = indsOffset + vertexCount;
 	u16 *indsOut = inds + newIndsOffset;
 
@@ -756,10 +763,13 @@ bool SoftwareTransform::ExpandRectangles(int vertexCount, int &maxIndex, u16 *in
 	return true;
 }
 
+// indsOffset is in indices, so half what the byte offset would be.
+// indexBufferSize is also in indices, not bytes.
 bool SoftwareTransform::ExpandLines(int vertexCount, int &maxIndex, u16 *inds, int &indsOffset, int indexBufferSize, const TransformedVertex *transformed, TransformedVertex *transformedExpanded, int &numTrans, bool throughmode) {
 	// Before we start, do a sanity check - does the output fit?
 	if ((vertexCount / 2) * 6 > indexBufferSize - indsOffset) {
-		// Won't fit, kill the draw.
+		// Won't fit, report and kill the draw.
+		ReportExpandOverflow("lines", vertexCount, indexBufferSize - indsOffset);
 		return false;
 	}
 
@@ -768,8 +778,7 @@ bool SoftwareTransform::ExpandLines(int vertexCount, int &maxIndex, u16 *inds, i
 	numTrans = 0;
 	TransformedVertex *trans = &transformedExpanded[0];
 
-
-	const u16 *indsIn = (const u16 *)(inds + indsOffset);
+	const u16 *indsIn = inds + indsOffset;
 	int newIndsOffset = indsOffset + vertexCount;
 	u16 *indsOut = inds + newIndsOffset;
 
@@ -888,10 +897,13 @@ bool SoftwareTransform::ExpandLines(int vertexCount, int &maxIndex, u16 *inds, i
 	return true;
 }
 
+// indsOffset is in indices, so half what the byte offset would be.
+// indexBufferSize is also in indices, not bytes.
 bool SoftwareTransform::ExpandPoints(int vertexCount, int &maxIndex, u16 *inds, int &indsOffset, int indexBufferSize, const TransformedVertex *transformed, TransformedVertex *transformedExpanded, int &numTrans, bool throughmode) {
 	// Before we start, do a sanity check - does the output fit?
 	if (vertexCount * 6 > indexBufferSize - indsOffset) {
-		// Won't fit, kill the draw.
+		// Won't fit, report and kill the draw.
+		ReportExpandOverflow("points", vertexCount, indexBufferSize - indsOffset);
 		return false;
 	}
 
