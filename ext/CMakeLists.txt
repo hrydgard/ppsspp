@@ -38,5 +38,4 @@ if(USE_DISCORD AND NOT IOS AND NOT LIBRETRO)
 	add_subdirectory(discord-rpc-build)
 endif()
 
-set(BUILD_SHARED_LIBS OFF)
-add_subdirectory(libchdr)
+add_subdirectory(libchdr-build)
