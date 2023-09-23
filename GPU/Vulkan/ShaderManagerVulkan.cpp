@@ -239,6 +239,8 @@ void ShaderManagerVulkan::DeviceRestore(Draw::DrawContext *draw) {
 }
 
 void ShaderManagerVulkan::Clear() {
+	std::lock_guard<std::mutex> guard(cacheLock_);
+
 	fsCache_.Iterate([&](const FShaderID &key, VulkanFragmentShader *shader) {
 		delete shader;
 	});
@@ -397,6 +399,7 @@ void ShaderManagerVulkan::GetShaders(int prim, VertexDecoder *decoder, VulkanVer
 }
 
 std::vector<std::string> ShaderManagerVulkan::DebugGetShaderIDs(DebugShaderType type) {
+	std::lock_guard<std::mutex> guard(cacheLock_);
 	std::vector<std::string> ids;
 	switch (type) {
 	case SHADER_TYPE_VERTEX:

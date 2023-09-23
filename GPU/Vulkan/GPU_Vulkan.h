@@ -19,6 +19,7 @@
 
 #include <string>
 #include <vector>
+#include <thread>
 
 #include "Common/File/Path.h"
 
@@ -84,4 +85,6 @@ private:
 
 	Path shaderCachePath_;
 	std::atomic<bool> shaderCacheLoaded_{};
+
+	std::thread shaderCacheLoadThread_;
 };

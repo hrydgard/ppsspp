@@ -25,6 +25,7 @@
 #include "Common/GraphicsContext.h"
 #include "Common/Serialize/Serializer.h"
 #include "Common/TimeUtil.h"
+#include "Common/Thread/ThreadUtil.h"
 
 #include "Core/Config.h"
 #include "Core/Debugger/Breakpoints.h"
@@ -94,11 +95,12 @@ GPU_Vulkan::GPU_Vulkan(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 		shaderCachePath_ = GetSysDirectory(DIRECTORY_APP_CACHE) / (discID + ".vkshadercache");
 		shaderCacheLoaded_ = false;
 
-		std::thread th([&] {
+		shaderCacheLoadThread_ = std::thread([&] {
+			SetCurrentThreadName("VulkanLoadCache");
+			AndroidJNIThreadContext ctx;
 			LoadCache(shaderCachePath_);
 			shaderCacheLoaded_ = true;
 		});
-		th.detach();
 	} else {
 		shaderCacheLoaded_ = true;
 	}
@@ -180,6 +182,10 @@ void GPU_Vulkan::SaveCache(const Path &filename) {
 }
 
 GPU_Vulkan::~GPU_Vulkan() {
+	if (shaderCacheLoadThread_.joinable()) {
+		shaderCacheLoadThread_.join();
+	}
+
 	if (draw_) {
 		VulkanRenderManager *rm = (VulkanRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
 		rm->DrainAndBlockCompileQueue();
