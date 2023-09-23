@@ -121,9 +121,10 @@ public:
 	int GetNumGeometryShaders() const { return (int)gsCache_.size(); }
 
 	// Used for saving/loading the cache. Don't need to be particularly fast.
-	VulkanVertexShader *GetVertexShaderFromID(VShaderID id) { return vsCache_.GetOrNull(id); }
-	VulkanFragmentShader *GetFragmentShaderFromID(FShaderID id) { return fsCache_.GetOrNull(id); }
-	VulkanGeometryShader *GetGeometryShaderFromID(GShaderID id) { return gsCache_.GetOrNull(id); }
+	VulkanVertexShader *GetVertexShaderFromID(VShaderID id) { std::lock_guard<std::mutex> guard(cacheLock_); return vsCache_.GetOrNull(id); }
+	VulkanFragmentShader *GetFragmentShaderFromID(FShaderID id) { std::lock_guard<std::mutex> guard(cacheLock_); return fsCache_.GetOrNull(id); }
+	VulkanGeometryShader *GetGeometryShaderFromID(GShaderID id) { std::lock_guard<std::mutex> guard(cacheLock_); return gsCache_.GetOrNull(id); }
+
 	VulkanVertexShader *GetVertexShaderFromModule(VkShaderModule module);
 	VulkanFragmentShader *GetFragmentShaderFromModule(VkShaderModule module);
 	VulkanGeometryShader *GetGeometryShaderFromModule(VkShaderModule module);

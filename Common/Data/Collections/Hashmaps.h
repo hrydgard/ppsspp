@@ -135,6 +135,7 @@ public:
 		return false;
 	}
 
+	// This will never crash if you call it without locking - but, the value might not be right.
 	size_t size() const {
 		return count_;
 	}
