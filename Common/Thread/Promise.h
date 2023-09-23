@@ -45,6 +45,7 @@ public:
 template<class T>
 class Promise {
 public:
+	// Never fails.
 	static Promise<T> *Spawn(ThreadManager *threadman, std::function<T()> fun, TaskType taskType, TaskPriority taskPriority = TaskPriority::NORMAL) {
 		Mailbox<T> *mailbox = new Mailbox<T>();
 

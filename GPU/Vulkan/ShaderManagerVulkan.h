@@ -43,8 +43,6 @@ public:
 
 	const std::string &source() const { return source_; }
 
-	bool Failed() const { return failed_; }
-
 	std::string GetShaderString(DebugShaderStringType type) const;
 	Promise<VkShaderModule> *GetModule() { return module_; }
 	const FShaderID &GetID() const { return id_; }
@@ -68,7 +66,6 @@ public:
 
 	const std::string &source() const { return source_; }
 
-	bool Failed() const { return failed_; }
 	bool UseHWTransform() const { return useHWTransform_; }  // TODO: Roll into flags
 	VertexShaderFlags Flags() const { return flags_; }
 
@@ -81,7 +78,6 @@ protected:
 
 	VulkanContext *vulkan_;
 	std::string source_;
-	bool failed_ = false;
 	bool useHWTransform_;
 	VShaderID id_;
 	VertexShaderFlags flags_;
@@ -94,9 +90,8 @@ public:
 
 	const std::string &source() const { return source_; }
 
-	bool Failed() const { return failed_; }
-
 	std::string GetShaderString(DebugShaderStringType type) const;
+
 	Promise<VkShaderModule> *GetModule() const { return module_; }
 	const GShaderID &GetID() { return id_; }
 
@@ -105,7 +100,6 @@ protected:
 
 	VulkanContext *vulkan_;
 	std::string source_;
-	bool failed_ = false;
 	GShaderID id_;
 };
 
