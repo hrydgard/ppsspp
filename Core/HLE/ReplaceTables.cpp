@@ -1590,7 +1590,10 @@ std::vector<int> GetReplacementFuncIndexes(u64 hash, int funcSize) {
 	return emptyResult;
 }
 
-const ReplacementTableEntry *GetReplacementFunc(int i) {
+const ReplacementTableEntry *GetReplacementFunc(size_t i) {
+	if (i >= ARRAY_SIZE(entries)) {
+		return nullptr;
+	}
 	return &entries[i];
 }
 

@@ -563,6 +563,7 @@ void Arm64Jit::Comp_ReplacementFunc(MIPSOpcode op)
 	const ReplacementTableEntry *entry = GetReplacementFunc(index);
 	if (!entry) {
 		ERROR_LOG(HLE, "Invalid replacement op %08x", op.encoding);
+		// TODO: What should we do here? We're way off in the weeds probably.
 		return;
 	}
 
