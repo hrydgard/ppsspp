@@ -605,7 +605,7 @@ void Jit::Comp_ReplacementFunc(MIPSOpcode op) {
 
 	const ReplacementTableEntry *entry = GetReplacementFunc(index);
 	if (!entry) {
-		ERROR_LOG(HLE, "Invalid replacement op %08x", op.encoding);
+		ERROR_LOG_REPORT_ONCE(replFunc, HLE, "Invalid replacement op %08x at %08x", op.encoding, js.compilerPC);
 		return;
 	}
 
