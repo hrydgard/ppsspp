@@ -353,6 +353,8 @@ void X64IRRegCache::LoadNativeReg(IRNativeReg nreg, IRReg first, int lanes) {
 			emit_->MOVSS(r, MDisp(CTXREG, -128 + GetMipsRegOffset(first)));
 		else if (lanes == 2)
 			emit_->MOVLPS(r, MDisp(CTXREG, -128 + GetMipsRegOffset(first)));
+		else if (lanes == 4 && (first & 3) == 0)
+			emit_->MOVAPS(r, MDisp(CTXREG, -128 + GetMipsRegOffset(first)));
 		else if (lanes == 4)
 			emit_->MOVUPS(r, MDisp(CTXREG, -128 + GetMipsRegOffset(first)));
 		else
@@ -381,6 +383,8 @@ void X64IRRegCache::StoreNativeReg(IRNativeReg nreg, IRReg first, int lanes) {
 			emit_->MOVSS(MDisp(CTXREG, -128 + GetMipsRegOffset(first)), r);
 		else if (lanes == 2)
 			emit_->MOVLPS(MDisp(CTXREG, -128 + GetMipsRegOffset(first)), r);
+		else if (lanes == 4 && (first & 3) == 0)
+			emit_->MOVAPS(MDisp(CTXREG, -128 + GetMipsRegOffset(first)), r);
 		else if (lanes == 4)
 			emit_->MOVUPS(MDisp(CTXREG, -128 + GetMipsRegOffset(first)), r);
 		else
