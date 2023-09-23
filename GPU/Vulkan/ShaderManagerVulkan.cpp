@@ -47,6 +47,7 @@
 // Most drivers treat vkCreateShaderModule as pretty much a memcpy. What actually
 // takes time here, and makes this worthy of parallelization, is GLSLtoSPV.
 // Takes ownership over tag.
+// This always returns something, checking the return value for null is not meaningful.
 static Promise<VkShaderModule> *CompileShaderModuleAsync(VulkanContext *vulkan, VkShaderStageFlagBits stage, const char *code, std::string *tag) {
 	auto compile = [=] {
 		PROFILE_THIS_SCOPE("shadercomp");
@@ -112,13 +113,10 @@ static Promise<VkShaderModule> *CompileShaderModuleAsync(VulkanContext *vulkan, 
 
 VulkanFragmentShader::VulkanFragmentShader(VulkanContext *vulkan, FShaderID id, FragmentShaderFlags flags, const char *code)
 	: vulkan_(vulkan), id_(id), flags_(flags) {
+	_assert_(!id.is_invalid());
 	source_ = code;
 	module_ = CompileShaderModuleAsync(vulkan, VK_SHADER_STAGE_FRAGMENT_BIT, source_.c_str(), new std::string(FragmentShaderDesc(id)));
-	if (!module_) {
-		failed_ = true;
-	} else {
-		VERBOSE_LOG(G3D, "Compiled fragment shader:\n%s\n", (const char *)code);
-	}
+	VERBOSE_LOG(G3D, "Compiled fragment shader:\n%s\n", (const char *)code);
 }
 
 VulkanFragmentShader::~VulkanFragmentShader() {
@@ -147,13 +145,10 @@ std::string VulkanFragmentShader::GetShaderString(DebugShaderStringType type) co
 
 VulkanVertexShader::VulkanVertexShader(VulkanContext *vulkan, VShaderID id, VertexShaderFlags flags, const char *code, bool useHWTransform)
 	: vulkan_(vulkan), useHWTransform_(useHWTransform), flags_(flags), id_(id) {
+	_assert_(!id.is_invalid());
 	source_ = code;
 	module_ = CompileShaderModuleAsync(vulkan, VK_SHADER_STAGE_VERTEX_BIT, source_.c_str(), new std::string(VertexShaderDesc(id)));
-	if (!module_) {
-		failed_ = true;
-	} else {
-		VERBOSE_LOG(G3D, "Compiled vertex shader:\n%s\n", (const char *)code);
-	}
+	VERBOSE_LOG(G3D, "Compiled vertex shader:\n%s\n", (const char *)code);
 }
 
 VulkanVertexShader::~VulkanVertexShader() {
@@ -182,13 +177,10 @@ std::string VulkanVertexShader::GetShaderString(DebugShaderStringType type) cons
 
 VulkanGeometryShader::VulkanGeometryShader(VulkanContext *vulkan, GShaderID id, const char *code)
 	: vulkan_(vulkan), id_(id) {
+	_assert_(!id.is_invalid());
 	source_ = code;
 	module_ = CompileShaderModuleAsync(vulkan, VK_SHADER_STAGE_GEOMETRY_BIT, source_.c_str(), new std::string(GeometryShaderDesc(id).c_str()));
-	if (!module_) {
-		failed_ = true;
-	} else {
-		VERBOSE_LOG(G3D, "Compiled geometry shader:\n%s\n", (const char *)code);
-	}
+	VERBOSE_LOG(G3D, "Compiled geometry shader:\n%s\n", (const char *)code);
 }
 
 VulkanGeometryShader::~VulkanGeometryShader() {
