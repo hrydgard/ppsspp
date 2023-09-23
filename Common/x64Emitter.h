@@ -684,11 +684,13 @@ public:
 
 	// SSE4: Further horizontal operations - dot products. These are weirdly flexible, the arg contains both a read mask and a write "mask".
 	void DPPD(X64Reg dest, OpArg src, u8 arg);
-
-	// These are probably useful for VFPU emulation.
-	void INSERTPS(X64Reg dest, OpArg src, u8 arg);
-	void EXTRACTPS(OpArg dest, X64Reg src, u8 arg);
 #endif
+
+	// SSE4: Insert and extract for floats.
+	// Note: insert from memory or an XMM.
+	void INSERTPS(X64Reg dest, OpArg arg, u8 dstsubreg, u8 srcsubreg = 0, u8 zmask = 0);
+	// Extract to memory or GPR.
+	void EXTRACTPS(OpArg dest, X64Reg arg, u8 subreg);
 
 	// SSE3: Horizontal operations in SIMD registers. Very slow! shufps-based code beats it handily on Ivy.
 	void HADDPS(X64Reg dest, OpArg src);
@@ -1040,7 +1042,7 @@ public:
 	// Can only extract from the low 128 bits.
 	void VEXTRACTPS(OpArg arg, X64Reg regOp1, u8 subreg);
 	// Can only insert into the low 128 bits, zeros upper bits.  Inserts from XMM.
-	void VINSERTPS(X64Reg regOp1, X64Reg regOp2, OpArg arg, u8 subreg);
+	void VINSERTPS(X64Reg regOp1, X64Reg regOp2, OpArg arg, u8 dstsubreg, u8 srcsubreg = 0, u8 zmask = 0);
 	void VLDDQU(int bits, X64Reg regOp1, OpArg arg);
 	void VMOVAPS(int bits, X64Reg regOp1, OpArg arg);
 	void VMOVAPD(int bits, X64Reg regOp1, OpArg arg);

@@ -117,6 +117,7 @@ protected:
 	void StoreNativeReg(IRNativeReg nreg, IRReg first, int lanes) override;
 	void SetNativeRegValue(IRNativeReg nreg, uint32_t imm) override;
 	void StoreRegValue(IRReg mreg, uint32_t imm) override;
+	bool TransferNativeReg(IRNativeReg nreg, IRNativeReg dest, MIPSLoc type, IRReg first, int lanes, MIPSMap flags) override;
 
 private:
 	IRNativeReg GPRToNativeReg(Gen::X64Reg r) {
