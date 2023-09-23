@@ -147,6 +147,67 @@ void X64IRRegCache::FlushBeforeCall() {
 #endif
 }
 
+void X64IRRegCache::FlushAll(bool gprs, bool fprs) {
+	// Note: make sure not to change the registers when flushing:
+	// Branching code may expect the x64reg to retain its value.
+
+	auto needsFlush = [&](IRReg i) {
+		if (mr[i].loc != MIPSLoc::MEM || mr[i].isStatic)
+			return false;
+		if (mr[i].nReg == -1 || !nr[mr[i].nReg].isDirty)
+			return false;
+		return true;
+	};
+
+	auto isSingleFloat = [&](IRReg i) {
+		if (mr[i].lane != -1 || mr[i].loc != MIPSLoc::FREG)
+			return false;
+		return true;
+	};
+
+	// Sometimes, float/vector regs may be in separate regs in a sequence.
+	// It's worth combining and flushing together.
+	for (int i = 1; i < TOTAL_MAPPABLE_IRREGS - 1; ++i) {
+		if (!needsFlush(i) || !needsFlush(i + 1))
+			continue;
+		// GPRs are probably not worth it.  Merging Vec2s might be, but pretty uncommon.
+		if (!isSingleFloat(i) || !isSingleFloat(i + 1))
+			continue;
+
+		X64Reg regs[4]{ INVALID_REG, INVALID_REG, INVALID_REG, INVALID_REG };
+		regs[0] = FromNativeReg(mr[i + 0].nReg);
+		regs[1] = FromNativeReg(mr[i + 1].nReg);
+
+		bool flushVec4 = i + 3 < TOTAL_MAPPABLE_IRREGS && needsFlush(i + 2) && needsFlush(i + 3);
+		if (flushVec4 && isSingleFloat(i + 2) && isSingleFloat(i + 3) && (i & 3) == 0) {
+			regs[2] = FromNativeReg(mr[i + 2].nReg);
+			regs[3] = FromNativeReg(mr[i + 3].nReg);
+
+			// Note that this doesn't change the low lane of any of these regs.
+			emit_->UNPCKLPS(regs[1], ::R(regs[3]));
+			emit_->UNPCKLPS(regs[0], ::R(regs[2]));
+			emit_->UNPCKLPS(regs[0], ::R(regs[1]));
+			emit_->MOVAPS(MDisp(CTXREG, -128 + GetMipsRegOffset(i)), regs[0]);
+
+			for (int j = 0; j < 4; ++j)
+				DiscardReg(i + j);
+			i += 3;
+			continue;
+		}
+
+		// TODO: Maybe this isn't always worth doing.
+		emit_->UNPCKLPS(regs[0], ::R(regs[1]));
+		emit_->MOVLPS(MDisp(CTXREG, -128 + GetMipsRegOffset(i)), regs[0]);
+
+		DiscardReg(i);
+		DiscardReg(i + 1);
+		++i;
+		continue;
+	}
+
+	IRNativeRegCacheBase::FlushAll(gprs, fprs);
+}
+
 X64Reg X64IRRegCache::TryMapTempImm(IRReg r, X64Map flags) {
 	_dbg_assert_(IsValidGPR(r));
 
