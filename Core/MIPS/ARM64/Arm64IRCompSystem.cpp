@@ -163,12 +163,9 @@ void Arm64JitBackend::CompIR_Breakpoint(IRInst inst) {
 			for (auto it : memchecks) {
 				if (it.end != 0) {
 					CMPI2R(SCRATCH1, it.start - size, SCRATCH2);
-					FixupBranch skipNext = B(CC_LS);
-
-					CMPI2R(SCRATCH1, it.end, SCRATCH2);
+					MOVI2R(SCRATCH2, it.end);
+					CCMP(SCRATCH1, SCRATCH2, 0xF, CC_HI);
 					hitChecks.push_back(B(CC_LO));
-
-					SetJumpTarget(skipNext);
 				} else {
 					CMPI2R(SCRATCH1, it.start, SCRATCH2);
 					hitChecks.push_back(B(CC_EQ));
