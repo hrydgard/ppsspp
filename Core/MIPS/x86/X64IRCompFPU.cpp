@@ -48,6 +48,7 @@ void X64JitBackend::EmitFPUConstants() {
 	EmitConst4x32(&constants.qNAN, 0x7FC00000);
 	EmitConst4x32(&constants.positiveOnes, 0x3F800000);
 	EmitConst4x32(&constants.negativeOnes, 0xBF800000);
+	EmitConst4x32(&constants.maxIntBelowAsFloat, 0x4EFFFFFF);
 
 	constants.mulTableVi2f = (const float *)GetCodePointer();
 	for (uint8_t i = 0; i < 32; ++i) {
@@ -58,20 +59,14 @@ void X64JitBackend::EmitFPUConstants() {
 		Write32(val);
 	}
 
-	constants.mulTableVf2i = (const double *)GetCodePointer();
+	constants.mulTableVf2i = (const float *)GetCodePointer();
 	for (uint8_t i = 0; i < 32; ++i) {
-		double fval = (1UL << i);
-		uint64_t val;
+		float fval = (float)(1ULL << i);
+		uint32_t val;
 		memcpy(&val, &fval, sizeof(val));
 
-		Write64(val);
+		Write32(val);
 	}
-
-	// Note: this first one is (double)(int)0x80000000, sign extended.
-	constants.minIntAsDouble = (const double *)GetCodePointer();
-	Write64(0xC1E0000000000000ULL);
-	constants.maxIntAsDouble = (const double *)GetCodePointer();
-	Write64(0x41DFFFFFFFC00000ULL);
 }
 
 void X64JitBackend::CopyVec4ToFPRLane0(Gen::X64Reg dest, Gen::X64Reg src, int lane) {
@@ -645,11 +640,14 @@ void X64JitBackend::CompIR_FCvt(IRInst inst) {
 	case IROp::FCvtWS:
 	{
 		regs_.Map(inst);
-		UCOMISS(regs_.FX(inst.src1), M(constants.positiveInfinity));  // rip accessible
+		UCOMISS(regs_.FX(inst.src1), M(constants.maxIntBelowAsFloat));  // rip accessible
 
 		CVTPS2DQ(regs_.FX(inst.dest), regs_.F(inst.src1));
-		// UCOMISS set ZF if EQUAL (to infinity) or UNORDERED.
-		FixupBranch skip = J_CC(CC_NZ);
+		// UCOMISS set CF if LESS and ZF if EQUAL to maxIntBelowAsFloat.
+		// We want noSignMask otherwise, GREATER or UNORDERED.
+		FixupBranch isNAN = J_CC(CC_P);
+		FixupBranch skip = J_CC(CC_BE);
+		SetJumpTarget(isNAN);
 		MOVAPS(regs_.FX(inst.dest), M(constants.noSignMask));  // rip accessible
 
 		SetJumpTarget(skip);
@@ -665,54 +663,65 @@ void X64JitBackend::CompIR_FCvt(IRInst inst) {
 		regs_.Map(inst);
 		if (cpu_info.bSSE4_1) {
 			int scale = inst.src2 & 0x1F;
-			int rmode = inst.src2 >> 6;
+			IRRoundMode rmode = (IRRoundMode)(inst.src2 >> 6);
 
-			CVTSS2SD(regs_.FX(inst.dest), regs_.F(inst.src1));
-			if (scale != 0)
-				MULSD(regs_.FX(inst.dest), M(&constants.mulTableVf2i[scale]));  // rip accessible
+			if (scale != 0 && cpu_info.bAVX) {
+				VMULSS(regs_.FX(inst.dest), regs_.FX(inst.src1), M(&constants.mulTableVf2i[scale]));  // rip accessible
+			} else {
+				if (inst.dest != inst.src1)
+					MOVAPS(regs_.FX(inst.dest), regs_.F(inst.src1));
+				if (scale != 0)
+					MULSS(regs_.FX(inst.dest), M(&constants.mulTableVf2i[scale]));  // rip accessible
+			}
 
-			// On NAN, we want maxInt anyway, so let's let it be the second param.
-			MAXSD(regs_.FX(inst.dest), M(constants.minIntAsDouble));  // rip accessible
-			MINSD(regs_.FX(inst.dest), M(constants.maxIntAsDouble));  // rip accessible
+			UCOMISS(regs_.FX(inst.dest), M(constants.maxIntBelowAsFloat));  // rip accessible
 
 			switch (rmode) {
-			case 0:
-				ROUNDNEARPD(regs_.FX(inst.dest), regs_.F(inst.dest));
-				CVTPD2DQ(regs_.FX(inst.dest), regs_.F(inst.dest));
+			case IRRoundMode::RINT_0:
+				ROUNDNEARPS(regs_.FX(inst.dest), regs_.F(inst.dest));
+				CVTPS2DQ(regs_.FX(inst.dest), regs_.F(inst.dest));
 				break;
 
-			case 1:
-				CVTTPD2DQ(regs_.FX(inst.dest), regs_.F(inst.dest));
+			case IRRoundMode::CAST_1:
+				CVTTPS2DQ(regs_.FX(inst.dest), regs_.F(inst.dest));
 				break;
 
-			case 2:
-				ROUNDCEILPD(regs_.FX(inst.dest), regs_.F(inst.dest));
-				CVTPD2DQ(regs_.FX(inst.dest), regs_.F(inst.dest));
+			case IRRoundMode::CEIL_2:
+				ROUNDCEILPS(regs_.FX(inst.dest), regs_.F(inst.dest));
+				CVTPS2DQ(regs_.FX(inst.dest), regs_.F(inst.dest));
 				break;
 
-			case 3:
-				ROUNDFLOORPD(regs_.FX(inst.dest), regs_.F(inst.dest));
-				CVTPD2DQ(regs_.FX(inst.dest), regs_.F(inst.dest));
+			case IRRoundMode::FLOOR_3:
+				ROUNDFLOORPS(regs_.FX(inst.dest), regs_.F(inst.dest));
+				CVTPS2DQ(regs_.FX(inst.dest), regs_.F(inst.dest));
 				break;
 			}
+
+			// UCOMISS set CF if LESS and ZF if EQUAL to maxIntBelowAsFloat.
+			// We want noSignMask otherwise, GREATER or UNORDERED.
+			FixupBranch isNAN = J_CC(CC_P);
+			FixupBranch skip = J_CC(CC_BE);
+			SetJumpTarget(isNAN);
+			MOVAPS(regs_.FX(inst.dest), M(constants.noSignMask));  // rip accessible
+			SetJumpTarget(skip);
 		} else {
 			int scale = inst.src2 & 0x1F;
-			int rmode = inst.src2 >> 6;
+			IRRoundMode rmode = (IRRoundMode)(inst.src2 >> 6);
 
 			int setMXCSR = -1;
 			bool useTrunc = false;
 			switch (rmode) {
-			case 0:
+			case IRRoundMode::RINT_0:
 				// TODO: Could skip if hasSetRounding, but we don't have the flag.
 				setMXCSR = 0;
 				break;
-			case 1:
+			case IRRoundMode::CAST_1:
 				useTrunc = true;
 				break;
-			case 2:
+			case IRRoundMode::CEIL_2:
 				setMXCSR = 2;
 				break;
-			case 3:
+			case IRRoundMode::FLOOR_3:
 				setMXCSR = 1;
 				break;
 			}
@@ -731,21 +740,26 @@ void X64JitBackend::CompIR_FCvt(IRInst inst) {
 				LDMXCSR(MDisp(CTXREG, tempOffset));
 			}
 
-			CVTSS2SD(regs_.FX(inst.dest), regs_.F(inst.src1));
+			if (inst.dest != inst.src1)
+				MOVAPS(regs_.FX(inst.dest), regs_.F(inst.src1));
 			if (scale != 0)
-				MULSD(regs_.FX(inst.dest), M(&constants.mulTableVf2i[scale]));
+				MULSS(regs_.FX(inst.dest), M(&constants.mulTableVf2i[scale]));  // rip accessible
 
-			// On NAN, we want maxInt anyway, so let's let it be the second param.
-			MAXSD(regs_.FX(inst.dest), M(constants.minIntAsDouble));
-			MINSD(regs_.FX(inst.dest), M(constants.maxIntAsDouble));
+			UCOMISS(regs_.FX(inst.dest), M(constants.maxIntBelowAsFloat));  // rip accessible
 
 			if (useTrunc) {
-				CVTTSD2SI(SCRATCH1, regs_.F(inst.dest));
+				CVTTPS2DQ(regs_.FX(inst.dest), regs_.F(inst.dest));
 			} else {
-				CVTSD2SI(SCRATCH1, regs_.F(inst.dest));
+				CVTPS2DQ(regs_.FX(inst.dest), regs_.F(inst.dest));
 			}
 
-			MOVD_xmm(regs_.FX(inst.dest), R(SCRATCH1));
+			// UCOMISS set CF if LESS and ZF if EQUAL to maxIntBelowAsFloat.
+			// We want noSignMask otherwise, GREATER or UNORDERED.
+			FixupBranch isNAN = J_CC(CC_P);
+			FixupBranch skip = J_CC(CC_BE);
+			SetJumpTarget(isNAN);
+			MOVAPS(regs_.FX(inst.dest), M(constants.noSignMask));  // rip accessible
+			SetJumpTarget(skip);
 
 			// Return MXCSR to its previous value.
 			if (setMXCSR != -1) {
@@ -770,46 +784,105 @@ void X64JitBackend::CompIR_FRound(IRInst inst) {
 	CONDITIONAL_DISABLE;
 
 	switch (inst.op) {
+	case IROp::FCeil:
+	case IROp::FFloor:
 	case IROp::FRound:
-		CompIR_Generic(inst);
+		if (cpu_info.bSSE4_1) {
+			regs_.Map(inst);
+			UCOMISS(regs_.FX(inst.src1), M(constants.maxIntBelowAsFloat));  // rip accessible
+
+			switch (inst.op) {
+			case IROp::FCeil:
+				ROUNDCEILPS(regs_.FX(inst.dest), regs_.F(inst.src1));
+				break;
+
+			case IROp::FFloor:
+				ROUNDFLOORPS(regs_.FX(inst.dest), regs_.F(inst.src1));
+				break;
+
+			case IROp::FRound:
+				ROUNDNEARPS(regs_.FX(inst.dest), regs_.F(inst.src1));
+				break;
+
+			default:
+				INVALIDOP;
+			}
+			CVTTPS2DQ(regs_.FX(inst.dest), regs_.F(inst.dest));
+			// UCOMISS set CF if LESS and ZF if EQUAL to maxIntBelowAsFloat.
+			// We want noSignMask otherwise, GREATER or UNORDERED.
+			FixupBranch isNAN = J_CC(CC_P);
+			FixupBranch skip = J_CC(CC_BE);
+			SetJumpTarget(isNAN);
+			MOVAPS(regs_.FX(inst.dest), M(constants.noSignMask));  // rip accessible
+
+			SetJumpTarget(skip);
+		} else {
+			regs_.Map(inst);
+
+			int setMXCSR = -1;
+			switch (inst.op) {
+			case IROp::FRound:
+				// TODO: Could skip if hasSetRounding, but we don't have the flag.
+				setMXCSR = 0;
+				break;
+			case IROp::FCeil:
+				setMXCSR = 2;
+				break;
+			case IROp::FFloor:
+				setMXCSR = 1;
+				break;
+			default:
+				INVALIDOP;
+			}
+
+			// TODO: Might be possible to cache this and update between instructions?
+			// Probably kinda expensive to switch each time...
+			if (setMXCSR != -1) {
+				STMXCSR(MDisp(CTXREG, mxcsrTempOffset));
+				MOV(32, R(SCRATCH1), MDisp(CTXREG, mxcsrTempOffset));
+				AND(32, R(SCRATCH1), Imm32(~(3 << 13)));
+				if (setMXCSR != 0) {
+					OR(32, R(SCRATCH1), Imm32(setMXCSR << 13));
+				}
+				MOV(32, MDisp(CTXREG, tempOffset), R(SCRATCH1));
+				LDMXCSR(MDisp(CTXREG, tempOffset));
+			}
+
+			UCOMISS(regs_.FX(inst.src1), M(constants.maxIntBelowAsFloat));  // rip accessible
+
+			CVTPS2DQ(regs_.FX(inst.dest), regs_.F(inst.src1));
+			// UCOMISS set CF if LESS and ZF if EQUAL to maxIntBelowAsFloat.
+			// We want noSignMask otherwise, GREATER or UNORDERED.
+			FixupBranch isNAN = J_CC(CC_P);
+			FixupBranch skip = J_CC(CC_BE);
+			SetJumpTarget(isNAN);
+			MOVAPS(regs_.FX(inst.dest), M(constants.noSignMask));  // rip accessible
+
+			SetJumpTarget(skip);
+
+			// Return MXCSR to its previous value.
+			if (setMXCSR != -1) {
+				LDMXCSR(MDisp(CTXREG, mxcsrTempOffset));
+			}
+		}
 		break;
 
 	case IROp::FTrunc:
 	{
-		regs_.SpillLockFPR(inst.dest, inst.src1);
-		X64Reg tempZero = regs_.GetAndLockTempFPR();
 		regs_.Map(inst);
+		UCOMISS(regs_.FX(inst.src1), M(constants.maxIntBelowAsFloat));  // rip accessible
 
-		CVTTSS2SI(SCRATCH1, regs_.F(inst.src1));
+		CVTTPS2DQ(regs_.FX(inst.dest), regs_.F(inst.src1));
+		// UCOMISS set CF if LESS and ZF if EQUAL to maxIntBelowAsFloat.
+		// We want noSignMask otherwise, GREATER or UNORDERED.
+		FixupBranch isNAN = J_CC(CC_P);
+		FixupBranch skip = J_CC(CC_BE);
+		SetJumpTarget(isNAN);
+		MOVAPS(regs_.FX(inst.dest), M(constants.noSignMask));  // rip accessible
 
-		// Did we get an indefinite integer value?
-		CMP(32, R(SCRATCH1), Imm32(0x80000000));
-		FixupBranch wasExact = J_CC(CC_NE);
-
-		XORPS(tempZero, R(tempZero));
-		if (inst.dest == inst.src1) {
-			CMPSS(regs_.FX(inst.dest), R(tempZero), CMP_LT);
-		} else if (cpu_info.bAVX) {
-			VCMPSS(regs_.FX(inst.dest), regs_.FX(inst.src1), R(tempZero), CMP_LT);
-		} else {
-			MOVAPS(regs_.FX(inst.dest), regs_.F(inst.src1));
-			CMPSS(regs_.FX(inst.dest), R(tempZero), CMP_LT);
-		}
-
-		// At this point, -inf = 0xffffffff, inf/nan = 0x00000000.
-		// We want -inf to be 0x80000000 inf/nan to be 0x7fffffff, so we flip those bits.
-		MOVD_xmm(R(SCRATCH1), regs_.FX(inst.dest));
-		XOR(32, R(SCRATCH1), Imm32(0x7fffffff));
-
-		SetJumpTarget(wasExact);
-		MOVD_xmm(regs_.FX(inst.dest), R(SCRATCH1));
+		SetJumpTarget(skip);
 		break;
 	}
-
-	case IROp::FCeil:
-	case IROp::FFloor:
-		CompIR_Generic(inst);
-		break;
 
 	default:
 		INVALIDOP;
