@@ -58,7 +58,7 @@ void X64JitBackend::GenerateFixedCode(MIPSState *mipsState) {
 	int jitbaseCtxDisp = 0;
 	// We pre-bake the MIPS_EMUHACK_OPCODE subtraction into our jitbase value.
 	intptr_t jitbase = (intptr_t)GetBasePtr() - MIPS_EMUHACK_OPCODE;
-	if ((jitbase < -0x80000000LL || jitbase > 0x7FFFFFFFLL) && !Accessible((const u8 *)&mipsState->f[0], GetBasePtr())) {
+	if ((jitbase < -0x80000000LL || jitbase > 0x7FFFFFFFLL) && !Accessible((const u8 *)&mipsState->f[0], (const u8 *)jitbase)) {
 		jo.reserveR15ForAsm = true;
 		jitbaseInR15 = true;
 	} else {

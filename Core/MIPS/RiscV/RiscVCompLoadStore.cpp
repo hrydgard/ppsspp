@@ -59,8 +59,19 @@ int32_t RiscVJitBackend::AdjustForAddressOffset(RiscVGen::RiscVReg *reg, int32_t
 		if (constant > 0)
 			constant &= Memory::MEMVIEW32_MASK;
 #endif
-		LI(SCRATCH2, constant);
-		ADD(SCRATCH1, *reg, SCRATCH2);
+		// It can't be this negative, must be a constant with top bit set.
+		if ((constant & 0xC0000000) == 0x80000000) {
+			if (cpu_info.RiscV_Zba) {
+				LI(SCRATCH2, constant);
+				ADD_UW(SCRATCH1, SCRATCH2, *reg);
+			} else {
+				LI(SCRATCH2, (uint32_t)constant);
+				ADD(SCRATCH1, *reg, SCRATCH2);
+			}
+		} else {
+			LI(SCRATCH2, constant);
+			ADD(SCRATCH1, *reg, SCRATCH2);
+		}
 		*reg = SCRATCH1;
 		return 0;
 	}
