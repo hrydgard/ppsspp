@@ -719,8 +719,6 @@ bool PipelineManagerVulkan::LoadPipelineCache(FILE *file, bool loadRawPipelineCa
 	VulkanRenderManager *rm = (VulkanRenderManager *)drawContext->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
 	VulkanQueueRunner *queueRunner = rm->GetQueueRunner();
 
-	cancelCache_ = false;
-
 	uint32_t size = 0;
 	if (loadRawPipelineCache) {
 		NOTICE_LOG(G3D, "WARNING: Using the badly tested raw pipeline cache path!!!!");
@@ -779,7 +777,7 @@ bool PipelineManagerVulkan::LoadPipelineCache(FILE *file, bool loadRawPipelineCa
 	int pipelineCreateFailCount = 0;
 	int shaderFailCount = 0;
 	for (uint32_t i = 0; i < size; i++) {
-		if (failed || cancelCache_) {
+		if (failed) {
 			break;
 		}
 		StoredVulkanPipelineKey key;
@@ -823,8 +821,4 @@ bool PipelineManagerVulkan::LoadPipelineCache(FILE *file, bool loadRawPipelineCa
 	NOTICE_LOG(G3D, "Recreated Vulkan pipeline cache (%d pipelines, %d failed).", (int)size, pipelineCreateFailCount);
 	// We just ignore any failures.
 	return true;
-}
-
-void PipelineManagerVulkan::CancelCache() {
-	cancelCache_ = true;
 }

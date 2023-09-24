@@ -42,7 +42,6 @@ public:
 	u32 CheckGPUFeatures() const override;
 
 	bool IsReady() override;
-	void CancelReady() override;
 
 	// These are where we can reset command buffers etc.
 	void BeginHostFrame() override;
@@ -84,7 +83,4 @@ private:
 	PipelineManagerVulkan *pipelineManager_;
 
 	Path shaderCachePath_;
-	std::atomic<bool> shaderCacheLoaded_{};
-
-	std::thread shaderCacheLoadThread_;
 };

@@ -93,25 +93,12 @@ GPU_Vulkan::GPU_Vulkan(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	if (discID.size()) {
 		File::CreateFullPath(GetSysDirectory(DIRECTORY_APP_CACHE));
 		shaderCachePath_ = GetSysDirectory(DIRECTORY_APP_CACHE) / (discID + ".vkshadercache");
-		shaderCacheLoaded_ = false;
-
-		shaderCacheLoadThread_ = std::thread([&] {
-			SetCurrentThreadName("VulkanLoadCache");
-			AndroidJNIThreadContext ctx;
-			LoadCache(shaderCachePath_);
-			shaderCacheLoaded_ = true;
-		});
-	} else {
-		shaderCacheLoaded_ = true;
+		LoadCache(shaderCachePath_);
 	}
 }
 
 bool GPU_Vulkan::IsReady() {
-	return shaderCacheLoaded_;
-}
-
-void GPU_Vulkan::CancelReady() {
-	pipelineManager_->CancelCache();
+	return true;
 }
 
 void GPU_Vulkan::LoadCache(const Path &filename) {
@@ -182,10 +169,6 @@ void GPU_Vulkan::SaveCache(const Path &filename) {
 }
 
 GPU_Vulkan::~GPU_Vulkan() {
-	if (shaderCacheLoadThread_.joinable()) {
-		shaderCacheLoadThread_.join();
-	}
-
 	if (draw_) {
 		VulkanRenderManager *rm = (VulkanRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
 		rm->DrainAndBlockCompileQueue();
