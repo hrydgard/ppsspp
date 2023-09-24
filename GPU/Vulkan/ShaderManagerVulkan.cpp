@@ -239,8 +239,6 @@ void ShaderManagerVulkan::DeviceRestore(Draw::DrawContext *draw) {
 }
 
 void ShaderManagerVulkan::Clear() {
-	std::lock_guard<std::mutex> guard(cacheLock_);
-
 	fsCache_.Iterate([&](const FShaderID &key, VulkanFragmentShader *shader) {
 		delete shader;
 	});
@@ -335,8 +333,6 @@ void ShaderManagerVulkan::GetShaders(int prim, VertexDecoder *decoder, VulkanVer
 		return;
 	}
 
-	std::lock_guard<std::mutex> guard(cacheLock_);
-
 	VulkanContext *vulkan = (VulkanContext *)draw_->GetNativeObject(Draw::NativeObject::CONTEXT);
 	VulkanVertexShader *vs = nullptr;
 	if (!vsCache_.Get(VSID, &vs)) {
@@ -399,7 +395,6 @@ void ShaderManagerVulkan::GetShaders(int prim, VertexDecoder *decoder, VulkanVer
 }
 
 std::vector<std::string> ShaderManagerVulkan::DebugGetShaderIDs(DebugShaderType type) {
-	std::lock_guard<std::mutex> guard(cacheLock_);
 	std::vector<std::string> ids;
 	switch (type) {
 	case SHADER_TYPE_VERTEX:
@@ -586,8 +581,7 @@ bool ShaderManagerVulkan::LoadCache(FILE *f) {
 			continue;
 		}
 		_assert_msg_(strlen(codeBuffer_) < CODE_BUFFER_SIZE, "VS length error: %d", (int)strlen(codeBuffer_));
-		// Don't add the new shader if already compiled (can happen since this is a background thread).
-		std::lock_guard<std::mutex> guard(cacheLock_);
+		// Don't add the new shader if already compiled - though this should no longer happen.
 		if (!vsCache_.ContainsKey(id)) {
 			VulkanVertexShader *vs = new VulkanVertexShader(vulkan, id, flags, codeBuffer_, useHWTransform);
 			vsCache_.Insert(id, vs);
@@ -611,7 +605,6 @@ bool ShaderManagerVulkan::LoadCache(FILE *f) {
 			continue;
 		}
 		_assert_msg_(strlen(codeBuffer_) < CODE_BUFFER_SIZE, "FS length error: %d", (int)strlen(codeBuffer_));
-		std::lock_guard<std::mutex> guard(cacheLock_);
 		if (!fsCache_.ContainsKey(id)) {
 			VulkanFragmentShader *fs = new VulkanFragmentShader(vulkan, id, flags, codeBuffer_);
 			fsCache_.Insert(id, fs);
@@ -634,7 +627,6 @@ bool ShaderManagerVulkan::LoadCache(FILE *f) {
 				continue;
 			}
 			_assert_msg_(strlen(codeBuffer_) < CODE_BUFFER_SIZE, "GS length error: %d", (int)strlen(codeBuffer_));
-			std::lock_guard<std::mutex> guard(cacheLock_);
 			if (!gsCache_.ContainsKey(id)) {
 				VulkanGeometryShader *gs = new VulkanGeometryShader(vulkan, id, codeBuffer_);
 				gsCache_.Insert(id, gs);

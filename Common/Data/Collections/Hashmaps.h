@@ -72,7 +72,7 @@ public:
 	}
 
 	bool ContainsKey(const Key &key) const {
-		// Slightly wasteful.
+		// Slightly wasteful, though compiler might optimize it.
 		Value value;
 		return Get(key, &value);
 	}
