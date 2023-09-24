@@ -80,7 +80,12 @@ Arm64JitBackend::LoadStoreArg Arm64JitBackend::PrepareSrc1Address(IRInst inst) {
 	// If it's about to be clobbered, don't waste time pointerifying.  Use displacement.
 	bool clobbersSrc1 = !readsFromSrc1 && regs_.IsGPRClobbered(inst.src1);
 
-	int32_t imm = (int32_t)inst.constant;
+	int64_t imm = (int32_t)inst.constant;
+	// It can't be this negative, must be a constant address with the top bit set.
+	if ((imm & 0xC0000000) == 0x80000000) {
+		imm = (uint64_t)(uint32_t)inst.constant;
+	}
+
 	LoadStoreArg addrArg;
 	if (inst.src1 == MIPS_REG_ZERO) {
 		// The constant gets applied later.
@@ -100,7 +105,7 @@ Arm64JitBackend::LoadStoreArg Arm64JitBackend::PrepareSrc1Address(IRInst inst) {
 
 		// Since we can't modify src1, let's just use a temp reg while copying.
 		if (!addrArg.useRegisterOffset) {
-			ADDI2R(SCRATCH1, regs_.MapGPR(inst.src1), (s64)imm, SCRATCH2);
+			ADDI2R(SCRATCH1, regs_.MapGPR(inst.src1), imm, SCRATCH2);
 #ifdef MASKED_PSP_MEMORY
 			ANDI2R(SCRATCH1, SCRATCH1, Memory::MEMVIEW32_MASK, SCRATCH2);
 #endif
@@ -114,7 +119,7 @@ Arm64JitBackend::LoadStoreArg Arm64JitBackend::PrepareSrc1Address(IRInst inst) {
 		// The offset gets set later.
 		addrArg.base = regs_.MapGPRAsPointer(inst.src1);
 	} else {
-		ADDI2R(SCRATCH1, regs_.MapGPR(inst.src1), (s64)imm, SCRATCH2);
+		ADDI2R(SCRATCH1, regs_.MapGPR(inst.src1), imm, SCRATCH2);
 #ifdef MASKED_PSP_MEMORY
 		ANDI2R(SCRATCH1, SCRATCH1, Memory::MEMVIEW32_MASK, SCRATCH2);
 #endif
@@ -137,15 +142,15 @@ Arm64JitBackend::LoadStoreArg Arm64JitBackend::PrepareSrc1Address(IRInst inst) {
 		int scale = IROpToByteWidth(inst.op);
 		if (imm > 0 && (imm & (scale - 1)) == 0 && imm <= 0xFFF * scale) {
 			// Okay great, use the LDR/STR form.
-			addrArg.immOffset = imm;
+			addrArg.immOffset = (int)imm;
 			addrArg.useUnscaled = false;
 		} else if (imm >= -256 && imm < 256) {
 			// An unscaled offset (LDUR/STUR) should work fine for this range.
-			addrArg.immOffset = imm;
+			addrArg.immOffset = (int)imm;
 			addrArg.useUnscaled = true;
 		} else {
 			// No luck, we'll need to load into a register.
-			MOVI2R(SCRATCH1, (s64)imm);
+			MOVI2R(SCRATCH1, imm);
 			addrArg.regOffset = SCRATCH1;
 			addrArg.useRegisterOffset = true;
 			addrArg.signExtendRegOffset = true;
