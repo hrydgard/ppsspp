@@ -259,19 +259,15 @@ void ShaderManagerVulkan::Clear() {
 
 void ShaderManagerVulkan::ClearShaders() {
 	Clear();
-	DirtyShader();
+	DirtyLastShader();
 	gstate_c.Dirty(DIRTY_ALL_UNIFORMS | DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE | DIRTY_GEOMETRYSHADER_STATE);
 }
 
-void ShaderManagerVulkan::DirtyShader() {
+void ShaderManagerVulkan::DirtyLastShader() {
 	// Forget the last shader ID
 	lastFSID_.set_invalid();
 	lastVSID_.set_invalid();
 	lastGSID_.set_invalid();
-	DirtyLastShader();
-}
-
-void ShaderManagerVulkan::DirtyLastShader() {
 	lastVShader_ = nullptr;
 	lastFShader_ = nullptr;
 	lastGShader_ = nullptr;
@@ -293,29 +289,95 @@ uint64_t ShaderManagerVulkan::UpdateUniforms(bool useBufferedRendering) {
 }
 
 void ShaderManagerVulkan::GetShaders(int prim, VertexDecoder *decoder, VulkanVertexShader **vshader, VulkanFragmentShader **fshader, VulkanGeometryShader **gshader, const ComputedPipelineState &pipelineState, bool useHWTransform, bool useHWTessellation, bool weightsAsFloat, bool useSkinInDecode) {
+	VulkanContext *vulkan = (VulkanContext *)draw_->GetNativeObject(Draw::NativeObject::CONTEXT);
+
 	VShaderID VSID;
+	VulkanVertexShader *vs = nullptr;
 	if (gstate_c.IsDirty(DIRTY_VERTEXSHADER_STATE)) {
 		gstate_c.Clean(DIRTY_VERTEXSHADER_STATE);
 		ComputeVertexShaderID(&VSID, decoder, useHWTransform, useHWTessellation, weightsAsFloat, useSkinInDecode);
+		if (VSID == lastVSID_) {
+			_dbg_assert_(lastVShader_ != nullptr);
+			vs = lastVShader_;
+		} else if (!vsCache_.Get(VSID, &vs)) {
+			// Vertex shader not in cache. Let's compile it.
+			std::string genErrorString;
+			uint64_t uniformMask = 0;  // Not used
+			uint32_t attributeMask = 0;  // Not used
+			VertexShaderFlags flags{};
+			bool success = GenerateVertexShader(VSID, codeBuffer_, compat_, draw_->GetBugs(), &attributeMask, &uniformMask, &flags, &genErrorString);
+			_assert_msg_(success, "VS gen error: %s", genErrorString.c_str());
+			_assert_msg_(strlen(codeBuffer_) < CODE_BUFFER_SIZE, "VS length error: %d", (int)strlen(codeBuffer_));
+
+			// Don't need to re-lookup anymore, now that we lock wider.
+			vs = new VulkanVertexShader(vulkan, VSID, flags, codeBuffer_, useHWTransform);
+			vsCache_.Insert(VSID, vs);
+		}
+		lastVShader_ = vs;
+		lastVSID_ = VSID;
 	} else {
 		VSID = lastVSID_;
+		vs = lastVShader_;
 	}
+	*vshader = vs;
 
 	FShaderID FSID;
+	VulkanFragmentShader *fs = nullptr;
 	if (gstate_c.IsDirty(DIRTY_FRAGMENTSHADER_STATE)) {
 		gstate_c.Clean(DIRTY_FRAGMENTSHADER_STATE);
 		ComputeFragmentShaderID(&FSID, pipelineState, draw_->GetBugs());
+		if (FSID == lastFSID_) {
+			_dbg_assert_(lastFShader_ != nullptr);
+			fs = lastFShader_;
+		} else if (!fsCache_.Get(FSID, &fs)) {
+			// Fragment shader not in cache. Let's compile it.
+			std::string genErrorString;
+			uint64_t uniformMask = 0;  // Not used
+			FragmentShaderFlags flags{};
+			bool success = GenerateFragmentShader(FSID, codeBuffer_, compat_, draw_->GetBugs(), &uniformMask, &flags, &genErrorString);
+			_assert_msg_(success, "FS gen error: %s", genErrorString.c_str());
+			_assert_msg_(strlen(codeBuffer_) < CODE_BUFFER_SIZE, "FS length error: %d", (int)strlen(codeBuffer_));
+
+			fs = new VulkanFragmentShader(vulkan, FSID, flags, codeBuffer_);
+			fsCache_.Insert(FSID, fs);
+		}
+		lastFShader_ = fs;
+		lastFSID_ = FSID;
 	} else {
 		FSID = lastFSID_;
+		fs = lastFShader_;
 	}
+	*fshader = fs;
 
 	GShaderID GSID;
+	VulkanGeometryShader *gs = nullptr;
 	if (gstate_c.IsDirty(DIRTY_GEOMETRYSHADER_STATE)) {
 		gstate_c.Clean(DIRTY_GEOMETRYSHADER_STATE);
 		ComputeGeometryShaderID(&GSID, draw_->GetBugs(), prim);
+		if (GSID == lastGSID_) {
+			// it's ok for this to be null.
+			gs = lastGShader_;
+		} else if (GSID.Bit(GS_BIT_ENABLED)) {
+			if (!gsCache_.Get(GSID, &gs)) {
+				// Geometry shader not in cache. Let's compile it.
+				std::string genErrorString;
+				bool success = GenerateGeometryShader(GSID, codeBuffer_, compat_, draw_->GetBugs(), &genErrorString);
+				_assert_msg_(success, "GS gen error: %s", genErrorString.c_str());
+				_assert_msg_(strlen(codeBuffer_) < CODE_BUFFER_SIZE, "GS length error: %d", (int)strlen(codeBuffer_));
+
+				gs = new VulkanGeometryShader(vulkan, GSID, codeBuffer_);
+				gsCache_.Insert(GSID, gs);
+			}
+		} else {
+			gs = nullptr;
+		}
+		lastGShader_ = gs;
+		lastGSID_ = GSID;
 	} else {
 		GSID = lastGSID_;
+		gs = lastGShader_;
 	}
+	*gshader = gs;
 
 	_dbg_assert_(FSID.Bit(FS_BIT_FLATSHADE) == VSID.Bit(VS_BIT_FLATSHADE));
 	_dbg_assert_(FSID.Bit(FS_BIT_LMODE) == VSID.Bit(VS_BIT_LMODE));
@@ -323,74 +385,6 @@ void ShaderManagerVulkan::GetShaders(int prim, VertexDecoder *decoder, VulkanVer
 		_dbg_assert_(GSID.Bit(GS_BIT_LMODE) == VSID.Bit(VS_BIT_LMODE));
 	}
 
-	// Just update uniforms if this is the same shader as last time.
-	if (lastVShader_ != nullptr && lastFShader_ != nullptr && VSID == lastVSID_ && FSID == lastFSID_ && GSID == lastGSID_) {
-		*vshader = lastVShader_;
-		*fshader = lastFShader_;
-		*gshader = lastGShader_;
-		_dbg_assert_msg_((*vshader)->UseHWTransform() == useHWTransform, "Bad vshader was cached");
-		// Already all set, no need to look up in shader maps.
-		return;
-	}
-
-	VulkanContext *vulkan = (VulkanContext *)draw_->GetNativeObject(Draw::NativeObject::CONTEXT);
-	VulkanVertexShader *vs = nullptr;
-	if (!vsCache_.Get(VSID, &vs)) {
-		// Vertex shader not in cache. Let's compile it.
-		std::string genErrorString;
-		uint64_t uniformMask = 0;  // Not used
-		uint32_t attributeMask = 0;  // Not used
-		VertexShaderFlags flags{};
-		bool success = GenerateVertexShader(VSID, codeBuffer_, compat_, draw_->GetBugs(), &attributeMask, &uniformMask, &flags, &genErrorString);
-		_assert_msg_(success, "VS gen error: %s", genErrorString.c_str());
-		_assert_msg_(strlen(codeBuffer_) < CODE_BUFFER_SIZE, "VS length error: %d", (int)strlen(codeBuffer_));
-
-		// Don't need to re-lookup anymore, now that we lock wider.
-		vs = new VulkanVertexShader(vulkan, VSID, flags, codeBuffer_, useHWTransform);
-		vsCache_.Insert(VSID, vs);
-	}
-
-	VulkanFragmentShader *fs = nullptr;
-	if (!fsCache_.Get(FSID, &fs)) {
-		// Fragment shader not in cache. Let's compile it.
-		std::string genErrorString;
-		uint64_t uniformMask = 0;  // Not used
-		FragmentShaderFlags flags{};
-		bool success = GenerateFragmentShader(FSID, codeBuffer_, compat_, draw_->GetBugs(), &uniformMask, &flags, &genErrorString);
-		_assert_msg_(success, "FS gen error: %s", genErrorString.c_str());
-		_assert_msg_(strlen(codeBuffer_) < CODE_BUFFER_SIZE, "FS length error: %d", (int)strlen(codeBuffer_));
-
-		fs = new VulkanFragmentShader(vulkan, FSID, flags, codeBuffer_);
-		fsCache_.Insert(FSID, fs);
-	}
-
-	VulkanGeometryShader *gs = nullptr;
-	if (GSID.Bit(GS_BIT_ENABLED)) {
-		if (!gsCache_.Get(GSID, &gs)) {
-			// Geometry shader not in cache. Let's compile it.
-			std::string genErrorString;
-			bool success = GenerateGeometryShader(GSID, codeBuffer_, compat_, draw_->GetBugs(), &genErrorString);
-			_assert_msg_(success, "GS gen error: %s", genErrorString.c_str());
-			_assert_msg_(strlen(codeBuffer_) < CODE_BUFFER_SIZE, "GS length error: %d", (int)strlen(codeBuffer_));
-
-			gs = new VulkanGeometryShader(vulkan, GSID, codeBuffer_);
-			gsCache_.Insert(GSID, gs);
-		}
-	} else {
-		gs = nullptr;
-	}
-
-	lastVSID_ = VSID;
-	lastFSID_ = FSID;
-	lastGSID_ = GSID;
-
-	lastVShader_ = vs;
-	lastFShader_ = fs;
-	lastGShader_ = gs;
-
-	*vshader = vs;
-	*fshader = fs;
-	*gshader = gs;
 	_dbg_assert_msg_((*vshader)->UseHWTransform() == useHWTransform, "Bad vshader was computed");
 }
 
