@@ -227,9 +227,11 @@ void ScreenManager::getFocusPosition(float &x, float &y, float &z) {
 }
 
 void ScreenManager::sendMessage(const char *msg, const char *value) {
-	if (!strcmp(msg, "recreateviews"))
+	if (!msg) {
+		_dbg_assert_msg_(false, "Empty msg in ScreenManager::sendMessage");
+	} else if (!strcmp(msg, "recreateviews")) {
 		RecreateAllViews();
-	if (!strcmp(msg, "lost_focus")) {
+	} else if (!strcmp(msg, "lost_focus")) {
 		TouchInput input{};
 		input.x = -50000.0f;
 		input.y = -50000.0f;
@@ -238,6 +240,7 @@ void ScreenManager::sendMessage(const char *msg, const char *value) {
 		input.id = 0;
 		touch(input);
 	}
+
 	if (!stack_.empty())
 		stack_.back().screen->sendMessage(msg, value);
 }

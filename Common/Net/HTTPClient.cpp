@@ -219,9 +219,9 @@ namespace http {
 
 // TODO: do something sane here
 constexpr const char *DEFAULT_USERAGENT = "PPSSPP";
+constexpr const char *HTTP_VERSION = "1.1";
 
 Client::Client() {
-	httpVersion_ = "1.1";
 	userAgent_ = DEFAULT_USERAGENT;
 }
 
@@ -353,7 +353,7 @@ int Client::SendRequestWithData(const char *method, const RequestParams &req, co
 		"\r\n";
 
 	buffer.Printf(tpl,
-		method, req.resource.c_str(), httpVersion_,
+		method, req.resource.c_str(), HTTP_VERSION,
 		host_.c_str(),
 		userAgent_.c_str(),
 		req.acceptMime,

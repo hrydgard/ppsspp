@@ -1486,6 +1486,12 @@ static u32 sceIoLseek32Async(int id, int offset, int whence) {
 }
 
 static FileNode *__IoOpen(int &error, const char *filename, int flags, int mode) {
+	if (!filename) {
+		// To prevent crashes. Not sure about the correct value.
+		error = SCE_KERNEL_ERROR_ERRNO_FILE_NOT_FOUND;
+		return nullptr;
+	}
+
 	int access = FILEACCESS_NONE;
 	if (flags & PSP_O_RDONLY)
 		access |= FILEACCESS_READ;
