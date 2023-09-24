@@ -828,7 +828,7 @@ bool CreateGlobalPipelines();
 bool NativeInitGraphics(GraphicsContext *graphicsContext) {
 	INFO_LOG(SYSTEM, "NativeInitGraphics");
 
-	_assert_(g_screenManager);
+	_assert_msg_(g_screenManager, "No screenmanager, bad init order. Backend = %d", g_Config.iGPUBackend);
 
 	// We set this now so any resize during init is processed later.
 	resized = false;

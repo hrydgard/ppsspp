@@ -516,11 +516,11 @@ bool InputMappingsFromPspButton(int btn, std::vector<MultiInputMapping> *mapping
 		return false;
 	}
 	bool mapped = false;
-	for (auto iter2 = iter->second.begin(); iter2 != iter->second.end(); ++iter2) {
-		bool ignore = ignoreMouse && iter2->HasMouse();
+	for (auto &iter2 : iter->second) {
+		bool ignore = ignoreMouse && iter2.HasMouse();
 		if (mappings && !ignore) {
 			mapped = true;
-			mappings->push_back(*iter2);
+			mappings->push_back(iter2);
 		}
 	}
 	return mapped;
@@ -536,8 +536,6 @@ bool PspButtonHasMappings(int btn) {
 }
 
 MappedAnalogAxes MappedAxesForDevice(InputDeviceID deviceId) {
-	MappedAnalogAxes result{};
-
 	// Find the axisId mapped for a specific virtual button.
 	auto findAxisId = [&](int btn) -> MappedAnalogAxis {
 		MappedAnalogAxis info{ -1 };
@@ -563,6 +561,7 @@ MappedAnalogAxes MappedAxesForDevice(InputDeviceID deviceId) {
 		return MappedAnalogAxis{ -1 };
 	};
 
+	MappedAnalogAxes result;
 	std::lock_guard<std::recursive_mutex> guard(g_controllerMapLock);
 	result.leftX = findAxisIdPair(VIRTKEY_AXIS_X_MIN, VIRTKEY_AXIS_X_MAX);
 	result.leftY = findAxisIdPair(VIRTKEY_AXIS_Y_MIN, VIRTKEY_AXIS_Y_MAX);
@@ -621,6 +620,7 @@ bool ReplaceSingleKeyMapping(int btn, int index, MultiInputMapping key) {
 }
 
 void DeleteNthMapping(int key, int number) {
+	std::lock_guard<std::recursive_mutex> guard(g_controllerMapLock);
 	auto iter = g_controllerMap.find(key);
 	if (iter != g_controllerMap.end()) {
 		if (number < iter->second.size()) {
@@ -699,6 +699,8 @@ void LoadFromIni(IniFile &file) {
 		return;
 	}
 
+	std::lock_guard<std::recursive_mutex> guard(g_controllerMapLock);
+
 	Section *controls = file.GetOrCreateSection("ControlMapping");
 	for (size_t i = 0; i < ARRAY_SIZE(psp_button_names); i++) {
 		std::string value;
@@ -729,6 +731,8 @@ void LoadFromIni(IniFile &file) {
 
 void SaveToIni(IniFile &file) {
 	Section *controls = file.GetOrCreateSection("ControlMapping");
+
+	std::lock_guard<std::recursive_mutex> guard(g_controllerMapLock);
 
 	for (size_t i = 0; i < ARRAY_SIZE(psp_button_names); i++) {
 		std::vector<MultiInputMapping> keys;
