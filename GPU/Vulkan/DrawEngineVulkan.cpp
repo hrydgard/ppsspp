@@ -99,8 +99,8 @@ void DrawEngineVulkan::InitDeviceObjects() {
 	bindings[3].descriptorCount = 1;
 	bindings[3].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
 	bindings[3].stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
-	if (gstate_c.Use(GPU_USE_GS_CULLING))
-		bindings[3].stageFlags |= VK_SHADER_STAGE_GEOMETRY_BIT;
+	if (draw_->GetDeviceCaps().geometryShaderSupported)
+		bindings[3].stageFlags |= VK_SHADER_STAGE_GEOMETRY_BIT;  // unlikely to have a penalty. if we check GPU_USE_GS_CULLING, we have problems on runtime toggle.
 	bindings[3].binding = DRAW_BINDING_DYNUBO_BASE;
 	bindings[4].descriptorCount = 1;
 	bindings[4].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;

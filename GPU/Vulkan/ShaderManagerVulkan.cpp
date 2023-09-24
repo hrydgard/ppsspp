@@ -239,6 +239,8 @@ void ShaderManagerVulkan::DeviceRestore(Draw::DrawContext *draw) {
 }
 
 void ShaderManagerVulkan::Clear() {
+	std::lock_guard<std::mutex> guard(cacheLock_);
+
 	fsCache_.Iterate([&](const FShaderID &key, VulkanFragmentShader *shader) {
 		delete shader;
 	});
@@ -333,6 +335,8 @@ void ShaderManagerVulkan::GetShaders(int prim, VertexDecoder *decoder, VulkanVer
 		return;
 	}
 
+	std::lock_guard<std::mutex> guard(cacheLock_);
+
 	VulkanContext *vulkan = (VulkanContext *)draw_->GetNativeObject(Draw::NativeObject::CONTEXT);
 	VulkanVertexShader *vs = nullptr;
 	if (!vsCache_.Get(VSID, &vs)) {
@@ -345,14 +349,12 @@ void ShaderManagerVulkan::GetShaders(int prim, VertexDecoder *decoder, VulkanVer
 		_assert_msg_(success, "VS gen error: %s", genErrorString.c_str());
 		_assert_msg_(strlen(codeBuffer_) < CODE_BUFFER_SIZE, "VS length error: %d", (int)strlen(codeBuffer_));
 
-		std::lock_guard<std::mutex> guard(cacheLock_);
-		if (!vsCache_.Get(VSID, &vs)) {
-			vs = new VulkanVertexShader(vulkan, VSID, flags, codeBuffer_, useHWTransform);
-			vsCache_.Insert(VSID, vs);
-		}
+		// Don't need to re-lookup anymore, now that we lock wider.
+		vs = new VulkanVertexShader(vulkan, VSID, flags, codeBuffer_, useHWTransform);
+		vsCache_.Insert(VSID, vs);
 	}
 
-	VulkanFragmentShader *fs;
+	VulkanFragmentShader *fs = nullptr;
 	if (!fsCache_.Get(FSID, &fs)) {
 		// Fragment shader not in cache. Let's compile it.
 		std::string genErrorString;
@@ -362,14 +364,11 @@ void ShaderManagerVulkan::GetShaders(int prim, VertexDecoder *decoder, VulkanVer
 		_assert_msg_(success, "FS gen error: %s", genErrorString.c_str());
 		_assert_msg_(strlen(codeBuffer_) < CODE_BUFFER_SIZE, "FS length error: %d", (int)strlen(codeBuffer_));
 
-		std::lock_guard<std::mutex> guard(cacheLock_);
-		if (!fsCache_.Get(FSID, &fs)) {
-			fs = new VulkanFragmentShader(vulkan, FSID, flags, codeBuffer_);
-			fsCache_.Insert(FSID, fs);
-		}
+		fs = new VulkanFragmentShader(vulkan, FSID, flags, codeBuffer_);
+		fsCache_.Insert(FSID, fs);
 	}
 
-	VulkanGeometryShader *gs;
+	VulkanGeometryShader *gs = nullptr;
 	if (GSID.Bit(GS_BIT_ENABLED)) {
 		if (!gsCache_.Get(GSID, &gs)) {
 			// Geometry shader not in cache. Let's compile it.
@@ -378,11 +377,8 @@ void ShaderManagerVulkan::GetShaders(int prim, VertexDecoder *decoder, VulkanVer
 			_assert_msg_(success, "GS gen error: %s", genErrorString.c_str());
 			_assert_msg_(strlen(codeBuffer_) < CODE_BUFFER_SIZE, "GS length error: %d", (int)strlen(codeBuffer_));
 
-			std::lock_guard<std::mutex> guard(cacheLock_);
-			if (!gsCache_.Get(GSID, &gs)) {
-				gs = new VulkanGeometryShader(vulkan, GSID, codeBuffer_);
-				gsCache_.Insert(GSID, gs);
-			}
+			gs = new VulkanGeometryShader(vulkan, GSID, codeBuffer_);
+			gsCache_.Insert(GSID, gs);
 		}
 	} else {
 		gs = nullptr;
@@ -403,6 +399,7 @@ void ShaderManagerVulkan::GetShaders(int prim, VertexDecoder *decoder, VulkanVer
 }
 
 std::vector<std::string> ShaderManagerVulkan::DebugGetShaderIDs(DebugShaderType type) {
+	std::lock_guard<std::mutex> guard(cacheLock_);
 	std::vector<std::string> ids;
 	switch (type) {
 	case SHADER_TYPE_VERTEX:
@@ -621,24 +618,27 @@ bool ShaderManagerVulkan::LoadCache(FILE *f) {
 		}
 	}
 
-	for (int i = 0; i < header.numGeometryShaders; i++) {
-		GShaderID id;
-		if (fread(&id, sizeof(id), 1, f) != 1) {
-			ERROR_LOG(G3D, "Vulkan shader cache truncated (in GeometryShaders)");
-			return false;
-		}
-		std::string genErrorString;
-		if (!GenerateGeometryShader(id, codeBuffer_, compat_, draw_->GetBugs(), &genErrorString)) {
-			ERROR_LOG(G3D, "Failed to generate geometry shader during cache load");
-			// We just ignore this one and carry on.
-			failCount++;
-			continue;
-		}
-		_assert_msg_(strlen(codeBuffer_) < CODE_BUFFER_SIZE, "GS length error: %d", (int)strlen(codeBuffer_));
-		std::lock_guard<std::mutex> guard(cacheLock_);
-		if (!gsCache_.ContainsKey(id)) {
-			VulkanGeometryShader *gs = new VulkanGeometryShader(vulkan, id, codeBuffer_);
-			gsCache_.Insert(id, gs);
+	// If it's not enabled, don't create shaders cached from earlier runs - creation will likely fail.
+	if (gstate_c.Use(GPU_USE_GS_CULLING)) {
+		for (int i = 0; i < header.numGeometryShaders; i++) {
+			GShaderID id;
+			if (fread(&id, sizeof(id), 1, f) != 1) {
+				ERROR_LOG(G3D, "Vulkan shader cache truncated (in GeometryShaders)");
+				return false;
+			}
+			std::string genErrorString;
+			if (!GenerateGeometryShader(id, codeBuffer_, compat_, draw_->GetBugs(), &genErrorString)) {
+				ERROR_LOG(G3D, "Failed to generate geometry shader during cache load");
+				// We just ignore this one and carry on.
+				failCount++;
+				continue;
+			}
+			_assert_msg_(strlen(codeBuffer_) < CODE_BUFFER_SIZE, "GS length error: %d", (int)strlen(codeBuffer_));
+			std::lock_guard<std::mutex> guard(cacheLock_);
+			if (!gsCache_.ContainsKey(id)) {
+				VulkanGeometryShader *gs = new VulkanGeometryShader(vulkan, id, codeBuffer_);
+				gsCache_.Insert(id, gs);
+			}
 		}
 	}
 
