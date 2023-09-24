@@ -201,14 +201,6 @@ u32 GPU_GLES::CheckGPUFeatures() const {
 	return features;
 }
 
-bool GPU_GLES::IsReady() {
-	return shaderManagerGL_->ContinuePrecompile();
-}
-
-void  GPU_GLES::CancelReady() {
-	shaderManagerGL_->CancelPrecompile();
-}
-
 void GPU_GLES::BuildReportingInfo() {
 	GLRenderManager *render = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
 
@@ -238,7 +230,6 @@ void GPU_GLES::DeviceLost() {
 	// Simply drop all caches and textures.
 	// FBOs appear to survive? Or no?
 	// TransformDraw has registered as a GfxResourceHolder.
-	CancelReady();
 	fragmentTestCache_.DeviceLost();
 
 	GPUCommonHW::DeviceLost();

@@ -78,13 +78,9 @@ public:
 
 	virtual void UpdateCmdInfo() = 0;
 
-	bool IsReady() override {
-		return true;
-	}
 	bool IsStarted() override {
 		return true;
 	}
-	void CancelReady() override {}
 	void Reinitialize() override;
 
 	void BeginHostFrame() override;

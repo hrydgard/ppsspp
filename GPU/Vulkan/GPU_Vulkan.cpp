@@ -422,10 +422,6 @@ void GPU_Vulkan::CheckRenderResized() {
 }
 
 void GPU_Vulkan::DeviceLost() {
-	CancelReady();
-	while (!IsReady()) {
-		sleep_ms(10);
-	}
 	// draw_ is normally actually still valid here in Vulkan. But we null it out in GPUCommonHW::DeviceLost so we don't try to use it again.
 	Draw::DrawContext *draw = draw_;
 	if (draw) {

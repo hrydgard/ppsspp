@@ -40,9 +40,6 @@ public:
 	// This gets called on startup and when we get back from settings.
 	u32 CheckGPUFeatures() const override;
 
-	bool IsReady() override;
-	void CancelReady() override;
-
 	void GetStats(char *buffer, size_t bufsize) override;
 
 	void DeviceLost() override;  // Only happens on Android. Drop all textures and shaders.

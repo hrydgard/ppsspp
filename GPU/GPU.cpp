@@ -53,14 +53,12 @@ static void SetGPU(T *obj) {
 #endif
 
 bool GPU_IsReady() {
-	if (gpu)
-		return gpu->IsReady();
-	return false;
+	return gpu != nullptr;
 }
 
 bool GPU_IsStarted() {
 	if (gpu)
-		return gpu->IsReady() && gpu->IsStarted();
+		return gpu->IsStarted();
 	return false;
 }
 
@@ -112,7 +110,7 @@ bool GPU_Init(GraphicsContext *ctx, Draw::DrawContext *draw) {
 #endif
 	}
 
-	if (gpu && gpu->IsReady() && !gpu->IsStarted())
+	if (gpu && !gpu->IsStarted())
 		SetGPU<SoftGPU>(nullptr);
 
 	return gpu != nullptr;
@@ -126,13 +124,6 @@ void GPU_Shutdown() {
 	// Reduce the risk for weird races with the Windows GE debugger.
 	gpuDebug = nullptr;
 
-	// Wait for IsReady, since it might be running on a thread.
-	if (gpu) {
-		gpu->CancelReady();
-		while (!gpu->IsReady()) {
-			sleep_ms(10);
-		}
-	}
 	delete gpu;
 	gpu = nullptr;
 }
