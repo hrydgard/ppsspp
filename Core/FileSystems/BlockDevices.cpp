@@ -393,7 +393,7 @@ NPDRMDemoBlockDevice::NPDRMDemoBlockDevice(FileLoader *fileLoader)
 
 	fileLoader_->ReadAt(0x24, 1, 4, &psarOffset);
 	size_t readSize = fileLoader_->ReadAt(psarOffset, 1, 256, &np_header);
-	if(readSize!=256){
+	if (readSize != 256){
 		ERROR_LOG(LOADER, "Invalid NPUMDIMG header!");
 	}
 
@@ -445,7 +445,6 @@ NPDRMDemoBlockDevice::NPDRMDemoBlockDevice(FileLoader *fileLoader)
 	}
 
 	currentBlock = -1;
-
 }
 
 NPDRMDemoBlockDevice::~NPDRMDemoBlockDevice()
