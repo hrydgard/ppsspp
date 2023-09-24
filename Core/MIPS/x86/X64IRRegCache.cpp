@@ -470,170 +470,173 @@ bool X64IRRegCache::TransferNativeReg(IRNativeReg nreg, IRNativeReg dest, MIPSLo
 		_assert_msg_(oldlanes != 0, "TransferNativeReg encountered nreg mismatch");
 		_assert_msg_(oldlanes != lanes, "TransferNativeReg transfer to same lanecount, misaligned?");
 
-		if (lanes == 1) {
-			// Okay, start by storing if dirty.
-			if (nr[nreg].isDirty) {
-				StoreNativeReg(nreg, oldfirst, oldlanes);
-				nr[nreg].isDirty = false;
-			}
-			// Next, shuffle the desired element into first place.
-			u8 shuf = VFPU_SWIZZLE(mr[first].lane, mr[first].lane, mr[first].lane, mr[first].lane);
-			if (mr[first].lane > 0 && cpu_info.bAVX && dest != nreg) {
-				emit_->VSHUFPS(128, FromNativeReg(dest), FromNativeReg(nreg), ::R(FromNativeReg(nreg)), shuf);
-			} else if (mr[first].lane <= 0 && dest != nreg) {
-				emit_->MOVAPS(FromNativeReg(dest), ::R(FromNativeReg(nreg)));
-			} else if (mr[first].lane > 0) {
-				if (dest != nreg)
-					emit_->MOVAPS(FromNativeReg(dest), ::R(FromNativeReg(nreg)));
-				emit_->SHUFPS(FromNativeReg(dest), ::R(FromNativeReg(dest)), shuf);
-			}
-
-			// TODO: Consider moving the others to free regs if available?  Likely will be wanted later.
-
-			// Now update accounting.
-			for (int i = 0; i < oldlanes; ++i) {
-				auto &mreg = mr[oldfirst + i];
-				if (oldfirst + i == first) {
-					mreg.lane = 0;
-					mreg.nReg = dest;
-				} else {
-					// No longer in a register.
-					mreg.nReg = -1;
-					mreg.lane = -1;
-					mreg.loc = MIPSLoc::MEM;
-				}
-			}
-
-			if (dest != nreg) {
-				nr[dest].isDirty = nr[nreg].isDirty;
-				nr[nreg].mipsReg = -1;
-				nr[nreg].isDirty = false;
-			}
-			nr[dest].mipsReg = first;
-
+		if (lanes == 1 && TransferVecTo1(nreg, dest, first, oldlanes))
 			return true;
-		}
-
-		if ((lanes == 4 || lanes == 2) && oldlanes == 1) {
-			X64Reg cur[4]{};
-			int numInRegs = 0;
-			int numDirty = 0;
-			bool unavail = false;
-			for (int i = 0; i < lanes; ++i) {
-				if (mr[first + i].lane != -1 || (i != 0 && mr[first + i].spillLockIRIndex >= irIndex_)) {
-					unavail = true;
-					break;
-				}
-
-				if (mr[first + i].nReg == -1) {
-					cur[i] = INVALID_REG;
-				} else {
-					cur[i] = FromNativeReg(mr[first + i].nReg);
-					numInRegs++;
-					if (nr[cur[i]].isDirty)
-						numDirty++;
-				}
-			}
-
-			if (numInRegs == 0)
-				unavail = true;
-
-			bool handled = false;
-			if (!unavail) {
-				// If everything's currently in a reg, move it into this reg.
-				if (lanes == 4) {
-					if (cur[0] == INVALID_REG) {
-						cur[0] = FromNativeReg(dest);
-						emit_->MOVSS(cur[0], MDisp(CTXREG, -128 + GetMipsRegOffset(first + 0)));
-						numInRegs++;
-					}
-
-					// A lot of other methods are possible, but seem to make things slower in practice.
-					if (numInRegs == 4) {
-						// y = yw##, x = xz##, x = xyzw.
-						emit_->UNPCKLPS(cur[1], ::R(cur[3]));
-						emit_->UNPCKLPS(cur[0], ::R(cur[2]));
-						emit_->UNPCKLPS(cur[0], ::R(cur[1]));
-						handled = true;
-					} else if (numInRegs == 2 && cur[1] != INVALID_REG) {
-						// x = xy##, then load zw.
-						emit_->UNPCKLPS(cur[0], ::R(cur[1]));
-						emit_->MOVHPS(cur[0], MDisp(CTXREG, -128 + GetMipsRegOffset(first + 2)));
-						handled = true;
-					} else if (cpu_info.bSSE4_1 && cur[1] != INVALID_REG && cur[2] != INVALID_REG) {
-						// x = xz##, z=w###, y=yw##, x=xyzw.
-						emit_->UNPCKLPS(cur[0], ::R(cur[2]));
-						emit_->MOVSS(cur[2], MDisp(CTXREG, -128 + GetMipsRegOffset(first + 3)));
-						emit_->UNPCKLPS(cur[1], ::R(cur[2]));
-						emit_->UNPCKLPS(cur[0], ::R(cur[1]));
-						handled = true;
-					} else if (cpu_info.bSSE4_1 && numDirty != 0 && cur[1] != INVALID_REG && cur[3] != INVALID_REG) {
-						// y = yw##, load z into x[1], x = xyzw.
-						emit_->UNPCKLPS(cur[1], ::R(cur[3]));
-						emit_->INSERTPS(cur[0], MDisp(CTXREG, -128 + GetMipsRegOffset(first + 2)), 1);
-						emit_->UNPCKLPS(cur[0], ::R(cur[1]));
-						handled = true;
-					} else if (cpu_info.bSSE4_1 && numDirty != 0 && cur[2] != INVALID_REG && cur[3] != INVALID_REG) {
-						// load y to x[1], z = zw##, x = xyzw.
-						emit_->INSERTPS(cur[0], MDisp(CTXREG, -128 + GetMipsRegOffset(first + 1)), 1);
-						emit_->UNPCKLPS(cur[2], ::R(cur[3]));
-						emit_->MOVLHPS(cur[0], cur[2]);
-						handled = true;
-					} else if (cpu_info.bSSE4_1) {
-						// TODO: This might be worse than flushing depending?
-						for (int i = 1; i < 4; ++i) {
-							if (cur[i] == INVALID_REG)
-								emit_->INSERTPS(cur[0], MDisp(CTXREG, -128 + GetMipsRegOffset(first + i)), i);
-							else
-								emit_->INSERTPS(cur[0], ::R(cur[i]), i, 0);
-						}
-						handled = true;
-					}
-				} else if (lanes == 2) {
-					if (cur[0] != INVALID_REG && cur[1] != INVALID_REG) {
-						emit_->UNPCKLPS(cur[0], ::R(cur[1]));
-						handled = true;
-					} else if (cur[0] != INVALID_REG && cpu_info.bSSE4_1) {
-						emit_->INSERTPS(cur[0], MDisp(CTXREG, -128 + GetMipsRegOffset(first + 1)), 1);
-						handled = true;
-					}
-				}
-			}
-
-			if (handled) {
-				mr[first].lane = 0;
-				for (int i = 0; i < lanes; ++i) {
-					if (mr[first + i].nReg != -1) {
-						// If this was dirty, the combined reg is now dirty.
-						if (nr[mr[first + i].nReg].isDirty)
-							nr[dest].isDirty = true;
-
-						// Throw away the other register we're no longer using.
-						if (i != 0)
-							DiscardNativeReg(mr[first + i].nReg);
-					}
-
-					// And set it as using the new one.
-					mr[first + i].lane = i;
-					mr[first + i].loc = type;
-					mr[first + i].nReg = dest;
-				}
-
-				if (cur[0] != FromNativeReg(dest))
-					emit_->MOVAPS(FromNativeReg(dest), ::R(cur[0]));
-
-				if (dest != nreg) {
-					nr[dest].mipsReg = first;
-					nr[nreg].mipsReg = -1;
-					nr[nreg].isDirty = false;
-				}
-
-				return true;
-			}
-		}
+		if (oldlanes == 1 && Transfer1ToVec(nreg, dest, first, lanes))
+			return true;
 	}
 
 	return IRNativeRegCacheBase::TransferNativeReg(nreg, dest, type, first, lanes, flags);
+}
+
+bool X64IRRegCache::TransferVecTo1(IRNativeReg nreg, IRNativeReg dest, IRReg first, int oldlanes) {
+	// Okay, start by storing if dirty.
+	// TODO: Consider moving the others to free regs if available?  Likely will be wanted later.
+	IRReg oldfirst = nr[nreg].mipsReg;
+	if (nr[nreg].isDirty) {
+		StoreNativeReg(nreg, oldfirst, oldlanes);
+		nr[nreg].isDirty = false;
+	}
+
+	// Next, shuffle the desired element into first place.
+	u8 shuf = VFPU_SWIZZLE(mr[first].lane, mr[first].lane, mr[first].lane, mr[first].lane);
+	if (mr[first].lane > 0 && cpu_info.bAVX && dest != nreg) {
+		emit_->VPERMILPS(128, FromNativeReg(dest), ::R(FromNativeReg(nreg)), shuf);
+	} else if (mr[first].lane <= 0 && dest != nreg) {
+		emit_->MOVAPS(FromNativeReg(dest), ::R(FromNativeReg(nreg)));
+	} else if (mr[first].lane > 0) {
+		if (mr[first].lane == 2) {
+			emit_->MOVHLPS(FromNativeReg(dest), FromNativeReg(nreg));
+		} else {
+			if (dest != nreg)
+				emit_->MOVAPS(FromNativeReg(dest), ::R(FromNativeReg(nreg)));
+			emit_->SHUFPS(FromNativeReg(dest), ::R(FromNativeReg(dest)), shuf);
+		}
+	}
+
+	// Now update accounting.
+	for (int i = 0; i < oldlanes; ++i) {
+		auto &mreg = mr[oldfirst + i];
+		if (oldfirst + i == first) {
+			mreg.lane = 0;
+			mreg.nReg = dest;
+		} else {
+			// No longer in a register.
+			mreg.nReg = -1;
+			mreg.lane = -1;
+			mreg.loc = MIPSLoc::MEM;
+		}
+	}
+
+	if (dest != nreg) {
+		nr[dest].isDirty = nr[nreg].isDirty;
+		nr[nreg].mipsReg = -1;
+		nr[nreg].isDirty = false;
+	}
+	nr[dest].mipsReg = first;
+
+	return true;
+}
+
+bool X64IRRegCache::Transfer1ToVec(IRNativeReg nreg, IRNativeReg dest, IRReg first, int lanes) {
+	X64Reg cur[4]{};
+	int numInRegs = 0;
+	int numDirty = 0;
+	for (int i = 0; i < lanes; ++i) {
+		if (mr[first + i].lane != -1 || (i != 0 && mr[first + i].spillLockIRIndex >= irIndex_)) {
+			// Can't do it, either double mapped or overlapping vec.
+			return false;
+		}
+
+		if (mr[first + i].nReg == -1) {
+			cur[i] = INVALID_REG;
+		} else {
+			cur[i] = FromNativeReg(mr[first + i].nReg);
+			numInRegs++;
+			if (nr[cur[i]].isDirty)
+				numDirty++;
+		}
+	}
+
+	// Shouldn't happen, this should only get called to transfer one in a reg.
+	if (numInRegs == 0)
+		return false;
+
+	// If everything's currently in a reg, move it into this reg.
+	if (lanes == 4) {
+		if (cur[0] == INVALID_REG) {
+			cur[0] = FromNativeReg(dest);
+			emit_->MOVSS(cur[0], MDisp(CTXREG, -128 + GetMipsRegOffset(first + 0)));
+			numInRegs++;
+		}
+
+		// A lot of other methods are possible, but seem to make things slower in practice.
+		if (numInRegs == 4) {
+			// y = yw##, x = xz##, x = xyzw.
+			emit_->UNPCKLPS(cur[1], ::R(cur[3]));
+			emit_->UNPCKLPS(cur[0], ::R(cur[2]));
+			emit_->UNPCKLPS(cur[0], ::R(cur[1]));
+		} else if (numInRegs == 2 && cur[1] != INVALID_REG) {
+			// x = xy##, then load zw.
+			emit_->UNPCKLPS(cur[0], ::R(cur[1]));
+			emit_->MOVHPS(cur[0], MDisp(CTXREG, -128 + GetMipsRegOffset(first + 2)));
+		} else if (cur[1] != INVALID_REG && cur[2] != INVALID_REG) {
+			// x = xz##, z=w###, y=yw##, x=xyzw.
+			emit_->UNPCKLPS(cur[0], ::R(cur[2]));
+			emit_->MOVSS(cur[2], MDisp(CTXREG, -128 + GetMipsRegOffset(first + 3)));
+			emit_->UNPCKLPS(cur[1], ::R(cur[2]));
+			emit_->UNPCKLPS(cur[0], ::R(cur[1]));
+		} else if (cpu_info.bSSE4_1 && numDirty != 0 && cur[1] != INVALID_REG && cur[3] != INVALID_REG) {
+			// y = yw##, load z into x[1], x = xyzw.
+			emit_->UNPCKLPS(cur[1], ::R(cur[3]));
+			emit_->INSERTPS(cur[0], MDisp(CTXREG, -128 + GetMipsRegOffset(first + 2)), 1);
+			emit_->UNPCKLPS(cur[0], ::R(cur[1]));
+		} else if (cpu_info.bSSE4_1 && numDirty != 0 && cur[2] != INVALID_REG && cur[3] != INVALID_REG) {
+			// load y to x[1], z = zw##, x = xyzw.
+			emit_->INSERTPS(cur[0], MDisp(CTXREG, -128 + GetMipsRegOffset(first + 1)), 1);
+			emit_->UNPCKLPS(cur[2], ::R(cur[3]));
+			emit_->MOVLHPS(cur[0], cur[2]);
+		} else if (cpu_info.bSSE4_1) {
+			// TODO: This might be worse than flushing depending?
+			for (int i = 1; i < 4; ++i) {
+				if (cur[i] == INVALID_REG)
+					emit_->INSERTPS(cur[0], MDisp(CTXREG, -128 + GetMipsRegOffset(first + i)), i);
+				else
+					emit_->INSERTPS(cur[0], ::R(cur[i]), i, 0);
+			}
+		} else {
+			return false;
+		}
+	} else if (lanes == 2) {
+		if (cur[0] != INVALID_REG && cur[1] != INVALID_REG) {
+			emit_->UNPCKLPS(cur[0], ::R(cur[1]));
+		} else if (cur[0] != INVALID_REG && cpu_info.bSSE4_1) {
+			emit_->INSERTPS(cur[0], MDisp(CTXREG, -128 + GetMipsRegOffset(first + 1)), 1);
+		} else {
+			return false;
+		}
+	} else {
+		return false;
+	}
+
+	mr[first].lane = 0;
+	for (int i = 0; i < lanes; ++i) {
+		if (mr[first + i].nReg != -1) {
+			// If this was dirty, the combined reg is now dirty.
+			if (nr[mr[first + i].nReg].isDirty)
+				nr[dest].isDirty = true;
+
+			// Throw away the other register we're no longer using.
+			if (i != 0)
+				DiscardNativeReg(mr[first + i].nReg);
+		}
+
+		// And set it as using the new one.
+		mr[first + i].lane = i;
+		mr[first + i].loc = MIPSLoc::FREG;
+		mr[first + i].nReg = dest;
+	}
+
+	if (cur[0] != FromNativeReg(dest))
+		emit_->MOVAPS(FromNativeReg(dest), ::R(cur[0]));
+
+	if (dest != nreg) {
+		nr[dest].mipsReg = first;
+		nr[nreg].mipsReg = -1;
+		nr[nreg].isDirty = false;
+	}
+
+	return true;
 }
 
 void X64IRRegCache::SetNativeRegValue(IRNativeReg nreg, uint32_t imm) {

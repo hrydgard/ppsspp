@@ -120,6 +120,9 @@ protected:
 	bool TransferNativeReg(IRNativeReg nreg, IRNativeReg dest, MIPSLoc type, IRReg first, int lanes, MIPSMap flags) override;
 
 private:
+	bool TransferVecTo1(IRNativeReg nreg, IRNativeReg dest, IRReg first, int oldlanes);
+	bool Transfer1ToVec(IRNativeReg nreg, IRNativeReg dest, IRReg first, int lanes);
+
 	IRNativeReg GPRToNativeReg(Gen::X64Reg r) {
 		return (IRNativeReg)r;
 	}
