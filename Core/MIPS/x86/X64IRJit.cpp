@@ -80,6 +80,7 @@ bool X64JitBackend::CompileBlock(IRBlock *block, int block_num, bool preload) {
 	const u8 *blockStart = GetCodePointer();
 	block->SetTargetOffset((int)GetOffset(blockStart));
 	compilingBlockNum_ = block_num;
+	lastConstPC_ = 0;
 
 	regs_.Start(block);
 

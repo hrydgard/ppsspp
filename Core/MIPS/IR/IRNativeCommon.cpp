@@ -19,7 +19,9 @@
 #include "Common/Profiler/Profiler.h"
 #include "Common/StringUtils.h"
 #include "Common/TimeUtil.h"
+#include "Core/Core.h"
 #include "Core/Debugger/SymbolMap.h"
+#include "Core/MemMap.h"
 #include "Core/MIPS/MIPSTables.h"
 #include "Core/MIPS/IR/IRNativeCommon.h"
 
@@ -97,6 +99,23 @@ uint32_t IRNativeBackend::DoIRInst(uint64_t value) {
 		debugSeenNotCompiledIR[(uint8_t)inst.op]++;
 
 	return IRInterpret(currentMIPS, &inst, 1);
+}
+
+int IRNativeBackend::ReportBadAddress(uint32_t addr, uint32_t alignment, uint32_t isWrite) {
+	const auto toss = [&](MemoryExceptionType t) {
+		Core_MemoryException(addr, alignment, currentMIPS->pc, t);
+		return coreState != CORE_RUNNING ? 1 : 0;
+	};
+
+	if (!Memory::IsValidRange(addr, alignment)) {
+		MemoryExceptionType t = isWrite == 1 ? MemoryExceptionType::WRITE_WORD : MemoryExceptionType::READ_WORD;
+		if (alignment > 4)
+			t = isWrite ? MemoryExceptionType::WRITE_BLOCK : MemoryExceptionType::READ_BLOCK;
+		return toss(t);
+	} else if (alignment > 1 && (addr & (alignment - 1)) != 0) {
+		return toss(MemoryExceptionType::ALIGNMENT);
+	}
+	return 0;
 }
 
 IRNativeBackend::IRNativeBackend(IRBlockCache &blocks) : blocks_(blocks) {}
