@@ -688,8 +688,9 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_init
 	EARLY_LOG("NativeApp.init() -- begin");
 	PROFILE_INIT();
 
-	std::lock_guard<std::mutex> guard(renderLock);  // Note: This is held for the rest of this function - intended?
+	std::lock_guard<std::mutex> guard(renderLock);  // Note: This is held for the rest of this function - intended? and even necessary?
 	renderer_inited = false;
+	exitRenderLoop = false;
 	androidVersion = jAndroidVersion;
 	deviceType = jdeviceType;
 
@@ -1462,10 +1463,18 @@ extern "C" bool JNICALL Java_org_ppsspp_ppsspp_NativeActivity_runVulkanRenderLoo
 
 	if (!graphicsContext) {
 		ERROR_LOG(G3D, "runVulkanRenderLoop: Tried to enter without a created graphics context.");
+		renderLoopRunning = false;
+		exitRenderLoop = false;
 		return false;
 	}
 
-	exitRenderLoop = false;
+	if (exitRenderLoop) {
+		WARN_LOG(G3D, "runVulkanRenderLoop: ExitRenderLoop requested at start, skipping the whole thing.");
+		renderLoopRunning = false;
+		exitRenderLoop = false;
+		return true;
+	}
+
 	// This is up here to prevent race conditions, in case we pause during init.
 	renderLoopRunning = true;
 
@@ -1525,6 +1534,7 @@ extern "C" bool JNICALL Java_org_ppsspp_ppsspp_NativeActivity_runVulkanRenderLoo
 	INFO_LOG(G3D, "Shutting down graphics context from render thread...");
 	graphicsContext->ShutdownFromRenderThread();
 	renderLoopRunning = false;
+	exitRenderLoop = false;
 
 	WARN_LOG(G3D, "Render loop function exited.");
 	return true;
