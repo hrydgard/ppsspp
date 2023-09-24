@@ -298,17 +298,23 @@ void Arm64JitBackend::CompIR_FCompare(IRInst inst) {
 
 	case IROp::FCmpVfpuAggregate:
 		regs_.MapGPR(IRREG_VFPU_CC, MIPSMap::DIRTY);
-		MOVI2R(SCRATCH1, inst.dest);
-		// Grab the any bit.
-		TST(regs_.R(IRREG_VFPU_CC), SCRATCH1);
-		CSET(SCRATCH2, CC_NEQ);
-		// Now the all bit, by clearing our mask to zero.
-		BICS(WZR, SCRATCH1, regs_.R(IRREG_VFPU_CC));
-		CSET(SCRATCH1, CC_EQ);
+		if (inst.dest == 1) {
+			// Just replicate the lowest bit to the others.
+			BFI(regs_.R(IRREG_VFPU_CC), regs_.R(IRREG_VFPU_CC), 4, 1);
+			BFI(regs_.R(IRREG_VFPU_CC), regs_.R(IRREG_VFPU_CC), 5, 1);
+		} else {
+			MOVI2R(SCRATCH1, inst.dest);
+			// Grab the any bit.
+			TST(regs_.R(IRREG_VFPU_CC), SCRATCH1);
+			CSET(SCRATCH2, CC_NEQ);
+			// Now the all bit, by clearing our mask to zero.
+			BICS(WZR, SCRATCH1, regs_.R(IRREG_VFPU_CC));
+			CSET(SCRATCH1, CC_EQ);
 
-		// Insert the bits into place.
-		BFI(regs_.R(IRREG_VFPU_CC), SCRATCH2, 4, 1);
-		BFI(regs_.R(IRREG_VFPU_CC), SCRATCH1, 5, 1);
+			// Insert the bits into place.
+			BFI(regs_.R(IRREG_VFPU_CC), SCRATCH2, 4, 1);
+			BFI(regs_.R(IRREG_VFPU_CC), SCRATCH1, 5, 1);
+		}
 		break;
 
 	default:

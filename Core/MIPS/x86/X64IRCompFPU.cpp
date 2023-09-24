@@ -296,25 +296,22 @@ void X64JitBackend::CompIR_FCompare(IRInst inst) {
 			break;
 
 		case IRFpCompareMode::EqualOrdered:
+		{
+			// Since UCOMISS doesn't give us ordered == directly, CMPSS is better.
+			regs_.SpillLockFPR(inst.src1, inst.src2);
+			X64Reg tempReg = regs_.GetAndLockTempFPR();
 			regs_.MapWithExtra(inst, { { 'G', IRREG_FPCOND, 1, MIPSMap::NOINIT } });
-			// Clear the upper bits of SCRATCH1 so we can AND later.
-			// We don't have a single flag we can check, unfortunately.
-			XOR(32, R(SCRATCH1), R(SCRATCH1));
-			UCOMISS(regs_.FX(inst.src1), regs_.F(inst.src2));
-			// E/ZF = EQUAL or UNORDERED (not exactly what we want.)
-			SETcc(CC_E, R(SCRATCH1));
-			if (regs_.HasLowSubregister(regs_.RX(IRREG_FPCOND))) {
-				// NP/!PF = ORDERED.
-				SETcc(CC_NP, regs_.R(IRREG_FPCOND));
-				AND(32, regs_.R(IRREG_FPCOND), R(SCRATCH1));
+
+			if (cpu_info.bAVX) {
+				VCMPSS(tempReg, regs_.FX(inst.src1), regs_.F(inst.src2), CMP_EQ);
 			} else {
-				MOVZX(32, 8, regs_.RX(IRREG_FPCOND), R(SCRATCH1));
-				// Neither of those affected flags, luckily.
-				// NP/!PF = ORDERED.
-				SETcc(CC_NP, R(SCRATCH1));
-				AND(32, regs_.R(IRREG_FPCOND), R(SCRATCH1));
+				MOVAPS(tempReg, regs_.F(inst.src1));
+				CMPSS(tempReg, regs_.F(inst.src2), CMP_EQ);
 			}
+			MOVD_xmm(regs_.R(IRREG_FPCOND), tempReg);
+			AND(32, regs_.R(IRREG_FPCOND), Imm32(1));
 			break;
+		}
 
 		case IRFpCompareMode::EqualUnordered:
 			regs_.MapWithExtra(inst, { { 'G', IRREG_FPCOND, 1, MIPSMap::NOINIT } });
@@ -481,23 +478,69 @@ void X64JitBackend::CompIR_FCompare(IRInst inst) {
 
 	case IROp::FCmpVfpuAggregate:
 		regs_.MapGPR(IRREG_VFPU_CC, MIPSMap::DIRTY);
-		// First, clear out the bits we're aggregating.
-		// The register refuses writes to bits outside 0x3F, and we're setting 0x30.
-		AND(32, regs_.R(IRREG_VFPU_CC), Imm8(0xF));
+		if (inst.dest == 1) {
+			// Special case 1, which is not uncommon.
+			AND(32, regs_.R(IRREG_VFPU_CC), Imm8(0xF));
+			BT(32, regs_.R(IRREG_VFPU_CC), Imm8(0));
+			FixupBranch skip = J_CC(CC_NC);
+			OR(32, regs_.R(IRREG_VFPU_CC), Imm8(0x30));
+			SetJumpTarget(skip);
+		} else if (inst.dest == 3) {
+			AND(32, regs_.R(IRREG_VFPU_CC), Imm8(0xF));
+			MOV(32, R(SCRATCH1), regs_.R(IRREG_VFPU_CC));
+			AND(32, R(SCRATCH1), Imm8(3));
+			// 0, 1, and 3 are already correct for the any and all bits.
+			CMP(32, R(SCRATCH1), Imm8(2));
 
-		// Set the any bit.
-		TEST(32, regs_.R(IRREG_VFPU_CC), Imm32(inst.dest));
-		SETcc(CC_NZ, R(SCRATCH1));
-		SHL(32, R(SCRATCH1), Imm8(4));
-		OR(32, regs_.R(IRREG_VFPU_CC), R(SCRATCH1));
+			FixupBranch skip = J_CC(CC_NE);
+			SUB(32, R(SCRATCH1), Imm8(1));
+			SetJumpTarget(skip);
 
-		// Next up, the "all" bit.  A bit annoying...
-		MOV(32, R(SCRATCH1), regs_.R(IRREG_VFPU_CC));
-		AND(32, R(SCRATCH1), Imm8(inst.dest));
-		CMP(32, R(SCRATCH1), Imm8(inst.dest));
-		SETcc(CC_E, R(SCRATCH1));
-		SHL(32, R(SCRATCH1), Imm8(5));
-		OR(32, regs_.R(IRREG_VFPU_CC), R(SCRATCH1));
+			SHL(32, R(SCRATCH1), Imm8(4));
+			OR(32, regs_.R(IRREG_VFPU_CC), R(SCRATCH1));
+		} else if (inst.dest == 0xF) {
+			XOR(32, R(SCRATCH1), R(SCRATCH1));
+
+			// Clear out the bits we're aggregating.
+			// The register refuses writes to bits outside 0x3F, and we're setting 0x30.
+			AND(32, regs_.R(IRREG_VFPU_CC), Imm8(0xF));
+
+			// Set the any bit, just using the AND above.
+			FixupBranch noneSet = J_CC(CC_Z);
+			OR(32, regs_.R(IRREG_VFPU_CC), Imm8(0x10));
+
+			// Next up, the "all" bit.
+			CMP(32, regs_.R(IRREG_VFPU_CC), Imm8(0xF));
+			SETcc(CC_E, R(SCRATCH1));
+			SHL(32, R(SCRATCH1), Imm8(5));
+			OR(32, regs_.R(IRREG_VFPU_CC), R(SCRATCH1));
+
+			SetJumpTarget(noneSet);
+		} else {
+			XOR(32, R(SCRATCH1), R(SCRATCH1));
+
+			// Clear out the bits we're aggregating.
+			// The register refuses writes to bits outside 0x3F, and we're setting 0x30.
+			AND(32, regs_.R(IRREG_VFPU_CC), Imm8(0xF));
+
+			// Set the any bit.
+			if (regs_.HasLowSubregister(regs_.RX(IRREG_VFPU_CC)))
+				TEST(8, regs_.R(IRREG_VFPU_CC), Imm8(inst.dest));
+			else
+				TEST(32, regs_.R(IRREG_VFPU_CC), Imm32(inst.dest));
+			FixupBranch noneSet = J_CC(CC_Z);
+			OR(32, regs_.R(IRREG_VFPU_CC), Imm8(0x10));
+
+			// Next up, the "all" bit.  A bit annoying...
+			MOV(32, R(SCRATCH1), regs_.R(IRREG_VFPU_CC));
+			AND(32, R(SCRATCH1), Imm8(inst.dest));
+			CMP(32, R(SCRATCH1), Imm8(inst.dest));
+			SETcc(CC_E, R(SCRATCH1));
+			SHL(32, R(SCRATCH1), Imm8(5));
+			OR(32, regs_.R(IRREG_VFPU_CC), R(SCRATCH1));
+
+			SetJumpTarget(noneSet);
+		}
 		break;
 
 	default:
