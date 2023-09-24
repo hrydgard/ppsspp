@@ -92,6 +92,8 @@ public:
 
 	void MapWithFlags(IRInst inst, X64IRJitConstants::X64Map destFlags, X64IRJitConstants::X64Map src1Flags = X64IRJitConstants::X64Map::NONE, X64IRJitConstants::X64Map src2Flags = X64IRJitConstants::X64Map::NONE);
 
+	// Note: may change the high lanes of single-register XMMs.
+	void FlushAll(bool gprs = true, bool fprs = true) override;
 	void FlushBeforeCall();
 
 	Gen::X64Reg GetAndLockTempGPR();

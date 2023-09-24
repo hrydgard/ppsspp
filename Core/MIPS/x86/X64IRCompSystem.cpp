@@ -62,6 +62,20 @@ void X64JitBackend::CompIR_Basic(IRInst inst) {
 		regs_.Map(inst);
 		if (inst.constant == 0) {
 			XORPS(regs_.FX(inst.dest), regs_.F(inst.dest));
+		} else if (inst.constant == 0x7FFFFFFF) {
+			MOVSS(regs_.FX(inst.dest), M(constants.noSignMask));  // rip accessible
+		} else if (inst.constant == 0x80000000) {
+			MOVSS(regs_.FX(inst.dest), M(constants.signBitAll));  // rip accessible
+		} else if (inst.constant == 0x7F800000) {
+			MOVSS(regs_.FX(inst.dest), M(constants.positiveInfinity));  // rip accessible
+		} else if (inst.constant == 0x7FC00000) {
+			MOVSS(regs_.FX(inst.dest), M(constants.qNAN));  // rip accessible
+		} else if (inst.constant == 0x3F800000) {
+			MOVSS(regs_.FX(inst.dest), M(constants.positiveOnes));  // rip accessible
+		} else if (inst.constant == 0xBF800000) {
+			MOVSS(regs_.FX(inst.dest), M(constants.negativeOnes));  // rip accessible
+		} else if (inst.constant == 0x4EFFFFFF) {
+			MOVSS(regs_.FX(inst.dest), M(constants.maxIntBelowAsFloat));  // rip accessible
 		} else {
 			MOV(32, R(SCRATCH1), Imm32(inst.constant));
 			MOVD_xmm(regs_.FX(inst.dest), R(SCRATCH1));
