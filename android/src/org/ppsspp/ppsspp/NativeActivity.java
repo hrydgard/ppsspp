@@ -785,7 +785,7 @@ public abstract class NativeActivity extends Activity {
 		// TODO: Can we ensure that the GL thread has stopped rendering here?
 		// I've seen crashes that seem to indicate that sometimes it hasn't...
 		NativeApp.audioShutdown();
-		if (shuttingDown || isFinishing()) {
+		if (shuttingDown) {
 			NativeApp.shutdown();
 			unregisterCallbacks();
 			initialized = false;
