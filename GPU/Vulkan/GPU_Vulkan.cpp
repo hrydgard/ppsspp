@@ -97,10 +97,6 @@ GPU_Vulkan::GPU_Vulkan(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	}
 }
 
-bool GPU_Vulkan::IsReady() {
-	return true;
-}
-
 void GPU_Vulkan::LoadCache(const Path &filename) {
 	if (!g_Config.bShaderCache) {
 		WARN_LOG(G3D, "Shader cache disabled. Not loading.");
@@ -303,7 +299,7 @@ void GPU_Vulkan::BeginHostFrame() {
 
 	framebufferManager_->BeginFrame();
 
-	shaderManagerVulkan_->DirtyShader();
+	shaderManagerVulkan_->DirtyLastShader();
 	gstate_c.Dirty(DIRTY_ALL);
 
 	if (gstate_c.useFlagsChanged) {

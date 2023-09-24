@@ -41,8 +41,6 @@ public:
 	// This gets called on startup and when we get back from settings.
 	u32 CheckGPUFeatures() const override;
 
-	bool IsReady() override;
-
 	// These are where we can reset command buffers etc.
 	void BeginHostFrame() override;
 	void EndHostFrame() override;

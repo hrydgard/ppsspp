@@ -277,7 +277,7 @@ void GPU_GLES::BeginFrame() {
 	if (shaderCachePath_.Valid() && (gpuStats.numFlips & 4095) == 0) {
 		shaderManagerGL_->SaveCache(shaderCachePath_, &drawEngine_);
 	}
-	shaderManagerGL_->DirtyShader();
+	shaderManagerGL_->DirtyLastShader();
 
 	// Not sure if this is really needed.
 	gstate_c.Dirty(DIRTY_ALL_UNIFORMS);
