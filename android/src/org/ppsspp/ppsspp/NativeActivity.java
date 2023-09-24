@@ -677,6 +677,12 @@ public abstract class NativeActivity extends Activity {
 
 	public void notifySurface(Surface surface) {
 		mSurface = surface;
+
+		if (!initialized) {
+			Log.e(TAG, "Can't deal with surfaces while not initialized");
+			return;
+		}
+
 		if (!javaGL) {
 			// If we got a surface, this starts the thread. If not, it doesn't.
 			if (mSurface == null) {
@@ -741,12 +747,6 @@ public abstract class NativeActivity extends Activity {
 	}
 
 	@Override
-	protected void onStop() {
-		super.onStop();
-		Log.i(TAG, "onStop - do nothing special");
-	}
-
-	@Override
 	protected void onDestroy() {
 		super.onDestroy();
 		Log.i(TAG, "onDestroy");
@@ -803,6 +803,7 @@ public abstract class NativeActivity extends Activity {
 		super.onPause();
 		Log.i(TAG, "onPause");
 		loseAudioFocus(this.audioManager, this.audioFocusChangeListener);
+		sizeManager.setPaused(true);
 		NativeApp.pause();
 		if (!javaGL) {
 			mSurfaceView.onPause();
@@ -838,6 +839,7 @@ public abstract class NativeActivity extends Activity {
 	protected void onResume() {
 		super.onResume();
 		updateSustainedPerformanceMode();
+		sizeManager.setPaused(false);
 		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.ICE_CREAM_SANDWICH) {
 			updateSystemUiVisibility();
 		}
