@@ -662,7 +662,7 @@ public abstract class NativeActivity extends Activity {
 			Log.i(TAG, "setcontentview before");
 			setContentView(mSurfaceView);
 			Log.i(TAG, "setcontentview after");
-			ensureRenderLoop();
+			startRenderLoopThread();
 		}
 	}
 
@@ -682,7 +682,7 @@ public abstract class NativeActivity extends Activity {
 			if (mSurface == null) {
 				joinRenderLoopThread();
 			} else {
-				ensureRenderLoop();
+				startRenderLoopThread();
 			}
 		}
 		updateSustainedPerformanceMode();
@@ -690,7 +690,7 @@ public abstract class NativeActivity extends Activity {
 
 	// Invariants: After this, mRenderLoopThread will be set, and the thread will be running,
 	// if in Vulkan mode.
-	protected synchronized void ensureRenderLoop() {
+	protected synchronized void startRenderLoopThread() {
 		if (javaGL) {
 			Log.e(TAG, "JavaGL mode - should not get into ensureRenderLoop.");
 			return;
@@ -866,7 +866,7 @@ public abstract class NativeActivity extends Activity {
 
 		if (!javaGL) {
 			// Restart the render loop.
-			ensureRenderLoop();
+			startRenderLoopThread();
 		}
 	}
 
