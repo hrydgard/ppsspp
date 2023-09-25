@@ -1068,6 +1068,8 @@ void Config::UpdateAfterSettingAutoFrameSkip() {
 }
 
 void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
+	double startTime = time_now_d();
+
 	if (!bUpdatedInstanceCounter) {
 		InitInstanceCounter();
 		bUpdatedInstanceCounter = true;
@@ -1209,10 +1211,11 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 
 	PostLoadCleanup(false);
 
-	INFO_LOG(LOADER, "Config loaded: '%s'", iniFilename_.c_str());
+	INFO_LOG(LOADER, "Config loaded: '%s' (%0.1f ms)", iniFilename_.c_str(), (time_now_d() - startTime) * 1000.0);
 }
 
 bool Config::Save(const char *saveReason) {
+	double startTime = time_now_d();
 	if (!IsFirstInstance()) {
 		// TODO: Should we allow saving config if started from a different directory?
 		// How do we tell?
@@ -1291,7 +1294,7 @@ bool Config::Save(const char *saveReason) {
 			ERROR_LOG(LOADER, "Error saving config (%s)- can't write ini '%s'", saveReason, iniFilename_.c_str());
 			return false;
 		}
-		INFO_LOG(LOADER, "Config saved (%s): '%s'", saveReason, iniFilename_.c_str());
+		INFO_LOG(LOADER, "Config saved (%s): '%s' (%0.1f ms)", saveReason, iniFilename_.c_str(), (time_now_d() - startTime) * 1000.0);
 
 		if (!bGameSpecific) //otherwise we already did this in saveGameConfig()
 		{
