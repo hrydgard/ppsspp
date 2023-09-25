@@ -25,6 +25,14 @@ If you want to download regularly updated builds for Android, Windows x86 and x6
 
 For game compatibility, see [community compatibility feedback](https://report.ppsspp.org/games).
 
+What's new in 1.16.4
+====================
+- Simplify shader cache lookups on Vulkan, hopefully fixing some crashes ([#18218])
+- Assorted improvements to the IR JITs ([#18228], [#18235], [#18211], more)
+- Other crash and stability fixes ([#18221], [#18220], [#18230], [#18216])
+- Some translation updates ([#18237], more)
+- Cleanups and assert fixes ([#18205], [#18201], [#18206])
+
 What's new in 1.16.3
 ====================
 - Fix crash bug and performance issue in Vulkan shader cache ([#18183], [#18189])
@@ -414,3 +422,15 @@ Credit goes to:
 [#18184]: https://github.com/hrydgard/ppsspp/issues/18184 "Add memory bounds-check when expanding points, rects and lines to triangles"
 [#18194]: https://github.com/hrydgard/ppsspp/issues/18194 "Cleanups and comment clarifications"
 [#18182]: https://github.com/hrydgard/ppsspp/issues/18182 "Backend change from Win32 menu: Add quick workaround for instance counter misbehavior"
+[#18218]: https://github.com/hrydgard/ppsspp/issues/18218 "Vulkan: Simplify GetShaders and DirtyLastShader, making them internally consistent."
+[#18228]: https://github.com/hrydgard/ppsspp/issues/18228 "unittest: Add jit compare for jit IR"
+[#18235]: https://github.com/hrydgard/ppsspp/issues/18235 "irjit: Handle VDet"
+[#18211]: https://github.com/hrydgard/ppsspp/issues/18211 "More crash fix attempts"
+[#18221]: https://github.com/hrydgard/ppsspp/issues/18221 "Some cleanups and fixes to obscure crashes"
+[#18220]: https://github.com/hrydgard/ppsspp/issues/18220 "Add some missing locking in KeyMap.cpp."
+[#18230]: https://github.com/hrydgard/ppsspp/issues/18230 "Android: Minor activity lifecycle stuff"
+[#18216]: https://github.com/hrydgard/ppsspp/issues/18216 "Don't load the shader cache on a separate thread - all it does is already async"
+[#18237]: https://github.com/hrydgard/ppsspp/issues/18237 "UI/localization: Italian translation update"
+[#18205]: https://github.com/hrydgard/ppsspp/issues/18205 "http: Fix errors on connect"
+[#18201]: https://github.com/hrydgard/ppsspp/issues/18201 "Asserts and checks"
+[#18206]: https://github.com/hrydgard/ppsspp/issues/18206 "GPU: Handle invalid blendeq more accurately"
