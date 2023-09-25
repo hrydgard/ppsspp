@@ -208,7 +208,7 @@ void X64JitBackend::CompIR_FAssign(IRInst inst) {
 			break;
 		if (regs_.IsFPRMapped(inst.src1 & 3) && regs_.GetFPRLaneCount(inst.src1) == 4 && (inst.dest & ~3) != (inst.src1 & ~3)) {
 			// Okay, this is an extract.  Avoid unvec4ing src1.
-			regs_.SpillLockFPR(inst.src1);
+			regs_.SpillLockFPR(inst.src1 & ~3);
 			regs_.MapFPR(inst.dest, MIPSMap::NOINIT);
 			CopyVec4ToFPRLane0(regs_.FX(inst.dest), regs_.FX(inst.src1 & ~3), inst.src1 & 3);
 		} else {
