@@ -1446,7 +1446,7 @@ namespace MIPSInt
 			d[0] += s[2] * t[2] + s[3] * t[3];
 		}
 
-		ApplyPrefixD(d, sz);
+		ApplyPrefixD(d, V_Single);
 		WriteVector(d, V_Single, vd);
 		PC += 4;
 		EatPrefixes();
