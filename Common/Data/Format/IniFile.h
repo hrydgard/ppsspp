@@ -8,12 +8,46 @@
 #include <memory>
 #include <map>
 #include <string>
+#include <string_view>
 #include <vector>
 #include <cstdint>
 
 #include "Common/File/Path.h"
 
 class VFSInterface;
+
+class ParsedIniLine {
+public:
+	ParsedIniLine() {}
+	ParsedIniLine(std::string_view key, std::string_view value) {
+		this->key = key;
+		this->value = value;
+	}
+	ParsedIniLine(std::string_view key, std::string_view value, std::string_view comment) {
+		this->key = key;
+		this->value = value;
+		this->comment = comment;
+	}
+	static ParsedIniLine CommentOnly(std::string_view comment) {
+		return ParsedIniLine(std::string_view(), std::string_view(), comment);
+	}
+
+	// Comments only come from "ParseFrom".
+	void ParseFrom(const std::string &line);
+	void Reconstruct(std::string *output) const;
+
+	// Having these as views allows a more efficient internal representation, like one joint string.
+	std::string_view Key() const { return key; }
+	std::string_view Value() const { return value; }
+	std::string_view Comment() const { return comment; }
+
+	void SetValue(std::string_view newValue) { value = newValue; }
+
+private:
+	std::string key;
+	std::string value;
+	std::string comment;
+};
 
 class Section {
 	friend class IniFile;

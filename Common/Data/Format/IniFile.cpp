@@ -29,6 +29,24 @@
 
 #include "Common/StringUtils.h"
 
+int strvcasecmp(const std::string_view &lhs, const std::string_view &rhs) {
+	int zret = 0;
+	size_t n = rhs.size();
+
+	// Seems a bit ugly but size comparisons must be done anyway to get the @c strncasecmp args.
+	if (lhs.size() < rhs.size()) {
+		zret = 1;
+		n = lhs.size();
+	} else if (lhs.size() > rhs.size()) {
+		zret = -1;
+	} else if (lhs.data() == rhs.data()) { // the same memory, obviously equal.
+		return 0;
+	}
+	int r = ::strncasecmp(lhs.data(), rhs.data(), n);
+	return r ? r : zret;
+}
+
+// This unescapes # signs.
 static bool ParseLineKey(const std::string &line, size_t &pos, std::string *keyOut) {
 	std::string key = "";
 
@@ -142,7 +160,7 @@ static bool ParseLine(const std::string& line, std::string* keyOut, std::string*
 	return true;
 }
 
-static std::string EscapeComments(const std::string &value) {
+static std::string EscapeHash(const std::string &value) {
 	std::string result = "";
 
 	for (size_t pos = 0; pos < value.size(); ) {
@@ -157,6 +175,25 @@ static std::string EscapeComments(const std::string &value) {
 	}
 
 	return result;
+}
+
+void ParsedIniLine::ParseFrom(const std::string &line) {
+	// TODO: Skip whitespace.
+	if (line[0] == '#') {
+		key.clear();
+		value.clear();
+		comment = line;
+	} else {
+		ParseLine(line, &key, &value, &comment);
+	}
+}
+
+void ParsedIniLine::Reconstruct(std::string *output) const {
+	if (!key.empty()) {
+		*output = EscapeHash(key) + " = " + EscapeHash(value) + comment;
+	} else {
+		*output = comment;
+	}
 }
 
 void Section::Clear() {
@@ -216,12 +253,12 @@ void Section::Set(const char* key, const char* newValue)
 	if (line)
 	{
 		// Change the value - keep the key and comment
-		*line = StripSpaces(key) + " = " + EscapeComments(newValue) + commented;
+		*line = StripSpaces(key) + " = " + EscapeHash(newValue) + commented;
 	}
 	else
 	{
 		// The key did not already exist in this section - let's add it.
-		lines.emplace_back(std::string(key) + " = " + EscapeComments(newValue));
+		lines.emplace_back(std::string(key) + " = " + EscapeHash(newValue));
 	}
 }
 
