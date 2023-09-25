@@ -440,7 +440,7 @@ void NotifyMemInfoPC(MemBlockFlags flags, uint32_t start, uint32_t size, uint32_
 
 	bool needFlush = false;
 	// When the setting is off, we skip smaller info to keep things fast.
-	if (MemBlockInfoDetailed(size)) {
+	if (MemBlockInfoDetailed(size) && flags != MemBlockFlags::READ) {
 		PendingNotifyMem info{ flags, start, size };
 		info.ticks = CoreTiming::GetTicks();
 		info.pc = pc;
