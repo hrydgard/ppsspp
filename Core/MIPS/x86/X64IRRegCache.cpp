@@ -480,12 +480,52 @@ bool X64IRRegCache::TransferNativeReg(IRNativeReg nreg, IRNativeReg dest, MIPSLo
 }
 
 bool X64IRRegCache::TransferVecTo1(IRNativeReg nreg, IRNativeReg dest, IRReg first, int oldlanes) {
-	// Okay, start by storing if dirty.
-	// TODO: Consider moving the others to free regs if available?  Likely will be wanted later.
 	IRReg oldfirst = nr[nreg].mipsReg;
-	if (nr[nreg].isDirty) {
+
+	// Is it worth preserving any of the old regs?
+	int numKept = 0;
+	for (int i = 0; i < oldlanes; ++i) {
+		// Skip whichever one this is extracting.
+		if (oldfirst + i == first)
+			continue;
+		// If 0 isn't being transfered, easy to keep in its original reg.
+		if (i == 0 && dest != nreg) {
+			numKept++;
+			continue;
+		}
+
+		IRNativeReg freeReg = FindFreeReg(MIPSLoc::FREG, MIPSMap::INIT);
+		if (freeReg != -1 && IsRegRead(MIPSLoc::FREG, oldfirst + i)) {
+			// If there's one free, use it.  Don't modify nreg, though.
+			u8 shuf = VFPU_SWIZZLE(i, i, i, i);
+			if (i == 0) {
+				emit_->MOVAPS(FromNativeReg(freeReg), ::R(FromNativeReg(nreg)));
+			} else if (cpu_info.bAVX) {
+				emit_->VPERMILPS(128, FromNativeReg(freeReg), ::R(FromNativeReg(nreg)), shuf);
+			} else if (i == 2) {
+				emit_->MOVHLPS(FromNativeReg(freeReg), FromNativeReg(nreg));
+			} else {
+				emit_->MOVAPS(FromNativeReg(freeReg), ::R(FromNativeReg(nreg)));
+				emit_->SHUFPS(FromNativeReg(freeReg), ::R(FromNativeReg(freeReg)), shuf);
+			}
+
+			// Update accounting.
+			nr[freeReg].isDirty = nr[nreg].isDirty;
+			nr[freeReg].mipsReg = oldfirst + i;
+			mr[oldfirst + i].lane = -1;
+			mr[oldfirst + i].nReg = freeReg;
+			numKept++;
+		}
+	}
+
+	// Unless all other lanes were kept, store.
+	if (nr[nreg].isDirty && numKept < oldlanes - 1) {
 		StoreNativeReg(nreg, oldfirst, oldlanes);
-		nr[nreg].isDirty = false;
+		// Set false even for regs that were split out, since they were flushed too.
+		for (int i = 0; i < oldlanes; ++i) {
+			if (mr[oldfirst + i].nReg != -1)
+				nr[mr[oldfirst + i].nReg].isDirty = false;
+		}
 	}
 
 	// Next, shuffle the desired element into first place.
@@ -494,23 +534,24 @@ bool X64IRRegCache::TransferVecTo1(IRNativeReg nreg, IRNativeReg dest, IRReg fir
 		emit_->VPERMILPS(128, FromNativeReg(dest), ::R(FromNativeReg(nreg)), shuf);
 	} else if (mr[first].lane <= 0 && dest != nreg) {
 		emit_->MOVAPS(FromNativeReg(dest), ::R(FromNativeReg(nreg)));
+	} else if (mr[first].lane == 2) {
+		emit_->MOVHLPS(FromNativeReg(dest), FromNativeReg(nreg));
 	} else if (mr[first].lane > 0) {
-		if (mr[first].lane == 2) {
-			emit_->MOVHLPS(FromNativeReg(dest), FromNativeReg(nreg));
-		} else {
-			if (dest != nreg)
-				emit_->MOVAPS(FromNativeReg(dest), ::R(FromNativeReg(nreg)));
-			emit_->SHUFPS(FromNativeReg(dest), ::R(FromNativeReg(dest)), shuf);
-		}
+		if (dest != nreg)
+			emit_->MOVAPS(FromNativeReg(dest), ::R(FromNativeReg(nreg)));
+		emit_->SHUFPS(FromNativeReg(dest), ::R(FromNativeReg(dest)), shuf);
 	}
 
 	// Now update accounting.
 	for (int i = 0; i < oldlanes; ++i) {
 		auto &mreg = mr[oldfirst + i];
 		if (oldfirst + i == first) {
-			mreg.lane = 0;
+			mreg.lane = -1;
 			mreg.nReg = dest;
-		} else {
+		} else if (mreg.nReg == nreg && i == 0 && nreg != dest) {
+			// Still in the same register, but no longer a vec.
+			mreg.lane = -1;
+		} else if (mreg.nReg == nreg) {
 			// No longer in a register.
 			mreg.nReg = -1;
 			mreg.lane = -1;
@@ -520,8 +561,10 @@ bool X64IRRegCache::TransferVecTo1(IRNativeReg nreg, IRNativeReg dest, IRReg fir
 
 	if (dest != nreg) {
 		nr[dest].isDirty = nr[nreg].isDirty;
-		nr[nreg].mipsReg = -1;
-		nr[nreg].isDirty = false;
+		if (oldfirst == first) {
+			nr[nreg].mipsReg = -1;
+			nr[nreg].isDirty = false;
+		}
 	}
 	nr[dest].mipsReg = first;
 

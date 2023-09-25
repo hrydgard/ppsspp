@@ -239,7 +239,8 @@ protected:
 	void SetSpillLockIRIndex(IRReg reg, int index);
 	int GetMipsRegOffset(IRReg r);
 
-	bool IsRegClobbered(MIPSLoc type, MIPSMap flags, IRReg r) const;
+	bool IsRegClobbered(MIPSLoc type, IRReg r) const;
+	bool IsRegRead(MIPSLoc type, IRReg r) const;
 	IRUsage GetNextRegUsage(const IRSituation &info, MIPSLoc type, IRReg r) const;
 
 	bool IsValidGPR(IRReg r) const;

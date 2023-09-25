@@ -406,12 +406,12 @@ IRNativeReg IRNativeRegCacheBase::FindFreeReg(MIPSLoc type, MIPSMap flags) const
 
 bool IRNativeRegCacheBase::IsGPRClobbered(IRReg gpr) const {
 	_dbg_assert_(IsValidGPR(gpr));
-	return IsRegClobbered(MIPSLoc::REG, MIPSMap::INIT, gpr);
+	return IsRegClobbered(MIPSLoc::REG, gpr);
 }
 
 bool IRNativeRegCacheBase::IsFPRClobbered(IRReg fpr) const {
 	_dbg_assert_(IsValidFPR(fpr));
-	return IsRegClobbered(MIPSLoc::FREG, MIPSMap::INIT, fpr + 32);
+	return IsRegClobbered(MIPSLoc::FREG, fpr + 32);
 }
 
 IRUsage IRNativeRegCacheBase::GetNextRegUsage(const IRSituation &info, MIPSLoc type, IRReg r) const {
@@ -423,7 +423,7 @@ IRUsage IRNativeRegCacheBase::GetNextRegUsage(const IRSituation &info, MIPSLoc t
 	return IRUsage::UNKNOWN;
 }
 
-bool IRNativeRegCacheBase::IsRegClobbered(MIPSLoc type, MIPSMap flags, IRReg r) const {
+bool IRNativeRegCacheBase::IsRegClobbered(MIPSLoc type, IRReg r) const {
 	static const int UNUSED_LOOKAHEAD_OPS = 30;
 
 	IRSituation info;
@@ -448,6 +448,21 @@ bool IRNativeRegCacheBase::IsRegClobbered(MIPSLoc type, MIPSMap flags, IRReg r) 
 		return canClobber;
 	}
 	return false;
+}
+
+bool IRNativeRegCacheBase::IsRegRead(MIPSLoc type, IRReg first) const {
+	static const int UNUSED_LOOKAHEAD_OPS = 30;
+
+	IRSituation info;
+	info.lookaheadCount = UNUSED_LOOKAHEAD_OPS;
+	// We look starting one ahead, unlike spilling.
+	info.currentIndex = irIndex_ + 1;
+	info.instructions = irBlock_->GetInstructions();
+	info.numInstructions = irBlock_->GetNumInstructions();
+
+	// Note: this intentionally doesn't look at the full reg, only the lane.
+	IRUsage usage = GetNextRegUsage(info, type, first);
+	return usage == IRUsage::READ;
 }
 
 IRNativeReg IRNativeRegCacheBase::FindBestToSpill(MIPSLoc type, MIPSMap flags, bool unusedOnly, bool *clobbered) const {
