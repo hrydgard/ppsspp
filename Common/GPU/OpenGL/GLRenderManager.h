@@ -349,24 +349,31 @@ public:
 	}
 
 	void DeleteShader(GLRShader *shader) {
+		_dbg_assert_(shader != nullptr);
 		deleter_.shaders.push_back(shader);
 	}
 	void DeleteProgram(GLRProgram *program) {
+		_dbg_assert_(program != nullptr);
 		deleter_.programs.push_back(program);
 	}
 	void DeleteBuffer(GLRBuffer *buffer) {
+		_dbg_assert_(buffer != nullptr);
 		deleter_.buffers.push_back(buffer);
 	}
 	void DeleteTexture(GLRTexture *texture) {
+		_dbg_assert_(texture != nullptr);
 		deleter_.textures.push_back(texture);
 	}
 	void DeleteInputLayout(GLRInputLayout *inputLayout) {
+		_dbg_assert_(inputLayout != nullptr);
 		deleter_.inputLayouts.push_back(inputLayout);
 	}
 	void DeleteFramebuffer(GLRFramebuffer *framebuffer) {
+		_dbg_assert_(framebuffer != nullptr);
 		deleter_.framebuffers.push_back(framebuffer);
 	}
 	void DeletePushBuffer(GLPushBuffer *pushbuffer) {
+		_dbg_assert_(pushbuffer != nullptr);
 		deleter_.pushBuffers.push_back(pushbuffer);
 	}
 
