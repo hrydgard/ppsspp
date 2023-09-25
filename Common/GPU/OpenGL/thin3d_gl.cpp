@@ -934,7 +934,7 @@ void OpenGLTexture::UpdateTextureLevels(GLRenderManager *render, const uint8_t *
 OpenGLTexture::~OpenGLTexture() {
 	if (tex_) {
 		render_->DeleteTexture(tex_);
-		tex_ = 0;
+		tex_ = nullptr;
 		generatedMips_ = false;
 	}
 }
