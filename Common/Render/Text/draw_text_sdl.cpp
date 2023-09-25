@@ -378,7 +378,7 @@ void TextDrawerSDL::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStrin
 		font = fallbackFonts_[0];
 	}
 
-#ifndef USE_SDL2_TTF_PKGCONFIG
+#if SDL_TTF_VERSION_ATLEAST(2, 20, 0)
 	if (align & ALIGN_HCENTER)
 		TTF_SetFontWrappedAlign(font, TTF_WRAPPED_ALIGN_CENTER);
 	else if (align & ALIGN_RIGHT)
