@@ -688,8 +688,9 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_init
 	EARLY_LOG("NativeApp.init() -- begin");
 	PROFILE_INIT();
 
-	std::lock_guard<std::mutex> guard(renderLock);  // Note: This is held for the rest of this function - intended?
+	std::lock_guard<std::mutex> guard(renderLock);
 	renderer_inited = false;
+	exitRenderLoop = false;
 	androidVersion = jAndroidVersion;
 	deviceType = jdeviceType;
 
@@ -872,8 +873,14 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_pause(JNIEnv *, jclass) {
 }
 
 extern "C" void Java_org_ppsspp_ppsspp_NativeApp_shutdown(JNIEnv *, jclass) {
+	INFO_LOG(SYSTEM, "NativeApp.shutdown() -- begin");
+
 	if (renderer_inited && useCPUThread && graphicsContext) {
 		// Only used in Java EGL path.
+
+		// We can't lock renderLock here because the emu thread will be in NativeFrame
+		// which locks renderLock already, and only gets out once we call ThreadFrame()
+		// in a loop before, to empty the queue.
 		EmuThreadStop("shutdown");
 		INFO_LOG(SYSTEM, "BeginAndroidShutdown");
 		graphicsContext->BeginAndroidShutdown();
@@ -891,19 +898,19 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_shutdown(JNIEnv *, jclass) {
 		EmuThreadJoin();
 	}
 
-	INFO_LOG(SYSTEM, "NativeApp.shutdown() -- begin");
-	if (renderer_inited) {
-		INFO_LOG(G3D, "Shutting down renderer");
-		graphicsContext->Shutdown();
-		delete graphicsContext;
-		graphicsContext = nullptr;
-		renderer_inited = false;
-	} else {
-		INFO_LOG(G3D, "Not shutting down renderer - not initialized");
-	}
-
 	{
 		std::lock_guard<std::mutex> guard(renderLock);
+
+		if (graphicsContext) {
+			INFO_LOG(G3D, "Shutting down renderer");
+			graphicsContext->Shutdown();
+			delete graphicsContext;
+			graphicsContext = nullptr;
+			renderer_inited = false;
+		} else {
+			INFO_LOG(G3D, "Not shutting down renderer - not initialized");
+		}
+
 		NativeShutdown();
 		g_VFS.Clear();
 	}
@@ -1135,6 +1142,9 @@ void UpdateRunLoopAndroid(JNIEnv *env) {
 }
 
 extern "C" void Java_org_ppsspp_ppsspp_NativeRenderer_displayRender(JNIEnv *env, jobject obj) {
+	// This doesn't get called on the Vulkan path.
+	_assert_(useCPUThread);
+
 	static bool hasSetThreadName = false;
 	if (!hasSetThreadName) {
 		hasSetThreadName = true;
@@ -1144,13 +1154,9 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeRenderer_displayRender(JNIEnv *env,
 	if (IsVREnabled() && !StartVRRender())
 		return;
 
-	if (useCPUThread) {
-		// This is the "GPU thread". Call ThreadFrame.
-		if (!graphicsContext || !graphicsContext->ThreadFrame()) {
-			return;
-		}
-	} else {
-		UpdateRunLoopAndroid(env);
+	// This is the "GPU thread". Call ThreadFrame.
+	if (!graphicsContext || !graphicsContext->ThreadFrame()) {
+		return;
 	}
 
 	if (IsVREnabled()) {
@@ -1457,15 +1463,24 @@ static void ProcessFrameCommands(JNIEnv *env) {
 }
 
 // This runs in Vulkan mode only.
+// This handles the entire lifecycle of the Vulkan context, init and exit.
 extern "C" bool JNICALL Java_org_ppsspp_ppsspp_NativeActivity_runVulkanRenderLoop(JNIEnv *env, jobject obj, jobject _surf) {
 	_assert_(!useCPUThread);
 
 	if (!graphicsContext) {
 		ERROR_LOG(G3D, "runVulkanRenderLoop: Tried to enter without a created graphics context.");
+		renderLoopRunning = false;
+		exitRenderLoop = false;
 		return false;
 	}
 
-	exitRenderLoop = false;
+	if (exitRenderLoop) {
+		WARN_LOG(G3D, "runVulkanRenderLoop: ExitRenderLoop requested at start, skipping the whole thing.");
+		renderLoopRunning = false;
+		exitRenderLoop = false;
+		return true;
+	}
+
 	// This is up here to prevent race conditions, in case we pause during init.
 	renderLoopRunning = true;
 
@@ -1507,11 +1522,11 @@ extern "C" bool JNICALL Java_org_ppsspp_ppsspp_NativeActivity_runVulkanRenderLoo
 			hasSetThreadName = true;
 			SetCurrentThreadName("AndroidRender");
 		}
-	}
 
-	while (!exitRenderLoop) {
-		LockedNativeUpdateRender();
-		ProcessFrameCommands(env);
+		while (!exitRenderLoop) {
+			LockedNativeUpdateRender();
+			ProcessFrameCommands(env);
+		}
 	}
 
 	INFO_LOG(G3D, "Leaving EGL/Vulkan render loop.");
@@ -1525,6 +1540,7 @@ extern "C" bool JNICALL Java_org_ppsspp_ppsspp_NativeActivity_runVulkanRenderLoo
 	INFO_LOG(G3D, "Shutting down graphics context from render thread...");
 	graphicsContext->ShutdownFromRenderThread();
 	renderLoopRunning = false;
+	exitRenderLoop = false;
 
 	WARN_LOG(G3D, "Render loop function exited.");
 	return true;

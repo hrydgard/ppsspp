@@ -39,8 +39,16 @@ public class SizeManager implements SurfaceHolder.Callback {
 	private Point desiredSize = new Point();
 	private int badOrientationCount = 0;
 
+
+	private boolean paused = false;
+
 	public SizeManager(final NativeActivity a) {
 		activity = a;
+	}
+
+
+	public void setPaused(boolean p) {
+		paused = p;
 	}
 
 	@TargetApi(Build.VERSION_CODES.P)
@@ -107,7 +115,11 @@ public class SizeManager implements SurfaceHolder.Callback {
 		NativeApp.backbufferResize(width, height, format);
 		updateDisplayMeasurements();
 
-		activity.notifySurface(holder.getSurface());
+		if (!paused) {
+			activity.notifySurface(holder.getSurface());
+		} else {
+			Log.i(TAG, "Skipping notifySurface while paused");
+		}
 	}
 
 	@Override

@@ -662,7 +662,7 @@ public abstract class NativeActivity extends Activity {
 			Log.i(TAG, "setcontentview before");
 			setContentView(mSurfaceView);
 			Log.i(TAG, "setcontentview after");
-			ensureRenderLoop();
+			startRenderLoopThread();
 		}
 	}
 
@@ -677,12 +677,18 @@ public abstract class NativeActivity extends Activity {
 
 	public void notifySurface(Surface surface) {
 		mSurface = surface;
+
+		if (!initialized) {
+			Log.e(TAG, "Can't deal with surfaces while not initialized");
+			return;
+		}
+
 		if (!javaGL) {
 			// If we got a surface, this starts the thread. If not, it doesn't.
 			if (mSurface == null) {
 				joinRenderLoopThread();
 			} else {
-				ensureRenderLoop();
+				startRenderLoopThread();
 			}
 		}
 		updateSustainedPerformanceMode();
@@ -690,7 +696,7 @@ public abstract class NativeActivity extends Activity {
 
 	// Invariants: After this, mRenderLoopThread will be set, and the thread will be running,
 	// if in Vulkan mode.
-	protected synchronized void ensureRenderLoop() {
+	protected synchronized void startRenderLoopThread() {
 		if (javaGL) {
 			Log.e(TAG, "JavaGL mode - should not get into ensureRenderLoop.");
 			return;
@@ -741,26 +747,25 @@ public abstract class NativeActivity extends Activity {
 	}
 
 	@Override
-	protected void onStop() {
-		super.onStop();
-		Log.i(TAG, "onStop - do nothing special");
-	}
-
-	@Override
 	protected void onDestroy() {
 		super.onDestroy();
 		Log.i(TAG, "onDestroy");
 		if (javaGL) {
-			if (nativeRenderer != null && nativeRenderer.isRenderingFrame()) {
-				Log.i(TAG, "Waiting for renderer to finish.");
-				int tries = 200;
-				do {
-					try {
-						Thread.sleep(10);
-					} catch (InterruptedException e) {
-					}
-					tries--;
-				} while (nativeRenderer.isRenderingFrame() && tries > 0);
+			if (nativeRenderer != null) {
+				if (nativeRenderer.isRenderingFrame()) {
+					Log.i(TAG, "Waiting for renderer to finish.");
+					int tries = 200;
+					do {
+						try {
+							Thread.sleep(10);
+						} catch (InterruptedException e) {
+						}
+						tries--;
+					} while (nativeRenderer.isRenderingFrame() && tries > 0);
+				} else {
+					Log.i(TAG, "nativerenderer done.");
+					nativeRenderer = null;
+				}
 			}
 			mGLSurfaceView.onDestroy();
 			mGLSurfaceView = null;
@@ -785,7 +790,7 @@ public abstract class NativeActivity extends Activity {
 		// TODO: Can we ensure that the GL thread has stopped rendering here?
 		// I've seen crashes that seem to indicate that sometimes it hasn't...
 		NativeApp.audioShutdown();
-		if (shuttingDown || isFinishing()) {
+		if (shuttingDown) {
 			NativeApp.shutdown();
 			unregisterCallbacks();
 			initialized = false;
@@ -803,6 +808,7 @@ public abstract class NativeActivity extends Activity {
 		super.onPause();
 		Log.i(TAG, "onPause");
 		loseAudioFocus(this.audioManager, this.audioFocusChangeListener);
+		sizeManager.setPaused(true);
 		NativeApp.pause();
 		if (!javaGL) {
 			mSurfaceView.onPause();
@@ -838,6 +844,7 @@ public abstract class NativeActivity extends Activity {
 	protected void onResume() {
 		super.onResume();
 		updateSustainedPerformanceMode();
+		sizeManager.setPaused(false);
 		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.ICE_CREAM_SANDWICH) {
 			updateSystemUiVisibility();
 		}
@@ -866,7 +873,7 @@ public abstract class NativeActivity extends Activity {
 
 		if (!javaGL) {
 			// Restart the render loop.
-			ensureRenderLoop();
+			startRenderLoopThread();
 		}
 	}
 
