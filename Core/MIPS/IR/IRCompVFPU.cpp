@@ -1771,7 +1771,20 @@ namespace MIPSComp {
 		// d[0] = s[0]*t[1] - s[1]*t[0]
 		// Note: this operates on two vectors, not a 2x2 matrix.
 
-		DISABLE;
+		VectorSize sz = GetVecSize(op);
+		if (sz != V_Pair)
+			DISABLE;
+
+		u8 sregs[4], dregs[4], tregs[4];
+		GetVectorRegsPrefixS(sregs, sz, _VS);
+		GetVectorRegsPrefixT(tregs, sz, _VT);
+		GetVectorRegsPrefixD(dregs, V_Single, _VD);
+
+		ir.Write(IROp::FMul, IRVTEMP_0, sregs[1], tregs[0]);
+		ir.Write(IROp::FMul, dregs[0], sregs[0], tregs[1]);
+		ir.Write(IROp::FSub, dregs[0], dregs[0], IRVTEMP_0);
+
+		ApplyPrefixD(dregs, V_Single, _VD);
 	}
 
 	void IRFrontend::Comp_Vi2x(MIPSOpcode op) {
