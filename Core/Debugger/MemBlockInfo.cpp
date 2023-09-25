@@ -484,6 +484,14 @@ void NotifyMemInfo(MemBlockFlags flags, uint32_t start, uint32_t size, const cha
 	NotifyMemInfoPC(flags, start, size, currentMIPS->pc, str, strLength);
 }
 
+void NotifyMemInfoCopy(uint32_t destPtr, uint32_t srcPtr, uint32_t size, const char *prefix) {
+	// TODO
+	char tagData[128];
+	size_t tagSize = FormatMemWriteTagAt(tagData, sizeof(tagData), prefix, srcPtr, size);
+	NotifyMemInfo(MemBlockFlags::READ, srcPtr, size, tagData, tagSize);
+	NotifyMemInfo(MemBlockFlags::WRITE, destPtr, size, tagData, tagSize);
+}
+
 std::vector<MemBlockInfo> FindMemInfo(uint32_t start, uint32_t size) {
 	start = NormalizeAddress(start);
 

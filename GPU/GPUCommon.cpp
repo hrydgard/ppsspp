@@ -1704,9 +1704,7 @@ void GPUCommon::DoBlockTransfer(u32 skipDrawReason) {
 			memcpy(dstp, srcp, bytesToCopy);
 
 			if (MemBlockInfoDetailed(bytesToCopy)) {
-				tagSize = FormatMemWriteTagAt(tag, sizeof(tag), "GPUBlockTransfer/", src, bytesToCopy);
-				NotifyMemInfo(MemBlockFlags::READ, src, bytesToCopy, tag, tagSize);
-				NotifyMemInfo(MemBlockFlags::WRITE, dst, bytesToCopy, tag, tagSize);
+				NotifyMemInfoCopy(dst, src, bytesToCopy, "GPUBlockTransfer/");
 			}
 		} else if ((srcDstOverlap || srcWraps || dstWraps) && (srcValid || srcWraps) && (dstValid || dstWraps)) {
 			// This path means we have either src/dst overlap, OR one or both of src and dst wrap.
@@ -1862,12 +1860,11 @@ bool GPUCommon::PerformMemoryCopy(u32 dest, u32 src, int size, GPUCopyFlag flags
 			// We use matching values in PerformReadbackToMemory/PerformWriteColorFromMemory.
 			// Since they're identical we don't need to copy.
 			if (dest != src) {
+				if (Memory::IsValidRange(dest, size) && Memory::IsValidRange(src, size)) {
+					memcpy(Memory::GetPointerWriteUnchecked(dest), Memory::GetPointerUnchecked(src), size);
+				}
 				if (MemBlockInfoDetailed(size)) {
-					char tag[128];
-					size_t tagSize = FormatMemWriteTagAt(tag, sizeof(tag), "GPUMemcpy/", src, size);
-					Memory::Memcpy(dest, src, size, tag, tagSize);
-				} else {
-					Memory::Memcpy(dest, src, size, "GPUMemcpy");
+					NotifyMemInfoCopy(dest, src, size, "GPUMemcpy/");
 				}
 			}
 		}
@@ -1876,10 +1873,7 @@ bool GPUCommon::PerformMemoryCopy(u32 dest, u32 src, int size, GPUCopyFlag flags
 	}
 
 	if (MemBlockInfoDetailed(size)) {
-		char tag[128];
-		size_t tagSize = FormatMemWriteTagAt(tag, sizeof(tag), "GPUMemcpy/", src, size);
-		NotifyMemInfo(MemBlockFlags::READ, src, size, tag, tagSize);
-		NotifyMemInfo(MemBlockFlags::WRITE, dest, size, tag, tagSize);
+		NotifyMemInfoCopy(dest, src, size, "GPUMemcpy/");
 	}
 	InvalidateCache(dest, size, GPU_INVALIDATE_HINT);
 	if (!(flags & GPUCopyFlag::DEBUG_NOTIFIED))

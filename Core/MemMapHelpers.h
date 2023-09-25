@@ -69,13 +69,12 @@ inline void Memcpy(const u32 to_address, const u32 from_address, const u32 len, 
 	memcpy(to, from, len);
 
 	if (MemBlockInfoDetailed(len)) {
-		char tagData[128];
 		if (!tag) {
-			tagLen = FormatMemWriteTagAt(tagData, sizeof(tagData), "Memcpy/", from_address, len);
-			tag = tagData;
+			NotifyMemInfoCopy(to_address, from_address, len, "Memcpy/");
+		} else {
+			NotifyMemInfo(MemBlockFlags::READ, from_address, len, tag, tagLen);
+			NotifyMemInfo(MemBlockFlags::WRITE, to_address, len, tag, tagLen);
 		}
-		NotifyMemInfo(MemBlockFlags::READ, from_address, len, tag, tagLen);
-		NotifyMemInfo(MemBlockFlags::WRITE, to_address, len, tag, tagLen);
 	}
 }
 

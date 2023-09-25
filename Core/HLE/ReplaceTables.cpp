@@ -159,16 +159,19 @@ static int Replace_memcpy() {
 	RETURN(destPtr);
 
 	if (MemBlockInfoDetailed(bytes)) {
-		char tagData[128];
-		size_t tagSize = FormatMemWriteTagAt(tagData, sizeof(tagData), "ReplaceMemcpy/", srcPtr, bytes);
-		NotifyMemInfo(MemBlockFlags::READ, srcPtr, bytes, tagData, tagSize);
-		NotifyMemInfo(MemBlockFlags::WRITE, destPtr, bytes, tagData, tagSize);
-
 		// It's pretty common that games will copy video data.
-		if (!strcmp(tagData, "ReplaceMemcpy/VideoDecode") || !strcmp(tagData, "ReplaceMemcpy/VideoDecodeRange")) {
-			if (bytes == 512 * 272 * 4) {
+		// Detect that by manually reading the tag when the size looks right.
+		if (bytes == 512 * 272 * 4) {
+			char tagData[128];
+			size_t tagSize = FormatMemWriteTagAt(tagData, sizeof(tagData), "ReplaceMemcpy/", srcPtr, bytes);
+			NotifyMemInfo(MemBlockFlags::READ, srcPtr, bytes, tagData, tagSize);
+			NotifyMemInfo(MemBlockFlags::WRITE, destPtr, bytes, tagData, tagSize);
+
+			if (!strcmp(tagData, "ReplaceMemcpy/VideoDecode") || !strcmp(tagData, "ReplaceMemcpy/VideoDecodeRange")) {
 				gpu->PerformWriteFormattedFromMemory(destPtr, bytes, 512, GE_FORMAT_8888);
 			}
+		} else {
+			NotifyMemInfoCopy(destPtr, srcPtr, bytes, "ReplaceMemcpy/");
 		}
 	}
 
@@ -212,16 +215,19 @@ static int Replace_memcpy_jak() {
 	RETURN(destPtr);
 
 	if (MemBlockInfoDetailed(bytes)) {
-		char tagData[128];
-		size_t tagSize = FormatMemWriteTagAt(tagData, sizeof(tagData), "ReplaceMemcpy/", srcPtr, bytes);
-		NotifyMemInfo(MemBlockFlags::READ, srcPtr, bytes, tagData, tagSize);
-		NotifyMemInfo(MemBlockFlags::WRITE, destPtr, bytes, tagData, tagSize);
-
 		// It's pretty common that games will copy video data.
-		if (!strcmp(tagData, "ReplaceMemcpy/VideoDecode") || !strcmp(tagData, "ReplaceMemcpy/VideoDecodeRange")) {
-			if (bytes == 512 * 272 * 4) {
+		// Detect that by manually reading the tag when the size looks right.
+		if (bytes == 512 * 272 * 4) {
+			char tagData[128];
+			size_t tagSize = FormatMemWriteTagAt(tagData, sizeof(tagData), "ReplaceMemcpy/", srcPtr, bytes);
+			NotifyMemInfo(MemBlockFlags::READ, srcPtr, bytes, tagData, tagSize);
+			NotifyMemInfo(MemBlockFlags::WRITE, destPtr, bytes, tagData, tagSize);
+
+			if (!strcmp(tagData, "ReplaceMemcpy/VideoDecode") || !strcmp(tagData, "ReplaceMemcpy/VideoDecodeRange")) {
 				gpu->PerformWriteFormattedFromMemory(destPtr, bytes, 512, GE_FORMAT_8888);
 			}
+		} else {
+			NotifyMemInfoCopy(destPtr, srcPtr, bytes, "ReplaceMemcpy/");
 		}
 	}
 
@@ -252,10 +258,7 @@ static int Replace_memcpy16() {
 	RETURN(destPtr);
 
 	if (MemBlockInfoDetailed(bytes)) {
-		char tagData[128];
-		size_t tagSize = FormatMemWriteTagAt(tagData, sizeof(tagData), "ReplaceMemcpy16/", srcPtr, bytes);
-		NotifyMemInfo(MemBlockFlags::READ, srcPtr, bytes, tagData, tagSize);
-		NotifyMemInfo(MemBlockFlags::WRITE, destPtr, bytes, tagData, tagSize);
+		NotifyMemInfoCopy(destPtr, srcPtr, bytes, "ReplaceMemcpy16/");
 	}
 
 	return 10 + bytes / 4;  // approximation
@@ -294,10 +297,7 @@ static int Replace_memcpy_swizzled() {
 	RETURN(0);
 
 	if (MemBlockInfoDetailed(pitch * h)) {
-		char tagData[128];
-		size_t tagSize = FormatMemWriteTagAt(tagData, sizeof(tagData), "ReplaceMemcpySwizzle/", srcPtr, pitch * h);
-		NotifyMemInfo(MemBlockFlags::READ, srcPtr, pitch * h, tagData, tagSize);
-		NotifyMemInfo(MemBlockFlags::WRITE, destPtr, pitch * h, tagData, tagSize);
+		NotifyMemInfoCopy(destPtr, srcPtr, pitch * h, "ReplaceMemcpySwizzle/");
 	}
 
 	return 10 + (pitch * h) / 4;  // approximation
@@ -326,10 +326,7 @@ static int Replace_memmove() {
 	RETURN(destPtr);
 
 	if (MemBlockInfoDetailed(bytes)) {
-		char tagData[128];
-		size_t tagSize = FormatMemWriteTagAt(tagData, sizeof(tagData), "ReplaceMemmove/", srcPtr, bytes);
-		NotifyMemInfo(MemBlockFlags::READ, srcPtr, bytes, tagData, tagSize);
-		NotifyMemInfo(MemBlockFlags::WRITE, destPtr, bytes, tagData, tagSize);
+		NotifyMemInfoCopy(destPtr, srcPtr, bytes, "ReplaceMemmove/");
 	}
 
 	return 10 + bytes / 4;  // approximation
