@@ -224,11 +224,12 @@ ShaderManagerVulkan::ShaderManagerVulkan(Draw::DrawContext *draw)
 }
 
 ShaderManagerVulkan::~ShaderManagerVulkan() {
-	ClearShaders();
+	Clear();
 	delete[] codeBuffer_;
 }
 
 void ShaderManagerVulkan::DeviceLost() {
+	Clear();
 	draw_ = nullptr;
 }
 
