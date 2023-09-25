@@ -25,6 +25,14 @@ If you want to download regularly updated builds for Android, Windows x86 and x6
 
 For game compatibility, see [community compatibility feedback](https://report.ppsspp.org/games).
 
+What's new in 1.16.4
+====================
+- Simplify shader cache lookups on Vulkan, hopefully fixing some crashes ([#18218])
+- Assorted improvements to the IR JITs ([#18228], [#18235], [#18211], more)
+- Other crash and stability fixes ([#18221], [#18220], [#18230], [#18216])
+- Some translation updates ([#18237], more)
+- Cleanups and assert fixes ([#18205], [#18201], [#18206])
+
 What's new in 1.16.3
 ====================
 - Fix crash bug and performance issue in Vulkan shader cache ([#18183], [#18189])
