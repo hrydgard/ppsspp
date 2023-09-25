@@ -433,6 +433,227 @@ void Arm64IRRegCache::StoreRegValue(IRReg mreg, uint32_t imm) {
 	emit_->STR(INDEX_UNSIGNED, storeReg, CTXREG, GetMipsRegOffset(mreg));
 }
 
+bool Arm64IRRegCache::TransferNativeReg(IRNativeReg nreg, IRNativeReg dest, MIPSLoc type, IRReg first, int lanes, MIPSMap flags) {
+	bool allowed = !mr[nr[nreg].mipsReg].isStatic;
+	// There's currently no support for non-FREGs here.
+	allowed = allowed && type == MIPSLoc::FREG;
+
+	if (dest == -1)
+		dest = nreg;
+
+	if (allowed && (flags == MIPSMap::INIT || flags == MIPSMap::DIRTY)) {
+		// Alright, changing lane count (possibly including lane position.)
+		IRReg oldfirst = nr[nreg].mipsReg;
+		int oldlanes = 0;
+		while (mr[oldfirst + oldlanes].nReg == nreg)
+			oldlanes++;
+		_assert_msg_(oldlanes != 0, "TransferNativeReg encountered nreg mismatch");
+		_assert_msg_(oldlanes != lanes, "TransferNativeReg transfer to same lanecount, misaligned?");
+
+		if (lanes == 1 && TransferVecTo1(nreg, dest, first, oldlanes))
+			return true;
+		if (oldlanes == 1 && Transfer1ToVec(nreg, dest, first, lanes))
+			return true;
+	}
+
+	return IRNativeRegCacheBase::TransferNativeReg(nreg, dest, type, first, lanes, flags);
+}
+
+bool Arm64IRRegCache::TransferVecTo1(IRNativeReg nreg, IRNativeReg dest, IRReg first, int oldlanes) {
+	IRReg oldfirst = nr[nreg].mipsReg;
+
+	// Is it worth preserving any of the old regs?
+	int numKept = 0;
+	for (int i = 0; i < oldlanes; ++i) {
+		// Skip whichever one this is extracting.
+		if (oldfirst + i == first)
+			continue;
+		// If 0 isn't being transfered, easy to keep in its original reg.
+		if (i == 0 && dest != nreg) {
+			numKept++;
+			continue;
+		}
+
+		IRNativeReg freeReg = FindFreeReg(MIPSLoc::FREG, MIPSMap::INIT);
+		if (freeReg != -1 && IsRegRead(MIPSLoc::FREG, oldfirst + i)) {
+			// If there's one free, use it.  Don't modify nreg, though.
+			fp_->DUP(32, FromNativeReg(freeReg), FromNativeReg(nreg), i);
+
+			// Update accounting.
+			nr[freeReg].isDirty = nr[nreg].isDirty;
+			nr[freeReg].mipsReg = oldfirst + i;
+			mr[oldfirst + i].lane = -1;
+			mr[oldfirst + i].nReg = freeReg;
+			numKept++;
+		}
+	}
+
+	// Unless all other lanes were kept, store.
+	if (nr[nreg].isDirty && numKept < oldlanes - 1) {
+		StoreNativeReg(nreg, oldfirst, oldlanes);
+		// Set false even for regs that were split out, since they were flushed too.
+		for (int i = 0; i < oldlanes; ++i) {
+			if (mr[oldfirst + i].nReg != -1)
+				nr[mr[oldfirst + i].nReg].isDirty = false;
+		}
+	}
+
+	// Next, move the desired element into first place.
+	if (mr[first].lane > 0) {
+		fp_->DUP(32, FromNativeReg(dest), FromNativeReg(nreg), mr[first].lane);
+	} else if (mr[first].lane <= 0 && dest != nreg) {
+		fp_->DUP(32, FromNativeReg(dest), FromNativeReg(nreg), 0);
+	}
+
+	// Now update accounting.
+	for (int i = 0; i < oldlanes; ++i) {
+		auto &mreg = mr[oldfirst + i];
+		if (oldfirst + i == first) {
+			mreg.lane = -1;
+			mreg.nReg = dest;
+		} else if (mreg.nReg == nreg && i == 0 && nreg != dest) {
+			// Still in the same register, but no longer a vec.
+			mreg.lane = -1;
+		} else if (mreg.nReg == nreg) {
+			// No longer in a register.
+			mreg.nReg = -1;
+			mreg.lane = -1;
+			mreg.loc = MIPSLoc::MEM;
+		}
+	}
+
+	if (dest != nreg) {
+		nr[dest].isDirty = nr[nreg].isDirty;
+		if (oldfirst == first) {
+			nr[nreg].mipsReg = -1;
+			nr[nreg].isDirty = false;
+		}
+	}
+	nr[dest].mipsReg = first;
+
+	return true;
+}
+
+bool Arm64IRRegCache::Transfer1ToVec(IRNativeReg nreg, IRNativeReg dest, IRReg first, int lanes) {
+	ARM64Reg cur[4]{};
+	int numInRegs = 0;
+	int numDirty = 0;
+	for (int i = 0; i < lanes; ++i) {
+		if (mr[first + i].lane != -1 || (i != 0 && mr[first + i].spillLockIRIndex >= irIndex_)) {
+			// Can't do it, either double mapped or overlapping vec.
+			return false;
+		}
+
+		if (mr[first + i].nReg == -1) {
+			cur[i] = INVALID_REG;
+		} else {
+			cur[i] = FromNativeReg(mr[first + i].nReg);
+			numInRegs++;
+			if (nr[cur[i]].isDirty)
+				numDirty++;
+		}
+	}
+
+	// Shouldn't happen, this should only get called to transfer one in a reg.
+	if (numInRegs == 0)
+		return false;
+
+	// If everything's currently in a reg, move it into this reg.
+	if (lanes == 4) {
+		if (cur[0] == INVALID_REG) {
+			cur[0] = FromNativeReg(dest);
+			fp_->LDR(32, INDEX_UNSIGNED, cur[0], CTXREG, GetMipsRegOffset(first + 0));
+			numInRegs++;
+		}
+
+		// A lot of other methods are possible, but seem to make things slower in practice.
+		if (numInRegs == 4) {
+			// y = yw##, x = xz##, x = xyzw.
+			fp_->ZIP1(32, EncodeRegToQuad(cur[1]), EncodeRegToQuad(cur[1]), EncodeRegToQuad(cur[3]));
+			fp_->ZIP1(32, EncodeRegToQuad(cur[0]), EncodeRegToQuad(cur[0]), EncodeRegToQuad(cur[2]));
+			fp_->ZIP1(32, EncodeRegToQuad(cur[0]), EncodeRegToQuad(cur[0]), EncodeRegToQuad(cur[1]));
+		} else if (numInRegs == 2 && cur[1] != INVALID_REG) {
+			// x = xy##, y = zw##, x = xyzw.
+			fp_->ZIP1(32, EncodeRegToQuad(cur[0]), EncodeRegToQuad(cur[0]), EncodeRegToQuad(cur[1]));
+			fp_->LDR(64, INDEX_UNSIGNED, EncodeRegToDouble(cur[1]), CTXREG, GetMipsRegOffset(first + 2));
+			fp_->INS(64, EncodeRegToQuad(cur[0]), 1, EncodeRegToQuad(cur[1]), 0);
+		} else if (cur[1] != INVALID_REG && cur[2] != INVALID_REG) {
+			// x = xz##, z = w###, y = yw##, x = xyzw.
+			fp_->ZIP1(32, EncodeRegToQuad(cur[0]), EncodeRegToQuad(cur[0]), EncodeRegToQuad(cur[2]));
+			fp_->LDR(32, INDEX_UNSIGNED, cur[2], CTXREG, GetMipsRegOffset(first + 3));
+			fp_->ZIP1(32, EncodeRegToQuad(cur[1]), EncodeRegToQuad(cur[1]), EncodeRegToQuad(cur[2]));
+			fp_->ZIP1(32, EncodeRegToQuad(cur[0]), EncodeRegToQuad(cur[0]), EncodeRegToQuad(cur[1]));
+		} else if (cur[1] != INVALID_REG && cur[3] != INVALID_REG) {
+			// y = yw##, w = z###, x = xz##, x = xyzw.
+			fp_->ZIP1(32, EncodeRegToQuad(cur[1]), EncodeRegToQuad(cur[1]), EncodeRegToQuad(cur[3]));
+			fp_->LDR(32, INDEX_UNSIGNED, cur[3], CTXREG, GetMipsRegOffset(first + 2));
+			fp_->ZIP1(32, EncodeRegToQuad(cur[0]), EncodeRegToQuad(cur[0]), EncodeRegToQuad(cur[3]));
+			fp_->ZIP1(32, EncodeRegToQuad(cur[0]), EncodeRegToQuad(cur[0]), EncodeRegToQuad(cur[1]));
+		} else if (cur[2] != INVALID_REG && cur[3] != INVALID_REG) {
+			// x = xz##, z = y###, z = yw##, x = xyzw.
+			fp_->ZIP1(32, EncodeRegToQuad(cur[0]), EncodeRegToQuad(cur[0]), EncodeRegToQuad(cur[2]));
+			fp_->LDR(32, INDEX_UNSIGNED, cur[2], CTXREG, GetMipsRegOffset(first + 1));
+			fp_->ZIP1(32, EncodeRegToQuad(cur[2]), EncodeRegToQuad(cur[2]), EncodeRegToQuad(cur[3]));
+			fp_->ZIP1(32, EncodeRegToQuad(cur[0]), EncodeRegToQuad(cur[0]), EncodeRegToQuad(cur[2]));
+		} else {
+			return false;
+		}
+	} else if (lanes == 2) {
+		if (cur[0] != INVALID_REG && cur[1] != INVALID_REG) {
+			fp_->ZIP1(32, EncodeRegToDouble(cur[0]), EncodeRegToDouble(cur[0]), EncodeRegToDouble(cur[1]));
+		} else if (cur[0] == INVALID_REG && dest != nreg) {
+			cur[0] = FromNativeReg(dest);
+			fp_->LDR(32, INDEX_UNSIGNED, cur[0], CTXREG, GetMipsRegOffset(first + 0));
+			fp_->INS(32, EncodeRegToDouble(cur[0]), 1, EncodeRegToDouble(cur[1]), 0);
+		} else {
+			IRNativeReg freeReg = FindFreeReg(MIPSLoc::FREG, MIPSMap::INIT);
+			if (freeReg == INVALID_REG)
+				return false;
+
+			if (cur[0] == INVALID_REG) {
+				// Will move to dest below.
+				cur[0] = FromNativeReg(freeReg);
+				fp_->LDR(32, INDEX_UNSIGNED, cur[0], CTXREG, GetMipsRegOffset(first + 0));
+				fp_->INS(32, EncodeRegToDouble(cur[0]), 1, EncodeRegToDouble(cur[1]), 0);
+			} else {
+				fp_->LDR(32, INDEX_UNSIGNED, FromNativeReg(freeReg), CTXREG, GetMipsRegOffset(first + 1));
+				fp_->INS(32, EncodeRegToDouble(cur[0]), 1, EncodeRegToDouble(FromNativeReg(freeReg)), 0);
+			}
+		}
+	} else {
+		return false;
+	}
+
+	mr[first].lane = 0;
+	for (int i = 0; i < lanes; ++i) {
+		if (mr[first + i].nReg != -1) {
+			// If this was dirty, the combined reg is now dirty.
+			if (nr[mr[first + i].nReg].isDirty)
+				nr[dest].isDirty = true;
+
+			// Throw away the other register we're no longer using.
+			if (i != 0)
+				DiscardNativeReg(mr[first + i].nReg);
+		}
+
+		// And set it as using the new one.
+		mr[first + i].lane = i;
+		mr[first + i].loc = MIPSLoc::FREG;
+		mr[first + i].nReg = dest;
+	}
+
+	if (cur[0] != FromNativeReg(dest))
+		fp_->MOV(FromNativeReg(dest), cur[0]);
+
+	if (dest != nreg) {
+		nr[dest].mipsReg = first;
+		nr[nreg].mipsReg = -1;
+		nr[nreg].isDirty = false;
+	}
+
+	return true;
+}
+
 void Arm64IRRegCache::FlushAll(bool gprs, bool fprs) {
 	// Note: make sure not to change the registers when flushing:
 	// Branching code may expect the armreg to retain its value.
