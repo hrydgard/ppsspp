@@ -63,8 +63,8 @@ public:
 
 	std::map<std::string, std::string> ToMap() const;
 
-	std::string *GetLine(const char* key, std::string* valueOut, std::string* commentOut);
-	const std::string *GetLine(const char* key, std::string* valueOut, std::string* commentOut) const;
+	ParsedIniLine *GetLine(const char *key);
+	const ParsedIniLine *GetLine(const char *key) const;
 
 	void Set(const char* key, const char* newValue);
 	void Set(const char* key, const std::string& newValue, const std::string& defaultValue);
@@ -114,7 +114,7 @@ public:
 	}
 
 protected:
-	std::vector<std::string> lines;
+	std::vector<ParsedIniLine> lines_;
 	std::string name_;
 	std::string comment;
 };
@@ -122,12 +122,10 @@ protected:
 class IniFile {
 public:
 	bool Load(const Path &path);
-	bool Load(const std::string &filename) { return Load(Path(filename)); }
 	bool Load(std::istream &istream);
 	bool LoadFromVFS(VFSInterface &vfs, const std::string &filename);
 
 	bool Save(const Path &path);
-	bool Save(const std::string &filename) { return Save(Path(filename)); }
 
 	// Returns true if key exists in section
 	bool Exists(const char* sectionName, const char* key) const;
@@ -171,9 +169,6 @@ public:
 	}
 
 	bool GetKeys(const char* sectionName, std::vector<std::string>& keys) const;
-
-	void SetLines(const char* sectionName, const std::vector<std::string> &lines);
-	bool GetLines(const char* sectionName, std::vector<std::string>& lines, const bool remove_comments = true) const;
 
 	bool DeleteKey(const char* sectionName, const char* key);
 	bool DeleteSection(const char* sectionName);
