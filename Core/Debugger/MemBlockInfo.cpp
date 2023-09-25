@@ -78,6 +78,7 @@ struct PendingNotifyMem {
 	MemBlockFlags flags;
 	uint32_t start;
 	uint32_t size;
+	uint32_t copySrc;
 	uint64_t ticks;
 	uint32_t pc;
 	char tag[128];
@@ -369,9 +370,18 @@ void MemSlabMap::FillHeads(Slab *slab) {
 	}
 }
 
+size_t FormatMemWriteTagAtNoFlush(char *buf, size_t sz, const char *prefix, uint32_t start, uint32_t size);
+
 void FlushPendingMemInfo() {
 	std::lock_guard<std::mutex> guard(pendingMutex);
 	for (const auto &info : pendingNotifies) {
+		if (info.copySrc != 0) {
+			char tagData[128];
+			size_t tagSize = FormatMemWriteTagAtNoFlush(tagData, sizeof(tagData), info.tag, info.copySrc, info.size);
+			writeMap.Mark(info.start, info.size, info.ticks, info.pc, true, tagData);
+			continue;
+		}
+
 		if (info.flags & MemBlockFlags::ALLOC) {
 			allocMap.Mark(info.start, info.size, info.ticks, info.pc, true, info.tag);
 		} else if (info.flags & MemBlockFlags::FREE) {
@@ -411,6 +421,9 @@ static inline bool MergeRecentMemInfo(const PendingNotifyMem &info, size_t copyL
 
 	for (size_t i = 1; i <= 4; ++i) {
 		auto &prev = pendingNotifies[pendingNotifies.size() - i];
+		if (prev.copySrc != 0)
+			return false;
+
 		if (prev.flags != info.flags)
 			continue;
 
@@ -485,11 +498,41 @@ void NotifyMemInfo(MemBlockFlags flags, uint32_t start, uint32_t size, const cha
 }
 
 void NotifyMemInfoCopy(uint32_t destPtr, uint32_t srcPtr, uint32_t size, const char *prefix) {
-	// TODO
-	char tagData[128];
-	size_t tagSize = FormatMemWriteTagAt(tagData, sizeof(tagData), prefix, srcPtr, size);
-	NotifyMemInfo(MemBlockFlags::READ, srcPtr, size, tagData, tagSize);
-	NotifyMemInfo(MemBlockFlags::WRITE, destPtr, size, tagData, tagSize);
+	if (size == 0)
+		return;
+
+	if (CBreakPoints::HasMemChecks()) {
+		// This will cause a flush, but it's needed to trigger memchecks with proper data.
+		char tagData[128];
+		size_t tagSize = FormatMemWriteTagAt(tagData, sizeof(tagData), prefix, srcPtr, size);
+		NotifyMemInfo(MemBlockFlags::READ, srcPtr, size, tagData, tagSize);
+		NotifyMemInfo(MemBlockFlags::WRITE, destPtr, size, tagData, tagSize);
+	} else if (MemBlockInfoDetailed(size)) {
+		srcPtr = NormalizeAddress(srcPtr);
+		destPtr = NormalizeAddress(destPtr);
+
+		PendingNotifyMem info{ MemBlockFlags::WRITE, destPtr, size };
+		info.copySrc = srcPtr;
+		info.ticks = CoreTiming::GetTicks();
+		info.pc = currentMIPS->pc;
+
+		// Store the prefix for now.  The correct tag will be calculated on flush.
+		truncate_cpy(info.tag, prefix);
+
+		std::lock_guard<std::mutex> guard(pendingMutex);
+		if (destPtr < 0x08000000) {
+			pendingNotifyMinAddr1 = std::min(pendingNotifyMinAddr1.load(), destPtr);
+			pendingNotifyMaxAddr1 = std::max(pendingNotifyMaxAddr1.load(), destPtr + size);
+		} else {
+			pendingNotifyMinAddr2 = std::min(pendingNotifyMinAddr2.load(), destPtr);
+			pendingNotifyMaxAddr2 = std::max(pendingNotifyMaxAddr2.load(), destPtr + size);
+		}
+		pendingNotifies.push_back(info);
+	}
+
+	if (pendingNotifies.size() > MAX_PENDING_NOTIFIES) {
+		FlushPendingMemInfo();
+	}
 }
 
 std::vector<MemBlockInfo> FindMemInfo(uint32_t start, uint32_t size) {
@@ -528,13 +571,15 @@ std::vector<MemBlockInfo> FindMemInfoByFlag(MemBlockFlags flags, uint32_t start,
 	return results;
 }
 
-static const char *FindWriteTagByFlag(MemBlockFlags flags, uint32_t start, uint32_t size) {
+static const char *FindWriteTagByFlag(MemBlockFlags flags, uint32_t start, uint32_t size, bool flush = true) {
 	start = NormalizeAddress(start);
 
-	if (pendingNotifyMinAddr1 < start + size && pendingNotifyMaxAddr1 >= start)
-		FlushPendingMemInfo();
-	if (pendingNotifyMinAddr2 < start + size && pendingNotifyMaxAddr2 >= start)
-		FlushPendingMemInfo();
+	if (flush) {
+		if (pendingNotifyMinAddr1 < start + size && pendingNotifyMaxAddr1 >= start)
+			FlushPendingMemInfo();
+		if (pendingNotifyMinAddr2 < start + size && pendingNotifyMaxAddr2 >= start)
+			FlushPendingMemInfo();
+	}
 
 	if (flags & MemBlockFlags::ALLOC) {
 		const char *tag = allocMap.FastFindWriteTag(MemBlockFlags::ALLOC, start, size);
@@ -566,6 +611,19 @@ size_t FormatMemWriteTagAt(char *buf, size_t sz, const char *prefix, uint32_t st
 	}
 	// Fall back to alloc and texture, especially for VRAM.  We prefer write above.
 	tag = FindWriteTagByFlag(MemBlockFlags::ALLOC | MemBlockFlags::TEXTURE, start, size);
+	if (tag) {
+		return snprintf(buf, sz, "%s%s", prefix, tag);
+	}
+	return snprintf(buf, sz, "%s%08x_size_%08x", prefix, start, size);
+}
+
+size_t FormatMemWriteTagAtNoFlush(char *buf, size_t sz, const char *prefix, uint32_t start, uint32_t size) {
+	const char *tag = FindWriteTagByFlag(MemBlockFlags::WRITE, start, size, false);
+	if (tag && strcmp(tag, "MemInit") != 0) {
+		return snprintf(buf, sz, "%s%s", prefix, tag);
+	}
+	// Fall back to alloc and texture, especially for VRAM.  We prefer write above.
+	tag = FindWriteTagByFlag(MemBlockFlags::ALLOC | MemBlockFlags::TEXTURE, start, size, false);
 	if (tag) {
 		return snprintf(buf, sz, "%s%s", prefix, tag);
 	}
