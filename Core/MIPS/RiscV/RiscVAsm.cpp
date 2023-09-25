@@ -45,8 +45,19 @@ static void ShowPC(u32 downcount, void *membase, void *jitbase) {
 }
 
 void RiscVJitBackend::GenerateFixedCode(MIPSState *mipsState) {
-	BeginWrite(GetMemoryProtectPageSize());
+	// This will be used as a writable scratch area, always 32-bit accessible.
 	const u8 *start = AlignCodePage();
+	if (DebugProfilerEnabled()) {
+		ProtectMemoryPages(start, GetMemoryProtectPageSize(), MEM_PROT_READ | MEM_PROT_WRITE);
+		hooks_.profilerPC = (uint32_t *)GetWritableCodePtr();
+		*hooks_.profilerPC = 0;
+		hooks_.profilerStatus = (IRProfilerStatus *)GetWritableCodePtr() + 1;
+		*hooks_.profilerStatus = IRProfilerStatus::NOT_RUNNING;
+		SetCodePointer(GetCodePtr() + sizeof(uint32_t) * 2, GetWritableCodePtr() + sizeof(uint32_t) * 2);
+	}
+
+	const u8 *disasmStart = AlignCodePage();
+	BeginWrite(GetMemoryProtectPageSize());
 
 	if (jo.useStaticAlloc) {
 		saveStaticRegisters_ = AlignCode16();
@@ -58,8 +69,6 @@ void RiscVJitBackend::GenerateFixedCode(MIPSState *mipsState) {
 		regs_.EmitLoadStaticRegisters();
 		LW(DOWNCOUNTREG, CTXREG, offsetof(MIPSState, downcount));
 		RET();
-
-		start = saveStaticRegisters_;
 	} else {
 		saveStaticRegisters_ = nullptr;
 		loadStaticRegisters_ = nullptr;
@@ -124,14 +133,18 @@ void RiscVJitBackend::GenerateFixedCode(MIPSState *mipsState) {
 	LI(JITBASEREG, GetBasePtr() - MIPS_EMUHACK_OPCODE, SCRATCH1);
 
 	LoadStaticRegisters();
+	WriteDebugProfilerStatus(IRProfilerStatus::IN_JIT);
 	MovFromPC(SCRATCH1);
+	WriteDebugPC(SCRATCH1);
 	outerLoopPCInSCRATCH1_ = GetCodePtr();
 	MovToPC(SCRATCH1);
 	outerLoop_ = GetCodePtr();
 	// Advance can change the downcount (or thread), so must save/restore around it.
 	SaveStaticRegisters();
 	RestoreRoundingMode(true);
+	WriteDebugProfilerStatus(IRProfilerStatus::TIMER_ADVANCE);
 	QuickCallFunction(&CoreTiming::Advance, X7);
+	WriteDebugProfilerStatus(IRProfilerStatus::IN_JIT);
 	ApplyRoundingMode(true);
 	LoadStaticRegisters();
 
@@ -162,6 +175,7 @@ void RiscVJitBackend::GenerateFixedCode(MIPSState *mipsState) {
 	}
 
 	LWU(SCRATCH1, CTXREG, offsetof(MIPSState, pc));
+	WriteDebugPC(SCRATCH1);
 #ifdef MASKED_PSP_MEMORY
 	LI(SCRATCH2, 0x3FFFFFFF);
 	AND(SCRATCH1, SCRATCH1, SCRATCH2);
@@ -180,7 +194,9 @@ void RiscVJitBackend::GenerateFixedCode(MIPSState *mipsState) {
 
 	// No block found, let's jit.  We don't need to save static regs, they're all callee saved.
 	RestoreRoundingMode(true);
+	WriteDebugProfilerStatus(IRProfilerStatus::COMPILING);
 	QuickCallFunction(&MIPSComp::JitAt, X7);
+	WriteDebugProfilerStatus(IRProfilerStatus::IN_JIT);
 	ApplyRoundingMode(true);
 
 	// Try again, the block index should be set now.
@@ -195,6 +211,7 @@ void RiscVJitBackend::GenerateFixedCode(MIPSState *mipsState) {
 	const uint8_t *quitLoop = GetCodePtr();
 	SetJumpTarget(badCoreState);
 
+	WriteDebugProfilerStatus(IRProfilerStatus::NOT_RUNNING);
 	SaveStaticRegisters();
 	RestoreRoundingMode(true);
 

@@ -66,6 +66,9 @@ private:
 	void ApplyRoundingMode(bool force = false);
 	void MovFromPC(Gen::X64Reg r);
 	void MovToPC(Gen::X64Reg r);
+	void WriteDebugPC(uint32_t pc);
+	void WriteDebugPC(Gen::X64Reg r);
+	void WriteDebugProfilerStatus(IRProfilerStatus status);
 
 	void SaveStaticRegisters();
 	void LoadStaticRegisters();

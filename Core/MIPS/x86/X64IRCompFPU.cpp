@@ -972,6 +972,7 @@ void X64JitBackend::CompIR_FSpecial(IRInst inst) {
 
 	auto callFuncF_F = [&](const void *func) {
 		regs_.FlushBeforeCall();
+		WriteDebugProfilerStatus(IRProfilerStatus::MATH_HELPER);
 
 #if X64JIT_USE_XMM_CALL
 		if (regs_.IsFPRMapped(inst.src1)) {
@@ -1004,6 +1005,8 @@ void X64JitBackend::CompIR_FSpecial(IRInst inst) {
 		regs_.MapFPR(inst.dest, MIPSMap::NOINIT);
 		MOVD_xmm(regs_.FX(inst.dest), R(SCRATCH1));
 #endif
+
+		WriteDebugProfilerStatus(IRProfilerStatus::IN_JIT);
 	};
 
 	switch (inst.op) {

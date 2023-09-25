@@ -210,6 +210,7 @@ void Arm64JitBackend::CompIR_System(IRInst inst) {
 		FlushAll();
 		SaveStaticRegisters();
 
+		WriteDebugProfilerStatus(IRProfilerStatus::SYSCALL);
 #ifdef USE_PROFILER
 		// When profiling, we can't skip CallSyscall, since it times syscalls.
 		MOVI2R(W0, inst.constant);
@@ -229,6 +230,7 @@ void Arm64JitBackend::CompIR_System(IRInst inst) {
 		}
 #endif
 
+		WriteDebugProfilerStatus(IRProfilerStatus::IN_JIT);
 		LoadStaticRegisters();
 		// This is always followed by an ExitToPC, where we check coreState.
 		break;
@@ -236,7 +238,9 @@ void Arm64JitBackend::CompIR_System(IRInst inst) {
 	case IROp::CallReplacement:
 		FlushAll();
 		SaveStaticRegisters();
+		WriteDebugProfilerStatus(IRProfilerStatus::REPLACEMENT);
 		QuickCallFunction(SCRATCH2_64, GetReplacementFunc(inst.constant)->replaceFunc);
+		WriteDebugProfilerStatus(IRProfilerStatus::IN_JIT);
 		LoadStaticRegisters();
 		SUB(DOWNCOUNTREG, DOWNCOUNTREG, W0);
 		break;

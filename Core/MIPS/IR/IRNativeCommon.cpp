@@ -15,7 +15,9 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <atomic>
 #include <climits>
+#include <thread>
 #include "Common/Profiler/Profiler.h"
 #include "Common/StringUtils.h"
 #include "Common/TimeUtil.h"
@@ -31,18 +33,57 @@ namespace MIPSComp {
 
 // Compile time flag to enable debug stats for not compiled ops.
 static constexpr bool enableDebugStats = false;
+// Compile time flag for enabling the simple IR jit profiler.
+static constexpr bool enableDebugProfiler = false;
 
 // Used only for debugging when enableDebug is true above.
 static std::map<uint8_t, int> debugSeenNotCompiledIR;
 static std::map<const char *, int> debugSeenNotCompiled;
+static std::map<std::pair<uint32_t, IRProfilerStatus>, int> debugSeenPCUsage;
 static double lastDebugStatsLog = 0.0;
+static constexpr double debugStatsFrequency = 5.0;
+
+static std::thread debugProfilerThread;
+std::atomic<bool> debugProfilerThreadStatus = false;
+
+template <int N>
+class IRProfilerTopValues {
+public:
+	void Add(const std::pair<uint32_t, IRProfilerStatus> &v, int c) {
+		for (int i = 0; i < N; ++i) {
+			if (c > counts[i]) {
+				counts[i] = c;
+				values[i] = v;
+				return;
+			}
+		}
+	}
+
+	int counts[N]{};
+	std::pair<uint32_t, IRProfilerStatus> values[N]{};
+};
+
+const char *IRProfilerStatusToString(IRProfilerStatus s) {
+	switch (s) {
+	case IRProfilerStatus::NOT_RUNNING: return "NOT_RUNNING";
+	case IRProfilerStatus::IN_JIT: return "IN_JIT";
+	case IRProfilerStatus::TIMER_ADVANCE: return "TIMER_ADVANCE";
+	case IRProfilerStatus::COMPILING: return "COMPILING";
+	case IRProfilerStatus::MATH_HELPER: return "MATH_HELPER";
+	case IRProfilerStatus::REPLACEMENT: return "REPLACEMENT";
+	case IRProfilerStatus::SYSCALL: return "SYSCALL";
+	case IRProfilerStatus::INTERPRET: return "INTERPRET";
+	case IRProfilerStatus::IR_INTERPRET: return "IR_INTERPRET";
+	}
+	return "INVALID";
+}
 
 static void LogDebugStats() {
-	if (!enableDebugStats)
+	if (!enableDebugStats && !enableDebugProfiler)
 		return;
 
 	double now = time_now_d();
-	if (now < lastDebugStatsLog + 1.0)
+	if (now < lastDebugStatsLog + debugStatsFrequency)
 		return;
 	lastDebugStatsLog = now;
 
@@ -66,14 +107,34 @@ static void LogDebugStats() {
 	}
 	debugSeenNotCompiled.clear();
 
+	IRProfilerTopValues<4> slowestPCs;
+	int64_t totalCount = 0;
+	for (auto it : debugSeenPCUsage) {
+		slowestPCs.Add(it.first, it.second);
+		totalCount += it.second;
+	}
+	debugSeenPCUsage.clear();
+
 	if (worstIROp != -1)
 		WARN_LOG(JIT, "Most not compiled IR op: %s (%d)", GetIRMeta((IROp)worstIROp)->name, worstIRVal);
 	if (worstName != nullptr)
 		WARN_LOG(JIT, "Most not compiled op: %s (%d)", worstName, worstVal);
+	if (slowestPCs.counts[0] != 0) {
+		for (int i = 0; i < 4; ++i) {
+			uint32_t pc = slowestPCs.values[i].first;
+			const char *status = IRProfilerStatusToString(slowestPCs.values[i].second);
+			const std::string label = g_symbolMap ? g_symbolMap->GetDescription(pc) : "";
+			WARN_LOG(JIT, "Slowest sampled PC #%d: %08x (%s)/%s (%f%%)", i, pc, label.c_str(), status, 100.0 * (double)slowestPCs.counts[i] / (double)totalCount);
+		}
+	}
 }
 
 bool IRNativeBackend::DebugStatsEnabled() const {
 	return enableDebugStats;
+}
+
+bool IRNativeBackend::DebugProfilerEnabled() const {
+	return enableDebugProfiler;
 }
 
 void IRNativeBackend::NotifyMIPSInterpret(const char *name) {
@@ -119,6 +180,13 @@ int IRNativeBackend::ReportBadAddress(uint32_t addr, uint32_t alignment, uint32_
 }
 
 IRNativeBackend::IRNativeBackend(IRBlockCache &blocks) : blocks_(blocks) {}
+
+IRNativeBackend::~IRNativeBackend() {
+	if (debugProfilerThreadStatus) {
+		debugProfilerThreadStatus = false;
+		debugProfilerThread.join();
+	}
+}
 
 void IRNativeBackend::CompileIRInst(IRInst inst) {
 	switch (inst.op) {
@@ -421,6 +489,20 @@ void IRNativeJit::Init(IRNativeBackend &backend) {
 
 	// Wanted this to be a reference, but vtbls get in the way.  Shouldn't change.
 	hooks_ = backend.GetNativeHooks();
+
+	if (enableDebugProfiler && hooks_.profilerPC) {
+		debugProfilerThreadStatus = true;
+		debugProfilerThread = std::thread([&] {
+			// Spin, spin spin... maybe could at least hook into sleeps.
+			while (debugProfilerThreadStatus) {
+				IRProfilerStatus stat = *hooks_.profilerStatus;
+				uint32_t pc = *hooks_.profilerPC;
+				if (stat != IRProfilerStatus::NOT_RUNNING && stat != IRProfilerStatus::SYSCALL) {
+					debugSeenPCUsage[std::make_pair(pc, stat)]++;
+				}
+			}
+		});
+	}
 }
 
 bool IRNativeJit::CompileTargetBlock(IRBlock *block, int block_num, bool preload) {
@@ -432,7 +514,7 @@ void IRNativeJit::FinalizeTargetBlock(IRBlock *block, int block_num) {
 }
 
 void IRNativeJit::RunLoopUntil(u64 globalticks) {
-	if constexpr (enableDebugStats) {
+	if constexpr (enableDebugStats || enableDebugProfiler) {
 		LogDebugStats();
 	}
 

@@ -585,6 +585,8 @@ void RiscVJitBackend::CompIR_FSpecial(IRInst inst) {
 
 	auto callFuncF_F = [&](float (*func)(float)) {
 		regs_.FlushBeforeCall();
+		WriteDebugProfilerStatus(IRProfilerStatus::MATH_HELPER);
+
 		// It might be in a non-volatile register.
 		// TODO: May have to handle a transfer if SIMD here.
 		if (regs_.IsFPRMapped(inst.src1)) {
@@ -600,6 +602,8 @@ void RiscVJitBackend::CompIR_FSpecial(IRInst inst) {
 		if (regs_.F(inst.dest) != F10) {
 			FMV(32, regs_.F(inst.dest), F10);
 		}
+
+		WriteDebugProfilerStatus(IRProfilerStatus::IN_JIT);
 	};
 
 	RiscVReg tempReg = INVALID_REG;
