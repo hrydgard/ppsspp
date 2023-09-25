@@ -751,16 +751,21 @@ public abstract class NativeActivity extends Activity {
 		super.onDestroy();
 		Log.i(TAG, "onDestroy");
 		if (javaGL) {
-			if (nativeRenderer != null && nativeRenderer.isRenderingFrame()) {
-				Log.i(TAG, "Waiting for renderer to finish.");
-				int tries = 200;
-				do {
-					try {
-						Thread.sleep(10);
-					} catch (InterruptedException e) {
-					}
-					tries--;
-				} while (nativeRenderer.isRenderingFrame() && tries > 0);
+			if (nativeRenderer != null) {
+				if (nativeRenderer.isRenderingFrame()) {
+					Log.i(TAG, "Waiting for renderer to finish.");
+					int tries = 200;
+					do {
+						try {
+							Thread.sleep(10);
+						} catch (InterruptedException e) {
+						}
+						tries--;
+					} while (nativeRenderer.isRenderingFrame() && tries > 0);
+				} else {
+					Log.i(TAG, "nativerenderer done.");
+					nativeRenderer = null;
+				}
 			}
 			mGLSurfaceView.onDestroy();
 			mGLSurfaceView = null;

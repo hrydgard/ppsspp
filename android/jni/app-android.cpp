@@ -688,7 +688,7 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_init
 	EARLY_LOG("NativeApp.init() -- begin");
 	PROFILE_INIT();
 
-	std::lock_guard<std::mutex> guard(renderLock);  // Note: This is held for the rest of this function - intended? and even necessary?
+	std::lock_guard<std::mutex> guard(renderLock);
 	renderer_inited = false;
 	exitRenderLoop = false;
 	androidVersion = jAndroidVersion;
@@ -874,8 +874,13 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_pause(JNIEnv *, jclass) {
 
 extern "C" void Java_org_ppsspp_ppsspp_NativeApp_shutdown(JNIEnv *, jclass) {
 	INFO_LOG(SYSTEM, "NativeApp.shutdown() -- begin");
+
 	if (renderer_inited && useCPUThread && graphicsContext) {
 		// Only used in Java EGL path.
+
+		// We can't lock renderLock here because the emu thread will be in NativeFrame
+		// which locks renderLock already, and only gets out once we call ThreadFrame()
+		// in a loop before, to empty the queue.
 		EmuThreadStop("shutdown");
 		INFO_LOG(SYSTEM, "BeginAndroidShutdown");
 		graphicsContext->BeginAndroidShutdown();
@@ -893,18 +898,19 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_shutdown(JNIEnv *, jclass) {
 		EmuThreadJoin();
 	}
 
-	if (graphicsContext) {
-		INFO_LOG(G3D, "Shutting down renderer");
-		graphicsContext->Shutdown();
-		delete graphicsContext;
-		graphicsContext = nullptr;
-		renderer_inited = false;
-	} else {
-		INFO_LOG(G3D, "Not shutting down renderer - not initialized");
-	}
-
 	{
 		std::lock_guard<std::mutex> guard(renderLock);
+
+		if (graphicsContext) {
+			INFO_LOG(G3D, "Shutting down renderer");
+			graphicsContext->Shutdown();
+			delete graphicsContext;
+			graphicsContext = nullptr;
+			renderer_inited = false;
+		} else {
+			INFO_LOG(G3D, "Not shutting down renderer - not initialized");
+		}
+
 		NativeShutdown();
 		g_VFS.Clear();
 	}
