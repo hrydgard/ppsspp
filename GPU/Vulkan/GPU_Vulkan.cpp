@@ -182,7 +182,6 @@ GPU_Vulkan::~GPU_Vulkan() {
 	shaderManager_->ClearShaders();
 
 	// other managers are deleted in ~GPUCommonHW.
-
 	if (draw_) {
 		VulkanRenderManager *rm = (VulkanRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
 		rm->ReleaseCompileQueue();
@@ -427,6 +426,13 @@ void GPU_Vulkan::DeviceLost() {
 	while (!IsReady()) {
 		sleep_ms(10);
 	}
+	// draw_ is normally actually still valid here in Vulkan. But we null it out in GPUCommonHW::DeviceLost so we don't try to use it again.
+	Draw::DrawContext *draw = draw_;
+	if (draw) {
+		VulkanRenderManager *rm = (VulkanRenderManager *)draw->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
+		rm->DrainAndBlockCompileQueue();
+	}
+
 	if (shaderCachePath_.Valid()) {
 		SaveCache(shaderCachePath_);
 	}
@@ -434,6 +440,11 @@ void GPU_Vulkan::DeviceLost() {
 	pipelineManager_->DeviceLost();
 
 	GPUCommonHW::DeviceLost();
+
+	if (draw) {
+		VulkanRenderManager *rm = (VulkanRenderManager *)draw->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
+		rm->ReleaseCompileQueue();
+	}
 }
 
 void GPU_Vulkan::DeviceRestore(Draw::DrawContext *draw) {
