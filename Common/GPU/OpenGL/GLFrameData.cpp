@@ -32,25 +32,25 @@ void GLDeleter::Perform(GLRenderManager *renderManager, bool skipGLCalls) {
 	}
 	pushBuffers.clear();
 	for (auto shader : shaders) {
-		if (skipGLCalls)
+		if (skipGLCalls && shader)
 			shader->shader = 0;  // prevent the glDeleteShader
 		delete shader;
 	}
 	shaders.clear();
 	for (auto program : programs) {
-		if (skipGLCalls)
+		if (skipGLCalls && program)
 			program->program = 0;  // prevent the glDeleteProgram
 		delete program;
 	}
 	programs.clear();
 	for (auto buffer : buffers) {
-		if (skipGLCalls)
+		if (skipGLCalls && buffer)
 			buffer->buffer_ = 0;
 		delete buffer;
 	}
 	buffers.clear();
 	for (auto texture : textures) {
-		if (skipGLCalls)
+		if (skipGLCalls && texture)
 			texture->texture = 0;
 		delete texture;
 	}

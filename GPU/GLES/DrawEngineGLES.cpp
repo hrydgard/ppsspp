@@ -521,7 +521,7 @@ void TessellationDataTransferGLES::SendDataToShader(const SimpleVertex *const *p
 	if (prevSizeU < size_u || prevSizeV < size_v) {
 		prevSizeU = size_u;
 		prevSizeV = size_v;
-		if (!data_tex[0])
+		if (data_tex[0])
 			renderManager_->DeleteTexture(data_tex[0]);
 		data_tex[0] = renderManager_->CreateTexture(GL_TEXTURE_2D, size_u * 3, size_v, 1, 1);
 		renderManager_->TextureImage(data_tex[0], 0, size_u * 3, size_v, 1, Draw::DataFormat::R32G32B32A32_FLOAT, nullptr, GLRAllocType::NONE, false);
@@ -540,7 +540,7 @@ void TessellationDataTransferGLES::SendDataToShader(const SimpleVertex *const *p
 	// Weight U
 	if (prevSizeWU < weights.size_u) {
 		prevSizeWU = weights.size_u;
-		if (!data_tex[1])
+		if (data_tex[1])
 			renderManager_->DeleteTexture(data_tex[1]);
 		data_tex[1] = renderManager_->CreateTexture(GL_TEXTURE_2D, weights.size_u * 2, 1, 1, 1);
 		renderManager_->TextureImage(data_tex[1], 0, weights.size_u * 2, 1, 1, Draw::DataFormat::R32G32B32A32_FLOAT, nullptr, GLRAllocType::NONE, false);
@@ -552,7 +552,7 @@ void TessellationDataTransferGLES::SendDataToShader(const SimpleVertex *const *p
 	// Weight V
 	if (prevSizeWV < weights.size_v) {
 		prevSizeWV = weights.size_v;
-		if (!data_tex[2])
+		if (data_tex[2])
 			renderManager_->DeleteTexture(data_tex[2]);
 		data_tex[2] = renderManager_->CreateTexture(GL_TEXTURE_2D, weights.size_v * 2, 1, 1, 1);
 		renderManager_->TextureImage(data_tex[2], 0, weights.size_v * 2, 1, 1, Draw::DataFormat::R32G32B32A32_FLOAT, nullptr, GLRAllocType::NONE, false);

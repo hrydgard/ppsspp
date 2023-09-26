@@ -1310,9 +1310,7 @@ extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeActivity_requestExitVulkanR
 		return;
 	}
 	exitRenderLoop = true;
-	while (renderLoopRunning) {
-		sleep_ms(5);
-	}
+	// The caller joins the thread anyway, so no point in doing a wait loop here, only leads to misleading hang diagnostics.
 }
 
 void correctRatio(int &sz_x, int &sz_y, float scale) {

@@ -767,8 +767,10 @@ public abstract class NativeActivity extends Activity {
 					nativeRenderer = null;
 				}
 			}
-			mGLSurfaceView.onDestroy();
-			mGLSurfaceView = null;
+			if (mGLSurfaceView != null) {
+				mGLSurfaceView.onDestroy();
+				mGLSurfaceView = null;
+			}
 		} else {
 			if (mSurfaceView != null) {
 				mSurfaceView.onDestroy();
