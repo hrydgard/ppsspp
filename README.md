@@ -25,6 +25,15 @@ If you want to download regularly updated builds for Android, Windows x86 and x6
 
 For game compatibility, see [community compatibility feedback](https://report.ppsspp.org/games).
 
+What's new in 1.16.5
+====================
+- Additional crash and memory-leak fixes ([#18243], [#18244], [#18247])
+- Revert bad change that broke things with hardware transform turned off ([#18261])
+- Fix menu texture problem in Naruto Kizuna Drive in OpenGL ([#18255])
+- Apply flicker fix to WWE SvR 2007
+- More efficient handling of accelerometer events ([#18250])
+- Fix for jumpy graphics in Harvest Moon ([#18249])
+
 What's new in 1.16.4
 ====================
 - Simplify shader cache lookups on Vulkan, hopefully fixing some crashes ([#18218])
