@@ -29,7 +29,7 @@
 #include "Core/MIPS/MIPS.h"
 
 #if PPSSPP_ARCH(ARM) || PPSSPP_ARCH(ARM64)
-const int MAX_JIT_BLOCK_EXITS = 2;
+const int MAX_JIT_BLOCK_EXITS = 4;
 #else
 const int MAX_JIT_BLOCK_EXITS = 8;
 #endif
