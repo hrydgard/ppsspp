@@ -574,7 +574,7 @@ bool X64IRRegCache::TransferVecTo1(IRNativeReg nreg, IRNativeReg dest, IRReg fir
 bool X64IRRegCache::Transfer1ToVec(IRNativeReg nreg, IRNativeReg dest, IRReg first, int lanes) {
 	X64Reg cur[4]{};
 	int numInRegs = 0;
-	int numDirty = 0;
+	u8 blendMask = 0;
 	for (int i = 0; i < lanes; ++i) {
 		if (mr[first + i].lane != -1 || (i != 0 && mr[first + i].spillLockIRIndex >= irIndex_)) {
 			// Can't do it, either double mapped or overlapping vec.
@@ -583,11 +583,10 @@ bool X64IRRegCache::Transfer1ToVec(IRNativeReg nreg, IRNativeReg dest, IRReg fir
 
 		if (mr[first + i].nReg == -1) {
 			cur[i] = INVALID_REG;
+			blendMask |= 1 << i;
 		} else {
 			cur[i] = FromNativeReg(mr[first + i].nReg);
 			numInRegs++;
-			if (nr[cur[i]].isDirty)
-				numDirty++;
 		}
 	}
 
@@ -595,49 +594,90 @@ bool X64IRRegCache::Transfer1ToVec(IRNativeReg nreg, IRNativeReg dest, IRReg fir
 	if (numInRegs == 0)
 		return false;
 
-	// If everything's currently in a reg, move it into this reg.
-	if (lanes == 4) {
-		if (cur[0] == INVALID_REG) {
+	// Move things together into a reg.
+	if (lanes == 4 && cpu_info.bSSE4_1 && numInRegs == 1 && (first & 3) == 0) {
+		// Use a blend to grab the rest.  BLENDPS is pretty good.
+		if (cpu_info.bAVX && nreg != dest) {
+			if (cur[0] == INVALID_REG) {
+				// Broadcast to all lanes, then blend from memory to replace.
+				emit_->VPERMILPS(128, FromNativeReg(dest), ::R(FromNativeReg(nreg)), 0);
+				emit_->BLENDPS(FromNativeReg(dest), MDisp(CTXREG, -128 + GetMipsRegOffset(first)), blendMask);
+			} else {
+				emit_->VBLENDPS(128, FromNativeReg(dest), FromNativeReg(nreg), MDisp(CTXREG, -128 + GetMipsRegOffset(first)), blendMask);
+			}
 			cur[0] = FromNativeReg(dest);
-			emit_->MOVSS(cur[0], MDisp(CTXREG, -128 + GetMipsRegOffset(first + 0)));
-			numInRegs++;
+		} else {
+			if (cur[0] == INVALID_REG)
+				emit_->SHUFPS(FromNativeReg(nreg), ::R(FromNativeReg(nreg)), 0);
+			emit_->BLENDPS(FromNativeReg(nreg), MDisp(CTXREG, -128 + GetMipsRegOffset(first)), blendMask);
+			// If this is not dest, it'll get moved there later.
+			cur[0] = FromNativeReg(nreg);
 		}
-
-		// A lot of other methods are possible, but seem to make things slower in practice.
-		if (numInRegs == 4) {
+	} else if (lanes == 4) {
+		if (blendMask == 0) {
 			// y = yw##, x = xz##, x = xyzw.
 			emit_->UNPCKLPS(cur[1], ::R(cur[3]));
 			emit_->UNPCKLPS(cur[0], ::R(cur[2]));
 			emit_->UNPCKLPS(cur[0], ::R(cur[1]));
-		} else if (numInRegs == 2 && cur[1] != INVALID_REG) {
+		} else if (blendMask == 0b1100) {
 			// x = xy##, then load zw.
 			emit_->UNPCKLPS(cur[0], ::R(cur[1]));
 			emit_->MOVHPS(cur[0], MDisp(CTXREG, -128 + GetMipsRegOffset(first + 2)));
-		} else if (cur[1] != INVALID_REG && cur[2] != INVALID_REG) {
-			// x = xz##, z=w###, y=yw##, x=xyzw.
+		} else if (blendMask == 0b1010 && cpu_info.bSSE4_1 && (first & 3) == 0) {
+			// x = x#z#, x = xyzw.
+			emit_->SHUFPS(cur[0], ::R(cur[2]), VFPU_SWIZZLE(0, 0, 0, 0));
+			emit_->BLENDPS(cur[0], MDisp(CTXREG, -128 + GetMipsRegOffset(first)), blendMask);
+		} else if (blendMask == 0b0110 && cpu_info.bSSE4_1 && (first & 3) == 0) {
+			// x = x##w, x = xyzw.
+			emit_->SHUFPS(cur[0], ::R(cur[3]), VFPU_SWIZZLE(0, 0, 0, 0));
+			emit_->BLENDPS(cur[0], MDisp(CTXREG, -128 + GetMipsRegOffset(first)), blendMask);
+		} else if (blendMask == 0b1001 && cpu_info.bSSE4_1 && (first & 3) == 0) {
+			// y = #yz#, y = xyzw.
+			emit_->SHUFPS(cur[1], ::R(cur[2]), VFPU_SWIZZLE(0, 0, 0, 0));
+			emit_->BLENDPS(cur[1], MDisp(CTXREG, -128 + GetMipsRegOffset(first)), blendMask);
+			// Will be moved to dest as needed.
+			cur[0] = cur[1];
+		} else if (blendMask == 0b0101 && cpu_info.bSSE4_1 && (first & 3) == 0) {
+			// y = #y#w, y = xyzw.
+			emit_->SHUFPS(cur[1], ::R(cur[3]), VFPU_SWIZZLE(0, 0, 0, 0));
+			emit_->BLENDPS(cur[1], MDisp(CTXREG, -128 + GetMipsRegOffset(first)), blendMask);
+			// Will be moved to dest as needed.
+			cur[0] = cur[1];
+		} else if (blendMask == 0b1000) {
+			// x = xz##, z = w###, y = yw##, x = xyzw.
 			emit_->UNPCKLPS(cur[0], ::R(cur[2]));
 			emit_->MOVSS(cur[2], MDisp(CTXREG, -128 + GetMipsRegOffset(first + 3)));
 			emit_->UNPCKLPS(cur[1], ::R(cur[2]));
 			emit_->UNPCKLPS(cur[0], ::R(cur[1]));
-		} else if (cpu_info.bSSE4_1 && numDirty != 0 && cur[1] != INVALID_REG && cur[3] != INVALID_REG) {
-			// y = yw##, load z into x[1], x = xyzw.
+		} else if (blendMask == 0b0100) {
+			// y = yw##, w = z###, x = xz##, x = xyzw.
 			emit_->UNPCKLPS(cur[1], ::R(cur[3]));
-			emit_->INSERTPS(cur[0], MDisp(CTXREG, -128 + GetMipsRegOffset(first + 2)), 1);
+			emit_->MOVSS(cur[3], MDisp(CTXREG, -128 + GetMipsRegOffset(first + 2)));
+			emit_->UNPCKLPS(cur[0], ::R(cur[3]));
 			emit_->UNPCKLPS(cur[0], ::R(cur[1]));
-		} else if (cpu_info.bSSE4_1 && numDirty != 0 && cur[2] != INVALID_REG && cur[3] != INVALID_REG) {
-			// load y to x[1], z = zw##, x = xyzw.
-			emit_->INSERTPS(cur[0], MDisp(CTXREG, -128 + GetMipsRegOffset(first + 1)), 1);
+		} else if (blendMask == 0b0010) {
+			// z = zw##, w = y###, x = xy##, x = xyzw.
 			emit_->UNPCKLPS(cur[2], ::R(cur[3]));
+			emit_->MOVSS(cur[3], MDisp(CTXREG, -128 + GetMipsRegOffset(first + 1)));
+			emit_->UNPCKLPS(cur[0], ::R(cur[3]));
 			emit_->MOVLHPS(cur[0], cur[2]);
-		} else if (cpu_info.bSSE4_1) {
-			// TODO: This might be worse than flushing depending?
-			for (int i = 1; i < 4; ++i) {
-				if (cur[i] == INVALID_REG)
-					emit_->INSERTPS(cur[0], MDisp(CTXREG, -128 + GetMipsRegOffset(first + i)), i);
-				else
-					emit_->INSERTPS(cur[0], ::R(cur[i]), i, 0);
-			}
+		} else if (blendMask == 0b0001) {
+			// y = yw##, w = x###, w = xz##, w = xyzw.
+			emit_->UNPCKLPS(cur[1], ::R(cur[3]));
+			emit_->MOVSS(cur[3], MDisp(CTXREG, -128 + GetMipsRegOffset(first + 0)));
+			emit_->UNPCKLPS(cur[3], ::R(cur[2]));
+			emit_->UNPCKLPS(cur[3], ::R(cur[1]));
+			// Will be moved to dest as needed.
+			cur[0] = cur[3];
+		} else if (blendMask == 0b0011) {
+			// z = zw##, w = xy##, w = xyzw.
+			emit_->UNPCKLPS(cur[2], ::R(cur[3]));
+			emit_->MOVLPS(cur[3], MDisp(CTXREG, -128 + GetMipsRegOffset(first + 0)));
+			emit_->MOVLHPS(cur[3], cur[2]);
+			// Will be moved to dest as needed.
+			cur[0] = cur[3];
 		} else {
+			// This must mean no SSE4, and numInRegs <= 2 in trickier cases.
 			return false;
 		}
 	} else if (lanes == 2) {
