@@ -37,7 +37,8 @@ bool StringViewEqualCaseInsensitive(const std::string_view lhs, const std::strin
 }
 
 // This unescapes # signs.
-static bool ParseLineKey(const std::string &line, size_t &pos, std::string *keyOut) {
+// NOTE: These parse functions can make better use of the string_view - the pos argument should not be needed, for example.
+static bool ParseLineKey(std::string_view line, size_t &pos, std::string *keyOut) {
 	std::string key = "";
 
 	while (pos < line.size()) {
@@ -52,7 +53,8 @@ static bool ParseLineKey(const std::string &line, size_t &pos, std::string *keyO
 			}
 
 			// Escaped.
-			key += line.substr(pos, next - pos - 1) + "#";
+			key += line.substr(pos, next - pos - 1);
+			key.push_back('#');
 			pos = next + 1;
 		} else if (line[next] == '=') {
 			// Hurray, done.
@@ -68,11 +70,11 @@ static bool ParseLineKey(const std::string &line, size_t &pos, std::string *keyO
 	return true;
 }
 
-static bool ParseLineValue(const std::string &line, size_t &pos, std::string *valueOut) {
+static bool ParseLineValue(std::string_view line, size_t &pos, std::string *valueOut) {
 	std::string value = "";
 
-	std::string strippedLine = StripSpaces(line.substr(pos));
-	if (strippedLine[0] == '"' && strippedLine[strippedLine.size()-1] == '"') {
+	std::string_view strippedLine = StripSpaces(line.substr(pos));
+	if (strippedLine.size() >= 2 && strippedLine[0] == '"' && strippedLine[strippedLine.size() - 1] == '"') {
 		// Don't remove comment if is surrounded by " "
 		value += line.substr(pos);
 		pos = line.npos; // Won't enter the while below
@@ -92,7 +94,8 @@ static bool ParseLineValue(const std::string &line, size_t &pos, std::string *va
 			break;
 		} else {
 			// Escaped.
-			value += line.substr(pos, next - pos - 1) + "#";
+			value += line.substr(pos, next - pos - 1);
+			value.push_back('#');
 			pos = next + 1;
 		}
 	}
@@ -104,7 +107,7 @@ static bool ParseLineValue(const std::string &line, size_t &pos, std::string *va
 	return true;
 }
 
-static bool ParseLineComment(const std::string& line, size_t &pos, std::string *commentOut) {
+static bool ParseLineComment(std::string_view line, size_t &pos, std::string *commentOut) {
 	// Don't bother with anything if we don't need the comment data.
 	if (commentOut) {
 		// Include any whitespace/formatting in the comment.
@@ -125,8 +128,7 @@ static bool ParseLineComment(const std::string& line, size_t &pos, std::string *
 	return true;
 }
 
-// Ugh, this is ugly.
-static bool ParseLine(const std::string& line, std::string* keyOut, std::string* valueOut, std::string* commentOut)
+static bool ParseLine(std::string_view line, std::string* keyOut, std::string* valueOut, std::string* commentOut)
 {
 	// Rules:
 	// 1. A line starting with ; is commented out.
@@ -150,7 +152,7 @@ static bool ParseLine(const std::string& line, std::string* keyOut, std::string*
 	return true;
 }
 
-static std::string EscapeHash(const std::string &value) {
+static std::string EscapeHash(std::string_view value) {
 	std::string result = "";
 
 	for (size_t pos = 0; pos < value.size(); ) {
@@ -159,7 +161,8 @@ static std::string EscapeHash(const std::string &value) {
 			result += value.substr(pos);
 			pos = value.npos;
 		} else {
-			result += value.substr(pos, next - pos) + "\\#";
+			result += value.substr(pos, next - pos);
+			result += "\\#";
 			pos = next + 1;
 		}
 	}
@@ -167,9 +170,13 @@ static std::string EscapeHash(const std::string &value) {
 	return result;
 }
 
-void ParsedIniLine::ParseFrom(const std::string &line) {
-	// TODO: Skip whitespace.
-	if (line[0] == '#') {
+void ParsedIniLine::ParseFrom(std::string_view line) {
+	line = StripSpaces(line);
+	if (line.empty()) {
+		key.clear();
+		value.clear();
+		comment.clear();
+	} else if (line[0] == '#') {
 		key.clear();
 		value.clear();
 		comment = line;

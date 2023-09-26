@@ -33,7 +33,7 @@ public:
 	}
 
 	// Comments only come from "ParseFrom".
-	void ParseFrom(const std::string &line);
+	void ParseFrom(std::string_view line);
 	void Reconstruct(std::string *output) const;
 
 	// Having these as views allows a more efficient internal representation, like one joint string.

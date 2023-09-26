@@ -21,6 +21,7 @@
 #include <cstdint>
 #include <string>
 #include <cstring>
+#include <string_view>
 #include <vector>
 
 #ifdef _MSC_VER
@@ -82,6 +83,9 @@ std::string StringFromInt(int value);
 
 std::string StripSpaces(const std::string &s);
 std::string StripQuotes(const std::string &s);
+
+std::string_view StripSpaces(std::string_view s);
+std::string_view StripQuotes(std::string_view s);
 
 void SplitString(const std::string& str, const char delim, std::vector<std::string>& output);
 
