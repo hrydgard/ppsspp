@@ -503,8 +503,8 @@ void RemoteISOConnectScreen::ExecuteLoad() {
 
 class RemoteGameBrowser : public GameBrowser {
 public:
-	RemoteGameBrowser(const Path &url, BrowseFlags browseFlags, bool *gridStyle_, ScreenManager *screenManager, std::string lastText, std::string lastLink, UI::LayoutParams *layoutParams = nullptr)
-		: GameBrowser(url, browseFlags, gridStyle_, screenManager, lastText, lastLink, layoutParams) {
+	RemoteGameBrowser(const Path &url, BrowseFlags browseFlags, bool *gridStyle, ScreenManager *screenManager, std::string lastText, std::string lastLink, UI::LayoutParams *layoutParams = nullptr)
+		: GameBrowser(url, browseFlags, gridStyle, screenManager, lastText, lastLink, layoutParams) {
 		initialPath_ = url;
 	}
 

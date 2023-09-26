@@ -122,7 +122,11 @@ void PopupMultiChoice::UpdateText() {
 	if (index < 0 || index >= numChoices_) {
 		valueText_ = "(invalid choice)";  // Shouldn't happen. Should be no need to translate this.
 	} else {
-		valueText_ = T(category_, choices_[index]);
+		if (choices_[index]) {
+			valueText_ = T(category_, choices_[index]);
+		} else {
+			valueText_ = "";
+		}
 	}
 }
 
