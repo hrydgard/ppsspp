@@ -462,6 +462,11 @@ void JitBlockCache::UnlinkBlock(int i) {
 	if (ppp.first == ppp.second)
 		return;
 	for (auto iter = ppp.first; iter != ppp.second; ++iter) {
+		if ((size_t)iter->second >= num_blocks_) {
+			// Something probably went very wrong. Try to stumble along nevertheless.
+			ERROR_LOG(JIT, "UnlinkBlock: Invalid block number %d", iter->second);
+			continue;
+		}
 		JitBlock &sourceBlock = blocks_[iter->second];
 		for (int e = 0; e < MAX_JIT_BLOCK_EXITS; e++) {
 			if (sourceBlock.exitAddress[e] == b.originalAddress)
