@@ -29,21 +29,11 @@
 
 #include "Common/StringUtils.h"
 
-int strvcasecmp(const std::string_view &lhs, const std::string_view &rhs) {
-	int zret = 0;
-	size_t n = rhs.size();
-
-	// Seems a bit ugly but size comparisons must be done anyway to get the @c strncasecmp args.
-	if (lhs.size() < rhs.size()) {
-		zret = 1;
-		n = lhs.size();
-	} else if (lhs.size() > rhs.size()) {
-		zret = -1;
-	} else if (lhs.data() == rhs.data()) { // the same memory, obviously equal.
-		return 0;
+bool StringViewEqualCaseInsensitive(const std::string_view lhs, const std::string_view rhs) {
+	if (lhs.size() != rhs.size()) {
+		return false;
 	}
-	int r = ::strncasecmp(lhs.data(), rhs.data(), n);
-	return r ? r : zret;
+	return ::strncasecmp(lhs.data(), rhs.data(), rhs.size()) == 0;
 }
 
 // This unescapes # signs.
@@ -202,7 +192,7 @@ void Section::Clear() {
 
 ParsedIniLine *Section::GetLine(const char *key) {
 	for (auto &line : lines_) {
-		if (!strvcasecmp(line.Key(), key))
+		if (StringViewEqualCaseInsensitive(line.Key(), key))
 			return &line;
 	}
 	return nullptr;
@@ -210,7 +200,7 @@ ParsedIniLine *Section::GetLine(const char *key) {
 
 const ParsedIniLine *Section::GetLine(const char* key) const {
 	for (auto &line : lines_) {
-		if (!strvcasecmp(line.Key(), key))
+		if (StringViewEqualCaseInsensitive(line.Key(), key))
 			return &line;
 	}
 	return nullptr;
@@ -400,7 +390,7 @@ bool Section::Get(const char* key, double* value, double defaultValue) const
 
 bool Section::Exists(const char *key) const {
 	for (auto &line : lines_) {
-		if (!strvcasecmp(key, line.Key()))
+		if (StringViewEqualCaseInsensitive(key, line.Key()))
 			return true;
 	}
 	return false;
