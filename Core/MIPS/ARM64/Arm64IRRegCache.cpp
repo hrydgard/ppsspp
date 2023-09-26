@@ -535,9 +535,10 @@ bool Arm64IRRegCache::TransferVecTo1(IRNativeReg nreg, IRNativeReg dest, IRReg f
 }
 
 bool Arm64IRRegCache::Transfer1ToVec(IRNativeReg nreg, IRNativeReg dest, IRReg first, int lanes) {
+	ARM64Reg destReg = FromNativeReg(dest);
 	ARM64Reg cur[4]{};
 	int numInRegs = 0;
-	int numDirty = 0;
+	u8 blendMask = 0;
 	for (int i = 0; i < lanes; ++i) {
 		if (mr[first + i].lane != -1 || (i != 0 && mr[first + i].spillLockIRIndex >= irIndex_)) {
 			// Can't do it, either double mapped or overlapping vec.
@@ -546,11 +547,10 @@ bool Arm64IRRegCache::Transfer1ToVec(IRNativeReg nreg, IRNativeReg dest, IRReg f
 
 		if (mr[first + i].nReg == -1) {
 			cur[i] = INVALID_REG;
+			blendMask |= 1 << i;
 		} else {
 			cur[i] = FromNativeReg(mr[first + i].nReg);
 			numInRegs++;
-			if (nr[cur[i]].isDirty)
-				numDirty++;
 		}
 	}
 
@@ -560,64 +560,135 @@ bool Arm64IRRegCache::Transfer1ToVec(IRNativeReg nreg, IRNativeReg dest, IRReg f
 
 	// If everything's currently in a reg, move it into this reg.
 	if (lanes == 4) {
-		if (cur[0] == INVALID_REG) {
-			cur[0] = FromNativeReg(dest);
-			fp_->LDR(32, INDEX_UNSIGNED, cur[0], CTXREG, GetMipsRegOffset(first + 0));
-			numInRegs++;
-		}
-
-		// A lot of other methods are possible, but seem to make things slower in practice.
-		if (numInRegs == 4) {
-			// y = yw##, x = xz##, x = xyzw.
+		// Go with an exhaustive approach, only 15 possibilities...
+		if (blendMask == 0) {
+			// y = yw##, x = xz##, dest = xyzw.
 			fp_->ZIP1(32, EncodeRegToQuad(cur[1]), EncodeRegToQuad(cur[1]), EncodeRegToQuad(cur[3]));
 			fp_->ZIP1(32, EncodeRegToQuad(cur[0]), EncodeRegToQuad(cur[0]), EncodeRegToQuad(cur[2]));
-			fp_->ZIP1(32, EncodeRegToQuad(cur[0]), EncodeRegToQuad(cur[0]), EncodeRegToQuad(cur[1]));
-		} else if (numInRegs == 2 && cur[1] != INVALID_REG) {
-			// x = xy##, y = zw##, x = xyzw.
-			fp_->ZIP1(32, EncodeRegToQuad(cur[0]), EncodeRegToQuad(cur[0]), EncodeRegToQuad(cur[1]));
-			fp_->LDR(64, INDEX_UNSIGNED, EncodeRegToDouble(cur[1]), CTXREG, GetMipsRegOffset(first + 2));
-			fp_->INS(64, EncodeRegToQuad(cur[0]), 1, EncodeRegToQuad(cur[1]), 0);
-		} else if (cur[1] != INVALID_REG && cur[2] != INVALID_REG) {
-			// x = xz##, z = w###, y = yw##, x = xyzw.
-			fp_->ZIP1(32, EncodeRegToQuad(cur[0]), EncodeRegToQuad(cur[0]), EncodeRegToQuad(cur[2]));
-			fp_->LDR(32, INDEX_UNSIGNED, cur[2], CTXREG, GetMipsRegOffset(first + 3));
-			fp_->ZIP1(32, EncodeRegToQuad(cur[1]), EncodeRegToQuad(cur[1]), EncodeRegToQuad(cur[2]));
-			fp_->ZIP1(32, EncodeRegToQuad(cur[0]), EncodeRegToQuad(cur[0]), EncodeRegToQuad(cur[1]));
-		} else if (cur[1] != INVALID_REG && cur[3] != INVALID_REG) {
-			// y = yw##, w = z###, x = xz##, x = xyzw.
+			fp_->ZIP1(32, EncodeRegToQuad(destReg), EncodeRegToQuad(cur[0]), EncodeRegToQuad(cur[1]));
+		} else if (blendMask == 0b0001) {
+			// y = yw##, w = x###, w = xz##, dest = xyzw.
 			fp_->ZIP1(32, EncodeRegToQuad(cur[1]), EncodeRegToQuad(cur[1]), EncodeRegToQuad(cur[3]));
-			fp_->LDR(32, INDEX_UNSIGNED, cur[3], CTXREG, GetMipsRegOffset(first + 2));
-			fp_->ZIP1(32, EncodeRegToQuad(cur[0]), EncodeRegToQuad(cur[0]), EncodeRegToQuad(cur[3]));
-			fp_->ZIP1(32, EncodeRegToQuad(cur[0]), EncodeRegToQuad(cur[0]), EncodeRegToQuad(cur[1]));
-		} else if (cur[2] != INVALID_REG && cur[3] != INVALID_REG) {
-			// x = xz##, z = y###, z = yw##, x = xyzw.
+			fp_->LDR(32, INDEX_UNSIGNED, cur[3], CTXREG, GetMipsRegOffset(first + 0));
+			fp_->ZIP1(32, EncodeRegToQuad(cur[3]), EncodeRegToQuad(cur[3]), EncodeRegToQuad(cur[2]));
+			fp_->ZIP1(32, EncodeRegToQuad(destReg), EncodeRegToQuad(cur[3]), EncodeRegToQuad(cur[1]));
+		} else if (blendMask == 0b0010) {
+			// x = xz##, z = y###, z = yw##, dest = xyzw.
 			fp_->ZIP1(32, EncodeRegToQuad(cur[0]), EncodeRegToQuad(cur[0]), EncodeRegToQuad(cur[2]));
 			fp_->LDR(32, INDEX_UNSIGNED, cur[2], CTXREG, GetMipsRegOffset(first + 1));
 			fp_->ZIP1(32, EncodeRegToQuad(cur[2]), EncodeRegToQuad(cur[2]), EncodeRegToQuad(cur[3]));
+			fp_->ZIP1(32, EncodeRegToQuad(destReg), EncodeRegToQuad(cur[0]), EncodeRegToQuad(cur[2]));
+		} else if (blendMask == 0b0011 && (first & 1) == 0) {
+			// z = zw##, w = xy##, dest = xyzw.  Mixed lane sizes.
+			fp_->ZIP1(32, EncodeRegToQuad(cur[2]), EncodeRegToQuad(cur[2]), EncodeRegToQuad(cur[3]));
+			fp_->LDR(64, INDEX_UNSIGNED, EncodeRegToDouble(cur[3]), CTXREG, GetMipsRegOffset(first + 0));
+			fp_->ZIP1(64, EncodeRegToQuad(destReg), EncodeRegToQuad(cur[3]), EncodeRegToQuad(cur[2]));
+		} else if (blendMask == 0b0100) {
+			// y = yw##, w = z###, x = xz##, dest = xyzw.
+			fp_->ZIP1(32, EncodeRegToQuad(cur[1]), EncodeRegToQuad(cur[1]), EncodeRegToQuad(cur[3]));
+			fp_->LDR(32, INDEX_UNSIGNED, cur[3], CTXREG, GetMipsRegOffset(first + 2));
+			fp_->ZIP1(32, EncodeRegToQuad(cur[0]), EncodeRegToQuad(cur[0]), EncodeRegToQuad(cur[3]));
+			fp_->ZIP1(32, EncodeRegToQuad(destReg), EncodeRegToQuad(cur[0]), EncodeRegToQuad(cur[1]));
+		} else if (blendMask == 0b0101 && (first & 3) == 0) {
+			// y = yw##, w=x#z#, w = xz##, dest = xyzw.
+			fp_->ZIP1(32, EncodeRegToQuad(cur[1]), EncodeRegToQuad(cur[1]), EncodeRegToQuad(cur[3]));
+			fp_->LDR(128, INDEX_UNSIGNED, EncodeRegToQuad(cur[3]), CTXREG, GetMipsRegOffset(first));
+			fp_->UZP1(32, EncodeRegToQuad(cur[3]), EncodeRegToQuad(cur[3]), EncodeRegToQuad(cur[3]));
+			fp_->ZIP1(32, EncodeRegToQuad(destReg), EncodeRegToQuad(cur[3]), EncodeRegToQuad(cur[1]));
+		} else if (blendMask == 0b0110 && (first & 3) == 0) {
+			if (destReg == cur[0]) {
+				// w = wx##, dest = #yz#, dest = xyz#, dest = xyzw.
+				fp_->ZIP1(32, EncodeRegToQuad(cur[3]), EncodeRegToQuad(cur[3]), EncodeRegToQuad(cur[0]));
+				fp_->LDR(128, INDEX_UNSIGNED, EncodeRegToQuad(destReg), CTXREG, GetMipsRegOffset(first));
+				fp_->INS(32, EncodeRegToQuad(destReg), 0, EncodeRegToQuad(cur[3]), 1);
+				fp_->INS(32, EncodeRegToQuad(destReg), 3, EncodeRegToQuad(cur[3]), 0);
+			} else {
+				// Assumes destReg may equal cur[3].
+				// x = xw##, dest = #yz#, dest = xyz#, dest = xyzw.
+				fp_->ZIP1(32, EncodeRegToQuad(cur[0]), EncodeRegToQuad(cur[0]), EncodeRegToQuad(cur[3]));
+				fp_->LDR(128, INDEX_UNSIGNED, EncodeRegToQuad(destReg), CTXREG, GetMipsRegOffset(first));
+				fp_->INS(32, EncodeRegToQuad(destReg), 0, EncodeRegToQuad(cur[0]), 0);
+				fp_->INS(32, EncodeRegToQuad(destReg), 3, EncodeRegToQuad(cur[0]), 1);
+			}
+		} else if (blendMask == 0b0111 && (first & 3) == 0 && destReg != cur[3]) {
+			// dest = xyz#, dest = xyzw.
+			fp_->LDR(128, INDEX_UNSIGNED, EncodeRegToQuad(destReg), CTXREG, GetMipsRegOffset(first));
+			fp_->INS(32, EncodeRegToQuad(destReg), 3, EncodeRegToQuad(cur[3]), 0);
+		} else if (blendMask == 0b1000) {
+			// x = xz##, z = w###, y = yw##, dest = xyzw.
 			fp_->ZIP1(32, EncodeRegToQuad(cur[0]), EncodeRegToQuad(cur[0]), EncodeRegToQuad(cur[2]));
+			fp_->LDR(32, INDEX_UNSIGNED, cur[2], CTXREG, GetMipsRegOffset(first + 3));
+			fp_->ZIP1(32, EncodeRegToQuad(cur[1]), EncodeRegToQuad(cur[1]), EncodeRegToQuad(cur[2]));
+			fp_->ZIP1(32, EncodeRegToQuad(destReg), EncodeRegToQuad(cur[0]), EncodeRegToQuad(cur[1]));
+		} else if (blendMask == 0b1001 && (first & 3) == 0) {
+			if (destReg == cur[1]) {
+				// w = zy##, dest = x##w, dest = xy#w, dest = xyzw.
+				fp_->ZIP1(32, EncodeRegToQuad(cur[2]), EncodeRegToQuad(cur[2]), EncodeRegToQuad(cur[1]));
+				fp_->LDR(128, INDEX_UNSIGNED, EncodeRegToQuad(destReg), CTXREG, GetMipsRegOffset(first));
+				fp_->INS(32, EncodeRegToQuad(destReg), 1, EncodeRegToQuad(cur[2]), 1);
+				fp_->INS(32, EncodeRegToQuad(destReg), 2, EncodeRegToQuad(cur[2]), 0);
+			} else {
+				// Assumes destReg may equal cur[2].
+				// y = yz##, dest = x##w, dest = xy#w, dest = xyzw.
+				fp_->ZIP1(32, EncodeRegToQuad(cur[1]), EncodeRegToQuad(cur[1]), EncodeRegToQuad(cur[2]));
+				fp_->LDR(128, INDEX_UNSIGNED, EncodeRegToQuad(destReg), CTXREG, GetMipsRegOffset(first));
+				fp_->INS(32, EncodeRegToQuad(destReg), 1, EncodeRegToQuad(cur[1]), 0);
+				fp_->INS(32, EncodeRegToQuad(destReg), 2, EncodeRegToQuad(cur[1]), 1);
+			}
+		} else if (blendMask == 0b1010 && (first & 3) == 0) {
+			// x = xz##, z = #y#w, z=yw##, dest = xyzw.
+			fp_->ZIP1(32, EncodeRegToQuad(cur[0]), EncodeRegToQuad(cur[0]), EncodeRegToQuad(cur[2]));
+			fp_->LDR(128, INDEX_UNSIGNED, EncodeRegToQuad(cur[2]), CTXREG, GetMipsRegOffset(first));
+			fp_->UZP2(32, EncodeRegToQuad(cur[2]), EncodeRegToQuad(cur[2]), EncodeRegToQuad(cur[2]));
+			fp_->ZIP1(32, EncodeRegToQuad(destReg), EncodeRegToQuad(cur[0]), EncodeRegToQuad(cur[2]));
+		} else if (blendMask == 0b1011 && (first & 3) == 0 && destReg != cur[2]) {
+			// dest = xy#w, dest = xyzw.
+			fp_->LDR(128, INDEX_UNSIGNED, EncodeRegToQuad(destReg), CTXREG, GetMipsRegOffset(first));
+			fp_->INS(32, EncodeRegToQuad(destReg), 2, EncodeRegToQuad(cur[2]), 0);
+		} else if (blendMask == 0b1100 && (first & 1) == 0) {
+			// x = xy##, y = zw##, dest = xyzw.  Mixed lane sizes.
+			fp_->ZIP1(32, EncodeRegToQuad(cur[0]), EncodeRegToQuad(cur[0]), EncodeRegToQuad(cur[1]));
+			fp_->LDR(64, INDEX_UNSIGNED, EncodeRegToDouble(cur[1]), CTXREG, GetMipsRegOffset(first + 2));
+			fp_->ZIP1(64, EncodeRegToQuad(destReg), EncodeRegToQuad(cur[0]), EncodeRegToQuad(cur[1]));
+		} else if (blendMask == 0b1101 && (first & 3) == 0 && destReg != cur[1]) {
+			// dest = x#zw, dest = xyzw.
+			fp_->LDR(128, INDEX_UNSIGNED, EncodeRegToQuad(destReg), CTXREG, GetMipsRegOffset(first));
+			fp_->INS(32, EncodeRegToQuad(destReg), 1, EncodeRegToQuad(cur[1]), 0);
+		} else if (blendMask == 0b1110 && (first & 3) == 0 && destReg != cur[0]) {
+			// dest = #yzw, dest = xyzw.
+			fp_->LDR(128, INDEX_UNSIGNED, EncodeRegToQuad(destReg), CTXREG, GetMipsRegOffset(first));
+			fp_->INS(32, EncodeRegToQuad(destReg), 0, EncodeRegToQuad(cur[0]), 0);
+		} else if (blendMask == 0b1110 && (first & 3) == 0) {
+			// If dest == cur[0] (which may be common), we need a temp...
+			IRNativeReg freeReg = FindFreeReg(MIPSLoc::FREG, MIPSMap::INIT);
+			// Very unfortunate.
+			if (freeReg == INVALID_REG)
+				return false;
+
+			// free = x###, dest = #yzw, dest = xyzw.
+			fp_->DUP(32, EncodeRegToQuad(FromNativeReg(freeReg)), EncodeRegToQuad(cur[0]), 0);
+			fp_->LDR(128, INDEX_UNSIGNED, EncodeRegToQuad(destReg), CTXREG, GetMipsRegOffset(first));
+			fp_->INS(32, EncodeRegToQuad(destReg), 0, EncodeRegToQuad(FromNativeReg(freeReg)), 0);
 		} else {
 			return false;
 		}
 	} else if (lanes == 2) {
 		if (cur[0] != INVALID_REG && cur[1] != INVALID_REG) {
-			fp_->ZIP1(32, EncodeRegToDouble(cur[0]), EncodeRegToDouble(cur[0]), EncodeRegToDouble(cur[1]));
+			fp_->ZIP1(32, EncodeRegToDouble(destReg), EncodeRegToDouble(cur[0]), EncodeRegToDouble(cur[1]));
 		} else if (cur[0] == INVALID_REG && dest != nreg) {
-			cur[0] = FromNativeReg(dest);
-			fp_->LDR(32, INDEX_UNSIGNED, cur[0], CTXREG, GetMipsRegOffset(first + 0));
-			fp_->INS(32, EncodeRegToDouble(cur[0]), 1, EncodeRegToDouble(cur[1]), 0);
+			fp_->LDR(32, INDEX_UNSIGNED, destReg, CTXREG, GetMipsRegOffset(first + 0));
+			fp_->INS(32, EncodeRegToDouble(destReg), 1, EncodeRegToDouble(cur[1]), 0);
 		} else {
 			IRNativeReg freeReg = FindFreeReg(MIPSLoc::FREG, MIPSMap::INIT);
 			if (freeReg == INVALID_REG)
 				return false;
 
 			if (cur[0] == INVALID_REG) {
-				// Will move to dest below.
-				cur[0] = FromNativeReg(freeReg);
-				fp_->LDR(32, INDEX_UNSIGNED, cur[0], CTXREG, GetMipsRegOffset(first + 0));
-				fp_->INS(32, EncodeRegToDouble(cur[0]), 1, EncodeRegToDouble(cur[1]), 0);
+				fp_->LDR(32, INDEX_UNSIGNED, FromNativeReg(freeReg), CTXREG, GetMipsRegOffset(first + 0));
+				fp_->ZIP1(32, EncodeRegToDouble(destReg), EncodeRegToDouble(FromNativeReg(freeReg)), EncodeRegToDouble(cur[1]));
 			} else {
 				fp_->LDR(32, INDEX_UNSIGNED, FromNativeReg(freeReg), CTXREG, GetMipsRegOffset(first + 1));
-				fp_->INS(32, EncodeRegToDouble(cur[0]), 1, EncodeRegToDouble(FromNativeReg(freeReg)), 0);
+				fp_->ZIP1(32, EncodeRegToDouble(destReg), EncodeRegToDouble(cur[0]), EncodeRegToDouble(FromNativeReg(freeReg)));
 			}
 		}
 	} else {
@@ -641,9 +712,6 @@ bool Arm64IRRegCache::Transfer1ToVec(IRNativeReg nreg, IRNativeReg dest, IRReg f
 		mr[first + i].loc = MIPSLoc::FREG;
 		mr[first + i].nReg = dest;
 	}
-
-	if (cur[0] != FromNativeReg(dest))
-		fp_->MOV(FromNativeReg(dest), cur[0]);
 
 	if (dest != nreg) {
 		nr[dest].mipsReg = first;
