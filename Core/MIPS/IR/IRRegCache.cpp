@@ -406,12 +406,12 @@ IRNativeReg IRNativeRegCacheBase::FindFreeReg(MIPSLoc type, MIPSMap flags) const
 
 bool IRNativeRegCacheBase::IsGPRClobbered(IRReg gpr) const {
 	_dbg_assert_(IsValidGPR(gpr));
-	return IsRegClobbered(MIPSLoc::REG, MIPSMap::INIT, gpr);
+	return IsRegClobbered(MIPSLoc::REG, gpr);
 }
 
 bool IRNativeRegCacheBase::IsFPRClobbered(IRReg fpr) const {
 	_dbg_assert_(IsValidFPR(fpr));
-	return IsRegClobbered(MIPSLoc::FREG, MIPSMap::INIT, fpr + 32);
+	return IsRegClobbered(MIPSLoc::FREG, fpr + 32);
 }
 
 IRUsage IRNativeRegCacheBase::GetNextRegUsage(const IRSituation &info, MIPSLoc type, IRReg r) const {
@@ -423,7 +423,7 @@ IRUsage IRNativeRegCacheBase::GetNextRegUsage(const IRSituation &info, MIPSLoc t
 	return IRUsage::UNKNOWN;
 }
 
-bool IRNativeRegCacheBase::IsRegClobbered(MIPSLoc type, MIPSMap flags, IRReg r) const {
+bool IRNativeRegCacheBase::IsRegClobbered(MIPSLoc type, IRReg r) const {
 	static const int UNUSED_LOOKAHEAD_OPS = 30;
 
 	IRSituation info;
@@ -448,6 +448,21 @@ bool IRNativeRegCacheBase::IsRegClobbered(MIPSLoc type, MIPSMap flags, IRReg r) 
 		return canClobber;
 	}
 	return false;
+}
+
+bool IRNativeRegCacheBase::IsRegRead(MIPSLoc type, IRReg first) const {
+	static const int UNUSED_LOOKAHEAD_OPS = 30;
+
+	IRSituation info;
+	info.lookaheadCount = UNUSED_LOOKAHEAD_OPS;
+	// We look starting one ahead, unlike spilling.
+	info.currentIndex = irIndex_ + 1;
+	info.instructions = irBlock_->GetInstructions();
+	info.numInstructions = irBlock_->GetNumInstructions();
+
+	// Note: this intentionally doesn't look at the full reg, only the lane.
+	IRUsage usage = GetNextRegUsage(info, type, first);
+	return usage == IRUsage::READ;
 }
 
 IRNativeReg IRNativeRegCacheBase::FindBestToSpill(MIPSLoc type, MIPSMap flags, bool unusedOnly, bool *clobbered) const {
@@ -501,7 +516,7 @@ IRNativeReg IRNativeRegCacheBase::FindBestToSpill(MIPSLoc type, MIPSMap flags, b
 	return -1;
 }
 
-bool IRNativeRegCacheBase::IsNativeRegCompatible(IRNativeReg nreg, MIPSLoc type, MIPSMap flags) {
+bool IRNativeRegCacheBase::IsNativeRegCompatible(IRNativeReg nreg, MIPSLoc type, MIPSMap flags, int lanes) {
 	int allocCount = 0, base = 0;
 	const int *allocOrder = GetAllocationOrder(type, flags, allocCount, base);
 
@@ -511,6 +526,11 @@ bool IRNativeRegCacheBase::IsNativeRegCompatible(IRNativeReg nreg, MIPSLoc type,
 			return true;
 	}
 
+	return false;
+}
+
+bool IRNativeRegCacheBase::TransferNativeReg(IRNativeReg nreg, IRNativeReg dest, MIPSLoc type, IRReg first, int lanes, MIPSMap flags) {
+	// To be overridden if the backend supports transfers.
 	return false;
 }
 
@@ -930,11 +950,14 @@ IRNativeReg IRNativeRegCacheBase::MapNativeReg(MIPSLoc type, IRReg first, int la
 		case MIPSLoc::REG:
 			if (type != MIPSLoc::REG) {
 				nreg = AllocateReg(type, flags);
-			} else if (!IsNativeRegCompatible(nreg, type, flags)) {
+			} else if (!IsNativeRegCompatible(nreg, type, flags, lanes)) {
 				// If it's not compatible, we'll need to reallocate.
-				// TODO: Could do a transfer and avoid memory flush.
-				FlushNativeReg(nreg);
-				nreg = AllocateReg(type, flags);
+				if (TransferNativeReg(nreg, -1, type, first, lanes, flags)) {
+					nreg = mr[first].nReg;
+				} else {
+					FlushNativeReg(nreg);
+					nreg = AllocateReg(type, flags);
+				}
 			}
 			break;
 
@@ -942,9 +965,13 @@ IRNativeReg IRNativeRegCacheBase::MapNativeReg(MIPSLoc type, IRReg first, int la
 		case MIPSLoc::VREG:
 			if (type != mr[first].loc) {
 				nreg = AllocateReg(type, flags);
-			} else if (!IsNativeRegCompatible(nreg, type, flags)) {
-				FlushNativeReg(nreg);
-				nreg = AllocateReg(type, flags);
+			} else if (!IsNativeRegCompatible(nreg, type, flags, lanes)) {
+				if (TransferNativeReg(nreg, -1, type, first, lanes, flags)) {
+					nreg = mr[first].nReg;
+				} else {
+					FlushNativeReg(nreg);
+					nreg = AllocateReg(type, flags);
+				}
 			}
 			break;
 
@@ -981,10 +1008,13 @@ void IRNativeRegCacheBase::MapNativeReg(MIPSLoc type, IRNativeReg nreg, IRReg fi
 				_assert_msg_(!mreg.isStatic, "Cannot MapNativeReg a static reg mismatch");
 				if ((flags & MIPSMap::NOINIT) != MIPSMap::NOINIT) {
 					// If we need init, we have to flush mismatches.
-					// TODO: Do a shuffle if interior only?
-					// TODO: We may also be motivated to have multiple read-only "views" or an IRReg.
-					// For example Vec4Scale v0..v3, v0..v3, v3
-					FlushNativeReg(mreg.nReg);
+					if (!TransferNativeReg(mreg.nReg, nreg, type, first, lanes, flags)) {
+						// TODO: We may also be motivated to have multiple read-only "views" or an IRReg.
+						// For example Vec4Scale v0..v3, v0..v3, v3
+						FlushNativeReg(mreg.nReg);
+					}
+					// The mismatch has been "resolved" now.
+					mismatch = false;
 				} else if (oldlanes != 1) {
 					// Even if we don't care about the current contents, we can't discard outside.
 					bool extendsBefore = oldlane > i;
@@ -1017,6 +1047,9 @@ void IRNativeRegCacheBase::MapNativeReg(MIPSLoc type, IRNativeReg nreg, IRReg fi
 							DiscardNativeReg(mreg.nReg);
 						else
 							FlushNativeReg(mreg.nReg);
+
+						// That took care of the mismatch, either by clobber or flush.
+						mismatch = false;
 					}
 				}
 			}
@@ -1027,8 +1060,8 @@ void IRNativeRegCacheBase::MapNativeReg(MIPSLoc type, IRNativeReg nreg, IRReg fi
 				if ((flags & MIPSMap::NOINIT) != MIPSMap::NOINIT) {
 					// We better not be trying to map to a different nreg if it's in one now.
 					// This might happen on some sort of transfer...
-					// TODO: Make a direct transfer, i.e. FREG -> VREG?
-					FlushNativeReg(mreg.nReg);
+					if (!TransferNativeReg(mreg.nReg, nreg, type, first, lanes, flags))
+						FlushNativeReg(mreg.nReg);
 				} else {
 					DiscardNativeReg(mreg.nReg);
 				}
