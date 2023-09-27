@@ -119,15 +119,7 @@ bool ScreenManager::key(const KeyInput &key) {
 
 void ScreenManager::axis(const AxisInput &axis) {
 	std::lock_guard<std::recursive_mutex> guard(inputLock_);
-	// Send center axis to every screen layer.
-	// TODO: Do we still need this?
-	if (axis.value == 0) {
-		for (auto &layer : stack_) {
-			layer.screen->UnsyncAxis(axis);
-		}
-	} else if (!stack_.empty()) {
-		stack_.back().screen->UnsyncAxis(axis);
-	}
+	stack_.back().screen->UnsyncAxis(axis);
 }
 
 void ScreenManager::deviceLost() {
