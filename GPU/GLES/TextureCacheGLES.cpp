@@ -304,7 +304,7 @@ void TextureCacheGLES::BuildTexture(TexCacheEntry *const entry) {
 					bc = true;
 				} else {
 					int bpp = (int)Draw::DataFormatSizeInBytes(plan.replaced->Format());
-					stride = std::max(mipWidth * bpp, 16);
+					stride = mipWidth * bpp;
 					dataSize = stride * mipHeight;
 				}
 			} else {
@@ -314,7 +314,7 @@ void TextureCacheGLES::BuildTexture(TexCacheEntry *const entry) {
 				} else {
 					bpp = (int)Draw::DataFormatSizeInBytes(dstFmt);
 				}
-				stride = std::max(mipWidth * bpp, 16);
+				stride = mipWidth * bpp;
 				dataSize = stride * mipHeight;
 			}
 
