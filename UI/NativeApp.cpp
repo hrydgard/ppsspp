@@ -1336,22 +1336,12 @@ static void ProcessOneAxisEvent(const AxisInput &axis) {
 }
 
 void NativeAxis(const AxisInput *axes, size_t count) {
-	// figure out what the current tilt orientation is by checking the axis event
-	// This is static, since we need to remember where we last were (in terms of orientation)
-	static float tiltX;
-	static float tiltY;
-	static float tiltZ;
-
 	for (size_t i = 0; i < count; i++) {
 		ProcessOneAxisEvent(axes[i]);
-		switch (axes[i].axisId) {
-		case JOYSTICK_AXIS_ACCELEROMETER_X: tiltX = axes[i].value; break;
-		case JOYSTICK_AXIS_ACCELEROMETER_Y: tiltY = axes[i].value; break;
-		case JOYSTICK_AXIS_ACCELEROMETER_Z: tiltZ = axes[i].value; break;
-		default: break;
-		}
 	}
+}
 
+void NativeAccelerometer(float tiltX, float tiltY, float tiltZ) {
 	if (g_Config.iTiltInputType == TILT_NULL) {
 		// if tilt events are disabled, don't do anything special.
 		return;
@@ -1377,6 +1367,10 @@ void NativeAxis(const AxisInput *axes, size_t count) {
 	TiltEventProcessor::ProcessTilt(landscape, tiltBaseAngleY, tiltX, tiltY, tiltZ,
 		g_Config.bInvertTiltX, g_Config.bInvertTiltY,
 		xSensitivity, ySensitivity);
+
+	HLEPlugins::PluginDataAxis[JOYSTICK_AXIS_ACCELEROMETER_X] = tiltX;
+	HLEPlugins::PluginDataAxis[JOYSTICK_AXIS_ACCELEROMETER_Y] = tiltY;
+	HLEPlugins::PluginDataAxis[JOYSTICK_AXIS_ACCELEROMETER_Z] = tiltZ;
 }
 
 void System_PostUIMessage(const std::string &message, const std::string &value) {

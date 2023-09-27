@@ -1240,18 +1240,7 @@ extern "C" jboolean Java_org_ppsspp_ppsspp_NativeApp_mouseWheelEvent(
 extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_accelerometer(JNIEnv *, jclass, float x, float y, float z) {
 	if (!renderer_inited)
 		return;
-
-	AxisInput axis[3];
-	for (int i = 0; i < 3; i++) {
-		axis[i].deviceId = DEVICE_ID_ACCELEROMETER;
-	}
-	axis[0].axisId = JOYSTICK_AXIS_ACCELEROMETER_X;
-	axis[0].value = x;
-	axis[1].axisId = JOYSTICK_AXIS_ACCELEROMETER_Y;
-	axis[1].value = y;
-	axis[2].axisId = JOYSTICK_AXIS_ACCELEROMETER_Z;
-	axis[2].value = z;
-	NativeAxis(axis, 3);
+	NativeAccelerometer(x, y, z);
 }
 
 extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_sendMessageFromJava(JNIEnv *env, jclass, jstring message, jstring param) {
