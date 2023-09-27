@@ -480,8 +480,9 @@ void ControlMapper::Axis(const AxisInput &axis) {
 	double now = time_now_d();
 
 	std::lock_guard<std::mutex> guard(mutex_);
-	if (axis.deviceId < DEVICE_ID_COUNT) {
-		deviceTimestamps_[(int)axis.deviceId] = now;
+	size_t deviceIndex = (size_t)axis.deviceId;  // this'll wrap around ANY (-1) to max, which will eliminate it on the next line, if such an event appears by mistake.
+	if (deviceIndex < (size_t)DEVICE_ID_COUNT) {
+		deviceTimestamps_[deviceIndex] = now;
 	}
 	if (axis.value >= 0.0f) {
 		InputMapping mapping(axis.deviceId, axis.axisId, 1);

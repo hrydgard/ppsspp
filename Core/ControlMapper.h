@@ -62,7 +62,7 @@ private:
 	float virtKeys_[VIRTKEY_COUNT]{};
 	bool virtKeyOn_[VIRTKEY_COUNT]{};  // Track boolean output separaately since thresholds may differ.
 
-	double deviceTimestamps_[42]{};
+	double deviceTimestamps_[(size_t)DEVICE_ID_COUNT]{};
 
 	int lastNonDeadzoneDeviceID_[2]{};
 
