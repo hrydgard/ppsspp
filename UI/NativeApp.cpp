@@ -1319,9 +1319,9 @@ bool NativeKey(const KeyInput &key) {
 	return retval;
 }
 
-static void ProcessOneAxisEvent(const AxisInput &axis) {
+void NativeAxis(const AxisInput *axes, size_t count) {
 	// VR actions
-	if (IsVREnabled() && !UpdateVRAxis(axis)) {
+	if (IsVREnabled() && !UpdateVRAxis(axes, count)) {
 		return;
 	}
 
@@ -1330,14 +1330,10 @@ static void ProcessOneAxisEvent(const AxisInput &axis) {
 		return;
 	}
 
-	// only do special handling of tilt events if tilt is enabled.
-	HLEPlugins::PluginDataAxis[axis.axisId] = axis.value;
-	g_screenManager->axis(axis);
-}
-
-void NativeAxis(const AxisInput *axes, size_t count) {
 	for (size_t i = 0; i < count; i++) {
-		ProcessOneAxisEvent(axes[i]);
+		const AxisInput &axis = axes[i];
+		g_screenManager->axis(axis);
+		HLEPlugins::PluginDataAxis[axis.axisId] = axis.value;
 	}
 }
 
