@@ -1504,7 +1504,7 @@ namespace MIPSComp {
 	void Arm64Jit::Comp_VCrossQuat(MIPSOpcode op) {
 		// This op does not support prefixes anyway.
 		CONDITIONAL_DISABLE(VFPU_VEC);
-		if (js.HasUnknownPrefix())
+		if (!js.HasNoPrefix())
 			DISABLE;
 
 		VectorSize sz = GetVecSize(op);
@@ -1521,20 +1521,26 @@ namespace MIPSComp {
 
 		if (sz == V_Triple) {
 			MIPSReg temp3 = fpr.GetTempV();
+			MIPSReg temp4 = fpr.GetTempV();
 			fpr.MapRegV(temp3, MAP_DIRTY | MAP_NOINIT);
+			fpr.MapRegV(temp4, MAP_DIRTY | MAP_NOINIT);
 			// Cross product vcrsp.t
 
-			// Compute X
-			fp.FMUL(S0, fpr.V(sregs[1]), fpr.V(tregs[2]));
-			fp.FMSUB(S0, fpr.V(sregs[2]), fpr.V(tregs[1]), S0);
+			// Note: using FMSUB here causes accuracy issues, see #18203.
+			// Compute X: s[1] * t[2] - s[2] * t[1]
+			fp.FMUL(fpr.V(temp3), fpr.V(sregs[1]), fpr.V(tregs[2]));
+			fp.FMUL(fpr.V(temp4), fpr.V(sregs[2]), fpr.V(tregs[1]));
+			fp.FSUB(S0, fpr.V(temp3), fpr.V(temp4));
 
-			// Compute Y
-			fp.FMUL(S1, fpr.V(sregs[2]), fpr.V(tregs[0]));
-			fp.FMSUB(S1, fpr.V(sregs[0]), fpr.V(tregs[2]), S1);
+			// Compute Y: s[2] * t[0] - s[0] * t[2]
+			fp.FMUL(fpr.V(temp3), fpr.V(sregs[2]), fpr.V(tregs[0]));
+			fp.FMUL(fpr.V(temp4), fpr.V(sregs[0]), fpr.V(tregs[2]));
+			fp.FSUB(S1, fpr.V(temp3), fpr.V(temp4));
 
-			// Compute Z
+			// Compute Z: s[0] * t[1] - s[1] * t[0]
 			fp.FMUL(fpr.V(temp3), fpr.V(sregs[0]), fpr.V(tregs[1]));
-			fp.FMSUB(fpr.V(temp3), fpr.V(sregs[1]), fpr.V(tregs[0]), fpr.V(temp3));
+			fp.FMUL(fpr.V(temp4), fpr.V(sregs[1]), fpr.V(tregs[0]));
+			fp.FSUB(fpr.V(temp3), fpr.V(temp3), fpr.V(temp4));
 
 			fpr.MapRegsAndSpillLockV(dregs, sz, MAP_NOINIT);
 			fp.FMOV(fpr.V(dregs[0]), S0);
