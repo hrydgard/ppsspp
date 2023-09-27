@@ -357,7 +357,7 @@ void DrawEngineGLES::DoFlush() {
 		if (prim == GE_PRIM_TRIANGLE_STRIP)
 			prim = GE_PRIM_TRIANGLES;
 
-		u16 *const inds = decIndex_;
+		u16 *inds = decIndex_;
 		SoftwareTransformResult result{};
 		// TODO: Keep this static?  Faster than repopulating?
 		SoftwareTransformParams params{};
@@ -414,9 +414,8 @@ void DrawEngineGLES::DoFlush() {
 		// Need to ApplyDrawState after ApplyTexture because depal can launch a render pass and that wrecks the state.
 		ApplyDrawState(prim);
 
-		int indsOffset = 0;
 		if (result.action == SW_NOT_READY)
-			swTransform.BuildDrawingParams(prim, vertexCount, dec_->VertexType(), inds, indsOffset, DECODED_INDEX_BUFFER_SIZE / sizeof(uint16_t), maxIndex, &result);
+			swTransform.BuildDrawingParams(prim, vertexCount, dec_->VertexType(), inds, maxIndex, &result);
 		if (result.setSafeSize)
 			framebufferManager_->SetSafeSize(result.safeWidth, result.safeHeight);
 
@@ -431,11 +430,11 @@ void DrawEngineGLES::DoFlush() {
 		if (result.action == SW_DRAW_PRIMITIVES) {
 			if (result.drawIndexed) {
 				vertexBufferOffset = (uint32_t)frameData.pushVertex->Push(result.drawBuffer, maxIndex * sizeof(TransformedVertex), 4, &vertexBuffer);
-				indexBufferOffset = (uint32_t)frameData.pushIndex->Push(inds + indsOffset, sizeof(uint16_t) * result.drawNumTrans, 2, &indexBuffer);
+				indexBufferOffset = (uint32_t)frameData.pushIndex->Push(inds, sizeof(uint16_t) * result.drawNumTrans, 2, &indexBuffer);
 				render_->DrawIndexed(
 					softwareInputLayout_, vertexBuffer, vertexBufferOffset, indexBuffer, indexBufferOffset,
 					glprim[prim], result.drawNumTrans, GL_UNSIGNED_SHORT);
-			} else if (result.drawNumTrans > 0) {
+			} else {
 				vertexBufferOffset = (uint32_t)frameData.pushVertex->Push(result.drawBuffer, result.drawNumTrans * sizeof(TransformedVertex), 4, &vertexBuffer);
 				render_->Draw(
 					softwareInputLayout_, vertexBuffer, vertexBufferOffset, glprim[prim], 0, result.drawNumTrans);
