@@ -1330,9 +1330,10 @@ void NativeAxis(const AxisInput *axes, size_t count) {
 		return;
 	}
 
+	g_screenManager->axis(axes, count);
+
 	for (size_t i = 0; i < count; i++) {
 		const AxisInput &axis = axes[i];
-		g_screenManager->axis(axis);
 		HLEPlugins::PluginDataAxis[axis.axisId] = axis.value;
 	}
 }

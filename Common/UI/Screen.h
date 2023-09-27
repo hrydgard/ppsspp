@@ -135,7 +135,7 @@ public:
 	// Instant touch, separate from the update() mechanism.
 	void touch(const TouchInput &touch);
 	bool key(const KeyInput &key);
-	void axis(const AxisInput &touch);
+	void axis(const AxisInput *axes, size_t count);
 
 	// Generic facility for gross hacks :P
 	void sendMessage(const char *msg, const char *value);
