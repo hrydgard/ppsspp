@@ -29,7 +29,6 @@ public:
 	TiltAnalogSettingsScreen(const Path &gamePath) : UIDialogScreenWithGameBackground(gamePath) {}
 
 	void CreateViews() override;
-	void axis(const AxisInput &axis) override;
 	void update() override;
 	const char *tag() const override { return "TiltAnalogSettings"; }
 

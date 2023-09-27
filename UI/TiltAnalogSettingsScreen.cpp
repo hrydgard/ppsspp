@@ -137,22 +137,8 @@ void TiltAnalogSettingsScreen::CreateViews() {
 	settings->Add(new Choice(di->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 }
 
-void TiltAnalogSettingsScreen::axis(const AxisInput &axis) {
-	UIDialogScreenWithGameBackground::axis(axis);
-
-	if (axis.deviceId == DEVICE_ID_ACCELEROMETER) {
-		switch (axis.axisId) {
-		case JOYSTICK_AXIS_ACCELEROMETER_X: down_.x = axis.value; break;
-		case JOYSTICK_AXIS_ACCELEROMETER_Y: down_.y = axis.value; break;
-		case JOYSTICK_AXIS_ACCELEROMETER_Z: down_.z = axis.value; break;
-		default: break;
-		}
-	}
-}
-
 UI::EventReturn TiltAnalogSettingsScreen::OnCalibrate(UI::EventParams &e) {
-	Lin::Vec3 down = down_.normalized();
-	g_Config.fTiltBaseAngleY = atan2(down.z, down.x);
+	g_Config.fTiltBaseAngleY = TiltEventProcessor::GetCurrentYAngle();
 	return UI::EVENT_DONE;
 }
 
