@@ -119,10 +119,7 @@ bool ScreenManager::key(const KeyInput &key) {
 
 void ScreenManager::axis(const AxisInput *axes, size_t count) {
 	std::lock_guard<std::recursive_mutex> guard(inputLock_);
-	for (size_t i = 0; i < count; i++) {
-		const AxisInput &axis = axes[i];
-		stack_.back().screen->UnsyncAxis(axis);
-	}
+	stack_.back().screen->UnsyncAxis(axes, count);
 }
 
 void ScreenManager::deviceLost() {

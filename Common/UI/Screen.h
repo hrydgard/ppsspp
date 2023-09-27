@@ -63,7 +63,7 @@ public:
 	virtual bool UnsyncTouch(const TouchInput &touch) = 0;
 	// Return value of UnsyncKey is used to not block certain system keys like volume when unhandled, on Android.
 	virtual bool UnsyncKey(const KeyInput &touch) = 0;
-	virtual void UnsyncAxis(const AxisInput &touch) = 0;
+	virtual void UnsyncAxis(const AxisInput *axes, size_t count) = 0;
 
 	virtual void RecreateViews() {}
 

@@ -476,28 +476,31 @@ void ControlMapper::ToggleSwapAxes() {
 	UpdateAnalogOutput(1);
 }
 
-void ControlMapper::Axis(const AxisInput &axis) {
+void ControlMapper::Axis(const AxisInput *axes, size_t count) {
 	double now = time_now_d();
 
 	std::lock_guard<std::mutex> guard(mutex_);
-	size_t deviceIndex = (size_t)axis.deviceId;  // this'll wrap around ANY (-1) to max, which will eliminate it on the next line, if such an event appears by mistake.
-	if (deviceIndex < (size_t)DEVICE_ID_COUNT) {
-		deviceTimestamps_[deviceIndex] = now;
-	}
-	if (axis.value >= 0.0f) {
-		InputMapping mapping(axis.deviceId, axis.axisId, 1);
-		InputMapping opposite(axis.deviceId, axis.axisId, -1);
-		curInput_[mapping] = { axis.value, now };
-		curInput_[opposite] = { 0.0f, now };
-		UpdatePSPState(mapping, now);
-		UpdatePSPState(opposite, now);
-	} else if (axis.value < 0.0f) {
-		InputMapping mapping(axis.deviceId, axis.axisId, -1);
-		InputMapping opposite(axis.deviceId, axis.axisId, 1);
-		curInput_[mapping] = { -axis.value, now };
-		curInput_[opposite] = { 0.0f, now };
-		UpdatePSPState(mapping, now);
-		UpdatePSPState(opposite, now);
+	for (size_t i = 0; i < count; i++) {
+		const AxisInput &axis = axes[i];
+		size_t deviceIndex = (size_t)axis.deviceId;  // this wraps -1 up high, so will get rejected on the next line.
+		if (deviceIndex < (size_t)DEVICE_ID_COUNT) {
+			deviceTimestamps_[deviceIndex] = now;
+		}
+		if (axis.value >= 0.0f) {
+			InputMapping mapping(axis.deviceId, axis.axisId, 1);
+			InputMapping opposite(axis.deviceId, axis.axisId, -1);
+			curInput_[mapping] = { axis.value, now };
+			curInput_[opposite] = { 0.0f, now };
+			UpdatePSPState(mapping, now);
+			UpdatePSPState(opposite, now);
+		} else if (axis.value < 0.0f) {
+			InputMapping mapping(axis.deviceId, axis.axisId, -1);
+			InputMapping opposite(axis.deviceId, axis.axisId, 1);
+			curInput_[mapping] = { -axis.value, now };
+			curInput_[opposite] = { 0.0f, now };
+			UpdatePSPState(mapping, now);
+			UpdatePSPState(opposite, now);
+		}
 	}
 }
 

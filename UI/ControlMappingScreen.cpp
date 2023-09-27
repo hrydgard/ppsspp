@@ -535,7 +535,7 @@ void AnalogSetupScreen::axis(const AxisInput &axis) {
 	// UIScreen::axis(axis);
 
 	// Instead we just send the input directly to the mapper, that we'll visualize.
-	mapper_.Axis(axis);
+	mapper_.Axis(&axis, 1);
 }
 
 void AnalogSetupScreen::CreateViews() {
