@@ -590,8 +590,6 @@ void SoftwareTransform::BuildDrawingParams(int prim, int vertexCount, u32 vertTy
 		result->drawBuffer = transformedExpanded;
 		result->drawIndexed = true;
 	} else if (prim == GE_PRIM_LINES) {
-		// TODO: What about GE_PRIM_LINE_STRIP?
-
 		if (!ExpandLines(vertexCount, maxIndex, inds, indsOffset, indexBufferSize, transformed, transformedExpanded, numTrans, throughmode)) {
 			result->drawIndexed = false;
 			result->drawNumTrans = 0;
