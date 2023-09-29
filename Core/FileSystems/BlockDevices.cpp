@@ -545,14 +545,17 @@ struct CHDImpl {
 CHDFileBlockDevice::CHDFileBlockDevice(FileLoader *fileLoader)
 	: BlockDevice(fileLoader), impl_(new CHDImpl())
 {
+	Path paths[8];
+	paths[0] = fileLoader->GetPath();
+	int depth = 0;
+
+	/*
+	// TODO: Support parent/child CHD files.
+
 	// Default, in case of failure
 	numBlocks = 0;
 
 	chd_header childHeader;
-
-	int depth = 0;
-	Path paths[8];
-	paths[0] = fileLoader->GetPath();
 
 	chd_error err = chd_read_header(paths[0].c_str(), &childHeader);
 	if (err != CHDERR_NONE) {
@@ -561,8 +564,6 @@ CHDFileBlockDevice::CHDFileBlockDevice(FileLoader *fileLoader)
 		return;
 	}
 
-	/*
-	// TODO: Support parent/child CHD files.
 	if (memcmp(nullsha1, childHeader.parentsha1, sizeof(childHeader.sha1)) != 0) {
 		chd_header parentHeader;
 
@@ -607,7 +608,7 @@ CHDFileBlockDevice::CHDFileBlockDevice(FileLoader *fileLoader)
 		NotifyReadError();
 		return;
 	}
-	err = chd_open_file(file, CHD_OPEN_READ, NULL, &child);
+	chd_error err = chd_open_file(file, CHD_OPEN_READ, NULL, &child);
 	if (err != CHDERR_NONE) {
 		ERROR_LOG(LOADER, "Error loading CHD '%s': %s", paths[depth].c_str(), chd_error_string(err));
 		NotifyReadError();
