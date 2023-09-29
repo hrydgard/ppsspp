@@ -669,7 +669,17 @@ static void EmuThreadFunc(GraphicsContext *graphicsContext) {
 	NativeInitGraphics(graphicsContext);
 
 	while (emuThreadState != (int)EmuThreadState::QUIT_REQUESTED) {
+		double startTime = time_now_d();
+
 		UpdateRunLoop(graphicsContext);
+
+		// Simple throttling to not burn the GPU in the menu.
+		if (GetUIState() != UISTATE_INGAME || !PSP_IsInited()) {
+			double diffTime = time_now_d() - startTime;
+			int sleepTime = (int)(1000.0 / 60.0) - (int)(diffTime * 1000.0);
+			if (sleepTime > 0)
+				sleep_ms(sleepTime);
+		}
 	}
 	emuThreadState = (int)EmuThreadState::STOPPED;
 	graphicsContext->StopThread();
@@ -1453,7 +1463,9 @@ int main(int argc, char *argv[]) {
 	// setup menu items for macOS
 	initializeOSXExtras();
 #endif
-	
+
+	bool waitOnExit = g_Config.iGPUBackend == (int)GPUBackend::OPENGL;
+
 	if (!mainThreadIsRender) {
 		// We should only be a message pump
 		while (true) {
@@ -1465,8 +1477,6 @@ int main(int argc, char *argv[]) {
 				break;
 		}
 	} else while (true) {
-		double startTime = time_now_d();
-
 		inputTracker.TranslateMouseWheel();
 
 		{
@@ -1530,23 +1540,17 @@ int main(int argc, char *argv[]) {
 			EmuThreadStart(graphicsContext);
 			graphicsContext->ThreadStart();
 		}
-
-		// Simple throttling to not burn the GPU in the menu.
-		if (GetUIState() != UISTATE_INGAME || !PSP_IsInited() || renderThreadPaused) {
-			double diffTime = time_now_d() - startTime;
-			int sleepTime = (int)(1000.0 / 60.0) - (int)(diffTime * 1000.0);
-			if (sleepTime > 0)
-				sleep_ms(sleepTime);
-		}
 	}
 
 	EmuThreadStop("shutdown");
-	if (g_Config.iGPUBackend == (int)GPUBackend::OPENGL) {
+
+	if (waitOnExit) {
 		while (graphicsContext->ThreadFrame()) {
 			// Need to keep eating frames to allow the EmuThread to exit correctly.
 			continue;
 		}
 	}
+
 	EmuThreadJoin();
 
 	delete joystick;
