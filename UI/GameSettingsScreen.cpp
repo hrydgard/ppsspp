@@ -1668,7 +1668,7 @@ void DeveloperToolsScreen::CreateViews() {
 		core->HideChoice(3);
 	}
 	// TODO: Enable on more architectures.
-#if !PPSSPP_ARCH(X86) && !PPSSPP_ARCH(AMD64)
+#if !PPSSPP_ARCH(X86) && !PPSSPP_ARCH(AMD64) && !PPSSPP_ARCH(ARM64)
 	core->HideChoice(3);
 #endif
 
