@@ -657,10 +657,7 @@ static u32 sceKernelMemcpy(u32 dst, u32 src, u32 size)
 	}
 
 	if (MemBlockInfoDetailed(size)) {
-		char tagData[128];
-		size_t tagSize = FormatMemWriteTagAt(tagData, sizeof(tagData), "KernelMemcpy/", src, size);
-		NotifyMemInfo(MemBlockFlags::READ, src, size, tagData, tagSize);
-		NotifyMemInfo(MemBlockFlags::WRITE, dst, size, tagData, tagSize);
+		NotifyMemInfoCopy(dst, src, size, "KernelMemcpy/");
 	}
 
 	return dst;
@@ -693,10 +690,7 @@ static u32 sysclib_memcpy(u32 dst, u32 src, u32 size) {
 		memcpy(Memory::GetPointerWriteUnchecked(dst), Memory::GetPointerUnchecked(src), size);
 	}
 	if (MemBlockInfoDetailed(size)) {
-		char tagData[128];
-		size_t tagSize = FormatMemWriteTagAt(tagData, sizeof(tagData), "KernelMemcpy/", src, size);
-		NotifyMemInfo(MemBlockFlags::READ, src, size, tagData, tagSize);
-		NotifyMemInfo(MemBlockFlags::WRITE, dst, size, tagData, tagSize);
+		NotifyMemInfoCopy(dst, src, size, "KernelMemcpy/");
 	}
 	return dst;
 }
@@ -797,10 +791,7 @@ static u32 sysclib_memmove(u32 dst, u32 src, u32 size) {
 		memmove(Memory::GetPointerWriteUnchecked(dst), Memory::GetPointerUnchecked(src), size);
 	}
 	if (MemBlockInfoDetailed(size)) {
-		char tagData[128];
-		size_t tagSize = FormatMemWriteTagAt(tagData, sizeof(tagData), "KernelMemmove/", src, size);
-		NotifyMemInfo(MemBlockFlags::READ, src, size, tagData, tagSize);
-		NotifyMemInfo(MemBlockFlags::WRITE, dst, size, tagData, tagSize);
+		NotifyMemInfoCopy(dst, src, size, "KernelMemmove/");
 	}
 	return 0;
 }
