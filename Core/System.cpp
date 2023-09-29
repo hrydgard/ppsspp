@@ -91,7 +91,7 @@ MetaFileSystem pspFileSystem;
 ParamSFOData g_paramSFO;
 static GlobalUIState globalUIState;
 CoreParameter g_CoreParameter;
-static FileLoader *loadedFile;
+static FileLoader *g_loadedFile;
 // For background loading thread.
 static std::mutex loadingLock;
 // For loadingReason updates.
@@ -324,6 +324,7 @@ bool CPU_Init(std::string *errorString, FileLoader *loadedFile) {
 
 	// If they shut down early, we'll catch it when load completes.
 	// Note: this may return before init is complete, which is checked if CPU_IsReady().
+	g_loadedFile = loadedFile;
 	if (!LoadFile(&loadedFile, &g_CoreParameter.errorString)) {
 		CPU_Shutdown();
 		g_CoreParameter.fileToStart.clear();
@@ -368,8 +369,8 @@ void CPU_Shutdown() {
 	Memory::Shutdown();
 	HLEPlugins::Shutdown();
 
-	delete loadedFile;
-	loadedFile = nullptr;
+	delete g_loadedFile;
+	g_loadedFile = nullptr;
 
 	delete g_CoreParameter.mountIsoLoader;
 	delete g_symbolMap;
@@ -380,8 +381,8 @@ void CPU_Shutdown() {
 
 // TODO: Maybe loadedFile doesn't even belong here...
 void UpdateLoadedFile(FileLoader *fileLoader) {
-	delete loadedFile;
-	loadedFile = fileLoader;
+	delete g_loadedFile;
+	g_loadedFile = fileLoader;
 }
 
 void Core_UpdateState(CoreState newState) {

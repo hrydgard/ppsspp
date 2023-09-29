@@ -92,6 +92,8 @@ public:
 
 	void MapWithFlags(IRInst inst, X64IRJitConstants::X64Map destFlags, X64IRJitConstants::X64Map src1Flags = X64IRJitConstants::X64Map::NONE, X64IRJitConstants::X64Map src2Flags = X64IRJitConstants::X64Map::NONE);
 
+	// Note: may change the high lanes of single-register XMMs.
+	void FlushAll(bool gprs = true, bool fprs = true) override;
 	void FlushBeforeCall();
 
 	Gen::X64Reg GetAndLockTempGPR();
@@ -115,8 +117,12 @@ protected:
 	void StoreNativeReg(IRNativeReg nreg, IRReg first, int lanes) override;
 	void SetNativeRegValue(IRNativeReg nreg, uint32_t imm) override;
 	void StoreRegValue(IRReg mreg, uint32_t imm) override;
+	bool TransferNativeReg(IRNativeReg nreg, IRNativeReg dest, MIPSLoc type, IRReg first, int lanes, MIPSMap flags) override;
 
 private:
+	bool TransferVecTo1(IRNativeReg nreg, IRNativeReg dest, IRReg first, int oldlanes);
+	bool Transfer1ToVec(IRNativeReg nreg, IRNativeReg dest, IRReg first, int lanes);
+
 	IRNativeReg GPRToNativeReg(Gen::X64Reg r) {
 		return (IRNativeReg)r;
 	}

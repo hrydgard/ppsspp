@@ -57,6 +57,11 @@ private:
 	void UpdateRoundingMode(bool force = false);
 	void MovFromPC(Arm64Gen::ARM64Reg r);
 	void MovToPC(Arm64Gen::ARM64Reg r);
+	// Destroys SCRATCH2.
+	void WriteDebugPC(uint32_t pc);
+	void WriteDebugPC(Arm64Gen::ARM64Reg r);
+	// Destroys SCRATCH2.
+	void WriteDebugProfilerStatus(IRProfilerStatus status);
 
 	void SaveStaticRegisters();
 	void LoadStaticRegisters();
@@ -145,6 +150,8 @@ private:
 	int jitStartOffset_ = 0;
 	int compilingBlockNum_ = -1;
 	int logBlocks_ = 0;
+	// Only useful in breakpoints, where it's set immediately prior.
+	uint32_t lastConstPC_ = 0;
 };
 
 class Arm64IRJit : public IRNativeJit {

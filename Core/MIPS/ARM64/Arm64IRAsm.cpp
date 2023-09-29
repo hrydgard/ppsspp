@@ -50,8 +50,18 @@ static void ShowPC(void *membase, void *jitbase) {
 }
 
 void Arm64JitBackend::GenerateFixedCode(MIPSState *mipsState) {
-	BeginWrite(GetMemoryProtectPageSize());
+	// This will be used as a writable scratch area, always 32-bit accessible.
 	const u8 *start = AlignCodePage();
+	if (DebugProfilerEnabled()) {
+		ProtectMemoryPages(start, GetMemoryProtectPageSize(), MEM_PROT_READ | MEM_PROT_WRITE);
+		hooks_.profilerPC = (uint32_t *)GetWritableCodePtr();
+		Write32(0);
+		hooks_.profilerStatus = (IRProfilerStatus *)GetWritableCodePtr();
+		Write32(0);
+	}
+
+	const u8 *disasmStart = AlignCodePage();
+	BeginWrite(GetMemoryProtectPageSize());
 
 	if (jo.useStaticAlloc) {
 		saveStaticRegisters_ = AlignCode16();
@@ -63,8 +73,6 @@ void Arm64JitBackend::GenerateFixedCode(MIPSState *mipsState) {
 		regs_.EmitLoadStaticRegisters();
 		LDR(INDEX_UNSIGNED, DOWNCOUNTREG, CTXREG, offsetof(MIPSState, downcount));
 		RET();
-
-		start = saveStaticRegisters_;
 	} else {
 		saveStaticRegisters_ = nullptr;
 		loadStaticRegisters_ = nullptr;
@@ -152,13 +160,17 @@ void Arm64JitBackend::GenerateFixedCode(MIPSState *mipsState) {
 	MOVI2R(JITBASEREG, (intptr_t)GetBasePtr() - MIPS_EMUHACK_OPCODE);
 
 	LoadStaticRegisters();
+	WriteDebugProfilerStatus(IRProfilerStatus::IN_JIT);
 	MovFromPC(SCRATCH1);
+	WriteDebugPC(SCRATCH1);
 	outerLoopPCInSCRATCH1_ = GetCodePtr();
 	MovToPC(SCRATCH1);
 	outerLoop_ = GetCodePtr();
 		SaveStaticRegisters();  // Advance can change the downcount, so must save/restore
 		RestoreRoundingMode(true);
+		WriteDebugProfilerStatus(IRProfilerStatus::TIMER_ADVANCE);
 		QuickCallFunction(SCRATCH1_64, &CoreTiming::Advance);
+		WriteDebugProfilerStatus(IRProfilerStatus::IN_JIT);
 		ApplyRoundingMode(true);
 		LoadStaticRegisters();
 
@@ -191,6 +203,7 @@ void Arm64JitBackend::GenerateFixedCode(MIPSState *mipsState) {
 			}
 
 			MovFromPC(SCRATCH1);
+			WriteDebugPC(SCRATCH1);
 #ifdef MASKED_PSP_MEMORY
 			ANDI2R(SCRATCH1, SCRATCH1, Memory::MEMVIEW32_MASK);
 #endif
@@ -206,7 +219,9 @@ void Arm64JitBackend::GenerateFixedCode(MIPSState *mipsState) {
 
 			// No block found, let's jit.  We don't need to save static regs, they're all callee saved.
 			RestoreRoundingMode(true);
+			WriteDebugProfilerStatus(IRProfilerStatus::COMPILING);
 			QuickCallFunction(SCRATCH1_64, &MIPSComp::JitAt);
+			WriteDebugProfilerStatus(IRProfilerStatus::IN_JIT);
 			ApplyRoundingMode(true);
 
 			// Let's just dispatch again, we'll enter the block since we know it's there.
@@ -221,6 +236,7 @@ void Arm64JitBackend::GenerateFixedCode(MIPSState *mipsState) {
 	const uint8_t *quitLoop = GetCodePtr();
 	SetJumpTarget(badCoreState);
 
+	WriteDebugProfilerStatus(IRProfilerStatus::NOT_RUNNING);
 	SaveStaticRegisters();
 	RestoreRoundingMode(true);
 
@@ -251,7 +267,7 @@ void Arm64JitBackend::GenerateFixedCode(MIPSState *mipsState) {
 
 	// Leave this at the end, add more stuff above.
 	if (enableDisasm) {
-		std::vector<std::string> lines = DisassembleArm64(start, (int)(GetCodePtr() - start));
+		std::vector<std::string> lines = DisassembleArm64(disasmStart, (int)(GetCodePtr() - disasmStart));
 		for (auto s : lines) {
 			INFO_LOG(JIT, "%s", s.c_str());
 		}

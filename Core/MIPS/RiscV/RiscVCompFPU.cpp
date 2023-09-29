@@ -520,20 +520,32 @@ void RiscVJitBackend::CompIR_FCompare(IRInst inst) {
 
 	case IROp::FCmpVfpuAggregate:
 		regs_.MapGPR(IRREG_VFPU_CC, MIPSMap::DIRTY);
-		ANDI(SCRATCH1, regs_.R(IRREG_VFPU_CC), inst.dest);
-		// This is the "any bit", easy.
-		SNEZ(SCRATCH2, SCRATCH1);
-		// To compare to inst.dest for "all", let's simply subtract it and compare to zero.
-		ADDI(SCRATCH1, SCRATCH1, -inst.dest);
-		SEQZ(SCRATCH1, SCRATCH1);
-		// Now we combine those together.
-		SLLI(SCRATCH1, SCRATCH1, 5);
-		SLLI(SCRATCH2, SCRATCH2, 4);
-		OR(SCRATCH1, SCRATCH1, SCRATCH2);
+		if (inst.dest == 1) {
+			ANDI(SCRATCH1, regs_.R(IRREG_VFPU_CC), inst.dest);
+			// Negate so 1 becomes all bits set and zero stays zero, then mask to 0x30.
+			NEG(SCRATCH1, SCRATCH1);
+			ANDI(SCRATCH1, SCRATCH1, 0x30);
 
-		// Reject those any/all bits and replace them with our own.
-		ANDI(regs_.R(IRREG_VFPU_CC), regs_.R(IRREG_VFPU_CC), ~0x30);
-		OR(regs_.R(IRREG_VFPU_CC), regs_.R(IRREG_VFPU_CC), SCRATCH1);
+			// Reject the old any/all bits and replace them with our own.
+			ANDI(regs_.R(IRREG_VFPU_CC), regs_.R(IRREG_VFPU_CC), ~0x30);
+			OR(regs_.R(IRREG_VFPU_CC), regs_.R(IRREG_VFPU_CC), SCRATCH1);
+		} else {
+			ANDI(SCRATCH1, regs_.R(IRREG_VFPU_CC), inst.dest);
+			FixupBranch skipZero = BEQ(SCRATCH1, R_ZERO);
+
+			// To compare to inst.dest for "all", let's simply subtract it and compare to zero.
+			ADDI(SCRATCH1, SCRATCH1, -inst.dest);
+			SEQZ(SCRATCH1, SCRATCH1);
+			// Now we combine with the "any" bit.
+			SLLI(SCRATCH1, SCRATCH1, 5);
+			ORI(SCRATCH1, SCRATCH1, 0x10);
+
+			SetJumpTarget(skipZero);
+
+			// Reject the old any/all bits and replace them with our own.
+			ANDI(regs_.R(IRREG_VFPU_CC), regs_.R(IRREG_VFPU_CC), ~0x30);
+			OR(regs_.R(IRREG_VFPU_CC), regs_.R(IRREG_VFPU_CC), SCRATCH1);
+		}
 		break;
 
 	default:
@@ -573,6 +585,8 @@ void RiscVJitBackend::CompIR_FSpecial(IRInst inst) {
 
 	auto callFuncF_F = [&](float (*func)(float)) {
 		regs_.FlushBeforeCall();
+		WriteDebugProfilerStatus(IRProfilerStatus::MATH_HELPER);
+
 		// It might be in a non-volatile register.
 		// TODO: May have to handle a transfer if SIMD here.
 		if (regs_.IsFPRMapped(inst.src1)) {
@@ -588,6 +602,8 @@ void RiscVJitBackend::CompIR_FSpecial(IRInst inst) {
 		if (regs_.F(inst.dest) != F10) {
 			FMV(32, regs_.F(inst.dest), F10);
 		}
+
+		WriteDebugProfilerStatus(IRProfilerStatus::IN_JIT);
 	};
 
 	RiscVReg tempReg = INVALID_REG;

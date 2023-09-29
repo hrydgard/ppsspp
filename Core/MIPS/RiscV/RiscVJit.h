@@ -50,6 +50,9 @@ private:
 	void ApplyRoundingMode(bool force = false);
 	void MovFromPC(RiscVGen::RiscVReg r);
 	void MovToPC(RiscVGen::RiscVReg r);
+	void WriteDebugPC(uint32_t pc);
+	void WriteDebugPC(RiscVGen::RiscVReg r);
+	void WriteDebugProfilerStatus(IRProfilerStatus status);
 
 	void SaveStaticRegisters();
 	void LoadStaticRegisters();

@@ -1343,17 +1343,20 @@ else()
 			SDL/SDLVulkanGraphicsContext.cpp
 		)
 	endif()
-	if(SDL2_ttf_FOUND OR SDL2_ttf_PKGCONFIG_FOUND)
+	if(SDL2_ttf_FOUND OR
+		(SDL2_ttf_PKGCONFIG_FOUND AND
+		 SDL2_ttf_PKGCONFIG_VERSION VERSION_GREATER_EQUAL "2.0.18"))
 		add_definitions(-DUSE_SDL2_TTF)
 		if(FONTCONFIG_FOUND)
 			add_definitions(-DUSE_SDL2_TTF_FONTCONFIG)
 			set(nativeExtraLibs ${nativeExtraLibs} Fontconfig::Fontconfig)
 		endif()
+	elseif(SDL2_ttf_PKGCONFIG_FOUND)
+		message(WARNING "Found SDL2_ttf <2.0.18 - this is too old, falling back to atlas")
 	endif()
 	if(SDL2_ttf_FOUND)
 		set(nativeExtraLibs ${nativeExtraLibs} SDL2_ttf::SDL2_ttf)
 	elseif(SDL2_ttf_PKGCONFIG_FOUND)
-		add_definitions(-DUSE_SDL2_TTF_PKGCONFIG)
 		set(nativeExtraLibs ${nativeExtraLibs} PkgConfig::SDL2_ttf_PKGCONFIG)
 	endif()
 	if(APPLE)
@@ -2314,7 +2317,9 @@ else()
 	include_directories(ext/zstd/lib)
 endif()
 
-target_link_libraries(${CoreLibName} Common native kirk cityhash sfmt19937 xbrz xxhash rcheevos ${GlslangLibs}
+include_directories(ext/libchdr/include)
+
+target_link_libraries(${CoreLibName} Common native chdr kirk cityhash sfmt19937 xbrz xxhash rcheevos ${GlslangLibs}
 	${CoreExtraLibs} ${OPENGL_LIBRARIES} ${X11_LIBRARIES} ${CMAKE_DL_LIBS})
 
 if(NOT HTTPS_NOT_AVAILABLE)

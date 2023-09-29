@@ -67,6 +67,8 @@ bool RiscVJitBackend::CompileBlock(IRBlock *block, int block_num, bool preload) 
 		SetBlockCheckedOffset(block_num, (int)GetOffset(GetCodePointer()));
 		wroteCheckedOffset = true;
 
+		WriteDebugPC(startPC);
+
 		FixupBranch normalEntry = BGE(DOWNCOUNTREG, R_ZERO);
 		LI(SCRATCH1, startPC);
 		QuickJ(R_RA, outerLoopPCInSCRATCH1_);
@@ -118,6 +120,8 @@ bool RiscVJitBackend::CompileBlock(IRBlock *block, int block_num, bool preload) 
 	}
 
 	if (jo.enableBlocklink && jo.useBackJump) {
+		WriteDebugPC(startPC);
+
 		// Most blocks shouldn't be >= 4KB, so usually we can just BGE.
 		if (BInRange(blockStart)) {
 			BGE(DOWNCOUNTREG, R_ZERO, blockStart);
@@ -218,7 +222,9 @@ void RiscVJitBackend::CompIR_Generic(IRInst inst) {
 	FlushAll();
 	LI(X10, value, SCRATCH2);
 	SaveStaticRegisters();
+	WriteDebugProfilerStatus(IRProfilerStatus::IR_INTERPRET);
 	QuickCallFunction(&DoIRInst, SCRATCH2);
+	WriteDebugProfilerStatus(IRProfilerStatus::IN_JIT);
 	LoadStaticRegisters();
 
 	// We only need to check the return value if it's a potential exit.
@@ -241,12 +247,14 @@ void RiscVJitBackend::CompIR_Interpret(IRInst inst) {
 	// IR protects us against this being a branching instruction (well, hopefully.)
 	FlushAll();
 	SaveStaticRegisters();
+	WriteDebugProfilerStatus(IRProfilerStatus::INTERPRET);
 	if (DebugStatsEnabled()) {
 		LI(X10, MIPSGetName(op));
 		QuickCallFunction(&NotifyMIPSInterpret, SCRATCH2);
 	}
 	LI(X10, (int32_t)inst.constant);
 	QuickCallFunction((const u8 *)MIPSGetInterpretFunc(op), SCRATCH2);
+	WriteDebugProfilerStatus(IRProfilerStatus::IN_JIT);
 	LoadStaticRegisters();
 }
 
@@ -327,6 +335,32 @@ void RiscVJitBackend::MovFromPC(RiscVReg r) {
 
 void RiscVJitBackend::MovToPC(RiscVReg r) {
 	SW(r, CTXREG, offsetof(MIPSState, pc));
+}
+
+void RiscVJitBackend::WriteDebugPC(uint32_t pc) {
+	if (hooks_.profilerPC) {
+		int offset = (const u8 *)hooks_.profilerPC - GetBasePtr();
+		LI(SCRATCH2, hooks_.profilerPC);
+		LI(R_RA, (int32_t)pc);
+		SW(R_RA, SCRATCH2, 0);
+	}
+}
+
+void RiscVJitBackend::WriteDebugPC(RiscVReg r) {
+	if (hooks_.profilerPC) {
+		int offset = (const u8 *)hooks_.profilerPC - GetBasePtr();
+		LI(SCRATCH2, hooks_.profilerPC);
+		SW(r,  SCRATCH2, 0);
+	}
+}
+
+void RiscVJitBackend::WriteDebugProfilerStatus(IRProfilerStatus status) {
+	if (hooks_.profilerPC) {
+		int offset = (const u8 *)hooks_.profilerStatus - GetBasePtr();
+		LI(SCRATCH2, hooks_.profilerStatus);
+		LI(R_RA, (int)status);
+		SW(R_RA, SCRATCH2, 0);
+	}
 }
 
 void RiscVJitBackend::SaveStaticRegisters() {

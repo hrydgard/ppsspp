@@ -304,7 +304,7 @@ bool MainUI::HandleCustomEvent(QEvent *e) {
 		const char *filter = "All files (*.*)";
 		switch (fileType) {
 		case BrowseFileType::BOOTABLE:
-			filter = "PSP ROMs (*.iso *.cso *.pbp *.elf *.zip *.ppdmp)";
+			filter = "PSP ROMs (*.iso *.cso *.chd *.pbp *.elf *.zip *.ppdmp)";
 			break;
 		case BrowseFileType::IMAGE:
 			filter = "Pictures (*.jpg *.png)";
@@ -731,18 +731,7 @@ void MainUI::updateAccelerometer() {
 	// TODO: Toggle it depending on whether it is enabled
 	QAccelerometerReading *reading = acc->reading();
 	if (reading) {
-		AxisInput axis[3];
-		for (int i = 0; i < 3; i++) {
-			axis[i].deviceId = DEVICE_ID_ACCELEROMETER;
-		}
-
-		axis[0].axisId = JOYSTICK_AXIS_ACCELEROMETER_X;
-		axis[0].value = reading->x();
-		axis[1].axisId = JOYSTICK_AXIS_ACCELEROMETER_Y;
-		axis[1].value = reading->y();
-		axis[2].axisId = JOYSTICK_AXIS_ACCELEROMETER_Z;
-		axis[2].value = reading->z();
-		NativeAxis(axis, 3);
+		NativeAccelerometer(reading->x(), reading->y(), reading->z());
 	}
 #endif
 }

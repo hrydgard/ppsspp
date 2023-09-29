@@ -76,6 +76,8 @@ bool Arm64JitBackend::CompileBlock(IRBlock *block, int block_num, bool preload) 
 		SetBlockCheckedOffset(block_num, (int)GetOffset(GetCodePointer()));
 		wroteCheckedOffset = true;
 
+		WriteDebugPC(startPC);
+
 		// Check the sign bit to check if negative.
 		FixupBranch normalEntry = TBZ(DOWNCOUNTREG, 31);
 		MOVI2R(SCRATCH1, startPC);
@@ -87,6 +89,7 @@ bool Arm64JitBackend::CompileBlock(IRBlock *block, int block_num, bool preload) 
 	const u8 *blockStart = GetCodePointer();
 	block->SetTargetOffset((int)GetOffset(blockStart));
 	compilingBlockNum_ = block_num;
+	lastConstPC_ = 0;
 
 	regs_.Start(block);
 
@@ -128,6 +131,8 @@ bool Arm64JitBackend::CompileBlock(IRBlock *block, int block_num, bool preload) 
 	}
 
 	if (jo.enableBlocklink && jo.useBackJump) {
+		WriteDebugPC(startPC);
+
 		// Small blocks are common, check if it's < 32KB long.
 		ptrdiff_t distance = blockStart - GetCodePointer();
 		if (distance >= -0x8000 && distance < 0x8000) {
@@ -228,8 +233,10 @@ void Arm64JitBackend::CompIR_Generic(IRInst inst) {
 
 	FlushAll();
 	SaveStaticRegisters();
+	WriteDebugProfilerStatus(IRProfilerStatus::IR_INTERPRET);
 	MOVI2R(X0, value);
 	QuickCallFunction(SCRATCH2_64, &DoIRInst);
+	WriteDebugProfilerStatus(IRProfilerStatus::IN_JIT);
 	LoadStaticRegisters();
 
 	// We only need to check the return value if it's a potential exit.
@@ -255,12 +262,14 @@ void Arm64JitBackend::CompIR_Interpret(IRInst inst) {
 	// IR protects us against this being a branching instruction (well, hopefully.)
 	FlushAll();
 	SaveStaticRegisters();
+	WriteDebugProfilerStatus(IRProfilerStatus::INTERPRET);
 	if (DebugStatsEnabled()) {
 		MOVP2R(X0, MIPSGetName(op));
 		QuickCallFunction(SCRATCH2_64, &NotifyMIPSInterpret);
 	}
 	MOVI2R(X0, inst.constant);
 	QuickCallFunction(SCRATCH2_64, MIPSGetInterpretFunc(op));
+	WriteDebugProfilerStatus(IRProfilerStatus::IN_JIT);
 	LoadStaticRegisters();
 }
 
@@ -351,6 +360,32 @@ void Arm64JitBackend::MovFromPC(ARM64Reg r) {
 
 void Arm64JitBackend::MovToPC(ARM64Reg r) {
 	STR(INDEX_UNSIGNED, r, CTXREG, offsetof(MIPSState, pc));
+}
+
+void Arm64JitBackend::WriteDebugPC(uint32_t pc) {
+	if (hooks_.profilerPC) {
+		int offset = (int)((const u8 *)hooks_.profilerPC - GetBasePtr());
+		MOVI2R(SCRATCH2, MIPS_EMUHACK_OPCODE + offset);
+		MOVI2R(SCRATCH1, pc);
+		STR(SCRATCH1, JITBASEREG, SCRATCH2);
+	}
+}
+
+void Arm64JitBackend::WriteDebugPC(ARM64Reg r) {
+	if (hooks_.profilerPC) {
+		int offset = (int)((const u8 *)hooks_.profilerPC - GetBasePtr());
+		MOVI2R(SCRATCH2, MIPS_EMUHACK_OPCODE + offset);
+		STR(r, JITBASEREG, SCRATCH2);
+	}
+}
+
+void Arm64JitBackend::WriteDebugProfilerStatus(IRProfilerStatus status) {
+	if (hooks_.profilerPC) {
+		int offset = (int)((const u8 *)hooks_.profilerStatus - GetBasePtr());
+		MOVI2R(SCRATCH2, MIPS_EMUHACK_OPCODE + offset);
+		MOVI2R(SCRATCH1, (int)status);
+		STR(SCRATCH1, JITBASEREG, SCRATCH2);
+	}
 }
 
 void Arm64JitBackend::SaveStaticRegisters() {

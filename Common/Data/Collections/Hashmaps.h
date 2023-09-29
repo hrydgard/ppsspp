@@ -72,7 +72,7 @@ public:
 	}
 
 	bool ContainsKey(const Key &key) const {
-		// Slightly wasteful.
+		// Slightly wasteful, though compiler might optimize it.
 		Value value;
 		return Get(key, &value);
 	}
@@ -135,6 +135,7 @@ public:
 		return false;
 	}
 
+	// This will never crash if you call it without locking - but, the value might not be right.
 	size_t size() const {
 		return count_;
 	}

@@ -535,25 +535,21 @@ void ShaderManagerDX9::Clear() {
 	}
 	fsCache_.clear();
 	vsCache_.clear();
-	DirtyShader();
+	DirtyLastShader();
 }
 
 void ShaderManagerDX9::ClearShaders() {
 	Clear();
 }
 
-void ShaderManagerDX9::DirtyShader() {
+void ShaderManagerDX9::DirtyLastShader() {
 	// Forget the last shader ID
 	lastFSID_.set_invalid();
 	lastVSID_.set_invalid();
 	lastVShader_ = nullptr;
 	lastPShader_ = nullptr;
+	// TODO: Probably not necessary to dirty uniforms here on DX9.
 	gstate_c.Dirty(DIRTY_ALL_UNIFORMS | DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE);
-}
-
-void ShaderManagerDX9::DirtyLastShader() {
-	lastVShader_ = nullptr;
-	lastPShader_ = nullptr;
 }
 
 VSShader *ShaderManagerDX9::ApplyShader(bool useHWTransform, bool useHWTessellation, VertexDecoder *decoder, bool weightsAsFloat, bool useSkinInDecode, const ComputedPipelineState &pipelineState) {

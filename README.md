@@ -25,6 +25,30 @@ If you want to download regularly updated builds for Android, Windows x86 and x6
 
 For game compatibility, see [community compatibility feedback](https://report.ppsspp.org/games).
 
+What's new in 1.16.5
+====================
+- Additional crash and memory-leak fixes ([#18243], [#18244], [#18247])
+- Revert bad change that broke things with hardware transform turned off ([#18261])
+- Fix menu texture problem in Naruto Kizuna Drive in OpenGL ([#18255])
+- Apply flicker fix to WWE SvR 2007
+- More efficient handling of accelerometer events ([#18250])
+- Fix for jumpy graphics in Harvest Moon ([#18249])
+
+What's new in 1.16.4
+====================
+- Simplify shader cache lookups on Vulkan, hopefully fixing some crashes ([#18218])
+- Assorted improvements to the IR JITs ([#18228], [#18235], [#18211], more)
+- Other crash and stability fixes ([#18221], [#18220], [#18230], [#18216])
+- Some translation updates ([#18237], more)
+- Cleanups and assert fixes ([#18205], [#18201], [#18206])
+
+What's new in 1.16.3
+====================
+- Fix crash bug and performance issue in Vulkan shader cache ([#18183], [#18189])
+- Fix crash in icon loading in homebrew store ([#18185])
+- Add some memory safety check ([#18184], [#18194])
+- Fix problem when changing backend from the Windows menu ([#18182])
+
 What's new in 1.16.2
 ====================
 - Fix for HTTP support on Linux on networks with shaky or incomplete IPv6 support
@@ -401,3 +425,28 @@ Credit goes to:
 [#18151]: https://github.com/hrydgard/ppsspp/issues/18151 "GPU, VFS, UI: Fixed minor memleaks"
 [#18165]: https://github.com/hrydgard/ppsspp/issues/18165 "x86jit: Fix flush for special-purpose reg"
 [#18158]: https://github.com/hrydgard/ppsspp/issues/18158 "Add -fno-math-errno"
+[#18183]: https://github.com/hrydgard/ppsspp/issues/18183 "Pipeline/shader race-condition-during-shutdown crash fix"
+[#18189]: https://github.com/hrydgard/ppsspp/issues/18189 "Be a bit smarter when loading the shader cache, avoid duplicating work"
+[#18185]: https://github.com/hrydgard/ppsspp/issues/18185 "Store: Fix race condition causing crashes if looking at another game before an icon finishes downloading"
+[#18184]: https://github.com/hrydgard/ppsspp/issues/18184 "Add memory bounds-check when expanding points, rects and lines to triangles"
+[#18194]: https://github.com/hrydgard/ppsspp/issues/18194 "Cleanups and comment clarifications"
+[#18182]: https://github.com/hrydgard/ppsspp/issues/18182 "Backend change from Win32 menu: Add quick workaround for instance counter misbehavior"
+[#18218]: https://github.com/hrydgard/ppsspp/issues/18218 "Vulkan: Simplify GetShaders and DirtyLastShader, making them internally consistent."
+[#18228]: https://github.com/hrydgard/ppsspp/issues/18228 "unittest: Add jit compare for jit IR"
+[#18235]: https://github.com/hrydgard/ppsspp/issues/18235 "irjit: Handle VDet"
+[#18211]: https://github.com/hrydgard/ppsspp/issues/18211 "More crash fix attempts"
+[#18221]: https://github.com/hrydgard/ppsspp/issues/18221 "Some cleanups and fixes to obscure crashes"
+[#18220]: https://github.com/hrydgard/ppsspp/issues/18220 "Add some missing locking in KeyMap.cpp."
+[#18230]: https://github.com/hrydgard/ppsspp/issues/18230 "Android: Minor activity lifecycle stuff"
+[#18216]: https://github.com/hrydgard/ppsspp/issues/18216 "Don't load the shader cache on a separate thread - all it does is already async"
+[#18237]: https://github.com/hrydgard/ppsspp/issues/18237 "UI/localization: Italian translation update"
+[#18205]: https://github.com/hrydgard/ppsspp/issues/18205 "http: Fix errors on connect"
+[#18201]: https://github.com/hrydgard/ppsspp/issues/18201 "Asserts and checks"
+[#18206]: https://github.com/hrydgard/ppsspp/issues/18206 "GPU: Handle invalid blendeq more accurately"
+[#18243]: https://github.com/hrydgard/ppsspp/issues/18243 "More crashfix/leakfix attempts"
+[#18244]: https://github.com/hrydgard/ppsspp/issues/18244 "Core: Stop leaking file loaders"
+[#18247]: https://github.com/hrydgard/ppsspp/issues/18247 "Jit: Assert on bad exit numbers, allow two more exits per block"
+[#18261]: https://github.com/hrydgard/ppsspp/issues/18261 "Revert \"Merge pull request #18184 from hrydgard/expand-lines-mem-fix\""
+[#18255]: https://github.com/hrydgard/ppsspp/issues/18255 "Fix issue uploading narrow textures in OpenGL."
+[#18250]: https://github.com/hrydgard/ppsspp/issues/18250 "Separate out accelerometer events from joystick axis events"
+[#18249]: https://github.com/hrydgard/ppsspp/issues/18249 "arm64jit: Avoid fused multiplies in vcrsp.t"

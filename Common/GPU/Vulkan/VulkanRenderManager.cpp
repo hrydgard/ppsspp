@@ -288,7 +288,6 @@ bool VulkanRenderManager::CreateBackbuffers() {
 		return false;
 	}
 
-
 	VkCommandBuffer cmdInit = GetInitCmd();
 
 	if (!queueRunner_.CreateSwapchain(cmdInit)) {
@@ -309,6 +308,11 @@ bool VulkanRenderManager::CreateBackbuffers() {
 	}
 
 	outOfDateFrames_ = 0;
+
+	for (int i = 0; i < vulkan_->GetInflightFrames(); i++) {
+		auto &frameData = frameData_[i];
+		frameData.readyForFence = true;  // Just in case.
+	}
 
 	// Start the thread(s).
 	if (HasBackbuffers()) {

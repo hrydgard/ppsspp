@@ -25,12 +25,27 @@ namespace MIPSComp {
 
 typedef void (*IRNativeFuncNoArg)();
 
+enum class IRProfilerStatus : int32_t {
+	NOT_RUNNING,
+	IN_JIT,
+	TIMER_ADVANCE,
+	COMPILING,
+	MATH_HELPER,
+	REPLACEMENT,
+	SYSCALL,
+	INTERPRET,
+	IR_INTERPRET,
+};
+
 struct IRNativeHooks {
 	IRNativeFuncNoArg enterDispatcher = nullptr;
 
 	const uint8_t *dispatcher = nullptr;
 	const uint8_t *dispatchFetch = nullptr;
 	const uint8_t *crashHandler = nullptr;
+
+	uint32_t *profilerPC = nullptr;
+	IRProfilerStatus *profilerStatus = nullptr;
 };
 
 struct IRNativeBlockExit {
@@ -47,7 +62,7 @@ struct IRNativeBlock {
 class IRNativeBackend {
 public:
 	IRNativeBackend(IRBlockCache &blocks);
-	virtual ~IRNativeBackend() {}
+	virtual ~IRNativeBackend();
 
 	void CompileIRInst(IRInst inst);
 
@@ -120,6 +135,7 @@ protected:
 
 	// Returns true when debugging statistics should be compiled in.
 	bool DebugStatsEnabled() const;
+	bool DebugProfilerEnabled() const;
 
 	// Callback (compile when DebugStatsEnabled()) to log a base interpreter hit.
 	// Call the func returned by MIPSGetInterpretFunc(op) directly for interpret.
@@ -130,6 +146,8 @@ protected:
 
 	// Callback to log AND perform an IR interpreter inst.  Returns 0 or a PC to jump to.
 	static uint32_t DoIRInst(uint64_t inst);
+
+	static int ReportBadAddress(uint32_t addr, uint32_t alignment, uint32_t isWrite);
 
 	void AddLinkableExit(int block_num, uint32_t pc, int exitStartOffset, int exitLen);
 	void EraseAllLinks(int block_num);

@@ -116,8 +116,9 @@ public:
 	std::string LanguageID();
 
 	std::shared_ptr<I18NCategory> GetCategory(I18NCat category);
-	std::shared_ptr<I18NCategory> GetCategoryByName(const char *name);
 
+	// Translate the string, by looking up "key" in the file, and falling back to either def or key, in that order, if the lookup fails.
+	// def can (and usually is) set to nullptr.
 	const char *T(I18NCat category, const char *key, const char *def = nullptr) {
 		if (category == I18NCat::NONE)
 			return def ? def : key;

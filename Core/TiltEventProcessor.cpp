@@ -19,6 +19,12 @@ static u32 tiltButtonsDown = 0;
 float rawTiltAnalogX;
 float rawTiltAnalogY;
 
+float g_currentYAngle = 0.0f;
+
+float GetCurrentYAngle() {
+	return g_currentYAngle;
+}
+
 // These functions generate tilt events given the current Tilt amount,
 // and the deadzone radius.
 void GenerateAnalogStickEvent(float analogX, float analogY);
@@ -73,6 +79,7 @@ void ProcessTilt(bool landscape, float calibrationAngle, float x, float y, float
 	Lin::Vec3 down = Lin::Vec3(x, y, z).normalized();
 
 	float angleAroundX = atan2(down.z, down.y);
+	g_currentYAngle = angleAroundX;  // TODO: Should smooth this out over time a bit.
 	float yAngle = angleAroundX - calibrationAngle;
 	float xAngle = asinf(down.x);
 

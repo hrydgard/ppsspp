@@ -275,21 +275,6 @@ bool FragmentIdNeedsFramebufferRead(const FShaderID &id) {
 		(ReplaceBlendType)id.Bits(FS_BIT_REPLACE_BLEND, 3) == REPLACE_BLEND_READ_FRAMEBUFFER;
 }
 
-static GEBlendMode SanitizeBlendEq(GEBlendMode beq) {
-	switch (beq) {
-	case GE_BLENDMODE_MUL_AND_ADD:
-	case GE_BLENDMODE_MUL_AND_SUBTRACT:
-	case GE_BLENDMODE_MUL_AND_SUBTRACT_REVERSE:
-	case GE_BLENDMODE_MIN:
-	case GE_BLENDMODE_MAX:
-	case GE_BLENDMODE_ABSDIFF:
-		return beq;
-	default:
-		// Just return something that won't cause a shader gen failure.
-		return GE_BLENDMODE_MUL_AND_ADD;
-	}
-}
-
 // Here we must take all the bits of the gstate that determine what the fragment shader will
 // look like, and concatenate them together into an ID.
 void ComputeFragmentShaderID(FShaderID *id_out, const ComputedPipelineState &pipelineState, const Draw::Bugs &bugs) {
@@ -384,7 +369,7 @@ void ComputeFragmentShaderID(FShaderID *id_out, const ComputedPipelineState &pip
 			// 3 bits.
 			id.SetBits(FS_BIT_REPLACE_BLEND, 3, replaceBlend);
 			// 11 bits total.
-			id.SetBits(FS_BIT_BLENDEQ, 3, SanitizeBlendEq(gstate.getBlendEq()));
+			id.SetBits(FS_BIT_BLENDEQ, 3, gstate.getBlendEq());
 			id.SetBits(FS_BIT_BLENDFUNC_A, 4, gstate.getBlendFuncA());
 			id.SetBits(FS_BIT_BLENDFUNC_B, 4, gstate.getBlendFuncB());
 		}

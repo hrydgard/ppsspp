@@ -184,7 +184,7 @@ bool GetFilesInDir(const Path &directory, std::vector<FileInfo> *files, const ch
 		std::string tmp;
 		while (*filter) {
 			if (*filter == ':') {
-				filters.insert(std::move(tmp));
+				filters.insert(tmp);
 				tmp.clear();
 			} else {
 				tmp.push_back(*filter);
@@ -192,7 +192,7 @@ bool GetFilesInDir(const Path &directory, std::vector<FileInfo> *files, const ch
 			filter++;
 		}
 		if (!tmp.empty())
-			filters.insert(std::move(tmp));
+			filters.insert(tmp);
 	}
 
 #if PPSSPP_PLATFORM(WINDOWS)

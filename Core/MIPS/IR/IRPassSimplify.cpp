@@ -1794,7 +1794,8 @@ bool ApplyMemoryValidation(const IRWriter &in, IRWriter &out, const IROptions &o
 	bool spModified = false;
 	for (IRInst inst : in.GetInstructions()) {
 		IRMemoryOpInfo info = IROpMemoryAccessSize(inst.op);
-		if (info.size != 0 && inst.src1 == MIPS_REG_SP) {
+		// Note: we only combine word aligned accesses.
+		if (info.size != 0 && inst.src1 == MIPS_REG_SP && info.size == 4) {
 			if (spModified) {
 				// No good, it was modified and then we did more accesses.  Can't combine.
 				spUpper = -1;
@@ -1802,11 +1803,6 @@ bool ApplyMemoryValidation(const IRWriter &in, IRWriter &out, const IROptions &o
 			}
 			if ((int)inst.constant < 0 || (int)inst.constant >= 0x4000) {
 				// Let's assume this might cross boundaries or something.  Uncommon.
-				spUpper = -1;
-				break;
-			}
-			if (info.size == 16 && (inst.constant & 0xF) != 0) {
-				// Shouldn't happen, sp should always be aligned.
 				spUpper = -1;
 				break;
 			}
@@ -1828,7 +1824,7 @@ bool ApplyMemoryValidation(const IRWriter &in, IRWriter &out, const IROptions &o
 
 	std::map<uint64_t, uint8_t> checks;
 	const auto addValidate = [&](IROp validate, uint8_t sz, const IRInst &inst, bool isStore) {
-		if (inst.src1 == MIPS_REG_SP && skipSP) {
+		if (inst.src1 == MIPS_REG_SP && skipSP && validate == IROp::ValidateAddress32) {
 			if (!flushedSP) {
 				out.Write(IROp::ValidateAddress32, 0, MIPS_REG_SP, spWrite ? 1U : 0U, spLower);
 				if (spUpper > spLower + 4)

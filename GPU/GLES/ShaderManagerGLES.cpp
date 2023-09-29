@@ -76,6 +76,7 @@ LinkedShader::LinkedShader(GLRenderManager *render, VShaderID VSID, Shader *vs, 
 		: render_(render), useHWTransform_(useHWTransform) {
 	PROFILE_THIS_SCOPE("shaderlink");
 
+	_assert_(render);
 	_assert_(vs);
 	_assert_(fs);
 
@@ -715,7 +716,7 @@ void ShaderManagerGLES::Clear() {
 	linkedShaderCache_.clear();
 	fsCache_.Clear();
 	vsCache_.Clear();
-	DirtyShader();
+	DirtyLastShader();
 }
 
 void ShaderManagerGLES::ClearShaders() {
@@ -734,16 +735,12 @@ void ShaderManagerGLES::DeviceRestore(Draw::DrawContext *draw) {
 	draw_ = draw;
 }
 
-void ShaderManagerGLES::DirtyShader() {
+void ShaderManagerGLES::DirtyLastShader() {
 	// Forget the last shader ID
 	lastFSID_.set_invalid();
 	lastVSID_.set_invalid();
-	DirtyLastShader();
 	gstate_c.Dirty(DIRTY_ALL_UNIFORMS | DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE);
 	shaderSwitchDirtyUniforms_ = 0;
-}
-
-void ShaderManagerGLES::DirtyLastShader() {
 	lastShader_ = nullptr;
 	lastVShaderSame_ = false;
 }
@@ -986,7 +983,7 @@ enum class CacheDetectFlags {
 };
 
 #define CACHE_HEADER_MAGIC 0x83277592
-#define CACHE_VERSION 32
+#define CACHE_VERSION 33
 
 struct CacheHeader {
 	uint32_t magic;

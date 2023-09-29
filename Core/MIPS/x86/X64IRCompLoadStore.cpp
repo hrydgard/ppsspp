@@ -45,35 +45,41 @@ Gen::OpArg X64JitBackend::PrepareSrc1Address(IRInst inst) {
 	// If it's about to be clobbered, don't waste time pointerifying.  Use displacement.
 	bool clobbersSrc1 = !readsFromSrc1 && regs_.IsGPRClobbered(inst.src1);
 
+	int32_t disp = (int32_t)inst.constant;
+	// It can't be this negative, must be a constant address with the top bit set.
+	if ((disp & 0xC0000000) == 0x80000000) {
+		disp = inst.constant & 0x7FFFFFFF;
+	}
+
 #ifdef MASKED_PSP_MEMORY
-	if (inst.constant > 0)
-		inst.constant &= Memory::MEMVIEW32_MASK;
+	if (disp > 0)
+		disp &= Memory::MEMVIEW32_MASK;
 #endif
 
 	OpArg addrArg;
 	if (inst.src1 == MIPS_REG_ZERO) {
 #ifdef MASKED_PSP_MEMORY
-		inst.constant &= Memory::MEMVIEW32_MASK;
+		disp &= Memory::MEMVIEW32_MASK;
 #endif
 #if PPSSPP_ARCH(AMD64)
-		addrArg = MDisp(MEMBASEREG, inst.constant & 0x7FFFFFFF);
+		addrArg = MDisp(MEMBASEREG, disp & 0x7FFFFFFF);
 #else
-		addrArg = M(Memory::base + inst.constant);
+		addrArg = M(Memory::base + disp);
 #endif
 	} else if ((jo.cachePointers || src1IsPointer) && !readsFromSrc1 && (!clobbersSrc1 || src1IsPointer)) {
 		X64Reg src1 = regs_.MapGPRAsPointer(inst.src1);
-		addrArg = MDisp(src1, (int)inst.constant);
+		addrArg = MDisp(src1, disp);
 	} else {
 		regs_.MapGPR(inst.src1);
 #ifdef MASKED_PSP_MEMORY
-		LEA(PTRBITS, SCRATCH1, MDisp(regs_.RX(inst.src1), (int)inst.constant));
+		LEA(PTRBITS, SCRATCH1, MDisp(regs_.RX(inst.src1), disp));
 		AND(PTRBITS, R(SCRATCH1), Imm32(Memory::MEMVIEW32_MASK));
 		addrArg = MDisp(SCRATCH1, (intptr_t)Memory::base);
 #else
 #if PPSSPP_ARCH(AMD64)
-		addrArg = MComplex(MEMBASEREG, regs_.RX(inst.src1), SCALE_1, (int)inst.constant);
+		addrArg = MComplex(MEMBASEREG, regs_.RX(inst.src1), SCALE_1, disp);
 #else
-		addrArg = MDisp(regs_.RX(inst.src1), Memory::base + inst.constant);
+		addrArg = MDisp(regs_.RX(inst.src1), Memory::base + disp);
 #endif
 #endif
 	}

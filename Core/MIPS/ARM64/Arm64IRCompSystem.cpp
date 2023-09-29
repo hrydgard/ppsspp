@@ -21,9 +21,11 @@
 
 #include "Common/Profiler/Profiler.h"
 #include "Core/Core.h"
+#include "Core/Debugger/Breakpoints.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/ReplaceTables.h"
 #include "Core/MemMap.h"
+#include "Core/MIPS/MIPSAnalyst.h"
 #include "Core/MIPS/IR/IRInterpreter.h"
 #include "Core/MIPS/ARM64/Arm64IRJit.h"
 #include "Core/MIPS/ARM64/Arm64IRRegCache.h"
@@ -70,6 +72,7 @@ void Arm64JitBackend::CompIR_Basic(IRInst inst) {
 		break;
 
 	case IROp::SetPCConst:
+		lastConstPC_ = inst.constant;
 		MOVI2R(SCRATCH1, inst.constant);
 		MovToPC(SCRATCH1);
 		break;
@@ -85,36 +88,117 @@ void Arm64JitBackend::CompIR_Breakpoint(IRInst inst) {
 
 	switch (inst.op) {
 	case IROp::Breakpoint:
+	{
 		FlushAll();
 		// Note: the constant could be a delay slot.
 		MOVI2R(W0, inst.constant);
 		QuickCallFunction(SCRATCH2_64, &IRRunBreakpoint);
-		break;
 
-	case IROp::MemoryCheck:
-	{
-		ARM64Reg addrBase = regs_.MapGPR(inst.src1);
-		FlushAll();
-		ADDI2R(W1, addrBase, inst.constant, SCRATCH1);
-		MovFromPC(W0);
-		ADDI2R(W0, W0, inst.dest, SCRATCH1);
-		QuickCallFunction(SCRATCH2_64, &IRRunMemCheck);
+		ptrdiff_t distance = dispatcherCheckCoreState_ - GetCodePointer();
+		if (distance >= -0x100000 && distance < 0x100000) {
+			CBNZ(W0, dispatcherCheckCoreState_);
+		} else {
+			FixupBranch keepOnKeepingOn = CBZ(W0);
+			B(dispatcherCheckCoreState_);
+			SetJumpTarget(keepOnKeepingOn);
+		}
 		break;
 	}
+
+	case IROp::MemoryCheck:
+		if (regs_.IsGPRImm(inst.src1)) {
+			uint32_t iaddr = regs_.GetGPRImm(inst.src1) + inst.constant;
+			uint32_t checkedPC = lastConstPC_ + inst.dest;
+			int size = MIPSAnalyst::OpMemoryAccessSize(checkedPC);
+			if (size == 0) {
+				checkedPC += 4;
+				size = MIPSAnalyst::OpMemoryAccessSize(checkedPC);
+			}
+			bool isWrite = MIPSAnalyst::IsOpMemoryWrite(checkedPC);
+
+			MemCheck check;
+			if (CBreakPoints::GetMemCheckInRange(iaddr, size, &check)) {
+				if (!(check.cond & MEMCHECK_READ) && !isWrite)
+					break;
+				if (!(check.cond & (MEMCHECK_WRITE | MEMCHECK_WRITE_ONCHANGE)) && isWrite)
+					break;
+
+				// We need to flush, or conditions and log expressions will see old register values.
+				FlushAll();
+
+				MOVI2R(W0, checkedPC);
+				MOVI2R(W1, iaddr);
+				QuickCallFunction(SCRATCH2_64, &IRRunMemCheck);
+
+				ptrdiff_t distance = dispatcherCheckCoreState_ - GetCodePointer();
+				if (distance >= -0x100000 && distance < 0x100000) {
+					CBNZ(W0, dispatcherCheckCoreState_);
+				} else {
+					FixupBranch keepOnKeepingOn = CBZ(W0);
+					B(dispatcherCheckCoreState_);
+					SetJumpTarget(keepOnKeepingOn);
+				}
+			}
+		} else {
+			uint32_t checkedPC = lastConstPC_ + inst.dest;
+			int size = MIPSAnalyst::OpMemoryAccessSize(checkedPC);
+			if (size == 0) {
+				checkedPC += 4;
+				size = MIPSAnalyst::OpMemoryAccessSize(checkedPC);
+			}
+			bool isWrite = MIPSAnalyst::IsOpMemoryWrite(checkedPC);
+
+			const auto memchecks = CBreakPoints::GetMemCheckRanges(isWrite);
+			// We can trivially skip if there are no checks for this type (i.e. read vs write.)
+			if (memchecks.empty())
+				break;
+
+			ARM64Reg addrBase = regs_.MapGPR(inst.src1);
+			ADDI2R(SCRATCH1, addrBase, inst.constant, SCRATCH2);
+
+			// We need to flush, or conditions and log expressions will see old register values.
+			FlushAll();
+
+			std::vector<FixupBranch> hitChecks;
+			for (auto it : memchecks) {
+				if (it.end != 0) {
+					CMPI2R(SCRATCH1, it.start - size, SCRATCH2);
+					MOVI2R(SCRATCH2, it.end);
+					CCMP(SCRATCH1, SCRATCH2, 0xF, CC_HI);
+					hitChecks.push_back(B(CC_LO));
+				} else {
+					CMPI2R(SCRATCH1, it.start, SCRATCH2);
+					hitChecks.push_back(B(CC_EQ));
+				}
+			}
+
+			FixupBranch noHits = B();
+
+			// Okay, now land any hit here.
+			for (auto &fixup : hitChecks)
+				SetJumpTarget(fixup);
+			hitChecks.clear();
+
+			MOVI2R(W0, checkedPC);
+			MOV(W1, SCRATCH1);
+			QuickCallFunction(SCRATCH2_64, &IRRunMemCheck);
+
+			ptrdiff_t distance = dispatcherCheckCoreState_ - GetCodePointer();
+			if (distance >= -0x100000 && distance < 0x100000) {
+				CBNZ(W0, dispatcherCheckCoreState_);
+			} else {
+				FixupBranch keepOnKeepingOn = CBZ(W0);
+				B(dispatcherCheckCoreState_);
+				SetJumpTarget(keepOnKeepingOn);
+			}
+
+			SetJumpTarget(noHits);
+		}
+		break;
 
 	default:
 		INVALIDOP;
 		break;
-	}
-
-	// Both return a flag on whether to bail out.
-	ptrdiff_t distance = dispatcherCheckCoreState_ - GetCodePointer();
-	if (distance >= -0x100000 && distance < 0x100000) {
-		CBNZ(W0, dispatcherCheckCoreState_);
-	} else {
-		FixupBranch keepOnKeepingOn = CBZ(W0);
-		B(dispatcherCheckCoreState_);
-		SetJumpTarget(keepOnKeepingOn);
 	}
 }
 
@@ -126,6 +210,7 @@ void Arm64JitBackend::CompIR_System(IRInst inst) {
 		FlushAll();
 		SaveStaticRegisters();
 
+		WriteDebugProfilerStatus(IRProfilerStatus::SYSCALL);
 #ifdef USE_PROFILER
 		// When profiling, we can't skip CallSyscall, since it times syscalls.
 		MOVI2R(W0, inst.constant);
@@ -145,6 +230,7 @@ void Arm64JitBackend::CompIR_System(IRInst inst) {
 		}
 #endif
 
+		WriteDebugProfilerStatus(IRProfilerStatus::IN_JIT);
 		LoadStaticRegisters();
 		// This is always followed by an ExitToPC, where we check coreState.
 		break;
@@ -152,7 +238,9 @@ void Arm64JitBackend::CompIR_System(IRInst inst) {
 	case IROp::CallReplacement:
 		FlushAll();
 		SaveStaticRegisters();
+		WriteDebugProfilerStatus(IRProfilerStatus::REPLACEMENT);
 		QuickCallFunction(SCRATCH2_64, GetReplacementFunc(inst.constant)->replaceFunc);
+		WriteDebugProfilerStatus(IRProfilerStatus::IN_JIT);
 		LoadStaticRegisters();
 		SUB(DOWNCOUNTREG, DOWNCOUNTREG, W0);
 		break;
@@ -274,6 +362,66 @@ void Arm64JitBackend::CompIR_ValidateAddress(IRInst inst) {
 		INVALIDOP;
 		break;
 	}
+
+	if (regs_.IsGPRMappedAsPointer(inst.src1)) {
+		if (!jo.enablePointerify) {
+			SUB(SCRATCH1_64, regs_.RPtr(inst.src1), MEMBASEREG);
+			ADDI2R(SCRATCH1, SCRATCH1, inst.constant, SCRATCH2);
+		} else {
+			ADDI2R(SCRATCH1, regs_.R(inst.src1), inst.constant, SCRATCH2);
+		}
+	} else {
+		regs_.Map(inst);
+		ADDI2R(SCRATCH1, regs_.R(inst.src1), inst.constant, SCRATCH2);
+	}
+	ANDI2R(SCRATCH1, SCRATCH1, 0x3FFFFFFF, SCRATCH2);
+
+	std::vector<FixupBranch> validJumps;
+
+	FixupBranch unaligned;
+	if (alignment == 2) {
+		unaligned = TBNZ(SCRATCH1, 0);
+	} else if (alignment != 1) {
+		TSTI2R(SCRATCH1, alignment - 1, SCRATCH2);
+		unaligned = B(CC_NEQ);
+	}
+
+	CMPI2R(SCRATCH1, PSP_GetUserMemoryEnd() - alignment, SCRATCH2);
+	FixupBranch tooHighRAM = B(CC_HI);
+	CMPI2R(SCRATCH1, PSP_GetKernelMemoryBase(), SCRATCH2);
+	validJumps.push_back(B(CC_HS));
+
+	CMPI2R(SCRATCH1, PSP_GetVidMemEnd() - alignment, SCRATCH2);
+	FixupBranch tooHighVid = B(CC_HI);
+	CMPI2R(SCRATCH1, PSP_GetVidMemBase(), SCRATCH2);
+	validJumps.push_back(B(CC_HS));
+
+	CMPI2R(SCRATCH1, PSP_GetScratchpadMemoryEnd() - alignment, SCRATCH2);
+	FixupBranch tooHighScratch = B(CC_HI);
+	CMPI2R(SCRATCH1, PSP_GetScratchpadMemoryBase(), SCRATCH2);
+	validJumps.push_back(B(CC_HS));
+
+	if (alignment != 1)
+		SetJumpTarget(unaligned);
+	SetJumpTarget(tooHighRAM);
+	SetJumpTarget(tooHighVid);
+	SetJumpTarget(tooHighScratch);
+
+	// If we got here, something unusual and bad happened, so we'll always go back to the dispatcher.
+	// Because of that, we can avoid flushing outside this case.
+	auto regsCopy = regs_;
+	regsCopy.FlushAll();
+
+	// Ignores the return value, always returns to the dispatcher.
+	// Otherwise would need a thunk to restore regs.
+	MOV(W0, SCRATCH1);
+	MOVI2R(W1, alignment);
+	MOVI2R(W2, isWrite ? 1 : 0);
+	QuickCallFunction(SCRATCH2, &ReportBadAddress);
+	B(dispatcherCheckCoreState_);
+
+	for (FixupBranch &b : validJumps)
+		SetJumpTarget(b);
 }
 
 } // namespace MIPSComp

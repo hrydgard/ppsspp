@@ -1697,7 +1697,6 @@ void XEmitter::MOVMSKPD(X64Reg dest, OpArg arg) {WriteSSEOp(0x66, 0x50, dest, ar
 
 void XEmitter::LDDQU(X64Reg dest, OpArg arg)    {WriteSSEOp(0xF2, sseLDDQU, dest, arg);} // For integer data only
 
-// THESE TWO ARE UNTESTED.
 void XEmitter::UNPCKLPS(X64Reg dest, OpArg arg) {WriteSSEOp(0x00, 0x14, dest, arg);}
 void XEmitter::UNPCKHPS(X64Reg dest, OpArg arg) {WriteSSEOp(0x00, 0x15, dest, arg);}
 
@@ -1892,6 +1891,9 @@ void XEmitter::PTEST(X64Reg dest, OpArg arg)    {WriteSSE41Op(0x66, 0x3817, dest
 void XEmitter::PACKUSDW(X64Reg dest, OpArg arg) {WriteSSE41Op(0x66, 0x382b, dest, arg);}
 void XEmitter::DPPS(X64Reg dest, OpArg arg, u8 mask) {WriteSSE41Op(0x66, 0x3A40, dest, arg, 1); Write8(mask);}
 
+void XEmitter::INSERTPS(X64Reg dest, OpArg arg, u8 dstsubreg, u8 srcsubreg, u8 zmask) { WriteSSE41Op(0x66, 0x3A21, dest, arg, 1); Write8((srcsubreg << 6) | (dstsubreg << 4) | zmask); }
+void XEmitter::EXTRACTPS(OpArg dest, X64Reg arg, u8 subreg) { WriteSSE41Op(0x66, 0x3A17, arg, dest, 1); Write8(subreg); }
+
 void XEmitter::PMINSB(X64Reg dest, OpArg arg)   {WriteSSE41Op(0x66, 0x3838, dest, arg);}
 void XEmitter::PMINSD(X64Reg dest, OpArg arg)   {WriteSSE41Op(0x66, 0x3839, dest, arg);}
 void XEmitter::PMINUW(X64Reg dest, OpArg arg)   {WriteSSE41Op(0x66, 0x383a, dest, arg);}
@@ -2084,7 +2086,7 @@ void XEmitter::VCVTTPD2DQ(int bits, X64Reg regOp1, OpArg arg) { WriteAVXOp(bits,
 void XEmitter::VCVTTSS2SI(int bits, X64Reg regOp1, OpArg arg) { WriteAVXOp(0, 0xF3, 0x2C, regOp1, arg, 0, bits == 64 ? 1 : 0); }
 void XEmitter::VCVTTSD2SI(int bits, X64Reg regOp1, OpArg arg) { WriteAVXOp(0, 0xF2, 0x2C, regOp1, arg, 0, bits == 64 ? 1 : 0); }
 void XEmitter::VEXTRACTPS(OpArg arg, X64Reg regOp1, u8 subreg) { WriteAVXOp(0, 0x66, 0x3A17, regOp1, arg, 1); Write8(subreg); }
-void XEmitter::VINSERTPS(X64Reg regOp1, X64Reg regOp2, OpArg arg, u8 subreg) { WriteAVXOp(0, 0x66, 0x3A21, regOp1, regOp2, arg, 1); Write8(subreg); }
+void XEmitter::VINSERTPS(X64Reg regOp1, X64Reg regOp2, OpArg arg, u8 dstsubreg, u8 srcsubreg, u8 zmask) { WriteAVXOp(0, 0x66, 0x3A21, regOp1, regOp2, arg, 1); Write8((srcsubreg << 6) | (dstsubreg << 4) | zmask); }
 void XEmitter::VLDDQU(int bits, X64Reg regOp1, OpArg arg) { WriteAVXOp(bits, 0xF2, sseLDDQU, regOp1, arg); }
 void XEmitter::VMOVAPS(int bits, X64Reg regOp1, OpArg arg) { WriteAVXOp(bits, 0x00, sseMOVAPfromRM, regOp1, arg); }
 void XEmitter::VMOVAPD(int bits, X64Reg regOp1, OpArg arg) { WriteAVXOp(bits, 0x66, sseMOVAPfromRM, regOp1, arg); }

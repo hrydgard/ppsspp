@@ -157,3 +157,5 @@ private:
 	VkSampleCountFlagBits sampleCounts[(size_t)RenderPassType::TYPE_COUNT];
 	RPKey key_;
 };
+
+const char *GetRPTypeName(RenderPassType rpType);

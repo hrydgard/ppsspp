@@ -66,6 +66,9 @@ private:
 	void ApplyRoundingMode(bool force = false);
 	void MovFromPC(Gen::X64Reg r);
 	void MovToPC(Gen::X64Reg r);
+	void WriteDebugPC(uint32_t pc);
+	void WriteDebugPC(Gen::X64Reg r);
+	void WriteDebugProfilerStatus(IRProfilerStatus status);
 
 	void SaveStaticRegisters();
 	void LoadStaticRegisters();
@@ -144,14 +147,14 @@ private:
 	struct Constants {
 		const void *noSignMask;
 		const void *signBitAll;
+		const void *positiveZeroes;
 		const void *positiveInfinity;
 		const void *positiveOnes;
 		const void *negativeOnes;
 		const void *qNAN;
+		const void *maxIntBelowAsFloat;
 		const float *mulTableVi2f;
-		const double *mulTableVf2i;
-		const double *minIntAsDouble;
-		const double *maxIntAsDouble;
+		const float *mulTableVf2i;
 		const Float4Constant *vec4InitValues;
 	};
 	Constants constants;
@@ -159,6 +162,8 @@ private:
 	int jitStartOffset_ = 0;
 	int compilingBlockNum_ = -1;
 	int logBlocks_ = 0;
+	// Only useful in breakpoints, where it's set immediately prior.
+	uint32_t lastConstPC_ = 0;
 };
 
 class X64IRJit : public IRNativeJit {

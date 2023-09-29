@@ -290,8 +290,15 @@ ReplaceBlendType ReplaceBlendWithShader(GEBufferFormat bufferFormat) {
 			return REPLACE_BLEND_READ_FRAMEBUFFER;
 		}
 
-	default:
+	case GE_BLENDMODE_MUL_AND_ADD:
+	case GE_BLENDMODE_MUL_AND_SUBTRACT:
+	case GE_BLENDMODE_MUL_AND_SUBTRACT_REVERSE:
+		// Handled below.
 		break;
+
+	default:
+		// Other blend equations simply don't blend on hardware.
+		return REPLACE_BLEND_NO;
 	}
 
 	GEBlendSrcFactor funcA = gstate.getBlendFuncA();

@@ -90,6 +90,19 @@ VKAPI_ATTR VkBool32 VKAPI_CALL VulkanDebugUtilsCallback(
 		break;
 	}
 
+	/*
+	// Can be used to temporarily turn errors into info for easier debugging.
+	switch (messageCode) {
+	case 1544472022:
+		if (messageSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT) {
+			messageSeverity = (VkDebugUtilsMessageSeverityFlagBitsEXT)((messageSeverity & ~VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT) | VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT);
+		}
+		break;
+	default:
+		break;
+	}
+	*/
+
 	int count;
 	{
 		std::lock_guard<std::mutex> lock(g_errorCountMutex);

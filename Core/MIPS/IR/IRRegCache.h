@@ -209,13 +209,14 @@ protected:
 	IRNativeReg AllocateReg(MIPSLoc type, MIPSMap flags);
 	IRNativeReg FindFreeReg(MIPSLoc type, MIPSMap flags) const;
 	IRNativeReg FindBestToSpill(MIPSLoc type, MIPSMap flags, bool unusedOnly, bool *clobbered) const;
-	virtual bool IsNativeRegCompatible(IRNativeReg nreg, MIPSLoc type, MIPSMap flags);
+	virtual bool IsNativeRegCompatible(IRNativeReg nreg, MIPSLoc type, MIPSMap flags, int lanes);
 	virtual void DiscardNativeReg(IRNativeReg nreg);
 	virtual void FlushNativeReg(IRNativeReg nreg);
 	virtual void DiscardReg(IRReg mreg);
 	virtual void FlushReg(IRReg mreg);
 	virtual void AdjustNativeRegAsPtr(IRNativeReg nreg, bool state);
 	virtual void MapNativeReg(MIPSLoc type, IRNativeReg nreg, IRReg first, int lanes, MIPSMap flags);
+	virtual bool TransferNativeReg(IRNativeReg nreg, IRNativeReg dest, MIPSLoc type, IRReg first, int lanes, MIPSMap flags);
 	virtual IRNativeReg MapNativeReg(MIPSLoc type, IRReg first, int lanes, MIPSMap flags);
 	IRNativeReg MapNativeRegAsPointer(IRReg gpr);
 
@@ -238,7 +239,8 @@ protected:
 	void SetSpillLockIRIndex(IRReg reg, int index);
 	int GetMipsRegOffset(IRReg r);
 
-	bool IsRegClobbered(MIPSLoc type, MIPSMap flags, IRReg r) const;
+	bool IsRegClobbered(MIPSLoc type, IRReg r) const;
+	bool IsRegRead(MIPSLoc type, IRReg r) const;
 	IRUsage GetNextRegUsage(const IRSituation &info, MIPSLoc type, IRReg r) const;
 
 	bool IsValidGPR(IRReg r) const;

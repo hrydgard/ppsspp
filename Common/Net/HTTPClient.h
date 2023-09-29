@@ -86,7 +86,6 @@ public:
 
 protected:
 	std::string userAgent_;
-	const char *httpVersion_;
 	double dataTimeout_ = 900.0;
 };
 

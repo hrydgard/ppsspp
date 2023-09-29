@@ -130,5 +130,23 @@ private:
 	u8 *tempBuf;
 };
 
+struct CHDImpl;
+
+class CHDFileBlockDevice : public BlockDevice {
+public:
+	CHDFileBlockDevice(FileLoader *fileLoader);
+	~CHDFileBlockDevice();
+	bool ReadBlock(int blockNumber, u8 *outPtr, bool uncached = false) override;
+	bool ReadBlocks(u32 minBlock, int count, u8 *outPtr) override;
+	u32 GetNumBlocks() override { return numBlocks; }
+	bool IsDisc() override { return true; }
+
+private:
+	std::unique_ptr<CHDImpl> impl_;
+	u8 *readBuffer;
+	u32 currentHunk;
+	u32 blocksPerHunk;
+	u32 numBlocks;
+};
 
 BlockDevice *constructBlockDevice(FileLoader *fileLoader);

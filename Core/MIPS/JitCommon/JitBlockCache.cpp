@@ -31,6 +31,7 @@
 #include "Core/MemMap.h"
 #include "Core/CoreTiming.h"
 #include "Core/Reporting.h"
+#include "Core/Config.h"
 
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MIPSTables.h"
@@ -246,8 +247,7 @@ static void ExpandRange(std::pair<u32, u32> &range, u32 newStart, u32 newEnd) {
 
 void JitBlockCache::FinalizeBlock(int block_num, bool block_link) {
 	JitBlock &b = blocks_[block_num];
-
-	_assert_msg_(Memory::IsValidAddress(b.originalAddress), "FinalizeBlock: Bad originalAddress %08x in block %d", b.originalAddress, block_num);
+	_assert_msg_(Memory::IsValidAddress(b.originalAddress), "FinalizeBlock: Bad originalAddress %08x in block %d (b.num: %d) proxy: %s sz: %d", b.originalAddress, block_num, b.blockNum, b.proxyFor ? "y" : "n", b.codeSize);
 
 	b.originalFirstOpcode = Memory::Read_Opcode_JIT(b.originalAddress);
 	MIPSOpcode opcode = GetEmuHackOpForBlock(block_num);
@@ -462,6 +462,11 @@ void JitBlockCache::UnlinkBlock(int i) {
 	if (ppp.first == ppp.second)
 		return;
 	for (auto iter = ppp.first; iter != ppp.second; ++iter) {
+		if ((size_t)iter->second >= num_blocks_) {
+			// Something probably went very wrong. Try to stumble along nevertheless.
+			ERROR_LOG(JIT, "UnlinkBlock: Invalid block number %d", iter->second);
+			continue;
+		}
 		JitBlock &sourceBlock = blocks_[iter->second];
 		for (int e = 0; e < MAX_JIT_BLOCK_EXITS; e++) {
 			if (sourceBlock.exitAddress[e] == b.originalAddress)

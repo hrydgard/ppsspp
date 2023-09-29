@@ -925,6 +925,10 @@ public:
 	void ORR(u8 size, ARM64Reg Rd, u8 imm8, u8 shift = 0);
 	void BIC(u8 size, ARM64Reg Rd, u8 imm8, u8 shift = 0);
 
+	bool TryMOVI(u8 size, ARM64Reg Rd, uint64_t value);
+	// Allow using a different size.  Unclear if there's a penalty.
+	bool TryAnyMOVI(u8 size, ARM64Reg Rd, uint64_t value);
+
 	// One source
 	void FCVT(u8 size_to, u8 size_from, ARM64Reg Rd, ARM64Reg Rn);
 

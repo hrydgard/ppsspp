@@ -674,26 +674,6 @@ const char *AspectToString(VkImageAspectFlags aspect) {
 	}
 }
 
-static const char *rpTypeDebugNames[] = {
-	"RENDER",
-	"RENDER_DEPTH",
-	"RENDER_INPUT",
-	"RENDER_DEPTH_INPUT",
-	"MV_RENDER",
-	"MV_RENDER_DEPTH",
-	"MV_RENDER_INPUT",
-	"MV_RENDER_DEPTH_INPUT",
-	"MS_RENDER",
-	"MS_RENDER_DEPTH",
-	"MS_RENDER_INPUT",
-	"MS_RENDER_DEPTH_INPUT",
-	"MS_MV_RENDER",
-	"MS_MV_RENDER_DEPTH",
-	"MS_MV_RENDER_INPUT",
-	"MS_MV_RENDER_DEPTH_INPUT",
-	"BACKBUF",
-};
-
 std::string VulkanQueueRunner::StepToString(VulkanContext *vulkan, const VKRStep &step) {
 	char buffer[256];
 	switch (step.stepType) {
@@ -703,7 +683,7 @@ std::string VulkanQueueRunner::StepToString(VulkanContext *vulkan, const VKRStep
 		int h = step.render.framebuffer ? step.render.framebuffer->height : vulkan->GetBackbufferHeight();
 		int actual_w = step.render.renderArea.extent.width;
 		int actual_h = step.render.renderArea.extent.height;
-		const char *renderCmd = rpTypeDebugNames[(size_t)step.render.renderPassType];
+		const char *renderCmd = GetRPTypeName(step.render.renderPassType);
 		snprintf(buffer, sizeof(buffer), "%s %s %s (draws: %d, %dx%d/%dx%d)", renderCmd, step.tag, step.render.framebuffer ? step.render.framebuffer->Tag() : "", step.render.numDraws, actual_w, actual_h, w, h);
 		break;
 	}

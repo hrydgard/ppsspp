@@ -305,7 +305,7 @@ enum InputAxis {
 	JOYSTICK_AXIS_MOUSE_REL_X = 26,
 	JOYSTICK_AXIS_MOUSE_REL_Y = 27,
 
-	// Mobile device accelerometer/gyro
+	// Mobile device accelerometer/gyro. NOTE: These are no longer passed around internally, only used for the plugin API.
 	JOYSTICK_AXIS_ACCELEROMETER_X = 40,
 	JOYSTICK_AXIS_ACCELEROMETER_Y = 41,
 	JOYSTICK_AXIS_ACCELEROMETER_Z = 42,

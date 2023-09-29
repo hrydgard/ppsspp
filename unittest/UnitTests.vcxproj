@@ -420,6 +420,9 @@
     <ProjectReference Include="..\ext\glslang.vcxproj">
       <Project>{edfa2e87-8ac1-4853-95d4-d7594ff81947}</Project>
     </ProjectReference>
+    <ProjectReference Include="..\ext\libchdr.vcxproj">
+      <Project>{956f1f48-b612-46d8-89ee-96996dcd9383}</Project>
+    </ProjectReference>
     <ProjectReference Include="..\ext\libkirk\libkirk.vcxproj">
       <Project>{3baae095-e0ab-4b0e-b5df-ce39c8ae31de}</Project>
     </ProjectReference>

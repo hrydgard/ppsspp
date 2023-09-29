@@ -123,7 +123,7 @@ void GPU_DX9::BeginFrame() {
 	drawEngine_.BeginFrame();
 
 	GPUCommonHW::BeginFrame();
-	shaderManagerDX9_->DirtyShader();
+	shaderManagerDX9_->DirtyLastShader();
 
 	framebufferManager_->BeginFrame();
 

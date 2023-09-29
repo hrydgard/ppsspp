@@ -1675,7 +1675,7 @@ namespace MIPSComp {
 			if (homogenous) {
 				// This is probably even what the hardware basically does, wiring t[3] to 1.0f.
 				ir.Write(IROp::Vec4Init, IRVTEMP_PFX_T, (int)Vec4Init::AllONE);
-				ir.Write(IROp::Vec4Blend, IRVTEMP_PFX_T, t, IRVTEMP_PFX_T, 0x7);
+				ir.Write(IROp::Vec4Blend, IRVTEMP_PFX_T, IRVTEMP_PFX_T, t, 0x7);
 				t = IRVTEMP_PFX_T;
 			}
 			for (int i = 0; i < 4; i++)
@@ -1771,7 +1771,20 @@ namespace MIPSComp {
 		// d[0] = s[0]*t[1] - s[1]*t[0]
 		// Note: this operates on two vectors, not a 2x2 matrix.
 
-		DISABLE;
+		VectorSize sz = GetVecSize(op);
+		if (sz != V_Pair)
+			DISABLE;
+
+		u8 sregs[4], dregs[4], tregs[4];
+		GetVectorRegsPrefixS(sregs, sz, _VS);
+		GetVectorRegsPrefixT(tregs, sz, _VT);
+		GetVectorRegsPrefixD(dregs, V_Single, _VD);
+
+		ir.Write(IROp::FMul, IRVTEMP_0, sregs[1], tregs[0]);
+		ir.Write(IROp::FMul, dregs[0], sregs[0], tregs[1]);
+		ir.Write(IROp::FSub, dregs[0], dregs[0], IRVTEMP_0);
+
+		ApplyPrefixD(dregs, V_Single, _VD);
 	}
 
 	void IRFrontend::Comp_Vi2x(MIPSOpcode op) {

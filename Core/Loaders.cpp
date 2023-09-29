@@ -94,6 +94,8 @@ IdentifiedFileType Identify_File(FileLoader *fileLoader, std::string *errorStrin
 		return IdentifiedFileType::PSP_ISO;
 	} else if (extension == ".cso") {
 		return IdentifiedFileType::PSP_ISO;
+	} else if (extension == ".chd") {
+		return IdentifiedFileType::PSP_ISO;
 	} else if (extension == ".ppst") {
 		return IdentifiedFileType::PPSSPP_SAVESTATE;
 	} else if (extension == ".ppdmp") {
