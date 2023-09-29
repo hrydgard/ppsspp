@@ -1675,7 +1675,7 @@ namespace MIPSComp {
 			if (homogenous) {
 				// This is probably even what the hardware basically does, wiring t[3] to 1.0f.
 				ir.Write(IROp::Vec4Init, IRVTEMP_PFX_T, (int)Vec4Init::AllONE);
-				ir.Write(IROp::Vec4Blend, IRVTEMP_PFX_T, t, IRVTEMP_PFX_T, 0x7);
+				ir.Write(IROp::Vec4Blend, IRVTEMP_PFX_T, IRVTEMP_PFX_T, t, 0x7);
 				t = IRVTEMP_PFX_T;
 			}
 			for (int i = 0; i < 4; i++)
