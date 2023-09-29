@@ -1122,7 +1122,18 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 		}
 		break;
 	}
+}
 
+void UpdateSDLCursor() {
+#if !defined(MOBILE_DEVICE)
+	if (lastUIState != GetUIState()) {
+		lastUIState = GetUIState();
+		if (lastUIState == UISTATE_INGAME && g_Config.UseFullScreen() && !g_Config.bShowTouchControls)
+			SDL_ShowCursor(SDL_DISABLE);
+		if (lastUIState != UISTATE_INGAME || !g_Config.UseFullScreen())
+			SDL_ShowCursor(SDL_ENABLE);
+	}
+#endif
 }
 
 #ifdef _WIN32
@@ -1468,15 +1479,7 @@ int main(int argc, char *argv[]) {
 		if (g_QuitRequested || g_RestartRequested)
 			break;
 
-#if !defined(MOBILE_DEVICE)
-		if (lastUIState != GetUIState()) {
-			lastUIState = GetUIState();
-			if (lastUIState == UISTATE_INGAME && g_Config.UseFullScreen() && !g_Config.bShowTouchControls)
-				SDL_ShowCursor(SDL_DISABLE);
-			if (lastUIState != UISTATE_INGAME || !g_Config.UseFullScreen())
-				SDL_ShowCursor(SDL_ENABLE);
-		}
-#endif
+		UpdateSDLCursor();
 
 		inputTracker.MouseControl();
 		inputTracker.MouseCaptureControl();
