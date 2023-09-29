@@ -90,19 +90,22 @@ static void RotateUVThrough(TransformedVertex v[4]) {
 // Clears on the PSP are best done by drawing a series of vertical strips
 // in clear mode. This tries to detect that.
 static bool IsReallyAClear(const TransformedVertex *transformed, int numVerts, float x2, float y2) {
-	if (transformed[0].x != 0.0f || transformed[0].y != 0.0f)
+	if (transformed[0].x < 0.0f || transformed[0].y < 0.0f || transformed[0].x > 0.5f || transformed[0].y > 0.5f)
 		return false;
 
+	const float originY = transformed[0].y;
+
 	// Color and Z are decided by the second vertex, so only need to check those for matching color.
-	u32 matchcolor = transformed[1].color0_32;
-	float matchz = transformed[1].z;
+	const u32 matchcolor = transformed[1].color0_32;
+	const float matchz = transformed[1].z;
 
 	for (int i = 1; i < numVerts; i++) {
 		if ((i & 1) == 0) {
 			// Top left of a rectangle
-			if (transformed[i].y != 0.0f)
+			if (transformed[i].y != originY)
 				return false;
-			if (i > 0 && transformed[i].x != transformed[i - 1].x)
+			float gap = fabsf(transformed[i].x - transformed[i - 1].x);  // Should probably do some smarter check.
+			if (i > 0 && gap > 0.0625)
 				return false;
 		} else {
 			if (transformed[i].color0_32 != matchcolor || transformed[i].z != matchz)
