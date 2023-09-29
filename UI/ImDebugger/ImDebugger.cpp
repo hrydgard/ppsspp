@@ -1622,6 +1622,8 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUDebugInterface *gpuDebu
 		break;
 	case ImCmd::NONE:
 		break;
+	case ImCmd::SHOW_IN_PIXEL_VIEWER:
+		break;
 	}
 }
 

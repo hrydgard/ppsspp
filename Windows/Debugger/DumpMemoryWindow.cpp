@@ -249,6 +249,8 @@ void DumpMemoryWindow::changeMode(HWND hwnd, Mode newMode)
 			size = PSP_GetScratchpadMemoryEnd()-start;
 			defaultFileName = "Scratchpad.dump";
 			break;
+		case MODE_CUSTOM:
+			break;
 		}
 		
 		snprintf(buffer, sizeof(buffer), "0x%08X", start);

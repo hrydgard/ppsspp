@@ -490,7 +490,7 @@ void CtrlMatrixList::OnDoubleClick(int row, int column) {
 	if (sscanf(strvalue.c_str(), "%f", &val) == 1) {
 		auto prevState = gpuDebug->GetGState();
 		auto setCmdValue = [&](u32 op) {
-			SendMessage(GetParent(GetParent(GetHandle())), WM_GEDBG_SETCMDWPARAM, op, NULL);
+			SendMessage(GetParent(GetParent(GetHandle())), WM_GEDBG_SETCMDWPARAM, op, 0);
 		};
 
 		union {

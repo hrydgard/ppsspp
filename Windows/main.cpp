@@ -501,6 +501,17 @@ void System_Notify(SystemNotification notification) {
 		}
 		break;
 	}
+	case SystemNotification::AUDIO_RESET_DEVICE:
+	case SystemNotification::FORCE_RECREATE_ACTIVITY:
+	case SystemNotification::IMMERSIVE_MODE_CHANGE:
+	case SystemNotification::SUSTAINED_PERF_CHANGE:
+	case SystemNotification::ROTATE_UPDATED:
+	case SystemNotification::TEST_JAVA_EXCEPTION:
+		break;
+	case SystemNotification::UI_STATE_CHANGED:
+	case SystemNotification::AUDIO_MODE_CHANGED:
+	case SystemNotification::APP_SWITCH_MODE_CHANGED:
+		break;
 	}
 }
 

@@ -924,6 +924,8 @@ void WindowsCaptureDevice::messageHandler() {
 		case CAPTUREDEVIDE_COMMAND::UPDATE_STATE:
 			updateState((*(CAPTUREDEVIDE_STATE *)message.opacity));
 			break;
+		case CAPTUREDEVIDE_COMMAND::SHUTDOWN:
+			break;
 		}
 	}
 

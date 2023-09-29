@@ -669,6 +669,12 @@ std::vector<std::string> ShaderManagerDX9::DebugGetShaderIDs(DebugShaderType typ
 			ids.push_back(id);
 		}
 		break;
+	case SHADER_TYPE_GEOMETRY:
+	case SHADER_TYPE_PIPELINE:
+	case SHADER_TYPE_SAMPLER:
+	case SHADER_TYPE_TEXTURE:
+	case SHADER_TYPE_VERTEXLOADER:
+		break;
 	}
 	return ids;
 }
