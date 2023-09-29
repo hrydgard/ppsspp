@@ -828,13 +828,11 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 
 		case SDL_WINDOWEVENT_MOVED:
 		{
-			int x = event.window.data1;
-			int y = event.window.data2;
 			Uint32 window_flags = SDL_GetWindowFlags(window);
 			bool fullscreen = (window_flags & SDL_WINDOW_FULLSCREEN);
 			if (!fullscreen) {
-				g_Config.iWindowX = x;
-				g_Config.iWindowY = y;
+				g_Config.iWindowX = (int)event.window.data1;
+				g_Config.iWindowY = (int)event.window.data2;
 			}
 			break;
 		}
@@ -1469,12 +1467,27 @@ int main(int argc, char *argv[]) {
 	if (!mainThreadIsRender) {
 		// We should only be a message pump
 		while (true) {
+			inputTracker.TranslateMouseWheel();
+
 			SDL_Event event;
 			while (SDL_PollEvent(&event)) {
 				ProcessSDLEvent(window, event, &inputTracker);
 			}
 			if (g_QuitRequested || g_RestartRequested)
 				break;
+
+			UpdateSDLCursor();
+
+			inputTracker.MouseControl();
+			inputTracker.MouseCaptureControl();
+
+
+			{
+				std::lock_guard<std::mutex> guard(g_mutexWindow);
+				if (g_windowState.update) {
+					UpdateWindowState(window);
+				}
+			}
 		}
 	} else while (true) {
 		inputTracker.TranslateMouseWheel();
