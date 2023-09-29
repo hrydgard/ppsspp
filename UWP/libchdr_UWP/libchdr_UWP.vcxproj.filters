@@ -1,0 +1,67 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Resource Files">
+      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
+      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tga;tiff;tif;png;wav;mfcribbon-ms</Extensions>
+    </Filter>
+    <Filter Include="lzma">
+      <UniqueIdentifier>{20de3681-6341-427f-a3a7-4ae259deb0b9}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\..\ext\libchdr\src\libchdr_bitstream.c" />
+    <ClCompile Include="..\..\ext\libchdr\src\libchdr_cdrom.c" />
+    <ClCompile Include="..\..\ext\libchdr\src\libchdr_chd.c" />
+    <ClCompile Include="..\..\ext\libchdr\src\libchdr_flac.c" />
+    <ClCompile Include="..\..\ext\libchdr\src\libchdr_huffman.c" />
+    <ClCompile Include="..\..\ext\libchdr\deps\lzma-22.01\src\Alloc.c">
+      <Filter>lzma</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\libchdr\deps\lzma-22.01\src\Bcj2.c">
+      <Filter>lzma</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\libchdr\deps\lzma-22.01\src\Bcj2Enc.c">
+      <Filter>lzma</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\libchdr\deps\lzma-22.01\src\Bra.c">
+      <Filter>lzma</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\libchdr\deps\lzma-22.01\src\Bra86.c">
+      <Filter>lzma</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\libchdr\deps\lzma-22.01\src\BraIA64.c">
+      <Filter>lzma</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\libchdr\deps\lzma-22.01\src\CpuArch.c">
+      <Filter>lzma</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\libchdr\deps\lzma-22.01\src\Delta.c">
+      <Filter>lzma</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\libchdr\deps\lzma-22.01\src\LzFind.c">
+      <Filter>lzma</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\libchdr\deps\lzma-22.01\src\LzFindOpt.c">
+      <Filter>lzma</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\libchdr\deps\lzma-22.01\src\Lzma86Dec.c">
+      <Filter>lzma</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\libchdr\deps\lzma-22.01\src\Lzma86Enc.c">
+      <Filter>lzma</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\libchdr\deps\lzma-22.01\src\LzmaDec.c">
+      <Filter>lzma</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\libchdr\deps\lzma-22.01\src\LzmaEnc.c">
+      <Filter>lzma</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\libchdr\deps\lzma-22.01\src\LzmaLib.c">
+      <Filter>lzma</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\libchdr\deps\lzma-22.01\src\Sort.c">
+      <Filter>lzma</Filter>
+    </ClCompile>
+  </ItemGroup>
+</Project>

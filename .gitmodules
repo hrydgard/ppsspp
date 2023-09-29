@@ -50,3 +50,6 @@
 [submodule "ext/naett"]
 	path = ext/naett
 	url = https://github.com/erkkah/naett.git
+[submodule "ext/libchdr"]
+	path = ext/libchdr
+	url = https://github.com/rtissera/libchdr.git

@@ -554,7 +554,7 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 		std::wstring filter;
 		switch (type) {
 		case BrowseFileType::BOOTABLE:
-			filter = MakeFilter(L"All supported file types (*.iso *.cso *.pbp *.elf *.prx *.zip *.ppdmp)|*.pbp;*.elf;*.iso;*.cso;*.prx;*.zip;*.ppdmp|PSP ROMs (*.iso *.cso *.pbp *.elf *.prx)|*.pbp;*.elf;*.iso;*.cso;*.prx|Homebrew/Demos installers (*.zip)|*.zip|All files (*.*)|*.*||");
+			filter = MakeFilter(L"All supported file types (*.iso *.cso *.chd *.pbp *.elf *.prx *.zip *.ppdmp)|*.pbp;*.elf;*.iso;*.cso;*.chd;*.prx;*.zip;*.ppdmp|PSP ROMs (*.iso *.cso *.chd *.pbp *.elf *.prx)|*.pbp;*.elf;*.iso;*.cso;*.chd;*.prx|Homebrew/Demos installers (*.zip)|*.zip|All files (*.*)|*.*||");
 			break;
 		case BrowseFileType::INI:
 			filter = MakeFilter(L"Ini files (*.ini)|*.ini|All files (*.*)|*.*||");
