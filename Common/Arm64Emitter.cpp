@@ -4204,6 +4204,14 @@ void ARM64FloatEmitter::MOVI2FDUP(ARM64Reg Rd, float value, ARM64Reg scratch, bo
 		if (negate) {
 			FNEG(32, Rd, Rd);
 		}
+	} else if (TryAnyMOVI(32, Rd, ival)) {
+		if (negate) {
+			FNEG(32, Rd, Rd);
+		}
+	} else if (TryAnyMOVI(32, Rd, ival ^ 0x80000000)) {
+		if (!negate) {
+			FNEG(32, Rd, Rd);
+		}
 	} else {
 		_assert_msg_(scratch != INVALID_REG, "Failed to find a way to generate FP immediate %f without scratch", value);
 		if (negate) {
@@ -4212,6 +4220,96 @@ void ARM64FloatEmitter::MOVI2FDUP(ARM64Reg Rd, float value, ARM64Reg scratch, bo
 		m_emit->MOVI2R(scratch, ival);
 		DUP(32, Rd, scratch);
 	}
+}
+
+bool ARM64FloatEmitter::TryMOVI(u8 size, ARM64Reg Rd, uint64_t elementValue) {
+	if (size == 8) {
+		// Can always do 8.
+		MOVI(size, Rd, elementValue & 0xFF);
+		return true;
+	} else if (size == 16) {
+		if ((elementValue & 0xFF00) == 0) {
+			MOVI(size, Rd, elementValue & 0xFF, 0);
+			return true;
+		} else if ((elementValue & 0x00FF) == 0) {
+			MOVI(size, Rd, (elementValue >> 8) & 0xFF, 8);
+			return true;
+		} else if ((elementValue & 0xFF00) == 0xFF00) {
+			MVNI(size, Rd, ~elementValue & 0xFF, 0);
+			return true;
+		} else if ((elementValue & 0x00FF) == 0x00FF) {
+			MVNI(size, Rd, (~elementValue >> 8) & 0xFF, 8);
+			return true;
+		}
+
+		return false;
+	} else if (size == 32) {
+		for (int shift = 0; shift < 32; shift += 8) {
+			uint32_t mask = 0xFFFFFFFF &~ (0xFF << shift);
+			if ((elementValue & mask) == 0) {
+				MOVI(size, Rd, (elementValue >> shift) & 0xFF, shift);
+				return true;
+			} else if ((elementValue & mask) == mask) {
+				MVNI(size, Rd, (~elementValue >> shift) & 0xFF, shift);
+				return true;
+			}
+		}
+
+		// Maybe an MSL shift will work?
+		for (int shift = 8; shift <= 16; shift += 8) {
+			uint32_t mask = 0xFFFFFFFF & ~(0xFF << shift);
+			uint32_t ones = (1 << shift) - 1;
+			uint32_t notOnes = 0xFFFFFF00 << shift;
+			if ((elementValue & mask) == ones) {
+				MOVI(size, Rd, (elementValue >> shift) & 0xFF, shift, true);
+				return true;
+			} else if ((elementValue & mask) == notOnes) {
+				MVNI(size, Rd, (elementValue >> shift) & 0xFF, shift, true);
+				return true;
+			}
+		}
+
+		return false;
+	} else if (size == 64) {
+		uint8_t imm8 = 0;
+		for (int i = 0; i < 8; ++i) {
+			uint8_t byte = (elementValue >> (i * 8)) & 0xFF;
+			if (byte != 0 && byte != 0xFF)
+				return false;
+
+			if (byte == 0xFF)
+				imm8 |= 1 << i;
+		}
+
+		// Didn't run into any partial bytes, so size 64 is doable.
+		MOVI(size, Rd, imm8);
+		return true;
+	}
+	return false;
+}
+
+bool ARM64FloatEmitter::TryAnyMOVI(u8 size, ARM64Reg Rd, uint64_t elementValue) {
+	// Try the original size first in case that's more optimal.
+	if (TryMOVI(size, Rd, elementValue))
+		return true;
+
+	uint64_t value = elementValue;
+	if (size != 64) {
+		uint64_t masked = elementValue & ((1 << size) - 1);
+		for (int i = size; i < 64; ++i) {
+			value |= masked << i;
+		}
+	}
+
+	for (int attempt = 8; attempt <= 64; attempt += attempt) {
+		// Original size was already attempted above.
+		if (attempt != size) {
+			if (TryMOVI(attempt, Rd, value))
+				return true;
+		}
+	}
+
+	return false;
 }
 
 void ARM64XEmitter::SUBSI2R(ARM64Reg Rd, ARM64Reg Rn, u64 imm, ARM64Reg scratch) {
