@@ -96,7 +96,6 @@ static float g_ForcedDPI = 0.0f; // if this is 0.0f, use g_DesktopDPI
 static float g_RefreshRate = 60.f;
 static int g_sampleRate = 44100;
 
-static int g_frameCount = 0;
 static bool g_rebootEmuThread = false;
 
 static SDL_AudioSpec g_retFmt;
@@ -670,7 +669,17 @@ static void EmuThreadFunc(GraphicsContext *graphicsContext) {
 	NativeInitGraphics(graphicsContext);
 
 	while (emuThreadState != (int)EmuThreadState::QUIT_REQUESTED) {
+		double startTime = time_now_d();
+
 		UpdateRunLoop(graphicsContext);
+
+		// Simple throttling to not burn the GPU in the menu.
+		if (GetUIState() != UISTATE_INGAME || !PSP_IsInited()) {
+			double diffTime = time_now_d() - startTime;
+			int sleepTime = (int)(1000.0 / 60.0) - (int)(diffTime * 1000.0);
+			if (sleepTime > 0)
+				sleep_ms(sleepTime);
+		}
 	}
 	emuThreadState = (int)EmuThreadState::STOPPED;
 	graphicsContext->StopThread();
@@ -819,13 +828,11 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 
 		case SDL_WINDOWEVENT_MOVED:
 		{
-			int x = event.window.data1;
-			int y = event.window.data2;
 			Uint32 window_flags = SDL_GetWindowFlags(window);
 			bool fullscreen = (window_flags & SDL_WINDOW_FULLSCREEN);
 			if (!fullscreen) {
-				g_Config.iWindowX = x;
-				g_Config.iWindowY = y;
+				g_Config.iWindowX = (int)event.window.data1;
+				g_Config.iWindowY = (int)event.window.data2;
 			}
 			break;
 		}
@@ -1102,7 +1109,7 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 				break;
 			}
 			// Don't start auto switching for a second, because some devices init on start.
-			bool doAutoSwitch = g_Config.bAutoAudioDevice && g_frameCount > 60;
+			bool doAutoSwitch = g_Config.bAutoAudioDevice && time_now_d() > 1.0f;
 			if (doAutoSwitch || g_Config.sAudioDevice == name) {
 				StopSDLAudioDevice();
 				InitSDLAudioDevice(name ? name : "");
@@ -1123,7 +1130,18 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 		}
 		break;
 	}
+}
 
+void UpdateSDLCursor() {
+#if !defined(MOBILE_DEVICE)
+	if (lastUIState != GetUIState()) {
+		lastUIState = GetUIState();
+		if (lastUIState == UISTATE_INGAME && g_Config.UseFullScreen() && !g_Config.bShowTouchControls)
+			SDL_ShowCursor(SDL_DISABLE);
+		if (lastUIState != UISTATE_INGAME || !g_Config.UseFullScreen())
+			SDL_ShowCursor(SDL_ENABLE);
+	}
+#endif
 }
 
 #ifdef _WIN32
@@ -1388,7 +1406,7 @@ int main(int argc, char *argv[]) {
 
 	UpdateScreenScale(w * g_DesktopDPI, h * g_DesktopDPI);
 
-	bool useEmuThread = g_Config.iGPUBackend == (int)GPUBackend::OPENGL;
+	bool mainThreadIsRender = g_Config.iGPUBackend == (int)GPUBackend::OPENGL;
 
 	SDL_SetWindowTitle(window, (app_name_nice + " " + PPSSPP_GIT_VERSION).c_str());
 
@@ -1421,11 +1439,6 @@ int main(int argc, char *argv[]) {
 	SDL_ShowCursor(SDL_DISABLE);
 #endif
 
-	if (!useEmuThread) {
-		NativeInitGraphics(graphicsContext);
-		NativeResized();
-	}
-
 	// Ensure that the swap interval is set after context creation (needed for kmsdrm)
 	SDL_GL_SetSwapInterval(1);
 
@@ -1438,9 +1451,8 @@ int main(int argc, char *argv[]) {
 	}
 	EnableFZ();
 
-	if (useEmuThread) {
-		EmuThreadStart(graphicsContext);
-	}
+	EmuThreadStart(graphicsContext);
+
 	graphicsContext->ThreadStart();
 
 	InputStateTracker inputTracker{};
@@ -1449,34 +1461,52 @@ int main(int argc, char *argv[]) {
 	// setup menu items for macOS
 	initializeOSXExtras();
 #endif
-	
-	while (true) {
-		double startTime = time_now_d();
 
+	bool waitOnExit = g_Config.iGPUBackend == (int)GPUBackend::OPENGL;
+
+	if (!mainThreadIsRender) {
+		// We should only be a message pump
+		while (true) {
+			inputTracker.TranslateMouseWheel();
+
+			SDL_Event event;
+			while (SDL_PollEvent(&event)) {
+				ProcessSDLEvent(window, event, &inputTracker);
+			}
+			if (g_QuitRequested || g_RestartRequested)
+				break;
+
+			UpdateSDLCursor();
+
+			inputTracker.MouseControl();
+			inputTracker.MouseCaptureControl();
+
+
+			{
+				std::lock_guard<std::mutex> guard(g_mutexWindow);
+				if (g_windowState.update) {
+					UpdateWindowState(window);
+				}
+			}
+		}
+	} else while (true) {
 		inputTracker.TranslateMouseWheel();
 
-		SDL_Event event;
-		while (SDL_PollEvent(&event)) {
-			ProcessSDLEvent(window, event, &inputTracker);
+		{
+			SDL_Event event;
+			while (SDL_PollEvent(&event)) {
+				ProcessSDLEvent(window, event, &inputTracker);
+			}
 		}
 		if (g_QuitRequested || g_RestartRequested)
 			break;
-		const uint8_t *keys = SDL_GetKeyboardState(NULL);
 		if (emuThreadState == (int)EmuThreadState::DISABLED) {
 			UpdateRunLoop(graphicsContext);
 		}
 		if (g_QuitRequested || g_RestartRequested)
 			break;
 
-#if !defined(MOBILE_DEVICE)
-		if (lastUIState != GetUIState()) {
-			lastUIState = GetUIState();
-			if (lastUIState == UISTATE_INGAME && g_Config.UseFullScreen() && !g_Config.bShowTouchControls)
-				SDL_ShowCursor(SDL_DISABLE);
-			if (lastUIState != UISTATE_INGAME || !g_Config.UseFullScreen())
-				SDL_ShowCursor(SDL_ENABLE);
-		}
-#endif
+		UpdateSDLCursor();
 
 		inputTracker.MouseControl();
 		inputTracker.MouseCaptureControl();
@@ -1523,32 +1553,21 @@ int main(int argc, char *argv[]) {
 			EmuThreadStart(graphicsContext);
 			graphicsContext->ThreadStart();
 		}
-
-		// Simple throttling to not burn the GPU in the menu.
-		if (GetUIState() != UISTATE_INGAME || !PSP_IsInited() || renderThreadPaused) {
-			double diffTime = time_now_d() - startTime;
-			int sleepTime = (int)(1000.0 / 60.0) - (int)(diffTime * 1000.0);
-			if (sleepTime > 0)
-				sleep_ms(sleepTime);
-		}
-
-		g_frameCount++;
 	}
 
-	if (useEmuThread) {
-		EmuThreadStop("shutdown");
+	EmuThreadStop("shutdown");
+
+	if (waitOnExit) {
 		while (graphicsContext->ThreadFrame()) {
 			// Need to keep eating frames to allow the EmuThread to exit correctly.
 			continue;
 		}
-		EmuThreadJoin();
 	}
+
+	EmuThreadJoin();
 
 	delete joystick;
 
-	if (!useEmuThread) {
-		NativeShutdownGraphics();
-	}
 	graphicsContext->ThreadEnd();
 
 	NativeShutdown();
