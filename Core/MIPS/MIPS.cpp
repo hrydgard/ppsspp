@@ -158,7 +158,6 @@ MIPSState::MIPSState() {
 }
 
 MIPSState::~MIPSState() {
-	Shutdown();
 }
 
 void MIPSState::Shutdown() {
