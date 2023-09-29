@@ -96,7 +96,6 @@ static float g_ForcedDPI = 0.0f; // if this is 0.0f, use g_DesktopDPI
 static float g_RefreshRate = 60.f;
 static int g_sampleRate = 44100;
 
-static int g_frameCount = 0;
 static bool g_rebootEmuThread = false;
 
 static SDL_AudioSpec g_retFmt;
@@ -1102,7 +1101,7 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 				break;
 			}
 			// Don't start auto switching for a second, because some devices init on start.
-			bool doAutoSwitch = g_Config.bAutoAudioDevice && g_frameCount > 60;
+			bool doAutoSwitch = g_Config.bAutoAudioDevice && time_now_d() > 1.0f;
 			if (doAutoSwitch || g_Config.sAudioDevice == name) {
 				StopSDLAudioDevice();
 				InitSDLAudioDevice(name ? name : "");
@@ -1455,13 +1454,14 @@ int main(int argc, char *argv[]) {
 
 		inputTracker.TranslateMouseWheel();
 
-		SDL_Event event;
-		while (SDL_PollEvent(&event)) {
-			ProcessSDLEvent(window, event, &inputTracker);
+		{
+			SDL_Event event;
+			while (SDL_PollEvent(&event)) {
+				ProcessSDLEvent(window, event, &inputTracker);
+			}
 		}
 		if (g_QuitRequested || g_RestartRequested)
 			break;
-		const uint8_t *keys = SDL_GetKeyboardState(NULL);
 		if (emuThreadState == (int)EmuThreadState::DISABLED) {
 			UpdateRunLoop(graphicsContext);
 		}
@@ -1531,8 +1531,6 @@ int main(int argc, char *argv[]) {
 			if (sleepTime > 0)
 				sleep_ms(sleepTime);
 		}
-
-		g_frameCount++;
 	}
 
 	if (useEmuThread) {
