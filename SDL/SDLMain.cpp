@@ -1398,7 +1398,7 @@ int main(int argc, char *argv[]) {
 
 	UpdateScreenScale(w * g_DesktopDPI, h * g_DesktopDPI);
 
-	bool useEmuThread = g_Config.iGPUBackend == (int)GPUBackend::OPENGL;
+	bool mainThreadIsRender = g_Config.iGPUBackend == (int)GPUBackend::OPENGL;
 
 	SDL_SetWindowTitle(window, (app_name_nice + " " + PPSSPP_GIT_VERSION).c_str());
 
@@ -1431,11 +1431,6 @@ int main(int argc, char *argv[]) {
 	SDL_ShowCursor(SDL_DISABLE);
 #endif
 
-	if (!useEmuThread) {
-		NativeInitGraphics(graphicsContext);
-		NativeResized();
-	}
-
 	// Ensure that the swap interval is set after context creation (needed for kmsdrm)
 	SDL_GL_SetSwapInterval(1);
 
@@ -1448,9 +1443,8 @@ int main(int argc, char *argv[]) {
 	}
 	EnableFZ();
 
-	if (useEmuThread) {
-		EmuThreadStart(graphicsContext);
-	}
+	EmuThreadStart(graphicsContext);
+
 	graphicsContext->ThreadStart();
 
 	InputStateTracker inputTracker{};
@@ -1460,7 +1454,17 @@ int main(int argc, char *argv[]) {
 	initializeOSXExtras();
 #endif
 	
-	while (true) {
+	if (!mainThreadIsRender) {
+		// We should only be a message pump
+		while (true) {
+			SDL_Event event;
+			while (SDL_PollEvent(&event)) {
+				ProcessSDLEvent(window, event, &inputTracker);
+			}
+			if (g_QuitRequested || g_RestartRequested)
+				break;
+		}
+	} else while (true) {
 		double startTime = time_now_d();
 
 		inputTracker.TranslateMouseWheel();
@@ -1536,20 +1540,17 @@ int main(int argc, char *argv[]) {
 		}
 	}
 
-	if (useEmuThread) {
-		EmuThreadStop("shutdown");
+	EmuThreadStop("shutdown");
+	if (g_Config.iGPUBackend == (int)GPUBackend::OPENGL) {
 		while (graphicsContext->ThreadFrame()) {
 			// Need to keep eating frames to allow the EmuThread to exit correctly.
 			continue;
 		}
-		EmuThreadJoin();
 	}
+	EmuThreadJoin();
 
 	delete joystick;
 
-	if (!useEmuThread) {
-		NativeShutdownGraphics();
-	}
 	graphicsContext->ThreadEnd();
 
 	NativeShutdown();
