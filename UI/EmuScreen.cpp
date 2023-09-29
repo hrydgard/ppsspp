@@ -865,9 +865,9 @@ bool EmuScreen::key(const KeyInput &key) {
 	return retval;
 }
 
-void EmuScreen::UnsyncAxis(const AxisInput &axis) {
+void EmuScreen::UnsyncAxis(const AxisInput *axes, size_t count) {
 	System_Notify(SystemNotification::ACTIVITY);
-	return controlMapper_.Axis(axis);
+	return controlMapper_.Axis(axes, count);
 }
 
 class GameInfoBGView : public UI::InertView {

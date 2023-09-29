@@ -99,12 +99,14 @@ bool UIScreen::UnsyncTouch(const TouchInput &touch) {
 	return false;
 }
 
-void UIScreen::UnsyncAxis(const AxisInput &axis) {
+void UIScreen::UnsyncAxis(const AxisInput *axes, size_t count) {
 	QueuedEvent ev{};
 	ev.type = QueuedEventType::AXIS;
-	ev.axis = axis;
 	std::lock_guard<std::mutex> guard(eventQueueLock_);
-	eventQueue_.push_back(ev);
+	for (size_t i = 0; i < count; i++) {
+		ev.axis = axes[i];
+		eventQueue_.push_back(ev);
+	}
 }
 
 bool UIScreen::UnsyncKey(const KeyInput &key) {

@@ -473,11 +473,14 @@ void UpdateVRInput(bool haptics, float dp_xscale, float dp_yscale) {
 	}
 }
 
-bool UpdateVRAxis(const AxisInput &axis) {
-	if (pspAxis.find(axis.deviceId) == pspAxis.end()) {
-		pspAxis[axis.deviceId] = std::map<int, float>();
+bool UpdateVRAxis(const AxisInput *axes, size_t count) {
+	for (size_t i = 0; i < count; i++) {
+		const AxisInput &axis = axes[i];
+		if (pspAxis.find(axis.deviceId) == pspAxis.end()) {
+			pspAxis[axis.deviceId] = std::map<int, float>();
+		}
+		pspAxis[axis.deviceId][axis.axisId] = axis.value;
 	}
-	pspAxis[axis.deviceId][axis.axisId] = axis.value;
 	return !pspKeys[VIRTKEY_VR_CAMERA_ADJUST];
 }
 
