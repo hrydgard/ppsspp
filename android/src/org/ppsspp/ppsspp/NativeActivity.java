@@ -68,7 +68,6 @@ public abstract class NativeActivity extends Activity {
 	// Graphics and audio interfaces for Vulkan (javaGL = false)
 	private NativeSurfaceView mSurfaceView;
 	private Surface mSurface;
-	private Thread mRenderLoopThread = null;
 
 	// Graphics and audio interfaces for Java EGL (javaGL = true)
 	private NativeGLView mGLSurfaceView;
@@ -568,19 +567,6 @@ public abstract class NativeActivity extends Activity {
 		}
 	}
 
-	private final Runnable mEmulationRunner = new Runnable() {
-		@Override
-		public void run() {
-			Log.i(TAG, "Starting the render loop: " + mSurface);
-			// Start emulation using the provided Surface.
-			if (!runVulkanRenderLoop(mSurface)) {
-				// Shouldn't happen.
-				Log.e(TAG, "Failed to start up OpenGL/Vulkan - runVulkanRenderLoop returned false");
-			}
-			Log.i(TAG, "Left the render loop: " + mSurface);
-		}
-	};
-
 	public native boolean runVulkanRenderLoop(Surface surface);
 	// Tells the render loop thread to exit, so we can restart it.
 	public native void requestExitVulkanRenderLoop();
@@ -694,45 +680,30 @@ public abstract class NativeActivity extends Activity {
 		updateSustainedPerformanceMode();
 	}
 
-	// Invariants: After this, mRenderLoopThread will be set, and the thread will be running,
-	// if in Vulkan mode.
+	// The render loop thread (EmuThread) is now spawned from the native side.
 	protected synchronized void startRenderLoopThread() {
 		if (javaGL) {
-			Log.e(TAG, "JavaGL mode - should not get into ensureRenderLoop.");
+			Log.e(TAG, "JavaGL mode - should not get into startRenderLoopThread.");
 			return;
 		}
 		if (mSurface == null) {
-			Log.w(TAG, "ensureRenderLoop - not starting thread, needs surface");
+			Log.w(TAG, "startRenderLoopThread - not starting thread, needs surface");
 			return;
 		}
-		if (mRenderLoopThread == null) {
-			Log.w(TAG, "ensureRenderLoop: Starting thread");
-			mRenderLoopThread = new Thread(mEmulationRunner);
-			mRenderLoopThread.start();
-		}
+
+		Log.w(TAG, "startRenderLoopThread: Starting thread");
+		runVulkanRenderLoop(mSurface);
 	}
 
-	// Invariants: After this, mRenderLoopThread will be null, and the thread has exited.
 	private synchronized void joinRenderLoopThread() {
 		if (javaGL) {
 			Log.e(TAG, "JavaGL - should not get into joinRenderLoopThread.");
 			return;
 		}
 
-		if (mRenderLoopThread != null) {
-			// This will wait until the thread has exited.
-			Log.i(TAG, "requestExitVulkanRenderLoop");
-			requestExitVulkanRenderLoop();
-			try {
-				Log.i(TAG, "joining render loop thread...");
-				mRenderLoopThread.join();
-				Log.w(TAG, "Joined render loop thread.");
-				mRenderLoopThread = null;
-			} catch (InterruptedException e) {
-				e.printStackTrace();
-				mRenderLoopThread = null;
-			}
-		}
+		// This will wait until the thread has exited.
+		Log.i(TAG, "requestExitVulkanRenderLoop");
+		requestExitVulkanRenderLoop();
 	}
 
 	@TargetApi(Build.VERSION_CODES.KITKAT)

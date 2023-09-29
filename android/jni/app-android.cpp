@@ -295,12 +295,11 @@ JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *pjvm, void *reserved) {
 
 // Only used in OpenGL mode.
 static void EmuThreadFunc() {
-	JNIEnv *env;
-
 	SetCurrentThreadName("EmuThread");
 
 	// Name the thread in the JVM, because why not (might result in better debug output in Play Console).
 	// TODO: Do something clever with getEnv() and stored names from SetCurrentThreadName?
+	JNIEnv *env;
 	JavaVMAttachArgs args{};
 	args.version = JNI_VERSION_1_6;
 	args.name = "EmuThread";
@@ -1293,15 +1292,6 @@ extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_sendMessageFromJava(JNI
 	}
 }
 
-extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeActivity_requestExitVulkanRenderLoop(JNIEnv *env, jobject obj) {
-	if (!renderLoopRunning) {
-		ERROR_LOG(SYSTEM, "Render loop already exited");
-		return;
-	}
-	exitRenderLoop = true;
-	// The caller joins the thread anyway, so no point in doing a wait loop here, only leads to misleading hang diagnostics.
-}
-
 void correctRatio(int &sz_x, int &sz_y, float scale) {
 	float x = (float)sz_x;
 	float y = (float)sz_y;
@@ -1449,32 +1439,20 @@ static void ProcessFrameCommands(JNIEnv *env) {
 	}
 }
 
+std::thread g_vulkanRenderLoopThread;
+
+static void VulkanEmuThread(ANativeWindow *wnd);
+
 // This runs in Vulkan mode only.
 // This handles the entire lifecycle of the Vulkan context, init and exit.
-extern "C" bool JNICALL Java_org_ppsspp_ppsspp_NativeActivity_runVulkanRenderLoop(JNIEnv *env, jobject obj, jobject _surf) {
+extern "C" bool JNICALL Java_org_ppsspp_ppsspp_NativeActivity_runVulkanRenderLoop(JNIEnv * env, jobject obj, jobject _surf) {
 	_assert_(!useCPUThread);
 
-	if (!graphicsContext) {
-		ERROR_LOG(G3D, "runVulkanRenderLoop: Tried to enter without a created graphics context.");
-		renderLoopRunning = false;
-		exitRenderLoop = false;
-		return false;
+	if (g_vulkanRenderLoopThread.joinable()) {
+		ERROR_LOG(G3D, "runVulkanRenderLoop: Already running");
 	}
-
-	if (exitRenderLoop) {
-		WARN_LOG(G3D, "runVulkanRenderLoop: ExitRenderLoop requested at start, skipping the whole thing.");
-		renderLoopRunning = false;
-		exitRenderLoop = false;
-		return true;
-	}
-
-	// This is up here to prevent race conditions, in case we pause during init.
-	renderLoopRunning = true;
 
 	ANativeWindow *wnd = _surf ? ANativeWindow_fromSurface(env, _surf) : nullptr;
-
-	WARN_LOG(G3D, "runVulkanRenderLoop. display_xres=%d display_yres=%d desiredBackbufferSizeX=%d desiredBackbufferSizeY=%d",
-		display_xres, display_yres, desiredBackbufferSizeX, desiredBackbufferSizeY);
 
 	if (!wnd) {
 		// This shouldn't ever happen.
@@ -1482,6 +1460,49 @@ extern "C" bool JNICALL Java_org_ppsspp_ppsspp_NativeActivity_runVulkanRenderLoo
 		renderLoopRunning = false;
 		return false;
 	}
+
+	g_vulkanRenderLoopThread = std::thread(VulkanEmuThread, wnd);
+	return true;
+}
+
+extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeActivity_requestExitVulkanRenderLoop(JNIEnv * env, jobject obj) {
+	if (!renderLoopRunning) {
+		ERROR_LOG(SYSTEM, "Render loop already exited");
+		return;
+	}
+	_assert_(g_vulkanRenderLoopThread.joinable());
+	exitRenderLoop = true;
+	g_vulkanRenderLoopThread.join();
+	_assert_(!g_vulkanRenderLoopThread.joinable());
+	g_vulkanRenderLoopThread = std::thread();
+}
+
+// TODO: Merge with the Win32 EmuThread and so on, and the Java EmuThread?
+static void VulkanEmuThread(ANativeWindow *wnd) {
+	SetCurrentThreadName("EmuThread");
+
+	AndroidJNIThreadContext ctx;
+	JNIEnv *env = getEnv();
+
+	if (!graphicsContext) {
+		ERROR_LOG(G3D, "runVulkanRenderLoop: Tried to enter without a created graphics context.");
+		renderLoopRunning = false;
+		exitRenderLoop = false;
+		return;
+	}
+
+	if (exitRenderLoop) {
+		WARN_LOG(G3D, "runVulkanRenderLoop: ExitRenderLoop requested at start, skipping the whole thing.");
+		renderLoopRunning = false;
+		exitRenderLoop = false;
+		return;
+	}
+
+	// This is up here to prevent race conditions, in case we pause during init.
+	renderLoopRunning = true;
+
+	WARN_LOG(G3D, "runVulkanRenderLoop. display_xres=%d display_yres=%d desiredBackbufferSizeX=%d desiredBackbufferSizeY=%d",
+		display_xres, display_yres, desiredBackbufferSizeX, desiredBackbufferSizeY);
 
 	if (!graphicsContext->InitFromRenderThread(wnd, desiredBackbufferSizeX, desiredBackbufferSizeY, backbuffer_format, androidVersion)) {
 		// On Android, if we get here, really no point in continuing.
@@ -1493,7 +1514,7 @@ extern "C" bool JNICALL Java_org_ppsspp_ppsspp_NativeActivity_runVulkanRenderLoo
 		delete graphicsContext;
 		graphicsContext = nullptr;
 		renderLoopRunning = false;
-		return false;
+		return;
 	}
 
 	if (!exitRenderLoop) {
@@ -1503,12 +1524,6 @@ extern "C" bool JNICALL Java_org_ppsspp_ppsspp_NativeActivity_runVulkanRenderLoo
 		}
 		graphicsContext->ThreadStart();
 		renderer_inited = true;
-
-		static bool hasSetThreadName = false;
-		if (!hasSetThreadName) {
-			hasSetThreadName = true;
-			SetCurrentThreadName("AndroidRender");
-		}
 
 		while (!exitRenderLoop) {
 			LockedNativeUpdateRender();
@@ -1530,7 +1545,6 @@ extern "C" bool JNICALL Java_org_ppsspp_ppsspp_NativeActivity_runVulkanRenderLoo
 	exitRenderLoop = false;
 
 	WARN_LOG(G3D, "Render loop function exited.");
-	return true;
 }
 
 // NOTE: This is defunct and not working, due to how the Android storage functions currently require
