@@ -919,40 +919,37 @@ bool PropagateConstants(const IRWriter &in, IRWriter &out, const IROptions &opts
 	return logBlocks;
 }
 
-IRInst IRReplaceSrcGPR(const IRInst &inst, int fromReg, int toReg) {
-	IRInst newInst = inst;
-	const IRMeta *m = GetIRMeta(inst.op);
+IRInstMeta IRReplaceSrcGPR(const IRInstMeta &inst, int fromReg, int toReg) {
+	IRInstMeta newInst = inst;
 
-	if (m->types[1] == 'G' && inst.src1 == fromReg) {
+	if (inst.m.types[1] == 'G' && inst.src1 == fromReg) {
 		newInst.src1 = toReg;
 	}
-	if (m->types[2] == 'G' && inst.src2 == fromReg) {
+	if (inst.m.types[2] == 'G' && inst.src2 == fromReg) {
 		newInst.src2 = toReg;
 	}
-	if ((m->flags & (IRFLAG_SRC3 | IRFLAG_SRC3DST)) != 0 && m->types[0] == 'G' && inst.src3 == fromReg) {
+	if ((inst.m.flags & (IRFLAG_SRC3 | IRFLAG_SRC3DST)) != 0 && inst.m.types[0] == 'G' && inst.src3 == fromReg) {
 		newInst.src3 = toReg;
 	}
 	return newInst;
 }
 
-IRInst IRReplaceDestGPR(const IRInst &inst, int fromReg, int toReg) {
-	IRInst newInst = inst;
-	const IRMeta *m = GetIRMeta(inst.op);
+IRInstMeta IRReplaceDestGPR(const IRInstMeta &inst, int fromReg, int toReg) {
+	IRInstMeta newInst = inst;
 
-	if ((m->flags & IRFLAG_SRC3) == 0 && m->types[0] == 'G' && inst.dest == fromReg) {
+	if ((inst.m.flags & IRFLAG_SRC3) == 0 && inst.m.types[0] == 'G' && inst.dest == fromReg) {
 		newInst.dest = toReg;
 	}
 	return newInst;
 }
 
-bool IRMutatesDestGPR(const IRInst &inst, int reg) {
-	const IRMeta *m = GetIRMeta(inst.op);
-	return (m->flags & IRFLAG_SRC3DST) != 0 && m->types[0] == 'G' && inst.src3 == reg;
+bool IRMutatesDestGPR(const IRInstMeta &inst, int reg) {
+	return (inst.m.flags & IRFLAG_SRC3DST) != 0 && inst.m.types[0] == 'G' && inst.src3 == reg;
 }
 
 bool PurgeTemps(const IRWriter &in, IRWriter &out, const IROptions &opts) {
 	CONDITIONAL_DISABLE;
-	std::vector<IRInst> insts;
+	std::vector<IRInstMeta> insts;
 	insts.reserve(in.GetInstructions().size());
 
 	// We track writes both to rename regs and to purge dead stores.
@@ -979,7 +976,7 @@ bool PurgeTemps(const IRWriter &in, IRWriter &out, const IROptions &opts) {
 	memset(lastWrittenTo, -1, sizeof(lastWrittenTo));
 	memset(lastReadFrom, -1, sizeof(lastReadFrom));
 
-	auto readsFromFPRCheck = [](IRInst &inst, Check &check, bool *directly) {
+	auto readsFromFPRCheck = [](IRInstMeta &inst, Check &check, bool *directly) {
 		if (check.reg < 32)
 			return false;
 
@@ -1001,8 +998,7 @@ bool PurgeTemps(const IRWriter &in, IRWriter &out, const IROptions &opts) {
 	bool logBlocks = false;
 	size_t firstCheck = 0;
 	for (int i = 0, n = (int)in.GetInstructions().size(); i < n; i++) {
-		IRInst inst = in.GetInstructions()[i];
-		const IRMeta *m = GetIRMeta(inst.op);
+		IRInstMeta inst = GetIRMeta(in.GetInstructions()[i]);
 
 		// It helps to skip through rechecking ones we already discarded.
 		for (size_t ch = firstCheck; ch < checks.size(); ++ch) {
@@ -1060,14 +1056,13 @@ bool PurgeTemps(const IRWriter &in, IRWriter &out, const IROptions &opts) {
 				} else {
 					// Legitimately read from, so we can't optimize out.
 					// Unless this is an exit and a temp not read directly by the exit.
-					if ((m->flags & IRFLAG_EXIT) == 0 || check.readByExit || readsDirectly)
+					if ((inst.m.flags & IRFLAG_EXIT) == 0 || check.readByExit || readsDirectly)
 						check.reg = 0;
 				}
 			} else if (check.fplen >= 1 && readsFromFPRCheck(inst, check, &readsDirectly)) {
 				// If one or the other is a Vec, they must match.
 				bool lenMismatch = false;
 
-				const IRMeta *m = GetIRMeta(inst.op);
 				auto checkMismatch = [&check, &lenMismatch](IRReg src, char type) {
 					int srclen = 1;
 					if (type == 'V')
@@ -1083,10 +1078,10 @@ bool PurgeTemps(const IRWriter &in, IRWriter &out, const IROptions &opts) {
 					}
 				};
 
-				checkMismatch(inst.src1, m->types[1]);
-				checkMismatch(inst.src2, m->types[2]);
-				if ((m->flags & (IRFLAG_SRC3 | IRFLAG_SRC3DST)) != 0)
-					checkMismatch(inst.src3, m->types[3]);
+				checkMismatch(inst.src1, inst.m.types[1]);
+				checkMismatch(inst.src2, inst.m.types[2]);
+				if ((inst.m.flags & (IRFLAG_SRC3 | IRFLAG_SRC3DST)) != 0)
+					checkMismatch(inst.src3, inst.m.types[3]);
 
 				bool cannotReplace = !readsDirectly || lenMismatch;
 				if (!cannotReplace && check.srcReg >= 32 && lastWrittenTo[check.srcReg] < check.index) {
@@ -1137,10 +1132,10 @@ bool PurgeTemps(const IRWriter &in, IRWriter &out, const IROptions &opts) {
 					}
 				} else {
 					// Legitimately read from, so we can't optimize out.
-					if ((m->flags & IRFLAG_EXIT) == 0 || check.readByExit || readsDirectly)
+					if ((inst.m.flags & IRFLAG_EXIT) == 0 || check.readByExit || readsDirectly)
 						check.reg = 0;
 				}
-			} else if (check.readByExit && (m->flags & IRFLAG_EXIT) != 0) {
+			} else if (check.readByExit && (inst.m.flags & IRFLAG_EXIT) != 0) {
 				// This is an exit, and the reg is read by any exit.  Clear it.
 				check.reg = 0;
 			} else if (IRDestGPR(inst) == check.reg) {
@@ -1261,10 +1256,10 @@ bool PurgeTemps(const IRWriter &in, IRWriter &out, const IROptions &opts) {
 		}
 	}
 
-	for (const IRInst &inst : insts) {
+	for (const IRInstMeta &inst : insts) {
 		// Simply skip any Mov 0, 0 instructions, since that's how we nuke one.
 		if (inst.op != IROp::Mov || inst.dest != 0 || inst.src1 != 0) {
-			out.Write(inst);
+			out.Write(inst.i);
 		}
 	}
 
@@ -1282,12 +1277,11 @@ bool ReduceLoads(const IRWriter &in, IRWriter &out, const IROptions &opts) {
 		IRInst inst = in.GetInstructions()[i];
 
 		if (inst.op == IROp::Load32 || inst.op == IROp::Load16 || inst.op == IROp::Load16Ext) {
-			int dest = IRDestGPR(inst);
+			int dest = IRDestGPR(GetIRMeta(inst));
 			for (int j = i + 1; j < n; j++) {
-				const IRInst &laterInst = in.GetInstructions()[j];
-				const IRMeta *m = GetIRMeta(laterInst.op);
+				const IRInstMeta laterInst = GetIRMeta(in.GetInstructions()[j]);
 
-				if ((m->flags & (IRFLAG_EXIT | IRFLAG_BARRIER)) != 0) {
+				if ((laterInst.m.flags & (IRFLAG_EXIT | IRFLAG_BARRIER)) != 0) {
 					// Exit, so we can't do the optimization.
 					break;
 				}
