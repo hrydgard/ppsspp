@@ -269,10 +269,10 @@ bool UIDialogScreen::key(const KeyInput &key) {
 	return retval;
 }
 
-void UIDialogScreen::sendMessage(const char *msg, const char *value) {
+void UIDialogScreen::sendMessage(UIMessage message, const char *value) {
 	Screen *screen = screenManager()->dialogParent(this);
 	if (screen) {
-		screen->sendMessage(msg, value);
+		screen->sendMessage(message, value);
 	}
 }
 

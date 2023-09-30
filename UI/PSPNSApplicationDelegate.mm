@@ -28,7 +28,7 @@
 	NSURL *firstURL = urls.firstObject;
 	if (!firstURL) return; // No URLs, don't do anything
 	
-	System_PostUIMessage("boot", firstURL.fileSystemRepresentation);
+	System_PostUIMessage(UIMessage::REQUEST_GAME_BOOT, firstURL.fileSystemRepresentation);
 }
 
 - (NSMenu *)applicationDockMenu:(NSApplication *)sender {

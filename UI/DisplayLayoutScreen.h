@@ -43,7 +43,7 @@ public:
 protected:
 	UI::EventReturn OnPostProcShaderChange(UI::EventParams &e);
 
-	void sendMessage(const char *message, const char *value) override;
+	void sendMessage(UIMessage message, const char *value) override;
 
 private:
 	UI::ChoiceStrip *mode_ = nullptr;

@@ -1343,27 +1343,15 @@ UI::EventReturn MainScreen::OnDismissUpgrade(UI::EventParams &e) {
 	return UI::EVENT_DONE;
 }
 
-void MainScreen::sendMessage(const char *message, const char *value) {
+void MainScreen::sendMessage(UIMessage message, const char *value) {
 	// Always call the base class method first to handle the most common messages.
 	UIScreenWithBackground::sendMessage(message, value);
 
-	if (screenManager()->topScreen() == this) {
-		if (!strcmp(message, "boot")) {
+	if (message == UIMessage::REQUEST_GAME_BOOT) {
+		if (screenManager()->topScreen() == this) {
 			LaunchFile(screenManager(), Path(std::string(value)));
 		}
-		if (!strcmp(message, "browse_fileSelect")) {
-			INFO_LOG(SYSTEM, "Attempting to launch: '%s'", value);
-			LaunchFile(screenManager(), Path(std::string(value)));
-		}
-		if (!strcmp(message, "browse_folderSelect")) {
-			std::string filename = value;
-			INFO_LOG(SYSTEM, "Got folder: '%s'", filename.c_str());;
-			// switch to the 'Games' tab which has the file browser
-			tabHolder_->SetCurrentTab(1);
-			gameBrowsers_[1]->SetPath(Path(filename));
-		}
-	}
-	if (!strcmp(message, "permission_granted") && !strcmp(value, "storage")) {
+	} else if (message == UIMessage::PERMISSION_GRANTED && !strcmp(value, "storage")) {
 		RecreateViews();
 	}
 }
@@ -1383,7 +1371,7 @@ UI::EventReturn MainScreen::OnLoadFile(UI::EventParams &e) {
 	if (System_GetPropertyBool(SYSPROP_HAS_FILE_BROWSER)) {
 		auto mm = GetI18NCategory(I18NCat::MAINMENU);
 		System_BrowseForFile(mm->T("Load"), BrowseFileType::BOOTABLE, [](const std::string &value, int) {
-			System_PostUIMessage("boot", value);
+			System_PostUIMessage(UIMessage::REQUEST_GAME_BOOT, value);
 		});
 	}
 	return UI::EVENT_DONE;

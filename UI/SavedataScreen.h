@@ -73,7 +73,7 @@ public:
 	~SavedataScreen();
 
 	void dialogFinished(const Screen *dialog, DialogResult result) override;
-	void sendMessage(const char *message, const char *value) override;
+	void sendMessage(UIMessage message, const char *value) override;
 
 	const char *tag() const override { return "Savedata"; }
 

@@ -46,7 +46,7 @@ public:
 	void preRender() override;
 	void postRender() override;
 	void dialogFinished(const Screen *dialog, DialogResult result) override;
-	void sendMessage(const char *msg, const char *value) override;
+	void sendMessage(UIMessage message, const char *value) override;
 	void resized() override;
 
 	// Note: Unlike your average boring UIScreen, here we override the Unsync* functions

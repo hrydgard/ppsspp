@@ -116,7 +116,7 @@ bool System_GetPropertyBool(SystemProperty prop) {
 	}
 }
 void System_Notify(SystemNotification notification) {}
-void System_PostUIMessage(const std::string &message, const std::string &param) {}
+void System_PostUIMessage(UIMessage message, const std::string &param) {}
 bool System_MakeRequest(SystemRequestType type, int requestId, const std::string &param1, const std::string &param2, int param3) {
 	switch (type) {
 	case SystemRequestType::SEND_DEBUG_OUTPUT:

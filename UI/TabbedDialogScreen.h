@@ -3,6 +3,7 @@
 #include "ppsspp_config.h"
 
 #include "Common/UI/UIScreen.h"
+#include "Common/System/System.h"
 #include "Core/ConfigValues.h"
 #include "UI/MiscScreens.h"
 
@@ -21,7 +22,7 @@ protected:
 	virtual bool ShowSearchControls() const { return true; }
 
 	void RecreateViews() override;
-	void sendMessage(const char *message, const char *value) override;
+	void sendMessage(UIMessage message, const char *value) override;
 
 	SettingInfoMessage *settingInfo_ = nullptr;
 

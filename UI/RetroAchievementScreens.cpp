@@ -260,10 +260,10 @@ void RetroAchievementsSettingsScreen::CreateTabs() {
 	CreateDeveloperToolsTab(AddTab("AchievementsDeveloperTools", sy->T("Developer Tools")));
 }
 
-void RetroAchievementsSettingsScreen::sendMessage(const char *message, const char *value) {
+void RetroAchievementsSettingsScreen::sendMessage(UIMessage message, const char *value) {
 	TabbedUIDialogScreenWithGameBackground::sendMessage(message, value);
 
-	if (!strcmp(message, "achievements_loginstatechange")) {
+	if (message == UIMessage::ACHIEVEMENT_LOGIN_STATE_CHANGE) {
 		RecreateViews();
 	}
 }

@@ -208,12 +208,10 @@ void ScreenManager::getFocusPosition(float &x, float &y, float &z) {
 	z = stack_.size();
 }
 
-void ScreenManager::sendMessage(const char *msg, const char *value) {
-	if (!msg) {
-		_dbg_assert_msg_(false, "Empty msg in ScreenManager::sendMessage");
-	} else if (!strcmp(msg, "recreateviews")) {
+void ScreenManager::sendMessage(UIMessage message, const char *value) {
+	if (message == UIMessage::RECREATE_VIEWS) {
 		RecreateAllViews();
-	} else if (!strcmp(msg, "lost_focus")) {
+	} else if (message == UIMessage::LOST_FOCUS) {
 		TouchInput input{};
 		input.x = -50000.0f;
 		input.y = -50000.0f;
@@ -224,7 +222,7 @@ void ScreenManager::sendMessage(const char *msg, const char *value) {
 	}
 
 	if (!stack_.empty())
-		stack_.back().screen->sendMessage(msg, value);
+		stack_.back().screen->sendMessage(message, value);
 }
 
 Screen *ScreenManager::topScreen() const {

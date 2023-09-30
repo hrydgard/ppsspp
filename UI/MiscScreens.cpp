@@ -423,35 +423,36 @@ void DrawGameBackground(UIContext &dc, const Path &gamePath, float x, float y, f
 	}
 }
 
-void HandleCommonMessages(const char *message, const char *value, ScreenManager *manager, const Screen *activeScreen) {
+void HandleCommonMessages(UIMessage message, const char *value, ScreenManager *manager, const Screen *activeScreen) {
 	bool isActiveScreen = manager->topScreen() == activeScreen;
 
-	if (!strcmp(message, "clear jit") && PSP_IsInited()) {
+	if (message == UIMessage::REQUEST_CLEAR_JIT && PSP_IsInited()) {
+		// TODO: This seems to clearly be the wrong place to handle this.
 		if (MIPSComp::jit) {
 			std::lock_guard<std::recursive_mutex> guard(MIPSComp::jitLock);
 			if (MIPSComp::jit)
 				MIPSComp::jit->ClearCache();
 		}
 		currentMIPS->UpdateCore((CPUCore)g_Config.iCpuCore);
-	} else if (!strcmp(message, "control mapping") && isActiveScreen && std::string(activeScreen->tag()) != "ControlMapping") {
+	} else if (message == UIMessage::SHOW_CONTROL_MAPPING && isActiveScreen && std::string(activeScreen->tag()) != "ControlMapping") {
 		UpdateUIState(UISTATE_MENU);
 		manager->push(new ControlMappingScreen(Path()));
-	} else if (!strcmp(message, "display layout editor") && isActiveScreen && std::string(activeScreen->tag()) != "DisplayLayout") {
+	} else if (message == UIMessage::SHOW_DISPLAY_LAYOUT_EDITOR && isActiveScreen && std::string(activeScreen->tag()) != "DisplayLayout") {
 		UpdateUIState(UISTATE_MENU);
 		manager->push(new DisplayLayoutScreen(Path()));
-	} else if (!strcmp(message, "settings") && isActiveScreen && std::string(activeScreen->tag()) != "GameSettings") {
+	} else if (message == UIMessage::SHOW_SETTINGS && isActiveScreen && std::string(activeScreen->tag()) != "GameSettings") {
 		UpdateUIState(UISTATE_MENU);
 		manager->push(new GameSettingsScreen(Path()));
-	} else if (!strcmp(message, "language screen") && isActiveScreen) {
+	} else if (message == UIMessage::SHOW_LANGUAGE_SCREEN && isActiveScreen) {
 		auto sy = GetI18NCategory(I18NCat::SYSTEM);
 		auto langScreen = new NewLanguageScreen(sy->T("Language"));
 		langScreen->OnChoice.Add([](UI::EventParams &) {
-			System_PostUIMessage("recreateviews", "");
+			System_PostUIMessage(UIMessage::RECREATE_VIEWS);
 			System_Notify(SystemNotification::UI);
 			return UI::EVENT_DONE;
 		});
 		manager->push(langScreen);
-	} else if (!strcmp(message, "window minimized")) {
+	} else if (message == UIMessage::WINDOW_MINIMIZED) {
 		if (!strcmp(value, "true")) {
 			gstate_c.skipDrawReason |= SKIPDRAW_WINDOW_MINIMIZED;
 		} else {
@@ -478,8 +479,8 @@ void UIScreenWithGameBackground::DrawBackground(UIContext &dc) {
 	}
 }
 
-void UIScreenWithGameBackground::sendMessage(const char *message, const char *value) {
-	if (!strcmp(message, "settings") && screenManager()->topScreen() == this) {
+void UIScreenWithGameBackground::sendMessage(UIMessage message, const char *value) {
+	if (message == UIMessage::SHOW_SETTINGS && screenManager()->topScreen() == this) {
 		screenManager()->push(new GameSettingsScreen(gamePath_));
 	} else {
 		UIScreenWithBackground::sendMessage(message, value);
@@ -499,15 +500,15 @@ void UIDialogScreenWithGameBackground::DrawBackground(UIContext &dc) {
 	}
 }
 
-void UIDialogScreenWithGameBackground::sendMessage(const char *message, const char *value) {
-	if (!strcmp(message, "settings") && screenManager()->topScreen() == this) {
+void UIDialogScreenWithGameBackground::sendMessage(UIMessage message, const char *value) {
+	if (message == UIMessage::SHOW_SETTINGS && screenManager()->topScreen() == this) {
 		screenManager()->push(new GameSettingsScreen(gamePath_));
 	} else {
 		UIDialogScreenWithBackground::sendMessage(message, value);
 	}
 }
 
-void UIScreenWithBackground::sendMessage(const char *message, const char *value) {
+void UIScreenWithBackground::sendMessage(UIMessage message, const char *value) {
 	HandleCommonMessages(message, value, screenManager(), this);
 }
 
@@ -524,7 +525,7 @@ void UIDialogScreenWithBackground::AddStandardBack(UI::ViewGroup *parent) {
 	parent->Add(new Choice(di->T("Back"), "", false, new AnchorLayoutParams(150, 64, 10, NONE, NONE, 10)))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 }
 
-void UIDialogScreenWithBackground::sendMessage(const char *message, const char *value) {
+void UIDialogScreenWithBackground::sendMessage(UIMessage message, const char *value) {
 	HandleCommonMessages(message, value, screenManager(), this);
 }
 
@@ -741,8 +742,8 @@ void LogoScreen::update() {
 	sinceStart_ = (double)frames_ / rate;
 }
 
-void LogoScreen::sendMessage(const char *message, const char *value) {
-	if (!strcmp(message, "boot") && screenManager()->topScreen() == this) {
+void LogoScreen::sendMessage(UIMessage message, const char *value) {
+	if (message == UIMessage::REQUEST_GAME_BOOT && screenManager()->topScreen() == this) {
 		screenManager()->switchScreen(new EmuScreen(Path(value)));
 	}
 }

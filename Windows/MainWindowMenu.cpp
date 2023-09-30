@@ -343,7 +343,7 @@ namespace MainWindow {
 			Core_EnableStepping(false);
 		}
 		filename = ReplaceAll(filename, "\\", "/");
-		System_PostUIMessage("boot", filename);
+		System_PostUIMessage(UIMessage::REQUEST_GAME_BOOT, filename);
 		W32Util::MakeTopMost(GetHWND(), g_Config.bTopMost);
 	}
 
@@ -364,17 +364,17 @@ namespace MainWindow {
 	// not static
 	void setTexScalingMultiplier(int level) {
 		g_Config.iTexScalingLevel = level;
-		System_PostUIMessage("gpu_configChanged", "");
+		System_PostUIMessage(UIMessage::GPU_CONFIG_CHANGED);
 	}
 
 	static void setTexScalingType(int type) {
 		g_Config.iTexScalingType = type;
-		System_PostUIMessage("gpu_configChanged", "");
+		System_PostUIMessage(UIMessage::GPU_CONFIG_CHANGED);
 	}
 
 	static void setSkipBufferEffects(bool skip) {
 		g_Config.bSkipBufferEffects = skip;
-		System_PostUIMessage("gpu_configChanged", "");
+		System_PostUIMessage(UIMessage::GPU_CONFIG_CHANGED);
 	}
 
 	static void setFrameSkipping(int framesToSkip = -1) {
@@ -457,8 +457,8 @@ namespace MainWindow {
 
 		case ID_TOGGLE_BREAK:
 			if (GetUIState() == UISTATE_PAUSEMENU) {
-				// Causes hang
-				//System_PostUIMessage("run", "");
+				// Causes hang (outdated comment?)
+				// System_PostUIMessage(UIMessage::REQUEST_GAME_RUN, "");
 
 				if (disasmWindow)
 					SendMessage(disasmWindow->GetDlgHandle(), WM_COMMAND, IDC_STOPGO, 0);
@@ -477,7 +477,7 @@ namespace MainWindow {
 			break;
 
 		case ID_EMULATION_PAUSE:
-			System_PostUIMessage("pause", "");
+			System_PostUIMessage(UIMessage::REQUEST_GAME_PAUSE);
 			break;
 
 		case ID_EMULATION_STOP:
@@ -485,12 +485,12 @@ namespace MainWindow {
 				Core_EnableStepping(false);
 
 			Core_Stop();
-			System_PostUIMessage("stop", "");
+			System_PostUIMessage(UIMessage::REQUEST_GAME_STOP);
 			Core_WaitInactive();
 			break;
 
 		case ID_EMULATION_RESET:
-			System_PostUIMessage("reset", "");
+			System_PostUIMessage(UIMessage::REQUEST_GAME_RESET);
 			Core_EnableStepping(false);
 			break;
 
@@ -510,7 +510,7 @@ namespace MainWindow {
 
 		case ID_EMULATION_CHAT:
 			if (GetUIState() == UISTATE_INGAME) {
-				System_PostUIMessage("chat screen", "");
+				System_PostUIMessage(UIMessage::SHOW_CHAT_SCREEN);
 			}
 			break;
 		case ID_FILE_LOADSTATEFILE:
@@ -534,7 +534,7 @@ namespace MainWindow {
 		{
 			if (!Achievements::WarnUserIfChallengeModeActive()) {
 				SaveState::NextSlot();
-				System_PostUIMessage("savestate_displayslot", "");
+				System_PostUIMessage(UIMessage::SAVESTATE_DISPLAY_SLOT);
 			}
 			break;
 		}
@@ -544,7 +544,7 @@ namespace MainWindow {
 			if (!Achievements::WarnUserIfChallengeModeActive()) {
 				if (!KeyMap::PspButtonHasMappings(VIRTKEY_NEXT_SLOT)) {
 					SaveState::NextSlot();
-					System_PostUIMessage("savestate_displayslot", "");
+					System_PostUIMessage(UIMessage::SAVESTATE_DISPLAY_SLOT);
 				}
 			}
 			break;
@@ -600,7 +600,7 @@ namespace MainWindow {
 		}
 
 		case ID_OPTIONS_LANGUAGE:
-			System_PostUIMessage("language screen", "");
+			System_PostUIMessage(UIMessage::SHOW_LANGUAGE_SCREEN);
 			break;
 
 		case ID_OPTIONS_IGNOREWINKEY:
@@ -645,7 +645,7 @@ namespace MainWindow {
 			g_Config.bAutoFrameSkip = !g_Config.bAutoFrameSkip;
 			if (g_Config.bAutoFrameSkip && g_Config.bSkipBufferEffects) {
 				g_Config.bSkipBufferEffects = false;
-				System_PostUIMessage("gpu_configChanged", "");
+				System_PostUIMessage(UIMessage::GPU_CONFIG_CHANGED);
 			}
 			break;
 
@@ -662,7 +662,7 @@ namespace MainWindow {
 
 		case ID_TEXTURESCALING_DEPOSTERIZE:
 			g_Config.bTexDeposterize = !g_Config.bTexDeposterize;
-			System_PostUIMessage("gpu_configChanged", "");
+			System_PostUIMessage(UIMessage::GPU_CONFIG_CHANGED);
 			break;
 
 		case ID_OPTIONS_DIRECT3D9:
@@ -691,7 +691,7 @@ namespace MainWindow {
 
 		case ID_OPTIONS_SKIP_BUFFER_EFFECTS:
 			g_Config.bSkipBufferEffects = !g_Config.bSkipBufferEffects;
-			System_PostUIMessage("gpu_renderResized", "");
+			System_PostUIMessage(UIMessage::GPU_RENDER_RESIZED);
 			g_OSD.ShowOnOff(gr->T("Skip Buffer Effects"), g_Config.bSkipBufferEffects);
 			break;
 
@@ -703,17 +703,17 @@ namespace MainWindow {
 			} else {
 				g_Config.iDebugOverlay = (int)DebugOverlay::DEBUG_STATS;
 			}
-			System_PostUIMessage("clear jit", "");
+			System_PostUIMessage(UIMessage::REQUEST_CLEAR_JIT);
 			break;
 
 		case ID_OPTIONS_HARDWARETRANSFORM:
 			g_Config.bHardwareTransform = !g_Config.bHardwareTransform;
-			System_PostUIMessage("gpu_configChanged", "");
+			System_PostUIMessage(UIMessage::GPU_CONFIG_CHANGED);
 			g_OSD.ShowOnOff(gr->T("Hardware Transform"), g_Config.bHardwareTransform);
 			break;
 
 		case ID_OPTIONS_DISPLAY_LAYOUT:
-			System_PostUIMessage("display layout editor", "");
+			System_PostUIMessage(UIMessage::SHOW_DISPLAY_LAYOUT_EDITOR);
 			break;
 
 
@@ -744,7 +744,7 @@ namespace MainWindow {
 			break;
 
 		case ID_DEBUG_DUMPNEXTFRAME:
-			System_PostUIMessage("gpu dump next frame", "");
+			System_PostUIMessage(UIMessage::REQUEST_GPU_DUMP_NEXT_FRAME);
 			break;
 
 		case ID_DEBUG_LOADMAPFILE:
@@ -880,11 +880,11 @@ namespace MainWindow {
 			break;
 
 		case ID_OPTIONS_CONTROLS:
-			System_PostUIMessage("control mapping", "");
+			System_PostUIMessage(UIMessage::SHOW_CONTROL_MAPPING);
 			break;
 
 		case ID_OPTIONS_MORE_SETTINGS:
-			System_PostUIMessage("settings", "");
+			System_PostUIMessage(UIMessage::SHOW_SETTINGS);
 			break;
 
 		case ID_EMULATION_SOUND:

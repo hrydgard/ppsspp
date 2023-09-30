@@ -41,7 +41,7 @@ public:
 	UIScreenWithBackground() : UIScreen() {}
 protected:
 	void DrawBackground(UIContext &dc) override;
-	void sendMessage(const char *message, const char *value) override;
+	void sendMessage(UIMessage message, const char *value) override;
 };
 
 class UIScreenWithGameBackground : public UIScreenWithBackground {
@@ -49,7 +49,7 @@ public:
 	UIScreenWithGameBackground(const std::string &gamePath)
 		: UIScreenWithBackground(), gamePath_(gamePath) {}
 	void DrawBackground(UIContext &dc) override;
-	void sendMessage(const char *message, const char *value) override;
+	void sendMessage(UIMessage message, const char *value) override;
 protected:
 	Path gamePath_;
 
@@ -62,7 +62,7 @@ public:
 	UIDialogScreenWithBackground() : UIDialogScreen() {}
 protected:
 	void DrawBackground(UIContext &dc) override;
-	void sendMessage(const char *message, const char *value) override;
+	void sendMessage(UIMessage message, const char *value) override;
 
 	void AddStandardBack(UI::ViewGroup *parent);
 };
@@ -72,7 +72,7 @@ public:
 	UIDialogScreenWithGameBackground(const Path &gamePath)
 		: UIDialogScreenWithBackground(), gamePath_(gamePath) {}
 	void DrawBackground(UIContext &dc) override;
-	void sendMessage(const char *message, const char *value) override;
+	void sendMessage(UIMessage message, const char *value) override;
 protected:
 	Path gamePath_;
 
@@ -141,7 +141,7 @@ public:
 	void touch(const TouchInput &touch) override;
 	void update() override;
 	void render() override;
-	void sendMessage(const char *message, const char *value) override;
+	void sendMessage(UIMessage message, const char *value) override;
 	void CreateViews() override {}
 
 	const char *tag() const override { return "Logo"; }
