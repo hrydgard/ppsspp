@@ -95,7 +95,7 @@ public:
 				std::string path = GetFilePath();
 				// Delay to be able to launch on startup too
 				std::this_thread::sleep_for(std::chrono::milliseconds(100));
-				System_PostUIMessage("boot", path.c_str());
+				System_PostUIMessage(UIMessage::REQUEST_GAME_BOOT, path);
 			});
 		}
 	}

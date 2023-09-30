@@ -457,8 +457,8 @@ namespace MainWindow {
 
 		case ID_TOGGLE_BREAK:
 			if (GetUIState() == UISTATE_PAUSEMENU) {
-				// Causes hang
-				//System_PostUIMessage("run", "");
+				// Causes hang (outdated comment?)
+				// System_PostUIMessage(UIMessage::REQUEST_GAME_RUN, "");
 
 				if (disasmWindow)
 					SendMessage(disasmWindow->GetDlgHandle(), WM_COMMAND, IDC_STOPGO, 0);

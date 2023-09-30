@@ -452,7 +452,7 @@ void OSXOpenURL(const char *url) {
 
 -(void)chatAction: (NSMenuItem *)item {
     if (GetUIState() == UISTATE_INGAME) {
-        System_PostUIMessage(UIMessage::REQUEST_CHAT_SCREEN);
+        System_PostUIMessage(UIMessage::SHOW_CHAT_SCREEN);
     }
 }
 
@@ -631,14 +631,14 @@ TOGGLE_METHOD(FullScreen, g_Config.bFullScreen, System_MakeRequest(SystemRequest
 }
 
 -(void)openRecentItem: (NSMenuItem *)item {
-    System_PostUIMessage(UIMessage::REQUEST_BOOT_GAME, g_Config.RecentIsos()[item.tag].c_str());
+    System_PostUIMessage(UIMessage::REQUEST_GAME_BOOT, g_Config.RecentIsos()[item.tag].c_str());
 }
 
 -(void)openSystemFileBrowser {
     int g = 0;
     DarwinDirectoryPanelCallback callback = [g] (bool succ, Path thePathChosen) {
         if (succ)
-            System_PostUIMessage(UIMessage::REQUEST_BOOT_GAME, thePathChosen.c_str());
+            System_PostUIMessage(UIMessage::REQUEST_GAME_BOOT, thePathChosen.c_str());
     };
     
     DarwinFileSystemServices services;
