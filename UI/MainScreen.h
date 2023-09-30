@@ -124,7 +124,7 @@ protected:
 	void CreateViews() override;
 	void DrawBackground(UIContext &dc) override;
 	void update() override;
-	void sendMessage(const char *message, const char *value) override;
+	void sendMessage(UIMessage message, const char *value) override;
 	void dialogFinished(const Screen *dialog, DialogResult result) override;
 
 	bool DrawBackgroundFor(UIContext &dc, const Path &gamePath, float progress);

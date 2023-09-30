@@ -153,7 +153,7 @@
 
 #include <Core/HLE/Plugins.h>
 
-bool HandleGlobalMessage(const std::string &msg, const std::string &value);
+bool HandleGlobalMessage(UIMessage message, const std::string &value);
 
 ScreenManager *g_screenManager;
 std::string config_filename;
@@ -167,7 +167,7 @@ static bool restarting = false;
 static int renderCounter = 0;
 
 struct PendingMessage {
-	std::string msg;
+	UIMessage message;
 	std::string value;
 };
 
@@ -1078,10 +1078,11 @@ void NativeFrame(GraphicsContext *graphicsContext) {
 	}
 
 	for (const auto &item : toProcess) {
-		if (HandleGlobalMessage(item.msg, item.value)) {
-			INFO_LOG(SYSTEM, "Handled global message: %s / %s", item.msg.c_str(), item.value.c_str());
+		if (HandleGlobalMessage(item.message, item.value)) {
+			// TODO: Add a to-string thingy.
+			INFO_LOG(SYSTEM, "Handled global message: %d / %s", (int)item.message, item.value.c_str());
 		}
-		g_screenManager->sendMessage(item.msg.c_str(), item.value.c_str());
+		g_screenManager->sendMessage(item.message, item.value.c_str());
 	}
 
 	g_requestManager.ProcessRequests();
@@ -1177,7 +1178,7 @@ void NativeFrame(GraphicsContext *graphicsContext) {
 #if !PPSSPP_PLATFORM(WINDOWS) && !defined(ANDROID)
 		PSP_CoreParameter().pixelWidth = g_display.pixel_xres;
 		PSP_CoreParameter().pixelHeight = g_display.pixel_yres;
-		System_PostUIMessage("gpu_displayResized", "");
+		System_PostUIMessage(UIMessage::GPU_DISPLAY_RESIZED);
 #endif
 	} else {
 		// INFO_LOG(G3D, "Polling graphics context");
@@ -1185,34 +1186,34 @@ void NativeFrame(GraphicsContext *graphicsContext) {
 	}
 }
 
-bool HandleGlobalMessage(const std::string &msg, const std::string &value) {
-	if (msg == "savestate_displayslot") {
+bool HandleGlobalMessage(UIMessage message, const std::string &value) {
+	if (message == UIMessage::SAVESTATE_DISPLAY_SLOT) {
 		auto sy = GetI18NCategory(I18NCat::SYSTEM);
 		std::string msg = StringFromFormat("%s: %d", sy->T("Savestate Slot"), SaveState::GetCurrentSlot() + 1);
 		// Show for the same duration as the preview.
 		g_OSD.Show(OSDType::MESSAGE_INFO, msg, 2.0f, "savestate_slot");
 		return true;
 	}
-	else if (msg == "gpu_displayResized") {
+	else if (message == UIMessage::GPU_DISPLAY_RESIZED) {
 		if (gpu) {
 			gpu->NotifyDisplayResized();
 		}
 		return true;
 	}
-	else if (msg == "gpu_renderResized") {
+	else if (message == UIMessage::GPU_RENDER_RESIZED) {
 		if (gpu) {
 			gpu->NotifyRenderResized();
 		}
 		return true;
 	}
-	else if (msg == "gpu_configChanged") {
+	else if (message == UIMessage::GPU_CONFIG_CHANGED) {
 		if (gpu) {
 			gpu->NotifyConfigChanged();
 		}
 		Reporting::UpdateConfig();
 		return true;
 	}
-	else if (msg == "core_powerSaving") {
+	else if (message == UIMessage::POWER_SAVING) {
 		if (value != "false") {
 			auto sy = GetI18NCategory(I18NCat::SYSTEM);
 #if PPSSPP_PLATFORM(ANDROID)
@@ -1224,7 +1225,7 @@ bool HandleGlobalMessage(const std::string &msg, const std::string &value) {
 		Core_SetPowerSaving(value != "false");
 		return true;
 	}
-	else if (msg == "permission_granted" && value == "storage") {
+	else if (message == UIMessage::PERMISSION_GRANTED && value == "storage") {
 		CreateSysDirectories();
 		// We must have failed to load the config before, so load it now to avoid overwriting the old config
 		// with a freshly generated one.
@@ -1237,7 +1238,7 @@ bool HandleGlobalMessage(const std::string &msg, const std::string &value) {
 		PostLoadConfig();
 		g_Config.iGPUBackend = gpuBackend;
 		return true;
-	} else if (msg == "app_resumed" || msg == "got_focus") {
+	} else if (message == UIMessage::APP_RESUMED || message == UIMessage::GOT_FOCUS) {
 		// Assume that the user may have modified things.
 		MemoryStick_NotifyWrite();
 		return true;
@@ -1370,10 +1371,10 @@ void NativeAccelerometer(float tiltX, float tiltY, float tiltZ) {
 	HLEPlugins::PluginDataAxis[JOYSTICK_AXIS_ACCELEROMETER_Z] = tiltZ;
 }
 
-void System_PostUIMessage(const std::string &message, const std::string &value) {
+void System_PostUIMessage(UIMessage message, const std::string &value) {
 	std::lock_guard<std::mutex> lock(pendingMutex);
 	PendingMessage pendingMessage;
-	pendingMessage.msg = message;
+	pendingMessage.message = message;
 	pendingMessage.value = value;
 	pendingMessages.push_back(pendingMessage);
 }

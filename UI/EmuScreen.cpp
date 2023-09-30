@@ -461,18 +461,18 @@ static void AfterStateBoot(SaveState::Status status, const std::string &message,
 	System_Notify(SystemNotification::DISASSEMBLY);
 }
 
-void EmuScreen::sendMessage(const char *message, const char *value) {
+void EmuScreen::sendMessage(UIMessage message, const char *value) {
 	// External commands, like from the Windows UI.
-	if (!strcmp(message, "pause") && screenManager()->topScreen() == this) {
+	if (message == UIMessage::REQUEST_GAME_PAUSE && screenManager()->topScreen() == this) {
 		screenManager()->push(new GamePauseScreen(gamePath_));
-	} else if (!strcmp(message, "stop")) {
+	} else if (message == UIMessage::REQUEST_GAME_STOP) {
 		// We will push MainScreen in update().
 		PSP_Shutdown();
 		bootPending_ = false;
 		stopRender_ = true;
 		invalid_ = true;
 		System_Notify(SystemNotification::DISASSEMBLY);
-	} else if (!strcmp(message, "reset")) {
+	} else if (message == UIMessage::REQUEST_GAME_RESET) {
 		PSP_Shutdown();
 		bootPending_ = true;
 		invalid_ = true;
@@ -485,7 +485,7 @@ void EmuScreen::sendMessage(const char *message, const char *value) {
 			screenManager()->switchScreen(new MainScreen());
 			return;
 		}
-	} else if (!strcmp(message, "boot")) {
+	} else if (message == UIMessage::REQUEST_GAME_BOOT) {
 		const char *ext = strrchr(value, '.');
 		if (ext != nullptr && !strcmp(ext, ".ppst")) {
 			SaveState::Load(Path(value), -1, &AfterStateBoot);
@@ -496,33 +496,33 @@ void EmuScreen::sendMessage(const char *message, const char *value) {
 			// Don't leave it on CORE_POWERDOWN, we'll sometimes aggressively bail.
 			Core_UpdateState(CORE_POWERUP);
 		}
-	} else if (!strcmp(message, "config_loaded")) {
+	} else if (message == UIMessage::CONFIG_LOADED) {
 		// In case we need to position touch controls differently.
 		RecreateViews();
-	} else if (!strcmp(message, "control mapping") && screenManager()->topScreen() == this) {
+	} else if (message == UIMessage::SHOW_CONTROL_MAPPING && screenManager()->topScreen() == this) {
 		UpdateUIState(UISTATE_PAUSEMENU);
 		screenManager()->push(new ControlMappingScreen(gamePath_));
-	} else if (!strcmp(message, "display layout editor") && screenManager()->topScreen() == this) {
+	} else if (message == UIMessage::SHOW_DISPLAY_LAYOUT_EDITOR && screenManager()->topScreen() == this) {
 		UpdateUIState(UISTATE_PAUSEMENU);
 		screenManager()->push(new DisplayLayoutScreen(gamePath_));
-	} else if (!strcmp(message, "settings") && screenManager()->topScreen() == this) {
+	} else if (message == UIMessage::SHOW_SETTINGS && screenManager()->topScreen() == this) {
 		UpdateUIState(UISTATE_PAUSEMENU);
 		screenManager()->push(new GameSettingsScreen(gamePath_));
-	} else if (!strcmp(message, "gpu dump next frame")) {
+	} else if (message == UIMessage::REQUEST_GPU_DUMP_NEXT_FRAME) {
 		if (gpu)
 			gpu->DumpNextFrame();
-	} else if (!strcmp(message, "clear jit")) {
+	} else if (message == UIMessage::REQUEST_CLEAR_JIT) {
 		currentMIPS->ClearJitCache();
 		if (PSP_IsInited()) {
 			currentMIPS->UpdateCore((CPUCore)g_Config.iCpuCore);
 		}
-	} else if (!strcmp(message, "window minimized")) {
+	} else if (message == UIMessage::WINDOW_MINIMIZED) {
 		if (!strcmp(value, "true")) {
 			gstate_c.skipDrawReason |= SKIPDRAW_WINDOW_MINIMIZED;
 		} else {
 			gstate_c.skipDrawReason &= ~SKIPDRAW_WINDOW_MINIMIZED;
 		}
-	} else if (!strcmp(message, "chat screen")) {
+	} else if (message == UIMessage::SHOW_CHAT_SCREEN) {
 		if (g_Config.bEnableNetworkChat) {
 			if (!chatButton_)
 				RecreateViews();
@@ -541,7 +541,7 @@ void EmuScreen::sendMessage(const char *message, const char *value) {
 			OnChatMenu.Trigger(e);
 #endif
 		}
-	} else if (!strcmp(message, "app_resumed") && screenManager()->topScreen() == this) {
+	} else if (message == UIMessage::APP_RESUMED && screenManager()->topScreen() == this) {
 		if (System_GetPropertyInt(SYSPROP_DEVICE_TYPE) == DEVICE_TYPE_TV) {
 			if (!KeyMap::IsKeyMapped(DEVICE_ID_PAD_0, VIRTKEY_PAUSE) || !KeyMap::IsKeyMapped(DEVICE_ID_PAD_1, VIRTKEY_PAUSE)) {
 				// If it's a TV (so no built-in back button), and there's no back button mapped to a pad,
@@ -550,7 +550,7 @@ void EmuScreen::sendMessage(const char *message, const char *value) {
 				screenManager()->push(new GamePauseScreen(gamePath_));
 			}
 		}
-	} else if (!strcmp(message, "play_sound")) {
+	} else if (message == UIMessage::REQUEST_PLAY_SOUND) {
 		if (g_Config.bAchievementsSoundEffects) {
 			// TODO: Handle this some nicer way.
 			if (!strcmp(value, "achievement_unlocked")) {
@@ -732,13 +732,13 @@ void EmuScreen::onVKey(int virtualKeyCode, bool down) {
 	case VIRTKEY_PREVIOUS_SLOT:
 		if (down && !Achievements::WarnUserIfChallengeModeActive()) {
 			SaveState::PrevSlot();
-			System_PostUIMessage("savestate_displayslot", "");
+			System_PostUIMessage(UIMessage::SAVESTATE_DISPLAY_SLOT);
 		}
 		break;
 	case VIRTKEY_NEXT_SLOT:
 		if (down && !Achievements::WarnUserIfChallengeModeActive()) {
 			SaveState::NextSlot();
-			System_PostUIMessage("savestate_displayslot", "");
+			System_PostUIMessage(UIMessage::SAVESTATE_DISPLAY_SLOT);
 		}
 		break;
 	case VIRTKEY_TOGGLE_FULLSCREEN:
@@ -756,7 +756,7 @@ void EmuScreen::onVKey(int virtualKeyCode, bool down) {
 			g_Config.bSaveNewTextures = !g_Config.bSaveNewTextures;
 			if (g_Config.bSaveNewTextures) {
 				g_OSD.Show(OSDType::MESSAGE_INFO, sc->T("saveNewTextures_true", "Textures will now be saved to your storage"), 2.0);
-				System_PostUIMessage("gpu_configChanged", "");
+				System_PostUIMessage(UIMessage::GPU_CONFIG_CHANGED);
 			} else {
 				g_OSD.Show(OSDType::MESSAGE_INFO, sc->T("saveNewTextures_false", "Texture saving was disabled"), 2.0);
 			}
@@ -769,7 +769,7 @@ void EmuScreen::onVKey(int virtualKeyCode, bool down) {
 				g_OSD.Show(OSDType::MESSAGE_INFO, sc->T("replaceTextures_true", "Texture replacement enabled"), 2.0);
 			else
 				g_OSD.Show(OSDType::MESSAGE_INFO, sc->T("replaceTextures_false", "Textures no longer are being replaced"), 2.0);
-			System_PostUIMessage("gpu_configChanged", "");
+			System_PostUIMessage(UIMessage::GPU_CONFIG_CHANGED);
 		}
 		break;
 	case VIRTKEY_RAPID_FIRE:
@@ -1075,7 +1075,7 @@ UI::EventReturn EmuScreen::OnResume(UI::EventParams &params) {
 
 UI::EventReturn EmuScreen::OnReset(UI::EventParams &params) {
 	if (coreState == CoreState::CORE_RUNTIME_ERROR) {
-		System_PostUIMessage("reset", "");
+		System_PostUIMessage(UIMessage::REQUEST_GAME_RESET);
 	}
 	return UI::EVENT_DONE;
 }

@@ -880,7 +880,7 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 					if (Core_IsStepping())
 						Core_EnableStepping(false);
 					Core_Stop();
-					System_PostUIMessage("stop", "");
+					System_PostUIMessage(UIMessage::REQUEST_GAME_STOP);
 					// NOTE: Unlike Windows version, this
 					// does not need Core_WaitInactive();
 					// since SDL does not have a separate
@@ -888,7 +888,7 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 				}
 				if (ctrl && (k == SDLK_b))
 				{
-					System_PostUIMessage("reset", "");
+					System_PostUIMessage(UIMessage::REQUEST_GAME_RESET);
 					Core_EnableStepping(false);
 				}
 			}

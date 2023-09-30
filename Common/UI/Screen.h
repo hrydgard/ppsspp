@@ -21,6 +21,7 @@
 
 #include "Common/Common.h"
 #include "Common/Input/InputState.h"
+#include "Common/System/System.h"
 
 namespace UI {
 	class View;
@@ -55,7 +56,7 @@ public:
 	virtual void postRender() {}
 	virtual void resized() {}
 	virtual void dialogFinished(const Screen *dialog, DialogResult result) {}
-	virtual void sendMessage(const char *msg, const char *value) {}
+	virtual void sendMessage(UIMessage message, const char *value) {}
 	virtual void deviceLost() {}
 	virtual void deviceRestored() {}
 
@@ -138,7 +139,7 @@ public:
 	void axis(const AxisInput *axes, size_t count);
 
 	// Generic facility for gross hacks :P
-	void sendMessage(const char *msg, const char *value);
+	void sendMessage(UIMessage message, const char *value);
 
 	Screen *topScreen() const;
 

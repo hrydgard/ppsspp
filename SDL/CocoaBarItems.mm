@@ -442,17 +442,17 @@ void OSXOpenURL(const char *url) {
 }
 
 -(void)pauseAction: (NSMenuItem *)item {
-	System_PostUIMessage("pause", "");
+	System_PostUIMessage(UIMessage::REQUEST_GAME_PAUSE);
 }
 
 -(void)resetAction: (NSMenuItem *)item {
-    System_PostUIMessage("reset", "");
+    System_PostUIMessage(UIMessage::REQUEST_GAME_RESET);
 	Core_EnableStepping(false);
 }
 
 -(void)chatAction: (NSMenuItem *)item {
     if (GetUIState() == UISTATE_INGAME) {
-        System_PostUIMessage("chat screen", "");
+        System_PostUIMessage(UIMessage::REQUEST_CHAT_SCREEN);
     }
 }
 
@@ -549,7 +549,7 @@ TOGGLE_METHOD(FullScreen, g_Config.bFullScreen, System_MakeRequest(SystemRequest
     } else {
         g_Config.iDebugOverlay = (int)DebugOverlay::DEBUG_STATS;
     }
-    System_PostUIMessage("clear jit", "");
+    System_PostUIMessage(UIMessage::REQUEST_CLEAR_JIT);
     item.state = [self controlStateForBool: (DebugOverlay)g_Config.iDebugOverlay == DebugOverlay::DEBUG_STATS]; \
 }
 
@@ -631,14 +631,14 @@ TOGGLE_METHOD(FullScreen, g_Config.bFullScreen, System_MakeRequest(SystemRequest
 }
 
 -(void)openRecentItem: (NSMenuItem *)item {
-    System_PostUIMessage("boot", g_Config.RecentIsos()[item.tag].c_str());
+    System_PostUIMessage(UIMessage::REQUEST_BOOT_GAME, g_Config.RecentIsos()[item.tag].c_str());
 }
 
 -(void)openSystemFileBrowser {
     int g = 0;
     DarwinDirectoryPanelCallback callback = [g] (bool succ, Path thePathChosen) {
         if (succ)
-            System_PostUIMessage("boot", thePathChosen.c_str());
+            System_PostUIMessage(UIMessage::REQUEST_BOOT_GAME, thePathChosen.c_str());
     };
     
     DarwinFileSystemServices services;

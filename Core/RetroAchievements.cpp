@@ -58,7 +58,7 @@ static inline const char *DeNull(const char *ptr) {
 }
 
 void OnAchievementsLoginStateChange() {
-	System_PostUIMessage("achievements_loginstatechange", "");
+	System_PostUIMessage(UIMessage::ACHIEVEMENT_LOGIN_STATE_CHANGE);
 }
 
 namespace Achievements {
@@ -228,7 +228,7 @@ static void event_handler_callback(const rc_client_event_t *event, rc_client_t *
 	case RC_CLIENT_EVENT_ACHIEVEMENT_TRIGGERED:
 		// An achievement was earned by the player. The handler should notify the player that the achievement was earned.
 		g_OSD.ShowAchievementUnlocked(event->achievement->id);
-		System_PostUIMessage("play_sound", "achievement_unlocked");
+		System_PostUIMessage(UIMessage::REQUEST_PLAY_SOUND, "achievement_unlocked");
 		INFO_LOG(ACHIEVEMENTS, "Achievement unlocked: '%s' (%d)", event->achievement->title, event->achievement->id);
 		break;
 
@@ -250,7 +250,7 @@ static void event_handler_callback(const rc_client_event_t *event, rc_client_t *
 
 		g_OSD.Show(OSDType::MESSAGE_INFO, title, message, DeNull(gameInfo->badge_name), 10.0f);
 
-		System_PostUIMessage("play_sound", "achievement_unlocked");
+		System_PostUIMessage(UIMessage::REQUEST_PLAY_SOUND, "achievement_unlocked");
 
 		INFO_LOG(ACHIEVEMENTS, "%s", message.c_str());
 		break;
@@ -284,7 +284,7 @@ static void event_handler_callback(const rc_client_event_t *event, rc_client_t *
 			title = event->leaderboard->description;
 		}
 		g_OSD.ShowLeaderboardSubmitted(ApplySafeSubstitutions(ac->T("Submitted %1 for %2"), DeNull(event->leaderboard->tracker_value), title), "");
-		System_PostUIMessage("play_sound", "leaderboard_submitted");
+		System_PostUIMessage(UIMessage::REQUEST_PLAY_SOUND, "leaderboard_submitted");
 		break;
 	}
 	case RC_CLIENT_EVENT_ACHIEVEMENT_CHALLENGE_INDICATOR_SHOW:
@@ -341,7 +341,7 @@ static void event_handler_callback(const rc_client_event_t *event, rc_client_t *
 	case RC_CLIENT_EVENT_RESET:
 		WARN_LOG(ACHIEVEMENTS, "Resetting game due to achievement setting change!");
 		// Challenge mode was enabled, or something else that forces a game reset.
-		System_PostUIMessage("reset", "");
+		System_PostUIMessage(UIMessage::REQUEST_GAME_RESET);
 		break;
 	case RC_CLIENT_EVENT_SERVER_ERROR:
 		ERROR_LOG(ACHIEVEMENTS, "Server error: %s: %s", event->server_error->api, event->server_error->error_message);

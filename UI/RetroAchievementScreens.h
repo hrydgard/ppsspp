@@ -35,7 +35,7 @@ public:
 	const char *tag() const override { return "RetroAchievementsSettingsScreen"; }
 
 	void CreateTabs() override;
-	void sendMessage(const char *message, const char *value) override;
+	void sendMessage(UIMessage message, const char *value) override;
 
 protected:
 	bool ShowSearchControls() const override { return false; }
