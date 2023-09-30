@@ -59,6 +59,7 @@
 #include "Common/System/NativeApp.h"
 #include "Common/System/System.h"
 #include "Common/Thread/ThreadUtil.h"
+#include "Common/Data/Format/IniFile.h"
 
 #include "Common/ArmEmitter.h"
 #include "Common/BitScan.h"
@@ -978,6 +979,24 @@ bool TestSubstitutions() {
 	return true;
 }
 
+bool TestIniFile() {
+	const std::string testLine = "adsf\\#asdf = jkl\\# # comment";
+	const std::string testLine2 = "# Just a comment";
+
+	std::string temp;
+	ParsedIniLine line;
+	line.ParseFrom(testLine);
+	line.Reconstruct(&temp);
+	EXPECT_EQ_STR(testLine, temp);
+
+	temp.clear();
+	line.ParseFrom(testLine2);
+	line.Reconstruct(&temp);
+
+	EXPECT_EQ_STR(testLine2, temp);
+	return true;
+}
+
 typedef bool (*TestFunc)();
 struct TestItem {
 	const char *name;
@@ -1036,6 +1055,7 @@ TestItem availableTests[] = {
 	TEST_ITEM(EscapeMenuString),
 	TEST_ITEM(VFS),
 	TEST_ITEM(Substitutions),
+	TEST_ITEM(IniFile),
 };
 
 int main(int argc, const char *argv[]) {

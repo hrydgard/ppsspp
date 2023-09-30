@@ -8,12 +8,46 @@
 #include <memory>
 #include <map>
 #include <string>
+#include <string_view>
 #include <vector>
 #include <cstdint>
 
 #include "Common/File/Path.h"
 
 class VFSInterface;
+
+class ParsedIniLine {
+public:
+	ParsedIniLine() {}
+	ParsedIniLine(std::string_view key, std::string_view value) {
+		this->key = key;
+		this->value = value;
+	}
+	ParsedIniLine(std::string_view key, std::string_view value, std::string_view comment) {
+		this->key = key;
+		this->value = value;
+		this->comment = comment;
+	}
+	static ParsedIniLine CommentOnly(std::string_view comment) {
+		return ParsedIniLine(std::string_view(), std::string_view(), comment);
+	}
+
+	// Comments only come from "ParseFrom".
+	void ParseFrom(std::string_view line);
+	void Reconstruct(std::string *output) const;
+
+	// Having these as views allows a more efficient internal representation, like one joint string.
+	std::string_view Key() const { return key; }
+	std::string_view Value() const { return value; }
+	std::string_view Comment() const { return comment; }
+
+	void SetValue(std::string_view newValue) { value = newValue; }
+
+private:
+	std::string key;
+	std::string value;
+	std::string comment;
+};
 
 class Section {
 	friend class IniFile;
@@ -29,8 +63,8 @@ public:
 
 	std::map<std::string, std::string> ToMap() const;
 
-	std::string *GetLine(const char* key, std::string* valueOut, std::string* commentOut);
-	const std::string *GetLine(const char* key, std::string* valueOut, std::string* commentOut) const;
+	ParsedIniLine *GetLine(const char *key);
+	const ParsedIniLine *GetLine(const char *key) const;
 
 	void Set(const char* key, const char* newValue);
 	void Set(const char* key, const std::string& newValue, const std::string& defaultValue);
@@ -80,7 +114,7 @@ public:
 	}
 
 protected:
-	std::vector<std::string> lines;
+	std::vector<ParsedIniLine> lines_;
 	std::string name_;
 	std::string comment;
 };
@@ -88,12 +122,10 @@ protected:
 class IniFile {
 public:
 	bool Load(const Path &path);
-	bool Load(const std::string &filename) { return Load(Path(filename)); }
 	bool Load(std::istream &istream);
 	bool LoadFromVFS(VFSInterface &vfs, const std::string &filename);
 
 	bool Save(const Path &path);
-	bool Save(const std::string &filename) { return Save(Path(filename)); }
 
 	// Returns true if key exists in section
 	bool Exists(const char* sectionName, const char* key) const;
@@ -137,9 +169,6 @@ public:
 	}
 
 	bool GetKeys(const char* sectionName, std::vector<std::string>& keys) const;
-
-	void SetLines(const char* sectionName, const std::vector<std::string> &lines);
-	bool GetLines(const char* sectionName, std::vector<std::string>& lines, const bool remove_comments = true) const;
 
 	bool DeleteKey(const char* sectionName, const char* key);
 	bool DeleteSection(const char* sectionName);
