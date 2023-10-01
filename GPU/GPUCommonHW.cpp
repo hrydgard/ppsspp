@@ -948,12 +948,15 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 		vfb->usageFlags |= FB_USAGE_BLUE_TO_ALPHA;
 	}
 
-	u32 count = op & 0xFFFF;
+	if (gstate_c.dirty & DIRTY_VERTEXSHADER_STATE) {
+		vertexCost_ = EstimatePerVertexCost();
+	}
 
+	u32 count = op & 0xFFFF;
 	// Must check this after SetRenderFrameBuffer so we know SKIPDRAW_NON_DISPLAYED_FB.
 	if (gstate_c.skipDrawReason & (SKIPDRAW_SKIPFRAME | SKIPDRAW_NON_DISPLAYED_FB)) {
 		// Rough estimate, not sure what's correct.
-		cyclesExecuted += EstimatePerVertexCost() * count;
+		cyclesExecuted += vertexCost_ * count;
 		if (gstate.isModeClear()) {
 			gpuStats.numClears++;
 		}
@@ -972,10 +975,6 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 			return;
 		}
 		inds = Memory::GetPointerUnchecked(indexAddr);
-	}
-
-	if (gstate_c.dirty & DIRTY_VERTEXSHADER_STATE) {
-		vertexCost_ = EstimatePerVertexCost();
 	}
 
 	int bytesRead = 0;
@@ -1002,9 +1001,7 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 	// PRIM commands with other commands. A special case is Earth Defence Force 2 that changes culling mode
 	// between each prim, we just change the triangle winding right here to still be able to join draw calls.
 
-	uint32_t vtypeCheckMask = ~GE_VTYPE_WEIGHTCOUNT_MASK;
-	if (!g_Config.bSoftwareSkinning)
-		vtypeCheckMask = 0xFFFFFFFF;
+	uint32_t vtypeCheckMask = g_Config.bSoftwareSkinning ? (~GE_VTYPE_WEIGHTCOUNT_MASK) : 0xFFFFFFFF;
 
 	if (debugRecording_)
 		goto bail;

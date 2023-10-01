@@ -227,7 +227,7 @@ protected:
 		// TODO: KEEP_PREVIOUS is mistakenly treated as TRIANGLE here... This isn't new.
 		// static const bool p[8] = { false, false, false, true, true, true, false, true };
 		// 10111000 = 0xB8;
-		return (0xB8 >> (int)prim) & 1;
+		return (0xB8U >> (u8)prim) & 1;
 	}
 
 	void SetDrawType(DrawType type, GEPrimitiveType prim) {
