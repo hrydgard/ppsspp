@@ -687,7 +687,7 @@ void IRNativeRegCacheBase::FlushAll(bool gprs, bool fprs) {
 
 	for (int i = 1; i < TOTAL_MAPPABLE_IRREGS; i++) {
 		IRReg mipsReg = (IRReg)i;
-		if (!fprs && i >= 32 && IsValidFPR(mipsReg))
+		if (!fprs && i >= 32 && IsValidFPR(mipsReg - 32))
 			continue;
 		if (!gprs && IsValidGPR(mipsReg))
 			continue;
