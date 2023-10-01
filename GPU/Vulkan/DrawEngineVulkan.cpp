@@ -748,6 +748,7 @@ void DrawEngineVulkan::DoFlush() {
 				// Decode directly into the pushbuffer
 				DecodeVertsToPushPool(pushVertex_, &vbOffset, &vbuf);
 			}
+			DecodeInds();
 			gpuStats.numUncachedVertsDrawn += indexGen.VertexCount();
 		}
 
@@ -845,6 +846,7 @@ void DrawEngineVulkan::DoFlush() {
 			dec_ = GetVertexDecoder(lastVType_);
 		}
 		DecodeVerts(decoded_);
+		DecodeInds();
 		bool hasColor = (lastVType_ & GE_VTYPE_COL_MASK) != GE_VTYPE_COL_NONE;
 		if (gstate.isModeThrough()) {
 			gstate_c.vertexFullAlpha = gstate_c.vertexFullAlpha && (hasColor || gstate.getMaterialAmbientA() == 255);
@@ -857,6 +859,7 @@ void DrawEngineVulkan::DoFlush() {
 		// Undo the strip optimization, not supported by the SW code yet.
 		if (prim == GE_PRIM_TRIANGLE_STRIP)
 			prim = GE_PRIM_TRIANGLES;
+		_dbg_assert_(prim != GE_PRIM_INVALID);
 
 		u16 *inds = decIndex_;
 		SoftwareTransformResult result{};
@@ -1007,14 +1010,16 @@ void DrawEngineVulkan::DoFlush() {
 	}
 
 	gpuStats.numFlushes++;
-	gpuStats.numDrawCalls += numDrawCalls_;
+	gpuStats.numDrawCalls += numDrawInds_;
 	gpuStats.numVertsSubmitted += vertexCountInDrawCalls_;
 
 	indexGen.Reset();
 	decodedVerts_ = 0;
-	numDrawCalls_ = 0;
+	numDrawVerts_ = 0;
+	numDrawInds_ = 0;
 	vertexCountInDrawCalls_ = 0;
-	decodeCounter_ = 0;
+	decodeIndsCounter_ = 0;
+	decodeVertsCounter_ = 0;
 	gstate_c.vertexFullAlpha = true;
 	framebufferManager_->SetColorUpdated(gstate_c.skipDrawReason);
 
@@ -1030,8 +1035,10 @@ void DrawEngineVulkan::DoFlush() {
 void DrawEngineVulkan::ResetAfterDraw() {
 	indexGen.Reset();
 	decodedVerts_ = 0;
-	numDrawCalls_ = 0;
-	decodeCounter_ = 0;
+	numDrawVerts_ = 0;
+	numDrawInds_ = 0;
+	decodeIndsCounter_ = 0;
+	decodeVertsCounter_ = 0;
 	decOptions_.applySkinInDecode = g_Config.bSoftwareSkinning;
 	gstate_c.vertexFullAlpha = true;
 }

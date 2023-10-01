@@ -130,7 +130,7 @@ public:
 		return false;
 	}
 	int GetNumDrawCalls() const {
-		return numDrawCalls_;
+		return numDrawVerts_;
 	}
 
 	VertexDecoder *GetVertexDecoder(u32 vtype);
@@ -141,8 +141,8 @@ protected:
 	virtual bool UpdateUseHWTessellation(bool enabled) const { return enabled; }
 	void UpdatePlanes();
 
-	int ComputeNumVertsToDecode() const;
 	void DecodeVerts(u8 *dest);
+	void DecodeInds();
 
 	// Preprocessing for spline/bezier
 	u32 NormalizeVertices(u8 *outPtr, u8 *bufPtr, const u8 *inPtr, int lowerBound, int upperBound, u32 vertType, int *vertexSize = nullptr);
@@ -152,7 +152,10 @@ protected:
 	uint64_t ComputeHash();
 
 	// Vertex decoding
-	void DecodeVertsStep(u8 *dest, int &i, int &decodedVerts, const UVScale *uvScale);
+	void DecodeVertsStep(u8 *dest, int i, int &decodedVerts, const UVScale *uvScale);
+	void DecodeIndsStep(int i);
+
+	int ComputeNumVertsToDecode() const;
 
 	void ApplyFramebufferRead(FBOTexState *fboTexState);
 
@@ -210,25 +213,36 @@ protected:
 	TransformedVertex *transformedExpanded_ = nullptr;
 
 	// Defer all vertex decoding to a "Flush" (except when software skinning)
-	struct DeferredDrawCall {
+	struct DeferredVerts {
 		const void *verts;
-		const void *inds;
 		u32 vertexCount;
-		u8 indexType;
-		s8 prim;
-		u8 cullMode;
 		u16 indexLowerBound;
 		u16 indexUpperBound;
 		UVScale uvScale;
 	};
 
+	struct DeferredInds {
+		const void *inds;
+		u32 vertexCount;
+		u8 indexType;
+		s8 prim;
+		u8 cullMode;
+		u16 indexOffset;
+	};
+
 	enum { MAX_DEFERRED_DRAW_CALLS = 128 };
-	DeferredDrawCall drawCalls_[MAX_DEFERRED_DRAW_CALLS];
-	int numDrawCalls_ = 0;
+	DeferredVerts drawVerts_[MAX_DEFERRED_DRAW_CALLS];
+	DeferredInds drawInds_[MAX_DEFERRED_DRAW_CALLS];
+
+	int numDrawVerts_ = 0;
+	int numDrawInds_ = 0;
 	int vertexCountInDrawCalls_ = 0;
 
 	int decimationCounter_ = 0;
-	int decodeCounter_ = 0;
+	int decodeVertsCounter_ = 0;
+	int decodeIndsCounter_ = 0;
+
+	int indexOffset_ = 0;
 
 	// Vertex collector state
 	IndexGenerator indexGen;

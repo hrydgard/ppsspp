@@ -245,9 +245,11 @@ void DrawEngineGLES::DoFlush() {
 		// can't goto bail here, skips too many variable initializations. So let's wipe the most important stuff.
 		indexGen.Reset();
 		decodedVerts_ = 0;
-		numDrawCalls_ = 0;
+		numDrawVerts_ = 0;
+		numDrawInds_ = 0;
 		vertexCountInDrawCalls_ = 0;
-		decodeCounter_ = 0;
+		decodeVertsCounter_ = 0;
+		decodeIndsCounter_ = 0;
 		return;
 	}
 
@@ -471,7 +473,7 @@ void DrawEngineGLES::DoFlush() {
 
 bail:
 	gpuStats.numFlushes++;
-	gpuStats.numDrawCalls += numDrawCalls_;
+	gpuStats.numDrawCalls += numDrawInds_;
 	gpuStats.numVertsSubmitted += vertexCountInDrawCalls_;
 
 	// TODO: When the next flush has the same vertex format, we can continue with the same offset in the vertex buffer,
@@ -479,9 +481,11 @@ bail:
 	// wanted to avoid rebinding the vertex input every time).
 	indexGen.Reset();
 	decodedVerts_ = 0;
-	numDrawCalls_ = 0;
+	numDrawVerts_ = 0;
+	numDrawInds_ = 0;
 	vertexCountInDrawCalls_ = 0;
-	decodeCounter_ = 0;
+	decodeVertsCounter_ = 0;
+	decodeIndsCounter_ = 0;
 	gstate_c.vertexFullAlpha = true;
 	framebufferManager_->SetColorUpdated(gstate_c.skipDrawReason);
 
