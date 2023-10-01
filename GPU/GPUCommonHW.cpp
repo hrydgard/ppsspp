@@ -896,14 +896,10 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 
 	PROFILE_THIS_SCOPE("execprim");
 
-	u32 data = op & 0xFFFFFF;
-	u32 count = data & 0xFFFF;
-	if (count == 0)
-		return;
 	FlushImm();
 
 	// Upper bits are ignored.
-	GEPrimitiveType prim = static_cast<GEPrimitiveType>((data >> 16) & 7);
+	GEPrimitiveType prim = static_cast<GEPrimitiveType>((op >> 16) & 7);
 	SetDrawType(DRAW_PRIM, prim);
 
 	// Discard AA lines as we can't do anything that makes sense with these anyway. The SW plugin might, though.
@@ -952,6 +948,10 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 		vfb->usageFlags |= FB_USAGE_BLUE_TO_ALPHA;
 	}
 
+	u32 count = op & 0xFFFF;
+	if (count == 0)
+		return;
+
 	// Must check this after SetRenderFrameBuffer so we know SKIPDRAW_NON_DISPLAYED_FB.
 	if (gstate_c.skipDrawReason & (SKIPDRAW_SKIPFRAME | SKIPDRAW_NON_DISPLAYED_FB)) {
 		// Rough estimate, not sure what's correct.
@@ -995,9 +995,9 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 	int totalVertCount = count;
 
 	// PRIMs are often followed by more PRIMs. Save some work and submit them immediately.
-	const u32_le *src = (const u32_le *)Memory::GetPointerUnchecked(currentList->pc + 4);
+	const u32_le *start = (const u32_le *)Memory::GetPointerUnchecked(currentList->pc + 4);
+	const u32_le *src = start;
 	const u32_le *stall = currentList->stall ? (const u32_le *)Memory::GetPointerUnchecked(currentList->stall) : 0;
-	int cmdCount = 0;
 
 	// Optimized submission of sequences of PRIM. Allows us to avoid going through all the mess
 	// above for each one. This can be expanded to support additional games that intersperse
@@ -1130,12 +1130,12 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 			// All other commands might need a flush or something, stop this inner loop.
 			goto bail;
 		}
-		cmdCount++;
 		src++;
 	}
 
 bail:
 	gstate.cmdmem[GE_CMD_VERTEXTYPE] = vertexType;
+	int cmdCount = src - start;
 	// Skip over the commands we just read out manually.
 	if (cmdCount > 0) {
 		UpdatePC(currentList->pc, currentList->pc + cmdCount * 4);
