@@ -1009,21 +1009,22 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 	if (debugRecording_)
 		goto bail;
 
+	bool isTriangle = IsTrianglePrim(prim);
 	while (src != stall) {
 		uint32_t data = *src;
 		switch (data >> 24) {
 		case GE_CMD_PRIM:
 		{
-			u32 count = data & 0xFFFF;
 			GEPrimitiveType newPrim = static_cast<GEPrimitiveType>((data >> 16) & 7);
-			SetDrawType(DRAW_PRIM, newPrim);
+			if (IsTrianglePrim(newPrim) != isTriangle)
+				goto bail;  // Can't join over this boundary. Might as well exit and get this on the next time around.
 			// TODO: more efficient updating of verts/inds
 			verts = Memory::GetPointerUnchecked(gstate_c.vertexAddr);
 			inds = nullptr;
 			if ((vertexType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE) {
 				inds = Memory::GetPointerUnchecked(gstate_c.indexAddr);
 			}
-
+			u32 count = data & 0xFFFF;
 			drawEngineCommon_->SubmitPrim(verts, inds, newPrim, count, vertTypeID, cullMode, &bytesRead);
 			AdvanceVerts(vertexType, count, bytesRead);
 			totalVertCount += count;
