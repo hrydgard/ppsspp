@@ -341,7 +341,7 @@ enum IRFlags {
 struct IRMeta {
 	IROp op;
 	const char *name;
-	const char types[5];  // GGG
+	char types[5];  // GGG
 	u32 flags;
 };
 

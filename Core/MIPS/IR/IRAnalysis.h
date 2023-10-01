@@ -19,14 +19,37 @@
 
 #include "Core/MIPS/IR/IRInst.h"
 
-bool IRReadsFromFPR(const IRInst &inst, int reg, bool *directly = nullptr);
-bool IRReadsFromGPR(const IRInst &inst, int reg, bool *directly = nullptr);
-bool IRWritesToGPR(const IRInst &inst, int reg);
-bool IRWritesToFPR(const IRInst &inst, int reg);
-int IRDestGPR(const IRInst &inst);
-int IRDestFPRs(const IRInst &inst, IRReg regs[4]);
-int IRReadsFromGPRs(const IRInst &inst, IRReg regs[4]);
-int IRReadsFromFPRs(const IRInst &inst, IRReg regs[16]);
+struct IRInstMeta {
+	union {
+		IRInst i;
+		struct {
+			IROp op;
+			union {
+				IRReg dest;
+				IRReg src3;
+			};
+			IRReg src1;
+			IRReg src2;
+			u32 constant;
+		};
+	};
+	IRMeta m;
+};
+
+static_assert(offsetof(IRInst, src2) == offsetof(IRInstMeta, src2));
+
+inline IRInstMeta GetIRMeta(const IRInst &inst) {
+	return { { inst }, *GetIRMeta(inst.op) };
+}
+
+bool IRReadsFromFPR(const IRInstMeta &inst, int reg, bool *directly = nullptr);
+bool IRReadsFromGPR(const IRInstMeta &inst, int reg, bool *directly = nullptr);
+bool IRWritesToGPR(const IRInstMeta &inst, int reg);
+bool IRWritesToFPR(const IRInstMeta &inst, int reg);
+int IRDestGPR(const IRInstMeta &inst);
+int IRDestFPRs(const IRInstMeta &inst, IRReg regs[4]);
+int IRReadsFromGPRs(const IRInstMeta &inst, IRReg regs[4]);
+int IRReadsFromFPRs(const IRInstMeta &inst, IRReg regs[16]);
 
 struct IRSituation {
 	int lookaheadCount;
