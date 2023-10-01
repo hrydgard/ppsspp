@@ -1944,7 +1944,7 @@ bool GPUCommon::DescribeCodePtr(const u8 *ptr, std::string &name) {
 
 void GPUCommon::UpdateUVScaleOffset() {
 #ifdef _M_SSE
-	__m128i values = _mm_slli_epi32(_mm_load_si128((const __m128i *) & gstate.texscaleu), 8);
+	__m128i values = _mm_slli_epi32(_mm_load_si128((const __m128i *)&gstate.texscaleu), 8);
 	_mm_storeu_si128((__m128i *)&gstate_c.uv, values);
 #elif PPSSPP_ARCH(ARM_NEON)
 	const uint32x4_t values = vshlq_n_u32(vld1q_u32((const u32 *)&gstate.texscaleu), 8);

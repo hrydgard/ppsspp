@@ -949,8 +949,6 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 	}
 
 	u32 count = op & 0xFFFF;
-	if (count == 0)
-		return;
 
 	// Must check this after SetRenderFrameBuffer so we know SKIPDRAW_NON_DISPLAYED_FB.
 	if (gstate_c.skipDrawReason & (SKIPDRAW_SKIPFRAME | SKIPDRAW_NON_DISPLAYED_FB)) {
@@ -1017,11 +1015,6 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 		case GE_CMD_PRIM:
 		{
 			u32 count = data & 0xFFFF;
-			if (count == 0) {
-				// Ignore.
-				break;
-			}
-
 			GEPrimitiveType newPrim = static_cast<GEPrimitiveType>((data >> 16) & 7);
 			SetDrawType(DRAW_PRIM, newPrim);
 			// TODO: more efficient updating of verts/inds
@@ -1151,8 +1144,9 @@ bail:
 		}
 	}
 
-	gpuStats.vertexGPUCycles += vertexCost_ * totalVertCount;
-	cyclesExecuted += vertexCost_ * totalVertCount;
+	int cycles = vertexCost_ * totalVertCount;
+	gpuStats.vertexGPUCycles += cycles;
+	cyclesExecuted += cycles;
 }
 
 void GPUCommonHW::Execute_Bezier(u32 op, u32 diff) {
