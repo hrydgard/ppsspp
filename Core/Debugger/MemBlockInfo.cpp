@@ -51,6 +51,8 @@ private:
 		uint64_t ticks = 0;
 		uint32_t pc = 0;
 		bool allocated = false;
+		// Intentionally not save stated.
+		bool bulkStorage = false;
 		char tag[128]{};
 		Slab *prev = nullptr;
 		Slab *next = nullptr;
@@ -74,6 +76,7 @@ private:
 	Slab *first_ = nullptr;
 	Slab *lastFind_ = nullptr;
 	std::vector<Slab *> heads_;
+	Slab *bulkStorage_ = nullptr;
 };
 
 struct PendingNotifyMem {
@@ -197,6 +200,7 @@ void MemSlabMap::DoState(PointerWrap &p) {
 		// Since heads_ is a static size, let's avoid clearing it.
 		// This helps in case a debugger call happens concurrently.
 		Slab *old = first_;
+		Slab *oldBulk = bulkStorage_;
 		Do(p, count);
 
 		first_ = new Slab();
@@ -206,9 +210,12 @@ void MemSlabMap::DoState(PointerWrap &p) {
 
 		FillHeads(first_);
 
+		bulkStorage_ = new Slab[count];
+
 		Slab *slab = first_;
 		for (int i = 0; i < count; ++i) {
-			slab->next = new Slab();
+			slab->next = &bulkStorage_[i];
+			slab->next->bulkStorage = true;
 			slab->next->DoState(p);
 
 			slab->next->prev = slab;
@@ -220,9 +227,11 @@ void MemSlabMap::DoState(PointerWrap &p) {
 		// Now that it's entirely disconnected, delete the old slabs.
 		while (old != nullptr) {
 			Slab *next = old->next;
-			delete old;
+			if (!old->bulkStorage)
+				delete old;
 			old = next;
 		}
+		delete [] oldBulk;
 	} else {
 		for (Slab *slab = first_; slab != nullptr; slab = slab->next)
 			++count;
@@ -266,9 +275,12 @@ void MemSlabMap::Clear() {
 	Slab *s = first_;
 	while (s != nullptr) {
 		Slab *next = s->next;
-		delete s;
+		if (!s->bulkStorage)
+			delete s;
 		s = next;
 	}
+	delete bulkStorage_;
+	bulkStorage_ = nullptr;
 	first_ = nullptr;
 	lastFind_ = nullptr;
 	heads_.clear();
@@ -361,7 +373,8 @@ void MemSlabMap::Merge(Slab *a, Slab *b) {
 	}
 	if (lastFind_ == b)
 		lastFind_ = a;
-	delete b;
+	if (!b->bulkStorage)
+		delete b;
 }
 
 void MemSlabMap::FillHeads(Slab *slab) {
