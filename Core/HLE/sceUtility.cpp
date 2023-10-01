@@ -304,6 +304,8 @@ void __UtilityShutdown() {
 	npSigninDialog->Shutdown(true);
 
 	if (accessThread) {
+		// Don't need to free it during shutdown, may have already been freed.
+		accessThread->Forget();
 		delete accessThread;
 		accessThread = nullptr;
 		accessThreadState = "shutdown";
