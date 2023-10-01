@@ -896,14 +896,10 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 
 	PROFILE_THIS_SCOPE("execprim");
 
-	u32 data = op & 0xFFFFFF;
-	u32 count = data & 0xFFFF;
-	if (count == 0)
-		return;
 	FlushImm();
 
 	// Upper bits are ignored.
-	GEPrimitiveType prim = static_cast<GEPrimitiveType>((data >> 16) & 7);
+	GEPrimitiveType prim = static_cast<GEPrimitiveType>((op >> 16) & 7);
 	SetDrawType(DRAW_PRIM, prim);
 
 	// Discard AA lines as we can't do anything that makes sense with these anyway. The SW plugin might, though.
@@ -952,10 +948,15 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 		vfb->usageFlags |= FB_USAGE_BLUE_TO_ALPHA;
 	}
 
+	if (gstate_c.dirty & DIRTY_VERTEXSHADER_STATE) {
+		vertexCost_ = EstimatePerVertexCost();
+	}
+
+	u32 count = op & 0xFFFF;
 	// Must check this after SetRenderFrameBuffer so we know SKIPDRAW_NON_DISPLAYED_FB.
 	if (gstate_c.skipDrawReason & (SKIPDRAW_SKIPFRAME | SKIPDRAW_NON_DISPLAYED_FB)) {
 		// Rough estimate, not sure what's correct.
-		cyclesExecuted += EstimatePerVertexCost() * count;
+		cyclesExecuted += vertexCost_ * count;
 		if (gstate.isModeClear()) {
 			gpuStats.numClears++;
 		}
@@ -976,10 +977,6 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 		inds = Memory::GetPointerUnchecked(indexAddr);
 	}
 
-	if (gstate_c.dirty & DIRTY_VERTEXSHADER_STATE) {
-		vertexCost_ = EstimatePerVertexCost();
-	}
-
 	int bytesRead = 0;
 	UpdateUVScaleOffset();
 
@@ -995,18 +992,18 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 	int totalVertCount = count;
 
 	// PRIMs are often followed by more PRIMs. Save some work and submit them immediately.
-	const u32_le *src = (const u32_le *)Memory::GetPointerUnchecked(currentList->pc + 4);
+	const u32_le *start = (const u32_le *)Memory::GetPointerUnchecked(currentList->pc + 4);
+	const u32_le *src = start;
 	const u32_le *stall = currentList->stall ? (const u32_le *)Memory::GetPointerUnchecked(currentList->stall) : 0;
-	int cmdCount = 0;
 
 	// Optimized submission of sequences of PRIM. Allows us to avoid going through all the mess
 	// above for each one. This can be expanded to support additional games that intersperse
 	// PRIM commands with other commands. A special case is Earth Defence Force 2 that changes culling mode
 	// between each prim, we just change the triangle winding right here to still be able to join draw calls.
 
-	uint32_t vtypeCheckMask = ~GE_VTYPE_WEIGHTCOUNT_MASK;
-	if (!g_Config.bSoftwareSkinning)
-		vtypeCheckMask = 0xFFFFFFFF;
+	uint32_t vtypeCheckMask = g_Config.bSoftwareSkinning ? (~GE_VTYPE_WEIGHTCOUNT_MASK) : 0xFFFFFFFF;
+
+	bool isTriangle = IsTrianglePrim(prim);
 
 	if (debugRecording_)
 		goto bail;
@@ -1016,21 +1013,16 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 		switch (data >> 24) {
 		case GE_CMD_PRIM:
 		{
-			u32 count = data & 0xFFFF;
-			if (count == 0) {
-				// Ignore.
-				break;
-			}
-
 			GEPrimitiveType newPrim = static_cast<GEPrimitiveType>((data >> 16) & 7);
-			SetDrawType(DRAW_PRIM, newPrim);
+			if (IsTrianglePrim(newPrim) != isTriangle)
+				goto bail;  // Can't join over this boundary. Might as well exit and get this on the next time around.
 			// TODO: more efficient updating of verts/inds
 			verts = Memory::GetPointerUnchecked(gstate_c.vertexAddr);
 			inds = nullptr;
 			if ((vertexType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE) {
 				inds = Memory::GetPointerUnchecked(gstate_c.indexAddr);
 			}
-
+			u32 count = data & 0xFFFF;
 			drawEngineCommon_->SubmitPrim(verts, inds, newPrim, count, vertTypeID, cullMode, &bytesRead);
 			AdvanceVerts(vertexType, count, bytesRead);
 			totalVertCount += count;
@@ -1130,12 +1122,12 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 			// All other commands might need a flush or something, stop this inner loop.
 			goto bail;
 		}
-		cmdCount++;
 		src++;
 	}
 
 bail:
 	gstate.cmdmem[GE_CMD_VERTEXTYPE] = vertexType;
+	int cmdCount = src - start;
 	// Skip over the commands we just read out manually.
 	if (cmdCount > 0) {
 		UpdatePC(currentList->pc, currentList->pc + cmdCount * 4);
@@ -1151,8 +1143,9 @@ bail:
 		}
 	}
 
-	gpuStats.vertexGPUCycles += vertexCost_ * totalVertCount;
-	cyclesExecuted += vertexCost_ * totalVertCount;
+	int cycles = vertexCost_ * totalVertCount;
+	gpuStats.vertexGPUCycles += cycles;
+	cyclesExecuted += cycles;
 }
 
 void GPUCommonHW::Execute_Bezier(u32 op, u32 diff) {
