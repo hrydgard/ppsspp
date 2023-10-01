@@ -225,9 +225,13 @@ protected:
 
 	inline bool IsTrianglePrim(GEPrimitiveType prim) const {
 		// TODO: KEEP_PREVIOUS is mistakenly treated as TRIANGLE here... This isn't new.
+		//
+		// Interesting optimization, but not confident in performance:
 		// static const bool p[8] = { false, false, false, true, true, true, false, true };
 		// 10111000 = 0xB8;
-		return (0xB8U >> (u8)prim) & 1;
+		// return (0xB8U >> (u8)prim) & 1;
+
+		return prim > GE_PRIM_LINE_STRIP && prim != GE_PRIM_RECTANGLES;
 	}
 
 	void SetDrawType(DrawType type, GEPrimitiveType prim) {

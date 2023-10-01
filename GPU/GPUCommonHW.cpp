@@ -1003,10 +1003,11 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 
 	uint32_t vtypeCheckMask = g_Config.bSoftwareSkinning ? (~GE_VTYPE_WEIGHTCOUNT_MASK) : 0xFFFFFFFF;
 
+	bool isTriangle = IsTrianglePrim(prim);
+
 	if (debugRecording_)
 		goto bail;
 
-	bool isTriangle = IsTrianglePrim(prim);
 	while (src != stall) {
 		uint32_t data = *src;
 		switch (data >> 24) {
