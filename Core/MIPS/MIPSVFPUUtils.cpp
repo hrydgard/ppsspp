@@ -879,8 +879,9 @@ static float vfpu_dot_sse2(const float a[4], const float b[4])
 float vfpu_dot(const float a[4], const float b[4]) {
 #if defined(__SSE2__)
 	return vfpu_dot_sse2(a, b);
-#endif
+#else
 	return vfpu_dot_cpp(a, b);
+#endif
 }
 
 //==============================================================================
