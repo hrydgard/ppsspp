@@ -1051,9 +1051,9 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 		{
 			uint32_t diff = data ^ vertexType;
 			// don't mask upper bits, vertexType is unmasked
-			if (diff & vtypeCheckMask) {
-				goto bail;
-			} else if (data != vertexType) {
+			if (diff) {
+				if (diff & vtypeCheckMask)
+					goto bail;
 				canExtend = false;  // TODO: Might support extending between some vertex types in the future.
 				vertexType = data;
 				vertTypeID = GetVertTypeID(vertexType, gstate.getUVGenMode(), g_Config.bSoftwareSkinning);
@@ -1061,10 +1061,15 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 			break;
 		}
 		case GE_CMD_VADDR:
-			canExtend = false;  // TODO: See if we can do a more lenient check.
+		{
 			gstate.cmdmem[GE_CMD_VADDR] = data;
-			gstate_c.vertexAddr = gstate_c.getRelativeAddress(data & 0x00FFFFFF);
+			uint32_t newAddr = gstate_c.getRelativeAddress(data & 0x00FFFFFF);
+			if (gstate_c.vertexAddr != newAddr) {
+				canExtend = false;
+				gstate_c.vertexAddr = newAddr;
+			}
 			break;
+		}
 		case GE_CMD_IADDR:
 			gstate.cmdmem[GE_CMD_IADDR] = data;
 			gstate_c.indexAddr = gstate_c.getRelativeAddress(data & 0x00FFFFFF);
