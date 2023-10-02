@@ -683,12 +683,6 @@ bool DrawEngineCommon::ExtendNonIndexedPrim(GEPrimitiveType prim, int vertexCoun
 		return false;
 	}
 
-	bool applySkin = (vertTypeID & GE_VTYPE_WEIGHT_MASK) && decOptions_.applySkinInDecode;
-	if (applySkin) {
-		// TODO: Support this somehow.
-		return false;
-	}
-
 	_dbg_assert_(numDrawInds_ < MAX_DEFERRED_DRAW_INDS);
 	_dbg_assert_(numDrawVerts_ > 0);
 	*bytesRead = vertexCount * dec_->VertexSize();
@@ -707,6 +701,7 @@ bool DrawEngineCommon::ExtendNonIndexedPrim(GEPrimitiveType prim, int vertexCoun
 	dv.vertexCount += vertexCount;
 	dv.indexUpperBound = dv.vertexCount - 1;
 	vertexCountInDrawCalls_ += vertexCount;
+
 	return true;
 }
 
@@ -786,10 +781,6 @@ void DrawEngineCommon::SubmitPrim(const void *verts, const void *inds, GEPrimiti
 		// This prevents issues with consecutive self-renders in Ridge Racer.
 		gstate_c.Dirty(DIRTY_TEXTURE_PARAMS);
 		DispatchFlush();
-	}
-
-	if (applySkin) {
-		DecodeVerts(decoded_);
 	}
 }
 

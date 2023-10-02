@@ -104,6 +104,13 @@ public:
 
 	bool TestBoundingBox(const void *control_points, const void *inds, int vertexCount, u32 vertType);
 
+	void FlushSkin() {
+		bool applySkin = (lastVType_ & GE_VTYPE_WEIGHT_MASK) && decOptions_.applySkinInDecode;
+		if (applySkin) {
+			DecodeVerts(decoded_);
+		}
+	}
+
 	bool ExtendNonIndexedPrim(GEPrimitiveType prim, int vertexCount, u32 vertTypeID, int cullMode, int *bytesRead);
 	void SubmitPrim(const void *verts, const void *inds, GEPrimitiveType prim, int vertexCount, u32 vertTypeID, int cullMode, int *bytesRead);
 	template<class Surface>

@@ -1038,6 +1038,9 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 			inds = nullptr;
 			if ((vertexType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE) {
 				inds = Memory::GetPointerUnchecked(gstate_c.indexAddr);
+			} else {
+				// We can extend again after submitting a normal draw.
+				canExtend = true;
 			}
 			drawEngineCommon_->SubmitPrim(verts, inds, newPrim, count, vertTypeID, cullMode, &bytesRead);
 			AdvanceVerts(vertexType, count, bytesRead);
@@ -1058,18 +1061,18 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 			break;
 		}
 		case GE_CMD_VADDR:
+			canExtend = false;
 			gstate.cmdmem[GE_CMD_VADDR] = data;
 			gstate_c.vertexAddr = gstate_c.getRelativeAddress(data & 0x00FFFFFF);
-			canExtend = false;
 			break;
 		case GE_CMD_IADDR:
 			gstate.cmdmem[GE_CMD_IADDR] = data;
 			gstate_c.indexAddr = gstate_c.getRelativeAddress(data & 0x00FFFFFF);
 			break;
 		case GE_CMD_OFFSETADDR:
+			canExtend = false;
 			gstate.cmdmem[GE_CMD_OFFSETADDR] = data;
 			gstate_c.offsetAddr = data << 8;
-			canExtend = false;
 			break;
 		case GE_CMD_BASE:
 			gstate.cmdmem[GE_CMD_BASE] = data;
@@ -1124,6 +1127,8 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 				(Memory::ReadUnchecked_U32(target + 12 * 4) >> 24) == GE_CMD_RET &&
 				(target > currentList->stall || target + 12 * 4 < currentList->stall) &&
 				(gstate.boneMatrixNumber & 0x00FFFFFF) <= 96 - 12) {
+				drawEngineCommon_->FlushSkin();
+				canExtend = false;
 				FastLoadBoneMatrix(target);
 			} else {
 				goto bail;
@@ -1145,6 +1150,7 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 	}
 
 bail:
+	drawEngineCommon_->FlushSkin();
 	gstate.cmdmem[GE_CMD_VERTEXTYPE] = vertexType;
 	int cmdCount = src - start;
 	// Skip over the commands we just read out manually.
