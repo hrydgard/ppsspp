@@ -207,8 +207,6 @@ void UpdateRunLoop(GraphicsContext *ctx) {
 
 // Note: not used on Android.
 void Core_RunLoop(GraphicsContext *ctx) {
-	float refreshRate = System_GetPropertyFloat(SYSPROP_DISPLAY_REFRESH_RATE);
-
 	if (windowHidden && g_Config.bPauseWhenMinimized) {
 		sleep_ms(16);
 		return;
@@ -224,6 +222,7 @@ void Core_RunLoop(GraphicsContext *ctx) {
 	NativeFrame(ctx);
 
 	if (menuThrottle) {
+		float refreshRate = System_GetPropertyFloat(SYSPROP_DISPLAY_REFRESH_RATE);
 		// Simple throttling to not burn the GPU in the menu.
 		// TODO: This should move into NativeFrame. Also, it's only necessary in MAILBOX or IMMEDIATE presentation modes.
 		double diffTime = time_now_d() - startTime;
