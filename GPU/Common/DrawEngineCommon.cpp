@@ -678,6 +678,38 @@ uint64_t DrawEngineCommon::ComputeHash() {
 	return fullhash;
 }
 
+bool DrawEngineCommon::ExtendNonIndexedPrim(GEPrimitiveType prim, int vertexCount, u32 vertTypeID, int cullMode, int *bytesRead) {
+	if (numDrawInds_ >= MAX_DEFERRED_DRAW_INDS || vertexCountInDrawCalls_ + vertexCount > VERTEX_BUFFER_MAX) {
+		return false;
+	}
+
+	bool applySkin = (vertTypeID & GE_VTYPE_WEIGHT_MASK) && decOptions_.applySkinInDecode;
+	if (applySkin) {
+		// TODO: Support this somehow.
+		return false;
+	}
+
+	_dbg_assert_(numDrawInds_ < MAX_DEFERRED_DRAW_INDS);
+	_dbg_assert_(numDrawVerts_ > 0);
+	*bytesRead = vertexCount * dec_->VertexSize();
+
+	DeferredInds &di = drawInds_[numDrawInds_++];
+	di.inds = nullptr;
+	di.indexType = 0;
+	di.prim = prim;
+	di.cullMode = cullMode;
+	di.vertexCount = vertexCount;
+	di.vertDecodeIndex = numDrawVerts_ - 1;
+
+	DeferredVerts &dv = drawVerts_[numDrawVerts_ - 1];
+	int offset = dv.vertexCount;
+	di.offset = offset;
+	dv.vertexCount += vertexCount;
+	dv.indexUpperBound = dv.vertexCount - 1;
+	vertexCountInDrawCalls_ += vertexCount;
+	return true;
+}
+
 // vertTypeID is the vertex type but with the UVGen mode smashed into the top bits.
 void DrawEngineCommon::SubmitPrim(const void *verts, const void *inds, GEPrimitiveType prim, int vertexCount, u32 vertTypeID, int cullMode, int *bytesRead) {
 	if (!indexGen.PrimCompatible(prevPrim_, prim) || numDrawVerts_ >= MAX_DEFERRED_DRAW_VERTS || numDrawInds_ >= MAX_DEFERRED_DRAW_INDS || vertexCountInDrawCalls_ + vertexCount > VERTEX_BUFFER_MAX) {
@@ -750,14 +782,14 @@ void DrawEngineCommon::SubmitPrim(const void *verts, const void *inds, GEPrimiti
 
 	vertexCountInDrawCalls_ += vertexCount;
 
-	if (applySkin) {
-		DecodeVerts(decoded_);
-	}
-
 	if (prim == GE_PRIM_RECTANGLES && (gstate.getTextureAddress(0) & 0x3FFFFFFF) == (gstate.getFrameBufAddress() & 0x3FFFFFFF)) {
 		// This prevents issues with consecutive self-renders in Ridge Racer.
 		gstate_c.Dirty(DIRTY_TEXTURE_PARAMS);
 		DispatchFlush();
+	}
+
+	if (applySkin) {
+		DecodeVerts(decoded_);
 	}
 }
 

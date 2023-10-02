@@ -967,6 +967,8 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 
 	const void *verts = Memory::GetPointerUnchecked(gstate_c.vertexAddr);
 	const void *inds = nullptr;
+
+	bool canExtend = true;
 	u32 vertexType = gstate.vertType;
 	if ((vertexType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE) {
 		u32 indexAddr = gstate_c.indexAddr;
@@ -975,6 +977,7 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 			return;
 		}
 		inds = Memory::GetPointerUnchecked(indexAddr);
+		canExtend = false;
 	}
 
 	int bytesRead = 0;
@@ -1017,12 +1020,25 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 			if (IsTrianglePrim(newPrim) != isTriangle)
 				goto bail;  // Can't join over this boundary. Might as well exit and get this on the next time around.
 			// TODO: more efficient updating of verts/inds
+
+			u32 count = data & 0xFFFF;
+			if (canExtend) {
+				// Non-indexed draws can be cheaply merged if vertexAddr hasn't changed, that means the vertices
+				// are consecutive in memory.
+				_dbg_assert_((vertexType & GE_VTYPE_IDX_MASK) == GE_VTYPE_IDX_NONE);
+				if (drawEngineCommon_->ExtendNonIndexedPrim(newPrim, count, vertTypeID, cullMode, &bytesRead)) {
+					gstate_c.vertexAddr += bytesRead;
+					totalVertCount += count;
+					break;
+				}
+			}
+
+			// Failed, or can't extend? Do a normal submit.
 			verts = Memory::GetPointerUnchecked(gstate_c.vertexAddr);
 			inds = nullptr;
 			if ((vertexType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE) {
 				inds = Memory::GetPointerUnchecked(gstate_c.indexAddr);
 			}
-			u32 count = data & 0xFFFF;
 			drawEngineCommon_->SubmitPrim(verts, inds, newPrim, count, vertTypeID, cullMode, &bytesRead);
 			AdvanceVerts(vertexType, count, bytesRead);
 			totalVertCount += count;
@@ -1030,6 +1046,7 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 		}
 		case GE_CMD_VERTEXTYPE:
 		{
+			canExtend = false;  // TODO: Might support extending between some vertex types in the future.
 			uint32_t diff = data ^ vertexType;
 			// don't mask upper bits, vertexType is unmasked
 			if (diff & vtypeCheckMask) {
@@ -1043,6 +1060,7 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 		case GE_CMD_VADDR:
 			gstate.cmdmem[GE_CMD_VADDR] = data;
 			gstate_c.vertexAddr = gstate_c.getRelativeAddress(data & 0x00FFFFFF);
+			canExtend = false;
 			break;
 		case GE_CMD_IADDR:
 			gstate.cmdmem[GE_CMD_IADDR] = data;
@@ -1051,6 +1069,7 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 		case GE_CMD_OFFSETADDR:
 			gstate.cmdmem[GE_CMD_OFFSETADDR] = data;
 			gstate_c.offsetAddr = data << 8;
+			canExtend = false;
 			break;
 		case GE_CMD_BASE:
 			gstate.cmdmem[GE_CMD_BASE] = data;
