@@ -228,6 +228,7 @@ protected:
 		u8 indexType;
 		s8 prim;
 		u8 cullMode;
+		u16 offset;
 	};
 
 	enum { MAX_DEFERRED_DRAW_VERTS = 128 };  // If you change this to more than 256, change type of DeferredInds::vertDecodeIndex.

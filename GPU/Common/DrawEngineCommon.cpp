@@ -718,6 +718,7 @@ void DrawEngineCommon::SubmitPrim(const void *verts, const void *inds, GEPrimiti
 	di.cullMode = cullMode;
 	di.vertexCount = vertexCount;
 	di.vertDecodeIndex = numDrawVerts_;
+	di.offset = 0;
 
 	_dbg_assert_(numDrawVerts_ <= MAX_DEFERRED_DRAW_VERTS);
 	_dbg_assert_(numDrawInds_ <= MAX_DEFERRED_DRAW_INDS);
@@ -782,7 +783,7 @@ void DrawEngineCommon::DecodeInds() {
 	for (; i < numDrawInds_; i++) {
 		const DeferredInds &di = drawInds_[i];
 
-		int indexOffset = drawVertexOffsets_[di.vertDecodeIndex];
+		int indexOffset = drawVertexOffsets_[di.vertDecodeIndex] + di.offset;
 		bool clockwise = true;
 		if (gstate.isCullEnabled() && gstate.getCullMode() != di.cullMode) {
 			clockwise = false;
