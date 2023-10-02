@@ -1049,19 +1049,19 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 		}
 		case GE_CMD_VERTEXTYPE:
 		{
-			canExtend = false;  // TODO: Might support extending between some vertex types in the future.
 			uint32_t diff = data ^ vertexType;
 			// don't mask upper bits, vertexType is unmasked
 			if (diff & vtypeCheckMask) {
 				goto bail;
-			} else {
+			} else if (data != vertexType) {
+				canExtend = false;  // TODO: Might support extending between some vertex types in the future.
 				vertexType = data;
 				vertTypeID = GetVertTypeID(vertexType, gstate.getUVGenMode(), g_Config.bSoftwareSkinning);
 			}
 			break;
 		}
 		case GE_CMD_VADDR:
-			canExtend = false;
+			canExtend = false;  // TODO: See if we can do a more lenient check.
 			gstate.cmdmem[GE_CMD_VADDR] = data;
 			gstate_c.vertexAddr = gstate_c.getRelativeAddress(data & 0x00FFFFFF);
 			break;
@@ -1070,7 +1070,6 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 			gstate_c.indexAddr = gstate_c.getRelativeAddress(data & 0x00FFFFFF);
 			break;
 		case GE_CMD_OFFSETADDR:
-			canExtend = false;
 			gstate.cmdmem[GE_CMD_OFFSETADDR] = data;
 			gstate_c.offsetAddr = data << 8;
 			break;
