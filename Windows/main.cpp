@@ -283,22 +283,28 @@ static int ScreenDPI() {
 #endif
 
 static int ScreenRefreshRateHz() {
-	DEVMODE lpDevMode;
-	memset(&lpDevMode, 0, sizeof(DEVMODE));
-	lpDevMode.dmSize = sizeof(DEVMODE);
-	lpDevMode.dmDriverExtra = 0;
+	static int rate = 0;
+	static double lastCheck = 0.0;
+	double now = time_now_d();
+	if (!rate || lastCheck < now - 10.0) {
+		lastCheck = now;
+		DEVMODE lpDevMode{};
+		lpDevMode.dmSize = sizeof(DEVMODE);
+		lpDevMode.dmDriverExtra = 0;
 
-	// TODO: Use QueryDisplayConfig instead (Win7+) so we can get fractional refresh rates correctly.
+		// TODO: Use QueryDisplayConfig instead (Win7+) so we can get fractional refresh rates correctly.
 
-	if (EnumDisplaySettings(NULL, ENUM_CURRENT_SETTINGS, &lpDevMode) == 0) {
-		return 60;  // default value
-	} else {
-		if (lpDevMode.dmFields & DM_DISPLAYFREQUENCY) {
-			return lpDevMode.dmDisplayFrequency > 60 ? lpDevMode.dmDisplayFrequency : 60;
+		if (EnumDisplaySettings(NULL, ENUM_CURRENT_SETTINGS, &lpDevMode) == 0) {
+			rate = 60;  // default value
 		} else {
-			return 60;
+			if (lpDevMode.dmFields & DM_DISPLAYFREQUENCY) {
+				rate = lpDevMode.dmDisplayFrequency > 60 ? lpDevMode.dmDisplayFrequency : 60;
+			} else {
+				rate = 60;
+			}
 		}
 	}
+	return rate;
 }
 
 int System_GetPropertyInt(SystemProperty prop) {
