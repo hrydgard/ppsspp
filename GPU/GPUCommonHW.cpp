@@ -1052,6 +1052,7 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 			uint32_t diff = data ^ vertexType;
 			// don't mask upper bits, vertexType is unmasked
 			if (diff) {
+				drawEngineCommon_->FlushSkin();
 				if (diff & vtypeCheckMask)
 					goto bail;
 				canExtend = false;  // TODO: Might support extending between some vertex types in the future.
