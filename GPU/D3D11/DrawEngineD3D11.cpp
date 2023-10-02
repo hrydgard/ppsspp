@@ -727,6 +727,7 @@ rotateVBO:
 
 	gpuStats.numFlushes++;
 	gpuStats.numDrawCalls += numDrawInds_;
+	gpuStats.numVertexDecodes += numDrawVerts_;
 	gpuStats.numVertsSubmitted += vertexCountInDrawCalls_;
 
 	indexGen.Reset();

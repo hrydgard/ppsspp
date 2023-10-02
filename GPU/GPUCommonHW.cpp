@@ -1647,7 +1647,7 @@ size_t GPUCommonHW::FormatGPUStatsCommon(char *buffer, size_t size) {
 	float vertexAverageCycles = gpuStats.numVertsSubmitted > 0 ? (float)gpuStats.vertexGPUCycles / (float)gpuStats.numVertsSubmitted : 0.0f;
 	return snprintf(buffer, size,
 		"DL processing time: %0.2f ms, %d drawsync, %d listsync\n"
-		"Draw calls: %d, flushes %d, clears %d, bbox jumps %d (%d updates)\n"
+		"Draw: %d (%d dec), flushes %d, clears %d, bbox jumps %d (%d updates)\n"
 		"Cached draws: %d (tracked: %d)\n"
 		"Vertices: %d cached: %d uncached: %d\n"
 		"FBOs active: %d (evaluations: %d)\n"
@@ -1660,6 +1660,7 @@ size_t GPUCommonHW::FormatGPUStatsCommon(char *buffer, size_t size) {
 		gpuStats.numDrawSyncs,
 		gpuStats.numListSyncs,
 		gpuStats.numDrawCalls,
+		gpuStats.numVertexDecodes,
 		gpuStats.numFlushes,
 		gpuStats.numClears,
 		gpuStats.numBBOXJumps,

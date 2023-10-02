@@ -475,6 +475,7 @@ void DrawEngineGLES::DoFlush() {
 bail:
 	gpuStats.numFlushes++;
 	gpuStats.numDrawCalls += numDrawInds_;
+	gpuStats.numVertexDecodes += numDrawVerts_;
 	gpuStats.numVertsSubmitted += vertexCountInDrawCalls_;
 
 	// TODO: When the next flush has the same vertex format, we can continue with the same offset in the vertex buffer,
