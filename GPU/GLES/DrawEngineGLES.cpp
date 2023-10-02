@@ -286,9 +286,9 @@ void DrawEngineGLES::DoFlush() {
 			// Figure out how much pushbuffer space we need to allocate.
 			int vertsToDecode = ComputeNumVertsToDecode();
 			u8 *dest = (u8 *)frameData.pushVertex->Allocate(vertsToDecode * dec_->GetDecVtxFmt().stride, 4, &vertexBuffer, &vertexBufferOffset);
-			// Indices are decoded in here.
 			DecodeVerts(dest);
 		}
+		DecodeInds();
 
 		gpuStats.numUncachedVertsDrawn += indexGen.VertexCount();
 
@@ -345,6 +345,7 @@ void DrawEngineGLES::DoFlush() {
 			dec_ = GetVertexDecoder(lastVType_);
 		}
 		DecodeVerts(decoded_);
+		DecodeInds();
 
 		bool hasColor = (lastVType_ & GE_VTYPE_COL_MASK) != GE_VTYPE_COL_NONE;
 		if (gstate.isModeThrough()) {
@@ -383,7 +384,7 @@ void DrawEngineGLES::DoFlush() {
 			UpdateCachedViewportState(vpAndScissor_);
 		}
 
-		int maxIndex = indexGen.MaxIndex();
+		int maxIndex = MaxIndex();
 		int vertexCount = indexGen.VertexCount();
 
 		// TODO: Split up into multiple draw calls for GLES 2.0 where you can't guarantee support for more than 0x10000 verts.

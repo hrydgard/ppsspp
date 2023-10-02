@@ -384,9 +384,10 @@ void DrawEngineD3D11::DoFlush() {
 					vai->status = VertexArrayInfoD3D11::VAI_HASHING;
 					vai->drawsUntilNextFullHash = 0;
 					DecodeVerts(decoded_); // writes to indexGen
+					DecodeInds();
 					vai->numVerts = indexGen.VertexCount();
 					vai->prim = indexGen.Prim();
-					vai->maxIndex = indexGen.MaxIndex();
+					vai->maxIndex = MaxIndex();
 					vai->flags = gstate_c.vertexFullAlpha ? VAI11_FLAG_VERTEXFULLALPHA : 0;
 					goto rotateVBO;
 				}
@@ -409,6 +410,7 @@ void DrawEngineD3D11::DoFlush() {
 						if (newMiniHash != vai->minihash || newHash != vai->hash) {
 							MarkUnreliable(vai);
 							DecodeVerts(decoded_);
+							DecodeInds();
 							goto rotateVBO;
 						}
 						if (vai->numVerts > 64) {
@@ -428,15 +430,17 @@ void DrawEngineD3D11::DoFlush() {
 						if (newMiniHash != vai->minihash) {
 							MarkUnreliable(vai);
 							DecodeVerts(decoded_);
+							DecodeInds();
 							goto rotateVBO;
 						}
 					}
 
 					if (vai->vbo == 0) {
 						DecodeVerts(decoded_);
+						DecodeInds();
 						vai->numVerts = indexGen.VertexCount();
 						vai->prim = indexGen.Prim();
-						vai->maxIndex = indexGen.MaxIndex();
+						vai->maxIndex = MaxIndex();
 						vai->flags = gstate_c.vertexFullAlpha ? VAI11_FLAG_VERTEXFULLALPHA : 0;
 						useElements = !indexGen.SeenOnlyPurePrims() || prim == GE_PRIM_TRIANGLE_FAN;
 						if (!useElements && indexGen.PureCount()) {
@@ -446,7 +450,7 @@ void DrawEngineD3D11::DoFlush() {
 						_dbg_assert_msg_(gstate_c.vertBounds.minV >= gstate_c.vertBounds.maxV, "Should not have checked UVs when caching.");
 
 						// TODO: Combine these two into one buffer?
-						u32 size = dec_->GetDecVtxFmt().stride * indexGen.MaxIndex();
+						u32 size = dec_->GetDecVtxFmt().stride * MaxIndex();
 						D3D11_BUFFER_DESC desc{ size, D3D11_USAGE_IMMUTABLE, D3D11_BIND_VERTEX_BUFFER, 0 };
 						D3D11_SUBRESOURCE_DATA data{ decoded_ };
 						ASSERT_SUCCESS(device_->CreateBuffer(&desc, &data, &vai->vbo));
@@ -500,6 +504,7 @@ void DrawEngineD3D11::DoFlush() {
 						vai->numFrames++;
 					}
 					DecodeVerts(decoded_);
+					DecodeInds();
 					goto rotateVBO;
 				}
 			}
@@ -507,11 +512,12 @@ void DrawEngineD3D11::DoFlush() {
 			vai->lastFrame = gpuStats.numFlips;
 		} else {
 			DecodeVerts(decoded_);
+			DecodeInds();
 rotateVBO:
 			gpuStats.numUncachedVertsDrawn += indexGen.VertexCount();
 			useElements = !indexGen.SeenOnlyPurePrims() || prim == GE_PRIM_TRIANGLE_FAN;
 			vertexCount = indexGen.VertexCount();
-			maxIndex = indexGen.MaxIndex();
+			maxIndex = MaxIndex();
 			if (!useElements && indexGen.PureCount()) {
 				vertexCount = indexGen.PureCount();
 			}
@@ -584,6 +590,7 @@ rotateVBO:
 			dec_ = GetVertexDecoder(lastVType_);
 		}
 		DecodeVerts(decoded_);
+		DecodeInds();
 		bool hasColor = (lastVType_ & GE_VTYPE_COL_MASK) != GE_VTYPE_COL_NONE;
 		if (gstate.isModeThrough()) {
 			gstate_c.vertexFullAlpha = gstate_c.vertexFullAlpha && (hasColor || gstate.getMaterialAmbientA() == 255);
@@ -622,7 +629,7 @@ rotateVBO:
 			UpdateCachedViewportState(vpAndScissor);
 		}
 
-		int maxIndex = indexGen.MaxIndex();
+		int maxIndex = MaxIndex();
 		SoftwareTransform swTransform(params);
 
 		const Lin::Vec3 trans(gstate_c.vpXOffset, -gstate_c.vpYOffset, gstate_c.vpZOffset * 0.5f + 0.5f);

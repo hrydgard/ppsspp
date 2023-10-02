@@ -144,16 +144,16 @@ protected:
 	void DecodeVerts(u8 *dest);
 	void DecodeInds();
 
+	int MaxIndex() const {
+		return decodedVerts_;
+	}
+
 	// Preprocessing for spline/bezier
 	u32 NormalizeVertices(u8 *outPtr, u8 *bufPtr, const u8 *inPtr, int lowerBound, int upperBound, u32 vertType, int *vertexSize = nullptr);
 
 	// Utility for vertex caching
 	u32 ComputeMiniHash();
 	uint64_t ComputeHash();
-
-	// Vertex decoding
-	void DecodeVertsStep(u8 *dest, int i, int &decodedVerts, const UVScale *uvScale);
-	void DecodeIndsStep(int i);
 
 	int ComputeNumVertsToDecode() const;
 
@@ -224,15 +224,17 @@ protected:
 	struct DeferredInds {
 		const void *inds;
 		u32 vertexCount;
+		u8 vertDecodeIndex;  // index into the drawVerts_ array to look up the vertexOffset.
 		u8 indexType;
 		s8 prim;
 		u8 cullMode;
-		u16 indexOffset;
 	};
 
-	enum { MAX_DEFERRED_DRAW_CALLS = 128 };
-	DeferredVerts drawVerts_[MAX_DEFERRED_DRAW_CALLS];
-	DeferredInds drawInds_[MAX_DEFERRED_DRAW_CALLS];
+	enum { MAX_DEFERRED_DRAW_VERTS = 128 };  // If you change this to more than 256, change type of DeferredInds::vertDecodeIndex.
+	enum { MAX_DEFERRED_DRAW_INDS = 512 };  // Monster Hunter spams indexed calls that we end up merging.
+	DeferredVerts drawVerts_[MAX_DEFERRED_DRAW_VERTS];
+	uint32_t drawVertexOffsets_[MAX_DEFERRED_DRAW_VERTS];
+	DeferredInds drawInds_[MAX_DEFERRED_DRAW_INDS];
 
 	int numDrawVerts_ = 0;
 	int numDrawInds_ = 0;
@@ -241,8 +243,6 @@ protected:
 	int decimationCounter_ = 0;
 	int decodeVertsCounter_ = 0;
 	int decodeIndsCounter_ = 0;
-
-	int indexOffset_ = 0;
 
 	// Vertex collector state
 	IndexGenerator indexGen;

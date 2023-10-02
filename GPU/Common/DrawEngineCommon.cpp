@@ -72,29 +72,6 @@ VertexDecoder *DrawEngineCommon::GetVertexDecoder(u32 vtype) {
 	return dec;
 }
 
-void DrawEngineCommon::DecodeVerts(u8 *dest) {
-	int decodeVertsCounter = decodeVertsCounter_;
-	for (; decodeVertsCounter < numDrawVerts_; decodeVertsCounter++) {
-		DecodeVertsStep(dest, decodeVertsCounter, decodedVerts_, &drawVerts_[decodeVertsCounter].uvScale);
-	}
-	decodeVertsCounter_ = decodeVertsCounter;
-}
-
-void DrawEngineCommon::DecodeInds() {
-	int decodeIndsCounter = decodeIndsCounter_;
-	for (; decodeIndsCounter < numDrawInds_; decodeIndsCounter++) {
-		DecodeIndsStep(decodeIndsCounter);
-	}
-	decodeIndsCounter_ = decodeIndsCounter;
-
-	// Sanity check
-	if (indexGen.Prim() < 0) {
-		ERROR_LOG_REPORT(G3D, "DecodeVerts: Failed to deduce prim: %i", indexGen.Prim());
-		// Force to points (0)
-		indexGen.AddPrim(GE_PRIM_POINTS, 0, true);
-	}
-}
-
 std::vector<std::string> DrawEngineCommon::DebugGetVertexLoaderIDs() {
 	std::vector<std::string> ids;
 	decoderMap_.Iterate([&](const uint32_t vtype, VertexDecoder *decoder) {
@@ -596,45 +573,6 @@ void DrawEngineCommon::ApplyFramebufferRead(FBOTexState *fboTexState) {
 	gstate_c.Dirty(DIRTY_SHADERBLEND);
 }
 
-void DrawEngineCommon::DecodeVertsStep(u8 *dest, int i, int &decodedVerts, const UVScale *uvScale) {
-	PROFILE_THIS_SCOPE("vertdec");
-
-	const DeferredVerts &dv = drawVerts_[i];
-
-	int indexLowerBound = dv.indexLowerBound;
-	int indexUpperBound = dv.indexUpperBound;
-
-	// Decode the verts (and at the same time apply morphing/skinning). Simple.
-	dec_->DecodeVerts(dest + decodedVerts * (int)dec_->GetDecVtxFmt().stride, dv.verts, uvScale, dv.indexLowerBound, dv.indexUpperBound);
-	decodedVerts += indexUpperBound - indexLowerBound + 1;
-}
-
-void DrawEngineCommon::DecodeIndsStep(int i) {
-	const DeferredInds &di = drawInds_[i];
-	bool clockwise = true;
-	if (gstate.isCullEnabled() && gstate.getCullMode() != di.cullMode) {
-		clockwise = false;
-	}
-	// We've already collapsed subsequent draws with the same vertex pointer, so no tricky logic here anymore.	
-	// 2. Loop through the drawcalls, translating indices as we go.
-	switch (di.indexType) {
-	case GE_VTYPE_IDX_NONE >> GE_VTYPE_IDX_SHIFT:
-		indexGen.AddPrim(di.prim, di.vertexCount, clockwise);
-		break;
-	case GE_VTYPE_IDX_8BIT >> GE_VTYPE_IDX_SHIFT:
-		indexGen.TranslatePrim(di.prim, di.vertexCount, (const u8 *)di.inds, di.indexOffset, clockwise);
-		break;
-	case GE_VTYPE_IDX_16BIT >> GE_VTYPE_IDX_SHIFT:
-		indexGen.TranslatePrim(di.prim, di.vertexCount, (const u16_le *)di.inds, di.indexOffset, clockwise);
-		break;
-	case GE_VTYPE_IDX_32BIT >> GE_VTYPE_IDX_SHIFT:
-		indexGen.TranslatePrim(di.prim, di.vertexCount, (const u32_le *)di.inds, di.indexOffset, clockwise);
-		break;
-	}
-	// 4. Advance indexgen vertex counter.
-	indexGen.Advance(di.vertexCount);
-}
-
 inline u32 ComputeMiniHashRange(const void *ptr, size_t sz) {
 	// Switch to u32 units, and round up to avoid unaligned accesses.
 	// Probably doesn't matter if we skip the first few bytes in some cases.
@@ -672,7 +610,9 @@ u32 DrawEngineCommon::ComputeMiniHash() {
 	}
 	for (int i = 0; i < numDrawInds_; i += step) {
 		const DeferredInds &di = drawInds_[i];
-		fullhash += ComputeMiniHashRange(di.inds, indexSize * di.vertexCount);
+		if (di.inds) {
+			fullhash += ComputeMiniHashRange(di.inds, indexSize * di.vertexCount);
+		}
 	}
 
 	return fullhash;
@@ -715,7 +655,6 @@ int DrawEngineCommon::ComputeNumVertsToDecode() const {
 uint64_t DrawEngineCommon::ComputeHash() {
 	uint64_t fullhash = 0;
 	const int vertexSize = dec_->GetDecVtxFmt().stride;
-	const int indexSize = IndexSize(dec_->VertexType());
 
 	// TODO: Add some caps both for numDrawCalls_ and num verts to check?
 	// It is really very expensive to check all the vertex data so often.
@@ -727,8 +666,11 @@ uint64_t DrawEngineCommon::ComputeHash() {
 
 	for (int i = 0; i < numDrawInds_; i++) {
 		const DeferredInds &di = drawInds_[i];
-		// Hm, we will miss some indices when combining above, but meh, it should be fine.
-		fullhash += XXH3_64bits((const char *)di.inds, indexSize * di.vertexCount);
+		if (di.indexType != 0) {
+			int indexSize = IndexSize(di.indexType << GE_VTYPE_IDX_SHIFT);
+			// Hm, we will miss some indices when combining above, but meh, it should be fine.
+			fullhash += XXH3_64bits((const char *)di.inds, indexSize * di.vertexCount);
+		}
 	}
 
 	// this looks utterly broken??
@@ -738,9 +680,11 @@ uint64_t DrawEngineCommon::ComputeHash() {
 
 // vertTypeID is the vertex type but with the UVGen mode smashed into the top bits.
 void DrawEngineCommon::SubmitPrim(const void *verts, const void *inds, GEPrimitiveType prim, int vertexCount, u32 vertTypeID, int cullMode, int *bytesRead) {
-	if (!indexGen.PrimCompatible(prevPrim_, prim) || numDrawVerts_ >= MAX_DEFERRED_DRAW_CALLS || vertexCountInDrawCalls_ + vertexCount > VERTEX_BUFFER_MAX) {
+	if (!indexGen.PrimCompatible(prevPrim_, prim) || numDrawVerts_ >= MAX_DEFERRED_DRAW_VERTS || numDrawInds_ >= MAX_DEFERRED_DRAW_INDS || vertexCountInDrawCalls_ + vertexCount > VERTEX_BUFFER_MAX) {
 		DispatchFlush();
 	}
+	_dbg_assert_(numDrawVerts_ < MAX_DEFERRED_DRAW_VERTS);
+	_dbg_assert_(numDrawInds_ < MAX_DEFERRED_DRAW_INDS);
 
 	// This isn't exactly right, if we flushed, since prims can straddle previous calls.
 	// But it generally works for common usage.
@@ -772,11 +716,15 @@ void DrawEngineCommon::SubmitPrim(const void *verts, const void *inds, GEPrimiti
 	di.indexType = (vertTypeID & GE_VTYPE_IDX_MASK) >> GE_VTYPE_IDX_SHIFT;
 	di.prim = prim;
 	di.cullMode = cullMode;
-	di.indexOffset = 0;
 	di.vertexCount = vertexCount;
+	di.vertDecodeIndex = numDrawVerts_;
+
+	_dbg_assert_(numDrawVerts_ <= MAX_DEFERRED_DRAW_VERTS);
+	_dbg_assert_(numDrawInds_ <= MAX_DEFERRED_DRAW_INDS);
 
 	if (inds && numDrawVerts_ > decodeVertsCounter_ && drawVerts_[numDrawVerts_ - 1].verts == verts && !applySkin) {
 		// Same vertex pointer as a previous un-decoded draw call - let's just extend the decode!
+		di.vertDecodeIndex = numDrawVerts_ - 1;
 		DeferredVerts &dv = drawVerts_[numDrawVerts_ - 1];
 		u16 lb;
 		u16 ub;
@@ -785,8 +733,6 @@ void DrawEngineCommon::SubmitPrim(const void *verts, const void *inds, GEPrimiti
 			dv.indexLowerBound = lb;
 		if (ub > dv.indexUpperBound)
 			dv.indexUpperBound = ub;
-		di.indexOffset = indexOffset_;
-		// indexOffset_ += vertexCount;
 	} else {
 		// Record a new draw, and a new index gen.
 		DeferredVerts &dv = drawVerts_[numDrawVerts_++];
@@ -799,20 +745,72 @@ void DrawEngineCommon::SubmitPrim(const void *verts, const void *inds, GEPrimiti
 			dv.indexLowerBound = 0;
 			dv.indexUpperBound = vertexCount - 1;
 		}
-		indexOffset_ = 0;  //  vertexCount;
 	}
 
 	vertexCountInDrawCalls_ += vertexCount;
 
 	if (applySkin) {
-		DecodeVertsStep(decoded_, decodeVertsCounter_, decodedVerts_, &drawVerts_[numDrawVerts_ - 1].uvScale);
-		DecodeIndsStep(decodeIndsCounter_);
+		DecodeVerts(decoded_);
 	}
 
 	if (prim == GE_PRIM_RECTANGLES && (gstate.getTextureAddress(0) & 0x3FFFFFFF) == (gstate.getFrameBufAddress() & 0x3FFFFFFF)) {
 		// This prevents issues with consecutive self-renders in Ridge Racer.
 		gstate_c.Dirty(DIRTY_TEXTURE_PARAMS);
 		DispatchFlush();
+	}
+}
+
+void DrawEngineCommon::DecodeVerts(u8 *dest) {
+	int i = decodeVertsCounter_;
+	int stride = (int)dec_->GetDecVtxFmt().stride;
+	for (; i < numDrawVerts_; i++) {
+		DeferredVerts &dv = drawVerts_[i];
+
+		int indexLowerBound = dv.indexLowerBound;
+		drawVertexOffsets_[i] = decodedVerts_ - indexLowerBound;
+
+		int indexUpperBound = dv.indexUpperBound;
+		// Decode the verts (and at the same time apply morphing/skinning). Simple.
+		dec_->DecodeVerts(dest + decodedVerts_ * stride, dv.verts, &dv.uvScale, indexLowerBound, indexUpperBound);
+		decodedVerts_ += indexUpperBound - indexLowerBound + 1;
+	}
+	decodeVertsCounter_ = i;
+}
+
+void DrawEngineCommon::DecodeInds() {
+	int i = decodeIndsCounter_;
+	for (; i < numDrawInds_; i++) {
+		const DeferredInds &di = drawInds_[i];
+
+		int indexOffset = drawVertexOffsets_[di.vertDecodeIndex];
+		bool clockwise = true;
+		if (gstate.isCullEnabled() && gstate.getCullMode() != di.cullMode) {
+			clockwise = false;
+		}
+		// We've already collapsed subsequent draws with the same vertex pointer, so no tricky logic here anymore.
+		// 2. Loop through the drawcalls, translating indices as we go.
+		switch (di.indexType) {
+		case GE_VTYPE_IDX_NONE >> GE_VTYPE_IDX_SHIFT:
+			indexGen.AddPrim(di.prim, di.vertexCount, indexOffset, clockwise);
+			break;
+		case GE_VTYPE_IDX_8BIT >> GE_VTYPE_IDX_SHIFT:
+			indexGen.TranslatePrim(di.prim, di.vertexCount, (const u8 *)di.inds, indexOffset, clockwise);
+			break;
+		case GE_VTYPE_IDX_16BIT >> GE_VTYPE_IDX_SHIFT:
+			indexGen.TranslatePrim(di.prim, di.vertexCount, (const u16_le *)di.inds, indexOffset, clockwise);
+			break;
+		case GE_VTYPE_IDX_32BIT >> GE_VTYPE_IDX_SHIFT:
+			indexGen.TranslatePrim(di.prim, di.vertexCount, (const u32_le *)di.inds, indexOffset, clockwise);
+			break;
+		}
+	}
+	decodeIndsCounter_ = i;
+
+	// Sanity check
+	if (indexGen.Prim() < 0) {
+		ERROR_LOG_REPORT(G3D, "DecodeVerts: Failed to deduce prim: %i", indexGen.Prim());
+		// Force to points (0)
+		indexGen.AddPrim(GE_PRIM_POINTS, 0, 0, true);
 	}
 }
 

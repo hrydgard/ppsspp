@@ -566,10 +566,11 @@ bool DrawEngineVulkan::VertexCacheLookup(int &vertexCount, GEPrimitiveType &prim
 		vai->minihash = ComputeMiniHash();
 		vai->status = VertexArrayInfoVulkan::VAI_HASHING;
 		vai->drawsUntilNextFullHash = 0;
-		DecodeVertsToPushPool(pushVertex_, &vbOffset, &vbuf);  // writes to indexGen
+		DecodeVertsToPushPool(pushVertex_, &vbOffset, &vbuf);
+		DecodeInds();
 		vai->numVerts = indexGen.VertexCount();
 		vai->prim = indexGen.Prim();
-		vai->maxIndex = indexGen.MaxIndex();
+		vai->maxIndex = MaxIndex();
 		vai->flags = gstate_c.vertexFullAlpha ? VAIVULKAN_FLAG_VERTEXFULLALPHA : 0;
 		return true;
 	}
@@ -593,6 +594,7 @@ bool DrawEngineVulkan::VertexCacheLookup(int &vertexCount, GEPrimitiveType &prim
 			if (newMiniHash != vai->minihash || newHash != vai->hash) {
 				MarkUnreliable(vai);
 				DecodeVertsToPushPool(pushVertex_, &vbOffset, &vbuf);
+				DecodeInds();
 				return true;
 			}
 			if (vai->numVerts > 64) {
@@ -612,6 +614,7 @@ bool DrawEngineVulkan::VertexCacheLookup(int &vertexCount, GEPrimitiveType &prim
 			if (newMiniHash != vai->minihash) {
 				MarkUnreliable(vai);
 				DecodeVertsToPushPool(pushVertex_, &vbOffset, &vbuf);
+				DecodeInds();
 				return true;
 			}
 		}
@@ -619,9 +622,10 @@ bool DrawEngineVulkan::VertexCacheLookup(int &vertexCount, GEPrimitiveType &prim
 		if (!vai->vb) {
 			// Directly push to the vertex cache.
 			DecodeVertsToPushBuffer(vertexCache_, &vai->vbOffset, &vai->vb);
+			DecodeInds();
 			_dbg_assert_msg_(gstate_c.vertBounds.minV >= gstate_c.vertBounds.maxV, "Should not have checked UVs when caching.");
 			vai->numVerts = indexGen.VertexCount();
-			vai->maxIndex = indexGen.MaxIndex();
+			vai->maxIndex = MaxIndex();
 			vai->flags = gstate_c.vertexFullAlpha ? VAIVULKAN_FLAG_VERTEXFULLALPHA : 0;
 			if (forceIndexed) {
 				vai->prim = indexGen.GeneralPrim();
@@ -684,6 +688,7 @@ bool DrawEngineVulkan::VertexCacheLookup(int &vertexCount, GEPrimitiveType &prim
 			vai->numFrames++;
 		}
 		DecodeVertsToPushPool(pushVertex_, &vbOffset, &vbuf);
+		DecodeInds();
 		return true;
 	}
 	default:
@@ -889,7 +894,7 @@ void DrawEngineVulkan::DoFlush() {
 			UpdateCachedViewportState(vpAndScissor);
 		}
 
-		int maxIndex = indexGen.MaxIndex();
+		int maxIndex = MaxIndex();
 		SoftwareTransform swTransform(params);
 
 		const Lin::Vec3 trans(gstate_c.vpXOffset, gstate_c.vpYOffset, gstate_c.vpZOffset * 0.5f + 0.5f);
@@ -1037,6 +1042,7 @@ void DrawEngineVulkan::ResetAfterDraw() {
 	decodedVerts_ = 0;
 	numDrawVerts_ = 0;
 	numDrawInds_ = 0;
+	vertexCountInDrawCalls_ = 0;
 	decodeIndsCounter_ = 0;
 	decodeVertsCounter_ = 0;
 	decOptions_.applySkinInDecode = g_Config.bSoftwareSkinning;

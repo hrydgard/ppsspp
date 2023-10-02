@@ -362,9 +362,10 @@ void DrawEngineDX9::DoFlush() {
 					vai->status = VertexArrayInfoDX9::VAI_HASHING;
 					vai->drawsUntilNextFullHash = 0;
 					DecodeVerts(decoded_); // writes to indexGen
+					DecodeInds();
 					vai->numVerts = indexGen.VertexCount();
 					vai->prim = indexGen.Prim();
-					vai->maxIndex = indexGen.MaxIndex();
+					vai->maxIndex = MaxIndex();
 					vai->flags = gstate_c.vertexFullAlpha ? VAI_FLAG_VERTEXFULLALPHA : 0;
 
 					goto rotateVBO;
@@ -388,6 +389,7 @@ void DrawEngineDX9::DoFlush() {
 						if (newMiniHash != vai->minihash || newHash != vai->hash) {
 							MarkUnreliable(vai);
 							DecodeVerts(decoded_);
+							DecodeInds();
 							goto rotateVBO;
 						}
 						if (vai->numVerts > 64) {
@@ -407,15 +409,17 @@ void DrawEngineDX9::DoFlush() {
 						if (newMiniHash != vai->minihash) {
 							MarkUnreliable(vai);
 							DecodeVerts(decoded_);
+							DecodeInds();
 							goto rotateVBO;
 						}
 					}
 
 					if (vai->vbo == 0) {
 						DecodeVerts(decoded_);
+						DecodeInds();
 						vai->numVerts = indexGen.VertexCount();
 						vai->prim = indexGen.Prim();
-						vai->maxIndex = indexGen.MaxIndex();
+						vai->maxIndex = MaxIndex();
 						vai->flags = gstate_c.vertexFullAlpha ? VAI_FLAG_VERTEXFULLALPHA : 0;
 						useElements = !indexGen.SeenOnlyPurePrims();
 						if (!useElements && indexGen.PureCount()) {
@@ -425,7 +429,7 @@ void DrawEngineDX9::DoFlush() {
 						_dbg_assert_msg_(gstate_c.vertBounds.minV >= gstate_c.vertBounds.maxV, "Should not have checked UVs when caching.");
 
 						void * pVb;
-						u32 size = dec_->GetDecVtxFmt().stride * indexGen.MaxIndex();
+						u32 size = dec_->GetDecVtxFmt().stride * MaxIndex();
 						device_->CreateVertexBuffer(size, D3DUSAGE_WRITEONLY, 0, D3DPOOL_DEFAULT, &vai->vbo, NULL);
 						vai->vbo->Lock(0, size, &pVb, 0);
 						memcpy(pVb, decoded_, size);
@@ -482,6 +486,7 @@ void DrawEngineDX9::DoFlush() {
 						vai->numFrames++;
 					}
 					DecodeVerts(decoded_);
+					DecodeInds();
 					goto rotateVBO;
 				}
 			}
@@ -489,16 +494,19 @@ void DrawEngineDX9::DoFlush() {
 			vai->lastFrame = gpuStats.numFlips;
 		} else {
 			DecodeVerts(decoded_);
+			DecodeInds();
 rotateVBO:
 			gpuStats.numUncachedVertsDrawn += indexGen.VertexCount();
 			useElements = !indexGen.SeenOnlyPurePrims();
 			vertexCount = indexGen.VertexCount();
-			maxIndex = indexGen.MaxIndex();
+			maxIndex = MaxIndex();
 			if (!useElements && indexGen.PureCount()) {
 				vertexCount = indexGen.PureCount();
 			}
 			prim = indexGen.Prim();
 		}
+
+		_dbg_assert_((int)prim > 0);
 
 		bool hasColor = (lastVType_ & GE_VTYPE_COL_MASK) != GE_VTYPE_COL_NONE;
 		if (gstate.isModeThrough()) {
@@ -544,6 +552,7 @@ rotateVBO:
 			dec_ = GetVertexDecoder(lastVType_);
 		}
 		DecodeVerts(decoded_);
+		DecodeInds();
 		bool hasColor = (lastVType_ & GE_VTYPE_COL_MASK) != GE_VTYPE_COL_NONE;
 		if (gstate.isModeThrough()) {
 			gstate_c.vertexFullAlpha = gstate_c.vertexFullAlpha && (hasColor || gstate.getMaterialAmbientA() == 255);
@@ -582,7 +591,7 @@ rotateVBO:
 			UpdateCachedViewportState(vpAndScissor);
 		}
 
-		int maxIndex = indexGen.MaxIndex();
+		int maxIndex = MaxIndex();
 		SoftwareTransform swTransform(params);
 
 		// Half pixel offset hack.

@@ -28,7 +28,6 @@ public:
 	void Reset() {
 		prim_ = GE_PRIM_INVALID;
 		count_ = 0;
-		index_ = 0;
 		seenPrims_ = 0;
 		pureCount_ = 0;
 		this->inds_ = indsBase_;
@@ -57,19 +56,12 @@ public:
 		}
 	}
 
-	void AddPrim(int prim, int vertexCount, bool clockwise);
+	void AddPrim(int prim, int vertexCount, int indexOffset, bool clockwise);
 	void TranslatePrim(int prim, int numInds, const u8 *inds, int indexOffset, bool clockwise);
 	void TranslatePrim(int prim, int numInds, const u16_le *inds, int indexOffset, bool clockwise);
 	void TranslatePrim(int prim, int numInds, const u32_le *inds, int indexOffset, bool clockwise);
 
-	void Advance(int numVerts) {
-		index_ += numVerts;
-	}
-
-	void SetIndex(int ind) { index_ = ind; }
-	int MaxIndex() const { return index_; }  // Really NextIndex rather than MaxIndex, it's one more than the highest index generated
 	int VertexCount() const { return count_; }
-	bool Empty() const { return index_ == 0; }
 	int SeenPrims() const { return seenPrims_; }
 	int PureCount() const { return pureCount_; }
 	bool SeenOnlyPurePrims() const {
@@ -81,16 +73,16 @@ public:
 
 private:
 	// Points (why index these? code simplicity)
-	void AddPoints(int numVerts);
+	void AddPoints(int numVerts, int indexOffset);
 	// Triangles
-	void AddList(int numVerts, bool clockwise);
-	void AddStrip(int numVerts, bool clockwise);
-	void AddFan(int numVerts, bool clockwise);
+	void AddList(int numVerts, int indexOffset, bool clockwise);
+	void AddStrip(int numVerts, int indexOffset, bool clockwise);
+	void AddFan(int numVerts, int indexOffset, bool clockwise);
 	// Lines
-	void AddLineList(int numVerts);
-	void AddLineStrip(int numVerts);
+	void AddLineList(int numVerts, int indexOffset);
+	void AddLineStrip(int numVerts, int indexOffset);
 	// Rectangles
-	void AddRectangles(int numVerts);
+	void AddRectangles(int numVerts, int indexOffset);
 
 	// These translate already indexed lists
 	template <class ITypeLE, int flag>
@@ -118,7 +110,6 @@ private:
 
 	u16 *indsBase_;
 	u16 *inds_;
-	int index_;
 	int count_;
 	int pureCount_;
 	GEPrimitiveType prim_;
