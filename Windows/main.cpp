@@ -825,6 +825,24 @@ static void WinMainCleanup() {
 }
 
 int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLine, int iCmdShow) {
+	std::vector<std::wstring> wideArgs = GetWideCmdLine();
+
+	// Check for the Vulkan workaround before any serious init.
+	for (size_t i = 1; i < wideArgs.size(); ++i) {
+		if (wideArgs[i][0] == L'-') {
+			// This should only be called by DetectVulkanInExternalProcess().
+			if (wideArgs[i] == L"--vulkan-available-check") {
+				// Just call it, this way it will crash here if it doesn't work.
+				// (this is an external process.)
+				bool result = VulkanMayBeAvailable();
+
+				LogManager::Shutdown();
+				WinMainCleanup();
+				return result ? EXIT_CODE_VULKAN_WORKS : EXIT_FAILURE;
+			}
+		}
+	}
+
 	SetCurrentThreadName("Main");
 
 	WinMainInit();
@@ -848,7 +866,6 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 	std::string controlsConfigFilename = "";
 	const std::wstring controlsOption = L"--controlconfig=";
 
-	std::vector<std::wstring> wideArgs = GetWideCmdLine();
 
 	for (size_t i = 1; i < wideArgs.size(); ++i) {
 		if (wideArgs[i][0] == L'\0')
@@ -873,22 +890,6 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 	g_Config.internalDataDirectory = Path(W32Util::UserDocumentsPath());
 	InitMemstickDirectory();
 	CreateSysDirectories();
-
-	// Check for the Vulkan workaround before any serious init.
-	for (size_t i = 1; i < wideArgs.size(); ++i) {
-		if (wideArgs[i][0] == L'-') {
-			// This should only be called by DetectVulkanInExternalProcess().
-			if (wideArgs[i] == L"--vulkan-available-check") {
-				// Just call it, this way it will crash here if it doesn't work.
-				// (this is an external process.)
-				bool result = VulkanMayBeAvailable();
-
-				LogManager::Shutdown();
-				WinMainCleanup();
-				return result ? EXIT_CODE_VULKAN_WORKS : EXIT_FAILURE;
-			}
-		}
-	}
 
 
 	// Load config up here, because those changes below would be overwritten
