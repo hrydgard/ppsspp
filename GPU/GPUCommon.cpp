@@ -1665,6 +1665,7 @@ void GPUCommon::DoBlockTransfer(u32 skipDrawReason) {
 	int bpp = gstate.getTransferBpp();
 
 	DEBUG_LOG(G3D, "Block transfer: %08x/%x -> %08x/%x, %ix%ix%i (%i,%i)->(%i,%i)", srcBasePtr, srcStride, dstBasePtr, dstStride, width, height, bpp, srcX, srcY, dstX, dstY);
+	gpuStats.numBlockTransfers++;
 
 	// For VRAM, we wrap around when outside valid memory (mirrors still work.)
 	if ((srcBasePtr & 0x04800000) == 0x04800000)

@@ -1683,9 +1683,10 @@ size_t GPUCommonHW::FormatGPUStatsCommon(char *buffer, size_t size) {
 		"FBOs active: %d (evaluations: %d)\n"
 		"Textures: %d, dec: %d, invalidated: %d, hashed: %d kB\n"
 		"readbacks %d (%d non-block), uploads %d, depal %d\n"
+		"block transfers: %d\n"
 		"replacer: tracks %d references, %d unique textures\n"
-		"Cpy: depth %d, color %d, reint %d, blend %d, self %d, drawpix %d\n"
-		"GPU cycles executed: %d (%f per vertex)\n",
+		"Cpy: depth %d, color %d, reint %d, blend %d, self %d\n"
+		"GPU cycles: %d (%f per vertex)\n%s",
 		gpuStats.msProcessingDisplayLists * 1000.0f,
 		gpuStats.numDrawSyncs,
 		gpuStats.numListSyncs,
@@ -1710,6 +1711,7 @@ size_t GPUCommonHW::FormatGPUStatsCommon(char *buffer, size_t size) {
 		gpuStats.numReadbacks,
 		gpuStats.numUploads,
 		gpuStats.numDepal,
+		gpuStats.numBlockTransfers,
 		gpuStats.numReplacerTrackedTex,
 		gpuStats.numCachedReplacedTextures,
 		gpuStats.numDepthCopies,
@@ -1717,8 +1719,8 @@ size_t GPUCommonHW::FormatGPUStatsCommon(char *buffer, size_t size) {
 		gpuStats.numReinterpretCopies,
 		gpuStats.numCopiesForShaderBlend,
 		gpuStats.numCopiesForSelfTex,
-		gpuStats.numDrawPixels,
 		gpuStats.vertexGPUCycles + gpuStats.otherGPUCycles,
-		vertexAverageCycles
+		vertexAverageCycles,
+		debugRecording_ ? "(debug-recording)" : ""
 	);
 }

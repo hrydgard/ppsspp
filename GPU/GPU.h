@@ -102,7 +102,7 @@ struct GPUStatistics {
 		numColorCopies = 0;
 		numCopiesForShaderBlend = 0;
 		numCopiesForSelfTex = 0;
-		numDrawPixels = 0;
+		numBlockTransfers = 0;
 		numReplacerTrackedTex = 0;
 		numCachedReplacedTextures = 0;
 		msProcessingDisplayLists = 0;
@@ -139,7 +139,7 @@ struct GPUStatistics {
 	int numColorCopies;
 	int numCopiesForShaderBlend;
 	int numCopiesForSelfTex;
-	int numDrawPixels;
+	int numBlockTransfers;
 	int numReplacerTrackedTex;
 	int numCachedReplacedTextures;
 	double msProcessingDisplayLists;
