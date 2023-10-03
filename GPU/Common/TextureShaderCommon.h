@@ -29,11 +29,14 @@
 #include "GPU/Common/ShaderCommon.h"
 #include "GPU/Common/DepalettizeShaderCommon.h"
 
+
 class ClutTexture {
 public:
+	enum { MAX_RAMPS = 3 };
 	Draw::Texture *texture;
 	int lastFrame;
-	int rampLength;
+	int rampLengths[MAX_RAMPS];
+	int rampStarts[MAX_RAMPS];
 };
 
 // For CLUT depal shaders, and other pre-bind texture shaders.

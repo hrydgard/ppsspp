@@ -2194,26 +2194,28 @@ static bool CanDepalettize(GETextureFormat texFormat, GEBufferFormat bufferForma
 // If the palette is detected as a smooth ramp, we can interpolate for higher color precision.
 // But we only do it if the mask/shift exactly matches a color channel, else something different might be going
 // on and we definitely don't want to interpolate.
-// Great enhancement for Test Drive.
-static bool CanUseSmoothDepal(const GPUgstate &gstate, GEBufferFormat framebufferFormat, int rampLength) {
-	if (gstate.getClutIndexStartPos() == 0 &&
-		gstate.getClutIndexMask() < rampLength) {
-		switch (framebufferFormat) {
-		case GE_FORMAT_565:
-			if (gstate.getClutIndexShift() == 0 || gstate.getClutIndexShift() == 11) {
-				return gstate.getClutIndexMask() == 0x1F;
-			} else if (gstate.getClutIndexShift() == 5) {
-				return gstate.getClutIndexMask() == 0x3F;
+// Great enhancement for Test Drive and Manhunt 2.
+static bool CanUseSmoothDepal(const GPUgstate &gstate, GEBufferFormat framebufferFormat, const ClutTexture &clutTexture) {
+	for (int i = 0; i < ClutTexture::MAX_RAMPS; i++) {
+		if (gstate.getClutIndexStartPos() == clutTexture.rampStarts[i] &&
+			gstate.getClutIndexMask() < clutTexture.rampLengths[i]) {
+			switch (framebufferFormat) {
+			case GE_FORMAT_565:
+				if (gstate.getClutIndexShift() == 0 || gstate.getClutIndexShift() == 11) {
+					return gstate.getClutIndexMask() == 0x1F;
+				} else if (gstate.getClutIndexShift() == 5) {
+					return gstate.getClutIndexMask() == 0x3F;
+				}
+				break;
+			case GE_FORMAT_5551:
+				if (gstate.getClutIndexShift() == 0 || gstate.getClutIndexShift() == 5 || gstate.getClutIndexShift() == 10) {
+					return gstate.getClutIndexMask() == 0x1F;
+				}
+				break;
+			default:
+				// No uses for the other formats yet, add if needed.
+				break;
 			}
-			break;
-		case GE_FORMAT_5551:
-			if (gstate.getClutIndexShift() == 0 || gstate.getClutIndexShift() == 5 || gstate.getClutIndexShift() == 10) {
-				return gstate.getClutIndexMask() == 0x1F;
-			}
-			break;
-		default:
-			// No uses for the other formats yet, add if needed.
-			break;
 		}
 	}
 	return false;
@@ -2253,7 +2255,7 @@ void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 	if (need_depalettize) {
 		if (clutRenderAddress_ == 0xFFFFFFFF) {
 			clutTexture = textureShaderCache_->GetClutTexture(clutFormat, clutHash_, clutBufRaw_);
-			smoothedDepal = CanUseSmoothDepal(gstate, framebuffer->fb_format, clutTexture.rampLength);
+			smoothedDepal = CanUseSmoothDepal(gstate, framebuffer->fb_format, clutTexture);
 		} else {
 			// The CLUT texture is dynamic, it's the framebuffer pointed to by clutRenderAddress.
 			// Instead of texturing directly from that, we copy to a temporary CLUT texture.

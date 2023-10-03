@@ -95,33 +95,43 @@ ClutTexture TextureShaderCache::GetClutTexture(GEPaletteFormat clutFormat, const
 		break;
 	}
 
-	int lastR = 0;
-	int lastG = 0;
-	int lastB = 0;
-	int lastA = 0;
 
-	int rampLength = 0;
+	for (int i = 0; i < 3; i++) {
+		tex->rampLengths[i] = 0;
+		tex->rampStarts[i] = 0;
+	}
 	// Quick check for how many continuously growing entries we have at the start.
 	// Bilinearly filtering CLUTs only really makes sense for this kind of ramp.
-	for (int i = 0; i < maxClutEntries; i++) {
-		rampLength = i;
-		int r = desc.initData[0][i * 4];
-		int g = desc.initData[0][i * 4 + 1];
-		int b = desc.initData[0][i * 4 + 2];
-		int a = desc.initData[0][i * 4 + 3];
-		if (r < lastR || g < lastG || b < lastB || a < lastA) {
+	int i = 0;
+	for (int j = 0; j < ClutTexture::MAX_RAMPS; j++) {
+		tex->rampStarts[j] = i;
+		int lastR = 0;
+		int lastG = 0;
+		int lastB = 0;
+		int lastA = 0;
+		for (; i < maxClutEntries; i++) {
+			int r = desc.initData[0][i * 4];
+			int g = desc.initData[0][i * 4 + 1];
+			int b = desc.initData[0][i * 4 + 2];
+			int a = desc.initData[0][i * 4 + 3];
+			if (r < lastR || g < lastG || b < lastB || a < lastA) {
+				lastR = r; lastG = g; lastB = b; lastA = a;
+				break;
+			} else {
+				lastR = r;
+				lastG = g;
+				lastB = b;
+				lastA = a;
+			}
+		}
+		tex->rampLengths[j] = i - tex->rampStarts[j];
+		if (i >= maxClutEntries) {
 			break;
-		} else {
-			lastR = r;
-			lastG = g;
-			lastB = b;
-			lastA = a;
 		}
 	}
 
 	tex->texture = draw_->CreateTexture(desc);
 	tex->lastFrame = gpuStats.numFlips;
-	tex->rampLength = rampLength;
 
 	texCache_[clutId] = tex;
 	return *tex;
