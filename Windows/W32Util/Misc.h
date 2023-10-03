@@ -14,6 +14,7 @@ namespace W32Util
 	void MakeTopMost(HWND hwnd, bool topMost);
 	void ExitAndRestart(bool overrideArgs = false, const std::string &args = "");
 	void SpawnNewInstance(bool overrideArgs = false, const std::string &args = "");
+	bool ExecuteAndGetReturnCode(const wchar_t *executable, const wchar_t *cmdline, const wchar_t *currentDirectory, DWORD *exitCode);
 	void GetSelfExecuteParams(std::wstring &workingDirectory, std::wstring &moduleFilename);
 
 	void GetWindowRes(HWND hWnd, int *xres, int *yres);

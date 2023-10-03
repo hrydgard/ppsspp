@@ -694,28 +694,13 @@ static bool DetectVulkanInExternalProcess() {
 
 	const wchar_t *cmdline = L"--vulkan-available-check";
 
-	SHELLEXECUTEINFO info{ sizeof(SHELLEXECUTEINFO) };
-	info.fMask = SEE_MASK_NOCLOSEPROCESS;
-	info.lpFile = moduleFilename.c_str();
-	info.lpParameters = cmdline;
-	info.lpDirectory = workingDirectory.c_str();
-	info.nShow = SW_HIDE;
-	if (ShellExecuteEx(&info) != TRUE) {
-		return false;
-	}
-	if (info.hProcess == nullptr) {
-		return false;
-	}
-
-	DWORD result = WaitForSingleObject(info.hProcess, 10000);
 	DWORD exitCode = 0;
-	if (result == WAIT_FAILED || GetExitCodeProcess(info.hProcess, &exitCode) == 0) {
-		CloseHandle(info.hProcess);
+	if (W32Util::ExecuteAndGetReturnCode(moduleFilename.c_str(), cmdline, workingDirectory.c_str(), &exitCode)) {
+		return exitCode == EXIT_CODE_VULKAN_WORKS;
+	} else {
+		ERROR_LOG(G3D, "Failed to detect Vulkan in external process somehow");
 		return false;
 	}
-	CloseHandle(info.hProcess);
-
-	return exitCode == EXIT_CODE_VULKAN_WORKS;
 }
 #endif
 
