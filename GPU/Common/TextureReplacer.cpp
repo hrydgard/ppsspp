@@ -809,9 +809,13 @@ void TextureReplacer::Decimate(ReplacerDecimateMode mode) {
 	const double threshold = time_now_d() - age;
 	size_t totalSize = 0;
 	for (auto &item : levelCache_) {
-		std::lock_guard<std::mutex> guard(item.second->lock_);
-		item.second->PurgeIfNotUsedSinceTime(threshold);
-		totalSize += item.second->GetTotalDataSize();  // TODO: Make something better.
+		// During decimation, it's fine to try-lock here to avoid blocking the main thread while
+		// the level is being loaded - in that case we don't want to decimate anyway.
+		if (item.second->lock_.try_lock()) {
+			item.second->PurgeIfNotUsedSinceTime(threshold);
+			totalSize += item.second->GetTotalDataSize();  // TODO: Make something better.
+			item.second->lock_.unlock();
+		}
 		// don't actually delete the items here, just clean out the data.
 	}
 

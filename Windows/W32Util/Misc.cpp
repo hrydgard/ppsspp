@@ -168,6 +168,34 @@ namespace W32Util
 		ExitProcess(0);
 	}
 
+	bool ExecuteAndGetReturnCode(const wchar_t *executable, const wchar_t *cmdline, const wchar_t *currentDirectory, DWORD *exitCode) {
+		PROCESS_INFORMATION processInformation = { 0 };
+		STARTUPINFO startupInfo = { 0 };
+		startupInfo.cb = sizeof(startupInfo);
+
+		std::wstring cmdlineW;
+		cmdlineW += L"PPSSPP ";  // could also put the executable name as first argument, but concerned about escaping.
+		cmdlineW += cmdline;
+
+		// Create the process
+		bool result = CreateProcess(executable, (LPWSTR)cmdlineW.c_str(),
+			NULL, NULL, FALSE,
+			NORMAL_PRIORITY_CLASS | CREATE_NO_WINDOW,
+			NULL, currentDirectory, &startupInfo, &processInformation);
+
+		if (!result) {
+			// We failed.
+			return false;
+		}
+
+		// Successfully created the process.  Wait for it to finish.
+		WaitForSingleObject(processInformation.hProcess, INFINITE);
+		result = GetExitCodeProcess(processInformation.hProcess, exitCode);
+		CloseHandle(processInformation.hProcess);
+		CloseHandle(processInformation.hThread);
+		return result != 0;
+	}
+
 	void SpawnNewInstance(bool overrideArgs, const std::string &args) {
 		// This preserves arguments (for example, config file) and working directory.
 		std::wstring workingDirectory;
