@@ -462,6 +462,9 @@ bool Arm64IRRegCache::TransferNativeReg(IRNativeReg nreg, IRNativeReg dest, MIPS
 bool Arm64IRRegCache::TransferVecTo1(IRNativeReg nreg, IRNativeReg dest, IRReg first, int oldlanes) {
 	IRReg oldfirst = nr[nreg].mipsReg;
 
+	ARM64Reg destQ = EncodeRegToQuad(FromNativeReg(dest));
+	ARM64Reg nregQ = EncodeRegToQuad(FromNativeReg(nreg));
+
 	// Is it worth preserving any of the old regs?
 	int numKept = 0;
 	for (int i = 0; i < oldlanes; ++i) {
@@ -477,7 +480,7 @@ bool Arm64IRRegCache::TransferVecTo1(IRNativeReg nreg, IRNativeReg dest, IRReg f
 		IRNativeReg freeReg = FindFreeReg(MIPSLoc::FREG, MIPSMap::INIT);
 		if (freeReg != -1 && IsRegRead(MIPSLoc::FREG, oldfirst + i)) {
 			// If there's one free, use it.  Don't modify nreg, though.
-			fp_->DUP(32, FromNativeReg(freeReg), FromNativeReg(nreg), i);
+			fp_->DUP(32, EncodeRegToQuad(FromNativeReg(freeReg)), nregQ, i);
 
 			// Update accounting.
 			nr[freeReg].isDirty = nr[nreg].isDirty;
@@ -500,9 +503,9 @@ bool Arm64IRRegCache::TransferVecTo1(IRNativeReg nreg, IRNativeReg dest, IRReg f
 
 	// Next, move the desired element into first place.
 	if (mr[first].lane > 0) {
-		fp_->DUP(32, FromNativeReg(dest), FromNativeReg(nreg), mr[first].lane);
+		fp_->DUP(32, destQ, nregQ, mr[first].lane);
 	} else if (mr[first].lane <= 0 && dest != nreg) {
-		fp_->DUP(32, FromNativeReg(dest), FromNativeReg(nreg), 0);
+		fp_->DUP(32, destQ, nregQ, 0);
 	}
 
 	// Now update accounting.
