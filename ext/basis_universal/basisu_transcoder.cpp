@@ -7884,6 +7884,8 @@ namespace basist
 		if (!endpoints.size() || !selectors.size())
 		{
 			BASISU_DEVEL_ERROR("basisu_lowlevel_etc1s_transcoder::transcode_slice: global codebooks must be unpacked first\n");
+			if (pPVRTC_work_mem)
+				free(pPVRTC_work_mem);
 			return false;
 		}
 
