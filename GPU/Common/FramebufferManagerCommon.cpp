@@ -1403,7 +1403,6 @@ Draw::Texture *FramebufferManagerCommon::MakePixelTexture(const u8 *srcPixels, G
 		}
 
 		// OK, current one seems good, let's use it (and mark it used).
-		gpuStats.numDrawPixels++;
 		draw_->UpdateTextureLevels(iter.tex, &srcPixels, generateTexture, 1);
 		// NOTE: numFlips is no good - this is called every frame when paused sometimes!
 		iter.frameNumber = frameNumber;
@@ -1432,8 +1431,7 @@ Draw::Texture *FramebufferManagerCommon::MakePixelTexture(const u8 *srcPixels, G
 	if (!tex) {
 		ERROR_LOG(G3D, "Failed to create DrawPixels texture");
 	}
-	gpuStats.numDrawPixels++;
-	gpuStats.numTexturesDecoded++;  // Separate stat for this later?
+	// We don't need to count here, already counted by numUploads by the caller.
 
 	// INFO_LOG(G3D, "Creating drawPixelsCache texture: %dx%d", tex->Width(), tex->Height());
 
