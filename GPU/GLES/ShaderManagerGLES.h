@@ -183,8 +183,6 @@ public:
 
 	bool LoadCacheFlags(File::IOFile &f, DrawEngineGLES *drawEngine);
 	bool LoadCache(File::IOFile &f);
-	bool ContinuePrecompile(float sliceTime = 1.0f / 60.0f);
-	void CancelPrecompile();
 	void SaveCache(const Path &filename, DrawEngineGLES *drawEngine);
 
 private:
@@ -219,29 +217,4 @@ private:
 
 	typedef DenseHashMap<VShaderID, Shader *> VSCache;
 	VSCache vsCache_;
-
-	bool diskCacheDirty_ = false;
-	struct {
-		std::vector<VShaderID> vert;
-		std::vector<FShaderID> frag;
-		std::vector<std::pair<VShaderID, FShaderID>> link;
-
-		size_t vertPos = 0;
-		size_t fragPos = 0;
-		size_t linkPos = 0;
-		double start;
-
-		void Clear() {
-			vert.clear();
-			frag.clear();
-			link.clear();
-			vertPos = 0;
-			fragPos = 0;
-			linkPos = 0;
-		}
-
-		bool Done() {
-			return vertPos >= vert.size() && fragPos >= frag.size() && linkPos >= link.size();
-		}
-	} diskCachePending_;
 };
