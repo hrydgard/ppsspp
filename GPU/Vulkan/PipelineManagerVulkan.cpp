@@ -291,6 +291,8 @@ static VulkanPipeline *CreateVulkanPipeline(VulkanRenderManager *renderManager, 
 		desc->geometryShaderSource = gs->GetShaderString(SHADER_STRING_SOURCE_CODE);
 	}
 
+	_dbg_assert_(key.topology != VK_PRIMITIVE_TOPOLOGY_POINT_LIST);
+	_dbg_assert_(key.topology != VK_PRIMITIVE_TOPOLOGY_LINE_LIST);
 	desc->topology = (VkPrimitiveTopology)key.topology;
 
 	int vertexStride = 0;

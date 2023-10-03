@@ -1293,6 +1293,9 @@ void VertexDecoder::SetVertexType(u32 fmt, const VertexDecoderOptions &options, 
 }
 
 void VertexDecoder::DecodeVerts(u8 *decodedptr, const void *verts, const UVScale *uvScaleOffset, int indexLowerBound, int indexUpperBound) const {
+	// A single 0 is acceptable for point lists.
+	_dbg_assert_(indexLowerBound <= indexUpperBound);
+
 	// Decode the vertices within the found bounds, once each
 	// decoded_ and ptr_ are used in the steps, so can't be turned into locals for speed.
 	const u8 *startPtr = (const u8*)verts + indexLowerBound * size;

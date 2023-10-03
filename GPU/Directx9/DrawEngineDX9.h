@@ -128,19 +128,19 @@ public:
 
 	// So that this can be inlined
 	void Flush() {
-		if (!numDrawCalls_)
+		if (!numDrawVerts_)
 			return;
 		DoFlush();
 	}
 
 	void FinishDeferred() {
-		if (!numDrawCalls_)
+		if (!numDrawVerts_)
 			return;
 		DecodeVerts(decoded_);
 	}
 
 	void DispatchFlush() override {
-		if (!numDrawCalls_)
+		if (!numDrawVerts_)
 			return;
 		Flush();
 	}

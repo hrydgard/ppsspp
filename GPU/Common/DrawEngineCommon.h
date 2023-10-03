@@ -104,6 +104,14 @@ public:
 
 	bool TestBoundingBox(const void *control_points, const void *inds, int vertexCount, u32 vertType);
 
+	void FlushSkin() {
+		bool applySkin = (lastVType_ & GE_VTYPE_WEIGHT_MASK) && decOptions_.applySkinInDecode;
+		if (applySkin) {
+			DecodeVerts(decoded_);
+		}
+	}
+
+	bool ExtendNonIndexedPrim(GEPrimitiveType prim, int vertexCount, u32 vertTypeID, int cullMode, int *bytesRead);
 	void SubmitPrim(const void *verts, const void *inds, GEPrimitiveType prim, int vertexCount, u32 vertTypeID, int cullMode, int *bytesRead);
 	template<class Surface>
 	void SubmitCurve(const void *control_points, const void *indices, Surface &surface, u32 vertType, int *bytesRead, const char *scope);
@@ -130,7 +138,7 @@ public:
 		return false;
 	}
 	int GetNumDrawCalls() const {
-		return numDrawCalls_;
+		return numDrawVerts_;
 	}
 
 	VertexDecoder *GetVertexDecoder(u32 vtype);
@@ -141,8 +149,12 @@ protected:
 	virtual bool UpdateUseHWTessellation(bool enabled) const { return enabled; }
 	void UpdatePlanes();
 
-	int ComputeNumVertsToDecode() const;
 	void DecodeVerts(u8 *dest);
+	void DecodeInds();
+
+	int MaxIndex() const {
+		return decodedVerts_;
+	}
 
 	// Preprocessing for spline/bezier
 	u32 NormalizeVertices(u8 *outPtr, u8 *bufPtr, const u8 *inPtr, int lowerBound, int upperBound, u32 vertType, int *vertexSize = nullptr);
@@ -151,8 +163,7 @@ protected:
 	u32 ComputeMiniHash();
 	uint64_t ComputeHash();
 
-	// Vertex decoding
-	void DecodeVertsStep(u8 *dest, int &i, int &decodedVerts, const UVScale *uvScale);
+	int ComputeNumVertsToDecode() const;
 
 	void ApplyFramebufferRead(FBOTexState *fboTexState);
 
@@ -210,25 +221,37 @@ protected:
 	TransformedVertex *transformedExpanded_ = nullptr;
 
 	// Defer all vertex decoding to a "Flush" (except when software skinning)
-	struct DeferredDrawCall {
+	struct DeferredVerts {
 		const void *verts;
-		const void *inds;
 		u32 vertexCount;
-		u8 indexType;
-		s8 prim;
-		u8 cullMode;
 		u16 indexLowerBound;
 		u16 indexUpperBound;
 		UVScale uvScale;
 	};
 
-	enum { MAX_DEFERRED_DRAW_CALLS = 128 };
-	DeferredDrawCall drawCalls_[MAX_DEFERRED_DRAW_CALLS];
-	int numDrawCalls_ = 0;
+	struct DeferredInds {
+		const void *inds;
+		u32 vertexCount;
+		u8 vertDecodeIndex;  // index into the drawVerts_ array to look up the vertexOffset.
+		u8 indexType;
+		s8 prim;
+		u8 cullMode;
+		u16 offset;
+	};
+
+	enum { MAX_DEFERRED_DRAW_VERTS = 128 };  // If you change this to more than 256, change type of DeferredInds::vertDecodeIndex.
+	enum { MAX_DEFERRED_DRAW_INDS = 512 };  // Monster Hunter spams indexed calls that we end up merging.
+	DeferredVerts drawVerts_[MAX_DEFERRED_DRAW_VERTS];
+	uint32_t drawVertexOffsets_[MAX_DEFERRED_DRAW_VERTS];
+	DeferredInds drawInds_[MAX_DEFERRED_DRAW_INDS];
+
+	int numDrawVerts_ = 0;
+	int numDrawInds_ = 0;
 	int vertexCountInDrawCalls_ = 0;
 
 	int decimationCounter_ = 0;
-	int decodeCounter_ = 0;
+	int decodeVertsCounter_ = 0;
+	int decodeIndsCounter_ = 0;
 
 	// Vertex collector state
 	IndexGenerator indexGen;
