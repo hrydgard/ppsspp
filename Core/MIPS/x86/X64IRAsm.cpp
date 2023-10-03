@@ -247,7 +247,7 @@ void X64JitBackend::GenerateFixedCode(MIPSState *mipsState) {
 			FixupBranch needsCompile = J_CC(CC_NE);
 				// We don't mask here - that's baked into jitbase.
 #if PPSSPP_ARCH(X86)
-				LEA(32, SCRATCH1, MDisp(SCRATCH1, (u32)GetBasePtr() - MIPS_EMUHACK_VALUE_MASK));
+				LEA(32, SCRATCH1, MDisp(SCRATCH1, (u32)GetBasePtr() - MIPS_EMUHACK_OPCODE));
 #elif PPSSPP_ARCH(AMD64)
 				if (jitbaseInR15) {
 					ADD(64, R(SCRATCH1), R(JITBASEREG));
