@@ -374,6 +374,9 @@ static void login_token_callback(int result, const char *error_message, rc_clien
 		}
 		break;
 	}
+	case RC_ACCESS_DENIED:
+	case RC_INVALID_CREDENTIALS:
+	case RC_EXPIRED_TOKEN:
 	case RC_API_FAILURE:
 	case RC_INVALID_STATE:
 	case RC_MISSING_VALUE:
@@ -518,6 +521,9 @@ static void login_password_callback(int result, const char *error_message, rc_cl
 	case RC_API_FAILURE:
 	case RC_MISSING_VALUE:
 	case RC_INVALID_JSON:
+	case RC_ACCESS_DENIED:
+	case RC_INVALID_CREDENTIALS:
+	case RC_EXPIRED_TOKEN:
 	default:
 	{
 		ERROR_LOG(ACHIEVEMENTS, "Failure logging in via password: %d, %s", result, error_message);
