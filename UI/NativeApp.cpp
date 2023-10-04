@@ -1070,6 +1070,13 @@ static Matrix4x4 ComputeOrthoMatrix(float xres, float yres) {
 void NativeFrame(GraphicsContext *graphicsContext) {
 	PROFILE_END_FRAME();
 
+	bool menuThrottle = (GetUIState() != UISTATE_INGAME || !PSP_IsInited()) && GetUIState() != UISTATE_EXIT;
+
+	double startTime;
+	if (menuThrottle) {
+		startTime = time_now_d();
+	}
+
 	std::vector<PendingMessage> toProcess;
 	{
 		std::lock_guard<std::mutex> lock(pendingMutex);
@@ -1183,6 +1190,16 @@ void NativeFrame(GraphicsContext *graphicsContext) {
 	} else {
 		// INFO_LOG(G3D, "Polling graphics context");
 		graphicsContext->Poll();
+	}
+
+	if (menuThrottle) {
+		float refreshRate = System_GetPropertyFloat(SYSPROP_DISPLAY_REFRESH_RATE);
+		// Simple throttling to not burn the GPU in the menu.
+		// TODO: This should move into NativeFrame. Also, it's only necessary in MAILBOX or IMMEDIATE presentation modes.
+		double diffTime = time_now_d() - startTime;
+		int sleepTime = (int)(1000.0 / refreshRate) - (int)(diffTime * 1000.0);
+		if (sleepTime > 0)
+			sleep_ms(sleepTime);
 	}
 }
 
