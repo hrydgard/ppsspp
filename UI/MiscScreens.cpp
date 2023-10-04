@@ -141,16 +141,17 @@ public:
 
 		for (int n = 0; n < steps; n++) {
 			float x = (float)n * step;
+			float nextX = (float)(n + 1) * step;
 			float i = x * 1280 / bounds.w;
 
 			float wave0 = sin(i*0.005+t*0.8)*0.05 + sin(i*0.002+t*0.25)*0.02 + sin(i*0.001+t*0.3)*0.03 + 0.625;
 			float wave1 = sin(i*0.0044+t*0.4)*0.07 + sin(i*0.003+t*0.1)*0.02 + sin(i*0.001+t*0.3)*0.01 + 0.625;
-			dc.Draw()->RectVGradient(x, wave0*bounds.h, step, (1.0-wave0)*bounds.h, color, 0x00000000);
-			dc.Draw()->RectVGradient(x, wave1*bounds.h, step, (1.0-wave1)*bounds.h, color, 0x00000000);
+			dc.Draw()->RectVGradient(x, wave0*bounds.h, nextX, bounds.h, color, 0x00000000);
+			dc.Draw()->RectVGradient(x, wave1*bounds.h, nextX, bounds.h, color, 0x00000000);
 
 			// Add some "antialiasing"
-			dc.Draw()->RectVGradient(x, wave0*bounds.h-3.0f * g_display.pixel_in_dps_y, step, 3.0f * g_display.pixel_in_dps_y, 0x00000000, color);
-			dc.Draw()->RectVGradient(x, wave1*bounds.h-3.0f * g_display.pixel_in_dps_y, step, 3.0f * g_display.pixel_in_dps_y, 0x00000000, color);
+			dc.Draw()->RectVGradient(x, wave0*bounds.h-3.0f * g_display.pixel_in_dps_y, nextX, wave0 * bounds.h, 0x00000000, color);
+			dc.Draw()->RectVGradient(x, wave1*bounds.h-3.0f * g_display.pixel_in_dps_y, nextX, wave1 * bounds.h, 0x00000000, color);
 		}
 
 		dc.Flush();
