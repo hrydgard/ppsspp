@@ -717,6 +717,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 				// lookup with the filtered value once.
 				p.F("  vec4 t = ").SampleTexture2D("tex", "uv").C(";\n");
 				p.C("  uint depalShift = (u_depal_mask_shift_off_fmt >> 0x8u) & 0xFFu;\n");
+				p.C("  uint depalOffset = ((u_depal_mask_shift_off_fmt >> 0x10u) & 0xFFu) << 0x4u;\n");
 				p.C("  uint depalFmt = (u_depal_mask_shift_off_fmt >> 0x18u) & 0x3u;\n");
 				p.C("  float index0 = t.r;\n");
 				p.C("  float factor = 31.0 / 256.0;\n");
@@ -727,7 +728,8 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 				p.C("    if (depalShift == 0x5u) { index0 = t.g; }\n");
 				p.C("    else if (depalShift == 0xAu) { index0 = t.b; }\n");
 				p.C("  }\n");
-				p.F("  t = ").SampleTexture2D("pal", "vec2(index0 * factor * 0.5, 0.0)").C(";\n");  // 0.5 for 512-entry CLUT.
+				p.C("  float offset = float(depalOffset) / 256.0;\n");
+				p.F("  t = ").SampleTexture2D("pal", "vec2((index0 * factor + offset) * 0.5 + 0.5 / 512.0, 0.0)").C(";\n");  // 0.5 for 512-entry CLUT.
 				break;
 			case ShaderDepalMode::NORMAL:
 				if (doTextureProjection) {
