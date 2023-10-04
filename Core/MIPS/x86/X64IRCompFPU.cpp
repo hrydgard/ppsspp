@@ -505,7 +505,7 @@ void X64JitBackend::CompIR_FCompare(IRInst inst) {
 			OR(32, regs_.R(IRREG_VFPU_CC), Imm8(0x10));
 
 			// Next up, the "all" bit.
-			CMP(32, regs_.R(IRREG_VFPU_CC), Imm8(0xF));
+			CMP(32, regs_.R(IRREG_VFPU_CC), Imm8(0x1F));
 			SETcc(CC_E, R(SCRATCH1));
 			SHL(32, R(SCRATCH1), Imm8(5));
 			OR(32, regs_.R(IRREG_VFPU_CC), R(SCRATCH1));
