@@ -385,7 +385,7 @@ std::string UnescapeMenuString(const char *input, char *shortcutChar) {
 	return output;
 }
 
-std::string ApplySafeSubstitutions(const char *format, const std::string &string1, const std::string &string2, const std::string &string3) {
+std::string ApplySafeSubstitutions(const char *format, std::string_view string1, std::string_view string2, std::string_view string3, std::string_view string4) {
 	size_t formatLen = strlen(format);
 	std::string output;
 	output.reserve(formatLen + 20);
@@ -407,6 +407,40 @@ std::string ApplySafeSubstitutions(const char *format, const std::string &string
 			break;
 		case '3':
 			output += string3; i++;
+			break;
+		case '4':
+			output += string4; i++;
+			break;
+		}
+	}
+	return output;
+}
+
+std::string ApplySafeSubstitutions(const char *format, int i1, int i2, int i3, int i4) {
+	size_t formatLen = strlen(format);
+	std::string output;
+	output.reserve(formatLen + 20);
+	for (size_t i = 0; i < formatLen; i++) {
+		char c = format[i];
+		if (c != '%') {
+			output.push_back(c);
+			continue;
+		}
+		if (i >= formatLen - 1) {
+			break;
+		}
+		switch (format[i + 1]) {
+		case '1':
+			output += StringFromInt(i1); i++;
+			break;
+		case '2':
+			output += StringFromInt(i2); i++;
+			break;
+		case '3':
+			output += StringFromInt(i3); i++;
+			break;
+		case '4':
+			output += StringFromInt(i4); i++;
 			break;
 		}
 	}

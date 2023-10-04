@@ -246,7 +246,7 @@ static void event_handler_callback(const rc_client_event_t *event, rc_client_t *
 		rc_client_user_game_summary_t summary;
 		rc_client_get_user_game_summary(g_rcClient, &summary);
 
-		std::string message = StringFromFormat(ac->T("%d achievements"), summary.num_unlocked_achievements);
+		std::string message = ApplySafeSubstitutions(ac->T("%d achievements, %d points"), summary.num_unlocked_achievements, summary.points_unlocked);
 
 		g_OSD.Show(OSDType::MESSAGE_INFO, title, message, DeNull(gameInfo->badge_name), 10.0f);
 
@@ -725,7 +725,7 @@ std::string GetGameAchievementSummary() {
 	if (summary.num_core_achievements + summary.num_unofficial_achievements == 0) {
 		summaryString = ac->T("This game has no achievements");
 	} else {
-		summaryString = StringFromFormat(ac->T("Earned", "You have unlocked %d of %d achievements, earning %d of %d points"),
+		summaryString = ApplySafeSubstitutions(ac->T("Earned", "You have unlocked %1 of %2 achievements, earning %3 of %4 points"),
 			summary.num_unlocked_achievements, summary.num_core_achievements + summary.num_unofficial_achievements,
 			summary.points_unlocked, summary.points_core);
 		if (ChallengeModeActive()) {
