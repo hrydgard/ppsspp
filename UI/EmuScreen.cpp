@@ -805,6 +805,9 @@ void EmuScreen::onVKey(int virtualKeyCode, bool down) {
 				"%s: %s", n->T("Enable networking"), g_Config.bEnableWlan ? di->T("Enabled") : di->T("Disabled")), 2.0, "toggle_wlan");
 		}
 		break;
+	case VIRTKEY_EXIT_APP:
+		System_ExitApp();
+		break;
 	}
 }
 
