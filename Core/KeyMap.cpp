@@ -432,6 +432,7 @@ const KeyMap_IntStrPair psp_button_names[] = {
 #endif
 
 	{VIRTKEY_TOGGLE_WLAN, "Toggle WLAN"},
+	{VIRTKEY_EXIT_APP, "Exit App"},
 
 	{CTRL_HOME, "Home"},
 	{CTRL_HOLD, "Hold"},
