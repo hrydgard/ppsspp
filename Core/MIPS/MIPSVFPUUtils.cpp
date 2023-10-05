@@ -175,16 +175,17 @@ void ReadVector(float *rd, VectorSize size, int reg) {
 	default: length = 0; break;
 	}
 	int transpose = (reg >> 5) & 1;
-	const int mtx = reg & (7 << 2);
+	const int mtx = ((reg << 2) & 0x70);
 	const int col = reg & 3;
+	// NOTE: We now skip the voffset lookups.
 	if (transpose) {
-		const int base = mtx + col * 32;
-		for (int i = 0; i < length; i++)
-			rd[i] = V(base + ((row+i)&3));
-	} else {
 		const int base = mtx + col;
 		for (int i = 0; i < length; i++)
-			rd[i] = V(base + ((row+i)&3)*32);
+			rd[i] = currentMIPS->v[base + ((row+i)&3) * 4];
+	} else {
+		const int base = mtx + col * 4;
+		for (int i = 0; i < length; i++)
+			rd[i] = currentMIPS->v[base + ((row+i)&3)];
 	}
 }
 

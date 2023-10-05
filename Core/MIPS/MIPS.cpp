@@ -122,7 +122,7 @@ MIPSState::MIPSState() {
 	// * 4x4 Matrices are contiguous in RAM, making them, too, fast-loadable in NEON
 
 	// Disadvantages:
-	// * Extra indirection, can be confusing and slower (interpreter only)
+	// * Extra indirection, can be confusing and slower (interpreter only, however we can often skip the table by rerranging formulas)
 	// * Flushing and reloading row registers is now slower
 
 	int i = 0;
