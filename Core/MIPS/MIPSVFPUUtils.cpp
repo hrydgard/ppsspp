@@ -164,6 +164,7 @@ void GetMatrixRows(int matrixReg, MatrixSize msize, u8 vecs[4]) {
 	}
 }
 
+
 void ReadVector(float *rd, VectorSize size, int reg) {
 	int row;
 	int length;
@@ -181,11 +182,11 @@ void ReadVector(float *rd, VectorSize size, int reg) {
 	if (transpose) {
 		const int base = mtx + col;
 		for (int i = 0; i < length; i++)
-			rd[i] = currentMIPS->v[base + ((row+i)&3) * 4];
+			rd[i] = currentMIPS->v[base + ((row + i) & 3) * 4];
 	} else {
 		const int base = mtx + col * 4;
 		for (int i = 0; i < length; i++)
-			rd[i] = currentMIPS->v[base + ((row+i)&3)];
+			rd[i] = currentMIPS->v[base + ((row + i) & 3)];
 	}
 }
 
@@ -201,30 +202,31 @@ void WriteVector(const float *rd, VectorSize size, int reg) {
 	default: length = 0; break;
 	}
 
-	const int mtx = reg & (7 << 2);
+	const int mtx = ((reg << 2) & 0x70);
 	const int col = reg & 3;
 	bool transpose = (reg >> 5) & 1;
+	// NOTE: We now skip the voffset lookups.
 	if (transpose) {
-		const int base = mtx + col * 32;
+		const int base = mtx + col;
 		if (currentMIPS->VfpuWriteMask() == 0) {
 			for (int i = 0; i < length; i++)
-				V(base + ((row+i)&3)) = rd[i];
+				currentMIPS->v[base + ((row+i) & 3) * 4] = rd[i];
 		} else {
 			for (int i = 0; i < length; i++) {
 				if (!currentMIPS->VfpuWriteMask(i)) {
-					V(base + ((row + i) & 3)) = rd[i];
+					currentMIPS->v[base + ((row+i) & 3) * 4] = rd[i];
 				}
 			}
 		}
 	} else {
-		const int base = mtx + col;
+		const int base = mtx + col * 4;
 		if (currentMIPS->VfpuWriteMask() == 0) {
 			for (int i = 0; i < length; i++)
-				V(base + ((row + i) & 3) * 32) = rd[i];
+				currentMIPS->v[base + ((row + i) & 3)] = rd[i];
 		} else {
 			for (int i = 0; i < length; i++) {
 				if (!currentMIPS->VfpuWriteMask(i)) {
-					V(base + ((row + i) & 3) * 32) = rd[i];
+					currentMIPS->v[base + ((row + i) & 3)] = rd[i];
 				}
 			}
 		}
