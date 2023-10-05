@@ -106,7 +106,7 @@ void DrawBuffer::V(float x, float y, float z, uint32_t color, float u, float v) 
 
 void DrawBuffer::Rect(float x, float y, float w, float h, uint32_t color, int align) {
 	DoAlign(align, &x, &y, &w, &h);
-	RectVGradient(x, y, w, h, color, color);
+	RectVGradient(x, y, x + w, y + h, color, color);
 }
 
 void DrawBuffer::hLine(float x1, float y, float x2, uint32_t color) {
@@ -121,13 +121,13 @@ void DrawBuffer::vLine(float x, float y1, float y2, uint32_t color) {
 	Rect(x, y1, g_display.pixel_in_dps_x, y2 - y1, color);
 }
 
-void DrawBuffer::RectVGradient(float x, float y, float w, float h, uint32_t colorTop, uint32_t colorBottom) {
-	V(x,		 y,     0, colorTop,    0, 0);
-	V(x + w, y,		 0, colorTop,    1, 0);
-	V(x + w, y + h, 0, colorBottom, 1, 1);
-	V(x,		 y,     0, colorTop,    0, 0);
-	V(x + w, y + h, 0, colorBottom, 1, 1);
-	V(x,		 y + h, 0, colorBottom, 0, 1);
+void DrawBuffer::RectVGradient(float x1, float y1, float x2, float y2, uint32_t colorTop, uint32_t colorBottom) {
+	V(x1, y1, 0, colorTop,    0, 0);
+	V(x2, y1, 0, colorTop,    1, 0);
+	V(x2, y2, 0, colorBottom, 1, 1);
+	V(x1, y1, 0, colorTop,    0, 0);
+	V(x2, y2, 0, colorBottom, 1, 1);
+	V(x1, y2, 0, colorBottom, 0, 1);
 }
 
 void DrawBuffer::RectOutline(float x, float y, float w, float h, uint32_t color, int align) {
@@ -142,7 +142,7 @@ void DrawBuffer::MultiVGradient(float x, float y, float w, float h, const Gradie
 	for (int i = 0; i < numStops - 1; i++) {
 		float t0 = stops[i].t, t1 = stops[i+1].t;
 		uint32_t c0 = stops[i].color, c1 = stops[i+1].color;
-		RectVGradient(x, y + h * t0, w, h * (t1 - t0), c0, c1);
+		RectVGradient(x, y + h * t0, x + w, y + h * (t1 - t0), c0, c1);
 	}
 }
 
