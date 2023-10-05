@@ -204,29 +204,27 @@ void WriteVector(const float *rd, VectorSize size, int reg) {
 	const int mtx = reg & (7 << 2);
 	const int col = reg & 3;
 	bool transpose = (reg >> 5) & 1;
-	if (currentMIPS->VfpuWriteMask() == 0) {
-		if (transpose) {
-			const int base = mtx + col * 32;
+	if (transpose) {
+		const int base = mtx + col * 32;
+		if (currentMIPS->VfpuWriteMask() == 0) {
 			for (int i = 0; i < length; i++)
 				V(base + ((row+i)&3)) = rd[i];
 		} else {
-			const int base = mtx + col;
-			for (int i = 0; i < length; i++)
-				V(base + ((row+i)&3)*32) = rd[i];
-		}
-	} else {
-		if (transpose) {
 			for (int i = 0; i < length; i++) {
 				if (!currentMIPS->VfpuWriteMask(i)) {
-					int index = mtx + ((row + i) & 3) + col * 32;
-					V(index) = rd[i];
+					V(base + ((row + i) & 3)) = rd[i];
 				}
 			}
+		}
+	} else {
+		const int base = mtx + col;
+		if (currentMIPS->VfpuWriteMask() == 0) {
+			for (int i = 0; i < length; i++)
+				V(base + ((row + i) & 3) * 32) = rd[i];
 		} else {
 			for (int i = 0; i < length; i++) {
 				if (!currentMIPS->VfpuWriteMask(i)) {
-					int index = mtx + col + ((row + i) & 3) * 32;
-					V(index) = rd[i];
+					V(base + ((row + i) & 3) * 32) = rd[i];
 				}
 			}
 		}
