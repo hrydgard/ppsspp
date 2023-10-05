@@ -215,14 +215,19 @@ void WriteVector(const float *rd, VectorSize size, int reg) {
 				V(base + ((row+i)&3)*32) = rd[i];
 		}
 	} else {
-		for (int i = 0; i < length; i++) {
-			if (!currentMIPS->VfpuWriteMask(i)) {
-				int index = mtx;
-				if (transpose)
-					index += ((row+i)&3) + col*32;
-				else
-					index += col + ((row+i)&3)*32;
-				V(index) = rd[i];
+		if (transpose) {
+			for (int i = 0; i < length; i++) {
+				if (!currentMIPS->VfpuWriteMask(i)) {
+					int index = mtx + ((row + i) & 3) + col * 32;
+					V(index) = rd[i];
+				}
+			}
+		} else {
+			for (int i = 0; i < length; i++) {
+				if (!currentMIPS->VfpuWriteMask(i)) {
+					int index = mtx + col + ((row + i) & 3) * 32;
+					V(index) = rd[i];
+				}
 			}
 		}
 	}
