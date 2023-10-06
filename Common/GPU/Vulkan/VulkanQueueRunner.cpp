@@ -173,7 +173,7 @@ bool VulkanQueueRunner::InitDepthStencilBuffer(VkCommandBuffer cmd) {
 	image_info.queueFamilyIndexCount = 0;
 	image_info.pQueueFamilyIndices = nullptr;
 	image_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-	image_info.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+	image_info.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT;
 	image_info.flags = 0;
 
 	depth_.format = depth_format;
