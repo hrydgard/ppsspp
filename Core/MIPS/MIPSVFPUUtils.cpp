@@ -33,9 +33,6 @@
 #pragma warning(disable: 4146)
 #endif
 
-#define V(i)   (currentMIPS->v[voffset[i]])
-#define VI(i)  (currentMIPS->vi[voffset[i]])
-
 union float2int {
 	uint32_t i;
 	float f;
@@ -164,12 +161,11 @@ void GetMatrixRows(int matrixReg, MatrixSize msize, u8 vecs[4]) {
 	}
 }
 
-
 void ReadVector(float *rd, VectorSize size, int reg) {
 	int row;
 	int length;
 	switch (size) {
-	case V_Single: rd[0] = V(reg); return; // transpose = 0; row=(reg>>5)&3; length = 1; break;
+	case V_Single: rd[0] = currentMIPS->v[voffset[reg]]; return; // transpose = 0; row=(reg>>5)&3; length = 1; break;
 	case V_Pair:   row=(reg>>5)&2; length = 2; break;
 	case V_Triple: row=(reg>>6)&1; length = 3; break;
 	case V_Quad:   row=(reg>>5)&2; length = 4; break;
@@ -195,7 +191,7 @@ void WriteVector(const float *rd, VectorSize size, int reg) {
 	int length;
 
 	switch (size) {
-	case V_Single: if (!currentMIPS->VfpuWriteMask(0)) V(reg) = rd[0]; return; // transpose = 0; row=(reg>>5)&3; length = 1; break;
+	case V_Single: if (!currentMIPS->VfpuWriteMask(0)) currentMIPS->v[voffset[reg]] = rd[0]; return; // transpose = 0; row=(reg>>5)&3; length = 1; break;
 	case V_Pair:   row=(reg>>5)&2; length = 2; break;
 	case V_Triple: row=(reg>>6)&1; length = 3; break;
 	case V_Quad:   row=(reg>>5)&2; length = 4; break;
