@@ -68,7 +68,6 @@ void IndexGenerator::AddPoints(int numVerts, int indexOffset) {
 		*outInds++ = indexOffset + i;
 	inds_ = outInds;
 	// ignore overflow verts
-	count_ += numVerts;
 	prim_ = GE_PRIM_POINTS;
 	seenPrims_ |= 1 << GE_PRIM_POINTS;
 }
@@ -84,7 +83,6 @@ void IndexGenerator::AddList(int numVerts, int indexOffset, bool clockwise) {
 	}
 	inds_ = outInds;
 	// ignore overflow verts
-	count_ += numVerts;
 	prim_ = GE_PRIM_TRIANGLES;
 	seenPrims_ |= 1 << GE_PRIM_TRIANGLES;
 	if (!clockwise) {
@@ -203,8 +201,6 @@ void IndexGenerator::AddStrip(int numVerts, int indexOffset, bool clockwise) {
 	inds_ = outInds;
 #endif
 
-	if (numTris > 0)
-		count_ += numTris * 3;
 	// This is so we can detect one single strip by just looking at seenPrims_.
 	if (!seenPrims_ && clockwise) {
 		seenPrims_ = 1 << GE_PRIM_TRIANGLE_STRIP;
@@ -228,7 +224,6 @@ void IndexGenerator::AddFan(int numVerts, int indexOffset, bool clockwise) {
 		*outInds++ = indexOffset + i + v2;
 	}
 	inds_ = outInds;
-	count_ += numTris * 3;
 	prim_ = GE_PRIM_TRIANGLES;
 	seenPrims_ |= 1 << GE_PRIM_TRIANGLE_FAN;
 	if (!clockwise) {
@@ -245,7 +240,6 @@ void IndexGenerator::AddLineList(int numVerts, int indexOffset) {
 		*outInds++ = indexOffset + i + 1;
 	}
 	inds_ = outInds;
-	count_ += numVerts;
 	prim_ = GE_PRIM_LINES;
 	seenPrims_ |= 1 << prim_;
 }
@@ -258,7 +252,6 @@ void IndexGenerator::AddLineStrip(int numVerts, int indexOffset) {
 		*outInds++ = indexOffset + i + 1;
 	}
 	inds_ = outInds;
-	count_ += numLines * 2;
 	prim_ = GE_PRIM_LINES;
 	seenPrims_ |= 1 << GE_PRIM_LINE_STRIP;
 }
@@ -272,7 +265,6 @@ void IndexGenerator::AddRectangles(int numVerts, int indexOffset) {
 		*outInds++ = indexOffset + i + 1;
 	}
 	inds_ = outInds;
-	count_ += numVerts;
 	prim_ = GE_PRIM_RECTANGLES;
 	seenPrims_ |= 1 << GE_PRIM_RECTANGLES;
 }
@@ -283,7 +275,6 @@ void IndexGenerator::TranslatePoints(int numInds, const ITypeLE *inds, int index
 	for (int i = 0; i < numInds; i++)
 		*outInds++ = indexOffset + inds[i];
 	inds_ = outInds;
-	count_ += numInds;
 	prim_ = GE_PRIM_POINTS;
 	seenPrims_ |= (1 << GE_PRIM_POINTS) | flag;
 }
@@ -297,7 +288,6 @@ void IndexGenerator::TranslateLineList(int numInds, const ITypeLE *inds, int ind
 		*outInds++ = indexOffset + inds[i + 1];
 	}
 	inds_ = outInds;
-	count_ += numInds;
 	prim_ = GE_PRIM_LINES;
 	seenPrims_ |= (1 << GE_PRIM_LINES) | flag;
 }
@@ -311,7 +301,6 @@ void IndexGenerator::TranslateLineStrip(int numInds, const ITypeLE *inds, int in
 		*outInds++ = indexOffset + inds[i + 1];
 	}
 	inds_ = outInds;
-	count_ += numLines * 2;
 	prim_ = GE_PRIM_LINES;
 	seenPrims_ |= (1 << GE_PRIM_LINE_STRIP) | flag;
 }
@@ -323,7 +312,6 @@ void IndexGenerator::TranslateList(int numInds, const ITypeLE *inds, int indexOf
 	if (sizeof(ITypeLE) == sizeof(inds_[0]) && indexOffset == 0 && clockwise) {
 		memcpy(inds_, inds, numInds * sizeof(ITypeLE));
 		inds_ += numInds;
-		count_ += numInds;
 	} else {
 		u16 *outInds = inds_;
 		int numTris = numInds / 3;  // Round to whole triangles
@@ -337,7 +325,6 @@ void IndexGenerator::TranslateList(int numInds, const ITypeLE *inds, int indexOf
 			*outInds++ = indexOffset + inds[i + v2];
 		}
 		inds_ = outInds;
-		count_ += numInds;
 	}
 	prim_ = GE_PRIM_TRIANGLES;
 	seenPrims_ |= (1 << GE_PRIM_TRIANGLES) | flag;
@@ -355,7 +342,6 @@ void IndexGenerator::TranslateStrip(int numInds, const ITypeLE *inds, int indexO
 		*outInds++ = indexOffset + inds[i + wind];
 	}
 	inds_ = outInds;
-	count_ += numTris * 3;
 	prim_ = GE_PRIM_TRIANGLES;
 	seenPrims_ |= (1 << GE_PRIM_TRIANGLE_STRIP) | flag;
 }
@@ -373,7 +359,6 @@ void IndexGenerator::TranslateFan(int numInds, const ITypeLE *inds, int indexOff
 		*outInds++ = indexOffset + inds[i + v2];
 	}
 	inds_ = outInds;
-	count_ += numTris * 3;
 	prim_ = GE_PRIM_TRIANGLES;
 	seenPrims_ |= (1 << GE_PRIM_TRIANGLE_FAN) | flag;
 }
@@ -388,7 +373,6 @@ inline void IndexGenerator::TranslateRectangles(int numInds, const ITypeLE *inds
 		*outInds++ = indexOffset + inds[i+1];
 	}
 	inds_ = outInds;
-	count_ += numInds;
 	prim_ = GE_PRIM_RECTANGLES;
 	seenPrims_ |= (1 << GE_PRIM_RECTANGLES) | flag;
 }
