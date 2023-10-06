@@ -218,7 +218,7 @@ GLRInputLayout *DrawEngineGLES::SetupDecFmtForDraw(const DecVtxFormat &decFmt) {
 	VertexAttribSetup(ATTR_COLOR0, decFmt.c0fmt, decFmt.stride, decFmt.c0off, entries);
 	VertexAttribSetup(ATTR_COLOR1, decFmt.c1fmt, decFmt.stride, decFmt.c1off, entries);
 	VertexAttribSetup(ATTR_NORMAL, decFmt.nrmfmt, decFmt.stride, decFmt.nrmoff, entries);
-	VertexAttribSetup(ATTR_POSITION, decFmt.posfmt, decFmt.stride, decFmt.posoff, entries);
+	VertexAttribSetup(ATTR_POSITION, DecVtxFormat::PosFmt(), decFmt.stride, decFmt.posoff, entries);
 
 	inputLayout = render_->CreateInputLayout(entries);
 	inputLayoutMap_.Insert(key, inputLayout);
@@ -473,30 +473,8 @@ void DrawEngineGLES::DoFlush() {
 	}
 
 bail:
-	gpuStats.numFlushes++;
-	gpuStats.numDrawCalls += numDrawInds_;
-	gpuStats.numVertexDecodes += numDrawVerts_;
-	gpuStats.numVertsSubmitted += vertexCountInDrawCalls_;
-
-	// TODO: When the next flush has the same vertex format, we can continue with the same offset in the vertex buffer,
-	// and start indexing from a higher value. This is very friendly to OpenGL (where we can't rely on baseindex if we
-	// wanted to avoid rebinding the vertex input every time).
-	indexGen.Reset();
-	decodedVerts_ = 0;
-	numDrawVerts_ = 0;
-	numDrawInds_ = 0;
-	vertexCountInDrawCalls_ = 0;
-	decodeVertsCounter_ = 0;
-	decodeIndsCounter_ = 0;
-	gstate_c.vertexFullAlpha = true;
+	ResetAfterDrawInline();
 	framebufferManager_->SetColorUpdated(gstate_c.skipDrawReason);
-
-	// Now seems as good a time as any to reset the min/max coords, which we may examine later.
-	gstate_c.vertBounds.minU = 512;
-	gstate_c.vertBounds.minV = 512;
-	gstate_c.vertBounds.maxU = 0;
-	gstate_c.vertBounds.maxV = 0;
-
 	GPUDebug::NotifyDraw();
 }
 

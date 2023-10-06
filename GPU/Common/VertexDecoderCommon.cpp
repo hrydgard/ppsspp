@@ -60,7 +60,7 @@ int TranslateNumBones(int bones) {
 	return bones;
 }
 
-int DecFmtSize(u8 fmt) {
+static int DecFmtSize(u8 fmt) {
 	switch (fmt) {
 	case DEC_NONE: return 0;
 	case DEC_FLOAT_1: return 4;
@@ -83,7 +83,7 @@ int DecFmtSize(u8 fmt) {
 }
 
 void DecVtxFormat::ComputeID() {
-	id = w0fmt | (w1fmt << 4) | (uvfmt << 8) | (c0fmt << 12) | (c1fmt << 16) | (nrmfmt << 20) | (posfmt << 24);
+	id = w0fmt | (w1fmt << 4) | (uvfmt << 8) | (c0fmt << 12) | (c1fmt << 16) | (nrmfmt << 20);
 }
 
 void DecVtxFormat::InitializeFromID(uint32_t id) {
@@ -94,7 +94,6 @@ void DecVtxFormat::InitializeFromID(uint32_t id) {
 	c0fmt = ((id >> 12) & 0xF);
 	c1fmt = ((id >> 16) & 0xF);
 	nrmfmt = ((id >> 20) & 0xF);
-	posfmt = ((id >> 24) & 0xF);
 	w0off = 0;
 	w1off = w0off + DecFmtSize(w0fmt);
 	uvoff = w1off + DecFmtSize(w1fmt);
@@ -102,7 +101,7 @@ void DecVtxFormat::InitializeFromID(uint32_t id) {
 	c1off = c0off + DecFmtSize(c0fmt);
 	nrmoff = c1off + DecFmtSize(c1fmt);
 	posoff = nrmoff + DecFmtSize(nrmfmt);
-	stride = posoff + DecFmtSize(posfmt);
+	stride = posoff + DecFmtSize(PosFmt());
 }
 
 void GetIndexBounds(const void *inds, int count, u32 vertType, u16 *indexLowerBound, u16 *indexUpperBound) {
@@ -1248,20 +1247,18 @@ void VertexDecoder::SetVertexType(u32 fmt, const VertexDecoderOptions &options, 
 		if (posalign[pos] > biggest)
 			biggest = posalign[pos];
 
+		// We don't set posfmt because it's always DEC_FLOAT_3.
 		if (throughmode) {
 			steps_[numSteps_++] = posstep_through[pos];
-			decFmt.posfmt = DEC_FLOAT_3;
 		} else {
 			if (skinInDecode) {
 				steps_[numSteps_++] = morphcount == 1 ? posstep_skin[pos] : posstep_morph_skin[pos];
-				decFmt.posfmt = DEC_FLOAT_3;
 			} else {
 				steps_[numSteps_++] = morphcount == 1 ? posstep[pos] : posstep_morph[pos];
-				decFmt.posfmt = DEC_FLOAT_3;
 			}
 		}
 		decFmt.posoff = decOff;
-		decOff += DecFmtSize(decFmt.posfmt);
+		decOff += DecFmtSize(DecVtxFormat::PosFmt());
 	}
 
 	decFmt.stride = options.alignOutputToWord ? align(decOff, 4) : decOff;
@@ -1279,7 +1276,6 @@ void VertexDecoder::SetVertexType(u32 fmt, const VertexDecoderOptions &options, 
 		ERROR_LOG_REPORT(G3D, "Vertices without position found: (%08x) %s", fmt_, temp);
 	}
 
-	_assert_msg_(decFmt.posfmt == DEC_FLOAT_3, "Reader only supports float pos");
 	_assert_msg_(decFmt.uvfmt == DEC_FLOAT_2 || decFmt.uvfmt == DEC_NONE, "Reader only supports float UV");
 
 	// Attempt to JIT as well. But only do that if the main CPU JIT is enabled, in order to aid
