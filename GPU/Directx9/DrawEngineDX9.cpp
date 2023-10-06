@@ -258,16 +258,12 @@ void DrawEngineDX9::DoFlush() {
 		LPDIRECT3DVERTEXBUFFER9 vb_ = nullptr;
 		LPDIRECT3DINDEXBUFFER9 ib_ = nullptr;
 
+		int vertexCount;
+		int maxIndex;
+		bool useElements;
 		DecodeVerts(decoded_);
-		DecodeInds();
-
-		bool useElements = !indexGen.SeenOnlyPurePrims();
-		int vertexCount = indexGen.VertexCount();
+		DecodeIndsAndGetData(&prim, &vertexCount, &maxIndex, &useElements, false);
 		gpuStats.numUncachedVertsDrawn += vertexCount;
-		if (!useElements && indexGen.PureCount()) {
-			vertexCount = indexGen.PureCount();
-		}
-		prim = indexGen.Prim();
 
 		_dbg_assert_((int)prim > 0);
 
@@ -315,7 +311,8 @@ void DrawEngineDX9::DoFlush() {
 			dec_ = GetVertexDecoder(lastVType_);
 		}
 		DecodeVerts(decoded_);
-		DecodeInds();
+		int vertexCount = DecodeInds();
+
 		bool hasColor = (lastVType_ & GE_VTYPE_COL_MASK) != GE_VTYPE_COL_NONE;
 		if (gstate.isModeThrough()) {
 			gstate_c.vertexFullAlpha = gstate_c.vertexFullAlpha && (hasColor || gstate.getMaterialAmbientA() == 255);
@@ -323,12 +320,9 @@ void DrawEngineDX9::DoFlush() {
 			gstate_c.vertexFullAlpha = gstate_c.vertexFullAlpha && ((hasColor && (gstate.materialupdate & 1)) || gstate.getMaterialAmbientA() == 255) && (!gstate.isLightingEnabled() || gstate.getAmbientA() == 255);
 		}
 
-		gpuStats.numUncachedVertsDrawn += indexGen.VertexCount();
-		prim = indexGen.Prim();
-		// Undo the strip optimization, not supported by the SW code yet.
-		if (prim == GE_PRIM_TRIANGLE_STRIP)
-			prim = GE_PRIM_TRIANGLES;
-		VERBOSE_LOG(G3D, "Flush prim %i SW! %i verts in one go", prim, indexGen.VertexCount());
+		gpuStats.numUncachedVertsDrawn += vertexCount;
+		prim = IndexGenerator::GeneralPrim((GEPrimitiveType)drawInds_[0].prim);
+		VERBOSE_LOG(G3D, "Flush prim %i SW! %i verts in one go", prim, vertexCount);
 
 		u16 *inds = decIndex_;
 		SoftwareTransformResult result{};
@@ -354,6 +348,7 @@ void DrawEngineDX9::DoFlush() {
 			UpdateCachedViewportState(vpAndScissor);
 		}
 
+		int maxIndex = numDecodedVerts_;
 		SoftwareTransform swTransform(params);
 
 		// Half pixel offset hack.
@@ -379,7 +374,7 @@ void DrawEngineDX9::DoFlush() {
 		ApplyDrawState(prim);
 
 		if (result.action == SW_NOT_READY)
-			swTransform.BuildDrawingParams(prim, indexGen.VertexCount(), dec_->VertexType(), inds, numDecodedVerts_, &result);
+			swTransform.BuildDrawingParams(prim, vertexCount, dec_->VertexType(), inds, numDecodedVerts_, &result);
 		if (result.setSafeSize)
 			framebufferManager_->SetSafeSize(result.safeWidth, result.safeHeight);
 
