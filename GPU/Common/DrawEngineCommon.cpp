@@ -610,7 +610,7 @@ u32 DrawEngineCommon::ComputeMiniHash() {
 	}
 	for (int i = 0; i < numDrawInds_; i += step) {
 		const DeferredInds &di = drawInds_[i];
-		if (di.inds) {
+		if (di.indexType != 0) {
 			fullhash += ComputeMiniHashRange(di.inds, indexSize * di.vertexCount);
 		}
 	}
@@ -638,8 +638,10 @@ uint32_t DrawEngineCommon::ComputeDrawcallsHash() const {
 	}
 	for (int j = 0; j < numDrawInds_; j++) {
 		u32 dhash = dcid;
-		dhash = __rotl(dhash ^ (u32)(uintptr_t)drawInds_[j].inds, 19);
-		dcid = lowbias32_r(__rotl(dhash ^ (u32)drawInds_[j].indexType, 7));
+		if (drawInds_[j].inds) {
+			dhash = __rotl(dhash ^ (u32)(uintptr_t)drawInds_[j].inds, 19);
+			dcid = lowbias32_r(__rotl(dhash ^ (u32)drawInds_[j].indexType, 7));
+		}
 	}
 	return dcid;
 }
@@ -678,31 +680,46 @@ uint64_t DrawEngineCommon::ComputeHash() {
 	return fullhash;
 }
 
-bool DrawEngineCommon::ExtendNonIndexedPrim(GEPrimitiveType prim, int vertexCount, u32 vertTypeID, int cullMode, int *bytesRead) {
-	if (numDrawInds_ >= MAX_DEFERRED_DRAW_INDS || vertexCountInDrawCalls_ + vertexCount > VERTEX_BUFFER_MAX) {
-		return false;
-	}
+int DrawEngineCommon::ExtendNonIndexedPrim(const uint32_t *cmd, u32 vertTypeID, int cullMode, int *bytesRead, bool isTriangle) {
+	const uint32_t *start = cmd;
+	int prevDrawVerts = numDrawVerts_ - 1;
+	DeferredVerts &dv = drawVerts_[prevDrawVerts];
+	int offset = dv.vertexCount;
 
 	_dbg_assert_(numDrawInds_ < MAX_DEFERRED_DRAW_INDS);
 	_dbg_assert_(numDrawVerts_ > 0);
-	*bytesRead = vertexCount * dec_->VertexSize();
 
-	DeferredInds &di = drawInds_[numDrawInds_++];
-	di.inds = nullptr;
-	di.indexType = 0;
-	di.prim = prim;
-	di.cullMode = cullMode;
-	di.vertexCount = vertexCount;
-	di.vertDecodeIndex = numDrawVerts_ - 1;
+	while (true) {
+		uint32_t data = *cmd;
+		if ((data & 0xFFF80000) != 0x04000000) {
+			break;
+		}
+		GEPrimitiveType newPrim = static_cast<GEPrimitiveType>((data >> 16) & 7);
+		if (IsTrianglePrim(newPrim) != isTriangle)
+			break;
+		int vertexCount = data & 0xFFFF;
+		if (numDrawInds_ >= MAX_DEFERRED_DRAW_INDS || vertexCountInDrawCalls_ + vertexCount > VERTEX_BUFFER_MAX) {
+			break;
+		}
+		DeferredInds &di = drawInds_[numDrawInds_++];
+		di.indexType = 0;
+		di.prim = newPrim;
+		di.cullMode = cullMode;
+		di.vertexCount = vertexCount;
+		di.vertDecodeIndex = prevDrawVerts;
+		di.offset = offset;
+		offset += vertexCount;
+		cmd++;
+	}
 
-	DeferredVerts &dv = drawVerts_[numDrawVerts_ - 1];
-	int offset = dv.vertexCount;
-	di.offset = offset;
-	dv.vertexCount += vertexCount;
+	_dbg_assert_(cmd != start);
+
+	int totalCount = offset - dv.vertexCount;
+	dv.vertexCount = offset;
 	dv.indexUpperBound = dv.vertexCount - 1;
-	vertexCountInDrawCalls_ += vertexCount;
-
-	return true;
+	vertexCountInDrawCalls_ += totalCount;
+	*bytesRead = totalCount * dec_->VertexSize();
+	return cmd - start;
 }
 
 // vertTypeID is the vertex type but with the UVGen mode smashed into the top bits.

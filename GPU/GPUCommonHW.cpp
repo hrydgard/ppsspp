@@ -1026,11 +1026,14 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 				// Non-indexed draws can be cheaply merged if vertexAddr hasn't changed, that means the vertices
 				// are consecutive in memory.
 				_dbg_assert_((vertexType & GE_VTYPE_IDX_MASK) == GE_VTYPE_IDX_NONE);
-				if (drawEngineCommon_->ExtendNonIndexedPrim(newPrim, count, vertTypeID, cullMode, &bytesRead)) {
-					gstate_c.vertexAddr += bytesRead;
-					totalVertCount += count;
-					break;
+				int commandsExecuted = drawEngineCommon_->ExtendNonIndexedPrim(src, vertTypeID, cullMode, &bytesRead, isTriangle);
+				if (!commandsExecuted) {
+					goto bail;
 				}
+				src += commandsExecuted - 1;
+				gstate_c.vertexAddr += bytesRead;
+				totalVertCount += count;
+				break;
 			}
 
 			// Failed, or can't extend? Do a normal submit.
