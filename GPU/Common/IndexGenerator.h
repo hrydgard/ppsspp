@@ -27,7 +27,6 @@ public:
 	void Setup(u16 *indexptr);
 	void Reset() {
 		prim_ = GE_PRIM_INVALID;
-		count_ = 0;
 		seenPrims_ = 0;
 		pureCount_ = 0;
 		this->inds_ = indsBase_;
@@ -61,7 +60,7 @@ public:
 	void TranslatePrim(int prim, int numInds, const u16_le *inds, int indexOffset, bool clockwise);
 	void TranslatePrim(int prim, int numInds, const u32_le *inds, int indexOffset, bool clockwise);
 
-	int VertexCount() const { return count_; }
+	int VertexCount() const { return inds_ - indsBase_; }
 	int SeenPrims() const { return seenPrims_; }
 	int PureCount() const { return pureCount_; }
 	bool SeenOnlyPurePrims() const {
@@ -110,7 +109,6 @@ private:
 
 	u16 *indsBase_;
 	u16 *inds_;
-	int count_;
 	int pureCount_;
 	GEPrimitiveType prim_;
 	int seenPrims_;
