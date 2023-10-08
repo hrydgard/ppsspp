@@ -88,9 +88,9 @@ void DrawEngineVulkan::InitDeviceObjects() {
 		BindingType::UNIFORM_BUFFER_DYNAMIC_ALL,  // uniforms
 		BindingType::UNIFORM_BUFFER_DYNAMIC_VERTEX,  // lights
 		BindingType::UNIFORM_BUFFER_DYNAMIC_VERTEX,  // bones
-		BindingType::STORAGE_BUFFER,  // tess
-		BindingType::STORAGE_BUFFER,
-		BindingType::STORAGE_BUFFER,
+		BindingType::STORAGE_BUFFER_VERTEX,  // tess
+		BindingType::STORAGE_BUFFER_VERTEX,
+		BindingType::STORAGE_BUFFER_VERTEX,
 	};
 
 	VulkanContext *vulkan = (VulkanContext *)draw_->GetNativeObject(Draw::NativeObject::CONTEXT);
@@ -100,27 +100,11 @@ void DrawEngineVulkan::InitDeviceObjects() {
 	pipelineLayout_ = renderManager->CreatePipelineLayout(bindingTypes, ARRAY_SIZE(bindingTypes), draw_->GetDeviceCaps().geometryShaderSupported, "drawengine_layout");
 
 	static constexpr int DEFAULT_DESC_POOL_SIZE = 512;
-	std::vector<VkDescriptorPoolSize> dpTypes;
-	dpTypes.resize(4);
-	dpTypes[0].descriptorCount = DEFAULT_DESC_POOL_SIZE * 3;
-	dpTypes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
-	dpTypes[1].descriptorCount = DEFAULT_DESC_POOL_SIZE * 3;  // Don't use these for tess anymore, need max three per set.
-	dpTypes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-	dpTypes[2].descriptorCount = DEFAULT_DESC_POOL_SIZE * 3;  // TODO: Use a separate layout when no spline stuff is needed to reduce the need for these.
-	dpTypes[2].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-	dpTypes[3].descriptorCount = DEFAULT_DESC_POOL_SIZE;  // For the frame global uniform buffer. Might need to allocate multiple times.
-	dpTypes[3].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-
-	VkDescriptorPoolCreateInfo dp{ VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO };
-	// Don't want to mess around with individually freeing these.
-	// We zap the whole pool every few frames.
-	dp.flags = 0;
-	dp.maxSets = DEFAULT_DESC_POOL_SIZE;
 
 	// We are going to use one-shot descriptors in the initial implementation. Might look into caching them
 	// if creating and updating them turns out to be expensive.
 	for (int i = 0; i < VulkanContext::MAX_INFLIGHT_FRAMES; i++) {
-		frame_[i].descPool.Create(vulkan, dp, dpTypes);
+		frame_[i].descPool.Create(vulkan, bindingTypes, ARRAY_SIZE(bindingTypes), DEFAULT_DESC_POOL_SIZE);
 
 		// Note that pushUBO_ is also used for tessellation data (search for SetPushBuffer), and to upload
 		// the null texture. This should be cleaned up...

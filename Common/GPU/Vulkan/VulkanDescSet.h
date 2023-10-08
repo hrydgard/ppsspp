@@ -6,6 +6,15 @@
 #include <functional>
 #include <vector>
 
+enum class BindingType {
+	COMBINED_IMAGE_SAMPLER,
+	UNIFORM_BUFFER_DYNAMIC_VERTEX,
+	UNIFORM_BUFFER_DYNAMIC_ALL,
+	STORAGE_BUFFER_VERTEX,
+	STORAGE_BUFFER_COMPUTE,
+	STORAGE_IMAGE_COMPUTE,
+};
+
 // Only appropriate for use in a per-frame pool.
 class VulkanDescSetPool {
 public:
@@ -16,7 +25,7 @@ public:
 	void Setup(const std::function<void()> &clear) {
 		clear_ = clear;
 	}
-	void Create(VulkanContext *vulkan, const VkDescriptorPoolCreateInfo &info, const std::vector<VkDescriptorPoolSize> &sizes);
+	void Create(VulkanContext *vulkan, const BindingType *bindingTypes, uint32_t bindingTypesCount, uint32_t descriptorCount);
 	// Allocate a new set, which may resize and empty the current sets.
 	// Use only for the current frame, unless in a cache cleared by clear_.
 	VkDescriptorSet Allocate(int n, const VkDescriptorSetLayout *layouts, const char *tag);

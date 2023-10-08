@@ -1039,25 +1039,8 @@ VKContext::VKContext(VulkanContext *vulkan, bool useRenderThread)
 	caps_.deviceID = deviceProps.deviceID;
 	device_ = vulkan->GetDevice();
 
-	std::vector<VkDescriptorPoolSize> dpTypes;
-	dpTypes.resize(2);
-	dpTypes[0].descriptorCount = 200;
-	dpTypes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
-	dpTypes[1].descriptorCount = 200 * MAX_BOUND_TEXTURES;
-	dpTypes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-
-	VkDescriptorPoolCreateInfo dp{ VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO };
-	// Don't want to mess around with individually freeing these, let's go dynamic each frame.
-	dp.flags = 0;
-	// 200 textures per frame was not enough for the UI.
-	dp.maxSets = 4096;
-
 	VkBufferUsageFlags usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
 	push_ = new VulkanPushPool(vulkan_, "pushBuffer", 4 * 1024 * 1024, usage);
-
-	for (int i = 0; i < VulkanContext::MAX_INFLIGHT_FRAMES; i++) {
-		frame_[i].descriptorPool.Create(vulkan_, dp, dpTypes);
-	}
 
 	// binding 0 - uniform data
 	// binding 1 - combined sampler/image 0
@@ -1068,8 +1051,11 @@ VKContext::VKContext(VulkanContext *vulkan, bool useRenderThread)
 	for (int i = 0; i < MAX_BOUND_TEXTURES; ++i) {
 		bindings[1 + i] = BindingType::COMBINED_IMAGE_SAMPLER;
 	}
-
 	pipelineLayout_ = renderManager_.CreatePipelineLayout(bindings, ARRAY_SIZE(bindings), caps_.geometryShaderSupported, "thin3d_layout");
+
+	for (int i = 0; i < VulkanContext::MAX_INFLIGHT_FRAMES; i++) {
+		frame_[i].descriptorPool.Create(vulkan_, bindings, ARRAY_SIZE(bindings), 1024);
+	}
 
 	VkPipelineCacheCreateInfo pc{ VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO };
 	VkResult res = vkCreatePipelineCache(vulkan_->GetDevice(), &pc, nullptr, &pipelineCache_);

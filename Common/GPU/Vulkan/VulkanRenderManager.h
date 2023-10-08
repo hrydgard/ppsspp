@@ -23,6 +23,7 @@
 #include "Common/GPU/MiscTypes.h"
 #include "Common/GPU/Vulkan/VulkanQueueRunner.h"
 #include "Common/GPU/Vulkan/VulkanFramebuffer.h"
+#include "Common/GPU/Vulkan/VulkanDescSet.h"
 #include "Common/GPU/thin3d.h"
 
 // Forward declaration
@@ -182,15 +183,6 @@ struct CompileQueueEntry {
 	VKRGraphicsPipeline *graphics = nullptr;
 	VKRComputePipeline *compute = nullptr;
 	VkSampleCountFlagBits sampleCount;
-};
-
-enum class BindingType {
-	COMBINED_IMAGE_SAMPLER,
-	UNIFORM_BUFFER_DYNAMIC_VERTEX,
-	UNIFORM_BUFFER_DYNAMIC_ALL,
-	STORAGE_BUFFER_VERTEX,
-	STORAGE_BUFFER_COMPUTE,
-	STORAGE_IMAGE_COMPUTE,
 };
 
 // Note that we only support a single descriptor set due to compatibility with some ancient devices.
