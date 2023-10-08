@@ -257,7 +257,7 @@ public:
 	// WARNING: desc must stick around during the lifetime of the pipeline! It's not enough to build it on the stack and drop it.
 	VKRGraphicsPipeline *CreateGraphicsPipeline(VKRGraphicsPipelineDesc *desc, PipelineFlags pipelineFlags, uint32_t variantBitmask, VkSampleCountFlagBits sampleCount, bool cacheLoad, const char *tag);
 	VKRComputePipeline *CreateComputePipeline(VKRComputePipelineDesc *desc);
-	
+
 	VKRPipelineLayout *CreatePipelineLayout(VkPipelineLayout pipelineLayout, VkDescriptorSetLayout descSetLayout) {
 		VKRPipelineLayout *layout = new VKRPipelineLayout();
 		layout->pipelineLayout = pipelineLayout;

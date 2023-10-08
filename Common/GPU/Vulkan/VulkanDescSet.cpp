@@ -26,14 +26,14 @@ void VulkanDescSetPool::Create(VulkanContext *vulkan, const BindingType *binding
 		case BindingType::STORAGE_IMAGE_COMPUTE: storageImageCount++; break;
 		}
 	}
-	if (storageImageCount) {
-		sizes_.push_back(VkDescriptorPoolSize{ VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, storageImageCount * descriptorCount });
+	if (combinedImageSamplerCount) {
+		sizes_.push_back(VkDescriptorPoolSize{ VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, combinedImageSamplerCount * descriptorCount });
 	}
 	if (uniformBufferDynamicCount) {
 		sizes_.push_back(VkDescriptorPoolSize{ VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, uniformBufferDynamicCount * descriptorCount });
 	}
-	if (combinedImageSamplerCount) {
-		sizes_.push_back(VkDescriptorPoolSize{ VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, combinedImageSamplerCount * descriptorCount });
+	if (storageBufferCount) {
+		sizes_.push_back(VkDescriptorPoolSize{ VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, storageBufferCount * descriptorCount });
 	}
 	if (storageImageCount) {
 		sizes_.push_back(VkDescriptorPoolSize{ VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, storageImageCount * descriptorCount });
