@@ -676,6 +676,7 @@ void PipelineManagerVulkan::SavePipelineCache(FILE *file, bool saveRawPipelineCa
 			failed = true;
 			return;
 		}
+		_dbg_assert_(pkey.raster.topology != VK_PRIMITIVE_TOPOLOGY_POINT_LIST && pkey.raster.topology != VK_PRIMITIVE_TOPOLOGY_LINE_LIST);
 		StoredVulkanPipelineKey key{};
 		key.raster = pkey.raster;
 		key.useHWTransform = pkey.useHWTransform;
@@ -788,6 +789,12 @@ bool PipelineManagerVulkan::LoadPipelineCache(FILE *file, bool loadRawPipelineCa
 			ERROR_LOG(G3D, "Truncated Vulkan pipeline cache file, stopping.");
 			break;
 		}
+
+		if (key.raster.topology == VK_PRIMITIVE_TOPOLOGY_POINT_LIST || key.raster.topology == VK_PRIMITIVE_TOPOLOGY_LINE_LIST) {
+			WARN_LOG(G3D, "Bad raster key in cache, ignoring");
+			continue;
+		}
+
 		VulkanVertexShader *vs = shaderManager->GetVertexShaderFromID(key.vShaderID);
 		VulkanFragmentShader *fs = shaderManager->GetFragmentShaderFromID(key.fShaderID);
 		VulkanGeometryShader *gs = shaderManager->GetGeometryShaderFromID(key.gShaderID);
