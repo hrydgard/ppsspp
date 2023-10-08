@@ -246,7 +246,7 @@ static void event_handler_callback(const rc_client_event_t *event, rc_client_t *
 		rc_client_user_game_summary_t summary;
 		rc_client_get_user_game_summary(g_rcClient, &summary);
 
-		std::string message = ApplySafeSubstitutions(ac->T("%d achievements, %d points"), summary.num_unlocked_achievements, summary.points_unlocked);
+		std::string message = ApplySafeSubstitutions(ac->T("%1 achievements, %2 points"), summary.num_unlocked_achievements, summary.points_unlocked);
 
 		g_OSD.Show(OSDType::MESSAGE_INFO, title, message, DeNull(gameInfo->badge_name), 10.0f);
 
