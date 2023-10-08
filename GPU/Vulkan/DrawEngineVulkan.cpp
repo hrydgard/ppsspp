@@ -127,12 +127,13 @@ void DrawEngineVulkan::InitDeviceObjects() {
 	VulkanContext *vulkan = (VulkanContext *)draw_->GetNativeObject(Draw::NativeObject::CONTEXT);
 	VkDevice device = vulkan->GetDevice();
 
+	VkDescriptorSetLayout descriptorSetLayout;
 	VkDescriptorSetLayoutCreateInfo dsl{ VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO };
 	dsl.bindingCount = ARRAY_SIZE(bindings);
 	dsl.pBindings = bindings;
-	VkResult res = vkCreateDescriptorSetLayout(device, &dsl, nullptr, &descriptorSetLayout_);
+	VkResult res = vkCreateDescriptorSetLayout(device, &dsl, nullptr, &descriptorSetLayout);
 	_dbg_assert_(VK_SUCCESS == res);
-	vulkan->SetDebugName(descriptorSetLayout_, VK_OBJECT_TYPE_DESCRIPTOR_SET_LAYOUT, "drawengine_d_layout");
+	vulkan->SetDebugName(descriptorSetLayout, VK_OBJECT_TYPE_DESCRIPTOR_SET_LAYOUT, "drawengine_d_layout");
 
 	static constexpr int DEFAULT_DESC_POOL_SIZE = 512;
 	std::vector<VkDescriptorPoolSize> dpTypes;
@@ -168,15 +169,20 @@ void DrawEngineVulkan::InitDeviceObjects() {
 	VkPipelineLayoutCreateInfo pl{ VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO };
 	pl.pPushConstantRanges = nullptr;
 	pl.pushConstantRangeCount = 0;
-	VkDescriptorSetLayout layouts[1] = { descriptorSetLayout_};
+	VkDescriptorSetLayout layouts[1] = { descriptorSetLayout };
 	pl.setLayoutCount = ARRAY_SIZE(layouts);
 	pl.pSetLayouts = layouts;
 	pl.flags = 0;
 
-	res = vkCreatePipelineLayout(device, &pl, nullptr, &pipelineLayout_);
+	VkPipelineLayout pipelineLayout;
+	res = vkCreatePipelineLayout(device, &pl, nullptr, &pipelineLayout);
 	_dbg_assert_(VK_SUCCESS == res);
 
-	vulkan->SetDebugName(pipelineLayout_, VK_OBJECT_TYPE_PIPELINE_LAYOUT, "drawengine_p_layout");
+	vulkan->SetDebugName(pipelineLayout, VK_OBJECT_TYPE_PIPELINE_LAYOUT, "drawengine_p_layout");
+	
+	VulkanRenderManager *renderManager = (VulkanRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
+
+	pipelineLayout_ = renderManager->CreatePipelineLayout(pipelineLayout, descriptorSetLayout);
 
 	VkSamplerCreateInfo samp{ VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO };
 	samp.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
@@ -192,6 +198,7 @@ void DrawEngineVulkan::InitDeviceObjects() {
 	_dbg_assert_(VK_SUCCESS == res);
 	res = vkCreateSampler(device, &samp, nullptr, &nullSampler_);
 	_dbg_assert_(VK_SUCCESS == res);
+
 
 	vertexCache_ = new VulkanPushBuffer(vulkan, "pushVertexCache", VERTEX_CACHE_SIZE, VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
 
@@ -246,10 +253,7 @@ void DrawEngineVulkan::DestroyDeviceObjects() {
 		vulkan->Delete().QueueDeleteSampler(samplerSecondaryLinear_);
 	if (nullSampler_ != VK_NULL_HANDLE)
 		vulkan->Delete().QueueDeleteSampler(nullSampler_);
-	if (pipelineLayout_ != VK_NULL_HANDLE)
-		vulkan->Delete().QueueDeletePipelineLayout(pipelineLayout_);
-	if (descriptorSetLayout_ != VK_NULL_HANDLE)
-		vulkan->Delete().QueueDeleteDescriptorSetLayout(descriptorSetLayout_);
+	pipelineLayout_->Destroy(vulkan);
 	if (vertexCache_) {
 		vertexCache_->Destroy(vulkan);
 		delete vertexCache_;
@@ -391,7 +395,7 @@ VkDescriptorSet DrawEngineVulkan::GetOrCreateDescriptorSet(VkImageView imageView
 
 	// Didn't find one in the frame descriptor set cache, let's make a new one.
 	// We wipe the cache on every frame.
-	VkDescriptorSet desc = frame.descPool.Allocate(1, &descriptorSetLayout_, "game_descset");
+	VkDescriptorSet desc = frame.descPool.Allocate(1, &pipelineLayout_->descriptorSetLayout, "game_descset");
 
 	// Even in release mode, this is bad.
 	_assert_msg_(desc != VK_NULL_HANDLE, "Ran out of descriptor space in pool. sz=%d", (int)frame.descSets.size());

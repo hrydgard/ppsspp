@@ -546,8 +546,7 @@ private:
 	AutoRef<VKBuffer> curIBuffer_;
 	int curIBufferOffset_ = 0;
 
-	VkDescriptorSetLayout descriptorSetLayout_ = VK_NULL_HANDLE;
-	VkPipelineLayout pipelineLayout_ = VK_NULL_HANDLE;
+	VKRPipelineLayout *pipelineLayout_ = nullptr;
 	VkPipelineCache pipelineCache_ = VK_NULL_HANDLE;
 	AutoRef<VKFramebuffer> curFramebuffer_;
 
@@ -1077,24 +1076,28 @@ VKContext::VKContext(VulkanContext *vulkan, bool useRenderThread)
 		bindings[i + 1].binding = i + 1;
 	}
 
+	VkDescriptorSetLayout descSetLayout;
 	VkDescriptorSetLayoutCreateInfo dsl = { VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO };
 	dsl.bindingCount = ARRAY_SIZE(bindings);
 	dsl.pBindings = bindings;
-	VkResult res = vkCreateDescriptorSetLayout(device_, &dsl, nullptr, &descriptorSetLayout_);
+	VkResult res = vkCreateDescriptorSetLayout(device_, &dsl, nullptr, &descSetLayout);
 	_assert_(VK_SUCCESS == res);
 
-	vulkan_->SetDebugName(descriptorSetLayout_, VK_OBJECT_TYPE_DESCRIPTOR_SET_LAYOUT, "thin3d_d_layout");
+	vulkan_->SetDebugName(descSetLayout, VK_OBJECT_TYPE_DESCRIPTOR_SET_LAYOUT, "thin3d_d_layout");
 
+	VkPipelineLayout pipelineLayout;
 	VkPipelineLayoutCreateInfo pl = { VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO };
 	pl.pPushConstantRanges = nullptr;
 	pl.pushConstantRangeCount = 0;
-	VkDescriptorSetLayout setLayouts[1] = { descriptorSetLayout_ };
+	VkDescriptorSetLayout setLayouts[1] = { descSetLayout };
 	pl.setLayoutCount = ARRAY_SIZE(setLayouts);
 	pl.pSetLayouts = setLayouts;
-	res = vkCreatePipelineLayout(device_, &pl, nullptr, &pipelineLayout_);
+	res = vkCreatePipelineLayout(device_, &pl, nullptr, &pipelineLayout);
 	_assert_(VK_SUCCESS == res);
 
-	vulkan_->SetDebugName(pipelineLayout_, VK_OBJECT_TYPE_PIPELINE_LAYOUT, "thin3d_p_layout");
+	vulkan_->SetDebugName(pipelineLayout, VK_OBJECT_TYPE_PIPELINE_LAYOUT, "thin3d_p_layout");
+
+	pipelineLayout_ = renderManager_.CreatePipelineLayout(pipelineLayout, descSetLayout);
 
 	VkPipelineCacheCreateInfo pc{ VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO };
 	res = vkCreatePipelineCache(vulkan_->GetDevice(), &pc, nullptr, &pipelineCache_);
@@ -1111,8 +1114,7 @@ VKContext::~VKContext() {
 	}
 	push_->Destroy();
 	delete push_;
-	vulkan_->Delete().QueueDeleteDescriptorSetLayout(descriptorSetLayout_);
-	vulkan_->Delete().QueueDeletePipelineLayout(pipelineLayout_);
+	pipelineLayout_->Destroy(vulkan_);
 	vulkan_->Delete().QueueDeletePipelineCache(pipelineCache_);
 }
 
@@ -1181,7 +1183,7 @@ VkDescriptorSet VKContext::GetOrCreateDescriptorSet(VkBuffer buf) {
 		return iter->second;
 	}
 
-	VkDescriptorSet descSet = frame->descriptorPool.Allocate(1, &descriptorSetLayout_, "thin3d_descset");
+	VkDescriptorSet descSet = frame->descriptorPool.Allocate(1, &pipelineLayout_->descriptorSetLayout, "thin3d_descset");
 	if (descSet == VK_NULL_HANDLE) {
 		ERROR_LOG(G3D, "GetOrCreateDescriptorSet failed");
 		return VK_NULL_HANDLE;

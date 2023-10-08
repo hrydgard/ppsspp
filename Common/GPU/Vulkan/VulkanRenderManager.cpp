@@ -116,7 +116,7 @@ bool VKRGraphicsPipeline::Create(VulkanContext *vulkan, VkRenderPass compatibleR
 	pipe.pDynamicState = &desc->ds;
 	pipe.pInputAssemblyState = &inputAssembly;
 	pipe.pMultisampleState = &ms;
-	pipe.layout = desc->pipelineLayout;
+	pipe.layout = desc->pipelineLayout->pipelineLayout;
 	pipe.basePipelineHandle = VK_NULL_HANDLE;
 	pipe.basePipelineIndex = 0;
 	pipe.subpass = 0;
@@ -192,7 +192,7 @@ void VKRGraphicsPipeline::DestroyVariantsInstant(VkDevice device) {
 
 VKRGraphicsPipeline::~VKRGraphicsPipeline() {
 	// This is called from the callbacked queued in QueueForDeletion.
-	// Here we are free to directly delete stuff, don't need to queue.
+	// When we reach here, we should already be empty, so let's assert on that.
 	for (size_t i = 0; i < (size_t)RenderPassType::TYPE_COUNT; i++) {
 		_assert_(!pipeline[i]);
 	}

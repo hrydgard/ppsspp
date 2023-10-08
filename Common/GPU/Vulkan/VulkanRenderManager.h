@@ -106,7 +106,7 @@ public:
 	VkPipelineVertexInputStateCreateInfo vis{ VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO };
 	VkPipelineViewportStateCreateInfo views{ VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO };
 
-	VkPipelineLayout pipelineLayout = VK_NULL_HANDLE;
+	VKRPipelineLayout *pipelineLayout = nullptr;
 
 	// Does not include the render pass type, it's passed in separately since the
 	// desc is persistent.
@@ -166,6 +166,21 @@ struct VKRComputePipeline {
 	bool Pending() const {
 		return pipeline == VK_NULL_HANDLE && desc != nullptr;
 	}
+};
+
+struct VKRPipelineLayout {
+	~VKRPipelineLayout() {
+		_assert_(!pipelineLayout && !descriptorSetLayout);
+	}
+
+	void Destroy(VulkanContext *vulkan) {
+		vulkan->Delete().QueueDeletePipelineLayout(pipelineLayout);
+		vulkan->Delete().QueueDeleteDescriptorSetLayout(descriptorSetLayout);
+	}
+
+	VkPipelineLayout pipelineLayout;
+	VkDescriptorSetLayout descriptorSetLayout;  // only support 1 for now.
+	int pushConstSize;
 };
 
 struct CompileQueueEntry {
@@ -237,6 +252,13 @@ public:
 	// WARNING: desc must stick around during the lifetime of the pipeline! It's not enough to build it on the stack and drop it.
 	VKRGraphicsPipeline *CreateGraphicsPipeline(VKRGraphicsPipelineDesc *desc, PipelineFlags pipelineFlags, uint32_t variantBitmask, VkSampleCountFlagBits sampleCount, bool cacheLoad, const char *tag);
 	VKRComputePipeline *CreateComputePipeline(VKRComputePipelineDesc *desc);
+	
+	VKRPipelineLayout *CreatePipelineLayout(VkPipelineLayout pipelineLayout, VkDescriptorSetLayout descSetLayout) {
+		VKRPipelineLayout *layout = new VKRPipelineLayout();
+		layout->pipelineLayout = pipelineLayout;
+		layout->descriptorSetLayout = descSetLayout;
+		return layout;
+	}
 
 	void ReportBadStateForDraw();
 
@@ -249,7 +271,7 @@ public:
 	// This is the first call in a draw operation. Instead of asserting like we used to, you can now check the
 	// return value and skip the draw if we're in a bad state. In that case, call ReportBadState.
 	// The old assert wasn't very helpful in figuring out what caused it anyway...
-	bool BindPipeline(VKRGraphicsPipeline *pipeline, PipelineFlags flags, VkPipelineLayout pipelineLayout) {
+	bool BindPipeline(VKRGraphicsPipeline *pipeline, PipelineFlags flags, VKRPipelineLayout *pipelineLayout) {
 		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == VKRStepType::RENDER && pipeline != nullptr);
 		if (!curRenderStep_ || curRenderStep_->stepType != VKRStepType::RENDER) {
 			return false;
@@ -267,7 +289,7 @@ public:
 		return true;
 	}
 
-	void BindPipeline(VKRComputePipeline *pipeline, PipelineFlags flags, VkPipelineLayout pipelineLayout) {
+	void BindPipeline(VKRComputePipeline *pipeline, PipelineFlags flags, VKRPipelineLayout *pipelineLayout) {
 		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == VKRStepType::RENDER);
 		_dbg_assert_(pipeline != nullptr);
 		VkRenderData &data = curRenderStep_->commands.push_uninitialized();
