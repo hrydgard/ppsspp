@@ -1072,7 +1072,7 @@ VKContext::~VKContext() {
 	}
 	push_->Destroy();
 	delete push_;
-	pipelineLayout_->Destroy(vulkan_);
+	renderManager_.DestroyPipelineLayout(pipelineLayout_);
 	vulkan_->Delete().QueueDeletePipelineCache(pipelineCache_);
 }
 

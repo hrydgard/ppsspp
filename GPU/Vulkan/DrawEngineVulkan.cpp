@@ -152,6 +152,7 @@ void DrawEngineVulkan::DestroyDeviceObjects() {
 	}
 
 	VulkanContext *vulkan = (VulkanContext *)draw_->GetNativeObject(Draw::NativeObject::CONTEXT);
+	VulkanRenderManager *renderManager = (VulkanRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
 
 	draw_->SetInvalidationCallback(InvalidationCallback());
 
@@ -182,7 +183,7 @@ void DrawEngineVulkan::DestroyDeviceObjects() {
 		vulkan->Delete().QueueDeleteSampler(samplerSecondaryLinear_);
 	if (nullSampler_ != VK_NULL_HANDLE)
 		vulkan->Delete().QueueDeleteSampler(nullSampler_);
-	pipelineLayout_->Destroy(vulkan);
+	renderManager->DestroyPipelineLayout(pipelineLayout_);
 	if (vertexCache_) {
 		vertexCache_->Destroy(vulkan);
 		delete vertexCache_;
