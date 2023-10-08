@@ -1062,45 +1062,17 @@ VKContext::VKContext(VulkanContext *vulkan, bool useRenderThread)
 	// binding 0 - uniform data
 	// binding 1 - combined sampler/image 0
 	// binding 2 - combined sampler/image 1
-	VkDescriptorSetLayoutBinding bindings[MAX_BOUND_TEXTURES + 1];
-	bindings[0].descriptorCount = 1;
-	bindings[0].pImmutableSamplers = nullptr;
-	bindings[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
-	bindings[0].stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
-	bindings[0].binding = 0;
+	// ...etc
+	BindingType bindings[MAX_BOUND_TEXTURES + 1];
+	bindings[0] = BindingType::UNIFORM_BUFFER_DYNAMIC_ALL;
 	for (int i = 0; i < MAX_BOUND_TEXTURES; ++i) {
-		bindings[i + 1].descriptorCount = 1;
-		bindings[i + 1].pImmutableSamplers = nullptr;
-		bindings[i + 1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-		bindings[i + 1].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
-		bindings[i + 1].binding = i + 1;
+		bindings[1 + i] = BindingType::COMBINED_IMAGE_SAMPLER;
 	}
 
-	VkDescriptorSetLayout descSetLayout;
-	VkDescriptorSetLayoutCreateInfo dsl = { VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO };
-	dsl.bindingCount = ARRAY_SIZE(bindings);
-	dsl.pBindings = bindings;
-	VkResult res = vkCreateDescriptorSetLayout(device_, &dsl, nullptr, &descSetLayout);
-	_assert_(VK_SUCCESS == res);
-
-	vulkan_->SetDebugName(descSetLayout, VK_OBJECT_TYPE_DESCRIPTOR_SET_LAYOUT, "thin3d_d_layout");
-
-	VkPipelineLayout pipelineLayout;
-	VkPipelineLayoutCreateInfo pl = { VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO };
-	pl.pPushConstantRanges = nullptr;
-	pl.pushConstantRangeCount = 0;
-	VkDescriptorSetLayout setLayouts[1] = { descSetLayout };
-	pl.setLayoutCount = ARRAY_SIZE(setLayouts);
-	pl.pSetLayouts = setLayouts;
-	res = vkCreatePipelineLayout(device_, &pl, nullptr, &pipelineLayout);
-	_assert_(VK_SUCCESS == res);
-
-	vulkan_->SetDebugName(pipelineLayout, VK_OBJECT_TYPE_PIPELINE_LAYOUT, "thin3d_p_layout");
-
-	pipelineLayout_ = renderManager_.CreatePipelineLayout(pipelineLayout, descSetLayout);
+	pipelineLayout_ = renderManager_.CreatePipelineLayout(bindings, ARRAY_SIZE(bindings), caps_.geometryShaderSupported, "thin3d_layout");
 
 	VkPipelineCacheCreateInfo pc{ VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO };
-	res = vkCreatePipelineCache(vulkan_->GetDevice(), &pc, nullptr, &pipelineCache_);
+	VkResult res = vkCreatePipelineCache(vulkan_->GetDevice(), &pc, nullptr, &pipelineCache_);
 	_assert_(VK_SUCCESS == res);
 }
 

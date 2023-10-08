@@ -1556,6 +1556,72 @@ void VulkanRenderManager::FlushSync() {
 	}
 }
 
+VKRPipelineLayout *VulkanRenderManager::CreatePipelineLayout(BindingType *bindingTypes, size_t bindingCount, bool geoShadersEnabled, const char *tag) {
+	VKRPipelineLayout *layout = new VKRPipelineLayout();
+	layout->tag = tag;
+	layout->bindingCount = (uint32_t)bindingCount;
+
+	_dbg_assert_(bindingCount <= ARRAY_SIZE(layout->bindingTypes));
+	memcpy(layout->bindingTypes, bindingTypes, sizeof(BindingType) * bindingCount);
+
+	VkDescriptorSetLayoutBinding bindings[VKRPipelineLayout::MAX_DESC_SET_BINDINGS];
+	for (int i = 0; i < bindingCount; i++) {
+		bindings[i].binding = i;
+		bindings[i].descriptorCount = 1;
+		bindings[i].pImmutableSamplers = nullptr;
+
+		switch (bindingTypes[i]) {
+		case BindingType::COMBINED_IMAGE_SAMPLER:
+			bindings[i].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+			bindings[i].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+			break;
+		case BindingType::UNIFORM_BUFFER_DYNAMIC_VERTEX:
+			bindings[i].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
+			bindings[i].stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+			break;
+		case BindingType::UNIFORM_BUFFER_DYNAMIC_ALL:
+			bindings[i].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
+			bindings[i].stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
+			if (geoShadersEnabled) {
+				bindings[i].stageFlags |= VK_SHADER_STAGE_GEOMETRY_BIT;
+			}
+			break;
+		case BindingType::STORAGE_BUFFER_VERTEX:
+			bindings[i].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+			bindings[i].stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+			break;
+		case BindingType::STORAGE_BUFFER_COMPUTE:
+			bindings[i].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+			bindings[i].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+			break;
+		case BindingType::STORAGE_IMAGE_COMPUTE:
+			bindings[i].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+			bindings[i].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+			break;
+		default:
+			_dbg_assert_(false);
+			break;
+		}
+	}
+
+	VkDescriptorSetLayoutCreateInfo dsl = { VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO };
+	dsl.bindingCount = (uint32_t)bindingCount;
+	dsl.pBindings = bindings;
+	VkResult res = vkCreateDescriptorSetLayout(vulkan_->GetDevice(), &dsl, nullptr, &layout->descriptorSetLayout);
+	_assert_(VK_SUCCESS == res && layout->descriptorSetLayout);
+
+	VkPipelineLayoutCreateInfo pl = { VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO };
+	VkDescriptorSetLayout setLayouts[1] = { layout->descriptorSetLayout };
+	pl.setLayoutCount = ARRAY_SIZE(setLayouts);
+	pl.pSetLayouts = setLayouts;
+	res = vkCreatePipelineLayout(vulkan_->GetDevice(), &pl, nullptr, &layout->pipelineLayout);
+	_assert_(VK_SUCCESS == res && layout->pipelineLayout);
+
+	vulkan_->SetDebugName(layout->descriptorSetLayout, VK_OBJECT_TYPE_DESCRIPTOR_SET_LAYOUT, tag);
+	vulkan_->SetDebugName(layout->pipelineLayout, VK_OBJECT_TYPE_PIPELINE_LAYOUT, tag);
+	return layout;
+}
+
 void VulkanRenderManager::ResetStats() {
 	initTimeMs_.Reset();
 	totalGPUTimeMs_.Reset();

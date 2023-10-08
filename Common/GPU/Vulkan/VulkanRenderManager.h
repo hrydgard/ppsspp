@@ -168,21 +168,6 @@ struct VKRComputePipeline {
 	}
 };
 
-struct VKRPipelineLayout {
-	~VKRPipelineLayout() {
-		_assert_(!pipelineLayout && !descriptorSetLayout);
-	}
-
-	void Destroy(VulkanContext *vulkan) {
-		vulkan->Delete().QueueDeletePipelineLayout(pipelineLayout);
-		vulkan->Delete().QueueDeleteDescriptorSetLayout(descriptorSetLayout);
-	}
-
-	VkPipelineLayout pipelineLayout;
-	VkDescriptorSetLayout descriptorSetLayout;  // only support 1 for now.
-	int pushConstSize;
-};
-
 struct CompileQueueEntry {
 	CompileQueueEntry(VKRGraphicsPipeline *p, VkRenderPass _compatibleRenderPass, RenderPassType _renderPassType, VkSampleCountFlagBits _sampleCount)
 		: type(Type::GRAPHICS), graphics(p), compatibleRenderPass(_compatibleRenderPass), renderPassType(_renderPassType), sampleCount(_sampleCount) {}
@@ -197,6 +182,34 @@ struct CompileQueueEntry {
 	VKRGraphicsPipeline *graphics = nullptr;
 	VKRComputePipeline *compute = nullptr;
 	VkSampleCountFlagBits sampleCount;
+};
+
+enum class BindingType {
+	COMBINED_IMAGE_SAMPLER,
+	UNIFORM_BUFFER_DYNAMIC_VERTEX,
+	UNIFORM_BUFFER_DYNAMIC_ALL,
+	STORAGE_BUFFER_VERTEX,
+	STORAGE_BUFFER_COMPUTE,
+	STORAGE_IMAGE_COMPUTE,
+};
+
+// Note that we only support a single descriptor set due to compatibility with some ancient devices.
+// We should probably eventually give that up.
+struct VKRPipelineLayout {
+	~VKRPipelineLayout() {
+		_assert_(!pipelineLayout && !descriptorSetLayout);
+	}
+	void Destroy(VulkanContext *vulkan) {
+		vulkan->Delete().QueueDeletePipelineLayout(pipelineLayout);
+		vulkan->Delete().QueueDeleteDescriptorSetLayout(descriptorSetLayout);
+	}
+	enum { MAX_DESC_SET_BINDINGS = 10 };
+	BindingType bindingTypes[MAX_DESC_SET_BINDINGS];
+	uint32_t bindingCount;
+	VkPipelineLayout pipelineLayout;
+	VkDescriptorSetLayout descriptorSetLayout;  // only support 1 for now.
+	int pushConstSize = 0;
+	const char *tag;
 };
 
 class VulkanRenderManager {
@@ -259,6 +272,7 @@ public:
 		layout->descriptorSetLayout = descSetLayout;
 		return layout;
 	}
+	VKRPipelineLayout *CreatePipelineLayout(BindingType *bindingTypes, size_t bindingCount, bool geoShadersEnabled, const char *tag);
 
 	void ReportBadStateForDraw();
 
