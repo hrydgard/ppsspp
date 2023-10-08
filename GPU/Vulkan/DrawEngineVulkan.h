@@ -32,7 +32,6 @@
 // won't get any bone data, etc.
 
 #include "Common/Data/Collections/Hashmaps.h"
-#include "Common/GPU/Vulkan/VulkanMemory.h"
 
 #include "GPU/Vulkan/VulkanUtil.h"
 

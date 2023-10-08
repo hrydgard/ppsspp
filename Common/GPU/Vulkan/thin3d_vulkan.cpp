@@ -20,20 +20,19 @@
 #include <string>
 #include <map>
 
+#include "Common/Log.h"
+#include "Common/StringUtils.h"
 #include "Common/System/Display.h"
 #include "Common/Math/lin/matrix4x4.h"
 #include "Common/Data/Convert/SmallDataConvert.h"
 #include "Common/GPU/thin3d.h"
 #include "Common/GPU/Vulkan/VulkanRenderManager.h"
-
-#include "Common/Log.h"
-#include "Common/StringUtils.h"
+#include "Common/GPU/Vulkan/VulkanDescSet.h"
 #include "Common/GPU/Vulkan/VulkanContext.h"
 #include "Common/GPU/Vulkan/VulkanImage.h"
 #include "Common/GPU/Vulkan/VulkanMemory.h"
-#include "Common/Thread/Promise.h"
-
 #include "Common/GPU/Vulkan/VulkanLoader.h"
+#include "Common/Thread/Promise.h"
 
 // We support a frame-global descriptor set, which can be optionally used by other code,
 // but is not directly used by thin3d. It has to be defined here though, be in set 0
