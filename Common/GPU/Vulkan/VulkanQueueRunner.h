@@ -19,6 +19,7 @@ class VKRFramebuffer;
 struct VKRGraphicsPipeline;
 struct VKRComputePipeline;
 struct VKRImage;
+struct VKRPipelineLayout;
 struct FrameData;
 
 enum {
@@ -58,15 +59,15 @@ struct VkRenderData {
 	union {
 		struct {
 			VkPipeline pipeline;
-			VkPipelineLayout pipelineLayout;
+			VKRPipelineLayout *pipelineLayout;
 		} pipeline;
 		struct {
 			VKRGraphicsPipeline *pipeline;
-			VkPipelineLayout pipelineLayout;
+			VKRPipelineLayout *pipelineLayout;
 		} graphics_pipeline;
 		struct {
 			VKRComputePipeline *pipeline;
-			VkPipelineLayout pipelineLayout;
+			VKRPipelineLayout *pipelineLayout;
 		} compute_pipeline;
 		struct {
 			VkDescriptorSet ds;

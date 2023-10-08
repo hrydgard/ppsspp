@@ -546,8 +546,7 @@ private:
 	AutoRef<VKBuffer> curIBuffer_;
 	int curIBufferOffset_ = 0;
 
-	VkDescriptorSetLayout descriptorSetLayout_ = VK_NULL_HANDLE;
-	VkPipelineLayout pipelineLayout_ = VK_NULL_HANDLE;
+	VKRPipelineLayout *pipelineLayout_ = nullptr;
 	VkPipelineCache pipelineCache_ = VK_NULL_HANDLE;
 	AutoRef<VKFramebuffer> curFramebuffer_;
 
@@ -1040,64 +1039,26 @@ VKContext::VKContext(VulkanContext *vulkan, bool useRenderThread)
 	caps_.deviceID = deviceProps.deviceID;
 	device_ = vulkan->GetDevice();
 
-	std::vector<VkDescriptorPoolSize> dpTypes;
-	dpTypes.resize(2);
-	dpTypes[0].descriptorCount = 200;
-	dpTypes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
-	dpTypes[1].descriptorCount = 200 * MAX_BOUND_TEXTURES;
-	dpTypes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-
-	VkDescriptorPoolCreateInfo dp{ VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO };
-	// Don't want to mess around with individually freeing these, let's go dynamic each frame.
-	dp.flags = 0;
-	// 200 textures per frame was not enough for the UI.
-	dp.maxSets = 4096;
-
 	VkBufferUsageFlags usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
 	push_ = new VulkanPushPool(vulkan_, "pushBuffer", 4 * 1024 * 1024, usage);
-
-	for (int i = 0; i < VulkanContext::MAX_INFLIGHT_FRAMES; i++) {
-		frame_[i].descriptorPool.Create(vulkan_, dp, dpTypes);
-	}
 
 	// binding 0 - uniform data
 	// binding 1 - combined sampler/image 0
 	// binding 2 - combined sampler/image 1
-	VkDescriptorSetLayoutBinding bindings[MAX_BOUND_TEXTURES + 1];
-	bindings[0].descriptorCount = 1;
-	bindings[0].pImmutableSamplers = nullptr;
-	bindings[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
-	bindings[0].stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
-	bindings[0].binding = 0;
+	// ...etc
+	BindingType bindings[MAX_BOUND_TEXTURES + 1];
+	bindings[0] = BindingType::UNIFORM_BUFFER_DYNAMIC_ALL;
 	for (int i = 0; i < MAX_BOUND_TEXTURES; ++i) {
-		bindings[i + 1].descriptorCount = 1;
-		bindings[i + 1].pImmutableSamplers = nullptr;
-		bindings[i + 1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-		bindings[i + 1].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
-		bindings[i + 1].binding = i + 1;
+		bindings[1 + i] = BindingType::COMBINED_IMAGE_SAMPLER;
+	}
+	pipelineLayout_ = renderManager_.CreatePipelineLayout(bindings, ARRAY_SIZE(bindings), caps_.geometryShaderSupported, "thin3d_layout");
+
+	for (int i = 0; i < VulkanContext::MAX_INFLIGHT_FRAMES; i++) {
+		frame_[i].descriptorPool.Create(vulkan_, bindings, ARRAY_SIZE(bindings), 1024);
 	}
 
-	VkDescriptorSetLayoutCreateInfo dsl = { VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO };
-	dsl.bindingCount = ARRAY_SIZE(bindings);
-	dsl.pBindings = bindings;
-	VkResult res = vkCreateDescriptorSetLayout(device_, &dsl, nullptr, &descriptorSetLayout_);
-	_assert_(VK_SUCCESS == res);
-
-	vulkan_->SetDebugName(descriptorSetLayout_, VK_OBJECT_TYPE_DESCRIPTOR_SET_LAYOUT, "thin3d_d_layout");
-
-	VkPipelineLayoutCreateInfo pl = { VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO };
-	pl.pPushConstantRanges = nullptr;
-	pl.pushConstantRangeCount = 0;
-	VkDescriptorSetLayout setLayouts[1] = { descriptorSetLayout_ };
-	pl.setLayoutCount = ARRAY_SIZE(setLayouts);
-	pl.pSetLayouts = setLayouts;
-	res = vkCreatePipelineLayout(device_, &pl, nullptr, &pipelineLayout_);
-	_assert_(VK_SUCCESS == res);
-
-	vulkan_->SetDebugName(pipelineLayout_, VK_OBJECT_TYPE_PIPELINE_LAYOUT, "thin3d_p_layout");
-
 	VkPipelineCacheCreateInfo pc{ VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO };
-	res = vkCreatePipelineCache(vulkan_->GetDevice(), &pc, nullptr, &pipelineCache_);
+	VkResult res = vkCreatePipelineCache(vulkan_->GetDevice(), &pc, nullptr, &pipelineCache_);
 	_assert_(VK_SUCCESS == res);
 }
 
@@ -1111,8 +1072,7 @@ VKContext::~VKContext() {
 	}
 	push_->Destroy();
 	delete push_;
-	vulkan_->Delete().QueueDeleteDescriptorSetLayout(descriptorSetLayout_);
-	vulkan_->Delete().QueueDeletePipelineLayout(pipelineLayout_);
+	pipelineLayout_->Destroy(vulkan_);
 	vulkan_->Delete().QueueDeletePipelineCache(pipelineCache_);
 }
 
@@ -1181,7 +1141,7 @@ VkDescriptorSet VKContext::GetOrCreateDescriptorSet(VkBuffer buf) {
 		return iter->second;
 	}
 
-	VkDescriptorSet descSet = frame->descriptorPool.Allocate(1, &descriptorSetLayout_, "thin3d_descset");
+	VkDescriptorSet descSet = frame->descriptorPool.Allocate(1, &pipelineLayout_->descriptorSetLayout, "thin3d_descset");
 	if (descSet == VK_NULL_HANDLE) {
 		ERROR_LOG(G3D, "GetOrCreateDescriptorSet failed");
 		return VK_NULL_HANDLE;

@@ -81,81 +81,30 @@ DrawEngineVulkan::DrawEngineVulkan(Draw::DrawContext *draw)
 void DrawEngineVulkan::InitDeviceObjects() {
 	// All resources we need for PSP drawing. Usually only bindings 0 and 2-4 are populated.
 
-	// TODO: Make things more flexible, so we at least have specialized layouts for input attachments and tess.
-	// Note that it becomes a support matrix..
-	VkDescriptorSetLayoutBinding bindings[DRAW_BINDING_COUNT]{};
-	bindings[0].descriptorCount = 1;
-	bindings[0].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-	bindings[0].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
-	bindings[0].binding = DRAW_BINDING_TEXTURE;
-	bindings[1].descriptorCount = 1;
-	bindings[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-	bindings[1].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
-	bindings[1].binding = DRAW_BINDING_2ND_TEXTURE;
-	bindings[2].descriptorCount = 1;
-	bindings[2].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;  // sampler is ignored though.
-	bindings[2].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
-	bindings[2].binding = DRAW_BINDING_DEPAL_TEXTURE;
-	bindings[3].descriptorCount = 1;
-	bindings[3].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
-	bindings[3].stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
-	if (draw_->GetDeviceCaps().geometryShaderSupported)
-		bindings[3].stageFlags |= VK_SHADER_STAGE_GEOMETRY_BIT;  // unlikely to have a penalty. if we check GPU_USE_GS_CULLING, we have problems on runtime toggle.
-	bindings[3].binding = DRAW_BINDING_DYNUBO_BASE;
-	bindings[4].descriptorCount = 1;
-	bindings[4].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
-	bindings[4].stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-	bindings[4].binding = DRAW_BINDING_DYNUBO_LIGHT;
-	bindings[5].descriptorCount = 1;
-	bindings[5].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
-	bindings[5].stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-	bindings[5].binding = DRAW_BINDING_DYNUBO_BONE;
-	// Used only for hardware tessellation.
-	bindings[6].descriptorCount = 1;
-	bindings[6].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-	bindings[6].stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-	bindings[6].binding = DRAW_BINDING_TESS_STORAGE_BUF;
-	bindings[7].descriptorCount = 1;
-	bindings[7].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-	bindings[7].stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-	bindings[7].binding = DRAW_BINDING_TESS_STORAGE_BUF_WU;
-	bindings[8].descriptorCount = 1;
-	bindings[8].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-	bindings[8].stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-	bindings[8].binding = DRAW_BINDING_TESS_STORAGE_BUF_WV;
+	BindingType bindingTypes[VKRPipelineLayout::MAX_DESC_SET_BINDINGS] = {
+		BindingType::COMBINED_IMAGE_SAMPLER,  // main
+		BindingType::COMBINED_IMAGE_SAMPLER,  // framebuffer-read
+		BindingType::COMBINED_IMAGE_SAMPLER,  // palette
+		BindingType::UNIFORM_BUFFER_DYNAMIC_ALL,  // uniforms
+		BindingType::UNIFORM_BUFFER_DYNAMIC_VERTEX,  // lights
+		BindingType::UNIFORM_BUFFER_DYNAMIC_VERTEX,  // bones
+		BindingType::STORAGE_BUFFER_VERTEX,  // tess
+		BindingType::STORAGE_BUFFER_VERTEX,
+		BindingType::STORAGE_BUFFER_VERTEX,
+	};
 
 	VulkanContext *vulkan = (VulkanContext *)draw_->GetNativeObject(Draw::NativeObject::CONTEXT);
 	VkDevice device = vulkan->GetDevice();
 
-	VkDescriptorSetLayoutCreateInfo dsl{ VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO };
-	dsl.bindingCount = ARRAY_SIZE(bindings);
-	dsl.pBindings = bindings;
-	VkResult res = vkCreateDescriptorSetLayout(device, &dsl, nullptr, &descriptorSetLayout_);
-	_dbg_assert_(VK_SUCCESS == res);
-	vulkan->SetDebugName(descriptorSetLayout_, VK_OBJECT_TYPE_DESCRIPTOR_SET_LAYOUT, "drawengine_d_layout");
+	VulkanRenderManager *renderManager = (VulkanRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
+	pipelineLayout_ = renderManager->CreatePipelineLayout(bindingTypes, ARRAY_SIZE(bindingTypes), draw_->GetDeviceCaps().geometryShaderSupported, "drawengine_layout");
 
 	static constexpr int DEFAULT_DESC_POOL_SIZE = 512;
-	std::vector<VkDescriptorPoolSize> dpTypes;
-	dpTypes.resize(4);
-	dpTypes[0].descriptorCount = DEFAULT_DESC_POOL_SIZE * 3;
-	dpTypes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
-	dpTypes[1].descriptorCount = DEFAULT_DESC_POOL_SIZE * 3;  // Don't use these for tess anymore, need max three per set.
-	dpTypes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-	dpTypes[2].descriptorCount = DEFAULT_DESC_POOL_SIZE * 3;  // TODO: Use a separate layout when no spline stuff is needed to reduce the need for these.
-	dpTypes[2].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-	dpTypes[3].descriptorCount = DEFAULT_DESC_POOL_SIZE;  // For the frame global uniform buffer. Might need to allocate multiple times.
-	dpTypes[3].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-
-	VkDescriptorPoolCreateInfo dp{ VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO };
-	// Don't want to mess around with individually freeing these.
-	// We zap the whole pool every few frames.
-	dp.flags = 0;
-	dp.maxSets = DEFAULT_DESC_POOL_SIZE;
 
 	// We are going to use one-shot descriptors in the initial implementation. Might look into caching them
 	// if creating and updating them turns out to be expensive.
 	for (int i = 0; i < VulkanContext::MAX_INFLIGHT_FRAMES; i++) {
-		frame_[i].descPool.Create(vulkan, dp, dpTypes);
+		frame_[i].descPool.Create(vulkan, bindingTypes, ARRAY_SIZE(bindingTypes), DEFAULT_DESC_POOL_SIZE);
 
 		// Note that pushUBO_ is also used for tessellation data (search for SetPushBuffer), and to upload
 		// the null texture. This should be cleaned up...
@@ -165,19 +114,6 @@ void DrawEngineVulkan::InitDeviceObjects() {
 	pushVertex_ = new VulkanPushPool(vulkan, "pushVertex", 4 * 1024 * 1024, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
 	pushIndex_ = new VulkanPushPool(vulkan, "pushIndex", 1 * 512 * 1024, VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
 
-	VkPipelineLayoutCreateInfo pl{ VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO };
-	pl.pPushConstantRanges = nullptr;
-	pl.pushConstantRangeCount = 0;
-	VkDescriptorSetLayout layouts[1] = { descriptorSetLayout_};
-	pl.setLayoutCount = ARRAY_SIZE(layouts);
-	pl.pSetLayouts = layouts;
-	pl.flags = 0;
-
-	res = vkCreatePipelineLayout(device, &pl, nullptr, &pipelineLayout_);
-	_dbg_assert_(VK_SUCCESS == res);
-
-	vulkan->SetDebugName(pipelineLayout_, VK_OBJECT_TYPE_PIPELINE_LAYOUT, "drawengine_p_layout");
-
 	VkSamplerCreateInfo samp{ VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO };
 	samp.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
 	samp.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
@@ -185,7 +121,7 @@ void DrawEngineVulkan::InitDeviceObjects() {
 	samp.magFilter = VK_FILTER_LINEAR;
 	samp.minFilter = VK_FILTER_LINEAR;
 	samp.maxLod = VK_LOD_CLAMP_NONE;  // recommended by best practices, has no effect since we don't use mipmaps.
-	res = vkCreateSampler(device, &samp, nullptr, &samplerSecondaryLinear_);
+	VkResult res = vkCreateSampler(device, &samp, nullptr, &samplerSecondaryLinear_);
 	samp.magFilter = VK_FILTER_NEAREST;
 	samp.minFilter = VK_FILTER_NEAREST;
 	res = vkCreateSampler(device, &samp, nullptr, &samplerSecondaryNearest_);
@@ -246,10 +182,7 @@ void DrawEngineVulkan::DestroyDeviceObjects() {
 		vulkan->Delete().QueueDeleteSampler(samplerSecondaryLinear_);
 	if (nullSampler_ != VK_NULL_HANDLE)
 		vulkan->Delete().QueueDeleteSampler(nullSampler_);
-	if (pipelineLayout_ != VK_NULL_HANDLE)
-		vulkan->Delete().QueueDeletePipelineLayout(pipelineLayout_);
-	if (descriptorSetLayout_ != VK_NULL_HANDLE)
-		vulkan->Delete().QueueDeleteDescriptorSetLayout(descriptorSetLayout_);
+	pipelineLayout_->Destroy(vulkan);
 	if (vertexCache_) {
 		vertexCache_->Destroy(vulkan);
 		delete vertexCache_;
@@ -391,7 +324,7 @@ VkDescriptorSet DrawEngineVulkan::GetOrCreateDescriptorSet(VkImageView imageView
 
 	// Didn't find one in the frame descriptor set cache, let's make a new one.
 	// We wipe the cache on every frame.
-	VkDescriptorSet desc = frame.descPool.Allocate(1, &descriptorSetLayout_, "game_descset");
+	VkDescriptorSet desc = frame.descPool.Allocate(1, &pipelineLayout_->descriptorSetLayout, "game_descset");
 
 	// Even in release mode, this is bad.
 	_assert_msg_(desc != VK_NULL_HANDLE, "Ran out of descriptor space in pool. sz=%d", (int)frame.descSets.size());

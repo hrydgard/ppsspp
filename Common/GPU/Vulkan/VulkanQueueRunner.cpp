@@ -1241,7 +1241,7 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 
 				if (pipeline != VK_NULL_HANDLE) {
 					vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
-					pipelineLayout = c.pipeline.pipelineLayout;
+					pipelineLayout = c.pipeline.pipelineLayout->pipelineLayout;
 					lastGraphicsPipeline = graphicsPipeline;
 					pipelineOK = true;
 				} else {
@@ -1263,7 +1263,7 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 				VkPipeline pipeline = computePipeline->pipeline->BlockUntilReady();
 				if (pipeline != VK_NULL_HANDLE) {
 					vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline);
-					pipelineLayout = c.pipeline.pipelineLayout;
+					pipelineLayout = c.pipeline.pipelineLayout->pipelineLayout;
 					lastComputePipeline = computePipeline;
 				}
 			}

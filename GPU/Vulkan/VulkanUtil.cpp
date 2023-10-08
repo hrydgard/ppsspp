@@ -60,6 +60,12 @@ void VulkanComputeShaderManager::InitDeviceObjects(Draw::DrawContext *draw) {
 	VkResult res = vkCreatePipelineCache(vulkan_->GetDevice(), &pc, nullptr, &pipelineCache_);
 	_assert_(VK_SUCCESS == res);
 
+	static const BindingType bindingTypes[3] = {
+		BindingType::STORAGE_IMAGE_COMPUTE,
+		BindingType::STORAGE_BUFFER_COMPUTE,
+		BindingType::STORAGE_BUFFER_COMPUTE,
+	};
+
 	VkDescriptorSetLayoutBinding bindings[3] = {};
 	bindings[0].descriptorCount = 1;
 	bindings[0].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
@@ -82,19 +88,8 @@ void VulkanComputeShaderManager::InitDeviceObjects(Draw::DrawContext *draw) {
 	res = vkCreateDescriptorSetLayout(device, &dsl, nullptr, &descriptorSetLayout_);
 	_assert_(VK_SUCCESS == res);
 
-	std::vector<VkDescriptorPoolSize> dpTypes;
-	dpTypes.resize(2);
-	dpTypes[0].descriptorCount = 8192;
-	dpTypes[0].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-	dpTypes[1].descriptorCount = 4096;
-	dpTypes[1].type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
-
-	VkDescriptorPoolCreateInfo dp = { VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO };
-	dp.flags = 0;   // Don't want to mess around with individually freeing these, let's go fixed each frame and zap the whole array. Might try the dynamic approach later.
-	dp.maxSets = 4096;  // GTA can end up creating more than 1000 textures in the first frame!
-
 	for (int i = 0; i < ARRAY_SIZE(frameData_); i++) {
-		frameData_[i].descPool.Create(vulkan_, dp, dpTypes);
+		frameData_[i].descPool.Create(vulkan_, bindingTypes, ARRAY_SIZE(bindingTypes), 4096);
 		frameData_[i].descPoolUsed = false;
 	}
 

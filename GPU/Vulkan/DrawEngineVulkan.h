@@ -189,7 +189,7 @@ public:
 		DoFlush();
 	}
 
-	VkPipelineLayout GetPipelineLayout() const {
+	VKRPipelineLayout *GetPipelineLayout() const {
 		return pipelineLayout_;
 	}
 
@@ -244,10 +244,7 @@ private:
 	Draw::DrawContext *draw_;
 
 	// We use a shared descriptor set layouts for all PSP draws.
-	// Descriptors created from descriptorSetLayout_ is rebound all the time at set 1.
-	VkDescriptorSetLayout descriptorSetLayout_;
-
-	VkPipelineLayout pipelineLayout_;
+	VKRPipelineLayout *pipelineLayout_;
 	VulkanPipeline *lastPipeline_;
 	VkDescriptorSet lastDs_ = VK_NULL_HANDLE;
 

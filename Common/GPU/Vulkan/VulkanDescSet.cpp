@@ -4,13 +4,40 @@ VulkanDescSetPool::~VulkanDescSetPool() {
 	_assert_msg_(descPool_ == VK_NULL_HANDLE, "VulkanDescSetPool %s never destroyed", tag_);
 }
 
-void VulkanDescSetPool::Create(VulkanContext *vulkan, const VkDescriptorPoolCreateInfo &info, const std::vector<VkDescriptorPoolSize> &sizes) {
+void VulkanDescSetPool::Create(VulkanContext *vulkan, const BindingType *bindingTypes, uint32_t bindingTypesCount, uint32_t descriptorCount) {
 	_assert_msg_(descPool_ == VK_NULL_HANDLE, "VulkanDescSetPool::Create when already exists");
 
 	vulkan_ = vulkan;
-	info_ = info;
-	sizes_ = sizes;
+	info_ = { VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO };
+	info_.maxSets = descriptorCount;
+	_dbg_assert_(sizes_.empty());
 
+	uint32_t storageImageCount = 0;
+	uint32_t storageBufferCount = 0;
+	uint32_t combinedImageSamplerCount = 0;
+	uint32_t uniformBufferDynamicCount = 0;
+	for (uint32_t i = 0; i < bindingTypesCount; i++) {
+		switch (bindingTypes[i]) {
+		case BindingType::COMBINED_IMAGE_SAMPLER: combinedImageSamplerCount++; break;
+		case BindingType::UNIFORM_BUFFER_DYNAMIC_VERTEX:
+		case BindingType::UNIFORM_BUFFER_DYNAMIC_ALL: uniformBufferDynamicCount++; break;
+		case BindingType::STORAGE_BUFFER_VERTEX:
+		case BindingType::STORAGE_BUFFER_COMPUTE: storageBufferCount++; break;
+		case BindingType::STORAGE_IMAGE_COMPUTE: storageImageCount++; break;
+		}
+	}
+	if (combinedImageSamplerCount) {
+		sizes_.push_back(VkDescriptorPoolSize{ VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, combinedImageSamplerCount * descriptorCount });
+	}
+	if (uniformBufferDynamicCount) {
+		sizes_.push_back(VkDescriptorPoolSize{ VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, uniformBufferDynamicCount * descriptorCount });
+	}
+	if (storageBufferCount) {
+		sizes_.push_back(VkDescriptorPoolSize{ VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, storageBufferCount * descriptorCount });
+	}
+	if (storageImageCount) {
+		sizes_.push_back(VkDescriptorPoolSize{ VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, storageImageCount * descriptorCount });
+	}
 	VkResult res = Recreate(false);
 	_assert_msg_(res == VK_SUCCESS, "Could not create VulkanDescSetPool %s", tag_);
 }
@@ -66,6 +93,7 @@ void VulkanDescSetPool::Destroy() {
 		clear_();
 		usage_ = 0;
 	}
+	sizes_.clear();
 }
 
 VkResult VulkanDescSetPool::Recreate(bool grow) {

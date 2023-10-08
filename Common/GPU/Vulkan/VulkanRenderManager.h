@@ -23,6 +23,7 @@
 #include "Common/GPU/MiscTypes.h"
 #include "Common/GPU/Vulkan/VulkanQueueRunner.h"
 #include "Common/GPU/Vulkan/VulkanFramebuffer.h"
+#include "Common/GPU/Vulkan/VulkanDescSet.h"
 #include "Common/GPU/thin3d.h"
 
 // Forward declaration
@@ -106,7 +107,7 @@ public:
 	VkPipelineVertexInputStateCreateInfo vis{ VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO };
 	VkPipelineViewportStateCreateInfo views{ VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO };
 
-	VkPipelineLayout pipelineLayout = VK_NULL_HANDLE;
+	VKRPipelineLayout *pipelineLayout = nullptr;
 
 	// Does not include the render pass type, it's passed in separately since the
 	// desc is persistent.
@@ -184,6 +185,25 @@ struct CompileQueueEntry {
 	VkSampleCountFlagBits sampleCount;
 };
 
+// Note that we only support a single descriptor set due to compatibility with some ancient devices.
+// We should probably eventually give that up.
+struct VKRPipelineLayout {
+	~VKRPipelineLayout() {
+		_assert_(!pipelineLayout && !descriptorSetLayout);
+	}
+	void Destroy(VulkanContext *vulkan) {
+		vulkan->Delete().QueueDeletePipelineLayout(pipelineLayout);
+		vulkan->Delete().QueueDeleteDescriptorSetLayout(descriptorSetLayout);
+	}
+	enum { MAX_DESC_SET_BINDINGS = 10 };
+	BindingType bindingTypes[MAX_DESC_SET_BINDINGS];
+	uint32_t bindingCount;
+	VkPipelineLayout pipelineLayout;
+	VkDescriptorSetLayout descriptorSetLayout;  // only support 1 for now.
+	int pushConstSize = 0;
+	const char *tag;
+};
+
 class VulkanRenderManager {
 public:
 	VulkanRenderManager(VulkanContext *vulkan, bool useThread, HistoryBuffer<FrameTimeData, FRAME_TIME_HISTORY_LENGTH> &frameTimeHistory);
@@ -238,6 +258,14 @@ public:
 	VKRGraphicsPipeline *CreateGraphicsPipeline(VKRGraphicsPipelineDesc *desc, PipelineFlags pipelineFlags, uint32_t variantBitmask, VkSampleCountFlagBits sampleCount, bool cacheLoad, const char *tag);
 	VKRComputePipeline *CreateComputePipeline(VKRComputePipelineDesc *desc);
 
+	VKRPipelineLayout *CreatePipelineLayout(VkPipelineLayout pipelineLayout, VkDescriptorSetLayout descSetLayout) {
+		VKRPipelineLayout *layout = new VKRPipelineLayout();
+		layout->pipelineLayout = pipelineLayout;
+		layout->descriptorSetLayout = descSetLayout;
+		return layout;
+	}
+	VKRPipelineLayout *CreatePipelineLayout(BindingType *bindingTypes, size_t bindingCount, bool geoShadersEnabled, const char *tag);
+
 	void ReportBadStateForDraw();
 
 	void NudgeCompilerThread() {
@@ -249,7 +277,7 @@ public:
 	// This is the first call in a draw operation. Instead of asserting like we used to, you can now check the
 	// return value and skip the draw if we're in a bad state. In that case, call ReportBadState.
 	// The old assert wasn't very helpful in figuring out what caused it anyway...
-	bool BindPipeline(VKRGraphicsPipeline *pipeline, PipelineFlags flags, VkPipelineLayout pipelineLayout) {
+	bool BindPipeline(VKRGraphicsPipeline *pipeline, PipelineFlags flags, VKRPipelineLayout *pipelineLayout) {
 		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == VKRStepType::RENDER && pipeline != nullptr);
 		if (!curRenderStep_ || curRenderStep_->stepType != VKRStepType::RENDER) {
 			return false;
@@ -267,7 +295,7 @@ public:
 		return true;
 	}
 
-	void BindPipeline(VKRComputePipeline *pipeline, PipelineFlags flags, VkPipelineLayout pipelineLayout) {
+	void BindPipeline(VKRComputePipeline *pipeline, PipelineFlags flags, VKRPipelineLayout *pipelineLayout) {
 		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == VKRStepType::RENDER);
 		_dbg_assert_(pipeline != nullptr);
 		VkRenderData &data = curRenderStep_->commands.push_uninitialized();
