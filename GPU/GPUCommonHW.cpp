@@ -1036,7 +1036,6 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 				break;
 			}
 
-			// Failed, or can't extend? Do a normal submit.
 			verts = Memory::GetPointerUnchecked(gstate_c.vertexAddr);
 			inds = nullptr;
 			if ((vertexType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE) {
@@ -1055,9 +1054,9 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 			uint32_t diff = data ^ vertexType;
 			// don't mask upper bits, vertexType is unmasked
 			if (diff) {
-				drawEngineCommon_->FlushSkin();
 				if (diff & vtypeCheckMask)
 					goto bail;
+				drawEngineCommon_->FlushSkin();
 				canExtend = false;  // TODO: Might support extending between some vertex types in the future.
 				vertexType = data;
 				vertTypeID = GetVertTypeID(vertexType, gstate.getUVGenMode(), g_Config.bSoftwareSkinning);

@@ -277,8 +277,8 @@ void DrawEngineGLES::DoFlush() {
 		bool useElements = true;
 
 		if (decOptions_.applySkinInDecode && (lastVType_ & GE_VTYPE_WEIGHT_MASK)) {
-			// If software skinning, we've already predecoded into "decoded_", and indices
-			// into decIndex_. So push that content.
+			// If software skinning, we're predecoding into "decoded". So make sure we're done, then push that content.
+			DecodeVerts(decoded_);
 			uint32_t size = decodedVerts_ * dec_->GetDecVtxFmt().stride;
 			u8 *dest = (u8 *)frameData.pushVertex->Allocate(size, 4, &vertexBuffer, &vertexBufferOffset);
 			memcpy(dest, decoded_, size);

@@ -678,7 +678,8 @@ void DrawEngineVulkan::DoFlush() {
 			useIndexGen = VertexCacheLookup(vertexCount, prim, vbuf, vbOffset, ibuf, ibOffset, useElements, forceIndexed);
 		} else {
 			if (decOptions_.applySkinInDecode && (lastVType_ & GE_VTYPE_WEIGHT_MASK)) {
-				// If software skinning, we've already predecoded into "decoded". So push that content.
+				// If software skinning, we're predecoding into "decoded". So make sure we're done, then push that content.
+				DecodeVerts(decoded_);
 				VkDeviceSize size = decodedVerts_ * dec_->GetDecVtxFmt().stride;
 				u8 *dest = (u8 *)pushVertex_->Allocate(size, 4, &vbuf, &vbOffset);
 				memcpy(dest, decoded_, size);
