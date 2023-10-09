@@ -70,7 +70,6 @@ struct VkRenderData {
 			VKRPipelineLayout *pipelineLayout;
 		} compute_pipeline;
 		struct {
-			VkDescriptorSet ds;
 			uint32_t descSetIndex;
 			int numUboOffsets;
 			uint32_t uboOffsets[3];
@@ -80,7 +79,6 @@ struct VkRenderData {
 			uint32_t offset;
 		} draw;
 		struct {
-			VkDescriptorSet ds;
 			uint32_t descSetIndex;
 			uint32_t uboOffsets[3];
 			uint16_t numUboOffsets;

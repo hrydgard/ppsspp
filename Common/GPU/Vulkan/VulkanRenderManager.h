@@ -466,7 +466,7 @@ private:
 		PendingDescSet &descSet = curPipelineLayout_->descSets_[curFrame].push_uninitialized();
 		descSet.offset = (uint32_t)offset;
 		descSet.count = count;
-		descSet.set = VK_NULL_HANDLE;  // to be filled in
+		// descSet.set = VK_NULL_HANDLE;  // to be filled in
 		return setIndex;
 	}
 
@@ -478,24 +478,7 @@ public:
 		data.cmd = VKRRenderCommand::DRAW;
 		data.draw.count = count;
 		data.draw.offset = offset;
-		data.draw.ds = VK_NULL_HANDLE;
 		data.draw.descSetIndex = setIndex;
-		data.draw.vbuffer = vbuffer;
-		data.draw.voffset = voffset;
-		data.draw.numUboOffsets = numUboOffsets;
-		_dbg_assert_(numUboOffsets <= ARRAY_SIZE(data.draw.uboOffsets));
-		for (int i = 0; i < numUboOffsets; i++)
-			data.draw.uboOffsets[i] = uboOffsets[i];
-		curRenderStep_->render.numDraws++;
-	}
-
-	void Draw(VkDescriptorSet descSet, int numUboOffsets, const uint32_t *uboOffsets, VkBuffer vbuffer, int voffset, int count, int offset = 0) {
-		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == VKRStepType::RENDER && curStepHasViewport_ && curStepHasScissor_);
-		VkRenderData &data = curRenderStep_->commands.push_uninitialized();
-		data.cmd = VKRRenderCommand::DRAW;
-		data.draw.count = count;
-		data.draw.offset = offset;
-		data.draw.ds = descSet;
 		data.draw.vbuffer = vbuffer;
 		data.draw.voffset = voffset;
 		data.draw.numUboOffsets = numUboOffsets;
@@ -512,26 +495,7 @@ public:
 		data.cmd = VKRRenderCommand::DRAW_INDEXED;
 		data.drawIndexed.count = count;
 		data.drawIndexed.instances = numInstances;
-		data.drawIndexed.ds = VK_NULL_HANDLE;
 		data.drawIndexed.descSetIndex = setIndex;
-		data.drawIndexed.vbuffer = vbuffer;
-		data.drawIndexed.voffset = voffset;
-		data.drawIndexed.ibuffer = ibuffer;
-		data.drawIndexed.ioffset = ioffset;
-		data.drawIndexed.numUboOffsets = numUboOffsets;
-		_dbg_assert_(numUboOffsets <= ARRAY_SIZE(data.drawIndexed.uboOffsets));
-		for (int i = 0; i < numUboOffsets; i++)
-			data.drawIndexed.uboOffsets[i] = uboOffsets[i];
-		curRenderStep_->render.numDraws++;
-	}
-
-	void DrawIndexed(VkDescriptorSet descSet, int numUboOffsets, const uint32_t *uboOffsets, VkBuffer vbuffer, int voffset, VkBuffer ibuffer, int ioffset, int count, int numInstances) {
-		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == VKRStepType::RENDER && curStepHasViewport_ && curStepHasScissor_);
-		VkRenderData &data = curRenderStep_->commands.push_uninitialized();
-		data.cmd = VKRRenderCommand::DRAW_INDEXED;
-		data.drawIndexed.count = count;
-		data.drawIndexed.instances = numInstances;
-		data.drawIndexed.ds = descSet;
 		data.drawIndexed.vbuffer = vbuffer;
 		data.drawIndexed.voffset = voffset;
 		data.drawIndexed.ibuffer = ibuffer;
