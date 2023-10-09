@@ -710,6 +710,9 @@ void VulkanRenderManager::BeginFrame(bool enableProfiling, bool enableLogProfile
 			renderCPUTimeMs_.Update((frameData.profile.cpuEndTime - frameData.profile.cpuStartTime) * 1000.0);
 			renderCPUTimeMs_.Format(line, sizeof(line));
 			str << line;
+			descUpdateTimeMs_.Update(frameData.profile.descWriteTime * 1000.0);
+			descUpdateTimeMs_.Format(line, sizeof(line));
+			str << line;
 			frameData.profile.profileSummary = str.str();
 		}
 	}
