@@ -968,7 +968,9 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 	const void *verts = Memory::GetPointerUnchecked(gstate_c.vertexAddr);
 	const void *inds = nullptr;
 
-	bool canExtend = true;
+	bool isTriangle = IsTrianglePrim(prim);
+
+	bool canExtend = isTriangle;
 	u32 vertexType = gstate.vertType;
 	if ((vertexType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE) {
 		u32 indexAddr = gstate_c.indexAddr;
@@ -987,7 +989,9 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 	int cullMode = gstate.getCullMode();
 
 	uint32_t vertTypeID = GetVertTypeID(vertexType, gstate.getUVGenMode(), g_Config.bSoftwareSkinning);
-	drawEngineCommon_->SubmitPrim(verts, inds, prim, count, vertTypeID, cullMode, &bytesRead);
+	if (!drawEngineCommon_->SubmitPrim(verts, inds, prim, count, vertTypeID, cullMode, &bytesRead)) {
+		canExtend = false;
+	}
 	// After drawing, we advance the vertexAddr (when non indexed) or indexAddr (when indexed).
 	// Some games rely on this, they don't bother reloading VADDR and IADDR.
 	// The VADDR/IADDR registers are NOT updated.
@@ -1005,8 +1009,6 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 	// between each prim, we just change the triangle winding right here to still be able to join draw calls.
 
 	uint32_t vtypeCheckMask = g_Config.bSoftwareSkinning ? (~GE_VTYPE_WEIGHTCOUNT_MASK) : 0xFFFFFFFF;
-
-	bool isTriangle = IsTrianglePrim(prim);
 
 	if (debugRecording_)
 		goto bail;
@@ -1042,7 +1044,7 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 				inds = Memory::GetPointerUnchecked(gstate_c.indexAddr);
 			} else {
 				// We can extend again after submitting a normal draw.
-				canExtend = true;
+				canExtend = isTriangle;
 			}
 			drawEngineCommon_->SubmitPrim(verts, inds, newPrim, count, vertTypeID, cullMode, &bytesRead);
 			AdvanceVerts(vertexType, count, bytesRead);
