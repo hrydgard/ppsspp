@@ -234,12 +234,9 @@ private:
 	void DecodeVertsToPushBuffer(VulkanPushBuffer *push, uint32_t *bindOffset, VkBuffer *vkbuf);
 
 	void DoFlush();
-	void UpdateUBOs(FrameData *frame);
-	FrameData &GetCurFrame();
+	void UpdateUBOs();
 
 	NO_INLINE void ResetAfterDraw();
-
-	VkDescriptorSet GetOrCreateDescriptorSet(VkImageView imageView, VkSampler sampler, VkBuffer base, VkBuffer light, VkBuffer bone, bool tess);
 
 	Draw::DrawContext *draw_;
 
@@ -269,22 +266,7 @@ private:
 		// for all draws in a frame, except when the buffer has to grow.
 	};
 
-	// We alternate between these.
-	struct FrameData {
-		FrameData() : descSets(512), descPool("DrawEngine", true) {
-			descPool.Setup([this] { descSets.Clear(); });
-		}
-
-		VulkanDescSetPool descPool;
-
-		// We do rolling allocation and reset instead of caching across frames. That we might do later.
-		DenseHashMap<DescriptorSetKey, VkDescriptorSet> descSets;
-
-		void Destroy(VulkanContext *vulkan);
-	};
-
 	GEPrimitiveType lastPrim_ = GE_PRIM_INVALID;
-	FrameData frame_[VulkanContext::MAX_INFLIGHT_FRAMES];
 
 	// This one's not accurately named, it's used for all kinds of stuff that's not vertices or indices.
 	VulkanPushPool *pushUBO_ = nullptr;

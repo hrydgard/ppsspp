@@ -98,17 +98,6 @@ void DrawEngineVulkan::InitDeviceObjects() {
 	VulkanRenderManager *renderManager = (VulkanRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
 	pipelineLayout_ = renderManager->CreatePipelineLayout(bindingTypes, ARRAY_SIZE(bindingTypes), draw_->GetDeviceCaps().geometryShaderSupported, "drawengine_layout");
 
-	static constexpr int DEFAULT_DESC_POOL_SIZE = 512;
-
-	// We are going to use one-shot descriptors in the initial implementation. Might look into caching them
-	// if creating and updating them turns out to be expensive.
-	for (int i = 0; i < VulkanContext::MAX_INFLIGHT_FRAMES; i++) {
-		frame_[i].descPool.Create(vulkan, bindingTypes, ARRAY_SIZE(bindingTypes), DEFAULT_DESC_POOL_SIZE);
-
-		// Note that pushUBO_ is also used for tessellation data (search for SetPushBuffer), and to upload
-		// the null texture. This should be cleaned up...
-	}
-
 	pushUBO_ = (VulkanPushPool *)draw_->GetNativeObject(Draw::NativeObject::PUSH_POOL);
 	pushVertex_ = new VulkanPushPool(vulkan, "pushVertex", 4 * 1024 * 1024, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
 	pushIndex_ = new VulkanPushPool(vulkan, "pushIndex", 1 * 512 * 1024, VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
@@ -140,10 +129,6 @@ DrawEngineVulkan::~DrawEngineVulkan() {
 	DestroyDeviceObjects();
 }
 
-void DrawEngineVulkan::FrameData::Destroy(VulkanContext *vulkan) {
-	descPool.Destroy();
-}
-
 void DrawEngineVulkan::DestroyDeviceObjects() {
 	if (!draw_) {
 		// We've already done this from LostDevice.
@@ -158,10 +143,6 @@ void DrawEngineVulkan::DestroyDeviceObjects() {
 	delete tessDataTransferVulkan;
 	tessDataTransfer = nullptr;
 	tessDataTransferVulkan = nullptr;
-
-	for (int i = 0; i < VulkanContext::MAX_INFLIGHT_FRAMES; i++) {
-		frame_[i].Destroy(vulkan);
-	}
 
 	pushUBO_ = nullptr;
 
@@ -220,8 +201,6 @@ void DrawEngineVulkan::BeginFrame() {
 
 	DirtyAllUBOs();
 
-	FrameData *frame = &GetCurFrame();
-
 	// First reset all buffers, then begin. This is so that Reset can free memory and Begin can allocate it,
 	// if growing the buffer is needed. Doing it this way will reduce fragmentation if more than one buffer
 	// needs to grow in the same frame. The state where many buffers are reset can also be used to 
@@ -240,8 +219,6 @@ void DrawEngineVulkan::BeginFrame() {
 	}
 
 	vertexCache_->BeginNoReset();
-
-	frame->descPool.Reset();
 
 	if (--decimationCounter_ <= 0) {
 		decimationCounter_ = VERTEXCACHE_DECIMATION_INTERVAL;
@@ -268,7 +245,6 @@ void DrawEngineVulkan::BeginFrame() {
 }
 
 void DrawEngineVulkan::EndFrame() {
-	FrameData *frame = &GetCurFrame();
 	stats_.pushVertexSpaceUsed = (int)pushVertex_->GetUsedThisFrame();
 	stats_.pushIndexSpaceUsed = (int)pushIndex_->GetUsedThisFrame();
 	vertexCache_->End();
@@ -296,6 +272,7 @@ void DrawEngineVulkan::DecodeVertsToPushPool(VulkanPushPool *push, uint32_t *bin
 	DecodeVerts(dest);
 }
 
+/*
 VkDescriptorSet DrawEngineVulkan::GetOrCreateDescriptorSet(VkImageView imageView, VkSampler sampler, VkBuffer base, VkBuffer light, VkBuffer bone, bool tess) {
 	_dbg_assert_(base != VK_NULL_HANDLE);
 	_dbg_assert_(light != VK_NULL_HANDLE);
@@ -318,13 +295,6 @@ VkDescriptorSet DrawEngineVulkan::GetOrCreateDescriptorSet(VkImageView imageView
 			return d;
 		}
 	}
-
-	// Didn't find one in the frame descriptor set cache, let's make a new one.
-	// We wipe the cache on every frame.
-	VkDescriptorSet desc = frame.descPool.Allocate(1, &pipelineLayout_->descriptorSetLayout, "game_descset");
-
-	// Even in release mode, this is bad.
-	_assert_msg_(desc != VK_NULL_HANDLE, "Ran out of descriptor space in pool. sz=%d", (int)frame.descSets.size());
 
 	// We just don't write to the slots we don't care about, which is fine.
 	VkWriteDescriptorSet writes[DRAW_BINDING_COUNT]{};
@@ -441,6 +411,7 @@ VkDescriptorSet DrawEngineVulkan::GetOrCreateDescriptorSet(VkImageView imageView
 		frame.descSets.Insert(key, desc);
 	return desc;
 }
+*/
 
 void DrawEngineVulkan::DirtyAllUBOs() {
 	baseUBOOffset = 0;
@@ -632,7 +603,6 @@ void DrawEngineVulkan::DoFlush() {
 	VulkanRenderManager *renderManager = (VulkanRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
 
 	PROFILE_THIS_SCOPE("Flush");
-	FrameData &frameData = GetCurFrame();
 
 	bool tess = gstate_c.submitType == SubmitType::HW_BEZIER || gstate_c.submitType == SubmitType::HW_SPLINE;
 
@@ -757,10 +727,34 @@ void DrawEngineVulkan::DoFlush() {
 		lastPrim_ = prim;
 
 		dirtyUniforms_ |= shaderManager_->UpdateUniforms(framebufferManager_->UseBufferedRendering());
-		UpdateUBOs(&frameData);
+		UpdateUBOs();
 
-		VkDescriptorSet ds = GetOrCreateDescriptorSet(imageView, sampler, baseBuf, lightBuf, boneBuf, tess);
-
+		PackedDescriptor descriptors[9]{};
+		int descCount = 6;
+		descriptors[0].image.view = imageView;
+		descriptors[0].image.sampler = sampler;
+		if (boundSecondary_) {
+			descriptors[1].image.view = boundSecondary_;
+			descriptors[1].image.sampler = samplerSecondaryNearest_;
+		}
+		if (boundDepal_) {
+			descriptors[2].image.view = boundDepal_;
+			descriptors[2].image.sampler = boundDepalSmoothed_ ? samplerSecondaryLinear_ : samplerSecondaryNearest_;
+		}
+		descriptors[3].buffer.buffer = baseBuf;
+		descriptors[3].buffer.range = sizeof(UB_VS_FS_Base);
+		descriptors[4].buffer.buffer = lightBuf;
+		descriptors[4].buffer.range = sizeof(UB_VS_Lights);
+		descriptors[5].buffer.buffer = boneBuf;
+		descriptors[5].buffer.range = sizeof(UB_VS_Bones);
+		if (tess) {
+			const VkDescriptorBufferInfo *bufInfo = tessDataTransferVulkan->GetBufferInfo();
+			for (int j = 0; j < 3; j++) {
+				descriptors[j + 6].buffer.buffer = bufInfo[j].buffer;
+				descriptors[j + 6].buffer.offset = bufInfo[j].offset;
+				descriptors[j + 6].buffer.range = bufInfo[j].range;
+			}
+		}
 		// TODO: Can we avoid binding all three when not needed? Same below for hardware transform.
 		// Think this will require different descriptor set layouts.
 		const uint32_t dynamicUBOOffsets[3] = {
@@ -770,9 +764,9 @@ void DrawEngineVulkan::DoFlush() {
 			if (!ibuf) {
 				ibOffset = (uint32_t)pushIndex_->Push(decIndex_, sizeof(uint16_t) * indexGen.VertexCount(), 4, &ibuf);
 			}
-			renderManager->DrawIndexed(ds, ARRAY_SIZE(dynamicUBOOffsets), dynamicUBOOffsets, vbuf, vbOffset, ibuf, ibOffset, vertexCount, 1);
+			renderManager->DrawIndexed(descriptors, descCount, ARRAY_SIZE(dynamicUBOOffsets), dynamicUBOOffsets, vbuf, vbOffset, ibuf, ibOffset, vertexCount, 1);
 		} else {
-			renderManager->Draw(ds, ARRAY_SIZE(dynamicUBOOffsets), dynamicUBOOffsets, vbuf, vbOffset, vertexCount);
+			renderManager->Draw(descriptors, descCount, ARRAY_SIZE(dynamicUBOOffsets), dynamicUBOOffsets, vbuf, vbOffset, vertexCount);
 		}
 	} else {
 		PROFILE_THIS_SCOPE("soft");
@@ -898,9 +892,27 @@ void DrawEngineVulkan::DoFlush() {
 			dirtyUniforms_ |= shaderManager_->UpdateUniforms(framebufferManager_->UseBufferedRendering());
 
 			// Even if the first draw is through-mode, make sure we at least have one copy of these uniforms buffered
-			UpdateUBOs(&frameData);
+			UpdateUBOs();
 
-			VkDescriptorSet ds = GetOrCreateDescriptorSet(imageView, sampler, baseBuf, lightBuf, boneBuf, tess);
+			PackedDescriptor descriptors[9]{};
+			int descCount = 6;
+			descriptors[0].image.view = imageView;
+			descriptors[0].image.sampler = sampler;
+			if (boundSecondary_) {
+				descriptors[1].image.view = boundSecondary_;
+				descriptors[1].image.sampler = samplerSecondaryNearest_;
+			}
+			if (boundDepal_) {
+				descriptors[2].image.view = boundDepal_;
+				descriptors[2].image.sampler = boundDepalSmoothed_ ? samplerSecondaryLinear_ : samplerSecondaryNearest_;
+			}
+			descriptors[3].buffer.buffer = baseBuf;
+			descriptors[3].buffer.range = sizeof(UB_VS_FS_Base);
+			descriptors[4].buffer.buffer = lightBuf;
+			descriptors[4].buffer.range = sizeof(UB_VS_Lights);
+			descriptors[5].buffer.buffer = boneBuf;
+			descriptors[5].buffer.range = sizeof(UB_VS_Bones);
+
 			const uint32_t dynamicUBOOffsets[3] = {
 				baseUBOOffset, lightUBOOffset, boneUBOOffset,
 			};
@@ -911,11 +923,11 @@ void DrawEngineVulkan::DoFlush() {
 				VkBuffer vbuf, ibuf;
 				vbOffset = (uint32_t)pushVertex_->Push(result.drawBuffer, maxIndex * sizeof(TransformedVertex), 4, &vbuf);
 				ibOffset = (uint32_t)pushIndex_->Push(inds, sizeof(short) * result.drawNumTrans, 4, &ibuf);
-				renderManager->DrawIndexed(ds, ARRAY_SIZE(dynamicUBOOffsets), dynamicUBOOffsets, vbuf, vbOffset, ibuf, ibOffset, result.drawNumTrans, 1);
+				renderManager->DrawIndexed(descriptors, descCount, ARRAY_SIZE(dynamicUBOOffsets), dynamicUBOOffsets, vbuf, vbOffset, ibuf, ibOffset, result.drawNumTrans, 1);
 			} else {
 				VkBuffer vbuf;
 				vbOffset = (uint32_t)pushVertex_->Push(result.drawBuffer, result.drawNumTrans * sizeof(TransformedVertex), 4, &vbuf);
-				renderManager->Draw(ds, ARRAY_SIZE(dynamicUBOOffsets), dynamicUBOOffsets, vbuf, vbOffset, result.drawNumTrans);
+				renderManager->Draw(descriptors, descCount, ARRAY_SIZE(dynamicUBOOffsets), dynamicUBOOffsets, vbuf, vbOffset, result.drawNumTrans);
 			}
 		} else if (result.action == SW_CLEAR) {
 			// Note: we won't get here if the clear is alpha but not color, or color but not alpha.
@@ -964,7 +976,7 @@ void DrawEngineVulkan::ResetAfterDraw() {
 	gstate_c.vertexFullAlpha = true;
 }
 
-void DrawEngineVulkan::UpdateUBOs(FrameData *frame) {
+void DrawEngineVulkan::UpdateUBOs() {
 	if ((dirtyUniforms_ & DIRTY_BASE_UNIFORMS) || baseBuf == VK_NULL_HANDLE) {
 		baseUBOOffset = shaderManager_->PushBaseBuffer(pushUBO_, &baseBuf);
 		dirtyUniforms_ &= ~DIRTY_BASE_UNIFORMS;
@@ -977,11 +989,6 @@ void DrawEngineVulkan::UpdateUBOs(FrameData *frame) {
 		boneUBOOffset = shaderManager_->PushBoneBuffer(pushUBO_, &boneBuf);
 		dirtyUniforms_ &= ~DIRTY_BONE_UNIFORMS;
 	}
-}
-
-DrawEngineVulkan::FrameData &DrawEngineVulkan::GetCurFrame() {
-	VulkanContext *vulkan = (VulkanContext *)draw_->GetNativeObject(Draw::NativeObject::CONTEXT);
-	return frame_[vulkan->GetCurFrame()];
 }
 
 void TessellationDataTransferVulkan::SendDataToShader(const SimpleVertex *const *points, int size_u, int size_v, u32 vertType, const Spline::Weight2D &weights) {
