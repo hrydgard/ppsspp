@@ -379,6 +379,33 @@ VkDescriptorSet DrawEngineVulkan::GetOrCreateDescriptorSet(VkImageView imageView
 		n++;
 	}
 
+	// Uniform buffer objects
+	VkDescriptorBufferInfo buf[3]{};
+	int count = 0;
+	buf[count].buffer = base;
+	buf[count].offset = 0;
+	buf[count].range = sizeof(UB_VS_FS_Base);
+	count++;
+	buf[count].buffer = light;
+	buf[count].offset = 0;
+	buf[count].range = sizeof(UB_VS_Lights);
+	count++;
+	buf[count].buffer = bone;
+	buf[count].offset = 0;
+	buf[count].range = sizeof(UB_VS_Bones);
+	count++;
+	for (int i = 0; i < count; i++) {
+		writes[n].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		writes[n].pNext = nullptr;
+		writes[n].dstBinding = DRAW_BINDING_DYNUBO_BASE + i;
+		writes[n].dstArrayElement = 0;
+		writes[n].pBufferInfo = &buf[i];
+		writes[n].dstSet = desc;
+		writes[n].descriptorCount = 1;
+		writes[n].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
+		n++;
+	}
+
 	// Tessellation data buffer.
 	if (tess) {
 		const VkDescriptorBufferInfo *bufInfo = tessDataTransferVulkan->GetBufferInfo();
@@ -408,33 +435,6 @@ VkDescriptorSet DrawEngineVulkan::GetOrCreateDescriptorSet(VkImageView imageView
 		writes[n].descriptorCount = 1;
 		writes[n].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
 		writes[n].dstSet = desc;
-		n++;
-	}
-
-	// Uniform buffer objects
-	VkDescriptorBufferInfo buf[3]{};
-	int count = 0;
-	buf[count].buffer = base;
-	buf[count].offset = 0;
-	buf[count].range = sizeof(UB_VS_FS_Base);
-	count++;
-	buf[count].buffer = light;
-	buf[count].offset = 0;
-	buf[count].range = sizeof(UB_VS_Lights);
-	count++;
-	buf[count].buffer = bone;
-	buf[count].offset = 0;
-	buf[count].range = sizeof(UB_VS_Bones);
-	count++;
-	for (int i = 0; i < count; i++) {
-		writes[n].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-		writes[n].pNext = nullptr;
-		writes[n].dstBinding = DRAW_BINDING_DYNUBO_BASE + i;
-		writes[n].dstArrayElement = 0;
-		writes[n].pBufferInfo = &buf[i];
-		writes[n].dstSet = desc;
-		writes[n].descriptorCount = 1;
-		writes[n].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
 		n++;
 	}
 
