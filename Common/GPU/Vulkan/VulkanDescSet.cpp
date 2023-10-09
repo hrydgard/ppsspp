@@ -57,6 +57,7 @@ VkDescriptorSet VulkanDescSetPool::Allocate(int n, const VkDescriptorSetLayout *
 	VkResult result = vkAllocateDescriptorSets(vulkan_->GetDevice(), &descAlloc, &desc);
 
 	if (result == VK_ERROR_FRAGMENTED_POOL || result < 0) {
+		WARN_LOG(G3D, "Pool %s %s - recreating", tag_, result == VK_ERROR_FRAGMENTED_POOL ? "fragmented" : "full");
 		// There seems to have been a spec revision. Here we should apparently recreate the descriptor pool,
 		// so let's do that. See https://www.khronos.org/registry/vulkan/specs/1.0/man/html/vkAllocateDescriptorSets.html
 		// Fragmentation shouldn't really happen though since we wipe the pool every frame.
@@ -112,7 +113,7 @@ VkResult VulkanDescSetPool::Recreate(bool grow) {
 
 	// Delete the pool if it already exists.
 	if (descPool_ != VK_NULL_HANDLE) {
-		DEBUG_LOG(G3D, "Reallocating %s desc pool from %d to %d", tag_, prevSize, info_.maxSets);
+		INFO_LOG(G3D, "Reallocating %s desc pool from %d to %d", tag_, prevSize, info_.maxSets);
 		vulkan_->Delete().QueueDeleteDescriptorPool(descPool_);
 		clear_();
 		usage_ = 0;
