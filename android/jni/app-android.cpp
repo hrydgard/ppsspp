@@ -1450,6 +1450,7 @@ extern "C" bool JNICALL Java_org_ppsspp_ppsspp_NativeActivity_runVulkanRenderLoo
 
 	if (g_vulkanRenderLoopThread.joinable()) {
 		ERROR_LOG(G3D, "runVulkanRenderLoop: Already running");
+		return false;
 	}
 
 	ANativeWindow *wnd = _surf ? ANativeWindow_fromSurface(env, _surf) : nullptr;
