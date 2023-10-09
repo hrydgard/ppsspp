@@ -1556,6 +1556,12 @@ void VulkanRenderManager::FlushSync() {
 	}
 }
 
+void VulkanRenderManager::ResetStats() {
+	initTimeMs_.Reset();
+	totalGPUTimeMs_.Reset();
+	renderCPUTimeMs_.Reset();
+}
+
 VKRPipelineLayout *VulkanRenderManager::CreatePipelineLayout(BindingType *bindingTypes, size_t bindingCount, bool geoShadersEnabled, const char *tag) {
 	VKRPipelineLayout *layout = new VKRPipelineLayout();
 	layout->tag = tag;
@@ -1622,8 +1628,7 @@ VKRPipelineLayout *VulkanRenderManager::CreatePipelineLayout(BindingType *bindin
 	return layout;
 }
 
-void VulkanRenderManager::ResetStats() {
-	initTimeMs_.Reset();
-	totalGPUTimeMs_.Reset();
-	renderCPUTimeMs_.Reset();
+void VulkanRenderManager::DestroyPipelineLayout(VKRPipelineLayout *layout) {
+	vulkan_->Delete().QueueDeletePipelineLayout(layout->pipelineLayout);
+	vulkan_->Delete().QueueDeleteDescriptorSetLayout(layout->descriptorSetLayout);
 }

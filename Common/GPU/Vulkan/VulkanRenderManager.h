@@ -191,10 +191,6 @@ struct VKRPipelineLayout {
 	~VKRPipelineLayout() {
 		_assert_(!pipelineLayout && !descriptorSetLayout);
 	}
-	void Destroy(VulkanContext *vulkan) {
-		vulkan->Delete().QueueDeletePipelineLayout(pipelineLayout);
-		vulkan->Delete().QueueDeleteDescriptorSetLayout(descriptorSetLayout);
-	}
 	enum { MAX_DESC_SET_BINDINGS = 10 };
 	BindingType bindingTypes[MAX_DESC_SET_BINDINGS];
 	uint32_t bindingCount;
@@ -258,13 +254,8 @@ public:
 	VKRGraphicsPipeline *CreateGraphicsPipeline(VKRGraphicsPipelineDesc *desc, PipelineFlags pipelineFlags, uint32_t variantBitmask, VkSampleCountFlagBits sampleCount, bool cacheLoad, const char *tag);
 	VKRComputePipeline *CreateComputePipeline(VKRComputePipelineDesc *desc);
 
-	VKRPipelineLayout *CreatePipelineLayout(VkPipelineLayout pipelineLayout, VkDescriptorSetLayout descSetLayout) {
-		VKRPipelineLayout *layout = new VKRPipelineLayout();
-		layout->pipelineLayout = pipelineLayout;
-		layout->descriptorSetLayout = descSetLayout;
-		return layout;
-	}
 	VKRPipelineLayout *CreatePipelineLayout(BindingType *bindingTypes, size_t bindingCount, bool geoShadersEnabled, const char *tag);
+	void DestroyPipelineLayout(VKRPipelineLayout *pipelineLayout);
 
 	void ReportBadStateForDraw();
 

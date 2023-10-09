@@ -636,11 +636,12 @@ uint32_t DrawEngineCommon::ComputeDrawcallsHash() const {
 		dhash = __rotl(dhash ^ (u32)drawInds_[i].vertexCount, 11);
 		dcid = lowbias32_r(dhash ^ (u32)drawInds_[i].prim);
 	}
-	for (int j = 0; j < numDrawInds_; j++) {
+	for (int i = 0; i < numDrawInds_; i++) {
+		const DeferredInds &di = drawInds_[i];
 		u32 dhash = dcid;
-		if (drawInds_[j].inds) {
-			dhash = __rotl(dhash ^ (u32)(uintptr_t)drawInds_[j].inds, 19);
-			dcid = lowbias32_r(__rotl(dhash ^ (u32)drawInds_[j].indexType, 7));
+		if (di.indexType) {
+			dhash = __rotl(dhash ^ (u32)(uintptr_t)di.inds, 19);
+			dcid = lowbias32_r(__rotl(dhash ^ (u32)di.indexType, 7));
 		}
 	}
 	return dcid;
@@ -680,7 +681,7 @@ uint64_t DrawEngineCommon::ComputeHash() {
 	return fullhash;
 }
 
-int DrawEngineCommon::ExtendNonIndexedPrim(const uint32_t *cmd, u32 vertTypeID, int cullMode, int *bytesRead, bool isTriangle) {
+int DrawEngineCommon::ExtendNonIndexedPrim(const uint32_t *cmd, const uint32_t *stall, u32 vertTypeID, int cullMode, int *bytesRead, bool isTriangle) {
 	const uint32_t *start = cmd;
 	int prevDrawVerts = numDrawVerts_ - 1;
 	DeferredVerts &dv = drawVerts_[prevDrawVerts];
@@ -689,7 +690,7 @@ int DrawEngineCommon::ExtendNonIndexedPrim(const uint32_t *cmd, u32 vertTypeID, 
 	_dbg_assert_(numDrawInds_ < MAX_DEFERRED_DRAW_INDS);
 	_dbg_assert_(numDrawVerts_ > 0);
 
-	while (true) {
+	while (cmd != stall) {
 		uint32_t data = *cmd;
 		if ((data & 0xFFF80000) != 0x04000000) {
 			break;
