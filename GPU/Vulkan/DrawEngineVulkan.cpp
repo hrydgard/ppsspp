@@ -59,7 +59,6 @@ enum {
 };
 
 #define VERTEXCACHE_DECIMATION_INTERVAL 17
-#define DESCRIPTORSET_DECIMATION_INTERVAL 1  // Temporarily cut to 1. Handle reuse breaks this when textures get deleted.
 
 enum { VAI_KILL_AGE = 120, VAI_UNRELIABLE_KILL_AGE = 240, VAI_UNRELIABLE_KILL_MAX = 4 };
 
@@ -242,10 +241,7 @@ void DrawEngineVulkan::BeginFrame() {
 
 	vertexCache_->BeginNoReset();
 
-	if (--descDecimationCounter_ <= 0) {
-		frame->descPool.Reset();
-		descDecimationCounter_ = DESCRIPTORSET_DECIMATION_INTERVAL;
-	}
+	frame->descPool.Reset();
 
 	if (--decimationCounter_ <= 0) {
 		decimationCounter_ = VERTEXCACHE_DECIMATION_INTERVAL;
