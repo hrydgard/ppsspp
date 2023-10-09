@@ -724,7 +724,7 @@ int DrawEngineCommon::ExtendNonIndexedPrim(const uint32_t *cmd, const uint32_t *
 }
 
 // vertTypeID is the vertex type but with the UVGen mode smashed into the top bits.
-void DrawEngineCommon::SubmitPrim(const void *verts, const void *inds, GEPrimitiveType prim, int vertexCount, u32 vertTypeID, int cullMode, int *bytesRead) {
+bool DrawEngineCommon::SubmitPrim(const void *verts, const void *inds, GEPrimitiveType prim, int vertexCount, u32 vertTypeID, int cullMode, int *bytesRead) {
 	if (!indexGen.PrimCompatible(prevPrim_, prim) || numDrawVerts_ >= MAX_DEFERRED_DRAW_VERTS || numDrawInds_ >= MAX_DEFERRED_DRAW_INDS || vertexCountInDrawCalls_ + vertexCount > VERTEX_BUFFER_MAX) {
 		DispatchFlush();
 	}
@@ -752,7 +752,7 @@ void DrawEngineCommon::SubmitPrim(const void *verts, const void *inds, GEPrimiti
 
 	// Check that we have enough vertices to form the requested primitive.
 	if (vertexCount < 3 && ((vertexCount < 2 && prim > 0) || (prim > GE_PRIM_LINE_STRIP && prim != GE_PRIM_RECTANGLES)))
-		return;
+		return false;
 
 	bool applySkin = (vertTypeID & GE_VTYPE_WEIGHT_MASK) && decOptions_.applySkinInDecode;
 
@@ -800,6 +800,7 @@ void DrawEngineCommon::SubmitPrim(const void *verts, const void *inds, GEPrimiti
 		gstate_c.Dirty(DIRTY_TEXTURE_PARAMS);
 		DispatchFlush();
 	}
+	return true;
 }
 
 void DrawEngineCommon::DecodeVerts(u8 *dest) {

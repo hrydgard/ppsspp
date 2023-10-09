@@ -987,7 +987,9 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 	int cullMode = gstate.getCullMode();
 
 	uint32_t vertTypeID = GetVertTypeID(vertexType, gstate.getUVGenMode(), g_Config.bSoftwareSkinning);
-	drawEngineCommon_->SubmitPrim(verts, inds, prim, count, vertTypeID, cullMode, &bytesRead);
+	if (!drawEngineCommon_->SubmitPrim(verts, inds, prim, count, vertTypeID, cullMode, &bytesRead)) {
+		canExtend = false;
+	}
 	// After drawing, we advance the vertexAddr (when non indexed) or indexAddr (when indexed).
 	// Some games rely on this, they don't bother reloading VADDR and IADDR.
 	// The VADDR/IADDR registers are NOT updated.
