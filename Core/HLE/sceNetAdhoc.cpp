@@ -5937,7 +5937,7 @@ void __NetMatchingCallbacks() //(int matchingId)
 	}
 
 	// Must be delayed long enough whenever there is a pending callback. Should it be 10-100ms for Matching Events? or Not Less than the delays on sceNetAdhocMatching HLE?
-	sceKernelDelayThread(delayus);
+	sceKernelDelayThreadCB(delayus);
 }
 
 const HLEFunction sceNetAdhoc[] = {
@@ -7529,7 +7529,7 @@ int matchingEventThread(int matchingId)
 			peerlock.unlock();
 
 			// Messages on Stack ready for processing
-			if (context != NULL && context->event_stack != NULL)
+			while (context != NULL && context->event_stack != NULL)
 			{
 				// Claim Stack
 				context->eventlock->lock();
