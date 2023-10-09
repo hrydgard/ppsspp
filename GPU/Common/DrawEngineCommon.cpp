@@ -681,7 +681,7 @@ uint64_t DrawEngineCommon::ComputeHash() {
 	return fullhash;
 }
 
-int DrawEngineCommon::ExtendNonIndexedPrim(const uint32_t *cmd, u32 vertTypeID, int cullMode, int *bytesRead, bool isTriangle) {
+int DrawEngineCommon::ExtendNonIndexedPrim(const uint32_t *cmd, const uint32_t *stall, u32 vertTypeID, int cullMode, int *bytesRead, bool isTriangle) {
 	const uint32_t *start = cmd;
 	int prevDrawVerts = numDrawVerts_ - 1;
 	DeferredVerts &dv = drawVerts_[prevDrawVerts];
@@ -690,7 +690,7 @@ int DrawEngineCommon::ExtendNonIndexedPrim(const uint32_t *cmd, u32 vertTypeID, 
 	_dbg_assert_(numDrawInds_ < MAX_DEFERRED_DRAW_INDS);
 	_dbg_assert_(numDrawVerts_ > 0);
 
-	while (true) {
+	while (cmd != stall) {
 		uint32_t data = *cmd;
 		if ((data & 0xFFF80000) != 0x04000000) {
 			break;
