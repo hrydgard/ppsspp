@@ -185,19 +185,55 @@ struct CompileQueueEntry {
 	VkSampleCountFlagBits sampleCount;
 };
 
+// Pending descriptor sets.
+// TODO: Sort these by VKRPipelineLayout to avoid storing it for each element.
+struct PendingDescSet {
+	int offset;  // probably enough with a u16.
+	u8 count;
+	VkDescriptorSet set;
+};
+
+struct PackedDescriptor {
+	union {
+		struct {
+			VkImageView view;
+			VkSampler sampler;
+		} image;
+		struct {
+			VkBuffer buffer;
+			uint32_t offset;
+			uint32_t range;
+		} buffer;
+	};
+};
+
 // Note that we only support a single descriptor set due to compatibility with some ancient devices.
 // We should probably eventually give that up.
 struct VKRPipelineLayout {
+	VKRPipelineLayout() {}
 	~VKRPipelineLayout() {
 		_assert_(!pipelineLayout && !descriptorSetLayout);
+		_assert_(descPools[0].IsDestroyed());
 	}
 	enum { MAX_DESC_SET_BINDINGS = 10 };
 	BindingType bindingTypes[MAX_DESC_SET_BINDINGS];
-	uint32_t bindingCount;
-	VkPipelineLayout pipelineLayout;
-	VkDescriptorSetLayout descriptorSetLayout;  // only support 1 for now.
+
+	uint32_t bindingTypesCount = 0;
+	VkPipelineLayout pipelineLayout = VK_NULL_HANDLE;
+	VkDescriptorSetLayout descriptorSetLayout = VK_NULL_HANDLE;  // only support 1 for now.
 	int pushConstSize = 0;
-	const char *tag;
+	const char *tag = nullptr;
+
+	// The pipeline layout owns the descriptor set pools. Don't go create excessive layouts.
+	VulkanDescSetPool descPools[VulkanContext::MAX_INFLIGHT_FRAMES];
+
+	// TODO: We should be able to get away with a single descData_/descSets_ and then send it along,
+	// but it's easier to just segregate by frame id.
+	FastVec<PackedDescriptor> descData_[VulkanContext::MAX_INFLIGHT_FRAMES];
+	FastVec<PendingDescSet> descSets_[VulkanContext::MAX_INFLIGHT_FRAMES];
+	int flushedDescriptors_[VulkanContext::MAX_INFLIGHT_FRAMES]{};
+
+	void FlushDescSets(VulkanContext *vulkan, int frame);
 };
 
 class VulkanRenderManager {
@@ -283,6 +319,7 @@ public:
 		//     DebugBreak();
 		// }
 		curPipelineFlags_ |= flags;
+		curPipelineLayout_ = pipelineLayout;
 		return true;
 	}
 
@@ -412,6 +449,46 @@ public:
 			curRenderStep_->render.stencilStore = VKRRenderPassStoreAction::DONT_CARE;
 	}
 
+private:
+	// Descriptors will match the current pipeline layout, set by the last call to BindPipeline.
+	// Count is the count of void*s. Two are needed for COMBINED_IMAGE_SAMPLER, everything else is a single one.
+	// The goal is to keep this function very small and fast, and do the expensive work on the render thread or
+	// another thread.
+	int BindDescriptors(const PackedDescriptor *desc, int count) {
+		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == VKRStepType::RENDER);
+
+		int curFrame = vulkan_->GetCurFrame();
+
+		size_t offset = curPipelineLayout_->descData_[curFrame].size();
+		curPipelineLayout_->descData_[curFrame].extend(desc, count);
+
+		int setIndex = (int)curPipelineLayout_->descSets_[curFrame].size();
+		PendingDescSet &descSet = curPipelineLayout_->descSets_[curFrame].push_uninitialized();
+		descSet.offset = (uint32_t)offset;
+		descSet.count = count;
+		descSet.set = VK_NULL_HANDLE;  // to be filled in
+		return setIndex;
+	}
+
+public:
+	void Draw(const PackedDescriptor *desc, int descCount, int numUboOffsets, const uint32_t *uboOffsets, VkBuffer vbuffer, int voffset, int count, int offset = 0) {
+		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == VKRStepType::RENDER && curStepHasViewport_ && curStepHasScissor_);
+		int setIndex = BindDescriptors(desc, descCount);
+		VkRenderData &data = curRenderStep_->commands.push_uninitialized();
+		data.cmd = VKRRenderCommand::DRAW;
+		data.draw.count = count;
+		data.draw.offset = offset;
+		data.draw.ds = VK_NULL_HANDLE;
+		data.draw.descSetIndex = setIndex;
+		data.draw.vbuffer = vbuffer;
+		data.draw.voffset = voffset;
+		data.draw.numUboOffsets = numUboOffsets;
+		_dbg_assert_(numUboOffsets <= ARRAY_SIZE(data.draw.uboOffsets));
+		for (int i = 0; i < numUboOffsets; i++)
+			data.draw.uboOffsets[i] = uboOffsets[i];
+		curRenderStep_->render.numDraws++;
+	}
+
 	void Draw(VkDescriptorSet descSet, int numUboOffsets, const uint32_t *uboOffsets, VkBuffer vbuffer, int voffset, int count, int offset = 0) {
 		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == VKRStepType::RENDER && curStepHasViewport_ && curStepHasScissor_);
 		VkRenderData &data = curRenderStep_->commands.push_uninitialized();
@@ -425,6 +502,26 @@ public:
 		_dbg_assert_(numUboOffsets <= ARRAY_SIZE(data.draw.uboOffsets));
 		for (int i = 0; i < numUboOffsets; i++)
 			data.draw.uboOffsets[i] = uboOffsets[i];
+		curRenderStep_->render.numDraws++;
+	}
+
+	void DrawIndexed(const PackedDescriptor *desc, int descCount, int numUboOffsets, const uint32_t *uboOffsets, VkBuffer vbuffer, int voffset, VkBuffer ibuffer, int ioffset, int count, int numInstances) {
+		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == VKRStepType::RENDER && curStepHasViewport_ && curStepHasScissor_);
+		int setIndex = BindDescriptors(desc, descCount);
+		VkRenderData &data = curRenderStep_->commands.push_uninitialized();
+		data.cmd = VKRRenderCommand::DRAW_INDEXED;
+		data.drawIndexed.count = count;
+		data.drawIndexed.instances = numInstances;
+		data.drawIndexed.ds = VK_NULL_HANDLE;
+		data.drawIndexed.descSetIndex = setIndex;
+		data.drawIndexed.vbuffer = vbuffer;
+		data.drawIndexed.voffset = voffset;
+		data.drawIndexed.ibuffer = ibuffer;
+		data.drawIndexed.ioffset = ioffset;
+		data.drawIndexed.numUboOffsets = numUboOffsets;
+		_dbg_assert_(numUboOffsets <= ARRAY_SIZE(data.drawIndexed.uboOffsets));
+		for (int i = 0; i < numUboOffsets; i++)
+			data.drawIndexed.uboOffsets[i] = uboOffsets[i];
 		curRenderStep_->render.numDraws++;
 	}
 
@@ -505,6 +602,9 @@ private:
 	void PresentWaitThreadFunc();
 	void PollPresentTiming();
 
+	void ResetDescriptorLists(int frame);
+	void FlushDescriptors(int frame);
+
 	FrameDataShared frameDataShared_;
 
 	FrameData frameData_[VulkanContext::MAX_INFLIGHT_FRAMES];
@@ -572,9 +672,13 @@ private:
 	SimpleStat initTimeMs_;
 	SimpleStat totalGPUTimeMs_;
 	SimpleStat renderCPUTimeMs_;
+	SimpleStat descUpdateTimeMs_;
 
 	std::function<void(InvalidationCallbackFlags)> invalidationCallback_;
 
 	uint64_t frameIdGen_ = FRAME_TIME_HISTORY_LENGTH;
 	HistoryBuffer<FrameTimeData, FRAME_TIME_HISTORY_LENGTH> &frameTimeHistory_;
+
+	VKRPipelineLayout *curPipelineLayout_ = nullptr;
+	std::vector<VKRPipelineLayout *> pipelineLayouts_;
 };

@@ -117,6 +117,12 @@ public:
 		IncreaseCapacityTo(newCapacity);
 	}
 
+	void extend(const T *newData, size_t count) {
+		IncreaseCapacityTo(size_ + count);
+		memcpy(data_ + size_, newData, count * sizeof(T));
+		size_ += count;
+	}
+
 	void LockCapacity() {
 #ifdef _DEBUG
 		capacityLocked_ = true;

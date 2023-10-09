@@ -75,7 +75,9 @@ VkDescriptorSet VulkanDescSetPool::Allocate(int n, const VkDescriptorSetLayout *
 
 	usage_++;
 
-	vulkan_->SetDebugName(desc, VK_OBJECT_TYPE_DESCRIPTOR_SET, tag);
+	if (tag) {
+		vulkan_->SetDebugName(desc, VK_OBJECT_TYPE_DESCRIPTOR_SET, tag);
+	}
 	return desc;
 }
 

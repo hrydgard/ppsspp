@@ -27,19 +27,13 @@
 #include "Common/Data/Convert/SmallDataConvert.h"
 #include "Common/GPU/thin3d.h"
 #include "Common/GPU/Vulkan/VulkanRenderManager.h"
-#include "Common/GPU/Vulkan/VulkanDescSet.h"
 #include "Common/GPU/Vulkan/VulkanContext.h"
 #include "Common/GPU/Vulkan/VulkanImage.h"
 #include "Common/GPU/Vulkan/VulkanMemory.h"
 #include "Common/GPU/Vulkan/VulkanLoader.h"
 #include "Common/Thread/Promise.h"
 
-// We support a frame-global descriptor set, which can be optionally used by other code,
-// but is not directly used by thin3d. It has to be defined here though, be in set 0
-// and specified in every pipeline layout, otherwise it can't sit undisturbed when other
-// descriptor sets are bound on top.
-
-// For descriptor set 1, we use a simple descriptor set for all thin3d rendering: 1 UBO binding point, 3 combined texture/samples.
+// For descriptor set 0 (the only one), we use a simple descriptor set for all thin3d rendering: 1 UBO binding point, 3 combined texture/samples.
 //
 // binding 0 - uniform buffer
 // binding 1 - texture/sampler
@@ -510,7 +504,7 @@ public:
 		}
 	}
 
-	VkDescriptorSet GetOrCreateDescriptorSet(VkBuffer buffer);
+	void BindDescriptors(VkBuffer buffer, PackedDescriptor descriptors[4]);
 
 	std::vector<std::string> GetFeatureList() const override;
 	std::vector<std::string> GetExtensionList(bool device, bool enabledOnly) const override;
@@ -561,19 +555,6 @@ private:
 	TextureBindFlags boundTextureFlags_[MAX_BOUND_TEXTURES]{};
 
 	VulkanPushPool *push_ = nullptr;
-
-	struct FrameData {
-		FrameData() : descriptorPool("VKContext", false) {
-			descriptorPool.Setup([this] { descSets_.clear(); });
-		}
-		// Per-frame descriptor set cache. As it's per frame and reset every frame, we don't need to
-		// worry about invalidating descriptors pointing to deleted textures.
-		// However! ARM is not a fan of doing it this way.
-		std::map<DescriptorSetKey, VkDescriptorSet> descSets_;
-		VulkanDescSetPool descriptorPool;
-	};
-
-	FrameData frame_[VulkanContext::MAX_INFLIGHT_FRAMES];
 
 	DeviceCaps caps_{};
 
@@ -1053,10 +1034,6 @@ VKContext::VKContext(VulkanContext *vulkan, bool useRenderThread)
 	}
 	pipelineLayout_ = renderManager_.CreatePipelineLayout(bindings, ARRAY_SIZE(bindings), caps_.geometryShaderSupported, "thin3d_layout");
 
-	for (int i = 0; i < VulkanContext::MAX_INFLIGHT_FRAMES; i++) {
-		frame_[i].descriptorPool.Create(vulkan_, bindings, ARRAY_SIZE(bindings), 1024);
-	}
-
 	VkPipelineCacheCreateInfo pc{ VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO };
 	VkResult res = vkCreatePipelineCache(vulkan_->GetDevice(), &pc, nullptr, &pipelineCache_);
 	_assert_(VK_SUCCESS == res);
@@ -1066,10 +1043,6 @@ VKContext::~VKContext() {
 	DestroyPresets();
 
 	delete nullTexture_;
-	// This also destroys all descriptor sets.
-	for (int i = 0; i < VulkanContext::MAX_INFLIGHT_FRAMES; i++) {
-		frame_[i].descriptorPool.Destroy();
-	}
 	push_->Destroy();
 	delete push_;
 	renderManager_.DestroyPipelineLayout(pipelineLayout_);
@@ -1078,12 +1051,7 @@ VKContext::~VKContext() {
 
 void VKContext::BeginFrame(DebugFlags debugFlags) {
 	renderManager_.BeginFrame(debugFlags & DebugFlags::PROFILE_TIMESTAMPS, debugFlags & DebugFlags::PROFILE_SCOPES);
-
-	FrameData &frame = frame_[vulkan_->GetCurFrame()];
-
 	push_->BeginFrame();
-
-	frame.descriptorPool.Reset();
 }
 
 void VKContext::EndFrame() {
@@ -1121,81 +1089,30 @@ void VKContext::WipeQueue() {
 	renderManager_.Wipe();
 }
 
-VkDescriptorSet VKContext::GetOrCreateDescriptorSet(VkBuffer buf) {
-	DescriptorSetKey key{};
+void VKContext::BindDescriptors(VkBuffer buf, PackedDescriptor descriptors[4]) {
+	descriptors[0].buffer.buffer = buf;
+	descriptors[0].buffer.offset = 0;  // dynamic
+	descriptors[0].buffer.range = curPipeline_->GetUBOSize();
 
-	FrameData *frame = &frame_[vulkan_->GetCurFrame()];
-
+	int numDescs = 1;
 	for (int i = 0; i < MAX_BOUND_TEXTURES; ++i) {
+		VkImageView view;
+		VkSampler sampler;
 		if (boundTextures_[i]) {
-			key.imageViews_[i] = (boundTextureFlags_[i] & TextureBindFlags::VULKAN_BIND_ARRAY) ? boundTextures_[i]->GetImageArrayView() : boundTextures_[i]->GetImageView();
+			view = (boundTextureFlags_[i] & TextureBindFlags::VULKAN_BIND_ARRAY) ? boundTextures_[i]->GetImageArrayView() : boundTextures_[i]->GetImageView();
 		} else {
-			key.imageViews_[i] = boundImageView_[i];
+			view = boundImageView_[i];
 		}
-		key.samplers_[i] = boundSamplers_[i];
-	}
-	key.buffer_ = buf;
+		sampler = boundSamplers_[i] ? boundSamplers_[i]->GetSampler() : VK_NULL_HANDLE;
 
-	auto iter = frame->descSets_.find(key);
-	if (iter != frame->descSets_.end()) {
-		return iter->second;
-	}
-
-	VkDescriptorSet descSet = frame->descriptorPool.Allocate(1, &pipelineLayout_->descriptorSetLayout, "thin3d_descset");
-	if (descSet == VK_NULL_HANDLE) {
-		ERROR_LOG(G3D, "GetOrCreateDescriptorSet failed");
-		return VK_NULL_HANDLE;
-	}
-
-	vulkan_->SetDebugName(descSet, VK_OBJECT_TYPE_DESCRIPTOR_SET, "(thin3d desc set)");
-
-	VkDescriptorBufferInfo bufferDesc;
-	bufferDesc.buffer = buf;
-	bufferDesc.offset = 0;
-	bufferDesc.range = curPipeline_->GetUBOSize();
-
-	VkDescriptorImageInfo imageDesc[MAX_BOUND_TEXTURES]{};
-	VkWriteDescriptorSet writes[1 + MAX_BOUND_TEXTURES]{};
-
-	// If handles are NULL for whatever buggy reason, it's best to leave the descriptors
-	// unwritten instead of trying to write a zero, which is not legal.
-
-	int numWrites = 0;
-	if (buf) {
-		writes[numWrites].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-		writes[numWrites].dstSet = descSet;
-		writes[numWrites].dstArrayElement = 0;
-		writes[numWrites].dstBinding = 0;
-		writes[numWrites].pBufferInfo = &bufferDesc;
-		writes[numWrites].pImageInfo = nullptr;
-		writes[numWrites].pTexelBufferView = nullptr;
-		writes[numWrites].descriptorCount = 1;
-		writes[numWrites].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
-		numWrites++;
-	}
-
-	for (int i = 0; i < MAX_BOUND_TEXTURES; ++i) {
-		if (key.imageViews_[i] && key.samplers_[i] && key.samplers_[i]->GetSampler()) {
-			imageDesc[i].imageView = key.imageViews_[i];
-			imageDesc[i].sampler = key.samplers_[i]->GetSampler();
-			imageDesc[i].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-			writes[numWrites].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-			writes[numWrites].dstSet = descSet;
-			writes[numWrites].dstArrayElement = 0;
-			writes[numWrites].dstBinding = i + 1;
-			writes[numWrites].pBufferInfo = nullptr;
-			writes[numWrites].pImageInfo = &imageDesc[i];
-			writes[numWrites].pTexelBufferView = nullptr;
-			writes[numWrites].descriptorCount = 1;
-			writes[numWrites].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-			numWrites++;
+		if (view && sampler) {
+			descriptors[i + 1].image.view = view;
+			descriptors[i + 1].image.sampler = sampler;
+		} else {
+			descriptors[i + 1].image.view = VK_NULL_HANDLE;
+			descriptors[i + 1].image.sampler = VK_NULL_HANDLE;
 		}
 	}
-
-	vkUpdateDescriptorSets(device_, numWrites, writes, 0, nullptr);
-
-	frame->descSets_[key] = descSet;
-	return descSet;
 }
 
 Pipeline *VKContext::CreateGraphicsPipeline(const PipelineDesc &desc, const char *tag) {
@@ -1445,7 +1362,7 @@ void VKContext::BindTextures(int start, int count, Texture **textures, TextureBi
 		boundTextures_[i] = static_cast<VKTexture *>(textures[i - start]);
 		boundTextureFlags_[i] = flags;
 		if (boundTextures_[i]) {
-			// If a texture is bound, we set these up in GetOrCreateDescriptorSet too.
+			// If a texture is bound, we set these up in BindDescriptors too.
 			// But we might need to set the view here anyway so it can be queried using GetNativeObject.
 			if (flags & TextureBindFlags::VULKAN_BIND_ARRAY) {
 				boundImageView_[i] = boundTextures_[i]->GetImageArrayView();
@@ -1498,15 +1415,11 @@ void VKContext::Draw(int vertexCount, int offset) {
 	uint32_t ubo_offset = (uint32_t)curPipeline_->PushUBO(push_, vulkan_, &vulkanUBObuf);
 	size_t vbBindOffset = push_->Push(vbuf->GetData(), vbuf->GetSize(), 4, &vulkanVbuf);
 
-	VkDescriptorSet descSet = GetOrCreateDescriptorSet(vulkanUBObuf);
-	if (descSet == VK_NULL_HANDLE) {
-		ERROR_LOG(G3D, "GetOrCreateDescriptorSet failed, skipping %s", __FUNCTION__);
-		return;
-	}
-
 	BindCurrentPipeline();
 	ApplyDynamicState();
-	renderManager_.Draw(descSet, 1, &ubo_offset, vulkanVbuf, (int)vbBindOffset + curVBufferOffsets_[0], vertexCount, offset);
+	PackedDescriptor descriptors[4];
+	BindDescriptors(vulkanUBObuf, descriptors);
+	renderManager_.Draw(descriptors, ARRAY_SIZE(descriptors), 1, &ubo_offset, vulkanVbuf, (int)vbBindOffset + curVBufferOffsets_[0], vertexCount, offset);
 }
 
 void VKContext::DrawIndexed(int vertexCount, int offset) {
@@ -1518,15 +1431,11 @@ void VKContext::DrawIndexed(int vertexCount, int offset) {
 	size_t vbBindOffset = push_->Push(vbuf->GetData(), vbuf->GetSize(), 4, &vulkanVbuf);
 	size_t ibBindOffset = push_->Push(ibuf->GetData(), ibuf->GetSize(), 4, &vulkanIbuf);
 
-	VkDescriptorSet descSet = GetOrCreateDescriptorSet(vulkanUBObuf);
-	if (descSet == VK_NULL_HANDLE) {
-		ERROR_LOG(G3D, "GetOrCreateDescriptorSet failed, skipping %s", __FUNCTION__);
-		return;
-	}
-
 	BindCurrentPipeline();
 	ApplyDynamicState();
-	renderManager_.DrawIndexed(descSet, 1, &ubo_offset, vulkanVbuf, (int)vbBindOffset + curVBufferOffsets_[0], vulkanIbuf, (int)ibBindOffset + offset * sizeof(uint32_t), vertexCount, 1);
+	PackedDescriptor descriptors[4];
+	BindDescriptors(vulkanUBObuf, descriptors);
+	renderManager_.DrawIndexed(descriptors, ARRAY_SIZE(descriptors), 1, &ubo_offset, vulkanVbuf, (int)vbBindOffset + curVBufferOffsets_[0], vulkanIbuf, (int)ibBindOffset + offset * sizeof(uint32_t), vertexCount, 1);
 }
 
 void VKContext::DrawUP(const void *vdata, int vertexCount) {
@@ -1544,15 +1453,11 @@ void VKContext::DrawUP(const void *vdata, int vertexCount) {
 
 	uint32_t ubo_offset = (uint32_t)curPipeline_->PushUBO(push_, vulkan_, &vulkanUBObuf);
 
-	VkDescriptorSet descSet = GetOrCreateDescriptorSet(vulkanUBObuf);
-	if (descSet == VK_NULL_HANDLE) {
-		ERROR_LOG(G3D, "GetOrCreateDescriptorSet failed, skipping %s", __FUNCTION__);
-		return;
-	}
-
 	BindCurrentPipeline();
 	ApplyDynamicState();
-	renderManager_.Draw(descSet, 1, &ubo_offset, vulkanVbuf, (int)vbBindOffset + curVBufferOffsets_[0], vertexCount);
+	PackedDescriptor descriptors[4];
+	BindDescriptors(vulkanUBObuf, descriptors);
+	renderManager_.Draw(descriptors, ARRAY_SIZE(descriptors), 1, &ubo_offset, vulkanVbuf, (int)vbBindOffset + curVBufferOffsets_[0], vertexCount);
 }
 
 void VKContext::BindCurrentPipeline() {

@@ -71,6 +71,7 @@ struct VkRenderData {
 		} compute_pipeline;
 		struct {
 			VkDescriptorSet ds;
+			uint32_t descSetIndex;
 			int numUboOffsets;
 			uint32_t uboOffsets[3];
 			VkBuffer vbuffer;
@@ -80,6 +81,7 @@ struct VkRenderData {
 		} draw;
 		struct {
 			VkDescriptorSet ds;
+			uint32_t descSetIndex;
 			uint32_t uboOffsets[3];
 			uint16_t numUboOffsets;
 			uint16_t instances;
@@ -119,9 +121,7 @@ struct VkRenderData {
 			const char *annotation;
 		} debugAnnotation;
 		struct {
-			int setNumber;
-			VkDescriptorSet set;
-			VkPipelineLayout pipelineLayout;
+			int setIndex;
 		} bindDescSet;
 	};
 };
@@ -231,7 +231,7 @@ public:
 	}
 
 	void PreprocessSteps(std::vector<VKRStep *> &steps);
-	void RunSteps(std::vector<VKRStep *> &steps, FrameData &frameData, FrameDataShared &frameDataShared, bool keepSteps = false);
+	void RunSteps(std::vector<VKRStep *> &steps, int curFrame, FrameData &frameData, FrameDataShared &frameDataShared, bool keepSteps = false);
 	void LogSteps(const std::vector<VKRStep *> &steps, bool verbose);
 
 	static std::string StepToString(VulkanContext *vulkan, const VKRStep &step);
@@ -291,7 +291,7 @@ private:
 	bool InitDepthStencilBuffer(VkCommandBuffer cmd);  // Used for non-buffered rendering.
 
 	VKRRenderPass *PerformBindFramebufferAsRenderTarget(const VKRStep &pass, VkCommandBuffer cmd);
-	void PerformRenderPass(const VKRStep &pass, VkCommandBuffer cmd);
+	void PerformRenderPass(const VKRStep &pass, VkCommandBuffer cmd, int curFrame);
 	void PerformCopy(const VKRStep &pass, VkCommandBuffer cmd);
 	void PerformBlit(const VKRStep &pass, VkCommandBuffer cmd);
 	void PerformReadback(const VKRStep &pass, VkCommandBuffer cmd, FrameData &frameData);
