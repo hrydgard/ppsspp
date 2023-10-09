@@ -1454,6 +1454,12 @@ static void ProcessFrameCommands(JNIEnv *env) {
 extern "C" bool JNICALL Java_org_ppsspp_ppsspp_NativeActivity_runVulkanRenderLoop(JNIEnv *env, jobject obj, jobject _surf) {
 	_assert_(!useCPUThread);
 
+	if (renderLoopRunning) {
+		// Shouldn't happen.
+		ERROR_LOG(G3D, "runVulkanRenderLoop: Loop already running.");
+		return false;
+	}
+
 	if (!graphicsContext) {
 		ERROR_LOG(G3D, "runVulkanRenderLoop: Tried to enter without a created graphics context.");
 		renderLoopRunning = false;

@@ -90,6 +90,10 @@ void FrameData::AcquireNextImage(VulkanContext *vulkan, FrameDataShared &shared)
 		WARN_LOG(G3D, "%s returned from AcquireNextImage - processing the frame, but not presenting", VulkanResultToString(res));
 		skipSwap = true;
 		break;
+	case VK_ERROR_SURFACE_LOST_KHR:
+		ERROR_LOG(G3D, "%s returned from AcquireNextImage - ignoring, but this better be during shutdown", VulkanResultToString(res));
+		skipSwap = true;
+		break;
 	default:
 		// Weird, shouldn't get any other values. Maybe lost device?
 		_assert_msg_(false, "vkAcquireNextImageKHR failed! result=%s", VulkanResultToString(res));
