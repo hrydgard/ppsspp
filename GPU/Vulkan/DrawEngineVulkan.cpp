@@ -754,6 +754,7 @@ void DrawEngineVulkan::DoFlush() {
 				descriptors[j + 6].buffer.offset = bufInfo[j].offset;
 				descriptors[j + 6].buffer.range = bufInfo[j].range;
 			}
+			descCount = 9;
 		}
 		// TODO: Can we avoid binding all three when not needed? Same below for hardware transform.
 		// Think this will require different descriptor set layouts.
