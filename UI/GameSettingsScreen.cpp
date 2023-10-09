@@ -1716,6 +1716,11 @@ void DeveloperToolsScreen::CreateViews() {
 		list->Add(new CheckBox(&g_Config.bGpuLogProfiler, dev->T("GPU log profiler")));
 	}
 
+	static const char *ffModes[] = { "Render all frames", "", "Frame Skipping" };
+	PopupMultiChoice *ffMode = list->Add(new PopupMultiChoice(&g_Config.iFastForwardMode, dev->T("Fast-forward mode"), ffModes, 0, ARRAY_SIZE(ffModes), I18NCat::GRAPHICS, screenManager()));
+	ffMode->SetEnabledFunc([]() { return !g_Config.bVSync; });
+	ffMode->HideChoice(1);  // not used
+
 	Draw::DrawContext *draw = screenManager()->getDrawContext();
 
 	list->Add(new ItemHeader(dev->T("Ubershaders")));
