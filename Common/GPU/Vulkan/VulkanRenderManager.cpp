@@ -1698,8 +1698,7 @@ void VKRPipelineLayout::FlushDescSets(VulkanContext *vulkan, int frame, QueuePro
 	pool.Reset();
 
 	// This will write all descriptors.
-	// Initially, we won't do any de-duplication, so no hashmap lookups but also extra cost of writing additional descriptors.
-	// A short look-back might be enough?
+	// Initially, we just do a simple look-back comparing to the previous descriptor to avoid sequential dupes.
 
 	// Initially, let's do naive single desc set writes.
 	VkWriteDescriptorSet writes[MAX_DESC_SET_BINDINGS];
@@ -1712,9 +1711,9 @@ void VKRPipelineLayout::FlushDescSets(VulkanContext *vulkan, int frame, QueuePro
 	for (size_t index = start; index < descSets.size(); index++) {
 		auto &d = descSets[index];
 
-		// TODO: This is where to look up to see if we already have an identical descriptor previously in the array.
-		// We can do this with a simple custom hash map here that doesn't handle collisions, since false positives aren't too bad.
-		// Should probably check history, one or two items, then fall back to lookup. Or we should do the history lookup in BindDescriptors...
+		// This is where we look up to see if we already have an identical descriptor previously in the array.
+		// We could do a simple custom hash map here that doesn't handle collisions, since false positives aren't too bad.
+		// Instead, for now we just check history one item backwards. Good enough, it seems.
 		if (index > start + 1) {
 			if (descSets[index - 1].count == d.count) {
 				if (!memcmp(descData.data() + d.offset, descData.data() + descSets[index - 1].offset, d.count * sizeof(PackedDescriptor))) {
@@ -1724,9 +1723,10 @@ void VKRPipelineLayout::FlushDescSets(VulkanContext *vulkan, int frame, QueuePro
 			}
 		}
 
-		// For now we just allocate unconditionally.
+		// TODO: Allocate in batches.
 		d.set = pool.Allocate(1, &descriptorSetLayout, nullptr);
 
+		// TODO: Build up bigger batches of writes.
 		const PackedDescriptor *data = descData.begin() + d.offset;
 		int numWrites = 0;
 		int numBuffers = 0;
