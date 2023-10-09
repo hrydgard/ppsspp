@@ -685,6 +685,8 @@ void VulkanRenderManager::BeginFrame(bool enableProfiling, bool enableLogProfile
 				descUpdateTimeMs_.Update(frameData.profile.descWriteTime * 1000.0);
 				descUpdateTimeMs_.Format(line, sizeof(line));
 				str << line;
+				snprintf(line, sizeof(line), "Descriptors written: %d\n", frameData.profile.descriptorsWritten);
+				str << line;
 				for (int i = 0; i < numQueries - 1; i++) {
 					uint64_t diff = (queryResults[i + 1] - queryResults[i]) & timestampDiffMask;
 					double milliseconds = (double)diff * timestampConversionFactor;
@@ -713,9 +715,13 @@ void VulkanRenderManager::BeginFrame(bool enableProfiling, bool enableLogProfile
 			descUpdateTimeMs_.Update(frameData.profile.descWriteTime * 1000.0);
 			descUpdateTimeMs_.Format(line, sizeof(line));
 			str << line;
+			snprintf(line, sizeof(line), "Descriptors written: %d\n", frameData.profile.descriptorsWritten);
+			str << line;
 			frameData.profile.profileSummary = str.str();
 		}
 	}
+
+	frameData.profile.descriptorsWritten = 0;
 
 	// Must be after the fence - this performs deletes.
 	VLOG("PUSH: BeginFrame %d", curFrame);
@@ -1666,7 +1672,7 @@ void VulkanRenderManager::DestroyPipelineLayout(VKRPipelineLayout *layout) {
 
 void VulkanRenderManager::FlushDescriptors(int frame) {
 	for (auto iter : pipelineLayouts_) {
-		iter->FlushDescSets(vulkan_, frame);
+		iter->FlushDescSets(vulkan_, frame, &frameData_[frame].profile);
 	}
 }
 
@@ -1678,7 +1684,7 @@ void VulkanRenderManager::ResetDescriptorLists(int frame) {
 	}
 }
 
-void VKRPipelineLayout::FlushDescSets(VulkanContext *vulkan, int frame) {
+void VKRPipelineLayout::FlushDescSets(VulkanContext *vulkan, int frame, QueueProfileContext *profile) {
 	_dbg_assert_(frame < VulkanContext::MAX_INFLIGHT_FRAMES);
 
 	VulkanDescSetPool &pool = descPools[frame];
@@ -1696,12 +1702,23 @@ void VKRPipelineLayout::FlushDescSets(VulkanContext *vulkan, int frame) {
 	VkDescriptorImageInfo imageInfo[MAX_DESC_SET_BINDINGS];  // just picked a practical number
 	VkDescriptorBufferInfo bufferInfo[MAX_DESC_SET_BINDINGS];
 
-	for (size_t index = flushedDescriptors_[frame]; index < descSets.size(); index++) {
+	size_t start = flushedDescriptors_[frame];
+	int writeCount = 0;
+
+	for (size_t index = start; index < descSets.size(); index++) {
 		auto &d = descSets[index];
 
 		// TODO: This is where to look up to see if we already have an identical descriptor previously in the array.
 		// We can do this with a simple custom hash map here that doesn't handle collisions, since false positives aren't too bad.
 		// Should probably check history, one or two items, then fall back to lookup. Or we should do the history lookup in BindDescriptors...
+		if (index > start + 1) {
+			if (descSets[index - 1].count == d.count) {
+				if (!memcmp(descData.data() + d.offset, descData.data() + descSets[index - 1].offset, d.count * sizeof(PackedDescriptor))) {
+					d.set = descSets[index - 1].set;
+					continue;
+				}
+			}
+		}
 
 		// For now we just allocate unconditionally.
 		d.set = pool.Allocate(1, &descriptorSetLayout, nullptr);
@@ -1767,7 +1784,10 @@ void VKRPipelineLayout::FlushDescSets(VulkanContext *vulkan, int frame) {
 		}
 
 		vkUpdateDescriptorSets(vulkan->GetDevice(), numWrites, writes, 0, nullptr);
+
+		writeCount++;
 	}
 
 	flushedDescriptors_[frame] = (int)descSets.size();
+	profile->descriptorsWritten += writeCount;
 }

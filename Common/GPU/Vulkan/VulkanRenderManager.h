@@ -233,7 +233,7 @@ struct VKRPipelineLayout {
 	FastVec<PendingDescSet> descSets_[VulkanContext::MAX_INFLIGHT_FRAMES];
 	int flushedDescriptors_[VulkanContext::MAX_INFLIGHT_FRAMES]{};
 
-	void FlushDescSets(VulkanContext *vulkan, int frame);
+	void FlushDescSets(VulkanContext *vulkan, int frame, QueueProfileContext *profile);
 };
 
 class VulkanRenderManager {
