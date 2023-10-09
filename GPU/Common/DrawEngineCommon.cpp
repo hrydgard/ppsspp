@@ -636,11 +636,12 @@ uint32_t DrawEngineCommon::ComputeDrawcallsHash() const {
 		dhash = __rotl(dhash ^ (u32)drawInds_[i].vertexCount, 11);
 		dcid = lowbias32_r(dhash ^ (u32)drawInds_[i].prim);
 	}
-	for (int j = 0; j < numDrawInds_; j++) {
+	for (int i = 0; i < numDrawInds_; i++) {
+		const DeferredInds &di = drawInds_[i];
 		u32 dhash = dcid;
-		if (drawInds_[j].inds) {
-			dhash = __rotl(dhash ^ (u32)(uintptr_t)drawInds_[j].inds, 19);
-			dcid = lowbias32_r(__rotl(dhash ^ (u32)drawInds_[j].indexType, 7));
+		if (di.indexType) {
+			dhash = __rotl(dhash ^ (u32)(uintptr_t)di.inds, 19);
+			dcid = lowbias32_r(__rotl(dhash ^ (u32)di.indexType, 7));
 		}
 	}
 	return dcid;
