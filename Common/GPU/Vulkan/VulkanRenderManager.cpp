@@ -1647,8 +1647,8 @@ VKRPipelineLayout *VulkanRenderManager::CreatePipelineLayout(BindingType *bindin
 	vulkan_->SetDebugName(layout->pipelineLayout, VK_OBJECT_TYPE_PIPELINE_LAYOUT, tag);
 
 	for (int i = 0; i < VulkanContext::MAX_INFLIGHT_FRAMES; i++) {
-		layout->descPools[i].Create(vulkan_, bindingTypes, (uint32_t)bindingTypesCount, 512);
-		layout->descPools[i].Setup([]() {});
+		layout->frameData[i].pool.Create(vulkan_, bindingTypes, (uint32_t)bindingTypesCount, 512);
+		layout->frameData[i].pool.Setup([]() {});
 	}
 
 	pipelineLayouts_.push_back(layout);
@@ -1657,7 +1657,7 @@ VKRPipelineLayout *VulkanRenderManager::CreatePipelineLayout(BindingType *bindin
 
 void VulkanRenderManager::DestroyPipelineLayout(VKRPipelineLayout *layout) {
 	for (int i = 0; i < VulkanContext::MAX_INFLIGHT_FRAMES; i++) {
-		layout->descPools[i].Destroy();
+		layout->frameData[i].pool.Destroy();
 	}
 
 	vulkan_->Delete().QueueDeletePipelineLayout(layout->pipelineLayout);
@@ -1678,18 +1678,22 @@ void VulkanRenderManager::FlushDescriptors(int frame) {
 
 void VulkanRenderManager::ResetDescriptorLists(int frame) {
 	for (auto iter : pipelineLayouts_) {
-		iter->flushedDescriptors_[frame] = 0;
-		iter->descSets_[frame].clear();
-		iter->descData_[frame].clear();
+		VKRPipelineLayout::FrameData &data = iter->frameData[frame];
+
+		data.flushedDescriptors_ = 0;
+		data.descSets_.clear();
+		data.descData_.clear();
 	}
 }
 
 void VKRPipelineLayout::FlushDescSets(VulkanContext *vulkan, int frame, QueueProfileContext *profile) {
 	_dbg_assert_(frame < VulkanContext::MAX_INFLIGHT_FRAMES);
 
-	VulkanDescSetPool &pool = descPools[frame];
-	FastVec<PackedDescriptor> &descData = descData_[frame];
-	FastVec<PendingDescSet> &descSets = descSets_[frame];
+	FrameData &data = frameData[frame];
+
+	VulkanDescSetPool &pool = data.pool;
+	FastVec<PackedDescriptor> &descData = data.descData_;
+	FastVec<PendingDescSet> &descSets = data.descSets_;
 
 	pool.Reset();
 
@@ -1702,7 +1706,7 @@ void VKRPipelineLayout::FlushDescSets(VulkanContext *vulkan, int frame, QueuePro
 	VkDescriptorImageInfo imageInfo[MAX_DESC_SET_BINDINGS];  // just picked a practical number
 	VkDescriptorBufferInfo bufferInfo[MAX_DESC_SET_BINDINGS];
 
-	size_t start = flushedDescriptors_[frame];
+	size_t start = data.flushedDescriptors_;
 	int writeCount = 0;
 
 	for (size_t index = start; index < descSets.size(); index++) {
@@ -1788,6 +1792,6 @@ void VKRPipelineLayout::FlushDescSets(VulkanContext *vulkan, int frame, QueuePro
 		writeCount++;
 	}
 
-	flushedDescriptors_[frame] = (int)descSets.size();
+	data.flushedDescriptors_ = (int)descSets.size();
 	profile->descriptorsWritten += writeCount;
 }

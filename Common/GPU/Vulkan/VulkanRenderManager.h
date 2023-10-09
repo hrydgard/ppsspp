@@ -213,7 +213,7 @@ struct VKRPipelineLayout {
 	VKRPipelineLayout() {}
 	~VKRPipelineLayout() {
 		_assert_(!pipelineLayout && !descriptorSetLayout);
-		_assert_(descPools[0].IsDestroyed());
+		_assert_(frameData[0].pool.IsDestroyed());
 	}
 	enum { MAX_DESC_SET_BINDINGS = 10 };
 	BindingType bindingTypes[MAX_DESC_SET_BINDINGS];
@@ -224,14 +224,16 @@ struct VKRPipelineLayout {
 	int pushConstSize = 0;
 	const char *tag = nullptr;
 
-	// The pipeline layout owns the descriptor set pools. Don't go create excessive layouts.
-	VulkanDescSetPool descPools[VulkanContext::MAX_INFLIGHT_FRAMES];
+	struct FrameData {
+		VulkanDescSetPool pool;
+		FastVec<PackedDescriptor> descData_;
+		FastVec<PendingDescSet> descSets_;
+		// TODO: We should be able to get away with a single descData_/descSets_ and then send it along,
+		// but it's easier to just segregate by frame id.
+		int flushedDescriptors_ = 0;
+	};
 
-	// TODO: We should be able to get away with a single descData_/descSets_ and then send it along,
-	// but it's easier to just segregate by frame id.
-	FastVec<PackedDescriptor> descData_[VulkanContext::MAX_INFLIGHT_FRAMES];
-	FastVec<PendingDescSet> descSets_[VulkanContext::MAX_INFLIGHT_FRAMES];
-	int flushedDescriptors_[VulkanContext::MAX_INFLIGHT_FRAMES]{};
+	FrameData frameData[VulkanContext::MAX_INFLIGHT_FRAMES];
 
 	void FlushDescSets(VulkanContext *vulkan, int frame, QueueProfileContext *profile);
 };
@@ -459,11 +461,13 @@ private:
 
 		int curFrame = vulkan_->GetCurFrame();
 
-		size_t offset = curPipelineLayout_->descData_[curFrame].size();
-		curPipelineLayout_->descData_[curFrame].extend(desc, count);
+		VKRPipelineLayout::FrameData &data = curPipelineLayout_->frameData[curFrame];
 
-		int setIndex = (int)curPipelineLayout_->descSets_[curFrame].size();
-		PendingDescSet &descSet = curPipelineLayout_->descSets_[curFrame].push_uninitialized();
+		size_t offset = data.descData_.size();
+		data.descData_.extend(desc, count);
+
+		int setIndex = (int)data.descSets_.size();
+		PendingDescSet &descSet = data.descSets_.push_uninitialized();
 		descSet.offset = (uint32_t)offset;
 		descSet.count = count;
 		// descSet.set = VK_NULL_HANDLE;  // to be filled in
