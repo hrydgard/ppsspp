@@ -7230,7 +7230,8 @@ void actOnCancelPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * s
 						spawnLocalEvent(context, PSP_ADHOC_MATCHING_EVENT_DENY, sendermac, optlen, opt);
 
 						// Delete Peer from List
-						deletePeer(context, peer);
+						//deletePeer(context, peer);
+						peer->lastping = 0;
 					}
 
 					// Kicked from Room
@@ -7263,7 +7264,8 @@ void actOnCancelPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * s
 						spawnLocalEvent(context, PSP_ADHOC_MATCHING_EVENT_CANCEL, sendermac, optlen, opt);
 
 						// Delete Peer from List
-						deletePeer(context, peer);
+						//deletePeer(context, peer);
+						peer->lastping = 0;
 					}
 
 					// Leave Room
@@ -7273,7 +7275,8 @@ void actOnCancelPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * s
 						spawnLocalEvent(context, PSP_ADHOC_MATCHING_EVENT_LEAVE, sendermac, optlen, opt);
 
 						// Delete Peer from List
-						deletePeer(context, peer);
+						//deletePeer(context, peer);
+						peer->lastping = 0;
 					}
 				}
 
@@ -7289,8 +7292,9 @@ void actOnCancelPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * s
 						// Spawn Deny Event
 						spawnLocalEvent(context, PSP_ADHOC_MATCHING_EVENT_DENY, sendermac, optlen, opt);
 
-						// Delete Peer from List
-						deletePeer(context, peer);
+						// FIXME: Delete Peer from List?
+						// Instead of removing the peer immediately, we should let it timedout, otherwise inviter in Crazy Taxi will wait forever without getting timedout, since handleTimeout need the peer data to exist.
+						peer->lastping = 0;
 					}
 
 					// Kicked from Room
@@ -7300,7 +7304,8 @@ void actOnCancelPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * s
 						spawnLocalEvent(context, PSP_ADHOC_MATCHING_EVENT_LEAVE, sendermac, optlen, opt);
 
 						// Delete Peer from List
-						deletePeer(context, peer);
+						//deletePeer(context, peer);
+						peer->lastping = 0;
 					}
 
 					// Cancel Join Request
@@ -7310,7 +7315,8 @@ void actOnCancelPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * s
 						spawnLocalEvent(context, PSP_ADHOC_MATCHING_EVENT_CANCEL, sendermac, optlen, opt);
 
 						// Delete Peer from List
-						deletePeer(context, peer);
+						//deletePeer(context, peer);
+						peer->lastping = 0;
 					}
 				}
 			}
