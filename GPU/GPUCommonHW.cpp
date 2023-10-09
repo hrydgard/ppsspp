@@ -968,7 +968,9 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 	const void *verts = Memory::GetPointerUnchecked(gstate_c.vertexAddr);
 	const void *inds = nullptr;
 
-	bool canExtend = true;
+	bool isTriangle = IsTrianglePrim(prim);
+
+	bool canExtend = isTriangle;
 	u32 vertexType = gstate.vertType;
 	if ((vertexType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE) {
 		u32 indexAddr = gstate_c.indexAddr;
@@ -1008,8 +1010,6 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 
 	uint32_t vtypeCheckMask = g_Config.bSoftwareSkinning ? (~GE_VTYPE_WEIGHTCOUNT_MASK) : 0xFFFFFFFF;
 
-	bool isTriangle = IsTrianglePrim(prim);
-
 	if (debugRecording_)
 		goto bail;
 
@@ -1044,7 +1044,7 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 				inds = Memory::GetPointerUnchecked(gstate_c.indexAddr);
 			} else {
 				// We can extend again after submitting a normal draw.
-				canExtend = true;
+				canExtend = isTriangle;
 			}
 			drawEngineCommon_->SubmitPrim(verts, inds, newPrim, count, vertTypeID, cullMode, &bytesRead);
 			AdvanceVerts(vertexType, count, bytesRead);
