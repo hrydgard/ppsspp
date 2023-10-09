@@ -84,6 +84,7 @@ void FrameData::AcquireNextImage(VulkanContext *vulkan, FrameDataShared &shared)
 		WARN_LOG(G3D, "VK_SUBOPTIMAL_KHR returned - ignoring");
 		break;
 	case VK_ERROR_OUT_OF_DATE_KHR:
+	case VK_ERROR_SURFACE_LOST_KHR:
 	case VK_TIMEOUT:
 	case VK_NOT_READY:
 		// We do not set hasAcquired here!

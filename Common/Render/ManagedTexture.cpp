@@ -186,8 +186,15 @@ void ManagedTexture::DeviceLost() {
 
 void ManagedTexture::DeviceRestored(Draw::DrawContext *draw) {
     INFO_LOG(G3D, "ManagedTexture::DeviceRestored(%s)", filename_.c_str());
-	_assert_(!texture_);
+
 	draw_ = draw;
+
+	_dbg_assert_(!texture_);
+	if (texture_) {
+		ERROR_LOG(G3D, "ManagedTexture: Unexpected - texture already present: %s", filename_.c_str());
+		return;
+	}
+
 	// Vulkan: Can't load textures before the first frame has started.
 	// Should probably try to lift that restriction again someday..
 	loadPending_ = true;
