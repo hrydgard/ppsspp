@@ -699,7 +699,7 @@ int DrawEngineCommon::ExtendNonIndexedPrim(const uint32_t *cmd, const uint32_t *
 		if (IsTrianglePrim(newPrim) != isTriangle)
 			break;
 		int vertexCount = data & 0xFFFF;
-		if (numDrawInds_ >= MAX_DEFERRED_DRAW_INDS || vertexCountInDrawCalls_ + vertexCount > VERTEX_BUFFER_MAX) {
+		if (numDrawInds_ >= MAX_DEFERRED_DRAW_INDS || vertexCountInDrawCalls_ + offset + vertexCount > VERTEX_BUFFER_MAX) {
 			break;
 		}
 		DeferredInds &di = drawInds_[numDrawInds_++];
