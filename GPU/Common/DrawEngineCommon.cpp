@@ -184,7 +184,9 @@ void DrawEngineCommon::DispatchSubmitImm(GEPrimitiveType prim, TransformedVertex
 
 	int bytesRead;
 	uint32_t vertTypeID = GetVertTypeID(vtype, 0, decOptions_.applySkinInDecode);
-	SubmitPrim(&temp[0], nullptr, prim, vertexCount, vertTypeID, cullMode, &bytesRead);
+
+	bool clockwise = !gstate.isCullEnabled() || gstate.getCullMode() == cullMode;
+	SubmitPrim(&temp[0], nullptr, prim, vertexCount, vertTypeID, clockwise, &bytesRead);
 	DispatchFlush();
 
 	if (!prevThrough) {
@@ -681,7 +683,7 @@ uint64_t DrawEngineCommon::ComputeHash() {
 	return fullhash;
 }
 
-int DrawEngineCommon::ExtendNonIndexedPrim(const uint32_t *cmd, const uint32_t *stall, u32 vertTypeID, int cullMode, int *bytesRead, bool isTriangle) {
+int DrawEngineCommon::ExtendNonIndexedPrim(const uint32_t *cmd, const uint32_t *stall, u32 vertTypeID, bool clockwise, int *bytesRead, bool isTriangle) {
 	const uint32_t *start = cmd;
 	int prevDrawVerts = numDrawVerts_ - 1;
 	DeferredVerts &dv = drawVerts_[prevDrawVerts];
@@ -689,11 +691,6 @@ int DrawEngineCommon::ExtendNonIndexedPrim(const uint32_t *cmd, const uint32_t *
 
 	_dbg_assert_(numDrawInds_ <= MAX_DEFERRED_DRAW_INDS);  // if it's equal, the check below will take care of it before any action is taken.
 	_dbg_assert_(numDrawVerts_ > 0);
-
-	bool clockwise = true;
-	if (gstate.isCullEnabled() && gstate.getCullMode() != cullMode) {
-		clockwise = false;
-	}
 
 	while (cmd != stall) {
 		uint32_t data = *cmd;
@@ -727,7 +724,7 @@ int DrawEngineCommon::ExtendNonIndexedPrim(const uint32_t *cmd, const uint32_t *
 }
 
 // vertTypeID is the vertex type but with the UVGen mode smashed into the top bits.
-bool DrawEngineCommon::SubmitPrim(const void *verts, const void *inds, GEPrimitiveType prim, int vertexCount, u32 vertTypeID, int cullMode, int *bytesRead) {
+bool DrawEngineCommon::SubmitPrim(const void *verts, const void *inds, GEPrimitiveType prim, int vertexCount, u32 vertTypeID, bool clockwise, int *bytesRead) {
 	if (!indexGen.PrimCompatible(prevPrim_, prim) || numDrawVerts_ >= MAX_DEFERRED_DRAW_VERTS || numDrawInds_ >= MAX_DEFERRED_DRAW_INDS || vertexCountInDrawCalls_ + vertexCount > VERTEX_BUFFER_MAX) {
 		DispatchFlush();
 	}
@@ -758,11 +755,6 @@ bool DrawEngineCommon::SubmitPrim(const void *verts, const void *inds, GEPrimiti
 		return false;
 
 	bool applySkin = (vertTypeID & GE_VTYPE_WEIGHT_MASK) && decOptions_.applySkinInDecode;
-
-	bool clockwise = true;
-	if (gstate.isCullEnabled() && gstate.getCullMode() != cullMode) {
-		clockwise = false;
-	}
 
 	DeferredInds &di = drawInds_[numDrawInds_++];
 	di.inds = inds;

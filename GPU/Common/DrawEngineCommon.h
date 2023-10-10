@@ -96,8 +96,8 @@ public:
 	// This would seem to be unnecessary now, but is still required for splines/beziers to work in the software backend since SubmitPrim
 	// is different. Should probably refactor that.
 	// Note that vertTypeID should be computed using GetVertTypeID().
-	virtual void DispatchSubmitPrim(const void *verts, const void *inds, GEPrimitiveType prim, int vertexCount, u32 vertTypeID, int cullMode, int *bytesRead) {
-		SubmitPrim(verts, inds, prim, vertexCount, vertTypeID, cullMode, bytesRead);
+	virtual void DispatchSubmitPrim(const void *verts, const void *inds, GEPrimitiveType prim, int vertexCount, u32 vertTypeID, bool clockwise, int *bytesRead) {
+		SubmitPrim(verts, inds, prim, vertexCount, vertTypeID, clockwise, bytesRead);
 	}
 
 	virtual void DispatchSubmitImm(GEPrimitiveType prim, TransformedVertex *buffer, int vertexCount, int cullMode, bool continuation);
@@ -111,8 +111,8 @@ public:
 		}
 	}
 
-	int ExtendNonIndexedPrim(const uint32_t *cmd, const uint32_t *stall, u32 vertTypeID, int cullMode, int *bytesRead, bool isTriangle);
-	bool SubmitPrim(const void *verts, const void *inds, GEPrimitiveType prim, int vertexCount, u32 vertTypeID, int cullMode, int *bytesRead);
+	int ExtendNonIndexedPrim(const uint32_t *cmd, const uint32_t *stall, u32 vertTypeID, bool clockwise, int *bytesRead, bool isTriangle);
+	bool SubmitPrim(const void *verts, const void *inds, GEPrimitiveType prim, int vertexCount, u32 vertTypeID, bool clockwise, int *bytesRead);
 	template<class Surface>
 	void SubmitCurve(const void *control_points, const void *indices, Surface &surface, u32 vertType, int *bytesRead, const char *scope);
 	void ClearSplineBezierWeights();

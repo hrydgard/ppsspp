@@ -577,7 +577,7 @@ void DrawEngineCommon::SubmitCurve(const void *control_points, const void *indic
 	uint32_t vertTypeID = GetVertTypeID(vertTypeWithIndex16, gstate.getUVGenMode(), decOptions_.applySkinInDecode);
 	int generatedBytesRead;
 	if (output.count)
-		DispatchSubmitPrim(output.vertices, output.indices, PatchPrimToPrim(surface.primType), output.count, vertTypeID, gstate.getCullMode(), &generatedBytesRead);
+		DispatchSubmitPrim(output.vertices, output.indices, PatchPrimToPrim(surface.primType), output.count, vertTypeID, true, &generatedBytesRead);
 
 	if (flushOnParams_)
 		DispatchFlush();

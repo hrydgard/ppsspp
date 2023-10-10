@@ -71,8 +71,8 @@ void SoftwareDrawEngine::DispatchFlush() {
 	transformUnit.Flush("debug");
 }
 
-void SoftwareDrawEngine::DispatchSubmitPrim(const void *verts, const void *inds, GEPrimitiveType prim, int vertexCount, u32 vertTypeID, int cullMode, int *bytesRead) {
-	_assert_msg_(cullMode == gstate.getCullMode(), "Mixed cull mode not supported.");
+void SoftwareDrawEngine::DispatchSubmitPrim(const void *verts, const void *inds, GEPrimitiveType prim, int vertexCount, u32 vertTypeID, bool clockwise, int *bytesRead) {
+	_assert_msg_(clockwise, "Mixed cull mode not supported.");
 	transformUnit.SubmitPrimitive(verts, inds, prim, vertexCount, vertTypeID, bytesRead, this);
 }
 
