@@ -575,112 +575,12 @@ void DrawEngineCommon::ApplyFramebufferRead(FBOTexState *fboTexState) {
 	gstate_c.Dirty(DIRTY_SHADERBLEND);
 }
 
-inline u32 ComputeMiniHashRange(const void *ptr, size_t sz) {
-	// Switch to u32 units, and round up to avoid unaligned accesses.
-	// Probably doesn't matter if we skip the first few bytes in some cases.
-	const u32 *p = (const u32 *)(((uintptr_t)ptr + 3) & ~3);
-	sz >>= 2;
-
-	if (sz > 100) {
-		size_t step = sz / 4;
-		u32 hash = 0;
-		for (size_t i = 0; i < sz; i += step) {
-			hash += XXH3_64bits(p + i, 100);
-		}
-		return hash;
-	} else {
-		return p[0] + p[sz - 1];
-	}
-}
-
-u32 DrawEngineCommon::ComputeMiniHash() {
-	u32 fullhash = 0;
-	const int vertexSize = dec_->GetDecVtxFmt().stride;
-	const int indexSize = IndexSize(dec_->VertexType());
-
-	int step;
-	if (numDrawVerts_ < 3) {
-		step = 1;
-	} else if (numDrawVerts_ < 8) {
-		step = 4;
-	} else {
-		step = numDrawVerts_ / 8;
-	}
-	for (int i = 0; i < numDrawVerts_; i += step) {
-		const DeferredVerts &dc = drawVerts_[i];
-		fullhash += ComputeMiniHashRange((const u8 *)dc.verts + vertexSize * dc.indexLowerBound, vertexSize * (dc.indexUpperBound - dc.indexLowerBound));
-	}
-	for (int i = 0; i < numDrawInds_; i += step) {
-		const DeferredInds &di = drawInds_[i];
-		if (di.indexType != 0) {
-			fullhash += ComputeMiniHashRange(di.inds, indexSize * di.vertexCount);
-		}
-	}
-
-	return fullhash;
-}
-
-// Cheap bit scrambler from https://nullprogram.com/blog/2018/07/31/
-inline uint32_t lowbias32_r(uint32_t x) {
-	x ^= x >> 16;
-	x *= 0x43021123U;
-	x ^= x >> 15 ^ x >> 30;
-	x *= 0x1d69e2a5U;
-	x ^= x >> 16;
-	return x;
-}
-
-uint32_t DrawEngineCommon::ComputeDrawcallsHash() const {
-	uint32_t dcid = 0;
-	for (int i = 0; i < numDrawVerts_; i++) {
-		u32 dhash = dcid;
-		dhash = __rotl(dhash ^ (u32)(uintptr_t)drawVerts_[i].verts, 13);
-		dhash = __rotl(dhash ^ (u32)drawInds_[i].vertexCount, 11);
-		dcid = lowbias32_r(dhash ^ (u32)drawInds_[i].prim);
-	}
-	for (int i = 0; i < numDrawInds_; i++) {
-		const DeferredInds &di = drawInds_[i];
-		u32 dhash = dcid;
-		if (di.indexType) {
-			dhash = __rotl(dhash ^ (u32)(uintptr_t)di.inds, 19);
-			dcid = lowbias32_r(__rotl(dhash ^ (u32)di.indexType, 7));
-		}
-	}
-	return dcid;
-}
-
 int DrawEngineCommon::ComputeNumVertsToDecode() const {
 	int sum = 0;
 	for (int i = 0; i < numDrawVerts_; i++) {
 		sum += drawVerts_[i].indexUpperBound + 1 - drawVerts_[i].indexLowerBound;
 	}
 	return sum;
-}
-
-uint64_t DrawEngineCommon::ComputeHash() {
-	uint64_t fullhash = 0;
-	const int vertexSize = dec_->GetDecVtxFmt().stride;
-
-	// TODO: Add some caps both for numDrawCalls_ and num verts to check?
-	// It is really very expensive to check all the vertex data so often.
-	for (int i = 0; i < numDrawVerts_; i++) {
-		const DeferredVerts &dv = drawVerts_[i];
-		int indexLowerBound = dv.indexLowerBound, indexUpperBound = dv.indexUpperBound;
-		fullhash += XXH3_64bits((const char *)dv.verts + vertexSize * indexLowerBound, vertexSize * (indexUpperBound - indexLowerBound));
-	}
-
-	for (int i = 0; i < numDrawInds_; i++) {
-		const DeferredInds &di = drawInds_[i];
-		if (di.indexType != 0) {
-			int indexSize = IndexSize(di.indexType << GE_VTYPE_IDX_SHIFT);
-			// Hm, we will miss some indices when combining above, but meh, it should be fine.
-			fullhash += XXH3_64bits((const char *)di.inds, indexSize * di.vertexCount);
-		}
-	}
-
-	// this looks utterly broken??
-	// fullhash += XXH3_64bits(&drawCalls_[0].uvScale, sizeof(drawCalls_[0].uvScale) * numDrawCalls_);
-	return fullhash;
 }
 
 int DrawEngineCommon::ExtendNonIndexedPrim(const uint32_t *cmd, const uint32_t *stall, u32 vertTypeID, bool clockwise, int *bytesRead, bool isTriangle) {

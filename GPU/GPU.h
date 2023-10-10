@@ -78,11 +78,8 @@ struct GPUStatistics {
 		numVertexDecodes = 0;
 		numDrawSyncs = 0;
 		numListSyncs = 0;
-		numCachedDrawCalls = 0;
 		numVertsSubmitted = 0;
-		numCachedVertsDrawn = 0;
 		numUncachedVertsDrawn = 0;
-		numTrackedVertexArrays = 0;
 		numTextureInvalidations = 0;
 		numTextureInvalidationsByFramebuffer = 0;
 		numTexturesHashed = 0;
@@ -115,14 +112,11 @@ struct GPUStatistics {
 	int numVertexDecodes;
 	int numDrawSyncs;
 	int numListSyncs;
-	int numCachedDrawCalls;
 	int numFlushes;
 	int numBBOXJumps;
 	int numPlaneUpdates;
 	int numVertsSubmitted;
-	int numCachedVertsDrawn;
 	int numUncachedVertsDrawn;
-	int numTrackedVertexArrays;
 	int numTextureInvalidations;
 	int numTextureInvalidationsByFramebuffer;
 	int numTexturesHashed;

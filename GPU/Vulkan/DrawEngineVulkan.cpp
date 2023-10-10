@@ -55,19 +55,11 @@
 using namespace PPSSPP_VK;
 
 enum {
-	VERTEX_CACHE_SIZE = 8192 * 1024
-};
-
-#define VERTEXCACHE_DECIMATION_INTERVAL 17
-
-enum { VAI_KILL_AGE = 120, VAI_UNRELIABLE_KILL_AGE = 240, VAI_UNRELIABLE_KILL_MAX = 4 };
-
-enum {
 	TRANSFORMED_VERTEX_BUFFER_SIZE = VERTEX_BUFFER_MAX * sizeof(TransformedVertex)
 };
 
 DrawEngineVulkan::DrawEngineVulkan(Draw::DrawContext *draw)
-	: draw_(draw), vai_(1024) {
+	: draw_(draw) {
 	decOptions_.expandAllWeightsToFloat = false;
 	decOptions_.expand8BitNormalsToFloat = false;
 #if PPSSPP_PLATFORM(MAC) || PPSSPP_PLATFORM(IOS)
@@ -117,8 +109,6 @@ void DrawEngineVulkan::InitDeviceObjects() {
 	res = vkCreateSampler(device, &samp, nullptr, &nullSampler_);
 	_dbg_assert_(VK_SUCCESS == res);
 
-	vertexCache_ = new VulkanPushBuffer(vulkan, "pushVertexCache", VERTEX_CACHE_SIZE, VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
-
 	tessDataTransferVulkan = new TessellationDataTransferVulkan(vulkan);
 	tessDataTransfer = tessDataTransferVulkan;
 
@@ -163,18 +153,8 @@ void DrawEngineVulkan::DestroyDeviceObjects() {
 		vulkan->Delete().QueueDeleteSampler(samplerSecondaryLinear_);
 	if (nullSampler_ != VK_NULL_HANDLE)
 		vulkan->Delete().QueueDeleteSampler(nullSampler_);
-	renderManager->DestroyPipelineLayout(pipelineLayout_);
-	if (vertexCache_) {
-		vertexCache_->Destroy(vulkan);
-		delete vertexCache_;
-		vertexCache_ = nullptr;
-	}
 
-	// Need to clear this to get rid of all remaining references to the dead buffers.
-	vai_.Iterate([](uint32_t hash, VertexArrayInfoVulkan *vai) {
-		delete vai;
-	});
-	vai_.Clear();
+	renderManager->DestroyPipelineLayout(pipelineLayout_);
 }
 
 void DrawEngineVulkan::DeviceLost() {
@@ -189,8 +169,6 @@ void DrawEngineVulkan::DeviceRestore(Draw::DrawContext *draw) {
 }
 
 void DrawEngineVulkan::BeginFrame() {
-	gpuStats.numTrackedVertexArrays = (int)vai_.size();
-
 	lastPipeline_ = nullptr;
 
 	// pushUBO is the thin3d push pool, don't need to BeginFrame again.
@@ -200,54 +178,11 @@ void DrawEngineVulkan::BeginFrame() {
 	tessDataTransferVulkan->SetPushPool(pushUBO_);
 
 	DirtyAllUBOs();
-
-	// First reset all buffers, then begin. This is so that Reset can free memory and Begin can allocate it,
-	// if growing the buffer is needed. Doing it this way will reduce fragmentation if more than one buffer
-	// needs to grow in the same frame. The state where many buffers are reset can also be used to 
-	// defragment memory.
-	VulkanContext *vulkan = (VulkanContext *)draw_->GetNativeObject(Draw::NativeObject::CONTEXT);
-
-	// Wipe the vertex cache if it's grown too large.
-	if (vertexCache_->GetTotalSize() > VERTEX_CACHE_SIZE) {
-		vertexCache_->Destroy(vulkan);
-		delete vertexCache_;  // orphans the buffers, they'll get deleted once no longer used by an in-flight frame.
-		vertexCache_ = new VulkanPushBuffer(vulkan, "vertexCacheR", VERTEX_CACHE_SIZE, VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
-		vai_.Iterate([&](uint32_t hash, VertexArrayInfoVulkan *vai) {
-			delete vai;
-		});
-		vai_.Clear();
-	}
-
-	vertexCache_->BeginNoReset();
-
-	if (--decimationCounter_ <= 0) {
-		decimationCounter_ = VERTEXCACHE_DECIMATION_INTERVAL;
-
-		const int threshold = gpuStats.numFlips - VAI_KILL_AGE;
-		const int unreliableThreshold = gpuStats.numFlips - VAI_UNRELIABLE_KILL_AGE;
-		int unreliableLeft = VAI_UNRELIABLE_KILL_MAX;
-		vai_.Iterate([&](uint32_t hash, VertexArrayInfoVulkan *vai) {
-			bool kill;
-			if (vai->status == VertexArrayInfoVulkan::VAI_UNRELIABLE) {
-				// We limit killing unreliable so we don't rehash too often.
-				kill = vai->lastFrame < unreliableThreshold && --unreliableLeft >= 0;
-			} else {
-				kill = vai->lastFrame < threshold;
-			}
-			if (kill) {
-				// This is actually quite safe.
-				vai_.Remove(hash);
-				delete vai;
-			}
-		});
-	}
-	vai_.Maintain();
 }
 
 void DrawEngineVulkan::EndFrame() {
 	stats_.pushVertexSpaceUsed = (int)pushVertex_->GetUsedThisFrame();
 	stats_.pushIndexSpaceUsed = (int)pushIndex_->GetUsedThisFrame();
-	vertexCache_->End();
 }
 
 void DrawEngineVulkan::DecodeVertsToPushBuffer(VulkanPushBuffer *push, uint32_t *bindOffset, VkBuffer *vkbuf) {
@@ -285,12 +220,6 @@ void DrawEngineVulkan::DirtyAllUBOs() {
 	gstate_c.Dirty(DIRTY_TEXTURE_IMAGE);
 }
 
-void MarkUnreliable(VertexArrayInfoVulkan *vai) {
-	vai->status = VertexArrayInfoVulkan::VAI_UNRELIABLE;
-	// TODO: If we change to a real allocator, free the data here.
-	// For now we just leave it in the pushbuffer.
-}
-
 void DrawEngineVulkan::Invalidate(InvalidationCallbackFlags flags) {
 	if (flags & InvalidationCallbackFlags::COMMAND_BUFFER_STATE) {
 		// Nothing here anymore (removed the "frame descriptor set"
@@ -303,158 +232,6 @@ void DrawEngineVulkan::Invalidate(InvalidationCallbackFlags flags) {
 		gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_BLEND_STATE | DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS);
 		lastPipeline_ = nullptr;
 	}
-}
-
-bool DrawEngineVulkan::VertexCacheLookup(int &vertexCount, GEPrimitiveType &prim, VkBuffer &vbuf, uint32_t &vbOffset, VkBuffer &ibuf, uint32_t &ibOffset, bool &useElements, bool forceIndexed) {
-	// getUVGenMode can have an effect on which UV decoder we need to use! And hence what the decoded data will look like. See #9263
-	// u32 dcid = (u32)XXH3_64bits(&drawCalls_, sizeof(DeferredDrawCall) * numDrawCalls_) ^ gstate.getUVGenMode();
-	u32 dcid = ComputeDrawcallsHash() ^ gstate.getUVGenMode();
-
-	PROFILE_THIS_SCOPE("vcache");
-	VertexArrayInfoVulkan *vai;
-	if (!vai_.Get(dcid, &vai)) {
-		vai = new VertexArrayInfoVulkan();
-		vai_.Insert(dcid, vai);
-	}
-
-	switch (vai->status) {
-	case VertexArrayInfoVulkan::VAI_NEW:
-	{
-		// Haven't seen this one before. We don't actually upload the vertex data yet.
-		uint64_t dataHash = ComputeHash();
-		vai->hash = dataHash;
-		vai->minihash = ComputeMiniHash();
-		vai->status = VertexArrayInfoVulkan::VAI_HASHING;
-		vai->drawsUntilNextFullHash = 0;
-		DecodeVertsToPushPool(pushVertex_, &vbOffset, &vbuf);
-		DecodeInds();
-		vai->numVerts = indexGen.VertexCount();
-		vai->prim = indexGen.Prim();
-		vai->maxIndex = MaxIndex();
-		vai->flags = gstate_c.vertexFullAlpha ? VAIVULKAN_FLAG_VERTEXFULLALPHA : 0;
-		return true;
-	}
-
-	// Hashing - still gaining confidence about the buffer.
-	// But if we get this far it's likely to be worth uploading the data.
-	case VertexArrayInfoVulkan::VAI_HASHING:
-	{
-		PROFILE_THIS_SCOPE("vcachehash");
-		vai->numDraws++;
-		if (vai->lastFrame != gpuStats.numFlips) {
-			vai->numFrames++;
-		}
-		if (vai->drawsUntilNextFullHash == 0) {
-			// Let's try to skip a full hash if mini would fail.
-			const u32 newMiniHash = ComputeMiniHash();
-			uint64_t newHash = vai->hash;
-			if (newMiniHash == vai->minihash) {
-				newHash = ComputeHash();
-			}
-			if (newMiniHash != vai->minihash || newHash != vai->hash) {
-				MarkUnreliable(vai);
-				DecodeVertsToPushPool(pushVertex_, &vbOffset, &vbuf);
-				DecodeInds();
-				return true;
-			}
-			if (vai->numVerts > 64) {
-				// exponential backoff up to 16 draws, then every 24
-				vai->drawsUntilNextFullHash = std::min(24, vai->numFrames);
-			} else {
-				// Lower numbers seem much more likely to change.
-				vai->drawsUntilNextFullHash = 0;
-			}
-			// TODO: tweak
-			//if (vai->numFrames > 1000) {
-			//	vai->status = VertexArrayInfo::VAI_RELIABLE;
-			//}
-		} else {
-			vai->drawsUntilNextFullHash--;
-			u32 newMiniHash = ComputeMiniHash();
-			if (newMiniHash != vai->minihash) {
-				MarkUnreliable(vai);
-				DecodeVertsToPushPool(pushVertex_, &vbOffset, &vbuf);
-				DecodeInds();
-				return true;
-			}
-		}
-
-		if (!vai->vb) {
-			// Directly push to the vertex cache.
-			DecodeVertsToPushBuffer(vertexCache_, &vai->vbOffset, &vai->vb);
-			DecodeInds();
-			_dbg_assert_msg_(gstate_c.vertBounds.minV >= gstate_c.vertBounds.maxV, "Should not have checked UVs when caching.");
-			vai->numVerts = indexGen.VertexCount();
-			vai->maxIndex = MaxIndex();
-			vai->flags = gstate_c.vertexFullAlpha ? VAIVULKAN_FLAG_VERTEXFULLALPHA : 0;
-			if (forceIndexed) {
-				vai->prim = indexGen.GeneralPrim();
-				useElements = true;
-			} else {
-				vai->prim = indexGen.Prim();
-				useElements = !indexGen.SeenOnlyPurePrims();
-				if (!useElements && indexGen.PureCount()) {
-					vai->numVerts = indexGen.PureCount();
-				}
-			}
-
-			if (useElements) {
-				u32 size = sizeof(uint16_t) * indexGen.VertexCount();
-				void *dest = vertexCache_->Allocate(size, 4, &vai->ib, &vai->ibOffset);
-				memcpy(dest, decIndex_, size);
-			} else {
-				vai->ib = VK_NULL_HANDLE;
-				vai->ibOffset = 0;
-			}
-		} else {
-			gpuStats.numCachedDrawCalls++;
-			useElements = vai->ib ? true : false;
-			gpuStats.numCachedVertsDrawn += vai->numVerts;
-			gstate_c.vertexFullAlpha = vai->flags & VAIVULKAN_FLAG_VERTEXFULLALPHA;
-		}
-		vbuf = vai->vb;
-		ibuf = vai->ib;
-		vbOffset = vai->vbOffset;
-		ibOffset = vai->ibOffset;
-		vertexCount = vai->numVerts;
-		prim = static_cast<GEPrimitiveType>(vai->prim);
-		break;
-	}
-
-	// Reliable - we don't even bother hashing anymore. Right now we don't go here until after a very long time.
-	case VertexArrayInfoVulkan::VAI_RELIABLE:
-	{
-		vai->numDraws++;
-		if (vai->lastFrame != gpuStats.numFlips) {
-			vai->numFrames++;
-		}
-		gpuStats.numCachedDrawCalls++;
-		gpuStats.numCachedVertsDrawn += vai->numVerts;
-		vbuf = vai->vb;
-		ibuf = vai->ib;
-		vbOffset = vai->vbOffset;
-		ibOffset = vai->ibOffset;
-		vertexCount = vai->numVerts;
-		prim = static_cast<GEPrimitiveType>(vai->prim);
-
-		gstate_c.vertexFullAlpha = vai->flags & VAIVULKAN_FLAG_VERTEXFULLALPHA;
-		break;
-	}
-
-	case VertexArrayInfoVulkan::VAI_UNRELIABLE:
-	{
-		vai->numDraws++;
-		if (vai->lastFrame != gpuStats.numFlips) {
-			vai->numFrames++;
-		}
-		DecodeVertsToPushPool(pushVertex_, &vbOffset, &vbuf);
-		DecodeInds();
-		return true;
-	}
-	default:
-		break;
-	}
-	return false;
 }
 
 // The inline wrapper in the header checks for numDrawCalls_ == 0
@@ -490,32 +267,21 @@ void DrawEngineVulkan::DoFlush() {
 	if (useHWTransform) {
 		int vertexCount = 0;
 		bool useElements = true;
-
-		// Cannot cache vertex data with morph enabled.
-		bool useCache = g_Config.bVertexCache && !(lastVType_ & GE_VTYPE_MORPHCOUNT_MASK);
-		// Also avoid caching when software skinning.
 		VkBuffer vbuf = VK_NULL_HANDLE;
 		VkBuffer ibuf = VK_NULL_HANDLE;
-		if (decOptions_.applySkinInDecode && (lastVType_ & GE_VTYPE_WEIGHT_MASK)) {
-			useCache = false;
-		}
 		bool useIndexGen = true;
-		if (useCache) {
-			useIndexGen = VertexCacheLookup(vertexCount, prim, vbuf, vbOffset, ibuf, ibOffset, useElements, forceIndexed);
+		if (decOptions_.applySkinInDecode && (lastVType_ & GE_VTYPE_WEIGHT_MASK)) {
+			// If software skinning, we're predecoding into "decoded". So make sure we're done, then push that content.
+			DecodeVerts(decoded_);
+			VkDeviceSize size = decodedVerts_ * dec_->GetDecVtxFmt().stride;
+			u8 *dest = (u8 *)pushVertex_->Allocate(size, 4, &vbuf, &vbOffset);
+			memcpy(dest, decoded_, size);
 		} else {
-			if (decOptions_.applySkinInDecode && (lastVType_ & GE_VTYPE_WEIGHT_MASK)) {
-				// If software skinning, we're predecoding into "decoded". So make sure we're done, then push that content.
-				DecodeVerts(decoded_);
-				VkDeviceSize size = decodedVerts_ * dec_->GetDecVtxFmt().stride;
-				u8 *dest = (u8 *)pushVertex_->Allocate(size, 4, &vbuf, &vbOffset);
-				memcpy(dest, decoded_, size);
-			} else {
-				// Decode directly into the pushbuffer
-				DecodeVertsToPushPool(pushVertex_, &vbOffset, &vbuf);
-			}
-			DecodeInds();
-			gpuStats.numUncachedVertsDrawn += indexGen.VertexCount();
+			// Decode directly into the pushbuffer
+			DecodeVertsToPushPool(pushVertex_, &vbOffset, &vbuf);
 		}
+		DecodeInds();
+		gpuStats.numUncachedVertsDrawn += indexGen.VertexCount();
 
 		if (useIndexGen) {
 			vertexCount = indexGen.VertexCount();

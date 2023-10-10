@@ -70,49 +70,6 @@ struct DrawEngineVulkanStats {
 	int pushIndexSpaceUsed;
 };
 
-enum {
-	VAIVULKAN_FLAG_VERTEXFULLALPHA = 1,
-};
-
-// Try to keep this POD.
-class VertexArrayInfoVulkan {
-public:
-	VertexArrayInfoVulkan() {
-		lastFrame = gpuStats.numFlips;
-	}
-	// No destructor needed - we always fully wipe.
-
-	enum VAIStatus : uint8_t {
-		VAI_NEW,
-		VAI_HASHING,
-		VAI_RELIABLE,  // cache, don't hash
-		VAI_UNRELIABLE,  // never cache
-	};
-
-	uint64_t hash = 0;
-	u32 minihash = 0;
-
-	// These will probably always be the same, but whatever.
-	VkBuffer vb = VK_NULL_HANDLE;
-	VkBuffer ib = VK_NULL_HANDLE;
-	// Offsets into the cache buffer.
-	uint32_t vbOffset = 0;
-	uint32_t ibOffset = 0;
-
-	// Precalculated parameter for vkDrawIndexed
-	u16 numVerts = 0;
-	u16 maxIndex = 0;
-	s8 prim = GE_PRIM_INVALID;
-	VAIStatus status = VAI_NEW;
-
-	// ID information
-	int numDraws = 0;
-	int numFrames = 0;
-	int lastFrame;  // So that we can forget.
-	u16 drawsUntilNextFullHash = 0;
-	u8 flags = 0;
-};
-
 class VulkanRenderManager;
 
 class TessellationDataTransferVulkan : public TessellationDataTransfer  {
@@ -228,8 +185,6 @@ private:
 
 	void DestroyDeviceObjects();
 
-	bool VertexCacheLookup(int &vertexCount, GEPrimitiveType &prim, VkBuffer &vbuf, uint32_t &vbOffset, VkBuffer &ibuf, uint32_t &ibOffset, bool &useElements, bool forceIndexed);
-
 	void DecodeVertsToPushPool(VulkanPushPool *push, uint32_t *bindOffset, VkBuffer *vkbuf);
 	void DecodeVertsToPushBuffer(VulkanPushBuffer *push, uint32_t *bindOffset, VkBuffer *vkbuf);
 
@@ -253,9 +208,6 @@ private:
 	bool boundDepalSmoothed_ = false;
 	VkSampler samplerSecondaryLinear_ = VK_NULL_HANDLE;
 	VkSampler samplerSecondaryNearest_ = VK_NULL_HANDLE;
-
-	PrehashMap<VertexArrayInfoVulkan *> vai_;
-	VulkanPushBuffer *vertexCache_;
 
 	struct DescriptorSetKey {
 		VkImageView imageView_;

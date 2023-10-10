@@ -176,7 +176,6 @@ public:
 	float fUITint;
 	float fUISaturation;
 
-	bool bVertexCache;
 	bool bTextureBackoffCache;
 	bool bVertexDecoderJit;
 	bool bFullScreen;

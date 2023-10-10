@@ -1685,8 +1685,7 @@ size_t GPUCommonHW::FormatGPUStatsCommon(char *buffer, size_t size) {
 	return snprintf(buffer, size,
 		"DL processing time: %0.2f ms, %d drawsync, %d listsync\n"
 		"Draw: %d (%d dec), flushes %d, clears %d, bbox jumps %d (%d updates)\n"
-		"Cached draws: %d (tracked: %d)\n"
-		"Vertices: %d cached: %d uncached: %d\n"
+		"Vertices: %d drawn: %d\n"
 		"FBOs active: %d (evaluations: %d)\n"
 		"Textures: %d, dec: %d, invalidated: %d, hashed: %d kB\n"
 		"readbacks %d (%d non-block), uploads %d, depal %d\n"
@@ -1703,10 +1702,7 @@ size_t GPUCommonHW::FormatGPUStatsCommon(char *buffer, size_t size) {
 		gpuStats.numClears,
 		gpuStats.numBBOXJumps,
 		gpuStats.numPlaneUpdates,
-		gpuStats.numCachedDrawCalls,
-		gpuStats.numTrackedVertexArrays,
 		gpuStats.numVertsSubmitted,
-		gpuStats.numCachedVertsDrawn,
 		gpuStats.numUncachedVertsDrawn,
 		(int)framebufferManager_->NumVFBs(),
 		gpuStats.numFramebufferEvaluations,

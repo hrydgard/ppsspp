@@ -72,10 +72,6 @@ enum {
 	TRANSFORMED_VERTEX_BUFFER_SIZE = VERTEX_BUFFER_MAX * sizeof(TransformedVertex)
 };
 
-#define VERTEXCACHE_DECIMATION_INTERVAL 17
-
-enum { VAI_KILL_AGE = 120, VAI_UNRELIABLE_KILL_AGE = 240, VAI_UNRELIABLE_KILL_MAX = 4 };
-
 static const D3DVERTEXELEMENT9 TransformedVertexElements[] = {
 	{ 0, offsetof(TransformedVertex, pos), D3DDECLTYPE_FLOAT4, D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_POSITION, 0 },
 	{ 0, offsetof(TransformedVertex, uv), D3DDECLTYPE_FLOAT3, D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_TEXCOORD, 0 },
@@ -85,12 +81,10 @@ static const D3DVERTEXELEMENT9 TransformedVertexElements[] = {
 	D3DDECL_END()
 };
 
-DrawEngineDX9::DrawEngineDX9(Draw::DrawContext *draw) : draw_(draw), vai_(256), vertexDeclMap_(64) {
+DrawEngineDX9::DrawEngineDX9(Draw::DrawContext *draw) : draw_(draw), vertexDeclMap_(64) {
 	device_ = (LPDIRECT3DDEVICE9)draw->GetNativeObject(Draw::NativeObject::DEVICE);
 	decOptions_.expandAllWeightsToFloat = true;
 	decOptions_.expand8BitNormalsToFloat = true;
-
-	decimationCounter_ = VERTEXCACHE_DECIMATION_INTERVAL;
 
 	indexGen.Setup(decIndex_);
 
@@ -227,80 +221,11 @@ IDirect3DVertexDeclaration9 *DrawEngineDX9::SetupDecFmtForDraw(const DecVtxForma
 	}
 }
 
-void DrawEngineDX9::MarkUnreliable(VertexArrayInfoDX9 *vai) {
-	vai->status = VertexArrayInfoDX9::VAI_UNRELIABLE;
-	if (vai->vbo) {
-		vai->vbo->Release();
-		vai->vbo = nullptr;
-	}
-	if (vai->ebo) {
-		vai->ebo->Release();
-		vai->ebo = nullptr;
-	}
-}
-
-void DrawEngineDX9::ClearTrackedVertexArrays() {
-	vai_.Iterate([&](uint32_t hash, VertexArrayInfoDX9 *vai) {
-		delete vai;
-	});
-	vai_.Clear();
-}
-
-void DrawEngineDX9::DecimateTrackedVertexArrays() {
-	if (--decimationCounter_ <= 0) {
-		decimationCounter_ = VERTEXCACHE_DECIMATION_INTERVAL;
-	} else {
-		return;
-	}
-
-	const int threshold = gpuStats.numFlips - VAI_KILL_AGE;
-	const int unreliableThreshold = gpuStats.numFlips - VAI_UNRELIABLE_KILL_AGE;
-	int unreliableLeft = VAI_UNRELIABLE_KILL_MAX;
-	vai_.Iterate([&](uint32_t hash, VertexArrayInfoDX9 *vai) {
-		bool kill;
-		if (vai->status == VertexArrayInfoDX9::VAI_UNRELIABLE) {
-			// We limit killing unreliable so we don't rehash too often.
-			kill = vai->lastFrame < unreliableThreshold && --unreliableLeft >= 0;
-		} else {
-			kill = vai->lastFrame < threshold;
-		}
-		if (kill) {
-			delete vai;
-			vai_.Remove(hash);
-		}
-	});
-	vai_.Maintain();
-
-	// Enable if you want to see vertex decoders in the log output. Need a better way.
-#if 0
-	char buffer[16384];
-	for (std::map<u32, VertexDecoder*>::iterator dec = decoderMap_.begin(); dec != decoderMap_.end(); ++dec) {
-		char *ptr = buffer;
-		ptr += dec->second->ToString(ptr);
-		//		*ptr++ = '\n';
-		NOTICE_LOG(G3D, buffer);
-	}
-#endif
-}
-
-VertexArrayInfoDX9::~VertexArrayInfoDX9() {
-	if (vbo) {
-		vbo->Release();
-	}
-	if (ebo) {
-		ebo->Release();
-	}
-}
-
 static uint32_t SwapRB(uint32_t c) {
 	return (c & 0xFF00FF00) | ((c >> 16) & 0xFF) | ((c << 16) & 0xFF0000);
 }
 
 void DrawEngineDX9::BeginFrame() {
-	gpuStats.numTrackedVertexArrays = (int)vai_.size();
-
-	DecimateTrackedVertexArrays();
-
 	lastRenderStepId_ = -1;
 }
 
@@ -336,166 +261,9 @@ void DrawEngineDX9::DoFlush() {
 		int vertexCount = 0;
 		int maxIndex = 0;
 		bool useElements = true;
-
-		// Cannot cache vertex data with morph enabled.
-		bool useCache = g_Config.bVertexCache && !(lastVType_ & GE_VTYPE_MORPHCOUNT_MASK);
-		// Also avoid caching when software skinning.
-		if (decOptions_.applySkinInDecode && (lastVType_ & GE_VTYPE_WEIGHT_MASK))
-			useCache = false;
-
-		if (useCache) {
-			// getUVGenMode can have an effect on which UV decoder we need to use! And hence what the decoded data will look like. See #9263
-			u32 dcid = ComputeDrawcallsHash() ^ gstate.getUVGenMode();
-			VertexArrayInfoDX9 *vai;
-			if (!vai_.Get(dcid, &vai)) {
-				vai = new VertexArrayInfoDX9();
-				vai_.Insert(dcid, vai);
-			}
-
-			switch (vai->status) {
-			case VertexArrayInfoDX9::VAI_NEW:
-				{
-					// Haven't seen this one before.
-					uint64_t dataHash = ComputeHash();
-					vai->hash = dataHash;
-					vai->minihash = ComputeMiniHash();
-					vai->status = VertexArrayInfoDX9::VAI_HASHING;
-					vai->drawsUntilNextFullHash = 0;
-					DecodeVerts(decoded_); // writes to indexGen
-					DecodeInds();
-					vai->numVerts = indexGen.VertexCount();
-					vai->prim = indexGen.Prim();
-					vai->maxIndex = MaxIndex();
-					vai->flags = gstate_c.vertexFullAlpha ? VAI_FLAG_VERTEXFULLALPHA : 0;
-
-					goto rotateVBO;
-				}
-
-				// Hashing - still gaining confidence about the buffer.
-				// But if we get this far it's likely to be worth creating a vertex buffer.
-			case VertexArrayInfoDX9::VAI_HASHING:
-				{
-					vai->numDraws++;
-					if (vai->lastFrame != gpuStats.numFlips) {
-						vai->numFrames++;
-					}
-					if (vai->drawsUntilNextFullHash == 0) {
-						// Let's try to skip a full hash if mini would fail.
-						const u32 newMiniHash = ComputeMiniHash();
-						uint64_t newHash = vai->hash;
-						if (newMiniHash == vai->minihash) {
-							newHash = ComputeHash();
-						}
-						if (newMiniHash != vai->minihash || newHash != vai->hash) {
-							MarkUnreliable(vai);
-							DecodeVerts(decoded_);
-							DecodeInds();
-							goto rotateVBO;
-						}
-						if (vai->numVerts > 64) {
-							// exponential backoff up to 16 draws, then every 24
-							vai->drawsUntilNextFullHash = std::min(24, vai->numFrames);
-						} else {
-							// Lower numbers seem much more likely to change.
-							vai->drawsUntilNextFullHash = 0;
-						}
-						// TODO: tweak
-						//if (vai->numFrames > 1000) {
-						//	vai->status = VertexArrayInfo::VAI_RELIABLE;
-						//}
-					} else {
-						vai->drawsUntilNextFullHash--;
-						u32 newMiniHash = ComputeMiniHash();
-						if (newMiniHash != vai->minihash) {
-							MarkUnreliable(vai);
-							DecodeVerts(decoded_);
-							DecodeInds();
-							goto rotateVBO;
-						}
-					}
-
-					if (vai->vbo == 0) {
-						DecodeVerts(decoded_);
-						DecodeInds();
-						vai->numVerts = indexGen.VertexCount();
-						vai->prim = indexGen.Prim();
-						vai->maxIndex = MaxIndex();
-						vai->flags = gstate_c.vertexFullAlpha ? VAI_FLAG_VERTEXFULLALPHA : 0;
-						useElements = !indexGen.SeenOnlyPurePrims();
-						if (!useElements && indexGen.PureCount()) {
-							vai->numVerts = indexGen.PureCount();
-						}
-
-						_dbg_assert_msg_(gstate_c.vertBounds.minV >= gstate_c.vertBounds.maxV, "Should not have checked UVs when caching.");
-
-						void * pVb;
-						u32 size = dec_->GetDecVtxFmt().stride * MaxIndex();
-						device_->CreateVertexBuffer(size, D3DUSAGE_WRITEONLY, 0, D3DPOOL_DEFAULT, &vai->vbo, NULL);
-						vai->vbo->Lock(0, size, &pVb, 0);
-						memcpy(pVb, decoded_, size);
-						vai->vbo->Unlock();
-						if (useElements) {
-							void * pIb;
-							u32 size = sizeof(short) * indexGen.VertexCount();
-							device_->CreateIndexBuffer(size, D3DUSAGE_WRITEONLY, D3DFMT_INDEX16, D3DPOOL_DEFAULT, &vai->ebo, NULL);
-							vai->ebo->Lock(0, size, &pIb, 0);
-							memcpy(pIb, decIndex_, size);
-							vai->ebo->Unlock();
-						} else {
-							vai->ebo = 0;
-						}
-					} else {
-						gpuStats.numCachedDrawCalls++;
-						useElements = vai->ebo ? true : false;
-						gpuStats.numCachedVertsDrawn += vai->numVerts;
-						gstate_c.vertexFullAlpha = vai->flags & VAI_FLAG_VERTEXFULLALPHA;
-					}
-					vb_ = vai->vbo;
-					ib_ = vai->ebo;
-					vertexCount = vai->numVerts;
-					maxIndex = vai->maxIndex;
-					prim = static_cast<GEPrimitiveType>(vai->prim);
-					break;
-				}
-
-				// Reliable - we don't even bother hashing anymore. Right now we don't go here until after a very long time.
-			case VertexArrayInfoDX9::VAI_RELIABLE:
-				{
-					vai->numDraws++;
-					if (vai->lastFrame != gpuStats.numFlips) {
-						vai->numFrames++;
-					}
-					gpuStats.numCachedDrawCalls++;
-					gpuStats.numCachedVertsDrawn += vai->numVerts;
-					vb_ = vai->vbo;
-					ib_ = vai->ebo;
-
-					vertexCount = vai->numVerts;
-
-					maxIndex = vai->maxIndex;
-					prim = static_cast<GEPrimitiveType>(vai->prim);
-
-					gstate_c.vertexFullAlpha = vai->flags & VAI_FLAG_VERTEXFULLALPHA;
-					break;
-				}
-
-			case VertexArrayInfoDX9::VAI_UNRELIABLE:
-				{
-					vai->numDraws++;
-					if (vai->lastFrame != gpuStats.numFlips) {
-						vai->numFrames++;
-					}
-					DecodeVerts(decoded_);
-					DecodeInds();
-					goto rotateVBO;
-				}
-			}
-
-			vai->lastFrame = gpuStats.numFlips;
-		} else {
+		{
 			DecodeVerts(decoded_);
 			DecodeInds();
-rotateVBO:
 			gpuStats.numUncachedVertsDrawn += indexGen.VertexCount();
 			useElements = !indexGen.SeenOnlyPurePrims();
 			vertexCount = indexGen.VertexCount();

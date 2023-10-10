@@ -706,15 +706,6 @@ static void check_variables(CoreParameter &coreParam)
          g_Config.bSoftwareSkinning = true;
    }
 
-   var.key = "ppsspp_vertex_cache";
-   if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value)
-   {
-      if (!strcmp(var.value, "disabled"))
-         g_Config.bVertexCache = false;
-      else
-         g_Config.bVertexCache = true;
-   }
-
    var.key = "ppsspp_lazy_texture_caching";
    if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value)
    {
