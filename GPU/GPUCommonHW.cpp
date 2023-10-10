@@ -1046,7 +1046,9 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 				// We can extend again after submitting a normal draw.
 				canExtend = isTriangle;
 			}
-			drawEngineCommon_->SubmitPrim(verts, inds, newPrim, count, vertTypeID, cullMode, &bytesRead);
+			if (!drawEngineCommon_->SubmitPrim(verts, inds, newPrim, count, vertTypeID, cullMode, &bytesRead)) {
+				canExtend = false;
+			}
 			AdvanceVerts(vertexType, count, bytesRead);
 			totalVertCount += count;
 			break;
@@ -1690,7 +1692,7 @@ size_t GPUCommonHW::FormatGPUStatsCommon(char *buffer, size_t size) {
 		"block transfers: %d\n"
 		"replacer: tracks %d references, %d unique textures\n"
 		"Cpy: depth %d, color %d, reint %d, blend %d, self %d\n"
-		"GPU cycles: %d (%f per vertex)\n%s",
+		"GPU cycles: %d (%0.1f per vertex)\n%s",
 		gpuStats.msProcessingDisplayLists * 1000.0f,
 		gpuStats.numDrawSyncs,
 		gpuStats.numListSyncs,
