@@ -1339,6 +1339,7 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 		case VKRRenderCommand::DRAW_INDEXED:
 			if (pipelineOK) {
 				VkDescriptorSet set = (*descSets)[c.drawIndexed.descSetIndex].set;
+				_dbg_assert_(set != VK_NULL_HANDLE);
 				vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &set, c.drawIndexed.numUboOffsets, c.drawIndexed.uboOffsets);
 				vkCmdBindIndexBuffer(cmd, c.drawIndexed.ibuffer, c.drawIndexed.ioffset, VK_INDEX_TYPE_UINT16);
 				VkDeviceSize voffset = c.drawIndexed.voffset;

@@ -1698,6 +1698,13 @@ void VKRPipelineLayout::FlushDescSets(VulkanContext *vulkan, int frame, QueuePro
 
 	pool.Reset();
 
+	VkDescriptorSet setCache[8];
+	VkDescriptorSetLayout layoutsForAlloc[ARRAY_SIZE(setCache)];
+	for (int i = 0; i < ARRAY_SIZE(setCache); i++) {
+		layoutsForAlloc[i] = descriptorSetLayout;
+	}
+	int setsUsed = ARRAY_SIZE(setCache);  // To allocate immediately.
+
 	// This will write all descriptors.
 	// Initially, we just do a simple look-back comparing to the previous descriptor to avoid sequential dupes.
 
@@ -1724,8 +1731,15 @@ void VKRPipelineLayout::FlushDescSets(VulkanContext *vulkan, int frame, QueuePro
 			}
 		}
 
-		// TODO: Allocate in batches.
-		pool.Allocate(&d.set, 1, &descriptorSetLayout);
+		if (setsUsed < ARRAY_SIZE(setCache)) {
+			d.set = setCache[setsUsed++];
+		} else {
+			// Allocate in small batches.
+			bool success = pool.Allocate(setCache, ARRAY_SIZE(setCache), layoutsForAlloc);
+			_dbg_assert_(success);
+			d.set = setCache[0];
+			setsUsed = 1;
+		}
 
 		// TODO: Build up bigger batches of writes.
 		const PackedDescriptor *data = descData.begin() + d.offset;
