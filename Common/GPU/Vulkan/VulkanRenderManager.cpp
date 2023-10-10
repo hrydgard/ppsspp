@@ -265,6 +265,7 @@ VulkanRenderManager::VulkanRenderManager(VulkanContext *vulkan, bool useThread, 
 	initTimeMs_("initTimeMs"),
 	totalGPUTimeMs_("totalGPUTimeMs"),
 	renderCPUTimeMs_("renderCPUTimeMs"),
+	descUpdateTimeMs_("descUpdateCPUTimeMs"),
 	useRenderThread_(useThread),
 	frameTimeHistory_(frameTimeHistory)
 {
@@ -645,6 +646,8 @@ void VulkanRenderManager::BeginFrame(bool enableProfiling, bool enableLogProfile
 
 	PollPresentTiming();
 
+	ResetDescriptorLists(curFrame);
+
 	int validBits = vulkan_->GetQueueFamilyProperties(vulkan_->GetGraphicsQueueFamilyIndex()).timestampValidBits;
 
 	FrameTimeData &frameTimeData = frameTimeHistory_.Add(frameId);
@@ -679,6 +682,11 @@ void VulkanRenderManager::BeginFrame(bool enableProfiling, bool enableLogProfile
 				renderCPUTimeMs_.Update((frameData.profile.cpuEndTime - frameData.profile.cpuStartTime) * 1000.0);
 				renderCPUTimeMs_.Format(line, sizeof(line));
 				str << line;
+				descUpdateTimeMs_.Update(frameData.profile.descWriteTime * 1000.0);
+				descUpdateTimeMs_.Format(line, sizeof(line));
+				str << line;
+				snprintf(line, sizeof(line), "Descriptors written: %d\n", frameData.profile.descriptorsWritten);
+				str << line;
 				for (int i = 0; i < numQueries - 1; i++) {
 					uint64_t diff = (queryResults[i + 1] - queryResults[i]) & timestampDiffMask;
 					double milliseconds = (double)diff * timestampConversionFactor;
@@ -704,9 +712,16 @@ void VulkanRenderManager::BeginFrame(bool enableProfiling, bool enableLogProfile
 			renderCPUTimeMs_.Update((frameData.profile.cpuEndTime - frameData.profile.cpuStartTime) * 1000.0);
 			renderCPUTimeMs_.Format(line, sizeof(line));
 			str << line;
+			descUpdateTimeMs_.Update(frameData.profile.descWriteTime * 1000.0);
+			descUpdateTimeMs_.Format(line, sizeof(line));
+			str << line;
+			snprintf(line, sizeof(line), "Descriptors written: %d\n", frameData.profile.descriptorsWritten);
+			str << line;
 			frameData.profile.profileSummary = str.str();
 		}
 	}
+
+	frameData.profile.descriptorsWritten = 0;
 
 	// Must be after the fence - this performs deletes.
 	VLOG("PUSH: BeginFrame %d", curFrame);
@@ -1462,6 +1477,11 @@ void VulkanRenderManager::Run(VKRRenderThreadTask &task) {
 	}
 	frameData.SubmitPending(vulkan_, FrameSubmitType::Pending, frameDataShared_);
 
+	// Flush descriptors.
+	double descStart = time_now_d();
+	FlushDescriptors(task.frame);
+	frameData.profile.descWriteTime = time_now_d() - descStart;
+
 	if (!frameData.hasMainCommands) {
 		// Effectively resets both main and present command buffers, since they both live in this pool.
 		// We always record main commands first, so we don't need to reset the present command buffer separately.
@@ -1483,11 +1503,11 @@ void VulkanRenderManager::Run(VKRRenderThreadTask &task) {
 		int passes = GetVRPassesCount();
 		for (int i = 0; i < passes; i++) {
 			PreVRFrameRender(i);
-			queueRunner_.RunSteps(task.steps, frameData, frameDataShared_, i < passes - 1);
+			queueRunner_.RunSteps(task.steps, task.frame, frameData, frameDataShared_, i < passes - 1);
 			PostVRFrameRender();
 		}
 	} else {
-		queueRunner_.RunSteps(task.steps, frameData, frameDataShared_);
+		queueRunner_.RunSteps(task.steps, task.frame, frameData, frameDataShared_);
 	}
 
 	switch (task.runType) {
@@ -1562,16 +1582,16 @@ void VulkanRenderManager::ResetStats() {
 	renderCPUTimeMs_.Reset();
 }
 
-VKRPipelineLayout *VulkanRenderManager::CreatePipelineLayout(BindingType *bindingTypes, size_t bindingCount, bool geoShadersEnabled, const char *tag) {
+VKRPipelineLayout *VulkanRenderManager::CreatePipelineLayout(BindingType *bindingTypes, size_t bindingTypesCount, bool geoShadersEnabled, const char *tag) {
 	VKRPipelineLayout *layout = new VKRPipelineLayout();
 	layout->tag = tag;
-	layout->bindingCount = (uint32_t)bindingCount;
+	layout->bindingTypesCount = (uint32_t)bindingTypesCount;
 
-	_dbg_assert_(bindingCount <= ARRAY_SIZE(layout->bindingTypes));
-	memcpy(layout->bindingTypes, bindingTypes, sizeof(BindingType) * bindingCount);
+	_dbg_assert_(bindingTypesCount <= ARRAY_SIZE(layout->bindingTypes));
+	memcpy(layout->bindingTypes, bindingTypes, sizeof(BindingType) * bindingTypesCount);
 
 	VkDescriptorSetLayoutBinding bindings[VKRPipelineLayout::MAX_DESC_SET_BINDINGS];
-	for (int i = 0; i < bindingCount; i++) {
+	for (int i = 0; i < bindingTypesCount; i++) {
 		bindings[i].binding = i;
 		bindings[i].descriptorCount = 1;
 		bindings[i].pImmutableSamplers = nullptr;
@@ -1611,7 +1631,7 @@ VKRPipelineLayout *VulkanRenderManager::CreatePipelineLayout(BindingType *bindin
 	}
 
 	VkDescriptorSetLayoutCreateInfo dsl = { VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO };
-	dsl.bindingCount = (uint32_t)bindingCount;
+	dsl.bindingCount = (uint32_t)bindingTypesCount;
 	dsl.pBindings = bindings;
 	VkResult res = vkCreateDescriptorSetLayout(vulkan_->GetDevice(), &dsl, nullptr, &layout->descriptorSetLayout);
 	_assert_(VK_SUCCESS == res && layout->descriptorSetLayout);
@@ -1625,10 +1645,154 @@ VKRPipelineLayout *VulkanRenderManager::CreatePipelineLayout(BindingType *bindin
 
 	vulkan_->SetDebugName(layout->descriptorSetLayout, VK_OBJECT_TYPE_DESCRIPTOR_SET_LAYOUT, tag);
 	vulkan_->SetDebugName(layout->pipelineLayout, VK_OBJECT_TYPE_PIPELINE_LAYOUT, tag);
+
+	for (int i = 0; i < VulkanContext::MAX_INFLIGHT_FRAMES; i++) {
+		// Some games go beyond 1024 and end up having to resize like GTA, but most stay below so we start there.
+		layout->frameData[i].pool.Create(vulkan_, bindingTypes, (uint32_t)bindingTypesCount, 1024);
+		layout->frameData[i].pool.Setup([]() {});
+	}
+
+	pipelineLayouts_.push_back(layout);
 	return layout;
 }
 
 void VulkanRenderManager::DestroyPipelineLayout(VKRPipelineLayout *layout) {
+	for (int i = 0; i < VulkanContext::MAX_INFLIGHT_FRAMES; i++) {
+		layout->frameData[i].pool.Destroy();
+	}
+
 	vulkan_->Delete().QueueDeletePipelineLayout(layout->pipelineLayout);
 	vulkan_->Delete().QueueDeleteDescriptorSetLayout(layout->descriptorSetLayout);
+	for (auto iter = pipelineLayouts_.begin(); iter != pipelineLayouts_.end(); iter++) {
+		if (*iter == layout) {
+			pipelineLayouts_.erase(iter);
+			break;
+		}
+	}
+}
+
+void VulkanRenderManager::FlushDescriptors(int frame) {
+	for (auto iter : pipelineLayouts_) {
+		iter->FlushDescSets(vulkan_, frame, &frameData_[frame].profile);
+	}
+}
+
+void VulkanRenderManager::ResetDescriptorLists(int frame) {
+	for (auto iter : pipelineLayouts_) {
+		VKRPipelineLayout::FrameData &data = iter->frameData[frame];
+
+		data.flushedDescriptors_ = 0;
+		data.descSets_.clear();
+		data.descData_.clear();
+	}
+}
+
+void VKRPipelineLayout::FlushDescSets(VulkanContext *vulkan, int frame, QueueProfileContext *profile) {
+	_dbg_assert_(frame < VulkanContext::MAX_INFLIGHT_FRAMES);
+
+	FrameData &data = frameData[frame];
+
+	VulkanDescSetPool &pool = data.pool;
+	FastVec<PackedDescriptor> &descData = data.descData_;
+	FastVec<PendingDescSet> &descSets = data.descSets_;
+
+	pool.Reset();
+
+	// This will write all descriptors.
+	// Initially, we just do a simple look-back comparing to the previous descriptor to avoid sequential dupes.
+
+	// Initially, let's do naive single desc set writes.
+	VkWriteDescriptorSet writes[MAX_DESC_SET_BINDINGS];
+	VkDescriptorImageInfo imageInfo[MAX_DESC_SET_BINDINGS];  // just picked a practical number
+	VkDescriptorBufferInfo bufferInfo[MAX_DESC_SET_BINDINGS];
+
+	size_t start = data.flushedDescriptors_;
+	int writeCount = 0;
+
+	for (size_t index = start; index < descSets.size(); index++) {
+		auto &d = descSets[index];
+
+		// This is where we look up to see if we already have an identical descriptor previously in the array.
+		// We could do a simple custom hash map here that doesn't handle collisions, since those won't matter.
+		// Instead, for now we just check history one item backwards. Good enough, it seems.
+		if (index > start + 1) {
+			if (descSets[index - 1].count == d.count) {
+				if (!memcmp(descData.data() + d.offset, descData.data() + descSets[index - 1].offset, d.count * sizeof(PackedDescriptor))) {
+					d.set = descSets[index - 1].set;
+					continue;
+				}
+			}
+		}
+
+		// TODO: Allocate in batches.
+		pool.Allocate(&d.set, 1, &descriptorSetLayout);
+
+		// TODO: Build up bigger batches of writes.
+		const PackedDescriptor *data = descData.begin() + d.offset;
+		int numWrites = 0;
+		int numBuffers = 0;
+		int numImages = 0;
+		for (int i = 0; i < d.count; i++) {
+			if (!data[i].image.view) {  // This automatically also checks for an null buffer.
+				continue;
+			}
+
+			switch (this->bindingTypes[i]) {
+			case BindingType::COMBINED_IMAGE_SAMPLER:
+				_dbg_assert_(data[i].image.sampler != VK_NULL_HANDLE);
+				imageInfo[numImages].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+				imageInfo[numImages].imageView = data[i].image.view;
+				imageInfo[numImages].sampler = data[i].image.sampler;
+				writes[numWrites].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+				writes[numWrites].pImageInfo = &imageInfo[numImages];
+				writes[numWrites].pBufferInfo = nullptr;
+				numImages++;
+				break;
+			case BindingType::STORAGE_IMAGE_COMPUTE:
+				imageInfo[numImages].imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+				imageInfo[numImages].imageView = data[i].image.view;
+				imageInfo[numImages].sampler = VK_NULL_HANDLE;
+				writes[numWrites].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+				writes[numWrites].pImageInfo = &imageInfo[numImages];
+				writes[numWrites].pBufferInfo = nullptr;
+				numImages++;
+				break;
+			case BindingType::STORAGE_BUFFER_VERTEX:
+			case BindingType::STORAGE_BUFFER_COMPUTE:
+				bufferInfo[numBuffers].buffer = data[i].buffer.buffer;
+				bufferInfo[numBuffers].offset = data[i].buffer.offset;
+				bufferInfo[numBuffers].range = data[i].buffer.range;
+				writes[numWrites].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+				writes[numWrites].pBufferInfo = &bufferInfo[numBuffers];
+				writes[numWrites].pImageInfo = nullptr;
+				numBuffers++;
+				break;
+			case BindingType::UNIFORM_BUFFER_DYNAMIC_ALL:
+			case BindingType::UNIFORM_BUFFER_DYNAMIC_VERTEX:
+				bufferInfo[numBuffers].buffer = data[i].buffer.buffer;
+				bufferInfo[numBuffers].offset = 0;
+				bufferInfo[numBuffers].range = data[i].buffer.range;
+				writes[numWrites].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
+				writes[numWrites].pBufferInfo = &bufferInfo[numBuffers];
+				writes[numWrites].pImageInfo = nullptr;
+				numBuffers++;
+				break;
+			}
+			writes[numWrites].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+			writes[numWrites].pNext = nullptr;
+			writes[numWrites].descriptorCount = 1;
+			writes[numWrites].dstArrayElement = 0;
+			writes[numWrites].dstBinding = i;
+			writes[numWrites].dstSet = d.set;
+			writes[numWrites].pTexelBufferView = nullptr;
+			numWrites++;
+		}
+
+		vkUpdateDescriptorSets(vulkan->GetDevice(), numWrites, writes, 0, nullptr);
+
+		writeCount++;
+	}
+
+	data.flushedDescriptors_ = (int)descSets.size();
+	profile->descriptorsWritten += writeCount;
 }

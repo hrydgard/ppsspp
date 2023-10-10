@@ -687,7 +687,7 @@ int DrawEngineCommon::ExtendNonIndexedPrim(const uint32_t *cmd, const uint32_t *
 	DeferredVerts &dv = drawVerts_[prevDrawVerts];
 	int offset = dv.vertexCount;
 
-	_dbg_assert_(numDrawInds_ < MAX_DEFERRED_DRAW_INDS);
+	_dbg_assert_(numDrawInds_ <= MAX_DEFERRED_DRAW_INDS);  // if it's equal, the check below will take care of it before any action is taken.
 	_dbg_assert_(numDrawVerts_ > 0);
 
 	while (cmd != stall) {
@@ -712,8 +712,6 @@ int DrawEngineCommon::ExtendNonIndexedPrim(const uint32_t *cmd, const uint32_t *
 		offset += vertexCount;
 		cmd++;
 	}
-
-	_dbg_assert_(cmd != start);
 
 	int totalCount = offset - dv.vertexCount;
 	dv.vertexCount = offset;

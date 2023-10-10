@@ -69,6 +69,7 @@ public:
 	void clear() { size_ = 0; }
 	bool empty() const { return size_ == 0; }
 
+	const T *data() { return data_; }
 	T *begin() { return data_; }
 	T *end() { return data_ + size_; }
 	const T *begin() const { return data_; }
@@ -115,6 +116,12 @@ public:
 
 	void reserve(size_t newCapacity) {
 		IncreaseCapacityTo(newCapacity);
+	}
+
+	void extend(const T *newData, size_t count) {
+		IncreaseCapacityTo(size_ + count);
+		memcpy(data_ + size_, newData, count * sizeof(T));
+		size_ += count;
 	}
 
 	void LockCapacity() {

@@ -18,7 +18,7 @@ enum class BindingType {
 // Only appropriate for use in a per-frame pool.
 class VulkanDescSetPool {
 public:
-	VulkanDescSetPool(const char *tag, bool grow) : tag_(tag), grow_(grow) {}
+	VulkanDescSetPool(const char *tag = "", bool grow = true) : tag_(tag), grow_(grow) {}
 	~VulkanDescSetPool();
 
 	// Must call this before use: defines how to clear cache of ANY returned values from Allocate().
@@ -28,9 +28,16 @@ public:
 	void Create(VulkanContext *vulkan, const BindingType *bindingTypes, uint32_t bindingTypesCount, uint32_t descriptorCount);
 	// Allocate a new set, which may resize and empty the current sets.
 	// Use only for the current frame, unless in a cache cleared by clear_.
-	VkDescriptorSet Allocate(int n, const VkDescriptorSetLayout *layouts, const char *tag);
+	bool Allocate(VkDescriptorSet *descriptorSets, int count, const VkDescriptorSetLayout *layouts);
 	void Reset();
 	void Destroy();
+
+	void SetTag(const char *tag) {
+		tag_ = tag;
+	}
+	bool IsDestroyed() const {
+		return !descPool_;
+	}
 
 private:
 	VkResult Recreate(bool grow);
