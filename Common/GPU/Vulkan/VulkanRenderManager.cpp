@@ -1647,7 +1647,8 @@ VKRPipelineLayout *VulkanRenderManager::CreatePipelineLayout(BindingType *bindin
 	vulkan_->SetDebugName(layout->pipelineLayout, VK_OBJECT_TYPE_PIPELINE_LAYOUT, tag);
 
 	for (int i = 0; i < VulkanContext::MAX_INFLIGHT_FRAMES; i++) {
-		layout->frameData[i].pool.Create(vulkan_, bindingTypes, (uint32_t)bindingTypesCount, 512);
+		// Some games go beyond 1024 and end up having to resize like GTA, but most stay below so we start there.
+		layout->frameData[i].pool.Create(vulkan_, bindingTypes, (uint32_t)bindingTypesCount, 1024);
 		layout->frameData[i].pool.Setup([]() {});
 	}
 
@@ -1712,7 +1713,7 @@ void VKRPipelineLayout::FlushDescSets(VulkanContext *vulkan, int frame, QueuePro
 		auto &d = descSets[index];
 
 		// This is where we look up to see if we already have an identical descriptor previously in the array.
-		// We could do a simple custom hash map here that doesn't handle collisions, since false positives aren't too bad.
+		// We could do a simple custom hash map here that doesn't handle collisions, since those won't matter.
 		// Instead, for now we just check history one item backwards. Good enough, it seems.
 		if (index > start + 1) {
 			if (descSets[index - 1].count == d.count) {
