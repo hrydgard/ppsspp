@@ -25,6 +25,15 @@ If you want to download regularly updated builds for Android, Windows x86 and x6
 
 For game compatibility, see [community compatibility feedback](https://report.ppsspp.org/games).
 
+What's new in 1.16.6
+====================
+- Fix performance issue with Vulkan descriptor set allocation ([#18332])
+- Smoother loading of replacement textures
+- Fix the store on iOS ([#18323])
+- Fix problem with waves background ([#18310])
+- Some translation updates
+- Other minor fixes
+
 What's new in 1.16.5
 ====================
 - Additional crash and memory-leak fixes ([#18243], [#18244], [#18247])
