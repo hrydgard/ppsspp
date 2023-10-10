@@ -690,6 +690,11 @@ int DrawEngineCommon::ExtendNonIndexedPrim(const uint32_t *cmd, const uint32_t *
 	_dbg_assert_(numDrawInds_ <= MAX_DEFERRED_DRAW_INDS);  // if it's equal, the check below will take care of it before any action is taken.
 	_dbg_assert_(numDrawVerts_ > 0);
 
+	bool clockwise = true;
+	if (gstate.isCullEnabled() && gstate.getCullMode() != cullMode) {
+		clockwise = false;
+	}
+
 	while (cmd != stall) {
 		uint32_t data = *cmd;
 		if ((data & 0xFFF80000) != 0x04000000) {
@@ -705,7 +710,7 @@ int DrawEngineCommon::ExtendNonIndexedPrim(const uint32_t *cmd, const uint32_t *
 		DeferredInds &di = drawInds_[numDrawInds_++];
 		di.indexType = 0;
 		di.prim = newPrim;
-		di.cullMode = cullMode;
+		di.clockwise = clockwise;
 		di.vertexCount = vertexCount;
 		di.vertDecodeIndex = prevDrawVerts;
 		di.offset = offset;
@@ -754,11 +759,16 @@ bool DrawEngineCommon::SubmitPrim(const void *verts, const void *inds, GEPrimiti
 
 	bool applySkin = (vertTypeID & GE_VTYPE_WEIGHT_MASK) && decOptions_.applySkinInDecode;
 
+	bool clockwise = true;
+	if (gstate.isCullEnabled() && gstate.getCullMode() != cullMode) {
+		clockwise = false;
+	}
+
 	DeferredInds &di = drawInds_[numDrawInds_++];
 	di.inds = inds;
 	di.indexType = (vertTypeID & GE_VTYPE_IDX_MASK) >> GE_VTYPE_IDX_SHIFT;
 	di.prim = prim;
-	di.cullMode = cullMode;
+	di.clockwise = clockwise;
 	di.vertexCount = vertexCount;
 	di.vertDecodeIndex = numDrawVerts_;
 	di.offset = 0;
@@ -824,10 +834,7 @@ void DrawEngineCommon::DecodeInds() {
 		const DeferredInds &di = drawInds_[i];
 
 		int indexOffset = drawVertexOffsets_[di.vertDecodeIndex] + di.offset;
-		bool clockwise = true;
-		if (gstate.isCullEnabled() && gstate.getCullMode() != di.cullMode) {
-			clockwise = false;
-		}
+		bool clockwise = di.clockwise;
 		// We've already collapsed subsequent draws with the same vertex pointer, so no tricky logic here anymore.
 		// 2. Loop through the drawcalls, translating indices as we go.
 		switch (di.indexType) {

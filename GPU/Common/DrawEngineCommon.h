@@ -257,7 +257,7 @@ protected:
 		u8 vertDecodeIndex;  // index into the drawVerts_ array to look up the vertexOffset.
 		u8 indexType;
 		s8 prim;
-		u8 cullMode;
+		bool clockwise;
 		u16 offset;
 	};
 
