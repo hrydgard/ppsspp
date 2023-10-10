@@ -184,7 +184,9 @@ void DrawEngineCommon::DispatchSubmitImm(GEPrimitiveType prim, TransformedVertex
 
 	int bytesRead;
 	uint32_t vertTypeID = GetVertTypeID(vtype, 0, decOptions_.applySkinInDecode);
-	SubmitPrim(&temp[0], nullptr, prim, vertexCount, vertTypeID, cullMode, &bytesRead);
+
+	bool clockwise = !gstate.isCullEnabled() || gstate.getCullMode() == cullMode;
+	SubmitPrim(&temp[0], nullptr, prim, vertexCount, vertTypeID, clockwise, &bytesRead);
 	DispatchFlush();
 
 	if (!prevThrough) {
@@ -681,7 +683,7 @@ uint64_t DrawEngineCommon::ComputeHash() {
 	return fullhash;
 }
 
-int DrawEngineCommon::ExtendNonIndexedPrim(const uint32_t *cmd, const uint32_t *stall, u32 vertTypeID, int cullMode, int *bytesRead, bool isTriangle) {
+int DrawEngineCommon::ExtendNonIndexedPrim(const uint32_t *cmd, const uint32_t *stall, u32 vertTypeID, bool clockwise, int *bytesRead, bool isTriangle) {
 	const uint32_t *start = cmd;
 	int prevDrawVerts = numDrawVerts_ - 1;
 	DeferredVerts &dv = drawVerts_[prevDrawVerts];
@@ -705,7 +707,7 @@ int DrawEngineCommon::ExtendNonIndexedPrim(const uint32_t *cmd, const uint32_t *
 		DeferredInds &di = drawInds_[numDrawInds_++];
 		di.indexType = 0;
 		di.prim = newPrim;
-		di.cullMode = cullMode;
+		di.clockwise = clockwise;
 		di.vertexCount = vertexCount;
 		di.vertDecodeIndex = prevDrawVerts;
 		di.offset = offset;
@@ -722,7 +724,7 @@ int DrawEngineCommon::ExtendNonIndexedPrim(const uint32_t *cmd, const uint32_t *
 }
 
 // vertTypeID is the vertex type but with the UVGen mode smashed into the top bits.
-bool DrawEngineCommon::SubmitPrim(const void *verts, const void *inds, GEPrimitiveType prim, int vertexCount, u32 vertTypeID, int cullMode, int *bytesRead) {
+bool DrawEngineCommon::SubmitPrim(const void *verts, const void *inds, GEPrimitiveType prim, int vertexCount, u32 vertTypeID, bool clockwise, int *bytesRead) {
 	if (!indexGen.PrimCompatible(prevPrim_, prim) || numDrawVerts_ >= MAX_DEFERRED_DRAW_VERTS || numDrawInds_ >= MAX_DEFERRED_DRAW_INDS || vertexCountInDrawCalls_ + vertexCount > VERTEX_BUFFER_MAX) {
 		DispatchFlush();
 	}
@@ -758,7 +760,7 @@ bool DrawEngineCommon::SubmitPrim(const void *verts, const void *inds, GEPrimiti
 	di.inds = inds;
 	di.indexType = (vertTypeID & GE_VTYPE_IDX_MASK) >> GE_VTYPE_IDX_SHIFT;
 	di.prim = prim;
-	di.cullMode = cullMode;
+	di.clockwise = clockwise;
 	di.vertexCount = vertexCount;
 	di.vertDecodeIndex = numDrawVerts_;
 	di.offset = 0;
@@ -824,10 +826,7 @@ void DrawEngineCommon::DecodeInds() {
 		const DeferredInds &di = drawInds_[i];
 
 		int indexOffset = drawVertexOffsets_[di.vertDecodeIndex] + di.offset;
-		bool clockwise = true;
-		if (gstate.isCullEnabled() && gstate.getCullMode() != di.cullMode) {
-			clockwise = false;
-		}
+		bool clockwise = di.clockwise;
 		// We've already collapsed subsequent draws with the same vertex pointer, so no tricky logic here anymore.
 		// 2. Loop through the drawcalls, translating indices as we go.
 		switch (di.indexType) {

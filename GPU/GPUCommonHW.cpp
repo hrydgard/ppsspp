@@ -989,7 +989,7 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 	int cullMode = gstate.getCullMode();
 
 	uint32_t vertTypeID = GetVertTypeID(vertexType, gstate.getUVGenMode(), g_Config.bSoftwareSkinning);
-	if (!drawEngineCommon_->SubmitPrim(verts, inds, prim, count, vertTypeID, cullMode, &bytesRead)) {
+	if (!drawEngineCommon_->SubmitPrim(verts, inds, prim, count, vertTypeID, true, &bytesRead)) {
 		canExtend = false;
 	}
 	// After drawing, we advance the vertexAddr (when non indexed) or indexAddr (when indexed).
@@ -1024,11 +1024,12 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 			// TODO: more efficient updating of verts/inds
 
 			u32 count = data & 0xFFFF;
+			bool clockwise = !gstate.isCullEnabled() || gstate.getCullMode() == cullMode;
 			if (canExtend) {
 				// Non-indexed draws can be cheaply merged if vertexAddr hasn't changed, that means the vertices
 				// are consecutive in memory.
 				_dbg_assert_((vertexType & GE_VTYPE_IDX_MASK) == GE_VTYPE_IDX_NONE);
-				int commandsExecuted = drawEngineCommon_->ExtendNonIndexedPrim(src, stall, vertTypeID, cullMode, &bytesRead, isTriangle);
+				int commandsExecuted = drawEngineCommon_->ExtendNonIndexedPrim(src, stall, vertTypeID, clockwise, &bytesRead, isTriangle);
 				if (!commandsExecuted) {
 					goto bail;
 				}
@@ -1046,7 +1047,7 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 				// We can extend again after submitting a normal draw.
 				canExtend = isTriangle;
 			}
-			if (!drawEngineCommon_->SubmitPrim(verts, inds, newPrim, count, vertTypeID, cullMode, &bytesRead)) {
+			if (!drawEngineCommon_->SubmitPrim(verts, inds, newPrim, count, vertTypeID, clockwise, &bytesRead)) {
 				canExtend = false;
 			}
 			AdvanceVerts(vertexType, count, bytesRead);
