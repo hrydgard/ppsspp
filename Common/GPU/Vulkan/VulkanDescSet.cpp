@@ -42,19 +42,18 @@ void VulkanDescSetPool::Create(VulkanContext *vulkan, const BindingType *binding
 	_assert_msg_(res == VK_SUCCESS, "Could not create VulkanDescSetPool %s", tag_);
 }
 
-VkDescriptorSet VulkanDescSetPool::Allocate(int n, const VkDescriptorSetLayout *layouts, const char *tag) {
-	if (descPool_ == VK_NULL_HANDLE || usage_ + n >= info_.maxSets) {
+bool VulkanDescSetPool::Allocate(VkDescriptorSet *descriptorSets, int count, const VkDescriptorSetLayout *layouts) {
+	if (descPool_ == VK_NULL_HANDLE || usage_ + count >= info_.maxSets) {
 		// Missing or out of space, need to recreate.
 		VkResult res = Recreate(grow_);
 		_assert_msg_(res == VK_SUCCESS, "Could not grow VulkanDescSetPool %s on usage %d", tag_, (int)usage_);
 	}
 
-	VkDescriptorSet desc;
 	VkDescriptorSetAllocateInfo descAlloc{ VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO };
 	descAlloc.descriptorPool = descPool_;
-	descAlloc.descriptorSetCount = n;
+	descAlloc.descriptorSetCount = count;
 	descAlloc.pSetLayouts = layouts;
-	VkResult result = vkAllocateDescriptorSets(vulkan_->GetDevice(), &descAlloc, &desc);
+	VkResult result = vkAllocateDescriptorSets(vulkan_->GetDevice(), &descAlloc, descriptorSets);
 
 	if (result == VK_ERROR_FRAGMENTED_POOL || result < 0) {
 		WARN_LOG(G3D, "Pool %s %s - recreating", tag_, result == VK_ERROR_FRAGMENTED_POOL ? "fragmented" : "full");
@@ -66,20 +65,16 @@ VkDescriptorSet VulkanDescSetPool::Allocate(int n, const VkDescriptorSetLayout *
 
 		// Need to update this pointer since we have allocated a new one.
 		descAlloc.descriptorPool = descPool_;
-		result = vkAllocateDescriptorSets(vulkan_->GetDevice(), &descAlloc, &desc);
+		result = vkAllocateDescriptorSets(vulkan_->GetDevice(), &descAlloc, descriptorSets);
 		_assert_msg_(result == VK_SUCCESS, "Ran out of descriptor space (frag?) and failed to allocate after recreating a descriptor pool. res=%d", (int)result);
 	}
 
 	if (result != VK_SUCCESS) {
-		return VK_NULL_HANDLE;
+		return false;
 	}
 
-	usage_++;
-
-	if (tag) {
-		vulkan_->SetDebugName(desc, VK_OBJECT_TYPE_DESCRIPTOR_SET, tag);
-	}
-	return desc;
+	usage_ += count;
+	return true;
 }
 
 void VulkanDescSetPool::Reset() {

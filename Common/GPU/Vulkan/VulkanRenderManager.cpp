@@ -1725,7 +1725,7 @@ void VKRPipelineLayout::FlushDescSets(VulkanContext *vulkan, int frame, QueuePro
 		}
 
 		// TODO: Allocate in batches.
-		d.set = pool.Allocate(1, &descriptorSetLayout, nullptr);
+		pool.Allocate(&d.set, 1, &descriptorSetLayout);
 
 		// TODO: Build up bigger batches of writes.
 		const PackedDescriptor *data = descData.begin() + d.offset;

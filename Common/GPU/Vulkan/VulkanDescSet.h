@@ -28,7 +28,7 @@ public:
 	void Create(VulkanContext *vulkan, const BindingType *bindingTypes, uint32_t bindingTypesCount, uint32_t descriptorCount);
 	// Allocate a new set, which may resize and empty the current sets.
 	// Use only for the current frame, unless in a cache cleared by clear_.
-	VkDescriptorSet Allocate(int n, const VkDescriptorSetLayout *layouts, const char *tag);
+	bool Allocate(VkDescriptorSet *descriptorSets, int count, const VkDescriptorSetLayout *layouts);
 	void Reset();
 	void Destroy();
 
