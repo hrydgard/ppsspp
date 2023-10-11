@@ -185,17 +185,6 @@ void DrawEngineVulkan::EndFrame() {
 	stats_.pushIndexSpaceUsed = (int)pushIndex_->GetUsedThisFrame();
 }
 
-void DrawEngineVulkan::DecodeVertsToPushBuffer(VulkanPushBuffer *push, uint32_t *bindOffset, VkBuffer *vkbuf) {
-	u8 *dest = decoded_;
-
-	// Figure out how much pushbuffer space we need to allocate.
-	if (push) {
-		int vertsToDecode = ComputeNumVertsToDecode();
-		dest = (u8 *)push->Allocate(vertsToDecode * dec_->GetDecVtxFmt().stride, 4, vkbuf, bindOffset);
-	}
-	DecodeVerts(dest);
-}
-
 void DrawEngineVulkan::DecodeVertsToPushPool(VulkanPushPool *push, uint32_t *bindOffset, VkBuffer *vkbuf) {
 	u8 *dest = decoded_;
 

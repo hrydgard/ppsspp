@@ -61,7 +61,6 @@ class TextureCacheVulkan;
 class FramebufferManagerVulkan;
 
 class VulkanContext;
-class VulkanPushBuffer;
 class VulkanPushPool;
 struct VulkanPipeline;
 
@@ -186,7 +185,6 @@ private:
 	void DestroyDeviceObjects();
 
 	void DecodeVertsToPushPool(VulkanPushPool *push, uint32_t *bindOffset, VkBuffer *vkbuf);
-	void DecodeVertsToPushBuffer(VulkanPushBuffer *push, uint32_t *bindOffset, VkBuffer *vkbuf);
 
 	void DoFlush();
 	void UpdateUBOs();
