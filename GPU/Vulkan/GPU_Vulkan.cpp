@@ -167,6 +167,7 @@ void GPU_Vulkan::SaveCache(const Path &filename) {
 GPU_Vulkan::~GPU_Vulkan() {
 	if (draw_) {
 		VulkanRenderManager *rm = (VulkanRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
+		// This now also does a hard sync with the render thread, so that we can safely delete our pipeline layout below.
 		rm->DrainAndBlockCompileQueue();
 	}
 
@@ -423,6 +424,7 @@ void GPU_Vulkan::CheckRenderResized() {
 
 void GPU_Vulkan::DeviceLost() {
 	// draw_ is normally actually still valid here in Vulkan. But we null it out in GPUCommonHW::DeviceLost so we don't try to use it again.
+	// So, we have to save it here to be able to call ReleaseCompileQueue().
 	Draw::DrawContext *draw = draw_;
 	if (draw) {
 		VulkanRenderManager *rm = (VulkanRenderManager *)draw->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);

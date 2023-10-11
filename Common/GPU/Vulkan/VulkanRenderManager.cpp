@@ -413,6 +413,8 @@ VulkanRenderManager::~VulkanRenderManager() {
 
 	vulkan_->WaitUntilQueueIdle();
 
+	_dbg_assert_(pipelineLayouts_.empty());
+
 	VkDevice device = vulkan_->GetDevice();
 	frameDataShared_.Destroy(vulkan_);
 	for (int i = 0; i < inflightFramesAtStart_; i++) {
@@ -519,12 +521,14 @@ void VulkanRenderManager::CompileThreadFunc() {
 }
 
 void VulkanRenderManager::DrainAndBlockCompileQueue() {
+	EndCurRenderStep();
 	std::unique_lock<std::mutex> lock(compileMutex_);
 	compileBlocked_ = true;
 	compileCond_.notify_all();
 	while (!compileQueue_.empty()) {
 		queueRunner_.WaitForCompileNotification();
 	}
+	FlushSync();
 }
 
 void VulkanRenderManager::ReleaseCompileQueue() {
@@ -1538,6 +1542,8 @@ void VulkanRenderManager::Run(VKRRenderThreadTask &task) {
 
 // Called from main thread.
 void VulkanRenderManager::FlushSync() {
+	_dbg_assert_(!curRenderStep_);
+
 	if (invalidationCallback_) {
 		invalidationCallback_(InvalidationCallbackFlags::COMMAND_BUFFER_STATE);
 	}
@@ -1669,6 +1675,7 @@ void VulkanRenderManager::DestroyPipelineLayout(VKRPipelineLayout *layout) {
 			break;
 		}
 	}
+	delete layout;
 }
 
 void VulkanRenderManager::FlushDescriptors(int frame) {
@@ -1685,6 +1692,11 @@ void VulkanRenderManager::ResetDescriptorLists(int frame) {
 		data.descSets_.clear();
 		data.descData_.clear();
 	}
+}
+
+VKRPipelineLayout::~VKRPipelineLayout() {
+	_assert_(!pipelineLayout && !descriptorSetLayout);
+	_assert_(frameData[0].pool.IsDestroyed());
 }
 
 void VKRPipelineLayout::FlushDescSets(VulkanContext *vulkan, int frame, QueueProfileContext *profile) {

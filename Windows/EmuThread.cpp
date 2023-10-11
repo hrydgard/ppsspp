@@ -335,6 +335,8 @@ shutdown:
 
 	g_graphicsContext->Shutdown();
 
+	delete g_graphicsContext;
+
 	UpdateConsolePosition();
 	NativeShutdown();
 

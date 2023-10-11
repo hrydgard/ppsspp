@@ -1244,6 +1244,7 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 					vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
 					descSets = &c.graphics_pipeline.pipelineLayout->frameData[curFrame].descSets_;
 					pipelineLayout = c.graphics_pipeline.pipelineLayout->pipelineLayout;
+					_dbg_assert_(pipelineLayout != VK_NULL_HANDLE);
 					lastGraphicsPipeline = graphicsPipeline;
 					pipelineOK = true;
 				} else {
