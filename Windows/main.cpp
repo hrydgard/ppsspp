@@ -381,6 +381,8 @@ bool System_GetPropertyBool(SystemProperty prop) {
 		return true;  // FileUtil.cpp: OpenFileInEditor
 	case SYSPROP_SUPPORTS_HTTPS:
 		return !g_Config.bDisableHTTPS;
+	case SYSPROP_DEBUGGER_PRESENT:
+		return IsDebuggerPresent();
 	default:
 		return false;
 	}
@@ -494,7 +496,7 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 		restartArgs = param1;
 		if (!restartArgs.empty())
 			AddDebugRestartArgs();
-		if (IsDebuggerPresent()) {
+		if (System_GetPropertyBool(SYSPROP_DEBUGGER_PRESENT)) {
 			PostMessage(MainWindow::GetHWND(), MainWindow::WM_USER_RESTART_EMUTHREAD, 0, 0);
 		} else {
 			g_Config.bRestartRequired = true;

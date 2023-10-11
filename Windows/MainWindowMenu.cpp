@@ -418,7 +418,7 @@ namespace MainWindow {
 	}
 
 	static void RestartApp() {
-		if (IsDebuggerPresent()) {
+		if (System_GetPropertyBool(SYSPROP_DEBUGGER_PRESENT)) {
 			PostMessage(MainWindow::GetHWND(), WM_USER_RESTART_EMUTHREAD, 0, 0);
 		} else {
 			g_Config.bRestartRequired = true;

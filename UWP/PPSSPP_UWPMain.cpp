@@ -431,6 +431,8 @@ bool System_GetPropertyBool(SystemProperty prop) {
 		// I don't know any possible way to display input dialog in non-xaml apps
 		return isKeyboardAvailable() || isTouchAvailable();
 	}
+	case SYSPROP_DEBUGGER_PRESENT:
+		return IsDebuggerPresent();
 	default:
 		return false;
 	}
