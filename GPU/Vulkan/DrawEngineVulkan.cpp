@@ -185,17 +185,6 @@ void DrawEngineVulkan::EndFrame() {
 	stats_.pushIndexSpaceUsed = (int)pushIndex_->GetUsedThisFrame();
 }
 
-void DrawEngineVulkan::DecodeVertsToPushPool(VulkanPushPool *push, uint32_t *bindOffset, VkBuffer *vkbuf) {
-	u8 *dest = decoded_;
-
-	// Figure out how much pushbuffer space we need to allocate.
-	if (push) {
-		int vertsToDecode = ComputeNumVertsToDecode();
-		dest = push->Allocate(vertsToDecode * dec_->GetDecVtxFmt().stride, 4, vkbuf, bindOffset);
-	}
-	DecodeVerts(dest);
-}
-
 void DrawEngineVulkan::DirtyAllUBOs() {
 	baseUBOOffset = 0;
 	lightUBOOffset = 0;
@@ -263,8 +252,11 @@ void DrawEngineVulkan::DoFlush() {
 			u8 *dest = (u8 *)pushVertex_->Allocate(size, 4, &vbuf, &vbOffset);
 			memcpy(dest, decoded_, size);
 		} else {
+			// Figure out how much pushbuffer space we need to allocate.
+			int vertsToDecode = ComputeNumVertsToDecode();
 			// Decode directly into the pushbuffer
-			DecodeVertsToPushPool(pushVertex_, &vbOffset, &vbuf);
+			u8 *dest = pushVertex_->Allocate(vertsToDecode * dec_->GetDecVtxFmt().stride, 4, &vbuf, &vbOffset);
+			DecodeVerts(dest);
 		}
 		DecodeInds();
 
