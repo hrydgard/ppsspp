@@ -1655,7 +1655,6 @@ VKRPipelineLayout *VulkanRenderManager::CreatePipelineLayout(BindingType *bindin
 	for (int i = 0; i < VulkanContext::MAX_INFLIGHT_FRAMES; i++) {
 		// Some games go beyond 1024 and end up having to resize like GTA, but most stay below so we start there.
 		layout->frameData[i].pool.Create(vulkan_, bindingTypes, (uint32_t)bindingTypesCount, 1024);
-		layout->frameData[i].pool.Setup([]() {});
 	}
 
 	pipelineLayouts_.push_back(layout);

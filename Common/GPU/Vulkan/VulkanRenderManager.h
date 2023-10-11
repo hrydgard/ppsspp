@@ -221,6 +221,7 @@ struct VKRPipelineLayout {
 	const char *tag = nullptr;
 
 	struct FrameData {
+		FrameData() : pool("GameDescPool", true) {}
 		VulkanDescSetPool pool;
 		FastVec<PackedDescriptor> descData_;
 		FastVec<PendingDescSet> descSets_;

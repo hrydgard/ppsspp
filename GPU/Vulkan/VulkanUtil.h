@@ -72,9 +72,7 @@ private:
 	VkPipelineCache pipelineCache_ = VK_NULL_HANDLE;
 
 	struct FrameData {
-		FrameData() : descPool("VulkanComputeShaderManager", true) {
-			descPool.Setup([] { });
-		}
+		FrameData() : descPool("VulkanComputeShaderManager", true) {}
 
 		VulkanDescSetPool descPool;
 		bool descPoolUsed = false;
