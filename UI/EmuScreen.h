@@ -76,7 +76,7 @@ private:
 	void onVKeyAnalog(int virtualKeyCode, float value);
 
 	void autoLoad();
-	void checkPowerDown();
+	bool checkPowerDown();
 
 	UI::Event OnDevMenu;
 	UI::Event OnChatMenu;

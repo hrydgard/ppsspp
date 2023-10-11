@@ -1174,7 +1174,7 @@ void EmuScreen::update() {
 	}
 }
 
-void EmuScreen::checkPowerDown() {
+bool EmuScreen::checkPowerDown() {
 	if (PSP_IsRebooting()) {
 		bootPending_ = true;
 		invalid_ = true;
@@ -1188,7 +1188,9 @@ void EmuScreen::checkPowerDown() {
 		screenManager()->switchScreen(new MainScreen());
 		bootPending_ = false;
 		invalid_ = true;
+		return true;
 	}
+	return false;
 }
 
 static const char *CPUCoreAsString(int core) {
@@ -1451,6 +1453,7 @@ void EmuScreen::render() {
 	Core_UpdateDebugStats((DebugOverlay)g_Config.iDebugOverlay == DebugOverlay::DEBUG_STATS || g_Config.bLogFrameDrops);
 
 	bool blockedExecution = Achievements::IsBlockingExecution();
+	bool rebind = false;
 	if (!blockedExecution) {
 		PSP_BeginHostFrame();
 		PSP_RunLoopWhileState();
@@ -1487,7 +1490,7 @@ void EmuScreen::render() {
 			// Didn't actually reach the end of the frame, ran out of the blockTicks cycles.
 			// In this case we need to bind and wipe the backbuffer, at least.
 			// It's possible we never ended up outputted anything - make sure we have the backbuffer cleared
-			thin3d->BindFramebufferAsRenderTarget(nullptr, { RPAction::CLEAR, RPAction::CLEAR, RPAction::CLEAR }, "EmuScreen_NoFrame");
+			rebind = true;
 			break;
 		}
 
@@ -1495,10 +1498,10 @@ void EmuScreen::render() {
 	}
 
 	// This must happen after PSP_EndHostFrame so that things like push buffers are end-frame'd before we start destroying stuff.
-	checkPowerDown();
-
-	if (invalid_)
-		return;
+	if (checkPowerDown() || rebind) {
+		// Shutting down can end up ending the current render pass
+		thin3d->BindFramebufferAsRenderTarget(nullptr, { RPAction::CLEAR, RPAction::CLEAR, RPAction::CLEAR }, "EmuScreen_NoFrame");
+	}
 
 	if (hasVisibleUI()) {
 		// In most cases, this should already be bound and a no-op.
