@@ -255,24 +255,20 @@ void DrawEngineDX9::DoFlush() {
 	bool useHWTransform = CanUseHardwareTransform(prim) && (tess || gstate.getShadeMode() != GE_SHADE_FLAT);
 
 	if (useHWTransform) {
-		LPDIRECT3DVERTEXBUFFER9 vb_ = NULL;
-		LPDIRECT3DINDEXBUFFER9 ib_ = NULL;
+		LPDIRECT3DVERTEXBUFFER9 vb_ = nullptr;
+		LPDIRECT3DINDEXBUFFER9 ib_ = nullptr;
 
-		int vertexCount = 0;
-		int maxIndex = 0;
-		bool useElements = true;
-		{
-			DecodeVerts(decoded_);
-			DecodeInds();
-			gpuStats.numUncachedVertsDrawn += indexGen.VertexCount();
-			useElements = !indexGen.SeenOnlyPurePrims();
-			vertexCount = indexGen.VertexCount();
-			maxIndex = MaxIndex();
-			if (!useElements && indexGen.PureCount()) {
-				vertexCount = indexGen.PureCount();
-			}
-			prim = indexGen.Prim();
+		DecodeVerts(decoded_);
+		DecodeInds();
+
+		bool useElements = !indexGen.SeenOnlyPurePrims();
+		int vertexCount = indexGen.VertexCount();
+		gpuStats.numUncachedVertsDrawn += vertexCount;
+		int maxIndex = MaxIndex();
+		if (!useElements && indexGen.PureCount()) {
+			vertexCount = indexGen.PureCount();
 		}
+		prim = indexGen.Prim();
 
 		_dbg_assert_((int)prim > 0);
 

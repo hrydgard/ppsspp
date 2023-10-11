@@ -288,9 +288,10 @@ void DrawEngineD3D11::DoFlush() {
 
 		DecodeVerts(decoded_);
 		DecodeInds();
-		gpuStats.numUncachedVertsDrawn += indexGen.VertexCount();
+
 		bool useElements = !indexGen.SeenOnlyPurePrims() || prim == GE_PRIM_TRIANGLE_FAN;
 		int vertexCount = indexGen.VertexCount();
+		gpuStats.numUncachedVertsDrawn += vertexCount;
 		int maxIndex = MaxIndex();
 		if (!useElements && indexGen.PureCount()) {
 			vertexCount = indexGen.PureCount();

@@ -267,10 +267,10 @@ void DrawEngineVulkan::DoFlush() {
 			DecodeVertsToPushPool(pushVertex_, &vbOffset, &vbuf);
 		}
 		DecodeInds();
-		gpuStats.numUncachedVertsDrawn += indexGen.VertexCount();
 
 		bool useElements;
 		int vertexCount = indexGen.VertexCount();
+		gpuStats.numUncachedVertsDrawn += vertexCount;
 		if (forceIndexed) {
 			useElements = true;
 			prim = indexGen.GeneralPrim();
