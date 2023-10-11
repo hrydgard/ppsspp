@@ -35,65 +35,6 @@ class ShaderManagerDX9;
 class TextureCacheDX9;
 class FramebufferManagerDX9;
 
-// States transitions:
-// On creation: DRAWN_NEW
-// DRAWN_NEW -> DRAWN_HASHING
-// DRAWN_HASHING -> DRAWN_RELIABLE
-// DRAWN_HASHING -> DRAWN_UNRELIABLE
-// DRAWN_ONCE -> UNRELIABLE
-// DRAWN_RELIABLE -> DRAWN_SAFE
-// UNRELIABLE -> death
-// DRAWN_ONCE -> death
-// DRAWN_RELIABLE -> death
-
-enum {
-	VAI_FLAG_VERTEXFULLALPHA = 1,
-};
-
-// Try to keep this POD.
-class VertexArrayInfoDX9 {
-public:
-	VertexArrayInfoDX9() {
-		status = VAI_NEW;
-		vbo = 0;
-		ebo = 0;
-		prim = GE_PRIM_INVALID;
-		numDraws = 0;
-		numFrames = 0;
-		lastFrame = gpuStats.numFlips;
-		numVerts = 0;
-		drawsUntilNextFullHash = 0;
-		flags = 0;
-	}
-	~VertexArrayInfoDX9();
-
-	enum Status : uint8_t {
-		VAI_NEW,
-		VAI_HASHING,
-		VAI_RELIABLE,  // cache, don't hash
-		VAI_UNRELIABLE,  // never cache
-	};
-
-	uint64_t hash;
-	u32 minihash;
-
-	LPDIRECT3DVERTEXBUFFER9 vbo;
-	LPDIRECT3DINDEXBUFFER9 ebo;
-
-	// Precalculated parameter for drawRangeElements
-	u16 numVerts;
-	u16 maxIndex;
-	s8 prim;
-	Status status;
-
-	// ID information
-	int numDraws;
-	int numFrames;
-	int lastFrame;  // So that we can forget.
-	u16 drawsUntilNextFullHash;
-	u8 flags;
-};
-
 class TessellationDataTransferDX9 : public TessellationDataTransfer {
 public:
 	TessellationDataTransferDX9() {}
@@ -122,8 +63,6 @@ public:
 	void InitDeviceObjects();
 	void DestroyDeviceObjects();
 
-	void ClearTrackedVertexArrays() override;
-
 	void BeginFrame();
 
 	// So that this can be inlined
@@ -148,7 +87,6 @@ public:
 protected:
 	// Not currently supported.
 	bool UpdateUseHWTessellation(bool enable) const override { return false; }
-	void DecimateTrackedVertexArrays();
 
 private:
 	void Invalidate(InvalidationCallbackFlags flags);
@@ -159,12 +97,9 @@ private:
 
 	IDirect3DVertexDeclaration9 *SetupDecFmtForDraw(const DecVtxFormat &decFmt, u32 pspFmt);
 
-	void MarkUnreliable(VertexArrayInfoDX9 *vai);
-
 	LPDIRECT3DDEVICE9 device_ = nullptr;
 	Draw::DrawContext *draw_;
 
-	PrehashMap<VertexArrayInfoDX9 *> vai_;
 	DenseHashMap<u32, IDirect3DVertexDeclaration9 *> vertexDeclMap_;
 
 	// SimpleVertex

@@ -159,10 +159,6 @@ protected:
 	// Preprocessing for spline/bezier
 	u32 NormalizeVertices(u8 *outPtr, u8 *bufPtr, const u8 *inPtr, int lowerBound, int upperBound, u32 vertType, int *vertexSize = nullptr);
 
-	// Utility for vertex caching
-	u32 ComputeMiniHash();
-	uint64_t ComputeHash();
-
 	int ComputeNumVertsToDecode() const;
 
 	void ApplyFramebufferRead(FBOTexState *fboTexState);
@@ -271,7 +267,6 @@ protected:
 	int numDrawInds_ = 0;
 	int vertexCountInDrawCalls_ = 0;
 
-	int decimationCounter_ = 0;
 	int decodeVertsCounter_ = 0;
 	int decodeIndsCounter_ = 0;
 

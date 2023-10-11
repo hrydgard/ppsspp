@@ -53,9 +53,6 @@ const D3D11_PRIMITIVE_TOPOLOGY d3d11prim[8] = {
 	D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST,  // Need expansion - though we could do it with geom shaders in most cases
 };
 
-#define VERTEXCACHE_DECIMATION_INTERVAL 17
-
-enum { VAI_KILL_AGE = 120, VAI_UNRELIABLE_KILL_AGE = 240, VAI_UNRELIABLE_KILL_MAX = 4 };
 enum {
 	VERTEX_PUSH_SIZE = 1024 * 1024 * 16,
 	INDEX_PUSH_SIZE = 1024 * 1024 * 4,
@@ -73,7 +70,6 @@ DrawEngineD3D11::DrawEngineD3D11(Draw::DrawContext *draw, ID3D11Device *device, 
 	: draw_(draw),
 		device_(device),
 		context_(context),
-		vai_(256),
 		inputLayoutMap_(32),
 		blendCache_(32),
 		blendCache1_(32),
@@ -84,7 +80,6 @@ DrawEngineD3D11::DrawEngineD3D11(Draw::DrawContext *draw, ID3D11Device *device, 
 	decOptions_.expandAllWeightsToFloat = true;
 	decOptions_.expand8BitNormalsToFloat = true;
 
-	decimationCounter_ = VERTEXCACHE_DECIMATION_INTERVAL;
 	// Allocate nicely aligned memory. Maybe graphics drivers will
 	// appreciate it.
 	// All this is a LOT of memory, need to see if we can cut down somehow.
@@ -109,13 +104,6 @@ void DrawEngineD3D11::InitDeviceObjects() {
 	tessDataTransfer = tessDataTransferD3D11;
 
 	draw_->SetInvalidationCallback(std::bind(&DrawEngineD3D11::Invalidate, this, std::placeholders::_1));
-}
-
-void DrawEngineD3D11::ClearTrackedVertexArrays() {
-	vai_.Iterate([&](uint32_t hash, VertexArrayInfoD3D11 *vai){
-		delete vai;
-	});
-	vai_.Clear();
 }
 
 void DrawEngineD3D11::ClearInputLayoutMap() {
@@ -259,67 +247,11 @@ ID3D11InputLayout *DrawEngineD3D11::SetupDecFmtForDraw(D3D11VertexShader *vshade
 	}
 }
 
-void DrawEngineD3D11::MarkUnreliable(VertexArrayInfoD3D11 *vai) {
-	vai->status = VertexArrayInfoD3D11::VAI_UNRELIABLE;
-	if (vai->vbo) {
-		vai->vbo->Release();
-		vai->vbo = nullptr;
-	}
-	if (vai->ebo) {
-		vai->ebo->Release();
-		vai->ebo = nullptr;
-	}
-}
-
 void DrawEngineD3D11::BeginFrame() {
 	pushVerts_->Reset();
 	pushInds_->Reset();
 
-	gpuStats.numTrackedVertexArrays = (int)vai_.size();
-
-	if (--decimationCounter_ <= 0) {
-		decimationCounter_ = VERTEXCACHE_DECIMATION_INTERVAL;
-	} else {
-		return;
-	}
-
-	const int threshold = gpuStats.numFlips - VAI_KILL_AGE;
-	const int unreliableThreshold = gpuStats.numFlips - VAI_UNRELIABLE_KILL_AGE;
-	int unreliableLeft = VAI_UNRELIABLE_KILL_MAX;
-	vai_.Iterate([&](uint32_t hash, VertexArrayInfoD3D11 *vai){
-		bool kill;
-		if (vai->status == VertexArrayInfoD3D11::VAI_UNRELIABLE) {
-			// We limit killing unreliable so we don't rehash too often.
-			kill = vai->lastFrame < unreliableThreshold && --unreliableLeft >= 0;
-		} else {
-			kill = vai->lastFrame < threshold;
-		}
-		if (kill) {
-			delete vai;
-			vai_.Remove(hash);
-		}
-	});
-	vai_.Maintain();
-
-	// Enable if you want to see vertex decoders in the log output. Need a better way.
-#if 0
-	char buffer[16384];
-	for (std::map<u32, VertexDecoder*>::iterator dec = decoderMap_.begin(); dec != decoderMap_.end(); ++dec) {
-		char *ptr = buffer;
-		ptr += dec->second->ToString(ptr);
-		//		*ptr++ = '\n';
-		NOTICE_LOG(G3D, buffer);
-	}
-#endif
-
 	lastRenderStepId_ = -1;
-}
-
-VertexArrayInfoD3D11::~VertexArrayInfoD3D11() {
-	if (vbo)
-		vbo->Release();
-	if (ebo)
-		ebo->Release();
 }
 
 // In D3D, we're synchronous and state carries over so all we reset here on a new step is the viewport/scissor.
@@ -354,175 +286,16 @@ void DrawEngineD3D11::DoFlush() {
 		ID3D11Buffer *vb_ = nullptr;
 		ID3D11Buffer *ib_ = nullptr;
 
-		int vertexCount = 0;
-		int maxIndex = 0;
-		bool useElements = true;
-
-		// Cannot cache vertex data with morph enabled.
-		bool useCache = g_Config.bVertexCache && !(lastVType_ & GE_VTYPE_MORPHCOUNT_MASK);
-		// Also avoid caching when software skinning.
-		if (decOptions_.applySkinInDecode && (lastVType_ & GE_VTYPE_WEIGHT_MASK))
-			useCache = false;
-
-		if (useCache) {
-			// getUVGenMode can have an effect on which UV decoder we need to use! And hence what the decoded data will look like. See #9263
-			u32 dcid = ComputeDrawcallsHash() ^ gstate.getUVGenMode();
-
-			VertexArrayInfoD3D11 *vai;
-			if (!vai_.Get(dcid, &vai)) {
-				vai = new VertexArrayInfoD3D11();
-				vai_.Insert(dcid, vai);
-			}
-
-			switch (vai->status) {
-			case VertexArrayInfoD3D11::VAI_NEW:
-				{
-					// Haven't seen this one before.
-					uint64_t dataHash = ComputeHash();
-					vai->hash = dataHash;
-					vai->minihash = ComputeMiniHash();
-					vai->status = VertexArrayInfoD3D11::VAI_HASHING;
-					vai->drawsUntilNextFullHash = 0;
-					DecodeVerts(decoded_); // writes to indexGen
-					DecodeInds();
-					vai->numVerts = indexGen.VertexCount();
-					vai->prim = indexGen.Prim();
-					vai->maxIndex = MaxIndex();
-					vai->flags = gstate_c.vertexFullAlpha ? VAI11_FLAG_VERTEXFULLALPHA : 0;
-					goto rotateVBO;
-				}
-
-				// Hashing - still gaining confidence about the buffer.
-				// But if we get this far it's likely to be worth creating a vertex buffer.
-			case VertexArrayInfoD3D11::VAI_HASHING:
-				{
-					vai->numDraws++;
-					if (vai->lastFrame != gpuStats.numFlips) {
-						vai->numFrames++;
-					}
-					if (vai->drawsUntilNextFullHash == 0) {
-						// Let's try to skip a full hash if mini would fail.
-						const u32 newMiniHash = ComputeMiniHash();
-						uint64_t newHash = vai->hash;
-						if (newMiniHash == vai->minihash) {
-							newHash = ComputeHash();
-						}
-						if (newMiniHash != vai->minihash || newHash != vai->hash) {
-							MarkUnreliable(vai);
-							DecodeVerts(decoded_);
-							DecodeInds();
-							goto rotateVBO;
-						}
-						if (vai->numVerts > 64) {
-							// exponential backoff up to 16 draws, then every 24
-							vai->drawsUntilNextFullHash = std::min(24, vai->numFrames);
-						} else {
-							// Lower numbers seem much more likely to change.
-							vai->drawsUntilNextFullHash = 0;
-						}
-						// TODO: tweak
-						//if (vai->numFrames > 1000) {
-						//	vai->status = VertexArrayInfo::VAI_RELIABLE;
-						//}
-					} else {
-						vai->drawsUntilNextFullHash--;
-						u32 newMiniHash = ComputeMiniHash();
-						if (newMiniHash != vai->minihash) {
-							MarkUnreliable(vai);
-							DecodeVerts(decoded_);
-							DecodeInds();
-							goto rotateVBO;
-						}
-					}
-
-					if (vai->vbo == 0) {
-						DecodeVerts(decoded_);
-						DecodeInds();
-						vai->numVerts = indexGen.VertexCount();
-						vai->prim = indexGen.Prim();
-						vai->maxIndex = MaxIndex();
-						vai->flags = gstate_c.vertexFullAlpha ? VAI11_FLAG_VERTEXFULLALPHA : 0;
-						useElements = !indexGen.SeenOnlyPurePrims() || prim == GE_PRIM_TRIANGLE_FAN;
-						if (!useElements && indexGen.PureCount()) {
-							vai->numVerts = indexGen.PureCount();
-						}
-
-						_dbg_assert_msg_(gstate_c.vertBounds.minV >= gstate_c.vertBounds.maxV, "Should not have checked UVs when caching.");
-
-						// TODO: Combine these two into one buffer?
-						u32 size = dec_->GetDecVtxFmt().stride * MaxIndex();
-						D3D11_BUFFER_DESC desc{ size, D3D11_USAGE_IMMUTABLE, D3D11_BIND_VERTEX_BUFFER, 0 };
-						D3D11_SUBRESOURCE_DATA data{ decoded_ };
-						ASSERT_SUCCESS(device_->CreateBuffer(&desc, &data, &vai->vbo));
-						if (useElements) {
-							u32 size = sizeof(short) * indexGen.VertexCount();
-							D3D11_BUFFER_DESC desc{ size, D3D11_USAGE_IMMUTABLE, D3D11_BIND_INDEX_BUFFER, 0 };
-							D3D11_SUBRESOURCE_DATA data{ decIndex_ };
-							ASSERT_SUCCESS(device_->CreateBuffer(&desc, &data, &vai->ebo));
-						} else {
-							vai->ebo = 0;
-						}
-					} else {
-						gpuStats.numCachedDrawCalls++;
-						useElements = vai->ebo ? true : false;
-						gpuStats.numCachedVertsDrawn += vai->numVerts;
-						gstate_c.vertexFullAlpha = vai->flags & VAI11_FLAG_VERTEXFULLALPHA;
-					}
-					vb_ = vai->vbo;
-					ib_ = vai->ebo;
-					vertexCount = vai->numVerts;
-					maxIndex = vai->maxIndex;
-					prim = static_cast<GEPrimitiveType>(vai->prim);
-					break;
-				}
-
-				// Reliable - we don't even bother hashing anymore. Right now we don't go here until after a very long time.
-			case VertexArrayInfoD3D11::VAI_RELIABLE:
-				{
-					vai->numDraws++;
-					if (vai->lastFrame != gpuStats.numFlips) {
-						vai->numFrames++;
-					}
-					gpuStats.numCachedDrawCalls++;
-					gpuStats.numCachedVertsDrawn += vai->numVerts;
-					vb_ = vai->vbo;
-					ib_ = vai->ebo;
-
-					vertexCount = vai->numVerts;
-
-					maxIndex = vai->maxIndex;
-					prim = static_cast<GEPrimitiveType>(vai->prim);
-
-					gstate_c.vertexFullAlpha = vai->flags & VAI11_FLAG_VERTEXFULLALPHA;
-					break;
-				}
-
-			case VertexArrayInfoD3D11::VAI_UNRELIABLE:
-				{
-					vai->numDraws++;
-					if (vai->lastFrame != gpuStats.numFlips) {
-						vai->numFrames++;
-					}
-					DecodeVerts(decoded_);
-					DecodeInds();
-					goto rotateVBO;
-				}
-			}
-
-			vai->lastFrame = gpuStats.numFlips;
-		} else {
-			DecodeVerts(decoded_);
-			DecodeInds();
-rotateVBO:
-			gpuStats.numUncachedVertsDrawn += indexGen.VertexCount();
-			useElements = !indexGen.SeenOnlyPurePrims() || prim == GE_PRIM_TRIANGLE_FAN;
-			vertexCount = indexGen.VertexCount();
-			maxIndex = MaxIndex();
-			if (!useElements && indexGen.PureCount()) {
-				vertexCount = indexGen.PureCount();
-			}
-			prim = indexGen.Prim();
+		DecodeVerts(decoded_);
+		DecodeInds();
+		gpuStats.numUncachedVertsDrawn += indexGen.VertexCount();
+		bool useElements = !indexGen.SeenOnlyPurePrims() || prim == GE_PRIM_TRIANGLE_FAN;
+		int vertexCount = indexGen.VertexCount();
+		int maxIndex = MaxIndex();
+		if (!useElements && indexGen.PureCount()) {
+			vertexCount = indexGen.PureCount();
 		}
+		prim = indexGen.Prim();
 
 		bool hasColor = (lastVType_ & GE_VTYPE_COL_MASK) != GE_VTYPE_COL_NONE;
 		if (gstate.isModeThrough()) {

@@ -290,7 +290,6 @@ namespace MainWindow {
 		TranslateMenuItem(menu, ID_TEXTURESCALING_HYBRID_BICUBIC);
 		TranslateMenuItem(menu, ID_TEXTURESCALING_DEPOSTERIZE);
 		TranslateMenuItem(menu, ID_OPTIONS_HARDWARETRANSFORM);
-		TranslateMenuItem(menu, ID_OPTIONS_VERTEXCACHE);
 		TranslateMenuItem(menu, ID_EMULATION_SOUND);
 		TranslateMenuItem(menu, ID_EMULATION_CHEATS, g_Config.bSystemControls ? L"\tCtrl+T" : L"");
 		TranslateMenuItem(menu, ID_EMULATION_CHAT, g_Config.bSystemControls ? L"\tCtrl+C" : L"");
@@ -859,9 +858,6 @@ namespace MainWindow {
 			SendToggleFullscreen(!g_Config.UseFullScreen());
 			break;
 
-		case ID_OPTIONS_VERTEXCACHE:
-			g_Config.bVertexCache = !g_Config.bVertexCache;
-			break;
 		case ID_OPTIONS_TEXTUREFILTERING_AUTO:   g_Config.iTexFiltering = TEX_FILTER_AUTO; break;
 		case ID_OPTIONS_NEARESTFILTERING:        g_Config.iTexFiltering = TEX_FILTER_FORCE_NEAREST; break;
 		case ID_OPTIONS_LINEARFILTERING:         g_Config.iTexFiltering = TEX_FILTER_FORCE_LINEAR; break;
@@ -954,7 +950,6 @@ namespace MainWindow {
 		CHECKITEM(ID_DEBUG_SHOWDEBUGSTATISTICS, (DebugOverlay)g_Config.iDebugOverlay == DebugOverlay::DEBUG_STATS);
 		CHECKITEM(ID_OPTIONS_HARDWARETRANSFORM, g_Config.bHardwareTransform);
 		CHECKITEM(ID_DEBUG_BREAKONLOAD, !g_Config.bAutoRun);
-		CHECKITEM(ID_OPTIONS_VERTEXCACHE, g_Config.bVertexCache);
 		CHECKITEM(ID_OPTIONS_FRAMESKIP_AUTO, g_Config.bAutoFrameSkip);
 		CHECKITEM(ID_OPTIONS_FRAMESKIP, g_Config.iFrameSkip != FRAMESKIP_OFF);
 		CHECKITEM(ID_OPTIONS_FRAMESKIPTYPE_COUNT, g_Config.iFrameSkipType == FRAMESKIPTYPE_COUNT);
@@ -986,13 +981,6 @@ namespace MainWindow {
 
 		for (int i = 0; i < ARRAY_SIZE(displayrotationitems); i++) {
 			CheckMenuItem(menu, displayrotationitems[i], MF_BYCOMMAND | ((i + 1) == g_Config.iInternalScreenRotation ? MF_CHECKED : MF_UNCHECKED));
-		}
-
-		// Disable Vertex Cache when HW T&L is disabled.
-		if (!g_Config.bHardwareTransform) {
-			EnableMenuItem(menu, ID_OPTIONS_VERTEXCACHE, MF_GRAYED);
-		} else {
-			EnableMenuItem(menu, ID_OPTIONS_VERTEXCACHE, MF_ENABLED);
 		}
 
 		static const int zoomitems[11] = {
