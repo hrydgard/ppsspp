@@ -124,6 +124,23 @@ public:
 		size_ += count;
 	}
 
+	T *extend_uninitialized(size_t count) {
+		size_t sz = size_;
+		if (size_ + count <= capacity_) {
+			size_ += count;
+			return &data_[sz];
+		} else {
+			size_t newCapacity = size_ + count * 2;  // Leave some extra room when growing in all cases
+			if (newCapacity < capacity_ * 2) {
+				// Standard amortized O(1).
+				newCapacity = capacity_ * 2;
+			}
+			IncreaseCapacityTo(newCapacity);
+			size_ += count;
+			return &data_[sz];
+		}
+	}
+
 	void LockCapacity() {
 #ifdef _DEBUG
 		capacityLocked_ = true;

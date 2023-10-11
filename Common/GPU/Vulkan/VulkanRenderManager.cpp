@@ -1747,10 +1747,9 @@ void VKRPipelineLayout::FlushDescSets(VulkanContext *vulkan, int frame, QueuePro
 		int numBuffers = 0;
 		int numImages = 0;
 		for (int i = 0; i < d.count; i++) {
-			if (!data[i].image.view) {  // This automatically also checks for an null buffer.
+			if (!data[i].image.view) {  // This automatically also checks for an null buffer due to the union.
 				continue;
 			}
-
 			switch (this->bindingTypes[i]) {
 			case BindingType::COMBINED_IMAGE_SAMPLER:
 				_dbg_assert_(data[i].image.sampler != VK_NULL_HANDLE);

@@ -451,12 +451,11 @@ public:
 			curRenderStep_->render.stencilStore = VKRRenderPassStoreAction::DONT_CARE;
 	}
 
-private:
 	// Descriptors will match the current pipeline layout, set by the last call to BindPipeline.
 	// Count is the count of void*s. Two are needed for COMBINED_IMAGE_SAMPLER, everything else is a single one.
 	// The goal is to keep this function very small and fast, and do the expensive work on the render thread or
 	// another thread.
-	int BindDescriptors(const PackedDescriptor *desc, int count) {
+	PackedDescriptor *PushDescriptorSet(int count, int *descSetIndex) {
 		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == VKRStepType::RENDER);
 
 		int curFrame = vulkan_->GetCurFrame();
@@ -464,25 +463,24 @@ private:
 		VKRPipelineLayout::FrameData &data = curPipelineLayout_->frameData[curFrame];
 
 		size_t offset = data.descData_.size();
-		data.descData_.extend(desc, count);
+		PackedDescriptor *retval = data.descData_.extend_uninitialized(count);
 
 		int setIndex = (int)data.descSets_.size();
 		PendingDescSet &descSet = data.descSets_.push_uninitialized();
 		descSet.offset = (uint32_t)offset;
 		descSet.count = count;
 		// descSet.set = VK_NULL_HANDLE;  // to be filled in
-		return setIndex;
+		*descSetIndex = setIndex;
+		return retval;
 	}
 
-public:
-	void Draw(const PackedDescriptor *desc, int descCount, int numUboOffsets, const uint32_t *uboOffsets, VkBuffer vbuffer, int voffset, int count, int offset = 0) {
+	void Draw(int descSetIndex, int numUboOffsets, const uint32_t *uboOffsets, VkBuffer vbuffer, int voffset, int count, int offset = 0) {
 		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == VKRStepType::RENDER && curStepHasViewport_ && curStepHasScissor_);
-		int setIndex = BindDescriptors(desc, descCount);
 		VkRenderData &data = curRenderStep_->commands.push_uninitialized();
 		data.cmd = VKRRenderCommand::DRAW;
 		data.draw.count = count;
 		data.draw.offset = offset;
-		data.draw.descSetIndex = setIndex;
+		data.draw.descSetIndex = descSetIndex;
 		data.draw.vbuffer = vbuffer;
 		data.draw.voffset = voffset;
 		data.draw.numUboOffsets = numUboOffsets;
@@ -492,14 +490,13 @@ public:
 		curRenderStep_->render.numDraws++;
 	}
 
-	void DrawIndexed(const PackedDescriptor *desc, int descCount, int numUboOffsets, const uint32_t *uboOffsets, VkBuffer vbuffer, int voffset, VkBuffer ibuffer, int ioffset, int count, int numInstances) {
+	void DrawIndexed(int descSetIndex, int numUboOffsets, const uint32_t *uboOffsets, VkBuffer vbuffer, int voffset, VkBuffer ibuffer, int ioffset, int count, int numInstances) {
 		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == VKRStepType::RENDER && curStepHasViewport_ && curStepHasScissor_);
-		int setIndex = BindDescriptors(desc, descCount);
 		VkRenderData &data = curRenderStep_->commands.push_uninitialized();
 		data.cmd = VKRRenderCommand::DRAW_INDEXED;
 		data.drawIndexed.count = count;
 		data.drawIndexed.instances = numInstances;
-		data.drawIndexed.descSetIndex = setIndex;
+		data.drawIndexed.descSetIndex = descSetIndex;
 		data.drawIndexed.vbuffer = vbuffer;
 		data.drawIndexed.voffset = voffset;
 		data.drawIndexed.ibuffer = ibuffer;
