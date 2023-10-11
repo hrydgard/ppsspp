@@ -343,18 +343,17 @@ void DrawEngineVulkan::DoFlush() {
 		dirtyUniforms_ |= shaderManager_->UpdateUniforms(framebufferManager_->UseBufferedRendering());
 		UpdateUBOs();
 
-		PackedDescriptor descriptors[9]{};
 		int descCount = 6;
+		if (tess)
+			descCount = 9;
+		int descSetIndex;
+		PackedDescriptor *descriptors = renderManager->PushDescriptorSet(descCount, &descSetIndex);
 		descriptors[0].image.view = imageView;
 		descriptors[0].image.sampler = sampler;
-		if (boundSecondary_) {
-			descriptors[1].image.view = boundSecondary_;
-			descriptors[1].image.sampler = samplerSecondaryNearest_;
-		}
-		if (boundDepal_) {
-			descriptors[2].image.view = boundDepal_;
-			descriptors[2].image.sampler = boundDepalSmoothed_ ? samplerSecondaryLinear_ : samplerSecondaryNearest_;
-		}
+		descriptors[1].image.view = boundSecondary_;
+		descriptors[1].image.sampler = samplerSecondaryNearest_;
+		descriptors[2].image.view = boundDepal_;
+		descriptors[2].image.sampler = (boundDepal_ && boundDepalSmoothed_) ? samplerSecondaryLinear_ : samplerSecondaryNearest_;
 		descriptors[3].buffer.buffer = baseBuf;
 		descriptors[3].buffer.range = sizeof(UB_VS_FS_Base);
 		descriptors[4].buffer.buffer = lightBuf;
@@ -368,7 +367,6 @@ void DrawEngineVulkan::DoFlush() {
 				descriptors[j + 6].buffer.offset = bufInfo[j].offset;
 				descriptors[j + 6].buffer.range = bufInfo[j].range;
 			}
-			descCount = 9;
 		}
 		// TODO: Can we avoid binding all three when not needed? Same below for hardware transform.
 		// Think this will require different descriptor set layouts.
@@ -379,9 +377,9 @@ void DrawEngineVulkan::DoFlush() {
 			if (!ibuf) {
 				ibOffset = (uint32_t)pushIndex_->Push(decIndex_, sizeof(uint16_t) * indexGen.VertexCount(), 4, &ibuf);
 			}
-			renderManager->DrawIndexed(descriptors, descCount, ARRAY_SIZE(dynamicUBOOffsets), dynamicUBOOffsets, vbuf, vbOffset, ibuf, ibOffset, vertexCount, 1);
+			renderManager->DrawIndexed(descSetIndex, ARRAY_SIZE(dynamicUBOOffsets), dynamicUBOOffsets, vbuf, vbOffset, ibuf, ibOffset, vertexCount, 1);
 		} else {
-			renderManager->Draw(descriptors, descCount, ARRAY_SIZE(dynamicUBOOffsets), dynamicUBOOffsets, vbuf, vbOffset, vertexCount);
+			renderManager->Draw(descSetIndex, ARRAY_SIZE(dynamicUBOOffsets), dynamicUBOOffsets, vbuf, vbOffset, vertexCount);
 		}
 	} else {
 		PROFILE_THIS_SCOPE("soft");
@@ -509,18 +507,15 @@ void DrawEngineVulkan::DoFlush() {
 			// Even if the first draw is through-mode, make sure we at least have one copy of these uniforms buffered
 			UpdateUBOs();
 
-			PackedDescriptor descriptors[9]{};
 			int descCount = 6;
+			int descSetIndex;
+			PackedDescriptor *descriptors = renderManager->PushDescriptorSet(descCount, &descSetIndex);
 			descriptors[0].image.view = imageView;
 			descriptors[0].image.sampler = sampler;
-			if (boundSecondary_) {
-				descriptors[1].image.view = boundSecondary_;
-				descriptors[1].image.sampler = samplerSecondaryNearest_;
-			}
-			if (boundDepal_) {
-				descriptors[2].image.view = boundDepal_;
-				descriptors[2].image.sampler = boundDepalSmoothed_ ? samplerSecondaryLinear_ : samplerSecondaryNearest_;
-			}
+			descriptors[1].image.view = boundSecondary_;
+			descriptors[1].image.sampler = samplerSecondaryNearest_;
+			descriptors[2].image.view = boundDepal_;
+			descriptors[2].image.sampler = (boundDepal_ && boundDepalSmoothed_) ? samplerSecondaryLinear_ : samplerSecondaryNearest_;
 			descriptors[3].buffer.buffer = baseBuf;
 			descriptors[3].buffer.range = sizeof(UB_VS_FS_Base);
 			descriptors[4].buffer.buffer = lightBuf;
@@ -538,11 +533,11 @@ void DrawEngineVulkan::DoFlush() {
 				VkBuffer vbuf, ibuf;
 				vbOffset = (uint32_t)pushVertex_->Push(result.drawBuffer, maxIndex * sizeof(TransformedVertex), 4, &vbuf);
 				ibOffset = (uint32_t)pushIndex_->Push(inds, sizeof(short) * result.drawNumTrans, 4, &ibuf);
-				renderManager->DrawIndexed(descriptors, descCount, ARRAY_SIZE(dynamicUBOOffsets), dynamicUBOOffsets, vbuf, vbOffset, ibuf, ibOffset, result.drawNumTrans, 1);
+				renderManager->DrawIndexed(descSetIndex, ARRAY_SIZE(dynamicUBOOffsets), dynamicUBOOffsets, vbuf, vbOffset, ibuf, ibOffset, result.drawNumTrans, 1);
 			} else {
 				VkBuffer vbuf;
 				vbOffset = (uint32_t)pushVertex_->Push(result.drawBuffer, result.drawNumTrans * sizeof(TransformedVertex), 4, &vbuf);
-				renderManager->Draw(descriptors, descCount, ARRAY_SIZE(dynamicUBOOffsets), dynamicUBOOffsets, vbuf, vbOffset, result.drawNumTrans);
+				renderManager->Draw(descSetIndex, ARRAY_SIZE(dynamicUBOOffsets), dynamicUBOOffsets, vbuf, vbOffset, result.drawNumTrans);
 			}
 		} else if (result.action == SW_CLEAR) {
 			// Note: we won't get here if the clear is alpha but not color, or color but not alpha.

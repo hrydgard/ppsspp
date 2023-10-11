@@ -1417,9 +1417,10 @@ void VKContext::Draw(int vertexCount, int offset) {
 
 	BindCurrentPipeline();
 	ApplyDynamicState();
-	PackedDescriptor descriptors[4];
+	int descSetIndex;
+	PackedDescriptor *descriptors = renderManager_.PushDescriptorSet(4, &descSetIndex);
 	BindDescriptors(vulkanUBObuf, descriptors);
-	renderManager_.Draw(descriptors, ARRAY_SIZE(descriptors), 1, &ubo_offset, vulkanVbuf, (int)vbBindOffset + curVBufferOffsets_[0], vertexCount, offset);
+	renderManager_.Draw(descSetIndex, 1, &ubo_offset, vulkanVbuf, (int)vbBindOffset + curVBufferOffsets_[0], vertexCount, offset);
 }
 
 void VKContext::DrawIndexed(int vertexCount, int offset) {
@@ -1433,9 +1434,10 @@ void VKContext::DrawIndexed(int vertexCount, int offset) {
 
 	BindCurrentPipeline();
 	ApplyDynamicState();
-	PackedDescriptor descriptors[4];
+	int descSetIndex;
+	PackedDescriptor *descriptors = renderManager_.PushDescriptorSet(4, &descSetIndex);
 	BindDescriptors(vulkanUBObuf, descriptors);
-	renderManager_.DrawIndexed(descriptors, ARRAY_SIZE(descriptors), 1, &ubo_offset, vulkanVbuf, (int)vbBindOffset + curVBufferOffsets_[0], vulkanIbuf, (int)ibBindOffset + offset * sizeof(uint32_t), vertexCount, 1);
+	renderManager_.DrawIndexed(descSetIndex, 1, &ubo_offset, vulkanVbuf, (int)vbBindOffset + curVBufferOffsets_[0], vulkanIbuf, (int)ibBindOffset + offset * sizeof(uint32_t), vertexCount, 1);
 }
 
 void VKContext::DrawUP(const void *vdata, int vertexCount) {
@@ -1455,9 +1457,10 @@ void VKContext::DrawUP(const void *vdata, int vertexCount) {
 
 	BindCurrentPipeline();
 	ApplyDynamicState();
-	PackedDescriptor descriptors[4];
+	int descSetIndex;
+	PackedDescriptor *descriptors = renderManager_.PushDescriptorSet(4, &descSetIndex);
 	BindDescriptors(vulkanUBObuf, descriptors);
-	renderManager_.Draw(descriptors, ARRAY_SIZE(descriptors), 1, &ubo_offset, vulkanVbuf, (int)vbBindOffset + curVBufferOffsets_[0], vertexCount);
+	renderManager_.Draw(descSetIndex, 1, &ubo_offset, vulkanVbuf, (int)vbBindOffset + curVBufferOffsets_[0], vertexCount);
 }
 
 void VKContext::BindCurrentPipeline() {
