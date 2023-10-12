@@ -210,11 +210,7 @@ struct PackedDescriptor {
 // Note that we only support a single descriptor set due to compatibility with some ancient devices.
 // We should probably eventually give that up.
 struct VKRPipelineLayout {
-	VKRPipelineLayout() {}
-	~VKRPipelineLayout() {
-		_assert_(!pipelineLayout && !descriptorSetLayout);
-		_assert_(frameData[0].pool.IsDestroyed());
-	}
+	~VKRPipelineLayout();
 	enum { MAX_DESC_SET_BINDINGS = 10 };
 	BindingType bindingTypes[MAX_DESC_SET_BINDINGS];
 
@@ -225,6 +221,7 @@ struct VKRPipelineLayout {
 	const char *tag = nullptr;
 
 	struct FrameData {
+		FrameData() : pool("GameDescPool", true) {}
 		VulkanDescSetPool pool;
 		FastVec<PackedDescriptor> descData_;
 		FastVec<PendingDescSet> descSets_;

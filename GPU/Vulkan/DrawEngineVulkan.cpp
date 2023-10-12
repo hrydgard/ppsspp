@@ -254,11 +254,8 @@ void DrawEngineVulkan::DoFlush() {
 	const bool forceIndexed = draw_->GetDeviceCaps().verySlowShaderCompiler;
 
 	if (useHWTransform) {
-		int vertexCount = 0;
-		bool useElements = true;
 		VkBuffer vbuf = VK_NULL_HANDLE;
 		VkBuffer ibuf = VK_NULL_HANDLE;
-		bool useIndexGen = true;
 		if (decOptions_.applySkinInDecode && (lastVType_ & GE_VTYPE_WEIGHT_MASK)) {
 			// If software skinning, we're predecoding into "decoded". So make sure we're done, then push that content.
 			DecodeVerts(decoded_);
@@ -272,18 +269,17 @@ void DrawEngineVulkan::DoFlush() {
 		DecodeInds();
 		gpuStats.numUncachedVertsDrawn += indexGen.VertexCount();
 
-		if (useIndexGen) {
-			vertexCount = indexGen.VertexCount();
-			if (forceIndexed) {
-				useElements = true;
-				prim = indexGen.GeneralPrim();
-			} else {
-				useElements = !indexGen.SeenOnlyPurePrims();
-				if (!useElements && indexGen.PureCount()) {
-					vertexCount = indexGen.PureCount();
-				}
-				prim = indexGen.Prim();
+		bool useElements;
+		int vertexCount = indexGen.VertexCount();
+		if (forceIndexed) {
+			useElements = true;
+			prim = indexGen.GeneralPrim();
+		} else {
+			useElements = !indexGen.SeenOnlyPurePrims();
+			if (!useElements && indexGen.PureCount()) {
+				vertexCount = indexGen.PureCount();
 			}
+			prim = indexGen.Prim();
 		}
 
 		bool hasColor = (lastVType_ & GE_VTYPE_COL_MASK) != GE_VTYPE_COL_NONE;

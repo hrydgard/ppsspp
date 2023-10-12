@@ -81,7 +81,6 @@ void VulkanDescSetPool::Reset() {
 	_assert_msg_(descPool_ != VK_NULL_HANDLE, "VulkanDescSetPool::Reset without valid pool");
 	vkResetDescriptorPool(vulkan_->GetDevice(), descPool_, 0);
 
-	clear_();
 	usage_ = 0;
 }
 
@@ -90,7 +89,6 @@ void VulkanDescSetPool::Destroy() {
 
 	if (descPool_ != VK_NULL_HANDLE) {
 		vulkan_->Delete().QueueDeleteDescriptorPool(descPool_);
-		clear_();
 		usage_ = 0;
 	}
 	sizes_.clear();
@@ -110,7 +108,6 @@ VkResult VulkanDescSetPool::Recreate(bool grow) {
 	if (descPool_ != VK_NULL_HANDLE) {
 		INFO_LOG(G3D, "Reallocating %s desc pool from %d to %d", tag_, prevSize, info_.maxSets);
 		vulkan_->Delete().QueueDeleteDescriptorPool(descPool_);
-		clear_();
 		usage_ = 0;
 	}
 
