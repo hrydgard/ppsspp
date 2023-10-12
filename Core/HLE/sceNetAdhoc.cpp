@@ -7671,7 +7671,7 @@ int matchingInputThread(int matchingId) // TODO: The MatchingInput thread is usi
 			// Multithreading Unlock
 			peerlock.unlock();
 
-			if (context != NULL) {
+			while (context != NULL && context->inputRunning && !Core_IsStepping()) {
 				now = CoreTiming::GetGlobalTimeUsScaled(); //time_now_d()*1000000.0;
 
 				// Hello Message Sending Context with unoccupied Slots
@@ -7838,6 +7838,8 @@ int matchingInputThread(int matchingId) // TODO: The MatchingInput thread is usi
 
 					// Ignore Incoming Trash Data
 				}
+				else
+					break;
 			}
 			// Share CPU Time
 			sleep_ms(10); //1 //sceKernelDelayThread(10000);
