@@ -677,20 +677,12 @@ const char *AspectToString(VkImageAspectFlags aspect) {
 static const char *rpTypeDebugNames[] = {
 	"RENDER",
 	"RENDER_DEPTH",
-	"RENDER_INPUT",
-	"RENDER_DEPTH_INPUT",
 	"MV_RENDER",
 	"MV_RENDER_DEPTH",
-	"MV_RENDER_INPUT",
-	"MV_RENDER_DEPTH_INPUT",
 	"MS_RENDER",
 	"MS_RENDER_DEPTH",
-	"MS_RENDER_INPUT",
-	"MS_RENDER_DEPTH_INPUT",
 	"MS_MV_RENDER",
 	"MS_MV_RENDER_DEPTH",
-	"MS_MV_RENDER_INPUT",
-	"MS_MV_RENDER_DEPTH_INPUT",
 	"BACKBUF",
 };
 
