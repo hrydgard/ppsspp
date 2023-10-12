@@ -1660,27 +1660,22 @@ VKRPipelineLayout *VulkanRenderManager::CreatePipelineLayout(BindingType *bindin
 }
 
 void VulkanRenderManager::DestroyPipelineLayout(VKRPipelineLayout *layout) {
-	struct DelInfo {
-		VulkanRenderManager *rm;
-		VKRPipelineLayout *layout;
-	};
+	for (auto iter = pipelineLayouts_.begin(); iter != pipelineLayouts_.end(); iter++) {
+		if (*iter == layout) {
+			pipelineLayouts_.erase(iter);
+			break;
+		}
+	}
 	vulkan_->Delete().QueueCallback([](VulkanContext *vulkan, void *userdata) {
-		DelInfo *info = (DelInfo *)userdata;
-		for (auto iter = info->rm->pipelineLayouts_.begin(); iter != info->rm->pipelineLayouts_.end(); iter++) {
-			if (*iter == info->layout) {
-				info->rm->pipelineLayouts_.erase(iter);
-				break;
-			}
-		}
+		VKRPipelineLayout *layout = (VKRPipelineLayout *)userdata;
 		for (int i = 0; i < VulkanContext::MAX_INFLIGHT_FRAMES; i++) {
-			info->layout->frameData[i].pool.DestroyImmediately();
+			layout->frameData[i].pool.DestroyImmediately();
 		}
-		vkDestroyPipelineLayout(vulkan->GetDevice(), info->layout->pipelineLayout, nullptr);
-		vkDestroyDescriptorSetLayout(vulkan->GetDevice(), info->layout->descriptorSetLayout, nullptr);
+		vkDestroyPipelineLayout(vulkan->GetDevice(), layout->pipelineLayout, nullptr);
+		vkDestroyDescriptorSetLayout(vulkan->GetDevice(), layout->descriptorSetLayout, nullptr);
 
-		delete info->layout;
-		delete info;
-	}, new DelInfo{this, layout});
+		delete layout;
+	}, layout);
 }
 
 void VulkanRenderManager::FlushDescriptors(int frame) {
@@ -1700,7 +1695,6 @@ void VulkanRenderManager::ResetDescriptorLists(int frame) {
 }
 
 VKRPipelineLayout::~VKRPipelineLayout() {
-	_assert_(!pipelineLayout && !descriptorSetLayout);
 	_assert_(frameData[0].pool.IsDestroyed());
 }
 

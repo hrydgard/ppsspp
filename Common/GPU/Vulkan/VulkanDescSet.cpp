@@ -95,6 +95,7 @@ void VulkanDescSetPool::Destroy() {
 void VulkanDescSetPool::DestroyImmediately() {
 	if (descPool_ != VK_NULL_HANDLE) {
 		vkDestroyDescriptorPool(vulkan_->GetDevice(), descPool_, nullptr);
+		descPool_ = VK_NULL_HANDLE;
 		usage_ = 0;
 	}
 	sizes_.clear();
