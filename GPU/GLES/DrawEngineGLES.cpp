@@ -271,9 +271,6 @@ void DrawEngineGLES::DoFlush() {
 	uint32_t indexBufferOffset = 0;
 
 	if (vshader->UseHWTransform()) {
-		int vertexCount = 0;
-		bool useElements = true;
-
 		if (decOptions_.applySkinInDecode && (lastVType_ & GE_VTYPE_WEIGHT_MASK)) {
 			// If software skinning, we're predecoding into "decoded". So make sure we're done, then push that content.
 			DecodeVerts(decoded_);
@@ -288,23 +285,15 @@ void DrawEngineGLES::DoFlush() {
 		}
 		DecodeInds();
 
-		gpuStats.numUncachedVertsDrawn += indexGen.VertexCount();
-
 		// If there's only been one primitive type, and it's either TRIANGLES, LINES or POINTS,
 		// there is no need for the index buffer we built. We can then use glDrawArrays instead
 		// for a very minor speed boost. TODO: We can probably detect this case earlier, like before
 		// actually doing any vertex decoding (unless we're doing soft skinning and pre-decode on submit).
-		useElements = !indexGen.SeenOnlyPurePrims();
-		vertexCount = indexGen.VertexCount();
+		bool useElements = !indexGen.SeenOnlyPurePrims();
+		int vertexCount = indexGen.VertexCount();
+		gpuStats.numUncachedVertsDrawn += vertexCount;
 		if (!useElements && indexGen.PureCount()) {
 			vertexCount = indexGen.PureCount();
-		}
-		if (useElements) {
-			uint32_t esz = sizeof(uint16_t) * indexGen.VertexCount();
-			void *dest = frameData.pushIndex->Allocate(esz, 2, &indexBuffer, &indexBufferOffset);
-			// TODO: When we need to apply an index offset, we can apply it directly when copying the indices here.
-			// Of course, minding the maximum value of 65535...
-			memcpy(dest, decIndex_, esz);
 		}
 		prim = indexGen.Prim();
 
@@ -326,6 +315,11 @@ void DrawEngineGLES::DoFlush() {
 		LinkedShader *program = shaderManager_->ApplyFragmentShader(vsid, vshader, pipelineState_, framebufferManager_->UseBufferedRendering());
 		GLRInputLayout *inputLayout = SetupDecFmtForDraw(dec_->GetDecVtxFmt());
 		if (useElements) {
+			uint32_t esz = sizeof(uint16_t) * indexGen.VertexCount();
+			void *dest = frameData.pushIndex->Allocate(esz, 2, &indexBuffer, &indexBufferOffset);
+			// TODO: When we need to apply an index offset, we can apply it directly when copying the indices here.
+			// Of course, minding the maximum value of 65535...
+			memcpy(dest, decIndex_, esz);
 			render_->DrawIndexed(inputLayout,
 				vertexBuffer, vertexBufferOffset,
 				indexBuffer, indexBufferOffset,

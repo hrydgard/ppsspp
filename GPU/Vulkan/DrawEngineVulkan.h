@@ -184,8 +184,6 @@ private:
 
 	void DestroyDeviceObjects();
 
-	void DecodeVertsToPushPool(VulkanPushPool *push, uint32_t *bindOffset, VkBuffer *vkbuf);
-
 	void DoFlush();
 	void UpdateUBOs();
 

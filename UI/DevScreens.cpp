@@ -510,11 +510,9 @@ void SystemInfoScreen::CreateTabs() {
 	if (!board.empty())
 		systemInfo->Add(new InfoItem(si->T("Board"), board));
 	systemInfo->Add(new InfoItem(si->T("ABI"), GetCompilerABI()));
-#ifdef _WIN32
-	if (IsDebuggerPresent()) {
+	if (System_GetPropertyBool(SYSPROP_DEBUGGER_PRESENT)) {
 		systemInfo->Add(new InfoItem(si->T("Debugger Present"), di->T("Yes")));
 	}
-#endif
 
 	CollapsibleSection *cpuInfo = deviceSpecs->Add(new CollapsibleSection(si->T("CPU Information")));
 
