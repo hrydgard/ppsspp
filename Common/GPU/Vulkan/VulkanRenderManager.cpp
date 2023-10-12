@@ -518,14 +518,12 @@ void VulkanRenderManager::CompileThreadFunc() {
 }
 
 void VulkanRenderManager::DrainAndBlockCompileQueue() {
-	EndCurRenderStep();
 	std::unique_lock<std::mutex> lock(compileMutex_);
 	compileBlocked_ = true;
 	compileCond_.notify_all();
 	while (!compileQueue_.empty()) {
 		queueRunner_.WaitForCompileNotification();
 	}
-	FlushSync();
 }
 
 void VulkanRenderManager::ReleaseCompileQueue() {
