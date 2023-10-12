@@ -7690,15 +7690,23 @@ int matchingInputThread(int matchingId) // TODO: The MatchingInput thread is usi
 				}
 
 				// Ping Required
-				if (context->keepalive_int > 0)
+				if (context->keepalive_int > 0) {
 					if (static_cast<s64>(now - lastping) >= static_cast<s64>(context->keepalive_int))
 					{
+						// Handle Peer Timeouts
+						handleTimeout(context);
+
 						// Broadcast Ping Message
 						broadcastPingMessage(context);
 
 						// Update Ping Timer
 						lastping = now;
 					}
+				}
+				else {
+					// FIXME: Should we checks for Timeout too when the game doesn't set the keep alive interval?
+					handleTimeout(context);
+				}
 
 				// Messages on Stack ready for processing
 				if (context->input_stack != NULL)
@@ -7830,9 +7838,6 @@ int matchingInputThread(int matchingId) // TODO: The MatchingInput thread is usi
 
 					// Ignore Incoming Trash Data
 				}
-
-				// Handle Peer Timeouts
-				handleTimeout(context);
 			}
 			// Share CPU Time
 			sleep_ms(10); //1 //sceKernelDelayThread(10000);
