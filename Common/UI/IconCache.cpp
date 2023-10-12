@@ -44,6 +44,7 @@ void IconCache::SaveToFile(FILE *file) {
 
 	for (auto &iter : cache_) {
 		DiskCacheEntry entryHeader;
+		memset(&entryHeader, 0, sizeof(entryHeader));  // valgrind complains about padding bytes
 		entryHeader.keyLen = (uint32_t)iter.first.size();
 		entryHeader.dataLen = (uint32_t)iter.second.data.size();
 		entryHeader.format = iter.second.format;
