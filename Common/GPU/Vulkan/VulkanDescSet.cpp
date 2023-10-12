@@ -85,10 +85,16 @@ void VulkanDescSetPool::Reset() {
 }
 
 void VulkanDescSetPool::Destroy() {
-	_assert_msg_(vulkan_ != nullptr, "VulkanDescSetPool::Destroy without VulkanContext");
-
 	if (descPool_ != VK_NULL_HANDLE) {
 		vulkan_->Delete().QueueDeleteDescriptorPool(descPool_);
+		usage_ = 0;
+	}
+	sizes_.clear();
+}
+
+void VulkanDescSetPool::DestroyImmediately() {
+	if (descPool_ != VK_NULL_HANDLE) {
+		vkDestroyDescriptorPool(vulkan_->GetDevice(), descPool_, nullptr);
 		usage_ = 0;
 	}
 	sizes_.clear();
