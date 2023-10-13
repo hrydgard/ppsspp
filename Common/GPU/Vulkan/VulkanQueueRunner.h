@@ -57,17 +57,9 @@ struct VkRenderData {
 	VKRRenderCommand cmd;
 	union {
 		struct {
-			VkPipeline pipeline;
-			VKRPipelineLayout *pipelineLayout;
-		} pipeline;
-		struct {
 			VKRGraphicsPipeline *pipeline;
 			VKRPipelineLayout *pipelineLayout;
 		} graphics_pipeline;
-		struct {
-			VKRComputePipeline *pipeline;
-			VKRPipelineLayout *pipelineLayout;
-		} compute_pipeline;
 		struct {
 			uint32_t descSetIndex;
 			int numUboOffsets;
