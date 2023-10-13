@@ -515,20 +515,18 @@ void VulkanRenderManager::CompileThreadFunc() {
 			Task *task = new CreateMultiPipelinesTask(vulkan_, entries);
 			g_threadManager.EnqueueTask(task);
 		}
-
+ 
 		queueRunner_.NotifyCompileDone();
 	}
 }
 
 void VulkanRenderManager::DrainAndBlockCompileQueue() {
-	EndCurRenderStep();
 	std::unique_lock<std::mutex> lock(compileMutex_);
 	compileBlocked_ = true;
 	compileCond_.notify_all();
 	while (!compileQueue_.empty()) {
 		queueRunner_.WaitForCompileNotification();
 	}
-	FlushSync();
 }
 
 void VulkanRenderManager::ReleaseCompileQueue() {
@@ -1662,19 +1660,22 @@ VKRPipelineLayout *VulkanRenderManager::CreatePipelineLayout(BindingType *bindin
 }
 
 void VulkanRenderManager::DestroyPipelineLayout(VKRPipelineLayout *layout) {
-	for (int i = 0; i < VulkanContext::MAX_INFLIGHT_FRAMES; i++) {
-		layout->frameData[i].pool.Destroy();
-	}
-
-	vulkan_->Delete().QueueDeletePipelineLayout(layout->pipelineLayout);
-	vulkan_->Delete().QueueDeleteDescriptorSetLayout(layout->descriptorSetLayout);
 	for (auto iter = pipelineLayouts_.begin(); iter != pipelineLayouts_.end(); iter++) {
 		if (*iter == layout) {
 			pipelineLayouts_.erase(iter);
 			break;
 		}
 	}
-	delete layout;
+	vulkan_->Delete().QueueCallback([](VulkanContext *vulkan, void *userdata) {
+		VKRPipelineLayout *layout = (VKRPipelineLayout *)userdata;
+		for (int i = 0; i < VulkanContext::MAX_INFLIGHT_FRAMES; i++) {
+			layout->frameData[i].pool.DestroyImmediately();
+		}
+		vkDestroyPipelineLayout(vulkan->GetDevice(), layout->pipelineLayout, nullptr);
+		vkDestroyDescriptorSetLayout(vulkan->GetDevice(), layout->descriptorSetLayout, nullptr);
+
+		delete layout;
+	}, layout);
 }
 
 void VulkanRenderManager::FlushDescriptors(int frame) {
@@ -1694,7 +1695,6 @@ void VulkanRenderManager::ResetDescriptorLists(int frame) {
 }
 
 VKRPipelineLayout::~VKRPipelineLayout() {
-	_assert_(!pipelineLayout && !descriptorSetLayout);
 	_assert_(frameData[0].pool.IsDestroyed());
 }
 
