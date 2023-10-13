@@ -138,6 +138,10 @@ public:
 	void Take(VulkanDeleteList &del);
 	void PerformDeletes(VulkanContext *vulkan, VmaAllocator allocator);
 
+	int GetLastDeleteCount() const {
+		return deleteCount_;
+	}
+
 private:
 	std::vector<VkCommandPool> cmdPools_;
 	std::vector<VkDescriptorPool> descPools_;
@@ -157,6 +161,7 @@ private:
 	std::vector<VkDescriptorSetLayout> descSetLayouts_;
 	std::vector<VkQueryPool> queryPools_;
 	std::vector<Callback> callbacks_;
+	int deleteCount_ = 0;
 };
 
 // VulkanContext manages the device and swapchain, and deferred deletion of objects.
@@ -390,6 +395,10 @@ public:
 
 	std::vector<VkPresentModeKHR> GetAvailablePresentModes() const {
 		return availablePresentModes_;
+	}
+
+	int GetLastDeleteCount() const {
+		return frame_[curFrame_].deleteList.GetLastDeleteCount();
 	}
 
 private:

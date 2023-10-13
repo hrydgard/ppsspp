@@ -31,7 +31,6 @@ enum {
 enum class VKRRenderCommand : uint8_t {
 	REMOVED,
 	BIND_GRAPHICS_PIPELINE,  // async
-	BIND_COMPUTE_PIPELINE,  // async
 	STENCIL,
 	BLEND,
 	VIEWPORT,

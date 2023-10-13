@@ -322,16 +322,6 @@ public:
 		return true;
 	}
 
-	void BindPipeline(VKRComputePipeline *pipeline, PipelineFlags flags, VKRPipelineLayout *pipelineLayout) {
-		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == VKRStepType::RENDER);
-		_dbg_assert_(pipeline != nullptr);
-		VkRenderData &data = curRenderStep_->commands.push_uninitialized();
-		data.cmd = VKRRenderCommand::BIND_COMPUTE_PIPELINE;
-		data.compute_pipeline.pipeline = pipeline;
-		data.compute_pipeline.pipelineLayout = pipelineLayout;
-		curPipelineFlags_ |= flags;
-	}
-
 	void SetViewport(const VkViewport &vp) {
 		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == VKRStepType::RENDER);
 		_dbg_assert_((int)vp.width >= 0);
