@@ -25,6 +25,15 @@ If you want to download regularly updated builds for Android, Windows x86 and x6
 
 For game compatibility, see [community compatibility feedback](https://report.ppsspp.org/games).
 
+What's new in 1.16.6
+====================
+- Fix performance issue with Vulkan descriptor set allocation ([#18332])
+- Smoother loading of replacement textures
+- Fix the store on iOS ([#18323])
+- Fix problem with waves background ([#18310])
+- Some translation updates
+- Other minor fixes
+
 What's new in 1.16.5
 ====================
 - Additional crash and memory-leak fixes ([#18243], [#18244], [#18247])
@@ -450,3 +459,6 @@ Credit goes to:
 [#18255]: https://github.com/hrydgard/ppsspp/issues/18255 "Fix issue uploading narrow textures in OpenGL."
 [#18250]: https://github.com/hrydgard/ppsspp/issues/18250 "Separate out accelerometer events from joystick axis events"
 [#18249]: https://github.com/hrydgard/ppsspp/issues/18249 "arm64jit: Avoid fused multiplies in vcrsp.t"
+[#18332]: https://github.com/hrydgard/ppsspp/issues/18332 "We somehow lost the usage_ counter increment in VulkanDescSetPool, fix that"
+[#18323]: https://github.com/hrydgard/ppsspp/issues/18323 "Turn off HTTPS support for iOS."
+[#18310]: https://github.com/hrydgard/ppsspp/issues/18310 "Fix waves background"

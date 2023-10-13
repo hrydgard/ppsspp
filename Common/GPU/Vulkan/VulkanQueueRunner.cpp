@@ -876,9 +876,6 @@ void VulkanQueueRunner::LogRenderPass(const VKRStep &pass, bool verbose) {
 			case VKRRenderCommand::BIND_GRAPHICS_PIPELINE:
 				INFO_LOG(G3D, "  BindGraphicsPipeline(%x)", (int)(intptr_t)cmd.graphics_pipeline.pipeline);
 				break;
-			case VKRRenderCommand::BIND_COMPUTE_PIPELINE:
-				INFO_LOG(G3D, "  BindComputePipeline(%x)", (int)(intptr_t)cmd.compute_pipeline.pipeline);
-				break;
 			case VKRRenderCommand::BLEND:
 				INFO_LOG(G3D, "  BlendColor(%08x)", cmd.blendColor.color);
 				break;
@@ -1255,20 +1252,6 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 				lastStencilWriteMask = -1;
 				lastStencilCompareMask = -1;
 				lastStencilReference = -1;
-			}
-			break;
-		}
-
-		case VKRRenderCommand::BIND_COMPUTE_PIPELINE:
-		{
-			VKRComputePipeline *computePipeline = c.compute_pipeline.pipeline;
-			if (computePipeline != lastComputePipeline) {
-				VkPipeline pipeline = computePipeline->pipeline->BlockUntilReady();
-				if (pipeline != VK_NULL_HANDLE) {
-					vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline);
-					pipelineLayout = c.pipeline.pipelineLayout->pipelineLayout;
-					lastComputePipeline = computePipeline;
-				}
 			}
 			break;
 		}

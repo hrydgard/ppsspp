@@ -1666,80 +1666,101 @@ void VulkanDeleteList::Take(VulkanDeleteList &del) {
 }
 
 void VulkanDeleteList::PerformDeletes(VulkanContext *vulkan, VmaAllocator allocator) {
+	int deleteCount = 0;
+
 	for (auto &callback : callbacks_) {
 		callback.func(vulkan, callback.userdata);
+		deleteCount++;
 	}
 	callbacks_.clear();
 
 	VkDevice device = vulkan->GetDevice();
 	for (auto &cmdPool : cmdPools_) {
 		vkDestroyCommandPool(device, cmdPool, nullptr);
+		deleteCount++;
 	}
 	cmdPools_.clear();
 	for (auto &descPool : descPools_) {
 		vkDestroyDescriptorPool(device, descPool, nullptr);
+		deleteCount++;
 	}
 	descPools_.clear();
 	for (auto &module : modules_) {
 		vkDestroyShaderModule(device, module, nullptr);
+		deleteCount++;
 	}
 	modules_.clear();
 	for (auto &buf : buffers_) {
 		vkDestroyBuffer(device, buf, nullptr);
+		deleteCount++;
 	}
 	buffers_.clear();
 	for (auto &buf : buffersWithAllocs_) {
 		vmaDestroyBuffer(allocator, buf.buffer, buf.alloc);
+		deleteCount++;
 	}
 	buffersWithAllocs_.clear();
 	for (auto &bufView : bufferViews_) {
 		vkDestroyBufferView(device, bufView, nullptr);
+		deleteCount++;
 	}
 	bufferViews_.clear();
 	for (auto &imageWithAlloc : imagesWithAllocs_) {
 		vmaDestroyImage(allocator, imageWithAlloc.image, imageWithAlloc.alloc);
+		deleteCount++;
 	}
 	imagesWithAllocs_.clear();
 	for (auto &imageView : imageViews_) {
 		vkDestroyImageView(device, imageView, nullptr);
+		deleteCount++;
 	}
 	imageViews_.clear();
 	for (auto &mem : deviceMemory_) {
 		vkFreeMemory(device, mem, nullptr);
+		deleteCount++;
 	}
 	deviceMemory_.clear();
 	for (auto &sampler : samplers_) {
 		vkDestroySampler(device, sampler, nullptr);
+		deleteCount++;
 	}
 	samplers_.clear();
 	for (auto &pipeline : pipelines_) {
 		vkDestroyPipeline(device, pipeline, nullptr);
+		deleteCount++;
 	}
 	pipelines_.clear();
 	for (auto &pcache : pipelineCaches_) {
 		vkDestroyPipelineCache(device, pcache, nullptr);
+		deleteCount++;
 	}
 	pipelineCaches_.clear();
 	for (auto &renderPass : renderPasses_) {
 		vkDestroyRenderPass(device, renderPass, nullptr);
+		deleteCount++;
 	}
 	renderPasses_.clear();
 	for (auto &framebuffer : framebuffers_) {
 		vkDestroyFramebuffer(device, framebuffer, nullptr);
+		deleteCount++;
 	}
 	framebuffers_.clear();
 	for (auto &pipeLayout : pipelineLayouts_) {
 		vkDestroyPipelineLayout(device, pipeLayout, nullptr);
+		deleteCount++;
 	}
 	pipelineLayouts_.clear();
 	for (auto &descSetLayout : descSetLayouts_) {
 		vkDestroyDescriptorSetLayout(device, descSetLayout, nullptr);
+		deleteCount++;
 	}
 	descSetLayouts_.clear();
 	for (auto &queryPool : queryPools_) {
 		vkDestroyQueryPool(device, queryPool, nullptr);
+		deleteCount++;
 	}
 	queryPools_.clear();
+	deleteCount_ = deleteCount;
 }
 
 void VulkanContext::GetImageMemoryRequirements(VkImage image, VkMemoryRequirements *mem_reqs, bool *dedicatedAllocation) {

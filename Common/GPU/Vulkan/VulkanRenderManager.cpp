@@ -689,6 +689,8 @@ void VulkanRenderManager::BeginFrame(bool enableProfiling, bool enableLogProfile
 				str << line;
 				snprintf(line, sizeof(line), "Descriptors written: %d\n", frameData.profile.descriptorsWritten);
 				str << line;
+				snprintf(line, sizeof(line), "Resource deletions: %d\n", vulkan_->GetLastDeleteCount());
+				str << line;
 				for (int i = 0; i < numQueries - 1; i++) {
 					uint64_t diff = (queryResults[i + 1] - queryResults[i]) & timestampDiffMask;
 					double milliseconds = (double)diff * timestampConversionFactor;
