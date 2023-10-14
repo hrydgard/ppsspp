@@ -120,7 +120,6 @@ RCHEEVOS_FILES := \
   ${SRC}/ext/rcheevos/src/rapi/rc_api_runtime.c \
   ${SRC}/ext/rcheevos/src/rapi/rc_api_user.c \
   ${SRC}/ext/rcheevos/src/rcheevos/alloc.c \
-  ${SRC}/ext/rcheevos/src/rcheevos/compat.c \
   ${SRC}/ext/rcheevos/src/rcheevos/condition.c \
   ${SRC}/ext/rcheevos/src/rcheevos/condset.c \
   ${SRC}/ext/rcheevos/src/rcheevos/consoleinfo.c \
@@ -128,7 +127,9 @@ RCHEEVOS_FILES := \
   ${SRC}/ext/rcheevos/src/rcheevos/lboard.c \
   ${SRC}/ext/rcheevos/src/rcheevos/memref.c \
   ${SRC}/ext/rcheevos/src/rcheevos/operand.c \
-  ${SRC}/ext/rcheevos/src/rcheevos/rc_client.c \
+  ${SRC}/ext/rcheevos/src/rc_client.c \
+  ${SRC}/ext/rcheevos/src/rc_util.c \
+  ${SRC}/ext/rcheevos/src/rc_compat.c \
   ${SRC}/ext/rcheevos/src/rcheevos/rc_validate.c \
   ${SRC}/ext/rcheevos/src/rcheevos/richpresence.c \
   ${SRC}/ext/rcheevos/src/rcheevos/runtime.c \
