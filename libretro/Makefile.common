@@ -204,7 +204,6 @@ SOURCES_C += \
 	$(EXTDIR)/rcheevos/src/rapi/rc_api_runtime.c \
 	$(EXTDIR)/rcheevos/src/rapi/rc_api_user.c \
 	$(EXTDIR)/rcheevos/src/rcheevos/alloc.c \
-	$(EXTDIR)/rcheevos/src/rcheevos/compat.c \
 	$(EXTDIR)/rcheevos/src/rcheevos/condition.c \
 	$(EXTDIR)/rcheevos/src/rcheevos/condset.c \
 	$(EXTDIR)/rcheevos/src/rcheevos/consoleinfo.c \
@@ -212,7 +211,9 @@ SOURCES_C += \
 	$(EXTDIR)/rcheevos/src/rcheevos/lboard.c \
 	$(EXTDIR)/rcheevos/src/rcheevos/memref.c \
 	$(EXTDIR)/rcheevos/src/rcheevos/operand.c \
-	$(EXTDIR)/rcheevos/src/rcheevos/rc_client.c \
+	$(EXTDIR)/rcheevos/src/rc_client.c \
+	$(EXTDIR)/rcheevos/src/rc_util.c \
+	$(EXTDIR)/rcheevos/src/rc_compat.c \
 	$(EXTDIR)/rcheevos/src/rcheevos/rc_validate.c \
 	$(EXTDIR)/rcheevos/src/rcheevos/richpresence.c \
 	$(EXTDIR)/rcheevos/src/rcheevos/runtime.c \

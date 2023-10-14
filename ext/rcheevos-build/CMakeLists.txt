@@ -14,7 +14,6 @@ set(ALL_SOURCE_FILES
 	${SRC_DIR}/rapi/rc_api_user.c
 	# rcheevos
 	${SRC_DIR}/rcheevos/alloc.c
-	${SRC_DIR}/rcheevos/compat.c
 	${SRC_DIR}/rcheevos/condition.c
 	${SRC_DIR}/rcheevos/condset.c
 	${SRC_DIR}/rcheevos/consoleinfo.c
@@ -22,13 +21,17 @@ set(ALL_SOURCE_FILES
 	${SRC_DIR}/rcheevos/lboard.c
 	${SRC_DIR}/rcheevos/memref.c
 	${SRC_DIR}/rcheevos/operand.c
-	${SRC_DIR}/rcheevos/rc_compat.h
-	${SRC_DIR}/rcheevos/rc_client.c
-	${SRC_DIR}/rcheevos/rc_client_internal.h
+	${SRC_DIR}/rc_compat.h
+	${SRC_DIR}/rc_compat.h
+	${SRC_DIR}/rc_compat.c
+	${SRC_DIR}/rc_util.h
+	${SRC_DIR}/rc_util.c
+	${SRC_DIR}/rc_client.c
+	${SRC_DIR}/rc_client_internal.h
+	${SRC_DIR}/rc_version.h
 	${SRC_DIR}/rcheevos/rc_internal.h
 	${SRC_DIR}/rcheevos/rc_validate.h
 	${SRC_DIR}/rcheevos/rc_validate.c
-	${SRC_DIR}/rcheevos/rc_version.h
 	${SRC_DIR}/rcheevos/richpresence.c
 	${SRC_DIR}/rcheevos/runtime.c
 	${SRC_DIR}/rcheevos/runtime_progress.c
