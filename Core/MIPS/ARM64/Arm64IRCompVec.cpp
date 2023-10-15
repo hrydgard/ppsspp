@@ -608,7 +608,7 @@ void Arm64JitBackend::CompIR_VecHoriz(IRInst inst) {
 			regs_.SpillLockFPR(inst.src1, inst.src2);
 			regs_.MapVec4(inst.src1);
 			regs_.MapVec4(inst.src2);
-			regs_.MapVec4(inst.dest, MIPSMap::DIRTY);
+			regs_.MapVec4(inst.dest & ~3, MIPSMap::DIRTY);
 			fp_.FMUL(32, EncodeRegToQuad(SCRATCHF1), regs_.FQ(inst.src1), regs_.FQ(inst.src2));
 			fp_.FADDP(32, EncodeRegToQuad(SCRATCHF1), EncodeRegToQuad(SCRATCHF1), EncodeRegToQuad(SCRATCHF1));
 			fp_.FADDP(32, EncodeRegToQuad(SCRATCHF1), EncodeRegToQuad(SCRATCHF1), EncodeRegToQuad(SCRATCHF1));
