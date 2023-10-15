@@ -167,11 +167,14 @@ void Arm64IRRegCache::FlushBeforeCall() {
 			continue;
 		if (!nr[mr[i].nReg].isDirty || !nr[mr[i + 1].nReg].isDirty)
 			continue;
+		// Make sure not to try to pair a GPR and FPR.
+		if (IsValidGPR(i) != IsValidGPR(i + 1))
+			continue;
 
 		int offset = GetMipsRegOffset(i);
 
 		// Okay, it's a maybe.  Are we flushing both as GPRs?
-		if (!isGPRSaved(mr[i].nReg) && !isGPRSaved(mr[i + 1].nReg) && offset <= 252) {
+		if (!isGPRSaved(mr[i].nReg) && !isGPRSaved(mr[i + 1].nReg) && IsValidGPR(i) && offset <= 252) {
 			// If either is mapped as a pointer, fix it.
 			if (mr[i].loc == MIPSLoc::REG_AS_PTR)
 				AdjustNativeRegAsPtr(mr[i].nReg, false);
@@ -190,7 +193,7 @@ void Arm64IRRegCache::FlushBeforeCall() {
 
 		// Perhaps as FPRs?  Note: these must be single lane at this point.
 		// TODO: Could use STP on quads etc. too, i.e. i & i + 4.
-		if (!isFPRSaved(mr[i].nReg) && !isFPRSaved(mr[i + 1].nReg) && offset <= 252) {
+		if (!isFPRSaved(mr[i].nReg) && !isFPRSaved(mr[i + 1].nReg) && !IsValidGPR(i) && offset <= 252) {
 			fp_->STP(32, INDEX_SIGNED, FromNativeReg(mr[i].nReg), FromNativeReg(mr[i + 1].nReg), CTXREG, offset);
 
 			DiscardNativeReg(mr[i].nReg);

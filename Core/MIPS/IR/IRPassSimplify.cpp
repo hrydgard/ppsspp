@@ -2095,7 +2095,9 @@ bool ReduceVec4Flush(const IRWriter &in, IRWriter &out, const IROptions &opts) {
 			if (overlapped(inst.dest, 1, inst.src1, 4, inst.src2, 4) && findAvailTempVec4()) {
 				out.Write(inst.op, temp, inst.src1, inst.src2, inst.constant);
 				if (usedLaterAsVec4(inst.dest & ~3)) {
-					out.Write(IROp::Vec4Shuffle, temp, inst.src1 & ~3, 0);
+					// Broadcast to other lanes if needed.
+					if ((inst.dest & 3) != 0)
+						out.Write(IROp::Vec4Shuffle, temp, temp, 0);
 					out.Write(IROp::Vec4Blend, inst.dest & ~3, inst.dest & ~3, temp, 1 << (inst.dest & 3));
 					// It's overlapped, so it'll get marked as Vec4 and used anyway.
 					isVec4Dirty[inst.dest & ~3] = true;
