@@ -794,7 +794,7 @@ static int sceUtilityGamedataInstallUpdate(int animSpeed) {
 }
 
 static int sceUtilityGamedataInstallGetStatus() {
-	if (!currentDialogActive || currentDialogType != UtilityDialogType::GAMEDATAINSTALL) {
+	if (currentDialogType != UtilityDialogType::GAMEDATAINSTALL) {
 		// This is called incorrectly all the time by some games. So let's not bother warning.
 		hleEatCycles(200);
 		return hleLogDebug(SCEUTILITY, SCE_ERROR_UTILITY_WRONG_TYPE, "wrong dialog type");
