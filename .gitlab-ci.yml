@@ -158,4 +158,4 @@ libretro-build-tvos-arm64:
     - .core-defs
     - .cmake-defs
   variables:
-    CORE_ARGS: -DIOS_PLATFORM=TVOS -DUSE_FFMPEG=NO -DCMAKE_TOOLCHAIN_FILE=cmake/Toolchains/ios.cmake -DLIBRETRO=ON
+    CORE_ARGS: -DIOS_PLATFORM=TVOS -DCMAKE_TOOLCHAIN_FILE=cmake/Toolchains/ios.cmake -DLIBRETRO=ON
