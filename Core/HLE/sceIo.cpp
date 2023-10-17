@@ -1580,8 +1580,8 @@ static u32 sceIoOpen(const char *filename, int flags, int mode) {
 		asyncParams[id].priority = asyncDefaultPriority;
 		IFileSystem *sys = pspFileSystem.GetSystemFromFilename(filename);
 		if (sys && !f->isTTY && (sys->DevType(f->handle) & (PSPDevType::BLOCK | PSPDevType::EMU_LBN))) {
-			// These are fast to open, no delay or even rescheduling happens.
-			return hleLogSuccessI(SCEIO, id);
+			// These are fast to open, but delay or even rescheduling happens.
+			return hleLogSuccessI(SCEIO, hleDelayResult(id, "file opened", 10000));
 		}
 		// UMD: Speed varies from 1-6ms.
 		// Card: Path depth matters, but typically between 10-13ms on a standard Pro Duo.
