@@ -1585,7 +1585,13 @@ static u32 sceIoOpen(const char *filename, int flags, int mode) {
 		}
 		// UMD: Speed varies from 1-6ms.
 		// Card: Path depth matters, but typically between 10-13ms on a standard Pro Duo.
-		int delay = pspFileSystem.FlagsFromFilename(filename) & FileSystemFlags::UMD ? 4000 : 10000;
+		int delay;
+		if (PSP_CoreParameter().compat.flags().UMDReadSpeed) {
+			delay = 500000;
+		}
+		else {
+			delay = pspFileSystem.FlagsFromFilename(filename) & FileSystemFlags::UMD ? 4000 : 10000;
+		}
 		return hleLogSuccessI(SCEIO, hleDelayResult(id, "file opened", delay));
 	}
 }
