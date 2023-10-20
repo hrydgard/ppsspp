@@ -284,6 +284,7 @@ namespace CustomKeyData {
 		{ ImageID("I_DIR"), ImageID("I_DIR_LINE"), 180.0f, false, false },
 		{ ImageID("I_DIR"), ImageID("I_DIR_LINE"), 0.0f, false, false },
 		{ ImageID("I_SQUARE_SHAPE"), ImageID("I_SQUARE_SHAPE_LINE"), 0.0f, false, false },
+		{ ImageID("I_EMPTY"), ImageID("I_EMPTY"), 0.0f, false, false },
 	};
 
 	// Button list
