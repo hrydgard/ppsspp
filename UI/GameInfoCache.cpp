@@ -111,7 +111,7 @@ bool GameInfo::Delete() {
 	}
 }
 
-u64 GameInfo::GetGameSizeInBytes() {
+u64 GameInfo::GetGameSizeOnDiskInBytes() {
 	switch (fileType) {
 	case IdentifiedFileType::PSP_PBP_DIRECTORY:
 	case IdentifiedFileType::PSP_SAVEDATA_DIRECTORY:
@@ -119,6 +119,22 @@ u64 GameInfo::GetGameSizeInBytes() {
 
 	default:
 		return GetFileLoader()->FileSize();
+	}
+}
+
+u64 GameInfo::GetGameSizeUncompressedInBytes() {
+	switch (fileType) {
+	case IdentifiedFileType::PSP_PBP_DIRECTORY:
+	case IdentifiedFileType::PSP_SAVEDATA_DIRECTORY:
+		return File::ComputeRecursiveDirectorySize(ResolvePBPDirectory(filePath_));
+
+	default:
+	{
+		BlockDevice *blockDevice = constructBlockDevice(GetFileLoader().get());
+		u64 size = blockDevice->GetUncompressedSize();
+		delete blockDevice;
+		return size;
+	}
 	}
 }
 
@@ -659,9 +675,12 @@ handleELF:
 
 		if (info_->wantFlags & GAMEINFO_WANTSIZE) {
 			std::lock_guard<std::mutex> lock(info_->lock);
-			info_->gameSize = info_->GetGameSizeInBytes();
+			info_->gameSizeOnDisk = info_->GetGameSizeOnDiskInBytes();
 			info_->saveDataSize = info_->GetSaveDataSizeInBytes();
 			info_->installDataSize = info_->GetInstallDataSizeInBytes();
+		}
+		if (info_->wantFlags & GAMEINFO_WANTUNCOMPRESSEDSIZE) {
+			info_->gameSizeUncompressed = info_->GetGameSizeUncompressedInBytes();
 		}
 
 		// INFO_LOG(SYSTEM, "Completed writing info for %s", info_->GetTitle().c_str());

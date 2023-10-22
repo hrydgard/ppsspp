@@ -56,6 +56,7 @@ enum GameInfoWantFlags {
 	GAMEINFO_WANTSIZE = 0x02,
 	GAMEINFO_WANTSND = 0x04,
 	GAMEINFO_WANTBGDATA = 0x08, // Use with WANTBG.
+	GAMEINFO_WANTUNCOMPRESSEDSIZE = 0x10,
 };
 
 class FileLoader;
@@ -94,7 +95,8 @@ public:
 	std::shared_ptr<FileLoader> GetFileLoader();
 	void DisposeFileLoader();
 
-	u64 GetGameSizeInBytes();
+	u64 GetGameSizeUncompressedInBytes();  // NOTE: More expensive than GetGameSizeOnDiskInBytes().
+	u64 GetGameSizeOnDiskInBytes();
 	u64 GetSaveDataSizeInBytes();
 	u64 GetInstallDataSizeInBytes();
 
@@ -144,7 +146,8 @@ public:
 
 	double lastAccessedTime = 0.0;
 
-	u64 gameSize = 0;
+	u64 gameSizeUncompressed = 0;
+	u64 gameSizeOnDisk = 0;  // compressed size, in case of CSO
 	u64 saveDataSize = 0;
 	u64 installDataSize = 0;
 

@@ -45,6 +45,14 @@ inline bool startsWith(const std::string &str, const char *key) {
 	return !memcmp(str.data(), key, keyLen);
 }
 
+// Optimized for string views.
+inline bool startsWith(std::string_view str, std::string_view key) {
+	size_t keyLen = key.size();
+	if (str.size() < keyLen)
+		return false;
+	return !memcmp(str.data(), key.data(), keyLen);
+}
+
 inline bool startsWith(const std::string &str, const std::string &what) {
 	if (str.size() < what.size())
 		return false;
