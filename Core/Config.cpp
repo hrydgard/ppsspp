@@ -761,6 +761,7 @@ static const ConfigSetting controlSettings[] = {
 	ConfigSetting("TouchButtonOpacity", &g_Config.iTouchButtonOpacity, 65, CfgFlag::PER_GAME),
 	ConfigSetting("TouchButtonHideSeconds", &g_Config.iTouchButtonHideSeconds, 20, CfgFlag::PER_GAME),
 	ConfigSetting("AutoCenterTouchAnalog", &g_Config.bAutoCenterTouchAnalog, false, CfgFlag::PER_GAME),
+	ConfigSetting("StickyTouchDPad", &g_Config.bStickyTouchDPad, false, CfgFlag::PER_GAME),
 
 	// Snap touch control position
 	ConfigSetting("TouchSnapToGrid", &g_Config.bTouchSnapToGrid, false, CfgFlag::PER_GAME),
