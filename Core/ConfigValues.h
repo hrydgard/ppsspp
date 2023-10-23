@@ -128,6 +128,7 @@ enum IOTimingMethods {
 	IOTIMING_FAST = 0,
 	IOTIMING_HOST = 1,
 	IOTIMING_REALISTIC = 2,
+	IOTIMING_UMDSLOWREALISTIC = 3,
 };
 
 enum class AutoLoadSaveState {

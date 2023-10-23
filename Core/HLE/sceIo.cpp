@@ -341,7 +341,7 @@ static void IoAsyncCleanupThread(int fd) {
 }
 
 static int GetIOTimingMethod() {
-	if (PSP_CoreParameter().compat.flags().ForceUMDDelay) {
+	if (PSP_CoreParameter().compat.flags().ForceUMDDelay || PSP_CoreParameter().compat.flags().ForceUMDReadSpeed || g_Config.iIOTimingMethod == IOTIMING_UMDSLOWREALISTIC) {
 		return IOTIMING_REALISTIC;
 	} else {
 		return g_Config.iIOTimingMethod;
@@ -1586,7 +1586,7 @@ static u32 sceIoOpen(const char *filename, int flags, int mode) {
 		// UMD: Speed varies from 1-6ms.
 		// Card: Path depth matters, but typically between 10-13ms on a standard Pro Duo.
 		int delay;
-		if (PSP_CoreParameter().compat.flags().ForceUMDReadSpeed || g_Config.iIOTimingMethod == 3) {
+		if (PSP_CoreParameter().compat.flags().ForceUMDReadSpeed || g_Config.iIOTimingMethod == IOTIMING_UMDSLOWREALISTIC) {
 			delay = 500000;
 		}
 		else {
