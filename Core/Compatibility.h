@@ -103,7 +103,7 @@ struct CompatFlags {
 	bool SOCOMClut8Replacement;
 	bool Fontltn12Hack;
 	bool LoadCLUTFromCurrentFrameOnly;
-	bool UMDReadSpeed;
+	bool ForceUMDReadSpeed;
 };
 
 struct VRCompat {
