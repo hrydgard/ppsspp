@@ -29,6 +29,7 @@
 
 #include "Common/Log.h"
 #include "Common/TimeUtil.h"
+#include "Common/Data/Encoding/Utf8.h"
 
 #ifndef HTTPS_NOT_AVAILABLE
 #include "ext/naett/naett.h"
@@ -109,7 +110,7 @@ bool DNSResolve(const std::string &host, const std::string &service, addrinfo **
 
 	if (result != 0) {
 #ifdef _WIN32
-		error = gai_strerrorA(result);
+		error = ConvertWStringToUTF8(gai_strerror(result));
 #else
 		error = gai_strerror(result);
 #endif
