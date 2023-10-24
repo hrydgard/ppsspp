@@ -3,7 +3,7 @@
 
 [Languages]
 Name: "en"; MessagesFile: "compiler:Default.isl"
-Name: "ar"; MessagesFile: "compiler:Languages\Armenian.islu"
+Name: "ar"; MessagesFile: "compiler:Languages\Armenian.isl"
 Name: "br"; MessagesFile: "compiler:Languages\BrazilianPortuguese.isl"
 Name: "ca"; MessagesFile: "compiler:Languages\Catalan.isl"
 Name: "co"; MessagesFile: "compiler:Languages\Corsican.isl"
@@ -39,6 +39,14 @@ AppName={#ApplicationName}
 ; Installer - version
 VersionInfoVersion={#ApplicationVersion}
 
+; Detect system language
+LanguageDetectionMethod=uilanguage
+; Disable the language selection box (Avoids the invisible icon bug)
+ShowLanguageDialog=no
+
+; Sets a Bitmat image to the top right corner
+WizardSmallImageFile=ppsspp_small.bmp
+
 ; Programs and Features - Name
 AppVerName={#ApplicationName}
 ; Programs and Features - Version
@@ -55,7 +63,12 @@ AppUpdatesURL=https://www.ppsspp.org/downloads.html
 DefaultDirName={pf}\PPSSPP
 ; Since no icons will be created in "{group}", we don't need the wizard
 ; to ask for a Start Menu folder name:
-DisableProgramGroupPage=yes
+DisableProgramGroupPage=no
+DefaultGroupName={#ApplicationName}
+; Disable the install option in the start menu
+AllowNoIcons=yes
+; Sets the installer icon
+SetupIconFile=ppsspp.ico
 UninstallDisplayIcon={app}\PPSSPPWindows.exe
 ; Detect the correct directory for Program Files x86/64
 ArchitecturesInstallIn64BitMode=x64
