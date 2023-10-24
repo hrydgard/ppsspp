@@ -37,26 +37,10 @@ std::string IndentString(const std::string &str, const std::string &sep, bool sk
 
 // Other simple string utilities.
 
-// Optimized for string constants.
-inline bool startsWith(const std::string &str, const char *key) {
-	size_t keyLen = strlen(key);
-	if (str.size() < keyLen)
-		return false;
-	return !memcmp(str.data(), key, keyLen);
-}
-
-// Optimized for string views.
 inline bool startsWith(std::string_view str, std::string_view key) {
-	size_t keyLen = key.size();
-	if (str.size() < keyLen)
+	if (str.size() < key.size())
 		return false;
-	return !memcmp(str.data(), key.data(), keyLen);
-}
-
-inline bool startsWith(const std::string &str, const std::string &what) {
-	if (str.size() < what.size())
-		return false;
-	return str.substr(0, what.size()) == what;
+	return !memcmp(str.data(), key.data(), key.size());
 }
 
 inline bool endsWith(const std::string &str, const std::string &what) {
@@ -66,21 +50,23 @@ inline bool endsWith(const std::string &str, const std::string &what) {
 }
 
 // Only use on strings where you're only concerned about ASCII.
-inline bool startsWithNoCase(const std::string &str, const std::string &what) {
-	if (str.size() < what.size())
+inline bool startsWithNoCase(std::string_view str, std::string_view key) {
+	if (str.size() < key.size())
 		return false;
-	return strncasecmp(str.c_str(), what.c_str(), what.size()) == 0;
+	return strncasecmp(str.data(), key.data(), key.size()) == 0;
 }
 
-inline bool endsWithNoCase(const std::string &str, const std::string &what) {
-	if (str.size() < what.size())
+inline bool endsWithNoCase(std::string_view str, std::string_view key) {
+	if (str.size() < key.size())
 		return false;
-	const size_t offset = str.size() - what.size();
-	return strncasecmp(str.c_str() + offset, what.c_str(), what.size()) == 0;
+	const size_t offset = str.size() - key.size();
+	return strncasecmp(str.data() + offset, key.data(), key.size()) == 0;
 }
 
-inline bool equalsNoCase(const std::string &str, const char *what) {
-	return strcasecmp(str.c_str(), what) == 0;
+inline bool equalsNoCase(std::string_view str, std::string_view key) {
+	if (str.size() != key.size())
+		return false;
+	return strncasecmp(str.data(), key.data(), key.size()) == 0;
 }
 
 void DataToHexString(const uint8_t *data, size_t size, std::string *output);
