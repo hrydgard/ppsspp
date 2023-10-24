@@ -1587,7 +1587,7 @@ static u32 sceIoOpen(const char *filename, int flags, int mode) {
 		// Card: Path depth matters, but typically between 10-13ms on a standard Pro Duo.
 		int delay;
 		if (PSP_CoreParameter().compat.flags().ForceUMDReadSpeed || g_Config.iIOTimingMethod == IOTIMING_UMDSLOWREALISTIC) {
-			delay = 500000;
+			delay = 401000;
 		}
 		else {
 			delay = pspFileSystem.FlagsFromFilename(filename) & FileSystemFlags::UMD ? 4000 : 10000;
