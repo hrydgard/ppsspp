@@ -46,6 +46,7 @@ ShowLanguageDialog=no
 
 ; Sets a Bitmat image to the top right corner
 WizardSmallImageFile=ppsspp_small.bmp
+WizardImageFile=Classic.bmp
 
 ; Programs and Features - Name
 AppVerName={#ApplicationName}
@@ -78,6 +79,9 @@ OutputBaseFilename={#ApplicationName}_{#ApplicationVersion}_Setup
 ; ... in the same directory
 OutputDir=.
 
+[Tasks]
+Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
+
 [Files]
 Source: "PPSSPPWindows.exe"; DestDir: "{app}"
 Source: "PPSSPPWindows64.exe"; DestDir: "{app}"; Check: IsWin64
@@ -102,4 +106,5 @@ Filename: {app}\PPSSPPWindows64.exe; Description: {cm:LaunchProgram,{#Applicatio
 [Icons]
 Name: "{commonprograms}\PPSSPP"; Filename: "{app}\PPSSPPWindows.exe"; Check: not IsWin64
 Name: "{commonprograms}\PPSSPP"; Filename: "{app}\PPSSPPWindows64.exe"; Check: IsWin64
-
+Name: "{autodesktop}\PPSSPP"; Filename: "{app}\PPSSPPWindows.exe"; Tasks: desktopicon; Check: not IsWin64
+Name: "{autodesktop}\PPSSPP"; Filename: "{app}\PPSSPPWindows64.exe"; Tasks: desktopicon; Check: IsWin64
