@@ -323,14 +323,14 @@ void GameScreen::render() {
 			}
 			tvVerified_->SetVisibility(UI::V_VISIBLE);
 			if (found) {
-				tvVerified_->SetText(ga->T("Verified by the ReDump project"));
+				tvVerified_->SetText(ga->T("ISO OK according to the Redump project"));
 				tvVerified_->SetLevel(NoticeLevel::SUCCESS);
 			} else {
-				tvVerified_->SetText(ga->T("CRC does not match, bad or modified ISO"));
+				tvVerified_->SetText(ga->T("CRC checksum does not match, bad or modified ISO"));
 				tvVerified_->SetLevel(NoticeLevel::ERROR);
 			}
 		} else {
-			tvVerified_->SetText(ga->T("Game ID not in database"));
+			tvVerified_->SetText(ga->T("Game ID unknown - not in the Redump database"));
 			tvVerified_->SetVisibility(UI::V_VISIBLE);
 			tvVerified_->SetLevel(NoticeLevel::WARN);
 		}
@@ -339,7 +339,7 @@ void GameScreen::render() {
 		if (tvVerified_) {
 			std::vector<GameDBInfo> dbInfos;
 			if (!g_gameDB.GetGameInfos(info->id_version, &dbInfos)) {
-				tvVerified_->SetText(ga->T("Game ID not in database"));
+				tvVerified_->SetText(ga->T("Game ID unknown - not in the ReDump database"));
 				tvVerified_->SetVisibility(UI::V_VISIBLE);
 				tvVerified_->SetLevel(NoticeLevel::WARN);
 			} else if (info->gameSizeUncompressed != 0) {  // don't do this check if info still pending

@@ -7,7 +7,7 @@
 
 GameDB g_gameDB;
 
-void SplitCSVLine(const std::string_view str, const char delim, std::vector<std::string_view> &result) {
+static void SplitCSVLine(const std::string_view str, std::vector<std::string_view> &result) {
 	result.clear();
 
 	int indexCommaToLeftOfColumn = 0;
@@ -67,7 +67,7 @@ bool GameDB::LoadFromVFS(VFSInterface &vfs, const char *filename) {
 	// Split the string into views of each line, keeping the original.
 	std::vector<std::string_view> lines = splitSV(contents_, '\n', false);
 
-	SplitCSVLine(lines[0], ',', columns_);
+	SplitCSVLine(lines[0], columns_);
 
 	const size_t titleColumn = GetColumnIndex("Title");
 	const size_t foreignTitleColumn = GetColumnIndex("Foreign Title");
@@ -78,7 +78,7 @@ bool GameDB::LoadFromVFS(VFSInterface &vfs, const char *filename) {
 	std::vector<std::string_view> items;
 	for (size_t i = 1; i < lines.size(); i++) {
 		auto &lineString = lines[i];
-		SplitCSVLine(lineString, ',', items);
+		SplitCSVLine(lineString, items);
 		if (items.size() != columns_.size()) {
 			// Bad line
 			ERROR_LOG(SYSTEM, "Bad line in CSV file: %s", std::string(lineString).c_str());

@@ -88,5 +88,5 @@ private:
 	std::vector<Path> saveDirs;
 	std::string CRC32string;
 
-	bool isHomebrew_;
+	bool isHomebrew_ = false;
 };
