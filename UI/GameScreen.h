@@ -23,6 +23,8 @@
 #include "Common/UI/UIScreen.h"
 #include "Common/File/Path.h"
 
+class NoticeView;
+
 // Game screen: Allows you to start a game, delete saves, delete the game,
 // set game specific settings, etc.
 
@@ -72,6 +74,7 @@ private:
 	UI::TextView *tvRegion_ = nullptr;
 	UI::TextView *tvCRC_ = nullptr;
 	UI::TextView *tvID_ = nullptr;
+	NoticeView *tvVerified_ = nullptr;
 
 	UI::Choice *btnGameSettings_ = nullptr;
 	UI::Choice *btnCreateGameConfig_ = nullptr;
@@ -84,4 +87,6 @@ private:
 	std::vector<UI::Choice *> otherChoices_;
 	std::vector<Path> saveDirs;
 	std::string CRC32string;
+
+	bool isHomebrew_ = false;
 };

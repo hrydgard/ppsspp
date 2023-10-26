@@ -35,6 +35,8 @@
 #include "Core/Reporting.h"
 #include "Core/System.h"
 #include "Core/Loaders.h"
+#include "Core/Util/GameDB.h"
+#include "UI/OnScreenDisplay.h"
 #include "UI/CwCheatScreen.h"
 #include "UI/EmuScreen.h"
 #include "UI/GameScreen.h"
@@ -128,6 +130,8 @@ void GameScreen::CreateViews() {
 		tvCRC_ = infoLayout->Add(new TextView("", ALIGN_LEFT, true, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
 		tvCRC_->SetShadow(true);
 		tvCRC_->SetVisibility(Reporting::HasCRC(gamePath_) ? V_VISIBLE : V_GONE);
+		tvVerified_ = infoLayout->Add(new NoticeView(NoticeLevel::INFO, ga->T("Click Calculate CRC to verify"), "", new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
+		tvVerified_->SetVisibility(UI::V_GONE);
 	} else {
 		tvTitle_ = nullptr;
 		tvGameSize_ = nullptr;
@@ -203,8 +207,8 @@ void GameScreen::CreateViews() {
 		}
 	}
 
-	bool isHomebrew = info && info->region > GAMEREGION_MAX;
-	if (fileTypeSupportCRC && !isHomebrew && !Reporting::HasCRC(gamePath_) ) {
+	isHomebrew_ = info && info->region > GAMEREGION_MAX;
+	if (fileTypeSupportCRC && !isHomebrew_ && !Reporting::HasCRC(gamePath_) ) {
 		btnCalcCRC_ = rightColumnItems->Add(new ChoiceWithValueDisplay(&CRC32string, ga->T("Calculate CRC"), I18NCat::NONE));
 		btnCalcCRC_->OnClick.Handle(this, &GameScreen::OnDoCRC32);
 	} else {
@@ -262,16 +266,16 @@ void GameScreen::render() {
 
 	Draw::DrawContext *thin3d = screenManager()->getDrawContext();
 
-	std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(thin3d, gamePath_, GAMEINFO_WANTBG | GAMEINFO_WANTSIZE);
+	std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(thin3d, gamePath_, GAMEINFO_WANTBG | GAMEINFO_WANTSIZE | GAMEINFO_WANTUNCOMPRESSEDSIZE);
 
 	if (tvTitle_) {
 		tvTitle_->SetText(info->GetTitle());
 	}
 
-	if (info->gameSize) {
+	if (info->gameSizeOnDisk) {
 		char temp[256];
 		if (tvGameSize_) {
-			snprintf(temp, sizeof(temp), "%s: %1.1f %s", ga->T("Game"), (float)(info->gameSize) / 1024.f / 1024.f, ga->T("MB"));
+			snprintf(temp, sizeof(temp), "%s: %1.1f %s", ga->T("Game"), (float)(info->gameSizeOnDisk) / 1024.f / 1024.f, ga->T("MB"));
 			tvGameSize_->SetText(temp);
 		}
 		if (tvSaveDataSize_) {
@@ -303,9 +307,60 @@ void GameScreen::render() {
 
 	if (tvCRC_ && Reporting::HasCRC(gamePath_)) {
 		auto rp = GetI18NCategory(I18NCat::REPORTING);
-		std::string crc = StringFromFormat("%08X", Reporting::RetrieveCRC(gamePath_));
+		uint32_t crcVal = Reporting::RetrieveCRC(gamePath_);
+		std::string crc = StringFromFormat("%08X", crcVal);
 		tvCRC_->SetText(ReplaceAll(rp->T("FeedbackCRCValue", "Disc CRC: %1"), "%1", crc));
 		tvCRC_->SetVisibility(UI::V_VISIBLE);
+
+		// Let's check the CRC in the game database, looking up the ID and also matching the crc.
+		std::vector<GameDBInfo> dbInfos;
+		if (tvVerified_ && g_gameDB.GetGameInfos(info->id_version, &dbInfos)) {
+			bool found = false;
+			for (auto &dbInfo : dbInfos) {
+				if (dbInfo.crc == crcVal) {
+					found = true;
+				}
+			}
+			tvVerified_->SetVisibility(UI::V_VISIBLE);
+			if (found) {
+				tvVerified_->SetText(ga->T("ISO OK according to the Redump project"));
+				tvVerified_->SetLevel(NoticeLevel::SUCCESS);
+			} else {
+				tvVerified_->SetText(ga->T("CRC checksum does not match, bad or modified ISO"));
+				tvVerified_->SetLevel(NoticeLevel::ERROR);
+			}
+		} else {
+			tvVerified_->SetText(ga->T("Game ID unknown - not in the Redump database"));
+			tvVerified_->SetVisibility(UI::V_VISIBLE);
+			tvVerified_->SetLevel(NoticeLevel::WARN);
+		}
+	} else if (!isHomebrew_) {
+		GameDBInfo dbInfo;
+		if (tvVerified_) {
+			std::vector<GameDBInfo> dbInfos;
+			if (!g_gameDB.GetGameInfos(info->id_version, &dbInfos)) {
+				tvVerified_->SetText(ga->T("Game ID unknown - not in the ReDump database"));
+				tvVerified_->SetVisibility(UI::V_VISIBLE);
+				tvVerified_->SetLevel(NoticeLevel::WARN);
+			} else if (info->gameSizeUncompressed != 0) {  // don't do this check if info still pending
+				bool found = false;
+				for (auto &dbInfo : dbInfos) {
+					// TODO: Doesn't take CSO/CHD into account.
+					if (info->gameSizeUncompressed == dbInfo.size) {
+						found = true;
+					}
+				}
+				if (!found) {
+					tvVerified_->SetText(ga->T("File size incorrect, bad or modified ISO"));
+					tvVerified_->SetVisibility(UI::V_VISIBLE);
+					tvVerified_->SetLevel(NoticeLevel::ERROR);
+				} else {
+					tvVerified_->SetText(ga->T("Click \"Calculate CRC\" to verify ISO"));
+					tvVerified_->SetVisibility(UI::V_VISIBLE);
+					tvVerified_->SetLevel(NoticeLevel::INFO);
+				}
+			}
+		}
 	}
 
 	if (tvID_) {

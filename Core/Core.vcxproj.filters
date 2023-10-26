@@ -1297,6 +1297,9 @@
     <ClCompile Include="MIPS\ARM64\Arm64IRCompFPU.cpp">
       <Filter>MIPS\ARM64</Filter>
     </ClCompile>
+    <ClCompile Include="Util\GameDB.cpp">
+      <Filter>Util</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ELF\ElfReader.h">
@@ -2069,6 +2072,9 @@
     </ClInclude>
     <ClInclude Include="MIPS\ARM64\Arm64IRRegCache.h">
       <Filter>MIPS\ARM64</Filter>
+    </ClInclude>
+    <ClInclude Include="Util\GameDB.h">
+      <Filter>Util</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

@@ -2265,6 +2265,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/Util/AudioFormat.h
 	Core/Util/GameManager.cpp
 	Core/Util/GameManager.h
+	Core/Util/GameDB.cpp
+	Core/Util/GameDB.h
 	Core/Util/PortManager.cpp
 	Core/Util/PortManager.h
 	Core/Util/BlockAllocator.cpp

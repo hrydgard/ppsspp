@@ -109,7 +109,7 @@ public:
 			LinearLayout *topright = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT, 1.0f));
 			topright->SetSpacing(1.0f);
 			topright->Add(new TextView(savedata_title, ALIGN_LEFT | FLAG_WRAP_TEXT, false))->SetTextColor(textStyle.fgColor);
-			topright->Add(new TextView(StringFromFormat("%lld kB", ginfo->gameSize / 1024), 0, true))->SetTextColor(textStyle.fgColor);
+			topright->Add(new TextView(StringFromFormat("%lld kB", ginfo->gameSizeOnDisk / 1024), 0, true))->SetTextColor(textStyle.fgColor);
 			topright->Add(new TextView(GetFileDateAsString(savePath_ / "PARAM.SFO"), 0, true))->SetTextColor(textStyle.fgColor);
 			toprow->Add(topright);
 			content->Add(new Spacer(3.0));
@@ -287,9 +287,9 @@ void SavedataButton::UpdateText(const std::shared_ptr<GameInfo> &ginfo) {
 	if (!currentTitle.empty()) {
 		title_ = CleanSaveString(currentTitle);
 	}
-	if (subtitle_.empty() && ginfo->gameSize > 0) {
+	if (subtitle_.empty() && ginfo->gameSizeOnDisk > 0) {
 		std::string savedata_title = ginfo->paramSFO.GetValueString("SAVEDATA_TITLE");
-		subtitle_ = CleanSaveString(savedata_title) + StringFromFormat(" (%lld kB)", ginfo->gameSize / 1024);
+		subtitle_ = CleanSaveString(savedata_title) + StringFromFormat(" (%lld kB)", ginfo->gameSizeOnDisk / 1024);
 	}
 }
 
