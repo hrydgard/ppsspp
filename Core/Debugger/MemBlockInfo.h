@@ -27,7 +27,7 @@ class PointerWrap;
 
 static constexpr uint32_t MEMINFO_MIN_SIZE = 0x100;
 
-enum class MemBlockFlags {
+enum class MemBlockFlags : uint32_t {
 	ALLOC = 0x0001,
 	SUB_ALLOC = 0x0002,
 	WRITE = 0x0004,
@@ -53,7 +53,12 @@ struct MemBlockInfo {
 
 void NotifyMemInfo(MemBlockFlags flags, uint32_t start, uint32_t size, const char *tag, size_t tagLength);
 void NotifyMemInfoPC(MemBlockFlags flags, uint32_t start, uint32_t size, uint32_t pc, const char *tag, size_t tagLength);
-void NotifyMemInfoCopy(uint32_t destPtr, uint32_t srcPtr, uint32_t size, const char *prefix);
+void NotifyMemInfoCopy(uint32_t destPtr, uint32_t srcPtr, uint32_t size, const char *prefix, size_t prefixLen);
+template<size_t Count>
+inline void NotifyMemInfoCopy(uint32_t destPtr, uint32_t srcPtr, uint32_t size, const char (&prefix)[Count]) {
+	NotifyMemInfoCopy(destPtr, srcPtr, size, prefix, Count);
+}
+
 
 // This lets us avoid calling strlen on string constants, instead the string length (including null,
 // so we have to subtract 1) is computed at compile time.
@@ -69,7 +74,11 @@ inline void NotifyMemInfo(MemBlockFlags flags, uint32_t start, uint32_t size, co
 std::vector<MemBlockInfo> FindMemInfo(uint32_t start, uint32_t size);
 std::vector<MemBlockInfo> FindMemInfoByFlag(MemBlockFlags flags, uint32_t start, uint32_t size);
 
-size_t FormatMemWriteTagAt(char *buf, size_t sz, const char *prefix, uint32_t start, uint32_t size);
+size_t FormatMemWriteTagAt(char *buf, size_t sz, const char *prefix, size_t prefixLen, uint32_t start, uint32_t size);
+template<size_t Count>
+inline size_t FormatMemWriteTagAt(char *buf, size_t sz, const char(&prefix)[Count], uint32_t start, uint32_t size) {
+	return FormatMemWriteTagAt(buf, sz, prefix, Count, start, size);
+}
 
 void MemBlockInfoInit();
 void MemBlockInfoShutdown();

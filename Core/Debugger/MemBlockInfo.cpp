@@ -37,10 +37,10 @@ public:
 	MemSlabMap();
 	~MemSlabMap();
 
-	bool Mark(uint32_t addr, uint32_t size, uint64_t ticks, uint32_t pc, bool allocated, const char *tag);
+	bool Mark(uint32_t addr, uint32_t size, uint64_t ticks, uint32_t pc, bool allocated, const char *tag, size_t tagLen);
 	bool Find(MemBlockFlags flags, uint32_t addr, uint32_t size, std::vector<MemBlockInfo> &results);
 	// Note that the returned pointer gets invalidated as soon as Mark is called.
-	const char *FastFindWriteTag(MemBlockFlags flags, uint32_t addr, uint32_t size);
+	const char *FastFindWriteTag(MemBlockFlags flags, uint32_t addr, uint32_t size, size_t *tagLen);
 	void Reset();
 	void DoState(PointerWrap &p);
 
@@ -53,6 +53,7 @@ private:
 		bool allocated = false;
 		// Intentionally not save stated.
 		bool bulkStorage = false;
+		uint8_t tagLen;
 		char tag[128]{};
 		Slab *prev = nullptr;
 		Slab *next = nullptr;
@@ -86,7 +87,8 @@ struct PendingNotifyMem {
 	uint32_t copySrc;
 	uint64_t ticks;
 	uint32_t pc;
-	char tag[128];
+	uint8_t tagLen;
+	char tag[127];
 };
 
 // 160 KB.
@@ -120,7 +122,7 @@ MemSlabMap::~MemSlabMap() {
 	Clear();
 }
 
-bool MemSlabMap::Mark(uint32_t addr, uint32_t size, uint64_t ticks, uint32_t pc, bool allocated, const char *tag) {
+bool MemSlabMap::Mark(uint32_t addr, uint32_t size, uint64_t ticks, uint32_t pc, bool allocated, const char *tag, size_t tagLen) {
 	uint32_t end = addr + size;
 	Slab *slab = FindSlab(addr);
 	Slab *firstMatch = nullptr;
@@ -138,7 +140,7 @@ bool MemSlabMap::Mark(uint32_t addr, uint32_t size, uint64_t ticks, uint32_t pc,
 			slab->pc = pc;
 		}
 		if (tag)
-			truncate_cpy(slab->tag, tag);
+			truncate_cpy_len(slab->tag, tag, tagLen);
 
 		// Move on to the next one.
 		if (firstMatch == nullptr)
@@ -168,11 +170,12 @@ bool MemSlabMap::Find(MemBlockFlags flags, uint32_t addr, uint32_t size, std::ve
 	return found;
 }
 
-const char *MemSlabMap::FastFindWriteTag(MemBlockFlags flags, uint32_t addr, uint32_t size) {
+const char *MemSlabMap::FastFindWriteTag(MemBlockFlags flags, uint32_t addr, uint32_t size, size_t *tagLen) {
 	uint32_t end = addr + size;
 	Slab *slab = FindSlab(addr);
 	while (slab != nullptr && slab->start < end) {
 		if (slab->pc != 0 || slab->tag[0] != '\0') {
+			*tagLen = slab->tagLen;
 			return slab->tag;
 		}
 		slab = slab->next;
@@ -395,7 +398,7 @@ void MemSlabMap::FillHeads(Slab *slab) {
 	}
 }
 
-size_t FormatMemWriteTagAtNoFlush(char *buf, size_t sz, const char *prefix, uint32_t start, uint32_t size);
+size_t FormatMemWriteTagAtNoFlush(char *buf, size_t sz, const char *prefix, size_t prefixLen, uint32_t start, uint32_t size);
 
 void FlushPendingMemInfo() {
 	// This lock prevents us from another thread reading while we're busy flushing.
@@ -416,29 +419,29 @@ void FlushPendingMemInfo() {
 	for (const auto &info : thisBatch) {
 		if (info.copySrc != 0) {
 			char tagData[128];
-			size_t tagSize = FormatMemWriteTagAtNoFlush(tagData, sizeof(tagData), info.tag, info.copySrc, info.size);
-			writeMap.Mark(info.start, info.size, info.ticks, info.pc, true, tagData);
+			size_t tagSize = FormatMemWriteTagAtNoFlush(tagData, sizeof(tagData), info.tag, info.tagLen, info.copySrc, info.size);
+			writeMap.Mark(info.start, info.size, info.ticks, info.pc, true, tagData, tagSize);
 			continue;
 		}
 
 		if (info.flags & MemBlockFlags::ALLOC) {
-			allocMap.Mark(info.start, info.size, info.ticks, info.pc, true, info.tag);
+			allocMap.Mark(info.start, info.size, info.ticks, info.pc, true, info.tag, info.tagLen);
 		} else if (info.flags & MemBlockFlags::FREE) {
 			// Maintain the previous allocation tag for debugging.
-			allocMap.Mark(info.start, info.size, info.ticks, 0, false, nullptr);
-			suballocMap.Mark(info.start, info.size, info.ticks, 0, false, nullptr);
+			allocMap.Mark(info.start, info.size, info.ticks, 0, false, nullptr, 0);
+			suballocMap.Mark(info.start, info.size, info.ticks, 0, false, nullptr, 0);
 		}
 		if (info.flags & MemBlockFlags::SUB_ALLOC) {
-			suballocMap.Mark(info.start, info.size, info.ticks, info.pc, true, info.tag);
+			suballocMap.Mark(info.start, info.size, info.ticks, info.pc, true, info.tag, info.tagLen);
 		} else if (info.flags & MemBlockFlags::SUB_FREE) {
 			// Maintain the previous allocation tag for debugging.
-			suballocMap.Mark(info.start, info.size, info.ticks, 0, false, nullptr);
+			suballocMap.Mark(info.start, info.size, info.ticks, 0, false, nullptr, 0);
 		}
 		if (info.flags & MemBlockFlags::TEXTURE) {
-			textureMap.Mark(info.start, info.size, info.ticks, info.pc, true, info.tag);
+			textureMap.Mark(info.start, info.size, info.ticks, info.pc, true, info.tag, info.tagLen);
 		}
 		if (info.flags & MemBlockFlags::WRITE) {
-			writeMap.Mark(info.start, info.size, info.ticks, info.pc, true, info.tag);
+			writeMap.Mark(info.start, info.size, info.ticks, info.pc, true, info.tag, info.tagLen);
 		}
 	}
 }
@@ -498,6 +501,7 @@ void NotifyMemInfoPC(MemBlockFlags flags, uint32_t start, uint32_t size, uint32_
 		}
 		memcpy(info.tag, tagStr, copyLength);
 		info.tag[copyLength] = 0;
+		info.tagLen = (uint8_t)copyLength;
 
 		std::lock_guard<std::mutex> guard(pendingWriteMutex);
 		// Sometimes we get duplicates, quickly check.
@@ -535,7 +539,7 @@ void NotifyMemInfo(MemBlockFlags flags, uint32_t start, uint32_t size, const cha
 	NotifyMemInfoPC(flags, start, size, currentMIPS->pc, str, strLength);
 }
 
-void NotifyMemInfoCopy(uint32_t destPtr, uint32_t srcPtr, uint32_t size, const char *prefix) {
+void NotifyMemInfoCopy(uint32_t destPtr, uint32_t srcPtr, uint32_t size, const char *prefix, size_t prefixLen) {
 	if (size == 0)
 		return;
 
@@ -543,7 +547,7 @@ void NotifyMemInfoCopy(uint32_t destPtr, uint32_t srcPtr, uint32_t size, const c
 	if (CBreakPoints::HasMemChecks()) {
 		// This will cause a flush, but it's needed to trigger memchecks with proper data.
 		char tagData[128];
-		size_t tagSize = FormatMemWriteTagAt(tagData, sizeof(tagData), prefix, srcPtr, size);
+		size_t tagSize = FormatMemWriteTagAt(tagData, sizeof(tagData), prefix, prefixLen, srcPtr, size);
 		NotifyMemInfo(MemBlockFlags::READ, srcPtr, size, tagData, tagSize);
 		NotifyMemInfo(MemBlockFlags::WRITE, destPtr, size, tagData, tagSize);
 	} else if (MemBlockInfoDetailed(size)) {
@@ -615,7 +619,7 @@ std::vector<MemBlockInfo> FindMemInfoByFlag(MemBlockFlags flags, uint32_t start,
 	return results;
 }
 
-static const char *FindWriteTagByFlag(MemBlockFlags flags, uint32_t start, uint32_t size, bool flush = true) {
+static const char *FindWriteTagByFlag(MemBlockFlags flags, uint32_t start, uint32_t size, size_t *tagLen, bool flush = true) {
 	start = NormalizeAddress(start);
 
 	if (flush) {
@@ -626,50 +630,53 @@ static const char *FindWriteTagByFlag(MemBlockFlags flags, uint32_t start, uint3
 	}
 
 	if (flags & MemBlockFlags::ALLOC) {
-		const char *tag = allocMap.FastFindWriteTag(MemBlockFlags::ALLOC, start, size);
+		const char *tag = allocMap.FastFindWriteTag(MemBlockFlags::ALLOC, start, size, tagLen);
 		if (tag)
 			return tag;
 	}
 	if (flags & MemBlockFlags::SUB_ALLOC) {
-		const char *tag = suballocMap.FastFindWriteTag(MemBlockFlags::SUB_ALLOC, start, size);
+		const char *tag = suballocMap.FastFindWriteTag(MemBlockFlags::SUB_ALLOC, start, size, tagLen);
 		if (tag)
 			return tag;
 	}
 	if (flags & MemBlockFlags::WRITE) {
-		const char *tag = writeMap.FastFindWriteTag(MemBlockFlags::WRITE, start, size);
+		const char *tag = writeMap.FastFindWriteTag(MemBlockFlags::WRITE, start, size, tagLen);
 		if (tag)
 			return tag;
 	}
 	if (flags & MemBlockFlags::TEXTURE) {
-		const char *tag = textureMap.FastFindWriteTag(MemBlockFlags::TEXTURE, start, size);
+		const char *tag = textureMap.FastFindWriteTag(MemBlockFlags::TEXTURE, start, size, tagLen);
 		if (tag)
 			return tag;
 	}
+	*tagLen = 0;
 	return nullptr;
 }
 
-size_t FormatMemWriteTagAt(char *buf, size_t sz, const char *prefix, uint32_t start, uint32_t size) {
-	const char *tag = FindWriteTagByFlag(MemBlockFlags::WRITE, start, size);
+size_t FormatMemWriteTagAt(char *buf, size_t sz, const char *prefix, size_t prefixLen, uint32_t start, uint32_t size) {
+	size_t tagLen;
+	const char *tag = FindWriteTagByFlag(MemBlockFlags::WRITE, start, size, &tagLen);
 	if (tag && strcmp(tag, "MemInit") != 0) {
-		return snprintf(buf, sz, "%s%s", prefix, tag);
+		return truncate_cat(buf, sz, prefix, prefixLen, tag, tagLen);
 	}
 	// Fall back to alloc and texture, especially for VRAM.  We prefer write above.
-	tag = FindWriteTagByFlag(MemBlockFlags::ALLOC | MemBlockFlags::TEXTURE, start, size);
+	tag = FindWriteTagByFlag(MemBlockFlags::ALLOC | MemBlockFlags::TEXTURE, start, size, &tagLen);
 	if (tag) {
-		return snprintf(buf, sz, "%s%s", prefix, tag);
+		return truncate_cat(buf, sz, prefix, prefixLen, tag, tagLen);
 	}
 	return snprintf(buf, sz, "%s%08x_size_%08x", prefix, start, size);
 }
 
-size_t FormatMemWriteTagAtNoFlush(char *buf, size_t sz, const char *prefix, uint32_t start, uint32_t size) {
-	const char *tag = FindWriteTagByFlag(MemBlockFlags::WRITE, start, size, false);
+size_t FormatMemWriteTagAtNoFlush(char *buf, size_t sz, const char *prefix, size_t prefixLen, uint32_t start, uint32_t size) {
+	size_t tagLen;
+	const char *tag = FindWriteTagByFlag(MemBlockFlags::WRITE, start, size, &tagLen, false);
 	if (tag && strcmp(tag, "MemInit") != 0) {
-		return snprintf(buf, sz, "%s%s", prefix, tag);
+		return truncate_cat(buf, sz, prefix, prefixLen, tag, tagLen);
 	}
 	// Fall back to alloc and texture, especially for VRAM.  We prefer write above.
-	tag = FindWriteTagByFlag(MemBlockFlags::ALLOC | MemBlockFlags::TEXTURE, start, size, false);
+	tag = FindWriteTagByFlag(MemBlockFlags::ALLOC | MemBlockFlags::TEXTURE, start, size, &tagLen, false);
 	if (tag) {
-		return snprintf(buf, sz, "%s%s", prefix, tag);
+		return truncate_cat(buf, sz, prefix, prefixLen, tag, tagLen);
 	}
 	return snprintf(buf, sz, "%s%08x_size_%08x", prefix, start, size);
 }
