@@ -70,7 +70,7 @@ inline void Memcpy(const u32 to_address, const u32 from_address, const u32 len, 
 
 	if (MemBlockInfoDetailed(len)) {
 		if (!tag) {
-			NotifyMemInfoCopy(to_address, from_address, len, "Memcpy/");
+			NotifyMemInfoCopy(to_address, from_address, len, "Memcpy/", 7);
 		} else {
 			NotifyMemInfo(MemBlockFlags::READ, from_address, len, tag, tagLen);
 			NotifyMemInfo(MemBlockFlags::WRITE, to_address, len, tag, tagLen);

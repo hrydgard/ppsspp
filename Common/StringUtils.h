@@ -126,11 +126,14 @@ std::string UnescapeMenuString(std::string_view input, char *shortcutChar);
 void SkipSpace(const char **ptr);
 
 size_t truncate_cpy(char *dest, size_t destSize, const char *src);
+
 template<size_t Count>
 inline size_t truncate_cpy(char(&out)[Count], const char *src) {
 	return truncate_cpy(out, Count, src);
 }
+
 size_t truncate_cpy(char *dest, size_t destSize, std::string_view src);
+
 template<size_t Count>
 inline size_t truncate_cpy(char(&out)[Count], std::string_view src) {
 	return truncate_cpy(out, Count, src);
@@ -151,6 +154,38 @@ inline std::string join(std::string_view a, std::string_view b) {
 
 inline const char *safe_string(const char *s) {
 	return s ? s : "(null)";
+}
+
+template<size_t Count>
+inline size_t truncate_cpy_len(char(&out)[Count], const char *src, size_t srcLen) {
+	if (srcLen >= Count) {
+		memcpy(out, src, Count - 1);
+		out[Count - 1] = '\0';
+		return Count - 1;
+	} else {
+		memcpy(out, src, srcLen);
+		out[srcLen] = '\0';
+		return srcLen;
+	}
+}
+
+inline size_t truncate_cat(char *out, size_t outLen, const char *src1, size_t src1Len, const char *src2, size_t src2Len) {
+	if (src1Len >= outLen) {
+		memcpy(out, src1, outLen);
+		out[outLen - 1] = '\0';
+		return outLen - 1;
+	}
+	memcpy(out, src1, src1Len);
+	size_t pos = src1Len;
+	size_t remaining = outLen - src1Len;
+	if (src2Len >= remaining) {
+		memcpy(out + pos, src2, remaining);
+		out[outLen - 1] = '\0';
+		return outLen - 1;
+	}
+	memcpy(out + pos, src2, src2Len);
+	out[pos + src2Len] = '\0';
+	return src1Len + src2Len;
 }
 
 long parseHexLong(const std::string &s);

@@ -16,7 +16,21 @@ Ignore the folder ai_instructions in the root directory, it's old stuff from con
 
 ## Build and Validation
 
-To verify that things build on Linux/Mac, use ./b.sh --debug. For Windows, use the Visual Studio solution in the Windows subdirectory.
+To verify that things build on Linux/Mac, use ./b.sh --debug. For Windows, use the Visual Studio solution in the Windows subdirectory
+(`Windows/PPSSPP.sln`) - always build through it, even if a stray CMake-generated `build/` directory exists at the repo root (e.g.
+left over from WSL/MSYS2 experimentation); that directory is not the supported Windows build path and may not have a working
+compiler toolchain wired up.
+
+An agent can drive the VS solution non-interactively with `MSBuild.exe` instead of opening the `devenv` GUI. Locate it via
+`vswhere.exe` (same tool/gotchas as described in the libretro section below) and build a specific project with `/t:`, e.g.:
+
+```powershell
+$installPath = & "C:\Program Files (x86)\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationPath
+$msbuild = "$installPath\MSBuild\Current\Bin\MSBuild.exe"
+& $msbuild "Windows\PPSSPP.sln" /t:UnitTest /p:Configuration=Debug /p:Platform=x64 /m
+```
+
+(swap `/t:UnitTest` for `/t:PPSSPPWindows` or another project name as needed; drop it entirely to build the whole solution).
 
 In addition to the pspautotests runner (test.py), there is a separate binary with C++ unit tests
 in the /unittest subdirectory. After substantial changes (at the end of a chunk of work, not
