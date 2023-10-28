@@ -130,7 +130,7 @@ void GameScreen::CreateViews() {
 		tvCRC_ = infoLayout->Add(new TextView("", ALIGN_LEFT, true, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
 		tvCRC_->SetShadow(true);
 		tvCRC_->SetVisibility(Reporting::HasCRC(gamePath_) ? V_VISIBLE : V_GONE);
-		tvVerified_ = infoLayout->Add(new NoticeView(NoticeLevel::INFO, ga->T("Click Calculate CRC to verify"), "", new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
+		tvVerified_ = infoLayout->Add(new NoticeView(NoticeLevel::INFO, ga->T("Click \"Calculate CRC\" to verify ISO"), "", new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
 		tvVerified_->SetVisibility(UI::V_GONE);
 	} else {
 		tvTitle_ = nullptr;
