@@ -341,7 +341,7 @@ static void IoAsyncCleanupThread(int fd) {
 }
 
 static int GetIOTimingMethod() {
-	if (PSP_CoreParameter().compat.flags().ForceUMDDelay || PSP_CoreParameter().compat.flags().ForceUMDReadSpeed || g_Config.iIOTimingMethod == IOTIMING_UMDSLOWREALISTIC) {
+	if (PSP_CoreParameter().compat.flags().ForceUMDDelay) {
 		return IOTIMING_REALISTIC;
 	} else {
 		return g_Config.iIOTimingMethod;
@@ -1037,7 +1037,14 @@ static u32 npdrmRead(FileNode *f, u8 *data, int size) {
 static bool __IoRead(int &result, int id, u32 data_addr, int size, int &us) {
 	PROFILE_THIS_SCOPE("io_rw");
 	// Low estimate, may be improved later from the ReadFile result.
-	us = size / 100;
+
+	if (PSP_CoreParameter().compat.flags().ForceUMDReadSpeed || g_Config.iIOTimingMethod == IOTIMING_UMDSLOWREALISTIC) {
+		us = size / 4.2;
+	}
+	else {
+		us = size / 100;
+	}
+
 	if (us < 100) {
 		us = 100;
 	}
@@ -1129,7 +1136,7 @@ static u32 sceIoRead(int id, u32 data_addr, int size) {
 
 	int result;
 	int us;
-	bool complete = __IoRead(result, id, data_addr, size, us);
+	bool complete = __IoRead(result, id, data_addr, size, us);	
 	if (!complete) {
 		DEBUG_LOG(SCEIO, "sceIoRead(%d, %08x, %x): deferring result", id, data_addr, size);
 
@@ -1585,13 +1592,7 @@ static u32 sceIoOpen(const char *filename, int flags, int mode) {
 		}
 		// UMD: Speed varies from 1-6ms.
 		// Card: Path depth matters, but typically between 10-13ms on a standard Pro Duo.
-		int delay;
-		if (PSP_CoreParameter().compat.flags().ForceUMDReadSpeed || g_Config.iIOTimingMethod == IOTIMING_UMDSLOWREALISTIC) {
-			delay = 401000;
-		}
-		else {
-			delay = pspFileSystem.FlagsFromFilename(filename) & FileSystemFlags::UMD ? 4000 : 10000;
-		}
+		int delay = pspFileSystem.FlagsFromFilename(filename) & FileSystemFlags::UMD ? 4000 : 10000;
 		return hleLogSuccessI(SCEIO, hleDelayResult(id, "file opened", delay));
 	}
 }
