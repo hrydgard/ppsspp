@@ -1136,7 +1136,7 @@ static u32 sceIoRead(int id, u32 data_addr, int size) {
 
 	int result;
 	int us;
-	bool complete = __IoRead(result, id, data_addr, size, us);	
+	bool complete = __IoRead(result, id, data_addr, size, us);
 	if (!complete) {
 		DEBUG_LOG(SCEIO, "sceIoRead(%d, %08x, %x): deferring result", id, data_addr, size);
 
