@@ -1,5 +1,6 @@
 #include <thread>
 #include <vector>
+#include <cstdio>
 
 #include "Common/Log.h"
 #include "Common/TimeUtil.h"
