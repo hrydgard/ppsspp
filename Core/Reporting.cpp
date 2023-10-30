@@ -24,12 +24,19 @@
 #include <cstdlib>
 #include <cstdarg>
 
+// for crc32
+extern "C" {
+#include "zlib.h"
+}
+
 #include "Core/Reporting.h"
 #include "Common/File/VFS/VFS.h"
 #include "Common/CPUDetect.h"
 #include "Common/File/FileUtil.h"
 #include "Common/Serialize/SerializeFuncs.h"
 #include "Common/StringUtils.h"
+#include "Common/System/OSD.h"
+#include "Common/Data/Text/I18n.h"
 #include "Core/Core.h"
 #include "Core/CoreTiming.h"
 #include "Core/Config.h"
@@ -108,6 +115,31 @@ namespace Reporting
 	static volatile bool crcCancel = false;
 	static std::thread crcThread;
 
+	static u32 CalculateCRC(BlockDevice *blockDevice, volatile bool *cancel) {
+		auto ga = GetI18NCategory(I18NCat::GAME);
+
+		u32 crc = crc32(0, Z_NULL, 0);
+
+		u8 block[2048];
+		u32 numBlocks = blockDevice->GetNumBlocks();
+		for (u32 i = 0; i < numBlocks; ++i) {
+			if (cancel && *cancel) {
+				g_OSD.RemoveProgressBar("crc", false, 0.0f);
+				return 0;
+			}
+			if (!blockDevice->ReadBlock(i, block, true)) {
+				ERROR_LOG(FILESYS, "Failed to read block for CRC");
+				g_OSD.RemoveProgressBar("crc", false, 0.0f);
+				return 0;
+			}
+			crc = crc32(crc, block, 2048);
+			g_OSD.SetProgressBar("crc", std::string(ga->T("Calculate CRC")), 0.0f, (float)numBlocks, (float)i, 0.5f);
+		}
+
+		g_OSD.RemoveProgressBar("crc", true, 0.0f);
+		return crc;
+	}
+
 	static int CalculateCRCThread() {
 		SetCurrentThreadName("ReportCRC");
 
@@ -118,7 +150,7 @@ namespace Reporting
 
 		u32 crc = 0;
 		if (blockDevice) {
-			crc = blockDevice->CalculateCRC(&crcCancel);
+			crc = CalculateCRC(blockDevice, &crcCancel);
 		}
 
 		delete blockDevice;
@@ -128,6 +160,7 @@ namespace Reporting
 		crcResults[crcFilename] = crc;
 		crcPending = false;
 		crcCond.notify_one();
+		
 		return 0;
 	}
 

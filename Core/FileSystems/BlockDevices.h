@@ -51,7 +51,6 @@ public:
 	}
 	virtual bool IsDisc() const = 0;
 
-	u32 CalculateCRC(volatile bool *cancel = nullptr);
 	void NotifyReadError();
 
 protected:
