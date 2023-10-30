@@ -321,27 +321,28 @@ void GameScreen::render() {
 					found = true;
 				}
 			}
-			tvVerified_->SetVisibility(UI::V_VISIBLE);
 			if (found) {
 				tvVerified_->SetText(ga->T("ISO OK according to the Redump project"));
 				tvVerified_->SetLevel(NoticeLevel::SUCCESS);
+				tvVerified_->SetVisibility(UI::V_VISIBLE);
 			} else {
-				tvVerified_->SetText(ga->T("CRC checksum does not match, bad or modified ISO"));
-				tvVerified_->SetLevel(NoticeLevel::ERROR);
+				// Like the other messages below, disabled until we have a database we have confidence in.
+				// tvVerified_->SetText(ga->T("CRC checksum does not match, bad or modified ISO"));
+				// tvVerified_->SetLevel(NoticeLevel::ERROR);
 			}
 		} else {
-			tvVerified_->SetText(ga->T("Game ID unknown - not in the Redump database"));
-			tvVerified_->SetVisibility(UI::V_VISIBLE);
-			tvVerified_->SetLevel(NoticeLevel::WARN);
+			// tvVerified_->SetText(ga->T("Game ID unknown - not in the Redump database"));
+			// tvVerified_->SetVisibility(UI::V_VISIBLE);
+			// tvVerified_->SetLevel(NoticeLevel::WARN);
 		}
 	} else if (!isHomebrew_) {
 		GameDBInfo dbInfo;
 		if (tvVerified_) {
 			std::vector<GameDBInfo> dbInfos;
 			if (!g_gameDB.GetGameInfos(info->id_version, &dbInfos)) {
-				tvVerified_->SetText(ga->T("Game ID unknown - not in the ReDump database"));
-				tvVerified_->SetVisibility(UI::V_VISIBLE);
-				tvVerified_->SetLevel(NoticeLevel::WARN);
+				// tvVerified_->SetText(ga->T("Game ID unknown - not in the ReDump database"));
+				// tvVerified_->SetVisibility(UI::V_VISIBLE);
+				// tvVerified_->SetLevel(NoticeLevel::WARN);
 			} else if (info->gameSizeUncompressed != 0) {  // don't do this check if info still pending
 				bool found = false;
 				for (auto &dbInfo : dbInfos) {
@@ -351,9 +352,9 @@ void GameScreen::render() {
 					}
 				}
 				if (!found) {
-					tvVerified_->SetText(ga->T("File size incorrect, bad or modified ISO"));
-					tvVerified_->SetVisibility(UI::V_VISIBLE);
-					tvVerified_->SetLevel(NoticeLevel::ERROR);
+					// tvVerified_->SetText(ga->T("File size incorrect, bad or modified ISO"));
+					// tvVerified_->SetVisibility(UI::V_VISIBLE);
+					// tvVerified_->SetLevel(NoticeLevel::ERROR);
 				} else {
 					tvVerified_->SetText(ga->T("Click \"Calculate CRC\" to verify ISO"));
 					tvVerified_->SetVisibility(UI::V_VISIBLE);
