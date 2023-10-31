@@ -2332,6 +2332,9 @@ target_link_libraries(${CoreLibName} Common native chdr kirk cityhash sfmt19937 
 
 if(NOT HTTPS_NOT_AVAILABLE)
 	target_link_libraries(${CoreLibName} naett)
+	if(WIN32)
+		target_link_libraries(${CoreLibName} winhttp)
+	endif()
 endif()
 
 target_compile_features(${CoreLibName} PUBLIC cxx_std_17)
