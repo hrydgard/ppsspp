@@ -1186,7 +1186,7 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 			if (!strcmp(head->modname, "sceMpeg_library")) {
 				__MpegLoadModule(ver, module->crc);
 			}
-			if (!strcmp(head->modname, "scePsmfP_library") || !strcmp(head->modname, "scePsmfPlayer") || !strcmp(head->modname, "libpsmfplayer") || !strcmp(head->modname, "psmf_jk") || !strcmp(head->modname, "jkPsmfP_librar")) {
+			if (!strcmp(head->modname, "scePsmfP_library") || !strcmp(head->modname, "scePsmfPlayer") || !strcmp(head->modname, "libpsmfplayer") || !strcmp(head->modname, "psmf_jk") || !strcmp(head->modname, "jkPsmfP_library")) {
 				__PsmfPlayerLoadModule(devkitVersion, module->crc);
 			}
 			if (!strcmp(head->modname, "sceATRAC3plus_Library")) {
@@ -1636,7 +1636,7 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 		if (!strcmp(modinfo->name, "sceMpeg_library")) {
 			__MpegLoadModule(modinfo->moduleVersion, module->crc);
 		}
-		if (!strcmp(modinfo->name, "scePsmfP_library") || !strcmp(modinfo->name, "scePsmfPlayer") || !strcmp(modinfo->name, "libpsmfplayer") || !strcmp(modinfo->name, "psmf_jk") || !strcmp(modinfo->name, "jkPsmfP_librar")){
+		if (!strcmp(modinfo->name, "scePsmfP_library") || !strcmp(modinfo->name, "scePsmfPlayer") || !strcmp(modinfo->name, "libpsmfplayer") || !strcmp(modinfo->name, "psmf_jk") || !strcmp(modinfo->name, "jkPsmfP_library")){
 			__PsmfPlayerLoadModule(devkitVersion, module->crc);
 		}
 		if (!strcmp(modinfo->name, "sceATRAC3plus_Library")) {
