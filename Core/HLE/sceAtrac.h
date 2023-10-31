@@ -91,3 +91,4 @@ typedef struct
 u32 _AtracAddStreamData(int atracID, u32 bufPtr, u32 bytesToAdd);
 u32 _AtracDecodeData(int atracID, u8* outbuf, u32 outbufPtr, u32 *SamplesNum, u32* finish, int *remains);
 int _AtracGetIDByContext(u32 contextAddr);
+void __AtracLoadModule(int version, u32 crc);

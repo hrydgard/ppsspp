@@ -61,6 +61,7 @@
 #include "Core/HLE/sceKernelMemory.h"
 #include "Core/HLE/sceMpeg.h"
 #include "Core/HLE/scePsmf.h"
+#include "Core/HLE/sceAtrac.h"
 #include "Core/HLE/sceIo.h"
 #include "Core/HLE/KernelWaitHelpers.h"
 #include "Core/ELF/ParamSFO.h"
@@ -1185,9 +1186,13 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 			if (!strcmp(head->modname, "sceMpeg_library")) {
 				__MpegLoadModule(ver, module->crc);
 			}
-			if (!strcmp(head->modname, "scePsmfP_library") || !strcmp(head->modname, "scePsmfPlayer")) {
-				__PsmfPlayerLoadModule(head->devkitversion, module->crc);
+			if (!strcmp(head->modname, "scePsmfP_library") || !strcmp(head->modname, "scePsmfPlayer") || !strcmp(head->modname, "libpsmfplayer") || !strcmp(head->modname, "psmf_jk") || !strcmp(head->modname, "jkPsmfP_librar")) {
+				__PsmfPlayerLoadModule(devkitVersion, module->crc);
 			}
+			if (!strcmp(head->modname, "sceATRAC3plus_Library")) {
+				__AtracLoadModule(ver, module->crc);
+			}
+
 		}
 
 		const u8 *in = ptr;
@@ -1631,9 +1636,13 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 		if (!strcmp(modinfo->name, "sceMpeg_library")) {
 			__MpegLoadModule(modinfo->moduleVersion, module->crc);
 		}
-		if (!strcmp(modinfo->name, "scePsmfP_library") || !strcmp(modinfo->name, "scePsmfPlayer")) {
+		if (!strcmp(modinfo->name, "scePsmfP_library") || !strcmp(modinfo->name, "scePsmfPlayer") || !strcmp(modinfo->name, "libpsmfplayer") || !strcmp(modinfo->name, "psmf_jk") || !strcmp(modinfo->name, "jkPsmfP_librar")){
 			__PsmfPlayerLoadModule(devkitVersion, module->crc);
 		}
+		if (!strcmp(modinfo->name, "sceATRAC3plus_Library")) {
+			__AtracLoadModule(modinfo->moduleVersion, module->crc);
+		}
+
 	}
 
 	System_Notify(SystemNotification::SYMBOL_MAP_UPDATED);

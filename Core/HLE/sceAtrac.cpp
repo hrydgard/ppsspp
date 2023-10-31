@@ -657,9 +657,12 @@ const int PSP_NUM_ATRAC_IDS = 6;
 static bool atracInited = true;
 static Atrac *atracIDs[PSP_NUM_ATRAC_IDS];
 static u32 atracIDTypes[PSP_NUM_ATRAC_IDS];
+static int atracLibVersion = 0;
+static u32 atracLibCrc = 0;
 
 void __AtracInit() {
 	atracInited = true;
+	INFO_LOG(ME, "AtracInit, atracLibVersion 0x%0x, atracLibcrc %x", atracLibVersion, atracLibCrc);
 	memset(atracIDs, 0, sizeof(atracIDs));
 
 	// Start with 2 of each in this order.
@@ -680,8 +683,13 @@ void __AtracInit() {
 #endif // USE_FFMPEG
 }
 
+void __AtracLoadModule(int version, u32 crc) {
+	atracLibVersion = version;
+	atracLibCrc = crc;
+}
+
 void __AtracDoState(PointerWrap &p) {
-	auto s = p.Section("sceAtrac", 1);
+	auto s = p.Section("sceAtrac", 1, 2);
 	if (!s)
 		return;
 
@@ -697,6 +705,14 @@ void __AtracDoState(PointerWrap &p) {
 		}
 	}
 	DoArray(p, atracIDTypes, PSP_NUM_ATRAC_IDS);
+	if (s < 2) {
+		atracLibVersion = 0;
+		atracLibCrc = 0;
+	}
+	else {
+			Do(p, atracLibVersion);
+			Do(p, atracLibCrc);
+	}
 }
 
 void __AtracShutdown() {
