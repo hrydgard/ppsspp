@@ -662,7 +662,6 @@ static u32 atracLibCrc = 0;
 
 void __AtracInit() {
 	atracInited = true;
-	INFO_LOG(ME, "AtracInit, atracLibVersion 0x%0x, atracLibcrc %x", atracLibVersion, atracLibCrc);
 	memset(atracIDs, 0, sizeof(atracIDs));
 
 	// Start with 2 of each in this order.
@@ -1987,7 +1986,7 @@ static int _AtracSetData(Atrac *atrac, u32 buffer, u32 readSize, u32 bufferSize,
 		// Already logged.
 		return ret;
 	}
-
+	INFO_LOG(ME, "AtracInit, atracLibVersion 0x%0x, atracLibcrc %x", atracLibVersion, atracLibCrc);
 	return hleLogSuccessInfoI(ME, successCode, "%s %s audio", codecName, channelName);
 }
 
