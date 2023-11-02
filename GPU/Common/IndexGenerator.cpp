@@ -126,7 +126,6 @@ void IndexGenerator::AddStrip(int numVerts, int indexOffset, bool clockwise) {
 
 	// We allow ourselves to write some extra indices to avoid the fallback loop.
 	// That's alright as we're appending to a buffer - they will get overwritten anyway.
-	int numChunks = (numTris + 7) >> 3;
 	__m128i ibase8 = _mm_set1_epi16(indexOffset);
 	const __m128i *offsets = (const __m128i *)(clockwise ? offsets_clockwise : offsets_counter_clockwise);
 	__m128i *dst = (__m128i *)inds_;
@@ -140,6 +139,7 @@ void IndexGenerator::AddStrip(int numVerts, int indexOffset, bool clockwise) {
 			__m128i offsets2 = _mm_add_epi16(ibase8, _mm_load_si128(offsets + 2));
 			_mm_storeu_si128(dst + 2, offsets2);
 			__m128i increment = _mm_set1_epi16(8);
+			int numChunks = (numTris + 7) >> 3;
 			for (int i = 1; i < numChunks; i++) {
 				dst += 3;
 				offsets0 = _mm_add_epi16(offsets0, increment);
@@ -154,7 +154,6 @@ void IndexGenerator::AddStrip(int numVerts, int indexOffset, bool clockwise) {
 	inds_ += numTris * 3;
 	// wind doesn't need to be updated, an even number of triangles have been drawn.
 #elif PPSSPP_ARCH(ARM_NEON)
-	int numChunks = (numTris + 7) >> 3;
 	uint16x8_t ibase8 = vdupq_n_u16(indexOffset);
 	const u16 *offsets = clockwise ? offsets_clockwise : offsets_counter_clockwise;
 	u16 *dst = inds_;
@@ -167,6 +166,7 @@ void IndexGenerator::AddStrip(int numVerts, int indexOffset, bool clockwise) {
 			uint16x8_t offsets2 = vaddq_u16(ibase8, vld1q_u16(offsets + 16));
 			vst1q_u16(dst + 16, offsets2);
 			uint16x8_t increment = vdupq_n_u16(8);
+			int numChunks = (numTris + 7) >> 3;
 			for (int i = 1; i < numChunks; i++) {
 				dst += 3 * 8;
 				offsets0 = vaddq_u16(offsets0, increment);
