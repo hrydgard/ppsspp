@@ -709,8 +709,8 @@ void __AtracDoState(PointerWrap &p) {
 		atracLibCrc = 0;
 	}
 	else {
-			Do(p, atracLibVersion);
-			Do(p, atracLibCrc);
+		Do(p, atracLibVersion);
+		Do(p, atracLibCrc);
 	}
 }
 
