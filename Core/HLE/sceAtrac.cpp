@@ -685,6 +685,7 @@ void __AtracInit() {
 void __AtracLoadModule(int version, u32 crc) {
 	atracLibVersion = version;
 	atracLibCrc = crc;
+	INFO_LOG(ME, "AtracInit, atracLibVersion 0x%0x, atracLibcrc %x", atracLibVersion, atracLibCrc);
 }
 
 void __AtracDoState(PointerWrap &p) {
@@ -1986,7 +1987,6 @@ static int _AtracSetData(Atrac *atrac, u32 buffer, u32 readSize, u32 bufferSize,
 		// Already logged.
 		return ret;
 	}
-	INFO_LOG(ME, "AtracInit, atracLibVersion 0x%0x, atracLibcrc %x", atracLibVersion, atracLibCrc);
 	return hleLogSuccessInfoI(ME, successCode, "%s %s audio", codecName, channelName);
 }
 
