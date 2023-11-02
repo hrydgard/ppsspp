@@ -115,6 +115,9 @@ alignas(16) static const uint16_t offsets_counter_clockwise[24] = {
 
 void IndexGenerator::AddStrip(int numVerts, int indexOffset, bool clockwise) {
 	int numTris = numVerts - 2;
+	if (numTris <= 0) {
+		return;
+	}
 #ifdef _M_SSE
 	// In an SSE2 register we can fit 8 16-bit integers.
 	// However, we need to output a multiple of 3 indices.
