@@ -1037,7 +1037,14 @@ static u32 npdrmRead(FileNode *f, u8 *data, int size) {
 static bool __IoRead(int &result, int id, u32 data_addr, int size, int &us) {
 	PROFILE_THIS_SCOPE("io_rw");
 	// Low estimate, may be improved later from the ReadFile result.
-	us = size / 100;
+
+	if (PSP_CoreParameter().compat.flags().ForceUMDReadSpeed || g_Config.iIOTimingMethod == IOTIMING_UMDSLOWREALISTIC) {
+		us = size / 4.2;
+	}
+	else {
+		us = size / 100;
+	}
+
 	if (us < 100) {
 		us = 100;
 	}

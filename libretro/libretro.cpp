@@ -523,6 +523,8 @@ static void check_variables(CoreParameter &coreParam)
          g_Config.iIOTimingMethod = IOTIMING_HOST;
       else if (!strcmp(var.value, "Simulate UMD delays"))
          g_Config.iIOTimingMethod = IOTIMING_REALISTIC;
+      else if (!strcmp(var.value, "Simulate UMD slow reading speed"))
+         g_Config.iIOTimingMethod = IOTIMING_UMDSLOWREALISTIC;
    }
 
    var.key = "ppsspp_force_lag_sync";
