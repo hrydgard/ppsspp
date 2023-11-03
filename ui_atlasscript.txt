@@ -80,3 +80,4 @@ image I_SPEAKER source_assets/image/speaker.png copy
 image I_SPEAKER_MAX source_assets/image/speaker_max.png copy
 image I_SPEAKER_OFF source_assets/image/speaker_off.png copy
 image I_WINNER_CUP source_assets/image/winner_cup.png copy
+image I_EMPTY source_assets/image/empty.png copy
