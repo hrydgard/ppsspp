@@ -1534,7 +1534,6 @@ static u32 sceAtracGetLoopStatus(int atracID, u32 loopNumAddr, u32 statusAddr) {
 		ERROR_LOG(ME, "sceAtracGetLoopStatus(%i, %08x, %08x): no data", atracID, loopNumAddr, statusAddr);
 		return ATRAC_ERROR_NO_DATA;
 	} else {
-		DEBUG_LOG(ME, "sceAtracGetLoopStatus(%i, %08x, %08x)", atracID, loopNumAddr, statusAddr);
 		if (Memory::IsValidAddress(loopNumAddr))
 			Memory::Write_U32(atrac->loopNum_, loopNumAddr);
 		// return audio's loopinfo in at3 file
@@ -1545,7 +1544,7 @@ static u32 sceAtracGetLoopStatus(int atracID, u32 loopNumAddr, u32 statusAddr) {
 				Memory::Write_U32(0, statusAddr);
 		}
 	}
-	return 0;
+	return hleLogDebug(ME, 0);
 }
 
 static u32 sceAtracGetInternalErrorInfo(int atracID, u32 errorAddr) {
