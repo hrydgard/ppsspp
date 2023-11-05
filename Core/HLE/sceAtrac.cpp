@@ -596,12 +596,12 @@ struct Atrac {
 		av_free_packet(packet_);
 #endif
 		if (bytes_read == AVERROR_PATCHWELCOME) {
-			ERROR_LOG(ME, "Unsupported feature in ATRAC audio.");
+			ERROR_LOG(ME, "Unsupported feature in ATRAC audio. currentSample %d endSample %d", currentSample_, endSample_);
 			// Let's try the next packet.
 			packet_->size = 0;
 			return ATDECODE_BADFRAME;
 		} else if (bytes_read < 0) {
-			ERROR_LOG_REPORT(ME, "avcodec_decode_audio4: Error decoding audio %d / %08x", bytes_read, bytes_read);
+			ERROR_LOG_REPORT(ME, "avcodec_decode_audio4: Error decoding audio %d / %08x currentSample %d endSample %d", bytes_read, bytes_read, currentSample_, endSample_);
 			failedDecode_ = true;
 			return ATDECODE_FAILED;
 		}
