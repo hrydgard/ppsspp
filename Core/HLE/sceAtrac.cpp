@@ -1633,7 +1633,7 @@ static u32 sceAtracGetNextSample(int atracID, u32 outNAddr) {
 				numSamples = atrac->SamplesPerFrame();
 			if (Memory::IsValidAddress(outNAddr))
 				Memory::Write_U32(numSamples, outNAddr);
-			DEBUG_LOG(ME, "sceAtracGetNextSample(%i, %08x): %d samples left", atracID, outNAddr, numSamples);
+			DEBUG_LOG(ME, "sceAtracGetNextSample(%i, %08x): %d samples left currentSample %d endSample %d", atracID, outNAddr, numSamples, atrac->currentSample_, atrac->endSample_);
 		}
 	}
 	return 0;
