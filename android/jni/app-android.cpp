@@ -530,6 +530,8 @@ bool System_GetPropertyBool(SystemProperty prop) {
 		}
 	case SYSPROP_HAS_KEYBOARD:
 		return deviceType != DEVICE_TYPE_VR;
+	case SYSPROP_HAS_ACCELEROMETER:
+		return deviceType == DEVICE_TYPE_MOBILE;
 #ifndef HTTPS_NOT_AVAILABLE
 	case SYSPROP_SUPPORTS_HTTPS:
 		return !g_Config.bDisableHTTPS;

@@ -416,6 +416,8 @@ bool System_GetPropertyBool(SystemProperty prop) {
 		return true;  // we just use the file browser
 	case SYSPROP_HAS_BACK_BUTTON:
 		return true;
+	case SYSPROP_HAS_ACCELEROMETER:
+		return IsMobile();
 	case SYSPROP_APP_GOLD:
 #ifdef GOLD
 		return true;

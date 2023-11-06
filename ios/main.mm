@@ -160,6 +160,8 @@ bool System_GetPropertyBool(SystemProperty prop) {
 			return false;
 		case SYSPROP_HAS_BACK_BUTTON:
 			return false;
+		case SYSPROP_HAS_ACCELEROMETER:
+			return true;
 		case SYSPROP_APP_GOLD:
 #ifdef GOLD
 			return true;
