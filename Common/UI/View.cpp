@@ -1557,6 +1557,9 @@ bool SliderFloat::ApplyKey(InputKeyCode keyCode) {
 	default:
 		return false;
 	}
+
+	_dbg_assert_(!my_isnanorinf(*value_));
+
 	EventParams params{};
 	params.v = this;
 	params.a = (uint32_t)(*value_);
@@ -1584,6 +1587,7 @@ bool SliderFloat::Touch(const TouchInput &input) {
 }
 
 void SliderFloat::Clamp() {
+	_dbg_assert_(!my_isnanorinf(*value_));
 	if (*value_ < minValue_)
 		*value_ = minValue_;
 	else if (*value_ > maxValue_)
