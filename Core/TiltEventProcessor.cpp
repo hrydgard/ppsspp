@@ -35,8 +35,11 @@ void GenerateTriggerButtonEvent(int digitalX, int digitalY);
 // deadzone is normalized - 0 to 1
 // sensitivity controls how fast the deadzone reaches max value
 inline float ApplyDeadzone(float x, float deadzone) {
+	if (deadzone >= 0.99f) {
+		// Meaningless, and not reachable with normal controls.
+		return x;
+	}
 	const float factor = 1.0f / (1.0f - deadzone);
-
 	if (x > deadzone) {
 		return (x - deadzone) * factor + deadzone;
 	} else if (x < -deadzone) {
@@ -55,7 +58,9 @@ inline void ApplyInverseDeadzone(float x, float y, float *outX, float *outY, flo
 	}
 	if (circular) {
 		float magnitude = sqrtf(x * x + y * y);
-		magnitude = (magnitude + inverseDeadzone) / magnitude;
+		if (magnitude > 0.00001f) {
+			magnitude = (magnitude + inverseDeadzone) / magnitude;
+		}
 		*outX = Clamp(x * magnitude, -1.0f, 1.0f);
 		*outY = Clamp(y * magnitude, -1.0f, 1.0f);
 	} else {
@@ -83,6 +88,10 @@ void ProcessTilt(bool landscape, float calibrationAngle, float x, float y, float
 	float yAngle = angleAroundX - calibrationAngle;
 	float xAngle = asinf(down.x);
 
+	_dbg_assert_(!my_isnanorinf(angleAroundX));
+	_dbg_assert_(!my_isnanorinf(yAngle));
+	_dbg_assert_(!my_isnanorinf(xAngle));
+
 	float tiltX = xAngle;
 	float tiltY = yAngle;
 
@@ -107,10 +116,16 @@ void ProcessTilt(bool landscape, float calibrationAngle, float x, float y, float
 		float adjustedTiltX = ApplyDeadzone(tiltX, g_Config.fTiltAnalogDeadzoneRadius);
 		float adjustedTiltY = ApplyDeadzone(tiltY, g_Config.fTiltAnalogDeadzoneRadius);
 
+		_dbg_assert_(!my_isnanorinf(adjustedTiltX));
+		_dbg_assert_(!my_isnanorinf(adjustedTiltY));
+
 		// Unlike regular deadzone, where per-axis is okay, inverse deadzone (to compensate for game deadzones) really needs to be
 		// applied on the two axes together.
 		// TODO: Share this code with the joystick code. For now though, we keep it separate.
 		ApplyInverseDeadzone(adjustedTiltX, adjustedTiltY, &adjustedTiltX, &adjustedTiltY, g_Config.fTiltInverseDeadzone, g_Config.bTiltCircularInverseDeadzone);
+
+		_dbg_assert_(!my_isnanorinf(adjustedTiltX));
+		_dbg_assert_(!my_isnanorinf(adjustedTiltY));
 
 		rawTiltAnalogX = adjustedTiltX;
 		rawTiltAnalogY = adjustedTiltY;
