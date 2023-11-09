@@ -7,6 +7,7 @@
 
 #include <inttypes.h>
 
+// Hm, what's this for?
 #ifndef _MSC_VER
 #include <strings.h>
 #endif
@@ -19,22 +20,13 @@
 #include <vector>
 
 #include "Common/Data/Format/IniFile.h"
+#include "Common/Data/Text/Parsers.h"
 #include "Common/File/VFS/VFS.h"
 #include "Common/File/FileUtil.h"
-#include "Common/Data/Text/Parsers.h"
-
-#ifdef _WIN32
-#include "Common/Data/Encoding/Utf8.h"
-#endif
+#include "Common/Log.h"
+#include "Common/Math/math_util.h"
 
 #include "Common/StringUtils.h"
-
-bool StringViewEqualCaseInsensitive(const std::string_view lhs, const std::string_view rhs) {
-	if (lhs.size() != rhs.size()) {
-		return false;
-	}
-	return ::strncasecmp(lhs.data(), rhs.data(), rhs.size()) == 0;
-}
 
 // This unescapes # signs.
 // NOTE: These parse functions can make better use of the string_view - the pos argument should not be needed, for example.
@@ -199,7 +191,7 @@ void Section::Clear() {
 
 ParsedIniLine *Section::GetLine(const char *key) {
 	for (auto &line : lines_) {
-		if (StringViewEqualCaseInsensitive(line.Key(), key))
+		if (equalsNoCase(line.Key(), key))
 			return &line;
 	}
 	return nullptr;
@@ -207,7 +199,7 @@ ParsedIniLine *Section::GetLine(const char *key) {
 
 const ParsedIniLine *Section::GetLine(const char* key) const {
 	for (auto &line : lines_) {
-		if (StringViewEqualCaseInsensitive(line.Key(), key))
+		if (equalsNoCase(line.Key(), key))
 			return &line;
 	}
 	return nullptr;
@@ -222,6 +214,7 @@ void Section::Set(const char* key, uint64_t newValue) {
 }
 
 void Section::Set(const char* key, float newValue) {
+	_dbg_assert_(!my_isnanorinf(newValue));
 	Set(key, StringFromFormat("%f", newValue).c_str());
 }
 
@@ -397,7 +390,7 @@ bool Section::Get(const char* key, double* value, double defaultValue) const
 
 bool Section::Exists(const char *key) const {
 	for (auto &line : lines_) {
-		if (StringViewEqualCaseInsensitive(key, line.Key()))
+		if (equalsNoCase(key, line.Key()))
 			return true;
 	}
 	return false;

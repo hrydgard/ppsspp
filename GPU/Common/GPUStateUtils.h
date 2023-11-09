@@ -249,8 +249,6 @@ struct GenericLogicState {
 			// Same logicOp is kept.
 		}
 	}
-
-	void Log();
 };
 
 struct ComputedPipelineState {
