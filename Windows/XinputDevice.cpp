@@ -144,8 +144,6 @@ static const struct { int from; InputKeyCode to; } xinput_ctrl_map[] = {
 	{XINPUT_GUIDE_BUTTON,           NKCODE_HOME},
 };
 
-static const unsigned int xinput_ctrl_map_size = sizeof(xinput_ctrl_map) / sizeof(xinput_ctrl_map[0]);
-
 XinputDevice::XinputDevice() {
 	if (LoadXInputDLL() != 0) {
 		WARN_LOG(SCECTRL, "Failed to load XInput! DLL missing");
@@ -160,19 +158,6 @@ XinputDevice::~XinputDevice() {
 	UnloadXInputDLL();
 }
 
-struct Stick {
-	Stick(float x_, float y_, float scale) : x(x_ * scale), y(y_ * scale) {}
-	float x;
-	float y;
-};
-
-bool NormalizedDeadzoneDiffers(u8 x1, u8 x2, const u8 thresh) {
-	if (x1 > thresh || x2 > thresh) {
-		return x1 != x2;
-	}
-	return false;
-}
-
 int XinputDevice::UpdateState() {
 #if !PPSSPP_PLATFORM(UWP)
 	if (!s_pXInputDLL)
@@ -181,10 +166,8 @@ int XinputDevice::UpdateState() {
 
 	bool anySuccess = false;
 	for (int i = 0; i < XUSER_MAX_COUNT; i++) {
-		XINPUT_STATE state;
-		ZeroMemory(&state, sizeof(XINPUT_STATE));
-		XINPUT_VIBRATION vibration;
-		ZeroMemory(&vibration, sizeof(XINPUT_VIBRATION));
+		XINPUT_STATE state{};
+		XINPUT_VIBRATION vibration{};
 		if (check_delay[i]-- > 0)
 			continue;
 		DWORD dwResult = PPSSPP_XInputGetState(i, &state);
@@ -254,7 +237,7 @@ void XinputDevice::ApplyButtons(int pad, const XINPUT_STATE &state) {
 	const u32 upMask = (~buttons) & prevButtons_[pad];
 	prevButtons_[pad] = buttons;
 	
-	for (int i = 0; i < xinput_ctrl_map_size; i++) {
+	for (int i = 0; i < ARRAY_SIZE(xinput_ctrl_map); i++) {
 		if (downMask & xinput_ctrl_map[i].from) {
 			KeyInput key;
 			key.deviceId = DEVICE_ID_XINPUT_0 + pad;
