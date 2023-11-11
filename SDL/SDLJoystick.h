@@ -27,7 +27,11 @@ private:
 	void setUpControllers();
 	InputKeyCode getKeycodeForButton(SDL_GameControllerButton button);
 	int getDeviceIndex(int instanceId);
+
 	bool registeredAsEventHandler;
 	std::vector<SDL_GameController *> controllers;
 	std::map<int, int> controllerDeviceMap;
+
+	// Deduplicate axis events. Pair is device, axis.
+	std::map<std::pair<InputDeviceID, InputAxis>, float> prevAxisValue_;
 };

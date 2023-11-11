@@ -182,15 +182,28 @@ void SDLJoystick::ProcessInput(const SDL_Event &event){
 		}
 		break;
 	case SDL_CONTROLLERAXISMOTION:
-		AxisInput axis;
-		// TODO: Can we really cast axis events like that? Do they match?
-		axis.axisId = (InputAxis)event.caxis.axis;
-		axis.value = event.caxis.value / 32767.0f;
-		if (axis.value > 1.0f) axis.value = 1.0f;
-		if (axis.value < -1.0f) axis.value = -1.0f;
-		axis.deviceId = DEVICE_ID_PAD_0 + getDeviceIndex(event.caxis.which);
-		NativeAxis(&axis, 1);
+	{
+		InputDeviceID deviceId = DEVICE_ID_PAD_0 + getDeviceIndex(event.caxis.which);
+		// TODO: Can we really cast axis IDs like that? Do they match?
+		InputAxis axisId = (InputAxis)event.caxis.axis;
+		float value = event.caxis.value * (1.f / 32767.f);
+		if (value > 1.0f) value = 1.0f;
+		if (value < -1.0f) value = -1.0f;
+		// Filter duplicate axis values.
+		auto key = std::pair<InputDeviceID, InputAxis>(deviceId, axisId);
+		auto iter = prevAxisValue_.find(key);
+		if (iter == prevAxisValue_.end()) {
+			prevAxisValue_[key] = value;
+		} else if (iter->second != value) {
+			iter->second = value;
+			AxisInput axis;
+			axis.axisId = axisId;
+			axis.value = value;
+			axis.deviceId = deviceId;
+			NativeAxis(&axis, 1);
+		}  // else ignore event.
 		break;
+	}
 	case SDL_CONTROLLERDEVICEREMOVED:
 		// for removal events, "which" is the instance ID for SDL_CONTROLLERDEVICEREMOVED
 		for (auto it = controllers.begin(); it != controllers.end(); ++it) {
