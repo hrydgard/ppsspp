@@ -1208,7 +1208,6 @@ void FramebufferManagerCommon::DrawPixels(VirtualFramebuffer *vfb, int dstX, int
 			vfb ? vfb->bufferHeight : g_display.pixel_yres,
 			u0, v0, u1, v1, ROTATION_LOCKED_HORIZONTAL, flags);
 
-		gpuStats.numUploads++;
 		draw_->Invalidate(InvalidationFlags::CACHED_RENDER_STATE);
 
 		gstate_c.Dirty(DIRTY_ALL_RENDER_STATE);
@@ -1324,6 +1323,19 @@ Draw::Texture *FramebufferManagerCommon::MakePixelTexture(const u8 *srcPixels, G
 		}
 	}
 
+	int bpp = BufferFormatBytesPerPixel(srcPixelFormat);
+	int srcStrideInBytes = srcStride * bpp;
+	int widthInBytes = width * bpp;
+
+	// Compute hash of contents.
+	XXH3_state_t *hashState = XXH3_createState();
+	XXH3_64bits_reset(hashState);
+	for (int y = 0; y < height; y++) {
+		XXH3_64bits_update(hashState, srcPixels + srcStrideInBytes, widthInBytes);
+	}
+	uint64_t imageHash = XXH3_64bits_digest(hashState);
+	XXH3_freeState(hashState);
+
 	// TODO: We can just change the texture format and flip some bits around instead of this.
 	// Could share code with the texture cache perhaps.
 	auto generateTexture = [&](uint8_t *data, const uint8_t *initData, uint32_t w, uint32_t h, uint32_t d, uint32_t byteStride, uint32_t sliceByteStride) {
@@ -1396,16 +1408,28 @@ Draw::Texture *FramebufferManagerCommon::MakePixelTexture(const u8 *srcPixels, G
 
 	int frameNumber = draw_->GetFrameCount();
 
-	// Look for a matching texture we can re-use.
+	// First look for an exact match (including contents hash) that we can re-use.
+	for (auto &iter : drawPixelsCache_) {
+		if (iter.contentsHash == imageHash && iter.tex->Width() == width && iter.tex->Height() == height && iter.tex->Format() == texFormat) {
+			iter.frameNumber = frameNumber;
+			gpuStats.numCachedUploads++;
+			return iter.tex;
+		}
+	}
+
+	// Then, look for an alternative one that's not been used recently that we can overwrite.
 	for (auto &iter : drawPixelsCache_) {
 		if (iter.frameNumber >= frameNumber - 3 || iter.tex->Width() != width || iter.tex->Height() != height || iter.tex->Format() != texFormat) {
 			continue;
 		}
 
 		// OK, current one seems good, let's use it (and mark it used).
+		gpuStats.numUploads++;
 		draw_->UpdateTextureLevels(iter.tex, &srcPixels, generateTexture, 1);
 		// NOTE: numFlips is no good - this is called every frame when paused sometimes!
 		iter.frameNumber = frameNumber;
+		// We need to update the hash for future matching.
+		iter.contentsHash = imageHash;
 		return iter.tex;
 	}
 
@@ -1435,8 +1459,9 @@ Draw::Texture *FramebufferManagerCommon::MakePixelTexture(const u8 *srcPixels, G
 
 	// INFO_LOG(G3D, "Creating drawPixelsCache texture: %dx%d", tex->Width(), tex->Height());
 
-	DrawPixelsEntry entry{ tex, frameNumber };
+	DrawPixelsEntry entry{ tex, imageHash, frameNumber };
 	drawPixelsCache_.push_back(entry);
+	gpuStats.numUploads++;
 	return tex;
 }
 
