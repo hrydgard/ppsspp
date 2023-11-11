@@ -92,6 +92,7 @@ struct GPUStatistics {
 		numBlockingReadbacks = 0;
 		numReadbacks = 0;
 		numUploads = 0;
+		numCachedUploads = 0;
 		numDepal = 0;
 		numClears = 0;
 		numDepthCopies = 0;
@@ -126,6 +127,7 @@ struct GPUStatistics {
 	int numBlockingReadbacks;
 	int numReadbacks;
 	int numUploads;
+	int numCachedUploads;
 	int numDepal;
 	int numClears;
 	int numDepthCopies;
