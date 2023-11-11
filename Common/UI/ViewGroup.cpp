@@ -48,7 +48,6 @@ ViewGroup::~ViewGroup() {
 }
 
 void ViewGroup::RemoveSubview(View *subView) {
-	std::lock_guard<std::mutex> guard(modifyLock_);
 	// loop counter needed, so can't convert loop.
 	for (size_t i = 0; i < views_.size(); i++) {
 		if (views_[i] == subView) {
@@ -68,7 +67,6 @@ bool ViewGroup::ContainsSubview(const View *view) const {
 }
 
 void ViewGroup::Clear() {
-	std::lock_guard<std::mutex> guard(modifyLock_);
 	for (View *view : views_) {
 		delete view;
 	}
@@ -76,8 +74,6 @@ void ViewGroup::Clear() {
 }
 
 void ViewGroup::PersistData(PersistStatus status, std::string anonId, PersistMap &storage) {
-	std::lock_guard<std::mutex> guard(modifyLock_);
-
 	std::string tag = Tag();
 	if (tag.empty()) {
 		tag = anonId;
@@ -89,7 +85,6 @@ void ViewGroup::PersistData(PersistStatus status, std::string anonId, PersistMap
 }
 
 bool ViewGroup::Touch(const TouchInput &input) {
-	std::lock_guard<std::mutex> guard(modifyLock_);
 	bool any = false;
 	for (View *view : views_) {
 		// TODO: If there is a transformation active, transform input coordinates accordingly.
@@ -118,7 +113,6 @@ void ViewGroup::Query(float x, float y, std::vector<View *> &list) {
 }
 
 bool ViewGroup::Key(const KeyInput &input) {
-	std::lock_guard<std::mutex> guard(modifyLock_);
 	bool ret = false;
 	for (View *view : views_) {
 		// TODO: If there is a transformation active, transform input coordinates accordingly.
@@ -129,7 +123,6 @@ bool ViewGroup::Key(const KeyInput &input) {
 }
 
 void ViewGroup::Axis(const AxisInput &input) {
-	std::lock_guard<std::mutex> guard(modifyLock_);
 	for (View *view : views_) {
 		// TODO: If there is a transformation active, transform input coordinates accordingly.
 		if (view->GetVisibility() == V_VISIBLE)
@@ -138,14 +131,12 @@ void ViewGroup::Axis(const AxisInput &input) {
 }
 
 void ViewGroup::DeviceLost() {
-	std::lock_guard<std::mutex> guard(modifyLock_);
 	for (View *view : views_) {
 		view->DeviceLost();
 	}
 }
 
 void ViewGroup::DeviceRestored(Draw::DrawContext *draw) {
-	std::lock_guard<std::mutex> guard(modifyLock_);
 	for (View *view : views_) {
 		view->DeviceRestored(draw);
 	}
@@ -245,7 +236,6 @@ void ViewGroup::Update() {
 }
 
 bool ViewGroup::SetFocus() {
-	std::lock_guard<std::mutex> guard(modifyLock_);
 	if (!CanBeFocused() && !views_.empty()) {
 		for (View *view : views_) {
 			if (view->SetFocus())
