@@ -580,7 +580,7 @@ bool EmuScreen::UnsyncTouch(const TouchInput &touch) {
 	}
 
 	if (root_) {
-		root_->Touch(touch);
+		UIScreen::UnsyncTouch(touch);
 	}
 	return true;
 }
@@ -870,6 +870,11 @@ bool EmuScreen::key(const KeyInput &key) {
 
 void EmuScreen::UnsyncAxis(const AxisInput *axes, size_t count) {
 	System_Notify(SystemNotification::ACTIVITY);
+
+	if (UI::IsFocusMovementEnabled()) {
+		return UIScreen::UnsyncAxis(axes, count);
+	}
+
 	return controlMapper_.Axis(axes, count);
 }
 
