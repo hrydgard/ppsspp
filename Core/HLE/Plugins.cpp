@@ -105,15 +105,17 @@ static std::vector<PluginInfo> FindPlugins(const std::string &gameID, const std:
 		std::set<std::string> matches;
 
 		std::string gameIni;
-		if (ini.GetOrCreateSection("games")->Get("ALL", &gameIni, "")) {
+		if (ini.GetOrCreateSection("games")->Get(gameID.c_str(), &gameIni, "")) {
 			if (!strcasecmp(gameIni.c_str(), "true")) {
 				matches.insert("plugin.ini");
+			} else if (!strcasecmp(gameIni.c_str(), "false")){
+				continue;
 			} else if (!gameIni.empty()) {
 				matches.insert(gameIni);
 			}
 		}
 
-		if (ini.GetOrCreateSection("games")->Get(gameID.c_str(), &gameIni, "")) {
+		if (ini.GetOrCreateSection("games")->Get("ALL", &gameIni, "")) {
 			if (!strcasecmp(gameIni.c_str(), "true")) {
 				matches.insert("plugin.ini");
 			} else if (!gameIni.empty()) {
