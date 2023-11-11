@@ -119,27 +119,8 @@ bool ScreenManager::key(const KeyInput &key) {
 
 void ScreenManager::axis(const AxisInput *axes, size_t count) {
 	std::lock_guard<std::recursive_mutex> guard(inputLock_);
-
-	for (size_t i = 0; i < count; i++) {
-		const AxisInput &axis = axes[i];
-		// Ignore duplicate values to prevent axis values overwriting each other.
-		uint64_t key = ((uint64_t)axis.axisId << 32) | axis.deviceId;
-		// Center value far from zero just to ensure we send the first zero.
-		// PSP games can't see higher resolution than this.
-		int value = 128 + ceilf(axis.value * 127.5f + 127.5f);
-		if (lastAxis_[key] == value) {
-			return;
-		}
-		lastAxis_[key] = value;
-
-		// Send center axis to every screen layer.
-		if (axis.value == 0) {
-			for (auto &layer : stack_) {
-				layer.screen->UnsyncAxis(&axis, 1);
-			}
-		} else if (!stack_.empty()) {
-			stack_.back().screen->UnsyncAxis(&axis, 1);
-		}
+	if (!stack_.empty()) {
+		stack_.back().screen->UnsyncAxis(axes, count);
 	}
 }
 
