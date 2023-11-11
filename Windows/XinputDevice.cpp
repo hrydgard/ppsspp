@@ -236,14 +236,8 @@ void XinputDevice::UpdatePad(int pad, const XINPUT_STATE &state, XINPUT_VIBRATIO
 	sendAxis(JOYSTICK_AXIS_Y, (float)state.Gamepad.sThumbLY / 32767.0f, 1);
 	sendAxis(JOYSTICK_AXIS_Z, (float)state.Gamepad.sThumbRX / 32767.0f, 2);
 	sendAxis(JOYSTICK_AXIS_RZ, (float)state.Gamepad.sThumbRY / 32767.0f, 3);
-
-	if (NormalizedDeadzoneDiffers(prevState[pad].Gamepad.bLeftTrigger, state.Gamepad.bLeftTrigger, XINPUT_GAMEPAD_TRIGGER_THRESHOLD)) {
-		sendAxis(JOYSTICK_AXIS_LTRIGGER, (float)state.Gamepad.bLeftTrigger / 255.0f, 4);
-	}
-
-	if (NormalizedDeadzoneDiffers(prevState[pad].Gamepad.bRightTrigger, state.Gamepad.bRightTrigger, XINPUT_GAMEPAD_TRIGGER_THRESHOLD)) {
-		sendAxis(JOYSTICK_AXIS_RTRIGGER, (float)state.Gamepad.bRightTrigger / 255.0f, 5);
-	}
+	sendAxis(JOYSTICK_AXIS_LTRIGGER, (float)state.Gamepad.bLeftTrigger / 255.0f, 4);
+	sendAxis(JOYSTICK_AXIS_RTRIGGER, (float)state.Gamepad.bRightTrigger / 255.0f, 5);
 
 	if (axisCount) {
 		NativeAxis(axis, axisCount);
