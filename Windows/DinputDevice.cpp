@@ -204,12 +204,13 @@ DinputDevice::~DinputDevice() {
 }
 
 void SendNativeAxis(InputDeviceID deviceId, int value, int &lastValue, InputAxis axisId) {
-	AxisInput axis;
-	axis.deviceId = deviceId;
-	axis.axisId = axisId;
-	axis.value = (float)value * (1.0f / 10000.0f); // Convert axis to normalised float
-	NativeAxis(&axis, 1);
-
+	if (value != lastValue) {
+		AxisInput axis;
+		axis.deviceId = deviceId;
+		axis.axisId = axisId;
+		axis.value = (float)value * (1.0f / 10000.0f); // Convert axis to normalised float
+		NativeAxis(&axis, 1);
+	}
 	lastValue = value;
 }
 
@@ -286,7 +287,7 @@ void DinputDevice::ApplyButtons(DIJOYSTATE2 &state) {
 
 	// Now the POV hat, which can technically go in any degree but usually does not.
 	if (LOWORD(state.rgdwPOV[0]) != lastPOV_[0]) {
-		KeyInput dpad[4];
+		KeyInput dpad[4]{};
 		for (int i = 0; i < 4; ++i) {
 			dpad[i].deviceId = DEVICE_ID_PAD_0 + pDevNum;
 			dpad[i].flags = KEY_UP;
