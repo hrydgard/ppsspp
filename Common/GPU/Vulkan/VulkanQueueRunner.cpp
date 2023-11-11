@@ -129,7 +129,6 @@ bool VulkanQueueRunner::CreateSwapchain(VkCommandBuffer cmdInit) {
 	return true;
 }
 
-
 bool VulkanQueueRunner::InitBackbufferFramebuffers(int width, int height) {
 	VkResult res;
 	// We share the same depth buffer but have multiple color buffers, see the loop below.

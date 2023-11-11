@@ -16,8 +16,6 @@
 #include "Core/KeyMap.h"
 #include "Core/HLE/sceCtrl.h"
 
-static double newVibrationTime = 0.0;
-
 // Utilities to dynamically load XInput. Adapted from SDL.
 
 #if !PPSSPP_PLATFORM(UWP)
@@ -258,11 +256,11 @@ void XinputDevice::ApplyButtons(int pad, const XINPUT_STATE &state) {
 
 void XinputDevice::ApplyVibration(int pad, XINPUT_VIBRATION &vibration) {
 	if (PSP_IsInited()) {
-		newVibrationTime = time_now_d();
+		newVibrationTime_ = time_now_d();
 		// We have to run PPSSPP_XInputSetState at time intervals
 		// since it bugs otherwise with very high fast-forward speeds
 		// and freezes at constant vibration or no vibration at all.
-		if (newVibrationTime - prevVibrationTime >= 1.0 / 64.0) {
+		if (newVibrationTime_ - prevVibrationTime >= 1.0 / 64.0) {
 			if (GetUIState() == UISTATE_INGAME) {
 				vibration.wLeftMotorSpeed = sceCtrlGetLeftVibration(); // use any value between 0-65535 here
 				vibration.wRightMotorSpeed = sceCtrlGetRightVibration(); // use any value between 0-65535 here
@@ -275,7 +273,7 @@ void XinputDevice::ApplyVibration(int pad, XINPUT_VIBRATION &vibration) {
 				PPSSPP_XInputSetState(pad, &vibration);
 				prevVibration[pad] = vibration;
 			}
-			prevVibrationTime = newVibrationTime;
+			prevVibrationTime = newVibrationTime_;
 		}
 	} else {
 		DWORD dwResult = PPSSPP_XInputSetState(pad, &vibration);
@@ -284,4 +282,3 @@ void XinputDevice::ApplyVibration(int pad, XINPUT_VIBRATION &vibration) {
 		}
 	}
 }
-
