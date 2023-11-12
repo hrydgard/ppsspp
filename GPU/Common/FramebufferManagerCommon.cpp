@@ -1328,13 +1328,18 @@ Draw::Texture *FramebufferManagerCommon::MakePixelTexture(const u8 *srcPixels, G
 	int widthInBytes = width * bpp;
 
 	// Compute hash of contents.
-	XXH3_state_t *hashState = XXH3_createState();
-	XXH3_64bits_reset(hashState);
-	for (int y = 0; y < height; y++) {
-		XXH3_64bits_update(hashState, srcPixels + srcStrideInBytes, widthInBytes);
+	uint64_t imageHash;
+	if (widthInBytes == srcStrideInBytes) {
+		imageHash = XXH3_64bits(srcPixels, widthInBytes * height);
+	} else {
+		XXH3_state_t *hashState = XXH3_createState();
+		XXH3_64bits_reset(hashState);
+		for (int y = 0; y < height; y++) {
+			XXH3_64bits_update(hashState, srcPixels + srcStrideInBytes * y, widthInBytes);
+		}
+		imageHash = XXH3_64bits_digest(hashState);
+		XXH3_freeState(hashState);
 	}
-	uint64_t imageHash = XXH3_64bits_digest(hashState);
-	XXH3_freeState(hashState);
 
 	// TODO: We can just change the texture format and flip some bits around instead of this.
 	// Could share code with the texture cache perhaps.
