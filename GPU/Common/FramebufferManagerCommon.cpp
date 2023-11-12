@@ -1342,6 +1342,14 @@ Draw::Texture *FramebufferManagerCommon::MakePixelTexture(const u8 *srcPixels, G
 			// No usable single channel format. Can't be bothered.
 			return nullptr;
 		}
+	} else if (srcPixelFormat == GE_FORMAT_565) {
+		// Check for supported matching formats.
+		// This mainly benefits the redundant copies in God of War on low-end platforms.
+		if ((draw_->GetDataFormatSupport(Draw::DataFormat::B5G6R5_UNORM_PACK16) & Draw::FMT_TEXTURE) != 0) {
+			texFormat = Draw::DataFormat::B5G6R5_UNORM_PACK16;
+		} else if ((draw_->GetDataFormatSupport(Draw::DataFormat::R5G6B5_UNORM_PACK16) & Draw::FMT_TEXTURE) != 0) {
+			texFormat = Draw::DataFormat::R5G6B5_UNORM_PACK16;
+		}
 	}
 
 	// TODO: We can just change the texture format and flip some bits around instead of this.
@@ -1355,10 +1363,15 @@ Draw::Texture *FramebufferManagerCommon::MakePixelTexture(const u8 *srcPixels, G
 			u8 *dst8 = (u8 *)(data + byteStride * y);
 			switch (srcPixelFormat) {
 			case GE_FORMAT_565:
-				if (texFormat == Draw::DataFormat::B8G8R8A8_UNORM)
+				if (texFormat == Draw::DataFormat::B5G6R5_UNORM_PACK16) {
+					memcpy(dst16, src16, w * sizeof(uint16_t));
+				} else if (texFormat == Draw::DataFormat::R5G6B5_UNORM_PACK16) {
+					ConvertRGB565ToBGR565(dst16, src16, width);  // Fast!
+				} else if (texFormat == Draw::DataFormat::B8G8R8A8_UNORM) {
 					ConvertRGB565ToBGRA8888(dst, src16, width);
-				else
+				} else {
 					ConvertRGB565ToRGBA8888(dst, src16, width);
+				}
 				break;
 
 			case GE_FORMAT_5551:
