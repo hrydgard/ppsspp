@@ -158,10 +158,10 @@ public:
 		std::vector<int> pspKeys;
 		bool showInfo = false;
 
-		if (KeyMap::InputMappingToPspButton(InputMapping(key.deviceId, key.keyCode), &pspKeys)) {
+		if (HasFocus() && KeyMap::InputMappingToPspButton(InputMapping(key.deviceId, key.keyCode), &pspKeys)) {
 			for (auto it = pspKeys.begin(), end = pspKeys.end(); it != end; ++it) {
 				// If the button mapped to triangle, then show the info.
-				if (HasFocus() && (key.flags & KEY_UP) && *it == CTRL_TRIANGLE) {
+				if ((key.flags & KEY_UP) && *it == CTRL_TRIANGLE) {
 					showInfo = true;
 				}
 			}
