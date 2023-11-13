@@ -81,7 +81,8 @@ std::string StripQuotes(const std::string &s);
 std::string_view StripSpaces(std::string_view s);
 std::string_view StripQuotes(std::string_view s);
 
-void SplitString(const std::string& str, const char delim, std::vector<std::string>& output);
+// TODO: Make this a lot more efficient by outputting string_views.
+void SplitString(std::string_view str, const char delim, std::vector<std::string>& output);
 
 void GetQuotedStrings(const std::string& str, std::vector<std::string>& output);
 

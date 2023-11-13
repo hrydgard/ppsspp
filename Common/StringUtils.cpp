@@ -284,8 +284,7 @@ std::string_view StripQuotes(std::string_view s) {
 		return s;
 }
 
-void SplitString(const std::string& str, const char delim, std::vector<std::string>& output)
-{
+void SplitString(std::string_view str, const char delim, std::vector<std::string> &output) {
 	size_t next = 0;
 	for (size_t pos = 0, len = str.length(); pos < len; ++pos) {
 		if (str[pos] == delim) {
@@ -296,7 +295,7 @@ void SplitString(const std::string& str, const char delim, std::vector<std::stri
 	}
 
 	if (next == 0) {
-		output.push_back(str);
+		output.push_back(std::string(str));
 	} else if (next < str.length()) {
 		output.emplace_back(str.substr(next));
 	}
