@@ -307,6 +307,21 @@ bool IsEscapeKey(const KeyInput &key) {
 	}
 }
 
+// Corresponds to Triangle
+bool IsInfoKey(const KeyInput &key) {
+	if (infoKeys.empty()) {
+		// This path is pretty much not used, infoKeys should be set.
+		// TODO: Get rid of this stuff?
+		if (key.deviceId == DEVICE_ID_KEYBOARD) {
+			return key.keyCode == NKCODE_S || key.keyCode == NKCODE_NUMPAD_ADD;
+		} else {
+			return key.keyCode == NKCODE_BUTTON_Y || key.keyCode == NKCODE_BUTTON_3;
+		}
+	} else {
+		return MatchesKeyDef(infoKeys, key);
+	}
+}
+
 bool IsTabLeftKey(const KeyInput &key) {
 	if (tabLeftKeys.empty()) {
 		// This path is pretty much not used, tabLeftKeys should be set.

@@ -37,6 +37,7 @@ const char *GetDeviceName(int deviceId) {
 std::vector<InputMapping> dpadKeys;
 std::vector<InputMapping> confirmKeys;
 std::vector<InputMapping> cancelKeys;
+std::vector<InputMapping> infoKeys;
 std::vector<InputMapping> tabLeftKeys;
 std::vector<InputMapping> tabRightKeys;
 static std::unordered_map<InputDeviceID, int> uiFlipAnalogY;
@@ -67,6 +68,10 @@ void SetConfirmCancelKeys(const std::vector<InputMapping> &confirm, const std::v
 void SetTabLeftRightKeys(const std::vector<InputMapping> &tabLeft, const std::vector<InputMapping> &tabRight) {
 	tabLeftKeys = tabLeft;
 	tabRightKeys = tabRight;
+}
+
+void SetInfoKeys(const std::vector<InputMapping> &info) {
+	infoKeys = info;
 }
 
 void SetAnalogFlipY(std::unordered_map<InputDeviceID, int> flipYByDeviceId) {

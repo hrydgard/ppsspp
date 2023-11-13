@@ -67,13 +67,16 @@ void UpdateNativeMenuKeys() {
 	std::vector<InputMapping> confirmKeys, cancelKeys;
 	std::vector<InputMapping> tabLeft, tabRight;
 	std::vector<InputMapping> upKeys, downKeys, leftKeys, rightKeys;
+	std::vector<InputMapping> infoKeys;
+
+	// Mouse mapping might be problematic in UI, so let's ignore mouse for UI
 
 	int confirmKey = g_Config.iButtonPreference == PSP_SYSTEMPARAM_BUTTON_CROSS ? CTRL_CROSS : CTRL_CIRCLE;
 	int cancelKey = g_Config.iButtonPreference == PSP_SYSTEMPARAM_BUTTON_CROSS ? CTRL_CIRCLE : CTRL_CROSS;
 
-	// Mouse mapping might be problematic in UI, so let's ignore mouse for UI
 	SingleInputMappingFromPspButton(confirmKey, &confirmKeys, true);
 	SingleInputMappingFromPspButton(cancelKey, &cancelKeys, true);
+	SingleInputMappingFromPspButton(CTRL_TRIANGLE, &infoKeys, true);
 	SingleInputMappingFromPspButton(CTRL_LTRIGGER, &tabLeft, true);
 	SingleInputMappingFromPspButton(CTRL_RTRIGGER, &tabRight, true);
 	SingleInputMappingFromPspButton(CTRL_UP, &upKeys, true);
@@ -116,9 +119,21 @@ void UpdateNativeMenuKeys() {
 			cancelKeys.push_back(hardcodedCancelKeys[i]);
 	}
 
+	const InputMapping hardcodedInfoKeys[] = {
+		InputMapping(DEVICE_ID_KEYBOARD, NKCODE_S),
+		InputMapping(DEVICE_ID_KEYBOARD, NKCODE_NUMPAD_ADD),
+		InputMapping(DEVICE_ID_PAD_0, NKCODE_BUTTON_Y),  // Also triangle
+	};
+
+	for (size_t i = 0; i < ARRAY_SIZE(hardcodedInfoKeys); i++) {
+		if (std::find(infoKeys.begin(), infoKeys.end(), hardcodedInfoKeys[i]) == infoKeys.end())
+			infoKeys.push_back(hardcodedInfoKeys[i]);
+	}
+
 	SetDPadKeys(upKeys, downKeys, leftKeys, rightKeys);
 	SetConfirmCancelKeys(confirmKeys, cancelKeys);
 	SetTabLeftRightKeys(tabLeft, tabRight);
+	SetInfoKeys(infoKeys);
 
 	std::unordered_map<InputDeviceID, int> flipYByDeviceId;
 	for (InputDeviceID deviceId : g_seenDeviceIds) {

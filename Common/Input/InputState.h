@@ -191,12 +191,14 @@ struct AxisInput {
 extern std::vector<InputMapping> dpadKeys;
 extern std::vector<InputMapping> confirmKeys;
 extern std::vector<InputMapping> cancelKeys;
+extern std::vector<InputMapping> infoKeys;
 extern std::vector<InputMapping> tabLeftKeys;
 extern std::vector<InputMapping> tabRightKeys;
 void SetDPadKeys(const std::vector<InputMapping> &leftKey, const std::vector<InputMapping> &rightKey,
 		const std::vector<InputMapping> &upKey, const std::vector<InputMapping> &downKey);
 void SetConfirmCancelKeys(const std::vector<InputMapping> &confirm, const std::vector<InputMapping> &cancel);
 void SetTabLeftRightKeys(const std::vector<InputMapping> &tabLeft, const std::vector<InputMapping> &tabRight);
+void SetInfoKeys(const std::vector<InputMapping> &info);
 
 // 0 means unknown (attempt autodetect), -1 means flip, 1 means original direction.
 void SetAnalogFlipY(std::unordered_map<InputDeviceID, int> flipYByDeviceId);
