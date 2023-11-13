@@ -265,12 +265,10 @@ Draw2DPipeline *Draw2D::Create2DPipeline(std::function<Draw2DPipelineInfo (Shade
 
 	// verts have positions in 2D clip coordinates.
 	static const InputLayoutDesc desc = {
+		16,
 		{
-			{ 16, false },
-		},
-		{
-			{ 0, SEM_POSITION, DataFormat::R32G32_FLOAT, 0 },
-			{ 0, SEM_TEXCOORD0, DataFormat::R32G32_FLOAT, 8 },
+			{ SEM_POSITION, DataFormat::R32G32_FLOAT, 0 },
+			{ SEM_TEXCOORD0, DataFormat::R32G32_FLOAT, 8 },
 		},
 	};
 	InputLayout *inputLayout = draw_->CreateInputLayout(desc);

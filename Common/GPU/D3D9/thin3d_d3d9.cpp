@@ -231,14 +231,14 @@ public:
 			decl_->Release();
 		}
 	}
-	int GetStride(int binding) const { return stride_[binding]; }
+	int GetStride() const { return stride_; }
 	void Apply(LPDIRECT3DDEVICE9 device) {
 		device->SetVertexDeclaration(decl_);
 	}
 
 private:
 	LPDIRECT3DVERTEXDECLARATION9 decl_;
-	int stride_[4];
+	int stride_;
 };
 
 class D3D9ShaderModule : public ShaderModule {
@@ -560,12 +560,9 @@ public:
 				s->Apply(device_, start + i);
 		}
 	}
-	void BindVertexBuffers(int start, int count, Buffer **buffers, const int *offsets) override {
-		_assert_(start + count <= ARRAY_SIZE(curVBuffers_));
-		for (int i = 0; i < count; i++) {
-			curVBuffers_[i + start] = (D3D9Buffer *)buffers[i];
-			curVBufferOffsets_[i + start] = offsets ? offsets[i] : 0;
-		}
+	void BindVertexBuffer(Buffer *vertexBuffer, int offset) override {
+		curVBuffer_ = (D3D9Buffer *)vertexBuffer;
+		curVBufferOffset_ = offset;
 	}
 	void BindIndexBuffer(Buffer *indexBuffer, int offset) override {
 		curIBuffer_ = (D3D9Buffer *)indexBuffer;
@@ -645,8 +642,8 @@ private:
 
 	// Bound state
 	AutoRef<D3D9Pipeline> curPipeline_;
-	AutoRef<D3D9Buffer> curVBuffers_[4];
-	int curVBufferOffsets_[4]{};
+	AutoRef<D3D9Buffer> curVBuffer_;
+	int curVBufferOffset_ = 0;
 	AutoRef<D3D9Buffer> curIBuffer_;
 	int curIBufferOffset_ = 0;
 	AutoRef<Framebuffer> curRenderTarget_;
@@ -1028,7 +1025,7 @@ D3D9InputLayout::D3D9InputLayout(LPDIRECT3DDEVICE9 device, const InputLayoutDesc
 	D3DVERTEXELEMENT9 *elements = new D3DVERTEXELEMENT9[desc.attributes.size() + 1];
 	size_t i;
 	for (i = 0; i < desc.attributes.size(); i++) {
-		elements[i].Stream = desc.attributes[i].binding;
+		elements[i].Stream = 0;
 		elements[i].Offset = desc.attributes[i].offset;
 		elements[i].Method = D3DDECLMETHOD_DEFAULT;
 		SemanticToD3D9UsageAndIndex(desc.attributes[i].location, &elements[i].Usage, &elements[i].UsageIndex);
@@ -1038,9 +1035,7 @@ D3D9InputLayout::D3D9InputLayout(LPDIRECT3DDEVICE9 device, const InputLayoutDesc
 	// Zero the last one.
 	memcpy(&elements[i], &end, sizeof(elements[i]));
 
-	for (i = 0; i < desc.bindings.size(); i++) {
-		stride_[i] = desc.bindings[i].stride;
-	}
+	stride_ = desc.stride;
 
 	HRESULT hr = device->CreateVertexDeclaration(elements, &decl_);
 	if (FAILED(hr)) {
@@ -1174,7 +1169,7 @@ inline int D3DPrimCount(D3DPRIMITIVETYPE prim, int size) {
 }
 
 void D3D9Context::Draw(int vertexCount, int offset) {
-	device_->SetStreamSource(0, curVBuffers_[0]->vbuffer_, curVBufferOffsets_[0], curPipeline_->inputLayout->GetStride(0));
+	device_->SetStreamSource(0, curVBuffer_->vbuffer_, curVBufferOffset_, curPipeline_->inputLayout->GetStride());
 	curPipeline_->inputLayout->Apply(device_);
 	curPipeline_->Apply(device_, stencilRef_, stencilWriteMask_, stencilCompareMask_);
 	ApplyDynamicState();
@@ -1185,7 +1180,7 @@ void D3D9Context::DrawIndexed(int vertexCount, int offset) {
 	curPipeline_->inputLayout->Apply(device_);
 	curPipeline_->Apply(device_, stencilRef_, stencilWriteMask_, stencilCompareMask_);
 	ApplyDynamicState();
-	device_->SetStreamSource(0, curVBuffers_[0]->vbuffer_, curVBufferOffsets_[0], curPipeline_->inputLayout->GetStride(0));
+	device_->SetStreamSource(0, curVBuffer_->vbuffer_, curVBufferOffset_, curPipeline_->inputLayout->GetStride());
 	device_->SetIndices(curIBuffer_->ibuffer_);
 	device_->DrawIndexedPrimitive(curPipeline_->prim, 0, 0, vertexCount, offset, D3DPrimCount(curPipeline_->prim, vertexCount));
 }
@@ -1195,7 +1190,7 @@ void D3D9Context::DrawUP(const void *vdata, int vertexCount) {
 	curPipeline_->Apply(device_, stencilRef_, stencilWriteMask_, stencilCompareMask_);
 	ApplyDynamicState();
 
-	device_->DrawPrimitiveUP(curPipeline_->prim, D3DPrimCount(curPipeline_->prim, vertexCount), vdata, curPipeline_->inputLayout->GetStride(0));
+	device_->DrawPrimitiveUP(curPipeline_->prim, D3DPrimCount(curPipeline_->prim, vertexCount), vdata, curPipeline_->inputLayout->GetStride());
 }
 
 static uint32_t SwapRB(uint32_t c) {

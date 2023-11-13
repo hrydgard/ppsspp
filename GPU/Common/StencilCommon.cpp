@@ -230,11 +230,9 @@ bool FramebufferManagerCommon::PerformWriteStencilFromMemory(u32 addr, int size,
 		_assert_(stencilUploadFs && stencilUploadVs);
 
 		InputLayoutDesc desc = {
+			8,
 			{
-				{ 8, false },
-			},
-			{
-				{ 0, SEM_POSITION, DataFormat::R32G32_FLOAT, 0 },
+				{ SEM_POSITION, DataFormat::R32G32_FLOAT, 0 },
 			},
 		};
 		InputLayout *inputLayout = draw_->CreateInputLayout(desc);
