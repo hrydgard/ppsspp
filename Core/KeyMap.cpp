@@ -906,9 +906,9 @@ const char *GetVirtKeyName(int vkey) {
 	return g_vKeyNames[index];
 }
 
-MultiInputMapping MultiInputMapping::FromConfigString(const std::string &str) {
+MultiInputMapping MultiInputMapping::FromConfigString(std::string_view str) {
 	MultiInputMapping out;
-	std::vector<std::string> parts;
+	std::vector<std::string_view> parts;
 	SplitString(str, ':', parts);
 	for (auto iter : parts) {
 		out.mappings.push_back(InputMapping::FromConfigString(iter));

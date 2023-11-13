@@ -17,9 +17,9 @@ void MessagePopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	using namespace UI;
 	UIContext &dc = *screenManager()->getUIContext();
 
-	std::vector<std::string> messageLines;
+	std::vector<std::string_view> messageLines;
 	SplitString(message_, '\n', messageLines);
-	for (const auto &lineOfText : messageLines)
+	for (auto lineOfText : messageLines)
 		parent->Add(new UI::TextView(lineOfText, ALIGN_LEFT | ALIGN_VCENTER, false))->SetTextColor(dc.theme->popupStyle.fgColor);
 }
 

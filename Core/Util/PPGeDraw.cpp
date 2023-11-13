@@ -1082,7 +1082,7 @@ void PPGeDrawText(const char *text, float x, float y, const PPGeStyle &style) {
 	PPGeDrawCurrentText(style.color);
 }
 
-static std::string StripTrailingWhite(const std::string &s) {
+static std::string_view StripTrailingWhite(std::string_view s) {
 	size_t lastChar = s.find_last_not_of(" \t\r\n");
 	if (lastChar != s.npos) {
 		return s.substr(0, lastChar + 1);
@@ -1090,8 +1090,8 @@ static std::string StripTrailingWhite(const std::string &s) {
 	return s;
 }
 
-static std::string CropLinesToCount(const std::string &s, int numLines) {
-	std::vector<std::string> lines;
+static std::string_view CropLinesToCount(std::string_view s, int numLines) {
+	std::vector<std::string_view> lines;
 	SplitString(s, '\n', lines);
 	if ((int)lines.size() <= numLines) {
 		return s;
@@ -1099,7 +1099,7 @@ static std::string CropLinesToCount(const std::string &s, int numLines) {
 
 	size_t len = 0;
 	for (int i = 0; i < numLines; ++i) {
-		len += lines[i].length() + 1;
+		len += lines[i].size() + 1;
 	}
 
 	return s.substr(0, len);
@@ -1138,7 +1138,8 @@ void PPGeDrawTextWrapped(const char *text, float x, float y, float wrapWidth, fl
 				actualHeight = (maxLines + 1) * lineHeight;
 				// Add an ellipsis if it's just too long to be readable.
 				// On a PSP, it does this without scaling it down.
-				s2 = StripTrailingWhite(CropLinesToCount(s2, (int)maxLines)) + "\n...";
+				s2 = StripTrailingWhite(CropLinesToCount(s2, (int)maxLines));
+				s2.append("\n...");
 			}
 
 			adjustedStyle.scale *= wrapHeight / actualHeight;
@@ -1164,7 +1165,8 @@ void PPGeDrawTextWrapped(const char *text, float x, float y, float wrapWidth, fl
 			actualHeight = (maxLines + 1) * char_lines_metrics.lineHeight;
 			// Add an ellipsis if it's just too long to be readable.
 			// On a PSP, it does this without scaling it down.
-			s = StripTrailingWhite(CropLinesToCount(s, (int)maxLines)) + "\n...";
+			s = StripTrailingWhite(CropLinesToCount(s, (int)maxLines));
+			s.append("\n...");
 		}
 
 		// Measure the text again after scaling down.

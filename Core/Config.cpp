@@ -81,6 +81,33 @@ static const char *logSectionName = "LogDebug";
 static const char *logSectionName = "Log";
 #endif
 
+std::string GPUBackendToString(GPUBackend backend) {
+	switch (backend) {
+	case GPUBackend::OPENGL:
+		return "OPENGL";
+	case GPUBackend::DIRECT3D9:
+		return "DIRECT3D9";
+	case GPUBackend::DIRECT3D11:
+		return "DIRECT3D11";
+	case GPUBackend::VULKAN:
+		return "VULKAN";
+	}
+	// Intentionally not a default so we get a warning.
+	return "INVALID";
+}
+
+GPUBackend GPUBackendFromString(std::string_view backend) {
+	if (!equalsNoCase(backend, "OPENGL") || backend == "0")
+		return GPUBackend::OPENGL;
+	if (!equalsNoCase(backend, "DIRECT3D9") || backend == "1")
+		return GPUBackend::DIRECT3D9;
+	if (!equalsNoCase(backend, "DIRECT3D11") || backend == "2")
+		return GPUBackend::DIRECT3D11;
+	if (!equalsNoCase(backend, "VULKAN") || backend == "3")
+		return GPUBackend::VULKAN;
+	return GPUBackend::OPENGL;
+}
+
 const char *DefaultLangRegion() {
 	// Unfortunate default.  There's no need to use bFirstRun, since this is only a default.
 	static std::string defaultLangRegion = "en_US";
@@ -513,7 +540,7 @@ bool Config::IsBackendEnabled(GPUBackend backend, bool validate) {
 	return true;
 }
 
-template <typename T, std::string (*FTo)(T), T (*FFrom)(const std::string &)>
+template <typename T, std::string (*FTo)(T), T (*FFrom)(std::string_view)>
 struct ConfigTranslator {
 	static std::string To(int v) {
 		return StringFromInt(v) + " (" + FTo(T(v)) + ")";
