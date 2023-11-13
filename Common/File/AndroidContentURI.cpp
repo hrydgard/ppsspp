@@ -8,7 +8,7 @@ bool AndroidContentURI::Parse(std::string_view path) {
 
 	std::string_view components = path.substr(strlen(prefix));
 
-	std::vector<std::string> parts;
+	std::vector<std::string_view> parts;
 	SplitString(components, '/', parts);
 	if (parts.size() == 3) {
 		// Single file URI.

@@ -78,7 +78,7 @@ bool LoadRemoteFileList(const Path &url, const std::string &userAgent, bool *can
 		return false;
 	}
 
-	for (std::string item : items) {
+	for (auto &item : items) {
 		// Apply some workarounds.
 		if (item.empty())
 			continue;

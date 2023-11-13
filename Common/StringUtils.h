@@ -43,7 +43,7 @@ inline bool startsWith(std::string_view str, std::string_view key) {
 	return !memcmp(str.data(), key.data(), key.size());
 }
 
-inline bool endsWith(const std::string &str, const std::string &what) {
+inline bool endsWith(std::string_view str, std::string_view what) {
 	if (str.size() < what.size())
 		return false;
 	return str.substr(str.size() - what.size()) == what;
@@ -82,7 +82,8 @@ std::string_view StripSpaces(std::string_view s);
 std::string_view StripQuotes(std::string_view s);
 
 // TODO: Make this a lot more efficient by outputting string_views.
-void SplitString(std::string_view str, const char delim, std::vector<std::string>& output);
+void SplitString(std::string_view str, const char delim, std::vector<std::string_view> &output);
+void SplitString(std::string_view str, const char delim, std::vector<std::string> &output);
 
 void GetQuotedStrings(const std::string& str, std::vector<std::string>& output);
 

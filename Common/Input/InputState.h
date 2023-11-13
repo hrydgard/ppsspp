@@ -79,7 +79,7 @@ public:
 		_dbg_assert_(direction != 0);
 	}
 
-	static InputMapping FromConfigString(const std::string &str);
+	static InputMapping FromConfigString(std::string_view str);
 	std::string ToConfigString() const;
 
 	InputDeviceID deviceId;

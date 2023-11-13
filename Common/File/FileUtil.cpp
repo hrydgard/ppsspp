@@ -592,7 +592,7 @@ bool CreateFullPath(const Path &path) {
 		return false;
 	}
 
-	std::vector<std::string> parts;
+	std::vector<std::string_view> parts;
 	SplitString(diff, '/', parts);
 
 	// Probably not necessary sanity check, ported from the old code.
@@ -602,7 +602,7 @@ bool CreateFullPath(const Path &path) {
 	}
 
 	Path curPath = root;
-	for (auto &part : parts) {
+	for (auto part : parts) {
 		curPath /= part;
 		if (!File::Exists(curPath)) {
 			File::CreateDir(curPath);
