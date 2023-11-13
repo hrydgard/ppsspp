@@ -1066,6 +1066,7 @@ void ApplyBoundsBySpec(Bounds &bounds, MeasureSpec horiz, MeasureSpec vert);
 bool IsDPadKey(const KeyInput &key);
 bool IsAcceptKey(const KeyInput &key);
 bool IsEscapeKey(const KeyInput &key);
+bool IsInfoKey(const KeyInput &key);
 bool IsTabLeftKey(const KeyInput &key);
 bool IsTabRightKey(const KeyInput &key);
 
