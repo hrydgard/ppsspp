@@ -1061,8 +1061,8 @@ u32 _AtracAddStreamData(int atracID, u32 bufPtr, u32 bytesToAdd) {
 	Atrac *atrac = getAtrac(atracID);
 	if (!atrac)
 		return 0;
-	int addbytes = std::min(bytesToAdd, atrac->first_.filesize - atrac->first_.fileoffset);
-	Memory::Memcpy(atrac->dataBuf_ + atrac->first_.fileoffset, bufPtr, addbytes, "AtracAddStreamData");
+	int addbytes = std::min(bytesToAdd, atrac->first_.filesize - atrac->first_.fileoffset - atrac->FirstOffsetExtra());
+	Memory::Memcpy(atrac->dataBuf_ + atrac->first_.fileoffset + atrac->FirstOffsetExtra(), bufPtr, addbytes, "AtracAddStreamData");
 	atrac->first_.size += bytesToAdd;
 	if (atrac->first_.size >= atrac->first_.filesize) {
 		atrac->first_.size = atrac->first_.filesize;
@@ -1629,6 +1629,9 @@ static u32 sceAtracGetNextSample(int atracID, u32 outNAddr) {
 			}
 			if (numSamples > atrac->SamplesPerFrame())
 				numSamples = atrac->SamplesPerFrame();
+			if (atrac->bufferState_ == ATRAC_STATUS_STREAMED_LOOP_FROM_END && numSamples + atrac->currentSample_ > atrac->endSample_) {
+				atrac->bufferState_ = ATRAC_STATUS_ALL_DATA_LOADED;
+			}
 			if (Memory::IsValidAddress(outNAddr))
 				Memory::Write_U32(numSamples, outNAddr);
 			DEBUG_LOG(ME, "sceAtracGetNextSample(%i, %08x): %d samples left", atracID, outNAddr, numSamples);
