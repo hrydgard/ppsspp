@@ -86,11 +86,12 @@ int GetAnalogYDirection(InputDeviceID deviceId) {
 }
 
 // NOTE: Changing the format of FromConfigString/ToConfigString breaks controls.ini backwards compatibility.
-InputMapping InputMapping::FromConfigString(const std::string &str) {
-	std::vector<std::string> parts;
+InputMapping InputMapping::FromConfigString(const std::string_view str) {
+	std::vector<std::string_view> parts;
 	SplitString(str, '-', parts);
-	InputDeviceID deviceId = (InputDeviceID)(atoi(parts[0].c_str()));
-	InputKeyCode keyCode = (InputKeyCode)atoi(parts[1].c_str());
+	// We only convert to std::string here to add null terminators for atoi.
+	InputDeviceID deviceId = (InputDeviceID)(atoi(std::string(parts[0]).c_str()));
+	InputKeyCode keyCode = (InputKeyCode)atoi(std::string(parts[1]).c_str());
 
 	InputMapping mapping;
 	mapping.deviceId = deviceId;

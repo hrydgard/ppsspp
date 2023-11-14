@@ -22,7 +22,7 @@
 #include <sys/stat.h>
 #endif
 
-Path::Path(const std::string &str) {
+Path::Path(std::string_view str) {
 	Init(str);
 }
 
@@ -33,7 +33,7 @@ Path::Path(const std::wstring &str) {
 }
 #endif
 
-void Path::Init(const std::string &str) {
+void Path::Init(std::string_view str) {
 	if (str.empty()) {
 		type_ = PathType::UNDEFINED;
 		path_.clear();
@@ -81,7 +81,7 @@ void Path::Init(const std::string &str) {
 
 // We always use forward slashes internally, we convert to backslash only when
 // converted to a wstring.
-Path Path::operator /(const std::string &subdir) const {
+Path Path::operator /(std::string_view subdir) const {
 	if (type_ == PathType::CONTENT_URI) {
 		AndroidContentURI uri(path_);
 		return Path(uri.WithComponent(subdir).ToString());
@@ -104,18 +104,18 @@ Path Path::operator /(const std::string &subdir) const {
 	return Path(fullPath);
 }
 
-void Path::operator /=(const std::string &subdir) {
+void Path::operator /=(std::string_view subdir) {
 	*this = *this / subdir;
 }
 
-Path Path::WithExtraExtension(const std::string &ext) const {
+Path Path::WithExtraExtension(std::string_view ext) const {
 	if (type_ == PathType::CONTENT_URI) {
 		AndroidContentURI uri(path_);
 		return Path(uri.WithExtraExtension(ext).ToString());
 	}
 
 	_dbg_assert_(!ext.empty() && ext[0] == '.');
-	return Path(path_ + ext);
+	return Path(path_ + std::string(ext));
 }
 
 Path Path::WithReplacedExtension(const std::string &oldExtension, const std::string &newExtension) const {
@@ -161,7 +161,7 @@ std::string Path::GetFilename() const {
 	return path_;
 }
 
-std::string GetExtFromString(const std::string &str) {
+std::string GetExtFromString(std::string_view str) {
 	size_t pos = str.rfind(".");
 	if (pos == std::string::npos) {
 		return "";
@@ -171,7 +171,7 @@ std::string GetExtFromString(const std::string &str) {
 		// Don't want to detect "df/file" from "/as.df/file"
 		return "";
 	}
-	std::string ext = str.substr(pos);
+	std::string ext(str.substr(pos));
 	for (size_t i = 0; i < ext.size(); i++) {
 		ext[i] = tolower(ext[i]);
 	}

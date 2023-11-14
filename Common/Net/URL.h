@@ -203,5 +203,5 @@ private:
 };
 
 
-std::string UriDecode(const std::string & sSrc);
-std::string UriEncode(const std::string & sSrc);
+std::string UriDecode(std::string_view sSrc);
+std::string UriEncode(std::string_view sSrc);

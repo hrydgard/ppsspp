@@ -23,15 +23,15 @@ private:
 	std::string file;
 public:
 	AndroidContentURI() {}
-	explicit AndroidContentURI(const std::string &path) {
+	explicit AndroidContentURI(std::string_view path) {
 		Parse(path);
 	}
 
-	bool Parse(const std::string &path);
+	bool Parse(std::string_view path);
 
 	AndroidContentURI WithRootFilePath(const std::string &filePath);
-	AndroidContentURI WithComponent(const std::string &filePath);
-	AndroidContentURI WithExtraExtension(const std::string &extension);
+	AndroidContentURI WithComponent(std::string_view filePath);
+	AndroidContentURI WithExtraExtension(std::string_view extension);  // The ext string contains the dot.
 	AndroidContentURI WithReplacedExtension(const std::string &oldExtension, const std::string &newExtension) const;
 	AndroidContentURI WithReplacedExtension(const std::string &newExtension) const;
 

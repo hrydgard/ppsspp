@@ -90,32 +90,8 @@ enum class RestoreSettingsBits : int {
 };
 ENUM_CLASS_BITOPS(RestoreSettingsBits);
 
-inline std::string GPUBackendToString(GPUBackend backend) {
-	switch (backend) {
-	case GPUBackend::OPENGL:
-		return "OPENGL";
-	case GPUBackend::DIRECT3D9:
-		return "DIRECT3D9";
-	case GPUBackend::DIRECT3D11:
-		return "DIRECT3D11";
-	case GPUBackend::VULKAN:
-		return "VULKAN";
-	}
-	// Intentionally not a default so we get a warning.
-	return "INVALID";
-}
-
-inline GPUBackend GPUBackendFromString(const std::string &backend) {
-	if (!strcasecmp(backend.c_str(), "OPENGL") || backend == "0")
-		return GPUBackend::OPENGL;
-	if (!strcasecmp(backend.c_str(), "DIRECT3D9") || backend == "1")
-		return GPUBackend::DIRECT3D9;
-	if (!strcasecmp(backend.c_str(), "DIRECT3D11") || backend == "2")
-		return GPUBackend::DIRECT3D11;
-	if (!strcasecmp(backend.c_str(), "VULKAN") || backend == "3")
-		return GPUBackend::VULKAN;
-	return GPUBackend::OPENGL;
-}
+std::string GPUBackendToString(GPUBackend backend);
+GPUBackend GPUBackendFromString(std::string_view backend);
 
 enum AudioBackendType {
 	AUDIO_BACKEND_AUTO,

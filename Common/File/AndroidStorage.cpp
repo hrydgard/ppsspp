@@ -61,16 +61,16 @@ void Android_RegisterStorageCallbacks(JNIEnv * env, jobject obj) {
 	_dbg_assert_(computeRecursiveDirectorySize);
 }
 
-bool Android_IsContentUri(const std::string &filename) {
+bool Android_IsContentUri(std::string_view filename) {
 	return startsWith(filename, "content://");
 }
 
-int Android_OpenContentUriFd(const std::string &filename, Android_OpenContentUriMode mode) {
+int Android_OpenContentUriFd(std::string_view filename, Android_OpenContentUriMode mode) {
 	if (!g_nativeActivity) {
 		return -1;
 	}
 
-	std::string fname = filename;
+	std::string fname(filename);
 	// PPSSPP adds an ending slash to directories before looking them up.
 	// TODO: Fix that in the caller (or don't call this for directories).
 	if (fname.back() == '/')

@@ -927,10 +927,10 @@ private:
 
 class TextView : public InertView {
 public:
-	TextView(const std::string &text, LayoutParams *layoutParams = 0)
+	TextView(std::string_view text, LayoutParams *layoutParams = 0)
 		: InertView(layoutParams), text_(text), textAlign_(0), textColor_(0xFFFFFFFF), small_(false), shadow_(false), focusable_(false), clip_(true) {}
 
-	TextView(const std::string &text, int textAlign, bool small, LayoutParams *layoutParams = 0)
+	TextView(std::string_view text, int textAlign, bool small, LayoutParams *layoutParams = 0)
 		: InertView(layoutParams), text_(text), textAlign_(textAlign), textColor_(0xFFFFFFFF), small_(small), shadow_(false), focusable_(false), clip_(true) {}
 
 	void GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert, float &w, float &h) const override;

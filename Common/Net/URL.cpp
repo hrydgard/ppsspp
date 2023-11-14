@@ -115,13 +115,13 @@ const char HEX2DEC[256] =
 	/* F */ N1,N1,N1,N1, N1,N1,N1,N1, N1,N1,N1,N1, N1,N1,N1,N1
 };
 
-std::string UriDecode(const std::string & sSrc)
+std::string UriDecode(std::string_view sSrc)
 {
 	// Note from RFC1630:  "Sequences which start with a percent sign
 	// but are not followed by two hexadecimal characters (0-9, A-F) are reserved
 	// for future extension"
 
-	const unsigned char * pSrc = (const unsigned char *)sSrc.c_str();
+	const unsigned char * pSrc = (const unsigned char *)sSrc.data();
 	const size_t SRC_LEN = sSrc.length();
 	const unsigned char * const SRC_END = pSrc + SRC_LEN;
 	const unsigned char * const SRC_LAST_DEC = SRC_END - 2;   // last decodable '%' 
@@ -129,14 +129,10 @@ std::string UriDecode(const std::string & sSrc)
 	char * const pStart = new char[SRC_LEN];  // Output will be shorter.
 	char * pEnd = pStart;
 
-	while (pSrc < SRC_LAST_DEC)
-	{
-		if (*pSrc == '%')
-		{
+	while (pSrc < SRC_LAST_DEC) {
+		if (*pSrc == '%') {
 			char dec1, dec2;
-			if (N1 != (dec1 = HEX2DEC[*(pSrc + 1)])
-				&& N1 != (dec2 = HEX2DEC[*(pSrc + 2)]))
-			{
+			if (N1 != (dec1 = HEX2DEC[*(pSrc + 1)]) && N1 != (dec2 = HEX2DEC[*(pSrc + 2)])) {
 				*pEnd++ = (dec1 << 4) + dec2;
 				pSrc += 3;
 				continue;
@@ -156,8 +152,7 @@ std::string UriDecode(const std::string & sSrc)
 }
 
 // Only alphanum and underscore is safe.
-const char SAFE[256] =
-{
+static const char SAFE[256] = {
 	/*      0 1 2 3  4 5 6 7  8 9 A B  C D E F */
 	/* 0 */ 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,
 	/* 1 */ 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,
@@ -180,21 +175,18 @@ const char SAFE[256] =
 	/* F */ 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0
 };
 
-std::string UriEncode(const std::string & sSrc)
-{
+std::string UriEncode(std::string_view sSrc) {
 	const char DEC2HEX[16 + 1] = "0123456789ABCDEF";
-	const unsigned char * pSrc = (const unsigned char *)sSrc.c_str();
+	const unsigned char * pSrc = (const unsigned char *)sSrc.data();
 	const size_t SRC_LEN = sSrc.length();
 	unsigned char * const pStart = new unsigned char[SRC_LEN * 3];
 	unsigned char * pEnd = pStart;
 	const unsigned char * const SRC_END = pSrc + SRC_LEN;
 
-	for (; pSrc < SRC_END; ++pSrc)
-	{
-		if (SAFE[*pSrc]) 
+	for (; pSrc < SRC_END; ++pSrc) {
+		if (SAFE[*pSrc]) {
 			*pEnd++ = *pSrc;
-		else
-		{
+		} else {
 			// escape this char
 			*pEnd++ = '%';
 			*pEnd++ = DEC2HEX[*pSrc >> 4];

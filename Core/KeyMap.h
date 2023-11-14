@@ -114,9 +114,8 @@ namespace KeyMap {
 			mappings.push_back(mapping);
 		}
 		
-		static MultiInputMapping FromConfigString(const std::string &str);
+		static MultiInputMapping FromConfigString(std::string_view str);
 		std::string ToConfigString() const;
-
 		std::string ToVisualString() const;
 
 		bool operator <(const MultiInputMapping &other) {
