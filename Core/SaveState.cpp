@@ -400,8 +400,12 @@ namespace SaveState
 	void Enqueue(SaveState::Operation op)
 	{
 		if (Achievements::ChallengeModeActive()) {
-			// No savestate operations are permitted, let's just ignore it.
-			return;
+			if (g_Config.bAchievementsSaveStateInChallengeMode && (op.type == SaveState::SAVESTATE_SAVE) || (op.type == SAVESTATE_SAVE_SCREENSHOT)) {
+				// We allow saving in challenge mode if this setting is on.
+			} else {
+				// Operation not allowed
+				return;
+			}
 		}
 
 		std::lock_guard<std::mutex> guard(mutex);
