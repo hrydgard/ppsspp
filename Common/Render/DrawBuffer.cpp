@@ -39,13 +39,11 @@ void DrawBuffer::Init(Draw::DrawContext *t3d, Draw::Pipeline *pipeline) {
 Draw::InputLayout *DrawBuffer::CreateInputLayout(Draw::DrawContext *t3d) {
 	using namespace Draw;
 	InputLayoutDesc desc = {
+		sizeof(Vertex),
 		{
-			{ sizeof(Vertex), false },
-		},
-		{
-			{ 0, SEM_POSITION, DataFormat::R32G32B32_FLOAT, 0 },
-			{ 0, SEM_TEXCOORD0, DataFormat::R32G32_FLOAT, 12 },
-			{ 0, SEM_COLOR0, DataFormat::R8G8B8A8_UNORM, 20 },
+			{ SEM_POSITION, DataFormat::R32G32B32_FLOAT, 0 },
+			{ SEM_TEXCOORD0, DataFormat::R32G32_FLOAT, 12 },
+			{ SEM_COLOR0, DataFormat::R8G8B8A8_UNORM, 20 },
 		},
 	};
 

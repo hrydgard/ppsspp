@@ -585,6 +585,12 @@ bool System_GetPropertyBool(SystemProperty prop) {
 	case SYSPROP_HAS_FILE_BROWSER:
 		return true;
 #endif
+	case SYSPROP_HAS_ACCELEROMETER:
+#if defined(MOBILE_DEVICE)
+		return true;
+#else
+		return false;
+#endif
 	default:
 		return false;
 	}

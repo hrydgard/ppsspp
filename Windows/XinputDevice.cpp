@@ -16,8 +16,6 @@
 #include "Core/KeyMap.h"
 #include "Core/HLE/sceCtrl.h"
 
-static double newVibrationTime = 0.0;
-
 // Utilities to dynamically load XInput. Adapted from SDL.
 
 #if !PPSSPP_PLATFORM(UWP)
@@ -144,8 +142,6 @@ static const struct { int from; InputKeyCode to; } xinput_ctrl_map[] = {
 	{XINPUT_GUIDE_BUTTON,           NKCODE_HOME},
 };
 
-static const unsigned int xinput_ctrl_map_size = sizeof(xinput_ctrl_map) / sizeof(xinput_ctrl_map[0]);
-
 XinputDevice::XinputDevice() {
 	if (LoadXInputDLL() != 0) {
 		WARN_LOG(SCECTRL, "Failed to load XInput! DLL missing");
@@ -160,19 +156,6 @@ XinputDevice::~XinputDevice() {
 	UnloadXInputDLL();
 }
 
-struct Stick {
-	Stick(float x_, float y_, float scale) : x(x_ * scale), y(y_ * scale) {}
-	float x;
-	float y;
-};
-
-bool NormalizedDeadzoneDiffers(u8 x1, u8 x2, const u8 thresh) {
-	if (x1 > thresh || x2 > thresh) {
-		return x1 != x2;
-	}
-	return false;
-}
-
 int XinputDevice::UpdateState() {
 #if !PPSSPP_PLATFORM(UWP)
 	if (!s_pXInputDLL)
@@ -181,10 +164,8 @@ int XinputDevice::UpdateState() {
 
 	bool anySuccess = false;
 	for (int i = 0; i < XUSER_MAX_COUNT; i++) {
-		XINPUT_STATE state;
-		ZeroMemory(&state, sizeof(XINPUT_STATE));
-		XINPUT_VIBRATION vibration;
-		ZeroMemory(&vibration, sizeof(XINPUT_VIBRATION));
+		XINPUT_STATE state{};
+		XINPUT_VIBRATION vibration{};
 		if (check_delay[i]-- > 0)
 			continue;
 		DWORD dwResult = PPSSPP_XInputGetState(i, &state);
@@ -236,14 +217,8 @@ void XinputDevice::UpdatePad(int pad, const XINPUT_STATE &state, XINPUT_VIBRATIO
 	sendAxis(JOYSTICK_AXIS_Y, (float)state.Gamepad.sThumbLY / 32767.0f, 1);
 	sendAxis(JOYSTICK_AXIS_Z, (float)state.Gamepad.sThumbRX / 32767.0f, 2);
 	sendAxis(JOYSTICK_AXIS_RZ, (float)state.Gamepad.sThumbRY / 32767.0f, 3);
-
-	if (NormalizedDeadzoneDiffers(prevState[pad].Gamepad.bLeftTrigger, state.Gamepad.bLeftTrigger, XINPUT_GAMEPAD_TRIGGER_THRESHOLD)) {
-		sendAxis(JOYSTICK_AXIS_LTRIGGER, (float)state.Gamepad.bLeftTrigger / 255.0f, 4);
-	}
-
-	if (NormalizedDeadzoneDiffers(prevState[pad].Gamepad.bRightTrigger, state.Gamepad.bRightTrigger, XINPUT_GAMEPAD_TRIGGER_THRESHOLD)) {
-		sendAxis(JOYSTICK_AXIS_RTRIGGER, (float)state.Gamepad.bRightTrigger / 255.0f, 5);
-	}
+	sendAxis(JOYSTICK_AXIS_LTRIGGER, (float)state.Gamepad.bLeftTrigger / 255.0f, 4);
+	sendAxis(JOYSTICK_AXIS_RTRIGGER, (float)state.Gamepad.bRightTrigger / 255.0f, 5);
 
 	if (axisCount) {
 		NativeAxis(axis, axisCount);
@@ -260,7 +235,7 @@ void XinputDevice::ApplyButtons(int pad, const XINPUT_STATE &state) {
 	const u32 upMask = (~buttons) & prevButtons_[pad];
 	prevButtons_[pad] = buttons;
 	
-	for (int i = 0; i < xinput_ctrl_map_size; i++) {
+	for (int i = 0; i < ARRAY_SIZE(xinput_ctrl_map); i++) {
 		if (downMask & xinput_ctrl_map[i].from) {
 			KeyInput key;
 			key.deviceId = DEVICE_ID_XINPUT_0 + pad;
@@ -281,11 +256,11 @@ void XinputDevice::ApplyButtons(int pad, const XINPUT_STATE &state) {
 
 void XinputDevice::ApplyVibration(int pad, XINPUT_VIBRATION &vibration) {
 	if (PSP_IsInited()) {
-		newVibrationTime = time_now_d();
+		newVibrationTime_ = time_now_d();
 		// We have to run PPSSPP_XInputSetState at time intervals
 		// since it bugs otherwise with very high fast-forward speeds
 		// and freezes at constant vibration or no vibration at all.
-		if (newVibrationTime - prevVibrationTime >= 1.0 / 64.0) {
+		if (newVibrationTime_ - prevVibrationTime >= 1.0 / 64.0) {
 			if (GetUIState() == UISTATE_INGAME) {
 				vibration.wLeftMotorSpeed = sceCtrlGetLeftVibration(); // use any value between 0-65535 here
 				vibration.wRightMotorSpeed = sceCtrlGetRightVibration(); // use any value between 0-65535 here
@@ -298,7 +273,7 @@ void XinputDevice::ApplyVibration(int pad, XINPUT_VIBRATION &vibration) {
 				PPSSPP_XInputSetState(pad, &vibration);
 				prevVibration[pad] = vibration;
 			}
-			prevVibrationTime = newVibrationTime;
+			prevVibrationTime = newVibrationTime_;
 		}
 	} else {
 		DWORD dwResult = PPSSPP_XInputSetState(pad, &vibration);
@@ -307,4 +282,3 @@ void XinputDevice::ApplyVibration(int pad, XINPUT_VIBRATION &vibration) {
 		}
 	}
 }
-

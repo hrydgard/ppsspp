@@ -1688,7 +1688,7 @@ size_t GPUCommonHW::FormatGPUStatsCommon(char *buffer, size_t size) {
 		"Vertices: %d drawn: %d\n"
 		"FBOs active: %d (evaluations: %d)\n"
 		"Textures: %d, dec: %d, invalidated: %d, hashed: %d kB\n"
-		"readbacks %d (%d non-block), uploads %d, depal %d\n"
+		"readbacks %d (%d non-block), upload %d (cached %d), depal %d\n"
 		"block transfers: %d\n"
 		"replacer: tracks %d references, %d unique textures\n"
 		"Cpy: depth %d, color %d, reint %d, blend %d, self %d\n"
@@ -1713,6 +1713,7 @@ size_t GPUCommonHW::FormatGPUStatsCommon(char *buffer, size_t size) {
 		gpuStats.numBlockingReadbacks,
 		gpuStats.numReadbacks,
 		gpuStats.numUploads,
+		gpuStats.numCachedUploads,
 		gpuStats.numDepal,
 		gpuStats.numBlockTransfers,
 		gpuStats.numReplacerTrackedTex,

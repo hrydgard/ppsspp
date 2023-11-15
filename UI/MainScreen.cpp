@@ -158,12 +158,10 @@ public:
 		std::vector<int> pspKeys;
 		bool showInfo = false;
 
-		if (KeyMap::InputMappingToPspButton(InputMapping(key.deviceId, key.keyCode), &pspKeys)) {
-			for (auto it = pspKeys.begin(), end = pspKeys.end(); it != end; ++it) {
-				// If the button mapped to triangle, then show the info.
-				if (HasFocus() && (key.flags & KEY_UP) && *it == CTRL_TRIANGLE) {
-					showInfo = true;
-				}
+		if (HasFocus() && UI::IsInfoKey(key)) {
+			// If the button mapped to triangle, then show the info.
+			if (key.flags & KEY_UP) {
+				showInfo = true;
 			}
 		} else if (hovering_ && key.deviceId == DEVICE_ID_MOUSE && key.keyCode == NKCODE_EXT_MOUSEBUTTON_2) {
 			// If it's the right mouse button, and it's not otherwise mapped, show the info also.

@@ -480,13 +480,11 @@ Draw::Pipeline *PresentationCommon::CreatePipeline(std::vector<Draw::ShaderModul
 
 	// TODO: Maybe get rid of color0.
 	InputLayoutDesc inputDesc = {
+		sizeof(Vertex),
 		{
-			{ sizeof(Vertex), false },
-		},
-		{
-			{ 0, pos, DataFormat::R32G32B32_FLOAT, 0 },
-			{ 0, tc, DataFormat::R32G32_FLOAT, 12 },
-			{ 0, SEM_COLOR0, DataFormat::R8G8B8A8_UNORM, 20 },
+			{ pos, DataFormat::R32G32B32_FLOAT, 0 },
+			{ tc, DataFormat::R32G32_FLOAT, 12 },
+			{ SEM_COLOR0, DataFormat::R8G8B8A8_UNORM, 20 },
 		},
 	};
 
@@ -791,7 +789,7 @@ void PresentationCommon::CopyToOutput(OutputFlags flags, int uvRotation, float u
 		if (shaderInfo->usePreviousFrame)
 			draw_->BindSamplerStates(2, 1, &sampler);
 
-		draw_->BindVertexBuffers(0, 1, &vdata_, &vertsOffset);
+		draw_->BindVertexBuffer(vdata_, vertsOffset);
 		draw_->Draw(4, 0);
 
 		postShaderOutput = postShaderFramebuffer;
@@ -898,7 +896,7 @@ void PresentationCommon::CopyToOutput(OutputFlags flags, int uvRotation, float u
 		draw_->UpdateDynamicUniformBuffer(&ub, sizeof(ub));
 	}
 
-	draw_->BindVertexBuffers(0, 1, &vdata_, nullptr);
+	draw_->BindVertexBuffer(vdata_, 0);
 
 	Draw::SamplerState *sampler = useNearest ? samplerNearest_ : samplerLinear_;
 	draw_->BindSamplerStates(0, 1, &sampler);

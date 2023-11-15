@@ -475,20 +475,14 @@ protected:
 	DataFormat format_ = DataFormat::UNDEFINED;
 };
 
-struct BindingDesc {
-	int stride;
-	bool instanceRate;
-};
-
 struct AttributeDesc {
-	int binding;
 	int location;  // corresponds to semantic
 	DataFormat format;
 	int offset;
 };
 
 struct InputLayoutDesc {
-	std::vector<BindingDesc> bindings;
+	int stride;
 	std::vector<AttributeDesc> attributes;
 };
 
@@ -787,7 +781,7 @@ public:
 
 	virtual void BindSamplerStates(int start, int count, SamplerState **state) = 0;
 	virtual void BindTextures(int start, int count, Texture **textures, TextureBindFlags flags = TextureBindFlags::NONE) = 0;
-	virtual void BindVertexBuffers(int start, int count, Buffer **buffers, const int *offsets) = 0;
+	virtual void BindVertexBuffer(Buffer *vertexBuffer, int offset) = 0;
 	virtual void BindIndexBuffer(Buffer *indexBuffer, int offset) = 0;
 
 	// Sometimes it's necessary to bind a texture not created by thin3d, and use with a thin3d pipeline.

@@ -1208,7 +1208,6 @@ void FramebufferManagerCommon::DrawPixels(VirtualFramebuffer *vfb, int dstX, int
 			vfb ? vfb->bufferHeight : g_display.pixel_yres,
 			u0, v0, u1, v1, ROTATION_LOCKED_HORIZONTAL, flags);
 
-		gpuStats.numUploads++;
 		draw_->Invalidate(InvalidationFlags::CACHED_RENDER_STATE);
 
 		gstate_c.Dirty(DIRTY_ALL_RENDER_STATE);
@@ -1311,16 +1310,45 @@ void FramebufferManagerCommon::CopyFramebufferForColorTexture(VirtualFramebuffer
 
 Draw::Texture *FramebufferManagerCommon::MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height) {
 	Draw::DataFormat depthFormat = Draw::DataFormat::UNDEFINED;
+
+	int bpp = BufferFormatBytesPerPixel(srcPixelFormat);
+	int srcStrideInBytes = srcStride * bpp;
+	int widthInBytes = width * bpp;
+
+	// Compute hash of contents.
+	uint64_t imageHash;
+	if (widthInBytes == srcStrideInBytes) {
+		imageHash = XXH3_64bits(srcPixels, widthInBytes * height);
+	} else {
+		XXH3_state_t *hashState = XXH3_createState();
+		XXH3_64bits_reset(hashState);
+		for (int y = 0; y < height; y++) {
+			XXH3_64bits_update(hashState, srcPixels + srcStrideInBytes * y, widthInBytes);
+		}
+		imageHash = XXH3_64bits_digest(hashState);
+		XXH3_freeState(hashState);
+	}
+
+	Draw::DataFormat texFormat = preferredPixelsFormat_;
+
 	if (srcPixelFormat == GE_FORMAT_DEPTH16) {
 		if ((draw_->GetDataFormatSupport(Draw::DataFormat::R16_UNORM) & Draw::FMT_TEXTURE) != 0) {
-			depthFormat = Draw::DataFormat::R16_UNORM;
+			texFormat = Draw::DataFormat::R16_UNORM;
 		} else if ((draw_->GetDataFormatSupport(Draw::DataFormat::R8_UNORM) & Draw::FMT_TEXTURE) != 0) {
 			// This could be improved by using specific draw shaders to pack full precision in two channels.
 			// However, not really worth the trouble until we find a game that requires it.
-			depthFormat = Draw::DataFormat::R8_UNORM;
+			texFormat = Draw::DataFormat::R8_UNORM;
 		} else {
 			// No usable single channel format. Can't be bothered.
 			return nullptr;
+		}
+	} else if (srcPixelFormat == GE_FORMAT_565) {
+		// Check for supported matching formats.
+		// This mainly benefits the redundant copies in God of War on low-end platforms.
+		if ((draw_->GetDataFormatSupport(Draw::DataFormat::B5G6R5_UNORM_PACK16) & Draw::FMT_TEXTURE) != 0) {
+			texFormat = Draw::DataFormat::B5G6R5_UNORM_PACK16;
+		} else if ((draw_->GetDataFormatSupport(Draw::DataFormat::R5G6B5_UNORM_PACK16) & Draw::FMT_TEXTURE) != 0) {
+			texFormat = Draw::DataFormat::R5G6B5_UNORM_PACK16;
 		}
 	}
 
@@ -1335,28 +1363,33 @@ Draw::Texture *FramebufferManagerCommon::MakePixelTexture(const u8 *srcPixels, G
 			u8 *dst8 = (u8 *)(data + byteStride * y);
 			switch (srcPixelFormat) {
 			case GE_FORMAT_565:
-				if (preferredPixelsFormat_ == Draw::DataFormat::B8G8R8A8_UNORM)
+				if (texFormat == Draw::DataFormat::B5G6R5_UNORM_PACK16) {
+					memcpy(dst16, src16, w * sizeof(uint16_t));
+				} else if (texFormat == Draw::DataFormat::R5G6B5_UNORM_PACK16) {
+					ConvertRGB565ToBGR565(dst16, src16, width);  // Fast!
+				} else if (texFormat == Draw::DataFormat::B8G8R8A8_UNORM) {
 					ConvertRGB565ToBGRA8888(dst, src16, width);
-				else
+				} else {
 					ConvertRGB565ToRGBA8888(dst, src16, width);
+				}
 				break;
 
 			case GE_FORMAT_5551:
-				if (preferredPixelsFormat_ == Draw::DataFormat::B8G8R8A8_UNORM)
+				if (texFormat == Draw::DataFormat::B8G8R8A8_UNORM)
 					ConvertRGBA5551ToBGRA8888(dst, src16, width);
 				else
 					ConvertRGBA5551ToRGBA8888(dst, src16, width);
 				break;
 
 			case GE_FORMAT_4444:
-				if (preferredPixelsFormat_ == Draw::DataFormat::B8G8R8A8_UNORM)
+				if (texFormat == Draw::DataFormat::B8G8R8A8_UNORM)
 					ConvertRGBA4444ToBGRA8888(dst, src16, width);
 				else
 					ConvertRGBA4444ToRGBA8888(dst, src16, width);
 				break;
 
 			case GE_FORMAT_8888:
-				if (preferredPixelsFormat_ == Draw::DataFormat::B8G8R8A8_UNORM)
+				if (texFormat == Draw::DataFormat::B8G8R8A8_UNORM)
 					ConvertRGBA8888ToBGRA8888(dst, src32, width);
 				// This means use original pointer as-is.  May avoid or optimize a copy.
 				else if (srcStride == width)
@@ -1371,10 +1404,10 @@ Draw::Texture *FramebufferManagerCommon::MakePixelTexture(const u8 *srcPixels, G
 				// to do one of two different swizzle operations. However, for the only use of this so far,
 				// the Burnout lens flare trickery, swizzle doesn't matter since it's just a 0, 7fff, 0, 7fff pattern
 				// which comes out the same.
-				if (depthFormat == Draw::DataFormat::R16_UNORM) {
+				if (texFormat == Draw::DataFormat::R16_UNORM) {
 					// We just use this format straight.
 					memcpy(dst16, src16, w * 2);
-				} else if (depthFormat == Draw::DataFormat::R8_UNORM) {
+				} else if (texFormat == Draw::DataFormat::R8_UNORM) {
 					// We fall back to R8_UNORM. Precision is enough for most cases of depth clearing and initialization we've seen,
 					// but hardly ideal.
 					for (int i = 0; i < width; i++) {
@@ -1392,20 +1425,30 @@ Draw::Texture *FramebufferManagerCommon::MakePixelTexture(const u8 *srcPixels, G
 		return true;
 	};
 
-	Draw::DataFormat texFormat = srcPixelFormat == GE_FORMAT_DEPTH16 ? depthFormat : preferredPixelsFormat_;
-
 	int frameNumber = draw_->GetFrameCount();
 
-	// Look for a matching texture we can re-use.
+	// First look for an exact match (including contents hash) that we can re-use.
+	for (auto &iter : drawPixelsCache_) {
+		if (iter.contentsHash == imageHash && iter.tex->Width() == width && iter.tex->Height() == height && iter.tex->Format() == texFormat) {
+			iter.frameNumber = frameNumber;
+			gpuStats.numCachedUploads++;
+			return iter.tex;
+		}
+	}
+
+	// Then, look for an alternative one that's not been used recently that we can overwrite.
 	for (auto &iter : drawPixelsCache_) {
 		if (iter.frameNumber >= frameNumber - 3 || iter.tex->Width() != width || iter.tex->Height() != height || iter.tex->Format() != texFormat) {
 			continue;
 		}
 
 		// OK, current one seems good, let's use it (and mark it used).
+		gpuStats.numUploads++;
 		draw_->UpdateTextureLevels(iter.tex, &srcPixels, generateTexture, 1);
 		// NOTE: numFlips is no good - this is called every frame when paused sometimes!
 		iter.frameNumber = frameNumber;
+		// We need to update the hash for future matching.
+		iter.contentsHash = imageHash;
 		return iter.tex;
 	}
 
@@ -1435,8 +1478,9 @@ Draw::Texture *FramebufferManagerCommon::MakePixelTexture(const u8 *srcPixels, G
 
 	// INFO_LOG(G3D, "Creating drawPixelsCache texture: %dx%d", tex->Width(), tex->Height());
 
-	DrawPixelsEntry entry{ tex, frameNumber };
+	DrawPixelsEntry entry{ tex, imageHash, frameNumber };
 	drawPixelsCache_.push_back(entry);
+	gpuStats.numUploads++;
 	return tex;
 }
 

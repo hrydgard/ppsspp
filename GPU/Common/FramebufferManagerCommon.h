@@ -269,6 +269,7 @@ class DrawContext;
 
 struct DrawPixelsEntry {
 	Draw::Texture *tex;
+	uint64_t contentsHash;
 	int frameNumber;
 };
 

@@ -106,7 +106,7 @@ public:
 	void BindTextures(int start, int count, Texture **textures, TextureBindFlags flags) override;
 	void BindNativeTexture(int index, void *nativeTexture) override;
 	void BindSamplerStates(int start, int count, SamplerState **states) override;
-	void BindVertexBuffers(int start, int count, Buffer **buffers, const int *offsets) override;
+	void BindVertexBuffer(Buffer *buffers, int offset) override;
 	void BindIndexBuffer(Buffer *indexBuffer, int offset) override;
 	void BindPipeline(Pipeline *pipeline) override;
 
@@ -214,12 +214,12 @@ private:
 	ID3D11GeometryShader *curGS_ = nullptr;
 	D3D11_PRIMITIVE_TOPOLOGY curTopology_ = D3D11_PRIMITIVE_TOPOLOGY_UNDEFINED;
 
-	ID3D11Buffer *nextVertexBuffers_[4]{};
-	int nextVertexBufferOffsets_[4]{};
+	ID3D11Buffer *nextVertexBuffer_ = nullptr;
+	UINT nextVertexBufferOffset_ = 0;
 
 	bool dirtyIndexBuffer_ = false;
 	ID3D11Buffer *nextIndexBuffer_ = nullptr;
-	int nextIndexBufferOffset_ = 0;
+	UINT nextIndexBufferOffset_ = 0;
 
 	InvalidationCallback invalidationCallback_;
 	int frameCount_ = FRAME_TIME_HISTORY_LENGTH;
@@ -725,7 +725,7 @@ public:
 	D3D11InputLayout() {}
 	InputLayoutDesc desc;
 	std::vector<D3D11_INPUT_ELEMENT_DESC> elements;
-	std::vector<int> strides;
+	UINT stride;  // type to match function parameter
 };
 
 const char *semanticToD3D11(int semantic, UINT *index) {
@@ -752,15 +752,13 @@ InputLayout *D3D11DrawContext::CreateInputLayout(const InputLayoutDesc &desc) {
 		D3D11_INPUT_ELEMENT_DESC el;
 		el.AlignedByteOffset = desc.attributes[i].offset;
 		el.Format = dataFormatToD3D11(desc.attributes[i].format);
-		el.InstanceDataStepRate = desc.bindings[desc.attributes[i].binding].instanceRate ? 1 : 0;
-		el.InputSlot = desc.attributes[i].binding;
+		el.InstanceDataStepRate = 0;
+		el.InputSlot = 0;
 		el.SemanticName = semanticToD3D11(desc.attributes[i].location, &el.SemanticIndex);
-		el.InputSlotClass = desc.bindings[desc.attributes[i].binding].instanceRate ? D3D11_INPUT_PER_INSTANCE_DATA : D3D11_INPUT_PER_VERTEX_DATA;
+		el.InputSlotClass = D3D11_INPUT_PER_VERTEX_DATA;
 		inputLayout->elements.push_back(el);
 	}
-	for (size_t i = 0; i < desc.bindings.size(); i++) {
-		inputLayout->strides.push_back(desc.bindings[i].stride);
-	}
+	inputLayout->stride = desc.stride;
 	return inputLayout;
 }
 
@@ -1253,8 +1251,7 @@ void D3D11DrawContext::ApplyCurrentState() {
 	}
 
 	if (curPipeline_->input != nullptr) {
-		int numVBs = (int)curPipeline_->input->strides.size();
-		context_->IASetVertexBuffers(0, numVBs, nextVertexBuffers_, (UINT *)curPipeline_->input->strides.data(), (UINT *)nextVertexBufferOffsets_);
+		context_->IASetVertexBuffers(0, 1, &nextVertexBuffer_, &curPipeline_->input->stride, &nextVertexBufferOffset_);
 	}
 	if (dirtyIndexBuffer_) {
 		context_->IASetIndexBuffer(nextIndexBuffer_, DXGI_FORMAT_R16_UINT, nextIndexBufferOffset_);
@@ -1323,14 +1320,11 @@ void D3D11DrawContext::UpdateBuffer(Buffer *buffer, const uint8_t *data, size_t 
 	context_->UpdateSubresource(buf->buf, 0, &box, data, 0, 0);
 }
 
-void D3D11DrawContext::BindVertexBuffers(int start, int count, Buffer **buffers, const int *offsets) {
-	_assert_(start + count <= ARRAY_SIZE(nextVertexBuffers_));
+void D3D11DrawContext::BindVertexBuffer(Buffer *buffer, int offset) {
 	// Lazy application
-	for (int i = 0; i < count; i++) {
-		D3D11Buffer *buf = (D3D11Buffer *)buffers[i];
-		nextVertexBuffers_[start + i] = buf->buf;
-		nextVertexBufferOffsets_[start + i] = offsets ? offsets[i] : 0;
-	}
+	D3D11Buffer *buf = (D3D11Buffer *)buffer;
+	nextVertexBuffer_ = buf->buf;
+	nextVertexBufferOffset_ = offset;
 }
 
 void D3D11DrawContext::BindIndexBuffer(Buffer *indexBuffer, int offset) {
@@ -1354,10 +1348,10 @@ void D3D11DrawContext::DrawIndexed(int indexCount, int offset) {
 void D3D11DrawContext::DrawUP(const void *vdata, int vertexCount) {
 	ApplyCurrentState();
 
-	int byteSize = vertexCount * curPipeline_->input->strides[0];
+	int byteSize = vertexCount * curPipeline_->input->stride;
 
 	UpdateBuffer(upBuffer_, (const uint8_t *)vdata, 0, byteSize, Draw::UPDATE_DISCARD);
-	BindVertexBuffers(0, 1, &upBuffer_, nullptr);
+	BindVertexBuffer(upBuffer_, 0);
 	int offset = 0;
 	Draw(vertexCount, offset);
 }
@@ -1565,7 +1559,7 @@ void D3D11DrawContext::BeginFrame(DebugFlags debugFlags) {
 		context_->IASetPrimitiveTopology(curTopology_);
 	}
 	if (curPipeline_ != nullptr) {
-		context_->IASetVertexBuffers(0, 1, nextVertexBuffers_, (UINT *)curPipeline_->input->strides.data(), (UINT *)nextVertexBufferOffsets_);
+		context_->IASetVertexBuffers(0, 1, &nextVertexBuffer_, &curPipeline_->input->stride, &nextVertexBufferOffset_);
 		context_->IASetIndexBuffer(nextIndexBuffer_, DXGI_FORMAT_R16_UINT, nextIndexBufferOffset_);
 		if (curPipeline_->dynamicUniforms) {
 			context_->VSSetConstantBuffers(0, 1, &curPipeline_->dynamicUniforms);

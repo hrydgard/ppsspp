@@ -131,12 +131,10 @@ Draw::Pipeline *CreateReadbackPipeline(Draw::DrawContext *draw, const char *tag,
 	ShaderModule *readbackVs = draw->CreateShaderModule(ShaderStage::Vertex, shaderLanguageDesc.shaderLanguage, (const uint8_t *)vs, strlen(vs), vsTag);
 	_assert_(readbackFs && readbackVs);
 
-	InputLayoutDesc desc = {
+	static const InputLayoutDesc desc = {
+		8,
 		{
-			{ 8, false },
-		},
-		{
-			{ 0, SEM_POSITION, DataFormat::R32G32_FLOAT, 0 },
+			{ SEM_POSITION, DataFormat::R32G32_FLOAT, 0 },
 		},
 	};
 	InputLayout *inputLayout = draw->CreateInputLayout(desc);

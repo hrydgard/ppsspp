@@ -45,7 +45,6 @@ public:
 	// Takes ownership! DO NOT add a view to multiple parents!
 	template <class T>
 	T *Add(T *view) {
-		std::lock_guard<std::mutex> guard(modifyLock_);
 		views_.push_back(view);
 		return view;
 	}
@@ -76,9 +75,6 @@ public:
 	void SetExclusiveTouch(bool exclusive) { exclusiveTouch_ = exclusive; }
 	void SetClickableBackground(bool clickableBackground) { clickableBackground_ = clickableBackground; }
 
-	void Lock() { modifyLock_.lock(); }
-	void Unlock() { modifyLock_.unlock(); }
-
 	void SetClip(bool clip) { clip_ = clip; }
 	std::string DescribeLog() const override { return "ViewGroup: " + View::DescribeLog(); }
 	std::string DescribeText() const override;
@@ -87,7 +83,6 @@ protected:
 	std::string DescribeListUnordered(const char *heading) const;
 	std::string DescribeListOrdered(const char *heading) const;
 
-	std::mutex modifyLock_;  // Hold this when changing the subviews.
 	std::vector<View *> views_;
 	View *defaultFocusView_ = nullptr;
 	Drawable bg_;

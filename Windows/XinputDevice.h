@@ -21,4 +21,5 @@ private:
 	float prevAxisValue_[4][6]{};
 	bool notified_[XUSER_MAX_COUNT]{};
 	u32 prevButtons_[4]{};
+	double newVibrationTime_ = 0.0;
 };
