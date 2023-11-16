@@ -125,8 +125,8 @@ bool ChallengeModeActive() {
 	return IsLoggedIn() && rc_client_get_hardcore_enabled(g_rcClient);
 }
 
-bool WarnUserIfChallengeModeActive(const char *message) {
-	if (!ChallengeModeActive()) {
+bool WarnUserIfChallengeModeActive(bool isSaveStateAction, const char *message) {
+	if (!ChallengeModeActive() || (isSaveStateAction && g_Config.bAchievementsSaveStateInChallengeMode)) {
 		return false;
 	}
 
