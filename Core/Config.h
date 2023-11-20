@@ -37,6 +37,28 @@ namespace http {
 struct UrlEncoder;
 struct ConfigPrivate;
 
+class Section;
+
+class PlayTimeTracker {
+public:
+	struct PlayTime {
+		int totalTimePlayed;
+		double startTime;  // time_now_d() time
+		uint64_t lastTimePlayed;  // UTC Unix time for portability.
+	};
+
+	void Start(std::string gameId);
+	void Stop(std::string gameId);
+
+	void Load(const Section *section);
+	void Save(Section *section);
+
+	bool GetPlayedTimeString(const std::string &gameId, std::string *str) const;
+
+private:
+	std::map<std::string, PlayTime> tracker_;
+};
+
 struct Config {
 public:
 	Config();
@@ -578,6 +600,8 @@ public:
 	// Applies the Auto setting if set. Returns an enum value from PSP_SYSTEMPARAM_LANGUAGE_*.
 	int GetPSPLanguage();
 
+	PlayTimeTracker &TimeTracker() { return playTimeTracker_; }
+
 protected:
 	void LoadStandardControllerIni();
 	void LoadLangValuesMapping();
@@ -592,6 +616,7 @@ private:
 	std::string gameIdTitle_;
 	std::vector<std::string> recentIsos;
 	std::map<std::string, std::pair<std::string, int>> langValuesMapping_;
+	PlayTimeTracker playTimeTracker_;
 	Path iniFilename_;
 	Path controllerIniFilename_;
 	Path searchPath_;

@@ -409,13 +409,20 @@ void EmuScreen::bootComplete() {
 
 	loadingViewColor_->Divert(0x00FFFFFF, 0.2f);
 	loadingViewVisible_->Divert(UI::V_INVISIBLE, 0.2f);
+
+	std::string gameID = g_paramSFO.GetValueString("DISC_ID");
+	g_Config.TimeTracker().Start(gameID);
 }
 
 EmuScreen::~EmuScreen() {
+	std::string gameID = g_paramSFO.GetValueString("DISC_ID");
+	g_Config.TimeTracker().Stop(gameID);
+
 	// If we were invalid, it would already be shutdown.
 	if (!invalid_ || bootPending_) {
 		PSP_Shutdown();
 	}
+
 	g_OSD.ClearAchievementStuff();
 
 	SetExtraAssertInfo(nullptr);

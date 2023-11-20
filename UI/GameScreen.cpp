@@ -127,6 +127,9 @@ void GameScreen::CreateViews() {
 		tvInstallDataSize_->SetVisibility(V_GONE);
 		tvRegion_ = infoLayout->Add(new TextView("", ALIGN_LEFT, true, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
 		tvRegion_->SetShadow(true);
+		tvPlayTime_ = infoLayout->Add(new TextView("", ALIGN_LEFT, true, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
+		tvPlayTime_->SetShadow(true);
+		tvPlayTime_->SetVisibility(V_GONE);
 		tvCRC_ = infoLayout->Add(new TextView("", ALIGN_LEFT, true, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
 		tvCRC_->SetShadow(true);
 		tvCRC_->SetVisibility(Reporting::HasCRC(gamePath_) ? V_VISIBLE : V_GONE);
@@ -138,6 +141,7 @@ void GameScreen::CreateViews() {
 		tvSaveDataSize_ = nullptr;
 		tvInstallDataSize_ = nullptr;
 		tvRegion_ = nullptr;
+		tvPlayTime_ = nullptr;
 		tvCRC_ = nullptr;
 		tvID_ = nullptr;
 	}
@@ -302,6 +306,14 @@ void GameScreen::render() {
 			tvRegion_->SetText(ga->T(regionNames[info->region]));
 		} else if (info->region > GAMEREGION_MAX) {
 			tvRegion_->SetText(ga->T("Homebrew"));
+		}
+	}
+
+	if (tvPlayTime_) {
+		std::string str;
+		if (g_Config.TimeTracker().GetPlayedTimeString(info->id, &str)) {
+			tvPlayTime_->SetText(str);
+			tvPlayTime_->SetVisibility(UI::V_VISIBLE);
 		}
 	}
 

@@ -337,7 +337,7 @@ void GLQueueRunner::RunInitSteps(const FastVec<GLRInitStep> &steps, bool skipGLC
 				std::vector<std::string_view> lines;
 				SplitString(errorString, '\n', lines);
 				for (auto line : lines) {
-					ERROR_LOG(G3D, "%.*s", line.size(), line.data());
+					ERROR_LOG(G3D, "%.*s", (int)line.size(), line.data());
 				}
 				if (errorCallback_) {
 					std::string desc = StringFromFormat("Shader compilation failed: %s", step.create_shader.stage == GL_VERTEX_SHADER ? "vertex" : "fragment");

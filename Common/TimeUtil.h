@@ -13,6 +13,9 @@ uint64_t time_now_raw();
 double from_time_raw(uint64_t raw_time);
 double from_time_raw_relative(uint64_t raw_time);
 
+// Seconds, Unix UTC time
+double time_now_unix_utc();
+
 // Sleep. Does not necessarily have millisecond granularity, especially on Windows.
 void sleep_ms(int ms);
 
