@@ -592,7 +592,9 @@ bool CheckGLExtensions() {
 		for (int i = 0; i < numCompressedFormats; i++) {
 			switch (compressedFormats[i]) {
 			case GL_COMPRESSED_RGB8_ETC2: gl_extensions.supportsETC2 = true; break;
+#ifdef GL_COMPRESSED_RGBA_ASTC_4x4_KHR
 			case GL_COMPRESSED_RGBA_ASTC_4x4_KHR: gl_extensions.supportsASTC = true; break;
+#endif
 #ifndef USING_GLES2
 			case GL_COMPRESSED_RGBA_S3TC_DXT5_EXT: gl_extensions.supportsBC123 = true; break;
 			case GL_COMPRESSED_RGBA_BPTC_UNORM: gl_extensions.supportsBC7 = true; break;
