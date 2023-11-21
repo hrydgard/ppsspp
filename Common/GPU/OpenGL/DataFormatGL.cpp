@@ -146,12 +146,14 @@ bool Thin3DFormatToGLFormatAndType(DataFormat fmt, GLuint &internalFormat, GLuin
 		alignment = 16;
 		break;
 
+#ifdef GL_COMPRESSED_RGBA_ASTC_4x4_KHR
 	case DataFormat::ASTC_4x4_UNORM_BLOCK:
 		internalFormat = GL_COMPRESSED_RGBA_ASTC_4x4_KHR;
 		format = GL_RGBA;
 		type = GL_FLOAT;
 		alignment = 16;
 		break;
+#endif
 
 	default:
 		return false;
