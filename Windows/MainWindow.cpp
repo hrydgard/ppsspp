@@ -660,7 +660,7 @@ namespace MainWindow
 				double now = time_now_d();
 				if ((now - lastMouseDown) < 0.001 * GetDoubleClickTime()) {
 					float dx = lastMouseDownX - x;
-					float dy = lastMouseDownX - x;
+					float dy = lastMouseDownY - y;
 					float distSq = dx * dx + dy * dy;
 					if (distSq < 3.0f*3.0f && !g_Config.bShowTouchControls && !g_Config.bMouseControl && GetUIState() == UISTATE_INGAME && g_Config.bFullscreenOnDoubleclick) {
 						SendToggleFullscreen(!g_Config.UseFullScreen());

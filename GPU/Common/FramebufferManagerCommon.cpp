@@ -1593,10 +1593,8 @@ void FramebufferManagerCommon::CopyDisplayToOutput(bool reallyDirty) {
 	if (!vfb) {
 		if (Memory::IsValidAddress(fbaddr)) {
 			// The game is displaying something directly from RAM. In GTA, it's decoded video.
-			if (!vfb) {
-				DrawFramebufferToOutput(Memory::GetPointerUnchecked(fbaddr), displayStride_, displayFormat_);
-				return;
-			}
+			DrawFramebufferToOutput(Memory::GetPointerUnchecked(fbaddr), displayStride_, displayFormat_);
+			return;
 		} else {
 			DEBUG_LOG(FRAMEBUF, "Found no FBO to display! displayFBPtr = %08x", fbaddr);
 			// No framebuffer to display! Clear to black.

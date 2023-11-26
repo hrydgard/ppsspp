@@ -219,16 +219,17 @@ void DrawEngineCommon::UpdatePlanes() {
 	Vec2f minViewport = (minOffset_ - Vec2f(gstate.getViewportXCenter(), gstate.getViewportYCenter())) * inverseViewportScale;
 	Vec2f maxViewport = (maxOffset_ - Vec2f(gstate.getViewportXCenter(), gstate.getViewportYCenter())) * inverseViewportScale;
 
-	Lin::Matrix4x4 applyViewport;
-	applyViewport.empty();
+	Vec2f viewportInvSize = Vec2f(1.0f / (maxViewport.x - minViewport.x), 1.0f / (maxViewport.y - minViewport.y));
+
+	Lin::Matrix4x4 applyViewport{};
 	// Scale to the viewport's size.
-	applyViewport.xx = 2.0f / (maxViewport.x - minViewport.x);
-	applyViewport.yy = 2.0f / (maxViewport.y - minViewport.y);
+	applyViewport.xx = 2.0f * viewportInvSize.x;
+	applyViewport.yy = 2.0f * viewportInvSize.y;
 	applyViewport.zz = 1.0f;
 	applyViewport.ww = 1.0f;
 	// And offset to the viewport's centers.
-	applyViewport.wx = -(maxViewport.x + minViewport.x) / (maxViewport.x - minViewport.x);
-	applyViewport.wy = -(maxViewport.y + minViewport.y) / (maxViewport.y - minViewport.y);
+	applyViewport.wx = -(maxViewport.x + minViewport.x) * viewportInvSize.x;
+	applyViewport.wy = -(maxViewport.y + minViewport.y) * viewportInvSize.y;
 
 	float mtx[16];
 	Matrix4ByMatrix4(mtx, worldviewproj, applyViewport.m);
@@ -245,53 +246,28 @@ void DrawEngineCommon::UpdatePlanes() {
 //
 // It does the simplest and safest test possible: If all points of a bbox is outside a single of
 // our clipping planes, we reject the box. Tighter bounds would be desirable but would take more calculations.
-bool DrawEngineCommon::TestBoundingBox(const void *control_points, const void *inds, int vertexCount, u32 vertType) {
+// The name is a slight misnomer, because any bounding shape will work, not just boxes.
+//
+// Potential optimizations:
+// * SIMD-ify the plane culling, and also the vertex data conversion (could even group together xxxxyyyyzzzz for example)
+// * Compute min/max of the verts, and then compute a bounding sphere and check that against the planes.
+//   - Less accurate, but..
+//   - Only requires six plane evaluations then.
+
+bool DrawEngineCommon::TestBoundingBox(const void *vdata, const void *inds, int vertexCount, u32 vertType) {
+	// Grab temp buffer space from large offsets in decoded_. Not exactly safe for large draws.
+	if (vertexCount > 1024) {
+		return true;
+	}
+
 	SimpleVertex *corners = (SimpleVertex *)(decoded_ + 65536 * 12);
 	float *verts = (float *)(decoded_ + 65536 * 18);
+	int vertStride = 3;
 
 	// Although this may lead to drawing that shouldn't happen, the viewport is more complex on VR.
 	// Let's always say objects are within bounds.
 	if (gstate_c.Use(GPU_USE_VIRTUAL_REALITY))
 		return true;
-
-	// Try to skip NormalizeVertices if it's pure positions. No need to bother with a vertex decoder
-	// and a large vertex format.
-	if ((vertType & 0xFFFFFF) == GE_VTYPE_POS_FLOAT && !inds) {
-		verts = (float *)control_points;
-	} else if ((vertType & 0xFFFFFF) == GE_VTYPE_POS_8BIT && !inds) {
-		const s8 *vtx = (const s8 *)control_points;
-		for (int i = 0; i < vertexCount * 3; i++) {
-			verts[i] = vtx[i] * (1.0f / 128.0f);
-		}
-	} else if ((vertType & 0xFFFFFF) == GE_VTYPE_POS_16BIT && !inds) {
-		const s16 *vtx = (const s16 *)control_points;
-		for (int i = 0; i < vertexCount * 3; i++) {
-			verts[i] = vtx[i] * (1.0f / 32768.0f);
-		}
-	} else {
-		// Simplify away indices, bones, and morph before proceeding.
-		u8 *temp_buffer = decoded_ + 65536 * 24;
-		int vertexSize = 0;
-
-		u16 indexLowerBound = 0;
-		u16 indexUpperBound = (u16)vertexCount - 1;
-		if (vertexCount > 0 && inds) {
-			GetIndexBounds(inds, vertexCount, vertType, &indexLowerBound, &indexUpperBound);
-		}
-
-		// Force software skinning.
-		bool wasApplyingSkinInDecode = decOptions_.applySkinInDecode;
-		decOptions_.applySkinInDecode = true;
-		NormalizeVertices((u8 *)corners, temp_buffer, (const u8 *)control_points, indexLowerBound, indexUpperBound, vertType);
-		decOptions_.applySkinInDecode = wasApplyingSkinInDecode;
-
-		IndexConverter conv(vertType, inds);
-		for (int i = 0; i < vertexCount; i++) {
-			verts[i * 3] = corners[conv(i)].pos.x;
-			verts[i * 3 + 1] = corners[conv(i)].pos.y;
-			verts[i * 3 + 2] = corners[conv(i)].pos.z;
-		}
-	}
 
 	// Due to world matrix updates per "thing", this isn't quite as effective as it could be if we did world transform
 	// in here as well. Though, it still does cut down on a lot of updates in Tekken 6.
@@ -299,6 +275,78 @@ bool DrawEngineCommon::TestBoundingBox(const void *control_points, const void *i
 		UpdatePlanes();
 		gpuStats.numPlaneUpdates++;
 		gstate_c.Clean(DIRTY_CULL_PLANES);
+	}
+
+	// Try to skip NormalizeVertices if it's pure positions. No need to bother with a vertex decoder
+	// and a large vertex format.
+	if ((vertType & 0xFFFFFF) == GE_VTYPE_POS_FLOAT && !inds) {
+		verts = (float *)vdata;
+	} else if ((vertType & 0xFFFFFF) == GE_VTYPE_POS_8BIT && !inds) {
+		const s8 *vtx = (const s8 *)vdata;
+		for (int i = 0; i < vertexCount * 3; i++) {
+			verts[i] = vtx[i] * (1.0f / 128.0f);
+		}
+	} else if ((vertType & 0xFFFFFF) == GE_VTYPE_POS_16BIT && !inds) {
+		const s16 *vtx = (const s16 *)vdata;
+		for (int i = 0; i < vertexCount * 3; i++) {
+			verts[i] = vtx[i] * (1.0f / 32768.0f);
+		}
+	} else {
+		// Simplify away indices, bones, and morph before proceeding.
+		u8 *temp_buffer = decoded_ + 65536 * 24;
+
+		if ((inds || (vertType & (GE_VTYPE_WEIGHT_MASK | GE_VTYPE_MORPHCOUNT_MASK)))) {
+			u16 indexLowerBound = 0;
+			u16 indexUpperBound = (u16)vertexCount - 1;
+
+			if (vertexCount > 0 && inds) {
+				GetIndexBounds(inds, vertexCount, vertType, &indexLowerBound, &indexUpperBound);
+			}
+			// TODO: Avoid normalization if just plain skinning.
+			// Force software skinning.
+			bool wasApplyingSkinInDecode = decOptions_.applySkinInDecode;
+			decOptions_.applySkinInDecode = true;
+			NormalizeVertices((u8 *)corners, temp_buffer, (const u8 *)vdata, indexLowerBound, indexUpperBound, vertType);
+			decOptions_.applySkinInDecode = wasApplyingSkinInDecode;
+
+			IndexConverter conv(vertType, inds);
+			for (int i = 0; i < vertexCount; i++) {
+				verts[i * 3] = corners[conv(i)].pos.x;
+				verts[i * 3 + 1] = corners[conv(i)].pos.y;
+				verts[i * 3 + 2] = corners[conv(i)].pos.z;
+			}
+		} else {
+			// Simple, most common case.
+			VertexDecoder *dec = GetVertexDecoder(vertType);
+			int stride = dec->VertexSize();
+			int offset = dec->posoff;
+			switch (vertType & GE_VTYPE_POS_MASK) {
+			case GE_VTYPE_POS_8BIT:
+				for (int i = 0; i < vertexCount; i++) {
+					const s8 *data = (const s8 *)vdata + i * stride + offset;
+					for (int j = 0; j < 3; j++) {
+						verts[i * 3 + j] = data[j] * (1.0f / 128.0f);
+					}
+				}
+				break;
+			case GE_VTYPE_POS_16BIT:
+				for (int i = 0; i < vertexCount; i++) {
+					const s16 *data = ((const s16 *)((const s8 *)vdata + i * stride + offset));
+					for (int j = 0; j < 3; j++) {
+						verts[i * 3 + j] = data[j] * (1.0f / 32768.0f);
+					}
+				}
+				break;
+			case GE_VTYPE_POS_FLOAT:
+				// No need to copy in this case, we can just read directly from the source format with a stride.
+				verts = (float *)((uint8_t *)vdata + offset);
+				vertStride = stride / 4;
+				// Previous code:
+				// for (int i = 0; i < vertexCount; i++)
+				//   memcpy(&verts[i * 3], (const u8 *)vdata + stride * i + offset, sizeof(float) * 3);
+				break;
+			}
+		}
 	}
 
 	// Note: near/far are not checked without clamp/clip enabled, so we skip those planes.
@@ -310,8 +358,9 @@ bool DrawEngineCommon::TestBoundingBox(const void *control_points, const void *i
 			// Test against the frustum planes, and count.
 			// TODO: We should test 4 vertices at a time using SIMD.
 			// I guess could also test one vertex against 4 planes at a time, though a lot of waste at the common case of 6.
-			float value = planes_[plane].Test(verts + i * 3);
-			if (value <= -FLT_EPSILON)
+			const float *pos = verts + i * vertStride;
+			float value = planes_[plane].Test(pos);
+			if (value <= -FLT_EPSILON)  // Not sure why we use exactly this value. Probably '< 0' would do.
 				out++;
 			else
 				inside++;
@@ -321,14 +370,12 @@ bool DrawEngineCommon::TestBoundingBox(const void *control_points, const void *i
 		if (inside == 0) {
 			// All out - but check for X and Y if the offset was near the cullbox edge.
 			bool outsideEdge = false;
-			if (plane == 1)
-				outsideEdge = minOffset_.x < 1.0f;
-			if (plane == 2)
-				outsideEdge = minOffset_.y < 1.0f;
-			else if (plane == 0)
-				outsideEdge = maxOffset_.x >= 4096.0f;
-			else if (plane == 3)
-				outsideEdge = maxOffset_.y >= 4096.0f;
+			switch (plane) {
+			case 0: outsideEdge = maxOffset_.x >= 4096.0f; break;
+			case 1: outsideEdge = minOffset_.x < 1.0f; break;
+			case 2: outsideEdge = minOffset_.y < 1.0f; break;
+			case 3: outsideEdge = maxOffset_.y >= 4096.0f; break;
+			}
 
 			// Only consider this outside if offset + scissor/region is fully inside the cullbox.
 			if (!outsideEdge)
