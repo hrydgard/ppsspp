@@ -989,9 +989,36 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 	int cullMode = gstate.getCullMode();
 
 	uint32_t vertTypeID = GetVertTypeID(vertexType, gstate.getUVGenMode(), g_Config.bSoftwareSkinning);
-	if (!drawEngineCommon_->SubmitPrim(verts, inds, prim, count, vertTypeID, true, &bytesRead)) {
+
+#define MAX_CULL_CHECK_COUNT 6
+
+#define PASSES_CULLING ((vertexType & (GE_VTYPE_THROUGH_MASK | GE_VTYPE_MORPHCOUNT_MASK | GE_VTYPE_WEIGHT_MASK | GE_VTYPE_IDX_MASK)) || count > MAX_CULL_CHECK_COUNT)
+
+	// If certain conditions are true, do frustum culling.
+	bool passCulling = PASSES_CULLING;
+	if (!passCulling) {
+		// Do software culling.
+		if (drawEngineCommon_->TestBoundingBox(verts, inds, count, vertexType)) {
+			passCulling = true;
+		} else {
+			gpuStats.numCulledDraws++;
+		}
+	}
+
+	// If the first one in a batch passes, let's assume the whole batch passes.
+	// Cuts down on checking, while not losing that much efficiency.
+	bool onePassed = false;
+	if (passCulling) {
+		if (!drawEngineCommon_->SubmitPrim(verts, inds, prim, count, vertTypeID, true, &bytesRead)) {
+			canExtend = false;
+		}
+		onePassed = true;
+	} else {
+		// Still need to advance bytesRead.
+		drawEngineCommon_->SkipPrim(prim, count, vertTypeID, &bytesRead);
 		canExtend = false;
 	}
+
 	// After drawing, we advance the vertexAddr (when non indexed) or indexAddr (when indexed).
 	// Some games rely on this, they don't bother reloading VADDR and IADDR.
 	// The VADDR/IADDR registers are NOT updated.
@@ -1027,7 +1054,7 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 			bool clockwise = !gstate.isCullEnabled() || gstate.getCullMode() == cullMode;
 			if (canExtend) {
 				// Non-indexed draws can be cheaply merged if vertexAddr hasn't changed, that means the vertices
-				// are consecutive in memory.
+				// are consecutive in memory. We also ignore culling here.
 				_dbg_assert_((vertexType & GE_VTYPE_IDX_MASK) == GE_VTYPE_IDX_NONE);
 				int commandsExecuted = drawEngineCommon_->ExtendNonIndexedPrim(src, stall, vertTypeID, clockwise, &bytesRead, isTriangle);
 				if (!commandsExecuted) {
@@ -1047,7 +1074,25 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 				// We can extend again after submitting a normal draw.
 				canExtend = isTriangle;
 			}
-			if (!drawEngineCommon_->SubmitPrim(verts, inds, newPrim, count, vertTypeID, clockwise, &bytesRead)) {
+
+			bool passCulling = onePassed || PASSES_CULLING;
+			if (!passCulling) {
+				// Do software culling.
+				if (drawEngineCommon_->TestBoundingBox(verts, inds, count, vertexType)) {
+					passCulling = true;
+				} else {
+					gpuStats.numCulledDraws++;
+				}
+			}
+			if (passCulling) {
+				if (!drawEngineCommon_->SubmitPrim(verts, inds, newPrim, count, vertTypeID, clockwise, &bytesRead)) {
+					canExtend = false;
+				}
+				// As soon as one passes, assume we don't need to check the rest of this batch.
+				onePassed = true;
+			} else {
+				// Still need to advance bytesRead.
+				drawEngineCommon_->SkipPrim(newPrim, count, vertTypeID, &bytesRead);
 				canExtend = false;
 			}
 			AdvanceVerts(vertexType, count, bytesRead);
@@ -1691,7 +1736,7 @@ size_t GPUCommonHW::FormatGPUStatsCommon(char *buffer, size_t size) {
 	float vertexAverageCycles = gpuStats.numVertsSubmitted > 0 ? (float)gpuStats.vertexGPUCycles / (float)gpuStats.numVertsSubmitted : 0.0f;
 	return snprintf(buffer, size,
 		"DL processing time: %0.2f ms, %d drawsync, %d listsync\n"
-		"Draw: %d (%d dec), flushes %d, clears %d, bbox jumps %d (%d updates)\n"
+		"Draw: %d (%d dec, %d culled), flushes %d, clears %d, bbox jumps %d (%d updates)\n"
 		"Vertices: %d drawn: %d\n"
 		"FBOs active: %d (evaluations: %d)\n"
 		"Textures: %d, dec: %d, invalidated: %d, hashed: %d kB\n"
@@ -1705,6 +1750,7 @@ size_t GPUCommonHW::FormatGPUStatsCommon(char *buffer, size_t size) {
 		gpuStats.numListSyncs,
 		gpuStats.numDrawCalls,
 		gpuStats.numVertexDecodes,
+		gpuStats.numCulledDraws,
 		gpuStats.numFlushes,
 		gpuStats.numClears,
 		gpuStats.numBBOXJumps,
