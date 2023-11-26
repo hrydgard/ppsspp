@@ -117,12 +117,10 @@ impl Section {
             if prefix.starts_with("Font") || prefix.starts_with('#') {
                 continue;
             }
-            if !other.lines.iter().any(|line| line.starts_with(prefix)) {
-                if !prefix.contains("URL") {
-                    println!("Commenting out from {}: {line}", other.name);
-                    // Comment out the line.
-                    *line = "#".to_owned() + line;
-                }
+            if !other.lines.iter().any(|line| line.starts_with(prefix)) && !prefix.contains("URL") {
+                println!("Commenting out from {}: {line}", other.name);
+                // Comment out the line.
+                *line = "#".to_owned() + line;
             }
         }
     }
