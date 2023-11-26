@@ -107,26 +107,35 @@ void GameScreen::CreateViews() {
 
 	leftColumn->Add(new Choice(di->T("Back"), "", false, new AnchorLayoutParams(150, WRAP_CONTENT, 10, NONE, NONE, 10)))->OnClick.Handle(this, &GameScreen::OnSwitchBack);
 	if (info) {
-		leftColumn->Add(new GameIconView(gamePath_, 2.0f, new AnchorLayoutParams(144 * 2, 80 * 2, 10, 10, NONE, NONE)));
+		ViewGroup *badgeHolder = new LinearLayout(ORIENT_HORIZONTAL, new AnchorLayoutParams(10, 10, 110, NONE));
+		LinearLayout *mainGameInfo = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(1.0f));
+		mainGameInfo->SetSpacing(3.0f);
+
+		badgeHolder->Add(new GameIconView(gamePath_, 2.0f));
+		badgeHolder->Add(mainGameInfo);
+
+		leftColumn->Add(badgeHolder);
 
 		LinearLayout *infoLayout = new LinearLayout(ORIENT_VERTICAL, new AnchorLayoutParams(10, 200, NONE, NONE));
 		leftColumn->Add(infoLayout);
 
-		tvTitle_ = infoLayout->Add(new TextView(info->GetTitle(), ALIGN_LEFT | FLAG_WRAP_TEXT, false, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
+		// TODO: Add non-translated title here if available in gameDB.
+		tvTitle_ = mainGameInfo->Add(new TextView(info->GetTitle(), ALIGN_LEFT | FLAG_WRAP_TEXT, false, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
 		tvTitle_->SetShadow(true);
-		tvID_ = infoLayout->Add(new TextView("", ALIGN_LEFT | FLAG_WRAP_TEXT, true, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
+		tvID_ = mainGameInfo->Add(new TextView("", ALIGN_LEFT | FLAG_WRAP_TEXT, true, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
 		tvID_->SetShadow(true);
+		tvRegion_ = mainGameInfo->Add(new TextView("", ALIGN_LEFT, true, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
+		tvRegion_->SetShadow(true);
+		tvGameSize_ = mainGameInfo->Add(new TextView("...", ALIGN_LEFT, true, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
+		tvGameSize_->SetShadow(true);
+
 		// This one doesn't need to be updated.
 		infoLayout->Add(new TextView(gamePath_.ToVisualString(), ALIGN_LEFT | FLAG_WRAP_TEXT, true, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetShadow(true);
-		tvGameSize_ = infoLayout->Add(new TextView("...", ALIGN_LEFT, true, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
-		tvGameSize_->SetShadow(true);
 		tvSaveDataSize_ = infoLayout->Add(new TextView("...", ALIGN_LEFT, true, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
 		tvSaveDataSize_->SetShadow(true);
 		tvInstallDataSize_ = infoLayout->Add(new TextView("", ALIGN_LEFT, true, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
 		tvInstallDataSize_->SetShadow(true);
 		tvInstallDataSize_->SetVisibility(V_GONE);
-		tvRegion_ = infoLayout->Add(new TextView("", ALIGN_LEFT, true, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
-		tvRegion_->SetShadow(true);
 		tvPlayTime_ = infoLayout->Add(new TextView("", ALIGN_LEFT, true, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
 		tvPlayTime_->SetShadow(true);
 		tvPlayTime_->SetVisibility(V_GONE);
