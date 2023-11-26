@@ -1837,14 +1837,17 @@ int Config::GetPSPLanguage() {
 }
 
 void PlayTimeTracker::Start(std::string gameId) {
+	INFO_LOG(SYSTEM, "GameTimeTracker::Start(%s)", gameId.c_str());
 	if (gameId.empty()) {
 		return;
 	}
 
 	auto iter = tracker_.find(std::string(gameId));
 	if (iter != tracker_.end()) {
-		iter->second.lastTimePlayed = time_now_unix_utc();
-		iter->second.startTime = time_now_d();
+		if (iter->second.startTime == 0.0) {
+			iter->second.lastTimePlayed = time_now_unix_utc();
+			iter->second.startTime = time_now_d();
+		}
 		return;
 	}
 
@@ -1856,15 +1859,16 @@ void PlayTimeTracker::Start(std::string gameId) {
 }
 
 void PlayTimeTracker::Stop(std::string gameId) {
+	INFO_LOG(SYSTEM, "GameTimeTracker::Stop(%s)", gameId.c_str());
 	_dbg_assert_(!gameId.empty());
 
 	auto iter = tracker_.find(std::string(gameId));
 	if (iter != tracker_.end()) {
 		if (iter->second.startTime != 0.0) {
 			iter->second.totalTimePlayed += time_now_d() - iter->second.startTime;
+			iter->second.startTime = 0.0;
 		}
 		iter->second.lastTimePlayed = time_now_unix_utc();
-		iter->second.startTime = 0.0;
 		return;
 	}
 

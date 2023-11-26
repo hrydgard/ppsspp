@@ -65,7 +65,7 @@ public:
 	virtual void deviceLost() {}
 	virtual void deviceRestored() {}
 
-	virtual void focusChanged(ScreenFocusChange change);
+	virtual void focusChanged(ScreenFocusChange focusChange);
 
 	// Return value of UnsyncTouch is only used to let the overlay screen block touches.
 	virtual bool UnsyncTouch(const TouchInput &touch) = 0;

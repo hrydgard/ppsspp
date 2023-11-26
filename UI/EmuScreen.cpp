@@ -468,6 +468,24 @@ static void AfterStateBoot(SaveState::Status status, const std::string &message,
 	System_Notify(SystemNotification::DISASSEMBLY);
 }
 
+void EmuScreen::focusChanged(ScreenFocusChange focusChange) {
+	Screen::focusChanged(focusChange);
+
+	std::string gameID = g_paramSFO.GetValueString("DISC_ID");
+	if (gameID.empty()) {
+		// startup or shutdown
+		return;
+	}
+	switch (focusChange) {
+	case ScreenFocusChange::FOCUS_LOST_TOP:
+		g_Config.TimeTracker().Stop(gameID);
+		break;
+	case ScreenFocusChange::FOCUS_BECAME_TOP:
+		g_Config.TimeTracker().Start(gameID);
+		break;
+	}
+}
+
 void EmuScreen::sendMessage(UIMessage message, const char *value) {
 	// External commands, like from the Windows UI.
 	if (message == UIMessage::REQUEST_GAME_PAUSE && screenManager()->topScreen() == this) {

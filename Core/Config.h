@@ -47,6 +47,7 @@ public:
 		uint64_t lastTimePlayed;  // UTC Unix time for portability.
 	};
 
+	// It's OK to call these redundantly.
 	void Start(std::string gameId);
 	void Stop(std::string gameId);
 
