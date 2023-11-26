@@ -109,8 +109,8 @@ static bool ovrFramebuffer_CreateGLES(XrSession session, ovrFramebuffer* frameBu
 	swapChainCreateInfo.arraySize = multiview ? 2 : 1;
 
 #ifdef ANDROID
+	XrSwapchainCreateInfoFoveationFB swapChainFoveationCreateInfo;
 	if (VR_GetPlatformFlag(VR_PLATFORM_EXTENSION_FOVEATION)) {
-		XrSwapchainCreateInfoFoveationFB swapChainFoveationCreateInfo;
 		memset(&swapChainFoveationCreateInfo, 0, sizeof(swapChainFoveationCreateInfo));
 		swapChainFoveationCreateInfo.type = XR_TYPE_SWAPCHAIN_CREATE_INFO_FOVEATION_FB;
 		swapChainCreateInfo.next = &swapChainFoveationCreateInfo;
@@ -203,8 +203,8 @@ static bool ovrFramebuffer_CreateVK(XrSession session, ovrFramebuffer* frameBuff
 	swapChainCreateInfo.arraySize = multiview ? 2 : 1;
 
 #ifdef ANDROID
+	XrSwapchainCreateInfoFoveationFB swapChainFoveationCreateInfo;
 	if (VR_GetPlatformFlag(VR_PLATFORM_EXTENSION_FOVEATION)) {
-		XrSwapchainCreateInfoFoveationFB swapChainFoveationCreateInfo;
 		memset(&swapChainFoveationCreateInfo, 0, sizeof(swapChainFoveationCreateInfo));
 		swapChainFoveationCreateInfo.type = XR_TYPE_SWAPCHAIN_CREATE_INFO_FOVEATION_FB;
 		swapChainCreateInfo.next = &swapChainFoveationCreateInfo;
