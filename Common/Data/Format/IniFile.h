@@ -105,6 +105,9 @@ public:
 	bool Get(const char* key, double* value, double defaultValue = false) const;
 	bool Get(const char* key, std::vector<std::string>& values) const;
 
+	// Return a list of all keys in this section
+	bool GetKeys(std::vector<std::string> &keys) const;
+
 	bool operator < (const Section& other) const {
 		return name_ < other.name_;
 	}

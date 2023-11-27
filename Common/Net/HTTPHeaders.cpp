@@ -31,7 +31,7 @@ bool RequestHeader::GetParamValue(const char *param_name, std::string *value) co
 	for (size_t i = 0; i < v.size(); i++) {
 		std::vector<std::string_view> parts;
 		SplitString(v[i], '=', parts);
-		DEBUG_LOG(IO, "Param: %.*s Value: %.*s", parts[0].size(), parts[0].data(), parts[1].size(), parts[1].data());
+		DEBUG_LOG(IO, "Param: %.*s Value: %.*s", (int)parts[0].size(), parts[0].data(), (int)parts[1].size(), parts[1].data());
 		if (parts[0] == param_name) {
 			*value = parts[1];
 			return true;

@@ -68,6 +68,20 @@ double from_time_raw_relative(uint64_t raw_time) {
 	return from_time_raw(raw_time);
 }
 
+double time_now_unix_utc() {
+	const int64_t UNIX_TIME_START = 0x019DB1DED53E8000; //January 1, 1970 (start of Unix epoch) in "ticks"
+	const double TICKS_PER_SECOND = 10000000; //a tick is 100ns
+
+	FILETIME ft;
+	GetSystemTimeAsFileTime(&ft); //returns ticks in UTC
+	// Copy the low and high parts of FILETIME into a LARGE_INTEGER
+	LARGE_INTEGER li;
+	li.LowPart = ft.dwLowDateTime;
+	li.HighPart = ft.dwHighDateTime;
+	//Convert ticks since 1/1/1970 into seconds
+	return (double)(li.QuadPart - UNIX_TIME_START) / TICKS_PER_SECOND;
+}
+
 void yield() {
 	YieldProcessor();
 }
@@ -99,6 +113,12 @@ double from_time_raw_relative(uint64_t raw_time) {
 	return (double)raw_time * (1.0 / nanos);
 }
 
+double time_now_unix_utc() {
+	struct timespec tp;
+	clock_gettime(CLOCK_REALTIME, &tp);
+	return tp.tv_sec * 1000000000ULL + tp.tv_nsec;
+}
+
 void yield() {
 #if PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)
 	_mm_pause();
@@ -120,9 +140,14 @@ double time_now_d() {
 	return (double)(tv.tv_sec - start) + (double)tv.tv_usec * (1.0 / micros);
 }
 
-// Fake, but usable in a pinch. Don't, though.
 uint64_t time_now_raw() {
-	return (uint64_t)(time_now_d() * nanos);
+	static time_t start;
+	struct timeval tv;
+	gettimeofday(&tv, nullptr);
+	if (start == 0) {
+		start = tv.tv_sec;
+	}
+	return (double)tv.tv_sec + (double)tv.tv_usec * (1.0 / micros);
 }
 
 double from_time_raw(uint64_t raw_time) {
@@ -134,6 +159,10 @@ double from_time_raw_relative(uint64_t raw_time) {
 }
 
 void yield() {}
+
+double time_now_unix_utc() {
+	return time_now_raw();
+}
 
 #endif
 

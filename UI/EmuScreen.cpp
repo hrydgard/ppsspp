@@ -409,13 +409,20 @@ void EmuScreen::bootComplete() {
 
 	loadingViewColor_->Divert(0x00FFFFFF, 0.2f);
 	loadingViewVisible_->Divert(UI::V_INVISIBLE, 0.2f);
+
+	std::string gameID = g_paramSFO.GetValueString("DISC_ID");
+	g_Config.TimeTracker().Start(gameID);
 }
 
 EmuScreen::~EmuScreen() {
+	std::string gameID = g_paramSFO.GetValueString("DISC_ID");
+	g_Config.TimeTracker().Stop(gameID);
+
 	// If we were invalid, it would already be shutdown.
 	if (!invalid_ || bootPending_) {
 		PSP_Shutdown();
 	}
+
 	g_OSD.ClearAchievementStuff();
 
 	SetExtraAssertInfo(nullptr);
@@ -459,6 +466,24 @@ static void AfterStateBoot(SaveState::Status status, const std::string &message,
 	AfterSaveStateAction(status, message, ignored);
 	Core_EnableStepping(false);
 	System_Notify(SystemNotification::DISASSEMBLY);
+}
+
+void EmuScreen::focusChanged(ScreenFocusChange focusChange) {
+	Screen::focusChanged(focusChange);
+
+	std::string gameID = g_paramSFO.GetValueString("DISC_ID");
+	if (gameID.empty()) {
+		// startup or shutdown
+		return;
+	}
+	switch (focusChange) {
+	case ScreenFocusChange::FOCUS_LOST_TOP:
+		g_Config.TimeTracker().Stop(gameID);
+		break;
+	case ScreenFocusChange::FOCUS_BECAME_TOP:
+		g_Config.TimeTracker().Start(gameID);
+		break;
+	}
 }
 
 void EmuScreen::sendMessage(UIMessage message, const char *value) {

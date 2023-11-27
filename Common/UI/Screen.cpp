@@ -13,6 +13,15 @@
 
 #include "Core/KeyMap.h"
 
+void Screen::focusChanged(ScreenFocusChange focusChange) {
+	char *eventName = "";
+	switch (focusChange) {
+	case ScreenFocusChange::FOCUS_LOST_TOP: eventName = "FOCUS_LOST_TOP"; break;
+	case ScreenFocusChange::FOCUS_BECAME_TOP: eventName = "FOCUS_BECAME_TOP"; break;
+	}
+	DEBUG_LOG(SYSTEM, "Screen %s got %s", this->tag(), eventName);
+}
+
 ScreenManager::~ScreenManager() {
 	shutdown();
 }
@@ -68,14 +77,17 @@ void ScreenManager::switchToNext() {
 	Layer temp = {nullptr, 0};
 	if (!stack_.empty()) {
 		temp = stack_.back();
+		temp.screen->focusChanged(ScreenFocusChange::FOCUS_LOST_TOP);
 		stack_.pop_back();
 	}
 	stack_.push_back(nextStack_.front());
+	nextStack_.front().screen->focusChanged(ScreenFocusChange::FOCUS_BECAME_TOP);
 	if (temp.screen) {
 		delete temp.screen;
 	}
 	UI::SetFocusedView(nullptr);
 
+	// When will this ever happen? Should handle focus here too?
 	for (size_t i = 1; i < nextStack_.size(); ++i) {
 		stack_.push_back(nextStack_[i]);
 	}
@@ -264,17 +276,30 @@ void ScreenManager::push(Screen *screen, int layerFlags) {
 	touch(input);
 
 	Layer layer = {screen, layerFlags};
-	if (nextStack_.empty())
+
+	if (!stack_.empty()) {
+		stack_.back().screen->focusChanged(ScreenFocusChange::FOCUS_LOST_TOP);
+	}
+
+	if (nextStack_.empty()) {
+		layer.screen->focusChanged(ScreenFocusChange::FOCUS_BECAME_TOP);
 		stack_.push_back(layer);
-	else
+	} else {
 		nextStack_.push_back(layer);
+	}
 }
 
 void ScreenManager::pop() {
 	std::lock_guard<std::recursive_mutex> guard(inputLock_);
-	if (stack_.size()) {
+	if (!stack_.empty()) {
+		stack_.back().screen->focusChanged(ScreenFocusChange::FOCUS_LOST_TOP);
+
 		delete stack_.back().screen;
 		stack_.pop_back();
+
+		if (!stack_.empty()) {
+			stack_.back().screen->focusChanged(ScreenFocusChange::FOCUS_LOST_TOP);
+		}
 	} else {
 		ERROR_LOG(SYSTEM, "Can't pop when stack empty");
 	}
@@ -318,10 +343,17 @@ void ScreenManager::processFinishDialog() {
 			std::lock_guard<std::recursive_mutex> guard(inputLock_);
 			// Another dialog may have been pushed before the render, so search for it.
 			Screen *caller = dialogParent(dialogFinished_);
+			bool erased = false;
 			for (size_t i = 0; i < stack_.size(); ++i) {
 				if (stack_[i].screen == dialogFinished_) {
+					stack_[i].screen->focusChanged(ScreenFocusChange::FOCUS_LOST_TOP);
 					stack_.erase(stack_.begin() + i);
+					erased = true;
 				}
+			}
+
+			if (erased && !stack_.empty()) {
+				stack_.back().screen->focusChanged(ScreenFocusChange::FOCUS_BECAME_TOP);
 			}
 
 			if (!caller) {

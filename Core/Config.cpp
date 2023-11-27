@@ -1157,6 +1157,10 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 		}
 	}
 
+	// Time tracking
+	Section *playTime = iniFile.GetOrCreateSection("PlayTime");
+	playTimeTracker_.Load(playTime);
+
 	auto pinnedPaths = iniFile.GetOrCreateSection("PinnedPaths")->ToMap();
 	vPinnedPaths.clear();
 	for (auto it = pinnedPaths.begin(), end = pinnedPaths.end(); it != end; ++it) {
@@ -1316,6 +1320,10 @@ bool Config::Save(const char *saveReason) {
 		Section *log = iniFile.GetOrCreateSection(logSectionName);
 		if (LogManager::GetInstance())
 			LogManager::GetInstance()->SaveConfig(log);
+
+		// Time tracking
+		Section *playTime = iniFile.GetOrCreateSection("PlayTime");
+		playTimeTracker_.Save(playTime);
 
 		if (!iniFile.Save(iniFilename_)) {
 			ERROR_LOG(LOADER, "Error saving config (%s)- can't write ini '%s'", saveReason, iniFilename_.c_str());
@@ -1826,4 +1834,90 @@ int Config::GetPSPLanguage() {
 	} else {
 		return g_Config.iLanguage;
 	}
+}
+
+void PlayTimeTracker::Start(std::string gameId) {
+	INFO_LOG(SYSTEM, "GameTimeTracker::Start(%s)", gameId.c_str());
+	if (gameId.empty()) {
+		return;
+	}
+
+	auto iter = tracker_.find(std::string(gameId));
+	if (iter != tracker_.end()) {
+		if (iter->second.startTime == 0.0) {
+			iter->second.lastTimePlayed = time_now_unix_utc();
+			iter->second.startTime = time_now_d();
+		}
+		return;
+	}
+
+	PlayTime playTime;
+	playTime.lastTimePlayed = time_now_unix_utc();
+	playTime.totalTimePlayed = 0.0;
+	playTime.startTime = time_now_d();
+	tracker_[gameId] = playTime;
+}
+
+void PlayTimeTracker::Stop(std::string gameId) {
+	INFO_LOG(SYSTEM, "GameTimeTracker::Stop(%s)", gameId.c_str());
+	_dbg_assert_(!gameId.empty());
+
+	auto iter = tracker_.find(std::string(gameId));
+	if (iter != tracker_.end()) {
+		if (iter->second.startTime != 0.0) {
+			iter->second.totalTimePlayed += time_now_d() - iter->second.startTime;
+			iter->second.startTime = 0.0;
+		}
+		iter->second.lastTimePlayed = time_now_unix_utc();
+		return;
+	}
+
+	// Shouldn't happen, ignore this case.
+	WARN_LOG(SYSTEM, "GameTimeTracker::Stop called without corresponding GameTimeTracker::Start");
+}
+
+void PlayTimeTracker::Load(const Section *section) {
+	tracker_.clear();
+
+	std::vector<std::string> keys;
+	section->GetKeys(keys);
+
+	for (auto key : keys) {
+		std::string value;
+		if (!section->Get(key.c_str(), &value, nullptr)) {
+			continue;
+		}
+
+		// Parse the string.
+		PlayTime gameTime{};
+		if (2 == sscanf(value.c_str(), "%d,%llu", &gameTime.totalTimePlayed, &gameTime.lastTimePlayed)) {
+			tracker_[key] = gameTime;
+		}
+	}
+}
+
+void PlayTimeTracker::Save(Section *section) {
+	for (auto iter : tracker_) {
+		std::string formatted = StringFromFormat("%d,%llu", iter.second.totalTimePlayed, iter.second.lastTimePlayed);
+		section->Set(iter.first.c_str(), formatted);
+	}
+}
+
+bool PlayTimeTracker::GetPlayedTimeString(const std::string &gameId, std::string *str) const {
+	auto ga = GetI18NCategory(I18NCat::GAME);
+
+	auto iter = tracker_.find(gameId);
+	if (iter == tracker_.end()) {
+		return false;
+	}
+
+	int totalSeconds = iter->second.totalTimePlayed;
+	int seconds = totalSeconds % 60;
+	totalSeconds /= 60;
+	int minutes = totalSeconds % 60;
+	totalSeconds /= 60;
+	int hours = totalSeconds;
+
+	*str = ApplySafeSubstitutions(ga->T("Time Played: %1h %2m %3s"), hours, minutes, seconds);
+	return true;
 }

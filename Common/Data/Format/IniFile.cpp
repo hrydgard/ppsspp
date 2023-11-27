@@ -189,6 +189,15 @@ void Section::Clear() {
 	lines_.clear();
 }
 
+bool Section::GetKeys(std::vector<std::string> &keys) const {
+	keys.clear();
+	for (auto liter = lines_.begin(); liter != lines_.end(); ++liter) {
+		if (!liter->Key().empty())
+			keys.push_back(std::string(liter->Key()));
+	}
+	return true;
+}
+
 ParsedIniLine *Section::GetLine(const char *key) {
 	for (auto &line : lines_) {
 		if (equalsNoCase(line.Key(), key))
@@ -482,12 +491,7 @@ bool IniFile::GetKeys(const char* sectionName, std::vector<std::string>& keys) c
 	const Section *section = GetSection(sectionName);
 	if (!section)
 		return false;
-	keys.clear();
-	for (auto liter = section->lines_.begin(); liter != section->lines_.end(); ++liter) {
-		if (!liter->Key().empty())
-			keys.push_back(std::string(liter->Key()));
-	}
-	return true;
+	return section->GetKeys(keys);
 }
 
 void IniFile::SortSections()

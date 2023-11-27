@@ -1217,12 +1217,13 @@ extern "C" jboolean Java_org_ppsspp_ppsspp_NativeApp_keyUp(JNIEnv *, jclass, jin
 	return NativeKey(keyInput);
 }
 
-// TODO: Make a batched interface, since we get these in batches on the Android side.
+// TODO: Make a batched interface, since we get these in batches on the Java side.
 extern "C" void Java_org_ppsspp_ppsspp_NativeApp_joystickAxis(
 		JNIEnv *env, jclass, jint deviceId, jint axisId, jfloat value) {
 	if (!renderer_inited)
 		return;
 
+	// These are dirty-filtered on the Java side.
 	AxisInput axis;
 	axis.deviceId = (InputDeviceID)deviceId;
 	axis.axisId = (InputAxis)axisId;

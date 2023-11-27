@@ -42,6 +42,11 @@ namespace Draw {
 	class DrawContext;
 }
 
+enum class ScreenFocusChange {
+	FOCUS_LOST_TOP,  // Another screen was pushed on top
+	FOCUS_BECAME_TOP,  // Became the top screen again
+};
+
 class Screen {
 public:
 	Screen() : screenManager_(nullptr) { }
@@ -59,6 +64,8 @@ public:
 	virtual void sendMessage(UIMessage message, const char *value) {}
 	virtual void deviceLost() {}
 	virtual void deviceRestored() {}
+
+	virtual void focusChanged(ScreenFocusChange focusChange);
 
 	// Return value of UnsyncTouch is only used to let the overlay screen block touches.
 	virtual bool UnsyncTouch(const TouchInput &touch) = 0;
