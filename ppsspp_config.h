@@ -57,7 +57,7 @@
 #if defined(__aarch64__) || defined(_M_ARM64)
     #define PPSSPP_ARCH_ARM64 1
     #define PPSSPP_ARCH_64BIT 1
-    #define PPSSPP_ARCH_ARM_NEON 1
+    #define PPSSPP_ARCH_ARM_NEON 1  // Applies to both ARM32 and ARM64
     #define PPSSPP_ARCH_ARM64_NEON 1
 #endif
 
