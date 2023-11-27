@@ -496,13 +496,18 @@ int SavedataParam::Save(SceUtilitySavedataParam* param, const std::string &saveD
 	std::string sfopath = dirPath + "/" + SFO_FILENAME;
 	std::shared_ptr<ParamSFOData> sfoFile = LoadCachedSFO(sfopath, true);
 
+	bool subWrite = param->mode == SCE_UTILITY_SAVEDATA_TYPE_WRITEDATASECURE || param->mode == SCE_UTILITY_SAVEDATA_TYPE_WRITEDATA;
+	bool wasCrypted = GetSaveCryptMode(param, saveDirName) != 0;
+
 	// Update values
-	sfoFile->SetValue("TITLE", param->sfoParam.title, 128);
-	sfoFile->SetValue("SAVEDATA_TITLE", param->sfoParam.savedataTitle, 128);
-	sfoFile->SetValue("SAVEDATA_DETAIL", param->sfoParam.detail, 1024);
-	sfoFile->SetValue("PARENTAL_LEVEL", param->sfoParam.parentalLevel, 4);
-	sfoFile->SetValue("CATEGORY", "MS", 4);
-	sfoFile->SetValue("SAVEDATA_DIRECTORY", GetSaveDir(param, saveDirName), 64);
+	if(!subWrite){
+		sfoFile->SetValue("TITLE", param->sfoParam.title, 128);
+		sfoFile->SetValue("SAVEDATA_TITLE", param->sfoParam.savedataTitle, 128);
+		sfoFile->SetValue("SAVEDATA_DETAIL", param->sfoParam.detail, 1024);
+		sfoFile->SetValue("PARENTAL_LEVEL", param->sfoParam.parentalLevel, 4);
+		sfoFile->SetValue("CATEGORY", "MS", 4);
+		sfoFile->SetValue("SAVEDATA_DIRECTORY", GetSaveDir(param, saveDirName), 64);
+	}
 
 	// Always write and update the file list.
 	// For each file, 13 bytes for filename, 16 bytes for file hash (0 in PPSSPP), 3 byte for padding
@@ -542,7 +547,7 @@ int SavedataParam::Save(SceUtilitySavedataParam* param, const std::string &saveD
 	sfoFile->WriteSFO(&sfoData, &sfoSize);
 
 	// Calc SFO hash for PSP.
-	if (cryptedData != 0) {
+	if (cryptedData != 0 || (subWrite && wasCrypted)) {
 		int offset = sfoFile->GetDataOffset(sfoData, "SAVEDATA_PARAMS");
 		if(offset >= 0)
 			UpdateHash(sfoData, (int)sfoSize, offset, DetermineCryptMode(param));
