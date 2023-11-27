@@ -1152,6 +1152,13 @@ inline void ConvertMatrix4x3To4x4(float *m4x4, const float *m4x3) {
 }
 
 inline void ConvertMatrix4x3To4x4Transposed(float *m4x4, const float *m4x3) {
+#if PPSSPP_ARCH(ARM_NEON)
+	// vld3q is a perfect match here!
+	float32x4x3_t packed = vld3q_f32(m4x3);
+	vst1q_f32(m4x4, packed.val[0]);
+	vst1q_f32(m4x4 + 4, packed.val[1]);
+	vst1q_f32(m4x4 + 8, packed.val[2]);
+#else
 	m4x4[0] = m4x3[0];
 	m4x4[1] = m4x3[3];
 	m4x4[2] = m4x3[6];
@@ -1164,6 +1171,7 @@ inline void ConvertMatrix4x3To4x4Transposed(float *m4x4, const float *m4x3) {
 	m4x4[9] = m4x3[5];
 	m4x4[10] = m4x3[8];
 	m4x4[11] = m4x3[11];
+#endif
 	m4x4[12] = 0.0f;
 	m4x4[13] = 0.0f;
 	m4x4[14] = 0.0f;
@@ -1179,6 +1187,13 @@ inline void ConvertMatrix4x3To4x4Transposed(float *m4x4, const float *m4x3) {
 // 89AB
 // Don't see a way to SIMD that. Should be pretty fast anyway.
 inline void ConvertMatrix4x3To3x4Transposed(float *m4x4, const float *m4x3) {
+#if PPSSPP_ARCH(ARM_NEON)
+	// vld3q is a perfect match here!
+	float32x4x3_t packed = vld3q_f32(m4x3);
+	vst1q_f32(m4x4, packed.val[0]);
+	vst1q_f32(m4x4 + 4, packed.val[1]);
+	vst1q_f32(m4x4 + 8, packed.val[2]);
+#else
 	m4x4[0] = m4x3[0];
 	m4x4[1] = m4x3[3];
 	m4x4[2] = m4x3[6];
@@ -1191,6 +1206,7 @@ inline void ConvertMatrix4x3To3x4Transposed(float *m4x4, const float *m4x3) {
 	m4x4[9] = m4x3[5];
 	m4x4[10] = m4x3[8];
 	m4x4[11] = m4x3[11];
+#endif
 }
 
 inline void Transpose4x4(float out[16], const float in[16]) {
