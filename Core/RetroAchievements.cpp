@@ -148,6 +148,7 @@ bool IsBlockingExecution() {
 	return g_isLoggingIn || g_isIdentifying;
 }
 
+// This is the RetroAchievements game ID, rather than the PSP game ID.
 static u32 GetGameID() {
 	if (!g_rcClient) {
 		return 0;
@@ -243,6 +244,7 @@ static void event_handler_callback(const rc_client_event_t *event, rc_client_t *
 
 		// TODO: Translation?
 		std::string title = ApplySafeSubstitutions(ac->T("Mastered %1"), gameInfo->title);
+
 		rc_client_user_game_summary_t summary;
 		rc_client_get_user_game_summary(g_rcClient, &summary);
 

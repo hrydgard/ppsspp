@@ -19,7 +19,7 @@ void NiceSizeFormat(uint64_t size, char *out, size_t bufSize) {
 	if (s == 0)
 		snprintf(out, bufSize, "%d B", (int)size);
 	else
-		snprintf(out, bufSize, "%3.1f %s", f, sizes[s]);
+		snprintf(out, bufSize, "%3.2f %s", f, sizes[s]);
 }
 
 std::string NiceSizeFormat(uint64_t size) {

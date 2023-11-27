@@ -25,6 +25,7 @@
 #include "Common/UI/ViewGroup.h"
 
 #include "Common/Data/Text/I18n.h"
+#include "Common/Data/Text/Parsers.h"
 #include "Common/Data/Encoding/Utf8.h"
 #include "Common/File/FileUtil.h"
 #include "Common/StringUtils.h"
@@ -111,7 +112,8 @@ void GameScreen::CreateViews() {
 		LinearLayout *mainGameInfo = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(1.0f));
 		mainGameInfo->SetSpacing(3.0f);
 
-		badgeHolder->Add(new GameIconView(gamePath_, 2.0f));
+		// Need an explicit size here because homebrew uses screenshots as icons.
+		badgeHolder->Add(new GameIconView(gamePath_, 2.0f, new LinearLayoutParams(144 * 2, 80 * 2, UI::Margins(0))));
 		badgeHolder->Add(mainGameInfo);
 
 		leftColumn->Add(badgeHolder);
@@ -288,11 +290,15 @@ void GameScreen::render() {
 	if (info->gameSizeOnDisk) {
 		char temp[256];
 		if (tvGameSize_) {
-			snprintf(temp, sizeof(temp), "%s: %1.1f %s", ga->T("Game"), (float)(info->gameSizeOnDisk) / 1024.f / 1024.f, ga->T("MB"));
+			snprintf(temp, sizeof(temp), "%s: %s", ga->T("Game"), NiceSizeFormat(info->gameSizeOnDisk).c_str());
+			if (info->gameSizeUncompressed != info->gameSizeOnDisk) {
+				size_t len = strlen(temp);
+				snprintf(temp + len, sizeof(temp) - len, " (%s: %s)", ga->T("Uncompressed"), NiceSizeFormat(info->gameSizeUncompressed).c_str());
+			}
 			tvGameSize_->SetText(temp);
 		}
 		if (tvSaveDataSize_) {
-			snprintf(temp, sizeof(temp), "%s: %1.2f %s", ga->T("SaveData"), (float)(info->saveDataSize) / 1024.f / 1024.f, ga->T("MB"));
+			snprintf(temp, sizeof(temp), "%s: %s", ga->T("SaveData"), NiceSizeFormat(info->saveDataSize).c_str());
 			tvSaveDataSize_->SetText(temp);
 		}
 		if (info->installDataSize > 0 && tvInstallDataSize_) {

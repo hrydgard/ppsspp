@@ -1918,6 +1918,6 @@ bool PlayTimeTracker::GetPlayedTimeString(const std::string &gameId, std::string
 	totalSeconds /= 60;
 	int hours = totalSeconds;
 
-	*str = StringFromFormat(ga->T("Play time: %02d:%02d:%02d"), hours, minutes, seconds);
+	*str = ApplySafeSubstitutions(ga->T("Time Played: %1h %2m %3s"), hours, minutes, seconds);
 	return true;
 }
