@@ -1086,7 +1086,7 @@ inline float32x4_t Norm3ByMatrix43Internal(float32x4_t vec, const float m[16]) {
 	float32x4_t col2 = vld1q_f32(m + 6);
 	float32x4_t sum = vaddq_f32(
 		vaddq_f32(vmulq_lane_f32(col0, vget_low_f32(vec), 0), vmulq_lane_f32(col1, vget_low_f32(vec), 1)),
-		vmulq_lane_f32(col2, vget_high_f32(vec), 2));
+		vmulq_lane_f32(col2, vget_high_f32(vec), 0));
 	return sum;
 }
 #endif
