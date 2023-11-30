@@ -92,7 +92,12 @@ impl Section {
         }
         if let Some(index) = found_index {
             let line = self.lines.remove(index);
-            let line = new.to_owned() + " =" + line.strip_prefix(&prefix).unwrap();
+            let mut right_part = line.strip_prefix(&prefix).unwrap().to_string();
+            if right_part.trim() == old.trim() {
+                // Was still untranslated - replace the translation too.
+                right_part = format!(" {}", new);
+            }
+            let line = new.to_owned() + " =" + &right_part;
             self.insert_line_if_missing(&line);
         } else {
             let name = &self.name;

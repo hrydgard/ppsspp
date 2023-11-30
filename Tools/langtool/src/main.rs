@@ -242,7 +242,12 @@ fn main() {
             ref section,
             ref old,
             ref new,
-        } => rename_key(&mut reference_ini, section, old, new).unwrap(),
+        } => {
+            if old == new {
+                println!("WARNING: old == new");
+            }
+            rename_key(&mut reference_ini, section, old, new).unwrap();
+        }
         Command::MoveKey {
             ref old,
             ref new,
