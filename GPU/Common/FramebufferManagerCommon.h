@@ -161,8 +161,13 @@ struct VirtualFramebuffer {
 	inline GEBufferFormat Format(RasterChannel channel) const { return channel == RASTER_COLOR ? fb_format : GE_FORMAT_DEPTH16; }
 	inline int BindSeq(RasterChannel channel) const { return channel == RASTER_COLOR ? colorBindSeq : depthBindSeq; }
 
-	int BufferByteSize(RasterChannel channel) const {
-		return channel == RASTER_COLOR ? fb_stride * height * (fb_format == GE_FORMAT_8888 ? 4 : 2) : z_stride * height * 2;
+	// Computed from stride.
+	int BufferByteSize(RasterChannel channel) const { return BufferByteStride(channel) * height; }
+	int BufferByteStride(RasterChannel channel) const {
+		return channel == RASTER_COLOR ? fb_stride * (fb_format == GE_FORMAT_8888 ? 4 : 2) : z_stride * 2;
+	}
+	int BufferByteWidth(RasterChannel channel) const {
+		return channel == RASTER_COLOR ? width * (fb_format == GE_FORMAT_8888 ? 4 : 2) : width * 2;
 	}
 };
 

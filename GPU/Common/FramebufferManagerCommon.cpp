@@ -1857,7 +1857,47 @@ void FramebufferManagerCommon::ResizeFramebufFBO(VirtualFramebuffer *vfb, int w,
 	}
 }
 
+struct CopyCandidate {
+	VirtualFramebuffer *vfb = nullptr;
+	int y;
+	int h;
+
+	std::string ToString(RasterChannel channel) const {
+		return StringFromFormat("%08x %s %dx%d y=%d h=%d", vfb->Address(channel), GeBufferFormatToString(vfb->Format(channel)), vfb->width, vfb->height, y, h);
+	}
+};
+
+static const CopyCandidate *GetBestCopyCandidate(const TinySet<CopyCandidate, 4> &candidates, uint32_t basePtr, RasterChannel channel) {
+	const CopyCandidate *best = nullptr;
+
+	// Pick the "best" candidate by comparing to the old best using heuristics.
+	for (size_t i = 0; i < candidates.size(); i++) {
+		const CopyCandidate *candidate = &candidates[i];
+
+		bool better = !best;
+		if (!better) {
+			// Heuristics determined from the old algorithm, that we might want to keep:
+			// * Lower yOffsets are prioritized.
+			// if (!srcBuffer || srcBuffer->depthBindSeq < vfb->depthBindSeq) {
+			better = candidate->vfb->BindSeq(channel) > best->vfb->BindSeq(channel);
+
+			if (!better) {
+				better = candidate->y < best->y;
+			}
+		}
+
+		if (better) {
+			best = candidate;
+		}
+	}
+	return best;
+}
+
 // This is called from detected memcopies and framebuffer initialization from VRAM. Not block transfers.
+// Also with specialized flags from some replacement functions. Only those will currently request depth copies!
+// NOTE: This is very tricky because there's no information about color depth here, so we'll have to make guesses
+// about what underlying framebuffer is the most likely to be the relevant ones. For src, we can probably prioritize recent
+// ones. For dst, less clear.
 bool FramebufferManagerCommon::NotifyFramebufferCopy(u32 src, u32 dst, int size, GPUCopyFlag flags, u32 skipDrawReason) {
 	if (size == 0) {
 		return false;
@@ -1874,38 +1914,31 @@ bool FramebufferManagerCommon::NotifyFramebufferCopy(u32 src, u32 dst, int size,
 	// Or at least this should be like the other ones, gathering possible candidates
 	// with the ability to list them out for debugging.
 
-	VirtualFramebuffer *dstBuffer = nullptr;
-	VirtualFramebuffer *srcBuffer = nullptr;
 	bool ignoreDstBuffer = flags & GPUCopyFlag::FORCE_DST_MATCH_MEM;
 	bool ignoreSrcBuffer = flags & (GPUCopyFlag::FORCE_SRC_MATCH_MEM | GPUCopyFlag::MEMSET);
+
+	// TODO: In the future we should probably check both channels. Currently depth is only on request.
 	RasterChannel channel = flags & GPUCopyFlag::DEPTH_REQUESTED ? RASTER_DEPTH : RASTER_COLOR;
 
-	u32 dstY = (u32)-1;
-	u32 dstH = 0;
-	u32 srcY = (u32)-1;
-	u32 srcH = 0;
+	TinySet<CopyCandidate, 4> srcCandidates;
+	TinySet<CopyCandidate, 4> dstCandidates;
+
+	// TODO: These two loops should be merged into one utility function, similar to what's done with rectangle copies.
+
+	// First find candidates for the source.
+	// We only look at the color channel for now.
 	for (auto vfb : vfbs_) {
-		if (vfb->fb_stride == 0 || channel != RASTER_COLOR) {
+		if (vfb->fb_stride == 0 || ignoreSrcBuffer) {
 			continue;
 		}
 
 		// We only remove the kernel and uncached bits when comparing.
-		const u32 vfb_address = vfb->fb_address;
-		const u32 vfb_size = vfb->BufferByteSize(RASTER_COLOR);
-		const u32 vfb_bpp = BufferFormatBytesPerPixel(vfb->fb_format);
-		const u32 vfb_byteStride = vfb->fb_stride * vfb_bpp;
-		const int vfb_byteWidth = vfb->width * vfb_bpp;
+		const u32 vfb_address = vfb->Address(channel);
+		const u32 vfb_size = vfb->BufferByteSize(channel);
+		const u32 vfb_byteStride = vfb->BufferByteStride(channel);
+		const int vfb_byteWidth = vfb->BufferByteWidth(channel);
 
-		// Heuristic to try to prevent potential glitches with video playback.
-		if (!ignoreDstBuffer && vfb_address == dst && ((size == 0x44000 && vfb_size == 0x88000) || (size == 0x88000 && vfb_size == 0x44000))) {
-			// Not likely to be a correct color format copy for this buffer. Ignore it, there will either be RAM
-			// that can be displayed from, or another matching buffer with the right format if rendering is going on.
-			// If we had scoring here, we should strongly penalize this target instead of ignoring it.
-			WARN_LOG_N_TIMES(notify_copy_2x, 5, G3D, "Framebuffer size %08x conspicuously not matching copy size %08x in NotifyFramebufferCopy. Ignoring.", size, vfb_size);
-			continue;
-		}
-
-		if ((u32)size > vfb_size + 0x1000 && vfb->fb_format != GE_FORMAT_8888 && vfb->last_frame_render < gpuStats.numFlips) {
+		if (channel == RASTER_COLOR && (u32)size > vfb_size + 0x1000 && vfb->fb_format != GE_FORMAT_8888 && vfb->last_frame_render < gpuStats.numFlips) {
 			// Seems likely we are looking at a potential copy of 32-bit pixels (like video) to an old 16-bit buffer,
 			// which is very likely simply the wrong target, so skip it. See issue #17740 where this happens in Naruto Ultimate Ninja Heroes 2.
 			// If we had scoring here, we should strongly penalize this target instead of ignoring it.
@@ -1913,59 +1946,124 @@ bool FramebufferManagerCommon::NotifyFramebufferCopy(u32 src, u32 dst, int size,
 			continue;
 		}
 
+		CopyCandidate srcCandidate;
+		srcCandidate.vfb = vfb;
+
+		// Special path for depth for now.
+		if (channel == RASTER_DEPTH) {
+			if (src == vfb->z_address && size == vfb->z_stride * 2 * vfb->height) {
+				srcCandidate.y = 0;
+				srcCandidate.h = vfb->height;
+				srcCandidates.push_back(srcCandidate);
+			}
+			continue;
+		}
+
+		if (src >= vfb_address && (src + size <= vfb_address + vfb_size || src == vfb_address)) {
+			const u32 offset = src - vfb_address;
+			const u32 yOffset = offset / vfb_byteStride;
+			if ((offset % vfb_byteStride) == 0 && (size == vfb_byteWidth || (size % vfb_byteStride) == 0)) {
+				srcCandidate.y = yOffset;
+				srcCandidate.h = size == vfb_byteWidth ? 1 : std::min((u32)size / vfb_byteStride, (u32)vfb->height);
+			} else if ((offset % vfb_byteStride) == 0 && size == vfb->fb_stride) {
+				// Valkyrie Profile reads 512 bytes at a time, rather than 2048.  So, let's whitelist fb_stride also.
+				srcCandidate.y = yOffset;
+				srcCandidate.h = 1;
+			} else if (yOffset == 0 && (vfb->usageFlags & FB_USAGE_CLUT)) {
+				// Okay, last try - it might be a clut.
+				srcCandidate.y = yOffset;
+				srcCandidate.h = 1;
+			} else {
+				continue;
+			}
+			srcCandidates.push_back(srcCandidate);
+		}
+	}
+
+	for (auto vfb : vfbs_) {
+		if (vfb->fb_stride == 0 || ignoreDstBuffer) {
+			continue;
+		}
+
+		// We only remove the kernel and uncached bits when comparing.
+		const u32 vfb_address = vfb->Address(channel);
+		const u32 vfb_size = vfb->BufferByteSize(channel);
+		const u32 vfb_byteStride = vfb->BufferByteStride(channel);
+		const int vfb_byteWidth = vfb->BufferByteWidth(channel);
+
+		// Heuristic to try to prevent potential glitches with video playback.
+		if (vfb_address == dst && ((size == 0x44000 && vfb_size == 0x88000) || (size == 0x88000 && vfb_size == 0x44000))) {
+			// Not likely to be a correct color format copy for this buffer. Ignore it, there will either be RAM
+			// that can be displayed from, or another matching buffer with the right format if rendering is going on.
+			// If we had scoring here, we should strongly penalize this target instead of ignoring it.
+			WARN_LOG_N_TIMES(notify_copy_2x, 5, G3D, "Framebuffer size %08x conspicuously not matching copy size %08x in NotifyFramebufferCopy. Ignoring.", size, vfb_size);
+			continue;
+		}
+
+		CopyCandidate dstCandidate;
+		dstCandidate.vfb = vfb;
+
+		// Special path for depth for now.
+		if (channel == RASTER_DEPTH) {
+			// Let's assume exact matches only for simplicity.
+			if (dst == vfb->z_address && size == vfb->z_stride * 2 * vfb->height) {
+				dstCandidate.y = 0;
+				dstCandidate.h = vfb->height;
+				dstCandidates.push_back(dstCandidate);
+			}
+			continue;
+		}
+
 		if (!ignoreDstBuffer && dst >= vfb_address && (dst + size <= vfb_address + vfb_size || dst == vfb_address)) {
 			const u32 offset = dst - vfb_address;
 			const u32 yOffset = offset / vfb_byteStride;
-			if ((offset % vfb_byteStride) == 0 && (size == vfb_byteWidth || (size % vfb_byteStride) == 0) && yOffset < dstY) {
-				dstBuffer = vfb;
-				dstY = yOffset;
-				dstH = size == vfb_byteWidth ? 1 : std::min((u32)size / vfb_byteStride, (u32)vfb->height);
-			}
-		}
-
-		if (!ignoreSrcBuffer && src >= vfb_address && (src + size <= vfb_address + vfb_size || src == vfb_address)) {
-			const u32 offset = src - vfb_address;
-			const u32 yOffset = offset / vfb_byteStride;
-			if ((offset % vfb_byteStride) == 0 && (size == vfb_byteWidth || (size % vfb_byteStride) == 0) && yOffset < srcY) {
-				srcBuffer = vfb;
-				srcY = yOffset;
-				srcH = size == vfb_byteWidth ? 1 : std::min((u32)size / vfb_byteStride, (u32)vfb->height);
-			} else if ((offset % vfb_byteStride) == 0 && size == vfb->fb_stride && yOffset < srcY) {
-				// Valkyrie Profile reads 512 bytes at a time, rather than 2048.  So, let's whitelist fb_stride also.
-				srcBuffer = vfb;
-				srcY = yOffset;
-				srcH = 1;
-			} else if (yOffset == 0 && yOffset < srcY) {
-				// Okay, last try - it might be a clut.
-				if (vfb->usageFlags & FB_USAGE_CLUT) {
-					srcBuffer = vfb;
-					srcY = yOffset;
-					srcH = 1;
-				}
+			if ((offset % vfb_byteStride) == 0 && (size == vfb_byteWidth || (size % vfb_byteStride) == 0)) {
+				dstCandidate.y = yOffset;
+				dstCandidate.h = (size == vfb_byteWidth) ? 1 : std::min((u32)size / vfb_byteStride, (u32)vfb->height);
+				dstCandidates.push_back(dstCandidate);
 			}
 		}
 	}
 
-	if (channel == RASTER_DEPTH) {
-		srcBuffer = nullptr;
-		dstBuffer = nullptr;
-		// Let's assume exact matches only for simplicity.
-		for (auto vfb : vfbs_) {
-			if (!ignoreDstBuffer && dst == vfb->z_address && size == vfb->z_stride * 2 * vfb->height) {
-				if (!dstBuffer || dstBuffer->depthBindSeq < vfb->depthBindSeq) {
-					dstBuffer = vfb;
-					dstY = 0;
-					dstH = vfb->height;
-				}
+	if (srcCandidates.size() > 1) {
+		if (Reporting::ShouldLogNTimes("mulblock", 5)) {
+			std::string log;
+			for (size_t i = 0; i < srcCandidates.size(); i++) {
+				log += " - " + srcCandidates[i].ToString(channel) + "\n";
 			}
-			if (!ignoreSrcBuffer && src == vfb->z_address && size == vfb->z_stride * 2 * vfb->height) {
-				if (!srcBuffer || srcBuffer->depthBindSeq < vfb->depthBindSeq) {
-					srcBuffer = vfb;
-					srcY = 0;
-					srcH = vfb->height;
-				}
-			}
+			WARN_LOG(G3D, "Copy: Multiple src vfb candidates for (src: %08x, size: %d, %s):\n%s (%s)", src, size, log.c_str(), RasterChannelToString(channel));
 		}
+	}
+
+	if (dstCandidates.size() > 1) {
+		if (Reporting::ShouldLogNTimes("mulblock", 5)) {
+			std::string log;
+			for (size_t i = 0; i < dstCandidates.size(); i++) {
+				log += " - " + dstCandidates[i].ToString(channel) + "\n";
+			}
+			WARN_LOG(G3D, "Copy: Multiple dst vfb candidates for (dst: %08x, size: %d):\n%s (%s)", src, size, log.c_str(), RasterChannelToString(channel));
+		}
+	}
+
+	// For now fill in these old variables from the candidates to reduce the initial diff.
+	VirtualFramebuffer *dstBuffer = nullptr;
+	VirtualFramebuffer *srcBuffer = nullptr;
+	int srcY;
+	int srcH;
+	int dstY;
+	int dstH;
+
+	const CopyCandidate *bestSrc = GetBestCopyCandidate(srcCandidates, src, channel);
+	if (bestSrc) {
+		srcBuffer = bestSrc->vfb;
+		srcY = bestSrc->y;
+		srcH = bestSrc->h;
+	}
+	const CopyCandidate *bestDst = GetBestCopyCandidate(dstCandidates, dst, channel);
+	if (bestDst) {
+		dstBuffer = bestDst->vfb;
+		dstY = bestDst->y;
+		dstH = bestDst->h;
 	}
 
 	if (!useBufferedRendering_) {
