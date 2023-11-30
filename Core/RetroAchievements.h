@@ -72,9 +72,9 @@ bool ChallengeModeActive();
 
 // Same as ChallengeModeActive but comes with a convenient user message. Don't use for every-frame checks or UI enablement,
 // only for shortcut keys and commands. You should look up the message in I18NCat::ACHIEVEMENTS.
-// If no message is specified, a standard "This feature is not available in Challenge Mode" message will be shown.
-// Also returns true if challenge mode is active.
-// Specify isSaveAction so we can still permit saves (but not loads) in challenge mode if that option is enabled.
+// If no message is specified, a standard "This feature is not available in Hardcore Mode" message will be shown.
+// Also returns true if hardcore mode is active.
+// Specify isSaveAction so we can still permit saves (but not loads) in hardcore mode if that option is enabled.
 bool WarnUserIfChallengeModeActive(bool isSaveStateAction, const char *message = nullptr);
 
 // The new API is so much nicer that we can use it directly instead of wrapping it. So let's expose the client.

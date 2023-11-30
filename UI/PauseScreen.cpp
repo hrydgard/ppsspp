@@ -344,6 +344,10 @@ void GamePauseScreen::CreateViews() {
 				leftColumnItems->Add(new AchievementView(achievement));
 			}
 		}
+
+		// And tack on an explanation for why savestate options are not available.
+		const char *notAvailable = ac->T("Save states not available in Hardcore Mode");
+		leftColumnItems->Add(new NoticeView(NoticeLevel::INFO, notAvailable, ""));
 	}
 
 	ViewGroup *rightColumn = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(vertical ? 200 : 300, FILL_PARENT, actionMenuMargins));
