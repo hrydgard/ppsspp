@@ -369,7 +369,7 @@ void EmuScreen::bootComplete() {
 
 	NOTICE_LOG(BOOT, "Booted %s...", PSP_CoreParameter().fileToStart.c_str());
 	if (!Achievements::ChallengeModeActive()) {
-		// Don't auto-load savestates in challenge mode.
+		// Don't auto-load savestates in hardcore mode.
 		autoLoad();
 	}
 

@@ -338,7 +338,7 @@ void RetroAchievementsSettingsScreen::CreateAccountTab(UI::ViewGroup *viewGroup)
 		RecreateViews();
 		return UI::EVENT_DONE;
 	});
-	viewGroup->Add(new CheckBox(&g_Config.bAchievementsChallengeMode, ac->T("Challenge Mode (no savestates)")))->SetEnabledPtr(&g_Config.bAchievementsEnable);
+	viewGroup->Add(new CheckBox(&g_Config.bAchievementsChallengeMode, ac->T("Hardcore Mode (no savestates)")))->SetEnabledPtr(&g_Config.bAchievementsEnable);
 	viewGroup->Add(new CheckBox(&g_Config.bAchievementsSoundEffects, ac->T("Sound Effects")))->SetEnabledPtr(&g_Config.bAchievementsEnable);  // not yet implemented
 
 	viewGroup->Add(new ItemHeader(di->T("Links")));
@@ -380,7 +380,7 @@ void RetroAchievementsSettingsScreen::CreateDeveloperToolsTab(UI::ViewGroup *vie
 	viewGroup->Add(new CheckBox(&g_Config.bAchievementsEncoreMode, ac->T("Encore Mode")))->SetEnabledPtr(&g_Config.bAchievementsEnable);
 	viewGroup->Add(new CheckBox(&g_Config.bAchievementsUnofficial, ac->T("Unofficial achievements")))->SetEnabledPtr(&g_Config.bAchievementsEnable);
 	viewGroup->Add(new CheckBox(&g_Config.bAchievementsLogBadMemReads, ac->T("Log bad memory accesses")))->SetEnabledPtr(&g_Config.bAchievementsEnable);
-	viewGroup->Add(new CheckBox(&g_Config.bAchievementsSaveStateInChallengeMode, ac->T("Allow Save State in Challenge Mode (but not Load State)")))->SetEnabledPtr(&g_Config.bAchievementsEnable);
+	viewGroup->Add(new CheckBox(&g_Config.bAchievementsSaveStateInChallengeMode, ac->T("Allow Save State in Hardcore Mode (but not Load State)")))->SetEnabledPtr(&g_Config.bAchievementsEnable);
 }
 
 void MeasureAchievement(const UIContext &dc, const rc_client_achievement_t *achievement, AchievementRenderStyle style, float *w, float *h) {
@@ -439,7 +439,7 @@ void RenderAchievement(UIContext &dc, const rc_client_achievement_t *achievement
 
 	if (!achievement->unlocked && !hasFocus) {
 		// Make the background color gray.
-		// TODO: Different colors in challenge mode, or even in the "re-take achievements" mode when we add that?
+		// TODO: Different colors in hardcore mode, or even in the "re-take achievements" mode when we add that?
 		background.color = (background.color & 0xFF000000) | 0x706060;
 	}
 

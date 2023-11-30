@@ -362,10 +362,10 @@ static int FrameTimingLimit() {
 		}
 	};
 
-	// Note: Fast-forward is OK in challenge mode.
+	// Note: Fast-forward is OK in hardcore mode.
 	if (PSP_CoreParameter().fastForward)
 		return 0;
-	// Can't slow down in challenge mode.
+	// Can't slow down in hardcore mode.
 	if (PSP_CoreParameter().fpsLimit == FPSLimit::CUSTOM1)
 		return fixRate(g_Config.iFpsLimit1);
 	if (PSP_CoreParameter().fpsLimit == FPSLimit::CUSTOM2)

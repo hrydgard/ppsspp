@@ -133,7 +133,7 @@ bool WarnUserIfChallengeModeActive(bool isSaveStateAction, const char *message) 
 	const char *showMessage = message;
 	if (!message) {
 		auto ac = GetI18NCategory(I18NCat::ACHIEVEMENTS);
-		showMessage = ac->T("This feature is not available in Challenge Mode");
+		showMessage = ac->T("This feature is not available in Hardcore Mode");
 	}
 
 	g_OSD.Show(OSDType::MESSAGE_WARNING, showMessage, "", g_RAImageID, 3.0f);
@@ -237,7 +237,7 @@ static void event_handler_callback(const rc_client_event_t *event, rc_client_t *
 	{
 		// TODO: Do some zany fireworks!
 
-		// All achievements for the game have been earned. The handler should notify the player that the game was completed or mastered, depending on challenge mode.
+		// All achievements for the game have been earned. The handler should notify the player that the game was completed or mastered, depending on mode, hardcore or not.
 		auto ac = GetI18NCategory(I18NCat::ACHIEVEMENTS);
 
 		const rc_client_game_t *gameInfo = rc_client_get_game_info(g_rcClient);
@@ -342,7 +342,7 @@ static void event_handler_callback(const rc_client_event_t *event, rc_client_t *
 		break;
 	case RC_CLIENT_EVENT_RESET:
 		WARN_LOG(ACHIEVEMENTS, "Resetting game due to achievement setting change!");
-		// Challenge mode was enabled, or something else that forces a game reset.
+		// Hardcore mode was enabled, or something else that forces a game reset.
 		System_PostUIMessage(UIMessage::REQUEST_GAME_RESET);
 		break;
 	case RC_CLIENT_EVENT_SERVER_ERROR:
@@ -732,7 +732,7 @@ std::string GetGameAchievementSummary() {
 			summary.points_unlocked, summary.points_core);
 		if (ChallengeModeActive()) {
 			summaryString.append("\n");
-			summaryString.append(ac->T("Challenge Mode"));
+			summaryString.append(ac->T("Hardcore Mode"));
 		}
 		if (EncoreModeActive()) {
 			summaryString.append("\n");

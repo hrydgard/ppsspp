@@ -401,7 +401,7 @@ namespace SaveState
 	{
 		if (Achievements::ChallengeModeActive()) {
 			if (g_Config.bAchievementsSaveStateInChallengeMode && (op.type == SaveState::SAVESTATE_SAVE) || (op.type == SAVESTATE_SAVE_SCREENSHOT)) {
-				// We allow saving in challenge mode if this setting is on.
+				// We allow saving in hardcore mode if this setting is on.
 			} else {
 				// Operation not allowed
 				return;
