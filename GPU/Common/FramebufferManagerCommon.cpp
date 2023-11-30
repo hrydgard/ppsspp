@@ -1938,14 +1938,6 @@ bool FramebufferManagerCommon::NotifyFramebufferCopy(u32 src, u32 dst, int size,
 		const u32 vfb_byteStride = vfb->BufferByteStride(channel);
 		const int vfb_byteWidth = vfb->BufferByteWidth(channel);
 
-		if (channel == RASTER_COLOR && (u32)size > vfb_size + 0x1000 && vfb->fb_format != GE_FORMAT_8888 && vfb->last_frame_render < gpuStats.numFlips) {
-			// Seems likely we are looking at a potential copy of 32-bit pixels (like video) to an old 16-bit buffer,
-			// which is very likely simply the wrong target, so skip it. See issue #17740 where this happens in Naruto Ultimate Ninja Heroes 2.
-			// If we had scoring here, we should strongly penalize this target instead of ignoring it.
-			WARN_LOG_N_TIMES(notify_copy_2x, 5, G3D, "Framebuffer size %08x too small for %08x bytes of data and also 16-bit (%s), and not rendered to this frame. Ignoring.", vfb_size, size, GeBufferFormatToString(vfb->fb_format));
-			continue;
-		}
-
 		CopyCandidate srcCandidate;
 		srcCandidate.vfb = vfb;
 
@@ -1960,6 +1952,14 @@ bool FramebufferManagerCommon::NotifyFramebufferCopy(u32 src, u32 dst, int size,
 		}
 
 		if (src >= vfb_address && (src + size <= vfb_address + vfb_size || src == vfb_address)) {
+			if ((u32)size > vfb_size + 0x1000 && vfb->fb_format != GE_FORMAT_8888 && vfb->last_frame_render < gpuStats.numFlips) {
+				// Seems likely we are looking at a potential copy of 32-bit pixels (like video) to an old 16-bit buffer,
+				// which is very likely simply the wrong target, so skip it. See issue #17740 where this happens in Naruto Ultimate Ninja Heroes 2.
+				// If we had scoring here, we should strongly penalize this target instead of ignoring it.
+				WARN_LOG_N_TIMES(notify_copy_2x, 5, G3D, "Framebuffer size %08x too small for %08x bytes of data and also 16-bit (%s), and not rendered to this frame. Ignoring.", vfb_size, size, GeBufferFormatToString(vfb->fb_format));
+				continue;
+			}
+
 			const u32 offset = src - vfb_address;
 			const u32 yOffset = offset / vfb_byteStride;
 			if ((offset % vfb_byteStride) == 0 && (size == vfb_byteWidth || (size % vfb_byteStride) == 0)) {
