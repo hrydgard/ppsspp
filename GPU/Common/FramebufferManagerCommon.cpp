@@ -1878,11 +1878,10 @@ static const CopyCandidate *GetBestCopyCandidate(const TinySet<CopyCandidate, 4>
 		if (!better) {
 			// Heuristics determined from the old algorithm, that we might want to keep:
 			// * Lower yOffsets are prioritized.
-			// if (!srcBuffer || srcBuffer->depthBindSeq < vfb->depthBindSeq) {
-			better = candidate->vfb->BindSeq(channel) > best->vfb->BindSeq(channel);
-
+			// * Bindseq
+			better = candidate->y < best->y;
 			if (!better) {
-				better = candidate->y < best->y;
+				better = candidate->vfb->BindSeq(channel) > best->vfb->BindSeq(channel);
 			}
 		}
 
@@ -1955,7 +1954,7 @@ bool FramebufferManagerCommon::NotifyFramebufferCopy(u32 src, u32 dst, int size,
 			if ((u32)size > vfb_size + 0x1000 && vfb->fb_format != GE_FORMAT_8888 && vfb->last_frame_render < gpuStats.numFlips) {
 				// Seems likely we are looking at a potential copy of 32-bit pixels (like video) to an old 16-bit buffer,
 				// which is very likely simply the wrong target, so skip it. See issue #17740 where this happens in Naruto Ultimate Ninja Heroes 2.
-				// If we had scoring here, we should strongly penalize this target instead of ignoring it.
+				// Probably no point to give it a bad score and let it pass to sorting, as we're pretty sure here.
 				WARN_LOG_N_TIMES(notify_copy_2x, 5, G3D, "Framebuffer size %08x too small for %08x bytes of data and also 16-bit (%s), and not rendered to this frame. Ignoring.", vfb_size, size, GeBufferFormatToString(vfb->fb_format));
 				continue;
 			}
