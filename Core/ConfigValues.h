@@ -166,4 +166,5 @@ enum class DebugOverlay : int {
 	AUDIO,
 	GPU_PROFILE,
 	GPU_ALLOCATOR,
+	FRAMEBUFFER_LIST,
 };

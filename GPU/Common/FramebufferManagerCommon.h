@@ -327,7 +327,7 @@ public:
 	void SetDepthFrameBuffer(bool isClearingDepth);
 
 	void RebindFramebuffer(const char *tag);
-	std::vector<FramebufferInfo> GetFramebufferList() const;
+	std::vector<const VirtualFramebuffer *> GetFramebufferList() const;
 
 	void CopyDisplayToOutput(bool reallyDirty);
 

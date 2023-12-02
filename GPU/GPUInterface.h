@@ -31,6 +31,7 @@
 struct PspGeListArgs;
 struct GPUgstate;
 class PointerWrap;
+struct VirtualFramebuffer;
 
 enum DisplayListStatus {
 	// The list has been completed
@@ -125,16 +126,6 @@ enum class GPUCopyFlag {
 	DISALLOW_CREATE_VFB = 32,
 };
 ENUM_CLASS_BITOPS(GPUCopyFlag);
-
-// Used for debug
-struct FramebufferInfo {
-	u32 fb_address;
-	u32 z_address;
-	int format;
-	u32 width;
-	u32 height;
-	void* fbo;
-};
 
 struct DisplayListStackEntry {
 	u32 pc;
@@ -271,7 +262,7 @@ public:
 	virtual void GetReportingInfo(std::string &primaryInfo, std::string &fullInfo) = 0;
 	virtual const std::list<int>& GetDisplayLists() = 0;
 	// TODO: Currently Qt only, needs to be cleaned up.
-	virtual std::vector<FramebufferInfo> GetFramebufferList() const = 0;
+	virtual std::vector<const VirtualFramebuffer *> GetFramebufferList() const = 0;
 	virtual s64 GetListTicks(int listid) const = 0;
 
 	// For debugging. The IDs returned are opaque, do not poke in them or display them in any way.

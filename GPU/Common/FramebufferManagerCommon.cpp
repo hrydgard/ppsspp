@@ -3195,20 +3195,11 @@ void FramebufferManagerCommon::RebindFramebuffer(const char *tag) {
 	}
 }
 
-std::vector<FramebufferInfo> FramebufferManagerCommon::GetFramebufferList() const {
-	std::vector<FramebufferInfo> list;
-
+std::vector<const VirtualFramebuffer *> FramebufferManagerCommon::GetFramebufferList() const {
+	std::vector<const VirtualFramebuffer *> list;
 	for (auto vfb : vfbs_) {
-		FramebufferInfo info;
-		info.fb_address = vfb->fb_address;
-		info.z_address = vfb->z_address;
-		info.format = vfb->fb_format;
-		info.width = vfb->width;
-		info.height = vfb->height;
-		info.fbo = vfb->fbo;
-		list.push_back(info);
+		list.push_back(vfb);
 	}
-
 	return list;
 }
 
