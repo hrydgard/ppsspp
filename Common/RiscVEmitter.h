@@ -965,6 +965,9 @@ public:
 	void BSET(RiscVReg rd, RiscVReg rs1, RiscVReg rs2);
 	void BSETI(RiscVReg rd, RiscVReg rs1, u32 shamt);
 
+	void CZERO_EQZ(RiscVReg rd, RiscVReg rs1, RiscVReg rs2);
+	void CZERO_NEZ(RiscVReg rd, RiscVReg rs1, RiscVReg rs2);
+
 	// Compressed instructions.
 	void C_ADDI4SPN(RiscVReg rd, u32 nzuimm10);
 	void C_FLD(RiscVReg rd, RiscVReg addr, u8 uimm8);

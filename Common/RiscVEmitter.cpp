@@ -78,6 +78,11 @@ static inline bool SupportsBitmanip(char zbx) {
 	}
 }
 
+static inline bool SupportsIntConditional() {
+	// TODO: cpu_info.RiscV_Zicond;
+	return false;
+}
+
 static inline bool SupportsFloatHalf(bool allowMin = false) {
 	// TODO
 	return false;
@@ -219,6 +224,9 @@ enum class Funct3 {
 	BSET = 0b001,
 	BEXT = 0b101,
 
+	CZERO_EQZ = 0b101,
+	CZERO_NEZ = 0b111,
+
 	C_ADDI4SPN = 0b000,
 	C_FLD = 0b001,
 	C_LW = 0b010,
@@ -282,6 +290,7 @@ enum class Funct7 {
 
 	ADDUW_ZEXT = 0b0000100,
 	MINMAX_CLMUL = 0b0000101,
+	CZERO = 0b0000111,
 	SH_ADD = 0b0010000,
 	BSET_ORC = 0b0010100,
 	NOT = 0b0100000,
@@ -4299,6 +4308,18 @@ void RiscVEmitter::BSETI(RiscVReg rd, RiscVReg rs1, u32 shamt) {
 	_assert_msg_(rd != R_ZERO, "%s should avoid write to zero", __func__);
 	_assert_msg_(SupportsBitmanip('s'), "%s instruction unsupported without B", __func__);
 	Write32(EncodeGIShift(Opcode32::OP_IMM, rd, Funct3::BSET, rs1, shamt, Funct7::BSET_ORC));
+}
+
+void RiscVEmitter::CZERO_EQZ(RiscVReg rd, RiscVReg rs1, RiscVReg rs2) {
+	_assert_msg_(rd != R_ZERO, "%s should avoid write to zero", __func__);
+	_assert_msg_(SupportsIntConditional(), "%s instruction unsupported without Zicond", __func__);
+	Write32(EncodeR(Opcode32::OP, rd, Funct3::CZERO_EQZ, rs1, rs2, Funct7::CZERO));
+}
+
+void RiscVEmitter::CZERO_NEZ(RiscVReg rd, RiscVReg rs1, RiscVReg rs2) {
+	_assert_msg_(rd != R_ZERO, "%s should avoid write to zero", __func__);
+	_assert_msg_(SupportsIntConditional(), "%s instruction unsupported without Zicond", __func__);
+	Write32(EncodeR(Opcode32::OP, rd, Funct3::CZERO_NEZ, rs1, rs2, Funct7::CZERO));
 }
 
 bool RiscVEmitter::AutoCompress() const {
