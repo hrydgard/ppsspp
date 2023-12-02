@@ -75,6 +75,11 @@ static inline bool SupportsFloatHalf(bool allowMin = false) {
 	return false;
 }
 
+static inline bool SupportsFloatExtra() {
+	// TODO: cpu_info.RiscV_Zfa
+	return false;
+}
+
 enum class Opcode32 {
 	// Note: invalid, just used for FixupBranch.
 	ZERO = 0b0000000,
@@ -156,6 +161,8 @@ enum class Funct3 {
 
 	FMIN = 0b000,
 	FMAX = 0b001,
+	FMINM = 0b010,
+	FMAXM = 0b011,
 
 	FMV = 0b000,
 	FCLASS = 0b001,
@@ -2214,6 +2221,162 @@ void RiscVEmitter::FCLASS(int bits, RiscVReg rd, RiscVReg rs1) {
 	_assert_msg_(IsGPR(rd), "%s rd must be GPR", __func__);
 	_assert_msg_(IsFPR(rs1), "%s rs1 must be FPR", __func__);
 	Write32(EncodeR(Opcode32::OP_FP, rd, Funct3::FCLASS, rs1, F0, BitsToFunct2(bits), Funct5::FMV_TOX));
+}
+
+static const uint32_t FLIvalues[32] = {
+	0xBF800000, // -1.0
+	0x00800000, // FLT_MIN (note: a bit special)
+	0x37800000, // pow(2, -16)
+	0x38000000, // pow(2, -15)
+	0x3B800000, // pow(2, -8)
+	0x3C000000, // pow(2, -7)
+	0x3D800000, // 0.0625
+	0x3E000000, // 0.125
+	0x3E800000, // 0.25
+	0x3EA00000, // 0.3125
+	0x3EC00000, // 0.375
+	0x3EE00000, // 0.4375
+	0x3F000000, // 0.5
+	0x3F200000, // 0.625
+	0x3F400000, // 0.75
+	0x3F600000, // 0.875
+	0x3F800000, // 1.0
+	0x3FA00000, // 1.25
+	0x3FC00000, // 1.5
+	0x3FE00000, // 1.75
+	0x40000000, // 2.0
+	0x40200000, // 2.5
+	0x40400000, // 3.0
+	0x40800000, // 4.0
+	0x41000000, // 8.0
+	0x41800000, // 16.0
+	0x43000000, // 128.0
+	0x43800000, // 256.0
+	0x47000000, // pow(2, 15)
+	0x47800000, // pow(2, 16)
+	0x7F800000, // INFINITY
+	0x7FC00000, // NAN
+};
+
+static RiscVReg EncodeFLImm(int bits, double v) {
+	float f = (float)v;
+	int index = -1;
+	for (size_t i = 0; i < ARRAY_SIZE(FLIvalues); ++i) {
+		if (memcmp(&f, &FLIvalues[i], sizeof(float)) == 0) {
+			index = (int)i;
+			break;
+		}
+	}
+
+	// For 16-bit, 2/3 are subnormal and 29 is not possible.  Just avoid for now.
+	if (index != -1 && index != 1 && (bits > 16 || (index != 2 && index != 3 && index != 29)))
+		return (RiscVReg)index;
+
+	if (bits == 64) {
+		uint64_t dmin = 0x0010000000000000ULL;
+		if (memcmp(&v, &dmin, 8) == 0)
+			return F1;
+	} else if (bits == 32 && index == 1) {
+		return F1;
+	} else if (bits == 16) {
+		uint64_t hmin = 0x3F10000000000000ULL;
+		if (memcmp(&v, &hmin, 8) == 0)
+			return F1;
+	}
+
+	return INVALID_REG;
+}
+
+bool RiscVEmitter::CanFLI(int bits, double v) const {
+	if (!SupportsFloatExtra())
+		return false;
+	if (bits == 16 && !SupportsFloatHalf())
+		return false;
+	if (bits > FloatBitsSupported())
+		return false;
+	return EncodeFLImm(bits, v) != INVALID_REG;
+}
+
+bool RiscVEmitter::CanFLI(int bits, uint32_t pattern) const {
+	float f;
+	memcpy(&f, &pattern, sizeof(f));
+	return CanFLI(bits, f);
+}
+
+void RiscVEmitter::FLI(int bits, RiscVReg rd, double v) {
+	_assert_msg_(SupportsFloatExtra(), "%s cannot be used without Zfa", __func__);
+	_assert_msg_(bits <= FloatBitsSupported(), "FLI cannot be used for %d bits, only %d/%d supported", bits, BitsSupported(), FloatBitsSupported());
+	_assert_msg_(IsFPR(rd), "%s rd of wrong type", __func__);
+
+	RiscVReg imm = EncodeFLImm(bits, v);
+	_assert_msg_(imm != INVALID_REG, "FLI with unsupported constant %f for %d bits", v, bits);
+	Write32(EncodeR(Opcode32::OP_FP, rd, Funct3::FMV, imm, F1, BitsToFunct2(bits, false), Funct5::FMV_FROMX));
+}
+
+void RiscVEmitter::FLI(int bits, RiscVReg rd, uint32_t pattern) {
+	float f;
+	memcpy(&f, &pattern, sizeof(f));
+	FLI(bits, rd, f);
+}
+
+void RiscVEmitter::FMINM(int bits, RiscVReg rd, RiscVReg rs1, RiscVReg rs2) {
+	_assert_msg_(SupportsFloatExtra(), "%s cannot be used without Zfa", __func__);
+	Write32(EncodeFR(Opcode32::OP_FP, rd, Funct3::FMINM, rs1, rs2, BitsToFunct2(bits), Funct5::FMINMAX));
+}
+
+void RiscVEmitter::FMAXM(int bits, RiscVReg rd, RiscVReg rs1, RiscVReg rs2) {
+	_assert_msg_(SupportsFloatExtra(), "%s cannot be used without Zfa", __func__);
+	Write32(EncodeFR(Opcode32::OP_FP, rd, Funct3::FMAXM, rs1, rs2, BitsToFunct2(bits), Funct5::FMINMAX));
+}
+
+void RiscVEmitter::FROUND(int bits, RiscVReg rd, RiscVReg rs1, Round rm) {
+	_assert_msg_(SupportsFloatExtra(), "%s cannot be used without Zfa", __func__);
+	_assert_msg_(bits <= FloatBitsSupported(), "FROUND for %d float bits, only %d supported", bits, FloatBitsSupported());
+	_assert_msg_(IsFPR(rd), "%s rd of wrong type", __func__);
+	_assert_msg_(IsFPR(rs1), "%s rs1 of wrong type", __func__);
+
+	Funct2 toFmt = BitsToFunct2(bits, false);
+	Write32(EncodeR(Opcode32::OP_FP, rd, (Funct3)rm, rs1, F4, toFmt, Funct5::FCVT_SZ));
+}
+
+void RiscVEmitter::QuickFLI(int bits, RiscVReg rd, double v, RiscVReg scratchReg) {
+	if (CanFLI(bits, v)) {
+		FLI(bits, rd, v);
+	} else if (bits == 64) {
+		LI(scratchReg, v);
+		FMV(FMv::D, FMv::X, rd, scratchReg);
+	} else if (bits <= 32) {
+		QuickFLI(32, rd, (float)v, scratchReg);
+	} else {
+		_assert_msg_(false, "Unsupported QuickFLI bits");
+	}
+}
+
+void RiscVEmitter::QuickFLI(int bits, RiscVReg rd, uint32_t pattern, RiscVReg scratchReg) {
+	if (CanFLI(bits, pattern)) {
+		FLI(bits, rd, pattern);
+	} else if (bits == 32) {
+		LI(scratchReg, (int32_t)pattern);
+		FMV(FMv::W, FMv::X, rd, scratchReg);
+	} else if (bits == 16) {
+		LI(scratchReg, (int16_t)pattern);
+		FMV(FMv::H, FMv::X, rd, scratchReg);
+	} else {
+		_assert_msg_(false, "Unsupported QuickFLI bits");
+	}
+}
+
+void RiscVEmitter::QuickFLI(int bits, RiscVReg rd, float v, RiscVReg scratchReg) {
+	if (CanFLI(bits, v)) {
+		FLI(bits, rd, v);
+	} else if (bits == 64) {
+		QuickFLI(32, rd, (double)v, scratchReg);
+	} else if (bits == 32) {
+		LI(scratchReg, v);
+		FMV(FMv::D, FMv::X, rd, scratchReg);
+	} else {
+		_assert_msg_(false, "Unsupported QuickFLI bits");
+	}
 }
 
 void RiscVEmitter::CSRRW(RiscVReg rd, Csr csr, RiscVReg rs1) {

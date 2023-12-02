@@ -223,10 +223,8 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec, int
 	}
 
 	// TODO: Only load these when needed?
-	LI(scratchReg, by128);
-	FMV(FMv::W, FMv::X, by128Reg, scratchReg);
-	LI(scratchReg, by32768);
-	FMV(FMv::W, FMv::X, by32768Reg, scratchReg);
+	QuickFLI(32, by128Reg, by128, scratchReg);
+	QuickFLI(32, by32768Reg, by32768, scratchReg);
 	if (posThroughStep) {
 		LI(scratchReg, const65535);
 		FMV(FMv::W, FMv::X, const65535Reg, scratchReg);

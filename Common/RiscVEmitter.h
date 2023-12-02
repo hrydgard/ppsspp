@@ -421,6 +421,26 @@ public:
 	void FLE(int bits, RiscVReg rd, RiscVReg rs1, RiscVReg rs2);
 	void FCLASS(int bits, RiscVReg rd, RiscVReg rs1);
 
+	// Additional floating point (Zfa.)
+	bool CanFLI(int bits, double v) const;
+	bool CanFLI(int bits, uint32_t pattern) const;
+	bool CanFLI(int bits, float v) const {
+		return CanFLI(bits, (double)v);
+	}
+	void FLI(int bits, RiscVReg rd, double v);
+	void FLI(int bits, RiscVReg rd, uint32_t pattern);
+	void FLI(int bits, RiscVReg rd, float v) {
+		FLI(bits, rd, (double)v);
+	}
+	void FMINM(int bits, RiscVReg rd, RiscVReg rs1, RiscVReg rs2);
+	void FMAXM(int bits, RiscVReg rd, RiscVReg rs1, RiscVReg rs2);
+	void FROUND(int bits, RiscVReg rd, RiscVReg rs1, Round rm = Round::DYNAMIC);
+
+	// Convenience helper for FLI support.
+	void QuickFLI(int bits, RiscVReg rd, double v, RiscVReg scratchReg);
+	void QuickFLI(int bits, RiscVReg rd, uint32_t pattern, RiscVReg scratchReg);
+	void QuickFLI(int bits, RiscVReg rd, float v, RiscVReg scratchReg);
+
 	// Control state register manipulation.
 	void CSRRW(RiscVReg rd, Csr csr, RiscVReg rs1);
 	void CSRRS(RiscVReg rd, Csr csr, RiscVReg rs1);
