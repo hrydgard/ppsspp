@@ -27,8 +27,16 @@
 
 namespace RiscVGen {
 
-static inline bool SupportsCompressed() {
-	return cpu_info.RiscV_C;
+static inline bool SupportsCompressed(char zcx = '\0') {
+	if (!cpu_info.RiscV_C)
+		return false;
+
+	switch (zcx) {
+	// TODO: cpu_info.RiscV_Zcb
+	case 'b': return false;
+	case '\0': return true;
+	default: return false;
+	}
 }
 
 static inline uint8_t BitsSupported() {
@@ -261,6 +269,7 @@ enum class Funct2 {
 
 	C_SUBW = 0b00,
 	C_ADDW = 0b01,
+	C_MUL = 0b10,
 };
 
 enum class Funct7 {
@@ -358,6 +367,13 @@ enum class Funct5 {
 	SEXT_B = 0b00100,
 	SEXT_H = 0b00101,
 	ORC_B = 0b00111,
+
+	C_ZEXT_B = 0b11000,
+	C_SEXT_B = 0b11001,
+	C_ZEXT_H = 0b11010,
+	C_SEXT_H = 0b11011,
+	C_ZEXT_W = 0b11100,
+	C_NOT = 0b11101,
 };
 
 enum class Funct4 {
@@ -370,6 +386,10 @@ enum class Funct4 {
 enum class Funct6 {
 	C_OP = 0b100011,
 	C_OP_32 = 0b100111,
+	C_LBU = 0b100000,
+	C_LH = 0b100001,
+	C_SB = 0b100010,
+	C_SH = 0b100011,
 
 	VADD = 0b000000,
 	VSUB = 0b000010,
@@ -893,6 +913,35 @@ static inline u16 EncodeCJ(Opcode16 op, s32 simm12, Funct3 funct3) {
 	u16 imm11_4 = (ImmBit16(simm12, 11) << 1) | ImmBit16(simm12, 4);
 	u16 imm11_4_9_8_10_6_7_3_2_1_5 = (imm11_4 << 9) | (imm9_8_10_6 << 5) | imm7_3_2_1_5;
 	return (u16)op | (imm11_4_9_8_10_6_7_3_2_1_5 << 2) | ((u16)funct3 << 13);
+}
+
+static inline u16 EncodeCLB(Opcode16 op, RiscCReg rd, u8 uimm2, RiscCReg rs1, Funct6 funct6) {
+	_assert_msg_(SupportsCompressed(), "Compressed instructions unsupported");
+	_assert_msg_((uimm2 & 3) == uimm2, "CLB immediate must be 2 bit: %d", uimm2);
+	return (u16)op | ((u16)rd << 2) | ((u16)uimm2 << 5) | ((u16)rs1 << 7) | ((u16)funct6 << 10);
+}
+
+static inline u16 EncodeCSB(Opcode16 op, RiscCReg rs2, u8 uimm2, RiscCReg rs1, Funct6 funct6) {
+	_assert_msg_(SupportsCompressed(), "Compressed instructions unsupported");
+	_assert_msg_((uimm2 & 3) == uimm2, "CSB immediate must be 2 bit: %d", uimm2);
+	return (u16)op | ((u16)rs2 << 2) | ((u16)uimm2 << 5) | ((u16)rs1 << 7) | ((u16)funct6 << 10);
+}
+
+static inline u16 EncodeCLH(Opcode16 op, RiscCReg rd, u8 uimm1, bool funct1, RiscCReg rs1, Funct6 funct6) {
+	_assert_msg_(SupportsCompressed(), "Compressed instructions unsupported");
+	_assert_msg_((uimm1 & 1) == uimm1, "CLH immediate must be 1 bit: %d", uimm1);
+	return (u16)op | ((u16)rd << 2) | ((u16)uimm1 << 5) | ((u16)funct1 << 6) | ((u16)rs1 << 7) | ((u16)funct6 << 10);
+}
+
+static inline u16 EncodeCSH(Opcode16 op, RiscCReg rs2, u8 uimm1, bool funct1, RiscCReg rs1, Funct6 funct6) {
+	_assert_msg_(SupportsCompressed(), "Compressed instructions unsupported");
+	_assert_msg_((uimm1 & 1) == uimm1, "CSH immediate must be 1 bit: %d", uimm1);
+	return (u16)op | ((u16)rs2 << 2) | ((u16)uimm1 << 5) | ((u16)funct1 << 6) | ((u16)rs1 << 7) | ((u16)funct6 << 10);
+}
+
+static inline u16 EncodeCU(Opcode16 op, Funct5 funct5, RiscCReg rd, Funct6 funct6) {
+	_assert_msg_(SupportsCompressed(), "Compressed instructions unsupported");
+	return (u16)op | ((u16)funct5 << 2) | ((u16)rd << 7) | ((u16)funct6 << 10);
 }
 
 static inline Funct3 BitsToFunct3(int bits, bool useFloat = false, bool allowHalfMin = false) {
@@ -1478,6 +1527,12 @@ void RiscVEmitter::LB(RiscVReg rd, RiscVReg rs1, s32 simm12) {
 }
 
 void RiscVEmitter::LH(RiscVReg rd, RiscVReg rs1, s32 simm12) {
+	if (AutoCompress() && SupportsCompressed('b')) {
+		if (CanCompress(rd) && CanCompress(rs1) && (simm12 & 2) == simm12) {
+			C_LH(rd, rs1, simm12 & 3);
+			return;
+		}
+	}
 	Write32(EncodeGI(Opcode32::LOAD, rd, Funct3::LS_H, rs1, simm12));
 }
 
@@ -1496,18 +1551,42 @@ void RiscVEmitter::LW(RiscVReg rd, RiscVReg rs1, s32 simm12) {
 }
 
 void RiscVEmitter::LBU(RiscVReg rd, RiscVReg rs1, s32 simm12) {
+	if (AutoCompress() && SupportsCompressed('b')) {
+		if (CanCompress(rd) && CanCompress(rs1) && (simm12 & 3) == simm12) {
+			C_LBU(rd, rs1, simm12 & 3);
+			return;
+		}
+	}
 	Write32(EncodeGI(Opcode32::LOAD, rd, Funct3::LS_BU, rs1, simm12));
 }
 
 void RiscVEmitter::LHU(RiscVReg rd, RiscVReg rs1, s32 simm12) {
+	if (AutoCompress() && SupportsCompressed('b')) {
+		if (CanCompress(rd) && CanCompress(rs1) && (simm12 & 2) == simm12) {
+			C_LHU(rd, rs1, simm12 & 3);
+			return;
+		}
+	}
 	Write32(EncodeGI(Opcode32::LOAD, rd, Funct3::LS_HU, rs1, simm12));
 }
 
 void RiscVEmitter::SB(RiscVReg rs2, RiscVReg rs1, s32 simm12) {
+	if (AutoCompress() && SupportsCompressed('b')) {
+		if (CanCompress(rs2) && CanCompress(rs1) && (simm12 & 3) == simm12) {
+			C_SB(rs2, rs1, simm12 & 3);
+			return;
+		}
+	}
 	Write32(EncodeGS(Opcode32::STORE, Funct3::LS_B, rs1, rs2, simm12));
 }
 
 void RiscVEmitter::SH(RiscVReg rs2, RiscVReg rs1, s32 simm12) {
+	if (AutoCompress() && SupportsCompressed('b')) {
+		if (CanCompress(rs2) && CanCompress(rs1) && (simm12 & 2) == simm12) {
+			C_SH(rs2, rs1, simm12 & 3);
+			return;
+		}
+	}
 	Write32(EncodeGS(Opcode32::STORE, Funct3::LS_H, rs1, rs2, simm12));
 }
 
@@ -1563,6 +1642,12 @@ void RiscVEmitter::SLTIU(RiscVReg rd, RiscVReg rs1, s32 simm12) {
 
 void RiscVEmitter::XORI(RiscVReg rd, RiscVReg rs1, s32 simm12) {
 	_assert_msg_(rd != R_ZERO, "%s write to zero is a HINT", __func__);
+
+	if (AutoCompress() && SupportsCompressed('b') && CanCompress(rd) && rd == rs1 && simm12 == -1) {
+		C_NOT(rd);
+		return;
+	}
+
 	Write32(EncodeGI(Opcode32::OP_IMM, rd, Funct3::XOR, rs1, simm12));
 }
 
@@ -1582,9 +1667,14 @@ void RiscVEmitter::ORI(RiscVReg rd, RiscVReg rs1, s32 simm12) {
 void RiscVEmitter::ANDI(RiscVReg rd, RiscVReg rs1, s32 simm12) {
 	_assert_msg_(rd != R_ZERO, "%s write to zero is a HINT", __func__);
 
-	if (AutoCompress() && CanCompress(rd) && rd == rs1 && SignReduce32(simm12, 6) == simm12) {
-		C_ANDI(rd, (s8)simm12);
-		return;
+	if (AutoCompress() && CanCompress(rd) && rd == rs1) {
+		if (SignReduce32(simm12, 6) == simm12) {
+			C_ANDI(rd, (s8)simm12);
+			return;
+		} else if (SupportsCompressed('b') && simm12 == 0xFF) {
+			C_ZEXT_B(rd);
+			return;
+		}
 	}
 
 	Write32(EncodeGI(Opcode32::OP_IMM, rd, Funct3::AND, rs1, simm12));
@@ -1903,6 +1993,17 @@ void RiscVEmitter::MUL(RiscVReg rd, RiscVReg rs1, RiscVReg rs2) {
 	_assert_msg_(SupportsMulDiv(true), "%s instruction unsupported without M/Zmmul", __func__);
 	// Not explicitly a HINT, but seems sensible to restrict just in case.
 	_assert_msg_(rd != R_ZERO, "%s write to zero", __func__);
+
+	if (AutoCompress() && SupportsCompressed('b') && CanCompress(rd)) {
+		if (rd == rs1 && CanCompress(rs2)) {
+			C_MUL(rd, rs2);
+			return;
+		} else if (rd == rs2 && CanCompress(rs1)) {
+			C_MUL(rd, rs1);
+			return;
+		}
+	}
+
 	Write32(EncodeGR(Opcode32::OP, rd, Funct3::MUL, rs1, rs2, Funct7::MULDIV));
 }
 
@@ -3881,6 +3982,12 @@ void RiscVEmitter::ADD_UW(RiscVReg rd, RiscVReg rs1, RiscVReg rs2) {
 
 	_assert_msg_(rd != R_ZERO, "%s should avoid write to zero", __func__);
 	_assert_msg_(SupportsBitmanip('a'), "%s instruction unsupported without B", __func__);
+
+	if (AutoCompress() && SupportsCompressed('b') && CanCompress(rd) && rd == rs1 && rs2 == R_ZERO) {
+		C_ZEXT_W(rd);
+		return;
+	}
+
 	Write32(EncodeGR(Opcode32::OP_32, rd, Funct3::ADD, rs1, rs2, Funct7::ADDUW_ZEXT));
 }
 
@@ -4024,18 +4131,36 @@ void RiscVEmitter::MINU(RiscVReg rd, RiscVReg rs1, RiscVReg rs2) {
 void RiscVEmitter::SEXT_B(RiscVReg rd, RiscVReg rs) {
 	_assert_msg_(rd != R_ZERO, "%s should avoid write to zero", __func__);
 	_assert_msg_(SupportsBitmanip('b'), "%s instruction unsupported without B", __func__);
+
+	if (AutoCompress() && SupportsCompressed('b') && CanCompress(rd) && rd == rs) {
+		C_SEXT_B(rd);
+		return;
+	}
+
 	Write32(EncodeGR(Opcode32::OP_IMM, rd, Funct3::COUNT_SEXT_ROL, rs, Funct5::SEXT_B, Funct7::COUNT_SEXT_ROT));
 }
 
 void RiscVEmitter::SEXT_H(RiscVReg rd, RiscVReg rs) {
 	_assert_msg_(rd != R_ZERO, "%s should avoid write to zero", __func__);
 	_assert_msg_(SupportsBitmanip('b'), "%s instruction unsupported without B", __func__);
+
+	if (AutoCompress() && SupportsCompressed('b') && CanCompress(rd) && rd == rs) {
+		C_SEXT_H(rd);
+		return;
+	}
+
 	Write32(EncodeGR(Opcode32::OP_IMM, rd, Funct3::COUNT_SEXT_ROL, rs, Funct5::SEXT_H, Funct7::COUNT_SEXT_ROT));
 }
 
 void RiscVEmitter::ZEXT_H(RiscVReg rd, RiscVReg rs) {
 	_assert_msg_(rd != R_ZERO, "%s should avoid write to zero", __func__);
 	_assert_msg_(SupportsBitmanip('b'), "%s instruction unsupported without B", __func__);
+
+	if (AutoCompress() && SupportsCompressed('b') && CanCompress(rd) && rd == rs) {
+		C_ZEXT_H(rd);
+		return;
+	}
+
 	if (BitsSupported() == 32)
 		Write32(EncodeGR(Opcode32::OP, rd, Funct3::ZEXT, rs, R_ZERO, Funct7::ADDUW_ZEXT));
 	else
@@ -4510,6 +4635,88 @@ void RiscVEmitter::C_SDSP(RiscVReg rs2, u32 uimm9) {
 	u8 imm5_4_3 = ImmBits8(uimm9, 3, 3);
 	u8 imm5_4_3_8_7_6 = (imm5_4_3 << 3) | imm8_7_6;
 	Write16(EncodeCSS(Opcode16::C2, rs2, imm5_4_3_8_7_6, Funct3::C_SDSP));
+}
+
+void RiscVEmitter::C_LBU(RiscVReg rd, RiscVReg rs1, u8 uimm2) {
+	_assert_msg_(SupportsCompressed('b'), "Zcb compressed instructions unsupported");
+	_assert_msg_(IsGPR(rd) && IsGPR(rs1), "%s must use GPRs", __func__);
+	_assert_msg_((uimm2 & 3) == uimm2, "%s offset must be 0-3", __func__);
+	Write16(EncodeCLB(Opcode16::C0, CompressReg(rd), uimm2, CompressReg(rs1), Funct6::C_LBU));
+}
+
+void RiscVEmitter::C_LHU(RiscVReg rd, RiscVReg rs1, u8 uimm2) {
+	_assert_msg_(SupportsCompressed('b'), "Zcb compressed instructions unsupported");
+	_assert_msg_(IsGPR(rd) && IsGPR(rs1), "%s must use GPRs", __func__);
+	_assert_msg_((uimm2 & 2) == uimm2, "%s offset must be 0 or 2", __func__);
+	Write16(EncodeCLH(Opcode16::C0, CompressReg(rd), uimm2 >> 1, false, CompressReg(rs1), Funct6::C_LH));
+}
+
+void RiscVEmitter::C_LH(RiscVReg rd, RiscVReg rs1, u8 uimm2) {
+	_assert_msg_(SupportsCompressed('b'), "Zcb compressed instructions unsupported");
+	_assert_msg_(IsGPR(rd) && IsGPR(rs1), "%s must use GPRs", __func__);
+	_assert_msg_((uimm2 & 2) == uimm2, "%s offset must be 0 or 2", __func__);
+	Write16(EncodeCLH(Opcode16::C0, CompressReg(rd), uimm2 >> 1, true, CompressReg(rs1), Funct6::C_LH));
+}
+
+void RiscVEmitter::C_SB(RiscVReg rs2, RiscVReg rs1, u8 uimm2) {
+	_assert_msg_(SupportsCompressed('b'), "Zcb compressed instructions unsupported");
+	_assert_msg_(IsGPR(rs2) && IsGPR(rs1), "%s must use GPRs", __func__);
+	_assert_msg_((uimm2 & 3) == uimm2, "%s offset must be 0-3", __func__);
+	Write16(EncodeCSB(Opcode16::C0, CompressReg(rs2), uimm2, CompressReg(rs1), Funct6::C_SB));
+}
+
+void RiscVEmitter::C_SH(RiscVReg rs2, RiscVReg rs1, u8 uimm2) {
+	_assert_msg_(SupportsCompressed('b'), "Zcb compressed instructions unsupported");
+	_assert_msg_(IsGPR(rs2) && IsGPR(rs1), "%s must use GPRs", __func__);
+	_assert_msg_((uimm2 & 2) == uimm2, "%s offset must be 0 or 2", __func__);
+	Write16(EncodeCSH(Opcode16::C0, CompressReg(rs2), uimm2 >> 1, false, CompressReg(rs1), Funct6::C_SH));
+}
+
+void RiscVEmitter::C_ZEXT_B(RiscVReg rd) {
+	_assert_msg_(SupportsCompressed('b'), "Zcb compressed instructions unsupported");
+	_assert_msg_(IsGPR(rd), "%s must use GPRs", __func__);
+	Write16(EncodeCU(Opcode16::C1, Funct5::C_ZEXT_B, CompressReg(rd), Funct6::C_OP_32));
+}
+
+void RiscVEmitter::C_SEXT_B(RiscVReg rd) {
+	_assert_msg_(SupportsCompressed('b'), "Zcb compressed instructions unsupported");
+	_assert_msg_(SupportsBitmanip('b'), "Zbb bitmanip instructions unsupported");
+	_assert_msg_(IsGPR(rd), "%s must use GPRs", __func__);
+	Write16(EncodeCU(Opcode16::C1, Funct5::C_SEXT_B, CompressReg(rd), Funct6::C_OP_32));
+}
+
+void RiscVEmitter::C_ZEXT_H(RiscVReg rd) {
+	_assert_msg_(SupportsCompressed('b'), "Zcb compressed instructions unsupported");
+	_assert_msg_(SupportsBitmanip('b'), "Zbb bitmanip instructions unsupported");
+	_assert_msg_(IsGPR(rd), "%s must use GPRs", __func__);
+	Write16(EncodeCU(Opcode16::C1, Funct5::C_ZEXT_H, CompressReg(rd), Funct6::C_OP_32));
+}
+
+void RiscVEmitter::C_SEXT_H(RiscVReg rd) {
+	_assert_msg_(SupportsCompressed('b'), "Zcb compressed instructions unsupported");
+	_assert_msg_(SupportsBitmanip('b'), "Zbb bitmanip instructions unsupported");
+	_assert_msg_(IsGPR(rd), "%s must use GPRs", __func__);
+	Write16(EncodeCU(Opcode16::C1, Funct5::C_SEXT_H, CompressReg(rd), Funct6::C_OP_32));
+}
+
+void RiscVEmitter::C_ZEXT_W(RiscVReg rd) {
+	_assert_msg_(SupportsCompressed('b'), "Zcb compressed instructions unsupported");
+	_assert_msg_(SupportsBitmanip('a'), "Zba bitmanip instructions unsupported");
+	_assert_msg_(IsGPR(rd), "%s must use GPRs", __func__);
+	Write16(EncodeCU(Opcode16::C1, Funct5::C_ZEXT_W, CompressReg(rd), Funct6::C_OP_32));
+}
+
+void RiscVEmitter::C_NOT(RiscVReg rd) {
+	_assert_msg_(SupportsCompressed('b'), "Zcb compressed instructions unsupported");
+	_assert_msg_(IsGPR(rd), "%s must use GPRs", __func__);
+	Write16(EncodeCU(Opcode16::C1, Funct5::C_NOT, CompressReg(rd), Funct6::C_OP_32));
+}
+
+void RiscVEmitter::C_MUL(RiscVReg rd, RiscVReg rs2) {
+	_assert_msg_(SupportsCompressed('b'), "Zcb compressed instructions unsupported");
+	_assert_msg_(SupportsMulDiv(true), "%s instruction unsupported without M/Zmmul", __func__);
+	_assert_msg_(IsGPR(rd), "%s must use GPRs", __func__);
+	Write16(EncodeCA(Opcode16::C1, CompressReg(rs2), Funct2::C_MUL, CompressReg(rd), Funct6::C_OP_32));
 }
 
 void RiscVCodeBlock::PoisonMemory(int offset) {

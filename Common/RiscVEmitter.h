@@ -938,6 +938,9 @@ public:
 	void SEXT_W(RiscVReg rd, RiscVReg rs) {
 		ADDIW(rd, rs, 0);
 	}
+	void ZEXT_B(RiscVReg rd, RiscVReg rs) {
+		ANDI(rd, rs, 0xFF);
+	}
 	void ZEXT_H(RiscVReg rd, RiscVReg rs);
 	void ZEXT_W(RiscVReg rd, RiscVReg rs) {
 		ADD_UW(rd, rs, R_ZERO);
@@ -1011,6 +1014,22 @@ public:
 	void C_SWSP(RiscVReg rs2, u8 uimm8);
 	void C_FSWSP(RiscVReg rs2, u8 uimm8);
 	void C_SDSP(RiscVReg rs2, u32 uimm9);
+
+	void C_LBU(RiscVReg rd, RiscVReg rs1, u8 uimm2);
+	void C_LHU(RiscVReg rd, RiscVReg rs1, u8 uimm2);
+	void C_LH(RiscVReg rd, RiscVReg rs1, u8 uimm2);
+	void C_SB(RiscVReg rs2, RiscVReg rs1, u8 uimm2);
+	void C_SH(RiscVReg rs2, RiscVReg rs1, u8 uimm2);
+	void C_ZEXT_B(RiscVReg rd);
+	void C_SEXT_B(RiscVReg rd);
+	void C_ZEXT_H(RiscVReg rd);
+	void C_SEXT_H(RiscVReg rd);
+	void C_ZEXT_W(RiscVReg rd);
+	void C_SEXT_W(RiscVReg rd) {
+		C_ADDIW(rd, 0);
+	}
+	void C_NOT(RiscVReg rd);
+	void C_MUL(RiscVReg rd, RiscVReg rs2);
 
 	bool CBInRange(const void *func) const;
 	bool CJInRange(const void *func) const;
