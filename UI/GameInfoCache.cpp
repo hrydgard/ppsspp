@@ -131,9 +131,13 @@ u64 GameInfo::GetGameSizeUncompressedInBytes() {
 	default:
 	{
 		BlockDevice *blockDevice = constructBlockDevice(GetFileLoader().get());
-		u64 size = blockDevice->GetUncompressedSize();
-		delete blockDevice;
-		return size;
+		if (blockDevice) {
+			u64 size = blockDevice->GetUncompressedSize();
+			delete blockDevice;
+			return size;
+		} else {
+			return GetFileLoader()->FileSize();
+		}
 	}
 	}
 }

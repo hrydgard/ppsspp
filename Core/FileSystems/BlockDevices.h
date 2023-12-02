@@ -46,7 +46,7 @@ public:
 	}
 	int GetBlockSize() const { return 2048;}  // forced, it cannot be changed by subclasses
 	virtual u32 GetNumBlocks() const = 0;
-	u64 GetUncompressedSize() const {
+	virtual u64 GetUncompressedSize() const {
 		return (u64)GetNumBlocks() * (u64)GetBlockSize();
 	}
 	virtual bool IsDisc() const = 0;
@@ -89,7 +89,9 @@ public:
 	bool ReadBlocks(u32 minBlock, int count, u8 *outPtr) override;
 	u32 GetNumBlocks() const override {return (u32)(filesize_ / GetBlockSize());}
 	bool IsDisc() const override { return true; }
-
+	u64 GetUncompressedSize() const override {
+		return filesize_;
+	}
 private:
 	u64 filesize_;
 };
