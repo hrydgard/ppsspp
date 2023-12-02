@@ -1004,7 +1004,7 @@ void VertexDecoderJitCache::Jit_Color5551() {
 	SRLI(tempReg2, tempReg1, 5);
 	SRLI(tempReg3, tempReg1, 10);
 
-	// Set tempReg3 to -1 if the alpha bit is set.
+	// Set scratchReg to -1 if the alpha bit is set.
 	SLLIW(scratchReg, tempReg1, 16);
 	SRAIW(scratchReg, scratchReg, 31);
 	// Now we can mask the flag.
