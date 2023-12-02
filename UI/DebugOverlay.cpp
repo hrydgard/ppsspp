@@ -9,8 +9,10 @@
 #include "Core/Config.h"
 #include "Core/System.h"
 #include "GPU/GPU.h"
+#include "GPU/GPUInterface.h"
 // TODO: This should be moved here or to Common, doesn't belong in /GPU
 #include "GPU/Vulkan/DebugVisVulkan.h"
+#include "GPU/Common/FramebufferManagerCommon.h"
 
 // For std::max
 #include <algorithm>
@@ -174,6 +176,27 @@ static void DrawFrameTiming(UIContext *ctx, const Bounds &bounds) {
 	ctx->RebindTexture();
 }
 
+void DrawFramebufferList(UIContext *ctx, GPUInterface *gpu, const Bounds &bounds) {
+	if (!gpu) {
+		return;
+	}
+	FontID ubuntu24("UBUNTU24");
+	auto list = gpu->GetFramebufferList();
+	ctx->Flush();
+	ctx->BindFontTexture();
+	ctx->Draw()->SetFontScale(0.7f, 0.7f);
+
+	int i = 0;
+	for (const VirtualFramebuffer *vfb : list) {
+		char buf[512];
+		snprintf(buf, sizeof(buf), "%08x (Z %08x): %dx%d (stride %d, %d)",
+			vfb->fb_address, vfb->z_address, vfb->width, vfb->height, vfb->fb_stride, vfb->z_stride);
+		ctx->Draw()->DrawTextRect(ubuntu24, buf, bounds.x + 10, bounds.y + 20 + i * 50, bounds.w - 20, bounds.h - 30, 0xFFFFFFFF, FLAG_DYNAMIC_ASCII);
+		i++;
+	}
+	ctx->Flush();
+}
+
 void DrawControlMapperOverlay(UIContext *ctx, const Bounds &bounds, const ControlMapper &controlMapper) {
 	DrawControlDebug(ctx, controlMapper, ctx->GetLayoutBounds());
 }
@@ -208,6 +231,10 @@ void DrawDebugOverlay(UIContext *ctx, const Bounds &bounds, DebugOverlay overlay
 		}
 		break;
 #endif
+	case DebugOverlay::FRAMEBUFFER_LIST:
+		if (inGame)
+			DrawFramebufferList(ctx, gpu, bounds);
+		break;
 	default:
 		break;
 	}

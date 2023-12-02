@@ -102,6 +102,7 @@ static const char *g_debugOverlayList[] = {
 	"Audio Debug",
 	"GPU Profile",
 	"GPU Allocator Viewer",
+	"Framebuffer List",
 };
 
 void AddOverlayList(UI::ViewGroup *items, ScreenManager *screenManager) {
