@@ -119,6 +119,8 @@ struct CPUInfo {
 	bool RiscV_Zfh;
 	bool RiscV_Zfhmin;
 	bool RiscV_Zicond;
+	bool RiscV_Zvbb;
+	bool RiscV_Zvkb;
 
 	// LoongArch specific extension flags.
 	bool LOONGARCH_CPUCFG;

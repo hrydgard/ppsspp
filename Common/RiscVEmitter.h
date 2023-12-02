@@ -915,6 +915,23 @@ public:
 	void VCOMPRESS_VM(RiscVReg vd, RiscVReg vs2, RiscVReg vs1);
 	void VMVR_V(int regs, RiscVReg vd, RiscVReg vs2);
 
+	void VANDN_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm = VUseMask::NONE);
+	void VANDN_VX(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm = VUseMask::NONE);
+	void VBREV_V(RiscVReg vd, RiscVReg vs2, VUseMask vm = VUseMask::NONE);
+	void VBREV8_V(RiscVReg vd, RiscVReg vs2, VUseMask vm = VUseMask::NONE);
+	void VREV8_V(RiscVReg vd, RiscVReg vs2, VUseMask vm = VUseMask::NONE);
+	void VCLZ_V(RiscVReg vd, RiscVReg vs2, VUseMask vm = VUseMask::NONE);
+	void VCTZ_V(RiscVReg vd, RiscVReg vs2, VUseMask vm = VUseMask::NONE);
+	void VCPOP_V(RiscVReg vd, RiscVReg vs2, VUseMask vm = VUseMask::NONE);
+	void VROL_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm = VUseMask::NONE);
+	void VROL_VX(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm = VUseMask::NONE);
+	void VROR_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm = VUseMask::NONE);
+	void VROR_VX(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm = VUseMask::NONE);
+	void VROR_VI(RiscVReg vd, RiscVReg vs2, u8 uimm6, VUseMask vm = VUseMask::NONE);
+	void VWSLL_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm = VUseMask::NONE);
+	void VWSLL_VX(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm = VUseMask::NONE);
+	void VWSLL_VI(RiscVReg vd, RiscVReg vs2, u8 uimm5, VUseMask vm = VUseMask::NONE);
+
 	// Bitmanip instructions.
 	void ADD_UW(RiscVReg rd, RiscVReg rs1, RiscVReg rs2);
 	void SH_ADD(int shift, RiscVReg rd, RiscVReg rs1, RiscVReg rs2);

@@ -241,6 +241,8 @@ std::vector<std::string> CPUInfo::Features() {
 		{ RiscV_D, "Double" },
 		{ RiscV_C, "Compressed" },
 		{ RiscV_V, "Vector" },
+		{ RiscV_Zvbb, "Vector Basic Bitmanip" },
+		{ RiscV_Zvkb, "Vector Crypto Bitmanip" },
 		{ RiscV_Zba, "Bitmanip Zba" },
 		{ RiscV_Zbb, "Bitmanip Zbb" },
 		{ RiscV_Zbc, "Bitmanip Zbc" },

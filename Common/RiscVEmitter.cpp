@@ -67,6 +67,14 @@ static inline bool SupportsVector() {
 	return cpu_info.RiscV_V;
 }
 
+static inline bool SupportsVectorBitmanip(char zvxb) {
+	switch (zvxb) {
+	case 'b': return cpu_info.RiscV_Zvbb;
+	case 'k': return cpu_info.RiscV_Zvkb;
+	default: return false;
+	}
+}
+
 static inline bool SupportsBitmanip(char zbx) {
 	switch (zbx) {
 	case 'a': return cpu_info.RiscV_Zba;
@@ -357,7 +365,13 @@ enum class Funct5 {
 	VFNCVT_RTZ_X_F = 0b10111,
 
 	VMV_S = 0b00000,
-	VPOPC = 0b10000,
+	VBREV8 = 0b01000,
+	VREV8 = 0b01001,
+	VBREV = 0b01010,
+	VCLZ = 0b01100,
+	VCTZ = 0b01101,
+	VCPOP_V = 0b01110,
+	VCPOP = 0b10000,
 	VFIRST = 0b10001,
 
 	VMSBF = 0b00001,
@@ -397,6 +411,7 @@ enum class Funct6 {
 	C_SH = 0b100011,
 
 	VADD = 0b000000,
+	VANDN = 0b000001,
 	VSUB = 0b000010,
 	VRSUB = 0b000011,
 	VMINU = 0b000100,
@@ -410,6 +425,9 @@ enum class Funct6 {
 	VSLIDEUP = 0b001110,
 	VRGATHEREI16 = 0b001110,
 	VSLIDEDOWN = 0b001111,
+	VROR = 0b010100,
+	VROL = 0b010101,
+	VWSLL = 0b110101,
 
 	VREDSUM = 0b000000,
 	VREDAND = 0b000001,
@@ -3832,7 +3850,7 @@ void RiscVEmitter::VMXNOR_MM(RiscVReg vd, RiscVReg vs2, RiscVReg vs1) {
 void RiscVEmitter::VCPOP_M(RiscVReg rd, RiscVReg vs2, VUseMask vm) {
 	_assert_msg_(IsGPR(rd), "%s instruction rd must be GPR", __func__);
 	_assert_msg_(rd != R_ZERO, "%s should avoid write to zero", __func__);
-	Write32(EncodeV(rd, Funct3::OPMVV, (RiscVReg)Funct5::VPOPC, vs2, vm, Funct6::VRWUNARY0));
+	Write32(EncodeV(rd, Funct3::OPMVV, (RiscVReg)Funct5::VCPOP, vs2, vm, Funct6::VRWUNARY0));
 }
 
 void RiscVEmitter::VFIRST_M(RiscVReg rd, RiscVReg vs2, VUseMask vm) {
@@ -3977,6 +3995,102 @@ void RiscVEmitter::VMVR_V(int regs, RiscVReg vd, RiscVReg vs2) {
 	_assert_msg_(regs == 1 || ((int)DecodeReg(vd) & (regs - 1)) == 0, "%s base reg must align to reg count", __func__);
 	_assert_msg_((int)DecodeReg(vd) + regs <= 32, "%s cannot access beyond V31", __func__);
 	Write32(EncodeIVI(vd, regs - 1, vs2, VUseMask::NONE, Funct6::VSMUL_VMVR));
+}
+
+void RiscVEmitter::VANDN_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm) {
+	_assert_msg_(SupportsVectorBitmanip('b') || SupportsVectorBitmanip('k'), "%s instruction requires Zvbb or Zvkb", __func__);
+	Write32(EncodeIVV(vd, vs1, vs2, vm, Funct6::VANDN));
+}
+
+void RiscVEmitter::VANDN_VX(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm) {
+	_assert_msg_(SupportsVectorBitmanip('b') || SupportsVectorBitmanip('k'), "%s instruction requires Zvbb or Zvkb", __func__);
+	Write32(EncodeIVX(vd, rs1, vs2, vm, Funct6::VANDN));
+}
+
+void RiscVEmitter::VBREV_V(RiscVReg vd, RiscVReg vs2, VUseMask vm) {
+	_assert_msg_(SupportsVectorBitmanip('b'), "%s instruction requires Zvbb", __func__);
+	_assert_msg_(IsVPR(vd), "%s instruction vd must be VPR", __func__);
+	_assert_msg_(vm != VUseMask::V0_T || vd != V0, "%s instruction vd overlap with mask", __func__);
+	Write32(EncodeV(vd, Funct3::OPMVV, (RiscVReg)Funct5::VBREV, vs2, vm, Funct6::VFXUNARY0));
+}
+
+void RiscVEmitter::VBREV8_V(RiscVReg vd, RiscVReg vs2, VUseMask vm) {
+	_assert_msg_(SupportsVectorBitmanip('b') || SupportsVectorBitmanip('k'), "%s instruction requires Zvbb or Zvkb", __func__);
+	_assert_msg_(IsVPR(vd), "%s instruction vd must be VPR", __func__);
+	_assert_msg_(vm != VUseMask::V0_T || vd != V0, "%s instruction vd overlap with mask", __func__);
+	Write32(EncodeV(vd, Funct3::OPMVV, (RiscVReg)Funct5::VBREV8, vs2, vm, Funct6::VFXUNARY0));
+}
+
+void RiscVEmitter::VREV8_V(RiscVReg vd, RiscVReg vs2, VUseMask vm) {
+	_assert_msg_(SupportsVectorBitmanip('b') || SupportsVectorBitmanip('k'), "%s instruction requires Zvbb or Zvkb", __func__);
+	_assert_msg_(IsVPR(vd), "%s instruction vd must be VPR", __func__);
+	_assert_msg_(vm != VUseMask::V0_T || vd != V0, "%s instruction vd overlap with mask", __func__);
+	Write32(EncodeV(vd, Funct3::OPMVV, (RiscVReg)Funct5::VREV8, vs2, vm, Funct6::VFXUNARY0));
+}
+
+void RiscVEmitter::VCLZ_V(RiscVReg vd, RiscVReg vs2, VUseMask vm) {
+	_assert_msg_(SupportsVectorBitmanip('b'), "%s instruction requires Zvbb", __func__);
+	_assert_msg_(IsVPR(vd), "%s instruction vd must be VPR", __func__);
+	_assert_msg_(vm != VUseMask::V0_T || vd != V0, "%s instruction vd overlap with mask", __func__);
+	Write32(EncodeV(vd, Funct3::OPMVV, (RiscVReg)Funct5::VCLZ, vs2, vm, Funct6::VFXUNARY0));
+}
+
+void RiscVEmitter::VCTZ_V(RiscVReg vd, RiscVReg vs2, VUseMask vm) {
+	_assert_msg_(SupportsVectorBitmanip('b'), "%s instruction requires Zvbb", __func__);
+	_assert_msg_(IsVPR(vd), "%s instruction vd must be VPR", __func__);
+	_assert_msg_(vm != VUseMask::V0_T || vd != V0, "%s instruction vd overlap with mask", __func__);
+	Write32(EncodeV(vd, Funct3::OPMVV, (RiscVReg)Funct5::VCTZ, vs2, vm, Funct6::VFXUNARY0));
+}
+
+void RiscVEmitter::VCPOP_V(RiscVReg vd, RiscVReg vs2, VUseMask vm) {
+	_assert_msg_(SupportsVectorBitmanip('b'), "%s instruction requires Zvbb", __func__);
+	_assert_msg_(IsVPR(vd), "%s instruction vd must be VPR", __func__);
+	_assert_msg_(vm != VUseMask::V0_T || vd != V0, "%s instruction vd overlap with mask", __func__);
+	Write32(EncodeV(vd, Funct3::OPMVV, (RiscVReg)Funct5::VCPOP_V, vs2, vm, Funct6::VFXUNARY0));
+}
+
+void RiscVEmitter::VROL_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm) {
+	_assert_msg_(SupportsVectorBitmanip('b') || SupportsVectorBitmanip('k'), "%s instruction requires Zvbb or Zvkb", __func__);
+	Write32(EncodeIVV(vd, vs1, vs2, vm, Funct6::VROL));
+}
+
+void RiscVEmitter::VROL_VX(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm) {
+	_assert_msg_(SupportsVectorBitmanip('b') || SupportsVectorBitmanip('k'), "%s instruction requires Zvbb or Zvkb", __func__);
+	Write32(EncodeIVX(vd, rs1, vs2, vm, Funct6::VROL));
+}
+
+void RiscVEmitter::VROR_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm) {
+	_assert_msg_(SupportsVectorBitmanip('b') || SupportsVectorBitmanip('k'), "%s instruction requires Zvbb or Zvkb", __func__);
+	Write32(EncodeIVV(vd, vs1, vs2, vm, Funct6::VROR));
+}
+
+void RiscVEmitter::VROR_VX(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm) {
+	_assert_msg_(SupportsVectorBitmanip('b') || SupportsVectorBitmanip('k'), "%s instruction requires Zvbb or Zvkb", __func__);
+	Write32(EncodeIVX(vd, rs1, vs2, vm, Funct6::VROR));
+}
+
+void RiscVEmitter::VROR_VI(RiscVReg vd, RiscVReg vs2, u8 uimm6, VUseMask vm) {
+	_assert_msg_(SupportsVectorBitmanip('b') || SupportsVectorBitmanip('k'), "%s instruction requires Zvbb or Zvkb", __func__);
+	_assert_msg_(uimm6 < 64, "%s immediate must be 0-63", __func__);
+	// From an encoding perspective, easier to think of this as vror and vror32.
+	Funct6 variant = uimm6 >= 32 ? Funct6::VROL : Funct6::VROR;
+	Write32(EncodeIVI(vd, SignReduce32(uimm6, 5), vs2, vm, variant));
+}
+
+void RiscVEmitter::VWSLL_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm) {
+	_assert_msg_(SupportsVectorBitmanip('b'), "%s instruction requires Zvbb", __func__);
+	Write32(EncodeIVV(vd, vs1, vs2, vm, Funct6::VWSLL));
+}
+
+void RiscVEmitter::VWSLL_VX(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm) {
+	_assert_msg_(SupportsVectorBitmanip('b'), "%s instruction requires Zvbb", __func__);
+	Write32(EncodeIVX(vd, rs1, vs2, vm, Funct6::VWSLL));
+}
+
+void RiscVEmitter::VWSLL_VI(RiscVReg vd, RiscVReg vs2, u8 uimm5, VUseMask vm) {
+	_assert_msg_(SupportsVectorBitmanip('b'), "%s instruction requires Zvbb", __func__);
+	_assert_msg_(uimm5 < 32, "%s immediate must be 0-31", __func__);
+	Write32(EncodeIVI(vd, SignReduce32(uimm5, 5), vs2, vm, Funct6::VWSLL));
 }
 
 void RiscVEmitter::ADD_UW(RiscVReg rd, RiscVReg rs1, RiscVReg rs2) {
