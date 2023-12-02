@@ -245,6 +245,11 @@ std::vector<std::string> CPUInfo::Features() {
 		{ RiscV_Zbb, "Bitmanip Zbb" },
 		{ RiscV_Zbc, "Bitmanip Zbc" },
 		{ RiscV_Zbs, "Bitmanip Zbs" },
+		{ RiscV_Zcb, "Compress Zcb" },
+		{ RiscV_Zfa, "Float Additional" },
+		{ RiscV_Zfh, "Float Half" },
+		{ RiscV_Zfhmin, "Float Half Minimal" },
+		{ RiscV_Zicond, "Integer Conditional" },
 		{ RiscV_Zicsr, "Zicsr" },
 		{ CPU64bit, "64-bit" },
 	};

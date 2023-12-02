@@ -32,8 +32,7 @@ static inline bool SupportsCompressed(char zcx = '\0') {
 		return false;
 
 	switch (zcx) {
-	// TODO: cpu_info.RiscV_Zcb
-	case 'b': return false;
+	case 'b': return cpu_info.RiscV_Zcb;
 	case '\0': return true;
 	default: return false;
 	}
@@ -79,18 +78,15 @@ static inline bool SupportsBitmanip(char zbx) {
 }
 
 static inline bool SupportsIntConditional() {
-	// TODO: cpu_info.RiscV_Zicond;
-	return false;
+	return cpu_info.RiscV_Zicond;
 }
 
 static inline bool SupportsFloatHalf(bool allowMin = false) {
-	// TODO
-	return false;
+	return cpu_info.RiscV_Zfh || (cpu_info.RiscV_Zfhmin && allowMin);
 }
 
 static inline bool SupportsFloatExtra() {
-	// TODO: cpu_info.RiscV_Zfa
-	return false;
+	return cpu_info.RiscV_Zfa;
 }
 
 enum class Opcode32 {
