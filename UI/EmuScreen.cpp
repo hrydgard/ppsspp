@@ -368,7 +368,7 @@ void EmuScreen::bootComplete() {
 	System_Notify(SystemNotification::DISASSEMBLY);
 
 	NOTICE_LOG(BOOT, "Booted %s...", PSP_CoreParameter().fileToStart.c_str());
-	if (!Achievements::ChallengeModeActive()) {
+	if (!Achievements::HardcoreModeActive()) {
 		// Don't auto-load savestates in hardcore mode.
 		autoLoad();
 	}
@@ -680,7 +680,7 @@ void EmuScreen::onVKey(int virtualKeyCode, bool down) {
 		break;
 
 	case VIRTKEY_FRAME_ADVANCE:
-		if (!Achievements::WarnUserIfChallengeModeActive(false)) {
+		if (!Achievements::WarnUserIfHardcoreModeActive(false)) {
 			if (down) {
 				// If game is running, pause emulation immediately. Otherwise, advance a single frame.
 				if (Core_IsStepping()) {
@@ -738,7 +738,7 @@ void EmuScreen::onVKey(int virtualKeyCode, bool down) {
 #endif
 
 	case VIRTKEY_REWIND:
-		if (down && !Achievements::WarnUserIfChallengeModeActive(false)) {
+		if (down && !Achievements::WarnUserIfHardcoreModeActive(false)) {
 			if (SaveState::CanRewind()) {
 				SaveState::Rewind(&AfterSaveStateAction);
 			} else {
@@ -747,23 +747,23 @@ void EmuScreen::onVKey(int virtualKeyCode, bool down) {
 		}
 		break;
 	case VIRTKEY_SAVE_STATE:
-		if (down && !Achievements::WarnUserIfChallengeModeActive(true)) {
+		if (down && !Achievements::WarnUserIfHardcoreModeActive(true)) {
 			SaveState::SaveSlot(gamePath_, g_Config.iCurrentStateSlot, &AfterSaveStateAction);
 		}
 		break;
 	case VIRTKEY_LOAD_STATE:
-		if (down && !Achievements::WarnUserIfChallengeModeActive(false)) {
+		if (down && !Achievements::WarnUserIfHardcoreModeActive(false)) {
 			SaveState::LoadSlot(gamePath_, g_Config.iCurrentStateSlot, &AfterSaveStateAction);
 		}
 		break;
 	case VIRTKEY_PREVIOUS_SLOT:
-		if (down && !Achievements::WarnUserIfChallengeModeActive(true)) {
+		if (down && !Achievements::WarnUserIfHardcoreModeActive(true)) {
 			SaveState::PrevSlot();
 			System_PostUIMessage(UIMessage::SAVESTATE_DISPLAY_SLOT);
 		}
 		break;
 	case VIRTKEY_NEXT_SLOT:
-		if (down && !Achievements::WarnUserIfChallengeModeActive(true)) {
+		if (down && !Achievements::WarnUserIfHardcoreModeActive(true)) {
 			SaveState::NextSlot();
 			System_PostUIMessage(UIMessage::SAVESTATE_DISPLAY_SLOT);
 		}

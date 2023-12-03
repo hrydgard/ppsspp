@@ -68,14 +68,17 @@ bool IsBlockingExecution();
 //
 // * Savestates
 // * Slowdown time (though hard to fully prevent, could use crazy post shaders or software rendering...)
-bool ChallengeModeActive();
+bool HardcoreModeActive();
 
 // Same as ChallengeModeActive but comes with a convenient user message. Don't use for every-frame checks or UI enablement,
 // only for shortcut keys and commands. You should look up the message in I18NCat::ACHIEVEMENTS.
 // If no message is specified, a standard "This feature is not available in Hardcore Mode" message will be shown.
 // Also returns true if hardcore mode is active.
 // Specify isSaveAction so we can still permit saves (but not loads) in hardcore mode if that option is enabled.
-bool WarnUserIfChallengeModeActive(bool isSaveStateAction, const char *message = nullptr);
+bool WarnUserIfHardcoreModeActive(bool isSaveStateAction, const char *message = nullptr);
+
+// Returns the length of the string. If (size_t)-1, there's no message.
+size_t GetRichPresenceMessage(char *buffer, size_t bufSize);
 
 // The new API is so much nicer that we can use it directly instead of wrapping it. So let's expose the client.
 // Will of course return nullptr if not active.

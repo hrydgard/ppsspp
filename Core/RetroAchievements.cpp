@@ -77,6 +77,7 @@ std::string s_game_hash;
 std::set<uint32_t> g_activeChallenges;
 bool g_isIdentifying = false;
 bool g_isLoggingIn = false;
+bool g_hasRichPresence = false;
 int g_loginResult;
 
 double g_lastLoginAttemptTime;
@@ -104,6 +105,19 @@ bool IsLoggedIn() {
 	return rc_client_get_user_info(g_rcClient) != nullptr && !g_isLoggingIn;
 }
 
+// This is the RetroAchievements game ID, rather than the PSP game ID.
+static u32 GetGameID() {
+	if (!g_rcClient) {
+		return 0;
+	}
+
+	const rc_client_game_t *info = rc_client_get_game_info(g_rcClient);
+	if (!info) {
+		return 0;
+	}
+	return info->id;  // 0 if not identified
+}
+
 bool EncoreModeActive() {
 	if (!g_rcClient) {
 		return false;
@@ -118,15 +132,23 @@ bool UnofficialEnabled() {
 	return rc_client_get_unofficial_enabled(g_rcClient);
 }
 
-bool ChallengeModeActive() {
+bool HardcoreModeActive() {
 	if (!g_rcClient) {
 		return false;
 	}
-	return IsLoggedIn() && rc_client_get_hardcore_enabled(g_rcClient);
+	// See "Enabling Hardcore" under https://github.com/RetroAchievements/rcheevos/wiki/rc_client-integration.
+	return IsLoggedIn() && rc_client_get_hardcore_enabled(g_rcClient) && rc_client_is_processing_required(g_rcClient);
 }
 
-bool WarnUserIfChallengeModeActive(bool isSaveStateAction, const char *message) {
-	if (!ChallengeModeActive() || (isSaveStateAction && g_Config.bAchievementsSaveStateInChallengeMode)) {
+size_t GetRichPresenceMessage(char *buffer, size_t bufSize) {
+	if (!IsLoggedIn() || !rc_client_has_rich_presence(g_rcClient)) {
+		return (size_t)-1;
+	}
+	return rc_client_get_rich_presence_message(g_rcClient, buffer, bufSize);
+}
+
+bool WarnUserIfHardcoreModeActive(bool isSaveStateAction, const char *message) {
+	if (!HardcoreModeActive() || (isSaveStateAction && g_Config.bAchievementsSaveStateInHardcoreMode)) {
 		return false;
 	}
 
@@ -146,19 +168,6 @@ bool IsBlockingExecution() {
 		// INFO_LOG(ACHIEVEMENTS, "isLoggingIn: %d   isIdentifying: %d", (int)g_isLoggingIn, (int)g_isIdentifying);
 	}
 	return g_isLoggingIn || g_isIdentifying;
-}
-
-// This is the RetroAchievements game ID, rather than the PSP game ID.
-static u32 GetGameID() {
-	if (!g_rcClient) {
-		return 0;
-	}
-
-	const rc_client_game_t *info = rc_client_get_game_info(g_rcClient);
-	if (!info) {
-		return 0;
-	}
-	return info->id;  // 0 if not identified
 }
 
 bool IsActive() {
@@ -730,7 +739,7 @@ std::string GetGameAchievementSummary() {
 		summaryString = ApplySafeSubstitutions(ac->T("Earned", "You have unlocked %1 of %2 achievements, earning %3 of %4 points"),
 			summary.num_unlocked_achievements, summary.num_core_achievements + summary.num_unofficial_achievements,
 			summary.points_unlocked, summary.points_core);
-		if (ChallengeModeActive()) {
+		if (HardcoreModeActive()) {
 			summaryString.append("\n");
 			summaryString.append(ac->T("Hardcore Mode"));
 		}
