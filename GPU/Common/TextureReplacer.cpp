@@ -238,6 +238,34 @@ bool TextureReplacer::LoadIniValues(IniFile &ini, VFSBackend *dir, bool isOverri
 	std::map<ReplacementCacheKey, std::map<int, std::string>> filenameMap;
 	std::string badFilenames;
 
+	// Scan the root of the texture folder/zip and preinitialize the hash map.
+	std::vector<File::FileInfo> filesInRoot;
+	if (dir) {
+		dir->GetFileListing("", &filesInRoot, nullptr);
+		for (auto file : filesInRoot) {
+			if (file.isDirectory)
+				continue;
+			if (file.name.empty() || file.name[0] == '.')
+				continue;
+			Path path(file.name);
+			std::string ext = path.GetFileExtension();
+
+			std::string hash = file.name.substr(0, file.name.size() - ext.size());
+			if (!((hash.size() >= 26 && hash.size() <= 27 && hash[24] == '_') || hash.size() == 24)) {
+				continue;
+			}
+			// OK, it's hash-like enough to try to parse it into the map.
+			if (equalsNoCase(ext, ".ktx2") || equalsNoCase(ext, ".png") || equalsNoCase(ext, ".dds") || equalsNoCase(ext, ".zim")) {
+				ReplacementCacheKey key(0, 0);
+				int level = 0;  // sscanf might fail to pluck the level, but that's ok, we default to 0. sscanf doesn't write to non-matched outputs.
+				if (sscanf(hash.c_str(), "%16llx%8x_%d", &key.cachekey, &key.hash, &level) >= 1) {
+					// INFO_LOG(G3D, "hash-like file in root, adding: %s", file.name.c_str());
+					filenameMap[key][level] = file.name;
+				}
+			}
+		}
+	}
+
 	if (ini.HasSection("hashes")) {
 		auto hashes = ini.GetOrCreateSection("hashes")->ToMap();
 		// Format: hashname = filename.png
@@ -274,34 +302,6 @@ bool TextureReplacer::LoadIniValues(IniFile &ini, VFSBackend *dir, bool isOverri
 				INFO_LOG(G3D, "Ignoring [hashes] line with empty key: '= %s'", item.second.c_str());
 			} else {
 				ERROR_LOG(G3D, "Unsupported syntax under [hashes], ignoring: %s = ", item.first.c_str());
-			}
-		}
-	}
-
-	// Scan the root of the texture folder/zip and preinitialize the hash map.
-	std::vector<File::FileInfo> filesInRoot;
-	if (dir) {
-		dir->GetFileListing("", &filesInRoot, nullptr);
-		for (auto file : filesInRoot) {
-			if (file.isDirectory)
-				continue;
-			if (file.name.empty() || file.name[0] == '.')
-				continue;
-			Path path(file.name);
-			std::string ext = path.GetFileExtension();
-
-			std::string hash = file.name.substr(0, file.name.size() - ext.size());
-			if (!((hash.size() >= 26 && hash.size() <= 27 && hash[24] == '_') || hash.size() == 24)) {
-				continue;
-			}
-			// OK, it's hash-like enough to try to parse it into the map.
-			if (equalsNoCase(ext, ".ktx2") || equalsNoCase(ext, ".png") || equalsNoCase(ext, ".dds") || equalsNoCase(ext, ".zim")) {
-				ReplacementCacheKey key(0, 0);
-				int level = 0;  // sscanf might fail to pluck the level, but that's ok, we default to 0. sscanf doesn't write to non-matched outputs.
-				if (sscanf(hash.c_str(), "%16llx%8x_%d", &key.cachekey, &key.hash, &level) >= 1) {
-					// INFO_LOG(G3D, "hash-like file in root, adding: %s", file.name.c_str());
-					filenameMap[key][level] = file.name;
-				}
 			}
 		}
 	}
