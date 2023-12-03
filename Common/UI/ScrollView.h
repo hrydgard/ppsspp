@@ -89,7 +89,7 @@ private:
 class ListAdaptor {
 public:
 	virtual ~ListAdaptor() {}
-	virtual View *CreateItemView(int index) = 0;
+	virtual View *CreateItemView(int index, ImageID *optionalImageID) = 0;
 	virtual int GetNumItems() = 0;
 	virtual bool AddEventCallback(View *view, std::function<EventReturn(EventParams &)> callback) { return false; }
 	virtual std::string GetTitle(int index) const { return ""; }
@@ -100,7 +100,7 @@ public:
 class ChoiceListAdaptor : public ListAdaptor {
 public:
 	ChoiceListAdaptor(const char *items[], int numItems) : items_(items), numItems_(numItems) {}
-	View *CreateItemView(int index) override;
+	View *CreateItemView(int index, ImageID *optionalImageID) override;
 	int GetNumItems() override { return numItems_; }
 	bool AddEventCallback(View *view, std::function<EventReturn(EventParams &)> callback) override;
 
@@ -114,7 +114,7 @@ class StringVectorListAdaptor : public ListAdaptor {
 public:
 	StringVectorListAdaptor() : selected_(-1) {}
 	StringVectorListAdaptor(const std::vector<std::string> &items, int selected = -1) : items_(items), selected_(selected) {}
-	View *CreateItemView(int index) override;
+	View *CreateItemView(int index, ImageID *optionalImageID) override;
 	int GetNumItems() override { return (int)items_.size(); }
 	bool AddEventCallback(View *view, std::function<EventReturn(EventParams &)> callback) override;
 	void SetSelected(int sel) override { selected_ = sel; }
@@ -130,7 +130,7 @@ private:
 // In the future, it might be smart and load/unload items as they go, but currently not.
 class ListView : public ScrollView {
 public:
-	ListView(ListAdaptor *a, std::set<int> hidden = std::set<int>(), LayoutParams *layoutParams = 0);
+	ListView(ListAdaptor *a, std::set<int> hidden = std::set<int>(), std::map<int, ImageID> icons = std::map<int, ImageID>(), LayoutParams *layoutParams = 0);
 
 	int GetSelected() { return adaptor_->GetSelected(); }
 	void Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert) override;
@@ -146,6 +146,7 @@ private:
 	LinearLayout *linLayout_;
 	float maxHeight_;
 	std::set<int> hidden_;
+	std::map<int, ImageID> icons_;
 };
 
 }  // namespace UI

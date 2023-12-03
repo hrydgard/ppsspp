@@ -496,9 +496,8 @@ void ScrollView::Update() {
 	}
 }
 
-ListView::ListView(ListAdaptor *a, std::set<int> hidden, LayoutParams *layoutParams)
-	: ScrollView(ORIENT_VERTICAL, layoutParams), adaptor_(a), maxHeight_(0), hidden_(hidden) {
-
+ListView::ListView(ListAdaptor *a, std::set<int> hidden, std::map<int, ImageID> icons, LayoutParams *layoutParams)
+	: ScrollView(ORIENT_VERTICAL, layoutParams), adaptor_(a), maxHeight_(0), hidden_(hidden), icons_(icons) {
 	linLayout_ = new LinearLayout(ORIENT_VERTICAL);
 	linLayout_->SetSpacing(0.0f);
 	Add(linLayout_);
@@ -510,7 +509,12 @@ void ListView::CreateAllItems() {
 	// Let's not be clever yet, we'll just create them all up front and add them all in.
 	for (int i = 0; i < adaptor_->GetNumItems(); i++) {
 		if (hidden_.find(i) == hidden_.end()) {
-			View *v = linLayout_->Add(adaptor_->CreateItemView(i));
+			ImageID *imageID = nullptr;
+			auto iter = icons_.find(i);
+			if (iter != icons_.end()) {
+				imageID = &iter->second;
+			}
+			View *v = linLayout_->Add(adaptor_->CreateItemView(i, imageID));
 			adaptor_->AddEventCallback(v, std::bind(&ListView::OnItemCallback, this, i, std::placeholders::_1));
 		}
 	}
@@ -538,8 +542,12 @@ EventReturn ListView::OnItemCallback(int num, EventParams &e) {
 	return EVENT_DONE;
 }
 
-View *ChoiceListAdaptor::CreateItemView(int index) {
-	return new Choice(items_[index]);
+View *ChoiceListAdaptor::CreateItemView(int index, ImageID *optionalImageID) {
+	Choice *choice = new Choice(items_[index]);
+	if (optionalImageID) {
+		choice->SetIcon(*optionalImageID);
+	}
+	return choice;
 }
 
 bool ChoiceListAdaptor::AddEventCallback(View *view, std::function<EventReturn(EventParams &)> callback) {
@@ -549,8 +557,12 @@ bool ChoiceListAdaptor::AddEventCallback(View *view, std::function<EventReturn(E
 }
 
 
-View *StringVectorListAdaptor::CreateItemView(int index) {
-	return new Choice(items_[index], "", index == selected_);
+View *StringVectorListAdaptor::CreateItemView(int index, ImageID *optionalImageID) {
+	Choice *choice = new Choice(items_[index], "", index == selected_);
+	if (optionalImageID) {
+		choice->SetIcon(*optionalImageID);
+	}
+	return choice;
 }
 
 bool StringVectorListAdaptor::AddEventCallback(View *view, std::function<EventReturn(EventParams &)> callback) {

@@ -36,7 +36,7 @@ void MessagePopupScreen::OnCompleted(DialogResult result) {
 void ListPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	using namespace UI;
 
-	listView_ = parent->Add(new ListView(&adaptor_, hidden_)); //, new LinearLayoutParams(1.0)));
+	listView_ = parent->Add(new ListView(&adaptor_, hidden_, icons_)); //, new LinearLayoutParams(1.0)));
 	listView_->SetMaxHeight(screenManager()->getUIContext()->GetBounds().h - 140);
 	listView_->OnChoice.Handle(this, &ListPopupScreen::OnListChoice);
 }
@@ -105,6 +105,7 @@ UI::EventReturn PopupMultiChoice::HandleClick(UI::EventParams &e) {
 	ListPopupScreen *popupScreen = new ListPopupScreen(ChopTitle(text_), choices, *value_ - minVal_,
 		std::bind(&PopupMultiChoice::ChoiceCallback, this, std::placeholders::_1));
 	popupScreen->SetHiddenChoices(hidden_);
+	popupScreen->SetChoiceIcons(icons_);
 	if (e.v)
 		popupScreen->SetPopupOrigin(e.v);
 	screenManager_->push(popupScreen);
@@ -623,8 +624,12 @@ void AbstractChoiceWithValueDisplay::Draw(UIContext &dc) {
 		textPadding_.right = w + paddingX;
 
 		Choice::Draw(dc);
+		int imagePadding = 0;
+		if (rightIconImage_.isValid()) {
+			imagePadding = bounds_.h;
+		}
 		dc.SetFontScale(scale, scale);
-		Bounds valueBounds(bounds_.x2() - textPadding_.right, bounds_.y, w, bounds_.h);
+		Bounds valueBounds(bounds_.x2() - textPadding_.right - imagePadding, bounds_.y, w, bounds_.h);
 		dc.DrawTextRect(valueText.c_str(), valueBounds, style.fgColor, ALIGN_RIGHT | ALIGN_VCENTER | FLAG_WRAP_TEXT);
 		dc.SetFontScale(1.0f, 1.0f);
 	} else {

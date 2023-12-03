@@ -301,12 +301,19 @@ void GameSettingsScreen::CreateGraphicsSettings(UI::ViewGroup *graphicsSettings)
 			System_PostUIMessage(UIMessage::GPU_RENDER_RESIZED);
 			return UI::EVENT_DONE;
 		});
-		msaaChoice->SetDisabledPtr(&g_Config.bSoftwareRendering);
+		if (g_Config.iMultiSampleLevel > 1 && draw->GetDeviceCaps().isTilingGPU) {
+			msaaChoice->SetIcon(ImageID("I_WARNING"), 0.7f);
+		}
+		msaaChoice->SetEnabledFunc([] {
+			return !g_Config.bSoftwareRendering && !g_Config.bSkipBufferEffects;
+		});
 
 		// Hide unsupported levels.
 		for (int i = 1; i < 5; i++) {
 			if ((draw->GetDeviceCaps().multiSampleLevelsMask & (1 << i)) == 0) {
 				msaaChoice->HideChoice(i);
+			} else if (i > 0 && draw->GetDeviceCaps().isTilingGPU) {
+				msaaChoice->SetChoiceIcon(i, ImageID("I_WARNING"));
 			}
 		}
 	}
