@@ -324,10 +324,16 @@ void GamePauseScreen::CreateViews() {
 	LinearLayout *leftColumnItems = new LinearLayoutList(ORIENT_VERTICAL, new LayoutParams(FILL_PARENT, WRAP_CONTENT));
 	leftColumn->Add(leftColumnItems);
 
-	leftColumnItems->Add(new Spacer(0.0));
+	leftColumnItems->SetSpacing(5.0f);
+	leftColumnItems->Add(new Spacer(0.0f));
 	if (Achievements::IsActive()) {
 		leftColumnItems->Add(new GameAchievementSummaryView());
-		leftColumnItems->Add(new Spacer(5.0));
+
+		char buf[512];
+		size_t sz = Achievements::GetRichPresenceMessage(buf, sizeof(buf));
+		if (sz != (size_t)-1) {
+			leftColumnItems->Add(new TextView(std::string_view(buf, sz), new UI::LinearLayoutParams(Margins(5, 5))))->SetSmall(true);
+		}
 	}
 
 	if (!Achievements::HardcoreModeActive() || g_Config.bAchievementsSaveStateInHardcoreMode) {

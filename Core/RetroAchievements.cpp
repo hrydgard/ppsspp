@@ -77,6 +77,7 @@ std::string s_game_hash;
 std::set<uint32_t> g_activeChallenges;
 bool g_isIdentifying = false;
 bool g_isLoggingIn = false;
+bool g_hasRichPresence = false;
 int g_loginResult;
 
 double g_lastLoginAttemptTime;
@@ -137,6 +138,13 @@ bool HardcoreModeActive() {
 	}
 	// See "Enabling Hardcore" under https://github.com/RetroAchievements/rcheevos/wiki/rc_client-integration.
 	return IsLoggedIn() && rc_client_get_hardcore_enabled(g_rcClient) && rc_client_is_processing_required(g_rcClient);
+}
+
+size_t GetRichPresenceMessage(char *buffer, size_t bufSize) {
+	if (!IsLoggedIn() || !rc_client_has_rich_presence(g_rcClient)) {
+		return (size_t)-1;
+	}
+	return rc_client_get_rich_presence_message(g_rcClient, buffer, bufSize);
 }
 
 bool WarnUserIfHardcoreModeActive(bool isSaveStateAction, const char *message) {

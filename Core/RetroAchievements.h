@@ -77,6 +77,9 @@ bool HardcoreModeActive();
 // Specify isSaveAction so we can still permit saves (but not loads) in hardcore mode if that option is enabled.
 bool WarnUserIfHardcoreModeActive(bool isSaveStateAction, const char *message = nullptr);
 
+// Returns the length of the string. If (size_t)-1, there's no message.
+size_t GetRichPresenceMessage(char *buffer, size_t bufSize);
+
 // The new API is so much nicer that we can use it directly instead of wrapping it. So let's expose the client.
 // Will of course return nullptr if not active.
 rc_client_t *GetClient();
