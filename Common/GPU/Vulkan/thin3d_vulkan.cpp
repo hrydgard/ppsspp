@@ -932,22 +932,15 @@ VKContext::VKContext(VulkanContext *vulkan, bool useRenderThread)
 
 	// VkSampleCountFlagBits is arranged correctly for our purposes.
 	// Only support MSAA levels that have support for all three of color, depth, stencil.
-	if (!caps_.isTilingGPU) {
-		// Check for depth stencil resolve. Without it, depth textures won't work, and we don't want that mess
-		// of compatibility reports, so we'll just disable multisampling in this case for now.
-		// There are potential workarounds for devices that don't support it, but those are nearly non-existent now.
-		const auto &resolveProperties = vulkan->GetPhysicalDeviceProperties().depthStencilResolve;
-		if (vulkan->Extensions().KHR_depth_stencil_resolve &&
-			((resolveProperties.supportedDepthResolveModes & resolveProperties.supportedStencilResolveModes) & VK_RESOLVE_MODE_SAMPLE_ZERO_BIT) != 0) {
-			caps_.multiSampleLevelsMask = (limits.framebufferColorSampleCounts & limits.framebufferDepthSampleCounts & limits.framebufferStencilSampleCounts);
-		} else {
-			caps_.multiSampleLevelsMask = 1;
-		}
-	} else {
-		caps_.multiSampleLevelsMask = 1;
-	}
 
-	if (caps_.vendor == GPUVendor::VENDOR_QUALCOMM) {
+	bool multisampleAllowed = true;
+
+    caps_.deviceID = deviceProps.deviceID;
+
+    if (caps_.vendor == GPUVendor::VENDOR_QUALCOMM) {
+		if (caps_.deviceID < 0x6000000)  // On sub 6xx series GPUs, disallow multisample.
+			multisampleAllowed = false;
+
 		// Adreno 5xx devices, all known driver versions, fail to discard stencil when depth write is off.
 		// See: https://github.com/hrydgard/ppsspp/pull/11684
 		if (deviceProps.deviceID >= 0x05000000 && deviceProps.deviceID < 0x06000000) {
@@ -1007,13 +1000,38 @@ VKContext::VKContext(VulkanContext *vulkan, bool useRenderThread)
 				bugs_.Infest(Bugs::UNIFORM_INDEXING_BROKEN);
 			}
 		}
+
+		if (isOldVersion) {
+			// Very rough heuristic.
+			multisampleAllowed = false;
+		}
+	}
+
+	if (!vulkan->Extensions().KHR_depth_stencil_resolve) {
+		INFO_LOG(G3D, "KHR_depth_stencil_resolve not supported, disabling multisampling");
+	}
+
+	// We limit multisampling functionality to reasonably recent and known-good tiling GPUs.
+	if (multisampleAllowed) {
+		// Check for depth stencil resolve. Without it, depth textures won't work, and we don't want that mess
+		// of compatibility reports, so we'll just disable multisampling in this case for now.
+		// There are potential workarounds for devices that don't support it, but those are nearly non-existent now.
+		const auto &resolveProperties = vulkan->GetPhysicalDeviceProperties().depthStencilResolve;
+		if (((resolveProperties.supportedDepthResolveModes & resolveProperties.supportedStencilResolveModes) & VK_RESOLVE_MODE_SAMPLE_ZERO_BIT) != 0) {
+			caps_.multiSampleLevelsMask = (limits.framebufferColorSampleCounts & limits.framebufferDepthSampleCounts & limits.framebufferStencilSampleCounts);
+			INFO_LOG(G3D, "Multisample levels mask: %d", caps_.multiSampleLevelsMask);
+		} else {
+			INFO_LOG(G3D, "Not enough depth/stencil resolve modes supported, disabling multisampling.");
+			caps_.multiSampleLevelsMask = 1;
+		}
+	} else {
+		caps_.multiSampleLevelsMask = 1;
 	}
 
 	// Vulkan can support this through input attachments and various extensions, but not worth
 	// the trouble.
 	caps_.framebufferFetchSupported = false;
 
-	caps_.deviceID = deviceProps.deviceID;
 	device_ = vulkan->GetDevice();
 
 	VkBufferUsageFlags usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
