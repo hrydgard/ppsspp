@@ -1837,10 +1837,10 @@ int Config::GetPSPLanguage() {
 }
 
 void PlayTimeTracker::Start(std::string gameId) {
-	INFO_LOG(SYSTEM, "GameTimeTracker::Start(%s)", gameId.c_str());
 	if (gameId.empty()) {
 		return;
 	}
+	INFO_LOG(SYSTEM, "GameTimeTracker::Start(%s)", gameId.c_str());
 
 	auto iter = tracker_.find(std::string(gameId));
 	if (iter != tracker_.end()) {
@@ -1859,8 +1859,11 @@ void PlayTimeTracker::Start(std::string gameId) {
 }
 
 void PlayTimeTracker::Stop(std::string gameId) {
+	if (gameId.empty()) {
+		return;
+	}
+
 	INFO_LOG(SYSTEM, "GameTimeTracker::Stop(%s)", gameId.c_str());
-	_dbg_assert_(!gameId.empty());
 
 	auto iter = tracker_.find(std::string(gameId));
 	if (iter != tracker_.end()) {
