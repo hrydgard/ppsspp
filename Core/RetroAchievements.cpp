@@ -135,7 +135,8 @@ bool HardcoreModeActive() {
 	if (!g_rcClient) {
 		return false;
 	}
-	return IsLoggedIn() && rc_client_get_hardcore_enabled(g_rcClient) && GetGameID();
+	// See "Enabling Hardcore" under https://github.com/RetroAchievements/rcheevos/wiki/rc_client-integration.
+	return IsLoggedIn() && rc_client_get_hardcore_enabled(g_rcClient) && rc_client_is_processing_required(g_rcClient);
 }
 
 bool WarnUserIfHardcoreModeActive(bool isSaveStateAction, const char *message) {
