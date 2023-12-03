@@ -131,15 +131,15 @@ bool UnofficialEnabled() {
 	return rc_client_get_unofficial_enabled(g_rcClient);
 }
 
-bool ChallengeModeActive() {
+bool HardcoreModeActive() {
 	if (!g_rcClient) {
 		return false;
 	}
 	return IsLoggedIn() && rc_client_get_hardcore_enabled(g_rcClient) && GetGameID();
 }
 
-bool WarnUserIfChallengeModeActive(bool isSaveStateAction, const char *message) {
-	if (!ChallengeModeActive() || (isSaveStateAction && g_Config.bAchievementsSaveStateInChallengeMode)) {
+bool WarnUserIfHardcoreModeActive(bool isSaveStateAction, const char *message) {
+	if (!HardcoreModeActive() || (isSaveStateAction && g_Config.bAchievementsSaveStateInHardcoreMode)) {
 		return false;
 	}
 
@@ -730,7 +730,7 @@ std::string GetGameAchievementSummary() {
 		summaryString = ApplySafeSubstitutions(ac->T("Earned", "You have unlocked %1 of %2 achievements, earning %3 of %4 points"),
 			summary.num_unlocked_achievements, summary.num_core_achievements + summary.num_unofficial_achievements,
 			summary.points_unlocked, summary.points_core);
-		if (ChallengeModeActive()) {
+		if (HardcoreModeActive()) {
 			summaryString.append("\n");
 			summaryString.append(ac->T("Hardcore Mode"));
 		}

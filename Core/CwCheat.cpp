@@ -320,7 +320,7 @@ void __CheatDoState(PointerWrap &p) {
 }
 
 void hleCheat(u64 userdata, int cyclesLate) {
-	bool shouldBeEnabled = !Achievements::ChallengeModeActive() && g_Config.bEnableCheats;
+	bool shouldBeEnabled = !Achievements::HardcoreModeActive() && g_Config.bEnableCheats;
 
 	if (cheatsEnabled != shouldBeEnabled) {
 		// Okay, let's move to the desired state, then.
@@ -1196,7 +1196,7 @@ void CWCheatEngine::ExecuteOp(const CheatOperation &op, const CheatCode &cheat, 
 }
 
 void CWCheatEngine::Run() {
-	if (Achievements::ChallengeModeActive()) {
+	if (Achievements::HardcoreModeActive()) {
 		return;
 	}
 
@@ -1214,7 +1214,7 @@ bool CWCheatEngine::HasCheats() {
 }
 
 bool CheatsInEffect() {
-	if (!cheatEngine || !cheatsEnabled || Achievements::ChallengeModeActive())
+	if (!cheatEngine || !cheatsEnabled || Achievements::HardcoreModeActive())
 		return false;
 	return cheatEngine->HasCheats();
 }

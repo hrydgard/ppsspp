@@ -351,7 +351,7 @@ void __DisplaySetWasPaused() {
 
 // TOOD: Should return 59.997?
 static int FrameTimingLimit() {
-	bool challenge = Achievements::ChallengeModeActive();
+	bool challenge = Achievements::HardcoreModeActive();
 
 	auto fixRate = [=](int limit) {
 		int minRate = challenge ? 60 : 1;
