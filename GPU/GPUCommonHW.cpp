@@ -1108,20 +1108,27 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 			gstate.cmdmem[GE_CMD_BONEMATRIXNUMBER] = data;
 			break;
 		case GE_CMD_TEXSCALEU:
+			// We don't "dirty-check" - we could avoid getFloat24 and setting canExtend=false, but usually
+			// when texscale commands are in line with the prims like this, they actually have an effect
+			// and requires us to stop extending strips anyway.
 			gstate.cmdmem[GE_CMD_TEXSCALEU] = data;
 			gstate_c.uv.uScale = getFloat24(data);
+			canExtend = false;
 			break;
 		case GE_CMD_TEXSCALEV:
 			gstate.cmdmem[GE_CMD_TEXSCALEV] = data;
 			gstate_c.uv.vScale = getFloat24(data);
+			canExtend = false;
 			break;
 		case GE_CMD_TEXOFFSETU:
 			gstate.cmdmem[GE_CMD_TEXOFFSETU] = data;
 			gstate_c.uv.uOff = getFloat24(data);
+			canExtend = false;
 			break;
 		case GE_CMD_TEXOFFSETV:
 			gstate.cmdmem[GE_CMD_TEXOFFSETV] = data;
 			gstate_c.uv.vOff = getFloat24(data);
+			canExtend = false;
 			break;
 		case GE_CMD_TEXLEVEL:
 			// Same Gran Turismo hack from Execute_TexLevel
