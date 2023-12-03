@@ -104,6 +104,19 @@ bool IsLoggedIn() {
 	return rc_client_get_user_info(g_rcClient) != nullptr && !g_isLoggingIn;
 }
 
+// This is the RetroAchievements game ID, rather than the PSP game ID.
+static u32 GetGameID() {
+	if (!g_rcClient) {
+		return 0;
+	}
+
+	const rc_client_game_t *info = rc_client_get_game_info(g_rcClient);
+	if (!info) {
+		return 0;
+	}
+	return info->id;  // 0 if not identified
+}
+
 bool EncoreModeActive() {
 	if (!g_rcClient) {
 		return false;
@@ -122,7 +135,7 @@ bool ChallengeModeActive() {
 	if (!g_rcClient) {
 		return false;
 	}
-	return IsLoggedIn() && rc_client_get_hardcore_enabled(g_rcClient);
+	return IsLoggedIn() && rc_client_get_hardcore_enabled(g_rcClient) && GetGameID();
 }
 
 bool WarnUserIfChallengeModeActive(bool isSaveStateAction, const char *message) {
@@ -146,19 +159,6 @@ bool IsBlockingExecution() {
 		// INFO_LOG(ACHIEVEMENTS, "isLoggingIn: %d   isIdentifying: %d", (int)g_isLoggingIn, (int)g_isIdentifying);
 	}
 	return g_isLoggingIn || g_isIdentifying;
-}
-
-// This is the RetroAchievements game ID, rather than the PSP game ID.
-static u32 GetGameID() {
-	if (!g_rcClient) {
-		return 0;
-	}
-
-	const rc_client_game_t *info = rc_client_get_game_info(g_rcClient);
-	if (!info) {
-		return 0;
-	}
-	return info->id;  // 0 if not identified
 }
 
 bool IsActive() {
