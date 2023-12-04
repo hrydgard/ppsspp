@@ -182,9 +182,6 @@ void VKRFramebuffer::CreateImage(VulkanContext *vulkan, VkCommandBuffer cmd, VKR
 	}
 	if (color) {
 		ici.usage |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
-		if (sampleCount == VK_SAMPLE_COUNT_1_BIT) {
-			ici.usage |= VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT;
-		}
 	} else {
 		ici.usage |= VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
 	}
@@ -365,8 +362,6 @@ VkRenderPass CreateRenderPass(VulkanContext *vulkan, const RPKey &key, RenderPas
 	VkSubpassDescription subpass{};
 	subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
 	subpass.flags = 0;
-	subpass.inputAttachmentCount = 0;
-	subpass.pInputAttachments = nullptr;
 	subpass.colorAttachmentCount = 1;
 	subpass.pColorAttachments = &colorReference;
 
