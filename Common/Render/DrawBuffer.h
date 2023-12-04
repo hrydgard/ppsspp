@@ -14,11 +14,6 @@
 struct Atlas;
 
 enum {
-	// Enough?
-	MAX_VERTS = 65536,
-};
-
-enum {
 	ALIGN_LEFT = 0,
 	ALIGN_RIGHT = 16,
 	ALIGN_TOP = 0,
@@ -185,6 +180,11 @@ public:
 		tint_ = tint;
 		saturation_ = saturation;
 	}
+
+	enum {
+		// TODO: Can probably shrink this. Currently consumes 1.5MB.
+		MAX_VERTS = 65536,
+	};
 
 private:
 	struct Vertex {

@@ -99,7 +99,6 @@ View::~View() {
 	// Could use unique_ptr, but then we have to include tween everywhere.
 	for (auto &tween : tweens_)
 		delete tween;
-	tweens_.clear();
 }
 
 void View::Update() {

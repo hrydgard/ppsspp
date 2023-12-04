@@ -764,7 +764,7 @@ void GameInfoCache::WaitUntilDone(std::shared_ptr<GameInfo> &info) {
 std::shared_ptr<GameInfo> GameInfoCache::GetInfo(Draw::DrawContext *draw, const Path &gamePath, int wantFlags) {
 	std::shared_ptr<GameInfo> info;
 
-	std::string pathStr = gamePath.ToString();
+	const std::string &pathStr = gamePath.ToString();
 
 	auto iter = info_.find(pathStr);
 	if (iter != info_.end()) {
