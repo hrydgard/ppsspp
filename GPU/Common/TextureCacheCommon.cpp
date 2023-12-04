@@ -29,6 +29,7 @@
 #include "Common/TimeUtil.h"
 #include "Common/Math/math_util.h"
 #include "Common/GPU/thin3d.h"
+#include "Core/HDRemaster.h"
 #include "Core/Config.h"
 #include "Core/Debugger/MemBlockInfo.h"
 #include "Core/System.h"
@@ -147,7 +148,7 @@ void TextureCacheCommon::StartFrame() {
 		Clear(true);
 		clearCacheNextFrame_ = false;
 	} else {
-		Decimate(false);
+		Decimate(nullptr, false);
 	}
 }
 
@@ -776,7 +777,7 @@ bool TextureCacheCommon::GetBestFramebufferCandidate(const TextureDefinition &en
 }
 
 // Removes old textures.
-void TextureCacheCommon::Decimate(bool forcePressure) {
+void TextureCacheCommon::Decimate(TexCacheEntry *exceptThisOne, bool forcePressure) {
 	if (--decimationCounter_ <= 0) {
 		decimationCounter_ = TEXCACHE_DECIMATION_INTERVAL;
 	} else {
@@ -789,6 +790,10 @@ void TextureCacheCommon::Decimate(bool forcePressure) {
 		ForgetLastTexture();
 		int killAgeBase = lowMemoryMode_ ? TEXTURE_KILL_AGE_LOWMEM : TEXTURE_KILL_AGE;
 		for (TexCache::iterator iter = cache_.begin(); iter != cache_.end(); ) {
+			if (iter->second.get() == exceptThisOne) {
+				++iter;
+				continue;
+			}
 			bool hasClut = (iter->second->status & TexCacheEntry::STATUS_CLUT_VARIANTS) != 0;
 			int killAge = hasClut ? TEXTURE_KILL_AGE_CLUT : killAgeBase;
 			if (iter->second->lastFrame + killAge < gpuStats.numFlips) {
@@ -806,6 +811,10 @@ void TextureCacheCommon::Decimate(bool forcePressure) {
 		const u32 had = secondCacheSizeEstimate_;
 
 		for (TexCache::iterator iter = secondCache_.begin(); iter != secondCache_.end(); ) {
+			if (iter->second.get() == exceptThisOne) {
+				++iter;
+				continue;
+			}
 			// In low memory mode, we kill them all since secondary cache is disabled.
 			if (lowMemoryMode_ || iter->second->lastFrame + TEXTURE_SECOND_KILL_AGE < gpuStats.numFlips) {
 				ReleaseTexture(iter->second.get(), true);
@@ -2802,6 +2811,14 @@ bool TextureCacheCommon::PrepareBuildTexture(BuildTexturePlan &plan, TexCacheEnt
 
 	plan.w = gstate.getTextureWidth(0);
 	plan.h = gstate.getTextureHeight(0);
+
+	if (!g_DoubleTextureCoordinates) {
+		// Refuse to load invalid-ly sized textures, which can happen through display list corruption.
+		if (plan.w > 512 || plan.h > 512) {
+			ERROR_LOG(G3D, "Bad texture dimensions: %dx%d", plan.w, plan.h);
+			return false;
+		}
+	}
 
 	bool isPPGETexture = entry->addr >= PSP_GetKernelMemoryBase() && entry->addr < PSP_GetKernelMemoryEnd();
 

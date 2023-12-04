@@ -387,7 +387,7 @@ protected:
 	virtual void Unbind() = 0;
 	virtual void ReleaseTexture(TexCacheEntry *entry, bool delete_them) = 0;
 	void DeleteTexture(TexCache::iterator it);
-	void Decimate(bool forcePressure = false);
+	void Decimate(TexCacheEntry *exceptThisOne, bool forcePressure);  // forcePressure defaults to false.
 
 	void ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer, GETextureFormat texFormat, RasterChannel channel);
 	void ApplyTextureDepal(TexCacheEntry *entry);
