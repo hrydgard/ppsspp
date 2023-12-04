@@ -429,7 +429,11 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 	plan.hardwareScaling = g_Config.bTexHardwareScaling && uploadCS_ != VK_NULL_HANDLE;
 	plan.slowScaler = !plan.hardwareScaling || vulkan->DevicePerfClass() == PerfClass::SLOW;
 	if (!PrepareBuildTexture(plan, entry)) {
-		// We're screwed?
+		// We're screwed (invalid size or something, corrupt display list), let's just zap it.
+		if (entry->vkTex) {
+			delete entry->vkTex;
+			entry->vkTex = nullptr;
+		}
 		return;
 	}
 
@@ -511,7 +515,8 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 		WARN_LOG_REPORT(G3D, "Texture cache ran out of GPU memory; switching to low memory mode");
 		lowMemoryMode_ = true;
 		decimationCounter_ = 0;
-		Decimate();
+		Decimate(entry, true);
+
 		// TODO: We should stall the GPU here and wipe things out of memory.
 		// As is, it will almost definitely fail the second time, but next frame it may recover.
 
