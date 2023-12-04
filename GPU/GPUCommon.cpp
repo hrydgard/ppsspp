@@ -921,9 +921,6 @@ void GPUCommon::Execute_Call(u32 op, u32 diff) {
 }
 
 void GPUCommon::DoExecuteCall(u32 target) {
-	// Saint Seiya needs correct support for relative calls.
-	const u32 retval = currentList->pc + 4;
-
 	// Bone matrix optimization - many games will CALL a bone matrix (!).
 	// We don't optimize during recording - so the matrix data gets recorded.
 	if (!debugRecording_ && Memory::IsValidRange(target, 13 * 4) && (Memory::ReadUnchecked_U32(target) >> 24) == GE_CMD_BONEMATRIXDATA) {
@@ -944,7 +941,7 @@ void GPUCommon::DoExecuteCall(u32 target) {
 		// TODO: UpdateState(GPUSTATE_ERROR) ?
 	} else {
 		auto &stackEntry = currentList->stack[currentList->stackptr++];
-		stackEntry.pc = retval;
+		stackEntry.pc = currentList->pc + 4;
 		stackEntry.offsetAddr = gstate_c.offsetAddr;
 		// The base address is NOT saved/restored for a regular call.
 		UpdatePC(currentList->pc, target - 4);
