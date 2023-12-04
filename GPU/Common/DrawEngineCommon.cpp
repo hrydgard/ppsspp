@@ -395,7 +395,6 @@ bool DrawEngineCommon::TestBoundingBox(const void *vdata, const void *inds, int 
 bool DrawEngineCommon::TestBoundingBoxFast(const void *vdata, int vertexCount, u32 vertType) {
 	SimpleVertex *corners = (SimpleVertex *)(decoded_ + 65536 * 12);
 	float *verts = (float *)(decoded_ + 65536 * 18);
-	int vertStride = 3;
 
 	// Although this may lead to drawing that shouldn't happen, the viewport is more complex on VR.
 	// Let's always say objects are within bounds.
@@ -418,6 +417,9 @@ bool DrawEngineCommon::TestBoundingBoxFast(const void *vdata, int vertexCount, u
 	VertexDecoder *dec = GetVertexDecoder(vertType);
 	int stride = dec->VertexSize();
 	int offset = dec->posoff;
+	int vertStride = 3;
+
+	// TODO: Possibly do the plane tests directly against the source formats instead of converting.
 	switch (vertType & GE_VTYPE_POS_MASK) {
 	case GE_VTYPE_POS_8BIT:
 		for (int i = 0; i < vertexCount; i++) {
@@ -428,13 +430,34 @@ bool DrawEngineCommon::TestBoundingBoxFast(const void *vdata, int vertexCount, u
 		}
 		break;
 	case GE_VTYPE_POS_16BIT:
+	{
+#if defined(_M_SSE)
+		__m128 scaleFactor = _mm_set1_ps(1.0f / 32768.0f);
+		for (int i = 0; i < vertexCount; i++) {
+			const s16 *data = ((const s16 *)((const s8 *)vdata + i * stride + offset));
+			__m128i bits = _mm_castpd_si128(_mm_load_sd((const double *)data));
+			// Sign extension. Ugly without SSE4.
+			bits = _mm_srai_epi32(_mm_unpacklo_epi16(bits, bits), 16);
+			__m128 pos = _mm_mul_ps(_mm_cvtepi32_ps(bits), scaleFactor);
+			_mm_storeu_ps(verts + i * 3, pos);  // TODO: use stride 4 to avoid clashing writes?
+		}
+#elif PPSSPP_ARCH(ARM_NEON)
+		for (int i = 0; i < vertexCount; i++) {
+			const int16_t *dataPtr = ((const int16_t *)((const s8 *)vdata + i * stride + offset));
+			int32x4_t data = vmovl_s16(vld1_s16(dataPtr));
+			float32x4_t pos = vcvtq_n_s32_f32(data, 15);  // This does the division by 32768.0f, effectively.
+			vst1q_f32(verts + i * 3, pos);
+		}
+#else
 		for (int i = 0; i < vertexCount; i++) {
 			const s16 *data = ((const s16 *)((const s8 *)vdata + i * stride + offset));
 			for (int j = 0; j < 3; j++) {
 				verts[i * 3 + j] = data[j] * (1.0f / 32768.0f);
 			}
 		}
+#endif
 		break;
+	}
 	case GE_VTYPE_POS_FLOAT:
 		// No need to copy in this case, we can just read directly from the source format with a stride.
 		verts = (float *)((uint8_t *)vdata + offset);
