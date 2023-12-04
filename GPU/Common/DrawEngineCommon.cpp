@@ -214,6 +214,9 @@ void DrawEngineCommon::UpdatePlanes() {
 	minOffset_ = baseOffset + Vec2f(std::max(gstate.getRegionRateX() - 0x100, gstate.getScissorX1()), std::max(gstate.getRegionRateY() - 0x100, gstate.getScissorY1())) - Vec2f(1.0f, 1.0f);
 	maxOffset_ = baseOffset + Vec2f(std::min(gstate.getRegionX2(), gstate.getScissorX2()), std::min(gstate.getRegionY2(), gstate.getScissorY2())) + Vec2f(1.0f, 1.0f);
 
+	// Let's not handle these special cases in the fast culler.
+	offsetOutsideEdge_ = maxOffset_.x >= 4096.0f || minOffset_.x < 1.0f || minOffset_.y < 1.0f || maxOffset_.y >= 4096.0f;
+
 	// Now let's apply the viewport to our scissor/region + offset range.
 	Vec2f inverseViewportScale = Vec2f(1.0f / gstate.getViewportXScale(), 1.0f / gstate.getViewportYScale());
 	Vec2f minViewport = (minOffset_ - Vec2f(gstate.getViewportXCenter(), gstate.getViewportYCenter())) * inverseViewportScale;
@@ -380,6 +383,84 @@ bool DrawEngineCommon::TestBoundingBox(const void *vdata, const void *inds, int 
 			// Only consider this outside if offset + scissor/region is fully inside the cullbox.
 			if (!outsideEdge)
 				return false;
+		}
+
+		// Any out. For testing that the planes are in the right locations.
+		// if (out != 0) return false;
+	}
+	return true;
+}
+
+// NOTE: This doesn't handle through-mode, indexing, morph, or skinning.
+bool DrawEngineCommon::TestBoundingBoxFast(const void *vdata, int vertexCount, u32 vertType) {
+	SimpleVertex *corners = (SimpleVertex *)(decoded_ + 65536 * 12);
+	float *verts = (float *)(decoded_ + 65536 * 18);
+	int vertStride = 3;
+
+	// Although this may lead to drawing that shouldn't happen, the viewport is more complex on VR.
+	// Let's always say objects are within bounds.
+	if (gstate_c.Use(GPU_USE_VIRTUAL_REALITY))
+		return true;
+
+	// Due to world matrix updates per "thing", this isn't quite as effective as it could be if we did world transform
+	// in here as well. Though, it still does cut down on a lot of updates in Tekken 6.
+	if (gstate_c.IsDirty(DIRTY_CULL_PLANES)) {
+		UpdatePlanes();
+		gpuStats.numPlaneUpdates++;
+		gstate_c.Clean(DIRTY_CULL_PLANES);
+	}
+
+	// Also let's just bail if offsetOutsideEdge_ is set, instead of handling the cases.
+	if (offsetOutsideEdge_)
+		return true;
+
+	// Simple, most common case.
+	VertexDecoder *dec = GetVertexDecoder(vertType);
+	int stride = dec->VertexSize();
+	int offset = dec->posoff;
+	switch (vertType & GE_VTYPE_POS_MASK) {
+	case GE_VTYPE_POS_8BIT:
+		for (int i = 0; i < vertexCount; i++) {
+			const s8 *data = (const s8 *)vdata + i * stride + offset;
+			for (int j = 0; j < 3; j++) {
+				verts[i * 3 + j] = data[j] * (1.0f / 128.0f);
+			}
+		}
+		break;
+	case GE_VTYPE_POS_16BIT:
+		for (int i = 0; i < vertexCount; i++) {
+			const s16 *data = ((const s16 *)((const s8 *)vdata + i * stride + offset));
+			for (int j = 0; j < 3; j++) {
+				verts[i * 3 + j] = data[j] * (1.0f / 32768.0f);
+			}
+		}
+		break;
+	case GE_VTYPE_POS_FLOAT:
+		// No need to copy in this case, we can just read directly from the source format with a stride.
+		verts = (float *)((uint8_t *)vdata + offset);
+		vertStride = stride / 4;
+		break;
+	}
+
+	// We only check the 4 sides. Near/far won't likely make a huge difference.
+	// This will be nice for SIMD.
+	int totalPlanes = 4;
+	for (int plane = 0; plane < totalPlanes; plane++) {
+		int inside = 0;
+		for (int i = 0; i < vertexCount; i++) {
+			// Test against the frustum planes, and count.
+			// TODO: We should test 4 vertices at a time using SIMD.
+			// I guess could also test one vertex against 4 planes at a time, though a lot of waste at the common case of 6.
+			const float *pos = verts + i * vertStride;
+			float value = planes_[plane].Test(pos);
+			if (value >= 0.0f)
+				inside++;
+		}
+
+		// No vertices inside this one plane? Don't need to draw.
+		if (inside == 0) {
+			// All out - but check for X and Y if the offset was near the cullbox edge.
+			return false;
 		}
 
 		// Any out. For testing that the planes are in the right locations.
