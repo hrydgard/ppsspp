@@ -1235,7 +1235,25 @@ extern "C" jboolean Java_org_ppsspp_ppsspp_NativeApp_mouseWheelEvent(
 	JNIEnv *env, jclass, jint stick, jfloat x, jfloat y) {
 	if (!renderer_inited)
 		return false;
-	// TODO: Support mousewheel for android
+	// TODO: Mousewheel should probably be an axis instead.
+	int wheelDelta = y * 30.0f;
+	if (wheelDelta > 500) wheelDelta = 500;
+	if (wheelDelta < -500) wheelDelta = -500;
+
+	KeyInput key;
+	key.deviceId = DEVICE_ID_MOUSE;
+	if (wheelDelta < 0) {
+		key.keyCode = NKCODE_EXT_MOUSEWHEEL_DOWN;
+		wheelDelta = -wheelDelta;
+	} else {
+		key.keyCode = NKCODE_EXT_MOUSEWHEEL_UP;
+	}
+	// There's no separate keyup event for mousewheel events,
+	// so we release it with a slight delay.
+	key.flags = KEY_DOWN | KEY_HASWHEELDELTA | (wheelDelta << 16);
+	NativeKey(key);
+	key.flags = KEY_UP;
+	NativeKey(key);
 	return true;
 }
 
