@@ -1024,7 +1024,7 @@ public abstract class NativeActivity extends Activity {
 				// process the mouse hover movement...
 				return true;
 			case MotionEvent.ACTION_SCROLL:
-				NativeApp.mouseWheelEvent(event.getX(), event.getY());
+				NativeApp.mouseWheelEvent(event.getAxisValue(MotionEvent.AXIS_HSCROLL), event.getAxisValue(MotionEvent.AXIS_VSCROLL));
 				return true;
 			}
 		}
