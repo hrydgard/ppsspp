@@ -1,6 +1,9 @@
 #include <algorithm>
+
+#include "Common/Log.h"
 #include "Common/System/Display.h"
 #include "Common/System/System.h"
+#include "Common/System/Request.h"
 #include "Common/Input/InputState.h"
 #include "Common/Input/KeyCodes.h"
 #include "Common/Math/curves.h"
@@ -10,8 +13,6 @@
 #include "Common/UI/Root.h"
 #include "Common/Data/Text/I18n.h"
 #include "Common/Render/DrawBuffer.h"
-#include "Common/Log.h"
-#include <Common/System/Request.h>
 
 static const bool ClickDebug = false;
 
