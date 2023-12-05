@@ -1904,6 +1904,7 @@ bool FramebufferManagerCommon::NotifyFramebufferCopy(u32 src, u32 dst, int size,
 
 	dst &= 0x3FFFFFFF;
 	src &= 0x3FFFFFFF;
+
 	if (Memory::IsVRAMAddress(dst))
 		dst &= 0x041FFFFF;
 	if (Memory::IsVRAMAddress(src))
@@ -1917,7 +1918,7 @@ bool FramebufferManagerCommon::NotifyFramebufferCopy(u32 src, u32 dst, int size,
 	bool ignoreSrcBuffer = flags & (GPUCopyFlag::FORCE_SRC_MATCH_MEM | GPUCopyFlag::MEMSET);
 
 	// TODO: In the future we should probably check both channels. Currently depth is only on request.
-	RasterChannel channel = flags & GPUCopyFlag::DEPTH_REQUESTED ? RASTER_DEPTH : RASTER_COLOR;
+	RasterChannel channel = (flags & GPUCopyFlag::DEPTH_REQUESTED) ? RASTER_DEPTH : RASTER_COLOR;
 
 	TinySet<CopyCandidate, 4> srcCandidates;
 	TinySet<CopyCandidate, 4> dstCandidates;
@@ -2510,8 +2511,21 @@ bool FramebufferManagerCommon::NotifyBlockTransferBefore(u32 dstBasePtr, int dst
 		return false;
 	}
 
-	// Skip checking if there's no framebuffers in that area.
-	if (!MayIntersectFramebuffer(srcBasePtr) && !MayIntersectFramebuffer(dstBasePtr)) {
+	// Skip checking if there's no framebuffers in that area. Make a special exception for obvious transfers to depth buffer, see issue #17878
+	bool dstDepthSwizzle = Memory::IsVRAMAddress(dstBasePtr) && ((dstBasePtr & 0x600000) == 0x600000);
+
+	if (dstDepthSwizzle) {
+		// Convert the 32-bit copy to a 16-bit copy so stride matches in FindTransferFramebuffer.
+		// Though, FindTransferFramebuffer should really go by byte stride...
+		if (bpp == 4) {
+			bpp = 2;
+			srcX *= 2;
+			srcStride *= 2;
+			dstX *= 2;
+			dstStride *= 2;
+			width *= 2;
+		}
+	} else if (!MayIntersectFramebuffer(srcBasePtr) && !MayIntersectFramebuffer(dstBasePtr)) {
 		return false;
 	}
 
@@ -2527,6 +2541,10 @@ bool FramebufferManagerCommon::NotifyBlockTransferBefore(u32 dstBasePtr, int dst
 		if (dstRect.channel == RASTER_COLOR && dstRect.vfb->fb_format == GE_FORMAT_8888) {
 			dstBuffer = false;
 		}
+	}
+
+	if (!srcBuffer && dstBuffer && dstRect.channel == RASTER_DEPTH) {
+		dstBuffer = true;
 	}
 
 	if (srcBuffer && !dstBuffer) {
@@ -2635,7 +2653,19 @@ bool FramebufferManagerCommon::NotifyBlockTransferBefore(u32 dstBasePtr, int dst
 		return true;
 
 	} else if (dstBuffer) {
-		// Here we should just draw the pixels into the buffer.  Copy first.
+		// Handle depth uploads directly here, and let's not bother copying the data. This is compat-flag-gated for now,
+		// may generalize it when I remove the compat flag.
+		if (dstRect.channel == RASTER_DEPTH) {
+			WARN_LOG_ONCE(btud, G3D, "Block transfer upload %08x -> %08x (%dx%d %d,%d bpp=%d %s)", srcBasePtr, dstBasePtr, width, height, dstX, dstY, bpp, RasterChannelToString(dstRect.channel));
+			FlushBeforeCopy();
+			const u8 *srcBase = Memory::GetPointerUnchecked(srcBasePtr) + (srcX + srcY * srcStride) * bpp;
+			DrawPixels(dstRect.vfb, dstX, dstY, srcBase, dstRect.vfb->Format(dstRect.channel), srcStride, (int)(dstRect.w_bytes / bpp), dstRect.h, dstRect.channel, "BlockTransferCopy_DrawPixelsDepth");
+			RebindFramebuffer("RebindFramebuffer - UploadDepth");
+			return true;
+		}
+
+		// Here we should just draw the pixels into the buffer. Return false to copy the memory first.
+		// NotifyBlockTransferAfter will take care of the rest.
 		return false;
 	} else if (srcBuffer) {
 		WARN_LOG_N_TIMES(btd, 10, G3D, "Block transfer readback %dx%d %dbpp from %08x (x:%d y:%d stride:%d) -> %08x (x:%d y:%d stride:%d)",
