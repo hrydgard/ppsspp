@@ -400,7 +400,7 @@ namespace SaveState
 	void Enqueue(SaveState::Operation op)
 	{
 		if (Achievements::HardcoreModeActive()) {
-			if (g_Config.bAchievementsSaveStateInHardcoreMode && (op.type == SaveState::SAVESTATE_SAVE) || (op.type == SAVESTATE_SAVE_SCREENSHOT)) {
+			if (g_Config.bAchievementsSaveStateInHardcoreMode && ((op.type == SaveState::SAVESTATE_SAVE) || (op.type == SAVESTATE_SAVE_SCREENSHOT))) {
 				// We allow saving in hardcore mode if this setting is on.
 			} else {
 				// Operation not allowed

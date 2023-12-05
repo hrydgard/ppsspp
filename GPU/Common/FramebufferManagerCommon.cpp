@@ -2030,7 +2030,7 @@ bool FramebufferManagerCommon::NotifyFramebufferCopy(u32 src, u32 dst, int size,
 			for (size_t i = 0; i < srcCandidates.size(); i++) {
 				log += " - " + srcCandidates[i].ToString(channel) + "\n";
 			}
-			WARN_LOG(G3D, "Copy: Multiple src vfb candidates for (src: %08x, size: %d, %s):\n%s (%s)", src, size, log.c_str(), RasterChannelToString(channel));
+			WARN_LOG(G3D, "Copy: Multiple src vfb candidates for (src: %08x, size: %d):\n%s (%s)", src, size, log.c_str(), RasterChannelToString(channel));
 		}
 	}
 
