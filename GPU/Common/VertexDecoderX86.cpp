@@ -1496,16 +1496,12 @@ void VertexDecoderJitCache::Jit_PosFloatSkin() {
 }
 
 void VertexDecoderJitCache::Jit_AnyS8ToFloat(int srcoff) {
-	if (!cpu_info.bSSE4_1) {
-		PXOR(XMM3, R(XMM3));
-	}
 	MOVD_xmm(XMM1, MDisp(srcReg, srcoff));
 	if (cpu_info.bSSE4_1) {
 		PMOVSXBD(XMM1, R(XMM1));
 	} else {
-		PUNPCKLBW(XMM1, R(XMM3));
-		PUNPCKLWD(XMM1, R(XMM3));
-		PSLLD(XMM1, 24);
+		PUNPCKLBW(XMM1, R(XMM1));
+		PUNPCKLWD(XMM1, R(XMM1));
 		PSRAD(XMM1, 24);
 	}
 	CVTDQ2PS(XMM3, R(XMM1));
@@ -1518,15 +1514,11 @@ void VertexDecoderJitCache::Jit_AnyS8ToFloat(int srcoff) {
 }
 
 void VertexDecoderJitCache::Jit_AnyS16ToFloat(int srcoff) {
-	if (!cpu_info.bSSE4_1) {
-		PXOR(XMM3, R(XMM3));
-	}
 	MOVQ_xmm(XMM1, MDisp(srcReg, srcoff));
 	if (cpu_info.bSSE4_1) {
 		PMOVSXWD(XMM1, R(XMM1));
 	} else {
-		PUNPCKLWD(XMM1, R(XMM3));
-		PSLLD(XMM1, 16);
+		PUNPCKLWD(XMM1, R(XMM1));
 		PSRAD(XMM1, 16);
 	}
 	CVTDQ2PS(XMM3, R(XMM1));
@@ -1604,9 +1596,6 @@ void VertexDecoderJitCache::Jit_AnyU16ToFloat(int srcoff, u32 bits) {
 
 void VertexDecoderJitCache::Jit_AnyS8Morph(int srcoff, int dstoff) {
 	MOV(PTRBITS, R(tempReg1), ImmPtr(&gstate_c.morphWeights[0]));
-	if (!cpu_info.bSSE4_1) {
-		PXOR(fpScratchReg4, R(fpScratchReg4));
-	}
 	if (RipAccessible(&by128)) {
 		MOVAPS(XMM5, M(&by128));  // rip accessible
 	} else {
@@ -1623,9 +1612,8 @@ void VertexDecoderJitCache::Jit_AnyS8Morph(int srcoff, int dstoff) {
 		if (cpu_info.bSSE4_1) {
 			PMOVSXBD(reg, R(reg));
 		} else {
-			PUNPCKLBW(reg, R(fpScratchReg4));
-			PUNPCKLWD(reg, R(fpScratchReg4));
-			PSLLD(reg, 24);
+			PUNPCKLBW(reg, R(reg));
+			PUNPCKLWD(reg, R(reg));
 			PSRAD(reg, 24);
 		}
 		CVTDQ2PS(reg, R(reg));
@@ -1648,9 +1636,6 @@ void VertexDecoderJitCache::Jit_AnyS8Morph(int srcoff, int dstoff) {
 
 void VertexDecoderJitCache::Jit_AnyS16Morph(int srcoff, int dstoff) {
 	MOV(PTRBITS, R(tempReg1), ImmPtr(&gstate_c.morphWeights[0]));
-	if (!cpu_info.bSSE4_1) {
-		PXOR(fpScratchReg4, R(fpScratchReg4));
-	}
 	if (RipAccessible(&by32768)) {
 		MOVAPS(XMM5, M(&by32768));  // rip accessible
 	} else {
@@ -1667,8 +1652,7 @@ void VertexDecoderJitCache::Jit_AnyS16Morph(int srcoff, int dstoff) {
 		if (cpu_info.bSSE4_1) {
 			PMOVSXWD(reg, R(reg));
 		} else {
-			PUNPCKLWD(reg, R(fpScratchReg4));
-			PSLLD(reg, 16);
+			PUNPCKLWD(reg, R(reg));
 			PSRAD(reg, 16);
 		}
 		CVTDQ2PS(reg, R(reg));
