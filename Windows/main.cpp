@@ -383,6 +383,8 @@ bool System_GetPropertyBool(SystemProperty prop) {
 		return !g_Config.bDisableHTTPS;
 	case SYSPROP_DEBUGGER_PRESENT:
 		return IsDebuggerPresent();
+	case SYSPROP_OK_BUTTON_LEFT:
+		return true;
 	default:
 		return false;
 	}

@@ -393,10 +393,8 @@ void PopupScreen::TriggerFinish(DialogResult result) {
 
 		OnCompleted(result);
 	}
-#if PPSSPP_PLATFORM(UWP)
 	// Inform UI that popup close to hide OSK (if visible)
 	System_NotifyUIState("popup_closed");
-#endif
 }
 
 void PopupScreen::CreateViews() {
@@ -433,17 +431,17 @@ void PopupScreen::CreateViews() {
 		Margins buttonMargins(5, 5);
 
 		// Adjust button order to the platform default.
-#if defined(_WIN32)
-		defaultButton_ = buttonRow->Add(new Button(button1_, new LinearLayoutParams(1.0f, buttonMargins)));
-		defaultButton_->OnClick.Handle<UIScreen>(this, &UIScreen::OnOK);
-		if (!button2_.empty())
-			buttonRow->Add(new Button(button2_, new LinearLayoutParams(1.0f, buttonMargins)))->OnClick.Handle<UIScreen>(this, &UIScreen::OnCancel);
-#else
-		if (!button2_.empty())
-			buttonRow->Add(new Button(button2_, new LinearLayoutParams(1.0f)))->OnClick.Handle<UIScreen>(this, &UIScreen::OnCancel);
-		defaultButton_ = buttonRow->Add(new Button(button1_, new LinearLayoutParams(1.0f)));
-		defaultButton_->OnClick.Handle<UIScreen>(this, &UIScreen::OnOK);
-#endif
+		if (System_GetPropertyBool(SYSPROP_OK_BUTTON_LEFT)) {
+			defaultButton_ = buttonRow->Add(new Button(button1_, new LinearLayoutParams(1.0f, buttonMargins)));
+			defaultButton_->OnClick.Handle<UIScreen>(this, &UIScreen::OnOK);
+			if (!button2_.empty())
+				buttonRow->Add(new Button(button2_, new LinearLayoutParams(1.0f, buttonMargins)))->OnClick.Handle<UIScreen>(this, &UIScreen::OnCancel);
+		} else {
+			if (!button2_.empty())
+				buttonRow->Add(new Button(button2_, new LinearLayoutParams(1.0f)))->OnClick.Handle<UIScreen>(this, &UIScreen::OnCancel);
+			defaultButton_ = buttonRow->Add(new Button(button1_, new LinearLayoutParams(1.0f)));
+			defaultButton_->OnClick.Handle<UIScreen>(this, &UIScreen::OnOK);
+		}
 
 		box_->Add(buttonRow);
 	}

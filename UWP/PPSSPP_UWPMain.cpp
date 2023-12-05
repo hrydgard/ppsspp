@@ -435,6 +435,8 @@ bool System_GetPropertyBool(SystemProperty prop) {
 	}
 	case SYSPROP_DEBUGGER_PRESENT:
 		return IsDebuggerPresent();
+	case SYSPROP_OK_BUTTON_LEFT:
+		return true;
 	default:
 		return false;
 	}
