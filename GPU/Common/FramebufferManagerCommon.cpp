@@ -511,8 +511,8 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(Framebuffer
 		vfb->usageFlags = FB_USAGE_RENDER_COLOR;
 
 		u32 colorByteSize = vfb->BufferByteSize(RASTER_COLOR);
-		if (Memory::IsVRAMAddress(params.fb_address) && params.fb_address + colorByteSize > framebufRangeEnd_) {
-			framebufRangeEnd_ = params.fb_address + colorByteSize;
+		if (Memory::IsVRAMAddress(params.fb_address) && params.fb_address + colorByteSize > framebufColorRangeEnd_) {
+			framebufColorRangeEnd_ = params.fb_address + colorByteSize;
 		}
 
 		// This is where we actually create the framebuffer. The true is "force".
@@ -1904,6 +1904,7 @@ bool FramebufferManagerCommon::NotifyFramebufferCopy(u32 src, u32 dst, int size,
 
 	dst &= 0x3FFFFFFF;
 	src &= 0x3FFFFFFF;
+
 	if (Memory::IsVRAMAddress(dst))
 		dst &= 0x041FFFFF;
 	if (Memory::IsVRAMAddress(src))
@@ -1917,7 +1918,7 @@ bool FramebufferManagerCommon::NotifyFramebufferCopy(u32 src, u32 dst, int size,
 	bool ignoreSrcBuffer = flags & (GPUCopyFlag::FORCE_SRC_MATCH_MEM | GPUCopyFlag::MEMSET);
 
 	// TODO: In the future we should probably check both channels. Currently depth is only on request.
-	RasterChannel channel = flags & GPUCopyFlag::DEPTH_REQUESTED ? RASTER_DEPTH : RASTER_COLOR;
+	RasterChannel channel = (flags & GPUCopyFlag::DEPTH_REQUESTED) ? RASTER_DEPTH : RASTER_COLOR;
 
 	TinySet<CopyCandidate, 4> srcCandidates;
 	TinySet<CopyCandidate, 4> dstCandidates;
@@ -2172,14 +2173,14 @@ bool FramebufferManagerCommon::FindTransferFramebuffer(u32 basePtr, int stride_p
 	for (auto vfb : vfbs_) {
 		BlockTransferRect candidate{ vfb, RASTER_COLOR };
 
-		// Check for easily detected depth copies for logging purposes.
-		// Depth copies are not that useful though because you manually need to account for swizzle, so
-		// not sure if games will use them. Actually we do have a case, Iron Man in issue #16530.
-		if (vfb->z_address == basePtr && vfb->z_stride == stride_pixels && PSP_CoreParameter().compat.flags().BlockTransferDepth) {
+		// Two cases so far of games depending on depth copies: Iron Man in issue #16530 (buffer->buffer)
+		// and also #17878 where a game does ram->buffer to an auto-swizzling (|0x600000) address,
+		// to initialize Z with a pre-rendered depth buffer.
+		if (vfb->z_address == basePtr && vfb->BufferByteStride(RASTER_DEPTH) == byteStride && PSP_CoreParameter().compat.flags().BlockTransferDepth) {
 			WARN_LOG_N_TIMES(z_xfer, 5, G3D, "FindTransferFramebuffer: found matching depth buffer, %08x (dest=%d, bpp=%d)", basePtr, (int)destination, bpp);
 			candidate.channel = RASTER_DEPTH;
-			candidate.x_bytes = x_pixels * 2;
-			candidate.w_bytes = w_pixels * 2;
+			candidate.x_bytes = x_pixels * bpp;
+			candidate.w_bytes = w_pixels * bpp;
 			candidate.y = y;
 			candidate.h = h;
 			candidates.push_back(candidate);
@@ -2347,8 +2348,8 @@ VirtualFramebuffer *FramebufferManagerCommon::CreateRAMFramebuffer(uint32_t fbAd
 	vfbs_.push_back(vfb);
 
 	u32 byteSize = vfb->BufferByteSize(channel);
-	if (fbAddress + byteSize > framebufRangeEnd_) {
-		framebufRangeEnd_ = fbAddress + byteSize;
+	if (fbAddress + byteSize > framebufColorRangeEnd_) {
+		framebufColorRangeEnd_ = fbAddress + byteSize;
 	}
 
 	return vfb;
@@ -2510,8 +2511,10 @@ bool FramebufferManagerCommon::NotifyBlockTransferBefore(u32 dstBasePtr, int dst
 		return false;
 	}
 
-	// Skip checking if there's no framebuffers in that area.
-	if (!MayIntersectFramebuffer(srcBasePtr) && !MayIntersectFramebuffer(dstBasePtr)) {
+	// Skip checking if there's no framebuffers in that area. Make a special exception for obvious transfers to depth buffer, see issue #17878
+	bool dstDepthSwizzle = Memory::IsVRAMAddress(dstBasePtr) && ((dstBasePtr & 0x600000) == 0x600000);
+
+	if (!dstDepthSwizzle && !MayIntersectFramebufferColor(srcBasePtr) && !MayIntersectFramebufferColor(dstBasePtr)) {
 		return false;
 	}
 
@@ -2527,6 +2530,10 @@ bool FramebufferManagerCommon::NotifyBlockTransferBefore(u32 dstBasePtr, int dst
 		if (dstRect.channel == RASTER_COLOR && dstRect.vfb->fb_format == GE_FORMAT_8888) {
 			dstBuffer = false;
 		}
+	}
+
+	if (!srcBuffer && dstBuffer && dstRect.channel == RASTER_DEPTH) {
+		dstBuffer = true;
 	}
 
 	if (srcBuffer && !dstBuffer) {
@@ -2635,7 +2642,19 @@ bool FramebufferManagerCommon::NotifyBlockTransferBefore(u32 dstBasePtr, int dst
 		return true;
 
 	} else if (dstBuffer) {
-		// Here we should just draw the pixels into the buffer.  Copy first.
+		// Handle depth uploads directly here, and let's not bother copying the data. This is compat-flag-gated for now,
+		// may generalize it when I remove the compat flag.
+		if (dstRect.channel == RASTER_DEPTH) {
+			WARN_LOG_ONCE(btud, G3D, "Block transfer upload %08x -> %08x (%dx%d %d,%d bpp=%d %s)", srcBasePtr, dstBasePtr, width, height, dstX, dstY, bpp, RasterChannelToString(dstRect.channel));
+			FlushBeforeCopy();
+			const u8 *srcBase = Memory::GetPointerUnchecked(srcBasePtr) + (srcX + srcY * srcStride) * bpp;
+			DrawPixels(dstRect.vfb, dstX, dstY, srcBase, dstRect.vfb->Format(dstRect.channel), srcStride * bpp / 2, (int)(dstRect.w_bytes / 2), dstRect.h, dstRect.channel, "BlockTransferCopy_DrawPixelsDepth");
+			RebindFramebuffer("RebindFramebuffer - UploadDepth");
+			return true;
+		}
+
+		// Here we should just draw the pixels into the buffer. Return false to copy the memory first.
+		// NotifyBlockTransferAfter will take care of the rest.
 		return false;
 	} else if (srcBuffer) {
 		WARN_LOG_N_TIMES(btd, 10, G3D, "Block transfer readback %dx%d %dbpp from %08x (x:%d y:%d stride:%d) -> %08x (x:%d y:%d stride:%d)",
@@ -2680,7 +2699,7 @@ void FramebufferManagerCommon::NotifyBlockTransferAfter(u32 dstBasePtr, int dstS
 		}
 	}
 
-	if (MayIntersectFramebuffer(srcBasePtr) || MayIntersectFramebuffer(dstBasePtr)) {
+	if (MayIntersectFramebufferColor(srcBasePtr) || MayIntersectFramebufferColor(dstBasePtr)) {
 		// TODO: Figure out how we can avoid repeating the search here.
 
 		BlockTransferRect dstRect{};

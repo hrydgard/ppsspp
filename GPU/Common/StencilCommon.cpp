@@ -166,7 +166,7 @@ bool FramebufferManagerCommon::PerformWriteStencilFromMemory(u32 addr, int size,
 	using namespace Draw;
 
 	addr &= 0x3FFFFFFF;
-	if (!MayIntersectFramebuffer(addr)) {
+	if (!MayIntersectFramebufferColor(addr)) {
 		return false;
 	}
 

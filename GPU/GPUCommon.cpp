@@ -1853,7 +1853,7 @@ void GPUCommon::DoBlockTransfer(u32 skipDrawReason) {
 
 bool GPUCommon::PerformMemoryCopy(u32 dest, u32 src, int size, GPUCopyFlag flags) {
 	// Track stray copies of a framebuffer in RAM. MotoGP does this.
-	if (framebufferManager_->MayIntersectFramebuffer(src) || framebufferManager_->MayIntersectFramebuffer(dest)) {
+	if (framebufferManager_->MayIntersectFramebufferColor(src) || framebufferManager_->MayIntersectFramebufferColor(dest)) {
 		if (!framebufferManager_->NotifyFramebufferCopy(src, dest, size, flags, gstate_c.skipDrawReason)) {
 			// We use matching values in PerformReadbackToMemory/PerformWriteColorFromMemory.
 			// Since they're identical we don't need to copy.
@@ -1881,7 +1881,7 @@ bool GPUCommon::PerformMemoryCopy(u32 dest, u32 src, int size, GPUCopyFlag flags
 
 bool GPUCommon::PerformMemorySet(u32 dest, u8 v, int size) {
 	// This may indicate a memset, usually to 0, of a framebuffer.
-	if (framebufferManager_->MayIntersectFramebuffer(dest)) {
+	if (framebufferManager_->MayIntersectFramebufferColor(dest)) {
 		Memory::Memset(dest, v, size, "GPUMemset");
 		if (!framebufferManager_->NotifyFramebufferCopy(dest, dest, size, GPUCopyFlag::MEMSET, gstate_c.skipDrawReason)) {
 			InvalidateCache(dest, size, GPU_INVALIDATE_HINT);
@@ -1920,7 +1920,7 @@ void GPUCommon::PerformWriteFormattedFromMemory(u32 addr, int size, int frameWid
 }
 
 bool GPUCommon::PerformWriteStencilFromMemory(u32 dest, int size, WriteStencil flags) {
-	if (framebufferManager_->MayIntersectFramebuffer(dest)) {
+	if (framebufferManager_->MayIntersectFramebufferColor(dest)) {
 		framebufferManager_->PerformWriteStencilFromMemory(dest, size, flags);
 		return true;
 	}
