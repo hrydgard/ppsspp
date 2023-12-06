@@ -608,6 +608,7 @@ struct DeviceCaps {
 	bool sampleRateShadingSupported;
 	bool setMaxFrameLatencySupported;
 	bool textureSwizzleSupported;
+	bool requiresHalfPixelOffset;
 
 	bool verySlowShaderCompiler;
 
