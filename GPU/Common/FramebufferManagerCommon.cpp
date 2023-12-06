@@ -2173,14 +2173,14 @@ bool FramebufferManagerCommon::FindTransferFramebuffer(u32 basePtr, int stride_p
 	for (auto vfb : vfbs_) {
 		BlockTransferRect candidate{ vfb, RASTER_COLOR };
 
-		// Check for easily detected depth copies for logging purposes.
-		// Depth copies are not that useful though because you manually need to account for swizzle, so
-		// not sure if games will use them. Actually we do have a case, Iron Man in issue #16530.
-		if (vfb->z_address == basePtr && vfb->z_stride == stride_pixels && PSP_CoreParameter().compat.flags().BlockTransferDepth) {
+		// Two cases so far of games depending on depth copies: Iron Man in issue #16530 (buffer->buffer)
+		// and also #17878 where a game does ram->buffer to an auto-swizzling (|0x600000) address,
+		// to initialize Z with a pre-rendered depth buffer.
+		if (vfb->z_address == basePtr && vfb->BufferByteStride(RASTER_DEPTH) == byteStride && PSP_CoreParameter().compat.flags().BlockTransferDepth) {
 			WARN_LOG_N_TIMES(z_xfer, 5, G3D, "FindTransferFramebuffer: found matching depth buffer, %08x (dest=%d, bpp=%d)", basePtr, (int)destination, bpp);
 			candidate.channel = RASTER_DEPTH;
-			candidate.x_bytes = x_pixels * 2;
-			candidate.w_bytes = w_pixels * 2;
+			candidate.x_bytes = x_pixels * bpp;
+			candidate.w_bytes = w_pixels * bpp;
 			candidate.y = y;
 			candidate.h = h;
 			candidates.push_back(candidate);
@@ -2514,18 +2514,7 @@ bool FramebufferManagerCommon::NotifyBlockTransferBefore(u32 dstBasePtr, int dst
 	// Skip checking if there's no framebuffers in that area. Make a special exception for obvious transfers to depth buffer, see issue #17878
 	bool dstDepthSwizzle = Memory::IsVRAMAddress(dstBasePtr) && ((dstBasePtr & 0x600000) == 0x600000);
 
-	if (dstDepthSwizzle) {
-		// Convert the 32-bit copy to a 16-bit copy so stride matches in FindTransferFramebuffer.
-		// Though, FindTransferFramebuffer should really go by byte stride...
-		if (bpp == 4) {
-			bpp = 2;
-			srcX *= 2;
-			srcStride *= 2;
-			dstX *= 2;
-			dstStride *= 2;
-			width *= 2;
-		}
-	} else if (!MayIntersectFramebufferColor(srcBasePtr) && !MayIntersectFramebufferColor(dstBasePtr)) {
+	if (!dstDepthSwizzle && !MayIntersectFramebufferColor(srcBasePtr) && !MayIntersectFramebufferColor(dstBasePtr)) {
 		return false;
 	}
 
@@ -2659,7 +2648,7 @@ bool FramebufferManagerCommon::NotifyBlockTransferBefore(u32 dstBasePtr, int dst
 			WARN_LOG_ONCE(btud, G3D, "Block transfer upload %08x -> %08x (%dx%d %d,%d bpp=%d %s)", srcBasePtr, dstBasePtr, width, height, dstX, dstY, bpp, RasterChannelToString(dstRect.channel));
 			FlushBeforeCopy();
 			const u8 *srcBase = Memory::GetPointerUnchecked(srcBasePtr) + (srcX + srcY * srcStride) * bpp;
-			DrawPixels(dstRect.vfb, dstX, dstY, srcBase, dstRect.vfb->Format(dstRect.channel), srcStride, (int)(dstRect.w_bytes / bpp), dstRect.h, dstRect.channel, "BlockTransferCopy_DrawPixelsDepth");
+			DrawPixels(dstRect.vfb, dstX, dstY, srcBase, dstRect.vfb->Format(dstRect.channel), srcStride * bpp / 2, (int)(dstRect.w_bytes / 2), dstRect.h, dstRect.channel, "BlockTransferCopy_DrawPixelsDepth");
 			RebindFramebuffer("RebindFramebuffer - UploadDepth");
 			return true;
 		}
