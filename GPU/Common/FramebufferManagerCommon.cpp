@@ -511,8 +511,8 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(Framebuffer
 		vfb->usageFlags = FB_USAGE_RENDER_COLOR;
 
 		u32 colorByteSize = vfb->BufferByteSize(RASTER_COLOR);
-		if (Memory::IsVRAMAddress(params.fb_address) && params.fb_address + colorByteSize > framebufRangeEnd_) {
-			framebufRangeEnd_ = params.fb_address + colorByteSize;
+		if (Memory::IsVRAMAddress(params.fb_address) && params.fb_address + colorByteSize > framebufColorRangeEnd_) {
+			framebufColorRangeEnd_ = params.fb_address + colorByteSize;
 		}
 
 		// This is where we actually create the framebuffer. The true is "force".
@@ -2348,8 +2348,8 @@ VirtualFramebuffer *FramebufferManagerCommon::CreateRAMFramebuffer(uint32_t fbAd
 	vfbs_.push_back(vfb);
 
 	u32 byteSize = vfb->BufferByteSize(channel);
-	if (fbAddress + byteSize > framebufRangeEnd_) {
-		framebufRangeEnd_ = fbAddress + byteSize;
+	if (fbAddress + byteSize > framebufColorRangeEnd_) {
+		framebufColorRangeEnd_ = fbAddress + byteSize;
 	}
 
 	return vfb;
@@ -2525,7 +2525,7 @@ bool FramebufferManagerCommon::NotifyBlockTransferBefore(u32 dstBasePtr, int dst
 			dstStride *= 2;
 			width *= 2;
 		}
-	} else if (!MayIntersectFramebuffer(srcBasePtr) && !MayIntersectFramebuffer(dstBasePtr)) {
+	} else if (!MayIntersectFramebufferColor(srcBasePtr) && !MayIntersectFramebufferColor(dstBasePtr)) {
 		return false;
 	}
 
@@ -2710,7 +2710,7 @@ void FramebufferManagerCommon::NotifyBlockTransferAfter(u32 dstBasePtr, int dstS
 		}
 	}
 
-	if (MayIntersectFramebuffer(srcBasePtr) || MayIntersectFramebuffer(dstBasePtr)) {
+	if (MayIntersectFramebufferColor(srcBasePtr) || MayIntersectFramebufferColor(dstBasePtr)) {
 		// TODO: Figure out how we can avoid repeating the search here.
 
 		BlockTransferRect dstRect{};

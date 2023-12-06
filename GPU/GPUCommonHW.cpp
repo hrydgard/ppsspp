@@ -773,7 +773,7 @@ void GPUCommonHW::InvalidateCache(u32 addr, int size, GPUInvalidationType type) 
 	else
 		textureCache_->InvalidateAll(type);
 
-	if (type != GPU_INVALIDATE_ALL && framebufferManager_->MayIntersectFramebuffer(addr)) {
+	if (type != GPU_INVALIDATE_ALL && framebufferManager_->MayIntersectFramebufferColor(addr)) {
 		// Vempire invalidates (with writeback) after drawing, but before blitting.
 		// TODO: Investigate whether we can get this to work some other way.
 		if (type == GPU_INVALIDATE_SAFE) {

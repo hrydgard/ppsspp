@@ -382,13 +382,13 @@ public:
 		return useBufferedRendering_;
 	}
 
-	bool MayIntersectFramebuffer(u32 start) const {
+	bool MayIntersectFramebufferColor(u32 start) const {
 		// Clear the cache/kernel bits.
 		start &= 0x3FFFFFFF;
 		if (Memory::IsVRAMAddress(start))
 			start &= 0x041FFFFF;
 		// Most games only have two framebuffers at the start.
-		if (start >= framebufRangeEnd_ || start < PSP_GetVidMemBase()) {
+		if (start >= framebufColorRangeEnd_ || start < PSP_GetVidMemBase()) {
 			return false;
 		}
 		return true;
@@ -572,7 +572,7 @@ protected:
 	Draw::Framebuffer *currentFramebufferCopy_ = nullptr;
 
 	// The range of PSP memory that may contain FBOs.  So we can skip iterating.
-	u32 framebufRangeEnd_ = 0;
+	u32 framebufColorRangeEnd_ = 0;
 
 	bool useBufferedRendering_ = false;
 	bool postShaderIsUpscalingFilter_ = false;
