@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "ppsspp_config.h"
+
 #include <deque>
 #include <thread>
 #include <mutex>
@@ -37,6 +38,10 @@ extern "C" {
 #include "Common/StringUtils.h"
 #include "Common/System/OSD.h"
 #include "Common/Data/Text/I18n.h"
+#include "Common/Net/HTTPClient.h"
+#include "Common/Net/Resolve.h"
+#include "Common/Net/URL.h"
+#include "Common/Thread/ThreadUtil.h"
 #include "Core/Core.h"
 #include "Core/CoreTiming.h"
 #include "Core/Config.h"
@@ -44,18 +49,15 @@ extern "C" {
 #include "Core/Loaders.h"
 #include "Core/SaveState.h"
 #include "Core/System.h"
+#include "Core/ELF/ParamSFO.h"
 #include "Core/FileSystems/BlockDevices.h"
 #include "Core/FileSystems/MetaFileSystem.h"
 #include "Core/HLE/Plugins.h"
 #include "Core/HLE/sceKernelMemory.h"
+#include "Core/HLE/scePower.h"
 #include "Core/HW/Display.h"
-#include "Core/ELF/ParamSFO.h"
 #include "GPU/GPUInterface.h"
 #include "GPU/GPUState.h"
-#include "Common/Net/HTTPClient.h"
-#include "Common/Net/Resolve.h"
-#include "Common/Net/URL.h"
-#include "Common/Thread/ThreadUtil.h"
 
 namespace Reporting
 {
@@ -584,7 +586,7 @@ namespace Reporting
 		// Disabled when using certain hacks, because they make for poor reports.
 		if (CheatsInEffect() || HLEPlugins::HasEnabled())
 			return false;
-		if (g_Config.iLockedCPUSpeed != 0)
+		if (GetLockedCPUSpeedMhz() != 0)
 			return false;
 		if (g_Config.uJitDisableFlags != 0)
 			return false;
