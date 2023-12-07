@@ -69,7 +69,8 @@ public:
 	void clear() { size_ = 0; }
 	bool empty() const { return size_ == 0; }
 
-	const T *data() { return data_; }
+	const T *data() const { return data_; }
+
 	T *begin() { return data_; }
 	T *end() { return data_ + size_; }
 	const T *begin() const { return data_; }

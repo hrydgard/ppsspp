@@ -1405,10 +1405,6 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 
 	if (!module->isFake) {
 		bool scan = true;
-#if defined(MOBILE_DEVICE)
-		scan = g_Config.bFuncReplacements;
-#endif
-
 		// If the ELF has debug symbols, don't add entries to the symbol table.
 		bool insertSymbols = scan && !reader.LoadSymbols();
 		std::vector<SectionID> codeSections = reader.GetCodeSections();

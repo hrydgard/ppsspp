@@ -148,7 +148,7 @@ namespace KeyMap {
 			return false;
 		}
 
-		FixedTinyVec<InputMapping, 3> mappings;
+		FixedVec<InputMapping, 3> mappings;
 	};
 
 	typedef std::map<int, std::vector<MultiInputMapping>> KeyMapping;

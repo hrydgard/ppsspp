@@ -566,11 +566,9 @@ void PSP_Shutdown() {
 	if (coreState == CORE_RUNNING)
 		Core_Stop();
 
-#ifndef MOBILE_DEVICE
 	if (g_Config.bFuncHashMap) {
 		MIPSAnalyst::StoreHashMap();
 	}
-#endif
 
 	if (pspIsIniting)
 		Core_NotifyLifecycle(CoreLifecycle::START_COMPLETE);

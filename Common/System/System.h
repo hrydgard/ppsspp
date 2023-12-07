@@ -188,6 +188,8 @@ enum SystemProperty {
 	SYSPROP_SKIP_UI,
 
 	SYSPROP_USER_DOCUMENTS_DIR,
+
+	SYSPROP_OK_BUTTON_LEFT,
 };
 
 enum class SystemNotification {
