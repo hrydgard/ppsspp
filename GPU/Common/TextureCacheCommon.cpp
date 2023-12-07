@@ -2812,19 +2812,17 @@ bool TextureCacheCommon::PrepareBuildTexture(BuildTexturePlan &plan, TexCacheEnt
 	plan.w = gstate.getTextureWidth(0);
 	plan.h = gstate.getTextureHeight(0);
 
-	if (!g_DoubleTextureCoordinates) {
-		// Refuse to load invalid-ly sized textures, which can happen through display list corruption.
-		if (plan.w > 512 || plan.h > 512) {
-			ERROR_LOG(G3D, "Bad texture dimensions: %dx%d", plan.w, plan.h);
-			return false;
-		}
-	}
-
 	bool isPPGETexture = entry->addr >= PSP_GetKernelMemoryBase() && entry->addr < PSP_GetKernelMemoryEnd();
 
 	// Don't scale the PPGe texture.
 	if (isPPGETexture) {
 		plan.scaleFactor = 1;
+	} else if (!g_DoubleTextureCoordinates) {
+		// Refuse to load invalid-ly sized textures, which can happen through display list corruption.
+		if (plan.w > 512 || plan.h > 512) {
+			ERROR_LOG(G3D, "Bad texture dimensions: %dx%d", plan.w, plan.h);
+			return false;
+		}
 	}
 
 	if (PSP_CoreParameter().compat.flags().ForceLowerResolutionForEffectsOn && gstate.FrameBufStride() < 0x1E0) {
