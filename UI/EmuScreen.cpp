@@ -72,6 +72,7 @@ using namespace std::placeholders;
 #include "Core/RetroAchievements.h"
 #include "Core/SaveState.h"
 #include "Core/MIPS/MIPS.h"
+#include "Core/HLE/scePower.h"
 #include "Core/HLE/__sceAudio.h"
 #include "Core/HLE/proAdhoc.h"
 #include "Core/HLE/Plugins.h"
@@ -1366,7 +1367,7 @@ Invalid / Unknown (%d)
 		"Locked CPU freq: %d MHz\n"
 		"Cheats: %s, Plugins: %s\n",
 		CPUCoreAsString(g_Config.iCpuCore), g_Config.uJitDisableFlags,
-		g_Config.iLockedCPUSpeed,
+		GetLockedCPUSpeedMhz(),
 		CheatsInEffect() ? "Y" : "N", HLEPlugins::HasEnabled() ? "Y" : "N");
 
 	ctx->Draw()->DrawTextShadow(ubuntu24, statbuf, x, y, 0xFFFFFFFF);

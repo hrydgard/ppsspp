@@ -16,14 +16,17 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 #include <map>
 #include <vector>
+
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/FunctionWrappers.h"
+#include "Core/Core.h"
 #include "Core/CoreTiming.h"
 #include "Core/MemMap.h"
 #include "Core/Reporting.h"
 #include "Core/Config.h"
+#include "Core/Compatibility.h"
 
 #include "Core/HLE/scePower.h"
 #include "Core/HLE/sceKernelThread.h"
@@ -62,6 +65,10 @@ static int RealpllFreq = 222000000;
 static int RealbusFreq = 111000000;
 static int pllFreq = 222000000;
 static int busFreq = 111000000;
+
+int GetLockedCPUSpeedMhz() {
+	return PSP_CoreParameter().compat.flags().RequireDefaultCPUClock ? 0 : g_Config.iLockedCPUSpeed;
+}
 
 // The CPU mhz can only be a multiple of the PLL divided by 511.
 int PowerCpuMhzToHz(int desired, int pllHz) {
@@ -115,10 +122,10 @@ void __PowerInit() {
 	volatileMemLocked = false;
 	volatileWaitingThreads.clear();
 
-	if (g_Config.iLockedCPUSpeed > 0) {
-		pllFreq = PowerPllMhzToHz(g_Config.iLockedCPUSpeed);
+	if (GetLockedCPUSpeedMhz() > 0) {
+		pllFreq = PowerPllMhzToHz(GetLockedCPUSpeedMhz());
 		busFreq = PowerBusMhzToHz(pllFreq / 2000000);
-		CoreTiming::SetClockFrequencyHz(PowerCpuMhzToHz(g_Config.iLockedCPUSpeed, pllFreq));
+		CoreTiming::SetClockFrequencyHz(PowerCpuMhzToHz(GetLockedCPUSpeedMhz(), pllFreq));
 	} else {
 		pllFreq = PowerPllMhzToHz(222);
 		busFreq = PowerBusMhzToHz(111);
@@ -144,10 +151,10 @@ void __PowerDoState(PointerWrap &p) {
 		RealpllFreq = PowerPllMhzToHz(222);
 		RealbusFreq = PowerBusMhzToHz(111);
 	}
-	if (g_Config.iLockedCPUSpeed > 0) {
-		pllFreq = PowerPllMhzToHz(g_Config.iLockedCPUSpeed);
+	if (GetLockedCPUSpeedMhz() > 0) {
+		pllFreq = PowerPllMhzToHz(GetLockedCPUSpeedMhz());
 		busFreq = PowerBusMhzToHz(pllFreq / 2000000);
-		CoreTiming::SetClockFrequencyHz(PowerCpuMhzToHz(g_Config.iLockedCPUSpeed, pllFreq));
+		CoreTiming::SetClockFrequencyHz(PowerCpuMhzToHz(GetLockedCPUSpeedMhz(), pllFreq));
 	} else {
 		pllFreq = RealpllFreq;
 		busFreq = RealbusFreq;
@@ -443,8 +450,8 @@ static u32 scePowerSetClockFrequency(u32 pllfreq, u32 cpufreq, u32 busfreq) {
 		return hleLogWarning(SCEMISC, SCE_KERNEL_ERROR_INVALID_VALUE, "invalid bus frequency");
 	}
 	// TODO: More restrictions.
-	if (g_Config.iLockedCPUSpeed > 0) {
-		INFO_LOG(HLE, "scePowerSetClockFrequency(%i,%i,%i): locked by user config at %i, %i, %i", pllfreq, cpufreq, busfreq, g_Config.iLockedCPUSpeed, g_Config.iLockedCPUSpeed, busFreq);
+	if (GetLockedCPUSpeedMhz() > 0) {
+		INFO_LOG(HLE, "scePowerSetClockFrequency(%i,%i,%i): locked by user config at %i, %i, %i", pllfreq, cpufreq, busfreq, GetLockedCPUSpeedMhz(), GetLockedCPUSpeedMhz(), busFreq);
 	} else {
 		INFO_LOG(HLE, "scePowerSetClockFrequency(%i,%i,%i)", pllfreq, cpufreq, busfreq);
 	}
@@ -455,7 +462,7 @@ static u32 scePowerSetClockFrequency(u32 pllfreq, u32 cpufreq, u32 busfreq) {
 
 		RealpllFreq = PowerPllMhzToHz(pllfreq);
 		RealbusFreq = PowerBusMhzToHz(RealpllFreq / 2000000);
-		if (g_Config.iLockedCPUSpeed <= 0) {
+		if (GetLockedCPUSpeedMhz() <= 0) {
 			pllFreq = RealpllFreq;
 			busFreq = RealbusFreq;
 			CoreTiming::SetClockFrequencyHz(PowerCpuMhzToHz(cpufreq, pllFreq));
@@ -471,7 +478,7 @@ static u32 scePowerSetClockFrequency(u32 pllfreq, u32 cpufreq, u32 busfreq) {
 
 		return hleDelayResult(0, "scepower set clockFrequency", usec);
 	}
-	if (g_Config.iLockedCPUSpeed <= 0)
+	if (GetLockedCPUSpeedMhz() <= 0)
 		CoreTiming::SetClockFrequencyHz(PowerCpuMhzToHz(cpufreq, pllFreq));
 	return 0;
 }
@@ -480,8 +487,8 @@ static u32 scePowerSetCpuClockFrequency(u32 cpufreq) {
 	if (cpufreq == 0 || cpufreq > 333) {
 		return hleLogWarning(SCEMISC, SCE_KERNEL_ERROR_INVALID_VALUE, "invalid frequency");
 	}
-	if (g_Config.iLockedCPUSpeed > 0) {
-		return hleLogDebug(SCEMISC, 0, "locked by user config at %i", g_Config.iLockedCPUSpeed);
+	if (GetLockedCPUSpeedMhz() > 0) {
+		return hleLogDebug(SCEMISC, 0, "locked by user config at %i", GetLockedCPUSpeedMhz());
 	}
 	CoreTiming::SetClockFrequencyHz(PowerCpuMhzToHz(cpufreq, pllFreq));
 	return hleLogSuccessI(SCEMISC, 0);
@@ -491,8 +498,8 @@ static u32 scePowerSetBusClockFrequency(u32 busfreq) {
 	if (busfreq == 0 || busfreq > 111) {
 		return hleLogWarning(SCEMISC, SCE_KERNEL_ERROR_INVALID_VALUE, "invalid frequency");
 	}
-	if (g_Config.iLockedCPUSpeed > 0) {
-		return hleLogDebug(SCEMISC, 0, "locked by user config at %i", g_Config.iLockedCPUSpeed / 2);
+	if (GetLockedCPUSpeedMhz() > 0) {
+		return hleLogDebug(SCEMISC, 0, "locked by user config at %i", GetLockedCPUSpeedMhz() / 2);
 	}
 
 	// The value passed is validated, but then doesn't seem to matter for the result.
