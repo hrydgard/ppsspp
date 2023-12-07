@@ -503,11 +503,11 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 	case VULKAN_4444_FORMAT: mapping = &VULKAN_4444_SWIZZLE; break;
 	case VULKAN_1555_FORMAT: mapping = &VULKAN_1555_SWIZZLE; break;
 	case VULKAN_565_FORMAT:  mapping = &VULKAN_565_SWIZZLE;  break;
-	default:                 mapping = &VULKAN_8888_SWIZZLE; break;  // no swizzle
+	default:                 mapping = &VULKAN_8888_SWIZZLE; break;  // no channel swizzle
 	}
 
-	char texName[64]{};
-	snprintf(texName, sizeof(texName), "tex_%08x_%s", entry->addr, GeTextureFormatToString((GETextureFormat)entry->format, gstate.getClutPaletteFormat()));
+	char texName[64];
+	snprintf(texName, sizeof(texName), "tex_%08x_%s_%s", entry->addr, GeTextureFormatToString((GETextureFormat)entry->format, gstate.getClutPaletteFormat()), gstate.isTextureSwizzled() ? "swz" : "lin");
 	entry->vkTex = new VulkanTexture(vulkan, texName);
 	VulkanTexture *image = entry->vkTex;
 	bool allocSuccess = image->CreateDirect(cmdInit, plan.createW, plan.createH, plan.depth, plan.levelsToCreate, actualFmt, imageLayout, usage, mapping);

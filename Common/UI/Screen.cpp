@@ -14,7 +14,7 @@
 #include "Core/KeyMap.h"
 
 void Screen::focusChanged(ScreenFocusChange focusChange) {
-	char *eventName = "";
+	const char *eventName = "";
 	switch (focusChange) {
 	case ScreenFocusChange::FOCUS_LOST_TOP: eventName = "FOCUS_LOST_TOP"; break;
 	case ScreenFocusChange::FOCUS_BECAME_TOP: eventName = "FOCUS_BECAME_TOP"; break;
