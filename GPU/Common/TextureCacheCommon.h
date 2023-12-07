@@ -438,16 +438,26 @@ protected:
 
 	static CheckAlphaResult CheckCLUTAlpha(const uint8_t *pixelData, GEPaletteFormat clutFmt, int w);
 
-	inline u32 QuickTexHash(TextureReplacer &replacer, u32 addr, int bufw, int w, int h, GETextureFormat format, const TexCacheEntry *entry) const {
+	static inline u32 QuickTexHash(TextureReplacer &replacer, u32 addr, int bufw, int w, int h, bool swizzled, GETextureFormat format, const TexCacheEntry *entry) {
 		if (replacer.Enabled()) {
-			return replacer.ComputeHash(addr, bufw, w, h, format, entry->maxSeenV);
+			return replacer.ComputeHash(addr, bufw, w, h, swizzled, format, entry->maxSeenV);
 		}
 
 		if (h == 512 && entry->maxSeenV < 512 && entry->maxSeenV != 0) {
 			h = (int)entry->maxSeenV;
 		}
 
-		const u32 sizeInRAM = (textureBitsPerPixel[format] * bufw * h) / 8;
+		u32 sizeInRAM;
+		if (swizzled) {
+			// In swizzle mode, textures are stored in rectangular blocks with the height 8.
+			// That means that for a 64x4 texture, like in issue #9308, we would only hash half of the texture!
+			// In theory, we should make sure to only hash half of each block, but in reality it's not likely that
+			// games are using that memory for anything else. So we'll just make sure to compute the full size to hash.
+			// To do that, we just use the same calculation but round the height upwards to the nearest multiple of 8.
+			sizeInRAM = (textureBitsPerPixel[format] * bufw * ((h + 7) & ~7)) >> 3;
+		} else {
+			sizeInRAM = (textureBitsPerPixel[format] * bufw * h) >> 3;
+		}
 		const u32 *checkp = (const u32 *)Memory::GetPointer(addr);
 
 		gpuStats.numTextureDataBytesHashed += sizeInRAM;

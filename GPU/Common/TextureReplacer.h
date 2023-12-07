@@ -101,7 +101,7 @@ public:
 	bool Enabled() const { return enabled_; }
 	bool AllowVideo() const { return allowVideo_; }
 
-	u32 ComputeHash(u32 addr, int bufw, int w, int h, GETextureFormat fmt, u16 maxSeenV);
+	u32 ComputeHash(u32 addr, int bufw, int w, int h, bool swizzled, GETextureFormat fmt, u16 maxSeenV);
 
 	// Returns nullptr if not found.
 	ReplacedTexture *FindReplacement(u64 cachekey, u32 hash, int w, int h);

@@ -494,6 +494,7 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 					// Exponential backoff up to 512 frames.  Textures are often reused.
 					if (entry->numFrames > 32) {
 						// Also, try to add some "randomness" to avoid rehashing several textures the same frame.
+						// textureName is unioned with texturePtr and vkTex so will work for the other backends.
 						entry->framesUntilNextFullHash = std::min(512, entry->numFrames) + (((intptr_t)(entry->textureName) >> 12) & 15);
 					} else {
 						entry->framesUntilNextFullHash = entry->numFrames;
@@ -2114,7 +2115,8 @@ void TextureCacheCommon::ApplyTexture() {
 			// Update the hash on the texture.
 			int w = gstate.getTextureWidth(0);
 			int h = gstate.getTextureHeight(0);
-			entry->fullhash = QuickTexHash(replacer_, entry->addr, entry->bufw, w, h, GETextureFormat(entry->format), entry);
+			bool swizzled = gstate.isTextureSwizzled();
+			entry->fullhash = QuickTexHash(replacer_, entry->addr, entry->bufw, w, h, swizzled, GETextureFormat(entry->format), entry);
 
 			// TODO: Here we could check the secondary cache; maybe the texture is in there?
 			// We would need to abort the build if so.
@@ -2535,6 +2537,7 @@ bool TextureCacheCommon::CheckFullHash(TexCacheEntry *entry, bool &doDelete) {
 	int w = gstate.getTextureWidth(0);
 	int h = gstate.getTextureHeight(0);
 	bool isVideo = IsVideo(entry->addr);
+	bool swizzled = gstate.isTextureSwizzled();
 
 	// Don't even check the texture, just assume it has changed.
 	if (isVideo && g_Config.bTextureBackoffCache) {
@@ -2546,7 +2549,7 @@ bool TextureCacheCommon::CheckFullHash(TexCacheEntry *entry, bool &doDelete) {
 	u32 fullhash;
 	{
 		PROFILE_THIS_SCOPE("texhash");
-		fullhash = QuickTexHash(replacer_, entry->addr, entry->bufw, w, h, GETextureFormat(entry->format), entry);
+		fullhash = QuickTexHash(replacer_, entry->addr, entry->bufw, w, h, swizzled, GETextureFormat(entry->format), entry);
 	}
 
 	if (fullhash == entry->fullhash) {
