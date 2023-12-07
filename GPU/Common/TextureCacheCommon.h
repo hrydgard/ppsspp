@@ -440,7 +440,7 @@ protected:
 
 	static inline u32 QuickTexHash(TextureReplacer &replacer, u32 addr, int bufw, int w, int h, bool swizzled, GETextureFormat format, const TexCacheEntry *entry) {
 		if (replacer.Enabled()) {
-			return replacer.ComputeHash(addr, bufw, w, h, format, entry->maxSeenV);
+			return replacer.ComputeHash(addr, bufw, w, h, swizzled, format, entry->maxSeenV);
 		}
 
 		if (h == 512 && entry->maxSeenV < 512 && entry->maxSeenV != 0) {
