@@ -231,13 +231,13 @@ void DrawEngineCommon::UpdatePlanes() {
 
 	float mtx[16];
 	Matrix4ByMatrix4(mtx, viewproj, applyViewport.m);
-
-	planes_[0].Set(mtx[3] - mtx[0], mtx[7] - mtx[4], mtx[11] - mtx[8], mtx[15] - mtx[12]);  // Right
-	planes_[1].Set(mtx[3] + mtx[0], mtx[7] + mtx[4], mtx[11] + mtx[8], mtx[15] + mtx[12]);  // Left
-	planes_[2].Set(mtx[3] + mtx[1], mtx[7] + mtx[5], mtx[11] + mtx[9], mtx[15] + mtx[13]);  // Bottom
-	planes_[3].Set(mtx[3] - mtx[1], mtx[7] - mtx[5], mtx[11] - mtx[9], mtx[15] - mtx[13]);  // Top
-	planes_[4].Set(mtx[3] + mtx[2], mtx[7] + mtx[6], mtx[11] + mtx[10], mtx[15] + mtx[14]); // Near
-	planes_[5].Set(mtx[3] - mtx[2], mtx[7] - mtx[6], mtx[11] - mtx[10], mtx[15] - mtx[14]); // Far
+	// I'm sure there's some fairly optimized way to set these.
+	planes_.Set(0, mtx[3] - mtx[0], mtx[7] - mtx[4], mtx[11] - mtx[8],  mtx[15] - mtx[12]);  // Right
+	planes_.Set(1, mtx[3] + mtx[0], mtx[7] + mtx[4], mtx[11] + mtx[8],  mtx[15] + mtx[12]);  // Left
+	planes_.Set(2, mtx[3] + mtx[1], mtx[7] + mtx[5], mtx[11] + mtx[9],  mtx[15] + mtx[13]);  // Bottom
+	planes_.Set(3, mtx[3] - mtx[1], mtx[7] - mtx[5], mtx[11] - mtx[9],  mtx[15] - mtx[13]);  // Top
+	planes_.Set(4, mtx[3] + mtx[2], mtx[7] + mtx[6], mtx[11] + mtx[10], mtx[15] + mtx[14]);  // Near
+	planes_.Set(5, mtx[3] - mtx[2], mtx[7] - mtx[6], mtx[11] - mtx[10], mtx[15] - mtx[14]);  // Far
 }
 
 // This code has plenty of potential for optimization.
@@ -260,7 +260,6 @@ bool DrawEngineCommon::TestBoundingBox(const void *vdata, const void *inds, int 
 
 	SimpleVertex *corners = (SimpleVertex *)(decoded_ + 65536 * 12);
 	float *verts = (float *)(decoded_ + 65536 * 18);
-	int vertStride = 3;
 
 	// Although this may lead to drawing that shouldn't happen, the viewport is more complex on VR.
 	// Let's always say objects are within bounds.
@@ -336,15 +335,21 @@ bool DrawEngineCommon::TestBoundingBox(const void *vdata, const void *inds, int 
 				}
 				break;
 			case GE_VTYPE_POS_FLOAT:
-				// No need to copy in this case, we can just read directly from the source format with a stride.
-				verts = (float *)((uint8_t *)vdata + offset);
-				vertStride = stride / 4;
 				// Previous code:
-				// for (int i = 0; i < vertexCount; i++)
-				//   memcpy(&verts[i * 3], (const u8 *)vdata + stride * i + offset, sizeof(float) * 3);
+				for (int i = 0; i < vertexCount; i++)
+					memcpy(&verts[i * 3], (const u8 *)vdata + stride * i + offset, sizeof(float) * 3);
 				break;
 			}
 		}
+	}
+
+	// Pretransform the verts in-place so we don't have to do it inside the loop.
+	// We do this differently in the fast version below since we skip the max/minOffset checks there
+	// making it easier to get the whole thing ready for SIMD.
+	for (int i = 0; i < vertexCount; i++) {
+		float worldpos[3];
+		Vec3ByMatrix43(worldpos, &verts[i * 3], gstate.worldMatrix);
+		memcpy(&verts[i * 3], worldpos, 12);
 	}
 
 	// Note: near/far are not checked without clamp/clip enabled, so we skip those planes.
@@ -356,10 +361,8 @@ bool DrawEngineCommon::TestBoundingBox(const void *vdata, const void *inds, int 
 			// Test against the frustum planes, and count.
 			// TODO: We should test 4 vertices at a time using SIMD.
 			// I guess could also test one vertex against 4 planes at a time, though a lot of waste at the common case of 6.
-			const float *pos = verts + i * vertStride;
-			float worldpos[3];
-			Vec3ByMatrix43(worldpos, pos, gstate.worldMatrix);
-			float value = planes_[plane].Test(worldpos);
+			const float *worldpos = verts + i * 3;
+			float value = planes_.Test(plane, worldpos);
 			if (value <= -FLT_EPSILON)  // Not sure why we use exactly this value. Probably '< 0' would do.
 				out++;
 			else
@@ -463,33 +466,25 @@ bool DrawEngineCommon::TestBoundingBoxFast(const void *vdata, int vertexCount, u
 	}
 
 	// We only check the 4 sides. Near/far won't likely make a huge difference.
-	// This will be nice for SIMD.
+	// We test one vertex against 4 planes to get some SIMD. Vertices need to be transformed to world space
+	// for testing, don't want to re-do that, so we have to use that "pivot" of the data.
+	int inside[4]{};
 	int totalPlanes = 4;
-	for (int plane = 0; plane < totalPlanes; plane++) {
-		int inside = 0;
-		int out = 0;
-		for (int i = 0; i < vertexCount; i++) {
-			// Test against the frustum planes, and count.
-			// TODO: We should test 4 vertices at a time using SIMD.
-			// I guess could also test one vertex against 4 planes at a time, though a lot of waste at the common case of 6.
-			const float *pos = verts + i * vertStride;
-			float worldpos[3];
-			Vec3ByMatrix43(worldpos, pos, gstate.worldMatrix);
-			float value = planes_[plane].Test(worldpos);
+	for (int i = 0; i < vertexCount; i++) {
+		const float *pos = verts + i * vertStride;
+		float worldpos[3];
+		Vec3ByMatrix43(worldpos, pos, gstate.worldMatrix);
+		for (int plane = 0; plane < 4; plane++) {
+			float value = planes_.Test(plane, worldpos);
 			if (value >= 0.0f)
-				inside++;
-			else
-				out++;
+				inside[plane]++;
 		}
+	}
 
-		// No vertices inside this one plane? Don't need to draw.
-		if (inside == 0) {
-			// All out - but check for X and Y if the offset was near the cullbox edge.
+	for (int plane = 0; plane < 4; plane++) {
+		if (inside[plane] == 0) {
 			return false;
 		}
-
-		// Any out. For testing that the planes are in the right locations.
-		// if (out != 0) return false;
 	}
 	return true;
 }
