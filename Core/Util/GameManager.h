@@ -78,12 +78,13 @@ public:
 	bool UninstallGameOnThread(const std::string &name);
 
 private:
+	// TODO: The return value on this is a bit pointless, we can't get at it.
 	bool InstallGame(Path url, Path tempFileName, bool deleteAfter);
 	bool InstallMemstickGame(struct zip *z, const Path &zipFile, const Path &dest, const ZipFileInfo &info, bool allowRoot, bool deleteAfter);
 	bool InstallMemstickZip(struct zip *z, const Path &zipFile, const Path &dest, const ZipFileInfo &info, bool deleteAfter);
 	bool InstallZippedISO(struct zip *z, int isoFileIndex, const Path &zipfile, bool deleteAfter);
 	bool InstallRawISO(const Path &zipFile, const std::string &originalName, bool deleteAfter);
-	bool UninstallGame(std::string name);
+	void UninstallGame(std::string name);
 
 	void InstallDone();
 

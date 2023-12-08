@@ -274,6 +274,7 @@ private:
 	std::string DownloadURL();
 
 	StoreEntry entry_;
+	UI::Button *uninstallButton_ = nullptr;
 	UI::Button *installButton_ = nullptr;
 	UI::Button *launchButton_ = nullptr;
 	UI::Button *cancelButton_ = nullptr;
@@ -300,6 +301,7 @@ void ProductView::CreateViews() {
 		LinearLayout *progressDisplay = new LinearLayout(ORIENT_HORIZONTAL);
 		installButton_ = progressDisplay->Add(new Button(st->T("Install")));
 		installButton_->OnClick.Handle(this, &ProductView::OnInstall);
+		uninstallButton_ = nullptr;
 
 		speedView_ = progressDisplay->Add(new TextView(""));
 		speedView_->SetVisibility(isDownloading ? V_VISIBLE : V_GONE);
@@ -308,7 +310,8 @@ void ProductView::CreateViews() {
 		installButton_ = nullptr;
 		speedView_ = nullptr;
 		Add(new TextView(st->T("Already Installed")));
-		Add(new Button(st->T("Uninstall")))->OnClick.Add([=](UI::EventParams &e) {
+		uninstallButton_ = new Button(st->T("Uninstall"));
+		Add(uninstallButton_)->OnClick.Add([=](UI::EventParams &e) {
 			g_GameManager.UninstallGameOnThread(entry_.file);
 			return UI::EVENT_DONE;
 		});
@@ -340,6 +343,9 @@ void ProductView::Update() {
 	}
 	if (installButton_) {
 		installButton_->SetEnabled(g_GameManager.GetState() == GameManagerState::IDLE);
+	}
+	if (uninstallButton_) {
+		uninstallButton_->SetEnabled(g_GameManager.GetState() == GameManagerState::IDLE);
 	}
 	if (g_GameManager.GetState() == GameManagerState::DOWNLOADING) {
 		if (speedView_) {

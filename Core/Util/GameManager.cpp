@@ -36,6 +36,7 @@
 #include "Common/Data/Encoding/Utf8.h"
 #include "Common/Data/Format/IniFile.h"
 #include "Common/Log.h"
+#include "Common/System/OSD.h"
 #include "Common/File/FileUtil.h"
 #include "Common/StringUtils.h"
 #include "Common/Thread/ThreadUtil.h"
@@ -127,24 +128,32 @@ float GameManager::DownloadSpeedKBps() {
 	return 0.0f;
 }
 
-bool GameManager::UninstallGame(std::string name) {
+void GameManager::UninstallGame(std::string name) {
+	SetCurrentThreadName("UninstallGame");
+
+	AndroidJNIThreadContext context;  // Destructor detaches.
+
 	Path gameDir = GetSysDirectory(DIRECTORY_GAME) / name;
+
+	auto st = GetI18NCategory(I18NCat::STORE);
+
 	INFO_LOG(HLE, "Uninstalling '%s'", gameDir.c_str());
 	if (!File::Exists(gameDir)) {
 		ERROR_LOG(HLE, "Game '%s' not installed, cannot uninstall", name.c_str());
-		return false;
+		return;
 	}
-
+	g_OSD.SetProgressBar("install", st->T("Uninstall"), 0.0f, 0.0f, 0.0f, 0.1f);
 	bool success = File::DeleteDirRecursively(gameDir);
+	g_OSD.RemoveProgressBar("install", success, 0.5f);
 	if (success) {
 		INFO_LOG(HLE, "Successfully uninstalled game '%s'", name.c_str());
 		InstallDone();
 		cleanRecentsAfter_ = true;
-		return true;
+		return;
 	} else {
 		ERROR_LOG(HLE, "Failed to uninstalled game '%s'", name.c_str());
 		InstallDone();
-		return false;
+		return;
 	}
 }
 
@@ -285,21 +294,26 @@ bool GameManager::InstallGame(Path url, Path fileName, bool deleteAfter) {
 	}
 
 	AndroidJNIThreadContext context;  // Destructor detaches.
-
 	if (!File::Exists(fileName)) {
 		ERROR_LOG(HLE, "Game file '%s' doesn't exist", fileName.c_str());
 		return false;
 	}
+
+	auto st = GetI18NCategory(I18NCat::STORE);
+	auto di = GetI18NCategory(I18NCat::DIALOG);
+	auto sy = GetI18NCategory(I18NCat::SYSTEM);
+
+	g_OSD.SetProgressBar("install", di->T("Installing..."), 0.0f, 0.0f, 0.0f, 0.1f);
 
 	std::string extension = url.GetFileExtension();
 	// Examine the URL to guess out what we're installing.
 	if (extension == ".cso" || extension == ".iso") {
 		// It's a raw ISO or CSO file. We just copy it to the destination.
 		std::string shortFilename = url.GetFilename();
-		return InstallRawISO(fileName, shortFilename, deleteAfter);
+		bool success = InstallRawISO(fileName, shortFilename, deleteAfter);
+		g_OSD.RemoveProgressBar("install", success, 0.5f);
+		return success;
 	}
-
-	auto sy = GetI18NCategory(I18NCat::SYSTEM);
 
 	Path pspGame = GetSysDirectory(DIRECTORY_GAME);
 	Path dest = pspGame;
@@ -307,36 +321,42 @@ bool GameManager::InstallGame(Path url, Path fileName, bool deleteAfter) {
 
 	struct zip *z = ZipOpenPath(fileName);
 	if (!z) {
+		g_OSD.RemoveProgressBar("install", false, 0.5f);
 		SetInstallError(sy->T("Unable to open zip file"));
 		return false;
 	}
 
 	ZipFileInfo info;
 	ZipFileContents contents = DetectZipFileContents(z, &info);
+	bool success = false;
 	switch (contents) {
 	case ZipFileContents::PSP_GAME_DIR:
 		INFO_LOG(HLE, "Installing '%s' into '%s'", fileName.c_str(), pspGame.c_str());
-		// InstallMemstickGame contains code to close z.
-		return InstallMemstickGame(z, fileName, pspGame, info, false, deleteAfter);
+		// InstallMemstickGame contains code to close (and delete) z.
+		success = InstallMemstickGame(z, fileName, pspGame, info, false, deleteAfter);
+		break;
 	case ZipFileContents::ISO_FILE:
 		INFO_LOG(HLE, "Installing '%s' into its containing directory", fileName.c_str());
 		// InstallZippedISO contains code to close z.
-		return InstallZippedISO(z, info.isoFileIndex, fileName, deleteAfter);
+		success = InstallZippedISO(z, info.isoFileIndex, fileName, deleteAfter);
+		break;
 	case ZipFileContents::TEXTURE_PACK:
 		// InstallMemstickGame contains code to close z, and works for textures too.
 		if (DetectTexturePackDest(z, info.textureIniIndex, dest)) {
-			INFO_LOG(HLE, "Installing '%s' into '%s'", fileName.c_str(), dest.c_str());
+			INFO_LOG(HLE, "Installing texture pack '%s' into '%s'", fileName.c_str(), dest.c_str());
 			File::CreateFullPath(dest);
-			// Install as a zip file if textures.ini is in the root.  Performs better on Android.
-			if (info.stripChars == 0)
-				return InstallMemstickZip(z, fileName, dest / "textures.zip", info, deleteAfter);
-			File::CreateEmptyFile(dest / ".nomedia");
-			return InstallMemstickGame(z, fileName, dest, info, true, deleteAfter);
+			// Install as a zip file if textures.ini is in the root. Performs better on Android.
+			if (info.stripChars == 0) {
+				success = InstallMemstickZip(z, fileName, dest / "textures.zip", info, deleteAfter);
+			} else {
+				File::CreateEmptyFile(dest / ".nomedia");
+				success = InstallMemstickGame(z, fileName, dest, info, true, deleteAfter);
+			}
 		} else {
 			zip_close(z);
 			z = nullptr;
 		}
-		return false;
+		break;
 	default:
 		ERROR_LOG(HLE, "File not a PSP game, no EBOOT.PBP found.");
 		SetInstallError(sy->T("Not a PSP game"));
@@ -344,8 +364,10 @@ bool GameManager::InstallGame(Path url, Path fileName, bool deleteAfter) {
 		z = nullptr;
 		if (deleteAfter)
 			File::Delete(fileName);
-		return false;
+		break;
 	}
+	g_OSD.RemoveProgressBar("install", success, 0.5f);
+	return success;
 }
 
 bool GameManager::DetectTexturePackDest(struct zip *z, int iniIndex, Path &dest) {
@@ -598,11 +620,11 @@ bool GameManager::InstallMemstickGame(struct zip *z, const Path &zipfile, const 
 		}
 	}
 	INFO_LOG(HLE, "Extracted %d files from zip (%d bytes / %d).", info.numFiles, (int)bytesCopied, (int)allBytes);
-
 	zip_close(z);
 	z = nullptr;
 	installProgress_ = 1.0f;
 	if (deleteAfter) {
+		INFO_LOG(HLE, "Deleting '%s' after extraction", zipfile.c_str());
 		File::Delete(zipfile);
 	}
 	InstallDone();
@@ -679,7 +701,6 @@ bool GameManager::InstallMemstickZip(struct zip *z, const Path &zipfile, const P
 
 bool GameManager::InstallZippedISO(struct zip *z, int isoFileIndex, const Path &zipfile, bool deleteAfter) {
 	// Let's place the output file in the currently selected Games directory.
-
 	std::string fn = zip_get_name(z, isoFileIndex, 0);
 	size_t nameOffset = fn.rfind('/');
 	if (nameOffset == std::string::npos) {
