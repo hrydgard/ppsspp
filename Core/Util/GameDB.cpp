@@ -34,7 +34,7 @@ static void SplitCSVLine(const std::string_view str, std::vector<std::string_vie
 	result.push_back(finalColumn);
 }
 
-static void splitSV(std::string_view strv, char delim, bool removeWhiteSpace, std::vector<std::string_view> *output) {
+static void SplitSV(std::string_view strv, char delim, bool removeWhiteSpace, std::vector<std::string_view> *output) {
 	size_t first = 0;
 	while (first < strv.size()) {
 		const auto second = strv.find(delim, first);
@@ -67,7 +67,7 @@ bool GameDB::LoadFromVFS(VFSInterface &vfs, const char *filename) {
 	// Split the string into views of each line, keeping the original.
 	std::vector<std::string_view> lines;
 	lines.reserve(RESERVE_COUNT);
-	splitSV(contents_, '\n', false, &lines);
+	SplitSV(contents_, '\n', false, &lines);
 	SplitCSVLine(lines[0], columns_);
 
 	const size_t titleColumn = GetColumnIndex("Title");
@@ -91,7 +91,7 @@ bool GameDB::LoadFromVFS(VFSInterface &vfs, const char *filename) {
 		Line line;
 		line.title = items[titleColumn];
 		line.foreignTitle = items[foreignTitleColumn];
-		line.serials = splitSV(items[serialColumn], ',', true);
+		SplitSV(items[serialColumn], ',', true, &line.serials);
 		line.crc = items[crcColumn];
 		line.size = items[sizeColumn];
 		lines_.push_back(line);

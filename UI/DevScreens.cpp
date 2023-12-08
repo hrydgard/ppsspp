@@ -128,10 +128,13 @@ void DevMenuScreen::CreatePopupContents(UI::ViewGroup *parent) {
 #endif
 	items->Add(new Choice(dev->T("Logging Channels")))->OnClick.Handle(this, &DevMenuScreen::OnLogConfig);
 	items->Add(new Choice(sy->T("Developer Tools")))->OnClick.Handle(this, &DevMenuScreen::OnDeveloperTools);
+
+	// Debug overlay
+	AddOverlayList(items, screenManager());
+
 	items->Add(new Choice(dev->T("Jit Compare")))->OnClick.Handle(this, &DevMenuScreen::OnJitCompare);
 	items->Add(new Choice(dev->T("Shader Viewer")))->OnClick.Handle(this, &DevMenuScreen::OnShaderView);
 
-	AddOverlayList(items, screenManager());
 	items->Add(new Choice(dev->T("Toggle Freeze")))->OnClick.Add([](UI::EventParams &e) {
 		if (PSP_CoreParameter().frozen) {
 			PSP_CoreParameter().frozen = false;

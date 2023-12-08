@@ -50,7 +50,7 @@ public:
 	UIContext();
 	~UIContext();
 
-	void Init(Draw::DrawContext *thin3d, Draw::Pipeline *uipipe, Draw::Pipeline *uipipenotex, DrawBuffer *uidrawbuffer, DrawBuffer *uidrawbufferTop);
+	void Init(Draw::DrawContext *thin3d, Draw::Pipeline *uipipe, Draw::Pipeline *uipipenotex, DrawBuffer *uidrawbuffer);
 
 	void BeginFrame();
 
@@ -70,7 +70,6 @@ public:
 	void ActivateTopScissor();
 
 	DrawBuffer *Draw() const { return uidrawbuffer_; }
-	DrawBuffer *DrawTop() const { return uidrawbufferTop_; }
 
 	// Utility methods
 	TextDrawer *Text() const { return textDrawer_; }
@@ -137,7 +136,6 @@ private:
 	std::unique_ptr<ManagedTexture> fontTexture_;
 
 	DrawBuffer *uidrawbuffer_ = nullptr;
-	DrawBuffer *uidrawbufferTop_ = nullptr;
 
 	std::vector<Bounds> scissorStack_;
 	std::vector<UITransform> transformStack_;

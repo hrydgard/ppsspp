@@ -36,7 +36,6 @@ struct Atlas;
 // This is the drawbuffer used for UI. Remember to flush it at the end of the frame.
 // TODO: One should probably pass it in through UIInit.
 extern DrawBuffer ui_draw2d;
-extern DrawBuffer ui_draw2d_front;	// for things that need to be on top of the rest
 
 // TODO: These don't really belong here.
 

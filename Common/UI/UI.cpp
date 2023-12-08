@@ -13,10 +13,8 @@ DrawBuffer ui_draw2d_front;
 
 void UIBegin(Draw::Pipeline *pipeline) {
 	ui_draw2d.Begin(pipeline);
-	ui_draw2d_front.Begin(pipeline);
 }
 
 void UIFlush() {
 	ui_draw2d.Flush();
-	ui_draw2d_front.Flush();
 }

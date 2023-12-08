@@ -24,14 +24,13 @@ UIContext::~UIContext() {
 	delete textDrawer_;
 }
 
-void UIContext::Init(Draw::DrawContext *thin3d, Draw::Pipeline *uipipe, Draw::Pipeline *uipipenotex, DrawBuffer *uidrawbuffer, DrawBuffer *uidrawbufferTop) {
+void UIContext::Init(Draw::DrawContext *thin3d, Draw::Pipeline *uipipe, Draw::Pipeline *uipipenotex, DrawBuffer *uidrawbuffer) {
 	using namespace Draw;
 	draw_ = thin3d;
 	sampler_ = draw_->CreateSamplerState({ TextureFilter::LINEAR, TextureFilter::LINEAR, TextureFilter::LINEAR, 0.0, TextureAddressMode::CLAMP_TO_EDGE, TextureAddressMode::CLAMP_TO_EDGE, TextureAddressMode::CLAMP_TO_EDGE, });
 	ui_pipeline_ = uipipe;
 	ui_pipeline_notex_ = uipipenotex;
 	uidrawbuffer_ = uidrawbuffer;
-	uidrawbufferTop_ = uidrawbufferTop;
 	textDrawer_ = TextDrawer::Create(thin3d);  // May return nullptr if no implementation is available for this platform.
 }
 
@@ -59,14 +58,12 @@ void UIContext::BeginFrame() {
 			}
 		}
 	}
-	uidrawbufferTop_->SetCurZ(0.0f);
 	uidrawbuffer_->SetCurZ(0.0f);
 	ActivateTopScissor();
 }
 
 void UIContext::SetTintSaturation(float tint, float sat) {
 	uidrawbuffer_->SetTintSaturation(tint, sat);
-	uidrawbufferTop_->SetTintSaturation(tint, sat);
 }
 
 void UIContext::Begin() {
@@ -106,14 +103,10 @@ void UIContext::Flush() {
 	if (uidrawbuffer_) {
 		uidrawbuffer_->Flush();
 	}
-	if (uidrawbufferTop_) {
-		uidrawbufferTop_->Flush();
-	}
 }
 
 void UIContext::SetCurZ(float curZ) {
 	ui_draw2d.SetCurZ(curZ);
-	ui_draw2d_front.SetCurZ(curZ);
 }
 
 // TODO: Support transformed bounds using stencil instead.
