@@ -38,6 +38,10 @@ public:
 		delete [] storage_;
 	}
 
+	// Disallow copies.
+	FixedSizeQueue(FixedSizeQueue &other) = delete;
+	FixedSizeQueue& operator=(const FixedSizeQueue &other) = delete;
+
 	void clear() {
 		head_ = 0;
 		tail_ = 0;
@@ -149,6 +153,7 @@ public:
 			ERROR_LOG(COMMON, "Savestate failure: Incompatible queue size.");
 			return;
 		}
+		// TODO: This is quite wasteful, could just store the actual data. Would be slightly more complex though.
 		DoArray<T>(p, storage_, N);
 		Do(p, head_);
 		Do(p, tail_);
@@ -161,10 +166,6 @@ private:
 	int head_;
 	int tail_;
 	int count_;  // sacrifice 4 bytes for a simpler implementation. may optimize away in the future.
-
-	// Make copy constructor private for now.
-	FixedSizeQueue(FixedSizeQueue &other);
-	FixedSizeQueue& operator=(const FixedSizeQueue &other);
 };
 
 

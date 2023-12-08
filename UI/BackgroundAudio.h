@@ -67,7 +67,8 @@ private:
 	void Clear(bool hard);
 
 	enum {
-		BUFSIZE = 44100,
+		// 0.5 ms buffer at 44.1 khz should be enough.
+		BUFSIZE = 22050,
 	};
 
 	std::mutex mutex_;

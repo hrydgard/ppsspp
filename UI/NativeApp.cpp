@@ -853,17 +853,14 @@ bool NativeInitGraphics(GraphicsContext *graphicsContext) {
 
 	ui_draw2d.SetAtlas(GetUIAtlas());
 	ui_draw2d.SetFontAtlas(GetFontAtlas());
-	ui_draw2d_front.SetAtlas(GetUIAtlas());
-	ui_draw2d_front.SetFontAtlas(GetFontAtlas());
 
 	uiContext = new UIContext();
 	uiContext->theme = GetTheme();
 	UpdateTheme(uiContext);
 
 	ui_draw2d.Init(g_draw, texColorPipeline);
-	ui_draw2d_front.Init(g_draw, texColorPipeline);
 
-	uiContext->Init(g_draw, texColorPipeline, colorPipeline, &ui_draw2d, &ui_draw2d_front);
+	uiContext->Init(g_draw, texColorPipeline, colorPipeline, &ui_draw2d);
 	if (uiContext->Text())
 		uiContext->Text()->SetFont("Tahoma", 20, 0);
 
@@ -990,7 +987,6 @@ void NativeShutdownGraphics() {
 	uiContext = nullptr;
 
 	ui_draw2d.Shutdown();
-	ui_draw2d_front.Shutdown();
 
 	if (colorPipeline) {
 		colorPipeline->Release();
@@ -1141,7 +1137,6 @@ void NativeFrame(GraphicsContext *graphicsContext) {
 	g_draw->BeginFrame(debugFlags);
 
 	ui_draw2d.PushDrawMatrix(ortho);
-	ui_draw2d_front.PushDrawMatrix(ortho);
 
 	g_screenManager->getUIContext()->SetTintSaturation(g_Config.fUITint, g_Config.fUISaturation);
 
@@ -1152,7 +1147,6 @@ void NativeFrame(GraphicsContext *graphicsContext) {
 	}
 
 	ui_draw2d.PopDrawMatrix();
-	ui_draw2d_front.PopDrawMatrix();
 
 	g_draw->EndFrame();
 
