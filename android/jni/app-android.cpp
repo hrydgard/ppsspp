@@ -610,10 +610,50 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_audioConfig
 	optimalSampleRate = optimalSR;
 }
 
+// Easy way for the Java side to ask the C++ side for configuration options, such as
+// the rotation lock which must be controlled from Java on Android.
+static std::string QueryConfig(std::string query) {
+	char temp[128];
+	if (query == "screenRotation") {
+		INFO_LOG(G3D, "g_Config.screenRotation = %d", g_Config.iScreenRotation);
+		snprintf(temp, sizeof(temp), "%d", g_Config.iScreenRotation);
+		return std::string(temp);
+	} else if (query == "immersiveMode") {
+		return std::string(g_Config.bImmersiveMode ? "1" : "0");
+	} else if (query == "hwScale") {
+		int scale = g_Config.iAndroidHwScale;
+		// Override hw scale for TV type devices.
+		if (System_GetPropertyInt(SYSPROP_DEVICE_TYPE) == DEVICE_TYPE_TV)
+			scale = 0;
+
+		if (scale == 1) {
+			// If g_Config.iInternalResolution is also set to Auto (1), we fall back to "Device resolution" (0). It works out.
+			scale = g_Config.iInternalResolution;
+		} else if (scale >= 2) {
+			scale -= 1;
+		}
+
+		int max_res = std::max(System_GetPropertyInt(SYSPROP_DISPLAY_XRES), System_GetPropertyInt(SYSPROP_DISPLAY_YRES)) / 480 + 1;
+		snprintf(temp, sizeof(temp), "%d", std::min(scale, max_res));
+		return std::string(temp);
+	} else if (query == "sustainedPerformanceMode") {
+		return std::string(g_Config.bSustainedPerformanceMode ? "1" : "0");
+	} else if (query == "androidJavaGL") {
+		// If we're using Vulkan, we say no... need C++ to use Vulkan.
+		if (GetGPUBackend() == GPUBackend::VULKAN) {
+			return "false";
+		}
+		// Otherwise, some devices prefer the Java init so play it safe.
+		return "true";
+	} else {
+		return "";
+	}
+}
+
 extern "C" jstring Java_org_ppsspp_ppsspp_NativeApp_queryConfig
 	(JNIEnv *env, jclass, jstring jquery) {
 	std::string query = GetJavaString(env, jquery);
-	std::string result = NativeQueryConfig(query);
+	std::string result = QueryConfig(query);
 	jstring jresult = env->NewStringUTF(result.c_str());
 	return jresult;
 }
