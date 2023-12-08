@@ -197,15 +197,10 @@ void DrawEngineCommon::DispatchSubmitImm(GEPrimitiveType prim, TransformedVertex
 
 // Gated by DIRTY_CULL_PLANES
 void DrawEngineCommon::UpdatePlanes() {
-	float world[16];
 	float view[16];
-	float worldview[16];
-	float worldviewproj[16];
-	ConvertMatrix4x3To4x4(world, gstate.worldMatrix);
+	float viewproj[16];
 	ConvertMatrix4x3To4x4(view, gstate.viewMatrix);
-	// TODO: Create a Matrix4x3ByMatrix4x3, and Matrix4x4ByMatrix4x3?
-	Matrix4ByMatrix4(worldview, world, view);
-	Matrix4ByMatrix4(worldviewproj, worldview, gstate.projMatrix);
+	Matrix4ByMatrix4(viewproj, view, gstate.projMatrix);
 
 	// Next, we need to apply viewport, scissor, region, and even offset - but only for X/Y.
 	// Note that the PSP does not clip against the viewport.
@@ -235,7 +230,7 @@ void DrawEngineCommon::UpdatePlanes() {
 	applyViewport.wy = -(maxViewport.y + minViewport.y) * viewportInvSize.y;
 
 	float mtx[16];
-	Matrix4ByMatrix4(mtx, worldviewproj, applyViewport.m);
+	Matrix4ByMatrix4(mtx, viewproj, applyViewport.m);
 
 	planes_[0].Set(mtx[3] - mtx[0], mtx[7] - mtx[4], mtx[11] - mtx[8], mtx[15] - mtx[12]);  // Right
 	planes_[1].Set(mtx[3] + mtx[0], mtx[7] + mtx[4], mtx[11] + mtx[8], mtx[15] + mtx[12]);  // Left
@@ -362,7 +357,9 @@ bool DrawEngineCommon::TestBoundingBox(const void *vdata, const void *inds, int 
 			// TODO: We should test 4 vertices at a time using SIMD.
 			// I guess could also test one vertex against 4 planes at a time, though a lot of waste at the common case of 6.
 			const float *pos = verts + i * vertStride;
-			float value = planes_[plane].Test(pos);
+			float worldpos[3];
+			Vec3ByMatrix43(worldpos, pos, gstate.worldMatrix);
+			float value = planes_[plane].Test(worldpos);
 			if (value <= -FLT_EPSILON)  // Not sure why we use exactly this value. Probably '< 0' would do.
 				out++;
 			else
@@ -470,14 +467,19 @@ bool DrawEngineCommon::TestBoundingBoxFast(const void *vdata, int vertexCount, u
 	int totalPlanes = 4;
 	for (int plane = 0; plane < totalPlanes; plane++) {
 		int inside = 0;
+		int out = 0;
 		for (int i = 0; i < vertexCount; i++) {
 			// Test against the frustum planes, and count.
 			// TODO: We should test 4 vertices at a time using SIMD.
 			// I guess could also test one vertex against 4 planes at a time, though a lot of waste at the common case of 6.
 			const float *pos = verts + i * vertStride;
-			float value = planes_[plane].Test(pos);
+			float worldpos[3];
+			Vec3ByMatrix43(worldpos, pos, gstate.worldMatrix);
+			float value = planes_[plane].Test(worldpos);
 			if (value >= 0.0f)
 				inside++;
+			else
+				out++;
 		}
 
 		// No vertices inside this one plane? Don't need to draw.
