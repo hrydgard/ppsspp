@@ -1195,8 +1195,11 @@ extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_touch
 }
 
 extern "C" jboolean Java_org_ppsspp_ppsspp_NativeApp_keyDown(JNIEnv *, jclass, jint deviceId, jint key, jboolean isRepeat) {
-	if (!renderer_inited)
+	// Ignore keycode 0 from pads. Stadia controllers seem to produce them when pressing L2/R2 for some reason, confusing things.
+	if (!renderer_inited || (key == 0 && deviceId >= DEVICE_ID_PAD_0 && deviceId <= DEVICE_ID_PAD_9)) {
 		return false;
+	}
+
 	KeyInput keyInput;
 	keyInput.deviceId = (InputDeviceID)deviceId;
 	keyInput.keyCode = (InputKeyCode)key;
@@ -1208,8 +1211,11 @@ extern "C" jboolean Java_org_ppsspp_ppsspp_NativeApp_keyDown(JNIEnv *, jclass, j
 }
 
 extern "C" jboolean Java_org_ppsspp_ppsspp_NativeApp_keyUp(JNIEnv *, jclass, jint deviceId, jint key) {
-	if (!renderer_inited)
+	// Ignore keycode 0 from pads. Stadia controllers seem to produce them when pressing L2/R2 for some reason, confusing things.
+	if (!renderer_inited || (key == 0 && deviceId >= DEVICE_ID_PAD_0 && deviceId <= DEVICE_ID_PAD_9)) {
 		return false;
+	}
+
 	KeyInput keyInput;
 	keyInput.deviceId = (InputDeviceID)deviceId;
 	keyInput.keyCode = (InputKeyCode)key;
