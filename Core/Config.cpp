@@ -184,7 +184,7 @@ static bool DefaultVSync() {
 }
 
 static bool DefaultEnableStateUndo() {
-#ifdef PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(IOS)
+#if PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(IOS)
 	// Off on mobile to save disk space.
 	return false;
 #endif
