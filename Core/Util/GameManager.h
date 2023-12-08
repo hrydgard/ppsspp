@@ -23,6 +23,7 @@
 #pragma once
 
 #include <thread>
+#include <atomic>
 
 #include "Common/Net/HTTPClient.h"
 #include "Common/File/Path.h"
@@ -46,7 +47,6 @@ public:
 	// This starts off a background process.
 	bool DownloadAndInstall(std::string storeZipUrl);
 	bool IsDownloading(std::string storeZipUrl);
-	bool Uninstall(std::string name);
 
 	// Cancels the download in progress, if any.
 	bool CancelDownload();
@@ -58,7 +58,7 @@ public:
 	void Update();
 
 	GameManagerState GetState() {
-		if (installInProgress_ || installDonePending_)
+		if (InstallInProgress() || installDonePending_)
 			return GameManagerState::INSTALLING;
 		if (curDownload_)
 			return GameManagerState::DOWNLOADING;
@@ -75,26 +75,34 @@ public:
 
 	// Only returns false if there's already an installation in progress.
 	bool InstallGameOnThread(const Path &url, const Path &tempFileName, bool deleteAfter);
+	bool UninstallGameOnThread(const std::string &name);
 
 private:
+	// TODO: The return value on this is a bit pointless, we can't get at it.
 	bool InstallGame(Path url, Path tempFileName, bool deleteAfter);
 	bool InstallMemstickGame(struct zip *z, const Path &zipFile, const Path &dest, const ZipFileInfo &info, bool allowRoot, bool deleteAfter);
 	bool InstallMemstickZip(struct zip *z, const Path &zipFile, const Path &dest, const ZipFileInfo &info, bool deleteAfter);
 	bool InstallZippedISO(struct zip *z, int isoFileIndex, const Path &zipfile, bool deleteAfter);
 	bool InstallRawISO(const Path &zipFile, const std::string &originalName, bool deleteAfter);
+	void UninstallGame(std::string name);
+
 	void InstallDone();
+
 	bool ExtractFile(struct zip *z, int file_index, const Path &outFilename, size_t *bytesCopied, size_t allBytes);
 	bool DetectTexturePackDest(struct zip *z, int iniIndex, Path &dest);
 	void SetInstallError(const std::string &err);
+
+	bool InstallInProgress() const { return installThread_.joinable(); }
 
 	Path GetTempFilename() const;
 	std::string GetGameID(const Path &path) const;
 	std::string GetPBPGameID(FileLoader *loader) const;
 	std::string GetISOGameID(FileLoader *loader) const;
 	std::shared_ptr<http::Request> curDownload_;
-	std::shared_ptr<std::thread> installThread_;
-	bool installInProgress_ = false;
-	bool installDonePending_ = false;
+	std::thread installThread_;
+	std::atomic<bool> installDonePending_{};
+	std::atomic<bool> cleanRecentsAfter_{};
+
 	float installProgress_ = 0.0f;
 	std::string installError_;
 };

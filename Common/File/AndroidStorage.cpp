@@ -245,8 +245,9 @@ std::vector<File::FileInfo> Android_ListContentUri(const std::string &path, bool
 	env->DeleteLocalRef(fileList);
 
 	double elapsed = time_now_d() - start;
-	if (elapsed > 0.1) {
-		INFO_LOG(FILESYS, "Listing directory on content URI took %0.3f s (%d files)", elapsed, (int)items.size());
+	double threshold = 0.1;
+	if (elapsed >= threshold) {
+		INFO_LOG(FILESYS, "Listing directory on content URI '%s' took %0.3f s (%d files, log threshold = %0.3f)", path.c_str(), elapsed, (int)items.size(), threshold);
 	}
 	return items;
 }

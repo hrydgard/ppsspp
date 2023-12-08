@@ -128,8 +128,12 @@ bool GameDB::GetGameInfos(std::string_view id, std::vector<GameDBInfo> *infos) {
 			// Ignore version and stuff for now
 			if (IDMatches(id, serial)) {
 				GameDBInfo info;
-				sscanf(line.crc.data(), "%08x", &info.crc);
-				sscanf(line.size.data(), "%llu", &info.size);
+				if (1 != sscanf(line.crc.data(), "%08x", &info.crc)) {
+					continue;
+				}
+				if (1 != sscanf(line.size.data(), "%llu", (long long *)&info.size)) {
+					continue;
+				}
 				info.title = line.title;
 				info.foreignTitle = line.foreignTitle;
 				infos->push_back(info);

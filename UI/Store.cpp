@@ -266,7 +266,6 @@ private:
 	void CreateViews();
 	UI::EventReturn OnInstall(UI::EventParams &e);
 	UI::EventReturn OnCancel(UI::EventParams &e);
-	UI::EventReturn OnUninstall(UI::EventParams &e);
 	UI::EventReturn OnLaunchClick(UI::EventParams &e);
 
 	bool IsGameInstalled() {
@@ -275,6 +274,7 @@ private:
 	std::string DownloadURL();
 
 	StoreEntry entry_;
+	UI::Button *uninstallButton_ = nullptr;
 	UI::Button *installButton_ = nullptr;
 	UI::Button *launchButton_ = nullptr;
 	UI::Button *cancelButton_ = nullptr;
@@ -301,6 +301,7 @@ void ProductView::CreateViews() {
 		LinearLayout *progressDisplay = new LinearLayout(ORIENT_HORIZONTAL);
 		installButton_ = progressDisplay->Add(new Button(st->T("Install")));
 		installButton_->OnClick.Handle(this, &ProductView::OnInstall);
+		uninstallButton_ = nullptr;
 
 		speedView_ = progressDisplay->Add(new TextView(""));
 		speedView_->SetVisibility(isDownloading ? V_VISIBLE : V_GONE);
@@ -309,7 +310,11 @@ void ProductView::CreateViews() {
 		installButton_ = nullptr;
 		speedView_ = nullptr;
 		Add(new TextView(st->T("Already Installed")));
-		Add(new Button(st->T("Uninstall")))->OnClick.Handle(this, &ProductView::OnUninstall);
+		uninstallButton_ = new Button(st->T("Uninstall"));
+		Add(uninstallButton_)->OnClick.Add([=](UI::EventParams &e) {
+			g_GameManager.UninstallGameOnThread(entry_.file);
+			return UI::EVENT_DONE;
+		});
 		launchButton_ = new Button(st->T("Launch Game"));
 		launchButton_->OnClick.Handle(this, &ProductView::OnLaunchClick);
 		Add(launchButton_);
@@ -338,6 +343,9 @@ void ProductView::Update() {
 	}
 	if (installButton_) {
 		installButton_->SetEnabled(g_GameManager.GetState() == GameManagerState::IDLE);
+	}
+	if (uninstallButton_) {
+		uninstallButton_->SetEnabled(g_GameManager.GetState() == GameManagerState::IDLE);
 	}
 	if (g_GameManager.GetState() == GameManagerState::DOWNLOADING) {
 		if (speedView_) {
@@ -384,12 +392,6 @@ UI::EventReturn ProductView::OnInstall(UI::EventParams &e) {
 
 UI::EventReturn ProductView::OnCancel(UI::EventParams &e) {
 	g_GameManager.CancelDownload();
-	return UI::EVENT_DONE;
-}
-
-UI::EventReturn ProductView::OnUninstall(UI::EventParams &e) {
-	g_GameManager.Uninstall(entry_.file);
-	CreateViews();
 	return UI::EVENT_DONE;
 }
 
