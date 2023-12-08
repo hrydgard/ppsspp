@@ -171,11 +171,8 @@ void GameManager::Update() {
 	}
 
 	if (installDonePending_) {
-		if (installThread_.get() != nullptr) {
-			if (installThread_->joinable())
-				installThread_->join();
-			installThread_.reset();
-		}
+		if (installThread_.joinable())
+			installThread_.join();
 		installDonePending_ = false;
 	}
 }
@@ -717,7 +714,7 @@ bool GameManager::InstallGameOnThread(const Path &url, const Path &fileName, boo
 	if (installInProgress_ || installDonePending_) {
 		return false;
 	}
-	installThread_.reset(new std::thread(std::bind(&GameManager::InstallGame, this, url, fileName, deleteAfter)));
+	installThread_ = std::thread(std::bind(&GameManager::InstallGame, this, url, fileName, deleteAfter));
 	return true;
 }
 
