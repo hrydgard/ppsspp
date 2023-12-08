@@ -95,7 +95,7 @@ bool GameManager::DownloadAndInstall(std::string storeFileUrl) {
 		ERROR_LOG(HLE, "Can only process one download at a time");
 		return false;
 	}
-	if (installInProgress_) {
+	if (InstallInProgress()) {
 		ERROR_LOG(HLE, "Can't download when an install is in progress (yet)");
 		return false;
 	}
@@ -127,13 +127,9 @@ float GameManager::DownloadSpeedKBps() {
 	return 0.0f;
 }
 
-bool GameManager::Uninstall(std::string name) {
-	if (name.empty()) {
-		ERROR_LOG(HLE, "Cannot remove an empty-named game");
-		return false;
-	}
+bool GameManager::UninstallGame(std::string name) {
 	Path gameDir = GetSysDirectory(DIRECTORY_GAME) / name;
-	INFO_LOG(HLE, "Deleting '%s'", gameDir.c_str());
+	INFO_LOG(HLE, "Uninstalling '%s'", gameDir.c_str());
 	if (!File::Exists(gameDir)) {
 		ERROR_LOG(HLE, "Game '%s' not installed, cannot uninstall", name.c_str());
 		return false;
@@ -141,11 +137,13 @@ bool GameManager::Uninstall(std::string name) {
 
 	bool success = File::DeleteDirRecursively(gameDir);
 	if (success) {
-		INFO_LOG(HLE, "Successfully deleted game '%s'", name.c_str());
-		g_Config.CleanRecent();
+		INFO_LOG(HLE, "Successfully uninstalled game '%s'", name.c_str());
+		InstallDone();
+		cleanRecentsAfter_ = true;
 		return true;
 	} else {
-		ERROR_LOG(HLE, "Failed to delete game '%s'", name.c_str());
+		ERROR_LOG(HLE, "Failed to uninstalled game '%s'", name.c_str());
+		InstallDone();
 		return false;
 	}
 }
@@ -170,10 +168,13 @@ void GameManager::Update() {
 		curDownload_.reset();
 	}
 
-	if (installDonePending_) {
-		if (installThread_.joinable())
+	if (installDonePending_.exchange(false)) {
+		if (installThread_.joinable()) {
 			installThread_.join();
-		installDonePending_ = false;
+		}
+		if (cleanRecentsAfter_.exchange(false)) {
+			g_Config.CleanRecent();
+		}
 	}
 }
 
@@ -278,7 +279,7 @@ ZipFileContents DetectZipFileContents(struct zip *z, ZipFileInfo *info) {
 bool GameManager::InstallGame(Path url, Path fileName, bool deleteAfter) {
 	SetCurrentThreadName("InstallGame");
 
-	if (installInProgress_ || installDonePending_) {
+	if (installDonePending_) {
 		ERROR_LOG(HLE, "Cannot have two installs in progress at the same time");
 		return false;
 	}
@@ -299,7 +300,6 @@ bool GameManager::InstallGame(Path url, Path fileName, bool deleteAfter) {
 	}
 
 	auto sy = GetI18NCategory(I18NCat::SYSTEM);
-	installInProgress_ = true;
 
 	Path pspGame = GetSysDirectory(DIRECTORY_GAME);
 	Path dest = pspGame;
@@ -711,10 +711,22 @@ bool GameManager::InstallZippedISO(struct zip *z, int isoFileIndex, const Path &
 }
 
 bool GameManager::InstallGameOnThread(const Path &url, const Path &fileName, bool deleteAfter) {
-	if (installInProgress_ || installDonePending_) {
+	if (InstallInProgress() || installDonePending_) {
 		return false;
 	}
 	installThread_ = std::thread(std::bind(&GameManager::InstallGame, this, url, fileName, deleteAfter));
+	return true;
+}
+
+bool GameManager::UninstallGameOnThread(const std::string &name) {
+	if (name.empty()) {
+		ERROR_LOG(HLE, "Cannot uninstall an empty-named game");
+		return false;
+	}
+	if (InstallInProgress() || installDonePending_ || curDownload_.get() != nullptr) {
+		return false;
+	}
+	installThread_ = std::thread(std::bind(&GameManager::UninstallGame, this, name));
 	return true;
 }
 
@@ -733,12 +745,11 @@ bool GameManager::InstallRawISO(const Path &file, const std::string &originalNam
 }
 
 void GameManager::ResetInstallError() {
-	if (!installInProgress_) {
+	if (!InstallInProgress()) {
 		installError_.clear();
 	}
 }
 
 void GameManager::InstallDone() {
 	installDonePending_ = true;
-	installInProgress_ = false;
 }

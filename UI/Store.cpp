@@ -266,7 +266,6 @@ private:
 	void CreateViews();
 	UI::EventReturn OnInstall(UI::EventParams &e);
 	UI::EventReturn OnCancel(UI::EventParams &e);
-	UI::EventReturn OnUninstall(UI::EventParams &e);
 	UI::EventReturn OnLaunchClick(UI::EventParams &e);
 
 	bool IsGameInstalled() {
@@ -309,7 +308,10 @@ void ProductView::CreateViews() {
 		installButton_ = nullptr;
 		speedView_ = nullptr;
 		Add(new TextView(st->T("Already Installed")));
-		Add(new Button(st->T("Uninstall")))->OnClick.Handle(this, &ProductView::OnUninstall);
+		Add(new Button(st->T("Uninstall")))->OnClick.Add([=](UI::EventParams &e) {
+			g_GameManager.UninstallGameOnThread(entry_.file);
+			return UI::EVENT_DONE;
+		});
 		launchButton_ = new Button(st->T("Launch Game"));
 		launchButton_->OnClick.Handle(this, &ProductView::OnLaunchClick);
 		Add(launchButton_);
@@ -384,12 +386,6 @@ UI::EventReturn ProductView::OnInstall(UI::EventParams &e) {
 
 UI::EventReturn ProductView::OnCancel(UI::EventParams &e) {
 	g_GameManager.CancelDownload();
-	return UI::EVENT_DONE;
-}
-
-UI::EventReturn ProductView::OnUninstall(UI::EventParams &e) {
-	g_GameManager.Uninstall(entry_.file);
-	CreateViews();
 	return UI::EVENT_DONE;
 }
 
