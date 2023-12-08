@@ -822,8 +822,12 @@ void AutoConfForPad(const std::string &name) {
 		SetDefaultKeyMap(DEFAULT_MAPPING_ANDROID_PAD, false);
 	}
 #else
-	// TODO: Should actually check for XInput?
-	if (name.find("Xbox") != std::string::npos) {
+#if PPSSPP_PLATFORM(WINDOWS)
+	const bool platformSupportsXinput = true;
+#else
+	const bool platformSupportsXinput = false;
+#endif
+	if (platformSupportsXinput && name.find("Xbox") != std::string::npos) {
 		SetDefaultKeyMap(DEFAULT_MAPPING_XINPUT, false);
 	} else {
 		SetDefaultKeyMap(DEFAULT_MAPPING_PAD, false);
