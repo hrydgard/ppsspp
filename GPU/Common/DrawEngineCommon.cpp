@@ -442,11 +442,12 @@ bool DrawEngineCommon::TestBoundingBoxFast(const void *vdata, int vertexCount, u
 			__m128 pos = _mm_mul_ps(_mm_cvtepi32_ps(bits), scaleFactor);
 			_mm_storeu_ps(verts + i * 3, pos);  // TODO: use stride 4 to avoid clashing writes?
 		}
-#elif PPSSPP_ARCH(ARM_NEON)
+#elif 0 && PPSSPP_ARCH(ARM_NEON)
+		__m128 scaleFactor = vdupq_n_f32(1.0f / 32768.0f);
 		for (int i = 0; i < vertexCount; i++) {
 			const int16_t *dataPtr = ((const int16_t *)((const s8 *)vdata + i * stride + offset));
 			int32x4_t data = vmovl_s16(vld1_s16(dataPtr));
-			float32x4_t pos = vcvtq_n_s32_f32(data, 15);  // This does the division by 32768.0f, effectively.
+			float32x4_t pos = vmulq_f32(scaleFactor, vcvtq_s32_f32(data));  // This does the division by 32768.0f, effectively.
 			vst1q_f32(verts + i * 3, pos);
 		}
 #else
@@ -470,15 +471,15 @@ bool DrawEngineCommon::TestBoundingBoxFast(const void *vdata, int vertexCount, u
 	// We test one vertex against 4 planes to get some SIMD. Vertices need to be transformed to world space
 	// for testing, don't want to re-do that, so we have to use that "pivot" of the data.
 #ifdef _M_SSE
+	const __m128 worldX = _mm_loadu_ps(gstate.worldMatrix);
+	const __m128 worldY = _mm_loadu_ps(gstate.worldMatrix + 3);
+	const __m128 worldZ = _mm_loadu_ps(gstate.worldMatrix + 6);
+	const __m128 worldW = _mm_loadu_ps(gstate.worldMatrix + 9);
+	const __m128 planeX = _mm_loadu_ps(planes_.x);
+	const __m128 planeY = _mm_loadu_ps(planes_.y);
+	const __m128 planeZ = _mm_loadu_ps(planes_.z);
+	const __m128 planeW = _mm_loadu_ps(planes_.w);
 	__m128 inside = _mm_set1_ps(0.0f);
-	__m128 worldX = _mm_loadu_ps(gstate.worldMatrix);
-	__m128 worldY = _mm_loadu_ps(gstate.worldMatrix + 3);
-	__m128 worldZ = _mm_loadu_ps(gstate.worldMatrix + 6);
-	__m128 worldW = _mm_loadu_ps(gstate.worldMatrix + 9);
-	__m128 planeX = _mm_loadu_ps(planes_.x);
-	__m128 planeY = _mm_loadu_ps(planes_.y);
-	__m128 planeZ = _mm_loadu_ps(planes_.z);
-	__m128 planeW = _mm_loadu_ps(planes_.w);
 	for (int i = 0; i < vertexCount; i++) {
 		const float *pos = verts + i * vertStride;
 		__m128 worldpos = _mm_add_ps(
@@ -510,6 +511,45 @@ bool DrawEngineCommon::TestBoundingBoxFast(const void *vdata, int vertexCount, u
 	}
 	u8 mask = _mm_movemask_ps(inside);
 	return mask == 0xF;  // 0xF means that we found at least one vertex inside every one of the planes. We don't bother with counts, though it wouldn't be hard.
+#elif PPSSPP_ARCH(ARM_NEON)
+	const float32x4_t worldX = vld1q_f32(gstate.worldMatrix);
+	const float32x4_t worldY = vld1q_f32(gstate.worldMatrix + 3);
+	const float32x4_t worldZ = vld1q_f32(gstate.worldMatrix + 6);
+	const float32x4_t worldW = vld1q_f32(gstate.worldMatrix + 9);
+	const float32x4_t planeX = vld1q_f32(planes_.x);
+	const float32x4_t planeY = vld1q_f32(planes_.y);
+	const float32x4_t planeZ = vld1q_f32(planes_.z);
+	const float32x4_t planeW = vld1q_f32(planes_.w);
+	uint32x4_t inside = vdupq_n_u32(0);
+	for (int i = 0; i < vertexCount; i++) {
+		const float *pos = verts + i * vertStride;
+		float32x4_t objpos = vld1q_f32(pos);
+		float32x4_t worldpos = vaddq_f32(
+			vaddq_f32(
+				vmulq_laneq_f32(worldX, objpos, 0),
+				vmulq_laneq_f32(worldY, objpos, 1)
+			),
+			vaddq_f32(
+				vmulq_laneq_f32(worldZ, objpos, 2),
+				worldW
+			)
+		);
+		// OK, now we check it against the four planes.
+		// This is really curiously similar to a matrix multiplication (well, it is one).
+		float32x4_t planeDist = vaddq_f32(
+			vaddq_f32(
+				vmulq_laneq_f32(planeX, worldpos, 0),
+				vmulq_laneq_f32(planeY, worldpos, 1)
+			),
+			vaddq_f32(
+				vmulq_laneq_f32(planeZ, worldpos, 2),
+				planeW
+			)
+		);
+		inside = vorrq_u32(inside, vcgeq_f32(planeDist, vdupq_n_f32(0.0f)));
+	}
+	uint64_t insideBits = vget_lane_u64(vreinterpret_u64_u16(vmovn_u32(inside)), 0);
+	return ~insideBits == 0;  // InsideBits all ones means that we found at least one vertex inside every one of the planes. We don't bother with counts, though it wouldn't be hard.
 #else
 	int inside[4]{};
 	for (int i = 0; i < vertexCount; i++) {
