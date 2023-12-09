@@ -1893,7 +1893,7 @@ void PlayTimeTracker::Load(const Section *section) {
 
 		// Parse the string.
 		PlayTime gameTime{};
-		if (2 == sscanf(value.c_str(), "%d,%llu", &gameTime.totalTimePlayed, &gameTime.lastTimePlayed)) {
+		if (2 == sscanf(value.c_str(), "%d,%llu", &gameTime.totalTimePlayed, (long long *)&gameTime.lastTimePlayed)) {
 			tracker_[key] = gameTime;
 		}
 	}

@@ -484,6 +484,7 @@
     <ClInclude Include="Input\GestureDetector.h" />
     <ClInclude Include="Input\InputState.h" />
     <ClInclude Include="Input\KeyCodes.h" />
+    <ClInclude Include="Math\CrossSIMD.h" />
     <ClInclude Include="Math\curves.h" />
     <ClInclude Include="Math\expression_parser.h" />
     <ClInclude Include="Math\fast\fast_matrix.h" />

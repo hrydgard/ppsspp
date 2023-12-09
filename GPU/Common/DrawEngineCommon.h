@@ -69,11 +69,11 @@ public:
 	virtual void SendDataToShader(const SimpleVertex *const *points, int size_u, int size_v, u32 vertType, const Spline::Weight2D &weights) = 0;
 };
 
-// Culling plane.
-struct Plane {
-	float x, y, z, w;
-	void Set(float _x, float _y, float _z, float _w) { x = _x; y = _y; z = _z; w = _w; }
-	float Test(const float f[3]) const { return x * f[0] + y * f[1] + z * f[2] + w; }
+// Culling plane, group of 8.
+struct alignas(16) Plane8 {
+	float x[8], y[8], z[8], w[8];
+	void Set(int i, float _x, float _y, float _z, float _w) { x[i] = _x; y[i] = _y; z[i] = _z; w[i] = _w; }
+	float Test(int i, const float f[3]) const { return x[i] * f[0] + y[i] * f[1] + z[i] * f[2] + w[i]; }
 };
 
 class DrawEngineCommon {
@@ -104,6 +104,10 @@ public:
 
 	bool TestBoundingBox(const void *control_points, const void *inds, int vertexCount, u32 vertType);
 
+	// This is a less accurate version of TestBoundingBox, but faster. Can have more false positives.
+	// Doesn't support indexing.
+	bool TestBoundingBoxFast(const void *control_points, int vertexCount, u32 vertType);
+
 	void FlushSkin() {
 		bool applySkin = (lastVType_ & GE_VTYPE_WEIGHT_MASK) && decOptions_.applySkinInDecode;
 		if (applySkin) {
@@ -113,6 +117,8 @@ public:
 
 	int ExtendNonIndexedPrim(const uint32_t *cmd, const uint32_t *stall, u32 vertTypeID, bool clockwise, int *bytesRead, bool isTriangle);
 	bool SubmitPrim(const void *verts, const void *inds, GEPrimitiveType prim, int vertexCount, u32 vertTypeID, bool clockwise, int *bytesRead);
+	void SkipPrim(GEPrimitiveType prim, int vertexCount, u32 vertTypeID, int *bytesRead);
+
 	template<class Surface>
 	void SubmitCurve(const void *control_points, const void *indices, Surface &surface, u32 vertType, int *bytesRead, const char *scope);
 	void ClearSplineBezierWeights();
@@ -287,7 +293,8 @@ protected:
 	TessellationDataTransfer *tessDataTransfer;
 
 	// Culling
-	Plane planes_[6];
+	Plane8 planes_;
 	Vec2f minOffset_;
 	Vec2f maxOffset_;
+	bool offsetOutsideEdge_;
 };
