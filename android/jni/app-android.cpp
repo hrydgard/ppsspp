@@ -41,6 +41,8 @@ typedef _jobject *jobject;
 typedef _jclass *jclass;
 typedef jobject jstring;
 typedef jobject jbyteArray;
+typedef jobject jintArray;
+typedef jobject jfloatArray;
 
 struct JNIEnv {};
 
@@ -1229,18 +1231,25 @@ extern "C" jboolean Java_org_ppsspp_ppsspp_NativeApp_keyUp(JNIEnv *, jclass, jin
 	return NativeKey(keyInput);
 }
 
-// TODO: Make a batched interface, since we get these in batches on the Java side.
 extern "C" void Java_org_ppsspp_ppsspp_NativeApp_joystickAxis(
-		JNIEnv *env, jclass, jint deviceId, jint axisId, jfloat value) {
+		JNIEnv *env, jclass, jint deviceId, jintArray axisIds, jfloatArray values, jint count) {
 	if (!renderer_inited)
 		return;
 
+	AxisInput *axis = new AxisInput[count];
+	_dbg_assert_(count <= env->GetArrayLength(axisIds));
+	_dbg_assert_(count <= env->GetArrayLength(values));
+	jint *axisIdBuffer = env->GetIntArrayElements(axisIds, NULL);
+	jfloat *valueBuffer = env->GetFloatArrayElements(values, NULL);
+
 	// These are dirty-filtered on the Java side.
-	AxisInput axis;
-	axis.deviceId = (InputDeviceID)deviceId;
-	axis.axisId = (InputAxis)axisId;
-	axis.value = value;
-	NativeAxis(&axis, 1);
+	for (int i = 0; i < count; i++) {
+		axis[i].deviceId = (InputDeviceID)(int)deviceId;
+		axis[i].axisId = (InputAxis)(int)axisIdBuffer[i];
+		axis[i].value = valueBuffer[i];
+	}
+	NativeAxis(axis, count);
+	delete[] axis;
 }
 
 extern "C" jboolean Java_org_ppsspp_ppsspp_NativeApp_mouseWheelEvent(

@@ -169,12 +169,24 @@ public class NativeSurfaceView extends SurfaceView implements SensorEventListene
 	// MOGA Controller - from ControllerListener
 	@Override
 	public void onMotionEvent(com.bda.controller.MotionEvent event) {
-		NativeApp.joystickAxis(NativeApp.DEVICE_ID_PAD_0, com.bda.controller.MotionEvent.AXIS_X, event.getAxisValue(com.bda.controller.MotionEvent.AXIS_X));
-		NativeApp.joystickAxis(NativeApp.DEVICE_ID_PAD_0, com.bda.controller.MotionEvent.AXIS_Y, event.getAxisValue(com.bda.controller.MotionEvent.AXIS_Y));
-		NativeApp.joystickAxis(NativeApp.DEVICE_ID_PAD_0, com.bda.controller.MotionEvent.AXIS_Z, event.getAxisValue(com.bda.controller.MotionEvent.AXIS_Z));
-		NativeApp.joystickAxis(NativeApp.DEVICE_ID_PAD_0, com.bda.controller.MotionEvent.AXIS_RZ, event.getAxisValue(com.bda.controller.MotionEvent.AXIS_RZ));
-		NativeApp.joystickAxis(NativeApp.DEVICE_ID_PAD_0, com.bda.controller.MotionEvent.AXIS_LTRIGGER, event.getAxisValue(com.bda.controller.MotionEvent.AXIS_LTRIGGER));
-		NativeApp.joystickAxis(NativeApp.DEVICE_ID_PAD_0, com.bda.controller.MotionEvent.AXIS_RTRIGGER, event.getAxisValue(com.bda.controller.MotionEvent.AXIS_RTRIGGER));
+		int [] axisIds = new int[]{
+			com.bda.controller.MotionEvent.AXIS_X,
+			com.bda.controller.MotionEvent.AXIS_Y,
+			com.bda.controller.MotionEvent.AXIS_Z,
+			com.bda.controller.MotionEvent.AXIS_RZ,
+			com.bda.controller.MotionEvent.AXIS_LTRIGGER,
+			com.bda.controller.MotionEvent.AXIS_RTRIGGER,
+		};
+		float [] values = new float[]{
+			event.getAxisValue(com.bda.controller.MotionEvent.AXIS_X),
+			event.getAxisValue(com.bda.controller.MotionEvent.AXIS_Y),
+			event.getAxisValue(com.bda.controller.MotionEvent.AXIS_Z),
+			event.getAxisValue(com.bda.controller.MotionEvent.AXIS_RZ),
+			event.getAxisValue(com.bda.controller.MotionEvent.AXIS_LTRIGGER),
+			event.getAxisValue(com.bda.controller.MotionEvent.AXIS_RTRIGGER),
+		};
+
+		NativeApp.joystickAxis(NativeApp.DEVICE_ID_PAD_0, axisIds, values, 6);
 	}
 
 	// MOGA Controller - from ControllerListener
