@@ -410,6 +410,7 @@ bool DrawEngineCommon::TestBoundingBoxFast(const void *vdata, int vertexCount, u
 	}
 
 	// Also let's just bail if offsetOutsideEdge_ is set, instead of handling the cases.
+	// NOTE: This is written to in UpdatePlanes so can't check it before.
 	if (offsetOutsideEdge_)
 		return true;
 
@@ -468,8 +469,49 @@ bool DrawEngineCommon::TestBoundingBoxFast(const void *vdata, int vertexCount, u
 	// We only check the 4 sides. Near/far won't likely make a huge difference.
 	// We test one vertex against 4 planes to get some SIMD. Vertices need to be transformed to world space
 	// for testing, don't want to re-do that, so we have to use that "pivot" of the data.
+#ifdef _M_SSE
+	__m128 inside = _mm_set1_ps(0.0f);
+	__m128 worldX = _mm_loadu_ps(gstate.worldMatrix);
+	__m128 worldY = _mm_loadu_ps(gstate.worldMatrix + 3);
+	__m128 worldZ = _mm_loadu_ps(gstate.worldMatrix + 6);
+	__m128 worldW = _mm_loadu_ps(gstate.worldMatrix + 9);
+	__m128 planeX = _mm_loadu_ps(planes_.x);
+	__m128 planeY = _mm_loadu_ps(planes_.y);
+	__m128 planeZ = _mm_loadu_ps(planes_.z);
+	__m128 planeW = _mm_loadu_ps(planes_.w);
+	for (int i = 0; i < vertexCount; i++) {
+		const float *pos = verts + i * vertStride;
+		__m128 worldpos = _mm_add_ps(
+			_mm_add_ps(
+				_mm_mul_ps(worldX, _mm_set1_ps(pos[0])),
+				_mm_mul_ps(worldY, _mm_set1_ps(pos[1]))
+			),
+			_mm_add_ps(
+				_mm_mul_ps(worldZ, _mm_set1_ps(pos[2])),
+				worldW
+			)
+		);
+		// OK, now we check it against the four planes.
+		// This is really curiously similar to a matrix multiplication (well, it is one).
+		__m128 posX = _mm_shuffle_ps(worldpos, worldpos, 0);
+		__m128 posY = _mm_shuffle_ps(worldpos, worldpos, 1 | (1 << 2) | (1 << 4) | (1 << 6));
+		__m128 posZ = _mm_shuffle_ps(worldpos, worldpos, 2 | (2 << 2) | (2 << 4) | (2 << 6));
+		__m128 planeDist = _mm_add_ps(
+			_mm_add_ps(
+				_mm_mul_ps(planeX, posX),
+				_mm_mul_ps(planeY, posY)
+			),
+			_mm_add_ps(
+				_mm_mul_ps(planeZ, posZ),
+				planeW
+			)
+		);
+		inside = _mm_or_ps(inside, _mm_cmpge_ps(planeDist, _mm_setzero_ps()));
+	}
+	u8 mask = _mm_movemask_ps(inside);
+	return mask == 0xF;  // 0xF means that we found at least one vertex inside every one of the planes. We don't bother with counts, though it wouldn't be hard.
+#else
 	int inside[4]{};
-	int totalPlanes = 4;
 	for (int i = 0; i < vertexCount; i++) {
 		const float *pos = verts + i * vertStride;
 		float worldpos[3];
@@ -486,6 +528,8 @@ bool DrawEngineCommon::TestBoundingBoxFast(const void *vdata, int vertexCount, u
 			return false;
 		}
 	}
+#endif
+
 	return true;
 }
 
