@@ -10,7 +10,7 @@
 
 #include <cstdint>
 
-#ifdef _M_SSE
+#if PPSSPP_ARCH(SSE2)
 #include <emmintrin.h>
 #endif
 

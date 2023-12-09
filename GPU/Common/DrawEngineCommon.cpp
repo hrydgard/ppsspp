@@ -433,12 +433,12 @@ bool DrawEngineCommon::TestBoundingBoxFast(const void *vdata, int vertexCount, u
 		break;
 	case GE_VTYPE_POS_16BIT:
 	{
-#if defined(_M_SSE)
+#if PPSSPP_ARCH(SSE2)
 		__m128 scaleFactor = _mm_set1_ps(1.0f / 32768.0f);
 		for (int i = 0; i < vertexCount; i++) {
 			const s16 *data = ((const s16 *)((const s8 *)vdata + i * stride + offset));
 			__m128i bits = _mm_castpd_si128(_mm_load_sd((const double *)data));
-			// Sign extension. Ugly without SSE4.
+			// Sign extension. Hacky without SSE4.
 			bits = _mm_srai_epi32(_mm_unpacklo_epi16(bits, bits), 16);
 			__m128 pos = _mm_mul_ps(_mm_cvtepi32_ps(bits), scaleFactor);
 			_mm_storeu_ps(verts + i * 3, pos);  // TODO: use stride 4 to avoid clashing writes?
@@ -470,11 +470,7 @@ bool DrawEngineCommon::TestBoundingBoxFast(const void *vdata, int vertexCount, u
 	// We only check the 4 sides. Near/far won't likely make a huge difference.
 	// We test one vertex against 4 planes to get some SIMD. Vertices need to be transformed to world space
 	// for testing, don't want to re-do that, so we have to use that "pivot" of the data.
-<<<<<<< HEAD
-#ifdef _M_SSE
-=======
 #if PPSSPP_ARCH(SSE2)
->>>>>>> c5a94c3799 (Buildfix again)
 	const __m128 worldX = _mm_loadu_ps(gstate.worldMatrix);
 	const __m128 worldY = _mm_loadu_ps(gstate.worldMatrix + 3);
 	const __m128 worldZ = _mm_loadu_ps(gstate.worldMatrix + 6);
@@ -498,9 +494,9 @@ bool DrawEngineCommon::TestBoundingBoxFast(const void *vdata, int vertexCount, u
 		);
 		// OK, now we check it against the four planes.
 		// This is really curiously similar to a matrix multiplication (well, it is one).
-		__m128 posX = _mm_shuffle_ps(worldpos, worldpos, 0);
-		__m128 posY = _mm_shuffle_ps(worldpos, worldpos, 1 | (1 << 2) | (1 << 4) | (1 << 6));
-		__m128 posZ = _mm_shuffle_ps(worldpos, worldpos, 2 | (2 << 2) | (2 << 4) | (2 << 6));
+		__m128 posX = _mm_shuffle_ps(worldpos, worldpos, _MM_SHUFFLE(0, 0, 0, 0));
+		__m128 posY = _mm_shuffle_ps(worldpos, worldpos, _MM_SHUFFLE(1, 1, 1, 1));
+		__m128 posZ = _mm_shuffle_ps(worldpos, worldpos, _MM_SHUFFLE(2, 2, 2, 2));
 		__m128 planeDist = _mm_add_ps(
 			_mm_add_ps(
 				_mm_mul_ps(planeX, posX),
@@ -566,7 +562,6 @@ bool DrawEngineCommon::TestBoundingBoxFast(const void *vdata, int vertexCount, u
 		}
 	}
 #endif
-
 	return true;
 }
 

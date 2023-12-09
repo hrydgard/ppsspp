@@ -992,7 +992,16 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 
 #define MAX_CULL_CHECK_COUNT 6
 
+// For now, turn off culling on platforms where we don't have SIMD bounding box tests, like RISC-V.
+#if PPSSPP_ARCH(ARM_NEON) || PPSSPP_ARCH(SSE2)
+
 #define PASSES_CULLING ((vertexType & (GE_VTYPE_THROUGH_MASK | GE_VTYPE_MORPHCOUNT_MASK | GE_VTYPE_WEIGHT_MASK | GE_VTYPE_IDX_MASK)) || count > MAX_CULL_CHECK_COUNT)
+
+#else
+
+#define PASSES_CULLING true
+
+#endif
 
 	// If certain conditions are true, do frustum culling.
 	bool passCulling = PASSES_CULLING;
