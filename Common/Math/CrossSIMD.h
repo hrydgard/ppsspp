@@ -38,7 +38,7 @@ inline float32x4_t vmulq_laneq_f32(float32x4_t a, float32x4_t b, int lane) {
 	case 0: return vmulq_lane_f32(a, vget_low_f32(b), 0);
 	case 1: return vmulq_lane_f32(a, vget_low_f32(b), 1);
 	case 2: return vmulq_lane_f32(a, vget_high_f32(b), 0);
-	case 3: return vmulq_lane_f32(a, vget_high_f32(b), 1);
+	default: return vmulq_lane_f32(a, vget_high_f32(b), 1);
 	}
 }
 
@@ -47,8 +47,12 @@ inline float32x4_t vmlaq_laneq_f32(float32x4_t a, float32x4_t b, float32x4_t c, 
 	case 0: return vmlaq_lane_f32(a, b, vget_low_f32(c), 0);
 	case 1: return vmlaq_lane_f32(a, b, vget_low_f32(c), 1);
 	case 2: return vmlaq_lane_f32(a, b, vget_high_f32(c), 0);
-	case 3: return vmlaq_lane_f32(a, b, vget_high_f32(c), 1);
+	default: return vmlaq_lane_f32(a, b, vget_high_f32(c), 1);
 	}
+}
+
+inline uint32x4_t vcgezq_f32(float32x4_t v) {
+	return vcgeq_f32(v, vdupq_n_f32(0.0f));
 }
 
 #endif

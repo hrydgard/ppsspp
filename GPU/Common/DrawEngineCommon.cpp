@@ -444,11 +444,10 @@ bool DrawEngineCommon::TestBoundingBoxFast(const void *vdata, int vertexCount, u
 			_mm_storeu_ps(verts + i * 3, pos);  // TODO: use stride 4 to avoid clashing writes?
 		}
 #elif PPSSPP_ARCH(ARM_NEON)
-		float32x4_t scaleFactor = vdupq_n_f32(1.0f / 32768.0f);
 		for (int i = 0; i < vertexCount; i++) {
 			const s16 *dataPtr = ((const s16 *)((const s8 *)vdata + i * stride + offset));
 			int32x4_t data = vmovl_s16(vld1_s16(dataPtr));
-			float32x4_t pos = vmulq_f32(vcvtq_f32_s32(data), scaleFactor);
+			float32x4_t pos = vcvtq_n_f32_s32(data, 15);  // >> 15 = division by 32768.0f
 			vst1q_f32(verts + i * 3, pos);
 		}
 #else
