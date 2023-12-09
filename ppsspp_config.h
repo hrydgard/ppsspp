@@ -75,7 +75,7 @@
     #define PPSSPP_ARCH_64BIT 1
 #endif
 
-#if defined(__loongarch64)
+#if defined(__loongarch_lp64)
     //https://github.com/gcc-mirror/gcc/blob/master/gcc/config/loongarch/loongarch-c.cc
     #define PPSSPP_ARCH_LOONGARCH64 1
     #define PPSSPP_ARCH_64BIT 1
