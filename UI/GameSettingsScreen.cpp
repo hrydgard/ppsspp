@@ -729,18 +729,34 @@ void GameSettingsScreen::CreateControlsSettings(UI::ViewGroup *controlsSettings)
 			return UI::EVENT_CONTINUE;
 		});
 		controlsSettings->Add(new PopupSliderChoice(&g_Config.iRapidFireInterval, 1, 10, 5, co->T("Rapid fire interval"), screenManager(), "frames"));
-#if defined(USING_WIN_UI) || defined(SDL)
-		controlsSettings->Add(new ItemHeader(co->T("Mouse", "Mouse settings")));
-		CheckBox *mouseControl = controlsSettings->Add(new CheckBox(&g_Config.bMouseControl, co->T("Use Mouse Control")));
-		mouseControl->OnClick.Add([=](EventParams &e) {
-			if (g_Config.bMouseControl)
-				settingInfo_->Show(co->T("MouseControl Tip", "You can now map mouse in control mapping screen by pressing the 'M' icon."), e.v);
-			return UI::EVENT_CONTINUE;
-		});
-		controlsSettings->Add(new CheckBox(&g_Config.bMouseConfine, co->T("Confine Mouse", "Trap mouse within window/display area")))->SetEnabledPtr(&g_Config.bMouseControl);
-		controlsSettings->Add(new PopupSliderChoiceFloat(&g_Config.fMouseSensitivity, 0.01f, 1.0f, 0.1f, co->T("Mouse sensitivity"), 0.01f, screenManager(), "x"))->SetEnabledPtr(&g_Config.bMouseControl);
-		controlsSettings->Add(new PopupSliderChoiceFloat(&g_Config.fMouseSmoothing, 0.0f, 0.95f, 0.9f, co->T("Mouse smoothing"), 0.05f, screenManager(), "x"))->SetEnabledPtr(&g_Config.bMouseControl);
+#if defined(USING_WIN_UI) || defined(SDL) || PPSSPP_PLATFORM(ANDROID)
+		bool enableMouseSettings = true;
+#if PPSSPP_PLATFORM(ANDROID)
+		if (System_GetPropertyInt(SYSPROP_SYSTEMVERSION) < 12) {
+			enableMouseSettings = false;
+		}
 #endif
+#else
+		bool enableMouseSettings = false;
+#endif
+		if (enableMouseSettings) {
+			controlsSettings->Add(new ItemHeader(co->T("Mouse", "Mouse settings")));
+			CheckBox *mouseControl = controlsSettings->Add(new CheckBox(&g_Config.bMouseControl, co->T("Use Mouse Control")));
+			mouseControl->OnClick.Add([=](EventParams &e) {
+				if (g_Config.bMouseControl)
+					settingInfo_->Show(co->T("MouseControl Tip", "You can now map mouse in control mapping screen by pressing the 'M' icon."), e.v);
+				return UI::EVENT_CONTINUE;
+			});
+#if !PPSSPP_PLATFORM(ANDROID)
+			controlsSettings->Add(new CheckBox(&g_Config.bMouseConfine, co->T("Confine Mouse", "Trap mouse within window/display area")))->SetEnabledPtr(&g_Config.bMouseControl);
+#endif
+			auto sensitivitySlider = controlsSettings->Add(new PopupSliderChoiceFloat(&g_Config.fMouseSensitivity, 0.01f, 1.0f, 0.1f, co->T("Mouse sensitivity"), 0.01f, screenManager(), "x"));
+			sensitivitySlider->SetEnabledPtr(&g_Config.bMouseControl);
+			sensitivitySlider->SetLiveUpdate(true);
+			auto smoothingSlider = controlsSettings->Add(new PopupSliderChoiceFloat(&g_Config.fMouseSmoothing, 0.0f, 0.95f, 0.9f, co->T("Mouse smoothing"), 0.05f, screenManager(), "x"));
+			smoothingSlider->SetEnabledPtr(&g_Config.bMouseControl);
+			smoothingSlider->SetLiveUpdate(true);
+		}
 	}
 }
 

@@ -1071,6 +1071,8 @@ static Matrix4x4 ComputeOrthoMatrix(float xres, float yres) {
 	return ortho;
 }
 
+static void SendMouseDeltaAxis();
+
 void NativeFrame(GraphicsContext *graphicsContext) {
 	PROFILE_END_FRAME();
 
@@ -1203,6 +1205,8 @@ void NativeFrame(GraphicsContext *graphicsContext) {
 		if (sleepTime > 0)
 			sleep_ms(sleepTime);
 	}
+
+	SendMouseDeltaAxis();
 }
 
 bool HandleGlobalMessage(UIMessage message, const std::string &value) {
@@ -1355,6 +1359,60 @@ void NativeAxis(const AxisInput *axes, size_t count) {
 	for (size_t i = 0; i < count; i++) {
 		const AxisInput &axis = axes[i];
 		HLEPlugins::PluginDataAxis[axis.axisId] = axis.value;
+	}
+}
+
+float g_mouseDeltaX = 0;
+float g_mouseDeltaY = 0;
+
+void NativeMouseDelta(float dx, float dy) {
+	// Remap, shared code. Then send it as a regular axis event.
+	if (!g_Config.bMouseControl)
+		return;
+
+	// Accumulate mouse deltas, for some kind of smoothing.
+	g_mouseDeltaX += dx;
+	g_mouseDeltaY += dy;
+}
+
+// Called from NativeFrame.
+static void SendMouseDeltaAxis() {
+	static double lastTime = 0.0f;
+	double now = time_now_d();
+	if (lastTime == 0.0) {
+		lastTime = now;
+		return;
+	}
+	double dt = now - lastTime;
+	lastTime = now;
+
+	float scaleFactor_x = g_display.dpi_scale_x * 0.1 * g_Config.fMouseSensitivity;
+	float scaleFactor_y = g_display.dpi_scale_y * 0.1 * g_Config.fMouseSensitivity;
+
+	float mx = clamp_value(g_mouseDeltaX * scaleFactor_x, -1.0f, 1.0f);
+	float my = clamp_value(g_mouseDeltaY * scaleFactor_y, -1.0f, 1.0f);
+
+	// Decay the mouse deltas. This is where we should use dt.
+	float decay = expf(-dt * 50.0f * (1.0f - g_Config.fMouseSmoothing));
+	g_mouseDeltaX *= decay;
+	g_mouseDeltaY *= decay;
+
+	AxisInput axis[2];
+	axis[0].axisId = JOYSTICK_AXIS_MOUSE_REL_X;
+	axis[0].deviceId = DEVICE_ID_MOUSE;
+	axis[0].value = mx;
+	axis[1].axisId = JOYSTICK_AXIS_MOUSE_REL_Y;
+	axis[1].deviceId = DEVICE_ID_MOUSE;
+	axis[1].value = my;
+
+	HLEPlugins::PluginDataAxis[JOYSTICK_AXIS_MOUSE_REL_X] = mx;
+	HLEPlugins::PluginDataAxis[JOYSTICK_AXIS_MOUSE_REL_Y] = my;
+
+	//NOTICE_LOG(SYSTEM, "delta: %0.2f %0.2f    mx/my: %0.2f %0.2f   dpi: %f  sens: %f ",
+	//	g_mouseDeltaX, g_mouseDeltaY, mx, my, g_display.dpi_scale_x, g_Config.fMouseSensitivity);
+
+	if (GetUIState() == UISTATE_INGAME || g_Config.bMapMouse) {
+		NativeAxis(axis, 2);
 	}
 }
 

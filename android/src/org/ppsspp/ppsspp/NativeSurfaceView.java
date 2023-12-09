@@ -15,6 +15,7 @@ import android.hardware.SensorManager;
 import android.os.Build;
 import android.os.Handler;
 import android.util.Log;
+import android.view.InputDevice;
 import android.view.MotionEvent;
 import android.view.SurfaceView;
 
@@ -22,6 +23,8 @@ import com.bda.controller.Controller;
 import com.bda.controller.ControllerListener;
 import com.bda.controller.KeyEvent;
 import com.bda.controller.StateEvent;
+
+import java.lang.annotation.Native;
 
 public class NativeSurfaceView extends SurfaceView implements SensorEventListener, ControllerListener {
 	private static String TAG = "NativeSurfaceView";
@@ -58,6 +61,15 @@ public class NativeSurfaceView extends SurfaceView implements SensorEventListene
 		return ev.getToolType(pointer);
 	}
 
+	@TargetApi(Build.VERSION_CODES.HONEYCOMB_MR1)
+	private void processMouseDelta(final MotionEvent ev) {
+		if ((ev.getSource() & InputDevice.SOURCE_MOUSE) == InputDevice.SOURCE_MOUSE) {
+			float dx = ev.getAxisValue(MotionEvent.AXIS_RELATIVE_X);
+			float dy = ev.getAxisValue(MotionEvent.AXIS_RELATIVE_Y);
+			NativeApp.mouseDelta(dx, dy);
+		}
+	}
+
 	@SuppressLint("ClickableViewAccessibility")
 	@Override
 	public boolean onTouchEvent(final MotionEvent ev) {
@@ -81,9 +93,13 @@ public class NativeSurfaceView extends SurfaceView implements SensorEventListene
 				if (ev.getActionIndex() == i)
 					code = 4;
 				break;
-			case MotionEvent.ACTION_MOVE:
+			case MotionEvent.ACTION_MOVE: {
 				code = 1;
+				if (Build.VERSION.SDK_INT >= 12) {
+					processMouseDelta(ev);
+				}
 				break;
+			}
 			default:
 				break;
 			}
