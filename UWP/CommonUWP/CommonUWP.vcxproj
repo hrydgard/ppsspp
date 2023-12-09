@@ -105,6 +105,7 @@
     <ClInclude Include="..\..\Common\File\AndroidStorage.h" />
     <ClInclude Include="..\..\Common\GPU\GPUBackendCommon.h" />
     <ClInclude Include="..\..\Common\GPU\Vulkan\VulkanLoader.h" />
+    <ClInclude Include="..\..\Common\Math\CrossSIMD.h" />
     <ClInclude Include="..\..\Common\Math\Statistics.h" />
     <ClInclude Include="..\..\Common\Net\HTTPNaettRequest.h" />
     <ClInclude Include="..\..\Common\Net\HTTPRequest.h" />

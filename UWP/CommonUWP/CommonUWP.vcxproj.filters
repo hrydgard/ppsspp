@@ -862,6 +862,9 @@
     <ClInclude Include="..\..\ext\naett\naett.h">
       <Filter>ext\naett</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\Common\Math\CrossSIMD.h">
+      <Filter>Math</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="..\..\Common\Math\fast\fast_matrix_neon.S">
