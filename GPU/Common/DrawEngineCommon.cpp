@@ -278,7 +278,7 @@ bool DrawEngineCommon::TestBoundingBox(const void *vdata, const void *inds, int 
 	// Try to skip NormalizeVertices if it's pure positions. No need to bother with a vertex decoder
 	// and a large vertex format.
 	if ((vertType & 0xFFFFFF) == GE_VTYPE_POS_FLOAT && !inds) {
-		verts = (float *)vdata;
+		memcpy(verts, vdata, sizeof(float) * 3 * vertexCount);
 	} else if ((vertType & 0xFFFFFF) == GE_VTYPE_POS_8BIT && !inds) {
 		const s8 *vtx = (const s8 *)vdata;
 		for (int i = 0; i < vertexCount * 3; i++) {
@@ -336,7 +336,6 @@ bool DrawEngineCommon::TestBoundingBox(const void *vdata, const void *inds, int 
 				}
 				break;
 			case GE_VTYPE_POS_FLOAT:
-				// Previous code:
 				for (int i = 0; i < vertexCount; i++)
 					memcpy(&verts[i * 3], (const u8 *)vdata + stride * i + offset, sizeof(float) * 3);
 				break;
