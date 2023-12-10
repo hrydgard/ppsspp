@@ -231,10 +231,6 @@ void UIScreen::render(ScreenRenderMode mode) {
 
 		uiContext->PopTransform();
 	}
-
-	if (mode & ScreenRenderMode::TOP) {
-		screenManager()->getUIContext()->Flush();
-	}
 }
 
 TouchInput UIScreen::transformTouch(const TouchInput &touch) {

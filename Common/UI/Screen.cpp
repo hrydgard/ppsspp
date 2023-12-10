@@ -162,15 +162,20 @@ void ScreenManager::render() {
 		// Then we'll iterate them in reverse order.
 		// Note that we skip the overlay screen, we handle it separately.
 
-		bool foundCoveringScreen = false;  // Note, can be separate from background screen!
 		auto iter = stack_.end();
+		Screen *coveringScreen = nullptr;
+		Screen *backgroundScreen = nullptr;
 		do {
 			--iter;
-			if (!foundCoveringScreen) {
+			if (!coveringScreen) {
 				layers.push_back(iter->screen);
+			} else if (!backgroundScreen && iter->screen->canBeBackground()) {
+				// There still might be a screen that wants to be background - generally the EmuScreen if present.
+				layers.push_back(iter->screen);
+				backgroundScreen = iter->screen;
 			}
 			if (iter->flags != LAYER_TRANSPARENT) {
-				foundCoveringScreen = true;
+				coveringScreen = iter->screen;
 			}
 		} while (iter != stack_.begin());
 
@@ -181,6 +186,12 @@ void ScreenManager::render() {
 			if (i == (int)layers.size() - 1) {
 				// Bottom.
 				mode = ScreenRenderMode::FIRST;
+				if (layers[i] == backgroundScreen && coveringScreen != layers[i]) {
+					mode |= ScreenRenderMode::BACKGROUND;
+				}
+				if (i == 0) {
+					mode |= ScreenRenderMode::TOP;
+				}
 			} else if (i == 0) {
 				mode = ScreenRenderMode::TOP;
 			} else {
@@ -193,6 +204,8 @@ void ScreenManager::render() {
 			// It doesn't care about mode.
 			overlayScreen_->render(ScreenRenderMode::TOP);
 		}
+
+		getUIContext()->Flush();
 
 		if (postRenderCb_) {
 			// Really can't render anything after this! Will crash the screenshot mechanism if we do.

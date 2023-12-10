@@ -71,6 +71,7 @@ public:
 	virtual void sendMessage(UIMessage message, const char *value) {}
 	virtual void deviceLost() {}
 	virtual void deviceRestored() {}
+	virtual bool canBeBackground() { return false; }
 
 	virtual void focusChanged(ScreenFocusChange focusChange);
 
