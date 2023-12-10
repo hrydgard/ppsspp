@@ -174,12 +174,12 @@ void ScreenManager::render() {
 				// when screens are "compatible" (both are UIScreens, for example).
 				first->screen->preRender();
 				while (iter < last) {
-					iter->screen->render();
+					iter->screen->render(ScreenRenderMode::TOP);
 					iter++;
 				}
-				stack_.back().screen->render();
+				stack_.back().screen->render(ScreenRenderMode::TOP);
 				if (overlayScreen_) {
-					overlayScreen_->render();
+					overlayScreen_->render(ScreenRenderMode::TOP);
 				}
 				if (postRenderCb_) {
 					// Really can't render anything after this! Will crash the screenshot mechanism if we do.
@@ -191,9 +191,9 @@ void ScreenManager::render() {
 		default:
 			_assert_(stack_.back().screen);
 			stack_.back().screen->preRender();
-			stack_.back().screen->render();
+			stack_.back().screen->render(ScreenRenderMode::TOP);
 			if (overlayScreen_) {
-				overlayScreen_->render();
+				overlayScreen_->render(ScreenRenderMode::TOP);
 			}
 			if (postRenderCb_) {
 				// Really can't render anything after this! Will crash the screenshot mechanism if we do.

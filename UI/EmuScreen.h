@@ -42,7 +42,7 @@ public:
 	const char *tag() const override { return "Emu"; }
 
 	void update() override;
-	void render() override;
+	void render(ScreenRenderMode mode) override;
 	void preRender() override;
 	void postRender() override;
 	void dialogFinished(const Screen *dialog, DialogResult result) override;

@@ -517,8 +517,8 @@ void OSDOverlayScreen::CreateViews() {
 	osmView_ = root_->Add(new OnScreenMessagesView(new UI::AnchorLayoutParams(0.0f, 0.0f, 0.0f, 0.0f)));
 }
 
-void OSDOverlayScreen::render() {
-	UIScreen::render();
+void OSDOverlayScreen::render(ScreenRenderMode mode) {
+	UIScreen::render(mode);
 
 	DebugOverlay debugOverlay = (DebugOverlay)g_Config.iDebugOverlay;
 

@@ -1447,7 +1447,7 @@ void EmuScreen::postRender() {
 		draw->WipeQueue();
 }
 
-void EmuScreen::render() {
+void EmuScreen::render(ScreenRenderMode mode) {
 	using namespace Draw;
 
 	DrawContext *thin3d = screenManager()->getDrawContext();

@@ -147,7 +147,7 @@ public:
 	}
 
 	void touch(const TouchInput &touch) override;
-	void render() override;
+	void render(ScreenRenderMode mode) override;
 
 	bool key(const KeyInput &key) override;
 	void axis(const AxisInput &axis) override;

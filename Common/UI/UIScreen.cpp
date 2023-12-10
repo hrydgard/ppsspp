@@ -216,7 +216,7 @@ void UIScreen::postRender() {
 	screenManager()->getUIContext()->Flush();
 }
 
-void UIScreen::render() {
+void UIScreen::render(ScreenRenderMode mode) {
 	DoRecreateViews();
 
 	if (root_) {

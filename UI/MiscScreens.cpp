@@ -756,10 +756,10 @@ void LogoScreen::touch(const TouchInput &touch) {
 	}
 }
 
-void LogoScreen::render() {
+void LogoScreen::render(ScreenRenderMode mode) {
 	using namespace Draw;
 
-	UIScreen::render();
+	UIScreen::render(mode);
 	UIContext &dc = *screenManager()->getUIContext();
 
 	const Bounds &bounds = dc.GetBounds();
@@ -895,8 +895,8 @@ void CreditsScreen::update() {
 	UpdateUIState(UISTATE_MENU);
 }
 
-void CreditsScreen::render() {
-	UIScreen::render();
+void CreditsScreen::render(ScreenRenderMode mode) {
+	UIScreen::render(mode);
 
 	auto cr = GetI18NCategory(I18NCat::PSPCREDITS);
 

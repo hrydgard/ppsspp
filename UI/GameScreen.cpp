@@ -274,8 +274,8 @@ UI::EventReturn GameScreen::OnDeleteConfig(UI::EventParams &e)
 	return UI::EVENT_DONE;
 }
 
-void GameScreen::render() {
-	UIScreen::render();
+void GameScreen::render(ScreenRenderMode mode) {
+	UIScreen::render(mode);
 
 	auto ga = GetI18NCategory(I18NCat::GAME);
 

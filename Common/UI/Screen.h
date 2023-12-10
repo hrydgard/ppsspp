@@ -47,6 +47,14 @@ enum class ScreenFocusChange {
 	FOCUS_BECAME_TOP,  // Became the top screen again
 };
 
+enum class ScreenRenderMode {
+	FIRST = 1,
+	BACKGROUND = 2,
+	BEHIND = 4,
+	TOP = 8,
+};
+ENUM_CLASS_BITOPS(ScreenRenderMode);
+
 class Screen {
 public:
 	Screen() : screenManager_(nullptr) { }
@@ -57,7 +65,7 @@ public:
 	virtual void onFinish(DialogResult reason) {}
 	virtual void update() {}
 	virtual void preRender() {}
-	virtual void render() {}
+	virtual void render(ScreenRenderMode mode) {}
 	virtual void postRender() {}
 	virtual void resized() {}
 	virtual void dialogFinished(const Screen *dialog, DialogResult result) {}

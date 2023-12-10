@@ -140,7 +140,7 @@ public:
 	bool key(const KeyInput &key) override;
 	void touch(const TouchInput &touch) override;
 	void update() override;
-	void render() override;
+	void render(ScreenRenderMode mode) override;
 	void sendMessage(UIMessage message, const char *value) override;
 	void CreateViews() override {}
 
@@ -158,7 +158,7 @@ class CreditsScreen : public UIDialogScreenWithBackground {
 public:
 	CreditsScreen();
 	void update() override;
-	void render() override;
+	void render(ScreenRenderMode mode) override;
 
 	void CreateViews() override;
 
