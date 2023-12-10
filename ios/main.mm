@@ -52,10 +52,10 @@ static boolean_t (*exc_server)(mach_msg_header_t *, mach_msg_header_t *);
 static int (*ptrace)(int request, pid_t pid, caddr_t addr, int data);
 
 #define CS_OPS_STATUS	0		/* return status */
-#define CS_KILL     0x00000200  /* kill process if it becomes invalid */
+#define CS_KILL		0x00000200	/* kill process if it becomes invalid */
 #define CS_DEBUGGED	0x10000000	/* process is currently or has previously been debugged and allowed to run with invalid pages */
-#define PT_TRACE_ME     0       /* child declares it's being traced */
-#define PT_SIGEXC       12      /* signals as exceptions for current_proc */
+#define PT_TRACE_ME	0		/* child declares it's being traced */
+#define PT_SIGEXC	12		/* signals as exceptions for current_proc */
 #define ptrace(a, b, c, d) syscall(SYS_ptrace, a, b, c, d)
 
 static void *exception_handler(void *argument) {
@@ -159,8 +159,6 @@ bool jb_has_container(void) {
 	NSDictionary *entitlements = cached_app_entitlements();
 	return ![entitlements[@"com.apple.private.security.no-sandbox"] boolValue];
 }
-
-extern const char *environ[];
 
 static char *childArgv[] = {NULL, "debugme", NULL};
 
