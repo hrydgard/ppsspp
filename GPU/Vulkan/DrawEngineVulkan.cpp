@@ -248,7 +248,7 @@ void DrawEngineVulkan::DoFlush() {
 		if (decOptions_.applySkinInDecode && (lastVType_ & GE_VTYPE_WEIGHT_MASK)) {
 			// If software skinning, we're predecoding into "decoded". So make sure we're done, then push that content.
 			DecodeVerts(decoded_);
-			VkDeviceSize size = decodedVerts_ * dec_->GetDecVtxFmt().stride;
+			VkDeviceSize size = numDecodedVerts_ * dec_->GetDecVtxFmt().stride;
 			u8 *dest = (u8 *)pushVertex_->Allocate(size, 4, &vbuf, &vbOffset);
 			memcpy(dest, decoded_, size);
 		} else {
@@ -420,21 +420,20 @@ void DrawEngineVulkan::DoFlush() {
 			UpdateCachedViewportState(vpAndScissor);
 		}
 
-		int maxIndex = MaxIndex();
 		SoftwareTransform swTransform(params);
 
 		const Lin::Vec3 trans(gstate_c.vpXOffset, gstate_c.vpYOffset, gstate_c.vpZOffset * 0.5f + 0.5f);
 		const Lin::Vec3 scale(gstate_c.vpWidthScale, gstate_c.vpHeightScale, gstate_c.vpDepthScale * 0.5f);
 		swTransform.SetProjMatrix(gstate.projMatrix, gstate_c.vpWidth < 0, gstate_c.vpHeight < 0, trans, scale);
 
-		swTransform.Decode(prim, dec_->VertexType(), dec_->GetDecVtxFmt(), maxIndex, &result);
+		swTransform.Transform(prim, dec_->VertexType(), dec_->GetDecVtxFmt(), numDecodedVerts_, &result);
 		// Non-zero depth clears are unusual, but some drivers don't match drawn depth values to cleared values.
 		// Games sometimes expect exact matches (see #12626, for example) for equal comparisons.
 		if (result.action == SW_CLEAR && everUsedEqualDepth_ && gstate.isClearModeDepthMask() && result.depth > 0.0f && result.depth < 1.0f)
 			result.action = SW_NOT_READY;
 		if (result.action == SW_NOT_READY) {
-			swTransform.DetectOffsetTexture(maxIndex);
-			swTransform.BuildDrawingParams(prim, indexGen.VertexCount(), dec_->VertexType(), inds, maxIndex, &result);
+			swTransform.DetectOffsetTexture(numDecodedVerts_);
+			swTransform.BuildDrawingParams(prim, indexGen.VertexCount(), dec_->VertexType(), inds, numDecodedVerts_, &result);
 		}
 
 		if (result.setSafeSize)
@@ -519,7 +518,7 @@ void DrawEngineVulkan::DoFlush() {
 
 			if (result.drawIndexed) {
 				VkBuffer vbuf, ibuf;
-				vbOffset = (uint32_t)pushVertex_->Push(result.drawBuffer, maxIndex * sizeof(TransformedVertex), 4, &vbuf);
+				vbOffset = (uint32_t)pushVertex_->Push(result.drawBuffer, numDecodedVerts_ * sizeof(TransformedVertex), 4, &vbuf);
 				ibOffset = (uint32_t)pushIndex_->Push(inds, sizeof(short) * result.drawNumTrans, 4, &ibuf);
 				renderManager->DrawIndexed(descSetIndex, ARRAY_SIZE(dynamicUBOOffsets), dynamicUBOOffsets, vbuf, vbOffset, ibuf, ibOffset, result.drawNumTrans, 1);
 			} else {
@@ -564,7 +563,7 @@ void DrawEngineVulkan::DoFlush() {
 
 void DrawEngineVulkan::ResetAfterDraw() {
 	indexGen.Reset();
-	decodedVerts_ = 0;
+	numDecodedVerts_ = 0;
 	numDrawVerts_ = 0;
 	numDrawInds_ = 0;
 	vertexCountInDrawCalls_ = 0;

@@ -958,12 +958,12 @@ void DrawEngineCommon::DecodeVerts(u8 *dest) {
 		DeferredVerts &dv = drawVerts_[i];
 
 		int indexLowerBound = dv.indexLowerBound;
-		drawVertexOffsets_[i] = decodedVerts_ - indexLowerBound;
+		drawVertexOffsets_[i] = numDecodedVerts_ - indexLowerBound;
 
 		int indexUpperBound = dv.indexUpperBound;
 		// Decode the verts (and at the same time apply morphing/skinning). Simple.
-		dec_->DecodeVerts(dest + decodedVerts_ * stride, dv.verts, &dv.uvScale, indexLowerBound, indexUpperBound);
-		decodedVerts_ += indexUpperBound - indexLowerBound + 1;
+		dec_->DecodeVerts(dest + numDecodedVerts_ * stride, dv.verts, &dv.uvScale, indexLowerBound, indexUpperBound);
+		numDecodedVerts_ += indexUpperBound - indexLowerBound + 1;
 	}
 	decodeVertsCounter_ = i;
 }

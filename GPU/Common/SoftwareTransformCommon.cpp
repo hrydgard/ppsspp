@@ -171,7 +171,7 @@ void SoftwareTransform::SetProjMatrix(const float mtx[14], bool invertedX, bool 
 	projMatrix_.translateAndScale(trans, scale);
 }
 
-void SoftwareTransform::Decode(int prim, u32 vertType, const DecVtxFormat &decVtxFormat, int maxIndex, SoftwareTransformResult *result) {
+void SoftwareTransform::Transform(int prim, u32 vertType, const DecVtxFormat &decVtxFormat, int maxIndex, SoftwareTransformResult *result) {
 	u8 *decoded = params_.decoded;
 	TransformedVertex *transformed = params_.transformed;
 	bool throughmode = (vertType & GE_VTYPE_THROUGH_MASK) != 0;
