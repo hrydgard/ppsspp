@@ -6,7 +6,6 @@
 #include "Common/UI/UI.h"
 #include "Common/UI/View.h"
 #include "Common/UI/ViewGroup.h"
-#include "Common/UI/IconCache.h"
 
 #include "Common/Log.h"
 #include "Common/TimeUtil.h"
@@ -64,8 +63,6 @@ void ScreenManager::update() {
 	if (stack_.size()) {
 		stack_.back().screen->update();
 	}
-
-	g_iconCache.FrameUpdate();
 }
 
 void ScreenManager::switchToNext() {
@@ -139,7 +136,6 @@ void ScreenManager::axis(const AxisInput *axes, size_t count) {
 void ScreenManager::deviceLost() {
 	for (auto &iter : stack_)
 		iter.screen->deviceLost();
-	g_iconCache.ClearTextures();
 }
 
 void ScreenManager::deviceRestored() {

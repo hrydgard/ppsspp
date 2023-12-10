@@ -956,6 +956,7 @@ void NativeShutdownGraphics() {
 	if (g_screenManager) {
 		g_screenManager->deviceLost();
 	}
+	g_iconCache.ClearTextures();
 
 	if (gpu)
 		gpu->DeviceLost();
@@ -1104,7 +1105,6 @@ void NativeFrame(GraphicsContext *graphicsContext) {
 	Achievements::Idle();
 
 	g_DownloadManager.Update();
-	g_screenManager->update();
 
 	g_Discord.Update();
 	g_BackgroundAudio.Play();
@@ -1123,6 +1123,10 @@ void NativeFrame(GraphicsContext *graphicsContext) {
 		// guaranteed valid, to be safe - g_gameInfoCache messes around with textures.
 		g_BackgroundAudio.Update();
 	}
+
+	g_iconCache.FrameUpdate();
+
+	g_screenManager->update();
 
 	// Apply the UIContext bounds as a 2D transformation matrix.
 	// TODO: This should be moved into the draw context...
