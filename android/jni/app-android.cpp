@@ -1278,6 +1278,13 @@ extern "C" jboolean Java_org_ppsspp_ppsspp_NativeApp_mouseWheelEvent(
 	return true;
 }
 
+extern "C" void Java_org_ppsspp_ppsspp_NativeApp_mouseDelta(
+	JNIEnv * env, jclass, jfloat x, jfloat y) {
+	if (!renderer_inited)
+		return;
+	NativeMouseDelta(x, y);
+}
+
 extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_accelerometer(JNIEnv *, jclass, float x, float y, float z) {
 	if (!renderer_inited)
 		return;

@@ -733,28 +733,6 @@ struct InputStateTracker {
 		}
 	}
 
-	void MouseControl() {
-		// Disabled by default, needs a workaround to map to psp keys.
-		if (g_Config.bMouseControl) {
-			float scaleFactor_x = g_display.dpi_scale_x * 0.1 * g_Config.fMouseSensitivity;
-			float scaleFactor_y = g_display.dpi_scale_y * 0.1 * g_Config.fMouseSensitivity;
-
-			AxisInput axis[2];
-			axis[0].axisId = JOYSTICK_AXIS_MOUSE_REL_X;
-			axis[0].deviceId = DEVICE_ID_MOUSE;
-			axis[0].value = std::max(-1.0f, std::min(1.0f, mouseDeltaX * scaleFactor_x));
-			axis[1].axisId = JOYSTICK_AXIS_MOUSE_REL_Y;
-			axis[1].deviceId = DEVICE_ID_MOUSE;
-			axis[1].value = std::max(-1.0f, std::min(1.0f, mouseDeltaY * scaleFactor_y));
-
-			if (GetUIState() == UISTATE_INGAME || g_Config.bMapMouse) {
-				NativeAxis(axis, 2);
-			}
-			mouseDeltaX *= g_Config.fMouseSmoothing;
-			mouseDeltaY *= g_Config.fMouseSmoothing;
-		}
-	}
-
 	void MouseCaptureControl() {
 		bool captureMouseCondition = g_Config.bMouseControl && ((GetUIState() == UISTATE_INGAME && g_Config.bMouseConfine) || g_Config.bMapMouse);
 		if (mouseCaptured != captureMouseCondition) {
@@ -767,8 +745,6 @@ struct InputStateTracker {
 	}
 
 	bool mouseDown;
-	float mouseDeltaX;
-	float mouseDeltaY;
 	int mouseWheelMovedUpFrames;
 	int mouseWheelMovedDownFrames;
 	bool mouseCaptured;
@@ -1061,8 +1037,7 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 			input.id = 0;
 			NativeTouch(input);
 		}
-		inputTracker->mouseDeltaX += event.motion.xrel;
-		inputTracker->mouseDeltaY += event.motion.yrel;
+		NativeMouseDelta(event.motion.xrel, event.motion.yrel);
 		break;
 	case SDL_MOUSEBUTTONUP:
 		switch (event.button.button) {
@@ -1484,7 +1459,6 @@ int main(int argc, char *argv[]) {
 
 			UpdateSDLCursor();
 
-			inputTracker.MouseControl();
 			inputTracker.MouseCaptureControl();
 
 
@@ -1514,7 +1488,6 @@ int main(int argc, char *argv[]) {
 
 		UpdateSDLCursor();
 
-		inputTracker.MouseControl();
 		inputTracker.MouseCaptureControl();
 
 		bool renderThreadPaused = Core_IsWindowHidden() && g_Config.bPauseWhenMinimized && emuThreadState != (int)EmuThreadState::DISABLED;

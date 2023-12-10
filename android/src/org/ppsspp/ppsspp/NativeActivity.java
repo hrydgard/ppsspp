@@ -1019,6 +1019,12 @@ public abstract class NativeActivity extends Activity {
 		}
 
 		if ((event.getSource() & InputDevice.SOURCE_CLASS_POINTER) != 0) {
+			if ((event.getSource() & InputDevice.SOURCE_MOUSE) == InputDevice.SOURCE_MOUSE) {
+				float dx = event.getAxisValue(MotionEvent.AXIS_RELATIVE_X);
+				float dy = event.getAxisValue(MotionEvent.AXIS_RELATIVE_Y);
+				NativeApp.mouseDelta(dx, dy);
+			}
+
 			switch (event.getAction()) {
 			case MotionEvent.ACTION_HOVER_MOVE:
 				// process the mouse hover movement...
