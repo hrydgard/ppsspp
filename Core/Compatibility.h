@@ -105,6 +105,7 @@ struct CompatFlags {
 	bool LoadCLUTFromCurrentFrameOnly;
 	bool ForceUMDReadSpeed;
 	bool AllowDelayedReadbacks;
+	bool KernelGetSystemTimeLowEatMoreCycles;
 };
 
 struct VRCompat {
