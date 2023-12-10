@@ -154,7 +154,11 @@ void GetIndexBounds(const void *inds, int count, u32 vertType, u16 *indexLowerBo
 		*indexUpperBound = (u16)upperBound;
 	} else {
 		*indexLowerBound = 0;
-		*indexUpperBound = count - 1;
+		if (count > 0) {
+			*indexUpperBound = count - 1;
+		} else {
+			*indexUpperBound = 0;
+		}
 	}
 }
 

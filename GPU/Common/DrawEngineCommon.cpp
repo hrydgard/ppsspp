@@ -899,8 +899,11 @@ bool DrawEngineCommon::SubmitPrim(const void *verts, const void *inds, GEPrimiti
 	*bytesRead = vertexCount * dec_->VertexSize();
 
 	// Check that we have enough vertices to form the requested primitive.
-	if (vertexCount < 3 && ((vertexCount < 2 && prim > 0) || (prim > GE_PRIM_LINE_STRIP && prim != GE_PRIM_RECTANGLES)))
-		return false;
+	if (vertexCount < 3) {
+		if ((vertexCount < 2 && prim > 0) || (prim > GE_PRIM_LINE_STRIP && prim != GE_PRIM_RECTANGLES)) {
+			return false;
+		}
+	}
 
 	bool applySkin = (vertTypeID & GE_VTYPE_WEIGHT_MASK) && decOptions_.applySkinInDecode;
 
@@ -919,10 +922,10 @@ bool DrawEngineCommon::SubmitPrim(const void *verts, const void *inds, GEPrimiti
 	if (inds && numDrawVerts_ > decodeVertsCounter_ && drawVerts_[numDrawVerts_ - 1].verts == verts && !applySkin) {
 		// Same vertex pointer as a previous un-decoded draw call - let's just extend the decode!
 		di.vertDecodeIndex = numDrawVerts_ - 1;
-		DeferredVerts &dv = drawVerts_[numDrawVerts_ - 1];
 		u16 lb;
 		u16 ub;
 		GetIndexBounds(inds, vertexCount, vertTypeID, &lb, &ub);
+		DeferredVerts &dv = drawVerts_[numDrawVerts_ - 1];
 		if (lb < dv.indexLowerBound)
 			dv.indexLowerBound = lb;
 		if (ub > dv.indexUpperBound)
@@ -933,12 +936,8 @@ bool DrawEngineCommon::SubmitPrim(const void *verts, const void *inds, GEPrimiti
 		dv.verts = verts;
 		dv.vertexCount = vertexCount;
 		dv.uvScale = gstate_c.uv;
-		if (inds) {
-			GetIndexBounds(inds, vertexCount, vertTypeID, &dv.indexLowerBound, &dv.indexUpperBound);
-		} else {
-			dv.indexLowerBound = 0;
-			dv.indexUpperBound = vertexCount - 1;
-		}
+		// Does handle the unindexed case.
+		GetIndexBounds(inds, vertexCount, vertTypeID, &dv.indexLowerBound, &dv.indexUpperBound);
 	}
 
 	vertexCountInDrawCalls_ += vertexCount;

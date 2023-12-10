@@ -376,13 +376,21 @@ void DrawEngineVulkan::DoFlush() {
 			lastVType_ |= (1 << 26);
 			dec_ = GetVertexDecoder(lastVType_);
 		}
+		int prevDecodedVerts = numDecodedVerts_;
+
 		DecodeVerts(decoded_);
 		DecodeInds();
+
 		bool hasColor = (lastVType_ & GE_VTYPE_COL_MASK) != GE_VTYPE_COL_NONE;
 		if (gstate.isModeThrough()) {
 			gstate_c.vertexFullAlpha = gstate_c.vertexFullAlpha && (hasColor || gstate.getMaterialAmbientA() == 255);
 		} else {
 			gstate_c.vertexFullAlpha = gstate_c.vertexFullAlpha && ((hasColor && (gstate.materialupdate & 1)) || gstate.getMaterialAmbientA() == 255) && (!gstate.isLightingEnabled() || gstate.getAmbientA() == 255);
+		}
+
+		int vcount = indexGen.VertexCount();
+		if (numDecodedVerts_ > 10 * vcount) {
+			decIndex_ = decIndex_;
 		}
 
 		gpuStats.numUncachedVertsDrawn += indexGen.VertexCount();
