@@ -361,6 +361,10 @@ void EmuScreen::bootGame(const Path &filename) {
 	loadingViewVisible_->Divert(UI::V_VISIBLE, 0.75f);
 
 	screenManager()->getDrawContext()->ResetStats();
+
+	if (bootPending_) {
+		System_PostUIMessage(UIMessage::GAME_SELECTED, filename.c_str());
+	}
 }
 
 void EmuScreen::bootComplete() {
@@ -423,6 +427,8 @@ EmuScreen::~EmuScreen() {
 	if (!invalid_ || bootPending_) {
 		PSP_Shutdown();
 	}
+
+	System_PostUIMessage(UIMessage::GAME_SELECTED, "");
 
 	g_OSD.ClearAchievementStuff();
 
@@ -1409,9 +1415,32 @@ static void DrawFPS(UIContext *ctx, const Bounds &bounds) {
 	ctx->RebindTexture();
 }
 
+bool EmuScreen::canBeBackground() const {
+	if (g_Config.bSkipBufferEffects)
+		return false;
+
+	bool forceTransparent = false;  // this needs to be true somehow on the display layout screen.
+
+	if (!g_Config.bTransparentBackground && !forceTransparent)
+		return false;
+
+	return true;
+}
+
+void EmuScreen::darken() {
+	if (!screenManager()->topScreen()->wantBrightBackground()) {
+		UIContext &dc = *screenManager()->getUIContext();
+		uint32_t color = GetBackgroundColorWithAlpha(dc);
+		dc.Begin();
+		dc.RebindTexture();
+		dc.FillRect(UI::Drawable(color), dc.GetBounds());
+		dc.Flush();
+	}
+}
+
 void EmuScreen::render(ScreenRenderMode mode) {
-	if (mode == ScreenRenderMode::FIRST) {
-		// Actually, always gonna be first (?)
+	if (mode & ScreenRenderMode::FIRST) {
+		// Actually, always gonna be first when it exists (?)
 
 		using namespace Draw;
 		DrawContext *draw = screenManager()->getDrawContext();
@@ -1450,8 +1479,19 @@ void EmuScreen::render(ScreenRenderMode mode) {
 
 	g_OSD.NudgeSidebar();
 
-	if (screenManager()->topScreen() == this) {
+	if (mode & ScreenRenderMode::TOP) {
 		System_Notify(SystemNotification::KEEP_SCREEN_AWAKE);
+	} else {
+		// Not on top. Let's not execute, only draw the image.
+		thin3d->BindFramebufferAsRenderTarget(nullptr, { RPAction::CLEAR, RPAction::DONT_CARE, RPAction::DONT_CARE }, "EmuScreen_Stepping");
+		// Just to make sure.
+		if (PSP_IsInited() && !g_Config.bSkipBufferEffects) {
+			PSP_BeginHostFrame();
+			gpu->CopyDisplayToOutput(true);
+			PSP_EndHostFrame();
+			darken();
+		}
+		return;
 	}
 
 	if (invalid_) {
@@ -1548,8 +1588,11 @@ void EmuScreen::render(ScreenRenderMode mode) {
 	}
 
 	if (mode & ScreenRenderMode::TOP) {
+		// TODO: Replace this with something else.
 		if (stopRender_)
 			thin3d->WipeQueue();
+	} else if (!screenManager()->topScreen()->wantBrightBackground()) {
+		darken();
 	}
 }
 

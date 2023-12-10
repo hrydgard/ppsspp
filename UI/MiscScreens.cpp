@@ -368,35 +368,9 @@ uint32_t GetBackgroundColorWithAlpha(const UIContext &dc) {
 	return colorAlpha(colorBlend(dc.GetTheme().backgroundColor, 0, 0.5f), 0.65f);  // 0.65 = 166 = A6
 }
 
-void DrawGameBackground(UIContext &dc, const Path &gamePath, float x, float y, float z, bool transparent, bool darkenBackground) {
+void DrawGameBackground(UIContext &dc, const Path &gamePath, float x, float y, float z) {
 	using namespace Draw;
 	using namespace UI;
-
-	if (transparent && PSP_IsInited() && !g_Config.bSkipBufferEffects) {
-		gpu->CheckDisplayResized();
-		gpu->CheckConfigChanged();
-		gpu->CopyDisplayToOutput(true);
-
-		DrawContext *draw = dc.GetDrawContext();
-		Viewport viewport;
-		viewport.TopLeftX = 0;
-		viewport.TopLeftY = 0;
-		viewport.Width = g_display.pixel_xres;
-		viewport.Height = g_display.pixel_yres;
-		viewport.MaxDepth = 1.0;
-		viewport.MinDepth = 0.0;
-		draw->SetViewport(viewport);
-		dc.BeginFrame();
-		dc.RebindTexture();
-		dc.Begin();
-
-		if (darkenBackground) {
-			uint32_t color = GetBackgroundColorWithAlpha(dc);
-			dc.FillRect(UI::Drawable(color), dc.GetBounds());
-			dc.Flush();
-		}
-		return;
-	}
 
 	std::shared_ptr<GameInfo> ginfo;
 	if (!gamePath.empty())
@@ -455,21 +429,43 @@ void HandleCommonMessages(UIMessage message, const char *value, ScreenManager *m
 	}
 }
 
-void UIScreenWithBackground::DrawBackground(UIContext &dc) {
+void BackgroundScreen::render(ScreenRenderMode mode) {
+	if (mode & ScreenRenderMode::FIRST) {
+		SetupViewport();
+	} else {
+		_dbg_assert_(false);
+	}
+
+	UIContext *uiContext = screenManager()->getUIContext();
+
+	uiContext->PushTransform({ translation_, scale_, alpha_ });
+
+	uiContext->Begin();
 	float x, y, z;
 	screenManager()->getFocusPosition(x, y, z);
-	::DrawBackground(dc, 1.0f, x, y, z);
-	dc.Flush();
+
+	if (!gamePath_.empty()) {
+		::DrawGameBackground(*uiContext, gamePath_, x, y, z);
+	} else {
+		::DrawBackground(*uiContext, 1.0f, x, y, z);
+	}
+
+	uiContext->Flush();
+
+	uiContext->PopTransform();
 }
 
-void UIScreenWithGameBackground::DrawBackground(UIContext &dc) {
-	float x, y, z;
-	screenManager()->getFocusPosition(x, y, z);
-	if (!gamePath_.empty()) {
-		DrawGameBackground(dc, gamePath_, x, y, z, (g_Config.bTransparentBackground || forceTransparent_), darkenGameBackground_);
-	} else {
-		::DrawBackground(dc, 1.0f, x, y, z);
-		dc.Flush();
+void BackgroundScreen::sendMessage(UIMessage message, const char *value) {
+	switch (message) {
+	case UIMessage::GAME_SELECTED:
+		if (value && strlen(value)) {
+			gamePath_ = Path(value);
+		} else {
+			gamePath_.clear();
+		}
+		break;
+	default:
+		break;
 	}
 }
 
@@ -478,19 +474,6 @@ void UIScreenWithGameBackground::sendMessage(UIMessage message, const char *valu
 		screenManager()->push(new GameSettingsScreen(gamePath_));
 	} else {
 		UIScreenWithBackground::sendMessage(message, value);
-	}
-}
-
-void UIDialogScreenWithGameBackground::DrawBackground(UIContext &dc) {
-	using namespace UI;
-	using namespace Draw;
-	float x, y, z;
-	screenManager()->getFocusPosition(x, y, z);
-	if (!gamePath_.empty()) {
-		DrawGameBackground(dc, gamePath_, x, y, z, (g_Config.bTransparentBackground || forceTransparent_), darkenGameBackground_);
-	} else {
-		::DrawBackground(dc, 1.0f, x, y, z);
-		dc.Flush();
 	}
 }
 
@@ -504,13 +487,6 @@ void UIDialogScreenWithGameBackground::sendMessage(UIMessage message, const char
 
 void UIScreenWithBackground::sendMessage(UIMessage message, const char *value) {
 	HandleCommonMessages(message, value, screenManager(), this);
-}
-
-void UIDialogScreenWithBackground::DrawBackground(UIContext &dc) {
-	float x, y, z;
-	screenManager()->getFocusPosition(x, y, z);
-	::DrawBackground(dc, 1.0f, x, y, z);
-	dc.Flush();
 }
 
 void UIDialogScreenWithBackground::AddStandardBack(UI::ViewGroup *parent) {

@@ -798,7 +798,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 		g_screenManager->switchScreen(new LogoScreen(AfterLogoScreen::DEFAULT));
 	}
 
-	g_screenManager->SetOverlayScreen(new OSDOverlayScreen());
+	g_screenManager->SetBackgroundOverlayScreens(new BackgroundScreen(), new OSDOverlayScreen());
 
 	// Easy testing
 	// screenManager->push(new GPUDriverTestScreen());

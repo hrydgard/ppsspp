@@ -71,7 +71,8 @@ public:
 	virtual void sendMessage(UIMessage message, const char *value) {}
 	virtual void deviceLost() {}
 	virtual void deviceRestored() {}
-	virtual bool canBeBackground() { return false; }
+	virtual bool canBeBackground() const { return false; }
+	virtual bool wantBrightBackground() const { return false; }  // special hack for DisplayLayoutScreen.
 
 	virtual void focusChanged(ScreenFocusChange focusChange);
 
@@ -85,10 +86,6 @@ public:
 
 	ScreenManager *screenManager() { return screenManager_; }
 	void setScreenManager(ScreenManager *sm) { screenManager_ = sm; }
-
-	// This one is icky to use because you can't know what's in it until you know
-	// what screen it is.
-	virtual void *dialogData() { return 0; }
 
 	virtual const char *tag() const = 0;
 
@@ -161,7 +158,7 @@ public:
 	void getFocusPosition(float &x, float &y, float &z);
 
 	// Will delete any existing overlay screen.
-	void SetOverlayScreen(Screen *screen);
+	void SetBackgroundOverlayScreens(Screen *backgroundScreen, Screen *overlayScreen);
 
 	std::recursive_mutex inputLock_;
 
@@ -179,6 +176,7 @@ private:
 	const Screen *dialogFinished_ = nullptr;
 	DialogResult dialogResult_{};
 
+	Screen *backgroundScreen_ = nullptr;
 	Screen *overlayScreen_ = nullptr;
 
 	struct Layer {

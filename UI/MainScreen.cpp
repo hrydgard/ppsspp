@@ -1389,7 +1389,6 @@ UI::EventReturn MainScreen::OnFullScreenToggle(UI::EventParams &e) {
 }
 
 void MainScreen::DrawBackground(UIContext &dc) {
-	UIScreenWithBackground::DrawBackground(dc);
 	if (highlightedGamePath_.empty() && prevHighlightedGamePath_.empty()) {
 		return;
 	}

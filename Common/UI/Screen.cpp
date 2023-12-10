@@ -60,6 +60,7 @@ void ScreenManager::update() {
 		// NOTE: This is not a full UIScreen update, to avoid double global event processing.
 		overlayScreen_->update();
 	}
+	// The background screen doesn't need updating.
 	if (stack_.size()) {
 		stack_.back().screen->update();
 	}
@@ -161,7 +162,8 @@ void ScreenManager::render() {
 		// Start at the end, collect screens to form the transparency stack.
 		// Then we'll iterate them in reverse order.
 		// Note that we skip the overlay screen, we handle it separately.
-
+		// Additionally, we pick up a "background" screen. Normally it will be either
+		// the EmuScreen or the actual global background screen.
 		auto iter = stack_.end();
 		Screen *coveringScreen = nullptr;
 		Screen *backgroundScreen = nullptr;
@@ -179,7 +181,13 @@ void ScreenManager::render() {
 			}
 		} while (iter != stack_.begin());
 
-		// OK, now we iterate backwards over our little pile of screens.
+		// Confusing-looking expression, argh! Note the '_'
+		if (backgroundScreen_ && !backgroundScreen) {
+			layers.push_back(backgroundScreen_);
+			backgroundScreen = backgroundScreen_;
+		}
+
+		// OK, now we iterate backwards over our little pile of collected screens.
 		bool first = true;
 		for (int i = (int)layers.size() - 1; i >= 0; i--) {
 			ScreenRenderMode mode = ScreenRenderMode::DEFAULT;
@@ -240,8 +248,13 @@ void ScreenManager::sendMessage(UIMessage message, const char *value) {
 		touch(input);
 	}
 
-	if (!stack_.empty())
+	if (backgroundScreen_) {
+		backgroundScreen_->sendMessage(message, value);
+	}
+
+	if (!stack_.empty()) {
 		stack_.back().screen->sendMessage(message, value);
+	}
 }
 
 Screen *ScreenManager::topScreen() const {
@@ -375,10 +388,16 @@ void ScreenManager::processFinishDialog() {
 	}
 }
 
-void ScreenManager::SetOverlayScreen(Screen *screen) {
+void ScreenManager::SetBackgroundOverlayScreens(Screen *backgroundScreen, Screen *overlayScreen) {
+	if (backgroundScreen_) {
+		delete backgroundScreen_;
+	}
+	backgroundScreen_ = backgroundScreen;
+	backgroundScreen_->setScreenManager(this);
+
 	if (overlayScreen_) {
 		delete overlayScreen_;
 	}
-	overlayScreen_ = screen;
+	overlayScreen_ = overlayScreen;
 	overlayScreen_->setScreenManager(this);
 }

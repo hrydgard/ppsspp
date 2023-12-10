@@ -193,41 +193,45 @@ void UIScreen::deviceRestored() {
 		root_->DeviceRestored(screenManager()->getDrawContext());
 }
 
+void UIScreen::SetupViewport() {
+	using namespace Draw;
+	Draw::DrawContext *draw = screenManager()->getDrawContext();
+	_dbg_assert_(draw != nullptr);
+	// Bind and clear the back buffer
+	draw->BindFramebufferAsRenderTarget(nullptr, { RPAction::CLEAR, RPAction::CLEAR, RPAction::CLEAR, 0xFF000000 }, "UI");
+	screenManager()->getUIContext()->BeginFrame();
+
+	Draw::Viewport viewport;
+	viewport.TopLeftX = 0;
+	viewport.TopLeftY = 0;
+	viewport.Width = g_display.pixel_xres;
+	viewport.Height = g_display.pixel_yres;
+	viewport.MaxDepth = 1.0;
+	viewport.MinDepth = 0.0;
+	draw->SetViewport(viewport);
+	draw->SetTargetSize(g_display.pixel_xres, g_display.pixel_yres);
+}
+
 void UIScreen::render(ScreenRenderMode mode) {
 	if (mode & ScreenRenderMode::FIRST) {
-		using namespace Draw;
-		Draw::DrawContext *draw = screenManager()->getDrawContext();
-		_dbg_assert_(draw != nullptr);
-		// Bind and clear the back buffer
-		draw->BindFramebufferAsRenderTarget(nullptr, { RPAction::CLEAR, RPAction::CLEAR, RPAction::CLEAR, 0xFF000000 }, "UI");
-		screenManager()->getUIContext()->BeginFrame();
-
-		Draw::Viewport viewport;
-		viewport.TopLeftX = 0;
-		viewport.TopLeftY = 0;
-		viewport.Width = g_display.pixel_xres;
-		viewport.Height = g_display.pixel_yres;
-		viewport.MaxDepth = 1.0;
-		viewport.MinDepth = 0.0;
-		draw->SetViewport(viewport);
-		draw->SetTargetSize(g_display.pixel_xres, g_display.pixel_yres);
+		SetupViewport();
 	}
 
 	DoRecreateViews();
 
 	if (root_) {
-		UIContext *uiContext = screenManager()->getUIContext();
+		UIContext &uiContext = *screenManager()->getUIContext();
 
-		UI::LayoutViewHierarchy(*uiContext, root_, ignoreInsets_);
+		UI::LayoutViewHierarchy(uiContext, root_, ignoreInsets_);
 
-		uiContext->PushTransform({translation_, scale_, alpha_});
+		uiContext.PushTransform({translation_, scale_, alpha_});
 
-		uiContext->Begin();
-		DrawBackground(*uiContext);
-		root_->Draw(*uiContext);
-		uiContext->Flush();
+		uiContext.Begin();
+		DrawBackground(uiContext);
+		root_->Draw(uiContext);
+		uiContext.Flush();
 
-		uiContext->PopTransform();
+		uiContext.PopTransform();
 	}
 }
 
