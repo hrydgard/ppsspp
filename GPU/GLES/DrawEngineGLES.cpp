@@ -242,7 +242,7 @@ void DrawEngineGLES::DoFlush() {
 		_dbg_assert_msg_(false, "Trying to DoFlush while not in a render pass. This is bad.");
 		// can't goto bail here, skips too many variable initializations. So let's wipe the most important stuff.
 		indexGen.Reset();
-		decodedVerts_ = 0;
+		numDecodedVerts_ = 0;
 		numDrawVerts_ = 0;
 		numDrawInds_ = 0;
 		vertexCountInDrawCalls_ = 0;
@@ -274,7 +274,7 @@ void DrawEngineGLES::DoFlush() {
 		if (decOptions_.applySkinInDecode && (lastVType_ & GE_VTYPE_WEIGHT_MASK)) {
 			// If software skinning, we're predecoding into "decoded". So make sure we're done, then push that content.
 			DecodeVerts(decoded_);
-			uint32_t size = decodedVerts_ * dec_->GetDecVtxFmt().stride;
+			uint32_t size = numDecodedVerts_ * dec_->GetDecVtxFmt().stride;
 			u8 *dest = (u8 *)frameData.pushVertex->Allocate(size, 4, &vertexBuffer, &vertexBufferOffset);
 			memcpy(dest, decoded_, size);
 		} else {
@@ -376,7 +376,6 @@ void DrawEngineGLES::DoFlush() {
 			UpdateCachedViewportState(vpAndScissor_);
 		}
 
-		int maxIndex = MaxIndex();
 		int vertexCount = indexGen.VertexCount();
 
 		// TODO: Split up into multiple draw calls for GLES 2.0 where you can't guarantee support for more than 0x10000 verts.
@@ -395,13 +394,13 @@ void DrawEngineGLES::DoFlush() {
 		const bool invertedY = gstate_c.vpHeight * (params.flippedY ? 1.0 : -1.0f) < 0;
 		swTransform.SetProjMatrix(gstate.projMatrix, gstate_c.vpWidth < 0, invertedY, trans, scale);
 
-		swTransform.Decode(prim, dec_->VertexType(), dec_->GetDecVtxFmt(), maxIndex, &result);
+		swTransform.Transform(prim, dec_->VertexType(), dec_->GetDecVtxFmt(), numDecodedVerts_, &result);
 		// Non-zero depth clears are unusual, but some drivers don't match drawn depth values to cleared values.
 		// Games sometimes expect exact matches (see #12626, for example) for equal comparisons.
 		if (result.action == SW_CLEAR && everUsedEqualDepth_ && gstate.isClearModeDepthMask() && result.depth > 0.0f && result.depth < 1.0f)
 			result.action = SW_NOT_READY;
 		if (result.action == SW_NOT_READY)
-			swTransform.DetectOffsetTexture(maxIndex);
+			swTransform.DetectOffsetTexture(numDecodedVerts_);
 
 		if (textureNeedsApply)
 			textureCache_->ApplyTexture();
@@ -410,7 +409,7 @@ void DrawEngineGLES::DoFlush() {
 		ApplyDrawState(prim);
 
 		if (result.action == SW_NOT_READY)
-			swTransform.BuildDrawingParams(prim, vertexCount, dec_->VertexType(), inds, maxIndex, &result);
+			swTransform.BuildDrawingParams(prim, vertexCount, dec_->VertexType(), inds, numDecodedVerts_, &result);
 		if (result.setSafeSize)
 			framebufferManager_->SetSafeSize(result.safeWidth, result.safeHeight);
 
@@ -424,7 +423,7 @@ void DrawEngineGLES::DoFlush() {
 
 		if (result.action == SW_DRAW_PRIMITIVES) {
 			if (result.drawIndexed) {
-				vertexBufferOffset = (uint32_t)frameData.pushVertex->Push(result.drawBuffer, maxIndex * sizeof(TransformedVertex), 4, &vertexBuffer);
+				vertexBufferOffset = (uint32_t)frameData.pushVertex->Push(result.drawBuffer, numDecodedVerts_ * sizeof(TransformedVertex), 4, &vertexBuffer);
 				indexBufferOffset = (uint32_t)frameData.pushIndex->Push(inds, sizeof(uint16_t) * result.drawNumTrans, 2, &indexBuffer);
 				render_->DrawIndexed(
 					softwareInputLayout_, vertexBuffer, vertexBufferOffset, indexBuffer, indexBufferOffset,

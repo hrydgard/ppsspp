@@ -158,10 +158,6 @@ protected:
 	void DecodeVerts(u8 *dest);
 	void DecodeInds();
 
-	int MaxIndex() const {
-		return decodedVerts_;
-	}
-
 	// Preprocessing for spline/bezier
 	u32 NormalizeVertices(u8 *outPtr, u8 *bufPtr, const u8 *inPtr, int lowerBound, int upperBound, u32 vertType, int *vertexSize = nullptr);
 
@@ -204,7 +200,7 @@ protected:
 		gpuStats.numVertsSubmitted += vertexCountInDrawCalls_;
 
 		indexGen.Reset();
-		decodedVerts_ = 0;
+		numDecodedVerts_ = 0;
 		numDrawVerts_ = 0;
 		numDrawInds_ = 0;
 		vertexCountInDrawCalls_ = 0;
@@ -278,7 +274,7 @@ protected:
 
 	// Vertex collector state
 	IndexGenerator indexGen;
-	int decodedVerts_ = 0;
+	int numDecodedVerts_ = 0;
 	GEPrimitiveType prevPrim_ = GE_PRIM_INVALID;
 
 	// Shader blending state
