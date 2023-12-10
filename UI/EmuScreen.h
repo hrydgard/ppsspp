@@ -43,8 +43,6 @@ public:
 
 	void update() override;
 	void render(ScreenRenderMode mode) override;
-	void preRender() override;
-	void postRender() override;
 	void dialogFinished(const Screen *dialog, DialogResult result) override;
 	void sendMessage(UIMessage message, const char *value) override;
 	void resized() override;

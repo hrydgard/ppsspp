@@ -155,52 +155,48 @@ void ScreenManager::resized() {
 
 void ScreenManager::render() {
 	if (!stack_.empty()) {
-		switch (stack_.back().flags) {
-		case LAYER_TRANSPARENT:
-			if (stack_.size() == 1) {
-				ERROR_LOG(SYSTEM, "Can't have sidemenu over nothing");
-				break;
-			} else {
-				auto last = stack_.end();
-				auto iter = last;
-				iter--;
-				while (iter->flags == LAYER_TRANSPARENT) {
-					iter--;
-				}
-				auto first = iter;
-				_assert_(iter->screen);
+		// Collect the screens to render
+		TinySet<Screen *, 6> layers;
 
-				// TODO: Make really sure that this "mismatched" pre/post only happens
-				// when screens are "compatible" (both are UIScreens, for example).
-				first->screen->preRender();
-				while (iter < last) {
-					iter->screen->render(ScreenRenderMode::TOP);
-					iter++;
-				}
-				stack_.back().screen->render(ScreenRenderMode::TOP);
-				if (overlayScreen_) {
-					overlayScreen_->render(ScreenRenderMode::TOP);
-				}
-				if (postRenderCb_) {
-					// Really can't render anything after this! Will crash the screenshot mechanism if we do.
-					postRenderCb_(getUIContext(), postRenderUserdata_);
-				}
-				first->screen->postRender();
-				break;
+		// Start at the end, collect screens to form the transparency stack.
+		// Then we'll iterate them in reverse order.
+		// Note that we skip the overlay screen, we handle it separately.
+
+		bool foundCoveringScreen = false;  // Note, can be separate from background screen!
+		auto iter = stack_.end();
+		do {
+			--iter;
+			if (!foundCoveringScreen) {
+				layers.push_back(iter->screen);
 			}
-		default:
-			_assert_(stack_.back().screen);
-			stack_.back().screen->preRender();
-			stack_.back().screen->render(ScreenRenderMode::TOP);
-			if (overlayScreen_) {
-				overlayScreen_->render(ScreenRenderMode::TOP);
+			if (iter->flags != LAYER_TRANSPARENT) {
+				foundCoveringScreen = true;
 			}
-			if (postRenderCb_) {
-				// Really can't render anything after this! Will crash the screenshot mechanism if we do.
-				postRenderCb_(getUIContext(), postRenderUserdata_);
+		} while (iter != stack_.begin());
+
+		// OK, now we iterate backwards over our little pile of screens.
+		bool first = true;
+		for (int i = (int)layers.size() - 1; i >= 0; i--) {
+			ScreenRenderMode mode = ScreenRenderMode::DEFAULT;
+			if (i == (int)layers.size() - 1) {
+				// Bottom.
+				mode = ScreenRenderMode::FIRST;
+			} else if (i == 0) {
+				mode = ScreenRenderMode::TOP;
+			} else {
+				mode = ScreenRenderMode::BEHIND;
 			}
-			stack_.back().screen->postRender();
-			break;
+			layers[i]->render(mode);
+		}
+
+		if (overlayScreen_) {
+			// It doesn't care about mode.
+			overlayScreen_->render(ScreenRenderMode::TOP);
+		}
+
+		if (postRenderCb_) {
+			// Really can't render anything after this! Will crash the screenshot mechanism if we do.
+			postRenderCb_(getUIContext(), postRenderUserdata_);
 		}
 	} else {
 		ERROR_LOG(SYSTEM, "No current screen!");

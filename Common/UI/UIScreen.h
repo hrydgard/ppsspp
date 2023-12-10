@@ -36,9 +36,7 @@ public:
 	~UIScreen();
 
 	void update() override;
-	void preRender() override;
 	void render(ScreenRenderMode mode) override;
-	void postRender() override;
 	void deviceLost() override;
 	void deviceRestored() override;
 

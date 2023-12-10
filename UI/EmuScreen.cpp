@@ -1409,45 +1409,39 @@ static void DrawFPS(UIContext *ctx, const Bounds &bounds) {
 	ctx->RebindTexture();
 }
 
-void EmuScreen::preRender() {
-	using namespace Draw;
-	DrawContext *draw = screenManager()->getDrawContext();
-	// Here we do NOT bind the backbuffer or clear the screen, unless non-buffered.
-	// The emuscreen is different than the others - we really want to allow the game to render to framebuffers
-	// before we ever bind the backbuffer for rendering. On mobile GPUs, switching back and forth between render
-	// targets is a mortal sin so it's very important that we don't bind the backbuffer unnecessarily here.
-	// We only bind it in FramebufferManager::CopyDisplayToOutput (unless non-buffered)...
-	// We do, however, start the frame in other ways.
-
-	if ((g_Config.bSkipBufferEffects && !g_Config.bSoftwareRendering) || Core_IsStepping()) {
-		// We need to clear here already so that drawing during the frame is done on a clean slate.
-		if (Core_IsStepping() && gpuStats.numFlips != 0) {
-			draw->BindFramebufferAsRenderTarget(nullptr, { RPAction::KEEP, RPAction::DONT_CARE, RPAction::DONT_CARE }, "EmuScreen_BackBuffer");
-		} else {
-			draw->BindFramebufferAsRenderTarget(nullptr, { RPAction::CLEAR, RPAction::CLEAR, RPAction::CLEAR, 0xFF000000 }, "EmuScreen_BackBuffer");
-		}
-
-		Viewport viewport;
-		viewport.TopLeftX = 0;
-		viewport.TopLeftY = 0;
-		viewport.Width = g_display.pixel_xres;
-		viewport.Height = g_display.pixel_yres;
-		viewport.MaxDepth = 1.0;
-		viewport.MinDepth = 0.0;
-		draw->SetViewport(viewport);
-	}
-	draw->SetTargetSize(g_display.pixel_xres, g_display.pixel_yres);
-}
-
-void EmuScreen::postRender() {
-	Draw::DrawContext *draw = screenManager()->getDrawContext();
-	if (!draw)
-		return;
-	if (stopRender_)
-		draw->WipeQueue();
-}
-
 void EmuScreen::render(ScreenRenderMode mode) {
+	if (mode == ScreenRenderMode::FIRST) {
+		// Actually, always gonna be first (?)
+
+		using namespace Draw;
+		DrawContext *draw = screenManager()->getDrawContext();
+		// Here we do NOT bind the backbuffer or clear the screen, unless non-buffered.
+		// The emuscreen is different than the others - we really want to allow the game to render to framebuffers
+		// before we ever bind the backbuffer for rendering. On mobile GPUs, switching back and forth between render
+		// targets is a mortal sin so it's very important that we don't bind the backbuffer unnecessarily here.
+		// We only bind it in FramebufferManager::CopyDisplayToOutput (unless non-buffered)...
+		// We do, however, start the frame in other ways.
+
+		if ((g_Config.bSkipBufferEffects && !g_Config.bSoftwareRendering) || Core_IsStepping()) {
+			// We need to clear here already so that drawing during the frame is done on a clean slate.
+			if (Core_IsStepping() && gpuStats.numFlips != 0) {
+				draw->BindFramebufferAsRenderTarget(nullptr, { RPAction::KEEP, RPAction::DONT_CARE, RPAction::DONT_CARE }, "EmuScreen_BackBuffer");
+			} else {
+				draw->BindFramebufferAsRenderTarget(nullptr, { RPAction::CLEAR, RPAction::CLEAR, RPAction::CLEAR, 0xFF000000 }, "EmuScreen_BackBuffer");
+			}
+
+			Viewport viewport;
+			viewport.TopLeftX = 0;
+			viewport.TopLeftY = 0;
+			viewport.Width = g_display.pixel_xres;
+			viewport.Height = g_display.pixel_yres;
+			viewport.MaxDepth = 1.0;
+			viewport.MinDepth = 0.0;
+			draw->SetViewport(viewport);
+		}
+		draw->SetTargetSize(g_display.pixel_xres, g_display.pixel_yres);
+	}
+
 	using namespace Draw;
 
 	DrawContext *thin3d = screenManager()->getDrawContext();
@@ -1551,6 +1545,11 @@ void EmuScreen::render(ScreenRenderMode mode) {
 		SetVRAppMode(VRAppMode::VR_DIALOG_MODE);
 	} else {
 		SetVRAppMode(screenManager()->topScreen() == this ? VRAppMode::VR_GAME_MODE : VRAppMode::VR_DIALOG_MODE);
+	}
+
+	if (mode & ScreenRenderMode::TOP) {
+		if (stopRender_)
+			thin3d->WipeQueue();
 	}
 }
 

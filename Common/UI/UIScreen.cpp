@@ -193,30 +193,26 @@ void UIScreen::deviceRestored() {
 		root_->DeviceRestored(screenManager()->getDrawContext());
 }
 
-void UIScreen::preRender() {
-	using namespace Draw;
-	Draw::DrawContext *draw = screenManager()->getDrawContext();
-	_dbg_assert_(draw != nullptr);
-	// Bind and clear the back buffer
-	draw->BindFramebufferAsRenderTarget(nullptr, { RPAction::CLEAR, RPAction::CLEAR, RPAction::CLEAR, 0xFF000000 }, "UI");
-	screenManager()->getUIContext()->BeginFrame();
-
-	Draw::Viewport viewport;
-	viewport.TopLeftX = 0;
-	viewport.TopLeftY = 0;
-	viewport.Width = g_display.pixel_xres;
-	viewport.Height = g_display.pixel_yres;
-	viewport.MaxDepth = 1.0;
-	viewport.MinDepth = 0.0;
-	draw->SetViewport(viewport);
-	draw->SetTargetSize(g_display.pixel_xres, g_display.pixel_yres);
-}
-
-void UIScreen::postRender() {
-	screenManager()->getUIContext()->Flush();
-}
-
 void UIScreen::render(ScreenRenderMode mode) {
+	if (mode & ScreenRenderMode::FIRST) {
+		using namespace Draw;
+		Draw::DrawContext *draw = screenManager()->getDrawContext();
+		_dbg_assert_(draw != nullptr);
+		// Bind and clear the back buffer
+		draw->BindFramebufferAsRenderTarget(nullptr, { RPAction::CLEAR, RPAction::CLEAR, RPAction::CLEAR, 0xFF000000 }, "UI");
+		screenManager()->getUIContext()->BeginFrame();
+
+		Draw::Viewport viewport;
+		viewport.TopLeftX = 0;
+		viewport.TopLeftY = 0;
+		viewport.Width = g_display.pixel_xres;
+		viewport.Height = g_display.pixel_yres;
+		viewport.MaxDepth = 1.0;
+		viewport.MinDepth = 0.0;
+		draw->SetViewport(viewport);
+		draw->SetTargetSize(g_display.pixel_xres, g_display.pixel_yres);
+	}
+
 	DoRecreateViews();
 
 	if (root_) {
@@ -234,6 +230,10 @@ void UIScreen::render(ScreenRenderMode mode) {
 		uiContext->Flush();
 
 		uiContext->PopTransform();
+	}
+
+	if (mode & ScreenRenderMode::TOP) {
+		screenManager()->getUIContext()->Flush();
 	}
 }
 

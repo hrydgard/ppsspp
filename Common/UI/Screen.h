@@ -48,6 +48,7 @@ enum class ScreenFocusChange {
 };
 
 enum class ScreenRenderMode {
+	DEFAULT = 0,
 	FIRST = 1,
 	BACKGROUND = 2,
 	BEHIND = 4,
@@ -64,9 +65,7 @@ public:
 
 	virtual void onFinish(DialogResult reason) {}
 	virtual void update() {}
-	virtual void preRender() {}
 	virtual void render(ScreenRenderMode mode) {}
-	virtual void postRender() {}
 	virtual void resized() {}
 	virtual void dialogFinished(const Screen *dialog, DialogResult result) {}
 	virtual void sendMessage(UIMessage message, const char *value) {}
