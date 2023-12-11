@@ -14,7 +14,7 @@ public:
 	void DeviceLost() override;
 	void DeviceRestore(Draw::DrawContext *draw) override;
 
-	void BeginFrame() override;
+	void BeginHostFrame() override;
 
 	u32 CheckGPUFeatures() const override;
 

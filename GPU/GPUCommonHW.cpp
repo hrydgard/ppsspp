@@ -501,8 +501,8 @@ void GPUCommonHW::UpdateCmdInfo() {
 	}
 }
 
-void GPUCommonHW::BeginFrame() {
-	GPUCommon::BeginFrame();
+void GPUCommonHW::BeginHostFrame() {
+	GPUCommon::BeginHostFrame();
 	if (drawEngineCommon_->EverUsedExactEqualDepth() && !sawExactEqualDepth_) {
 		sawExactEqualDepth_ = true;
 		gstate_c.SetUseFlags(CheckGPUFeatures());

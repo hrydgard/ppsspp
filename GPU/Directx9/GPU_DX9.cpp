@@ -118,11 +118,12 @@ void GPU_DX9::ReapplyGfxState() {
 	GPUCommonHW::ReapplyGfxState();
 }
 
-void GPU_DX9::BeginFrame() {
+void GPU_DX9::BeginHostFrame() {
+	GPUCommonHW::BeginHostFrame();
+
 	textureCache_->StartFrame();
 	drawEngine_.BeginFrame();
 
-	GPUCommonHW::BeginFrame();
 	shaderManagerDX9_->DirtyLastShader();
 
 	framebufferManager_->BeginFrame();

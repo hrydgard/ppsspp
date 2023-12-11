@@ -709,7 +709,7 @@ bool GPUCommon::InterpretList(DisplayList &list) {
 	return gpuState == GPUSTATE_DONE || gpuState == GPUSTATE_ERROR;
 }
 
-void GPUCommon::BeginFrame() {
+void GPUCommon::PSPFrame() {
 	immCount_ = 0;
 	if (dumpNextFrame_) {
 		NOTICE_LOG(G3D, "DUMPING THIS FRAME");
