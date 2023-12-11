@@ -46,7 +46,7 @@ protected:
 	void FinishDeferred() override;
 
 private:
-	void BeginFrame() override;
+	void BeginHostFrame() override;
 
 	LPDIRECT3DDEVICE9 device_;
 	LPDIRECT3DDEVICE9EX deviceEx_;

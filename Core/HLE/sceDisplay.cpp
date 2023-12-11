@@ -690,7 +690,8 @@ void __DisplayFlip(int cyclesLate) {
 }
 
 void hleAfterFlip(u64 userdata, int cyclesLate) {
-	gpu->BeginFrame();  // doesn't really matter if begin or end of frame.
+	gpu->PSPFrame();
+
 	PPGeNotifyFrame();
 
 	// This seems like as good a time as any to check if the config changed.

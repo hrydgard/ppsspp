@@ -127,8 +127,8 @@ void GPU_D3D11::DeviceRestore(Draw::DrawContext *draw) {
 	// Nothing needed.
 }
 
-void GPU_D3D11::BeginFrame() {
-	GPUCommonHW::BeginFrame();
+void GPU_D3D11::BeginHostFrame() {
+	GPUCommonHW::BeginHostFrame();
 
 	textureCache_->StartFrame();
 	drawEngine_.BeginFrame();

@@ -245,23 +245,6 @@ void GPU_GLES::BeginHostFrame() {
 	GPUCommonHW::BeginHostFrame();
 	drawEngine_.BeginFrame();
 
-	if (gstate_c.useFlagsChanged) {
-		// TODO: It'd be better to recompile them in the background, probably?
-		// This most likely means that saw equal depth changed.
-		WARN_LOG(G3D, "Shader use flags changed, clearing all shaders and depth buffers");
-		shaderManager_->ClearShaders();
-		framebufferManager_->ClearAllDepthBuffers();
-		gstate_c.useFlagsChanged = false;
-	}
-}
-
-void GPU_GLES::EndHostFrame() {
-	drawEngine_.EndFrame();
-}
-
-void GPU_GLES::BeginFrame() {
-	GPUCommonHW::BeginFrame();
-
 	textureCache_->StartFrame();
 
 	// Save the cache from time to time. TODO: How often? We save on exit, so shouldn't need to do this all that often.
@@ -276,6 +259,18 @@ void GPU_GLES::BeginFrame() {
 	framebufferManager_->BeginFrame();
 
 	fragmentTestCache_.Decimate();
+	if (gstate_c.useFlagsChanged) {
+		// TODO: It'd be better to recompile them in the background, probably?
+		// This most likely means that saw equal depth changed.
+		WARN_LOG(G3D, "Shader use flags changed, clearing all shaders and depth buffers");
+		shaderManager_->ClearShaders();
+		framebufferManager_->ClearAllDepthBuffers();
+		gstate_c.useFlagsChanged = false;
+	}
+}
+
+void GPU_GLES::EndHostFrame() {
+	drawEngine_.EndFrame();
 }
 
 void GPU_GLES::FinishDeferred() {
