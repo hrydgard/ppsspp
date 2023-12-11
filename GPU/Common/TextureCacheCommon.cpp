@@ -239,9 +239,9 @@ SamplerCacheKey TextureCacheCommon::GetSamplingParams(int maxLevel, const TexCac
 	// Filtering overrides from replacements or settings.
 	TextureFiltering forceFiltering = TEX_FILTER_AUTO;
 	bool useReplacerFiltering = false;
-	if (entry && replacer_.Enabled() && entry->replacedTexture && entry->replacedTexture->State() == ReplacementState::ACTIVE) {
+	if (entry && replacer_.Enabled() && entry->replacedTexture) {
 		// If replacement textures have multiple mip levels, enforce mip filtering.
-		if (entry->replacedTexture->NumLevels() > 1) {
+		if (entry->replacedTexture->State() == ReplacementState::ACTIVE && entry->replacedTexture->NumLevels() > 1) {
 			key.mipEnable = true;
 			key.mipFilt = 1;
 			key.maxLevel = 9 * 256;
