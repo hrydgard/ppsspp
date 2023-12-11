@@ -66,5 +66,5 @@ private:
 	bool finishNextFrame_ = false;
 	PauseScreenMode mode_ = PauseScreenMode::MAIN;
 
-	UI::Button *pauseButton_ = nullptr;
+	UI::Button *playButton_ = nullptr;
 };
