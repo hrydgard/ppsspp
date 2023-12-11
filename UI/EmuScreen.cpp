@@ -1420,11 +1420,11 @@ bool EmuScreen::canBeBackground(bool isTop) const {
 		return isTop || (g_Config.bTransparentBackground && g_Config.bRunBehindPauseMenu);
 	}
 
-	bool forceTransparent = false;  // this needs to be true somehow on the display layout screen.
-
-	if (!g_Config.bTransparentBackground && !forceTransparent)
+	if (!g_Config.bTransparentBackground && !isTop) {
+		if (g_Config.bRunBehindPauseMenu || screenManager()->topScreen()->wantBrightBackground())
+			return true;
 		return false;
-
+	}
 	return true;
 }
 
