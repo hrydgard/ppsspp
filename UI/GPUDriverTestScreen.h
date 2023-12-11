@@ -15,13 +15,13 @@ public:
 	~GPUDriverTestScreen();
 
 	void CreateViews() override;
-	void render(ScreenRenderMode mode) override;
+	void DrawForeground(UIContext &dc) override;
 
 	const char *tag() const override { return "GPUDriverTest"; }
 
 private:
-	void DiscardTest();
-	void ShaderTest();
+	void DiscardTest(UIContext &dc);
+	void ShaderTest(UIContext &dc);
 
 	// Common objects
 	Draw::SamplerState *samplerNearest_ = nullptr;

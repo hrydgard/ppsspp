@@ -356,8 +356,12 @@ void GamePauseScreen::CreateViews() {
 		leftColumnItems->Add(new NoticeView(NoticeLevel::INFO, notAvailable, ""));
 	}
 
-	ViewGroup *rightColumn = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(vertical ? 200 : 300, FILL_PARENT, actionMenuMargins));
-	root_->Add(rightColumn);
+	ViewGroup *rightColumnHolder = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(vertical ? 200 : 300, FILL_PARENT, actionMenuMargins));
+
+	ViewGroup *rightColumn = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(1.0f));
+	rightColumnHolder->Add(rightColumn);
+
+	root_->Add(rightColumnHolder);
 
 	LinearLayout *rightColumnItems = new LinearLayout(ORIENT_VERTICAL);
 	rightColumn->Add(rightColumnItems);
@@ -414,6 +418,17 @@ void GamePauseScreen::CreateViews() {
 	} else {
 		rightColumnItems->Add(new Choice(pa->T("Exit to menu")))->OnClick.Handle(this, &GamePauseScreen::OnExitToMenu);
 	}
+
+	ViewGroup *playControls = rightColumnHolder->Add(new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
+	playControls->SetTag("debug");
+	playControls->Add(new Spacer(new LinearLayoutParams(1.0f)));
+	playButton_ = playControls->Add(new Button("", g_Config.bRunBehindPauseMenu ? ImageID("I_PAUSE") : ImageID("I_PLAY"), new LinearLayoutParams(0.0f, G_RIGHT)));
+	playButton_->OnClick.Add([=](UI::EventParams &e) {
+		g_Config.bRunBehindPauseMenu = !g_Config.bRunBehindPauseMenu;
+		playButton_->SetImageID(g_Config.bRunBehindPauseMenu ? ImageID("I_PAUSE") : ImageID("I_PLAY"));
+		return UI::EVENT_DONE;
+	});
+	rightColumnHolder->Add(new Spacer(10.0f));
 }
 
 UI::EventReturn GamePauseScreen::OnGameSettings(UI::EventParams &e) {

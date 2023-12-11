@@ -147,7 +147,7 @@ public:
 	}
 
 	void touch(const TouchInput &touch) override;
-	void render(ScreenRenderMode mode) override;
+	void DrawForeground(UIContext &dc) override;
 
 	bool key(const KeyInput &key) override;
 	void axis(const AxisInput &axis) override;

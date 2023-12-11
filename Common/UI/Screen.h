@@ -50,11 +50,16 @@ enum class ScreenFocusChange {
 enum class ScreenRenderMode {
 	DEFAULT = 0,
 	FIRST = 1,
-	BACKGROUND = 2,
 	BEHIND = 4,
 	TOP = 8,
 };
 ENUM_CLASS_BITOPS(ScreenRenderMode);
+
+enum class ScreenRenderFlags {
+	NONE = 0,
+	HANDLED_THROTTLING = 1,
+};
+ENUM_CLASS_BITOPS(ScreenRenderFlags);
 
 class Screen {
 public:
@@ -65,13 +70,13 @@ public:
 
 	virtual void onFinish(DialogResult reason) {}
 	virtual void update() {}
-	virtual void render(ScreenRenderMode mode) {}
+	virtual ScreenRenderFlags render(ScreenRenderMode mode) = 0;
 	virtual void resized() {}
 	virtual void dialogFinished(const Screen *dialog, DialogResult result) {}
 	virtual void sendMessage(UIMessage message, const char *value) {}
 	virtual void deviceLost() {}
 	virtual void deviceRestored() {}
-	virtual bool canBeBackground() const { return false; }
+	virtual bool canBeBackground(bool isTop) const { return false; }
 	virtual bool wantBrightBackground() const { return false; }  // special hack for DisplayLayoutScreen.
 
 	virtual void focusChanged(ScreenFocusChange focusChange);
@@ -128,7 +133,7 @@ public:
 		postRenderUserdata_ = userdata;
 	}
 
-	void render();
+	ScreenRenderFlags render();
 	void resized();
 	void shutdown();
 

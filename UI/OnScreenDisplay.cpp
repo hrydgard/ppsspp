@@ -517,9 +517,7 @@ void OSDOverlayScreen::CreateViews() {
 	osmView_ = root_->Add(new OnScreenMessagesView(new UI::AnchorLayoutParams(0.0f, 0.0f, 0.0f, 0.0f)));
 }
 
-void OSDOverlayScreen::render(ScreenRenderMode mode) {
-	UIScreen::render(mode);
-
+void OSDOverlayScreen::DrawForeground(UIContext &ui) {
 	DebugOverlay debugOverlay = (DebugOverlay)g_Config.iDebugOverlay;
 
 	// Special case control for now, since it uses the control mapper that's owned by EmuScreen.

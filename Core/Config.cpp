@@ -297,6 +297,8 @@ static const ConfigSetting generalSettings[] = {
 	ConfigSetting("EnablePlugins", &g_Config.bLoadPlugins, true, CfgFlag::PER_GAME),
 
 	ConfigSetting("IgnoreCompatSettings", &g_Config.sIgnoreCompatSettings, "", CfgFlag::PER_GAME | CfgFlag::REPORT),
+
+	ConfigSetting("RunBehindPauseMenu", &g_Config.bRunBehindPauseMenu, false, CfgFlag::DEFAULT),
 };
 
 static bool DefaultSasThread() {

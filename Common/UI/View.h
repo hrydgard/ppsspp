@@ -903,6 +903,18 @@ public:
 	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override {
 		w = size_; h = size_;
 	}
+
+	void GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert, float &w, float &h) const override {
+		if (horiz.type == AT_MOST || horiz.type == EXACTLY)
+			w = horiz.size;
+		else
+			w = size_;
+		if (vert.type == AT_MOST || vert.type == EXACTLY)
+			h = vert.size;
+		else
+			h = size_;
+	}
+
 	void Draw(UIContext &dc) override {}
 	std::string DescribeText() const override { return ""; }
 

@@ -123,8 +123,12 @@ void FramebufferManagerCommon::CheckPostShaders() {
 
 void FramebufferManagerCommon::BeginFrame() {
 	DecimateFBOs();
-
+	presentation_->BeginFrame();
 	currentRenderVfb_ = nullptr;
+}
+
+bool FramebufferManagerCommon::PresentedThisFrame() const {
+	return presentation_->PresentedThisFrame();
 }
 
 void FramebufferManagerCommon::SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format) {

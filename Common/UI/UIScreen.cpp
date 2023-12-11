@@ -212,27 +212,32 @@ void UIScreen::SetupViewport() {
 	draw->SetTargetSize(g_display.pixel_xres, g_display.pixel_yres);
 }
 
-void UIScreen::render(ScreenRenderMode mode) {
+ScreenRenderFlags UIScreen::render(ScreenRenderMode mode) {
 	if (mode & ScreenRenderMode::FIRST) {
 		SetupViewport();
 	}
 
 	DoRecreateViews();
 
+	UIContext &uiContext = *screenManager()->getUIContext();
 	if (root_) {
-		UIContext &uiContext = *screenManager()->getUIContext();
-
 		UI::LayoutViewHierarchy(uiContext, root_, ignoreInsets_);
-
-		uiContext.PushTransform({translation_, scale_, alpha_});
-
-		uiContext.Begin();
-		DrawBackground(uiContext);
-		root_->Draw(uiContext);
-		uiContext.Flush();
-
-		uiContext.PopTransform();
 	}
+
+	uiContext.PushTransform({translation_, scale_, alpha_});
+
+	uiContext.Begin();
+	DrawBackground(uiContext);
+	if (root_) {
+		root_->Draw(uiContext);
+	}
+	uiContext.Flush();
+	DrawForeground(uiContext);
+	uiContext.Flush();
+
+	uiContext.PopTransform();
+
+	return ScreenRenderFlags::NONE;
 }
 
 TouchInput UIScreen::transformTouch(const TouchInput &touch) {

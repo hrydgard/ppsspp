@@ -166,8 +166,8 @@ ReportScreen::ReportScreen(const Path &gamePath)
 	ratingEnabled_ = enableReporting_;
 }
 
-void ReportScreen::render(ScreenRenderMode mode) {
-	UIScreen::render(mode);
+ScreenRenderFlags ReportScreen::render(ScreenRenderMode mode) {
+	ScreenRenderFlags flags = UIScreen::render(mode);
 
 	if (mode & ScreenRenderMode::TOP) {
 
@@ -189,6 +189,7 @@ void ReportScreen::render(ScreenRenderMode mode) {
 			tookScreenshot_ = true;
 		}
 	}
+	return flags;
 }
 
 void ReportScreen::update() {

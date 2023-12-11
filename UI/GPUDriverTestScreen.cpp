@@ -311,7 +311,7 @@ void GPUDriverTestScreen::CreateViews() {
 	anchor->Add(back);
 }
 
-void GPUDriverTestScreen::DiscardTest() {
+void GPUDriverTestScreen::DiscardTest(UIContext &dc) {
 	using namespace UI;
 	using namespace Draw;
 	if (!discardWriteDepthStencil_) {
@@ -440,7 +440,6 @@ void GPUDriverTestScreen::DiscardTest() {
 		rasterNoCull->Release();
 	}
 
-	UIContext &dc = *screenManager()->getUIContext();
 	Draw::DrawContext *draw = dc.GetDrawContext();
 
 	static const char * const writeModeNames[] = { "Stencil+Depth", "Stencil", "Depth" };
@@ -529,10 +528,9 @@ void GPUDriverTestScreen::DiscardTest() {
 	dc.Flush();
 }
 
-void GPUDriverTestScreen::ShaderTest() {
+void GPUDriverTestScreen::ShaderTest(UIContext &dc) {
 	using namespace Draw;
 
-	UIContext &dc = *screenManager()->getUIContext();
 	Draw::DrawContext *draw = dc.GetDrawContext();
 
 	if (!adrenoLogicDiscardPipeline_) {
@@ -629,17 +627,13 @@ void GPUDriverTestScreen::ShaderTest() {
 	dc.Flush();
 }
 
-
-void GPUDriverTestScreen::render(ScreenRenderMode mode) {
-	using namespace Draw;
-	UIScreen::render(mode);
-
+void GPUDriverTestScreen::DrawForeground(UIContext &dc) {
 	switch (tabHolder_->GetCurrentTab()) {
 	case 0:
-		DiscardTest();
+		DiscardTest(dc);
 		break;
 	case 1:
-		ShaderTest();
+		ShaderTest(dc);
 		break;
 	}
 }

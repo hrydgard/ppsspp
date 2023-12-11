@@ -713,27 +713,25 @@ void TouchTestScreen::axis(const AxisInput &axis) {
 	UpdateLogView();
 }
 
-void TouchTestScreen::render(ScreenRenderMode mode) {
-	UIDialogScreenWithGameBackground::render(mode);
-	UIContext *ui_context = screenManager()->getUIContext();
-	Bounds bounds = ui_context->GetLayoutBounds();
+void TouchTestScreen::DrawForeground(UIContext &dc) {
+	Bounds bounds = dc.GetLayoutBounds();
 
-	ui_context->BeginNoTex();
+	dc.BeginNoTex();
 	for (int i = 0; i < MAX_TOUCH_POINTS; i++) {
 		if (touches_[i].id != -1) {
-			ui_context->Draw()->Circle(touches_[i].x, touches_[i].y, 100.0, 3.0, 80, 0.0f, 0xFFFFFFFF, 1.0);
+			dc.Draw()->Circle(touches_[i].x, touches_[i].y, 100.0, 3.0, 80, 0.0f, 0xFFFFFFFF, 1.0);
 		}
 	}
-	ui_context->Flush();
+	dc.Flush();
 
-	ui_context->Begin();
+	dc.Begin();
 
 	char buffer[4096];
 	for (int i = 0; i < MAX_TOUCH_POINTS; i++) {
 		if (touches_[i].id != -1) {
-			ui_context->Draw()->Circle(touches_[i].x, touches_[i].y, 100.0, 3.0, 80, 0.0f, 0xFFFFFFFF, 1.0);
+			dc.Draw()->Circle(touches_[i].x, touches_[i].y, 100.0, 3.0, 80, 0.0f, 0xFFFFFFFF, 1.0);
 			snprintf(buffer, sizeof(buffer), "%0.1fx%0.1f", touches_[i].x, touches_[i].y);
-			ui_context->DrawText(buffer, touches_[i].x, touches_[i].y + (touches_[i].y > g_display.dp_yres - 100.0f ? -135.0f : 95.0f), 0xFFFFFFFF, ALIGN_HCENTER | FLAG_DYNAMIC_ASCII);
+			dc.DrawText(buffer, touches_[i].x, touches_[i].y + (touches_[i].y > g_display.dp_yres - 100.0f ? -135.0f : 95.0f), 0xFFFFFFFF, ALIGN_HCENTER | FLAG_DYNAMIC_ASCII);
 		}
 	}
 
@@ -762,8 +760,8 @@ void TouchTestScreen::render(ScreenRenderMode mode) {
 	// On Android, also add joystick debug data.
 
 
-	ui_context->DrawTextShadow(buffer, bounds.centerX(), bounds.y + 20.0f, 0xFFFFFFFF, FLAG_DYNAMIC_ASCII);
-	ui_context->Flush();
+	dc.DrawTextShadow(buffer, bounds.centerX(), bounds.y + 20.0f, 0xFFFFFFFF, FLAG_DYNAMIC_ASCII);
+	dc.Flush();
 }
 
 void RecreateActivity() {
@@ -799,8 +797,7 @@ UI::EventReturn TouchTestScreen::OnRecreateActivity(UI::EventParams &e) {
 
 class Backplate : public UI::InertView {
 public:
-	Backplate(float scale, UI::LayoutParams *layoutParams = nullptr) : InertView(layoutParams), scale_(scale) {
-	}
+	Backplate(float scale, UI::LayoutParams *layoutParams = nullptr) : InertView(layoutParams), scale_(scale) {}
 
 	void Draw(UIContext &dc) override {
 		for (float dy = 0.0f; dy <= 4.0f; dy += 1.0f) {

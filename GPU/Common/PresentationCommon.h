@@ -98,6 +98,13 @@ public:
 
 	bool UpdatePostShader();
 
+	void BeginFrame() {
+		presentedThisFrame_ = false;
+	}
+	bool PresentedThisFrame() const {
+		return presentedThisFrame_;
+	}
+
 	void DeviceLost();
 	void DeviceRestore(Draw::DrawContext *draw);
 
@@ -159,6 +166,7 @@ protected:
 
 	bool usePostShader_ = false;
 	bool restorePostShader_ = false;
+	bool presentedThisFrame_ = false;
 	ShaderLanguage lang_;
 
 	struct PrevFBO {

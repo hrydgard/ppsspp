@@ -1415,9 +1415,10 @@ static void DrawFPS(UIContext *ctx, const Bounds &bounds) {
 	ctx->RebindTexture();
 }
 
-bool EmuScreen::canBeBackground() const {
-	if (g_Config.bSkipBufferEffects)
-		return false;
+bool EmuScreen::canBeBackground(bool isTop) const {
+	if (g_Config.bSkipBufferEffects) {
+		return isTop || (g_Config.bTransparentBackground && g_Config.bRunBehindPauseMenu);
+	}
 
 	bool forceTransparent = false;  // this needs to be true somehow on the display layout screen.
 
@@ -1438,12 +1439,19 @@ void EmuScreen::darken() {
 	}
 }
 
-void EmuScreen::render(ScreenRenderMode mode) {
+ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
+	ScreenRenderFlags flags = ScreenRenderFlags::NONE;
+	using namespace Draw;
+
+	DrawContext *draw = screenManager()->getDrawContext();
+	if (!draw)
+		return flags;  // shouldn't really happen but I've seen a suspicious stack trace..
+
+	bool skipBufferEffects = g_Config.bSkipBufferEffects;
+
 	if (mode & ScreenRenderMode::FIRST) {
 		// Actually, always gonna be first when it exists (?)
 
-		using namespace Draw;
-		DrawContext *draw = screenManager()->getDrawContext();
 		// Here we do NOT bind the backbuffer or clear the screen, unless non-buffered.
 		// The emuscreen is different than the others - we really want to allow the game to render to framebuffers
 		// before we ever bind the backbuffer for rendering. On mobile GPUs, switching back and forth between render
@@ -1467,23 +1475,19 @@ void EmuScreen::render(ScreenRenderMode mode) {
 			viewport.MaxDepth = 1.0;
 			viewport.MinDepth = 0.0;
 			draw->SetViewport(viewport);
+
+			skipBufferEffects = true;
 		}
 		draw->SetTargetSize(g_display.pixel_xres, g_display.pixel_yres);
 	}
-
-	using namespace Draw;
-
-	DrawContext *thin3d = screenManager()->getDrawContext();
-	if (!thin3d)
-		return;  // shouldn't really happen but I've seen a suspicious stack trace..
 
 	g_OSD.NudgeSidebar();
 
 	if (mode & ScreenRenderMode::TOP) {
 		System_Notify(SystemNotification::KEEP_SCREEN_AWAKE);
-	} else {
+	} else if (!g_Config.bRunBehindPauseMenu) {
 		// Not on top. Let's not execute, only draw the image.
-		thin3d->BindFramebufferAsRenderTarget(nullptr, { RPAction::CLEAR, RPAction::DONT_CARE, RPAction::DONT_CARE }, "EmuScreen_Stepping");
+		draw->BindFramebufferAsRenderTarget(nullptr, { RPAction::CLEAR, RPAction::DONT_CARE, RPAction::DONT_CARE }, "EmuScreen_Stepping");
 		// Just to make sure.
 		if (PSP_IsInited() && !g_Config.bSkipBufferEffects) {
 			PSP_BeginHostFrame();
@@ -1491,7 +1495,7 @@ void EmuScreen::render(ScreenRenderMode mode) {
 			PSP_EndHostFrame();
 			darken();
 		}
-		return;
+		return flags;
 	}
 
 	if (invalid_) {
@@ -1502,9 +1506,9 @@ void EmuScreen::render(ScreenRenderMode mode) {
 		// It's possible this might be set outside PSP_RunLoopFor().
 		// In this case, we need to double check it here.
 		checkPowerDown();
-		thin3d->BindFramebufferAsRenderTarget(nullptr, { RPAction::CLEAR, RPAction::CLEAR, RPAction::CLEAR }, "EmuScreen_Invalid");
+		draw->BindFramebufferAsRenderTarget(nullptr, { RPAction::CLEAR, RPAction::CLEAR, RPAction::CLEAR }, "EmuScreen_Invalid");
 		renderUI();
-		return;
+		return flags;
 	}
 
 	// Freeze-frame functionality (loads a savestate on every frame).
@@ -1528,6 +1532,8 @@ void EmuScreen::render(ScreenRenderMode mode) {
 		PSP_BeginHostFrame();
 		PSP_RunLoopWhileState();
 
+		flags |= ScreenRenderFlags::HANDLED_THROTTLING;
+
 		// Hopefully coreState is now CORE_NEXTFRAME
 		switch (coreState) {
 		case CORE_NEXTFRAME:
@@ -1543,12 +1549,12 @@ void EmuScreen::render(ScreenRenderMode mode) {
 				// Clear to blue background screen
 				bool dangerousSettings = !Reporting::IsSupported();
 				uint32_t color = dangerousSettings ? 0xFF900050 : 0xFF900000;
-				thin3d->BindFramebufferAsRenderTarget(nullptr, { RPAction::CLEAR, RPAction::DONT_CARE, RPAction::DONT_CARE, color }, "EmuScreen_RuntimeError");
+				draw->BindFramebufferAsRenderTarget(nullptr, { RPAction::CLEAR, RPAction::DONT_CARE, RPAction::DONT_CARE, color }, "EmuScreen_RuntimeError");
 				// The info is drawn later in renderUI
 			} else {
 				// If we're stepping, it's convenient not to clear the screen entirely, so we copy display to output.
 				// This won't work in non-buffered, but that's fine.
-				thin3d->BindFramebufferAsRenderTarget(nullptr, { RPAction::CLEAR, RPAction::DONT_CARE, RPAction::DONT_CARE }, "EmuScreen_Stepping");
+				draw->BindFramebufferAsRenderTarget(nullptr, { RPAction::CLEAR, RPAction::DONT_CARE, RPAction::DONT_CARE }, "EmuScreen_Stepping");
 				// Just to make sure.
 				if (PSP_IsInited()) {
 					gpu->CopyDisplayToOutput(true);
@@ -1567,15 +1573,29 @@ void EmuScreen::render(ScreenRenderMode mode) {
 		PSP_EndHostFrame();
 	}
 
-	// This must happen after PSP_EndHostFrame so that things like push buffers are end-frame'd before we start destroying stuff.
-	if (checkPowerDown() || rebind) {
-		// Shutting down can end up ending the current render pass
-		thin3d->BindFramebufferAsRenderTarget(nullptr, { RPAction::CLEAR, RPAction::CLEAR, RPAction::CLEAR }, "EmuScreen_NoFrame");
+	if (gpu && !gpu->PresentedThisFrame() && !skipBufferEffects) {
+		draw->BindFramebufferAsRenderTarget(nullptr, { RPAction::CLEAR, RPAction::CLEAR, RPAction::CLEAR }, "EmuScreen_NoFrame");
+		Viewport viewport{ 0.0f, 0.0f, (float)g_display.pixel_xres, (float)g_display.pixel_yres, 0.0f, 1.0f };
+		draw->SetViewport(viewport);
+		draw->SetScissorRect(0, 0, g_display.pixel_xres, g_display.pixel_yres);
+	}
+
+	if (!(mode & ScreenRenderMode::TOP)) {
+		// We're in run-behind mode, but we don't want to draw chat, debug UI and stuff.
+		// So, darken and bail here.
+		if (skipBufferEffects) {
+			// Need to reset viewport/scissor.
+			Viewport viewport{ 0.0f, 0.0f, (float)g_display.pixel_xres, (float)g_display.pixel_yres, 0.0f, 1.0f };
+			draw->SetViewport(viewport);
+			draw->SetScissorRect(0, 0, g_display.pixel_xres, g_display.pixel_yres);
+		}
+		darken();
+		return flags;
 	}
 
 	if (hasVisibleUI()) {
 		// In most cases, this should already be bound and a no-op.
-		thin3d->BindFramebufferAsRenderTarget(nullptr, { RPAction::KEEP, RPAction::DONT_CARE, RPAction::DONT_CARE }, "EmuScreen_UI");
+		draw->BindFramebufferAsRenderTarget(nullptr, { RPAction::KEEP, RPAction::DONT_CARE, RPAction::DONT_CARE }, "EmuScreen_UI");
 		cardboardDisableButton_->SetVisibility(g_Config.bEnableCardboardVR ? UI::V_VISIBLE : UI::V_GONE);
 		screenManager()->getUIContext()->BeginFrame();
 		renderUI();
@@ -1590,10 +1610,11 @@ void EmuScreen::render(ScreenRenderMode mode) {
 	if (mode & ScreenRenderMode::TOP) {
 		// TODO: Replace this with something else.
 		if (stopRender_)
-			thin3d->WipeQueue();
-	} else if (!screenManager()->topScreen()->wantBrightBackground()) {
+			draw->WipeQueue();
+	} else {
 		darken();
 	}
+	return flags;
 }
 
 bool EmuScreen::hasVisibleUI() {

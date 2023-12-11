@@ -25,7 +25,7 @@ namespace UI {
 
 static constexpr Size ITEM_HEIGHT = 64.f;
 
-void ApplyGravity(const Bounds outer, const Margins &margins, float w, float h, int gravity, Bounds &inner) {
+void ApplyGravity(const Bounds &outer, const Margins &margins, float w, float h, int gravity, Bounds &inner) {
 	inner.w = w;
 	inner.h = h;
 
@@ -495,6 +495,10 @@ void LinearLayout::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec v
 	if (views_.empty())
 		return;
 
+	if (tag_ == "debug") {
+		tag_ = "debug";
+	}
+
 	float sum = 0.0f;
 	float maxOther = 0.0f;
 	float totalWeight = 0.0f;
@@ -665,6 +669,10 @@ void LinearLayout::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec v
 // weight != 0 = fill remaining space.
 void LinearLayout::Layout() {
 	const Bounds &bounds = bounds_;
+
+	if (tag_ == "debug") {
+		tag_ = "debug";
+	}
 
 	Bounds itemBounds;
 	float pos;

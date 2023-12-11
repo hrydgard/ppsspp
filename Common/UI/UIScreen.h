@@ -36,7 +36,7 @@ public:
 	~UIScreen();
 
 	void update() override;
-	void render(ScreenRenderMode mode) override;
+	ScreenRenderFlags render(ScreenRenderMode mode) override;
 	void deviceLost() override;
 	void deviceRestored() override;
 
@@ -72,6 +72,8 @@ protected:
 
 protected:
 	virtual void DrawBackground(UIContext &ui) {}
+	virtual void DrawForeground(UIContext &ui) {}
+
 	void SetupViewport();
 	void DoRecreateViews();
 
