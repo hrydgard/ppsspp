@@ -1568,15 +1568,14 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 		PSP_EndHostFrame();
 	}
 
-	// This must happen after PSP_EndHostFrame so that things like push buffers are end-frame'd before we start destroying stuff.
-	if (checkPowerDown() || rebind) {
-		// Shutting down can end up ending the current render pass
+	if (gpu && !gpu->PresentedThisFrame()) {
 		draw->BindFramebufferAsRenderTarget(nullptr, { RPAction::CLEAR, RPAction::CLEAR, RPAction::CLEAR }, "EmuScreen_NoFrame");
 	}
 
 	if (!(mode & ScreenRenderMode::TOP)) {
 		// We're in run-behind mode, but we don't want to draw chat, debug UI and stuff.
 		// So, darken and bail here.
+
 		darken();
 		return flags;
 	}

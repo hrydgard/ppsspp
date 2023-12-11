@@ -931,6 +931,7 @@ void PresentationCommon::CopyToOutput(OutputFlags flags, int uvRotation, float u
 	draw_->Invalidate(InvalidationFlags::CACHED_RENDER_STATE);
 
 	previousUniforms_ = uniforms;
+	presentedThisFrame_ = true;
 }
 
 void PresentationCommon::CalculateRenderResolution(int *width, int *height, int *scaleFactor, bool *upscaling, bool *ssaa) const {

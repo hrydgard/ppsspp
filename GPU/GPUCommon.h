@@ -226,6 +226,8 @@ public:
 		fullInfo = reportingFullInfo_;
 	}
 
+	bool PresentedThisFrame() const override;
+
 protected:
 	void ClearCacheNextFrame() override {}
 
