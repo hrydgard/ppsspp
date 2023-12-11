@@ -111,7 +111,7 @@ public:
 	void SetHasDropShadow(bool has) { hasDropShadow_ = has; }
 
 	// For the postproc param sliders on DisplayLayoutScreen
-	bool wantBrightBackground() const { return !hasDropShadow_; }
+	bool wantBrightBackground() const override { return !hasDropShadow_; }
 
 protected:
 	virtual bool FillVertical() const { return false; }
