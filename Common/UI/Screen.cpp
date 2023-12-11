@@ -257,13 +257,6 @@ void ScreenManager::sendMessage(UIMessage message, const char *value) {
 	}
 }
 
-Screen *ScreenManager::topScreen() const {
-	if (!stack_.empty())
-		return stack_.back().screen;
-	else
-		return 0;
-}
-
 void ScreenManager::shutdown() {
 	std::lock_guard<std::recursive_mutex> guard(inputLock_);
 	for (auto layer : stack_)

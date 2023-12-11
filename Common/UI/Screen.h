@@ -90,6 +90,7 @@ public:
 	virtual void RecreateViews() {}
 
 	ScreenManager *screenManager() { return screenManager_; }
+	const ScreenManager *screenManager() const { return screenManager_; }
 	void setScreenManager(ScreenManager *sm) { screenManager_ = sm; }
 
 	virtual const char *tag() const = 0;
@@ -158,7 +159,12 @@ public:
 	// Generic facility for gross hacks :P
 	void sendMessage(UIMessage message, const char *value);
 
-	Screen *topScreen() const;
+	const Screen *topScreen() const {
+		return stack_.empty() ? nullptr : stack_.back().screen;
+	}
+	Screen *topScreen() {
+		return stack_.empty() ? nullptr : stack_.back().screen;
+	}
 
 	void getFocusPosition(float &x, float &y, float &z);
 
