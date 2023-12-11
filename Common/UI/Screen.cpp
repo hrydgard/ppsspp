@@ -6,7 +6,6 @@
 #include "Common/UI/UI.h"
 #include "Common/UI/View.h"
 #include "Common/UI/ViewGroup.h"
-#include "Common/UI/IconCache.h"
 
 #include "Common/Log.h"
 #include "Common/TimeUtil.h"
@@ -61,11 +60,10 @@ void ScreenManager::update() {
 		// NOTE: This is not a full UIScreen update, to avoid double global event processing.
 		overlayScreen_->update();
 	}
+	// The background screen doesn't need updating.
 	if (stack_.size()) {
 		stack_.back().screen->update();
 	}
-
-	g_iconCache.FrameUpdate();
 }
 
 void ScreenManager::switchToNext() {
@@ -139,7 +137,6 @@ void ScreenManager::axis(const AxisInput *axes, size_t count) {
 void ScreenManager::deviceLost() {
 	for (auto &iter : stack_)
 		iter.screen->deviceLost();
-	g_iconCache.ClearTextures();
 }
 
 void ScreenManager::deviceRestored() {
@@ -159,52 +156,68 @@ void ScreenManager::resized() {
 
 void ScreenManager::render() {
 	if (!stack_.empty()) {
-		switch (stack_.back().flags) {
-		case LAYER_TRANSPARENT:
-			if (stack_.size() == 1) {
-				ERROR_LOG(SYSTEM, "Can't have sidemenu over nothing");
-				break;
-			} else {
-				auto last = stack_.end();
-				auto iter = last;
-				iter--;
-				while (iter->flags == LAYER_TRANSPARENT) {
-					iter--;
-				}
-				auto first = iter;
-				_assert_(iter->screen);
+		// Collect the screens to render
+		TinySet<Screen *, 6> layers;
 
-				// TODO: Make really sure that this "mismatched" pre/post only happens
-				// when screens are "compatible" (both are UIScreens, for example).
-				first->screen->preRender();
-				while (iter < last) {
-					iter->screen->render();
-					iter++;
-				}
-				stack_.back().screen->render();
-				if (overlayScreen_) {
-					overlayScreen_->render();
-				}
-				if (postRenderCb_) {
-					// Really can't render anything after this! Will crash the screenshot mechanism if we do.
-					postRenderCb_(getUIContext(), postRenderUserdata_);
-				}
-				first->screen->postRender();
-				break;
+		// Start at the end, collect screens to form the transparency stack.
+		// Then we'll iterate them in reverse order.
+		// Note that we skip the overlay screen, we handle it separately.
+		// Additionally, we pick up a "background" screen. Normally it will be either
+		// the EmuScreen or the actual global background screen.
+		auto iter = stack_.end();
+		Screen *coveringScreen = nullptr;
+		Screen *backgroundScreen = nullptr;
+		do {
+			--iter;
+			if (!coveringScreen) {
+				layers.push_back(iter->screen);
+			} else if (!backgroundScreen && iter->screen->canBeBackground()) {
+				// There still might be a screen that wants to be background - generally the EmuScreen if present.
+				layers.push_back(iter->screen);
+				backgroundScreen = iter->screen;
 			}
-		default:
-			_assert_(stack_.back().screen);
-			stack_.back().screen->preRender();
-			stack_.back().screen->render();
-			if (overlayScreen_) {
-				overlayScreen_->render();
+			if (iter->flags != LAYER_TRANSPARENT) {
+				coveringScreen = iter->screen;
 			}
-			if (postRenderCb_) {
-				// Really can't render anything after this! Will crash the screenshot mechanism if we do.
-				postRenderCb_(getUIContext(), postRenderUserdata_);
+		} while (iter != stack_.begin());
+
+		// Confusing-looking expression, argh! Note the '_'
+		if (backgroundScreen_ && !backgroundScreen) {
+			layers.push_back(backgroundScreen_);
+			backgroundScreen = backgroundScreen_;
+		}
+
+		// OK, now we iterate backwards over our little pile of collected screens.
+		bool first = true;
+		for (int i = (int)layers.size() - 1; i >= 0; i--) {
+			ScreenRenderMode mode = ScreenRenderMode::DEFAULT;
+			if (i == (int)layers.size() - 1) {
+				// Bottom.
+				mode = ScreenRenderMode::FIRST;
+				if (layers[i] == backgroundScreen && coveringScreen != layers[i]) {
+					mode |= ScreenRenderMode::BACKGROUND;
+				}
+				if (i == 0) {
+					mode |= ScreenRenderMode::TOP;
+				}
+			} else if (i == 0) {
+				mode = ScreenRenderMode::TOP;
+			} else {
+				mode = ScreenRenderMode::BEHIND;
 			}
-			stack_.back().screen->postRender();
-			break;
+			layers[i]->render(mode);
+		}
+
+		if (overlayScreen_) {
+			// It doesn't care about mode.
+			overlayScreen_->render(ScreenRenderMode::TOP);
+		}
+
+		getUIContext()->Flush();
+
+		if (postRenderCb_) {
+			// Really can't render anything after this! Will crash the screenshot mechanism if we do.
+			postRenderCb_(getUIContext(), postRenderUserdata_);
 		}
 	} else {
 		ERROR_LOG(SYSTEM, "No current screen!");
@@ -235,8 +248,13 @@ void ScreenManager::sendMessage(UIMessage message, const char *value) {
 		touch(input);
 	}
 
-	if (!stack_.empty())
+	if (backgroundScreen_) {
+		backgroundScreen_->sendMessage(message, value);
+	}
+
+	if (!stack_.empty()) {
 		stack_.back().screen->sendMessage(message, value);
+	}
 }
 
 Screen *ScreenManager::topScreen() const {
@@ -370,10 +388,16 @@ void ScreenManager::processFinishDialog() {
 	}
 }
 
-void ScreenManager::SetOverlayScreen(Screen *screen) {
+void ScreenManager::SetBackgroundOverlayScreens(Screen *backgroundScreen, Screen *overlayScreen) {
+	if (backgroundScreen_) {
+		delete backgroundScreen_;
+	}
+	backgroundScreen_ = backgroundScreen;
+	backgroundScreen_->setScreenManager(this);
+
 	if (overlayScreen_) {
 		delete overlayScreen_;
 	}
-	overlayScreen_ = screen;
+	overlayScreen_ = overlayScreen;
 	overlayScreen_->setScreenManager(this);
 }

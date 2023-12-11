@@ -361,6 +361,10 @@ void EmuScreen::bootGame(const Path &filename) {
 	loadingViewVisible_->Divert(UI::V_VISIBLE, 0.75f);
 
 	screenManager()->getDrawContext()->ResetStats();
+
+	if (bootPending_) {
+		System_PostUIMessage(UIMessage::GAME_SELECTED, filename.c_str());
+	}
 }
 
 void EmuScreen::bootComplete() {
@@ -423,6 +427,8 @@ EmuScreen::~EmuScreen() {
 	if (!invalid_ || bootPending_) {
 		PSP_Shutdown();
 	}
+
+	System_PostUIMessage(UIMessage::GAME_SELECTED, "");
 
 	g_OSD.ClearAchievementStuff();
 
@@ -1409,45 +1415,62 @@ static void DrawFPS(UIContext *ctx, const Bounds &bounds) {
 	ctx->RebindTexture();
 }
 
-void EmuScreen::preRender() {
-	using namespace Draw;
-	DrawContext *draw = screenManager()->getDrawContext();
-	// Here we do NOT bind the backbuffer or clear the screen, unless non-buffered.
-	// The emuscreen is different than the others - we really want to allow the game to render to framebuffers
-	// before we ever bind the backbuffer for rendering. On mobile GPUs, switching back and forth between render
-	// targets is a mortal sin so it's very important that we don't bind the backbuffer unnecessarily here.
-	// We only bind it in FramebufferManager::CopyDisplayToOutput (unless non-buffered)...
-	// We do, however, start the frame in other ways.
+bool EmuScreen::canBeBackground() const {
+	if (g_Config.bSkipBufferEffects)
+		return false;
 
-	if ((g_Config.bSkipBufferEffects && !g_Config.bSoftwareRendering) || Core_IsStepping()) {
-		// We need to clear here already so that drawing during the frame is done on a clean slate.
-		if (Core_IsStepping() && gpuStats.numFlips != 0) {
-			draw->BindFramebufferAsRenderTarget(nullptr, { RPAction::KEEP, RPAction::DONT_CARE, RPAction::DONT_CARE }, "EmuScreen_BackBuffer");
-		} else {
-			draw->BindFramebufferAsRenderTarget(nullptr, { RPAction::CLEAR, RPAction::CLEAR, RPAction::CLEAR, 0xFF000000 }, "EmuScreen_BackBuffer");
-		}
+	bool forceTransparent = false;  // this needs to be true somehow on the display layout screen.
 
-		Viewport viewport;
-		viewport.TopLeftX = 0;
-		viewport.TopLeftY = 0;
-		viewport.Width = g_display.pixel_xres;
-		viewport.Height = g_display.pixel_yres;
-		viewport.MaxDepth = 1.0;
-		viewport.MinDepth = 0.0;
-		draw->SetViewport(viewport);
+	if (!g_Config.bTransparentBackground && !forceTransparent)
+		return false;
+
+	return true;
+}
+
+void EmuScreen::darken() {
+	if (!screenManager()->topScreen()->wantBrightBackground()) {
+		UIContext &dc = *screenManager()->getUIContext();
+		uint32_t color = GetBackgroundColorWithAlpha(dc);
+		dc.Begin();
+		dc.RebindTexture();
+		dc.FillRect(UI::Drawable(color), dc.GetBounds());
+		dc.Flush();
 	}
-	draw->SetTargetSize(g_display.pixel_xres, g_display.pixel_yres);
 }
 
-void EmuScreen::postRender() {
-	Draw::DrawContext *draw = screenManager()->getDrawContext();
-	if (!draw)
-		return;
-	if (stopRender_)
-		draw->WipeQueue();
-}
+void EmuScreen::render(ScreenRenderMode mode) {
+	if (mode & ScreenRenderMode::FIRST) {
+		// Actually, always gonna be first when it exists (?)
 
-void EmuScreen::render() {
+		using namespace Draw;
+		DrawContext *draw = screenManager()->getDrawContext();
+		// Here we do NOT bind the backbuffer or clear the screen, unless non-buffered.
+		// The emuscreen is different than the others - we really want to allow the game to render to framebuffers
+		// before we ever bind the backbuffer for rendering. On mobile GPUs, switching back and forth between render
+		// targets is a mortal sin so it's very important that we don't bind the backbuffer unnecessarily here.
+		// We only bind it in FramebufferManager::CopyDisplayToOutput (unless non-buffered)...
+		// We do, however, start the frame in other ways.
+
+		if ((g_Config.bSkipBufferEffects && !g_Config.bSoftwareRendering) || Core_IsStepping()) {
+			// We need to clear here already so that drawing during the frame is done on a clean slate.
+			if (Core_IsStepping() && gpuStats.numFlips != 0) {
+				draw->BindFramebufferAsRenderTarget(nullptr, { RPAction::KEEP, RPAction::DONT_CARE, RPAction::DONT_CARE }, "EmuScreen_BackBuffer");
+			} else {
+				draw->BindFramebufferAsRenderTarget(nullptr, { RPAction::CLEAR, RPAction::CLEAR, RPAction::CLEAR, 0xFF000000 }, "EmuScreen_BackBuffer");
+			}
+
+			Viewport viewport;
+			viewport.TopLeftX = 0;
+			viewport.TopLeftY = 0;
+			viewport.Width = g_display.pixel_xres;
+			viewport.Height = g_display.pixel_yres;
+			viewport.MaxDepth = 1.0;
+			viewport.MinDepth = 0.0;
+			draw->SetViewport(viewport);
+		}
+		draw->SetTargetSize(g_display.pixel_xres, g_display.pixel_yres);
+	}
+
 	using namespace Draw;
 
 	DrawContext *thin3d = screenManager()->getDrawContext();
@@ -1456,8 +1479,19 @@ void EmuScreen::render() {
 
 	g_OSD.NudgeSidebar();
 
-	if (screenManager()->topScreen() == this) {
+	if (mode & ScreenRenderMode::TOP) {
 		System_Notify(SystemNotification::KEEP_SCREEN_AWAKE);
+	} else {
+		// Not on top. Let's not execute, only draw the image.
+		thin3d->BindFramebufferAsRenderTarget(nullptr, { RPAction::CLEAR, RPAction::DONT_CARE, RPAction::DONT_CARE }, "EmuScreen_Stepping");
+		// Just to make sure.
+		if (PSP_IsInited() && !g_Config.bSkipBufferEffects) {
+			PSP_BeginHostFrame();
+			gpu->CopyDisplayToOutput(true);
+			PSP_EndHostFrame();
+			darken();
+		}
+		return;
 	}
 
 	if (invalid_) {
@@ -1551,6 +1585,14 @@ void EmuScreen::render() {
 		SetVRAppMode(VRAppMode::VR_DIALOG_MODE);
 	} else {
 		SetVRAppMode(screenManager()->topScreen() == this ? VRAppMode::VR_GAME_MODE : VRAppMode::VR_DIALOG_MODE);
+	}
+
+	if (mode & ScreenRenderMode::TOP) {
+		// TODO: Replace this with something else.
+		if (stopRender_)
+			thin3d->WipeQueue();
+	} else if (!screenManager()->topScreen()->wantBrightBackground()) {
+		darken();
 	}
 }
 

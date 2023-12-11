@@ -36,19 +36,31 @@ void UIBackgroundShutdown();
 
 inline void NoOpVoidBool(bool) {}
 
+class BackgroundScreen : public UIScreen {
+public:
+	void render(ScreenRenderMode mode) override;
+	void sendMessage(UIMessage message, const char *value) override;
+
+
+private:
+	void CreateViews() override {}
+	const char *tag() const override { return "bg"; }
+
+	Path gamePath_;
+};
+
+// This doesn't have anything to do with the background anymore. It's just a PPSSPP UIScreen
+// that knows how handle sendMessage properly. Same for all the below.
 class UIScreenWithBackground : public UIScreen {
 public:
 	UIScreenWithBackground() : UIScreen() {}
 protected:
-	void DrawBackground(UIContext &dc) override;
 	void sendMessage(UIMessage message, const char *value) override;
 };
 
 class UIScreenWithGameBackground : public UIScreenWithBackground {
 public:
-	UIScreenWithGameBackground(const std::string &gamePath)
-		: UIScreenWithBackground(), gamePath_(gamePath) {}
-	void DrawBackground(UIContext &dc) override;
+	UIScreenWithGameBackground(const Path &gamePath) : UIScreenWithBackground(), gamePath_(gamePath) {}
 	void sendMessage(UIMessage message, const char *value) override;
 protected:
 	Path gamePath_;
@@ -61,9 +73,7 @@ class UIDialogScreenWithBackground : public UIDialogScreen {
 public:
 	UIDialogScreenWithBackground() : UIDialogScreen() {}
 protected:
-	void DrawBackground(UIContext &dc) override;
 	void sendMessage(UIMessage message, const char *value) override;
-
 	void AddStandardBack(UI::ViewGroup *parent);
 };
 
@@ -71,13 +81,9 @@ class UIDialogScreenWithGameBackground : public UIDialogScreenWithBackground {
 public:
 	UIDialogScreenWithGameBackground(const Path &gamePath)
 		: UIDialogScreenWithBackground(), gamePath_(gamePath) {}
-	void DrawBackground(UIContext &dc) override;
 	void sendMessage(UIMessage message, const char *value) override;
 protected:
 	Path gamePath_;
-
-	bool forceTransparent_ = false;
-	bool darkenGameBackground_ = true;
 };
 
 class PromptScreen : public UIDialogScreenWithGameBackground {
@@ -140,7 +146,7 @@ public:
 	bool key(const KeyInput &key) override;
 	void touch(const TouchInput &touch) override;
 	void update() override;
-	void render() override;
+	void render(ScreenRenderMode mode) override;
 	void sendMessage(UIMessage message, const char *value) override;
 	void CreateViews() override {}
 
@@ -158,7 +164,7 @@ class CreditsScreen : public UIDialogScreenWithBackground {
 public:
 	CreditsScreen();
 	void update() override;
-	void render() override;
+	void render(ScreenRenderMode mode) override;
 
 	void CreateViews() override;
 

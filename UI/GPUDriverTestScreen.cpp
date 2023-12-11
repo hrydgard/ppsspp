@@ -630,9 +630,9 @@ void GPUDriverTestScreen::ShaderTest() {
 }
 
 
-void GPUDriverTestScreen::render() {
+void GPUDriverTestScreen::render(ScreenRenderMode mode) {
 	using namespace Draw;
-	UIScreen::render();
+	UIScreen::render(mode);
 
 	switch (tabHolder_->GetCurrentTab()) {
 	case 0:

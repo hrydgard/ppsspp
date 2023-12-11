@@ -15,7 +15,7 @@ public:
 	~GPUDriverTestScreen();
 
 	void CreateViews() override;
-	void render() override;
+	void render(ScreenRenderMode mode) override;
 
 	const char *tag() const override { return "GPUDriverTest"; }
 

@@ -291,7 +291,7 @@ VkRenderPass CreateRenderPass(VulkanContext *vulkan, const RPKey &key, RenderPas
 	_dbg_assert_(!(isBackbuffer && multisample));
 
 	if (isBackbuffer) {
-		_dbg_assert_(key.depthLoadAction == VKRRenderPassLoadAction::CLEAR);
+		_dbg_assert_(key.depthLoadAction != VKRRenderPassLoadAction::KEEP);
 	}
 
 	if (multiview) {

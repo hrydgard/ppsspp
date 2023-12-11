@@ -193,7 +193,7 @@ void UIScreen::deviceRestored() {
 		root_->DeviceRestored(screenManager()->getDrawContext());
 }
 
-void UIScreen::preRender() {
+void UIScreen::SetupViewport() {
 	using namespace Draw;
 	Draw::DrawContext *draw = screenManager()->getDrawContext();
 	_dbg_assert_(draw != nullptr);
@@ -212,28 +212,26 @@ void UIScreen::preRender() {
 	draw->SetTargetSize(g_display.pixel_xres, g_display.pixel_yres);
 }
 
-void UIScreen::postRender() {
-	screenManager()->getUIContext()->Flush();
-}
+void UIScreen::render(ScreenRenderMode mode) {
+	if (mode & ScreenRenderMode::FIRST) {
+		SetupViewport();
+	}
 
-void UIScreen::render() {
 	DoRecreateViews();
 
 	if (root_) {
-		UIContext *uiContext = screenManager()->getUIContext();
+		UIContext &uiContext = *screenManager()->getUIContext();
 
-		uiContext->SetScreenTag(tag());
+		UI::LayoutViewHierarchy(uiContext, root_, ignoreInsets_);
 
-		UI::LayoutViewHierarchy(*uiContext, root_, ignoreInsets_);
+		uiContext.PushTransform({translation_, scale_, alpha_});
 
-		uiContext->PushTransform({translation_, scale_, alpha_});
+		uiContext.Begin();
+		DrawBackground(uiContext);
+		root_->Draw(uiContext);
+		uiContext.Flush();
 
-		uiContext->Begin();
-		DrawBackground(*uiContext);
-		root_->Draw(*uiContext);
-		uiContext->Flush();
-
-		uiContext->PopTransform();
+		uiContext.PopTransform();
 	}
 }
 

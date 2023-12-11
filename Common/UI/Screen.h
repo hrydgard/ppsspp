@@ -47,6 +47,15 @@ enum class ScreenFocusChange {
 	FOCUS_BECAME_TOP,  // Became the top screen again
 };
 
+enum class ScreenRenderMode {
+	DEFAULT = 0,
+	FIRST = 1,
+	BACKGROUND = 2,
+	BEHIND = 4,
+	TOP = 8,
+};
+ENUM_CLASS_BITOPS(ScreenRenderMode);
+
 class Screen {
 public:
 	Screen() : screenManager_(nullptr) { }
@@ -56,14 +65,14 @@ public:
 
 	virtual void onFinish(DialogResult reason) {}
 	virtual void update() {}
-	virtual void preRender() {}
-	virtual void render() {}
-	virtual void postRender() {}
+	virtual void render(ScreenRenderMode mode) {}
 	virtual void resized() {}
 	virtual void dialogFinished(const Screen *dialog, DialogResult result) {}
 	virtual void sendMessage(UIMessage message, const char *value) {}
 	virtual void deviceLost() {}
 	virtual void deviceRestored() {}
+	virtual bool canBeBackground() const { return false; }
+	virtual bool wantBrightBackground() const { return false; }  // special hack for DisplayLayoutScreen.
 
 	virtual void focusChanged(ScreenFocusChange focusChange);
 
@@ -77,10 +86,6 @@ public:
 
 	ScreenManager *screenManager() { return screenManager_; }
 	void setScreenManager(ScreenManager *sm) { screenManager_ = sm; }
-
-	// This one is icky to use because you can't know what's in it until you know
-	// what screen it is.
-	virtual void *dialogData() { return 0; }
 
 	virtual const char *tag() const = 0;
 
@@ -153,7 +158,7 @@ public:
 	void getFocusPosition(float &x, float &y, float &z);
 
 	// Will delete any existing overlay screen.
-	void SetOverlayScreen(Screen *screen);
+	void SetBackgroundOverlayScreens(Screen *backgroundScreen, Screen *overlayScreen);
 
 	std::recursive_mutex inputLock_;
 
@@ -171,6 +176,7 @@ private:
 	const Screen *dialogFinished_ = nullptr;
 	DialogResult dialogResult_{};
 
+	Screen *backgroundScreen_ = nullptr;
 	Screen *overlayScreen_ = nullptr;
 
 	struct Layer {

@@ -713,8 +713,8 @@ void TouchTestScreen::axis(const AxisInput &axis) {
 	UpdateLogView();
 }
 
-void TouchTestScreen::render() {
-	UIDialogScreenWithGameBackground::render();
+void TouchTestScreen::render(ScreenRenderMode mode) {
+	UIDialogScreenWithGameBackground::render(mode);
 	UIContext *ui_context = screenManager()->getUIContext();
 	Bounds bounds = ui_context->GetLayoutBounds();
 

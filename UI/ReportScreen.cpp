@@ -166,26 +166,29 @@ ReportScreen::ReportScreen(const Path &gamePath)
 	ratingEnabled_ = enableReporting_;
 }
 
-void ReportScreen::postRender() {
-	// We do this after render because we need it to be within the frame (so the screenshot works).
-	// We could do it mid frame, but then we have to reapply viewport/scissor.
-	if (!tookScreenshot_) {
-		Path path = GetSysDirectory(DIRECTORY_SCREENSHOT);
-		if (!File::Exists(path)) {
-			File::CreateDir(path);
-		}
-		screenshotFilename_ = path / ".reporting.jpg";
-		if (TakeGameScreenshot(screenshotFilename_, ScreenshotFormat::JPG, SCREENSHOT_DISPLAY, nullptr, nullptr, 4)) {
-			// Redo the views already, now with a screenshot included.
-			RecreateViews();
-		} else {
-			// Good news (?), the views are good as-is without a screenshot.
-			screenshotFilename_.clear();
-		}
-		tookScreenshot_ = true;
-	}
+void ReportScreen::render(ScreenRenderMode mode) {
+	UIScreen::render(mode);
 
-	UIDialogScreenWithGameBackground::postRender();
+	if (mode & ScreenRenderMode::TOP) {
+
+		// We do this after render because we need it to be within the frame (so the screenshot works).
+		// We could do it mid frame, but then we have to reapply viewport/scissor.
+		if (!tookScreenshot_) {
+			Path path = GetSysDirectory(DIRECTORY_SCREENSHOT);
+			if (!File::Exists(path)) {
+				File::CreateDir(path);
+			}
+			screenshotFilename_ = path / ".reporting.jpg";
+			if (TakeGameScreenshot(screenshotFilename_, ScreenshotFormat::JPG, SCREENSHOT_DISPLAY, nullptr, nullptr, 4)) {
+				// Redo the views already, now with a screenshot included.
+				RecreateViews();
+			} else {
+				// Good news (?), the views are good as-is without a screenshot.
+				screenshotFilename_.clear();
+			}
+			tookScreenshot_ = true;
+		}
+	}
 }
 
 void ReportScreen::update() {

@@ -51,12 +51,14 @@
 
 GameScreen::GameScreen(const Path &gamePath) : UIDialogScreenWithGameBackground(gamePath) {
 	g_BackgroundAudio.SetGame(gamePath);
+	System_PostUIMessage(UIMessage::GAME_SELECTED, gamePath.ToString());
 }
 
 GameScreen::~GameScreen() {
 	if (CRC32string == "...") {
 		Reporting::CancelCRC();
 	}
+	System_PostUIMessage(UIMessage::GAME_SELECTED, "");
 }
 
 template <typename I> std::string int2hexstr(I w, size_t hex_len = sizeof(I) << 1) {
@@ -274,8 +276,8 @@ UI::EventReturn GameScreen::OnDeleteConfig(UI::EventParams &e)
 	return UI::EVENT_DONE;
 }
 
-void GameScreen::render() {
-	UIScreen::render();
+void GameScreen::render(ScreenRenderMode mode) {
+	UIScreen::render(mode);
 
 	auto ga = GetI18NCategory(I18NCat::GAME);
 

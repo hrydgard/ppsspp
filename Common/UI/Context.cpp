@@ -164,8 +164,7 @@ void UIContext::ActivateTopScissor() {
 		int w = std::max(0.0f, ceilf(scale_x * bounds.w));
 		int h = std::max(0.0f, ceilf(scale_y * bounds.h));
 		if (x < 0 || y < 0 || x + w > g_display.pixel_xres || y + h > g_display.pixel_yres) {
-			// This won't actually report outside a game, but we can try.
-			DEBUG_LOG(G3D, "UI scissor out of bounds in %sScreen: %d,%d-%d,%d / %d,%d", screenTag_ ? screenTag_ : "N/A", x, y, w, h, g_display.pixel_xres, g_display.pixel_yres);
+			DEBUG_LOG(G3D, "UI scissor out of bounds: %d,%d-%d,%d / %d,%d", x, y, w, h, g_display.pixel_xres, g_display.pixel_yres);
 			if (x < 0) { w += x; x = 0; }
 			if (y < 0) { h += y; y = 0; }
 			if (x >= g_display.pixel_xres) { x = g_display.pixel_xres - 1; }

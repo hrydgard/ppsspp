@@ -52,11 +52,11 @@ protected:
 
 	void dialogFinished(const Screen *dialog, DialogResult result) override;
 	void update() override;
-	void render() override {
+	void render(ScreenRenderMode mode) override {
 		// Simple anti-flicker due to delayed finish.
 		if (!done_) {
 			// render as usual.
-			UIDialogScreenWithBackground::render();
+			UIDialogScreenWithBackground::render(mode);
 		} else {
 			// no render. black frame insertion is better than flicker.
 		}

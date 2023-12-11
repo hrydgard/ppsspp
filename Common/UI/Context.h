@@ -113,10 +113,6 @@ public:
 
 	void setUIAtlas(const std::string &name);
 
-	void SetScreenTag(const char *tag) {
-		screenTag_ = tag;
-	}
-
 	// TODO: Move to private.
 	const UI::Theme *theme;
 
@@ -142,6 +138,4 @@ private:
 
 	std::string lastUIAtlas_;
 	std::string UIAtlas_ = "ui_atlas.zim";
-
-	const char *screenTag_ = nullptr;
 };
