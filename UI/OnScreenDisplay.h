@@ -41,7 +41,7 @@ public:
 	bool UnsyncTouch(const TouchInput &touch) override;
 
 	void CreateViews() override;
-	void render(ScreenRenderMode mode) override;
+	void DrawForeground(UIContext &ui) override;
 	void update() override;
 
 private:

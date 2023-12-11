@@ -1077,12 +1077,7 @@ static void SendMouseDeltaAxis();
 void NativeFrame(GraphicsContext *graphicsContext) {
 	PROFILE_END_FRAME();
 
-	bool menuThrottle = (GetUIState() != UISTATE_INGAME || !PSP_IsInited()) && GetUIState() != UISTATE_EXIT;
-
-	double startTime;
-	if (menuThrottle) {
-		startTime = time_now_d();
-	}
+	double startTime = time_now_d();
 
 	std::vector<PendingMessage> toProcess;
 	{
@@ -1107,7 +1102,6 @@ void NativeFrame(GraphicsContext *graphicsContext) {
 	g_DownloadManager.Update();
 
 	g_Discord.Update();
-	g_BackgroundAudio.Play();
 
 	g_OSD.Update();
 
@@ -1147,7 +1141,7 @@ void NativeFrame(GraphicsContext *graphicsContext) {
 	g_screenManager->getUIContext()->SetTintSaturation(g_Config.fUITint, g_Config.fUISaturation);
 
 	// All actual rendering happen in here.
-	g_screenManager->render();
+	ScreenRenderFlags renderFlags = g_screenManager->render();
 	if (g_screenManager->getUIContext()->Text()) {
 		g_screenManager->getUIContext()->Text()->OncePerFrame();
 	}
@@ -1200,7 +1194,7 @@ void NativeFrame(GraphicsContext *graphicsContext) {
 		graphicsContext->Poll();
 	}
 
-	if (menuThrottle) {
+	if (!(renderFlags & ScreenRenderFlags::HANDLED_THROTTLING)) {
 		float refreshRate = System_GetPropertyFloat(SYSPROP_DISPLAY_REFRESH_RATE);
 		// Simple throttling to not burn the GPU in the menu.
 		// TODO: This should move into NativeFrame. Also, it's only necessary in MAILBOX or IMMEDIATE presentation modes.
@@ -1208,6 +1202,9 @@ void NativeFrame(GraphicsContext *graphicsContext) {
 		int sleepTime = (int)(1000.0 / refreshRate) - (int)(diffTime * 1000.0);
 		if (sleepTime > 0)
 			sleep_ms(sleepTime);
+
+		// TODO: We should ideally mix this with game audio.
+		g_BackgroundAudio.Play();
 	}
 
 	SendMouseDeltaAxis();

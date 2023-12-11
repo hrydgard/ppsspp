@@ -38,7 +38,7 @@ public:
 
 	void update() override;
 
-	void render(ScreenRenderMode mode) override;
+	ScreenRenderFlags render(ScreenRenderMode mode) override;
 
 	const char *tag() const override { return "Game"; }
 

@@ -429,7 +429,7 @@ void HandleCommonMessages(UIMessage message, const char *value, ScreenManager *m
 	}
 }
 
-void BackgroundScreen::render(ScreenRenderMode mode) {
+ScreenRenderFlags BackgroundScreen::render(ScreenRenderMode mode) {
 	if (mode & ScreenRenderMode::FIRST) {
 		SetupViewport();
 	} else {
@@ -453,6 +453,8 @@ void BackgroundScreen::render(ScreenRenderMode mode) {
 	uiContext->Flush();
 
 	uiContext->PopTransform();
+
+	return ScreenRenderFlags::NONE;
 }
 
 void BackgroundScreen::sendMessage(UIMessage message, const char *value) {
@@ -732,11 +734,8 @@ void LogoScreen::touch(const TouchInput &touch) {
 	}
 }
 
-void LogoScreen::render(ScreenRenderMode mode) {
+void LogoScreen::DrawForeground(UIContext &dc) {
 	using namespace Draw;
-
-	UIScreen::render(mode);
-	UIContext &dc = *screenManager()->getUIContext();
 
 	const Bounds &bounds = dc.GetBounds();
 
@@ -751,10 +750,6 @@ void LogoScreen::render(ScreenRenderMode mode) {
 	if (t > 2.0f)
 		alphaText = 3.0f - t;
 	uint32_t textColor = colorAlpha(dc.theme->infoStyle.fgColor, alphaText);
-
-	float x, y, z;
-	screenManager()->getFocusPosition(x, y, z);
-	::DrawBackground(dc, alpha, x, y, z);
 
 	auto cr = GetI18NCategory(I18NCat::PSPCREDITS);
 	auto gr = GetI18NCategory(I18NCat::GRAPHICS);
@@ -871,9 +866,7 @@ void CreditsScreen::update() {
 	UpdateUIState(UISTATE_MENU);
 }
 
-void CreditsScreen::render(ScreenRenderMode mode) {
-	UIScreen::render(mode);
-
+void CreditsScreen::DrawForeground(UIContext &dc) {
 	auto cr = GetI18NCategory(I18NCat::PSPCREDITS);
 
 	std::string specialthanksMaxim = "Maxim ";
@@ -1020,7 +1013,6 @@ void CreditsScreen::render(ScreenRenderMode mode) {
 	}
 	credits[0] = (const char *)temp;
 
-	UIContext &dc = *screenManager()->getUIContext();
 	dc.Begin();
 	const Bounds &bounds = dc.GetLayoutBounds();
 

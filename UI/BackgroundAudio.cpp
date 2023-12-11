@@ -302,10 +302,6 @@ void BackgroundAudio::SetGame(const Path &path) {
 }
 
 bool BackgroundAudio::Play() {
-	if (GetUIState() == UISTATE_INGAME) {
-		return false;
-	}
-
 	std::lock_guard<std::mutex> lock(mutex_);
 
 	// Immediately stop the sound if it is turned off while playing.

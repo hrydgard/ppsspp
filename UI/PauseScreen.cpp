@@ -414,6 +414,8 @@ void GamePauseScreen::CreateViews() {
 	} else {
 		rightColumnItems->Add(new Choice(pa->T("Exit to menu")))->OnClick.Handle(this, &GamePauseScreen::OnExitToMenu);
 	}
+	rightColumnItems->Add(new Spacer(25.0f));
+	rightColumnItems->Add(new CheckBox(&g_Config.bRunBehindPauseMenu, "Run Behind"));
 }
 
 UI::EventReturn GamePauseScreen::OnGameSettings(UI::EventParams &e) {

@@ -276,14 +276,14 @@ UI::EventReturn GameScreen::OnDeleteConfig(UI::EventParams &e)
 	return UI::EVENT_DONE;
 }
 
-void GameScreen::render(ScreenRenderMode mode) {
-	UIScreen::render(mode);
+ScreenRenderFlags GameScreen::render(ScreenRenderMode mode) {
+	ScreenRenderFlags flags = UIScreen::render(mode);
 
 	auto ga = GetI18NCategory(I18NCat::GAME);
 
-	Draw::DrawContext *thin3d = screenManager()->getDrawContext();
+	Draw::DrawContext *draw = screenManager()->getDrawContext();
 
-	std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(thin3d, gamePath_, GAMEINFO_WANTBG | GAMEINFO_WANTSIZE | GAMEINFO_WANTUNCOMPRESSEDSIZE);
+	std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(draw, gamePath_, GAMEINFO_WANTBG | GAMEINFO_WANTSIZE | GAMEINFO_WANTUNCOMPRESSEDSIZE);
 
 	if (tvTitle_) {
 		tvTitle_->SetText(info->GetTitle());
@@ -416,6 +416,7 @@ void GameScreen::render(ScreenRenderMode mode) {
 			choice->SetVisibility(UI::V_VISIBLE);
 		}
 	}
+	return flags;
 }
 
 UI::EventReturn GameScreen::OnShowInFolder(UI::EventParams &e) {

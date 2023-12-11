@@ -154,7 +154,8 @@ void ScreenManager::resized() {
 	}
 }
 
-void ScreenManager::render() {
+ScreenRenderFlags ScreenManager::render() {
+	ScreenRenderFlags flags = ScreenRenderFlags::NONE;
 	if (!stack_.empty()) {
 		// Collect the screens to render
 		TinySet<Screen *, 6> layers;
@@ -169,12 +170,12 @@ void ScreenManager::render() {
 		Screen *backgroundScreen = nullptr;
 		do {
 			--iter;
-			if (!coveringScreen) {
-				layers.push_back(iter->screen);
-			} else if (!backgroundScreen && iter->screen->canBeBackground()) {
+			if (!backgroundScreen && iter->screen->canBeBackground()) {
 				// There still might be a screen that wants to be background - generally the EmuScreen if present.
 				layers.push_back(iter->screen);
 				backgroundScreen = iter->screen;
+			} else if (!coveringScreen) {
+				layers.push_back(iter->screen);
 			}
 			if (iter->flags != LAYER_TRANSPARENT) {
 				coveringScreen = iter->screen;
@@ -194,9 +195,6 @@ void ScreenManager::render() {
 			if (i == (int)layers.size() - 1) {
 				// Bottom.
 				mode = ScreenRenderMode::FIRST;
-				if (layers[i] == backgroundScreen && coveringScreen != layers[i]) {
-					mode |= ScreenRenderMode::BACKGROUND;
-				}
 				if (i == 0) {
 					mode |= ScreenRenderMode::TOP;
 				}
@@ -205,12 +203,12 @@ void ScreenManager::render() {
 			} else {
 				mode = ScreenRenderMode::BEHIND;
 			}
-			layers[i]->render(mode);
+			flags |= layers[i]->render(mode);
 		}
 
 		if (overlayScreen_) {
 			// It doesn't care about mode.
-			overlayScreen_->render(ScreenRenderMode::TOP);
+			flags |= overlayScreen_->render(ScreenRenderMode::TOP);
 		}
 
 		getUIContext()->Flush();
@@ -224,6 +222,7 @@ void ScreenManager::render() {
 	}
 
 	processFinishDialog();
+	return flags;
 }
 
 void ScreenManager::getFocusPosition(float &x, float &y, float &z) {

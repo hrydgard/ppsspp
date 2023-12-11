@@ -38,9 +38,8 @@ inline void NoOpVoidBool(bool) {}
 
 class BackgroundScreen : public UIScreen {
 public:
-	void render(ScreenRenderMode mode) override;
+	ScreenRenderFlags render(ScreenRenderMode mode) override;
 	void sendMessage(UIMessage message, const char *value) override;
-
 
 private:
 	void CreateViews() override {}
@@ -146,7 +145,7 @@ public:
 	bool key(const KeyInput &key) override;
 	void touch(const TouchInput &touch) override;
 	void update() override;
-	void render(ScreenRenderMode mode) override;
+	void DrawForeground(UIContext &ui) override;
 	void sendMessage(UIMessage message, const char *value) override;
 	void CreateViews() override {}
 
@@ -164,7 +163,7 @@ class CreditsScreen : public UIDialogScreenWithBackground {
 public:
 	CreditsScreen();
 	void update() override;
-	void render(ScreenRenderMode mode) override;
+	void DrawForeground(UIContext &ui) override;
 
 	void CreateViews() override;
 

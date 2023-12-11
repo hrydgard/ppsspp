@@ -40,7 +40,7 @@ public:
 	const char *tag() const override { return "Report"; }
 
 protected:
-	void render(ScreenRenderMode mode) override;
+	ScreenRenderFlags render(ScreenRenderMode mode) override;
 	void update() override;
 	void resized() override;
 	void CreateViews() override;

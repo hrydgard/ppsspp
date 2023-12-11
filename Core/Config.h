@@ -99,8 +99,9 @@ public:
 
 	// Not used on mobile devices.
 	bool bPauseExitsEmulator;
-
 	bool bPauseMenuExitsEmulator;
+
+	bool bRunBehindPauseMenu;
 
 	// Core
 	bool bIgnoreBadMemAccess;
