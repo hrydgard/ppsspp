@@ -1415,9 +1415,10 @@ static void DrawFPS(UIContext *ctx, const Bounds &bounds) {
 	ctx->RebindTexture();
 }
 
-bool EmuScreen::canBeBackground() const {
-	if (g_Config.bSkipBufferEffects)
-		return false;
+bool EmuScreen::canBeBackground(bool isTop) const {
+	if (g_Config.bSkipBufferEffects) {
+		return isTop || (g_Config.bTransparentBackground && g_Config.bRunBehindPauseMenu);
+	}
 
 	bool forceTransparent = false;  // this needs to be true somehow on the display layout screen.
 
@@ -1446,6 +1447,8 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 	if (!draw)
 		return flags;  // shouldn't really happen but I've seen a suspicious stack trace..
 
+	bool skipBufferEffects = g_Config.bSkipBufferEffects;
+
 	if (mode & ScreenRenderMode::FIRST) {
 		// Actually, always gonna be first when it exists (?)
 
@@ -1472,6 +1475,8 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 			viewport.MaxDepth = 1.0;
 			viewport.MinDepth = 0.0;
 			draw->SetViewport(viewport);
+
+			skipBufferEffects = true;
 		}
 		draw->SetTargetSize(g_display.pixel_xres, g_display.pixel_yres);
 	}
@@ -1568,14 +1573,22 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 		PSP_EndHostFrame();
 	}
 
-	if (gpu && !gpu->PresentedThisFrame()) {
+	if (gpu && !gpu->PresentedThisFrame() && !skipBufferEffects) {
 		draw->BindFramebufferAsRenderTarget(nullptr, { RPAction::CLEAR, RPAction::CLEAR, RPAction::CLEAR }, "EmuScreen_NoFrame");
+		Viewport viewport{ 0.0f, 0.0f, (float)g_display.pixel_xres, (float)g_display.pixel_yres, 0.0f, 1.0f };
+		draw->SetViewport(viewport);
+		draw->SetScissorRect(0, 0, g_display.pixel_xres, g_display.pixel_yres);
 	}
 
 	if (!(mode & ScreenRenderMode::TOP)) {
 		// We're in run-behind mode, but we don't want to draw chat, debug UI and stuff.
 		// So, darken and bail here.
-
+		if (skipBufferEffects) {
+			// Need to reset viewport/scissor.
+			Viewport viewport{ 0.0f, 0.0f, (float)g_display.pixel_xres, (float)g_display.pixel_yres, 0.0f, 1.0f };
+			draw->SetViewport(viewport);
+			draw->SetScissorRect(0, 0, g_display.pixel_xres, g_display.pixel_yres);
+		}
 		darken();
 		return flags;
 	}

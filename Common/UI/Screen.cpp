@@ -168,9 +168,10 @@ ScreenRenderFlags ScreenManager::render() {
 		auto iter = stack_.end();
 		Screen *coveringScreen = nullptr;
 		Screen *backgroundScreen = nullptr;
+		bool first = true;
 		do {
 			--iter;
-			if (!backgroundScreen && iter->screen->canBeBackground()) {
+			if (!backgroundScreen && iter->screen->canBeBackground(first)) {
 				// There still might be a screen that wants to be background - generally the EmuScreen if present.
 				layers.push_back(iter->screen);
 				backgroundScreen = iter->screen;
@@ -180,6 +181,7 @@ ScreenRenderFlags ScreenManager::render() {
 			if (iter->flags != LAYER_TRANSPARENT) {
 				coveringScreen = iter->screen;
 			}
+			first = false;
 		} while (iter != stack_.begin());
 
 		// Confusing-looking expression, argh! Note the '_'
@@ -189,7 +191,6 @@ ScreenRenderFlags ScreenManager::render() {
 		}
 
 		// OK, now we iterate backwards over our little pile of collected screens.
-		bool first = true;
 		for (int i = (int)layers.size() - 1; i >= 0; i--) {
 			ScreenRenderMode mode = ScreenRenderMode::DEFAULT;
 			if (i == (int)layers.size() - 1) {

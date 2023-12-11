@@ -76,7 +76,7 @@ public:
 	virtual void sendMessage(UIMessage message, const char *value) {}
 	virtual void deviceLost() {}
 	virtual void deviceRestored() {}
-	virtual bool canBeBackground() const { return false; }
+	virtual bool canBeBackground(bool isTop) const { return false; }
 	virtual bool wantBrightBackground() const { return false; }  // special hack for DisplayLayoutScreen.
 
 	virtual void focusChanged(ScreenFocusChange focusChange);
