@@ -390,7 +390,7 @@ void DrawEngineVulkan::DoFlush() {
 
 		int vcount = indexGen.VertexCount();
 		if (numDecodedVerts_ > 10 * vcount) {
-			decIndex_ = decIndex_;
+			decIndex_ = decodeIndsCounter_;
 		}
 
 		gpuStats.numUncachedVertsDrawn += indexGen.VertexCount();
