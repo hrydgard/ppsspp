@@ -255,13 +255,11 @@ u32 GPU_Vulkan::CheckGPUFeatures() const {
 	}
 
 	// These are VULKAN_4444_FORMAT and friends.
+	// Note that we are now using the correct set of formats - the only cases where some may be missing
+	// are non-conformant implementations like MoltenVK.
 	uint32_t fmt4444 = draw_->GetDataFormatSupport(Draw::DataFormat::B4G4R4A4_UNORM_PACK16);
 	uint32_t fmt1555 = draw_->GetDataFormatSupport(Draw::DataFormat::A1R5G5B5_UNORM_PACK16);
-
-	// Note that we are (accidentally) using B5G6R5 instead of the mandatory R5G6B5.
-	// Support is almost as widespread, but not quite. So let's just not use any 16-bit formats
-	// if it's not available, for simplicity.
-	uint32_t fmt565 = draw_->GetDataFormatSupport(Draw::DataFormat::B5G6R5_UNORM_PACK16);
+	uint32_t fmt565 = draw_->GetDataFormatSupport(Draw::DataFormat::R5G6B5_UNORM_PACK16);
 	if ((fmt4444 & Draw::FMT_TEXTURE) && (fmt565 & Draw::FMT_TEXTURE) && (fmt1555 & Draw::FMT_TEXTURE)) {
 		features |= GPU_USE_16BIT_FORMATS;
 	} else {

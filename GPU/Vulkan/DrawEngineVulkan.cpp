@@ -388,11 +388,6 @@ void DrawEngineVulkan::DoFlush() {
 			gstate_c.vertexFullAlpha = gstate_c.vertexFullAlpha && ((hasColor && (gstate.materialupdate & 1)) || gstate.getMaterialAmbientA() == 255) && (!gstate.isLightingEnabled() || gstate.getAmbientA() == 255);
 		}
 
-		int vcount = indexGen.VertexCount();
-		if (numDecodedVerts_ > 10 * vcount) {
-			decIndex_ = decIndex_;
-		}
-
 		gpuStats.numUncachedVertsDrawn += indexGen.VertexCount();
 		prim = indexGen.Prim();
 		// Undo the strip optimization, not supported by the SW code yet.
