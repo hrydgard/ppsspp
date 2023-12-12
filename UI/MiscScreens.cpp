@@ -269,7 +269,7 @@ private:
 		if (!pic)
 			return;
 
-		dc.GetDrawContext()->BindTexture(0, pic->texture->GetTexture());
+		dc.GetDrawContext()->BindTexture(0, pic->texture);
 		uint32_t color = whiteAlpha(amount) & 0xFFc0c0c0;
 		dc.Draw()->DrawTexRect(dc.GetBounds(), 0, 0, 1, 1, color);
 		dc.Flush();
@@ -379,7 +379,7 @@ void DrawGameBackground(UIContext &dc, const Path &gamePath, float x, float y, f
 
 	GameInfoTex *pic = ginfo ? ginfo->GetBGPic() : nullptr;
 	if (pic) {
-		dc.GetDrawContext()->BindTexture(0, pic->texture->GetTexture());
+		dc.GetDrawContext()->BindTexture(0, pic->texture);
 		uint32_t color = whiteAlpha(ease((time_now_d() - pic->timeLoaded) * 3)) & 0xFFc0c0c0;
 		dc.Draw()->DrawTexRect(dc.GetBounds(), 0,0,1,1, color);
 		dc.Flush();
