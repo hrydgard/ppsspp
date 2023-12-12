@@ -168,3 +168,11 @@ enum class DebugOverlay : int {
 	GPU_ALLOCATOR,
 	FRAMEBUFFER_LIST,
 };
+
+// Android-only for now
+enum class DisplayFramerateMode : int {
+	DEFAULT,
+	REQUEST_60HZ,
+	FORCE_60HZ_METHOD1,
+	FORCE_60HZ_METHOD2,
+};

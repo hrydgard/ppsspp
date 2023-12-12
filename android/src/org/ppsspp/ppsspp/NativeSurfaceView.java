@@ -17,6 +17,8 @@ import android.os.Handler;
 import android.util.Log;
 import android.view.InputDevice;
 import android.view.MotionEvent;
+import android.view.Surface;
+import android.view.SurfaceControl;
 import android.view.SurfaceView;
 
 import com.bda.controller.Controller;
@@ -44,8 +46,6 @@ public class NativeSurfaceView extends SurfaceView implements SensorEventListene
 		mAccelerometer = mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
 
 		mController = Controller.getInstance(activity);
-
-		// this.getHolder().setFormat(PixelFormat.RGBA_8888);
 
 		try {
 			MogaHack.init(mController, activity);

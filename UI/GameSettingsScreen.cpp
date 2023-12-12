@@ -1731,6 +1731,19 @@ void DeveloperToolsScreen::CreateViews() {
 		list->Add(new CheckBox(&g_Config.bGpuLogProfiler, dev->T("GPU log profiler")));
 	}
 
+#if PPSSPP_PLATFORM(ANDROID)
+	static const char *framerateModes[] = { "Default", "Request 60Hz", "Force 60Hz 1", "Force 60Hz 2" };
+	PopupMultiChoice *framerateMode = list->Add(new PopupMultiChoice(&g_Config.iDisplayFramerateMode, gr->T("Framerate mode"), framerateModes, 0, ARRAY_SIZE(framerateModes), I18NCat::GRAPHICS, screenManager()));
+	framerateMode->SetEnabledFunc([]() { return System_GetPropertyInt(SYSPROP_SYSTEMVERSION) >= 30; });
+	if (System_GetPropertyInt(SYSPROP_SYSTEMVERSION) < 31) {
+		framerateMode->HideChoice(3);  // not available
+	}
+	framerateMode->OnChoice.Add([this](UI::EventParams &e) {
+		System_Notify(SystemNotification::FORCE_RECREATE_ACTIVITY);
+		return UI::EVENT_DONE;
+	});
+#endif
+
 	static const char *ffModes[] = { "Render all frames", "", "Frame Skipping" };
 	PopupMultiChoice *ffMode = list->Add(new PopupMultiChoice(&g_Config.iFastForwardMode, dev->T("Fast-forward mode"), ffModes, 0, ARRAY_SIZE(ffModes), I18NCat::GRAPHICS, screenManager()));
 	ffMode->SetEnabledFunc([]() { return !g_Config.bVSync; });

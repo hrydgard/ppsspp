@@ -1,5 +1,6 @@
 package org.ppsspp.ppsspp;
 
+import android.annotation.TargetApi;
 import android.app.AlertDialog;
 import android.content.Intent;
 import android.net.Uri;
@@ -150,6 +151,7 @@ public class PpssppActivity extends NativeActivity {
 		}
 	}
 
+	@TargetApi(Build.VERSION_CODES.HONEYCOMB_MR1)
 	public int openContentUri(String uriString, String mode) {
 		try {
 			Uri uri = Uri.parse(uriString);
