@@ -620,22 +620,6 @@ static std::string QueryConfig(std::string query) {
 		return std::string(temp);
 	} else if (query == "immersiveMode") {
 		return std::string(g_Config.bImmersiveMode ? "1" : "0");
-	} else if (query == "hwScale") {
-		int scale = g_Config.iAndroidHwScale;
-		// Override hw scale for TV type devices.
-		if (System_GetPropertyInt(SYSPROP_DEVICE_TYPE) == DEVICE_TYPE_TV)
-			scale = 0;
-
-		if (scale == 1) {
-			// If g_Config.iInternalResolution is also set to Auto (1), we fall back to "Device resolution" (0). It works out.
-			scale = g_Config.iInternalResolution;
-		} else if (scale >= 2) {
-			scale -= 1;
-		}
-
-		int max_res = std::max(System_GetPropertyInt(SYSPROP_DISPLAY_XRES), System_GetPropertyInt(SYSPROP_DISPLAY_YRES)) / 480 + 1;
-		snprintf(temp, sizeof(temp), "%d", std::min(scale, max_res));
-		return std::string(temp);
 	} else if (query == "sustainedPerformanceMode") {
 		return std::string(g_Config.bSustainedPerformanceMode ? "1" : "0");
 	} else if (query == "androidJavaGL") {
@@ -1415,9 +1399,24 @@ void correctRatio(int &sz_x, int &sz_y, float scale) {
 void getDesiredBackbufferSize(int &sz_x, int &sz_y) {
 	sz_x = display_xres;
 	sz_y = display_yres;
-	std::string config = NativeQueryConfig("hwScale");
-	int scale;
-	if (1 == sscanf(config.c_str(), "%d", &scale) && scale > 0) {
+
+	int scale = g_Config.iAndroidHwScale;
+	// Override hw scale for TV type devices.
+	if (System_GetPropertyInt(SYSPROP_DEVICE_TYPE) == DEVICE_TYPE_TV)
+		scale = 0;
+
+	if (scale == 1) {
+		// If g_Config.iInternalResolution is also set to Auto (1), we fall back to "Device resolution" (0). It works out.
+		scale = g_Config.iInternalResolution;
+	} else if (scale >= 2) {
+		scale -= 1;
+	}
+
+	int max_res = std::max(System_GetPropertyInt(SYSPROP_DISPLAY_XRES), System_GetPropertyInt(SYSPROP_DISPLAY_YRES)) / 480 + 1;
+
+	scale = std::min(scale, max_res);
+
+	if (scale > 0) {
 		correctRatio(sz_x, sz_y, scale);
 	} else {
 		sz_x = 0;
