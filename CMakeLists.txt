@@ -874,6 +874,12 @@ setup_target_project(Common Common)
 
 target_link_libraries(Common Ext::Snappy cpu_features)
 
+if(ARM64)
+    if(ANDROID)
+        target_link_libraries(Common adrenotools)
+    endif()
+endif()
+
 if(USING_GLES2 OR (USING_EGL AND NOT USING_FBDEV))
 	find_package(X11)
 endif()

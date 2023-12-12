@@ -53,3 +53,6 @@
 [submodule "ext/libchdr"]
 	path = ext/libchdr
 	url = https://github.com/rtissera/libchdr.git
+[submodule "ext/libadrenotools"]
+	path = ext/libadrenotools
+	url = https://github.com/bylaws/libadrenotools.git

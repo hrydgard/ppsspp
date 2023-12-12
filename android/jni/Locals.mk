@@ -22,6 +22,7 @@ LOCAL_C_INCLUDES := \
   $(LOCAL_PATH)/../../ext/armips/ext/tinyformat \
   $(LOCAL_PATH)/../../ext/libchdr/deps/lzma-22.01/include \
   $(LOCAL_PATH)/../../ext/libchdr/include \
+  $(LOCAL_PATH)/../../ext/libadrenotools/include \
   $(LOCAL_PATH)
 
 LOCAL_STATIC_LIBRARIES := libzip glslang-build miniupnp-build

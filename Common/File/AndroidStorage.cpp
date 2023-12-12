@@ -313,5 +313,6 @@ const char *Android_ErrorToString(StorageError error) {
 // Very hacky.
 std::string g_extFilesDir = "(IF YOU SEE THIS THERE'S A BUG)";
 std::string g_externalDir = "(IF YOU SEE THIS THERE'S A BUG (2))";
+std::string g_nativeLibDir = "(IF YOU SEE THIS THERE'S A BUG (3))";
 
 #endif

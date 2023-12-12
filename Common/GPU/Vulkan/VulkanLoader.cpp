@@ -20,13 +20,22 @@
 #include <string>
 #include <cstring>
 
+#include "Core/Config.h"
+#include "Common/Data/Format/JSONReader.h"
 #include "Common/GPU/Vulkan/VulkanLoader.h"
 #include "Common/Log.h"
 #include "Common/System/System.h"
 #include "Common/VR/PPSSPPVR.h"
+#include "Common/File/FileUtil.h"
 
 #if !PPSSPP_PLATFORM(WINDOWS) && !PPSSPP_PLATFORM(SWITCH)
 #include <dlfcn.h>
+#endif
+
+#if PPSSPP_PLATFORM(ANDROID) && PPSSPP_ARCH(ARM64)
+#include "File/AndroidStorage.h"
+
+#include <adrenotools/driver.h>
 #endif
 
 namespace PPSSPP_VK {
@@ -289,13 +298,40 @@ static VulkanLibraryHandle VulkanLoadLibrary(const char *logname) {
 	return LoadLibrary(L"vulkan-1.dll");
 #else
 	void *lib = nullptr;
-	for (int i = 0; i < ARRAY_SIZE(so_names); i++) {
-		lib = dlopen(so_names[i], RTLD_NOW | RTLD_LOCAL);
-		if (lib) {
-			INFO_LOG(G3D, "%s: Library loaded ('%s')", logname, so_names[i]);
-			break;
-		}
-	}
+
+#if PPSSPP_PLATFORM(ANDROID) && PPSSPP_ARCH(ARM64)
+    if (!g_Config.customDriver.empty() && g_Config.customDriver != "Default") {
+        const Path driverPath = g_Config.internalDataDirectory / "drivers" / g_Config.customDriver;
+
+        json::JsonReader meta = json::JsonReader((driverPath / "meta.json").c_str());
+        if (meta.ok()) {
+            std::string driverLibName = meta.root().get("libraryName")->value.toString();
+
+            Path tempDir = g_Config.internalDataDirectory / "temp";
+            Path fileRedirectDir = g_Config.internalDataDirectory / "vk_file_redirect";
+
+            File::CreateDir(tempDir);
+            File::CreateDir(fileRedirectDir);
+
+            lib = adrenotools_open_libvulkan(
+                    RTLD_NOW | RTLD_LOCAL, ADRENOTOOLS_DRIVER_FILE_REDIRECT | ADRENOTOOLS_DRIVER_CUSTOM,
+                    (std::string(tempDir.c_str()) + "/").c_str(),g_nativeLibDir.c_str(),
+                    (std::string(driverPath.c_str()) + "/").c_str(),driverLibName.c_str(),
+                    (std::string(fileRedirectDir.c_str()) + "/").c_str(),nullptr);
+        }
+    }
+#endif
+
+    if (!lib) {
+        ERROR_LOG(G3D, "Failed to load custom driver");
+        for (int i = 0; i < ARRAY_SIZE(so_names); i++) {
+            lib = dlopen(so_names[i], RTLD_NOW | RTLD_LOCAL);
+            if (lib) {
+                INFO_LOG(G3D, "%s: Library loaded ('%s')", logname, so_names[i]);
+                break;
+            }
+        }
+    }
 	return lib;
 #endif
 }
