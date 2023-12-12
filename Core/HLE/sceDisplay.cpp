@@ -599,7 +599,7 @@ void __DisplayFlip(int cyclesLate) {
 	}
 
 	if (!FrameTimingThrottled()) {
-		NOTICE_LOG(SYSTEM, "Throttle: %d %d", (int)fastForwardSkipFlip, (int)postEffectRequiresFlip);
+		// NOTICE_LOG(SYSTEM, "Throttle: %d %d", (int)fastForwardSkipFlip, (int)postEffectRequiresFlip);
 	}
 
 	const bool fbDirty = gpu->FramebufferDirty();
