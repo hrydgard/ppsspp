@@ -124,6 +124,10 @@ inline bool my_isnanorinf(float f) {
 	return ((f2u.u & 0x7F800000) == 0x7F800000);
 }
 
+inline float InfToZero(float f) {
+	return my_isinf(f) ? 0.0f : f;
+}
+
 inline int is_even(float d) {
 	float int_part;
 	modff(d / 2.0f, &int_part);
