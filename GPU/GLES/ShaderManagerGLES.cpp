@@ -1141,6 +1141,7 @@ bool ShaderManagerGLES::LoadCache(File::IOFile &f) {
 		}
 	}
 
+	linkedShaderCache_.reserve(pending.link.size() - pending.linkPos);
 	for (size_t &i = pending.linkPos; i < pending.link.size(); i++) {
 		const VShaderID &vsid = pending.link[i].first;
 		const FShaderID &fsid = pending.link[i].second;
