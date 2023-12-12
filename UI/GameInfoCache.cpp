@@ -760,7 +760,7 @@ void GameInfoCache::WaitUntilDone(std::shared_ptr<GameInfo> &info) {
 }
 
 // Runs on the main thread. Only call from render() and similar, not update()!
-// Can also be called from the audio thread for menu background music.
+// Can also be called from the audio thread for menu background music, but that cannot request images!
 std::shared_ptr<GameInfo> GameInfoCache::GetInfo(Draw::DrawContext *draw, const Path &gamePath, int wantFlags) {
 	std::shared_ptr<GameInfo> info;
 

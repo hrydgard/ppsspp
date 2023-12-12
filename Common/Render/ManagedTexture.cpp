@@ -116,16 +116,9 @@ bool TempImage::LoadTextureLevels(const uint8_t *data, size_t size, ImageFileTyp
 	return numLevels > 0;
 }
 
-bool ManagedTexture::LoadFromFileData(const uint8_t *data, size_t dataSize, ImageFileType type, bool generateMips, const char *name) {
-	generateMips_ = generateMips;
+Draw::Texture *CreateTextureFromTempImage(Draw::DrawContext *draw, const uint8_t *data, size_t dataSize, const TempImage &image, bool generateMips, const char *name) {
 	using namespace Draw;
-
-	TempImage image;
-	if (!image.LoadTextureLevels(data, dataSize, type)) {
-		return false;
-	}
-
-	_assert_(image.levels[0] != nullptr);
+	_assert_(image.levels[0] != nullptr && image.width[0] > 0 && image.height[0] > 0);
 
 	int numLevels = image.numLevels;
 	if (numLevels < 0 || numLevels >= 16) {
@@ -133,28 +126,46 @@ bool ManagedTexture::LoadFromFileData(const uint8_t *data, size_t dataSize, Imag
 		numLevels = 1;
 	}
 
+	int potentialLevels = std::min(log2i(image.width[0]), log2i(image.height[0]));
+	TextureDesc desc{};
+	desc.type = TextureType::LINEAR2D;
+	desc.format = image.fmt;
+	desc.width = image.width[0];
+	desc.height = image.height[0];
+	desc.depth = 1;
+	desc.mipLevels = generateMips ? potentialLevels : image.numLevels;
+	desc.generateMips = generateMips && potentialLevels > image.numLevels;
+	desc.tag = name;
+	for (int i = 0; i < image.numLevels; i++) {
+		desc.initData.push_back(image.levels[i]);
+	}
+	return draw->CreateTexture(desc);
+}
+
+Draw::Texture *CreateTextureFromFileData(Draw::DrawContext *draw, const uint8_t *data, size_t dataSize, ImageFileType type, bool generateMips, const char *name) {
+	TempImage image;
+	if (!image.LoadTextureLevels(data, dataSize, type)) {
+		return nullptr;
+	}
+	Draw::Texture *texture = CreateTextureFromTempImage(draw, data, dataSize, image, generateMips, name);
+	image.Free();
+	return texture;
+}
+
+bool ManagedTexture::LoadFromFileData(const uint8_t *data, size_t dataSize, ImageFileType type, bool generateMips, const char *name) {
+	generateMips_ = generateMips;
+
 	// Free the old texture, if any.
 	if (texture_) {
-		delete texture_;
+		texture_->Release();
 		texture_ = nullptr;
 	}
 
-	int potentialLevels = std::min(log2i(image.width[0]), log2i(image.height[0]));
-	if (image.width[0] > 0 && image.height[0] > 0) {
-		TextureDesc desc{};
-		desc.type = TextureType::LINEAR2D;
-		desc.format = image.fmt;
-		desc.width = image.width[0];
-		desc.height = image.height[0];
-		desc.depth = 1;
-		desc.mipLevels = generateMips ? potentialLevels : image.numLevels;
-		desc.generateMips = generateMips && potentialLevels > image.numLevels;
-		desc.tag = name;
-		for (int i = 0; i < image.numLevels; i++) {
-			desc.initData.push_back(image.levels[i]);
-		}
-		texture_ = draw_->CreateTexture(desc);
+	TempImage image;
+	if (!image.LoadTextureLevels(data, dataSize, type)) {
+		return false;
 	}
+	texture_ = CreateTextureFromTempImage(draw_, data, dataSize, image, generateMips, name);
 	image.Free();
 	return texture_ != nullptr;
 }
