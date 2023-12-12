@@ -152,6 +152,19 @@ Draw::Texture *CreateTextureFromFileData(Draw::DrawContext *draw, const uint8_t 
 	return texture;
 }
 
+Draw::Texture *CreateTextureFromFile(Draw::DrawContext *draw, const char *filename, ImageFileType type, bool generateMips) {
+	INFO_LOG(SYSTEM, "CreateTextureFromFile(%s)", filename);
+	size_t fileSize;
+	uint8_t *buffer = g_VFS.ReadFile(filename, &fileSize);
+	if (!buffer) {
+		ERROR_LOG(IO, "Failed to read file '%s'", filename);
+		return nullptr;
+	}
+	Draw::Texture *texture = CreateTextureFromFileData(draw, buffer, fileSize, type, generateMips, filename);
+	delete[] buffer;
+	return texture;
+}
+
 bool ManagedTexture::LoadFromFileData(const uint8_t *data, size_t dataSize, ImageFileType type, bool generateMips, const char *name) {
 	generateMips_ = generateMips;
 
@@ -171,6 +184,7 @@ bool ManagedTexture::LoadFromFileData(const uint8_t *data, size_t dataSize, Imag
 }
 
 bool ManagedTexture::LoadFromFile(const std::string &filename, ImageFileType type, bool generateMips) {
+	INFO_LOG(SYSTEM, "ManagedTexture::LoadFromFile (%s)", filename.c_str());
 	generateMips_ = generateMips;
 	size_t fileSize;
 	uint8_t *buffer = g_VFS.ReadFile(filename.c_str(), &fileSize);
@@ -191,6 +205,7 @@ bool ManagedTexture::LoadFromFile(const std::string &filename, ImageFileType typ
 }
 
 std::unique_ptr<ManagedTexture> CreateManagedTextureFromFile(Draw::DrawContext *draw, const char *filename, ImageFileType type, bool generateMips) {
+	INFO_LOG(SYSTEM, "ManagedTexture::CreateFromFile (%s)", filename);
 	if (!draw)
 		return std::unique_ptr<ManagedTexture>();
 	// TODO: Load the texture on a background thread.
@@ -233,18 +248,4 @@ Draw::Texture *ManagedTexture::GetTexture() {
 		loadPending_ = false;
 	}
 	return texture_;
-}
-
-// TODO: Remove the code duplication between this and LoadFromFileData
-std::unique_ptr<ManagedTexture> CreateManagedTextureFromFileData(Draw::DrawContext *draw, const uint8_t *data, int size, ImageFileType type, bool generateMips, const char *name) {
-	if (!draw)
-		return std::unique_ptr<ManagedTexture>();
-	ManagedTexture *mtex = new ManagedTexture(draw);
-	if (mtex->LoadFromFileData(data, size, type, generateMips, name)) {
-		return std::unique_ptr<ManagedTexture>(mtex);
-	} else {
-		// Best to return a null pointer if we fail!
-		delete mtex;
-		return std::unique_ptr<ManagedTexture>();
-	}
 }

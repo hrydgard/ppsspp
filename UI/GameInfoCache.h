@@ -26,7 +26,6 @@
 #include "Common/Thread/Event.h"
 #include "Core/ELF/ParamSFO.h"
 #include "Common/File/Path.h"
-#include "Common/Render/ManagedTexture.h"
 
 namespace Draw {
 	class DrawContext;
@@ -71,16 +70,7 @@ struct GameInfoTex {
 	std::atomic<bool> dataLoaded{};
 
 	// Can ONLY be called from the main thread!
-	void Clear() {
-		if (!data.empty()) {
-			data.clear();
-			dataLoaded = false;
-		}
-		if (texture) {
-			texture->Release();
-			texture = nullptr;
-		}
-	}
+	void Clear();
 };
 
 class GameInfo {

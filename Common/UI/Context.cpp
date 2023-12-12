@@ -22,6 +22,8 @@ UIContext::~UIContext() {
 	sampler_->Release();
 	delete fontStyle_;
 	delete textDrawer_;
+	uitexture_->Release();
+	fontTexture_->Release();
 }
 
 void UIContext::Init(Draw::DrawContext *thin3d, Draw::Pipeline *uipipe, Draw::Pipeline *uipipenotex, DrawBuffer *uidrawbuffer) {
@@ -41,17 +43,17 @@ void UIContext::setUIAtlas(const std::string &name) {
 
 void UIContext::BeginFrame() {
 	if (!uitexture_ || UIAtlas_ != lastUIAtlas_) {
-		uitexture_ = CreateManagedTextureFromFile(draw_, UIAtlas_.c_str(), ImageFileType::ZIM, false);
+		uitexture_ = CreateTextureFromFile(draw_, UIAtlas_.c_str(), ImageFileType::ZIM, false);
 		lastUIAtlas_ = UIAtlas_;
 		if (!fontTexture_) {
 #if PPSSPP_PLATFORM(WINDOWS) || PPSSPP_PLATFORM(ANDROID)
 			// Don't bother with loading font_atlas.zim
 #else
-			fontTexture_ = CreateManagedTextureFromFile(draw_, "font_atlas.zim", ImageFileType::ZIM, false);
+			fontTexture_ = CreateTextureFromFile(draw_, "font_atlas.zim", ImageFileType::ZIM, false);
 #endif
 			if (!fontTexture_) {
 				// Load the smaller ascii font only, like on Android. For debug ui etc.
-				fontTexture_ = CreateManagedTextureFromFile(draw_, "asciifont_atlas.zim", ImageFileType::ZIM, false);
+				fontTexture_ = CreateTextureFromFile(draw_, "asciifont_atlas.zim", ImageFileType::ZIM, false);
 				if (!fontTexture_) {
 					WARN_LOG(SYSTEM, "Failed to load font_atlas.zim or asciifont_atlas.zim");
 				}
@@ -88,15 +90,15 @@ void UIContext::BeginPipeline(Draw::Pipeline *pipeline, Draw::SamplerState *samp
 
 void UIContext::RebindTexture() const {
 	if (uitexture_)
-		draw_->BindTexture(0, uitexture_->GetTexture());
+		draw_->BindTexture(0, uitexture_);
 }
 
 void UIContext::BindFontTexture() const {
 	// Fall back to the UI texture, in case they have an old atlas.
 	if (fontTexture_)
-		draw_->BindTexture(0, fontTexture_->GetTexture());
+		draw_->BindTexture(0, fontTexture_);
 	else if (uitexture_)
-		draw_->BindTexture(0, uitexture_->GetTexture());
+		draw_->BindTexture(0, uitexture_);
 }
 
 void UIContext::Flush() {
