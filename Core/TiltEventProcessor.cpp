@@ -34,7 +34,7 @@ void GenerateTriggerButtonEvent(int digitalX, int digitalY);
 
 // deadzone is normalized - 0 to 1
 // sensitivity controls how fast the deadzone reaches max value
-inline float ApplyDeadzone(float x, float deadzone) {
+inline float ApplyDeadzoneAxis(float x, float deadzone) {
 	if (deadzone >= 0.99f) {
 		// Meaningless, and not reachable with normal controls.
 		return x;
@@ -49,14 +49,48 @@ inline float ApplyDeadzone(float x, float deadzone) {
 	}
 }
 
+inline void ApplyDeadzoneXY(float tiltX, float tiltY, float *adjustedTiltX, float *adjustedTiltY, float deadzone, bool circular) {
+	if (circular) {
+		if (tiltX == 0.0f && tiltY == 0.0f) {
+			*adjustedTiltX = 0.0f;
+			*adjustedTiltY = 0.0f;
+			return;
+		}
+
+		float magnitude = sqrtf(tiltX * tiltX + tiltY * tiltY);
+		if (magnitude <= deadzone + 0.00001f) {
+			*adjustedTiltX = 0.0f;
+			*adjustedTiltY = 0.0f;
+			return;
+		}
+
+		float factor = 1.0f / (1.0f - deadzone);
+		float newMagnitude = (magnitude - deadzone) * factor;
+
+		*adjustedTiltX = (tiltX / magnitude) * newMagnitude;
+		*adjustedTiltY = (tiltY / magnitude) * newMagnitude;
+	} else {
+		*adjustedTiltX = ApplyDeadzoneAxis(tiltX, deadzone);
+		*adjustedTiltY = ApplyDeadzoneAxis(tiltY, deadzone);
+	}
+}
+
 // Also clamps to -1.0..1.0.
 // This applies a (circular if desired) inverse deadzone.
 inline void ApplyInverseDeadzone(float x, float y, float *outX, float *outY, float inverseDeadzone, bool circular) {
 	if (inverseDeadzone == 0.0f) {
 		*outX = Clamp(x, -1.0f, 1.0f);
 		*outY = Clamp(y, -1.0f, 1.0f);
+		return;
 	}
+
 	if (circular) {
+		// If the regular deadzone centered it, let's leave it as-is.
+		if (x == 0.0f && y == 0.0f) {
+			*outX = x;
+			*outY = y;
+			return;
+		}
 		float magnitude = sqrtf(x * x + y * y);
 		if (magnitude > 0.00001f) {
 			magnitude = (magnitude + inverseDeadzone) / magnitude;
@@ -64,8 +98,9 @@ inline void ApplyInverseDeadzone(float x, float y, float *outX, float *outY, flo
 		*outX = Clamp(x * magnitude, -1.0f, 1.0f);
 		*outY = Clamp(y * magnitude, -1.0f, 1.0f);
 	} else {
-		*outX = Clamp(x + copysignf(inverseDeadzone, x), -1.0f, 1.0f);
-		*outY = Clamp(y + copysignf(inverseDeadzone, y), -1.0f, 1.0f);
+		// If the regular deadzone centered it, let's leave it as-is.
+		*outX = x == 0.0f ? 0.0f : Clamp(x + copysignf(inverseDeadzone, x), -1.0f, 1.0f);
+		*outY = y == 0.0f ? 0.0f : Clamp(y + copysignf(inverseDeadzone, y), -1.0f, 1.0f);
 	}
 }
 
@@ -113,8 +148,9 @@ void ProcessTilt(bool landscape, float calibrationAngle, float x, float y, float
 
 	if (g_Config.iTiltInputType == TILT_ANALOG) {
 		// Only analog mappings use the deadzone.
-		float adjustedTiltX = ApplyDeadzone(tiltX, g_Config.fTiltAnalogDeadzoneRadius);
-		float adjustedTiltY = ApplyDeadzone(tiltY, g_Config.fTiltAnalogDeadzoneRadius);
+		float adjustedTiltX;
+		float adjustedTiltY;
+		ApplyDeadzoneXY(tiltX, tiltY, &adjustedTiltX, &adjustedTiltY, g_Config.fTiltAnalogDeadzoneRadius, g_Config.bTiltCircularDeadzone);
 
 		_dbg_assert_(!my_isnanorinf(adjustedTiltX));
 		_dbg_assert_(!my_isnanorinf(adjustedTiltY));
@@ -122,7 +158,7 @@ void ProcessTilt(bool landscape, float calibrationAngle, float x, float y, float
 		// Unlike regular deadzone, where per-axis is okay, inverse deadzone (to compensate for game deadzones) really needs to be
 		// applied on the two axes together.
 		// TODO: Share this code with the joystick code. For now though, we keep it separate.
-		ApplyInverseDeadzone(adjustedTiltX, adjustedTiltY, &adjustedTiltX, &adjustedTiltY, g_Config.fTiltInverseDeadzone, g_Config.bTiltCircularInverseDeadzone);
+		ApplyInverseDeadzone(adjustedTiltX, adjustedTiltY, &adjustedTiltX, &adjustedTiltY, g_Config.fTiltInverseDeadzone, g_Config.bTiltCircularDeadzone);
 
 		_dbg_assert_(!my_isnanorinf(adjustedTiltX));
 		_dbg_assert_(!my_isnanorinf(adjustedTiltY));
