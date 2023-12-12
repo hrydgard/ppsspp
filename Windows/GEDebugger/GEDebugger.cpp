@@ -305,7 +305,7 @@ void CGEDebugger::SetupPreviews() {
 				break;
 			case ID_GEDBG_TRACK_PIXEL_STOP:
 				primaryTrackX_ = 0xFFFFFFFF;
-				primaryTrackX_ = 0xFFFFFFFF;
+				primaryTrackY_ = 0xFFFFFFFF;
 				break;
 			case ID_GEDBG_ENABLE_PREVIEW:
 				previewsEnabled_ ^= 1;
@@ -350,7 +350,7 @@ void CGEDebugger::SetupPreviews() {
 				break;
 			case ID_GEDBG_TRACK_PIXEL_STOP:
 				secondTrackX_ = 0xFFFFFFFF;
-				secondTrackX_ = 0xFFFFFFFF;
+				secondTrackY_ = 0xFFFFFFFF;
 				break;
 			case ID_GEDBG_ENABLE_PREVIEW:
 				previewsEnabled_ ^= 2;
