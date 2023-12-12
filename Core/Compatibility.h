@@ -114,6 +114,7 @@ struct VRCompat {
 	int MirroringVariant;
 	bool Skyplane;
 	float UnitsPerMeter;
+	bool UnstableProjection;
 };
 
 class IniFile;

@@ -44,7 +44,7 @@ static int vr3DGeometryCount = 0;
 static long vrCompat[VR_COMPAT_MAX];
 static bool vrFlatForced = false;
 static bool vrFlatGame = false;
-static double vrFov[2] = {};
+static float vrLensProj[16] = {};
 static bool vrMirroring[VR_MIRRORING_COUNT];
 static int vrMirroringVariant = 0;
 static float vrViewMatrix[2][16];
@@ -644,8 +644,18 @@ bool StartVRRender() {
 			fov.angleUp += eye.fov.angleUp / 2.0f;
 			fov.angleDown += eye.fov.angleDown / 2.0f;
 		}
-		vrFov[0] = 2.0 / (tan(fov.angleRight) - tan(fov.angleLeft));
-		vrFov[1] = 2.0 / (tan(fov.angleUp) - tan(fov.angleDown));
+		float tanAngleLeft = tanf(fov.angleLeft);
+		float tanAngleRight = tanf(fov.angleRight);
+		float tanAngleDown = tanf(fov.angleDown);
+		float tanAngleUp = tanf(fov.angleUp);
+		memset(vrLensProj, 0, 16 * sizeof(float));
+		vrLensProj[0] = 2 / (tanAngleRight - tanAngleLeft);
+		vrLensProj[2] = (tanAngleRight + tanAngleLeft) / (tanAngleRight - tanAngleLeft);
+		vrLensProj[5] = 2 / (tanAngleUp - tanAngleDown);
+		vrLensProj[6] = (tanAngleUp + tanAngleDown) / (tanAngleUp - tanAngleDown);
+		vrLensProj[10] = -1;
+		vrLensProj[11] = -1;
+		vrLensProj[14] = -1;
 
 		// Decide if the scene is 3D or not
 		VR_SetConfigFloat(VR_CONFIG_CANVAS_ASPECT, 480.0f / 272.0f);
@@ -792,8 +802,18 @@ void UpdateVRParams(float* projMatrix) {
 void UpdateVRProjection(float* projMatrix, float* leftEye, float* rightEye) {
 	float hmdProjection[16];
 	memcpy(hmdProjection, projMatrix, 16 * sizeof(float));
-	hmdProjection[0] = vrFov[0];
-	hmdProjection[5] = vrFov[1];
+	if (PSP_CoreParameter().compat.vrCompat().UnstableProjection) {
+		for (int i = 0; i < 16; i++) {
+			if ((hmdProjection[i] > 0) == (vrLensProj[i] > 0)) {
+				hmdProjection[i] = vrLensProj[i];
+			} else {
+				hmdProjection[i] = -vrLensProj[i];
+			}
+		}
+	} else {
+		hmdProjection[0] = vrLensProj[0];
+		hmdProjection[5] = vrLensProj[5];
+	}
 	memcpy(leftEye, hmdProjection, 16 * sizeof(float));
 	memcpy(rightEye, hmdProjection, 16 * sizeof(float));
 }

@@ -144,6 +144,7 @@ void Compatibility::CheckVRSettings(IniFile &iniFile, const std::string &gameID)
 	CheckSetting(iniFile, gameID, "MirroringVariant", &vrCompat_.MirroringVariant);
 	CheckSetting(iniFile, gameID, "Skyplane", &vrCompat_.Skyplane);
 	CheckSetting(iniFile, gameID, "UnitsPerMeter", &vrCompat_.UnitsPerMeter);
+	CheckSetting(iniFile, gameID, "UnstableProjection", &vrCompat_.UnstableProjection);
 
 	NOTICE_LOG(G3D, "UnitsPerMeter for %s: %f", gameID.c_str(), vrCompat_.UnitsPerMeter);
 }
