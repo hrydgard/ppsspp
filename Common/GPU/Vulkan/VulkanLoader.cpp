@@ -404,7 +404,7 @@ bool VulkanMayBeAvailable() {
 		ERROR_LOG(G3D, "Enumerating VK extensions failed (%s)", VulkanResultToString(res));
 		goto bail;
 	}
-	for (auto iter : instanceExts) {
+	for (const auto &iter : instanceExts) {
 		INFO_LOG(G3D, "VulkanMaybeAvailable: Instance extension found: %s (%08x)", iter.extensionName, iter.specVersion);
 		if (platformSurfaceExtension && !strcmp(iter.extensionName, platformSurfaceExtension)) {
 			INFO_LOG(G3D, "VulkanMayBeAvailable: Found platform surface extension '%s'", platformSurfaceExtension);

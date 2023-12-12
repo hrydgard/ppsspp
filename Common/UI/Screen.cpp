@@ -259,10 +259,10 @@ void ScreenManager::sendMessage(UIMessage message, const char *value) {
 
 void ScreenManager::shutdown() {
 	std::lock_guard<std::recursive_mutex> guard(inputLock_);
-	for (auto layer : stack_)
+	for (const auto &layer : stack_)
 		delete layer.screen;
 	stack_.clear();
-	for (auto layer : nextStack_)
+	for (const auto &layer : nextStack_)
 		delete layer.screen;
 	nextStack_.clear();
 	delete overlayScreen_;

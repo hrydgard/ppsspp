@@ -511,7 +511,7 @@ bool GameScreen::isRecentGame(const Path &gamePath) {
 		return false;
 
 	const std::string resolved = File::ResolvePath(gamePath.ToString());
-	for (auto iso : g_Config.RecentIsos()) {
+	for (const auto &iso : g_Config.RecentIsos()) {
 		const std::string recent = File::ResolvePath(iso);
 		if (resolved == recent)
 			return true;

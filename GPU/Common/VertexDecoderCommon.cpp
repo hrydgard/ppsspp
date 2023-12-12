@@ -1501,7 +1501,7 @@ std::string VertexDecoder::GetString(DebugShaderStringType stringType) {
 			// No disassembler defined
 #endif
 			std::string buffer;
-			for (auto line : lines) {
+			for (const auto &line : lines) {
 				buffer += line;
 				buffer += "\n";
 			}

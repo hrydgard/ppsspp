@@ -1114,17 +1114,17 @@ void JitCompareScreen::UpdateDisasm() {
 	// Alright. First generate the MIPS disassembly.
 	
 	// TODO: Need a way to communicate branch continuing.
-	for (auto line : debugInfo.origDisasm) {
+	for (const auto &line : debugInfo.origDisasm) {
 		leftDisasm_->Add(new TextView(line))->SetFocusable(true);
 	}
 
 	// TODO : When we have both target and IR, need a third column.
 	if (debugInfo.targetDisasm.size()) {
-		for (auto line : debugInfo.targetDisasm) {
+		for (const auto &line : debugInfo.targetDisasm) {
 			rightDisasm_->Add(new TextView(line))->SetFocusable(true);
 		}
 	} else {
-		for (auto line : debugInfo.irDisasm) {
+		for (const auto &line : debugInfo.irDisasm) {
 			rightDisasm_->Add(new TextView(line))->SetFocusable(true);
 		}
 	}
@@ -1377,7 +1377,7 @@ void ShaderViewScreen::CreateViews() {
 	std::vector<std::string> lines;
 	SplitString(gpu->DebugGetShaderString(id_, type_, SHADER_STRING_SOURCE_CODE), '\n', lines);
 
-	for (auto line : lines) {
+	for (const auto &line : lines) {
 		lineLayout->Add(new TextView(line, FLAG_DYNAMIC_ASCII | FLAG_WRAP_TEXT, true));
 	}
 

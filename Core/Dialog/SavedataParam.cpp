@@ -880,7 +880,7 @@ std::set<std::string> SavedataParam::GetSecureFileNames(const std::string &dirPa
 	auto entries = GetSFOEntries(dirPath);
 
 	std::set<std::string> secureFileNames;
-	for (auto entry : entries) {
+	for (const auto &entry : entries) {
 		char temp[14];
 		truncate_cpy(temp, entry.filename);
 		secureFileNames.insert(temp);
@@ -901,7 +901,7 @@ bool SavedataParam::GetExpectedHash(const std::string &dirPath, const std::strin
 }
 
 void SavedataParam::LoadFile(const std::string& dirPath, const std::string& filename, PspUtilitySavedataFileData *fileData) {
-	std::string filePath = dirPath + "/" + filename;
+	const auto &filePath = dirPath + "/" + filename;
 	if (!fileData->buf.IsValid())
 		return;
 
@@ -910,7 +910,7 @@ void SavedataParam::LoadFile(const std::string& dirPath, const std::string& file
 	s64 readSize = -1;
 	if (ReadPSPFile(filePath, &buf, size, &readSize)) {
 		fileData->size = readSize;
-		const std::string tag = "SavedataLoad/" + filePath;
+		const auto &tag = "SavedataLoad/" + filePath;
 		NotifyMemInfo(MemBlockFlags::WRITE, fileData->buf.ptr, fileData->size, tag.c_str(), tag.size());
 	}
 }
