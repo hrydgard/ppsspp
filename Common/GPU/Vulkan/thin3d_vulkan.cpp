@@ -1685,7 +1685,7 @@ void VKContext::BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChanne
 		break;
 	}
 
-	boundTextures_[binding].clear();
+	boundTextures_[binding].reset(nullptr);
 	boundImageView_[binding] = renderManager_.BindFramebufferAsTexture(fb->GetFB(), binding, aspect, layer);
 }
 

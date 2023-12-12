@@ -419,11 +419,12 @@ struct AutoRef {
 		return ptr != nullptr;
 	}
 
-	void clear() {
+	// Takes over ownership over newItem, so we don't need to AddRef it, the number of owners didn't change.
+	void reset(T *newItem) {
 		if (ptr) {
 			ptr->Release();
-			ptr = nullptr;
 		}
+		ptr = newItem;
 	}
 
 	T *ptr = nullptr;
