@@ -40,6 +40,6 @@ private:
 	bool loadPending_ = false;
 };
 
-std::unique_ptr<ManagedTexture> CreateTextureFromFile(Draw::DrawContext *draw, const char *filename, ImageFileType fileType, bool generateMips);
-std::unique_ptr<ManagedTexture> CreateTextureFromFileData(Draw::DrawContext *draw, const uint8_t *data, int size, ImageFileType fileType, bool generateMips, const char *name);
+std::unique_ptr<ManagedTexture> CreateManagedTextureFromFile(Draw::DrawContext *draw, const char *filename, ImageFileType fileType, bool generateMips);
+std::unique_ptr<ManagedTexture> CreateManagedTextureFromFileData(Draw::DrawContext *draw, const uint8_t *data, int size, ImageFileType fileType, bool generateMips, const char *name);
 

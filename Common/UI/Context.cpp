@@ -41,17 +41,17 @@ void UIContext::setUIAtlas(const std::string &name) {
 
 void UIContext::BeginFrame() {
 	if (!uitexture_ || UIAtlas_ != lastUIAtlas_) {
-		uitexture_ = CreateTextureFromFile(draw_, UIAtlas_.c_str(), ImageFileType::ZIM, false);
+		uitexture_ = CreateManagedTextureFromFile(draw_, UIAtlas_.c_str(), ImageFileType::ZIM, false);
 		lastUIAtlas_ = UIAtlas_;
 		if (!fontTexture_) {
 #if PPSSPP_PLATFORM(WINDOWS) || PPSSPP_PLATFORM(ANDROID)
 			// Don't bother with loading font_atlas.zim
 #else
-			fontTexture_ = CreateTextureFromFile(draw_, "font_atlas.zim", ImageFileType::ZIM, false);
+			fontTexture_ = CreateManagedTextureFromFile(draw_, "font_atlas.zim", ImageFileType::ZIM, false);
 #endif
 			if (!fontTexture_) {
 				// Load the smaller ascii font only, like on Android. For debug ui etc.
-				fontTexture_ = CreateTextureFromFile(draw_, "asciifont_atlas.zim", ImageFileType::ZIM, false);
+				fontTexture_ = CreateManagedTextureFromFile(draw_, "asciifont_atlas.zim", ImageFileType::ZIM, false);
 				if (!fontTexture_) {
 					WARN_LOG(SYSTEM, "Failed to load font_atlas.zim or asciifont_atlas.zim");
 				}

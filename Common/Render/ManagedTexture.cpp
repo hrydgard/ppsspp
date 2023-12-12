@@ -179,7 +179,7 @@ bool ManagedTexture::LoadFromFile(const std::string &filename, ImageFileType typ
 	return retval;
 }
 
-std::unique_ptr<ManagedTexture> CreateTextureFromFile(Draw::DrawContext *draw, const char *filename, ImageFileType type, bool generateMips) {
+std::unique_ptr<ManagedTexture> CreateManagedTextureFromFile(Draw::DrawContext *draw, const char *filename, ImageFileType type, bool generateMips) {
 	if (!draw)
 		return std::unique_ptr<ManagedTexture>();
 	// TODO: Load the texture on a background thread.
@@ -225,7 +225,7 @@ Draw::Texture *ManagedTexture::GetTexture() {
 }
 
 // TODO: Remove the code duplication between this and LoadFromFileData
-std::unique_ptr<ManagedTexture> CreateTextureFromFileData(Draw::DrawContext *draw, const uint8_t *data, int size, ImageFileType type, bool generateMips, const char *name) {
+std::unique_ptr<ManagedTexture> CreateManagedTextureFromFileData(Draw::DrawContext *draw, const uint8_t *data, int size, ImageFileType type, bool generateMips, const char *name) {
 	if (!draw)
 		return std::unique_ptr<ManagedTexture>();
 	ManagedTexture *mtex = new ManagedTexture(draw);
