@@ -1192,7 +1192,7 @@ void ShaderManagerGLES::SaveCache(const Path &filename, DrawEngineGLES *drawEngi
 	fsCache_.Iterate([&](const ShaderID &id, Shader *shader) {
 		fwrite(&id, 1, sizeof(id), f);
 	});
-	for (auto iter : linkedShaderCache_) {
+	for (const auto &iter : linkedShaderCache_) {
 		ShaderID vsid, fsid;
 		vsCache_.Iterate([&](const ShaderID &id, Shader *shader) {
 			if (iter.vs == shader)

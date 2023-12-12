@@ -880,7 +880,7 @@ std::set<std::string> SavedataParam::GetSecureFileNames(const std::string &dirPa
 	auto entries = GetSFOEntries(dirPath);
 
 	std::set<std::string> secureFileNames;
-	for (auto entry : entries) {
+	for (const auto &entry : entries) {
 		char temp[14];
 		truncate_cpy(temp, entry.filename);
 		secureFileNames.insert(temp);
