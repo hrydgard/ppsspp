@@ -954,6 +954,12 @@ void CtrlDisAsmView::onMouseUp(WPARAM wParam, LPARAM lParam, int button)
 	}
 	else if (button == 2)
 	{
+		// We don't want to let the users play with deallocated or uninitialized debugging objects
+		GlobalUIState state = GetUIState();
+		if (state != UISTATE_INGAME && state != UISTATE_PAUSEMENU) {
+			return;
+		}
+		
 		switch (TriggerContextMenu(ContextMenuID::DISASM, wnd, ContextPoint::FromEvent(lParam)))
 		{
 		case ID_DISASM_GOTOINMEMORYVIEW:
