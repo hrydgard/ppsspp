@@ -634,9 +634,9 @@ static void check_variables(CoreParameter &coreParam)
    if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value)
    {
       if (!strcmp(var.value, "disabled"))
-         g_Config.bSkipGPUReadbacks = false;
+         g_Config.iSkipGPUReadbackMode = (int)SkipGPUReadbackMode::SKIP;
       else
-         g_Config.bSkipGPUReadbacks = true;
+         g_Config.iSkipGPUReadbackMode = (int)SkipGPUReadbackMode::NO_SKIP;
    }
 
    var.key = "ppsspp_frameskip";

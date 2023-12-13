@@ -661,7 +661,7 @@ static const ConfigSetting graphicsSettings[] = {
 	ConfigSetting("TextureShader", &g_Config.sTextureShaderName, "Off", CfgFlag::PER_GAME),
 	ConfigSetting("ShaderChainRequires60FPS", &g_Config.bShaderChainRequires60FPS, false, CfgFlag::PER_GAME),
 
-	ConfigSetting("SkipGPUReadbacks", &g_Config.bSkipGPUReadbacks, false, CfgFlag::PER_GAME | CfgFlag::REPORT),
+	ConfigSetting("SkipGPUReadbackMode", &g_Config.iSkipGPUReadbackMode, false, CfgFlag::PER_GAME | CfgFlag::REPORT),
 
 	ConfigSetting("GfxDebugOutput", &g_Config.bGfxDebugOutput, false, CfgFlag::DONT_SAVE),
 	ConfigSetting("LogFrameDrops", &g_Config.bLogFrameDrops, false, CfgFlag::DEFAULT),
