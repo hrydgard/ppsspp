@@ -592,7 +592,7 @@ static const ConfigSetting graphicsSettings[] = {
 	ConfigSetting("D3D11Device", &g_Config.sD3D11Device, "", CfgFlag::DEFAULT),
 #endif
 	ConfigSetting("CameraDevice", &g_Config.sCameraDevice, "", CfgFlag::DEFAULT),
-	ConfigSetting("DisplayFramerateMode", &g_Config.iDisplayFramerateMode, 0, CfgFlag::DEFAULT),
+	ConfigSetting("AndroidFramerateMode", &g_Config.iDisplayFramerateMode, 1, CfgFlag::DEFAULT),
 	ConfigSetting("VendorBugChecksEnabled", &g_Config.bVendorBugChecksEnabled, true, CfgFlag::DONT_SAVE),
 	ConfigSetting("UseGeometryShader", &g_Config.bUseGeometryShader, false, CfgFlag::PER_GAME),
 	ConfigSetting("SkipBufferEffects", &g_Config.bSkipBufferEffects, false, CfgFlag::PER_GAME | CfgFlag::REPORT),

@@ -1732,12 +1732,9 @@ void DeveloperToolsScreen::CreateViews() {
 	}
 
 #if PPSSPP_PLATFORM(ANDROID)
-	static const char *framerateModes[] = { "Default", "Request 60Hz", "Force 60Hz 1", "Force 60Hz 2" };
+	static const char *framerateModes[] = { "Default", "Request 60Hz", "Force 60Hz" };
 	PopupMultiChoice *framerateMode = list->Add(new PopupMultiChoice(&g_Config.iDisplayFramerateMode, gr->T("Framerate mode"), framerateModes, 0, ARRAY_SIZE(framerateModes), I18NCat::GRAPHICS, screenManager()));
 	framerateMode->SetEnabledFunc([]() { return System_GetPropertyInt(SYSPROP_SYSTEMVERSION) >= 30; });
-	if (System_GetPropertyInt(SYSPROP_SYSTEMVERSION) < 31) {
-		framerateMode->HideChoice(3);  // not available
-	}
 	framerateMode->OnChoice.Add([this](UI::EventParams &e) {
 		System_Notify(SystemNotification::FORCE_RECREATE_ACTIVITY);
 		return UI::EVENT_DONE;
