@@ -97,7 +97,6 @@ public:
 
 	bool bPauseWhenMinimized;
 
-	// Not used on mobile devices.
 	bool bPauseExitsEmulator;
 	bool bPauseMenuExitsEmulator;
 
