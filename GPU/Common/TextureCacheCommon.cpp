@@ -2822,7 +2822,7 @@ bool TextureCacheCommon::PrepareBuildTexture(BuildTexturePlan &plan, TexCacheEnt
 		plan.scaleFactor = 1;
 	} else if (!g_DoubleTextureCoordinates) {
 		// Refuse to load invalid-ly sized textures, which can happen through display list corruption.
-		if (plan.w > 512 || plan.h > 512) {
+		if (plan.w > 1024 || plan.h > 1024) {
 			ERROR_LOG(G3D, "Bad texture dimensions: %dx%d", plan.w, plan.h);
 			return false;
 		}
