@@ -22,6 +22,9 @@
 #include "Common/File/FileUtil.h"
 #include "Common/File/DirListing.h"
 #include "Common/Serialize/SerializeFuncs.h"
+#include "Common/System/OSD.h"
+#include "Common/Data/Text/I18n.h"
+#include "Common/StringUtils.h"
 #include "Core/Config.h"
 #include "Core/MemMap.h"
 #include "Core/System.h"
@@ -173,25 +176,28 @@ void Init() {
 
 bool Load() {
 	bool started = false;
+
+	auto sy = GetI18NCategory(I18NCat::SYSTEM);
+
 	for (const std::string &filename : prxPlugins) {
+		std::string shortName = Path(filename).GetFilename();
+
 		std::string error_string = "";
 		SceUID module = KernelLoadModule(filename, &error_string);
-		if (!error_string.empty()) {
-			ERROR_LOG(SYSTEM, "Unable to load plugin %s: %s", filename.c_str(), error_string.c_str());
-			continue;
-		}
-		if (module < 0) {
-			ERROR_LOG(SYSTEM, "Unable to load plugin %s: %08x", filename.c_str(), module);
+		if (!error_string.empty() || module < 0) {
+			ERROR_LOG(SYSTEM, "Unable to load plugin %s (module %d): '%s'", filename.c_str(), module, error_string.c_str());
 			continue;
 		}
 
 		int ret = KernelStartModule(module, 0, 0, 0, nullptr, nullptr);
 		if (ret < 0) {
 			ERROR_LOG(SYSTEM, "Unable to start plugin %s: %08x", filename.c_str(), ret);
+		} else {
+			g_OSD.Show(OSDType::MESSAGE_SUCCESS, ApplySafeSubstitutions(sy->T("Loaded plugin: %1"), shortName));
+			started = true;
 		}
 
 		INFO_LOG(SYSTEM, "Loaded plugin: %s", filename.c_str());
-		started = true;
 	}
 
 	std::lock_guard<std::mutex> guard(g_inputMutex);
