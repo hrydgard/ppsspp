@@ -176,3 +176,9 @@ enum class DisplayFramerateMode : int {
 	FORCE_60HZ_METHOD1,
 	FORCE_60HZ_METHOD2,
 };
+
+enum class SkipGPUReadbackMode : int {
+	NO,
+	SKIP,
+	COPY_TO_TEXTURE,
+};

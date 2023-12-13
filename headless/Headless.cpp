@@ -468,7 +468,7 @@ int main(int argc, const char* argv[])
 	g_Config.sReportHost.clear();
 	g_Config.bAutoSaveSymbolMap = false;
 	g_Config.bSkipBufferEffects = false;
-	g_Config.bSkipGPUReadbacks = false;
+	g_Config.iSkipGPUReadbackMode = (int)SkipGPUReadbackMode::NO;
 	g_Config.bHardwareTransform = true;
 	g_Config.iAnisotropyLevel = 0;  // When testing mipmapping we really don't want this.
 	g_Config.iMultiSampleLevel = 0;
