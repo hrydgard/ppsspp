@@ -296,7 +296,7 @@ void UIBackgroundInit(UIContext &dc) {
 	const Path bgJpg = GetSysDirectory(DIRECTORY_SYSTEM) / "background.jpg";
 	if (File::Exists(bgPng) || File::Exists(bgJpg)) {
 		const Path &bgFile = File::Exists(bgPng) ? bgPng : bgJpg;
-		bgTexture = CreateTextureFromFile(dc.GetDrawContext(), bgFile.c_str(), DETECT, true);
+		bgTexture = CreateTextureFromFile(dc.GetDrawContext(), bgFile.c_str(), ImageFileType::DETECT, true);
 	}
 }
 

@@ -1,10 +1,10 @@
 #pragma once
 
 #include "Common/UI/View.h"
-#include "Common/Render/ManagedTexture.h"
 #include "Common/File/Path.h"
 
 class UIContext;
+class ManagedTexture;
 
 // AsyncImageFileView loads a texture from a file, and reloads it as necessary.
 // TODO: Actually make async, doh.
