@@ -22,8 +22,10 @@ UIContext::~UIContext() {
 	sampler_->Release();
 	delete fontStyle_;
 	delete textDrawer_;
-	uitexture_->Release();
-	fontTexture_->Release();
+	if (uitexture_)
+		uitexture_->Release();
+	if (fontTexture_)
+		fontTexture_->Release();
 }
 
 void UIContext::Init(Draw::DrawContext *thin3d, Draw::Pipeline *uipipe, Draw::Pipeline *uipipenotex, DrawBuffer *uidrawbuffer) {
