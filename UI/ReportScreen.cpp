@@ -485,7 +485,7 @@ void ReportFinishScreen::ShowSuggestions() {
 		resultItems_->Clear();
 		bool shownConfig = false;
 		bool valid = false;
-		for (auto item : suggestions) {
+		for (const auto &item : suggestions) {
 			const char *suggestion = nullptr;
 			if (item == "Upgrade") {
 				suggestion = rp->T("SuggestionUpgrade", "Upgrade to a newer PPSSPP build");

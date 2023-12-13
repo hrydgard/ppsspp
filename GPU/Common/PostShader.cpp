@@ -291,8 +291,8 @@ std::vector<const ShaderInfo *> GetPostShaderChain(const std::string &name) {
 
 std::vector<const ShaderInfo *> GetFullPostShadersChain(const std::vector<std::string> &names) {
 	std::vector<const ShaderInfo *> fullChain;
-	for (auto shaderName : names) {
-		auto shaderChain = GetPostShaderChain(shaderName);
+	for (const auto &shaderName : names) {
+		const auto &shaderChain = GetPostShaderChain(shaderName);
 		fullChain.insert(fullChain.end(), shaderChain.begin(), shaderChain.end());
 	}
 	return fullChain;

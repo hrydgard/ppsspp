@@ -354,7 +354,7 @@ public:
 				bool foundBroken = false;
 				auto importedFuncsState = importedFuncs;
 				importedFuncs.clear();
-				for (auto func : importedFuncsState) {
+				for (const auto &func : importedFuncsState) {
 					if (func.moduleName[KERNELOBJECT_MAX_NAME_LENGTH] != '\0' || !Memory::IsValidAddress(func.stubAddr)) {
 						foundBroken = true;
 					} else {
