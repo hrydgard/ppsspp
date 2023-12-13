@@ -116,7 +116,7 @@ bool TempImage::LoadTextureLevels(const uint8_t *data, size_t size, ImageFileTyp
 	return numLevels > 0;
 }
 
-Draw::Texture *CreateTextureFromTempImage(Draw::DrawContext *draw, const uint8_t *data, size_t dataSize, const TempImage &image, bool generateMips, const char *name) {
+Draw::Texture *CreateTextureFromTempImage(Draw::DrawContext *draw, const TempImage &image, bool generateMips, const char *name) {
 	using namespace Draw;
 	_assert_(image.levels[0] != nullptr && image.width[0] > 0 && image.height[0] > 0);
 
@@ -147,7 +147,7 @@ Draw::Texture *CreateTextureFromFileData(Draw::DrawContext *draw, const uint8_t 
 	if (!image.LoadTextureLevels(data, dataSize, type)) {
 		return nullptr;
 	}
-	Draw::Texture *texture = CreateTextureFromTempImage(draw, data, dataSize, image, generateMips, name);
+	Draw::Texture *texture = CreateTextureFromTempImage(draw, image, generateMips, name);
 	image.Free();
 	return texture;
 }
@@ -165,24 +165,6 @@ Draw::Texture *CreateTextureFromFile(Draw::DrawContext *draw, const char *filena
 	return texture;
 }
 
-bool ManagedTexture::LoadFromFileData(const uint8_t *data, size_t dataSize, ImageFileType type, bool generateMips, const char *name) {
-	generateMips_ = generateMips;
-
-	// Free the old texture, if any.
-	if (texture_) {
-		texture_->Release();
-		texture_ = nullptr;
-	}
-
-	TempImage image;
-	if (!image.LoadTextureLevels(data, dataSize, type)) {
-		return false;
-	}
-	texture_ = CreateTextureFromTempImage(draw_, data, dataSize, image, generateMips, name);
-	image.Free();
-	return texture_ != nullptr;
-}
-
 bool ManagedTexture::LoadFromFile(const std::string &filename, ImageFileType type, bool generateMips) {
 	INFO_LOG(SYSTEM, "ManagedTexture::LoadFromFile (%s)", filename.c_str());
 	generateMips_ = generateMips;
@@ -193,15 +175,28 @@ bool ManagedTexture::LoadFromFile(const std::string &filename, ImageFileType typ
 		ERROR_LOG(IO, "Failed to read file '%s'", filename.c_str());
 		return false;
 	}
-	bool retval = LoadFromFileData(buffer, fileSize, type, generateMips, filename.c_str());
-	if (retval) {
+
+	// Free the old texture, if any.
+	if (texture_) {
+		texture_->Release();
+		texture_ = nullptr;
+	}
+
+	TempImage image;
+	if (!image.LoadTextureLevels(buffer, fileSize, type)) {
+		return false;
+	}
+	texture_ = CreateTextureFromTempImage(draw_, image, generateMips, filename.c_str());
+	image.Free();
+
+	if (texture_) {
 		filename_ = filename;
 	} else {
 		filename_.clear();
 		ERROR_LOG(IO, "Failed to load texture '%s'", filename.c_str());
 	}
 	delete[] buffer;
-	return retval;
+	return texture_ != 0;
 }
 
 std::unique_ptr<ManagedTexture> CreateManagedTextureFromFile(Draw::DrawContext *draw, const char *filename, ImageFileType type, bool generateMips) {

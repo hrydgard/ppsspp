@@ -2,6 +2,7 @@
 #include "Common/UI/AsyncImageFileView.h"
 #include "Common/UI/Context.h"
 #include "Common/Render/DrawBuffer.h"
+#include "Common/Render/ManagedTexture.h"
 
 AsyncImageFileView::AsyncImageFileView(const Path &filename, UI::ImageSizeMode sizeMode, UI::LayoutParams *layoutParams)
 	: UI::Clickable(layoutParams), canFocus_(true), filename_(filename), color_(0xFFFFFFFF), sizeMode_(sizeMode), textureFailed_(false), fixedSizeW_(0.0f), fixedSizeH_(0.0f) {}

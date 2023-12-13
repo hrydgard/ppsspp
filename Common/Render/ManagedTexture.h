@@ -16,15 +16,12 @@ enum ImageFileType {
 
 class ManagedTexture {
 public:
-	ManagedTexture(Draw::DrawContext *draw) : draw_(draw) {
-	}
+	ManagedTexture(Draw::DrawContext *draw) : draw_(draw) {}
 	~ManagedTexture() {
 		if (texture_)
 			texture_->Release();
 	}
-
 	bool LoadFromFile(const std::string &filename, ImageFileType type = ImageFileType::DETECT, bool generateMips = false);
-	bool LoadFromFileData(const uint8_t *data, size_t dataSize, ImageFileType type, bool generateMips, const char *name);
 	Draw::Texture *GetTexture();  // For immediate use, don't store.
 	int Width() const { return texture_->Width(); }
 	int Height() const { return texture_->Height(); }
