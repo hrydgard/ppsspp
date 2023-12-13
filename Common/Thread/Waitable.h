@@ -43,6 +43,11 @@ public:
 		cond_.notify_all();
 	}
 
+	// For simple polling.
+	bool Ready() const {
+		return triggered_;
+	}
+
 private:
 	std::condition_variable cond_;
 	std::mutex mutex_;
