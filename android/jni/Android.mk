@@ -140,6 +140,17 @@ RCHEEVOS_FILES := \
   ${SRC}/ext/rcheevos/src/rhash/hash.c \
   ${SRC}/ext/rcheevos/src/rhash/md5.c
 
+ifeq ($(TARGET_ARCH_ABI),arm64-v8a)
+	ADRENOTOOLS_FILES := \
+	  ${SRC}/ext/libadrenotools/src/driver.cpp \
+	  ${SRC}/ext/libadrenotools/src/hook/hook_impl.cpp \
+	  ${SRC}/ext/libadrenotools/src/hook/file_redirect_hook.c \
+	  ${SRC}/ext/libadrenotools/src/hook/gsl_alloc_hook.c \
+	  ${SRC}/ext/libadrenotools/src/hook/main_hook.c \
+	  ${SRC}/ext/libadrenotools/lib/linkernsbypass/android_linker_ns.cpp \
+	  ${SRC}/ext/libadrenotools/lib/linkernsbypass/elf_soname_patcher.cpp
+endif
+
 VR_FILES := \
   $(SRC)/Common/VR/OpenXRLoader.cpp \
   $(SRC)/Common/VR/PPSSPPVR.cpp \
@@ -316,6 +327,10 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Common/StringUtils.cpp \
   $(SRC)/Common/SysError.cpp \
   $(SRC)/Common/TimeUtil.cpp
+
+ifeq ($(TARGET_ARCH_ABI),arm64-v8a)
+    EXEC_AND_LIB_FILES += $(ADRENOTOOLS_FILES)
+endif
 
 LOCAL_MODULE := ppsspp_common
 LOCAL_SRC_FILES := $(EXEC_AND_LIB_FILES)
