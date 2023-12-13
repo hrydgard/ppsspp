@@ -27,9 +27,9 @@
 #include "Common/File/VFS/VFS.h"
 #include "Common/File/FileUtil.h"
 #include "Common/File/Path.h"
+#include "Common/Render/ManagedTexture.h"
 #include "Common/StringUtils.h"
 #include "Common/TimeUtil.h"
-#include "Common/Render/ManagedTexture.h"
 #include "Core/FileSystems/ISOFileSystem.h"
 #include "Core/FileSystems/DirectoryFileSystem.h"
 #include "Core/FileSystems/VirtualDiscFileSystem.h"
@@ -42,6 +42,17 @@
 #include "UI/GameInfoCache.h"
 
 GameInfoCache *g_gameInfoCache;
+
+void GameInfoTex::Clear() {
+	if (!data.empty()) {
+		data.clear();
+		dataLoaded = false;
+	}
+	if (texture) {
+		texture->Release();
+		texture = nullptr;
+	}
+}
 
 GameInfo::GameInfo() : fileType(IdentifiedFileType::UNKNOWN) {
 	pending = true;
@@ -760,7 +771,7 @@ void GameInfoCache::WaitUntilDone(std::shared_ptr<GameInfo> &info) {
 }
 
 // Runs on the main thread. Only call from render() and similar, not update()!
-// Can also be called from the audio thread for menu background music.
+// Can also be called from the audio thread for menu background music, but that cannot request images!
 std::shared_ptr<GameInfo> GameInfoCache::GetInfo(Draw::DrawContext *draw, const Path &gamePath, int wantFlags) {
 	std::shared_ptr<GameInfo> info;
 

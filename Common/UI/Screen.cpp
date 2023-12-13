@@ -267,6 +267,8 @@ void ScreenManager::shutdown() {
 	nextStack_.clear();
 	delete overlayScreen_;
 	overlayScreen_ = nullptr;
+	delete backgroundScreen_;
+	backgroundScreen_ = nullptr;
 }
 
 void ScreenManager::push(Screen *screen, int layerFlags) {

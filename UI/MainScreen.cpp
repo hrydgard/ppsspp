@@ -231,7 +231,7 @@ void GameButton::Draw(UIContext &dc) {
 	using namespace UI;
 
 	if (ginfo->icon.texture) {
-		texture = ginfo->icon.texture->GetTexture();
+		texture = ginfo->icon.texture;
 	}
 
 	int x = bounds_.x;
@@ -1425,7 +1425,7 @@ bool MainScreen::DrawBackgroundFor(UIContext &dc, const Path &gamePath, float pr
 	}
 
 	auto pic = ginfo->GetBGPic();
-	Draw::Texture *texture = pic ? pic->texture->GetTexture() : nullptr;
+	Draw::Texture *texture = pic ? pic->texture : nullptr;
 
 	uint32_t color = whiteAlpha(ease(progress)) & 0xFFc0c0c0;
 	if (texture) {

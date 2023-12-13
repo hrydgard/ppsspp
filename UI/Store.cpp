@@ -112,7 +112,7 @@ private:
 	std::shared_ptr<http::Request> download_;
 
 	std::string textureData_;
-	std::unique_ptr<ManagedTexture> texture_;
+	Draw::AutoRef<Draw::Texture> texture_;
 	bool textureFailed_ = false;
 	float fixedSizeW_ = 0.0f;
 	float fixedSizeH_ = 0.0f;
@@ -154,7 +154,9 @@ void HttpImageFileView::SetFilename(std::string filename) {
 	if (!useIconCache_ && path_ != filename) {
 		textureFailed_ = false;
 		path_ = filename;
-		texture_.reset(nullptr);
+		if (texture_) {
+			texture_.reset(nullptr);
+		}
 	}
 }
 
@@ -198,7 +200,7 @@ void HttpImageFileView::Draw(UIContext &dc) {
 	if (useIconCache_) {
 		texture = g_iconCache.BindIconTexture(&dc, path_);
 	} else {
-		texture = texture_->GetTexture();
+		texture = texture_;
 	}
 
 	if (texture) {

@@ -39,6 +39,8 @@
 #include "Common/Data/Random/Rng.h"
 #include "Common/TimeUtil.h"
 #include "Common/File/FileUtil.h"
+#include "Common/Render/ManagedTexture.h"
+
 #include "Core/Config.h"
 #include "Core/System.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
@@ -74,7 +76,7 @@ static const uint32_t colors[4] = {
 	0xC0FFFFFF,
 };
 
-static std::unique_ptr<ManagedTexture> bgTexture;
+static Draw::Texture *bgTexture;
 
 class Animation {
 public:
@@ -96,7 +98,7 @@ public:
 			return;
 
 		dc.Flush();
-		dc.GetDrawContext()->BindTexture(0, bgTexture->GetTexture());
+		dc.GetDrawContext()->BindTexture(0, bgTexture);
 		Bounds bounds = dc.GetBounds();
 
 		x = std::min(std::max(x/bounds.w, 0.0f), 1.0f) * XFAC;
@@ -269,7 +271,7 @@ private:
 		if (!pic)
 			return;
 
-		dc.GetDrawContext()->BindTexture(0, pic->texture->GetTexture());
+		dc.GetDrawContext()->BindTexture(0, pic->texture);
 		uint32_t color = whiteAlpha(amount) & 0xFFc0c0c0;
 		dc.Draw()->DrawTexRect(dc.GetBounds(), 0, 0, 1, 1, color);
 		dc.Flush();
@@ -287,7 +289,7 @@ private:
 
 static BackgroundAnimation g_CurBackgroundAnimation = BackgroundAnimation::OFF;
 static std::unique_ptr<Animation> g_Animation;
-static bool bgTextureInited = false;
+static bool bgTextureInited = false;  // Separate variable because init could fail.
 
 void UIBackgroundInit(UIContext &dc) {
 	const Path bgPng = GetSysDirectory(DIRECTORY_SYSTEM) / "background.png";
@@ -299,10 +301,13 @@ void UIBackgroundInit(UIContext &dc) {
 }
 
 void UIBackgroundShutdown() {
-	bgTexture.reset(nullptr);
+	if (bgTexture) {
+		bgTexture->Release();
+		bgTexture = nullptr;
+	}
+	bgTextureInited = false;
 	g_Animation.reset(nullptr);
 	g_CurBackgroundAnimation = BackgroundAnimation::OFF;
-	bgTextureInited = false;
 }
 
 void DrawBackground(UIContext &dc, float alpha, float x, float y, float z) {
@@ -336,7 +341,7 @@ void DrawBackground(UIContext &dc, float alpha, float x, float y, float z) {
 	if (bgTexture != nullptr) {
 		dc.Flush();
 		dc.Begin();
-		dc.GetDrawContext()->BindTexture(0, bgTexture->GetTexture());
+		dc.GetDrawContext()->BindTexture(0, bgTexture);
 		dc.Draw()->DrawTexRect(dc.GetBounds(), 0, 0, 1, 1, bgColor);
 
 		dc.Flush();
@@ -379,7 +384,7 @@ void DrawGameBackground(UIContext &dc, const Path &gamePath, float x, float y, f
 
 	GameInfoTex *pic = ginfo ? ginfo->GetBGPic() : nullptr;
 	if (pic) {
-		dc.GetDrawContext()->BindTexture(0, pic->texture->GetTexture());
+		dc.GetDrawContext()->BindTexture(0, pic->texture);
 		uint32_t color = whiteAlpha(ease((time_now_d() - pic->timeLoaded) * 3)) & 0xFFc0c0c0;
 		dc.Draw()->DrawTexRect(dc.GetBounds(), 0,0,1,1, color);
 		dc.Flush();

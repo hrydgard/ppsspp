@@ -23,7 +23,6 @@ namespace Draw {
 }
 
 class Texture;
-class ManagedTexture;
 class DrawBuffer;
 class TextDrawer;
 
@@ -128,8 +127,8 @@ private:
 	Draw::SamplerState *sampler_ = nullptr;
 	Draw::Pipeline *ui_pipeline_ = nullptr;
 	Draw::Pipeline *ui_pipeline_notex_ = nullptr;
-	std::unique_ptr<ManagedTexture> uitexture_;
-	std::unique_ptr<ManagedTexture> fontTexture_;
+	Draw::Texture *uitexture_ = nullptr;
+	Draw::Texture *fontTexture_ = nullptr;
 
 	DrawBuffer *uidrawbuffer_ = nullptr;
 

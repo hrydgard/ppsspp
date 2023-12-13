@@ -22,6 +22,8 @@ UIContext::~UIContext() {
 	sampler_->Release();
 	delete fontStyle_;
 	delete textDrawer_;
+	uitexture_->Release();
+	fontTexture_->Release();
 }
 
 void UIContext::Init(Draw::DrawContext *thin3d, Draw::Pipeline *uipipe, Draw::Pipeline *uipipenotex, DrawBuffer *uidrawbuffer) {
@@ -88,15 +90,15 @@ void UIContext::BeginPipeline(Draw::Pipeline *pipeline, Draw::SamplerState *samp
 
 void UIContext::RebindTexture() const {
 	if (uitexture_)
-		draw_->BindTexture(0, uitexture_->GetTexture());
+		draw_->BindTexture(0, uitexture_);
 }
 
 void UIContext::BindFontTexture() const {
 	// Fall back to the UI texture, in case they have an old atlas.
 	if (fontTexture_)
-		draw_->BindTexture(0, fontTexture_->GetTexture());
+		draw_->BindTexture(0, fontTexture_);
 	else if (uitexture_)
-		draw_->BindTexture(0, uitexture_->GetTexture());
+		draw_->BindTexture(0, uitexture_);
 }
 
 void UIContext::Flush() {

@@ -924,7 +924,7 @@ public:
 
 		// PIC1 is the loading image, so let's only draw if it's available.
 		if (ginfo && ginfo->pic1.texture) {
-			Draw::Texture *texture = ginfo->pic1.texture->GetTexture();
+			Draw::Texture *texture = ginfo->pic1.texture;
 			if (texture) {
 				dc.GetDrawContext()->BindTexture(0, texture);
 

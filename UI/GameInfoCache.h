@@ -26,7 +26,6 @@
 #include "Common/Thread/Event.h"
 #include "Core/ELF/ParamSFO.h"
 #include "Common/File/Path.h"
-#include "Common/Render/ManagedTexture.h"
 
 namespace Draw {
 	class DrawContext;
@@ -64,19 +63,14 @@ enum class IdentifiedFileType;
 
 struct GameInfoTex {
 	std::string data;
-	std::unique_ptr<ManagedTexture> texture;
+	Draw::Texture *texture = nullptr;
 	// The time at which the Icon and the BG were loaded.
 	// Can be useful to fade them in smoothly once they appear.
 	double timeLoaded = 0.0;
 	std::atomic<bool> dataLoaded{};
 
-	void Clear() {
-		if (!data.empty()) {
-			data.clear();
-			dataLoaded = false;
-		}
-		texture.reset(nullptr);
-	}
+	// Can ONLY be called from the main thread!
+	void Clear();
 };
 
 class GameInfo {

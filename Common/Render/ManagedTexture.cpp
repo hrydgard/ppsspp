@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <cstring>
 
 #include "Common/GPU/thin3d.h"
 #include "ext/jpge/jpgd.h"
@@ -16,6 +17,30 @@
 #include "Common/TimeUtil.h"
 #include "Common/Render/ManagedTexture.h"
 
+// For UI images loaded from disk, loaded into RAM, generally staged for upload.
+// The reason for the separation is so that the image can be loaded and decompressed on a thread,
+// and then only uploaded to the GPU on the main thread.
+struct TempImage {
+	~TempImage() {
+		_dbg_assert_(levels[0] == nullptr);
+	}
+	Draw::DataFormat fmt = Draw::DataFormat::UNDEFINED;
+	ImageFileType type = TYPE_UNKNOWN;
+	uint8_t *levels[16]{};   // only free the first pointer, they all point to the same buffer.
+	int zimFlags = 0;
+	int width[16]{};
+	int height[16]{};
+	int numLevels = 0;
+
+	bool LoadTextureLevels(const uint8_t *data, size_t size, ImageFileType typeSuggestion = DETECT);
+	void Free() {
+		if (levels[0]) {
+			free(levels[0]);
+			memset(levels, 0, sizeof(levels));
+		}
+	}
+};
+
 static Draw::DataFormat ZimToT3DFormat(int zim) {
 	switch (zim) {
 	case ZIM_RGBA8888: return Draw::DataFormat::R8G8B8A8_UNORM;
@@ -29,44 +54,40 @@ static ImageFileType DetectImageFileType(const uint8_t *data, size_t size) {
 	}
 	if (!memcmp(data, "ZIMG", 4)) {
 		return ZIM;
-	}
-	else if (!memcmp(data, "\x89\x50\x4E\x47", 4)) {
+	} else if (!memcmp(data, "\x89\x50\x4E\x47", 4)) {
 		return PNG;
-	}
-	else if (!memcmp(data, "\xff\xd8\xff\xe0", 4) || !memcmp(data, "\xff\xd8\xff\xe1", 4)) {
+	} else if (!memcmp(data, "\xff\xd8\xff\xe0", 4) || !memcmp(data, "\xff\xd8\xff\xe1", 4)) {
 		return JPEG;
-	}
-	else {
+	} else {
 		return TYPE_UNKNOWN;
 	}
 }
 
-static bool LoadTextureLevels(const uint8_t *data, size_t size, ImageFileType type, int width[16], int height[16], int *num_levels, Draw::DataFormat *fmt, uint8_t *image[16], int *zim_flags) {
-	if (type == DETECT) {
-		type = DetectImageFileType(data, size);
+bool TempImage::LoadTextureLevels(const uint8_t *data, size_t size, ImageFileType typeSuggestion) {
+	if (typeSuggestion == DETECT) {
+		typeSuggestion = DetectImageFileType(data, size);
 	}
-	if (type == TYPE_UNKNOWN) {
+	if (typeSuggestion == TYPE_UNKNOWN) {
 		ERROR_LOG(G3D, "File (size: %d) has unknown format", (int)size);
 		return false;
 	}
 
-	*num_levels = 0;
-	*zim_flags = 0;
+	type = typeSuggestion;
+	numLevels = 0;
+	zimFlags = 0;
 
-	switch (type) {
+	switch (typeSuggestion) {
 	case ZIM:
-	{
-		*num_levels = LoadZIMPtr((const uint8_t *)data, size, width, height, zim_flags, image);
-		*fmt = ZimToT3DFormat(*zim_flags & ZIM_FORMAT_MASK);
-	}
-	break;
+		numLevels = LoadZIMPtr((const uint8_t *)data, size, width, height, &zimFlags, levels);
+		fmt = ZimToT3DFormat(zimFlags & ZIM_FORMAT_MASK);
+		break;
 
 	case PNG:
-		if (1 == pngLoadPtr((const unsigned char *)data, size, &width[0], &height[0], &image[0])) {
-			*num_levels = 1;
-			*fmt = Draw::DataFormat::R8G8B8A8_UNORM;
-			if (!image[0]) {
-				ERROR_LOG(IO, "WTF");
+		if (1 == pngLoadPtr((const unsigned char *)data, size, &width[0], &height[0], &levels[0])) {
+			numLevels = 1;
+			fmt = Draw::DataFormat::R8G8B8A8_UNORM;
+			if (!levels[0]) {
+				ERROR_LOG(IO, "pngLoadPtr failed (input size = %d)", (int)size);
 				return false;
 			}
 		} else {
@@ -80,72 +101,90 @@ static bool LoadTextureLevels(const uint8_t *data, size_t size, ImageFileType ty
 		int actual_components = 0;
 		unsigned char *jpegBuf = jpgd::decompress_jpeg_image_from_memory(data, (int)size, &width[0], &height[0], &actual_components, 4);
 		if (jpegBuf) {
-			*num_levels = 1;
-			*fmt = Draw::DataFormat::R8G8B8A8_UNORM;
-			image[0] = (uint8_t *)jpegBuf;
+			numLevels = 1;
+			fmt = Draw::DataFormat::R8G8B8A8_UNORM;
+			levels[0] = (uint8_t *)jpegBuf;
 		}
+		break;
 	}
-	break;
 
 	default:
 		ERROR_LOG(IO, "Unsupported image format %d", (int)type);
 		return false;
 	}
 
-	return *num_levels > 0;
+	return numLevels > 0;
+}
+
+Draw::Texture *CreateTextureFromTempImage(Draw::DrawContext *draw, const uint8_t *data, size_t dataSize, const TempImage &image, bool generateMips, const char *name) {
+	using namespace Draw;
+	_assert_(image.levels[0] != nullptr && image.width[0] > 0 && image.height[0] > 0);
+
+	int numLevels = image.numLevels;
+	if (numLevels < 0 || numLevels >= 16) {
+		ERROR_LOG(IO, "Invalid num_levels: %d. Falling back to one. Image: %dx%d", numLevels, image.width[0], image.height[0]);
+		numLevels = 1;
+	}
+
+	int potentialLevels = std::min(log2i(image.width[0]), log2i(image.height[0]));
+	TextureDesc desc{};
+	desc.type = TextureType::LINEAR2D;
+	desc.format = image.fmt;
+	desc.width = image.width[0];
+	desc.height = image.height[0];
+	desc.depth = 1;
+	desc.mipLevels = generateMips ? potentialLevels : image.numLevels;
+	desc.generateMips = generateMips && potentialLevels > image.numLevels;
+	desc.tag = name;
+	for (int i = 0; i < image.numLevels; i++) {
+		desc.initData.push_back(image.levels[i]);
+	}
+	return draw->CreateTexture(desc);
+}
+
+Draw::Texture *CreateTextureFromFileData(Draw::DrawContext *draw, const uint8_t *data, size_t dataSize, ImageFileType type, bool generateMips, const char *name) {
+	TempImage image;
+	if (!image.LoadTextureLevels(data, dataSize, type)) {
+		return nullptr;
+	}
+	Draw::Texture *texture = CreateTextureFromTempImage(draw, data, dataSize, image, generateMips, name);
+	image.Free();
+	return texture;
+}
+
+Draw::Texture *CreateTextureFromFile(Draw::DrawContext *draw, const char *filename, ImageFileType type, bool generateMips) {
+	INFO_LOG(SYSTEM, "CreateTextureFromFile(%s)", filename);
+	size_t fileSize;
+	uint8_t *buffer = g_VFS.ReadFile(filename, &fileSize);
+	if (!buffer) {
+		ERROR_LOG(IO, "Failed to read file '%s'", filename);
+		return nullptr;
+	}
+	Draw::Texture *texture = CreateTextureFromFileData(draw, buffer, fileSize, type, generateMips, filename);
+	delete[] buffer;
+	return texture;
 }
 
 bool ManagedTexture::LoadFromFileData(const uint8_t *data, size_t dataSize, ImageFileType type, bool generateMips, const char *name) {
 	generateMips_ = generateMips;
-	using namespace Draw;
-
-	int width[16]{}, height[16]{};
-	uint8_t *image[16]{};
-
-	int num_levels = 0;
-	int zim_flags = 0;
-	DataFormat fmt;
-	if (!LoadTextureLevels(data, dataSize, type, width, height, &num_levels, &fmt, image, &zim_flags)) {
-		return false;
-	}
-
-	_assert_(image[0] != nullptr);
-
-	if (num_levels < 0 || num_levels >= 16) {
-		ERROR_LOG(IO, "Invalid num_levels: %d. Falling back to one. Image: %dx%d", num_levels, width[0], height[0]);
-		num_levels = 1;
-	}
 
 	// Free the old texture, if any.
 	if (texture_) {
-		delete texture_;
+		texture_->Release();
 		texture_ = nullptr;
 	}
 
-	int potentialLevels = std::min(log2i(width[0]), log2i(height[0]));
-	if (width[0] > 0 && height[0] > 0) {
-		TextureDesc desc{};
-		desc.type = TextureType::LINEAR2D;
-		desc.format = fmt;
-		desc.width = width[0];
-		desc.height = height[0];
-		desc.depth = 1;
-		desc.mipLevels = generateMips ? potentialLevels : num_levels;
-		desc.generateMips = generateMips && potentialLevels > num_levels;
-		desc.tag = name;
-		for (int i = 0; i < num_levels; i++) {
-			desc.initData.push_back(image[i]);
-		}
-		texture_ = draw_->CreateTexture(desc);
+	TempImage image;
+	if (!image.LoadTextureLevels(data, dataSize, type)) {
+		return false;
 	}
-	for (int i = 0; i < num_levels; i++) {
-		if (image[i])
-			free(image[i]);
-	}
+	texture_ = CreateTextureFromTempImage(draw_, data, dataSize, image, generateMips, name);
+	image.Free();
 	return texture_ != nullptr;
 }
 
 bool ManagedTexture::LoadFromFile(const std::string &filename, ImageFileType type, bool generateMips) {
+	INFO_LOG(SYSTEM, "ManagedTexture::LoadFromFile (%s)", filename.c_str());
 	generateMips_ = generateMips;
 	size_t fileSize;
 	uint8_t *buffer = g_VFS.ReadFile(filename.c_str(), &fileSize);
@@ -165,7 +204,8 @@ bool ManagedTexture::LoadFromFile(const std::string &filename, ImageFileType typ
 	return retval;
 }
 
-std::unique_ptr<ManagedTexture> CreateTextureFromFile(Draw::DrawContext *draw, const char *filename, ImageFileType type, bool generateMips) {
+std::unique_ptr<ManagedTexture> CreateManagedTextureFromFile(Draw::DrawContext *draw, const char *filename, ImageFileType type, bool generateMips) {
+	INFO_LOG(SYSTEM, "ManagedTexture::CreateFromFile (%s)", filename);
 	if (!draw)
 		return std::unique_ptr<ManagedTexture>();
 	// TODO: Load the texture on a background thread.
@@ -208,18 +248,4 @@ Draw::Texture *ManagedTexture::GetTexture() {
 		loadPending_ = false;
 	}
 	return texture_;
-}
-
-// TODO: Remove the code duplication between this and LoadFromFileData
-std::unique_ptr<ManagedTexture> CreateTextureFromFileData(Draw::DrawContext *draw, const uint8_t *data, int size, ImageFileType type, bool generateMips, const char *name) {
-	if (!draw)
-		return std::unique_ptr<ManagedTexture>();
-	ManagedTexture *mtex = new ManagedTexture(draw);
-	if (mtex->LoadFromFileData(data, size, type, generateMips, name)) {
-		return std::unique_ptr<ManagedTexture>(mtex);
-	} else {
-		// Best to return a null pointer if we fail!
-		delete mtex;
-		return std::unique_ptr<ManagedTexture>();
-	}
 }
