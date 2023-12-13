@@ -53,6 +53,10 @@ public:
 	void DeviceLost();
 	void DeviceRestored(Draw::DrawContext *draw);
 
+	bool Failed() const {
+		return state_ == LoadState::FAILED;
+	}
+
 	enum class LoadState {
 		PENDING,
 		FAILED,

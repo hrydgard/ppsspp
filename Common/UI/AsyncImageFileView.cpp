@@ -100,12 +100,14 @@ void AsyncImageFileView::Draw(UIContext &dc) {
 			dc.DrawText(text_.c_str(), bounds_.centerX(), bounds_.centerY(), 0xFFFFFFFF, ALIGN_CENTER | FLAG_DYNAMIC_ASCII);
 		}
 	} else {
-		if (!filename_.empty()) {
-			// draw a black rectangle to represent the missing screenshot.
-			dc.FillRect(UI::Drawable(0xFF000000), GetBounds());
-		} else {
-			// draw a dark gray rectangle to represent no save state.
-			dc.FillRect(UI::Drawable(0x50202020), GetBounds());
+		if (!texture_ || texture_->Failed()) {
+			if (!filename_.empty()) {
+				// draw a black rectangle to represent the missing screenshot.
+				dc.FillRect(UI::Drawable(0xFF000000), GetBounds());
+			} else {
+				// draw a dark gray rectangle to represent no save state.
+				dc.FillRect(UI::Drawable(0x50202020), GetBounds());
+			}
 		}
 		if (!text_.empty()) {
 			dc.DrawText(text_.c_str(), bounds_.centerX(), bounds_.centerY(), 0xFFFFFFFF, ALIGN_CENTER | FLAG_DYNAMIC_ASCII);
