@@ -1024,7 +1024,7 @@ void FramebufferManagerCommon::DownloadFramebufferOnSwitch(VirtualFramebuffer *v
 		// Saving each frame would be slow.
 
 		// TODO: This type of download could be made async, for less stutter on framebuffer creation.
-		if (g_Config.iSkipGPUReadbackMode == (int)SkipGPUReadbackMode::NO && !PSP_CoreParameter().compat.flags().DisableFirstFrameReadback) {
+		if (g_Config.iSkipGPUReadbackMode == (int)SkipGPUReadbackMode::NO_SKIP && !PSP_CoreParameter().compat.flags().DisableFirstFrameReadback) {
 			ReadFramebufferToMemory(vfb, 0, 0, vfb->safeWidth, vfb->safeHeight, RASTER_COLOR, Draw::ReadbackMode::BLOCK);
 			vfb->usageFlags = (vfb->usageFlags | FB_USAGE_DOWNLOAD | FB_USAGE_FIRST_FRAME_SAVED) & ~FB_USAGE_DOWNLOAD_CLEAR;
 			vfb->safeWidth = 0;
@@ -1040,7 +1040,7 @@ bool FramebufferManagerCommon::ShouldDownloadFramebufferColor(const VirtualFrame
 
 bool FramebufferManagerCommon::ShouldDownloadFramebufferDepth(const VirtualFramebuffer *vfb) const {
 	// Download depth buffer for Syphon Filter lens flares
-	if (!PSP_CoreParameter().compat.flags().ReadbackDepth || g_Config.iSkipGPUReadbackMode != (int)SkipGPUReadbackMode::NO) {
+	if (!PSP_CoreParameter().compat.flags().ReadbackDepth || g_Config.iSkipGPUReadbackMode != (int)SkipGPUReadbackMode::NO_SKIP) {
 		return false;
 	}
 	return (vfb->usageFlags & FB_USAGE_RENDER_DEPTH) != 0 && vfb->width >= 480 && vfb->height >= 272;
@@ -2130,7 +2130,7 @@ bool FramebufferManagerCommon::NotifyFramebufferCopy(u32 src, u32 dst, int size,
 		// Again we have the problem though that it's doing a lot of small copies here, one for each line.
 		if (srcH == 0 || srcY + srcH > srcBuffer->bufferHeight) {
 			WARN_LOG_ONCE(btdcpyheight, G3D, "Memcpy fbo download %08x -> %08x skipped, %d+%d is taller than %d", src, dst, srcY, srcH, srcBuffer->bufferHeight);
-		} else if (g_Config.iSkipGPUReadbackMode == (int)SkipGPUReadbackMode::NO && (!srcBuffer->memoryUpdated || channel == RASTER_DEPTH)) {
+		} else if (g_Config.iSkipGPUReadbackMode == (int)SkipGPUReadbackMode::NO_SKIP && (!srcBuffer->memoryUpdated || channel == RASTER_DEPTH)) {
 			Draw::ReadbackMode readbackMode = Draw::ReadbackMode::BLOCK;
 			if (PSP_CoreParameter().compat.flags().AllowDelayedReadbacks) {
 				readbackMode = Draw::ReadbackMode::OLD_DATA_OK;
@@ -2668,7 +2668,7 @@ bool FramebufferManagerCommon::NotifyBlockTransferBefore(u32 dstBasePtr, int dst
 			srcBasePtr, srcRect.x_bytes / bpp, srcRect.y, srcStride,
 			dstBasePtr, dstRect.x_bytes / bpp, dstRect.y, dstStride);
 		FlushBeforeCopy();
-		if (g_Config.iSkipGPUReadbackMode == (int)SkipGPUReadbackMode::NO && !srcRect.vfb->memoryUpdated) {
+		if (g_Config.iSkipGPUReadbackMode == (int)SkipGPUReadbackMode::NO_SKIP && !srcRect.vfb->memoryUpdated) {
 			const int srcBpp = BufferFormatBytesPerPixel(srcRect.vfb->fb_format);
 			const float srcXFactor = (float)bpp / srcBpp;
 			const bool tooTall = srcY + srcRect.h > srcRect.vfb->bufferHeight;

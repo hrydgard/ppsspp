@@ -178,7 +178,7 @@ enum class DisplayFramerateMode : int {
 };
 
 enum class SkipGPUReadbackMode : int {
-	NO,
+	NO_SKIP,
 	SKIP,
 	COPY_TO_TEXTURE,
 };

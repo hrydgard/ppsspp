@@ -636,7 +636,7 @@ static void check_variables(CoreParameter &coreParam)
       if (!strcmp(var.value, "disabled"))
          g_Config.iSkipGPUReadbackMode = (int)SkipGPUReadbackMode::SKIP;
       else
-         g_Config.iSkipGPUReadbackMode = (int)SkipGPUReadbackMode::NO;
+         g_Config.iSkipGPUReadbackMode = (int)SkipGPUReadbackMode::NO_SKIP;
    }
 
    var.key = "ppsspp_frameskip";
