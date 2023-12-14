@@ -93,7 +93,7 @@ private:
 
 class ProgressReporter {
 public:
-	void Set(std::string value) {
+	void Set(const std::string &value) {
 		std::lock_guard<std::mutex> guard(mutex_);
 		progress_ = value;
 	}

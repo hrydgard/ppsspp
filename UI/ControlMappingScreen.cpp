@@ -69,7 +69,7 @@ private:
 	UI::EventReturn OnReplace(UI::EventParams &params);
 	UI::EventReturn OnReplaceAll(UI::EventParams &params);
 
-	void MappedCallback(MultiInputMapping key);
+	void MappedCallback(const MultiInputMapping &key);
 
 	enum Action {
 		NONE,
@@ -163,7 +163,7 @@ void SingleControlMapper::Refresh() {
 	}
 }
 
-void SingleControlMapper::MappedCallback(MultiInputMapping kdf) {
+void SingleControlMapper::MappedCallback(const MultiInputMapping &kdf) {
 	if (kdf.empty()) {
 		// Don't want to try to add this.
 		return;
@@ -1192,7 +1192,7 @@ UI::EventReturn VisualMappingScreen::OnBindAll(UI::EventParams &e) {
 	return UI::EVENT_DONE;
 }
 
-void VisualMappingScreen::HandleKeyMapping(MultiInputMapping key) {
+void VisualMappingScreen::HandleKeyMapping(const KeyMap::MultiInputMapping &key) {
 	KeyMap::SetInputMapping(nextKey_, key, replace_);
 	KeyMap::UpdateNativeMenuKeys();
 

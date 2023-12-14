@@ -54,7 +54,7 @@ public:
 	void Clear();
 	void Decimate();
 	std::vector<std::string> DebugGetShaderIDs(DebugShaderType type);
-	std::string DebugGetShaderString(std::string id, DebugShaderType type, DebugShaderStringType stringType);
+	std::string DebugGetShaderString(const std::string &id, DebugShaderType type, DebugShaderStringType stringType);
 
 	void DeviceLost();
 	void DeviceRestore(Draw::DrawContext *draw);

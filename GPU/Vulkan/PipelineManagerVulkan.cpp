@@ -166,7 +166,7 @@ static bool UsesBlendConstant(int factor) {
 	}
 }
 
-static std::string CutFromMain(std::string str) {
+static std::string CutFromMain(const std::string &str) {
 	std::vector<std::string> lines;
 	SplitString(str, '\n', lines);
 
@@ -495,7 +495,7 @@ static const char *const blendFactors[19] = {
 	"INV_SRC1_A",
 };
 
-std::string PipelineManagerVulkan::DebugGetObjectString(std::string id, DebugShaderType type, DebugShaderStringType stringType, ShaderManagerVulkan *shaderManager) {
+std::string PipelineManagerVulkan::DebugGetObjectString(const std::string &id, DebugShaderType type, DebugShaderStringType stringType, ShaderManagerVulkan *shaderManager) {
 	if (type != SHADER_TYPE_PIPELINE)
 		return "N/A";
 

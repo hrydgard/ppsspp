@@ -197,7 +197,7 @@ protected:
 private:
 	UI::EventReturn OnMapButton(UI::EventParams &e);
 	UI::EventReturn OnBindAll(UI::EventParams &e);
-	void HandleKeyMapping(KeyMap::MultiInputMapping key);
+	void HandleKeyMapping(const KeyMap::MultiInputMapping &key);
 	void MapNext(bool successive);
 
 	MockPSP *psp_ = nullptr;
