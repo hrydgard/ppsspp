@@ -1269,6 +1269,8 @@ UI::EventReturn GameSettingsScreen::OnCustomDriverInstall(UI::EventParams &e) {
         if (!value.empty()) {
             Path zipPath = Path(value);
 
+			bool success = false;
+
             if (zipPath.GetFileExtension() == ".zip") {
                 ZipFileReader *zipFileReader = ZipFileReader::Create(zipPath, "");
 
@@ -1304,9 +1306,15 @@ UI::EventReturn GameSettingsScreen::OnCustomDriverInstall(UI::EventParams &e) {
 
                     File::Delete(tempMeta);
 
+					success = true;
+
                     RecreateViews();
                 }
-            }
+			}
+			if (!success) {
+				auto gr = GetI18NCategory(I18NCat::GRAPHICS);
+				g_OSD.Show(OSDType::MESSAGE_ERROR, gr->T("The selected file is not a ZIP file with a compatible driver."));
+			}
         }
     });
     return UI::EVENT_DONE;

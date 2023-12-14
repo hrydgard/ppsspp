@@ -201,7 +201,7 @@ private:
 
 // Whole-file reading/writing
 bool WriteStringToFile(bool text_file, const std::string &str, const Path &filename);
-bool WriteDataToFile(bool text_file, const void* data, const unsigned int size, const Path &filename);
+bool WriteDataToFile(bool text_file, const void* data, size_t size, const Path &filename);
 
 bool ReadFileToString(bool text_file, const Path &filename, std::string &str);
 // Return value must be delete[]-d.
