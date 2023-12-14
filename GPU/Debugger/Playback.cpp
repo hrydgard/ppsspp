@@ -369,7 +369,7 @@ bool DumpExecute::SubmitCmds(const void *p, u32 sz) {
 		gpu->EnableInterrupts(true);
 	}
 
-	u32 pendingSize = (int)execListQueue.size() * sizeof(u32);
+	u32 pendingSize = (u32)execListQueue.size() * sizeof(u32);
 	// Validate space for jump.
 	u32 allocSize = pendingSize + sz + 8;
 	if (execListPos + allocSize >= execListBuf + LIST_BUF_SIZE) {

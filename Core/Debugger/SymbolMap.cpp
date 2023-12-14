@@ -1114,7 +1114,7 @@ void SymbolMap::FillSymbolListBox(HWND listbox,SymbolType symType) {
 
 	case ST_DATA:
 		{
-			int count = ARRAYSIZE(defaultSymbols)+(int)activeData.size();
+			size_t count = ARRAYSIZE(defaultSymbols)+activeData.size();
 			SendMessage(listbox, LB_INITSTORAGE, (WPARAM)count, (LPARAM)count * 30);
 
 			for (int i = 0; i < ARRAYSIZE(defaultSymbols); i++) {
