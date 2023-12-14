@@ -948,7 +948,7 @@ static PPGeTextDrawerImage PPGeGetTextImage(const char *text, const PPGeStyle &s
 	return im;
 }
 
-static void PPGeDrawTextImage(PPGeTextDrawerImage im, float x, float y, const PPGeStyle &style) {
+static void PPGeDrawTextImage(const PPGeTextDrawerImage &im, float x, float y, const PPGeStyle &style) {
 	if (!im.ptr) {
 		return;
 	}

@@ -42,11 +42,11 @@ class GameManager {
 public:
 	GameManager();
 
-	bool IsGameInstalled(std::string name);
+	bool IsGameInstalled(const std::string &name);
 
 	// This starts off a background process.
-	bool DownloadAndInstall(std::string storeZipUrl);
-	bool IsDownloading(std::string storeZipUrl);
+	bool DownloadAndInstall(const std::string &storeZipUrl);
+	bool IsDownloading(const std::string &storeZipUrl);
 
 	// Cancels the download in progress, if any.
 	bool CancelDownload();
@@ -79,12 +79,12 @@ public:
 
 private:
 	// TODO: The return value on this is a bit pointless, we can't get at it.
-	bool InstallGame(Path url, Path tempFileName, bool deleteAfter);
+	bool InstallGame(const Path &url, const Path &tempFileName, bool deleteAfter);
 	bool InstallMemstickGame(struct zip *z, const Path &zipFile, const Path &dest, const ZipFileInfo &info, bool allowRoot, bool deleteAfter);
 	bool InstallMemstickZip(struct zip *z, const Path &zipFile, const Path &dest, const ZipFileInfo &info, bool deleteAfter);
 	bool InstallZippedISO(struct zip *z, int isoFileIndex, const Path &zipfile, bool deleteAfter);
 	bool InstallRawISO(const Path &zipFile, const std::string &originalName, bool deleteAfter);
-	void UninstallGame(std::string name);
+	void UninstallGame(const std::string &name);
 
 	void InstallDone();
 

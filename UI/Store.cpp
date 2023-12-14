@@ -43,7 +43,7 @@ static std::string StoreBaseUrl() {
 }
 
 // baseUrl is assumed to have a trailing slash, and not contain any subdirectories.
-std::string ResolveUrl(std::string baseUrl, std::string url) {
+std::string ResolveUrl(const std::string &baseUrl, const std::string &url) {
 	if (url.empty()) {
 		return baseUrl;
 	} else if (url[0] == '/') {
@@ -91,7 +91,7 @@ public:
 	void Draw(UIContext &dc) override;
 	std::string DescribeText() const override { return ""; }
 
-	void SetFilename(std::string filename);
+	void SetFilename(const std::string &filename);
 	void SetColor(uint32_t color) { color_ = color; }
 	void SetFixedSize(float fixW, float fixH) { fixedSizeW_ = fixW; fixedSizeH_ = fixH; }
 	void SetCanBeFocused(bool can) { canFocus_ = can; }
@@ -150,7 +150,7 @@ void HttpImageFileView::GetContentDimensions(const UIContext &dc, float &w, floa
 	}
 }
 
-void HttpImageFileView::SetFilename(std::string filename) {
+void HttpImageFileView::SetFilename(const std::string &filename) {
 	if (!useIconCache_ && path_ != filename) {
 		textureFailed_ = false;
 		path_ = filename;
@@ -456,7 +456,7 @@ void StoreScreen::update() {
 	}
 }
 
-void StoreScreen::ParseListing(std::string json) {
+void StoreScreen::ParseListing(const std::string &json) {
 	using namespace json;
 	JsonReader reader(json.c_str(), json.size());
 	if (!reader.ok() || !reader.root()) {
@@ -587,7 +587,7 @@ UI::EventReturn StoreScreen::OnRetry(UI::EventParams &e) {
 	return UI::EVENT_DONE;
 }
 
-std::string StoreScreen::GetTranslatedString(const json::JsonGet json, std::string key, const char *fallback) const {
+std::string StoreScreen::GetTranslatedString(const json::JsonGet json, const std::string &key, const char *fallback) const {
 	json::JsonGet dict = json.getDict("en_US");
 	if (dict && json.hasChild(lang_.c_str(), JSON_OBJECT)) {
 		if (json.getDict(lang_.c_str()).hasChild(key.c_str(), JSON_STRING)) {

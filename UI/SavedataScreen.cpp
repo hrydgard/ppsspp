@@ -266,7 +266,7 @@ UI::EventReturn SavedataPopupScreen::OnDeleteButtonClick(UI::EventParams &e) {
 	return UI::EVENT_DONE;
 }
 
-static std::string CleanSaveString(std::string str) {
+static std::string CleanSaveString(const std::string &str) {
 	std::string s = ReplaceAll(str, "&", "&&");
 	s = ReplaceAll(s, "\n", " ");
 	s = ReplaceAll(s, "\r", " ");

@@ -180,7 +180,7 @@ public:
 	void DestroyInstance();
 
 	int GetBestPhysicalDevice();
-	int GetPhysicalDeviceByName(std::string name);
+	int GetPhysicalDeviceByName(const std::string &name);
 	void ChooseDevice(int physical_device);
 	bool EnableInstanceExtension(const char *extension);
 	bool EnableDeviceExtension(const char *extension);

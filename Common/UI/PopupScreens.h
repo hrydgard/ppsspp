@@ -29,10 +29,10 @@ public:
 	std::string GetChoiceString() const {
 		return adaptor_.GetTitle(listView_->GetSelected());
 	}
-	void SetHiddenChoices(std::set<int> hidden) {
+	void SetHiddenChoices(const std::set<int> &hidden) {
 		hidden_ = hidden;
 	}
-	void SetChoiceIcons(std::map<int, ImageID> icons) {
+	void SetChoiceIcons(const std::map<int, ImageID> &icons) {
 		icons_ = icons;
 	}
 	const char *tag() const override { return "listpopup"; }

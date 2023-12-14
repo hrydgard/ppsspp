@@ -966,7 +966,7 @@ VFSFileSystem::~VFSFileSystem() {
 	entries.clear();
 }
 
-std::string VFSFileSystem::GetLocalPath(std::string localPath) {
+std::string VFSFileSystem::GetLocalPath(const std::string &localPath) {
 	return basePath + localPath;
 }
 

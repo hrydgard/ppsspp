@@ -52,7 +52,7 @@ protected:
 	}
 
 private:
-	void DisplayMessage(std::string text1, std::string text2a = "", std::string text2b = "", std::string text3a = "", std::string text3b = "", bool hasYesNo = false, bool hasOK = false);
+	void DisplayMessage(const std::string &text1, const std::string &text2a = "", const std::string &text2b = "", const std::string &text3a = "", const std::string &text3b = "", bool hasYesNo = false, bool hasOK = false);
 	void DrawBanner();
 	void DrawIndicator();
 

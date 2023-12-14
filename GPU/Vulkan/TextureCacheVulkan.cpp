@@ -159,7 +159,7 @@ VkSampler SamplerCache::GetOrCreateSampler(const SamplerCacheKey &key) {
 	return sampler;
 }
 
-std::string SamplerCache::DebugGetSamplerString(std::string id, DebugShaderStringType stringType) {
+std::string SamplerCache::DebugGetSamplerString(const std::string &id, DebugShaderStringType stringType) {
 	SamplerCacheKey key;
 	key.FromString(id);
 	return StringFromFormat("%s/%s mag:%s min:%s mip:%s maxLod:%f minLod:%f bias:%f",
@@ -852,7 +852,7 @@ std::vector<std::string> TextureCacheVulkan::DebugGetSamplerIDs() const {
 	return samplerCache_.DebugGetSamplerIDs();
 }
 
-std::string TextureCacheVulkan::DebugGetSamplerString(std::string id, DebugShaderStringType stringType) {
+std::string TextureCacheVulkan::DebugGetSamplerString(const std::string &id, DebugShaderStringType stringType) {
 	return samplerCache_.DebugGetSamplerString(id, stringType);
 }
 

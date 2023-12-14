@@ -86,12 +86,12 @@ Path GameManager::GetTempFilename() const {
 #endif
 }
 
-bool GameManager::IsGameInstalled(std::string name) {
+bool GameManager::IsGameInstalled(const std::string &name) {
 	Path pspGame = GetSysDirectory(DIRECTORY_GAME);
 	return File::Exists(pspGame / name);
 }
 
-bool GameManager::DownloadAndInstall(std::string storeFileUrl) {
+bool GameManager::DownloadAndInstall(const std::string &storeFileUrl) {
 	if (curDownload_.get() != nullptr) {
 		ERROR_LOG(HLE, "Can only process one download at a time");
 		return false;
@@ -107,7 +107,7 @@ bool GameManager::DownloadAndInstall(std::string storeFileUrl) {
 	return true;
 }
 
-bool GameManager::IsDownloading(std::string storeZipUrl) {
+bool GameManager::IsDownloading(const std::string &storeZipUrl) {
 	if (curDownload_)
 		return curDownload_->url() == storeZipUrl;
 	return false;
@@ -128,7 +128,7 @@ float GameManager::DownloadSpeedKBps() {
 	return 0.0f;
 }
 
-void GameManager::UninstallGame(std::string name) {
+void GameManager::UninstallGame(const std::string &name) {
 	SetCurrentThreadName("UninstallGame");
 
 	AndroidJNIThreadContext context;  // Destructor detaches.
@@ -285,7 +285,7 @@ ZipFileContents DetectZipFileContents(struct zip *z, ZipFileInfo *info) {
 }
 
 // Parameters need to be by value, since this is a thread func.
-bool GameManager::InstallGame(Path url, Path fileName, bool deleteAfter) {
+bool GameManager::InstallGame(const Path &url, const Path &fileName, bool deleteAfter) {
 	SetCurrentThreadName("InstallGame");
 
 	if (installDonePending_) {

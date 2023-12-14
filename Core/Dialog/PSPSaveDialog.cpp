@@ -580,7 +580,7 @@ void PSPSaveDialog::DisplaySaveDataInfo2(bool showNewData) {
 	PPGeDrawText(saveinfoTxt.c_str(), 8, 200, textStyle);
 }
 
-void PSPSaveDialog::DisplayMessage(std::string text, bool hasYesNo)
+void PSPSaveDialog::DisplayMessage(const std::string &text, bool hasYesNo)
 {
 	PPGeStyle textStyle = FadedStyle(PPGeAlign::BOX_CENTER, FONT_SCALE);
 

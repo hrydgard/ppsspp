@@ -37,7 +37,7 @@
 
 static std::map<std::string, std::unique_ptr<FileLoaderFactory>> factories;
 
-void RegisterFileLoaderFactory(std::string prefix, std::unique_ptr<FileLoaderFactory> factory) {
+void RegisterFileLoaderFactory(const std::string &prefix, std::unique_ptr<FileLoaderFactory> factory) {
 	factories[prefix] = std::move(factory);
 }
 

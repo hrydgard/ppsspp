@@ -397,7 +397,7 @@ namespace SaveState
 		pspFileSystem.DoState(p);
 	}
 
-	void Enqueue(SaveState::Operation op)
+	void Enqueue(const SaveState::Operation &op)
 	{
 		if (Achievements::HardcoreModeActive()) {
 			if (g_Config.bAchievementsSaveStateInHardcoreMode && ((op.type == SaveState::SAVESTATE_SAVE) || (op.type == SAVESTATE_SAVE_SCREENSHOT))) {

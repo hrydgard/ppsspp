@@ -48,8 +48,8 @@ public:
 	};
 
 	// It's OK to call these redundantly.
-	void Start(std::string gameId);
-	void Stop(std::string gameId);
+	void Start(const std::string &gameId);
+	void Stop(const std::string &gameId);
 
 	void Load(const Section *section);
 	void Save(Section *section);

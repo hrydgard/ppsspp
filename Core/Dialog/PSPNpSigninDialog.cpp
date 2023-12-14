@@ -100,7 +100,7 @@ void PSPNpSigninDialog::DrawLogo() {
 	PPGeDrawImage(416, 22, 64.0f, 64.0f, 1, 10, 1, 10, 64, 64, FadedImageStyle());
 }
 
-void PSPNpSigninDialog::DisplayMessage(std::string text1, std::string text2a, std::string text2b, std::string text3a, std::string text3b, bool hasYesNo, bool hasOK) {
+void PSPNpSigninDialog::DisplayMessage(const std::string &text1, const std::string &text2a, const std::string &text2b, const std::string &text3a, const std::string &text3b, bool hasYesNo, bool hasOK) {
 	auto di = GetI18NCategory(I18NCat::DIALOG);
 
 	PPGeStyle buttonStyle = FadedStyle(PPGeAlign::BOX_CENTER, FONT_SCALE);

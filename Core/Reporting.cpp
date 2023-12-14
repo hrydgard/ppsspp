@@ -623,7 +623,7 @@ namespace Reporting
 		return true;
 	}
 
-	bool Enable(bool flag, std::string host)
+	bool Enable(bool flag, const std::string &host)
 	{
 		if (IsSupported() && IsEnabled() != flag)
 		{

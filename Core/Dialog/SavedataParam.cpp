@@ -63,7 +63,7 @@ namespace
 		truncate_cpy(str, strLength, value.c_str());
 	}
 
-	bool ReadPSPFile(std::string filename, u8 **data, s64 dataSize, s64 *readSize)
+	bool ReadPSPFile(const std::string &filename, u8 **data, s64 dataSize, s64 *readSize)
 	{
 		int handle = pspFileSystem.OpenFile(filename, FILEACCESS_READ);
 		if (handle < 0)
@@ -86,7 +86,7 @@ namespace
 		return result != 0;
 	}
 
-	bool WritePSPFile(std::string filename, const u8 *data, SceSize dataSize)
+	bool WritePSPFile(const std::string &filename, const u8 *data, SceSize dataSize)
 	{
 		int handle = pspFileSystem.OpenFile(filename, (FileAccess)(FILEACCESS_WRITE | FILEACCESS_CREATE | FILEACCESS_TRUNCATE));
 		if (handle < 0)
@@ -110,7 +110,7 @@ namespace
 		return info;
 	}
 
-	bool PSPMatch(std::string text, std::string regexp)
+	bool PSPMatch(const std::string &text, const std::string &regexp)
 	{
 		if(text.empty() && regexp.empty())
 			return true;
@@ -1607,7 +1607,7 @@ int SavedataParam::SetPspParam(SceUtilitySavedataParam *param)
 	return 0;
 }
 
-void SavedataParam::SetFileInfo(SaveFileInfo &saveInfo, PSPFileInfo &info, std::string saveName, std::string savrDir)
+void SavedataParam::SetFileInfo(SaveFileInfo &saveInfo, PSPFileInfo &info, const std::string &saveName, const std::string &savrDir)
 {
 	saveInfo.size = info.size;
 	saveInfo.saveName = saveName;
@@ -1647,7 +1647,7 @@ void SavedataParam::SetFileInfo(SaveFileInfo &saveInfo, PSPFileInfo &info, std::
 	}
 }
 
-void SavedataParam::SetFileInfo(int idx, PSPFileInfo &info, std::string saveName, std::string saveDir)
+void SavedataParam::SetFileInfo(int idx, PSPFileInfo &info, const std::string &saveName, const std::string &saveDir)
 {
 	SetFileInfo(saveDataList[idx], info, saveName, saveDir);
 	saveDataList[idx].idx = idx;
@@ -1679,7 +1679,7 @@ void SavedataParam::ClearFileInfo(SaveFileInfo &saveInfo, const std::string &sav
 	}
 }
 
-PSPFileInfo SavedataParam::GetSaveInfo(std::string saveDir) {
+PSPFileInfo SavedataParam::GetSaveInfo(const std::string &saveDir) {
 	PSPFileInfo info = pspFileSystem.GetFileInfo(saveDir);
 	if (info.exists) {
 		info.access = 0777;
@@ -1970,7 +1970,7 @@ int SavedataParam::GetSaveCryptMode(const SceUtilitySavedataParam *param, const 
 	return 0;
 }
 
-bool SavedataParam::IsInSaveDataList(std::string saveName, int count) {
+bool SavedataParam::IsInSaveDataList(const std::string &saveName, int count) {
 	for(int i = 0; i < count; ++i) {
 		if(strcmp(saveDataList[i].saveName.c_str(),saveName.c_str()) == 0)
 			return true;

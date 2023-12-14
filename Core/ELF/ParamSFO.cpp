@@ -43,38 +43,38 @@ struct IndexTable
 	u32_le data_table_offset; /* Offset of the param_data from start of data_table */
 };
 
-void ParamSFOData::SetValue(std::string key, unsigned int value, int max_size) {
+void ParamSFOData::SetValue(const std::string &key, unsigned int value, int max_size) {
 	values[key].type = VT_INT;
 	values[key].i_value = value;
 	values[key].max_size = max_size;
 }
-void ParamSFOData::SetValue(std::string key, std::string value, int max_size) {
+void ParamSFOData::SetValue(const std::string &key, const std::string &value, int max_size) {
 	values[key].type = VT_UTF8;
 	values[key].s_value = value;
 	values[key].max_size = max_size;
 }
 
-void ParamSFOData::SetValue(std::string key, const u8 *value, unsigned int size, int max_size) {
+void ParamSFOData::SetValue(const std::string &key, const u8 *value, unsigned int size, int max_size) {
 	values[key].type = VT_UTF8_SPE;
 	values[key].SetData(value, size);
 	values[key].max_size = max_size;
 }
 
-int ParamSFOData::GetValueInt(std::string key) const {
+int ParamSFOData::GetValueInt(const std::string &key) const {
 	std::map<std::string,ValueData>::const_iterator it = values.find(key);
 	if(it == values.end() || it->second.type != VT_INT)
 		return 0;
 	return it->second.i_value;
 }
 
-std::string ParamSFOData::GetValueString(std::string key) const {
+std::string ParamSFOData::GetValueString(const std::string &key) const {
 	std::map<std::string,ValueData>::const_iterator it = values.find(key);
 	if(it == values.end() || (it->second.type != VT_UTF8))
 		return "";
 	return it->second.s_value;
 }
 
-const u8 *ParamSFOData::GetValueData(std::string key, unsigned int *size) const {
+const u8 *ParamSFOData::GetValueData(const std::string &key, unsigned int *size) const {
 	std::map<std::string,ValueData>::const_iterator it = values.find(key);
 	if(it == values.end() || (it->second.type != VT_UTF8_SPE))
 		return 0;
@@ -195,7 +195,7 @@ bool ParamSFOData::ReadSFO(const u8 *paramsfo, size_t size) {
 	return true;
 }
 
-int ParamSFOData::GetDataOffset(const u8 *paramsfo, std::string dataName) {
+int ParamSFOData::GetDataOffset(const u8 *paramsfo, const std::string &dataName) {
 	const Header *header = (const Header *)paramsfo;
 	if (header->magic != 0x46535000)
 		return -1;
@@ -320,7 +320,7 @@ void ParamSFOData::ValueData::SetData(const u8* data, int size) {
 	u_size = size;
 }
 
-std::string ParamSFOData::GenerateFakeID(std::string filename) const {
+std::string ParamSFOData::GenerateFakeID(const std::string &filename) const {
 	// Generates fake gameID for homebrew based on it's folder name.
 	// Should probably not be a part of ParamSFO, but it'll be called in same places.
 	std::string file = PSP_CoreParameter().fileToStart.ToString();

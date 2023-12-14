@@ -277,7 +277,7 @@ std::string trimString(std::string input)
 	return input;
 }
 
-void CtrlDisAsmView::assembleOpcode(u32 address, std::string defaultText)
+void CtrlDisAsmView::assembleOpcode(u32 address, const std::string &defaultText)
 {
 	auto memLock = Memory::Lock();
 	if (Core_IsStepping() == false) {

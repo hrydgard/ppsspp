@@ -1310,7 +1310,7 @@ void timeoutFriendsRecursive(SceNetAdhocctlPeerInfo * node, int32_t* count) {
 	if (count != NULL) (*count)++;
 }
 
-void sendChat(std::string chatString) {
+void sendChat(const std::string &chatString) {
 	SceNetAdhocctlChatPacketC2S chat;
 	auto n = GetI18NCategory(I18NCat::NETWORKING);
 	chat.base.opcode = OPCODE_CHAT;

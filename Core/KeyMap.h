@@ -188,7 +188,7 @@ namespace KeyMap {
 	// Any configuration will be saved to the Core config.
 	void SetInputMapping(int psp_key, const MultiInputMapping &key, bool replace);
 	// Return false if bind was a duplicate and got removed
-	bool ReplaceSingleKeyMapping(int btn, int index, MultiInputMapping key);
+	bool ReplaceSingleKeyMapping(int btn, int index, const MultiInputMapping &key);
 
 	MappedAnalogAxes MappedAxesForDevice(InputDeviceID deviceId);
 

@@ -50,7 +50,7 @@
 #include "UI/MiscScreens.h"
 #include "UI/OnScreenDisplay.h"
 
-static bool FolderSeemsToBeUsed(Path newMemstickFolder) {
+static bool FolderSeemsToBeUsed(const Path &newMemstickFolder) {
 	// Inspect the potential new folder, quickly.
 	if (File::Exists(newMemstickFolder / "PSP/SAVEDATA") || File::Exists(newMemstickFolder / "SAVEDATA")) {
 		// Does seem likely. We could add more criteria like checking for actual savegames or something.
@@ -514,7 +514,7 @@ struct FileSuffix {
 	u64 fileSize;
 };
 
-static bool ListFileSuffixesRecursively(const Path &root, Path folder, std::vector<std::string> &dirSuffixes, std::vector<FileSuffix> &fileSuffixes) {
+static bool ListFileSuffixesRecursively(const Path &root, const Path &folder, std::vector<std::string> &dirSuffixes, std::vector<FileSuffix> &fileSuffixes) {
 	std::vector<File::FileInfo> files;
 	if (!File::GetFilesInDir(folder, &files)) {
 		return false;

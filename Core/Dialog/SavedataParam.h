@@ -318,7 +318,7 @@ public:
 	int GetFilesList(SceUtilitySavedataParam* param, u32 requestAddr);
 	bool GetSize(SceUtilitySavedataParam* param);
 	int GetSaveCryptMode(const SceUtilitySavedataParam *param, const std::string &saveDirName);
-	bool IsInSaveDataList(std::string saveName, int count);
+	bool IsInSaveDataList(const std::string &saveName, int count);
 
 	std::string GetGameName(const SceUtilitySavedataParam *param) const;
 	std::string GetSaveName(const SceUtilitySavedataParam *param) const;
@@ -361,10 +361,10 @@ public:
 
 private:
 	void Clear();
-	void SetFileInfo(int idx, PSPFileInfo &info, std::string saveName, std::string saveDir = "");
-	void SetFileInfo(SaveFileInfo &saveInfo, PSPFileInfo &info, std::string saveName, std::string saveDir = "");
+	void SetFileInfo(int idx, PSPFileInfo &info, const std::string &saveName, const std::string &saveDir = "");
+	void SetFileInfo(SaveFileInfo &saveInfo, PSPFileInfo &info, const std::string &saveName, const std::string &saveDir = "");
 	void ClearFileInfo(SaveFileInfo &saveInfo, const std::string &saveName);
-	PSPFileInfo GetSaveInfo(std::string saveDir);
+	PSPFileInfo GetSaveInfo(const std::string &saveDir);
 
 	int LoadSaveData(SceUtilitySavedataParam *param, const std::string &saveDirName, const std::string& dirPath, bool secureMode);
 	u32 LoadCryptedSave(SceUtilitySavedataParam *param, u8 *data, const u8 *saveData, int &saveSize, int prevCryptMode, const u8 *expectedHash, bool &saveDone);

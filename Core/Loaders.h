@@ -152,7 +152,7 @@ public:
 	virtual ~FileLoaderFactory() {}
 	virtual FileLoader *ConstructFileLoader(const Path &filename) = 0;
 };
-void RegisterFileLoaderFactory(std::string prefix, std::unique_ptr<FileLoaderFactory> factory);
+void RegisterFileLoaderFactory(const std::string &prefix, std::unique_ptr<FileLoaderFactory> factory);
 
 // Can modify the string filename, as it calls IdentifyFile above.
 bool LoadFile(FileLoader **fileLoaderPtr, std::string *error_string);
