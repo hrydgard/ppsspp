@@ -1324,15 +1324,7 @@ void NativeAxis(const AxisInput *axes, size_t count) {
 	}
 }
 
-void NativeMouseDelta(float dx, float dy) {
-	// Remap, shared code. Then send it as a regular axis event.
-	if (!g_Config.bMouseControl)
-		return;
-
-	MouseEventProcessor::ProcessDelta(time_now_d(), dx, dy);
-}
-
-// Called from NativeFrame.
+// Called from NativeFrame and from NativeMouseDelta.
 static void SendMouseDeltaAxis() {
 	float mx, my;
 	MouseEventProcessor::MouseDeltaToAxes(time_now_d(), &mx, &my);
@@ -1354,6 +1346,16 @@ static void SendMouseDeltaAxis() {
 	if (GetUIState() == UISTATE_INGAME || g_Config.bMapMouse) {
 		NativeAxis(axis, 2);
 	}
+}
+
+void NativeMouseDelta(float dx, float dy) {
+	// Remap, shared code. Then send it as a regular axis event.
+	if (!g_Config.bMouseControl)
+		return;
+
+	MouseEventProcessor::ProcessDelta(time_now_d(), dx, dy);
+
+	SendMouseDeltaAxis();
 }
 
 void NativeAccelerometer(float tiltX, float tiltY, float tiltZ) {
