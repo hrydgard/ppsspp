@@ -392,6 +392,26 @@ public:
 		}
 		return list;
 	}
+	std::vector<std::string> GetPresentModeList(const char *currentMarkerString) const override {
+		std::vector<std::string> list;
+		for (auto mode : vulkan_->GetAvailablePresentModes()) {
+			std::string str = VulkanPresentModeToString(mode);
+			if (mode == vulkan_->GetPresentMode()) {
+				str += std::string(" (") + currentMarkerString + ")";
+			}
+			list.push_back(str);
+		}
+		return list;
+	}
+	std::vector<std::string> GetSurfaceFormatList() const override {
+		std::vector<std::string> list;
+		for (auto &format : vulkan_->SurfaceFormats()) {
+			std::string str = StringFromFormat("%s : %s", VulkanFormatToString(format.format), VulkanColorSpaceToString(format.colorSpace));
+			list.push_back(str);
+		}
+		return list;
+	}
+
 	uint32_t GetSupportedShaderLanguages() const override {
 		return (uint32_t)ShaderLanguage::GLSL_VULKAN;
 	}

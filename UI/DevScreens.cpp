@@ -34,9 +34,6 @@
 #include "Common/System/OSD.h"
 #include "Common/GPU/OpenGL/GLFeatures.h"
 
-#if !PPSSPP_PLATFORM(UWP)
-#include "Common/GPU/Vulkan/VulkanContext.h"
-#endif
 #include "Common/File/AndroidStorage.h"
 #include "Common/Data/Text/I18n.h"
 #include "Common/Data/Encoding/Utf8.h"
@@ -72,9 +69,7 @@
 #include "UI/ControlMappingScreen.h"
 #include "UI/GameSettingsScreen.h"
 
-
 #ifdef _WIN32
-#include "Common/CommonWindows.h"
 // Want to avoid including the full header here as it includes d3dx.h
 int GetD3DCompilerVersion();
 #endif
@@ -799,11 +794,6 @@ void SystemInfoScreen::CreateTabs() {
 		}
 	} else if (GetGPUBackend() == GPUBackend::VULKAN) {
 		LinearLayout *gpuExtensions = AddTab("DevSystemInfoOGLExt", si->T("Vulkan Features"));
-#if !PPSSPP_PLATFORM(UWP)
-		// Vulkan specific code here, can't be bothered to abstract.
-		// OK because of above check.
-
-		VulkanContext *vk = (VulkanContext *)draw->GetNativeObject(Draw::NativeObject::CONTEXT);
 
 		CollapsibleSection *vulkanFeatures = gpuExtensions->Add(new CollapsibleSection(si->T("Vulkan Features")));
 		std::vector<std::string> features = draw->GetFeatureList();
@@ -812,23 +802,14 @@ void SystemInfoScreen::CreateTabs() {
 		}
 
 		CollapsibleSection *presentModes = gpuExtensions->Add(new CollapsibleSection(si->T("Present Modes")));
-		for (auto mode : vk->GetAvailablePresentModes()) {
-			std::string str = VulkanPresentModeToString(mode);
-			if (mode == vk->GetPresentMode()) {
-				str += std::string(" (") + di->T("Current") + ")";
-			}
-			presentModes->Add(new TextView(str, new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetFocusable(true);
+		for (auto mode : draw->GetPresentModeList(di->T("Current"))) {
+			presentModes->Add(new TextView(mode, new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetFocusable(true);
 		}
 
 		CollapsibleSection *colorFormats = gpuExtensions->Add(new CollapsibleSection(si->T("Display Color Formats")));
-		if (vk) {
-			for (auto &format : vk->SurfaceFormats()) {
-				std::string line = StringFromFormat("%s : %s", VulkanFormatToString(format.format), VulkanColorSpaceToString(format.colorSpace));
-				colorFormats->Add(new TextView(line,
-					new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetFocusable(true);
-			}
+		for (auto &format : draw->GetSurfaceFormatList()) {
+			colorFormats->Add(new TextView(format, new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetFocusable(true);
 		}
-#endif
 
 		CollapsibleSection *enabledExtensions = gpuExtensions->Add(new CollapsibleSection(std::string(si->T("Vulkan Extensions")) + " (" + di->T("Enabled") + ")"));
 		std::vector<std::string> extensions = draw->GetExtensionList(true, true);

@@ -698,6 +698,8 @@ public:
 	virtual std::vector<std::string> GetFeatureList() const { return std::vector<std::string>(); }
 	virtual std::vector<std::string> GetExtensionList(bool device, bool enabledOnly) const { return std::vector<std::string>(); }
 	virtual std::vector<std::string> GetDeviceList() const { return std::vector<std::string>(); }
+	virtual std::vector<std::string> GetPresentModeList(const char *currentMarkerString) const { return std::vector<std::string>(); }
+	virtual std::vector<std::string> GetSurfaceFormatList() const { return std::vector<std::string>(); }
 
 	// Describes the primary shader language that this implementation prefers.
 	const ShaderLanguageDesc &GetShaderLanguageDesc() {
