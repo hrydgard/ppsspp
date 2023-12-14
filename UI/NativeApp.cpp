@@ -1324,40 +1324,18 @@ void NativeAxis(const AxisInput *axes, size_t count) {
 	}
 }
 
-float g_mouseDeltaX = 0;
-float g_mouseDeltaY = 0;
-
 void NativeMouseDelta(float dx, float dy) {
 	// Remap, shared code. Then send it as a regular axis event.
 	if (!g_Config.bMouseControl)
 		return;
 
-	// Accumulate mouse deltas, for some kind of smoothing.
-	g_mouseDeltaX += dx;
-	g_mouseDeltaY += dy;
+	MouseEventProcessor::ProcessDelta(dx, dy);
 }
 
 // Called from NativeFrame.
 static void SendMouseDeltaAxis() {
-	static double lastTime = 0.0f;
-	double now = time_now_d();
-	if (lastTime == 0.0) {
-		lastTime = now;
-		return;
-	}
-	double dt = now - lastTime;
-	lastTime = now;
-
-	float scaleFactor_x = g_display.dpi_scale_x * 0.1 * g_Config.fMouseSensitivity;
-	float scaleFactor_y = g_display.dpi_scale_y * 0.1 * g_Config.fMouseSensitivity;
-
-	float mx = clamp_value(g_mouseDeltaX * scaleFactor_x, -1.0f, 1.0f);
-	float my = clamp_value(g_mouseDeltaY * scaleFactor_y, -1.0f, 1.0f);
-
-	// Decay the mouse deltas. This is where we should use dt.
-	float decay = expf(-dt * 50.0f * (1.0f - g_Config.fMouseSmoothing));
-	g_mouseDeltaX *= decay;
-	g_mouseDeltaY *= decay;
+	float mx, my;
+	MouseEventProcessor::MouseDeltaToAxes(time_now_d(), &mx, &my);
 
 	AxisInput axis[2];
 	axis[0].axisId = JOYSTICK_AXIS_MOUSE_REL_X;

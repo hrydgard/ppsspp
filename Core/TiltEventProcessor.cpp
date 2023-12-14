@@ -2,11 +2,13 @@
 
 #include <algorithm>
 #include <cmath>
+#include <mutex>
 
 #include "Common/Math/math_util.h"
 #include "Common/Math/lin/vec3.h"
 #include "Common/Math/lin/matrix4x4.h"
 #include "Common/Log.h"
+#include "Common/System/Display.h"
 
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
@@ -301,3 +303,46 @@ void ResetTiltEvents() {
 }
 
 }  // namespace TiltEventProcessor
+
+namespace MouseEventProcessor {
+
+// Technically, we may be OK without a mutex here.
+// But, the cost isn't high.
+std::mutex g_mouseMutex;
+
+float g_mouseDeltaX = 0;
+float g_mouseDeltaY = 0;
+
+void ProcessDelta(float dx, float dy) {
+	std::unique_lock<std::mutex> lock(g_mouseMutex);
+	// Accumulate mouse deltas, for some kind of smoothing.
+	g_mouseDeltaX += dx;
+	g_mouseDeltaY += dy;
+}
+
+void MouseDeltaToAxes(double now, float *mx, float *my) {
+	std::unique_lock<std::mutex> lock(g_mouseMutex);
+
+	static double lastTime = 0.0f;
+	if (lastTime == 0.0) {
+		lastTime = now;
+		*mx = 0.0f;
+		*my = 0.0f;
+		return;
+	}
+	double dt = now - lastTime;
+	lastTime = now;
+
+	float scaleFactor_x = g_display.dpi_scale_x * 0.1 * g_Config.fMouseSensitivity;
+	float scaleFactor_y = g_display.dpi_scale_y * 0.1 * g_Config.fMouseSensitivity;
+
+	*mx = clamp_value(g_mouseDeltaX * scaleFactor_x, -1.0f, 1.0f);
+	*my = clamp_value(g_mouseDeltaY * scaleFactor_y, -1.0f, 1.0f);
+
+	// Decay the mouse deltas. This is where we should use dt.
+	float decay = expf(-dt * 50.0f * (1.0f - g_Config.fMouseSmoothing));
+	g_mouseDeltaX *= decay;
+	g_mouseDeltaY *= decay;
+}
+
+}  // namespace
