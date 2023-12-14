@@ -58,7 +58,7 @@ void I18NRepo::Clear() {
 	std::lock_guard<std::mutex> guard(catsLock_);
 	for (auto &iter : cats_) {
 		// Initialize with empty categories, so that early lookups don't crash.
-		iter = std::shared_ptr<I18NCategory>(new I18NCategory());
+		iter = std::make_shared<I18NCategory>();
 	}
 }
 

@@ -597,7 +597,7 @@ ReplacedTexture::LoadLevelResult ReplacedTexture::LoadLevelData(VFSFileReference
 
 	} else if (imageType == ReplacedImageType::ZIM) {
 
-		std::unique_ptr<uint8_t[]> zim(new uint8_t[fileSize]);
+		auto zim = std::make_unique<uint8_t[]>(fileSize);
 		if (!zim) {
 			ERROR_LOG(G3D, "Failed to allocate memory for texture replacement");
 			vfs_->CloseFile(openFile);
