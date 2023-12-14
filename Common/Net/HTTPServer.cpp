@@ -118,7 +118,7 @@ void ServerRequest::WriteHttpResponseHeader(const char *ver, int status, int64_t
 		buffer->Printf("Content-Length: %llu\r\n", size);
 	}
 	if (otherHeaders) {
-		buffer->Push(otherHeaders, (int)strlen(otherHeaders));
+		buffer->Push(otherHeaders, strlen(otherHeaders));
 	}
 	buffer->Push("\r\n");
 }

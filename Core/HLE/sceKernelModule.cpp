@@ -1912,7 +1912,7 @@ bool __KernelLoadGEDump(const std::string &base_filename, std::string *error_str
 	};
 
 	for (size_t i = 0; i < ARRAY_SIZE(runDumpCode); ++i) {
-		Memory::WriteUnchecked_U32(runDumpCode[i], mipsr4k.pc + (int)i * sizeof(u32_le));
+		Memory::WriteUnchecked_U32(runDumpCode[i], mipsr4k.pc + (u32)i * sizeof(u32_le));
 	}
 
 	PSPModule *module = new PSPModule();

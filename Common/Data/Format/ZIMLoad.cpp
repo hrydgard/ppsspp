@@ -132,9 +132,9 @@ int LoadZIM(const char *filename, int *width, int *height, int *format, uint8_t 
 		return 0;
 	}
 
-	int retval = LoadZIMPtr(buffer, (int)size, width, height, format, image);
+	int retval = LoadZIMPtr(buffer, size, width, height, format, image);
 	if (!retval) {
-		ERROR_LOG(IO, "Not a valid ZIM file: %s (size: %d bytes)", filename, (int)size);
+		ERROR_LOG(IO, "Not a valid ZIM file: %s (size: %lld bytes)", filename, (long long)size);
 	}
 	delete [] buffer;
 	return retval;
