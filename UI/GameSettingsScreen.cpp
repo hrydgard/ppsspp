@@ -107,7 +107,15 @@ bool SupportsCustomDriver() {
     return android_get_device_api_level() >= 28 && CheckKgslPresent();
 }
 
+#else
+
+bool SupportsCustomDriver() {
+	return false;
+}
+
 #endif
+
+static void TriggerRestart(const char *why, bool editThenRestore, const Path &gamePath);
 
 GameSettingsScreen::GameSettingsScreen(const Path &gamePath, std::string gameID, bool editThenRestore)
 	: TabbedUIDialogScreenWithGameBackground(gamePath), gameID_(gameID), editThenRestore_(editThenRestore) {
@@ -282,27 +290,6 @@ void GameSettingsScreen::CreateGraphicsSettings(UI::ViewGroup *graphicsSettings)
 		// If we're not the first instance, can't save the setting, and it requires a restart, so...
 		renderingBackendChoice->SetEnabled(false);
 	}
-
-#if PPSSPP_PLATFORM(ANDROID) && PPSSPP_ARCH(ARM64)
-    if (GetGPUBackend() == GPUBackend::VULKAN && SupportsCustomDriver()) {
-        const Path driverPath = g_Config.internalDataDirectory / "drivers";
-
-        std::vector<File::FileInfo> listing;
-        File::GetFilesInDir(driverPath, &listing);
-
-        std::vector<std::string> availableDrivers;
-        availableDrivers.push_back("Default");
-
-        for (auto driver : listing) {
-            availableDrivers.push_back(driver.name);
-        }
-        auto driverChoice = graphicsSettings->Add(new PopupMultiChoiceDynamic(&g_Config.customDriver, gr->T("Current GPU Driver"), availableDrivers, I18NCat::NONE, screenManager()));
-        driverChoice->OnChoice.Handle(this, &GameSettingsScreen::OnCustomDriverChange);
-
-        auto customDriverInstallChoice = graphicsSettings->Add(new Choice(gr->T("Install Custom Driver...")));
-        customDriverInstallChoice->OnClick.Handle(this, &GameSettingsScreen::OnCustomDriverInstall);
-    }
-#endif
 #endif
 
 	// Backends that don't allow a device choice will only expose one device.
@@ -1249,67 +1236,75 @@ void GameSettingsScreen::CreateVRSettings(UI::ViewGroup *vrSettings) {
 	vrSettings->Add(new PopupMultiChoice(&g_Config.iCameraPitch, vr->T("Camera type"), cameraPitchModes, 0, 3, I18NCat::NONE, screenManager()));
 }
 
-UI::EventReturn GameSettingsScreen::OnCustomDriverChange(UI::EventParams &e) {
-    auto di = GetI18NCategory(I18NCat::DIALOG);
+UI::EventReturn DeveloperToolsScreen::OnCustomDriverChange(UI::EventParams &e) {
+	auto di = GetI18NCategory(I18NCat::DIALOG);
 
-    screenManager()->push(new PromptScreen(gamePath_, di->T("Changing this setting requires PPSSPP to restart."), di->T("Restart"), di->T("Cancel"), [=](bool yes) {
-        if (yes) {
-            TriggerRestart("GameSettingsScreen::CustomDriverYes");
-        }
-    }));
-    return UI::EVENT_DONE;
+	screenManager()->push(new PromptScreen(gamePath_, di->T("Changing this setting requires PPSSPP to restart."), di->T("Restart"), di->T("Cancel"), [=](bool yes) {
+		if (yes) {
+			TriggerRestart("GameSettingsScreen::CustomDriverYes", false, gamePath_);
+		}
+	}));
+	return UI::EVENT_DONE;
 }
 
-UI::EventReturn GameSettingsScreen::OnCustomDriverInstall(UI::EventParams &e) {
-    auto gr = GetI18NCategory(I18NCat::GRAPHICS);
+UI::EventReturn DeveloperToolsScreen::OnCustomDriverInstall(UI::EventParams &e) {
+	auto gr = GetI18NCategory(I18NCat::GRAPHICS);
 
-    System_BrowseForFile(gr->T("Install Custom Driver..."), BrowseFileType::ANY, [this](const std::string &value, int) {
-        const Path driverPath = g_Config.internalDataDirectory / "drivers";
+	System_BrowseForFile(gr->T("Install Custom Driver..."), BrowseFileType::ANY, [this](const std::string &value, int) {
+		const Path driverPath = g_Config.internalDataDirectory / "drivers";
 
-        if (!value.empty()) {
-            Path zipPath = Path(value);
+		if (!value.empty()) {
+			Path zipPath = Path(value);
 
-            if (zipPath.GetFileExtension() == ".zip") {
-                ZipFileReader *zipFileReader = ZipFileReader::Create(zipPath, "");
+			bool success = false;
 
-                size_t metaDataSize;
-                uint8_t *metaData = zipFileReader->ReadFile("meta.json", &metaDataSize);
+			if (zipPath.GetFileExtension() == ".zip") {
+				ZipFileReader *zipFileReader = ZipFileReader::Create(zipPath, "");
 
-                Path tempMeta = Path(g_Config.internalDataDirectory / "meta.json");
+				size_t metaDataSize;
+				uint8_t *metaData = zipFileReader->ReadFile("meta.json", &metaDataSize);
 
-                File::CreateEmptyFile(tempMeta);
-                File::WriteDataToFile(false, metaData, metaDataSize, tempMeta);
+				Path tempMeta = Path(g_Config.internalDataDirectory / "meta.json");
 
-                delete[] metaData;
+				File::CreateEmptyFile(tempMeta);
+				File::WriteDataToFile(false, metaData, metaDataSize, tempMeta);
 
-                json::JsonReader meta = json::JsonReader((g_Config.internalDataDirectory / "meta.json").c_str());
-                if (meta.ok()) {
-                    std::string driverName = meta.root().get("name")->value.toString();
+				delete[] metaData;
 
-                    Path newCustomDriver = driverPath / driverName;
-                    File::CreateFullPath(newCustomDriver);
+				json::JsonReader meta = json::JsonReader((g_Config.internalDataDirectory / "meta.json").c_str());
+				if (meta.ok()) {
+					std::string driverName = meta.root().get("name")->value.toString();
 
-                    std::vector<File::FileInfo> zipListing;
-                    zipFileReader->GetFileListing("", &zipListing, nullptr);
+					Path newCustomDriver = driverPath / driverName;
+					File::CreateFullPath(newCustomDriver);
 
-                    for (auto file : zipListing) {
-                        File::CreateEmptyFile(newCustomDriver / file.name);
+					std::vector<File::FileInfo> zipListing;
+					zipFileReader->GetFileListing("", &zipListing, nullptr);
 
-                        size_t size;
-                        uint8_t *data = zipFileReader->ReadFile(file.name.c_str(), &size);
-                        File::WriteDataToFile(false, data, size, newCustomDriver / file.name);
+					for (auto file : zipListing) {
+						File::CreateEmptyFile(newCustomDriver / file.name);
 
-                        delete[] data;
-                    }
+						size_t size;
+						uint8_t *data = zipFileReader->ReadFile(file.name.c_str(), &size);
+						File::WriteDataToFile(false, data, size, newCustomDriver / file.name);
 
-                    File::Delete(tempMeta);
+						delete[] data;
+					}
 
-                    RecreateViews();
-                }
-            }
-        }
-    });
-    return UI::EVENT_DONE;
+					File::Delete(tempMeta);
+
+					success = true;
+
+					RecreateViews();
+				}
+			}
+			if (!success) {
+				auto gr = GetI18NCategory(I18NCat::GRAPHICS);
+				g_OSD.Show(OSDType::MESSAGE_ERROR, gr->T("The file is not a ZIP file containing a compatible driver."));
+			}
+		}
+	});
+	return UI::EVENT_DONE;
 }
 
 UI::EventReturn GameSettingsScreen::OnAutoFrameskip(UI::EventParams &e) {
@@ -1533,16 +1528,16 @@ void GameSettingsScreen::CallbackMemstickFolder(bool yes) {
 	}
 }
 
-void GameSettingsScreen::TriggerRestart(const char *why) {
+static void TriggerRestart(const char *why, bool editThenRestore, const Path &gamePath) {
 	// Extra save here to make sure the choice really gets saved even if there are shutdown bugs in
 	// the GPU backend code.
 	g_Config.Save(why);
 	std::string param = "--gamesettings";
-	if (editThenRestore_) {
+	if (editThenRestore) {
 		// We won't pass the gameID, so don't resume back into settings.
 		param.clear();
-	} else if (!gamePath_.empty()) {
-		param += " \"" + ReplaceAll(ReplaceAll(gamePath_.ToString(), "\\", "\\\\"), "\"", "\\\"") + "\"";
+	} else if (!gamePath.empty()) {
+		param += " \"" + ReplaceAll(ReplaceAll(gamePath.ToString(), "\\", "\\\\"), "\"", "\\\"") + "\"";
 	}
 	// Make sure the new instance is considered the first.
 	ShutdownInstanceCounter();
@@ -1556,7 +1551,7 @@ UI::EventReturn GameSettingsScreen::OnRenderingBackend(UI::EventParams &e) {
 	if (g_Config.iGPUBackend != (int)GetGPUBackend()) {
 		screenManager()->push(new PromptScreen(gamePath_, di->T("Changing this setting requires PPSSPP to restart."), di->T("Restart"), di->T("Cancel"), [=](bool yes) {
 			if (yes) {
-				TriggerRestart("GameSettingsScreen::RenderingBackendYes");
+				TriggerRestart("GameSettingsScreen::RenderingBackendYes", editThenRestore_, gamePath_);
 			} else {
 				g_Config.iGPUBackend = (int)GetGPUBackend();
 			}
@@ -1575,7 +1570,7 @@ UI::EventReturn GameSettingsScreen::OnRenderingDevice(UI::EventParams &e) {
 			// If the user ends up deciding not to restart, set the config back to the current backend
 			// so it doesn't get switched by accident.
 			if (yes) {
-				TriggerRestart("GameSettingsScreen::RenderingDeviceYes");
+				TriggerRestart("GameSettingsScreen::RenderingDeviceYes", editThenRestore_, gamePath_);
 			} else {
 				std::string *deviceNameSetting = GPUDeviceNameSetting();
 				if (deviceNameSetting)
@@ -1593,7 +1588,7 @@ UI::EventReturn GameSettingsScreen::OnInflightFramesChoice(UI::EventParams &e) {
 	if (g_Config.iInflightFrames != prevInflightFrames_) {
 		screenManager()->push(new PromptScreen(gamePath_, di->T("Changing this setting requires PPSSPP to restart."), di->T("Restart"), di->T("Cancel"), [=](bool yes) {
 			if (yes) {
-				TriggerRestart("GameSettingsScreen::InflightFramesYes");
+				TriggerRestart("GameSettingsScreen::InflightFramesYes", editThenRestore_, gamePath_);
 			} else {
 				g_Config.iInflightFrames = prevInflightFrames_;
 			}
@@ -1805,6 +1800,25 @@ void DeveloperToolsScreen::CreateViews() {
 			g_OSD.Show(OSDType::MESSAGE_WARNING, "Restart required");
 			return UI::EVENT_DONE;
 		});
+	}
+
+	if (GetGPUBackend() == GPUBackend::VULKAN && SupportsCustomDriver()) {
+		const Path driverPath = g_Config.internalDataDirectory / "drivers";
+
+		std::vector<File::FileInfo> listing;
+		File::GetFilesInDir(driverPath, &listing);
+
+		std::vector<std::string> availableDrivers;
+		availableDrivers.push_back("Default");
+
+		for (auto driver : listing) {
+			availableDrivers.push_back(driver.name);
+		}
+		auto driverChoice = list->Add(new PopupMultiChoiceDynamic(&g_Config.customDriver, gr->T("Current GPU Driver"), availableDrivers, I18NCat::NONE, screenManager()));
+		driverChoice->OnChoice.Handle(this, &DeveloperToolsScreen::OnCustomDriverChange);
+
+		auto customDriverInstallChoice = list->Add(new Choice(gr->T("Install Custom Driver...")));
+		customDriverInstallChoice->OnClick.Handle(this, &DeveloperToolsScreen::OnCustomDriverInstall);
 	}
 
 	// For now, we only implement GPU driver tests for Vulkan and OpenGL. This is simply

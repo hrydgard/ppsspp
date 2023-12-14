@@ -1209,12 +1209,11 @@ bool WriteStringToFile(bool text_file, const std::string &str, const Path &filen
 	return true;
 }
 
-bool WriteDataToFile(bool text_file, const void* data, const unsigned int size, const Path &filename) {
+bool WriteDataToFile(bool text_file, const void* data, size_t size, const Path &filename) {
 	FILE *f = File::OpenCFile(filename, text_file ? "w" : "wb");
 	if (!f)
 		return false;
-	size_t len = size;
-	if (len != fwrite(data, 1, len, f))
+	if (size != fwrite(data, 1, size, f))
 	{
 		fclose(f);
 		return false;

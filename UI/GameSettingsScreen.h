@@ -54,8 +54,6 @@ private:
 	void CreateSystemSettings(UI::ViewGroup *systemSettings);
 	void CreateVRSettings(UI::ViewGroup *vrSettings);
 
-	void TriggerRestart(const char *why);
-
 	std::string gameID_;
 	UI::CheckBox *enableReportsCheckbox_ = nullptr;
 	UI::Choice *layoutEditorChoice_ = nullptr;
@@ -98,8 +96,6 @@ private:
 	UI::EventReturn OnRenderingBackend(UI::EventParams &e);
 	UI::EventReturn OnRenderingDevice(UI::EventParams &e);
 	UI::EventReturn OnInflightFramesChoice(UI::EventParams &e);
-	UI::EventReturn OnCustomDriverChange(UI::EventParams &e);
-	UI::EventReturn OnCustomDriverInstall(UI::EventParams &e);
 	UI::EventReturn OnCameraDeviceChange(UI::EventParams& e);
 	UI::EventReturn OnMicDeviceChange(UI::EventParams& e);
 	UI::EventReturn OnAudioDevice(UI::EventParams &e);
@@ -155,6 +151,8 @@ private:
 	UI::EventReturn OnFramedumpTest(UI::EventParams &e);
 	UI::EventReturn OnTouchscreenTest(UI::EventParams &e);
 	UI::EventReturn OnCopyStatesToRoot(UI::EventParams &e);
+	UI::EventReturn OnCustomDriverChange(UI::EventParams &e);
+	UI::EventReturn OnCustomDriverInstall(UI::EventParams &e);
 
 	bool allowDebugger_ = false;
 	bool canAllowDebugger_ = true;
