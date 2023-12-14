@@ -2,11 +2,13 @@
 
 #include <algorithm>
 #include <cmath>
+#include <mutex>
 
 #include "Common/Math/math_util.h"
 #include "Common/Math/lin/vec3.h"
 #include "Common/Math/lin/matrix4x4.h"
 #include "Common/Log.h"
+#include "Common/System/Display.h"
 
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
@@ -32,6 +34,8 @@ void GenerateDPadEvent(int digitalX, int digitalY);
 void GenerateActionButtonEvent(int digitalX, int digitalY);
 void GenerateTriggerButtonEvent(int digitalX, int digitalY);
 
+}
+
 // deadzone is normalized - 0 to 1
 // sensitivity controls how fast the deadzone reaches max value
 inline float ApplyDeadzoneAxis(float x, float deadzone) {
@@ -49,31 +53,34 @@ inline float ApplyDeadzoneAxis(float x, float deadzone) {
 	}
 }
 
-inline void ApplyDeadzoneXY(float tiltX, float tiltY, float *adjustedTiltX, float *adjustedTiltY, float deadzone, bool circular) {
+
+inline void ApplyDeadzoneXY(float x, float y, float *adjustedX, float *adjustedY, float deadzone, bool circular) {
 	if (circular) {
-		if (tiltX == 0.0f && tiltY == 0.0f) {
-			*adjustedTiltX = 0.0f;
-			*adjustedTiltY = 0.0f;
+		if (x == 0.0f && y == 0.0f) {
+			*adjustedX = 0.0f;
+			*adjustedY = 0.0f;
 			return;
 		}
 
-		float magnitude = sqrtf(tiltX * tiltX + tiltY * tiltY);
+		float magnitude = sqrtf(x * x + y * y);
 		if (magnitude <= deadzone + 0.00001f) {
-			*adjustedTiltX = 0.0f;
-			*adjustedTiltY = 0.0f;
+			*adjustedX = 0.0f;
+			*adjustedY = 0.0f;
 			return;
 		}
 
 		float factor = 1.0f / (1.0f - deadzone);
 		float newMagnitude = (magnitude - deadzone) * factor;
 
-		*adjustedTiltX = (tiltX / magnitude) * newMagnitude;
-		*adjustedTiltY = (tiltY / magnitude) * newMagnitude;
+		*adjustedX = (x / magnitude) * newMagnitude;
+		*adjustedY = (y / magnitude) * newMagnitude;
 	} else {
-		*adjustedTiltX = ApplyDeadzoneAxis(tiltX, deadzone);
-		*adjustedTiltY = ApplyDeadzoneAxis(tiltY, deadzone);
+		*adjustedX = ApplyDeadzoneAxis(x, deadzone);
+		*adjustedY = ApplyDeadzoneAxis(y, deadzone);
 	}
 }
+
+namespace TiltEventProcessor {
 
 // Also clamps to -1.0..1.0.
 // This applies a (circular if desired) inverse deadzone.
@@ -301,3 +308,71 @@ void ResetTiltEvents() {
 }
 
 }  // namespace TiltEventProcessor
+
+namespace MouseEventProcessor {
+
+// Technically, we may be OK without a mutex here.
+// But, the cost isn't high.
+std::mutex g_mouseMutex;
+
+float g_mouseDeltaXAccum = 0;
+float g_mouseDeltaYAccum = 0;
+
+float g_mouseDeltaX;
+float g_mouseDeltaY;
+
+void DecayMouse(double now) {
+	g_mouseDeltaX = g_mouseDeltaXAccum;
+	g_mouseDeltaY = g_mouseDeltaYAccum;
+
+	const float decay = g_Config.fMouseSmoothing;
+
+	static double lastTime = 0.0f;
+	if (lastTime == 0.0) {
+		lastTime = now;
+		return;
+	}
+	double dt = now - lastTime;
+	lastTime = now;
+
+	// Decay the mouse deltas. We do an approximation of the old polling.
+	// Should be able to use a smooth exponential here, when I get around to doing
+	// the math.
+	static double accumDt = 0.0;
+	accumDt += dt;
+	const double oldPollInterval = 1.0 / 250.0;  // See Windows "PollControllers".
+	while (accumDt > oldPollInterval) {
+		accumDt -= oldPollInterval;
+		g_mouseDeltaXAccum *= decay;
+		g_mouseDeltaYAccum *= decay;
+	}
+}
+
+void ProcessDelta(double now, float dx, float dy) {
+	std::unique_lock<std::mutex> lock(g_mouseMutex);
+
+	// Accumulate mouse deltas, for some kind of smoothing.
+	g_mouseDeltaXAccum += dx;
+	g_mouseDeltaYAccum += dy;
+
+	DecayMouse(now);
+}
+
+void MouseDeltaToAxes(double now, float *mx, float *my) {
+	std::unique_lock<std::mutex> lock(g_mouseMutex);
+
+	float scaleFactor_x = g_display.dpi_scale_x * 0.1 * g_Config.fMouseSensitivity;
+	float scaleFactor_y = g_display.dpi_scale_y * 0.1 * g_Config.fMouseSensitivity;
+
+	DecayMouse(now);
+
+	// TODO: Make configurable.
+	float mouseDeadZone = 0.1f;
+
+	float outX = clamp_value(g_mouseDeltaX * scaleFactor_x, -1.0f, 1.0f);
+	float outY = clamp_value(g_mouseDeltaY * scaleFactor_y, -1.0f, 1.0f);
+
+	ApplyDeadzoneXY(outX, outY, mx, my, mouseDeadZone, true);
+}
+
+}  // namespace

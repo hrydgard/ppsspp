@@ -77,7 +77,7 @@ void WindowsInputManager::Init() {
 }
 
 void WindowsInputManager::PollControllers() {
-	static const int CHECK_FREQUENCY = 71;
+	static const int CHECK_FREQUENCY = 71;  // Just an arbitrary prime to try to not collide with other periodic checks.
 	if (checkCounter_++ > CHECK_FREQUENCY) {
 #ifndef _M_ARM
 		size_t newCount = DinputDevice::getNumPads();

@@ -222,6 +222,47 @@ private:
 	std::shared_ptr<http::Request> dumpDownload_;
 };
 
+class TouchTestScreen : public UIDialogScreenWithGameBackground {
+public:
+	TouchTestScreen(const Path &gamePath) : UIDialogScreenWithGameBackground(gamePath) {
+		for (int i = 0; i < MAX_TOUCH_POINTS; i++) {
+			touches_[i].id = -1;
+		}
+	}
+
+	void touch(const TouchInput &touch) override;
+	void DrawForeground(UIContext &dc) override;
+
+	bool key(const KeyInput &key) override;
+	void axis(const AxisInput &axis) override;
+
+	const char *tag() const override { return "TouchTest"; }
+
+protected:
+	struct TrackedTouch {
+		int id;
+		float x;
+		float y;
+	};
+	enum {
+		MAX_TOUCH_POINTS = 10,
+	};
+	TrackedTouch touches_[MAX_TOUCH_POINTS]{};
+
+	std::vector<std::string> keyEventLog_;
+
+	UI::TextView *lastKeyEvents_ = nullptr;
+
+	double lastFrameTime_ = 0.0;
+
+	void CreateViews() override;
+	void UpdateLogView();
+
+	UI::EventReturn OnImmersiveModeChange(UI::EventParams &e);
+	UI::EventReturn OnRenderingBackend(UI::EventParams &e);
+	UI::EventReturn OnRecreateActivity(UI::EventParams &e);
+};
+
 void DrawProfile(UIContext &ui);
 const char *GetCompilerABI();
 

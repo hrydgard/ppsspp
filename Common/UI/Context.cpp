@@ -11,6 +11,7 @@
 #include "Common/Render/Text/draw_text.h"
 #include "Common/Render/ManagedTexture.h"
 #include "Common/Log.h"
+#include "Common/TimeUtil.h"
 #include "Common/LogReporting.h"
 
 UIContext::UIContext() {
@@ -44,6 +45,7 @@ void UIContext::setUIAtlas(const std::string &name) {
 }
 
 void UIContext::BeginFrame() {
+	frameStartTime_ = time_now_d();
 	if (!uitexture_ || UIAtlas_ != lastUIAtlas_) {
 		uitexture_ = CreateTextureFromFile(draw_, UIAtlas_.c_str(), ImageFileType::ZIM, false);
 		lastUIAtlas_ = UIAtlas_;
