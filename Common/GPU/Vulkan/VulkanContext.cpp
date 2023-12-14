@@ -486,7 +486,7 @@ bool VulkanContext::CheckLayers(const std::vector<LayerProperties> &layer_props,
 	return true;
 }
 
-int VulkanContext::GetPhysicalDeviceByName(std::string name) {
+int VulkanContext::GetPhysicalDeviceByName(const std::string &name) {
 	for (size_t i = 0; i < physical_devices_.size(); i++) {
 		if (physicalDeviceProperties_[i].properties.deviceName == name)
 			return (int)i;

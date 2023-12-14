@@ -103,7 +103,7 @@ inline size_t truncate_cpy(char(&out)[Count], const char *src) {
 
 const char* safe_string(const char* s);
 
-long parseHexLong(std::string s);
+long parseHexLong(const std::string &s);
 long parseLong(std::string s);
 std::string StringFromFormat(const char* format, ...);
 // Cheap!

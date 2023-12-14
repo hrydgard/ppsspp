@@ -53,7 +53,7 @@ private:
 	bool ParseVersionString(std::string str);
 };
 
-bool ParseMacAddress(std::string str, uint8_t macAddr[6]);
+bool ParseMacAddress(const std::string &str, uint8_t macAddr[6]);
 
 bool TryParse(const std::string &str, bool *const output);
 bool TryParse(const std::string &str, uint32_t *const output);

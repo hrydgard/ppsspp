@@ -60,7 +60,7 @@ const char* safe_string(const char* s) {
 	return s ? s : "(null)";
 }
 
-long parseHexLong(std::string s) {
+long parseHexLong(const std::string &s) {
 	long value = 0;
 
 	if (s.substr(0,2) == "0x") {

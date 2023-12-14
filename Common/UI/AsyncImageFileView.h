@@ -22,7 +22,7 @@ public:
 
 	void SetFilename(const Path &filename);
 	void SetColor(uint32_t color) { color_ = color; }
-	void SetOverlayText(std::string text) { text_ = text; }
+	void SetOverlayText(const std::string &text) { text_ = text; }
 	void SetFixedSize(float fixW, float fixH) { fixedSizeW_ = fixW; fixedSizeH_ = fixH; }
 	void SetCanBeFocused(bool can) { canFocus_ = can; }
 

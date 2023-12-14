@@ -224,7 +224,7 @@ void OnScreenDisplay::ShowLeaderboardSubmitted(const std::string &title, const s
 	g_OSD.Show(OSDType::LEADERBOARD_SUBMITTED, title, value, 3.0f);
 }
 
-void OnScreenDisplay::SetProgressBar(std::string id, std::string &&message, float minValue, float maxValue, float progress, float delay) {
+void OnScreenDisplay::SetProgressBar(const std::string &id, std::string &&message, float minValue, float maxValue, float progress, float delay) {
 	_dbg_assert_(!my_isnanorinf(progress));
 	_dbg_assert_(!my_isnanorinf(minValue));
 	_dbg_assert_(!my_isnanorinf(maxValue));
@@ -256,7 +256,7 @@ void OnScreenDisplay::SetProgressBar(std::string id, std::string &&message, floa
 	entries_.push_back(bar);
 }
 
-void OnScreenDisplay::RemoveProgressBar(std::string id, bool success, float delay_s) {
+void OnScreenDisplay::RemoveProgressBar(const std::string &id, bool success, float delay_s) {
 	std::lock_guard<std::mutex> guard(mutex_);
 	for (auto iter = entries_.begin(); iter != entries_.end(); iter++) {
 		if (iter->type == OSDType::PROGRESS_BAR && iter->id == id) {

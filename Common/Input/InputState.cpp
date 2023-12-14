@@ -74,7 +74,7 @@ void SetInfoKeys(const std::vector<InputMapping> &info) {
 	infoKeys = info;
 }
 
-void SetAnalogFlipY(std::unordered_map<InputDeviceID, int> flipYByDeviceId) {
+void SetAnalogFlipY(const std::unordered_map<InputDeviceID, int> &flipYByDeviceId) {
 	uiFlipAnalogY = flipYByDeviceId;
 }
 
