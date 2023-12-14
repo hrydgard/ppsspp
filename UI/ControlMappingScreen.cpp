@@ -413,24 +413,8 @@ bool KeyMappingNewMouseKeyDialog::key(const KeyInput &key) {
 	return true;
 }
 
-static bool IgnoreAxisForMapping(int axis) {
-	switch (axis) {
-	case JOYSTICK_AXIS_ACCELEROMETER_X:
-	case JOYSTICK_AXIS_ACCELEROMETER_Y:
-	case JOYSTICK_AXIS_ACCELEROMETER_Z:
-		// Ignore the accelerometer for mapping for now.
-		// We use tilt control for these.
-		return true;
-
-	default:
-		return false;
-	}
-}
-
 void KeyMappingNewKeyDialog::axis(const AxisInput &axis) {
 	if (time_now_d() < delayUntil_)
-		return;
-	if (IgnoreAxisForMapping(axis.axisId))
 		return;
 	if (ignoreInput_)
 		return;
@@ -467,8 +451,6 @@ void KeyMappingNewKeyDialog::axis(const AxisInput &axis) {
 
 void KeyMappingNewMouseKeyDialog::axis(const AxisInput &axis) {
 	if (mapped_)
-		return;
-	if (IgnoreAxisForMapping(axis.axisId))
 		return;
 
 	if (axis.value > AXIS_BIND_THRESHOLD) {
@@ -698,10 +680,6 @@ bool TouchTestScreen::key(const KeyInput &key) {
 }
 
 void TouchTestScreen::axis(const AxisInput &axis) {
-	// This just filters out accelerometer events. We show everything else.
-	if (IgnoreAxisForMapping(axis.axisId))
-		return;
-
 	char buf[512];
 	snprintf(buf, sizeof(buf), "Axis: %s (%d) (value %1.3f) Device ID: %d",
 		KeyMap::GetAxisName(axis.axisId).c_str(), axis.axisId, axis.value, axis.deviceId);
