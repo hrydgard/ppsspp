@@ -404,7 +404,7 @@ int SavedataParam::DeleteData(SceUtilitySavedataParam* param) {
 		}
 
 		if (changed) {
-			std::unique_ptr<u8[]> updatedList(new u8[fileListSize]);
+			auto updatedList = std::make_unique<u8[]> (fileListSize);
 			memcpy(updatedList.get(), fileList, fileListSize);
 			sfoFile->SetValue("SAVEDATA_FILE_LIST", updatedList.get(), fileListSize, (int)FILE_LIST_TOTAL_SIZE);
 

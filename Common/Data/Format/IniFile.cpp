@@ -445,7 +445,7 @@ Section* IniFile::GetSection(const char* sectionName) {
 Section* IniFile::GetOrCreateSection(const char* sectionName) {
 	Section* section = GetSection(sectionName);
 	if (!section) {
-		sections.push_back(std::unique_ptr<Section>(new Section(sectionName)));
+		sections.push_back(std::make_unique<Section>(sectionName));
 		section = sections.back().get();
 	}
 	return section;
@@ -502,7 +502,7 @@ void IniFile::SortSections()
 bool IniFile::Load(const Path &path)
 {
 	sections.clear();
-	sections.push_back(std::unique_ptr<Section>(new Section("")));
+	sections.push_back(std::make_unique<Section>(""));
 	// first section consists of the comments before the first real section
 
 	// Open file
@@ -558,14 +558,14 @@ bool IniFile::Load(std::istream &in) {
 			if (sectionNameEnd != std::string::npos) {
 				// New section!
 				std::string sub = line.substr(1, sectionNameEnd - 1);
-				sections.push_back(std::unique_ptr<Section>(new Section(sub)));
+				sections.push_back(std::make_unique<Section>(sub));
 
 				if (sectionNameEnd + 1 < line.size()) {
 					sections.back()->comment = line.substr(sectionNameEnd + 1);
 				}
 			} else {
 				if (sections.empty()) {
-					sections.push_back(std::unique_ptr<Section>(new Section("")));
+					sections.push_back(std::make_unique<Section>(""));
 				}
 				ParsedIniLine parsedLine;
 				parsedLine.ParseFrom(line);

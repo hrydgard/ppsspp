@@ -644,7 +644,7 @@ void PipelineManagerVulkan::SavePipelineCache(FILE *file, bool saveRawPipelineCa
 			fwrite(&size, sizeof(size), 1, file);
 			return;
 		}
-		std::unique_ptr<uint8_t[]> buffer(new uint8_t[dataSize]);
+		auto buffer = std::make_unique<uint8_t[]>(dataSize);
 		vkGetPipelineCacheData(vulkan_->GetDevice(), pipelineCache_, &dataSize, buffer.get());
 		size = (uint32_t)dataSize;
 		fwrite(&size, sizeof(size), 1, file);
@@ -731,7 +731,7 @@ bool PipelineManagerVulkan::LoadPipelineCache(FILE *file, bool loadRawPipelineCa
 			WARN_LOG(G3D, "Zero-sized Vulkan pipeline cache.");
 			return true;
 		}
-		std::unique_ptr<uint8_t[]> buffer(new uint8_t[size]);
+		auto buffer = std::make_unique<uint8_t[]>(size);
 		success = fread(buffer.get(), 1, size, file) == size;
 		// Verify header.
 		VkPipelineCacheHeader *header = (VkPipelineCacheHeader *)buffer.get();
