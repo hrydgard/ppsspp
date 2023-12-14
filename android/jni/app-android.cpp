@@ -137,6 +137,7 @@ static std::string boardName;
 
 std::string g_externalDir;  // Original external dir (root of Android storage).
 std::string g_extFilesDir;  // App private external dir.
+std::string g_nativeLibDir;  // App native library dir
 
 static std::vector<std::string> g_additionalStorageDirs;
 
@@ -705,7 +706,7 @@ static void parse_args(std::vector<std::string> &args, const std::string value) 
 
 extern "C" void Java_org_ppsspp_ppsspp_NativeApp_init
 (JNIEnv * env, jclass, jstring jmodel, jint jdeviceType, jstring jlangRegion, jstring japkpath,
-	jstring jdataDir, jstring jexternalStorageDir, jstring jexternalFilesDir, jstring jadditionalStorageDirs, jstring jcacheDir, jstring jshortcutParam,
+	jstring jdataDir, jstring jexternalStorageDir, jstring jexternalFilesDir, jstring jNativeLibDir, jstring jadditionalStorageDirs, jstring jcacheDir, jstring jshortcutParam,
 	jint jAndroidVersion, jstring jboard) {
 	SetCurrentThreadName("androidInit");
 
@@ -732,9 +733,11 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_init
 	std::string externalStorageDir = GetJavaString(env, jexternalStorageDir);
 	std::string additionalStorageDirsString = GetJavaString(env, jadditionalStorageDirs);
 	std::string externalFilesDir = GetJavaString(env, jexternalFilesDir);
+	std::string nativeLibDir = GetJavaString(env, jNativeLibDir);
 
 	g_externalDir = externalStorageDir;
 	g_extFilesDir = externalFilesDir;
+	g_nativeLibDir = nativeLibDir;
 
 	if (!additionalStorageDirsString.empty()) {
 		SplitString(additionalStorageDirsString, ':', g_additionalStorageDirs);

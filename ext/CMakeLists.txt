@@ -39,3 +39,9 @@ if(USE_DISCORD AND NOT IOS AND NOT LIBRETRO)
 endif()
 
 add_subdirectory(libchdr-build)
+
+if(ANDROID)
+    if (ARM64)
+        add_subdirectory(libadrenotools)
+    endif()
+endif()

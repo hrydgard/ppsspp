@@ -96,6 +96,7 @@ android {
 		jniLibs {
 			excludes += ['lib/arm64-v8a/libopenxr_loader.so']
 		}
+		jniLibs.useLegacyPackaging = true
 	}
 	sourceSets {
 		main {

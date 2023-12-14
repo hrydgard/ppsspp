@@ -57,6 +57,8 @@
 #include "UI/RetroAchievementScreens.h"
 
 #include "Common/File/FileUtil.h"
+#include "Common/File/VFS/ZipFileReader.h"
+#include "Common/Data/Format/JSONReader.h"
 #include "Common/File/AndroidContentURI.h"
 #include "Common/OSVersion.h"
 #include "Common/TimeUtil.h"
@@ -91,8 +93,19 @@
 #if PPSSPP_PLATFORM(ANDROID)
 
 #include "android/jni/AndroidAudio.h"
+#include "Common/File/AndroidStorage.h"
 
 extern AndroidAudioState *g_audioState;
+
+static bool CheckKgslPresent() {
+    constexpr auto KgslPath{"/dev/kgsl-3d0"};
+
+    return access(KgslPath, F_OK) == 0;
+}
+
+bool SupportsCustomDriver() {
+    return android_get_device_api_level() >= 28 && CheckKgslPresent();
+}
 
 #endif
 
@@ -269,6 +282,27 @@ void GameSettingsScreen::CreateGraphicsSettings(UI::ViewGroup *graphicsSettings)
 		// If we're not the first instance, can't save the setting, and it requires a restart, so...
 		renderingBackendChoice->SetEnabled(false);
 	}
+
+#if PPSSPP_PLATFORM(ANDROID) && PPSSPP_ARCH(ARM64)
+    if (GetGPUBackend() == GPUBackend::VULKAN && SupportsCustomDriver()) {
+        const Path driverPath = g_Config.internalDataDirectory / "drivers";
+
+        std::vector<File::FileInfo> listing;
+        File::GetFilesInDir(driverPath, &listing);
+
+        std::vector<std::string> availableDrivers;
+        availableDrivers.push_back("Default");
+
+        for (auto driver : listing) {
+            availableDrivers.push_back(driver.name);
+        }
+        auto driverChoice = graphicsSettings->Add(new PopupMultiChoiceDynamic(&g_Config.customDriver, gr->T("Current GPU Driver"), availableDrivers, I18NCat::NONE, screenManager()));
+        driverChoice->OnChoice.Handle(this, &GameSettingsScreen::OnCustomDriverChange);
+
+        auto customDriverInstallChoice = graphicsSettings->Add(new Choice(gr->T("Install Custom Driver...")));
+        customDriverInstallChoice->OnClick.Handle(this, &GameSettingsScreen::OnCustomDriverInstall);
+    }
+#endif
 #endif
 
 	// Backends that don't allow a device choice will only expose one device.
@@ -1213,6 +1247,69 @@ void GameSettingsScreen::CreateVRSettings(UI::ViewGroup *vrSettings) {
 	vrMotions->SetEnabledPtr(&g_Config.bEnableMotions);
 	static const char *cameraPitchModes[] = { "Disabled", "Top view -> First person", "First person -> Top view" };
 	vrSettings->Add(new PopupMultiChoice(&g_Config.iCameraPitch, vr->T("Camera type"), cameraPitchModes, 0, 3, I18NCat::NONE, screenManager()));
+}
+
+UI::EventReturn GameSettingsScreen::OnCustomDriverChange(UI::EventParams &e) {
+    auto di = GetI18NCategory(I18NCat::DIALOG);
+
+    screenManager()->push(new PromptScreen(gamePath_, di->T("Changing this setting requires PPSSPP to restart."), di->T("Restart"), di->T("Cancel"), [=](bool yes) {
+        if (yes) {
+            TriggerRestart("GameSettingsScreen::CustomDriverYes");
+        }
+    }));
+    return UI::EVENT_DONE;
+}
+
+UI::EventReturn GameSettingsScreen::OnCustomDriverInstall(UI::EventParams &e) {
+    auto gr = GetI18NCategory(I18NCat::GRAPHICS);
+
+    System_BrowseForFile(gr->T("Install Custom Driver..."), BrowseFileType::ANY, [this](const std::string &value, int) {
+        const Path driverPath = g_Config.internalDataDirectory / "drivers";
+
+        if (!value.empty()) {
+            Path zipPath = Path(value);
+
+            if (zipPath.GetFileExtension() == ".zip") {
+                ZipFileReader *zipFileReader = ZipFileReader::Create(zipPath, "");
+
+                size_t metaDataSize;
+                uint8_t *metaData = zipFileReader->ReadFile("meta.json", &metaDataSize);
+
+                Path tempMeta = Path(g_Config.internalDataDirectory / "meta.json");
+
+                File::CreateEmptyFile(tempMeta);
+                File::WriteDataToFile(false, metaData, metaDataSize, tempMeta);
+
+                delete[] metaData;
+
+                json::JsonReader meta = json::JsonReader((g_Config.internalDataDirectory / "meta.json").c_str());
+                if (meta.ok()) {
+                    std::string driverName = meta.root().get("name")->value.toString();
+
+                    Path newCustomDriver = driverPath / driverName;
+                    File::CreateFullPath(newCustomDriver);
+
+                    std::vector<File::FileInfo> zipListing;
+                    zipFileReader->GetFileListing("", &zipListing, nullptr);
+
+                    for (auto file : zipListing) {
+                        File::CreateEmptyFile(newCustomDriver / file.name);
+
+                        size_t size;
+                        uint8_t *data = zipFileReader->ReadFile(file.name.c_str(), &size);
+                        File::WriteDataToFile(false, data, size, newCustomDriver / file.name);
+
+                        delete[] data;
+                    }
+
+                    File::Delete(tempMeta);
+
+                    RecreateViews();
+                }
+            }
+        }
+    });
+    return UI::EVENT_DONE;
 }
 
 UI::EventReturn GameSettingsScreen::OnAutoFrameskip(UI::EventParams &e) {

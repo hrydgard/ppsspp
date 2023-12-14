@@ -98,6 +98,8 @@ private:
 	UI::EventReturn OnRenderingBackend(UI::EventParams &e);
 	UI::EventReturn OnRenderingDevice(UI::EventParams &e);
 	UI::EventReturn OnInflightFramesChoice(UI::EventParams &e);
+	UI::EventReturn OnCustomDriverChange(UI::EventParams &e);
+	UI::EventReturn OnCustomDriverInstall(UI::EventParams &e);
 	UI::EventReturn OnCameraDeviceChange(UI::EventParams& e);
 	UI::EventReturn OnMicDeviceChange(UI::EventParams& e);
 	UI::EventReturn OnAudioDevice(UI::EventParams &e);

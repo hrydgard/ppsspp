@@ -33,6 +33,7 @@ inline StorageError StorageErrorFromInt(int ival) {
 
 extern std::string g_extFilesDir;
 extern std::string g_externalDir;
+extern std::string g_nativeLibDir;
 
 #if PPSSPP_PLATFORM(ANDROID) && !defined(__LIBRETRO__)
 

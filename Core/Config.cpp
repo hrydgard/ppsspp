@@ -588,6 +588,9 @@ static const ConfigSetting graphicsSettings[] = {
 	ConfigSetting("CardboardYShift", &g_Config.iCardboardYShift, 0, CfgFlag::PER_GAME),
 	ConfigSetting("iShowStatusFlags", &g_Config.iShowStatusFlags, 0, CfgFlag::PER_GAME),
 	ConfigSetting("GraphicsBackend", &g_Config.iGPUBackend, &DefaultGPUBackend, &GPUBackendTranslator::To, &GPUBackendTranslator::From, CfgFlag::DEFAULT | CfgFlag::REPORT),
+#if PPSSPP_PLATFORM(ANDROID) && PPSSPP_ARCH(ARM64)
+    ConfigSetting("CustomDriver", &g_Config.customDriver, "", CfgFlag::DEFAULT),
+#endif
 	ConfigSetting("FailedGraphicsBackends", &g_Config.sFailedGPUBackends, "", CfgFlag::DEFAULT),
 	ConfigSetting("DisabledGraphicsBackends", &g_Config.sDisabledGPUBackends, "", CfgFlag::DEFAULT),
 	ConfigSetting("VulkanDevice", &g_Config.sVulkanDevice, "", CfgFlag::DEFAULT),

@@ -74,4 +74,6 @@ ifeq ($(TARGET_ARCH_ABI),arm64-v8a)
   LOCAL_LDLIBS += $(LOCAL_PATH)/../../ffmpeg/android/arm64/lib/libswscale.a
   LOCAL_LDLIBS += $(LOCAL_PATH)/../../ffmpeg/android/arm64/lib/libavutil.a
   LOCAL_C_INCLUDES += $(LOCAL_PATH)/../../ffmpeg/android/arm64/include
+  LOCAL_C_INCLUDES += $(LOCAL_PATH)/../../ext/libadrenotools/include
+  LOCAL_C_INCLUDES += $(LOCAL_PATH)/../../ext/libadrenotools/lib/linkernsbypass
 endif
