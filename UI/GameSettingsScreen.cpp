@@ -1250,74 +1250,74 @@ void GameSettingsScreen::CreateVRSettings(UI::ViewGroup *vrSettings) {
 }
 
 UI::EventReturn GameSettingsScreen::OnCustomDriverChange(UI::EventParams &e) {
-    auto di = GetI18NCategory(I18NCat::DIALOG);
+	auto di = GetI18NCategory(I18NCat::DIALOG);
 
-    screenManager()->push(new PromptScreen(gamePath_, di->T("Changing this setting requires PPSSPP to restart."), di->T("Restart"), di->T("Cancel"), [=](bool yes) {
-        if (yes) {
-            TriggerRestart("GameSettingsScreen::CustomDriverYes");
-        }
-    }));
-    return UI::EVENT_DONE;
+	screenManager()->push(new PromptScreen(gamePath_, di->T("Changing this setting requires PPSSPP to restart."), di->T("Restart"), di->T("Cancel"), [=](bool yes) {
+		if (yes) {
+			TriggerRestart("GameSettingsScreen::CustomDriverYes");
+		}
+	}));
+	return UI::EVENT_DONE;
 }
 
 UI::EventReturn GameSettingsScreen::OnCustomDriverInstall(UI::EventParams &e) {
-    auto gr = GetI18NCategory(I18NCat::GRAPHICS);
+	auto gr = GetI18NCategory(I18NCat::GRAPHICS);
 
-    System_BrowseForFile(gr->T("Install Custom Driver..."), BrowseFileType::ANY, [this](const std::string &value, int) {
-        const Path driverPath = g_Config.internalDataDirectory / "drivers";
+	System_BrowseForFile(gr->T("Install Custom Driver..."), BrowseFileType::ANY, [this](const std::string &value, int) {
+		const Path driverPath = g_Config.internalDataDirectory / "drivers";
 
-        if (!value.empty()) {
-            Path zipPath = Path(value);
+		if (!value.empty()) {
+			Path zipPath = Path(value);
 
 			bool success = false;
 
-            if (zipPath.GetFileExtension() == ".zip") {
-                ZipFileReader *zipFileReader = ZipFileReader::Create(zipPath, "");
+			if (zipPath.GetFileExtension() == ".zip") {
+				ZipFileReader *zipFileReader = ZipFileReader::Create(zipPath, "");
 
-                size_t metaDataSize;
-                uint8_t *metaData = zipFileReader->ReadFile("meta.json", &metaDataSize);
+				size_t metaDataSize;
+				uint8_t *metaData = zipFileReader->ReadFile("meta.json", &metaDataSize);
 
-                Path tempMeta = Path(g_Config.internalDataDirectory / "meta.json");
+				Path tempMeta = Path(g_Config.internalDataDirectory / "meta.json");
 
-                File::CreateEmptyFile(tempMeta);
-                File::WriteDataToFile(false, metaData, metaDataSize, tempMeta);
+				File::CreateEmptyFile(tempMeta);
+				File::WriteDataToFile(false, metaData, metaDataSize, tempMeta);
 
-                delete[] metaData;
+				delete[] metaData;
 
-                json::JsonReader meta = json::JsonReader((g_Config.internalDataDirectory / "meta.json").c_str());
-                if (meta.ok()) {
-                    std::string driverName = meta.root().get("name")->value.toString();
+				json::JsonReader meta = json::JsonReader((g_Config.internalDataDirectory / "meta.json").c_str());
+				if (meta.ok()) {
+					std::string driverName = meta.root().get("name")->value.toString();
 
-                    Path newCustomDriver = driverPath / driverName;
-                    File::CreateFullPath(newCustomDriver);
+					Path newCustomDriver = driverPath / driverName;
+					File::CreateFullPath(newCustomDriver);
 
-                    std::vector<File::FileInfo> zipListing;
-                    zipFileReader->GetFileListing("", &zipListing, nullptr);
+					std::vector<File::FileInfo> zipListing;
+					zipFileReader->GetFileListing("", &zipListing, nullptr);
 
-                    for (auto file : zipListing) {
-                        File::CreateEmptyFile(newCustomDriver / file.name);
+					for (auto file : zipListing) {
+						File::CreateEmptyFile(newCustomDriver / file.name);
 
-                        size_t size;
-                        uint8_t *data = zipFileReader->ReadFile(file.name.c_str(), &size);
-                        File::WriteDataToFile(false, data, size, newCustomDriver / file.name);
+						size_t size;
+						uint8_t *data = zipFileReader->ReadFile(file.name.c_str(), &size);
+						File::WriteDataToFile(false, data, size, newCustomDriver / file.name);
 
-                        delete[] data;
-                    }
+						delete[] data;
+					}
 
-                    File::Delete(tempMeta);
+					File::Delete(tempMeta);
 
 					success = true;
 
-                    RecreateViews();
-                }
+					RecreateViews();
+				}
 			}
 			if (!success) {
 				auto gr = GetI18NCategory(I18NCat::GRAPHICS);
 				g_OSD.Show(OSDType::MESSAGE_ERROR, gr->T("The selected file is not a ZIP file with a compatible driver."));
 			}
-        }
-    });
-    return UI::EVENT_DONE;
+		}
+	});
+	return UI::EVENT_DONE;
 }
 
 UI::EventReturn GameSettingsScreen::OnAutoFrameskip(UI::EventParams &e) {
