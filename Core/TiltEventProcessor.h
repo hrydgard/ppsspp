@@ -19,7 +19,7 @@ extern float rawTiltAnalogY;
 
 namespace MouseEventProcessor {
 
-void ProcessDelta(float dx, float dy);
+void ProcessDelta(double now, float dx, float dy);
 void MouseDeltaToAxes(double now, float *mx, float *my);
 
 }  // namespace

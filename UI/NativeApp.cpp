@@ -1329,7 +1329,7 @@ void NativeMouseDelta(float dx, float dy) {
 	if (!g_Config.bMouseControl)
 		return;
 
-	MouseEventProcessor::ProcessDelta(dx, dy);
+	MouseEventProcessor::ProcessDelta(time_now_d(), dx, dy);
 }
 
 // Called from NativeFrame.
