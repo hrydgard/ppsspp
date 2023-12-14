@@ -173,7 +173,6 @@ Draw::Texture *CreateTextureFromFileData(Draw::DrawContext *draw, const uint8_t 
 }
 
 Draw::Texture *CreateTextureFromFile(Draw::DrawContext *draw, const char *filename, ImageFileType type, bool generateMips) {
-	INFO_LOG(SYSTEM, "CreateTextureFromFile(%s)", filename);
 	size_t fileSize;
 	uint8_t *buffer = g_VFS.ReadFile(filename, &fileSize);
 	if (!buffer) {
@@ -203,7 +202,6 @@ Draw::Texture *ManagedTexture::GetTexture() {
 ManagedTexture::ManagedTexture(Draw::DrawContext *draw, std::string_view filename, ImageFileType type, bool generateMips) 
 	: draw_(draw), filename_(filename), type_(type), generateMips_(generateMips)
 {
-	INFO_LOG(SYSTEM, "ManagedTexture::ManagedTexture (%s)", filename_.c_str());
 	StartLoadTask();
 }
 

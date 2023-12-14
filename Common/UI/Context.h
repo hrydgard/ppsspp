@@ -61,6 +61,8 @@ public:
 	void RebindTexture() const;
 	void BindFontTexture() const;
 
+	double FrameStartTime() const { return frameStartTime_; }
+
 	// TODO: Support transformed bounds using stencil
 	void PushScissor(const Bounds &bounds);
 	void PopScissor();
@@ -118,6 +120,8 @@ public:
 private:
 	Draw::DrawContext *draw_ = nullptr;
 	Bounds bounds_;
+
+	double frameStartTime_ = 0.0;
 
 	float fontScaleX_ = 1.0f;
 	float fontScaleY_ = 1.0f;
