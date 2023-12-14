@@ -1838,7 +1838,7 @@ int Config::GetPSPLanguage() {
 	}
 }
 
-void PlayTimeTracker::Start(std::string gameId) {
+void PlayTimeTracker::Start(const std::string &gameId) {
 	if (gameId.empty()) {
 		return;
 	}
@@ -1860,7 +1860,7 @@ void PlayTimeTracker::Start(std::string gameId) {
 	tracker_[gameId] = playTime;
 }
 
-void PlayTimeTracker::Stop(std::string gameId) {
+void PlayTimeTracker::Stop(const std::string &gameId) {
 	if (gameId.empty()) {
 		return;
 	}

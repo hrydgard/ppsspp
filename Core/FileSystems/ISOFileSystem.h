@@ -25,7 +25,7 @@
 
 #include "BlockDevices.h"
 
-bool parseLBN(std::string filename, u32 *sectorStart, u32 *readSize);
+bool parseLBN(const std::string &filename, u32 *sectorStart, u32 *readSize);
 
 class ISOFileSystem : public IFileSystem {
 public:

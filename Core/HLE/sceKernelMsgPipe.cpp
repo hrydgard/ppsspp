@@ -125,7 +125,7 @@ struct MsgPipeWaitingThread
 	}
 };
 
-static bool __KernelMsgPipeThreadSortPriority(MsgPipeWaitingThread thread1, MsgPipeWaitingThread thread2)
+static bool __KernelMsgPipeThreadSortPriority(const MsgPipeWaitingThread &thread1, const MsgPipeWaitingThread &thread2)
 {
 	return __KernelThreadSortPriority(thread1.threadID, thread2.threadID);
 }

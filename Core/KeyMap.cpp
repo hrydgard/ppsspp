@@ -608,7 +608,7 @@ bool IsKeyMapped(InputDeviceID device, int key) {
 	return false;
 }
 
-bool ReplaceSingleKeyMapping(int btn, int index, MultiInputMapping key) {
+bool ReplaceSingleKeyMapping(int btn, int index, const MultiInputMapping &key) {
 	std::lock_guard<std::recursive_mutex> guard(g_controllerMapLock);
 	// Check for duplicate
 	for (int i = 0; i < (int)g_controllerMap[btn].size(); ++i) {

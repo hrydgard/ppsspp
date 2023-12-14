@@ -179,7 +179,7 @@ void PSPMsgDialog::FormatErrorCode(uint32_t code) {
 	}
 }
 
-void PSPMsgDialog::DisplayMessage(std::string text, bool hasYesNo, bool hasOK) {
+void PSPMsgDialog::DisplayMessage(const std::string &text, bool hasYesNo, bool hasOK) {
 	auto di = GetI18NCategory(I18NCat::DIALOG);
 
 	PPGeStyle buttonStyle = FadedStyle(PPGeAlign::BOX_CENTER, FONT_SCALE);

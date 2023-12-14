@@ -820,7 +820,7 @@ void DisassemblyMacro::setMacroLi(u32 _immediate, u8 _rt)
 	numOpcodes = 2;
 }
 
-void DisassemblyMacro::setMacroMemory(std::string _name, u32 _immediate, u8 _rt, int _dataSize)
+void DisassemblyMacro::setMacroMemory(const std::string &_name, u32 _immediate, u8 _rt, int _dataSize)
 {
 	type = MACRO_MEMORYIMM;
 	name = _name;

@@ -274,7 +274,7 @@ std::string MetaFileSystem::NormalizePrefix(std::string prefix) const {
 	return prefix;
 }
 
-void MetaFileSystem::Mount(std::string prefix, std::shared_ptr<IFileSystem> system) {
+void MetaFileSystem::Mount(const std::string &prefix, std::shared_ptr<IFileSystem> system) {
 	std::lock_guard<std::recursive_mutex> guard(lock);
 
 	MountPoint x;
@@ -297,7 +297,7 @@ void MetaFileSystem::UnmountAll() {
 	currentDir.clear();
 }
 
-void MetaFileSystem::Unmount(std::string prefix) {
+void MetaFileSystem::Unmount(const std::string &prefix) {
 	for (auto iter = fileSystems.begin(); iter != fileSystems.end(); iter++) {
 		if (iter->prefix == prefix) {
 			fileSystems.erase(iter);
@@ -306,7 +306,7 @@ void MetaFileSystem::Unmount(std::string prefix) {
 	}
 }
 
-bool MetaFileSystem::Remount(std::string prefix, std::shared_ptr<IFileSystem> system) {
+bool MetaFileSystem::Remount(const std::string &prefix, std::shared_ptr<IFileSystem> system) {
 	std::lock_guard<std::recursive_mutex> guard(lock);
 	for (auto &it : fileSystems) {
 		if (it.prefix == prefix) {

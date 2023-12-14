@@ -103,7 +103,7 @@ void PSPNetconfDialog::DrawIndicator() {
 	PPGeDrawImage(456, 248, 20.0f, 20.0f, 1, 10, 1, 10, 10, 10, FadedImageStyle());
 }
 
-void PSPNetconfDialog::DisplayMessage(std::string text1, std::string text2a, std::string text2b, std::string text3a, std::string text3b, bool hasYesNo, bool hasOK) {
+void PSPNetconfDialog::DisplayMessage(const std::string &text1, const std::string &text2a, const std::string &text2b, const std::string &text3a, const std::string &text3b, bool hasYesNo, bool hasOK) {
 	auto di = GetI18NCategory(I18NCat::DIALOG);
 
 	PPGeStyle buttonStyle = FadedStyle(PPGeAlign::BOX_CENTER, FONT_SCALE);

@@ -1233,7 +1233,7 @@ void __UpdateAdhocctlHandlers(u32 flag, u32 error) {
 	adhocctlEvents.push_back({ flag, error });
 }
 
-void __UpdateMatchingHandler(MatchingArgs ArgsPtr) {
+void __UpdateMatchingHandler(const MatchingArgs &ArgsPtr) {
 	std::lock_guard<std::recursive_mutex> adhocGuard(adhocEvtMtx);
 	matchingEvents.push_back(ArgsPtr);
 }
