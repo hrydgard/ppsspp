@@ -92,6 +92,7 @@ bool VulkanQueueRunner::CreateSwapchain(VkCommandBuffer cmdInit) {
 		return false;
 	}
 
+	swapchainImages_.reserve(swapchainImageCount_);
 	for (uint32_t i = 0; i < swapchainImageCount_; i++) {
 		SwapchainImageData sc_buffer{};
 		sc_buffer.image = swapchainImages[i];
@@ -495,6 +496,7 @@ void VulkanQueueRunner::ApplyMGSHack(std::vector<VKRStep *> &steps) {
 			_assert_(steps[i + copies.size()]->stepType == VKRStepType::RENDER);
 			// Combine the renders.
 			for (int j = 1; j < (int)renders.size(); j++) {
+				steps[i + copies.size()]->commands.reserve(renders[j]->commands.size());
 				for (int k = 0; k < (int)renders[j]->commands.size(); k++) {
 					steps[i + copies.size()]->commands.push_back(renders[j]->commands[k]);
 				}

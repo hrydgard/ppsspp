@@ -1550,11 +1550,15 @@ std::vector<std::string> VKContext::GetFeatureList() const {
 std::vector<std::string> VKContext::GetExtensionList(bool device, bool enabledOnly) const {
 	std::vector<std::string> extensions;
 	if (enabledOnly) {
-		for (auto &iter : (device ? vulkan_->GetDeviceExtensionsEnabled() : vulkan_->GetInstanceExtensionsEnabled())) {
+		const auto& enabled = (device ? vulkan_->GetDeviceExtensionsEnabled() : vulkan_->GetInstanceExtensionsEnabled());
+		extensions.reserve(enabled.size());
+		for (auto &iter : enabled) {
 			extensions.push_back(iter);
 		}
 	} else {
-		for (auto &iter : (device ? vulkan_->GetDeviceExtensionsAvailable() : vulkan_->GetInstanceExtensionsAvailable())) {
+		const auto& available = (device ? vulkan_->GetDeviceExtensionsAvailable() : vulkan_->GetInstanceExtensionsAvailable());
+		extensions.reserve(available.size());
+		for (auto &iter : available) {
 			extensions.push_back(iter.extensionName);
 		}
 	}

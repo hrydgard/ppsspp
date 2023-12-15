@@ -693,6 +693,7 @@ JitBlockDebugInfo JitBlockCache::GetBlockDebugInfo(int blockNum) const {
 	JitBlockDebugInfo debugInfo{};
 	const JitBlock *block = GetBlock(blockNum);
 	debugInfo.originalAddress = block->originalAddress;
+	debugInfo.origDisasm.reserve(((block->originalAddress + block->originalSize * 4) - block->originalAddress) / 4);
 	for (u32 addr = block->originalAddress; addr <= block->originalAddress + block->originalSize * 4; addr += 4) {
 		char temp[256];
 		MIPSDisAsm(Memory::Read_Instruction(addr), addr, temp, sizeof(temp), true);

@@ -402,6 +402,7 @@ std::vector<std::string> PipelineManagerVulkan::DebugGetObjectIDs(DebugShaderTyp
 	switch (type) {
 	case SHADER_TYPE_PIPELINE:
 	{
+		ids.reserve(pipelines_.size());
 		pipelines_.Iterate([&](const VulkanPipelineKey &key, VulkanPipeline *value) {
 			std::string id;
 			key.ToString(&id);

@@ -52,6 +52,7 @@ namespace
 	std::vector<std::string> GetPSPFileList (const std::string &dirpath) {
 		std::vector<std::string> FileList;
 		auto Fileinfos = pspFileSystem.GetDirListing(dirpath);
+		FileList.reserve(Fileinfos.size());
 
 		for (auto it = Fileinfos.begin(); it != Fileinfos.end(); ++it) {
 			std::string info = (*it).name;

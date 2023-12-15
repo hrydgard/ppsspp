@@ -894,7 +894,7 @@ void Jit::CheckMemoryBreakpoint(int instructionOffset, MIPSGPReg rs, int offset)
 			SetJumpTarget(skipCheck);
 		}
 	} else {
-		const auto memchecks = CBreakPoints::GetMemCheckRanges(isWrite);
+		const auto &memchecks = CBreakPoints::GetMemCheckRanges(isWrite);
 		bool possible = !memchecks.empty();
 		if (!possible)
 			return;
@@ -908,6 +908,7 @@ void Jit::CheckMemoryBreakpoint(int instructionOffset, MIPSGPReg rs, int offset)
 		FlushAll();
 
 		std::vector<FixupBranch> hitChecks;
+		hitChecks.reserve(memchecks.size());
 		for (auto it = memchecks.begin(), end = memchecks.end(); it != end; ++it) {
 			if (it->end != 0) {
 				CMP(32, R(RAX), Imm32(it->start - size));

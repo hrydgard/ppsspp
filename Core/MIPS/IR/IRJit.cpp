@@ -410,6 +410,7 @@ JitBlockDebugInfo IRBlockCache::GetBlockDebugInfo(int blockNum) const {
 	ir.GetRange(start, size);
 	debugInfo.originalAddress = start;  // TODO
 
+	debugInfo.origDisasm.reserve(((start + size) - start) / 4);
 	for (u32 addr = start; addr < start + size; addr += 4) {
 		char temp[256];
 		MIPSDisAsm(Memory::Read_Instruction(addr), addr, temp, sizeof(temp), true);
@@ -417,6 +418,7 @@ JitBlockDebugInfo IRBlockCache::GetBlockDebugInfo(int blockNum) const {
 		debugInfo.origDisasm.push_back(mipsDis);
 	}
 
+	debugInfo.irDisasm.reserve(ir.GetNumInstructions());
 	for (int i = 0; i < ir.GetNumInstructions(); i++) {
 		IRInst inst = ir.GetInstructions()[i];
 		char buffer[256];

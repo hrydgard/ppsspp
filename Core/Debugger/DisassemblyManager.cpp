@@ -591,6 +591,7 @@ void DisassemblyFunction::addOpcodeSequence(u32 start, u32 end)
 	DisassemblyOpcode* opcode = new DisassemblyOpcode(start,(end-start)/4);
 	std::lock_guard<std::recursive_mutex> guard(lock_);
 	entries[start] = opcode;
+	lineAddresses.reserve((end - start) / 4);
 	for (u32 pos = start; pos < end; pos += 4)
 	{
 		lineAddresses.push_back(pos);

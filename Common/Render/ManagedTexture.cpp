@@ -156,6 +156,7 @@ Draw::Texture *CreateTextureFromTempImage(Draw::DrawContext *draw, const TempIma
 	desc.mipLevels = generateMips ? potentialLevels : image.numLevels;
 	desc.generateMips = generateMips && potentialLevels > image.numLevels;
 	desc.tag = name;
+	desc.initData.reserve(image.numLevels);
 	for (int i = 0; i < image.numLevels; i++) {
 		desc.initData.push_back(image.levels[i]);
 	}
