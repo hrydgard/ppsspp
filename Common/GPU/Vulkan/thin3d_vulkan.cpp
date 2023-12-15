@@ -1298,7 +1298,7 @@ Texture *VKContext::CreateTexture(const TextureDesc &desc) {
 		return tex;
 	} else {
 		ERROR_LOG(G3D,  "Failed to create texture");
-		delete tex;
+		tex->Release();
 		return nullptr;
 	}
 }
