@@ -194,6 +194,10 @@ Draw::Texture *ManagedTexture::GetTexture() {
 		}
 		// Image load is done, texture creation is not.
 		texture_ = CreateTextureFromTempImage(draw_, pendingImage_, generateMips_, filename_.c_str());
+		if (!texture_) {
+			// Failed to create the texture for whatever reason, like dimensions. Don't retry next time.
+			state_ = LoadState::FAILED;
+		}
 		pendingImage_.Free();
 	}
 	return texture_;
