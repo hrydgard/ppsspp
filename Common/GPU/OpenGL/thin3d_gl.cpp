@@ -1303,10 +1303,12 @@ bool OpenGLPipeline::LinkShaders(const PipelineDesc &desc) {
 	std::vector<GLRProgram::UniformLocQuery> queries;
 	int samplersToCheck;
 	if (!samplers_.is_empty()) {
-		for (int i = 0; i < (int)std::min((const uint32_t)samplers_.size(), MAX_TEXTURE_SLOTS); i++) {
+		int size = std::min((const uint32_t)samplers_.size(), MAX_TEXTURE_SLOTS);
+		queries.reserve(size);
+		for (int i = 0; i < size; i++) {
 			queries.push_back({ &locs_->samplerLocs_[i], samplers_[i].name, true });
 		}
-		samplersToCheck = (int)std::min((const uint32_t)samplers_.size(), MAX_TEXTURE_SLOTS);
+		samplersToCheck = size;
 	} else {
 		queries.push_back({ &locs_->samplerLocs_[0], "sampler0" });
 		queries.push_back({ &locs_->samplerLocs_[1], "sampler1" });
@@ -1315,6 +1317,7 @@ bool OpenGLPipeline::LinkShaders(const PipelineDesc &desc) {
 	}
 
 	_assert_(queries.size() <= MAX_TEXTURE_SLOTS);
+	queries.reserve(dynamicUniforms.uniforms.size());
 	for (size_t i = 0; i < dynamicUniforms.uniforms.size(); ++i) {
 		queries.push_back({ &locs_->dynamicUniformLocs_[i], dynamicUniforms.uniforms[i].name });
 	}
@@ -1432,6 +1435,7 @@ void OpenGLInputLayout::Compile(const InputLayoutDesc &desc) {
 	stride = desc.stride;
 
 	std::vector<GLRInputLayout::Entry> entries;
+	entries.reserve(desc.attributes.size());
 	for (auto &attr : desc.attributes) {
 		GLRInputLayout::Entry entry;
 		entry.location = attr.location;

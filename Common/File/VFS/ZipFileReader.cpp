@@ -109,6 +109,7 @@ bool ZipFileReader::GetFileListing(const char *orig_path, std::vector<File::File
 
 	INFO_LOG(SYSTEM, "Listing %s", orig_path);
 
+	listing->reserve(directories.size() + files.size());
 	for (auto diter = directories.begin(); diter != directories.end(); ++diter) {
 		File::FileInfo info;
 		info.name = *diter;

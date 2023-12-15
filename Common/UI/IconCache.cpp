@@ -172,6 +172,7 @@ void IconCache::Decimate(int64_t maxSize) {
 	};
 
 	std::vector<SortEntry> sortEntries;
+	sortEntries.reserve(cache_.size());
 	for (auto iter : cache_) {
 		sortEntries.push_back({ iter.first, iter.second.usedTimeStamp, iter.second.data.size() });
 	}
