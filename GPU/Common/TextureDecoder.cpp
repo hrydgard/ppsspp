@@ -566,10 +566,11 @@ void DXTDecoder::WriteColorsDXT3(u32 *dst, const DXT3Block *src, int pitch, int 
 
 void DXTDecoder::WriteColorsDXT5(u32 *dst, const DXT5Block *src, int pitch, int width, int height) {
 	// 48 bits, 3 bit index per pixel, 12 bits per line.
-	u64 alphadata = ((u64)(u16)src->alphadata1 << 32) | (u32)src->alphadata2;
+	u64 allAlpha = ((u64)(u16)src->alphadata1 << 32) | (u32)src->alphadata2;
 
 	for (int y = 0; y < height; y++) {
-		int colordata = src->color.lines[y];
+		uint32_t colordata = src->color.lines[y];
+		uint32_t alphadata = allAlpha >> (12 * y);
 		for (int x = 0; x < width; x++) {
 			dst[x] = colors_[colordata & 3] | (alpha_[alphadata & 7] << 24);
 			colordata >>= 2;
