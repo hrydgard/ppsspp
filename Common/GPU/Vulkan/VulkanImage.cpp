@@ -42,7 +42,8 @@ bool VulkanTexture::CreateDirect(VkCommandBuffer cmd, int w, int h, int depth, i
 		ERROR_LOG(G3D, "Can't create a zero-size VulkanTexture");
 		return false;
 	}
-	if (w > 4096 || h > 4096) {
+	int maxDim = vulkan_->GetPhysicalDeviceProperties(0).properties.limits.maxImageDimension2D;
+	if (w > maxDim || h > maxDim) {
 		ERROR_LOG(G3D, "Can't create a texture this large");
 		return false;
 	}
