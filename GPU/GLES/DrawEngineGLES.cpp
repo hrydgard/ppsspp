@@ -103,6 +103,7 @@ void DrawEngineGLES::InitDeviceObjects() {
 
 	int stride = sizeof(TransformedVertex);
 	std::vector<GLRInputLayout::Entry> entries;
+	entries.reserve(5);
 	entries.push_back({ ATTR_POSITION, 4, GL_FLOAT, GL_FALSE, offsetof(TransformedVertex, x) });
 	entries.push_back({ ATTR_TEXCOORD, 3, GL_FLOAT, GL_FALSE, offsetof(TransformedVertex, u) });
 	entries.push_back({ ATTR_COLOR0, 4, GL_UNSIGNED_BYTE, GL_TRUE, offsetof(TransformedVertex, color0) });

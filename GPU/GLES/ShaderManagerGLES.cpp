@@ -915,6 +915,7 @@ std::vector<std::string> ShaderManagerGLES::DebugGetShaderIDs(DebugShaderType ty
 	switch (type) {
 	case SHADER_TYPE_VERTEX:
 		{
+			ids.reserve(vsCache_.size());
 			vsCache_.Iterate([&](const VShaderID &id, Shader *shader) {
 				std::string idstr;
 				id.ToString(&idstr);
@@ -924,6 +925,7 @@ std::vector<std::string> ShaderManagerGLES::DebugGetShaderIDs(DebugShaderType ty
 		break;
 	case SHADER_TYPE_FRAGMENT:
 		{
+			ids.reserve(fsCache_.size());
 			fsCache_.Iterate([&](const FShaderID &id, Shader *shader) {
 				std::string idstr;
 				id.ToString(&idstr);

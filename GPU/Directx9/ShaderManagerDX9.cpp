@@ -667,6 +667,7 @@ std::vector<std::string> ShaderManagerDX9::DebugGetShaderIDs(DebugShaderType typ
 	switch (type) {
 	case SHADER_TYPE_VERTEX:
 	{
+		ids.reserve(vsCache_.size());
 		for (auto iter : vsCache_) {
 			iter.first.ToString(&id);
 			ids.push_back(id);
@@ -675,6 +676,7 @@ std::vector<std::string> ShaderManagerDX9::DebugGetShaderIDs(DebugShaderType typ
 	break;
 	case SHADER_TYPE_FRAGMENT:
 	{
+		ids.reserve(fsCache_.size());
 		for (auto iter : fsCache_) {
 			iter.first.ToString(&id);
 			ids.push_back(id);

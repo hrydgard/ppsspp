@@ -136,6 +136,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 	bool highpTexcoord = false;
 
 	std::vector<const char*> extensions;
+	extensions.reserve(6);
 	if (ShaderLanguageIsOpenGL(compat.shaderLanguage)) {
 		if (gl_extensions.EXT_gpu_shader4) {
 			extensions.push_back("#extension GL_EXT_gpu_shader4 : enable");
