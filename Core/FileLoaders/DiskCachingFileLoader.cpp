@@ -127,6 +127,7 @@ std::vector<Path> DiskCachingFileLoader::GetCachedPathsInUse() {
 
 	// This is on the file loader so that it can manage the caches_.
 	std::vector<Path> files;
+	files.reserve(caches_.size());
 
 	for (auto it : caches_) {
 		files.push_back(it.first);

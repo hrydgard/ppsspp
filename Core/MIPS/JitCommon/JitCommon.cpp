@@ -135,6 +135,7 @@ std::vector<std::string> DisassembleArm2(const u8 *data, int size) {
 
 	char temp[256];
 	int bkpt_count = 0;
+	lines.reserve(size / 4);
 	for (int i = 0; i < size; i += 4) {
 		const u32 *codePtr = (const u32 *)(data + i);
 		u32 inst = codePtr[0];
@@ -196,6 +197,7 @@ std::vector<std::string> DisassembleArm64(const u8 *data, int size) {
 
 	char temp[256];
 	int bkpt_count = 0;
+	lines.reserve(size / 4);
 	for (int i = 0; i < size; i += 4) {
 		const u32 *codePtr = (const u32 *)(data + i);
 		uint64_t addr = (intptr_t)codePtr;

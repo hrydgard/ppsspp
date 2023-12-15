@@ -94,6 +94,7 @@ bool Arm64JitBackend::CompileBlock(IRBlock *block, int block_num, bool preload) 
 	regs_.Start(block);
 
 	std::vector<const u8 *> addresses;
+	addresses.reserve(block->GetNumInstructions());
 	for (int i = 0; i < block->GetNumInstructions(); ++i) {
 		const IRInst &inst = block->GetInstructions()[i];
 		regs_.SetIRIndex(i);
