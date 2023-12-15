@@ -1956,6 +1956,16 @@ bool FramebufferManagerCommon::NotifyFramebufferCopy(u32 src, u32 dst, int size,
 		}
 
 		if (src >= vfb_address && (src + size <= vfb_address + vfb_size || src == vfb_address)) {
+			// Heuristic originally from dest below, but just as valid looking for the source.
+			// Fixes a misdetection in Brothers in Arms: D-Day, issue #18512.
+			if (vfb_address == dst && ((size == 0x44000 && vfb_size == 0x88000) || (size == 0x88000 && vfb_size == 0x44000))) {
+				// Not likely to be a correct color format copy for this buffer. Ignore it, there will either be RAM
+				// that can be displayed from, or another matching buffer with the right format if rendering is going on.
+				// If we had scoring here, we should strongly penalize this target instead of ignoring it.
+				WARN_LOG_N_TIMES(notify_copy_2x, 5, G3D, "Framebuffer size %08x conspicuously not matching copy size %08x for source in NotifyFramebufferCopy. Ignoring.", size, vfb_size);
+				continue;
+			}
+
 			if ((u32)size > vfb_size + 0x1000 && vfb->fb_format != GE_FORMAT_8888 && vfb->last_frame_render < gpuStats.numFlips) {
 				// Seems likely we are looking at a potential copy of 32-bit pixels (like video) to an old 16-bit buffer,
 				// which is very likely simply the wrong target, so skip it. See issue #17740 where this happens in Naruto Ultimate Ninja Heroes 2.
@@ -2000,7 +2010,7 @@ bool FramebufferManagerCommon::NotifyFramebufferCopy(u32 src, u32 dst, int size,
 			// Not likely to be a correct color format copy for this buffer. Ignore it, there will either be RAM
 			// that can be displayed from, or another matching buffer with the right format if rendering is going on.
 			// If we had scoring here, we should strongly penalize this target instead of ignoring it.
-			WARN_LOG_N_TIMES(notify_copy_2x, 5, G3D, "Framebuffer size %08x conspicuously not matching copy size %08x in NotifyFramebufferCopy. Ignoring.", size, vfb_size);
+			WARN_LOG_N_TIMES(notify_copy_2x, 5, G3D, "Framebuffer size %08x conspicuously not matching copy size %08x for dest in NotifyFramebufferCopy. Ignoring.", size, vfb_size);
 			continue;
 		}
 
@@ -2029,26 +2039,6 @@ bool FramebufferManagerCommon::NotifyFramebufferCopy(u32 src, u32 dst, int size,
 		}
 	}
 
-	if (srcCandidates.size() > 1) {
-		if (Reporting::ShouldLogNTimes("mulblock", 5)) {
-			std::string log;
-			for (size_t i = 0; i < srcCandidates.size(); i++) {
-				log += " - " + srcCandidates[i].ToString(channel) + "\n";
-			}
-			WARN_LOG(G3D, "Copy: Multiple src vfb candidates for (src: %08x, size: %d):\n%s (%s)", src, size, log.c_str(), RasterChannelToString(channel));
-		}
-	}
-
-	if (dstCandidates.size() > 1) {
-		if (Reporting::ShouldLogNTimes("mulblock", 5)) {
-			std::string log;
-			for (size_t i = 0; i < dstCandidates.size(); i++) {
-				log += " - " + dstCandidates[i].ToString(channel) + "\n";
-			}
-			WARN_LOG(G3D, "Copy: Multiple dst vfb candidates for (dst: %08x, size: %d):\n%s (%s)", src, size, log.c_str(), RasterChannelToString(channel));
-		}
-	}
-
 	// For now fill in these old variables from the candidates to reduce the initial diff.
 	VirtualFramebuffer *dstBuffer = nullptr;
 	VirtualFramebuffer *srcBuffer = nullptr;
@@ -2068,6 +2058,36 @@ bool FramebufferManagerCommon::NotifyFramebufferCopy(u32 src, u32 dst, int size,
 		dstBuffer = bestDst->vfb;
 		dstY = bestDst->y;
 		dstH = bestDst->h;
+	}
+
+	if (srcCandidates.size() > 1) {
+		if (Reporting::ShouldLogNTimes("mulblock", 5)) {
+			std::string log;
+			for (size_t i = 0; i < srcCandidates.size(); i++) {
+				log += " - " + srcCandidates[i].ToString(channel);
+				if (bestSrc && srcCandidates[i].vfb == bestSrc->vfb) {
+					log += " * \n";
+				} else {
+					log += "\n";
+				}
+			}
+			WARN_LOG(G3D, "Copy: Multiple src vfb candidates for (src: %08x, size: %d):\n%s (%s)", src, size, log.c_str(), RasterChannelToString(channel));
+		}
+	}
+
+	if (dstCandidates.size() > 1) {
+		if (Reporting::ShouldLogNTimes("mulblock", 5)) {
+			std::string log;
+			for (size_t i = 0; i < dstCandidates.size(); i++) {
+				log += " - " + dstCandidates[i].ToString(channel);
+				if (bestDst && dstCandidates[i].vfb == bestDst->vfb) {
+					log += " * \n";
+				} else {
+					log += "\n";
+				}
+			}
+			WARN_LOG(G3D, "Copy: Multiple dst vfb candidates for (dst: %08x, size: %d):\n%s (%s)", src, size, log.c_str(), RasterChannelToString(channel));
+		}
 	}
 
 	if (!useBufferedRendering_) {
