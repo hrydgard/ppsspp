@@ -1441,6 +1441,7 @@ void EmuScreen::darken() {
 
 ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 	ScreenRenderFlags flags = ScreenRenderFlags::NONE;
+	Draw::Viewport viewport{ 0.0f, 0.0f, (float)g_display.pixel_xres, (float)g_display.pixel_yres, 0.0f, 1.0f };
 	using namespace Draw;
 
 	DrawContext *draw = screenManager()->getDrawContext();
@@ -1467,15 +1468,8 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 				draw->BindFramebufferAsRenderTarget(nullptr, { RPAction::CLEAR, RPAction::CLEAR, RPAction::CLEAR, 0xFF000000 }, "EmuScreen_BackBuffer");
 			}
 
-			Viewport viewport;
-			viewport.TopLeftX = 0;
-			viewport.TopLeftY = 0;
-			viewport.Width = g_display.pixel_xres;
-			viewport.Height = g_display.pixel_yres;
-			viewport.MaxDepth = 1.0;
-			viewport.MinDepth = 0.0;
 			draw->SetViewport(viewport);
-
+			draw->SetScissorRect(0, 0, g_display.pixel_xres, g_display.pixel_yres);
 			skipBufferEffects = true;
 		}
 		draw->SetTargetSize(g_display.pixel_xres, g_display.pixel_yres);
@@ -1493,6 +1487,8 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 			PSP_BeginHostFrame();
 			gpu->CopyDisplayToOutput(true);
 			PSP_EndHostFrame();
+			draw->SetViewport(viewport);
+			draw->SetScissorRect(0, 0, g_display.pixel_xres, g_display.pixel_yres);
 			darken();
 		}
 		return flags;
@@ -1507,6 +1503,8 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 		// In this case, we need to double check it here.
 		checkPowerDown();
 		draw->BindFramebufferAsRenderTarget(nullptr, { RPAction::CLEAR, RPAction::CLEAR, RPAction::CLEAR }, "EmuScreen_Invalid");
+		draw->SetViewport(viewport);
+		draw->SetScissorRect(0, 0, g_display.pixel_xres, g_display.pixel_yres);
 		renderUI();
 		return flags;
 	}
@@ -1575,7 +1573,6 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 
 	if (gpu && !gpu->PresentedThisFrame() && !skipBufferEffects) {
 		draw->BindFramebufferAsRenderTarget(nullptr, { RPAction::CLEAR, RPAction::CLEAR, RPAction::CLEAR }, "EmuScreen_NoFrame");
-		Viewport viewport{ 0.0f, 0.0f, (float)g_display.pixel_xres, (float)g_display.pixel_yres, 0.0f, 1.0f };
 		draw->SetViewport(viewport);
 		draw->SetScissorRect(0, 0, g_display.pixel_xres, g_display.pixel_yres);
 	}
@@ -1583,12 +1580,9 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 	if (!(mode & ScreenRenderMode::TOP)) {
 		// We're in run-behind mode, but we don't want to draw chat, debug UI and stuff.
 		// So, darken and bail here.
-		if (skipBufferEffects) {
-			// Need to reset viewport/scissor.
-			Viewport viewport{ 0.0f, 0.0f, (float)g_display.pixel_xres, (float)g_display.pixel_yres, 0.0f, 1.0f };
-			draw->SetViewport(viewport);
-			draw->SetScissorRect(0, 0, g_display.pixel_xres, g_display.pixel_yres);
-		}
+		// Reset viewport/scissor to be sure.
+		draw->SetViewport(viewport);
+		draw->SetScissorRect(0, 0, g_display.pixel_xres, g_display.pixel_yres);
 		darken();
 		return flags;
 	}
@@ -1596,6 +1590,7 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 	if (hasVisibleUI()) {
 		// In most cases, this should already be bound and a no-op.
 		draw->BindFramebufferAsRenderTarget(nullptr, { RPAction::KEEP, RPAction::DONT_CARE, RPAction::DONT_CARE }, "EmuScreen_UI");
+		draw->SetViewport(viewport);
 		cardboardDisableButton_->SetVisibility(g_Config.bEnableCardboardVR ? UI::V_VISIBLE : UI::V_GONE);
 		screenManager()->getUIContext()->BeginFrame();
 		renderUI();
