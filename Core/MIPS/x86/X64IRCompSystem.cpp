@@ -232,8 +232,10 @@ void X64JitBackend::CompIR_System(IRInst inst) {
 		ABI_CallFunction(GetReplacementFunc(inst.constant)->replaceFunc);
 		WriteDebugProfilerStatus(IRProfilerStatus::IN_JIT);
 		LoadStaticRegisters();
-		//SUB(32, R(DOWNCOUNTREG), R(DOWNCOUNTREG), R(EAX));
-		SUB(32, MDisp(CTXREG, downcountOffset), R(EAX));
+		if (jo.downcountInRegister)
+			SUB(32, R(DOWNCOUNTREG), R(EAX));
+		else
+			SUB(32, MDisp(CTXREG, downcountOffset), R(EAX));
 		break;
 
 	case IROp::Break:
