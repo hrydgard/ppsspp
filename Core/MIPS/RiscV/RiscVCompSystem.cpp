@@ -220,6 +220,13 @@ void RiscVJitBackend::CompIR_System(IRInst inst) {
 		QuickCallFunction(GetReplacementFunc(inst.constant)->replaceFunc, SCRATCH2);
 		WriteDebugProfilerStatus(IRProfilerStatus::IN_JIT);
 		LoadStaticRegisters();
+
+		regs_.Map(inst);
+		SRAIW(regs_.R(inst.dest), X10, 31);
+
+		// Absolute value trick: if neg, abs(x) == (x ^ -1) + 1.
+		XOR(X10, X10, regs_.R(inst.dest));
+		SUBW(X10, X10, regs_.R(inst.dest));
 		SUB(DOWNCOUNTREG, DOWNCOUNTREG, X10);
 		break;
 

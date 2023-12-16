@@ -1738,7 +1738,7 @@ bool CanReplaceJalTo(u32 dest, const ReplacementTableEntry **entry, u32 *funcSiz
 		return false;
 	}
 
-	if ((*entry)->flags & (REPFLAG_HOOKENTER | REPFLAG_HOOKEXIT | REPFLAG_DISABLED)) {
+	if ((*entry)->flags & (REPFLAG_HOOKENTER | REPFLAG_HOOKEXIT | REPFLAG_DISABLED | REPFLAG_SLICED)) {
 		// If it's a hook, we can't replace the jal, we have to go inside the func.
 		return false;
 	}

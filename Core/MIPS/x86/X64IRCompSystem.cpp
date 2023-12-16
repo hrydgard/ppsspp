@@ -232,6 +232,17 @@ void X64JitBackend::CompIR_System(IRInst inst) {
 		ABI_CallFunction(GetReplacementFunc(inst.constant)->replaceFunc);
 		WriteDebugProfilerStatus(IRProfilerStatus::IN_JIT);
 		LoadStaticRegisters();
+
+		// Since we flushed above, and we're mapping write, EAX should be safe.
+		regs_.Map(inst);
+		MOV(32, regs_.R(inst.dest), R(EAX));
+		NEG(32, R(EAX));
+		// Set it back if it negate made it negative.  That's the absolute value.
+		CMOVcc(32, EAX, regs_.R(inst.dest), CC_S);
+
+		// Now set the dest to the sign bit status.
+		SAR(32, regs_.R(inst.dest), Imm8(31));
+
 		if (jo.downcountInRegister)
 			SUB(32, R(DOWNCOUNTREG), R(EAX));
 		else
