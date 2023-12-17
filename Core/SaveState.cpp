@@ -275,6 +275,9 @@ namespace SaveState
 			if (g_Config.iRewindSnapshotInterval <= 0) {
 				return;
 			}
+			if (coreState != CORE_RUNNING) {
+				return;
+			}
 
 			// For fast-forwarding, otherwise they may be useless and too close.
 			double now = time_now_d();
