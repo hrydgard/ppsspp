@@ -112,10 +112,8 @@ static std::wstring windowTitle;
 
 #define TIMER_CURSORUPDATE 1
 #define TIMER_CURSORMOVEUPDATE 2
-#define TIMER_WHEELRELEASE 3
 #define CURSORUPDATE_INTERVAL_MS 1000
 #define CURSORUPDATE_MOVE_TIMESPAN_MS 500
-#define WHEELRELEASE_DELAY_MS 16
 
 namespace MainWindow
 {
@@ -265,17 +263,6 @@ namespace MainWindow
 				ClipCursor(NULL);
 			}
 		}
-	}
-
-	void ReleaseMouseWheel() {
-		// For simplicity release both wheel events
-		KeyInput key;
-		key.deviceId = DEVICE_ID_MOUSE;
-		key.flags = KEY_UP;
-		key.keyCode = NKCODE_EXT_MOUSEWHEEL_DOWN;
-		NativeKey(key);
-		key.keyCode = NKCODE_EXT_MOUSEWHEEL_UP;
-		NativeKey(key);
 	}
 
 	static void HandleSizeChange(int newSizingType) {
@@ -927,10 +914,8 @@ namespace MainWindow
 				} else {
 					key.keyCode = NKCODE_EXT_MOUSEWHEEL_UP;
 				}
-				// There's no separate keyup event for mousewheel events,
-				// so we release it with a slight delay.
+				// There's no release event, but we simulate it in NativeKey/NativeFrame.
 				key.flags = KEY_DOWN | KEY_HASWHEELDELTA | (wheelDelta << 16);
-				SetTimer(hwndMain, TIMER_WHEELRELEASE, WHEELRELEASE_DELAY_MS, 0);
 				NativeKey(key);
 			}
 			break;
@@ -945,11 +930,6 @@ namespace MainWindow
 			case TIMER_CURSORMOVEUPDATE:
 				hideCursor = true;
 				KillTimer(hWnd, TIMER_CURSORMOVEUPDATE);
-				return 0;
-			// Hack: need to release wheel event with a delay for games to register it was "pressed down".
-			case TIMER_WHEELRELEASE:
-				ReleaseMouseWheel();
-				KillTimer(hWnd, TIMER_WHEELRELEASE);
 				return 0;
 			}
 			break;
@@ -1045,7 +1025,6 @@ namespace MainWindow
 		case WM_DESTROY:
 			KillTimer(hWnd, TIMER_CURSORUPDATE);
 			KillTimer(hWnd, TIMER_CURSORMOVEUPDATE);
-			KillTimer(hWnd, TIMER_WHEELRELEASE);
 			// Main window is gone, this tells the message loop to exit.
 			PostQuitMessage(0);
 			return 0;

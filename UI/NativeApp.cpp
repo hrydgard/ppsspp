@@ -159,6 +159,7 @@
 #include <Core/HLE/Plugins.h>
 
 bool HandleGlobalMessage(UIMessage message, const std::string &value);
+static void ProcessWheelRelease(InputKeyCode keyCode, double now, bool keyPress);
 
 ScreenManager *g_screenManager;
 std::string config_filename;
@@ -1040,6 +1041,9 @@ void NativeFrame(GraphicsContext *graphicsContext) {
 
 	double startTime = time_now_d();
 
+	ProcessWheelRelease(NKCODE_EXT_MOUSEWHEEL_UP, startTime, false);
+	ProcessWheelRelease(NKCODE_EXT_MOUSEWHEEL_DOWN, startTime, false);
+
 	std::vector<PendingMessage> toProcess;
 	{
 		std::lock_guard<std::mutex> lock(pendingMutex);
@@ -1262,7 +1266,29 @@ void NativeTouch(const TouchInput &touch) {
 	g_screenManager->touch(touch);
 }
 
+// up, down
+static double g_wheelReleaseTime[2]{};
+static const double RELEASE_TIME = 0.1;  // about 3 frames at 30hz.
+
+static void ProcessWheelRelease(InputKeyCode keyCode, double now, bool keyPress) {
+	int dir = keyCode - NKCODE_EXT_MOUSEWHEEL_UP;
+	if (g_wheelReleaseTime[dir] != 0.0 && (keyPress || now >= g_wheelReleaseTime[dir])) {
+		g_wheelReleaseTime[dir] = 0.0;
+		KeyInput key{};
+		key.deviceId = DEVICE_ID_MOUSE;
+		key.keyCode = keyCode;
+		key.flags = KEY_UP;
+		NativeKey(key);
+	}
+
+	if (keyPress) {
+		g_wheelReleaseTime[dir] = now + RELEASE_TIME;
+	}
+}
+
 bool NativeKey(const KeyInput &key) {
+	double now = time_now_d();
+
 	// VR actions
 	if (IsVREnabled() && !UpdateVRKeys(key)) {
 		return false;
@@ -1290,11 +1316,18 @@ bool NativeKey(const KeyInput &key) {
 	}
 #endif
 
-	bool retval = false;
-	if (g_screenManager) {
-		HLEPlugins::SetKey(key.keyCode, (key.flags & KEY_DOWN) ? 1 : 0);
-		retval = g_screenManager->key(key);
+	if (!g_screenManager) {
+		return false;
 	}
+
+	// Handle releases of mousewheel keys.
+	if ((key.flags & KEY_DOWN) && key.deviceId == DEVICE_ID_MOUSE && (key.keyCode == NKCODE_EXT_MOUSEWHEEL_UP || key.keyCode == NKCODE_EXT_MOUSEWHEEL_DOWN)) {
+		ProcessWheelRelease(key.keyCode, now, true);
+	}
+
+	HLEPlugins::SetKey(key.keyCode, (key.flags & KEY_DOWN) ? 1 : 0);
+	// Dispatch the key event.
+	bool retval = g_screenManager->key(key);
 
 	// The Mode key can have weird consequences on some devices, see #17245.
 	if (key.keyCode == NKCODE_BUTTON_MODE) {
