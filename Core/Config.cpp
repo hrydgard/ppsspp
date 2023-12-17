@@ -1244,6 +1244,10 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 		mPostShaderSetting[key] = std::stof(value);
 	}
 
+	const Section *hostOverrideSetting = iniFile.GetOrCreateSection("HostAliases");
+	// TODO: relocate me before PR
+	mHostToAlias = hostOverrideSetting->ToMap();
+
 	// Load post process shader names
 	vPostShaderNames.clear();
 	for (const auto& it : postShaderChain->ToMap()) {
@@ -1374,6 +1378,13 @@ bool Config::Save(const char *saveReason) {
 				snprintf(keyName, sizeof(keyName), "PostShader%d", (int)i+1);
 				postShaderChain->Set(keyName, vPostShaderNames[i]);
 			}
+		}
+
+		// TODO: relocate me before PR
+		Section *hostOverrideSetting = iniFile.GetOrCreateSection("HostAliases");
+		hostOverrideSetting->Clear();
+		for (auto& it : mHostToAlias) {
+			hostOverrideSetting->Set(it.first.c_str(), it.second.c_str());
 		}
 
 		Section *control = iniFile.GetOrCreateSection("Control");

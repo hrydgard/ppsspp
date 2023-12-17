@@ -458,6 +458,7 @@ public:
 	// Networking
 	std::string proAdhocServer;
 	bool bEnableWlan;
+	std::map<std::string, std::string> mHostToAlias; // TODO: mPostShaderSetting
 	bool bEnableAdhocServer;
 	bool bEnableUPnP;
 	bool bUPnPUseOriginalPort;
@@ -481,6 +482,7 @@ public:
 	int iPSPModel;
 	int iFirmwareVersion;
 	bool bBypassOSKWithKeyboard;
+
 
 	// Virtual reality
 	bool bEnableVR;
