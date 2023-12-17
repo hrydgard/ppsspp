@@ -164,7 +164,7 @@ void IRFrontend::Comp_ReplacementFunc(MIPSOpcode op) {
 		FlushAll();
 		RestoreRoundingMode();
 		ir.Write(IROp::SetPCConst, 0, ir.AddConstant(GetCompilerPC()));
-		ir.Write(IROp::CallReplacement, 0, ir.AddConstant(index));
+		ir.Write(IROp::CallReplacement, IRTEMP_0, ir.AddConstant(index));
 
 		if (entry->flags & (REPFLAG_HOOKENTER | REPFLAG_HOOKEXIT)) {
 			// Compile the original instruction at this address.  We ignore cycles for hooks.
@@ -172,7 +172,10 @@ void IRFrontend::Comp_ReplacementFunc(MIPSOpcode op) {
 			MIPSCompileOp(Memory::Read_Instruction(GetCompilerPC(), true), this);
 		} else {
 			ApplyRoundingMode();
+			// If IRTEMP_0 was set to 1, it means the replacement needs to run again (sliced.)
+			// This is necessary for replacements that take a lot of cycles.
 			ir.Write(IROp::Downcount, 0, ir.AddConstant(js.downcountAmount));
+			ir.Write(IROp::ExitToConstIfNeq, ir.AddConstant(GetCompilerPC()), IRTEMP_0, MIPS_REG_ZERO);
 			ir.Write(IROp::ExitToReg, 0, MIPS_REG_RA, 0);
 			js.compiling = false;
 		}

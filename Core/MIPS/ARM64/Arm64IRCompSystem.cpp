@@ -242,7 +242,16 @@ void Arm64JitBackend::CompIR_System(IRInst inst) {
 		QuickCallFunction(SCRATCH2_64, GetReplacementFunc(inst.constant)->replaceFunc);
 		WriteDebugProfilerStatus(IRProfilerStatus::IN_JIT);
 		LoadStaticRegisters();
-		SUB(DOWNCOUNTREG, DOWNCOUNTREG, W0);
+
+		// Absolute value the result and subtract.
+		CMP(W0, 0);
+		CSNEG(SCRATCH1, W0, W0, CC_PL);
+		SUB(DOWNCOUNTREG, DOWNCOUNTREG, SCRATCH1);
+
+		// W0 might be the mapped reg, but there's only one.
+		// Set dest reg to the sign of the result.
+		regs_.Map(inst);
+		ASR(regs_.R(inst.dest), W0, 31);
 		break;
 
 	case IROp::Break:
