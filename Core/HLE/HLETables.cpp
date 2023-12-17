@@ -79,6 +79,8 @@
 #include "sceSfmt19937.h"
 #include "sceG729.h"
 #include "KUBridge.h"
+#include "sceNetInet.h"
+#include "sceNetResolver.h"
 
 #define N(s) s
 
@@ -236,6 +238,8 @@ void RegisterAllModules() {
 	Register_sceFont();
 	Register_sceNet();
 	Register_sceNetAdhoc();
+	Register_sceNetInet();
+	Register_sceNetResolver();
 	Register_sceRtc();
 	Register_sceWlanDrv();
 	Register_sceMpeg();
