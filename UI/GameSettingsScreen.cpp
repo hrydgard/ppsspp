@@ -781,6 +781,9 @@ void GameSettingsScreen::CreateControlsSettings(UI::ViewGroup *controlsSettings)
 			auto smoothingSlider = controlsSettings->Add(new PopupSliderChoiceFloat(&g_Config.fMouseSmoothing, 0.0f, 0.95f, 0.9f, co->T("Mouse smoothing"), 0.05f, screenManager(), "x"));
 			smoothingSlider->SetEnabledPtr(&g_Config.bMouseControl);
 			smoothingSlider->SetLiveUpdate(true);
+
+			auto wheelUpDelaySlider = controlsSettings->Add(new PopupSliderChoice(&g_Config.iMouseWheelUpDelay, 1, 10, 1, co->T("Mouse wheel delay"), screenManager()));
+			wheelUpDelaySlider->SetEnabledPtr(&g_Config.bMouseControl);
 		}
 	}
 }

@@ -930,7 +930,7 @@ namespace MainWindow
 				// There's no separate keyup event for mousewheel events,
 				// so we release it with a slight delay.
 				key.flags = KEY_DOWN | KEY_HASWHEELDELTA | (wheelDelta << 16);
-				SetTimer(hwndMain, TIMER_WHEELRELEASE, WHEELRELEASE_DELAY_MS, 0);
+				SetTimer(hwndMain, TIMER_WHEELRELEASE, WHEELRELEASE_DELAY_MS * g_Config.iMouseWheelUpDelay, 0);
 				NativeKey(key);
 			}
 			break;

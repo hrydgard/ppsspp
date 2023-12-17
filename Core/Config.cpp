@@ -838,6 +838,7 @@ static const ConfigSetting controlSettings[] = {
 	ConfigSetting("ConfineMap", &g_Config.bMouseConfine, false, CfgFlag::PER_GAME),
 	ConfigSetting("MouseSensitivity", &g_Config.fMouseSensitivity, 0.1f, CfgFlag::PER_GAME),
 	ConfigSetting("MouseSmoothing", &g_Config.fMouseSmoothing, 0.9f, CfgFlag::PER_GAME),
+	ConfigSetting("MouseWheelUpDelay", &g_Config.iMouseWheelUpDelay, 1, CfgFlag::PER_GAME),
 
 	ConfigSetting("SystemControls", &g_Config.bSystemControls, true, CfgFlag::DEFAULT),
 	ConfigSetting("RapidFileInterval", &g_Config.iRapidFireInterval, 5, CfgFlag::DEFAULT),
