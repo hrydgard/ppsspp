@@ -87,6 +87,8 @@ static void UpdateDisplayListTab(GEDebuggerTab *tab, TabControl *tabs, GETabPosi
 	DisplayList list;
 	if (gpuDebug != nullptr && gpuDebug->GetCurrentDisplayList(list)) {
 		view->setDisplayList(list);
+	} else {
+		view->clearDisplayList();
 	}
 }
 
