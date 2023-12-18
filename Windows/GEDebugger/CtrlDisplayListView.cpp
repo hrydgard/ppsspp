@@ -279,6 +279,10 @@ void CtrlDisplayListView::PromptBreakpointCond() {
 
 void CtrlDisplayListView::onMouseDown(WPARAM wParam, LPARAM lParam, int button)
 {
+	if (!validDisplayList || !gpuDebug) {
+		return;
+	}
+
 	int y = HIWORD(lParam);
 
 	int line = y/rowHeight;
@@ -306,16 +310,14 @@ void CtrlDisplayListView::onMouseDown(WPARAM wParam, LPARAM lParam, int button)
 
 void CtrlDisplayListView::onMouseUp(WPARAM wParam, LPARAM lParam, int button)
 {
+	if (!validDisplayList || !gpuDebug) {
+		return;
+	}
+
 	if (button == 2)
 	{
 		HMENU menu = GetContextMenu(ContextMenuID::DISPLAYLISTVIEW);
 		EnableMenuItem(menu, ID_GEDBG_SETCOND, GPUBreakpoints::IsAddressBreakpoint(curAddress) ? MF_ENABLED : MF_GRAYED);
-
-		// We don't want to let the users play with deallocated or uninitialized debugging objects
-		GlobalUIState state = GetUIState();
-		if (state != UISTATE_INGAME && state != UISTATE_PAUSEMENU) {
-			return;
-		}
 
 		switch (TriggerContextMenu(ContextMenuID::DISPLAYLISTVIEW, wnd, ContextPoint::FromEvent(lParam)))
 		{

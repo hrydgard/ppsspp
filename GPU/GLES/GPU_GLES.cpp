@@ -248,7 +248,9 @@ void GPU_GLES::BeginHostFrame() {
 	textureCache_->StartFrame();
 
 	// Save the cache from time to time. TODO: How often? We save on exit, so shouldn't need to do this all that often.
-	if (shaderCachePath_.Valid() && (gpuStats.numFlips & 4095) == 0) {
+
+	const int saveShaderCacheFrameInterval = 32767;  // power of 2 - 1. About every 10 minutes at 60fps.
+	if (shaderCachePath_.Valid() && !(gpuStats.numFlips & saveShaderCacheFrameInterval) && coreState == CORE_RUNNING) {
 		shaderManagerGL_->SaveCache(shaderCachePath_, &drawEngine_);
 	}
 	shaderManagerGL_->DirtyLastShader();
