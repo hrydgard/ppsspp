@@ -1117,6 +1117,7 @@ void NativeFrame(GraphicsContext *graphicsContext) {
 
 	// This, between EndFrame and Present, is where we should actually wait to do present time management.
 	// There might not be a meaningful distinction here for all backends..
+	g_frameTiming.PostSubmit();
 
 	if (renderCounter < 10 && ++renderCounter == 10) {
 		// We're rendering fine, clear out failure info.
