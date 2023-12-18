@@ -438,11 +438,15 @@ static void DoFrameTiming(bool throttle, bool *skipFrame, float scaledTimestep, 
 			nextFrameTime = curFrameTime;
 		} else {
 			// Wait until we've caught up.
-			// TODO: This is the wait we actually move to after the frame.
-			// But watch out, curFrameTime below must be updated correctly - I think.
-			WaitUntil(curFrameTime, nextFrameTime);
+			// If we're ending the frame here, we'll defer the sleep until after the command buffers
+			// have been handed off to the render thread, for some more overlap.
+			if (endOfFrame) {
+				g_frameTiming.DeferWaitUntil(nextFrameTime, &curFrameTime);
+			} else {
+				WaitUntil(curFrameTime, nextFrameTime);
+				curFrameTime = time_now_d();  // I guess we could also just set it to nextFrameTime...
+			}
 		}
-		curFrameTime = time_now_d();
 	}
 
 	lastFrameTime = nextFrameTime;
