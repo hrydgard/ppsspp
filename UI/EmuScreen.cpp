@@ -1479,7 +1479,7 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 
 	if (mode & ScreenRenderMode::TOP) {
 		System_Notify(SystemNotification::KEEP_SCREEN_AWAKE);
-	} else if (!g_Config.bRunBehindPauseMenu) {
+	} else if (!g_Config.bRunBehindPauseMenu && strcmp(screenManager()->topScreen()->tag(), "DevMenu") != 0) {
 		// Not on top. Let's not execute, only draw the image.
 		draw->BindFramebufferAsRenderTarget(nullptr, { RPAction::CLEAR, RPAction::DONT_CARE, RPAction::DONT_CARE }, "EmuScreen_Stepping");
 		// Just to make sure.
