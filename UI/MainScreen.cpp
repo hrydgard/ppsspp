@@ -155,7 +155,6 @@ public:
 	}
 
 	bool Key(const KeyInput &key) override {
-		std::vector<int> pspKeys;
 		bool showInfo = false;
 
 		if (HasFocus() && UI::IsInfoKey(key)) {

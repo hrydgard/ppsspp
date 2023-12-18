@@ -919,7 +919,6 @@ bool D3D11Texture::Create(ID3D11DeviceContext *context, ID3D11Device *device, co
 
 	D3D11_SUBRESOURCE_DATA *initDataParam = nullptr;
 	D3D11_SUBRESOURCE_DATA initData[12]{};
-	std::vector<uint8_t> initDataBuffer[12];
 	if (desc.initData.size() && !generateMips && !desc.initDataCallback) {
 		int w = desc.width;
 		int h = desc.height;

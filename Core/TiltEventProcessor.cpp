@@ -224,8 +224,6 @@ void GenerateAnalogStickEvent(float tiltX, float tiltY) {
 }
 
 void GenerateDPadEvent(int digitalX, int digitalY) {
-	static const int dir[4] = { CTRL_RIGHT, CTRL_DOWN, CTRL_LEFT, CTRL_UP };
-
 	if (digitalX == 0) {
 		__CtrlUpdateButtons(0, tiltButtonsDown & (CTRL_RIGHT | CTRL_LEFT));
 		tiltButtonsDown &= ~(CTRL_LEFT | CTRL_RIGHT);
@@ -252,8 +250,6 @@ void GenerateDPadEvent(int digitalX, int digitalY) {
 }
 
 void GenerateActionButtonEvent(int digitalX, int digitalY) {
-	static const int buttons[4] = { CTRL_CIRCLE, CTRL_CROSS, CTRL_SQUARE, CTRL_TRIANGLE };
-
 	if (digitalX == 0) {
 		__CtrlUpdateButtons(0, tiltButtonsDown & (CTRL_SQUARE | CTRL_CIRCLE));
 		tiltButtonsDown &= ~(CTRL_SQUARE | CTRL_CIRCLE);

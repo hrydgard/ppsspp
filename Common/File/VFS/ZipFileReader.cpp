@@ -125,7 +125,6 @@ bool ZipFileReader::GetFileListing(const char *orig_path, std::vector<File::File
 	}
 
 	for (auto fiter = files.begin(); fiter != files.end(); ++fiter) {
-		std::string fpath = path;
 		File::FileInfo info;
 		info.name = *fiter;
 		std::string relativePath = std::string(path).substr(inZipPath_.size());

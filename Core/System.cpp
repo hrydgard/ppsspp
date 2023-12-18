@@ -593,7 +593,6 @@ bool PSP_Reboot(std::string *error_string) {
 	Core_Stop();
 	Core_WaitInactive();
 	PSP_Shutdown();
-	std::string resetError;
 	return PSP_Init(PSP_CoreParameter(), error_string);
 }
 
