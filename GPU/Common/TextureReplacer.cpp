@@ -563,7 +563,7 @@ ReplacedTexture *TextureReplacer::FindReplacement(u64 cachekey, u32 hash, int w,
 		// WARN_LOG(G3D, "Not found/ignored: %s (%d, %d)", hashfiles.c_str(), (int)foundReplacement, (int)ignored);
 		// Insert an entry into the cache for faster lookup next time.
 		ReplacedTextureRef ref{};
-		cache_.emplace(std::make_pair(replacementKey, ref));
+		cache_.try_emplace(replacementKey, ref);
 		return nullptr;
 	}
 
@@ -593,7 +593,7 @@ ReplacedTexture *TextureReplacer::FindReplacement(u64 cachekey, u32 hash, int w,
 		ReplacedTextureRef ref;
 		ref.hashfiles = hashfiles;
 		ref.texture = iter->second;
-		cache_.emplace(std::make_pair(replacementKey, ref));
+		cache_.try_emplace(replacementKey, ref);
 		return iter->second;
 	}
 
@@ -606,10 +606,10 @@ ReplacedTexture *TextureReplacer::FindReplacement(u64 cachekey, u32 hash, int w,
 	ReplacedTextureRef ref;
 	ref.hashfiles = hashfiles;
 	ref.texture = texture;
-	cache_.emplace(std::make_pair(replacementKey, ref));
+	cache_.try_emplace(replacementKey, ref);
 
 	// Also, insert the level in the level cache so we can look up by desc_->hashfiles again.
-	levelCache_.emplace(std::make_pair(hashfiles, texture));
+	levelCache_.try_emplace(hashfiles, texture);
 	return texture;
 }
 

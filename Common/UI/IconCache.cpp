@@ -105,7 +105,7 @@ bool IconCache::LoadFromFile(FILE *file) {
 		entry.format = entryHeader.format;
 		entry.insertedTimeStamp = entryHeader.insertedTimestamp;
 		entry.usedTimeStamp = now;
-		cache_.insert(std::pair<std::string, Entry>(key, entry));
+		cache_.try_emplace(key, entry);
 	}
 
 	return true;
@@ -259,7 +259,7 @@ bool IconCache::InsertIcon(const std::string &key, IconFormat format, std::strin
 	pending_.erase(key);
 
 	double now = time_now_d();
-	cache_.emplace(key, Entry{ std::move(data), format, nullptr, now, now, false });
+	cache_.try_emplace(key, Entry{ std::move(data), format, nullptr, now, now, false });
 	return true;
 }
 

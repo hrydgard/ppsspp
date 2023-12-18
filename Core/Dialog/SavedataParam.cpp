@@ -1926,7 +1926,7 @@ std::shared_ptr<ParamSFOData> SavedataParam::LoadCachedSFO(const std::string &pa
 			// Mark as not existing for later.
 			sfoCache_[path].reset();
 		} else {
-			sfoCache_.emplace(path, new ParamSFOData());
+			sfoCache_.try_emplace(path, new ParamSFOData());
 			// If it fails to load, also keep it to indicate failed.
 			if (!sfoCache_.at(path)->ReadSFO(data))
 				sfoCache_.at(path).reset();

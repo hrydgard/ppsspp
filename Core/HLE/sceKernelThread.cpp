@@ -230,7 +230,7 @@ public:
 	MipsCallManager() : idGen_(0) {}
 	u32 add(MipsCall *call) {
 		u32 id = genId();
-		calls_.emplace(id, call);
+		calls_.try_emplace(id, call);
 		return id;
 	}
 	MipsCall *get(u32 id) {

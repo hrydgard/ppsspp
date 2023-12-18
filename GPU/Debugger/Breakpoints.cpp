@@ -346,7 +346,7 @@ void AddAddressBreakpoint(u32 addr, bool temp) {
 	} else {
 		// Remove the temporary marking.
 		breakPCsTemp.erase(addr);
-		breakPCs.emplace(addr, BreakpointInfo{});
+		breakPCs.try_emplace(addr, BreakpointInfo{});
 	}
 
 	breakPCsCount = breakPCs.size();
