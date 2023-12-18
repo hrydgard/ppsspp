@@ -652,7 +652,7 @@ void NewLanguageScreen::OnCompleted(DialogResult result) {
 	if (code.empty())
 		return;
 
-	g_Config.sLanguageIni = code;
+	g_Config.sLanguageIni = std::move(code);
 
 	bool iniLoadedSuccessfully = false;
 	// Allow the lang directory to be overridden for testing purposes (e.g. Android, where it's hard to
@@ -669,7 +669,7 @@ void NewLanguageScreen::OnCompleted(DialogResult result) {
 		RecreateViews();
 	} else {
 		// Failed to load the language ini. Shouldn't really happen, but let's just switch back to the old language.
-		g_Config.sLanguageIni = oldLang;
+		g_Config.sLanguageIni = std::move(oldLang);
 	}
 }
 

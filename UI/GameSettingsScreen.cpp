@@ -2236,7 +2236,7 @@ bool HostnameSelectScreen::CanComplete(DialogResult result) {
 	}
 
 	resolverState_ = ResolverState::QUEUED;
-	toResolve_ = value;
+	toResolve_ = std::move(value);
 	resolverCond_.notify_one();
 
 	progressView_->SetText(n->T("Validating address..."));

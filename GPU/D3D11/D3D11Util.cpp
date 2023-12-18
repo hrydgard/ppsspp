@@ -56,7 +56,7 @@ ID3D11VertexShader *CreateVertexShaderD3D11(ID3D11Device *device, const char *co
 	ID3D11VertexShader *vs;
 	device->CreateVertexShader(byteCode.data(), byteCode.size(), nullptr, &vs);
 	if (byteCodeOut)
-		*byteCodeOut = byteCode;
+		*byteCodeOut = std::move(byteCode);
 	return vs;
 }
 

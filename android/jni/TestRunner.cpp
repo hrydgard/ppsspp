@@ -180,6 +180,6 @@ bool RunTests() {
 	PSP_CoreParameter().headLess = false;
 	PSP_CoreParameter().graphicsContext = tempCtx;
 
-	g_Config.sReportHost = savedReportHost;
+	g_Config.sReportHost = std::move(savedReportHost);
 	return true;  // Managed to execute the tests. Says nothing about the result.
 }

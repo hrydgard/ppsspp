@@ -412,7 +412,7 @@ void Core_MemoryException(u32 address, u32 accessSize, u32 pc, MemoryExceptionTy
 		e.memory_type = type;
 		e.address = address;
 		e.accessSize = accessSize;
-		e.stackTrace = stackTrace;
+		e.stackTrace = std::move(stackTrace);
 		e.pc = pc;
 		Core_EnableStepping(true, "memory.exception", address);
 	}
@@ -440,7 +440,7 @@ void Core_MemoryExceptionInfo(u32 address, u32 accessSize, u32 pc, MemoryExcepti
 		e.memory_type = type;
 		e.address = address;
 		e.accessSize = accessSize;
-		e.stackTrace = stackTrace;
+		e.stackTrace = std::move(stackTrace);
 		e.pc = pc;
 		Core_EnableStepping(true, "memory.exception", address);
 	}

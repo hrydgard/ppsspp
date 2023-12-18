@@ -2419,7 +2419,7 @@ static u32 sceIoDopen(const char *path) {
 	DirListing *dir = new DirListing();
 	SceUID id = kernelObjects.Create(dir);
 
-	dir->listing = listing;
+	dir->listing = std::move(listing);
 	dir->index = 0;
 	dir->name = std::string(path);
 
@@ -2465,7 +2465,7 @@ static u32 sceIoDopen(const char *path) {
 			}
 		}
 
-		dir->listing = filtered;
+		dir->listing = std::move(filtered);
 	}
 	
 	// TODO: The result is delayed only from the memstick, it seems.

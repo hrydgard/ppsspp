@@ -59,7 +59,7 @@ void CwCheatScreen::LoadCheatInfo() {
 	}
 
 	if (!engine_ || gameID != gameID_) {
-		gameID_ = gameID;
+		gameID_ = std::move(gameID);
 		delete engine_;
 		engine_ = new CWCheatEngine(gameID_);
 		engine_->CreateCheatFile();

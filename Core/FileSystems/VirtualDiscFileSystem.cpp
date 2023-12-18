@@ -293,7 +293,7 @@ int VirtualDiscFileSystem::getFileListIndex(std::string &fileName)
 		return -1;
 
 	FileListEntry entry = {""};
-	entry.fileName = normalized;
+	entry.fileName = std::move(normalized);
 	entry.totalSize = File::GetFileSize(fullName);
 	entry.firstBlock = currentBlockIndex;
 	currentBlockIndex += (entry.totalSize+2047)/2048;

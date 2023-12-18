@@ -146,7 +146,7 @@ void View::PersistData(PersistStatus status, std::string anonId, PersistMap &sto
 	// Remember if this view was a focused view.
 	std::string tag = Tag();
 	if (tag.empty()) {
-		tag = anonId;
+		tag = std::move(anonId);
 	}
 
 	const std::string focusedKey = "ViewFocused::" + tag;

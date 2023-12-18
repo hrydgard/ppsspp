@@ -591,7 +591,7 @@ int DirectoryFileSystem::OpenFile(std::string filename, FileAccess access, const
 
 		u32 newHandle = hAlloc->GetNewHandle();
 
-		entry.guestFilename = filename;
+		entry.guestFilename = std::move(filename);
 		entry.access = (FileAccess)(access & FILEACCESS_PSP_FLAGS);
 
 		entries[newHandle] = entry;

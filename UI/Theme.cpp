@@ -139,7 +139,7 @@ static void LoadThemeInfo(const std::vector<Path> &directories) {
 
 					File::FileInfo tmpInfo;
 					if (g_VFS.GetFileInfo((tmpPath + ".meta").c_str(), &tmpInfo) && g_VFS.GetFileInfo((tmpPath + ".zim").c_str(), &tmpInfo)) {
-						info.sUIAtlas = tmpPath;
+						info.sUIAtlas = std::move(tmpPath);
 					}
 				}
 

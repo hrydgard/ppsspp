@@ -307,7 +307,7 @@ static void CheckFailedGPUBackends() {
 	if (System_GetPropertyBool(SYSPROP_SUPPORTS_PERMISSIONS)) {
 		std::string data;
 		if (File::ReadFileToString(true, cache, data))
-			g_Config.sFailedGPUBackends = data;
+			g_Config.sFailedGPUBackends = std::move(data);
 	}
 
 	// Use this if you want to debug a graphics crash...

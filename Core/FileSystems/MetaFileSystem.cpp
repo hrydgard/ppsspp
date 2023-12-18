@@ -279,7 +279,7 @@ void MetaFileSystem::Mount(const std::string &prefix, std::shared_ptr<IFileSyste
 
 	MountPoint x;
 	x.prefix = prefix;
-	x.system = system;
+	x.system = std::move(system);
 	for (auto &it : fileSystems) {
 		if (it.prefix == prefix) {
 			// Overwrite the old mount. Don't create a new one.
@@ -310,7 +310,7 @@ bool MetaFileSystem::Remount(const std::string &prefix, std::shared_ptr<IFileSys
 	std::lock_guard<std::recursive_mutex> guard(lock);
 	for (auto &it : fileSystems) {
 		if (it.prefix == prefix) {
-			it.system = system;
+			it.system = std::move(system);
 			return true;
 		}
 	}

@@ -309,7 +309,7 @@ public:
 		step.create_program.program = new GLRProgram();
 		step.create_program.program->semantics_ = semantics;
 		step.create_program.program->queries_ = queries;
-		step.create_program.program->initialize_ = initializers;
+		step.create_program.program->initialize_ = std::move(initializers);
 		step.create_program.program->locData_ = locData;
 		step.create_program.program->use_clip_distance[0] = flags.useClipDistance0;
 		step.create_program.program->use_clip_distance[1] = flags.useClipDistance1;

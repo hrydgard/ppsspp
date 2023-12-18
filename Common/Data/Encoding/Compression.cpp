@@ -53,7 +53,7 @@ bool compress_string(const std::string& str, std::string *dest, int compressionl
 		return false;
 	}
 
-	*dest = outstring;
+	*dest = std::move(outstring);
 	return true;
 }
 
@@ -99,6 +99,6 @@ bool decompress_string(const std::string& str, std::string *dest) {
 		return false;
 	}
 
-	*dest = outstring;
+	*dest = std::move(outstring);
 	return true;
 }

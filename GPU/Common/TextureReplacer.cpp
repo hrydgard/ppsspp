@@ -328,7 +328,7 @@ bool TextureReplacer::LoadIniValues(IniFile &ini, VFSBackend *dir, bool isOverri
 				c = '/';
 			}
 		}
-		aliases_[pair.first] = alias;
+		aliases_[pair.first] = std::move(alias);
 	}
 
 	if (badFileNameCount > 0) {

@@ -218,7 +218,7 @@ void GPU_GLES::BuildReportingInfo() {
 
 	char temp[16384];
 	snprintf(temp, sizeof(temp), "%s (%s %s), %s (extensions: %s)", glVersion.c_str(), glVendor.c_str(), glRenderer.c_str(), glSlVersion.c_str(), glExtensions.c_str());
-	reportingPrimaryInfo_ = glVendor;
+	reportingPrimaryInfo_ = std::move(glVendor);
 	reportingFullInfo_ = temp;
 
 	Reporting::UpdateConfig();

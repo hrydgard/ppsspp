@@ -105,7 +105,7 @@ uint32_t TextDrawerWin32::SetFont(const char *fontName, int size, int flags) {
 	TextDrawerFontContext *font = new TextDrawerFontContext();
 	font->bold = FW_LIGHT;
 	font->height = size;
-	font->fname = fname;
+	font->fname = std::move(fname);
 	font->dpiScale = dpiScale_;
 	font->Create();
 

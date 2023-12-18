@@ -257,7 +257,7 @@ void EmuScreen::bootGame(const Path &filename) {
 		if (!bootPending_) {
 			invalid_ = !PSP_IsInited();
 			if (invalid_) {
-				errorMessage_ = error_string;
+				errorMessage_ = std::move(error_string);
 				ERROR_LOG(BOOT, "isIniting bootGame error: %s", errorMessage_.c_str());
 				return;
 			}
@@ -338,7 +338,7 @@ void EmuScreen::bootGame(const Path &filename) {
 	if (!PSP_InitStart(coreParam, &error_string)) {
 		bootPending_ = false;
 		invalid_ = true;
-		errorMessage_ = error_string;
+		errorMessage_ = std::move(error_string);
 		ERROR_LOG(BOOT, "InitStart bootGame error: %s", errorMessage_.c_str());
 	}
 

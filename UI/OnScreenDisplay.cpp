@@ -472,7 +472,7 @@ void OnScreenMessagesView::Draw(UIContext &dc) {
 	}
 
 	std::lock_guard<std::mutex> lock(clickMutex_);
-	clickZones_ = dismissZones;
+	clickZones_ = std::move(dismissZones);
 }
 
 std::string OnScreenMessagesView::DescribeText() const {

@@ -101,7 +101,7 @@ bool IconCache::LoadFromFile(FILE *file) {
 		}
 
 		Entry entry{};
-		entry.data = data;
+		entry.data = std::move(data);
 		entry.format = entryHeader.format;
 		entry.insertedTimeStamp = entryHeader.insertedTimestamp;
 		entry.usedTimeStamp = now;

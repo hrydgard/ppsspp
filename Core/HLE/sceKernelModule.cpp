@@ -1964,7 +1964,7 @@ int sceKernelLoadExec(const char *filename, u32 paramPtr)
 
 		PSPFileInfo eboot_info = pspFileSystem.GetFileInfo(eboot_filename);
 		if (eboot_info.exists) {
-			exec_filename = eboot_filename;
+			exec_filename = std::move(eboot_filename);
 			info = eboot_info;
 		}
 	}

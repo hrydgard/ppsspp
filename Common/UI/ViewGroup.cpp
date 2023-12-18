@@ -76,7 +76,7 @@ void ViewGroup::Clear() {
 void ViewGroup::PersistData(PersistStatus status, std::string anonId, PersistMap &storage) {
 	std::string tag = Tag();
 	if (tag.empty()) {
-		tag = anonId;
+		tag = std::move(anonId);
 	}
 
 	for (size_t i = 0; i < views_.size(); i++) {
@@ -1046,7 +1046,7 @@ void TabHolder::PersistData(PersistStatus status, std::string anonId, PersistMap
 
 	std::string tag = Tag();
 	if (tag.empty()) {
-		tag = anonId;
+		tag = std::move(anonId);
 	}
 
 	PersistBuffer &buffer = storage["TabHolder::" + tag];

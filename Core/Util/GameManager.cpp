@@ -405,7 +405,7 @@ bool GameManager::DetectTexturePackDest(struct zip *z, int iniIndex, Path &dest)
 		for (const std::string &path : g_Config.RecentIsos()) {
 			std::string recentID = GetGameID(Path(path));
 			if (games.find(recentID) != games.end()) {
-				gameID = recentID;
+				gameID = std::move(recentID);
 				break;
 			}
 		}

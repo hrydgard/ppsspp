@@ -586,7 +586,7 @@ void HTTPRequest::Do() {
 			// Perform the next GET.
 			if (resultCode_ == 0)
 				INFO_LOG(HTTP, "Download of %s redirected to %s", downloadURL.c_str(), redirectURL.c_str());
-			downloadURL = redirectURL;
+			downloadURL = std::move(redirectURL);
 			continue;
 		}
 

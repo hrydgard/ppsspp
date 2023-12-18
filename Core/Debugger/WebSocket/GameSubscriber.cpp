@@ -104,8 +104,8 @@ void WebSocketVersion(DebuggerRequest &req) {
 	if (!req.ParamString("name", &name, DebuggerParamType::OPTIONAL_LOOSE))
 		return;
 
-	req.client->version = version;
-	req.client->name = name;
+	req.client->version = std::move(version);
+	req.client->name = std::move(name);
 
 	json.writeString("name", "PPSSPP");
 	json.writeString("version", PPSSPP_GIT_VERSION);

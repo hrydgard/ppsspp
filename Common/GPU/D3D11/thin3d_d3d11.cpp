@@ -1161,7 +1161,7 @@ Pipeline *D3D11DrawContext::CreateGraphicsPipeline(const PipelineDesc &desc, con
 			break;
 		}
 	}
-	dPipeline->shaderModules = shaders;
+	dPipeline->shaderModules = std::move(shaders);
 
 	if (!vshader) {
 		// No vertex shader - no graphics

@@ -89,7 +89,7 @@ const char *I18NCategory::T(const char *key, const char *def) {
 		if (def)
 			missedKeyLog_[key] = def;
 		else
-			missedKeyLog_[key] = modifiedKey;
+			missedKeyLog_[key] = std::move(modifiedKey);
 		return def ? def : key;
 	}
 }

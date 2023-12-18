@@ -348,7 +348,7 @@ void GLQueueRunner::RunInitSteps(const FastVec<GLRInitStep> &steps, bool skipGLC
 				OutputDebugStringUTF8(infoLog.c_str());
 #endif
 				step.create_shader.shader->failed = true;
-				step.create_shader.shader->error = infoLog;  // Hm, we never use this.
+				step.create_shader.shader->error = std::move(infoLog);  // Hm, we never use this.
 			}
 			// Before we throw away the code, attach it to the shader for debugging.
 			step.create_shader.shader->code = code;

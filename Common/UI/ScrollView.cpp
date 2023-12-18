@@ -335,7 +335,7 @@ void ScrollView::PersistData(PersistStatus status, std::string anonId, PersistMa
 
 	std::string tag = Tag();
 	if (tag.empty()) {
-		tag = anonId;
+		tag = std::move(anonId);
 	}
 
 	PersistBuffer &buffer = storage["ScrollView::" + tag];
