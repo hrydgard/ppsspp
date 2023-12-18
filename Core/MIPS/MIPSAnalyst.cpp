@@ -1371,6 +1371,7 @@ skip:
 
 	void LoadBuiltinHashMap() {
 		HashMapFunc mf;
+		hashMap.reserve(ARRAY_SIZE(hardcodedHashes));
 		for (size_t i = 0; i < ARRAY_SIZE(hardcodedHashes); i++) {
 			mf.hash = hardcodedHashes[i].hash;
 			mf.size = hardcodedHashes[i].funcSize;
