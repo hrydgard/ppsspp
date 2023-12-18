@@ -645,8 +645,9 @@ void __DisplayFlip(int cyclesLate) {
 
 	if (fbReallyDirty || noRecentFlip || postEffectRequiresFlip) {
 		// Check first though, might've just quit / been paused.
-		nextFrame = Core_NextFrame();
-		if (!forceNoFlip && nextFrame) {
+		if (!forceNoFlip)
+			nextFrame = Core_NextFrame();
+		if (nextFrame) {
 			gpu->CopyDisplayToOutput(fbReallyDirty);
 			if (fbReallyDirty) {
 				DisplayFireActualFlip();
