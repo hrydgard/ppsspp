@@ -440,15 +440,7 @@ static void DoFrameTiming(bool throttle, bool *skipFrame, float scaledTimestep, 
 			// Wait until we've caught up.
 			// TODO: This is the wait we actually move to after the frame.
 			// But watch out, curFrameTime below must be updated correctly - I think.
-
-			while (time_now_d() < nextFrameTime) {
-#ifdef _WIN32
-				sleep_ms(1); // Sleep for 1ms on this thread
-#else
-				const double left = nextFrameTime - curFrameTime;
-				usleep((long)(left * 1000000));
-#endif
-			}
+			WaitUntil(curFrameTime, nextFrameTime);
 		}
 		curFrameTime = time_now_d();
 	}
