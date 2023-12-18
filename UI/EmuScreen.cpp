@@ -410,6 +410,14 @@ void EmuScreen::bootComplete() {
 #endif
 	}
 
+	if (g_Config.bStereoRendering) {
+		auto gr = GetI18NCategory(I18NCat::GRAPHICS);
+		auto di = GetI18NCategory(I18NCat::DIALOG);
+		// Stereo rendering is experimental, so let's notify the user it's being used.
+		// Carefully reuse translations for this rare warning.
+		g_OSD.Show(OSDType::MESSAGE_WARNING, std::string(gr->T("Stereo rendering")) + ": " + di->T("Enabled"));
+	}
+
 	saveStateSlot_ = SaveState::GetCurrentSlot();
 
 	loadingViewColor_->Divert(0x00FFFFFF, 0.2f);
