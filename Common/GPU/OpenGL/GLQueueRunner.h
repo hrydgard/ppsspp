@@ -386,8 +386,10 @@ private:
 	void PerformReadbackImage(const GLRStep &pass);
 
 	void fbo_ext_create(const GLRInitStep &step);
-	void fbo_bind_fb_target(bool read, GLuint name);
-	GLenum fbo_get_fb_target(bool read, GLuint **cached);
+	template <bool read>
+	void fbo_bind_fb_target(GLuint name);
+	template <bool read>
+	GLenum fbo_get_fb_target(GLuint **cached);
 	void fbo_unbind();
 
 	std::string StepToString(const GLRStep &step) const;

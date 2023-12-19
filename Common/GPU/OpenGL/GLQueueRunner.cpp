@@ -757,8 +757,8 @@ void GLQueueRunner::PerformBlit(const GLRStep &step) {
 	CHECK_GL_ERROR_IF_DEBUG();
 	// Without FBO_ARB / GLES3, this will collide with bind_for_read, but there's nothing
 	// in ES 2.0 that actually separate them anyway of course, so doesn't matter.
-	fbo_bind_fb_target(false, step.blit.dst->handle);
-	fbo_bind_fb_target(true, step.blit.src->handle);
+	fbo_bind_fb_target<false>(step.blit.dst->handle);
+	fbo_bind_fb_target<true>(step.blit.src->handle);
 
 	int srcX1 = step.blit.srcRect.x;
 	int srcY1 = step.blit.srcRect.y;
@@ -1533,7 +1533,7 @@ void GLQueueRunner::PerformReadback(const GLRStep &pass) {
 
 	GLRFramebuffer *fb = pass.readback.src;
 
-	fbo_bind_fb_target(true, fb ? fb->handle : 0);
+	fbo_bind_fb_target<true>(fb ? fb->handle : 0);
 
 	// Reads from the "bound for read" framebuffer. Note that if there's no fb, it's not valid to call this.
 	if (fb && (gl_extensions.GLES3 || !gl_extensions.IsGLES))
@@ -1652,7 +1652,7 @@ void GLQueueRunner::PerformBindFramebufferAsRenderTarget(const GLRStep &pass) {
 	if (curFB_) {
 		// Without FBO_ARB / GLES3, this will collide with bind_for_read, but there's nothing
 		// in ES 2.0 that actually separate them anyway of course, so doesn't matter.
-		fbo_bind_fb_target(false, curFB_->handle);
+		fbo_bind_fb_target<false>(curFB_->handle);
 	} else {
 		fbo_unbind();
 		if (IsVREnabled()) {
@@ -1762,7 +1762,8 @@ void GLQueueRunner::fbo_ext_create(const GLRInitStep &step) {
 }
 #endif
 
-GLenum GLQueueRunner::fbo_get_fb_target(bool read, GLuint **cached) {
+template <bool read>
+GLenum GLQueueRunner::fbo_get_fb_target(GLuint **cached) {
 	bool supportsBlit = gl_extensions.ARB_framebuffer_object;
 	if (gl_extensions.IsGLES) {
 		supportsBlit = (gl_extensions.GLES3 || gl_extensions.NV_framebuffer_blit);
@@ -1770,7 +1771,7 @@ GLenum GLQueueRunner::fbo_get_fb_target(bool read, GLuint **cached) {
 
 	// Note: GL_FRAMEBUFFER_EXT and GL_FRAMEBUFFER have the same value, same with _NV.
 	if (supportsBlit) {
-		if (read) {
+		if constexpr (read) {
 			*cached = &currentReadHandle_;
 			return GL_READ_FRAMEBUFFER;
 		} else {
@@ -1783,10 +1784,11 @@ GLenum GLQueueRunner::fbo_get_fb_target(bool read, GLuint **cached) {
 	}
 }
 
-void GLQueueRunner::fbo_bind_fb_target(bool read, GLuint name) {
+template <bool read>
+void GLQueueRunner::fbo_bind_fb_target(GLuint name) {
 	CHECK_GL_ERROR_IF_DEBUG();
 	GLuint *cached;
-	GLenum target = fbo_get_fb_target(read, &cached);
+	GLenum target = fbo_get_fb_target<read>(&cached);
 	if (*cached != name) {
 		if (gl_extensions.ARB_framebuffer_object || gl_extensions.IsGLES) {
 			glBindFramebuffer(target, name);
