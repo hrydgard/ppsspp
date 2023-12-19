@@ -138,11 +138,7 @@ public:
 		everUsedExactEqualDepth_ = v;
 	}
 
-	bool IsCodePtrVertexDecoder(const u8 *ptr) const {
-		if (decJitCache_)
-			return decJitCache_->IsInSpace(ptr);
-		return false;
-	}
+	bool DescribeCodePtr(const u8 *ptr, std::string &name) const;
 	int GetNumDrawCalls() const {
 		return numDrawVerts_;
 	}

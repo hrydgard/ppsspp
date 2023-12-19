@@ -29,6 +29,18 @@
 
 #include <algorithm>
 
+#ifdef _M_SSE
+#include <emmintrin.h>
+#endif
+
+#if PPSSPP_ARCH(ARM_NEON)
+#if defined(_MSC_VER) && PPSSPP_ARCH(ARM64)
+#include <arm64_neon.h>
+#else
+#include <arm_neon.h>
+#endif
+#endif
+
 #ifdef USE_FFMPEG
 
 extern "C" {
@@ -744,9 +756,34 @@ inline void writeVideoLineRGBA(void *destp, const void *srcp, int width) {
 	u32_le *dest = (u32_le *)destp;
 	const u32_le *src = (u32_le *)srcp;
 
-	const u32 mask = 0x00FFFFFF;
-	for (int i = 0; i < width; ++i) {
-		dest[i] = src[i] & mask;
+	int count = width;
+
+#if PPSSPP_ARCH(SSE2)
+	__m128i mask = _mm_set1_epi32(0x00FFFFFF);
+	while (count >= 8) {
+		__m128i pixels1 = _mm_and_si128(_mm_loadu_si128((const __m128i *)src), mask);
+		__m128i pixels2 = _mm_and_si128(_mm_loadu_si128((const __m128i *)src + 1), mask);
+		_mm_storeu_si128((__m128i *)dest, pixels1);
+		_mm_storeu_si128((__m128i *)dest + 1, pixels2);
+		src += 8;
+		dest += 8;
+		count -= 8;
+	}
+#elif PPSSPP_ARCH(ARM_NEON)
+	int32x4_t mask = vdupq_n_u32(0x00FFFFFF);
+	while (count >= 8) {
+		int32x4_t pixels1 = vandq_u32(vld1q_u32(src), mask);
+		int32x4_t pixels2 = vandq_u32(vld1q_u32(src + 4), mask);
+		vst1q_u32(dest, pixels1);
+		vst1q_u32(dest + 4, pixels2);
+		src += 8;
+		dest += 8;
+		count -= 8;
+	}
+#endif
+	const u32 mask32 = 0x00FFFFFF;
+	while (count--) {
+		*dest++ = *src++ & mask32;
 	}
 }
 

@@ -1036,3 +1036,33 @@ void TessellationDataTransfer::CopyControlPoints(float *pos, float *tex, float *
 		}
 	}
 }
+
+bool DrawEngineCommon::DescribeCodePtr(const u8 *ptr, std::string &name) const {
+	if (!decJitCache_ || !decJitCache_->IsInSpace(ptr)) {
+		return false;
+	}
+
+	// Loop through all the decoders and see if we have a match.
+	VertexDecoder *found = nullptr;
+	u32 foundKey;
+
+	decoderMap_.Iterate([&](u32 key, VertexDecoder *value) {
+		if (!found) {
+			if (value->IsInSpace(ptr)) {
+				foundKey = key;
+				found = value;
+			}
+		}
+	});
+
+	if (found) {
+		char temp[256];
+		found->ToString(temp, false);
+		name = temp;
+		snprintf(temp, sizeof(temp), "_%08X", foundKey);
+		name += temp;
+		return true;
+	} else {
+		return false;
+	}
+}
