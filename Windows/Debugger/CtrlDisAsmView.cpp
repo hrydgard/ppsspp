@@ -434,12 +434,12 @@ std::set<std::string> CtrlDisAsmView::getSelectedLineArguments() {
 		manager.getLine(addr, displaySymbols, line);
 		size_t p = 0, nextp = line.params.find(',');
 		while (nextp != line.params.npos) {
-			args.insert(line.params.substr(p, nextp - p));
+			args.emplace(line.params.substr(p, nextp - p));
 			p = nextp + 1;
 			nextp = line.params.find(',', p);
 		}
 		if (p < line.params.size()) {
-			args.insert(line.params.substr(p));
+			args.emplace(line.params.substr(p));
 		}
 	}
 
