@@ -683,7 +683,7 @@ void IRNativeBackend::SetBlockCheckedOffset(int block_num, int offset) {
 }
 
 void IRNativeBackend::AddLinkableExit(int block_num, uint32_t pc, int exitStartOffset, int exitLen) {
-	linksTo_.insert(std::make_pair(pc, block_num));
+	linksTo_.emplace(pc, block_num);
 
 	if (block_num >= (int)nativeBlocks_.size())
 		nativeBlocks_.resize(block_num + 1);
