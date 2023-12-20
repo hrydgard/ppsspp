@@ -184,9 +184,8 @@ static bool __KernelUnlockEventFlagForThread(EventFlag *e, EventFlagTh &th, u32 
 static bool __KernelClearEventFlagThreads(EventFlag *e, int reason) {
 	u32 error;
 	bool wokeThreads = false;
-	std::vector<EventFlagTh>::iterator iter, end;
-	for (iter = e->waitingThreads.begin(), end = e->waitingThreads.end(); iter != end; ++iter)
-		__KernelUnlockEventFlagForThread(e, *iter, error, reason, wokeThreads);
+	for (auto &event : e->waitingThreads)
+		__KernelUnlockEventFlagForThread(e, event, error, reason, wokeThreads);
 	e->waitingThreads.clear();
 
 	return wokeThreads;
