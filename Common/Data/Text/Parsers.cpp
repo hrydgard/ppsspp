@@ -18,7 +18,7 @@ void NiceSizeFormat(uint64_t size, char *out, size_t bufSize) {
 	if (s == 0)
 		snprintf(out, bufSize, "%d B", (int)size);
 	else {
-		const char* sizes[] = { "B","KB","MB","GB","TB","PB","EB" };
+		static const char* const sizes[] = { "B","KB","MB","GB","TB","PB","EB" };
 		snprintf(out, bufSize, "%3.2f %s", f, sizes[s]);
 	}
 }

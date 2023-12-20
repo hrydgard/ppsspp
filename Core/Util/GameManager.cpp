@@ -542,7 +542,9 @@ bool GameManager::ExtractFile(struct zip *z, int file_index, const Path &outFile
 		delete[] buffer;
 		return true;
 	} else {
-		ERROR_LOG(HLE, "Failed to open file for writing");
+		auto iz = GetI18NCategory(I18NCat::INSTALLZIP);
+		g_OSD.Show(OSDType::MESSAGE_ERROR, iz->T("Installation failed"));
+		ERROR_LOG(HLE, "Failed to open file for writing: %s", outFilename.c_str());
 		return false;
 	}
 }
@@ -613,6 +615,7 @@ bool GameManager::InstallMemstickGame(struct zip *z, const Path &zipfile, const 
 				continue;
 
 			if (!ExtractFile(z, i, outFilename, &bytesCopied, allBytes)) {
+				ERROR_LOG(HLE, "Bailing: Failed to extract file: %s -> %s", zippedName.c_str(), outFilename.c_str());
 				goto bail;
 			} else {
 				createdFiles.push_back(outFilename);
