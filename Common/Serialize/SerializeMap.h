@@ -62,9 +62,9 @@ void DoMap(PointerWrap &p, M &x, typename M::mapped_type &default_val) {
 template<class K, class T>
 void Do(PointerWrap &p, std::map<K, T *> &x) {
 	if (p.mode == PointerWrap::MODE_READ) {
-		for (auto it = x.begin(), end = x.end(); it != end; ++it) {
-			if (it->second != nullptr)
-				delete it->second;
+		for (const auto &[_, value] : x) {
+			if (value != nullptr)
+				delete value;
 		}
 	}
 	T *dv = nullptr;
@@ -80,9 +80,9 @@ void Do(PointerWrap &p, std::map<K, T> &x) {
 template<class K, class T>
 void Do(PointerWrap &p, std::unordered_map<K, T *> &x) {
 	if (p.mode == PointerWrap::MODE_READ) {
-		for (auto it = x.begin(), end = x.end(); it != end; ++it) {
-			if (it->second != nullptr)
-				delete it->second;
+		for (const auto &[_, value] : x) {
+			if (value != nullptr)
+				delete value;
 		}
 	}
 	T *dv = nullptr;
@@ -134,9 +134,9 @@ void DoMultimap(PointerWrap &p, M &x, typename M::mapped_type &default_val) {
 template<class K, class T>
 void Do(PointerWrap &p, std::multimap<K, T *> &x) {
 	if (p.mode == PointerWrap::MODE_READ) {
-		for (auto it = x.begin(), end = x.end(); it != end; ++it) {
-			if (it->second != nullptr)
-				delete it->second;
+		for (const auto &[_, value] : x) {
+			if (value != nullptr)
+				delete value;
 		}
 	}
 	T *dv = nullptr;
@@ -152,9 +152,9 @@ void Do(PointerWrap &p, std::multimap<K, T> &x) {
 template<class K, class T>
 void Do(PointerWrap &p, std::unordered_multimap<K, T *> &x) {
 	if (p.mode == PointerWrap::MODE_READ) {
-		for (auto it = x.begin(), end = x.end(); it != end; ++it) {
-			if (it->second != nullptr)
-				delete it->second;
+		for (const auto &[_, value] : x) {
+			if (value != nullptr)
+				delete value;
 		}
 	}
 	T *dv = nullptr;

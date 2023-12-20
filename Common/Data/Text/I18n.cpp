@@ -95,10 +95,10 @@ const char *I18NCategory::T(const char *key, const char *def) {
 }
 
 void I18NCategory::SetMap(const std::map<std::string, std::string> &m) {
-	for (auto iter = m.begin(); iter != m.end(); ++iter) {
-		if (map_.find(iter->first) == map_.end()) {
-			std::string text = ReplaceAll(iter->second, "\\n", "\n");
-			map_[iter->first] = I18NEntry(text);
+	for (const auto &[key, value] : m) {
+		if (map_.find(key) == map_.end()) {
+			std::string text = ReplaceAll(value, "\\n", "\n");
+			map_[key] = I18NEntry(text);
 		}
 	}
 }

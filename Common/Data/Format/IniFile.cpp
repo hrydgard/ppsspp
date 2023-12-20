@@ -191,9 +191,9 @@ void Section::Clear() {
 
 bool Section::GetKeys(std::vector<std::string> &keys) const {
 	keys.clear();
-	for (auto liter = lines_.begin(); liter != lines_.end(); ++liter) {
-		if (!liter->Key().empty())
-			keys.push_back(std::string(liter->Key()));
+	for (const auto &liter : lines_) {
+		if (!liter.Key().empty())
+			keys.push_back(std::string(liter.Key()));
 	}
 	return true;
 }
@@ -293,11 +293,10 @@ void Section::Set(const char* key, bool newValue, bool defaultValue)
 void Section::Set(const char* key, const std::vector<std::string>& newValues) 
 {
 	std::string temp;
-	// Join the strings with , 
-	std::vector<std::string>::const_iterator it;
-	for (it = newValues.begin(); it != newValues.end(); ++it)
+	// Join the strings with ,
+	for (const auto &value : newValues)
 	{
-		temp += (*it) + ",";
+		temp += value + ",";
 	}
 	// remove last ,
 	if (temp.length())
