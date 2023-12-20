@@ -78,6 +78,9 @@ static struct SceNetMallocStat netMallocStat;
 
 static std::map<int, ApctlHandler> apctlHandlers;
 
+std::string defaultNetConfigName = "NetConf";
+std::string defaultNetSSID = "Wifi"; // fake AP/hotspot
+int netApctlInfoId = 0;
 SceNetApctlInfoInternal netApctlInfo;
 
 bool netApctlInited;

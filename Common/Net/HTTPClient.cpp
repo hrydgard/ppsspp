@@ -235,6 +235,7 @@ constexpr const char *HTTP_VERSION = "1.1";
 
 Client::Client() {
 	userAgent_ = DEFAULT_USERAGENT;
+	httpVersion_ = HTTP_VERSION;
 }
 
 Client::~Client() {
