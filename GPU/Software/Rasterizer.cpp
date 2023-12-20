@@ -1406,7 +1406,6 @@ void DrawRectangle(const VertexData &v0, const VertexData &v1, const BinCoords &
 void DrawPoint(const VertexData &v0, const BinCoords &range, const RasterizerState &state) {
 	ScreenCoords pos = v0.screenpos;
 	Vec4<int> prim_color = Vec4<int>::FromRGBA(v0.color0);
-	Vec3<int> sec_color = Vec3<int>::FromRGB(v0.color1);
 
 	auto &pixelID = state.pixelID;
 	auto &samplerID = state.samplerID;
@@ -1446,8 +1445,10 @@ void DrawPoint(const VertexData &v0, const BinCoords &range, const RasterizerSta
 		prim_color = ApplyTexturingSingle(s, t, ToVec4IntArg(prim_color), texLevel, texLevelFrac, bilinear, state);
 	}
 
-	if (!pixelID.clearMode)
+	if (!pixelID.clearMode) {
+		Vec3<int> sec_color = Vec3<int>::FromRGB(v0.color1);
 		prim_color += Vec4<int>(sec_color, 0);
+	}
 
 	u8 fog = 255;
 	if (pixelID.applyFog) {

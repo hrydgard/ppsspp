@@ -350,7 +350,6 @@ void VulkanQueueRunner::RunSteps(std::vector<VKRStep *> &steps, int curFrame, Fr
 
 	for (size_t i = 0; i < steps.size(); i++) {
 		const VKRStep &step = *steps[i];
-
 		if (emitLabels) {
 			VkDebugUtilsLabelEXT labelInfo{ VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT };
 			char temp[128];
@@ -394,7 +393,7 @@ void VulkanQueueRunner::RunSteps(std::vector<VKRStep *> &steps, int curFrame, Fr
 					vkCmdBeginDebugUtilsLabelEXT(cmd, &labelInfo);
 				}
 			}
-			PerformRenderPass(step, cmd, curFrame);
+			PerformRenderPass(step, cmd, curFrame, frameData.profile);
 			break;
 		case VKRStepType::COPY:
 			PerformCopy(step, cmd);
@@ -1101,7 +1100,7 @@ void TransitionFromOptimal(VkCommandBuffer cmd, VkImage colorImage, VkImageLayou
 	}
 }
 
-void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer cmd, int curFrame) {
+void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer cmd, int curFrame, QueueProfileContext &profile) {
 	for (size_t i = 0; i < step.preTransitions.size(); i++) {
 		const TransitionRequest &iter = step.preTransitions[i];
 		if (iter.aspect == VK_IMAGE_ASPECT_COLOR_BIT && iter.fb->color.layout != iter.targetLayout) {
@@ -1210,6 +1209,13 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 
 	for (size_t i = 0; i < commands.size(); i++) {
 		const VkRenderData &c = commands[i];
+#ifdef _DEBUG
+		if (profile.enabled) {
+			if ((size_t)step.stepType < ARRAY_SIZE(profile.commandCounts)) {
+				profile.commandCounts[(size_t)c.cmd]++;
+			}
+		}
+#endif
 		switch (c.cmd) {
 		case VKRRenderCommand::REMOVED:
 			break;
@@ -2087,4 +2093,25 @@ bool VulkanQueueRunner::CopyReadbackBuffer(FrameData &frameData, VKRFramebuffer 
 
 	vmaUnmapMemory(vulkan_->Allocator(), readback->allocation);
 	return true;
+}
+
+const char *VKRRenderCommandToString(VKRRenderCommand cmd) {
+	const char * const str[] = {
+		"REMOVED",
+		"BIND_GRAPHICS_PIPELINE",  // async
+		"STENCIL",
+		"BLEND",
+		"VIEWPORT",
+		"SCISSOR",
+		"CLEAR",
+		"DRAW",
+		"DRAW_INDEXED",
+		"PUSH_CONSTANTS",
+		"DEBUG_ANNOTATION",
+	};
+	if ((int)cmd < ARRAY_SIZE(str)) {
+		return str[(int)cmd];
+	} else {
+		return "N/A";
+	}
 }

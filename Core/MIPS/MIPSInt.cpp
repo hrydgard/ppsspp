@@ -1038,13 +1038,17 @@ namespace MIPSInt
 		int index = op.encoding & 0xFFFFFF;
 		const ReplacementTableEntry *entry = GetReplacementFunc(index);
 		if (entry && entry->replaceFunc && (entry->flags & REPFLAG_DISABLED) == 0) {
-			entry->replaceFunc();
+			int cycles = entry->replaceFunc();
 
 			if (entry->flags & (REPFLAG_HOOKENTER | REPFLAG_HOOKEXIT)) {
 				// Interpret the original instruction under the hook.
 				MIPSInterpret(Memory::Read_Instruction(PC, true));
+			} else if (cycles < 0) {
+				// Leave PC unchanged, call the replacement again (assumes args are modified.)
+				currentMIPS->downcount += cycles;
 			} else {
 				PC = currentMIPS->r[MIPS_REG_RA];
+				currentMIPS->downcount -= cycles;
 			}
 		} else {
 			if (!entry || !entry->replaceFunc) {

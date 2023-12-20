@@ -61,14 +61,13 @@ static bool FolderSeemsToBeUsed(const Path &newMemstickFolder) {
 }
 
 static bool SwitchMemstickFolderTo(Path newMemstickFolder) {
-	Path testWriteFile = newMemstickFolder / ".write_verify_file";
-
 	// Doesn't already exist, create.
 	// Should this ever happen?
 	if (newMemstickFolder.Type() == PathType::NATIVE) {
 		if (!File::Exists(newMemstickFolder)) {
 			File::CreateFullPath(newMemstickFolder);
 		}
+		Path testWriteFile = newMemstickFolder / ".write_verify_file";
 		if (!File::WriteDataToFile(true, "1", 1, testWriteFile)) {
 			return false;
 		}
@@ -562,7 +561,6 @@ ConfirmMemstickMoveScreen::~ConfirmMemstickMoveScreen() {
 
 void ConfirmMemstickMoveScreen::CreateViews() {
 	using namespace UI;
-	auto di = GetI18NCategory(I18NCat::DIALOG);
 	auto sy = GetI18NCategory(I18NCat::SYSTEM);
 	auto iz = GetI18NCategory(I18NCat::MEMSTICK);
 
@@ -618,6 +616,7 @@ void ConfirmMemstickMoveScreen::CreateViews() {
 			leftColumn->Add(new CheckBox(&moveData_, iz->T("Move Data")))->OnClick.Handle(this, &ConfirmMemstickMoveScreen::OnMoveDataClick);
 		}
 
+		auto di = GetI18NCategory(I18NCat::DIALOG);
 		leftColumn->Add(new Choice(di->T("OK")))->OnClick.Handle(this, &ConfirmMemstickMoveScreen::OnConfirm);
 		leftColumn->Add(new Choice(di->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 	}

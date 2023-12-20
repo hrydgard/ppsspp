@@ -56,6 +56,10 @@ public:
 		list = displayList;
 		gotoAddr(list.pc);
 	}
+	void clearDisplayList()
+	{
+		validDisplayList = false;
+	}
 
 	void scrollWindow(int lines)
 	{

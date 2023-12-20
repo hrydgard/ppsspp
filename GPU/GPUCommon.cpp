@@ -1938,11 +1938,9 @@ bool GPUCommon::GetCurrentSimpleVertices(int count, std::vector<GPUDebugVertex> 
 }
 
 bool GPUCommon::DescribeCodePtr(const u8 *ptr, std::string &name) {
-	if (drawEngineCommon_->IsCodePtrVertexDecoder(ptr)) {
-		name = "VertexDecoderJit";
-		return true;
-	}
-	return false;
+	// The only part of GPU emulation (other than software) that jits is the vertex decoder, currently,
+	// which is owned by the drawengine.
+	return drawEngineCommon_->DescribeCodePtr(ptr, name);
 }
 
 void GPUCommon::UpdateUVScaleOffset() {

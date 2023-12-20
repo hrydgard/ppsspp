@@ -27,6 +27,8 @@
 #include "Windows/GEDebugger/SimpleGLWindow.h"
 #include "Windows/W32Util/ContextMenu.h"
 
+#include "Core/System.h"
+
 const wchar_t *SimpleGLWindow::windowClass = L"SimpleGLWindow";
 
 using namespace Lin;
@@ -591,6 +593,13 @@ bool SimpleGLWindow::RightClick(int mouseX, int mouseY) {
 	POINT pos = PosFromMouse(mouseX, mouseY);
 
 	rightClickCallback_(0, pos.x, pos.y);
+
+	// We don't want to let the users play with deallocated or uninitialized debugging objects
+	GlobalUIState state = GetUIState();
+	if (state != UISTATE_INGAME && state != UISTATE_PAUSEMENU) {
+		return true;
+	}
+
 	int result = TriggerContextMenu(rightClickMenu_, hWnd_, ContextPoint::FromClient(pt));
 	if (result > 0) {
 		rightClickCallback_(result, pos.x, pos.y);

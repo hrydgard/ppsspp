@@ -495,7 +495,6 @@ void StoreScreen::CreateViews() {
 	root_ = new LinearLayout(ORIENT_VERTICAL);
 	
 	auto di = GetI18NCategory(I18NCat::DIALOG);
-	auto st = GetI18NCategory(I18NCat::STORE);
 	auto mm = GetI18NCategory(I18NCat::MAINMENU);
 
 	// Top bar
@@ -508,6 +507,7 @@ void StoreScreen::CreateViews() {
 
 	LinearLayout *content;
 	if (connectionError_ || loading_) {
+		auto st = GetI18NCategory(I18NCat::STORE);
 		content = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT, 1.0f));
 		content->Add(new TextView(loading_ ? std::string(st->T("Loading...")) : StringFromFormat("%s: %d", st->T("Connection Error"), resultCode_)));
 		if (!loading_) {

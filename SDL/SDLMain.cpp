@@ -708,31 +708,6 @@ static void EmuThreadJoin() {
 }
 
 struct InputStateTracker {
-	void TranslateMouseWheel() {
-		// SDL2 doesn't consider the mousewheel a button anymore
-		// so let's send the KEY_UP if it was moved after some frames
-		if (mouseWheelMovedUpFrames > 0) {
-			mouseWheelMovedUpFrames--;
-			if (mouseWheelMovedUpFrames == 0) {
-				KeyInput key;
-				key.deviceId = DEVICE_ID_MOUSE;
-				key.keyCode = NKCODE_EXT_MOUSEWHEEL_UP;
-				key.flags = KEY_UP;
-				NativeKey(key);
-			}
-		}
-		if (mouseWheelMovedDownFrames > 0) {
-			mouseWheelMovedDownFrames--;
-			if (mouseWheelMovedDownFrames == 0) {
-				KeyInput key;
-				key.deviceId = DEVICE_ID_MOUSE;
-				key.keyCode = NKCODE_EXT_MOUSEWHEEL_DOWN;
-				key.flags = KEY_UP;
-				NativeKey(key);
-			}
-		}
-	}
-
 	void MouseCaptureControl() {
 		bool captureMouseCondition = g_Config.bMouseControl && ((GetUIState() == UISTATE_INGAME && g_Config.bMouseConfine) || g_Config.bMapMouse);
 		if (mouseCaptured != captureMouseCondition) {
@@ -745,8 +720,6 @@ struct InputStateTracker {
 	}
 
 	bool mouseDown;
-	int mouseWheelMovedUpFrames;
-	int mouseWheelMovedDownFrames;
 	bool mouseCaptured;
 };
 
@@ -1019,11 +992,9 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 #endif
 			if (event.wheel.y > 0) {
 				key.keyCode = NKCODE_EXT_MOUSEWHEEL_UP;
-				inputTracker->mouseWheelMovedUpFrames = 5;
 				NativeKey(key);
 			} else if (event.wheel.y < 0) {
 				key.keyCode = NKCODE_EXT_MOUSEWHEEL_DOWN;
-				inputTracker->mouseWheelMovedDownFrames = 5;
 				NativeKey(key);
 			}
 			break;
@@ -1448,8 +1419,6 @@ int main(int argc, char *argv[]) {
 	if (!mainThreadIsRender) {
 		// We should only be a message pump
 		while (true) {
-			inputTracker.TranslateMouseWheel();
-
 			SDL_Event event;
 			while (SDL_PollEvent(&event)) {
 				ProcessSDLEvent(window, event, &inputTracker);
@@ -1461,7 +1430,6 @@ int main(int argc, char *argv[]) {
 
 			inputTracker.MouseCaptureControl();
 
-
 			{
 				std::lock_guard<std::mutex> guard(g_mutexWindow);
 				if (g_windowState.update) {
@@ -1470,8 +1438,6 @@ int main(int argc, char *argv[]) {
 			}
 		}
 	} else while (true) {
-		inputTracker.TranslateMouseWheel();
-
 		{
 			SDL_Event event;
 			while (SDL_PollEvent(&event)) {

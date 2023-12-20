@@ -816,6 +816,10 @@ int DrawEngineCommon::ExtendNonIndexedPrim(const uint32_t *cmd, const uint32_t *
 	_dbg_assert_(numDrawInds_ <= MAX_DEFERRED_DRAW_INDS);  // if it's equal, the check below will take care of it before any action is taken.
 	_dbg_assert_(numDrawVerts_ > 0);
 
+	if (!clockwise) {
+		anyCCWOrIndexed_ = true;
+	}
+	int seenPrims = 0;
 	while (cmd != stall) {
 		uint32_t data = *cmd;
 		if ((data & 0xFFF80000) != 0x04000000) {
@@ -831,6 +835,7 @@ int DrawEngineCommon::ExtendNonIndexedPrim(const uint32_t *cmd, const uint32_t *
 		DeferredInds &di = drawInds_[numDrawInds_++];
 		di.indexType = 0;
 		di.prim = newPrim;
+		seenPrims |= (1 << newPrim);
 		di.clockwise = clockwise;
 		di.vertexCount = vertexCount;
 		di.vertDecodeIndex = prevDrawVerts;
@@ -838,6 +843,10 @@ int DrawEngineCommon::ExtendNonIndexedPrim(const uint32_t *cmd, const uint32_t *
 		offset += vertexCount;
 		cmd++;
 	}
+
+	seenPrims_ |= seenPrims;
+
+	_dbg_assert_(cmd != start);
 
 	int totalCount = offset - dv.vertexCount;
 	dv.vertexCount = offset;
@@ -910,9 +919,16 @@ bool DrawEngineCommon::SubmitPrim(const void *verts, const void *inds, GEPrimiti
 
 	DeferredInds &di = drawInds_[numDrawInds_++];
 	di.inds = inds;
-	di.indexType = (vertTypeID & GE_VTYPE_IDX_MASK) >> GE_VTYPE_IDX_SHIFT;
+	int indexType = (vertTypeID & GE_VTYPE_IDX_MASK) >> GE_VTYPE_IDX_SHIFT;
+	if (indexType) {
+		anyCCWOrIndexed_ = true;
+	}
+	di.indexType = indexType;
 	di.prim = prim;
 	di.clockwise = clockwise;
+	if (!clockwise) {
+		anyCCWOrIndexed_ = true;
+	}
 	di.vertexCount = vertexCount;
 	di.vertDecodeIndex = numDrawVerts_;
 	di.offset = 0;
@@ -942,6 +958,7 @@ bool DrawEngineCommon::SubmitPrim(const void *verts, const void *inds, GEPrimiti
 	}
 
 	vertexCountInDrawCalls_ += vertexCount;
+	seenPrims_ |= (1 << prim);
 
 	if (prim == GE_PRIM_RECTANGLES && (gstate.getTextureAddress(0) & 0x3FFFFFFF) == (gstate.getFrameBufAddress() & 0x3FFFFFFF)) {
 		// This prevents issues with consecutive self-renders in Ridge Racer.
@@ -952,6 +969,8 @@ bool DrawEngineCommon::SubmitPrim(const void *verts, const void *inds, GEPrimiti
 }
 
 void DrawEngineCommon::DecodeVerts(u8 *dest) {
+	// Note that this should be able to continue a partial decode - we don't necessarily start from zero here (although we do most of the time).
+
 	int i = decodeVertsCounter_;
 	int stride = (int)dec_->GetDecVtxFmt().stride;
 	for (; i < numDrawVerts_; i++) {
@@ -968,7 +987,9 @@ void DrawEngineCommon::DecodeVerts(u8 *dest) {
 	decodeVertsCounter_ = i;
 }
 
-void DrawEngineCommon::DecodeInds() {
+int DrawEngineCommon::DecodeInds() {
+	// Note that this should be able to continue a partial decode - we don't necessarily start from zero here (although we do most of the time).
+
 	int i = decodeIndsCounter_;
 	for (; i < numDrawInds_; i++) {
 		const DeferredInds &di = drawInds_[i];
@@ -994,12 +1015,7 @@ void DrawEngineCommon::DecodeInds() {
 	}
 	decodeIndsCounter_ = i;
 
-	// Sanity check
-	if (indexGen.Prim() < 0) {
-		ERROR_LOG_REPORT(G3D, "DecodeVerts: Failed to deduce prim: %i", indexGen.Prim());
-		// Force to points (0)
-		indexGen.AddPrim(GE_PRIM_POINTS, 0, 0, true);
-	}
+	return indexGen.VertexCount();
 }
 
 bool DrawEngineCommon::CanUseHardwareTransform(int prim) {
@@ -1034,5 +1050,35 @@ void TessellationDataTransfer::CopyControlPoints(float *pos, float *tex, float *
 			memcpy(col, Vec4f::FromRGBA(points[i]->color_32).AsArray(), 4 * sizeof(float));
 			col += colStride;
 		}
+	}
+}
+
+bool DrawEngineCommon::DescribeCodePtr(const u8 *ptr, std::string &name) const {
+	if (!decJitCache_ || !decJitCache_->IsInSpace(ptr)) {
+		return false;
+	}
+
+	// Loop through all the decoders and see if we have a match.
+	VertexDecoder *found = nullptr;
+	u32 foundKey;
+
+	decoderMap_.Iterate([&](u32 key, VertexDecoder *value) {
+		if (!found) {
+			if (value->IsInSpace(ptr)) {
+				foundKey = key;
+				found = value;
+			}
+		}
+	});
+
+	if (found) {
+		char temp[256];
+		found->ToString(temp, false);
+		name = temp;
+		snprintf(temp, sizeof(temp), "_%08X", foundKey);
+		name += temp;
+		return true;
+	} else {
+		return false;
 	}
 }

@@ -602,6 +602,7 @@ static const ConfigSetting graphicsSettings[] = {
 	ConfigSetting("VendorBugChecksEnabled", &g_Config.bVendorBugChecksEnabled, true, CfgFlag::DONT_SAVE),
 	ConfigSetting("UseGeometryShader", &g_Config.bUseGeometryShader, false, CfgFlag::PER_GAME),
 	ConfigSetting("SkipBufferEffects", &g_Config.bSkipBufferEffects, false, CfgFlag::PER_GAME | CfgFlag::REPORT),
+	ConfigSetting("DisableRangeCulling", &g_Config.bDisableRangeCulling, false, CfgFlag::PER_GAME | CfgFlag::REPORT),
 	ConfigSetting("SoftwareRenderer", &g_Config.bSoftwareRendering, false, CfgFlag::PER_GAME),
 	ConfigSetting("SoftwareRendererJit", &g_Config.bSoftwareRenderingJit, true, CfgFlag::PER_GAME),
 	ConfigSetting("HardwareTransform", &g_Config.bHardwareTransform, true, CfgFlag::PER_GAME | CfgFlag::REPORT),
@@ -838,6 +839,7 @@ static const ConfigSetting controlSettings[] = {
 	ConfigSetting("ConfineMap", &g_Config.bMouseConfine, false, CfgFlag::PER_GAME),
 	ConfigSetting("MouseSensitivity", &g_Config.fMouseSensitivity, 0.1f, CfgFlag::PER_GAME),
 	ConfigSetting("MouseSmoothing", &g_Config.fMouseSmoothing, 0.9f, CfgFlag::PER_GAME),
+	ConfigSetting("MouseWheelUpDelayMs", &g_Config.iMouseWheelUpDelayMs, 80, CfgFlag::PER_GAME),
 
 	ConfigSetting("SystemControls", &g_Config.bSystemControls, true, CfgFlag::DEFAULT),
 	ConfigSetting("RapidFileInterval", &g_Config.iRapidFireInterval, 5, CfgFlag::DEFAULT),

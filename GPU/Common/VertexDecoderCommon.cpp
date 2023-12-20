@@ -1276,7 +1276,7 @@ void VertexDecoder::SetVertexType(u32 fmt, const VertexDecoderOptions &options, 
 
 	if (reportNoPos) {
 		char temp[256]{};
-		ToString(temp);
+		ToString(temp, true);
 		ERROR_LOG_REPORT(G3D, "Vertices without position found: (%08x) %s", fmt_, temp);
 	}
 
@@ -1402,7 +1402,7 @@ void VertexDecoder::CompareToJit(const u8 *startPtr, u8 *decodedptr, int count, 
 		jittedReader.Goto(i);
 		if (!DecodedVertsAreSimilar(controlReader, jittedReader)) {
 			char name[512]{};
-			ToString(name);
+			ToString(name, true);
 			ERROR_LOG(G3D, "Encountered vertexjit mismatch at %d/%d for %s", i, count, name);
 			if (morphcount > 1) {
 				printf("Morph:\n");
@@ -1456,8 +1456,9 @@ static const char *idxnames[4] = { "-", "u8", "u16", "?" };
 static const char *weightnames[4] = { "-", "u8", "u16", "f" };
 static const char *colnames[8] = { "", "?", "?", "?", "565", "5551", "4444", "8888" };
 
-int VertexDecoder::ToString(char *output) const {
-	char * start = output;
+int VertexDecoder::ToString(char *output, bool spaces) const {
+	char *start = output;
+	
 	output += sprintf(output, "P: %s ", posnames[pos]);
 	if (nrm)
 		output += sprintf(output, "N: %s ", nrmnames[nrm]);
@@ -1474,7 +1475,16 @@ int VertexDecoder::ToString(char *output) const {
 	if (throughmode)
 		output += sprintf(output, " (through)");
 
-	output += sprintf(output, " (size: %i)", VertexSize());
+	output += sprintf(output, " (%ib)", VertexSize());
+
+	if (!spaces) {
+		size_t len = strlen(start);
+		for (int i = 0; i < len; i++) {
+			if (start[i] == ' ')
+				start[i] = '_';
+		}
+	}
+
 	return output - start;
 }
 
@@ -1482,7 +1492,7 @@ std::string VertexDecoder::GetString(DebugShaderStringType stringType) {
 	char buffer[256];
 	switch (stringType) {
 	case SHADER_STRING_SHORT_DESC:
-		ToString(buffer);
+		ToString(buffer, true);
 		return std::string(buffer);
 	case SHADER_STRING_SOURCE_CODE:
 		{

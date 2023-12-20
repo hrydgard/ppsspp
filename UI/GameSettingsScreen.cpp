@@ -158,9 +158,9 @@ static bool UsingHardwareTextureScaling() {
 }
 
 static std::string TextureTranslateName(const char *value) {
-	auto ts = GetI18NCategory(I18NCat::TEXTURESHADERS);
 	const TextureShaderInfo *info = GetTextureShaderInfo(value);
 	if (info) {
+		auto ts = GetI18NCategory(I18NCat::TEXTURESHADERS);
 		return ts->T(value, info ? info->name.c_str() : value);
 	} else {
 		return value;
@@ -205,9 +205,9 @@ bool PathToVisualUsbPath(Path path, std::string &outPath) {
 }
 
 static std::string PostShaderTranslateName(const char *value) {
-	auto ps = GetI18NCategory(I18NCat::POSTSHADERS);
 	const ShaderInfo *info = GetPostShaderInfo(value);
 	if (info) {
+		auto ps = GetI18NCategory(I18NCat::POSTSHADERS);
 		return ps->T(value, info ? info->name.c_str() : value);
 	} else {
 		return value;
@@ -427,6 +427,8 @@ void GameSettingsScreen::CreateGraphicsSettings(UI::ViewGroup *graphicsSettings)
 		return UI::EVENT_DONE;
 	});
 	skipBufferEffects->SetDisabledPtr(&g_Config.bSoftwareRendering);
+
+	graphicsSettings->Add(new CheckBox(&g_Config.bDisableRangeCulling, gr->T("Disable culling")));
 
 	static const char *skipGpuReadbackModes[] = { "No (default)", "Skip", "Copy to texture" };
 
@@ -659,8 +661,8 @@ void GameSettingsScreen::CreateControlsSettings(UI::ViewGroup *controlsSettings)
 	using namespace UI;
 
 	auto co = GetI18NCategory(I18NCat::CONTROLS);
-	auto di = GetI18NCategory(I18NCat::DIALOG);
 	auto ms = GetI18NCategory(I18NCat::MAINSETTINGS);
+	auto di = GetI18NCategory(I18NCat::DIALOG);
 
 	int deviceType = System_GetPropertyInt(SYSPROP_DEVICE_TYPE);
 
@@ -765,7 +767,11 @@ void GameSettingsScreen::CreateControlsSettings(UI::ViewGroup *controlsSettings)
 		bool enableMouseSettings = false;
 #endif
 		if (enableMouseSettings) {
+			// The mousewheel button-release setting is independent of actual mouse delta control.
 			controlsSettings->Add(new ItemHeader(co->T("Mouse", "Mouse settings")));
+			auto wheelUpDelaySlider = controlsSettings->Add(new PopupSliderChoice(&g_Config.iMouseWheelUpDelayMs, 10, 300, 1, co->T("Mouse wheel button-release delay"), screenManager()));
+			wheelUpDelaySlider->SetFormat(di->T("%d ms"));
+
 			CheckBox *mouseControl = controlsSettings->Add(new CheckBox(&g_Config.bMouseControl, co->T("Use Mouse Control")));
 			mouseControl->OnClick.Add([=](EventParams &e) {
 				if (g_Config.bMouseControl)
@@ -917,9 +923,11 @@ void GameSettingsScreen::CreateNetworkingSettings(UI::ViewGroup *networkingSetti
 	}
 #endif
 
+	auto di = GetI18NCategory(I18NCat::DIALOG);
+
 	networkingSettings->Add(new ItemHeader(n->T("Misc", "Misc (default = compatibility)")));
 	networkingSettings->Add(new PopupSliderChoice(&g_Config.iPortOffset, 0, 60000, 10000, n->T("Port offset", "Port offset (0 = PSP compatibility)"), 100, screenManager()));
-	networkingSettings->Add(new PopupSliderChoice(&g_Config.iMinTimeout, 0, 15000, 0, n->T("Minimum Timeout", "Minimum Timeout (override in ms, 0 = default)"), 50, screenManager()));
+	networkingSettings->Add(new PopupSliderChoice(&g_Config.iMinTimeout, 0, 15000, 0, n->T("Minimum Timeout", "Minimum Timeout (override in ms, 0 = default)"), 50, screenManager()))->SetFormat(di->T("%d ms"));
 	networkingSettings->Add(new CheckBox(&g_Config.bForcedFirstConnect, n->T("Forced First Connect", "Forced First Connect (faster Connect)")));
 }
 
@@ -1501,8 +1509,6 @@ void GameSettingsScreen::dialogFinished(const Screen *dialog, DialogResult resul
 }
 
 void GameSettingsScreen::CallbackMemstickFolder(bool yes) {
-	auto sy = GetI18NCategory(I18NCat::SYSTEM);
-
 	if (yes) {
 		Path memstickDirFile = g_Config.internalDataDirectory / "memstick_dir.txt";
 		std::string testWriteFile = pendingMemstickFolder_ + "/.write_verify_file";
@@ -1512,6 +1518,7 @@ void GameSettingsScreen::CallbackMemstickFolder(bool yes) {
 			File::CreateFullPath(Path(pendingMemstickFolder_));
 		}
 		if (!File::WriteDataToFile(true, "1", 1, Path(testWriteFile))) {
+			auto sy = GetI18NCategory(I18NCat::SYSTEM);
 			settingInfo_->Show(sy->T("ChangingMemstickPathInvalid", "That path couldn't be used to save Memory Stick files."), nullptr);
 			return;
 		}
@@ -1545,10 +1552,9 @@ static void TriggerRestart(const char *why, bool editThenRestore, const Path &ga
 }
 
 UI::EventReturn GameSettingsScreen::OnRenderingBackend(UI::EventParams &e) {
-	auto di = GetI18NCategory(I18NCat::DIALOG);
-
 	// It only makes sense to show the restart prompt if the backend was actually changed.
 	if (g_Config.iGPUBackend != (int)GetGPUBackend()) {
+		auto di = GetI18NCategory(I18NCat::DIALOG);
 		screenManager()->push(new PromptScreen(gamePath_, di->T("Changing this setting requires PPSSPP to restart."), di->T("Restart"), di->T("Cancel"), [=](bool yes) {
 			if (yes) {
 				TriggerRestart("GameSettingsScreen::RenderingBackendYes", editThenRestore_, gamePath_);
@@ -1561,11 +1567,10 @@ UI::EventReturn GameSettingsScreen::OnRenderingBackend(UI::EventParams &e) {
 }
 
 UI::EventReturn GameSettingsScreen::OnRenderingDevice(UI::EventParams &e) {
-	auto di = GetI18NCategory(I18NCat::DIALOG);
-
 	// It only makes sense to show the restart prompt if the device was actually changed.
 	std::string *deviceNameSetting = GPUDeviceNameSetting();
 	if (deviceNameSetting && *deviceNameSetting != GetGPUBackendDevice()) {
+		auto di = GetI18NCategory(I18NCat::DIALOG);
 		screenManager()->push(new PromptScreen(gamePath_, di->T("Changing this setting requires PPSSPP to restart."), di->T("Restart"), di->T("Cancel"), [=](bool yes) {
 			// If the user ends up deciding not to restart, set the config back to the current backend
 			// so it doesn't get switched by accident.
@@ -1584,8 +1589,8 @@ UI::EventReturn GameSettingsScreen::OnRenderingDevice(UI::EventParams &e) {
 }
 
 UI::EventReturn GameSettingsScreen::OnInflightFramesChoice(UI::EventParams &e) {
-	auto di = GetI18NCategory(I18NCat::DIALOG);
 	if (g_Config.iInflightFrames != prevInflightFrames_) {
+		auto di = GetI18NCategory(I18NCat::DIALOG);
 		screenManager()->push(new PromptScreen(gamePath_, di->T("Changing this setting requires PPSSPP to restart."), di->T("Restart"), di->T("Cancel"), [=](bool yes) {
 			if (yes) {
 				TriggerRestart("GameSettingsScreen::InflightFramesYes", editThenRestore_, gamePath_);
@@ -1939,10 +1944,10 @@ void GameSettingsScreen::CallbackRestoreDefaults(bool yes) {
 }
 
 UI::EventReturn GameSettingsScreen::OnRestoreDefaultSettings(UI::EventParams &e) {
-	auto dev = GetI18NCategory(I18NCat::DEVELOPER);
-	auto di = GetI18NCategory(I18NCat::DIALOG);
 	auto sy = GetI18NCategory(I18NCat::SYSTEM);
 	if (g_Config.bGameSpecific) {
+		auto dev = GetI18NCategory(I18NCat::DEVELOPER);
+		auto di = GetI18NCategory(I18NCat::DIALOG);
 		screenManager()->push(
 			new PromptScreen(gamePath_, dev->T("RestoreGameDefaultSettings", "Are you sure you want to restore the game-specific settings back to the ppsspp defaults?\n"), di->T("OK"), di->T("Cancel"),
 			std::bind(&GameSettingsScreen::CallbackRestoreDefaults, this, std::placeholders::_1)));

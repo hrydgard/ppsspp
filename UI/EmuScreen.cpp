@@ -233,8 +233,6 @@ bool EmuScreen::bootAllowStorage(const Path &filename) {
 }
 
 void EmuScreen::bootGame(const Path &filename) {
-	auto sc = GetI18NCategory(I18NCat::SCREEN);
-
 	if (Achievements::IsBlockingExecution()) {
 		// Keep waiting.
 		return;
@@ -288,6 +286,7 @@ void EmuScreen::bootGame(const Path &filename) {
 
 		g_Discord.SetPresenceGame(info->GetTitle().c_str());
 	} else {
+		auto sc = GetI18NCategory(I18NCat::SCREEN);
 		g_Discord.SetPresenceGame(sc->T("Untitled PSP game"));
 	}
 
@@ -408,6 +407,14 @@ void EmuScreen::bootComplete() {
 #else
 		g_OSD.Show(OSDType::MESSAGE_WARNING, sy->T("WARNING: Battery save mode is on"), 2.0f, "core_powerSaving");
 #endif
+	}
+
+	if (g_Config.bStereoRendering) {
+		auto gr = GetI18NCategory(I18NCat::GRAPHICS);
+		auto di = GetI18NCategory(I18NCat::DIALOG);
+		// Stereo rendering is experimental, so let's notify the user it's being used.
+		// Carefully reuse translations for this rare warning.
+		g_OSD.Show(OSDType::MESSAGE_WARNING, std::string(gr->T("Stereo rendering")) + ": " + di->T("Enabled"));
 	}
 
 	saveStateSlot_ = SaveState::GetCurrentSlot();
@@ -970,7 +977,6 @@ void EmuScreen::CreateViews() {
 	using namespace UI;
 
 	auto dev = GetI18NCategory(I18NCat::DEVELOPER);
-	auto n = GetI18NCategory(I18NCat::NETWORKING);
 	auto sc = GetI18NCategory(I18NCat::SCREEN);
 
 	const Bounds &bounds = screenManager()->getUIContext()->GetLayoutBounds();
@@ -1003,6 +1009,7 @@ void EmuScreen::CreateViews() {
 
 	if (g_Config.bEnableNetworkChat) {
 		if (g_Config.iChatButtonPosition != 8) {
+			auto n = GetI18NCategory(I18NCat::NETWORKING);
 			AnchorLayoutParams *layoutParams = AnchorInCorner(bounds, g_Config.iChatButtonPosition, 80.0f, 50.0f);
 			ChoiceWithValueDisplay *btn = new ChoiceWithValueDisplay(&newChatMessages_, n->T("Chat"), layoutParams);
 			root_->Add(btn)->OnClick.Handle(this, &EmuScreen::OnChat);
@@ -1479,7 +1486,7 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 
 	if (mode & ScreenRenderMode::TOP) {
 		System_Notify(SystemNotification::KEEP_SCREEN_AWAKE);
-	} else if (!g_Config.bRunBehindPauseMenu) {
+	} else if (!g_Config.bRunBehindPauseMenu && strcmp(screenManager()->topScreen()->tag(), "DevMenu") != 0) {
 		// Not on top. Let's not execute, only draw the image.
 		draw->BindFramebufferAsRenderTarget(nullptr, { RPAction::CLEAR, RPAction::DONT_CARE, RPAction::DONT_CARE }, "EmuScreen_Stepping");
 		// Just to make sure.

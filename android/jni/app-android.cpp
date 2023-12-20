@@ -1300,8 +1300,6 @@ extern "C" jboolean Java_org_ppsspp_ppsspp_NativeApp_mouseWheelEvent(
 	// so we release it with a slight delay.
 	key.flags = KEY_DOWN | KEY_HASWHEELDELTA | (wheelDelta << 16);
 	NativeKey(key);
-	key.flags = KEY_UP;
-	NativeKey(key);
 	return true;
 }
 

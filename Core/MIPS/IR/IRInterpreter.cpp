@@ -1089,7 +1089,8 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, int count) {
 			int funcIndex = inst->constant;
 			const ReplacementTableEntry *f = GetReplacementFunc(funcIndex);
 			int cycles = f->replaceFunc();
-			mips->downcount -= cycles;
+			mips->r[inst->dest] = cycles < 0 ? -1 : 0;
+			mips->downcount -= cycles < 0 ? -cycles : cycles;
 			break;
 		}
 

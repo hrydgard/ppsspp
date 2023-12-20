@@ -2164,7 +2164,6 @@ int KernelStartModule(SceUID moduleId, u32 argsize, u32 argAddr, u32 returnValue
 
 static void sceKernelStartModule(u32 moduleId, u32 argsize, u32 argAddr, u32 returnValueAddr, u32 optionAddr)
 {
-	auto smoption = PSPPointer<SceKernelSMOption>::Create(optionAddr);
 	u32 error;
 	PSPModule *module = kernelObjects.Get<PSPModule>(moduleId, error);
 	if (!module) {
@@ -2190,6 +2189,7 @@ static void sceKernelStartModule(u32 moduleId, u32 argsize, u32 argAddr, u32 ret
 		moduleId,argsize,argAddr,returnValueAddr,optionAddr);
 
 		bool needsWait;
+		auto smoption = PSPPointer<SceKernelSMOption>::Create(optionAddr);
 		int ret = KernelStartModule(moduleId, argsize, argAddr, returnValueAddr, smoption.PtrOrNull(), &needsWait);
 
 		if (needsWait) {

@@ -239,7 +239,6 @@ int PSPNetconfDialog::Update(int animSpeed) {
 	UpdateButtons();
 	UpdateCommon();
 	auto di = GetI18NCategory(I18NCat::DIALOG);
-	auto err = GetI18NCategory(I18NCat::ERRORS);
 	u64 now = (u64)(time_now_d() * 1000000.0);
 	
 	// It seems JPCSP doesn't check for NETCONF_STATUS_APNET
@@ -250,6 +249,7 @@ int PSPNetconfDialog::Update(int animSpeed) {
 		StartDraw();
 
 		if (!hideNotice) {
+			auto err = GetI18NCategory(I18NCat::ERRORS);
 			const float WRAP_WIDTH = 254.0f;
 			const int confirmBtn = GetConfirmButton();
 			const int cancelBtn = GetCancelButton();

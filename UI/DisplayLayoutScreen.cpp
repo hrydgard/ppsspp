@@ -163,15 +163,15 @@ UI::EventReturn DisplayLayoutScreen::OnPostProcShaderChange(UI::EventParams &e) 
 }
 
 static std::string PostShaderTranslateName(const char *value) {
-	auto gr = GetI18NCategory(I18NCat::GRAPHICS);
-	auto ps = GetI18NCategory(I18NCat::POSTSHADERS);
 	if (!strcmp(value, "Off")) {
+		auto gr = GetI18NCategory(I18NCat::GRAPHICS);
 		// Off is a legacy fake item (gonna migrate off it later).
 		return gr->T("Add postprocessing shader");
 	}
 
 	const ShaderInfo *info = GetPostShaderInfo(value);
 	if (info) {
+		auto ps = GetI18NCategory(I18NCat::POSTSHADERS);
 		return ps->T(value, info ? info->name.c_str() : value);
 	} else {
 		return value;

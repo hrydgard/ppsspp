@@ -403,12 +403,12 @@ bool KeyMappingNewMouseKeyDialog::key(const KeyInput &key) {
 
 		mapped_ = true;
 
-		MultiInputMapping kdf(InputMapping(key.deviceId, key.keyCode));
-
 		TriggerFinish(DR_YES);
 		g_Config.bMapMouse = false;
-		if (callback_)
+		if (callback_) {
+			MultiInputMapping kdf(InputMapping(key.deviceId, key.keyCode));
 			callback_(kdf);
+		}
 	}
 	return true;
 }
@@ -455,18 +455,20 @@ void KeyMappingNewMouseKeyDialog::axis(const AxisInput &axis) {
 
 	if (axis.value > AXIS_BIND_THRESHOLD) {
 		mapped_ = true;
-		MultiInputMapping kdf(InputMapping(axis.deviceId, axis.axisId, 1));
 		TriggerFinish(DR_YES);
-		if (callback_)
+		if (callback_) {
+			MultiInputMapping kdf(InputMapping(axis.deviceId, axis.axisId, 1));
 			callback_(kdf);
+		}
 	}
 
 	if (axis.value < -AXIS_BIND_THRESHOLD) {
 		mapped_ = true;
-		MultiInputMapping kdf(InputMapping(axis.deviceId, axis.axisId, -1));
 		TriggerFinish(DR_YES);
-		if (callback_)
+		if (callback_) {
+			MultiInputMapping kdf(InputMapping(axis.deviceId, axis.axisId, -1));
 			callback_(kdf);
+		}
 	}
 }
 
