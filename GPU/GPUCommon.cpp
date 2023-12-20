@@ -210,9 +210,9 @@ u32 GPUCommon::DrawSync(int mode) {
 
 	// If there's no current list, it must be complete.
 	DisplayList *top = NULL;
-	for (auto it = dlQueue.begin(), end = dlQueue.end(); it != end; ++it) {
-		if (dls[*it].state != PSP_GE_DL_STATE_COMPLETED) {
-			top = &dls[*it];
+	for (int i : dlQueue) {
+		if (dls[i].state != PSP_GE_DL_STATE_COMPLETED) {
+			top = &dls[i];
 			break;
 		}
 	}
@@ -412,9 +412,9 @@ u32 GPUCommon::EnqueueList(u32 listpc, u32 stall, int subIntrBase, PSPPointer<Ps
 	}
 	if (id < 0) {
 		ERROR_LOG_REPORT(G3D, "No DL ID available to enqueue");
-		for (auto it = dlQueue.begin(); it != dlQueue.end(); ++it) {
-			DisplayList &dl = dls[*it];
-			DEBUG_LOG(G3D, "DisplayList %d status %d pc %08x stall %08x", *it, dl.state, dl.pc, dl.stall);
+		for (int i : dlQueue) {
+			const DisplayList &dl = dls[i];
+			DEBUG_LOG(G3D, "DisplayList %d status %d pc %08x stall %08x", i, dl.state, dl.pc, dl.stall);
 		}
 		return SCE_KERNEL_ERROR_OUT_OF_MEMORY;
 	}
@@ -1546,8 +1546,8 @@ bool GPUCommon::GetCurrentDisplayList(DisplayList &list) {
 std::vector<DisplayList> GPUCommon::ActiveDisplayLists() {
 	std::vector<DisplayList> result;
 
-	for (auto it = dlQueue.begin(), end = dlQueue.end(); it != end; ++it) {
-		result.push_back(dls[*it]);
+	for (int it : dlQueue) {
+		result.push_back(dls[it]);
 	}
 
 	return result;

@@ -934,20 +934,20 @@ void __FontInit() {
 }
 
 void __FontShutdown() {
-	for (auto iter = fontMap.begin(); iter != fontMap.end(); iter++) {
-		FontLib *fontLib = iter->second->GetFontLib();
+	for (const auto &[_, font] : fontMap) {
+		FontLib *fontLib = font->GetFontLib();
 		if (fontLib)
-			fontLib->CloseFont(iter->second, true);
-		delete iter->second;
+			fontLib->CloseFont(font, true);
+		delete font;
 	}
 	fontMap.clear();
-	for (auto iter = fontLibList.begin(); iter != fontLibList.end(); iter++) {
-		delete *iter;
+	for (auto *fontlib : fontLibList) {
+		delete fontlib;
 	}
 	fontLibList.clear();
 	fontLibMap.clear();
-	for (auto iter = internalFonts.begin(); iter != internalFonts.end(); ++iter) {
-		delete *iter;
+	for (auto *font : internalFonts) {
+		delete font;
 	}
 	internalFonts.clear();
 }

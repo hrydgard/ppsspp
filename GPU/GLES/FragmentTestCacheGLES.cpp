@@ -147,8 +147,8 @@ GLRTexture *FragmentTestCacheGLES::CreateTestTexture(const GEComparison funcs[4]
 
 void FragmentTestCacheGLES::Clear(bool deleteThem) {
 	if (deleteThem) {
-		for (auto tex = cache_.begin(); tex != cache_.end(); ++tex) {
-			render_->DeleteTexture(tex->second.texture);
+		for (const auto &[_, v] : cache_) {
+			render_->DeleteTexture(v.texture);
 		}
 	}
 	cache_.clear();
