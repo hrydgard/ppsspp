@@ -367,7 +367,6 @@ namespace SaveState
 		}
 
 		// Memory is a bit tricky when jit is enabled, since there's emuhacks in it.
-		auto savedReplacements = SaveAndClearReplacements();
 		if (MIPSComp::jit && p.mode == p.MODE_WRITE) {
 			std::lock_guard<std::recursive_mutex> guard(MIPSComp::jitLock);
 			if (MIPSComp::jit) {
@@ -388,8 +387,10 @@ namespace SaveState
 
 		// Don't bother restoring if reading, we'll deal with that in KernelModuleDoState.
 		// In theory, different functions might have been runtime loaded in the state.
-		if (p.mode != p.MODE_READ)
+		if (p.mode != p.MODE_READ) {
+			auto savedReplacements = SaveAndClearReplacements();
 			RestoreSavedReplacements(savedReplacements);
+		}
 
 		MemoryStick_DoState(p);
 		currentMIPS->DoState(p);
@@ -601,18 +602,20 @@ namespace SaveState
 				Load(fn, slot, callback, cbUserData);
 			}
 		} else {
-			auto sy = GetI18NCategory(I18NCat::SYSTEM);
-			if (callback)
+			if (callback) {
+				auto sy = GetI18NCategory(I18NCat::SYSTEM);
 				callback(Status::FAILURE, sy->T("Failed to load state. Error in the file system."), cbUserData);
+			}
 		}
 	}
 
 	bool UndoLoad(const Path &gameFilename, Callback callback, void *cbUserData)
 	{
 		if (g_Config.sStateLoadUndoGame != GenerateFullDiscId(gameFilename)) {
-			auto sy = GetI18NCategory(I18NCat::SYSTEM);
-			if (callback)
+			if (callback) {
+				auto sy = GetI18NCategory(I18NCat::SYSTEM);
 				callback(Status::FAILURE, sy->T("Error: load undo state is from a different game"), cbUserData);
+			}
 			return false;
 		}
 
@@ -621,9 +624,10 @@ namespace SaveState
 			Load(fn, LOAD_UNDO_SLOT, callback, cbUserData);
 			return true;
 		} else {
-			auto sy = GetI18NCategory(I18NCat::SYSTEM);
-			if (callback)
+			if (callback) {
+				auto sy = GetI18NCategory(I18NCat::SYSTEM);
 				callback(Status::FAILURE, sy->T("Failed to load state for load undo. Error in the file system."), cbUserData);
+			}
 			return false;
 		}
 	}
@@ -631,10 +635,9 @@ namespace SaveState
 	void SaveSlot(const Path &gameFilename, int slot, Callback callback, void *cbUserData)
 	{
 		Path fn = GenerateSaveSlotFilename(gameFilename, slot, STATE_EXTENSION);
-		Path shot = GenerateSaveSlotFilename(gameFilename, slot, SCREENSHOT_EXTENSION);
 		Path fnUndo = GenerateSaveSlotFilename(gameFilename, slot, UNDO_STATE_EXTENSION);
-		Path shotUndo = GenerateSaveSlotFilename(gameFilename, slot, UNDO_SCREENSHOT_EXTENSION);
 		if (!fn.empty()) {
+			Path shot = GenerateSaveSlotFilename(gameFilename, slot, SCREENSHOT_EXTENSION);
 			auto renameCallback = [=](Status status, const std::string &message, void *data) {
 				if (status != Status::FAILURE) {
 					if (g_Config.bEnableStateUndo) {
@@ -654,26 +657,28 @@ namespace SaveState
 			};
 			// Let's also create a screenshot.
 			if (g_Config.bEnableStateUndo) {
+				Path shotUndo = GenerateSaveSlotFilename(gameFilename, slot, UNDO_SCREENSHOT_EXTENSION);
 				DeleteIfExists(shotUndo);
 				RenameIfExists(shot, shotUndo);
 			}
 			SaveScreenshot(shot, Callback(), 0);
 			Save(fn.WithExtraExtension(".tmp"), slot, renameCallback, cbUserData);
 		} else {
-			auto sy = GetI18NCategory(I18NCat::SYSTEM);
-			if (callback)
+			if (callback) {
+				auto sy = GetI18NCategory(I18NCat::SYSTEM);
 				callback(Status::FAILURE, sy->T("Failed to save state. Error in the file system."), cbUserData);
+			}
 		}
 	}
 
-	bool UndoSaveSlot(const Path &gameFilename, int slot) {
-		Path fn = GenerateSaveSlotFilename(gameFilename, slot, STATE_EXTENSION);
-		Path shot = GenerateSaveSlotFilename(gameFilename, slot, SCREENSHOT_EXTENSION);
+	bool UndoSaveSlot(const Path &gameFilename, int slot) {		
 		Path fnUndo = GenerateSaveSlotFilename(gameFilename, slot, UNDO_STATE_EXTENSION);
-		Path shotUndo = GenerateSaveSlotFilename(gameFilename, slot, UNDO_SCREENSHOT_EXTENSION);
 
 		// Do nothing if there's no undo.
 		if (File::Exists(fnUndo)) {
+			Path fn = GenerateSaveSlotFilename(gameFilename, slot, STATE_EXTENSION);
+			Path shot = GenerateSaveSlotFilename(gameFilename, slot, SCREENSHOT_EXTENSION);
+			Path shotUndo = GenerateSaveSlotFilename(gameFilename, slot, UNDO_SCREENSHOT_EXTENSION);
 			// Swap them so they can undo again to redo.  Mistakes happen.
 			SwapIfExists(shotUndo, shot);
 			SwapIfExists(fnUndo, fn);

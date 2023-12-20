@@ -98,7 +98,6 @@ public:
 		LinearLayout *toprow = new LinearLayout(ORIENT_HORIZONTAL, new LayoutParams(FILL_PARENT, WRAP_CONTENT));
 		content->Add(toprow);
 
-		auto sa = GetI18NCategory(I18NCat::SAVEDATA);
 		if (ginfo->fileType == IdentifiedFileType::PSP_SAVEDATA_DIRECTORY) {
 			std::string savedata_detail = ginfo->paramSFO.GetValueString("SAVEDATA_DETAIL");
 			std::string savedata_title = ginfo->paramSFO.GetValueString("SAVEDATA_TITLE");
@@ -120,6 +119,7 @@ public:
 			if (File::Exists(image_path)) {
 				toprow->Add(new AsyncImageFileView(image_path, IS_KEEP_ASPECT, new LinearLayoutParams(480, 272, Margins(10, 0))));
 			} else {
+				auto sa = GetI18NCategory(I18NCat::SAVEDATA);
 				toprow->Add(new TextView(sa->T("No screenshot"), new LinearLayoutParams(Margins(10, 5))))->SetTextColor(textStyle.fgColor);
 			}
 			content->Add(new TextView(GetFileDateAsString(savePath_), 0, true, new LinearLayoutParams(Margins(10, 5))))->SetTextColor(textStyle.fgColor);
@@ -613,7 +613,6 @@ SavedataScreen::~SavedataScreen() {
 void SavedataScreen::CreateViews() {
 	using namespace UI;
 	auto sa = GetI18NCategory(I18NCat::SAVEDATA);
-	auto di = GetI18NCategory(I18NCat::DIALOG);
 	Path savedata_dir = GetSysDirectory(DIRECTORY_SAVEDATA);
 	Path savestate_dir = GetSysDirectory(DIRECTORY_SAVESTATE);
 
@@ -655,6 +654,7 @@ void SavedataScreen::CreateViews() {
 
 	AddStandardBack(root_);
 	if (System_GetPropertyBool(SYSPROP_HAS_TEXT_INPUT_DIALOG)) {
+		auto di = GetI18NCategory(I18NCat::DIALOG);
 		root_->Add(new Choice(di->T("Search"), "", false, new AnchorLayoutParams(WRAP_CONTENT, 64, NONE, NONE, 10, 10)))->OnClick.Handle<SavedataScreen>(this, &SavedataScreen::OnSearch);
 	}
 
@@ -672,8 +672,8 @@ UI::EventReturn SavedataScreen::OnSortClick(UI::EventParams &e) {
 }
 
 UI::EventReturn SavedataScreen::OnSearch(UI::EventParams &e) {
-	auto di = GetI18NCategory(I18NCat::DIALOG);
 	if (System_GetPropertyBool(SYSPROP_HAS_TEXT_INPUT_DIALOG)) {
+		auto di = GetI18NCategory(I18NCat::DIALOG);
 		System_InputBoxGetString(di->T("Filter"), searchFilter_, [](const std::string &value, int ivalue) {
 			System_PostUIMessage(UIMessage::SAVEDATA_SEARCH, value);
 		});

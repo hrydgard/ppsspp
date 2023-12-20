@@ -165,11 +165,11 @@ int XinputDevice::UpdateState() {
 	bool anySuccess = false;
 	for (int i = 0; i < XUSER_MAX_COUNT; i++) {
 		XINPUT_STATE state{};
-		XINPUT_VIBRATION vibration{};
 		if (check_delay[i]-- > 0)
 			continue;
 		DWORD dwResult = PPSSPP_XInputGetState(i, &state);
 		if (dwResult == ERROR_SUCCESS) {
+			XINPUT_VIBRATION vibration{};
 			UpdatePad(i, state, vibration);
 			anySuccess = true;
 		} else {

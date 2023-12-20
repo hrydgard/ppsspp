@@ -526,8 +526,6 @@ void RemoteISOBrowseScreen::CreateViews() {
 
 	bool vertical = UseVerticalLayout();
 
-	Margins actionMenuMargins(0, 10, 10, 0);
-
 	TabHolder *leftColumn = new TabHolder(ORIENT_HORIZONTAL, 64, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 	tabHolder_ = leftColumn;
 	tabHolder_->SetTag("RemoteGames");
@@ -562,6 +560,7 @@ void RemoteISOBrowseScreen::CreateViews() {
 		root_->Add(rightColumn);
 		root_->Add(leftColumn);
 	} else {
+		Margins actionMenuMargins(0, 10, 10, 0);
 		root_ = new LinearLayout(ORIENT_HORIZONTAL);
 		leftColumn->ReplaceLayoutParams(new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 1.0));
 		rightColumn->ReplaceLayoutParams(new LinearLayoutParams(300, FILL_PARENT, actionMenuMargins));

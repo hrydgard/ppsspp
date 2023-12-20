@@ -158,9 +158,9 @@ static bool UsingHardwareTextureScaling() {
 }
 
 static std::string TextureTranslateName(const char *value) {
-	auto ts = GetI18NCategory(I18NCat::TEXTURESHADERS);
 	const TextureShaderInfo *info = GetTextureShaderInfo(value);
 	if (info) {
+		auto ts = GetI18NCategory(I18NCat::TEXTURESHADERS);
 		return ts->T(value, info ? info->name.c_str() : value);
 	} else {
 		return value;
@@ -205,9 +205,9 @@ bool PathToVisualUsbPath(Path path, std::string &outPath) {
 }
 
 static std::string PostShaderTranslateName(const char *value) {
-	auto ps = GetI18NCategory(I18NCat::POSTSHADERS);
 	const ShaderInfo *info = GetPostShaderInfo(value);
 	if (info) {
+		auto ps = GetI18NCategory(I18NCat::POSTSHADERS);
 		return ps->T(value, info ? info->name.c_str() : value);
 	} else {
 		return value;
@@ -661,7 +661,6 @@ void GameSettingsScreen::CreateControlsSettings(UI::ViewGroup *controlsSettings)
 	using namespace UI;
 
 	auto co = GetI18NCategory(I18NCat::CONTROLS);
-	auto di = GetI18NCategory(I18NCat::DIALOG);
 	auto ms = GetI18NCategory(I18NCat::MAINSETTINGS);
 
 	int deviceType = System_GetPropertyInt(SYSPROP_DEVICE_TYPE);
@@ -686,6 +685,7 @@ void GameSettingsScreen::CreateControlsSettings(UI::ViewGroup *controlsSettings)
 
 	// TVs don't have touch control, at least not yet.
 	if ((deviceType != DEVICE_TYPE_TV) && (deviceType != DEVICE_TYPE_VR)) {
+		auto di = GetI18NCategory(I18NCat::DIALOG);
 		controlsSettings->Add(new ItemHeader(co->T("OnScreen", "On-Screen Touch Controls")));
 		controlsSettings->Add(new CheckBox(&g_Config.bShowTouchControls, co->T("OnScreen", "On-Screen Touch Controls")));
 		layoutEditorChoice_ = controlsSettings->Add(new Choice(co->T("Customize Touch Controls")));
@@ -1509,8 +1509,6 @@ void GameSettingsScreen::dialogFinished(const Screen *dialog, DialogResult resul
 }
 
 void GameSettingsScreen::CallbackMemstickFolder(bool yes) {
-	auto sy = GetI18NCategory(I18NCat::SYSTEM);
-
 	if (yes) {
 		Path memstickDirFile = g_Config.internalDataDirectory / "memstick_dir.txt";
 		std::string testWriteFile = pendingMemstickFolder_ + "/.write_verify_file";
@@ -1520,6 +1518,7 @@ void GameSettingsScreen::CallbackMemstickFolder(bool yes) {
 			File::CreateFullPath(Path(pendingMemstickFolder_));
 		}
 		if (!File::WriteDataToFile(true, "1", 1, Path(testWriteFile))) {
+			auto sy = GetI18NCategory(I18NCat::SYSTEM);
 			settingInfo_->Show(sy->T("ChangingMemstickPathInvalid", "That path couldn't be used to save Memory Stick files."), nullptr);
 			return;
 		}
@@ -1553,10 +1552,9 @@ static void TriggerRestart(const char *why, bool editThenRestore, const Path &ga
 }
 
 UI::EventReturn GameSettingsScreen::OnRenderingBackend(UI::EventParams &e) {
-	auto di = GetI18NCategory(I18NCat::DIALOG);
-
 	// It only makes sense to show the restart prompt if the backend was actually changed.
 	if (g_Config.iGPUBackend != (int)GetGPUBackend()) {
+		auto di = GetI18NCategory(I18NCat::DIALOG);
 		screenManager()->push(new PromptScreen(gamePath_, di->T("Changing this setting requires PPSSPP to restart."), di->T("Restart"), di->T("Cancel"), [=](bool yes) {
 			if (yes) {
 				TriggerRestart("GameSettingsScreen::RenderingBackendYes", editThenRestore_, gamePath_);
@@ -1569,11 +1567,10 @@ UI::EventReturn GameSettingsScreen::OnRenderingBackend(UI::EventParams &e) {
 }
 
 UI::EventReturn GameSettingsScreen::OnRenderingDevice(UI::EventParams &e) {
-	auto di = GetI18NCategory(I18NCat::DIALOG);
-
 	// It only makes sense to show the restart prompt if the device was actually changed.
 	std::string *deviceNameSetting = GPUDeviceNameSetting();
 	if (deviceNameSetting && *deviceNameSetting != GetGPUBackendDevice()) {
+		auto di = GetI18NCategory(I18NCat::DIALOG);
 		screenManager()->push(new PromptScreen(gamePath_, di->T("Changing this setting requires PPSSPP to restart."), di->T("Restart"), di->T("Cancel"), [=](bool yes) {
 			// If the user ends up deciding not to restart, set the config back to the current backend
 			// so it doesn't get switched by accident.
@@ -1592,8 +1589,8 @@ UI::EventReturn GameSettingsScreen::OnRenderingDevice(UI::EventParams &e) {
 }
 
 UI::EventReturn GameSettingsScreen::OnInflightFramesChoice(UI::EventParams &e) {
-	auto di = GetI18NCategory(I18NCat::DIALOG);
 	if (g_Config.iInflightFrames != prevInflightFrames_) {
+		auto di = GetI18NCategory(I18NCat::DIALOG);
 		screenManager()->push(new PromptScreen(gamePath_, di->T("Changing this setting requires PPSSPP to restart."), di->T("Restart"), di->T("Cancel"), [=](bool yes) {
 			if (yes) {
 				TriggerRestart("GameSettingsScreen::InflightFramesYes", editThenRestore_, gamePath_);
@@ -1947,10 +1944,10 @@ void GameSettingsScreen::CallbackRestoreDefaults(bool yes) {
 }
 
 UI::EventReturn GameSettingsScreen::OnRestoreDefaultSettings(UI::EventParams &e) {
-	auto dev = GetI18NCategory(I18NCat::DEVELOPER);
-	auto di = GetI18NCategory(I18NCat::DIALOG);
 	auto sy = GetI18NCategory(I18NCat::SYSTEM);
 	if (g_Config.bGameSpecific) {
+		auto dev = GetI18NCategory(I18NCat::DEVELOPER);
+		auto di = GetI18NCategory(I18NCat::DIALOG);
 		screenManager()->push(
 			new PromptScreen(gamePath_, dev->T("RestoreGameDefaultSettings", "Are you sure you want to restore the game-specific settings back to the ppsspp defaults?\n"), di->T("OK"), di->T("Cancel"),
 			std::bind(&GameSettingsScreen::CallbackRestoreDefaults, this, std::placeholders::_1)));
