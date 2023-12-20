@@ -1269,7 +1269,6 @@ void NativeTouch(const TouchInput &touch) {
 
 // up, down
 static double g_wheelReleaseTime[2]{};
-static const double RELEASE_TIME = 0.1;  // about 3 frames at 30hz.
 
 static void ProcessWheelRelease(InputKeyCode keyCode, double now, bool keyPress) {
 	int dir = keyCode - NKCODE_EXT_MOUSEWHEEL_UP;
@@ -1283,7 +1282,8 @@ static void ProcessWheelRelease(InputKeyCode keyCode, double now, bool keyPress)
 	}
 
 	if (keyPress) {
-		g_wheelReleaseTime[dir] = now + RELEASE_TIME;
+		float releaseTime = (float)g_Config.iMouseWheelUpDelayMs * (1.0f / 1000.0f);
+		g_wheelReleaseTime[dir] = now + releaseTime;
 	}
 }
 
