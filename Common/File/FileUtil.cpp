@@ -519,8 +519,8 @@ bool CreateDir(const Path &path) {
 		// Convert it to a "CreateDirIn" call, if possible, since that's
 		// what we can do with the storage API.
 		AndroidContentURI uri(path.ToString());
+		std::string newDirName = uri.GetLastPart();
 		if (uri.NavigateUp()) {
-			std::string newDirName = uri.GetLastPart();
 			INFO_LOG(COMMON, "Calling Android_CreateDirectory(%s, %s)", uri.ToString().c_str(), newDirName.c_str());
 			return Android_CreateDirectory(uri.ToString(), newDirName) == StorageError::SUCCESS;
 		} else {
