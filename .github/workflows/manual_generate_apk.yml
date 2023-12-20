@@ -28,7 +28,7 @@ jobs:
         uses: actions/setup-java@v2
         with:
           distribution: 'zulu'
-          java-version: '11'
+          java-version: '17'
         
       #- name: Setup SDK
       #  uses: android-actions/setup-android@v2
