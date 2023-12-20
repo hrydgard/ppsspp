@@ -29,6 +29,9 @@ struct QueueProfileContext {
 	double cpuEndTime;
 	double descWriteTime;
 	int descriptorsWritten;
+#ifdef _DEBUG
+	int commandCounts[11];
+#endif
 };
 
 class VKRFramebuffer;
