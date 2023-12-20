@@ -399,9 +399,13 @@ const KeyMap_IntStrPair psp_button_names[] = {
 	{VIRTKEY_AXIS_Y_MIN, "An.Down"},
 	{VIRTKEY_AXIS_X_MIN, "An.Left"},
 	{VIRTKEY_AXIS_X_MAX, "An.Right"},
-	{VIRTKEY_ANALOG_LIGHTLY, "Analog limiter"},
 
+	{VIRTKEY_ANALOG_ROTATE_CW, "Rotate Analog (CW)"},
+	{VIRTKEY_ANALOG_ROTATE_CCW, "Rotate Analog (CCW)"},
+	{VIRTKEY_ANALOG_LIGHTLY, "Analog limiter"},
 	{VIRTKEY_RAPID_FIRE, "RapidFire"},
+	{VIRTKEY_AXIS_SWAP, "AxisSwap"},
+
 	{VIRTKEY_FASTFORWARD, "Fast-forward"},
 	{VIRTKEY_SPEED_TOGGLE, "SpeedToggle"},
 	{VIRTKEY_SPEED_CUSTOM1, "Alt speed 1"},
@@ -421,20 +425,13 @@ const KeyMap_IntStrPair psp_button_names[] = {
 	{VIRTKEY_TOGGLE_FULLSCREEN, "Toggle Fullscreen"},
 #endif
 
-	{VIRTKEY_AXIS_RIGHT_Y_MAX, "RightAn.Up"},
-	{VIRTKEY_AXIS_RIGHT_Y_MIN, "RightAn.Down"},
-	{VIRTKEY_AXIS_RIGHT_X_MIN, "RightAn.Left"},
-	{VIRTKEY_AXIS_RIGHT_X_MAX, "RightAn.Right"},
 	{VIRTKEY_OPENCHAT, "OpenChat" },
 
-	{VIRTKEY_AXIS_SWAP, "AxisSwap"},
 	{VIRTKEY_DEVMENU, "DevMenu"},
 	{VIRTKEY_TEXTURE_DUMP, "Texture Dumping"},
 	{VIRTKEY_TEXTURE_REPLACE, "Texture Replacement"},
 	{VIRTKEY_SCREENSHOT, "Screenshot"},
 	{VIRTKEY_MUTE_TOGGLE, "Mute toggle"},
-	{VIRTKEY_ANALOG_ROTATE_CW, "Rotate Analog (CW)"},
-	{VIRTKEY_ANALOG_ROTATE_CCW, "Rotate Analog (CCW)"},
 
 #ifdef OPENXR
 	{VIRTKEY_VR_CAMERA_ADJUST, "VR camera adjust"},
@@ -448,6 +445,11 @@ const KeyMap_IntStrPair psp_button_names[] = {
 
 	{VIRTKEY_TOGGLE_WLAN, "Toggle WLAN"},
 	{VIRTKEY_EXIT_APP, "Exit App"},
+
+	{VIRTKEY_AXIS_RIGHT_Y_MAX, "RightAn.Up"},
+	{VIRTKEY_AXIS_RIGHT_Y_MIN, "RightAn.Down"},
+	{VIRTKEY_AXIS_RIGHT_X_MIN, "RightAn.Left"},
+	{VIRTKEY_AXIS_RIGHT_X_MAX, "RightAn.Right"},
 
 	{CTRL_HOME, "Home"},
 	{CTRL_HOLD, "Hold"},

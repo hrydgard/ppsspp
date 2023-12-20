@@ -275,12 +275,39 @@ void ControlMappingScreen::CreateViews() {
 	root_->Add(rightScroll_);
 
 	std::vector<KeyMap::KeyMap_IntStrPair> mappableKeys = KeyMap::GetMappableKeys();
+
+	struct Cat {
+		const char *catName;
+		int firstKey;
+		bool openByDefault;
+	};
+	// Category name, first input from psp_button_names.
+	static const Cat cats[] = {
+		{"Standard PSP controls", CTRL_UP, true},
+		{"Control modifiers", VIRTKEY_ANALOG_ROTATE_CW, true},
+		{"Emulator controls", VIRTKEY_FASTFORWARD, true},
+		{"Extended PSP controls", VIRTKEY_AXIS_RIGHT_Y_MAX, false},
+	};
+
+	int curCat = -1;
+	CollapsibleSection *curSection = nullptr;
 	for (size_t i = 0; i < mappableKeys.size(); i++) {
-		SingleControlMapper *mapper = rightColumn->Add(
+		if (curCat < (int)ARRAY_SIZE(cats) && mappableKeys[i].key == cats[curCat + 1].firstKey) {
+			if (curCat >= 0 && !cats[curCat].openByDefault) {
+				curSection->SetOpen(false);
+			}
+			curCat++;
+			curSection = rightColumn->Add(new CollapsibleSection(km->T(cats[curCat].catName)));
+			curSection->SetSpacing(6.0f);
+		}
+		SingleControlMapper *mapper = curSection->Add(
 			new SingleControlMapper(mappableKeys[i].key, mappableKeys[i].name, screenManager(),
 				                    new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
 		mapper->SetTag(StringFromFormat("KeyMap%s", mappableKeys[i].name));
 		mappers_.push_back(mapper);
+	}
+	if (curCat >= 0 && curSection && !cats[curCat].openByDefault) {
+		curSection->SetOpen(false);
 	}
 
 	keyMapGeneration_ = KeyMap::g_controllerMapGeneration;
@@ -423,7 +450,8 @@ void KeyMappingNewKeyDialog::axis(const AxisInput &axis) {
 		InputMapping mapping(axis.deviceId, axis.axisId, 1);
 		triggeredAxes_.insert(mapping);
 		if (!g_Config.bAllowMappingCombos && !mapping_.mappings.empty()) {
-			comboMappingsNotEnabled_->SetVisibility(UI::V_VISIBLE);
+			if (mapping_.mappings.size() == 1 && mapping != mapping_.mappings[0])
+				comboMappingsNotEnabled_->SetVisibility(UI::V_VISIBLE);
 		} else if (!mapping_.mappings.contains(mapping)) {
 			mapping_.mappings.push_back(mapping);
 			RecreateViews();
@@ -432,7 +460,8 @@ void KeyMappingNewKeyDialog::axis(const AxisInput &axis) {
 		InputMapping mapping(axis.deviceId, axis.axisId, -1);
 		triggeredAxes_.insert(mapping);
 		if (!g_Config.bAllowMappingCombos && !mapping_.mappings.empty()) {
-			comboMappingsNotEnabled_->SetVisibility(UI::V_VISIBLE);
+			if (mapping_.mappings.size() == 1 && mapping != mapping_.mappings[0])
+				comboMappingsNotEnabled_->SetVisibility(UI::V_VISIBLE);
 		} else if (!mapping_.mappings.contains(mapping)) {
 			mapping_.mappings.push_back(mapping);
 			RecreateViews();

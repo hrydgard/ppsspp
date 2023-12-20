@@ -182,6 +182,16 @@ Point View::GetFocusPosition(FocusDirection dir) const {
 	}
 }
 
+Point CollapsibleHeader::GetFocusPosition(FocusDirection dir) const {
+	// Bias the focus position to the left.
+	switch (dir) {
+	case FOCUS_UP: return Point(bounds_.x + 50, bounds_.y + 2);
+	case FOCUS_DOWN: return Point(bounds_.x + 50, bounds_.y2() - 2);
+	default:
+		return View::GetFocusPosition(dir);
+	}
+}
+
 bool View::SetFocus() {
 	if (IsFocusMovementEnabled()) {
 		if (CanBeFocused()) {
