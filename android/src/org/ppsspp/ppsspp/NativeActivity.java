@@ -1600,6 +1600,8 @@ public abstract class NativeActivity extends Activity {
 				throw new Exception();
 			} catch (Exception e) {
 				NativeApp.reportException(e, params);
+
+
 			}
 		}
 		return false;
