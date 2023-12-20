@@ -219,4 +219,4 @@ namespace KeyMap {
 	bool IsKeyMapped(InputDeviceID device, int key);
 
 	bool HasChanged(int &prevGeneration);
-}
+}  // namespace KeyMap
