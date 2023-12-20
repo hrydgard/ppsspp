@@ -418,7 +418,7 @@ int Client::ReadResponseHeaders(net::Buffer *readbuf, std::vector<std::string> &
 	if (code_pos != line.npos) {
 		code = atoi(&line[code_pos]);
 	} else {
-		ERROR_LOG(Log::HTTP, "Could not parse HTTP status code: %s", line.c_str());
+		ERROR_LOG(Log::HTTP, "Could not parse HTTP status code: '%s'", line.c_str());
 		return -1;
 	}
 
@@ -429,6 +429,7 @@ int Client::ReadResponseHeaders(net::Buffer *readbuf, std::vector<std::string> &
 		int sz = readbuf->TakeLineCRLF(&line);
 		if (!sz || sz < 0)
 			break;
+		INFO_LOG(Log::HTTP, "Header line: %s", line.c_str());
 		responseHeaders.push_back(line);
 	}
 

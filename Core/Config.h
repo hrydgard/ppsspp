@@ -457,6 +457,8 @@ public:
 
 	// Networking
 	std::string proAdhocServer;
+	std::string primaryDNSServer;
+	std::string secondaryDNSServer;
 	bool bEnableWlan;
 	std::map<std::string, std::string> mHostToAlias; // TODO: mPostShaderSetting
 	bool bEnableAdhocServer;

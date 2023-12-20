@@ -95,7 +95,7 @@ std::deque<ApctlArgs> apctlEvents;
 
 u32 Net_Term();
 int NetApctl_Term();
-void NetApctl_InitInfo();
+void NetApctl_InitInfo(int infoId);
 
 void AfterApctlMipsCall::DoState(PointerWrap & p) {
 	auto s = p.Section("AfterApctlMipsCall", 1, 1);
@@ -528,7 +528,7 @@ void __NetApctlCallbacks()
 
 		case PSP_NET_APCTL_EVENT_GET_IP:
 			newState = PSP_NET_APCTL_STATE_GOT_IP;
-			NetApctl_InitInfo();
+			NetApctl_InitInfo(netApctlInfoId);
 			break;
 
 		case PSP_NET_APCTL_EVENT_DISCONNECT_REQUEST:
@@ -838,21 +838,36 @@ static int sceNetGetMallocStat(u32 statPtr) {
 	return 0;
 }
 
-void NetApctl_InitInfo() {
+void NetApctl_InitDefaultInfo() {
 	memset(&netApctlInfo, 0, sizeof(netApctlInfo));
-	// Set dummy/fake values, these probably not suppose to have valid info before connected to an AP, right?
-	std::string APname = "Wifi"; // fake AP/hotspot
-	truncate_cpy(netApctlInfo.name, sizeof(netApctlInfo.name), APname.c_str());
-	truncate_cpy(netApctlInfo.ssid, sizeof(netApctlInfo.ssid), APname.c_str());
+	// Set dummy/fake parameters, assuming this is the currently selected Network Configuration profile
+	// FIXME: Some of these info supposed to be taken from netConfInfo
+	int validConfId = std::max(1, netApctlInfoId); // Should be: sceUtilityGetNetParamLatestID(validConfId);
+	truncate_cpy(netApctlInfo.name, sizeof(netApctlInfo.name), (defaultNetConfigName + std::to_string(validConfId)).c_str());
+	truncate_cpy(netApctlInfo.ssid, sizeof(netApctlInfo.ssid), defaultNetSSID.c_str());
+	// Default IP Address
+	char ipstr[INET_ADDRSTRLEN] = "0.0.0.0"; // Driver 76 needs a dot formatted IP instead of a zeroed buffer
+	truncate_cpy(netApctlInfo.ip, sizeof(netApctlInfo.ip), ipstr);
+	truncate_cpy(netApctlInfo.gateway, sizeof(netApctlInfo.gateway), ipstr);
+	truncate_cpy(netApctlInfo.primaryDns, sizeof(netApctlInfo.primaryDns), ipstr);
+	truncate_cpy(netApctlInfo.secondaryDns, sizeof(netApctlInfo.secondaryDns), ipstr);
+	truncate_cpy(netApctlInfo.subNetMask, sizeof(netApctlInfo.subNetMask), ipstr);
+}
+
+void NetApctl_InitInfo(int confId) {
+	memset(&netApctlInfo, 0, sizeof(netApctlInfo));
+	// Set dummy/fake values, some of these (ie. IP set to Auto) probably not suppose to have valid info before connected to an AP, right?
+	// FIXME: Some of these info supposed to be taken from netConfInfo
+	truncate_cpy(netApctlInfo.name, sizeof(netApctlInfo.name), (defaultNetConfigName + std::to_string(confId)).c_str());
+	truncate_cpy(netApctlInfo.ssid, sizeof(netApctlInfo.ssid), defaultNetSSID.c_str());
 	memcpy(netApctlInfo.bssid, "\1\1\2\2\3\3", sizeof(netApctlInfo.bssid)); // fake AP's mac address
-	netApctlInfo.ssidLength = static_cast<unsigned int>(APname.length());
+	netApctlInfo.ssidLength = static_cast<unsigned int>(defaultNetSSID.length());
 	netApctlInfo.strength = 99;
 	netApctlInfo.channel = g_Config.iWlanAdhocChannel;
 	if (netApctlInfo.channel == PSP_SYSTEMPARAM_ADHOC_CHANNEL_AUTOMATIC) netApctlInfo.channel = defaultWlanChannel;
 	// Get Local IP Address
 	sockaddr_in sockAddr;
-	socklen_t socklen = sizeof(sockaddr_in);
-	getDefaultOutboundSockaddr(sockAddr, socklen); // This will be valid IP, we probably not suppose to have a valid IP before connected to any AP, right?
+	getLocalIp(&sockAddr); // This will be valid IP, we probably not suppose to have a valid IP before connected to any AP, right?
 	char ipstr[INET_ADDRSTRLEN] = "127.0.0.1"; // Patapon 3 seems to try to get current IP using ApctlGetInfo() right after ApctlInit(), what kind of IP should we use as default before ApctlConnect()? it shouldn't be a valid IP, right?
 	inet_ntop(AF_INET, &sockAddr.sin_addr, ipstr, sizeof(ipstr));
 	truncate_cpy(netApctlInfo.ip, sizeof(netApctlInfo.ip), ipstr);
@@ -860,8 +875,12 @@ void NetApctl_InitInfo() {
 	((u8*)&sockAddr.sin_addr.s_addr)[3] = 1;
 	inet_ntop(AF_INET, &sockAddr.sin_addr, ipstr, sizeof(ipstr));
 	truncate_cpy(netApctlInfo.gateway, sizeof(netApctlInfo.gateway), ipstr);
-	truncate_cpy(netApctlInfo.primaryDns, sizeof(netApctlInfo.primaryDns), ipstr);
-	truncate_cpy(netApctlInfo.secondaryDns, sizeof(netApctlInfo.secondaryDns), "8.8.8.8");
+	// We should probably use public DNS Server instead of localhost IP since most people don't have DNS Server running on localhost (ie. Untold Legends The Warrior's Code is trying to lookup dns using the primary dns), but accessing public DNS Server from localhost may result to ENETUNREACH error if the gateway can't access the public server (ie. using SO_DONTROUTE)
+	//if (strcmp(ipstr, "127.0.0.1") == 0)
+		truncate_cpy(netApctlInfo.primaryDns, sizeof(netApctlInfo.primaryDns), g_Config.primaryDNSServer.c_str()); // Private Servers may need to use custom DNS Server
+	//else
+	//	truncate_cpy(netApctlInfo.primaryDns, sizeof(netApctlInfo.primaryDns), ipstr);
+	truncate_cpy(netApctlInfo.secondaryDns, sizeof(netApctlInfo.secondaryDns), g_Config.secondaryDNSServer.c_str()); // Fireteam Bravo 2 seems to try to use secondary DNS too if it's not 0.0.0.0
 	truncate_cpy(netApctlInfo.subNetMask, sizeof(netApctlInfo.subNetMask), "255.255.255.0");
 }
 
@@ -874,17 +893,7 @@ static int sceNetApctlInit(int stackSize, int initPriority) {
 	netApctlState = PSP_NET_APCTL_STATE_DISCONNECTED;
 
 	// Set default value before connected to an AP
-	memset(&netApctlInfo, 0, sizeof(netApctlInfo)); // NetApctl_InitInfo();
-	std::string APname = "Wifi"; // fake AP/hotspot
-	truncate_cpy(netApctlInfo.name, sizeof(netApctlInfo.name), APname.c_str());
-	truncate_cpy(netApctlInfo.ssid, sizeof(netApctlInfo.ssid), APname.c_str());
-	memcpy(netApctlInfo.bssid, "\1\1\2\2\3\3", sizeof(netApctlInfo.bssid)); // fake AP's mac address
-	netApctlInfo.ssidLength = static_cast<unsigned int>(APname.length());
-	truncate_cpy(netApctlInfo.ip, sizeof(netApctlInfo.ip), "0.0.0.0");
-	truncate_cpy(netApctlInfo.gateway, sizeof(netApctlInfo.gateway), "0.0.0.0");
-	truncate_cpy(netApctlInfo.primaryDns, sizeof(netApctlInfo.primaryDns), "0.0.0.0");
-	truncate_cpy(netApctlInfo.secondaryDns, sizeof(netApctlInfo.secondaryDns), "0.0.0.0");
-	truncate_cpy(netApctlInfo.subNetMask, sizeof(netApctlInfo.subNetMask), "0.0.0.0");
+	NetApctl_InitDefaultInfo();
 
 	// Create APctl fake-Thread
 	netValidateLoopMemory();
@@ -915,11 +924,14 @@ int NetApctl_Term() {
 
 int sceNetApctlTerm() {
 	WARN_LOG(Log::sceNet, "UNTESTED %s()", __FUNCTION__);
-	return NetApctl_Term();
+	int retval = NetApctl_Term();
+
+	hleEatMicro(adhocDefaultDelay);
+	return retval;
 }
 
 static int sceNetApctlGetInfo(int code, u32 pInfoAddr) {
-	WARN_LOG(Log::sceNet, "UNTESTED %s(%i, %08x)", __FUNCTION__, code, pInfoAddr);
+	DEBUG_LOG(Log::sceNet, "UNTESTED %s(%i, %08x) at %08x", __FUNCTION__, code, pInfoAddr, currentMIPS->pc);
 
 	if (!netApctlInited)
 		return hleLogError(Log::sceNet, ERROR_NET_APCTL_NOT_IN_BSS, "apctl not in bss"); // Only have valid info after joining an AP and got an IP, right?
@@ -1114,20 +1126,31 @@ static int sceNetApctlDelHandler(u32 handlerID) {
 	return NetApctl_DelHandler(handlerID);
 }
 
-int sceNetApctlConnect(int connIndex) {
-	WARN_LOG(Log::sceNet, "UNTESTED %s(%i)", __FUNCTION__, connIndex);
-	// Is this connIndex is the index to the scanning's result data or sceNetApctlGetBSSDescIDListUser result?
-	__UpdateApctlHandlers(0, 0, PSP_NET_APCTL_EVENT_CONNECT_REQUEST, 0);
+int sceNetApctlConnect(int confId) {
+	WARN_LOG(Log::sceNet, "UNTESTED %s(%i)", __FUNCTION__, confId);
+	if (!g_Config.bEnableWlan)
+		return hleLogError(Log::sceNet, ERROR_NET_APCTL_WLAN_SWITCH_OFF, "apctl wlan off");
+
+	if (netApctlState != PSP_NET_APCTL_STATE_DISCONNECTED)
+		return hleLogError(Log::sceNet, ERROR_NET_APCTL_NOT_DISCONNECTED, "apctl not disconnected");
+
+	// Is this confId is the index to the scanning's result data or sceNetApctlGetBSSDescIDListUser result?
+	netApctlInfoId = confId;
+
+	if (netApctlState == PSP_NET_APCTL_STATE_DISCONNECTED)
+		__UpdateApctlHandlers(0, PSP_NET_APCTL_STATE_JOINING, PSP_NET_APCTL_EVENT_CONNECT_REQUEST, 0);
 	//hleDelayResult(0, "give time to init/cleanup", adhocEventDelayMS * 1000);
-	return 0;
+	// TODO: Blocks current thread and wait for a state change to prevent user-triggered connection attempt from causing events to piles up
+	return hleLogDebug(Log::sceNet, 0, "connect = %i", 0);
 }
 
-static int sceNetApctlDisconnect() {
-	ERROR_LOG(Log::sceNet, "UNIMPL %s()", __FUNCTION__);
-	// Like its 'sister' function sceNetAdhocctlDisconnect, we need to alert Apctl handlers that a disconnect took place
-	// or else games like Phantasy Star Portable 2 will hang at certain points (e.g. returning to the main menu after trying to connect to PSN).
+int sceNetApctlDisconnect() {
+	WARN_LOG(Log::sceNet, "UNTESTED %s()", __FUNCTION__);
 
-	__UpdateApctlHandlers(0, 0, PSP_NET_APCTL_EVENT_DISCONNECT_REQUEST, 0);
+	// Discards any pending events so we can disconnect immediately
+	apctlEvents.clear();
+	__UpdateApctlHandlers(netApctlState, PSP_NET_APCTL_STATE_DISCONNECTED, PSP_NET_APCTL_EVENT_DISCONNECT_REQUEST, 0);
+	// TODO: Blocks current thread and wait for a state change, but the state should probably need to be changed within 1 frame-time (~16ms) 
 	return 0;
 }
 
@@ -1150,11 +1173,14 @@ static int sceNetApctlGetState(u32 pStateAddr) {
 }
 
 int NetApctl_ScanUser() {
+	if (!g_Config.bEnableWlan)
+		return hleLogError(Log::sceNet, ERROR_NET_APCTL_WLAN_SWITCH_OFF, "apctl wlan off");
+
 	// Scan probably only works when not in connected state, right?
 	if (netApctlState != PSP_NET_APCTL_STATE_DISCONNECTED)
 		return hleLogError(Log::sceNet, ERROR_NET_APCTL_NOT_DISCONNECTED, "apctl not disconnected");
 
-	__UpdateApctlHandlers(0, 0, PSP_NET_APCTL_EVENT_SCAN_REQUEST, 0);
+	__UpdateApctlHandlers(0, PSP_NET_APCTL_STATE_SCANNING, PSP_NET_APCTL_EVENT_SCAN_REQUEST, 0);
 	return 0;
 }
 
