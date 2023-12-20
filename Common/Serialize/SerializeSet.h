@@ -54,8 +54,14 @@ void DoSet(PointerWrap &p, std::set<T> &x) {
 template <class T>
 void Do(PointerWrap &p, std::set<T *> &x) {
 	if (p.mode == PointerWrap::MODE_READ) {
+<<<<<<< HEAD
 		for (auto it = x.begin(), end = x.end(); it != end; ++it) {
 			delete *it;
+=======
+		for (T* s : x) {
+			if (s != nullptr)
+				delete s;
+>>>>>>> 37ce2a4de1 ([Common/Data/File/Input/Net/Serialize/System/UI] Using for based loop C++17 and replaced on structured binding map C++17)
 		}
 	}
 	DoSet(p, x);

@@ -163,8 +163,8 @@ void ScreenManager::resized() {
 	std::lock_guard<std::recursive_mutex> guard(inputLock_);
 	// Have to notify the whole stack, otherwise there will be problems when going back
 	// to non-top screens.
-	for (auto iter = stack_.begin(); iter != stack_.end(); ++iter) {
-		iter->screen->resized();
+	for (auto &layer : stack_) {
+		layer.screen->resized();
 	}
 }
 
@@ -338,8 +338,8 @@ void ScreenManager::pop() {
 
 void ScreenManager::RecreateAllViews() {
 	std::lock_guard<std::recursive_mutex> guard(inputLock_);
-	for (auto it = stack_.begin(); it != stack_.end(); ++it) {
-		it->screen->RecreateViews();
+	for (auto &layer : stack_) {
+		layer.screen->RecreateViews();
 	}
 }
 
