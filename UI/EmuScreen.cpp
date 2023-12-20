@@ -1533,6 +1533,7 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 
 	bool blockedExecution = Achievements::IsBlockingExecution();
 	bool rebind = false;
+	uint32_t clearColor = 0;
 	if (!blockedExecution) {
 		PSP_BeginHostFrame();
 		PSP_RunLoopWhileState();
@@ -1553,13 +1554,13 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 			if (info.type != MIPSExceptionType::NONE) {
 				// Clear to blue background screen
 				bool dangerousSettings = !Reporting::IsSupported();
-				uint32_t color = dangerousSettings ? 0xFF900050 : 0xFF900000;
-				draw->BindFramebufferAsRenderTarget(nullptr, { RPAction::CLEAR, RPAction::DONT_CARE, RPAction::DONT_CARE, color }, "EmuScreen_RuntimeError");
+				clearColor = dangerousSettings ? 0xFF900050 : 0xFF900000;
+				draw->BindFramebufferAsRenderTarget(nullptr, { RPAction::CLEAR, RPAction::DONT_CARE, RPAction::DONT_CARE, clearColor }, "EmuScreen_RuntimeError");
 				// The info is drawn later in renderUI
 			} else {
 				// If we're stepping, it's convenient not to clear the screen entirely, so we copy display to output.
 				// This won't work in non-buffered, but that's fine.
-				draw->BindFramebufferAsRenderTarget(nullptr, { RPAction::CLEAR, RPAction::DONT_CARE, RPAction::DONT_CARE }, "EmuScreen_Stepping");
+				draw->BindFramebufferAsRenderTarget(nullptr, { RPAction::CLEAR, RPAction::DONT_CARE, RPAction::DONT_CARE, clearColor }, "EmuScreen_Stepping");
 				// Just to make sure.
 				if (PSP_IsInited()) {
 					gpu->CopyDisplayToOutput(true);
@@ -1579,7 +1580,7 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 	}
 
 	if (gpu && !gpu->PresentedThisFrame() && !skipBufferEffects) {
-		draw->BindFramebufferAsRenderTarget(nullptr, { RPAction::CLEAR, RPAction::CLEAR, RPAction::CLEAR }, "EmuScreen_NoFrame");
+		draw->BindFramebufferAsRenderTarget(nullptr, { RPAction::CLEAR, RPAction::CLEAR, RPAction::CLEAR, clearColor }, "EmuScreen_NoFrame");
 		draw->SetViewport(viewport);
 		draw->SetScissorRect(0, 0, g_display.pixel_xres, g_display.pixel_yres);
 	}
