@@ -268,6 +268,7 @@ bool ControlMapper::UpdatePSPState(const InputMapping &changedMapping, double no
 	// For the PSP's button inputs, we just go through and put the flags together.
 	uint32_t buttonMask = 0;
 	uint32_t changedButtonMask = 0;
+	std::vector<MultiInputMapping> inputMappings;
 	for (int i = 0; i < 32; i++) {
 		uint32_t mask = 1 << i;
 		if (!(mask & CTRL_MASK_USER)) {
@@ -281,8 +282,6 @@ bool ControlMapper::UpdatePSPState(const InputMapping &changedMapping, double no
 		}
 
 		SwapMappingIfEnabled(&mappingBit);
-
-		std::vector<MultiInputMapping> inputMappings;
 		if (!KeyMap::InputMappingsFromPspButton(mappingBit, &inputMappings, false))
 			continue;
 
@@ -316,7 +315,6 @@ bool ControlMapper::UpdatePSPState(const InputMapping &changedMapping, double no
 	// Note that virtual keys include the analog directions, as they are driven by them.
 	for (int i = 0; i < VIRTKEY_COUNT; i++) {
 		int vkId = i + VIRTKEY_FIRST;
-		std::vector<MultiInputMapping> inputMappings;
 
 		uint32_t idForMapping = vkId;
 		SwapMappingIfEnabled(&idForMapping);

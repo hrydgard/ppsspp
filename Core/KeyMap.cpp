@@ -534,6 +534,7 @@ bool InputMappingsFromPspButton(int btn, std::vector<MultiInputMapping> *mapping
 		return false;
 	}
 	bool mapped = false;
+	mappings->clear();
 	for (auto &iter2 : iter->second) {
 		bool ignore = ignoreMouse && iter2.HasMouse();
 		if (mappings && !ignore) {
