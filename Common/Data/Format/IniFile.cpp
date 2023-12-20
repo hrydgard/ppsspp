@@ -193,7 +193,7 @@ bool Section::GetKeys(std::vector<std::string> &keys) const {
 	keys.clear();
 	for (const auto &liter : lines_) {
 		if (!liter.Key().empty())
-			keys.push_back(std::string(liter.Key()));
+			keys.emplace_back(liter.Key());
 	}
 	return true;
 }
