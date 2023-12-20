@@ -333,7 +333,6 @@ void SliderPopupScreen::UpdateTextBox() {
 void SliderPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	using namespace UI;
 	UIContext &dc = *screenManager()->getUIContext();
-	auto di = GetI18NCategory(I18NCat::DIALOG);
 
 	sliderValue_ = *value_;
 	if (disabled_ && sliderValue_ < 0)
@@ -362,6 +361,7 @@ void SliderPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 		lin->Add(new TextView(units_))->SetTextColor(dc.theme->itemStyle.fgColor);
 
 	if (defaultValue_ != NO_DEFAULT_FLOAT) {
+		auto di = GetI18NCategory(I18NCat::DIALOG);
 		lin->Add(new Button(di->T("Reset")))->OnClick.Add([=](UI::EventParams &) {
 			sliderValue_ = defaultValue_;
 			changing_ = true;
@@ -381,7 +381,6 @@ void SliderPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 void SliderFloatPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	using namespace UI;
 	UIContext &dc = *screenManager()->getUIContext();
-	auto di = GetI18NCategory(I18NCat::DIALOG);
 
 	sliderValue_ = *value_;
 	LinearLayout *vert = parent->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(UI::Margins(10, 10))));
@@ -406,6 +405,7 @@ void SliderFloatPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 		lin->Add(new TextView(units_))->SetTextColor(dc.theme->itemStyle.fgColor);
 
 	if (defaultValue_ != NO_DEFAULT_FLOAT) {
+		auto di = GetI18NCategory(I18NCat::DIALOG);
 		lin->Add(new Button(di->T("Reset")))->OnClick.Add([=](UI::EventParams &) {
 			sliderValue_ = defaultValue_;
 			if (liveUpdate_) {

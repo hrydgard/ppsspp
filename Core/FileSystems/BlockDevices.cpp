@@ -66,8 +66,8 @@ BlockDevice *constructBlockDevice(FileLoader *fileLoader) {
 }
 
 void BlockDevice::NotifyReadError() {
-	auto err = GetI18NCategory(I18NCat::ERRORS);
 	if (!reportedError_) {
+		auto err = GetI18NCategory(I18NCat::ERRORS);
 		g_OSD.Show(OSDType::MESSAGE_WARNING, err->T("Game disc read error - ISO corrupt"), fileLoader_->GetPath().ToVisualString(), 6.0f);
 		reportedError_ = true;
 	}

@@ -235,11 +235,11 @@ int PSPNpSigninDialog::Update(int animSpeed) {
 
 	UpdateButtons();
 	UpdateCommon();
-	auto di = GetI18NCategory(I18NCat::DIALOG);
 	auto err = GetI18NCategory(I18NCat::ERRORS);
 	u64 now = (u64)(time_now_d() * 1000000.0);
 	
 	if (request.npSigninStatus == NP_SIGNIN_STATUS_NONE) {
+		auto di = GetI18NCategory(I18NCat::DIALOG);
 		UpdateFade(animSpeed);
 		StartDraw();
 

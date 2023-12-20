@@ -1391,10 +1391,10 @@ bool SavedataParam::GetSize(SceUtilitySavedataParam *param)
 
 	const std::string saveDir = savePath + GetGameName(param) + GetSaveName(param);
 	bool exists = false;
-	auto listing = pspFileSystem.GetDirListing(saveDir, &exists);
 
 	if (param->sizeInfo.IsValid())
 	{
+		auto listing = pspFileSystem.GetDirListing(saveDir, &exists);
 		const u64 freeBytes = MemoryStick_FreeSpace();
 
 		s64 overwriteBytes = 0;
