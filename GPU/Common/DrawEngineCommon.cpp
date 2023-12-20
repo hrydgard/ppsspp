@@ -910,6 +910,10 @@ bool DrawEngineCommon::SubmitPrim(const void *verts, const void *inds, GEPrimiti
 		if ((vertexCount < 2 && prim > 0) || (prim > GE_PRIM_LINE_STRIP && prim != GE_PRIM_RECTANGLES)) {
 			return false;
 		}
+		if (vertexCount <= 0) {
+			// Unfortunately we need to do this check somewhere since GetIndexBounds doesn't handle zero-length arrays.
+			return false;
+		}
 	}
 
 	bool applySkin = (vertTypeID & GE_VTYPE_WEIGHT_MASK) && decOptions_.applySkinInDecode;
