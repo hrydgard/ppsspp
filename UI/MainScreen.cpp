@@ -1071,8 +1071,6 @@ void MainScreen::CreateViews() {
 
 	auto mm = GetI18NCategory(I18NCat::MAINMENU);
 
-	Margins actionMenuMargins(0, 10, 10, 0);
-
 	tabHolder_ = new TabHolder(ORIENT_HORIZONTAL, 64, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 1.0f));
 	ViewGroup *leftColumn = tabHolder_;
 	tabHolder_->SetTag("MainScreenGames");
@@ -1252,6 +1250,7 @@ void MainScreen::CreateViews() {
 		root_->Add(rightColumn);
 		root_->Add(leftColumn);
 	} else {
+		Margins actionMenuMargins(0, 10, 10, 0);
 		root_ = new LinearLayout(ORIENT_HORIZONTAL);
 		rightColumn->ReplaceLayoutParams(new LinearLayoutParams(300, FILL_PARENT, actionMenuMargins));
 		root_->Add(leftColumn);
@@ -1266,10 +1265,9 @@ void MainScreen::CreateViews() {
 
 	root_->SetTag("mainroot");
 
-	auto u = GetI18NCategory(I18NCat::UPGRADE);
-
 	upgradeBar_ = 0;
 	if (!g_Config.upgradeMessage.empty()) {
+		auto u = GetI18NCategory(I18NCat::UPGRADE);
 		upgradeBar_ = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 
 		UI::Margins textMargins(10, 5);

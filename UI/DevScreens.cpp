@@ -993,13 +993,12 @@ void AddressPromptScreen::BackspaceDigit() {
 }
 
 void AddressPromptScreen::UpdatePreviewDigits() {
-	auto dev = GetI18NCategory(I18NCat::DEVELOPER);
-
 	if (addr_ != 0) {
 		char temp[32];
 		snprintf(temp, 32, "%8X", addr_);
 		addrView_->SetText(temp);
 	} else {
+		auto dev = GetI18NCategory(I18NCat::DEVELOPER);
 		addrView_->SetText(dev->T("Enter address"));
 	}
 }
@@ -1072,8 +1071,6 @@ void JitCompareScreen::UpdateDisasm() {
 
 	using namespace UI;
 
-	auto dev = GetI18NCategory(I18NCat::DEVELOPER);
-
 	JitBlockCacheDebugInterface *blockCacheDebug = MIPSComp::jit->GetBlockCacheDebugInterface();
 
 	char temp[256];
@@ -1081,6 +1078,7 @@ void JitCompareScreen::UpdateDisasm() {
 	blockName_->SetText(temp);
 
 	if (currentBlock_ < 0 || !blockCacheDebug || currentBlock_ >= blockCacheDebug->GetNumBlocks()) {
+		auto dev = GetI18NCategory(I18NCat::DEVELOPER);
 		leftDisasm_->Add(new TextView(dev->T("No block")));
 		rightDisasm_->Add(new TextView(dev->T("No block")));
 		blockStats_->SetText("");

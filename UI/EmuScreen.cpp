@@ -233,8 +233,6 @@ bool EmuScreen::bootAllowStorage(const Path &filename) {
 }
 
 void EmuScreen::bootGame(const Path &filename) {
-	auto sc = GetI18NCategory(I18NCat::SCREEN);
-
 	if (Achievements::IsBlockingExecution()) {
 		// Keep waiting.
 		return;
@@ -288,6 +286,7 @@ void EmuScreen::bootGame(const Path &filename) {
 
 		g_Discord.SetPresenceGame(info->GetTitle().c_str());
 	} else {
+		auto sc = GetI18NCategory(I18NCat::SCREEN);
 		g_Discord.SetPresenceGame(sc->T("Untitled PSP game"));
 	}
 
@@ -970,7 +969,6 @@ void EmuScreen::CreateViews() {
 	using namespace UI;
 
 	auto dev = GetI18NCategory(I18NCat::DEVELOPER);
-	auto n = GetI18NCategory(I18NCat::NETWORKING);
 	auto sc = GetI18NCategory(I18NCat::SCREEN);
 
 	const Bounds &bounds = screenManager()->getUIContext()->GetLayoutBounds();
@@ -1003,6 +1001,7 @@ void EmuScreen::CreateViews() {
 
 	if (g_Config.bEnableNetworkChat) {
 		if (g_Config.iChatButtonPosition != 8) {
+			auto n = GetI18NCategory(I18NCat::NETWORKING);
 			AnchorLayoutParams *layoutParams = AnchorInCorner(bounds, g_Config.iChatButtonPosition, 80.0f, 50.0f);
 			ChoiceWithValueDisplay *btn = new ChoiceWithValueDisplay(&newChatMessages_, n->T("Chat"), layoutParams);
 			root_->Add(btn)->OnClick.Handle(this, &EmuScreen::OnChat);
