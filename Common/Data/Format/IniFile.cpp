@@ -191,7 +191,7 @@ void Section::Clear() {
 
 bool Section::GetKeys(std::vector<std::string> &keys) const {
 	keys.clear();
-	for (auto &line : lines_) {
+	for (const auto &line : lines_) {
 		if (!line.Key().empty())
 			keys.emplace_back(line.Key());
 	}
@@ -304,8 +304,7 @@ void Section::Set(std::string_view key, const std::vector<std::string>& newValue
 {
 	std::string temp;
 	// Join the strings with ,
-	for (const auto &value : newValues)
-	{
+	for (const auto &value : newValues) {
 		temp += value + ",";
 	}
 	// remove last ,
