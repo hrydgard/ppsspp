@@ -423,7 +423,8 @@ void KeyMappingNewKeyDialog::axis(const AxisInput &axis) {
 		InputMapping mapping(axis.deviceId, axis.axisId, 1);
 		triggeredAxes_.insert(mapping);
 		if (!g_Config.bAllowMappingCombos && !mapping_.mappings.empty()) {
-			comboMappingsNotEnabled_->SetVisibility(UI::V_VISIBLE);
+			if (mapping_.mappings.size() == 1 && mapping != mapping_.mappings[0])
+				comboMappingsNotEnabled_->SetVisibility(UI::V_VISIBLE);
 		} else if (!mapping_.mappings.contains(mapping)) {
 			mapping_.mappings.push_back(mapping);
 			RecreateViews();
@@ -432,7 +433,8 @@ void KeyMappingNewKeyDialog::axis(const AxisInput &axis) {
 		InputMapping mapping(axis.deviceId, axis.axisId, -1);
 		triggeredAxes_.insert(mapping);
 		if (!g_Config.bAllowMappingCombos && !mapping_.mappings.empty()) {
-			comboMappingsNotEnabled_->SetVisibility(UI::V_VISIBLE);
+			if (mapping_.mappings.size() == 1 && mapping != mapping_.mappings[0])
+				comboMappingsNotEnabled_->SetVisibility(UI::V_VISIBLE);
 		} else if (!mapping_.mappings.contains(mapping)) {
 			mapping_.mappings.push_back(mapping);
 			RecreateViews();
