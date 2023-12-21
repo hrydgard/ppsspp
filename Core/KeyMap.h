@@ -172,7 +172,7 @@ namespace KeyMap {
 	const char *GetVirtKeyName(int vkey);
 	const char *GetPspButtonNameCharPointer(int btn);
 
-	std::vector<KeyMap_IntStrPair> GetMappableKeys();
+	const KeyMap_IntStrPair *GetMappableKeys(size_t *count);
 
 	// Use to translate input mappings to and from PSP buttons. You should have already translated
 	// your platform's keys to InputMapping keys.

@@ -504,12 +504,9 @@ const char* GetPspButtonNameCharPointer(int btn) {
 	return nullptr;
 }
 
-std::vector<KeyMap_IntStrPair> GetMappableKeys() {
-	std::vector<KeyMap_IntStrPair> temp;
-	for (size_t i = 0; i < ARRAY_SIZE(psp_button_names); i++) {
-		temp.push_back(psp_button_names[i]);
-	}
-	return temp;
+const KeyMap::KeyMap_IntStrPair *GetMappableKeys(size_t *count) {
+	*count = ARRAY_SIZE(psp_button_names);
+	return psp_button_names;
 }
 
 bool InputMappingToPspButton(const InputMapping &mapping, std::vector<int> *pspButtons) {
