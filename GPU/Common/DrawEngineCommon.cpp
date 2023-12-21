@@ -846,8 +846,6 @@ int DrawEngineCommon::ExtendNonIndexedPrim(const uint32_t *cmd, const uint32_t *
 
 	seenPrims_ |= seenPrims;
 
-	_dbg_assert_(cmd != start);
-
 	int totalCount = offset - dv.vertexCount;
 	dv.vertexCount = offset;
 	dv.indexUpperBound = dv.vertexCount - 1;

@@ -504,12 +504,9 @@ const char* GetPspButtonNameCharPointer(int btn) {
 	return nullptr;
 }
 
-std::vector<KeyMap_IntStrPair> GetMappableKeys() {
-	std::vector<KeyMap_IntStrPair> temp;
-	for (size_t i = 0; i < ARRAY_SIZE(psp_button_names); i++) {
-		temp.push_back(psp_button_names[i]);
-	}
-	return temp;
+const KeyMap::KeyMap_IntStrPair *GetMappableKeys(size_t *count) {
+	*count = ARRAY_SIZE(psp_button_names);
+	return psp_button_names;
 }
 
 bool InputMappingToPspButton(const InputMapping &mapping, std::vector<int> *pspButtons) {
@@ -527,13 +524,14 @@ bool InputMappingToPspButton(const InputMapping &mapping, std::vector<int> *pspB
 	return found;
 }
 
-bool InputMappingsFromPspButton(int btn, std::vector<MultiInputMapping> *mappings, bool ignoreMouse) {
-	std::lock_guard<std::recursive_mutex> guard(g_controllerMapLock);
+// This is the main workhorse of the ControlMapper.
+bool InputMappingsFromPspButtonNoLock(int btn, std::vector<MultiInputMapping> *mappings, bool ignoreMouse) {
 	auto iter = g_controllerMap.find(btn);
 	if (iter == g_controllerMap.end()) {
 		return false;
 	}
 	bool mapped = false;
+	mappings->clear();
 	for (auto &iter2 : iter->second) {
 		bool ignore = ignoreMouse && iter2.HasMouse();
 		if (mappings && !ignore) {
@@ -542,6 +540,19 @@ bool InputMappingsFromPspButton(int btn, std::vector<MultiInputMapping> *mapping
 		}
 	}
 	return mapped;
+}
+
+bool InputMappingsFromPspButton(int btn, std::vector<MultiInputMapping> *mappings, bool ignoreMouse) {
+	std::lock_guard<std::recursive_mutex> guard(g_controllerMapLock);
+	return InputMappingsFromPspButtonNoLock(btn, mappings, ignoreMouse);
+}
+
+void LockMappings() {
+	g_controllerMapLock.lock();
+}
+
+void UnlockMappings() {
+	g_controllerMapLock.unlock();
 }
 
 bool PspButtonHasMappings(int btn) {

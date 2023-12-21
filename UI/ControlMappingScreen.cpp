@@ -274,7 +274,8 @@ void ControlMappingScreen::CreateViews() {
 	root_->Add(leftColumn);
 	root_->Add(rightScroll_);
 
-	std::vector<KeyMap::KeyMap_IntStrPair> mappableKeys = KeyMap::GetMappableKeys();
+	size_t numMappableKeys = 0;
+	const KeyMap::KeyMap_IntStrPair *mappableKeys = KeyMap::GetMappableKeys(&numMappableKeys);
 
 	struct Cat {
 		const char *catName;
@@ -291,7 +292,7 @@ void ControlMappingScreen::CreateViews() {
 
 	int curCat = -1;
 	CollapsibleSection *curSection = nullptr;
-	for (size_t i = 0; i < mappableKeys.size(); i++) {
+	for (size_t i = 0; i < numMappableKeys; i++) {
 		if (curCat < (int)ARRAY_SIZE(cats) && mappableKeys[i].key == cats[curCat + 1].firstKey) {
 			if (curCat >= 0 && !cats[curCat].openByDefault) {
 				curSection->SetOpen(false);
