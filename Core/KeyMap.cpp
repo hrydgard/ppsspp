@@ -524,8 +524,8 @@ bool InputMappingToPspButton(const InputMapping &mapping, std::vector<int> *pspB
 	return found;
 }
 
-bool InputMappingsFromPspButton(int btn, std::vector<MultiInputMapping> *mappings, bool ignoreMouse) {
-	std::lock_guard<std::recursive_mutex> guard(g_controllerMapLock);
+// This is the main workhorse of the ControlMapper.
+bool InputMappingsFromPspButtonNoLock(int btn, std::vector<MultiInputMapping> *mappings, bool ignoreMouse) {
 	auto iter = g_controllerMap.find(btn);
 	if (iter == g_controllerMap.end()) {
 		return false;
@@ -540,6 +540,19 @@ bool InputMappingsFromPspButton(int btn, std::vector<MultiInputMapping> *mapping
 		}
 	}
 	return mapped;
+}
+
+bool InputMappingsFromPspButton(int btn, std::vector<MultiInputMapping> *mappings, bool ignoreMouse) {
+	std::lock_guard<std::recursive_mutex> guard(g_controllerMapLock);
+	return InputMappingsFromPspButtonNoLock(btn, mappings, ignoreMouse);
+}
+
+void LockMappings() {
+	g_controllerMapLock.lock();
+}
+
+void UnlockMappings() {
+	g_controllerMapLock.unlock();
 }
 
 bool PspButtonHasMappings(int btn) {

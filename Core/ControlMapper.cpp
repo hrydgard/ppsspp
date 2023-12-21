@@ -154,8 +154,11 @@ void ControlMapper::UpdateAnalogOutput(int stick) {
 }
 
 void ControlMapper::ForceReleaseVKey(int vkey) {
+	// Note: This one is called from an onVKey_ handler, which already holds mutex_.
+
+	KeyMap::LockMappings();
 	std::vector<KeyMap::MultiInputMapping> multiMappings;
-	if (KeyMap::InputMappingsFromPspButton(vkey, &multiMappings, true)) {
+	if (KeyMap::InputMappingsFromPspButtonNoLock(vkey, &multiMappings, true)) {
 		double now = time_now_d();
 		for (const auto &entry : multiMappings) {
 			for (const auto &mapping : entry.mappings) {
@@ -165,6 +168,7 @@ void ControlMapper::ForceReleaseVKey(int vkey) {
 			}
 		}
 	}
+	KeyMap::UnlockMappings();
 }
 
 static int RotatePSPKeyCode(int x) {
@@ -251,7 +255,7 @@ void ControlMapper::SwapMappingIfEnabled(uint32_t *vkey) {
 }
 
 // Can only be called from Key or Axis.
-// mutex_ should be locked.
+// mutex_ should be locked, and also KeyMap::LockMappings().
 // TODO: We should probably make a batched version of this.
 bool ControlMapper::UpdatePSPState(const InputMapping &changedMapping, double now) {
 	// Instead of taking an input key and finding what it outputs, we loop through the OUTPUTS and
@@ -282,7 +286,7 @@ bool ControlMapper::UpdatePSPState(const InputMapping &changedMapping, double no
 		}
 
 		SwapMappingIfEnabled(&mappingBit);
-		if (!KeyMap::InputMappingsFromPspButton(mappingBit, &inputMappings, false))
+		if (!KeyMap::InputMappingsFromPspButtonNoLock(mappingBit, &inputMappings, false))
 			continue;
 
 		// If a mapping could consist of a combo, we could trivially check it here.
@@ -319,7 +323,7 @@ bool ControlMapper::UpdatePSPState(const InputMapping &changedMapping, double no
 		uint32_t idForMapping = vkId;
 		SwapMappingIfEnabled(&idForMapping);
 
-		if (!KeyMap::InputMappingsFromPspButton(idForMapping, &inputMappings, false))
+		if (!KeyMap::InputMappingsFromPspButtonNoLock(idForMapping, &inputMappings, false))
 			continue;
 
 		// If a mapping could consist of a combo, we could trivially check it here.
@@ -421,14 +425,15 @@ bool ControlMapper::Key(const KeyInput &key, bool *pauseTrigger) {
 		// Claim that we handled this. Prevents volume key repeats from popping up the volume control on Android.
 		return true;
 	}
-	double now = time_now_d();
-	if (key.deviceId < DEVICE_ID_COUNT) {
-		deviceTimestamps_[(int)key.deviceId] = now;
-	}
 
+	double now = time_now_d();
 	InputMapping mapping(key.deviceId, key.keyCode);
 
 	std::lock_guard<std::mutex> guard(mutex_);
+
+	if (key.deviceId < DEVICE_ID_COUNT) {
+		deviceTimestamps_[(int)key.deviceId] = now;
+	}
 
 	if (key.flags & KEY_DOWN) {
 		curInput_[mapping] = { 1.0f, now };
@@ -446,10 +451,15 @@ bool ControlMapper::Key(const KeyInput &key, bool *pauseTrigger) {
 		}
 	}
 
-	return UpdatePSPState(mapping, now);
+	KeyMap::LockMappings();
+	bool retval = UpdatePSPState(mapping, now);
+	KeyMap::UnlockMappings();
+	return retval;
 }
 
 void ControlMapper::ToggleSwapAxes() {
+	std::lock_guard<std::mutex> guard(mutex_);
+
 	swapAxes_ = !swapAxes_;
 
 	updatePSPButtons_(0, CTRL_LEFT | CTRL_RIGHT | CTRL_UP | CTRL_DOWN);
@@ -478,6 +488,8 @@ void ControlMapper::Axis(const AxisInput *axes, size_t count) {
 	double now = time_now_d();
 
 	std::lock_guard<std::mutex> guard(mutex_);
+
+	KeyMap::LockMappings();
 	for (size_t i = 0; i < count; i++) {
 		const AxisInput &axis = axes[i];
 		size_t deviceIndex = (size_t)axis.deviceId;  // this wraps -1 up high, so will get rejected on the next line.
@@ -500,6 +512,7 @@ void ControlMapper::Axis(const AxisInput *axes, size_t count) {
 			UpdatePSPState(opposite, now);
 		}
 	}
+	KeyMap::UnlockMappings();
 }
 
 void ControlMapper::Update(double now) {
