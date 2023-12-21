@@ -23,6 +23,8 @@
 #include <unistd.h>
 #endif
 
+#include "Common/Log.h"
+
 // for _mm_pause
 #if PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)
 #include <immintrin.h>
@@ -269,4 +271,11 @@ void GetCurrentTimeFormatted(char formattedTime[13]) {
 
 	// Now tack on the milliseconds
 	snprintf(formattedTime, 11, "%s:%03u", tmp, milliseconds % 1000);
+}
+
+LogScopeIfSlowMs::~LogScopeIfSlowMs() {
+	double now = time_now_d();
+	if (now > endTime_) {
+		WARN_LOG(SYSTEM, "SLOW: %s took %0.2f ms", title_, (now - endTime_) * 1000.0);
+	}
 }

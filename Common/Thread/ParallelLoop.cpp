@@ -30,12 +30,15 @@ public:
 	const TaskPriority priority_;
 };
 
-WaitableCounter *ParallelRangeLoopWaitable(ThreadManager *threadMan, const std::function<void(int, int)> &loop, int lower, int upper, int minSize, TaskPriority priority) {
+WaitableCounter *ParallelRangeLoopWaitable(ThreadManager *threadMan, const std::function<void(int, int)> &loop, int lower, int upper, int minSize, int maxThreads, TaskPriority priority) {
 	if (minSize == -1) {
 		minSize = 1;
 	}
 
 	int numTasks = threadMan->GetNumLooperThreads();
+	if (maxThreads > 0) {
+		numTasks = std::min(maxThreads, numTasks);
+	}
 	int range = upper - lower;
 	if (range <= 0) {
 		// Nothing to do. A finished counter allocated to keep the API.
@@ -88,7 +91,7 @@ WaitableCounter *ParallelRangeLoopWaitable(ThreadManager *threadMan, const std::
 	}
 }
 
-void ParallelRangeLoop(ThreadManager *threadMan, const std::function<void(int, int)> &loop, int lower, int upper, int minSize, TaskPriority priority) {
+void ParallelRangeLoop(ThreadManager *threadMan, const std::function<void(int, int)> &loop, int lower, int upper, int minSize, int maxThreads, TaskPriority priority) {
 	if (cpu_info.num_cores == 1 || (minSize >= (upper - lower) && upper > lower)) {
 		// "Optimization" for single-core devices, or minSize larger than the range.
 		// No point in adding threading overhead, let's just do it inline (since this is the blocking variant).
@@ -101,7 +104,7 @@ void ParallelRangeLoop(ThreadManager *threadMan, const std::function<void(int, i
 		minSize = 1;
 	}
 
-	WaitableCounter *counter = ParallelRangeLoopWaitable(threadMan, loop, lower, upper, minSize, priority);
+	WaitableCounter *counter = ParallelRangeLoopWaitable(threadMan, loop, lower, upper, minSize, maxThreads, priority);
 	// TODO: Optimize using minSize. We'll just compute whether there's a remainer, remove it from the call to ParallelRangeLoopWaitable,
 	// and process the remainder right here. If there's no remainer, we'll steal a whole chunk.
 	if (counter) {
@@ -118,12 +121,14 @@ void ParallelMemcpy(ThreadManager *threadMan, void *dst, const void *src, size_t
 	}
 
 	// unknown's testing showed that 128kB is an appropriate minimum size.
+	// Though, it probably depends on the number of CPU cores too.
+	// I'm capping the number of threads at 6.
 
 	char *d = (char *)dst;
 	const char *s = (const char *)src;
 	ParallelRangeLoop(threadMan, [&](int l, int h) {
 		memmove(d + l, s + l, h - l);
-	}, 0, (int)bytes, 128 * 1024, priority);
+	}, 0, (int)bytes, 128 * 1024, 6, priority);
 }
 
 // NOTE: Supports a max of 2GB.
@@ -135,9 +140,10 @@ void ParallelMemset(ThreadManager *threadMan, void *dst, uint8_t value, size_t b
 	}
 
 	// unknown's testing showed that 128kB is an appropriate minimum size.
+	// See above though for number of threads.
 
 	char *d = (char *)dst;
 	ParallelRangeLoop(threadMan, [&](int l, int h) {
 		memset(d + l, value, h - l);
-	}, 0, (int)bytes, 128 * 1024, priority);
+	}, 0, (int)bytes, 128 * 1024, 6, priority);
 }
