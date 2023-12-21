@@ -661,7 +661,7 @@ void BinManager::DrawSplit(const BinItem &item, const RasterizerState &state) {
 		band.y1 = range.y1 + lower * SCREEN_SCALE_FACTOR * 2;
 		band.y2 = std::min(range.y1 + upper * SCREEN_SCALE_FACTOR * 2 - 1, range.y2);
 		DrawBinItem(item, band, state);
-	}, 0, rowPairs, SPLIT_MIN_ROW_PAIRS, TaskPriority::HIGH);
+	}, 0, rowPairs, SPLIT_MIN_ROW_PAIRS, 0, TaskPriority::HIGH);
 }
 
 void BinManager::DistributeItems() {

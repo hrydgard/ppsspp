@@ -46,20 +46,20 @@ bool TestParallelLoop(ThreadManager *threadMan) {
 	printf("tester thread ID: %d\n", GetCurrentThreadIdForDebug());
 
 	printf("waitable test\n");
-	WaitableCounter *waitable = ParallelRangeLoopWaitable(threadMan, rangeFunc, 0, 7, 1, TaskPriority::HIGH);
+	WaitableCounter *waitable = ParallelRangeLoopWaitable(threadMan, rangeFunc, 0, 7, 1, 0, TaskPriority::HIGH);
 	// Can do stuff here if we like.
 	waitable->WaitAndRelease();
 	// Now it's done.
 
 	// Try a loop with stragglers.
 	printf("blocking test #1 [0-65)\n");
-	ParallelRangeLoop(threadMan, rangeFunc, 0, 65, 1);
+	ParallelRangeLoop(threadMan, rangeFunc, 0, 65, 1, 0);
 	// Try a loop with a relatively large minimum size.
 	printf("blocking test #2 [0-100)\n");
-	ParallelRangeLoop(threadMan, rangeFunc, 0, 100, 40);
+	ParallelRangeLoop(threadMan, rangeFunc, 0, 100, 40, 0);
 	// Try a loop with minimum size larger than range.
 	printf("waitable test [10-30)\n");
-	WaitableCounter *waitable2 = ParallelRangeLoopWaitable(threadMan, rangeFunc, 10, 30, 40, TaskPriority::LOW);
+	WaitableCounter *waitable2 = ParallelRangeLoopWaitable(threadMan, rangeFunc, 10, 30, 40, 0, TaskPriority::LOW);
 	waitable2->WaitAndRelease();
 	return true;
 }

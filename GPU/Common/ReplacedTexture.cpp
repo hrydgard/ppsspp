@@ -805,6 +805,7 @@ bool ReplacedTexture::CopyLevelTo(int level, uint8_t *out, size_t outDataSize, i
 		return false;
 	}
 
+	// Dubious if this is worth it, sometimes seems to help, sometimes not.
 #define PARALLEL_COPY
 
 	int blockSize;
@@ -830,6 +831,7 @@ bool ReplacedTexture::CopyLevelTo(int level, uint8_t *out, size_t outDataSize, i
 		} else {
 #ifdef PARALLEL_COPY
 			const int MIN_LINES_PER_THREAD = 4;
+			const int MAX_THREADS = 6;
 			ParallelRangeLoop(&g_threadManager, [&](int l, int h) {
 				int extraPixels = outW - info.w;
 				for (int y = l; y < h; ++y) {
@@ -837,7 +839,7 @@ bool ReplacedTexture::CopyLevelTo(int level, uint8_t *out, size_t outDataSize, i
 					// Fill the rest of the line with black.
 					memset((uint8_t *)out + rowPitch * y + info.w * 4, 0, extraPixels * 4);
 				}
-				}, 0, info.h, MIN_LINES_PER_THREAD);
+				}, 0, info.h, MIN_LINES_PER_THREAD, MAX_THREADS);
 #else
 			int extraPixels = outW - info.w;
 			for (int y = 0; y < info.h; ++y) {

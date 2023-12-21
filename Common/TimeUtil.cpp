@@ -24,6 +24,8 @@
 #include <unistd.h>
 #endif
 
+#include "Common/Log.h"
+
 // for _mm_pause
 #if PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)
 #include <emmintrin.h>
@@ -414,4 +416,11 @@ static GMRng g_sleepRandom;
 void sleep_random(double minSeconds, double maxSeconds, const char *reason) {
 	const double waitSeconds = minSeconds + (maxSeconds - minSeconds) * g_sleepRandom.F();
 	sleep_precise(waitSeconds, reason);
+}
+
+LogScopeIfSlowMs::~LogScopeIfSlowMs() {
+	double now = time_now_d();
+	if (now > endTime_) {
+		WARN_LOG(Log::System, "SLOW: %s took %0.2f ms", title_, (now - endTime_) * 1000.0);
+	}
 }
