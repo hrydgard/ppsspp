@@ -58,6 +58,8 @@ private:
 	void onVKey(int vkey, bool down);
 	void onVKeyAnalog(int deviceId, int vkey, float value);
 
+	void UpdateCurInputAxis(const InputMapping &mapping, float value, double timestamp);
+
 	// To track mappable virtual keys. We can have as many as we want.
 	float virtKeys_[VIRTKEY_COUNT]{};
 	bool virtKeyOn_[VIRTKEY_COUNT]{};  // Track boolean output separaately since thresholds may differ.

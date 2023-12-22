@@ -269,7 +269,7 @@ bool ControlMapper::UpdatePSPState(const InputMapping &changedMapping, double no
 	case ROTATION_LOCKED_VERTICAL180:   rotations = 3; break;
 	}
 
-	// For the PSP's button inputs, we just go through and put the flags together.
+	// For the PSP's digital button inputs, we just go through and put the flags together.
 	uint32_t buttonMask = 0;
 	uint32_t changedButtonMask = 0;
 	std::vector<MultiInputMapping> inputMappings;
@@ -297,9 +297,21 @@ bool ControlMapper::UpdatePSPState(const InputMapping &changedMapping, double no
 			}
 			// Check if all inputs are "on".
 			bool all = true;
+			double curTime = 0.0;
 			for (auto mapping : multiMapping.mappings) {
 				auto iter = curInput_.find(mapping);
-				bool down = iter != curInput_.end() && iter->second.value > GetDeviceAxisThreshold(iter->first.deviceId);
+				if (iter == curInput_.end()) {
+					all = false;
+					continue;
+				}
+				// Stop reverse ordering from triggering.
+				if (iter->second.timestamp < curTime) {
+					all = false;
+					break;
+				} else {
+					curTime = iter->second.timestamp;
+				}
+				bool down = iter->second.value > GetDeviceAxisThreshold(iter->first.deviceId);
 				if (!down)
 					all = false;
 			}
@@ -338,12 +350,23 @@ bool ControlMapper::UpdatePSPState(const InputMapping &changedMapping, double no
 			}
 
 			float product = 1.0f;  // We multiply the various inputs in a combo mapping with each other.
+			double curTime = 0.0;
 			for (auto mapping : multiMapping.mappings) {
 				auto iter = curInput_.find(mapping);
+
 				if (iter != curInput_.end()) {
+					// Stop reverse ordering from triggering.
+					if (iter->second.timestamp < curTime) {
+						product = 0.0f;
+						break;
+					} else {
+						curTime = iter->second.timestamp;
+					}
+
 					if (mapping.IsAxis()) {
 						threshold = GetDeviceAxisThreshold(iter->first.deviceId);
-						product *= MapAxisValue(iter->second.value, idForMapping, mapping, changedMapping, &touchedByMapping);
+						float value = MapAxisValue(iter->second.value, idForMapping, mapping, changedMapping, &touchedByMapping);
+						product *= value;
 					} else {
 						product *= iter->second.value;
 					}
@@ -484,6 +507,18 @@ void ControlMapper::ToggleSwapAxes() {
 	UpdateAnalogOutput(1);
 }
 
+void ControlMapper::UpdateCurInputAxis(const InputMapping &mapping, float value, double timestamp) {
+	InputSample &input = curInput_[mapping];
+	input.value = value;
+	if (value > GetDeviceAxisThreshold(mapping.deviceId)) {
+		if (input.timestamp == 0.0) {
+			input.timestamp = time_now_d();
+		}
+	} else {
+		input.timestamp = 0.0;
+	}
+}
+
 void ControlMapper::Axis(const AxisInput *axes, size_t count) {
 	double now = time_now_d();
 
@@ -499,15 +534,15 @@ void ControlMapper::Axis(const AxisInput *axes, size_t count) {
 		if (axis.value >= 0.0f) {
 			InputMapping mapping(axis.deviceId, axis.axisId, 1);
 			InputMapping opposite(axis.deviceId, axis.axisId, -1);
-			curInput_[mapping] = { axis.value, now };
-			curInput_[opposite] = { 0.0f, now };
+			UpdateCurInputAxis(mapping, axis.value, now);
+			UpdateCurInputAxis(opposite, 0.0f, now);
 			UpdatePSPState(mapping, now);
 			UpdatePSPState(opposite, now);
 		} else if (axis.value < 0.0f) {
 			InputMapping mapping(axis.deviceId, axis.axisId, -1);
 			InputMapping opposite(axis.deviceId, axis.axisId, 1);
-			curInput_[mapping] = { -axis.value, now };
-			curInput_[opposite] = { 0.0f, now };
+			UpdateCurInputAxis(mapping, -axis.value, now);
+			UpdateCurInputAxis(opposite, 0.0f, now);
 			UpdatePSPState(mapping, now);
 			UpdatePSPState(opposite, now);
 		}
