@@ -585,6 +585,14 @@ static void check_variables(CoreParameter &coreParam)
          g_Config.bAnalogIsCircular = true;
    }
 
+   var.key = "ppsspp_memstick_inserted";
+   if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value)
+   {
+      if (!strcmp(var.value, "disabled"))
+         g_Config.bMemStickInserted = false;
+      else
+         g_Config.bMemStickInserted = true;
+   }
 
    var.key = "ppsspp_internal_resolution";
    if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value)

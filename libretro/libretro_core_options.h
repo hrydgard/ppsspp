@@ -272,6 +272,16 @@ struct retro_core_option_v2_definition option_defs_us[] = {
       "disabled"
    },
    {
+      "ppsspp_memstick_inserted",
+      "Memory Stick inserted",
+      NULL,
+      "Some games require ejecting/inserting the Memory Stick.",
+      NULL,
+      "system",
+      BOOL_OPTIONS,
+      "enabled"
+   },
+   {
       "ppsspp_internal_resolution",
       "Internal Resolution (Restart)",
       NULL,
