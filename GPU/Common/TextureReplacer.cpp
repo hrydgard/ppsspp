@@ -181,12 +181,6 @@ bool TextureReplacer::LoadIni() {
 			std::map<ReplacementCacheKey, std::map<int, std::string>> filenameMap;
 			ScanForHashNamedFiles(dir, filenameMap);
 			ComputeAliasMap(filenameMap);
-			// Set some defaults.
-			allowVideo_ = false;
-			ignoreAddress_ = false;
-			reduceHash_ = false;
-			ignoreMipmap_ = false;
-			// TODO: others?
 		}
 	}
 
@@ -599,6 +593,7 @@ ReplacedTexture *TextureReplacer::FindReplacement(u64 cachekey, u32 hash, int w,
 		}
 		desc.logId = desc.filenames[0];
 		desc.hashfiles = desc.filenames[0];  // The generated filename of the top level is used as the key in the data cache.
+		// TODO: here `hashfiles` is set to an empty string, breaking stuff below.
 	} else {
 		desc.logId = hashfiles;
 		SplitString(hashfiles, '|', desc.filenames);
