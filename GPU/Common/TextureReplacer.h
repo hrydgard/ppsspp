@@ -135,6 +135,9 @@ protected:
 	float LookupReduceHashRange(int w, int h);
 	std::string LookupHashFile(u64 cachekey, u32 hash, bool *foundAlias, bool *ignored);
 
+	void ScanForHashNamedFiles(VFSBackend *dir, std::map<ReplacementCacheKey, std::map<int, std::string>> &filenameMap);
+	void ComputeAliasMap(const std::map<ReplacementCacheKey, std::map<int, std::string>> &filenameMap);
+
 	bool enabled_ = false;
 	bool allowVideo_ = false;
 	bool ignoreAddress_ = false;

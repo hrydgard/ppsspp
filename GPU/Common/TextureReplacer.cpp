@@ -198,6 +198,60 @@ bool TextureReplacer::LoadIni() {
 	return true;
 }
 
+void TextureReplacer::ScanForHashNamedFiles(VFSBackend *dir, std::map<ReplacementCacheKey, std::map<int, std::string>> &filenameMap) {
+	// Scan the root of the texture folder/zip and preinitialize the hash map.
+	std::vector<File::FileInfo> filesInRoot;
+	dir->GetFileListing("", &filesInRoot, nullptr);
+	for (auto file : filesInRoot) {
+		if (file.isDirectory)
+			continue;
+		if (file.name.empty() || file.name[0] == '.')
+			continue;
+		Path path(file.name);
+		std::string ext = path.GetFileExtension();
+
+		std::string hash = file.name.substr(0, file.name.size() - ext.size());
+		if (!((hash.size() >= 26 && hash.size() <= 27 && hash[24] == '_') || hash.size() == 24)) {
+			continue;
+		}
+		// OK, it's hash-like enough to try to parse it into the map.
+		if (equalsNoCase(ext, ".ktx2") || equalsNoCase(ext, ".png") || equalsNoCase(ext, ".dds") || equalsNoCase(ext, ".zim")) {
+			ReplacementCacheKey key(0, 0);
+			int level = 0;  // sscanf might fail to pluck the level, but that's ok, we default to 0. sscanf doesn't write to non-matched outputs.
+			if (sscanf(hash.c_str(), "%16llx%8x_%d", &key.cachekey, &key.hash, &level) >= 1) {
+				// INFO_LOG(G3D, "hash-like file in root, adding: %s", file.name.c_str());
+				filenameMap[key][level] = file.name;
+			}
+		}
+	}
+}
+
+void TextureReplacer::ComputeAliasMap(const std::map<ReplacementCacheKey, std::map<int, std::string>> &filenameMap) {
+	for (auto &pair : filenameMap) {
+		std::string alias;
+		int mipIndex = 0;
+		for (auto &level : pair.second) {
+			if (level.first == mipIndex) {
+				alias += level.second + "|";
+				mipIndex++;
+			} else {
+				WARN_LOG(G3D, "Non-sequential mip index %d, breaking. filenames=%s", level.first, level.second.c_str());
+				break;
+			}
+		}
+		if (alias == "|") {
+			alias = "";  // marker for no replacement
+		}
+		// Replace any '\' with '/', to be safe and consistent. Since these are from the ini file, we do this on all platforms.
+		for (auto &c : alias) {
+			if (c == '\\') {
+				c = '/';
+			}
+		}
+		aliases_[pair.first] = alias;
+	}
+}
+
 bool TextureReplacer::LoadIniValues(IniFile &ini, VFSBackend *dir, bool isOverride) {
 	auto options = ini.GetOrCreateSection("options");
 	std::string hash;
@@ -236,35 +290,12 @@ bool TextureReplacer::LoadIniValues(IniFile &ini, VFSBackend *dir, bool isOverri
 	int badFileNameCount = 0;
 
 	std::map<ReplacementCacheKey, std::map<int, std::string>> filenameMap;
-	std::string badFilenames;
 
-	// Scan the root of the texture folder/zip and preinitialize the hash map.
-	std::vector<File::FileInfo> filesInRoot;
 	if (dir) {
-		dir->GetFileListing("", &filesInRoot, nullptr);
-		for (auto file : filesInRoot) {
-			if (file.isDirectory)
-				continue;
-			if (file.name.empty() || file.name[0] == '.')
-				continue;
-			Path path(file.name);
-			std::string ext = path.GetFileExtension();
-
-			std::string hash = file.name.substr(0, file.name.size() - ext.size());
-			if (!((hash.size() >= 26 && hash.size() <= 27 && hash[24] == '_') || hash.size() == 24)) {
-				continue;
-			}
-			// OK, it's hash-like enough to try to parse it into the map.
-			if (equalsNoCase(ext, ".ktx2") || equalsNoCase(ext, ".png") || equalsNoCase(ext, ".dds") || equalsNoCase(ext, ".zim")) {
-				ReplacementCacheKey key(0, 0);
-				int level = 0;  // sscanf might fail to pluck the level, but that's ok, we default to 0. sscanf doesn't write to non-matched outputs.
-				if (sscanf(hash.c_str(), "%16llx%8x_%d", &key.cachekey, &key.hash, &level) >= 1) {
-					// INFO_LOG(G3D, "hash-like file in root, adding: %s", file.name.c_str());
-					filenameMap[key][level] = file.name;
-				}
-			}
-		}
+		ScanForHashNamedFiles(dir, filenameMap);
 	}
+
+	std::string badFilenames;
 
 	if (ini.HasSection("hashes")) {
 		auto hashes = ini.GetOrCreateSection("hashes")->ToMap();
@@ -307,29 +338,7 @@ bool TextureReplacer::LoadIniValues(IniFile &ini, VFSBackend *dir, bool isOverri
 	}
 
 	// Now, translate the filenameMap to the final aliasMap.
-	for (auto &pair : filenameMap) {
-		std::string alias;
-		int mipIndex = 0;
-		for (auto &level : pair.second) {
-			if (level.first == mipIndex) {
-				alias += level.second + "|";
-				mipIndex++;
-			} else {
-				WARN_LOG(G3D, "Non-sequential mip index %d, breaking. filenames=%s", level.first, level.second.c_str());
-				break;
-			}
-		}
-		if (alias == "|") {
-			alias = "";  // marker for no replacement
-		}
-		// Replace any '\' with '/', to be safe and consistent. Since these are from the ini file, we do this on all platforms.
-		for (auto &c : alias) {
-			if (c == '\\') {
-				c = '/';
-			}
-		}
-		aliases_[pair.first] = alias;
-	}
+	ComputeAliasMap(filenameMap);
 
 	if (badFileNameCount > 0) {
 		auto err = GetI18NCategory(I18NCat::ERRORS);
