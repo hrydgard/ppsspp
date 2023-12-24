@@ -18,9 +18,11 @@
 #pragma once
 
 #include "ppsspp_config.h"
+
 #include <mutex>
 #include <string>
 #include <unordered_map>
+#include <map>
 #include <vector>
 
 #include "Common/CommonFuncs.h"

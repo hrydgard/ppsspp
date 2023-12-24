@@ -177,6 +177,16 @@ bool TextureReplacer::LoadIni() {
 			return false;
 		} else {
 			WARN_LOG(G3D, "Texture pack lacking ini file: %s", basePath_.c_str());
+			// Do what we can do anyway: Scan for textures and build the map.
+			std::map<ReplacementCacheKey, std::map<int, std::string>> filenameMap;
+			ScanForHashNamedFiles(dir, filenameMap);
+			ComputeAliasMap(filenameMap);
+			// Set some defaults.
+			allowVideo_ = false;
+			ignoreAddress_ = false;
+			reduceHash_ = false;
+			ignoreMipmap_ = false;
+			// TODO: others?
 		}
 	}
 
