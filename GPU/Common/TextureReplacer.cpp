@@ -190,6 +190,9 @@ bool TextureReplacer::LoadIni() {
 		}
 	}
 
+	auto gr = GetI18NCategory(I18NCat::GRAPHICS);
+	g_OSD.Show(OSDType::MESSAGE_SUCCESS, gr->T("Texture replacement pack activated"), 2.0f);
+
 	vfs_ = dir;
 
 	// If we have stuff loaded from before, need to update the vfs pointers to avoid
@@ -380,9 +383,6 @@ bool TextureReplacer::LoadIniValues(IniFile &ini, VFSBackend *dir, bool isOverri
 		}
 	}
 
-	auto gr = GetI18NCategory(I18NCat::GRAPHICS);
-
-	g_OSD.Show(OSDType::MESSAGE_SUCCESS, gr->T("Texture replacement pack activated"), 2.0f);
 	return true;
 }
 
