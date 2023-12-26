@@ -187,6 +187,7 @@ public:
         }
         return nativeError;
     }
+
 private:
     int mSceSocketId;
     int mNativeSocketId;
