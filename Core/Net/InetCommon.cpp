@@ -31,7 +31,7 @@
 bool getDefaultOutboundSockaddr(sockaddr_in& destSockaddrIn, socklen_t& destSocklen) {
     auto fd = socket(AF_INET, SOCK_STREAM, 0);
     if (fd < 0) {
-        ERROR_LOG(SCENET, "getSockAddrFromDefaultSocket: Failed to open socket (%s)", strerror(errno));
+        ERROR_LOG(Log::sceNet, "getSockAddrFromDefaultSocket: Failed to open socket (%s)", strerror(errno));
         return false;
     }
     sockaddr_in connectingTo;
@@ -40,12 +40,12 @@ bool getDefaultOutboundSockaddr(sockaddr_in& destSockaddrIn, socklen_t& destSock
     connectingTo.sin_port = htons(53);
     connectingTo.sin_addr.s_addr = 0x08080808;
     if (connect(fd, (sockaddr*) &connectingTo, sizeof(connectingTo)) < 0) {
-        ERROR_LOG(SCENET, "getSockAddrFromDefaultSocket: Failed to connect to Google (%s)", strerror(errno));
+        ERROR_LOG(Log::sceNet, "getSockAddrFromDefaultSocket: Failed to connect to Google (%s)", strerror(errno));
         close(fd);
         return false;
     }
     if (getsockname(fd, (sockaddr*) &destSockaddrIn, &destSocklen) < 0) {
-        ERROR_LOG(SCENET, "getSockAddrFromDefaultSocket: Failed to execute getsockname (%s)", strerror(errno));
+        ERROR_LOG(Log::sceNet, "getSockAddrFromDefaultSocket: Failed to execute getsockname (%s)", strerror(errno));
         close(fd);
         return false;
     }

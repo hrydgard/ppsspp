@@ -1,8 +1,13 @@
 #pragma once
 
+#include "ppsspp_config.h"
+
 #include <unordered_map>
 #include <unordered_set>
+
+#if !PPSSPP_PLATFORM(WINDOWS)
 #include <sys/socket.h>
+#endif
 
 #include "Log.h"
 
@@ -187,6 +192,7 @@ public:
         }
         return nativeError;
     }
+
 private:
     int mSceSocketId;
     int mNativeSocketId;
