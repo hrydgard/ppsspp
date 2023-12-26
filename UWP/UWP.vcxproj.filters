@@ -18,7 +18,7 @@
     </Filter>
     <Filter Include="Content">
       <UniqueIdentifier>{ef87b390-608f-4c6d-a0ad-88963875ed11}</UniqueIdentifier>
-      <Extensions>wav;zim;ini;txt;ttf;png;meta</Extensions>
+      <Extensions>wav;zim;ini;txt;ttf;png;meta;csv</Extensions>
     </Filter>
     <Filter Include="Content\lang">
       <UniqueIdentifier>{0c1cdb21-de65-4a10-962e-46b9bb0ff717}</UniqueIdentifier>
@@ -184,6 +184,9 @@
       <Filter>Content</Filter>
     </None>
     <None Include="..\Assets\langregion.ini">
+      <Filter>Content</Filter>
+    </None>
+    <None Include="..\Assets\redump.csv">
       <Filter>Content</Filter>
     </None>
     <None Include="..\Assets\*.zim">

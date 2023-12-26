@@ -253,7 +253,6 @@ EventReturn ReportScreen::HandleReportingChange(EventParams &e) {
 void ReportScreen::CreateViews() {
 	auto rp = GetI18NCategory(I18NCat::REPORTING);
 	auto di = GetI18NCategory(I18NCat::DIALOG);
-	auto sy = GetI18NCategory(I18NCat::SYSTEM);
 
 	Margins actionMenuMargins(0, 20, 15, 0);
 	Margins contentMargins(0, 20, 5, 5);
@@ -265,6 +264,7 @@ void ReportScreen::CreateViews() {
 
 	leftColumnItems->Add(new TextView(rp->T("FeedbackDesc", "How's the emulation?  Let us and the community know!"), FLAG_WRAP_TEXT, false, new LinearLayoutParams(Margins(12, 5, 0, 5))))->SetShadow(true);
 	if (!Reporting::IsEnabled()) {
+		auto sy = GetI18NCategory(I18NCat::SYSTEM);
 		reportingNotice_ = leftColumnItems->Add(new TextView(rp->T("FeedbackDisabled", "Compatibility server reports must be enabled."), FLAG_WRAP_TEXT, false, new LinearLayoutParams(Margins(12, 5, 0, 5))));
 		reportingNotice_->SetShadow(true);
 		reportingNotice_->SetTextColor(0xFF3030FF);

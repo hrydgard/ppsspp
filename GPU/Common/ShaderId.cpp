@@ -1,5 +1,6 @@
 #include <string>
 #include <sstream>
+#include <array>
 
 #include "Common/GPU/thin3d.h"
 #include "Common/StringUtils.h"
@@ -29,7 +30,7 @@ std::string VertexShaderDesc(const VShaderID &id) {
 		const char *uvprojModes[4] = { "TexProjPos ", "TexProjUV ", "TexProjNNrm ", "TexProjNrm " };
 		desc << uvprojModes[uvprojMode];
 	}
-	const char *uvgModes[4] = { "UV ", "UVMtx ", "UVEnv ", "UVUnk " };
+	static constexpr std::array<const char*, 4> uvgModes = { "UV ", "UVMtx ", "UVEnv ", "UVUnk " };
 	int ls0 = id.Bits(VS_BIT_LS0, 2);
 	int ls1 = id.Bits(VS_BIT_LS1, 2);
 

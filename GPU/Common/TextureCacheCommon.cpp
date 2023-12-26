@@ -1116,7 +1116,6 @@ bool TextureCacheCommon::MatchFramebuffer(
 
 void TextureCacheCommon::SetTextureFramebuffer(const AttachCandidate &candidate) {
 	VirtualFramebuffer *framebuffer = candidate.fb;
-	FramebufferMatchInfo fbInfo = candidate.match;
 	RasterChannel channel = candidate.channel;
 
 	if (candidate.match.reinterpret) {
@@ -1132,6 +1131,7 @@ void TextureCacheCommon::SetTextureFramebuffer(const AttachCandidate &candidate)
 	nextFramebufferTextureChannel_ = RASTER_COLOR;
 
 	if (framebufferManager_->UseBufferedRendering()) {
+		FramebufferMatchInfo fbInfo = candidate.match;
 		// Detect when we need to apply the horizontal texture swizzle.
 		u64 depthUpperBits = (channel == RASTER_DEPTH && framebuffer->fb_format == GE_FORMAT_8888) ? ((gstate.getTextureAddress(0) & 0x600000) >> 20) : 0;
 		bool needsDepthXSwizzle = depthUpperBits == 2;

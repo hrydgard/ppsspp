@@ -17,11 +17,24 @@
 
 #pragma once
 
+#include "ppsspp_config.h"
+
 #include "Common/CommonTypes.h"
 #include "Common/Swap.h"
 #include "GPU/GPU.h"
 #include "GPU/ge_constants.h"
 #include "GPU/Common/ShaderCommon.h"
+
+#if defined(_M_SSE)
+#include <emmintrin.h>
+#endif
+#if PPSSPP_ARCH(ARM_NEON)
+#if defined(_MSC_VER) && PPSSPP_ARCH(ARM64)
+#include <arm64_neon.h>
+#else
+#include <arm_neon.h>
+#endif
+#endif
 
 class PointerWrap;
 
@@ -523,6 +536,8 @@ enum class SubmitType {
 	HW_SPLINE,
 };
 
+extern GPUgstate gstate;
+
 struct GPUStateCache {
 	bool Use(u32 flags) const { return (useFlags_ & flags) != 0; } // Return true if ANY of flags are true.
 	bool UseAll(u32 flags) const { return (useFlags_ & flags) == flags; } // Return true if ALL flags are true.
@@ -602,6 +617,21 @@ struct GPUStateCache {
 	// When checking for a single flag, use Use()/UseAll().
 	u32 GetUseFlags() const {
 		return useFlags_;
+	}
+
+	void UpdateUVScaleOffset() {
+#if defined(_M_SSE)
+		__m128i values = _mm_slli_epi32(_mm_load_si128((const __m128i *)&gstate.texscaleu), 8);
+		_mm_storeu_si128((__m128i *)&uv, values);
+#elif PPSSPP_ARCH(ARM_NEON)
+		const uint32x4_t values = vshlq_n_u32(vld1q_u32((const u32 *)&gstate.texscaleu), 8);
+		vst1q_u32((u32 *)&uv, values);
+#else
+		uv.uScale = getFloat24(gstate.texscaleu);
+		uv.vScale = getFloat24(gstate.texscalev);
+		uv.uOff = getFloat24(gstate.texoffsetu);
+		uv.vOff = getFloat24(gstate.texoffsetv);
+#endif
 	}
 
 private:
@@ -690,7 +720,6 @@ public:
 class GPUInterface;
 class GPUDebugInterface;
 
-extern GPUgstate gstate;
 extern GPUStateCache gstate_c;
 
 inline u32 GPUStateCache::getRelativeAddress(u32 data) const {

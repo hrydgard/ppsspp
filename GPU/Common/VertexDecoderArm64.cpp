@@ -253,7 +253,7 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec, int
 			// Reset the code ptr (effectively undoing what we generated) and return zero to indicate that we failed.
 			ResetCodePtr(GetOffset(start));
 			char temp[1024] = {0};
-			dec.ToString(temp);
+			dec.ToString(temp, true);
 			ERROR_LOG(G3D, "Could not compile vertex decoder, failed at step %d: %s", i, temp);
 			return nullptr;
 		}
@@ -288,7 +288,7 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec, int
 
 	if (log) {
 		char temp[1024] = { 0 };
-		dec.ToString(temp);
+		dec.ToString(temp, true);
 		INFO_LOG(JIT, "=== %s (%d bytes) ===", temp, (int)(GetCodePtr() - start));
 		std::vector<std::string> lines = DisassembleArm64(start, (int)(GetCodePtr() - start));
 		for (auto line : lines) {

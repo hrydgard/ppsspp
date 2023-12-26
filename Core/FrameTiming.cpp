@@ -32,6 +32,19 @@
 
 FrameTiming g_frameTiming;
 
+void WaitUntil(double now, double timestamp) {
+#ifdef _WIN32
+	while (time_now_d() < timestamp) {
+		sleep_ms(1); // Sleep for 1ms on this thread
+	}
+#else
+	const double left = timestamp - now;
+	if (left > 0.0) {
+		usleep((long)(left * 1000000));
+	}
+#endif
+}
+
 inline Draw::PresentMode GetBestImmediateMode(Draw::PresentMode supportedModes) {
 	if (supportedModes & Draw::PresentMode::MAILBOX) {
 		return Draw::PresentMode::MAILBOX;
@@ -47,6 +60,22 @@ void FrameTiming::Reset(Draw::DrawContext *draw) {
 	} else {
 		presentMode = GetBestImmediateMode(draw->GetDeviceCaps().presentModesSupported);
 		presentInterval = 0;
+	}
+}
+
+void FrameTiming::DeferWaitUntil(double until, double *curTimePtr) {
+	_dbg_assert_(until > 0.0);
+	waitUntil_ = until;
+	curTimePtr_ = curTimePtr;
+}
+
+void FrameTiming::PostSubmit() {
+	if (waitUntil_ != 0.0) {
+		WaitUntil(time_now_d(), waitUntil_);
+		if (curTimePtr_) {
+			*curTimePtr_ = waitUntil_;
+		}
+		waitUntil_ = 0.0;
 	}
 }
 

@@ -258,21 +258,11 @@ void DrawEngineVulkan::DoFlush() {
 			u8 *dest = pushVertex_->Allocate(vertsToDecode * dec_->GetDecVtxFmt().stride, 4, &vbuf, &vbOffset);
 			DecodeVerts(dest);
 		}
-		DecodeInds();
 
+		int vertexCount;
+		int maxIndex;
 		bool useElements;
-		int vertexCount = indexGen.VertexCount();
-		gpuStats.numUncachedVertsDrawn += vertexCount;
-		if (forceIndexed) {
-			useElements = true;
-			prim = indexGen.GeneralPrim();
-		} else {
-			useElements = !indexGen.SeenOnlyPurePrims();
-			if (!useElements && indexGen.PureCount()) {
-				vertexCount = indexGen.PureCount();
-			}
-			prim = indexGen.Prim();
-		}
+		DecodeIndsAndGetData(&prim, &vertexCount, &maxIndex, &useElements, false);
 
 		bool hasColor = (lastVType_ & GE_VTYPE_COL_MASK) != GE_VTYPE_COL_NONE;
 		if (gstate.isModeThrough()) {
@@ -363,7 +353,7 @@ void DrawEngineVulkan::DoFlush() {
 		};
 		if (useElements) {
 			if (!ibuf) {
-				ibOffset = (uint32_t)pushIndex_->Push(decIndex_, sizeof(uint16_t) * indexGen.VertexCount(), 4, &ibuf);
+				ibOffset = (uint32_t)pushIndex_->Push(decIndex_, sizeof(uint16_t) * vertexCount, 4, &ibuf);
 			}
 			renderManager->DrawIndexed(descSetIndex, ARRAY_SIZE(dynamicUBOOffsets), dynamicUBOOffsets, vbuf, vbOffset, ibuf, ibOffset, vertexCount, 1);
 		} else {
@@ -379,7 +369,7 @@ void DrawEngineVulkan::DoFlush() {
 		int prevDecodedVerts = numDecodedVerts_;
 
 		DecodeVerts(decoded_);
-		DecodeInds();
+		int vertexCount = DecodeInds();
 
 		bool hasColor = (lastVType_ & GE_VTYPE_COL_MASK) != GE_VTYPE_COL_NONE;
 		if (gstate.isModeThrough()) {
@@ -388,12 +378,8 @@ void DrawEngineVulkan::DoFlush() {
 			gstate_c.vertexFullAlpha = gstate_c.vertexFullAlpha && ((hasColor && (gstate.materialupdate & 1)) || gstate.getMaterialAmbientA() == 255) && (!gstate.isLightingEnabled() || gstate.getAmbientA() == 255);
 		}
 
-		gpuStats.numUncachedVertsDrawn += indexGen.VertexCount();
-		prim = indexGen.Prim();
-		// Undo the strip optimization, not supported by the SW code yet.
-		if (prim == GE_PRIM_TRIANGLE_STRIP)
-			prim = GE_PRIM_TRIANGLES;
-		_dbg_assert_(prim != GE_PRIM_INVALID);
+		gpuStats.numUncachedVertsDrawn += vertexCount;
+		prim = IndexGenerator::GeneralPrim((GEPrimitiveType)drawInds_[0].prim);
 
 		u16 *inds = decIndex_;
 		SoftwareTransformResult result{};
@@ -436,7 +422,7 @@ void DrawEngineVulkan::DoFlush() {
 			result.action = SW_NOT_READY;
 		if (result.action == SW_NOT_READY) {
 			swTransform.DetectOffsetTexture(numDecodedVerts_);
-			swTransform.BuildDrawingParams(prim, indexGen.VertexCount(), dec_->VertexType(), inds, numDecodedVerts_, &result);
+			swTransform.BuildDrawingParams(prim, vertexCount, dec_->VertexType(), inds, numDecodedVerts_, &result);
 		}
 
 		if (result.setSafeSize)

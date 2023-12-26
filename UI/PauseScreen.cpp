@@ -32,6 +32,7 @@
 #include "Common/VR/PPSSPPVR.h"
 #include "Common/UI/AsyncImageFileView.h"
 
+#include "Core/KeyMap.h"
 #include "Core/Reporting.h"
 #include "Core/SaveState.h"
 #include "Core/System.h"
@@ -269,6 +270,24 @@ GamePauseScreen::GamePauseScreen(const Path &filename)
 
 GamePauseScreen::~GamePauseScreen() {
 	__DisplaySetWasPaused();
+}
+
+bool GamePauseScreen::key(const KeyInput &key) {
+	if (!UIScreen::key(key) && (key.flags & KEY_DOWN)) {
+		// Special case to be able to unpause with a bound pause key.
+		// Normally we can't bind keys used in the UI.
+		InputMapping mapping(key.deviceId, key.keyCode);
+		std::vector<int> pspButtons;
+		KeyMap::InputMappingToPspButton(mapping, &pspButtons);
+		for (auto button : pspButtons) {
+			if (button == VIRTKEY_PAUSE) {
+				TriggerFinish(DR_CANCEL);
+				return true;
+			}
+		}
+		return false;
+	}
+	return false;
 }
 
 void GamePauseScreen::CreateSavestateControls(UI::LinearLayout *leftColumnItems, bool vertical) {

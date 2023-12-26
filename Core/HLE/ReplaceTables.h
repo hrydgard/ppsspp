@@ -48,6 +48,8 @@ enum {
 	REPFLAG_HOOKENTER = 0x04,
 	// Only hooks jr ra, so only use on funcs that have that.
 	REPFLAG_HOOKEXIT = 0x08,
+	// Function may take a lot of time and execute in slices (executed multiple times.)
+	REPFLAG_SLICED = 0x10,
 };
 
 // Kind of similar to HLE functions but with different data.

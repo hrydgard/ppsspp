@@ -791,7 +791,6 @@ UI::ViewGroup *CreatePadLayout(float xres, float yres, bool *pause, bool showPau
 	const ImageID roundImage = g_Config.iTouchButtonStyle ? ImageID("I_ROUND_LINE") : ImageID("I_ROUND");
 	const ImageID rectImage = g_Config.iTouchButtonStyle ? ImageID("I_RECT_LINE") : ImageID("I_RECT");
 	const ImageID shoulderImage = g_Config.iTouchButtonStyle ? ImageID("I_SHOULDER_LINE") : ImageID("I_SHOULDER");
-	const ImageID dirImage = g_Config.iTouchButtonStyle ? ImageID("I_DIR_LINE") : ImageID("I_DIR");
 	const ImageID stickImage = g_Config.iTouchButtonStyle ? ImageID("I_STICK_LINE") : ImageID("I_STICK");
 	const ImageID stickBg = g_Config.iTouchButtonStyle ? ImageID("I_STICK_BG_LINE") : ImageID("I_STICK_BG");
 
@@ -853,8 +852,10 @@ UI::ViewGroup *CreatePadLayout(float xres, float yres, bool *pause, bool showPau
 	if (rTrigger)
 		rTrigger->FlipImageH(true);
 
-	if (g_Config.touchDpad.show)
+	if (g_Config.touchDpad.show) {
+		const ImageID dirImage = g_Config.iTouchButtonStyle ? ImageID("I_DIR_LINE") : ImageID("I_DIR");
 		root->Add(new PSPDpad(dirImage, "D-pad", ImageID("I_DIR"), ImageID("I_ARROW"), g_Config.touchDpad.scale, g_Config.fDpadSpacing, buttonLayoutParams(g_Config.touchDpad)));
+	}
 
 	if (g_Config.touchAnalogStick.show)
 		root->Add(new PSPStick(stickBg, "Left analog stick", stickImage, ImageID("I_STICK"), 0, g_Config.touchAnalogStick.scale, buttonLayoutParams(g_Config.touchAnalogStick)));

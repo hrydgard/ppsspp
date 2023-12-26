@@ -468,7 +468,7 @@ public:
 	virtual bool IsViewGroup() const { return false; }
 	virtual bool ContainsSubview(const View *view) const { return false; }
 
-	Point GetFocusPosition(FocusDirection dir) const;
+	virtual Point GetFocusPosition(FocusDirection dir) const;
 
 	template <class T>
 	T *AddTween(T *t) {
@@ -870,6 +870,8 @@ public:
 	void Draw(UIContext &dc) override;
 	void GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert, float &w, float &h) const override;
 	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override;
+
+	Point GetFocusPosition(FocusDirection dir) const override;
 
 	void SetHasSubitems(bool hasSubItems) { hasSubItems_ = hasSubItems; }
 private:

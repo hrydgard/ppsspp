@@ -36,6 +36,7 @@ public:
 	~GamePauseScreen();
 
 	void dialogFinished(const Screen *dialog, DialogResult dr) override;
+	bool key(const KeyInput &key) override;
 
 	const char *tag() const override { return "GamePause"; }
 

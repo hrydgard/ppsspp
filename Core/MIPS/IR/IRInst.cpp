@@ -165,7 +165,7 @@ static const IRMeta irMeta[] = {
 	{ IROp::Break, "Break", "", IRFLAG_EXIT },
 	{ IROp::SetPC, "SetPC", "_G" },
 	{ IROp::SetPCConst, "SetPC", "_C" },
-	{ IROp::CallReplacement, "CallRepl", "_C", IRFLAG_BARRIER },
+	{ IROp::CallReplacement, "CallRepl", "GC", IRFLAG_BARRIER },
 	{ IROp::Breakpoint, "Breakpoint", "_C", IRFLAG_BARRIER },
 	{ IROp::MemoryCheck, "MemoryCheck", "IGC", IRFLAG_BARRIER },
 

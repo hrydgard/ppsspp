@@ -105,7 +105,7 @@ bool IconCache::LoadFromFile(FILE *file) {
 		entry.format = entryHeader.format;
 		entry.insertedTimeStamp = entryHeader.insertedTimestamp;
 		entry.usedTimeStamp = now;
-		cache_.insert(std::pair<std::string, Entry>(key, entry));
+		cache_.emplace(key, entry);
 	}
 
 	return true;

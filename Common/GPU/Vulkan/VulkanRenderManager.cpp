@@ -723,6 +723,17 @@ void VulkanRenderManager::BeginFrame(bool enableProfiling, bool enableLogProfile
 			str << line;
 			frameData.profile.profileSummary = str.str();
 		}
+
+#ifdef _DEBUG
+		std::string cmdString;
+		for (int i = 0; i < ARRAY_SIZE(frameData.profile.commandCounts); i++) {
+			if (frameData.profile.commandCounts[i] > 0) {
+				cmdString += StringFromFormat("%s: %d\n", VKRRenderCommandToString((VKRRenderCommand)i), frameData.profile.commandCounts[i]);
+			}
+		}
+		memset(frameData.profile.commandCounts, 0, sizeof(frameData.profile.commandCounts));
+		frameData.profile.profileSummary += cmdString;
+#endif
 	}
 
 	frameData.profile.descriptorsWritten = 0;

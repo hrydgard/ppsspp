@@ -519,10 +519,10 @@ public:
 				fontMap.erase(fonts_[i]);
 			}
 		}
-		u32 args[2] = { userDataAddr(), (u32)handle_ };
 		// TODO: The return value of this is leaking.
 		if (handle_) {  // Avoid calling free-callback on double-free
 			if (coreState != CORE_POWERDOWN) {
+				u32 args[2] = { userDataAddr(), (u32)handle_ };
 				hleEnqueueCall(freeFuncAddr(), 2, args);
 			}
 		}

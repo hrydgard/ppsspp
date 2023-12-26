@@ -603,7 +603,7 @@ u32 GPUCommonHW::CheckGPUFeatures() const {
 
 	bool canClipOrCull = draw_->GetDeviceCaps().clipDistanceSupported || draw_->GetDeviceCaps().cullDistanceSupported;
 	bool canDiscardVertex = !draw_->GetBugs().Has(Draw::Bugs::BROKEN_NAN_IN_CONDITIONAL);
-	if (canClipOrCull || canDiscardVertex) {
+	if ((canClipOrCull || canDiscardVertex) && !g_Config.bDisableRangeCulling) {
 		// We'll dynamically use the parts that are supported, to reduce artifacts as much as possible.
 		features |= GPU_USE_VS_RANGE_CULLING;
 	}
@@ -982,7 +982,7 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 	}
 
 	int bytesRead = 0;
-	UpdateUVScaleOffset();
+	gstate_c.UpdateUVScaleOffset();
 
 	// cull mode
 	int cullMode = gstate.getCullMode();
@@ -1306,7 +1306,7 @@ void GPUCommonHW::Execute_Bezier(u32 op, u32 diff) {
 	}
 
 	int bytesRead = 0;
-	UpdateUVScaleOffset();
+	gstate_c.UpdateUVScaleOffset();
 	drawEngineCommon_->SubmitCurve(control_points, indices, surface, gstate.vertType, &bytesRead, "bezier");
 
 	gstate_c.Dirty(DIRTY_RASTER_STATE | DIRTY_VERTEXSHADER_STATE | DIRTY_GEOMETRYSHADER_STATE | DIRTY_UVSCALEOFFSET);
@@ -1380,7 +1380,7 @@ void GPUCommonHW::Execute_Spline(u32 op, u32 diff) {
 	}
 
 	int bytesRead = 0;
-	UpdateUVScaleOffset();
+	gstate_c.UpdateUVScaleOffset();
 	drawEngineCommon_->SubmitCurve(control_points, indices, surface, gstate.vertType, &bytesRead, "spline");
 
 	gstate_c.Dirty(DIRTY_RASTER_STATE | DIRTY_VERTEXSHADER_STATE | DIRTY_GEOMETRYSHADER_STATE | DIRTY_UVSCALEOFFSET);

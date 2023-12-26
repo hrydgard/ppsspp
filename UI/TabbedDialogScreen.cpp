@@ -7,8 +7,6 @@
 #include "UI/TabbedDialogScreen.h"
 
 UI::LinearLayout *TabbedUIDialogScreenWithGameBackground::AddTab(const char *tag, const std::string &title, bool isSearch) {
-	auto se = GetI18NCategory(I18NCat::SEARCH);
-
 	using namespace UI;
 	ViewGroup *scroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
 	scroll->SetTag(tag);
@@ -21,6 +19,7 @@ UI::LinearLayout *TabbedUIDialogScreenWithGameBackground::AddTab(const char *tag
 	if (!isSearch) {
 		settingTabContents_.push_back(contents);
 
+		auto se = GetI18NCategory(I18NCat::SEARCH);
 		auto notice = contents->Add(new TextView(se->T("Filtering settings by '%1'"), new LinearLayoutParams(Margins(20, 5))));
 		notice->SetVisibility(V_GONE);
 		settingTabFilterNotices_.push_back(notice);
@@ -39,12 +38,10 @@ void TabbedUIDialogScreenWithGameBackground::CreateViews() {
 	// Scrolling action menu to the right.
 	using namespace UI;
 
-	auto ms = GetI18NCategory(I18NCat::MAINSETTINGS);
-	auto di = GetI18NCategory(I18NCat::DIALOG);
-
 	root_ = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
 
 	if (vertical) {
+		auto di = GetI18NCategory(I18NCat::DIALOG);
 		LinearLayout *verticalLayout = new LinearLayout(ORIENT_VERTICAL, new LayoutParams(FILL_PARENT, FILL_PARENT));
 		tabHolder_ = new TabHolder(ORIENT_HORIZONTAL, 200, new LinearLayoutParams(1.0f));
 		verticalLayout->Add(tabHolder_);
@@ -82,6 +79,7 @@ void TabbedUIDialogScreenWithGameBackground::CreateViews() {
 		int deviceType = System_GetPropertyInt(SYSPROP_DEVICE_TYPE);
 		if ((g_display.dp_xres < g_display.dp_yres || g_display.dp_yres >= 500) && (deviceType != DEVICE_TYPE_VR) && ShowSearchControls()) {
 			auto se = GetI18NCategory(I18NCat::SEARCH);
+			auto ms = GetI18NCategory(I18NCat::MAINSETTINGS);
 			// Search
 			LinearLayout *searchSettings = AddTab("GameSettingsSearch", ms->T("Search"), true);
 

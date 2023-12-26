@@ -166,6 +166,7 @@ public:
 
 	// Speedhacks (more will be moved here):
 	bool bSkipBufferEffects;
+	bool bDisableRangeCulling;
 
 	int iTexFiltering; // 1 = auto , 2 = nearest , 3 = linear , 4 = auto max quality
 
@@ -403,6 +404,7 @@ public:
 	bool bMouseConfine; // Trap inside the window.
 	float fMouseSensitivity;
 	float fMouseSmoothing;
+	int iMouseWheelUpDelayMs;
 
 	bool bSystemControls;
 	int iRapidFireInterval;

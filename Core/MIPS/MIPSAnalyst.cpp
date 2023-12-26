@@ -1179,10 +1179,10 @@ skip:
 	void FinalizeScan(bool insertSymbols) {
 		HashFunctions();
 
-		Path hashMapFilename = GetSysDirectory(DIRECTORY_SYSTEM) / "knownfuncs.ini";
 		if (g_Config.bFuncHashMap || g_Config.bFuncReplacements) {
 			LoadBuiltinHashMap();
 			if (g_Config.bFuncHashMap) {
+				Path hashMapFilename = GetSysDirectory(DIRECTORY_SYSTEM) / "knownfuncs.ini";
 				LoadHashMap(hashMapFilename);
 				StoreHashMap(hashMapFilename);
 			}

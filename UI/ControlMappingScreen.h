@@ -36,7 +36,10 @@ class SingleControlMapper;
 
 class ControlMappingScreen : public UIDialogScreenWithGameBackground {
 public:
-	explicit ControlMappingScreen(const Path &gamePath) : UIDialogScreenWithGameBackground(gamePath) {}
+	explicit ControlMappingScreen(const Path &gamePath) : UIDialogScreenWithGameBackground(gamePath) {
+		categoryToggles_[0] = true;
+		categoryToggles_[1] = true;
+	}
 	const char *tag() const override { return "ControlMapping"; }
 
 protected:
@@ -51,6 +54,8 @@ private:
 	UI::ScrollView *rightScroll_ = nullptr;
 	std::vector<SingleControlMapper *> mappers_;
 	int keyMapGeneration_ = -1;
+
+	bool categoryToggles_[10]{};
 };
 
 class KeyMappingNewKeyDialog : public PopupScreen {

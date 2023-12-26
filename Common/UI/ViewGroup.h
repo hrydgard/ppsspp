@@ -327,7 +327,13 @@ public:
 
 	void Update() override;
 
+	void SetOpen(bool open) {
+		open_ = open;
+		UpdateVisibility();
+	}
+
 private:
+	void UpdateVisibility();
 	bool open_ = true;
 	CollapsibleHeader *heading_;
 };

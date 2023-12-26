@@ -233,8 +233,6 @@ bool EmuScreen::bootAllowStorage(const Path &filename) {
 }
 
 void EmuScreen::bootGame(const Path &filename) {
-	auto sc = GetI18NCategory(I18NCat::SCREEN);
-
 	if (Achievements::IsBlockingExecution()) {
 		// Keep waiting.
 		return;
@@ -288,6 +286,7 @@ void EmuScreen::bootGame(const Path &filename) {
 
 		g_Discord.SetPresenceGame(info->GetTitle().c_str());
 	} else {
+		auto sc = GetI18NCategory(I18NCat::SCREEN);
 		g_Discord.SetPresenceGame(sc->T("Untitled PSP game"));
 	}
 
@@ -408,6 +407,14 @@ void EmuScreen::bootComplete() {
 #else
 		g_OSD.Show(OSDType::MESSAGE_WARNING, sy->T("WARNING: Battery save mode is on"), 2.0f, "core_powerSaving");
 #endif
+	}
+
+	if (g_Config.bStereoRendering) {
+		auto gr = GetI18NCategory(I18NCat::GRAPHICS);
+		auto di = GetI18NCategory(I18NCat::DIALOG);
+		// Stereo rendering is experimental, so let's notify the user it's being used.
+		// Carefully reuse translations for this rare warning.
+		g_OSD.Show(OSDType::MESSAGE_WARNING, std::string(gr->T("Stereo rendering")) + ": " + di->T("Enabled"));
 	}
 
 	saveStateSlot_ = SaveState::GetCurrentSlot();
@@ -970,7 +977,6 @@ void EmuScreen::CreateViews() {
 	using namespace UI;
 
 	auto dev = GetI18NCategory(I18NCat::DEVELOPER);
-	auto n = GetI18NCategory(I18NCat::NETWORKING);
 	auto sc = GetI18NCategory(I18NCat::SCREEN);
 
 	const Bounds &bounds = screenManager()->getUIContext()->GetLayoutBounds();
@@ -1003,6 +1009,7 @@ void EmuScreen::CreateViews() {
 
 	if (g_Config.bEnableNetworkChat) {
 		if (g_Config.iChatButtonPosition != 8) {
+			auto n = GetI18NCategory(I18NCat::NETWORKING);
 			AnchorLayoutParams *layoutParams = AnchorInCorner(bounds, g_Config.iChatButtonPosition, 80.0f, 50.0f);
 			ChoiceWithValueDisplay *btn = new ChoiceWithValueDisplay(&newChatMessages_, n->T("Chat"), layoutParams);
 			root_->Add(btn)->OnClick.Handle(this, &EmuScreen::OnChat);
@@ -1479,7 +1486,7 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 
 	if (mode & ScreenRenderMode::TOP) {
 		System_Notify(SystemNotification::KEEP_SCREEN_AWAKE);
-	} else if (!g_Config.bRunBehindPauseMenu) {
+	} else if (!g_Config.bRunBehindPauseMenu && strcmp(screenManager()->topScreen()->tag(), "DevMenu") != 0) {
 		// Not on top. Let's not execute, only draw the image.
 		draw->BindFramebufferAsRenderTarget(nullptr, { RPAction::CLEAR, RPAction::DONT_CARE, RPAction::DONT_CARE }, "EmuScreen_Stepping");
 		// Just to make sure.
@@ -1526,6 +1533,7 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 
 	bool blockedExecution = Achievements::IsBlockingExecution();
 	bool rebind = false;
+	uint32_t clearColor = 0;
 	if (!blockedExecution) {
 		PSP_BeginHostFrame();
 		PSP_RunLoopWhileState();
@@ -1546,13 +1554,13 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 			if (info.type != MIPSExceptionType::NONE) {
 				// Clear to blue background screen
 				bool dangerousSettings = !Reporting::IsSupported();
-				uint32_t color = dangerousSettings ? 0xFF900050 : 0xFF900000;
-				draw->BindFramebufferAsRenderTarget(nullptr, { RPAction::CLEAR, RPAction::DONT_CARE, RPAction::DONT_CARE, color }, "EmuScreen_RuntimeError");
+				clearColor = dangerousSettings ? 0xFF900050 : 0xFF900000;
+				draw->BindFramebufferAsRenderTarget(nullptr, { RPAction::CLEAR, RPAction::DONT_CARE, RPAction::DONT_CARE, clearColor }, "EmuScreen_RuntimeError");
 				// The info is drawn later in renderUI
 			} else {
 				// If we're stepping, it's convenient not to clear the screen entirely, so we copy display to output.
 				// This won't work in non-buffered, but that's fine.
-				draw->BindFramebufferAsRenderTarget(nullptr, { RPAction::CLEAR, RPAction::DONT_CARE, RPAction::DONT_CARE }, "EmuScreen_Stepping");
+				draw->BindFramebufferAsRenderTarget(nullptr, { RPAction::CLEAR, RPAction::DONT_CARE, RPAction::DONT_CARE, clearColor }, "EmuScreen_Stepping");
 				// Just to make sure.
 				if (PSP_IsInited()) {
 					gpu->CopyDisplayToOutput(true);
@@ -1572,7 +1580,7 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 	}
 
 	if (gpu && !gpu->PresentedThisFrame() && !skipBufferEffects) {
-		draw->BindFramebufferAsRenderTarget(nullptr, { RPAction::CLEAR, RPAction::CLEAR, RPAction::CLEAR }, "EmuScreen_NoFrame");
+		draw->BindFramebufferAsRenderTarget(nullptr, { RPAction::CLEAR, RPAction::CLEAR, RPAction::CLEAR, clearColor }, "EmuScreen_NoFrame");
 		draw->SetViewport(viewport);
 		draw->SetScissorRect(0, 0, g_display.pixel_xres, g_display.pixel_yres);
 	}

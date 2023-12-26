@@ -182,23 +182,33 @@ static int Replace_memcpy_jak() {
 	u32 destPtr = PARAM(0);
 	u32 srcPtr = PARAM(1);
 	u32 bytes = PARAM(2);
-	bool skip = false;
+
 	if (bytes == 0) {
 		RETURN(destPtr);
 		return 5;
 	}
+
+	bool skip = false;
+	bool sliced = false;
+	static constexpr uint32_t SLICE_SIZE = 32768;
+
 	currentMIPS->InvalidateICache(srcPtr, bytes);
 	if ((skipGPUReplacements & (int)GPUReplacementSkip::MEMCPY) == 0) {
 		if (Memory::IsVRAMAddress(destPtr) || Memory::IsVRAMAddress(srcPtr)) {
 			skip = gpu->PerformMemoryCopy(destPtr, srcPtr, bytes);
 		}
 	}
+	if (!skip && bytes > SLICE_SIZE && bytes != 512 * 272 * 4) {
+		// This is a very slow func.  To avoid thread blocking, do a slice at a time.
+		// Avoiding exactly 512 * 272 * 4 to detect videos, though.
+		bytes = SLICE_SIZE;
+		sliced = true;
+	}
 	if (!skip && bytes != 0) {
 		u8 *dst = Memory::GetPointerWriteRange(destPtr, bytes);
 		const u8 *src = Memory::GetPointerRange(srcPtr, bytes);
 
-		if (!dst || !src) {
-		} else {
+		if (dst && src) {
 			// Jak style overlap.
 			for (u32 i = 0; i < bytes; i++) {
 				dst[i] = src[i];
@@ -206,13 +216,20 @@ static int Replace_memcpy_jak() {
 		}
 	}
 
-	// Jak relies on more registers coming out right than the ABI specifies.
-	// See the disassembly of the function for the explanations for these...
-	currentMIPS->r[MIPS_REG_T0] = 0;
-	currentMIPS->r[MIPS_REG_A0] = -1;
-	currentMIPS->r[MIPS_REG_A2] = 0;
-	currentMIPS->r[MIPS_REG_A3] = destPtr + bytes;
-	RETURN(destPtr);
+	if (sliced) {
+		currentMIPS->r[MIPS_REG_A0] += SLICE_SIZE;
+		currentMIPS->r[MIPS_REG_A1] += SLICE_SIZE;
+		currentMIPS->r[MIPS_REG_A2] -= SLICE_SIZE;
+	} else {
+		// Jak relies on more registers coming out right than the ABI specifies.
+		// See the disassembly of the function for the explanations for these...
+		currentMIPS->r[MIPS_REG_T0] = 0;
+		currentMIPS->r[MIPS_REG_A0] = -1;
+		currentMIPS->r[MIPS_REG_A2] = 0;
+		// Even after slicing, this ends up correct.
+		currentMIPS->r[MIPS_REG_A3] = destPtr + bytes;
+		RETURN(destPtr);
+	}
 
 	if (MemBlockInfoDetailed(bytes)) {
 		// It's pretty common that games will copy video data.
@@ -231,6 +248,10 @@ static int Replace_memcpy_jak() {
 		}
 	}
 
+	if (sliced) {
+		// Negative causes the function to be run again for the next slice.
+		return 5 + bytes * -8 + 2;
+	}
 	return 5 + bytes * 8 + 2;  // approximation. This is a slow memcpy - a byte copy loop..
 }
 
@@ -364,8 +385,15 @@ static int Replace_memset_jak() {
 	}
 
 	bool skip = false;
+	bool sliced = false;
+	static constexpr uint32_t SLICE_SIZE = 32768;
 	if (Memory::IsVRAMAddress(destPtr) && (skipGPUReplacements & (int)GPUReplacementSkip::MEMSET) == 0) {
 		skip = gpu->PerformMemorySet(destPtr, value, bytes);
+	}
+	if (!skip && bytes > SLICE_SIZE) {
+		// This is a very slow func.  To avoid thread blocking, do a slice at a time.
+		bytes = SLICE_SIZE;
+		sliced = true;
 	}
 	if (!skip && bytes != 0) {
 		u8 *dst = Memory::GetPointerWriteRange(destPtr, bytes);
@@ -374,14 +402,24 @@ static int Replace_memset_jak() {
 		}
 	}
 
+	NotifyMemInfo(MemBlockFlags::WRITE, destPtr, bytes, "ReplaceMemset");
+
+	if (sliced) {
+		currentMIPS->r[MIPS_REG_A0] += SLICE_SIZE;
+		currentMIPS->r[MIPS_REG_A2] -= SLICE_SIZE;
+
+		// This is approximate, and must be a negative value.
+		// Negative causes the function to be run again for the next slice.
+		return 5 + (int)SLICE_SIZE * -6 + 2;
+	}
+
+	// Even after slicing, this ends up correct.
 	currentMIPS->r[MIPS_REG_T0] = destPtr + bytes;
 	currentMIPS->r[MIPS_REG_A2] = -1;
 	currentMIPS->r[MIPS_REG_A3] = -1;
 	RETURN(destPtr);
 
-	NotifyMemInfo(MemBlockFlags::WRITE, destPtr, bytes, "ReplaceMemset");
-
-	return 5 + bytes * 6 + 2;  // approximation (hm, inspecting the disasm this should be 5 + 6 * bytes + 2, but this is what works..)
+	return 5 + bytes * 6 + 2;  // approximation
 }
 
 static uint32_t SafeStringLen(const uint32_t ptr, uint32_t maxLen = 0x07FFFFFF) {
@@ -1449,12 +1487,12 @@ static const ReplacementTableEntry entries[] = {
 	{ "ceilf", &Replace_ceilf, 0, REPFLAG_DISABLED },
 
 	{ "memcpy", &Replace_memcpy, 0, 0 },
-	{ "memcpy_jak", &Replace_memcpy_jak, 0, 0 },
+	{ "memcpy_jak", &Replace_memcpy_jak, 0, REPFLAG_SLICED },
 	{ "memcpy16", &Replace_memcpy16, 0, 0 },
 	{ "memcpy_swizzled", &Replace_memcpy_swizzled, 0, 0 },
 	{ "memmove", &Replace_memmove, 0, 0 },
 	{ "memset", &Replace_memset, 0, 0 },
-	{ "memset_jak", &Replace_memset_jak, 0, 0 },
+	{ "memset_jak", &Replace_memset_jak, 0, REPFLAG_SLICED },
 	{ "strlen", &Replace_strlen, 0, REPFLAG_DISABLED },
 	{ "strcpy", &Replace_strcpy, 0, REPFLAG_DISABLED },
 	{ "strncpy", &Replace_strncpy, 0, REPFLAG_DISABLED },
@@ -1736,7 +1774,7 @@ bool CanReplaceJalTo(u32 dest, const ReplacementTableEntry **entry, u32 *funcSiz
 		return false;
 	}
 
-	if ((*entry)->flags & (REPFLAG_HOOKENTER | REPFLAG_HOOKEXIT | REPFLAG_DISABLED)) {
+	if ((*entry)->flags & (REPFLAG_HOOKENTER | REPFLAG_HOOKEXIT | REPFLAG_DISABLED | REPFLAG_SLICED)) {
 		// If it's a hook, we can't replace the jal, we have to go inside the func.
 		return false;
 	}

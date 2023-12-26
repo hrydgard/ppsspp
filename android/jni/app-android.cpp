@@ -1300,8 +1300,6 @@ extern "C" jboolean Java_org_ppsspp_ppsspp_NativeApp_mouseWheelEvent(
 	// so we release it with a slight delay.
 	key.flags = KEY_DOWN | KEY_HASWHEELDELTA | (wheelDelta << 16);
 	NativeKey(key);
-	key.flags = KEY_UP;
-	NativeKey(key);
 	return true;
 }
 
@@ -1484,8 +1482,12 @@ std::vector<std::string> System_GetCameraDeviceList() {
 
 	for (int i = 0; i < arrayListObjectLen; i++) {
 		jstring dev = static_cast<jstring>(getEnv()->CallObjectMethod(deviceListObject, arrayListGet, i));
-		const char* cdev = getEnv()->GetStringUTFChars(dev, nullptr);
-		deviceListVector.push_back(cdev);
+		const char *cdev = getEnv()->GetStringUTFChars(dev, nullptr);
+		if (!cdev) {
+			getEnv()->DeleteLocalRef(dev);
+			continue;
+		}
+		deviceListVector.push_back(std::string(cdev));
 		getEnv()->ReleaseStringUTFChars(dev, cdev);
 		getEnv()->DeleteLocalRef(dev);
 	}

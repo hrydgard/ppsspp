@@ -614,7 +614,18 @@ void Arm64Jit::Comp_ReplacementFunc(MIPSOpcode op)
 		} else {
 			ApplyRoundingMode();
 			LoadStaticRegisters();
+
+			CMPI2R(W0, 0);
+			FixupBranch positive = B(CC_GE);
+
+			NEG(W0, W0);
+			MovFromPC(W1);
+			FixupBranch done = B();
+
+			SetJumpTarget(positive);
 			LDR(INDEX_UNSIGNED, W1, CTXREG, MIPS_REG_RA * 4);
+
+			SetJumpTarget(done);
 			WriteDownCountR(W0);
 			WriteExitDestInR(W1);
 			js.compiling = false;

@@ -172,7 +172,7 @@ namespace KeyMap {
 	const char *GetVirtKeyName(int vkey);
 	const char *GetPspButtonNameCharPointer(int btn);
 
-	std::vector<KeyMap_IntStrPair> GetMappableKeys();
+	const KeyMap_IntStrPair *GetMappableKeys(size_t *count);
 
 	// Use to translate input mappings to and from PSP buttons. You should have already translated
 	// your platform's keys to InputMapping keys.
@@ -180,6 +180,11 @@ namespace KeyMap {
 	// Note that this one does not handle combos, since there's only one input.
 	bool InputMappingToPspButton(const InputMapping &mapping, std::vector<int> *pspButtons);
 	bool InputMappingsFromPspButton(int btn, std::vector<MultiInputMapping> *keys, bool ignoreMouse);
+
+	// Careful with these.
+	bool InputMappingsFromPspButtonNoLock(int btn, std::vector<MultiInputMapping> *keys, bool ignoreMouse);
+	void LockMappings();
+	void UnlockMappings();
 
 	// Simplified check.
 	bool PspButtonHasMappings(int btn);
@@ -219,4 +224,4 @@ namespace KeyMap {
 	bool IsKeyMapped(InputDeviceID device, int key);
 
 	bool HasChanged(int &prevGeneration);
-}
+}  // namespace KeyMap
