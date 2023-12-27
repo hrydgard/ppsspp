@@ -176,28 +176,6 @@ enum {
 #ifdef _MSC_VER
 #pragma pack(push,1)
 #endif
-// Sockaddr
-typedef struct SceNetInetSockaddr {
-	uint8_t sa_len;
-	uint8_t sa_family;
-	uint8_t sa_data[14];
-} PACK SceNetInetSockaddr;
-
-// Sockaddr_in
-typedef struct SceNetInetSockaddrIn {
-	uint8_t sin_len;
-	uint8_t sin_family;
-	u16_le sin_port; //uint16_t
-	u32_le sin_addr; //uint32_t
-	uint8_t sin_zero[8];
-} PACK SceNetInetSockaddrIn;
-
-// Polling Event Field
-typedef struct SceNetInetPollfd { //similar format to pollfd in 32bit (pollfd in 64bit have different size)
-	s32_le fd;
-	s16_le events;
-	s16_le revents;
-} PACK SceNetInetPollfd;
 
 typedef struct ProductStruct { // Similar to SceNetAdhocctlAdhocId ?
 	s32_le unknown; // Unknown, set to 0 // Product Type ?

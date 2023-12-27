@@ -1,7 +1,7 @@
 #pragma once
 
 #include "Core/HLE/HLE.h"
-#include "Core/Net/SceSocket.h"
+#include "Core/Net/InetSocket.h"
 
 #if PPSSPP_PLATFORM(WINDOWS)
 #include <winsock.h>
@@ -11,6 +11,28 @@
 #include <shared_mutex>
 #include <unordered_map>
 
+// Sockaddr
+typedef struct SceNetInetSockaddr {
+    uint8_t sa_len;
+    uint8_t sa_family;
+    uint8_t sa_data[14];
+} PACK SceNetInetSockaddr;
+
+// Sockaddr_in
+typedef struct SceNetInetSockaddrIn {
+    uint8_t sin_len;
+    uint8_t sin_family;
+    u16_le sin_port; //uint16_t
+    u32_le sin_addr; //uint32_t
+    uint8_t sin_zero[8];
+} PACK SceNetInetSockaddrIn;
+
+// Polling Event Field
+typedef struct SceNetInetPollfd { //similar format to pollfd in 32bit (pollfd in 64bit have different size)
+    s32_le fd;
+    s16_le events;
+    s16_le revents;
+} PACK SceNetInetPollfd;
 
 enum {
     // pspnet_inet
@@ -40,11 +62,11 @@ public:
     int GetLastError();
     void SetLastError(int error);
     int SetLastErrorToMatchPlatform();
-    std::shared_ptr<SceSocket> CreateAndAssociateSceSocket(int nativeSocketId);
-    std::shared_ptr<SceSocket> GetSceSocket(int sceSocketId);
-    bool GetNativeSocketIdForSceSocketId(int &nativeSocketId, int sceSocketId);
-    bool EraseNativeSocket(int sceSocketId);
-    bool TranslateSceFdSetToNativeFdSet(int& maxFd, fd_set &destFdSet, u32 fdsPtr) const;
+    std::shared_ptr<InetSocket> CreateAndAssociateInetSocket(int nativeSocketId);
+    std::shared_ptr<InetSocket> GetInetSocket(int inetSocketId);
+    bool GetNativeSocketIdForInetSocketId(int &nativeSocketId, int inetSocketId);
+    bool EraseNativeSocket(int inetSocketId);
+    bool TranslateInetFdSetToNativeFdSet(int& maxFd, fd_set &destFdSet, u32 fdsPtr) const;
 
 private:
     void CloseAllRemainingSockets() const;
@@ -53,8 +75,8 @@ private:
     static std::shared_mutex gLock;
 
     int mLastError = 0;
-    std::unordered_map<int, std::shared_ptr<SceSocket>> mSceSocketIdToNativeSocket;
-    int mCurrentSceSocketId = 0;
+    std::unordered_map<int, std::shared_ptr<InetSocket>> mInetSocketIdToNativeSocket;
+    int mCurrentInetSocketId = 0;
     std::shared_mutex mLock;
 };
 

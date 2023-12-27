@@ -44,7 +44,7 @@
 #include "Core/Reporting.h"
 // TODO: move Core/Net
 #include "Core/Net/InetCommon.h"
-#include "Core/Net/SceSocket.h"
+#include "Core/Net/InetSocket.h"
 #include "Core/Util/PortManager.h"
 
 #if PPSSPP_PLATFORM(SWITCH) && !defined(INADDR_NONE)
@@ -68,12 +68,43 @@ using netBufferType = void;
 // TODO: ignore SO_NOSIGPIPE
 // TODO: timeouts (PSP_NET_INET_SO_SNDTIMEO)
 
-struct SceTimeval {
+/**
+ * @file sceNetInet.cpp
+ *
+ * @brief A shim for SceNetInet functions to operate over native POSIX sockets. These POSIX socket implementations are
+ * largely standarized and consistent between platforms with the exception of Windows which uses Winsock2 which itself
+ * is similar enough.
+ *
+ * Glossary:
+ *  - Inet: Anything with is prefaced with Inet, regardless of case, is the PSP variant of the function / structure / etc.
+ *
+ * Standards:
+ * - C++-style implementations are preferred over C-style implementations when applicable (see SceFdSetOperations) for
+ *   an example which implements fd_set and FD_* functions using C++-style code.
+ * - The last error is implemented within SceNetInet itself and is not a direct passthrough from the platforms errno
+ *   implementation.
+ *   - Invalid arguments (unmapped sockets, invalid options / flags etc) are mapped to EINVAL.
+ *   - Invalid memory regions are mapped to EFAULT.
+ * - hleLogError should be used to return errors.
+ * - hleLogSuccess* should be used to return success, with optional messages. These message formattings have > 0
+ *   overhead so be mindful of their usage.
+ * - SceNetInet must have SetLastError called in all error cases <b>except</b> when SceNetInet itself is not initialized.
+ * - DEBUG_LOG should be used where it makes sense.
+ * - Comments must be left to indicate the intent of each section of each function. The comments should be short and
+ *   concise while not mentioning any specific games or similar in particular. Mention the constraints that came from
+ *   the game.
+ * - Explicit mappings should be used over implicit passthrough. Cases which are not known to work for PSP should be
+ *   mapped to an EINVAL error unless it is demonstrated to work as expected.
+ * - It should not be possible for a game to crash the application via any shim; think what would happen if every
+ *   parameter is randomized.
+ */
+
+struct PspInetTimeval {
 	u32 tv_sec;		/* Seconds.  */
 	u32 tv_usec;	/* Microseconds.  */
 };
 
-class SceFdSetOperations {
+class PspInetFdSetOperations {
 public:
 	typedef long int fdMask;
 	static constexpr int gFdsBitsCount = 8 * static_cast<int>(sizeof(fdMask));
@@ -82,20 +113,20 @@ public:
 		fdMask mFdsBits[256 / gFdsBitsCount];
 	};
 
-	static void Set(FdSet *sceFdSetBits, int socket) {
-		sceFdSetBits->mFdsBits[Position(socket)] |= ConvertToMask(socket);
+	static void Set(FdSet &sceFdSetBits, int socket) {
+		sceFdSetBits.mFdsBits[Position(socket)] |= ConvertToMask(socket);
 	}
 
-	static bool IsSet(const FdSet *sceFdSetBits, int socket) {
-		return (sceFdSetBits->mFdsBits[Position(socket)] & ConvertToMask(socket)) != 0;
+	static bool IsSet(const FdSet &sceFdSetBits, int socket) {
+		return (sceFdSetBits.mFdsBits[Position(socket)] & ConvertToMask(socket)) != 0;
 	}
 
-	static void Clear(FdSet *sceFdSetBits, int socket) {
-		sceFdSetBits->mFdsBits[Position(socket)] &= ~ConvertToMask(socket);
+	static void Clear(FdSet &sceFdSetBits, int socket) {
+		sceFdSetBits.mFdsBits[Position(socket)] &= ~ConvertToMask(socket);
 	}
 
-	static void Zero(FdSet *sceFdSetBits) {
-		memset(sceFdSetBits->mFdsBits, 0, sizeof(FdSet));
+	static void Zero(FdSet &sceFdSetBits) {
+		memset(sceFdSetBits.mFdsBits, 0, sizeof(FdSet));
 	}
 
 private:
@@ -108,29 +139,22 @@ private:
 	}
 };
 
-// static int getLastPlatformError() {
-// #if PPSSPP_PLATFORM(WINDOWS)
-// 	return WSAGetLastError();
-// #else
-// 	return errno;
-// #endif
-// }
-
-static bool sceSockaddrToNativeSocketAddr(sockaddr_in &dest, u32 sockAddrInternetPtr, size_t addressLength) {
-	const auto sceNetSockaddrIn = Memory::GetTypedPointerRange<SceNetInetSockaddrIn>(sockAddrInternetPtr, addressLength);
-	if (sceNetSockaddrIn == nullptr || addressLength == 0) {
+static bool inetSockaddrToNativeSocketAddr(sockaddr_in &dest, u32 sockAddrInternetPtr, size_t addressLength) {
+	const auto inetSockaddrIn = Memory::GetTypedPointerRange<SceNetInetSockaddrIn>(sockAddrInternetPtr, addressLength);
+	if (inetSockaddrIn == nullptr || addressLength == 0) {
 		return false;
 	}
 
+	// Clear dest of any existing data and copy relevant fields from inet sockaddr_in
 	memset(&dest, 0, sizeof(dest));
-	dest.sin_family = sceNetSockaddrIn->sin_family;
-	dest.sin_port = sceNetSockaddrIn->sin_port;
-	dest.sin_addr.s_addr = sceNetSockaddrIn->sin_addr;
-	DEBUG_LOG(SCENET, "sceSockaddrToNativeSocketAddr: Family %i, port %i, addr %s, len %i", dest.sin_family, ntohs(dest.sin_port), ip2str(dest.sin_addr, false).c_str(), sceNetSockaddrIn->sin_len);
+	dest.sin_family = inetSockaddrIn->sin_family;
+	dest.sin_port = inetSockaddrIn->sin_port;
+	dest.sin_addr.s_addr = inetSockaddrIn->sin_addr;
+	DEBUG_LOG(SCENET, "sceSockaddrToNativeSocketAddr: Family %i, port %i, addr %s, len %i", dest.sin_family, ntohs(dest.sin_port), ip2str(dest.sin_addr, false).c_str(), inetSockaddrIn->sin_len);
 	return true;
 }
 
-static bool writeSockAddrInToSceSockAddr(u32 destAddrPtr, u32 destAddrLenPtr, sockaddr_in src) {
+static bool writeSockAddrInToInetSockAddr(u32 destAddrPtr, u32 destAddrLenPtr, sockaddr_in src) {
 	const auto sceNetSocklenPtr = reinterpret_cast<u32*>(Memory::GetPointerWrite(destAddrLenPtr));
 	u32 sceNetSocklen = 0;
 	if (sceNetSocklenPtr != nullptr) {
@@ -140,7 +164,7 @@ static bool writeSockAddrInToSceSockAddr(u32 destAddrPtr, u32 destAddrLenPtr, so
 	if (sceNetSockaddrIn == nullptr) {
 		return false;
 	}
-	INFO_LOG(SCENET, "writeSockAddrInToSceSockAddr: %lu vs %i", sizeof(SceNetInetSockaddrIn), sceNetSocklen);
+	DEBUG_LOG(SCENET, "writeSockAddrInToSceSockAddr: %lu vs %i", sizeof(SceNetInetSockaddrIn), sceNetSocklen);
 	if (sceNetSocklenPtr) {
 		*sceNetSocklenPtr = std::min<u32>(sceNetSocklen, sizeof(SceNetInetSockaddr));
 	}
@@ -194,16 +218,25 @@ static int sceNetInetSocket(int domain, int type, int protocol) {
 		return hleLogError(SCENET, ERROR_NET_INET_CONFIG_INVALID_ARG, "Inet Subsystem Not Running - Use sceNetInetInit");
 	}
 
-	const int nativeSocketId = socket(domain, type, protocol);
-	const auto sceSocket = sceNetInet->CreateAndAssociateSceSocket(nativeSocketId);
+	// TODO: translate domain, type and protocol if applicable
 
-	if (!sceSocket) {
-		close(nativeSocketId);
-		sceNetInet->SetLastError(EFAULT);
-		return hleLogError(SCENET, ERROR_NET_INET_INVALID_ARG, "%s: Unable to create new SceSocket for native socket id %i, closing", __func__, nativeSocketId);
+	// Attempt to open socket
+	const int nativeSocketId = socket(domain, type, protocol);
+	if (nativeSocketId < 0) {
+		const auto error = sceNetInet->SetLastErrorToMatchPlatform();
+		return hleLogError(SCENET, -1, "%s: Unable to open socket(%i, %i, %i) with error %i: %s", __func__, domain, type, protocol, error, strerror(error));
 	}
 
-	return sceSocket->GetSceSocketId();
+	// Map opened socket to an inet socket which is 1-indexed
+	const auto inetSocket = sceNetInet->CreateAndAssociateInetSocket(nativeSocketId);
+
+	// Close opened socket if such a socket exists
+	if (!inetSocket) {
+		close(nativeSocketId);
+		sceNetInet->SetLastError(EFAULT);
+		return hleLogError(SCENET, ERROR_NET_INET_INVALID_ARG, "%s: Unable to create new InetSocket for native socket id %i, closing", __func__, nativeSocketId);
+	}
+	return inetSocket->GetInetSocketId();
 }
 
 static int sceNetInetGetsockopt(int socket, int level, int inetOptname, u32 optvalPtr, u32 optlenPtr) {
@@ -214,23 +247,23 @@ static int sceNetInetGetsockopt(int socket, int level, int inetOptname, u32 optv
 		return hleLogError(SCENET, ERROR_NET_INET_CONFIG_INVALID_ARG, "Inet Subsystem Not Running - Use sceNetInetInit");
 	}
 
-	const auto sceSocket = sceNetInet->GetSceSocket(socket);
-	if (!sceSocket) {
-		sceNetInet->SetLastError(EFAULT);
+	const auto inetSocket = sceNetInet->GetInetSocket(socket);
+	if (!inetSocket) {
+		sceNetInet->SetLastError(EINVAL);
 		return hleLogError(SCENET, -1, "%s: Attempting to operate on unmapped socket %i", __func__, socket);
 	}
 
-	if (!sceSocket->IsSockoptNameAllowed(inetOptname)) {
+	if (!inetSocket->IsSockoptNameAllowed(inetOptname)) {
 		sceNetInet->SetLastError(EINVAL);
 		return hleLogError(SCENET, ERROR_NET_INET_CONFIG_INVALID_ARG, "Unknown optname %04x", inetOptname);
 	}
 
-	const auto optname = SceSocket::TranslateInetOptnameToNativeOptname(static_cast<InetSocketOptionName>(inetOptname));
+	const auto optname = InetSocket::TranslateInetOptnameToNativeOptname(static_cast<InetSocketOptionName>(inetOptname));
 	if (optname != inetOptname) {
 		DEBUG_LOG(SCENET, "sceNetInetSetsockopt: Translated optname %04x into %04x", inetOptname, optname);
 	}
 
-	const auto nativeSocketId = sceSocket->GetNativeSocketId();
+	const auto nativeSocketId = inetSocket->GetNativeSocketId();
 
 #if PPSSPP_PLATFORM(WINDOWS)
 	auto optlen = reinterpret_cast<int*>(Memory::GetPointerWrite(optlenPtr));
@@ -248,7 +281,8 @@ static int sceNetInetGetsockopt(int socket, int level, int inetOptname, u32 optv
 		return hleLogError(SCENET, -1, "[%i] %s: Invalid pointer range %08x (size %i)", nativeSocketId, __func__, optvalPtr, *optlen);
 	}
 
-	// TODO: implement non-blocking sockopt
+	// TODO: implement non-blocking getsockopt
+	// TODO: implement SOL
 	const int ret = getsockopt(nativeSocketId, SOL_SOCKET, optname, optval, optlen);
 	if (ret < 0) {
 		const auto error = sceNetInet->SetLastErrorToMatchPlatform();
@@ -265,18 +299,20 @@ static int sceNetInetSetsockopt(int socket, int level, int inetOptname, u32 optv
 		return hleLogError(SCENET, ERROR_NET_INET_CONFIG_INVALID_ARG, "Inet Subsystem Not Running - Use sceNetInetInit");
 	}
 
-	const auto sceSocket = sceNetInet->GetSceSocket(socket);
-	if (!sceSocket) {
+	const auto inetSocket = sceNetInet->GetInetSocket(socket);
+	if (!inetSocket) {
 		sceNetInet->SetLastError(EFAULT);
 		return hleLogError(SCENET, -1, "%s: Attempting to operate on unmapped socket %i", __func__, socket);
 	}
 
-	if (!sceSocket->IsSockoptNameAllowed(inetOptname)) {
+	const auto nativeSocketId = inetSocket->GetNativeSocketId();
+
+	if (!inetSocket->IsSockoptNameAllowed(inetOptname)) {
 		sceNetInet->SetLastError(EINVAL);
-		return hleLogError(SCENET, ERROR_NET_INET_CONFIG_INVALID_ARG, "Unknown optname %04x", inetOptname);
+		return hleLogError(SCENET, -1, "[%i] %s: Unknown optname %04x", nativeSocketId, __func__, inetOptname);
 	}
 
-	const auto optname = SceSocket::TranslateInetOptnameToNativeOptname(static_cast<InetSocketOptionName>(inetOptname));
+	const auto optname = InetSocket::TranslateInetOptnameToNativeOptname(static_cast<InetSocketOptionName>(inetOptname));
 	if (optname != inetOptname) {
 		DEBUG_LOG(SCENET, "sceNetInetSetsockopt: Translated optname %04x into %04x", inetOptname, optname);
 	}
@@ -284,29 +320,38 @@ static int sceNetInetSetsockopt(int socket, int level, int inetOptname, u32 optv
 	// If optlens of != sizeof(u32) are created, split out the handling into separate functions for readability
 	if (optlen != sizeof(u32)) {
 		sceNetInet->SetLastError(EINVAL);
-		return hleLogError(SCENET, ERROR_NET_INET_CONFIG_INVALID_ARG, "[%i]: %s: Unhandled optlen %i for optname %04x", sceSocket->GetNativeSocketId(), __func__, optlen, inetOptname);
+		return hleLogError(SCENET, -1, "[%i]: %s: Unhandled optlen %i for optname %04x", nativeSocketId, __func__, optlen, inetOptname);
+	}
+
+	if (!Memory::IsValidAddress(optvalPtr)) {
+		sceNetInet->SetLastError(EFAULT);
+		return hleLogError(SCENET, -1, "[%i]: %s: Invalid address %08x for optval", nativeSocketId, __func__, optvalPtr);
 	}
 
 	auto optval = Memory::Read_U32(optvalPtr);
-	const auto nativeSocketId = sceSocket->GetNativeSocketId();
-	INFO_LOG(SCENET, "[%i] setsockopt_u32(%i, %i, %i, %i)", nativeSocketId, nativeSocketId, level, optname, optval);
+	DEBUG_LOG(SCENET, "[%i] setsockopt(%i, %i, %i, %i)", nativeSocketId, nativeSocketId, level, optname, optval);
 
 	switch (optname) {
 		// Unmatched PSP functions - no direct equivalent
 		case INET_SO_NONBLOCK: {
 			const bool nonblocking = optval != 0;
-			sceSocket->SetNonBlocking(nonblocking);
+			inetSocket->SetNonBlocking(nonblocking);
 			INFO_LOG(SCENET, "[%i] setsockopt_u32: Set non-blocking=%i", nativeSocketId, nonblocking);
 			if (setBlockingMode(nativeSocketId, nonblocking) != 0) {
 				const auto error = sceNetInet->SetLastErrorToMatchPlatform();
-				ERROR_LOG(SCENET, "[%i] Failed to set to non-blocking: %i: %s", nativeSocketId, error, strerror(error));
+				ERROR_LOG(SCENET, "[%i] %s: Failed to set to non-blocking with error %i: %s", nativeSocketId, __func__, error, strerror(error));
 			}
 			return 0;
 		}
+		// Functions with identical structs to native functions
 		default: {
 			INFO_LOG(SCENET, "UNTESTED sceNetInetSetsockopt(%i, %i, %i, %u, %i)", nativeSocketId, level, optname, optval, 4);
-			int ret = setsockopt(nativeSocketId, SOL_SOCKET, optname, reinterpret_cast<netBufferType*>(&optval), sizeof(optval));
+			const int ret = setsockopt(nativeSocketId, SOL_SOCKET, optname, reinterpret_cast<netBufferType*>(&optval), sizeof(optval));
 			INFO_LOG(SCENET, "setsockopt_u32: setsockopt returned %i for %i", ret, nativeSocketId);
+			if (ret < 0) {
+				const auto error = sceNetInet->SetLastErrorToMatchPlatform();
+				return hleLogError(SCENET, ret, "[%i] %s: Failed to set optname %04x to %08x with error %i: %s", nativeSocketId, __func__, optname, optval, error, strerror(error));
+			}
 			return ret;
 		}
 	}
@@ -320,19 +365,21 @@ static int sceNetInetConnect(int socket, u32 sockAddrInternetPtr, int addressLen
 	}
 
 	int nativeSocketId;
-	if (!sceNetInet->GetNativeSocketIdForSceSocketId(nativeSocketId, socket)) {
+	if (!sceNetInet->GetNativeSocketIdForInetSocketId(nativeSocketId, socket)) {
 		sceNetInet->SetLastError(EINVAL);
 		return hleLogError(SCENET, -1, "%s: Attempting to operate on unmapped socket %i", __func__, socket);
 	}
 
+	// Translate inet sockaddr to native sockaddr
 	sockaddr_in convertedSockaddr{};
-	if (!sceSockaddrToNativeSocketAddr(convertedSockaddr, sockAddrInternetPtr, addressLength)) {
+	if (!inetSockaddrToNativeSocketAddr(convertedSockaddr, sockAddrInternetPtr, addressLength)) {
 		sceNetInet->SetLastError(EFAULT);
 		return hleLogError(SCENET, -1, "[%i] %s: Error translating sceSockaddr to native sockaddr", nativeSocketId, __func__);
 	}
 
 	DEBUG_LOG(SCENET, "[%i] sceNetInetConnect: Connecting to %s on %i", nativeSocketId, ip2str(convertedSockaddr.sin_addr, false).c_str(), ntohs(convertedSockaddr.sin_port));
 
+	// Attempt to connect using translated sockaddr
 	int ret = connect(nativeSocketId, reinterpret_cast<sockaddr*>(&convertedSockaddr), sizeof(convertedSockaddr));
 	if (ret < 0) {
 		const auto error = sceNetInet->SetLastErrorToMatchPlatform();
@@ -349,16 +396,17 @@ static int sceNetInetListen(int socket, int backlog) {
 	}
 
 	int nativeSocketId;
-	if (!sceNetInet->GetNativeSocketIdForSceSocketId(nativeSocketId, socket)) {
+	if (!sceNetInet->GetNativeSocketIdForInetSocketId(nativeSocketId, socket)) {
 		sceNetInet->SetLastError(EFAULT);
 		return hleLogError(SCENET, -1, "%s: Attempting to operate on unmapped socket %i", __func__, socket);
 	}
 
-	// TODO: here
+	// Map PSP_NET_INET_SOMAXCONN (128) to platform SOMAXCONN
 	if (backlog == PSP_NET_INET_SOMAXCONN) {
 		backlog = SOMAXCONN;
 	}
 
+	// Attempt to listen using either backlog, or SOMAXCONN as per above
 	const int ret = listen(socket, backlog);
 	if (ret < 0) {
 		const auto error = sceNetInet->SetLastErrorToMatchPlatform();
@@ -376,23 +424,26 @@ static int sceNetInetAccept(int socket, u32 addrPtr, u32 addrLenPtr) {
 	}
 
 	int nativeSocketId;
-	if (!sceNetInet->GetNativeSocketIdForSceSocketId(nativeSocketId, socket)) {
+	if (!sceNetInet->GetNativeSocketIdForInetSocketId(nativeSocketId, socket)) {
 		sceNetInet->SetLastError(EFAULT);
 		return hleLogError(SCENET, -1, "%s: Attempting to operate on unmapped socket %i", __func__, socket);
 	}
 
+	// Attempt to accept a connection which will provide us with a sockaddrIn containing remote connection details
 	sockaddr_in sockaddrIn{};
 	socklen_t socklen;
-	int ret = accept(nativeSocketId, reinterpret_cast<sockaddr*>(&sockaddrIn), &socklen);
+	const int ret = accept(nativeSocketId, reinterpret_cast<sockaddr*>(&sockaddrIn), &socklen);
 	if (ret < 0) {
-		const auto error = sceNetInet->SetLastErrorToMatchPlatform();
-		if (error != ERROR_WHEN_NONBLOCKING_CALL_OCCURS) {
+		// Ensure that ERROR_WHEN_NONBLOCKING_CALL_OCCURS is not mapped to an hleLogError
+		if (const auto error = sceNetInet->SetLastErrorToMatchPlatform();
+			error != ERROR_WHEN_NONBLOCKING_CALL_OCCURS) {
 			hleLogError(SCENET, ret, "[%i] %s: Encountered error %i: %s", nativeSocketId, __func__, error, strerror(error));
 		}
 		return ret;
 	}
 
-	if (addrPtr != 0 && !writeSockAddrInToSceSockAddr(addrPtr, addrLenPtr, sockaddrIn)) {
+	// Don't call writeSockAddrInToInetSockAddr when addrPtr is 0, otherwise do and send false to EFAULT
+	if (addrPtr != 0 && !writeSockAddrInToInetSockAddr(addrPtr, addrLenPtr, sockaddrIn)) {
 		sceNetInet->SetLastError(EFAULT);
 		hleLogError(SCENET, ret, "[%i] %s: Encountered error trying to write to addrPtr, probably invalid memory range", nativeSocketId, __func__);
 	}
@@ -470,23 +521,25 @@ static int sceNetInetSelect(int maxfd, u32 readFdsPtr, u32 writeFdsPtr, u32 exce
 		return hleLogError(SCENET, ERROR_NET_INET_CONFIG_INVALID_ARG, "Inet Subsystem Not Running - Use sceNetInetInit");
 	}
 
+	// Translate all input fd_sets to native fd_sets. None of these will be nullptr and so this needs to be checked later.
 	int recomputedMaxFd = 1;
 	fd_set readFds;
-	sceNetInet->TranslateSceFdSetToNativeFdSet(recomputedMaxFd, readFds, readFdsPtr);
+	sceNetInet->TranslateInetFdSetToNativeFdSet(recomputedMaxFd, readFds, readFdsPtr);
 	fd_set writeFds;
-	sceNetInet->TranslateSceFdSetToNativeFdSet(recomputedMaxFd, writeFds, writeFdsPtr);
+	sceNetInet->TranslateInetFdSetToNativeFdSet(recomputedMaxFd, writeFds, writeFdsPtr);
 	fd_set exceptFds;
-	sceNetInet->TranslateSceFdSetToNativeFdSet(recomputedMaxFd, exceptFds, exceptFdsPtr);
+	sceNetInet->TranslateInetFdSetToNativeFdSet(recomputedMaxFd, exceptFds, exceptFdsPtr);
 
+	// Convert timeval when applicable
 	timeval tv{};
 	if (timeoutPtr != 0) {
-		const auto sceTimeval = Memory::GetTypedPointerRange<SceTimeval>(timeoutPtr, sizeof(SceTimeval));
-		if (sceTimeval != nullptr) {
-			tv.tv_sec = sceTimeval->tv_sec;
-			tv.tv_usec = sceTimeval->tv_usec;
-			DEBUG_LOG(SCENET, "sceNetInetSelect: Timeout seconds=%lu, useconds=%lu", tv.tv_sec, tv.tv_usec);
+		const auto inetTimeval = Memory::GetTypedPointerRange<PspInetTimeval>(timeoutPtr, sizeof(PspInetTimeval));
+		if (inetTimeval != nullptr) {
+			tv.tv_sec = inetTimeval->tv_sec;
+			tv.tv_usec = inetTimeval->tv_usec;
+			DEBUG_LOG(SCENET, "%s: Timeout seconds=%lu, useconds=%lu", __func__, tv.tv_sec, tv.tv_usec);
 		} else {
-			WARN_LOG(SCENET, "sceNetInetSelect: Encountered invalid timeout value, continuing anyway");
+			WARN_LOG(SCENET, "%s: Encountered invalid timeout value, continuing anyway", __func__);
 		}
 	}
 
@@ -494,11 +547,11 @@ static int sceNetInetSelect(int maxfd, u32 readFdsPtr, u32 writeFdsPtr, u32 exce
 	const int ret = select(recomputedMaxFd,  readFdsPtr != 0 ? &readFds : nullptr, writeFdsPtr != 0 ? &writeFds : nullptr,  exceptFdsPtr != 0 ? &exceptFds : nullptr, timeoutPtr != 0 ? &tv : nullptr);
 	if (ret < 0) {
 		const auto error = sceNetInet->SetLastErrorToMatchPlatform();
-		ERROR_LOG(SCENET, "sceNetInetSelect: Received error from select() %i: %s", error, strerror(error));
+		ERROR_LOG(SCENET, "%s: Received error from select() %i: %s", __func__, error, strerror(error));
 	}
 
-	INFO_LOG(SCENET, "sceNetInetSelect: select() returned %i", ret);
-	return hleDelayResult(ret, "TODO: unhack", 300);
+	INFO_LOG(SCENET, "%s: select() returned %i", __func__, ret);
+	return hleDelayResult(ret, "TODO: unhack", 500);
 }
 
 static int sceNetInetClose(int socket) {
@@ -507,16 +560,16 @@ static int sceNetInetClose(int socket) {
 		return hleLogError(SCENET, ERROR_NET_INET_CONFIG_INVALID_ARG, "Inet Subsystem Not Running - Use sceNetInetInit");
 	}
 
-	const auto sceSocket = sceNetInet->GetSceSocket(socket);
-	if (!sceSocket) {
+	const auto inetSocket = sceNetInet->GetInetSocket(socket);
+	if (!inetSocket) {
 		sceNetInet->SetLastError(EINVAL);
 		return hleLogWarning(SCENET, -1, "%s: Attempting to close socket %i which does not exist", __func__, socket);
 	}
 
-	const int ret = close(sceSocket->GetNativeSocketId());
+	const int ret = close(inetSocket->GetNativeSocketId());
 	if (!sceNetInet->EraseNativeSocket(socket)) {
 		sceNetInet->SetLastError(EFAULT);
-		return hleLogError(SCENET, -1, "%s: Unable to clear mapping of sceSocketId->nativeSocketId, was there contention?", __func__);
+		return hleLogError(SCENET, -1, "%s: Unable to clear mapping of inetSocketId->nativeSocketId, was there contention?", __func__);
 	}
 	return ret;
 }
@@ -551,20 +604,32 @@ static int sceNetInetInetAton(const char *hostname, u32 addrPtr) {
 		return hleLogError(SCENET, ERROR_NET_INET_CONFIG_INVALID_ARG, "Inet Subsystem Not Running - Use sceNetInetInit");
 	}
 
+	if (hostname == nullptr) {
+		sceNetInet->SetLastError(EFAULT);
+		return hleLogError(SCENET, -1, "%s: Invalid hostname: %08x", __func__, hostname);
+	}
+
 	if (!Memory::IsValidAddress(addrPtr)) {
 		sceNetInet->SetLastError(EFAULT);
 		return hleLogError(SCENET, -1, "%s: Invalid addrPtr: %08x", __func__, addrPtr);
 	}
 
+	// Convert the input hostname into an inaddr
 	in_addr inAddr{};
 #if PPSSPP_PLATFORM(WINDOWS)
+	// Use inet_pton to accomplish the same behavior on Winsock2 which is missing inet_aton
 	const int ret = inet_pton(AF_INET, hostname, &inAddr);
 #else
 	const int ret = inet_aton(hostname, &inAddr);
 #endif
-	if (ret != 0) {
-		Memory::Write_U32(inAddr.s_addr, addrPtr);
+
+	if (ret == 0) {
+		// inet_aton does not set errno when an error occurs, so neither should we
+		return hleLogError(SCENET, ret, "%s: Invalid hostname %s", __func__, hostname);
 	}
+
+	// Write back to addrPtr if ret is != 0
+	Memory::Write_U32(inAddr.s_addr, addrPtr);
 	return ret;
 }
 
@@ -600,28 +665,29 @@ static u32 sceNetInetInetNtop(int addressFamily, u32 srcPtr, u32 dstBufPtr, u32 
 	return hleLogSuccessX(SCENET, dstBufPtr);
 }
 
-static int sceNetInetInetPton(int addressFamily, const char *hostname, u32 dstBufPtr) {
-	WARN_LOG_ONCE(sceNetInetInetPton, SCENET, "UNTESTED %s(%i, %s, %08x)", __func__, addressFamily, hostname, dstBufPtr);
+static int sceNetInetInetPton(int addressFamily, const char *hostname, u32 dstPtr) {
+	WARN_LOG_ONCE(sceNetInetInetPton, SCENET, "UNTESTED %s(%i, %s, %08x)", __func__, addressFamily, hostname, dstPtr);
 
 	const auto sceNetInet = SceNetInet::Get();
 	if (!sceNetInet) {
 		return hleLogError(SCENET, ERROR_NET_INET_CONFIG_INVALID_ARG, "Inet Subsystem Not Running - Use sceNetInetInit");
 	}
 
-	const auto srcSockaddrIn = Memory::GetTypedPointerWriteRange<SceNetInetSockaddrIn>(srcPtr, sizeof(SceNetInetSockaddrIn));
-	if (srcSockaddrIn == nullptr) {
-		return hleLogError(SCENET, 0, "%s: Invalid memory range for srcPtr %08x", __func__, srcPtr);
+	if (hostname == nullptr) {
+		sceNetInet->SetLastError(EFAULT);
+		return hleLogError(SCENET, 0, "%s: Invalid memory range for hostname %08x", __func__, hostname);
 	}
 
 	// IPv4, the only supported address family on PSP, will always be 32 bits
-	const auto dstBuf = Memory::GetTypedPointerWriteRange<u32>(dstBufPtr, sizeof(u32));
-	if (dstBuf == nullptr) {
-		return hleLogError(SCENET, 0, "%s: Invalid memory range for dstBufPtr %08x, size %i", __func__, dstBufPtr, dstBufSize);
+	const auto dst = Memory::GetTypedPointerWriteRange<u32>(dstPtr, sizeof(u32));
+	if (dst == nullptr) {
+		sceNetInet->SetLastError(EFAULT);
+		return hleLogError(SCENET, 0, "%s: Invalid memory range for dstPtr %08x, size %i", __func__, dstPtr, sizeof(u32));
 	}
 
 	// TODO: convert address family
 	// TODO: If af does not contain a valid address family, -1 is returned and errno is set to EAFNOSUPPORT.
-	const int ret = inet_pton(addressFamily, reinterpret_cast<netBufferType*>(srcSockaddrIn), dstBuf);
+	const int ret = inet_pton(addressFamily, hostname, dst);
 	if (ret < 0) {
 		const auto error = sceNetInet->SetLastErrorToMatchPlatform();
 		return hleLogError(SCENET, ret, "%s: inet_pton returned %i: %s", __func__, sceNetInet->GetLastError(), strerror(error));
@@ -637,7 +703,7 @@ static int sceNetInetGetpeername(int socket, u32 addrPtr, u32 addrLenPtr) {
 	}
 
 	int nativeSocketId;
-	if (!sceNetInet->GetNativeSocketIdForSceSocketId(nativeSocketId, socket)) {
+	if (!sceNetInet->GetNativeSocketIdForInetSocketId(nativeSocketId, socket)) {
 		ERROR_LOG(SCENET, "%s: Requested socket %i which does not exist", __func__, socket);
 		return -1;
 	}
@@ -645,7 +711,7 @@ static int sceNetInetGetpeername(int socket, u32 addrPtr, u32 addrLenPtr) {
 	// Write PSP sockaddr to native sockaddr in preparation of getpeername
 	sockaddr_in sockaddrIn{};
 	socklen_t socklen = sizeof(sockaddr_in);
-	if (!sceSockaddrToNativeSocketAddr(sockaddrIn, addrPtr, addrLenPtr)) {
+	if (!inetSockaddrToNativeSocketAddr(sockaddrIn, addrPtr, addrLenPtr)) {
 		sceNetInet->SetLastError(EFAULT);
 		return hleLogError(SCENET, -1, "[%i]: %s: Encountered invalid addrPtr %08x and/or invalid addrLenPtr %08x", nativeSocketId, addrPtr, addrLenPtr);
 	}
@@ -656,7 +722,8 @@ static int sceNetInetGetpeername(int socket, u32 addrPtr, u32 addrLenPtr) {
 		return hleLogError(SCENET, ret, "[%i] %s: Failed to execute getpeername %i: %s", nativeSocketId, __func__, error, strerror(error));
 	}
 
-	if (!writeSockAddrInToSceSockAddr(addrPtr, addrLenPtr, sockaddrIn)) {
+	// Write output of getpeername to the input addrPtr
+	if (!writeSockAddrInToInetSockAddr(addrPtr, addrLenPtr, sockaddrIn)) {
 		sceNetInet->SetLastError(EFAULT);
 		return hleLogError(SCENET, -1, "[%i] %s: Failed to write results of getpeername to SceNetInetSockaddrIn", nativeSocketId, __func__);
 	}
@@ -671,11 +738,12 @@ static int sceNetInetGetsockname(int socket, u32 addrPtr, u32 addrLenPtr) {
 	}
 
 	int nativeSocketId;
-	if (!sceNetInet->GetNativeSocketIdForSceSocketId(nativeSocketId, socket)) {
-		ERROR_LOG(SCENET, "%s: Requested socket %i which does not exist", __func__, socket);
-		return -1;
+	if (!sceNetInet->GetNativeSocketIdForInetSocketId(nativeSocketId, socket)) {
+		sceNetInet->SetLastError(EINVAL);
+		return hleLogError(SCENET, -1, "%s: Requested socket %i which does not exist", __func__, socket);
 	}
 
+	// Set sockaddrIn to the result of getsockname
 	sockaddr_in sockaddrIn{};
 	socklen_t socklen = sizeof(sockaddr_in);
 	const int ret = getsockname(nativeSocketId, reinterpret_cast<sockaddr*>(&sockaddrIn), &socklen);
@@ -684,7 +752,9 @@ static int sceNetInetGetsockname(int socket, u32 addrPtr, u32 addrLenPtr) {
 		return hleLogError(SCENET, ret, "[%i] %s: Failed to execute getsockname %i: %s", nativeSocketId, __func__, error, strerror(error));
 	}
 
-	if (!writeSockAddrInToSceSockAddr(addrPtr, addrLenPtr, sockaddrIn)) {
+	// Write output of getsockname to the input addrPtr
+	if (!writeSockAddrInToInetSockAddr(addrPtr, addrLenPtr, sockaddrIn)) {
+		sceNetInet->SetLastError(EFAULT);
 		return hleLogError(SCENET, -1, "[%i] %s: Failed to write results of getsockname to SceNetInetSockaddrIn", nativeSocketId, __func__);
 	}
 	return ret;
@@ -697,23 +767,24 @@ static int sceNetInetRecv(int socket, u32 bufPtr, u32 bufLen, int flags) {
 		return hleLogError(SCENET, ERROR_NET_INET_CONFIG_INVALID_ARG, "Inet Subsystem Not Running - Use sceNetInetInit");
 	}
 
-	const auto sceSocket = sceNetInet->GetSceSocket(socket);
-	if (!sceSocket) {
-		WARN_LOG(SCENET, "sceNetInetClose: Attempting to close socket %i which does not exist", socket);
+	const auto inetSocket = sceNetInet->GetInetSocket(socket);
+	if (!inetSocket) {
+		WARN_LOG(SCENET, "%s: Attempting to close socket %i which does not exist", __func__, socket);
 		return -1;
 	}
 
+	const auto nativeSocketId = inetSocket->GetNativeSocketId();
 	const auto dstBuf = Memory::GetTypedPointerWriteRange<netBufferType>(bufPtr, bufLen);
 	if (dstBuf == nullptr) {
-		return hleLogError(SCENET, ERROR_NET_INET_INVALID_ARG, "sceNetInetRecv: Invalid pointer %08x (size %i)", bufPtr, bufLen);
+		return hleLogError(SCENET, -1, "[%i] %s: Invalid pointer %08x (size %i)", nativeSocketId, __func__, bufPtr, bufLen);
 	}
 
-	// TODO: debug log the API calls
-	const int nativeFlags = sceSocket->TranslateInetFlagsToNativeFlags(flags);
-
-	const int ret = recv(sceSocket->GetNativeSocketId(), dstBuf, bufLen, nativeFlags);
+	const int nativeFlags = inetSocket->TranslateInetFlagsToNativeFlags(flags);
+	const int ret = recv(nativeSocketId, dstBuf, bufLen, nativeFlags);
+	DEBUG_LOG(SCENET, "[%i] %s: Called recv with buf size %i which returned %i", nativeSocketId, __func__, bufLen, ret);
 	if (ret < 0) {
-		if (const auto error = sceNetInet->SetLastErrorToMatchPlatform(); error != ERROR_WHEN_NONBLOCKING_CALL_OCCURS) {
+		if (const auto error = sceNetInet->SetLastErrorToMatchPlatform();
+			error != ERROR_WHEN_NONBLOCKING_CALL_OCCURS) {
 			ERROR_LOG(SCENET, "[%i]: %s: recv() encountered error %i: %s", socket, __func__, error, strerror(error));
 		}
 	}
@@ -727,65 +798,66 @@ static int sceNetInetRecvfrom(int socket, u32 bufPtr, u32 bufLen, int flags, u32
 		return hleLogError(SCENET, ERROR_NET_INET_CONFIG_INVALID_ARG, "Inet Subsystem Not Running - Use sceNetInetInit");
 	}
 
-	const auto sceSocket = sceNetInet->GetSceSocket(socket);
-	if (!sceSocket) {
+	const auto inetSocket = sceNetInet->GetInetSocket(socket);
+	if (!inetSocket) {
 		sceNetInet->SetLastError(EFAULT);
 		return hleLogError(SCENET, -1, "%s: Attempting to operate on unmapped socket %i", __func__, socket);
 	}
 
-	const auto nativeSocketId = sceSocket->GetNativeSocketId();
+	const auto nativeSocketId = inetSocket->GetNativeSocketId();
 	const auto dstBuf = Memory::GetTypedPointerWriteRange<netBufferType>(bufPtr, bufLen);
 	if (dstBuf == nullptr) {
 		sceNetInet->SetLastError(EFAULT);
 		return hleLogError(SCENET, -1, "[%i] %s: Invalid pointer range: %08x (size %i)", nativeSocketId, __func__, bufPtr, bufLen);
 	}
 
-	const int nativeFlags = sceSocket->TranslateInetFlagsToNativeFlags(flags);
+	// Translate PSP flags to native flags and prepare sockaddrIn to receive peer address
+	const int nativeFlags = inetSocket->TranslateInetFlagsToNativeFlags(flags);
 	sockaddr_in sockaddrIn{};
 	socklen_t socklen = sizeof(sockaddr_in);
 	Memory::Memset(bufPtr, 0, bufLen, __func__);
 
 	const int ret = recvfrom(nativeSocketId, dstBuf, bufLen, nativeFlags, reinterpret_cast<sockaddr*>(&sockaddrIn), &socklen);
-
 	if (ret < 0) {
 		if (const auto error = sceNetInet->SetLastErrorToMatchPlatform();
 			error != 0 && error != ERROR_WHEN_NONBLOCKING_CALL_OCCURS) {
-			WARN_LOG(SCENET, "[%i] sceNetInetRecvfrom: Received error %i: %s", nativeSocketId, error, strerror(error));
+			WARN_LOG(SCENET, "[%i] %s: Received error %i: %s", nativeSocketId, __func__, error, strerror(error));
 		}
 		return hleDelayResult(ret, "TODO: unhack", 500);
 	}
 
+	// If ret was successful, write peer sockaddr to input fromAddr
 	if (ret > 0) {
-		if (!writeSockAddrInToSceSockAddr(fromAddr, fromLenAddr, sockaddrIn)) {
-			ERROR_LOG(SCENET, "[%i] sceNetInetRecvfrom: Error writing native sockaddr to sceSockaddr", nativeSocketId);
+		if (!writeSockAddrInToInetSockAddr(fromAddr, fromLenAddr, sockaddrIn)) {
+			ERROR_LOG(SCENET, "[%i] %s: Error writing native sockaddr to sceSockaddr", nativeSocketId, __func__);
 		}
-		INFO_LOG(SCENET, "[%i] sceNetInetRecvfrom: Got %i bytes from recvfrom", nativeSocketId, ret);
+		INFO_LOG(SCENET, "[%i] %s: Got %i bytes from recvfrom", nativeSocketId, __func__, ret);
 	}
 	return hleDelayResult(ret, "TODO: unhack", 500);
 }
 
 static int sceNetInetSend(int socket, u32 bufPtr, u32 bufLen, int flags) {
-	WARN_LOG_ONCE(sceNetInetSend, SCENET, "UNTESTED sceNetInetSend(%i, %08x, %i, %08x)", socket, bufPtr, bufLen, flags);
+	WARN_LOG_ONCE(sceNetInetSend, SCENET, "UNTESTED %s(%i, %08x, %i, %08x)", __func__, socket, bufPtr, bufLen, flags);
 	const auto sceNetInet = SceNetInet::Get();
 	if (!sceNetInet) {
 		return hleLogError(SCENET, ERROR_NET_INET_CONFIG_INVALID_ARG, "Inet Subsystem Not Running - Use sceNetInetInit");
 	}
 
-	const auto sceSocket = sceNetInet->GetSceSocket(socket);
-	if (!sceSocket) {
+	const auto inetSocket = sceNetInet->GetInetSocket(socket);
+	if (!inetSocket) {
 		sceNetInet->SetLastError(EFAULT);
 		return hleLogError(SCENET, -1, "%s: Attempting to operate on unmapped socket %i", __func__, socket);
 	}
 
-	const auto resolvedPtr = Memory::GetTypedPointerRange<netBufferType>(bufPtr, bufLen);
-	if (resolvedPtr == nullptr) {
+	const auto buf = Memory::GetTypedPointerRange<netBufferType>(bufPtr, bufLen);
+	if (buf == nullptr) {
 		sceNetInet->SetLastError(EFAULT);
 		return hleLogError(SCENET, -1, "[%i] %s: Invalid pointer range: %08x (size %i)", socket, __func__, bufPtr, bufLen);
 	}
 
-	const int nativeFlags = sceSocket->TranslateInetFlagsToNativeFlags(flags);
-
-	const int ret = send(sceSocket->GetNativeSocketId(), resolvedPtr, bufLen, nativeFlags);
+	// Translate PSP flags to native flags and send
+	const int nativeFlags = inetSocket->TranslateInetFlagsToNativeFlags(flags);
+	const int ret = send(inetSocket->GetNativeSocketId(), buf, bufLen, nativeFlags);
 	if (ret < 0) {
 		const auto error = sceNetInet->SetLastErrorToMatchPlatform();
 		return hleLogError(SCENET, ret, "[%i]: %s: send() encountered error %i: %s", socket, __func__, error, strerror(error));
@@ -800,35 +872,35 @@ static int sceNetInetSendto(int socket, u32 bufPtr, u32 bufLen, int flags, u32 t
 		return hleLogError(SCENET, ERROR_NET_INET_CONFIG_INVALID_ARG, "Inet Subsystem Not Running - Use sceNetInetInit");
 	}
 
-	const auto sceSocket = sceNetInet->GetSceSocket(socket);
-	if (!sceSocket) {
+	const auto inetSocket = sceNetInet->GetInetSocket(socket);
+	if (!inetSocket) {
 		sceNetInet->SetLastError(EFAULT);
 		return hleLogError(SCENET, -1, "%s: Attempting to operate on unmapped socket %i", __func__, socket);
 	}
 
-	const int nativeSocketId = sceSocket->GetNativeSocketId();
+	const int nativeSocketId = inetSocket->GetNativeSocketId();
 	const auto srcBuf = Memory::GetTypedPointerRange<netBufferType>(bufPtr, bufLen);
 	if (srcBuf == nullptr) {
-		ERROR_LOG(SCENET, "[%i] sceNetInetSendto: Invalid pointer range: %08x (size %i)", socket, bufPtr, bufLen);
+		ERROR_LOG(SCENET, "[%i] %s: Invalid pointer range: %08x (size %i)", nativeSocketId, __func__, bufPtr, bufLen);
 		return -1;
 	}
 
-	const int nativeFlags = sceSocket->TranslateInetFlagsToNativeFlags(flags);
+	// Translate PSP flags to native flags and convert toAddr to native addr
+	const int nativeFlags = inetSocket->TranslateInetFlagsToNativeFlags(flags);
 	sockaddr_in convertedSockAddr{};
-	if (!sceSockaddrToNativeSocketAddr(convertedSockAddr, toAddr, toLen)) {
-		ERROR_LOG(SCENET, "[%i] sceNetInetSendto: Unable to translate sceSockAddr to native sockaddr", nativeSocketId);
+	if (!inetSockaddrToNativeSocketAddr(convertedSockAddr, toAddr, toLen)) {
+		ERROR_LOG(SCENET, "[%i] %s: Unable to translate sceSockAddr to native sockaddr", nativeSocketId, __func__);
 		return -1;
 	}
 
-	// TODO: improve debug log
-	DEBUG_LOG(SCENET, "[%i] sceNetInetSendto: Writing %i bytes to %s on port %i", nativeSocketId, bufLen, ip2str(convertedSockAddr.sin_addr, false).c_str(), ntohs(convertedSockAddr.sin_port));
+	DEBUG_LOG(SCENET, "[%i] %s: Writing %i bytes to %s on port %i", nativeSocketId, __func__, bufLen, ip2str(convertedSockAddr.sin_addr, false).c_str(), ntohs(convertedSockAddr.sin_port));
 
 	const int ret = sendto(nativeSocketId, srcBuf, bufLen, nativeFlags, reinterpret_cast<sockaddr*>(&convertedSockAddr), sizeof(sockaddr_in));
-	DEBUG_LOG(SCENET, "[%i] sceNetInetSendto: sendto returned %i", nativeSocketId, ret);
+	DEBUG_LOG(SCENET, "[%i] %s: sendto returned %i", nativeSocketId, __func__, ret);
 
 	if (ret < 0) {
 		const auto error = sceNetInet->SetLastErrorToMatchPlatform();
-		WARN_LOG(SCENET, "[%i] sceNetInetSendto: Got error %i=%s", nativeSocketId, error, strerror(error));
+		WARN_LOG(SCENET, "[%i] %s: Got error %i=%s", nativeSocketId, __func__, error, strerror(error));
 	}
 
 	return ret;
@@ -843,11 +915,10 @@ static int sceNetInetGetErrno() {
 
 	const auto nativeError = sceNetInet->GetLastError();
 	if (nativeError != ERROR_WHEN_NONBLOCKING_CALL_OCCURS && nativeError != 0) {
-		INFO_LOG(SCENET, "Requested sceNetInetGetErrno %i=%s", nativeError, strerror(nativeError));
+		INFO_LOG(SCENET, "Requested %s %i=%s", __func__, nativeError, strerror(nativeError));
 	}
 
-	// TODO: consider moving below function to SceNetInet
-	return SceSocket::TranslateNativeErrorToInetError(nativeError);
+	return InetSocket::TranslateNativeErrorToInetError(nativeError);
 }
 
 static int sceNetInetBind(int socket, u32 addrPtr, u32 addrLen) {
@@ -857,17 +928,17 @@ static int sceNetInetBind(int socket, u32 addrPtr, u32 addrLen) {
 		return hleLogError(SCENET, ERROR_NET_INET_CONFIG_INVALID_ARG, "Inet Subsystem Not Running - Use sceNetInetInit");
 	}
 
-	const auto sceSocket = sceNetInet->GetSceSocket(socket);
-	if (!sceSocket) {
+	const auto inetSocket = sceNetInet->GetInetSocket(socket);
+	if (!inetSocket) {
 		sceNetInet->SetLastError(EFAULT);
 		return hleLogError(SCENET, -1, "%s: Attempting to operate on unmapped socket %i", __func__, socket);
 	}
 
-	const int nativeSocketId = sceSocket->GetNativeSocketId();
+	const int nativeSocketId = inetSocket->GetNativeSocketId();
 
 #if PPSSPP_PLATFORM(LINUX)
 	// Set broadcast
-	// TODO: move broadcast SceSocket
+	// TODO: move broadcast InetSocket
 	int broadcastEnabled = 1;
 	int sockoptRet = setsockopt(nativeSocketId, SOL_SOCKET, SO_BROADCAST, &broadcastEnabled, sizeof(broadcastEnabled));
 
@@ -880,15 +951,16 @@ static int sceNetInetBind(int socket, u32 addrPtr, u32 addrLen) {
 	setsockopt(nativeSocketId, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
 #elif PPSSPP_PLATFORM(WINDOWS)
 	// Set broadcast
-	// TODO: move broadcast SceSocket
+	// TODO: move broadcast InetSocket
 	int broadcastEnabled = 1;
 	int sockoptRet = setsockopt(nativeSocketId, SOL_SOCKET, SO_BROADCAST, reinterpret_cast<char*>(&broadcastEnabled), sizeof(broadcastEnabled));
 	int opt = 1;
 	setsockopt(nativeSocketId, SOL_SOCKET, SO_REUSEADDR, reinterpret_cast<char*>(&opt), sizeof(opt));
 #endif
 
+	// Convert PSP bind addr to native bind addr
 	sockaddr_in convertedSockaddr{};
-	if (!sceSockaddrToNativeSocketAddr(convertedSockaddr, addrPtr, addrLen)) {
+	if (!inetSockaddrToNativeSocketAddr(convertedSockaddr, addrPtr, addrLen)) {
 		ERROR_LOG(SCENET, "[%i] Error translating sceSockaddr to native sockaddr", nativeSocketId);
 		return -1;
 	}
@@ -907,11 +979,11 @@ static int sceNetInetBind(int socket, u32 addrPtr, u32 addrLen) {
 	INFO_LOG(SCENET, "[%i] Binding to family %i, port %i, addr %s sockoptRet %i", nativeSocketId, convertedSockaddr.sin_family, ntohs(convertedSockaddr.sin_port), ip2str(convertedSockaddr.sin_addr, false).c_str(), sockoptRet);
 	const int ret = bind(nativeSocketId, reinterpret_cast<sockaddr*>(&convertedSockaddr), socklen);
 	INFO_LOG(SCENET, "Bind returned %i for fd=%i", ret, nativeSocketId);
-	setBlockingMode(nativeSocketId, sceSocket->IsNonBlocking());
+	setBlockingMode(nativeSocketId, inetSocket->IsNonBlocking());
 
 	// Set UPnP
 	const auto port = ntohs(convertedSockaddr.sin_port);
-	switch (sceSocket->GetProtocol()) {
+	switch (inetSocket->GetProtocol()) {
 		case INET_PROTOCOL_TCP: {
 			UPnP_Add(IP_PROTOCOL_TCP, port, port);
 			break;
@@ -920,8 +992,9 @@ static int sceNetInetBind(int socket, u32 addrPtr, u32 addrLen) {
 			UPnP_Add(IP_PROTOCOL_UDP, port, port);
 			break;
 		}
+		// TODO: Unknown IP protocol 000f when attempting to set up UPnP port forwarding
 		default: {
-			WARN_LOG(SCENET, "[%i]: Unknown IP protocol %04x when attempting to set up UPnP port forwarding", nativeSocketId, sceSocket->GetProtocol());
+			WARN_LOG(SCENET, "[%i]: Unknown IP protocol %04x when attempting to set up UPnP port forwarding", nativeSocketId, inetSocket->GetProtocol());
 			break;
 		}
 	}
@@ -956,12 +1029,12 @@ const HLEFunction sceNetInet[] = {
 	{0XD0792666, &WrapU_IUUU<sceNetInetInetNtop>,    "sceNetInetInetNtop",              '?', ""     },
 	{0XE30B8C19, &WrapI_ICU<sceNetInetInetPton>,     "sceNetInetInetPton",              '?', ""     },
 	{0X8CA3A97E, nullptr,                            "sceNetInetGetPspError",           '?', ""     },
-	{0XE247B6D6, &WrapI_IUU<sceNetInetGetpeername>,"sceNetInetGetpeername",           '?', ""     },
+	{0XE247B6D6, &WrapI_IUU<sceNetInetGetpeername>,  "sceNetInetGetpeername",           '?', ""     },
 	{0X162E6FD5, &WrapI_IUU<sceNetInetGetsockname>,  "sceNetInetGetsockname",           '?', ""     },
 	{0X80A21ABD, nullptr,                            "sceNetInetSocketAbort",           '?', ""     },
 	{0X39B0C7D3, nullptr,                            "sceNetInetGetUdpcbstat",          '?', ""     },
 	{0XB3888AD4, nullptr,                            "sceNetInetGetTcpcbstat",          '?', ""     },
-};
+};;
 
 std::shared_ptr<SceNetInet> SceNetInet::gInstance;
 std::shared_mutex SceNetInet::gLock;
@@ -995,7 +1068,6 @@ void SceNetInet::SetLastError(const int error) {
 	mLastError = error;
 }
 
-// TODO: ensure this is applied to every function
 int SceNetInet::SetLastErrorToMatchPlatform() {
 	int error;
 #if PPSSPP_PLATFORM(WINDOWS)
@@ -1007,77 +1079,75 @@ int SceNetInet::SetLastErrorToMatchPlatform() {
 	return error;
 }
 
-std::shared_ptr<SceSocket> SceNetInet::CreateAndAssociateSceSocket(int nativeSocketId) {
+std::shared_ptr<InetSocket> SceNetInet::CreateAndAssociateInetSocket(int nativeSocketId) {
 	auto lock = std::unique_lock(mLock);
 
-	int sceSocketId = ++mCurrentSceSocketId;
-	if (const auto it = mSceSocketIdToNativeSocket.find(sceSocketId); it != mSceSocketIdToNativeSocket.end()) {
-		WARN_LOG(SCENET, "%s: Attempted to re-associate socket from already-associated sceSocketId: %i", __func__, sceSocketId);
+	int inetSocketId = ++mCurrentInetSocketId;
+	if (const auto it = mInetSocketIdToNativeSocket.find(inetSocketId); it != mInetSocketIdToNativeSocket.end()) {
+		WARN_LOG(SCENET, "%s: Attempted to re-associate socket from already-associated inetSocketId: %i", __func__, inetSocketId);
 		return nullptr;
 	}
-	auto sceSocket = std::make_shared<SceSocket>(sceSocketId, nativeSocketId);
-	mSceSocketIdToNativeSocket.emplace(sceSocketId, sceSocket);
-	return sceSocket;
+	auto inetSocket = std::make_shared<InetSocket>(inetSocketId, nativeSocketId);
+	mInetSocketIdToNativeSocket.emplace(inetSocketId, inetSocket);
+	return inetSocket;
 }
 
-std::shared_ptr<SceSocket> SceNetInet::GetSceSocket(int sceSocketId) {
+std::shared_ptr<InetSocket> SceNetInet::GetInetSocket(int inetSocketId) {
 	auto lock = std::shared_lock(mLock);
 
-	const auto it = mSceSocketIdToNativeSocket.find(sceSocketId);
-	if (it == mSceSocketIdToNativeSocket.end()) {
-		WARN_LOG(SCENET, "%s: Attempted to get unassociated socket from sceSocketId: %i", __func__, sceSocketId);
+	const auto it = mInetSocketIdToNativeSocket.find(inetSocketId);
+	if (it == mInetSocketIdToNativeSocket.end()) {
+		WARN_LOG(SCENET, "%s: Attempted to get unassociated socket from inetSocketId: %i", __func__, inetSocketId);
 		return nullptr;
 	}
 
 	return it->second;
 }
 
-bool SceNetInet::GetNativeSocketIdForSceSocketId(int& nativeSocketId, int sceSocketId) {
-	const auto sceSocket = GetSceSocket(sceSocketId);
-	if (!sceSocket)
+bool SceNetInet::GetNativeSocketIdForInetSocketId(int& nativeSocketId, int inetSocketId) {
+	const auto inetSocket = GetInetSocket(inetSocketId);
+	if (!inetSocket)
 		return false;
-	nativeSocketId = sceSocket->GetNativeSocketId();
+	nativeSocketId = inetSocket->GetNativeSocketId();
 	return true;
 }
 
-bool SceNetInet::EraseNativeSocket(int sceSocketId) {
+bool SceNetInet::EraseNativeSocket(int inetSocketId) {
 	auto lock = std::unique_lock(mLock);
 
-	const auto it = mSceSocketIdToNativeSocket.find(sceSocketId);
-	if (it == mSceSocketIdToNativeSocket.end()) {
-		WARN_LOG(SCENET, "%s: Attempted to delete unassociated socket from sceSocketId: %i", __func__, sceSocketId);
+	const auto it = mInetSocketIdToNativeSocket.find(inetSocketId);
+	if (it == mInetSocketIdToNativeSocket.end()) {
+		WARN_LOG(SCENET, "%s: Attempted to delete unassociated socket from inetSocketId: %i", __func__, inetSocketId);
 		return false;
 	}
-	mSceSocketIdToNativeSocket.erase(it);
+	mInetSocketIdToNativeSocket.erase(it);
 	return true;
 }
 
-bool SceNetInet::TranslateSceFdSetToNativeFdSet(int &maxFd, fd_set& destFdSet, u32 fdsPtr) const {
+bool SceNetInet::TranslateInetFdSetToNativeFdSet(int &maxFd, fd_set& destFdSet, u32 fdsPtr) const {
 	if (fdsPtr == 0) {
 		// Allow nullptr to be used without failing
 		return true;
 	}
 
 	FD_ZERO(&destFdSet);
-	const auto sceFdSet = Memory::GetTypedPointerRange<SceFdSetOperations::FdSet>(fdsPtr, sizeof(SceFdSetOperations::FdSet));
+	const auto sceFdSet = Memory::GetTypedPointerRange<PspInetFdSetOperations::FdSet>(fdsPtr, sizeof(PspInetFdSetOperations::FdSet));
 	if (sceFdSet == nullptr) {
 		ERROR_LOG(SCENET, "%s: Invalid fdsPtr %08x", __func__, fdsPtr);
 		return false;
 	}
 
 	int setSize = 0;
-	for (auto& it : mSceSocketIdToNativeSocket) {
-		const auto sceSocket = it.first;
+	for (auto& it : mInetSocketIdToNativeSocket) {
+		const auto inetSocket = it.first;
 		const auto nativeSocketId = it.second->GetNativeSocketId();
-		if (nativeSocketId + 1 > maxFd) {
-			maxFd = nativeSocketId + 1;
-		}
-		if (SceFdSetOperations::IsSet(sceFdSet, sceSocket)) {
+		maxFd = std::max(nativeSocketId + 1, maxFd);
+		if (PspInetFdSetOperations::IsSet(*sceFdSet, inetSocket)) {
 			if (++setSize > FD_SETSIZE) {
 				ERROR_LOG(SCENET, "%s: Encountered input FD_SET which is greater than max supported size %i", __func__, setSize);
 				return false;
 			}
-			DEBUG_LOG(SCENET, "%s: Translating input %i into %i", __func__, sceSocket, nativeSocketId);
+			DEBUG_LOG(SCENET, "%s: Translating input %i into %i", __func__, inetSocket, nativeSocketId);
 			FD_SET(nativeSocketId, &destFdSet);
 		}
 	}
@@ -1087,14 +1157,13 @@ bool SceNetInet::TranslateSceFdSetToNativeFdSet(int &maxFd, fd_set& destFdSet, u
 }
 
 void SceNetInet::CloseAllRemainingSockets() const {
-	for (auto& it : mSceSocketIdToNativeSocket) {
-		if (!it.second) {
-			continue;
+	for (const auto &[first, second] : mInetSocketIdToNativeSocket) {
+		if (second) {
+			close(second->GetNativeSocketId());
 		}
-		close(it.second->GetNativeSocketId());
 	}
 }
 
 void Register_sceNetInet() {
-	RegisterModule("sceNetInet", ARRAY_SIZE(sceNetInet), sceNetInet);
+	RegisterModule("sceNetInet", std::size(sceNetInet), sceNetInet);
 }

@@ -175,7 +175,7 @@ option(USE_ASAN "Use address sanitizer" OFF)
 option(USE_UBSAN "Use undefined behaviour sanitizer" OFF)
 
 # TODO: stop hardcoding this before PR
-# set(USING_QT_UI ON)
+set(USING_QT_UI ON)
 
 if(UNIX AND NOT (APPLE OR ANDROID) AND VULKAN)
 	if(USING_X11_VULKAN)
@@ -2261,8 +2261,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/Net/InetCommon.h
 	Core/Net/NetResolver.cpp
 	Core/Net/NetResolver.h
-    Core/Net/SceSocket.cpp
-    Core/Net/SceSocket.h
+        Core/Net/InetSocket.cpp
+        Core/Net/InetSocket.h
 	Core/MemFault.cpp
 	Core/MemFault.h
 	Core/MemMap.cpp
