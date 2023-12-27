@@ -174,9 +174,6 @@ option(USE_SYSTEM_MINIUPNPC "Dynamically link against system miniUPnPc" ${USE_SY
 option(USE_ASAN "Use address sanitizer" OFF)
 option(USE_UBSAN "Use undefined behaviour sanitizer" OFF)
 
-# TODO: stop hardcoding this before PR
-set(USING_QT_UI ON)
-
 if(UNIX AND NOT (APPLE OR ANDROID) AND VULKAN)
 	if(USING_X11_VULKAN)
 		message("Using X11 for Vulkan")
@@ -2261,8 +2258,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/Net/InetCommon.h
 	Core/Net/NetResolver.cpp
 	Core/Net/NetResolver.h
-        Core/Net/InetSocket.cpp
-        Core/Net/InetSocket.h
+	Core/Net/InetSocket.cpp
+	Core/Net/InetSocket.h
 	Core/MemFault.cpp
 	Core/MemFault.h
 	Core/MemMap.cpp
