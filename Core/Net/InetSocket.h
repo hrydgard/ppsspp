@@ -113,12 +113,12 @@ static std::unordered_map<int, InetErrorCode> gNativeErrorCodeToInetErrorCode = 
 };
 
 // TODO: document
-class SceSocket {
+class InetSocket {
 public:
-    SceSocket(int sceSocketId, int nativeSocketId) : mSceSocketId(sceSocketId), mNativeSocketId(nativeSocketId) {}
+    InetSocket(int sceSocketId, int nativeSocketId) : mInetSocketId(sceSocketId), mNativeSocketId(nativeSocketId) {}
 
-    int GetSceSocketId() const {
-        return mSceSocketId;
+    int GetInetSocketId() const {
+        return mInetSocketId;
     }
 
     int GetNativeSocketId() const {
@@ -185,6 +185,7 @@ public:
         return nativeFlags;
     }
 
+	// TODO: consider moving to SceNetInet
     static int TranslateNativeErrorToInetError(const int nativeError) {
         if (const auto it = gNativeErrorCodeToInetErrorCode.find(nativeError);
             it != gNativeErrorCodeToInetErrorCode.end()) {
@@ -194,7 +195,7 @@ public:
     }
 
 private:
-    int mSceSocketId;
+    int mInetSocketId;
     int mNativeSocketId;
     Protocol mProtocol;
     bool mNonBlocking = false;

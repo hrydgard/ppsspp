@@ -54,7 +54,7 @@
 #include "Core/HLE/sceNp.h"
 #include "Core/Reporting.h"
 #include "Core/Instance.h"
-#include "Core/Net/SceSocket.h"
+#include "Core/Net/InetSocket.h"
 
 #if PPSSPP_PLATFORM(SWITCH) && !defined(INADDR_NONE)
 // Missing toolchain define
@@ -62,7 +62,7 @@
 #endif
 
 static int sceNetResolverInit() {
-    ERROR_LOG(SCENET, "UNTESTED %s()", __FUNCTION__);
+    ERROR_LOG(Log::sceNet, "UNTESTED %s()", __FUNCTION__);
     g_Config.mHostToAlias["socomftb2.psp.online.scea.com"] = "67.222.156.250";
     g_Config.mHostToAlias["socompsp-prod.muis.pdonline.scea.com"] = "67.222.156.250";
     SceNetResolver::Init();
@@ -70,7 +70,7 @@ static int sceNetResolverInit() {
 }
 
 static int sceNetResolverTerm() {
-    ERROR_LOG(SCENET, "UNTESTED %s()", __FUNCTION__);
+    ERROR_LOG(Log::sceNet, "UNTESTED %s()", __FUNCTION__);
     SceNetResolver::Shutdown();
     return 0;
 }
@@ -79,13 +79,13 @@ static int sceNetResolverTerm() {
 int NetResolver_StartNtoA(u32 resolverId, u32 hostnamePtr, u32 inAddrPtr, int timeout, int retry) {
     auto sceNetResolver = SceNetResolver::Get();
     if (!sceNetResolver) {
-        return hleLogError(SCENET, ERROR_NET_RESOLVER_STOPPED, "Net Resolver Subsystem Shutdown: Resolver %i",
+        return hleLogError(Log::sceNet, ERROR_NET_RESOLVER_STOPPED, "Net Resolver Subsystem Shutdown: Resolver %i",
                            resolverId);
     }
 
     const auto resolver = sceNetResolver->GetNetResolver(resolverId);
     if (resolver == nullptr) {
-        return hleLogError(SCENET, ERROR_NET_RESOLVER_BAD_ID, "Bad Resolver Id: %i", resolverId);
+        return hleLogError(Log::sceNet, ERROR_NET_RESOLVER_BAD_ID, "Bad Resolver Id: %i", resolverId);
     }
 
     addrinfo* resolved = nullptr;
@@ -99,14 +99,14 @@ int NetResolver_StartNtoA(u32 resolverId, u32 hostnamePtr, u32 inAddrPtr, int ti
     // Resolve any aliases
     if (g_Config.mHostToAlias.find(hostname) != g_Config.mHostToAlias.end()) {
         const std::string& alias = g_Config.mHostToAlias[hostname];
-        INFO_LOG(SCENET, "%s - Resolved alias %s from hostname %s", __FUNCTION__, alias.c_str(), hostname.c_str());
+        INFO_LOG(Log::sceNet, "%s - Resolved alias %s from hostname %s", __FUNCTION__, alias.c_str(), hostname.c_str());
         hostname = alias;
     }
 
     // Attempt to execute a DNS resolution
     if (!net::DNSResolve(hostname, "", &resolved, err)) {
         // TODO: Return an error based on the outputted "err" (unfortunately it's already converted to string)
-        return hleLogError(SCENET, ERROR_NET_RESOLVER_INVALID_HOST, "DNS Error Resolving %s (%s)\n", hostname.c_str(),
+        return hleLogError(Log::sceNet, ERROR_NET_RESOLVER_INVALID_HOST, "DNS Error Resolving %s (%s)\n", hostname.c_str(),
                            err.c_str());
     }
 
@@ -122,7 +122,7 @@ int NetResolver_StartNtoA(u32 resolverId, u32 hostnamePtr, u32 inAddrPtr, int ti
         net::DNSResolveFree(resolved);
 
         Memory::Write_U32(addr.in.sin_addr.s_addr, inAddrPtr);
-        INFO_LOG(SCENET, "%s - Hostname: %s => IPv4: %s", __FUNCTION__, hostname.c_str(),
+        INFO_LOG(Log::sceNet, "%s - Hostname: %s => IPv4: %s", __FUNCTION__, hostname.c_str(),
                  ip2str(addr.in.sin_addr, false).c_str());
     }
 
@@ -141,20 +141,20 @@ static int sceNetResolverStartNtoA(int resolverId, u32 hostnamePtr, u32 inAddrPt
 }
 
 static int sceNetResolverStartNtoAAsync(int resolverId, u32 hostnamePtr, u32 inAddrPtr, int timeout, int retry) {
-    ERROR_LOG_REPORT_ONCE(sceNetResolverStartNtoAAsync, SCENET, "UNIMPL %s(%d, %08x, %08x, %d, %d) at %08x",
+    ERROR_LOG_REPORT_ONCE(sceNetResolverStartNtoAAsync, Log::sceNet, "UNIMPL %s(%d, %08x, %08x, %d, %d) at %08x",
                           __FUNCTION__, resolverId, hostnamePtr, inAddrPtr, timeout, retry, currentMIPS->pc);
     return NetResolver_StartNtoA(resolverId, hostnamePtr, inAddrPtr, timeout, retry);
 }
 
 static int sceNetResolverPollAsync(int resolverId, u32 unknown) {
-    ERROR_LOG_REPORT_ONCE(sceNetResolverPollAsync, SCENET, "UNIMPL %s(%d, %08x) at %08x", __FUNCTION__, resolverId,
+    ERROR_LOG_REPORT_ONCE(sceNetResolverPollAsync, Log::sceNet, "UNIMPL %s(%d, %08x) at %08x", __FUNCTION__, resolverId,
                           unknown, currentMIPS->pc);
     // TODO: Implement after confirming that this returns the state of resolver.isRunning
     return 0;
 }
 
 static int sceNetResolverWaitAsync(int resolverId, u32 unknown) {
-    ERROR_LOG_REPORT_ONCE(sceNetResolverWaitAsync, SCENET, "UNIMPL %s(%d, %08x) at %08x", __FUNCTION__, resolverId,
+    ERROR_LOG_REPORT_ONCE(sceNetResolverWaitAsync, Log::sceNet, "UNIMPL %s(%d, %08x) at %08x", __FUNCTION__, resolverId,
                           unknown, currentMIPS->pc);
     // TODO: Implement after confirming that this blocks current thread until resolver.isRunning flips to false
     return 0;
@@ -162,7 +162,7 @@ static int sceNetResolverWaitAsync(int resolverId, u32 unknown) {
 
 static int sceNetResolverStartAtoN(int resolverId, u32 inAddr, u32 hostnamePtr, int hostnameLength, int timeout,
                                    int retry) {
-    ERROR_LOG_REPORT_ONCE(sceNetResolverStartAtoN, SCENET, "UNIMPL %s(%d, %08x[%s], %08x, %i, %i, %i) at %08x",
+    ERROR_LOG_REPORT_ONCE(sceNetResolverStartAtoN, Log::sceNet, "UNIMPL %s(%d, %08x[%s], %08x, %i, %i, %i) at %08x",
                           __FUNCTION__, resolverId, inAddr, ip2str(*(in_addr*)&inAddr, false).c_str(), hostnamePtr,
                           hostnameLength, timeout, retry, currentMIPS->pc);
     // TODO: Implement via getnameinfo
@@ -171,24 +171,24 @@ static int sceNetResolverStartAtoN(int resolverId, u32 inAddr, u32 hostnamePtr, 
 
 static int sceNetResolverStartAtoNAsync(int resolverId, u32 inAddr, u32 hostnamePtr, int hostnameLength, int timeout,
                                         int retry) {
-    ERROR_LOG_REPORT_ONCE(sceNetResolverStartAtoNAsync, SCENET, "UNIMPL %s(%d, %08x[%s], %08x, %i, %i, %i) at %08x",
+    ERROR_LOG_REPORT_ONCE(sceNetResolverStartAtoNAsync, Log::sceNet, "UNIMPL %s(%d, %08x[%s], %08x, %i, %i, %i) at %08x",
                           __FUNCTION__, resolverId, inAddr, ip2str(*(in_addr*)&inAddr, false).c_str(), hostnamePtr,
                           hostnameLength, timeout, retry, currentMIPS->pc);
     return 0;
 }
 
 static int sceNetResolverCreate(u32 resolverIdPtr, u32 bufferPtr, int bufferLen) {
-    WARN_LOG(SCENET, "UNTESTED %s(%08x[%d], %08x, %d) at %08x", __FUNCTION__, resolverIdPtr,
+    WARN_LOG(Log::sceNet, "UNTESTED %s(%08x[%d], %08x, %d) at %08x", __FUNCTION__, resolverIdPtr,
              Memory::Read_U32(resolverIdPtr), bufferPtr, bufferLen, currentMIPS->pc);
     if (!Memory::IsValidRange(resolverIdPtr, 4))
-        return hleLogError(SCENET, ERROR_NET_RESOLVER_INVALID_PTR, "Invalid Ptr: %08x", resolverIdPtr);
+        return hleLogError(Log::sceNet, ERROR_NET_RESOLVER_INVALID_PTR, "Invalid Ptr: %08x", resolverIdPtr);
 
     if (Memory::IsValidRange(bufferPtr, 4) && bufferLen < 1)
-        return hleLogError(SCENET, ERROR_NET_RESOLVER_INVALID_BUFLEN, "Invalid Buffer Length: %i", bufferLen);
+        return hleLogError(Log::sceNet, ERROR_NET_RESOLVER_INVALID_BUFLEN, "Invalid Buffer Length: %i", bufferLen);
 
     auto sceNetResolver = SceNetResolver::Get();
     if (!sceNetResolver)
-        return hleLogError(SCENET, ERROR_NET_RESOLVER_STOPPED, "Resolver Subsystem Stopped");
+        return hleLogError(Log::sceNet, ERROR_NET_RESOLVER_STOPPED, "Resolver Subsystem Stopped");
 
     const auto resolver = sceNetResolver->CreateNetResolver(bufferPtr, bufferLen);
 
@@ -199,33 +199,33 @@ static int sceNetResolverCreate(u32 resolverIdPtr, u32 bufferPtr, int bufferLen)
 static int sceNetResolverStop(u32 resolverId) {
     auto sceNetResolver = SceNetResolver::Get();
     if (!sceNetResolver) {
-        return hleLogError(SCENET, ERROR_NET_RESOLVER_STOPPED, "Resolver Subsystem Stopped (Resolver Id: %i)",
+        return hleLogError(Log::sceNet, ERROR_NET_RESOLVER_STOPPED, "Resolver Subsystem Stopped (Resolver Id: %i)",
                            resolverId);
     }
 
     const auto resolver = sceNetResolver->GetNetResolver(resolverId);
 
-    WARN_LOG(SCENET, "UNTESTED %s(%d) at %08x", __FUNCTION__, resolverId, currentMIPS->pc);
+    WARN_LOG(Log::sceNet, "UNTESTED %s(%d) at %08x", __FUNCTION__, resolverId, currentMIPS->pc);
     if (resolver == nullptr)
-        return hleLogError(SCENET, ERROR_NET_RESOLVER_BAD_ID, "Bad Resolver Id: %i", resolverId);
+        return hleLogError(Log::sceNet, ERROR_NET_RESOLVER_BAD_ID, "Bad Resolver Id: %i", resolverId);
 
     if (!resolver->GetIsRunning())
-        return hleLogError(SCENET, ERROR_NET_RESOLVER_ALREADY_STOPPED, "Resolver Already Stopped (Id: %i)", resolverId);
+        return hleLogError(Log::sceNet, ERROR_NET_RESOLVER_ALREADY_STOPPED, "Resolver Already Stopped (Id: %i)", resolverId);
 
     resolver->SetIsRunning(false);
     return 0;
 }
 
 static int sceNetResolverDelete(u32 resolverId) {
-    WARN_LOG(SCENET, "UNTESTED %s(%d) at %08x", __FUNCTION__, resolverId, currentMIPS->pc);
+    WARN_LOG(Log::sceNet, "UNTESTED %s(%d) at %08x", __FUNCTION__, resolverId, currentMIPS->pc);
 
     auto sceNetResolver = SceNetResolver::Get();
     if (!sceNetResolver)
-        return hleLogError(SCENET, ERROR_NET_RESOLVER_STOPPED, "Resolver Subsystem Stopped (Resolver Id: %i)",
+        return hleLogError(Log::sceNet, ERROR_NET_RESOLVER_STOPPED, "Resolver Subsystem Stopped (Resolver Id: %i)",
                            resolverId);
 
     if (!sceNetResolver->DeleteNetResolver(resolverId))
-        return hleLogError(SCENET, ERROR_NET_RESOLVER_BAD_ID, "Bad Resolver Id: %i", resolverId);
+        return hleLogError(Log::sceNet, ERROR_NET_RESOLVER_BAD_ID, "Bad Resolver Id: %i", resolverId);
 
     return 0;
 }

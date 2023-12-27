@@ -2391,8 +2391,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/Net/InetCommon.h
 	Core/Net/NetResolver.cpp
 	Core/Net/NetResolver.h
-	Core/Net/SceSocket.cpp
-	Core/Net/SceSocket.h
+	Core/Net/InetSocket.cpp
+	Core/Net/InetSocket.h
 	Core/MemFault.cpp
 	Core/MemFault.h
 	Core/MemMap.cpp

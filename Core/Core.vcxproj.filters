@@ -1339,7 +1339,7 @@
     <ClCompile Include="Net\NetResolver.cpp">
       <Filter>Net</Filter>
     </ClCompile>
-    <ClCompile Include="Net\SceSocket.cpp">
+    <ClCompile Include="Net\InetSocket.cpp">
       <Filter>Net</Filter>
     </ClCompile>
   </ItemGroup>
@@ -2157,7 +2157,7 @@
     <ClInclude Include="Net\NetResolver.h">
       <Filter>Net</Filter>
     </ClInclude>
-    <ClInclude Include="Net\SceSocket.h">
+    <ClInclude Include="Net\InetSocket.h">
       <Filter>Net</Filter>
     </ClInclude>
   </ItemGroup>
