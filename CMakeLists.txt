@@ -192,9 +192,6 @@ if(USE_CCACHE)
 	include(ccache)
 endif()
 
-# TODO: stop hardcoding this before PR
-# set(USING_QT_UI ON)
-
 if(UNIX AND NOT (APPLE OR ANDROID) AND VULKAN)
 	if(USING_X11_VULKAN)
 		message("Using X11 for Vulkan")
