@@ -15,9 +15,23 @@
 
 using KeyMap::MultiInputMapping;
 
-// TODO: Possibly make these thresholds configurable?
-static float GetDeviceAxisThreshold(int device) {
-	return device == DEVICE_ID_MOUSE ? AXIS_BIND_THRESHOLD_MOUSE : AXIS_BIND_THRESHOLD;
+const float AXIS_BIND_THRESHOLD = 0.75f;
+const float AXIS_BIND_THRESHOLD_MOUSE = 0.01f;
+
+float GetDeviceAxisThreshold(int device, const InputMapping &mapping) {
+	if (device == DEVICE_ID_MOUSE) {
+		return AXIS_BIND_THRESHOLD_MOUSE;
+	}
+	if (mapping.IsAxis()) {
+		switch (KeyMap::GetAxisType((InputAxis)mapping.Axis(nullptr))) {
+		case KeyMap::AxisType::TRIGGER:
+			return g_Config.fAnalogTriggerThreshold;
+		default:
+			return AXIS_BIND_THRESHOLD;
+		}
+	} else {
+		return AXIS_BIND_THRESHOLD;
+	}
 }
 
 static int GetOppositeVKey(int vkey) {
@@ -311,7 +325,7 @@ bool ControlMapper::UpdatePSPState(const InputMapping &changedMapping, double no
 				} else {
 					curTime = iter->second.timestamp;
 				}
-				bool down = iter->second.value > GetDeviceAxisThreshold(iter->first.deviceId);
+				bool down = iter->second.value > GetDeviceAxisThreshold(iter->first.deviceId, mapping);
 				if (!down)
 					all = false;
 			}
@@ -364,7 +378,7 @@ bool ControlMapper::UpdatePSPState(const InputMapping &changedMapping, double no
 					}
 
 					if (mapping.IsAxis()) {
-						threshold = GetDeviceAxisThreshold(iter->first.deviceId);
+						threshold = GetDeviceAxisThreshold(iter->first.deviceId, mapping);
 						float value = MapAxisValue(iter->second.value, idForMapping, mapping, changedMapping, &touchedByMapping);
 						product *= value;
 					} else {
@@ -510,7 +524,7 @@ void ControlMapper::ToggleSwapAxes() {
 void ControlMapper::UpdateCurInputAxis(const InputMapping &mapping, float value, double timestamp) {
 	InputSample &input = curInput_[mapping];
 	input.value = value;
-	if (value > GetDeviceAxisThreshold(mapping.deviceId)) {
+	if (value >= GetDeviceAxisThreshold(mapping.deviceId, mapping)) {
 		if (input.timestamp == 0.0) {
 			input.timestamp = time_now_d();
 		}

@@ -600,6 +600,7 @@ ReplacedTexture *TextureReplacer::FindReplacement(u64 cachekey, u32 hash, int w,
 		desc.hashfiles = hashfiles;
 	}
 
+	_dbg_assert_(!hashfiles.empty());
 	// OK, we might already have a matching texture, we use hashfiles as a key. Look it up in the level cache.
 	auto iter = levelCache_.find(hashfiles);
 	if (iter != levelCache_.end()) {

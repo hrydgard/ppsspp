@@ -48,6 +48,25 @@ std::set<std::string> g_seenPads;
 std::map<InputDeviceID, std::string> g_padNames;
 std::set<InputDeviceID> g_seenDeviceIds;
 
+AxisType GetAxisType(InputAxis input) {
+	switch (input) {
+	case JOYSTICK_AXIS_GAS:
+	case JOYSTICK_AXIS_BRAKE:
+	case JOYSTICK_AXIS_LTRIGGER:
+	case JOYSTICK_AXIS_RTRIGGER:
+		return AxisType::TRIGGER;
+	case JOYSTICK_AXIS_X:
+	case JOYSTICK_AXIS_Y:
+	case JOYSTICK_AXIS_Z:
+	case JOYSTICK_AXIS_RX:
+	case JOYSTICK_AXIS_RY:
+	case JOYSTICK_AXIS_RZ:
+		return AxisType::STICK;
+	default:
+		return AxisType::OTHER;
+	}
+}
+
 // Utility for UI navigation
 void SingleInputMappingFromPspButton(int btn, std::vector<InputMapping> *mappings, bool ignoreMouse) {
 	std::vector<MultiInputMapping> multiMappings;
@@ -874,7 +893,7 @@ bool HasChanged(int &prevGeneration) {
 	return false;
 }
 
-static const char *g_vKeyNames[] = {
+static const char * const g_vKeyNames[] = {
 	"AXIS_X_MIN",
 	"AXIS_Y_MIN",
 	"AXIS_X_MAX",
