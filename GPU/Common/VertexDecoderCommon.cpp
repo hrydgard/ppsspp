@@ -1449,12 +1449,12 @@ void VertexDecoder::CompareToJit(const u8 *startPtr, u8 *decodedptr, int count, 
 	}
 }
 
-static const char *posnames[4] = { "?", "s8", "s16", "f" };
-static const char *nrmnames[4] = { "", "s8", "s16", "f" };
-static const char *tcnames[4] = { "", "u8", "u16", "f" };
-static const char *idxnames[4] = { "-", "u8", "u16", "?" };
-static const char *weightnames[4] = { "-", "u8", "u16", "f" };
-static const char *colnames[8] = { "", "?", "?", "?", "565", "5551", "4444", "8888" };
+static const char * const posnames[4] = { "?", "s8", "s16", "f" };
+static const char * const nrmnames[4] = { "", "s8", "s16", "f" };
+static const char * const tcnames[4] = { "", "u8", "u16", "f" };
+static const char * const idxnames[4] = { "-", "u8", "u16", "?" };
+static const char * const weightnames[4] = { "-", "u8", "u16", "f" };
+static const char * const colnames[8] = { "", "?", "?", "?", "565", "5551", "4444", "8888" };
 
 int VertexDecoder::ToString(char *output, bool spaces) const {
 	char *start = output;

@@ -537,7 +537,7 @@ void ARMXEmitter::MOVI2R(ARMReg reg, u32 val, bool optimize)
 	}
 }
 
-static const char *armRegStrings[] = {
+static const char *const armRegStrings[] = {
 	"r0","r1","r2","r3",
 	"r4","r5","r6","r7",
 	"r8","r9","r10","r11",

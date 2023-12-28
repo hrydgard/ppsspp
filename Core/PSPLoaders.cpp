@@ -218,7 +218,7 @@ void InitMemoryForGamePBP(FileLoader *fileLoader) {
 // that probably loads a plugin and then launches the actual game. These stubs don't work in PPSSPP.
 // No idea why they are doing this, but it works to just bypass it. They could stop
 // inventing new filenames though...
-static const char *altBootNames[] = {
+static const char * const altBootNames[] = {
 	"disc0:/PSP_GAME/SYSDIR/EBOOT.OLD",
 	"disc0:/PSP_GAME/SYSDIR/EBOOT.DAT",
 	"disc0:/PSP_GAME/SYSDIR/EBOOT.BI",

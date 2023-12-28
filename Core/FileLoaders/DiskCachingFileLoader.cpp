@@ -42,7 +42,7 @@
 #define fseeko fseek
 #endif
 
-static const char *CACHEFILE_MAGIC = "ppssppDC";
+static const char * const CACHEFILE_MAGIC = "ppssppDC";
 static const s64 SAFETY_FREE_DISK_SPACE = 768 * 1024 * 1024; // 768 MB
 // Aim to allow this many files cached at once.
 static const u32 CACHE_SPACE_FLEX = 4;

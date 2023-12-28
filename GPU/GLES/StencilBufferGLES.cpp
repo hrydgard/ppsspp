@@ -56,7 +56,7 @@ static const VaryingDef varyings[] = {
 	{ "vec2", "v_texcoord", Draw::SEM_TEXCOORD0, 0, "highp" },
 };
 
-static const char *stencil_dl_fs = R"(
+static const char * const stencil_dl_fs = R"(
 #ifdef GL_ES
 #ifdef GL_FRAGMENT_PRECISION_HIGH
 precision highp float;
@@ -79,7 +79,7 @@ void main() {
 }
 )";
 
-static const char *stencil_vs = R"(
+static const char * const stencil_vs = R"(
 #ifdef GL_ES
 precision highp float;
 #endif

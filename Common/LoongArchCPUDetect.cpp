@@ -73,7 +73,7 @@ LoongArchCPUInfoParser::LoongArchCPUInfoParser() {
 }
 
 int LoongArchCPUInfoParser::ProcessorCount() {
-	static const char *marker = "core";
+	static const char * const marker = "core";
 	std::set<std::string> coreIndex;
 	for (auto core : cores_) {
 		for (auto line : core) {

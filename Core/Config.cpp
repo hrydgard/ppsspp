@@ -76,9 +76,9 @@ struct ConfigPrivate {
 };
 
 #ifdef _DEBUG
-static const char *logSectionName = "LogDebug";
+static const char * const logSectionName = "LogDebug";
 #else
-static const char *logSectionName = "Log";
+static const char * const logSectionName = "Log";
 #endif
 
 std::string GPUBackendToString(GPUBackend backend) {

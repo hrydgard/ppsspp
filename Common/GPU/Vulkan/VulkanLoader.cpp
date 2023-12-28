@@ -268,13 +268,13 @@ bool g_vulkanMayBeAvailable = false;
 
 #define LOAD_GLOBAL_FUNC_LOCAL(lib, x) (PFN_ ## x)dlsym(lib, #x);
 
-static const char *device_name_blacklist[] = {
+static const char * const device_name_blacklist[] = {
 	"NVIDIA:SHIELD Tablet K1",
 	"SDL:Horizon",
 };
 
 #ifndef _WIN32
-static const char *so_names[] = {
+static const char * const so_names[] = {
 #if PPSSPP_PLATFORM(IOS)
 	"@executable_path/Frameworks/libMoltenVK.dylib",
 #elif PPSSPP_PLATFORM(MAC)

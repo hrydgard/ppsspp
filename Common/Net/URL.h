@@ -86,34 +86,10 @@ protected:
 	}
 
 	// Percent encoding, aka application/x-www-form-urlencoded.
-	void AppendEscaped(const std::string &value)
-	{
-		for (size_t lastEnd = 0; lastEnd < value.length(); )
-		{
-			size_t pos = value.find_first_not_of(unreservedChars, lastEnd);
-			if (pos == value.npos)
-			{
-				data += value.substr(lastEnd);
-				break;
-			}
-
-			if (pos != lastEnd)
-				data += value.substr(lastEnd, pos - lastEnd);
-			lastEnd = pos;
-
-			// Encode the reserved character.
-			char c = value[pos];
-			data += '%';
-			data += hexChars[(c >> 4) & 15];
-			data += hexChars[(c >> 0) & 15];
-			++lastEnd;
-		}
-	}
+	void AppendEscaped(const std::string &value);
 
 	std::string data;
 	int paramCount;
-	static const char *unreservedChars;
-	static const char *hexChars;
 };
 
 

@@ -1064,7 +1064,7 @@ int MIPSInterpret_RunUntil(u64 globalTicks) {
 
 const char *MIPSGetName(MIPSOpcode op)
 {
-	static const char *noname = "unk";
+	static const char * const noname = "unk";
 	const MIPSInstruction *instr = MIPSGetInstruction(op);
 	if (!instr)
 		return noname;
