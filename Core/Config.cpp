@@ -827,6 +827,7 @@ static const ConfigSetting controlSettings[] = {
 	ConfigSetting("AnalogAutoRotSpeed", &g_Config.fAnalogAutoRotSpeed, 8.0f, CfgFlag::PER_GAME),
 
 	ConfigSetting("AnalogLimiterDeadzone", &g_Config.fAnalogLimiterDeadzone, 0.6f, CfgFlag::DEFAULT),
+	ConfigSetting("AnalogTriggerThreshold", &g_Config.fAnalogTriggerThreshold, 0.75f, CfgFlag::DEFAULT),
 
 	ConfigSetting("AllowMappingCombos", &g_Config.bAllowMappingCombos, false, CfgFlag::DEFAULT),
 

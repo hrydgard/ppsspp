@@ -441,6 +441,10 @@ bool KeyMappingNewMouseKeyDialog::key(const KeyInput &key) {
 	return true;
 }
 
+// Only used during the bind process. In other places, it's configurable for some types of axis, like trigger.
+const float AXIS_BIND_THRESHOLD = 0.75f;
+const float AXIS_BIND_RELEASE_THRESHOLD = 0.35f;  // Used during mapping only to detect a "key-up" reliably.
+
 void KeyMappingNewKeyDialog::axis(const AxisInput &axis) {
 	if (time_now_d() < delayUntil_)
 		return;

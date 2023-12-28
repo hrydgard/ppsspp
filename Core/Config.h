@@ -396,6 +396,9 @@ public:
 	// Sets up how much the analog limiter button restricts digital->analog input.
 	float fAnalogLimiterDeadzone;
 
+	// Trigger configuration
+	float fAnalogTriggerThreshold;
+
 	// Sets whether combo mapping is enabled.
 	bool bAllowMappingCombos;
 
