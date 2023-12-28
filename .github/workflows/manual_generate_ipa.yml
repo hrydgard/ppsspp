@@ -1,4 +1,4 @@
-name: Manual Generate IPA
+name: Manual Generate iOS IPA
 on:
   workflow_dispatch:
     inputs:
@@ -14,7 +14,7 @@ on:
 
 jobs:
 
-  apk:
+  ipa:
     name: Generate ${{ github.event.inputs.buildVariant }} IPA
     runs-on: macos-latest
 
@@ -50,6 +50,7 @@ jobs:
       - name: Setup ccache
         uses: hendrikmuhs/ccache-action@main
         with:
+          key: ios
           create-symlink: true
       
       - name: Execute build
@@ -76,7 +77,7 @@ jobs:
             cd -
           fi
 
-      - name: Upload IPA
+      - name: Upload artifact
         uses: actions/upload-artifact@v3
         with:
           name: iOS-${{ github.event.inputs.buildVariant }} build
