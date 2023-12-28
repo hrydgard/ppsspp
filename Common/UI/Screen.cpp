@@ -167,14 +167,14 @@ ScreenRenderFlags ScreenManager::render() {
 		// the EmuScreen or the actual global background screen.
 		auto iter = stack_.end();
 		Screen *coveringScreen = nullptr;
-		Screen *backgroundScreen = nullptr;
+		Screen *foundBackgroundScreen = nullptr;
 		bool first = true;
 		do {
 			--iter;
-			if (!backgroundScreen && iter->screen->canBeBackground(first)) {
+			if (!foundBackgroundScreen && iter->screen->canBeBackground(first)) {
 				// There still might be a screen that wants to be background - generally the EmuScreen if present.
 				layers.push_back(iter->screen);
-				backgroundScreen = iter->screen;
+				foundBackgroundScreen = iter->screen;
 			} else if (!coveringScreen) {
 				layers.push_back(iter->screen);
 			}
@@ -184,10 +184,9 @@ ScreenRenderFlags ScreenManager::render() {
 			first = false;
 		} while (iter != stack_.begin());
 
-		// Confusing-looking expression, argh! Note the '_'
-		if (backgroundScreen_ && !backgroundScreen) {
+		if (backgroundScreen_ && !foundBackgroundScreen) {
 			layers.push_back(backgroundScreen_);
-			backgroundScreen = backgroundScreen_;
+			foundBackgroundScreen = backgroundScreen_;
 		}
 
 		// OK, now we iterate backwards over our little pile of collected screens.
