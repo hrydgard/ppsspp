@@ -1086,7 +1086,8 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 			bool passCulling = onePassed || PASSES_CULLING;
 			if (!passCulling) {
 				// Do software culling.
-				if (drawEngineCommon_->TestBoundingBox(verts, inds, count, vertexType)) {
+				_dbg_assert_((vertexType & GE_VTYPE_IDX_MASK) == GE_VTYPE_IDX_NONE);
+				if (drawEngineCommon_->TestBoundingBoxFast(verts, count, vertexType)) {
 					passCulling = true;
 				} else {
 					gpuStats.numCulledDraws++;
