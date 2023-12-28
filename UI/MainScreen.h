@@ -32,10 +32,11 @@ enum GameBrowserFlags {
 enum class BrowseFlags {
 	NONE = 0,
 	NAVIGATE = 1,
-	ARCHIVES = 2,
-	PIN = 4,
-	HOMEBREW_STORE = 8,
-	STANDARD = 1 | 2 | 4,
+	BROWSE = 2,
+	ARCHIVES = 4,
+	PIN = 8,
+	HOMEBREW_STORE = 16,
+	STANDARD = 1 | 2 | 4 | 8,
 };
 ENUM_CLASS_BITOPS(BrowseFlags);
 
@@ -55,6 +56,10 @@ public:
 	void Draw(UIContext &dc) override;
 	void Update() override;
 
+	void SetHomePath(const Path &path) {
+		homePath_ = path;
+	}
+
 protected:
 	virtual bool DisplayTopBar();
 	virtual bool HasSpecialFiles(std::vector<Path> &filenames);
@@ -62,6 +67,8 @@ protected:
 	void ApplySearchFilter();
 
 	void Refresh();
+
+	Path homePath_;
 
 private:
 	bool IsCurrentPathPinned();

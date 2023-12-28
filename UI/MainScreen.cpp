@@ -55,6 +55,7 @@
 #include "UI/GameSettingsScreen.h"
 #include "UI/MiscScreens.h"
 #include "UI/ControlMappingScreen.h"
+#include "UI/RemoteISOScreen.h"
 #include "UI/DisplayLayoutScreen.h"
 #include "UI/SavedataScreen.h"
 #include "UI/Store.h"
@@ -645,6 +646,9 @@ UI::EventReturn GameBrowser::OnHomeClick(UI::EventParams &e) {
 // Maybe we should have no home directory in this case. Or it should just navigate to the root
 // of the current folder tree.
 Path GameBrowser::HomePath() {
+	if (!homePath_.empty()) {
+		return homePath_;
+	}
 #if PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(SWITCH) || defined(USING_WIN_UI) || PPSSPP_PLATFORM(UWP)
 	return g_Config.memStickDirectory;
 #else
@@ -771,7 +775,7 @@ void GameBrowser::Refresh() {
 			// we show just the image, because we don't need to emphasize the button on Darwin
 			topBar->Add(new Choice(ImageID("I_FOLDER_OPEN"), new LayoutParams(WRAP_CONTENT, 64.0f)))->OnClick.Handle(this, &GameBrowser::BrowseClick);
 #else
-			if (System_GetPropertyBool(SYSPROP_HAS_FOLDER_BROWSER)) {
+			if ((browseFlags_ & BrowseFlags::BROWSE) && System_GetPropertyBool(SYSPROP_HAS_FOLDER_BROWSER)) {
 				topBar->Add(new Choice(mm->T("Browse"), ImageID("I_FOLDER_OPEN"), new LayoutParams(WRAP_CONTENT, 64.0f)))->OnClick.Handle(this, &GameBrowser::BrowseClick);
 			}
 			if (System_GetPropertyInt(SYSPROP_DEVICE_TYPE) == DEVICE_TYPE_TV) {
@@ -932,7 +936,7 @@ void GameBrowser::Refresh() {
 		Add(new TextView(mm->T("UseBrowseOrLoad", "Use Browse to choose a folder, or Load to choose a file.")));
 	}
 
-	if (!lastText_.empty() && gameButtons.empty()) {
+	if (!lastText_.empty()) {
 		Add(new Spacer());
 		Add(new Choice(lastText_, new UI::LinearLayoutParams(UI::WRAP_CONTENT, UI::WRAP_CONTENT)))->OnClick.Handle(this, &GameBrowser::LastClick);
 	}
@@ -1108,6 +1112,7 @@ void MainScreen::CreateViews() {
 		ScrollView *scrollHomebrew = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 		scrollHomebrew->SetTag("MainScreenHomebrew");
 
+
 		GameBrowser *tabAllGames = new GameBrowser(Path(g_Config.currentDirectory), BrowseFlags::STANDARD, &g_Config.bGridView2, screenManager(),
 			mm->T("How to get games"), "https://www.ppsspp.org/getgames",
 			new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
@@ -1132,6 +1137,29 @@ void MainScreen::CreateViews() {
 
 		tabAllGames->OnHighlight.Handle(this, &MainScreen::OnGameHighlight);
 		tabHomebrew->OnHighlight.Handle(this, &MainScreen::OnGameHighlight);
+
+		if (g_Config.bRemoteTab && !g_Config.sLastRemoteISOServer.empty()) {
+			auto ri = GetI18NCategory(I18NCat::REMOTEISO);
+
+			ScrollView *scrollRemote = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
+			scrollRemote->SetTag("MainScreenRemote");
+
+			Path remotePath(FormatRemoteISOUrl(g_Config.sLastRemoteISOServer.c_str(), g_Config.iLastRemoteISOPort, RemoteSubdir().c_str()));
+
+			GameBrowser *tabRemote = new GameBrowser(remotePath, BrowseFlags::NAVIGATE, &g_Config.bGridView3, screenManager(),
+				ri->T("Remote disc streaming"), "https://www.ppsspp.org/docs/reference/disc-streaming",
+				new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
+			tabRemote->SetHomePath(remotePath);
+
+			scrollRemote->Add(tabRemote);
+			gameBrowsers_.push_back(tabRemote);
+
+			tabHolder_->AddTab(ri->T("Remote disc streaming"), scrollRemote);
+
+			tabRemote->OnChoice.Handle(this, &MainScreen::OnGameSelectedInstant);
+			tabRemote->OnHoldChoice.Handle(this, &MainScreen::OnGameSelected);
+			tabRemote->OnHighlight.Handle(this, &MainScreen::OnGameHighlight);
+		}
 
 		if (g_Config.HasRecentIsos()) {
 			tabHolder_->SetCurrentTab(0, true);
