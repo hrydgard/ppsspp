@@ -593,7 +593,7 @@ ReplacedTexture *TextureReplacer::FindReplacement(u64 cachekey, u32 hash, int w,
 		}
 		desc.logId = desc.filenames[0];
 		desc.hashfiles = desc.filenames[0];  // The generated filename of the top level is used as the key in the data cache.
-		// TODO: here `hashfiles` is set to an empty string, breaking stuff below.
+		hashfiles = desc.filenames[0];
 	} else {
 		desc.logId = hashfiles;
 		SplitString(hashfiles, '|', desc.filenames);
