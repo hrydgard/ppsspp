@@ -162,6 +162,12 @@ static Path LocalFromRemotePath(const std::string &path) {
 
 static void DiscHandler(const http::ServerRequest &request, const Path &filename) {
 	s64 sz = File::GetFileSize(filename);
+	if (sz == 0) {
+		// Probably failed
+		request.WriteHttpResponseHeader("1.0", 404, -1, "text/plain");
+		request.Out()->Push("File not found.");
+		return;
+	}
 
 	std::string range;
 	if (request.Method() == http::RequestHeader::HEAD) {
