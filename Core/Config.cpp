@@ -265,6 +265,7 @@ static const ConfigSetting generalSettings[] = {
 	ConfigSetting("RemoteShareOnStartup", &g_Config.bRemoteShareOnStartup, false, CfgFlag::DEFAULT),
 	ConfigSetting("RemoteISOSubdir", &g_Config.sRemoteISOSubdir, "/", CfgFlag::DEFAULT),
 	ConfigSetting("RemoteDebuggerOnStartup", &g_Config.bRemoteDebuggerOnStartup, false, CfgFlag::DEFAULT),
+	ConfigSetting("RemoteTab", &g_Config.bRemoteTab, false, CfgFlag::DEFAULT),
 
 #ifdef __ANDROID__
 	ConfigSetting("ScreenRotation", &g_Config.iScreenRotation, ROTATION_AUTO_HORIZONTAL),

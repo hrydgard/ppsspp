@@ -129,6 +129,7 @@ public:
 	bool bRemoteShareOnStartup;
 	std::string sRemoteISOSubdir;
 	bool bRemoteDebuggerOnStartup;
+	bool bRemoteTab;
 	bool bMemStickInserted;
 	int iMemStickSizeGB;
 	bool bLoadPlugins;
