@@ -22,6 +22,9 @@ public:
 	~PathBrowser();
 
 	void SetPath(const Path &path);
+	void Refresh() {
+		HandlePath();
+	}
 	bool IsListingReady();
 	bool GetListing(std::vector<File::FileInfo> &fileInfo, const char *filter = nullptr, bool *cancel = nullptr);
 

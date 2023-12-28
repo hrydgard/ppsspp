@@ -1452,8 +1452,9 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 	using namespace Draw;
 
 	DrawContext *draw = screenManager()->getDrawContext();
-	if (!draw)
+	if (!draw) {
 		return flags;  // shouldn't really happen but I've seen a suspicious stack trace..
+	}
 
 	bool skipBufferEffects = g_Config.bSkipBufferEffects;
 
@@ -1494,10 +1495,10 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 			PSP_BeginHostFrame();
 			gpu->CopyDisplayToOutput(true);
 			PSP_EndHostFrame();
-			draw->SetViewport(viewport);
-			draw->SetScissorRect(0, 0, g_display.pixel_xres, g_display.pixel_yres);
-			darken();
 		}
+		draw->SetViewport(viewport);
+		draw->SetScissorRect(0, 0, g_display.pixel_xres, g_display.pixel_yres);
+		darken();
 		return flags;
 	}
 
