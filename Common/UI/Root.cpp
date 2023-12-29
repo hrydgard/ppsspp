@@ -353,21 +353,21 @@ static void ProcessHeldKeys(ViewGroup *root) {
 	double now = time_now_d();
 
 restart:
-	for (std::set<HeldKey>::iterator iter = heldKeys.begin(); iter != heldKeys.end(); ++iter) {
-		if (iter->triggerTime < now) {
+	for (const auto &hk : heldKeys) {
+		if (hk.triggerTime < now) {
 			KeyInput key;
-			key.keyCode = iter->key;
-			key.deviceId = iter->deviceId;
+			key.keyCode = hk.key;
+			key.deviceId = hk.deviceId;
 			key.flags = KEY_DOWN;
 			KeyEvent(key, root);
 
 			focusMoves.push_back(key.keyCode);
 
 			// Cannot modify the current item when looping over a set, so let's do this instead.
-			HeldKey hk = *iter;
-			heldKeys.erase(hk);
-			hk.triggerTime = now + repeatInterval;
-			heldKeys.insert(hk);
+			HeldKey k = hk;
+			heldKeys.erase(k);
+			k.triggerTime = now + repeatInterval;
+			heldKeys.insert(k);
 			goto restart;
 		}
 	}

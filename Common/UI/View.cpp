@@ -77,8 +77,8 @@ void Event::Trigger(EventParams &e) {
 
 // Call this from UI thread
 EventReturn Event::Dispatch(EventParams &e) {
-	for (auto iter = handlers_.begin(); iter != handlers_.end(); ++iter) {
-		if ((iter->func)(e) == UI::EVENT_DONE) {
+	for (auto &handler : handlers_) {
+		if ((handler.func)(e) == UI::EVENT_DONE) {
 			// Event is handled, stop looping immediately. This event might even have gotten deleted.
 			return UI::EVENT_DONE;
 		}
