@@ -142,6 +142,12 @@ bool RemoteISOFileSupported(const std::string &filename) {
 }
 
 static std::string RemotePathForRecent(const std::string &filename) {
+	Path path(filename);
+	if (path.Type() == PathType::HTTP) {
+		// Don't re-share HTTP files from some other device.
+		return std::string();
+	}
+
 #ifdef _WIN32
 	static const std::string sep = "\\/";
 #else
@@ -161,7 +167,8 @@ static std::string RemotePathForRecent(const std::string &filename) {
 	if (RemoteISOFileSupported(basename)) {
 		return ServerUriEncode(basename);
 	}
-	return "";
+
+	return std::string();
 }
 
 static Path LocalFromRemotePath(const std::string &path) {
