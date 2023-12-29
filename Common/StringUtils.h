@@ -87,7 +87,7 @@ void SplitString(std::string_view str, const char delim, std::vector<std::string
 
 void GetQuotedStrings(const std::string& str, std::vector<std::string>& output);
 
-std::string ReplaceAll(std::string input, const std::string& src, const std::string& dest);
+std::string ReplaceAll(std::string_view input, std::string_view src, std::string_view dest);
 
 // Takes something like R&eplace and returns Replace, plus writes 'e' to *shortcutChar
 // if not nullptr. Useful for Windows menu strings.

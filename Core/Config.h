@@ -128,6 +128,8 @@ public:
 	bool bRemoteISOManual;
 	bool bRemoteShareOnStartup;
 	std::string sRemoteISOSubdir;
+	std::string sRemoteISOSharedDir;
+	int iRemoteISOShareType;
 	bool bRemoteDebuggerOnStartup;
 	bool bRemoteTab;
 	bool bMemStickInserted;

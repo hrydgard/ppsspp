@@ -22,10 +22,12 @@
 #include "Common/Net/HTTPClient.h"
 #include "Common/Net/HTTPServer.h"
 #include "Common/Net/Sinks.h"
+#include "Common/Net/URL.h"
 #include "Common/Thread/ThreadUtil.h"
 #include "Common/Log.h"
 #include "Common/File/FileUtil.h"
 #include "Common/File/FileDescriptor.h"
+#include "Common/File/DirListing.h"
 #include "Common/File/VFS/VFS.h"
 #include "Common/TimeUtil.h"
 #include "Common/StringUtils.h"
@@ -48,6 +50,16 @@ static std::thread serverThread;
 static ServerStatus serverStatus;
 static std::mutex serverStatusLock;
 static int serverFlags;
+
+// NOTE: These *only* encode spaces, which is really enough.
+
+std::string ServerUriEncode(std::string_view plain) {
+	return ReplaceAll(plain, " ", "%20");
+}
+
+std::string ServerUriDecode(std::string_view encoded) {
+	return ReplaceAll(encoded, "%20", " ");
+}
 
 static void UpdateStatus(ServerStatus s) {
 	std::lock_guard<std::mutex> guard(serverStatusLock);
@@ -130,6 +142,12 @@ bool RemoteISOFileSupported(const std::string &filename) {
 }
 
 static std::string RemotePathForRecent(const std::string &filename) {
+	Path path(filename);
+	if (path.Type() == PathType::HTTP) {
+		// Don't re-share HTTP files from some other device.
+		return std::string();
+	}
+
 #ifdef _WIN32
 	static const std::string sep = "\\/";
 #else
@@ -147,19 +165,30 @@ static std::string RemotePathForRecent(const std::string &filename) {
 	// Let's not serve directories, since they won't work.  Only single files.
 	// Maybe can do PBPs and other files later.  Would be neat to stream virtual disc filesystems.
 	if (RemoteISOFileSupported(basename)) {
-		return ReplaceAll(basename, " ", "%20");
+		return ServerUriEncode(basename);
 	}
-	return "";
+
+	return std::string();
 }
 
 static Path LocalFromRemotePath(const std::string &path) {
-	for (const std::string &filename : g_Config.RecentIsos()) {
-		std::string basename = RemotePathForRecent(filename);
-		if (basename == path) {
-			return Path(filename);
+	switch ((RemoteISOShareType)g_Config.iRemoteISOShareType) {
+	case RemoteISOShareType::RECENT:
+		for (const std::string &filename : g_Config.RecentIsos()) {
+			std::string basename = RemotePathForRecent(filename);
+			if (basename == path) {
+				return Path(filename);
+			}
 		}
+		return Path();
+	case RemoteISOShareType::LOCAL_FOLDER:
+	{
+		std::string decoded = ServerUriDecode(path);
+		return Path(g_Config.sRemoteISOSharedDir) / decoded;
 	}
-	return Path();
+	default:
+		return Path();
+	}
 }
 
 static void DiscHandler(const http::ServerRequest &request, const Path &filename) {
@@ -226,12 +255,30 @@ static void HandleListing(const http::ServerRequest &request) {
 	request.WriteHttpResponseHeader("1.0", 200, -1, "text/plain");
 	request.Out()->Printf("/\n");
 	if (serverFlags & (int)WebServerFlags::DISCS) {
-		// List the current discs in their recent order.
-		for (const std::string &filename : g_Config.RecentIsos()) {
-			std::string basename = RemotePathForRecent(filename);
-			if (!basename.empty()) {
-				request.Out()->Printf("%s\n", basename.c_str());
+		switch ((RemoteISOShareType)g_Config.iRemoteISOShareType) {
+		case RemoteISOShareType::RECENT:
+			// List the current discs in their recent order.
+			for (const std::string &filename : g_Config.RecentIsos()) {
+				std::string basename = RemotePathForRecent(filename);
+				if (!basename.empty()) {
+					request.Out()->Printf("%s\n", basename.c_str());
+				}
 			}
+			break;
+		case RemoteISOShareType::LOCAL_FOLDER:
+		{
+			std::vector<File::FileInfo> entries;
+			File::GetFilesInDir(Path(g_Config.sRemoteISOSharedDir), &entries);
+			for (const auto &entry : entries) {
+				// TODO: Support browsing into subdirs. How are folders marked?
+				if (entry.isDirectory || !RemoteISOFileSupported(entry.name)) {
+					continue;
+				}
+				std::string encoded = ServerUriEncode(entry.name);
+				request.Out()->Printf("%s\n", encoded.c_str());
+			}
+			break;
+		}
 		}
 	}
 	if (serverFlags & (int)WebServerFlags::DEBUGGER) {

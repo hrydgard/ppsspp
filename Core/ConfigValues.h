@@ -182,3 +182,8 @@ enum class SkipGPUReadbackMode : int {
 	SKIP,
 	COPY_TO_TEXTURE,
 };
+
+enum class RemoteISOShareType : int {
+	RECENT,
+	LOCAL_FOLDER,
+};

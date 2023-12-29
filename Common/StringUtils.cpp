@@ -356,12 +356,15 @@ void GetQuotedStrings(const std::string& str, std::vector<std::string> &output) 
 	}
 }
 
-std::string ReplaceAll(std::string result, const std::string& src, const std::string& dest) {
+std::string ReplaceAll(std::string_view input, std::string_view src, std::string_view dest) {
 	size_t pos = 0;
+
+	std::string result(input);
 
 	if (src == dest)
 		return result;
 
+	// TODO: Don't mutate the input, just append stuff to the output instead.
 	while (true) {
 		pos = result.find(src, pos);
 		if (pos == result.npos)

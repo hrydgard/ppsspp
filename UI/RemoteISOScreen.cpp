@@ -301,7 +301,11 @@ void RemoteISOScreen::CreateViews() {
 	ViewGroup *rightColumn = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(300, FILL_PARENT, actionMenuMargins));
 	LinearLayout *rightColumnItems = new LinearLayout(ORIENT_VERTICAL);
 
-	leftColumnItems->Add(new TextView(ri->T("RemoteISODesc", "Games in your recent list will be shared"), new LinearLayoutParams(Margins(12, 5, 0, 5))));
+	if ((RemoteISOShareType)g_Config.iRemoteISOShareType == RemoteISOShareType::RECENT) {
+		leftColumnItems->Add(new TextView(ri->T("RemoteISODesc", "Games in your recent list will be shared"), new LinearLayoutParams(Margins(12, 5, 0, 5))));
+	} else {
+		leftColumnItems->Add(new TextView(std::string(ri->T("Share Games(Server)")) + " " + Path(g_Config.sRemoteISOSharedDir).ToVisualString(), new LinearLayoutParams(Margins(12, 5, 0, 5))));
+	}
 	leftColumnItems->Add(new TextView(ri->T("RemoteISOWifi", "Note: Connect both devices to the same wifi"), new LinearLayoutParams(Margins(12, 5, 0, 5))));
 	firewallWarning_ = leftColumnItems->Add(new TextView(ri->T("RemoteISOWinFirewall", "WARNING: Windows Firewall is blocking sharing"), new LinearLayoutParams(Margins(12, 5, 0, 5))));
 	firewallWarning_->SetTextColor(0xFF0000FF);
@@ -589,8 +593,19 @@ void RemoteISOSettingsScreen::CreateViews() {
 	remoteisoSettings->Add(new CheckBox(&g_Config.bRemoteISOManual, ri->T("Manual Mode Client", "Manually configure client")));
 	remoteisoSettings->Add(new CheckBox(&g_Config.bRemoteTab, ri->T("Show Remote tab on main screen")));
 
-	UI::Choice *remoteServer;
-	remoteServer = new PopupTextInputChoice(&g_Config.sLastRemoteISOServer, ri->T("Remote Server"), "", 255, screenManager());
+	if (System_GetPropertyBool(SYSPROP_HAS_FOLDER_BROWSER)) {
+		static const char *shareTypes[] = { "Recent files", "Choose directory" };
+		remoteisoSettings->Add(new PopupMultiChoice(&g_Config.iRemoteISOShareType, ri->T("Files to share"), shareTypes, 0, ARRAY_SIZE(shareTypes), I18NCat::REMOTEISO, screenManager()));
+		FolderChooserChoice *folderChooser = remoteisoSettings->Add(new FolderChooserChoice(&g_Config.sRemoteISOSharedDir, ri->T("Files to share")));
+		folderChooser->SetEnabledFunc([=]() {
+			return g_Config.iRemoteISOShareType == (int)RemoteISOShareType::LOCAL_FOLDER;
+		});
+	} else {
+		// Can't pick a folder, only allow sharing recent stuff.
+		g_Config.iRemoteISOShareType = (int)RemoteISOShareType::RECENT;
+	}
+
+	UI::Choice *remoteServer = new PopupTextInputChoice(&g_Config.sLastRemoteISOServer, ri->T("Remote Server"), "", 255, screenManager());
 	remoteisoSettings->Add(remoteServer);
 	remoteServer->SetEnabledPtr(&g_Config.bRemoteISOManual);
 
