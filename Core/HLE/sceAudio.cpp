@@ -144,7 +144,7 @@ static u32 sceAudioOutput(u32 chan, int vol, u32 samplePtr) {
 		ERROR_LOG(SCEAUDIO, "sceAudioOutput(%08x, %08x, %08x) - channel not reserved", chan, vol, samplePtr);
 		return SCE_ERROR_AUDIO_CHANNEL_NOT_INIT;
 	} else {
-		DEBUG_LOG(SCEAUDIO, "sceAudioOutputPanned(%08x, %08x, %08x)", chan, vol, samplePtr);
+		DEBUG_LOG(SCEAUDIO, "sceAudioOutput(%08x, %08x, %08x)", chan, vol, samplePtr);
 		if (vol >= 0) {
 			chans[chan].leftVolume = vol;
 			chans[chan].rightVolume = vol;
