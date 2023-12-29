@@ -436,4 +436,17 @@ private:
 	BrowseFileType fileType_;
 };
 
+class FolderChooserChoice : public AbstractChoiceWithValueDisplay {
+public:
+	FolderChooserChoice(std::string *value, const std::string &title, LayoutParams *layoutParams = nullptr);
+	std::string ValueText() const override;
+
+	Event OnChange;
+
+private:
+	std::string *value_;
+	BrowseFileType fileType_;
+};
+
+
 }  // namespace UI
