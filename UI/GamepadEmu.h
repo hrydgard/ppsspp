@@ -35,16 +35,8 @@ public:
 	}
 	std::string DescribeText() const override;
 
-	void SetForceVisible(bool visible) {
-		forceVisible_ = visible;
-	}
-
 protected:
-	virtual float GetButtonOpacity();
-
 	std::string key_;
-	float secondsWithoutTouch_ = 0.0;
-	bool forceVisible_ = false;
 };
 
 class MultiTouchButton : public GamepadView {
@@ -378,4 +370,5 @@ namespace GestureKey {
 }
 
 void GamepadTouch();
-void GamepadUpdateOpacity();
+void GamepadUpdateOpacity(float force = -1.0f);
+float GamepadGetOpacity();

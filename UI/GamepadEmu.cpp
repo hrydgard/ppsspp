@@ -42,9 +42,13 @@ static uint32_t analogPointerMask = 0;
 static float g_gamepadOpacity;
 static double g_lastTouch;
 
-void GamepadUpdateOpacity() {
+void GamepadUpdateOpacity(float force) {
 	if (coreState != CORE_RUNNING) {
 		g_gamepadOpacity = 0.0f;
+		return;
+	}
+	if (force >= 0.0f) {
+		g_gamepadOpacity = force;
 		return;
 	}
 
@@ -70,6 +74,10 @@ void GamepadTouch() {
 	g_lastTouch = time_now_d();
 }
 
+float GamepadGetOpacity() {
+	return g_gamepadOpacity;
+}
+
 static u32 GetButtonColor() {
 	return g_Config.iTouchButtonStyle != 0 ? 0xFFFFFF : 0xc0b080;
 }
@@ -79,13 +87,6 @@ GamepadView::GamepadView(const char *key, UI::LayoutParams *layoutParams) : UI::
 std::string GamepadView::DescribeText() const {
 	auto co = GetI18NCategory(I18NCat::CONTROLS);
 	return co->T(key_);
-}
-
-float GamepadView::GetButtonOpacity() {
-	if (forceVisible_) {
-		return 1.0f;
-	}
-	return g_gamepadOpacity;
 }
 
 void MultiTouchButton::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
@@ -123,7 +124,7 @@ bool MultiTouchButton::Touch(const TouchInput &input) {
 }
 
 void MultiTouchButton::Draw(UIContext &dc) {
-	float opacity = GetButtonOpacity();
+	float opacity = g_gamepadOpacity;
 	if (opacity <= 0.0f)
 		return;
 
@@ -367,7 +368,7 @@ void PSPDpad::ProcessTouch(float x, float y, bool down) {
 }
 
 void PSPDpad::Draw(UIContext &dc) {
-	float opacity = GetButtonOpacity();
+	float opacity = g_gamepadOpacity;
 	if (opacity <= 0.0f)
 		return;
 
@@ -417,7 +418,7 @@ void PSPStick::GetContentDimensions(const UIContext &dc, float &w, float &h) con
 }
 
 void PSPStick::Draw(UIContext &dc) {
-	float opacity = GetButtonOpacity();
+	float opacity = g_gamepadOpacity;
 	if (opacity <= 0.0f)
 		return;
 
@@ -525,7 +526,7 @@ PSPCustomStick::PSPCustomStick(ImageID bgImg, const char *key, ImageID stickImg,
 }
 
 void PSPCustomStick::Draw(UIContext &dc) {
-	float opacity = GetButtonOpacity();
+	float opacity = g_gamepadOpacity;
 	if (opacity <= 0.0f)
 		return;
 
@@ -951,7 +952,6 @@ void GestureGamepad::Draw(UIContext &dc) {
 		dc.Draw()->DrawImage(ImageID("I_CIRCLE"), downX_, downY_, 0.7f, colorBg, ALIGN_CENTER);
 	}
 }
-
 
 void GestureGamepad::Update() {
 	const float th = 1.0f;
