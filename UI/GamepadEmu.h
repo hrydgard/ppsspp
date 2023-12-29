@@ -369,6 +369,6 @@ namespace GestureKey {
 	};
 }
 
-void GamepadTouch();
+void GamepadTouch(bool reset = false);
 void GamepadUpdateOpacity(float force = -1.0f);
 float GamepadGetOpacity();
