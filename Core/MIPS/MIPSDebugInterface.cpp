@@ -23,6 +23,7 @@
 #endif
 
 #include "Common/StringUtils.h"
+#include "Core/CoreTiming.h"
 #include "Core/Debugger/Breakpoints.h"
 #include "Core/Debugger/SymbolMap.h"
 #include "Core/Debugger/DebugInterface.h"
@@ -46,6 +47,8 @@ enum ReferenceIndexType {
 	REF_INDEX_HLE      = 0x10000,
 	REF_INDEX_THREAD   = REF_INDEX_HLE | 0,
 	REF_INDEX_MODULE   = REF_INDEX_HLE | 1,
+	REF_INDEX_USEC     = REF_INDEX_HLE | 2,
+	REF_INDEX_TICKS    = REF_INDEX_HLE | 3,
 };
 
 
@@ -123,6 +126,14 @@ public:
 			referenceIndex = REF_INDEX_MODULE;
 			return true;
 		}
+		if (strcasecmp(str, "usec") == 0) {
+			referenceIndex = REF_INDEX_USEC;
+			return true;
+		}
+		if (strcasecmp(str, "ticks") == 0) {
+			referenceIndex = REF_INDEX_TICKS;
+			return true;
+		}
 
 		return false;
 	}
@@ -146,6 +157,10 @@ public:
 			return __KernelGetCurThread();
 		if (referenceIndex == REF_INDEX_MODULE)
 			return __KernelGetCurThreadModuleId();
+		if (referenceIndex == REF_INDEX_USEC)
+			return CoreTiming::GetGlobalTimeUs();
+		if (referenceIndex == REF_INDEX_USEC)
+			return CoreTiming::GetTicks();
 		if ((referenceIndex & ~(REF_INDEX_FPU | REF_INDEX_FPU_INT)) < 32)
 			return cpu->GetRegValue(1, referenceIndex & ~(REF_INDEX_FPU | REF_INDEX_FPU_INT));
 		if ((referenceIndex & ~(REF_INDEX_VFPU | REF_INDEX_VFPU_INT)) < 128)
