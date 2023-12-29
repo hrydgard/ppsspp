@@ -38,7 +38,6 @@ static const double PUSH_GARBAGE_COLLECTION_DELAY = 10.0;
 VulkanPushPool::VulkanPushPool(VulkanContext *vulkan, const char *name, size_t originalBlockSize, VkBufferUsageFlags usage)
 	: vulkan_(vulkan), name_(name), originalBlockSize_(originalBlockSize), usage_(usage) {
 	RegisterGPUMemoryManager(this);
-	blocks_.reserve(VulkanContext::MAX_INFLIGHT_FRAMES);
 	for (int i = 0; i < VulkanContext::MAX_INFLIGHT_FRAMES; i++) {
 		blocks_.push_back(CreateBlock(originalBlockSize));
 		blocks_.back().original = true;

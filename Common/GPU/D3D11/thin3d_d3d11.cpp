@@ -748,7 +748,6 @@ InputLayout *D3D11DrawContext::CreateInputLayout(const InputLayoutDesc &desc) {
 	inputLayout->desc = desc;
 
 	// Translate to D3D11 elements;
-	inputLayout->elements.reserve(desc.attributes.size());
 	for (size_t i = 0; i < desc.attributes.size(); i++) {
 		D3D11_INPUT_ELEMENT_DESC el;
 		el.AlignedByteOffset = desc.attributes[i].offset;
@@ -1143,7 +1142,6 @@ Pipeline *D3D11DrawContext::CreateGraphicsPipeline(const PipelineDesc &desc, con
 
 	std::vector<D3D11ShaderModule *> shaders;
 	D3D11ShaderModule *vshader = nullptr;
-	shaders.reserve(desc.shaders.size());
 	for (auto iter : desc.shaders) {
 		iter->AddRef();
 

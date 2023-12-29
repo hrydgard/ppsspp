@@ -75,7 +75,6 @@ VertexDecoder *DrawEngineCommon::GetVertexDecoder(u32 vtype) {
 
 std::vector<std::string> DrawEngineCommon::DebugGetVertexLoaderIDs() {
 	std::vector<std::string> ids;
-	ids.reserve(decoderMap_.size());
 	decoderMap_.Iterate([&](const uint32_t vtype, VertexDecoder *decoder) {
 		std::string id;
 		id.resize(sizeof(vtype));

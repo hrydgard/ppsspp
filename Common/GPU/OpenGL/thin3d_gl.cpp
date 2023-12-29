@@ -1435,7 +1435,6 @@ void OpenGLInputLayout::Compile(const InputLayoutDesc &desc) {
 	stride = desc.stride;
 
 	std::vector<GLRInputLayout::Entry> entries;
-	entries.reserve(desc.attributes.size());
 	for (auto &attr : desc.attributes) {
 		GLRInputLayout::Entry entry;
 		entry.location = attr.location;

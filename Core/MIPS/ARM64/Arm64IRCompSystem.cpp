@@ -386,7 +386,6 @@ void Arm64JitBackend::CompIR_ValidateAddress(IRInst inst) {
 	ANDI2R(SCRATCH1, SCRATCH1, 0x3FFFFFFF, SCRATCH2);
 
 	std::vector<FixupBranch> validJumps;
-	validJumps.reserve(3);
 
 	FixupBranch unaligned;
 	if (alignment == 2) {

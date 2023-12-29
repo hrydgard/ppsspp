@@ -9,7 +9,6 @@ GameDB g_gameDB;
 
 static void SplitCSVLine(const std::string_view str, std::vector<std::string_view> &result) {
 	result.clear();
-	result.reserve(str.size() + 1);
 
 	int indexCommaToLeftOfColumn = 0;
 	int indexCommaToRightOfColumn = -1;
