@@ -618,6 +618,8 @@ bool EmuScreen::UnsyncTouch(const TouchInput &touch) {
 		}
 	}
 
+	GamepadTouch();
+
 	if (root_) {
 		UIScreen::UnsyncTouch(touch);
 	}
@@ -1455,6 +1457,8 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 	if (!draw) {
 		return flags;  // shouldn't really happen but I've seen a suspicious stack trace..
 	}
+
+	GamepadUpdateOpacity();
 
 	bool skipBufferEffects = g_Config.bSkipBufferEffects;
 

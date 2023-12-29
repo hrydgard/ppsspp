@@ -30,11 +30,9 @@ class GamepadView : public UI::View {
 public:
 	GamepadView(const char *key, UI::LayoutParams *layoutParams);
 
-	bool Touch(const TouchInput &input) override;
 	bool Key(const KeyInput &input) override {
 		return false;
 	}
-	void Update() override;
 	std::string DescribeText() const override;
 
 	void SetForceVisible(bool visible) {
@@ -45,7 +43,6 @@ protected:
 	virtual float GetButtonOpacity();
 
 	std::string key_;
-	double lastFrameTime_;
 	float secondsWithoutTouch_ = 0.0;
 	bool forceVisible_ = false;
 };
@@ -379,3 +376,6 @@ namespace GestureKey {
 		VIRTKEY_AXIS_Y_MAX,
 	};
 }
+
+void GamepadTouch();
+void GamepadUpdateOpacity();

@@ -39,27 +39,42 @@ const float TOUCH_SCALE_FACTOR = 1.5f;
 static uint32_t usedPointerMask = 0;
 static uint32_t analogPointerMask = 0;
 
+static float g_gamepadOpacity;
+static double g_lastTouch;
+
+void GamepadUpdateOpacity() {
+	if (coreState != CORE_RUNNING) {
+		g_gamepadOpacity = 0.0f;
+		return;
+	}
+
+	float fadeAfterSeconds = g_Config.iTouchButtonHideSeconds;
+	float fadeTransitionSeconds = std::min(fadeAfterSeconds, 0.5f);
+	float opacity = g_Config.iTouchButtonOpacity / 100.0f;
+
+	float multiplier = 1.0f;
+	float secondsWithoutTouch = time_now_d() - g_lastTouch;
+	if (secondsWithoutTouch >= fadeAfterSeconds && fadeAfterSeconds > 0.0f) {
+		if (secondsWithoutTouch >= fadeAfterSeconds + fadeTransitionSeconds) {
+			multiplier = 0.0f;
+		} else {
+			float secondsIntoFade = secondsWithoutTouch - fadeAfterSeconds;
+			multiplier = 1.0f - (secondsIntoFade / fadeTransitionSeconds);
+		}
+	}
+
+	g_gamepadOpacity = opacity * multiplier;
+}
+
+void GamepadTouch() {
+	g_lastTouch = time_now_d();
+}
+
 static u32 GetButtonColor() {
 	return g_Config.iTouchButtonStyle != 0 ? 0xFFFFFF : 0xc0b080;
 }
 
-GamepadView::GamepadView(const char *key, UI::LayoutParams *layoutParams) : UI::View(layoutParams), key_(key) {
-	lastFrameTime_ = time_now_d();
-}
-
-bool GamepadView::Touch(const TouchInput &input) {
-	secondsWithoutTouch_ = 0.0f;
-	return true;
-}
-
-void GamepadView::Update() {
-	const double now = time_now_d();
-	float delta = now - lastFrameTime_;
-	if (delta > 0) {
-		secondsWithoutTouch_ += delta;
-	}
-	lastFrameTime_ = now;
-}
+GamepadView::GamepadView(const char *key, UI::LayoutParams *layoutParams) : UI::View(layoutParams), key_(key) {}
 
 std::string GamepadView::DescribeText() const {
 	auto co = GetI18NCategory(I18NCat::CONTROLS);
@@ -70,26 +85,7 @@ float GamepadView::GetButtonOpacity() {
 	if (forceVisible_) {
 		return 1.0f;
 	}
-
-	if (coreState != CORE_RUNNING) {
-		return 0.0f;
-	}
-
-	float fadeAfterSeconds = g_Config.iTouchButtonHideSeconds;
-	float fadeTransitionSeconds = std::min(fadeAfterSeconds, 0.5f);
-	float opacity = g_Config.iTouchButtonOpacity / 100.0f;
-
-	float multiplier = 1.0f;
-	if (secondsWithoutTouch_ >= fadeAfterSeconds && fadeAfterSeconds > 0.0f) {
-		if (secondsWithoutTouch_ >= fadeAfterSeconds + fadeTransitionSeconds) {
-			multiplier = 0.0f;
-		} else {
-			float secondsIntoFade = secondsWithoutTouch_ - fadeAfterSeconds;
-			multiplier = 1.0f - (secondsIntoFade / fadeTransitionSeconds);
-		}
-	}
-
-	return opacity * multiplier;
+	return g_gamepadOpacity;
 }
 
 void MultiTouchButton::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
