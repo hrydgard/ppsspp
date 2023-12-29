@@ -136,6 +136,8 @@ private:
 
 struct CHDImpl;
 
+struct ExtendedCoreFile;
+
 class CHDFileBlockDevice : public BlockDevice {
 public:
 	CHDFileBlockDevice(FileLoader *fileLoader);
@@ -146,6 +148,7 @@ public:
 	bool IsDisc() const override { return true; }
 
 private:
+	struct ExtendedCoreFile *core_file_ = nullptr;
 	std::unique_ptr<CHDImpl> impl_;
 	u8 *readBuffer = nullptr;
 	u32 currentHunk = 0;
