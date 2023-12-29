@@ -788,7 +788,29 @@ void EmuScreen::onVKey(int virtualKeyCode, bool down) {
 		if (down)
 			System_ToggleFullscreenState("");
 		break;
-
+	case VIRTKEY_TOGGLE_TOUCH_CONTROLS:
+		if (down) {
+			if (g_Config.bShowTouchControls) {
+				// This just messes with opacity if enabled, so you can touch the screen again to bring them back.
+				if (GamepadGetOpacity() < 0.01f) {
+					GamepadTouch();
+				} else {
+					// Reset.
+					GamepadTouch(true);
+				}
+			} else {
+				// If touch controls are disabled though, they'll get enabled.
+				g_Config.bShowTouchControls = true;
+				RecreateViews();
+				GamepadTouch();
+			}
+		}
+		break;
+	case VIRTKEY_TOGGLE_MOUSE:
+		if (down) {
+			g_Config.bMouseControl = !g_Config.bMouseControl;
+		}
+		break;
 	case VIRTKEY_SCREENSHOT:
 		if (down)
 			g_TakeScreenshot = true;

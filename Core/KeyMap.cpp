@@ -465,6 +465,9 @@ const KeyMap_IntStrPair psp_button_names[] = {
 	{VIRTKEY_TOGGLE_WLAN, "Toggle WLAN"},
 	{VIRTKEY_EXIT_APP, "Exit App"},
 
+	{VIRTKEY_TOGGLE_MOUSE, "Toggle mouse input"},
+	{VIRTKEY_TOGGLE_TOUCH_CONTROLS, "Toggle touch controls"},
+
 	{VIRTKEY_AXIS_RIGHT_Y_MAX, "RightAn.Up"},
 	{VIRTKEY_AXIS_RIGHT_Y_MIN, "RightAn.Down"},
 	{VIRTKEY_AXIS_RIGHT_X_MIN, "RightAn.Left"},

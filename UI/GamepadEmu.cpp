@@ -70,8 +70,8 @@ void GamepadUpdateOpacity(float force) {
 	g_gamepadOpacity = opacity * multiplier;
 }
 
-void GamepadTouch() {
-	g_lastTouch = time_now_d();
+void GamepadTouch(bool reset) {
+	g_lastTouch = reset ? 0.0f : time_now_d();
 }
 
 float GamepadGetOpacity() {
