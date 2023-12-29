@@ -51,7 +51,7 @@ static ServerStatus serverStatus;
 static std::mutex serverStatusLock;
 static int serverFlags;
 
-// NOTE: These *only* encode spaces, which is really enough.
+// NOTE: These *only* encode spaces, which is almost enough.
 
 std::string ServerUriEncode(std::string_view plain) {
 	return ReplaceAll(plain, " ", "%20");
@@ -182,6 +182,19 @@ static Path LocalFromRemotePath(const std::string &path) {
 	case RemoteISOShareType::LOCAL_FOLDER:
 	{
 		std::string decoded = ServerUriDecode(path);
+
+		if (decoded.empty() || decoded.front() != '/') {
+			return Path();
+		}
+
+		// First reject backslashes, in case of any Windows shenanigans.
+		if (decoded.find('\\') != std::string::npos) {
+			return Path();
+		}
+		// Then, reject slashes combined with ".." to prevent directory traversal. Hope this is enough.
+		if (decoded.find("/..") != std::string::npos) {
+			return Path();
+		}
 		return Path(g_Config.sRemoteISOSharedDir) / decoded;
 	}
 	default:
@@ -266,13 +279,21 @@ static void HandleListing(const http::ServerRequest &request) {
 		case RemoteISOShareType::LOCAL_FOLDER:
 		{
 			std::vector<File::FileInfo> entries;
-			File::GetFilesInDir(Path(g_Config.sRemoteISOSharedDir), &entries);
+
+			std::string resource = request.resource();
+			Path localDir = LocalFromRemotePath(resource);
+
+			File::GetFilesInDir(localDir, &entries);
 			for (const auto &entry : entries) {
 				// TODO: Support browsing into subdirs. How are folders marked?
-				if (entry.isDirectory || !RemoteISOFileSupported(entry.name)) {
+				if (!entry.isDirectory && !RemoteISOFileSupported(entry.name)) {
 					continue;
 				}
-				std::string encoded = ServerUriEncode(entry.name);
+				std::string name = entry.name;
+				if (entry.isDirectory) {
+					name.push_back('/');
+				}
+				std::string encoded = ServerUriEncode(name); 
 				request.Out()->Printf("%s\n", encoded.c_str());
 			}
 			break;
@@ -325,12 +346,20 @@ static void RedirectToDebugger(const http::ServerRequest &request) {
 }
 
 static void HandleFallback(const http::ServerRequest &request) {
+	SetCurrentThreadName("HandleFallback");
+
 	AndroidJNIThreadContext jniContext;
 
 	if (serverFlags & (int)WebServerFlags::DISCS) {
-		Path filename = LocalFromRemotePath(request.resource());
-		if (!filename.empty()) {
-			DiscHandler(request, filename);
+		std::string resource = request.resource();
+		Path localPath = LocalFromRemotePath(resource);
+		INFO_LOG(LOADER, "Serving %s from %s", resource.c_str(), localPath.c_str());
+		if (!localPath.empty()) {
+			if (File::IsDirectory(localPath)) {
+				HandleListing(request);
+			} else {
+				DiscHandler(request, localPath);
+			}
 			return;
 		}
 	}
@@ -351,6 +380,8 @@ static void HandleFallback(const http::ServerRequest &request) {
 }
 
 static void ForwardDebuggerRequest(const http::ServerRequest &request) {
+	SetCurrentThreadName("ForwardDebuggerRequest");
+
 	AndroidJNIThreadContext jniContext;
 
 	if (serverFlags & (int)WebServerFlags::DEBUGGER) {
