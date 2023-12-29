@@ -367,6 +367,8 @@ namespace SaveState
 		}
 
 		// Memory is a bit tricky when jit is enabled, since there's emuhacks in it.
+		// These must be saved before copying out memory and restored after.
+		auto savedReplacements = SaveAndClearReplacements();
 		if (MIPSComp::jit && p.mode == p.MODE_WRITE) {
 			std::lock_guard<std::recursive_mutex> guard(MIPSComp::jitLock);
 			if (MIPSComp::jit) {
@@ -388,7 +390,6 @@ namespace SaveState
 		// Don't bother restoring if reading, we'll deal with that in KernelModuleDoState.
 		// In theory, different functions might have been runtime loaded in the state.
 		if (p.mode != p.MODE_READ) {
-			auto savedReplacements = SaveAndClearReplacements();
 			RestoreSavedReplacements(savedReplacements);
 		}
 
