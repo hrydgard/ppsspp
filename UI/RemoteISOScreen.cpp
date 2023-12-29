@@ -118,6 +118,7 @@ bool RemoteISOConnectScreen::FindServer(std::string &resultHost, int &resultPort
 
 		std::lock_guard<std::mutex> guard(statusLock_);
 		statusMessage_ = formatted;
+		INFO_LOG(SYSTEM, "Remote: %s", formatted.c_str());
 	};
 
 	http.SetUserAgent(StringFromFormat("PPSSPP/%s", PPSSPP_GIT_VERSION));

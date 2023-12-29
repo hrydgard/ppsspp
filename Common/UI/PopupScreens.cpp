@@ -692,4 +692,28 @@ std::string FileChooserChoice::ValueText() const {
 	return path.GetFilename();
 }
 
+FolderChooserChoice::FolderChooserChoice(std::string *value, const std::string &text, LayoutParams *layoutParams)
+	: AbstractChoiceWithValueDisplay(text, layoutParams), value_(value) {
+	OnClick.Add([=](UI::EventParams &) {
+		System_BrowseForFolder(text_, [=](const std::string &returnValue, int) {
+			if (*value_ != returnValue) {
+				*value = returnValue;
+				UI::EventParams e{};
+				e.s = *value;
+				OnChange.Trigger(e);
+			}
+		});
+		return UI::EVENT_DONE;
+	});
+}
+
+std::string FolderChooserChoice::ValueText() const {
+	if (value_->empty()) {
+		auto di = GetI18NCategory(I18NCat::DIALOG);
+		return di->T("Default");
+	}
+	Path path(*value_);
+	return path.GetFilename();
+}
+
 }  // namespace
