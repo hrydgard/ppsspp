@@ -92,7 +92,6 @@ bool VulkanQueueRunner::CreateSwapchain(VkCommandBuffer cmdInit) {
 		return false;
 	}
 
-	swapchainImages_.reserve(swapchainImageCount_);
 	for (uint32_t i = 0; i < swapchainImageCount_; i++) {
 		SwapchainImageData sc_buffer{};
 		sc_buffer.image = swapchainImages[i];

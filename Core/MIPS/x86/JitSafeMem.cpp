@@ -455,7 +455,6 @@ void JitSafeMemFuncs::CreateWriteFunc(int bits, const void *fallbackFunc) {
 void JitSafeMemFuncs::CheckDirectEAX() {
 	// Clear any cache/kernel bits.
 	AND(32, R(EAX), Imm32(0x3FFFFFFF));
-	skips_.reserve(3);
 	
 	CMP(32, R(EAX), Imm32(PSP_GetUserMemoryEnd()));
 	FixupBranch tooHighRAM = J_CC(CC_AE);

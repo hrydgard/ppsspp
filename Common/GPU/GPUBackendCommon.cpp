@@ -11,7 +11,6 @@ static std::set<GPUMemoryManager *> g_pushBuffers;
 std::vector<GPUMemoryManager *> GetActiveGPUMemoryManagers() {
 	std::vector<GPUMemoryManager *> buffers;
 	std::lock_guard<std::mutex> guard(g_pushBufferListMutex);
-	buffers.reserve(g_pushBuffers.size());
 	for (auto iter : g_pushBuffers) {
 		buffers.push_back(iter);
 	}

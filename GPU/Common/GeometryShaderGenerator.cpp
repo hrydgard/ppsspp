@@ -67,8 +67,6 @@ bool GenerateGeometryShader(const GShaderID &id, char *buffer, const ShaderLangu
 	}
 
 	std::vector<VaryingDef> varyings, outVaryings;
-	varyings.reserve(4);
-	outVaryings.reserve(4);
 
 	if (id.Bit(GS_BIT_DO_TEXTURE)) {
 		varyings.push_back(VaryingDef{ "vec3", "v_texcoord", Draw::SEM_TEXCOORD0, 0, "highp" });

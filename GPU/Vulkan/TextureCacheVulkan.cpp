@@ -187,7 +187,6 @@ void SamplerCache::DeviceRestore(VulkanContext *vulkan) {
 
 std::vector<std::string> SamplerCache::DebugGetSamplerIDs() const {
 	std::vector<std::string> ids;
-	ids.reserve(cache_.size());
 	cache_.Iterate([&](const SamplerCacheKey &id, VkSampler sampler) {
 		std::string idstr;
 		id.ToString(&idstr);
