@@ -113,7 +113,7 @@ static bool RegisterServer(int port) {
 
 bool RemoteISOFileSupported(const std::string &filename) {
 	// Disc-like files.
-	if (endsWithNoCase(filename, ".cso") || endsWithNoCase(filename, ".iso")) {
+	if (endsWithNoCase(filename, ".cso") || endsWithNoCase(filename, ".iso") || endsWithNoCase(filename, ".chd")) {
 		return true;
 	}
 	// May work - but won't have supporting files.
