@@ -160,8 +160,13 @@ bool RemoteISOConnectScreen::FindServer(std::string &resultHost, int &resultPort
 
 		bool supported = false;
 		for (const std::string &item : items) {
-			if (!RemoteISOFileSupported(item)) {
+			if (item.empty())
 				continue;
+			if (!RemoteISOFileSupported(item)) {
+				if (item.back() != '/') {
+					// We accept lists of just directories - we kinda have to.
+					continue;
+				}
 			}
 			supported = true;
 			break;
