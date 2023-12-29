@@ -422,7 +422,7 @@ bool OutputSink::Empty() const {
 	return valid_ == 0;
 }
 
-int OutputSink::BytesRemaining() const {
+size_t OutputSink::BytesRemaining() const {
 	return valid_;
 }
 

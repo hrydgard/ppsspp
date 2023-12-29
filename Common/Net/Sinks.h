@@ -55,7 +55,7 @@ public:
 	void Discard();
 
 	bool Empty() const;
-	int BytesRemaining() const;
+	size_t BytesRemaining() const;
 
 private:
 	void Drain();

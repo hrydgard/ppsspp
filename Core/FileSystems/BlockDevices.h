@@ -147,10 +147,10 @@ public:
 
 private:
 	std::unique_ptr<CHDImpl> impl_;
-	u8 *readBuffer;
-	u32 currentHunk;
-	u32 blocksPerHunk;
-	u32 numBlocks;
+	u8 *readBuffer = nullptr;
+	u32 currentHunk = 0;
+	u32 blocksPerHunk = 0;
+	u32 numBlocks = 0;
 };
 
 BlockDevice *constructBlockDevice(FileLoader *fileLoader);

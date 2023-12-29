@@ -302,7 +302,9 @@ void LogManager::RemoveListener(LogListener *listener) {
 }
 
 FileLogListener::FileLogListener(const char *filename) {
-	fp_ = File::OpenCFile(Path(std::string(filename)), "at");
+	if (strlen(filename) > 0) {
+		fp_ = File::OpenCFile(Path(std::string(filename)), "at");
+	}
 	SetEnabled(fp_ != nullptr);
 }
 

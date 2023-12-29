@@ -190,6 +190,12 @@ static bool LoadSymbolsIfSupported() {
 		if (!g_symbolMap)
 			return false;
 
+		if (PSP_CoreParameter().fileToStart.Type() == PathType::HTTP) {
+			// We don't support loading symbols over HTTP.
+			g_symbolMap->Clear();
+			return true;
+		}
+
 		bool result1 = g_symbolMap->LoadSymbolMap(SymbolMapFilename(PSP_CoreParameter().fileToStart, ".ppmap"));
 		// Load the old-style map file.
 		if (!result1)

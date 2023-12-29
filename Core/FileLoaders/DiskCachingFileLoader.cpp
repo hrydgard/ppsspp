@@ -692,7 +692,7 @@ bool DiskCachingFileLoaderCache::LockCacheFile(bool lockStatus) {
 	// TODO: Also use flock where supported?
 	if (lockStatus) {
 		if ((flags_ & FLAG_LOCKED) != 0) {
-			ERROR_LOG(LOADER, "Could not lock disk cache file for %s", origPath_.c_str());
+			ERROR_LOG(LOADER, "Could not lock disk cache file for %s (already locked)", origPath_.c_str());
 			return false;
 		}
 		flags_ |= FLAG_LOCKED;

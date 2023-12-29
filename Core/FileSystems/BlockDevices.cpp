@@ -621,7 +621,7 @@ CHDFileBlockDevice::CHDFileBlockDevice(FileLoader *fileLoader)
 
 CHDFileBlockDevice::~CHDFileBlockDevice()
 {
-	if (numBlocks > 0) {
+	if (impl_->chd) {
 		chd_close(impl_->chd);
 		delete[] readBuffer;
 	}
@@ -629,6 +629,10 @@ CHDFileBlockDevice::~CHDFileBlockDevice()
 
 bool CHDFileBlockDevice::ReadBlock(int blockNumber, u8 *outPtr, bool uncached)
 {
+	if (!impl_->chd) {
+		ERROR_LOG(LOADER, "ReadBlock: CHD not open. %s", fileLoader_->GetPath().c_str());
+		return false;
+	}
 	if ((u32)blockNumber >= numBlocks) {
 		memset(outPtr, 0, GetBlockSize());
 		return false;
