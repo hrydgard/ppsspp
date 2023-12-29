@@ -180,6 +180,12 @@ bool TextureReplacer::LoadIni() {
 			// Do what we can do anyway: Scan for textures and build the map.
 			std::map<ReplacementCacheKey, std::map<int, std::string>> filenameMap;
 			ScanForHashNamedFiles(dir, filenameMap);
+
+			if (filenameMap.empty()) {
+				WARN_LOG(G3D, "No replacement textures found.");
+				return false;
+			}
+
 			ComputeAliasMap(filenameMap);
 		}
 	}
