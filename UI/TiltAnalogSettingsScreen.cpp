@@ -28,6 +28,9 @@
 #include "UI/GamepadEmu.h"
 #include "UI/TiltAnalogSettingsScreen.h"
 
+const char *g_tiltTypes[] = { "None (Disabled)", "Analog Stick", "D-PAD", "PSP Action Buttons", "L/R Trigger Buttons" };
+const size_t g_numTiltTypes = ARRAY_SIZE(g_tiltTypes);
+
 void TiltAnalogSettingsScreen::CreateViews() {
 	using namespace UI;
 
@@ -100,9 +103,8 @@ void TiltAnalogSettingsScreen::CreateViews() {
 
 	settings->SetSpacing(0);
 
-	static const char *tiltTypes[] = { "None (Disabled)", "Analog Stick", "D-PAD", "PSP Action Buttons", "L/R Trigger Buttons" };
 	settings->Add(new ItemHeader(co->T("Tilt control setup")));
-	settings->Add(new PopupMultiChoice(&g_Config.iTiltInputType, co->T("Tilt Input Type"), tiltTypes, 0, ARRAY_SIZE(tiltTypes), I18NCat::CONTROLS, screenManager()))->OnChoice.Add(
+	settings->Add(new PopupMultiChoice(&g_Config.iTiltInputType, co->T("Tilt Input Type"), g_tiltTypes, 0, g_numTiltTypes, I18NCat::CONTROLS, screenManager()))->OnChoice.Add(
 		[=](UI::EventParams &p) {
 			//when the tilt event type is modified, we need to reset all tilt settings.
 			//refer to the ResetTiltEvents() function for a detailed explanation.

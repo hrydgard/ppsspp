@@ -191,27 +191,6 @@ private:
 	std::vector<bool> enabled_;
 };
 
-class AbstractChoiceWithValueDisplay : public UI::Choice {
-public:
-	AbstractChoiceWithValueDisplay(const std::string &text, LayoutParams *layoutParams = nullptr)
-		: Choice(text, layoutParams) {
-	}
-
-	void Draw(UIContext &dc) override;
-	void GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert, float &w, float &h) const override;
-
-	void SetPasswordDisplay() {
-		passwordDisplay_ = true;
-	}
-
-protected:
-	virtual std::string ValueText() const = 0;
-
-	float CalculateValueScale(const UIContext &dc, const std::string &valueText, float availWidth) const;
-
-	bool passwordDisplay_ = false;
-};
-
 // Reads and writes value to determine the current selection.
 class PopupMultiChoice : public AbstractChoiceWithValueDisplay {
 public:
