@@ -713,7 +713,7 @@ std::string FolderChooserChoice::ValueText() const {
 		return di->T("Default");
 	}
 	Path path(*value_);
-	return path.GetFilename();
+	return path.ToVisualString();
 }
 
 }  // namespace
