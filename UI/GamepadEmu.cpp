@@ -39,40 +39,17 @@ const float TOUCH_SCALE_FACTOR = 1.5f;
 static uint32_t usedPointerMask = 0;
 static uint32_t analogPointerMask = 0;
 
-static u32 GetButtonColor() {
-	return g_Config.iTouchButtonStyle != 0 ? 0xFFFFFF : 0xc0b080;
-}
+static float g_gamepadOpacity;
+static double g_lastTouch;
 
-GamepadView::GamepadView(const char *key, UI::LayoutParams *layoutParams) : UI::View(layoutParams), key_(key) {
-	lastFrameTime_ = time_now_d();
-}
-
-bool GamepadView::Touch(const TouchInput &input) {
-	secondsWithoutTouch_ = 0.0f;
-	return true;
-}
-
-void GamepadView::Update() {
-	const double now = time_now_d();
-	float delta = now - lastFrameTime_;
-	if (delta > 0) {
-		secondsWithoutTouch_ += delta;
-	}
-	lastFrameTime_ = now;
-}
-
-std::string GamepadView::DescribeText() const {
-	auto co = GetI18NCategory(I18NCat::CONTROLS);
-	return co->T(key_);
-}
-
-float GamepadView::GetButtonOpacity() {
-	if (forceVisible_) {
-		return 1.0f;
-	}
-
+void GamepadUpdateOpacity(float force) {
 	if (coreState != CORE_RUNNING) {
-		return 0.0f;
+		g_gamepadOpacity = 0.0f;
+		return;
+	}
+	if (force >= 0.0f) {
+		g_gamepadOpacity = force;
+		return;
 	}
 
 	float fadeAfterSeconds = g_Config.iTouchButtonHideSeconds;
@@ -80,16 +57,36 @@ float GamepadView::GetButtonOpacity() {
 	float opacity = g_Config.iTouchButtonOpacity / 100.0f;
 
 	float multiplier = 1.0f;
-	if (secondsWithoutTouch_ >= fadeAfterSeconds && fadeAfterSeconds > 0.0f) {
-		if (secondsWithoutTouch_ >= fadeAfterSeconds + fadeTransitionSeconds) {
+	float secondsWithoutTouch = time_now_d() - g_lastTouch;
+	if (secondsWithoutTouch >= fadeAfterSeconds && fadeAfterSeconds > 0.0f) {
+		if (secondsWithoutTouch >= fadeAfterSeconds + fadeTransitionSeconds) {
 			multiplier = 0.0f;
 		} else {
-			float secondsIntoFade = secondsWithoutTouch_ - fadeAfterSeconds;
+			float secondsIntoFade = secondsWithoutTouch - fadeAfterSeconds;
 			multiplier = 1.0f - (secondsIntoFade / fadeTransitionSeconds);
 		}
 	}
 
-	return opacity * multiplier;
+	g_gamepadOpacity = opacity * multiplier;
+}
+
+void GamepadTouch() {
+	g_lastTouch = time_now_d();
+}
+
+float GamepadGetOpacity() {
+	return g_gamepadOpacity;
+}
+
+static u32 GetButtonColor() {
+	return g_Config.iTouchButtonStyle != 0 ? 0xFFFFFF : 0xc0b080;
+}
+
+GamepadView::GamepadView(const char *key, UI::LayoutParams *layoutParams) : UI::View(layoutParams), key_(key) {}
+
+std::string GamepadView::DescribeText() const {
+	auto co = GetI18NCategory(I18NCat::CONTROLS);
+	return co->T(key_);
 }
 
 void MultiTouchButton::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
@@ -127,7 +124,7 @@ bool MultiTouchButton::Touch(const TouchInput &input) {
 }
 
 void MultiTouchButton::Draw(UIContext &dc) {
-	float opacity = GetButtonOpacity();
+	float opacity = g_gamepadOpacity;
 	if (opacity <= 0.0f)
 		return;
 
@@ -371,7 +368,7 @@ void PSPDpad::ProcessTouch(float x, float y, bool down) {
 }
 
 void PSPDpad::Draw(UIContext &dc) {
-	float opacity = GetButtonOpacity();
+	float opacity = g_gamepadOpacity;
 	if (opacity <= 0.0f)
 		return;
 
@@ -421,7 +418,7 @@ void PSPStick::GetContentDimensions(const UIContext &dc, float &w, float &h) con
 }
 
 void PSPStick::Draw(UIContext &dc) {
-	float opacity = GetButtonOpacity();
+	float opacity = g_gamepadOpacity;
 	if (opacity <= 0.0f)
 		return;
 
@@ -529,7 +526,7 @@ PSPCustomStick::PSPCustomStick(ImageID bgImg, const char *key, ImageID stickImg,
 }
 
 void PSPCustomStick::Draw(UIContext &dc) {
-	float opacity = GetButtonOpacity();
+	float opacity = g_gamepadOpacity;
 	if (opacity <= 0.0f)
 		return;
 
@@ -955,7 +952,6 @@ void GestureGamepad::Draw(UIContext &dc) {
 		dc.Draw()->DrawImage(ImageID("I_CIRCLE"), downX_, downY_, 0.7f, colorBg, ALIGN_CENTER);
 	}
 }
-
 
 void GestureGamepad::Update() {
 	const float th = 1.0f;

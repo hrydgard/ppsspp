@@ -34,12 +34,12 @@ namespace SaveState
 	typedef std::function<void(Status status, const std::string &message, void *cbUserData)> Callback;
 
 	static const int NUM_SLOTS = 5;
-	static const char *STATE_EXTENSION = "ppst";
-	static const char *SCREENSHOT_EXTENSION = "jpg";
-	static const char *UNDO_STATE_EXTENSION = "undo.ppst";
-	static const char *UNDO_SCREENSHOT_EXTENSION = "undo.jpg";
+	static const char * const STATE_EXTENSION = "ppst";
+	static const char * const SCREENSHOT_EXTENSION = "jpg";
+	static const char * const UNDO_STATE_EXTENSION = "undo.ppst";
+	static const char * const UNDO_SCREENSHOT_EXTENSION = "undo.jpg";
 
-	static const char *LOAD_UNDO_NAME = "load_undo.ppst";
+	static const char * const LOAD_UNDO_NAME = "load_undo.ppst";
 
 	void Init();
 	void Shutdown();

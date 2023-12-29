@@ -81,10 +81,6 @@ public:
 	}
 
 protected:
-	float GetButtonOpacity() override {
-		float opacity = g_Config.iTouchButtonOpacity / 100.0f;
-		return std::max(0.5f, opacity);
-	}
 	const Bounds &screenBounds_;
 	float &theScale_;
 	float &x_, &y_;
@@ -116,8 +112,9 @@ public:
 
 	void Draw(UIContext &dc) override {
 		scale_ = theScale_*layoutAreaScale;
-		uint32_t colorBg = colorAlpha(GetButtonColor(), GetButtonOpacity());
-		uint32_t color = colorAlpha(0xFFFFFF, GetButtonOpacity());
+		float opacity = GamepadGetOpacity();
+		uint32_t colorBg = colorAlpha(GetButtonColor(), opacity);
+		uint32_t color = colorAlpha(0xFFFFFF, opacity);
 
 		int centerX = bounds_.centerX();
 		int centerY = bounds_.centerY();
@@ -244,8 +241,9 @@ public:
 
 	void Draw(UIContext &dc) override {
 		scale_ = theScale_*layoutAreaScale;
-		uint32_t colorBg = colorAlpha(GetButtonColor(), GetButtonOpacity());
-		uint32_t color = colorAlpha(0xFFFFFF, GetButtonOpacity());
+		float opacity = GamepadGetOpacity();
+		uint32_t colorBg = colorAlpha(GetButtonColor(), opacity);
+		uint32_t color = colorAlpha(0xFFFFFF, opacity);
 
 		static const float xoff[4] = {1, 0, -1, 0};
 		static const float yoff[4] = {0, 1, 0, -1};
@@ -286,8 +284,9 @@ public:
 	}
 
 	void Draw(UIContext &dc) override {
-		uint32_t colorBg = colorAlpha(GetButtonColor(), GetButtonOpacity());
-		uint32_t downBg = colorAlpha(0x00FFFFFF, GetButtonOpacity() * 0.5f);
+		float opacity = GamepadGetOpacity();
+		uint32_t colorBg = colorAlpha(GetButtonColor(), opacity);
+		uint32_t downBg = colorAlpha(0x00FFFFFF, opacity * 0.5f);
 
 		const ImageID stickImage = g_Config.iTouchButtonStyle ? ImageID("I_STICK_LINE") : ImageID("I_STICK");
 		const ImageID stickBg = g_Config.iTouchButtonStyle ? ImageID("I_STICK_BG_LINE") : ImageID("I_STICK_BG");
@@ -447,6 +446,8 @@ bool ControlLayoutView::Touch(const TouchInput &touch) {
 }
 
 void ControlLayoutView::Draw(UIContext& dc) {
+	float opacity = g_Config.iTouchButtonOpacity / 100.0f;
+	GamepadUpdateOpacity(std::max(0.5f, opacity));
 	using namespace UI;
 	dc.FillRect(Drawable(0x80000000), bounds_);
 	dc.Flush();

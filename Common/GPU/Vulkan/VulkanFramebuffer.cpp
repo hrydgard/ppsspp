@@ -2,7 +2,7 @@
 #include "Common/GPU/Vulkan/VulkanFramebuffer.h"
 #include "Common/GPU/Vulkan/VulkanQueueRunner.h"
 
-static const char *rpTypeDebugNames[] = {
+static const char * const rpTypeDebugNames[] = {
 	"RENDER",
 	"RENDER_DEPTH",
 	"MV_RENDER",

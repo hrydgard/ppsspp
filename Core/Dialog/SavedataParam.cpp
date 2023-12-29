@@ -1092,7 +1092,7 @@ int SavedataParam::BuildHash(unsigned char *output,
 std::string SavedataParam::GetSpaceText(u64 size, bool roundUp)
 {
 	char text[50];
-	static const char *suffixes[] = {"B", "KB", "MB", "GB"};
+	static const char * const suffixes[] = {"B", "KB", "MB", "GB"};
 	for (size_t i = 0; i < ARRAY_SIZE(suffixes); ++i)
 	{
 		if (size < 1024)

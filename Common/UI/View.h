@@ -810,6 +810,38 @@ private:
 	bool choiceStyle_ = false;
 };
 
+class AbstractChoiceWithValueDisplay : public Choice {
+public:
+	AbstractChoiceWithValueDisplay(const std::string &text, LayoutParams *layoutParams = nullptr)
+		: Choice(text, layoutParams) {
+	}
+
+	void Draw(UIContext &dc) override;
+	void GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert, float &w, float &h) const override;
+
+	void SetPasswordDisplay() {
+		passwordDisplay_ = true;
+	}
+
+protected:
+	virtual std::string ValueText() const = 0;
+
+	float CalculateValueScale(const UIContext &dc, const std::string &valueText, float availWidth) const;
+
+	bool passwordDisplay_ = false;
+};
+
+class ChoiceWithCallbackValueDisplay : public AbstractChoiceWithValueDisplay {
+public:
+	ChoiceWithCallbackValueDisplay(const std::string &text, std::function<std::string()> valueFunc, LayoutParams *layoutParams = nullptr)
+		: AbstractChoiceWithValueDisplay(text, layoutParams), valueFunc_(valueFunc) {}
+protected:
+	std::string ValueText() const override {
+		return valueFunc_();
+	}
+	std::function<std::string()> valueFunc_;
+};
+
 class ItemHeader : public Item {
 public:
 	ItemHeader(const std::string &text, LayoutParams *layoutParams = 0);

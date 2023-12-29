@@ -78,7 +78,7 @@ bool GenericLogEnabled(LogLevel level, LogType type) {
 LogManager *LogManager::logManager_ = NULL;
 
 // NOTE: Needs to be kept in sync with the LogType enum.
-static const char *g_logTypeNames[] = {
+static const char * const g_logTypeNames[] = {
 	"SYSTEM",
 	"BOOT",
 	"COMMON",

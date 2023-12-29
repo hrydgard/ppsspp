@@ -679,7 +679,14 @@ void GameSettingsScreen::CreateControlsSettings(UI::ViewGroup *controlsSettings)
 #endif
 
 	if (System_GetPropertyBool(SYSPROP_HAS_ACCELEROMETER)) {
-		Choice *customizeTilt = controlsSettings->Add(new Choice(co->T("Tilt control setup")));
+		// Show the tilt type on the item.
+		Choice *customizeTilt = controlsSettings->Add(new ChoiceWithCallbackValueDisplay(co->T("Tilt control setup"), []() -> std::string {
+			auto co = GetI18NCategory(I18NCat::CONTROLS);
+			if ((u32)g_Config.iTiltInputType < (u32)g_numTiltTypes) {
+				return co->T(g_tiltTypes[g_Config.iTiltInputType]);
+			}
+			return "";
+		}));
 		customizeTilt->OnClick.Handle(this, &GameSettingsScreen::OnTiltCustomize);
 	} else if (System_GetPropertyInt(SYSPROP_DEVICE_TYPE) == DEVICE_TYPE_VR) {  // TODO: This seems like a regression
 		controlsSettings->Add(new CheckBox(&g_Config.bHapticFeedback, co->T("HapticFeedback", "Haptic Feedback (vibration)")));

@@ -263,7 +263,7 @@ const char *MIPSDebugInterface::GetName()
 }
 
 std::string MIPSDebugInterface::GetRegName(int cat, int index) {
-	static const char *regName[32] = {
+	static const char * const regName[32] = {
 		"zero",  "at",    "v0",    "v1",
 		"a0",    "a1",    "a2",    "a3",
 		"t0",    "t1",    "t2",    "t3",
@@ -273,7 +273,7 @@ std::string MIPSDebugInterface::GetRegName(int cat, int index) {
 		"t8",    "t9",    "k0",    "k1",
 		"gp",    "sp",    "fp",    "ra"
 	};
-	static const char *fpRegName[32] = {
+	static const char * const fpRegName[32] = {
 		"f0", "f1", "f2", "f3", "f4", "f5", "f6", "f7",
 		"f8", "f9", "f10", "f11", "f12", "f13", "f14", "f15",
 		"f16", "f16", "f18", "f19", "f20", "f21", "f22", "f23",

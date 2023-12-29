@@ -737,9 +737,9 @@ static void tmFromFiletime(tm &dest, const FILETIME &src) {
 // Hopefully no PSP games read directories after they create files in them...
 static std::string SimulateVFATBug(std::string filename) {
 	// These are the characters allowed in DOS filenames.
-	static const char *FAT_UPPER_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&'(){}-_`~";
-	static const char *FAT_LOWER_CHARS = "abcdefghijklmnopqrstuvwxyz0123456789!@#$%^&'(){}-_`~";
-	static const char *LOWER_CHARS = "abcdefghijklmnopqrstuvwxyz";
+	static const char * const FAT_UPPER_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&'(){}-_`~";
+	static const char * const FAT_LOWER_CHARS = "abcdefghijklmnopqrstuvwxyz0123456789!@#$%^&'(){}-_`~";
+	static const char * const LOWER_CHARS = "abcdefghijklmnopqrstuvwxyz";
 
 	// To avoid logging/comparing, skip all this if it has no lowercase chars to begin with.
 	size_t lowerchar = filename.find_first_of(LOWER_CHARS);

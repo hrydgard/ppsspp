@@ -35,7 +35,7 @@ using namespace PPSSPP_VK;
 
 VulkanLogOptions g_LogOptions;
 
-static const char *validationLayers[] = {
+static const char * const validationLayers[] = {
 	"VK_LAYER_KHRONOS_validation",
 	/*
 	// For layers included in the Android NDK.

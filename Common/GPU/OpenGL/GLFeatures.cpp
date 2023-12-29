@@ -646,7 +646,7 @@ void ResetGLExtensions() {
 	g_all_egl_extensions.clear();
 }
 
-static const char *glsl_fragment_prelude =
+static const char * const glsl_fragment_prelude =
 "#ifdef GL_ES\n"
 "precision mediump float;\n"
 "#endif\n";
