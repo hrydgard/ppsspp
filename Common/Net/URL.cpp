@@ -42,12 +42,14 @@ void Url::Split() {
 
 	size_t sep = url_.find('/', colonSlashSlash + 3);
 	if (sep == std::string::npos) {
-		valid_ = false;
-		return;
+		sep = url_.size();
 	}
 
 	host_ = url_.substr(colonSlashSlash + 3, sep - colonSlashSlash - 3);
 	resource_ = url_.substr(sep);  // include the slash!
+	if (resource_.empty()) {
+		resource_ = "/";  // Assume what was meant was the root.
+	}
 
 	size_t portsep = host_.rfind(':');
 	if (portsep != host_.npos) {
