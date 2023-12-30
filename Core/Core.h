@@ -37,6 +37,8 @@ void Core_SetGraphicsContext(GraphicsContext *ctx);
 // called from gui
 void Core_EnableStepping(bool step, const char *reason = nullptr, u32 relatedAddress = 0);
 
+bool Core_ShouldRunBehind();
+
 bool Core_NextFrame();
 void Core_DoSingleStep();
 void Core_UpdateSingleStep();

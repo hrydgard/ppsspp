@@ -102,6 +102,10 @@ void Core_Stop() {
 	}
 }
 
+bool Core_ShouldRunBehind() {
+	return g_Config.bRunBehindPauseMenu;
+}
+
 bool Core_IsStepping() {
 	return coreState == CORE_STEPPING || coreState == CORE_POWERDOWN;
 }
