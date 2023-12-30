@@ -1448,11 +1448,11 @@ static void DrawFPS(UIContext *ctx, const Bounds &bounds) {
 
 bool EmuScreen::canBeBackground(bool isTop) const {
 	if (g_Config.bSkipBufferEffects) {
-		return isTop || (g_Config.bTransparentBackground && g_Config.bRunBehindPauseMenu);
+		return isTop || (g_Config.bTransparentBackground && Core_ShouldRunBehind());
 	}
 
 	if (!g_Config.bTransparentBackground && !isTop) {
-		if (g_Config.bRunBehindPauseMenu || screenManager()->topScreen()->wantBrightBackground())
+		if (Core_ShouldRunBehind() || screenManager()->topScreen()->wantBrightBackground())
 			return true;
 		return false;
 	}
@@ -1513,7 +1513,7 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 
 	if (mode & ScreenRenderMode::TOP) {
 		System_Notify(SystemNotification::KEEP_SCREEN_AWAKE);
-	} else if (!g_Config.bRunBehindPauseMenu && strcmp(screenManager()->topScreen()->tag(), "DevMenu") != 0) {
+	} else if (!Core_ShouldRunBehind() && strcmp(screenManager()->topScreen()->tag(), "DevMenu") != 0) {
 		// Not on top. Let's not execute, only draw the image.
 		draw->BindFramebufferAsRenderTarget(nullptr, { RPAction::CLEAR, RPAction::DONT_CARE, RPAction::DONT_CARE }, "EmuScreen_Stepping");
 		// Just to make sure.

@@ -41,6 +41,7 @@
 #include "Core/Debugger/Breakpoints.h"
 #include "Core/HW/Display.h"
 #include "Core/MIPS/MIPS.h"
+#include "Core/HLE/sceNetAdhoc.h"
 #include "GPU/Debugger/Stepping.h"
 
 #ifdef _WIN32
@@ -100,6 +101,11 @@ void Core_Stop() {
 	for (auto func : stopFuncs) {
 		func();
 	}
+}
+
+bool Core_ShouldRunBehind() {
+	// Enforce run-behind if ad-hoc connected
+	return g_Config.bRunBehindPauseMenu || __NetAdhocConnected();
 }
 
 bool Core_IsStepping() {
