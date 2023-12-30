@@ -16,6 +16,7 @@
 #include "Common/Thread/Promise.h"
 #include "Common/System/Display.h"
 #include "Common/GPU/Vulkan/VulkanContext.h"
+#include "Common/GPU/Vulkan/VulkanBarrier.h"
 #include "Common/Data/Convert/SmallDataConvert.h"
 #include "Common/Data/Collections/FastVec.h"
 #include "Common/Math/math_util.h"
@@ -535,6 +536,12 @@ public:
 		return outOfDateFrames_ > VulkanContext::MAX_INFLIGHT_FRAMES;
 	}
 
+	void Invalidate(InvalidationFlags flags);
+
+	VulkanBarrierBatch &PostInitBarrier() {
+		return postInitBarrier_;
+	}
+
 	void ResetStats();
 	void DrainAndBlockCompileQueue();
 	void ReleaseCompileQueue();
@@ -625,6 +632,8 @@ private:
 	SimpleStat totalGPUTimeMs_;
 	SimpleStat renderCPUTimeMs_;
 	SimpleStat descUpdateTimeMs_;
+
+	VulkanBarrierBatch postInitBarrier_;
 
 	std::function<void(InvalidationCallbackFlags)> invalidationCallback_;
 

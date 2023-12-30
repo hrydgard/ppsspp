@@ -230,7 +230,7 @@ public:
 
 	// Swapchain
 	void DestroyBackBuffers();
-	bool CreateSwapchain(VkCommandBuffer cmdInit);
+	bool CreateSwapchain(VkCommandBuffer cmdInit, VulkanBarrierBatch *barriers);
 
 	bool HasBackbuffers() const {
 		return !framebuffers_.empty();
@@ -277,7 +277,7 @@ public:
 
 private:
 	bool InitBackbufferFramebuffers(int width, int height);
-	bool InitDepthStencilBuffer(VkCommandBuffer cmd);  // Used for non-buffered rendering.
+	bool InitDepthStencilBuffer(VkCommandBuffer cmd, VulkanBarrierBatch *barriers);  // Used for non-buffered rendering.
 
 	VKRRenderPass *PerformBindFramebufferAsRenderTarget(const VKRStep &pass, VkCommandBuffer cmd);
 	void PerformRenderPass(const VKRStep &pass, VkCommandBuffer cmd, int curFrame, QueueProfileContext &profile);

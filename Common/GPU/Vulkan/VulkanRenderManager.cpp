@@ -291,7 +291,7 @@ bool VulkanRenderManager::CreateBackbuffers() {
 
 	VkCommandBuffer cmdInit = GetInitCmd();
 
-	if (!queueRunner_.CreateSwapchain(cmdInit)) {
+	if (!queueRunner_.CreateSwapchain(cmdInit, &postInitBarrier_)) {
 		return false;
 	}
 
@@ -1411,6 +1411,11 @@ void VulkanRenderManager::Finish() {
 	int curFrame = vulkan_->GetCurFrame();
 	FrameData &frameData = frameData_[curFrame];
 
+	if (!postInitBarrier_.empty()) {
+		VkCommandBuffer buffer = frameData.GetInitCmd(vulkan_);
+		postInitBarrier_.Flush(buffer);
+	}
+
 	VLOG("PUSH: Frame[%d]", curFrame);
 	VKRRenderThreadTask *task = new VKRRenderThreadTask(VKRRunType::SUBMIT);
 	task->frame = curFrame;
@@ -1561,7 +1566,12 @@ void VulkanRenderManager::FlushSync() {
 
 	int curFrame = vulkan_->GetCurFrame();
 	FrameData &frameData = frameData_[curFrame];
-	
+
+	if (!postInitBarrier_.empty()) {
+		VkCommandBuffer buffer = frameData.GetInitCmd(vulkan_);
+		postInitBarrier_.Flush(buffer);
+	}
+
 	if (useRenderThread_) {
 		{
 			VLOG("PUSH: Frame[%d]", curFrame);
@@ -1584,11 +1594,10 @@ void VulkanRenderManager::FlushSync() {
 			frameData.syncDone = false;
 		}
 	} else {
-		VKRRenderThreadTask *task = new VKRRenderThreadTask(VKRRunType::SYNC);
-		task->frame = curFrame;
-		task->steps = std::move(steps_);
-		Run(*task);
-		delete task;
+		VKRRenderThreadTask task(VKRRunType::SYNC);
+		task.frame = curFrame;
+		task.steps = std::move(steps_);
+		Run(task);
 		steps_.clear();
 	}
 }
