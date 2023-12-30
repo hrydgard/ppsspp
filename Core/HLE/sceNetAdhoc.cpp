@@ -127,7 +127,7 @@ static int sceNetAdhocPdpSend(int id, const char* mac, u32 port, void* data, int
 static int sceNetAdhocPdpRecv(int id, void* addr, void* port, void* buf, void* dataLength, u32 timeout, int flag);
 
 bool __NetAdhocConnected() {
-	return netAdhocInited && netAdhocctlInited && adhocctlState == ADHOCCTL_STATE_CONNECTED;
+	return netAdhocInited && netAdhocctlInited && (adhocctlState == ADHOCCTL_STATE_CONNECTED || adhocctlState == ADHOCCTL_STATE_GAMEMODE);
 }
 
 void __NetAdhocShutdown() {
