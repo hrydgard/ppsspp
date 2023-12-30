@@ -77,6 +77,10 @@ bool HTTPSRequest::Done() {
 
 	// -1000 is a code specified by us to represent cancellation, that is unlikely to ever collide with naett error codes.
 	resultCode_ = IsCancelled() ? -1000 : naettGetStatus(res_);
+	int bodyLength;
+	const void *body = naettGetBody(res_, &bodyLength);
+	char *dest = buffer_.Append(bodyLength);
+	memcpy(dest, body, bodyLength);
 	if (resultCode_ < 0) {
 		// It's a naett error. Translate and handle.
 		switch (resultCode_) {
@@ -100,12 +104,8 @@ bool HTTPSRequest::Done() {
 			break;
 		}
 		failed_ = true;
-		progress_.Update(0, 0, true);
+		progress_.Update(bodyLength, bodyLength, true);
 	} else if (resultCode_ == 200) {
-		int bodyLength;
-		const void *body = naettGetBody(res_, &bodyLength);
-		char *dest = buffer_.Append(bodyLength);
-		memcpy(dest, body, bodyLength);
 		if (!outfile_.empty() && !buffer_.FlushToFile(outfile_)) {
 			ERROR_LOG(IO, "Failed writing download to '%s'", outfile_.c_str());
 		}
