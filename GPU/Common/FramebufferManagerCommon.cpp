@@ -441,9 +441,18 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(Framebuffer
 					drawing_width += x_offset;
 					break;
 				}
-			} else {
-				// We ignore this match.
-				// TODO: We can allow X/Y overlaps too, but haven't seen any so safer to not.
+			} else if (PSP_CoreParameter().compat.flags().FramebufferAllowLargeVerticalOffset && params.fb_address > v->fb_address && v->fb_stride > 0 && (params.fb_address - v->fb_address) % v->FbStrideInBytes() == 0) {
+				int y_offset = (params.fb_address - v->fb_address) / v->FbStrideInBytes();
+				if (y_offset <= v->bufferHeight) {  // note: v->height is misdetected as 256 instead of 272 here in tokimeki. Note that 272 is just the height of the upper part, it's supersampling vertically.
+					vfb = v;
+					WARN_LOG_REPORT_ONCE(tokimeki, FRAMEBUF, "Detected FBO at Y offset %d of %08x: %08x", y_offset, v->fb_address, params.fb_address);
+					gstate_c.SetCurRTOffset(0, y_offset);
+					vfb->height = std::max((int)vfb->height, y_offset + drawing_height);
+					drawing_height += y_offset;
+					// We ignore this match.
+					// TODO: We can allow X/Y overlaps too, but haven't seen any so safer to not.
+					break;
+				}
 			}
 		}
 	}
