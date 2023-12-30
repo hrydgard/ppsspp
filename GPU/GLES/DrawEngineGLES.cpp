@@ -392,8 +392,6 @@ void DrawEngineGLES::DoFlush() {
 		// Games sometimes expect exact matches (see #12626, for example) for equal comparisons.
 		if (result.action == SW_CLEAR && everUsedEqualDepth_ && gstate.isClearModeDepthMask() && result.depth > 0.0f && result.depth < 1.0f)
 			result.action = SW_NOT_READY;
-		if (result.action == SW_NOT_READY)
-			swTransform.DetectOffsetTexture(numDecodedVerts_);
 
 		if (textureNeedsApply)
 			textureCache_->ApplyTexture();
