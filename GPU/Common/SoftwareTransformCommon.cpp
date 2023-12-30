@@ -179,7 +179,8 @@ void SoftwareTransform::Transform(int prim, u32 vertType, const DecVtxFormat &de
 
 	float uscale = 1.0f;
 	float vscale = 1.0f;
-	if (throughmode) {
+	if (throughmode && prim != GE_PRIM_RECTANGLES) {
+		// For through rectangles, we do this scaling in Expand.
 		uscale /= gstate_c.curTextureWidth;
 		vscale /= gstate_c.curTextureHeight;
 	}
@@ -621,6 +622,14 @@ void SoftwareTransform::ExpandRectangles(int vertexCount, int &maxIndex, u16 *&i
 	u16 *indsOut = newInds;
 
 	maxIndex = 4 * (vertexCount / 2);
+
+	float uscale = 1.0f;
+	float vscale = 1.0f;
+	if (throughmode) {
+		uscale /= gstate_c.curTextureWidth;
+		vscale /= gstate_c.curTextureHeight;
+	}
+
 	for (int i = 0; i < vertexCount; i += 2) {
 		const TransformedVertex &transVtxTL = transformed[indsIn[i + 0]];
 		const TransformedVertex &transVtxBR = transformed[indsIn[i + 1]];
@@ -630,23 +639,27 @@ void SoftwareTransform::ExpandRectangles(int vertexCount, int &maxIndex, u16 *&i
 
 		// bottom right
 		trans[0] = transVtxBR;
+		trans[0].u = transVtxBR.u * uscale;
+		trans[0].v = transVtxBR.v * vscale;
 
 		// top right
 		trans[1] = transVtxBR;
 		trans[1].y = transVtxTL.y;
-		trans[1].v = transVtxTL.v;
+		trans[1].u = transVtxBR.u * uscale;
+		trans[1].v = transVtxTL.v * vscale;
 
 		// top left
 		trans[2] = transVtxBR;
 		trans[2].x = transVtxTL.x;
 		trans[2].y = transVtxTL.y;
-		trans[2].u = transVtxTL.u;
-		trans[2].v = transVtxTL.v;
+		trans[2].u = transVtxTL.u * uscale;
+		trans[2].v = transVtxTL.v * vscale;
 
 		// bottom left
 		trans[3] = transVtxBR;
 		trans[3].x = transVtxTL.x;
-		trans[3].u = transVtxTL.u;
+		trans[3].u = transVtxTL.u * uscale;
+		trans[3].v = transVtxBR.v * vscale;
 
 		// That's the four corners. Now process UV rotation.
 		if (throughmode) {
