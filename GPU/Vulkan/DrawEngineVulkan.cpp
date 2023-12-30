@@ -440,7 +440,9 @@ void DrawEngineVulkan::DoFlush() {
 		// to use a "pre-clear" render pass, for high efficiency on tilers.
 		if (result.action == SW_DRAW_PRIMITIVES) {
 			if (textureNeedsApply) {
+				gstate_c.pixelMapped = result.pixelMapped;
 				textureCache_->ApplyTexture();
+				gstate_c.pixelMapped = false;
 				textureCache_->GetVulkanHandles(imageView, sampler);
 				if (imageView == VK_NULL_HANDLE)
 					imageView = (VkImageView)draw_->GetNativeObject(gstate_c.textureIsArray ? Draw::NativeObject::NULL_IMAGEVIEW_ARRAY : Draw::NativeObject::NULL_IMAGEVIEW);

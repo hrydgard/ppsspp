@@ -689,6 +689,9 @@ public:
 	// We detect this case and go into a special drawing mode.
 	bool blueToAlpha;
 
+	// U/V is 1:1 to pixels. Can influence texture sampling.
+	bool pixelMapped;
+
 	// TODO: These should be accessed from the current VFB object directly.
 	u32 curRTWidth;
 	u32 curRTHeight;

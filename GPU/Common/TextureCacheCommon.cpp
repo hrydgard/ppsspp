@@ -284,6 +284,9 @@ SamplerCacheKey TextureCacheCommon::GetSamplingParams(int maxLevel, const TexCac
 			break;
 		}
 	}
+	if (gstate_c.pixelMapped) {
+		forceFiltering = TEX_FILTER_FORCE_NEAREST;
+	}
 
 	switch (forceFiltering) {
 	case TEX_FILTER_AUTO:
