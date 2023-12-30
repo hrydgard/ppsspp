@@ -45,6 +45,8 @@ struct SoftwareTransformResult {
 	TransformedVertex *drawBuffer;
 	int drawNumTrans;
 	bool drawIndexed;
+
+	bool pixelMapped;
 };
 
 struct SoftwareTransformParams {
@@ -70,7 +72,7 @@ public:
 
 protected:
 	void CalcCullParams(float &minZValue, float &maxZValue);
-	void ExpandRectangles(int vertexCount, int &maxIndex, u16 *&inds, const TransformedVertex *transformed, TransformedVertex *transformedExpanded, int &numTrans, bool throughmode);
+	void ExpandRectangles(int vertexCount, int &maxIndex, u16 *&inds, const TransformedVertex *transformed, TransformedVertex *transformedExpanded, int &numTrans, bool throughmode, bool *pixelMappedExactly);
 	void ExpandLines(int vertexCount, int &maxIndex, u16 *&inds, const TransformedVertex *transformed, TransformedVertex *transformedExpanded, int &numTrans, bool throughmode);
 	void ExpandPoints(int vertexCount, int &maxIndex, u16 *&inds, const TransformedVertex *transformed, TransformedVertex *transformedExpanded, int &numTrans, bool throughmode);
 

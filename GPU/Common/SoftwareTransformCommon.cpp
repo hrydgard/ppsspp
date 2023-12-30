@@ -497,7 +497,7 @@ void SoftwareTransform::BuildDrawingParams(int prim, int vertexCount, u32 vertTy
 	bool useBufferedRendering = fbman->UseBufferedRendering();
 
 	if (prim == GE_PRIM_RECTANGLES) {
-		ExpandRectangles(vertexCount, maxIndex, inds, transformed, transformedExpanded, numTrans, throughmode);
+		ExpandRectangles(vertexCount, maxIndex, inds, transformed, transformedExpanded, numTrans, throughmode, &result->pixelMapped);
 		result->drawBuffer = transformedExpanded;
 		result->drawIndexed = true;
 
@@ -518,14 +518,17 @@ void SoftwareTransform::BuildDrawingParams(int prim, int vertexCount, u32 vertTy
 		ExpandPoints(vertexCount, maxIndex, inds, transformed, transformedExpanded, numTrans, throughmode);
 		result->drawBuffer = transformedExpanded;
 		result->drawIndexed = true;
+		result->pixelMapped = false;
 	} else if (prim == GE_PRIM_LINES) {
 		ExpandLines(vertexCount, maxIndex, inds, transformed, transformedExpanded, numTrans, throughmode);
 		result->drawBuffer = transformedExpanded;
 		result->drawIndexed = true;
+		result->pixelMapped = false;
 	} else {
 		// We can simply draw the unexpanded buffer.
 		numTrans = vertexCount;
 		result->drawIndexed = true;
+		result->pixelMapped = false;
 
 		// If we don't support custom cull in the shader, process it here.
 		if (!gstate_c.Use(GPU_USE_CULL_DISTANCE) && vertexCount > 0 && !throughmode) {
@@ -611,7 +614,7 @@ void SoftwareTransform::CalcCullParams(float &minZValue, float &maxZValue) {
 		std::swap(minZValue, maxZValue);
 }
 
-void SoftwareTransform::ExpandRectangles(int vertexCount, int &maxIndex, u16 *&inds, const TransformedVertex *transformed, TransformedVertex *transformedExpanded, int &numTrans, bool throughmode) {
+void SoftwareTransform::ExpandRectangles(int vertexCount, int &maxIndex, u16 *&inds, const TransformedVertex *transformed, TransformedVertex *transformedExpanded, int &numTrans, bool throughmode, bool *pixelMappedExactly) {
 	// Rectangles always need 2 vertices, disregard the last one if there's an odd number.
 	vertexCount = vertexCount & ~1;
 	numTrans = 0;
@@ -630,9 +633,20 @@ void SoftwareTransform::ExpandRectangles(int vertexCount, int &maxIndex, u16 *&i
 		vscale /= gstate_c.curTextureHeight;
 	}
 
+	bool pixelMapped = true;
+
 	for (int i = 0; i < vertexCount; i += 2) {
 		const TransformedVertex &transVtxTL = transformed[indsIn[i + 0]];
 		const TransformedVertex &transVtxBR = transformed[indsIn[i + 1]];
+
+		float dx = transVtxBR.x - transVtxTL.x;
+		float dy = transVtxBR.y - transVtxTL.y;
+		float du = transVtxBR.u - transVtxTL.u;
+		float dv = transVtxBR.v - transVtxTL.v;
+
+		if (dx <= 0 || dy <= 0 || dx != du || dy != dv) {
+			pixelMapped = false;
+		}
 
 		// We have to turn the rectangle into two triangles, so 6 points.
 		// This is 4 verts + 6 indices.
@@ -676,12 +690,14 @@ void SoftwareTransform::ExpandRectangles(int vertexCount, int &maxIndex, u16 *&i
 		indsOut[3] = i * 2 + 3;
 		indsOut[4] = i * 2 + 0;
 		indsOut[5] = i * 2 + 2;
+
 		trans += 4;
 		indsOut += 6;
 
 		numTrans += 6;
 	}
 	inds = newInds;
+	*pixelMappedExactly = pixelMapped;
 }
 
 void SoftwareTransform::ExpandLines(int vertexCount, int &maxIndex, u16 *&inds, const TransformedVertex *transformed, TransformedVertex *transformedExpanded, int &numTrans, bool throughmode) {
