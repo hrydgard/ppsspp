@@ -1535,7 +1535,9 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 
 		// It's possible this might be set outside PSP_RunLoopFor().
 		// In this case, we need to double check it here.
-		checkPowerDown();
+		if (mode & ScreenRenderMode::TOP) {
+			checkPowerDown();
+		}
 		draw->BindFramebufferAsRenderTarget(nullptr, { RPAction::CLEAR, RPAction::CLEAR, RPAction::CLEAR }, "EmuScreen_Invalid");
 		draw->SetViewport(viewport);
 		draw->SetScissorRect(0, 0, g_display.pixel_xres, g_display.pixel_yres);
@@ -1621,6 +1623,9 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 		darken();
 		return flags;
 	}
+
+	// NOTE: We don't check for powerdown if we're not the top screen.
+	checkPowerDown();
 
 	if (hasVisibleUI()) {
 		// In most cases, this should already be bound and a no-op.
