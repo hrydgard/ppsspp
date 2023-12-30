@@ -644,7 +644,9 @@ void SoftwareTransform::ExpandRectangles(int vertexCount, int &maxIndex, u16 *&i
 		float du = transVtxBR.u - transVtxTL.u;
 		float dv = transVtxBR.v - transVtxTL.v;
 
-		if (dx <= 0 || dy <= 0 || dx != du || dy != dv) {
+		// NOTE: We will accept it as pixel mapped if only one dimension is stretched. This fixes dialog frames in FFI.
+		// Though, there could be false positives in other games due to this. Let's see if it is a problem...
+		if (dx <= 0 || dy <= 0 || (dx != du && dy != dv)) {
 			pixelMapped = false;
 		}
 
