@@ -21,11 +21,11 @@
 #include "Common/CommonTypes.h"
 #include "Core/Loaders.h"  // for IdentifiedFileType
 
-#include "ext/rcheevos/include/rc_client.h"
-
 class Path;
 class PointerWrap;
 class FileLoader;
+
+struct rc_client_t;
 
 namespace Achievements {
 

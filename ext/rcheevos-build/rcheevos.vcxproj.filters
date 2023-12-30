@@ -152,8 +152,8 @@
     <ClInclude Include="..\rcheevos\src\rc_compat.h">
       <Filter>rcheevos</Filter>
     </ClInclude>
-    <ClInclude Include="..\rcheevos\src\rc_util.h">
-      <Filter>rcheevos</Filter>
+    <ClInclude Include="..\rcheevos\include\rc_util.h">
+      <Filter>include</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>
