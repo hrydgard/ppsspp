@@ -104,6 +104,8 @@ void __NetAdhocDoState(PointerWrap &p);
 void __UpdateAdhocctlHandlers(u32 flags, u32 error);
 void __UpdateMatchingHandler(const MatchingArgs &params);
 
+bool __NetAdhocConnected();
+
 // I have to call this from netdialog
 int sceNetAdhocctlGetState(u32 ptrToStatus);
 int sceNetAdhocctlCreate(const char * groupName);
