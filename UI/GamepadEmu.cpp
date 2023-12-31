@@ -43,12 +43,12 @@ static float g_gamepadOpacity;
 static double g_lastTouch;
 
 void GamepadUpdateOpacity(float force) {
-	if (coreState != CORE_RUNNING) {
-		g_gamepadOpacity = 0.0f;
-		return;
-	}
 	if (force >= 0.0f) {
 		g_gamepadOpacity = force;
+		return;
+	}
+	if (coreState != CORE_RUNNING) {
+		g_gamepadOpacity = 0.0f;
 		return;
 	}
 
