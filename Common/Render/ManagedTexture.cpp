@@ -229,6 +229,7 @@ void ManagedTexture::DeviceLost() {
 	INFO_LOG(G3D, "ManagedTexture::DeviceLost(%s)", filename_.c_str());
 	if (taskWaitable_) {
 		taskWaitable_->WaitAndRelease();
+		taskWaitable_ = nullptr;
 		pendingImage_.Free();
 	}
 	if (texture_)
