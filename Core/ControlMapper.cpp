@@ -109,13 +109,23 @@ static bool IsSignedAxis(int axis) {
 }
 
 // This is applied on the circular radius, not directly on the axes.
+// TODO: Share logic with tilt?
+
 static float MapAxisValue(float v) {
 	const float deadzone = g_Config.fAnalogDeadzone;
 	const float invDeadzone = g_Config.fAnalogInverseDeadzone;
 	const float sensitivity = g_Config.fAnalogSensitivity;
 	const float sign = v >= 0.0f ? 1.0f : -1.0f;
 
-	return sign * Clamp(invDeadzone + (fabsf(v) - deadzone) / (1.0f - deadzone) * (sensitivity - invDeadzone), 0.0f, 1.0f);
+	// Apply deadzone.
+	v = Clamp((fabsf(v) - deadzone) / (1.0f - deadzone), 0.0f, 1.0f);
+
+	// Apply sensitivity and inverse deadzone.
+	if (v != 0.0f) {
+		v = Clamp(invDeadzone + v * (sensitivity - invDeadzone), 0.0f, 1.0f);
+	}
+
+	return sign * v;
 }
 
 void ConvertAnalogStick(float x, float y, float *outX, float *outY) {
