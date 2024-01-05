@@ -67,7 +67,6 @@ static int sceUsbGpsGetState(u32 stateAddr) {
 }
 
 static int sceUsbGpsOpen() {
-	ERROR_LOG(HLE, "UNIMPL sceUsbGpsOpen");
 	GPS::init();
 	gpsStatus = GPS_STATE_ON;
 	System_GPSCommand("open");
@@ -75,7 +74,6 @@ static int sceUsbGpsOpen() {
 }
 
 static int sceUsbGpsClose() {
-	ERROR_LOG(HLE, "UNIMPL sceUsbGpsClose");
 	gpsStatus = GPS_STATE_OFF;
 	System_GPSCommand("close");
 	return 0;
@@ -131,14 +129,15 @@ void GPS::init() {
 	gpsData.altitude  = 19.0f;
 	gpsData.speed     = 3.0f;
 	gpsData.bearing   = 35.0f;
+	gpsData.garbage2  = 513;
 
-	satData.satellites_in_view = 6;
+	satData.satellites_in_view = 12;
 	for (unsigned char i = 0; i < satData.satellites_in_view; i++) {
 		satData.satInfo[i].id = i + 1; // 1 .. 32
-		satData.satInfo[i].elevation = i * 10;
-		satData.satInfo[i].azimuth = i * 50;
-		satData.satInfo[i].snr = 0;
-		satData.satInfo[i].good = 1;
+		satData.satInfo[i].elevation = 20;
+		satData.satInfo[i].azimuth = i * (360/satData.satellites_in_view);
+		satData.satInfo[i].snr = 45;
+		satData.satInfo[i].good = !!(i % 3);
 	}
 }
 
