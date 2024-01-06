@@ -48,6 +48,10 @@ void __UsbGpsDoState(PointerWrap &p) {
 		return;
 
 	Do(p, gpsStatus);
+	if (gpsStatus == GPS_STATE_ON) {
+		GPS::init();
+		System_GPSCommand("open");
+	}
 }
 
 void __UsbGpsShutdown() {
