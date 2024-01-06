@@ -36,7 +36,12 @@ enum GpsStatus {
 	GPS_STATE_ON = 3,
 };
 
+constexpr int AUTO_UPDATE_GPSTIME = 10;
+
 GpsStatus gpsStatus = GPS_STATE_OFF;
+GpsData gpsData;
+SatData satData;
+time_t lastGPSTime;
 
 void __UsbGpsInit() {
 	gpsStatus = GPS_STATE_OFF;
@@ -84,6 +89,15 @@ static int sceUsbGpsClose() {
 }
 
 static int sceUsbGpsGetData(u32 gpsDataAddr, u32 satDataAddr) {
+	time_t currentTime;
+	time(&currentTime);
+	if (difftime(currentTime, lastGPSTime) > AUTO_UPDATE_GPSTIME)
+	{
+		/* Simulate fresh updates to satisfy MAPLUS 1/2 apps
+		 * when real GPS data isn't available */
+		GPS::setGpsTime(&currentTime);
+	}
+
 	auto gpsData = PSPPointer<GpsData>::Create(gpsDataAddr);
 	if (gpsData.IsValid()) {
 		*gpsData = *GPS::getGpsData();
@@ -118,9 +132,6 @@ void Register_sceUsbGps()
 {
 	RegisterModule("sceUsbGps", ARRAY_SIZE(sceUsbGps), sceUsbGps);
 }
-
-GpsData gpsData;
-SatData satData;
 
 void GPS::init() {
 	time_t currentTime;
@@ -158,6 +169,7 @@ void GPS::setGpsTime(time_t *time) {
 }
 
 void GPS::setGpsData(long long gpsTime, float hdop, float latitude, float longitude, float altitude, float speed, float bearing) {
+	lastGPSTime = gpsTime;
 	setGpsTime((time_t*)&gpsTime);
 
 	gpsData.hdop      = hdop;
