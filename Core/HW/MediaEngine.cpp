@@ -42,6 +42,11 @@ extern "C" {
 #endif // USE_FFMPEG
 
 #ifdef USE_FFMPEG
+
+#if LIBAVFORMAT_VERSION_INT >= AV_VERSION_INT(59, 16, 100)
+#define AVCodec const AVCodec
+#endif
+
 static AVPixelFormat getSwsFormat(int pspFormat)
 {
 	switch (pspFormat)
@@ -394,7 +399,7 @@ bool MediaEngine::addVideoStream(int streamNum, int streamId) {
 		// no need to add an existing stream.
 		if ((u32)streamNum < m_pFormatCtx->nb_streams)
 			return true;
-		const AVCodec *h264_codec = avcodec_find_decoder(AV_CODEC_ID_H264);
+		AVCodec *h264_codec = avcodec_find_decoder(AV_CODEC_ID_H264);
 		if (!h264_codec)
 			return false;
 		AVStream *stream = avformat_new_stream(m_pFormatCtx, h264_codec);
@@ -409,14 +414,20 @@ bool MediaEngine::addVideoStream(int streamNum, int streamId) {
 			stream->codecpar->codec_id = AV_CODEC_ID_H264;
 #else
 			stream->request_probe = 0;
-#endif
 			stream->need_parsing = AVSTREAM_PARSE_FULL;
+#endif
 			// We could set the width here, but we don't need to.
 			if (streamNum >= m_expectedVideoStreams) {
 				++m_expectedVideoStreams;
 			}
 
-			m_codecsToClose.push_back(stream->codec);
+#if LIBAVFORMAT_VERSION_INT >= AV_VERSION_INT(59, 16, 100)
+			AVCodec *codec = avcodec_find_decoder(stream->codecpar->codec_id);
+			AVCodecContext *codecCtx = avcodec_alloc_context3(codec);
+#else
+			AVCodecContext *codecCtx = stream->codec;
+#endif
+			m_codecsToClose.push_back(codecCtx);
 			return true;
 		}
 	}

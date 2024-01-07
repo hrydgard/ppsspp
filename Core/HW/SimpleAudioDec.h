@@ -27,6 +27,18 @@ struct AVCodec;
 struct AVCodecContext;
 struct SwrContext;
 
+#ifdef USE_FFMPEG
+
+extern "C" {
+#include "libavutil/version.h"
+};
+
+#if LIBAVFORMAT_VERSION_INT >= AV_VERSION_INT(59, 16, 100)
+#define AVCodec const AVCodec
+#endif
+
+#endif
+
 // Wraps FFMPEG for audio decoding in a nice interface.
 // Decodes packet by packet - does NOT demux.
 

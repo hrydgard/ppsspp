@@ -126,7 +126,13 @@ extern "C" {
 #include "libavformat/avformat.h"
 #include "libswresample/swresample.h"
 #include "libavutil/samplefmt.h"
+#include "libavcodec/avcodec.h"
+#include "libavutil/version.h"
 }
+
+#if LIBAVFORMAT_VERSION_INT >= AV_VERSION_INT(59, 16, 100)
+#define AVCodec const AVCodec
+#endif
 
 #endif // USE_FFMPEG
 
@@ -1858,7 +1864,7 @@ int __AtracSetContext(Atrac *atrac) {
 		atrac->ReleaseFFMPEGContext();
 	}
 
-	const AVCodec *codec = avcodec_find_decoder(ff_codec);
+	AVCodec *codec = avcodec_find_decoder(ff_codec);
 	atrac->codecCtx_ = avcodec_alloc_context3(codec);
 
 	if (atrac->codecType_ == PSP_MODE_AT_3) {

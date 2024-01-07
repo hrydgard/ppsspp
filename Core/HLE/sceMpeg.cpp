@@ -111,7 +111,11 @@ extern "C" {
 #include "libavformat/avformat.h"
 #include "libavutil/imgutils.h"
 #include "libswscale/swscale.h"
+#include "libavcodec/avcodec.h"
 }
+#if LIBAVFORMAT_VERSION_INT >= AV_VERSION_INT(59, 16, 100)
+#define AVCodec const AVCodec
+#endif
 static AVPixelFormat pmp_want_pix_fmt;
 
 #endif
