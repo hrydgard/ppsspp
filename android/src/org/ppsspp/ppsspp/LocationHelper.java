@@ -17,6 +17,9 @@ import java.util.Iterator;
 
 class LocationHelper implements LocationListener {
 	private static final String TAG = LocationHelper.class.getSimpleName();
+	private static final int GPGGA_ID_INDEX = 0;
+	private static final int GPGGA_HDOP_INDEX = 8;
+	private static final int GPGGA_ALTITUDE_INDEX = 9;
 	private LocationManager mLocationManager;
 	private boolean mLocationEnable;
 	private GpsStatus.Listener mGpsStatusListener;
@@ -190,14 +193,14 @@ class LocationHelper implements LocationListener {
 
 	private void onNmea(String nmea) {
 		String[] tokens = nmea.split(",");
-		if (tokens.length < 10 || !tokens[0].equals("$GPGGA")) {
+		if (tokens.length < 10 || !tokens[GPGGA_ID_INDEX].equals("$GPGGA")) {
 			return;
 		}
-		if (!tokens[8].isEmpty()) {
-			mHdop = Float.valueOf(tokens[8]);
+		if (!tokens[GPGGA_HDOP_INDEX].isEmpty()) {
+			mHdop = Float.valueOf(tokens[GPGGA_HDOP_INDEX]);
 		}
-		if (!tokens[9].isEmpty()) {
-			mAltitudeAboveSeaLevel = Float.valueOf(tokens[9]);
+		if (!tokens[GPGGA_ALTITUDE_INDEX].isEmpty()) {
+			mAltitudeAboveSeaLevel = Float.valueOf(tokens[GPGGA_ALTITUDE_INDEX]);
 		}
 	}
 }
