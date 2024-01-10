@@ -13,7 +13,7 @@ Discord: https://discord.gg/5NJB6dD
 
 No BIOS file required to play, PPSSPP is an "HLE" emulator.  Default settings balance good compatibility and speed.
 
-To contribute, see [the development page](https://www.ppsspp.org/development.html).  Help testing, investigating, or fixing is always welcome.  See [the list of issues](https://github.com/hrydgard/ppsspp/issues).
+To contribute, see [the development page](https://www.ppsspp.org/docs/development/).  Help testing, investigating, or fixing is always welcome.  See [the list of issues](https://github.com/hrydgard/ppsspp/issues).
 
 For the latest source code, see [our GitHub page](https://github.com/hrydgard/ppsspp).
 
@@ -26,7 +26,7 @@ If you want to download regularly updated builds for Android, Windows x86 and x6
 For game compatibility, see [community compatibility feedback](https://report.ppsspp.org/games).
 
 What's new in 1.16.6
-====================
+--------------------
 - Fix performance issue with Vulkan descriptor set allocation ([#18332])
 - Smoother loading of replacement textures
 - Fix the store on iOS ([#18323])
@@ -35,7 +35,7 @@ What's new in 1.16.6
 - Other minor fixes
 
 What's new in 1.16.5
-====================
+--------------------
 - Additional crash and memory-leak fixes ([#18243], [#18244], [#18247])
 - Revert bad change that broke things with hardware transform turned off ([#18261])
 - Fix menu texture problem in Naruto Kizuna Drive in OpenGL ([#18255])
@@ -44,7 +44,7 @@ What's new in 1.16.5
 - Fix for jumpy graphics in Harvest Moon ([#18249])
 
 What's new in 1.16.4
-====================
+--------------------
 - Simplify shader cache lookups on Vulkan, hopefully fixing some crashes ([#18218])
 - Assorted improvements to the IR JITs ([#18228], [#18235], [#18211], more)
 - Other crash and stability fixes ([#18221], [#18220], [#18230], [#18216])
@@ -52,14 +52,14 @@ What's new in 1.16.4
 - Cleanups and assert fixes ([#18205], [#18201], [#18206])
 
 What's new in 1.16.3
-====================
+--------------------
 - Fix crash bug and performance issue in Vulkan shader cache ([#18183], [#18189])
 - Fix crash in icon loading in homebrew store ([#18185])
 - Add some memory safety check ([#18184], [#18194])
 - Fix problem when changing backend from the Windows menu ([#18182])
 
 What's new in 1.16.2
-====================
+--------------------
 - Fix for HTTP support on Linux on networks with shaky or incomplete IPv6 support
 - Assorted fixes for leaks and crashes ([#18169], [#18151])
 - Fix hang when switching UMD with RetroAchievements enabled ([#18143])
@@ -68,7 +68,7 @@ What's new in 1.16.2
 - Fix for software renderer crash
 
 What's new in 1.16.1
-====================
+--------------------
 
 - Move RetroAchievements to the Tools tab in settings ([#18127])
 - Fix graphics regressions in Hot Shots Golf 2 / Everybody's Golf 2 and Final Fantasy Tactics ([#18142])
@@ -79,7 +79,7 @@ What's new in 1.16.1
 - Fix some text rendering in the software renderer ([#18126])
 
 What's new in 1.16
-==================
+------------------
 Special thanks to unknownbrackets for the new JIT compilers, and fp64 for finally cracking the vrnd instruction.
 
 - RetroAchievements support ([#17589], [#17631], many more). See [RetroAchievements on ppsspp.org](https://www.ppsspp.org/docs/reference/retro-achievements).
@@ -128,98 +128,11 @@ Special thanks to unknownbrackets for the new JIT compilers, and fp64 for finall
   - Allow choosing the display resolution on Android again ([#17473])
   - Fix issue running some file types out of the Download folder on Android ([#17466])
 
-What's new in 1.15.4
-====================
-- Tilt controls: Restore "Low end radius" control ([#17489])
-- Android: Restore the ability to choose "display" (hardware scaler) resolution ([#17473])
-- Improve the workarounds for the DJ Max games ([#17467])
-- Android: Fix running some file formats directly from the Downloads folder ([#17466])
-- OpenGL: Restore most of the lost performance on low-end hardware from the shader variant reduction ([#17440, [#17439]])
-- Add a simple profiling tool to check CPU usage by the GL backend ([#17475])
-- Loader: Fix bug preventing WWE 2009 from starting ([#17435])
-- Misc minor fixes and optimizations ([#17442], [#17457], [#17486], [#17446], more)
-
-What's new in 1.15.3
-====================
-- Assorted minor crash- and other fixes ([#17406], [#17414], [#17415], [#17422])
-- Android: Allow launch by content URI (for frontends) ([#17425])
-- Control mapping: Fix bugs in mapping UI causing trouble with some controllers ([#17412], [#17420])
-
-What's new in 1.15.2
-====================
-- Assorted minor crash fixes ([#17401], [#17399])
-- Fix Android 12 support in the Android VR build (avoid scoped storage) ([#17398])
-
-What's new in 1.15.1
-====================
-- Assorted minor crash fixes ([#17374], [#17370], [#17392], [#17394])
-- Fix for non-png texture replacements when not listed in textures.ini ([#17380])
-- Fix for broken tilt d-pad controls ([#17393])
-- Workaround for Vulkan driver bugs on Mali-T8x0 series GPUs ([#17396])
-
-What's new in 1.15
-==================
-* Stutter caused by shader compilation has been reduced drastically ([#16873])
-  - Parallelization: ([#16802], [#16804], [#16809], [#16812])
-  - Shader variant reduction: ([#16773], [#16778], [#16770], [#16763])
-
-* Rendering performance and fixes
-  - Integer scaling added ([#17224])
-  - Post-processing fixes ([#17262])
-  - SOCOM overlay glitch removed, night vision fixed ([#17297], [#17317])
-  - PowerVR compatibility fixes ([#17232])
-  - CLUT fixes ([#17212])
-  - ToP - Narikiri Dungeon X: Avoid GPU readback ([#17181], [#17191], [#17192])
-  - DTM / Toca: Avoid GPU readback ([#16715])
-  - Fixed Dante's Inferno performance regression ([#17032], [#17035])
-  - Fix wrong device selection on Poco C40 phones, causing broken UI ([#17027], [#17022])
-  - Rainbow Six GPU performance fix ([#16971])
-  - Subtitles fixed in The Godfather ([#17298], [#17314])
-
-* Texture replacement improvements
-  - Less I/O on the main thread, leading to smoother framerates ([#17078], [#17091], [#17120], [#17134])
-  - Support for KTX2 files with UASTC compressed textures added ([#17111] [#17104])
-  - Support for DDS files with BC1-7 textures added ([#17083], [#17103], [#17097], [#17096], [#17095])
-  - Improve default ini ([#17146])
-  - Mipmaps now always used if provided ([#17144])
-  - Additional optimizations ([#17139], [#17088])
-
-* Optimizations
-  - Software renderer fixes and performance ([#17295], [#17214], [#17028], [#16753], [#16706], [#16690])
-  - Vulkan texture upload optimizations ([#17052], [#17122], [#17121], [#17114], [#17011])
-  - Depth readback added, fixing lens flares in Syphon Filter (at perf cost..) ([#16907], [#16905])
-  - Async readback supported in Vulkan - currently only enabled in Dangan Ronpa ([#16910], [#16916])
-  - Lighting shader optimizations ([#16791], [#16787])
-
-* Controls
-  - Android tilt control has been overhauled and fixed ([#16889], [#16896])
-  - You can now map combinations of buttons to single functions ([#17210], [#17215], [#17228], etc)
-  - Custom buttons now support analog inputs ([#16855])
-
-* VR features
-  - Top down camera: ([#17098])
-  - Head rotation control: ([#16857])
-  - More stereo support: ([#16952], [#16953])
-  - Other: ([#16826], [#16821])
-
-* Other
-  - Windows Dark Mode support ([#16704])
-  - GLSL shader compatibility fixes ([#16710], [#16709])
-  - GTA math issue on macOS/iOS fixed, playable again ([#16928])
-  - More accurate VFPU emulation has been added, though not all enabled yet ([#16984])
-  - Debugger features and fixes ([#17270], [#17269], [#17263], [#17260], [#17203], [#17190], [#17042], [#16994], [#16988], [#16818] etc)
-  - Rewind savestates no longer slows things down a lot ([#17291])
-  - Chat window bugfixes ([#17241])
-  - IR Jit fixes - helps iOS when native jit is unavailable ([#17129])
-  - Depth-related rendering fixes ([#17055], [#16880])
-  - More RISCV support work ([#16976], [#16957], [#16962], [#16832], [#16829])
-  - macOS native menu bar ([#16922])
-  - Font fixes ([#16859])
-  - Rockman 2 audio glitch fix ([#16810], [#16798])
-  - UI fixes: Vertical use of space ([#16795]), scrollbars ([#16785]), touchpad scroll on Windows ([#16699])
-
+Older news
+----------
 Looking for [older news](history.md)?
 
+You can also find the full update history on [the website](https://www.ppsspp.org/news).
 
 Adhoc support
 -------------

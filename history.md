@@ -1,5 +1,96 @@
 This is history moved out from README.md, which was getting a bit long.
 
+
+What's new in 1.15.4
+====================
+- Tilt controls: Restore "Low end radius" control ([#17489])
+- Android: Restore the ability to choose "display" (hardware scaler) resolution ([#17473])
+- Improve the workarounds for the DJ Max games ([#17467])
+- Android: Fix running some file formats directly from the Downloads folder ([#17466])
+- OpenGL: Restore most of the lost performance on low-end hardware from the shader variant reduction ([#17440, [#17439]])
+- Add a simple profiling tool to check CPU usage by the GL backend ([#17475])
+- Loader: Fix bug preventing WWE 2009 from starting ([#17435])
+- Misc minor fixes and optimizations ([#17442], [#17457], [#17486], [#17446], more)
+
+What's new in 1.15.3
+====================
+- Assorted minor crash- and other fixes ([#17406], [#17414], [#17415], [#17422])
+- Android: Allow launch by content URI (for frontends) ([#17425])
+- Control mapping: Fix bugs in mapping UI causing trouble with some controllers ([#17412], [#17420])
+
+What's new in 1.15.2
+====================
+- Assorted minor crash fixes ([#17401], [#17399])
+- Fix Android 12 support in the Android VR build (avoid scoped storage) ([#17398])
+
+What's new in 1.15.1
+====================
+- Assorted minor crash fixes ([#17374], [#17370], [#17392], [#17394])
+- Fix for non-png texture replacements when not listed in textures.ini ([#17380])
+- Fix for broken tilt d-pad controls ([#17393])
+- Workaround for Vulkan driver bugs on Mali-T8x0 series GPUs ([#17396])
+
+What's new in 1.15
+==================
+* Stutter caused by shader compilation has been reduced drastically ([#16873])
+  - Parallelization: ([#16802], [#16804], [#16809], [#16812])
+  - Shader variant reduction: ([#16773], [#16778], [#16770], [#16763])
+
+* Rendering performance and fixes
+  - Integer scaling added ([#17224])
+  - Post-processing fixes ([#17262])
+  - SOCOM overlay glitch removed, night vision fixed ([#17297], [#17317])
+  - PowerVR compatibility fixes ([#17232])
+  - CLUT fixes ([#17212])
+  - ToP - Narikiri Dungeon X: Avoid GPU readback ([#17181], [#17191], [#17192])
+  - DTM / Toca: Avoid GPU readback ([#16715])
+  - Fixed Dante's Inferno performance regression ([#17032], [#17035])
+  - Fix wrong device selection on Poco C40 phones, causing broken UI ([#17027], [#17022])
+  - Rainbow Six GPU performance fix ([#16971])
+  - Subtitles fixed in The Godfather ([#17298], [#17314])
+
+* Texture replacement improvements
+  - Less I/O on the main thread, leading to smoother framerates ([#17078], [#17091], [#17120], [#17134])
+  - Support for KTX2 files with UASTC compressed textures added ([#17111] [#17104])
+  - Support for DDS files with BC1-7 textures added ([#17083], [#17103], [#17097], [#17096], [#17095])
+  - Improve default ini ([#17146])
+  - Mipmaps now always used if provided ([#17144])
+  - Additional optimizations ([#17139], [#17088])
+
+* Optimizations
+  - Software renderer fixes and performance ([#17295], [#17214], [#17028], [#16753], [#16706], [#16690])
+  - Vulkan texture upload optimizations ([#17052], [#17122], [#17121], [#17114], [#17011])
+  - Depth readback added, fixing lens flares in Syphon Filter (at perf cost..) ([#16907], [#16905])
+  - Async readback supported in Vulkan - currently only enabled in Dangan Ronpa ([#16910], [#16916])
+  - Lighting shader optimizations ([#16791], [#16787])
+
+* Controls
+  - Android tilt control has been overhauled and fixed ([#16889], [#16896])
+  - You can now map combinations of buttons to single functions ([#17210], [#17215], [#17228], etc)
+  - Custom buttons now support analog inputs ([#16855])
+
+* VR features
+  - Top down camera: ([#17098])
+  - Head rotation control: ([#16857])
+  - More stereo support: ([#16952], [#16953])
+  - Other: ([#16826], [#16821])
+
+* Other
+  - Windows Dark Mode support ([#16704])
+  - GLSL shader compatibility fixes ([#16710], [#16709])
+  - GTA math issue on macOS/iOS fixed, playable again ([#16928])
+  - More accurate VFPU emulation has been added, though not all enabled yet ([#16984])
+  - Debugger features and fixes ([#17270], [#17269], [#17263], [#17260], [#17203], [#17190], [#17042], [#16994], [#16988], [#16818] etc)
+  - Rewind savestates no longer slows things down a lot ([#17291])
+  - Chat window bugfixes ([#17241])
+  - IR Jit fixes - helps iOS when native jit is unavailable ([#17129])
+  - Depth-related rendering fixes ([#17055], [#16880])
+  - More RISCV support work ([#16976], [#16957], [#16962], [#16832], [#16829])
+  - macOS native menu bar ([#16922])
+  - Font fixes ([#16859])
+  - Rockman 2 audio glitch fix ([#16810], [#16798])
+  - UI fixes: Vertical use of space ([#16795]), scrollbars ([#16785]), touchpad scroll on Windows ([#16699])
+
 What's new in 1.14.4
 ====================
 * Multiple shader compatibility fixes for older devices/drivers: ([#16710], [#16709], [#16708])
