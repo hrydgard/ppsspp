@@ -25,6 +25,48 @@ If you want to download regularly updated builds for Android, Windows x86 and x6
 
 For game compatibility, see [community compatibility feedback](https://report.ppsspp.org/games).
 
+What's new in 1.17
+------------------
+- Rendering performance and fixes
+	- Fix for very old rendering issue in Tokimeki Memorial 4 ([#18650])
+	- Performance improvement in Tactics Ogre by avoiding a readback ([#18599])
+	- Cull small draws that are quick to check that they are offscreen ([#18446])
+	- Assorted optimizations ([#18586], [#18573], [#18476], [#18413], [#18416], [#18219])
+	- Fix HUD in Tiger Woods 06 ([#18554])
+	- Adrenotools support added - you can now load custom Vulkan drivers on Adreno ([#18532], [#18548])
+	- Fix rendering with bad Z parameters, fixes homebrew Zig example ([#18535])
+	- Fix Z problem in Hayate no Gotoku!! Nightmare Paradise [#18478]
+	- Fix frozen pitch meters in MLB games ([#18484])
+	- Enable MSAA on modern mobile devices (Vulkan-only) ([#18472])
+	- Fix video flicker in Naruto: Ultimate Ninja Heroes 2 ([#18454])
+- UI
+	- Track total time played per game ([#18442])
+	- When opening the pause menu, there's now an option to keep the game running behind. This is enforced in multiplayer
+	  to avoid inadvertent desyncs ([#18517], [#18515])
+- ISO loading improvements
+	- The CHD file format is now fully supported, including with Remote ISO and Retroachievements
+	- Improvements to [remote ISO](https://www.ppsspp.org/docs/reference/disc-streaming/): optional tab on home screen, can now share whole folders ([#18627], [#18639], [#18640], [#18631], [#18632], [#18633],)
+- Controller and touchscreen fixes
+	- More control bindings, organize into categories ([#18635], [#18589])
+	- Fix inverse deadzone (low end) for joystick input
+	- Fix analog deadzones for XInput controllers ([#18407])
+	- Improved tilt control further ([#18533])
+	- Mouse input supported on Android ([#18551], [#18473])
+	- Customizable threshold for analog-trigger to button-press mapping, customizable delay for mouse-scroll key-up ([#18621], [#18585])
+	- Make it work better to bind an analog stick to four buttons, useful for camera control in some games
+	- Can now unpause with the key you bound to pause ([#18591])
+- Other fixes and updates
+	- More work on the IR JITs ([#18234], [#18235], [#18228], [#18227], [#18226], many more)
+	- Workaround problems in Add Doko Demo Issho, Driver 76, Harukanaru Toki no Naka, Ace Combat by slowing down the emulated UMD drive to match reality better ([#18436], [#18445])
+	- Various bugfixes in texture replacement ([#18638], [#18610], [#18519], [#18466])
+	- GoExplore (GPS app) now starts up and allows navigation ([#18665], [#18666], [#18668])
+	- RetroAchievements: Rich presence, renamed Challenge Mode back to the recommended Hardcore Mode, various error handling improvements, configure per game ([#18468], [#18651], [#18488], [#18428], [#18425])
+	- HLE: Slice large-and-slow memcpy/memset operations, can help with some stalls. ([#18560])
+	- Other various minor fixes and optimizations ([#18558], [#18555], [#18538], [#18529], [#18450], [#18314], [#18233])
+	- SoftGPU fixes ([#18362])
+	- SDL: Improve input latency in Vulkan mode by running rendering on a separate thread ([#18268])
+	- Assorted multiplayer fixes ([#18435])
+
 What's new in 1.16.6
 --------------------
 - Fix performance issue with Vulkan descriptor set allocation ([#18332])
