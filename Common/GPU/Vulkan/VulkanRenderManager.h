@@ -205,10 +205,12 @@ struct PackedDescriptor {
 			uint32_t range;
 			uint32_t offset;
 		} buffer;
+#if false
 		struct {
 			VkBuffer buffer;
 			uint64_t range;  // write range and a zero offset in one operation with this.
 		} buffer_zero_offset;
+#endif
 	};
 };
 

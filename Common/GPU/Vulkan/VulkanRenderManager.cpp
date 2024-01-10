@@ -1806,8 +1806,8 @@ void VKRPipelineLayout::FlushDescSets(VulkanContext *vulkan, int frame, QueuePro
 			case BindingType::STORAGE_BUFFER_VERTEX:
 			case BindingType::STORAGE_BUFFER_COMPUTE:
 				bufferInfo[numBuffers].buffer = data[i].buffer.buffer;
-				bufferInfo[numBuffers].offset = data[i].buffer.offset;
 				bufferInfo[numBuffers].range = data[i].buffer.range;
+				bufferInfo[numBuffers].offset = data[i].buffer.offset;
 				writes[numWrites].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
 				writes[numWrites].pBufferInfo = &bufferInfo[numBuffers];
 				writes[numWrites].pImageInfo = nullptr;
@@ -1816,8 +1816,8 @@ void VKRPipelineLayout::FlushDescSets(VulkanContext *vulkan, int frame, QueuePro
 			case BindingType::UNIFORM_BUFFER_DYNAMIC_ALL:
 			case BindingType::UNIFORM_BUFFER_DYNAMIC_VERTEX:
 				bufferInfo[numBuffers].buffer = data[i].buffer.buffer;
-				bufferInfo[numBuffers].offset = 0;
 				bufferInfo[numBuffers].range = data[i].buffer.range;
+				bufferInfo[numBuffers].offset = 0;
 				writes[numWrites].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
 				writes[numWrites].pBufferInfo = &bufferInfo[numBuffers];
 				writes[numWrites].pImageInfo = nullptr;
