@@ -202,9 +202,13 @@ struct PackedDescriptor {
 		} image;
 		struct {
 			VkBuffer buffer;
-			uint32_t offset;
 			uint32_t range;
+			uint32_t offset;
 		} buffer;
+		struct {
+			VkBuffer buffer;
+			uint64_t range;  // write range and a zero offset in one operation with this.
+		} buffer_zero_offset;
 	};
 };
 

@@ -332,12 +332,12 @@ void DrawEngineVulkan::DoFlush() {
 		descriptors[1].image.sampler = samplerSecondaryNearest_;
 		descriptors[2].image.view = boundDepal_;
 		descriptors[2].image.sampler = (boundDepal_ && boundDepalSmoothed_) ? samplerSecondaryLinear_ : samplerSecondaryNearest_;
-		descriptors[3].buffer.buffer = baseBuf;
-		descriptors[3].buffer.range = sizeof(UB_VS_FS_Base);
-		descriptors[4].buffer.buffer = lightBuf;
-		descriptors[4].buffer.range = sizeof(UB_VS_Lights);
-		descriptors[5].buffer.buffer = boneBuf;
-		descriptors[5].buffer.range = sizeof(UB_VS_Bones);
+		descriptors[3].buffer_zero_offset.buffer = baseBuf;
+		descriptors[3].buffer_zero_offset.range = sizeof(UB_VS_FS_Base);
+		descriptors[4].buffer_zero_offset.buffer = lightBuf;
+		descriptors[4].buffer_zero_offset.range = sizeof(UB_VS_Lights);
+		descriptors[5].buffer_zero_offset.buffer = boneBuf;
+		descriptors[5].buffer_zero_offset.range = sizeof(UB_VS_Bones);
 		if (tess) {
 			const VkDescriptorBufferInfo *bufInfo = tessDataTransferVulkan->GetBufferInfo();
 			for (int j = 0; j < 3; j++) {

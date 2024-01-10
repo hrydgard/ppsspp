@@ -318,12 +318,14 @@ static VulkanLibraryHandle VulkanLoadLibrary(const char *logname) {
                     (std::string(tempDir.c_str()) + "/").c_str(),g_nativeLibDir.c_str(),
                     (std::string(driverPath.c_str()) + "/").c_str(),driverLibName.c_str(),
                     (std::string(fileRedirectDir.c_str()) + "/").c_str(),nullptr);
+            if (!lib) {
+                ERROR_LOG(G3D, "Failed to load custom driver");
+            }
         }
     }
 #endif
 
     if (!lib) {
-        ERROR_LOG(G3D, "Failed to load custom driver");
         for (int i = 0; i < ARRAY_SIZE(so_names); i++) {
             lib = dlopen(so_names[i], RTLD_NOW | RTLD_LOCAL);
             if (lib) {
