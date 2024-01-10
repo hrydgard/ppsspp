@@ -32,8 +32,8 @@ public:
 		size_t fileSize;
 		uint8_t *buffer = g_VFS.ReadFile(filename_.c_str(), &fileSize);
 		if (!buffer) {
-			filename_.clear();
 			ERROR_LOG(IO, "Failed to read file '%s'", filename_.c_str());
+			filename_.clear();
 			*state_ = ManagedTexture::LoadState::FAILED;
 			return;
 		}

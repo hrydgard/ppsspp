@@ -328,22 +328,30 @@ void DrawEngineVulkan::DoFlush() {
 		PackedDescriptor *descriptors = renderManager->PushDescriptorSet(descCount, &descSetIndex);
 		descriptors[0].image.view = imageView;
 		descriptors[0].image.sampler = sampler;
+
 		descriptors[1].image.view = boundSecondary_;
 		descriptors[1].image.sampler = samplerSecondaryNearest_;
+
 		descriptors[2].image.view = boundDepal_;
 		descriptors[2].image.sampler = (boundDepal_ && boundDepalSmoothed_) ? samplerSecondaryLinear_ : samplerSecondaryNearest_;
+
 		descriptors[3].buffer.buffer = baseBuf;
 		descriptors[3].buffer.range = sizeof(UB_VS_FS_Base);
+		descriptors[3].buffer.offset = 0;
+
 		descriptors[4].buffer.buffer = lightBuf;
 		descriptors[4].buffer.range = sizeof(UB_VS_Lights);
+		descriptors[4].buffer.offset = 0;
+
 		descriptors[5].buffer.buffer = boneBuf;
 		descriptors[5].buffer.range = sizeof(UB_VS_Bones);
+		descriptors[5].buffer.offset = 0;
 		if (tess) {
 			const VkDescriptorBufferInfo *bufInfo = tessDataTransferVulkan->GetBufferInfo();
 			for (int j = 0; j < 3; j++) {
 				descriptors[j + 6].buffer.buffer = bufInfo[j].buffer;
-				descriptors[j + 6].buffer.offset = bufInfo[j].offset;
 				descriptors[j + 6].buffer.range = bufInfo[j].range;
+				descriptors[j + 6].buffer.offset = bufInfo[j].offset;
 			}
 		}
 		// TODO: Can we avoid binding all three when not needed? Same below for hardware transform.
