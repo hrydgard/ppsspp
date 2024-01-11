@@ -172,6 +172,7 @@ public:
 	bool bDisableRangeCulling;
 
 	int iTexFiltering; // 1 = auto , 2 = nearest , 3 = linear , 4 = auto max quality
+	bool bSmart2DTexFiltering;
 
 	bool bDisplayStretch;  // Automatically matches the aspect ratio of the window.
 	int iDisplayFilter;    // 1 = linear, 2 = nearest

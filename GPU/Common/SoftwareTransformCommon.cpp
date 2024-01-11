@@ -585,7 +585,7 @@ void SoftwareTransform::BuildDrawingParams(int prim, int vertexCount, u32 vertTy
 
 				inds = newInds;
 			}
-		} else if (throughmode) {
+		} else if (throughmode && g_Config.bSmart2DTexFiltering) {
 			// We check some common cases for pixel mapping.
 			// TODO: It's not really optimal that some previous step has removed the triangle strip.
 			if (vertexCount <= 6 && prim == GE_PRIM_TRIANGLES) {
@@ -593,13 +593,12 @@ void SoftwareTransform::BuildDrawingParams(int prim, int vertexCount, u32 vertTy
 				// 0-1 1-3 3-2 2-0. Maybe can even skip the last one. Probably some simple math can get us that sequence.
 				// Unfortunately we need to reverse the previous UV scaling operation. Fortunately these are powers of two
 				// so the operations are exact.
-				bool pmapped = true;
+				bool pixelMapped = true;
 				const u16 *indsIn = (const u16 *)inds;
 				for (int t = 0; t < vertexCount; t += 3) {
 					float uscale = gstate_c.curTextureWidth;
 					float vscale = gstate_c.curTextureHeight;
 					struct { int a; int b; } pairs[] = { {0, 1}, {1, 2}, {2, 0} };
-
 					for (int i = 0; i < ARRAY_SIZE(pairs); i++) {
 						int a = indsIn[t + pairs[i].a];
 						int b = indsIn[t + pairs[i].b];
@@ -608,11 +607,14 @@ void SoftwareTransform::BuildDrawingParams(int prim, int vertexCount, u32 vertTy
 						float dx = fabsf(transformed[a].x - transformed[b].x);
 						float dy = fabsf(transformed[a].y - transformed[b].y);
 						if (du != dx || dv != dy) {
-							pmapped = false;
+							pixelMapped = false;
 						}
 					}
+					if (!pixelMapped) {
+						break;
+					}
 				}
-				result->pixelMapped = pmapped;
+				result->pixelMapped = pixelMapped;
 			}
 		}
 	}
@@ -662,21 +664,23 @@ void SoftwareTransform::ExpandRectangles(int vertexCount, int &maxIndex, u16 *&i
 		vscale /= gstate_c.curTextureHeight;
 	}
 
-	bool pixelMapped = true;
+	bool pixelMapped = g_Config.bSmart2DTexFiltering;
 
 	for (int i = 0; i < vertexCount; i += 2) {
 		const TransformedVertex &transVtxTL = transformed[indsIn[i + 0]];
 		const TransformedVertex &transVtxBR = transformed[indsIn[i + 1]];
 
-		float dx = transVtxBR.x - transVtxTL.x;
-		float dy = transVtxBR.y - transVtxTL.y;
-		float du = transVtxBR.u - transVtxTL.u;
-		float dv = transVtxBR.v - transVtxTL.v;
+		if (pixelMapped) {
+			float dx = transVtxBR.x - transVtxTL.x;
+			float dy = transVtxBR.y - transVtxTL.y;
+			float du = transVtxBR.u - transVtxTL.u;
+			float dv = transVtxBR.v - transVtxTL.v;
 
-		// NOTE: We will accept it as pixel mapped if only one dimension is stretched. This fixes dialog frames in FFI.
-		// Though, there could be false positives in other games due to this. Let's see if it is a problem...
-		if (dx <= 0 || dy <= 0 || (dx != du && dy != dv)) {
-			pixelMapped = false;
+			// NOTE: We will accept it as pixel mapped if only one dimension is stretched. This fixes dialog frames in FFI.
+			// Though, there could be false positives in other games due to this. Let's see if it is a problem...
+			if (dx <= 0 || dy <= 0 || (dx != du && dy != dv)) {
+				pixelMapped = false;
+			}
 		}
 
 		// We have to turn the rectangle into two triangles, so 6 points.
