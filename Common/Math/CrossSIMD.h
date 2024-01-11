@@ -8,7 +8,7 @@
 
 #include "ppsspp_config.h"
 
-#include <cstdint>
+#include "stdint.h"
 
 #if PPSSPP_ARCH(SSE2)
 #include <emmintrin.h>
