@@ -1,5 +1,7 @@
 #include "ppsspp_config.h"
 
+#include "Common/Math/CrossSIMD.h"
+
 #include "fast_matrix.h"
 
 #if PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)
