@@ -1,5 +1,7 @@
 #include "ppsspp_config.h"
 
+#include "Common/Math/CrossSIMD.h"
+
 #include "fast_matrix.h"
 
 #if PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)
@@ -67,36 +69,30 @@ void fast_matrix_mul_4x4_neon(float *C, const float *A, const float *B) {
 	A2 = vld1q_f32(A + 8);
 	A3 = vld1q_f32(A + 12);
 
-	// Zero accumulators for C values
-	C0 = vmovq_n_f32(0);
-	C1 = vmovq_n_f32(0);
-	C2 = vmovq_n_f32(0);
-	C3 = vmovq_n_f32(0);
-
 	// Multiply accumulate in 4x1 blocks, i.e. each column in C
 	B0 = vld1q_f32(B);
-	C0 = vfmaq_laneq_f32(C0, A0, B0, 0);
+	C0 = vmulq_laneq_f32(A0, B0, 0);
 	C0 = vfmaq_laneq_f32(C0, A1, B0, 1);
 	C0 = vfmaq_laneq_f32(C0, A2, B0, 2);
 	C0 = vfmaq_laneq_f32(C0, A3, B0, 3);
 	vst1q_f32(C, C0);
 
 	B1 = vld1q_f32(B + 4);
-	C1 = vfmaq_laneq_f32(C1, A0, B1, 0);
+	C1 = vmulq_laneq_f32(A0, B1, 0);
 	C1 = vfmaq_laneq_f32(C1, A1, B1, 1);
 	C1 = vfmaq_laneq_f32(C1, A2, B1, 2);
 	C1 = vfmaq_laneq_f32(C1, A3, B1, 3);
 	vst1q_f32(C + 4, C1);
 
 	B2 = vld1q_f32(B + 8);
-	C2 = vfmaq_laneq_f32(C2, A0, B2, 0);
+	C2 = vmulq_laneq_f32(A0, B2, 0);
 	C2 = vfmaq_laneq_f32(C2, A1, B2, 1);
 	C2 = vfmaq_laneq_f32(C2, A2, B2, 2);
 	C2 = vfmaq_laneq_f32(C2, A3, B2, 3);
 	vst1q_f32(C + 8, C2);
 
 	B3 = vld1q_f32(B + 12);
-	C3 = vfmaq_laneq_f32(C3, A0, B3, 0);
+	C3 = vmulq_laneq_f32(A0, B3, 0);
 	C3 = vfmaq_laneq_f32(C3, A1, B3, 1);
 	C3 = vfmaq_laneq_f32(C3, A2, B3, 2);
 	C3 = vfmaq_laneq_f32(C3, A3, B3, 3);
