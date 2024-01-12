@@ -687,7 +687,7 @@ void VulkanRenderManager::BeginFrame(bool enableProfiling, bool enableLogProfile
 				descUpdateTimeMs_.Update(frameData.profile.descWriteTime * 1000.0);
 				descUpdateTimeMs_.Format(line, sizeof(line));
 				str << line;
-				snprintf(line, sizeof(line), "Descriptors written: %d\n", frameData.profile.descriptorsWritten);
+				snprintf(line, sizeof(line), "Descriptors written: %d (dedup: %d)\n", frameData.profile.descriptorsWritten, frameData.profile.descriptorsDeduped);
 				str << line;
 				snprintf(line, sizeof(line), "Resource deletions: %d\n", vulkan_->GetLastDeleteCount());
 				str << line;
@@ -737,6 +737,7 @@ void VulkanRenderManager::BeginFrame(bool enableProfiling, bool enableLogProfile
 	}
 
 	frameData.profile.descriptorsWritten = 0;
+	frameData.profile.descriptorsDeduped = 0;
 
 	// Must be after the fence - this performs deletes.
 	VLOG("PUSH: BeginFrame %d", curFrame);
@@ -1747,7 +1748,7 @@ void VKRPipelineLayout::FlushDescSets(VulkanContext *vulkan, int frame, QueuePro
 	VkDescriptorBufferInfo bufferInfo[MAX_DESC_SET_BINDINGS];
 
 	size_t start = data.flushedDescriptors_;
-	int writeCount = 0;
+	int writeCount = 0, dedupCount = 0;
 
 	for (size_t index = start; index < descSets.size(); index++) {
 		auto &d = descSets[index];
@@ -1759,6 +1760,7 @@ void VKRPipelineLayout::FlushDescSets(VulkanContext *vulkan, int frame, QueuePro
 			if (descSets[index - 1].count == d.count) {
 				if (!memcmp(descData.data() + d.offset, descData.data() + descSets[index - 1].offset, d.count * sizeof(PackedDescriptor))) {
 					d.set = descSets[index - 1].set;
+					dedupCount++;
 					continue;
 				}
 			}
@@ -1841,4 +1843,5 @@ void VKRPipelineLayout::FlushDescSets(VulkanContext *vulkan, int frame, QueuePro
 
 	data.flushedDescriptors_ = (int)descSets.size();
 	profile->descriptorsWritten += writeCount;
+	profile->descriptorsDeduped += dedupCount;
 }

@@ -29,6 +29,7 @@ struct QueueProfileContext {
 	double cpuEndTime;
 	double descWriteTime;
 	int descriptorsWritten;
+	int descriptorsDeduped;
 #ifdef _DEBUG
 	int commandCounts[11];
 #endif
