@@ -117,7 +117,7 @@ void HTTPFileLoader::Prepare() {
 
 int HTTPFileLoader::SendHEAD(const Url &url, std::vector<std::string> &responseHeaders) {
 	if (!url.Valid()) {
-		ERROR_LOG(LOADER, "HTTP request failed, invalid URL");
+		ERROR_LOG(LOADER, "HTTP request failed, invalid URL: '%s'", url.ToString().c_str());
 		latestError_ = "Invalid URL";
 		return -400;
 	}
@@ -131,7 +131,7 @@ int HTTPFileLoader::SendHEAD(const Url &url, std::vector<std::string> &responseH
 	client_.SetDataTimeout(20.0);
 	Connect();
 	if (!connected_) {
-		ERROR_LOG(LOADER, "HTTP request failed, failed to connect: %s port %d", url.Host().c_str(), url.Port());
+		ERROR_LOG(LOADER, "HTTP request failed, failed to connect: %s port %d (resource: '%s')", url.Host().c_str(), url.Port(), url.Resource().c_str());
 		latestError_ = "Could not connect (refused to connect)";
 		return -400;
 	}

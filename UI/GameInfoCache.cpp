@@ -127,7 +127,8 @@ u64 GameInfo::GetGameSizeOnDiskInBytes() {
 	case IdentifiedFileType::PSP_PBP_DIRECTORY:
 	case IdentifiedFileType::PSP_SAVEDATA_DIRECTORY:
 		return File::ComputeRecursiveDirectorySize(ResolvePBPDirectory(filePath_));
-
+	case IdentifiedFileType::PSP_DISC_DIRECTORY:
+		return File::ComputeRecursiveDirectorySize(GetFileLoader()->GetPath());
 	default:
 		return GetFileLoader()->FileSize();
 	}
@@ -138,7 +139,8 @@ u64 GameInfo::GetGameSizeUncompressedInBytes() {
 	case IdentifiedFileType::PSP_PBP_DIRECTORY:
 	case IdentifiedFileType::PSP_SAVEDATA_DIRECTORY:
 		return File::ComputeRecursiveDirectorySize(ResolvePBPDirectory(filePath_));
-
+	case IdentifiedFileType::PSP_DISC_DIRECTORY:
+		return File::ComputeRecursiveDirectorySize(GetFileLoader()->GetPath());
 	default:
 	{
 		BlockDevice *blockDevice = constructBlockDevice(GetFileLoader().get());
@@ -576,7 +578,6 @@ handleELF:
 
 		case IdentifiedFileType::PSP_DISC_DIRECTORY:
 			{
-				info_->fileType = IdentifiedFileType::PSP_ISO;
 				SequentialHandleAllocator handles;
 				VirtualDiscFileSystem umd(&handles, gamePath_);
 
@@ -606,7 +607,6 @@ handleELF:
 		case IdentifiedFileType::PSP_ISO:
 		case IdentifiedFileType::PSP_ISO_NP:
 			{
-				info_->fileType = IdentifiedFileType::PSP_ISO;
 				SequentialHandleAllocator handles;
 				// Let's assume it's an ISO.
 				// TODO: This will currently read in the whole directory tree. Not really necessary for just a
