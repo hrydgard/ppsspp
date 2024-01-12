@@ -372,6 +372,8 @@ int u8_is_locale_utf8(const char *locale)
   return 0;
 }
 
+UTF8::UTF8(const char *c) : c_(c), size_((int)strlen(c)), index_(0) {}
+
 bool AnyEmojiInString(std::string_view str, size_t byteCount) {
 	int i = 0;
 	while (i < byteCount) {
