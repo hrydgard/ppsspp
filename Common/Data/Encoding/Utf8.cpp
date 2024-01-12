@@ -206,27 +206,15 @@ int u8_charnum(const char *s, int offset)
   return charnum;
 }
 
-/* number of characters */
-int u8_strlen(const char *s)
-{
-  int count = 0;
-  int i = 0;
-
-  while (u8_nextchar(s, &i) != 0)
-    count++;
-
-  return count;
-}
-
 /* reads the next utf-8 sequence out of a string, updating an index */
-uint32_t u8_nextchar(const char *s, int *index) {
+uint32_t u8_nextchar(const char *s, int *index, size_t size) {
 	uint32_t ch = 0;
 	int sz = 0;
 	int i = *index;
 	do {
 		ch = (ch << 6) + (unsigned char)s[i++];
 		sz++;
-	} while (s[i] && ((s[i]) & 0xC0) == 0x80);
+	} while (i < size && ((s[i]) & 0xC0) == 0x80);
 	*index = i;
 	return ch - offsetsFromUTF8[sz - 1];
 }
@@ -234,7 +222,6 @@ uint32_t u8_nextchar(const char *s, int *index) {
 uint32_t u8_nextchar_unsafe(const char *s, int *i) {
 	uint32_t ch = (unsigned char)s[(*i)++];
 	int sz = 1;
-
 	if (ch >= 0xF0) {
 		sz++;
 		ch &= ~0x10;
@@ -253,7 +240,6 @@ uint32_t u8_nextchar_unsafe(const char *s, int *i) {
 		ch <<= 6;
 		ch += ((unsigned char)s[(*i)++]) & 0x3F;
 	}
-
 	return ch;
 }
 
@@ -367,48 +353,6 @@ int u8_unescape(char *buf, int sz, char *src)
   return c;
 }
 
-const char *u8_strchr(const char *s, uint32_t ch, int *charn)
-{
-  int i = 0, lasti=0;
-  uint32_t c;
-
-  *charn = 0;
-  while (s[i]) {
-    c = u8_nextchar(s, &i);
-    if (c == ch) {
-      return &s[lasti];
-    }
-    lasti = i;
-    (*charn)++;
-  }
-  return NULL;
-}
-
-const char *u8_memchr(const char *s, uint32_t ch, size_t sz, int *charn)
-{
-  size_t i = 0, lasti=0;
-  uint32_t c;
-  int csz;
-
-  *charn = 0;
-  while (i < sz) {
-    c = csz = 0;
-    do {
-      c <<= 6;
-      c += (unsigned char)s[i++];
-      csz++;
-    } while (i < sz && !isutf(s[i]));
-    c -= offsetsFromUTF8[csz-1];
-
-    if (c == ch) {
-      return &s[lasti];
-    }
-    lasti = i;
-    (*charn)++;
-  }
-  return NULL;
-}
-
 int u8_is_locale_utf8(const char *locale)
 {
   /* this code based on libutf8 */
@@ -428,10 +372,10 @@ int u8_is_locale_utf8(const char *locale)
   return 0;
 }
 
-bool AnyEmojiInString(const char *s, size_t byteCount) {
+bool AnyEmojiInString(std::string_view str, size_t byteCount) {
 	int i = 0;
 	while (i < byteCount) {
-		uint32_t c = u8_nextchar(s, &i);
+		uint32_t c = u8_nextchar(str.data(), &i, str.size());
 		if (CodepointIsProbablyEmoji(c)) {
 			return true;
 		}
@@ -517,8 +461,8 @@ std::string ConvertUCS2ToUTF8(const std::u16string &wstr) {
 	return s;
 }
 
-std::string SanitizeUTF8(const std::string &utf8string) {
-	UTF8 utf(utf8string.c_str());
+std::string SanitizeUTF8(std::string_view utf8string) {
+	UTF8 utf(utf8string);
 	std::string s;
 	// Worst case.
 	s.resize(utf8string.size() * 4);
