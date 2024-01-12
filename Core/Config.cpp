@@ -611,6 +611,7 @@ static const ConfigSetting graphicsSettings[] = {
 	ConfigSetting("HardwareTransform", &g_Config.bHardwareTransform, true, CfgFlag::PER_GAME | CfgFlag::REPORT),
 	ConfigSetting("SoftwareSkinning", &g_Config.bSoftwareSkinning, true, CfgFlag::PER_GAME | CfgFlag::REPORT),
 	ConfigSetting("TextureFiltering", &g_Config.iTexFiltering, 1, CfgFlag::PER_GAME | CfgFlag::REPORT),
+	ConfigSetting("Smart2DTexFiltering", &g_Config.bSmart2DTexFiltering, false, CfgFlag::PER_GAME | CfgFlag::REPORT),
 	ConfigSetting("InternalResolution", &g_Config.iInternalResolution, &DefaultInternalResolution, CfgFlag::PER_GAME | CfgFlag::REPORT),
 	ConfigSetting("AndroidHwScale", &g_Config.iAndroidHwScale, &DefaultAndroidHwScale, CfgFlag::DEFAULT),
 	ConfigSetting("HighQualityDepth", &g_Config.bHighQualityDepth, true, CfgFlag::PER_GAME | CfgFlag::REPORT),

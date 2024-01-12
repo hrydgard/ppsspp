@@ -179,7 +179,8 @@ void SoftwareTransform::Transform(int prim, u32 vertType, const DecVtxFormat &de
 
 	float uscale = 1.0f;
 	float vscale = 1.0f;
-	if (throughmode) {
+	if (throughmode && prim != GE_PRIM_RECTANGLES) {
+		// For through rectangles, we do this scaling in Expand.
 		uscale /= gstate_c.curTextureWidth;
 		vscale /= gstate_c.curTextureHeight;
 	}
@@ -496,7 +497,7 @@ void SoftwareTransform::BuildDrawingParams(int prim, int vertexCount, u32 vertTy
 	bool useBufferedRendering = fbman->UseBufferedRendering();
 
 	if (prim == GE_PRIM_RECTANGLES) {
-		ExpandRectangles(vertexCount, maxIndex, inds, transformed, transformedExpanded, numTrans, throughmode);
+		ExpandRectangles(vertexCount, maxIndex, inds, transformed, transformedExpanded, numTrans, throughmode, &result->pixelMapped);
 		result->drawBuffer = transformedExpanded;
 		result->drawIndexed = true;
 
@@ -517,14 +518,17 @@ void SoftwareTransform::BuildDrawingParams(int prim, int vertexCount, u32 vertTy
 		ExpandPoints(vertexCount, maxIndex, inds, transformed, transformedExpanded, numTrans, throughmode);
 		result->drawBuffer = transformedExpanded;
 		result->drawIndexed = true;
+		result->pixelMapped = false;
 	} else if (prim == GE_PRIM_LINES) {
 		ExpandLines(vertexCount, maxIndex, inds, transformed, transformedExpanded, numTrans, throughmode);
 		result->drawBuffer = transformedExpanded;
 		result->drawIndexed = true;
+		result->pixelMapped = false;
 	} else {
 		// We can simply draw the unexpanded buffer.
 		numTrans = vertexCount;
 		result->drawIndexed = true;
+		result->pixelMapped = false;
 
 		// If we don't support custom cull in the shader, process it here.
 		if (!gstate_c.Use(GPU_USE_CULL_DISTANCE) && vertexCount > 0 && !throughmode) {
@@ -581,6 +585,37 @@ void SoftwareTransform::BuildDrawingParams(int prim, int vertexCount, u32 vertTy
 
 				inds = newInds;
 			}
+		} else if (throughmode && g_Config.bSmart2DTexFiltering) {
+			// We check some common cases for pixel mapping.
+			// TODO: It's not really optimal that some previous step has removed the triangle strip.
+			if (vertexCount <= 6 && prim == GE_PRIM_TRIANGLES) {
+				// It's enough to check UV deltas vs pos deltas between vertex pairs:
+				// 0-1 1-3 3-2 2-0. Maybe can even skip the last one. Probably some simple math can get us that sequence.
+				// Unfortunately we need to reverse the previous UV scaling operation. Fortunately these are powers of two
+				// so the operations are exact.
+				bool pixelMapped = true;
+				const u16 *indsIn = (const u16 *)inds;
+				for (int t = 0; t < vertexCount; t += 3) {
+					float uscale = gstate_c.curTextureWidth;
+					float vscale = gstate_c.curTextureHeight;
+					struct { int a; int b; } pairs[] = { {0, 1}, {1, 2}, {2, 0} };
+					for (int i = 0; i < ARRAY_SIZE(pairs); i++) {
+						int a = indsIn[t + pairs[i].a];
+						int b = indsIn[t + pairs[i].b];
+						float du = fabsf((transformed[a].u - transformed[b].u) * uscale);
+						float dv = fabsf((transformed[a].v - transformed[b].v) * vscale);
+						float dx = fabsf(transformed[a].x - transformed[b].x);
+						float dy = fabsf(transformed[a].y - transformed[b].y);
+						if (du != dx || dv != dy) {
+							pixelMapped = false;
+						}
+					}
+					if (!pixelMapped) {
+						break;
+					}
+				}
+				result->pixelMapped = pixelMapped;
+			}
 		}
 	}
 
@@ -610,7 +645,7 @@ void SoftwareTransform::CalcCullParams(float &minZValue, float &maxZValue) {
 		std::swap(minZValue, maxZValue);
 }
 
-void SoftwareTransform::ExpandRectangles(int vertexCount, int &maxIndex, u16 *&inds, const TransformedVertex *transformed, TransformedVertex *transformedExpanded, int &numTrans, bool throughmode) {
+void SoftwareTransform::ExpandRectangles(int vertexCount, int &maxIndex, u16 *&inds, const TransformedVertex *transformed, TransformedVertex *transformedExpanded, int &numTrans, bool throughmode, bool *pixelMappedExactly) {
 	// Rectangles always need 2 vertices, disregard the last one if there's an odd number.
 	vertexCount = vertexCount & ~1;
 	numTrans = 0;
@@ -621,32 +656,59 @@ void SoftwareTransform::ExpandRectangles(int vertexCount, int &maxIndex, u16 *&i
 	u16 *indsOut = newInds;
 
 	maxIndex = 4 * (vertexCount / 2);
+
+	float uscale = 1.0f;
+	float vscale = 1.0f;
+	if (throughmode) {
+		uscale /= gstate_c.curTextureWidth;
+		vscale /= gstate_c.curTextureHeight;
+	}
+
+	bool pixelMapped = g_Config.bSmart2DTexFiltering;
+
 	for (int i = 0; i < vertexCount; i += 2) {
 		const TransformedVertex &transVtxTL = transformed[indsIn[i + 0]];
 		const TransformedVertex &transVtxBR = transformed[indsIn[i + 1]];
+
+		if (pixelMapped) {
+			float dx = transVtxBR.x - transVtxTL.x;
+			float dy = transVtxBR.y - transVtxTL.y;
+			float du = transVtxBR.u - transVtxTL.u;
+			float dv = transVtxBR.v - transVtxTL.v;
+
+			// NOTE: We will accept it as pixel mapped if only one dimension is stretched. This fixes dialog frames in FFI.
+			// Though, there could be false positives in other games due to this. Let's see if it is a problem...
+			if (dx <= 0 || dy <= 0 || (dx != du && dy != dv)) {
+				pixelMapped = false;
+			}
+		}
 
 		// We have to turn the rectangle into two triangles, so 6 points.
 		// This is 4 verts + 6 indices.
 
 		// bottom right
 		trans[0] = transVtxBR;
+		trans[0].u = transVtxBR.u * uscale;
+		trans[0].v = transVtxBR.v * vscale;
 
 		// top right
 		trans[1] = transVtxBR;
 		trans[1].y = transVtxTL.y;
-		trans[1].v = transVtxTL.v;
+		trans[1].u = transVtxBR.u * uscale;
+		trans[1].v = transVtxTL.v * vscale;
 
 		// top left
 		trans[2] = transVtxBR;
 		trans[2].x = transVtxTL.x;
 		trans[2].y = transVtxTL.y;
-		trans[2].u = transVtxTL.u;
-		trans[2].v = transVtxTL.v;
+		trans[2].u = transVtxTL.u * uscale;
+		trans[2].v = transVtxTL.v * vscale;
 
 		// bottom left
 		trans[3] = transVtxBR;
 		trans[3].x = transVtxTL.x;
-		trans[3].u = transVtxTL.u;
+		trans[3].u = transVtxTL.u * uscale;
+		trans[3].v = transVtxBR.v * vscale;
 
 		// That's the four corners. Now process UV rotation.
 		if (throughmode) {
@@ -663,12 +725,14 @@ void SoftwareTransform::ExpandRectangles(int vertexCount, int &maxIndex, u16 *&i
 		indsOut[3] = i * 2 + 3;
 		indsOut[4] = i * 2 + 0;
 		indsOut[5] = i * 2 + 2;
+
 		trans += 4;
 		indsOut += 6;
 
 		numTrans += 6;
 	}
 	inds = newInds;
+	*pixelMappedExactly = pixelMapped;
 }
 
 void SoftwareTransform::ExpandLines(int vertexCount, int &maxIndex, u16 *&inds, const TransformedVertex *transformed, TransformedVertex *transformedExpanded, int &numTrans, bool throughmode) {

@@ -365,8 +365,11 @@ void DrawEngineDX9::DoFlush() {
 		if (result.action == SW_CLEAR && everUsedEqualDepth_ && gstate.isClearModeDepthMask() && result.depth > 0.0f && result.depth < 1.0f)
 			result.action = SW_NOT_READY;
 
-		if (textureNeedsApply)
+		if (textureNeedsApply) {
+			gstate_c.pixelMapped = result.pixelMapped;
 			textureCache_->ApplyTexture();
+			gstate_c.pixelMapped = false;
+		}
 
 		ApplyDrawState(prim);
 

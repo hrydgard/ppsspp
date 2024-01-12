@@ -261,6 +261,9 @@ SamplerCacheKey TextureCacheCommon::GetSamplingParams(int maxLevel, const TexCac
 				if (uglyColorTest)
 					forceFiltering = TEX_FILTER_FORCE_NEAREST;
 			}
+			if (gstate_c.pixelMapped) {
+				forceFiltering = TEX_FILTER_FORCE_NEAREST;
+			}
 			break;
 		case TEX_FILTER_FORCE_LINEAR:
 			// Override to linear filtering if there's no alpha or color testing going on.
@@ -280,6 +283,9 @@ SamplerCacheKey TextureCacheCommon::GetSamplingParams(int maxLevel, const TexCac
 				bool uglyColorTest = gstate.isColorTestEnabled() && !IsColorTestTriviallyTrue() && gstate.getColorTestRef() != 0;
 				if (uglyColorTest)
 					forceFiltering = TEX_FILTER_FORCE_NEAREST;
+			}
+			if (gstate_c.pixelMapped) {
+				forceFiltering = TEX_FILTER_FORCE_NEAREST;
 			}
 			break;
 		}
