@@ -40,8 +40,14 @@ extern "C"
 std::mutex NPDRMDemoBlockDevice::mutex_;
 
 BlockDevice *constructBlockDevice(FileLoader *fileLoader) {
-	if (!fileLoader->Exists())
+	if (!fileLoader->Exists()) {
 		return nullptr;
+	}
+	if (fileLoader->IsDirectory()) {
+		ERROR_LOG(LOADER, "Can't open directory directly as block device: %s", fileLoader->GetPath().c_str());
+		return nullptr;
+	}
+
 	char buffer[8]{};
 	size_t size = fileLoader->ReadAt(0, 1, 8, buffer);
 	if (size != 8) {
@@ -61,7 +67,7 @@ BlockDevice *constructBlockDevice(FileLoader *fileLoader) {
 		return new CHDFileBlockDevice(fileLoader);
 	}
 
-	// Should be just a regular ISO. Let's open it as a plain block device and let the other systems take over.
+	// Should be just a regular ISO file. Let's open it as a plain block device and let the other systems take over.
 	return new FileBlockDevice(fileLoader);
 }
 
