@@ -24,7 +24,6 @@ set(ALL_SOURCE_FILES
 	${SRC_DIR}/rc_compat.h
 	${SRC_DIR}/rc_compat.h
 	${SRC_DIR}/rc_compat.c
-	${SRC_DIR}/rc_util.h
 	${SRC_DIR}/rc_util.c
 	${SRC_DIR}/rc_client.c
 	${SRC_DIR}/rc_client_internal.h

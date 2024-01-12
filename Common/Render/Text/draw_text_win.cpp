@@ -136,7 +136,7 @@ void TextDrawerWin32::MeasureString(const char *str, size_t len, float *w, float
 
 		std::string toMeasure = ReplaceAll(std::string(str, len), "&&", "&");
 
-		std::vector<std::string> lines;
+		std::vector<std::string_view> lines;
 		SplitString(toMeasure, '\n', lines);
 
 		int extW = 0, extH = 0;
@@ -177,20 +177,20 @@ void TextDrawerWin32::MeasureStringRect(const char *str, size_t len, const Bound
 	TEXTMETRIC metrics{};
 	GetTextMetrics(ctx_->hDC, &metrics);
 
-	std::vector<std::string> lines;
+	std::vector<std::string_view> lines;
 	SplitString(toMeasure, '\n', lines);
 	int total_w = 0;
 	int total_h = 0;
+	CacheKey key{ "", fontHash_};
 	for (size_t i = 0; i < lines.size(); i++) {
-		CacheKey key{ lines[i], fontHash_ };
-
+		key.text = lines[i];
 		TextMeasureEntry *entry;
 		auto iter = sizeCache_.find(key);
 		if (iter != sizeCache_.end()) {
 			entry = iter->second.get();
 		} else {
 			SIZE size;
-			std::wstring wstr = ConvertUTF8ToWString(lines[i].length() == 0 ? " " : ReplaceAll(lines[i], "&&", "&"));
+			std::wstring wstr = ConvertUTF8ToWString(lines[i].empty() ? " " : ReplaceAll(lines[i], "&&", "&"));
 			GetTextExtentPoint32(ctx_->hDC, wstr.c_str(), (int)wstr.size(), &size);
 
 			entry = new TextMeasureEntry();

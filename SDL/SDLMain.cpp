@@ -867,7 +867,7 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 	case SDL_TEXTINPUT:
 		{
 			int pos = 0;
-			int c = u8_nextchar(event.text.text, &pos);
+			int c = u8_nextchar(event.text.text, &pos, strlen(event.text.text));
 			KeyInput key;
 			key.flags = KEY_CHAR;
 			key.unicodeChar = c;

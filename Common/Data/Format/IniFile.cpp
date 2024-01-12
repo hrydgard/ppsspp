@@ -215,24 +215,34 @@ const ParsedIniLine *Section::GetLine(const char* key) const {
 }
 
 void Section::Set(const char* key, uint32_t newValue) {
-	Set(key, StringFromFormat("0x%08x", newValue).c_str());
+	char temp[128];
+	snprintf(temp, sizeof(temp), "0x%08x", newValue);
+	Set(key, (const char *)temp);
 }
 
 void Section::Set(const char* key, uint64_t newValue) {
-	Set(key, StringFromFormat("0x%016" PRIx64, newValue).c_str());
+	char temp[128];
+	snprintf(temp, sizeof(temp), "0x%016" PRIx64, newValue);
+	Set(key, (const char *)temp);
 }
 
 void Section::Set(const char* key, float newValue) {
 	_dbg_assert_(!my_isnanorinf(newValue));
-	Set(key, StringFromFormat("%f", newValue).c_str());
+	char temp[128];
+	snprintf(temp, sizeof(temp), "%f", newValue);
+	Set(key, (const char *)temp);
 }
 
 void Section::Set(const char* key, double newValue) {
-	Set(key, StringFromFormat("%f", newValue).c_str());
+	char temp[128];
+	snprintf(temp, sizeof(temp), "%f", newValue);
+	Set(key, (const char *)temp);
 }
 
 void Section::Set(const char* key, int newValue) {
-	Set(key, StringFromInt(newValue).c_str());
+	char temp[128];
+	snprintf(temp, sizeof(temp), "%d", newValue);
+	Set(key, (const char *)temp);
 }
 
 void Section::Set(const char* key, const char* newValue) {
