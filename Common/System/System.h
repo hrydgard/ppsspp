@@ -83,6 +83,7 @@ enum class SystemRequestType {
 	// High-level hardware control
 	CAMERA_COMMAND,
 	GPS_COMMAND,
+	INFRARED_COMMAND,
 	MICROPHONE_COMMAND,
 };
 

@@ -2160,6 +2160,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/HLE/sceSfmt19937.h
 	Core/HLE/sceSha256.cpp
 	Core/HLE/sceSha256.h
+	Core/HLE/sceSircs.cpp
+	Core/HLE/sceSircs.h
 	Core/HLE/sceSsl.cpp
 	Core/HLE/sceSsl.h
 	Core/HLE/sceUmd.cpp

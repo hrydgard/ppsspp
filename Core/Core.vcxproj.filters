@@ -580,6 +580,9 @@
     <ClCompile Include="HLE\sceSha256.cpp">
       <Filter>HLE\Libraries</Filter>
     </ClCompile>
+    <ClCompile Include="HLE\sceSircs.cpp">
+      <Filter>HLE\Libraries</Filter>
+    </ClCompile>
     <ClCompile Include="Util\AudioFormat.cpp">
       <Filter>Util</Filter>
     </ClCompile>
@@ -1771,6 +1774,9 @@
       <Filter>Ext\udis86</Filter>
     </ClInclude>
     <ClInclude Include="HLE\sceSha256.h">
+      <Filter>HLE\Libraries</Filter>
+    </ClInclude>
+    <ClInclude Include="HLE\sceSircs.h">
       <Filter>HLE\Libraries</Filter>
     </ClInclude>
     <ClInclude Include="Util\AudioFormat.h">

@@ -272,11 +272,6 @@ static int sceHttpGetContentLength(int requestID, u64 contentLengthPtr) {
 	return 0;
 }
 
-/*
-*	0x62411801 sceSircsInit
-0x19155a2f sceSircsEnd
-0x71eef62d sceSircsSend
-	*/
 const HLEFunction sceHttp[] = {
 	{0XAB1ABE07, &WrapI_I<sceHttpInit>,                      "sceHttpInit",                    'i', "i"     },
 	{0XD1C8945E, &WrapI_V<sceHttpEnd>,                       "sceHttpEnd",                     'i', ""      },
