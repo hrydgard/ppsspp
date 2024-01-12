@@ -93,9 +93,9 @@ private:
 	int size_;
 };
 
-int UTF8StringNonASCIICount(const char *utf8string);
+int UTF8StringNonASCIICount(std::string_view utf8string);
 
-bool UTF8StringHasNonASCII(const char *utf8string);
+bool UTF8StringHasNonASCII(std::string_view utf8string);
 
 
 // Removes overlong encodings and similar.
@@ -109,14 +109,13 @@ std::string CodepointToUTF8(uint32_t codePoint);
 
 std::string ConvertWStringToUTF8(const std::wstring &wstr);
 std::string ConvertWStringToUTF8(const wchar_t *wstr);
-void ConvertUTF8ToWString(wchar_t *dest, size_t destSize, const std::string &source);
-void ConvertUTF8ToWString(wchar_t *dest, size_t destSize, const char *source);
-std::wstring ConvertUTF8ToWString(const std::string &source);
+void ConvertUTF8ToWString(wchar_t *dest, size_t destSize, std::string_view source);
+std::wstring ConvertUTF8ToWString(std::string_view source);
 
 #else
 
 // Used by SymbolMap/assembler
-std::wstring ConvertUTF8ToWString(const std::string &source);
+std::wstring ConvertUTF8ToWString(std::string_view source);
 std::string ConvertWStringToUTF8(const std::wstring &wstr);
 
 #endif
@@ -124,5 +123,5 @@ std::string ConvertWStringToUTF8(const std::wstring &wstr);
 std::string ConvertUCS2ToUTF8(const std::u16string &wstr);
 
 // Dest size in units, not bytes.
-void ConvertUTF8ToUCS2(char16_t *dest, size_t destSize, const std::string &source);
-std::u16string ConvertUTF8ToUCS2(const std::string &source);
+void ConvertUTF8ToUCS2(char16_t *dest, size_t destSize, std::string_view source);
+std::u16string ConvertUTF8ToUCS2(std::string_view source);

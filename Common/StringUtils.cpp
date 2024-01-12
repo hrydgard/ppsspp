@@ -284,6 +284,7 @@ std::string_view StripQuotes(std::string_view s) {
 		return s;
 }
 
+// NOTE: str must live at least as long as all uses of output.
 void SplitString(std::string_view str, const char delim, std::vector<std::string_view> &output) {
 	size_t next = 0;
 	for (size_t pos = 0, len = str.length(); pos < len; ++pos) {

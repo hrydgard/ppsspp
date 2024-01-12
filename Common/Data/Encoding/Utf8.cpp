@@ -383,7 +383,7 @@ bool AnyEmojiInString(std::string_view str, size_t byteCount) {
 	return false;
 }
 
-int UTF8StringNonASCIICount(const char *utf8string) {
+int UTF8StringNonASCIICount(std::string_view utf8string) {
 	UTF8 utf(utf8string);
 	int count = 0;
 	while (!utf.end()) {
@@ -394,7 +394,7 @@ int UTF8StringNonASCIICount(const char *utf8string) {
 	return count;
 }
 
-bool UTF8StringHasNonASCII(const char *utf8string) {
+bool UTF8StringHasNonASCII(std::string_view utf8string) {
 	return UTF8StringNonASCIICount(utf8string) > 0;
 }
 
@@ -422,25 +422,21 @@ std::string ConvertWStringToUTF8(const std::wstring &wstr) {
 	return s;
 }
 
-void ConvertUTF8ToWString(wchar_t *dest, size_t destSize, const std::string &source) {
+void ConvertUTF8ToWString(wchar_t *dest, size_t destSize, std::string_view source) {
 	int len = (int)source.size();
-	int size = (int)MultiByteToWideChar(CP_UTF8, 0, source.c_str(), len, NULL, 0);
-	MultiByteToWideChar(CP_UTF8, 0, source.c_str(), len, dest, std::min((int)destSize, size));
+	destSize -= 1;  // account for the \0.
+	int size = (int)MultiByteToWideChar(CP_UTF8, 0, source.data(), len, NULL, 0);
+	MultiByteToWideChar(CP_UTF8, 0, source.data(), len, dest, std::min((int)destSize, size));
+	dest[size] = 0;
 }
 
-void ConvertUTF8ToWString(wchar_t *dest, size_t destSize, const char *source) {
-	int len = (int)strlen(source) + 1;  // include trailing zero
-	int size = (int)MultiByteToWideChar(CP_UTF8, 0, source, len, NULL, 0);
-	MultiByteToWideChar(CP_UTF8, 0, source, len, dest, std::min((int)destSize, size));
-}
-
-std::wstring ConvertUTF8ToWString(const std::string &source) {
+std::wstring ConvertUTF8ToWString(const std::string_view source) {
 	int len = (int)source.size();
-	int size = (int)MultiByteToWideChar(CP_UTF8, 0, source.c_str(), len, NULL, 0);
+	int size = (int)MultiByteToWideChar(CP_UTF8, 0, source.data(), len, NULL, 0);
 	std::wstring str;
 	str.resize(size);
 	if (size > 0) {
-		MultiByteToWideChar(CP_UTF8, 0, source.c_str(), len, &str[0], size);
+		MultiByteToWideChar(CP_UTF8, 0, source.data(), source.size(), &str[0], size);
 	}
 	return str;
 }
@@ -477,11 +473,11 @@ std::string SanitizeUTF8(std::string_view utf8string) {
 	return s;
 }
 
-static size_t ConvertUTF8ToUCS2Internal(char16_t *dest, size_t destSize, const std::string &source) {
+static size_t ConvertUTF8ToUCS2Internal(char16_t *dest, size_t destSize, std::string_view source) {
 	const char16_t *const orig = dest;
 	const char16_t *const destEnd = dest + destSize;
 
-	UTF8 utf(source.c_str());
+	UTF8 utf(source);
 
 	char16_t *destw = (char16_t *)dest;
 	const char16_t *const destwEnd = destw + destSize;
@@ -494,7 +490,7 @@ static size_t ConvertUTF8ToUCS2Internal(char16_t *dest, size_t destSize, const s
 		destw += UTF16LE::encodeUCS2(destw, c);
 	}
 
-	// No ++ to not count the terminal in length.
+	// No ++ to not count the null-terminator in length.
 	if (destw < destEnd) {
 		*destw = 0;
 	}
@@ -506,11 +502,11 @@ void ConvertUTF8ToUCS2(char16_t *dest, size_t destSize, const std::string &sourc
 	ConvertUTF8ToUCS2Internal(dest, destSize, source);
 }
 
-std::u16string ConvertUTF8ToUCS2(const std::string &source) {
+std::u16string ConvertUTF8ToUCS2(std::string_view source) {
 	std::u16string dst;
-	// utf-8 won't be less bytes than there are characters.  But need +1 for terminator.
-	dst.resize(source.size() + 1, 0);
-	size_t realLen = ConvertUTF8ToUCS2Internal(&dst[0], source.size() + 1, source);
+	// utf-8 won't be less bytes than there are characters.
+	dst.resize(source.size(), 0);
+	size_t realLen = ConvertUTF8ToUCS2Internal(&dst[0], source.size(), source);
 	dst.resize(realLen);
 	return dst;
 }
@@ -539,11 +535,11 @@ std::string ConvertWStringToUTF8(const std::wstring &wstr) {
 	return s;
 }
 
-static size_t ConvertUTF8ToWStringInternal(wchar_t *dest, size_t destSize, const std::string &source) {
+static size_t ConvertUTF8ToWStringInternal(wchar_t *dest, size_t destSize, std::string_view source) {
 	const wchar_t *const orig = dest;
 	const wchar_t *const destEnd = dest + destSize;
 
-	UTF8 utf(source.c_str());
+	UTF8 utf(source);
 
 	if (sizeof(wchar_t) == 2) {
 		char16_t *destw = (char16_t *)dest;
@@ -572,12 +568,13 @@ static size_t ConvertUTF8ToWStringInternal(wchar_t *dest, size_t destSize, const
 	return dest - orig;
 }
 
-std::wstring ConvertUTF8ToWString(const std::string &source) {
+std::wstring ConvertUTF8ToWString(std::string_view source) {
 	std::wstring dst;
-	// utf-8 won't be less bytes than there are characters.  But need +1 for terminator.
-	dst.resize(source.size() + 1, 0);
-	size_t realLen = ConvertUTF8ToWStringInternal(&dst[0], source.size() + 1, source);
+	// utf-8 won't be less bytes than there are characters.
+	dst.resize(source.size(), 0);
+	size_t realLen = ConvertUTF8ToWStringInternal(&dst[0], source.size(), source);
 	dst.resize(realLen);
+	dst[realLen] = 0;
 	return dst;
 }
 
