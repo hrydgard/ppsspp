@@ -140,6 +140,10 @@ inline void System_GPSCommand(const std::string &command) {
 	g_requestManager.MakeSystemRequest(SystemRequestType::GPS_COMMAND, nullptr, nullptr, command, "", 0);
 }
 
+inline void System_InfraredCommand(const std::string &command) {
+	g_requestManager.MakeSystemRequest(SystemRequestType::INFRARED_COMMAND, nullptr, nullptr, command, "", 0);
+}
+
 inline void System_MicrophoneCommand(const std::string &command) {
 	g_requestManager.MakeSystemRequest(SystemRequestType::MICROPHONE_COMMAND, nullptr, nullptr, command, "", 0);
 }

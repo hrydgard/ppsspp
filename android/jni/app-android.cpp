@@ -1128,6 +1128,9 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 	case SystemRequestType::GPS_COMMAND:
 		PushCommand("gps_command", param1);
 		return true;
+	case SystemRequestType::INFRARED_COMMAND:
+		PushCommand("infrared_command", param1);
+		return true;
 	case SystemRequestType::MICROPHONE_COMMAND:
 		PushCommand("microphone_command", param1);
 		return true;

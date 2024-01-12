@@ -111,6 +111,7 @@ public abstract class NativeActivity extends Activity {
 	private PowerSaveModeReceiver mPowerSaveModeReceiver = null;
 	private SizeManager sizeManager = null;
 	private static LocationHelper mLocationHelper;
+	private static InfraredHelper mInfraredHelper;
 	private static CameraHelper mCameraHelper;
 
 	private static final String[] permissionsForStorage = {
@@ -472,6 +473,14 @@ public abstract class NativeActivity extends Activity {
 		}
 
 		mLocationHelper = new LocationHelper(this);
+		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
+			try {
+				mInfraredHelper = new InfraredHelper(this);
+			} catch (Exception e) {
+				mInfraredHelper = null;
+				Log.i(TAG, "InfraredHelper exception: " + e);
+			}
+		}
 		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB) {
 			// android.graphics.SurfaceTexture is not available before version 11.
 			mCameraHelper = new CameraHelper(this);
@@ -1560,7 +1569,25 @@ public abstract class NativeActivity extends Activity {
 			} else if (params.equals("close")) {
 				mLocationHelper.stopLocationUpdates();
 			}
+		} else if (command.equals("infrared_command")) {
+			if (mInfraredHelper == null) {
+				return false;
+			}
+			if (params.startsWith("sircs")) {
+				Pattern pattern = Pattern.compile("sircs_(\\d+)_(\\d+)_(\\d+)_(\\d+)");
+				Matcher matcher = pattern.matcher(params);
+				if (!matcher.matches())
+					return false;
+				int ir_version = Integer.parseInt(matcher.group(1));
+				int ir_command = Integer.parseInt(matcher.group(2));
+				int ir_address = Integer.parseInt(matcher.group(3));
+				int ir_count   = Integer.parseInt(matcher.group(4));
+				mInfraredHelper.sendSircCommand(ir_version, ir_command, ir_address, ir_count);
+			}
 		} else if (command.equals("camera_command")) {
+			if (mCameraHelper == null) {
+				return false;
+			}
 			if (params.startsWith("startVideo")) {
 				Pattern pattern = Pattern.compile("startVideo_(\\d+)x(\\d+)");
 				Matcher matcher = pattern.matcher(params);
@@ -1569,7 +1596,7 @@ public abstract class NativeActivity extends Activity {
 				int width = Integer.parseInt(matcher.group(1));
 				int height = Integer.parseInt(matcher.group(2));
 				mCameraHelper.setCameraSize(width, height);
-				if (mCameraHelper != null && !askForPermissions(permissionsForCamera, REQUEST_CODE_CAMERA_PERMISSION)) {
+				if (!askForPermissions(permissionsForCamera, REQUEST_CODE_CAMERA_PERMISSION)) {
 					mCameraHelper.startCamera();
 				}
 			} else if (mCameraHelper != null && params.equals("stopVideo")) {

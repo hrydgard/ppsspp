@@ -617,6 +617,7 @@ SOURCES_CXX += \
 	       $(COREDIR)/HLE/KUBridge.cpp \
 	       $(COREDIR)/HLE/Plugins.cpp \
 	       $(COREDIR)/HLE/sceSha256.cpp \
+	       $(COREDIR)/HLE/sceSircs.cpp \
 	       $(COREDIR)/HLE/sceG729.cpp \
 	       $(COREDIR)/HLE/sceSfmt19937.cpp \
 	       $(COREDIR)/HLE/ReplaceTables.cpp \
