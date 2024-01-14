@@ -10,6 +10,8 @@
 #include "UI/MiscScreens.h"
 #include "UI/TabbedDialogScreen.h"
 
+#include "ext/rcheevos/include/rc_client.h"
+
 // Lists the achievements and leaderboards for one game.
 class RetroAchievementsListScreen : public TabbedUIDialogScreenWithGameBackground {
 public:
