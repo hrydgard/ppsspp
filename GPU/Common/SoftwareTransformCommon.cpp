@@ -171,7 +171,7 @@ void SoftwareTransform::SetProjMatrix(const float mtx[14], bool invertedX, bool 
 	projMatrix_.translateAndScale(trans, scale);
 }
 
-void SoftwareTransform::Transform(int prim, u32 vertType, const DecVtxFormat &decVtxFormat, int maxIndex, SoftwareTransformResult *result) {
+void SoftwareTransform::Transform(int prim, u32 vertType, const DecVtxFormat &decVtxFormat, int numDecodedVerts, SoftwareTransformResult *result) {
 	u8 *decoded = params_.decoded;
 	TransformedVertex *transformed = params_.transformed;
 	bool throughmode = (vertType & GE_VTYPE_THROUGH_MASK) != 0;
@@ -212,7 +212,7 @@ void SoftwareTransform::Transform(int prim, u32 vertType, const DecVtxFormat &de
 		const u32 materialAmbientRGBA = gstate.getMaterialAmbientRGBA();
 		const bool hasColor = reader.hasColor0();
 		const bool hasUV = reader.hasUV();
-		for (int index = 0; index < maxIndex; index++) {
+		for (int index = 0; index < numDecodedVerts; index++) {
 			// Do not touch the coordinates or the colors. No lighting.
 			reader.Goto(index);
 			// TODO: Write to a flexible buffer, we don't always need all four components.
@@ -221,7 +221,7 @@ void SoftwareTransform::Transform(int prim, u32 vertType, const DecVtxFormat &de
 			vert.pos_w = 1.0f;
 
 			if (hasColor) {
-				if (provokeIndOffset != 0 && index + provokeIndOffset < maxIndex) {
+				if (provokeIndOffset != 0 && index + provokeIndOffset < numDecodedVerts) {
 					reader.Goto(index + provokeIndOffset);
 					vert.color0_32 = reader.ReadColor0_8888();
 					reader.Goto(index);
@@ -249,7 +249,7 @@ void SoftwareTransform::Transform(int prim, u32 vertType, const DecVtxFormat &de
 	} else {
 		const Vec4f materialAmbientRGBA = Vec4f::FromRGBA(gstate.getMaterialAmbientRGBA());
 		// Okay, need to actually perform the full transform.
-		for (int index = 0; index < maxIndex; index++) {
+		for (int index = 0; index < numDecodedVerts; index++) {
 			reader.Goto(index);
 
 			float v[3] = {0, 0, 0};
@@ -270,7 +270,7 @@ void SoftwareTransform::Transform(int prim, u32 vertType, const DecVtxFormat &de
 
 			// Read all the provoking vertex values here.
 			Vec4f unlitColor;
-			if (provokeIndOffset != 0 && index + provokeIndOffset < maxIndex)
+			if (provokeIndOffset != 0 && index + provokeIndOffset < numDecodedVerts)
 				reader.Goto(index + provokeIndOffset);
 			if (reader.hasColor0())
 				reader.ReadColor0(unlitColor.AsArray());
@@ -439,10 +439,10 @@ void SoftwareTransform::Transform(int prim, u32 vertType, const DecVtxFormat &de
 	// TODO: This bleeds outside the play area in non-buffered mode. Big deal? Probably not.
 	// TODO: Allow creating a depth clear and a color draw.
 	bool reallyAClear = false;
-	if (maxIndex > 1 && prim == GE_PRIM_RECTANGLES && gstate.isModeClear() && throughmode) {
+	if (numDecodedVerts > 1 && prim == GE_PRIM_RECTANGLES && gstate.isModeClear() && throughmode) {
 		int scissorX2 = gstate.getScissorX2() + 1;
 		int scissorY2 = gstate.getScissorY2() + 1;
-		reallyAClear = IsReallyAClear(transformed, maxIndex, scissorX2, scissorY2);
+		reallyAClear = IsReallyAClear(transformed, numDecodedVerts, scissorX2, scissorY2);
 		if (reallyAClear && gstate.getColorMask() != 0xFFFFFFFF && (gstate.isClearModeColorMask() || gstate.isClearModeAlphaMask())) {
 			result->setSafeSize = true;
 			result->safeWidth = scissorX2;
@@ -467,7 +467,7 @@ void SoftwareTransform::Transform(int prim, u32 vertType, const DecVtxFormat &de
 	}
 
 	// Detect full screen "clears" that might not be so obvious, to set the safe size if possible.
-	if (!result->setSafeSize && prim == GE_PRIM_RECTANGLES && maxIndex == 2 && throughmode) {
+	if (!result->setSafeSize && prim == GE_PRIM_RECTANGLES && numDecodedVerts == 2 && throughmode) {
 		bool clearingColor = gstate.isModeClear() && (gstate.isClearModeColorMask() || gstate.isClearModeAlphaMask());
 		bool writingColor = gstate.getColorMask() != 0xFFFFFFFF;
 		bool startsZeroX = transformed[0].x <= 0.0f && transformed[1].x > 0.0f && transformed[1].x > transformed[0].x;
@@ -484,7 +484,7 @@ void SoftwareTransform::Transform(int prim, u32 vertType, const DecVtxFormat &de
 }
 
 // NOTE: The viewport must be up to date!
-void SoftwareTransform::BuildDrawingParams(int prim, int vertexCount, u32 vertType, u16 *&inds, int &maxIndex, SoftwareTransformResult *result) {
+void SoftwareTransform::BuildDrawingParams(int prim, int vertexCount, u32 vertType, u16 *&inds, int &numDecodedVerts, SoftwareTransformResult *result) {
 	TransformedVertex *transformed = params_.transformed;
 	TransformedVertex *transformedExpanded = params_.transformedExpanded;
 	bool throughmode = (vertType & GE_VTYPE_THROUGH_MASK) != 0;
@@ -497,7 +497,7 @@ void SoftwareTransform::BuildDrawingParams(int prim, int vertexCount, u32 vertTy
 	bool useBufferedRendering = fbman->UseBufferedRendering();
 
 	if (prim == GE_PRIM_RECTANGLES) {
-		ExpandRectangles(vertexCount, maxIndex, inds, transformed, transformedExpanded, numTrans, throughmode, &result->pixelMapped);
+		ExpandRectangles(vertexCount, numDecodedVerts, inds, transformed, transformedExpanded, numTrans, throughmode, &result->pixelMapped);
 		result->drawBuffer = transformedExpanded;
 		result->drawIndexed = true;
 
@@ -515,12 +515,12 @@ void SoftwareTransform::BuildDrawingParams(int prim, int vertexCount, u32 vertTy
 			}
 		}
 	} else if (prim == GE_PRIM_POINTS) {
-		ExpandPoints(vertexCount, maxIndex, inds, transformed, transformedExpanded, numTrans, throughmode);
+		ExpandPoints(vertexCount, numDecodedVerts, inds, transformed, transformedExpanded, numTrans, throughmode);
 		result->drawBuffer = transformedExpanded;
 		result->drawIndexed = true;
 		result->pixelMapped = false;
 	} else if (prim == GE_PRIM_LINES) {
-		ExpandLines(vertexCount, maxIndex, inds, transformed, transformedExpanded, numTrans, throughmode);
+		ExpandLines(vertexCount, numDecodedVerts, inds, transformed, transformedExpanded, numTrans, throughmode);
 		result->drawBuffer = transformedExpanded;
 		result->drawIndexed = true;
 		result->pixelMapped = false;
@@ -645,7 +645,7 @@ void SoftwareTransform::CalcCullParams(float &minZValue, float &maxZValue) {
 		std::swap(minZValue, maxZValue);
 }
 
-void SoftwareTransform::ExpandRectangles(int vertexCount, int &maxIndex, u16 *&inds, const TransformedVertex *transformed, TransformedVertex *transformedExpanded, int &numTrans, bool throughmode, bool *pixelMappedExactly) {
+void SoftwareTransform::ExpandRectangles(int vertexCount, int &numDecodedVerts, u16 *&inds, const TransformedVertex *transformed, TransformedVertex *transformedExpanded, int &numTrans, bool throughmode, bool *pixelMappedExactly) {
 	// Rectangles always need 2 vertices, disregard the last one if there's an odd number.
 	vertexCount = vertexCount & ~1;
 	numTrans = 0;
@@ -655,7 +655,7 @@ void SoftwareTransform::ExpandRectangles(int vertexCount, int &maxIndex, u16 *&i
 	u16 *newInds = inds + vertexCount;
 	u16 *indsOut = newInds;
 
-	maxIndex = 4 * (vertexCount / 2);
+	numDecodedVerts = 4 * (vertexCount / 2);
 
 	float uscale = 1.0f;
 	float vscale = 1.0f;
@@ -735,7 +735,7 @@ void SoftwareTransform::ExpandRectangles(int vertexCount, int &maxIndex, u16 *&i
 	*pixelMappedExactly = pixelMapped;
 }
 
-void SoftwareTransform::ExpandLines(int vertexCount, int &maxIndex, u16 *&inds, const TransformedVertex *transformed, TransformedVertex *transformedExpanded, int &numTrans, bool throughmode) {
+void SoftwareTransform::ExpandLines(int vertexCount, int &numDecodedVerts, u16 *&inds, const TransformedVertex *transformed, TransformedVertex *transformedExpanded, int &numTrans, bool throughmode) {
 	// Lines always need 2 vertices, disregard the last one if there's an odd number.
 	vertexCount = vertexCount & ~1;
 	numTrans = 0;
@@ -755,7 +755,7 @@ void SoftwareTransform::ExpandLines(int vertexCount, int &maxIndex, u16 *&inds, 
 		dy = 1.0f;
 	}
 
-	maxIndex = 4 * (vertexCount / 2);
+	numDecodedVerts = 4 * (vertexCount / 2);
 
 	if (PSP_CoreParameter().compat.flags().CenteredLines) {
 		// Lines meant to be pretty in 3D like in Echochrome.
