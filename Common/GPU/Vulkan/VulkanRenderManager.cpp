@@ -535,7 +535,7 @@ void VulkanRenderManager::ReleaseCompileQueue() {
 }
 
 void VulkanRenderManager::ThreadFunc() {
-	SetCurrentThreadName("RenderMan");
+	SetCurrentThreadName("VulkanRenderMan");
 	while (true) {
 		_dbg_assert_(useRenderThread_);
 

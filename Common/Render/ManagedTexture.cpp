@@ -35,11 +35,13 @@ public:
 			ERROR_LOG(IO, "Failed to read file '%s'", filename_.c_str());
 			filename_.clear();
 			*state_ = ManagedTexture::LoadState::FAILED;
+			waitable_->Notify();
 			return;
 		}
 
 		if (!tempImage_->LoadTextureLevels(buffer, fileSize, type_)) {
 			*state_ = ManagedTexture::LoadState::FAILED;
+			waitable_->Notify();
 			return;
 		}
 		delete[] buffer;
