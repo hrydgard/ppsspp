@@ -288,7 +288,7 @@ static const char * const so_names[] = {
 };
 #endif
 
-static VulkanLibraryHandle VulkanLoadLibrary(const char *logname) {
+static VulkanLibraryHandle VulkanLoadLibrary(std::string *errorString) {
 #if PPSSPP_PLATFORM(SWITCH)
 	// Always unavailable, for now.
 	return nullptr;
@@ -329,7 +329,7 @@ static VulkanLibraryHandle VulkanLoadLibrary(const char *logname) {
         for (int i = 0; i < ARRAY_SIZE(so_names); i++) {
             lib = dlopen(so_names[i], RTLD_NOW | RTLD_LOCAL);
             if (lib) {
-                INFO_LOG(G3D, "%s: Library loaded ('%s')", logname, so_names[i]);
+                INFO_LOG(G3D, "Vulkan library loaded with AdrenoTools ('%s')", so_names[i]);
                 break;
             }
         }
@@ -378,9 +378,10 @@ bool VulkanMayBeAvailable() {
 	}
 	INFO_LOG(G3D, "VulkanMayBeAvailable: Device allowed ('%s')", name.c_str());
 
-	VulkanLibraryHandle lib = VulkanLoadLibrary("VulkanMayBeAvailable");
+	std::string errorStr;
+	VulkanLibraryHandle lib = VulkanLoadLibrary(&errorStr);
 	if (!lib) {
-		INFO_LOG(G3D, "Vulkan loader: Library not available");
+		INFO_LOG(G3D, "Vulkan loader: Library not available: %s", errorStr.c_str());
 		g_vulkanAvailabilityChecked = true;
 		g_vulkanMayBeAvailable = false;
 		return false;
@@ -545,9 +546,9 @@ bail:
 	return g_vulkanMayBeAvailable;
 }
 
-bool VulkanLoad() {
+bool VulkanLoad(std::string *errorStr) {
 	if (!vulkanLibrary) {
-		vulkanLibrary = VulkanLoadLibrary("VulkanLoad");
+		vulkanLibrary = VulkanLoadLibrary(errorStr);
 		if (!vulkanLibrary) {
 			return false;
 		}
@@ -565,7 +566,8 @@ bool VulkanLoad() {
 		INFO_LOG(G3D, "VulkanLoad: Base functions loaded.");
 		return true;
 	} else {
-		ERROR_LOG(G3D, "VulkanLoad: Failed to load Vulkan base functions.");
+		*errorStr = "Failed to load Vulkan base functions";
+		ERROR_LOG(G3D, "VulkanLoad: %s", errorStr->c_str());
 		VulkanFreeLibrary(vulkanLibrary);
 		return false;
 	}

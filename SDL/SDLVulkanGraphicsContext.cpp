@@ -56,8 +56,10 @@ bool SDLVulkanGraphicsContext::Init(SDL_Window *&window, int x, int y, int w, in
 
 	Version gitVer(PPSSPP_GIT_VERSION);
 
-	if (!VulkanLoad()) {
-		*error_message = "Failed to load Vulkan driver library";
+	std::string errorStr;
+	if (!VulkanLoad(&errorStr)) {
+		*error_message = "Failed to load Vulkan driver library: ";
+		(*error_message) += errorStr;
 		return false;
 	}
 

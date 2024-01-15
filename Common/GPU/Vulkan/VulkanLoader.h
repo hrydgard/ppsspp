@@ -32,6 +32,7 @@
 #define VK_NO_PROTOTYPES
 
 #include "ext/vulkan/vulkan.h"
+#include <string>
 
 // Hacky X11 header workaround
 #ifdef Opposite
@@ -266,7 +267,7 @@ struct VulkanExtensions {
 bool VulkanMayBeAvailable();
 void VulkanSetAvailable(bool available);
 
-bool VulkanLoad();
+bool VulkanLoad(std::string *errorStr);
 void VulkanLoadInstanceFunctions(VkInstance instance, const VulkanExtensions &enabledExtensions);
 void VulkanLoadDeviceFunctions(VkDevice device, const VulkanExtensions &enabledExtensions);
 void VulkanFree();
