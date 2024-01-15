@@ -40,13 +40,16 @@ static void SplitSV(std::string_view strv, char delim, bool removeWhiteSpace, st
 		const auto second = strv.find(delim, first);
 		if (first != second) {
 			std::string_view line = strv.substr(first, second - first);
+			_dbg_assert_(!line.empty());
 			if (line.back() == '\r') {
-				line = strv.substr(first, second - first - 1);
+				line.remove_suffix(1);
 			}
 			if (removeWhiteSpace) {
 				line = StripSpaces(line);
 			}
-			output->emplace_back(line);
+			if (!line.empty()) {
+				output->emplace_back(line);
+			}
 		}
 		if (second == std::string_view::npos)
 			break;
