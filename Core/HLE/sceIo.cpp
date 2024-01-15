@@ -1555,6 +1555,11 @@ static FileNode *__IoOpen(int &error, const char *filename, int flags, int mode)
 static u32 sceIoOpen(const char *filename, int flags, int mode) {
 	hleEatCycles(18000);
 
+	if (!filename) {
+		// Not tested on the PSP.
+		return hleLogError(SCEIO, SCE_KERNEL_ERROR_ERRNO_FILE_NOT_FOUND, "nullptr file not found");
+	}
+
 	if (!__KernelIsDispatchEnabled()) {
 		hleEatCycles(48000);
 		return hleLogError(SCEIO, SCE_KERNEL_ERROR_CAN_NOT_WAIT, "dispatch disabled");
@@ -2190,6 +2195,10 @@ static u32 sceIoSetAsyncCallback(int id, u32 clbckId, u32 clbckArg)
 
 static u32 sceIoOpenAsync(const char *filename, int flags, int mode) {
 	hleEatCycles(18000);
+	if (!filename) {
+		// Not tested on the PSP.
+		return hleLogError(SCEIO, SCE_KERNEL_ERROR_ERRNO_FILE_NOT_FOUND, "nullptr file not found");
+	}
 
 	// TODO: Use an internal method so as not to pollute the log?
 	// Intentionally does not work when interrupts disabled.
