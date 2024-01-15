@@ -17,10 +17,10 @@
 
 #include <algorithm>
 #include <cmath>
+
 #include "Common/CPUDetect.h"
 #include "Common/Math/math_util.h"
 #include "Common/GPU/OpenGL/GLFeatures.h"
-
 #include "Core/Config.h"
 #include "GPU/GPUState.h"
 #include "GPU/Math3D.h"
@@ -483,8 +483,7 @@ void SoftwareTransform::Transform(int prim, u32 vertType, const DecVtxFormat &de
 	}
 }
 
-// NOTE: The viewport must be up to date!
-void SoftwareTransform::BuildDrawingParams(int prim, int vertexCount, u32 vertType, u16 *&inds, int &numDecodedVerts, SoftwareTransformResult *result) {
+void SoftwareTransform::BuildDrawingParams(int prim, int vertexCount, u32 vertType, u16 *&inds, int indsSize, int &numDecodedVerts, SoftwareTransformResult *result) {
 	TransformedVertex *transformed = params_.transformed;
 	TransformedVertex *transformedExpanded = params_.transformedExpanded;
 	bool throughmode = (vertType & GE_VTYPE_THROUGH_MASK) != 0;
@@ -497,7 +496,7 @@ void SoftwareTransform::BuildDrawingParams(int prim, int vertexCount, u32 vertTy
 	bool useBufferedRendering = fbman->UseBufferedRendering();
 
 	if (prim == GE_PRIM_RECTANGLES) {
-		ExpandRectangles(vertexCount, numDecodedVerts, inds, transformed, transformedExpanded, numTrans, throughmode, &result->pixelMapped);
+		ExpandRectangles(vertexCount, numDecodedVerts, inds, indsSize, transformed, transformedExpanded, numTrans, throughmode, &result->pixelMapped);
 		result->drawBuffer = transformedExpanded;
 		result->drawIndexed = true;
 
@@ -515,12 +514,12 @@ void SoftwareTransform::BuildDrawingParams(int prim, int vertexCount, u32 vertTy
 			}
 		}
 	} else if (prim == GE_PRIM_POINTS) {
-		ExpandPoints(vertexCount, numDecodedVerts, inds, transformed, transformedExpanded, numTrans, throughmode);
+		ExpandPoints(vertexCount, numDecodedVerts, inds, indsSize, transformed, transformedExpanded, numTrans, throughmode);
 		result->drawBuffer = transformedExpanded;
 		result->drawIndexed = true;
 		result->pixelMapped = false;
 	} else if (prim == GE_PRIM_LINES) {
-		ExpandLines(vertexCount, numDecodedVerts, inds, transformed, transformedExpanded, numTrans, throughmode);
+		ExpandLines(vertexCount, numDecodedVerts, inds, indsSize, transformed, transformedExpanded, numTrans, throughmode);
 		result->drawBuffer = transformedExpanded;
 		result->drawIndexed = true;
 		result->pixelMapped = false;
@@ -645,7 +644,7 @@ void SoftwareTransform::CalcCullParams(float &minZValue, float &maxZValue) {
 		std::swap(minZValue, maxZValue);
 }
 
-void SoftwareTransform::ExpandRectangles(int vertexCount, int &numDecodedVerts, u16 *&inds, const TransformedVertex *transformed, TransformedVertex *transformedExpanded, int &numTrans, bool throughmode, bool *pixelMappedExactly) {
+void SoftwareTransform::ExpandRectangles(int vertexCount, int &numDecodedVerts, u16 *&inds, int indsSize, const TransformedVertex *transformed, TransformedVertex *transformedExpanded, int &numTrans, bool throughmode, bool *pixelMappedExactly) {
 	// Rectangles always need 2 vertices, disregard the last one if there's an odd number.
 	vertexCount = vertexCount & ~1;
 	numTrans = 0;
@@ -735,7 +734,7 @@ void SoftwareTransform::ExpandRectangles(int vertexCount, int &numDecodedVerts, 
 	*pixelMappedExactly = pixelMapped;
 }
 
-void SoftwareTransform::ExpandLines(int vertexCount, int &numDecodedVerts, u16 *&inds, const TransformedVertex *transformed, TransformedVertex *transformedExpanded, int &numTrans, bool throughmode) {
+void SoftwareTransform::ExpandLines(int vertexCount, int &numDecodedVerts, u16 *&inds, int indsSize, const TransformedVertex *transformed, TransformedVertex *transformedExpanded, int &numTrans, bool throughmode) {
 	// Lines always need 2 vertices, disregard the last one if there's an odd number.
 	vertexCount = vertexCount & ~1;
 	numTrans = 0;
@@ -860,7 +859,7 @@ void SoftwareTransform::ExpandLines(int vertexCount, int &numDecodedVerts, u16 *
 }
 
 
-void SoftwareTransform::ExpandPoints(int vertexCount, int &maxIndex, u16 *&inds, const TransformedVertex *transformed, TransformedVertex *transformedExpanded, int &numTrans, bool throughmode) {
+void SoftwareTransform::ExpandPoints(int vertexCount, int &maxIndex, u16 *&inds, int indsSize, const TransformedVertex *transformed, TransformedVertex *transformedExpanded, int &numTrans, bool throughmode) {
 	numTrans = 0;
 	TransformedVertex *trans = &transformedExpanded[0];
 

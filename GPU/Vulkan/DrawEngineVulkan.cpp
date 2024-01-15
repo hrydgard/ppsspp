@@ -430,7 +430,8 @@ void DrawEngineVulkan::DoFlush() {
 			result.action = SW_NOT_READY;
 
 		if (result.action == SW_NOT_READY) {
-			swTransform.BuildDrawingParams(prim, vertexCount, dec_->VertexType(), inds, numDecodedVerts_, &result);
+			// decIndex_ here is always equal to inds currently, but it may not be in the future.
+			swTransform.BuildDrawingParams(prim, vertexCount, dec_->VertexType(), inds, RemainingIndices(inds), numDecodedVerts_, &result);
 		}
 
 		if (result.setSafeSize)

@@ -241,7 +241,9 @@ protected:
 		}
 	}
 
-	uint32_t ComputeDrawcallsHash() const;
+	inline int RemainingIndices(const uint16_t *inds) const {
+		return DECODED_INDEX_BUFFER_SIZE / sizeof(uint16_t) - (inds - decIndex_);
+	}
 
 	bool useHWTransform_ = false;
 	bool useHWTessellation_ = false;
