@@ -99,3 +99,12 @@ void DoLinkedList(PointerWrap &p, LinkedListItem<T> *&list_start, LinkedListItem
 		list_cur = list_cur->next;
 	}
 }
+
+inline void DoIgnoreUnusedLinkedList(PointerWrap &p) {
+	u8 shouldExist = 0;
+	Do(p, shouldExist);
+	if (shouldExist) {
+		// We don't support this linked list and haven't used it forever.
+		p.SetError(p.ERROR_FAILURE);
+	}
+}
