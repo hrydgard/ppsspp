@@ -411,7 +411,9 @@ struct SinglePipelineTask {
 
 class CreateMultiPipelinesTask : public Task {
 public:
-	CreateMultiPipelinesTask(VulkanContext *vulkan, std::vector<SinglePipelineTask> tasks) : vulkan_(vulkan), tasks_(tasks) {}
+	CreateMultiPipelinesTask(VulkanContext *vulkan, std::vector<SinglePipelineTask> tasks) : vulkan_(vulkan), tasks_(tasks) {
+		tasksInFlight_.fetch_add(1);
+	}
 	~CreateMultiPipelinesTask() {}
 
 	TaskType Type() const override {
@@ -426,11 +428,24 @@ public:
 		for (auto &task : tasks_) {
 			task.pipeline->Create(vulkan_, task.compatibleRenderPass, task.rpType, task.sampleCount, task.scheduleTime, task.countToCompile);
 		}
+		tasksInFlight_.fetch_sub(1);
 	}
 
 	VulkanContext *vulkan_;
 	std::vector<SinglePipelineTask> tasks_;
+
+	// Use during shutdown to make sure there aren't any leftover tasks sitting queued.
+	// Could probably be done more elegantly. Like waiting for all tasks of a type, or saving pointers to them, or something...
+	static void WaitForAll() {
+		while (tasksInFlight_.load() > 0) {
+			sleep_ms(2);
+		}
+	}
+
+	static std::atomic<int> tasksInFlight_;
 };
+
+std::atomic<int> CreateMultiPipelinesTask::tasksInFlight_;
 
 void VulkanRenderManager::CompileThreadFunc() {
 	SetCurrentThreadName("ShaderCompile");
@@ -465,7 +480,8 @@ void VulkanRenderManager::CompileThreadFunc() {
 		for (auto &entry : toCompile) {
 			switch (entry.type) {
 			case CompileQueueEntry::Type::GRAPHICS:
-				map[std::pair< Promise<VkShaderModule> *, Promise<VkShaderModule> *>(entry.graphics->desc->vertexShader, entry.graphics->desc->fragmentShader)].push_back(
+			{
+				map[std::make_pair(entry.graphics->desc->vertexShader, entry.graphics->desc->fragmentShader)].push_back(
 					SinglePipelineTask{
 						entry.graphics,
 						entry.compatibleRenderPass,
@@ -476,6 +492,7 @@ void VulkanRenderManager::CompileThreadFunc() {
 					}
 				);
 				break;
+			}
 			}
 		}
 
@@ -500,6 +517,7 @@ void VulkanRenderManager::DrainAndBlockCompileQueue() {
 	while (!compileQueue_.empty()) {
 		queueRunner_.WaitForCompileNotification();
 	}
+	CreateMultiPipelinesTask::WaitForAll();
 }
 
 void VulkanRenderManager::ReleaseCompileQueue() {
