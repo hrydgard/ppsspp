@@ -115,12 +115,6 @@ public:
 	RPKey rpKey{};
 };
 
-// All the data needed to create a compute pipeline.
-struct VKRComputePipelineDesc {
-	VkPipelineCache pipelineCache;
-	VkComputePipelineCreateInfo pipe{ VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO };
-};
-
 // Wrapped pipeline. Doesn't own desc.
 struct VKRGraphicsPipeline {
 	VKRGraphicsPipeline(PipelineFlags flags, const char *tag) : flags_(flags), tag_(tag) {}
@@ -156,33 +150,16 @@ private:
 	VkSampleCountFlagBits sampleCount_ = VK_SAMPLE_COUNT_FLAG_BITS_MAX_ENUM;
 };
 
-struct VKRComputePipeline {
-	~VKRComputePipeline() {
-		delete pipeline;
-	}
-
-	VKRComputePipelineDesc *desc = nullptr;
-	Promise<VkPipeline> *pipeline = nullptr;
-
-	bool CreateAsync(VulkanContext *vulkan);
-	bool Pending() const {
-		return pipeline == VK_NULL_HANDLE && desc != nullptr;
-	}
-};
-
 struct CompileQueueEntry {
 	CompileQueueEntry(VKRGraphicsPipeline *p, VkRenderPass _compatibleRenderPass, RenderPassType _renderPassType, VkSampleCountFlagBits _sampleCount)
 		: type(Type::GRAPHICS), graphics(p), compatibleRenderPass(_compatibleRenderPass), renderPassType(_renderPassType), sampleCount(_sampleCount) {}
-	CompileQueueEntry(VKRComputePipeline *p) : type(Type::COMPUTE), compute(p), renderPassType(RenderPassType::DEFAULT), sampleCount(VK_SAMPLE_COUNT_1_BIT), compatibleRenderPass(VK_NULL_HANDLE) {}  // renderpasstype here shouldn't matter
 	enum class Type {
 		GRAPHICS,
-		COMPUTE,
 	};
 	Type type;
 	VkRenderPass compatibleRenderPass;
 	RenderPassType renderPassType;
 	VKRGraphicsPipeline *graphics = nullptr;
-	VKRComputePipeline *compute = nullptr;
 	VkSampleCountFlagBits sampleCount;
 };
 
@@ -294,7 +271,6 @@ public:
 	// Unless a variantBitmask is passed in, in which case we can just go ahead.
 	// WARNING: desc must stick around during the lifetime of the pipeline! It's not enough to build it on the stack and drop it.
 	VKRGraphicsPipeline *CreateGraphicsPipeline(VKRGraphicsPipelineDesc *desc, PipelineFlags pipelineFlags, uint32_t variantBitmask, VkSampleCountFlagBits sampleCount, bool cacheLoad, const char *tag);
-	VKRComputePipeline *CreateComputePipeline(VKRComputePipelineDesc *desc);
 
 	VKRPipelineLayout *CreatePipelineLayout(BindingType *bindingTypes, size_t bindingCount, bool geoShadersEnabled, const char *tag);
 	void DestroyPipelineLayout(VKRPipelineLayout *pipelineLayout);

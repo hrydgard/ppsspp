@@ -237,29 +237,6 @@ void VKRGraphicsPipeline::LogCreationFailure() const {
 	ERROR_LOG(G3D, "======== END OF PIPELINE ==========");
 }
 
-bool VKRComputePipeline::CreateAsync(VulkanContext *vulkan) {
-	if (!desc) {
-		// Already failed to create this one.
-		return false;
-	}
-	pipeline->SpawnEmpty(&g_threadManager, [=] {
-		VkPipeline vkpipeline;
-		VkResult result = vkCreateComputePipelines(vulkan->GetDevice(), desc->pipelineCache, 1, &desc->pipe, nullptr, &vkpipeline);
-
-		bool success = true;
-		if (result == VK_SUCCESS) {
-			return vkpipeline;
-		} else {
-			ERROR_LOG(G3D, "Failed creating compute pipeline! result='%s'", VulkanResultToString(result));
-			success = false;
-			return (VkPipeline)VK_NULL_HANDLE;
-		}
-		delete desc;
-	}, TaskType::CPU_COMPUTE);
-	desc = nullptr;
-	return true;
-}
-
 VulkanRenderManager::VulkanRenderManager(VulkanContext *vulkan, bool useThread, HistoryBuffer<FrameTimeData, FRAME_TIME_HISTORY_LENGTH> &frameTimeHistory)
 	: vulkan_(vulkan), queueRunner_(vulkan),
 	initTimeMs_("initTimeMs"),
@@ -498,10 +475,6 @@ void VulkanRenderManager::CompileThreadFunc() {
 						countToCompile,
 					}
 				);
-				break;
-			case CompileQueueEntry::Type::COMPUTE:
-				// Queue up pending compute pipelines on separate tasks.
-				entry.compute->CreateAsync(vulkan_);
 				break;
 			}
 		}
@@ -829,18 +802,6 @@ VKRGraphicsPipeline *VulkanRenderManager::CreateGraphicsPipeline(VKRGraphicsPipe
 		if (needsCompile)
 			compileCond_.notify_one();
 	}
-	return pipeline;
-}
-
-VKRComputePipeline *VulkanRenderManager::CreateComputePipeline(VKRComputePipelineDesc *desc) {
-	std::lock_guard<std::mutex> lock(compileMutex_);
-	if (compileBlocked_) {
-		return nullptr;
-	}
-	VKRComputePipeline *pipeline = new VKRComputePipeline();
-	pipeline->desc = desc;
-	compileQueue_.push_back(CompileQueueEntry(pipeline));
-	compileCond_.notify_one();
 	return pipeline;
 }
 
