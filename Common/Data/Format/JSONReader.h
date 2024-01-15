@@ -10,8 +10,7 @@
 namespace json {
 
 struct JsonGet {
-	JsonGet(const JsonValue &value) : value_(value) {
-	}
+	JsonGet(const JsonValue &value) : value_(value) {}
 
 	int numChildren() const;
 	const JsonNode *get(const char *child_name) const;
@@ -47,7 +46,8 @@ struct JsonGet {
 class JsonReader {
 public:
 	JsonReader(const std::string &filename);
-	JsonReader(const void *data, size_t size) {
+	// Makes a copy, after this returns you can free the input buffer.
+	JsonReader(const char *data, size_t size) {
 		buffer_ = (char *)malloc(size + 1);
 		if (buffer_) {
 			memcpy(buffer_, data, size);

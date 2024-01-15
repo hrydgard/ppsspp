@@ -1409,7 +1409,7 @@ public abstract class NativeActivity extends Activity {
 				Log.e(TAG, e.toString());
 				return false;
 			}
-		} else if (command.equals("browse_file") || command.equals("browse_file_audio")) {
+		} else if (command.equals("browse_file") || command.equals("browse_file_audio") || command.equals("browse_file_zip")) {
 			try {
 				int requestId = Integer.parseInt(params);
 				int packedResultCode = packResultCode(RESULT_OPEN_DOCUMENT, requestId);
@@ -1418,6 +1418,8 @@ public abstract class NativeActivity extends Activity {
 				intent.addCategory(Intent.CATEGORY_OPENABLE);
 				if (command.equals("browse_file_audio")) {
 					intent.setType("audio/x-wav");
+				} else if (command.equals("browse_file_zip")) {
+					intent.setType("application/zip");
 				} else {
 					intent.setType("*/*");
 				}

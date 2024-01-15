@@ -1268,59 +1268,75 @@ UI::EventReturn DeveloperToolsScreen::OnCustomDriverChange(UI::EventParams &e) {
 UI::EventReturn DeveloperToolsScreen::OnCustomDriverInstall(UI::EventParams &e) {
 	auto gr = GetI18NCategory(I18NCat::GRAPHICS);
 
-	System_BrowseForFile(gr->T("Install Custom Driver..."), BrowseFileType::ANY, [this](const std::string &value, int) {
-		const Path driverPath = g_Config.internalDataDirectory / "drivers";
-
-		if (!value.empty()) {
-			Path zipPath = Path(value);
-
-			bool success = false;
-
-			if (zipPath.GetFileExtension() == ".zip") {
-				ZipFileReader *zipFileReader = ZipFileReader::Create(zipPath, "");
-
-				size_t metaDataSize;
-				uint8_t *metaData = zipFileReader->ReadFile("meta.json", &metaDataSize);
-
-				Path tempMeta = Path(g_Config.internalDataDirectory / "meta.json");
-
-				File::CreateEmptyFile(tempMeta);
-				File::WriteDataToFile(false, metaData, metaDataSize, tempMeta);
-
-				delete[] metaData;
-
-				json::JsonReader meta = json::JsonReader((g_Config.internalDataDirectory / "meta.json").c_str());
-				if (meta.ok()) {
-					std::string driverName = meta.root().get("name")->value.toString();
-
-					Path newCustomDriver = driverPath / driverName;
-					File::CreateFullPath(newCustomDriver);
-
-					std::vector<File::FileInfo> zipListing;
-					zipFileReader->GetFileListing("", &zipListing, nullptr);
-
-					for (auto file : zipListing) {
-						File::CreateEmptyFile(newCustomDriver / file.name);
-
-						size_t size;
-						uint8_t *data = zipFileReader->ReadFile(file.name.c_str(), &size);
-						File::WriteDataToFile(false, data, size, newCustomDriver / file.name);
-
-						delete[] data;
-					}
-
-					File::Delete(tempMeta);
-
-					success = true;
-
-					RecreateViews();
-				}
-			}
-			if (!success) {
-				auto gr = GetI18NCategory(I18NCat::GRAPHICS);
-				g_OSD.Show(OSDType::MESSAGE_ERROR, gr->T("The file is not a ZIP file containing a compatible driver."));
-			}
+	System_BrowseForFile(gr->T("Install Custom Driver..."), BrowseFileType::ZIP, [this](const std::string &value, int) {
+		if (value.empty()) {
+			return;
 		}
+
+		auto gr = GetI18NCategory(I18NCat::GRAPHICS);
+
+		Path zipPath = Path(value);
+
+		// Don't bother checking the file extension. Can't always do that with files from Download (they have paths like content://com.android.providers.downloads.documents/document/msf%3A1000001095).
+		// Though, it may be possible to get it in other ways.
+
+		std::unique_ptr<ZipFileReader> zipFileReader = std::unique_ptr<ZipFileReader>(ZipFileReader::Create(zipPath, "", true));
+		if (!zipFileReader) {
+			g_OSD.Show(OSDType::MESSAGE_ERROR, gr->T("The chosen file is not a valid ZIP file."));
+			ERROR_LOG(SYSTEM, "Failed to open file '%s' as zip", zipPath.c_str());
+			return;
+		}
+
+		size_t metaDataSize;
+		uint8_t *metaData = zipFileReader->ReadFile("meta.json", &metaDataSize);
+		if (!metaData) {
+			g_OSD.Show(OSDType::MESSAGE_ERROR, gr->T("The chosen ZIP file doesn't contain a valid driver"), "meta.json missing");
+			return;
+		}
+
+		// Validate the json file. TODO: Be a bit more detailed.
+		json::JsonReader meta = json::JsonReader((const char *)metaData, metaDataSize);
+		delete[] metaData;
+		if (!meta.ok()) {
+			g_OSD.Show(OSDType::MESSAGE_ERROR, gr->T("The chosen ZIP file doesn't contain a valid driver"), "meta.json not valid json");
+			return;
+		}
+
+		const JsonNode *nameNode = meta.root().get("name");
+		if (!nameNode) {
+			g_OSD.Show(OSDType::MESSAGE_ERROR, gr->T("The chosen ZIP file doesn't contain a valid driver"), "missing driver name in json");
+			return;
+		}
+
+		std::string driverName = nameNode->value.toString();
+		if (driverName.empty()) {
+			g_OSD.Show(OSDType::MESSAGE_ERROR, gr->T("The chosen ZIP file doesn't contain a valid driver"), "driver name empty");
+			return;
+		}
+
+		const Path newCustomDriver = g_Config.internalDataDirectory / "drivers" / driverName;
+		NOTICE_LOG(G3D, "Installing driver into '%s'", newCustomDriver.c_str());
+		File::CreateFullPath(newCustomDriver);
+
+		std::vector<File::FileInfo> zipListing;
+		zipFileReader->GetFileListing("", &zipListing, nullptr);
+
+		for (auto file : zipListing) {
+			File::CreateEmptyFile(newCustomDriver / file.name);
+
+			size_t size;
+			uint8_t *data = zipFileReader->ReadFile(file.name.c_str(), &size);
+			if (!data) {
+				g_OSD.Show(OSDType::MESSAGE_ERROR, gr->T("The chosen ZIP file doesn't contain a valid driver"), file.name.c_str());
+				return;
+			}
+			File::WriteDataToFile(false, data, size, newCustomDriver / file.name);
+			delete[] data;
+		}
+
+		auto iz = GetI18NCategory(I18NCat::INSTALLZIP);
+		g_OSD.Show(OSDType::MESSAGE_SUCCESS, iz->T("Installed!"));
+		RecreateViews();
 	});
 	return UI::EVENT_DONE;
 }

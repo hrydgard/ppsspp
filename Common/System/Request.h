@@ -91,6 +91,7 @@ enum class BrowseFileType {
 	INI,
 	DB,
 	SOUND_EFFECT,
+	ZIP,
 	ANY,
 };
 
