@@ -214,7 +214,7 @@ uint32_t u8_nextchar(const char *s, int *index, size_t size) {
 	do {
 		ch = (ch << 6) + (unsigned char)s[i++];
 		sz++;
-	} while (i < size && ((s[i]) & 0xC0) == 0x80);
+	} while (i < size && s[i] && ((s[i]) & 0xC0) == 0x80);
 	*index = i;
 	return ch - offsetsFromUTF8[sz - 1];
 }
