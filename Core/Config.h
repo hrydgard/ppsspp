@@ -180,6 +180,7 @@ public:
 	float fDisplayOffsetY;
 	float fDisplayScale;   // Relative to the most constraining axis (x or y).
 	bool bDisplayIntegerScale;  // Snaps scaling to integer scale factors in raw pixels.
+	bool bDisplayCropTo16x9;  // Crops to 16:9 if the resolution is very close.
 	float fDisplayAspectRatio;  // Stored relative to the PSP's native ratio, so 1.0 is the normal pixel aspect ratio.
 
 	bool bImmersiveMode;  // Mode on Android Kitkat 4.4 and later that hides the back button etc.
