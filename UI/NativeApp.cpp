@@ -784,10 +784,6 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	// Initialize retro achievements runtime.
 	Achievements::Initialize();
 
-#if !defined(__LIBRETRO__)
-	g_gameDB.LoadFromVFS(g_VFS, "redump.csv");
-#endif
-
 	// Must be done restarting by now.
 	restarting = false;
 }

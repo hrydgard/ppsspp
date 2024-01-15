@@ -7,6 +7,8 @@
 
 GameDB g_gameDB;
 
+static const char *const g_gameDBFilename = "redump.csv";
+
 static void SplitCSVLine(const std::string_view str, std::vector<std::string_view> &result) {
 	result.clear();
 
@@ -40,13 +42,16 @@ static void SplitSV(std::string_view strv, char delim, bool removeWhiteSpace, st
 		const auto second = strv.find(delim, first);
 		if (first != second) {
 			std::string_view line = strv.substr(first, second - first);
+			_dbg_assert_(!line.empty());
 			if (line.back() == '\r') {
-				line = strv.substr(first, second - first - 1);
+				line.remove_suffix(1);
 			}
 			if (removeWhiteSpace) {
 				line = StripSpaces(line);
 			}
-			output->emplace_back(line);
+			if (!line.empty()) {
+				output->emplace_back(line);
+			}
 		}
 		if (second == std::string_view::npos)
 			break;
@@ -54,11 +59,19 @@ static void SplitSV(std::string_view strv, char delim, bool removeWhiteSpace, st
 	}
 }
 
-bool GameDB::LoadFromVFS(VFSInterface &vfs, const char *filename) {
+void GameDB::LoadIfNeeded() {
+	if (loaded_) {
+		// Already loaded
+		return;
+	}
+
+	loaded_ = true;
+
 	size_t size;
-	uint8_t *data = vfs.ReadFile(filename, &size);
+	uint8_t *data = g_VFS.ReadFile(g_gameDBFilename, &size);
 	if (!data)
-		return false;
+		return;
+
 	contents_ = std::string((const char *)data, size);
 	delete[] data;
 
@@ -96,7 +109,6 @@ bool GameDB::LoadFromVFS(VFSInterface &vfs, const char *filename) {
 		line.size = items[sizeColumn];
 		lines_.push_back(line);
 	}
-	return true;
 }
 
 size_t GameDB::GetColumnIndex(std::string_view name) const {
@@ -125,7 +137,11 @@ bool GameDB::GetGameInfos(std::string_view id, std::vector<GameDBInfo> *infos) {
 		// Not a game.
 		return false;
 	}
-	
+
+	std::lock_guard<std::mutex> guard(loadMutex_);
+
+	LoadIfNeeded();
+
 	for (auto &line : lines_) {
 		for (auto &serial : line.serials) {
 			// Ignore version and stuff for now

@@ -237,29 +237,6 @@ void VKRGraphicsPipeline::LogCreationFailure() const {
 	ERROR_LOG(G3D, "======== END OF PIPELINE ==========");
 }
 
-bool VKRComputePipeline::CreateAsync(VulkanContext *vulkan) {
-	if (!desc) {
-		// Already failed to create this one.
-		return false;
-	}
-	pipeline->SpawnEmpty(&g_threadManager, [=] {
-		VkPipeline vkpipeline;
-		VkResult result = vkCreateComputePipelines(vulkan->GetDevice(), desc->pipelineCache, 1, &desc->pipe, nullptr, &vkpipeline);
-
-		bool success = true;
-		if (result == VK_SUCCESS) {
-			return vkpipeline;
-		} else {
-			ERROR_LOG(G3D, "Failed creating compute pipeline! result='%s'", VulkanResultToString(result));
-			success = false;
-			return (VkPipeline)VK_NULL_HANDLE;
-		}
-		delete desc;
-	}, TaskType::CPU_COMPUTE);
-	desc = nullptr;
-	return true;
-}
-
 VulkanRenderManager::VulkanRenderManager(VulkanContext *vulkan, bool useThread, HistoryBuffer<FrameTimeData, FRAME_TIME_HISTORY_LENGTH> &frameTimeHistory)
 	: vulkan_(vulkan), queueRunner_(vulkan),
 	initTimeMs_("initTimeMs"),
@@ -434,7 +411,9 @@ struct SinglePipelineTask {
 
 class CreateMultiPipelinesTask : public Task {
 public:
-	CreateMultiPipelinesTask(VulkanContext *vulkan, std::vector<SinglePipelineTask> tasks) : vulkan_(vulkan), tasks_(tasks) {}
+	CreateMultiPipelinesTask(VulkanContext *vulkan, std::vector<SinglePipelineTask> tasks) : vulkan_(vulkan), tasks_(tasks) {
+		tasksInFlight_.fetch_add(1);
+	}
 	~CreateMultiPipelinesTask() {}
 
 	TaskType Type() const override {
@@ -449,11 +428,24 @@ public:
 		for (auto &task : tasks_) {
 			task.pipeline->Create(vulkan_, task.compatibleRenderPass, task.rpType, task.sampleCount, task.scheduleTime, task.countToCompile);
 		}
+		tasksInFlight_.fetch_sub(1);
 	}
 
 	VulkanContext *vulkan_;
 	std::vector<SinglePipelineTask> tasks_;
+
+	// Use during shutdown to make sure there aren't any leftover tasks sitting queued.
+	// Could probably be done more elegantly. Like waiting for all tasks of a type, or saving pointers to them, or something...
+	static void WaitForAll() {
+		while (tasksInFlight_.load() > 0) {
+			sleep_ms(2);
+		}
+	}
+
+	static std::atomic<int> tasksInFlight_;
 };
+
+std::atomic<int> CreateMultiPipelinesTask::tasksInFlight_;
 
 void VulkanRenderManager::CompileThreadFunc() {
 	SetCurrentThreadName("ShaderCompile");
@@ -488,7 +480,8 @@ void VulkanRenderManager::CompileThreadFunc() {
 		for (auto &entry : toCompile) {
 			switch (entry.type) {
 			case CompileQueueEntry::Type::GRAPHICS:
-				map[std::pair< Promise<VkShaderModule> *, Promise<VkShaderModule> *>(entry.graphics->desc->vertexShader, entry.graphics->desc->fragmentShader)].push_back(
+			{
+				map[std::make_pair(entry.graphics->desc->vertexShader, entry.graphics->desc->fragmentShader)].push_back(
 					SinglePipelineTask{
 						entry.graphics,
 						entry.compatibleRenderPass,
@@ -499,10 +492,7 @@ void VulkanRenderManager::CompileThreadFunc() {
 					}
 				);
 				break;
-			case CompileQueueEntry::Type::COMPUTE:
-				// Queue up pending compute pipelines on separate tasks.
-				entry.compute->CreateAsync(vulkan_);
-				break;
+			}
 			}
 		}
 
@@ -527,6 +517,7 @@ void VulkanRenderManager::DrainAndBlockCompileQueue() {
 	while (!compileQueue_.empty()) {
 		queueRunner_.WaitForCompileNotification();
 	}
+	CreateMultiPipelinesTask::WaitForAll();
 }
 
 void VulkanRenderManager::ReleaseCompileQueue() {
@@ -829,18 +820,6 @@ VKRGraphicsPipeline *VulkanRenderManager::CreateGraphicsPipeline(VKRGraphicsPipe
 		if (needsCompile)
 			compileCond_.notify_one();
 	}
-	return pipeline;
-}
-
-VKRComputePipeline *VulkanRenderManager::CreateComputePipeline(VKRComputePipelineDesc *desc) {
-	std::lock_guard<std::mutex> lock(compileMutex_);
-	if (compileBlocked_) {
-		return nullptr;
-	}
-	VKRComputePipeline *pipeline = new VKRComputePipeline();
-	pipeline->desc = desc;
-	compileQueue_.push_back(CompileQueueEntry(pipeline));
-	compileCond_.notify_one();
 	return pipeline;
 }
 

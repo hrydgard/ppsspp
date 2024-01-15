@@ -30,6 +30,7 @@ public:
 	virtual void Cancel() {}
 	virtual uint64_t id() { return 0; }
 	virtual void Release() { delete this; }
+	virtual const char *Kind() const { return nullptr; }  // Useful for selecting task by some qualifier, like, waiting for them all.
 };
 
 class Waitable {

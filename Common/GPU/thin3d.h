@@ -718,7 +718,6 @@ public:
 	virtual BlendState *CreateBlendState(const BlendStateDesc &desc) = 0;
 	virtual SamplerState *CreateSamplerState(const SamplerStateDesc &desc) = 0;
 	virtual RasterState *CreateRasterState(const RasterStateDesc &desc) = 0;
-	// virtual ComputePipeline CreateComputePipeline(const ComputePipelineDesc &desc) = 0
 	virtual InputLayout *CreateInputLayout(const InputLayoutDesc &desc) = 0;
 	virtual ShaderModule *CreateShaderModule(ShaderStage stage, ShaderLanguage language, const uint8_t *data, size_t dataSize, const char *tag = "thin3d") = 0;
 	virtual Pipeline *CreateGraphicsPipeline(const PipelineDesc &desc, const char *tag) = 0;
