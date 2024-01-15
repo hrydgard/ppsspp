@@ -496,7 +496,12 @@ void SoftwareTransform::BuildDrawingParams(int prim, int vertexCount, u32 vertTy
 	bool useBufferedRendering = fbman->UseBufferedRendering();
 
 	if (prim == GE_PRIM_RECTANGLES) {
-		ExpandRectangles(vertexCount, numDecodedVerts, inds, indsSize, transformed, transformedExpanded, numTrans, throughmode, &result->pixelMapped);
+		if (!ExpandRectangles(vertexCount, numDecodedVerts, inds, indsSize, transformed, transformedExpanded, numTrans, throughmode, &result->pixelMapped)) {
+			result->drawIndexed = false;
+			result->drawNumTrans = 0;
+			result->pixelMapped = false;
+			return;
+		}
 		result->drawBuffer = transformedExpanded;
 		result->drawIndexed = true;
 
@@ -514,15 +519,23 @@ void SoftwareTransform::BuildDrawingParams(int prim, int vertexCount, u32 vertTy
 			}
 		}
 	} else if (prim == GE_PRIM_POINTS) {
-		ExpandPoints(vertexCount, numDecodedVerts, inds, indsSize, transformed, transformedExpanded, numTrans, throughmode);
+		result->pixelMapped = false;
+		if (!ExpandPoints(vertexCount, numDecodedVerts, inds, indsSize, transformed, transformedExpanded, numTrans, throughmode)) {
+			result->drawIndexed = false;
+			result->drawNumTrans = 0;
+			return;
+		}
 		result->drawBuffer = transformedExpanded;
 		result->drawIndexed = true;
-		result->pixelMapped = false;
 	} else if (prim == GE_PRIM_LINES) {
-		ExpandLines(vertexCount, numDecodedVerts, inds, indsSize, transformed, transformedExpanded, numTrans, throughmode);
+		result->pixelMapped = false;
+		if (!ExpandLines(vertexCount, numDecodedVerts, inds, indsSize, transformed, transformedExpanded, numTrans, throughmode)) {
+			result->drawIndexed = false;
+			result->drawNumTrans = 0;
+			return;
+		}
 		result->drawBuffer = transformedExpanded;
 		result->drawIndexed = true;
-		result->pixelMapped = false;
 	} else {
 		// We can simply draw the unexpanded buffer.
 		numTrans = vertexCount;
@@ -644,7 +657,13 @@ void SoftwareTransform::CalcCullParams(float &minZValue, float &maxZValue) {
 		std::swap(minZValue, maxZValue);
 }
 
-void SoftwareTransform::ExpandRectangles(int vertexCount, int &numDecodedVerts, u16 *&inds, int indsSize, const TransformedVertex *transformed, TransformedVertex *transformedExpanded, int &numTrans, bool throughmode, bool *pixelMappedExactly) {
+bool SoftwareTransform::ExpandRectangles(int vertexCount, int &numDecodedVerts, u16 *&inds, int indsSize, const TransformedVertex *transformed, TransformedVertex *transformedExpanded, int &numTrans, bool throughmode, bool *pixelMappedExactly) const {
+	// Before we start, do a sanity check - does the output fit?
+	if ((vertexCount / 2) * 6 > indsSize) {
+		// Won't fit, kill the draw.
+		return false;
+	}
+
 	// Rectangles always need 2 vertices, disregard the last one if there's an odd number.
 	vertexCount = vertexCount & ~1;
 	numTrans = 0;
@@ -732,9 +751,16 @@ void SoftwareTransform::ExpandRectangles(int vertexCount, int &numDecodedVerts, 
 	}
 	inds = newInds;
 	*pixelMappedExactly = pixelMapped;
+	return true;
 }
 
-void SoftwareTransform::ExpandLines(int vertexCount, int &numDecodedVerts, u16 *&inds, int indsSize, const TransformedVertex *transformed, TransformedVertex *transformedExpanded, int &numTrans, bool throughmode) {
+bool SoftwareTransform::ExpandLines(int vertexCount, int &numDecodedVerts, u16 *&inds, int indsSize, const TransformedVertex *transformed, TransformedVertex *transformedExpanded, int &numTrans, bool throughmode) const {
+	// Before we start, do a sanity check - does the output fit?
+	if ((vertexCount / 2) * 6 > indsSize) {
+		// Won't fit, kill the draw.
+		return false;
+	}
+
 	// Lines always need 2 vertices, disregard the last one if there's an odd number.
 	vertexCount = vertexCount & ~1;
 	numTrans = 0;
@@ -856,10 +882,16 @@ void SoftwareTransform::ExpandLines(int vertexCount, int &numDecodedVerts, u16 *
 	}
 
 	inds = newInds;
+	return true;
 }
 
+bool SoftwareTransform::ExpandPoints(int vertexCount, int &maxIndex, u16 *&inds, int indsSize, const TransformedVertex *transformed, TransformedVertex *transformedExpanded, int &numTrans, bool throughmode) const {
+	// Before we start, do a sanity check - does the output fit?
+	if (vertexCount * 6 > indsSize) {
+		// Won't fit, kill the draw.
+		return false;
+	}
 
-void SoftwareTransform::ExpandPoints(int vertexCount, int &maxIndex, u16 *&inds, int indsSize, const TransformedVertex *transformed, TransformedVertex *transformedExpanded, int &numTrans, bool throughmode) {
 	numTrans = 0;
 	TransformedVertex *trans = &transformedExpanded[0];
 
@@ -925,4 +957,5 @@ void SoftwareTransform::ExpandPoints(int vertexCount, int &maxIndex, u16 *&inds,
 		numTrans += 6;
 	}
 	inds = newInds;
+	return true;
 }

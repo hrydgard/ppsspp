@@ -75,9 +75,9 @@ public:
 
 protected:
 	void CalcCullParams(float &minZValue, float &maxZValue);
-	void ExpandRectangles(int vertexCount, int &numDecodedVerts, u16 *&inds, int indsSize, const TransformedVertex *transformed, TransformedVertex *transformedExpanded, int &numTrans, bool throughmode, bool *pixelMappedExactly);
-	void ExpandLines(int vertexCount, int &numDecodedVerts, u16 *&inds, int indsSize, const TransformedVertex *transformed, TransformedVertex *transformedExpanded, int &numTrans, bool throughmode);
-	void ExpandPoints(int vertexCount, int &numDecodedVerts, u16 *&inds, int indsSize, const TransformedVertex *transformed, TransformedVertex *transformedExpanded, int &numTrans, bool throughmode);
+	bool ExpandRectangles(int vertexCount, int &numDecodedVerts, u16 *&inds, int indsSize, const TransformedVertex *transformed, TransformedVertex *transformedExpanded, int &numTrans, bool throughmode, bool *pixelMappedExactly) const;
+	bool ExpandLines(int vertexCount, int &numDecodedVerts, u16 *&inds, int indsSize, const TransformedVertex *transformed, TransformedVertex *transformedExpanded, int &numTrans, bool throughmode) const;
+	bool ExpandPoints(int vertexCount, int &numDecodedVerts, u16 *&inds, int indsSize, const TransformedVertex *transformed, TransformedVertex *transformedExpanded, int &numTrans, bool throughmode) const;
 
 	const SoftwareTransformParams &params_;
 	Lin::Matrix4x4 projMatrix_;
