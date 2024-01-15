@@ -569,6 +569,9 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 		case BrowseFileType::INI:
 			filter = MakeFilter(L"Ini files (*.ini)|*.ini|All files (*.*)|*.*||");
 			break;
+		case BrowseFileType::ZIP:
+			filter = MakeFilter(L"ZIP files (*.zip)|*.zip|All files (*.*)|*.*||");
+			break;
 		case BrowseFileType::DB:
 			filter = MakeFilter(L"Cheat db files (*.db)|*.db|All files (*.*)|*.*||");
 			break;

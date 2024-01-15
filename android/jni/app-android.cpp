@@ -1108,12 +1108,16 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 	case SystemRequestType::BROWSE_FOR_FILE:
 	{
 		BrowseFileType fileType = (BrowseFileType)param3;
+		std::string params = StringFromFormat("%d", requestId);
 		switch (fileType) {
 		case BrowseFileType::SOUND_EFFECT:
-			PushCommand("browse_file_audio", StringFromFormat("%d", requestId));
+			PushCommand("browse_file_audio", params);
+			break;
+		case BrowseFileType::ZIP:
+			PushCommand("browse_file_zip", params);
 			break;
 		default:
-			PushCommand("browse_file", StringFromFormat("%d", requestId));
+			PushCommand("browse_file", params);
 			break;
 		}
 		return true;

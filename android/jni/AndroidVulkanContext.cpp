@@ -52,8 +52,9 @@ bool AndroidVulkanContext::InitAPI() {
 	INFO_LOG(G3D, "Creating Vulkan context");
 	Version gitVer(PPSSPP_GIT_VERSION);
 
-	if (!VulkanLoad()) {
-		ERROR_LOG(G3D, "Failed to load Vulkan driver library");
+	std::string errorStr;
+	if (!VulkanLoad(&errorStr)) {
+		ERROR_LOG(G3D, "Failed to load Vulkan driver library: %s", errorStr.c_str());
 		state_ = GraphicsContextState::FAILED_INIT;
 		return false;
 	}
