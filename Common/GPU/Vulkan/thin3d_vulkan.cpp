@@ -191,11 +191,9 @@ public:
 	const std::string &GetSource() const { return source_; }
 	~VKShaderModule() {
 		if (module_) {
-			INFO_LOG(G3D, "~VKShaderModule");
 			VkShaderModule shaderModule = module_->BlockUntilReady();
 			vulkan_->Delete().QueueDeleteShaderModule(shaderModule);
 			vulkan_->Delete().QueueCallback([](VulkanContext *context, void *m) {
-				INFO_LOG(G3D, "destroying shader module promise");
 				auto module = (Promise<VkShaderModule> *)m;
 				delete module;
 			}, module_);
