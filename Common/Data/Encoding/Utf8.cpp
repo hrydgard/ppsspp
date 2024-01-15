@@ -572,11 +572,10 @@ static size_t ConvertUTF8ToWStringInternal(wchar_t *dest, size_t destSize, std::
 
 std::wstring ConvertUTF8ToWString(std::string_view source) {
 	std::wstring dst;
-	// utf-8 won't be less bytes than there are characters.
-	dst.resize(source.size(), 0);
+	// conservative size estimate for wide characters from utf-8 bytes. Will always reserve too much space.
+	dst.resize(source.size());
 	size_t realLen = ConvertUTF8ToWStringInternal(&dst[0], source.size(), source);
-	dst.resize(realLen);
-	dst[realLen] = 0;
+	dst.resize(realLen);  // no need to write a NUL, it's done for us by resize.
 	return dst;
 }
 
