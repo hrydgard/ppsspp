@@ -601,7 +601,7 @@ private:
 	std::condition_variable compileCond_;
 	std::mutex compileMutex_;
 	std::vector<CompileQueueEntry> compileQueue_;
-	bool compileBlocked_ = false;
+	std::atomic<bool> compileBlocked_{};
 
 	// Thread for measuring presentation delay.
 	std::thread presentWaitThread_;
