@@ -343,7 +343,7 @@ ScreenRenderFlags GameScreen::render(ScreenRenderMode mode) {
 
 		// Let's check the CRC in the game database, looking up the ID and also matching the crc.
 		std::vector<GameDBInfo> dbInfos;
-		if (tvVerified_ && g_gameDB.GetGameInfos(info->id_version, &dbInfos)) {
+		if (tvVerified_ && !info->id_version.empty() && g_gameDB.GetGameInfos(info->id_version, &dbInfos)) {
 			bool found = false;
 			for (auto &dbInfo : dbInfos) {
 				if (dbInfo.crc == crcVal) {
@@ -368,7 +368,7 @@ ScreenRenderFlags GameScreen::render(ScreenRenderMode mode) {
 		GameDBInfo dbInfo;
 		if (tvVerified_) {
 			std::vector<GameDBInfo> dbInfos;
-			if (!g_gameDB.GetGameInfos(info->id_version, &dbInfos)) {
+			if (!info->id_version.empty() && !g_gameDB.GetGameInfos(info->id_version, &dbInfos)) {
 				// tvVerified_->SetText(ga->T("Game ID unknown - not in the ReDump database"));
 				// tvVerified_->SetVisibility(UI::V_VISIBLE);
 				// tvVerified_->SetLevel(NoticeLevel::WARN);

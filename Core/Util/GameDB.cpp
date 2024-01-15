@@ -127,14 +127,17 @@ bool GameDB::GetGameInfos(std::string_view id, std::vector<GameDBInfo> *infos) {
 	}
 	
 	for (auto &line : lines_) {
-		for (auto serial : line.serials) {
+		for (auto &serial : line.serials) {
 			// Ignore version and stuff for now
 			if (IDMatches(id, serial)) {
 				GameDBInfo info;
-				if (1 != sscanf(line.crc.data(), "%08x", &info.crc)) {
+				// zero-terminate before sscanf
+				std::string crc(line.crc);
+				if (1 != sscanf(crc.c_str(), "%08x", &info.crc)) {
 					continue;
 				}
-				if (1 != sscanf(line.size.data(), "%llu", (long long *)&info.size)) {
+				std::string size(line.size);
+				if (1 != sscanf(size.c_str(), "%llu", (long long *)&info.size)) {
 					continue;
 				}
 				info.title = line.title;
@@ -143,5 +146,6 @@ bool GameDB::GetGameInfos(std::string_view id, std::vector<GameDBInfo> *infos) {
 			}
 		}
 	}
+
 	return !infos->empty();
 }

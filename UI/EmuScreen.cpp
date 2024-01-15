@@ -1530,7 +1530,7 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 
 	if (invalid_) {
 		// Loading, or after shutdown?
-		if (loadingTextView_->GetVisibility() == UI::V_VISIBLE)
+		if (loadingTextView_ && loadingTextView_->GetVisibility() == UI::V_VISIBLE)
 			loadingTextView_->SetText(PSP_GetLoading());
 
 		// It's possible this might be set outside PSP_RunLoopFor().
