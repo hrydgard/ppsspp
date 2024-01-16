@@ -536,22 +536,20 @@ void RemoveAllEvents(int event_type)
 	RemoveEvent(event_type);
 }
 
-//This raise only the events required while the fifo is processing data
-void ProcessFifoWaitEvents()
-{
-	while (first)
-	{
-		if (first->time <= (s64)GetTicks())
-		{
-//			LOG(CPU, "[Scheduler] %s		 (%lld, %lld) ",
-//				first->name ? first->name : "?", (u64)GetTicks(), (u64)first->time);
-			Event* evt = first;
+void ProcessEvents() {
+	while (first) {
+		if (first->time <= (s64)GetTicks()) {
+			// INFO_LOG(CPU, "%s (%lld, %lld) ", first->name ? first->name : "?", (u64)GetTicks(), (u64)first->time);
+			Event *evt = first;
 			first = first->next;
-			event_types[evt->type].callback(evt->userdata, (int)(GetTicks() - evt->time));
+			if (evt->type >= 0 && evt->type < event_types.size()) {
+				event_types[evt->type].callback(evt->userdata, (int)(GetTicks() - evt->time));
+			} else {
+				_dbg_assert_msg_(false, "Bad event type %d", evt->type);
+			}
 			FreeEvent(evt);
-		}
-		else
-		{
+		} else {
+			// Caught up to the current time.
 			break;
 		}
 	}
@@ -604,7 +602,7 @@ void Advance() {
 
 	if (hasTsEvents.load(std::memory_order_acquire))
 		MoveEvents();
-	ProcessFifoWaitEvents();
+	ProcessEvents();
 
 	if (!first) {
 		// This should never happen in PPSSPP.

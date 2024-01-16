@@ -511,17 +511,25 @@ void VulkanRenderManager::CompileThreadFunc() {
 }
 
 void VulkanRenderManager::DrainAndBlockCompileQueue() {
-	std::unique_lock<std::mutex> lock(compileMutex_);
 	compileBlocked_ = true;
 	compileCond_.notify_all();
-	while (!compileQueue_.empty()) {
-		queueRunner_.WaitForCompileNotification();
+	while (true) {
+		bool anyInQueue = false;
+		{
+			std::unique_lock<std::mutex> lock(compileMutex_);
+			anyInQueue = !compileQueue_.empty();
+		}
+		if (anyInQueue) {
+			queueRunner_.WaitForCompileNotification();
+		} else {
+			break;
+		}
 	}
+	// At this point, no more tasks can be queued to the threadpool. So wait for them all to go away.
 	CreateMultiPipelinesTask::WaitForAll();
 }
 
 void VulkanRenderManager::ReleaseCompileQueue() {
-	std::unique_lock<std::mutex> lock(compileMutex_);
 	compileBlocked_ = false;
 }
 
@@ -791,11 +799,11 @@ VKRGraphicsPipeline *VulkanRenderManager::CreateGraphicsPipeline(VKRGraphicsPipe
 			VKRRenderPassStoreAction::STORE, VKRRenderPassStoreAction::DONT_CARE, VKRRenderPassStoreAction::DONT_CARE,
 		};
 		VKRRenderPass *compatibleRenderPass = queueRunner_.GetRenderPass(key);
-		std::lock_guard<std::mutex> lock(compileMutex_);
 		if (compileBlocked_) {
 			delete pipeline;
 			return nullptr;
 		}
+		std::lock_guard<std::mutex> lock(compileMutex_);
 		bool needsCompile = false;
 		for (size_t i = 0; i < (size_t)RenderPassType::TYPE_COUNT; i++) {
 			if (!(variantBitmask & (1 << i)))
