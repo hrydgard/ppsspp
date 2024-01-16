@@ -41,8 +41,8 @@ What's new in 1.17
 	- Fix video flicker in Naruto: Ultimate Ninja Heroes 2 ([#18454])
 - UI
 	- Track total time played per game ([#18442])
-	- When opening the pause menu, there's now an option to keep the game running behind. This is enforced in multiplayer
-	  to avoid inadvertent desyncs ([#18517], [#18515])
+	- When opening the pause menu, there's now an option to keep the game running behind the menu.
+	  This is enforced in multiplayer to avoid inadvertent desyncs ([#18517], [#18515])
 - ISO loading improvements
 	- The CHD file format is now fully supported, including with Remote ISO and Retroachievements
 	- Improvements to [remote ISO](https://www.ppsspp.org/docs/reference/disc-streaming/): optional tab on home screen, can now share whole folders ([#18627], [#18639], [#18640], [#18631], [#18632], [#18633],)
@@ -58,14 +58,16 @@ What's new in 1.17
 - Other fixes and updates
 	- More work on the IR JITs ([#18234], [#18235], [#18228], [#18227], [#18226], many more)
 	- Workaround problems in Add Doko Demo Issho, Driver 76, Harukanaru Toki no Naka, Ace Combat by slowing down the emulated UMD drive to match reality better ([#18436], [#18445])
+	- VR: Quest 3 rendering issues fixed ([#18677])
 	- Various bugfixes in texture replacement ([#18638], [#18610], [#18519], [#18466])
-	- GoExplore (GPS app) now starts up and allows navigation ([#18665], [#18666], [#18668])
 	- RetroAchievements: Rich presence, renamed Challenge Mode back to the recommended Hardcore Mode, various error handling improvements, configure per game ([#18468], [#18651], [#18488], [#18428], [#18425])
 	- HLE: Slice large-and-slow memcpy/memset operations, can help with some stalls. ([#18560])
 	- Other various minor fixes and optimizations ([#18558], [#18555], [#18538], [#18529], [#18450], [#18314], [#18233])
 	- SoftGPU fixes ([#18362])
+	- GoExplore (GPS app) now starts up and allows navigation ([#18665], [#18666], [#18668])
 	- SDL: Improve input latency in Vulkan mode by running rendering on a separate thread ([#18268])
 	- Assorted multiplayer fixes ([#18435])
+	- Support for emulating the infrared port of the original PSP through sceSircs ([#18684])
 
 What's new in 1.16.6
 --------------------
