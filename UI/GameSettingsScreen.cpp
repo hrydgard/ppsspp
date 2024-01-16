@@ -110,7 +110,7 @@ static bool SupportsCustomDriver() {
 
 static bool SupportsCustomDriver() {
 #ifdef _DEBUG
-	return true;
+	return false;  // change to true to debug driver installation on other platforms
 #else
 	return false;
 #endif

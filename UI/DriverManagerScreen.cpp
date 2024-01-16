@@ -51,6 +51,12 @@ struct DriverMeta {
 			return false;
 		}
 
+		int schemaVersion = meta.root().getInt("schemaVersion");
+		if (schemaVersion > 1) {
+			*errorStr = "unknown schemaVersion in meta.json";
+			return false;
+		}
+
 		if (!meta.root().getString("name", &name) || name.empty()) {
 			*errorStr = "missing driver name in json";
 			return false;
@@ -83,12 +89,13 @@ DriverChoice::DriverChoice(const std::string &driverName, bool current, UI::Layo
 		layoutParams_->height = 220;
 	}
 	auto gr = GetI18NCategory(I18NCat::GRAPHICS);
+	auto di = GetI18NCategory(I18NCat::DIALOG);
 
 	// Read the meta data
 	DriverMeta meta{};
 	bool isDefault = driverName.empty();
 	if (isDefault) {
-		meta.description = "The default installed driver on your system";
+		meta.description = gr->T("Default GPU driver");
 	}
 
 	Path metaPath = GetDriverPath() / driverName / "meta.json";
@@ -106,7 +113,7 @@ DriverChoice::DriverChoice(const std::string &driverName, bool current, UI::Layo
 	bool usable = isDefault || true;
 #endif
 
-	Add(new ItemHeader(driverName.empty() ? gr->T("Default driver") : driverName))->SetLarge(true);
+	Add(new ItemHeader(driverName.empty() ? gr->T("Default GPU driver") : driverName))->SetLarge(true);
 	if (current) {
 		Add(new NoticeView(NoticeLevel::SUCCESS, gr->T("Current GPU driver"), ""));
 	}
@@ -127,7 +134,7 @@ DriverChoice::DriverChoice(const std::string &driverName, bool current, UI::Layo
 	}
 	if (usable) {
 		if (!current) {
-			Add(new Choice(gr->T("Use this driver")))->OnClick.Add([=](UI::EventParams &) {
+			Add(new Choice(di->T("Select")))->OnClick.Add([=](UI::EventParams &) {
 				UI::EventParams e{};
 				e.s = name_;
 				OnUse.Trigger(e);
@@ -205,7 +212,7 @@ UI::EventReturn DriverManagerScreen::OnCustomDriverUninstall(UI::EventParams &e)
 UI::EventReturn DriverManagerScreen::OnCustomDriverInstall(UI::EventParams &e) {
 	auto gr = GetI18NCategory(I18NCat::GRAPHICS);
 
-	System_BrowseForFile(gr->T("Install Custom Driver..."), BrowseFileType::ZIP, [this](const std::string &value, int) {
+	System_BrowseForFile(gr->T("Install custom driver..."), BrowseFileType::ZIP, [this](const std::string &value, int) {
 		if (value.empty()) {
 			return;
 		}
