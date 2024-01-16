@@ -1527,6 +1527,7 @@ void GameSettingsScreen::dialogFinished(const Screen *dialog, DialogResult resul
 		RecreateViews();
 	}
 
+	// Show/hide the Analog Alternative Speed as appropriate - need to recreate views if this changed.
 	bool mapped = KeyMap::InputMappingsFromPspButton(VIRTKEY_SPEED_ANALOG, nullptr, true);
 	if (mapped != analogSpeedMapped_) {
 		analogSpeedMapped_ = mapped;
