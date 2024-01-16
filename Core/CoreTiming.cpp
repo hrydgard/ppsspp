@@ -363,11 +363,6 @@ void RemoveEvent(int event_type)
 	}
 }
 
-void RemoveAllEvents(int event_type)
-{
-	RemoveEvent(event_type);
-}
-
 void ProcessEvents() {
 	while (first) {
 		if (first->time <= (s64)GetTicks()) {
@@ -482,8 +477,7 @@ std::string GetScheduledEventsSummary() {
 	return text;
 }
 
-void Event_DoState(PointerWrap &p, BaseEvent *ev)
-{
+void Event_DoState(PointerWrap &p, BaseEvent *ev) {
 	// There may be padding, so do each one individually.
 	Do(p, ev->time);
 	Do(p, ev->userdata);
@@ -491,8 +485,7 @@ void Event_DoState(PointerWrap &p, BaseEvent *ev)
 	usedEventTypes.insert(ev->type);
 }
 
-void Event_DoStateOld(PointerWrap &p, BaseEvent *ev)
-{
+void Event_DoStateOld(PointerWrap &p, BaseEvent *ev) {
 	Do(p, *ev);
 	usedEventTypes.insert(ev->type);
 }
@@ -521,10 +514,11 @@ void DoState(PointerWrap &p) {
 	restoredEventTypes.clear();
 
 	if (s >= 3) {
-		DoLinkedList<BaseEvent, GetNewEvent, FreeEvent, Event_DoState>(p, first, (Event **) NULL);
+		DoLinkedList<BaseEvent, GetNewEvent, FreeEvent, Event_DoState>(p, first, (Event **)nullptr);
+		// This is here because we previously stored a second queue of "threadsafe" events. Gone now. Remove in the next section version upgrade.
 		DoIgnoreUnusedLinkedList(p);
 	} else {
-		DoLinkedList<BaseEvent, GetNewEvent, FreeEvent, Event_DoStateOld>(p, first, (Event **) NULL);
+		DoLinkedList<BaseEvent, GetNewEvent, FreeEvent, Event_DoStateOld>(p, first, (Event **)nullptr);
 		DoIgnoreUnusedLinkedList(p);
 	}
 
