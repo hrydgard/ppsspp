@@ -39,6 +39,7 @@
 #include "Common/Data/Text/I18n.h"
 #include "Common/Data/Encoding/Utf8.h"
 #include "UI/EmuScreen.h"
+#include "UI/DriverManagerScreen.h"
 #include "UI/GameSettingsScreen.h"
 #include "UI/GameInfoCache.h"
 #include "UI/GamepadEmu.h"
@@ -57,8 +58,6 @@
 #include "UI/RetroAchievementScreens.h"
 
 #include "Common/File/FileUtil.h"
-#include "Common/File/VFS/ZipFileReader.h"
-#include "Common/Data/Format/JSONReader.h"
 #include "Common/File/AndroidContentURI.h"
 #include "Common/OSVersion.h"
 #include "Common/TimeUtil.h"
@@ -103,19 +102,21 @@ static bool CheckKgslPresent() {
     return access(KgslPath, F_OK) == 0;
 }
 
-bool SupportsCustomDriver() {
+static bool SupportsCustomDriver() {
     return android_get_device_api_level() >= 28 && CheckKgslPresent();
 }
 
 #else
 
-bool SupportsCustomDriver() {
+static bool SupportsCustomDriver() {
+#ifdef _DEBUG
+	return true;
+#else
 	return false;
+#endif
 }
 
 #endif
-
-static void TriggerRestart(const char *why, bool editThenRestore, const Path &gamePath);
 
 GameSettingsScreen::GameSettingsScreen(const Path &gamePath, std::string gameID, bool editThenRestore)
 	: TabbedUIDialogScreenWithGameBackground(gamePath), gameID_(gameID), editThenRestore_(editThenRestore) {
@@ -1254,93 +1255,6 @@ void GameSettingsScreen::CreateVRSettings(UI::ViewGroup *vrSettings) {
 	vrSettings->Add(new PopupMultiChoice(&g_Config.iCameraPitch, vr->T("Camera type"), cameraPitchModes, 0, 3, I18NCat::NONE, screenManager()));
 }
 
-UI::EventReturn DeveloperToolsScreen::OnCustomDriverChange(UI::EventParams &e) {
-	auto di = GetI18NCategory(I18NCat::DIALOG);
-
-	screenManager()->push(new PromptScreen(gamePath_, di->T("Changing this setting requires PPSSPP to restart."), di->T("Restart"), di->T("Cancel"), [=](bool yes) {
-		if (yes) {
-			TriggerRestart("GameSettingsScreen::CustomDriverYes", false, gamePath_);
-		}
-	}));
-	return UI::EVENT_DONE;
-}
-
-UI::EventReturn DeveloperToolsScreen::OnCustomDriverInstall(UI::EventParams &e) {
-	auto gr = GetI18NCategory(I18NCat::GRAPHICS);
-
-	System_BrowseForFile(gr->T("Install Custom Driver..."), BrowseFileType::ZIP, [this](const std::string &value, int) {
-		if (value.empty()) {
-			return;
-		}
-
-		auto gr = GetI18NCategory(I18NCat::GRAPHICS);
-
-		Path zipPath = Path(value);
-
-		// Don't bother checking the file extension. Can't always do that with files from Download (they have paths like content://com.android.providers.downloads.documents/document/msf%3A1000001095).
-		// Though, it may be possible to get it in other ways.
-
-		std::unique_ptr<ZipFileReader> zipFileReader = std::unique_ptr<ZipFileReader>(ZipFileReader::Create(zipPath, "", true));
-		if (!zipFileReader) {
-			g_OSD.Show(OSDType::MESSAGE_ERROR, gr->T("The chosen ZIP file doesn't contain a valid driver", "couldn't open zip"));
-			ERROR_LOG(SYSTEM, "Failed to open file '%s' as zip", zipPath.c_str());
-			return;
-		}
-
-		size_t metaDataSize;
-		uint8_t *metaData = zipFileReader->ReadFile("meta.json", &metaDataSize);
-		if (!metaData) {
-			g_OSD.Show(OSDType::MESSAGE_ERROR, gr->T("The chosen ZIP file doesn't contain a valid driver"), "meta.json missing");
-			return;
-		}
-
-		// Validate the json file. TODO: Be a bit more detailed.
-		json::JsonReader meta = json::JsonReader((const char *)metaData, metaDataSize);
-		delete[] metaData;
-		if (!meta.ok()) {
-			g_OSD.Show(OSDType::MESSAGE_ERROR, gr->T("The chosen ZIP file doesn't contain a valid driver"), "meta.json not valid json");
-			return;
-		}
-
-		const JsonNode *nameNode = meta.root().get("name");
-		if (!nameNode) {
-			g_OSD.Show(OSDType::MESSAGE_ERROR, gr->T("The chosen ZIP file doesn't contain a valid driver"), "missing driver name in json");
-			return;
-		}
-
-		std::string driverName = nameNode->value.toString();
-		if (driverName.empty()) {
-			g_OSD.Show(OSDType::MESSAGE_ERROR, gr->T("The chosen ZIP file doesn't contain a valid driver"), "driver name empty");
-			return;
-		}
-
-		const Path newCustomDriver = g_Config.internalDataDirectory / "drivers" / driverName;
-		NOTICE_LOG(G3D, "Installing driver into '%s'", newCustomDriver.c_str());
-		File::CreateFullPath(newCustomDriver);
-
-		std::vector<File::FileInfo> zipListing;
-		zipFileReader->GetFileListing("", &zipListing, nullptr);
-
-		for (auto file : zipListing) {
-			File::CreateEmptyFile(newCustomDriver / file.name);
-
-			size_t size;
-			uint8_t *data = zipFileReader->ReadFile(file.name.c_str(), &size);
-			if (!data) {
-				g_OSD.Show(OSDType::MESSAGE_ERROR, gr->T("The chosen ZIP file doesn't contain a valid driver"), file.name.c_str());
-				return;
-			}
-			File::WriteDataToFile(false, data, size, newCustomDriver / file.name);
-			delete[] data;
-		}
-
-		auto iz = GetI18NCategory(I18NCat::INSTALLZIP);
-		g_OSD.Show(OSDType::MESSAGE_SUCCESS, iz->T("Installed!"));
-		RecreateViews();
-	});
-	return UI::EVENT_DONE;
-}
-
 UI::EventReturn GameSettingsScreen::OnAutoFrameskip(UI::EventParams &e) {
 	g_Config.UpdateAfterSettingAutoFrameSkip();
 	return UI::EVENT_DONE;
@@ -1562,7 +1476,7 @@ void GameSettingsScreen::CallbackMemstickFolder(bool yes) {
 	}
 }
 
-static void TriggerRestart(const char *why, bool editThenRestore, const Path &gamePath) {
+void TriggerRestart(const char *why, bool editThenRestore, const Path &gamePath) {
 	// Extra save here to make sure the choice really gets saved even if there are shutdown bugs in
 	// the GPU backend code.
 	g_Config.Save(why);
@@ -1835,22 +1749,11 @@ void DeveloperToolsScreen::CreateViews() {
 	}
 
 	if (GetGPUBackend() == GPUBackend::VULKAN && SupportsCustomDriver()) {
-		const Path driverPath = g_Config.internalDataDirectory / "drivers";
-
-		std::vector<File::FileInfo> listing;
-		File::GetFilesInDir(driverPath, &listing);
-
-		std::vector<std::string> availableDrivers;
-		availableDrivers.push_back("Default");
-
-		for (auto driver : listing) {
-			availableDrivers.push_back(driver.name);
-		}
-		auto driverChoice = list->Add(new PopupMultiChoiceDynamic(&g_Config.customDriver, gr->T("Current GPU Driver"), availableDrivers, I18NCat::NONE, screenManager()));
-		driverChoice->OnChoice.Handle(this, &DeveloperToolsScreen::OnCustomDriverChange);
-
-		auto customDriverInstallChoice = list->Add(new Choice(gr->T("Install Custom Driver...")));
-		customDriverInstallChoice->OnClick.Handle(this, &DeveloperToolsScreen::OnCustomDriverInstall);
+		auto driverChoice = list->Add(new Choice(gr->T("Adreno Driver Manager")));
+		driverChoice->OnClick.Add([=](UI::EventParams &e) {
+			screenManager()->push(new DriverManagerScreen(gamePath_));
+			return UI::EVENT_DONE;
+		});
 	}
 
 	// For now, we only implement GPU driver tests for Vulkan and OpenGL. This is simply

@@ -300,40 +300,42 @@ static VulkanLibraryHandle VulkanLoadLibrary(std::string *errorString) {
 	void *lib = nullptr;
 
 #if PPSSPP_PLATFORM(ANDROID) && PPSSPP_ARCH(ARM64)
-    if (!g_Config.customDriver.empty() && g_Config.customDriver != "Default") {
-        const Path driverPath = g_Config.internalDataDirectory / "drivers" / g_Config.customDriver;
+	if (!g_Config.sCustomDriver.empty() && g_Config.sCustomDriver != "Default") {
+		const Path driverPath = g_Config.internalDataDirectory / "drivers" / g_Config.sCustomDriver;
 
-        json::JsonReader meta = json::JsonReader((driverPath / "meta.json").c_str());
-        if (meta.ok()) {
-            std::string driverLibName = meta.root().get("libraryName")->value.toString();
+		json::JsonReader meta = json::JsonReader((driverPath / "meta.json").c_str());
+		if (meta.ok()) {
+			std::string driverLibName = meta.root().get("libraryName")->value.toString();
 
-            Path tempDir = g_Config.internalDataDirectory / "temp";
-            Path fileRedirectDir = g_Config.internalDataDirectory / "vk_file_redirect";
+			Path tempDir = g_Config.internalDataDirectory / "temp";
+			Path fileRedirectDir = g_Config.internalDataDirectory / "vk_file_redirect";
 
-            File::CreateDir(tempDir);
-            File::CreateDir(fileRedirectDir);
+			File::CreateDir(tempDir);
+			File::CreateDir(fileRedirectDir);
 
-            lib = adrenotools_open_libvulkan(
-                    RTLD_NOW | RTLD_LOCAL, ADRENOTOOLS_DRIVER_FILE_REDIRECT | ADRENOTOOLS_DRIVER_CUSTOM,
-                    (std::string(tempDir.c_str()) + "/").c_str(),g_nativeLibDir.c_str(),
-                    (std::string(driverPath.c_str()) + "/").c_str(),driverLibName.c_str(),
-                    (std::string(fileRedirectDir.c_str()) + "/").c_str(),nullptr);
-            if (!lib) {
-                ERROR_LOG(G3D, "Failed to load custom driver");
-            }
-        }
-    }
+			lib = adrenotools_open_libvulkan(
+				RTLD_NOW | RTLD_LOCAL, ADRENOTOOLS_DRIVER_FILE_REDIRECT | ADRENOTOOLS_DRIVER_CUSTOM,
+				(std::string(tempDir.c_str()) + "/").c_str(), g_nativeLibDir.c_str(),
+				(std::string(driverPath.c_str()) + "/").c_str(), driverLibName.c_str(),
+				(std::string(fileRedirectDir.c_str()) + "/").c_str(), nullptr);
+			if (!lib) {
+				ERROR_LOG(G3D, "Failed to load custom driver with AdrenoTools ('%s')", g_Config.sCustomDriver.c_str());
+			} else {
+				INFO_LOG(G3D, "Vulkan library loaded with AdrenoTools ('%s')", g_Config.sCustomDriver.c_str());
+			}
+		}
+	}
 #endif
 
-    if (!lib) {
-        for (int i = 0; i < ARRAY_SIZE(so_names); i++) {
-            lib = dlopen(so_names[i], RTLD_NOW | RTLD_LOCAL);
-            if (lib) {
-                INFO_LOG(G3D, "Vulkan library loaded with AdrenoTools ('%s')", so_names[i]);
-                break;
-            }
-        }
-    }
+	if (!lib) {
+		for (int i = 0; i < ARRAY_SIZE(so_names); i++) {
+			lib = dlopen(so_names[i], RTLD_NOW | RTLD_LOCAL);
+			if (lib) {
+				INFO_LOG(G3D, "Vulkan library loaded ('%s')", so_names[i]);
+				break;
+			}
+		}
+}
 	return lib;
 #endif
 }

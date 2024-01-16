@@ -62,6 +62,7 @@
 #include <dirent.h>
 #include <errno.h>
 #include <stdlib.h>
+#include <unistd.h>
 #endif
 
 #if defined(__DragonFly__) || defined(__FreeBSD__) || defined(__FreeBSD_kernel__) || defined(__NetBSD__)
@@ -988,6 +989,19 @@ bool OpenFileInEditor(const Path &fileName) {
 	}
 #endif
 	return true;
+}
+
+const Path GetCurDirectory() {
+#ifdef _WIN32
+	wchar_t buffer[4096];
+	size_t len = GetCurrentDirectory(sizeof(buffer) / sizeof(wchar_t), buffer);
+	std::string curDir = ConvertWStringToUTF8(buffer);
+	return Path(curDir);
+#else
+	char temp[4096]{};
+	getcwd(temp, 4096);
+	return Path(temp);
+#endif
 }
 
 const Path &GetExeDirectory() {

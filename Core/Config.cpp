@@ -592,7 +592,7 @@ static const ConfigSetting graphicsSettings[] = {
 	ConfigSetting("iShowStatusFlags", &g_Config.iShowStatusFlags, 0, CfgFlag::PER_GAME),
 	ConfigSetting("GraphicsBackend", &g_Config.iGPUBackend, &DefaultGPUBackend, &GPUBackendTranslator::To, &GPUBackendTranslator::From, CfgFlag::DEFAULT | CfgFlag::REPORT),
 #if PPSSPP_PLATFORM(ANDROID) && PPSSPP_ARCH(ARM64)
-	ConfigSetting("CustomDriver", &g_Config.customDriver, "", CfgFlag::DEFAULT),
+	ConfigSetting("CustomDriver", &g_Config.sCustomDriver, "", CfgFlag::DEFAULT),
 #endif
 	ConfigSetting("FailedGraphicsBackends", &g_Config.sFailedGPUBackends, "", CfgFlag::DEFAULT),
 	ConfigSetting("DisabledGraphicsBackends", &g_Config.sDisabledGPUBackends, "", CfgFlag::DEFAULT),
@@ -1399,6 +1399,11 @@ void Config::PostLoadCleanup(bool gameSpecific) {
 	if (iTexScalingLevel <= 0) {
 		iTexScalingLevel = 1;
 	}
+
+	// Remove a legacy value.
+	if (g_Config.sCustomDriver == "Default") {
+		g_Config.sCustomDriver = "";
+	}
 }
 
 void Config::PreSaveCleanup(bool gameSpecific) {
@@ -1448,7 +1453,8 @@ void Config::DownloadCompletedCallback(http::Request &download) {
 		return;
 	}
 
-	std::string version = root.getString("version", "");
+	std::string version;
+	root.getString("version", &version);
 
 	const char *gitVer = PPSSPP_GIT_VERSION;
 	Version installed(gitVer);

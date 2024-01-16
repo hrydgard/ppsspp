@@ -1455,6 +1455,8 @@ list(APPEND NativeAppSource
 	UI/GameScreen.cpp
 	UI/GameSettingsScreen.h
 	UI/GameSettingsScreen.cpp
+	UI/DriverManagerScreen.h
+	UI/DriverManagerScreen.cpp
 	UI/GPUDriverTestScreen.h
 	UI/GPUDriverTestScreen.cpp
 	UI/TiltAnalogSettingsScreen.h

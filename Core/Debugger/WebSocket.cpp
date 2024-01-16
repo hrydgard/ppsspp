@@ -165,7 +165,7 @@ void HandleDebuggerRequest(const http::ServerRequest &request) {
 		}
 
 		const JsonGet root = reader.root();
-		const char *event = root ? root.getString("event", nullptr) : nullptr;
+		const char *event = root ? root.getStringOr("event", nullptr) : nullptr;
 		if (!event) {
 			ws->Send(DebuggerErrorEvent("Bad message: no event property", LogLevel::LERROR, root));
 			return;

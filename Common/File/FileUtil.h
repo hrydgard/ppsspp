@@ -123,6 +123,8 @@ bool OpenFileInEditor(const Path &fileName);
 // TODO: Belongs in System or something.
 const Path &GetExeDirectory();
 
+const Path GetCurDirectory();
+
 // simple wrapper for cstdlib file functions to
 // hopefully will make error checking easier
 // and make forgetting an fclose() harder

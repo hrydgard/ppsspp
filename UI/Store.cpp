@@ -475,12 +475,12 @@ void StoreScreen::ParseListing(const std::string &json) {
 			e.type = ENTRY_PBPZIP;
 			e.name = GetTranslatedString(game, "name");
 			e.description = GetTranslatedString(game, "description", "");
-			e.author = game.getString("author", "?");
+			e.author = game.getStringOr("author", "?");
 			e.size = game.getInt("size");
-			e.downloadURL = game.getString("download-url", "");
-			e.iconURL = game.getString("icon-url", "");
+			e.downloadURL = game.getStringOr("download-url", "");
+			e.iconURL = game.getStringOr("icon-url", "");
 			e.hidden = false;  // NOTE: Handling of the "hidden" flag is broken in old versions of PPSSPP. Do not use.
-			const char *file = game.getString("file", nullptr);
+			const char *file = game.getStringOr("file", nullptr);
 			if (!file)
 				continue;
 			e.file = file;
@@ -596,7 +596,7 @@ std::string StoreScreen::GetTranslatedString(const json::JsonGet json, const std
 	}
 	const char *str = nullptr;
 	if (dict) {
-		str = dict.getString(key.c_str(), nullptr);
+		str = dict.getStringOr(key.c_str(), nullptr);
 	}
 	if (str) {
 		return std::string(str);

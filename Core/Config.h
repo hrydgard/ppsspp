@@ -149,7 +149,7 @@ public:
 
 	// GFX
 	int iGPUBackend;
-	std::string customDriver;
+	std::string sCustomDriver;
 	std::string sFailedGPUBackends;
 	std::string sDisabledGPUBackends;
 	// We have separate device parameters for each backend so it doesn't get erased if you switch backends.
