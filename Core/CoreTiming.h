@@ -92,18 +92,11 @@ namespace CoreTiming
 	// userdata MAY NOT CONTAIN POINTERS. userdata might get written and reloaded from disk,
 	// when we implement state saves.
 	void ScheduleEvent(s64 cyclesIntoFuture, int event_type, u64 userdata=0);
-	void ScheduleEvent_Threadsafe(s64 cyclesIntoFuture, int event_type, u64 userdata=0);
-	void ScheduleEvent_Threadsafe_Immediate(int event_type, u64 userdata=0);
 	s64 UnscheduleEvent(int event_type, u64 userdata);
-	s64 UnscheduleThreadsafeEvent(int event_type, u64 userdata);
 
 	void RemoveEvent(int event_type);
-	void RemoveThreadsafeEvent(int event_type);
-	void RemoveAllEvents(int event_type);
 	bool IsScheduled(int event_type);
 	void Advance();
-	void MoveEvents();
-	void ProcessFifoWaitEvents();
 	void ForceCheck();
 
 	// Pretend that the main CPU has executed enough cycles to reach the next event.
