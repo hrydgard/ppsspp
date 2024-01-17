@@ -374,7 +374,7 @@ void VulkanQueueRunner::RunSteps(std::vector<VKRStep *> &steps, int curFrame, Fr
 				// When stepping in the GE debugger, we can end up here multiple times in a "frame".
 				// So only acquire once.
 				if (!frameData.hasAcquired) {
-					frameData.AcquireNextImage(vulkan_, frameDataShared);
+					frameData.AcquireNextImage(vulkan_);
 					SetBackbuffer(framebuffers_[frameData.curSwapchainImage], swapchainImages_[frameData.curSwapchainImage].image);
 				}
 

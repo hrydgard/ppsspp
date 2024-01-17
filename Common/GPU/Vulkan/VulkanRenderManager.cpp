@@ -800,6 +800,10 @@ VKRGraphicsPipeline *VulkanRenderManager::CreateGraphicsPipeline(VKRGraphicsPipe
 				continue;
 			}
 
+			if (rpType == RenderPassType::BACKBUFFER) {
+				sampleCount = VK_SAMPLE_COUNT_1_BIT;
+			}
+
 			pipeline->pipeline[i] = Promise<VkPipeline>::CreateEmpty();
 			compileQueue_.push_back(CompileQueueEntry(pipeline, compatibleRenderPass->Get(vulkan_, rpType, sampleCount), rpType, sampleCount));
 			needsCompile = true;

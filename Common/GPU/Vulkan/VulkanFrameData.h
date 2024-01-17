@@ -53,10 +53,6 @@ struct CachedReadback {
 };
 
 struct FrameDataShared {
-	// Permanent objects
-	VkSemaphore acquireSemaphore = VK_NULL_HANDLE;
-	VkSemaphore renderingCompleteSemaphore = VK_NULL_HANDLE;
-
 	// For synchronous readbacks.
 	VkFence readbackFence = VK_NULL_HANDLE;
 	bool useMultiThreading;
@@ -81,6 +77,8 @@ struct FrameData {
 	bool readyForFence = true;
 
 	VkFence fence = VK_NULL_HANDLE;
+	VkSemaphore acquireSemaphore = VK_NULL_HANDLE;
+	VkSemaphore renderingCompleteSemaphore = VK_NULL_HANDLE;
 
 	// These are on different threads so need separate pools.
 	VkCommandPool cmdPoolInit = VK_NULL_HANDLE;  // Written to from main thread
@@ -117,7 +115,7 @@ struct FrameData {
 	void Init(VulkanContext *vulkan, int index);
 	void Destroy(VulkanContext *vulkan);
 
-	void AcquireNextImage(VulkanContext *vulkan, FrameDataShared &shared);
+	void AcquireNextImage(VulkanContext *vulkan);
 	VkResult QueuePresent(VulkanContext *vulkan, FrameDataShared &shared);
 
 	// Generally called from the main thread, unlike most of the rest.

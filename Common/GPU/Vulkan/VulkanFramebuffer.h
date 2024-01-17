@@ -155,7 +155,7 @@ public:
 private:
 	// TODO: Might be better off with a hashmap once the render pass type count grows really large..
 	VkRenderPass pass[(size_t)RenderPassType::TYPE_COUNT]{};
-	VkSampleCountFlagBits sampleCounts[(size_t)RenderPassType::TYPE_COUNT];
+	VkSampleCountFlagBits sampleCounts[(size_t)RenderPassType::TYPE_COUNT]{};
 	RPKey key_;
 };
 
