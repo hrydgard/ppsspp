@@ -1728,11 +1728,21 @@ void VKRPipelineLayout::FlushDescSets(VulkanContext *vulkan, int frame, QueuePro
 
 	// This will write all descriptors.
 	// Initially, we just do a simple look-back comparing to the previous descriptor to avoid sequential dupes.
+	// In theory, we could multithread this. Gotta be a lot of descriptors for that to be worth it though.
 
 	// Initially, let's do naive single desc set writes.
 	VkWriteDescriptorSet writes[MAX_DESC_SET_BINDINGS];
 	VkDescriptorImageInfo imageInfo[MAX_DESC_SET_BINDINGS];  // just picked a practical number
 	VkDescriptorBufferInfo bufferInfo[MAX_DESC_SET_BINDINGS];
+
+	// Preinitialize fields that won't change.
+	for (size_t i = 0; i < ARRAY_SIZE(writes); i++) {
+		writes[i].descriptorCount = 1;
+		writes[i].dstArrayElement = 0;
+		writes[i].pTexelBufferView = nullptr;
+		writes[i].pNext = nullptr;
+		writes[i].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+	}
 
 	size_t start = data.flushedDescriptors_;
 	int writeCount = 0, dedupCount = 0;
@@ -1775,6 +1785,7 @@ void VKRPipelineLayout::FlushDescSets(VulkanContext *vulkan, int frame, QueuePro
 			switch (this->bindingTypes[i]) {
 			case BindingType::COMBINED_IMAGE_SAMPLER:
 				_dbg_assert_(data[i].image.sampler != VK_NULL_HANDLE);
+				_dbg_assert_(data[i].image.view != VK_NULL_HANDLE);
 				imageInfo[numImages].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 				imageInfo[numImages].imageView = data[i].image.view;
 				imageInfo[numImages].sampler = data[i].image.sampler;
@@ -1784,6 +1795,7 @@ void VKRPipelineLayout::FlushDescSets(VulkanContext *vulkan, int frame, QueuePro
 				numImages++;
 				break;
 			case BindingType::STORAGE_IMAGE_COMPUTE:
+				_dbg_assert_(data[i].image.view != VK_NULL_HANDLE);
 				imageInfo[numImages].imageLayout = VK_IMAGE_LAYOUT_GENERAL;
 				imageInfo[numImages].imageView = data[i].image.view;
 				imageInfo[numImages].sampler = VK_NULL_HANDLE;
@@ -1794,6 +1806,7 @@ void VKRPipelineLayout::FlushDescSets(VulkanContext *vulkan, int frame, QueuePro
 				break;
 			case BindingType::STORAGE_BUFFER_VERTEX:
 			case BindingType::STORAGE_BUFFER_COMPUTE:
+				_dbg_assert_(data[i].buffer.buffer != VK_NULL_HANDLE);
 				bufferInfo[numBuffers].buffer = data[i].buffer.buffer;
 				bufferInfo[numBuffers].range = data[i].buffer.range;
 				bufferInfo[numBuffers].offset = data[i].buffer.offset;
@@ -1804,6 +1817,7 @@ void VKRPipelineLayout::FlushDescSets(VulkanContext *vulkan, int frame, QueuePro
 				break;
 			case BindingType::UNIFORM_BUFFER_DYNAMIC_ALL:
 			case BindingType::UNIFORM_BUFFER_DYNAMIC_VERTEX:
+				_dbg_assert_(data[i].buffer.buffer != VK_NULL_HANDLE);
 				bufferInfo[numBuffers].buffer = data[i].buffer.buffer;
 				bufferInfo[numBuffers].range = data[i].buffer.range;
 				bufferInfo[numBuffers].offset = 0;
@@ -1813,13 +1827,8 @@ void VKRPipelineLayout::FlushDescSets(VulkanContext *vulkan, int frame, QueuePro
 				numBuffers++;
 				break;
 			}
-			writes[numWrites].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-			writes[numWrites].pNext = nullptr;
-			writes[numWrites].descriptorCount = 1;
-			writes[numWrites].dstArrayElement = 0;
 			writes[numWrites].dstBinding = i;
 			writes[numWrites].dstSet = d.set;
-			writes[numWrites].pTexelBufferView = nullptr;
 			numWrites++;
 		}
 
