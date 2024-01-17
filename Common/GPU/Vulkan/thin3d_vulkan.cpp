@@ -491,8 +491,6 @@ public:
 	void EndFrame() override;
 	void Present(PresentMode presentMode, int vblanks) override;
 
-	void WipeQueue() override;
-
 	int GetFrameCount() override {
 		return frameCount_;
 	}
@@ -1116,10 +1114,6 @@ void VKContext::Invalidate(InvalidationFlags flags) {
 			texture = nullptr;
 		}
 	}
-}
-
-void VKContext::WipeQueue() {
-	renderManager_.Wipe();
 }
 
 void VKContext::BindDescriptors(VkBuffer buf, PackedDescriptor descriptors[4]) {

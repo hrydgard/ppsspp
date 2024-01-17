@@ -229,8 +229,6 @@ public:
 	// These can run on a different thread!
 	void Finish();
 	void Present();
-	// Zaps queued up commands. Use if you know there's a risk you've queued up stuff that has already been deleted. Can happen during in-game shutdown.
-	void Wipe();
 
 	void SetInvalidationCallback(InvalidationCallback callback) {
 		invalidationCallback_ = callback;
@@ -565,7 +563,7 @@ private:
 	int curHeight_ = -1;
 
 	bool insideFrame_ = false;
-	bool run_ = false;
+	bool runCompileThread_ = false;
 
 	bool useRenderThread_ = true;
 	bool measurePresentTime_ = false;
@@ -601,7 +599,7 @@ private:
 	std::condition_variable compileCond_;
 	std::mutex compileMutex_;
 	std::vector<CompileQueueEntry> compileQueue_;
-	std::atomic<bool> compileBlocked_{};
+	std::atomic<bool> compileBlocked_{};  // Only for asserting on, now.
 
 	// Thread for measuring presentation delay.
 	std::thread presentWaitThread_;
