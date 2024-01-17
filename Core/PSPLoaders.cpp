@@ -427,7 +427,14 @@ bool Load_PSP_ELF_PBP(FileLoader *fileLoader, std::string *error_string) {
 		pspFileSystem.SetStartingDirectory(ms_path);
 	}
 
-	std::shared_ptr<IFileSystem> fs = std::shared_ptr<IFileSystem>(new DirectoryFileSystem(&pspFileSystem, full_path.NavigateUp(), FileSystemFlags::SIMULATE_FAT32 | FileSystemFlags::CARD));
+	Path dir;
+	if (full_path.Type() == PathType::CONTENT_URI) {
+		dir = full_path.NavigateUp();
+	} else {
+		dir = Path(path);
+	}
+
+	std::shared_ptr<IFileSystem> fs = std::shared_ptr<IFileSystem>(new DirectoryFileSystem(&pspFileSystem, dir, FileSystemFlags::SIMULATE_FAT32 | FileSystemFlags::CARD));
 	pspFileSystem.Mount("umd0:", fs);
 
 	std::string finalName = ms_path + file;
