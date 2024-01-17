@@ -553,12 +553,16 @@ bool InputMappingsFromPspButtonNoLock(int btn, std::vector<MultiInputMapping> *m
 		return false;
 	}
 	bool mapped = false;
-	mappings->clear();
+	if (mappings) {
+		mappings->clear();
+	}
 	for (auto &iter2 : iter->second) {
 		bool ignore = ignoreMouse && iter2.HasMouse();
-		if (mappings && !ignore) {
+		if (!ignore) {
 			mapped = true;
-			mappings->push_back(iter2);
+			if (mappings) {
+				mappings->push_back(iter2);
+			}
 		}
 	}
 	return mapped;
