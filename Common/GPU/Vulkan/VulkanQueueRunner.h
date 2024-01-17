@@ -266,15 +266,6 @@ public:
 		hacksEnabled_ = hacks;
 	}
 
-	void NotifyCompileDone() {
-		compileDone_.notify_all();
-	}
-
-	void WaitForCompileNotification() {
-		std::unique_lock<std::mutex> lock(compileDoneMutex_);
-		compileDone_.wait(lock);
-	}
-
 private:
 	bool InitBackbufferFramebuffers(int width, int height);
 	bool InitDepthStencilBuffer(VkCommandBuffer cmd, VulkanBarrierBatch *barriers);  // Used for non-buffered rendering.
@@ -320,10 +311,6 @@ private:
 
 	// TODO: Enable based on compat.ini.
 	uint32_t hacksEnabled_ = 0;
-
-	// Compile done notifications.
-	std::mutex compileDoneMutex_;
-	std::condition_variable compileDone_;
 
 	// Image barrier helper used during command buffer record (PerformRenderPass etc).
 	// Stored here to help reuse the allocation.

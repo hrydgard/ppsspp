@@ -237,6 +237,54 @@ void VKRGraphicsPipeline::LogCreationFailure() const {
 	ERROR_LOG(G3D, "======== END OF PIPELINE ==========");
 }
 
+struct SinglePipelineTask {
+	VKRGraphicsPipeline *pipeline;
+	VkRenderPass compatibleRenderPass;
+	RenderPassType rpType;
+	VkSampleCountFlagBits sampleCount;
+	double scheduleTime;
+	int countToCompile;
+};
+
+class CreateMultiPipelinesTask : public Task {
+public:
+	CreateMultiPipelinesTask(VulkanContext *vulkan, std::vector<SinglePipelineTask> tasks) : vulkan_(vulkan), tasks_(tasks) {
+		tasksInFlight_.fetch_add(1);
+	}
+	~CreateMultiPipelinesTask() {}
+
+	TaskType Type() const override {
+		return TaskType::CPU_COMPUTE;
+	}
+
+	TaskPriority Priority() const override {
+		return TaskPriority::HIGH;
+	}
+
+	void Run() override {
+		for (auto &task : tasks_) {
+			task.pipeline->Create(vulkan_, task.compatibleRenderPass, task.rpType, task.sampleCount, task.scheduleTime, task.countToCompile);
+		}
+		tasksInFlight_.fetch_sub(1);
+	}
+
+	VulkanContext *vulkan_;
+	std::vector<SinglePipelineTask> tasks_;
+
+	// Use during shutdown to make sure there aren't any leftover tasks sitting queued.
+	// Could probably be done more elegantly. Like waiting for all tasks of a type, or saving pointers to them, or something...
+	static void WaitForAll();
+	static std::atomic<int> tasksInFlight_;
+};
+
+void CreateMultiPipelinesTask::WaitForAll() {
+	while (tasksInFlight_.load() > 0) {
+		sleep_ms(2);
+	}
+}
+
+std::atomic<int> CreateMultiPipelinesTask::tasksInFlight_;
+
 VulkanRenderManager::VulkanRenderManager(VulkanContext *vulkan, bool useThread, HistoryBuffer<FrameTimeData, FRAME_TIME_HISTORY_LENGTH> &frameTimeHistory)
 	: vulkan_(vulkan), queueRunner_(vulkan),
 	initTimeMs_("initTimeMs"),
@@ -294,7 +342,8 @@ bool VulkanRenderManager::CreateBackbuffers() {
 
 	// Start the thread(s).
 	if (HasBackbuffers()) {
-		run_ = true;  // For controlling the compiler thread's exit
+		runCompileThread_ = true;  // For controlling the compiler thread's exit
+		compileBlocked_ = false;
 
 		if (useRenderThread_) {
 			INFO_LOG(G3D, "Starting Vulkan submission thread");
@@ -324,7 +373,8 @@ void VulkanRenderManager::StopThread() {
 	}
 
 	// Compiler and present thread still relies on this.
-	run_ = false;
+	runCompileThread_ = false;
+	compileBlocked_ = true;
 
 	if (presentWaitThread_.joinable()) {
 		presentWaitThread_.join();
@@ -344,36 +394,17 @@ void VulkanRenderManager::StopThread() {
 	INFO_LOG(G3D, "Vulkan submission thread joined. Frame=%d", vulkan_->GetCurFrame());
 
 	if (compileThread_.joinable()) {
-		// Lock to avoid race conditions.
-		std::lock_guard<std::mutex> guard(compileMutex_);
-		compileCond_.notify_all();
+		// Lock to avoid race conditions. Not sure if needed.
+		{
+			std::lock_guard<std::mutex> guard(compileMutex_);
+			compileCond_.notify_all();
+		}
+		compileThread_.join();
 	}
-	compileThread_.join();
-	INFO_LOG(G3D, "Vulkan compiler thread joined.");
+	INFO_LOG(G3D, "Vulkan compiler thread joined. Now wait for any straggling compile tasks.");
+	CreateMultiPipelinesTask::WaitForAll();
 
-	// Eat whatever has been queued up for this frame if anything.
-	Wipe();
-
-	// Clean out any remaining queued data, which might refer to things that might not be valid
-	// when we restart the thread...
-
-	// Not sure if this is still needed
-	for (int i = 0; i < vulkan_->GetInflightFrames(); i++) {
-		auto &frameData = frameData_[i];
-		if (frameData.hasInitCommands) {
-			// Clear 'em out.  This can happen on restart sometimes.
-			vkEndCommandBuffer(frameData.initCmd);
-			frameData.hasInitCommands = false;
-		}
-		if (frameData.hasMainCommands) {
-			vkEndCommandBuffer(frameData.mainCmd);
-			frameData.hasMainCommands = false;
-		}
-		if (frameData.hasPresentCommands) {
-			vkEndCommandBuffer(frameData.presentCmd);
-			frameData.hasPresentCommands = false;
-		}
-	}
+	_dbg_assert_(steps_.empty());
 }
 
 void VulkanRenderManager::DestroyBackbuffers() {
@@ -386,7 +417,7 @@ void VulkanRenderManager::DestroyBackbuffers() {
 VulkanRenderManager::~VulkanRenderManager() {
 	INFO_LOG(G3D, "VulkanRenderManager destructor");
 
-	_dbg_assert_(!run_);  // StopThread should already have been called from DestroyBackbuffers.
+	_dbg_assert_(!runCompileThread_);  // StopThread should already have been called from DestroyBackbuffers.
 
 	vulkan_->WaitUntilQueueIdle();
 
@@ -400,53 +431,6 @@ VulkanRenderManager::~VulkanRenderManager() {
 	queueRunner_.DestroyDeviceObjects();
 }
 
-struct SinglePipelineTask {
-	VKRGraphicsPipeline *pipeline;
-	VkRenderPass compatibleRenderPass;
-	RenderPassType rpType;
-	VkSampleCountFlagBits sampleCount;
-	double scheduleTime;
-	int countToCompile;
-};
-
-class CreateMultiPipelinesTask : public Task {
-public:
-	CreateMultiPipelinesTask(VulkanContext *vulkan, std::vector<SinglePipelineTask> tasks) : vulkan_(vulkan), tasks_(tasks) {
-		tasksInFlight_.fetch_add(1);
-	}
-	~CreateMultiPipelinesTask() {}
-
-	TaskType Type() const override {
-		return TaskType::CPU_COMPUTE;
-	}
-
-	TaskPriority Priority() const override {
-		return TaskPriority::HIGH;
-	}
-
-	void Run() override {
-		for (auto &task : tasks_) {
-			task.pipeline->Create(vulkan_, task.compatibleRenderPass, task.rpType, task.sampleCount, task.scheduleTime, task.countToCompile);
-		}
-		tasksInFlight_.fetch_sub(1);
-	}
-
-	VulkanContext *vulkan_;
-	std::vector<SinglePipelineTask> tasks_;
-
-	// Use during shutdown to make sure there aren't any leftover tasks sitting queued.
-	// Could probably be done more elegantly. Like waiting for all tasks of a type, or saving pointers to them, or something...
-	static void WaitForAll() {
-		while (tasksInFlight_.load() > 0) {
-			sleep_ms(2);
-		}
-	}
-
-	static std::atomic<int> tasksInFlight_;
-};
-
-std::atomic<int> CreateMultiPipelinesTask::tasksInFlight_;
-
 void VulkanRenderManager::CompileThreadFunc() {
 	SetCurrentThreadName("ShaderCompile");
 	while (true) {
@@ -456,14 +440,11 @@ void VulkanRenderManager::CompileThreadFunc() {
 			// TODO: Should this be while?
 			// It may be beneficial also to unlock and wait a little bit to see if we get some more shaders
 			// so we can do a better job of thread-sorting them.
-			if (compileQueue_.empty() && run_) {
+			if (compileQueue_.empty() && runCompileThread_) {
 				compileCond_.wait(lock);
 			}
 			toCompile = std::move(compileQueue_);
 			compileQueue_.clear();
-		}
-		if (!run_) {
-			break;
 		}
 
 		int countToCompile = (int)toCompile.size();
@@ -505,32 +486,33 @@ void VulkanRenderManager::CompileThreadFunc() {
 			Task *task = new CreateMultiPipelinesTask(vulkan_, entries);
 			g_threadManager.EnqueueTask(task);
 		}
- 
-		queueRunner_.NotifyCompileDone();
+
+		// Hold off just a bit before we check again, to allow bunches of pipelines to collect.
+		sleep_ms(1);
+
+		if (!runCompileThread_) {
+			break;
+		}
 	}
 }
 
 void VulkanRenderManager::DrainAndBlockCompileQueue() {
 	compileBlocked_ = true;
+	runCompileThread_ = false;
 	compileCond_.notify_all();
-	while (true) {
-		bool anyInQueue = false;
-		{
-			std::unique_lock<std::mutex> lock(compileMutex_);
-			anyInQueue = !compileQueue_.empty();
-		}
-		if (anyInQueue) {
-			queueRunner_.WaitForCompileNotification();
-		} else {
-			break;
-		}
-	}
+	compileThread_.join();
+
+	_assert_(compileQueue_.empty());
+
 	// At this point, no more tasks can be queued to the threadpool. So wait for them all to go away.
 	CreateMultiPipelinesTask::WaitForAll();
 }
 
 void VulkanRenderManager::ReleaseCompileQueue() {
 	compileBlocked_ = false;
+	runCompileThread_ = true;
+	INFO_LOG(G3D, "Restarting Vulkan compiler thread");
+	compileThread_ = std::thread(&VulkanRenderManager::CompileThreadFunc, this);
 }
 
 void VulkanRenderManager::ThreadFunc() {
@@ -575,7 +557,7 @@ void VulkanRenderManager::PresentWaitThreadFunc() {
 	_dbg_assert_(vkWaitForPresentKHR != nullptr);
 
 	uint64_t waitedId = frameIdGen_;
-	while (run_) {
+	while (runCompileThread_) {
 		const uint64_t timeout = 1000000000ULL;  // 1 sec
 		if (VK_SUCCESS == vkWaitForPresentKHR(vulkan_->GetDevice(), vulkan_->GetSwapchain(), waitedId, timeout)) {
 			frameTimeHistory_[waitedId].actualPresent = time_now_d();
@@ -799,10 +781,7 @@ VKRGraphicsPipeline *VulkanRenderManager::CreateGraphicsPipeline(VKRGraphicsPipe
 			VKRRenderPassStoreAction::STORE, VKRRenderPassStoreAction::DONT_CARE, VKRRenderPassStoreAction::DONT_CARE,
 		};
 		VKRRenderPass *compatibleRenderPass = queueRunner_.GetRenderPass(key);
-		if (compileBlocked_) {
-			delete pipeline;
-			return nullptr;
-		}
+		_dbg_assert_(!compileBlocked_);
 		std::lock_guard<std::mutex> lock(compileMutex_);
 		bool needsCompile = false;
 		for (size_t i = 0; i < (size_t)RenderPassType::TYPE_COUNT; i++) {
@@ -871,9 +850,10 @@ void VulkanRenderManager::EndCurRenderStep() {
 	VkSampleCountFlagBits sampleCount = curRenderStep_->render.framebuffer ? curRenderStep_->render.framebuffer->sampleCount : VK_SAMPLE_COUNT_1_BIT;
 
 	compileMutex_.lock();
+	_dbg_assert_(!compileBlocked_);
 	bool needsCompile = false;
 	for (VKRGraphicsPipeline *pipeline : pipelinesToCheck_) {
-		if (!pipeline || compileBlocked_) {
+		if (!pipeline) {
 			// Not good, but let's try not to crash.
 			continue;
 		}
@@ -1439,13 +1419,6 @@ void VulkanRenderManager::Present() {
 
 	vulkan_->EndFrame();
 	insideFrame_ = false;
-}
-
-void VulkanRenderManager::Wipe() {
-	for (auto step : steps_) {
-		delete step;
-	}
-	steps_.clear();
 }
 
 // Called on the render thread.

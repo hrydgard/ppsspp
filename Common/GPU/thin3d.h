@@ -822,8 +822,6 @@ public:
 	// NOTE: Not all backends support vblanks > 1. Some backends also can't change presentation mode immediately.
 	virtual void Present(PresentMode presentMode, int vblanks) = 0;
 
-	virtual void WipeQueue() {}
-
 	// This should be avoided as much as possible, in favor of clearing when binding a render target, which is native
 	// on Vulkan.
 	virtual void Clear(int mask, uint32_t colorval, float depthVal, int stencilVal) = 0;
