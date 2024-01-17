@@ -92,6 +92,9 @@
     <ClCompile Include="DebugOverlay.cpp">
       <Filter>Screens</Filter>
     </ClCompile>
+    <ClCompile Include="DriverManagerScreen.cpp">
+      <Filter>Screens</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="GameInfoCache.h" />
@@ -182,6 +185,9 @@
       <Filter>Screens</Filter>
     </ClInclude>
     <ClInclude Include="DebugOverlay.h">
+      <Filter>Screens</Filter>
+    </ClInclude>
+    <ClInclude Include="DriverManagerScreen.h">
       <Filter>Screens</Filter>
     </ClInclude>
   </ItemGroup>

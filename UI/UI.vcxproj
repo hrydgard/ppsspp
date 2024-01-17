@@ -44,6 +44,7 @@
     <ClCompile Include="DevScreens.cpp" />
     <ClCompile Include="DiscordIntegration.cpp" />
     <ClCompile Include="DisplayLayoutScreen.cpp" />
+    <ClCompile Include="DriverManagerScreen.cpp" />
     <ClCompile Include="EmuScreen.cpp" />
     <ClCompile Include="GameInfoCache.cpp" />
     <ClCompile Include="GamepadEmu.cpp" />
@@ -81,6 +82,7 @@
     <ClInclude Include="DevScreens.h" />
     <ClInclude Include="DiscordIntegration.h" />
     <ClInclude Include="DisplayLayoutScreen.h" />
+    <ClInclude Include="DriverManagerScreen.h" />
     <ClInclude Include="EmuScreen.h" />
     <ClInclude Include="GameInfoCache.h" />
     <ClInclude Include="GamepadEmu.h" />

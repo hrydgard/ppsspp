@@ -848,9 +848,10 @@ public:
 	void Draw(UIContext &dc) override;
 	std::string DescribeText() const override;
 	void GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert, float &w, float &h) const override;
-
+	void SetLarge(bool large) { large_ = large; }
 private:
 	std::string text_;
+	bool large_ = false;
 };
 
 class PopupHeader : public Item {

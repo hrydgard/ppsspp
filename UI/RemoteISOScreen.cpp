@@ -234,7 +234,7 @@ bool RemoteISOConnectScreen::FindServer(std::string &resultHost, int &resultPort
 		if (scanCancelled)
 			return false;
 
-		const char *host = entry.getString("ip", "");
+		const char *host = entry.getStringOr("ip", "");
 		int port = entry.getInt("p", 0);
 
 		if (TryServer(host, port)) {
