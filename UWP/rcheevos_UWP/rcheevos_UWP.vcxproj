@@ -72,6 +72,7 @@
     <ClCompile Include="..\..\ext\rcheevos\src\rcheevos\runtime_progress.c" />
     <ClCompile Include="..\..\ext\rcheevos\src\rcheevos\trigger.c" />
     <ClCompile Include="..\..\ext\rcheevos\src\rcheevos\value.c" />
+    <ClCompile Include="..\..\ext\rcheevos\src\rhash\aes.c" />
     <ClCompile Include="..\..\ext\rcheevos\src\rhash\cdreader.c" />
     <ClCompile Include="..\..\ext\rcheevos\src\rhash\hash.c" />
     <ClCompile Include="..\..\ext\rcheevos\src\rhash\md5.c" />
@@ -100,8 +101,10 @@
     <WholeProgramOptimization>false</WholeProgramOptimization>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
-  <ImportGroup Label="ExtensionSettings"></ImportGroup>
-  <ImportGroup Label="Shared"></ImportGroup>
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Label="Shared">
+  </ImportGroup>
   <ImportGroup Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
