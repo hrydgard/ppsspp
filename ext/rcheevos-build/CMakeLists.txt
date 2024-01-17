@@ -38,6 +38,7 @@ set(ALL_SOURCE_FILES
 	# rhash
 	${SRC_DIR}/rhash/cdreader.c
 	${SRC_DIR}/rhash/hash.c
+	${SRC_DIR}/rhash/aes.c
 	${SRC_DIR}/rhash/md5.c
 	${SRC_DIR}/rhash/md5.h
 	)
