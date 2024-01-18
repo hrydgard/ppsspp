@@ -246,6 +246,7 @@ enum class UIMessage {
 	SAVESTATE_DISPLAY_SLOT,
 	GAMESETTINGS_SEARCH,
 	SAVEDATA_SEARCH,
+	RESTART_GRAPHICS,
 };
 
 std::string System_GetProperty(SystemProperty prop);

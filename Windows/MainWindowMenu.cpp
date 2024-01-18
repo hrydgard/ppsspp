@@ -926,7 +926,7 @@ namespace MainWindow {
 			break;
 
 		case ID_DEBUG_RESTARTGRAPHICS:
-			Core_DebugRestartGraphics();
+			System_PostUIMessage(UIMessage::RESTART_GRAPHICS);
 			break;
 
 		case ID_FILE_DUMPFRAMES:
