@@ -223,12 +223,15 @@ void Core_RunLoop(GraphicsContext *ctx) {
 		return;
 	}
 
+#if PPSSPP_PLATFORM(WINDOWS)
+	// This can only be accessed from Windows currently, and causes linking errors with headless etc.
 	if (g_restartGraphics) {
 		// Used for debugging only.
 		NativeShutdownGraphics();
 		NativeInitGraphics(ctx);
 		g_restartGraphics = false;
 	}
+#endif
 
 	NativeFrame(ctx);
 }
