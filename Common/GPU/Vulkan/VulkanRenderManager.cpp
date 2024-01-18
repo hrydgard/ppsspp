@@ -1575,7 +1575,7 @@ void VulkanRenderManager::ResetStats() {
 
 VKRPipelineLayout *VulkanRenderManager::CreatePipelineLayout(BindingType *bindingTypes, size_t bindingTypesCount, bool geoShadersEnabled, const char *tag) {
 	VKRPipelineLayout *layout = new VKRPipelineLayout();
-	layout->tag = tag;
+	layout->SetTag(tag);
 	layout->bindingTypesCount = (uint32_t)bindingTypesCount;
 
 	_dbg_assert_(bindingTypesCount <= ARRAY_SIZE(layout->bindingTypes));

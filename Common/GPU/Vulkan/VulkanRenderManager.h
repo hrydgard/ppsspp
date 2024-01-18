@@ -192,9 +192,10 @@ struct PackedDescriptor {
 };
 
 // Note that we only support a single descriptor set due to compatibility with some ancient devices.
-// We should probably eventually give that up.
+// We should probably eventually give that up eventually.
 struct VKRPipelineLayout {
 	~VKRPipelineLayout();
+
 	enum { MAX_DESC_SET_BINDINGS = 10 };
 	BindingType bindingTypes[MAX_DESC_SET_BINDINGS];
 
@@ -205,7 +206,8 @@ struct VKRPipelineLayout {
 	const char *tag = nullptr;
 
 	struct FrameData {
-		FrameData() : pool("GameDescPool", true) {}
+		FrameData() : pool("N/A", true) {}
+
 		VulkanDescSetPool pool;
 		FastVec<PackedDescriptor> descData_;
 		FastVec<PendingDescSet> descSets_;
@@ -217,6 +219,12 @@ struct VKRPipelineLayout {
 	FrameData frameData[VulkanContext::MAX_INFLIGHT_FRAMES];
 
 	void FlushDescSets(VulkanContext *vulkan, int frame, QueueProfileContext *profile);
+	void SetTag(const char *tag) {
+		this->tag = tag;
+		for (int i = 0; i < ARRAY_SIZE(frameData); i++) {
+			frameData[i].pool.SetTag(tag);
+		}
+	}
 };
 
 class VulkanRenderManager {

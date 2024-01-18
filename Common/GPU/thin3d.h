@@ -693,6 +693,8 @@ public:
 
 	Bugs GetBugs() const { return bugs_; }
 
+	virtual void Wait() {}
+
 	virtual const DeviceCaps &GetDeviceCaps() const = 0;
 	virtual uint32_t GetDataFormatSupport(DataFormat fmt) const = 0;
 	virtual std::vector<std::string> GetFeatureList() const { return std::vector<std::string>(); }

@@ -96,6 +96,10 @@ VKAPI_ATTR VkBool32 VKAPI_CALL VulkanDebugUtilsCallback(
 		// Clear value but no LOAD_OP_CLEAR. Not worth fixing right now.
 		return false;
 
+	case 1544472022:
+		// MSAA depth resolve write-after-write??
+		return false;
+
 	default:
 		break;
 	}

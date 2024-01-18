@@ -381,6 +381,9 @@ public:
 	~VKContext();
 
 	void DebugAnnotate(const char *annotation) override;
+	void Wait() override {
+		vkDeviceWaitIdle(vulkan_->GetDevice());
+	}
 
 	const DeviceCaps &GetDeviceCaps() const override {
 		return caps_;

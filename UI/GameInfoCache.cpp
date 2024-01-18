@@ -227,21 +227,25 @@ u64 GameInfo::GetInstallDataSizeInBytes() {
 }
 
 bool GameInfo::LoadFromPath(const Path &gamePath) {
-	std::lock_guard<std::mutex> guard(lock);
-	// No need to rebuild if we already have it loaded.
-	if (filePath_ != gamePath) {
-		{
-			std::lock_guard<std::mutex> guard(loaderLock);
-			fileLoader.reset(ConstructFileLoader(gamePath));
-			if (!fileLoader)
-				return false;
+	{
+		std::lock_guard<std::mutex> guard(lock);
+		// No need to rebuild if we already have it loaded.
+		if (filePath_ == gamePath) {
+			return true;
 		}
-		filePath_ = gamePath;
-
-		// This is a fallback title, while we're loading / if unable to load.
-		title = filePath_.GetFilename();
 	}
 
+	{
+		std::lock_guard<std::mutex> guard(loaderLock);
+		fileLoader.reset(ConstructFileLoader(gamePath));
+		if (!fileLoader)
+			return false;
+	}
+
+	std::lock_guard<std::mutex> guard(lock);
+	filePath_ = gamePath;
+	// This is a fallback title, while we're loading / if unable to load.
+	title = filePath_.GetFilename();
 	return true;
 }
 
@@ -476,20 +480,26 @@ public:
 
 				if (info_->wantFlags & GAMEINFO_WANTBG) {
 					if (pbp.GetSubFileSize(PBP_PIC0_PNG) > 0) {
+						std::string data;
+						pbp.GetSubFileAsString(PBP_PIC0_PNG, &data);
 						std::lock_guard<std::mutex> lock(info_->lock);
-						pbp.GetSubFileAsString(PBP_PIC0_PNG, &info_->pic0.data);
+						info_->pic0.data = std::move(data);
 						info_->pic0.dataLoaded = true;
 					}
 					if (pbp.GetSubFileSize(PBP_PIC1_PNG) > 0) {
+						std::string data;
+						pbp.GetSubFileAsString(PBP_PIC1_PNG, &data);
 						std::lock_guard<std::mutex> lock(info_->lock);
-						pbp.GetSubFileAsString(PBP_PIC1_PNG, &info_->pic1.data);
+						info_->pic1.data = std::move(data);
 						info_->pic1.dataLoaded = true;
 					}
 				}
 				if (info_->wantFlags & GAMEINFO_WANTSND) {
 					if (pbp.GetSubFileSize(PBP_SND0_AT3) > 0) {
+						std::string data;
+						pbp.GetSubFileAsString(PBP_SND0_AT3, &data);
 						std::lock_guard<std::mutex> lock(info_->lock);
-						pbp.GetSubFileAsString(PBP_SND0_AT3, &info_->sndFileData);
+						info_->sndFileData = std::move(data);
 						info_->sndDataLoaded = true;
 					}
 				}
@@ -628,16 +638,17 @@ handleELF:
 				// Alright, let's fetch the PARAM.SFO.
 				std::string paramSFOcontents;
 				if (ReadFileToString(&umd, "/PSP_GAME/PARAM.SFO", &paramSFOcontents, nullptr)) {
-					std::lock_guard<std::mutex> lock(info_->lock);
-					info_->paramSFO.ReadSFO((const u8 *)paramSFOcontents.data(), paramSFOcontents.size());
-					info_->ParseParamSFO();
-
+					{
+						std::lock_guard<std::mutex> lock(info_->lock);
+						info_->paramSFO.ReadSFO((const u8 *)paramSFOcontents.data(), paramSFOcontents.size());
+						info_->ParseParamSFO();
+					}
 					if (info_->wantFlags & GAMEINFO_WANTBG) {
-						info_->pic0.dataLoaded = ReadFileToString(&umd, "/PSP_GAME/PIC0.PNG", &info_->pic0.data, nullptr);
-						info_->pic1.dataLoaded = ReadFileToString(&umd, "/PSP_GAME/PIC1.PNG", &info_->pic1.data, nullptr);
+						info_->pic0.dataLoaded = ReadFileToString(&umd, "/PSP_GAME/PIC0.PNG", &info_->pic0.data, &info_->lock);
+						info_->pic1.dataLoaded = ReadFileToString(&umd, "/PSP_GAME/PIC1.PNG", &info_->pic1.data, &info_->lock);
 					}
 					if (info_->wantFlags & GAMEINFO_WANTSND) {
-						info_->sndDataLoaded = ReadFileToString(&umd, "/PSP_GAME/SND0.AT3", &info_->sndFileData, nullptr);
+						info_->sndDataLoaded = ReadFileToString(&umd, "/PSP_GAME/SND0.AT3", &info_->sndFileData, &info_->lock);
 					}
 				}
 
