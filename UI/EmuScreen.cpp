@@ -277,7 +277,8 @@ void EmuScreen::bootGame(const Path &filename) {
 	if (!info || info->pending)
 		return;
 
-	SetExtraAssertInfo((info->id + " " + info->GetTitle()).c_str());
+	extraAssertInfoStr_ = info->id + " " + info->GetTitle();
+	SetExtraAssertInfo(extraAssertInfoStr_.c_str());
 
 	if (!info->id.empty()) {
 		g_Config.loadGameConfig(info->id, info->GetTitle());
@@ -468,6 +469,7 @@ void EmuScreen::dialogFinished(const Screen *dialog, DialogResult result) {
 	if (Core_IsActive())
 		UI::EnableFocusMovement(false);
 	RecreateViews();
+	SetExtraAssertInfo(extraAssertInfoStr_.c_str());
 }
 
 static void AfterSaveStateAction(SaveState::Status status, const std::string &message, void *) {
@@ -1612,13 +1614,14 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 		PSP_EndHostFrame();
 	}
 
-	screenManager()->getUIContext()->BeginFrame();
 
 	if (gpu && !gpu->PresentedThisFrame() && !skipBufferEffects) {
 		draw->BindFramebufferAsRenderTarget(nullptr, { RPAction::CLEAR, RPAction::CLEAR, RPAction::CLEAR, clearColor }, "EmuScreen_NoFrame");
 		draw->SetViewport(viewport);
 		draw->SetScissorRect(0, 0, g_display.pixel_xres, g_display.pixel_yres);
 	}
+
+	screenManager()->getUIContext()->BeginFrame();
 
 	if (!(mode & ScreenRenderMode::TOP)) {
 		// We're in run-behind mode, but we don't want to draw chat, debug UI and stuff.

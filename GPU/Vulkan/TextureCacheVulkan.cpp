@@ -229,6 +229,7 @@ void TextureCacheVulkan::DeviceLost() {
 
 	nextTexture_ = nullptr;
 	draw_ = nullptr;
+	Unbind();
 }
 
 void TextureCacheVulkan::DeviceRestore(Draw::DrawContext *draw) {
@@ -372,8 +373,7 @@ void TextureCacheVulkan::UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutB
 
 void TextureCacheVulkan::BindTexture(TexCacheEntry *entry) {
 	if (!entry || !entry->vkTex) {
-		imageView_ = VK_NULL_HANDLE;
-		curSampler_ = VK_NULL_HANDLE;
+		Unbind();
 		return;
 	}
 

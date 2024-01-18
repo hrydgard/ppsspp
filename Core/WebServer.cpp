@@ -82,7 +82,7 @@ static bool RegisterServer(int port) {
 
 	http.SetUserAgent(StringFromFormat("PPSSPP/%s", PPSSPP_GIT_VERSION));
 
-	char resource4[1024] = {};
+	char resource4[1024]{};
 	if (http.Resolve(REPORT_HOSTNAME, REPORT_PORT, net::DNSType::IPV4)) {
 		if (http.Connect()) {
 			std::string ip = fd_util::GetLocalIP(http.sock());
@@ -97,7 +97,7 @@ static bool RegisterServer(int port) {
 
 	if (http.Resolve(REPORT_HOSTNAME, REPORT_PORT, net::DNSType::IPV6)) {
 		// If IPv4 was successful, don't give this as much time (it blocks and sometimes IPv6 is broken.)
-		double timeout = success ? 2.0 : 20.0;
+		double timeout = success ? 2.0 : 10.0;
 
 		// We register both IPv4 and IPv6 in case the other client is using a different one.
 		if (resource4[0] != 0 && http.Connect(timeout)) {
