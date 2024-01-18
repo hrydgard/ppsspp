@@ -1522,6 +1522,8 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 			gpu->CopyDisplayToOutput(true);
 			PSP_EndHostFrame();
 		}
+		// Need to make sure the UI texture is available, for "darken".
+		screenManager()->getUIContext()->BeginFrame();
 		draw->SetViewport(viewport);
 		draw->SetScissorRect(0, 0, g_display.pixel_xres, g_display.pixel_yres);
 		darken();
@@ -1539,6 +1541,8 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 			checkPowerDown();
 		}
 		draw->BindFramebufferAsRenderTarget(nullptr, { RPAction::CLEAR, RPAction::CLEAR, RPAction::CLEAR }, "EmuScreen_Invalid");
+		// Need to make sure the UI texture is available, for "darken".
+		screenManager()->getUIContext()->BeginFrame();
 		draw->SetViewport(viewport);
 		draw->SetScissorRect(0, 0, g_display.pixel_xres, g_display.pixel_yres);
 		renderUI();
@@ -1607,6 +1611,8 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 
 		PSP_EndHostFrame();
 	}
+
+	screenManager()->getUIContext()->BeginFrame();
 
 	if (gpu && !gpu->PresentedThisFrame() && !skipBufferEffects) {
 		draw->BindFramebufferAsRenderTarget(nullptr, { RPAction::CLEAR, RPAction::CLEAR, RPAction::CLEAR, clearColor }, "EmuScreen_NoFrame");
