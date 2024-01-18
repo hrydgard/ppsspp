@@ -925,6 +925,10 @@ namespace MainWindow {
 			g_TakeScreenshot = true;
 			break;
 
+		case ID_DEBUG_RESTARTGRAPHICS:
+			System_PostUIMessage(UIMessage::RESTART_GRAPHICS);
+			break;
+
 		case ID_FILE_DUMPFRAMES:
 			g_Config.bDumpFrames = !g_Config.bDumpFrames;
 			break;

@@ -773,12 +773,12 @@ void TextureReplacer::NotifyTextureDecoded(ReplacedTexture *texture, const Repla
 
 	ReplacementCacheKey replacementKey(cachekey, replacedInfo.hash);
 	auto it = savedCache_.find(replacementKey);
-	double now = time_now_d();
 	if (it != savedCache_.end()) {
 		// We've already saved this texture. Ignore it.
 		// We don't really care about changing the scale factor during runtime, only confusing.
 		return;
 	}
+	double now = time_now_d();
 
 	// Width/height of the image to save.
 	int w = scaledW;

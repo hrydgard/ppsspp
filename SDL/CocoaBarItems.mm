@@ -405,6 +405,10 @@ void OSXOpenURL(const char *url) {
     copyBaseAddr.target = self;
     copyBaseAddr.tag = 11;
 
+    NSMenuItem *restartGraphicsAction = [[NSMenuItem alloc] initWithTitle:DESKTOPUI_LOCALIZED("Restart Graphics") action:@selector(restartGraphics) keyEquivalent:@""];
+    restartGraphicsAction.target = self;
+    restartGraphicsAction.tag = 12;
+
     MENU_ITEM(showDebugStatsAction, DESKTOPUI_LOCALIZED("Show Debug Statistics"), @selector(toggleShowDebugStats:), ((DebugOverlay)g_Config.iDebugOverlay == DebugOverlay::DEBUG_STATS), 12)
 
     [parent addItem:loadSymbolMapAction];
@@ -421,6 +425,7 @@ void OSXOpenURL(const char *url) {
     [parent addItem:takeScreenshotAction];
     [parent addItem:dumpNextFrameToLogAction];
     [parent addItem:showDebugStatsAction];
+    [parent addItem:restartGraphicsAction];
 
     [parent addItem:[NSMenuItem separatorItem]];
     [parent addItem:copyBaseAddr];
@@ -460,6 +465,10 @@ void OSXOpenURL(const char *url) {
     NSString *stringToCopy = [NSString stringWithFormat: @"%016llx", (uint64_t)(uintptr_t)Memory::base];
     [NSPasteboard.generalPasteboard declareTypes:@[NSPasteboardTypeString] owner:nil];
     [NSPasteboard.generalPasteboard setString:stringToCopy forType:NSPasteboardTypeString];
+}
+
+-(void)restartGraphics {
+    System_PostUIMessage(UIMessage::RESTART_GRAPHICS);
 }
 
 -(NSURL *)presentOpenPanelWithAllowedFileTypes: (NSArray<NSString *> *)allowedFileTypes {

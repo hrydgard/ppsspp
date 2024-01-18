@@ -183,6 +183,7 @@ static Draw::DrawContext *g_draw;
 static Draw::Pipeline *colorPipeline;
 static Draw::Pipeline *texColorPipeline;
 static UIContext *uiContext;
+static bool g_restartGraphics;
 
 #ifdef _WIN32
 WindowsAudioBackend *winAudioBackend;
@@ -1035,6 +1036,14 @@ static void SendMouseDeltaAxis();
 void NativeFrame(GraphicsContext *graphicsContext) {
 	PROFILE_END_FRAME();
 
+	// This can only be accessed from Windows currently, and causes linking errors with headless etc.
+	if (g_restartGraphics) {
+		// Used for debugging only.
+		NativeShutdownGraphics();
+		NativeInitGraphics(graphicsContext);
+		g_restartGraphics = false;
+	}
+
 	double startTime = time_now_d();
 
 	ProcessWheelRelease(NKCODE_EXT_MOUSEWHEEL_UP, startTime, false);
@@ -1173,7 +1182,9 @@ void NativeFrame(GraphicsContext *graphicsContext) {
 }
 
 bool HandleGlobalMessage(UIMessage message, const std::string &value) {
-	if (message == UIMessage::SAVESTATE_DISPLAY_SLOT) {
+	if (message == UIMessage::RESTART_GRAPHICS) {
+		g_restartGraphics = true;
+	} else if (message == UIMessage::SAVESTATE_DISPLAY_SLOT) {
 		auto sy = GetI18NCategory(I18NCat::SYSTEM);
 		std::string msg = StringFromFormat("%s: %d", sy->T("Savestate Slot"), SaveState::GetCurrentSlot() + 1);
 		// Show for the same duration as the preview.
