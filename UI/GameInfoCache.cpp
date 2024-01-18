@@ -340,16 +340,19 @@ static bool ReadFileToString(IFileSystem *fs, const char *filename, std::string 
 	if (handle < 0) {
 		return false;
 	}
-
 	if (mtx) {
+		std::string data;
+		data.resize(info.size);
+		fs->ReadFile(handle, (u8 *)data.data(), info.size);
+		fs->CloseFile(handle);
+
 		std::lock_guard<std::mutex> lock(*mtx);
-		contents->resize(info.size);
-		fs->ReadFile(handle, (u8 *)contents->data(), info.size);
+		*contents = std::move(data);
 	} else {
 		contents->resize(info.size);
 		fs->ReadFile(handle, (u8 *)contents->data(), info.size);
+		fs->CloseFile(handle);
 	}
-	fs->CloseFile(handle);
 	return true;
 }
 
@@ -363,11 +366,12 @@ static bool ReadVFSToString(const char *filename, std::string *contents, std::mu
 		} else {
 			*contents = std::string((const char *)data, sz);
 		}
+	} else {
+		return false;
 	}
 	delete [] data;
-	return data != nullptr;
+	return true;
 }
-
 
 class GameInfoWorkItem : public Task {
 public:
