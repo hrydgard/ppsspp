@@ -277,7 +277,8 @@ void EmuScreen::bootGame(const Path &filename) {
 	if (!info || info->pending)
 		return;
 
-	SetExtraAssertInfo((info->id + " " + info->GetTitle()).c_str());
+	extraAssertInfoStr_ = info->id + " " + info->GetTitle();
+	SetExtraAssertInfo(extraAssertInfoStr_.c_str());
 
 	if (!info->id.empty()) {
 		g_Config.loadGameConfig(info->id, info->GetTitle());
@@ -468,6 +469,7 @@ void EmuScreen::dialogFinished(const Screen *dialog, DialogResult result) {
 	if (Core_IsActive())
 		UI::EnableFocusMovement(false);
 	RecreateViews();
+	SetExtraAssertInfo(extraAssertInfoStr_.c_str());
 }
 
 static void AfterSaveStateAction(SaveState::Status status, const std::string &message, void *) {

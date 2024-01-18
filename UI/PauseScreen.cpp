@@ -266,6 +266,9 @@ void GamePauseScreen::update() {
 
 GamePauseScreen::GamePauseScreen(const Path &filename)
 	: UIDialogScreenWithGameBackground(filename) {
+	// So we can tell if something blew up while on the pause screen.
+	std::string assertStr = "PauseScreen: " + filename.GetFilename();
+	SetExtraAssertInfo(assertStr.c_str());
 }
 
 GamePauseScreen::~GamePauseScreen() {
