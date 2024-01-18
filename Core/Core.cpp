@@ -61,6 +61,7 @@ static std::set<CoreLifecycleFunc> lifecycleFuncs;
 static std::set<CoreStopRequestFunc> stopFuncs;
 static bool windowHidden = false;
 static bool powerSaving = false;
+static bool g_restartGraphics = false;
 
 static MIPSExceptionInfo g_exceptionInfo;
 
@@ -211,11 +212,22 @@ void UpdateRunLoop(GraphicsContext *ctx) {
 	}
 }
 
+void Core_DebugRestartGraphics() {
+	g_restartGraphics = true;
+}
+
 // Note: not used on Android.
 void Core_RunLoop(GraphicsContext *ctx) {
 	if (windowHidden && g_Config.bPauseWhenMinimized) {
 		sleep_ms(16);
 		return;
+	}
+
+	if (g_restartGraphics) {
+		// Used for debugging only.
+		NativeShutdownGraphics();
+		NativeInitGraphics(ctx);
+		g_restartGraphics = false;
 	}
 
 	NativeFrame(ctx);

@@ -44,6 +44,8 @@ bool Core_NextFrame();
 void Core_DoSingleStep();
 void Core_UpdateSingleStep();
 void Core_ProcessStepping();
+void Core_DebugRestartGraphics();
+
 // Changes every time we enter stepping.
 int Core_GetSteppingCounter();
 struct SteppingReason {
