@@ -530,7 +530,7 @@ void RemoteISOBrowseScreen::CreateViews() {
 
 	ScrollView *scrollRecentGames = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 	scrollRecentGames->SetTag("RemoteGamesTab");
-	GameBrowser *tabRemoteGames = new GameBrowser(
+	GameBrowser *tabRemoteGames = new GameBrowser(GetRequesterToken(),
 		Path(url_), BrowseFlags::NAVIGATE, &g_Config.bGridView1, screenManager(), "", "",
 		new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
 	tabRemoteGames->SetHomePath(Path(url_));
@@ -601,7 +601,7 @@ void RemoteISOSettingsScreen::CreateViews() {
 	if (System_GetPropertyBool(SYSPROP_HAS_FOLDER_BROWSER)) {
 		static const char *shareTypes[] = { "Recent files", "Choose directory" };
 		remoteisoSettings->Add(new PopupMultiChoice(&g_Config.iRemoteISOShareType, ri->T("Files to share"), shareTypes, 0, ARRAY_SIZE(shareTypes), I18NCat::REMOTEISO, screenManager()));
-		FolderChooserChoice *folderChooser = remoteisoSettings->Add(new FolderChooserChoice(&g_Config.sRemoteISOSharedDir, ri->T("Files to share")));
+		FolderChooserChoice *folderChooser = remoteisoSettings->Add(new FolderChooserChoice(GetRequesterToken(), &g_Config.sRemoteISOSharedDir, ri->T("Files to share")));
 		folderChooser->SetEnabledFunc([=]() {
 			return g_Config.iRemoteISOShareType == (int)RemoteISOShareType::LOCAL_FOLDER;
 		});
@@ -610,7 +610,7 @@ void RemoteISOSettingsScreen::CreateViews() {
 		g_Config.iRemoteISOShareType = (int)RemoteISOShareType::RECENT;
 	}
 
-	UI::Choice *remoteServer = new PopupTextInputChoice(&g_Config.sLastRemoteISOServer, ri->T("Remote Server"), "", 255, screenManager());
+	UI::Choice *remoteServer = new PopupTextInputChoice(GetRequesterToken(), &g_Config.sLastRemoteISOServer, ri->T("Remote Server"), "", 255, screenManager());
 	remoteisoSettings->Add(remoteServer);
 	remoteServer->SetEnabledPtr(&g_Config.bRemoteISOManual);
 
@@ -619,7 +619,7 @@ void RemoteISOSettingsScreen::CreateViews() {
 
 	UI::Choice *remoteSubdir;
 	{
-		PopupTextInputChoice *remoteSubdirInput = new PopupTextInputChoice(&g_Config.sRemoteISOSubdir, ri->T("Remote Subdirectory"), "", 255, screenManager());
+		PopupTextInputChoice *remoteSubdirInput = new PopupTextInputChoice(GetRequesterToken(), &g_Config.sRemoteISOSubdir, ri->T("Remote Subdirectory"), "", 255, screenManager());
 		remoteSubdirInput->OnChange.Handle(this, &RemoteISOSettingsScreen::OnChangeRemoteISOSubdir);
 		remoteSubdir = remoteSubdirInput;
 	}

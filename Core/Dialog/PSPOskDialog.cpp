@@ -897,7 +897,7 @@ int PSPOskDialog::NativeKeyboard() {
 			defaultText.assign(u"VALUE");
 
 		// There's already ConvertUCS2ToUTF8 in this file. Should we use that instead of the global ones?
-		System_InputBoxGetString(::ConvertUCS2ToUTF8(titleText), ::ConvertUCS2ToUTF8(defaultText),
+		System_InputBoxGetString(NON_EPHEMERAL_TOKEN, ::ConvertUCS2ToUTF8(titleText), ::ConvertUCS2ToUTF8(defaultText),
 			[&](const std::string &value, int) {
 				// Success callback
 				std::lock_guard<std::mutex> guard(nativeMutex_);

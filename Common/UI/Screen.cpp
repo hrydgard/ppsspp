@@ -1,4 +1,5 @@
 #include "Common/System/Display.h"
+#include "Common/System/Request.h"
 #include "Common/Input/InputState.h"
 #include "Common/UI/Root.h"
 #include "Common/UI/Screen.h"
@@ -19,6 +20,21 @@ void Screen::focusChanged(ScreenFocusChange focusChange) {
 	case ScreenFocusChange::FOCUS_BECAME_TOP: eventName = "FOCUS_BECAME_TOP"; break;
 	}
 	DEBUG_LOG(SYSTEM, "Screen %s got %s", this->tag(), eventName);
+}
+
+int Screen::GetRequesterToken() {
+	if (token_ < 0) {
+		token_ = g_requestManager.GenerateRequesterToken();
+	}
+	return token_;
+}
+
+Screen::~Screen() {
+	screenManager_ = nullptr;
+	if (token_ >= 0) {
+		// To avoid expired callbacks getting called.
+		g_requestManager.ForgetRequestsWithToken(token_);
+	}
 }
 
 ScreenManager::~ScreenManager() {

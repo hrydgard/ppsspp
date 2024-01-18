@@ -674,7 +674,7 @@ UI::EventReturn SavedataScreen::OnSortClick(UI::EventParams &e) {
 UI::EventReturn SavedataScreen::OnSearch(UI::EventParams &e) {
 	if (System_GetPropertyBool(SYSPROP_HAS_TEXT_INPUT_DIALOG)) {
 		auto di = GetI18NCategory(I18NCat::DIALOG);
-		System_InputBoxGetString(di->T("Filter"), searchFilter_, [](const std::string &value, int ivalue) {
+		System_InputBoxGetString(GetRequesterToken(), di->T("Filter"), searchFilter_, [](const std::string &value, int ivalue) {
 			System_PostUIMessage(UIMessage::SAVEDATA_SEARCH, value);
 		});
 	}

@@ -5,7 +5,8 @@
 
 class ChatMenu : public UI::AnchorLayout {
 public:
-	ChatMenu(const Bounds &screenBounds, UI::LayoutParams *lp = nullptr): UI::AnchorLayout(lp) {
+	ChatMenu(int token, const Bounds &screenBounds, UI::LayoutParams *lp = nullptr)
+		: UI::AnchorLayout(lp), token_(token) {
 		CreateSubviews(screenBounds);
 	}
 	void Update() override;
@@ -41,4 +42,5 @@ private:
 	int chatChangeID_ = 0;
 	bool toBottom_ = true;
 	bool promptInput_ = false;
+	int token_;
 };

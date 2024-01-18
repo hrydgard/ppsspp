@@ -206,7 +206,7 @@ static char *GetLineNoNewline(char *temp, int sz, FILE *fp) {
 }
 
 UI::EventReturn CwCheatScreen::OnImportBrowse(UI::EventParams &params) {
-	System_BrowseForFile("Open cheat DB file", BrowseFileType::DB, [&](const std::string &value, int) {
+	System_BrowseForFile(GetRequesterToken(), "Open cheat DB file", BrowseFileType::DB, [&](const std::string &value, int) {
 		Path path(value);
 		INFO_LOG(SYSTEM, "Attempting to load cheats from: '%s'", path.ToVisualString().c_str());
 		if (ImportCheats(path)) {

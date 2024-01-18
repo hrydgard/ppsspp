@@ -500,8 +500,8 @@ void SliderFloatPopupScreen::OnCompleted(DialogResult result) {
 	}
 }
 
-PopupTextInputChoice::PopupTextInputChoice(std::string *value, const std::string &title, const std::string &placeholder, int maxLen, ScreenManager *screenManager, LayoutParams *layoutParams)
-	: AbstractChoiceWithValueDisplay(title, layoutParams), screenManager_(screenManager), value_(value), placeHolder_(placeholder), maxLen_(maxLen) {
+PopupTextInputChoice::PopupTextInputChoice(RequesterToken token, std::string *value, const std::string &title, const std::string &placeholder, int maxLen, ScreenManager *screenManager, LayoutParams *layoutParams)
+	: AbstractChoiceWithValueDisplay(title, layoutParams), screenManager_(screenManager), value_(value), placeHolder_(placeholder), maxLen_(maxLen), token_(token) {
 	OnClick.Handle(this, &PopupTextInputChoice::HandleClick);
 }
 
@@ -510,7 +510,7 @@ EventReturn PopupTextInputChoice::HandleClick(EventParams &e) {
 
 	// Choose method depending on platform capabilities.
 	if (System_GetPropertyBool(SYSPROP_HAS_TEXT_INPUT_DIALOG)) {
-		System_InputBoxGetString(text_, *value_ , [=](const std::string &enteredValue, int) {
+		System_InputBoxGetString(token_, text_, *value_ , [=](const std::string &enteredValue, int) {
 			*value_ = StripSpaces(enteredValue);
 			EventParams params{};
 			OnChange.Trigger(params);
@@ -668,10 +668,10 @@ std::string ChoiceWithValueDisplay::ValueText() const {
 	return valueText.str();
 }
 
-FileChooserChoice::FileChooserChoice(std::string *value, const std::string &text, BrowseFileType fileType, LayoutParams *layoutParams)
-	: AbstractChoiceWithValueDisplay(text, layoutParams), value_(value), fileType_(fileType) {
+FileChooserChoice::FileChooserChoice(RequesterToken token, std::string *value, const std::string &text, BrowseFileType fileType, LayoutParams *layoutParams)
+	: AbstractChoiceWithValueDisplay(text, layoutParams), value_(value), fileType_(fileType), token_(token) {
 	OnClick.Add([=](UI::EventParams &) {
-		System_BrowseForFile(text_, fileType, [=](const std::string &returnValue, int) {
+		System_BrowseForFile(token, text_, fileType, [=](const std::string &returnValue, int) {
 			if (*value_ != returnValue) {
 				*value = returnValue;
 				UI::EventParams e{};
@@ -692,10 +692,10 @@ std::string FileChooserChoice::ValueText() const {
 	return path.GetFilename();
 }
 
-FolderChooserChoice::FolderChooserChoice(std::string *value, const std::string &text, LayoutParams *layoutParams)
-	: AbstractChoiceWithValueDisplay(text, layoutParams), value_(value) {
+FolderChooserChoice::FolderChooserChoice(RequesterToken token, std::string *value, const std::string &text, LayoutParams *layoutParams)
+	: AbstractChoiceWithValueDisplay(text, layoutParams), value_(value), token_(token) {
 	OnClick.Add([=](UI::EventParams &) {
-		System_BrowseForFolder(text_, [=](const std::string &returnValue, int) {
+		System_BrowseForFolder(token_, text_, [=](const std::string &returnValue, int) {
 			if (*value_ != returnValue) {
 				*value = returnValue;
 				UI::EventParams e{};

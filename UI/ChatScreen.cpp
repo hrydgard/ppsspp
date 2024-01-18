@@ -97,7 +97,7 @@ UI::EventReturn ChatMenu::OnSubmit(UI::EventParams &e) {
 	sendChat(chat);
 #elif PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(SWITCH)
 	auto n = GetI18NCategory(I18NCat::NETWORKING);
-	System_InputBoxGetString(n->T("Chat"), "", [](const std::string &value, int) {
+	System_InputBoxGetString(token_, n->T("Chat"), "", [](const std::string &value, int) {
 		sendChat(value);
 	});
 #endif
@@ -180,7 +180,7 @@ void ChatMenu::Update() {
 	// Could remove the fullscreen check here, it works now.
 	auto n = GetI18NCategory(I18NCat::NETWORKING);
 	if (promptInput_ && g_Config.bBypassOSKWithKeyboard && !g_Config.UseFullScreen()) {
-		System_InputBoxGetString(n->T("Chat"), n->T("Chat Here"), [](const std::string &value, int) {
+		System_InputBoxGetString(token_, n->T("Chat"), n->T("Chat Here"), [](const std::string &value, int) {
 			sendChat(value);
 		});
 		promptInput_ = false;

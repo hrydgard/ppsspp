@@ -64,9 +64,7 @@ ENUM_CLASS_BITOPS(ScreenRenderFlags);
 class Screen {
 public:
 	Screen() : screenManager_(nullptr) { }
-	virtual ~Screen() {
-		screenManager_ = nullptr;
-	}
+	virtual ~Screen();
 
 	virtual void onFinish(DialogResult reason) {}
 	virtual void update() {}
@@ -100,8 +98,13 @@ public:
 
 	virtual TouchInput transformTouch(const TouchInput &touch) { return touch; }
 
+protected:
+	int GetRequesterToken();
+
 private:
 	ScreenManager *screenManager_;
+	int token_ = -1;
+
 	DISALLOW_COPY_AND_ASSIGN(Screen);
 };
 
