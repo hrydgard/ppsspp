@@ -589,6 +589,9 @@ struct GPUStateCache {
 			Dirty(DIRTY_FRAGMENTSHADER_STATE);
 		}
 	}
+	void SetTextureIsVideo(bool isVideo) {
+		textureIsVideo = isVideo;
+	}
 	void SetTextureIsBGRA(bool isBGRA) {
 		if (bgraTexture != isBGRA) {
 			bgraTexture = isBGRA;
@@ -657,6 +660,7 @@ public:
 	bool needShaderTexClamp;
 	bool textureIsArray;
 	bool textureIsFramebuffer;
+	bool textureIsVideo;
 	bool useFlagsChanged;
 
 	float morphWeights[8];

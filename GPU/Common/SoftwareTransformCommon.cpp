@@ -597,7 +597,7 @@ void SoftwareTransform::BuildDrawingParams(int prim, int vertexCount, u32 vertTy
 
 				inds = newInds;
 			}
-		} else if (throughmode && g_Config.bSmart2DTexFiltering) {
+		} else if (throughmode && g_Config.bSmart2DTexFiltering && !gstate_c.textureIsVideo) {
 			// We check some common cases for pixel mapping.
 			// TODO: It's not really optimal that some previous step has removed the triangle strip.
 			if (vertexCount <= 6 && prim == GE_PRIM_TRIANGLES) {
@@ -682,7 +682,7 @@ bool SoftwareTransform::ExpandRectangles(int vertexCount, int &numDecodedVerts, 
 		vscale /= gstate_c.curTextureHeight;
 	}
 
-	bool pixelMapped = g_Config.bSmart2DTexFiltering;
+	bool pixelMapped = g_Config.bSmart2DTexFiltering && !gstate_c.textureIsVideo;
 
 	for (int i = 0; i < vertexCount; i += 2) {
 		const TransformedVertex &transVtxTL = transformed[indsIn[i + 0]];

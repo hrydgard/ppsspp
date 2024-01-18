@@ -401,6 +401,7 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 	if (!Memory::IsValidAddress(texaddr)) {
 		// Bind a null texture and return.
 		Unbind();
+		gstate_c.SetTextureIsVideo(false);
 		gstate_c.SetTextureIs3D(false);
 		gstate_c.SetTextureIsArray(false);
 		gstate_c.SetTextureIsFramebuffer(false);
@@ -569,6 +570,7 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 			// got one!
 			gstate_c.curTextureWidth = w;
 			gstate_c.curTextureHeight = h;
+			gstate_c.SetTextureIsVideo(false);
 			gstate_c.SetTextureIs3D((entry->status & TexCacheEntry::STATUS_3D) != 0);
 			gstate_c.SetTextureIsArray(false);
 			gstate_c.SetTextureIsBGRA((entry->status & TexCacheEntry::STATUS_BGRA) != 0);
@@ -675,6 +677,7 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 
 	gstate_c.curTextureWidth = w;
 	gstate_c.curTextureHeight = h;
+	gstate_c.SetTextureIsVideo(false);
 	gstate_c.SetTextureIs3D((entry->status & TexCacheEntry::STATUS_3D) != 0);
 	gstate_c.SetTextureIsArray(false);  // Ordinary 2D textures still aren't used by array view in VK. We probably might as well, though, at this point..
 	gstate_c.SetTextureIsFramebuffer(false);
@@ -1197,6 +1200,7 @@ void TextureCacheCommon::SetTextureFramebuffer(const AttachCandidate &candidate)
 		nextTexture_ = nullptr;
 	}
 
+	gstate_c.SetTextureIsVideo(false);
 	gstate_c.SetTextureIs3D(false);
 	gstate_c.SetTextureIsArray(true);
 
@@ -2154,6 +2158,7 @@ void TextureCacheCommon::ApplyTexture() {
 		ForgetLastTexture();
 	}
 
+	gstate_c.SetTextureIsVideo((entry->status & TexCacheEntry::STATUS_VIDEO) != 0);
 	if (entry->status & TexCacheEntry::STATUS_CLUT_GPU) {
 		// Special process.
 		ApplyTextureDepal(entry);
