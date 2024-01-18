@@ -395,6 +395,7 @@ bool Load_PSP_ELF_PBP(FileLoader *fileLoader, std::string *error_string) {
 		ms_path = "umd0:/";
 	}
 
+	Path dir;
 	if (!PSP_CoreParameter().mountRoot.empty()) {
 		// We don't want to worry about .. and cwd and such.
 		const Path rootNorm = NormalizePath(PSP_CoreParameter().mountRoot);
@@ -423,11 +424,13 @@ bool Load_PSP_ELF_PBP(FileLoader *fileLoader, std::string *error_string) {
 		file = filepath + "/" + file;
 		path = rootNorm.ToString();
 		pspFileSystem.SetStartingDirectory(filepath);
+		dir = Path(path);
 	} else {
 		pspFileSystem.SetStartingDirectory(ms_path);
+		dir = full_path.NavigateUp();
 	}
 
-	std::shared_ptr<IFileSystem> fs = std::shared_ptr<IFileSystem>(new DirectoryFileSystem(&pspFileSystem, Path(path), FileSystemFlags::SIMULATE_FAT32 | FileSystemFlags::CARD));
+	std::shared_ptr<IFileSystem> fs = std::shared_ptr<IFileSystem>(new DirectoryFileSystem(&pspFileSystem, dir, FileSystemFlags::SIMULATE_FAT32 | FileSystemFlags::CARD));
 	pspFileSystem.Mount("umd0:", fs);
 
 	std::string finalName = ms_path + file;

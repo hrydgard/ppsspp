@@ -1348,7 +1348,11 @@ public abstract class NativeActivity extends Activity {
 		AlertDialog dlg = builder.create();
 
 		dlg.setCancelable(true);
-		dlg.show();
+		try {
+			dlg.show();
+		} catch (Exception e) {
+			NativeApp.reportException(e, "AlertDialog");
+		}
 	}
 
 	public boolean processCommand(String command, String params) {
