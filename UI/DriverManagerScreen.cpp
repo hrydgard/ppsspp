@@ -212,7 +212,7 @@ UI::EventReturn DriverManagerScreen::OnCustomDriverUninstall(UI::EventParams &e)
 UI::EventReturn DriverManagerScreen::OnCustomDriverInstall(UI::EventParams &e) {
 	auto gr = GetI18NCategory(I18NCat::GRAPHICS);
 
-	System_BrowseForFile(gr->T("Install custom driver..."), BrowseFileType::ZIP, [this](const std::string &value, int) {
+	System_BrowseForFile(GetRequesterToken(), gr->T("Install custom driver..."), BrowseFileType::ZIP, [this](const std::string &value, int) {
 		if (value.empty()) {
 			return;
 		}

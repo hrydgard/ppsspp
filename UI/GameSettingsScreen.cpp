@@ -805,12 +805,12 @@ void GameSettingsScreen::CreateControlsSettings(UI::ViewGroup *controlsSettings)
 // Compound view just like the audio file choosers
 class MacAddressChooser : public UI::LinearLayout {
 public:
-	MacAddressChooser(Path gamePath, std::string *value, const std::string &title, ScreenManager *screenManager, UI::LayoutParams *layoutParams = nullptr);
+	MacAddressChooser(RequesterToken token, Path gamePath, std::string *value, const std::string &title, ScreenManager *screenManager, UI::LayoutParams *layoutParams = nullptr);
 };
 
 static constexpr UI::Size ITEM_HEIGHT = 64.f;
 
-MacAddressChooser::MacAddressChooser(Path gamePath_, std::string *value, const std::string &title, ScreenManager *screenManager, UI::LayoutParams *layoutParams) : UI::LinearLayout(UI::ORIENT_HORIZONTAL, layoutParams) {
+MacAddressChooser::MacAddressChooser(RequesterToken token, Path gamePath_, std::string *value, const std::string &title, ScreenManager *screenManager, UI::LayoutParams *layoutParams) : UI::LinearLayout(UI::ORIENT_HORIZONTAL, layoutParams) {
 	using namespace UI;
 	SetSpacing(5.0f);
 	if (!layoutParams) {
@@ -820,7 +820,7 @@ MacAddressChooser::MacAddressChooser(Path gamePath_, std::string *value, const s
 	auto n = GetI18NCategory(I18NCat::NETWORKING);
 
 	std::string initialValue = *value;
-	Add(new PopupTextInputChoice(value, title, g_Config.sMACAddress, 17, screenManager, new LinearLayoutParams(1.0f)))->OnChange.Add([=](UI::EventParams &e) {
+	Add(new PopupTextInputChoice(token, value, title, g_Config.sMACAddress, 17, screenManager, new LinearLayoutParams(1.0f)))->OnChange.Add([=](UI::EventParams &e) {
 		// Validate the chosen address, and restore to initialValue if bad.
 		if (g_Config.sMACAddress.size() != 17) {
 			// TODO: Alert the user
@@ -860,7 +860,7 @@ void GameSettingsScreen::CreateNetworkingSettings(UI::ViewGroup *networkingSetti
 	networkingSettings->Add(new Choice(n->T("Open PPSSPP Multiplayer Wiki Page")))->OnClick.Handle(this, &GameSettingsScreen::OnAdhocGuides);
 
 	networkingSettings->Add(new CheckBox(&g_Config.bEnableWlan, n->T("Enable networking", "Enable networking/wlan (beta)")));
-	networkingSettings->Add(new MacAddressChooser(gamePath_, &g_Config.sMACAddress, n->T("Change Mac Address"), screenManager()));
+	networkingSettings->Add(new MacAddressChooser(GetRequesterToken(), gamePath_, &g_Config.sMACAddress, n->T("Change Mac Address"), screenManager()));
 	static const char* wlanChannels[] = { "Auto", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11" };
 	auto wlanChannelChoice = networkingSettings->Add(new PopupMultiChoice(&g_Config.iWlanAdhocChannel, n->T("WLAN Channel"), wlanChannels, 0, ARRAY_SIZE(wlanChannels), I18NCat::NETWORKING, screenManager()));
 	for (int i = 0; i < 4; i++) {
@@ -897,11 +897,11 @@ void GameSettingsScreen::CreateNetworkingSettings(UI::ViewGroup *networkingSetti
 #endif
 
 #if !defined(MOBILE_DEVICE) && !defined(USING_QT_UI)  // TODO: Add all platforms where KEY_CHAR support is added
-	PopupTextInputChoice *qc1 = networkingSettings->Add(new PopupTextInputChoice(&g_Config.sQuickChat0, n->T("Quick Chat 1"), "", 32, screenManager()));
-	PopupTextInputChoice *qc2 = networkingSettings->Add(new PopupTextInputChoice(&g_Config.sQuickChat1, n->T("Quick Chat 2"), "", 32, screenManager()));
-	PopupTextInputChoice *qc3 = networkingSettings->Add(new PopupTextInputChoice(&g_Config.sQuickChat2, n->T("Quick Chat 3"), "", 32, screenManager()));
-	PopupTextInputChoice *qc4 = networkingSettings->Add(new PopupTextInputChoice(&g_Config.sQuickChat3, n->T("Quick Chat 4"), "", 32, screenManager()));
-	PopupTextInputChoice *qc5 = networkingSettings->Add(new PopupTextInputChoice(&g_Config.sQuickChat4, n->T("Quick Chat 5"), "", 32, screenManager()));
+	PopupTextInputChoice *qc1 = networkingSettings->Add(new PopupTextInputChoice(GetRequesterToken(), &g_Config.sQuickChat0, n->T("Quick Chat 1"), "", 32, screenManager()));
+	PopupTextInputChoice *qc2 = networkingSettings->Add(new PopupTextInputChoice(GetRequesterToken(), &g_Config.sQuickChat1, n->T("Quick Chat 2"), "", 32, screenManager()));
+	PopupTextInputChoice *qc3 = networkingSettings->Add(new PopupTextInputChoice(GetRequesterToken(), &g_Config.sQuickChat2, n->T("Quick Chat 3"), "", 32, screenManager()));
+	PopupTextInputChoice *qc4 = networkingSettings->Add(new PopupTextInputChoice(GetRequesterToken(), &g_Config.sQuickChat3, n->T("Quick Chat 4"), "", 32, screenManager()));
+	PopupTextInputChoice *qc5 = networkingSettings->Add(new PopupTextInputChoice(GetRequesterToken(), &g_Config.sQuickChat4, n->T("Quick Chat 5"), "", 32, screenManager()));
 #elif defined(USING_QT_UI)
 	Choice *qc1 = networkingSettings->Add(new Choice(n->T("Quick Chat 1")));
 	Choice *qc2 = networkingSettings->Add(new Choice(n->T("Quick Chat 2")));
@@ -1201,7 +1201,7 @@ void GameSettingsScreen::CreateSystemSettings(UI::ViewGroup *systemSettings) {
 	systemSettings->Add(new PopupMultiChoice(&g_Config.iLanguage, psps->T("Game language"), defaultLanguages, -1, ARRAY_SIZE(defaultLanguages), I18NCat::PSPSETTINGS, screenManager()));
 	static const char *models[] = { "PSP-1000", "PSP-2000/3000" };
 	systemSettings->Add(new PopupMultiChoice(&g_Config.iPSPModel, sy->T("PSP Model"), models, 0, ARRAY_SIZE(models), I18NCat::SYSTEM, screenManager()))->SetEnabled(!PSP_IsInited());
-	systemSettings->Add(new PopupTextInputChoice(&g_Config.sNickName, sy->T("Change Nickname"), "", 32, screenManager()));
+	systemSettings->Add(new PopupTextInputChoice(GetRequesterToken(), &g_Config.sNickName, sy->T("Change Nickname"), "", 32, screenManager()));
 	systemSettings->Add(new CheckBox(&g_Config.bScreenshotsAsPNG, sy->T("Screenshots as PNG")));
 
 #if defined(_WIN32) || (defined(USING_QT_UI) && !defined(MOBILE_DEVICE))
@@ -1294,7 +1294,7 @@ UI::EventReturn GameSettingsScreen::OnJitAffectingSetting(UI::EventParams &e) {
 
 UI::EventReturn GameSettingsScreen::OnChangeMemStickDir(UI::EventParams &e) {
 #if PPSSPP_PLATFORM(MAC) || PPSSPP_PLATFORM(IOS)
-	System_BrowseForFolder("", [](const std::string &value, int) {
+	System_BrowseForFolder(GetRequesterToken(), "", [](const std::string &value, int) {
 		DarwinFileSystemServices::setUserPreferredMemoryStickDirectory(Path(value));
 	});
 #else
@@ -1374,7 +1374,7 @@ UI::EventReturn GameSettingsScreen::OnChangeBackground(UI::EventParams &e) {
 		RecreateViews();
 	} else {
 		auto sy = GetI18NCategory(I18NCat::SYSTEM);
-		System_BrowseForImage(sy->T("Set UI background..."), [=](const std::string &value, int) {
+		System_BrowseForImage(GetRequesterToken(), sy->T("Set UI background..."), [=](const std::string &value, int) {
 			if (!value.empty()) {
 				Path dest = GetSysDirectory(DIRECTORY_SYSTEM) / (endsWithNoCase(value, ".jpg") ? "background.jpg" : "background.png");
 				File::Copy(Path(value), dest);
@@ -1565,7 +1565,7 @@ UI::EventReturn GameSettingsScreen::OnAudioDevice(UI::EventParams &e) {
 UI::EventReturn GameSettingsScreen::OnChangeQuickChat0(UI::EventParams &e) {
 #if PPSSPP_PLATFORM(WINDOWS) || defined(USING_QT_UI) || PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(SWITCH)
 	auto n = GetI18NCategory(I18NCat::NETWORKING);
-	System_InputBoxGetString(n->T("Enter Quick Chat 1"), g_Config.sQuickChat0, [](const std::string &value, int) {
+	System_InputBoxGetString(GetRequesterToken(), n->T("Enter Quick Chat 1"), g_Config.sQuickChat0, [](const std::string &value, int) {
 		g_Config.sQuickChat0 = value;
 	});
 #endif
@@ -1575,7 +1575,7 @@ UI::EventReturn GameSettingsScreen::OnChangeQuickChat0(UI::EventParams &e) {
 UI::EventReturn GameSettingsScreen::OnChangeQuickChat1(UI::EventParams &e) {
 #if PPSSPP_PLATFORM(WINDOWS) || defined(USING_QT_UI) || PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(SWITCH)
 	auto n = GetI18NCategory(I18NCat::NETWORKING);
-	System_InputBoxGetString(n->T("Enter Quick Chat 2"), g_Config.sQuickChat1, [](const std::string &value, int) {
+	System_InputBoxGetString(GetRequesterToken(), n->T("Enter Quick Chat 2"), g_Config.sQuickChat1, [](const std::string &value, int) {
 		g_Config.sQuickChat1 = value;
 	});
 #endif
@@ -1585,7 +1585,7 @@ UI::EventReturn GameSettingsScreen::OnChangeQuickChat1(UI::EventParams &e) {
 UI::EventReturn GameSettingsScreen::OnChangeQuickChat2(UI::EventParams &e) {
 #if PPSSPP_PLATFORM(WINDOWS) || defined(USING_QT_UI) || PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(SWITCH)
 	auto n = GetI18NCategory(I18NCat::NETWORKING);
-	System_InputBoxGetString(n->T("Enter Quick Chat 3"), g_Config.sQuickChat2, [](const std::string &value, int) {
+	System_InputBoxGetString(GetRequesterToken(), n->T("Enter Quick Chat 3"), g_Config.sQuickChat2, [](const std::string &value, int) {
 		g_Config.sQuickChat2 = value;
 	});
 #endif
@@ -1595,7 +1595,7 @@ UI::EventReturn GameSettingsScreen::OnChangeQuickChat2(UI::EventParams &e) {
 UI::EventReturn GameSettingsScreen::OnChangeQuickChat3(UI::EventParams &e) {
 #if PPSSPP_PLATFORM(WINDOWS) || defined(USING_QT_UI) || PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(SWITCH)
 	auto n = GetI18NCategory(I18NCat::NETWORKING);
-	System_InputBoxGetString(n->T("Enter Quick Chat 4"), g_Config.sQuickChat3, [](const std::string &value, int) {
+	System_InputBoxGetString(GetRequesterToken(), n->T("Enter Quick Chat 4"), g_Config.sQuickChat3, [](const std::string &value, int) {
 		g_Config.sQuickChat3 = value;
 	});
 #endif
@@ -1605,7 +1605,7 @@ UI::EventReturn GameSettingsScreen::OnChangeQuickChat3(UI::EventParams &e) {
 UI::EventReturn GameSettingsScreen::OnChangeQuickChat4(UI::EventParams &e) {
 #if PPSSPP_PLATFORM(WINDOWS) || defined(USING_QT_UI) || PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(SWITCH)
 	auto n = GetI18NCategory(I18NCat::NETWORKING);
-	System_InputBoxGetString(n->T("Enter Quick Chat 5"), g_Config.sQuickChat4, [](const std::string &value, int) {
+	System_InputBoxGetString(GetRequesterToken(), n->T("Enter Quick Chat 5"), g_Config.sQuickChat4, [](const std::string &value, int) {
 		g_Config.sQuickChat4 = value;
 	});
 #endif
@@ -1615,7 +1615,7 @@ UI::EventReturn GameSettingsScreen::OnChangeQuickChat4(UI::EventParams &e) {
 UI::EventReturn GameSettingsScreen::OnChangeNickname(UI::EventParams &e) {
 #if PPSSPP_PLATFORM(WINDOWS) || defined(USING_QT_UI) || PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(SWITCH)
 	auto n = GetI18NCategory(I18NCat::NETWORKING);
-	System_InputBoxGetString(n->T("Enter a new PSP nickname"), g_Config.sNickName, [](const std::string &value, int) {
+	System_InputBoxGetString(GetRequesterToken(), n->T("Enter a new PSP nickname"), g_Config.sNickName, [](const std::string &value, int) {
 		g_Config.sNickName = StripSpaces(value);
 	});
 #endif
@@ -2077,7 +2077,7 @@ UI::EventReturn HostnameSelectScreen::OnDeleteAllClick(UI::EventParams &e) {
 
 UI::EventReturn HostnameSelectScreen::OnEditClick(UI::EventParams& e) {
 	auto n = GetI18NCategory(I18NCat::NETWORKING);
-	System_InputBoxGetString(n->T("proAdhocServer Address:"), addrView_->GetText(), [this](const std::string& value, int) {
+	System_InputBoxGetString(GetRequesterToken(), n->T("proAdhocServer Address:"), addrView_->GetText(), [this](const std::string& value, int) {
 	    addrView_->SetText(value);
 	});
 	return UI::EVENT_DONE;

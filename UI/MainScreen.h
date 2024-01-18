@@ -44,7 +44,7 @@ bool LaunchFile(ScreenManager *screenManager, const Path &path);
 
 class GameBrowser : public UI::LinearLayout {
 public:
-	GameBrowser(const Path &path, BrowseFlags browseFlags, bool *gridStyle, ScreenManager *screenManager, std::string lastText, std::string lastLink, UI::LayoutParams *layoutParams = nullptr);
+	GameBrowser(int token, const Path &path, BrowseFlags browseFlags, bool *gridStyle, ScreenManager *screenManager, std::string lastText, std::string lastLink, UI::LayoutParams *layoutParams = nullptr);
 
 	UI::Event OnChoice;
 	UI::Event OnHoldChoice;
@@ -109,6 +109,7 @@ private:
 	float lastScale_ = 1.0f;
 	bool lastLayoutWasGrid_ = true;
 	ScreenManager *screenManager_;
+	int token_;
 };
 
 class RemoteISOBrowseScreen;

@@ -356,7 +356,7 @@ UI::EventReturn MemStickScreen::SetFolderManually(UI::EventParams &params) {
 	// The old way, from before scoped storage.
 #if PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(SWITCH)
 	auto sy = GetI18NCategory(I18NCat::SYSTEM);
-	System_InputBoxGetString(sy->T("Memory Stick Folder"), g_Config.memStickDirectory.ToString(), [&](const std::string &value, int) {
+	System_InputBoxGetString(GetRequesterToken(), sy->T("Memory Stick Folder"), g_Config.memStickDirectory.ToString(), [&](const std::string &value, int) {
 		auto sy = GetI18NCategory(I18NCat::SYSTEM);
 		auto di = GetI18NCategory(I18NCat::DIALOG);
 
@@ -469,7 +469,7 @@ UI::EventReturn MemStickScreen::UseStorageRoot(UI::EventParams &params) {
 
 UI::EventReturn MemStickScreen::Browse(UI::EventParams &params) {
 	auto mm = GetI18NCategory(I18NCat::MAINMENU);
-	System_BrowseForFolder(mm->T("Choose folder"), [=](const std::string &value, int) {
+	System_BrowseForFolder(GetRequesterToken(), mm->T("Choose folder"), [=](const std::string &value, int) {
 		Path pendingMemStickFolder = Path(value);
 		INFO_LOG(SYSTEM, "Got folder: '%s'", pendingMemStickFolder.c_str());
 		// Browse finished. Let's pop up the confirmation dialog.

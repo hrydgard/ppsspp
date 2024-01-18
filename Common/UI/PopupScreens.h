@@ -360,7 +360,7 @@ private:
 // NOTE: This one will defer to a system-native dialog if possible.
 class PopupTextInputChoice : public AbstractChoiceWithValueDisplay {
 public:
-	PopupTextInputChoice(std::string *value, const std::string &title, const std::string &placeholder, int maxLen, ScreenManager *screenManager, LayoutParams *layoutParams = 0);
+	PopupTextInputChoice(RequesterToken token, std::string *value, const std::string &title, const std::string &placeholder, int maxLen, ScreenManager *screenManager, LayoutParams *layoutParams = 0);
 
 	Event OnChange;
 
@@ -370,6 +370,7 @@ protected:
 private:
 	EventReturn HandleClick(EventParams &e);
 	EventReturn HandleChange(EventParams &e);
+	RequesterToken token_;
 	ScreenManager *screenManager_;
 	std::string *value_;
 	std::string placeHolder_;
@@ -405,7 +406,7 @@ enum class FileChooserFileType {
 
 class FileChooserChoice : public AbstractChoiceWithValueDisplay {
 public:
-	FileChooserChoice(std::string *value, const std::string &title, BrowseFileType fileType, LayoutParams *layoutParams = nullptr);
+	FileChooserChoice(RequesterToken token, std::string *value, const std::string &title, BrowseFileType fileType, LayoutParams *layoutParams = nullptr);
 	std::string ValueText() const override;
 
 	Event OnChange;
@@ -413,11 +414,12 @@ public:
 private:
 	std::string *value_;
 	BrowseFileType fileType_;
+	RequesterToken token_;
 };
 
 class FolderChooserChoice : public AbstractChoiceWithValueDisplay {
 public:
-	FolderChooserChoice(std::string *value, const std::string &title, LayoutParams *layoutParams = nullptr);
+	FolderChooserChoice(RequesterToken token, std::string *value, const std::string &title, LayoutParams *layoutParams = nullptr);
 	std::string ValueText() const override;
 
 	Event OnChange;
@@ -425,7 +427,7 @@ public:
 private:
 	std::string *value_;
 	BrowseFileType fileType_;
+	RequesterToken token_;
 };
-
 
 }  // namespace UI
