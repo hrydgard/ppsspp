@@ -1612,13 +1612,14 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 		PSP_EndHostFrame();
 	}
 
-	screenManager()->getUIContext()->BeginFrame();
 
 	if (gpu && !gpu->PresentedThisFrame() && !skipBufferEffects) {
 		draw->BindFramebufferAsRenderTarget(nullptr, { RPAction::CLEAR, RPAction::CLEAR, RPAction::CLEAR, clearColor }, "EmuScreen_NoFrame");
 		draw->SetViewport(viewport);
 		draw->SetScissorRect(0, 0, g_display.pixel_xres, g_display.pixel_yres);
 	}
+
+	screenManager()->getUIContext()->BeginFrame();
 
 	if (!(mode & ScreenRenderMode::TOP)) {
 		// We're in run-behind mode, but we don't want to draw chat, debug UI and stuff.
