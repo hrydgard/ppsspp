@@ -360,6 +360,20 @@ static bool ReadFileToString(IFileSystem *fs, const char *filename, std::string 
 	return true;
 }
 
+static bool ReadLocalFileToString(const Path &path, std::string *contents, std::mutex *mtx) {
+	std::string data;
+	if (!File::ReadFileToString(false, path, *contents)) {
+		return false;
+	}
+	if (mtx) {
+		std::lock_guard<std::mutex> lock(*mtx);
+		*contents = std::move(data);
+	} else {
+		*contents = std::move(data);
+	}
+	return true;
+}
+
 static bool ReadVFSToString(const char *filename, std::string *contents, std::mutex *mtx) {
 	size_t sz;
 	uint8_t *data = g_VFS.ReadFile(filename, &sz);
@@ -469,9 +483,9 @@ public:
 					Path screenshot_png = GetSysDirectory(DIRECTORY_SCREENSHOT) / (info_->id + "_00000.png");
 					// Try using png/jpg screenshots first
 					if (File::Exists(screenshot_png))
-						File::ReadFileToString(false, screenshot_png, info_->icon.data);
+						ReadLocalFileToString(screenshot_png, &info_->icon.data, &info_->lock);
 					else if (File::Exists(screenshot_jpg))
-						File::ReadFileToString(false, screenshot_jpg, info_->icon.data);
+						ReadLocalFileToString(screenshot_jpg, &info_->icon.data, &info_->lock);
 					else
 						// Read standard icon
 						ReadVFSToString("unknown.png", &info_->icon.data, &info_->lock);
@@ -522,9 +536,9 @@ handleELF:
 				Path screenshot_png = GetSysDirectory(DIRECTORY_SCREENSHOT) / (info_->id + "_00000.png");
 				// Try using png/jpg screenshots first
 				if (File::Exists(screenshot_png)) {
-					File::ReadFileToString(false, screenshot_png, info_->icon.data);
+					ReadLocalFileToString(screenshot_png, &info_->icon.data, &info_->lock);
 				} else if (File::Exists(screenshot_jpg)) {
-					File::ReadFileToString(false, screenshot_jpg, info_->icon.data);
+					ReadLocalFileToString(screenshot_jpg, &info_->icon.data, &info_->lock);
 				} else {
 					// Read standard icon
 					VERBOSE_LOG(LOADER, "Loading unknown.png because there was an ELF");
@@ -558,34 +572,36 @@ handleELF:
 
 		case IdentifiedFileType::PPSSPP_SAVESTATE:
 		{
-			info_->SetTitle(SaveState::GetTitle(gamePath_));
-
-			std::lock_guard<std::mutex> guard(info_->lock);
+			Path screenshotPath;
+			{
+				info_->SetTitle(SaveState::GetTitle(gamePath_));
+				std::lock_guard<std::mutex> guard(info_->lock);
+				screenshotPath = gamePath_.WithReplacedExtension(".ppst", ".jpg");
+			}
 
 			// Let's use the screenshot as an icon, too.
-			Path screenshotPath = gamePath_.WithReplacedExtension(".ppst", ".jpg");
-			if (File::Exists(screenshotPath)) {
-				if (File::ReadFileToString(false, screenshotPath, info_->icon.data)) {
-					info_->icon.dataLoaded = true;
-				} else {
-					ERROR_LOG(G3D, "Error loading screenshot data: '%s'", screenshotPath.c_str());
-				}
+			if (ReadLocalFileToString(screenshotPath, &info_->icon.data, &info_->lock)) {
+				info_->icon.dataLoaded = true;
+			} else {
+				ERROR_LOG(G3D, "Error loading screenshot data: '%s'", screenshotPath.c_str());
 			}
 			break;
 		}
 
 		case IdentifiedFileType::PPSSPP_GE_DUMP:
 		{
-			std::lock_guard<std::mutex> guard(info_->lock);
+			Path screenshotPath;
+
+			{
+				std::lock_guard<std::mutex> guard(info_->lock);
+				screenshotPath = gamePath_.WithReplacedExtension(".ppdmp", ".png");
+			}
 
 			// Let's use the comparison screenshot as an icon, if it exists.
-			Path screenshotPath = gamePath_.WithReplacedExtension(".ppdmp", ".png");
-			if (File::Exists(screenshotPath)) {
-				if (File::ReadFileToString(false, screenshotPath, info_->icon.data)) {
-					info_->icon.dataLoaded = true;
-				} else {
-					ERROR_LOG(G3D, "Error loading screenshot data: '%s'", screenshotPath.c_str());
-				}
+			if (ReadLocalFileToString(screenshotPath, &info_->icon.data, &info_->lock)) {
+				info_->icon.dataLoaded = true;
+			} else {
+				ERROR_LOG(G3D, "Error loading screenshot data: '%s'", screenshotPath.c_str());
 			}
 			break;
 		}
@@ -658,9 +674,9 @@ handleELF:
 					Path screenshot_png = GetSysDirectory(DIRECTORY_SCREENSHOT) / (info_->id + "_00000.png");
 					// Try using png/jpg screenshots first
 					if (File::Exists(screenshot_png))
-						info_->icon.dataLoaded = File::ReadFileToString(false, screenshot_png, info_->icon.data);
+						info_->icon.dataLoaded = ReadLocalFileToString(screenshot_png, &info_->icon.data, &info_->lock);
 					else if (File::Exists(screenshot_jpg))
-						info_->icon.dataLoaded = File::ReadFileToString(false, screenshot_jpg, info_->icon.data);
+						info_->icon.dataLoaded = ReadLocalFileToString(screenshot_jpg, &info_->icon.data, &info_->lock);
 					else {
 						DEBUG_LOG(LOADER, "Loading unknown.png because no icon was found");
 						info_->icon.dataLoaded = ReadVFSToString("unknown.png", &info_->icon.data, &info_->lock);
@@ -842,6 +858,8 @@ void GameInfoCache::SetupTexture(std::shared_ptr<GameInfo> &info, Draw::DrawCont
 	using namespace Draw;
 	if (tex.data.size()) {
 		if (!tex.texture) {
+			// TODO: Use TempImage to semi-load the image in the worker task, then here we
+			// could just call CreateTextureFromTempImage.
 			tex.texture = CreateTextureFromFileData(thin3d, (const uint8_t *)tex.data.data(), (int)tex.data.size(), ImageFileType::DETECT, false, info->GetTitle().c_str());
 			if (tex.texture) {
 				tex.timeLoaded = time_now_d();

@@ -227,14 +227,13 @@ std::string Path::GetDirectory() const {
 	return path_;
 }
 
-bool Path::FilePathContainsNoCase(const std::string &needle) const {
+bool Path::FilePathContainsNoCase(std::string_view needle) const {
 	std::string haystack;
 	if (type_ == PathType::CONTENT_URI) {
 		haystack = AndroidContentURI(path_).FilePath();
 	} else {
 		haystack = path_;
 	}
-
 	auto pred = [](char ch1, char ch2) { return std::toupper(ch1) == std::toupper(ch2); };
 	auto found = std::search(haystack.begin(), haystack.end(), needle.begin(), needle.end(), pred);
 	return found != haystack.end();
