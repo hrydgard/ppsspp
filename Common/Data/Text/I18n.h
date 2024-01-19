@@ -91,7 +91,7 @@ public:
 		return missedKeyLog_;
 	}
 
-	const std::map<std::string, I18NEntry> &GetMap() { return map_; }
+	const std::map<std::string, I18NEntry, std::less<>> &GetMap() { return map_; }
 	void ClearMissed() { missedKeyLog_.clear(); }
 	void Clear();
 
@@ -99,7 +99,7 @@ private:
 	I18NCategory(I18NRepo *repo, const char *name) {}
 	void SetMap(const std::map<std::string, std::string> &m);
 
-	std::map<std::string, I18NEntry> map_;
+	std::map<std::string, I18NEntry, std::less<>> map_;
 	mutable std::mutex missedKeyLock_;
 	std::map<std::string, std::string> missedKeyLog_;
 

@@ -78,10 +78,7 @@ const char *I18NCategory::T(const char *key, const char *def) {
 	}
 
 	// Replace the \n's with \\n's so that key values with newlines will be found correctly.
-	std::string modifiedKey = key;
-	modifiedKey = ReplaceAll(modifiedKey, "\n", "\\n");
-
-	auto iter = map_.find(modifiedKey);
+	auto iter = map_.find(key);
 	if (iter != map_.end()) {
 		return iter->second.text.c_str();
 	} else {
@@ -89,7 +86,7 @@ const char *I18NCategory::T(const char *key, const char *def) {
 		if (def)
 			missedKeyLog_[key] = def;
 		else
-			missedKeyLog_[key] = modifiedKey;
+			missedKeyLog_[key] = key;
 		return def ? def : key;
 	}
 }
@@ -97,7 +94,8 @@ const char *I18NCategory::T(const char *key, const char *def) {
 void I18NCategory::SetMap(const std::map<std::string, std::string> &m) {
 	for (auto iter = m.begin(); iter != m.end(); ++iter) {
 		if (map_.find(iter->first) == map_.end()) {
-			std::string text = ReplaceAll(iter->second, "\\n", "\n");
+			std::string text = ReplaceAll(iter->second, "\n", "\\n");
+			_dbg_assert_(iter->first.find('\n') == std::string::npos);
 			map_[iter->first] = I18NEntry(text);
 		}
 	}
