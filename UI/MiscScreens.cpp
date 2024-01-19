@@ -832,7 +832,7 @@ UI::EventReturn CreditsScreen::OnSupport(UI::EventParams &e) {
 }
 
 UI::EventReturn CreditsScreen::OnTwitter(UI::EventParams &e) {
-	System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://twitter.com/#!/PPSSPP_emu");
+	System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://twitter.com/PPSSPP_emu");
 	return UI::EVENT_DONE;
 }
 

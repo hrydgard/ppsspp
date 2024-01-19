@@ -272,7 +272,6 @@ public:
 	bool Key(const KeyInput &input) override;
 
 	void SetTopTabs(bool tabs) { topTabs_ = tabs; }
-	void Draw(UIContext &dc) override;
 
 	std::string DescribeLog() const override { return "ChoiceStrip: " + View::DescribeLog(); }
 	std::string DescribeText() const override;

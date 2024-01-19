@@ -960,6 +960,8 @@ TabHolder::TabHolder(Orientation orientation, float stripSize, LayoutParams *lay
 	}
 	tabStrip_->OnChoice.Handle(this, &TabHolder::OnTabClick);
 
+	Add(new Spacer(4.0f))->SetSeparator();
+
 	contents_ = new AnchorLayout(new LinearLayoutParams(FILL_PARENT, FILL_PARENT, 1.0f));
 	Add(contents_)->SetClip(true);
 }
@@ -1159,16 +1161,6 @@ bool ChoiceStrip::Key(const KeyInput &input) {
 		}
 	}
 	return ret || ViewGroup::Key(input);
-}
-
-void ChoiceStrip::Draw(UIContext &dc) {
-	ViewGroup::Draw(dc);
-	if (topTabs_) {
-		if (orientation_ == ORIENT_HORIZONTAL)
-			dc.Draw()->DrawImageCenterTexel(dc.theme->whiteImage, bounds_.x, bounds_.y2() - 4, bounds_.x2(), bounds_.y2(), dc.theme->itemDownStyle.background.color );
-		else if (orientation_ == ORIENT_VERTICAL)
-			dc.Draw()->DrawImageCenterTexel(dc.theme->whiteImage, bounds_.x2() - 4, bounds_.y, bounds_.x2(), bounds_.y2(), dc.theme->itemDownStyle.background.color );
-	}
 }
 
 std::string ChoiceStrip::DescribeText() const {
