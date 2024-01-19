@@ -12,8 +12,7 @@
 #include <commdlg.h>
 #include <cderr.h>
 
-namespace W32Util
-{
+namespace W32Util {
 	std::string BrowseForFolder(HWND parent, std::string_view title, std::string_view initialPath) {
 		std::wstring titleString = ConvertUTF8ToWString(title);
 		return BrowseForFolder(parent, titleString.c_str(), initialPath);
@@ -224,11 +223,12 @@ HRESULT CreateLink(LPCWSTR lpszPathObj, LPCWSTR lpszArguments, LPCWSTR lpszPathL
 	return hres;
 }
 
-bool CreateDesktopShortcut(const std::string &argumentPath, std::string gameTitle) {
+bool CreateDesktopShortcut(std::string_view argumentPath, std::string_view gameTitleStr) {
 	// Get the desktop folder
 	wchar_t *pathbuf = new wchar_t[4096];
 	SHGetFolderPath(0, CSIDL_DESKTOPDIRECTORY, NULL, SHGFP_TYPE_CURRENT, pathbuf);
 
+	std::string gameTitle(gameTitleStr);
 	// Sanitize the game title for banned characters.
 	const char bannedChars[] = "<>:\"/\\|?*";
 	for (size_t i = 0; i < gameTitle.size(); i++) {
@@ -255,7 +255,7 @@ bool CreateDesktopShortcut(const std::string &argumentPath, std::string gameTitl
 
 	// Need to flip the slashes in the filename.
 
-	std::string sanitizedArgument = argumentPath;
+	std::string sanitizedArgument(argumentPath);
 	for (size_t i = 0; i < sanitizedArgument.size(); i++) {
 		if (sanitizedArgument[i] == '/') {
 			sanitizedArgument[i] = '\\';

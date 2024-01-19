@@ -6,7 +6,7 @@
 #include "Common/System/Display.h"
 #include "UI/TabbedDialogScreen.h"
 
-UI::LinearLayout *TabbedUIDialogScreenWithGameBackground::AddTab(const char *tag, const std::string &title, bool isSearch) {
+UI::LinearLayout *TabbedUIDialogScreenWithGameBackground::AddTab(const char *tag, std::string_view title, bool isSearch) {
 	using namespace UI;
 	ViewGroup *scroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
 	scroll->SetTag(tag);

@@ -162,19 +162,19 @@ UI::EventReturn DisplayLayoutScreen::OnPostProcShaderChange(UI::EventParams &e) 
 	return UI::EVENT_DONE;
 }
 
-static std::string PostShaderTranslateName(const char *value) {
-	if (!strcmp(value, "Off")) {
+static std::string PostShaderTranslateName(std::string_view value) {
+	if (value == "Off") {
 		auto gr = GetI18NCategory(I18NCat::GRAPHICS);
 		// Off is a legacy fake item (gonna migrate off it later).
-		return gr->T("Add postprocessing shader");
+		return std::string(gr->T("Add postprocessing shader"));
 	}
 
 	const ShaderInfo *info = GetPostShaderInfo(value);
 	if (info) {
 		auto ps = GetI18NCategory(I18NCat::POSTSHADERS);
-		return ps->T(value, info ? info->name.c_str() : value);
+		return std::string(ps->T(value, info ? info->name : value));
 	} else {
-		return value;
+		return std::string(value);
 	}
 }
 
@@ -475,7 +475,7 @@ void PostProcScreen::CreateViews() {
 			continue;
 		if (shaders_[i].section == selectedName)
 			selected = (int)indexTranslation_.size();
-		items.push_back(ps->T(shaders_[i].section.c_str(), shaders_[i].name.c_str()));
+		items.push_back(std::string(ps->T(shaders_[i].section.c_str(), shaders_[i].name.c_str())));
 		indexTranslation_.push_back(i);
 	}
 	adaptor_ = UI::StringVectorListAdaptor(items, selected);

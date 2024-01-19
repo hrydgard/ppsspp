@@ -301,23 +301,23 @@ ScreenRenderFlags GameScreen::render(ScreenRenderMode mode) {
 	if (info->Ready(GameInfoFlags::SIZE | GameInfoFlags::UNCOMPRESSED_SIZE)) {
 		char temp[256];
 		if (tvGameSize_) {
-			snprintf(temp, sizeof(temp), "%s: %s", ga->T("Game"), NiceSizeFormat(info->gameSizeOnDisk).c_str());
+			snprintf(temp, sizeof(temp), "%s: %s", ga->T_cstr("Game"), NiceSizeFormat(info->gameSizeOnDisk).c_str());
 			if (info->gameSizeUncompressed != info->gameSizeOnDisk) {
 				size_t len = strlen(temp);
-				snprintf(temp + len, sizeof(temp) - len, " (%s: %s)", ga->T("Uncompressed"), NiceSizeFormat(info->gameSizeUncompressed).c_str());
+				snprintf(temp + len, sizeof(temp) - len, " (%s: %s)", ga->T_cstr("Uncompressed"), NiceSizeFormat(info->gameSizeUncompressed).c_str());
 			}
 			tvGameSize_->SetText(temp);
 		}
 		if (tvSaveDataSize_) {
 			if (info->saveDataSize > 0) {
-				snprintf(temp, sizeof(temp), "%s: %s", ga->T("SaveData"), NiceSizeFormat(info->saveDataSize).c_str());
+				snprintf(temp, sizeof(temp), "%s: %s", ga->T_cstr("SaveData"), NiceSizeFormat(info->saveDataSize).c_str());
 				tvSaveDataSize_->SetText(temp);
 			} else {
 				tvSaveDataSize_->SetVisibility(UI::V_GONE);
 			}
 		}
 		if (info->installDataSize > 0 && tvInstallDataSize_) {
-			snprintf(temp, sizeof(temp), "%s: %1.2f %s", ga->T("InstallData"), (float) (info->installDataSize) / 1024.f / 1024.f, ga->T("MB"));
+			snprintf(temp, sizeof(temp), "%s: %1.2f %s", ga->T_cstr("InstallData"), (float) (info->installDataSize) / 1024.f / 1024.f, ga->T_cstr("MB"));
 			tvInstallDataSize_->SetText(temp);
 			tvInstallDataSize_->SetVisibility(UI::V_VISIBLE);
 		}
@@ -543,7 +543,7 @@ UI::EventReturn GameScreen::OnRemoveFromRecent(UI::EventParams &e) {
 
 class SetBackgroundPopupScreen : public PopupScreen {
 public:
-	SetBackgroundPopupScreen(const std::string &title, const Path &gamePath)
+	SetBackgroundPopupScreen(std::string_view title, const Path &gamePath)
 		: PopupScreen(title), gamePath_(gamePath) {
 		timeStart_ = time_now_d();
 	}

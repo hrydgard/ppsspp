@@ -56,6 +56,18 @@ size_t truncate_cpy(char *dest, size_t destSize, const char *src) {
 	return len;
 }
 
+size_t truncate_cpy(char *dest, size_t destSize, std::string_view src) {
+	if (src.size() > destSize - 1) {
+		memcpy(dest, src.data(), destSize - 1);
+		dest[destSize - 1] = 0;
+		return destSize - 1;
+	} else {
+		memcpy(dest, src.data(), src.size());
+		dest[src.size()] = 0;
+		return src.size();
+	}
+}
+
 const char* safe_string(const char* s) {
 	return s ? s : "(null)";
 }
@@ -376,8 +388,8 @@ std::string ReplaceAll(std::string_view input, std::string_view src, std::string
 	return result;
 }
 
-std::string UnescapeMenuString(const char *input, char *shortcutChar) {
-	size_t len = strlen(input);
+std::string UnescapeMenuString(std::string_view input, char *shortcutChar) {
+	size_t len = input.length();
 	std::string output;
 	output.reserve(len);
 	bool escaping = false;
@@ -402,8 +414,8 @@ std::string UnescapeMenuString(const char *input, char *shortcutChar) {
 	return output;
 }
 
-std::string ApplySafeSubstitutions(const char *format, std::string_view string1, std::string_view string2, std::string_view string3, std::string_view string4) {
-	size_t formatLen = strlen(format);
+std::string ApplySafeSubstitutions(std::string_view format, std::string_view string1, std::string_view string2, std::string_view string3, std::string_view string4) {
+	size_t formatLen = format.length();
 	std::string output;
 	output.reserve(formatLen + 20);
 	for (size_t i = 0; i < formatLen; i++) {
@@ -433,8 +445,8 @@ std::string ApplySafeSubstitutions(const char *format, std::string_view string1,
 	return output;
 }
 
-std::string ApplySafeSubstitutions(const char *format, int i1, int i2, int i3, int i4) {
-	size_t formatLen = strlen(format);
+std::string ApplySafeSubstitutions(std::string_view format, int i1, int i2, int i3, int i4) {
+	size_t formatLen = format.length();
 	std::string output;
 	output.reserve(formatLen + 20);
 	for (size_t i = 0; i < formatLen; i++) {

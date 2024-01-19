@@ -1057,7 +1057,7 @@ void Config::LoadLangValuesMapping() {
 	}
 }
 
-const std::map<std::string, std::pair<std::string, int>> &Config::GetLangValuesMapping() {
+const std::map<std::string, std::pair<std::string, int>, std::less<>> &Config::GetLangValuesMapping() {
 	if (langValuesMapping_.empty()) {
 		LoadLangValuesMapping();
 	}

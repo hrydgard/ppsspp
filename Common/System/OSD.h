@@ -62,7 +62,7 @@ public:
 	// Progress bar controls
 	// Set is both create and update. If you set maxValue <= minValue, you'll create an "indeterminate" progress
 	// bar that doesn't show a specific amount of progress.
-	void SetProgressBar(const std::string &id, std::string &&message, float minValue, float maxValue, float progress, float delay_s);
+	void SetProgressBar(std::string_view id, std::string_view message, float minValue, float maxValue, float progress, float delay_s);
 	void RemoveProgressBar(const std::string &id, bool success, float delay_s);
 
 	// Call every frame to keep the sidebar visible. Otherwise it'll fade out.

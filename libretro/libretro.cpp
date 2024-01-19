@@ -1714,7 +1714,7 @@ void System_PostUIMessage(UIMessage message, const std::string &param) {}
 void NativeFrame(GraphicsContext *graphicsContext) {}
 void NativeResized() {}
 
-void System_Toast(const char *str) {}
+void System_Toast(std::string_view str) {}
 
 inline int16_t Clamp16(int32_t sample) {
    if (sample < -32767) return -32767;

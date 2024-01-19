@@ -206,13 +206,12 @@ static void UpdateScreenDPI(SDL_Window *window) {
 
 // Simple implementations of System functions
 
-
-void System_Toast(const char *text) {
+void System_Toast(std::string_view text) {
 #ifdef _WIN32
 	std::wstring str = ConvertUTF8ToWString(text);
 	MessageBox(0, str.c_str(), L"Toast!", MB_ICONINFORMATION);
 #else
-	puts(text);
+    printf("%*.s", (int)text.length(), text.data());
 #endif
 }
 

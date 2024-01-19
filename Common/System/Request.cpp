@@ -31,7 +31,7 @@ const char *RequestTypeAsString(SystemRequestType type) {
 	}
 }
 
-bool RequestManager::MakeSystemRequest(SystemRequestType type, RequesterToken token, RequestCallback callback, RequestFailedCallback failedCallback, const std::string &param1, const std::string &param2, int param3) {
+bool RequestManager::MakeSystemRequest(SystemRequestType type, RequesterToken token, RequestCallback callback, RequestFailedCallback failedCallback, std::string_view param1, std::string_view param2, int param3) {
 	if (token == NO_REQUESTER_TOKEN) {
 		_dbg_assert_(!callback);
 		_dbg_assert_(!failedCallback);
@@ -49,7 +49,10 @@ bool RequestManager::MakeSystemRequest(SystemRequestType type, RequesterToken to
 	}
 
 	VERBOSE_LOG(SYSTEM, "Making system request %s: id %d", RequestTypeAsString(type), requestId);
-	if (!System_MakeRequest(type, requestId, param1, param2, param3)) {
+	std::string p1(param1);
+	std::string p2(param2);
+	// TODO: Convert to string_view
+	if (!System_MakeRequest(type, requestId, p1, p2, param3)) {
 		if (callback || failedCallback) {
 			std::lock_guard<std::mutex> guard(callbackMutex_);
 			callbackMap_.erase(requestId);
@@ -130,7 +133,7 @@ void RequestManager::Clear() {
 	callbackMap_.clear();
 }
 
-void System_CreateGameShortcut(const Path &path, const std::string &title) {
+void System_CreateGameShortcut(const Path &path, std::string_view title) {
 	g_requestManager.MakeSystemRequest(SystemRequestType::CREATE_GAME_SHORTCUT, NO_REQUESTER_TOKEN, nullptr, nullptr, path.ToString(), title, 0);
 }
 
@@ -139,6 +142,6 @@ void System_ShowFileInFolder(const Path &path) {
 	g_requestManager.MakeSystemRequest(SystemRequestType::SHOW_FILE_IN_FOLDER, NO_REQUESTER_TOKEN, nullptr, nullptr, path.ToString(), "", 0);
 }
 
-void System_BrowseForFolder(RequesterToken token, const std::string &title, const Path &initialPath, RequestCallback callback, RequestFailedCallback failedCallback) {
+void System_BrowseForFolder(RequesterToken token, std::string_view title, const Path &initialPath, RequestCallback callback, RequestFailedCallback failedCallback) {
 	g_requestManager.MakeSystemRequest(SystemRequestType::BROWSE_FOR_FOLDER, token, callback, failedCallback, title, initialPath.ToCString(), 0);
 }

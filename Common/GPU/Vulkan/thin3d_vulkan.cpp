@@ -395,12 +395,12 @@ public:
 		}
 		return list;
 	}
-	std::vector<std::string> GetPresentModeList(const char *currentMarkerString) const override {
+	std::vector<std::string> GetPresentModeList(std::string_view currentMarkerString) const override {
 		std::vector<std::string> list;
 		for (auto mode : vulkan_->GetAvailablePresentModes()) {
 			std::string str = VulkanPresentModeToString(mode);
 			if (mode == vulkan_->GetPresentMode()) {
-				str += std::string(" (") + currentMarkerString + ")";
+				str += std::string(" (") + std::string(currentMarkerString) + ")";
 			}
 			list.push_back(str);
 		}

@@ -20,14 +20,14 @@ static inline const char *DeNull(const char *ptr) {
 // Compound view, creating a FileChooserChoice inside.
 class AudioFileChooser : public UI::LinearLayout {
 public:
-	AudioFileChooser(RequesterToken token, std::string *value, const std::string &title, UI::UISound sound, UI::LayoutParams *layoutParams = nullptr);
+	AudioFileChooser(RequesterToken token, std::string *value, std::string_view title, UI::UISound sound, UI::LayoutParams *layoutParams = nullptr);
 
 	UI::UISound sound_;
 };
 
 static constexpr UI::Size ITEM_HEIGHT = 64.f;
 
-AudioFileChooser::AudioFileChooser(RequesterToken token, std::string *value, const std::string &title, UI::UISound sound, UI::LayoutParams *layoutParams) : UI::LinearLayout(UI::ORIENT_HORIZONTAL, layoutParams), sound_(sound) {
+AudioFileChooser::AudioFileChooser(RequesterToken token, std::string *value, std::string_view title, UI::UISound sound, UI::LayoutParams *layoutParams) : UI::LinearLayout(UI::ORIENT_HORIZONTAL, layoutParams), sound_(sound) {
 	using namespace UI;
 	SetSpacing(2.0f);
 	if (!layoutParams) {
