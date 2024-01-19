@@ -48,18 +48,24 @@ void TextDrawerSDL::PrepareFallbackFonts() {
 #if defined(USE_SDL2_TTF_FONTCONFIG)
 	FcObjectSet *os = FcObjectSetBuild (FC_FILE, FC_INDEX, (char *) 0);
 
-	FcPattern *names[] = {
-		FcNameParse((const FcChar8 *) "Source Han Sans Medium"),
-		FcNameParse((const FcChar8 *) "Droid Sans Bold"),
-		FcNameParse((const FcChar8 *) "DejaVu Sans Condensed"),
-		FcNameParse((const FcChar8 *) "Noto Sans CJK Medium"),
-		FcNameParse((const FcChar8 *) "Noto Sans Hebrew Medium"),
-		FcNameParse((const FcChar8 *) "Noto Sans Lao Medium"),
-		FcNameParse((const FcChar8 *) "Noto Sans Thai Medium")
+	// To install the fallback font in ubuntu:
+	// sudo apt install fonts-droid-fallback
+	const char *names[] = {
+		"Droid Sans Fallback",
+		"Droid Sans Medium",
+		"Droid Sans Bold",
+		"Source Han Sans Medium",
+		"DejaVu Sans Condensed",
+		"Noto Sans CJK Medium",
+		"Noto Sans Hebrew Medium",
+		"Noto Sans Lao Medium",
+		"Noto Sans Thai Medium",
 	};
 
 	for (int i = 0; i < ARRAY_SIZE(names); i++) {
-		FcFontSet *foundFonts = FcFontList(config, names[i], os);
+		// printf("trying font name %s\n", names[i]);
+		FcPattern *name = FcNameParse((const FcChar8 *)names[i]);
+		FcFontSet *foundFonts = FcFontList(config, name, os);
 		
 		for (int j = 0; foundFonts && j < foundFonts->nfont; ++j) {
 			FcPattern* font = foundFonts->fonts[j];
@@ -72,6 +78,7 @@ void TextDrawerSDL::PrepareFallbackFonts() {
 
 			if (FcPatternGetString(font, FC_FILE, 0, &path) == FcResultMatch) {
 				std::string path_str((const char*)path);
+				// printf("fallback font: %s\n", path_str.c_str());
 				fallbackFontPaths_.push_back(std::make_pair(path_str, fontIndex));
 			}
 		}
@@ -80,7 +87,7 @@ void TextDrawerSDL::PrepareFallbackFonts() {
 			FcFontSetDestroy(foundFonts);
 		}
 
-		FcPatternDestroy(names[i]);
+		FcPatternDestroy(name);
 	}
 
 	if (os) {
