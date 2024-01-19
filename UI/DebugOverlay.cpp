@@ -17,6 +17,7 @@
 #include "Core/Core.h"
 #include "Core/ELF/ParamSFO.h"
 #include "Core/System.h"
+#include "Core/Util/GameDB.h"
 #include "GPU/GPU.h"
 #include "GPU/GPUInterface.h"
 // TODO: This should be moved here or to Common, doesn't belong in /GPU
@@ -268,7 +269,7 @@ void DrawCrashDump(UIContext *ctx, const Path &gamePath) {
 
 	auto sy = GetI18NCategory(I18NCat::SYSTEM);
 	FontID ubuntu24("UBUNTU24");
-
+	std::string discID = g_paramSFO.GetDiscID();
 	int x = 20 + System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_LEFT);
 	int y = 20 + System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_TOP);
 
@@ -282,14 +283,26 @@ void DrawCrashDump(UIContext *ctx, const Path &gamePath) {
 	char versionString[256];
 	snprintf(versionString, sizeof(versionString), "%s", PPSSPP_GIT_VERSION);
 
-	char crcStr[16]{};
+	bool checkingISO = false;
+	bool isoOK = false;
+
+	char crcStr[50]{};
 	if (Reporting::HasCRC(gamePath)) {
 		u32 crc = Reporting::RetrieveCRC(gamePath);
-		snprintf(crcStr, sizeof(crcStr), "CRC: %08x\n", crc);
+		std::vector<GameDBInfo> dbInfos;
+		if (g_gameDB.GetGameInfos(discID, &dbInfos)) {
+			for (auto &dbInfo : dbInfos) {
+				if (dbInfo.crc == crc) {
+					isoOK = true;
+				}
+			}
+		}
+		snprintf(crcStr, sizeof(crcStr), "CRC: %08x %s\n", crc, isoOK ? "(Known good!)" : "(not identified)");
 	} else {
 		// Queue it for calculation, we want it!
 		// It's OK to call this repeatedly until we have it, which is natural here.
 		Reporting::QueueCRC(gamePath);
+		checkingISO = true;
 	}
 
 	// TODO: Draw a lot more information. Full register set, and so on.
@@ -320,7 +333,7 @@ void DrawCrashDump(UIContext *ctx, const Path &gamePath) {
 %s
 )",
 ExceptionTypeAsString(info.type),
-g_paramSFO.GetDiscID().c_str(), g_paramSFO.GetValueString("TITLE").c_str(),
+discID.c_str(), g_paramSFO.GetValueString("TITLE").c_str(),
 versionString, build,
 sysName.c_str(), sysVersion, GetCompilerABI(),
 crcStr
@@ -384,15 +397,31 @@ Invalid / Unknown (%d)
 
 	// Draw some additional stuff to the right.
 
+	std::string tips;
+	if (CheatsInEffect()) {
+		tips += "* Turn off cheats.\n";
+	}
+	if (GetLockedCPUSpeedMhz()) {
+		tips += "* Set CPU clock to default (0)\n";
+	}
+	if (checkingISO) {
+		tips += "* (waiting for CRC...)\n";
+	} else if (!isoOK) {
+		tips += "* Verify and possibly re-dump your ISO\n  (CRC not recognized)\n";
+	}
+	if (!tips.empty()) {
+		tips = "Things to try:\n" + tips;
+	}
+
 	x += columnWidth + 10;
 	y = 85;
 	snprintf(statbuf, sizeof(statbuf),
 		"CPU Core: %s (flags: %08x)\n"
 		"Locked CPU freq: %d MHz\n"
-		"Cheats: %s, Plugins: %s\n",
+		"Cheats: %s, Plugins: %s\n\n%s",
 		CPUCoreAsString(g_Config.iCpuCore), g_Config.uJitDisableFlags,
 		GetLockedCPUSpeedMhz(),
-		CheatsInEffect() ? "Y" : "N", HLEPlugins::HasEnabled() ? "Y" : "N");
+		CheatsInEffect() ? "Y" : "N", HLEPlugins::HasEnabled() ? "Y" : "N", tips.c_str());
 
 	ctx->Draw()->DrawTextShadow(ubuntu24, statbuf, x, y, 0xFFFFFFFF);
 	ctx->Flush();
