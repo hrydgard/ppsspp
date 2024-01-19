@@ -1,15 +1,18 @@
+<a href="https://imgbb.com/"><img src="https://i.ibb.co/gPybnRP/pngwing-com.png" alt="PPSSPP Original Logo" width="128" height="128"></a>
+<a href="https://imgbb.com/"><img src="https://i.ibb.co/8mFD49P/pngwing-com-1.png" alt="PPSSPP Gold Logo - Buy Now !" border="0" width="128" height="128"></a>
+
 PPSSPP - a fast and portable PSP emulator
 =========================================
 
-Created by Henrik Rydgård
+Created by **Henrik Rydgård**
 
 Additional code by many contributors, see the Credits screen
 
 Originally released under the GPL 2.0 (and later) in November 2012
 
-Official website: https://www.ppsspp.org/
+- Official website: https://www.ppsspp.org/
 
-Discord: https://discord.gg/5NJB6dD
+- Discord: https://discord.gg/5NJB6dD
 
 No BIOS file required to play, PPSSPP is an "HLE" emulator.  Default settings balance good compatibility and speed.
 
