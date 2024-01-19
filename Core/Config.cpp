@@ -213,7 +213,7 @@ static const ConfigSetting generalSettings[] = {
 	ConfigSetting("DisableHTTPS", &g_Config.bDisableHTTPS, false, CfgFlag::DONT_SAVE),
 	ConfigSetting("AutoLoadSaveState", &g_Config.iAutoLoadSaveState, 0, CfgFlag::PER_GAME),
 	ConfigSetting("EnableCheats", &g_Config.bEnableCheats, false, CfgFlag::PER_GAME | CfgFlag::REPORT),
-	ConfigSetting("CwCheatRefreshRate", &g_Config.iCwCheatRefreshRate, 77, CfgFlag::PER_GAME),
+	ConfigSetting("CwCheatRefreshRate", &g_Config.iCwCheatRefreshIntervalMs, 77, CfgFlag::PER_GAME),
 	ConfigSetting("CwCheatScrollPosition", &g_Config.fCwCheatScrollPosition, 0.0f, CfgFlag::PER_GAME),
 	ConfigSetting("GameListScrollPosition", &g_Config.fGameListScrollPosition, 0.0f, CfgFlag::DEFAULT),
 	ConfigSetting("DebugOverlay", &g_Config.iDebugOverlay, 0, CfgFlag::DONT_SAVE),

@@ -166,6 +166,15 @@ PopupSliderChoice::PopupSliderChoice(int *value, int minValue, int maxValue, int
 	OnClick.Handle(this, &PopupSliderChoice::HandleClick);
 }
 
+void PopupSliderChoice::SetFormat(std::string_view fmt) {
+	fmt_ = fmt;
+	if (units_.empty()) {
+		if (startsWith(fmt_, "%d ")) {
+			units_ = fmt_.substr(3);
+		}
+	}
+}
+
 PopupSliderChoiceFloat::PopupSliderChoiceFloat(float *value, float minValue, float maxValue, float defaultValue, const std::string &text, ScreenManager *screenManager, const std::string &units, LayoutParams *layoutParams)
 	: AbstractChoiceWithValueDisplay(text, layoutParams), value_(value), minValue_(minValue), maxValue_(maxValue), defaultValue_(defaultValue), step_(1.0f), units_(units), screenManager_(screenManager) {
 	_dbg_assert_(maxValue > minValue);
@@ -179,6 +188,15 @@ PopupSliderChoiceFloat::PopupSliderChoiceFloat(float *value, float minValue, flo
 	_dbg_assert_(maxValue > minValue);
 	fmt_ = "%2.2f";
 	OnClick.Handle(this, &PopupSliderChoiceFloat::HandleClick);
+}
+
+void PopupSliderChoiceFloat::SetFormat(std::string_view fmt) {
+	fmt_ = fmt;
+	if (units_.empty()) {
+		if (startsWith(fmt_, "%f ")) {
+			units_ = fmt_.substr(3);
+		}
+	}
 }
 
 EventReturn PopupSliderChoice::HandleClick(EventParams &e) {

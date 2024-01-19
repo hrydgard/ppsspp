@@ -119,6 +119,8 @@ bool HandleFault(uintptr_t hostAddress, void *ctx) {
 	bool inJitSpace = MIPSComp::jit && MIPSComp::jit->CodeInRange(codePtr);
 	if (!inJitSpace) {
 		// This is a crash in non-jitted code. Not something we want to handle here, ignore.
+		// Actually, we could handle crashes from the IR interpreter here, although recovering the call stack
+		// might be tricky...
 		inCrashHandler = false;
 		return false;
 	}

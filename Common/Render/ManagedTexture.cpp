@@ -39,7 +39,7 @@ public:
 			return;
 		}
 
-		if (!tempImage_->LoadTextureLevels(buffer, fileSize, type_)) {
+		if (!tempImage_->LoadTextureLevelsFromFileData(buffer, fileSize, type_)) {
 			*state_ = ManagedTexture::LoadState::FAILED;
 			waitable_->Notify();
 			return;
@@ -85,7 +85,7 @@ static ImageFileType DetectImageFileType(const uint8_t *data, size_t size) {
 	}
 }
 
-bool TempImage::LoadTextureLevels(const uint8_t *data, size_t size, ImageFileType typeSuggestion) {
+bool TempImage::LoadTextureLevelsFromFileData(const uint8_t *data, size_t size, ImageFileType typeSuggestion) {
 	if (typeSuggestion == ImageFileType::DETECT) {
 		typeSuggestion = DetectImageFileType(data, size);
 	}
@@ -166,7 +166,7 @@ Draw::Texture *CreateTextureFromTempImage(Draw::DrawContext *draw, const TempIma
 
 Draw::Texture *CreateTextureFromFileData(Draw::DrawContext *draw, const uint8_t *data, size_t dataSize, ImageFileType type, bool generateMips, const char *name) {
 	TempImage image;
-	if (!image.LoadTextureLevels(data, dataSize, type)) {
+	if (!image.LoadTextureLevelsFromFileData(data, dataSize, type)) {
 		return nullptr;
 	}
 	Draw::Texture *texture = CreateTextureFromTempImage(draw, image, generateMips, name);

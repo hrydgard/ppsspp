@@ -950,11 +950,13 @@ public:
 			h = size_;
 	}
 
-	void Draw(UIContext &dc) override {}
+	void Draw(UIContext &dc) override;
 	std::string DescribeText() const override { return ""; }
+	void SetSeparator() { drawAsSeparator_ = true; }
 
 private:
 	float size_ = 0.0f;
+	bool drawAsSeparator_ = false;
 };
 
 class BorderView : public InertView {

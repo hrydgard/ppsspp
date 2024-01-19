@@ -158,9 +158,9 @@ public:
 		if (referenceIndex == REF_INDEX_MODULE)
 			return __KernelGetCurThreadModuleId();
 		if (referenceIndex == REF_INDEX_USEC)
-			return CoreTiming::GetGlobalTimeUs();
+			return (uint32_t)CoreTiming::GetGlobalTimeUs();  // Loses information
 		if (referenceIndex == REF_INDEX_USEC)
-			return CoreTiming::GetTicks();
+			return (uint32_t)CoreTiming::GetTicks();
 		if ((referenceIndex & ~(REF_INDEX_FPU | REF_INDEX_FPU_INT)) < 32)
 			return cpu->GetRegValue(1, referenceIndex & ~(REF_INDEX_FPU | REF_INDEX_FPU_INT));
 		if ((referenceIndex & ~(REF_INDEX_VFPU | REF_INDEX_VFPU_INT)) < 128)

@@ -270,7 +270,7 @@ static void __CheatStart() {
 }
 
 static int GetRefreshMs() {
-	int refresh = g_Config.iCwCheatRefreshRate;
+	int refresh = g_Config.iCwCheatRefreshIntervalMs;
 
 	if (!cheatsEnabled)
 		refresh = 1000;

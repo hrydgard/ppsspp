@@ -285,9 +285,7 @@ public:
 	PopupSliderChoice(int *value, int minValue, int maxValue, int defaultValue, const std::string &text, ScreenManager *screenManager, const std::string &units = "", LayoutParams *layoutParams = 0);
 	PopupSliderChoice(int *value, int minValue, int maxValue, int defaultValue, const std::string &text, int step, ScreenManager *screenManager, const std::string &units = "", LayoutParams *layoutParams = 0);
 
-	void SetFormat(const char *fmt) {
-		fmt_ = fmt;
-	}
+	void SetFormat(std::string_view fmt);
 	void SetZeroLabel(const std::string &str) {
 		zeroLabel_ = str;
 	}
@@ -322,9 +320,7 @@ public:
 	PopupSliderChoiceFloat(float *value, float minValue, float maxValue, float defaultValue, const std::string &text, ScreenManager *screenManager, const std::string &units = "", LayoutParams *layoutParams = 0);
 	PopupSliderChoiceFloat(float *value, float minValue, float maxValue, float defaultValue, const std::string &text, float step, ScreenManager *screenManager, const std::string &units = "", LayoutParams *layoutParams = 0);
 
-	void SetFormat(const char *fmt) {
-		fmt_ = fmt;
-	}
+	void SetFormat(std::string_view fmt);
 	void SetZeroLabel(const std::string &str) {
 		zeroLabel_ = str;
 	}

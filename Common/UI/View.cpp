@@ -1657,4 +1657,11 @@ void SliderFloat::GetContentDimensions(const UIContext &dc, float &w, float &h) 
 	h = 50;
 }
 
+void Spacer::Draw(UIContext &dc) {
+	View::Draw(dc);
+	if (drawAsSeparator_) {
+		dc.FillRect(UI::Drawable(dc.theme->itemDownStyle.background.color), bounds_);
+	}
+}
+
 }  // namespace
