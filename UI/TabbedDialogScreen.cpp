@@ -49,8 +49,8 @@ void TabbedUIDialogScreenWithGameBackground::CreateViews() {
 		root_->Add(verticalLayout);
 	} else {
 		tabHolder_ = new TabHolder(ORIENT_VERTICAL, 200, new AnchorLayoutParams(10, 0, 10, 0, false));
+		tabHolder_->AddBack(this);
 		root_->Add(tabHolder_);
-		AddStandardBack(root_);
 	}
 	tabHolder_->SetTag(tag());  // take the tag from the screen.
 	root_->SetDefaultFocusView(tabHolder_);

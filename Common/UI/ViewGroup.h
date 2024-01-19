@@ -9,6 +9,8 @@
 #include "Common/Input/GestureDetector.h"
 #include "Common/UI/View.h"
 
+class UIScreen;
+
 namespace UI {
 
 class AnchorTranslateTween;
@@ -298,6 +300,8 @@ public:
 		tabStrip_->EnableChoice(tab, enabled);
 	}
 
+	void AddBack(UIScreen *parent);
+
 	void SetCurrentTab(int tab, bool skipTween = false);
 
 	int GetCurrentTab() const { return currentTab_; }
@@ -309,6 +313,7 @@ private:
 	void AddTabContents(const std::string &title, View *tabContents);
 	EventReturn OnTabClick(EventParams &e);
 
+	LinearLayout *tabContainer_ = nullptr;
 	ChoiceStrip *tabStrip_ = nullptr;
 	ScrollView *tabScroll_ = nullptr;
 	AnchorLayout *contents_ = nullptr;

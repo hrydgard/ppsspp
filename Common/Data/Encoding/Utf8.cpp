@@ -438,7 +438,7 @@ std::wstring ConvertUTF8ToWString(const std::string_view source) {
 	std::wstring str;
 	str.resize(size);
 	if (size > 0) {
-		MultiByteToWideChar(CP_UTF8, 0, source.data(), source.size(), &str[0], size);
+		MultiByteToWideChar(CP_UTF8, 0, source.data(), (int)source.size(), &str[0], size);
 	}
 	return str;
 }
