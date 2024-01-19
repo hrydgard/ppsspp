@@ -233,32 +233,67 @@ void GameSettingsScreen::PreCreateViews() {
 	iAlternateSpeedPercentAnalog_ = (g_Config.iAnalogFpsLimit * 100) / 60;
 }
 
+void GameSettingsScreen::CreateBanner(UI::LinearLayout *parent, std::string_view category, std::string_view url) {
+	using namespace UI;
+	auto ms = GetI18NCategory(I18NCat::MAINSETTINGS);
+
+	LinearLayout *banner = new LinearLayout(ORIENT_HORIZONTAL);
+	std::string title(category);
+	bool hasGameConfig = false;
+	if (g_Config.hasGameConfig(gameID_)) {
+		auto info = g_gameInfoCache->GetInfo(nullptr, gamePath_, GameInfoFlags::PARAM_SFO);
+		title = info->GetTitle() + " - " + gameID_;
+		hasGameConfig = true;
+	}
+	if (hasGameConfig) {
+		banner->Add(new ImageView(ImageID("I_GEAR"), "", UI::ImageSizeMode::IS_KEEP_ASPECT, new LinearLayoutParams(50, 50, 0.0f, G_CENTER)));
+	}
+	banner->Add(new TextView(title, new LinearLayoutParams(Margins(10, 10))));
+	banner->Add(new Spacer(0.0f, new LinearLayoutParams(1.0f)));
+	if (!url.empty()) {
+		banner->Add(new Button(ms->T("Help"), new LinearLayoutParams(Margins(8, 8))))->OnClick.Add([=](UI::EventParams &e) {
+			std::string fullUrl = std::string("https://www.ppsspp.org/docs/settings/") + std::string(url);
+			System_LaunchUrl(LaunchUrlType::BROWSER_URL, fullUrl.c_str());
+			return UI::EVENT_DONE;
+		});
+	}
+	banner->SetBG(UI::Drawable(0x30000000));
+	parent->Add(banner);
+}
+
 void GameSettingsScreen::CreateTabs() {
 	using namespace UI;
 	auto ms = GetI18NCategory(I18NCat::MAINSETTINGS);
 
 	LinearLayout *graphicsSettings = AddTab("GameSettingsGraphics", ms->T("Graphics"));
+	CreateBanner(graphicsSettings, ms->T("Graphics"), "graphics");
 	CreateGraphicsSettings(graphicsSettings);
 
 	LinearLayout *controlsSettings = AddTab("GameSettingsControls", ms->T("Controls"));
+	CreateBanner(controlsSettings, ms->T("Controls"), "controls");
 	CreateControlsSettings(controlsSettings);
 
 	LinearLayout *audioSettings = AddTab("GameSettingsAudio", ms->T("Audio"));
+	CreateBanner(audioSettings, ms->T("Audio"), "audio");
 	CreateAudioSettings(audioSettings);
 
 	LinearLayout *networkingSettings = AddTab("GameSettingsNetworking", ms->T("Networking"));
+	CreateBanner(networkingSettings, ms->T("Networking"), "network");
 	CreateNetworkingSettings(networkingSettings);
 
-	LinearLayout *tools = AddTab("GameSettingsTools", ms->T("Tools"));
-	CreateToolsSettings(tools);
+	LinearLayout *toolsSettings = AddTab("GameSettingsTools", ms->T("Tools"));
+	CreateBanner(toolsSettings, ms->T("Tools"), "tools");
+	CreateToolsSettings(toolsSettings);
 
 	LinearLayout *systemSettings = AddTab("GameSettingsSystem", ms->T("System"));
 	systemSettings->SetSpacing(0);
+	CreateBanner(systemSettings, ms->T("System"), "system");
 	CreateSystemSettings(systemSettings);
 
 	int deviceType = System_GetPropertyInt(SYSPROP_DEVICE_TYPE);
 	if ((deviceType == DEVICE_TYPE_VR) || g_Config.bForceVR) {
-		LinearLayout *vrSettings = AddTab("GameSettingsVR", ms->T("VR"));
+		LinearLayout *vrSettings = AddTab("GameSettingsVR", ms->T("VR"), "");
+		CreateBanner(vrSettings, ms->T("VR"), "");
 		CreateVRSettings(vrSettings);
 	}
 }

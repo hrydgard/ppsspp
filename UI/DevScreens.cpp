@@ -1020,7 +1020,7 @@ bool ShaderViewScreen::key(const KeyInput &ki) {
 }
 
 
-const std::string framedumpsBaseUrl = "http://framedump.ppsspp.org/repro/";
+const std::string_view framedumpsBaseUrl("http://framedump.ppsspp.org/repro/");
 
 FrameDumpTestScreen::FrameDumpTestScreen() {
 
@@ -1053,7 +1053,7 @@ void FrameDumpTestScreen::CreateViews() {
 	dumps->Add(new ItemHeader("GE Frame Dumps"));
 
 	for (auto &file : files_) {
-		std::string url = framedumpsBaseUrl + file;
+		std::string url = std::string(framedumpsBaseUrl) + file;
 		Choice *c = dumps->Add(new Choice(file));
 		c->SetTag(url);
 		c->OnClick.Handle<FrameDumpTestScreen>(this, &FrameDumpTestScreen::OnLoadDump);
@@ -1075,7 +1075,7 @@ void FrameDumpTestScreen::update() {
 
 	if (!listing_) {
 		const char *acceptMime = "text/html, */*; q=0.8";
-		listing_ = g_DownloadManager.StartDownload(framedumpsBaseUrl, Path(), http::ProgressBarMode::DELAYED, acceptMime);
+		listing_ = g_DownloadManager.StartDownload(std::string(framedumpsBaseUrl), Path(), http::ProgressBarMode::DELAYED, acceptMime);
 	}
 
 	if (listing_ && listing_->Done() && files_.empty()) {

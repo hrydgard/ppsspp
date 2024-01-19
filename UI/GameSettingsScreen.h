@@ -48,6 +48,7 @@ protected:
 
 private:
 	void PreCreateViews() override;
+	void CreateBanner(UI::LinearLayout *parent, std::string_view category, std::string_view url);
 
 	void CreateGraphicsSettings(UI::ViewGroup *graphicsSettings);
 	void CreateControlsSettings(UI::ViewGroup *tools);

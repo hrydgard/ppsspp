@@ -516,7 +516,8 @@ void EmuScreen::focusChanged(ScreenFocusChange focusChange) {
 void EmuScreen::sendMessage(UIMessage message, const char *value) {
 	// External commands, like from the Windows UI.
 	if (message == UIMessage::REQUEST_GAME_PAUSE && screenManager()->topScreen() == this) {
-		screenManager()->push(new GamePauseScreen(gamePath_));
+		std::string gameID = g_paramSFO.GetValueString("DISC_ID");
+		screenManager()->push(new GamePauseScreen(gamePath_, gameID));
 	} else if (message == UIMessage::REQUEST_GAME_STOP) {
 		// We will push MainScreen in update().
 		PSP_Shutdown();
@@ -603,8 +604,8 @@ void EmuScreen::sendMessage(UIMessage message, const char *value) {
 			if (!KeyMap::IsKeyMapped(DEVICE_ID_PAD_0, VIRTKEY_PAUSE) || !KeyMap::IsKeyMapped(DEVICE_ID_PAD_1, VIRTKEY_PAUSE)) {
 				// If it's a TV (so no built-in back button), and there's no back button mapped to a pad,
 				// use this as the fallback way to get into the menu.
-
-				screenManager()->push(new GamePauseScreen(gamePath_));
+				std::string gameID = g_paramSFO.GetValueString("DISC_ID");
+				screenManager()->push(new GamePauseScreen(gamePath_, gameID));
 			}
 		}
 	} else if (message == UIMessage::REQUEST_PLAY_SOUND) {
@@ -1229,7 +1230,8 @@ void EmuScreen::update() {
 
 	if (pauseTrigger_) {
 		pauseTrigger_ = false;
-		screenManager()->push(new GamePauseScreen(gamePath_));
+		std::string gameID = g_paramSFO.GetValueString("DISC_ID");
+		screenManager()->push(new GamePauseScreen(gamePath_, gameID));
 	}
 
 	if (saveStatePreview_ && !bootPending_) {
