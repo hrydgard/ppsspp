@@ -33,7 +33,7 @@ impl Section {
         }
     }
 
-    pub fn get_line(&mut self, key: &str) -> Option<String> {
+    pub fn get_line(&self, key: &str) -> Option<String> {
         for line in self.lines.iter() {
             let prefix = if let Some(pos) = line.find(" =") {
                 &line[0..pos]
