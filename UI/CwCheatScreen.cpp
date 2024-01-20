@@ -52,7 +52,7 @@ CwCheatScreen::~CwCheatScreen() {
 void CwCheatScreen::LoadCheatInfo() {
 	std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(nullptr, gamePath_, 0);
 	std::string gameID;
-	while(info->pending){
+	while(info && info->pending){
 		// After onResume() on Android, this could be the first thing that asks for game info
 		std::this_thread::yield();
 	}
