@@ -600,8 +600,6 @@ handleELF:
 			// Let's use the comparison screenshot as an icon, if it exists.
 			if (ReadLocalFileToString(screenshotPath, &info_->icon.data, &info_->lock)) {
 				info_->icon.dataLoaded = true;
-			} else {
-				ERROR_LOG(G3D, "Error loading screenshot data: '%s'", screenshotPath.c_str());
 			}
 			break;
 		}
