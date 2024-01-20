@@ -563,9 +563,9 @@ bool System_GetPropertyBool(SystemProperty prop) {
 #if PPSSPP_PLATFORM(SWITCH)
 	case SYSPROP_HAS_TEXT_INPUT_DIALOG:
 		return __nx_applet_type == AppletType_Application || __nx_applet_type != AppletType_SystemApplication;
+#endif
 	case SYSPROP_HAS_KEYBOARD:
 		return true;
-#endif
 	case SYSPROP_APP_GOLD:
 #ifdef GOLD
 		return true;

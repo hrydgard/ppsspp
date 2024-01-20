@@ -44,6 +44,7 @@ protected:
 	void dialogFinished(const Screen *dialog, DialogResult result) override;
 
 	void CreateTabs() override;
+	bool ShowSearchControls() const { return true; }
 
 private:
 	void PreCreateViews() override;
