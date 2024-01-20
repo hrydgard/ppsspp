@@ -33,6 +33,8 @@
 #include "UI/GameInfoCache.h"
 #include "UI/CwCheatScreen.h"
 
+#include <thread>
+
 static const int FILE_CHECK_FRAME_INTERVAL = 53;
 
 static Path GetGlobalCheatFilePath() {
@@ -52,7 +54,7 @@ void CwCheatScreen::LoadCheatInfo() {
 	std::string gameID;
 	while(info->pending){
 		// After onResume() on Android, this could be the first thing that asks for game info
-		sleep(0);
+		std::this_thread::yield();
 	}
 	if (info && info->paramSFOLoaded) {
 		gameID = info->paramSFO.GetValueString("DISC_ID");
