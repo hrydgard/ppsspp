@@ -275,7 +275,7 @@ void EmuScreen::bootGame(const Path &filename) {
 
 	auto sc = GetI18NCategory(I18NCat::SCREEN);
 	if (info->fileType == IdentifiedFileType::PSP_DISC_DIRECTORY) {
-		g_OSD.Show(OSDType::MESSAGE_CENTERED_WARNING, sc->T("Warning: Extracted ISOs often don't work. Play the ISO file directly."), 7.0f);
+		g_OSD.Show(OSDType::MESSAGE_CENTERED_WARNING, sc->T("ExtractedIsoWarning", "Extracted ISOs often don't work.\nPlay the ISO file directly."), gamePath_.ToVisualString(), 7.0f);
 	}
 
 	extraAssertInfoStr_ = info->id + " " + info->GetTitle();
