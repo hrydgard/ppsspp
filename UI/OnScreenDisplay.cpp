@@ -53,7 +53,9 @@ static NoticeLevel GetNoticeLevel(OSDType type) {
 	case OSDType::MESSAGE_INFO: return NoticeLevel::INFO;
 	case OSDType::MESSAGE_ERROR:
 	case OSDType::MESSAGE_ERROR_DUMP: return NoticeLevel::ERROR;
-	case OSDType::MESSAGE_WARNING: return NoticeLevel::WARN;
+	case OSDType::MESSAGE_WARNING:
+	case OSDType::MESSAGE_CENTERED_WARNING:
+		return NoticeLevel::WARN;
 	case OSDType::MESSAGE_SUCCESS: return NoticeLevel::SUCCESS;
 	default: return NoticeLevel::SUCCESS;
 	}
@@ -290,6 +292,7 @@ void OnScreenMessagesView::Draw(UIContext &dc) {
 	typeEdges[(size_t)OSDType::LEADERBOARD_STARTED_FAILED] = (ScreenEdgePosition)g_Config.iAchievementsLeaderboardStartedOrFailedPos;
 	typeEdges[(size_t)OSDType::LEADERBOARD_SUBMITTED] = (ScreenEdgePosition)g_Config.iAchievementsLeaderboardSubmittedPos;
 	typeEdges[(size_t)OSDType::ACHIEVEMENT_UNLOCKED] = (ScreenEdgePosition)g_Config.iAchievementsUnlockedPos;
+	typeEdges[(size_t)OSDType::MESSAGE_CENTERED_WARNING] = ScreenEdgePosition::CENTER;
 
 	dc.SetFontScale(1.0f, 1.0f);
 
@@ -390,6 +393,7 @@ void OnScreenMessagesView::Draw(UIContext &dc) {
 		case ScreenEdgePosition::BOTTOM_RIGHT: horizAdj = 1; vertAdj = 1; break;
 		case ScreenEdgePosition::TOP_CENTER:  vertAdj = -1; break;
 		case ScreenEdgePosition::BOTTOM_CENTER: vertAdj = 1; break;
+		case ScreenEdgePosition::CENTER: break;
 		default: break;
 		}
 

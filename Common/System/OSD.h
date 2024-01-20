@@ -14,6 +14,7 @@ enum class OSDType {
 	MESSAGE_ERROR,
 	MESSAGE_ERROR_DUMP,  // displays lots of text (after the first line), small size
 	MESSAGE_FILE_LINK,
+	MESSAGE_CENTERED_WARNING,
 
 	ACHIEVEMENT_UNLOCKED,
 
