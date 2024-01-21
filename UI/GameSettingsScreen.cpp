@@ -1778,6 +1778,7 @@ void DeveloperToolsScreen::CreateViews() {
 	list->Add(new CheckBox(&g_Config.bVendorBugChecksEnabled, dev->T("Enable driver bug workarounds")));
 	list->Add(new Choice(dev->T("Framedump tests")))->OnClick.Handle(this, &DeveloperToolsScreen::OnFramedumpTest);
 	list->Add(new Choice(dev->T("Touchscreen Test")))->OnClick.Handle(this, &DeveloperToolsScreen::OnTouchscreenTest);
+	// list->Add(new Choice(dev->T("Memstick Test")))->OnClick.Handle(this, &DeveloperToolsScreen::OnMemstickTest);
 
 	allowDebugger_ = !WebServerStopped(WebServerFlags::DEBUGGER);
 	canAllowDebugger_ = !WebServerStopping(WebServerFlags::DEBUGGER);
@@ -1988,6 +1989,53 @@ void DeveloperToolsScreen::update() {
 	UIDialogScreenWithBackground::update();
 	allowDebugger_ = !WebServerStopped(WebServerFlags::DEBUGGER);
 	canAllowDebugger_ = !WebServerStopping(WebServerFlags::DEBUGGER);
+}
+
+static bool RunMemstickTest(std::string *error) {
+	Path testRoot = GetSysDirectory(PSPDirectories::DIRECTORY_CACHE) / "test";
+
+	*error = "N/A";
+
+	File::CreateDir(testRoot);
+	if (!File::Exists(testRoot)) {
+		return false;
+	}
+
+	Path testFilePath = testRoot / "temp.txt";
+	File::CreateEmptyFile(testFilePath);
+
+	// Attempt to delete the test root. This should fail since it still contains files.
+	File::DeleteDir(testRoot);
+	if (!File::Exists(testRoot)) {
+		*error = "testroot was deleted with a file in it!";
+		return false;
+	}
+
+	File::Delete(testFilePath);
+	if (File::Exists(testFilePath)) {
+		*error = "testfile wasn't deleted";
+		return false;
+	}
+
+	File::DeleteDir(testRoot);
+	if (File::Exists(testRoot)) {
+		*error = "testroot wasn't deleted, even when empty";
+		return false;
+	}
+
+	*error = "passed";
+	return true;
+}
+
+UI::EventReturn DeveloperToolsScreen::OnMemstickTest(UI::EventParams &e) {
+	std::string error;
+	if (RunMemstickTest(&error)) {
+		g_OSD.Show(OSDType::MESSAGE_SUCCESS, "Memstick test passed", error, 6.0f);
+	} else {
+		g_OSD.Show(OSDType::MESSAGE_ERROR, "Memstick test failed", error, 6.0f);
+	}
+
+	return UI::EVENT_DONE;
 }
 
 void HostnameSelectScreen::CreatePopupContents(UI::ViewGroup *parent) {
