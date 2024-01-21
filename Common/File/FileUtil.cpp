@@ -902,6 +902,7 @@ bool CreateEmptyFile(const Path &filename) {
 }
 
 // Deletes an empty directory, returns true on success
+// WARNING: On Android with content URIs, it will delete recursively!
 bool DeleteDir(const Path &path) {
 	switch (path.Type()) {
 	case PathType::NATIVE:
@@ -937,18 +938,20 @@ bool DeleteDir(const Path &path) {
 }
 
 // Deletes the given directory and anything under it. Returns true on success.
-bool DeleteDirRecursively(const Path &directory) {
-	switch (directory.Type()) {
-	case PathType::CONTENT_URI:
+bool DeleteDirRecursively(const Path &path) {
+	switch (path.Type()) {
 	case PathType::NATIVE:
-		break;  // OK
+		break;
+	case PathType::CONTENT_URI:
+		// We make use of the dangerous auto-recursive property of Android_RemoveFile.
+		return Android_RemoveFile(path.ToString()) == StorageError::SUCCESS;
 	default:
 		ERROR_LOG(COMMON, "DeleteDirRecursively: Path type not supported");
 		return false;
 	}
 
 	std::vector<FileInfo> files;
-	GetFilesInDir(directory, &files, nullptr, GETFILES_GETHIDDEN);
+	GetFilesInDir(path, &files, nullptr, GETFILES_GETHIDDEN);
 	for (const auto &file : files) {
 		if (file.isDirectory) {
 			DeleteDirRecursively(file.fullName);
@@ -956,7 +959,7 @@ bool DeleteDirRecursively(const Path &directory) {
 			Delete(file.fullName);
 		}
 	}
-	return DeleteDir(directory);
+	return DeleteDir(path);
 }
 
 bool OpenFileInEditor(const Path &fileName) {
