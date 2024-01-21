@@ -486,7 +486,7 @@ bool System_GetPropertyBool(SystemProperty prop) {
 	case SYSPROP_HAS_TEXT_INPUT_DIALOG:
 		return true;
 	case SYSPROP_HAS_OPEN_DIRECTORY:
-		return false;
+		return false;  // We have this implemented but it may or may not work depending on if a file explorer is installed.
 	case SYSPROP_HAS_ADDITIONAL_STORAGE:
 		return !g_additionalStorageDirs.empty();
 	case SYSPROP_HAS_BACK_BUTTON:
@@ -1143,6 +1143,9 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 		return true;
 	case SystemRequestType::NOTIFY_UI_STATE:
 		PushCommand("uistate", param1);
+		return true;
+	case SystemRequestType::SHOW_FILE_IN_FOLDER:
+		PushCommand("show_folder", param1);
 		return true;
 	default:
 		return false;

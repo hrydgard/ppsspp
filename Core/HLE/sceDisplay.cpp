@@ -484,7 +484,9 @@ static void DoFrameIdleTiming() {
 			sleep_ms(1);
 #else
 			const double left = goal - cur_time;
-			usleep((long)(left * 1000000));
+			if (left > 0.0f && left < 1.0f) {  // Sanity check
+				usleep((long)(left * 1000000));
+			}
 #endif
 		}
 
@@ -743,7 +745,9 @@ void hleLagSync(u64 userdata, int cyclesLate) {
 		// Tight loop on win32 - intentionally, as timing is otherwise not precise enough.
 #ifndef _WIN32
 		const double left = goal - now;
-		usleep((long)(left * 1000000.0));
+		if (left > 0.0f && left < 1.0f) {  // Sanity check
+			usleep((long)(left * 1000000.0));
+		}
 #else
 		yield();
 #endif

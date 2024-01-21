@@ -27,6 +27,11 @@ enum Command {
         section: String,
         key: String,
     },
+    AddNewKeyValue {
+        section: String,
+        key: String,
+        value: String,
+    },
     MoveKey {
         old: String,
         new: String,
@@ -116,9 +121,9 @@ fn remove_key(target_ini: &mut IniFile, section: &str, key: &str) -> io::Result<
     Ok(())
 }
 
-fn add_new_key(target_ini: &mut IniFile, section: &str, key: &str) -> io::Result<()> {
+fn add_new_key(target_ini: &mut IniFile, section: &str, key: &str, value: &str) -> io::Result<()> {
     if let Some(section) = target_ini.get_section_mut(section) {
-        section.insert_line_if_missing(&format!("{} = {}", key, key));
+        section.insert_line_if_missing(&format!("{} = {}", key, value));
     } else {
         println!("No section {}", section);
     }
@@ -206,7 +211,12 @@ fn main() {
             Command::AddNewKey {
                 ref section,
                 ref key,
-            } => add_new_key(&mut target_ini, section, key).unwrap(),
+            } => add_new_key(&mut target_ini, section, key, key).unwrap(),
+            Command::AddNewKeyValue {
+                ref section,
+                ref key,
+                ref value,
+            } => add_new_key(&mut target_ini, section, key, value).unwrap(),
             Command::MoveKey {
                 ref old,
                 ref new,
@@ -235,7 +245,14 @@ fn main() {
             ref section,
             ref key,
         } => {
-            add_new_key(&mut reference_ini, section, key).unwrap();
+            add_new_key(&mut reference_ini, section, key, key).unwrap();
+        }
+        Command::AddNewKeyValue {
+            ref section,
+            ref key,
+            ref value,
+        } => {
+            add_new_key(&mut reference_ini, section, key, value).unwrap();
         }
         Command::SortSection { ref section } => sort_section(&mut reference_ini, section).unwrap(),
         Command::RenameKey {

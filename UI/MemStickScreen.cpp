@@ -753,6 +753,7 @@ UI::EventReturn ConfirmMemstickMoveScreen::OnConfirm(UI::EventParams &params) {
 				}
 
 				// Delete all the old, now hopefully empty, directories.
+				// Hopefully DeleteDir actually fails if it contains a file...
 				for (auto &dirSuffix : directorySuffixesToCreate) {
 					Path dir = moveSrc / dirSuffix;
 					if (dryRun) {

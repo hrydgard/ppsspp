@@ -1633,8 +1633,25 @@ public abstract class NativeActivity extends Activity {
 				throw new Exception();
 			} catch (Exception e) {
 				NativeApp.reportException(e, params);
-
-
+			}
+		} else if (command.equals("show_folder")) {
+			try {
+				Uri selectedUri = Uri.parse(params);
+				Intent intent = new Intent(Intent.ACTION_VIEW);
+				intent.setDataAndType(selectedUri, "resource/folder");
+				if (intent.resolveActivityInfo(getPackageManager(), 0) != null) {
+					startActivity(intent);
+					Log.i(TAG, "Started activity for " + params);
+					return true;
+				} else {
+					Log.w(TAG, "No file explorer installed");
+					// if you reach this place, it means there is no any file
+					// explorer app installed on your device
+					return false;
+				}
+			} catch (Exception e) {
+				NativeApp.reportException(e, params);
+				return false;
 			}
 		}
 		return false;

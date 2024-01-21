@@ -273,6 +273,11 @@ void EmuScreen::bootGame(const Path &filename) {
 	if (!info || info->pending)
 		return;
 
+	auto sc = GetI18NCategory(I18NCat::SCREEN);
+	if (info->fileType == IdentifiedFileType::PSP_DISC_DIRECTORY) {
+		g_OSD.Show(OSDType::MESSAGE_CENTERED_WARNING, sc->T("ExtractedIsoWarning", "Extracted ISOs often don't work.\nPlay the ISO file directly."), gamePath_.ToVisualString(), 7.0f);
+	}
+
 	extraAssertInfoStr_ = info->id + " " + info->GetTitle();
 	SetExtraAssertInfo(extraAssertInfoStr_.c_str());
 
@@ -283,7 +288,6 @@ void EmuScreen::bootGame(const Path &filename) {
 
 		g_Discord.SetPresenceGame(info->GetTitle().c_str());
 	} else {
-		auto sc = GetI18NCategory(I18NCat::SCREEN);
 		g_Discord.SetPresenceGame(sc->T("Untitled PSP game"));
 	}
 

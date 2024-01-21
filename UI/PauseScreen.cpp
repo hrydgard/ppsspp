@@ -36,6 +36,7 @@
 #include "Core/Reporting.h"
 #include "Core/SaveState.h"
 #include "Core/System.h"
+#include "Core/Core.h"
 #include "Core/Config.h"
 #include "Core/RetroAchievements.h"
 #include "Core/ELF/ParamSFO.h"
@@ -441,15 +442,20 @@ void GamePauseScreen::CreateViews() {
 		rightColumnItems->Add(new Choice(pa->T("Exit to menu")))->OnClick.Handle(this, &GamePauseScreen::OnExitToMenu);
 	}
 
-	ViewGroup *playControls = rightColumnHolder->Add(new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
-	playControls->SetTag("debug");
-	playControls->Add(new Spacer(new LinearLayoutParams(1.0f)));
-	playButton_ = playControls->Add(new Button("", g_Config.bRunBehindPauseMenu ? ImageID("I_PAUSE") : ImageID("I_PLAY"), new LinearLayoutParams(0.0f, G_RIGHT)));
-	playButton_->OnClick.Add([=](UI::EventParams &e) {
-		g_Config.bRunBehindPauseMenu = !g_Config.bRunBehindPauseMenu;
-		playButton_->SetImageID(g_Config.bRunBehindPauseMenu ? ImageID("I_PAUSE") : ImageID("I_PLAY"));
-		return UI::EVENT_DONE;
-	});
+	if (!Core_MustRunBehind()) {
+		ViewGroup *playControls = rightColumnHolder->Add(new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
+		playControls->SetTag("debug");
+		playControls->Add(new Spacer(new LinearLayoutParams(1.0f)));
+		playButton_ = playControls->Add(new Button("", g_Config.bRunBehindPauseMenu ? ImageID("I_PAUSE") : ImageID("I_PLAY"), new LinearLayoutParams(0.0f, G_RIGHT)));
+		playButton_->OnClick.Add([=](UI::EventParams &e) {
+			g_Config.bRunBehindPauseMenu = !g_Config.bRunBehindPauseMenu;
+			playButton_->SetImageID(g_Config.bRunBehindPauseMenu ? ImageID("I_PAUSE") : ImageID("I_PLAY"));
+			return UI::EVENT_DONE;
+		});
+	} else {
+		auto nw = GetI18NCategory(I18NCat::NETWORKING);
+		rightColumnHolder->Add(new TextView(nw->T("Network connected")));
+	}
 	rightColumnHolder->Add(new Spacer(10.0f));
 }
 
