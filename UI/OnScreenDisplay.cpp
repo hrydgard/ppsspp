@@ -24,6 +24,8 @@ static inline const char *DeNull(const char *ptr) {
 	return ptr ? ptr : "";
 }
 
+extern bool g_TakeScreenshot;
+
 static const float g_atlasIconSize = 36.0f;
 static const float extraTextScale = 0.7f;
 
@@ -236,7 +238,7 @@ static void RenderLeaderboardTracker(UIContext &dc, const Bounds &bounds, const 
 }
 
 void OnScreenMessagesView::Draw(UIContext &dc) {
-	if (!g_Config.bShowOnScreenMessages) {
+	if (!g_Config.bShowOnScreenMessages || g_TakeScreenshot) {
 		return;
 	}
 
