@@ -134,6 +134,7 @@ void System_CreateGameShortcut(const Path &path, const std::string &title) {
 	g_requestManager.MakeSystemRequest(SystemRequestType::CREATE_GAME_SHORTCUT, NO_REQUESTER_TOKEN, nullptr, nullptr, path.ToString(), title, 0);
 }
 
+// Also acts as just show folder, if you pass in a folder.
 void System_ShowFileInFolder(const Path &path) {
 	g_requestManager.MakeSystemRequest(SystemRequestType::SHOW_FILE_IN_FOLDER, NO_REQUESTER_TOKEN, nullptr, nullptr, path.ToString(), "", 0);
 }

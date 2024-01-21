@@ -200,6 +200,9 @@ UI::EventReturn DriverManagerScreen::OnCustomDriverChange(UI::EventParams &e) {
 }
 
 UI::EventReturn DriverManagerScreen::OnCustomDriverUninstall(UI::EventParams &e) {
+	if (e.s.empty()) {
+		return UI::EVENT_DONE;
+	}
 	INFO_LOG(G3D, "Uninstalling driver: %s", e.s.c_str());
 
 	Path folder = GetDriverPath() / e.s;

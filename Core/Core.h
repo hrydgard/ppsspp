@@ -39,6 +39,7 @@ void Core_SetGraphicsContext(GraphicsContext *ctx);
 void Core_EnableStepping(bool step, const char *reason = nullptr, u32 relatedAddress = 0);
 
 bool Core_ShouldRunBehind();
+bool Core_MustRunBehind();
 
 bool Core_NextFrame();
 void Core_DoSingleStep();

@@ -105,7 +105,11 @@ void Core_Stop() {
 
 bool Core_ShouldRunBehind() {
 	// Enforce run-behind if ad-hoc connected
-	return g_Config.bRunBehindPauseMenu || __NetAdhocConnected();
+	return g_Config.bRunBehindPauseMenu || Core_MustRunBehind();
+}
+
+bool Core_MustRunBehind() {
+	return __NetAdhocConnected();
 }
 
 bool Core_IsStepping() {
