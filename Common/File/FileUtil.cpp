@@ -613,41 +613,6 @@ bool CreateFullPath(const Path &path) {
 	return true;
 }
 
-// Deletes an empty directory, returns true on success
-bool DeleteDir(const Path &path) {
-	switch (path.Type()) {
-	case PathType::NATIVE:
-		break; // OK
-	case PathType::CONTENT_URI:
-		return Android_RemoveFile(path.ToString()) == StorageError::SUCCESS;
-	default:
-		return false;
-	}
-	INFO_LOG(COMMON, "DeleteDir: directory %s", path.c_str());
-
-	// check if a directory
-	if (!File::IsDirectory(path)) {
-		ERROR_LOG(COMMON, "DeleteDir: Not a directory %s", path.c_str());
-		return false;
-	}
-
-#ifdef _WIN32
-#if PPSSPP_PLATFORM(UWP)
-	if (RemoveDirectoryFromAppW(path.ToWString().c_str()))
-		return true;
-#else
-	if (::RemoveDirectory(path.ToWString().c_str()))
-		return true;
-#endif
-#else
-	if (rmdir(path.c_str()) == 0)
-		return true;
-#endif
-	ERROR_LOG(COMMON, "DeleteDir: %s: %s", path.c_str(), GetLastErrorMsg().c_str());
-
-	return false;
-}
-
 // renames file srcFilename to destFilename, returns true on success 
 bool Rename(const Path &srcFilename, const Path &destFilename) {
 	if (srcFilename.Type() != destFilename.Type()) {
@@ -934,6 +899,41 @@ bool CreateEmptyFile(const Path &filename) {
 	}
 	fclose(pFile);
 	return true;
+}
+
+// Deletes an empty directory, returns true on success
+bool DeleteDir(const Path &path) {
+	switch (path.Type()) {
+	case PathType::NATIVE:
+		break; // OK
+	case PathType::CONTENT_URI:
+		return Android_RemoveFile(path.ToString()) == StorageError::SUCCESS;
+	default:
+		return false;
+	}
+	INFO_LOG(COMMON, "DeleteDir: directory %s", path.c_str());
+
+	// check if a directory
+	if (!File::IsDirectory(path)) {
+		ERROR_LOG(COMMON, "DeleteDir: Not a directory %s", path.c_str());
+		return false;
+	}
+
+#ifdef _WIN32
+#if PPSSPP_PLATFORM(UWP)
+	if (RemoveDirectoryFromAppW(path.ToWString().c_str()))
+		return true;
+#else
+	if (::RemoveDirectory(path.ToWString().c_str()))
+		return true;
+#endif
+#else
+	if (rmdir(path.c_str()) == 0)
+		return true;
+#endif
+	ERROR_LOG(COMMON, "DeleteDir: %s: %s", path.c_str(), GetLastErrorMsg().c_str());
+
+	return false;
 }
 
 // Deletes the given directory and anything under it. Returns true on success.
