@@ -607,7 +607,6 @@ private:
 	std::condition_variable compileCond_;
 	std::mutex compileMutex_;
 	std::vector<CompileQueueEntry> compileQueue_;
-	std::atomic<bool> compileBlocked_{};  // Only for asserting on, now.
 
 	// Thread for measuring presentation delay.
 	std::thread presentWaitThread_;

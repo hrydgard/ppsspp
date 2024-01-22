@@ -349,7 +349,6 @@ bool VulkanRenderManager::CreateBackbuffers() {
 
 void VulkanRenderManager::StartThreads() {
 	runCompileThread_ = true;  // For controlling the compiler thread's exit
-	compileBlocked_ = false;
 
 	if (useRenderThread_) {
 		INFO_LOG(G3D, "Starting Vulkan submission thread");
@@ -378,8 +377,6 @@ void VulkanRenderManager::StopThreads() {
 
 	// Compiler and present thread still relies on this.
 	runCompileThread_ = false;
-	compileBlocked_ = true;
-
 	if (presentWaitThread_.joinable()) {
 		presentWaitThread_.join();
 	}
@@ -412,7 +409,6 @@ void VulkanRenderManager::StopThreads() {
 }
 
 void VulkanRenderManager::DrainAndBlockCompileQueue() {
-	compileBlocked_ = true;
 	runCompileThread_ = false;
 	compileCond_.notify_all();
 	compileThread_.join();
@@ -424,7 +420,6 @@ void VulkanRenderManager::DrainAndBlockCompileQueue() {
 }
 
 void VulkanRenderManager::ReleaseCompileQueue() {
-	compileBlocked_ = false;
 	runCompileThread_ = true;
 	INFO_LOG(G3D, "Restarting Vulkan compiler thread");
 	compileThread_ = std::thread(&VulkanRenderManager::CompileThreadFunc, this);
@@ -785,7 +780,6 @@ VKRGraphicsPipeline *VulkanRenderManager::CreateGraphicsPipeline(VKRGraphicsPipe
 			VKRRenderPassStoreAction::STORE, VKRRenderPassStoreAction::DONT_CARE, VKRRenderPassStoreAction::DONT_CARE,
 		};
 		VKRRenderPass *compatibleRenderPass = queueRunner_.GetRenderPass(key);
-		_dbg_assert_(!compileBlocked_);
 		std::lock_guard<std::mutex> lock(compileMutex_);
 		bool needsCompile = false;
 		for (size_t i = 0; i < (size_t)RenderPassType::TYPE_COUNT; i++) {
@@ -858,7 +852,6 @@ void VulkanRenderManager::EndCurRenderStep() {
 	VkSampleCountFlagBits sampleCount = curRenderStep_->render.framebuffer ? curRenderStep_->render.framebuffer->sampleCount : VK_SAMPLE_COUNT_1_BIT;
 
 	compileMutex_.lock();
-	_dbg_assert_(!compileBlocked_);
 	bool needsCompile = false;
 	for (VKRGraphicsPipeline *pipeline : pipelinesToCheck_) {
 		if (!pipeline) {
