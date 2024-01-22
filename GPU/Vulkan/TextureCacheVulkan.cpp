@@ -496,6 +496,7 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 	}
 
 	if (plan.saveTexture) {
+		INFO_LOG(G3D, "About to save texture");
 		actualFmt = VULKAN_8888_FORMAT;
 	}
 
@@ -647,6 +648,8 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 			}
 			// Format might be wrong in lowMemoryMode_, so don't save.
 			if (plan.saveTexture && !lowMemoryMode_) {
+				INFO_LOG(G3D, "Calling NotifyTextureDecoded %08x", entry->addr);
+
 				// When hardware texture scaling is enabled, this saves the original.
 				int w = dataScaled ? mipWidth : mipUnscaledWidth;
 				int h = dataScaled ? mipHeight : mipUnscaledHeight;

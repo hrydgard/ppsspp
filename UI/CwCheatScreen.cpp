@@ -57,7 +57,7 @@ bool CwCheatScreen::TryLoadCheatInfo() {
 	}
 	if ((info->id.empty() || !info->disc_total)
 		&& gamePath_.FilePathContainsNoCase("PSP/GAME/")) {
-		gameID = g_paramSFO.GenerateFakeID(gamePath_.ToString());
+		gameID = g_paramSFO.GenerateFakeID(gamePath_);
 	}
 
 	if (!engine_ || gameID != gameID_) {
