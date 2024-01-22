@@ -408,23 +408,6 @@ void VulkanRenderManager::StopThreads() {
 	_dbg_assert_(steps_.empty());
 }
 
-void VulkanRenderManager::DrainAndBlockCompileQueue() {
-	runCompileThread_ = false;
-	compileCond_.notify_all();
-	compileThread_.join();
-
-	_assert_(compileQueue_.empty());
-
-	// At this point, no more tasks can be queued to the threadpool. So wait for them all to go away.
-	CreateMultiPipelinesTask::WaitForAll();
-}
-
-void VulkanRenderManager::ReleaseCompileQueue() {
-	runCompileThread_ = true;
-	INFO_LOG(G3D, "Restarting Vulkan compiler thread");
-	compileThread_ = std::thread(&VulkanRenderManager::CompileThreadFunc, this);
-}
-
 void VulkanRenderManager::DestroyBackbuffers() {
 	StopThreads();
 	vulkan_->WaitUntilQueueIdle();

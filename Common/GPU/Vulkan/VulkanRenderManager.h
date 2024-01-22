@@ -529,8 +529,9 @@ public:
 	}
 
 	void ResetStats();
-	void DrainAndBlockCompileQueue();
-	void ReleaseCompileQueue();
+
+	void StartThreads();
+	void StopThreads();
 
 private:
 	void EndCurRenderStep();
@@ -542,9 +543,6 @@ private:
 
 	// Bad for performance but sometimes necessary for synchronous CPU readbacks (screenshots and whatnot).
 	void FlushSync();
-
-	void StartThreads();
-	void StopThreads();
 
 	void PresentWaitThreadFunc();
 	void PollPresentTiming();
