@@ -628,13 +628,12 @@ bool Rename(const Path &srcFilename, const Path &destFilename) {
 		break;
 	case PathType::CONTENT_URI:
 		// Content URI: Can only rename if in the same folder.
-		// TODO: Fallback to move + rename? Or do we even care about that use case?
+		// TODO: Fallback to move + rename? Or do we even care about that use case? We have MoveIfFast for such tricks.
 		if (srcFilename.GetDirectory() != destFilename.GetDirectory()) {
 			INFO_LOG(COMMON, "Content URI rename: Directories not matching, failing. %s --> %s", srcFilename.c_str(), destFilename.c_str());
 			return false;
 		}
 		INFO_LOG(COMMON, "Content URI rename: %s --> %s", srcFilename.c_str(), destFilename.c_str());
-
 		return Android_RenameFileTo(srcFilename.ToString(), destFilename.GetFilename()) == StorageError::SUCCESS;
 	default:
 		return false;
@@ -752,22 +751,12 @@ bool Copy(const Path &srcFilename, const Path &destFilename) {
 
 // Will overwrite the target.
 bool Move(const Path &srcFilename, const Path &destFilename) {
-	// Try a shortcut in Android Storage scenarios.
-	if (srcFilename.Type() == PathType::CONTENT_URI && destFilename.Type() == PathType::CONTENT_URI && srcFilename.CanNavigateUp() && destFilename.CanNavigateUp()) {
-		// We do not handle simultaneous renames here.
-		if (srcFilename.GetFilename() == destFilename.GetFilename()) {
-			Path srcParent = srcFilename.NavigateUp();
-			Path dstParent = destFilename.NavigateUp();
-			if (Android_MoveFile(srcFilename.ToString(), srcParent.ToString(), dstParent.ToString()) == StorageError::SUCCESS) {
-				return true;
-			}
-			// If failed, fall through and try other ways.
-		}
-	}
-
-	if (Rename(srcFilename, destFilename)) {
+	bool fast = MoveIfFast(srcFilename, destFilename);
+	if (fast) {
 		return true;
-	} else if (Copy(srcFilename, destFilename)) {
+	}
+	// OK, that failed, so fall back on a copy.
+	if (Copy(srcFilename, destFilename)) {
 		return Delete(srcFilename);
 	} else {
 		return false;
@@ -775,7 +764,13 @@ bool Move(const Path &srcFilename, const Path &destFilename) {
 }
 
 bool MoveIfFast(const Path &srcFilename, const Path &destFilename) {
-	if (srcFilename.Type() == PathType::CONTENT_URI && destFilename.Type() == PathType::CONTENT_URI && srcFilename.CanNavigateUp() && destFilename.CanNavigateUp()) {
+	if (srcFilename.Type() != destFilename.Type()) {
+		// No way it's gonna work.
+		return false;
+	}
+
+	// Only need to check one type here, due to the above check.
+	if (srcFilename.Type() == PathType::CONTENT_URI && srcFilename.CanNavigateUp() && destFilename.CanNavigateUp()) {
 		if (srcFilename.GetFilename() == destFilename.GetFilename()) {
 			Path srcParent = srcFilename.NavigateUp();
 			Path dstParent = destFilename.NavigateUp();
@@ -787,11 +782,7 @@ bool MoveIfFast(const Path &srcFilename, const Path &destFilename) {
 		}
 	}
 
-	if (srcFilename.Type() != destFilename.Type()) {
-		// No way it's gonna work.
-		return false;
-	}
-
+	// Try a traditional rename operation.
 	return Rename(srcFilename, destFilename);
 }
 

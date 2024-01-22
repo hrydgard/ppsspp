@@ -97,7 +97,7 @@ bool DeleteDir(const Path &filename);
 // Deletes the given directory and anything under it. Returns true on success.
 bool DeleteDirRecursively(const Path &directory);
 
-// Renames file srcFilename to destFilename, returns true on success 
+// Renames/moves file srcFilename to destFilename, returns true on success 
 // Will usually only work with in the same partition or other unit of storage,
 // so you might have to fall back to copy/delete.
 bool Rename(const Path &srcFilename, const Path &destFilename);

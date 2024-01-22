@@ -87,8 +87,10 @@ void TextureReplacer::NotifyConfigChanged() {
 
 		// If we're saving, auto-create the directory.
 		if (g_Config.bSaveNewTextures && !File::Exists(newTextureDir_)) {
+			INFO_LOG(G3D, "Creating new texture directory: '%s'", newTextureDir_.ToVisualString().c_str());
 			File::CreateFullPath(newTextureDir_);
-			File::CreateEmptyFile(newTextureDir_ / ".nomedia");
+			// We no longer create a nomedia file here, since we put one
+			// in the TEXTURES root.
 		}
 
 		enabled_ = File::IsDirectory(basePath_);
