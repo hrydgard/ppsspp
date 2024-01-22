@@ -134,7 +134,6 @@ void GameManager::UninstallGame(const std::string &name) {
 	AndroidJNIThreadContext context;  // Destructor detaches.
 
 	Path gameDir = GetSysDirectory(DIRECTORY_GAME) / name;
-
 	auto st = GetI18NCategory(I18NCat::STORE);
 
 	INFO_LOG(HLE, "Uninstalling '%s'", gameDir.c_str());
