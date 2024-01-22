@@ -742,6 +742,7 @@ SOURCES_CXX += \
 	       $(COREDIR)/System.cpp \
 	       $(COREDIR)/ThreadPools.cpp \
 	       $(COREDIR)/Util/BlockAllocator.cpp \
+	       $(COREDIR)/Util/MemStick.cpp \
 	       $(COREDIR)/Util/PPGeDraw.cpp \
 	       $(COREDIR)/Util/AudioFormat.cpp \
 	       $(COREDIR)/Util/PortManager.cpp \

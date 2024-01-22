@@ -321,6 +321,7 @@
     <ClInclude Include="..\..\Core\ThreadPools.h" />
     <ClInclude Include="..\..\Core\TiltEventProcessor.h" />
     <ClInclude Include="..\..\Core\Util\GameDB.h" />
+    <ClInclude Include="..\..\Core\Util\MemStick.h" />
     <ClInclude Include="..\..\Core\Util\PortManager.h" />
     <ClInclude Include="..\..\Core\WebServer.h" />
     <ClInclude Include="..\..\Core\Util\AudioFormat.h" />
@@ -607,6 +608,7 @@
     <ClCompile Include="..\..\Core\ThreadPools.cpp" />
     <ClCompile Include="..\..\Core\TiltEventProcessor.cpp" />
     <ClCompile Include="..\..\Core\Util\GameDB.cpp" />
+    <ClCompile Include="..\..\Core\Util\MemStick.cpp" />
     <ClCompile Include="..\..\Core\Util\PortManager.cpp" />
     <ClCompile Include="..\..\Core\WebServer.cpp" />
     <ClCompile Include="..\..\Core\Util\AudioFormat.cpp" />

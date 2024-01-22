@@ -735,6 +735,7 @@ bool TextureReplacer::WillSave(const ReplacedTextureDecodeInfo &replacedInfo) {
 
 void TextureReplacer::NotifyTextureDecoded(ReplacedTexture *texture, const ReplacedTextureDecodeInfo &replacedInfo, const void *data, int pitch, int level, int origW, int origH, int scaledW, int scaledH) {
 	_assert_msg_(enabled_, "Replacement not enabled");
+	_assert_(pitch >= 0);
 
 	if (!WillSave(replacedInfo)) {
 		// Ignore.
@@ -798,7 +799,7 @@ void TextureReplacer::NotifyTextureDecoded(ReplacedTexture *texture, const Repla
 	// while we're at it.
 	saveBuf.resize(w * h * 4);
 	for (int y = 0; y < h; y++) {
-		memcpy((u8 *)saveBuf.data() + y * w * 4, (const u8 *)data + y * pitch, w * sizeof(u32));
+		memcpy((u8 *)saveBuf.data() + y * w * 4, (const u8 *)data + y * pitch, w * 4);
 	}
 	pitch = w * 4;
 
