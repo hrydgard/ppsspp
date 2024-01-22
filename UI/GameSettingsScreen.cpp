@@ -1192,6 +1192,7 @@ void GameSettingsScreen::CreateSystemSettings(UI::ViewGroup *systemSettings) {
 
 	systemSettings->Add(new CheckBox(&g_Config.bCacheFullIsoInRam, sy->T("Cache ISO in RAM", "Cache full ISO in RAM")))->SetEnabled(!PSP_IsInited());
 	systemSettings->Add(new CheckBox(&g_Config.bCheckForNewVersion, sy->T("VersionCheck", "Check for new versions of PPSSPP")));
+	systemSettings->Add(new CheckBox(&g_Config.bScreenshotsAsPNG, sy->T("Screenshots as PNG")));
 
 	systemSettings->Add(new ItemHeader(sy->T("Cheats", "Cheats")));
 	CheckBox *enableCheats = systemSettings->Add(new CheckBox(&g_Config.bEnableCheats, sy->T("Enable Cheats")));
@@ -1208,15 +1209,6 @@ void GameSettingsScreen::CreateSystemSettings(UI::ViewGroup *systemSettings) {
 	static const char *models[] = { "PSP-1000", "PSP-2000/3000" };
 	systemSettings->Add(new PopupMultiChoice(&g_Config.iPSPModel, sy->T("PSP Model"), models, 0, ARRAY_SIZE(models), I18NCat::SYSTEM, screenManager()))->SetEnabled(!PSP_IsInited());
 	systemSettings->Add(new PopupTextInputChoice(GetRequesterToken(), &g_Config.sNickName, sy->T("Change Nickname"), "", 32, screenManager()));
-	systemSettings->Add(new CheckBox(&g_Config.bScreenshotsAsPNG, sy->T("Screenshots as PNG")));
-
-#if defined(_WIN32) || (defined(USING_QT_UI) && !defined(MOBILE_DEVICE))
-	systemSettings->Add(new CheckBox(&g_Config.bDumpFrames, sy->T("Record Display")));
-	systemSettings->Add(new CheckBox(&g_Config.bUseFFV1, sy->T("Use Lossless Video Codec (FFV1)")));
-	systemSettings->Add(new CheckBox(&g_Config.bDumpVideoOutput, sy->T("Use output buffer (with overlay) for recording")));
-	systemSettings->Add(new CheckBox(&g_Config.bDumpAudio, sy->T("Record Audio")));
-	systemSettings->Add(new CheckBox(&g_Config.bSaveLoadResetsAVdumping, sy->T("Reset Recording on Save/Load State")));
-#endif
 	systemSettings->Add(new CheckBox(&g_Config.bDayLightSavings, sy->T("Day Light Saving")));
 	static const char *dateFormat[] = { "YYYYMMDD", "MMDDYYYY", "DDMMYYYY" };
 	systemSettings->Add(new PopupMultiChoice(&g_Config.iDateFormat, sy->T("Date Format"), dateFormat, 0, 3, I18NCat::SYSTEM, screenManager()));
@@ -1224,6 +1216,15 @@ void GameSettingsScreen::CreateSystemSettings(UI::ViewGroup *systemSettings) {
 	systemSettings->Add(new PopupMultiChoice(&g_Config.iTimeFormat, sy->T("Time Format"), timeFormat, 0, 2, I18NCat::SYSTEM, screenManager()));
 	static const char *buttonPref[] = { "Use O to confirm", "Use X to confirm" };
 	systemSettings->Add(new PopupMultiChoice(&g_Config.iButtonPreference, sy->T("Confirmation Button"), buttonPref, 0, 2, I18NCat::SYSTEM, screenManager()));
+
+	systemSettings->Add(new ItemHeader(sy->T("Recording settings")));
+#if defined(_WIN32) || (defined(USING_QT_UI) && !defined(MOBILE_DEVICE))
+	systemSettings->Add(new CheckBox(&g_Config.bDumpFrames, sy->T("Record Display")));
+	systemSettings->Add(new CheckBox(&g_Config.bUseFFV1, sy->T("Use Lossless Video Codec (FFV1)")));
+	systemSettings->Add(new CheckBox(&g_Config.bDumpVideoOutput, sy->T("Use output buffer (with overlay) for recording")));
+	systemSettings->Add(new CheckBox(&g_Config.bDumpAudio, sy->T("Record Audio")));
+	systemSettings->Add(new CheckBox(&g_Config.bSaveLoadResetsAVdumping, sy->T("Reset Recording on Save/Load State")));
+#endif
 }
 
 void GameSettingsScreen::CreateVRSettings(UI::ViewGroup *vrSettings) {
@@ -1746,6 +1747,13 @@ void DeveloperToolsScreen::CreateViews() {
 
 	AddOverlayList(list, screenManager());
 
+	list->Add(new CheckBox(&g_Config.bEnableLogging, dev->T("Enable Logging")))->OnClick.Handle(this, &DeveloperToolsScreen::OnLoggingChanged);
+	list->Add(new Choice(dev->T("Logging Channels")))->OnClick.Handle(this, &DeveloperToolsScreen::OnLogConfig);
+	list->Add(new CheckBox(&g_Config.bLogFrameDrops, dev->T("Log Dropped Frame Statistics")));
+	if (GetGPUBackend() == GPUBackend::VULKAN) {
+		list->Add(new CheckBox(&g_Config.bGpuLogProfiler, dev->T("GPU log profiler")));
+	}
+
 	if (g_Config.iGPUBackend == (int)GPUBackend::VULKAN) {
 		list->Add(new CheckBox(&g_Config.bRenderMultiThreading, dev->T("Multi-threaded rendering"), ""))->OnClick.Add([](UI::EventParams &e) {
 			// TODO: Not translating yet. Will combine with other translations of settings that need restart.
@@ -1770,6 +1778,7 @@ void DeveloperToolsScreen::CreateViews() {
 	list->Add(new CheckBox(&g_Config.bVendorBugChecksEnabled, dev->T("Enable driver bug workarounds")));
 	list->Add(new Choice(dev->T("Framedump tests")))->OnClick.Handle(this, &DeveloperToolsScreen::OnFramedumpTest);
 	list->Add(new Choice(dev->T("Touchscreen Test")))->OnClick.Handle(this, &DeveloperToolsScreen::OnTouchscreenTest);
+	// list->Add(new Choice(dev->T("Memstick Test")))->OnClick.Handle(this, &DeveloperToolsScreen::OnMemstickTest);
 
 	allowDebugger_ = !WebServerStopped(WebServerFlags::DEBUGGER);
 	canAllowDebugger_ = !WebServerStopping(WebServerFlags::DEBUGGER);
@@ -1778,12 +1787,6 @@ void DeveloperToolsScreen::CreateViews() {
 	allowDebugger->SetEnabledPtr(&canAllowDebugger_);
 
 	list->Add(new CheckBox(&g_Config.bShowOnScreenMessages, dev->T("Show on-screen messages")));
-	list->Add(new CheckBox(&g_Config.bEnableLogging, dev->T("Enable Logging")))->OnClick.Handle(this, &DeveloperToolsScreen::OnLoggingChanged);
-	list->Add(new Choice(dev->T("Logging Channels")))->OnClick.Handle(this, &DeveloperToolsScreen::OnLogConfig);
-	list->Add(new CheckBox(&g_Config.bLogFrameDrops, dev->T("Log Dropped Frame Statistics")));
-	if (GetGPUBackend() == GPUBackend::VULKAN) {
-		list->Add(new CheckBox(&g_Config.bGpuLogProfiler, dev->T("GPU log profiler")));
-	}
 
 #if PPSSPP_PLATFORM(ANDROID)
 	static const char *framerateModes[] = { "Default", "Request 60Hz", "Force 60Hz" };
@@ -1986,6 +1989,53 @@ void DeveloperToolsScreen::update() {
 	UIDialogScreenWithBackground::update();
 	allowDebugger_ = !WebServerStopped(WebServerFlags::DEBUGGER);
 	canAllowDebugger_ = !WebServerStopping(WebServerFlags::DEBUGGER);
+}
+
+static bool RunMemstickTest(std::string *error) {
+	Path testRoot = GetSysDirectory(PSPDirectories::DIRECTORY_CACHE) / "test";
+
+	*error = "N/A";
+
+	File::CreateDir(testRoot);
+	if (!File::Exists(testRoot)) {
+		return false;
+	}
+
+	Path testFilePath = testRoot / "temp.txt";
+	File::CreateEmptyFile(testFilePath);
+
+	// Attempt to delete the test root. This should fail since it still contains files.
+	File::DeleteDir(testRoot);
+	if (!File::Exists(testRoot)) {
+		*error = "testroot was deleted with a file in it!";
+		return false;
+	}
+
+	File::Delete(testFilePath);
+	if (File::Exists(testFilePath)) {
+		*error = "testfile wasn't deleted";
+		return false;
+	}
+
+	File::DeleteDir(testRoot);
+	if (File::Exists(testRoot)) {
+		*error = "testroot wasn't deleted, even when empty";
+		return false;
+	}
+
+	*error = "passed";
+	return true;
+}
+
+UI::EventReturn DeveloperToolsScreen::OnMemstickTest(UI::EventParams &e) {
+	std::string error;
+	if (RunMemstickTest(&error)) {
+		g_OSD.Show(OSDType::MESSAGE_SUCCESS, "Memstick test passed", error, 6.0f);
+	} else {
+		g_OSD.Show(OSDType::MESSAGE_ERROR, "Memstick test failed", error, 6.0f);
+	}
+
+	return UI::EVENT_DONE;
 }
 
 void HostnameSelectScreen::CreatePopupContents(UI::ViewGroup *parent) {

@@ -311,15 +311,15 @@ void ProductView::CreateViews() {
 	} else {
 		installButton_ = nullptr;
 		speedView_ = nullptr;
-		Add(new TextView(st->T("Already Installed")));
+		launchButton_ = new Button(st->T("Launch Game"));
+		launchButton_->OnClick.Handle(this, &ProductView::OnLaunchClick);
+		Add(launchButton_);
 		uninstallButton_ = new Button(st->T("Uninstall"));
 		Add(uninstallButton_)->OnClick.Add([=](UI::EventParams &e) {
 			g_GameManager.UninstallGameOnThread(entry_.file);
 			return UI::EVENT_DONE;
 		});
-		launchButton_ = new Button(st->T("Launch Game"));
-		launchButton_->OnClick.Handle(this, &ProductView::OnLaunchClick);
-		Add(launchButton_);
+		Add(new TextView(st->T("Installed")));
 	}
 
 	cancelButton_ = Add(new Button(di->T("Cancel")));

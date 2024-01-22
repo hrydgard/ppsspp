@@ -613,41 +613,6 @@ bool CreateFullPath(const Path &path) {
 	return true;
 }
 
-// Deletes an empty directory, returns true on success
-bool DeleteDir(const Path &path) {
-	switch (path.Type()) {
-	case PathType::NATIVE:
-		break; // OK
-	case PathType::CONTENT_URI:
-		return Android_RemoveFile(path.ToString()) == StorageError::SUCCESS;
-	default:
-		return false;
-	}
-	INFO_LOG(COMMON, "DeleteDir: directory %s", path.c_str());
-
-	// check if a directory
-	if (!File::IsDirectory(path)) {
-		ERROR_LOG(COMMON, "DeleteDir: Not a directory %s", path.c_str());
-		return false;
-	}
-
-#ifdef _WIN32
-#if PPSSPP_PLATFORM(UWP)
-	if (RemoveDirectoryFromAppW(path.ToWString().c_str()))
-		return true;
-#else
-	if (::RemoveDirectory(path.ToWString().c_str()))
-		return true;
-#endif
-#else
-	if (rmdir(path.c_str()) == 0)
-		return true;
-#endif
-	ERROR_LOG(COMMON, "DeleteDir: %s: %s", path.c_str(), GetLastErrorMsg().c_str());
-
-	return false;
-}
-
 // renames file srcFilename to destFilename, returns true on success 
 bool Rename(const Path &srcFilename, const Path &destFilename) {
 	if (srcFilename.Type() != destFilename.Type()) {
@@ -936,19 +901,57 @@ bool CreateEmptyFile(const Path &filename) {
 	return true;
 }
 
-// Deletes the given directory and anything under it. Returns true on success.
-bool DeleteDirRecursively(const Path &directory) {
-	switch (directory.Type()) {
-	case PathType::CONTENT_URI:
+// Deletes an empty directory, returns true on success
+// WARNING: On Android with content URIs, it will delete recursively!
+bool DeleteDir(const Path &path) {
+	switch (path.Type()) {
 	case PathType::NATIVE:
-		break;  // OK
+		break; // OK
+	case PathType::CONTENT_URI:
+		return Android_RemoveFile(path.ToString()) == StorageError::SUCCESS;
+	default:
+		return false;
+	}
+	INFO_LOG(COMMON, "DeleteDir: directory %s", path.c_str());
+
+	// check if a directory
+	if (!File::IsDirectory(path)) {
+		ERROR_LOG(COMMON, "DeleteDir: Not a directory %s", path.c_str());
+		return false;
+	}
+
+#ifdef _WIN32
+#if PPSSPP_PLATFORM(UWP)
+	if (RemoveDirectoryFromAppW(path.ToWString().c_str()))
+		return true;
+#else
+	if (::RemoveDirectory(path.ToWString().c_str()))
+		return true;
+#endif
+#else
+	if (rmdir(path.c_str()) == 0)
+		return true;
+#endif
+	ERROR_LOG(COMMON, "DeleteDir: %s: %s", path.c_str(), GetLastErrorMsg().c_str());
+
+	return false;
+}
+
+// Deletes the given directory and anything under it. Returns true on success.
+bool DeleteDirRecursively(const Path &path) {
+	switch (path.Type()) {
+	case PathType::NATIVE:
+		break;
+	case PathType::CONTENT_URI:
+		// We make use of the dangerous auto-recursive property of Android_RemoveFile.
+		return Android_RemoveFile(path.ToString()) == StorageError::SUCCESS;
 	default:
 		ERROR_LOG(COMMON, "DeleteDirRecursively: Path type not supported");
 		return false;
 	}
 
 	std::vector<FileInfo> files;
-	GetFilesInDir(directory, &files, nullptr, GETFILES_GETHIDDEN);
+	GetFilesInDir(path, &files, nullptr, GETFILES_GETHIDDEN);
 	for (const auto &file : files) {
 		if (file.isDirectory) {
 			DeleteDirRecursively(file.fullName);
@@ -956,7 +959,7 @@ bool DeleteDirRecursively(const Path &directory) {
 			Delete(file.fullName);
 		}
 	}
-	return DeleteDir(directory);
+	return DeleteDir(path);
 }
 
 bool OpenFileInEditor(const Path &fileName) {

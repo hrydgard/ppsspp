@@ -74,6 +74,7 @@ bool GameInfo::Delete() {
 		{
 			// Just delete the one file (TODO: handle two-disk games as well somehow).
 			Path fileToRemove = filePath_;
+			INFO_LOG(SYSTEM, "Deleting file %s", fileToRemove.c_str());
 			File::Delete(fileToRemove);
 			g_Config.RemoveRecent(filePath_.ToString());
 			return true;
@@ -83,7 +84,7 @@ bool GameInfo::Delete() {
 		{
 			// TODO: This could be handled by Core/Util/GameManager too somehow.
 			Path directoryToRemove = ResolvePBPDirectory(filePath_);
-			INFO_LOG(SYSTEM, "Deleting %s", directoryToRemove.c_str());
+			INFO_LOG(SYSTEM, "Deleting directory %s", directoryToRemove.c_str());
 			if (!File::DeleteDirRecursively(directoryToRemove)) {
 				ERROR_LOG(SYSTEM, "Failed to delete file");
 				return false;
@@ -101,6 +102,7 @@ bool GameInfo::Delete() {
 	case IdentifiedFileType::PPSSPP_GE_DUMP:
 		{
 			const Path &fileToRemove = filePath_;
+			INFO_LOG(SYSTEM, "Deleting file %s", fileToRemove.c_str());
 			File::Delete(fileToRemove);
 			g_Config.RemoveRecent(filePath_.ToString());
 			return true;
@@ -109,6 +111,7 @@ bool GameInfo::Delete() {
 	case IdentifiedFileType::PPSSPP_SAVESTATE:
 		{
 			const Path &ppstPath = filePath_;
+			INFO_LOG(SYSTEM, "Deleting file %s", ppstPath.c_str());
 			File::Delete(ppstPath);
 			const Path screenshotPath = filePath_.WithReplacedExtension(".ppst", ".jpg");
 			if (File::Exists(screenshotPath)) {
@@ -118,6 +121,7 @@ bool GameInfo::Delete() {
 		}
 
 	default:
+		INFO_LOG(SYSTEM, "Don't know how to delete this type of file: %s", filePath_.c_str());
 		return false;
 	}
 }
