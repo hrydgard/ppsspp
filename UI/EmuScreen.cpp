@@ -1432,6 +1432,9 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 		}
 
 		PSP_EndHostFrame();
+
+		// This place rougly matches how libretro handles it (after retro_frame).
+		Achievements::FrameUpdate();
 	}
 
 
