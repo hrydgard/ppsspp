@@ -370,20 +370,20 @@ void VulkanRenderManager::StopThreads() {
 		// Tell the render thread to quit when it's done.
 		VKRRenderThreadTask *task = new VKRRenderThreadTask(VKRRunType::EXIT);
 		task->frame = vulkan_->GetCurFrame();
-		std::unique_lock<std::mutex> lock(pushMutex_);
-		renderThreadQueue_.push(task);
+		{
+			std::unique_lock<std::mutex> lock(pushMutex_);
+			renderThreadQueue_.push(task);
+		}
 		pushCondVar_.notify_one();
+		// Once the render thread encounters the above exit task, it'll exit.
+		renderThread_.join();
 	}
 
 	// Compiler and present thread still relies on this.
 	runCompileThread_ = false;
+
 	if (presentWaitThread_.joinable()) {
 		presentWaitThread_.join();
-	}
-
-	// Stop the thread.
-	if (useRenderThread_) {
-		renderThread_.join();
 	}
 
 	for (int i = 0; i < vulkan_->GetInflightFrames(); i++) {
@@ -394,17 +394,12 @@ void VulkanRenderManager::StopThreads() {
 
 	INFO_LOG(G3D, "Vulkan submission thread joined. Frame=%d", vulkan_->GetCurFrame());
 
-	if (compileThread_.joinable()) {
-		// Lock to avoid race conditions. Not sure if needed.
-		{
-			std::lock_guard<std::mutex> guard(compileMutex_);
-			compileCond_.notify_all();
-		}
-		compileThread_.join();
-	}
+	_assert_(compileThread_.joinable());
+	compileCond_.notify_all();
+	compileThread_.join();
+
 	INFO_LOG(G3D, "Vulkan compiler thread joined. Now wait for any straggling compile tasks.");
 	CreateMultiPipelinesTask::WaitForAll();
-
 	_dbg_assert_(steps_.empty());
 }
 
@@ -488,12 +483,12 @@ void VulkanRenderManager::CompileThreadFunc() {
 			g_threadManager.EnqueueTask(task);
 		}
 
-		// Hold off just a bit before we check again, to allow bunches of pipelines to collect.
-		sleep_ms(1);
-
 		if (!runCompileThread_) {
 			break;
 		}
+
+		// Hold off just a bit before we check again, to allow bunches of pipelines to collect.
+		sleep_ms(1);
 	}
 }
 
