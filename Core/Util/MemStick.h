@@ -8,7 +8,7 @@
 
 class MoveProgressReporter {
 public:
-	void Set(const std::string &value) {
+	void SetStatus(const std::string &value) {
 		std::lock_guard<std::mutex> guard(mutex_);
 		progress_ = value;
 	}

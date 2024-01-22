@@ -62,7 +62,6 @@ bool SwitchMemstickFolderTo(Path newMemstickFolder) {
 	return true;
 }
 
-
 // Keep the size with the file, so we can skip overly large ones in the move.
 // The user will have to take care of them afterwards, it'll just take too long probably.
 struct FileSuffix {
@@ -100,6 +99,28 @@ static bool ListFileSuffixesRecursively(const Path &root, const Path &folder, st
 	return true;
 }
 
+bool MoveChildrenFast(const Path &moveSrc, const Path &moveDest, MoveProgressReporter &progressReporter) {
+	std::vector<File::FileInfo> files;
+	progressReporter.SetStatus("Starting move...");
+	if (!File::GetFilesInDir(moveSrc, &files)) {
+		return false;
+	}
+
+	for (auto file : files) {
+		// Construct destination path
+		Path fileSrc = file.fullName;
+		Path fileDest = moveDest / file.name;
+		progressReporter.SetStatus(file.name);
+		INFO_LOG(SYSTEM, "About to move PSP data from '%s' to '%s'", fileSrc.c_str(), fileDest.c_str());
+		bool result = File::MoveIfFast(fileSrc, fileDest);
+		if (!result) {
+			// TODO: Should we try to move back anything that succeeded before this one?
+			return false;
+		}
+	}
+	return true;
+}
+
 MoveResult *MoveDirectoryContentsSafe(Path moveSrc, Path moveDest, MoveProgressReporter &progressReporter) {
 	auto ms = GetI18NCategory(I18NCat::MEMSTICK);
 	if (moveSrc.GetFilename() != "PSP") {
@@ -112,6 +133,20 @@ MoveResult *MoveDirectoryContentsSafe(Path moveSrc, Path moveDest, MoveProgressR
 
 	INFO_LOG(SYSTEM, "About to move PSP data from '%s' to '%s'", moveSrc.c_str(), moveDest.c_str());
 
+	// First, we try the cheapest and safest way to move: Can we move files directly within the same device?
+	// We loop through the files/dirs in the source directory and just try to move them, it should work.
+	if (MoveChildrenFast(moveSrc, moveDest, progressReporter)) {
+		INFO_LOG(SYSTEM, "Quick-move succeeded");
+		progressReporter.SetStatus(ms->T("Done!"));
+		return new MoveResult{
+			true, ""
+		};
+	}
+
+	// If this doesn't work, we'll fall back on a recursive *copy* (disk space is less of a concern when
+	// moving from device to device, other than that everything fits on the destination).
+	// Then we verify the results before we delete the originals.
+
 	// Search through recursively, listing the files to move and also summing their sizes.
 	std::vector<FileSuffix> fileSuffixesToMove;
 	std::vector<std::string> directorySuffixesToCreate;
@@ -121,7 +156,7 @@ MoveResult *MoveDirectoryContentsSafe(Path moveSrc, Path moveDest, MoveProgressR
 		// TODO: Handle failure listing files.
 		std::string error = "Failed to read old directory";
 		INFO_LOG(SYSTEM, "%s", error.c_str());
-		progressReporter.Set(ms->T(error.c_str()));
+		progressReporter.SetStatus(ms->T(error.c_str()));
 		return new MoveResult{ false, error };
 	}
 
@@ -144,14 +179,14 @@ MoveResult *MoveDirectoryContentsSafe(Path moveSrc, Path moveDest, MoveProgressR
 				INFO_LOG(SYSTEM, "dry run: Would have created dir '%s'", dir.c_str());
 			} else {
 				INFO_LOG(SYSTEM, "Creating dir '%s'", dir.c_str());
-				progressReporter.Set(dirSuffix);
+				progressReporter.SetStatus(dirSuffix);
 				// Just ignore already-exists errors.
 				File::CreateDir(dir);
 			}
 		}
 
 		for (auto &fileSuffix : fileSuffixesToMove) {
-			progressReporter.Set(StringFromFormat("%s (%s)", fileSuffix.suffix.c_str(), NiceSizeFormat(fileSuffix.fileSize).c_str()));
+			progressReporter.SetStatus(StringFromFormat("%s (%s)", fileSuffix.suffix.c_str(), NiceSizeFormat(fileSuffix.fileSize).c_str()));
 
 			Path from = moveSrc / fileSuffix.suffix;
 			Path to = moveDest / fileSuffix.suffix;
@@ -163,8 +198,7 @@ MoveResult *MoveDirectoryContentsSafe(Path moveSrc, Path moveDest, MoveProgressR
 				} else {
 					if (!File::MoveIfFast(from, to)) {
 						INFO_LOG(SYSTEM, "Skipped moving file '%s' to '%s' (%s)", from.c_str(), to.c_str(), NiceSizeFormat(fileSuffix.fileSize).c_str());
-						skippedFiles++;
-					} else {
+						skippedFiles++; 
 						INFO_LOG(SYSTEM, "Moved file '%s' to '%s'", from.c_str(), to.c_str());
 					}
 				}
@@ -193,7 +227,7 @@ MoveResult *MoveDirectoryContentsSafe(Path moveSrc, Path moveDest, MoveProgressR
 				INFO_LOG(SYSTEM, "dry run: Would have deleted dir '%s'", dir.c_str());
 			} else {
 				INFO_LOG(SYSTEM, "Deleting dir '%s'", dir.c_str());
-				progressReporter.Set(dirSuffix);
+				progressReporter.SetStatus(dirSuffix);
 				if (File::Exists(dir)) {
 					File::DeleteDir(dir);
 				}

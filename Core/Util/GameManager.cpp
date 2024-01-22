@@ -345,6 +345,7 @@ bool GameManager::InstallGame(const Path &url, const Path &fileName, bool delete
 			if (info.stripChars == 0) {
 				success = InstallMemstickZip(z, fileName, dest / "textures.zip", info, deleteAfter);
 			} else {
+				// TODO: Can probably remove this, as we now put .nomedia in /TEXTURES directly.
 				File::CreateEmptyFile(dest / ".nomedia");
 				success = InstallMemstickGame(z, fileName, dest, info, true, deleteAfter);
 			}
