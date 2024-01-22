@@ -191,30 +191,17 @@ MoveResult *MoveDirectoryContentsSafe(Path moveSrc, Path moveDest, MoveProgressR
 			Path from = moveSrc / fileSuffix.suffix;
 			Path to = moveDest / fileSuffix.suffix;
 
-			if (fileSuffix.fileSize > BIG_FILE_THRESHOLD) {
-				// We only move big files if it's fast to do so.
-				if (dryRun) {
-					INFO_LOG(SYSTEM, "dry run: Would have moved '%s' to '%s' (%d bytes) if fast", from.c_str(), to.c_str(), (int)fileSuffix.fileSize);
-				} else {
-					if (!File::MoveIfFast(from, to)) {
-						INFO_LOG(SYSTEM, "Skipped moving file '%s' to '%s' (%s)", from.c_str(), to.c_str(), NiceSizeFormat(fileSuffix.fileSize).c_str());
-						skippedFiles++; 
-						INFO_LOG(SYSTEM, "Moved file '%s' to '%s'", from.c_str(), to.c_str());
-					}
-				}
+			if (dryRun) {
+				INFO_LOG(SYSTEM, "dry run: Would have moved '%s' to '%s' (%d bytes)", from.c_str(), to.c_str(), (int)fileSuffix.fileSize);
 			} else {
-				if (dryRun) {
-					INFO_LOG(SYSTEM, "dry run: Would have moved '%s' to '%s' (%d bytes)", from.c_str(), to.c_str(), (int)fileSuffix.fileSize);
+				// Remove the "from" prefix from the path.
+				// We have to drop down to string operations for this.
+				if (!File::Copy(from, to)) {
+					ERROR_LOG(SYSTEM, "Failed to copy file '%s' to '%s'", from.c_str(), to.c_str());
+					failedFiles++;
+					// Should probably just bail?
 				} else {
-					// Remove the "from" prefix from the path.
-					// We have to drop down to string operations for this.
-					if (!File::Move(from, to)) {
-						ERROR_LOG(SYSTEM, "Failed to move file '%s' to '%s'", from.c_str(), to.c_str());
-						failedFiles++;
-						// Should probably just bail?
-					} else {
-						INFO_LOG(SYSTEM, "Moved file '%s' to '%s'", from.c_str(), to.c_str());
-					}
+					INFO_LOG(SYSTEM, "Copied file '%s' to '%s'", from.c_str(), to.c_str());
 				}
 			}
 		}
