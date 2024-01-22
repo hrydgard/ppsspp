@@ -342,47 +342,48 @@ bool VulkanRenderManager::CreateBackbuffers() {
 
 	// Start the thread(s).
 	if (HasBackbuffers()) {
-		runCompileThread_ = true;  // For controlling the compiler thread's exit
-		compileBlocked_ = false;
-
-		if (useRenderThread_) {
-			INFO_LOG(G3D, "Starting Vulkan submission thread");
-			thread_ = std::thread(&VulkanRenderManager::ThreadFunc, this);
-		}
-		INFO_LOG(G3D, "Starting Vulkan compiler thread");
-		compileThread_ = std::thread(&VulkanRenderManager::CompileThreadFunc, this);
-
-		if (measurePresentTime_ && vulkan_->Extensions().KHR_present_wait && vulkan_->GetPresentMode() == VK_PRESENT_MODE_FIFO_KHR) {
-			INFO_LOG(G3D, "Starting Vulkan present wait thread");
-			presentWaitThread_ = std::thread(&VulkanRenderManager::PresentWaitThreadFunc, this);
-		}
+		StartThreads();
 	}
 	return true;
 }
 
-// Called from main thread.
-void VulkanRenderManager::StopThread() {
+void VulkanRenderManager::StartThreads() {
+	runCompileThread_ = true;  // For controlling the compiler thread's exit
+
 	if (useRenderThread_) {
-		_dbg_assert_(thread_.joinable());
+		INFO_LOG(G3D, "Starting Vulkan submission thread");
+		renderThread_ = std::thread(&VulkanRenderManager::RenderThreadFunc, this);
+	}
+	INFO_LOG(G3D, "Starting Vulkan compiler thread");
+	compileThread_ = std::thread(&VulkanRenderManager::CompileThreadFunc, this);
+
+	if (measurePresentTime_ && vulkan_->Extensions().KHR_present_wait && vulkan_->GetPresentMode() == VK_PRESENT_MODE_FIFO_KHR) {
+		INFO_LOG(G3D, "Starting Vulkan present wait thread");
+		presentWaitThread_ = std::thread(&VulkanRenderManager::PresentWaitThreadFunc, this);
+	}
+}
+
+// Called from main thread.
+void VulkanRenderManager::StopThreads() {
+	if (useRenderThread_) {
+		_dbg_assert_(renderThread_.joinable());
 		// Tell the render thread to quit when it's done.
 		VKRRenderThreadTask *task = new VKRRenderThreadTask(VKRRunType::EXIT);
 		task->frame = vulkan_->GetCurFrame();
-		std::unique_lock<std::mutex> lock(pushMutex_);
-		renderThreadQueue_.push(task);
+		{
+			std::unique_lock<std::mutex> lock(pushMutex_);
+			renderThreadQueue_.push(task);
+		}
 		pushCondVar_.notify_one();
+		// Once the render thread encounters the above exit task, it'll exit.
+		renderThread_.join();
 	}
 
 	// Compiler and present thread still relies on this.
 	runCompileThread_ = false;
-	compileBlocked_ = true;
 
 	if (presentWaitThread_.joinable()) {
 		presentWaitThread_.join();
-	}
-
-	// Stop the thread.
-	if (useRenderThread_) {
-		thread_.join();
 	}
 
 	for (int i = 0; i < vulkan_->GetInflightFrames(); i++) {
@@ -393,22 +394,17 @@ void VulkanRenderManager::StopThread() {
 
 	INFO_LOG(G3D, "Vulkan submission thread joined. Frame=%d", vulkan_->GetCurFrame());
 
-	if (compileThread_.joinable()) {
-		// Lock to avoid race conditions. Not sure if needed.
-		{
-			std::lock_guard<std::mutex> guard(compileMutex_);
-			compileCond_.notify_all();
-		}
-		compileThread_.join();
-	}
+	_assert_(compileThread_.joinable());
+	compileCond_.notify_all();
+	compileThread_.join();
+
 	INFO_LOG(G3D, "Vulkan compiler thread joined. Now wait for any straggling compile tasks.");
 	CreateMultiPipelinesTask::WaitForAll();
-
 	_dbg_assert_(steps_.empty());
 }
 
 void VulkanRenderManager::DestroyBackbuffers() {
-	StopThread();
+	StopThreads();
 	vulkan_->WaitUntilQueueIdle();
 
 	queueRunner_.DestroyBackBuffers();
@@ -487,35 +483,16 @@ void VulkanRenderManager::CompileThreadFunc() {
 			g_threadManager.EnqueueTask(task);
 		}
 
-		// Hold off just a bit before we check again, to allow bunches of pipelines to collect.
-		sleep_ms(1);
-
 		if (!runCompileThread_) {
 			break;
 		}
+
+		// Hold off just a bit before we check again, to allow bunches of pipelines to collect.
+		sleep_ms(1);
 	}
 }
 
-void VulkanRenderManager::DrainAndBlockCompileQueue() {
-	compileBlocked_ = true;
-	runCompileThread_ = false;
-	compileCond_.notify_all();
-	compileThread_.join();
-
-	_assert_(compileQueue_.empty());
-
-	// At this point, no more tasks can be queued to the threadpool. So wait for them all to go away.
-	CreateMultiPipelinesTask::WaitForAll();
-}
-
-void VulkanRenderManager::ReleaseCompileQueue() {
-	compileBlocked_ = false;
-	runCompileThread_ = true;
-	INFO_LOG(G3D, "Restarting Vulkan compiler thread");
-	compileThread_ = std::thread(&VulkanRenderManager::CompileThreadFunc, this);
-}
-
-void VulkanRenderManager::ThreadFunc() {
+void VulkanRenderManager::RenderThreadFunc() {
 	SetCurrentThreadName("VulkanRenderMan");
 	while (true) {
 		_dbg_assert_(useRenderThread_);
@@ -781,7 +758,6 @@ VKRGraphicsPipeline *VulkanRenderManager::CreateGraphicsPipeline(VKRGraphicsPipe
 			VKRRenderPassStoreAction::STORE, VKRRenderPassStoreAction::DONT_CARE, VKRRenderPassStoreAction::DONT_CARE,
 		};
 		VKRRenderPass *compatibleRenderPass = queueRunner_.GetRenderPass(key);
-		_dbg_assert_(!compileBlocked_);
 		std::lock_guard<std::mutex> lock(compileMutex_);
 		bool needsCompile = false;
 		for (size_t i = 0; i < (size_t)RenderPassType::TYPE_COUNT; i++) {
@@ -854,7 +830,6 @@ void VulkanRenderManager::EndCurRenderStep() {
 	VkSampleCountFlagBits sampleCount = curRenderStep_->render.framebuffer ? curRenderStep_->render.framebuffer->sampleCount : VK_SAMPLE_COUNT_1_BIT;
 
 	compileMutex_.lock();
-	_dbg_assert_(!compileBlocked_);
 	bool needsCompile = false;
 	for (VKRGraphicsPipeline *pipeline : pipelinesToCheck_) {
 		if (!pipeline) {
