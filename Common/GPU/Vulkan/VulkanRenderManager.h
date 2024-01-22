@@ -524,8 +524,6 @@ public:
 		return outOfDateFrames_ > VulkanContext::MAX_INFLIGHT_FRAMES;
 	}
 
-	void Invalidate(InvalidationFlags flags);
-
 	VulkanBarrierBatch &PostInitBarrier() {
 		return postInitBarrier_;
 	}
@@ -537,14 +535,16 @@ public:
 private:
 	void EndCurRenderStep();
 
-	void ThreadFunc();
+	void RenderThreadFunc();
 	void CompileThreadFunc();
 
 	void Run(VKRRenderThreadTask &task);
 
 	// Bad for performance but sometimes necessary for synchronous CPU readbacks (screenshots and whatnot).
 	void FlushSync();
-	void StopThread();
+
+	void StartThreads();
+	void StopThreads();
 
 	void PresentWaitThreadFunc();
 	void PollPresentTiming();
@@ -587,7 +587,7 @@ private:
 
 	// Execution time state
 	VulkanContext *vulkan_;
-	std::thread thread_;
+	std::thread renderThread_;
 	VulkanQueueRunner queueRunner_;
 
 	// For pushing data on the queue.
