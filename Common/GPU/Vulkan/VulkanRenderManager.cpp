@@ -415,6 +415,11 @@ void VulkanRenderManager::DestroyBackbuffers() {
 VulkanRenderManager::~VulkanRenderManager() {
 	INFO_LOG(G3D, "VulkanRenderManager destructor");
 
+	{
+		std::unique_lock<std::mutex> lock(compileMutex_);
+		_assert_(compileQueue_.empty());
+	}
+
 	if (useRenderThread_) {
 		_dbg_assert_(!renderThread_.joinable());
 	}
@@ -439,9 +444,6 @@ void VulkanRenderManager::CompileThreadFunc() {
 		std::vector<CompileQueueEntry> toCompile;
 		{
 			std::unique_lock<std::mutex> lock(compileMutex_);
-			// TODO: Should this be while?
-			// It may be beneficial also to unlock and wait a little bit to see if we get some more shaders
-			// so we can do a better job of thread-sorting them.
 			if (compileQueue_.empty() && runCompileThread_) {
 				compileCond_.wait(lock);
 			}
@@ -496,6 +498,9 @@ void VulkanRenderManager::CompileThreadFunc() {
 		// Hold off just a bit before we check again, to allow bunches of pipelines to collect.
 		sleep_ms(1);
 	}
+
+	std::unique_lock<std::mutex> lock(compileMutex_);
+	_assert_(compileQueue_.empty());
 }
 
 void VulkanRenderManager::RenderThreadFunc() {
