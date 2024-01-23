@@ -503,6 +503,14 @@ public:
 	void ResetStats() override {
 		renderManager_.ResetStats();
 	}
+	void StopThreads() override {
+		renderManager_.StopThreads();
+	}
+
+	void StartThreads() override {
+		renderManager_.StartThreads();
+	}
+
 
 	std::string GetInfoString(InfoField info) const override {
 		// TODO: Make these actually query the right information

@@ -2810,7 +2810,9 @@ void FramebufferManagerCommon::NotifyRenderResized(int msaaLevel) {
 	PSP_CoreParameter().renderScaleFactor = scaleFactor;
 
 	if (UpdateRenderSize(msaaLevel)) {
+		draw_->StopThreads();
 		DestroyAllFBOs();
+		draw_->StartThreads();
 	}
 
 	// No drawing is allowed here. This includes anything that might potentially touch a command buffer, like creating images!
