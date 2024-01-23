@@ -284,6 +284,7 @@ std::string_view StripQuotes(std::string_view s) {
 		return s;
 }
 
+// NOTE: str must live at least as long as all uses of output.
 void SplitString(std::string_view str, const char delim, std::vector<std::string_view> &output) {
 	size_t next = 0;
 	for (size_t pos = 0, len = str.length(); pos < len; ++pos) {
@@ -356,12 +357,15 @@ void GetQuotedStrings(const std::string& str, std::vector<std::string> &output) 
 	}
 }
 
-std::string ReplaceAll(std::string result, const std::string& src, const std::string& dest) {
+std::string ReplaceAll(std::string_view input, std::string_view src, std::string_view dest) {
 	size_t pos = 0;
+
+	std::string result(input);
 
 	if (src == dest)
 		return result;
 
+	// TODO: Don't mutate the input, just append stuff to the output instead.
 	while (true) {
 		pos = result.find(src, pos);
 		if (pos == result.npos)

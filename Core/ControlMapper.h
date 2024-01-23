@@ -58,9 +58,16 @@ private:
 	void onVKey(int vkey, bool down);
 	void onVKeyAnalog(int deviceId, int vkey, float value);
 
+	void UpdateCurInputAxis(const InputMapping &mapping, float value, double timestamp);
+	float GetDeviceAxisThreshold(int device, const InputMapping &mapping);
+
 	// To track mappable virtual keys. We can have as many as we want.
 	float virtKeys_[VIRTKEY_COUNT]{};
 	bool virtKeyOn_[VIRTKEY_COUNT]{};  // Track boolean output separaately since thresholds may differ.
+
+	// This is only used for co-axis (analog stick to buttons), so not bothering to track separately
+	// per device.
+	float rawAxisValue_[JOYSTICK_AXIS_MAX]{};
 
 	double deviceTimestamps_[(size_t)DEVICE_ID_COUNT]{};
 
@@ -91,3 +98,4 @@ private:
 };
 
 void ConvertAnalogStick(float x, float y, float *outX, float *outY);
+float GetDeviceAxisThreshold(int device, const InputMapping &mapping);

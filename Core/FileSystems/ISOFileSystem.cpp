@@ -647,11 +647,13 @@ std::vector<PSPFileInfo> ISOFileSystem::GetDirListing(const std::string &path, b
 			*exists = false;
 		return myVector;
 	}
+	if (entry == &entireISO) {
+		entry = GetFromPath("/");
+	}
 
 	const std::string dot(".");
 	const std::string dotdot("..");
 
-	myVector.reserve(entry->children.size() - 2);
 	for (size_t i = 0; i < entry->children.size(); i++) {
 		TreeEntry *e = entry->children[i];
 

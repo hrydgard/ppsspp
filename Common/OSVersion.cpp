@@ -159,10 +159,10 @@ std::string GetWindowsVersion() {
 
 	// Start from higher to lower
 	for (auto release = rbegin(windowsReleases); release != rend(windowsReleases); ++release) {
-		std::string previewText = release->first;
 		WindowsReleaseInfo releaseInfo = release->second;
 		bool buildMatch = DoesVersionMatchWindows(releaseInfo);
 		if (buildMatch) {
+			std::string previewText = release->first;
 			return previewText;
 		}
 	}

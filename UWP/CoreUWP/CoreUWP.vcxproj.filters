@@ -1192,6 +1192,10 @@
     <ClCompile Include="..\..\Core\Util\GameDB.cpp">
       <Filter>Util</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\Core\HLE\sceSircs.cpp" />
+    <ClCompile Include="..\..\Core\Util\MemStick.cpp">
+      <Filter>Util</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="pch.h" />
@@ -1866,6 +1870,10 @@
     <ClInclude Include="..\..\Core\RetroAchievements.h" />
     <ClInclude Include="..\..\Core\FrameTiming.h" />
     <ClInclude Include="..\..\Core\Util\GameDB.h">
+      <Filter>Util</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Core\HLE\sceSircs.h" />
+    <ClInclude Include="..\..\Core\Util\MemStick.h">
       <Filter>Util</Filter>
     </ClInclude>
   </ItemGroup>

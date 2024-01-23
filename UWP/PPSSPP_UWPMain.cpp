@@ -507,6 +507,9 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 		case BrowseFileType::INI:
 			supportedExtensions = { ".ini" };
 			break;
+		case BrowseFileType::ZIP:
+			supportedExtensions = { ".zip" };
+			break;
 		case BrowseFileType::DB:
 			supportedExtensions = { ".db" };
 			break;

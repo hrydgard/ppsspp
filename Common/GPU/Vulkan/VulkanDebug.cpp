@@ -87,6 +87,19 @@ VKAPI_ATTR VkBool32 VKAPI_CALL VulkanDebugUtilsCallback(
 		// False positive
 		// https://github.com/KhronosGroup/Vulkan-ValidationLayers/issues/3615
 		return false;
+
+	case 1835555994: // [AMD] [NVIDIA] Performance warning : Pipeline VkPipeline 0xa808d50000000033[global_texcolor] was bound twice in the frame.
+		// Benign perf warnings.
+		return false;
+
+	case 1810669668:
+		// Clear value but no LOAD_OP_CLEAR. Not worth fixing right now.
+		return false;
+
+	case 1544472022:
+		// MSAA depth resolve write-after-write??
+		return false;
+
 	default:
 		break;
 	}

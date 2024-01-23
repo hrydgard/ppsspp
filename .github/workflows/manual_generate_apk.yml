@@ -1,4 +1,4 @@
-name: Manual Generate APK
+name: Manual Generate Android APK
 on:
   workflow_dispatch:
     inputs:
@@ -28,7 +28,7 @@ jobs:
         uses: actions/setup-java@v2
         with:
           distribution: 'zulu'
-          java-version: '11'
+          java-version: '17'
         
       #- name: Setup SDK
       #  uses: android-actions/setup-android@v2
@@ -54,7 +54,7 @@ jobs:
             cp android/build/*/apk/*/*/android-normal-debug.apk ppsspp/
           fi
 
-      - name: Upload APK
+      - name: Upload artifact
         uses: actions/upload-artifact@v3
         with:
           name: android-${{ github.event.inputs.buildVariant }} build

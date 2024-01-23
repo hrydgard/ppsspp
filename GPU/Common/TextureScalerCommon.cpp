@@ -236,7 +236,7 @@ static void load_sample(ptrdiff_t w, ptrdiff_t h, ptrdiff_t s, const u8 *pixels,
 				break;
 			case 2: // Zero
 				memset(output, 0, 4);
-				break;
+				return;
 		}
 	}
 	memcpy(output, pixels + s*y + 4*x, 4);
@@ -395,7 +395,7 @@ static void upscale_block_sse2(
 				_mm_add_ps(_mm_mul_ps(_mm_loadu_ps(S(0)), C0),
 				_mm_add_ps(_mm_mul_ps(_mm_loadu_ps(S(1)), C1),
 				_mm_add_ps(_mm_mul_ps(_mm_loadu_ps(S(2)), C2),
-						   _mm_mul_ps(_mm_loadu_ps(S(3)), C3)))));
+					   _mm_mul_ps(_mm_loadu_ps(S(3)), C3)))));
 		#undef S
 	}
 	// Vertical pass.
@@ -410,7 +410,7 @@ static void upscale_block_sse2(
 				_mm_add_ps(_mm_mul_ps(_mm_loadu_ps(S(0)), C0),
 				_mm_add_ps(_mm_mul_ps(_mm_loadu_ps(S(1)), C1),
 				_mm_add_ps(_mm_mul_ps(_mm_loadu_ps(S(2)), C2),
-						   _mm_mul_ps(_mm_loadu_ps(S(3)), C3)))));
+					   _mm_mul_ps(_mm_loadu_ps(S(3)), C3)))));
 		#undef S
 	}
 	// Pack destination pixels.

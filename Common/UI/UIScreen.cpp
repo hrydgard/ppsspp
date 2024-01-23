@@ -421,8 +421,8 @@ void PopupScreen::CreateViews() {
 	box_->SetDropShadowExpand(std::max(g_display.dp_xres, g_display.dp_yres));
 	box_->SetSpacing(0.0f);
 
-	View *title = new PopupHeader(title_);
 	if (HasTitleBar()) {
+		View* title = new PopupHeader(title_);
 		box_->Add(title);
 	}
 

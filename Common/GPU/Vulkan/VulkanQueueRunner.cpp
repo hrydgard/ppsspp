@@ -80,7 +80,7 @@ void VulkanQueueRunner::DestroyDeviceObjects() {
 	renderPasses_.Clear();
 }
 
-bool VulkanQueueRunner::CreateSwapchain(VkCommandBuffer cmdInit) {
+bool VulkanQueueRunner::CreateSwapchain(VkCommandBuffer cmdInit, VulkanBarrierBatch *barriers) {
 	VkResult res = vkGetSwapchainImagesKHR(vulkan_->GetDevice(), vulkan_->GetSwapchain(), &swapchainImageCount_, nullptr);
 	_dbg_assert_(res == VK_SUCCESS);
 
@@ -92,7 +92,6 @@ bool VulkanQueueRunner::CreateSwapchain(VkCommandBuffer cmdInit) {
 		return false;
 	}
 
-	swapchainImages_.reserve(swapchainImageCount_);
 	for (uint32_t i = 0; i < swapchainImageCount_; i++) {
 		SwapchainImageData sc_buffer{};
 		sc_buffer.image = swapchainImages[i];
@@ -124,7 +123,7 @@ bool VulkanQueueRunner::CreateSwapchain(VkCommandBuffer cmdInit) {
 	delete[] swapchainImages;
 
 	// Must be before InitBackbufferRenderPass.
-	if (InitDepthStencilBuffer(cmdInit)) {
+	if (InitDepthStencilBuffer(cmdInit, barriers)) {
 		InitBackbufferFramebuffers(vulkan_->GetBackbufferWidth(), vulkan_->GetBackbufferHeight());
 	}
 	return true;
@@ -158,7 +157,7 @@ bool VulkanQueueRunner::InitBackbufferFramebuffers(int width, int height) {
 	return true;
 }
 
-bool VulkanQueueRunner::InitDepthStencilBuffer(VkCommandBuffer cmd) {
+bool VulkanQueueRunner::InitDepthStencilBuffer(VkCommandBuffer cmd, VulkanBarrierBatch *barriers) {
 	const VkFormat depth_format = vulkan_->GetDeviceInfo().preferredDepthStencilFormat;
 	int aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
 	VkImageCreateInfo image_info = { VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO };
@@ -190,12 +189,14 @@ bool VulkanQueueRunner::InitDepthStencilBuffer(VkCommandBuffer cmd) {
 
 	vulkan_->SetDebugName(depth_.image, VK_OBJECT_TYPE_IMAGE, "BackbufferDepth");
 
-	TransitionImageLayout2(cmd, depth_.image, 0, 1, 1,
-		aspectMask,
-		VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+	VkImageMemoryBarrier *barrier = barriers->Add(depth_.image,
 		VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
-		VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
-		0, VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT);
+		VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT, 0);
+	barrier->subresourceRange.aspectMask = aspectMask;
+	barrier->oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+	barrier->newLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+	barrier->srcAccessMask = 0;
+	barrier->dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
 
 	VkImageViewCreateInfo depth_view_info = { VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO };
 	depth_view_info.image = depth_.image;
@@ -350,7 +351,6 @@ void VulkanQueueRunner::RunSteps(std::vector<VKRStep *> &steps, int curFrame, Fr
 
 	for (size_t i = 0; i < steps.size(); i++) {
 		const VKRStep &step = *steps[i];
-
 		if (emitLabels) {
 			VkDebugUtilsLabelEXT labelInfo{ VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT };
 			char temp[128];
@@ -374,7 +374,7 @@ void VulkanQueueRunner::RunSteps(std::vector<VKRStep *> &steps, int curFrame, Fr
 				// When stepping in the GE debugger, we can end up here multiple times in a "frame".
 				// So only acquire once.
 				if (!frameData.hasAcquired) {
-					frameData.AcquireNextImage(vulkan_, frameDataShared);
+					frameData.AcquireNextImage(vulkan_);
 					SetBackbuffer(framebuffers_[frameData.curSwapchainImage], swapchainImages_[frameData.curSwapchainImage].image);
 				}
 
@@ -394,7 +394,7 @@ void VulkanQueueRunner::RunSteps(std::vector<VKRStep *> &steps, int curFrame, Fr
 					vkCmdBeginDebugUtilsLabelEXT(cmd, &labelInfo);
 				}
 			}
-			PerformRenderPass(step, cmd, curFrame);
+			PerformRenderPass(step, cmd, curFrame, frameData.profile);
 			break;
 		case VKRStepType::COPY:
 			PerformCopy(step, cmd);
@@ -1101,7 +1101,7 @@ void TransitionFromOptimal(VkCommandBuffer cmd, VkImage colorImage, VkImageLayou
 	}
 }
 
-void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer cmd, int curFrame) {
+void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer cmd, int curFrame, QueueProfileContext &profile) {
 	for (size_t i = 0; i < step.preTransitions.size(); i++) {
 		const TransitionRequest &iter = step.preTransitions[i];
 		if (iter.aspect == VK_IMAGE_ASPECT_COLOR_BIT && iter.fb->color.layout != iter.targetLayout) {
@@ -1210,6 +1210,13 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 
 	for (size_t i = 0; i < commands.size(); i++) {
 		const VkRenderData &c = commands[i];
+#ifdef _DEBUG
+		if (profile.enabled) {
+			if ((size_t)step.stepType < ARRAY_SIZE(profile.commandCounts)) {
+				profile.commandCounts[(size_t)c.cmd]++;
+			}
+		}
+#endif
 		switch (c.cmd) {
 		case VKRRenderCommand::REMOVED:
 			break;
@@ -2087,4 +2094,25 @@ bool VulkanQueueRunner::CopyReadbackBuffer(FrameData &frameData, VKRFramebuffer 
 
 	vmaUnmapMemory(vulkan_->Allocator(), readback->allocation);
 	return true;
+}
+
+const char *VKRRenderCommandToString(VKRRenderCommand cmd) {
+	const char * const str[] = {
+		"REMOVED",
+		"BIND_GRAPHICS_PIPELINE",  // async
+		"STENCIL",
+		"BLEND",
+		"VIEWPORT",
+		"SCISSOR",
+		"CLEAR",
+		"DRAW",
+		"DRAW_INDEXED",
+		"PUSH_CONSTANTS",
+		"DEBUG_ANNOTATION",
+	};
+	if ((int)cmd < ARRAY_SIZE(str)) {
+		return str[(int)cmd];
+	} else {
+		return "N/A";
+	}
 }

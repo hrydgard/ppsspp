@@ -268,13 +268,13 @@ bool g_vulkanMayBeAvailable = false;
 
 #define LOAD_GLOBAL_FUNC_LOCAL(lib, x) (PFN_ ## x)dlsym(lib, #x);
 
-static const char *device_name_blacklist[] = {
+static const char * const device_name_blacklist[] = {
 	"NVIDIA:SHIELD Tablet K1",
 	"SDL:Horizon",
 };
 
 #ifndef _WIN32
-static const char *so_names[] = {
+static const char * const so_names[] = {
 #if PPSSPP_PLATFORM(IOS)
 	"@executable_path/Frameworks/libMoltenVK.dylib",
 #elif PPSSPP_PLATFORM(MAC)
@@ -288,7 +288,7 @@ static const char *so_names[] = {
 };
 #endif
 
-static VulkanLibraryHandle VulkanLoadLibrary(const char *logname) {
+static VulkanLibraryHandle VulkanLoadLibrary(std::string *errorString) {
 #if PPSSPP_PLATFORM(SWITCH)
 	// Always unavailable, for now.
 	return nullptr;
@@ -300,38 +300,42 @@ static VulkanLibraryHandle VulkanLoadLibrary(const char *logname) {
 	void *lib = nullptr;
 
 #if PPSSPP_PLATFORM(ANDROID) && PPSSPP_ARCH(ARM64)
-    if (!g_Config.customDriver.empty() && g_Config.customDriver != "Default") {
-        const Path driverPath = g_Config.internalDataDirectory / "drivers" / g_Config.customDriver;
+	if (!g_Config.sCustomDriver.empty() && g_Config.sCustomDriver != "Default") {
+		const Path driverPath = g_Config.internalDataDirectory / "drivers" / g_Config.sCustomDriver;
 
-        json::JsonReader meta = json::JsonReader((driverPath / "meta.json").c_str());
-        if (meta.ok()) {
-            std::string driverLibName = meta.root().get("libraryName")->value.toString();
+		json::JsonReader meta = json::JsonReader((driverPath / "meta.json").c_str());
+		if (meta.ok()) {
+			std::string driverLibName = meta.root().get("libraryName")->value.toString();
 
-            Path tempDir = g_Config.internalDataDirectory / "temp";
-            Path fileRedirectDir = g_Config.internalDataDirectory / "vk_file_redirect";
+			Path tempDir = g_Config.internalDataDirectory / "temp";
+			Path fileRedirectDir = g_Config.internalDataDirectory / "vk_file_redirect";
 
-            File::CreateDir(tempDir);
-            File::CreateDir(fileRedirectDir);
+			File::CreateDir(tempDir);
+			File::CreateDir(fileRedirectDir);
 
-            lib = adrenotools_open_libvulkan(
-                    RTLD_NOW | RTLD_LOCAL, ADRENOTOOLS_DRIVER_FILE_REDIRECT | ADRENOTOOLS_DRIVER_CUSTOM,
-                    (std::string(tempDir.c_str()) + "/").c_str(),g_nativeLibDir.c_str(),
-                    (std::string(driverPath.c_str()) + "/").c_str(),driverLibName.c_str(),
-                    (std::string(fileRedirectDir.c_str()) + "/").c_str(),nullptr);
-        }
-    }
+			lib = adrenotools_open_libvulkan(
+				RTLD_NOW | RTLD_LOCAL, ADRENOTOOLS_DRIVER_FILE_REDIRECT | ADRENOTOOLS_DRIVER_CUSTOM,
+				(std::string(tempDir.c_str()) + "/").c_str(), g_nativeLibDir.c_str(),
+				(std::string(driverPath.c_str()) + "/").c_str(), driverLibName.c_str(),
+				(std::string(fileRedirectDir.c_str()) + "/").c_str(), nullptr);
+			if (!lib) {
+				ERROR_LOG(G3D, "Failed to load custom driver with AdrenoTools ('%s')", g_Config.sCustomDriver.c_str());
+			} else {
+				INFO_LOG(G3D, "Vulkan library loaded with AdrenoTools ('%s')", g_Config.sCustomDriver.c_str());
+			}
+		}
+	}
 #endif
 
-    if (!lib) {
-        ERROR_LOG(G3D, "Failed to load custom driver");
-        for (int i = 0; i < ARRAY_SIZE(so_names); i++) {
-            lib = dlopen(so_names[i], RTLD_NOW | RTLD_LOCAL);
-            if (lib) {
-                INFO_LOG(G3D, "%s: Library loaded ('%s')", logname, so_names[i]);
-                break;
-            }
-        }
-    }
+	if (!lib) {
+		for (int i = 0; i < ARRAY_SIZE(so_names); i++) {
+			lib = dlopen(so_names[i], RTLD_NOW | RTLD_LOCAL);
+			if (lib) {
+				INFO_LOG(G3D, "Vulkan library loaded ('%s')", so_names[i]);
+				break;
+			}
+		}
+}
 	return lib;
 #endif
 }
@@ -376,9 +380,10 @@ bool VulkanMayBeAvailable() {
 	}
 	INFO_LOG(G3D, "VulkanMayBeAvailable: Device allowed ('%s')", name.c_str());
 
-	VulkanLibraryHandle lib = VulkanLoadLibrary("VulkanMayBeAvailable");
+	std::string errorStr;
+	VulkanLibraryHandle lib = VulkanLoadLibrary(&errorStr);
 	if (!lib) {
-		INFO_LOG(G3D, "Vulkan loader: Library not available");
+		INFO_LOG(G3D, "Vulkan loader: Library not available: %s", errorStr.c_str());
 		g_vulkanAvailabilityChecked = true;
 		g_vulkanMayBeAvailable = false;
 		return false;
@@ -543,9 +548,9 @@ bail:
 	return g_vulkanMayBeAvailable;
 }
 
-bool VulkanLoad() {
+bool VulkanLoad(std::string *errorStr) {
 	if (!vulkanLibrary) {
-		vulkanLibrary = VulkanLoadLibrary("VulkanLoad");
+		vulkanLibrary = VulkanLoadLibrary(errorStr);
 		if (!vulkanLibrary) {
 			return false;
 		}
@@ -563,7 +568,8 @@ bool VulkanLoad() {
 		INFO_LOG(G3D, "VulkanLoad: Base functions loaded.");
 		return true;
 	} else {
-		ERROR_LOG(G3D, "VulkanLoad: Failed to load Vulkan base functions.");
+		*errorStr = "Failed to load Vulkan base functions";
+		ERROR_LOG(G3D, "VulkanLoad: %s", errorStr->c_str());
 		VulkanFreeLibrary(vulkanLibrary);
 		return false;
 	}

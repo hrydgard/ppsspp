@@ -468,7 +468,7 @@ public:
 	virtual bool IsViewGroup() const { return false; }
 	virtual bool ContainsSubview(const View *view) const { return false; }
 
-	Point GetFocusPosition(FocusDirection dir) const;
+	virtual Point GetFocusPosition(FocusDirection dir) const;
 
 	template <class T>
 	T *AddTween(T *t) {
@@ -810,15 +810,48 @@ private:
 	bool choiceStyle_ = false;
 };
 
+class AbstractChoiceWithValueDisplay : public Choice {
+public:
+	AbstractChoiceWithValueDisplay(const std::string &text, LayoutParams *layoutParams = nullptr)
+		: Choice(text, layoutParams) {
+	}
+
+	void Draw(UIContext &dc) override;
+	void GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert, float &w, float &h) const override;
+
+	void SetPasswordDisplay() {
+		passwordDisplay_ = true;
+	}
+
+protected:
+	virtual std::string ValueText() const = 0;
+
+	float CalculateValueScale(const UIContext &dc, const std::string &valueText, float availWidth) const;
+
+	bool passwordDisplay_ = false;
+};
+
+class ChoiceWithCallbackValueDisplay : public AbstractChoiceWithValueDisplay {
+public:
+	ChoiceWithCallbackValueDisplay(const std::string &text, std::function<std::string()> valueFunc, LayoutParams *layoutParams = nullptr)
+		: AbstractChoiceWithValueDisplay(text, layoutParams), valueFunc_(valueFunc) {}
+protected:
+	std::string ValueText() const override {
+		return valueFunc_();
+	}
+	std::function<std::string()> valueFunc_;
+};
+
 class ItemHeader : public Item {
 public:
 	ItemHeader(const std::string &text, LayoutParams *layoutParams = 0);
 	void Draw(UIContext &dc) override;
 	std::string DescribeText() const override;
 	void GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert, float &w, float &h) const override;
-
+	void SetLarge(bool large) { large_ = large; }
 private:
 	std::string text_;
+	bool large_ = false;
 };
 
 class PopupHeader : public Item {
@@ -871,6 +904,8 @@ public:
 	void GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert, float &w, float &h) const override;
 	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override;
 
+	Point GetFocusPosition(FocusDirection dir) const override;
+
 	void SetHasSubitems(bool hasSubItems) { hasSubItems_ = hasSubItems; }
 private:
 	bool hasSubItems_ = true;
@@ -915,11 +950,13 @@ public:
 			h = size_;
 	}
 
-	void Draw(UIContext &dc) override {}
+	void Draw(UIContext &dc) override;
 	std::string DescribeText() const override { return ""; }
+	void SetSeparator() { drawAsSeparator_ = true; }
 
 private:
 	float size_ = 0.0f;
+	bool drawAsSeparator_ = false;
 };
 
 class BorderView : public InertView {

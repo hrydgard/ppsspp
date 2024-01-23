@@ -103,7 +103,6 @@ void DrawEngineGLES::InitDeviceObjects() {
 
 	int stride = sizeof(TransformedVertex);
 	std::vector<GLRInputLayout::Entry> entries;
-	entries.reserve(5);
 	entries.push_back({ ATTR_POSITION, 4, GL_FLOAT, GL_FALSE, offsetof(TransformedVertex, x) });
 	entries.push_back({ ATTR_TEXCOORD, 3, GL_FLOAT, GL_FALSE, offsetof(TransformedVertex, u) });
 	entries.push_back({ ATTR_COLOR0, 4, GL_UNSIGNED_BYTE, GL_TRUE, offsetof(TransformedVertex, color0) });
@@ -284,19 +283,20 @@ void DrawEngineGLES::DoFlush() {
 			u8 *dest = (u8 *)frameData.pushVertex->Allocate(vertsToDecode * dec_->GetDecVtxFmt().stride, 4, &vertexBuffer, &vertexBufferOffset);
 			DecodeVerts(dest);
 		}
-		DecodeInds();
 
-		// If there's only been one primitive type, and it's either TRIANGLES, LINES or POINTS,
-		// there is no need for the index buffer we built. We can then use glDrawArrays instead
-		// for a very minor speed boost. TODO: We can probably detect this case earlier, like before
-		// actually doing any vertex decoding (unless we're doing soft skinning and pre-decode on submit).
-		bool useElements = !indexGen.SeenOnlyPurePrims();
-		int vertexCount = indexGen.VertexCount();
-		gpuStats.numUncachedVertsDrawn += vertexCount;
-		if (!useElements && indexGen.PureCount()) {
-			vertexCount = indexGen.PureCount();
+		int vertexCount;
+		int maxIndex;
+		bool useElements;
+		DecodeVerts(decoded_);
+		DecodeIndsAndGetData(&prim, &vertexCount, &maxIndex, &useElements, false);
+
+		if (useElements) {
+			uint32_t esz = sizeof(uint16_t) * vertexCount;
+			void *dest = frameData.pushIndex->Allocate(esz, 2, &indexBuffer, &indexBufferOffset);
+			// TODO: When we need to apply an index offset, we can apply it directly when copying the indices here.
+			// Of course, minding the maximum value of 65535...
+			memcpy(dest, decIndex_, esz);
 		}
-		prim = indexGen.Prim();
 
 		bool hasColor = (lastVType_ & GE_VTYPE_COL_MASK) != GE_VTYPE_COL_NONE;
 		if (gstate.isModeThrough()) {
@@ -316,11 +316,6 @@ void DrawEngineGLES::DoFlush() {
 		LinkedShader *program = shaderManager_->ApplyFragmentShader(vsid, vshader, pipelineState_, framebufferManager_->UseBufferedRendering());
 		GLRInputLayout *inputLayout = SetupDecFmtForDraw(dec_->GetDecVtxFmt());
 		if (useElements) {
-			uint32_t esz = sizeof(uint16_t) * indexGen.VertexCount();
-			void *dest = frameData.pushIndex->Allocate(esz, 2, &indexBuffer, &indexBufferOffset);
-			// TODO: When we need to apply an index offset, we can apply it directly when copying the indices here.
-			// Of course, minding the maximum value of 65535...
-			memcpy(dest, decIndex_, esz);
 			render_->DrawIndexed(inputLayout,
 				vertexBuffer, vertexBufferOffset,
 				indexBuffer, indexBufferOffset,
@@ -338,7 +333,7 @@ void DrawEngineGLES::DoFlush() {
 			dec_ = GetVertexDecoder(lastVType_);
 		}
 		DecodeVerts(decoded_);
-		DecodeInds();
+		int vertexCount = DecodeInds();
 
 		bool hasColor = (lastVType_ & GE_VTYPE_COL_MASK) != GE_VTYPE_COL_NONE;
 		if (gstate.isModeThrough()) {
@@ -347,11 +342,8 @@ void DrawEngineGLES::DoFlush() {
 			gstate_c.vertexFullAlpha = gstate_c.vertexFullAlpha && ((hasColor && (gstate.materialupdate & 1)) || gstate.getMaterialAmbientA() == 255) && (!gstate.isLightingEnabled() || gstate.getAmbientA() == 255);
 		}
 
-		gpuStats.numUncachedVertsDrawn += indexGen.VertexCount();
-		prim = indexGen.Prim();
-		// Undo the strip optimization, not supported by the SW code yet.
-		if (prim == GE_PRIM_TRIANGLE_STRIP)
-			prim = GE_PRIM_TRIANGLES;
+		gpuStats.numUncachedVertsDrawn += vertexCount;
+		prim = IndexGenerator::GeneralPrim((GEPrimitiveType)drawInds_[0].prim);
 
 		u16 *inds = decIndex_;
 		SoftwareTransformResult result{};
@@ -377,7 +369,7 @@ void DrawEngineGLES::DoFlush() {
 			UpdateCachedViewportState(vpAndScissor_);
 		}
 
-		int vertexCount = indexGen.VertexCount();
+		int maxIndex = numDecodedVerts_;
 
 		// TODO: Split up into multiple draw calls for GLES 2.0 where you can't guarantee support for more than 0x10000 verts.
 		if (gl_extensions.IsGLES && !gl_extensions.GLES3) {
@@ -400,17 +392,18 @@ void DrawEngineGLES::DoFlush() {
 		// Games sometimes expect exact matches (see #12626, for example) for equal comparisons.
 		if (result.action == SW_CLEAR && everUsedEqualDepth_ && gstate.isClearModeDepthMask() && result.depth > 0.0f && result.depth < 1.0f)
 			result.action = SW_NOT_READY;
-		if (result.action == SW_NOT_READY)
-			swTransform.DetectOffsetTexture(numDecodedVerts_);
 
-		if (textureNeedsApply)
+		if (textureNeedsApply) {
+			gstate_c.pixelMapped = result.pixelMapped;
 			textureCache_->ApplyTexture();
+			gstate_c.pixelMapped = false;
+		}
 
 		// Need to ApplyDrawState after ApplyTexture because depal can launch a render pass and that wrecks the state.
 		ApplyDrawState(prim);
 
 		if (result.action == SW_NOT_READY)
-			swTransform.BuildDrawingParams(prim, vertexCount, dec_->VertexType(), inds, numDecodedVerts_, &result);
+			swTransform.BuildDrawingParams(prim, vertexCount, dec_->VertexType(), inds, RemainingIndices(inds), numDecodedVerts_, &result);
 		if (result.setSafeSize)
 			framebufferManager_->SetSafeSize(result.safeWidth, result.safeHeight);
 

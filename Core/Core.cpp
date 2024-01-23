@@ -41,6 +41,7 @@
 #include "Core/Debugger/Breakpoints.h"
 #include "Core/HW/Display.h"
 #include "Core/MIPS/MIPS.h"
+#include "Core/HLE/sceNetAdhoc.h"
 #include "GPU/Debugger/Stepping.h"
 
 #ifdef _WIN32
@@ -100,6 +101,15 @@ void Core_Stop() {
 	for (auto func : stopFuncs) {
 		func();
 	}
+}
+
+bool Core_ShouldRunBehind() {
+	// Enforce run-behind if ad-hoc connected
+	return g_Config.bRunBehindPauseMenu || Core_MustRunBehind();
+}
+
+bool Core_MustRunBehind() {
+	return __NetAdhocConnected();
 }
 
 bool Core_IsStepping() {
@@ -418,13 +428,13 @@ void Core_MemoryException(u32 address, u32 accessSize, u32 pc, MemoryExceptionTy
 	}
 }
 
-void Core_MemoryExceptionInfo(u32 address, u32 accessSize, u32 pc, MemoryExceptionType type, const std::string &additionalInfo, bool forceReport) {
+void Core_MemoryExceptionInfo(u32 address, u32 accessSize, u32 pc, MemoryExceptionType type, std::string_view additionalInfo, bool forceReport) {
 	const char *desc = MemoryExceptionTypeAsString(type);
 	// In jit, we only flush PC when bIgnoreBadMemAccess is off.
 	if ((g_Config.iCpuCore == (int)CPUCore::JIT || g_Config.iCpuCore == (int)CPUCore::JIT_IR) && g_Config.bIgnoreBadMemAccess) {
-		WARN_LOG(MEMMAP, "%s: Invalid access at %08x (size %08x). %s", desc, address, accessSize, additionalInfo.c_str());
+		WARN_LOG(MEMMAP, "%s: Invalid access at %08x (size %08x). %.*s", desc, address, accessSize, (int)additionalInfo.length(), additionalInfo.data());
 	} else {
-		WARN_LOG(MEMMAP, "%s: Invalid access at %08x (size %08x) PC %08x LR %08x %s", desc, address, accessSize, currentMIPS->pc, currentMIPS->r[MIPS_REG_RA], additionalInfo.c_str());
+		WARN_LOG(MEMMAP, "%s: Invalid access at %08x (size %08x) PC %08x LR %08x %.*s", desc, address, accessSize, currentMIPS->pc, currentMIPS->r[MIPS_REG_RA], (int)additionalInfo.length(), additionalInfo.data());
 	}
 
 	if (!g_Config.bIgnoreBadMemAccess || forceReport) {

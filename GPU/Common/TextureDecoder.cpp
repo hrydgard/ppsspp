@@ -23,6 +23,7 @@
 #include "Common/Data/Convert/ColorConv.h"
 #include "Common/CPUDetect.h"
 #include "Common/Log.h"
+#include "Common/Math/CrossSIMD.h"
 
 #include "GPU/GPU.h"
 #include "GPU/GPUState.h"
@@ -39,13 +40,6 @@
 #else
 #include <arm_neon.h>
 #endif
-#endif
-
-#ifdef __clang__
-// Weird how you can't just use #pragma in a macro.
-#define DO_NOT_VECTORIZE_LOOP _Pragma("clang loop vectorize(disable)")
-#else
-#define DO_NOT_VECTORIZE_LOOP
 #endif
 
 const u8 textureBitsPerPixel[16] = {

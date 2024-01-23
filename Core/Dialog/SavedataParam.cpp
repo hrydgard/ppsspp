@@ -1092,7 +1092,7 @@ int SavedataParam::BuildHash(unsigned char *output,
 std::string SavedataParam::GetSpaceText(u64 size, bool roundUp)
 {
 	char text[50];
-	static const char *suffixes[] = {"B", "KB", "MB", "GB"};
+	static const char * const suffixes[] = {"B", "KB", "MB", "GB"};
 	for (size_t i = 0; i < ARRAY_SIZE(suffixes); ++i)
 	{
 		if (size < 1024)
@@ -1391,10 +1391,10 @@ bool SavedataParam::GetSize(SceUtilitySavedataParam *param)
 
 	const std::string saveDir = savePath + GetGameName(param) + GetSaveName(param);
 	bool exists = false;
-	auto listing = pspFileSystem.GetDirListing(saveDir, &exists);
 
 	if (param->sizeInfo.IsValid())
 	{
+		auto listing = pspFileSystem.GetDirListing(saveDir, &exists);
 		const u64 freeBytes = MemoryStick_FreeSpace();
 
 		s64 overwriteBytes = 0;

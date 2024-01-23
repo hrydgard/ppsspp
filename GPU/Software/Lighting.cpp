@@ -281,10 +281,11 @@ static inline float Dot33(const Vec3f &a, const Vec3f &b) {
 template <bool useSSE4>
 static void ProcessSIMD(VertexData &vertex, const WorldCoords &worldpos, const WorldCoords &worldnormal, const State &state) {
 	// Lighting blending rounds using the half offset method (like alpha blend.)
-	const Vec4<int> ones = Vec4<int>::AssignToAll(1);
 	Vec4<int> colorFactor;
-	if (state.colorForAmbient || state.colorForDiffuse || state.colorForSpecular)
+	if (state.colorForAmbient || state.colorForDiffuse || state.colorForSpecular) {
+		const Vec4<int> ones = Vec4<int>::AssignToAll(1);
 		colorFactor = LightColorFactor(vertex.color0, ones);
+	}
 
 	Vec4<int> mec = Vec4<int>::FromRGBA(gstate.getMaterialEmissive());
 

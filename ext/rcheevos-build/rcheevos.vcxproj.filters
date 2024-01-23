@@ -90,6 +90,9 @@
     <ClCompile Include="..\rcheevos\src\rc_util.c">
       <Filter>rcheevos</Filter>
     </ClCompile>
+    <ClCompile Include="..\rcheevos\src\rhash\aes.c">
+      <Filter>rhash</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\rcheevos\src\rapi\rc_api_common.h">
@@ -152,8 +155,8 @@
     <ClInclude Include="..\rcheevos\src\rc_compat.h">
       <Filter>rcheevos</Filter>
     </ClInclude>
-    <ClInclude Include="..\rcheevos\src\rc_util.h">
-      <Filter>rcheevos</Filter>
+    <ClInclude Include="..\rcheevos\include\rc_util.h">
+      <Filter>include</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

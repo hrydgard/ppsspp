@@ -81,7 +81,7 @@ ServerRequest::~ServerRequest() {
 	}
 	delete in_;
 	if (!out_->Empty()) {
-		ERROR_LOG(IO, "Output not empty - connection abort? (%s)", this->header_.resource);
+		WARN_LOG(IO, "Output not empty - connection abort? (%s) (%d bytes)", this->header_.resource, (int)out_->BytesRemaining());
 	}
 	delete out_;
 }

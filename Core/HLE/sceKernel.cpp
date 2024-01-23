@@ -17,6 +17,8 @@
 
 #include "Common/Serialize/SerializeFuncs.h"
 #include "Common/LogManager.h"
+#include "Common/System/OSD.h"
+
 #include "Core/Core.h"
 #include "Core/Config.h"
 #include "Core/CwCheat.h"
@@ -314,6 +316,8 @@ void sceKernelExitGame()
 	INFO_LOG(SCEKERNEL, "sceKernelExitGame");
 	__KernelSwitchOffThread("game exited");
 	Core_Stop();
+
+	g_OSD.Show(OSDType::MESSAGE_INFO, "sceKernelExitGame()");
 }
 
 void sceKernelExitGameWithStatus()
@@ -321,6 +325,8 @@ void sceKernelExitGameWithStatus()
 	INFO_LOG(SCEKERNEL, "sceKernelExitGameWithStatus");
 	__KernelSwitchOffThread("game exited");
 	Core_Stop();
+
+	g_OSD.Show(OSDType::MESSAGE_INFO, "sceKernelExitGameWithStatus()");
 }
 
 u32 sceKernelDevkitVersion()

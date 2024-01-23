@@ -64,7 +64,7 @@ void OnAchievementsLoginStateChange() {
 namespace Achievements {
 
 // It's the name of the secret, not a secret name - the value is not secret :)
-static const char *RA_TOKEN_SECRET_NAME = "retroachievements";
+static const char * const RA_TOKEN_SECRET_NAME = "retroachievements";
 
 static Achievements::Statistics g_stats;
 

@@ -585,6 +585,14 @@ static void check_variables(CoreParameter &coreParam)
          g_Config.bAnalogIsCircular = true;
    }
 
+   var.key = "ppsspp_memstick_inserted";
+   if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value)
+   {
+      if (!strcmp(var.value, "disabled"))
+         g_Config.bMemStickInserted = false;
+      else
+         g_Config.bMemStickInserted = true;
+   }
 
    var.key = "ppsspp_internal_resolution";
    if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value)
@@ -634,9 +642,9 @@ static void check_variables(CoreParameter &coreParam)
    if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value)
    {
       if (!strcmp(var.value, "disabled"))
-         g_Config.iSkipGPUReadbackMode = (int)SkipGPUReadbackMode::SKIP;
-      else
          g_Config.iSkipGPUReadbackMode = (int)SkipGPUReadbackMode::NO_SKIP;
+      else
+         g_Config.iSkipGPUReadbackMode = (int)SkipGPUReadbackMode::SKIP;
    }
 
    var.key = "ppsspp_frameskip";
@@ -1742,7 +1750,6 @@ std::vector<std::string> System_GetCameraDeviceList() { return std::vector<std::
 bool System_AudioRecordingIsAvailable() { return false; }
 bool System_AudioRecordingState() { return false; }
 
-void System_InputBoxGetString(const std::string &title, const std::string &defaultValue, std::function<void(bool, const std::string &)> cb) { cb(false, ""); }
 #endif
 
 // TODO: To avoid having to define these here, these should probably be turned into system "requests".

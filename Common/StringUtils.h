@@ -81,13 +81,14 @@ std::string StripQuotes(const std::string &s);
 std::string_view StripSpaces(std::string_view s);
 std::string_view StripQuotes(std::string_view s);
 
-// TODO: Make this a lot more efficient by outputting string_views.
+// NOTE: str must live at least as long as all uses of output.
 void SplitString(std::string_view str, const char delim, std::vector<std::string_view> &output);
+// Try to avoid this when possible, in favor of the string_view version.
 void SplitString(std::string_view str, const char delim, std::vector<std::string> &output);
 
 void GetQuotedStrings(const std::string& str, std::vector<std::string>& output);
 
-std::string ReplaceAll(std::string input, const std::string& src, const std::string& dest);
+std::string ReplaceAll(std::string_view input, std::string_view src, std::string_view dest);
 
 // Takes something like R&eplace and returns Replace, plus writes 'e' to *shortcutChar
 // if not nullptr. Useful for Windows menu strings.

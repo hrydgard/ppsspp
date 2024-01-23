@@ -48,6 +48,25 @@ std::set<std::string> g_seenPads;
 std::map<InputDeviceID, std::string> g_padNames;
 std::set<InputDeviceID> g_seenDeviceIds;
 
+AxisType GetAxisType(InputAxis input) {
+	switch (input) {
+	case JOYSTICK_AXIS_GAS:
+	case JOYSTICK_AXIS_BRAKE:
+	case JOYSTICK_AXIS_LTRIGGER:
+	case JOYSTICK_AXIS_RTRIGGER:
+		return AxisType::TRIGGER;
+	case JOYSTICK_AXIS_X:
+	case JOYSTICK_AXIS_Y:
+	case JOYSTICK_AXIS_Z:
+	case JOYSTICK_AXIS_RX:
+	case JOYSTICK_AXIS_RY:
+	case JOYSTICK_AXIS_RZ:
+		return AxisType::STICK;
+	default:
+		return AxisType::OTHER;
+	}
+}
+
 // Utility for UI navigation
 void SingleInputMappingFromPspButton(int btn, std::vector<InputMapping> *mappings, bool ignoreMouse) {
 	std::vector<MultiInputMapping> multiMappings;
@@ -399,9 +418,13 @@ const KeyMap_IntStrPair psp_button_names[] = {
 	{VIRTKEY_AXIS_Y_MIN, "An.Down"},
 	{VIRTKEY_AXIS_X_MIN, "An.Left"},
 	{VIRTKEY_AXIS_X_MAX, "An.Right"},
-	{VIRTKEY_ANALOG_LIGHTLY, "Analog limiter"},
 
+	{VIRTKEY_ANALOG_ROTATE_CW, "Rotate Analog (CW)"},
+	{VIRTKEY_ANALOG_ROTATE_CCW, "Rotate Analog (CCW)"},
+	{VIRTKEY_ANALOG_LIGHTLY, "Analog limiter"},
 	{VIRTKEY_RAPID_FIRE, "RapidFire"},
+	{VIRTKEY_AXIS_SWAP, "AxisSwap"},
+
 	{VIRTKEY_FASTFORWARD, "Fast-forward"},
 	{VIRTKEY_SPEED_TOGGLE, "SpeedToggle"},
 	{VIRTKEY_SPEED_CUSTOM1, "Alt speed 1"},
@@ -421,20 +444,13 @@ const KeyMap_IntStrPair psp_button_names[] = {
 	{VIRTKEY_TOGGLE_FULLSCREEN, "Toggle Fullscreen"},
 #endif
 
-	{VIRTKEY_AXIS_RIGHT_Y_MAX, "RightAn.Up"},
-	{VIRTKEY_AXIS_RIGHT_Y_MIN, "RightAn.Down"},
-	{VIRTKEY_AXIS_RIGHT_X_MIN, "RightAn.Left"},
-	{VIRTKEY_AXIS_RIGHT_X_MAX, "RightAn.Right"},
 	{VIRTKEY_OPENCHAT, "OpenChat" },
 
-	{VIRTKEY_AXIS_SWAP, "AxisSwap"},
 	{VIRTKEY_DEVMENU, "DevMenu"},
 	{VIRTKEY_TEXTURE_DUMP, "Texture Dumping"},
 	{VIRTKEY_TEXTURE_REPLACE, "Texture Replacement"},
 	{VIRTKEY_SCREENSHOT, "Screenshot"},
 	{VIRTKEY_MUTE_TOGGLE, "Mute toggle"},
-	{VIRTKEY_ANALOG_ROTATE_CW, "Rotate Analog (CW)"},
-	{VIRTKEY_ANALOG_ROTATE_CCW, "Rotate Analog (CCW)"},
 
 #ifdef OPENXR
 	{VIRTKEY_VR_CAMERA_ADJUST, "VR camera adjust"},
@@ -448,6 +464,14 @@ const KeyMap_IntStrPair psp_button_names[] = {
 
 	{VIRTKEY_TOGGLE_WLAN, "Toggle WLAN"},
 	{VIRTKEY_EXIT_APP, "Exit App"},
+
+	{VIRTKEY_TOGGLE_MOUSE, "Toggle mouse input"},
+	{VIRTKEY_TOGGLE_TOUCH_CONTROLS, "Toggle touch controls"},
+
+	{VIRTKEY_AXIS_RIGHT_Y_MAX, "RightAn.Up"},
+	{VIRTKEY_AXIS_RIGHT_Y_MIN, "RightAn.Down"},
+	{VIRTKEY_AXIS_RIGHT_X_MIN, "RightAn.Left"},
+	{VIRTKEY_AXIS_RIGHT_X_MAX, "RightAn.Right"},
 
 	{CTRL_HOME, "Home"},
 	{CTRL_HOLD, "Hold"},
@@ -502,12 +526,9 @@ const char* GetPspButtonNameCharPointer(int btn) {
 	return nullptr;
 }
 
-std::vector<KeyMap_IntStrPair> GetMappableKeys() {
-	std::vector<KeyMap_IntStrPair> temp;
-	for (size_t i = 0; i < ARRAY_SIZE(psp_button_names); i++) {
-		temp.push_back(psp_button_names[i]);
-	}
-	return temp;
+const KeyMap::KeyMap_IntStrPair *GetMappableKeys(size_t *count) {
+	*count = ARRAY_SIZE(psp_button_names);
+	return psp_button_names;
 }
 
 bool InputMappingToPspButton(const InputMapping &mapping, std::vector<int> *pspButtons) {
@@ -525,21 +546,39 @@ bool InputMappingToPspButton(const InputMapping &mapping, std::vector<int> *pspB
 	return found;
 }
 
-bool InputMappingsFromPspButton(int btn, std::vector<MultiInputMapping> *mappings, bool ignoreMouse) {
-	std::lock_guard<std::recursive_mutex> guard(g_controllerMapLock);
+// This is the main workhorse of the ControlMapper.
+bool InputMappingsFromPspButtonNoLock(int btn, std::vector<MultiInputMapping> *mappings, bool ignoreMouse) {
 	auto iter = g_controllerMap.find(btn);
 	if (iter == g_controllerMap.end()) {
 		return false;
 	}
 	bool mapped = false;
+	if (mappings) {
+		mappings->clear();
+	}
 	for (auto &iter2 : iter->second) {
 		bool ignore = ignoreMouse && iter2.HasMouse();
-		if (mappings && !ignore) {
+		if (!ignore) {
 			mapped = true;
-			mappings->push_back(iter2);
+			if (mappings) {
+				mappings->push_back(iter2);
+			}
 		}
 	}
 	return mapped;
+}
+
+bool InputMappingsFromPspButton(int btn, std::vector<MultiInputMapping> *mappings, bool ignoreMouse) {
+	std::lock_guard<std::recursive_mutex> guard(g_controllerMapLock);
+	return InputMappingsFromPspButtonNoLock(btn, mappings, ignoreMouse);
+}
+
+void LockMappings() {
+	g_controllerMapLock.lock();
+}
+
+void UnlockMappings() {
+	g_controllerMapLock.unlock();
 }
 
 bool PspButtonHasMappings(int btn) {
@@ -861,7 +900,7 @@ bool HasChanged(int &prevGeneration) {
 	return false;
 }
 
-static const char *g_vKeyNames[] = {
+static const char * const g_vKeyNames[] = {
 	"AXIS_X_MIN",
 	"AXIS_Y_MIN",
 	"AXIS_X_MAX",

@@ -78,7 +78,7 @@ bool GenericLogEnabled(LogLevel level, LogType type) {
 LogManager *LogManager::logManager_ = NULL;
 
 // NOTE: Needs to be kept in sync with the LogType enum.
-static const char *g_logTypeNames[] = {
+static const char * const g_logTypeNames[] = {
 	"SYSTEM",
 	"BOOT",
 	"COMMON",
@@ -302,7 +302,9 @@ void LogManager::RemoveListener(LogListener *listener) {
 }
 
 FileLogListener::FileLogListener(const char *filename) {
-	fp_ = File::OpenCFile(Path(std::string(filename)), "at");
+	if (strlen(filename) > 0) {
+		fp_ = File::OpenCFile(Path(std::string(filename)), "at");
+	}
 	SetEnabled(fp_ != nullptr);
 }
 

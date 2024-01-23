@@ -22,9 +22,7 @@ set(ALL_SOURCE_FILES
 	${SRC_DIR}/rcheevos/memref.c
 	${SRC_DIR}/rcheevos/operand.c
 	${SRC_DIR}/rc_compat.h
-	${SRC_DIR}/rc_compat.h
 	${SRC_DIR}/rc_compat.c
-	${SRC_DIR}/rc_util.h
 	${SRC_DIR}/rc_util.c
 	${SRC_DIR}/rc_client.c
 	${SRC_DIR}/rc_client_internal.h
@@ -40,6 +38,7 @@ set(ALL_SOURCE_FILES
 	# rhash
 	${SRC_DIR}/rhash/cdreader.c
 	${SRC_DIR}/rhash/hash.c
+	${SRC_DIR}/rhash/aes.c
 	${SRC_DIR}/rhash/md5.c
 	${SRC_DIR}/rhash/md5.h
 	)

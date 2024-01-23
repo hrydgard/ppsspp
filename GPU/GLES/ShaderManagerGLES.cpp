@@ -804,9 +804,9 @@ Shader *ShaderManagerGLES::ApplyVertexShader(bool useHWTransform, bool useHWTess
 	// Vertex shader not in cache. Let's compile it.
 	vs = CompileVertexShader(*VSID);
 	if (!vs) {
-		auto gr = GetI18NCategory(I18NCat::GRAPHICS);
 		ERROR_LOG(G3D, "Vertex shader generation failed, falling back to software transform");
 		if (!g_Config.bHideSlowWarnings) {
+			auto gr = GetI18NCategory(I18NCat::GRAPHICS);
 			g_OSD.Show(OSDType::MESSAGE_ERROR, gr->T("hardware transform error - falling back to software"), 2.5f);
 		}
 
@@ -914,24 +914,18 @@ std::vector<std::string> ShaderManagerGLES::DebugGetShaderIDs(DebugShaderType ty
 	std::vector<std::string> ids;
 	switch (type) {
 	case SHADER_TYPE_VERTEX:
-		{
-			ids.reserve(vsCache_.size());
-			vsCache_.Iterate([&](const VShaderID &id, Shader *shader) {
-				std::string idstr;
-				id.ToString(&idstr);
-				ids.push_back(idstr);
-			});
-		}
+		vsCache_.Iterate([&](const VShaderID &id, Shader *shader) {
+			std::string idstr;
+			id.ToString(&idstr);
+			ids.push_back(idstr);
+		});
 		break;
 	case SHADER_TYPE_FRAGMENT:
-		{
-			ids.reserve(fsCache_.size());
-			fsCache_.Iterate([&](const FShaderID &id, Shader *shader) {
-				std::string idstr;
-				id.ToString(&idstr);
-				ids.push_back(idstr);
-			});
-		}
+		fsCache_.Iterate([&](const FShaderID &id, Shader *shader) {
+			std::string idstr;
+			id.ToString(&idstr);
+			ids.push_back(idstr);
+		});
 		break;
 	default:
 		break;

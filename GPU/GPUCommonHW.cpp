@@ -982,7 +982,7 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 	}
 
 	int bytesRead = 0;
-	UpdateUVScaleOffset();
+	gstate_c.UpdateUVScaleOffset();
 
 	// cull mode
 	int cullMode = gstate.getCullMode();
@@ -1086,7 +1086,8 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 			bool passCulling = onePassed || PASSES_CULLING;
 			if (!passCulling) {
 				// Do software culling.
-				if (drawEngineCommon_->TestBoundingBox(verts, inds, count, vertexType)) {
+				_dbg_assert_((vertexType & GE_VTYPE_IDX_MASK) == GE_VTYPE_IDX_NONE);
+				if (drawEngineCommon_->TestBoundingBoxFast(verts, count, vertexType)) {
 					passCulling = true;
 				} else {
 					gpuStats.numCulledDraws++;
@@ -1306,7 +1307,7 @@ void GPUCommonHW::Execute_Bezier(u32 op, u32 diff) {
 	}
 
 	int bytesRead = 0;
-	UpdateUVScaleOffset();
+	gstate_c.UpdateUVScaleOffset();
 	drawEngineCommon_->SubmitCurve(control_points, indices, surface, gstate.vertType, &bytesRead, "bezier");
 
 	gstate_c.Dirty(DIRTY_RASTER_STATE | DIRTY_VERTEXSHADER_STATE | DIRTY_GEOMETRYSHADER_STATE | DIRTY_UVSCALEOFFSET);
@@ -1380,7 +1381,7 @@ void GPUCommonHW::Execute_Spline(u32 op, u32 diff) {
 	}
 
 	int bytesRead = 0;
-	UpdateUVScaleOffset();
+	gstate_c.UpdateUVScaleOffset();
 	drawEngineCommon_->SubmitCurve(control_points, indices, surface, gstate.vertType, &bytesRead, "spline");
 
 	gstate_c.Dirty(DIRTY_RASTER_STATE | DIRTY_VERTEXSHADER_STATE | DIRTY_GEOMETRYSHADER_STATE | DIRTY_UVSCALEOFFSET);

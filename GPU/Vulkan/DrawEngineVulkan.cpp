@@ -258,21 +258,11 @@ void DrawEngineVulkan::DoFlush() {
 			u8 *dest = pushVertex_->Allocate(vertsToDecode * dec_->GetDecVtxFmt().stride, 4, &vbuf, &vbOffset);
 			DecodeVerts(dest);
 		}
-		DecodeInds();
 
+		int vertexCount;
+		int maxIndex;
 		bool useElements;
-		int vertexCount = indexGen.VertexCount();
-		gpuStats.numUncachedVertsDrawn += vertexCount;
-		if (forceIndexed) {
-			useElements = true;
-			prim = indexGen.GeneralPrim();
-		} else {
-			useElements = !indexGen.SeenOnlyPurePrims();
-			if (!useElements && indexGen.PureCount()) {
-				vertexCount = indexGen.PureCount();
-			}
-			prim = indexGen.Prim();
-		}
+		DecodeIndsAndGetData(&prim, &vertexCount, &maxIndex, &useElements, false);
 
 		bool hasColor = (lastVType_ & GE_VTYPE_COL_MASK) != GE_VTYPE_COL_NONE;
 		if (gstate.isModeThrough()) {
@@ -338,22 +328,30 @@ void DrawEngineVulkan::DoFlush() {
 		PackedDescriptor *descriptors = renderManager->PushDescriptorSet(descCount, &descSetIndex);
 		descriptors[0].image.view = imageView;
 		descriptors[0].image.sampler = sampler;
+
 		descriptors[1].image.view = boundSecondary_;
 		descriptors[1].image.sampler = samplerSecondaryNearest_;
+
 		descriptors[2].image.view = boundDepal_;
 		descriptors[2].image.sampler = (boundDepal_ && boundDepalSmoothed_) ? samplerSecondaryLinear_ : samplerSecondaryNearest_;
+
 		descriptors[3].buffer.buffer = baseBuf;
 		descriptors[3].buffer.range = sizeof(UB_VS_FS_Base);
+		descriptors[3].buffer.offset = 0;
+
 		descriptors[4].buffer.buffer = lightBuf;
 		descriptors[4].buffer.range = sizeof(UB_VS_Lights);
+		descriptors[4].buffer.offset = 0;
+
 		descriptors[5].buffer.buffer = boneBuf;
 		descriptors[5].buffer.range = sizeof(UB_VS_Bones);
+		descriptors[5].buffer.offset = 0;
 		if (tess) {
 			const VkDescriptorBufferInfo *bufInfo = tessDataTransferVulkan->GetBufferInfo();
 			for (int j = 0; j < 3; j++) {
 				descriptors[j + 6].buffer.buffer = bufInfo[j].buffer;
-				descriptors[j + 6].buffer.offset = bufInfo[j].offset;
 				descriptors[j + 6].buffer.range = bufInfo[j].range;
+				descriptors[j + 6].buffer.offset = bufInfo[j].offset;
 			}
 		}
 		// TODO: Can we avoid binding all three when not needed? Same below for hardware transform.
@@ -363,7 +361,7 @@ void DrawEngineVulkan::DoFlush() {
 		};
 		if (useElements) {
 			if (!ibuf) {
-				ibOffset = (uint32_t)pushIndex_->Push(decIndex_, sizeof(uint16_t) * indexGen.VertexCount(), 4, &ibuf);
+				ibOffset = (uint32_t)pushIndex_->Push(decIndex_, sizeof(uint16_t) * vertexCount, 4, &ibuf);
 			}
 			renderManager->DrawIndexed(descSetIndex, ARRAY_SIZE(dynamicUBOOffsets), dynamicUBOOffsets, vbuf, vbOffset, ibuf, ibOffset, vertexCount, 1);
 		} else {
@@ -379,7 +377,7 @@ void DrawEngineVulkan::DoFlush() {
 		int prevDecodedVerts = numDecodedVerts_;
 
 		DecodeVerts(decoded_);
-		DecodeInds();
+		int vertexCount = DecodeInds();
 
 		bool hasColor = (lastVType_ & GE_VTYPE_COL_MASK) != GE_VTYPE_COL_NONE;
 		if (gstate.isModeThrough()) {
@@ -388,12 +386,8 @@ void DrawEngineVulkan::DoFlush() {
 			gstate_c.vertexFullAlpha = gstate_c.vertexFullAlpha && ((hasColor && (gstate.materialupdate & 1)) || gstate.getMaterialAmbientA() == 255) && (!gstate.isLightingEnabled() || gstate.getAmbientA() == 255);
 		}
 
-		gpuStats.numUncachedVertsDrawn += indexGen.VertexCount();
-		prim = indexGen.Prim();
-		// Undo the strip optimization, not supported by the SW code yet.
-		if (prim == GE_PRIM_TRIANGLE_STRIP)
-			prim = GE_PRIM_TRIANGLES;
-		_dbg_assert_(prim != GE_PRIM_INVALID);
+		gpuStats.numUncachedVertsDrawn += vertexCount;
+		prim = IndexGenerator::GeneralPrim((GEPrimitiveType)drawInds_[0].prim);
 
 		u16 *inds = decIndex_;
 		SoftwareTransformResult result{};
@@ -434,9 +428,10 @@ void DrawEngineVulkan::DoFlush() {
 		// Games sometimes expect exact matches (see #12626, for example) for equal comparisons.
 		if (result.action == SW_CLEAR && everUsedEqualDepth_ && gstate.isClearModeDepthMask() && result.depth > 0.0f && result.depth < 1.0f)
 			result.action = SW_NOT_READY;
+
 		if (result.action == SW_NOT_READY) {
-			swTransform.DetectOffsetTexture(numDecodedVerts_);
-			swTransform.BuildDrawingParams(prim, indexGen.VertexCount(), dec_->VertexType(), inds, numDecodedVerts_, &result);
+			// decIndex_ here is always equal to inds currently, but it may not be in the future.
+			swTransform.BuildDrawingParams(prim, vertexCount, dec_->VertexType(), inds, RemainingIndices(inds), numDecodedVerts_, &result);
 		}
 
 		if (result.setSafeSize)
@@ -446,7 +441,9 @@ void DrawEngineVulkan::DoFlush() {
 		// to use a "pre-clear" render pass, for high efficiency on tilers.
 		if (result.action == SW_DRAW_PRIMITIVES) {
 			if (textureNeedsApply) {
+				gstate_c.pixelMapped = result.pixelMapped;
 				textureCache_->ApplyTexture();
+				gstate_c.pixelMapped = false;
 				textureCache_->GetVulkanHandles(imageView, sampler);
 				if (imageView == VK_NULL_HANDLE)
 					imageView = (VkImageView)draw_->GetNativeObject(gstate_c.textureIsArray ? Draw::NativeObject::NULL_IMAGEVIEW_ARRAY : Draw::NativeObject::NULL_IMAGEVIEW);

@@ -240,6 +240,7 @@
     <ClInclude Include="..\..\Core\HLE\sceSas.h" />
     <ClInclude Include="..\..\Core\HLE\sceSfmt19937.h" />
     <ClInclude Include="..\..\Core\HLE\sceSha256.h" />
+    <ClInclude Include="..\..\Core\HLE\sceSircs.h" />
     <ClInclude Include="..\..\Core\HLE\sceSsl.h" />
     <ClInclude Include="..\..\Core\HLE\sceUmd.h" />
     <ClInclude Include="..\..\Core\HLE\sceUsb.h" />
@@ -320,6 +321,7 @@
     <ClInclude Include="..\..\Core\ThreadPools.h" />
     <ClInclude Include="..\..\Core\TiltEventProcessor.h" />
     <ClInclude Include="..\..\Core\Util\GameDB.h" />
+    <ClInclude Include="..\..\Core\Util\MemStick.h" />
     <ClInclude Include="..\..\Core\Util\PortManager.h" />
     <ClInclude Include="..\..\Core\WebServer.h" />
     <ClInclude Include="..\..\Core\Util\AudioFormat.h" />
@@ -486,6 +488,7 @@
     <ClCompile Include="..\..\Core\HLE\sceSas.cpp" />
     <ClCompile Include="..\..\Core\HLE\sceSfmt19937.cpp" />
     <ClCompile Include="..\..\Core\HLE\sceSha256.cpp" />
+    <ClCompile Include="..\..\Core\HLE\sceSircs.cpp" />
     <ClCompile Include="..\..\Core\HLE\sceSsl.cpp" />
     <ClCompile Include="..\..\Core\HLE\sceUmd.cpp" />
     <ClCompile Include="..\..\Core\HLE\sceUsb.cpp" />
@@ -605,6 +608,7 @@
     <ClCompile Include="..\..\Core\ThreadPools.cpp" />
     <ClCompile Include="..\..\Core\TiltEventProcessor.cpp" />
     <ClCompile Include="..\..\Core\Util\GameDB.cpp" />
+    <ClCompile Include="..\..\Core\Util\MemStick.cpp" />
     <ClCompile Include="..\..\Core\Util\PortManager.cpp" />
     <ClCompile Include="..\..\Core\WebServer.cpp" />
     <ClCompile Include="..\..\Core\Util\AudioFormat.cpp" />

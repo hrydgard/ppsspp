@@ -135,6 +135,8 @@ void Compatibility::CheckSettings(IniFile &iniFile, const std::string &gameID) {
 	CheckSetting(iniFile, gameID, "LoadCLUTFromCurrentFrameOnly", &flags_.LoadCLUTFromCurrentFrameOnly);
 	CheckSetting(iniFile, gameID, "ForceUMDReadSpeed", &flags_.ForceUMDReadSpeed);
 	CheckSetting(iniFile, gameID, "AllowDelayedReadbacks", &flags_.AllowDelayedReadbacks);
+	CheckSetting(iniFile, gameID, "TacticsOgreEliminateDebugReadback", &flags_.TacticsOgreEliminateDebugReadback);
+	CheckSetting(iniFile, gameID, "FramebufferAllowLargeVerticalOffset", &flags_.FramebufferAllowLargeVerticalOffset);
 }
 
 void Compatibility::CheckVRSettings(IniFile &iniFile, const std::string &gameID) {

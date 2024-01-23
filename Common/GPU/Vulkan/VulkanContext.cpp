@@ -35,7 +35,7 @@ using namespace PPSSPP_VK;
 
 VulkanLogOptions g_LogOptions;
 
-static const char *validationLayers[] = {
+static const char * const validationLayers[] = {
 	"VK_LAYER_KHRONOS_validation",
 	/*
 	// For layers included in the Android NDK.
@@ -133,7 +133,7 @@ VkResult VulkanContext::CreateInstance(const CreateInfo &info) {
 #endif
 #endif
 
-	if ((flags_ & VULKAN_FLAG_VALIDATE) && g_Config.customDriver.empty()) {
+	if ((flags_ & VULKAN_FLAG_VALIDATE) && g_Config.sCustomDriver.empty()) {
 		if (IsInstanceExtensionAvailable(VK_EXT_DEBUG_UTILS_EXTENSION_NAME)) {
 			// Enable the validation layers
 			for (size_t i = 0; i < ARRAY_SIZE(validationLayers); i++) {

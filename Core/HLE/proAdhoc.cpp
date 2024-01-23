@@ -1312,7 +1312,6 @@ void timeoutFriendsRecursive(SceNetAdhocctlPeerInfo * node, int32_t* count) {
 
 void sendChat(const std::string &chatString) {
 	SceNetAdhocctlChatPacketC2S chat;
-	auto n = GetI18NCategory(I18NCat::NETWORKING);
 	chat.base.opcode = OPCODE_CHAT;
 	//TODO check network inited, check send success or not, chatlog.pushback error on failed send, pushback error on not connected
 	if (friendFinderRunning) {
@@ -1334,6 +1333,7 @@ void sendChat(const std::string &chatString) {
 		}
 	} else {
 		std::lock_guard<std::mutex> guard(chatLogLock);
+		auto n = GetI18NCategory(I18NCat::NETWORKING);
 		chatLog.push_back(n->T("You're in Offline Mode, go to lobby or online hall"));
 		chatMessageGeneration++;
 	}
@@ -1891,7 +1891,6 @@ uint32_t getLocalIp(int sock) {
 static std::vector<std::pair<uint32_t, uint32_t>> InitPrivateIPRanges() {
 	struct sockaddr_in saNet {}, saMask{};
 	std::vector<std::pair<uint32_t, uint32_t>> ip_ranges;
-	ip_ranges.reserve(5);
 
 	if (1 == inet_pton(AF_INET, "192.168.0.0", &(saNet.sin_addr)) && 1 == inet_pton(AF_INET, "255.255.0.0", &(saMask.sin_addr)))
 		ip_ranges.push_back({saNet.sin_addr.s_addr, saMask.sin_addr.s_addr});
@@ -2268,7 +2267,7 @@ int initNetwork(SceNetAdhocctlAdhocId *adhoc_id){
 		socklen_t addrLen = sizeof(LocalIP);
 		memset(&LocalIP, 0, addrLen);
 		getsockname((int)metasocket, &LocalIP, &addrLen);
-		g_OSD.Show(OSDType::MESSAGE_SUCCESS, n->T("Network Initialized"), 1.0);
+		g_OSD.Show(OSDType::MESSAGE_SUCCESS, n->T("Network initialized"), 1.0);
 		return 0;
 	} else {
 		return SOCKET_ERROR;

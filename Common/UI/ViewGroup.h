@@ -9,6 +9,8 @@
 #include "Common/Input/GestureDetector.h"
 #include "Common/UI/View.h"
 
+class UIScreen;
+
 namespace UI {
 
 class AnchorTranslateTween;
@@ -270,7 +272,6 @@ public:
 	bool Key(const KeyInput &input) override;
 
 	void SetTopTabs(bool tabs) { topTabs_ = tabs; }
-	void Draw(UIContext &dc) override;
 
 	std::string DescribeLog() const override { return "ChoiceStrip: " + View::DescribeLog(); }
 	std::string DescribeText() const override;
@@ -298,6 +299,8 @@ public:
 		tabStrip_->EnableChoice(tab, enabled);
 	}
 
+	void AddBack(UIScreen *parent);
+
 	void SetCurrentTab(int tab, bool skipTween = false);
 
 	int GetCurrentTab() const { return currentTab_; }
@@ -309,6 +312,7 @@ private:
 	void AddTabContents(const std::string &title, View *tabContents);
 	EventReturn OnTabClick(EventParams &e);
 
+	LinearLayout *tabContainer_ = nullptr;
 	ChoiceStrip *tabStrip_ = nullptr;
 	ScrollView *tabScroll_ = nullptr;
 	AnchorLayout *contents_ = nullptr;
@@ -327,7 +331,13 @@ public:
 
 	void Update() override;
 
+	void SetOpen(bool open) {
+		open_ = open;
+		UpdateVisibility();
+	}
+
 private:
+	void UpdateVisibility();
 	bool open_ = true;
 	CollapsibleHeader *heading_;
 };

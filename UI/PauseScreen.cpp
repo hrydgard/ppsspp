@@ -32,9 +32,11 @@
 #include "Common/VR/PPSSPPVR.h"
 #include "Common/UI/AsyncImageFileView.h"
 
+#include "Core/KeyMap.h"
 #include "Core/Reporting.h"
 #include "Core/SaveState.h"
 #include "Core/System.h"
+#include "Core/Core.h"
 #include "Core/Config.h"
 #include "Core/RetroAchievements.h"
 #include "Core/ELF/ParamSFO.h"
@@ -265,10 +267,31 @@ void GamePauseScreen::update() {
 
 GamePauseScreen::GamePauseScreen(const Path &filename)
 	: UIDialogScreenWithGameBackground(filename) {
+	// So we can tell if something blew up while on the pause screen.
+	std::string assertStr = "PauseScreen: " + filename.GetFilename();
+	SetExtraAssertInfo(assertStr.c_str());
 }
 
 GamePauseScreen::~GamePauseScreen() {
 	__DisplaySetWasPaused();
+}
+
+bool GamePauseScreen::key(const KeyInput &key) {
+	if (!UIScreen::key(key) && (key.flags & KEY_DOWN)) {
+		// Special case to be able to unpause with a bound pause key.
+		// Normally we can't bind keys used in the UI.
+		InputMapping mapping(key.deviceId, key.keyCode);
+		std::vector<int> pspButtons;
+		KeyMap::InputMappingToPspButton(mapping, &pspButtons);
+		for (auto button : pspButtons) {
+			if (button == VIRTKEY_PAUSE) {
+				TriggerFinish(DR_CANCEL);
+				return true;
+			}
+		}
+		return false;
+	}
+	return false;
 }
 
 void GamePauseScreen::CreateSavestateControls(UI::LinearLayout *leftColumnItems, bool vertical) {
@@ -419,15 +442,20 @@ void GamePauseScreen::CreateViews() {
 		rightColumnItems->Add(new Choice(pa->T("Exit to menu")))->OnClick.Handle(this, &GamePauseScreen::OnExitToMenu);
 	}
 
-	ViewGroup *playControls = rightColumnHolder->Add(new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
-	playControls->SetTag("debug");
-	playControls->Add(new Spacer(new LinearLayoutParams(1.0f)));
-	playButton_ = playControls->Add(new Button("", g_Config.bRunBehindPauseMenu ? ImageID("I_PAUSE") : ImageID("I_PLAY"), new LinearLayoutParams(0.0f, G_RIGHT)));
-	playButton_->OnClick.Add([=](UI::EventParams &e) {
-		g_Config.bRunBehindPauseMenu = !g_Config.bRunBehindPauseMenu;
-		playButton_->SetImageID(g_Config.bRunBehindPauseMenu ? ImageID("I_PAUSE") : ImageID("I_PLAY"));
-		return UI::EVENT_DONE;
-	});
+	if (!Core_MustRunBehind()) {
+		ViewGroup *playControls = rightColumnHolder->Add(new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
+		playControls->SetTag("debug");
+		playControls->Add(new Spacer(new LinearLayoutParams(1.0f)));
+		playButton_ = playControls->Add(new Button("", g_Config.bRunBehindPauseMenu ? ImageID("I_PAUSE") : ImageID("I_PLAY"), new LinearLayoutParams(0.0f, G_RIGHT)));
+		playButton_->OnClick.Add([=](UI::EventParams &e) {
+			g_Config.bRunBehindPauseMenu = !g_Config.bRunBehindPauseMenu;
+			playButton_->SetImageID(g_Config.bRunBehindPauseMenu ? ImageID("I_PAUSE") : ImageID("I_PLAY"));
+			return UI::EVENT_DONE;
+		});
+	} else {
+		auto nw = GetI18NCategory(I18NCat::NETWORKING);
+		rightColumnHolder->Add(new TextView(nw->T("Network connected")));
+	}
 	rightColumnHolder->Add(new Spacer(10.0f));
 }
 

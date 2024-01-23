@@ -311,15 +311,15 @@ void ProductView::CreateViews() {
 	} else {
 		installButton_ = nullptr;
 		speedView_ = nullptr;
-		Add(new TextView(st->T("Already Installed")));
+		launchButton_ = new Button(st->T("Launch Game"));
+		launchButton_->OnClick.Handle(this, &ProductView::OnLaunchClick);
+		Add(launchButton_);
 		uninstallButton_ = new Button(st->T("Uninstall"));
 		Add(uninstallButton_)->OnClick.Add([=](UI::EventParams &e) {
 			g_GameManager.UninstallGameOnThread(entry_.file);
 			return UI::EVENT_DONE;
 		});
-		launchButton_ = new Button(st->T("Launch Game"));
-		launchButton_->OnClick.Handle(this, &ProductView::OnLaunchClick);
-		Add(launchButton_);
+		Add(new TextView(st->T("Installed")));
 	}
 
 	cancelButton_ = Add(new Button(di->T("Cancel")));
@@ -475,12 +475,12 @@ void StoreScreen::ParseListing(const std::string &json) {
 			e.type = ENTRY_PBPZIP;
 			e.name = GetTranslatedString(game, "name");
 			e.description = GetTranslatedString(game, "description", "");
-			e.author = game.getString("author", "?");
+			e.author = game.getStringOr("author", "?");
 			e.size = game.getInt("size");
-			e.downloadURL = game.getString("download-url", "");
-			e.iconURL = game.getString("icon-url", "");
+			e.downloadURL = game.getStringOr("download-url", "");
+			e.iconURL = game.getStringOr("icon-url", "");
 			e.hidden = false;  // NOTE: Handling of the "hidden" flag is broken in old versions of PPSSPP. Do not use.
-			const char *file = game.getString("file", nullptr);
+			const char *file = game.getStringOr("file", nullptr);
 			if (!file)
 				continue;
 			e.file = file;
@@ -495,7 +495,6 @@ void StoreScreen::CreateViews() {
 	root_ = new LinearLayout(ORIENT_VERTICAL);
 	
 	auto di = GetI18NCategory(I18NCat::DIALOG);
-	auto st = GetI18NCategory(I18NCat::STORE);
 	auto mm = GetI18NCategory(I18NCat::MAINMENU);
 
 	// Top bar
@@ -508,6 +507,7 @@ void StoreScreen::CreateViews() {
 
 	LinearLayout *content;
 	if (connectionError_ || loading_) {
+		auto st = GetI18NCategory(I18NCat::STORE);
 		content = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT, 1.0f));
 		content->Add(new TextView(loading_ ? std::string(st->T("Loading...")) : StringFromFormat("%s: %d", st->T("Connection Error"), resultCode_)));
 		if (!loading_) {
@@ -596,7 +596,7 @@ std::string StoreScreen::GetTranslatedString(const json::JsonGet json, const std
 	}
 	const char *str = nullptr;
 	if (dict) {
-		str = dict.getString(key.c_str(), nullptr);
+		str = dict.getStringOr(key.c_str(), nullptr);
 	}
 	if (str) {
 		return std::string(str);

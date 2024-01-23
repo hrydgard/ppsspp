@@ -204,8 +204,6 @@ public:
 	GPUgstate GetGState() override;
 	void SetCmdValue(u32 op) override;
 
-	void UpdateUVScaleOffset();
-
 	DisplayList* getList(int listid) override {
 		return &dls[listid];
 	}

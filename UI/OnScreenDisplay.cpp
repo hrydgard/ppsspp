@@ -24,6 +24,8 @@ static inline const char *DeNull(const char *ptr) {
 	return ptr ? ptr : "";
 }
 
+extern bool g_TakeScreenshot;
+
 static const float g_atlasIconSize = 36.0f;
 static const float extraTextScale = 0.7f;
 
@@ -53,7 +55,9 @@ static NoticeLevel GetNoticeLevel(OSDType type) {
 	case OSDType::MESSAGE_INFO: return NoticeLevel::INFO;
 	case OSDType::MESSAGE_ERROR:
 	case OSDType::MESSAGE_ERROR_DUMP: return NoticeLevel::ERROR;
-	case OSDType::MESSAGE_WARNING: return NoticeLevel::WARN;
+	case OSDType::MESSAGE_WARNING:
+	case OSDType::MESSAGE_CENTERED_WARNING:
+		return NoticeLevel::WARN;
 	case OSDType::MESSAGE_SUCCESS: return NoticeLevel::SUCCESS;
 	default: return NoticeLevel::SUCCESS;
 	}
@@ -134,8 +138,8 @@ static void RenderNotice(UIContext &dc, Bounds bounds, float height1, NoticeLeve
 		if (iconID.isValid()) {
 			// Atlas icon.
 			dc.Draw()->GetAtlas()->measureImage(iconID, &iconW, &iconH);
-			Bounds iconBounds = Bounds(bounds.x + 2.5f, bounds.y + 2.5f, iconW, iconH);
 			if (!iconName.empty()) {
+				Bounds iconBounds = Bounds(bounds.x + 2.5f, bounds.y + 2.5f, iconW, iconH);
 				// If it's not a preset OSD icon, give it some background to blend in. The RA icon for example
 				// easily melts into the orange of warnings otherwise.
 				dc.FillRect(UI::Drawable(0x50000000), iconBounds.Expand(2.0f));
@@ -234,7 +238,7 @@ static void RenderLeaderboardTracker(UIContext &dc, const Bounds &bounds, const 
 }
 
 void OnScreenMessagesView::Draw(UIContext &dc) {
-	if (!g_Config.bShowOnScreenMessages) {
+	if (!g_Config.bShowOnScreenMessages || g_TakeScreenshot) {
 		return;
 	}
 
@@ -290,6 +294,7 @@ void OnScreenMessagesView::Draw(UIContext &dc) {
 	typeEdges[(size_t)OSDType::LEADERBOARD_STARTED_FAILED] = (ScreenEdgePosition)g_Config.iAchievementsLeaderboardStartedOrFailedPos;
 	typeEdges[(size_t)OSDType::LEADERBOARD_SUBMITTED] = (ScreenEdgePosition)g_Config.iAchievementsLeaderboardSubmittedPos;
 	typeEdges[(size_t)OSDType::ACHIEVEMENT_UNLOCKED] = (ScreenEdgePosition)g_Config.iAchievementsUnlockedPos;
+	typeEdges[(size_t)OSDType::MESSAGE_CENTERED_WARNING] = ScreenEdgePosition::CENTER;
 
 	dc.SetFontScale(1.0f, 1.0f);
 
@@ -390,6 +395,7 @@ void OnScreenMessagesView::Draw(UIContext &dc) {
 		case ScreenEdgePosition::BOTTOM_RIGHT: horizAdj = 1; vertAdj = 1; break;
 		case ScreenEdgePosition::TOP_CENTER:  vertAdj = -1; break;
 		case ScreenEdgePosition::BOTTOM_CENTER: vertAdj = 1; break;
+		case ScreenEdgePosition::CENTER: break;
 		default: break;
 		}
 

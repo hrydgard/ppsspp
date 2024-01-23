@@ -182,6 +182,16 @@ Point View::GetFocusPosition(FocusDirection dir) const {
 	}
 }
 
+Point CollapsibleHeader::GetFocusPosition(FocusDirection dir) const {
+	// Bias the focus position to the left.
+	switch (dir) {
+	case FOCUS_UP: return Point(bounds_.x + 50, bounds_.y + 2);
+	case FOCUS_DOWN: return Point(bounds_.x + 50, bounds_.y2() - 2);
+	default:
+		return View::GetFocusPosition(dir);
+	}
+}
+
 bool View::SetFocus() {
 	if (IsFocusMovementEnabled()) {
 		if (CanBeFocused()) {
@@ -589,7 +599,7 @@ ItemHeader::ItemHeader(const std::string &text, LayoutParams *layoutParams)
 }
 
 void ItemHeader::Draw(UIContext &dc) {
-	dc.SetFontStyle(dc.theme->uiFontSmall);
+	dc.SetFontStyle(large_ ? dc.theme->uiFont : dc.theme->uiFontSmall);
 	dc.DrawText(text_.c_str(), bounds_.x + 4, bounds_.centerY(), dc.theme->headerStyle.fgColor, ALIGN_LEFT | ALIGN_VCENTER);
 	dc.Draw()->DrawImageCenterTexel(dc.theme->whiteImage, bounds_.x, bounds_.y2()-2, bounds_.x2(), bounds_.y2(), dc.theme->headerStyle.fgColor);
 }
@@ -1645,6 +1655,13 @@ void SliderFloat::GetContentDimensions(const UIContext &dc, float &w, float &h) 
 	// TODO
 	w = 100;
 	h = 50;
+}
+
+void Spacer::Draw(UIContext &dc) {
+	View::Draw(dc);
+	if (drawAsSeparator_) {
+		dc.FillRect(UI::Drawable(dc.theme->itemDownStyle.background.color), bounds_);
+	}
 }
 
 }  // namespace

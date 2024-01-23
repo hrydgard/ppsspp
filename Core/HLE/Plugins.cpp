@@ -180,8 +180,6 @@ bool Load() {
 	auto sy = GetI18NCategory(I18NCat::SYSTEM);
 
 	for (const std::string &filename : prxPlugins) {
-		std::string shortName = Path(filename).GetFilename();
-
 		std::string error_string = "";
 		SceUID module = KernelLoadModule(filename, &error_string);
 		if (!error_string.empty() || module < 0) {
@@ -193,6 +191,7 @@ bool Load() {
 		if (ret < 0) {
 			ERROR_LOG(SYSTEM, "Unable to start plugin %s: %08x", filename.c_str(), ret);
 		} else {
+			std::string shortName = Path(filename).GetFilename();
 			g_OSD.Show(OSDType::MESSAGE_SUCCESS, ApplySafeSubstitutions(sy->T("Loaded plugin: %1"), shortName));
 			started = true;
 		}

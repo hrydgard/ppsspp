@@ -80,7 +80,7 @@ RiscVCPUInfoParser::RiscVCPUInfoParser() {
 
 int RiscVCPUInfoParser::ProcessorCount() {
 	// Not using present as that counts the logical CPUs (aka harts.)
-	static const char *marker = "processor\t: ";
+	static const char * const marker = "processor\t: ";
 	std::set<std::string> processors;
 	for (auto core : cores_) {
 		for (auto line : core) {
@@ -107,7 +107,7 @@ int RiscVCPUInfoParser::TotalLogicalCount() {
 			return high - low + 1;
 	}
 
-	static const char *marker = "hart\t\t: ";
+	static const char * const marker = "hart\t\t: ";
 	std::set<std::string> harts;
 	for (auto core : cores_) {
 		for (auto line : core) {
@@ -120,7 +120,7 @@ int RiscVCPUInfoParser::TotalLogicalCount() {
 }
 
 std::string RiscVCPUInfoParser::ISAString() {
-	static const char *marker = "isa\t\t: ";
+	static const char * const marker = "isa\t\t: ";
 	for (auto core : cores_) {
 		for (auto line : core) {
 			if (line.find(marker) != line.npos)
@@ -241,10 +241,17 @@ std::vector<std::string> CPUInfo::Features() {
 		{ RiscV_D, "Double" },
 		{ RiscV_C, "Compressed" },
 		{ RiscV_V, "Vector" },
+		{ RiscV_Zvbb, "Vector Basic Bitmanip" },
+		{ RiscV_Zvkb, "Vector Crypto Bitmanip" },
 		{ RiscV_Zba, "Bitmanip Zba" },
 		{ RiscV_Zbb, "Bitmanip Zbb" },
 		{ RiscV_Zbc, "Bitmanip Zbc" },
 		{ RiscV_Zbs, "Bitmanip Zbs" },
+		{ RiscV_Zcb, "Compress Zcb" },
+		{ RiscV_Zfa, "Float Additional" },
+		{ RiscV_Zfh, "Float Half" },
+		{ RiscV_Zfhmin, "Float Half Minimal" },
+		{ RiscV_Zicond, "Integer Conditional" },
 		{ RiscV_Zicsr, "Zicsr" },
 		{ CPU64bit, "64-bit" },
 	};

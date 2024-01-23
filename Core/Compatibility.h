@@ -105,6 +105,8 @@ struct CompatFlags {
 	bool LoadCLUTFromCurrentFrameOnly;
 	bool ForceUMDReadSpeed;
 	bool AllowDelayedReadbacks;
+	bool TacticsOgreEliminateDebugReadback;
+	bool FramebufferAllowLargeVerticalOffset;
 };
 
 struct VRCompat {

@@ -151,6 +151,7 @@ enum class ScreenEdgePosition {
 	TOP_RIGHT = 5,
 	CENTER_LEFT = 6,
 	CENTER_RIGHT = 7,
+	CENTER = 8,  // Used for REALLY important messages! Not RetroAchievements notifications.
 	VALUE_COUNT,
 };
 
@@ -181,4 +182,9 @@ enum class SkipGPUReadbackMode : int {
 	NO_SKIP,
 	SKIP,
 	COPY_TO_TEXTURE,
+};
+
+enum class RemoteISOShareType : int {
+	RECENT,
+	LOCAL_FOLDER,
 };

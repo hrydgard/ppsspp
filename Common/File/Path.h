@@ -118,7 +118,7 @@ public:
 		return path_ != other.path_ || type_ != other.type_;
 	}
 
-	bool FilePathContainsNoCase(const std::string &needle) const;
+	bool FilePathContainsNoCase(std::string_view needle) const;
 
 	bool StartsWith(const Path &other) const;
 

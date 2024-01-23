@@ -21,10 +21,17 @@ void FrameData::Init(VulkanContext *vulkan, int index) {
 	this->index = index;
 	VkDevice device = vulkan->GetDevice();
 
+	VkSemaphoreCreateInfo semaphoreCreateInfo = { VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO };
+	semaphoreCreateInfo.flags = 0;
+	VkResult res = vkCreateSemaphore(vulkan->GetDevice(), &semaphoreCreateInfo, nullptr, &acquireSemaphore);
+	_dbg_assert_(res == VK_SUCCESS);
+	res = vkCreateSemaphore(vulkan->GetDevice(), &semaphoreCreateInfo, nullptr, &renderingCompleteSemaphore);
+	_dbg_assert_(res == VK_SUCCESS);
+
 	VkCommandPoolCreateInfo cmd_pool_info = { VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO };
 	cmd_pool_info.queueFamilyIndex = vulkan->GetGraphicsQueueFamilyIndex();
 	cmd_pool_info.flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT;
-	VkResult res = vkCreateCommandPool(device, &cmd_pool_info, nullptr, &cmdPoolInit);
+	res = vkCreateCommandPool(device, &cmd_pool_info, nullptr, &cmdPoolInit);
 	_dbg_assert_(res == VK_SUCCESS);
 	res = vkCreateCommandPool(device, &cmd_pool_info, nullptr, &cmdPoolMain);
 	_dbg_assert_(res == VK_SUCCESS);
@@ -61,6 +68,8 @@ void FrameData::Destroy(VulkanContext *vulkan) {
 	vkDestroyCommandPool(device, cmdPoolMain, nullptr);
 	vkDestroyFence(device, fence, nullptr);
 	vkDestroyQueryPool(device, profile.queryPool, nullptr);
+	vkDestroySemaphore(device, acquireSemaphore, nullptr);
+	vkDestroySemaphore(device, renderingCompleteSemaphore, nullptr);
 
 	readbacks_.IterateMut([=](const ReadbackKey &key, CachedReadback *value) {
 		value->Destroy(vulkan);
@@ -69,11 +78,11 @@ void FrameData::Destroy(VulkanContext *vulkan) {
 	readbacks_.Clear();
 }
 
-void FrameData::AcquireNextImage(VulkanContext *vulkan, FrameDataShared &shared) {
+void FrameData::AcquireNextImage(VulkanContext *vulkan) {
 	_dbg_assert_(!hasAcquired);
 
 	// Get the index of the next available swapchain image, and a semaphore to block command buffer execution on.
-	VkResult res = vkAcquireNextImageKHR(vulkan->GetDevice(), vulkan->GetSwapchain(), UINT64_MAX, shared.acquireSemaphore, (VkFence)VK_NULL_HANDLE, &curSwapchainImage);
+	VkResult res = vkAcquireNextImageKHR(vulkan->GetDevice(), vulkan->GetSwapchain(), UINT64_MAX, acquireSemaphore, (VkFence)VK_NULL_HANDLE, &curSwapchainImage);
 	switch (res) {
 	case VK_SUCCESS:
 		hasAcquired = true;
@@ -111,7 +120,7 @@ VkResult FrameData::QueuePresent(VulkanContext *vulkan, FrameDataShared &shared)
 	present.swapchainCount = 1;
 	present.pSwapchains = &swapchain;
 	present.pImageIndices = &curSwapchainImage;
-	present.pWaitSemaphores = &shared.renderingCompleteSemaphore;
+	present.pWaitSemaphores = &renderingCompleteSemaphore;
 	present.waitSemaphoreCount = 1;
 
 	// Can't move these into the if.
@@ -213,14 +222,14 @@ void FrameData::SubmitPending(VulkanContext *vulkan, FrameSubmitType type, Frame
 	if (type == FrameSubmitType::Present && !skipSwap) {
 		_dbg_assert_(hasAcquired);
 		submit_info.waitSemaphoreCount = 1;
-		submit_info.pWaitSemaphores = &sharedData.acquireSemaphore;
+		submit_info.pWaitSemaphores = &acquireSemaphore;
 		submit_info.pWaitDstStageMask = waitStage;
 	}
 	submit_info.commandBufferCount = (uint32_t)numCmdBufs;
 	submit_info.pCommandBuffers = cmdBufs;
 	if (type == FrameSubmitType::Present && !skipSwap) {
 		submit_info.signalSemaphoreCount = 1;
-		submit_info.pSignalSemaphores = &sharedData.renderingCompleteSemaphore;
+		submit_info.pSignalSemaphores = &renderingCompleteSemaphore;
 	}
 
 	VkResult res;
@@ -253,13 +262,6 @@ void FrameData::SubmitPending(VulkanContext *vulkan, FrameSubmitType type, Frame
 }
 
 void FrameDataShared::Init(VulkanContext *vulkan, bool useMultiThreading, bool measurePresentTime) {
-	VkSemaphoreCreateInfo semaphoreCreateInfo = { VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO };
-	semaphoreCreateInfo.flags = 0;
-	VkResult res = vkCreateSemaphore(vulkan->GetDevice(), &semaphoreCreateInfo, nullptr, &acquireSemaphore);
-	_dbg_assert_(res == VK_SUCCESS);
-	res = vkCreateSemaphore(vulkan->GetDevice(), &semaphoreCreateInfo, nullptr, &renderingCompleteSemaphore);
-	_dbg_assert_(res == VK_SUCCESS);
-
 	// This fence is used for synchronizing readbacks. Does not need preinitialization.
 	readbackFence = vulkan->CreateFence(false);
 	vulkan->SetDebugName(readbackFence, VK_OBJECT_TYPE_FENCE, "readbackFence");
@@ -270,7 +272,5 @@ void FrameDataShared::Init(VulkanContext *vulkan, bool useMultiThreading, bool m
 
 void FrameDataShared::Destroy(VulkanContext *vulkan) {
 	VkDevice device = vulkan->GetDevice();
-	vkDestroySemaphore(device, acquireSemaphore, nullptr);
-	vkDestroySemaphore(device, renderingCompleteSemaphore, nullptr);
 	vkDestroyFence(device, readbackFence, nullptr);
 }

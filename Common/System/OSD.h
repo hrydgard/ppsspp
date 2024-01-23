@@ -1,6 +1,7 @@
 #pragma once
 
 #include <string>
+#include <string_view>
 #include <vector>
 #include <mutex>
 
@@ -13,6 +14,7 @@ enum class OSDType {
 	MESSAGE_ERROR,
 	MESSAGE_ERROR_DUMP,  // displays lots of text (after the first line), small size
 	MESSAGE_FILE_LINK,
+	MESSAGE_CENTERED_WARNING,
 
 	ACHIEVEMENT_UNLOCKED,
 
@@ -33,15 +35,15 @@ enum class OSDType {
 class OnScreenDisplay {
 public:
 	// If you specify 0.0f as duration, a duration will be chosen automatically depending on type.
-	void Show(OSDType type, const std::string &text, float duration_s = 0.0f, const char *id = nullptr) {
+	void Show(OSDType type, std::string_view text, float duration_s = 0.0f, const char *id = nullptr) {
 		Show(type, text, "", duration_s, id);
 	}
-	void Show(OSDType type, const std::string &text, const std::string &text2, float duration_s = 0.0f, const char *id = nullptr) {
+	void Show(OSDType type, std::string_view text, std::string_view text2, float duration_s = 0.0f, const char *id = nullptr) {
 		Show(type, text, text2, "", duration_s, id);
 	}
-	void Show(OSDType type, const std::string &text, const std::string &text2, const std::string &icon, float duration_s = 0.0f, const char *id = nullptr);
+	void Show(OSDType type, std::string_view text, std::string_view text2, std::string_view icon, float duration_s = 0.0f, const char *id = nullptr);
 
-	void ShowOnOff(const std::string &message, bool on, float duration_s = 0.0f);
+	void ShowOnOff(std::string_view message, bool on, float duration_s = 0.0f);
 
 	bool IsEmpty() const { return entries_.empty(); }  // Shortcut to skip rendering.
 

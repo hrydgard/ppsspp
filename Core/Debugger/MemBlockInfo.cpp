@@ -288,12 +288,7 @@ void MemSlabMap::Clear() {
 
 MemSlabMap::Slab *MemSlabMap::FindSlab(uint32_t addr) {
 	// Jump ahead using our index.
-	size_t slabIndex = addr / SLICE_SIZE;
-	if (slabIndex >= heads_.size()) {
-		// Shouldn't happen, but apparently can.
-		return nullptr;
-	}
-	Slab *slab = heads_[slabIndex];
+	Slab *slab = heads_[addr / SLICE_SIZE];
 	// We often move forward, so check the last find.
 	if (lastFind_->start > slab->start && lastFind_->start <= addr)
 		slab = lastFind_;

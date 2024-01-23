@@ -94,7 +94,6 @@ void GameScreen::CreateViews() {
 
 	auto di = GetI18NCategory(I18NCat::DIALOG);
 	auto ga = GetI18NCategory(I18NCat::GAME);
-	auto pa = GetI18NCategory(I18NCat::PAUSE);
 
 	// Information in the top left.
 	// Back button to the bottom left.
@@ -202,6 +201,7 @@ void GameScreen::CreateViews() {
 	rightColumnItems->Add(AddOtherChoice(new Choice(ga->T("Show In Folder"))))->OnClick.Handle(this, &GameScreen::OnShowInFolder);
 #endif
 	if (g_Config.bEnableCheats) {
+		auto pa = GetI18NCategory(I18NCat::PAUSE);
 		rightColumnItems->Add(AddOtherChoice(new Choice(pa->T("Cheats"))))->OnClick.Handle(this, &GameScreen::OnCwCheat);
 	}
 
@@ -343,7 +343,7 @@ ScreenRenderFlags GameScreen::render(ScreenRenderMode mode) {
 
 		// Let's check the CRC in the game database, looking up the ID and also matching the crc.
 		std::vector<GameDBInfo> dbInfos;
-		if (tvVerified_ && g_gameDB.GetGameInfos(info->id_version, &dbInfos)) {
+		if (tvVerified_ && !info->id_version.empty() && g_gameDB.GetGameInfos(info->id_version, &dbInfos)) {
 			bool found = false;
 			for (auto &dbInfo : dbInfos) {
 				if (dbInfo.crc == crcVal) {
@@ -368,7 +368,7 @@ ScreenRenderFlags GameScreen::render(ScreenRenderMode mode) {
 		GameDBInfo dbInfo;
 		if (tvVerified_) {
 			std::vector<GameDBInfo> dbInfos;
-			if (!g_gameDB.GetGameInfos(info->id_version, &dbInfos)) {
+			if (!info->id_version.empty() && !g_gameDB.GetGameInfos(info->id_version, &dbInfos)) {
 				// tvVerified_->SetText(ga->T("Game ID unknown - not in the ReDump database"));
 				// tvVerified_->SetVisibility(UI::V_VISIBLE);
 				// tvVerified_->SetLevel(NoticeLevel::WARN);
@@ -452,19 +452,19 @@ UI::EventReturn GameScreen::OnGameSettings(UI::EventParams &e) {
 	if (info && info->paramSFOLoaded) {
 		std::string discID = info->paramSFO.GetValueString("DISC_ID");
 		if ((discID.empty() || !info->disc_total) && gamePath_.FilePathContainsNoCase("PSP/GAME/"))
-			discID = g_paramSFO.GenerateFakeID(gamePath_.ToString());
+			discID = g_paramSFO.GenerateFakeID(gamePath_);
 		screenManager()->push(new GameSettingsScreen(gamePath_, discID, true));
 	}
 	return UI::EVENT_DONE;
 }
 
 UI::EventReturn GameScreen::OnDeleteSaveData(UI::EventParams &e) {
-	auto di = GetI18NCategory(I18NCat::DIALOG);
-	auto ga = GetI18NCategory(I18NCat::GAME);
 	std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(NULL, gamePath_, GAMEINFO_WANTBG | GAMEINFO_WANTSIZE);
 	if (info) {
 		// Check that there's any savedata to delete
 		if (saveDirs.size()) {
+			auto di = GetI18NCategory(I18NCat::DIALOG);
+			auto ga = GetI18NCategory(I18NCat::GAME);
 			screenManager()->push(
 				new PromptScreen(gamePath_, di->T("DeleteConfirmAll", "Do you really want to delete all\nyour save data for this game?"), ga->T("ConfirmDelete"), di->T("Cancel"),
 				std::bind(&GameScreen::CallbackDeleteSaveData, this, std::placeholders::_1)));
@@ -476,8 +476,8 @@ UI::EventReturn GameScreen::OnDeleteSaveData(UI::EventParams &e) {
 }
 
 void GameScreen::CallbackDeleteSaveData(bool yes) {
-	std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(NULL, gamePath_, 0);
 	if (yes) {
+		std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(NULL, gamePath_, 0);
 		info->DeleteAllSaveData();
 		info->saveDataSize = 0;
 		info->installDataSize = 0;
@@ -485,10 +485,10 @@ void GameScreen::CallbackDeleteSaveData(bool yes) {
 }
 
 UI::EventReturn GameScreen::OnDeleteGame(UI::EventParams &e) {
-	auto di = GetI18NCategory(I18NCat::DIALOG);
-	auto ga = GetI18NCategory(I18NCat::GAME);
 	std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(NULL, gamePath_, GAMEINFO_WANTBG | GAMEINFO_WANTSIZE);
 	if (info) {
+		auto di = GetI18NCategory(I18NCat::DIALOG);
+		auto ga = GetI18NCategory(I18NCat::GAME);
 		screenManager()->push(
 			new PromptScreen(gamePath_, di->T("DeleteConfirmGame", "Do you really want to delete this game\nfrom your device? You can't undo this."), ga->T("ConfirmDelete"), di->T("Cancel"),
 			std::bind(&GameScreen::CallbackDeleteGame, this, std::placeholders::_1)));
@@ -498,8 +498,8 @@ UI::EventReturn GameScreen::OnDeleteGame(UI::EventParams &e) {
 }
 
 void GameScreen::CallbackDeleteGame(bool yes) {
-	std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(NULL, gamePath_, 0);
 	if (yes) {
+		std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(NULL, gamePath_, 0);
 		info->Delete();
 		g_gameInfoCache->Clear();
 		screenManager()->switchScreen(new MainScreen());

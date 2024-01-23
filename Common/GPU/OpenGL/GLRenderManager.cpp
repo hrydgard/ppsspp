@@ -43,7 +43,7 @@ GLRenderManager::GLRenderManager(HistoryBuffer<FrameTimeData, FRAME_TIME_HISTORY
 }
 
 GLRenderManager::~GLRenderManager() {
-	_dbg_assert_(!run_);
+	_dbg_assert_(!runCompileThread_);
 
 	for (int i = 0; i < MAX_INFLIGHT_FRAMES; i++) {
 		_assert_(frameData_[i].deleter.IsEmpty());
@@ -125,7 +125,7 @@ void GLRenderManager::ThreadEnd() {
 //
 // NOTE: If run_ is true, we WILL run a task!
 bool GLRenderManager::ThreadFrame() {
-	if (!run_) {
+	if (!runCompileThread_) {
 		return false;
 	}
 
@@ -172,8 +172,8 @@ bool GLRenderManager::ThreadFrame() {
 void GLRenderManager::StopThread() {
 	// There's not really a lot to do here anymore.
 	INFO_LOG(G3D, "GLRenderManager::StopThread()");
-	if (run_) {
-		run_ = false;
+	if (runCompileThread_) {
+		runCompileThread_ = false;
 
 		std::unique_lock<std::mutex> lock(pushMutex_);
 		renderThreadQueue_.push(new GLRRenderThreadTask(GLRRunType::EXIT));
@@ -368,7 +368,7 @@ void GLRenderManager::BeginFrame(bool enableProfiling) {
 		frameData.readyForFence = false;
 	}
 
-	if (!run_) {
+	if (!runCompileThread_) {
 		WARN_LOG(G3D, "BeginFrame while !run_!");
 	}
 

@@ -67,7 +67,7 @@ const JsonNode *JsonGet::get(const char *child_name, JsonTag type) const {
 	return nullptr;
 }
 
-const char *JsonGet::getStringOrDie(const char *child_name) const {
+const char *JsonGet::getStringOrNull(const char *child_name) const {
 	const JsonNode *val = get(child_name, JSON_STRING);
 	if (val)
 		return val->value.toString();
@@ -75,7 +75,16 @@ const char *JsonGet::getStringOrDie(const char *child_name) const {
 	return nullptr;
 }
 
-const char *JsonGet::getString(const char *child_name, const char *default_value) const {
+bool JsonGet::getString(const char *child_name, std::string *output) const {
+	const JsonNode *val = get(child_name, JSON_STRING);
+	if (!val) {
+		return false;
+	}
+	*output = val->value.toString();
+	return true;
+}
+
+const char *JsonGet::getStringOr(const char *child_name, const char *default_value) const {
 	const JsonNode *val = get(child_name, JSON_STRING);
 	if (!val)
 		return default_value;

@@ -85,7 +85,8 @@ protected:
 
 class RemoteISOBrowseScreen : public MainScreen {
 public:
-	RemoteISOBrowseScreen(const std::string &url, const std::vector<Path> &games);
+	RemoteISOBrowseScreen(const std::string &url, const std::vector<Path> &games)
+		: url_(url), games_(games) {}
 
 	const char *tag() const override { return "RemoteISOBrowse"; }
 
@@ -110,3 +111,6 @@ protected:
 
 	bool serverRunning_ = false;
 };
+
+std::string RemoteSubdir();
+std::string FormatRemoteISOUrl(const char *host, int port, const char *subdir);

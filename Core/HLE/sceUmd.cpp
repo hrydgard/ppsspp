@@ -179,7 +179,7 @@ static void __KernelUmdActivate()
 		__KernelNotifyCallback(driveCBId, notifyArg);
 
 	// Don't activate immediately, take time to "spin up."
-	CoreTiming::RemoveAllEvents(umdStatChangeEvent);
+	CoreTiming::RemoveEvent(umdStatChangeEvent);
 	CoreTiming::ScheduleEvent(usToCycles(MICRO_DELAY_ACTIVATE), umdStatChangeEvent, 1);
 }
 
@@ -189,7 +189,7 @@ static void __KernelUmdDeactivate()
 	if (driveCBId != 0)
 		__KernelNotifyCallback(driveCBId, notifyArg);
 
-	CoreTiming::RemoveAllEvents(umdStatChangeEvent);
+	CoreTiming::RemoveEvent(umdStatChangeEvent);
 	__UmdStatChange(0, 0);
 }
 

@@ -74,6 +74,7 @@ void FrameTiming::PostSubmit() {
 		WaitUntil(time_now_d(), waitUntil_);
 		if (curTimePtr_) {
 			*curTimePtr_ = waitUntil_;
+			curTimePtr_ = nullptr;
 		}
 		waitUntil_ = 0.0;
 	}

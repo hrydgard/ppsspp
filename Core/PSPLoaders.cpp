@@ -218,7 +218,7 @@ void InitMemoryForGamePBP(FileLoader *fileLoader) {
 // that probably loads a plugin and then launches the actual game. These stubs don't work in PPSSPP.
 // No idea why they are doing this, but it works to just bypass it. They could stop
 // inventing new filenames though...
-static const char *altBootNames[] = {
+static const char * const altBootNames[] = {
 	"disc0:/PSP_GAME/SYSDIR/EBOOT.OLD",
 	"disc0:/PSP_GAME/SYSDIR/EBOOT.DAT",
 	"disc0:/PSP_GAME/SYSDIR/EBOOT.BI",
@@ -395,6 +395,7 @@ bool Load_PSP_ELF_PBP(FileLoader *fileLoader, std::string *error_string) {
 		ms_path = "umd0:/";
 	}
 
+	Path dir;
 	if (!PSP_CoreParameter().mountRoot.empty()) {
 		// We don't want to worry about .. and cwd and such.
 		const Path rootNorm = NormalizePath(PSP_CoreParameter().mountRoot);
@@ -423,11 +424,13 @@ bool Load_PSP_ELF_PBP(FileLoader *fileLoader, std::string *error_string) {
 		file = filepath + "/" + file;
 		path = rootNorm.ToString();
 		pspFileSystem.SetStartingDirectory(filepath);
+		dir = Path(path);
 	} else {
 		pspFileSystem.SetStartingDirectory(ms_path);
+		dir = full_path.NavigateUp();
 	}
 
-	std::shared_ptr<IFileSystem> fs = std::shared_ptr<IFileSystem>(new DirectoryFileSystem(&pspFileSystem, Path(path), FileSystemFlags::SIMULATE_FAT32 | FileSystemFlags::CARD));
+	std::shared_ptr<IFileSystem> fs = std::shared_ptr<IFileSystem>(new DirectoryFileSystem(&pspFileSystem, dir, FileSystemFlags::SIMULATE_FAT32 | FileSystemFlags::CARD));
 	pspFileSystem.Mount("umd0:", fs);
 
 	std::string finalName = ms_path + file;
@@ -446,7 +449,7 @@ bool Load_PSP_ELF_PBP(FileLoader *fileLoader, std::string *error_string) {
 		homebrewTitle = homebrewName;
 	std::string discID = g_paramSFO.GetDiscID();
 	std::string discVersion = g_paramSFO.GetValueString("DISC_VERSION");
-	std::string madeUpID = g_paramSFO.GenerateFakeID();
+	std::string madeUpID = g_paramSFO.GenerateFakeID(Path());
 
 	std::string title = StringFromFormat("%s : %s", discID.c_str(), homebrewTitle.c_str());
 	INFO_LOG(LOADER, "%s", title.c_str());

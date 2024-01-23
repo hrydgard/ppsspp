@@ -200,9 +200,10 @@ void SimpleGLWindow::GenerateChecker() {
 		return;
 	}
 
-	const static u8 checkerboard[] = {
-		255,255,255,255, 195,195,195,255,
-		195,195,195,255, 255,255,255,255,
+	// 2x2 RGBA bitmap
+	static const u8 checkerboard[] = {
+		192,192,192,255, 128,128,128,255,
+		128,128,128,255, 192,192,192,255,
 	};
 
 	wglMakeCurrent(hDC_, hGLRC_);

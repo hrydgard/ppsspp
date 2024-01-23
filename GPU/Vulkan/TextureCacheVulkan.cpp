@@ -136,6 +136,7 @@ VkSampler SamplerCache::GetOrCreateSampler(const SamplerCacheKey &key) {
 	samp.magFilter = key.magFilt ? VK_FILTER_LINEAR : VK_FILTER_NEAREST;
 	samp.minFilter = key.minFilt ? VK_FILTER_LINEAR : VK_FILTER_NEAREST;
 	samp.mipmapMode = key.mipFilt ? VK_SAMPLER_MIPMAP_MODE_LINEAR : VK_SAMPLER_MIPMAP_MODE_NEAREST;
+
 	if (key.aniso) {
 		// Docs say the min of this value and the supported max are used.
 		samp.maxAnisotropy = 1 << g_Config.iAnisotropyLevel;
@@ -187,7 +188,6 @@ void SamplerCache::DeviceRestore(VulkanContext *vulkan) {
 
 std::vector<std::string> SamplerCache::DebugGetSamplerIDs() const {
 	std::vector<std::string> ids;
-	ids.reserve(cache_.size());
 	cache_.Iterate([&](const SamplerCacheKey &id, VkSampler sampler) {
 		std::string idstr;
 		id.ToString(&idstr);
@@ -229,6 +229,7 @@ void TextureCacheVulkan::DeviceLost() {
 
 	nextTexture_ = nullptr;
 	draw_ = nullptr;
+	Unbind();
 }
 
 void TextureCacheVulkan::DeviceRestore(Draw::DrawContext *draw) {
@@ -372,8 +373,7 @@ void TextureCacheVulkan::UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutB
 
 void TextureCacheVulkan::BindTexture(TexCacheEntry *entry) {
 	if (!entry || !entry->vkTex) {
-		imageView_ = VK_NULL_HANDLE;
-		curSampler_ = VK_NULL_HANDLE;
+		Unbind();
 		return;
 	}
 
@@ -496,6 +496,7 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 	}
 
 	if (plan.saveTexture) {
+		INFO_LOG(G3D, "About to save texture");
 		actualFmt = VULKAN_8888_FORMAT;
 	}
 
@@ -647,6 +648,8 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 			}
 			// Format might be wrong in lowMemoryMode_, so don't save.
 			if (plan.saveTexture && !lowMemoryMode_) {
+				INFO_LOG(G3D, "Calling NotifyTextureDecoded %08x", entry->addr);
+
 				// When hardware texture scaling is enabled, this saves the original.
 				int w = dataScaled ? mipWidth : mipUnscaledWidth;
 				int h = dataScaled ? mipHeight : mipUnscaledHeight;

@@ -64,6 +64,7 @@
 #include "scePsmf.h"
 #include "sceRtc.h"
 #include "sceSas.h"
+#include "sceSircs.h"
 #include "sceSsl.h"
 #include "sceUmd.h"
 #include "sceUsb.h"
@@ -307,6 +308,7 @@ void RegisterAllModules() {
 	Register_sceDdrdb();
 	Register_mp4msv();
 	Register_InterruptManagerForKernel();
+	Register_sceSircs();
 	// add new modules here.
 }
 

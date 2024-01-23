@@ -630,8 +630,9 @@ static void FinishRecording() {
 	flipFinishAt = -1;
 	lastEdramTrans = 0x400;
 
-	if (writeCallback)
+	if (writeCallback) {
 		writeCallback(filename);
+	}
 	writeCallback = nullptr;
 }
 

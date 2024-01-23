@@ -23,6 +23,7 @@
 #endif
 
 #include "Common/StringUtils.h"
+#include "Core/CoreTiming.h"
 #include "Core/Debugger/Breakpoints.h"
 #include "Core/Debugger/SymbolMap.h"
 #include "Core/Debugger/DebugInterface.h"
@@ -46,6 +47,8 @@ enum ReferenceIndexType {
 	REF_INDEX_HLE      = 0x10000,
 	REF_INDEX_THREAD   = REF_INDEX_HLE | 0,
 	REF_INDEX_MODULE   = REF_INDEX_HLE | 1,
+	REF_INDEX_USEC     = REF_INDEX_HLE | 2,
+	REF_INDEX_TICKS    = REF_INDEX_HLE | 3,
 };
 
 
@@ -123,6 +126,14 @@ public:
 			referenceIndex = REF_INDEX_MODULE;
 			return true;
 		}
+		if (strcasecmp(str, "usec") == 0) {
+			referenceIndex = REF_INDEX_USEC;
+			return true;
+		}
+		if (strcasecmp(str, "ticks") == 0) {
+			referenceIndex = REF_INDEX_TICKS;
+			return true;
+		}
 
 		return false;
 	}
@@ -146,6 +157,10 @@ public:
 			return __KernelGetCurThread();
 		if (referenceIndex == REF_INDEX_MODULE)
 			return __KernelGetCurThreadModuleId();
+		if (referenceIndex == REF_INDEX_USEC)
+			return (uint32_t)CoreTiming::GetGlobalTimeUs();  // Loses information
+		if (referenceIndex == REF_INDEX_USEC)
+			return (uint32_t)CoreTiming::GetTicks();
 		if ((referenceIndex & ~(REF_INDEX_FPU | REF_INDEX_FPU_INT)) < 32)
 			return cpu->GetRegValue(1, referenceIndex & ~(REF_INDEX_FPU | REF_INDEX_FPU_INT));
 		if ((referenceIndex & ~(REF_INDEX_VFPU | REF_INDEX_VFPU_INT)) < 128)
@@ -263,7 +278,7 @@ const char *MIPSDebugInterface::GetName()
 }
 
 std::string MIPSDebugInterface::GetRegName(int cat, int index) {
-	static const char *regName[32] = {
+	static const char * const regName[32] = {
 		"zero",  "at",    "v0",    "v1",
 		"a0",    "a1",    "a2",    "a3",
 		"t0",    "t1",    "t2",    "t3",
@@ -273,7 +288,7 @@ std::string MIPSDebugInterface::GetRegName(int cat, int index) {
 		"t8",    "t9",    "k0",    "k1",
 		"gp",    "sp",    "fp",    "ra"
 	};
-	static const char *fpRegName[32] = {
+	static const char * const fpRegName[32] = {
 		"f0", "f1", "f2", "f3", "f4", "f5", "f6", "f7",
 		"f8", "f9", "f10", "f11", "f12", "f13", "f14", "f15",
 		"f16", "f16", "f18", "f19", "f20", "f21", "f22", "f23",

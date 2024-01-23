@@ -27,6 +27,8 @@
 #include "Common/UI/UIScreen.h"
 #include "Common/Thread/Promise.h"
 
+#include "Core/Util/MemStick.h"
+
 #include "UI/MiscScreens.h"
 
 class NoticeView;
@@ -91,30 +93,6 @@ private:
 #endif
 };
 
-class ProgressReporter {
-public:
-	void Set(const std::string &value) {
-		std::lock_guard<std::mutex> guard(mutex_);
-		progress_ = value;
-	}
-
-	std::string Get() {
-		std::lock_guard<std::mutex> guard(mutex_);
-		return progress_;
-	}
-
-private:
-	std::string progress_;
-	std::mutex mutex_;
-};
-
-struct MoveResult {
-	bool success;  // Got through the whole move.
-	std::string errorMessage;
-	size_t failedFiles;
-	size_t skippedFiles;
-};
-
 class ConfirmMemstickMoveScreen : public UIDialogScreenWithBackground {
 public:
 	ConfirmMemstickMoveScreen(Path newMemstickFolder, bool initialSetup);
@@ -141,7 +119,7 @@ private:
 #endif
 	bool initialSetup_;
 
-	ProgressReporter progressReporter_;
+	MoveProgressReporter progressReporter_;
 	UI::TextView *progressView_ = nullptr;
 
 	Promise<MoveResult *> *moveDataTask_ = nullptr;

@@ -220,6 +220,7 @@ SOURCES_C += \
 	$(EXTDIR)/rcheevos/src/rcheevos/runtime_progress.c \
 	$(EXTDIR)/rcheevos/src/rcheevos/trigger.c \
 	$(EXTDIR)/rcheevos/src/rcheevos/value.c \
+	$(EXTDIR)/rcheevos/src/rhash/aes.c \
 	$(EXTDIR)/rcheevos/src/rhash/cdreader.c \
 	$(EXTDIR)/rcheevos/src/rhash/hash.c \
 	$(EXTDIR)/rcheevos/src/rhash/md5.c
@@ -617,6 +618,7 @@ SOURCES_CXX += \
 	       $(COREDIR)/HLE/KUBridge.cpp \
 	       $(COREDIR)/HLE/Plugins.cpp \
 	       $(COREDIR)/HLE/sceSha256.cpp \
+	       $(COREDIR)/HLE/sceSircs.cpp \
 	       $(COREDIR)/HLE/sceG729.cpp \
 	       $(COREDIR)/HLE/sceSfmt19937.cpp \
 	       $(COREDIR)/HLE/ReplaceTables.cpp \
@@ -740,6 +742,7 @@ SOURCES_CXX += \
 	       $(COREDIR)/System.cpp \
 	       $(COREDIR)/ThreadPools.cpp \
 	       $(COREDIR)/Util/BlockAllocator.cpp \
+	       $(COREDIR)/Util/MemStick.cpp \
 	       $(COREDIR)/Util/PPGeDraw.cpp \
 	       $(COREDIR)/Util/AudioFormat.cpp \
 	       $(COREDIR)/Util/PortManager.cpp \

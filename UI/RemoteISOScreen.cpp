@@ -96,7 +96,7 @@ static ServerAllowStatus IsServerAllowed(int port) {
 #endif
 }
 
-static std::string RemoteSubdir() {
+std::string RemoteSubdir() {
 	if (g_Config.bRemoteISOManual) {
 		return g_Config.sRemoteISOSubdir;
 	}
@@ -118,6 +118,7 @@ bool RemoteISOConnectScreen::FindServer(std::string &resultHost, int &resultPort
 
 		std::lock_guard<std::mutex> guard(statusLock_);
 		statusMessage_ = formatted;
+		INFO_LOG(SYSTEM, "Remote: %s", formatted.c_str());
 	};
 
 	http.SetUserAgent(StringFromFormat("PPSSPP/%s", PPSSPP_GIT_VERSION));
@@ -159,8 +160,13 @@ bool RemoteISOConnectScreen::FindServer(std::string &resultHost, int &resultPort
 
 		bool supported = false;
 		for (const std::string &item : items) {
-			if (!RemoteISOFileSupported(item)) {
+			if (item.empty())
 				continue;
+			if (!RemoteISOFileSupported(item)) {
+				if (item.back() != '/') {
+					// We accept lists of just directories - we kinda have to.
+					continue;
+				}
 			}
 			supported = true;
 			break;
@@ -228,7 +234,7 @@ bool RemoteISOConnectScreen::FindServer(std::string &resultHost, int &resultPort
 		if (scanCancelled)
 			return false;
 
-		const char *host = entry.getString("ip", "");
+		const char *host = entry.getStringOr("ip", "");
 		int port = entry.getInt("p", 0);
 
 		if (TryServer(host, port)) {
@@ -250,8 +256,8 @@ static bool LoadGameList(const Path &url, std::vector<Path> &games) {
 	PathBrowser browser(url);
 	std::vector<File::FileInfo> files;
 	browser.SetUserAgent(StringFromFormat("PPSSPP/%s", PPSSPP_GIT_VERSION));
-	browser.SetRootAlias("ms:", GetSysDirectory(DIRECTORY_MEMSTICK_ROOT).ToVisualString());
-	browser.GetListing(files, "iso:cso:pbp:elf:prx:ppdmp:", &scanCancelled);
+	browser.SetRootAlias("ms:", GetSysDirectory(DIRECTORY_MEMSTICK_ROOT).ToVisualString() + "/");
+	browser.GetListing(files, "iso:cso:chd:pbp:elf:prx:ppdmp:", &scanCancelled);
 	if (scanCancelled) {
 		return false;
 	}
@@ -300,7 +306,11 @@ void RemoteISOScreen::CreateViews() {
 	ViewGroup *rightColumn = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(300, FILL_PARENT, actionMenuMargins));
 	LinearLayout *rightColumnItems = new LinearLayout(ORIENT_VERTICAL);
 
-	leftColumnItems->Add(new TextView(ri->T("RemoteISODesc", "Games in your recent list will be shared"), new LinearLayoutParams(Margins(12, 5, 0, 5))));
+	if ((RemoteISOShareType)g_Config.iRemoteISOShareType == RemoteISOShareType::RECENT) {
+		leftColumnItems->Add(new TextView(ri->T("RemoteISODesc", "Games in your recent list will be shared"), new LinearLayoutParams(Margins(12, 5, 0, 5))));
+	} else {
+		leftColumnItems->Add(new TextView(std::string(ri->T("Share Games(Server)")) + " " + Path(g_Config.sRemoteISOSharedDir).ToVisualString(), new LinearLayoutParams(Margins(12, 5, 0, 5))));
+	}
 	leftColumnItems->Add(new TextView(ri->T("RemoteISOWifi", "Note: Connect both devices to the same wifi"), new LinearLayoutParams(Margins(12, 5, 0, 5))));
 	firewallWarning_ = leftColumnItems->Add(new TextView(ri->T("RemoteISOWinFirewall", "WARNING: Windows Firewall is blocking sharing"), new LinearLayoutParams(Margins(12, 5, 0, 5))));
 	firewallWarning_->SetTextColor(0xFF0000FF);
@@ -484,9 +494,13 @@ ScanStatus RemoteISOConnectScreen::GetStatus() {
 	return status_;
 }
 
+std::string FormatRemoteISOUrl(const char *host, int port, const char *subdir) {
+	return StringFromFormat("http://%s:%d%s", host, port, subdir);
+}
+
 void RemoteISOConnectScreen::ExecuteLoad() {
 	std::string subdir = RemoteSubdir();
-	url_ = StringFromFormat("http://%s:%d%s", host_.c_str(), port_, subdir.c_str());
+	url_ = FormatRemoteISOUrl(host_.c_str(), port_, subdir.c_str());
 	bool result = LoadGameList(Path(url_), games_);
 	if (scanAborted) {
 		return;
@@ -501,32 +515,11 @@ void RemoteISOConnectScreen::ExecuteLoad() {
 	status_ = result ? ScanStatus::LOADED : ScanStatus::FAILED;
 }
 
-class RemoteGameBrowser : public GameBrowser {
-public:
-	RemoteGameBrowser(const Path &url, BrowseFlags browseFlags, bool *gridStyle, ScreenManager *screenManager, std::string lastText, std::string lastLink, UI::LayoutParams *layoutParams = nullptr)
-		: GameBrowser(url, browseFlags, gridStyle, screenManager, lastText, lastLink, layoutParams) {
-		initialPath_ = url;
-	}
-
-protected:
-	Path HomePath() override {
-		return initialPath_;
-	}
-
-	Path initialPath_;
-};
-
-RemoteISOBrowseScreen::RemoteISOBrowseScreen(const std::string &url, const std::vector<Path> &games)
-	: url_(url), games_(games) {
-}
-
 void RemoteISOBrowseScreen::CreateViews() {
 	auto di = GetI18NCategory(I18NCat::DIALOG);
 	auto ri = GetI18NCategory(I18NCat::REMOTEISO);
 
 	bool vertical = UseVerticalLayout();
-
-	Margins actionMenuMargins(0, 10, 10, 0);
 
 	TabHolder *leftColumn = new TabHolder(ORIENT_HORIZONTAL, 64, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 	tabHolder_ = leftColumn;
@@ -537,9 +530,11 @@ void RemoteISOBrowseScreen::CreateViews() {
 
 	ScrollView *scrollRecentGames = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 	scrollRecentGames->SetTag("RemoteGamesTab");
-	GameBrowser *tabRemoteGames = new RemoteGameBrowser(
-		Path(url_), BrowseFlags::PIN | BrowseFlags::NAVIGATE, &g_Config.bGridView1, screenManager(), "", "",
+	GameBrowser *tabRemoteGames = new GameBrowser(GetRequesterToken(),
+		Path(url_), BrowseFlags::NAVIGATE, &g_Config.bGridView1, screenManager(), "", "",
 		new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
+	tabRemoteGames->SetHomePath(Path(url_));
+
 	scrollRecentGames->Add(tabRemoteGames);
 	gameBrowsers_.push_back(tabRemoteGames);
 
@@ -562,6 +557,7 @@ void RemoteISOBrowseScreen::CreateViews() {
 		root_->Add(rightColumn);
 		root_->Add(leftColumn);
 	} else {
+		Margins actionMenuMargins(0, 10, 10, 0);
 		root_ = new LinearLayout(ORIENT_HORIZONTAL);
 		leftColumn->ReplaceLayoutParams(new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 1.0));
 		rightColumn->ReplaceLayoutParams(new LinearLayoutParams(300, FILL_PARENT, actionMenuMargins));
@@ -600,18 +596,30 @@ void RemoteISOSettingsScreen::CreateViews() {
 	remoteisoSettings->Add(new ItemHeader(ri->T("Remote disc streaming")));
 	remoteisoSettings->Add(new CheckBox(&g_Config.bRemoteShareOnStartup, ri->T("Share on PPSSPP startup")));
 	remoteisoSettings->Add(new CheckBox(&g_Config.bRemoteISOManual, ri->T("Manual Mode Client", "Manually configure client")));
+	remoteisoSettings->Add(new CheckBox(&g_Config.bRemoteTab, ri->T("Show Remote tab on main screen")));
 
-	UI::Choice *remoteServer;
-	remoteServer = new PopupTextInputChoice(&g_Config.sLastRemoteISOServer, ri->T("Remote Server"), "", 255, screenManager());
+	if (System_GetPropertyBool(SYSPROP_HAS_FOLDER_BROWSER)) {
+		static const char *shareTypes[] = { "Recent files", "Choose directory" };
+		remoteisoSettings->Add(new PopupMultiChoice(&g_Config.iRemoteISOShareType, ri->T("Files to share"), shareTypes, 0, ARRAY_SIZE(shareTypes), I18NCat::REMOTEISO, screenManager()));
+		FolderChooserChoice *folderChooser = remoteisoSettings->Add(new FolderChooserChoice(GetRequesterToken(), &g_Config.sRemoteISOSharedDir, ri->T("Files to share")));
+		folderChooser->SetEnabledFunc([=]() {
+			return g_Config.iRemoteISOShareType == (int)RemoteISOShareType::LOCAL_FOLDER;
+		});
+	} else {
+		// Can't pick a folder, only allow sharing recent stuff.
+		g_Config.iRemoteISOShareType = (int)RemoteISOShareType::RECENT;
+	}
+
+	UI::Choice *remoteServer = new PopupTextInputChoice(GetRequesterToken(), &g_Config.sLastRemoteISOServer, ri->T("Remote Server"), "", 255, screenManager());
 	remoteisoSettings->Add(remoteServer);
 	remoteServer->SetEnabledPtr(&g_Config.bRemoteISOManual);
 
-	PopupSliderChoice *remotePort = remoteisoSettings->Add(new PopupSliderChoice(&g_Config.iLastRemoteISOPort, 0, 65535, 0, ri->T("Remote Port", "Remote Port"), 100, screenManager()));
+	PopupSliderChoice *remotePort = remoteisoSettings->Add(new PopupSliderChoice(&g_Config.iLastRemoteISOPort, 0, 65535, 0, ri->T("Remote Port"), 100, screenManager()));
 	remotePort->SetEnabledPtr(&g_Config.bRemoteISOManual);
 
 	UI::Choice *remoteSubdir;
 	{
-		PopupTextInputChoice *remoteSubdirInput = new PopupTextInputChoice(&g_Config.sRemoteISOSubdir, ri->T("Remote Subdirectory"), "", 255, screenManager());
+		PopupTextInputChoice *remoteSubdirInput = new PopupTextInputChoice(GetRequesterToken(), &g_Config.sRemoteISOSubdir, ri->T("Remote Subdirectory"), "", 255, screenManager());
 		remoteSubdirInput->OnChange.Handle(this, &RemoteISOSettingsScreen::OnChangeRemoteISOSubdir);
 		remoteSubdir = remoteSubdirInput;
 	}

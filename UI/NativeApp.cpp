@@ -118,6 +118,7 @@
 #include "UI/DiscordIntegration.h"
 #include "UI/EmuScreen.h"
 #include "UI/GameInfoCache.h"
+#include "UI/GameSettingsScreen.h"
 #include "UI/GPUDriverTestScreen.h"
 #include "UI/MiscScreens.h"
 #include "UI/MemStickScreen.h"
@@ -183,6 +184,7 @@ static Draw::DrawContext *g_draw;
 static Draw::Pipeline *colorPipeline;
 static Draw::Pipeline *texColorPipeline;
 static UIContext *uiContext;
+static int g_restartGraphics;
 
 #ifdef _WIN32
 WindowsAudioBackend *winAudioBackend;
@@ -533,6 +535,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	bool gotBootFilename = false;
 	bool gotoGameSettings = false;
 	bool gotoTouchScreenTest = false;
+	bool gotoDeveloperTools = false;
 	boot_filename.clear();
 
 	// Parse command line
@@ -602,6 +605,8 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 					gotoTouchScreenTest = true;
 				if (!strcmp(argv[i], "--gamesettings"))
 					gotoGameSettings = true;
+				if (!strcmp(argv[i], "--developertools"))
+					gotoDeveloperTools = true;
 				if (!strncmp(argv[i], "--appendconfig=", strlen("--appendconfig=")) && strlen(argv[i]) > strlen("--appendconfig=")) {
 					g_Config.SetAppendedConfigIni(Path(std::string(argv[i] + strlen("--appendconfig="))));
 					g_Config.LoadAppendedConfig();
@@ -754,6 +759,9 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	} else if (gotoTouchScreenTest) {
 		g_screenManager->switchScreen(new MainScreen());
 		g_screenManager->push(new TouchTestScreen(Path()));
+	} else if (gotoDeveloperTools) {
+		g_screenManager->switchScreen(new MainScreen());
+		g_screenManager->push(new DeveloperToolsScreen(Path()));
 	} else if (skipLogo) {
 		g_screenManager->switchScreen(new EmuScreen(boot_filename));
 	} else {
@@ -783,10 +791,6 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 
 	// Initialize retro achievements runtime.
 	Achievements::Initialize();
-
-#if !defined(__LIBRETRO__)
-	g_gameDB.LoadFromVFS(g_VFS, "redump.csv");
-#endif
 
 	// Must be done restarting by now.
 	restarting = false;
@@ -1039,6 +1043,18 @@ static void SendMouseDeltaAxis();
 void NativeFrame(GraphicsContext *graphicsContext) {
 	PROFILE_END_FRAME();
 
+	// This can only be accessed from Windows currently, and causes linking errors with headless etc.
+	if (g_restartGraphics == 1) {
+		// Used for debugging only.
+		NativeShutdownGraphics();
+		g_restartGraphics++;
+		return;
+	}
+	else if (g_restartGraphics == 2) {
+		NativeInitGraphics(graphicsContext);
+		g_restartGraphics = 0;
+	}
+
 	double startTime = time_now_d();
 
 	ProcessWheelRelease(NKCODE_EXT_MOUSEWHEEL_UP, startTime, false);
@@ -1177,7 +1193,10 @@ void NativeFrame(GraphicsContext *graphicsContext) {
 }
 
 bool HandleGlobalMessage(UIMessage message, const std::string &value) {
-	if (message == UIMessage::SAVESTATE_DISPLAY_SLOT) {
+	if (message == UIMessage::RESTART_GRAPHICS) {
+		g_restartGraphics = 1;
+		return true;
+	} else if (message == UIMessage::SAVESTATE_DISPLAY_SLOT) {
 		auto sy = GetI18NCategory(I18NCat::SYSTEM);
 		std::string msg = StringFromFormat("%s: %d", sy->T("Savestate Slot"), SaveState::GetCurrentSlot() + 1);
 		// Show for the same duration as the preview.
@@ -1269,7 +1288,6 @@ void NativeTouch(const TouchInput &touch) {
 
 // up, down
 static double g_wheelReleaseTime[2]{};
-static const double RELEASE_TIME = 0.1;  // about 3 frames at 30hz.
 
 static void ProcessWheelRelease(InputKeyCode keyCode, double now, bool keyPress) {
 	int dir = keyCode - NKCODE_EXT_MOUSEWHEEL_UP;
@@ -1283,7 +1301,8 @@ static void ProcessWheelRelease(InputKeyCode keyCode, double now, bool keyPress)
 	}
 
 	if (keyPress) {
-		g_wheelReleaseTime[dir] = now + RELEASE_TIME;
+		float releaseTime = (float)g_Config.iMouseWheelUpDelayMs * (1.0f / 1000.0f);
+		g_wheelReleaseTime[dir] = now + releaseTime;
 	}
 }
 

@@ -736,6 +736,7 @@
     <ClCompile Include="HLE\sceSas.cpp" />
     <ClCompile Include="HLE\sceSfmt19937.cpp" />
     <ClCompile Include="HLE\sceSha256.cpp" />
+    <ClCompile Include="HLE\sceSircs.cpp" />
     <ClCompile Include="HLE\sceSsl.cpp" />
     <ClCompile Include="HLE\sceUmd.cpp" />
     <ClCompile Include="HLE\sceUsb.cpp" />
@@ -1078,6 +1079,7 @@
     <ClCompile Include="Util\DisArm64.cpp" />
     <ClCompile Include="Util\GameDB.cpp" />
     <ClCompile Include="Util\GameManager.cpp" />
+    <ClCompile Include="Util\MemStick.cpp" />
     <ClCompile Include="Util\PortManager.cpp" />
     <ClCompile Include="Util\PPGeDraw.cpp" />
     <ClCompile Include="..\ext\xxhash.c">
@@ -1301,6 +1303,7 @@
     <ClInclude Include="HLE\sceSas.h" />
     <ClInclude Include="HLE\sceSfmt19937.h" />
     <ClInclude Include="HLE\sceSha256.h" />
+    <ClInclude Include="HLE\sceSircs.h" />
     <ClInclude Include="HLE\sceSsl.h" />
     <ClInclude Include="HLE\sceUmd.h" />
     <ClInclude Include="HLE\sceUsb.h" />
@@ -1447,6 +1450,7 @@
     <ClInclude Include="Util\DisArm64.h" />
     <ClInclude Include="Util\GameDB.h" />
     <ClInclude Include="Util\GameManager.h" />
+    <ClInclude Include="Util\MemStick.h" />
     <ClInclude Include="Util\PortManager.h" />
     <ClInclude Include="Util\PPGeDraw.h" />
     <ClInclude Include="..\ext\xxhash.h" />

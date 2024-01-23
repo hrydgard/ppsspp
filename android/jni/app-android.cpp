@@ -486,7 +486,7 @@ bool System_GetPropertyBool(SystemProperty prop) {
 	case SYSPROP_HAS_TEXT_INPUT_DIALOG:
 		return true;
 	case SYSPROP_HAS_OPEN_DIRECTORY:
-		return false;
+		return false;  // We have this implemented but it may or may not work depending on if a file explorer is installed.
 	case SYSPROP_HAS_ADDITIONAL_STORAGE:
 		return !g_additionalStorageDirs.empty();
 	case SYSPROP_HAS_BACK_BUTTON:
@@ -1108,12 +1108,16 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 	case SystemRequestType::BROWSE_FOR_FILE:
 	{
 		BrowseFileType fileType = (BrowseFileType)param3;
+		std::string params = StringFromFormat("%d", requestId);
 		switch (fileType) {
 		case BrowseFileType::SOUND_EFFECT:
-			PushCommand("browse_file_audio", StringFromFormat("%d", requestId));
+			PushCommand("browse_file_audio", params);
+			break;
+		case BrowseFileType::ZIP:
+			PushCommand("browse_file_zip", params);
 			break;
 		default:
-			PushCommand("browse_file", StringFromFormat("%d", requestId));
+			PushCommand("browse_file", params);
 			break;
 		}
 		return true;
@@ -1128,6 +1132,9 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 	case SystemRequestType::GPS_COMMAND:
 		PushCommand("gps_command", param1);
 		return true;
+	case SystemRequestType::INFRARED_COMMAND:
+		PushCommand("infrared_command", param1);
+		return true;
 	case SystemRequestType::MICROPHONE_COMMAND:
 		PushCommand("microphone_command", param1);
 		return true;
@@ -1136,6 +1143,9 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 		return true;
 	case SystemRequestType::NOTIFY_UI_STATE:
 		PushCommand("uistate", param1);
+		return true;
+	case SystemRequestType::SHOW_FILE_IN_FOLDER:
+		PushCommand("show_folder", param1);
 		return true;
 	default:
 		return false;
@@ -1482,8 +1492,12 @@ std::vector<std::string> System_GetCameraDeviceList() {
 
 	for (int i = 0; i < arrayListObjectLen; i++) {
 		jstring dev = static_cast<jstring>(getEnv()->CallObjectMethod(deviceListObject, arrayListGet, i));
-		const char* cdev = getEnv()->GetStringUTFChars(dev, nullptr);
-		deviceListVector.push_back(cdev);
+		const char *cdev = getEnv()->GetStringUTFChars(dev, nullptr);
+		if (!cdev) {
+			getEnv()->DeleteLocalRef(dev);
+			continue;
+		}
+		deviceListVector.push_back(std::string(cdev));
 		getEnv()->ReleaseStringUTFChars(dev, cdev);
 		getEnv()->DeleteLocalRef(dev);
 	}

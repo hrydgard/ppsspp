@@ -28,6 +28,9 @@
 #include "UI/GamepadEmu.h"
 #include "UI/TiltAnalogSettingsScreen.h"
 
+const char *g_tiltTypes[] = { "None (Disabled)", "Analog Stick", "D-PAD", "PSP Action Buttons", "L/R Trigger Buttons" };
+const size_t g_numTiltTypes = ARRAY_SIZE(g_tiltTypes);
+
 void TiltAnalogSettingsScreen::CreateViews() {
 	using namespace UI;
 
@@ -50,6 +53,8 @@ void TiltAnalogSettingsScreen::CreateViews() {
 		menuRoot->Add(settings);
 	}
 
+	GamepadUpdateOpacity(1.0f);
+
 	if (g_Config.iTiltInputType == TILT_ANALOG) {
 		tilt_ = new JoystickHistoryView(StickHistoryViewType::OTHER, "", new LinearLayoutParams(1.0f));
 		root_->Add(tilt_);
@@ -61,7 +66,6 @@ void TiltAnalogSettingsScreen::CreateViews() {
 		case TILT_DPAD:
 		{
 			PSPDpad *pad = rightSide->Add(new PSPDpad(ImageID("I_DIR_LINE"), "D-pad", ImageID("I_DIR_LINE"), ImageID("I_ARROW"), 1.5f, 1.3f, new AnchorLayoutParams(NONE, NONE, NONE, NONE, true)));
-			pad->SetForceVisible(true);
 			break;
 		}
 		case TILT_ACTION_BUTTON:
@@ -70,10 +74,6 @@ void TiltAnalogSettingsScreen::CreateViews() {
 			PSPButton *cross= new PSPButton(CTRL_CROSS, "Cross button", ImageID("I_ROUND_LINE"), ImageID("I_ROUND"), ImageID("I_CROSS"), 1.5f, new AnchorLayoutParams(NONE, NONE, NONE, 100.0f, true));
 			PSPButton *triangle = new PSPButton(CTRL_TRIANGLE, "Triangle button", ImageID("I_ROUND_LINE"), ImageID("I_ROUND"), ImageID("I_TRIANGLE"), 1.5f, new AnchorLayoutParams(NONE, 100.0f, NONE, NONE, true));
 			PSPButton *square = new PSPButton(CTRL_SQUARE, "Square button", ImageID("I_ROUND_LINE"), ImageID("I_ROUND"), ImageID("I_SQUARE"), 1.5f, new AnchorLayoutParams(100.0f, NONE, NONE, NONE, true));
-			circle->SetForceVisible(true);
-			cross->SetForceVisible(true);
-			triangle->SetForceVisible(true);
-			square->SetForceVisible(true);
 			rightSide->Add(circle);
 			rightSide->Add(cross);
 			rightSide->Add(triangle);
@@ -85,8 +85,6 @@ void TiltAnalogSettingsScreen::CreateViews() {
 			PSPButton *lTrigger = new PSPButton(CTRL_LTRIGGER, "Left shoulder button", ImageID("I_SHOULDER_LINE"), ImageID("I_SHOULDER"), ImageID("I_L"), 1.5f, new AnchorLayoutParams(100.0f, NONE, NONE, NONE, true));
 			PSPButton *rTrigger = new PSPButton(CTRL_RTRIGGER, "Right shoulder button", ImageID("I_SHOULDER_LINE"), ImageID("I_SHOULDER"), ImageID("I_R"), 1.5f, new AnchorLayoutParams(NONE, NONE, 100.0f, NONE, true));
 			rTrigger->FlipImageH(true);
-			lTrigger->SetForceVisible(true);
-			rTrigger->SetForceVisible(true);
 			rightSide->Add(lTrigger);
 			rightSide->Add(rTrigger);
 			break;
@@ -100,9 +98,8 @@ void TiltAnalogSettingsScreen::CreateViews() {
 
 	settings->SetSpacing(0);
 
-	static const char *tiltTypes[] = { "None (Disabled)", "Analog Stick", "D-PAD", "PSP Action Buttons", "L/R Trigger Buttons" };
 	settings->Add(new ItemHeader(co->T("Tilt control setup")));
-	settings->Add(new PopupMultiChoice(&g_Config.iTiltInputType, co->T("Tilt Input Type"), tiltTypes, 0, ARRAY_SIZE(tiltTypes), I18NCat::CONTROLS, screenManager()))->OnChoice.Add(
+	settings->Add(new PopupMultiChoice(&g_Config.iTiltInputType, co->T("Tilt Input Type"), g_tiltTypes, 0, g_numTiltTypes, I18NCat::CONTROLS, screenManager()))->OnChoice.Add(
 		[=](UI::EventParams &p) {
 			//when the tilt event type is modified, we need to reset all tilt settings.
 			//refer to the ResetTiltEvents() function for a detailed explanation.

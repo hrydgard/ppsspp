@@ -40,8 +40,14 @@ extern "C"
 std::mutex NPDRMDemoBlockDevice::mutex_;
 
 BlockDevice *constructBlockDevice(FileLoader *fileLoader) {
-	if (!fileLoader->Exists())
+	if (!fileLoader->Exists()) {
 		return nullptr;
+	}
+	if (fileLoader->IsDirectory()) {
+		ERROR_LOG(LOADER, "Can't open directory directly as block device: %s", fileLoader->GetPath().c_str());
+		return nullptr;
+	}
+
 	char buffer[8]{};
 	size_t size = fileLoader->ReadAt(0, 1, 8, buffer);
 	if (size != 8) {
@@ -61,13 +67,13 @@ BlockDevice *constructBlockDevice(FileLoader *fileLoader) {
 		return new CHDFileBlockDevice(fileLoader);
 	}
 
-	// Should be just a regular ISO. Let's open it as a plain block device and let the other systems take over.
+	// Should be just a regular ISO file. Let's open it as a plain block device and let the other systems take over.
 	return new FileBlockDevice(fileLoader);
 }
 
 void BlockDevice::NotifyReadError() {
-	auto err = GetI18NCategory(I18NCat::ERRORS);
 	if (!reportedError_) {
+		auto err = GetI18NCategory(I18NCat::ERRORS);
 		g_OSD.Show(OSDType::MESSAGE_WARNING, err->T("Game disc read error - ISO corrupt"), fileLoader_->GetPath().ToVisualString(), 6.0f);
 		reportedError_ = true;
 	}
@@ -525,12 +531,57 @@ struct CHDImpl {
 	const chd_header *header = nullptr;
 };
 
+struct ExtendedCoreFile {
+	core_file core;  // Must be the first struct member, for some tricky pointer casts.
+	uint64_t seekPos;
+};
+
 CHDFileBlockDevice::CHDFileBlockDevice(FileLoader *fileLoader)
 	: BlockDevice(fileLoader), impl_(new CHDImpl())
 {
 	Path paths[8];
 	paths[0] = fileLoader->GetPath();
 	int depth = 0;
+
+	core_file_ = new ExtendedCoreFile();
+	core_file_->core.argp = fileLoader;
+	core_file_->core.fsize = [](core_file *file) -> uint64_t {
+		FileLoader *loader = (FileLoader *)file->argp;
+		return loader->FileSize();
+	};
+	core_file_->core.fseek = [](core_file *file, int64_t offset, int seekType) -> int {
+		ExtendedCoreFile *coreFile = (ExtendedCoreFile *)file;
+		switch (seekType) {
+		case SEEK_SET:
+			coreFile->seekPos = offset;
+			break;
+		case SEEK_CUR:
+			coreFile->seekPos += offset;
+			break;
+		case SEEK_END:
+		{
+			FileLoader *loader = (FileLoader *)file->argp;
+			coreFile->seekPos = loader->FileSize() + offset;
+			break;
+		}
+		default:
+			break;
+		}
+		return 0;
+	};
+	core_file_->core.fread = [](void *out_data, size_t size, size_t count, core_file *file) {
+		ExtendedCoreFile *coreFile = (ExtendedCoreFile *)file;
+		FileLoader *loader = (FileLoader *)file->argp;
+		uint64_t totalSize = size * count;
+		loader->ReadAt(coreFile->seekPos, totalSize, out_data);
+		coreFile->seekPos += totalSize;
+		return size * count;
+	};
+	core_file_->core.fclose = [](core_file *file) {
+		ExtendedCoreFile *coreFile = (ExtendedCoreFile *)file;
+		delete coreFile;
+		return 0;
+	};
 
 	/*
 	// TODO: Support parent/child CHD files.
@@ -582,36 +633,15 @@ CHDFileBlockDevice::CHDFileBlockDevice(FileLoader *fileLoader)
 	}
 	*/
 
-	chd_file *parent = NULL;
-	chd_file *child = NULL;
-
-	FILE *file = File::OpenCFile(paths[depth], "rb");
-	if (!file) {
-		ERROR_LOG(LOADER, "Error opening CHD file '%s'", paths[depth].c_str());
-		NotifyReadError();
-		return;
-	}
-	chd_error err = chd_open_file(file, CHD_OPEN_READ, NULL, &child);
+	chd_file *file = nullptr;
+	chd_error err = chd_open_core_file(&core_file_->core, CHD_OPEN_READ, NULL, &file);
 	if (err != CHDERR_NONE) {
 		ERROR_LOG(LOADER, "Error loading CHD '%s': %s", paths[depth].c_str(), chd_error_string(err));
 		NotifyReadError();
 		return;
 	}
 
-	// We won't enter this loop until we enable the parent/child stuff above.
-	for (int d = depth - 1; d >= 0; d--) {
-		parent = child;
-		child = NULL;
-		// TODO: Use chd_open_file
-		err = chd_open(paths[d].c_str(), CHD_OPEN_READ, parent, &child);
-		if (err != CHDERR_NONE) {
-			ERROR_LOG(LOADER, "Error loading CHD '%s': %s", paths[d].c_str(), chd_error_string(err));
-			NotifyReadError();
-			return;
-		}
-	}
-	impl_->chd = child;
-
+	impl_->chd = file;
 	impl_->header = chd_get_header(impl_->chd);
 	readBuffer = new u8[impl_->header->hunkbytes];
 	currentHunk = -1;
@@ -621,7 +651,7 @@ CHDFileBlockDevice::CHDFileBlockDevice(FileLoader *fileLoader)
 
 CHDFileBlockDevice::~CHDFileBlockDevice()
 {
-	if (numBlocks > 0) {
+	if (impl_->chd) {
 		chd_close(impl_->chd);
 		delete[] readBuffer;
 	}
@@ -629,6 +659,10 @@ CHDFileBlockDevice::~CHDFileBlockDevice()
 
 bool CHDFileBlockDevice::ReadBlock(int blockNumber, u8 *outPtr, bool uncached)
 {
+	if (!impl_->chd) {
+		ERROR_LOG(LOADER, "ReadBlock: CHD not open. %s", fileLoader_->GetPath().c_str());
+		return false;
+	}
 	if ((u32)blockNumber >= numBlocks) {
 		memset(outPtr, 0, GetBlockSize());
 		return false;

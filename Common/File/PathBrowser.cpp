@@ -35,9 +35,9 @@ bool LoadRemoteFileList(const Path &url, const std::string &userAgent, bool *can
 	}
 
 	// Start by requesting the list of files from the server.
-	http::RequestParams req(baseURL.Resource(), "text/plain, text/html; q=0.9, */*; q=0.8");
 	if (http.Resolve(baseURL.Host().c_str(), baseURL.Port())) {
 		if (http.Connect(2, 20.0, cancel)) {
+			http::RequestParams req(baseURL.Resource(), "text/plain, text/html; q=0.9, */*; q=0.8");
 			net::RequestProgress progress(cancel);
 			code = http.GET(req, &result, responseHeaders, &progress);
 			http.Disconnect();
@@ -77,24 +77,33 @@ bool LoadRemoteFileList(const Path &url, const std::string &userAgent, bool *can
 		ERROR_LOG(IO, "Unsupported Content-Type: %s", contentType.c_str());
 		return false;
 	}
-
+	Path basePath(baseURL.ToString());
 	for (auto &item : items) {
 		// Apply some workarounds.
 		if (item.empty())
 			continue;
-		if (item.back() == '\r')
+		if (item.back() == '\r') {
 			item.pop_back();
+			if (item.empty())
+				continue;
+		}
 		if (item == baseURL.Resource())
 			continue;
 
 		File::FileInfo info;
+		if (item.back() == '/') {
+			item.pop_back();
+			if (item.empty())
+				continue;
+			info.isDirectory = true;
+		} else {
+			info.isDirectory = false;
+		}
 		info.name = item;
-		info.fullName = Path(baseURL.Relative(item).ToString());
-		info.isDirectory = endsWith(item, "/");
+		info.fullName = basePath / item;
 		info.exists = true;
 		info.size = 0;
 		info.isWritable = false;
-
 		files.push_back(info);
 	}
 

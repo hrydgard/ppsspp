@@ -2,10 +2,34 @@
 #include "Common/StringUtils.h"
 #include "Common/Net/URL.h"
 
-const char *UrlEncoder::unreservedChars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_.~";
-const char *UrlEncoder::hexChars = "0123456789ABCDEF";
-
 int MultipartFormDataEncoder::seq = 0;
+
+void UrlEncoder::AppendEscaped(const std::string &value)
+{
+	static const char * const unreservedChars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_.~";
+	static const char * const hexChars = "0123456789ABCDEF";
+
+	for (size_t lastEnd = 0; lastEnd < value.length(); )
+	{
+		size_t pos = value.find_first_not_of(unreservedChars, lastEnd);
+		if (pos == value.npos)
+		{
+			data += value.substr(lastEnd);
+			break;
+		}
+
+		if (pos != lastEnd)
+			data += value.substr(lastEnd, pos - lastEnd);
+		lastEnd = pos;
+
+		// Encode the reserved character.
+		char c = value[pos];
+		data += '%';
+		data += hexChars[(c >> 4) & 15];
+		data += hexChars[(c >> 0) & 15];
+		++lastEnd;
+	}
+}
 
 void Url::Split() {
 	size_t colonSlashSlash = url_.find("://");
@@ -18,12 +42,14 @@ void Url::Split() {
 
 	size_t sep = url_.find('/', colonSlashSlash + 3);
 	if (sep == std::string::npos) {
-		valid_ = false;
-		return;
+		sep = url_.size();
 	}
 
 	host_ = url_.substr(colonSlashSlash + 3, sep - colonSlashSlash - 3);
 	resource_ = url_.substr(sep);  // include the slash!
+	if (resource_.empty()) {
+		resource_ = "/";  // Assume what was meant was the root.
+	}
 
 	size_t portsep = host_.rfind(':');
 	if (portsep != host_.npos) {

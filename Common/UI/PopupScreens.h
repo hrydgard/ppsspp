@@ -191,27 +191,6 @@ private:
 	std::vector<bool> enabled_;
 };
 
-class AbstractChoiceWithValueDisplay : public UI::Choice {
-public:
-	AbstractChoiceWithValueDisplay(const std::string &text, LayoutParams *layoutParams = nullptr)
-		: Choice(text, layoutParams) {
-	}
-
-	void Draw(UIContext &dc) override;
-	void GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert, float &w, float &h) const override;
-
-	void SetPasswordDisplay() {
-		passwordDisplay_ = true;
-	}
-
-protected:
-	virtual std::string ValueText() const = 0;
-
-	float CalculateValueScale(const UIContext &dc, const std::string &valueText, float availWidth) const;
-
-	bool passwordDisplay_ = false;
-};
-
 // Reads and writes value to determine the current selection.
 class PopupMultiChoice : public AbstractChoiceWithValueDisplay {
 public:
@@ -306,9 +285,7 @@ public:
 	PopupSliderChoice(int *value, int minValue, int maxValue, int defaultValue, const std::string &text, ScreenManager *screenManager, const std::string &units = "", LayoutParams *layoutParams = 0);
 	PopupSliderChoice(int *value, int minValue, int maxValue, int defaultValue, const std::string &text, int step, ScreenManager *screenManager, const std::string &units = "", LayoutParams *layoutParams = 0);
 
-	void SetFormat(const char *fmt) {
-		fmt_ = fmt;
-	}
+	void SetFormat(std::string_view fmt);
 	void SetZeroLabel(const std::string &str) {
 		zeroLabel_ = str;
 	}
@@ -343,9 +320,7 @@ public:
 	PopupSliderChoiceFloat(float *value, float minValue, float maxValue, float defaultValue, const std::string &text, ScreenManager *screenManager, const std::string &units = "", LayoutParams *layoutParams = 0);
 	PopupSliderChoiceFloat(float *value, float minValue, float maxValue, float defaultValue, const std::string &text, float step, ScreenManager *screenManager, const std::string &units = "", LayoutParams *layoutParams = 0);
 
-	void SetFormat(const char *fmt) {
-		fmt_ = fmt;
-	}
+	void SetFormat(std::string_view fmt);
 	void SetZeroLabel(const std::string &str) {
 		zeroLabel_ = str;
 	}
@@ -381,7 +356,7 @@ private:
 // NOTE: This one will defer to a system-native dialog if possible.
 class PopupTextInputChoice : public AbstractChoiceWithValueDisplay {
 public:
-	PopupTextInputChoice(std::string *value, const std::string &title, const std::string &placeholder, int maxLen, ScreenManager *screenManager, LayoutParams *layoutParams = 0);
+	PopupTextInputChoice(RequesterToken token, std::string *value, const std::string &title, const std::string &placeholder, int maxLen, ScreenManager *screenManager, LayoutParams *layoutParams = 0);
 
 	Event OnChange;
 
@@ -391,6 +366,7 @@ protected:
 private:
 	EventReturn HandleClick(EventParams &e);
 	EventReturn HandleChange(EventParams &e);
+	RequesterToken token_;
 	ScreenManager *screenManager_;
 	std::string *value_;
 	std::string placeHolder_;
@@ -426,7 +402,7 @@ enum class FileChooserFileType {
 
 class FileChooserChoice : public AbstractChoiceWithValueDisplay {
 public:
-	FileChooserChoice(std::string *value, const std::string &title, BrowseFileType fileType, LayoutParams *layoutParams = nullptr);
+	FileChooserChoice(RequesterToken token, std::string *value, const std::string &title, BrowseFileType fileType, LayoutParams *layoutParams = nullptr);
 	std::string ValueText() const override;
 
 	Event OnChange;
@@ -434,6 +410,20 @@ public:
 private:
 	std::string *value_;
 	BrowseFileType fileType_;
+	RequesterToken token_;
+};
+
+class FolderChooserChoice : public AbstractChoiceWithValueDisplay {
+public:
+	FolderChooserChoice(RequesterToken token, std::string *value, const std::string &title, LayoutParams *layoutParams = nullptr);
+	std::string ValueText() const override;
+
+	Event OnChange;
+
+private:
+	std::string *value_;
+	BrowseFileType fileType_;
+	RequesterToken token_;
 };
 
 }  // namespace UI

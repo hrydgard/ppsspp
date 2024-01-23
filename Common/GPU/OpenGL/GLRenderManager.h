@@ -874,7 +874,7 @@ private:
 	FastVec<GLRInitStep> initSteps_;
 
 	// Execution time state
-	bool run_ = true;
+	bool runCompileThread_ = true;
 
 	// Thread is managed elsewhere, and should call ThreadFrame.
 	GLQueueRunner queueRunner_;

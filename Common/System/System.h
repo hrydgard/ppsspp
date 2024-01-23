@@ -83,6 +83,7 @@ enum class SystemRequestType {
 	// High-level hardware control
 	CAMERA_COMMAND,
 	GPS_COMMAND,
+	INFRARED_COMMAND,
 	MICROPHONE_COMMAND,
 };
 
@@ -245,6 +246,7 @@ enum class UIMessage {
 	SAVESTATE_DISPLAY_SLOT,
 	GAMESETTINGS_SEARCH,
 	SAVEDATA_SEARCH,
+	RESTART_GRAPHICS,
 };
 
 std::string System_GetProperty(SystemProperty prop);

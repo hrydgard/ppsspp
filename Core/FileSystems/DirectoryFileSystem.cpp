@@ -262,16 +262,14 @@ bool DirectoryFileHandle::Open(const Path &basePath, std::string &fileName, File
 			return false;
 		}
 		fullName = GetLocalPath(basePath, fileName);
-		const char *fullNameC = fullName.c_str();
-
-		DEBUG_LOG(FILESYS, "Case may have been incorrect, second try opening %s (%s)", fullNameC, fileName.c_str());
+		DEBUG_LOG(FILESYS, "Case may have been incorrect, second try opening %s (%s)", fullName.c_str(), fileName.c_str());
 
 		// And try again with the correct case this time
 #ifdef _WIN32
-		hFile = CreateFile(fullNameC, desired, sharemode, 0, openmode, 0, 0);
+		hFile = CreateFile(fullName.c_str(), desired, sharemode, 0, openmode, 0, 0);
 		success = hFile != INVALID_HANDLE_VALUE;
 #else
-		hFile = open(fullNameC, flags, 0666);
+		hFile = open(fullName.c_str(), flags, 0666);
 		success = hFile != -1;
 #endif
 	}
@@ -737,9 +735,9 @@ static void tmFromFiletime(tm &dest, const FILETIME &src) {
 // Hopefully no PSP games read directories after they create files in them...
 static std::string SimulateVFATBug(std::string filename) {
 	// These are the characters allowed in DOS filenames.
-	static const char *FAT_UPPER_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&'(){}-_`~";
-	static const char *FAT_LOWER_CHARS = "abcdefghijklmnopqrstuvwxyz0123456789!@#$%^&'(){}-_`~";
-	static const char *LOWER_CHARS = "abcdefghijklmnopqrstuvwxyz";
+	static const char * const FAT_UPPER_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&'(){}-_`~";
+	static const char * const FAT_LOWER_CHARS = "abcdefghijklmnopqrstuvwxyz0123456789!@#$%^&'(){}-_`~";
+	static const char * const LOWER_CHARS = "abcdefghijklmnopqrstuvwxyz";
 
 	// To avoid logging/comparing, skip all this if it has no lowercase chars to begin with.
 	size_t lowerchar = filename.find_first_of(LOWER_CHARS);

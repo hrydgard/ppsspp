@@ -33,6 +33,21 @@ impl Section {
         }
     }
 
+    pub fn get_line(&mut self, key: &str) -> Option<String> {
+        for line in self.lines.iter() {
+            let prefix = if let Some(pos) = line.find(" =") {
+                &line[0..pos]
+            } else {
+                continue;
+            };
+
+            if prefix.eq_ignore_ascii_case(key) {
+                return Some(line.clone());
+            }
+        }
+        None
+    }
+
     pub fn insert_line_if_missing(&mut self, line: &str) -> bool {
         let prefix = if let Some(pos) = line.find(" =") {
             &line[0..pos + 2]

@@ -1453,7 +1453,7 @@ static int scePsmfPlayerStart(u32 psmfPlayer, u32 psmfPlayerData, int initPts)
 	psmfplayer->mediaengine->openContext();
 
 	s64 dist = initPts - psmfplayer->mediaengine->getVideoTimeStamp();
-	if (dist < 0 || dist > VIDEO_FRAME_DURATION_TS * 60) {
+	if (dist < 0 || dist > static_cast<long long>(VIDEO_FRAME_DURATION_TS) * 60) {
 		// When seeking backwards, we just start populating the stream from the start.
 		pspFileSystem.SeekFile(psmfplayer->filehandle, 0, FILEMOVE_BEGIN);
 

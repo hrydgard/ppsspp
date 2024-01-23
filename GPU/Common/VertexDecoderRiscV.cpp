@@ -223,10 +223,8 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec, int
 	}
 
 	// TODO: Only load these when needed?
-	LI(scratchReg, by128);
-	FMV(FMv::W, FMv::X, by128Reg, scratchReg);
-	LI(scratchReg, by32768);
-	FMV(FMv::W, FMv::X, by32768Reg, scratchReg);
+	QuickFLI(32, by128Reg, by128, scratchReg);
+	QuickFLI(32, by32768Reg, by32768, scratchReg);
 	if (posThroughStep) {
 		LI(scratchReg, const65535);
 		FMV(FMv::W, FMv::X, const65535Reg, scratchReg);
@@ -1006,7 +1004,7 @@ void VertexDecoderJitCache::Jit_Color5551() {
 	SRLI(tempReg2, tempReg1, 5);
 	SRLI(tempReg3, tempReg1, 10);
 
-	// Set tempReg3 to -1 if the alpha bit is set.
+	// Set scratchReg to -1 if the alpha bit is set.
 	SLLIW(scratchReg, tempReg1, 16);
 	SRAIW(scratchReg, scratchReg, 31);
 	// Now we can mask the flag.

@@ -47,7 +47,6 @@ void ChatMenu::CreateContents(UI::ViewGroup *parent) {
 void ChatMenu::CreateSubviews(const Bounds &screenBounds) {
 	using namespace UI;
 
-	auto n = GetI18NCategory(I18NCat::NETWORKING);
 	float width = 550.0f;
 
 	switch (g_Config.iChatScreenPosition) {
@@ -80,6 +79,7 @@ void ChatMenu::CreateSubviews(const Bounds &screenBounds) {
 		box_->SetBG(UI::Drawable(0x99303030));
 		box_->SetHasDropShadow(false);
 
+		auto n = GetI18NCategory(I18NCat::NETWORKING);
 		View *title = new PopupHeader(n->T("Chat"));
 		box_->Add(title);
 
@@ -97,7 +97,7 @@ UI::EventReturn ChatMenu::OnSubmit(UI::EventParams &e) {
 	sendChat(chat);
 #elif PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(SWITCH)
 	auto n = GetI18NCategory(I18NCat::NETWORKING);
-	System_InputBoxGetString(n->T("Chat"), "", [](const std::string &value, int) {
+	System_InputBoxGetString(token_, n->T("Chat"), "", [](const std::string &value, int) {
 		sendChat(value);
 	});
 #endif
@@ -141,7 +141,6 @@ void ChatMenu::UpdateChat() {
 
 			std::string name = g_Config.sNickName;
 			std::string displayname = i.substr(0, i.find(':'));
-			std::string chattext = i.substr(displayname.length());
 			
 			if (name.substr(0, 8) == displayname) {
 				namecolor = 0xE53935;
@@ -156,6 +155,7 @@ void ChatMenu::UpdateChat() {
 				TextView *nameView = line->Add(new TextView(displayname, ALIGN_LEFT, true, new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT, 0.0f)));
 				nameView->SetTextColor(0xFF000000 | namecolor);
 
+				std::string chattext = i.substr(displayname.length());
 				TextView *chatView = line->Add(new TextView(chattext, ALIGN_LEFT | FLAG_WRAP_TEXT, true, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 1.0f)));
 				chatView->SetTextColor(0xFF000000 | textcolor);
 			}
@@ -165,8 +165,6 @@ void ChatMenu::UpdateChat() {
 }
 
 void ChatMenu::Update() {
-	auto n = GetI18NCategory(I18NCat::NETWORKING);
-
 	AnchorLayout::Update();
 	if (scroll_ && toBottom_) {
 		toBottom_ = false;
@@ -180,8 +178,9 @@ void ChatMenu::Update() {
 
 #if defined(USING_WIN_UI)
 	// Could remove the fullscreen check here, it works now.
+	auto n = GetI18NCategory(I18NCat::NETWORKING);
 	if (promptInput_ && g_Config.bBypassOSKWithKeyboard && !g_Config.UseFullScreen()) {
-		System_InputBoxGetString(n->T("Chat"), n->T("Chat Here"), [](const std::string &value, int) {
+		System_InputBoxGetString(token_, n->T("Chat"), n->T("Chat Here"), [](const std::string &value, int) {
 			sendChat(value);
 		});
 		promptInput_ = false;

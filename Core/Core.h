@@ -18,6 +18,7 @@
 #pragma once
 
 #include <string>
+#include <string_view>
 
 #include "Core/System.h"
 #include "Core/CoreParameter.h"
@@ -37,10 +38,14 @@ void Core_SetGraphicsContext(GraphicsContext *ctx);
 // called from gui
 void Core_EnableStepping(bool step, const char *reason = nullptr, u32 relatedAddress = 0);
 
+bool Core_ShouldRunBehind();
+bool Core_MustRunBehind();
+
 bool Core_NextFrame();
 void Core_DoSingleStep();
 void Core_UpdateSingleStep();
 void Core_ProcessStepping();
+
 // Changes every time we enter stepping.
 int Core_GetSteppingCounter();
 struct SteppingReason {
@@ -105,7 +110,7 @@ enum class ExecExceptionType {
 // Separate one for without info, to avoid having to allocate a string
 void Core_MemoryException(u32 address, u32 accessSize, u32 pc, MemoryExceptionType type);
 
-void Core_MemoryExceptionInfo(u32 address, u32 accessSize, u32 pc, MemoryExceptionType type, const std::string &additionalInfo, bool forceReport);
+void Core_MemoryExceptionInfo(u32 address, u32 accessSize, u32 pc, MemoryExceptionType type, std::string_view additionalInfo, bool forceReport);
 
 void Core_ExecException(u32 address, u32 pc, ExecExceptionType type);
 void Core_Break(u32 pc);

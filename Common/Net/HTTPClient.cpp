@@ -127,6 +127,14 @@ bool Connection::Connect(int maxTries, double timeout, bool *cancelConnect) {
 				ERROR_LOG(IO, "Bad socket");
 				continue;
 			}
+			// Windows sockets aren't limited by socket number, just by count, so checking FD_SETSIZE there is wrong.
+#if !PPSSPP_PLATFORM(WINDOWS)
+			if (sock >= FD_SETSIZE) {
+				ERROR_LOG(IO, "Socket doesn't fit in FD_SET: %d   We probably have a leak.", sock);
+				closesocket(sock);
+				continue;
+			}
+#endif
 			fd_util::SetNonBlocking(sock, true);
 
 			// Start trying to connect (async with timeout.)
@@ -178,6 +186,7 @@ bool Connection::Connect(int maxTries, double timeout, bool *cancelConnect) {
 
 			selectResult = select(maxfd, nullptr, &fds, nullptr, &tv);
 			if (cancelConnect && *cancelConnect) {
+				WARN_LOG(HTTP, "connect: cancelled (1)");
 				break;
 			}
 		}
@@ -193,9 +202,15 @@ bool Connection::Connect(int maxTries, double timeout, bool *cancelConnect) {
 
 			// Great, now we're good to go.
 			return true;
+		} else {
+			// Fail. Close all the sockets.
+			for (int sock : sockets) {
+				closesocket(sock);
+			}
 		}
 
 		if (cancelConnect && *cancelConnect) {
+			WARN_LOG(HTTP, "connect: cancelled (2)");
 			break;
 		}
 

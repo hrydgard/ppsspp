@@ -2,7 +2,7 @@
 #include "Common/GPU/Vulkan/VulkanFramebuffer.h"
 #include "Common/GPU/Vulkan/VulkanQueueRunner.h"
 
-static const char *rpTypeDebugNames[] = {
+static const char * const rpTypeDebugNames[] = {
 	"RENDER",
 	"RENDER_DEPTH",
 	"MV_RENDER",
@@ -56,23 +56,23 @@ void VKRImage::Delete(VulkanContext *vulkan) {
 	}
 }
 
-VKRFramebuffer::VKRFramebuffer(VulkanContext *vk, VkCommandBuffer initCmd, VKRRenderPass *compatibleRenderPass, int _width, int _height, int _numLayers, int _multiSampleLevel, bool createDepthStencilBuffer, const char *tag)
+VKRFramebuffer::VKRFramebuffer(VulkanContext *vk, VulkanBarrierBatch *barriers, VkCommandBuffer initCmd, VKRRenderPass *compatibleRenderPass, int _width, int _height, int _numLayers, int _multiSampleLevel, bool createDepthStencilBuffer, const char *tag)
 	: vulkan_(vk), tag_(tag), width(_width), height(_height), numLayers(_numLayers) {
 
 	_dbg_assert_(tag);
 
-	CreateImage(vulkan_, initCmd, color, width, height, numLayers, VK_SAMPLE_COUNT_1_BIT, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, true, tag);
+	CreateImage(vulkan_, barriers, initCmd, color, width, height, numLayers, VK_SAMPLE_COUNT_1_BIT, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, true, tag);
 	if (createDepthStencilBuffer) {
-		CreateImage(vulkan_, initCmd, depth, width, height, numLayers, VK_SAMPLE_COUNT_1_BIT, vulkan_->GetDeviceInfo().preferredDepthStencilFormat, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, false, tag);
+		CreateImage(vulkan_, barriers, initCmd, depth, width, height, numLayers, VK_SAMPLE_COUNT_1_BIT, vulkan_->GetDeviceInfo().preferredDepthStencilFormat, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, false, tag);
 	}
 
 	if (_multiSampleLevel > 0) {
 		sampleCount = MultiSampleLevelToFlagBits(_multiSampleLevel);
 
 		// TODO: Create a different tag for these?
-		CreateImage(vulkan_, initCmd, msaaColor, width, height, numLayers, sampleCount, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, true, tag);
+		CreateImage(vulkan_, barriers, initCmd, msaaColor, width, height, numLayers, sampleCount, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, true, tag);
 		if (createDepthStencilBuffer) {
-			CreateImage(vulkan_, initCmd, msaaDepth, width, height, numLayers, sampleCount, vulkan_->GetDeviceInfo().preferredDepthStencilFormat, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, false, tag);
+			CreateImage(vulkan_, barriers, initCmd, msaaDepth, width, height, numLayers, sampleCount, vulkan_->GetDeviceInfo().preferredDepthStencilFormat, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, false, tag);
 		}
 	} else {
 		sampleCount = VK_SAMPLE_COUNT_1_BIT;
@@ -161,7 +161,7 @@ VKRFramebuffer::~VKRFramebuffer() {
 
 // NOTE: If numLayers > 1, it will create an array texture, rather than a normal 2D texture.
 // This requires a different sampling path!
-void VKRFramebuffer::CreateImage(VulkanContext *vulkan, VkCommandBuffer cmd, VKRImage &img, int width, int height, int numLayers, VkSampleCountFlagBits sampleCount, VkFormat format, VkImageLayout initialLayout, bool color, const char *tag) {
+void VKRFramebuffer::CreateImage(VulkanContext *vulkan, VulkanBarrierBatch *barriers, VkCommandBuffer cmd, VKRImage &img, int width, int height, int numLayers, VkSampleCountFlagBits sampleCount, VkFormat format, VkImageLayout initialLayout, bool color, const char *tag) {
 	// We don't support more exotic layer setups for now. Mono or stereo.
 	_dbg_assert_(numLayers == 1 || numLayers == 2);
 
@@ -251,10 +251,14 @@ void VKRFramebuffer::CreateImage(VulkanContext *vulkan, VkCommandBuffer cmd, VKR
 		return;
 	}
 
-	TransitionImageLayout2(cmd, img.image, 0, 1, numLayers, aspects,
-		VK_IMAGE_LAYOUT_UNDEFINED, initialLayout,
-		VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, dstStage,
-		0, dstAccessMask);
+	VkImageMemoryBarrier *barrier = barriers->Add(img.image, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, dstStage, 0);
+	barrier->subresourceRange.layerCount = numLayers;
+	barrier->subresourceRange.aspectMask = aspects;
+	barrier->oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+	barrier->newLayout = initialLayout;
+	barrier->srcAccessMask = 0;
+	barrier->dstAccessMask = dstAccessMask;
+
 	img.layout = initialLayout;
 	img.format = format;
 	img.sampleCount = sampleCount;
