@@ -415,6 +415,10 @@ void VulkanRenderManager::DestroyBackbuffers() {
 VulkanRenderManager::~VulkanRenderManager() {
 	INFO_LOG(G3D, "VulkanRenderManager destructor");
 
+	if (useRenderThread_) {
+		_dbg_assert_(!renderThread_.joinable());
+	}
+
 	_dbg_assert_(!runCompileThread_);  // StopThread should already have been called from DestroyBackbuffers.
 
 	vulkan_->WaitUntilQueueIdle();
@@ -1284,8 +1288,13 @@ void VulkanRenderManager::BlitFramebuffer(VKRFramebuffer *src, VkRect2D srcRect,
 
 	EndCurRenderStep();
 
-	VKRStep *step = new VKRStep{ VKRStepType::BLIT };
+	// Sanity check. Added an assert to try to gather more info.
+	if (aspectMask & (VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT)) {
+		_assert_msg_(src->depth.image != VK_NULL_HANDLE, "%s", src->Tag());
+		_assert_msg_(dst->depth.image != VK_NULL_HANDLE, "%s", dst->Tag());
+	}
 
+	VKRStep *step = new VKRStep{ VKRStepType::BLIT };
 	step->blit.aspectMask = aspectMask;
 	step->blit.src = src;
 	step->blit.srcRect = srcRect;
