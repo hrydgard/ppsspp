@@ -366,7 +366,7 @@ static bool ReadFileToString(IFileSystem *fs, const char *filename, std::string 
 
 static bool ReadLocalFileToString(const Path &path, std::string *contents, std::mutex *mtx) {
 	std::string data;
-	if (!File::ReadFileToString(false, path, *contents)) {
+	if (!File::ReadFileToString(false, path, data)) {
 		return false;
 	}
 	if (mtx) {
@@ -472,7 +472,7 @@ public:
 					if ((info_->id.empty() || !info_->disc_total)
 						&& gamePath_.FilePathContainsNoCase("PSP/GAME/")
 						&& info_->fileType == IdentifiedFileType::PSP_PBP_DIRECTORY) {
-						info_->id = g_paramSFO.GenerateFakeID(gamePath_.ToString());
+						info_->id = g_paramSFO.GenerateFakeID(gamePath_);
 						info_->id_version = info_->id + "_1.00";
 						info_->region = GAMEREGION_MAX + 1; // Homebrew
 					}
@@ -529,7 +529,7 @@ handleELF:
 			// An elf on its own has no usable information, no icons, no nothing.
 			{
 				std::lock_guard<std::mutex> lock(info_->lock);
-				info_->id = g_paramSFO.GenerateFakeID(gamePath_.ToString());
+				info_->id = g_paramSFO.GenerateFakeID(gamePath_);
 				info_->id_version = info_->id + "_1.00";
 				info_->region = GAMEREGION_MAX + 1; // Homebrew
 

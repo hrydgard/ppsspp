@@ -96,7 +96,7 @@ std::vector<std::string> ParamSFOData::GetKeys() const {
 std::string ParamSFOData::GetDiscID() {
 	const std::string discID = GetValueString("DISC_ID");
 	if (discID.empty()) {
-		std::string fakeID = GenerateFakeID();
+		std::string fakeID = GenerateFakeID(Path());
 		WARN_LOG(LOADER, "No DiscID found - generating a fake one: '%s' (from %s)", fakeID.c_str(), PSP_CoreParameter().fileToStart.c_str());
 		ValueData data;
 		data.type = VT_UTF8;
@@ -320,15 +320,15 @@ void ParamSFOData::ValueData::SetData(const u8* data, int size) {
 	u_size = size;
 }
 
-std::string ParamSFOData::GenerateFakeID(const std::string &filename) const {
+std::string ParamSFOData::GenerateFakeID(const Path &filename) const {
 	// Generates fake gameID for homebrew based on it's folder name.
 	// Should probably not be a part of ParamSFO, but it'll be called in same places.
-	std::string file = PSP_CoreParameter().fileToStart.ToString();
+	// FileToStart here is actually a directory name, not a file, so taking GetFilename on it gets what we want.
+	Path path = PSP_CoreParameter().fileToStart;
 	if (!filename.empty())
-		file = filename;
+		path = filename;
 
-	std::size_t lslash = file.find_last_of("/");
-	file = file.substr(lslash + 1);
+	std::string file = path.GetFilename();
 
 	int sumOfAllLetters = 0;
 	for (char &c : file) {

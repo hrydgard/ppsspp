@@ -524,7 +524,7 @@ namespace SaveState
 		std::string discId = g_paramSFO.GetValueString("DISC_ID");
 		std::string discVer = g_paramSFO.GetValueString("DISC_VERSION");
 		if (discId.empty()) {
-			discId = g_paramSFO.GenerateFakeID();
+			discId = g_paramSFO.GenerateFakeID(Path());
 			discVer = "1.00";
 		}
 		return StringFromFormat("%s_%s", discId.c_str(), discVer.c_str());
