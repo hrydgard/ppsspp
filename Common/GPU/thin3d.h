@@ -834,6 +834,10 @@ public:
 		targetHeight_ = h;
 	}
 
+	// In Vulkan, when changing things like MSAA mode, we can't have draw commands in flight (since we only support one at a time).
+	virtual void StopThreads() {}
+	virtual void StartThreads() {}
+
 	virtual std::string GetInfoString(InfoField info) const = 0;
 	virtual uint64_t GetNativeObject(NativeObject obj, void *srcObject = nullptr) = 0;  // Most uses don't need an srcObject.
 
