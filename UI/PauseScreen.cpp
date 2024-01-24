@@ -348,7 +348,6 @@ void GamePauseScreen::CreateViews() {
 	leftColumn->Add(leftColumnItems);
 
 	leftColumnItems->SetSpacing(5.0f);
-	leftColumnItems->Add(new Spacer(0.0f));
 	if (Achievements::IsActive()) {
 		leftColumnItems->Add(new GameAchievementSummaryView());
 
@@ -378,6 +377,9 @@ void GamePauseScreen::CreateViews() {
 		const char *notAvailable = ac->T("Save states not available in Hardcore Mode");
 		leftColumnItems->Add(new NoticeView(NoticeLevel::INFO, notAvailable, ""));
 	}
+
+	ViewGroup *middleColumn = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(64, FILL_PARENT, Margins(0, 10, 0, 15)));
+	root_->Add(middleColumn);
 
 	ViewGroup *rightColumnHolder = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(vertical ? 200 : 300, FILL_PARENT, actionMenuMargins));
 
@@ -443,15 +445,14 @@ void GamePauseScreen::CreateViews() {
 	}
 
 	if (!Core_MustRunBehind()) {
-		ViewGroup *playControls = rightColumnHolder->Add(new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
-		playControls->SetTag("debug");
-		playControls->Add(new Spacer(new LinearLayoutParams(1.0f)));
-		playButton_ = playControls->Add(new Button("", g_Config.bRunBehindPauseMenu ? ImageID("I_PAUSE") : ImageID("I_PLAY"), new LinearLayoutParams(0.0f, G_RIGHT)));
-		playButton_->OnClick.Add([=](UI::EventParams &e) {
-			g_Config.bRunBehindPauseMenu = !g_Config.bRunBehindPauseMenu;
-			playButton_->SetImageID(g_Config.bRunBehindPauseMenu ? ImageID("I_PAUSE") : ImageID("I_PLAY"));
-			return UI::EVENT_DONE;
-		});
+		if (middleColumn) {
+			playButton_ = middleColumn->Add(new Button("", g_Config.bRunBehindPauseMenu ? ImageID("I_PAUSE") : ImageID("I_PLAY"), new LinearLayoutParams(64, 64)));
+			playButton_->OnClick.Add([=](UI::EventParams &e) {
+				g_Config.bRunBehindPauseMenu = !g_Config.bRunBehindPauseMenu;
+				playButton_->SetImageID(g_Config.bRunBehindPauseMenu ? ImageID("I_PAUSE") : ImageID("I_PLAY"));
+				return UI::EVENT_DONE;
+			});
+		}
 	} else {
 		auto nw = GetI18NCategory(I18NCat::NETWORKING);
 		rightColumnHolder->Add(new TextView(nw->T("Network connected")));
