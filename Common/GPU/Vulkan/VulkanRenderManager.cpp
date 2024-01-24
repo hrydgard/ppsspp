@@ -348,6 +348,11 @@ bool VulkanRenderManager::CreateBackbuffers() {
 }
 
 void VulkanRenderManager::StartThreads() {
+	{
+		std::unique_lock<std::mutex> lock(compileMutex_);
+		_assert_(compileQueue_.empty());
+	}
+
 	runCompileThread_ = true;  // For controlling the compiler thread's exit
 
 	if (useRenderThread_) {
@@ -403,6 +408,11 @@ void VulkanRenderManager::StopThreads() {
 
 	INFO_LOG(G3D, "Vulkan compiler thread joined. Now wait for any straggling compile tasks.");
 	CreateMultiPipelinesTask::WaitForAll();
+
+	{
+		std::unique_lock<std::mutex> lock(compileMutex_);
+		_assert_(compileQueue_.empty());
+	}
 }
 
 void VulkanRenderManager::DestroyBackbuffers() {
@@ -410,6 +420,14 @@ void VulkanRenderManager::DestroyBackbuffers() {
 	vulkan_->WaitUntilQueueIdle();
 
 	queueRunner_.DestroyBackBuffers();
+}
+
+void VulkanRenderManager::CheckNothingPending() {
+	_assert_(pipelinesToCheck_.empty());
+	{
+		std::unique_lock<std::mutex> lock(compileMutex_);
+		_assert_(compileQueue_.empty());
+	}
 }
 
 VulkanRenderManager::~VulkanRenderManager() {

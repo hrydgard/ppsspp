@@ -58,7 +58,7 @@ private:
 	void Prepare();
 	int SendHEAD(const Url &url, std::vector<std::string> &responseHeaders);
 
-	void Connect();
+	void Connect(double timeout);
 
 	void Disconnect() {
 		if (connected_) {

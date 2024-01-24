@@ -820,6 +820,7 @@ public abstract class NativeActivity extends Activity {
 		if (isVRDevice()) {
 			System.exit(0);
 		}
+		Log.i(TAG, "onDestroy");
 	}
 
 	@Override
