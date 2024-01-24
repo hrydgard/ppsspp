@@ -406,7 +406,7 @@ Invalid / Unknown (%d)
 	}
 	if (checkingISO) {
 		tips += "* (waiting for CRC...)\n";
-	} else if (!isoOK) {
+	} else if (!isoOK) {  // TODO: Should check that it actually is an ISO and not a homebrew
 		tips += "* Verify and possibly re-dump your ISO\n  (CRC not recognized)\n";
 	}
 	if (!tips.empty()) {

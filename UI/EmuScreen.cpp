@@ -1306,6 +1306,8 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 
 	bool skipBufferEffects = g_Config.bSkipBufferEffects;
 
+	bool framebufferBound = false;
+
 	if (mode & ScreenRenderMode::FIRST) {
 		// Actually, always gonna be first when it exists (?)
 
@@ -1327,6 +1329,7 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 			draw->SetViewport(viewport);
 			draw->SetScissorRect(0, 0, g_display.pixel_xres, g_display.pixel_yres);
 			skipBufferEffects = true;
+			framebufferBound = true;
 		}
 		draw->SetTargetSize(g_display.pixel_xres, g_display.pixel_yres);
 	}
@@ -1387,7 +1390,6 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 	Core_UpdateDebugStats((DebugOverlay)g_Config.iDebugOverlay == DebugOverlay::DEBUG_STATS || g_Config.bLogFrameDrops);
 
 	bool blockedExecution = Achievements::IsBlockingExecution();
-	bool rebind = false;
 	uint32_t clearColor = 0;
 	if (!blockedExecution) {
 		PSP_BeginHostFrame();
@@ -1411,11 +1413,13 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 				bool dangerousSettings = !Reporting::IsSupported();
 				clearColor = dangerousSettings ? 0xFF900050 : 0xFF900000;
 				draw->BindFramebufferAsRenderTarget(nullptr, { RPAction::CLEAR, RPAction::CLEAR, RPAction::CLEAR, clearColor }, "EmuScreen_RuntimeError");
+				framebufferBound = true;
 				// The info is drawn later in renderUI
 			} else {
 				// If we're stepping, it's convenient not to clear the screen entirely, so we copy display to output.
 				// This won't work in non-buffered, but that's fine.
 				draw->BindFramebufferAsRenderTarget(nullptr, { RPAction::CLEAR, RPAction::CLEAR, RPAction::CLEAR, clearColor }, "EmuScreen_Stepping");
+				framebufferBound = true;
 				// Just to make sure.
 				if (PSP_IsInited()) {
 					gpu->CopyDisplayToOutput(true);
@@ -1427,7 +1431,7 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 			// Didn't actually reach the end of the frame, ran out of the blockTicks cycles.
 			// In this case we need to bind and wipe the backbuffer, at least.
 			// It's possible we never ended up outputted anything - make sure we have the backbuffer cleared
-			rebind = true;
+			// So, we don't set framebufferBound here.
 			break;
 		}
 
@@ -1437,8 +1441,11 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 		Achievements::FrameUpdate();
 	}
 
+	if (gpu->PresentedThisFrame()) {
+		framebufferBound = true;
+	}
 
-	if (gpu && !gpu->PresentedThisFrame() && !skipBufferEffects) {
+	if (!framebufferBound) {
 		draw->BindFramebufferAsRenderTarget(nullptr, { RPAction::CLEAR, RPAction::CLEAR, RPAction::CLEAR, clearColor }, "EmuScreen_NoFrame");
 		draw->SetViewport(viewport);
 		draw->SetScissorRect(0, 0, g_display.pixel_xres, g_display.pixel_yres);
@@ -1460,8 +1467,6 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 	checkPowerDown();
 
 	if (hasVisibleUI()) {
-		// In most cases, this should already be bound and a no-op.
-		draw->BindFramebufferAsRenderTarget(nullptr, { RPAction::KEEP, RPAction::CLEAR, RPAction::CLEAR }, "EmuScreen_UI");
 		draw->SetViewport(viewport);
 		cardboardDisableButton_->SetVisibility(g_Config.bEnableCardboardVR ? UI::V_VISIBLE : UI::V_GONE);
 		screenManager()->getUIContext()->BeginFrame();

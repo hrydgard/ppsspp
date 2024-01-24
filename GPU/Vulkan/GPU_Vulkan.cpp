@@ -173,7 +173,7 @@ GPU_Vulkan::~GPU_Vulkan() {
 
 	SaveCache(shaderCachePath_);
 
-	// Super important to delete pipeline manager FIRST, before clearing shaders, so we wait for all pending pipelines to finish compiling.
+	// StopThreads should have ensured that no pipelines are queued to compile at this point. So we can tear it down.
 	delete pipelineManager_;
 	pipelineManager_ = nullptr;
 

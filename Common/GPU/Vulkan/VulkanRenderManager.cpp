@@ -365,6 +365,9 @@ void VulkanRenderManager::StartThreads() {
 
 // Called from main thread.
 void VulkanRenderManager::StopThreads() {
+	// Not sure this is a sensible check - should be ok even if not.
+	// _dbg_assert_(steps_.empty());
+
 	if (useRenderThread_) {
 		_dbg_assert_(renderThread_.joinable());
 		// Tell the render thread to quit when it's done.
@@ -400,7 +403,6 @@ void VulkanRenderManager::StopThreads() {
 
 	INFO_LOG(G3D, "Vulkan compiler thread joined. Now wait for any straggling compile tasks.");
 	CreateMultiPipelinesTask::WaitForAll();
-	_dbg_assert_(steps_.empty());
 }
 
 void VulkanRenderManager::DestroyBackbuffers() {
@@ -412,6 +414,15 @@ void VulkanRenderManager::DestroyBackbuffers() {
 
 VulkanRenderManager::~VulkanRenderManager() {
 	INFO_LOG(G3D, "VulkanRenderManager destructor");
+
+	{
+		std::unique_lock<std::mutex> lock(compileMutex_);
+		_assert_(compileQueue_.empty());
+	}
+
+	if (useRenderThread_) {
+		_dbg_assert_(!renderThread_.joinable());
+	}
 
 	_dbg_assert_(!runCompileThread_);  // StopThread should already have been called from DestroyBackbuffers.
 
@@ -433,9 +444,6 @@ void VulkanRenderManager::CompileThreadFunc() {
 		std::vector<CompileQueueEntry> toCompile;
 		{
 			std::unique_lock<std::mutex> lock(compileMutex_);
-			// TODO: Should this be while?
-			// It may be beneficial also to unlock and wait a little bit to see if we get some more shaders
-			// so we can do a better job of thread-sorting them.
 			if (compileQueue_.empty() && runCompileThread_) {
 				compileCond_.wait(lock);
 			}
@@ -490,6 +498,9 @@ void VulkanRenderManager::CompileThreadFunc() {
 		// Hold off just a bit before we check again, to allow bunches of pipelines to collect.
 		sleep_ms(1);
 	}
+
+	std::unique_lock<std::mutex> lock(compileMutex_);
+	_assert_(compileQueue_.empty());
 }
 
 void VulkanRenderManager::RenderThreadFunc() {
@@ -522,9 +533,8 @@ void VulkanRenderManager::RenderThreadFunc() {
 	}
 
 	// Wait for the device to be done with everything, before tearing stuff down.
-	// TODO: Do we need this?
+	// TODO: Do we really need this? It's probably a good idea, though.
 	vkDeviceWaitIdle(vulkan_->GetDevice());
-
 	VLOG("PULL: Quitting");
 }
 
@@ -956,6 +966,7 @@ void VulkanRenderManager::BindFramebufferAsRenderTarget(VKRFramebuffer *fb, VKRR
 	step->render.numReads = 0;
 	step->render.finalColorLayout = !fb ? VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL : VK_IMAGE_LAYOUT_UNDEFINED;
 	step->render.finalDepthStencilLayout = !fb ? VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL : VK_IMAGE_LAYOUT_UNDEFINED;
+	// pipelineFlags, renderArea and renderPassType get filled in when we finalize the step. Do not read from them before that.
 	step->tag = tag;
 	steps_.push_back(step);
 
@@ -1282,8 +1293,13 @@ void VulkanRenderManager::BlitFramebuffer(VKRFramebuffer *src, VkRect2D srcRect,
 
 	EndCurRenderStep();
 
-	VKRStep *step = new VKRStep{ VKRStepType::BLIT };
+	// Sanity check. Added an assert to try to gather more info.
+	if (aspectMask & (VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT)) {
+		_assert_msg_(src->depth.image != VK_NULL_HANDLE, "%s", src->Tag());
+		_assert_msg_(dst->depth.image != VK_NULL_HANDLE, "%s", dst->Tag());
+	}
 
+	VKRStep *step = new VKRStep{ VKRStepType::BLIT };
 	step->blit.aspectMask = aspectMask;
 	step->blit.src = src;
 	step->blit.srcRect = srcRect;
