@@ -110,32 +110,31 @@ namespace
 		return info;
 	}
 
-	bool PSPMatch(const std::string &text, const std::string &regexp)
-	{
-		if(text.empty() && regexp.empty())
+	bool PSPMatch(std::string_view text, std::string_view regexp) {
+		if (text.empty() && regexp.empty())
 			return true;
-		else if(regexp == "*")
+		else if (regexp == "*")
 			return true;
-		else if(text.empty())
+		else if (text.empty())
 			return false;
-		else if(regexp.empty())
+		else if (regexp.empty())
 			return false;
-		else if(regexp == "?" && text.length() == 1)
+		else if (regexp == "?" && text.length() == 1)
 			return true;
-		else if(text == regexp)
+		else if (text == regexp)
 			return true;
-		else if(regexp.data()[0] == '*')
+		else if (regexp.data()[0] == '*')
 		{
 			bool res = PSPMatch(text.substr(1),regexp.substr(1));
 			if(!res)
 				res = PSPMatch(text.substr(1),regexp);
 			return res;
 		}
-		else if(regexp.data()[0] == '?')
+		else if (regexp.data()[0] == '?')
 		{
 			return PSPMatch(text.substr(1),regexp.substr(1));
 		}
-		else if(regexp.data()[0] == text.data()[0])
+		else if (regexp.data()[0] == text.data()[0])
 		{
 			return PSPMatch(text.substr(1),regexp.substr(1));
 		}
