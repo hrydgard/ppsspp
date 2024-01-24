@@ -169,6 +169,7 @@ GPU_Vulkan::~GPU_Vulkan() {
 		VulkanRenderManager *rm = (VulkanRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
 		// This now also does a hard sync with the render thread, so that we can safely delete our pipeline layout below.
 		rm->StopThreads();
+		rm->CheckNothingPending();
 	}
 
 	SaveCache(shaderCachePath_);

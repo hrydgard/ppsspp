@@ -422,6 +422,14 @@ void VulkanRenderManager::DestroyBackbuffers() {
 	queueRunner_.DestroyBackBuffers();
 }
 
+void VulkanRenderManager::CheckNothingPending() {
+	_assert_(pipelinesToCheck_.empty());
+	{
+		std::unique_lock<std::mutex> lock(compileMutex_);
+		_assert_(compileQueue_.empty());
+	}
+}
+
 VulkanRenderManager::~VulkanRenderManager() {
 	INFO_LOG(G3D, "VulkanRenderManager destructor");
 
