@@ -33,7 +33,7 @@ What's new in 1.17
 	- Cull small draws that are quick to check that they are offscreen ([#18446])
 	- Assorted optimizations ([#18586], [#18573], [#18476], [#18413], [#18416], [#18219])
 	- Fix HUD in Tiger Woods 06 ([#18554])
-	- Adrenotools support added - you can now load custom Vulkan drivers on Adreno ([#18532], [#18548])
+	- Adrenotools support added - you can now load custom Vulkan drivers on Adreno ([#18532], [#18548], [#18699])
 	- Fix rendering with bad Z parameters, fixes homebrew Zig example ([#18535])
 	- Fix Z problem in Hayate no Gotoku!! Nightmare Paradise [#18478]
 	- Fix frozen pitch meters in MLB games ([#18484])
@@ -57,14 +57,16 @@ What's new in 1.17
 	- Can now unpause with the key you bound to pause ([#18591])
 - Other fixes and updates
 	- More work on the IR JITs ([#18234], [#18235], [#18228], [#18227], [#18226], many more)
+	- Moving the memstick directory on Android is now faster and safer [#18744]
 	- Workaround problems in Add Doko Demo Issho, Driver 76, Harukanaru Toki no Naka, Ace Combat by slowing down the emulated UMD drive to match reality better ([#18436], [#18445])
 	- VR: Quest 3 rendering issues fixed ([#18677])
-	- Various bugfixes in texture replacement ([#18638], [#18610], [#18519], [#18466])
+	- Various bugfixes in texture replacement ([#18638], [#18610], [#18519], [#18466], [#18747])
 	- RetroAchievements: Rich presence, renamed Challenge Mode back to the recommended Hardcore Mode, various error handling improvements, configure per game ([#18468], [#18651], [#18488], [#18428], [#18425])
 	- HLE: Slice large-and-slow memcpy/memset operations, can help with some stalls. ([#18560])
-	- Other various minor fixes and optimizations ([#18558], [#18555], [#18538], [#18529], [#18450], [#18314], [#18233])
+	- Other various minor fixes and optimizations ([#18558], [#18555], [#18538], [#18529], [#18450], [#18314], [#18233], [#18678], [#18749], [#18736], [#18704])
 	- SoftGPU fixes ([#18362])
-	- GoExplore (GPS app) now starts up and allows navigation ([#18665], [#18666], [#18668])
+	- Fixed international fonts on Steam Deck ([#18732], [#18734])
+	- GoExplore (GPS app) now starts up and allows navigation ([#18665], [#18666], [#18668], [#18669])
 	- SDL: Improve input latency in Vulkan mode by running rendering on a separate thread ([#18268])
 	- Assorted multiplayer fixes ([#18435])
 	- Support for emulating the infrared port of the original PSP through sceSircs ([#18684])
