@@ -107,9 +107,7 @@ inline void System_BrowseForFile(RequesterToken token, const std::string &title,
 	g_requestManager.MakeSystemRequest(SystemRequestType::BROWSE_FOR_FILE, token, callback, failedCallback, title, "", (int)type);
 }
 
-inline void System_BrowseForFolder(RequesterToken token, const std::string &title, RequestCallback callback, RequestFailedCallback failedCallback = nullptr) {
-	g_requestManager.MakeSystemRequest(SystemRequestType::BROWSE_FOR_FOLDER, token, callback, failedCallback, title, "", 0);
-}
+void System_BrowseForFolder(RequesterToken token, const std::string &title, const Path &initialPath, RequestCallback callback, RequestFailedCallback failedCallback = nullptr);
 
 // The returned string is username + '\n' + password.
 inline void System_AskUsernamePassword(RequesterToken token, const std::string &title, RequestCallback callback, RequestFailedCallback failedCallback = nullptr) {

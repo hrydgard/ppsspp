@@ -713,7 +713,7 @@ std::string FileChooserChoice::ValueText() const {
 FolderChooserChoice::FolderChooserChoice(RequesterToken token, std::string *value, const std::string &text, LayoutParams *layoutParams)
 	: AbstractChoiceWithValueDisplay(text, layoutParams), value_(value), token_(token) {
 	OnClick.Add([=](UI::EventParams &) {
-		System_BrowseForFolder(token_, text_, [=](const std::string &returnValue, int) {
+		System_BrowseForFolder(token_, text_, Path(*value), [=](const std::string &returnValue, int) {
 			if (*value_ != returnValue) {
 				*value = returnValue;
 				UI::EventParams e{};

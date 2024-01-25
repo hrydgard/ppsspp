@@ -1301,7 +1301,8 @@ UI::EventReturn GameSettingsScreen::OnJitAffectingSetting(UI::EventParams &e) {
 
 UI::EventReturn GameSettingsScreen::OnChangeMemStickDir(UI::EventParams &e) {
 #if PPSSPP_PLATFORM(MAC) || PPSSPP_PLATFORM(IOS)
-	System_BrowseForFolder(GetRequesterToken(), "", [](const std::string &value, int) {
+	auto initialPath = g_Config.memStickDirectory;
+	System_BrowseForFolder(GetRequesterToken(), "", initialPath, [](const std::string &value, int) {
 		DarwinFileSystemServices::setUserPreferredMemoryStickDirectory(Path(value));
 	});
 #else
@@ -1343,7 +1344,8 @@ UI::EventReturn GameSettingsScreen::OnSavePathOther(UI::EventParams &e) {
 	const Path &PPSSPPpath = File::GetExeDirectory();
 	if (otherinstalled_) {
 		auto di = GetI18NCategory(I18NCat::DIALOG);
-		std::string folder = W32Util::BrowseForFolder(MainWindow::GetHWND(), di->T("Choose PPSSPP save folder"));
+		std::string initialPath = g_Config.memStickDirectory.ToCString();
+		std::string folder = W32Util::BrowseForFolder(MainWindow::GetHWND(), di->T("Choose PPSSPP save folder"), initialPath);
 		if (folder.size()) {
 			g_Config.memStickDirectory = Path(folder);
 			FILE *f = File::OpenCFile(PPSSPPpath / "installed.txt", "wb");

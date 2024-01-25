@@ -138,3 +138,7 @@ void System_CreateGameShortcut(const Path &path, const std::string &title) {
 void System_ShowFileInFolder(const Path &path) {
 	g_requestManager.MakeSystemRequest(SystemRequestType::SHOW_FILE_IN_FOLDER, NO_REQUESTER_TOKEN, nullptr, nullptr, path.ToString(), "", 0);
 }
+
+void System_BrowseForFolder(RequesterToken token, const std::string &title, const Path &initialPath, RequestCallback callback, RequestFailedCallback failedCallback) {
+	g_requestManager.MakeSystemRequest(SystemRequestType::BROWSE_FOR_FOLDER, token, callback, failedCallback, title, initialPath.ToCString(), 0);
+}

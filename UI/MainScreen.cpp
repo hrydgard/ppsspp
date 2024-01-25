@@ -604,7 +604,7 @@ UI::EventReturn GameBrowser::LastClick(UI::EventParams &e) {
 
 UI::EventReturn GameBrowser::BrowseClick(UI::EventParams &e) {
 	auto mm = GetI18NCategory(I18NCat::MAINMENU);
-	System_BrowseForFolder(token_, mm->T("Choose folder"), [this](const std::string &filename, int) {
+	System_BrowseForFolder(token_, mm->T("Choose folder"), path_.GetPath(), [this](const std::string &filename, int) {
 		this->SetPath(Path(filename));
 	});
 	return UI::EVENT_DONE;
