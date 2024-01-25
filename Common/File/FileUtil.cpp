@@ -1147,8 +1147,8 @@ bool IOFile::Resize(uint64_t size)
 	return m_good;
 }
 
-bool ReadFileToStringOptions(bool text_file, bool allowShort, const Path &filename, std::string *str) {
-	FILE *f = File::OpenCFile(filename, text_file ? "r" : "rb");
+bool ReadFileToStringOptions(bool textFile, bool allowShort, const Path &filename, std::string *str) {
+	FILE *f = File::OpenCFile(filename, textFile ? "r" : "rb");
 	if (!f)
 		return false;
 	// Warning: some files, like in /sys/, may return a fixed size like 4096.
@@ -1171,7 +1171,12 @@ bool ReadFileToStringOptions(bool text_file, bool allowShort, const Path &filena
 		str->resize(totalRead);
 		// Allow less, because some system files will report incorrect lengths.
 		// Also, when reading text with CRLF, the read length may be shorter.
-		success = (allowShort || text_file) ? (totalRead <= len) : (totalRead == len);
+		if (textFile) {
+			// totalRead doesn't take \r into account since they might be skipped in this mode.
+			// So let's just ask how far the cursor got.
+			totalRead = ftell(f);
+		}
+		success = allowShort ? (totalRead <= len) : (totalRead == len);
 	}
 	fclose(f);
 	return success;

@@ -202,10 +202,10 @@ private:
 // TODO: Refactor, this was moved from the old file_util.cpp.
 
 // Whole-file reading/writing
-bool WriteStringToFile(bool text_file, const std::string &str, const Path &filename);
-bool WriteDataToFile(bool text_file, const void* data, size_t size, const Path &filename);
+bool WriteStringToFile(bool textFile, const std::string &str, const Path &filename);
+bool WriteDataToFile(bool textFile, const void* data, size_t size, const Path &filename);
 
-bool ReadFileToStringOptions(bool text_file, bool allowShort, const Path &path, std::string *str);
+bool ReadFileToStringOptions(bool textFile, bool allowShort, const Path &path, std::string *str);
 
 // Wrappers that clarify the intentions.
 inline bool ReadBinaryFileToString(const Path &path, std::string *str) {
