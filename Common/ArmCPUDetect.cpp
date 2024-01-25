@@ -90,7 +90,7 @@ const char syscpupresentfile[] = "/sys/devices/system/cpu/present";
 
 std::string GetCPUString() {
 	std::string procdata;
-	bool readSuccess = File::ReadFileToString(true, Path(procfile), procdata);
+	bool readSuccess = File::ReadSysTextFileToString(Path(procfile), &procdata);
 	std::istringstream file(procdata);
 	std::string cpu_string;
 
@@ -113,7 +113,7 @@ std::string GetCPUString() {
 
 std::string GetCPUBrandString() {
 	std::string procdata;
-	bool readSuccess = File::ReadFileToString(true, Path(procfile), procdata);
+	bool readSuccess = File::ReadSysTextFileToString(Path(procfile), &procdata);
 	std::istringstream file(procdata);
 	std::string brand_string;
 
@@ -143,7 +143,7 @@ unsigned char GetCPUImplementer()
 	unsigned char implementer = 0;
 
 	std::string procdata;
-	if (!File::ReadFileToString(true, Path(procfile), procdata))
+	if (!File::ReadSysTextFileToString(Path(procfile), &procdata))
 		return 0;
 	std::istringstream file(procdata);
 
@@ -166,7 +166,7 @@ unsigned short GetCPUPart()
 	unsigned short part = 0;
 
 	std::string procdata;
-	if (!File::ReadFileToString(true, Path(procfile), procdata))
+	if (!File::ReadSysTextFileToString(Path(procfile), &procdata))
 		return 0;
 	std::istringstream file(procdata);
 
@@ -188,7 +188,7 @@ bool CheckCPUFeature(const std::string& feature)
 	std::string line, marker = "Features\t: ";
 
 	std::string procdata;
-	if (!File::ReadFileToString(true, Path(procfile), procdata))
+	if (!File::ReadSysTextFileToString(Path(procfile), &procdata))
 		return false;
 	std::istringstream file(procdata);
 	while (std::getline(file, line))
@@ -214,7 +214,7 @@ int GetCoreCount()
 	int cores = 1;
 
 	std::string presentData;
-	bool presentSuccess = File::ReadFileToString(true, Path(syscpupresentfile), presentData);
+	bool presentSuccess = File::ReadSysTextFileToString(Path(syscpupresentfile), &presentData);
 	std::istringstream presentFile(presentData);
 
 	if (presentSuccess) {
@@ -228,7 +228,7 @@ int GetCoreCount()
 	}
 
 	std::string procdata;
-	if (!File::ReadFileToString(true, Path(procfile), procdata))
+	if (!File::ReadSysTextFileToString(Path(procfile), &procdata))
 		return 1;
 	std::istringstream file(procdata);
 	

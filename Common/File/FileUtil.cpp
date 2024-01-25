@@ -1147,7 +1147,7 @@ bool IOFile::Resize(uint64_t size)
 	return m_good;
 }
 
-bool ReadFileToString(bool text_file, const Path &filename, std::string &str) {
+bool ReadFileToStringOptions(bool text_file, bool allowShort, const Path &filename, std::string *str) {
 	FILE *f = File::OpenCFile(filename, text_file ? "r" : "rb");
 	if (!f)
 		return false;
@@ -1155,21 +1155,23 @@ bool ReadFileToString(bool text_file, const Path &filename, std::string &str) {
 	size_t len = (size_t)File::GetFileSize(f);
 	bool success;
 	if (len == 0) {
+		// Just read until we can't read anymore.
 		size_t totalSize = 1024;
 		size_t totalRead = 0;
 		do {
 			totalSize *= 2;
-			str.resize(totalSize);
-			totalRead += fread(&str[totalRead], 1, totalSize - totalRead, f);
+			str->resize(totalSize);
+			totalRead += fread(&(*str)[totalRead], 1, totalSize - totalRead, f);
 		} while (totalRead == totalSize);
-		str.resize(totalRead);
+		str->resize(totalRead);
 		success = true;
 	} else {
-		str.resize(len);
-		size_t totalRead = fread(&str[0], 1, len, f);
-		str.resize(totalRead);
+		str->resize(len);
+		size_t totalRead = fread(&(*str)[0], 1, len, f);
+		str->resize(totalRead);
 		// Allow less, because some system files will report incorrect lengths.
-		success = totalRead <= len;
+		// Also, when reading text with CRLF, the read length may be shorter.
+		success = (allowShort || text_file) ? (totalRead <= len) : (totalRead == len);
 	}
 	fclose(f);
 	return success;

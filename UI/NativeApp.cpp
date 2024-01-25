@@ -309,7 +309,7 @@ static void CheckFailedGPUBackends() {
 
 	if (System_GetPropertyBool(SYSPROP_SUPPORTS_PERMISSIONS)) {
 		std::string data;
-		if (File::ReadFileToString(true, cache, data))
+		if (File::ReadTextFileToString(cache, &data))
 			g_Config.sFailedGPUBackends = data;
 	}
 
@@ -433,7 +433,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	if (File::Exists(memstickDirFile)) {
 		INFO_LOG(SYSTEM, "Reading '%s' to find memstick dir.", memstickDirFile.c_str());
 		std::string memstickDir;
-		if (File::ReadFileToString(true, memstickDirFile, memstickDir)) {
+		if (File::ReadTextFileToString(memstickDirFile, &memstickDir)) {
 			Path memstickPath(memstickDir);
 			if (!memstickPath.empty() && File::Exists(memstickPath)) {
 				g_Config.memStickDirectory = memstickPath;
@@ -460,7 +460,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	if (File::Exists(memstickDirFile)) {
 		INFO_LOG(SYSTEM, "Reading '%s' to find memstick dir.", memstickDirFile.c_str());
 		std::string memstickDir;
-		if (File::ReadFileToString(true, memstickDirFile, memstickDir)) {
+		if (File::ReadTextFileToString(memstickDirFile, &memstickDir)) {
 			Path memstickPath(memstickDir);
 			if (!memstickPath.empty() && File::Exists(memstickPath)) {
 				g_Config.memStickDirectory = memstickPath;
@@ -1542,7 +1542,7 @@ bool NativeSaveSecret(const char *nameOfSecret, const std::string &data) {
 std::string NativeLoadSecret(const char *nameOfSecret) {
 	Path path = GetSecretPath(nameOfSecret);
 	std::string data;
-	if (!File::ReadFileToString(false, path, data)) {
+	if (!File::ReadBinaryFileToString(path, &data)) {
 		data.clear();  // just to be sure.
 	}
 	return data;

@@ -69,7 +69,7 @@ bool CwCheatScreen::TryLoadCheatInfo() {
 
 	// We won't parse this, just using it to detect changes to the file.
 	std::string str;
-	if (File::ReadFileToString(true, engine_->CheatFilename(), str)) {
+	if (File::ReadTextFileToString(engine_->CheatFilename(), &str)) {
 		fileCheckHash_ = XXH3_64bits(str.c_str(), str.size());
 	}
 	fileCheckCounter_ = 0;
@@ -146,7 +146,7 @@ void CwCheatScreen::update() {
 	if (fileCheckCounter_++ >= FILE_CHECK_FRAME_INTERVAL && engine_) {
 		// Check if the file has changed.  If it has, we'll reload.
 		std::string str;
-		if (File::ReadFileToString(true, engine_->CheatFilename(), str)) {
+		if (File::ReadTextFileToString(engine_->CheatFilename(), &str)) {
 			uint64_t newHash = XXH3_64bits(str.c_str(), str.size());
 			if (newHash != fileCheckHash_) {
 				// This will update the hash.

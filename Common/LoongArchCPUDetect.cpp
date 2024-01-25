@@ -54,7 +54,7 @@ private:
 
 LoongArchCPUInfoParser::LoongArchCPUInfoParser() {
 	std::string procdata, line;
-	if (!File::ReadFileToString(true, Path(procfile), procdata))
+	if (!File::ReadSysTextFileToString(Path(procfile), &procdata))
 		return;
 
 	std::istringstream file(procdata);
@@ -87,7 +87,7 @@ int LoongArchCPUInfoParser::ProcessorCount() {
 
 int LoongArchCPUInfoParser::TotalLogicalCount() {
 	std::string presentData, line;
-	bool presentSuccess = File::ReadFileToString(true, Path(syscpupresentfile), presentData);
+	bool presentSuccess = File::ReadSysTextFileToString(Path(syscpupresentfile), &presentData);
 	if (presentSuccess) {
 		std::istringstream presentFile(presentData);
 

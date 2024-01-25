@@ -371,7 +371,7 @@ static bool ReadFileToString(IFileSystem *fs, const char *filename, std::string 
 
 static bool ReadLocalFileToString(const Path &path, std::string *contents, std::mutex *mtx) {
 	std::string data;
-	if (!File::ReadFileToString(false, path, data)) {
+	if (!File::ReadBinaryFileToString(path, &data)) {
 		return false;
 	}
 	if (mtx) {
