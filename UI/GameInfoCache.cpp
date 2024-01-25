@@ -351,22 +351,27 @@ static bool ReadFileToString(IFileSystem *fs, const char *filename, std::string 
 	if (mtx) {
 		std::string data;
 		data.resize(info.size);
-		fs->ReadFile(handle, (u8 *)data.data(), info.size);
+		size_t readSize = fs->ReadFile(handle, (u8 *)data.data(), info.size);
 		fs->CloseFile(handle);
-
+		if (readSize != info.size) {
+			return false;
+		}
 		std::lock_guard<std::mutex> lock(*mtx);
 		*contents = std::move(data);
 	} else {
 		contents->resize(info.size);
-		fs->ReadFile(handle, (u8 *)contents->data(), info.size);
+		size_t readSize = fs->ReadFile(handle, (u8 *)contents->data(), info.size);
 		fs->CloseFile(handle);
+		if (readSize != info.size) {
+			return false;
+		}
 	}
 	return true;
 }
 
 static bool ReadLocalFileToString(const Path &path, std::string *contents, std::mutex *mtx) {
 	std::string data;
-	if (!File::ReadFileToString(false, path, data)) {
+	if (!File::ReadBinaryFileToString(path, &data)) {
 		return false;
 	}
 	if (mtx) {

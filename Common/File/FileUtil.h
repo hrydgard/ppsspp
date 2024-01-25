@@ -205,8 +205,20 @@ private:
 bool WriteStringToFile(bool text_file, const std::string &str, const Path &filename);
 bool WriteDataToFile(bool text_file, const void* data, size_t size, const Path &filename);
 
-bool ReadFileToString(bool text_file, const Path &filename, std::string &str);
+bool ReadFileToStringOptions(bool text_file, bool allowShort, const Path &path, std::string *str);
+
+// Wrappers that clarify the intentions.
+inline bool ReadBinaryFileToString(const Path &path, std::string *str) {
+	return ReadFileToStringOptions(false, false, path, str);
+}
+inline bool ReadSysTextFileToString(const Path &path, std::string *str) {
+	return ReadFileToStringOptions(true, true, path, str);
+}
+inline bool ReadTextFileToString(const Path &path, std::string *str) {
+	return ReadFileToStringOptions(true, false, path, str);
+}
+
 // Return value must be delete[]-d.
-uint8_t *ReadLocalFile(const Path &filename, size_t *size);
+uint8_t *ReadLocalFile(const Path &path, size_t *size);
 
 }  // namespace

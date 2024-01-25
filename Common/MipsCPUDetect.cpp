@@ -37,7 +37,7 @@ std::string GetCPUString() {
 	std::string cpu_string = "Unknown";
 
 	std::string procdata;
-	if (!File::ReadFileToString(true, procfile, procdata))
+	if (!File::ReadSysTextFileToString(procfile, &procdata))
 		return cpu_string;
 	std::istringstream file(procdata);
 	
@@ -59,7 +59,7 @@ unsigned char GetCPUImplementer()
 	unsigned char implementer = 0;
 
 	std::string procdata;
-	if (!File::ReadFileToString(true, procfile, procdata))
+	if (!File::ReadSysTextFileToString(procfile, &procdata))
 		return 0;
 	std::istringstream file(procdata);
 
@@ -82,7 +82,7 @@ unsigned short GetCPUPart()
 	unsigned short part = 0;
 
 	std::string procdata;
-	if (!File::ReadFileToString(true, procfile, procdata))
+	if (!File::ReadSysTextFileToString(procfile, &procdata))
 		return 0;
 	std::istringstream file(procdata);
 
@@ -104,7 +104,7 @@ bool CheckCPUASE(const std::string& ase)
 	std::string line, marker = "ASEs implemented\t: ";
 
 	std::string procdata;
-	if (!File::ReadFileToString(true, procfile, procdata))
+	if (!File::ReadSysTextFileToString(procfile, &procdata))
 		return false;
 	std::istringstream file(procdata);
 	
@@ -131,7 +131,7 @@ int GetCoreCount()
 	int cores = 1;
 
 	std::string presentData;
-	bool presentSuccess = File::ReadFileToString(true, syscpupresentfile, presentData);
+	bool presentSuccess = File::ReadSysTextFileToString(syscpupresentfile, &presentData);
 	std::istringstream presentFile(presentData);
 
 	if (presentSuccess) {
@@ -145,7 +145,7 @@ int GetCoreCount()
 	}
 
 	std::string procdata;
-	if (!File::ReadFileToString(true, procfile, procdata))
+	if (!File::ReadSysTextFileToString(procfile, &procdata))
 		return 1;
 	std::istringstream file(procdata);
 	
