@@ -14,18 +14,32 @@
 
 namespace W32Util
 {
-	std::string BrowseForFolder(HWND parent, const char *title)
-	{
+	std::string BrowseForFolder(HWND parent, std::string_view title, std::string_view initialPath) {
 		std::wstring titleString = ConvertUTF8ToWString(title);
-		return BrowseForFolder(parent, titleString.c_str());
+		return BrowseForFolder(parent, titleString.c_str(), initialPath);
 	}
 
-	std::string BrowseForFolder(HWND parent, const wchar_t *title)
-	{
+	static int CALLBACK BrowseFolderCallback(HWND hwnd, UINT uMsg, LPARAM lParam, LPARAM lpData) {
+		if (uMsg == BFFM_INITIALIZED) {
+			LPCTSTR path = reinterpret_cast<LPCTSTR>(lpData);
+			::SendMessage(hwnd, BFFM_SETSELECTION, true, (LPARAM)path);
+		}
+		return 0;
+	}
+
+	std::string BrowseForFolder(HWND parent, const wchar_t *title, std::string_view initialPath) {
 		BROWSEINFO info{};
 		info.hwndOwner = parent;
 		info.lpszTitle = title;
-		info.ulFlags = BIF_EDITBOX | BIF_RETURNONLYFSDIRS | BIF_USENEWUI;
+		info.ulFlags = BIF_EDITBOX | BIF_RETURNONLYFSDIRS | BIF_USENEWUI | BIF_NEWDIALOGSTYLE;
+
+		std::wstring initialPathW;
+
+		if (!initialPath.empty()) {
+			initialPathW = ConvertUTF8ToWString(initialPath);
+			info.lParam = reinterpret_cast<LPARAM>(initialPathW.c_str());
+			info.lpfn = BrowseFolderCallback;
+		}
 
 		//info.pszDisplayName
 		auto idList = SHBrowseForFolder(&info);

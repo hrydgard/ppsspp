@@ -418,7 +418,7 @@ UI::EventReturn MemStickScreen::UseStorageRoot(UI::EventParams &params) {
 
 UI::EventReturn MemStickScreen::Browse(UI::EventParams &params) {
 	auto mm = GetI18NCategory(I18NCat::MAINMENU);
-	System_BrowseForFolder(GetRequesterToken(), mm->T("Choose folder"), [=](const std::string &value, int) {
+	System_BrowseForFolder(GetRequesterToken(), mm->T("Choose folder"), g_Config.memStickDirectory, [=](const std::string &value, int) {
 		Path pendingMemStickFolder = Path(value);
 		INFO_LOG(SYSTEM, "Got folder: '%s'", pendingMemStickFolder.c_str());
 		// Browse finished. Let's pop up the confirmation dialog.
