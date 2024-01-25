@@ -801,7 +801,7 @@ void SystemInfoScreen::CreateTabs() {
 			vulkanFeatures->Add(new TextView(feature, new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetFocusable(true);
 		}
 
-		CollapsibleSection *presentModes = gpuExtensions->Add(new CollapsibleSection(si->T("Present Modes")));
+		CollapsibleSection *presentModes = gpuExtensions->Add(new CollapsibleSection(si->T("Present modes")));
 		for (auto mode : draw->GetPresentModeList(di->T("Current"))) {
 			presentModes->Add(new TextView(mode, new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetFocusable(true);
 		}
