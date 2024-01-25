@@ -1301,7 +1301,8 @@ UI::EventReturn GameSettingsScreen::OnJitAffectingSetting(UI::EventParams &e) {
 
 UI::EventReturn GameSettingsScreen::OnChangeMemStickDir(UI::EventParams &e) {
 #if PPSSPP_PLATFORM(MAC) || PPSSPP_PLATFORM(IOS)
-	System_BrowseForFolder(GetRequesterToken(), "", [](const std::string &value, int) {
+	auto initialPath = g_Config.memStickDirectory;
+	System_BrowseForFolder(GetRequesterToken(), "", initialPath, [](const std::string &value, int) {
 		DarwinFileSystemServices::setUserPreferredMemoryStickDirectory(Path(value));
 	});
 #else
