@@ -146,7 +146,9 @@ void WavData::Read(RIFFReader &file_) {
 			int numBytes = file_.GetCurrentChunkSize();
 			numFrames = numBytes / raw_bytes_per_frame;  // numFrames
 
-			raw_data = (uint8_t *)malloc(numBytes);
+			// It seems the atrac3 codec likes to read a little bit outside.
+			int padding = 16;
+			raw_data = (uint8_t *)malloc(numBytes + padding);
 			raw_data_size = numBytes;
 
 			if (num_channels == 1 || num_channels == 2) {
