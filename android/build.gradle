@@ -128,8 +128,7 @@ android {
 							'-DANDROID_PLATFORM=android-16',
 							'-DANDROID_TOOLCHAIN=clang',
 							'-DANDROID_CPP_FEATURES=',
-							'-DANDROID_STL=c++_static',
-							'-DANDROID_ARM_NEON=TRUE'
+							'-DANDROID_STL=c++_static'
 				}
 			}
 			ndk {

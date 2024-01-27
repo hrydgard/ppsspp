@@ -27,6 +27,7 @@
 #include "Common/UI/View.h"
 #include "Common/UI/ViewGroup.h"
 #include "Common/UI/Context.h"
+#include "Common/Render/ManagedTexture.h"
 #include "Common/VR/PPSSPPVR.h"
 
 #include "Common/System/Display.h"  // Only to check screen aspect ratio with pixel_yres/pixel_xres
@@ -1385,8 +1386,32 @@ UI::EventReturn GameSettingsScreen::OnChangeBackground(UI::EventParams &e) {
 		auto sy = GetI18NCategory(I18NCat::SYSTEM);
 		System_BrowseForImage(GetRequesterToken(), sy->T("Set UI background..."), [=](const std::string &value, int) {
 			if (!value.empty()) {
-				Path dest = GetSysDirectory(DIRECTORY_SYSTEM) / (endsWithNoCase(value, ".jpg") ? "background.jpg" : "background.png");
-				File::Copy(Path(value), dest);
+				Path path(value);
+
+				// Check the file format. Don't rely on the file extension here due to scoped storage URLs.
+				FILE *f = File::OpenCFile(path, "rb");
+				uint8_t buffer[8];
+				ImageFileType type = ImageFileType::UNKNOWN;
+				if (8 == fread(buffer, 1, ARRAY_SIZE(buffer), f)) {
+					type = DetectImageFileType(buffer, ARRAY_SIZE(buffer));
+				}
+
+				std::string filename;
+				switch (type) {
+				case ImageFileType::JPEG:
+					filename = "background.jpg";
+					break;
+				case ImageFileType::PNG:
+					filename = "background.png";
+					break;
+				}
+
+				if (!filename.empty()) {
+					Path dest = GetSysDirectory(DIRECTORY_SYSTEM) / filename;
+					File::Copy(Path(value), dest);
+				} else {
+					g_OSD.Show(OSDType::MESSAGE_ERROR, sy->T("Only JPG and PNG images are supported"), path.GetFilename(), 5.0);
+				}
 			}
 			// It will init again automatically.  We can't init outside a frame on Vulkan.
 			UIBackgroundShutdown();
