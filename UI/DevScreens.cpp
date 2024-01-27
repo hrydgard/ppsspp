@@ -1071,6 +1071,10 @@ void JitCompareScreen::UpdateDisasm() {
 
 	using namespace UI;
 
+	if (!MIPSComp::jit) {
+		return;
+	}
+
 	JitBlockCacheDebugInterface *blockCacheDebug = MIPSComp::jit->GetBlockCacheDebugInterface();
 
 	char temp[256];

@@ -39,7 +39,7 @@ void WaitUntil(double now, double timestamp) {
 	}
 #else
 	const double left = timestamp - now;
-	if (left > 0.0) {
+	if (left > 0.0 && left < 3.0) {
 		usleep((long)(left * 1000000));
 	}
 #endif
