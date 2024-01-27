@@ -675,17 +675,7 @@ static void EmuThreadFunc(GraphicsContext *graphicsContext) {
 	NativeInitGraphics(graphicsContext);
 
 	while (emuThreadState != (int)EmuThreadState::QUIT_REQUESTED) {
-		double startTime = time_now_d();
-
 		UpdateRunLoop(graphicsContext);
-
-		// Simple throttling to not burn the GPU in the menu.
-		if (GetUIState() != UISTATE_INGAME || !PSP_IsInited()) {
-			double diffTime = time_now_d() - startTime;
-			int sleepTime = (int)(1000.0 / 60.0) - (int)(diffTime * 1000.0);
-			if (sleepTime > 0)
-				sleep_ms(sleepTime);
-		}
 	}
 	emuThreadState = (int)EmuThreadState::STOPPED;
 	graphicsContext->StopThread();

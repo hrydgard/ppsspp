@@ -1176,7 +1176,12 @@ void NativeFrame(GraphicsContext *graphicsContext) {
 		graphicsContext->Poll();
 	}
 
+	SendMouseDeltaAxis();
+
 	if (!(renderFlags & ScreenRenderFlags::HANDLED_THROTTLING)) {
+		// TODO: We should ideally mix this with game audio.
+		g_BackgroundAudio.Play();
+
 		float refreshRate = System_GetPropertyFloat(SYSPROP_DISPLAY_REFRESH_RATE);
 		// Simple throttling to not burn the GPU in the menu.
 		// TODO: This should move into NativeFrame. Also, it's only necessary in MAILBOX or IMMEDIATE presentation modes.
@@ -1184,12 +1189,7 @@ void NativeFrame(GraphicsContext *graphicsContext) {
 		int sleepTime = (int)(1000.0 / refreshRate) - (int)(diffTime * 1000.0);
 		if (sleepTime > 0)
 			sleep_ms(sleepTime);
-
-		// TODO: We should ideally mix this with game audio.
-		g_BackgroundAudio.Play();
 	}
-
-	SendMouseDeltaAxis();
 }
 
 bool HandleGlobalMessage(UIMessage message, const std::string &value) {
