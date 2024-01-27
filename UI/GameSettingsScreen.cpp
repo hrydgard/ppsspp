@@ -1404,6 +1404,8 @@ UI::EventReturn GameSettingsScreen::OnChangeBackground(UI::EventParams &e) {
 				case ImageFileType::PNG:
 					filename = "background.png";
 					break;
+				default:
+					break;
 				}
 
 				if (!filename.empty()) {
