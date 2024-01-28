@@ -86,7 +86,7 @@ void GameScreen::update() {
 }
 
 void GameScreen::CreateViews() {
-	std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(NULL, gamePath_, GAMEINFO_WANTBG | GAMEINFO_WANTSIZE);
+	std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(NULL, gamePath_, GameInfoFlags::PARAM_SFO | GameInfoFlags::ICON | GameInfoFlags::BG);
 
 	if (info && !info->id.empty()) {
 		saveDirs = info->GetSaveDataDirectories(); // Get's very heavy, let's not do it in update()
@@ -187,8 +187,9 @@ void GameScreen::CreateViews() {
 	rightColumnItems->Add(AddOtherChoice(new Choice(ga->T("Delete Game"))))->OnClick.Handle(this, &GameScreen::OnDeleteGame);
 	if (System_GetPropertyBool(SYSPROP_CAN_CREATE_SHORTCUT)) {
 		rightColumnItems->Add(AddOtherChoice(new Choice(ga->T("Create Shortcut"))))->OnClick.Add([=](UI::EventParams &e) {
-			std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(NULL, gamePath_, 0);
-			if (info) {
+			std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(NULL, gamePath_, GameInfoFlags::PARAM_SFO);
+			if (info->Ready(GameInfoFlags::PARAM_SFO)) {
+				// TODO: Should we block on Ready?
 				System_CreateGameShortcut(gamePath_, info->GetTitle());
 			}
 			return UI::EVENT_DONE;
@@ -241,8 +242,8 @@ UI::Choice *GameScreen::AddOtherChoice(UI::Choice *choice) {
 }
 
 UI::EventReturn GameScreen::OnCreateConfig(UI::EventParams &e) {
-	std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(nullptr, gamePath_, 0);
-	if (!info) {
+	std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(nullptr, gamePath_, GameInfoFlags::PARAM_SFO);
+	if (!info->Ready(GameInfoFlags::PARAM_SFO)) {
 		return UI::EVENT_SKIPPED;
 	}
 	g_Config.createGameConfig(info->id);
@@ -255,8 +256,8 @@ UI::EventReturn GameScreen::OnCreateConfig(UI::EventParams &e) {
 
 void GameScreen::CallbackDeleteConfig(bool yes) {
 	if (yes) {
-		std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(nullptr, gamePath_, 0);
-		if (!info) {
+		std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(nullptr, gamePath_, GameInfoFlags::PARAM_SFO);
+		if (!info->Ready(GameInfoFlags::PARAM_SFO)) {
 			return;
 		}
 		g_Config.deleteGameConfig(info->id);
@@ -283,7 +284,7 @@ ScreenRenderFlags GameScreen::render(ScreenRenderMode mode) {
 
 	Draw::DrawContext *draw = screenManager()->getDrawContext();
 
-	std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(draw, gamePath_, GAMEINFO_WANTBG | GAMEINFO_WANTSIZE | GAMEINFO_WANTUNCOMPRESSEDSIZE);
+	std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(draw, gamePath_, GameInfoFlags::BG | GameInfoFlags::SIZE | GameInfoFlags::UNCOMPRESSED_SIZE);
 
 	if (tvTitle_) {
 		tvTitle_->SetText(info->GetTitle());
@@ -410,7 +411,7 @@ ScreenRenderFlags GameScreen::render(ScreenRenderMode mode) {
 		}
 	}
 
-	if (!info->pending) {
+	if (info->Ready(GameInfoFlags::PARAM_SFO)) {
 		// At this point, the above buttons won't become visible.  We can show these now.
 		for (UI::Choice *choice : otherChoices_) {
 			choice->SetVisibility(UI::V_VISIBLE);
@@ -448,8 +449,8 @@ UI::EventReturn GameScreen::OnPlay(UI::EventParams &e) {
 }
 
 UI::EventReturn GameScreen::OnGameSettings(UI::EventParams &e) {
-	std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(NULL, gamePath_, GAMEINFO_WANTBG | GAMEINFO_WANTSIZE);
-	if (info && info->paramSFOLoaded) {
+	std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(NULL, gamePath_, GameInfoFlags::PARAM_SFO);
+	if (info && info->Ready(GameInfoFlags::PARAM_SFO)) {
 		std::string discID = info->paramSFO.GetValueString("DISC_ID");
 		if ((discID.empty() || !info->disc_total) && gamePath_.FilePathContainsNoCase("PSP/GAME/"))
 			discID = g_paramSFO.GenerateFakeID(gamePath_);
@@ -459,7 +460,7 @@ UI::EventReturn GameScreen::OnGameSettings(UI::EventParams &e) {
 }
 
 UI::EventReturn GameScreen::OnDeleteSaveData(UI::EventParams &e) {
-	std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(NULL, gamePath_, GAMEINFO_WANTBG | GAMEINFO_WANTSIZE);
+	std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(NULL, gamePath_, GameInfoFlags::PARAM_SFO);
 	if (info) {
 		// Check that there's any savedata to delete
 		if (saveDirs.size()) {
@@ -470,14 +471,13 @@ UI::EventReturn GameScreen::OnDeleteSaveData(UI::EventParams &e) {
 				std::bind(&GameScreen::CallbackDeleteSaveData, this, std::placeholders::_1)));
 		}
 	}
-
 	RecreateViews();
 	return UI::EVENT_DONE;
 }
 
 void GameScreen::CallbackDeleteSaveData(bool yes) {
 	if (yes) {
-		std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(NULL, gamePath_, 0);
+		std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(NULL, gamePath_, GameInfoFlags::PARAM_SFO);
 		info->DeleteAllSaveData();
 		info->saveDataSize = 0;
 		info->installDataSize = 0;
@@ -485,21 +485,20 @@ void GameScreen::CallbackDeleteSaveData(bool yes) {
 }
 
 UI::EventReturn GameScreen::OnDeleteGame(UI::EventParams &e) {
-	std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(NULL, gamePath_, GAMEINFO_WANTBG | GAMEINFO_WANTSIZE);
-	if (info) {
+	std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(NULL, gamePath_, GameInfoFlags::PARAM_SFO);
+	if (info->Ready(GameInfoFlags::PARAM_SFO)) {
 		auto di = GetI18NCategory(I18NCat::DIALOG);
 		auto ga = GetI18NCategory(I18NCat::GAME);
 		screenManager()->push(
 			new PromptScreen(gamePath_, di->T("DeleteConfirmGame", "Do you really want to delete this game\nfrom your device? You can't undo this."), ga->T("ConfirmDelete"), di->T("Cancel"),
 			std::bind(&GameScreen::CallbackDeleteGame, this, std::placeholders::_1)));
 	}
-
 	return UI::EVENT_DONE;
 }
 
 void GameScreen::CallbackDeleteGame(bool yes) {
 	if (yes) {
-		std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(NULL, gamePath_, 0);
+		std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(NULL, gamePath_, GameInfoFlags::PARAM_SFO);
 		info->Delete();
 		g_gameInfoCache->Clear();
 		screenManager()->switchScreen(new MainScreen());
@@ -560,8 +559,8 @@ void SetBackgroundPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 void SetBackgroundPopupScreen::update() {
 	PopupScreen::update();
 
-	std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(nullptr, gamePath_, GAMEINFO_WANTBG | GAMEINFO_WANTBGDATA);
-	if (status_ == Status::PENDING && info && !info->pending) {
+	std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(nullptr, gamePath_, GameInfoFlags::BG);
+	if (status_ == Status::PENDING && info->Ready(GameInfoFlags::BG)) {
 		GameInfoTex *pic = nullptr;
 		if (info->pic1.dataLoaded && info->pic1.data.size()) {
 			pic = &info->pic1;

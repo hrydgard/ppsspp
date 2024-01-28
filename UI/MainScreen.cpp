@@ -226,12 +226,12 @@ private:
 };
 
 void GameButton::Draw(UIContext &dc) {
-	std::shared_ptr<GameInfo> ginfo = g_gameInfoCache->GetInfo(dc.GetDrawContext(), gamePath_, 0);
+	std::shared_ptr<GameInfo> ginfo = g_gameInfoCache->GetInfo(dc.GetDrawContext(), gamePath_, GameInfoFlags::PARAM_SFO | GameInfoFlags::ICON);
 	Draw::Texture *texture = 0;
 	u32 color = 0, shadowColor = 0;
 	using namespace UI;
 
-	if (ginfo->icon.texture) {
+	if (ginfo->Ready(GameInfoFlags::ICON) && ginfo->icon.texture) {
 		texture = ginfo->icon.texture;
 	}
 
@@ -427,10 +427,9 @@ void GameButton::Draw(UIContext &dc) {
 }
 
 std::string GameButton::DescribeText() const {
-	std::shared_ptr<GameInfo> ginfo = g_gameInfoCache->GetInfo(nullptr, gamePath_, 0);
-	if (ginfo->pending)
+	std::shared_ptr<GameInfo> ginfo = g_gameInfoCache->GetInfo(nullptr, gamePath_, GameInfoFlags::PARAM_SFO);
+	if (!ginfo->Ready(GameInfoFlags::PARAM_SFO))
 		return "...";
-
 	auto u = GetI18NCategory(I18NCat::UI_ELEMENTS);
 	return ApplySafeSubstitutions(u->T("%1 button"), ginfo->GetTitle());
 }
@@ -1443,12 +1442,12 @@ bool MainScreen::DrawBackgroundFor(UIContext &dc, const Path &gamePath, float pr
 
 	std::shared_ptr<GameInfo> ginfo;
 	if (!gamePath.empty()) {
-		ginfo = g_gameInfoCache->GetInfo(dc.GetDrawContext(), gamePath, GAMEINFO_WANTBG);
+		ginfo = g_gameInfoCache->GetInfo(dc.GetDrawContext(), gamePath, GameInfoFlags::BG);
 		// Loading texture data may bind a texture.
 		dc.RebindTexture();
 
 		// Let's not bother if there's no picture.
-		if (!ginfo || (!ginfo->pic1.texture && !ginfo->pic0.texture)) {
+		if (!ginfo->Ready(GameInfoFlags::BG) || (!ginfo->pic1.texture && !ginfo->pic0.texture)) {
 			return false;
 		}
 	} else {
@@ -1471,11 +1470,10 @@ bool MainScreen::DrawBackgroundFor(UIContext &dc, const Path &gamePath, float pr
 UI::EventReturn MainScreen::OnGameSelected(UI::EventParams &e) {
 	g_Config.Save("MainScreen::OnGameSelected");
 	Path path(e.s);
-	std::shared_ptr<GameInfo> ginfo = g_gameInfoCache->GetInfo(nullptr, path, GAMEINFO_WANTBG);
-	if (ginfo && ginfo->fileType == IdentifiedFileType::PSP_SAVEDATA_DIRECTORY) {
+	std::shared_ptr<GameInfo> ginfo = g_gameInfoCache->GetInfo(nullptr, path, GameInfoFlags::FILE_TYPE);
+	if (ginfo->fileType == IdentifiedFileType::PSP_SAVEDATA_DIRECTORY) {
 		return UI::EVENT_DONE;
 	}
-
 	if (g_GameManager.GetState() == GameManagerState::INSTALLING)
 		return UI::EVENT_DONE;
 

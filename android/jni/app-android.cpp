@@ -1678,11 +1678,13 @@ extern "C" jstring Java_org_ppsspp_ppsspp_ShortcutActivity_queryGameName(JNIEnv 
 	std::string result = "";
 
 	GameInfoCache *cache = new GameInfoCache();
-	std::shared_ptr<GameInfo> info = cache->GetInfo(nullptr, path, 0);
+	std::shared_ptr<GameInfo> info = cache->GetInfo(nullptr, path, GameInfoFlags::PARAM_SFO);
 	// Wait until it's done: this is synchronous, unfortunately.
 	if (info) {
 		INFO_LOG(SYSTEM, "GetInfo successful, waiting");
-		cache->WaitUntilDone(info);
+		while (!info->Ready(GameInfoFlags::PARAM_SFO)) {
+			sleep_ms(1);
+		}
 		INFO_LOG(SYSTEM, "Done waiting");
 		if (info->fileType != IdentifiedFileType::UNKNOWN) {
 			result = info->GetTitle();

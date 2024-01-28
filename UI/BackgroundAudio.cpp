@@ -359,8 +359,8 @@ void BackgroundAudio::Update() {
 			return;
 
 		// Grab some audio from the current game and play it.
-		std::shared_ptr<GameInfo> gameInfo = g_gameInfoCache->GetInfo(nullptr, bgGamePath_, GAMEINFO_WANTSND);
-		if (!gameInfo || gameInfo->pending) {
+		std::shared_ptr<GameInfo> gameInfo = g_gameInfoCache->GetInfo(nullptr, bgGamePath_, GameInfoFlags::SND);
+		if (!gameInfo->Ready(GameInfoFlags::SND)) {
 			// Should try again shortly..
 			return;
 		}

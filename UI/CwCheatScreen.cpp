@@ -48,13 +48,12 @@ CwCheatScreen::~CwCheatScreen() {
 }
 
 bool CwCheatScreen::TryLoadCheatInfo() {
-	std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(nullptr, gamePath_, 0);
+	std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(nullptr, gamePath_, GameInfoFlags::PARAM_SFO);
 	std::string gameID;
-	if (info && info->paramSFOLoaded) {
-		gameID = info->paramSFO.GetValueString("DISC_ID");
-	} else {
+	if (!info->Ready(GameInfoFlags::PARAM_SFO)) {
 		return false;
 	}
+	gameID = info->paramSFO.GetValueString("DISC_ID");
 	if ((info->id.empty() || !info->disc_total)
 		&& gamePath_.FilePathContainsNoCase("PSP/GAME/")) {
 		gameID = g_paramSFO.GenerateFakeID(gamePath_);

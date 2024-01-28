@@ -531,26 +531,29 @@ UI::EventReturn GamePauseScreen::OnLastSaveUndo(UI::EventParams &e) {
 void GamePauseScreen::CallbackDeleteConfig(bool yes)
 {
 	if (yes) {
-		std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(NULL, gamePath_, 0);
-		g_Config.unloadGameConfig();
-		g_Config.deleteGameConfig(info->id);
-		info->hasConfig = false;
-		screenManager()->RecreateAllViews();
+		std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(NULL, gamePath_, GameInfoFlags::PARAM_SFO);
+		if (info->Ready(GameInfoFlags::PARAM_SFO)) {
+			g_Config.unloadGameConfig();
+			g_Config.deleteGameConfig(info->id);
+			info->hasConfig = false;
+			screenManager()->RecreateAllViews();
+		}
 	}
 }
 
 UI::EventReturn GamePauseScreen::OnCreateConfig(UI::EventParams &e)
 {
-	std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(NULL, gamePath_, 0);
-	std::string gameId = g_paramSFO.GetDiscID();
-	g_Config.createGameConfig(gameId);
-	g_Config.changeGameSpecific(gameId, info->GetTitle());
-	g_Config.saveGameConfig(gameId, info->GetTitle());
-	if (info) {
-		info->hasConfig = true;
+	std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(NULL, gamePath_, GameInfoFlags::PARAM_SFO);
+	if (info->Ready(GameInfoFlags::PARAM_SFO)) {
+		std::string gameId = g_paramSFO.GetDiscID();
+		g_Config.createGameConfig(gameId);
+		g_Config.changeGameSpecific(gameId, info->GetTitle());
+		g_Config.saveGameConfig(gameId, info->GetTitle());
+		if (info) {
+			info->hasConfig = true;
+		}
+		screenManager()->topScreen()->RecreateViews();
 	}
-
-	screenManager()->topScreen()->RecreateViews();
 	return UI::EVENT_DONE;
 }
 
