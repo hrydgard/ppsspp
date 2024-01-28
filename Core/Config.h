@@ -269,6 +269,7 @@ public:
 	int iGlobalVolume;
 	int iReverbVolume;
 	int iAltSpeedVolume;
+	int iAchievementSoundVolume;
 	bool bExtraAudioBuffering;  // For bluetooth
 	std::string sAudioDevice;
 	bool bAutoAudioDevice;

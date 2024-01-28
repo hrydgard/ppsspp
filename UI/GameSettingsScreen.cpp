@@ -625,6 +625,10 @@ void GameSettingsScreen::CreateAudioSettings(UI::ViewGroup *audioSettings) {
 	reverbVolume->SetEnabledPtr(&g_Config.bEnableSound);
 	reverbVolume->SetZeroLabel(a->T("Disabled"));
 
+	PopupSliderChoice *achievementVolume = audioSettings->Add(new PopupSliderChoice(&g_Config.iAchievementSoundVolume, VOLUME_OFF, VOLUME_FULL, VOLUME_FULL, a->T("Achievement sound volume"), screenManager()));
+	achievementVolume->SetEnabledPtr(&g_Config.bEnableSound);
+	achievementVolume->SetZeroLabel(a->T("Mute"));
+
 	// Hide the backend selector in UWP builds (we only support XAudio2 there).
 #if PPSSPP_PLATFORM(WINDOWS) && !PPSSPP_PLATFORM(UWP)
 	if (IsVistaOrHigher()) {
