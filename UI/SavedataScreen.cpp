@@ -87,8 +87,8 @@ public:
 		UIContext &dc = *screenManager()->getUIContext();
 		const Style &textStyle = dc.theme->popupStyle;
 
-		std::shared_ptr<GameInfo> ginfo = g_gameInfoCache->GetInfo(screenManager()->getDrawContext(), savePath_, GAMEINFO_WANTBG | GAMEINFO_WANTSIZE);
-		if (!ginfo)
+		std::shared_ptr<GameInfo> ginfo = g_gameInfoCache->GetInfo(screenManager()->getDrawContext(), savePath_, GameInfoFlags::PARAM_SFO | GameInfoFlags::SIZE);
+		if (!ginfo->Ready(GameInfoFlags::PARAM_SFO))
 			return;
 
 		ScrollView *contentScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 1.0f));
@@ -260,7 +260,7 @@ void SavedataButton::UpdateDateSeconds() {
 }
 
 UI::EventReturn SavedataPopupScreen::OnDeleteButtonClick(UI::EventParams &e) {
-	std::shared_ptr<GameInfo> ginfo = g_gameInfoCache->GetInfo(nullptr, savePath_, GAMEINFO_WANTSIZE);
+	std::shared_ptr<GameInfo> ginfo = g_gameInfoCache->GetInfo(nullptr, savePath_, GameInfoFlags::PARAM_SFO);
 	ginfo->Delete();
 	TriggerFinish(DR_NO);
 	return UI::EVENT_DONE;
@@ -274,8 +274,8 @@ static std::string CleanSaveString(const std::string &str) {
 }
 
 bool SavedataButton::UpdateText() {
-	std::shared_ptr<GameInfo> ginfo = g_gameInfoCache->GetInfo(nullptr, savePath_, GAMEINFO_WANTSIZE);
-	if (!ginfo->pending) {
+	std::shared_ptr<GameInfo> ginfo = g_gameInfoCache->GetInfo(nullptr, savePath_, GameInfoFlags::PARAM_SFO);
+	if (ginfo->Ready(GameInfoFlags::PARAM_SFO)) {
 		UpdateText(ginfo);
 		return true;
 	}
@@ -294,7 +294,7 @@ void SavedataButton::UpdateText(const std::shared_ptr<GameInfo> &ginfo) {
 }
 
 void SavedataButton::Draw(UIContext &dc) {
-	std::shared_ptr<GameInfo> ginfo = g_gameInfoCache->GetInfo(dc.GetDrawContext(), savePath_, GAMEINFO_WANTSIZE);
+	std::shared_ptr<GameInfo> ginfo = g_gameInfoCache->GetInfo(dc.GetDrawContext(), savePath_, GameInfoFlags::PARAM_SFO | GameInfoFlags::SIZE);
 	Draw::Texture *texture = 0;
 	u32 color = 0, shadowColor = 0;
 	using namespace UI;
@@ -682,7 +682,10 @@ UI::EventReturn SavedataScreen::OnSearch(UI::EventParams &e) {
 }
 
 UI::EventReturn SavedataScreen::OnSavedataButtonClick(UI::EventParams &e) {
-	std::shared_ptr<GameInfo> ginfo = g_gameInfoCache->GetInfo(screenManager()->getDrawContext(), Path(e.s), 0);
+	std::shared_ptr<GameInfo> ginfo = g_gameInfoCache->GetInfo(screenManager()->getDrawContext(), Path(e.s), GameInfoFlags::PARAM_SFO);
+	if (!ginfo->Ready(GameInfoFlags::PARAM_SFO)) {
+		return UI::EVENT_DONE;
+	}
 	SavedataPopupScreen *popupScreen = new SavedataPopupScreen(e.s, ginfo->GetTitle());
 	if (e.v) {
 		popupScreen->SetPopupOrigin(e.v);
@@ -714,14 +717,15 @@ void GameIconView::GetContentDimensions(const UIContext &dc, float &w, float &h)
 
 void GameIconView::Draw(UIContext &dc) {
 	using namespace UI;
-	std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(NULL, gamePath_, GAMEINFO_WANTBG | GAMEINFO_WANTSIZE);
-
-	if (!info->icon.texture) {
+	std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(dc.GetDrawContext(), gamePath_, GameInfoFlags::ICON);
+	if (!info->Ready(GameInfoFlags::ICON) || !info->icon.texture) {
 		return;
 	}
 
-	textureWidth_ = info->icon.texture->Width() * scale_;
-	textureHeight_ = info->icon.texture->Height() * scale_;
+	Draw::Texture *texture = info->icon.texture;
+
+	textureWidth_ = texture->Width() * scale_;
+	textureHeight_ = texture->Height() * scale_;
 
 	// Fade icon with the backgrounds.
 	double loadTime = info->icon.timeLoaded;
@@ -736,7 +740,7 @@ void GameIconView::Draw(UIContext &dc) {
 	float nw = std::min(bounds_.h * textureWidth_ / textureHeight_, (float)bounds_.w);
 
 	dc.Flush();
-	dc.GetDrawContext()->BindTexture(0, info->icon.texture);
+	dc.GetDrawContext()->BindTexture(0, texture);
 	dc.Draw()->Rect(bounds_.x, bounds_.y, nw, bounds_.h, color);
 	dc.Flush();
 	dc.RebindTexture();

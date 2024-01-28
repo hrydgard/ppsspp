@@ -147,7 +147,7 @@ void WavData::Read(RIFFReader &file_) {
 			numFrames = numBytes / raw_bytes_per_frame;  // numFrames
 
 			// It seems the atrac3 codec likes to read a little bit outside.
-			int padding = 16;
+			const int padding = 32;  // 32 is the value FFMPEG uses.
 			raw_data = (uint8_t *)malloc(numBytes + padding);
 			raw_data_size = numBytes;
 
@@ -359,8 +359,8 @@ void BackgroundAudio::Update() {
 			return;
 
 		// Grab some audio from the current game and play it.
-		std::shared_ptr<GameInfo> gameInfo = g_gameInfoCache->GetInfo(nullptr, bgGamePath_, GAMEINFO_WANTSND);
-		if (!gameInfo || gameInfo->pending) {
+		std::shared_ptr<GameInfo> gameInfo = g_gameInfoCache->GetInfo(nullptr, bgGamePath_, GameInfoFlags::SND);
+		if (!gameInfo->Ready(GameInfoFlags::SND)) {
 			// Should try again shortly..
 			return;
 		}

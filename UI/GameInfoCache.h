@@ -50,13 +50,16 @@ enum GameRegion {
 	GAMEREGION_MAX,
 };
 
-enum GameInfoWantFlags {
-	GAMEINFO_WANTBG = 0x01,
-	GAMEINFO_WANTSIZE = 0x02,
-	GAMEINFO_WANTSND = 0x04,
-	GAMEINFO_WANTBGDATA = 0x08, // Use with WANTBG.
-	GAMEINFO_WANTUNCOMPRESSEDSIZE = 0x10,
+enum class GameInfoFlags {
+	FILE_TYPE = 0x01,  // Don't need to specify this, always included.
+	PARAM_SFO = 0x02,
+	ICON = 0x04,
+	BG = 0x08,
+	SND = 0x10,
+	SIZE = 0x20,
+	UNCOMPRESSED_SIZE = 0x40,
 };
+ENUM_CLASS_BITOPS(GameInfoFlags);
 
 class FileLoader;
 enum class IdentifiedFileType;
@@ -102,6 +105,11 @@ public:
 	std::string GetTitle();
 	void SetTitle(const std::string &newTitle);
 
+	bool Ready(GameInfoFlags flags) {
+		std::unique_lock<std::mutex> guard(lock);
+		return (hasFlags & flags) != 0;
+	}
+
 	GameInfoTex *GetBGPic() {
 		if (pic1.texture)
 			return &pic1;
@@ -119,6 +127,11 @@ public:
 	// Controls access to the fileLoader pointer.
 	std::mutex loaderLock;
 
+	// Keep track of what we have, or what we're processing.
+	// These are protected by the mutex. While pendingFlags != 0, something is being loaded.
+	GameInfoFlags hasFlags{};
+	GameInfoFlags pendingFlags{};
+
 	std::string id;
 	std::string id_version;
 	int disc_total = 0;
@@ -126,7 +139,6 @@ public:
 	int region = -1;
 	IdentifiedFileType fileType;
 	ParamSFOData paramSFO;
-	bool paramSFOLoaded = false;
 	bool hasConfig = false;
 
 	// Pre read the data, create a texture the next time (GL thread..)
@@ -137,19 +149,12 @@ public:
 	std::string sndFileData;
 	std::atomic<bool> sndDataLoaded{};
 
-	int wantFlags = 0;
-
 	double lastAccessedTime = 0.0;
 
 	u64 gameSizeUncompressed = 0;
 	u64 gameSizeOnDisk = 0;  // compressed size, in case of CSO
 	u64 saveDataSize = 0;
 	u64 installDataSize = 0;
-
-	std::atomic<bool> pending{};
-	std::atomic<bool> working{};
-
-	Event readyEvent;
 
 protected:
 	// Note: this can change while loading, use GetTitle().
@@ -178,7 +183,7 @@ public:
 	// but filled in later asynchronously in the background. So keep calling this,
 	// redrawing the UI often. Only set flags to GAMEINFO_WANTBG or WANTSND if you really want them 
 	// because they're big. bgTextures and sound may be discarded over time as well.
-	std::shared_ptr<GameInfo> GetInfo(Draw::DrawContext *draw, const Path &gamePath, int wantFlags);
+	std::shared_ptr<GameInfo> GetInfo(Draw::DrawContext *draw, const Path &gamePath, GameInfoFlags wantFlags);
 	void FlushBGs();  // Gets rid of all BG textures. Also gets rid of bg sounds.
 
 	void CancelAll();
@@ -191,6 +196,7 @@ private:
 	// Maps ISO path to info. Need to use shared_ptr as we can return these pointers - 
 	// and if they get destructed while being in use, that's bad.
 	std::map<std::string, std::shared_ptr<GameInfo> > info_;
+	std::mutex mapLock_;
 };
 
 // This one can be global, no good reason not to.

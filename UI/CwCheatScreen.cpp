@@ -48,9 +48,9 @@ CwCheatScreen::~CwCheatScreen() {
 }
 
 bool CwCheatScreen::TryLoadCheatInfo() {
-	std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(nullptr, gamePath_, 0);
+	std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(nullptr, gamePath_, GameInfoFlags::PARAM_SFO);
 	std::string gameID;
-	if (info && info->paramSFOLoaded) {
+	if (info && info->Ready(GameInfoFlags::PARAM_SFO)) {
 		gameID = info->paramSFO.GetValueString("DISC_ID");
 	} else {
 		return false;
