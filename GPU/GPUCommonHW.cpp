@@ -973,8 +973,9 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 	u32 vertexType = gstate.vertType;
 	if ((vertexType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE) {
 		u32 indexAddr = gstate_c.indexAddr;
-		if (!Memory::IsValidAddress(indexAddr)) {
-			ERROR_LOG(G3D, "Bad index address %08x!", indexAddr);
+		u32 indexSize = (vertexType & GE_VTYPE_IDX_MASK) >> GE_VTYPE_IDX_SHIFT;
+		if (!Memory::IsValidRange(indexAddr, count * indexSize)) {
+			ERROR_LOG(G3D, "Bad index address %08x (%d)!", indexAddr, count);
 			return;
 		}
 		inds = Memory::GetPointerUnchecked(indexAddr);
