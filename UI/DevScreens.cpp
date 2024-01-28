@@ -818,7 +818,7 @@ void SystemInfoScreen::CreateTabs() {
 			enabledExtensions->Add(new TextView(extension, new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetFocusable(true);
 		}
 		// Also get instance extensions
-		enabledExtensions->Add(new ItemHeader("Instance"));
+		enabledExtensions->Add(new ItemHeader(si->T("Instance")));
 		extensions = draw->GetExtensionList(false, true);
 		std::sort(extensions.begin(), extensions.end());
 		for (auto &extension : extensions) {
