@@ -592,13 +592,14 @@ void EmuScreen::sendMessage(UIMessage message, const char *value) {
 			}
 		}
 	} else if (message == UIMessage::REQUEST_PLAY_SOUND) {
-		if (g_Config.bAchievementsSoundEffects) {
+		if (g_Config.bAchievementsSoundEffects && g_Config.bEnableSound) {
+			float achievementVolume = g_Config.iAchievementSoundVolume * 0.1f;
 			// TODO: Handle this some nicer way.
 			if (!strcmp(value, "achievement_unlocked")) {
-				g_BackgroundAudio.SFX().Play(UI::UISound::ACHIEVEMENT_UNLOCKED, 0.6f);
+				g_BackgroundAudio.SFX().Play(UI::UISound::ACHIEVEMENT_UNLOCKED, achievementVolume * 1.0f);
 			}
 			if (!strcmp(value, "leaderboard_submitted")) {
-				g_BackgroundAudio.SFX().Play(UI::UISound::LEADERBOARD_SUBMITTED, 0.6f);
+				g_BackgroundAudio.SFX().Play(UI::UISound::LEADERBOARD_SUBMITTED, achievementVolume * 1.0f);
 			}
 		}
 	}

@@ -694,6 +694,7 @@ static const ConfigSetting soundSettings[] = {
 	ConfigSetting("GlobalVolume", &g_Config.iGlobalVolume, VOLUME_FULL, CfgFlag::PER_GAME),
 	ConfigSetting("ReverbVolume", &g_Config.iReverbVolume, VOLUME_FULL, CfgFlag::PER_GAME),
 	ConfigSetting("AltSpeedVolume", &g_Config.iAltSpeedVolume, -1, CfgFlag::PER_GAME),
+	ConfigSetting("AchievementSoundVolume", &g_Config.iAchievementSoundVolume, 6, CfgFlag::PER_GAME),
 	ConfigSetting("AudioDevice", &g_Config.sAudioDevice, "", CfgFlag::DEFAULT),
 	ConfigSetting("AutoAudioDevice", &g_Config.bAutoAudioDevice, true, CfgFlag::DEFAULT),
 };

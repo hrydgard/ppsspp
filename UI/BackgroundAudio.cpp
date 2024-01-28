@@ -147,7 +147,7 @@ void WavData::Read(RIFFReader &file_) {
 			numFrames = numBytes / raw_bytes_per_frame;  // numFrames
 
 			// It seems the atrac3 codec likes to read a little bit outside.
-			int padding = 16;
+			const int padding = 32;  // 32 is the value FFMPEG uses.
 			raw_data = (uint8_t *)malloc(numBytes + padding);
 			raw_data_size = numBytes;
 
