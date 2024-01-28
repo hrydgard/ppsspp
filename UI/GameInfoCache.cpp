@@ -801,10 +801,12 @@ void GameInfoCache::Shutdown() {
 void GameInfoCache::Clear() {
 	CancelAll();
 
+	std::lock_guard<std::mutex> lock(mapLock_);
 	info_.clear();
 }
 
 void GameInfoCache::CancelAll() {
+	std::lock_guard<std::mutex> lock(mapLock_);
 	for (auto info : info_) {
 		// GetFileLoader will create one if there isn't one already.
 		// Avoid that by checking.
@@ -818,6 +820,7 @@ void GameInfoCache::CancelAll() {
 }
 
 void GameInfoCache::FlushBGs() {
+	std::lock_guard<std::mutex> lock(mapLock_);
 	for (auto iter = info_.begin(); iter != info_.end(); iter++) {
 		std::lock_guard<std::mutex> lock(iter->second->lock);
 		iter->second->pic0.Clear();
@@ -831,19 +834,28 @@ void GameInfoCache::FlushBGs() {
 }
 
 void GameInfoCache::PurgeType(IdentifiedFileType fileType) {
-	for (auto iter = info_.begin(); iter != info_.end();) {
-		auto &info = iter->second;
+	bool retry = false;
+	// Trickery to avoid sleeping with the lock held.
+	do {
+		{
+			std::lock_guard<std::mutex> lock(mapLock_);
+			for (auto iter = info_.begin(); iter != info_.end();) {
+				auto &info = iter->second;
 
-		// TODO: Find a better way to wait here.
-		while (info->pendingFlags != (GameInfoFlags)0) {
-			sleep_ms(1);
+				// TODO: Find a better way to wait here.
+				while (info->pendingFlags != (GameInfoFlags)0) {
+					retry = true;
+					break;
+				}
+				if (info->fileType == fileType) {
+					iter = info_.erase(iter);
+				} else {
+					iter++;
+				}
+			}
 		}
-		if (info->fileType == fileType) {
-			iter = info_.erase(iter);
-		} else {
-			iter++;
-		}
-	}
+		sleep_ms(1);
+	} while (retry);
 }
 
 // Call on the main thread ONLY - that is from stuff called from NativeFrame.
