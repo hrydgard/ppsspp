@@ -1642,9 +1642,10 @@ static void VulkanEmuThread(ANativeWindow *wnd) {
 			LockedNativeUpdateRender();
 			ProcessFrameCommands(env);
 		}
+		INFO_LOG(G3D, "Leaving Vulkan main loop.");
+	} else {
+		INFO_LOG(G3D, "Not entering main loop.");
 	}
-
-	INFO_LOG(G3D, "Leaving EGL/Vulkan render loop.");
 
 	NativeShutdownGraphics();
 
@@ -1652,7 +1653,7 @@ static void VulkanEmuThread(ANativeWindow *wnd) {
 	graphicsContext->ThreadEnd();
 
 	// Shut the graphics context down to the same state it was in when we entered the render thread.
-	INFO_LOG(G3D, "Shutting down graphics context from render thread...");
+	INFO_LOG(G3D, "Shutting down graphics context...");
 	graphicsContext->ShutdownFromRenderThread();
 	renderLoopRunning = false;
 	exitRenderLoop = false;
