@@ -270,8 +270,9 @@ void EmuScreen::bootGame(const Path &filename) {
 
 	// We don't want to boot with the wrong game specific config, so wait until info is ready.
 	std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(nullptr, filename, GameInfoFlags::PARAM_SFO);
-	if (!info || info->Ready(GameInfoFlags::PARAM_SFO))
+	if (!info->Ready(GameInfoFlags::PARAM_SFO)) {
 		return;
+	}
 
 	auto sc = GetI18NCategory(I18NCat::SCREEN);
 	if (info->fileType == IdentifiedFileType::PSP_DISC_DIRECTORY) {
@@ -956,7 +957,7 @@ public:
 		dc.Flush();
 
 		// PIC1 is the loading image, so let's only draw if it's available.
-		if (ginfo && ginfo->Ready(GameInfoFlags::BG) && ginfo->pic1.texture) {
+		if (ginfo->Ready(GameInfoFlags::BG) && ginfo->pic1.texture) {
 			Draw::Texture *texture = ginfo->pic1.texture;
 			if (texture) {
 				dc.GetDrawContext()->BindTexture(0, texture);

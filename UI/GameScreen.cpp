@@ -486,7 +486,7 @@ void GameScreen::CallbackDeleteSaveData(bool yes) {
 
 UI::EventReturn GameScreen::OnDeleteGame(UI::EventParams &e) {
 	std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(NULL, gamePath_, GameInfoFlags::PARAM_SFO);
-	if (info && info->Ready(GameInfoFlags::PARAM_SFO)) {
+	if (info->Ready(GameInfoFlags::PARAM_SFO)) {
 		auto di = GetI18NCategory(I18NCat::DIALOG);
 		auto ga = GetI18NCategory(I18NCat::GAME);
 		screenManager()->push(
@@ -560,7 +560,7 @@ void SetBackgroundPopupScreen::update() {
 	PopupScreen::update();
 
 	std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(nullptr, gamePath_, GameInfoFlags::BG);
-	if (status_ == Status::PENDING && info && info->Ready(GameInfoFlags::BG)) {
+	if (status_ == Status::PENDING && info->Ready(GameInfoFlags::BG)) {
 		GameInfoTex *pic = nullptr;
 		if (info->pic1.dataLoaded && info->pic1.data.size()) {
 			pic = &info->pic1;
