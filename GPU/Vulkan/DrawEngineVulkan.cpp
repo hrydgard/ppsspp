@@ -431,7 +431,7 @@ void DrawEngineVulkan::DoFlush() {
 
 		if (result.action == SW_NOT_READY) {
 			// decIndex_ here is always equal to inds currently, but it may not be in the future.
-			swTransform.BuildDrawingParams(prim, vertexCount, dec_->VertexType(), inds, RemainingIndices(inds), numDecodedVerts_, &result);
+			swTransform.BuildDrawingParams(prim, vertexCount, dec_->VertexType(), inds, RemainingIndices(inds), numDecodedVerts_, VERTEX_BUFFER_MAX, &result);
 		}
 
 		if (result.setSafeSize)
