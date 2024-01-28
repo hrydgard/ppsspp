@@ -338,6 +338,38 @@ void GameInfo::SetTitle(const std::string &newTitle) {
 	title = newTitle;
 }
 
+void GameInfo::FinishPendingTextureLoads(Draw::DrawContext *draw) {
+	if (draw && icon.dataLoaded && !icon.texture) {
+		SetupTexture(draw, icon);
+	}
+	if (draw && pic0.dataLoaded && !pic0.texture) {
+		SetupTexture(draw, pic0);
+	}
+	if (draw && pic1.dataLoaded && !pic1.texture) {
+		SetupTexture(draw, pic1);
+	}
+}
+
+void GameInfo::SetupTexture(Draw::DrawContext *thin3d, GameInfoTex &tex) {
+	using namespace Draw;
+	if (tex.data.size()) {
+		if (!tex.texture) {
+			// TODO: Use TempImage to semi-load the image in the worker task, then here we
+			// could just call CreateTextureFromTempImage.
+			tex.texture = CreateTextureFromFileData(thin3d, (const uint8_t *)tex.data.data(), (int)tex.data.size(), ImageFileType::DETECT, false, GetTitle().c_str());
+			if (tex.texture) {
+				tex.timeLoaded = time_now_d();
+			} else {
+				ERROR_LOG(G3D, "Failed creating texture (%s) from %d-byte file", GetTitle().c_str(), (int)tex.data.size());
+			}
+		}
+		if ((wantFlags & GAMEINFO_WANTBGDATA) == 0) {
+			tex.data.clear();
+			tex.dataLoaded = false;
+		}
+	}
+}
+
 static bool ReadFileToString(IFileSystem *fs, const char *filename, std::string *contents, std::mutex *mtx) {
 	PSPFileInfo info = fs->GetFileInfo(filename);
 	if (!info.exists) {
@@ -822,15 +854,7 @@ std::shared_ptr<GameInfo> GameInfoCache::GetInfo(Draw::DrawContext *draw, const 
 
 	// If wantFlags don't match, we need to start over.  We'll just queue the work item again.
 	if (info && (info->wantFlags & wantFlags) == wantFlags) {
-		if (draw && info->icon.dataLoaded && !info->icon.texture) {
-			SetupTexture(info, draw, info->icon);
-		}
-		if (draw && info->pic0.dataLoaded && !info->pic0.texture) {
-			SetupTexture(info, draw, info->pic0);
-		}
-		if (draw && info->pic1.dataLoaded && !info->pic1.texture) {
-			SetupTexture(info, draw, info->pic1);
-		}
+		info->FinishPendingTextureLoads(draw);
 		info->lastAccessedTime = time_now_d();
 		return info;
 	}
@@ -859,24 +883,4 @@ std::shared_ptr<GameInfo> GameInfoCache::GetInfo(Draw::DrawContext *draw, const 
 	if (info_.find(pathStr) == info_.end())
 		info_[pathStr] = info;
 	return info;
-}
-
-void GameInfoCache::SetupTexture(std::shared_ptr<GameInfo> &info, Draw::DrawContext *thin3d, GameInfoTex &tex) {
-	using namespace Draw;
-	if (tex.data.size()) {
-		if (!tex.texture) {
-			// TODO: Use TempImage to semi-load the image in the worker task, then here we
-			// could just call CreateTextureFromTempImage.
-			tex.texture = CreateTextureFromFileData(thin3d, (const uint8_t *)tex.data.data(), (int)tex.data.size(), ImageFileType::DETECT, false, info->GetTitle().c_str());
-			if (tex.texture) {
-				tex.timeLoaded = time_now_d();
-			} else {
-				ERROR_LOG(G3D, "Failed creating texture (%s) from %d-byte file", info->GetTitle().c_str(), (int)tex.data.size());
-			}
-		}
-		if ((info->wantFlags & GAMEINFO_WANTBGDATA) == 0) {
-			tex.data.clear();
-			tex.dataLoaded = false;
-		}
-	}
 }

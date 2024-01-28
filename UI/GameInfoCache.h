@@ -95,6 +95,7 @@ public:
 	u64 GetInstallDataSizeInBytes();
 
 	void ParseParamSFO();
+	void FinishPendingTextureLoads(Draw::DrawContext *draw);
 
 	std::vector<Path> GetSaveDataDirectories();
 
@@ -158,6 +159,8 @@ protected:
 	std::shared_ptr<FileLoader> fileLoader;
 	Path filePath_;
 
+	void SetupTexture(Draw::DrawContext *draw, GameInfoTex &tex);
+
 private:
 	DISALLOW_COPY_AND_ASSIGN(GameInfo);
 };
@@ -184,7 +187,6 @@ public:
 private:
 	void Init();
 	void Shutdown();
-	void SetupTexture(std::shared_ptr<GameInfo> &info, Draw::DrawContext *draw, GameInfoTex &tex);
 
 	// Maps ISO path to info. Need to use shared_ptr as we can return these pointers - 
 	// and if they get destructed while being in use, that's bad.
