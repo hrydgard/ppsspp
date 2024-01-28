@@ -397,8 +397,10 @@ GPUCommonHW::~GPUCommonHW() {
 	framebufferManager_->DestroyAllFBOs();
 	delete framebufferManager_;
 	delete textureCache_;
-	shaderManager_->ClearShaders();
-	delete shaderManager_;
+	if (shaderManager_) {
+		shaderManager_->ClearShaders();
+		delete shaderManager_;
+	}
 }
 
 // Called once per frame. Might also get called during the pause screen
