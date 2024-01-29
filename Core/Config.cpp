@@ -836,6 +836,7 @@ static const ConfigSetting controlSettings[] = {
 	ConfigSetting("AnalogTriggerThreshold", &g_Config.fAnalogTriggerThreshold, 0.75f, CfgFlag::DEFAULT),
 
 	ConfigSetting("AllowMappingCombos", &g_Config.bAllowMappingCombos, false, CfgFlag::DEFAULT),
+	ConfigSetting("StrictComboOrder", &g_Config.bStrictComboOrder, false, CfgFlag::DEFAULT),
 
 	ConfigSetting("LeftStickHeadScale", &g_Config.fLeftStickHeadScale, 1.0f, CfgFlag::PER_GAME),
 	ConfigSetting("RightStickHeadScale", &g_Config.fRightStickHeadScale, 1.0f, CfgFlag::PER_GAME),

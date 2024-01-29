@@ -262,6 +262,7 @@ void ControlMappingScreen::CreateViews() {
 		return UI::EVENT_DONE;
 	});
 	leftColumn->Add(new CheckBox(&g_Config.bAllowMappingCombos, km->T("Allow combo mappings")));
+	leftColumn->Add(new CheckBox(&g_Config.bStrictComboOrder, km->T("Strict combo input order")));
 
 	leftColumn->Add(new Spacer(new LinearLayoutParams(1.0f)));
 	AddStandardBack(leftColumn);
@@ -280,22 +281,22 @@ void ControlMappingScreen::CreateViews() {
 	struct Cat {
 		const char *catName;
 		int firstKey;
-		bool openByDefault;
+		bool *open;
 	};
 	// Category name, first input from psp_button_names.
 	static const Cat cats[] = {
-		{"Standard PSP controls", CTRL_UP, true},
-		{"Control modifiers", VIRTKEY_ANALOG_ROTATE_CW, true},
-		{"Emulator controls", VIRTKEY_FASTFORWARD, true},
-		{"Extended PSP controls", VIRTKEY_AXIS_RIGHT_Y_MAX, false},
+		{"Standard PSP controls", CTRL_UP, &categoryToggles_[0]},
+		{"Control modifiers", VIRTKEY_ANALOG_ROTATE_CW, &categoryToggles_[1]},
+		{"Emulator controls", VIRTKEY_FASTFORWARD, &categoryToggles_[2]},
+		{"Extended PSP controls", VIRTKEY_AXIS_RIGHT_Y_MAX, &categoryToggles_[3]},
 	};
 
 	int curCat = -1;
 	CollapsibleSection *curSection = nullptr;
 	for (size_t i = 0; i < numMappableKeys; i++) {
 		if (curCat < (int)ARRAY_SIZE(cats) && mappableKeys[i].key == cats[curCat + 1].firstKey) {
-			if (curCat >= 0 && !cats[curCat].openByDefault) {
-				curSection->SetOpen(false);
+			if (curCat >= 0) {
+				curSection->SetOpenPtr(cats[curCat].open);
 			}
 			curCat++;
 			curSection = rightColumn->Add(new CollapsibleSection(km->T(cats[curCat].catName)));
@@ -307,8 +308,8 @@ void ControlMappingScreen::CreateViews() {
 		mapper->SetTag(StringFromFormat("KeyMap%s", mappableKeys[i].name));
 		mappers_.push_back(mapper);
 	}
-	if (curCat >= 0 && curSection && !cats[curCat].openByDefault) {
-		curSection->SetOpen(false);
+	if (curCat >= 0 && curSection) {
+		curSection->SetOpenPtr(cats[curCat].open);
 	}
 
 	keyMapGeneration_ = KeyMap::g_controllerMapGeneration;
