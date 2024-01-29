@@ -262,6 +262,7 @@ void ControlMappingScreen::CreateViews() {
 		return UI::EVENT_DONE;
 	});
 	leftColumn->Add(new CheckBox(&g_Config.bAllowMappingCombos, km->T("Allow combo mappings")));
+	leftColumn->Add(new CheckBox(&g_Config.bStrictComboOrder, km->T("Strict combo input order")));
 
 	leftColumn->Add(new Spacer(new LinearLayoutParams(1.0f)));
 	AddStandardBack(leftColumn);

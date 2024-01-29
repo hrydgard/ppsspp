@@ -365,7 +365,7 @@ bool ControlMapper::UpdatePSPState(const InputMapping &changedMapping, double no
 					continue;
 				}
 				// Stop reverse ordering from triggering.
-				if (iter->second.timestamp < curTime) {
+				if (g_Config.bStrictComboOrder && iter->second.timestamp < curTime) {
 					all = false;
 					break;
 				} else {
@@ -416,7 +416,7 @@ bool ControlMapper::UpdatePSPState(const InputMapping &changedMapping, double no
 
 				if (iter != curInput_.end()) {
 					// Stop reverse ordering from triggering.
-					if (iter->second.timestamp < curTime) {
+					if (g_Config.bStrictComboOrder && iter->second.timestamp < curTime) {
 						product = 0.0f;
 						break;
 					} else {

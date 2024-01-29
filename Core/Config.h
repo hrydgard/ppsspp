@@ -407,6 +407,7 @@ public:
 
 	// Sets whether combo mapping is enabled.
 	bool bAllowMappingCombos;
+	bool bStrictComboOrder;
 
 	bool bMouseControl;
 	bool bMapMouse; // Workaround for mapping screen:|
