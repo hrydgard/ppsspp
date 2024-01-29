@@ -111,12 +111,12 @@ bool LoadRemoteFileList(const Path &url, const std::string &userAgent, bool *can
 }
 
 PathBrowser::~PathBrowser() {
-	std::unique_lock<std::mutex> guard(pendingLock_);
-	pendingCancel_ = true;
-	pendingStop_ = true;
-	pendingCond_.notify_all();
-	guard.unlock();
-
+	{
+		std::unique_lock<std::mutex> guard(pendingLock_);
+		pendingCancel_ = true;
+		pendingStop_ = true;
+		pendingCond_.notify_all();
+	}
 	if (pendingThread_.joinable()) {
 		pendingThread_.join();
 	}
