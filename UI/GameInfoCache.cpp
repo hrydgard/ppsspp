@@ -355,13 +355,20 @@ void GameInfo::FinishPendingTextureLoads(Draw::DrawContext *draw) {
 }
 
 void GameInfo::SetupTexture(Draw::DrawContext *thin3d, GameInfoTex &tex) {
+	if (tex.timeLoaded) {
+		// Failed before, skip.
+		return;
+	}
+	if (tex.data.empty()) {
+		tex.timeLoaded = time_now_d();
+		return;
+	}
 	using namespace Draw;
 	// TODO: Use TempImage to semi-load the image in the worker task, then here we
 	// could just call CreateTextureFromTempImage.
 	tex.texture = CreateTextureFromFileData(thin3d, (const uint8_t *)tex.data.data(), (int)tex.data.size(), ImageFileType::DETECT, false, GetTitle().c_str());
-	if (tex.texture) {
-		tex.timeLoaded = time_now_d();
-	} else {
+	tex.timeLoaded = time_now_d();
+	if (!tex.texture) {
 		ERROR_LOG(G3D, "Failed creating texture (%s) from %d-byte file", GetTitle().c_str(), (int)tex.data.size());
 	}
 }

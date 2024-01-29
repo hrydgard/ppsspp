@@ -69,11 +69,15 @@ struct GameInfoTex {
 	Draw::Texture *texture = nullptr;
 	// The time at which the Icon and the BG were loaded.
 	// Can be useful to fade them in smoothly once they appear.
+	// Also, timeLoaded != 0 && texture == nullptr means that the load failed.
 	double timeLoaded = 0.0;
 	std::atomic<bool> dataLoaded{};
 
 	// Can ONLY be called from the main thread!
 	void Clear();
+	bool Failed() const {
+		return timeLoaded != 0.0 && !texture;
+	}
 };
 
 class GameInfo {
