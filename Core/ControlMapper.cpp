@@ -56,7 +56,7 @@ float ControlMapper::GetDeviceAxisThreshold(int device, const InputMapping &mapp
 				float absCoValue = fabsf(rawAxisValue_[(int)coAxis]);
 				if (absCoValue > 0.0f) {
 					// Bias down the threshold if the other axis is active.
-					float biasedThreshold = AXIS_BIND_THRESHOLD * (1.0f - absCoValue * 0.2f);
+					float biasedThreshold = AXIS_BIND_THRESHOLD * (1.0f - absCoValue * 0.35f);
 					// INFO_LOG(SYSTEM, "coValue: %f  threshold: %f", absCoValue, biasedThreshold);
 					return biasedThreshold;
 				}
