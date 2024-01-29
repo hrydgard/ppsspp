@@ -20,6 +20,7 @@
 #include <deque>
 #include <thread>
 #include <mutex>
+#include <atomic>
 #include <condition_variable>
 #include <set>
 #include <cstdlib>
@@ -113,8 +114,8 @@ namespace Reporting
 	static std::condition_variable crcCond;
 	static Path crcFilename;
 	static std::map<Path, u32> crcResults;
-	static std::atomic<bool> crcPending = false;
-	static std::atomic<bool> crcCancel = false;
+	static std::atomic<bool> crcPending{};
+	static std::atomic<bool> crcCancel{};
 	static std::thread crcThread;
 
 	static u32 CalculateCRC(BlockDevice *blockDevice, std::atomic<bool> *cancel) {
