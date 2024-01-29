@@ -476,7 +476,6 @@ public:
 
 		if (flags_ & GameInfoFlags::FILE_TYPE) {
 			info_->fileType = Identify_File(info_->GetFileLoader().get(), &errorString);
-			info_->hasConfig = g_Config.hasGameConfig(info_->id);
 		}
 
 		switch (info_->fileType) {
@@ -763,6 +762,11 @@ handleELF:
 			case IdentifiedFileType::NORMAL_DIRECTORY:
 			default:
 				break;
+		}
+
+		if (flags_ & GameInfoFlags::PARAM_SFO) {
+			// We fetch the hasConfig together with the params, since that's what fills out the id.
+			info_->hasConfig = g_Config.hasGameConfig(info_->id);
 		}
 
 		if (flags_ & GameInfoFlags::SIZE) {
