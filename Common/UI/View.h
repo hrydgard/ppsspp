@@ -899,7 +899,7 @@ protected:
 
 class CollapsibleHeader : public CheckBox {
 public:
-	CollapsibleHeader(bool *toggle, const std::string &text, LayoutParams *layoutParams = nullptr);
+	CollapsibleHeader(bool *open, const std::string &text, LayoutParams *layoutParams = nullptr);
 	void Draw(UIContext &dc) override;
 	void GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert, float &w, float &h) const override;
 	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override;
@@ -907,6 +907,9 @@ public:
 	Point GetFocusPosition(FocusDirection dir) const override;
 
 	void SetHasSubitems(bool hasSubItems) { hasSubItems_ = hasSubItems; }
+	void SetOpenPtr(bool *open) {
+		toggle_ = open;
+	}
 private:
 	bool hasSubItems_ = true;
 };

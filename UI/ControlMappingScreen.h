@@ -39,6 +39,8 @@ public:
 	explicit ControlMappingScreen(const Path &gamePath) : UIDialogScreenWithGameBackground(gamePath) {
 		categoryToggles_[0] = true;
 		categoryToggles_[1] = true;
+		categoryToggles_[2] = true;
+		categoryToggles_[3] = false;
 	}
 	const char *tag() const override { return "ControlMapping"; }
 
