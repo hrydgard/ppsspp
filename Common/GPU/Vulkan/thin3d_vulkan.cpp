@@ -1033,6 +1033,9 @@ VKContext::VKContext(VulkanContext *vulkan, bool useRenderThread)
 			// Very rough heuristic.
 			multisampleAllowed = false;
 		}
+	} else if (caps_.vendor == GPUVendor::VENDOR_IMGTEC) {
+		// Not sure about driver versions, so let's just ban, impact is tiny.
+		bugs_.Infest(Bugs::PVR_BAD_16BIT_TEXFORMATS);
 	}
 
 	if (!vulkan->Extensions().KHR_depth_stencil_resolve) {

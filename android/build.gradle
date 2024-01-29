@@ -157,7 +157,7 @@ android {
 		vr {
 			applicationId 'org.ppsspp.ppssppvr'
 			dimension "variant"
-			targetSdkVersion 29
+			targetSdkVersion 29  // Do not upgrade this, we depend on not requiring scoped storage on Oculus.
 			externalNativeBuild {
 				cmake {
 					// Available arguments listed at https://developer.android.com/ndk/guides/cmake.html
