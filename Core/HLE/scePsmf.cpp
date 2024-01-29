@@ -312,6 +312,7 @@ public:
 
 		psmf->EPMap.clear();
 		for (u32 i = 0; i < psmf->EPMapEntriesNum; i++) {
+			// TODO: Should look into validating these offsets. Got a crash report here.
 			const u8 *const entryAddr = data + psmf->EPMapOffset + EP_MAP_STRIDE * i;
 			PsmfEntry entry;
 			entry.EPIndex = entryAddr[0];

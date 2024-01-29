@@ -1396,7 +1396,7 @@ UI::EventReturn GameSettingsScreen::OnChangeBackground(UI::EventParams &e) {
 				FILE *f = File::OpenCFile(path, "rb");
 				uint8_t buffer[8];
 				ImageFileType type = ImageFileType::UNKNOWN;
-				if (8 == fread(buffer, 1, ARRAY_SIZE(buffer), f)) {
+				if (f != nullptr && 8 == fread(buffer, 1, ARRAY_SIZE(buffer), f)) {
 					type = DetectImageFileType(buffer, ARRAY_SIZE(buffer));
 				}
 

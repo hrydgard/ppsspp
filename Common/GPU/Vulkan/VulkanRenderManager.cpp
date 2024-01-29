@@ -385,13 +385,7 @@ void VulkanRenderManager::StopThreads() {
 		pushCondVar_.notify_one();
 		// Once the render thread encounters the above exit task, it'll exit.
 		renderThread_.join();
-	}
-
-	// Compiler and present thread still relies on this.
-	runCompileThread_ = false;
-
-	if (presentWaitThread_.joinable()) {
-		presentWaitThread_.join();
+		INFO_LOG(G3D, "Vulkan submission thread joined. Frame=%d", vulkan_->GetCurFrame());
 	}
 
 	for (int i = 0; i < vulkan_->GetInflightFrames(); i++) {
@@ -400,11 +394,17 @@ void VulkanRenderManager::StopThreads() {
 		frameData.profile.timestampDescriptions.clear();
 	}
 
-	INFO_LOG(G3D, "Vulkan submission thread joined. Frame=%d", vulkan_->GetCurFrame());
-
-	_assert_(compileThread_.joinable());
-	compileCond_.notify_all();
+	{
+		std::unique_lock<std::mutex> lock(compileMutex_);
+		runCompileThread_ = false;  // Compiler and present thread both look at this bool.
+		_assert_(compileThread_.joinable());
+		compileCond_.notify_one();
+	}
 	compileThread_.join();
+
+	if (presentWaitThread_.joinable()) {
+		presentWaitThread_.join();
+	}
 
 	INFO_LOG(G3D, "Vulkan compiler thread joined. Now wait for any straggling compile tasks.");
 	CreateMultiPipelinesTask::WaitForAll();
@@ -462,7 +462,7 @@ void VulkanRenderManager::CompileThreadFunc() {
 		std::vector<CompileQueueEntry> toCompile;
 		{
 			std::unique_lock<std::mutex> lock(compileMutex_);
-			if (compileQueue_.empty() && runCompileThread_) {
+			while (compileQueue_.empty() && runCompileThread_) {
 				compileCond_.wait(lock);
 			}
 			toCompile = std::move(compileQueue_);
@@ -786,7 +786,7 @@ VKRGraphicsPipeline *VulkanRenderManager::CreateGraphicsPipeline(VKRGraphicsPipe
 			VKRRenderPassStoreAction::STORE, VKRRenderPassStoreAction::DONT_CARE, VKRRenderPassStoreAction::DONT_CARE,
 		};
 		VKRRenderPass *compatibleRenderPass = queueRunner_.GetRenderPass(key);
-		std::lock_guard<std::mutex> lock(compileMutex_);
+		std::unique_lock<std::mutex> lock(compileMutex_);
 		bool needsCompile = false;
 		for (size_t i = 0; i < (size_t)RenderPassType::TYPE_COUNT; i++) {
 			if (!(variantBitmask & (1 << i)))
@@ -809,7 +809,7 @@ VKRGraphicsPipeline *VulkanRenderManager::CreateGraphicsPipeline(VKRGraphicsPipe
 			}
 
 			pipeline->pipeline[i] = Promise<VkPipeline>::CreateEmpty();
-			compileQueue_.push_back(CompileQueueEntry(pipeline, compatibleRenderPass->Get(vulkan_, rpType, sampleCount), rpType, sampleCount));
+			compileQueue_.emplace_back(pipeline, compatibleRenderPass->Get(vulkan_, rpType, sampleCount), rpType, sampleCount);
 			needsCompile = true;
 		}
 		if (needsCompile)
@@ -1551,10 +1551,12 @@ void VulkanRenderManager::FlushSync() {
 			VLOG("PUSH: Frame[%d]", curFrame);
 			VKRRenderThreadTask *task = new VKRRenderThreadTask(VKRRunType::SYNC);
 			task->frame = curFrame;
-			std::unique_lock<std::mutex> lock(pushMutex_);
-			renderThreadQueue_.push(task);
-			renderThreadQueue_.back()->steps = std::move(steps_);
-			pushCondVar_.notify_one();
+			{
+				std::unique_lock<std::mutex> lock(pushMutex_);
+				renderThreadQueue_.push(task);
+				renderThreadQueue_.back()->steps = std::move(steps_);
+				pushCondVar_.notify_one();
+			}
 			steps_.clear();
 		}
 

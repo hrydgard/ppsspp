@@ -924,6 +924,7 @@ void NativeShutdownGraphics() {
 	}
 	g_iconCache.ClearTextures();
 
+	// TODO: This is not really necessary with Vulkan on Android - could keep shaders etc in memory
 	if (gpu)
 		gpu->DeviceLost();
 

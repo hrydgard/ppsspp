@@ -63,7 +63,7 @@ uint8_t *VFS::ReadFile(const char *filename, size_t *size) {
 	if (!fileSystemFound) {
 		ERROR_LOG(IO, "Missing filesystem for '%s'", filename);
 	}  // Otherwise, the file was just missing. No need to log.
-	return 0;
+	return nullptr;
 }
 
 bool VFS::GetFileListing(const char *path, std::vector<File::FileInfo> *listing, const char *filter) {

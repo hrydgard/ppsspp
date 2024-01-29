@@ -832,7 +832,7 @@ void SystemInfoScreen::CreateTabs() {
 			vulkanExtensions->Add(new TextView(extension, new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetFocusable(true);
 		}
 
-		vulkanExtensions->Add(new ItemHeader("Instance"));
+		vulkanExtensions->Add(new ItemHeader(si->T("Instance")));
 		// Also get instance extensions
 		extensions = draw->GetExtensionList(false, false);
 		std::sort(extensions.begin(), extensions.end());

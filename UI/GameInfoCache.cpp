@@ -355,13 +355,20 @@ void GameInfo::FinishPendingTextureLoads(Draw::DrawContext *draw) {
 }
 
 void GameInfo::SetupTexture(Draw::DrawContext *thin3d, GameInfoTex &tex) {
+	if (tex.timeLoaded) {
+		// Failed before, skip.
+		return;
+	}
+	if (tex.data.empty()) {
+		tex.timeLoaded = time_now_d();
+		return;
+	}
 	using namespace Draw;
 	// TODO: Use TempImage to semi-load the image in the worker task, then here we
 	// could just call CreateTextureFromTempImage.
 	tex.texture = CreateTextureFromFileData(thin3d, (const uint8_t *)tex.data.data(), (int)tex.data.size(), ImageFileType::DETECT, false, GetTitle().c_str());
-	if (tex.texture) {
-		tex.timeLoaded = time_now_d();
-	} else {
+	tex.timeLoaded = time_now_d();
+	if (!tex.texture) {
 		ERROR_LOG(G3D, "Failed creating texture (%s) from %d-byte file", GetTitle().c_str(), (int)tex.data.size());
 	}
 }
@@ -801,10 +808,12 @@ void GameInfoCache::Shutdown() {
 void GameInfoCache::Clear() {
 	CancelAll();
 
+	std::lock_guard<std::mutex> lock(mapLock_);
 	info_.clear();
 }
 
 void GameInfoCache::CancelAll() {
+	std::lock_guard<std::mutex> lock(mapLock_);
 	for (auto info : info_) {
 		// GetFileLoader will create one if there isn't one already.
 		// Avoid that by checking.
@@ -818,6 +827,7 @@ void GameInfoCache::CancelAll() {
 }
 
 void GameInfoCache::FlushBGs() {
+	std::lock_guard<std::mutex> lock(mapLock_);
 	for (auto iter = info_.begin(); iter != info_.end(); iter++) {
 		std::lock_guard<std::mutex> lock(iter->second->lock);
 		iter->second->pic0.Clear();
@@ -831,19 +841,28 @@ void GameInfoCache::FlushBGs() {
 }
 
 void GameInfoCache::PurgeType(IdentifiedFileType fileType) {
-	for (auto iter = info_.begin(); iter != info_.end();) {
-		auto &info = iter->second;
+	bool retry = false;
+	// Trickery to avoid sleeping with the lock held.
+	do {
+		{
+			std::lock_guard<std::mutex> lock(mapLock_);
+			for (auto iter = info_.begin(); iter != info_.end();) {
+				auto &info = iter->second;
 
-		// TODO: Find a better way to wait here.
-		while (info->pendingFlags != (GameInfoFlags)0) {
-			sleep_ms(1);
+				// TODO: Find a better way to wait here.
+				while (info->pendingFlags != (GameInfoFlags)0) {
+					retry = true;
+					break;
+				}
+				if (info->fileType == fileType) {
+					iter = info_.erase(iter);
+				} else {
+					iter++;
+				}
+			}
 		}
-		if (info->fileType == fileType) {
-			iter = info_.erase(iter);
-		} else {
-			iter++;
-		}
-	}
+		sleep_ms(1);
+	} while (retry);
 }
 
 // Call on the main thread ONLY - that is from stuff called from NativeFrame.
