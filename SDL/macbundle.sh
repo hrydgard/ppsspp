@@ -4,6 +4,7 @@ echo "Hello from macbundle.sh"
 
 PPSSPP="${1}"
 PPSSPP_SHORTNAME="${2}"
+CMAKE_BINARY_DIR="${3}"
 PPSSPPSDL="${PPSSPP}/Contents/MacOS/${PPSSPP_SHORTNAME}"
 MOLTENVK="${PPSSPP}/Contents/Frameworks/libMoltenVK.dylib"
 
@@ -36,13 +37,13 @@ install_name_tool -rpath "${RPATH}" "@executable_path/../Frameworks" "${PPSSPPSD
 
 echo "Done."
 
-GIT_VERSION_LINE=$(grep "PPSSPP_GIT_VERSION = " "$(dirname "${0}")/../build/git-version.cpp")
+GIT_VERSION_LINE=$(grep "PPSSPP_GIT_VERSION = " "${CMAKE_BINARY_DIR}/git-version.cpp")
 
 echo "Setting version to '${GIT_VERSION_LINE}'..."
-SHORT_VERSION_MATCH='.*"v([0-9\.]+(-[0-9]+)?).*";'
+SHORT_VERSION_MATCH='.*"v([0-9]+(\.[0-9]+)*).*";'
 LONG_VERSION_MATCH='.*"v(.*)";'
 if [[ "${GIT_VERSION_LINE}" =~ ^${SHORT_VERSION_MATCH}$ ]]; then
-	plutil -replace CFBundleShortVersionString -string $(echo ${GIT_VERSION_LINE} | perl -pe "s/${SHORT_VERSION_MATCH}/\$1/g") ${PPSSPP}/Contents/Info.plist
+	plutil -replace CFBundleShortVersionString -string $(echo ${GIT_VERSION_LINE} | perl -pe "s/-/./g; s/${SHORT_VERSION_MATCH}/\$1/g") ${PPSSPP}/Contents/Info.plist
 	plutil -replace CFBundleVersion            -string $(echo ${GIT_VERSION_LINE} | perl -pe "s/${LONG_VERSION_MATCH}/\$1/g")  ${PPSSPP}/Contents/Info.plist
 else
 	plutil -replace CFBundleShortVersionString -string "" ${PPSSPP}/Contents/Info.plist

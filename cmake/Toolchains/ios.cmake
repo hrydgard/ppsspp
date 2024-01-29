@@ -77,7 +77,7 @@ set(CMAKE_OSX_SYSROOT ${CMAKE_IOS_SDK_ROOT} CACHE PATH "Sysroot used for iOS sup
 if(IOS_PLATFORM STREQUAL "OS" OR IOS_PLATFORM STREQUAL "TVOS")
   set(IOS_ARCH "arm64")
 else()
-  set(IOS_ARCH "i386;x86_64")
+  set(IOS_ARCH "x86_64")
 endif()
 
 set(CMAKE_OSX_ARCHITECTURES "${IOS_ARCH}" CACHE STRING "Build architecture for iOS")

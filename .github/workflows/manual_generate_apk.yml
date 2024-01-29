@@ -5,10 +5,10 @@ on:
 
       buildVariant:
         type: choice
-        description: 'Build Variant'     
+        description: 'Build Variant'
         required: true
         default: 'NormalOptimized'
-        options: 
+        options:
         - NormalOptimized
         - NormalDebug
 
@@ -23,27 +23,27 @@ jobs:
         with:
           fetch-depth: 0
           submodules: recursive
-        
+
       - name: Setup JDK
         uses: actions/setup-java@v2
         with:
           distribution: 'zulu'
           java-version: '17'
-        
+
       #- name: Setup SDK
       #  uses: android-actions/setup-android@v2
-          
+
       #- name: Setup NDK
       #  uses: nttld/setup-ndk@v1
       #  with:
       #    ndk-version: r21e
-      
+
       - name: Assemble APK
         run: bash ./gradlew assemble${{ github.event.inputs.buildVariant }} --stacktrace
-      
+
       #- name: Gradle Test
       #  run: bash ./gradlew test${{ github.event.inputs.buildVariant }}UnitTest --stacktrace
-      
+
       - name: Package build
         run: |
           find . -name "*.apk"

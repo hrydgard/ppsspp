@@ -2733,9 +2733,9 @@ if(TargetBin)
 			add_executable(${TargetBin} MACOSX_BUNDLE ${ICON_PATH_ABS} ${NativeAssets} ${BigFontAssets} ${SHADER_FILES} ${THEME_FILE} ${DEBUGGER_FILES} ${FLASH0_FILES} ${LANG_FILES} ${NativeAppSource})
 			file(INSTALL "${CMAKE_SOURCE_DIR}/ext/vulkan/macOS/Frameworks/libMoltenVK.dylib" DESTINATION "${CMAKE_BINARY_DIR}/${TargetBin}.app/Contents/Frameworks/")
 			if(USING_QT_UI)
-				add_custom_command(TARGET ${TargetBin} POST_BUILD COMMAND /bin/bash "${CMAKE_SOURCE_DIR}/Qt/macbundle.sh" "${CMAKE_BINARY_DIR}/PPSSPPQt.app")
+				add_custom_command(TARGET ${TargetBin} POST_BUILD COMMAND /bin/bash "${CMAKE_SOURCE_DIR}/Qt/macbundle.sh" "${CMAKE_BINARY_DIR}/PPSSPPQt.app" "${CMAKE_CURRENT_BINARY_DIR}")
 			elseif(NOT USE_SYSTEM_LIBSDL2)
-				add_custom_command(TARGET ${TargetBin} POST_BUILD COMMAND /bin/bash "${CMAKE_SOURCE_DIR}/SDL/macbundle.sh" "${CMAKE_BINARY_DIR}/${TargetBin}.app" "${TargetBin}")
+				add_custom_command(TARGET ${TargetBin} POST_BUILD COMMAND /bin/bash "${CMAKE_SOURCE_DIR}/SDL/macbundle.sh" "${CMAKE_BINARY_DIR}/${TargetBin}.app" "${TargetBin}" "${CMAKE_CURRENT_BINARY_DIR}")
 			endif()
 		endif()
 	elseif(WIN32)
@@ -2784,7 +2784,7 @@ if(IOS AND NOT LIBRETRO)
 	add_custom_command(TARGET PPSSPP POST_BUILD
 		COMMAND mkdir -p \"${APP_DIR_NAME}\"
 		COMMAND tar -c -C ${CMAKE_CURRENT_BINARY_DIR} --exclude .DS_Store --exclude .git assets *.png | tar -x -C \"${APP_DIR_NAME}\"
-		COMMAND /bin/bash "${CMAKE_SOURCE_DIR}/ios/macbundle.sh" \"${APP_DIR_NAME}\"
+		COMMAND /bin/bash "${CMAKE_SOURCE_DIR}/ios/macbundle.sh" \"${APP_DIR_NAME}\" \"${CMAKE_CURRENT_BINARY_DIR}\"
 	)
 	set(MACOSX_DEPLOYMENT_TARGET ${DEPLOYMENT_TARGET})
 	set_target_properties(${TargetBin} PROPERTIES
@@ -2793,7 +2793,7 @@ if(IOS AND NOT LIBRETRO)
 		RESOURCE "ios/Settings.bundle"
 		RESOURCE "ext/vulkan/iOS/Frameworks"
 		XCODE_ATTRIBUTE_IPHONEOS_DEPLOYMENT_TARGET ${DEPLOYMENT_TARGET}
-		XCODE_ATTRIBUTE_TARGETED_DEVICE_FAMILY "iPhone/iPad"
+		XCODE_ATTRIBUTE_TARGETED_DEVICE_FAMILY "1,2"
 		XCODE_ATTRIBUTE_CLANG_ENABLE_OBJC_ARC YES
 		XCODE_ATTRIBUTE_ENABLE_BITCODE NO
 		XCODE_ATTRIBUTE_CODE_SIGN_IDENTITY "-"

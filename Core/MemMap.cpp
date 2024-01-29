@@ -226,7 +226,7 @@ bool MemoryMap_Setup(u32 flags) {
 		uintptr_t max_base_addr = 0x7FFF0000 - 0x10000000;
 		uintptr_t min_base_addr = 0x01000000;
 		uintptr_t stride = 0x400000;
-#elif PPSSPP_ARCH(ARM64) && PPSSPP_PLATFORM(IOS)
+#elif PPSSPP_PLATFORM(IOS) && (PPSSPP_ARCH(ARM64) || PPSSPP_ARCH(AMD64))
 		// iOS
 		uintptr_t max_base_addr = 0x1FFFF0000ULL - 0x80000000ULL;
 		uintptr_t min_base_addr = 0x100000000ULL;
