@@ -40,6 +40,9 @@ public:
 	// Might replace this later by allowing through "key-up" and similar events to lower screens.
 	void ForceReleaseVKey(int vkey);
 
+	// Call when the emu screen gets pushed behind some other screen, like the pause screen, to release all "down" inputs.
+	void ReleaseAll();
+
 	void GetDebugString(char *buffer, size_t bufSize) const;
 
 	struct InputSample {
