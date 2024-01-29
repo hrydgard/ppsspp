@@ -231,6 +231,42 @@ void ControlMapper::ForceReleaseVKey(int vkey) {
 	KeyMap::UnlockMappings();
 }
 
+void ControlMapper::ReleaseAll() {
+	std::vector<AxisInput> axes;
+	std::vector<KeyInput> keys;
+
+	{
+		std::lock_guard<std::mutex> guard(mutex_);
+
+		for (const auto &input : curInput_) {
+			if (input.first.IsAxis()) {
+				if (input.second.value != 0.0f) {
+					AxisInput axis;
+					axis.deviceId = input.first.deviceId;
+					int dir;
+					axis.axisId = (InputAxis)input.first.Axis(&dir);
+					axis.value = 0.0;
+					axes.push_back(axis);
+				}
+			} else {
+				if (input.second.value != 0.0) {
+					KeyInput key;
+					key.deviceId = input.first.deviceId;
+					key.flags = KEY_UP;
+					key.keyCode = (InputKeyCode)input.first.keyCode;
+					keys.push_back(key);
+				}
+			}
+		}
+	}
+
+	Axis(axes.data(), axes.size());;
+	for (const auto &key : keys) {
+		Key(key, nullptr);
+	}
+}
+
+
 static int RotatePSPKeyCode(int x) {
 	switch (x) {
 	case CTRL_UP: return CTRL_RIGHT;
