@@ -1162,13 +1162,11 @@ extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_sendRequestResult(JNIEn
 	}
 }
 
-void LockedNativeUpdateRender() {
-	std::lock_guard<std::mutex> renderGuard(renderLock);
-	NativeFrame(graphicsContext);
-}
-
 void UpdateRunLoopAndroid(JNIEnv *env) {
-	LockedNativeUpdateRender();
+	{
+		std::lock_guard<std::mutex> renderGuard(renderLock);
+		NativeFrame(graphicsContext);
+	}
 
 	std::lock_guard<std::mutex> guard(frameCommandLock);
 	if (!nativeActivity) {
@@ -1639,7 +1637,10 @@ static void VulkanEmuThread(ANativeWindow *wnd) {
 		renderer_inited = true;
 
 		while (!exitRenderLoop) {
-			LockedNativeUpdateRender();
+			{
+				std::lock_guard<std::mutex> renderGuard(renderLock);
+				NativeFrame(graphicsContext);
+			}
 			ProcessFrameCommands(env);
 		}
 		INFO_LOG(G3D, "Leaving Vulkan main loop.");

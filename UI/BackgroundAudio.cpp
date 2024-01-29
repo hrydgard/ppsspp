@@ -380,9 +380,9 @@ inline int16_t ConvertU8ToI16(uint8_t value) {
 }
 
 Sample *Sample::Load(const std::string &path) {
-	size_t bytes;
+	size_t bytes = 0;
 	uint8_t *data = g_VFS.ReadFile(path.c_str(), &bytes);
-	if (!data) {
+	if (!data || bytes > 100000000) {
 		WARN_LOG(AUDIO, "Failed to load sample '%s'", path.c_str());
 		return nullptr;
 	}

@@ -113,11 +113,11 @@ namespace Reporting
 	static std::condition_variable crcCond;
 	static Path crcFilename;
 	static std::map<Path, u32> crcResults;
-	static volatile bool crcPending = false;
-	static volatile bool crcCancel = false;
+	static std::atomic<bool> crcPending = false;
+	static std::atomic<bool> crcCancel = false;
 	static std::thread crcThread;
 
-	static u32 CalculateCRC(BlockDevice *blockDevice, volatile bool *cancel) {
+	static u32 CalculateCRC(BlockDevice *blockDevice, std::atomic<bool> *cancel) {
 		auto ga = GetI18NCategory(I18NCat::GAME);
 
 		u32 crc = crc32(0, Z_NULL, 0);
@@ -162,7 +162,6 @@ namespace Reporting
 		crcResults[crcFilename] = crc;
 		crcPending = false;
 		crcCond.notify_one();
-		
 		return 0;
 	}
 
