@@ -65,7 +65,7 @@ struct FrameDataShared {
 enum class FrameSubmitType {
 	Pending,
 	Sync,
-	Present,
+	FinishFrame,
 };
 
 // Per-frame data, round-robin so we can overlap submission with execution of the previous frame.
@@ -121,8 +121,8 @@ struct FrameData {
 	// Generally called from the main thread, unlike most of the rest.
 	VkCommandBuffer GetInitCmd(VulkanContext *vulkan);
 
-	// This will only submit if we are actually recording init commands.
-	void SubmitPending(VulkanContext *vulkan, FrameSubmitType type, FrameDataShared &shared);
+	// Submits pending command buffers.
+	void Submit(VulkanContext *vulkan, FrameSubmitType type, FrameDataShared &shared);
 
 private:
 	// Metadata for logging etc
