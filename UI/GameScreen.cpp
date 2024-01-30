@@ -80,7 +80,9 @@ void GameScreen::update() {
 			CRC32string = int2hexstr(crcvalue);
 			tvCRC_->SetVisibility(UI::V_VISIBLE);
 			tvCRC_->SetText(CRC32string);
-			btnCalcCRC_->SetVisibility(UI::V_GONE);
+			if (btnCalcCRC_) {
+				btnCalcCRC_->SetVisibility(UI::V_GONE);
+			}
 		}
 	}
 }
@@ -433,7 +435,9 @@ UI::EventReturn GameScreen::OnCwCheat(UI::EventParams &e) {
 UI::EventReturn GameScreen::OnDoCRC32(UI::EventParams& e) {
 	CRC32string = "...";
 	Reporting::QueueCRC(gamePath_);
-	btnCalcCRC_->SetEnabled(false);
+	if (btnCalcCRC_) {
+		btnCalcCRC_->SetEnabled(false);
+	}
 	return UI::EVENT_DONE;
 }
 
