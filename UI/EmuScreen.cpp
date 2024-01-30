@@ -1342,13 +1342,13 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 	if (mode & ScreenRenderMode::TOP) {
 		System_Notify(SystemNotification::KEEP_SCREEN_AWAKE);
 	} else if (!Core_ShouldRunBehind() && strcmp(screenManager()->topScreen()->tag(), "DevMenu") != 0) {
-		// Not on top. Let's not execute, only draw the image.
-		draw->BindFramebufferAsRenderTarget(nullptr, { RPAction::CLEAR, RPAction::CLEAR, RPAction::CLEAR, }, "EmuScreen_Stepping");
 		// Just to make sure.
 		if (PSP_IsInited() && !g_Config.bSkipBufferEffects) {
 			PSP_BeginHostFrame();
 			gpu->CopyDisplayToOutput(true);
 			PSP_EndHostFrame();
+		} else {
+			draw->BindFramebufferAsRenderTarget(nullptr, { RPAction::CLEAR, RPAction::CLEAR, RPAction::CLEAR, }, "EmuScreen_Stepping");
 		}
 		// Need to make sure the UI texture is available, for "darken".
 		screenManager()->getUIContext()->BeginFrame();

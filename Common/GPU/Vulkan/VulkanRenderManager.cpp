@@ -1383,6 +1383,7 @@ void VulkanRenderManager::Finish() {
 	EndCurRenderStep();
 
 	// Let's do just a bit of cleanup on render commands now.
+	// TODO: Should look into removing this.
 	for (auto &step : steps_) {
 		if (step->stepType == VKRStepType::RENDER) {
 			CleanupRenderCommands(&step->commands);
