@@ -317,7 +317,7 @@ void GameInfo::ParseParamSFO() {
 
 std::string GameInfo::GetTitle() {
 	std::lock_guard<std::mutex> guard(lock);
-	if (hasFlags & GameInfoFlags::PARAM_SFO) {
+	if ((hasFlags & GameInfoFlags::PARAM_SFO) && !title.empty()) {
 		return title;
 	} else {
 		return filePath_.GetFilename();
