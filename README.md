@@ -25,6 +25,16 @@ If you want to download regularly updated builds for Android, Windows x86 and x6
 
 For game compatibility, see [community compatibility feedback](https://report.ppsspp.org/games).
 
+What's new in 1.17.1
+--------------------
+- Fixed green rendering errors on some PowerVR GPUs ([#18781])
+- Fixed some crashes and optimized the game metadata cache ([#18794], [#18775])
+- Fixed playback of frame dumps with Vulkan ([#18793])
+- Release all held keys on pause to avoid "stuck keys" after unpausing or in run-behind-pause ([#18786])
+- UI fixes ([#18785])
+- Additional crashfixes and similar ([#18777], [#18779])
+- Volume slider added for RetroAchievements sounds ([#18772])
+
 What's new in 1.17
 ------------------
 - Rendering performance and fixes
