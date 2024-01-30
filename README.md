@@ -25,6 +25,16 @@ If you want to download regularly updated builds for Android, Windows x86 and x6
 
 For game compatibility, see [community compatibility feedback](https://report.ppsspp.org/games).
 
+What's new in 1.17.1
+--------------------
+- Fixed green rendering errors on some PowerVR GPUs ([#18781])
+- Fixed some crashes and optimized the game metadata cache ([#18794], [#18775])
+- Fixed playback of frame dumps with Vulkan ([#18793])
+- Release all held keys on pause to avoid "stuck keys" after unpausing or in run-behind-pause ([#18786])
+- UI fixes ([#18785])
+- Additional crashfixes and similar ([#18777], [#18779])
+- Volume slider added for RetroAchievements sounds ([#18772])
+
 What's new in 1.17
 ------------------
 - Rendering performance and fixes
@@ -369,3 +379,12 @@ Credit goes to:
 [#18268]: https://github.com/hrydgard/ppsspp/issues/18268 "SDL: Use an \"EmuThread\" in Vulkan mode"
 [#18435]: https://github.com/hrydgard/ppsspp/issues/18435 "An attempt to fix Tekken 6 stuck issue when exiting Lob"
 [#18684]: https://github.com/hrydgard/ppsspp/issues/18684 "sceSircs/Infrared support on Android"
+[#18781]: https://github.com/hrydgard/ppsspp/issues/18781 "Disable 16-bit textures on PowerVR with Vulkan"
+[#18794]: https://github.com/hrydgard/ppsspp/issues/18794 "More gameinfocache fixes"
+[#18775]: https://github.com/hrydgard/ppsspp/issues/18775 "GameInfoCache: Keep properly track of what's already loaded, lots of cleanup"
+[#18793]: https://github.com/hrydgard/ppsspp/issues/18793 "Fix GE framedump playback on Vulkan"
+[#18786]: https://github.com/hrydgard/ppsspp/issues/18786 "Release all keys on pause."
+[#18785]: https://github.com/hrydgard/ppsspp/issues/18785 "Fix issue with the collapsible sections in control mapping collapsing on every change, plus, combo fix"
+[#18777]: https://github.com/hrydgard/ppsspp/issues/18777 "Expand primitives: Check the vertex count too."
+[#18779]: https://github.com/hrydgard/ppsspp/issues/18779 "More fixes"
+[#18772]: https://github.com/hrydgard/ppsspp/issues/18772 "Add volume slider for RetroAchievements sound effects"
