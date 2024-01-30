@@ -104,6 +104,10 @@ public:
 	bool PresentedThisFrame() const {
 		return presentedThisFrame_;
 	}
+	void NotifyPresent() {
+		// Something else did the present, skipping PresentationCommon.
+		presentedThisFrame_ = true;
+	}
 
 	void DeviceLost();
 	void DeviceRestore(Draw::DrawContext *draw);

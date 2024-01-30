@@ -308,7 +308,7 @@ private:
 	void Memcpy(u32 ptr, u32 sz);
 	void Texture(int level, u32 ptr, u32 sz);
 	void Framebuf(int level, u32 ptr, u32 sz);
-	void Display(u32 ptr, u32 sz);
+	void Display(u32 ptr, u32 sz, bool allowFlip);
 	void EdramTrans(u32 ptr, u32 sz);
 
 	u32 execMemcpyDest = 0;
@@ -616,7 +616,7 @@ void DumpExecute::Framebuf(int level, u32 ptr, u32 sz) {
 	}
 }
 
-void DumpExecute::Display(u32 ptr, u32 sz) {
+void DumpExecute::Display(u32 ptr, u32 sz, bool allowFlip) {
 	struct DisplayBufData {
 		PSPPointer<u8> topaddr;
 		int linesize, pixelFormat;
@@ -628,7 +628,9 @@ void DumpExecute::Display(u32 ptr, u32 sz) {
 	SyncStall();
 
 	__DisplaySetFramebuf(disp->topaddr.ptr, disp->linesize, disp->pixelFormat, 1);
-	__DisplaySetFramebuf(disp->topaddr.ptr, disp->linesize, disp->pixelFormat, 0);
+	if (allowFlip) {
+		__DisplaySetFramebuf(disp->topaddr.ptr, disp->linesize, disp->pixelFormat, 0);
+	}
 }
 
 void DumpExecute::EdramTrans(u32 ptr, u32 sz) {
@@ -657,7 +659,8 @@ bool DumpExecute::Run() {
 	if (gpu)
 		gpu->SetAddrTranslation(0x400);
 
-	for (const Command &cmd : commands_) {
+	for (size_t i = 0; i < commands_.size(); i++) {
+		const Command &cmd = commands_[i];
 		switch (cmd.type) {
 		case CommandType::INIT:
 			Init(cmd.ptr, cmd.sz);
@@ -726,7 +729,7 @@ bool DumpExecute::Run() {
 			break;
 
 		case CommandType::DISPLAY:
-			Display(cmd.ptr, cmd.sz);
+			Display(cmd.ptr, cmd.sz, i == commands_.size() - 1);
 			break;
 
 		default:

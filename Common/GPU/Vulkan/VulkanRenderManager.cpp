@@ -952,6 +952,11 @@ void VulkanRenderManager::BindFramebufferAsRenderTarget(VKRFramebuffer *fb, VKRR
 		EndCurRenderStep();
 	}
 
+	// Sanity check that we don't have binds to the backbuffer before binds to other buffers. It must always be bound last.
+	if (steps_.size() >= 1 && steps_.back()->stepType == VKRStepType::RENDER && steps_.back()->render.framebuffer == nullptr && fb != nullptr) {
+		_dbg_assert_(false);
+	}
+
 	// Older Mali drivers have issues with depth and stencil don't match load/clear/etc.
 	// TODO: Determine which versions and do this only where necessary.
 	u32 lateClearMask = 0;
@@ -1383,6 +1388,7 @@ void VulkanRenderManager::Finish() {
 	EndCurRenderStep();
 
 	// Let's do just a bit of cleanup on render commands now.
+	// TODO: Should look into removing this.
 	for (auto &step : steps_) {
 		if (step->stepType == VKRStepType::RENDER) {
 			CleanupRenderCommands(&step->commands);
@@ -1469,7 +1475,7 @@ void VulkanRenderManager::Run(VKRRenderThreadTask &task) {
 	if (!frameTimeHistory_[frameData.frameId].firstSubmit) {
 		frameTimeHistory_[frameData.frameId].firstSubmit = time_now_d();
 	}
-	frameData.SubmitPending(vulkan_, FrameSubmitType::Pending, frameDataShared_);
+	frameData.Submit(vulkan_, FrameSubmitType::Pending, frameDataShared_);
 
 	// Flush descriptors.
 	double descStart = time_now_d();
@@ -1506,12 +1512,12 @@ void VulkanRenderManager::Run(VKRRenderThreadTask &task) {
 
 	switch (task.runType) {
 	case VKRRunType::SUBMIT:
-		frameData.SubmitPending(vulkan_, FrameSubmitType::Present, frameDataShared_);
+		frameData.Submit(vulkan_, FrameSubmitType::FinishFrame, frameDataShared_);
 		break;
 
 	case VKRRunType::SYNC:
 		// The submit will trigger the readbackFence, and also do the wait for it.
-		frameData.SubmitPending(vulkan_, FrameSubmitType::Sync, frameDataShared_);
+		frameData.Submit(vulkan_, FrameSubmitType::Sync, frameDataShared_);
 
 		if (useRenderThread_) {
 			std::unique_lock<std::mutex> lock(syncMutex_);

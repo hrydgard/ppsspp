@@ -369,7 +369,7 @@ void VulkanQueueRunner::RunSteps(std::vector<VKRStep *> &steps, int curFrame, Fr
 				if (emitLabels) {
 					vkCmdEndDebugUtilsLabelEXT(cmd);
 				}
-				frameData.SubmitPending(vulkan_, FrameSubmitType::Pending, frameDataShared);
+				frameData.Submit(vulkan_, FrameSubmitType::Pending, frameDataShared);
 
 				// When stepping in the GE debugger, we can end up here multiple times in a "frame".
 				// So only acquire once.

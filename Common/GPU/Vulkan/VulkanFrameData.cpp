@@ -169,7 +169,7 @@ VkCommandBuffer FrameData::GetInitCmd(VulkanContext *vulkan) {
 	return initCmd;
 }
 
-void FrameData::SubmitPending(VulkanContext *vulkan, FrameSubmitType type, FrameDataShared &sharedData) {
+void FrameData::Submit(VulkanContext *vulkan, FrameSubmitType type, FrameDataShared &sharedData) {
 	VkCommandBuffer cmdBufs[3];
 	int numCmdBufs = 0;
 
@@ -200,14 +200,16 @@ void FrameData::SubmitPending(VulkanContext *vulkan, FrameSubmitType type, Frame
 		hasMainCommands = false;
 	}
 
-	if (hasPresentCommands && type != FrameSubmitType::Pending) {
+	if (hasPresentCommands) {
+		_dbg_assert_(type == FrameSubmitType::FinishFrame);
 		VkResult res = vkEndCommandBuffer(presentCmd);
+
 		_assert_msg_(res == VK_SUCCESS, "vkEndCommandBuffer failed (present)! result=%s", VulkanResultToString(res));
 
 		cmdBufs[numCmdBufs++] = presentCmd;
 		hasPresentCommands = false;
 
-		if (type == FrameSubmitType::Present) {
+		if (type == FrameSubmitType::FinishFrame) {
 			fenceToTrigger = fence;
 		}
 	}
@@ -219,7 +221,7 @@ void FrameData::SubmitPending(VulkanContext *vulkan, FrameSubmitType type, Frame
 
 	VkSubmitInfo submit_info{ VK_STRUCTURE_TYPE_SUBMIT_INFO };
 	VkPipelineStageFlags waitStage[1]{ VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
-	if (type == FrameSubmitType::Present && !skipSwap) {
+	if (type == FrameSubmitType::FinishFrame && !skipSwap) {
 		_dbg_assert_(hasAcquired);
 		submit_info.waitSemaphoreCount = 1;
 		submit_info.pWaitSemaphores = &acquireSemaphore;
@@ -227,7 +229,7 @@ void FrameData::SubmitPending(VulkanContext *vulkan, FrameSubmitType type, Frame
 	}
 	submit_info.commandBufferCount = (uint32_t)numCmdBufs;
 	submit_info.pCommandBuffers = cmdBufs;
-	if (type == FrameSubmitType::Present && !skipSwap) {
+	if (type == FrameSubmitType::FinishFrame && !skipSwap) {
 		submit_info.signalSemaphoreCount = 1;
 		submit_info.pSignalSemaphores = &renderingCompleteSemaphore;
 	}

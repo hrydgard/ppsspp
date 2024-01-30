@@ -1547,6 +1547,7 @@ void FramebufferManagerCommon::CopyDisplayToOutput(bool reallyDirty) {
 		// No framebuffer to display! Clear to black.
 		if (useBufferedRendering_) {
 			draw_->BindFramebufferAsRenderTarget(nullptr, { Draw::RPAction::CLEAR, Draw::RPAction::CLEAR, Draw::RPAction::CLEAR }, "CopyDisplayToOutput");
+			presentation_->NotifyPresent();
 		}
 		gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE);
 		return;
