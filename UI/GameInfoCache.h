@@ -82,12 +82,12 @@ struct GameInfoTex {
 
 class GameInfo {
 public:
-	GameInfo();
+	GameInfo(const Path &gamePath);
 	~GameInfo();
 
 	bool Delete();  // Better be sure what you're doing when calling this.
 	bool DeleteAllSaveData();
-	bool LoadFromPath(const Path &gamePath);
+	bool CreateLoader();
 
 	bool HasFileLoader() const {
 		return fileLoader.get() != nullptr;
@@ -112,6 +112,11 @@ public:
 	bool Ready(GameInfoFlags flags) {
 		std::unique_lock<std::mutex> guard(lock);
 		return (hasFlags & flags) != 0;
+	}
+
+	void MarkReadyNoLock(GameInfoFlags flags) {
+		hasFlags |= flags;
+		pendingFlags &= ~flags;
 	}
 
 	GameInfoTex *GetBGPic() {

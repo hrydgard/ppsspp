@@ -54,7 +54,7 @@ void GameInfoTex::Clear() {
 	}
 }
 
-GameInfo::GameInfo() {
+GameInfo::GameInfo(const Path &gamePath) : filePath_(gamePath) {
 	// here due to a forward decl.
 	fileType = IdentifiedFileType::UNKNOWN;
 }
@@ -231,26 +231,13 @@ u64 GameInfo::GetInstallDataSizeInBytes() {
 	return totalSize;
 }
 
-bool GameInfo::LoadFromPath(const Path &gamePath) {
-	{
-		std::lock_guard<std::mutex> guard(lock);
-		// No need to rebuild if we already have it loaded.
-		if (filePath_ == gamePath) {
-			return true;
-		}
-	}
-
-	{
+bool GameInfo::CreateLoader() {
+	if (!fileLoader) {
 		std::lock_guard<std::mutex> guard(loaderLock);
-		fileLoader.reset(ConstructFileLoader(gamePath));
+		fileLoader.reset(ConstructFileLoader(filePath_));
 		if (!fileLoader)
 			return false;
 	}
-
-	std::lock_guard<std::mutex> guard(lock);
-	filePath_ = gamePath;
-	// This is a fallback title, while we're loading / if unable to load.
-	title = filePath_.GetFilename();
 	return true;
 }
 
@@ -463,7 +450,7 @@ public:
 	void Run() override {
 		// An early-return will result in the destructor running, where we can set
 		// flags like working and pending.
-		if (!info_->LoadFromPath(gamePath_)) {
+		if (!info_->CreateLoader()) {
 			return;
 		}
 
@@ -515,6 +502,7 @@ public:
 							info_->id_version = info_->id + "_1.00";
 							info_->region = GAMEREGION_MAX + 1; // Homebrew
 						}
+						info_->MarkReadyNoLock(GameInfoFlags::PARAM_SFO);
 					}
 				}
 
@@ -606,6 +594,7 @@ handleELF:
 					std::lock_guard<std::mutex> lock(info_->lock);
 					info_->paramSFO.ReadSFO((const u8 *)paramSFOcontents.data(), paramSFOcontents.size());
 					info_->ParseParamSFO();
+					info_->MarkReadyNoLock(GameInfoFlags::PARAM_SFO);
 				}
 			}
 			if (flags_ & GameInfoFlags::ICON) {
@@ -623,6 +612,8 @@ handleELF:
 		{
 			if (flags_ & GameInfoFlags::PARAM_SFO) {
 				info_->SetTitle(SaveState::GetTitle(gamePath_));
+				std::lock_guard<std::mutex> lock(info_->lock);
+				info_->MarkReadyNoLock(GameInfoFlags::PARAM_SFO);
 			}
 
 			// Let's use the screenshot as an icon, too.
@@ -664,8 +655,10 @@ handleELF:
 					}
 				}
 
-				ReadFileToString(&umd, "/PSP_GAME/ICON0.PNG", &info_->icon.data, &info_->lock);
-				info_->icon.dataLoaded = true;
+				if (flags_ & GameInfoFlags::ICON) {
+					ReadFileToString(&umd, "/PSP_GAME/ICON0.PNG", &info_->icon.data, &info_->lock);
+					info_->icon.dataLoaded = true;
+				}
 				if (flags_ & GameInfoFlags::BG) {
 					ReadFileToString(&umd, "/PSP_GAME/PIC0.PNG", &info_->pic0.data, &info_->lock);
 					info_->pic0.dataLoaded = true;
@@ -704,6 +697,9 @@ handleELF:
 							std::lock_guard<std::mutex> lock(info_->lock);
 							info_->paramSFO.ReadSFO((const u8 *)paramSFOcontents.data(), paramSFOcontents.size());
 							info_->ParseParamSFO();
+
+							// quick-update the info while we have the lock, so we don't need to wait for the image load to display the title.
+							info_->MarkReadyNoLock(GameInfoFlags::PARAM_SFO);
 						}
 					}
 				}
@@ -781,8 +777,7 @@ handleELF:
 
 		// Time to update the flags.
 		std::unique_lock<std::mutex> lock(info_->lock);
-		info_->hasFlags |= flags_;
-		info_->pendingFlags &= ~flags_;
+		info_->MarkReadyNoLock(flags_);
 		// INFO_LOG(SYSTEM, "Completed writing info for %s", info_->GetTitle().c_str());
 	}
 
@@ -846,26 +841,39 @@ void GameInfoCache::FlushBGs() {
 
 void GameInfoCache::PurgeType(IdentifiedFileType fileType) {
 	bool retry = false;
+	int retryCount = 10;
 	// Trickery to avoid sleeping with the lock held.
 	do {
+		if (retry) {
+			retryCount--;
+			if (retryCount == 0) {
+				break;
+			}
+		}
+		retry = false;
 		{
 			std::lock_guard<std::mutex> lock(mapLock_);
 			for (auto iter = info_.begin(); iter != info_.end();) {
 				auto &info = iter->second;
-
+				if (!(info->hasFlags & GameInfoFlags::FILE_TYPE)) {
+					iter++;
+					continue;
+				}
+				if (info->fileType != fileType) {
+					iter++;
+					continue;
+				}
 				// TODO: Find a better way to wait here.
-				while (info->pendingFlags != (GameInfoFlags)0) {
+				if (info->pendingFlags != (GameInfoFlags)0) {
+					INFO_LOG(LOADER, "%s: pending flags %08x, retrying", info->GetTitle().c_str(), info->pendingFlags);
 					retry = true;
 					break;
 				}
-				if (info->fileType == fileType) {
-					iter = info_.erase(iter);
-				} else {
-					iter++;
-				}
+				iter = info_.erase(iter);
 			}
 		}
-		sleep_ms(1);
+
+		sleep_ms(10);
 	} while (retry);
 }
 
@@ -903,7 +911,7 @@ std::shared_ptr<GameInfo> GameInfoCache::GetInfo(Draw::DrawContext *draw, const 
 		return info;
 	}
 
-	std::shared_ptr<GameInfo> info = std::make_shared<GameInfo>();
+	std::shared_ptr<GameInfo> info = std::make_shared<GameInfo>(gamePath);
 	info->pendingFlags = wantFlags;
 	info->lastAccessedTime = time_now_d();
 	info_.insert(std::make_pair(pathStr, info));
