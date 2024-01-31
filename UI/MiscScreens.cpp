@@ -1057,10 +1057,12 @@ void SettingInfoMessage::Show(const std::string &text, const UI::View *refView) 
 	if (refView) {
 		Bounds b = refView->GetBounds();
 		const UI::AnchorLayoutParams *lp = GetLayoutParams()->As<UI::AnchorLayoutParams>();
-		if (cutOffY_ != -1.0f && b.y >= cutOffY_) {
-			ReplaceLayoutParams(new UI::AnchorLayoutParams(lp->width, lp->height, lp->left, 80.0f, lp->right, lp->bottom, lp->center));
-		} else {
-			ReplaceLayoutParams(new UI::AnchorLayoutParams(lp->width, lp->height, lp->left, g_display.dp_yres - 80.0f - 40.0f, lp->right, lp->bottom, lp->center));
+		if (lp) {
+			if (cutOffY_ != -1.0f && b.y >= cutOffY_) {
+				ReplaceLayoutParams(new UI::AnchorLayoutParams(lp->width, lp->height, lp->left, 80.0f, lp->right, lp->bottom, lp->center));
+			} else {
+				ReplaceLayoutParams(new UI::AnchorLayoutParams(lp->width, lp->height, lp->left, g_display.dp_yres - 80.0f - 40.0f, lp->right, lp->bottom, lp->center));
+			}
 		}
 	}
 	text_->SetText(text);
@@ -1089,7 +1091,8 @@ void SettingInfoMessage::Draw(UIContext &dc) {
 		dc.FillRect(style.background, bounds_);
 	}
 
-	text_->SetTextColor(whiteAlpha(alpha));
+	uint32_t textColor = colorAlpha(dc.GetTheme().itemStyle.fgColor, alpha);
+	text_->SetTextColor(textColor);
 	ViewGroup::Draw(dc);
 	showing_ = sinceShow <= timeToShow; // Don't consider fade time
 }

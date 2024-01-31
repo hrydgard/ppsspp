@@ -8,9 +8,7 @@
 #include <cstdlib>
 #include <cstring>
 
-#ifdef _DEBUG
 #include "Common/Log.h"
-#endif
 
 template<class T>
 class FastVec {
@@ -19,6 +17,7 @@ public:
 	FastVec(size_t initialCapacity) {
 		capacity_ = initialCapacity;
 		data_ = (T *)malloc(initialCapacity * sizeof(T));
+		_assert_(data_ != nullptr);
 	}
 	~FastVec() { if (data_) free(data_); }
 
@@ -157,6 +156,7 @@ private:
 			return;
 		T *oldData = data_;
 		data_ = (T *)malloc(sizeof(T) * newCapacity);
+		_assert_msg_(data_ != nullptr, "%d", (int)newCapacity);
 		if (capacity_ != 0) {
 			memcpy(data_, oldData, sizeof(T) * size_);
 			free(oldData);
@@ -165,6 +165,8 @@ private:
 	}
 
 	void ExtendByOne() {
+		// We don't really extend capacity by one though - instead we use
+		// the usual doubling amortization.
 		size_t newCapacity = capacity_ * 2;
 		if (newCapacity < 16) {
 			newCapacity = 16;

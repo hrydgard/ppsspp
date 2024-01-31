@@ -514,11 +514,13 @@ void Choice::Draw(UIContext &dc) {
 
 		if (image_.isValid()) {
 			const AtlasImage *image = dc.Draw()->GetAtlas()->getImage(image_);
-			_dbg_assert_(image);
-			paddingX += image->w + 6;
-			availWidth -= image->w + 6;
-			// TODO: Use scale rotation and flip here as well (DrawImageRotated is always ALIGN_CENTER for now)
-			dc.Draw()->DrawImage(image_, bounds_.x + 6, bounds_.centerY(), 1.0f, style.fgColor, ALIGN_LEFT | ALIGN_VCENTER);
+			if (image) {
+				_dbg_assert_(image);
+				paddingX += image->w + 6;
+				availWidth -= image->w + 6;
+				// TODO: Use scale rotation and flip here as well (DrawImageRotated is always ALIGN_CENTER for now)
+				dc.Draw()->DrawImage(image_, bounds_.x + 6, bounds_.centerY(), 1.0f, style.fgColor, ALIGN_LEFT | ALIGN_VCENTER);
+			}
 		}
 
 		if (centered_) {

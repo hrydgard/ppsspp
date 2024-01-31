@@ -203,7 +203,6 @@ void GLPushBuffer::Defragment() {
 				info.localMemory = nullptr;
 			}
 		}
-
 		return;
 	}
 

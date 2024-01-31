@@ -648,7 +648,7 @@ handleELF:
 				// Alright, let's fetch the PARAM.SFO.
 				if (flags_ & GameInfoFlags::PARAM_SFO) {
 					std::string paramSFOcontents;
-					if (ReadFileToString(&umd, "/PSP_GAME/PARAM.SFO", &paramSFOcontents, 0)) {
+					if (ReadFileToString(&umd, "/PSP_GAME/PARAM.SFO", &paramSFOcontents, nullptr)) {
 						std::lock_guard<std::mutex> lock(info_->lock);
 						info_->paramSFO.ReadSFO((const u8 *)paramSFOcontents.data(), paramSFOcontents.size());
 						info_->ParseParamSFO();

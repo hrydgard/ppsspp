@@ -769,11 +769,12 @@ static bool HasTextDrawer() {
 	return textDrawer != nullptr;
 }
 
-static std::string PPGeSanitizeText(const std::string &text) {
+static std::string PPGeSanitizeText(std::string_view text) {
 	return SanitizeUTF8(text);
 }
 
 void PPGeMeasureText(float *w, float *h, const char *text, float scale, int WrapType, int wrapWidth) {
+	_dbg_assert_(text);
 	std::string s = PPGeSanitizeText(text);
 
 	if (HasTextDrawer()) {
