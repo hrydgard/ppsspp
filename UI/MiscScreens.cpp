@@ -1089,7 +1089,8 @@ void SettingInfoMessage::Draw(UIContext &dc) {
 		dc.FillRect(style.background, bounds_);
 	}
 
-	text_->SetTextColor(whiteAlpha(alpha));
+	uint32_t textColor = colorAlpha(dc.GetTheme().itemStyle.fgColor, alpha);
+	text_->SetTextColor(textColor);
 	ViewGroup::Draw(dc);
 	showing_ = sinceShow <= timeToShow; // Don't consider fade time
 }
