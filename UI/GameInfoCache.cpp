@@ -161,7 +161,9 @@ u64 GameInfo::GetGameSizeUncompressedInBytes() {
 }
 
 // Not too meaningful if the object itself is a savedata directory...
+// Call this under lock.
 std::vector<Path> GameInfo::GetSaveDataDirectories() {
+	_dbg_assert_(hasFlags & GameInfoFlags::PARAM_SFO);  // so we know we have the ID.
 	Path memc = GetSysDirectory(DIRECTORY_SAVEDATA);
 
 	std::vector<File::FileInfo> dirs;
@@ -263,7 +265,6 @@ void GameInfo::DisposeFileLoader() {
 }
 
 bool GameInfo::DeleteAllSaveData() {
-	_assert_(hasFlags & GameInfoFlags::PARAM_SFO);  // so we know we have the ID.
 	std::vector<Path> saveDataDir = GetSaveDataDirectories();
 	for (size_t j = 0; j < saveDataDir.size(); j++) {
 		std::vector<File::FileInfo> fileInfo;
@@ -686,6 +687,9 @@ handleELF:
 				BlockDevice *bd = constructBlockDevice(info_->GetFileLoader().get());
 				if (!bd) {
 					return;
+				}
+				if (bd->IsBadCHD()) {
+					info_->badCHD = true;
 				}
 				ISOFileSystem umd(&handles, bd);
 

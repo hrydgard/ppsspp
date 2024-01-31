@@ -90,7 +90,7 @@ void GameScreen::update() {
 void GameScreen::CreateViews() {
 	std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(NULL, gamePath_, GameInfoFlags::PARAM_SFO | GameInfoFlags::ICON | GameInfoFlags::BG);
 
-	if (info && !info->id.empty()) {
+	if (info->Ready(GameInfoFlags::PARAM_SFO)) {
 		saveDirs = info->GetSaveDataDirectories(); // Get's very heavy, let's not do it in update()
 	}
 
@@ -110,7 +110,7 @@ void GameScreen::CreateViews() {
 	root_->Add(leftColumn);
 
 	leftColumn->Add(new Choice(di->T("Back"), "", false, new AnchorLayoutParams(150, WRAP_CONTENT, 10, NONE, NONE, 10)))->OnClick.Handle(this, &GameScreen::OnSwitchBack);
-	if (info) {
+	if (info->Ready(GameInfoFlags::PARAM_SFO)) {
 		ViewGroup *badgeHolder = new LinearLayout(ORIENT_HORIZONTAL, new AnchorLayoutParams(10, 10, 110, NONE));
 		LinearLayout *mainGameInfo = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(1.0f));
 		mainGameInfo->SetSpacing(3.0f);
@@ -149,6 +149,10 @@ void GameScreen::CreateViews() {
 		tvCRC_->SetVisibility(Reporting::HasCRC(gamePath_) ? V_VISIBLE : V_GONE);
 		tvVerified_ = infoLayout->Add(new NoticeView(NoticeLevel::INFO, ga->T("Click \"Calculate CRC\" to verify ISO"), "", new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
 		tvVerified_->SetVisibility(UI::V_GONE);
+		if (info->badCHD) {
+			auto e = GetI18NCategory(I18NCat::ERRORS);
+			infoLayout->Add(new NoticeView(NoticeLevel::ERROR, e->T("BadCHD", "Bad CHD file.\nCompress using \"chdman createdvd\" for good performance."), "", new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
+		}
 	} else {
 		tvTitle_ = nullptr;
 		tvGameSize_ = nullptr;

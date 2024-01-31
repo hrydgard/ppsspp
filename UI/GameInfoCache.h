@@ -146,6 +146,7 @@ public:
 	int disc_total = 0;
 	int disc_number = 0;
 	int region = -1;
+	bool badCHD = false;
 	IdentifiedFileType fileType;
 	ParamSFOData paramSFO;
 	bool hasConfig = false;
