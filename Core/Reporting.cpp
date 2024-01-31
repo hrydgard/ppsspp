@@ -203,8 +203,10 @@ namespace Reporting
 			it = crcResults.find(gamePath);
 		}
 
-		if (crcThread.joinable())
+		if (crcThread.joinable()) {
+			INFO_LOG(SYSTEM, "Finished CRC calculation");
 			crcThread.join();
+		}
 		return it->second;
 	}
 

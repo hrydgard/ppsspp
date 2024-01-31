@@ -111,7 +111,8 @@ public:
 
 	bool Ready(GameInfoFlags flags) {
 		std::unique_lock<std::mutex> guard(lock);
-		return (hasFlags & flags) != 0;
+		// Avoid the operator, we want to check all the bits.
+		return ((int)hasFlags & (int)flags) == (int)flags;
 	}
 
 	void MarkReadyNoLock(GameInfoFlags flags) {
@@ -146,6 +147,7 @@ public:
 	int disc_total = 0;
 	int disc_number = 0;
 	int region = -1;
+	bool badCHD = false;
 	IdentifiedFileType fileType;
 	ParamSFOData paramSFO;
 	bool hasConfig = false;

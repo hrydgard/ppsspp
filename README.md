@@ -54,7 +54,7 @@ What's new in 1.17
 	- When opening the pause menu, there's now an option to keep the game running behind the menu.
 	  This is enforced in multiplayer to avoid inadvertent desyncs ([#18517], [#18515])
 - ISO loading improvements
-	- The CHD file format is now fully supported, including with Remote ISO and Retroachievements
+	- The CHD file format is now fully supported (use `chdman createdvd`!), including with Remote ISO and Retroachievements
 	- Improvements to [remote ISO](https://www.ppsspp.org/docs/reference/disc-streaming/): optional tab on home screen, can now share whole folders ([#18627], [#18639], [#18640], [#18631], [#18632], [#18633],)
 - Controller and touchscreen fixes
 	- More control bindings, organize into categories ([#18635], [#18589])
