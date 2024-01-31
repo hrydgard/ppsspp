@@ -1317,9 +1317,15 @@ void VulkanRenderManager::BlitFramebuffer(VKRFramebuffer *src, VkRect2D srcRect,
 	EndCurRenderStep();
 
 	// Sanity check. Added an assert to try to gather more info.
+	// Got this assert in NPJH50443 FINAL FANTASY TYPE-0, but pretty rare. Moving back to debug assert.
 	if (aspectMask & (VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT)) {
-		_assert_msg_(src->depth.image != VK_NULL_HANDLE, "%s", src->Tag());
-		_assert_msg_(dst->depth.image != VK_NULL_HANDLE, "%s", dst->Tag());
+		_dbg_assert_msg_(src->depth.image != VK_NULL_HANDLE, "%s", src->Tag());
+		_dbg_assert_msg_(dst->depth.image != VK_NULL_HANDLE, "%s", dst->Tag());
+
+		if (!src->depth.image || !dst->depth.image) {
+			// Something has gone wrong, but let's try to stumble along.
+			return;
+		}
 	}
 
 	VKRStep *step = new VKRStep{ VKRStepType::BLIT };
