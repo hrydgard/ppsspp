@@ -69,6 +69,9 @@ public:
 	void SetLevel(NoticeLevel level) {
 		level_ = level;
 	}
+	void SetSquishy(bool squishy) {
+		squishy_ = squishy;
+	}
 
 	void GetContentDimensionsBySpec(const UIContext &dc, UI::MeasureSpec horiz, UI::MeasureSpec vert, float &w, float &h) const override;
 	void Draw(UIContext &dc) override;
@@ -79,4 +82,5 @@ private:
 	std::string iconName_;
 	NoticeLevel level_;
 	mutable float height1_ = 0.0f;
+	bool squishy_ = false;
 };

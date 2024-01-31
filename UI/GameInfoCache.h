@@ -111,7 +111,8 @@ public:
 
 	bool Ready(GameInfoFlags flags) {
 		std::unique_lock<std::mutex> guard(lock);
-		return (hasFlags & flags) != 0;
+		// Avoid the operator, we want to check all the bits.
+		return ((int)hasFlags & (int)flags) == (int)flags;
 	}
 
 	void MarkReadyNoLock(GameInfoFlags flags) {
