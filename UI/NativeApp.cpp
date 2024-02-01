@@ -1061,23 +1061,6 @@ void NativeFrame(GraphicsContext *graphicsContext) {
 	ProcessWheelRelease(NKCODE_EXT_MOUSEWHEEL_UP, startTime, false);
 	ProcessWheelRelease(NKCODE_EXT_MOUSEWHEEL_DOWN, startTime, false);
 
-	std::vector<PendingMessage> toProcess;
-	{
-		std::lock_guard<std::mutex> lock(pendingMutex);
-		toProcess = std::move(pendingMessages);
-		pendingMessages.clear();
-	}
-
-	for (const auto &item : toProcess) {
-		if (HandleGlobalMessage(item.message, item.value)) {
-			// TODO: Add a to-string thingy.
-			INFO_LOG(SYSTEM, "Handled global message: %d / %s", (int)item.message, item.value.c_str());
-		}
-		g_screenManager->sendMessage(item.message, item.value.c_str());
-	}
-
-	g_requestManager.ProcessRequests();
-
 	// it's ok to call this redundantly with DoFrame from EmuScreen
 	Achievements::Idle();
 
@@ -1103,6 +1086,24 @@ void NativeFrame(GraphicsContext *graphicsContext) {
 	g_iconCache.FrameUpdate();
 
 	g_screenManager->update();
+
+	// Do this after g_screenManager.update() so we can receive setting changes before rendering.
+	std::vector<PendingMessage> toProcess;
+	{
+		std::lock_guard<std::mutex> lock(pendingMutex);
+		toProcess = std::move(pendingMessages);
+		pendingMessages.clear();
+	}
+
+	for (const auto &item : toProcess) {
+		if (HandleGlobalMessage(item.message, item.value)) {
+			// TODO: Add a to-string thingy.
+			INFO_LOG(SYSTEM, "Handled global message: %d / %s", (int)item.message, item.value.c_str());
+		}
+		g_screenManager->sendMessage(item.message, item.value.c_str());
+	}
+
+	g_requestManager.ProcessRequests();
 
 	// Apply the UIContext bounds as a 2D transformation matrix.
 	// TODO: This should be moved into the draw context...

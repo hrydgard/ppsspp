@@ -108,7 +108,11 @@ static std::vector<PluginInfo> FindPlugins(const std::string &gameID, const std:
 		std::set<std::string> matches;
 
 		std::string gameIni;
-		if (ini.GetOrCreateSection("games")->Get(gameID.c_str(), &gameIni, "")) {
+
+		// TODO: Should just use getsection and fail the ini if not found, I guess.
+		Section *games = ini.GetOrCreateSection("games");
+
+		if (games->Get(gameID.c_str(), &gameIni, "")) {
 			if (!strcasecmp(gameIni.c_str(), "true")) {
 				matches.insert("plugin.ini");
 			} else if (!strcasecmp(gameIni.c_str(), "false")){
@@ -118,7 +122,7 @@ static std::vector<PluginInfo> FindPlugins(const std::string &gameID, const std:
 			}
 		}
 
-		if (ini.GetOrCreateSection("games")->Get("ALL", &gameIni, "")) {
+		if (games->Get("ALL", &gameIni, "")) {
 			if (!strcasecmp(gameIni.c_str(), "true")) {
 				matches.insert("plugin.ini");
 			} else if (!gameIni.empty()) {

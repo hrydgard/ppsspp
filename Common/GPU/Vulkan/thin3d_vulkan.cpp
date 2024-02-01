@@ -1543,6 +1543,10 @@ std::vector<std::string> VKContext::GetFeatureList() const {
 	AddFeature(features, "shaderCullDistance", available.shaderCullDistance, enabled.shaderCullDistance);
 	AddFeature(features, "occlusionQueryPrecise", available.occlusionQueryPrecise, enabled.occlusionQueryPrecise);
 	AddFeature(features, "multiDrawIndirect", available.multiDrawIndirect, enabled.multiDrawIndirect);
+	AddFeature(features, "robustBufferAccess", available.robustBufferAccess, enabled.robustBufferAccess);
+	AddFeature(features, "fullDrawIndexUint32", available.fullDrawIndexUint32, enabled.fullDrawIndexUint32);
+	AddFeature(features, "fragmentStoresAndAtomics", available.fragmentStoresAndAtomics, enabled.fragmentStoresAndAtomics);
+	AddFeature(features, "shaderInt16", available.shaderInt16, enabled.shaderInt16);
 
 	AddFeature(features, "multiview", vulkan_->GetDeviceFeatures().available.multiview.multiview, vulkan_->GetDeviceFeatures().enabled.multiview.multiview);
 	AddFeature(features, "multiviewGeometryShader", vulkan_->GetDeviceFeatures().available.multiview.multiviewGeometryShader, vulkan_->GetDeviceFeatures().enabled.multiview.multiviewGeometryShader);

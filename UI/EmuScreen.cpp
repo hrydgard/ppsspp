@@ -1326,7 +1326,7 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 		// We only bind it in FramebufferManager::CopyDisplayToOutput (unless non-buffered)...
 		// We do, however, start the frame in other ways.
 
-		if ((g_Config.bSkipBufferEffects && !g_Config.bSoftwareRendering) || Core_IsStepping()) {
+		if ((skipBufferEffects && !g_Config.bSoftwareRendering) || Core_IsStepping()) {
 			// We need to clear here already so that drawing during the frame is done on a clean slate.
 			if (Core_IsStepping() && gpuStats.numFlips != 0) {
 				draw->BindFramebufferAsRenderTarget(nullptr, { RPAction::KEEP, RPAction::CLEAR, RPAction::CLEAR }, "EmuScreen_BackBuffer");
@@ -1348,12 +1348,13 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 		System_Notify(SystemNotification::KEEP_SCREEN_AWAKE);
 	} else if (!Core_ShouldRunBehind() && strcmp(screenManager()->topScreen()->tag(), "DevMenu") != 0) {
 		// Just to make sure.
-		if (PSP_IsInited() && !g_Config.bSkipBufferEffects) {
+		if (PSP_IsInited() && !skipBufferEffects) {
 			PSP_BeginHostFrame();
 			gpu->CopyDisplayToOutput(true);
 			PSP_EndHostFrame();
-		} else {
-			draw->BindFramebufferAsRenderTarget(nullptr, { RPAction::CLEAR, RPAction::CLEAR, RPAction::CLEAR, }, "EmuScreen_Stepping");
+		}
+		if (!framebufferBound && !gpu->PresentedThisFrame()) {
+			draw->BindFramebufferAsRenderTarget(nullptr, { RPAction::CLEAR, RPAction::CLEAR, RPAction::CLEAR, }, "EmuScreen_Behind");
 		}
 		// Need to make sure the UI texture is available, for "darken".
 		screenManager()->getUIContext()->BeginFrame();
