@@ -1042,7 +1042,7 @@ void FramebufferManagerCommon::DownloadFramebufferOnSwitch(VirtualFramebuffer *v
 		// To support this, we save the first frame to memory when we have a safe w/h.
 		// Saving each frame would be slow.
 
-		// TODO: This type of download could be made async, for less stutter on framebuffer creation.		
+		// TODO: This type of download could be made async, for less stutter on framebuffer creation.
 		if (!PSP_CoreParameter().compat.flags().DisableFirstFrameReadback) {
 			if (g_Config.iSkipGPUReadbackMode == (int)SkipGPUReadbackMode::NO_SKIP || g_Config.iSkipGPUReadbackMode == (int)SkipGPUReadbackMode::HALF_SKIP && GenerateBoolean) {
 				ReadFramebufferToMemory(vfb, 0, 0, vfb->safeWidth, vfb->safeHeight, RASTER_COLOR, Draw::ReadbackMode::BLOCK);
@@ -1059,7 +1059,7 @@ bool FramebufferManagerCommon::ShouldDownloadFramebufferColor(const VirtualFrame
 	return PSP_CoreParameter().compat.flags().Force04154000Download && vfb->fb_address == 0x04154000;
 }
 
-bool FramebufferManagerCommon::ShouldDownloadFramebufferDepth(const VirtualFramebuffer* vfb) const {
+bool FramebufferManagerCommon::ShouldDownloadFramebufferDepth(const VirtualFramebuffer * vfb) const {
 	// Download depth buffer for Syphon Filter lens flares
 	if (!PSP_CoreParameter().compat.flags().ReadbackDepth || g_Config.iSkipGPUReadbackMode == (int)SkipGPUReadbackMode::NO_SKIP || g_Config.iSkipGPUReadbackMode == (int)SkipGPUReadbackMode::COPY_TO_TEXTURE || g_Config.iSkipGPUReadbackMode == (int)SkipGPUReadbackMode::HALF_SKIP && GenerateBoolean) {
 		return false;
