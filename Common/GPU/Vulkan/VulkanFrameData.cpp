@@ -201,7 +201,7 @@ void FrameData::Submit(VulkanContext *vulkan, FrameSubmitType type, FrameDataSha
 	}
 
 	if (hasPresentCommands) {
-		_dbg_assert_(type == FrameSubmitType::FinishFrame);
+		_dbg_assert_(type != FrameSubmitType::Pending);
 		VkResult res = vkEndCommandBuffer(presentCmd);
 
 		_assert_msg_(res == VK_SUCCESS, "vkEndCommandBuffer failed (present)! result=%s", VulkanResultToString(res));
