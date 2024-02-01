@@ -585,7 +585,9 @@ void VulkanRenderManager::PollPresentTiming() {
 	// Poll for information about completed frames.
 	// NOTE: We seem to get the information pretty late! Like after 6 frames, which is quite weird.
 	// Tested on POCO F4.
-	if (vulkan_->Extensions().GOOGLE_display_timing) {
+	// TODO: Getting validation errors that this should be called from the thread doing the presenting.
+	// Probably a fair point. For now, we turn it off.
+	if (measurePresentTime_ && vulkan_->Extensions().GOOGLE_display_timing) {
 		uint32_t count = 0;
 		vkGetPastPresentationTimingGOOGLE(vulkan_->GetDevice(), vulkan_->GetSwapchain(), &count, nullptr);
 		if (count > 0) {
