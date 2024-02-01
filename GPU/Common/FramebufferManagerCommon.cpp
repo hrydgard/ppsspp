@@ -1061,7 +1061,7 @@ bool FramebufferManagerCommon::ShouldDownloadFramebufferColor(const VirtualFrame
 
 bool FramebufferManagerCommon::ShouldDownloadFramebufferDepth(const VirtualFramebuffer * vfb) const {
 	// Download depth buffer for Syphon Filter lens flares
-	if (!PSP_CoreParameter().compat.flags().ReadbackDepth || g_Config.iSkipGPUReadbackMode == (int)SkipGPUReadbackMode::NO_SKIP || g_Config.iSkipGPUReadbackMode == (int)SkipGPUReadbackMode::COPY_TO_TEXTURE || g_Config.iSkipGPUReadbackMode == (int)SkipGPUReadbackMode::HALF_SKIP && GenerateBoolean) {
+	if (!PSP_CoreParameter().compat.flags().ReadbackDepth || g_Config.iSkipGPUReadbackMode == (int)SkipGPUReadbackMode::SKIP || g_Config.iSkipGPUReadbackMode == (int)SkipGPUReadbackMode::COPY_TO_TEXTURE || g_Config.iSkipGPUReadbackMode == (int)SkipGPUReadbackMode::HALF_SKIP && GenerateBoolean) {
 		return false;
 	}
 	return (vfb->usageFlags & FB_USAGE_RENDER_DEPTH) != 0 && vfb->width >= 480 && vfb->height >= 272;
