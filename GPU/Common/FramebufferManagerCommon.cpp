@@ -43,6 +43,16 @@
 #include "GPU/GPUCommon.h"
 #include "GPU/GPUState.h"
 
+static bool GenerateBoolean() {
+	int randomNumber = rand() % 100;  // Generate a random number between 0 and 99
+	if (randomNumber < 50) {
+		return true;  // 50% chance of returning true
+	}
+	else {
+		return false;  // 50% chance of returning false
+	}
+}
+
 static size_t FormatFramebufferName(const VirtualFramebuffer *vfb, char *tag, size_t len) {
 	return snprintf(tag, len, "FB_%08x_%08x_%dx%d_%s", vfb->fb_address, vfb->z_address, vfb->bufferWidth, vfb->bufferHeight, GeBufferFormatToString(vfb->fb_format));
 }
@@ -1048,8 +1058,8 @@ void FramebufferManagerCommon::DownloadFramebufferOnSwitch(VirtualFramebuffer *v
 		// To support this, we save the first frame to memory when we have a safe w/h.
 		// Saving each frame would be slow.
 
-		// TODO: This type of download could be made async, for less stutter on framebuffer creation.
-		if (GetSkipGPUReadbackMode() == SkipGPUReadbackMode::NO_SKIP && !PSP_CoreParameter().compat.flags().DisableFirstFrameReadback) {
+		// TODO: This type of download could be made async, for less stutter on framebuffer creation.		
+		if (g_Config.iSkipGPUReadbackMode == (int)SkipGPUReadbackMode::NO_SKIP || (g_Config.iSkipGPUReadbackMode == (int)SkipGPUReadbackMode::HALF_SKIP && GenerateBoolean())) {
 			ReadFramebufferToMemory(vfb, 0, 0, vfb->safeWidth, vfb->safeHeight, RASTER_COLOR, Draw::ReadbackMode::BLOCK);
 			vfb->usageFlags = (vfb->usageFlags | FB_USAGE_DOWNLOAD | FB_USAGE_FIRST_FRAME_SAVED) & ~FB_USAGE_DOWNLOAD_CLEAR;
 			vfb->safeWidth = 0;
@@ -1068,7 +1078,22 @@ bool FramebufferManagerCommon::ShouldDownloadFramebufferDepth(const VirtualFrame
 	if (!PSP_CoreParameter().compat.flags().ReadbackDepth || GetSkipGPUReadbackMode() != SkipGPUReadbackMode::NO_SKIP) {
 		return false;
 	}
-	return (vfb->usageFlags & FB_USAGE_RENDER_DEPTH) != 0 && vfb->width >= 480 && vfb->height >= 272;
+
+	bool performDepthReadback = true;
+
+	switch (GetSkipGPUReadbackMode()) {
+	case SkipGPUReadbackMode::SKIP:
+		performDepthReadback = false;
+		break;
+	case SkipGPUReadbackMode::HALF_SKIP:
+		performDepthReadback = GenerateBoolean();
+		break;
+	case SkipGPUReadbackMode::COPY_TO_TEXTURE:
+	case SkipGPUReadbackMode::NO_SKIP:
+		break;
+	}
+
+	return performDepthReadback && (vfb->usageFlags & FB_USAGE_RENDER_DEPTH) != 0 && vfb->width >= 480 && vfb->height >= 272;
 }
 
 void FramebufferManagerCommon::NotifyRenderFramebufferSwitched(VirtualFramebuffer *prevVfb, VirtualFramebuffer *vfb, bool isClearingDepth) {
