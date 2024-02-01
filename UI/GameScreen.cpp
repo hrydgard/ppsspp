@@ -156,13 +156,14 @@ void GameScreen::CreateViews() {
 		}
 	} else {
 		tvTitle_ = nullptr;
+		tvID_ = nullptr;
 		tvGameSize_ = nullptr;
 		tvSaveDataSize_ = nullptr;
 		tvInstallDataSize_ = nullptr;
 		tvRegion_ = nullptr;
 		tvPlayTime_ = nullptr;
 		tvCRC_ = nullptr;
-		tvID_ = nullptr;
+		tvVerified_ = nullptr;
 	}
 
 	ViewGroup *rightColumn = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(300, FILL_PARENT, actionMenuMargins));
@@ -308,8 +309,12 @@ ScreenRenderFlags GameScreen::render(ScreenRenderMode mode) {
 			tvGameSize_->SetText(temp);
 		}
 		if (tvSaveDataSize_) {
-			snprintf(temp, sizeof(temp), "%s: %s", ga->T("SaveData"), NiceSizeFormat(info->saveDataSize).c_str());
-			tvSaveDataSize_->SetText(temp);
+			if (info->saveDataSize > 0) {
+				snprintf(temp, sizeof(temp), "%s: %s", ga->T("SaveData"), NiceSizeFormat(info->saveDataSize).c_str());
+				tvSaveDataSize_->SetText(temp);
+			} else {
+				tvSaveDataSize_->SetVisibility(UI::V_GONE);
+			}
 		}
 		if (info->installDataSize > 0 && tvInstallDataSize_) {
 			snprintf(temp, sizeof(temp), "%s: %1.2f %s", ga->T("InstallData"), (float) (info->installDataSize) / 1024.f / 1024.f, ga->T("MB"));
