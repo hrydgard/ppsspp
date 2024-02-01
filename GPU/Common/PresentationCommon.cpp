@@ -801,6 +801,7 @@ void PresentationCommon::CopyToOutput(OutputFlags flags, int uvRotation, float u
 	if (usePostShader) {
 		// When we render to temp framebuffers during post, we switch position, not UV.
 		// The flipping here is only because D3D has a clip coordinate system that doesn't match their screen coordinate system.
+		// The flipping here is only because D3D has a clip coordinate system that doesn't match their screen coordinate system.
 		bool flipped = flags & OutputFlags::POSITION_FLIPPED;
 		float y0 = flipped ? 1.0f : -1.0f;
 		float y1 = flipped ? -1.0f : 1.0f;
