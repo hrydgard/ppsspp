@@ -194,6 +194,7 @@ protected:
 		gpuStats.numDrawCalls += numDrawInds_;
 		gpuStats.numVertexDecodes += numDrawVerts_;
 		gpuStats.numVertsSubmitted += vertexCountInDrawCalls_;
+		gpuStats.numVertsDecoded += numDecodedVerts_;
 
 		indexGen.Reset();
 		numDecodedVerts_ = 0;
