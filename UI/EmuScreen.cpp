@@ -1357,11 +1357,12 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 	} else if (!Core_ShouldRunBehind() && strcmp(screenManager()->topScreen()->tag(), "DevMenu") != 0) {
 		// Just to make sure.
 		if (PSP_IsInited() && !skipBufferEffects) {
+			_dbg_assert_(gpu);
 			PSP_BeginHostFrame();
 			gpu->CopyDisplayToOutput(true);
 			PSP_EndHostFrame();
 		}
-		if (!framebufferBound && !gpu->PresentedThisFrame()) {
+		if (!framebufferBound && (!gpu || !gpu->PresentedThisFrame())) {
 			draw->BindFramebufferAsRenderTarget(nullptr, { RPAction::CLEAR, RPAction::CLEAR, RPAction::CLEAR, }, "EmuScreen_Behind");
 		}
 		// Need to make sure the UI texture is available, for "darken".
@@ -1439,6 +1440,7 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 				framebufferBound = true;
 				// Just to make sure.
 				if (PSP_IsInited()) {
+					_dbg_assert_(gpu);
 					gpu->CopyDisplayToOutput(true);
 				}
 			}
@@ -1458,6 +1460,7 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 		Achievements::FrameUpdate();
 	}
 
+	_dbg_assert_(gpu);
 	if (gpu && gpu->PresentedThisFrame()) {
 		framebufferBound = true;
 	}

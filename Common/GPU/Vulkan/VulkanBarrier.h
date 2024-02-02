@@ -3,7 +3,6 @@
 #include <string>
 #include <vector>
 
-#include "Common/Log.h"
 #include "Common/GPU/Vulkan/VulkanLoader.h"
 #include "Common/Data/Collections/FastVec.h"
 #include "Common/Data/Collections/TinySet.h"
@@ -12,9 +11,7 @@ class VulkanContext;
 
 class VulkanBarrierBatch {
 public:
-	~VulkanBarrierBatch() {
-		_dbg_assert_(imageBarriers_.empty());
-	}
+	~VulkanBarrierBatch();
 
 	VkImageMemoryBarrier *Add(VkImage image, VkPipelineStageFlags srcStageMask, VkPipelineStageFlags dstStageMask, VkDependencyFlags dependencyFlags) {
 		srcStageMask_ |= srcStageMask;
