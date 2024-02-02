@@ -196,6 +196,7 @@ std::string FragmentShaderDesc(const FShaderID &id) {
 	if (id.Bit(FS_BIT_FLATSHADE)) desc << "Flat ";
 	if (id.Bit(FS_BIT_BGRA_TEXTURE)) desc << "BGRA ";
 	if (id.Bit(FS_BIT_UBERSHADER)) desc << "FragUber ";
+	if (id.Bit(FS_BIT_DEPTH_TEST_NEVER)) desc << "DepthNever ";
 	switch ((ShaderDepalMode)id.Bits(FS_BIT_SHADER_DEPAL_MODE, 2)) {
 	case ShaderDepalMode::OFF: break;
 	case ShaderDepalMode::NORMAL: desc << "Depal ";  break;
@@ -387,11 +388,22 @@ void ComputeFragmentShaderID(FShaderID *id_out, const ComputedPipelineState &pip
 			id.SetBit(FS_BIT_STEREO);
 		}
 
-		if (g_Config.bVendorBugChecksEnabled && bugs.Has(Draw::Bugs::NO_DEPTH_CANNOT_DISCARD_STENCIL)) {
-			bool stencilWithoutDepth = !IsStencilTestOutputDisabled() && (!gstate.isDepthTestEnabled() || !gstate.isDepthWriteEnabled());
-			if (stencilWithoutDepth) {
-				id.SetBit(FS_BIT_NO_DEPTH_CANNOT_DISCARD_STENCIL, stencilWithoutDepth);
+		if (g_Config.bVendorBugChecksEnabled) {
+			if (bugs.Has(Draw::Bugs::NO_DEPTH_CANNOT_DISCARD_STENCIL_ADRENO) || bugs.Has(Draw::Bugs::NO_DEPTH_CANNOT_DISCARD_STENCIL_MALI)) {
+				// On Adreno, the workaround is safe, so we do simple checks.
+				bool stencilWithoutDepth = (!gstate.isDepthTestEnabled() || !gstate.isDepthWriteEnabled()) && !IsStencilTestOutputDisabled();
+				if (stencilWithoutDepth) {
+					id.SetBit(FS_BIT_NO_DEPTH_CANNOT_DISCARD_STENCIL, stencilWithoutDepth);
+				}
 			}
+		}
+
+		// Forcibly disable NEVER + depth-write on Mali.
+		// TODO: Take this from computed depth test instead of directly from the gstate.
+		// That will take more refactoring though.
+		if (bugs.Has(Draw::Bugs::NO_DEPTH_CANNOT_DISCARD_STENCIL_MALI) &&
+			gstate.getDepthTestFunction() == GE_COMP_NEVER && gstate.isDepthTestEnabled()) {
+			id.SetBit(FS_BIT_DEPTH_TEST_NEVER);
 		}
 
 		// In case the USE flag changes (for example, in multisampling we might disable input attachments),
