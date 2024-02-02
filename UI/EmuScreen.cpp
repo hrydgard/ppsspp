@@ -1458,7 +1458,7 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 		Achievements::FrameUpdate();
 	}
 
-	if (gpu->PresentedThisFrame()) {
+	if (gpu && gpu->PresentedThisFrame()) {
 		framebufferBound = true;
 	}
 
