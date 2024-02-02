@@ -25,6 +25,7 @@ using namespace std::placeholders;
 #include "Common/Render/TextureAtlas.h"
 #include "Common/GPU/OpenGL/GLFeatures.h"
 #include "Common/Render/Text/draw_text.h"
+#include "Common/File/FileUtil.h"
 #include "Common/Battery/Battery.h"
 
 #include "Common/UI/Root.h"
@@ -59,6 +60,7 @@ using namespace std::placeholders;
 #include "Core/MemFault.h"
 #include "Core/Reporting.h"
 #include "Core/System.h"
+#include "Core/FileSystems/VirtualDiscFileSystem.h"
 #include "GPU/GPUState.h"
 #include "GPU/GPUInterface.h"
 #include "GPU/Common/FramebufferManagerCommon.h"
@@ -281,7 +283,13 @@ void EmuScreen::bootGame(const Path &filename) {
 
 	auto sc = GetI18NCategory(I18NCat::SCREEN);
 	if (info->fileType == IdentifiedFileType::PSP_DISC_DIRECTORY) {
-		g_OSD.Show(OSDType::MESSAGE_CENTERED_WARNING, sc->T("ExtractedIsoWarning", "Extracted ISOs often don't work.\nPlay the ISO file directly."), gamePath_.ToVisualString(), 7.0f);
+		// Check for existence of ppsspp-index.lst - if it exists, the user likely knows what they're doing.
+		// TODO: Better would be to check that it was loaded successfully.
+		if (!File::Exists(filename / INDEX_FILENAME)) {
+			g_OSD.Show(OSDType::MESSAGE_CENTERED_WARNING, sc->T("ExtractedIsoWarning", "Extracted ISOs often don't work.\nPlay the ISO file directly."), gamePath_.ToVisualString(), 7.0f);
+		} else {
+			INFO_LOG(LOADER, "Extracted ISO loaded without warning - %s is present.", INDEX_FILENAME.c_str());
+		}
 	}
 
 	extraAssertInfoStr_ = info->id + " " + info->GetTitle();
