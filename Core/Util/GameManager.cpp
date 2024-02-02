@@ -625,7 +625,7 @@ bool GameManager::InstallMemstickGame(struct zip *z, const Path &zipfile, const 
 		g_OSD.SetProgressBar("install", di->T("Installing..."), 0.0f, 1.0f, 0.1f + (i + 1) / (float)info.numFiles * 0.9f, 0.1f);
 	}
 
-	INFO_LOG(HLE, "Extracted %d files from zip (%d bytes / %d).", info.numFiles, (int)bytesCopied, (int)allBytes);
+	INFO_LOG(HLE, "Unzipped %d files (%d bytes / %d).", info.numFiles, (int)bytesCopied, (int)allBytes);
 	zip_close(z);
 	z = nullptr;
 	installProgress_ = 1.0f;
@@ -733,7 +733,7 @@ bool GameManager::InstallZippedISO(struct zip *z, int isoFileIndex, const Path &
 	auto di = GetI18NCategory(I18NCat::DIALOG);
 	g_OSD.SetProgressBar("install", di->T("Installing..."), 0.0f, 0.0f, 0.0f, 0.1f);
 	if (ExtractFile(z, isoFileIndex, outputISOFilename, &bytesCopied, allBytes)) {
-		INFO_LOG(IO, "Successfully extracted ISO file to '%s'", outputISOFilename.c_str());
+		INFO_LOG(IO, "Successfully unzipped ISO file to '%s'", outputISOFilename.c_str());
 		success = true;
 	}
 	zip_close(z);

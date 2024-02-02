@@ -387,10 +387,13 @@ void ComputeFragmentShaderID(FShaderID *id_out, const ComputedPipelineState &pip
 			id.SetBit(FS_BIT_STEREO);
 		}
 
-		if (g_Config.bVendorBugChecksEnabled && bugs.Has(Draw::Bugs::NO_DEPTH_CANNOT_DISCARD_STENCIL)) {
-			bool stencilWithoutDepth = !IsStencilTestOutputDisabled() && (!gstate.isDepthTestEnabled() || !gstate.isDepthWriteEnabled());
-			if (stencilWithoutDepth) {
-				id.SetBit(FS_BIT_NO_DEPTH_CANNOT_DISCARD_STENCIL, stencilWithoutDepth);
+		if (g_Config.bVendorBugChecksEnabled) {
+			if (bugs.Has(Draw::Bugs::NO_DEPTH_CANNOT_DISCARD_STENCIL_ADRENO) || bugs.Has(Draw::Bugs::NO_DEPTH_CANNOT_DISCARD_STENCIL_MALI)) {
+				// On Adreno, the workaround is safe, so we do simple checks.
+				bool stencilWithoutDepth = (!gstate.isDepthTestEnabled() || !gstate.isDepthWriteEnabled()) && !IsStencilTestOutputDisabled();
+				if (stencilWithoutDepth) {
+					id.SetBit(FS_BIT_NO_DEPTH_CANNOT_DISCARD_STENCIL, stencilWithoutDepth);
+				}
 			}
 		}
 

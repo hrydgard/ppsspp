@@ -192,7 +192,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 	std::vector<SamplerDef> samplers;
 
 	if (compat.shaderLanguage == ShaderLanguage::GLSL_VULKAN) {
-		if (useDiscardStencilBugWorkaround && !gstate_c.Use(GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT)) {
+		if (useDiscardStencilBugWorkaround && !writeDepth) {
 			WRITE(p, "layout (depth_unchanged) out float gl_FragDepth;\n");
 		}
 
