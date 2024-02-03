@@ -342,6 +342,8 @@ void GameSettingsScreen::CreateGraphicsSettings(UI::ViewGroup *graphicsSettings)
 				msaaChoice->SetChoiceIcon(i, ImageID("I_WARNING"));
 			}
 		}
+	} else {
+		g_Config.iMultiSampleLevel = 0;
 	}
 
 #if PPSSPP_PLATFORM(ANDROID)
