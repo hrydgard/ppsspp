@@ -10,7 +10,6 @@
 #include <SLES/OpenSLES_Android.h>
 
 #include "Common/Log.h"
-#include "Common/StringUtils.h"
 #include "OpenSLContext.h"
 #include "Core/HLE/sceUsbMic.h"
 
@@ -58,7 +57,9 @@ void OpenSLContext::BqPlayerCallback(SLAndroidSimpleBufferQueueItf bq) {
 		memset(buffer[curBuffer] + renderedFrames * 2, 0, byteCount);
 	}
 	SLresult result = (*bqPlayerBufferQueue)->Enqueue(bqPlayerBufferQueue, buffer[curBuffer], sizeInBytes);
-	CheckResult(result, StringFromFormat("Failed to enqueue: %d %d", renderedFrames, sizeInBytes).c_str());
+	
+	// TODO: get rid of this snprintf too
+	CheckResult(result, "Failed to enqueue");
 	// Comment from sample code:
 	// the most likely other result is SL_RESULT_BUFFER_INSUFFICIENT,
 	// which for this code example would indicate a programming error

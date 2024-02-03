@@ -801,7 +801,7 @@ void SystemInfoScreen::CreateTabs() {
 			vulkanFeatures->Add(new TextView(feature, new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetFocusable(true);
 		}
 
-		CollapsibleSection *presentModes = gpuExtensions->Add(new CollapsibleSection(si->T("Present Modes")));
+		CollapsibleSection *presentModes = gpuExtensions->Add(new CollapsibleSection(si->T("Present modes")));
 		for (auto mode : draw->GetPresentModeList(di->T("Current"))) {
 			presentModes->Add(new TextView(mode, new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetFocusable(true);
 		}
@@ -818,7 +818,7 @@ void SystemInfoScreen::CreateTabs() {
 			enabledExtensions->Add(new TextView(extension, new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetFocusable(true);
 		}
 		// Also get instance extensions
-		enabledExtensions->Add(new ItemHeader("Instance"));
+		enabledExtensions->Add(new ItemHeader(si->T("Instance")));
 		extensions = draw->GetExtensionList(false, true);
 		std::sort(extensions.begin(), extensions.end());
 		for (auto &extension : extensions) {
@@ -832,7 +832,7 @@ void SystemInfoScreen::CreateTabs() {
 			vulkanExtensions->Add(new TextView(extension, new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetFocusable(true);
 		}
 
-		vulkanExtensions->Add(new ItemHeader("Instance"));
+		vulkanExtensions->Add(new ItemHeader(si->T("Instance")));
 		// Also get instance extensions
 		extensions = draw->GetExtensionList(false, false);
 		std::sort(extensions.begin(), extensions.end());
@@ -1070,6 +1070,10 @@ void JitCompareScreen::UpdateDisasm() {
 	rightDisasm_->Clear();
 
 	using namespace UI;
+
+	if (!MIPSComp::jit) {
+		return;
+	}
 
 	JitBlockCacheDebugInterface *blockCacheDebug = MIPSComp::jit->GetBlockCacheDebugInterface();
 

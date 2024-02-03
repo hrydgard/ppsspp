@@ -449,7 +449,7 @@ bool Load_PSP_ELF_PBP(FileLoader *fileLoader, std::string *error_string) {
 		homebrewTitle = homebrewName;
 	std::string discID = g_paramSFO.GetDiscID();
 	std::string discVersion = g_paramSFO.GetValueString("DISC_VERSION");
-	std::string madeUpID = g_paramSFO.GenerateFakeID();
+	std::string madeUpID = g_paramSFO.GenerateFakeID(Path());
 
 	std::string title = StringFromFormat("%s : %s", discID.c_str(), homebrewTitle.c_str());
 	INFO_LOG(LOADER, "%s", title.c_str());

@@ -138,7 +138,7 @@ bool VulkanTexture::CreateDirect(VkCommandBuffer cmd, int w, int h, int depth, i
 	res = vkCreateImageView(vulkan_->GetDevice(), &view_info, NULL, &view_);
 	if (res != VK_SUCCESS) {
 		ERROR_LOG(G3D, "vkCreateImageView failed: %s. Destroying image.", VulkanResultToString(res));
-		_assert_(res == VK_ERROR_OUT_OF_HOST_MEMORY || res == VK_ERROR_OUT_OF_DEVICE_MEMORY || res == VK_ERROR_TOO_MANY_OBJECTS);
+		_assert_msg_(res == VK_ERROR_OUT_OF_HOST_MEMORY || res == VK_ERROR_OUT_OF_DEVICE_MEMORY || res == VK_ERROR_TOO_MANY_OBJECTS, "%d", (int)res);
 		vmaDestroyImage(vulkan_->Allocator(), image_, allocation_);
 		view_ = VK_NULL_HANDLE;
 		image_ = VK_NULL_HANDLE;
@@ -152,7 +152,7 @@ bool VulkanTexture::CreateDirect(VkCommandBuffer cmd, int w, int h, int depth, i
 		view_info.viewType = VK_IMAGE_VIEW_TYPE_2D_ARRAY;
 		res = vkCreateImageView(vulkan_->GetDevice(), &view_info, NULL, &arrayView_);
 		// Assume that if the above view creation succeeded, so will this.
-		_assert_(res == VK_SUCCESS);
+		_assert_msg_(res == VK_SUCCESS, "View creation failed: %d", (int)res);
 		vulkan_->SetDebugName(arrayView_, VK_OBJECT_TYPE_IMAGE_VIEW, tag_);
 	}
 

@@ -224,6 +224,7 @@ void DrawEngineVulkan::DoFlush() {
 	if (gstate_c.IsDirty(DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS) && !gstate.isModeClear() && gstate.isTextureMapEnabled()) {
 		textureCache_->SetTexture();
 		gstate_c.Clean(DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS);
+		// NOTE: After this is set, we MUST call ApplyTexture before returning.
 		textureNeedsApply = true;
 	} else if (gstate.getTextureAddress(0) == (gstate.getFrameBufRawAddress() | 0x04000000)) {
 		// This catches the case of clearing a texture.
@@ -431,7 +432,7 @@ void DrawEngineVulkan::DoFlush() {
 
 		if (result.action == SW_NOT_READY) {
 			// decIndex_ here is always equal to inds currently, but it may not be in the future.
-			swTransform.BuildDrawingParams(prim, vertexCount, dec_->VertexType(), inds, RemainingIndices(inds), numDecodedVerts_, &result);
+			swTransform.BuildDrawingParams(prim, vertexCount, dec_->VertexType(), inds, RemainingIndices(inds), numDecodedVerts_, VERTEX_BUFFER_MAX, &result);
 		}
 
 		if (result.setSafeSize)

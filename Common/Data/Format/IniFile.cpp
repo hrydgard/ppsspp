@@ -517,7 +517,7 @@ bool IniFile::Load(const Path &path)
 
 	// Open file
 	std::string data;
-	if (!File::ReadFileToString(true, path, data)) {
+	if (!File::ReadTextFileToString(path, &data)) {
 		return false;
 	}
 	std::stringstream sstream(data);

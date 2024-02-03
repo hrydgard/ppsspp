@@ -285,7 +285,6 @@ void TextDrawerSDL::MeasureString(const char *str, size_t len, float *w, float *
 	if (iter != sizeCache_.end()) {
 		entry = iter->second.get();
 	} else {
-		printf("re-measuring %s\n", str);
 		TTF_Font *font = fontMap_.find(fontHash_)->second;
 		int ptSize = TTF_FontHeight(font) / 1.35;
 

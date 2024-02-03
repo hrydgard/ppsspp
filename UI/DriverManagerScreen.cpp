@@ -100,7 +100,7 @@ DriverChoice::DriverChoice(const std::string &driverName, bool current, UI::Layo
 
 	Path metaPath = GetDriverPath() / driverName / "meta.json";
 	std::string metaJson;
-	if (File::ReadFileToString(true, metaPath, metaJson)) {
+	if (File::ReadTextFileToString(metaPath, &metaJson)) {
 		std::string errorStr;
 		meta.Read(metaJson, &errorStr);
 	}

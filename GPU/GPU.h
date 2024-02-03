@@ -80,6 +80,7 @@ struct GPUStatistics {
 		numDrawSyncs = 0;
 		numListSyncs = 0;
 		numVertsSubmitted = 0;
+		numVertsDecoded = 0;
 		numUncachedVertsDrawn = 0;
 		numTextureInvalidations = 0;
 		numTextureInvalidationsByFramebuffer = 0;
@@ -119,6 +120,7 @@ struct GPUStatistics {
 	int numBBOXJumps;
 	int numPlaneUpdates;
 	int numVertsSubmitted;
+	int numVertsDecoded;
 	int numUncachedVertsDrawn;
 	int numTextureInvalidations;
 	int numTextureInvalidationsByFramebuffer;

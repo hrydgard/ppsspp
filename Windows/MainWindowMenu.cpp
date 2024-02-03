@@ -333,7 +333,7 @@ namespace MainWindow {
 		W32Util::MakeTopMost(GetHWND(), false);
 
 		if (browseDirectory) {
-			System_BrowseForFolder(token, mm->T("Load"), [](const std::string &value, int) {
+			System_BrowseForFolder(token, mm->T("Load"), Path(), [](const std::string &value, int) {
 				BrowseAndBootDone(value);
 			});
 		} else {

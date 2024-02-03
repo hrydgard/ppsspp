@@ -124,7 +124,7 @@ const CommonCommandTableEntry commonCommandTable[] = {
 	{ GE_CMD_BLENDFIXEDB, FLAG_FLUSHBEFOREONCHANGE, DIRTY_BLEND_STATE | DIRTY_FRAGMENTSHADER_STATE },
 	{ GE_CMD_MASKRGB, FLAG_FLUSHBEFOREONCHANGE, DIRTY_BLEND_STATE | DIRTY_FRAGMENTSHADER_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_COLORWRITEMASK },
 	{ GE_CMD_MASKALPHA, FLAG_FLUSHBEFOREONCHANGE, DIRTY_BLEND_STATE | DIRTY_FRAGMENTSHADER_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_COLORWRITEMASK },
-	{ GE_CMD_ZTEST, FLAG_FLUSHBEFOREONCHANGE, DIRTY_DEPTHSTENCIL_STATE },
+	{ GE_CMD_ZTEST, FLAG_FLUSHBEFOREONCHANGE, DIRTY_DEPTHSTENCIL_STATE | DIRTY_FRAGMENTSHADER_STATE },
 	{ GE_CMD_ZTESTENABLE, FLAG_FLUSHBEFOREONCHANGE, DIRTY_DEPTHSTENCIL_STATE | DIRTY_FRAGMENTSHADER_STATE },
 	{ GE_CMD_ZWRITEDISABLE, FLAG_FLUSHBEFOREONCHANGE, DIRTY_DEPTHSTENCIL_STATE | DIRTY_FRAGMENTSHADER_STATE },
 	{ GE_CMD_LOGICOP, FLAG_FLUSHBEFOREONCHANGE, DIRTY_BLEND_STATE | DIRTY_FRAGMENTSHADER_STATE },
@@ -397,8 +397,10 @@ GPUCommonHW::~GPUCommonHW() {
 	framebufferManager_->DestroyAllFBOs();
 	delete framebufferManager_;
 	delete textureCache_;
-	shaderManager_->ClearShaders();
-	delete shaderManager_;
+	if (shaderManager_) {
+		shaderManager_->ClearShaders();
+		delete shaderManager_;
+	}
 }
 
 // Called once per frame. Might also get called during the pause screen
@@ -973,8 +975,9 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 	u32 vertexType = gstate.vertType;
 	if ((vertexType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE) {
 		u32 indexAddr = gstate_c.indexAddr;
-		if (!Memory::IsValidAddress(indexAddr)) {
-			ERROR_LOG(G3D, "Bad index address %08x!", indexAddr);
+		u32 indexSize = (vertexType & GE_VTYPE_IDX_MASK) >> GE_VTYPE_IDX_SHIFT;
+		if (!Memory::IsValidRange(indexAddr, count * indexSize)) {
+			ERROR_LOG(G3D, "Bad index address %08x (%d)!", indexAddr, count);
 			return;
 		}
 		inds = Memory::GetPointerUnchecked(indexAddr);
@@ -1746,7 +1749,7 @@ size_t GPUCommonHW::FormatGPUStatsCommon(char *buffer, size_t size) {
 	return snprintf(buffer, size,
 		"DL processing time: %0.2f ms, %d drawsync, %d listsync\n"
 		"Draw: %d (%d dec, %d culled), flushes %d, clears %d, bbox jumps %d (%d updates)\n"
-		"Vertices: %d drawn: %d\n"
+		"Vertices: %d dec: %d drawn: %d\n"
 		"FBOs active: %d (evaluations: %d)\n"
 		"Textures: %d, dec: %d, invalidated: %d, hashed: %d kB\n"
 		"readbacks %d (%d non-block), upload %d (cached %d), depal %d\n"
@@ -1765,6 +1768,7 @@ size_t GPUCommonHW::FormatGPUStatsCommon(char *buffer, size_t size) {
 		gpuStats.numBBOXJumps,
 		gpuStats.numPlaneUpdates,
 		gpuStats.numVertsSubmitted,
+		gpuStats.numVertsDecoded,
 		gpuStats.numUncachedVertsDrawn,
 		(int)framebufferManager_->NumVFBs(),
 		gpuStats.numFramebufferEvaluations,

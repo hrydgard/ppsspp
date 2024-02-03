@@ -628,13 +628,12 @@ bool Rename(const Path &srcFilename, const Path &destFilename) {
 		break;
 	case PathType::CONTENT_URI:
 		// Content URI: Can only rename if in the same folder.
-		// TODO: Fallback to move + rename? Or do we even care about that use case?
+		// TODO: Fallback to move + rename? Or do we even care about that use case? We have MoveIfFast for such tricks.
 		if (srcFilename.GetDirectory() != destFilename.GetDirectory()) {
 			INFO_LOG(COMMON, "Content URI rename: Directories not matching, failing. %s --> %s", srcFilename.c_str(), destFilename.c_str());
 			return false;
 		}
 		INFO_LOG(COMMON, "Content URI rename: %s --> %s", srcFilename.c_str(), destFilename.c_str());
-
 		return Android_RenameFileTo(srcFilename.ToString(), destFilename.GetFilename()) == StorageError::SUCCESS;
 	default:
 		return false;
@@ -752,22 +751,12 @@ bool Copy(const Path &srcFilename, const Path &destFilename) {
 
 // Will overwrite the target.
 bool Move(const Path &srcFilename, const Path &destFilename) {
-	// Try a shortcut in Android Storage scenarios.
-	if (srcFilename.Type() == PathType::CONTENT_URI && destFilename.Type() == PathType::CONTENT_URI && srcFilename.CanNavigateUp() && destFilename.CanNavigateUp()) {
-		// We do not handle simultaneous renames here.
-		if (srcFilename.GetFilename() == destFilename.GetFilename()) {
-			Path srcParent = srcFilename.NavigateUp();
-			Path dstParent = destFilename.NavigateUp();
-			if (Android_MoveFile(srcFilename.ToString(), srcParent.ToString(), dstParent.ToString()) == StorageError::SUCCESS) {
-				return true;
-			}
-			// If failed, fall through and try other ways.
-		}
-	}
-
-	if (Rename(srcFilename, destFilename)) {
+	bool fast = MoveIfFast(srcFilename, destFilename);
+	if (fast) {
 		return true;
-	} else if (Copy(srcFilename, destFilename)) {
+	}
+	// OK, that failed, so fall back on a copy.
+	if (Copy(srcFilename, destFilename)) {
 		return Delete(srcFilename);
 	} else {
 		return false;
@@ -775,7 +764,13 @@ bool Move(const Path &srcFilename, const Path &destFilename) {
 }
 
 bool MoveIfFast(const Path &srcFilename, const Path &destFilename) {
-	if (srcFilename.Type() == PathType::CONTENT_URI && destFilename.Type() == PathType::CONTENT_URI && srcFilename.CanNavigateUp() && destFilename.CanNavigateUp()) {
+	if (srcFilename.Type() != destFilename.Type()) {
+		// No way it's gonna work.
+		return false;
+	}
+
+	// Only need to check one type here, due to the above check.
+	if (srcFilename.Type() == PathType::CONTENT_URI && srcFilename.CanNavigateUp() && destFilename.CanNavigateUp()) {
 		if (srcFilename.GetFilename() == destFilename.GetFilename()) {
 			Path srcParent = srcFilename.NavigateUp();
 			Path dstParent = destFilename.NavigateUp();
@@ -787,11 +782,7 @@ bool MoveIfFast(const Path &srcFilename, const Path &destFilename) {
 		}
 	}
 
-	if (srcFilename.Type() != destFilename.Type()) {
-		// No way it's gonna work.
-		return false;
-	}
-
+	// Try a traditional rename operation.
 	return Rename(srcFilename, destFilename);
 }
 
@@ -1156,29 +1147,36 @@ bool IOFile::Resize(uint64_t size)
 	return m_good;
 }
 
-bool ReadFileToString(bool text_file, const Path &filename, std::string &str) {
-	FILE *f = File::OpenCFile(filename, text_file ? "r" : "rb");
+bool ReadFileToStringOptions(bool textFile, bool allowShort, const Path &filename, std::string *str) {
+	FILE *f = File::OpenCFile(filename, textFile ? "r" : "rb");
 	if (!f)
 		return false;
 	// Warning: some files, like in /sys/, may return a fixed size like 4096.
 	size_t len = (size_t)File::GetFileSize(f);
 	bool success;
 	if (len == 0) {
+		// Just read until we can't read anymore.
 		size_t totalSize = 1024;
 		size_t totalRead = 0;
 		do {
 			totalSize *= 2;
-			str.resize(totalSize);
-			totalRead += fread(&str[totalRead], 1, totalSize - totalRead, f);
+			str->resize(totalSize);
+			totalRead += fread(&(*str)[totalRead], 1, totalSize - totalRead, f);
 		} while (totalRead == totalSize);
-		str.resize(totalRead);
+		str->resize(totalRead);
 		success = true;
 	} else {
-		str.resize(len);
-		size_t totalRead = fread(&str[0], 1, len, f);
-		str.resize(totalRead);
+		str->resize(len);
+		size_t totalRead = fread(&(*str)[0], 1, len, f);
+		str->resize(totalRead);
 		// Allow less, because some system files will report incorrect lengths.
-		success = totalRead <= len;
+		// Also, when reading text with CRLF, the read length may be shorter.
+		if (textFile) {
+			// totalRead doesn't take \r into account since they might be skipped in this mode.
+			// So let's just ask how far the cursor got.
+			totalRead = ftell(f);
+		}
+		success = allowShort ? (totalRead <= len) : (totalRead == len);
 	}
 	fclose(f);
 	return success;

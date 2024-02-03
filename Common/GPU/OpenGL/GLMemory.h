@@ -169,7 +169,7 @@ protected:
 	void UnmapDevice();
 
 private:
-	bool AddBuffer();
+	void AddBuffer();  // asserts on failure
 	void NextBuffer(size_t minSize);
 	void Defragment();
 

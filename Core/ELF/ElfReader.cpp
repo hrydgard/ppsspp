@@ -533,17 +533,19 @@ int ElfReader::LoadInto(u32 loadAddress, bool fromTop)
 			u32 srcSize = p->p_filesz;
 			u32 dstSize = p->p_memsz;
 			u8 *dst = Memory::GetPointerWriteRange(writeAddr, dstSize);
+			if (dst) {
+				if (srcSize < dstSize) {
+					memset(dst + srcSize, 0, dstSize - srcSize); //zero out bss
+					NotifyMemInfo(MemBlockFlags::WRITE, writeAddr + srcSize, dstSize - srcSize, "ELFZero");
+				}
 
-			if (srcSize < dstSize)
-			{
-				memset(dst + srcSize, 0, dstSize - srcSize); //zero out bss
-				NotifyMemInfo(MemBlockFlags::WRITE, writeAddr + srcSize, dstSize - srcSize, "ELFZero");
+				memcpy(dst, src, srcSize);
+				std::string tag = StringFromFormat("ELFLoad/%08x", writeAddr);
+				NotifyMemInfo(MemBlockFlags::WRITE, writeAddr, srcSize, tag.c_str(), tag.size());
+				DEBUG_LOG(LOADER, "Loadable Segment Copied to %08x, size %08x", writeAddr, (u32)p->p_memsz);
+			} else {
+				ERROR_LOG(LOADER, "Bad ELF segment. Trying to write %d bytes to %08x", dstSize, writeAddr);
 			}
-
-			memcpy(dst, src, srcSize);
-			std::string tag = StringFromFormat("ELFLoad/%08x", writeAddr);
-			NotifyMemInfo(MemBlockFlags::WRITE, writeAddr, srcSize, tag.c_str(), tag.size());
-			DEBUG_LOG(LOADER,"Loadable Segment Copied to %08x, size %08x", writeAddr, (u32)p->p_memsz);
 		}
 	}
 	memblock.ListBlocks();

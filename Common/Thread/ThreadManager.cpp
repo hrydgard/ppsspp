@@ -59,8 +59,8 @@ ThreadManager::~ThreadManager() {
 
 void ThreadManager::Teardown() {
 	for (TaskThreadContext *&threadCtx : global_->threads_) {
-		threadCtx->cancelled = true;
 		std::unique_lock<std::mutex> lock(threadCtx->mutex);
+		threadCtx->cancelled = true;
 		threadCtx->cond.notify_one();
 	}
 

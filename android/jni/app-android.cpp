@@ -115,8 +115,6 @@ enum class EmuThreadState {
 static std::thread emuThread;
 static std::atomic<int> emuThreadState((int)EmuThreadState::DISABLED);
 
-void UpdateRunLoopAndroid(JNIEnv *env);
-
 AndroidAudioState *g_audioState;
 
 struct FrameCommand {
@@ -201,6 +199,8 @@ int utimensat(int fd, const char *path, const struct timespec times[2]) {
 }
 }
 #endif
+
+static void ProcessFrameCommands(JNIEnv *env);
 
 void AndroidLogger::Log(const LogMessage &message) {
 	int mode;
@@ -337,8 +337,22 @@ static void EmuThreadFunc() {
 	// We just call the update/render loop here.
 	emuThreadState = (int)EmuThreadState::RUNNING;
 	while (emuThreadState != (int)EmuThreadState::QUIT_REQUESTED) {
-		UpdateRunLoopAndroid(env);
+		{
+			std::lock_guard<std::mutex> renderGuard(renderLock);
+			NativeFrame(graphicsContext);
+		}
+
+		std::lock_guard<std::mutex> guard(frameCommandLock);
+		if (!nativeActivity) {
+			ERROR_LOG(SYSTEM, "No activity, clearing commands");
+			while (!frameCommands.empty())
+				frameCommands.pop();
+			return;
+		}
+		// Still under lock here.
+		ProcessFrameCommands(env);
 	}
+
 	INFO_LOG(SYSTEM, "QUIT_REQUESTED found, left EmuThreadFunc loop. Setting state to STOPPED.");
 	emuThreadState = (int)EmuThreadState::STOPPED;
 
@@ -370,8 +384,6 @@ static void EmuThreadJoin() {
 	emuThread = std::thread();
 	INFO_LOG(SYSTEM, "EmuThreadJoin - joined");
 }
-
-static void ProcessFrameCommands(JNIEnv *env);
 
 static void PushCommand(std::string cmd, std::string param) {
 	std::lock_guard<std::mutex> guard(frameCommandLock);
@@ -1162,25 +1174,6 @@ extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_sendRequestResult(JNIEn
 	}
 }
 
-void LockedNativeUpdateRender() {
-	std::lock_guard<std::mutex> renderGuard(renderLock);
-	NativeFrame(graphicsContext);
-}
-
-void UpdateRunLoopAndroid(JNIEnv *env) {
-	LockedNativeUpdateRender();
-
-	std::lock_guard<std::mutex> guard(frameCommandLock);
-	if (!nativeActivity) {
-		ERROR_LOG(SYSTEM, "No activity, clearing commands");
-		while (!frameCommands.empty())
-			frameCommands.pop();
-		return;
-	}
-	// Still under lock here.
-	ProcessFrameCommands(env);
-}
-
 extern "C" void Java_org_ppsspp_ppsspp_NativeRenderer_displayRender(JNIEnv *env, jobject obj) {
 	// This doesn't get called on the Vulkan path.
 	_assert_(useCPUThread);
@@ -1639,12 +1632,19 @@ static void VulkanEmuThread(ANativeWindow *wnd) {
 		renderer_inited = true;
 
 		while (!exitRenderLoop) {
-			LockedNativeUpdateRender();
-			ProcessFrameCommands(env);
+			{
+				std::lock_guard<std::mutex> renderGuard(renderLock);
+				NativeFrame(graphicsContext);
+			}
+			{
+				std::lock_guard<std::mutex> guard(frameCommandLock);
+				ProcessFrameCommands(env);
+			}
 		}
+		INFO_LOG(G3D, "Leaving Vulkan main loop.");
+	} else {
+		INFO_LOG(G3D, "Not entering main loop.");
 	}
-
-	INFO_LOG(G3D, "Leaving EGL/Vulkan render loop.");
 
 	NativeShutdownGraphics();
 
@@ -1652,7 +1652,7 @@ static void VulkanEmuThread(ANativeWindow *wnd) {
 	graphicsContext->ThreadEnd();
 
 	// Shut the graphics context down to the same state it was in when we entered the render thread.
-	INFO_LOG(G3D, "Shutting down graphics context from render thread...");
+	INFO_LOG(G3D, "Shutting down graphics context...");
 	graphicsContext->ShutdownFromRenderThread();
 	renderLoopRunning = false;
 	exitRenderLoop = false;
@@ -1678,11 +1678,13 @@ extern "C" jstring Java_org_ppsspp_ppsspp_ShortcutActivity_queryGameName(JNIEnv 
 	std::string result = "";
 
 	GameInfoCache *cache = new GameInfoCache();
-	std::shared_ptr<GameInfo> info = cache->GetInfo(nullptr, path, 0);
+	std::shared_ptr<GameInfo> info = cache->GetInfo(nullptr, path, GameInfoFlags::PARAM_SFO);
 	// Wait until it's done: this is synchronous, unfortunately.
 	if (info) {
 		INFO_LOG(SYSTEM, "GetInfo successful, waiting");
-		cache->WaitUntilDone(info);
+		while (!info->Ready(GameInfoFlags::PARAM_SFO)) {
+			sleep_ms(1);
+		}
 		INFO_LOG(SYSTEM, "Done waiting");
 		if (info->fileType != IdentifiedFileType::UNKNOWN) {
 			result = info->GetTitle();

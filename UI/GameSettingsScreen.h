@@ -175,8 +175,11 @@ public:
 		}, this);
 	}
 	~HostnameSelectScreen() {
-		resolverState_ = ResolverState::QUIT;
-		resolverCond_.notify_one();
+		{
+			std::unique_lock<std::mutex> guard(resolverLock_);
+			resolverState_ = ResolverState::QUIT;
+			resolverCond_.notify_one();
+		}
 		resolver_.join();
 	}
 

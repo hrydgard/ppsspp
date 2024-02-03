@@ -503,6 +503,14 @@ public:
 	void ResetStats() override {
 		renderManager_.ResetStats();
 	}
+	void StopThreads() override {
+		renderManager_.StopThreads();
+	}
+
+	void StartThreads() override {
+		renderManager_.StartThreads();
+	}
+
 
 	std::string GetInfoString(InfoField info) const override {
 		// TODO: Make these actually query the right information
@@ -965,7 +973,7 @@ VKContext::VKContext(VulkanContext *vulkan, bool useRenderThread)
 		// See: https://github.com/hrydgard/ppsspp/pull/11684
 		if (deviceProps.deviceID >= 0x05000000 && deviceProps.deviceID < 0x06000000) {
 			if (deviceProps.driverVersion < 0x80180000) {
-				bugs_.Infest(Bugs::NO_DEPTH_CANNOT_DISCARD_STENCIL);
+				bugs_.Infest(Bugs::NO_DEPTH_CANNOT_DISCARD_STENCIL_ADRENO);
 			}
 		}
 		// Color write mask not masking write in certain scenarios with a depth test, see #10421.
@@ -998,8 +1006,9 @@ VKContext::VKContext(VulkanContext *vulkan, bool useRenderThread)
 		bugs_.Infest(Bugs::EQUAL_WZ_CORRUPTS_DEPTH);
 
 		// Nearly identical to the the Adreno bug, see #13833 (Midnight Club map broken) and other issues.
+		// It has the additional caveat that combining depth writes with NEVER depth tests crashes the driver.
 		// Reported fixed in major version 40 - let's add a check once confirmed.
-		bugs_.Infest(Bugs::NO_DEPTH_CANNOT_DISCARD_STENCIL);
+		bugs_.Infest(Bugs::NO_DEPTH_CANNOT_DISCARD_STENCIL_MALI);
 
 		// This started in driver 31 or 32, fixed in 40 - let's add a check once confirmed.
 		if (majorVersion >= 32) {
@@ -1025,11 +1034,16 @@ VKContext::VKContext(VulkanContext *vulkan, bool useRenderThread)
 			// Very rough heuristic.
 			multisampleAllowed = false;
 		}
+	} else if (caps_.vendor == GPUVendor::VENDOR_IMGTEC) {
+		// Not sure about driver versions, so let's just ban, impact is tiny.
+		bugs_.Infest(Bugs::PVR_BAD_16BIT_TEXFORMATS);
 	}
 
 	if (!vulkan->Extensions().KHR_depth_stencil_resolve) {
 		INFO_LOG(G3D, "KHR_depth_stencil_resolve not supported, disabling multisampling");
 	}
+
+	bugs_.Infest(Draw::Bugs::NO_DEPTH_CANNOT_DISCARD_STENCIL_MALI);
 
 	// We limit multisampling functionality to reasonably recent and known-good tiling GPUs.
 	if (multisampleAllowed) {
@@ -1532,6 +1546,10 @@ std::vector<std::string> VKContext::GetFeatureList() const {
 	AddFeature(features, "shaderCullDistance", available.shaderCullDistance, enabled.shaderCullDistance);
 	AddFeature(features, "occlusionQueryPrecise", available.occlusionQueryPrecise, enabled.occlusionQueryPrecise);
 	AddFeature(features, "multiDrawIndirect", available.multiDrawIndirect, enabled.multiDrawIndirect);
+	AddFeature(features, "robustBufferAccess", available.robustBufferAccess, enabled.robustBufferAccess);
+	AddFeature(features, "fullDrawIndexUint32", available.fullDrawIndexUint32, enabled.fullDrawIndexUint32);
+	AddFeature(features, "fragmentStoresAndAtomics", available.fragmentStoresAndAtomics, enabled.fragmentStoresAndAtomics);
+	AddFeature(features, "shaderInt16", available.shaderInt16, enabled.shaderInt16);
 
 	AddFeature(features, "multiview", vulkan_->GetDeviceFeatures().available.multiview.multiview, vulkan_->GetDeviceFeatures().enabled.multiview.multiview);
 	AddFeature(features, "multiviewGeometryShader", vulkan_->GetDeviceFeatures().available.multiview.multiviewGeometryShader, vulkan_->GetDeviceFeatures().enabled.multiview.multiviewGeometryShader);

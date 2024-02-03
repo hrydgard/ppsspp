@@ -50,13 +50,16 @@ enum GameRegion {
 	GAMEREGION_MAX,
 };
 
-enum GameInfoWantFlags {
-	GAMEINFO_WANTBG = 0x01,
-	GAMEINFO_WANTSIZE = 0x02,
-	GAMEINFO_WANTSND = 0x04,
-	GAMEINFO_WANTBGDATA = 0x08, // Use with WANTBG.
-	GAMEINFO_WANTUNCOMPRESSEDSIZE = 0x10,
+enum class GameInfoFlags {
+	FILE_TYPE = 0x01,  // Don't need to specify this, always included.
+	PARAM_SFO = 0x02,
+	ICON = 0x04,
+	BG = 0x08,
+	SND = 0x10,
+	SIZE = 0x20,
+	UNCOMPRESSED_SIZE = 0x40,
 };
+ENUM_CLASS_BITOPS(GameInfoFlags);
 
 class FileLoader;
 enum class IdentifiedFileType;
@@ -66,21 +69,25 @@ struct GameInfoTex {
 	Draw::Texture *texture = nullptr;
 	// The time at which the Icon and the BG were loaded.
 	// Can be useful to fade them in smoothly once they appear.
+	// Also, timeLoaded != 0 && texture == nullptr means that the load failed.
 	double timeLoaded = 0.0;
 	std::atomic<bool> dataLoaded{};
 
 	// Can ONLY be called from the main thread!
 	void Clear();
+	bool Failed() const {
+		return timeLoaded != 0.0 && !texture;
+	}
 };
 
 class GameInfo {
 public:
-	GameInfo();
+	GameInfo(const Path &gamePath);
 	~GameInfo();
 
 	bool Delete();  // Better be sure what you're doing when calling this.
 	bool DeleteAllSaveData();
-	bool LoadFromPath(const Path &gamePath);
+	bool CreateLoader();
 
 	bool HasFileLoader() const {
 		return fileLoader.get() != nullptr;
@@ -95,11 +102,23 @@ public:
 	u64 GetInstallDataSizeInBytes();
 
 	void ParseParamSFO();
+	void FinishPendingTextureLoads(Draw::DrawContext *draw);
 
 	std::vector<Path> GetSaveDataDirectories();
 
 	std::string GetTitle();
 	void SetTitle(const std::string &newTitle);
+
+	bool Ready(GameInfoFlags flags) {
+		std::unique_lock<std::mutex> guard(lock);
+		// Avoid the operator, we want to check all the bits.
+		return ((int)hasFlags & (int)flags) == (int)flags;
+	}
+
+	void MarkReadyNoLock(GameInfoFlags flags) {
+		hasFlags |= flags;
+		pendingFlags &= ~flags;
+	}
 
 	GameInfoTex *GetBGPic() {
 		if (pic1.texture)
@@ -118,14 +137,19 @@ public:
 	// Controls access to the fileLoader pointer.
 	std::mutex loaderLock;
 
+	// Keep track of what we have, or what we're processing.
+	// These are protected by the mutex. While pendingFlags != 0, something is being loaded.
+	GameInfoFlags hasFlags{};
+	GameInfoFlags pendingFlags{};
+
 	std::string id;
 	std::string id_version;
 	int disc_total = 0;
 	int disc_number = 0;
 	int region = -1;
+	bool badCHD = false;
 	IdentifiedFileType fileType;
 	ParamSFOData paramSFO;
-	bool paramSFOLoaded = false;
 	bool hasConfig = false;
 
 	// Pre read the data, create a texture the next time (GL thread..)
@@ -136,19 +160,12 @@ public:
 	std::string sndFileData;
 	std::atomic<bool> sndDataLoaded{};
 
-	int wantFlags = 0;
-
 	double lastAccessedTime = 0.0;
 
 	u64 gameSizeUncompressed = 0;
 	u64 gameSizeOnDisk = 0;  // compressed size, in case of CSO
 	u64 saveDataSize = 0;
 	u64 installDataSize = 0;
-
-	std::atomic<bool> pending{};
-	std::atomic<bool> working{};
-
-	Event readyEvent;
 
 protected:
 	// Note: this can change while loading, use GetTitle().
@@ -157,6 +174,8 @@ protected:
 	// TODO: Get rid of this shared_ptr and managae lifetime better instead.
 	std::shared_ptr<FileLoader> fileLoader;
 	Path filePath_;
+
+	void SetupTexture(Draw::DrawContext *draw, GameInfoTex &tex);
 
 private:
 	DISALLOW_COPY_AND_ASSIGN(GameInfo);
@@ -175,7 +194,7 @@ public:
 	// but filled in later asynchronously in the background. So keep calling this,
 	// redrawing the UI often. Only set flags to GAMEINFO_WANTBG or WANTSND if you really want them 
 	// because they're big. bgTextures and sound may be discarded over time as well.
-	std::shared_ptr<GameInfo> GetInfo(Draw::DrawContext *draw, const Path &gamePath, int wantFlags);
+	std::shared_ptr<GameInfo> GetInfo(Draw::DrawContext *draw, const Path &gamePath, GameInfoFlags wantFlags);
 	void FlushBGs();  // Gets rid of all BG textures. Also gets rid of bg sounds.
 
 	void CancelAll();
@@ -184,11 +203,11 @@ public:
 private:
 	void Init();
 	void Shutdown();
-	void SetupTexture(std::shared_ptr<GameInfo> &info, Draw::DrawContext *draw, GameInfoTex &tex);
 
 	// Maps ISO path to info. Need to use shared_ptr as we can return these pointers - 
 	// and if they get destructed while being in use, that's bad.
 	std::map<std::string, std::shared_ptr<GameInfo> > info_;
+	std::mutex mapLock_;
 };
 
 // This one can be global, no good reason not to.

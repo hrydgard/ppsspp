@@ -25,6 +25,7 @@ using namespace std::placeholders;
 #include "Common/Render/TextureAtlas.h"
 #include "Common/GPU/OpenGL/GLFeatures.h"
 #include "Common/Render/Text/draw_text.h"
+#include "Common/File/FileUtil.h"
 #include "Common/Battery/Battery.h"
 
 #include "Common/UI/Root.h"
@@ -59,6 +60,7 @@ using namespace std::placeholders;
 #include "Core/MemFault.h"
 #include "Core/Reporting.h"
 #include "Core/System.h"
+#include "Core/FileSystems/VirtualDiscFileSystem.h"
 #include "GPU/GPUState.h"
 #include "GPU/GPUInterface.h"
 #include "GPU/Common/FramebufferManagerCommon.h"
@@ -269,13 +271,25 @@ void EmuScreen::bootGame(const Path &filename) {
 	invalid_ = true;
 
 	// We don't want to boot with the wrong game specific config, so wait until info is ready.
-	std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(nullptr, filename, 0);
-	if (!info || info->pending)
+	std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(nullptr, filename, GameInfoFlags::PARAM_SFO);
+	if (!info->Ready(GameInfoFlags::PARAM_SFO)) {
 		return;
+	}
+
+	if (info->badCHD) {
+		auto e = GetI18NCategory(I18NCat::ERRORS);
+		g_OSD.Show(OSDType::MESSAGE_CENTERED_ERROR, e->T("BadCHD", "Bad CHD file.\nCompress using \"chdman createdvd\" for good performance."), gamePath_.ToVisualString(), 7.0f);
+	}
 
 	auto sc = GetI18NCategory(I18NCat::SCREEN);
 	if (info->fileType == IdentifiedFileType::PSP_DISC_DIRECTORY) {
-		g_OSD.Show(OSDType::MESSAGE_CENTERED_WARNING, sc->T("ExtractedIsoWarning", "Extracted ISOs often don't work.\nPlay the ISO file directly."), gamePath_.ToVisualString(), 7.0f);
+		// Check for existence of ppsspp-index.lst - if it exists, the user likely knows what they're doing.
+		// TODO: Better would be to check that it was loaded successfully.
+		if (!File::Exists(filename / INDEX_FILENAME)) {
+			g_OSD.Show(OSDType::MESSAGE_CENTERED_WARNING, sc->T("ExtractedIsoWarning", "Extracted ISOs often don't work.\nPlay the ISO file directly."), gamePath_.ToVisualString(), 7.0f);
+		} else {
+			INFO_LOG(LOADER, "Extracted ISO loaded without warning - %s is present.", INDEX_FILENAME.c_str());
+		}
 	}
 
 	extraAssertInfoStr_ = info->id + " " + info->GetTitle();
@@ -495,6 +509,7 @@ void EmuScreen::focusChanged(ScreenFocusChange focusChange) {
 	switch (focusChange) {
 	case ScreenFocusChange::FOCUS_LOST_TOP:
 		g_Config.TimeTracker().Stop(gameID);
+		controlMapper_.ReleaseAll();
 		break;
 	case ScreenFocusChange::FOCUS_BECAME_TOP:
 		g_Config.TimeTracker().Start(gameID);
@@ -592,13 +607,14 @@ void EmuScreen::sendMessage(UIMessage message, const char *value) {
 			}
 		}
 	} else if (message == UIMessage::REQUEST_PLAY_SOUND) {
-		if (g_Config.bAchievementsSoundEffects) {
+		if (g_Config.bAchievementsSoundEffects && g_Config.bEnableSound) {
+			float achievementVolume = g_Config.iAchievementSoundVolume * 0.1f;
 			// TODO: Handle this some nicer way.
 			if (!strcmp(value, "achievement_unlocked")) {
-				g_BackgroundAudio.SFX().Play(UI::UISound::ACHIEVEMENT_UNLOCKED, 0.6f);
+				g_BackgroundAudio.SFX().Play(UI::UISound::ACHIEVEMENT_UNLOCKED, achievementVolume * 1.0f);
 			}
 			if (!strcmp(value, "leaderboard_submitted")) {
-				g_BackgroundAudio.SFX().Play(UI::UISound::LEADERBOARD_SUBMITTED, 0.6f);
+				g_BackgroundAudio.SFX().Play(UI::UISound::LEADERBOARD_SUBMITTED, achievementVolume * 1.0f);
 			}
 		}
 	}
@@ -952,11 +968,11 @@ public:
 
 	void Draw(UIContext &dc) override {
 		// Should only be called when visible.
-		std::shared_ptr<GameInfo> ginfo = g_gameInfoCache->GetInfo(dc.GetDrawContext(), gamePath_, GAMEINFO_WANTBG);
+		std::shared_ptr<GameInfo> ginfo = g_gameInfoCache->GetInfo(dc.GetDrawContext(), gamePath_, GameInfoFlags::BG);
 		dc.Flush();
 
 		// PIC1 is the loading image, so let's only draw if it's available.
-		if (ginfo && ginfo->pic1.texture) {
+		if (ginfo->Ready(GameInfoFlags::BG) && ginfo->pic1.texture) {
 			Draw::Texture *texture = ginfo->pic1.texture;
 			if (texture) {
 				dc.GetDrawContext()->BindTexture(0, texture);
@@ -1306,6 +1322,8 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 
 	bool skipBufferEffects = g_Config.bSkipBufferEffects;
 
+	bool framebufferBound = false;
+
 	if (mode & ScreenRenderMode::FIRST) {
 		// Actually, always gonna be first when it exists (?)
 
@@ -1316,7 +1334,7 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 		// We only bind it in FramebufferManager::CopyDisplayToOutput (unless non-buffered)...
 		// We do, however, start the frame in other ways.
 
-		if ((g_Config.bSkipBufferEffects && !g_Config.bSoftwareRendering) || Core_IsStepping()) {
+		if ((skipBufferEffects && !g_Config.bSoftwareRendering) || Core_IsStepping()) {
 			// We need to clear here already so that drawing during the frame is done on a clean slate.
 			if (Core_IsStepping() && gpuStats.numFlips != 0) {
 				draw->BindFramebufferAsRenderTarget(nullptr, { RPAction::KEEP, RPAction::CLEAR, RPAction::CLEAR }, "EmuScreen_BackBuffer");
@@ -1327,6 +1345,7 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 			draw->SetViewport(viewport);
 			draw->SetScissorRect(0, 0, g_display.pixel_xres, g_display.pixel_yres);
 			skipBufferEffects = true;
+			framebufferBound = true;
 		}
 		draw->SetTargetSize(g_display.pixel_xres, g_display.pixel_yres);
 	}
@@ -1336,13 +1355,15 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 	if (mode & ScreenRenderMode::TOP) {
 		System_Notify(SystemNotification::KEEP_SCREEN_AWAKE);
 	} else if (!Core_ShouldRunBehind() && strcmp(screenManager()->topScreen()->tag(), "DevMenu") != 0) {
-		// Not on top. Let's not execute, only draw the image.
-		draw->BindFramebufferAsRenderTarget(nullptr, { RPAction::CLEAR, RPAction::CLEAR, RPAction::CLEAR, }, "EmuScreen_Stepping");
 		// Just to make sure.
-		if (PSP_IsInited() && !g_Config.bSkipBufferEffects) {
+		if (PSP_IsInited() && !skipBufferEffects) {
+			_dbg_assert_(gpu);
 			PSP_BeginHostFrame();
 			gpu->CopyDisplayToOutput(true);
 			PSP_EndHostFrame();
+		}
+		if (!framebufferBound && (!gpu || !gpu->PresentedThisFrame())) {
+			draw->BindFramebufferAsRenderTarget(nullptr, { RPAction::CLEAR, RPAction::CLEAR, RPAction::CLEAR, }, "EmuScreen_Behind");
 		}
 		// Need to make sure the UI texture is available, for "darken".
 		screenManager()->getUIContext()->BeginFrame();
@@ -1387,7 +1408,6 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 	Core_UpdateDebugStats((DebugOverlay)g_Config.iDebugOverlay == DebugOverlay::DEBUG_STATS || g_Config.bLogFrameDrops);
 
 	bool blockedExecution = Achievements::IsBlockingExecution();
-	bool rebind = false;
 	uint32_t clearColor = 0;
 	if (!blockedExecution) {
 		PSP_BeginHostFrame();
@@ -1411,13 +1431,16 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 				bool dangerousSettings = !Reporting::IsSupported();
 				clearColor = dangerousSettings ? 0xFF900050 : 0xFF900000;
 				draw->BindFramebufferAsRenderTarget(nullptr, { RPAction::CLEAR, RPAction::CLEAR, RPAction::CLEAR, clearColor }, "EmuScreen_RuntimeError");
+				framebufferBound = true;
 				// The info is drawn later in renderUI
 			} else {
 				// If we're stepping, it's convenient not to clear the screen entirely, so we copy display to output.
 				// This won't work in non-buffered, but that's fine.
 				draw->BindFramebufferAsRenderTarget(nullptr, { RPAction::CLEAR, RPAction::CLEAR, RPAction::CLEAR, clearColor }, "EmuScreen_Stepping");
+				framebufferBound = true;
 				// Just to make sure.
 				if (PSP_IsInited()) {
+					_dbg_assert_(gpu);
 					gpu->CopyDisplayToOutput(true);
 				}
 			}
@@ -1427,15 +1450,22 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 			// Didn't actually reach the end of the frame, ran out of the blockTicks cycles.
 			// In this case we need to bind and wipe the backbuffer, at least.
 			// It's possible we never ended up outputted anything - make sure we have the backbuffer cleared
-			rebind = true;
+			// So, we don't set framebufferBound here.
 			break;
 		}
 
 		PSP_EndHostFrame();
+
+		// This place rougly matches how libretro handles it (after retro_frame).
+		Achievements::FrameUpdate();
 	}
 
+	_dbg_assert_(gpu);
+	if (gpu && gpu->PresentedThisFrame()) {
+		framebufferBound = true;
+	}
 
-	if (gpu && !gpu->PresentedThisFrame() && !skipBufferEffects) {
+	if (!framebufferBound) {
 		draw->BindFramebufferAsRenderTarget(nullptr, { RPAction::CLEAR, RPAction::CLEAR, RPAction::CLEAR, clearColor }, "EmuScreen_NoFrame");
 		draw->SetViewport(viewport);
 		draw->SetScissorRect(0, 0, g_display.pixel_xres, g_display.pixel_yres);
@@ -1457,8 +1487,6 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 	checkPowerDown();
 
 	if (hasVisibleUI()) {
-		// In most cases, this should already be bound and a no-op.
-		draw->BindFramebufferAsRenderTarget(nullptr, { RPAction::KEEP, RPAction::CLEAR, RPAction::CLEAR }, "EmuScreen_UI");
 		draw->SetViewport(viewport);
 		cardboardDisableButton_->SetVisibility(g_Config.bEnableCardboardVR ? UI::V_VISIBLE : UI::V_GONE);
 		screenManager()->getUIContext()->BeginFrame();

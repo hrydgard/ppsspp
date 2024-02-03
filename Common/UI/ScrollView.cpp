@@ -144,7 +144,8 @@ bool ScrollView::Touch(const TouchInput &input) {
 		if (orientation_ == ORIENT_VERTICAL) {
 			Bob bob = ComputeBob();
 			float internalY = input.y - bounds_.y;
-			draggingBob_ = internalY >= bob.offset && internalY <= bob.offset + bob.size && input.x >= bounds_.x2() - 20.0f;
+			float bobMargin = 3.0f;  // Add some extra margin for the touch.
+			draggingBob_ = internalY >= bob.offset - bobMargin && internalY <= bob.offset + bob.size + bobMargin && input.x >= bounds_.x2() - 20.0f;
 			barDragStart_ = bob.offset;
 			barDragOffset_ = internalY - bob.offset;
 		}
@@ -165,11 +166,13 @@ bool ScrollView::Touch(const TouchInput &input) {
 		draggingBob_ = false;
 	}
 
+	// We modify the input2 we send to children, so we can cancel drags if we start scrolling, and stuff like that.
 	TouchInput input2;
 	if (CanScroll()) {
 		if (draggingBob_) {
-			input2 = input;
-			// Skip the gesture, do calculations directly.
+			// Cancel any drags/holds on the children instantly to avoid accidental click-throughs.
+			input2.flags = TOUCH_UP | TOUCH_CANCEL;
+			// Skip the gesture manager, do calculations directly.
 			// Might switch to the gesture later.
 			Bob bob = ComputeBob();
 			float internalY = input.y - bounds_.y;
@@ -216,7 +219,7 @@ ScrollView::Bob ScrollView::ComputeBob() const {
 
 	if (ratio < 1.0f && scrollMax > 0.0f) {
 		bob.show = true;
-		bob.thickness = draggingBob_ ? 15.0f : 5.0f;
+		bob.thickness = draggingBob_ ? 15.0f : 6.0f;
 		bob.size = ratio * bounds_.h;
 		bob.offset = (HardClampedScrollPos(scrollPos_) / scrollMax) * (bounds_.h - bob.size);
 		bob.scrollMax = scrollMax;

@@ -259,7 +259,7 @@ static const char *CPUCoreAsString(int core) {
 	case 0: return "Interpreter";
 	case 1: return "JIT";
 	case 2: return "IR Interpreter";
-	case 3: return "JIT Using IR";
+	case 3: return "JIT using IR";
 	default: return "N/A";
 	}
 }
@@ -406,7 +406,7 @@ Invalid / Unknown (%d)
 	}
 	if (checkingISO) {
 		tips += "* (waiting for CRC...)\n";
-	} else if (!isoOK) {
+	} else if (!isoOK) {  // TODO: Should check that it actually is an ISO and not a homebrew
 		tips += "* Verify and possibly re-dump your ISO\n  (CRC not recognized)\n";
 	}
 	if (!tips.empty()) {

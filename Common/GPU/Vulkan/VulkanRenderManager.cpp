@@ -348,6 +348,11 @@ bool VulkanRenderManager::CreateBackbuffers() {
 }
 
 void VulkanRenderManager::StartThreads() {
+	{
+		std::unique_lock<std::mutex> lock(compileMutex_);
+		_assert_(compileQueue_.empty());
+	}
+
 	runCompileThread_ = true;  // For controlling the compiler thread's exit
 
 	if (useRenderThread_) {
@@ -365,6 +370,9 @@ void VulkanRenderManager::StartThreads() {
 
 // Called from main thread.
 void VulkanRenderManager::StopThreads() {
+	// Not sure this is a sensible check - should be ok even if not.
+	// _dbg_assert_(steps_.empty());
+
 	if (useRenderThread_) {
 		_dbg_assert_(renderThread_.joinable());
 		// Tell the render thread to quit when it's done.
@@ -377,13 +385,7 @@ void VulkanRenderManager::StopThreads() {
 		pushCondVar_.notify_one();
 		// Once the render thread encounters the above exit task, it'll exit.
 		renderThread_.join();
-	}
-
-	// Compiler and present thread still relies on this.
-	runCompileThread_ = false;
-
-	if (presentWaitThread_.joinable()) {
-		presentWaitThread_.join();
+		INFO_LOG(G3D, "Vulkan submission thread joined. Frame=%d", vulkan_->GetCurFrame());
 	}
 
 	for (int i = 0; i < vulkan_->GetInflightFrames(); i++) {
@@ -392,15 +394,25 @@ void VulkanRenderManager::StopThreads() {
 		frameData.profile.timestampDescriptions.clear();
 	}
 
-	INFO_LOG(G3D, "Vulkan submission thread joined. Frame=%d", vulkan_->GetCurFrame());
-
-	_assert_(compileThread_.joinable());
-	compileCond_.notify_all();
+	{
+		std::unique_lock<std::mutex> lock(compileMutex_);
+		runCompileThread_ = false;  // Compiler and present thread both look at this bool.
+		_assert_(compileThread_.joinable());
+		compileCond_.notify_one();
+	}
 	compileThread_.join();
+
+	if (presentWaitThread_.joinable()) {
+		presentWaitThread_.join();
+	}
 
 	INFO_LOG(G3D, "Vulkan compiler thread joined. Now wait for any straggling compile tasks.");
 	CreateMultiPipelinesTask::WaitForAll();
-	_dbg_assert_(steps_.empty());
+
+	{
+		std::unique_lock<std::mutex> lock(compileMutex_);
+		_assert_(compileQueue_.empty());
+	}
 }
 
 void VulkanRenderManager::DestroyBackbuffers() {
@@ -410,8 +422,25 @@ void VulkanRenderManager::DestroyBackbuffers() {
 	queueRunner_.DestroyBackBuffers();
 }
 
+void VulkanRenderManager::CheckNothingPending() {
+	_assert_(pipelinesToCheck_.empty());
+	{
+		std::unique_lock<std::mutex> lock(compileMutex_);
+		_assert_(compileQueue_.empty());
+	}
+}
+
 VulkanRenderManager::~VulkanRenderManager() {
 	INFO_LOG(G3D, "VulkanRenderManager destructor");
+
+	{
+		std::unique_lock<std::mutex> lock(compileMutex_);
+		_assert_(compileQueue_.empty());
+	}
+
+	if (useRenderThread_) {
+		_dbg_assert_(!renderThread_.joinable());
+	}
 
 	_dbg_assert_(!runCompileThread_);  // StopThread should already have been called from DestroyBackbuffers.
 
@@ -433,10 +462,7 @@ void VulkanRenderManager::CompileThreadFunc() {
 		std::vector<CompileQueueEntry> toCompile;
 		{
 			std::unique_lock<std::mutex> lock(compileMutex_);
-			// TODO: Should this be while?
-			// It may be beneficial also to unlock and wait a little bit to see if we get some more shaders
-			// so we can do a better job of thread-sorting them.
-			if (compileQueue_.empty() && runCompileThread_) {
+			while (compileQueue_.empty() && runCompileThread_) {
 				compileCond_.wait(lock);
 			}
 			toCompile = std::move(compileQueue_);
@@ -490,6 +516,9 @@ void VulkanRenderManager::CompileThreadFunc() {
 		// Hold off just a bit before we check again, to allow bunches of pipelines to collect.
 		sleep_ms(1);
 	}
+
+	std::unique_lock<std::mutex> lock(compileMutex_);
+	_assert_(compileQueue_.empty());
 }
 
 void VulkanRenderManager::RenderThreadFunc() {
@@ -522,9 +551,8 @@ void VulkanRenderManager::RenderThreadFunc() {
 	}
 
 	// Wait for the device to be done with everything, before tearing stuff down.
-	// TODO: Do we need this?
+	// TODO: Do we really need this? It's probably a good idea, though.
 	vkDeviceWaitIdle(vulkan_->GetDevice());
-
 	VLOG("PULL: Quitting");
 }
 
@@ -557,7 +585,9 @@ void VulkanRenderManager::PollPresentTiming() {
 	// Poll for information about completed frames.
 	// NOTE: We seem to get the information pretty late! Like after 6 frames, which is quite weird.
 	// Tested on POCO F4.
-	if (vulkan_->Extensions().GOOGLE_display_timing) {
+	// TODO: Getting validation errors that this should be called from the thread doing the presenting.
+	// Probably a fair point. For now, we turn it off.
+	if (measurePresentTime_ && vulkan_->Extensions().GOOGLE_display_timing) {
 		uint32_t count = 0;
 		vkGetPastPresentationTimingGOOGLE(vulkan_->GetDevice(), vulkan_->GetSwapchain(), &count, nullptr);
 		if (count > 0) {
@@ -758,7 +788,7 @@ VKRGraphicsPipeline *VulkanRenderManager::CreateGraphicsPipeline(VKRGraphicsPipe
 			VKRRenderPassStoreAction::STORE, VKRRenderPassStoreAction::DONT_CARE, VKRRenderPassStoreAction::DONT_CARE,
 		};
 		VKRRenderPass *compatibleRenderPass = queueRunner_.GetRenderPass(key);
-		std::lock_guard<std::mutex> lock(compileMutex_);
+		std::unique_lock<std::mutex> lock(compileMutex_);
 		bool needsCompile = false;
 		for (size_t i = 0; i < (size_t)RenderPassType::TYPE_COUNT; i++) {
 			if (!(variantBitmask & (1 << i)))
@@ -781,7 +811,7 @@ VKRGraphicsPipeline *VulkanRenderManager::CreateGraphicsPipeline(VKRGraphicsPipe
 			}
 
 			pipeline->pipeline[i] = Promise<VkPipeline>::CreateEmpty();
-			compileQueue_.push_back(CompileQueueEntry(pipeline, compatibleRenderPass->Get(vulkan_, rpType, sampleCount), rpType, sampleCount));
+			compileQueue_.emplace_back(pipeline, compatibleRenderPass->Get(vulkan_, rpType, sampleCount), rpType, sampleCount);
 			needsCompile = true;
 		}
 		if (needsCompile)
@@ -924,6 +954,11 @@ void VulkanRenderManager::BindFramebufferAsRenderTarget(VKRFramebuffer *fb, VKRR
 		EndCurRenderStep();
 	}
 
+	// Sanity check that we don't have binds to the backbuffer before binds to other buffers. It must always be bound last.
+	if (steps_.size() >= 1 && steps_.back()->stepType == VKRStepType::RENDER && steps_.back()->render.framebuffer == nullptr && fb != nullptr) {
+		_dbg_assert_(false);
+	}
+
 	// Older Mali drivers have issues with depth and stencil don't match load/clear/etc.
 	// TODO: Determine which versions and do this only where necessary.
 	u32 lateClearMask = 0;
@@ -956,6 +991,7 @@ void VulkanRenderManager::BindFramebufferAsRenderTarget(VKRFramebuffer *fb, VKRR
 	step->render.numReads = 0;
 	step->render.finalColorLayout = !fb ? VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL : VK_IMAGE_LAYOUT_UNDEFINED;
 	step->render.finalDepthStencilLayout = !fb ? VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL : VK_IMAGE_LAYOUT_UNDEFINED;
+	// pipelineFlags, renderArea and renderPassType get filled in when we finalize the step. Do not read from them before that.
 	step->tag = tag;
 	steps_.push_back(step);
 
@@ -1282,8 +1318,19 @@ void VulkanRenderManager::BlitFramebuffer(VKRFramebuffer *src, VkRect2D srcRect,
 
 	EndCurRenderStep();
 
-	VKRStep *step = new VKRStep{ VKRStepType::BLIT };
+	// Sanity check. Added an assert to try to gather more info.
+	// Got this assert in NPJH50443 FINAL FANTASY TYPE-0, but pretty rare. Moving back to debug assert.
+	if (aspectMask & (VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT)) {
+		_dbg_assert_msg_(src->depth.image != VK_NULL_HANDLE, "%s", src->Tag());
+		_dbg_assert_msg_(dst->depth.image != VK_NULL_HANDLE, "%s", dst->Tag());
 
+		if (!src->depth.image || !dst->depth.image) {
+			// Something has gone wrong, but let's try to stumble along.
+			return;
+		}
+	}
+
+	VKRStep *step = new VKRStep{ VKRStepType::BLIT };
 	step->blit.aspectMask = aspectMask;
 	step->blit.src = src;
 	step->blit.srcRect = srcRect;
@@ -1349,6 +1396,7 @@ void VulkanRenderManager::Finish() {
 	EndCurRenderStep();
 
 	// Let's do just a bit of cleanup on render commands now.
+	// TODO: Should look into removing this.
 	for (auto &step : steps_) {
 		if (step->stepType == VKRStepType::RENDER) {
 			CleanupRenderCommands(&step->commands);
@@ -1435,7 +1483,7 @@ void VulkanRenderManager::Run(VKRRenderThreadTask &task) {
 	if (!frameTimeHistory_[frameData.frameId].firstSubmit) {
 		frameTimeHistory_[frameData.frameId].firstSubmit = time_now_d();
 	}
-	frameData.SubmitPending(vulkan_, FrameSubmitType::Pending, frameDataShared_);
+	frameData.Submit(vulkan_, FrameSubmitType::Pending, frameDataShared_);
 
 	// Flush descriptors.
 	double descStart = time_now_d();
@@ -1472,12 +1520,12 @@ void VulkanRenderManager::Run(VKRRenderThreadTask &task) {
 
 	switch (task.runType) {
 	case VKRRunType::SUBMIT:
-		frameData.SubmitPending(vulkan_, FrameSubmitType::Present, frameDataShared_);
+		frameData.Submit(vulkan_, FrameSubmitType::FinishFrame, frameDataShared_);
 		break;
 
 	case VKRRunType::SYNC:
 		// The submit will trigger the readbackFence, and also do the wait for it.
-		frameData.SubmitPending(vulkan_, FrameSubmitType::Sync, frameDataShared_);
+		frameData.Submit(vulkan_, FrameSubmitType::Sync, frameDataShared_);
 
 		if (useRenderThread_) {
 			std::unique_lock<std::mutex> lock(syncMutex_);
@@ -1517,10 +1565,12 @@ void VulkanRenderManager::FlushSync() {
 			VLOG("PUSH: Frame[%d]", curFrame);
 			VKRRenderThreadTask *task = new VKRRenderThreadTask(VKRRunType::SYNC);
 			task->frame = curFrame;
-			std::unique_lock<std::mutex> lock(pushMutex_);
-			renderThreadQueue_.push(task);
-			renderThreadQueue_.back()->steps = std::move(steps_);
-			pushCondVar_.notify_one();
+			{
+				std::unique_lock<std::mutex> lock(pushMutex_);
+				renderThreadQueue_.push(task);
+				renderThreadQueue_.back()->steps = std::move(steps_);
+				pushCondVar_.notify_one();
+			}
 			steps_.clear();
 		}
 

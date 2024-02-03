@@ -48,16 +48,15 @@ CwCheatScreen::~CwCheatScreen() {
 }
 
 bool CwCheatScreen::TryLoadCheatInfo() {
-	std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(nullptr, gamePath_, 0);
+	std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(nullptr, gamePath_, GameInfoFlags::PARAM_SFO);
 	std::string gameID;
-	if (info && info->paramSFOLoaded) {
-		gameID = info->paramSFO.GetValueString("DISC_ID");
-	} else {
+	if (!info->Ready(GameInfoFlags::PARAM_SFO)) {
 		return false;
 	}
+	gameID = info->paramSFO.GetValueString("DISC_ID");
 	if ((info->id.empty() || !info->disc_total)
 		&& gamePath_.FilePathContainsNoCase("PSP/GAME/")) {
-		gameID = g_paramSFO.GenerateFakeID(gamePath_.ToString());
+		gameID = g_paramSFO.GenerateFakeID(gamePath_);
 	}
 
 	if (!engine_ || gameID != gameID_) {
@@ -69,7 +68,7 @@ bool CwCheatScreen::TryLoadCheatInfo() {
 
 	// We won't parse this, just using it to detect changes to the file.
 	std::string str;
-	if (File::ReadFileToString(true, engine_->CheatFilename(), str)) {
+	if (File::ReadTextFileToString(engine_->CheatFilename(), &str)) {
 		fileCheckHash_ = XXH3_64bits(str.c_str(), str.size());
 	}
 	fileCheckCounter_ = 0;
@@ -112,7 +111,7 @@ void CwCheatScreen::CreateViews() {
 	leftColumn->Add(new Choice(cw->T("Edit Cheat File")))->OnClick.Handle(this, &CwCheatScreen::OnEditCheatFile);
 #endif
 	leftColumn->Add(new Choice(di->T("Disable All")))->OnClick.Handle(this, &CwCheatScreen::OnDisableAll);
-	leftColumn->Add(new PopupSliderChoice(&g_Config.iCwCheatRefreshIntervalMs, 1, 1000, 77, cw->T("Refresh Interval"), 1, screenManager()))->SetFormat(di->T("%d ms"));
+	leftColumn->Add(new PopupSliderChoice(&g_Config.iCwCheatRefreshIntervalMs, 1, 1000, 77, cw->T("Refresh interval"), 1, screenManager()))->SetFormat(di->T("%d ms"));
 
 
 	rightScroll_ = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT, 0.5f));
@@ -146,7 +145,7 @@ void CwCheatScreen::update() {
 	if (fileCheckCounter_++ >= FILE_CHECK_FRAME_INTERVAL && engine_) {
 		// Check if the file has changed.  If it has, we'll reload.
 		std::string str;
-		if (File::ReadFileToString(true, engine_->CheatFilename(), str)) {
+		if (File::ReadTextFileToString(engine_->CheatFilename(), &str)) {
 			uint64_t newHash = XXH3_64bits(str.c_str(), str.size());
 			if (newHash != fileCheckHash_) {
 				// This will update the hash.

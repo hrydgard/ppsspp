@@ -369,7 +369,7 @@ void VulkanQueueRunner::RunSteps(std::vector<VKRStep *> &steps, int curFrame, Fr
 				if (emitLabels) {
 					vkCmdEndDebugUtilsLabelEXT(cmd);
 				}
-				frameData.SubmitPending(vulkan_, FrameSubmitType::Pending, frameDataShared);
+				frameData.Submit(vulkan_, FrameSubmitType::Pending, frameDataShared);
 
 				// When stepping in the GE debugger, we can end up here multiple times in a "frame".
 				// So only acquire once.
@@ -1703,9 +1703,8 @@ void VulkanQueueRunner::PerformBlit(const VKRStep &step, VkCommandBuffer cmd) {
 
 	// We can't copy only depth or only stencil unfortunately.
 	if (step.blit.aspectMask & (VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT)) {
-		_dbg_assert_(src->depth.image != VK_NULL_HANDLE);
-		_dbg_assert_(dst->depth.image != VK_NULL_HANDLE);
-
+		_assert_(src->depth.image != VK_NULL_HANDLE);
+		_assert_(dst->depth.image != VK_NULL_HANDLE);
 		SetupTransitionToTransferSrc(src->depth, VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT, &recordBarrier_);
 		SetupTransitionToTransferDst(dst->depth, VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT, &recordBarrier_);
 	}

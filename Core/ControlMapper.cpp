@@ -56,7 +56,7 @@ float ControlMapper::GetDeviceAxisThreshold(int device, const InputMapping &mapp
 				float absCoValue = fabsf(rawAxisValue_[(int)coAxis]);
 				if (absCoValue > 0.0f) {
 					// Bias down the threshold if the other axis is active.
-					float biasedThreshold = AXIS_BIND_THRESHOLD * (1.0f - absCoValue * 0.2f);
+					float biasedThreshold = AXIS_BIND_THRESHOLD * (1.0f - absCoValue * 0.35f);
 					// INFO_LOG(SYSTEM, "coValue: %f  threshold: %f", absCoValue, biasedThreshold);
 					return biasedThreshold;
 				}
@@ -231,6 +231,42 @@ void ControlMapper::ForceReleaseVKey(int vkey) {
 	KeyMap::UnlockMappings();
 }
 
+void ControlMapper::ReleaseAll() {
+	std::vector<AxisInput> axes;
+	std::vector<KeyInput> keys;
+
+	{
+		std::lock_guard<std::mutex> guard(mutex_);
+
+		for (const auto &input : curInput_) {
+			if (input.first.IsAxis()) {
+				if (input.second.value != 0.0f) {
+					AxisInput axis;
+					axis.deviceId = input.first.deviceId;
+					int dir;
+					axis.axisId = (InputAxis)input.first.Axis(&dir);
+					axis.value = 0.0;
+					axes.push_back(axis);
+				}
+			} else {
+				if (input.second.value != 0.0) {
+					KeyInput key;
+					key.deviceId = input.first.deviceId;
+					key.flags = KEY_UP;
+					key.keyCode = (InputKeyCode)input.first.keyCode;
+					keys.push_back(key);
+				}
+			}
+		}
+	}
+
+	Axis(axes.data(), axes.size());;
+	for (const auto &key : keys) {
+		Key(key, nullptr);
+	}
+}
+
+
 static int RotatePSPKeyCode(int x) {
 	switch (x) {
 	case CTRL_UP: return CTRL_RIGHT;
@@ -365,7 +401,7 @@ bool ControlMapper::UpdatePSPState(const InputMapping &changedMapping, double no
 					continue;
 				}
 				// Stop reverse ordering from triggering.
-				if (iter->second.timestamp < curTime) {
+				if (g_Config.bStrictComboOrder && iter->second.timestamp < curTime) {
 					all = false;
 					break;
 				} else {
@@ -416,7 +452,7 @@ bool ControlMapper::UpdatePSPState(const InputMapping &changedMapping, double no
 
 				if (iter != curInput_.end()) {
 					// Stop reverse ordering from triggering.
-					if (iter->second.timestamp < curTime) {
+					if (g_Config.bStrictComboOrder && iter->second.timestamp < curTime) {
 						product = 0.0f;
 						break;
 					} else {

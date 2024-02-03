@@ -115,13 +115,12 @@ public:
 	RPKey rpKey{};
 };
 
-// Wrapped pipeline. Doesn't own desc.
+// Wrapped pipeline. Does own desc!
 struct VKRGraphicsPipeline {
 	VKRGraphicsPipeline(PipelineFlags flags, const char *tag) : flags_(flags), tag_(tag) {}
 	~VKRGraphicsPipeline();
 
 	bool Create(VulkanContext *vulkan, VkRenderPass compatibleRenderPass, RenderPassType rpType, VkSampleCountFlagBits sampleCount, double scheduleTime, int countToCompile);
-
 	void DestroyVariants(VulkanContext *vulkan, bool msaaOnly);
 
 	// This deletes the whole VKRGraphicsPipeline, you must remove your last pointer to it when doing this.
@@ -237,6 +236,7 @@ public:
 	// These can run on a different thread!
 	void Finish();
 	void Present();
+	void CheckNothingPending();
 
 	void SetInvalidationCallback(InvalidationCallback callback) {
 		invalidationCallback_ = callback;

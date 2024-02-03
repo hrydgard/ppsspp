@@ -332,14 +332,20 @@ public:
 	void Update() override;
 
 	void SetOpen(bool open) {
+		*open_ = open;
+		UpdateVisibility();
+	}
+	void SetOpenPtr(bool *open) {
+		header_->SetOpenPtr(open);
 		open_ = open;
 		UpdateVisibility();
 	}
 
 private:
 	void UpdateVisibility();
-	bool open_ = true;
-	CollapsibleHeader *heading_;
+	bool localOpen_ = true;
+	bool *open_;
+	CollapsibleHeader *header_;
 };
 
 }  // namespace UI

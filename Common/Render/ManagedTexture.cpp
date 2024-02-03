@@ -70,7 +70,7 @@ static Draw::DataFormat ZimToT3DFormat(int zim) {
 	}
 }
 
-static ImageFileType DetectImageFileType(const uint8_t *data, size_t size) {
+ImageFileType DetectImageFileType(const uint8_t *data, size_t size) {
 	if (size < 4) {
 		return ImageFileType::UNKNOWN;
 	}

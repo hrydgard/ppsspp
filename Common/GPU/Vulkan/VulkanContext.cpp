@@ -697,6 +697,11 @@ VkResult VulkanContext::CreateDevice() {
 	deviceFeatures_.enabled.standard.shaderCullDistance = deviceFeatures_.available.standard.shaderCullDistance;
 	deviceFeatures_.enabled.standard.geometryShader = deviceFeatures_.available.standard.geometryShader;
 	deviceFeatures_.enabled.standard.sampleRateShading = deviceFeatures_.available.standard.sampleRateShading;
+	
+#ifdef _DEBUG
+	// For debugging! Although, it might hide problems, so turning it off. Can be useful to rule out classes of issues.
+	// deviceFeatures_.enabled.standard.robustBufferAccess = deviceFeatures_.available.standard.robustBufferAccess;
+#endif
 
 	deviceFeatures_.enabled.multiview = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MULTIVIEW_FEATURES };
 	if (extensionsLookup_.KHR_multiview) {

@@ -309,7 +309,7 @@ static void CheckFailedGPUBackends() {
 
 	if (System_GetPropertyBool(SYSPROP_SUPPORTS_PERMISSIONS)) {
 		std::string data;
-		if (File::ReadFileToString(true, cache, data))
+		if (File::ReadTextFileToString(cache, &data))
 			g_Config.sFailedGPUBackends = data;
 	}
 
@@ -433,7 +433,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	if (File::Exists(memstickDirFile)) {
 		INFO_LOG(SYSTEM, "Reading '%s' to find memstick dir.", memstickDirFile.c_str());
 		std::string memstickDir;
-		if (File::ReadFileToString(true, memstickDirFile, memstickDir)) {
+		if (File::ReadTextFileToString(memstickDirFile, &memstickDir)) {
 			Path memstickPath(memstickDir);
 			if (!memstickPath.empty() && File::Exists(memstickPath)) {
 				g_Config.memStickDirectory = memstickPath;
@@ -460,7 +460,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	if (File::Exists(memstickDirFile)) {
 		INFO_LOG(SYSTEM, "Reading '%s' to find memstick dir.", memstickDirFile.c_str());
 		std::string memstickDir;
-		if (File::ReadFileToString(true, memstickDirFile, memstickDir)) {
+		if (File::ReadTextFileToString(memstickDirFile, &memstickDir)) {
 			Path memstickPath(memstickDir);
 			if (!memstickPath.empty() && File::Exists(memstickPath)) {
 				g_Config.memStickDirectory = memstickPath;
@@ -924,6 +924,7 @@ void NativeShutdownGraphics() {
 	}
 	g_iconCache.ClearTextures();
 
+	// TODO: This is not really necessary with Vulkan on Android - could keep shaders etc in memory
 	if (gpu)
 		gpu->DeviceLost();
 
@@ -1060,23 +1061,6 @@ void NativeFrame(GraphicsContext *graphicsContext) {
 	ProcessWheelRelease(NKCODE_EXT_MOUSEWHEEL_UP, startTime, false);
 	ProcessWheelRelease(NKCODE_EXT_MOUSEWHEEL_DOWN, startTime, false);
 
-	std::vector<PendingMessage> toProcess;
-	{
-		std::lock_guard<std::mutex> lock(pendingMutex);
-		toProcess = std::move(pendingMessages);
-		pendingMessages.clear();
-	}
-
-	for (const auto &item : toProcess) {
-		if (HandleGlobalMessage(item.message, item.value)) {
-			// TODO: Add a to-string thingy.
-			INFO_LOG(SYSTEM, "Handled global message: %d / %s", (int)item.message, item.value.c_str());
-		}
-		g_screenManager->sendMessage(item.message, item.value.c_str());
-	}
-
-	g_requestManager.ProcessRequests();
-
 	// it's ok to call this redundantly with DoFrame from EmuScreen
 	Achievements::Idle();
 
@@ -1102,6 +1086,24 @@ void NativeFrame(GraphicsContext *graphicsContext) {
 	g_iconCache.FrameUpdate();
 
 	g_screenManager->update();
+
+	// Do this after g_screenManager.update() so we can receive setting changes before rendering.
+	std::vector<PendingMessage> toProcess;
+	{
+		std::lock_guard<std::mutex> lock(pendingMutex);
+		toProcess = std::move(pendingMessages);
+		pendingMessages.clear();
+	}
+
+	for (const auto &item : toProcess) {
+		if (HandleGlobalMessage(item.message, item.value)) {
+			// TODO: Add a to-string thingy.
+			INFO_LOG(SYSTEM, "Handled global message: %d / %s", (int)item.message, item.value.c_str());
+		}
+		g_screenManager->sendMessage(item.message, item.value.c_str());
+	}
+
+	g_requestManager.ProcessRequests();
 
 	// Apply the UIContext bounds as a 2D transformation matrix.
 	// TODO: This should be moved into the draw context...
@@ -1176,7 +1178,12 @@ void NativeFrame(GraphicsContext *graphicsContext) {
 		graphicsContext->Poll();
 	}
 
+	SendMouseDeltaAxis();
+
 	if (!(renderFlags & ScreenRenderFlags::HANDLED_THROTTLING)) {
+		// TODO: We should ideally mix this with game audio.
+		g_BackgroundAudio.Play();
+
 		float refreshRate = System_GetPropertyFloat(SYSPROP_DISPLAY_REFRESH_RATE);
 		// Simple throttling to not burn the GPU in the menu.
 		// TODO: This should move into NativeFrame. Also, it's only necessary in MAILBOX or IMMEDIATE presentation modes.
@@ -1184,12 +1191,7 @@ void NativeFrame(GraphicsContext *graphicsContext) {
 		int sleepTime = (int)(1000.0 / refreshRate) - (int)(diffTime * 1000.0);
 		if (sleepTime > 0)
 			sleep_ms(sleepTime);
-
-		// TODO: We should ideally mix this with game audio.
-		g_BackgroundAudio.Play();
 	}
-
-	SendMouseDeltaAxis();
 }
 
 bool HandleGlobalMessage(UIMessage message, const std::string &value) {
@@ -1542,7 +1544,7 @@ bool NativeSaveSecret(const char *nameOfSecret, const std::string &data) {
 std::string NativeLoadSecret(const char *nameOfSecret) {
 	Path path = GetSecretPath(nameOfSecret);
 	std::string data;
-	if (!File::ReadFileToString(false, path, data)) {
+	if (!File::ReadBinaryFileToString(path, &data)) {
 		data.clear();  // just to be sure.
 	}
 	return data;

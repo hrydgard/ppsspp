@@ -240,7 +240,7 @@ private:
 			}
 
 			std::shared_ptr<GameInfo> ginfo = GetInfo(dc, index);
-			if (ginfo && ginfo->pending) {
+			if (ginfo && !ginfo->Ready(GameInfoFlags::BG)) {
 				// Wait for it to load.  It might be the next one.
 				break;
 			}
@@ -261,7 +261,7 @@ private:
 		const auto recentIsos = g_Config.RecentIsos();
 		if (index >= (int)recentIsos.size())
 			return nullptr;
-		return g_gameInfoCache->GetInfo(dc.GetDrawContext(), Path(recentIsos[index]), GAMEINFO_WANTBG);
+		return g_gameInfoCache->GetInfo(dc.GetDrawContext(), Path(recentIsos[index]), GameInfoFlags::BG);
 	}
 
 	void DrawTex(UIContext &dc, std::shared_ptr<GameInfo> &ginfo, float amount) {
@@ -376,13 +376,14 @@ uint32_t GetBackgroundColorWithAlpha(const UIContext &dc) {
 void DrawGameBackground(UIContext &dc, const Path &gamePath, float x, float y, float z) {
 	using namespace Draw;
 	using namespace UI;
-
-	std::shared_ptr<GameInfo> ginfo;
-	if (!gamePath.empty())
-		ginfo = g_gameInfoCache->GetInfo(dc.GetDrawContext(), gamePath, GAMEINFO_WANTBG);
 	dc.Flush();
 
-	GameInfoTex *pic = ginfo ? ginfo->GetBGPic() : nullptr;
+	std::shared_ptr<GameInfo> ginfo;
+	if (!gamePath.empty()) {
+		ginfo = g_gameInfoCache->GetInfo(dc.GetDrawContext(), gamePath, GameInfoFlags::BG);
+	}
+
+	GameInfoTex *pic = (ginfo && ginfo->Ready(GameInfoFlags::BG)) ? ginfo->GetBGPic() : nullptr;
 	if (pic) {
 		dc.GetDrawContext()->BindTexture(0, pic->texture);
 		uint32_t color = whiteAlpha(ease((time_now_d() - pic->timeLoaded) * 3)) & 0xFFc0c0c0;
@@ -1056,10 +1057,12 @@ void SettingInfoMessage::Show(const std::string &text, const UI::View *refView) 
 	if (refView) {
 		Bounds b = refView->GetBounds();
 		const UI::AnchorLayoutParams *lp = GetLayoutParams()->As<UI::AnchorLayoutParams>();
-		if (cutOffY_ != -1.0f && b.y >= cutOffY_) {
-			ReplaceLayoutParams(new UI::AnchorLayoutParams(lp->width, lp->height, lp->left, 80.0f, lp->right, lp->bottom, lp->center));
-		} else {
-			ReplaceLayoutParams(new UI::AnchorLayoutParams(lp->width, lp->height, lp->left, g_display.dp_yres - 80.0f - 40.0f, lp->right, lp->bottom, lp->center));
+		if (lp) {
+			if (cutOffY_ != -1.0f && b.y >= cutOffY_) {
+				ReplaceLayoutParams(new UI::AnchorLayoutParams(lp->width, lp->height, lp->left, 80.0f, lp->right, lp->bottom, lp->center));
+			} else {
+				ReplaceLayoutParams(new UI::AnchorLayoutParams(lp->width, lp->height, lp->left, g_display.dp_yres - 80.0f - 40.0f, lp->right, lp->bottom, lp->center));
+			}
 		}
 	}
 	text_->SetText(text);
@@ -1088,7 +1091,8 @@ void SettingInfoMessage::Draw(UIContext &dc) {
 		dc.FillRect(style.background, bounds_);
 	}
 
-	text_->SetTextColor(whiteAlpha(alpha));
+	uint32_t textColor = colorAlpha(dc.GetTheme().itemStyle.fgColor, alpha);
+	text_->SetTextColor(textColor);
 	ViewGroup::Draw(dc);
 	showing_ = sinceShow <= timeToShow; // Don't consider fade time
 }

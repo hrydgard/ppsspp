@@ -78,35 +78,38 @@ TextureReplacer::~TextureReplacer() {
 void TextureReplacer::NotifyConfigChanged() {
 	gameID_ = g_paramSFO.GetDiscID();
 
-	bool wasEnabled = enabled_;
-	enabled_ = g_Config.bReplaceTextures || g_Config.bSaveNewTextures;
-	if (enabled_) {
+	bool wasReplaceEnabled = replaceEnabled_;
+	replaceEnabled_ = g_Config.bReplaceTextures;
+	saveEnabled_ = g_Config.bSaveNewTextures;
+	if (replaceEnabled_ || saveEnabled_) {
 		basePath_ = GetSysDirectory(DIRECTORY_TEXTURES) / gameID_;
-
+		replaceEnabled_ = replaceEnabled_ && File::IsDirectory(basePath_);
 		newTextureDir_ = basePath_ / NEW_TEXTURE_DIR;
 
 		// If we're saving, auto-create the directory.
-		if (g_Config.bSaveNewTextures && !File::Exists(newTextureDir_)) {
+		if (saveEnabled_ && !File::Exists(newTextureDir_)) {
+			INFO_LOG(G3D, "Creating new texture directory: '%s'", newTextureDir_.ToVisualString().c_str());
 			File::CreateFullPath(newTextureDir_);
-			File::CreateEmptyFile(newTextureDir_ / ".nomedia");
+			// We no longer create a nomedia file here, since we put one
+			// in the TEXTURES root.
 		}
+	}
 
-		enabled_ = File::IsDirectory(basePath_);
+	if (saveEnabled_) {
+		// Somewhat crude message, re-using translation strings.
+		auto d = GetI18NCategory(I18NCat::DEVELOPER);
+		auto di = GetI18NCategory(I18NCat::DIALOG);
+		g_OSD.Show(OSDType::MESSAGE_INFO, std::string(d->T("Save new textures")) + ": " + di->T("Enabled"), 2.0f);
+	}
 
-		if (g_Config.bSaveNewTextures) {
-			// Somewhat crude message, re-using translation strings.
-			auto d = GetI18NCategory(I18NCat::DEVELOPER);
-			auto di = GetI18NCategory(I18NCat::DIALOG);
-			g_OSD.Show(OSDType::MESSAGE_INFO, std::string(d->T("Save new textures")) + ": " + di->T("Enabled"), 2.0f);
-		}
-	} else if (wasEnabled) {
+	if (!replaceEnabled_ && wasReplaceEnabled) {
 		delete vfs_;
 		vfs_ = nullptr;
 		Decimate(ReplacerDecimateMode::ALL);
 	}
 
-	if (enabled_) {
-		enabled_ = LoadIni();
+	if (replaceEnabled_) {
+		replaceEnabled_ = LoadIni();
 	}
 }
 
@@ -313,7 +316,7 @@ bool TextureReplacer::LoadIniValues(IniFile &ini, VFSBackend *dir, bool isOverri
 	if (ini.HasSection("hashes")) {
 		auto hashes = ini.GetOrCreateSection("hashes")->ToMap();
 		// Format: hashname = filename.png
-		bool checkFilenames = g_Config.bSaveNewTextures && !g_Config.bIgnoreTextureFilenames && !vfsIsZip_;
+		bool checkFilenames = saveEnabled_ && !g_Config.bIgnoreTextureFilenames && !vfsIsZip_;
 
 		for (const auto &item : hashes) {
 			ReplacementCacheKey key(0, 0);
@@ -477,7 +480,7 @@ void TextureReplacer::ParseReduceHashRange(const std::string& key, const std::st
 }
 
 u32 TextureReplacer::ComputeHash(u32 addr, int bufw, int w, int h, bool swizzled, GETextureFormat fmt, u16 maxSeenV) {
-	_dbg_assert_msg_(enabled_, "Replacement not enabled");
+	_dbg_assert_msg_(replaceEnabled_ || saveEnabled_, "Replacement not enabled");
 
 	// TODO: Take swizzled into account, like in QuickTexHash().
 	// Note: Currently, only the MLB games are known to need this.
@@ -721,8 +724,7 @@ public:
 };
 
 bool TextureReplacer::WillSave(const ReplacedTextureDecodeInfo &replacedInfo) {
-	_assert_msg_(enabled_, "Replacement not enabled");
-	if (!g_Config.bSaveNewTextures)
+	if (!saveEnabled_)
 		return false;
 	// Don't save the PPGe texture.
 	if (replacedInfo.addr > 0x05000000 && replacedInfo.addr < PSP_GetKernelMemoryEnd())
@@ -734,7 +736,7 @@ bool TextureReplacer::WillSave(const ReplacedTextureDecodeInfo &replacedInfo) {
 }
 
 void TextureReplacer::NotifyTextureDecoded(ReplacedTexture *texture, const ReplacedTextureDecodeInfo &replacedInfo, const void *data, int pitch, int level, int origW, int origH, int scaledW, int scaledH) {
-	_assert_msg_(enabled_, "Replacement not enabled");
+	_assert_msg_(saveEnabled_, "Texture saving not enabled");
 	_assert_(pitch >= 0);
 
 	if (!WillSave(replacedInfo)) {

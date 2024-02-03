@@ -2,6 +2,15 @@
 #include "VulkanContext.h"
 #include "VulkanBarrier.h"
 
+#include "Common/Log.h"
+
+VulkanBarrierBatch::~VulkanBarrierBatch() {
+	// _dbg_assert_(imageBarriers_.empty());
+	if (!imageBarriers_.empty()) {
+		ERROR_LOG(G3D, "~VulkanBarrierBatch: %d barriers remaining", (int)imageBarriers_.size());
+	}
+}
+
 void VulkanBarrier::Flush(VkCommandBuffer cmd) {
 	if (!imageBarriers_.empty()) {
 		vkCmdPipelineBarrier(cmd, srcStageMask_, dstStageMask_, dependencyFlags_, 0, nullptr, 0, nullptr, (uint32_t)imageBarriers_.size(), imageBarriers_.data());

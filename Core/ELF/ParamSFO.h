@@ -24,6 +24,8 @@
 #include "Common/CommonTypes.h"
 #include "Common/Log.h"
 
+class Path;
+
 class ParamSFOData
 {
 public:
@@ -36,7 +38,7 @@ public:
 	const u8 *GetValueData(const std::string &key, unsigned int *size) const;
 
 	std::vector<std::string> GetKeys() const;
-	std::string GenerateFakeID(const std::string &filename = "") const;
+	std::string GenerateFakeID(const Path &filename) const;
 
 	std::string GetDiscID();
 

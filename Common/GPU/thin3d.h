@@ -336,7 +336,7 @@ public:
 	const char *GetBugName(uint32_t bug);
 
 	enum : uint32_t {
-		NO_DEPTH_CANNOT_DISCARD_STENCIL = 0,
+		NO_DEPTH_CANNOT_DISCARD_STENCIL_ADRENO = 0,
 		DUAL_SOURCE_BLENDING_BROKEN = 1,
 		ANY_MAP_BUFFER_RANGE_SLOW = 2,
 		PVR_GENMIPMAP_HEIGHT_GREATER = 3,
@@ -350,6 +350,8 @@ public:
 		GEOMETRY_SHADERS_SLOW_OR_BROKEN = 11,
 		ADRENO_RESOURCE_DEADLOCK = 12,
 		UNIFORM_INDEXING_BROKEN = 13,  // not a properly diagnosed issue, a workaround attempt: #17386
+		PVR_BAD_16BIT_TEXFORMATS = 14,
+		NO_DEPTH_CANNOT_DISCARD_STENCIL_MALI = 15,
 		MAX_BUG,
 	};
 
@@ -833,6 +835,10 @@ public:
 		targetWidth_ = w;
 		targetHeight_ = h;
 	}
+
+	// In Vulkan, when changing things like MSAA mode, we can't have draw commands in flight (since we only support one at a time).
+	virtual void StopThreads() {}
+	virtual void StartThreads() {}
 
 	virtual std::string GetInfoString(InfoField info) const = 0;
 	virtual uint64_t GetNativeObject(NativeObject obj, void *srcObject = nullptr) = 0;  // Most uses don't need an srcObject.

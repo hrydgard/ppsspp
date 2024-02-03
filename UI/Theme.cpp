@@ -114,6 +114,11 @@ static void LoadThemeInfo(const std::vector<Path> &directories) {
 			// Alright, let's loop through the sections and see if any is a theme.
 			for (size_t i = 0; i < ini.Sections().size(); i++) {
 				Section &section = *(ini.Sections()[i].get());
+
+				if (section.name().empty()) {
+					continue;
+				}
+
 				ThemeInfo info;
 				section.Get("Name", &info.name, section.name().c_str());
 

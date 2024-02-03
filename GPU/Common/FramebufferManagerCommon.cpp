@@ -1547,6 +1547,7 @@ void FramebufferManagerCommon::CopyDisplayToOutput(bool reallyDirty) {
 		// No framebuffer to display! Clear to black.
 		if (useBufferedRendering_) {
 			draw_->BindFramebufferAsRenderTarget(nullptr, { Draw::RPAction::CLEAR, Draw::RPAction::CLEAR, Draw::RPAction::CLEAR }, "CopyDisplayToOutput");
+			presentation_->NotifyPresent();
 		}
 		gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE);
 		return;
@@ -2810,7 +2811,9 @@ void FramebufferManagerCommon::NotifyRenderResized(int msaaLevel) {
 	PSP_CoreParameter().renderScaleFactor = scaleFactor;
 
 	if (UpdateRenderSize(msaaLevel)) {
+		draw_->StopThreads();
 		DestroyAllFBOs();
+		draw_->StartThreads();
 	}
 
 	// No drawing is allowed here. This includes anything that might potentially touch a command buffer, like creating images!

@@ -332,7 +332,7 @@ public:
 private:
 	SasReverb reverb_;
 	int grainSize = 0;
-	int16_t mixTemp_[PSP_SAS_MAX_GRAIN * 4 + 2 + 8];  // some extra margin for very high pitches.
+	int16_t mixTemp_[PSP_SAS_MAX_GRAIN * 4 + 2 + 16];  // some extra margin for very high pitches.
 };
 
 const char *ADSRCurveModeAsString(SasADSRCurveMode mode);
