@@ -569,7 +569,8 @@ private:
 	int curHeight_ = -1;
 
 	bool insideFrame_ = false;
-	bool runCompileThread_ = false;
+	// probably doesn't need to be atomic.
+	std::atomic<bool> runCompileThread_;
 
 	bool useRenderThread_ = true;
 	bool measurePresentTime_ = false;

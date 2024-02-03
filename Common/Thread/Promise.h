@@ -88,7 +88,8 @@ public:
 	// Returns T if the data is ready, nullptr if it's not.
 	// Obviously, can only be used if T is nullable, otherwise it won't compile.
 	T Poll() {
-		_assert_(sentinel_ == 0xffc0ffee);
+		uint32_t sentinel = sentinel_;
+		_assert_msg_(sentinel == 0xffc0ffee, "%08x", sentinel);
 		std::lock_guard<std::mutex> guard(readyMutex_);
 		if (ready_) {
 			return data_;
@@ -105,7 +106,8 @@ public:
 	}
 
 	T BlockUntilReady() {
-		_assert_(sentinel_ == 0xffc0ffee);
+		uint32_t sentinel = sentinel_;
+		_assert_msg_(sentinel == 0xffc0ffee, "%08x", sentinel);
 		std::lock_guard<std::mutex> guard(readyMutex_);
 		if (ready_) {
 			return data_;
