@@ -129,10 +129,7 @@ extern "C" {
 #include "libavcodec/avcodec.h"
 #include "libavutil/version.h"
 }
-
-#if LIBAVFORMAT_VERSION_INT >= AV_VERSION_INT(59, 16, 100)
-#define AVCodec const AVCodec
-#endif
+#include "Core/FFMPEGCompat.h"
 
 #endif // USE_FFMPEG
 
