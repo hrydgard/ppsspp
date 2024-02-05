@@ -174,7 +174,7 @@ option(USE_ASAN "Use address sanitizer" OFF)
 option(USE_UBSAN "Use undefined behaviour sanitizer" OFF)
 option(USE_CCACHE "Use ccache if detected" ON)
 
-if(USE_CACHE)
+if(USE_CCACHE)
 	include(ccache)
 endif()
 
@@ -1377,19 +1377,19 @@ else()
 		set(nativeExtraLibs ${nativeExtraLibs} PkgConfig::SDL2_ttf_PKGCONFIG)
 	endif()
 	if(APPLE)
-		set(nativeExtra ${nativeExtra} 
-		SDL/SDLMain.h 
-		SDL/SDLMain.mm 
-		SDL/SDLCocoaMetalLayer.h 
-		SDL/SDLCocoaMetalLayer.mm 
+		set(nativeExtra ${nativeExtra}
+		SDL/SDLMain.h
+		SDL/SDLMain.mm
+		SDL/SDLCocoaMetalLayer.h
+		SDL/SDLCocoaMetalLayer.mm
 		SDL/CocoaBarItems.mm
 		SDL/CocoaBarItems.h
 		SDL/PPSSPPAboutViewController.m
 		SDL/PPSSPPAboutViewController.h
-		UI/DarwinFileSystemServices.mm 
-		UI/DarwinFileSystemServices.h 
-		Common/Battery/AppleBatteryClient.m 
-		UI/PSPNSApplicationDelegate.mm 
+		UI/DarwinFileSystemServices.mm
+		UI/DarwinFileSystemServices.h
+		Common/Battery/AppleBatteryClient.m
+		UI/PSPNSApplicationDelegate.mm
 		UI/PSPNSApplicationDelegate.h)
 
         set_source_files_properties(UI/DarwinFileSystemServices.mm PROPERTIES COMPILE_FLAGS -fobjc-arc)
