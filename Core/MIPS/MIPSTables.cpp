@@ -31,6 +31,8 @@
 #include "Core/Reporting.h"
 #include "Core/Debugger/Breakpoints.h"
 
+#include "Core/MIPS/MIPSHooks.h"
+
 
 #define INVALID {Inval}
 #define INVALID_X_8 INVALID,INVALID,INVALID,INVALID,INVALID,INVALID,INVALID,INVALID
@@ -47,7 +49,7 @@ using namespace MIPSComp;
 // %s/&Jit::\(.\{-}\),/JITFUNC(\1),/g
 
 // regregreg instructions
-static const MIPSInstruction tableImmediate[64] = // xxxxxx ..... ..... ................
+static MIPSInstruction tableImmediate[64] = // xxxxxx ..... ..... ................
 {
 	//0
 	ENCODING(Spec),
@@ -126,7 +128,7 @@ static const MIPSInstruction tableImmediate[64] = // xxxxxx ..... ..... ........
 	INSTR("vflush", JITFUNC(Comp_DoNothing), Dis_Vflush, Int_Vflush, IS_VFPU|VFPU_NO_PREFIX),
 };
 
-static const MIPSInstruction tableSpecial[64] = // 000000 ..... ..... ..... ..... xxxxxx
+static MIPSInstruction tableSpecial[64] = // 000000 ..... ..... ..... ..... xxxxxx
 {
 	INSTR("sll",   JITFUNC(Comp_ShiftType), Dis_ShiftType, Int_ShiftType, OUT_RD|IN_RT|IN_SA),
 	INVALID,  // copu
@@ -203,7 +205,7 @@ static const MIPSInstruction tableSpecial[64] = // 000000 ..... ..... ..... ....
 };
 
 // Theoretically should not hit these.
-static const MIPSInstruction tableSpecial2[64] = // 011100 ..... ..... ..... ..... xxxxxx
+static MIPSInstruction tableSpecial2[64] = // 011100 ..... ..... ..... ..... xxxxxx
 {
 	INSTR("halt", JITFUNC(Comp_Generic), Dis_Generic, 0, 0),
 	INVALID, INVALID, INVALID, INVALID, INVALID, INVALID, INVALID,
@@ -223,7 +225,7 @@ static const MIPSInstruction tableSpecial2[64] = // 011100 ..... ..... ..... ...
 	INVALID_X_8,
 };
 
-static const MIPSInstruction tableSpecial3[64] = // 011111 ..... ..... ..... ..... xxxxxx
+static MIPSInstruction tableSpecial3[64] = // 011111 ..... ..... ..... ..... xxxxxx
 {
 	INSTR("ext", JITFUNC(Comp_Special3), Dis_Special3, Int_Special3, IN_RS|OUT_RT),
 	INVALID,
@@ -253,7 +255,7 @@ static const MIPSInstruction tableSpecial3[64] = // 011111 ..... ..... ..... ...
 	INVALID, INVALID, INVALID, INVALID,
 };
 
-static const MIPSInstruction tableRegImm[32] = // 000001 ..... xxxxx ................
+static MIPSInstruction tableRegImm[32] = // 000001 ..... xxxxx ................
 {
 	INSTR("bltz",  JITFUNC(Comp_RelBranchRI), Dis_RelBranch, Int_RelBranchRI, IS_CONDBRANCH|IN_IMM16|IN_RS|DELAYSLOT|CONDTYPE_LTZ),
 	INSTR("bgez",  JITFUNC(Comp_RelBranchRI), Dis_RelBranch, Int_RelBranchRI, IS_CONDBRANCH|IN_IMM16|IN_RS|DELAYSLOT|CONDTYPE_GEZ),
@@ -286,7 +288,7 @@ static const MIPSInstruction tableRegImm[32] = // 000001 ..... xxxxx ...........
 	INSTR("synci", JITFUNC(Comp_Generic), Dis_Generic, 0, 0),
 };
 
-static const MIPSInstruction tableCop2[32] = // 010010 xxxxx ..... ................
+static MIPSInstruction tableCop2[32] = // 010010 xxxxx ..... ................
 {
 	INSTR("mfc2", JITFUNC(Comp_Generic), Dis_Generic, 0, OUT_RT),
 	INVALID,
@@ -310,7 +312,7 @@ static const MIPSInstruction tableCop2[32] = // 010010 xxxxx ..... .............
 	INVALID_X_8,
 };
 
-static const MIPSInstruction tableCop2BC2[4] = // 010010 01000 ...xx ................
+static MIPSInstruction tableCop2BC2[4] = // 010010 01000 ...xx ................
 {
 	INSTR("bvf", JITFUNC(Comp_VBranch), Dis_VBranch, Int_VBranch, IS_CONDBRANCH|IN_IMM16|IN_VFPU_CC|DELAYSLOT|IS_VFPU),
 	INSTR("bvt", JITFUNC(Comp_VBranch), Dis_VBranch, Int_VBranch, IS_CONDBRANCH|IN_IMM16|IN_VFPU_CC|DELAYSLOT|IS_VFPU),
@@ -318,7 +320,7 @@ static const MIPSInstruction tableCop2BC2[4] = // 010010 01000 ...xx ...........
 	INSTR("bvtl", JITFUNC(Comp_VBranch), Dis_VBranch, Int_VBranch, IS_CONDBRANCH|IN_IMM16|IN_VFPU_CC|DELAYSLOT|LIKELY|IS_VFPU),
 };
 
-static const MIPSInstruction tableCop0[32] = // 010000 xxxxx ..... ................
+static MIPSInstruction tableCop0[32] = // 010000 xxxxx ..... ................
 {
 	INSTR("mfc0", JITFUNC(Comp_Generic), Dis_Generic, 0, OUT_RT),  // unused
 	INVALID,
@@ -344,7 +346,7 @@ static const MIPSInstruction tableCop0[32] = // 010000 xxxxx ..... .............
 };
 
 // we won't encounter these since we only do user mode emulation
-static const MIPSInstruction tableCop0CO[64] = // 010000 1.... ..... ..... ..... xxxxxx
+static MIPSInstruction tableCop0CO[64] = // 010000 1.... ..... ..... ..... xxxxxx
 {
 	INVALID,
 	INSTR("tlbr", JITFUNC(Comp_Generic), Dis_Generic, 0, 0),
@@ -372,7 +374,7 @@ static const MIPSInstruction tableCop0CO[64] = // 010000 1.... ..... ..... .....
 	INVALID_X_8,
 };
 
-static const MIPSInstruction tableCop1[32] = // 010001 xxxxx ..... ..... ...........
+static MIPSInstruction tableCop1[32] = // 010001 xxxxx ..... ..... ...........
 {
 	INSTR("mfc1", JITFUNC(Comp_mxc1), Dis_mxc1, Int_mxc1, IN_FS|OUT_RT|IS_FPU),
 	INVALID,
@@ -391,7 +393,7 @@ static const MIPSInstruction tableCop1[32] = // 010001 xxxxx ..... ..... .......
 	INVALID_X_8,
 };
 
-static const MIPSInstruction tableCop1BC[32] = // 010001 01000 xxxxx ................
+static MIPSInstruction tableCop1BC[32] = // 010001 01000 xxxxx ................
 {
 	INSTR("bc1f",  JITFUNC(Comp_FPUBranch), Dis_FPUBranch, Int_FPUBranch, IS_CONDBRANCH|IN_IMM16|IN_FPUFLAG|DELAYSLOT|CONDTYPE_FPUFALSE|IS_FPU),
 	INSTR("bc1t",  JITFUNC(Comp_FPUBranch), Dis_FPUBranch, Int_FPUBranch, IS_CONDBRANCH|IN_IMM16|IN_FPUFLAG|DELAYSLOT|CONDTYPE_FPUTRUE|IS_FPU),
@@ -404,7 +406,7 @@ static const MIPSInstruction tableCop1BC[32] = // 010001 01000 xxxxx ...........
 	INVALID_X_8,
 };
 
-static const MIPSInstruction tableCop1S[64] = // 010001 10000 ..... ..... ..... xxxxxx
+static MIPSInstruction tableCop1S[64] = // 010001 10000 ..... ..... ..... xxxxxx
 {
 	INSTR("add.s",  JITFUNC(Comp_FPU3op), Dis_FPU3op, Int_FPU3op, OUT_FD|IN_FS|IN_FT|IS_FPU),
 	INSTR("sub.s",  JITFUNC(Comp_FPU3op), Dis_FPU3op, Int_FPU3op, OUT_FD|IN_FS|IN_FT|IS_FPU),
@@ -452,7 +454,7 @@ static const MIPSInstruction tableCop1S[64] = // 010001 10000 ..... ..... ..... 
 	INSTR("c.ngt", JITFUNC(Comp_FPUComp), Dis_FPUComp, Int_FPUComp, IN_FS|IN_FT|OUT_FPUFLAG|IS_FPU),
 };
 
-static const MIPSInstruction tableCop1W[64] = // 010001 10100 ..... ..... ..... xxxxxx
+static MIPSInstruction tableCop1W[64] = // 010001 10100 ..... ..... ..... xxxxxx
 {
 	INVALID_X_8,
 	//8
@@ -476,7 +478,7 @@ static const MIPSInstruction tableCop1W[64] = // 010001 10100 ..... ..... ..... 
 	INVALID_X_8,
 };
 
-static const MIPSInstruction tableVFPU0[8] = // 011000 xxx ....... . ....... . .......
+static MIPSInstruction tableVFPU0[8] = // 011000 xxx ....... . ....... . .......
 {
 	INSTR("vadd", JITFUNC(Comp_VecDo3), Dis_VectorSet3, Int_VecDo3, MIPSInfo(IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX, 2)),
 	INSTR("vsub", JITFUNC(Comp_VecDo3), Dis_VectorSet3, Int_VecDo3, MIPSInfo(IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX, 2)),
@@ -487,7 +489,7 @@ static const MIPSInstruction tableVFPU0[8] = // 011000 xxx ....... . ....... . .
 	INSTR("vdiv", JITFUNC(Comp_VecDo3), Dis_VectorSet3, Int_VecDo3, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
 };
 
-static const MIPSInstruction tableVFPU1[8] = // 011001 xxx ....... . ....... . .......
+static MIPSInstruction tableVFPU1[8] = // 011001 xxx ....... . ....... . .......
 {
 	INSTR("vmul", JITFUNC(Comp_VecDo3), Dis_VectorSet3, Int_VecDo3, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
 	INSTR("vdot", JITFUNC(Comp_VDot), Dis_VectorDot, Int_VDot, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
@@ -499,7 +501,7 @@ static const MIPSInstruction tableVFPU1[8] = // 011001 xxx ....... . ....... . .
 	INVALID,
 };
 
-static const MIPSInstruction tableVFPU3[8] = // 011011 xxx ....... . ....... . .......
+static MIPSInstruction tableVFPU3[8] = // 011011 xxx ....... . ....... . .......
 {
 	INSTR("vcmp", JITFUNC(Comp_Vcmp), Dis_Vcmp, Int_Vcmp, IN_OTHER|OUT_VFPU_CC|IS_VFPU|OUT_EAT_PREFIX),
 	INVALID,
@@ -511,7 +513,7 @@ static const MIPSInstruction tableVFPU3[8] = // 011011 xxx ....... . ....... . .
 	INSTR("vslt", JITFUNC(Comp_VecDo3), Dis_VectorSet3, Int_Vslt, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
 };
 
-static const MIPSInstruction tableVFPU4Jump[32] = // 110100 xxxxx ..... . ....... . .......
+static MIPSInstruction tableVFPU4Jump[32] = // 110100 xxxxx ..... . ....... . .......
 {
 	ENCODING(VFPU4),
 	ENCODING(VFPU7),
@@ -543,7 +545,7 @@ static const MIPSInstruction tableVFPU4Jump[32] = // 110100 xxxxx ..... . ......
 	INSTR("vwbn", JITFUNC(Comp_Generic), Dis_Vwbn, Int_Vwbn, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
 };
 
-static const MIPSInstruction tableVFPU7[32] = // 110100 00001 xxxxx . ....... . .......
+static MIPSInstruction tableVFPU7[32] = // 110100 00001 xxxxx . ....... . .......
 {
 	INSTR("vrnds", JITFUNC(Comp_Generic), Dis_Vrnds, Int_Vrnds, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
 	INSTR("vrndi", JITFUNC(Comp_Generic), Dis_VrndX, Int_VrndX, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
@@ -578,7 +580,7 @@ static const MIPSInstruction tableVFPU7[32] = // 110100 00001 xxxxx . ....... . 
 
 // 110100 00000 10100 0000000000000000
 // 110100 00000 10111 0000000000000000
-static const MIPSInstruction tableVFPU4[32] = // 110100 00000 xxxxx . ....... . .......
+static MIPSInstruction tableVFPU4[32] = // 110100 00000 xxxxx . ....... . .......
 {
 	INSTR("vmov", JITFUNC(Comp_VV2Op), Dis_VectorSet2, Int_VV2Op, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
 	INSTR("vabs", JITFUNC(Comp_VV2Op), Dis_VectorSet2, Int_VV2Op, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
@@ -608,7 +610,7 @@ static const MIPSInstruction tableVFPU4[32] = // 110100 00000 xxxxx . ....... . 
 	INVALID, INVALID, INVALID,
 };
 
-static const MIPSInstruction tableVFPU5[8] = // 110111 xxx ....... ................
+static MIPSInstruction tableVFPU5[8] = // 110111 xxx ....... ................
 {
 	INSTR("vpfxs", JITFUNC(Comp_VPFX), Dis_VPFXST, Int_VPFX, IN_IMM16|OUT_OTHER|IS_VFPU),
 	INSTR("vpfxs", JITFUNC(Comp_VPFX), Dis_VPFXST, Int_VPFX, IN_IMM16|OUT_OTHER|IS_VFPU),
@@ -620,7 +622,7 @@ static const MIPSInstruction tableVFPU5[8] = // 110111 xxx ....... .............
 	INSTR("vfim.s", JITFUNC(Comp_Vfim), Dis_Viim, Int_Viim, IN_IMM16|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
 };
 
-static const MIPSInstruction tableVFPU6[32] = // 111100 xxxxx ..... . ....... . .......
+static MIPSInstruction tableVFPU6[32] = // 111100 xxxxx ..... . ....... . .......
 {
 	//0
 	INSTR("vmmul", JITFUNC(Comp_Vmmul), Dis_MatrixMult, Int_Vmmul, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
@@ -665,7 +667,7 @@ static const MIPSInstruction tableVFPU6[32] = // 111100 xxxxx ..... . ....... . 
 };
 
 // TODO: Should this only be when bit 20 is 0?
-static const MIPSInstruction tableVFPUMatrixSet1[16] = // 111100 11100 .xxxx . ....... . .......  (rm x is 16)
+static MIPSInstruction tableVFPUMatrixSet1[16] = // 111100 11100 .xxxx . ....... . .......  (rm x is 16)
 {
 	INSTR("vmmov", JITFUNC(Comp_Vmmov), Dis_MatrixSet2, Int_Vmmov, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
 	INVALID,
@@ -680,7 +682,7 @@ static const MIPSInstruction tableVFPUMatrixSet1[16] = // 111100 11100 .xxxx . .
 	INVALID_X_8,
 };
 
-static const MIPSInstruction tableVFPU9[32] = // 110100 00010 xxxxx . ....... . .......
+static MIPSInstruction tableVFPU9[32] = // 110100 00010 xxxxx . ....... . .......
 {
 	INSTR("vsrt1", JITFUNC(Comp_Generic), Dis_Vbfy, Int_Vsrt1, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
 	INSTR("vsrt2", JITFUNC(Comp_Generic), Dis_Vbfy, Int_Vsrt2, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
@@ -720,7 +722,7 @@ static const MIPSInstruction tableVFPU9[32] = // 110100 00010 xxxxx . ....... . 
 	INVALID, INVALID, INVALID, INVALID,
 };
 
-static const MIPSInstruction tableALLEGREX0[32] =  // 011111 ..... ..... ..... xxxxx 100000 - or ending with 011000?
+static MIPSInstruction tableALLEGREX0[32] =  // 011111 ..... ..... ..... xxxxx 100000 - or ending with 011000?
 {
 	INVALID,
 	INVALID,
@@ -751,7 +753,7 @@ static const MIPSInstruction tableALLEGREX0[32] =  // 011111 ..... ..... ..... x
 	INVALID,
 };
 
-static const MIPSInstruction tableEMU[4] = {
+static MIPSInstruction tableEMU[4] = {
 	INSTR("RUNBLOCK", JITFUNC(Comp_RunBlock), Dis_Emuhack, Int_Emuhack, 0xFFFFFFFF),
 	INSTR("RetKrnl", 0, Dis_Emuhack, Int_Emuhack, 0),
 	INSTR("CallRepl", JITFUNC(Comp_ReplacementFunc), Dis_Emuhack, Int_Emuhack, 0),
@@ -825,6 +827,7 @@ static const MIPSInstruction *mipsTables[NumEncodings] = {
 	tableEMU,
 	0,
 };
+
 
 //arm encoding table
 //const MIPSInstruction mipsinstructions[] = 
@@ -1078,4 +1081,38 @@ std::string MIPSDisasmAt(u32 compilerPC) {
 	char temp[512];
 	MIPSDisAsm(Memory::Read_Instruction(compilerPC), 0, temp, sizeof(temp));
 	return temp;
+}
+
+
+namespace MIPSHooks {
+	void Init() {
+		MIPSNameLookupTable.RegisterInstructions(tableImmediate);
+		MIPSNameLookupTable.RegisterInstructions(tableSpecial);
+		MIPSNameLookupTable.RegisterInstructions(tableSpecial2);
+		MIPSNameLookupTable.RegisterInstructions(tableSpecial3);
+		MIPSNameLookupTable.RegisterInstructions(tableRegImm);
+		MIPSNameLookupTable.RegisterInstructions(tableCop0);
+		MIPSNameLookupTable.RegisterInstructions(tableCop0CO);
+		MIPSNameLookupTable.RegisterInstructions(tableCop1);
+		MIPSNameLookupTable.RegisterInstructions(tableCop1BC);
+		MIPSNameLookupTable.RegisterInstructions(tableCop1S);
+		MIPSNameLookupTable.RegisterInstructions(tableCop1W);
+		MIPSNameLookupTable.RegisterInstructions(tableCop2);
+		MIPSNameLookupTable.RegisterInstructions(tableCop2BC2);
+
+		MIPSNameLookupTable.RegisterInstructions(tableVFPU0);
+		MIPSNameLookupTable.RegisterInstructions(tableVFPU1);
+		MIPSNameLookupTable.RegisterInstructions(tableVFPU3);
+		MIPSNameLookupTable.RegisterInstructions(tableVFPU4Jump);
+		MIPSNameLookupTable.RegisterInstructions(tableVFPU7);
+		MIPSNameLookupTable.RegisterInstructions(tableVFPU4);
+		MIPSNameLookupTable.RegisterInstructions(tableVFPU5);
+		MIPSNameLookupTable.RegisterInstructions(tableVFPU6);
+		MIPSNameLookupTable.RegisterInstructions(tableVFPUMatrixSet1);
+		MIPSNameLookupTable.RegisterInstructions(tableVFPU9);
+		MIPSNameLookupTable.RegisterInstructions(tableALLEGREX0);
+
+		// I don't know if that's even helpful...
+		MIPSNameLookupTable.RegisterInstructions(tableEMU);
+	}
 }

@@ -129,6 +129,9 @@
     <ClCompile Include="MIPS\MIPSCodeUtils.cpp">
       <Filter>MIPS</Filter>
     </ClCompile>
+    <ClCompile Include="MIPS\MIPSHooks.cpp">
+      <Filter>MIPS</Filter>
+    </ClCompile>
     <ClCompile Include="MIPS\x86\CompALU.cpp">
       <Filter>MIPS\x86</Filter>
     </ClCompile>
@@ -1342,6 +1345,9 @@
       <Filter>MIPS</Filter>
     </ClInclude>
     <ClInclude Include="MIPS\MIPSCodeUtils.h">
+      <Filter>MIPS</Filter>
+    </ClInclude>
+    <ClInclude Include="MIPS\MIPSHooks.h">
       <Filter>MIPS</Filter>
     </ClInclude>
     <ClInclude Include="MIPS\x86\Jit.h">
