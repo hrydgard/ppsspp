@@ -2250,6 +2250,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/MIPS/MIPSStackWalk.h
 	Core/MIPS/MIPSTables.cpp
 	Core/MIPS/MIPSTables.h
+	Core/MIPS/MIPSHooks.cpp
+    Core/MIPS/MIPSHooks.h
 	Core/MIPS/MIPSVFPUUtils.cpp
 	Core/MIPS/MIPSVFPUUtils.h
 	Core/MIPS/MIPSVFPUFallbacks.cpp
