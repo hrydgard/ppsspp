@@ -31,51 +31,6 @@
 #include "Core/Reporting.h"
 #include "Core/Debugger/Breakpoints.h"
 
-#include "JitCommon/JitCommon.h"
-
-enum MipsEncoding {
-	Imme,
-	Spec,
-	Spe2,
-	Spe3,
-	RegI,
-	Cop0,
-	Cop0CO,
-	Cop1,
-	Cop1BC,
-	Cop1S,
-	Cop1W,
-	Cop2,
-	Cop2BC2,
-	Cop2Rese,
-	VFPU0,
-	VFPU1,
-	VFPU3,
-	VFPU4Jump,
-	VFPU7,
-	VFPU4,
-	VFPU5,
-	VFPU6,
-	VFPUMatrix1,
-	VFPU9,
-	ALLEGREX0,
-	Emu,
-	Rese,
-	NumEncodings,
-
-	Instruc = -1,
-	Inval = -2,
-};
-
-struct MIPSInstruction {
-	MipsEncoding altEncoding;
-	const char *name;
-	MIPSComp::MIPSCompileFunc compile;
-	MIPSDisFunc disasm;
-	MIPSInterpretFunc interpret;
-	//MIPSInstructionInfo information;
-	MIPSInfo flags;
-};
 
 #define INVALID {Inval}
 #define INVALID_X_8 INVALID,INVALID,INVALID,INVALID,INVALID,INVALID,INVALID,INVALID
