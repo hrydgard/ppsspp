@@ -124,6 +124,7 @@
     <ClInclude Include="..\..\Core\Debugger\MemBlockInfo.h" />
     <ClInclude Include="..\..\Core\Debugger\SymbolMap.h" />
     <ClInclude Include="..\..\Core\Debugger\WebSocket.h" />
+    <ClInclude Include="..\..\Core\Debugger\VtableCracker.h" />
     <ClInclude Include="..\..\Core\Debugger\WebSocket\BreakpointSubscriber.h" />
     <ClInclude Include="..\..\Core\Debugger\WebSocket\CPUCoreSubscriber.h" />
     <ClInclude Include="..\..\Core\Debugger\WebSocket\ClientConfigSubscriber.h" />
@@ -375,6 +376,7 @@
     <ClCompile Include="..\..\Core\Debugger\MemBlockInfo.cpp" />
     <ClCompile Include="..\..\Core\Debugger\SymbolMap.cpp" />
     <ClCompile Include="..\..\Core\Debugger\WebSocket.cpp" />
+    <ClCompile Include="..\..\Core\Debugger\VtableCracker.cpp" />
     <ClCompile Include="..\..\Core\Debugger\WebSocket\BreakpointSubscriber.cpp" />
     <ClCompile Include="..\..\Core\Debugger\WebSocket\CPUCoreSubscriber.cpp" />
     <ClCompile Include="..\..\Core\Debugger\WebSocket\ClientConfigSubscriber.cpp" />
@@ -576,7 +578,7 @@
     <ClCompile Include="..\..\Core\MIPS\MIPSIntVFPU.cpp" />
     <ClCompile Include="..\..\Core\MIPS\MIPSStackWalk.cpp" />
     <ClCompile Include="..\..\Core\MIPS\MIPSTables.cpp" />
-    <ClInclude Include="..\..\Core\MIPS\MIPSHooks.cpp" />
+    <ClCompile Include="..\..\Core\MIPS\MIPSHooks.cpp" />
     <ClCompile Include="..\..\Core\MIPS\MIPSVFPUFallbacks.cpp" />
     <ClCompile Include="..\..\Core\MIPS\MIPSVFPUUtils.cpp" />
     <ClCompile Include="..\..\Core\MIPS\x86\Asm.cpp" />
