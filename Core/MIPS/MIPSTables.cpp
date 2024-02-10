@@ -1086,6 +1086,8 @@ std::string MIPSDisasmAt(u32 compilerPC) {
 
 namespace MIPSHooks {
 	void Init() {
+		VERBOSE_LOG(CPU, "Initalizing the MIPS name lookup table...");
+
 		MIPSNameLookupTable.RegisterInstructions(tableImmediate);
 		MIPSNameLookupTable.RegisterInstructions(tableSpecial);
 		MIPSNameLookupTable.RegisterInstructions(tableSpecial2);
@@ -1112,7 +1114,9 @@ namespace MIPSHooks {
 		MIPSNameLookupTable.RegisterInstructions(tableVFPU9);
 		MIPSNameLookupTable.RegisterInstructions(tableALLEGREX0);
 
-		// I don't know if that's even helpful...
+		// I don't know if that could be helpful, but why not?
 		MIPSNameLookupTable.RegisterInstructions(tableEMU);
+
+		INFO_LOG(CPU, "MIPS name lookup table initialized");
 	}
 }

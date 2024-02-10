@@ -27,8 +27,10 @@ static std::vector<std::pair<MIPSInstruction*, MIPSInterpretFunc>> stack;
 namespace MIPSHooks {
 
 	void Reset() {
+		INFO_LOG(CPU, "Resetting the interpreter hooks");
 		for (auto&[instr, func] : stack) {
 			instr->interpret = func;
+			VERBOSE_LOG(CPU, "Resetting %s", instr->name);
 		}
 		stack.clear();
 	}
@@ -36,10 +38,12 @@ namespace MIPSHooks {
 	void Hook(const char* name, MIPSInterpretFunc func) {
 		auto current_handler = MIPSNameLookupTable.GetInstructionByName(name);
 		if (!current_handler) {
+			WARN_LOG(CPU, "Cannot setup a hook: unknown instruction '%s'", name);
 			return;
 		}
 
 		stack.emplace_back(current_handler, current_handler->interpret);
 		current_handler->interpret = func;
+		INFO_LOG(CPU, "Enabled a hook for %s", name);
 	}
 }

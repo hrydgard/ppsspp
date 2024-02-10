@@ -20,6 +20,7 @@
 #include <map>
 
 #include "Core/MIPS/MIPSTables.h"
+#include "Common/Log.h"
 
 class MIPSNames {
 private:
@@ -31,6 +32,7 @@ public:
 			// register the name if it's valid
 			if (table[i].name) {
 				name_lookup_table.emplace(table[i].name, &table[i]);
+				VERBOSE_LOG(CPU, "Registered %s", table[i].name);
 			}
 		}
 	}
@@ -47,8 +49,11 @@ public:
 extern MIPSNames MIPSNameLookupTable;
 
 namespace MIPSHooks {
-	void Init(); // implemented in the MIPSTables.cpp
+	// Fills the MIPSNameLookupTable
+	void Init();
+	// Disables the hooks
 	void Reset();
+	// Tries to register a hook
 	void Hook(const char* name, MIPSInterpretFunc func);
 }
 
