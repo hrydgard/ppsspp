@@ -1334,7 +1334,7 @@ void sendChat(const std::string &chatString) {
 	} else {
 		std::lock_guard<std::mutex> guard(chatLogLock);
 		auto n = GetI18NCategory(I18NCat::NETWORKING);
-		chatLog.push_back(n->T("You're in Offline Mode, go to lobby or online hall"));
+		chatLog.push_back(std::string(n->T("You're in Offline Mode, go to lobby or online hall")));
 		chatMessageGeneration++;
 	}
 }
@@ -1385,7 +1385,7 @@ int friendFinder(){
 	g_adhocServerIP.in.sin_addr.s_addr = INADDR_NONE;
 	if (g_Config.bEnableWlan && !net::DNSResolve(g_Config.proAdhocServer, "", &resolved, err)) {
 		ERROR_LOG(SCENET, "DNS Error Resolving %s\n", g_Config.proAdhocServer.c_str());
-		g_OSD.Show(OSDType::MESSAGE_ERROR, n->T("DNS Error Resolving ") + g_Config.proAdhocServer);
+		g_OSD.Show(OSDType::MESSAGE_ERROR, std::string(n->T("DNS Error Resolving ")) + g_Config.proAdhocServer);
 	}
 	if (resolved) {
 		for (auto ptr = resolved; ptr != NULL; ptr = ptr->ai_next) {

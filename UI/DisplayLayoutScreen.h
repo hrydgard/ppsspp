@@ -55,7 +55,7 @@ private:
 
 class PostProcScreen : public UI::ListPopupScreen {
 public:
-	PostProcScreen(const std::string &title, int id, bool showStereoShaders) 
+	PostProcScreen(std::string_view title, int id, bool showStereoShaders)
 		: ListPopupScreen(title), id_(id), showStereoShaders_(showStereoShaders) { }
 
 	void CreateViews() override;

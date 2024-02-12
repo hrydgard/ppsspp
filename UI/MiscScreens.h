@@ -87,7 +87,7 @@ protected:
 
 class PromptScreen : public UIDialogScreenWithGameBackground {
 public:
-	PromptScreen(const Path& gamePath, std::string message, std::string yesButtonText, std::string noButtonText,
+	PromptScreen(const Path& gamePath, std::string_view message, std::string_view yesButtonText, std::string_view noButtonText,
 		std::function<void(bool)> callback = &NoOpVoidBool);
 
 	void CreateViews() override;
@@ -108,7 +108,7 @@ private:
 
 class NewLanguageScreen : public UI::ListPopupScreen {
 public:
-	NewLanguageScreen(const std::string &title);
+	NewLanguageScreen(std::string_view title);
 
 	const char *tag() const override { return "NewLanguage"; }
 
@@ -120,7 +120,7 @@ private:
 
 class TextureShaderScreen : public UI::ListPopupScreen {
 public:
-	TextureShaderScreen(const std::string &title);
+	TextureShaderScreen(std::string_view title);
 
 	void CreateViews() override;
 
@@ -185,7 +185,7 @@ class SettingInfoMessage : public UI::LinearLayout {
 public:
 	SettingInfoMessage(int align, float cutOffY, UI::AnchorLayoutParams *lp);
 
-	void Show(const std::string &text, const UI::View *refView = nullptr);
+	void Show(std::string_view text, const UI::View *refView = nullptr);
 
 	void Draw(UIContext &dc) override;
 	std::string GetText() const;

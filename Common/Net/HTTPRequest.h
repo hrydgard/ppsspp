@@ -23,7 +23,7 @@ enum class ProgressBarMode {
 // Abstract request.
 class Request {
 public:
-	Request(RequestMethod method, const std::string &url, const std::string &name, bool *cancelled, ProgressBarMode mode);
+	Request(RequestMethod method, const std::string &url, std::string_view name, bool *cancelled, ProgressBarMode mode);
 	virtual ~Request() {}
 
 	void SetAccept(const char *mime) {
@@ -93,7 +93,7 @@ public:
 		const Path &outfile,
 		ProgressBarMode mode,
 		std::function<void(Request &)> callback,
-		const std::string &name = "",
+		std::string_view name = "",
 		const char *acceptMime = nullptr);
 
 	std::shared_ptr<Request> AsyncPostWithCallback(
@@ -102,7 +102,7 @@ public:
 		const std::string &postMime, // Use postMime = "application/x-www-form-urlencoded" for standard form-style posts, such as used by retroachievements. For encoding form data manually we have MultipartFormDataEncoder.
 		ProgressBarMode mode,
 		std::function<void(Request &)> callback,
-		const std::string &name = "");
+		std::string_view name = "");
 
 	// Drops finished downloads from the list.
 	void Update();

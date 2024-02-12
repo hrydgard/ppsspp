@@ -188,7 +188,7 @@ void MainThreadFunc() {
 
 		auto err = GetI18NCategory(I18NCat::ERRORS);
 		const char *defaultErrorAll = "PPSSPP failed to startup with any graphics backend. Try upgrading your graphics and other drivers.";
-		const char *genericError = err->T("GenericAllStartupError", defaultErrorAll);
+		std::string_view genericError = err->T("GenericAllStartupError", defaultErrorAll);
 		std::wstring title = ConvertUTF8ToWString(err->T("GenericGraphicsError", "Graphics Error"));
 		MessageBox(0, ConvertUTF8ToWString(genericError).c_str(), title.c_str(), MB_OK);
 
@@ -220,7 +220,7 @@ void MainThreadFunc() {
 		const char *defaultErrorVulkan = "Failed initializing graphics. Try upgrading your graphics drivers.\n\nWould you like to try switching to OpenGL?\n\nError message:";
 		const char *defaultErrorOpenGL = "Failed initializing graphics. Try upgrading your graphics drivers.\n\nWould you like to try switching to DirectX 9?\n\nError message:";
 		const char *defaultErrorDirect3D9 = "Failed initializing graphics. Try upgrading your graphics drivers and directx 9 runtime.\n\nWould you like to try switching to OpenGL?\n\nError message:";
-		const char *genericError;
+		std::string_view genericError;
 		GPUBackend nextBackend = GPUBackend::DIRECT3D9;
 		switch (g_Config.iGPUBackend) {
 		case (int)GPUBackend::DIRECT3D9:
@@ -237,7 +237,7 @@ void MainThreadFunc() {
 			genericError = err->T("GenericOpenGLError", defaultErrorOpenGL);
 			break;
 		}
-		std::string full_error = StringFromFormat("%s\n\n%s", genericError, error_string.c_str());
+		std::string full_error = StringFromFormat("%.*s\n\n%s", (int)genericError.size(), genericError.data(), error_string.c_str());
 		std::wstring title = ConvertUTF8ToWString(err->T("GenericGraphicsError", "Graphics Error"));
 		bool yes = IDYES == MessageBox(0, ConvertUTF8ToWString(full_error).c_str(), title.c_str(), MB_ICONERROR | MB_YESNO);
 		ERROR_LOG(BOOT, "%s", full_error.c_str());

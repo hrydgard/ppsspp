@@ -92,7 +92,7 @@ protected:
 // Really an asynchronous request.
 class HTTPRequest : public Request {
 public:
-	HTTPRequest(RequestMethod method, const std::string &url, const std::string &postData, const std::string &postMime, const Path &outfile, ProgressBarMode progressBarMode = ProgressBarMode::DELAYED, const std::string &name = "");
+	HTTPRequest(RequestMethod method, const std::string &url, const std::string &postData, const std::string &postMime, const Path &outfile, ProgressBarMode progressBarMode = ProgressBarMode::DELAYED, std::string_view name = "");
 	~HTTPRequest();
 
 	void Start() override;

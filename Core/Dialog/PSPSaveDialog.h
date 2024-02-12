@@ -94,7 +94,7 @@ private:
 	void DisplaySaveIcon(bool checkExists);
 	void DisplaySaveDataInfo1();
 	void DisplaySaveDataInfo2(bool showNewData = false);
-	void DisplayMessage(const std::string &text, bool hasYesNo = false);
+	void DisplayMessage(std::string_view text, bool hasYesNo = false);
 	const std::string GetSelectedSaveDirName() const;
 
 	void JoinIOThread();

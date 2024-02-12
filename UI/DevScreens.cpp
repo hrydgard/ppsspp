@@ -360,7 +360,7 @@ UI::EventReturn LogConfigScreen::OnLogLevel(UI::EventParams &e) {
 	return UI::EVENT_DONE;
 }
 
-LogLevelScreen::LogLevelScreen(const std::string &title) : ListPopupScreen(title) {
+LogLevelScreen::LogLevelScreen(std::string_view title) : ListPopupScreen(title) {
 	int NUMLOGLEVEL = 6;    
 	std::vector<std::string> list;
 	for (int i = 0; i < NUMLOGLEVEL; ++i) {
@@ -521,7 +521,7 @@ void SystemInfoScreen::CreateTabs() {
 	}
 
 	int totalThreads = cpu_info.num_cores * cpu_info.logical_cpu_count;
-	std::string cores = StringFromFormat(si->T("%d (%d per core, %d cores)"), totalThreads, cpu_info.logical_cpu_count, cpu_info.num_cores);
+	std::string cores = StringFromFormat(si->T_cstr("%d (%d per core, %d cores)"), totalThreads, cpu_info.logical_cpu_count, cpu_info.num_cores);
 	cpuInfo->Add(new InfoItem(si->T("Threads"), cores));
 #if PPSSPP_PLATFORM(IOS)
 	cpuInfo->Add(new InfoItem(si->T("JIT available"), System_GetPropertyBool(SYSPROP_CAN_JIT) ? di->T("Yes") : di->T("No")));
@@ -532,7 +532,7 @@ void SystemInfoScreen::CreateTabs() {
 	DrawContext *draw = screenManager()->getDrawContext();
 
 	const std::string apiNameKey = draw->GetInfoString(InfoField::APINAME);
-	const char *apiName = gr->T(apiNameKey);
+	std::string_view apiName = gr->T(apiNameKey);
 	gpuInfo->Add(new InfoItem(si->T("3D API"), apiName));
 
 	// TODO: Not really vendor, on most APIs it's a device name (GL calls it vendor though).
@@ -585,26 +585,26 @@ void SystemInfoScreen::CreateTabs() {
 	gpuInfo->Add(new InfoItem(si->T("Compressed texture formats"), texCompressionFormats));
 
 	CollapsibleSection *osInformation = deviceSpecs->Add(new CollapsibleSection(si->T("OS Information")));
-	osInformation->Add(new InfoItem(si->T("Memory Page Size"), StringFromFormat(si->T("%d bytes"), GetMemoryProtectPageSize())));
+	osInformation->Add(new InfoItem(si->T("Memory Page Size"), StringFromFormat(si->T_cstr("%d bytes"), GetMemoryProtectPageSize())));
 	osInformation->Add(new InfoItem(si->T("RW/RX exclusive"), PlatformIsWXExclusive() ? di->T("Active") : di->T("Inactive")));
 #if PPSSPP_PLATFORM(ANDROID)
 	osInformation->Add(new InfoItem(si->T("Sustained perf mode"), System_GetPropertyBool(SYSPROP_SUPPORTS_SUSTAINED_PERF_MODE) ? di->T("Supported") : di->T("Unsupported")));
 #endif
 
-	const char *build = si->T("Release");
+	std::string_view build = si->T("Release");
 #ifdef _DEBUG
 	build = si->T("Debug");
 #endif
 	osInformation->Add(new InfoItem(si->T("PPSSPP build"), build));
 
 	CollapsibleSection *audioInformation = deviceSpecs->Add(new CollapsibleSection(si->T("Audio Information")));
-	audioInformation->Add(new InfoItem(si->T("Sample rate"), StringFromFormat(si->T("%d Hz"), System_GetPropertyInt(SYSPROP_AUDIO_SAMPLE_RATE))));
+	audioInformation->Add(new InfoItem(si->T("Sample rate"), StringFromFormat(si->T_cstr("%d Hz"), System_GetPropertyInt(SYSPROP_AUDIO_SAMPLE_RATE))));
 	int framesPerBuffer = System_GetPropertyInt(SYSPROP_AUDIO_FRAMES_PER_BUFFER);
 	if (framesPerBuffer > 0) {
 		audioInformation->Add(new InfoItem(si->T("Frames per buffer"), StringFromFormat("%d", framesPerBuffer)));
 	}
 #if PPSSPP_PLATFORM(ANDROID)
-	audioInformation->Add(new InfoItem(si->T("Optimal sample rate"), StringFromFormat(si->T("%d Hz"), System_GetPropertyInt(SYSPROP_AUDIO_OPTIMAL_SAMPLE_RATE))));
+	audioInformation->Add(new InfoItem(si->T("Optimal sample rate"), StringFromFormat(si->T_cstr("%d Hz"), System_GetPropertyInt(SYSPROP_AUDIO_OPTIMAL_SAMPLE_RATE))));
 	audioInformation->Add(new InfoItem(si->T("Optimal frames per buffer"), StringFromFormat("%d", System_GetPropertyInt(SYSPROP_AUDIO_OPTIMAL_FRAMES_PER_BUFFER))));
 #endif
 
@@ -617,7 +617,7 @@ void SystemInfoScreen::CreateTabs() {
 	displayInfo->Add(new InfoItem(si->T("UI resolution"), StringFromFormat("%dx%d (%s: %0.2f)",
 		g_display.dp_xres,
 		g_display.dp_yres,
-		si->T("DPI"),
+		si->T_cstr("DPI"),
 		g_display.dpi)));
 	displayInfo->Add(new InfoItem(si->T("Pixel resolution"), StringFromFormat("%dx%d",
 		g_display.pixel_xres,
@@ -634,7 +634,7 @@ void SystemInfoScreen::CreateTabs() {
 	}
 
 	// Don't show on Windows, since it's always treated as 60 there.
-	displayInfo->Add(new InfoItem(si->T("Refresh rate"), StringFromFormat(si->T("%0.2f Hz"), (float)System_GetPropertyFloat(SYSPROP_DISPLAY_REFRESH_RATE))));
+	displayInfo->Add(new InfoItem(si->T("Refresh rate"), StringFromFormat(si->T_cstr("%0.2f Hz"), (float)System_GetPropertyFloat(SYSPROP_DISPLAY_REFRESH_RATE))));
 	std::string presentModes;
 	if (draw->GetDeviceCaps().presentModesSupported & Draw::PresentMode::FIFO) presentModes += "FIFO, ";
 	if (draw->GetDeviceCaps().presentModesSupported & Draw::PresentMode::IMMEDIATE) presentModes += "IMMEDIATE, ";
@@ -811,7 +811,7 @@ void SystemInfoScreen::CreateTabs() {
 			colorFormats->Add(new TextView(format, new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetFocusable(true);
 		}
 
-		CollapsibleSection *enabledExtensions = gpuExtensions->Add(new CollapsibleSection(std::string(si->T("Vulkan Extensions")) + " (" + di->T("Enabled") + ")"));
+		CollapsibleSection *enabledExtensions = gpuExtensions->Add(new CollapsibleSection(std::string(si->T("Vulkan Extensions")) + " (" + std::string(di->T("Enabled")) + ")"));
 		std::vector<std::string> extensions = draw->GetExtensionList(true, true);
 		std::sort(extensions.begin(), extensions.end());
 		for (auto &extension : extensions) {
@@ -1644,7 +1644,7 @@ void RecreateActivity() {
 		INFO_LOG(SYSTEM, "Got back from recreate");
 	} else {
 		auto gr = GetI18NCategory(I18NCat::GRAPHICS);
-		System_Toast(gr->T("Must Restart", "You must restart PPSSPP for this change to take effect"));
+		System_Toast(gr->T_cstr("Must Restart", "You must restart PPSSPP for this change to take effect"));
 	}
 }
 

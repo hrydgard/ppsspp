@@ -223,7 +223,7 @@ void MemStickScreen::CreateViews() {
 		AddExplanation(leftColumn, (MemStickScreen::Choice)choice_, extraView);
 	}
 
-	std::string privateString = iz->T("Use App Private Data");
+	std::string privateString(iz->T("Use App Private Data"));
 
 	if (initialSetup_) {
 		privateString = StringFromFormat("%s (%s)", iz->T("Skip for now"), privateString.c_str());
@@ -236,7 +236,7 @@ void MemStickScreen::CreateViews() {
 
 	leftColumn->Add(new Spacer(new LinearLayoutParams(FILL_PARENT, 12.0f, 0.0f)));
 
-	const char *confirmButtonText = nullptr;
+	std::string_view confirmButtonText = nullptr;
 	ImageID confirmButtonImage = ImageID::invalid();
 	switch (choice_) {
 	case CHOICE_BROWSE_FOLDER:

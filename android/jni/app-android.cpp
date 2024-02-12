@@ -391,8 +391,8 @@ static void PushCommand(std::string cmd, std::string param) {
 }
 
 // Android implementation of callbacks to the Java part of the app
-void System_Toast(const char *text) {
-	PushCommand("toast", text);
+void System_Toast(std::string_view text) {
+	PushCommand("toast", std::string(text));
 }
 
 void System_ShowKeyboard() {

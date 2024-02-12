@@ -347,9 +347,8 @@ void PSPSaveDialog::DisplayBanner(int which)
 	PPGeStyle textStyle = FadedStyle(PPGeAlign::BOX_VCENTER, 0.6f);
 	textStyle.hasShadow = false;
 
-	const char *title;
-	switch (which)
-	{
+	std::string_view title;
+	switch (which) {
 	case DB_SAVE:
 		title = di->T("Save");
 		break;
@@ -580,18 +579,18 @@ void PSPSaveDialog::DisplaySaveDataInfo2(bool showNewData) {
 	PPGeDrawText(saveinfoTxt.c_str(), 8, 200, textStyle);
 }
 
-void PSPSaveDialog::DisplayMessage(const std::string &text, bool hasYesNo)
+void PSPSaveDialog::DisplayMessage(std::string_view text, bool hasYesNo)
 {
 	PPGeStyle textStyle = FadedStyle(PPGeAlign::BOX_CENTER, FONT_SCALE);
 
 	const float WRAP_WIDTH = 254.0f;
 	float y = 136.0f, h;
-	PPGeMeasureText(nullptr, &h, text.c_str(), FONT_SCALE, PPGE_LINE_WRAP_WORD, WRAP_WIDTH);
+	PPGeMeasureText(nullptr, &h, text, FONT_SCALE, PPGE_LINE_WRAP_WORD, WRAP_WIDTH);
 	float h2 = h / 2.0f;
 	if (hasYesNo)
 	{
 		auto di = GetI18NCategory(I18NCat::DIALOG);
-		const char *choiceText;
+		std::string_view choiceText;
 		float x, w;
 		if (yesnoChoice == 1) {
 			choiceText = di->T("Yes");
@@ -617,7 +616,7 @@ void PSPSaveDialog::DisplayMessage(const std::string &text, bool hasYesNo)
 			yesnoChoice = 0;
 		}
 	}
-	PPGeDrawTextWrapped(text.c_str(), 334.0f, y, WRAP_WIDTH, 0, textStyle);
+	PPGeDrawTextWrapped(text, 334.0f, y, WRAP_WIDTH, 0, textStyle);
 	float sy = 122.0f - h2, ey = 150.0f + h2;
 	PPGeDrawRect(202.0f, sy, 466.0f, sy + 1.0f, CalcFadedColor(0xFFFFFFFF));
 	PPGeDrawRect(202.0f, ey, 466.0f, ey + 1.0f, CalcFadedColor(0xFFFFFFFF));

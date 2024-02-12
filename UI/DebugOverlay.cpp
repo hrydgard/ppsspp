@@ -277,7 +277,7 @@ void DrawCrashDump(UIContext *ctx, const Path &gamePath) {
 	if (ctx->Draw()->GetFontAtlas()->getFont(ubuntu24))
 		ctx->BindFontTexture();
 	ctx->Draw()->SetFontScale(1.1f, 1.1f);
-	ctx->Draw()->DrawTextShadow(ubuntu24, sy->T("Game crashed"), x, y, 0xFFFFFFFF);
+	ctx->Draw()->DrawTextShadow(ubuntu24, sy->T_cstr("Game crashed"), x, y, 0xFFFFFFFF);
 
 	char statbuf[4096];
 	char versionString[256];

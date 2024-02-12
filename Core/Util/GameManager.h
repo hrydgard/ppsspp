@@ -90,7 +90,7 @@ private:
 
 	bool ExtractFile(struct zip *z, int file_index, const Path &outFilename, size_t *bytesCopied, size_t allBytes);
 	bool DetectTexturePackDest(struct zip *z, int iniIndex, Path &dest);
-	void SetInstallError(const std::string &err);
+	void SetInstallError(std::string_view err);
 
 	bool InstallInProgress() const { return installThread_.joinable(); }
 
