@@ -869,7 +869,7 @@ void GameInfoCache::PurgeType(IdentifiedFileType fileType) {
 				}
 				// TODO: Find a better way to wait here.
 				if (info->pendingFlags != (GameInfoFlags)0) {
-					INFO_LOG(LOADER, "%s: pending flags %08x, retrying", info->GetTitle().c_str(), info->pendingFlags);
+					INFO_LOG(LOADER, "%s: pending flags %08x, retrying", info->GetTitle().c_str(), (int)info->pendingFlags);
 					retry = true;
 					break;
 				}

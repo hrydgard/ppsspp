@@ -97,7 +97,7 @@ private:
 
 class PopupScreen : public UIDialogScreen {
 public:
-	PopupScreen(std::string title, std::string button1 = "", std::string button2 = "");
+	PopupScreen(std::string_view title, std::string_view button1 = "", std::string_view button2 = "");
 
 	virtual void CreatePopupContents(UI::ViewGroup *parent) = 0;
 	void CreateViews() override;

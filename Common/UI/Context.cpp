@@ -93,6 +93,7 @@ void UIContext::BeginPipeline(Draw::Pipeline *pipeline, Draw::SamplerState *samp
 }
 
 void UIContext::RebindTexture() const {
+	_dbg_assert_(uitexture_);
 	if (uitexture_)
 		draw_->BindTexture(0, uitexture_);
 }

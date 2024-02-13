@@ -459,6 +459,7 @@ VulkanRenderManager::~VulkanRenderManager() {
 void VulkanRenderManager::CompileThreadFunc() {
 	SetCurrentThreadName("ShaderCompile");
 	while (true) {
+		bool exitAfterCompile = false;
 		std::vector<CompileQueueEntry> toCompile;
 		{
 			std::unique_lock<std::mutex> lock(compileMutex_);
@@ -467,6 +468,9 @@ void VulkanRenderManager::CompileThreadFunc() {
 			}
 			toCompile = std::move(compileQueue_);
 			compileQueue_.clear();
+			if (!runCompileThread_) {
+				exitAfterCompile = true;
+			}
 		}
 
 		int countToCompile = (int)toCompile.size();
@@ -509,7 +513,7 @@ void VulkanRenderManager::CompileThreadFunc() {
 			g_threadManager.EnqueueTask(task);
 		}
 
-		if (!runCompileThread_) {
+		if (exitAfterCompile) {
 			break;
 		}
 

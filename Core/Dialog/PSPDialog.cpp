@@ -300,13 +300,12 @@ PPGeImageStyle PSPDialog::FadedImageStyle() {
 	return style;
 }
 
-void PSPDialog::DisplayButtons(int flags, const char *caption)
-{
+void PSPDialog::DisplayButtons(int flags, std::string_view caption) {
 	bool useCaption = false;
 	char safeCaption[65] = {0};
-	if (caption != NULL && *caption != '\0') {
+	if (!caption.empty()) {
 		useCaption = true;
-		truncate_cpy(safeCaption, caption);
+		truncate_cpy(safeCaption, sizeof(safeCaption), caption);
 	}
 
 	PPGeStyle textStyle = FadedStyle(PPGeAlign::BOX_LEFT, FONT_SCALE);
@@ -318,12 +317,12 @@ void PSPDialog::DisplayButtons(int flags, const char *caption)
 		x2 = 183.5f;
 	}
 	if (flags & DS_BUTTON_OK) {
-		const char *text = useCaption ? safeCaption : di->T("Enter");
+		std::string_view text = useCaption ? safeCaption : di->T("Enter");
 		PPGeDrawImage(okButtonImg, x2, 256, 11.5f, 11.5f, textStyle);
 		PPGeDrawText(text, x2 + 14.5f, 252, textStyle);
 	}
 	if (flags & DS_BUTTON_CANCEL) {
-		const char *text = useCaption ? safeCaption : di->T("Back");
+		std::string_view text = useCaption ? safeCaption : di->T("Back");
 		PPGeDrawImage(cancelButtonImg, x1, 256, 11.5f, 11.5f, textStyle);
 		PPGeDrawText(text, x1 + 14.5f, 252, textStyle);
 	}

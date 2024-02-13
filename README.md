@@ -28,17 +28,22 @@ For game compatibility, see [community compatibility feedback](https://report.pp
 What's new in 1.17.1
 --------------------
 - Fixed green rendering errors on some PowerVR GPUs ([#18781])
-- Fixed some crashes and optimized the game metadata cache ([#18794], [#18775])
-- Fixed playback of frame dumps with Vulkan ([#18793])
 - Release all held keys on pause to avoid "stuck keys" after unpausing or in run-behind-pause ([#18786])
 - UI fixes ([#18785])
-- Additional crashfixes and similar ([#18777], [#18779])
+- Update libchdr with zstd support, warn the user about bad CHDs ([#18824], [#18803])
+- Add workaround for AdHoc mode in Resistance ([#18821])
+- Fix graphics in Tokimeki Memorial 4 ([#18822])
+- Fix crash in UFC 2010 on Mali GPUs ([#18813])
+- Temporarily disable MSAA on Adreno GPUs due to crashing ([#18819])
+- Fixed some crashes and optimized the game metadata cache ([#18794], [#18775])
+- Additional crashfixes and similar ([#18777], [#18779], [#18823])
+- Fixed playback of frame dumps with Vulkan ([#18793])
 - Volume slider added for RetroAchievements sounds ([#18772])
 
 What's new in 1.17
 ------------------
 - Rendering performance and fixes
-	- Fix for very old rendering issue in Tokimeki Memorial 4 ([#18650])
+	- Fix for very old rendering issue in Tokimeki Memorial 4 ([#18650]) (didn't quite work, see 1.17.1)
 	- Performance improvement in Tactics Ogre by avoiding a readback ([#18599])
 	- Cull small draws that are quick to check that they are offscreen ([#18446])
 	- Assorted optimizations ([#18586], [#18573], [#18476], [#18413], [#18416], [#18219])
@@ -388,3 +393,10 @@ Credit goes to:
 [#18777]: https://github.com/hrydgard/ppsspp/issues/18777 "Expand primitives: Check the vertex count too."
 [#18779]: https://github.com/hrydgard/ppsspp/issues/18779 "More fixes"
 [#18772]: https://github.com/hrydgard/ppsspp/issues/18772 "Add volume slider for RetroAchievements sound effects"
+[#18824]: https://github.com/hrydgard/ppsspp/issues/18824 "Update libchdr to the latest, which supports zstd blocks"
+[#18803]: https://github.com/hrydgard/ppsspp/issues/18803 "Warn the user about bad CHDs"
+[#18821]: https://github.com/hrydgard/ppsspp/issues/18821 "Hacky compat workaround for Resistance's ad-hoc mode"
+[#18822]: https://github.com/hrydgard/ppsspp/issues/18822 "Avoid vertically merging the two main framebuffers, even if FramebufferAllowLargeVerticalOffset is on."
+[#18813]: https://github.com/hrydgard/ppsspp/issues/18813 "Mali: Turn off any depth writes in the shader if depth test == NEVER"
+[#18819]: https://github.com/hrydgard/ppsspp/issues/18819 "Temporarily disable MSAA on Adreno GPUs"
+[#18823]: https://github.com/hrydgard/ppsspp/issues/18823 "Memory exception handler: Don't disassemble if ignoring the exception"

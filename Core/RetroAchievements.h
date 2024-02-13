@@ -75,7 +75,7 @@ bool HardcoreModeActive();
 // If no message is specified, a standard "This feature is not available in Hardcore Mode" message will be shown.
 // Also returns true if hardcore mode is active.
 // Specify isSaveAction so we can still permit saves (but not loads) in hardcore mode if that option is enabled.
-bool WarnUserIfHardcoreModeActive(bool isSaveStateAction, const char *message = nullptr);
+bool WarnUserIfHardcoreModeActive(bool isSaveStateAction, std::string_view message = "");
 
 // Returns the length of the string. If (size_t)-1, there's no message.
 size_t GetRichPresenceMessage(char *buffer, size_t bufSize);

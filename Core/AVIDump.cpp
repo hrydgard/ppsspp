@@ -45,9 +45,7 @@ extern "C" {
 #define av_frame_free avcodec_free_frame
 #endif
 
-#if LIBAVFORMAT_VERSION_INT >= AV_VERSION_INT(59, 16, 100)
-#define AVCodec const AVCodec
-#endif
+#include "FFMPEGCompat.h"
 
 static AVFormatContext *s_format_context = nullptr;
 static AVCodecContext *s_codec_context = nullptr;

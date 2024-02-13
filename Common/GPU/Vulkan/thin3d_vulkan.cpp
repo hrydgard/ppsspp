@@ -395,12 +395,12 @@ public:
 		}
 		return list;
 	}
-	std::vector<std::string> GetPresentModeList(const char *currentMarkerString) const override {
+	std::vector<std::string> GetPresentModeList(std::string_view currentMarkerString) const override {
 		std::vector<std::string> list;
 		for (auto mode : vulkan_->GetAvailablePresentModes()) {
 			std::string str = VulkanPresentModeToString(mode);
 			if (mode == vulkan_->GetPresentMode()) {
-				str += std::string(" (") + currentMarkerString + ")";
+				str += std::string(" (") + std::string(currentMarkerString) + ")";
 			}
 			list.push_back(str);
 		}
@@ -966,8 +966,8 @@ VKContext::VKContext(VulkanContext *vulkan, bool useRenderThread)
     caps_.deviceID = deviceProps.deviceID;
 
     if (caps_.vendor == GPUVendor::VENDOR_QUALCOMM) {
-		if (caps_.deviceID < 0x6000000)  // On sub 6xx series GPUs, disallow multisample.
-			multisampleAllowed = false;
+		// if (caps_.deviceID < 0x6000000)  // On sub 6xx series GPUs, disallow multisample.
+		multisampleAllowed = false;  // Actually, let's disable it on them all for now. See issue #18818.
 
 		// Adreno 5xx devices, all known driver versions, fail to discard stencil when depth write is off.
 		// See: https://github.com/hrydgard/ppsspp/pull/11684

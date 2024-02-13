@@ -191,8 +191,8 @@ private:
 	Draw::DrawContext *draw_;
 
 	// We use a shared descriptor set layouts for all PSP draws.
-	VKRPipelineLayout *pipelineLayout_;
-	VulkanPipeline *lastPipeline_;
+	VKRPipelineLayout *pipelineLayout_ = nullptr;
+	VulkanPipeline *lastPipeline_ = nullptr;
 	VkDescriptorSet lastDs_ = VK_NULL_HANDLE;
 
 	// Secondary texture for shader blending
@@ -228,11 +228,13 @@ private:
 	FramebufferManagerVulkan *framebufferManager_ = nullptr;
 
 	// State cache
-	uint64_t dirtyUniforms_;
-	uint32_t baseUBOOffset;
-	uint32_t lightUBOOffset;
-	uint32_t boneUBOOffset;
-	VkBuffer baseBuf, lightBuf, boneBuf;
+	uint64_t dirtyUniforms_ = 0;
+	uint32_t baseUBOOffset = 0;
+	uint32_t lightUBOOffset = 0;
+	uint32_t boneUBOOffset = 0;
+	VkBuffer baseBuf = VK_NULL_HANDLE;
+	VkBuffer lightBuf = VK_NULL_HANDLE;
+	VkBuffer boneBuf = VK_NULL_HANDLE;
 	VkImageView imageView = VK_NULL_HANDLE;
 	VkSampler sampler = VK_NULL_HANDLE;
 

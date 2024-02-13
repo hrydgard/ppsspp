@@ -419,7 +419,7 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 	}
 }
 
-void System_Toast(const char *text) {}
+void System_Toast(std::string_view text) {}
 
 void System_AskForPermission(SystemPermission permission) {}
 PermissionStatus System_GetPermissionStatus(SystemPermission permission) { return PERMISSION_STATUS_GRANTED; }

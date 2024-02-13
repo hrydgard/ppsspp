@@ -107,6 +107,7 @@ struct CompatFlags {
 	bool AllowDelayedReadbacks;
 	bool TacticsOgreEliminateDebugReadback;
 	bool FramebufferAllowLargeVerticalOffset;
+	bool DisableMemcpySlicing;
 };
 
 struct VRCompat {

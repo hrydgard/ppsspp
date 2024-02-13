@@ -33,6 +33,7 @@ extern "C" {
 #include "libavutil/samplefmt.h"
 #include "libavcodec/avcodec.h"
 }
+#include "Core/FFMPEGCompat.h"
 
 #endif  // USE_FFMPEG
 

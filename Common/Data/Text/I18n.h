@@ -11,6 +11,7 @@
 #include <map>
 #include <mutex>
 #include <string>
+#include <string_view>
 #include <vector>
 #include <memory>
 
@@ -81,10 +82,11 @@ public:
 	I18NCategory() {}
 	explicit I18NCategory(const Section &section);
 
-	const char *T(const char *key, const char *def = nullptr);
-	const char *T(const std::string &key) {
-		return T(key.c_str(), nullptr);
-	}
+	// Faster since the string lengths don't need to be recomputed.
+	std::string_view T(std::string_view key, std::string_view def = "");
+
+	// Try to avoid this. Still useful in snprintf.
+	const char *T_cstr(const char *key, const char *def = nullptr);
 
 	const std::map<std::string, std::string> Missed() const {
 		std::lock_guard<std::mutex> guard(missedKeyLock_);
@@ -99,6 +101,7 @@ private:
 	I18NCategory(I18NRepo *repo, const char *name) {}
 	void SetMap(const std::map<std::string, std::string> &m);
 
+	// std::less<> is needed to be able to look up string_views in a string-keyed map.
 	std::map<std::string, I18NEntry, std::less<>> map_;
 	mutable std::mutex missedKeyLock_;
 	std::map<std::string, std::string> missedKeyLog_;
@@ -119,12 +122,16 @@ public:
 
 	// Translate the string, by looking up "key" in the file, and falling back to either def or key, in that order, if the lookup fails.
 	// def can (and usually is) set to nullptr.
-	const char *T(I18NCat category, const char *key, const char *def = nullptr) {
+	std::string_view T(I18NCat category, std::string_view key, std::string_view def = "") {
 		if (category == I18NCat::NONE)
-			return def ? def : key;
+			return !def.empty() ? def : key;
 		return cats_[(size_t)category]->T(key, def);
 	}
-
+	const char *T_cstr(I18NCat category, const char *key, const char *def = nullptr) {
+		if (category == I18NCat::NONE)
+			return def ? def : key;
+		return cats_[(size_t)category]->T_cstr(key, def);
+	}
 	void LogMissingKeys() const;
 
 private:
@@ -142,6 +149,10 @@ extern I18NRepo g_i18nrepo;
 
 std::shared_ptr<I18NCategory> GetI18NCategory(I18NCat cat);
 
-inline const char *T(I18NCat category, const char *key, const char *def = nullptr) {
+inline std::string_view T(I18NCat category, std::string_view key, std::string_view def = "") {
 	return g_i18nrepo.T(category, key, def);
+}
+
+inline const char *T_cstr(I18NCat category, const char *key, const char *def = "") {
+	return g_i18nrepo.T_cstr(category, key, def);
 }

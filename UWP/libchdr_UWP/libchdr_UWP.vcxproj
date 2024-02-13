@@ -80,7 +80,8 @@
   <ImportGroup Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
-  <PropertyGroup Label="UserMacros" /><PropertyGroup />
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup />
   <PropertyGroup>
     <GenerateManifest>false</GenerateManifest>
   </PropertyGroup>
@@ -88,7 +89,7 @@
     <ClCompile>
       <CompileAsWinRT>false</CompileAsWinRT>
       <SDLCheck>false</SDLCheck>
-      <AdditionalIncludeDirectories>..\..\ext\zlib;..\..\ext\libchdr\include;..\..\ext\libchdr\deps\lzma-22.01\include;$(ProjectDir);$(GeneratedFilesDir);$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\..\ext\zlib;..\..\ext\zstd\lib;..\..\ext\libchdr\include;..\..\ext\libchdr\deps\lzma-22.01\include;$(ProjectDir);$(GeneratedFilesDir);$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <PreprocessorDefinitions>_7ZIP_ST;_CRT_SECURE_NO_WARNINGS;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>

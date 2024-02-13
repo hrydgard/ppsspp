@@ -497,7 +497,7 @@ namespace SaveState
 		if (detectSlot(UNDO_STATE_EXTENSION)) {
 			auto sy = GetI18NCategory(I18NCat::SYSTEM);
 			// Allow the number to be positioned where it makes sense.
-			std::string undo = sy->T("undo %c");
+			std::string undo(sy->T("undo %c"));
 			return title + " (" + StringFromFormat(undo.c_str(), slotChar) + ")";
 		}
 
@@ -517,7 +517,7 @@ namespace SaveState
 
 		// The file can't be loaded - let's note that.
 		auto sy = GetI18NCategory(I18NCat::SYSTEM);
-		return filename.GetFilename() + " " + sy->T("(broken)");
+		return filename.GetFilename() + " " + std::string(sy->T("(broken)"));
 	}
 
 	std::string GenerateFullDiscId(const Path &gameFilename) {
@@ -581,14 +581,14 @@ namespace SaveState
 			if (g_Config.bEnableStateUndo) {
 				Path backup = GetSysDirectory(DIRECTORY_SAVESTATE) / LOAD_UNDO_NAME;
 				
-				auto saveCallback = [=](Status status, const std::string &message, void *data) {
+				auto saveCallback = [=](Status status, std::string_view message, void *data) {
 					if (status != Status::FAILURE) {
 						DeleteIfExists(backup);
 						File::Rename(backup.WithExtraExtension(".tmp"), backup);
 						g_Config.sStateLoadUndoGame = GenerateFullDiscId(gameFilename);
 						g_Config.Save("Saving config for savestate last load undo");
 					} else {
-						ERROR_LOG(SAVESTATE, "Saving load undo state failed: %s", message.c_str());
+						ERROR_LOG(SAVESTATE, "Saving load undo state failed: %.*s", (int)message.size(), message.data());
 					}
 					Load(fn, slot, callback, cbUserData);
 				};
@@ -639,7 +639,7 @@ namespace SaveState
 		Path fnUndo = GenerateSaveSlotFilename(gameFilename, slot, UNDO_STATE_EXTENSION);
 		if (!fn.empty()) {
 			Path shot = GenerateSaveSlotFilename(gameFilename, slot, SCREENSHOT_EXTENSION);
-			auto renameCallback = [=](Status status, const std::string &message, void *data) {
+			auto renameCallback = [=](Status status, std::string_view message, void *data) {
 				if (status != Status::FAILURE) {
 					if (g_Config.bEnableStateUndo) {
 						DeleteIfExists(fnUndo);
@@ -939,12 +939,8 @@ namespace SaveState
 			std::string title;
 
 			auto sc = GetI18NCategory(I18NCat::SCREEN);
-			const char *i18nLoadFailure = sc->T("Load savestate failed", "");
-			const char *i18nSaveFailure = sc->T("Save State Failed", "");
-			if (strlen(i18nLoadFailure) == 0)
-				i18nLoadFailure = sc->T("Failed to load state");
-			if (strlen(i18nSaveFailure) == 0)
-				i18nSaveFailure = sc->T("Failed to save state");
+			const char *i18nLoadFailure = sc->T_cstr("Failed to load state");
+			const char *i18nSaveFailure = sc->T_cstr("Failed to save state");
 
 			std::string slot_prefix = op.slot >= 0 ? StringFromFormat("(%d) ", op.slot + 1) : "";
 			std::string errorString;
@@ -997,7 +993,7 @@ namespace SaveState
 				}
 				result = CChunkFileReader::Save(op.filename, title, PPSSPP_GIT_VERSION, state);
 				if (result == CChunkFileReader::ERROR_NONE) {
-					callbackMessage = slot_prefix + sc->T("Saved State");
+					callbackMessage = slot_prefix + std::string(sc->T("Saved State"));
 					callbackResult = Status::SUCCESS;
 #ifndef MOBILE_DEVICE
 					if (g_Config.bSaveLoadResetsAVdumping) {

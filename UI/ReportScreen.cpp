@@ -41,7 +41,7 @@ using namespace UI;
 
 class RatingChoice : public LinearLayout {
 public:
-	RatingChoice(const char *captionKey, int *value, LayoutParams *layoutParams = 0);
+	RatingChoice(std::string_view captionKey, int *value, LayoutParams *layoutParams = 0);
 
 	RatingChoice *SetEnabledPtrs(bool *enabled);
 
@@ -54,7 +54,7 @@ protected:
 	virtual int TotalChoices() {
 		return 3;
 	}
-	void AddChoice(int i, const std::string &title);
+	void AddChoice(int i, std::string_view title);
 	StickyChoice *GetChoice(int i) {
 		return static_cast<StickyChoice *>(group_->GetViewByIndex(i));
 	}
@@ -67,7 +67,7 @@ private:
 	int *value_;
 };
 
-RatingChoice::RatingChoice(const char *captionKey, int *value, LayoutParams *layoutParams)
+RatingChoice::RatingChoice(std::string_view captionKey, int *value, LayoutParams *layoutParams)
 		: LinearLayout(ORIENT_VERTICAL, layoutParams), value_(value) {
 	SetSpacing(0.0f);
 
@@ -109,7 +109,7 @@ void RatingChoice::SetupChoices() {
 	AddChoice(2, rp->T("Great"));
 }
 
-void RatingChoice::AddChoice(int i, const std::string &title) {
+void RatingChoice::AddChoice(int i, std::string_view title) {
 	auto c = group_->Add(new StickyChoice(title, ""));
 	c->OnClick.Handle(this, &RatingChoice::OnChoiceClick);
 }
@@ -356,7 +356,7 @@ void ReportScreen::UpdateCRCInfo() {
 
 void ReportScreen::UpdateOverallDescription() {
 	auto rp = GetI18NCategory(I18NCat::REPORTING);
-	const char *desc;
+	std::string_view desc;
 	uint32_t c = 0xFFFFFFFF;
 	switch (overall_) {
 	case ReportingOverallScore::PERFECT: desc = rp->T("Perfect Description", "Flawless emulation for the entire game - great!"); break;
@@ -486,7 +486,7 @@ void ReportFinishScreen::ShowSuggestions() {
 		bool shownConfig = false;
 		bool valid = false;
 		for (const auto &item : suggestions) {
-			const char *suggestion = nullptr;
+			std::string_view suggestion = "";
 			if (item == "Upgrade") {
 				suggestion = rp->T("SuggestionUpgrade", "Upgrade to a newer PPSSPP build");
 			} else if (item == "Downgrade") {
@@ -504,15 +504,15 @@ void ReportFinishScreen::ShowSuggestions() {
 				// Ignore unknown configs, hopefully we recognized "Upgrade" at least.
 			}
 
-			if (suggestion) {
+			if (!suggestion.empty()) {
 				valid = true;
-				resultItems_->Add(new TextView(std::string(" - ") + suggestion, FLAG_WRAP_TEXT, false))->SetShadow(true);
+				resultItems_->Add(new TextView(std::string(" - ") + std::string(suggestion), FLAG_WRAP_TEXT, false))->SetShadow(true);
 			}
 		}
 
 		if (!valid) {
 			// No actual valid versions.  Let's just say upgrade and hope the server's not broken.
-			resultItems_->Add(new TextView(std::string(" - ") + rp->T("SuggestionUpgrade", "Upgrade to a newer PPSSPP build"), FLAG_WRAP_TEXT, false))->SetShadow(true);
+			resultItems_->Add(new TextView(std::string(" - ") + rp->T_cstr("SuggestionUpgrade", "Upgrade to a newer PPSSPP build"), FLAG_WRAP_TEXT, false))->SetShadow(true);
 		}
 	}
 }

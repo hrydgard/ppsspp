@@ -159,13 +159,13 @@ static bool UsingHardwareTextureScaling() {
 	return g_Config.bTexHardwareScaling && GetGPUBackend() == GPUBackend::VULKAN && !g_Config.bSoftwareRendering;
 }
 
-static std::string TextureTranslateName(const char *value) {
+static std::string TextureTranslateName(std::string_view value) {
 	const TextureShaderInfo *info = GetTextureShaderInfo(value);
 	if (info) {
 		auto ts = GetI18NCategory(I18NCat::TEXTURESHADERS);
-		return ts->T(value, info ? info->name.c_str() : value);
+		return std::string(ts->T(value, info ? info->name.c_str() : value));
 	} else {
-		return value;
+		return std::string(value);
 	}
 }
 
@@ -206,13 +206,13 @@ bool PathToVisualUsbPath(Path path, std::string &outPath) {
 	return false;
 }
 
-static std::string PostShaderTranslateName(const char *value) {
+static std::string PostShaderTranslateName(std::string_view value) {
 	const ShaderInfo *info = GetPostShaderInfo(value);
 	if (info) {
 		auto ps = GetI18NCategory(I18NCat::POSTSHADERS);
-		return ps->T(value, info ? info->name.c_str() : value);
+		return std::string(ps->T(value, info ? info->name : value));
 	} else {
-		return value;
+		return std::string(value);
 	}
 }
 
@@ -342,6 +342,8 @@ void GameSettingsScreen::CreateGraphicsSettings(UI::ViewGroup *graphicsSettings)
 				msaaChoice->SetChoiceIcon(i, ImageID("I_WARNING"));
 			}
 		}
+	} else {
+		g_Config.iMultiSampleLevel = 0;
 	}
 
 #if PPSSPP_PLATFORM(ANDROID)
@@ -643,7 +645,7 @@ void GameSettingsScreen::CreateAudioSettings(UI::ViewGroup *audioSettings) {
 #if defined(SDL)
 	std::vector<std::string> audioDeviceList;
 	SplitString(System_GetProperty(SYSPROP_AUDIO_DEVICE_LIST), '\0', audioDeviceList);
-	audioDeviceList.insert(audioDeviceList.begin(), a->T("Auto"));
+	audioDeviceList.insert(audioDeviceList.begin(), a->T_cstr("Auto"));
 	PopupMultiChoiceDynamic *audioDevice = audioSettings->Add(new PopupMultiChoiceDynamic(&g_Config.sAudioDevice, a->T("Device"), audioDeviceList, I18NCat::NONE, screenManager()));
 	audioDevice->OnChoice.Handle(this, &GameSettingsScreen::OnAudioDevice);
 	sdlAudio = true;
@@ -698,7 +700,7 @@ void GameSettingsScreen::CreateControlsSettings(UI::ViewGroup *controlsSettings)
 		Choice *customizeTilt = controlsSettings->Add(new ChoiceWithCallbackValueDisplay(co->T("Tilt control setup"), []() -> std::string {
 			auto co = GetI18NCategory(I18NCat::CONTROLS);
 			if ((u32)g_Config.iTiltInputType < (u32)g_numTiltTypes) {
-				return co->T(g_tiltTypes[g_Config.iTiltInputType]);
+				return std::string(co->T(g_tiltTypes[g_Config.iTiltInputType]));
 			}
 			return "";
 		}));
@@ -817,12 +819,12 @@ void GameSettingsScreen::CreateControlsSettings(UI::ViewGroup *controlsSettings)
 // Compound view just like the audio file choosers
 class MacAddressChooser : public UI::LinearLayout {
 public:
-	MacAddressChooser(RequesterToken token, Path gamePath, std::string *value, const std::string &title, ScreenManager *screenManager, UI::LayoutParams *layoutParams = nullptr);
+	MacAddressChooser(RequesterToken token, Path gamePath, std::string *value, std::string_view title, ScreenManager *screenManager, UI::LayoutParams *layoutParams = nullptr);
 };
 
 static constexpr UI::Size ITEM_HEIGHT = 64.f;
 
-MacAddressChooser::MacAddressChooser(RequesterToken token, Path gamePath_, std::string *value, const std::string &title, ScreenManager *screenManager, UI::LayoutParams *layoutParams) : UI::LinearLayout(UI::ORIENT_HORIZONTAL, layoutParams) {
+MacAddressChooser::MacAddressChooser(RequesterToken token, Path gamePath_, std::string *value, std::string_view title, ScreenManager *screenManager, UI::LayoutParams *layoutParams) : UI::LinearLayout(UI::ORIENT_HORIZONTAL, layoutParams) {
 	using namespace UI;
 	SetSpacing(5.0f);
 	if (!layoutParams) {
@@ -844,9 +846,9 @@ MacAddressChooser::MacAddressChooser(RequesterToken token, Path gamePath_, std::
 		auto n = GetI18NCategory(I18NCat::NETWORKING);
 		auto di = GetI18NCategory(I18NCat::DIALOG);
 
-		const char *confirmMessage = n->T("ChangeMacSaveConfirm", "Generate a new MAC address?");
-		const char *warningMessage = n->T("ChangeMacSaveWarning", "Some games verify the MAC address when loading savedata, so this may break old saves.");
-		std::string combined = g_Config.sMACAddress + "\n\n" + std::string(confirmMessage) + "\n\n" + warningMessage;
+		std::string_view confirmMessage = n->T("ChangeMacSaveConfirm", "Generate a new MAC address?");
+		std::string_view warningMessage = n->T("ChangeMacSaveWarning", "Some games verify the MAC address when loading savedata, so this may break old saves.");
+		std::string combined = g_Config.sMACAddress + "\n\n" + std::string(confirmMessage) + "\n\n" + std::string(warningMessage);
 
 		auto confirmScreen = new PromptScreen(
 			gamePath_,
@@ -1001,13 +1003,13 @@ void GameSettingsScreen::CreateSystemSettings(UI::ViewGroup *systemSettings) {
 
 	systemSettings->Add(new ItemHeader(sy->T("UI")));
 
-	auto langCodeToName = [](const char *value) -> std::string {
+	auto langCodeToName = [](std::string_view value) -> std::string {
 		auto &mapping = g_Config.GetLangValuesMapping();
 		auto iter = mapping.find(value);
 		if (iter != mapping.end()) {
 			return iter->second.first;
 		}
-		return value;
+		return std::string(value);
 	};
 
 	systemSettings->Add(new ChoiceWithValueDisplay(&g_Config.sLanguageIni, sy->T("Language"), langCodeToName))->OnClick.Add([&](UI::EventParams &e) {
@@ -1283,7 +1285,8 @@ UI::EventReturn GameSettingsScreen::OnScreenRotation(UI::EventParams &e) {
 
 UI::EventReturn GameSettingsScreen::OnAdhocGuides(UI::EventParams &e) {
 	auto n = GetI18NCategory(I18NCat::NETWORKING);
-	System_LaunchUrl(LaunchUrlType::BROWSER_URL, n->T("MultiplayerHowToURL", "https://github.com/hrydgard/ppsspp/wiki/How-to-play-multiplayer-games-with-PPSSPP"));
+	std::string url(n->T("MultiplayerHowToURL", "https://github.com/hrydgard/ppsspp/wiki/How-to-play-multiplayer-games-with-PPSSPP"));
+	System_LaunchUrl(LaunchUrlType::BROWSER_URL, url.c_str());
 	return UI::EVENT_DONE;
 }
 
@@ -1925,7 +1928,7 @@ UI::EventReturn GameSettingsScreen::OnRestoreDefaultSettings(UI::EventParams &e)
 			new PromptScreen(gamePath_, dev->T("RestoreGameDefaultSettings", "Are you sure you want to restore the game-specific settings back to the ppsspp defaults?\n"), di->T("OK"), di->T("Cancel"),
 			std::bind(&GameSettingsScreen::CallbackRestoreDefaults, this, std::placeholders::_1)));
 	} else {
-		const char *title = sy->T("Restore Default Settings");
+		std::string_view title = sy->T("Restore Default Settings");
 		screenManager()->push(new RestoreSettingsScreen(title));
 	}
 	return UI::EVENT_DONE;
@@ -1953,7 +1956,7 @@ UI::EventReturn DeveloperToolsScreen::OnOpenTexturesIniFile(UI::EventParams &e) 
 		} else {
 			// Can't do much here, let's send a "toast" so the user sees that something happened.
 			auto dev = GetI18NCategory(I18NCat::DEVELOPER);
-			System_Toast((generatedFilename.ToVisualString() + ": " +  dev->T("Texture ini file created")).c_str());
+			System_Toast((generatedFilename.ToVisualString() + ": " + dev->T_cstr("Texture ini file created")).c_str());
 		}
 
 		hasTexturesIni_ = HasIni::YES;
@@ -2316,7 +2319,7 @@ void GestureMappingScreen::CreateViews() {
 	vert->Add(new PopupSliderChoiceFloat(&g_Config.fAnalogGestureSensibility, 0.01f, 5.0f, 1.0f, co->T("Sensitivity"), 0.01f, screenManager(), "x"))->SetEnabledPtr(&g_Config.bAnalogGesture);
 }
 
-RestoreSettingsScreen::RestoreSettingsScreen(const char *title)
+RestoreSettingsScreen::RestoreSettingsScreen(std::string_view title)
 	: PopupScreen(title, "OK", "Cancel") {}
 
 void RestoreSettingsScreen::CreatePopupContents(UI::ViewGroup *parent) {
@@ -2327,7 +2330,7 @@ void RestoreSettingsScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	auto mm = GetI18NCategory(I18NCat::MAINMENU);
 	auto dev = GetI18NCategory(I18NCat::DEVELOPER);
 
-	const char *text = dev->T(
+	std::string_view text = dev->T(
 		"RestoreDefaultSettings",
 		"Restore these settings back to their defaults?\nYou can't undo this.\nPlease restart PPSSPP after restoring settings.");
 

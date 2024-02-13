@@ -18,8 +18,10 @@
 #include <cstring>
 
 #include "ppsspp_config.h"
-#include "CPUDetect.h"
-#include "Common.h"
+
+#include "Common/CPUDetect.h"
+#include "Common/Common.h"
+#include "Common/Log.h"
 
 #ifdef _M_SSE
 #include <emmintrin.h>
@@ -32,7 +34,8 @@
 #include <arm_neon.h>
 #endif
 #endif
-#include "IndexGenerator.h"
+
+#include "GPU/Common/IndexGenerator.h"
 
 // Points don't need indexing...
 const u8 IndexGenerator::indexedPrimitiveType[7] = {
@@ -211,6 +214,7 @@ void IndexGenerator::AddFan(int numVerts, int indexOffset, bool clockwise) {
 //Lines
 void IndexGenerator::AddLineList(int numVerts, int indexOffset) {
 	u16 *outInds = inds_;
+	numVerts &= ~1;
 	for (int i = 0; i < numVerts; i += 2) {
 		*outInds++ = indexOffset + i;
 		*outInds++ = indexOffset + i + 1;

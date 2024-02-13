@@ -33,10 +33,6 @@ extern "C" {
 #include "libavutil/version.h"
 };
 
-#if LIBAVFORMAT_VERSION_INT >= AV_VERSION_INT(59, 16, 100)
-#define AVCodec const AVCodec
-#endif
-
 #endif
 
 // Wraps FFMPEG for audio decoding in a nice interface.
@@ -90,6 +86,9 @@ private:
 	int wanted_resample_freq; // wanted resampling rate/frequency
 
 	AVFrame *frame_;
+#if HAVE_LIBAVCODEC_CONST_AVCODEC // USE_FFMPEG is implied
+	const
+#endif
 	AVCodec *codec_;
 	AVCodecContext  *codecCtx_;
 	SwrContext      *swrCtx_;

@@ -227,7 +227,7 @@ void OnScreenDisplay::ShowLeaderboardSubmitted(const std::string &title, const s
 	g_OSD.Show(OSDType::LEADERBOARD_SUBMITTED, title, value, 3.0f);
 }
 
-void OnScreenDisplay::SetProgressBar(const std::string &id, std::string &&message, float minValue, float maxValue, float progress, float delay) {
+void OnScreenDisplay::SetProgressBar(std::string_view id, std::string_view message, float minValue, float maxValue, float progress, float delay) {
 	_dbg_assert_(!my_isnanorinf(progress));
 	_dbg_assert_(!my_isnanorinf(minValue));
 	_dbg_assert_(!my_isnanorinf(maxValue));
@@ -250,7 +250,7 @@ void OnScreenDisplay::SetProgressBar(const std::string &id, std::string &&messag
 	Entry bar;
 	bar.id = id;
 	bar.type = OSDType::PROGRESS_BAR;
-	bar.text = std::move(message);
+	bar.text = message;
 	bar.minValue = minValue;
 	bar.maxValue = maxValue;
 	bar.progress = progress;

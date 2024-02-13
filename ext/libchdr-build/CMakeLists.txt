@@ -7,6 +7,7 @@ set(SRC_DIR ../libchdr/src)
 include_directories(../libchdr/deps/lzma-22.01/include)
 include_directories(../libchdr/include)
 include_directories(../zlib)
+include_directories(../zstd/lib)
 
 add_definitions(-D_7ZIP_ST)
 

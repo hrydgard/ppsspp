@@ -149,7 +149,7 @@ void MainWindow::openmsAct()
 	QDesktopServices::openUrl(QUrl(memorystick));
 }
 
-void SaveStateActionFinished(SaveState::Status status, const std::string &message, void *userdata)
+static void SaveStateActionFinished(SaveState::Status status, std::string_view message, void *userdata)
 {
 	// TODO: Improve messaging?
 	if (status == SaveState::Status::FAILURE)

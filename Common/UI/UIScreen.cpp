@@ -295,13 +295,13 @@ UI::EventReturn UIScreen::OnCancel(UI::EventParams &e) {
 	return UI::EVENT_DONE;
 }
 
-PopupScreen::PopupScreen(std::string title, std::string button1, std::string button2)
+PopupScreen::PopupScreen(std::string_view title, std::string_view button1, std::string_view button2)
 	: title_(title) {
 	auto di = GetI18NCategory(I18NCat::DIALOG);
 	if (!button1.empty())
-		button1_ = di->T(button1.c_str());
+		button1_ = di->T(button1);
 	if (!button2.empty())
-		button2_ = di->T(button2.c_str());
+		button2_ = di->T(button2);
 	alpha_ = 0.0f;  // inherited
 }
 
