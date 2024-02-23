@@ -298,10 +298,10 @@ int PSPMsgDialog::Update(int animSpeed) {
 			DisplayMessage(msgText, (flag & DS_YESNO) != 0, (flag & DS_OK) != 0);
 
 		if (flag & (DS_OK | DS_VALIDBUTTON)) 
-			DisplayButtons(DS_BUTTON_OK, messageDialog.common.size == SCE_UTILITY_MSGDIALOG_SIZE_V3 ? messageDialog.okayButton : NULL);
+			DisplayButtons(DS_BUTTON_OK, messageDialog.common.size == SCE_UTILITY_MSGDIALOG_SIZE_V3 ? messageDialog.okayButton : "");
 
 		if (flag & DS_CANCELBUTTON)
-			DisplayButtons(DS_BUTTON_CANCEL, messageDialog.common.size == SCE_UTILITY_MSGDIALOG_SIZE_V3 ? messageDialog.cancelButton : NULL);
+			DisplayButtons(DS_BUTTON_CANCEL, messageDialog.common.size == SCE_UTILITY_MSGDIALOG_SIZE_V3 ? messageDialog.cancelButton : "");
 
 		if (IsButtonPressed(cancelButtonFlag) && (flag & DS_CANCELBUTTON))
 		{
