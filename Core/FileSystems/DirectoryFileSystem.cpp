@@ -1067,6 +1067,9 @@ size_t VFSFileSystem::ReadFile(u32 handle, u8 *pointer, s64 size, int &usec) {
 	EntryMap::iterator iter = entries.find(handle);
 	if (iter != entries.end())
 	{
+		if(iter->second.seekPos + size > iter->second.size)
+			size = iter->second.size - iter->second.seekPos;
+		if(size < 0) size = 0;
 		size_t bytesRead = size;
 		memcpy(pointer, iter->second.fileData + iter->second.seekPos, size);
 		iter->second.seekPos += size;
