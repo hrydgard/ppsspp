@@ -290,6 +290,13 @@ struct ApctlArgs {
 	u32_le data[5]; // OldState, NewState, Event, Error, ArgsAddr
 };
 
+struct NetResolver {
+	int  id;
+	bool isRunning;
+	u32  bufferAddr; // May be used for the Async version?
+	int  bufferLen;
+};
+
 class PointerWrap;
 
 class AfterApctlMipsCall : public PSPAction {
