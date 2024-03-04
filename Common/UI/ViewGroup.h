@@ -82,8 +82,8 @@ public:
 	std::string DescribeText() const override;
 
 protected:
-	std::string DescribeListUnordered(const char *heading) const;
-	std::string DescribeListOrdered(const char *heading) const;
+	std::string DescribeListUnordered(std::string_view heading) const;
+	std::string DescribeListOrdered(std::string_view heading) const;
 
 	std::vector<View *> views_;
 	View *defaultFocusView_ = nullptr;
@@ -261,7 +261,7 @@ class ChoiceStrip : public LinearLayout {
 public:
 	ChoiceStrip(Orientation orientation, LayoutParams *layoutParams = 0);
 
-	void AddChoice(const std::string &title);
+	void AddChoice(std::string_view title);
 	void AddChoice(ImageID buttonImage);
 
 	int GetSelection() const { return selected_; }
@@ -291,7 +291,7 @@ public:
 	TabHolder(Orientation orientation, float stripSize, LayoutParams *layoutParams = 0);
 
 	template <class T>
-	T *AddTab(const std::string &title, T *tabContents) {
+	T *AddTab(std::string_view title, T *tabContents) {
 		AddTabContents(title, (View *)tabContents);
 		return tabContents;
 	}
@@ -309,7 +309,7 @@ public:
 	void PersistData(PersistStatus status, std::string anonId, PersistMap &storage) override;
 
 private:
-	void AddTabContents(const std::string &title, View *tabContents);
+	void AddTabContents(std::string_view title, View *tabContents);
 	EventReturn OnTabClick(EventParams &e);
 
 	LinearLayout *tabContainer_ = nullptr;
@@ -327,7 +327,7 @@ class CollapsibleHeader;
 
 class CollapsibleSection : public LinearLayout {
 public:
-	CollapsibleSection(const std::string &title, LayoutParams *layoutParams = nullptr);
+	CollapsibleSection(std::string_view title, LayoutParams *layoutParams = nullptr);
 
 	void Update() override;
 

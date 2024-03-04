@@ -113,9 +113,7 @@ extern "C" {
 #include "libswscale/swscale.h"
 #include "libavcodec/avcodec.h"
 }
-#if LIBAVFORMAT_VERSION_INT >= AV_VERSION_INT(59, 16, 100)
-#define AVCodec const AVCodec
-#endif
+#include "Core/FFMPEGCompat.h"
 static AVPixelFormat pmp_want_pix_fmt;
 
 #endif

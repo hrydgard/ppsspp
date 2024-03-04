@@ -413,7 +413,7 @@ bool GameManager::DetectTexturePackDest(struct zip *z, int iniIndex, Path &dest)
 	return true;
 }
 
-void GameManager::SetInstallError(const std::string &err) {
+void GameManager::SetInstallError(std::string_view err) {
 	installProgress_ = 0.0f;
 	installError_ = err;
 	InstallDone();

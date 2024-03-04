@@ -22,6 +22,7 @@ XrVector3f hmdorientation;
 
 XrPassthroughFB passthrough = XR_NULL_HANDLE;
 XrPassthroughLayerFB passthroughLayer = XR_NULL_HANDLE;
+bool passthroughRunning = false;
 DECL_PFN(xrCreatePassthroughFB);
 DECL_PFN(xrDestroyPassthroughFB);
 DECL_PFN(xrPassthroughStartFB);
@@ -257,14 +258,15 @@ void VR_InitRenderer( engine_t* engine, bool multiview ) {
 		}
 
 		OXR(xrPassthroughStartFB(passthrough));
-		OXR(xrPassthroughLayerResumeFB(passthroughLayer));
 	}
 	initialized = true;
 }
 
 void VR_DestroyRenderer( engine_t* engine ) {
 	if (VR_GetPlatformFlag(VRPlatformFlag::VR_PLATFORM_EXTENSION_PASSTHROUGH)) {
-		OXR(xrPassthroughLayerPauseFB(passthroughLayer));
+		if (passthroughRunning) {
+			OXR(xrPassthroughLayerPauseFB(passthroughLayer));
+		}
 		OXR(xrPassthroughPauseFB(passthrough));
 		OXR(xrDestroyPassthroughFB(passthrough));
 		passthrough = XR_NULL_HANDLE;
@@ -286,6 +288,16 @@ bool VR_InitFrame( engine_t* engine ) {
 	if (stageBoundsDirty) {
 		VR_UpdateStageBounds(&engine->appState);
 		stageBoundsDirty = false;
+	}
+
+	// Update passthrough
+	if (passthroughRunning != VR_GetConfig(VR_CONFIG_PASSTHROUGH)) {
+		if (VR_GetConfig(VR_CONFIG_PASSTHROUGH)) {
+			OXR(xrPassthroughLayerResumeFB(passthroughLayer));
+		} else {
+			OXR(xrPassthroughLayerPauseFB(passthroughLayer));
+		}
+		passthroughRunning = VR_GetConfig(VR_CONFIG_PASSTHROUGH);
 	}
 
 	// NOTE: OpenXR does not use the concept of frame indices. Instead,
@@ -375,17 +387,6 @@ void VR_EndFrame( engine_t* engine ) {
 }
 
 void VR_FinishFrame( engine_t* engine ) {
-
-	if (VR_GetPlatformFlag(VRPlatformFlag::VR_PLATFORM_EXTENSION_PASSTHROUGH) && VR_GetConfig(VR_CONFIG_PASSTHROUGH)) {
-		if (passthroughLayer != XR_NULL_HANDLE) {
-			XrCompositionLayerPassthroughFB passthrough_layer = {XR_TYPE_COMPOSITION_LAYER_PASSTHROUGH_FB};
-			passthrough_layer.layerHandle = passthroughLayer;
-			passthrough_layer.flags = XR_COMPOSITION_LAYER_BLEND_TEXTURE_SOURCE_ALPHA_BIT;
-			passthrough_layer.space = XR_NULL_HANDLE;
-			engine->appState.Layers[engine->appState.LayerCount++].Passthrough = passthrough_layer;
-		}
-	}
-
 	int vrMode = vrConfig[VR_CONFIG_MODE];
 	XrCompositionLayerProjectionView projection_layer_elements[2] = {};
 	if ((vrMode == VR_MODE_MONO_6DOF) || (vrMode == VR_MODE_STEREO_6DOF)) {

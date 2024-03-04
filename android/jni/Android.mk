@@ -134,8 +134,7 @@ RCHEEVOS_FILES := \
   ${SRC}/ext/rcheevos/src/rcheevos/value.c \
   ${SRC}/ext/rcheevos/src/rhash/cdreader.c \
   ${SRC}/ext/rcheevos/src/rhash/hash.c \
-  ${SRC}/ext/rcheevos/src/rhash/md5.c \
-  ${SRC}/ext/rcheevos/src/rhash/aes.c
+  ${SRC}/ext/rcheevos/src/rhash/md5.c
 
 ifeq ($(TARGET_ARCH_ABI),arm64-v8a)
 	ADRENOTOOLS_FILES := \

@@ -57,7 +57,6 @@
     <ClCompile Include="..\rcheevos\src\rc_client.c" />
     <ClCompile Include="..\rcheevos\src\rc_compat.c" />
     <ClCompile Include="..\rcheevos\src\rc_util.c" />
-    <ClCompile Include="..\rcheevos\src\rhash\aes.c" />
     <ClCompile Include="..\rcheevos\src\rhash\cdreader.c" />
     <ClCompile Include="..\rcheevos\src\rhash\hash.c" />
     <ClCompile Include="..\rcheevos\src\rhash\md5.c" />

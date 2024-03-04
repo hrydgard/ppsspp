@@ -218,15 +218,15 @@ void MemStickScreen::CreateViews() {
 	if (choice_ == CHOICE_BROWSE_FOLDER || choice_ == CHOICE_SET_MANUAL) {
 		UI::View *extraView = nullptr;
 		if (!g_Config.memStickDirectory.empty()) {
-			extraView = new TextView(StringFromFormat("    %s: %s", iz->T("Current"), g_Config.memStickDirectory.ToVisualString().c_str()), ALIGN_LEFT, false);
+			extraView = new TextView(StringFromFormat("    %s: %s", iz->T_cstr("Current"), g_Config.memStickDirectory.ToVisualString().c_str()), ALIGN_LEFT, false);
 		}
 		AddExplanation(leftColumn, (MemStickScreen::Choice)choice_, extraView);
 	}
 
-	std::string privateString = iz->T("Use App Private Data");
+	std::string privateString(iz->T("Use App Private Data"));
 
 	if (initialSetup_) {
-		privateString = StringFromFormat("%s (%s)", iz->T("Skip for now"), privateString.c_str());
+		privateString = StringFromFormat("%s (%s)", iz->T_cstr("Skip for now"), privateString.c_str());
 	}
 
 	leftColumn->Add(new RadioButton(&choice_, CHOICE_PRIVATE_DIRECTORY, privateString))->OnClick.Handle(this, &MemStickScreen::OnChoiceClick);
@@ -236,7 +236,7 @@ void MemStickScreen::CreateViews() {
 
 	leftColumn->Add(new Spacer(new LinearLayoutParams(FILL_PARENT, 12.0f, 0.0f)));
 
-	const char *confirmButtonText = nullptr;
+	std::string_view confirmButtonText = "";
 	ImageID confirmButtonImage = ImageID::invalid();
 	switch (choice_) {
 	case CHOICE_BROWSE_FOLDER:

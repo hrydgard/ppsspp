@@ -168,7 +168,7 @@ private:
 
 class HostnameSelectScreen : public PopupScreen {
 public:
-	HostnameSelectScreen(std::string *value, const std::string &title)
+	HostnameSelectScreen(std::string *value, std::string_view title)
 		: PopupScreen(title, "OK", "Cancel"), value_(value) {
 		resolver_ = std::thread([](HostnameSelectScreen *thiz) {
 			thiz->ResolverThread();
@@ -237,7 +237,7 @@ public:
 
 class RestoreSettingsScreen : public PopupScreen {
 public:
-	RestoreSettingsScreen(const char *title);
+	RestoreSettingsScreen(std::string_view title);
 	void CreatePopupContents(UI::ViewGroup *parent) override;
 
 	const char *tag() const override { return "RestoreSettingsScreen"; }

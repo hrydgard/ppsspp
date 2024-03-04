@@ -300,7 +300,7 @@ void EmuScreen::bootGame(const Path &filename) {
 		// Reset views in case controls are in a different place.
 		RecreateViews();
 
-		g_Discord.SetPresenceGame(info->GetTitle().c_str());
+		g_Discord.SetPresenceGame(info->GetTitle());
 	} else {
 		g_Discord.SetPresenceGame(sc->T("Untitled PSP game"));
 	}
@@ -429,7 +429,7 @@ void EmuScreen::bootComplete() {
 		auto di = GetI18NCategory(I18NCat::DIALOG);
 		// Stereo rendering is experimental, so let's notify the user it's being used.
 		// Carefully reuse translations for this rare warning.
-		g_OSD.Show(OSDType::MESSAGE_WARNING, std::string(gr->T("Stereo rendering")) + ": " + di->T("Enabled"));
+		g_OSD.Show(OSDType::MESSAGE_WARNING, std::string(gr->T("Stereo rendering")) + ": " + std::string(di->T("Enabled")));
 	}
 
 	saveStateSlot_ = SaveState::GetCurrentSlot();
@@ -486,13 +486,13 @@ void EmuScreen::dialogFinished(const Screen *dialog, DialogResult result) {
 	SetExtraAssertInfo(extraAssertInfoStr_.c_str());
 }
 
-static void AfterSaveStateAction(SaveState::Status status, const std::string &message, void *) {
+static void AfterSaveStateAction(SaveState::Status status, std::string_view message, void *) {
 	if (!message.empty() && (!g_Config.bDumpFrames || !g_Config.bDumpVideoOutput)) {
 		g_OSD.Show(status == SaveState::Status::SUCCESS ? OSDType::MESSAGE_SUCCESS : OSDType::MESSAGE_ERROR, message, status == SaveState::Status::SUCCESS ? 2.0 : 5.0);
 	}
 }
 
-static void AfterStateBoot(SaveState::Status status, const std::string &message, void *ignored) {
+static void AfterStateBoot(SaveState::Status status, std::string_view message, void *ignored) {
 	AfterSaveStateAction(status, message, ignored);
 	Core_EnableStepping(false);
 	System_Notify(SystemNotification::DISASSEMBLY);

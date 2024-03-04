@@ -11,7 +11,7 @@ class TabbedUIDialogScreenWithGameBackground : public UIDialogScreenWithGameBack
 public:
 	TabbedUIDialogScreenWithGameBackground(const Path &gamePath) : UIDialogScreenWithGameBackground(gamePath) {}
 
-	UI::LinearLayout *AddTab(const char *tag, const std::string &title, bool isSearch = false);
+	UI::LinearLayout *AddTab(const char *tag, std::string_view title, bool isSearch = false);
 	void CreateViews() override;
 
 

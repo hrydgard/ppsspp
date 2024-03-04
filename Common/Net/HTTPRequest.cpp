@@ -9,8 +9,8 @@
 
 namespace http {
 
-Request::Request(RequestMethod method, const std::string &url, const std::string &name, bool *cancelled, ProgressBarMode mode) : method_(method), url_(url), name_(name), progress_(cancelled), progressBarMode_(mode) {
-	INFO_LOG(HTTP, "HTTP %s request: %s (%s)", RequestMethodToString(method), url.c_str(), name.c_str());
+Request::Request(RequestMethod method, const std::string &url, std::string_view name, bool *cancelled, ProgressBarMode mode) : method_(method), url_(url), name_(name), progress_(cancelled), progressBarMode_(mode) {
+	INFO_LOG(HTTP, "HTTP %s request: %s (%.*s)", RequestMethodToString(method), url.c_str(), (int)name.size(), name.data());
 
 	progress_.callback = [=](int64_t bytes, int64_t contentLength, bool done) {
 		std::string message;
@@ -64,7 +64,7 @@ std::shared_ptr<Request> RequestManager::StartDownloadWithCallback(
 	const Path &outfile,
 	ProgressBarMode mode,
 	std::function<void(Request &)> callback,
-	const std::string &name,
+	std::string_view name,
 	const char *acceptMime) {
 	std::shared_ptr<Request> dl;
 	if (IsHttpsUrl(url) && System_GetPropertyBool(SYSPROP_SUPPORTS_HTTPS)) {
@@ -92,7 +92,7 @@ std::shared_ptr<Request> RequestManager::AsyncPostWithCallback(
 	const std::string &postMime,
 	ProgressBarMode mode,
 	std::function<void(Request &)> callback,
-	const std::string &name) {
+	std::string_view name) {
 	std::shared_ptr<Request> dl;
 	if (IsHttpsUrl(url) && System_GetPropertyBool(SYSPROP_SUPPORTS_HTTPS)) {
 #ifndef HTTPS_NOT_AVAILABLE

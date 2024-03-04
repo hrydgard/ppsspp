@@ -147,13 +147,13 @@ size_t GetRichPresenceMessage(char *buffer, size_t bufSize) {
 	return rc_client_get_rich_presence_message(g_rcClient, buffer, bufSize);
 }
 
-bool WarnUserIfHardcoreModeActive(bool isSaveStateAction, const char *message) {
+bool WarnUserIfHardcoreModeActive(bool isSaveStateAction, std::string_view message) {
 	if (!HardcoreModeActive() || (isSaveStateAction && g_Config.bAchievementsSaveStateInHardcoreMode)) {
 		return false;
 	}
 
-	const char *showMessage = message;
-	if (!message) {
+	std::string_view showMessage = message;
+	if (message.empty()) {
 		auto ac = GetI18NCategory(I18NCat::ACHIEVEMENTS);
 		showMessage = ac->T("This feature is not available in Hardcore Mode");
 	}

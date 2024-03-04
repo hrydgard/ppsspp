@@ -33,7 +33,7 @@
 
 class ButtonShapeScreen : public PopupScreen {
 public:
-	ButtonShapeScreen(std::string title, int *setting) : PopupScreen(title), setting_(setting) {}
+	ButtonShapeScreen(std::string_view title, int *setting) : PopupScreen(title), setting_(setting) {}
 
 	void CreatePopupContents(UI::ViewGroup *parent) override {
 		using namespace UI;
@@ -63,7 +63,7 @@ private:
 
 class ButtonIconScreen : public PopupScreen {
 public:
-	ButtonIconScreen(std::string title, int *setting) : PopupScreen(title), setting_(setting) {}
+	ButtonIconScreen(std::string_view title, int *setting) : PopupScreen(title), setting_(setting) {}
 
 	void CreatePopupContents(UI::ViewGroup *parent) override {
 		using namespace UI;

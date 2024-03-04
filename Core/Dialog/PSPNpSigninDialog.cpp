@@ -100,7 +100,7 @@ void PSPNpSigninDialog::DrawLogo() {
 	PPGeDrawImage(416, 22, 64.0f, 64.0f, 1, 10, 1, 10, 64, 64, FadedImageStyle());
 }
 
-void PSPNpSigninDialog::DisplayMessage(const std::string &text1, const std::string &text2a, const std::string &text2b, const std::string &text3a, const std::string &text3b, bool hasYesNo, bool hasOK) {
+void PSPNpSigninDialog::DisplayMessage(std::string_view text1, std::string_view text2a, std::string_view text2b, std::string_view text3a, std::string_view text3b, bool hasYesNo, bool hasOK) {
 	auto di = GetI18NCategory(I18NCat::DIALOG);
 
 	PPGeStyle buttonStyle = FadedStyle(PPGeAlign::BOX_CENTER, FONT_SCALE);
@@ -108,12 +108,12 @@ void PSPNpSigninDialog::DisplayMessage(const std::string &text1, const std::stri
 	PPGeStyle messageStyleRight = FadedStyle(PPGeAlign::BOX_RIGHT, FONT_SCALE);
 	PPGeStyle messageStyleLeft = FadedStyle(PPGeAlign::BOX_LEFT, FONT_SCALE);
 
-	std::string text2 = text2a + "  " + text2b;
-	std::string text3 = text3a + "  " + text3b;
+	std::string text2 = std::string(text2a) + "  " + std::string(text2b);
+	std::string text3 = std::string(text3a) + "  " + std::string(text3b);
 
 	// Without the scrollbar, we have 350 total pixels.
 	float WRAP_WIDTH = 300.0f;
-	if (UTF8StringNonASCIICount(text1.c_str()) >= (int)text1.size() / 4) {
+	if (UTF8StringNonASCIICount(text1) >= (int)text1.size() / 4) {
 		WRAP_WIDTH = 336.0f;
 		if (text1.size() > 12) {
 			messageStyle.scale = 0.6f;
@@ -121,13 +121,13 @@ void PSPNpSigninDialog::DisplayMessage(const std::string &text1, const std::stri
 	}
 
 	float totalHeight1 = 0.0f;
-	PPGeMeasureText(nullptr, &totalHeight1, text1.c_str(), FONT_SCALE, PPGE_LINE_WRAP_WORD, WRAP_WIDTH);
+	PPGeMeasureText(nullptr, &totalHeight1, text1, FONT_SCALE, PPGE_LINE_WRAP_WORD, WRAP_WIDTH);
 	float totalHeight2 = 0.0f;
 	if (text2 != "  ")
-		PPGeMeasureText(nullptr, &totalHeight2, text2.c_str(), FONT_SCALE, PPGE_LINE_USE_ELLIPSIS, WRAP_WIDTH);
+		PPGeMeasureText(nullptr, &totalHeight2, text2, FONT_SCALE, PPGE_LINE_USE_ELLIPSIS, WRAP_WIDTH);
 	float totalHeight3 = 0.0f;
 	if (text3 != "  ")
-		PPGeMeasureText(nullptr, &totalHeight3, text3.c_str(), FONT_SCALE, PPGE_LINE_USE_ELLIPSIS, WRAP_WIDTH);
+		PPGeMeasureText(nullptr, &totalHeight3, text3, FONT_SCALE, PPGE_LINE_USE_ELLIPSIS, WRAP_WIDTH);
 	float marginTop = 0.0f;
 	if (text2 != "  " || text3 != "  ")
 		marginTop = 11.0f;
@@ -180,23 +180,23 @@ void PSPNpSigninDialog::DisplayMessage(const std::string &text1, const std::stri
 	}
 
 	PPGeScissor(0, (int)(centerY - h2 - 2), 480, (int)(centerY + h2 + 2));
-	PPGeDrawTextWrapped(text1.c_str(), 240.0f, centerY - h2 - scrollPos_, WRAP_WIDTH, 0, messageStyle);
+	PPGeDrawTextWrapped(text1, 240.0f, centerY - h2 - scrollPos_, WRAP_WIDTH, 0, messageStyle);
 	if (!text2a.empty()) {
 		if (!text2b.empty())
-			PPGeDrawTextWrapped(text2a.c_str(), 240.0f - 5.0f, centerY - h2 - scrollPos_ + totalHeight1 + marginTop, WRAP_WIDTH, 0, messageStyleRight);
+			PPGeDrawTextWrapped(text2a, 240.0f - 5.0f, centerY - h2 - scrollPos_ + totalHeight1 + marginTop, WRAP_WIDTH, 0, messageStyleRight);
 		else
-			PPGeDrawTextWrapped(text2a.c_str(), 240.0f, centerY - h2 - scrollPos_ + totalHeight1 + marginTop, WRAP_WIDTH, 0, messageStyle);
+			PPGeDrawTextWrapped(text2a, 240.0f, centerY - h2 - scrollPos_ + totalHeight1 + marginTop, WRAP_WIDTH, 0, messageStyle);
 	}
 	if (!text2b.empty())
-		PPGeDrawTextWrapped(text2b.c_str(), 240.0f + 5.0f, centerY - h2 - scrollPos_ + totalHeight1 + marginTop, WRAP_WIDTH, 0, messageStyleLeft);
+		PPGeDrawTextWrapped(text2b, 240.0f + 5.0f, centerY - h2 - scrollPos_ + totalHeight1 + marginTop, WRAP_WIDTH, 0, messageStyleLeft);
 	if (!text3a.empty()) {
 		if (!text3b.empty())
-			PPGeDrawTextWrapped(text3a.c_str(), 240.0f - 5.0f, centerY - h2 - scrollPos_ + totalHeight1 + totalHeight2 + marginTop, WRAP_WIDTH, 0, messageStyleRight);
+			PPGeDrawTextWrapped(text3a, 240.0f - 5.0f, centerY - h2 - scrollPos_ + totalHeight1 + totalHeight2 + marginTop, WRAP_WIDTH, 0, messageStyleRight);
 		else
-			PPGeDrawTextWrapped(text3a.c_str(), 240.0f, centerY - h2 - scrollPos_ + totalHeight1 + totalHeight2 + marginTop, WRAP_WIDTH, 0, messageStyle);
+			PPGeDrawTextWrapped(text3a, 240.0f, centerY - h2 - scrollPos_ + totalHeight1 + totalHeight2 + marginTop, WRAP_WIDTH, 0, messageStyle);
 	}
 	if (!text3b.empty())
-		PPGeDrawTextWrapped(text3b.c_str(), 240.0f + 5.0f, centerY - h2 - scrollPos_ + totalHeight1 + totalHeight2 + marginTop, WRAP_WIDTH, 0, messageStyleLeft);
+		PPGeDrawTextWrapped(text3b, 240.0f + 5.0f, centerY - h2 - scrollPos_ + totalHeight1 + totalHeight2 + marginTop, WRAP_WIDTH, 0, messageStyleLeft);
 	PPGeScissorReset();
 
 	// Do we need a scrollbar?

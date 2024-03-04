@@ -1,6 +1,7 @@
 #pragma once
 
 #include <thread>
+#include <string_view>
 
 #include "Common/Net/HTTPRequest.h"
 
@@ -13,7 +14,7 @@ namespace http {
 // Really an asynchronous request.
 class HTTPSRequest : public Request {
 public:
-	HTTPSRequest(RequestMethod method, const std::string &url, const std::string &postData, const std::string &postMime, const Path &outfile, ProgressBarMode progressBarMode = ProgressBarMode::DELAYED, const std::string &name = "");
+	HTTPSRequest(RequestMethod method, const std::string &url, const std::string &postData, const std::string &postMime, const Path &outfile, ProgressBarMode progressBarMode = ProgressBarMode::DELAYED, std::string_view name = "");
 	~HTTPSRequest();
 
 	void Start() override;

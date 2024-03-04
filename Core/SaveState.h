@@ -19,6 +19,7 @@
 
 #include <functional>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "Common/File/Path.h"
@@ -31,7 +32,7 @@ namespace SaveState
 		WARNING,
 		SUCCESS,
 	};
-	typedef std::function<void(Status status, const std::string &message, void *cbUserData)> Callback;
+	typedef std::function<void(Status status, std::string_view message, void *cbUserData)> Callback;
 
 	static const int NUM_SLOTS = 5;
 	static const char * const STATE_EXTENSION = "ppst";

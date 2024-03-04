@@ -86,7 +86,7 @@ GamepadView::GamepadView(const char *key, UI::LayoutParams *layoutParams) : UI::
 
 std::string GamepadView::DescribeText() const {
 	auto co = GetI18NCategory(I18NCat::CONTROLS);
-	return co->T(key_);
+	return std::string(co->T(key_));
 }
 
 void MultiTouchButton::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
