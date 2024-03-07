@@ -460,22 +460,29 @@ std::vector<SymbolEntry> SymbolMap::GetAllSymbols(SymbolType symmask) {
 void SymbolMap::AddModule(const char *name, u32 address, u32 size) {
 	std::lock_guard<std::recursive_mutex> guard(lock_);
 
-	for (auto it = modules.begin(), end = modules.end(); it != end; ++it) {
-		if (!strcmp(it->name, name)) {
-			// Just reactivate that one.
-			it->start = address;
-			it->size = size;
-			activeModuleEnds.emplace(it->start + it->size, *it);
-			activeNeedUpdate_ = true;
-			return;
-		}
+	// Reserve space for the new module in the modules vector
+	size_t sModules = modules.size() + 1;
+	modules.reserve(sModules);
+
+	// Check if the module already exists
+	auto it = std::find_if(modules.begin(), modules.end(), [&](const ModuleEntry& mod) {
+		return !strcmp(mod.name, name);
+	});
+
+	if (it != modules.end()) {
+		// Just reactivate that one.
+		it->start = address;
+		it->size = size;
+		activeModuleEnds.emplace(it->start + it->size, *it);
+		activeNeedUpdate_ = true;
+		return;
 	}
 
 	ModuleEntry mod;
 	truncate_cpy(mod.name, name);
 	mod.start = address;
 	mod.size = size;
-	mod.index = (int)modules.size() + 1;
+	mod.index = (int)sModules;
 
 	modules.push_back(mod);
 	activeModuleEnds.emplace(mod.start + mod.size, mod);
@@ -611,8 +618,8 @@ u32 SymbolMap::GetFunctionStart(u32 address) {
 	auto it = activeFunctions.upper_bound(address);
 	if (it == activeFunctions.end()) {
 		// check last element
-		auto rit = activeFunctions.rbegin();
-		if (rit != activeFunctions.rend()) {
+		auto rit = std::make_reverse_iterator(activeFunctions.begin());
+		if (rit != std::make_reverse_iterator(activeFunctions.end())) {
 			u32 start = rit->first;
 			u32 size = rit->second.size;
 			if (start <= address && start+size > address)
@@ -722,7 +729,6 @@ void SymbolMap::AssignFunctionIndices() {
 }
 
 void SymbolMap::UpdateActiveSymbols() {
-	// return;   (slow in debug mode)
 	std::lock_guard<std::recursive_mutex> guard(lock_);
 
 	activeFunctions.clear();
@@ -733,6 +739,11 @@ void SymbolMap::UpdateActiveSymbols() {
 	if (activeModuleEnds.empty() || (functions.empty() && labels.empty() && data.empty())) {
 		return;
 	}
+
+	// Reserve space for active symbols in symbol map
+	activeFunctions.reserve(functions.size());
+	activeLabels.reserve(labels.size());
+	activeData.reserve(data.size());
 
 	std::unordered_map<int, u32> activeModuleIndexes;
 	for (auto it = activeModuleEnds.begin(), end = activeModuleEnds.end(); it != end; ++it) {
@@ -998,9 +1009,9 @@ u32 SymbolMap::GetDataStart(u32 address) {
 	if (it == activeData.end())
 	{
 		// check last element
-		auto rit = activeData.rbegin();
+		auto rit = std::make_reverse_iterator(activeData.begin());
 
-		if (rit != activeData.rend())
+		if (rit != std::make_reverse_iterator(activeData.end()))
 		{
 			u32 start = rit->first;
 			u32 size = rit->second.size;
