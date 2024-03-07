@@ -17,6 +17,8 @@ INCFLAGS += \
 	-I$(CORE_DIR) \
 	-I$(COMMONDIR) \
 	-I$(CORE_DIR)/libretro \
+	-I$(EXTDIR)/libadrenotools/lib/linkernsbypass \
+	-I$(EXTDIR)/libadrenotools/include \
 	-I$(EXTDIR)/openxr \
 	-I$(EXTDIR)/glslang \
 	-I$(EXTDIR)/glslang-build \
@@ -564,6 +566,14 @@ else
 COREFLAGS += -DVK_USE_PLATFORM_XLIB_KHR
 SOURCES_CXX += $(COMMONDIR)/MemArenaPosix.cpp \
 	       $(EXTDIR)/glslang/glslang/OSDependent/Unix/ossource.cpp
+endif
+
+
+ifeq ($(TARGET_ARCH),arm64)
+SOURCES_CXX += \
+	  $(EXTDIR)/libadrenotools/src/driver.cpp \
+	  $(EXTDIR)/libadrenotools/lib/linkernsbypass/android_linker_ns.cpp \
+	  $(EXTDIR)/libadrenotools/lib/linkernsbypass/elf_soname_patcher.cpp
 endif
 
 SOURCES_CXX += \
