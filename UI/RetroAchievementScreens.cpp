@@ -356,14 +356,14 @@ void RetroAchievementsSettingsScreen::CreateCustomizeTab(UI::ViewGroup *viewGrou
 	auto a = GetI18NCategory(I18NCat::AUDIO);
 
 	using namespace UI;
+	viewGroup->Add(new ItemHeader(ac->T("Sound Effects")));
 	if (System_GetPropertyBool(SYSPROP_HAS_FILE_BROWSER)) {
-		viewGroup->Add(new ItemHeader(ac->T("Sound Effects")));
 		viewGroup->Add(new AudioFileChooser(GetRequesterToken(), &g_Config.sAchievementsUnlockAudioFile, ac->T("Achievement unlocked"), UISound::ACHIEVEMENT_UNLOCKED));
 		viewGroup->Add(new AudioFileChooser(GetRequesterToken(), &g_Config.sAchievementsLeaderboardSubmitAudioFile, ac->T("Leaderboard score submission"), UISound::LEADERBOARD_SUBMITTED));
-		PopupSliderChoice *volume = viewGroup->Add(new PopupSliderChoice(&g_Config.iAchievementSoundVolume, VOLUME_OFF, VOLUME_FULL, VOLUME_FULL, a->T("Achievement sound volume"), screenManager()));
-		volume->SetEnabledPtr(&g_Config.bEnableSound);
-		volume->SetZeroLabel(a->T("Mute"));
 	}
+	PopupSliderChoice *volume = viewGroup->Add(new PopupSliderChoice(&g_Config.iAchievementSoundVolume, VOLUME_OFF, VOLUME_FULL, VOLUME_FULL, a->T("Achievement sound volume"), screenManager()));
+	volume->SetEnabledPtr(&g_Config.bEnableSound);
+	volume->SetZeroLabel(a->T("Mute"));
 
 	static const char *positions[] = { "None", "Bottom Left", "Bottom Center", "Bottom Right", "Top Left", "Top Center", "Top Right", "Center Left", "Center Right" };
 
