@@ -92,9 +92,7 @@ IdentifiedFileType Identify_File(FileLoader *fileLoader, std::string *errorStrin
 			// maybe it also just happened to have that size, let's assume it's a PSP ISO and error out later if it's not.
 		}
 		return IdentifiedFileType::PSP_ISO;
-	} else if (extension == ".cso") {
-		return IdentifiedFileType::PSP_ISO;
-	} else if (extension == ".chd") {
+	} else if (extension == ".cso" || extension == ".chd") {
 		return IdentifiedFileType::PSP_ISO;
 	} else if (extension == ".ppst") {
 		return IdentifiedFileType::PPSSPP_SAVESTATE;
@@ -170,6 +168,11 @@ IdentifiedFileType Identify_File(FileLoader *fileLoader, std::string *errorStrin
 		// CISO are not used for many other kinds of ISO so let's just guess it's a PSP one and let it
 		// fail later...
 		return IdentifiedFileType::PSP_ISO;
+	} else if (!memcmp(&_id, "MCom", 4)) {
+		size_t readSize = fileLoader->ReadAt(4, 4, 1, &_id);
+		if (!memcmp(&_id, "prHD", 4)) {
+			return IdentifiedFileType::PSP_ISO;  // CHD file
+		}
 	}
 
 	if (id == 'FLE\x7F') {
