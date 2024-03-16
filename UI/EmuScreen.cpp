@@ -276,11 +276,6 @@ void EmuScreen::bootGame(const Path &filename) {
 		return;
 	}
 
-	if (info->badCHD) {
-		auto e = GetI18NCategory(I18NCat::ERRORS);
-		g_OSD.Show(OSDType::MESSAGE_CENTERED_ERROR, e->T("BadCHD", "Bad CHD file.\nCompress using \"chdman createdvd\" for good performance."), gamePath_.ToVisualString(), 7.0f);
-	}
-
 	auto sc = GetI18NCategory(I18NCat::SCREEN);
 	if (info->fileType == IdentifiedFileType::PSP_DISC_DIRECTORY) {
 		// Check for existence of ppsspp-index.lst - if it exists, the user likely knows what they're doing.
