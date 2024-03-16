@@ -683,9 +683,9 @@ bool CHDFileBlockDevice::ReadBlock(int blockNumber, u8 *outPtr, bool uncached)
 			ERROR_LOG(LOADER, "CHD read failed: %d %d %s", blockNumber, hunk, chd_error_string(err));
 			NotifyReadError();
 		}
+		currentHunk = hunk;
 	}
 	memcpy(outPtr, readBuffer + blockInHunk * impl_->header->unitbytes, GetBlockSize());
-
 	return true;
 }
 
