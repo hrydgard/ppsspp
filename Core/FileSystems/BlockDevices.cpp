@@ -644,12 +644,6 @@ CHDFileBlockDevice::CHDFileBlockDevice(FileLoader *fileLoader)
 	impl_->chd = file;
 	impl_->header = chd_get_header(impl_->chd);
 
-	if (impl_->header->hunkbytes != 2048) {
-		badCHD_ = true;
-	} else {
-		badCHD_ = false;
-	}
-
 	readBuffer = new u8[impl_->header->hunkbytes];
 	currentHunk = -1;
 	blocksPerHunk = impl_->header->hunkbytes / impl_->header->unitbytes;
@@ -683,9 +677,9 @@ bool CHDFileBlockDevice::ReadBlock(int blockNumber, u8 *outPtr, bool uncached)
 			ERROR_LOG(LOADER, "CHD read failed: %d %d %s", blockNumber, hunk, chd_error_string(err));
 			NotifyReadError();
 		}
+		currentHunk = hunk;
 	}
 	memcpy(outPtr, readBuffer + blockInHunk * impl_->header->unitbytes, GetBlockSize());
-
 	return true;
 }
 

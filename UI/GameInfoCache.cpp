@@ -688,9 +688,6 @@ handleELF:
 				if (!bd) {
 					return;
 				}
-				if (bd->IsBadCHD()) {
-					info_->badCHD = true;
-				}
 				ISOFileSystem umd(&handles, bd);
 
 				// Alright, let's fetch the PARAM.SFO.
