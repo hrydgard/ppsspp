@@ -19,7 +19,7 @@ INCFLAGS += \
 	-I$(CORE_DIR)/libretro \
 	-I$(EXTDIR)/libadrenotools/lib/linkernsbypass \
 	-I$(EXTDIR)/libadrenotools/include \
-	-I$(EXTDIR)/openxr \
+	-I$(EXTDIR)/OpenXR-SDK/include \
 	-I$(EXTDIR)/glslang \
 	-I$(EXTDIR)/glslang-build \
 	-I$(EXTDIR)/native \

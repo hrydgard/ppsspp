@@ -93,9 +93,6 @@ android {
 		}
 	}
 	packagingOptions {
-		jniLibs {
-			excludes += ['lib/arm64-v8a/libopenxr_loader.so']
-		}
 		jniLibs.useLegacyPackaging = true
 	}
 	sourceSets {
@@ -113,7 +110,6 @@ android {
 			res.srcDirs = ['gold/res']
 		}
 		vr {
-			jniLibs.srcDirs = ['../ext/openxr/android']
 			manifest.srcFile 'VRManifest.xml'
 		}
 	}

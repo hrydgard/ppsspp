@@ -1,7 +1,7 @@
 #pragma once
 
 #include <math.h>
-#include <openxr.h>
+#include <openxr/openxr.h>
 
 #ifndef EPSILON
 #define EPSILON 0.001f
