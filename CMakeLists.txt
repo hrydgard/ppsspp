@@ -126,7 +126,6 @@ if(OPENXR)
 	add_subdirectory(ext/OpenXR-SDK)
 	message("OpenXR enabled")
 endif()
-include_directories(ext/OpenXR-SDK/include)
 
 if(GOLD)
 	add_definitions(-DGOLD)
@@ -587,6 +586,7 @@ set(CommonVR
 	Common/VR/VRRenderer.cpp
 	Common/VR/VRRenderer.h
 )
+include_directories(ext/OpenXR-SDK/include)
 
 add_library(Common STATIC
 	${CommonX86}
