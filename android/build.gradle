@@ -110,7 +110,6 @@ android {
 			res.srcDirs = ['gold/res']
 		}
 		vr {
-			jniLibs.srcDirs = ['../ext/openxr/android']
 			manifest.srcFile 'VRManifest.xml'
 		}
 	}
