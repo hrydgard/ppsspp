@@ -50,7 +50,6 @@ public:
 		return (u64)GetNumBlocks() * (u64)GetBlockSize();
 	}
 	virtual bool IsDisc() const = 0;
-	virtual bool IsBadCHD() const { return false; }
 
 	void NotifyReadError();
 
@@ -147,7 +146,6 @@ public:
 	bool ReadBlocks(u32 minBlock, int count, u8 *outPtr) override;
 	u32 GetNumBlocks() const override { return numBlocks; }
 	bool IsDisc() const override { return true; }
-	bool IsBadCHD() const override { return badCHD_; }
 private:
 	struct ExtendedCoreFile *core_file_ = nullptr;
 	std::unique_ptr<CHDImpl> impl_;
@@ -155,7 +153,6 @@ private:
 	u32 currentHunk = 0;
 	u32 blocksPerHunk = 0;
 	u32 numBlocks = 0;
-	bool badCHD_ = false;
 };
 
 BlockDevice *constructBlockDevice(FileLoader *fileLoader);
