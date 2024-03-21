@@ -615,7 +615,7 @@ public abstract class NativeActivity extends Activity {
 		if (javaGL) {
 			mGLSurfaceView = new NativeGLView(this);
 			nativeRenderer = new NativeRenderer(this);
-			mGLSurfaceView.setEGLContextClientVersion(isVRDevice() ? 3 : 2);
+			mGLSurfaceView.setEGLContextClientVersion(2);
 			sizeManager.setSurfaceView(mGLSurfaceView);
 
 			// Setup the GLSurface and ask android for the correct
@@ -1670,6 +1670,15 @@ public abstract class NativeActivity extends Activity {
 	}
 
 	public static boolean isVRDevice() {
-		return BuildConfig.FLAVOR.startsWith("vr");
+		String manufacturer = Build.MANUFACTURER;
+		if (manufacturer.compareToIgnoreCase("meta") == 0) {
+			return true;
+		} else if (manufacturer.compareToIgnoreCase("oculus") == 0) {
+			return true;
+		} else if (manufacturer.compareToIgnoreCase("pico") == 0) {
+			return true;
+		} else {
+			return false;
+		}
 	}
 }
