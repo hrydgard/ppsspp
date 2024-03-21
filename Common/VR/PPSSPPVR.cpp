@@ -42,6 +42,7 @@ static std::map<int, bool> pspKeys;  // key can be virtual, so not using the enu
 
 static int vr3DGeometryCount = 0;
 static long vrCompat[VR_COMPAT_MAX];
+static bool vrEnabled = false;
 static bool vrFlatForced = false;
 static bool vrFlatGame = false;
 static double vrFov[2] = {};
@@ -129,10 +130,8 @@ VR app flow integration
 */
 
 bool IsVREnabled() {
-	// For now, let the OPENXR build flag control enablement.
-	// This will change.
 #ifdef OPENXR
-	return true;
+	return vrEnabled;
 #else
 	return false;
 #endif
@@ -203,6 +202,10 @@ void SetVRCallbacks(void (*axis)(const AxisInput *axis, size_t count), bool(*key
 	cbNativeAxis = axis;
 	cbNativeKey = key;
 	cbNativeTouch = touch;
+}
+
+void SetVREnabled(bool enabled) {
+    vrEnabled = enabled;
 }
 
 /*
