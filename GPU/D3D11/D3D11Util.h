@@ -21,6 +21,7 @@
 #include <vector>
 
 #include <d3d11.h>
+#include <wrl/client.h>
 
 class PushBufferD3D11 {
 public:
@@ -34,10 +35,9 @@ public:
 	}
 	PushBufferD3D11(PushBufferD3D11 &) = delete;
 	~PushBufferD3D11() {
-		buffer_->Release();
 	}
 	ID3D11Buffer *Buf() const {
-		return buffer_;
+		return buffer_.Get();
 	}
 
 	// Should be done each frame
@@ -55,7 +55,7 @@ public:
 			pos_ = 0;
 			nextMapDiscard_ = true;
 		}
-		context->Map(buffer_, 0, nextMapDiscard_ ? D3D11_MAP_WRITE_DISCARD : D3D11_MAP_WRITE_NO_OVERWRITE, 0, &map);
+		context->Map(buffer_.Get(), 0, nextMapDiscard_ ? D3D11_MAP_WRITE_DISCARD : D3D11_MAP_WRITE_NO_OVERWRITE, 0, &map);
 		nextMapDiscard_ = false;
 		*offset = (UINT)pos_;
 		uint8_t *retval = (uint8_t *)map.pData + pos_;
@@ -63,11 +63,11 @@ public:
 		return retval;
 	}
 	void EndPush(ID3D11DeviceContext *context) {
-		context->Unmap(buffer_, 0);
+		context->Unmap(buffer_.Get(), 0);
 	}
 
 private:
-	ID3D11Buffer *buffer_ = nullptr;
+	Microsoft::WRL::ComPtr<ID3D11Buffer> buffer_;
 	size_t pos_ = 0;
 	size_t size_;
 	bool nextMapDiscard_ = false;
@@ -75,24 +75,24 @@ private:
 
 std::vector<uint8_t> CompileShaderToBytecodeD3D11(const char *code, size_t codeSize, const char *target, UINT flags);
 
-ID3D11VertexShader *CreateVertexShaderD3D11(ID3D11Device *device, const char *code, size_t codeSize, std::vector<uint8_t> *byteCodeOut, D3D_FEATURE_LEVEL featureLevel, UINT flags = 0);
-ID3D11PixelShader *CreatePixelShaderD3D11(ID3D11Device *device, const char *code, size_t codeSize, D3D_FEATURE_LEVEL featureLevel, UINT flags = 0);
-ID3D11ComputeShader *CreateComputeShaderD3D11(ID3D11Device *device, const char *code, size_t codeSize, D3D_FEATURE_LEVEL featureLevel, UINT flags = 0);
-ID3D11GeometryShader *CreateGeometryShaderD3D11(ID3D11Device *device, const char *code, size_t codeSize, D3D_FEATURE_LEVEL featureLevel, UINT flags = 0);
+HRESULT CreateVertexShaderD3D11(ID3D11Device *device, const char *code, size_t codeSize, std::vector<uint8_t> *byteCodeOut, D3D_FEATURE_LEVEL featureLevel, UINT flags, ID3D11VertexShader **);
+HRESULT CreatePixelShaderD3D11(ID3D11Device *device, const char *code, size_t codeSize, D3D_FEATURE_LEVEL featureLevel, UINT flags, ID3D11PixelShader **);
+HRESULT CreateComputeShaderD3D11(ID3D11Device *device, const char *code, size_t codeSize, D3D_FEATURE_LEVEL featureLevel, UINT flags, ID3D11ComputeShader **);
+HRESULT CreateGeometryShaderD3D11(ID3D11Device *device, const char *code, size_t codeSize, D3D_FEATURE_LEVEL featureLevel, UINT flags, ID3D11GeometryShader **);
 
 class StockObjectsD3D11 {
 public:
 	void Create(ID3D11Device *device);
 	void Destroy();
 
-	ID3D11DepthStencilState *depthStencilDisabled;
-	ID3D11DepthStencilState *depthDisabledStencilWrite;
-	ID3D11BlendState *blendStateDisabledWithColorMask[16];
-	ID3D11RasterizerState *rasterStateNoCull;
-	ID3D11SamplerState *samplerPoint2DWrap;
-	ID3D11SamplerState *samplerLinear2DWrap;
-	ID3D11SamplerState *samplerPoint2DClamp;
-	ID3D11SamplerState *samplerLinear2DClamp;
+	Microsoft::WRL::ComPtr<ID3D11DepthStencilState> depthStencilDisabled;
+	Microsoft::WRL::ComPtr<ID3D11DepthStencilState> depthDisabledStencilWrite;
+	Microsoft::WRL::ComPtr<ID3D11BlendState> blendStateDisabledWithColorMask[16];
+	Microsoft::WRL::ComPtr<ID3D11RasterizerState> rasterStateNoCull;
+	Microsoft::WRL::ComPtr<ID3D11SamplerState> samplerPoint2DWrap;
+	Microsoft::WRL::ComPtr<ID3D11SamplerState> samplerLinear2DWrap;
+	Microsoft::WRL::ComPtr<ID3D11SamplerState> samplerPoint2DClamp;
+	Microsoft::WRL::ComPtr<ID3D11SamplerState> samplerLinear2DClamp;
 };
 
 #define ASSERT_SUCCESS(x) \

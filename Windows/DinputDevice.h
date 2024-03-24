@@ -23,7 +23,7 @@
 #define DIRECTINPUT_VERSION 0x0800
 #define DIRECTINPUT_RGBBUTTONS_MAX 128
 #include "InputDevice.h"
-#include "dinput.h"
+#include <dinput.h>
 
 class DinputDevice final :
 	public InputDevice

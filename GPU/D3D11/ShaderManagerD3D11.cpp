@@ -26,7 +26,6 @@
 #include "Common/Log.h"
 #include "Common/CommonTypes.h"
 #include "GPU/GPUState.h"
-#include "GPU/ge_constants.h"
 #include "GPU/Common/VertexShaderGenerator.h"
 #include "GPU/D3D11/ShaderManagerD3D11.h"
 #include "GPU/D3D11/D3D11Util.h"
@@ -35,14 +34,11 @@ D3D11FragmentShader::D3D11FragmentShader(ID3D11Device *device, D3D_FEATURE_LEVEL
 	: device_(device), useHWTransform_(useHWTransform), id_(id) {
 	source_ = code;
 
-	module_ = CreatePixelShaderD3D11(device, code, strlen(code), featureLevel);
-	if (!module_)
+	if (FAILED(CreatePixelShaderD3D11(device, code, strlen(code), featureLevel, 0, &module_)))
 		failed_ = true;
 }
 
 D3D11FragmentShader::~D3D11FragmentShader() {
-	if (module_)
-		module_->Release();
 }
 
 std::string D3D11FragmentShader::GetShaderString(DebugShaderStringType type) const {
@@ -60,14 +56,11 @@ D3D11VertexShader::D3D11VertexShader(ID3D11Device *device, D3D_FEATURE_LEVEL fea
 	: device_(device), useHWTransform_(useHWTransform), id_(id) {
 	source_ = code;
 
-	module_ = CreateVertexShaderD3D11(device, code, strlen(code), &bytecode_, featureLevel);
-	if (!module_)
+	if(FAILED(CreateVertexShaderD3D11(device, code, strlen(code), &bytecode_, featureLevel, 0, &module_)))
 		failed_ = true;
 }
 
 D3D11VertexShader::~D3D11VertexShader() {
-	if (module_)
-		module_->Release();
 }
 
 std::string D3D11VertexShader::GetShaderString(DebugShaderStringType type) const {
@@ -103,9 +96,6 @@ ShaderManagerD3D11::ShaderManagerD3D11(Draw::DrawContext *draw, ID3D11Device *de
 }
 
 ShaderManagerD3D11::~ShaderManagerD3D11() {
-	push_base->Release();
-	push_lights->Release();
-	push_bones->Release();
 	ClearShaders();
 	delete[] codeBuffer_;
 }
@@ -144,21 +134,21 @@ uint64_t ShaderManagerD3D11::UpdateUniforms(bool useBufferedRendering) {
 		D3D11_MAPPED_SUBRESOURCE map;
 		if (dirty & DIRTY_BASE_UNIFORMS) {
 			BaseUpdateUniforms(&ub_base, dirty, true, useBufferedRendering);
-			context_->Map(push_base, 0, D3D11_MAP_WRITE_DISCARD, 0, &map);
+			context_->Map(push_base.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &map);
 			memcpy(map.pData, &ub_base, sizeof(ub_base));
-			context_->Unmap(push_base, 0);
+			context_->Unmap(push_base.Get(), 0);
 		}
 		if (dirty & DIRTY_LIGHT_UNIFORMS) {
 			LightUpdateUniforms(&ub_lights, dirty);
-			context_->Map(push_lights, 0, D3D11_MAP_WRITE_DISCARD, 0, &map);
+			context_->Map(push_lights.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &map);
 			memcpy(map.pData, &ub_lights, sizeof(ub_lights));
-			context_->Unmap(push_lights, 0);
+			context_->Unmap(push_lights.Get(), 0);
 		}
 		if (dirty & DIRTY_BONE_UNIFORMS) {
 			BoneUpdateUniforms(&ub_bones, dirty);
-			context_->Map(push_bones, 0, D3D11_MAP_WRITE_DISCARD, 0, &map);
+			context_->Map(push_bones.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &map);
 			memcpy(map.pData, &ub_bones, sizeof(ub_bones));
-			context_->Unmap(push_bones, 0);
+			context_->Unmap(push_bones.Get(), 0);
 		}
 	}
 	gstate_c.CleanUniforms();
@@ -166,8 +156,8 @@ uint64_t ShaderManagerD3D11::UpdateUniforms(bool useBufferedRendering) {
 }
 
 void ShaderManagerD3D11::BindUniforms() {
-	ID3D11Buffer *vs_cbs[3] = { push_base, push_lights, push_bones };
-	ID3D11Buffer *ps_cbs[1] = { push_base };
+	ID3D11Buffer *vs_cbs[3] = { push_base.Get(), push_lights.Get(), push_bones.Get() };
+	ID3D11Buffer *ps_cbs[1] = { push_base.Get() };
 	context_->VSSetConstantBuffers(0, 3, vs_cbs);
 	context_->PSSetConstantBuffers(0, 1, ps_cbs);
 }

@@ -20,6 +20,7 @@
 #include <cfloat>
 
 #include <d3d11.h>
+#include <wrl/client.h>
 
 #include "GPU/ge_constants.h"
 #include "GPU/GPUState.h"
@@ -31,6 +32,8 @@
 #include "Core/Config.h"
 
 #include "ext/xxhash.h"
+
+using namespace Microsoft::WRL;
 
 // For depth depal
 struct DepthPushConstants {
@@ -72,15 +75,14 @@ static DXGI_FORMAT ToDXGIFormat(Draw::DataFormat fmt) {
 }
 
 SamplerCacheD3D11::~SamplerCacheD3D11() {
-	for (auto &iter : cache_) {
-		iter.second->Release();
-	}
 }
 
-ID3D11SamplerState *SamplerCacheD3D11::GetOrCreateSampler(ID3D11Device *device, const SamplerCacheKey &key) {
+HRESULT SamplerCacheD3D11::GetOrCreateSampler(ID3D11Device *device, const SamplerCacheKey &key, ID3D11SamplerState **ppSamplerState) {
 	auto iter = cache_.find(key);
 	if (iter != cache_.end()) {
-		return iter->second;
+		iter->second->AddRef();
+		*ppSamplerState = iter->second.Get();
+		return S_OK;
 	}
 
 	D3D11_SAMPLER_DESC samp{};
@@ -123,10 +125,9 @@ ID3D11SamplerState *SamplerCacheD3D11::GetOrCreateSampler(ID3D11Device *device, 
 		samp.BorderColor[i] = 1.0f;
 	}
 
-	ID3D11SamplerState *sampler;
-	ASSERT_SUCCESS(device->CreateSamplerState(&samp, &sampler));
-	cache_[key] = sampler;
-	return sampler;
+	ASSERT_SUCCESS(device->CreateSamplerState(&samp, ppSamplerState));
+	cache_[key] = *ppSamplerState;
+	return S_OK;
 }
 
 TextureCacheD3D11::TextureCacheD3D11(Draw::DrawContext *draw, Draw2D *draw2D)
@@ -146,9 +147,6 @@ TextureCacheD3D11::TextureCacheD3D11(Draw::DrawContext *draw, Draw2D *draw2D)
 }
 
 TextureCacheD3D11::~TextureCacheD3D11() {
-	depalConstants_->Release();
-
-	// pFramebufferVertexDecl->Release();
 	Clear(true);
 }
 
@@ -225,14 +223,16 @@ void TextureCacheD3D11::BindTexture(TexCacheEntry *entry) {
 	}
 	int maxLevel = (entry->status & TexCacheEntry::STATUS_NO_MIPS) ? 0 : entry->maxLevel;
 	SamplerCacheKey samplerKey = GetSamplingParams(maxLevel, entry);
-	ID3D11SamplerState *state = samplerCache_.GetOrCreateSampler(device_, samplerKey);
-	context_->PSSetSamplers(0, 1, &state);
+	ComPtr<ID3D11SamplerState> state;
+	samplerCache_.GetOrCreateSampler(device_.Get(), samplerKey, &state);
+	context_->PSSetSamplers(0, 1, state.GetAddressOf());
 	gstate_c.SetUseShaderDepal(ShaderDepalMode::OFF);
 }
 
 void TextureCacheD3D11::ApplySamplingParams(const SamplerCacheKey &key) {
-	ID3D11SamplerState *state = samplerCache_.GetOrCreateSampler(device_, key);
-	context_->PSSetSamplers(0, 1, &state);
+	ComPtr<ID3D11SamplerState> state;
+	samplerCache_.GetOrCreateSampler(device_.Get(), key, &state);
+	context_->PSSetSamplers(0, 1, state.GetAddressOf());
 }
 
 void TextureCacheD3D11::Unbind() {
@@ -242,7 +242,7 @@ void TextureCacheD3D11::Unbind() {
 void TextureCacheD3D11::BindAsClutTexture(Draw::Texture *tex, bool smooth) {
 	ID3D11ShaderResourceView *clutTexture = (ID3D11ShaderResourceView *)draw_->GetNativeObject(Draw::NativeObject::TEXTURE_VIEW, tex);
 	context_->PSSetShaderResources(TEX_SLOT_CLUT, 1, &clutTexture);
-	context_->PSSetSamplers(3, 1, smooth ? &stockD3D11.samplerLinear2DClamp : &stockD3D11.samplerPoint2DClamp);
+	context_->PSSetSamplers(3, 1, smooth ? stockD3D11.samplerLinear2DClamp.GetAddressOf() : stockD3D11.samplerPoint2DClamp.GetAddressOf());
 }
 
 void TextureCacheD3D11::BuildTexture(TexCacheEntry *const entry) {
@@ -505,15 +505,14 @@ bool TextureCacheD3D11::GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level
 	desc.Usage = D3D11_USAGE_STAGING;
 	desc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
 
-	ID3D11Texture2D *stagingCopy = nullptr;
+	ComPtr<ID3D11Texture2D> stagingCopy;
 	device_->CreateTexture2D(&desc, nullptr, &stagingCopy);
 	if (!stagingCopy)
 		return false;
-	context_->CopyResource(stagingCopy, texture);
+	context_->CopyResource(stagingCopy.Get(), texture);
 
 	D3D11_MAPPED_SUBRESOURCE map;
-	if (FAILED(context_->Map(stagingCopy, level, D3D11_MAP_READ, 0, &map))) {
-		stagingCopy->Release();
+	if (FAILED(context_->Map(stagingCopy.Get(), level, D3D11_MAP_READ, 0, &map))) {
 		return false;
 	}
 
@@ -522,8 +521,7 @@ bool TextureCacheD3D11::GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level
 		memcpy(buffer.GetData() + bufferRowSize * y, (const uint8_t *)map.pData + map.RowPitch * y, bufferRowSize);
 	}
 
-	context_->Unmap(stagingCopy, level);
-	stagingCopy->Release();
+	context_->Unmap(stagingCopy.Get(), level);
 	*isFramebuffer = false;
 	return true;
 }

@@ -15,6 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <wrl/client.h>
 
 #include "Common/Log.h"
 #include "Common/Profiler/Profiler.h"
@@ -32,6 +33,8 @@
 #include "GPU/D3D11/TextureCacheD3D11.h"
 #include "GPU/D3D11/DrawEngineD3D11.h"
 #include "GPU/D3D11/ShaderManagerD3D11.h"
+
+using namespace Microsoft::WRL;
 
 const D3D11_PRIMITIVE_TOPOLOGY d3d11prim[8] = {
 	D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST,  // Points are expanded to triangles.
@@ -88,9 +91,9 @@ void DrawEngineD3D11::InitDeviceObjects() {
 }
 
 void DrawEngineD3D11::ClearInputLayoutMap() {
-	inputLayoutMap_.Iterate([&](const InputLayoutKey &key, ID3D11InputLayout *il) {
+	inputLayoutMap_.Iterate([&](const InputLayoutKey &key, ComPtr<ID3D11InputLayout> il) {
 		if (il)
-			il->Release();
+			il.Reset();
 	});
 	inputLayoutMap_.Clear();
 }
@@ -111,22 +114,6 @@ void DrawEngineD3D11::DestroyDeviceObjects() {
 	tessDataTransfer = nullptr;
 	delete pushVerts_;
 	delete pushInds_;
-	depthStencilCache_.Iterate([&](const uint64_t &key, ID3D11DepthStencilState *ds) {
-		ds->Release();
-	});
-	depthStencilCache_.Clear();
-	blendCache_.Iterate([&](const uint64_t &key, ID3D11BlendState *bs) {
-		bs->Release();
-	});
-	blendCache_.Clear();
-	blendCache1_.Iterate([&](const uint64_t &key, ID3D11BlendState1 *bs) {
-		bs->Release();
-	});
-	blendCache1_.Clear();
-	rasterCache_.Iterate([&](const uint32_t &key, ID3D11RasterizerState *rs) {
-		rs->Release();
-	});
-	rasterCache_.Clear();
 }
 
 struct DeclTypeInfo {
@@ -163,13 +150,14 @@ static void VertexAttribSetup(D3D11_INPUT_ELEMENT_DESC * VertexElement, u8 fmt, 
 	VertexElement->SemanticIndex = semantic_index;
 }
 
-ID3D11InputLayout *DrawEngineD3D11::SetupDecFmtForDraw(D3D11VertexShader *vshader, const DecVtxFormat &decFmt, u32 pspFmt) {
+HRESULT DrawEngineD3D11::SetupDecFmtForDraw(D3D11VertexShader *vshader, const DecVtxFormat &decFmt, u32 pspFmt, ID3D11InputLayout **ppInputLayout) {
 	// TODO: Instead of one for each vshader, we can reduce it to one for each type of shader
 	// that reads TEXCOORD or not, etc. Not sure if worth it.
 	const InputLayoutKey key{ vshader, decFmt.id };
-	ID3D11InputLayout *inputLayout;
+	ComPtr<ID3D11InputLayout> inputLayout;
 	if (inputLayoutMap_.Get(key, &inputLayout)) {
-		return inputLayout;
+		*ppInputLayout = inputLayout.Detach();
+		return S_OK;
 	} else {
 		D3D11_INPUT_ELEMENT_DESC VertexElements[8];
 		D3D11_INPUT_ELEMENT_DESC *VertexElement = &VertexElements[0];
@@ -218,12 +206,14 @@ ID3D11InputLayout *DrawEngineD3D11::SetupDecFmtForDraw(D3D11VertexShader *vshade
 		HRESULT hr = device_->CreateInputLayout(VertexElements, VertexElement - VertexElements, vshader->bytecode().data(), vshader->bytecode().size(), &inputLayout);
 		if (FAILED(hr)) {
 			ERROR_LOG(Log::G3D, "Failed to create input layout!");
-			inputLayout = nullptr;
+			*ppInputLayout = nullptr;
+			return hr;
 		}
 
 		// Add it to map
 		inputLayoutMap_.Insert(key, inputLayout);
-		return inputLayout;
+		*ppInputLayout = inputLayout.Detach();
+		return hr;
 	}
 }
 
@@ -295,13 +285,14 @@ void DrawEngineD3D11::Flush() {
 		D3D11VertexShader *vshader;
 		D3D11FragmentShader *fshader;
 		shaderManager_->GetShaders(prim, dec_, &vshader, &fshader, pipelineState_, useHWTransform, useHWTessellation_, decOptions_.expandAllWeightsToFloat, applySkinInDecode_);
-		ID3D11InputLayout *inputLayout = SetupDecFmtForDraw(vshader, dec_->GetDecVtxFmt(), dec_->VertexType());
+		ComPtr<ID3D11InputLayout> inputLayout;
+		SetupDecFmtForDraw(vshader, dec_->GetDecVtxFmt(), dec_->VertexType(), &inputLayout);
 		context_->PSSetShader(fshader->GetShader(), nullptr, 0);
 		context_->VSSetShader(vshader->GetShader(), nullptr, 0);
 		shaderManager_->UpdateUniforms(framebufferManager_->UseBufferedRendering());
 		shaderManager_->BindUniforms();
 
-		context_->IASetInputLayout(inputLayout);
+		context_->IASetInputLayout(inputLayout.Get());
 		UINT stride = dec_->GetDecVtxFmt().stride;
 		context_->IASetPrimitiveTopology(d3d11prim[prim]);
 
@@ -438,12 +429,12 @@ void DrawEngineD3D11::Flush() {
 			// We really do need a vertex layout for each vertex shader (or at least check its ID bits for what inputs it uses)!
 			// Some vertex shaders ignore one of the inputs, and then the layout created from it will lack it, which will be a problem for others.
 			InputLayoutKey key{ vshader, 0xFFFFFFFF };  // Let's use 0xFFFFFFFF to signify TransformedVertex
-			ID3D11InputLayout *layout;
+			ComPtr<ID3D11InputLayout> layout;
 			if (!inputLayoutMap_.Get(key, &layout)) {
 				ASSERT_SUCCESS(device_->CreateInputLayout(TransformedVertexElements, ARRAY_SIZE(TransformedVertexElements), vshader->bytecode().data(), vshader->bytecode().size(), &layout));
 				inputLayoutMap_.Insert(key, layout);
 			}
-			context_->IASetInputLayout(layout);
+			context_->IASetInputLayout(layout.Get());
 			context_->IASetPrimitiveTopology(d3d11prim[prim]);
 
 			UINT stride = sizeof(TransformedVertex);
@@ -498,18 +489,6 @@ TessellationDataTransferD3D11::TessellationDataTransferD3D11(ID3D11DeviceContext
 }
 
 TessellationDataTransferD3D11::~TessellationDataTransferD3D11() {
-	for (int i = 0; i < 3; ++i) {
-		if (buf[i]) buf[i]->Release();
-		if (view[i]) view[i]->Release();
-	}
-}
-
-template <typename T>
-static void DoRelease(T *&ptr) {
-	if (ptr) {
-		ptr->Release();
-		ptr = nullptr;
-	}
 }
 
 void TessellationDataTransferD3D11::SendDataToShader(const SimpleVertex *const *points, int size_u, int size_v, u32 vertType, const Spline::Weight2D &weights) {
@@ -523,20 +502,20 @@ void TessellationDataTransferD3D11::SendDataToShader(const SimpleVertex *const *
 
 	if (prevSize < size || !buf[0]) {
 		prevSize = size;
-		DoRelease(buf[0]);
-		DoRelease(view[0]);
+		buf[0].Reset();
+		view[0].Reset();
 
 		desc.ByteWidth = size * sizeof(TessData);
 		desc.StructureByteStride = sizeof(TessData);
 		device_->CreateBuffer(&desc, nullptr, &buf[0]);
 		if (buf[0])
-			device_->CreateShaderResourceView(buf[0], nullptr, &view[0]);
+			device_->CreateShaderResourceView(buf[0].Get(), nullptr, &view[0]);
 		if (!buf[0] || !view[0])
 			return;
-		context_->VSSetShaderResources(0, 1, &view[0]);
+		context_->VSSetShaderResources(0, 1, view[0].GetAddressOf());
 	}
 	D3D11_MAPPED_SUBRESOURCE map{};
-	HRESULT hr = context_->Map(buf[0], 0, D3D11_MAP_WRITE_DISCARD, 0, &map);
+	HRESULT hr = context_->Map(buf[0].Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &map);
 	if (FAILED(hr))
 		return;
 	uint8_t *data = (uint8_t *)map.pData;
@@ -548,47 +527,47 @@ void TessellationDataTransferD3D11::SendDataToShader(const SimpleVertex *const *
 
 	CopyControlPoints(pos, tex, col, stride, stride, stride, points, size, vertType);
 
-	context_->Unmap(buf[0], 0);
+	context_->Unmap(buf[0].Get(), 0);
 
 	using Spline::Weight;
 
 	// Weights U
 	if (prevSizeWU < weights.size_u || !buf[1]) {
 		prevSizeWU = weights.size_u;
-		DoRelease(buf[1]);
-		DoRelease(view[1]);
+		buf[1].Reset();
+		view[1].Reset();
 
 		desc.ByteWidth = weights.size_u * sizeof(Weight);
 		desc.StructureByteStride = sizeof(Weight);
 		device_->CreateBuffer(&desc, nullptr, &buf[1]);
 		if (buf[1])
-			device_->CreateShaderResourceView(buf[1], nullptr, &view[1]);
+			device_->CreateShaderResourceView(buf[1].Get(), nullptr, &view[1]);
 		if (!buf[1] || !view[1])
 			return;
-		context_->VSSetShaderResources(1, 1, &view[1]);
+		context_->VSSetShaderResources(1, 1, view[1].GetAddressOf());
 	}
-	hr = context_->Map(buf[1], 0, D3D11_MAP_WRITE_DISCARD, 0, &map);
+	hr = context_->Map(buf[1].Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &map);
 	if (SUCCEEDED(hr))
 		memcpy(map.pData, weights.u, weights.size_u * sizeof(Weight));
-	context_->Unmap(buf[1], 0);
+	context_->Unmap(buf[1].Get(), 0);
 
 	// Weights V
 	if (prevSizeWV < weights.size_v) {
 		prevSizeWV = weights.size_v;
-		DoRelease(buf[2]);
-		DoRelease(view[2]);
+		buf[2].Reset();
+		view[2].Reset();
 
 		desc.ByteWidth = weights.size_v * sizeof(Weight);
 		desc.StructureByteStride = sizeof(Weight);
 		device_->CreateBuffer(&desc, nullptr, &buf[2]);
 		if (buf[2])
-			device_->CreateShaderResourceView(buf[2], nullptr, &view[2]);
+			device_->CreateShaderResourceView(buf[2].Get(), nullptr, &view[2]);
 		if (!buf[2] || !view[2])
 			return;
-		context_->VSSetShaderResources(2, 1, &view[2]);
+		context_->VSSetShaderResources(2, 1, view[2].GetAddressOf());
 	}
-	hr = context_->Map(buf[2], 0, D3D11_MAP_WRITE_DISCARD, 0, &map);
+	hr = context_->Map(buf[2].Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &map);
 	if (SUCCEEDED(hr))
 		memcpy(map.pData, weights.v, weights.size_v * sizeof(Weight));
-	context_->Unmap(buf[2], 0);
+	context_->Unmap(buf[2].Get(), 0);
 }

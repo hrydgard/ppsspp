@@ -20,6 +20,7 @@
 #include <map>
 
 #include <d3d11.h>
+#include <wrl/client.h>
 
 #include "Common/CommonTypes.h"
 #include "GPU/Common/ShaderCommon.h"
@@ -41,10 +42,10 @@ public:
 	bool UseHWTransform() const { return useHWTransform_; }
 
 	std::string GetShaderString(DebugShaderStringType type) const;
-	ID3D11PixelShader *GetShader() const { return module_; }
+	ID3D11PixelShader *GetShader() const { return module_.Get(); }
 
 protected:
-	ID3D11PixelShader *module_ = nullptr;
+	Microsoft::WRL::ComPtr<ID3D11PixelShader> module_;
 
 	ID3D11Device *device_;
 	std::string source_;
@@ -64,10 +65,10 @@ public:
 	bool UseHWTransform() const { return useHWTransform_; }
 
 	std::string GetShaderString(DebugShaderStringType type) const;
-	ID3D11VertexShader *GetShader() const { return module_; }
+	ID3D11VertexShader *GetShader() const { return module_.Get(); }
 
 protected:
-	ID3D11VertexShader *module_ = nullptr;
+	Microsoft::WRL::ComPtr<ID3D11VertexShader> module_;
 
 	ID3D11Device *device_;
 	std::string source_;
@@ -127,9 +128,9 @@ private:
 	UB_VS_Bones ub_bones;
 
 	// Not actual pushbuffers, requires D3D11.1, let's try to live without that first.
-	ID3D11Buffer *push_base;
-	ID3D11Buffer *push_lights;
-	ID3D11Buffer *push_bones;
+	Microsoft::WRL::ComPtr<ID3D11Buffer> push_base;
+	Microsoft::WRL::ComPtr<ID3D11Buffer> push_lights;
+	Microsoft::WRL::ComPtr<ID3D11Buffer> push_bones;
 
 	D3D11FragmentShader *lastFShader_ = nullptr;
 	D3D11VertexShader *lastVShader_ = nullptr;
