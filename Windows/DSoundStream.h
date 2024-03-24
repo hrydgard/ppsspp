@@ -4,9 +4,8 @@
 
 #include "WindowsAudio.h"
 #include <mmreg.h>
-
-struct IDirectSound8;
-struct IDirectSoundBuffer;
+#include <dsound.h>
+#include <wrl/client.h>
 
 class DSoundAudioBackend : public WindowsAudioBackend {
 public:
@@ -29,8 +28,8 @@ private:
 
 	StreamCallback callback_;
 
-	IDirectSound8 *ds_ = nullptr;
-	IDirectSoundBuffer *dsBuffer_ = nullptr;
+	Microsoft::WRL::ComPtr<IDirectSound8> ds_;
+	Microsoft::WRL::ComPtr<IDirectSoundBuffer> dsBuffer_;
 
 	int bufferSize_ = 0; // bytes
 	int totalRenderedBytes_ = 0;

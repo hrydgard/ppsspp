@@ -16,25 +16,25 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "stdafx.h"
+#include <initguid.h>
+#include <cstddef>
 #include <limits.h>
 #include <algorithm>
 #include <mmsystem.h>
 #include <XInput.h>
+#include <wrl/client.h>
 
 #include "Common/Input/InputState.h"
 #include "Common/Input/KeyCodes.h"
-#include "Common/LogReporting.h"
 #include "Common/StringUtils.h"
 #include "Common/System/NativeApp.h"
-#include "Core/Config.h"
-#include "Core/HLE/sceCtrl.h"
 #include "Core/KeyMap.h"
 #include "Windows/DinputDevice.h"
 #pragma comment(lib,"dinput8.lib")
 
 //initialize static members of DinputDevice
 unsigned int                  DinputDevice::pInstances = 0;
-LPDIRECTINPUT8                DinputDevice::pDI = NULL;
+Microsoft::WRL::ComPtr<IDirectInput8> DinputDevice::pDI;
 std::vector<DIDEVICEINSTANCE> DinputDevice::devices;
 bool DinputDevice::needsCheck_ = true;
 
@@ -84,14 +84,14 @@ bool IsXInputDevice( const GUID* pGuidProductFromDirectInput ) {
 
 LPDIRECTINPUT8 DinputDevice::getPDI()
 {
-	if (pDI == NULL)
+	if (pDI == nullptr)
 	{
 		if (FAILED(DirectInput8Create(GetModuleHandle(NULL), DIRECTINPUT_VERSION, IID_IDirectInput8, (void**)&pDI, NULL)))
 		{
-			pDI = NULL;
+			pDI = nullptr;
 		}
 	}
-	return pDI;
+	return pDI.Get();
 }
 
 BOOL CALLBACK DinputDevice::DevicesCallback(
@@ -125,7 +125,7 @@ void DinputDevice::getDevices(bool refresh)
 DinputDevice::DinputDevice(int devnum) {
 	pInstances++;
 	pDevNum = devnum;
-	pJoystick = NULL;
+	pJoystick = nullptr;
 	memset(lastButtons_, 0, sizeof(lastButtons_));
 	memset(lastPOV_, 0, sizeof(lastPOV_));
 	last_lX_ = 0;
@@ -157,8 +157,7 @@ DinputDevice::DinputDevice(int devnum) {
 	}
 
 	if (FAILED(pJoystick->SetDataFormat(&c_dfDIJoystick2))) {
-		pJoystick->Release();
-		pJoystick = NULL;
+		pJoystick = nullptr;
 		return;
 	}
 
@@ -187,8 +186,7 @@ DinputDevice::DinputDevice(int devnum) {
 
 DinputDevice::~DinputDevice() {
 	if (pJoystick) {
-		pJoystick->Release();
-		pJoystick = NULL;
+		pJoystick = nullptr;
 	}
 
 	pInstances--;
@@ -198,8 +196,7 @@ DinputDevice::~DinputDevice() {
 	//happening at the same time and other values like pDI are
 	//unsafe as well anyway
 	if (pInstances == 0 && pDI) {
-		pDI->Release();
-		pDI = NULL;
+		pDI = nullptr;
 	}
 }
 
