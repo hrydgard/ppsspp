@@ -74,9 +74,7 @@ PSShader::PSShader(LPDIRECT3DDEVICE9 device, FShaderID id, const char *code) : i
 
 	if (!success) {
 		failed_ = true;
-		if (shader)
-			shader->Release();
-		shader = NULL;
+		shader = nullptr;
 		return;
 	} else {
 		VERBOSE_LOG(Log::G3D, "Compiled pixel shader:\n%s\n", (const char *)code);
@@ -84,8 +82,6 @@ PSShader::PSShader(LPDIRECT3DDEVICE9 device, FShaderID id, const char *code) : i
 }
 
 PSShader::~PSShader() {
-	if (shader)
-		shader->Release();
 }
 
 std::string PSShader::GetShaderString(DebugShaderStringType type) const {
@@ -123,9 +119,7 @@ VSShader::VSShader(LPDIRECT3DDEVICE9 device, VShaderID id, const char *code, boo
 
 	if (!success) {
 		failed_ = true;
-		if (shader)
-			shader->Release();
-		shader = NULL;
+		shader = nullptr;
 		return;
 	} else {
 		VERBOSE_LOG(Log::G3D, "Compiled vertex shader:\n%s\n", (const char *)code);
@@ -133,8 +127,6 @@ VSShader::VSShader(LPDIRECT3DDEVICE9 device, VShaderID id, const char *code, boo
 }
 
 VSShader::~VSShader() {
-	if (shader)
-		shader->Release();
 }
 
 std::string VSShader::GetShaderString(DebugShaderStringType type) const {
@@ -653,8 +645,8 @@ VSShader *ShaderManagerDX9::ApplyShader(bool useHWTransform, bool useHWTessellat
 		gstate_c.CleanUniforms();
 	}
 
-	device_->SetPixelShader(fs->shader);
-	device_->SetVertexShader(vs->shader);
+	device_->SetPixelShader(fs->shader.Get());
+	device_->SetVertexShader(vs->shader.Get());
 
 	lastPShader_ = fs;
 	lastVShader_ = vs;

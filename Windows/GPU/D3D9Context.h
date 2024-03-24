@@ -22,6 +22,7 @@
 #include "Common/CommonWindows.h"
 #include "Windows/GPU/WindowsGraphicsContext.h"
 #include <d3d9.h>
+#include <wrl/client.h>
 
 namespace Draw {
 	class DrawContext;
@@ -42,11 +43,11 @@ public:
 private:
 	Draw::DrawContext *draw_;
 	bool has9Ex_;
-	LPDIRECT3D9 d3d_;
-	LPDIRECT3D9EX d3dEx_;
+	Microsoft::WRL::ComPtr<IDirect3D9> d3d_;
+	Microsoft::WRL::ComPtr<IDirect3D9Ex> d3dEx_;
 	int adapterId_;
-	LPDIRECT3DDEVICE9 device_;
-	LPDIRECT3DDEVICE9EX deviceEx_;
+	Microsoft::WRL::ComPtr<IDirect3DDevice9> device_;
+	Microsoft::WRL::ComPtr<IDirect3DDevice9Ex> deviceEx_;
 	HDC hDC_;     // Private GDI Device Context
 	HWND hWnd_;   // Holds Our Window Handle
 	HMODULE hD3D9_;
