@@ -53,8 +53,7 @@ LOCAL_SRC_FILES := \
     ../glslang/SPIRV/SpvBuilder.cpp \
     ../glslang/SPIRV/SPVRemapper.cpp \
     ../glslang/SPIRV/SpvPostProcess.cpp \
-    ../glslang/SPIRV/SpvTools.cpp \
-    ../glslang/OGLCompilersDLL/InitializeDll.cpp
+    ../glslang/SPIRV/SpvTools.cpp
 
 
 LOCAL_CFLAGS := -O3 -fsigned-char -fno-strict-aliasing -Wall -Wno-multichar -D__STDC_CONSTANT_MACROS -DENABLE_HLSL

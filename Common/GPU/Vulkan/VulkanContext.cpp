@@ -26,6 +26,7 @@
 #define SIMULATE_VULKAN_FAILURE 0
 
 #include "ext/glslang/SPIRV/GlslangToSpv.h"
+#include "glslang/Public/ShaderLang.h"
 
 #ifdef USE_CRT_DBG
 #define new DBG_NEW
