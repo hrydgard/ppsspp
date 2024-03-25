@@ -40,6 +40,7 @@
 
 #include "Common/GPU/ShaderTranslation.h"
 #include "ext/glslang/SPIRV/GlslangToSpv.h"
+#include "glslang/Public/ShaderLang.h"
 #include "Common/GPU/thin3d.h"
 #include "Common/GPU/Shader.h"
 #include "Common/GPU/OpenGL/GLFeatures.h"

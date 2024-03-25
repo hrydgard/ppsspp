@@ -69,6 +69,8 @@
       <ForcedIncludeFiles>pch.h</ForcedIncludeFiles>
       <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;NOMINMAX;ENABLE_HLSL;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>../../ext/glslang;../../ext/glslang-build;$(ProjectDir);$(GeneratedFilesDir);$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">stdcpp17</LanguageStandard>
+      <LanguageStandard Condition="'$(Configuration)|$(Platform)'=='Release|x64'">stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -151,7 +153,6 @@
     <ClInclude Include="..\..\ext\glslang\glslang\HLSL\hlslScanContext.h" />
     <ClInclude Include="..\..\ext\glslang\glslang\HLSL\hlslTokens.h" />
     <ClInclude Include="..\..\ext\glslang\glslang\HLSL\hlslTokenStream.h" />
-    <ClInclude Include="..\..\ext\glslang\OGLCompilersDLL\InitializeDll.h" />
     <ClInclude Include="..\..\ext\glslang\SPIRV\bitutils.h" />
     <ClInclude Include="..\..\ext\glslang\SPIRV\disassemble.h" />
     <ClInclude Include="..\..\ext\glslang\SPIRV\doc.h" />
@@ -209,7 +210,6 @@
     <ClCompile Include="..\..\ext\glslang\glslang\HLSL\hlslParseHelper.cpp" />
     <ClCompile Include="..\..\ext\glslang\glslang\HLSL\hlslScanContext.cpp" />
     <ClCompile Include="..\..\ext\glslang\glslang\HLSL\hlslTokenStream.cpp" />
-    <ClCompile Include="..\..\ext\glslang\OGLCompilersDLL\InitializeDll.cpp" />
     <ClCompile Include="..\..\ext\glslang\SPIRV\disassemble.cpp" />
     <ClCompile Include="..\..\ext\glslang\SPIRV\doc.cpp" />
     <ClCompile Include="..\..\ext\glslang\SPIRV\GlslangToSpv.cpp" />
