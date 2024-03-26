@@ -159,7 +159,7 @@ public:
 			return __KernelGetCurThreadModuleId();
 		if (referenceIndex == REF_INDEX_USEC)
 			return (uint32_t)CoreTiming::GetGlobalTimeUs();  // Loses information
-		if (referenceIndex == REF_INDEX_USEC)
+		if (referenceIndex == REF_INDEX_TICKS)
 			return (uint32_t)CoreTiming::GetTicks();
 		if ((referenceIndex & ~(REF_INDEX_FPU | REF_INDEX_FPU_INT)) < 32)
 			return cpu->GetRegValue(1, referenceIndex & ~(REF_INDEX_FPU | REF_INDEX_FPU_INT));

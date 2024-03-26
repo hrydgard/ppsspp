@@ -451,12 +451,11 @@ public:
 	void Run() override {
 		// An early-return will result in the destructor running, where we can set
 		// flags like working and pending.
-		if (!info_->CreateLoader()) {
-			return;
-		}
-
-		// In case of a remote file, check if it actually exists before locking.
-		if (!info_->GetFileLoader() || !info_->GetFileLoader()->Exists()) {
+		if (!info_->CreateLoader() || !info_->GetFileLoader() || !info_->GetFileLoader()->Exists()) {
+			// Mark everything requested as done, so 
+			std::unique_lock<std::mutex> lock(info_->lock);
+			info_->MarkReadyNoLock(flags_);
+			ERROR_LOG(LOADER, "Failed getting game info.");
 			return;
 		}
 
