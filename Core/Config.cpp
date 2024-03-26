@@ -961,7 +961,7 @@ static const ConfigSetting vrSettings[] = {
 	ConfigSetting("VRHeadRotationSmoothing", &g_Config.bHeadRotationSmoothing, false, CfgFlag::PER_GAME),
 };
 
-static const ConfigSectionSettings sections[] = {
+static constexpr ConfigSectionSettings sections[] = {
 	{"General", generalSettings, ARRAY_SIZE(generalSettings)},
 	{"CPU", cpuSettings, ARRAY_SIZE(cpuSettings)},
 	{"Graphics", graphicsSettings, ARRAY_SIZE(graphicsSettings)},
@@ -977,7 +977,7 @@ static const ConfigSectionSettings sections[] = {
 	{"Achievements", achievementSettings, ARRAY_SIZE(achievementSettings)},
 };
 
-const size_t numSections = ARRAY_SIZE(sections);
+constexpr size_t numSections = ARRAY_SIZE(sections);
 
 static void IterateSettings(IniFile &iniFile, std::function<void(Section *section, const ConfigSetting &setting)> func) {
 	for (size_t i = 0; i < numSections; ++i) {

@@ -75,7 +75,7 @@ const ARMReg *ArmRegCacheFPU::GetMIPSAllocationOrder(int &count) {
 	// We should attempt to map scalars to low Q registers and wider things to high registers,
 	// as the NEON instructions are all 2-vector or 4-vector, they don't do scalar, we want to be
 	// able to use regular VFP instructions too.
-	static const ARMReg allocationOrderNEON[] = {
+	static constexpr ARMReg allocationOrderNEON[] = {
 		// Reserve four temp registers. Useful when building quads until we really figure out
 		// how to do that best.
 		S4,  S5,  S6,  S7,   // Q1
@@ -88,7 +88,7 @@ const ARMReg *ArmRegCacheFPU::GetMIPSAllocationOrder(int &count) {
 		// Q8-Q15 free for NEON tricks
 	};
 
-	static const ARMReg allocationOrderNEONVFPU[] = {
+	static constexpr ARMReg allocationOrderNEONVFPU[] = {
 		// Reserve four temp registers. Useful when building quads until we really figure out
 		// how to do that best.
 		S4,  S5,  S6,  S7,   // Q1
@@ -100,10 +100,10 @@ const ARMReg *ArmRegCacheFPU::GetMIPSAllocationOrder(int &count) {
 	// NOTE: It's important that S2/S3 are not allocated with bNEON, even if !useNEONVFPU.
 	// They are used by a few instructions, like vh2f.
 	if (jo_->useNEONVFPU) {
-		count = sizeof(allocationOrderNEONVFPU) / sizeof(const ARMReg);
+		count = std::size(allocationOrderNEONVFPU);
 		return allocationOrderNEONVFPU;
 	} else {
-		count = sizeof(allocationOrderNEON) / sizeof(const ARMReg);
+		count = std::size(allocationOrderNEON);
 		return allocationOrderNEON;
 	}
 }

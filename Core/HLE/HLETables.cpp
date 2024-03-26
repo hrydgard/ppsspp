@@ -90,7 +90,7 @@
 //kjfs
 //sound
 //zlibdec
-const HLEFunction FakeSysCalls[] = {
+static constexpr HLEFunction FakeSysCalls[] = {
 	{NID_THREADRETURN, __KernelReturnFromThread, "__KernelReturnFromThread", 'x', ""},
 	{NID_CALLBACKRETURN, __KernelReturnFromMipsCall, "__KernelReturnFromMipsCall", 'x', ""},
 	{NID_INTERRUPTRETURN, __KernelReturnFromInterrupt, "__KernelReturnFromInterrupt", 'x', ""},
@@ -101,7 +101,7 @@ const HLEFunction FakeSysCalls[] = {
 	{NID_HLECALLRETURN, HLEReturnFromMipsCall, "HLEReturnFromMipsCall", 'x', ""},
 };
 
-const HLEFunction UtilsForUser[] = 
+static constexpr HLEFunction UtilsForUser[] =
 {
 	{0X91E4F6A7, &WrapU_V<sceKernelLibcClock>,                       "sceKernelLibcClock",                      'x', ""   },
 	{0X27CC57F0, &WrapU_U<sceKernelLibcTime>,                        "sceKernelLibcTime",                       'x', "x"  },
@@ -131,7 +131,7 @@ const HLEFunction UtilsForUser[] =
 	{0X920F104A, &WrapU_V<sceKernelIcacheInvalidateAll>,             "sceKernelIcacheInvalidateAll",            'x', ""   }
 };				   
 
-const HLEFunction LoadCoreForKernel[] = 
+static constexpr HLEFunction LoadCoreForKernel[] =
 {
 	{0XACE23476, nullptr,                                            "sceKernelCheckPspConfig",                 '?', ""   },
 	{0X7BE1421C, nullptr,                                            "sceKernelCheckExecFile",                  '?', ""   },
@@ -167,7 +167,7 @@ const HLEFunction LoadCoreForKernel[] =
 };
 
 
-const HLEFunction KDebugForKernel[] = 
+static constexpr HLEFunction KDebugForKernel[] =
 {
 	{0XE7A3874D, nullptr,                                            "sceKernelRegisterAssertHandler",          '?', ""   },
 	{0X2FF4E9F9, nullptr,                                            "sceKernelAssert",                         '?', ""   },
@@ -191,13 +191,13 @@ const HLEFunction KDebugForKernel[] =
 	{0XB7251823, nullptr,                                            "sceKernelAcceptMbogoSig",                 '?', ""   },
 };
 
-const HLEFunction pspeDebug[] = 
+static constexpr HLEFunction pspeDebug[] =
 {
 	{0XDEADBEAF, nullptr,                                            "pspeDebugWrite",                          '?', ""   },
 };
 
 
-const HLEModule moduleList[] = 
+static constexpr HLEModule moduleList[] =
 {
 	{"FakeSysCalls", ARRAY_SIZE(FakeSysCalls), FakeSysCalls},
 	{"UtilsForUser", ARRAY_SIZE(UtilsForUser), UtilsForUser},
@@ -213,7 +213,7 @@ const HLEModule moduleList[] =
 	{"pspeDebug", ARRAY_SIZE(pspeDebug), pspeDebug},
 };
 
-static const int numModules = ARRAY_SIZE(moduleList);
+static constexpr int numModules = ARRAY_SIZE(moduleList);
 
 void RegisterAllModules() {
 	Register_Kernel_Library();

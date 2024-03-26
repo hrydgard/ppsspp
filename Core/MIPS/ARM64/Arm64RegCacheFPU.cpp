@@ -70,7 +70,7 @@ const ARM64Reg *Arm64RegCacheFPU::GetMIPSAllocationOrder(int &count) {
 	// only the bottom 64 bits of those. So we should allocate into these when we call
 	// C functions, although we don't currently do so...
 
-	static const ARM64Reg allocationOrder[] = {
+	static constexpr ARM64Reg allocationOrder[] = {
 		// Reserve four full 128-bit temp registers, should be plenty.
 		S4,  S5,  S6,  S7,
 		S8,  S9,  S10, S11, // Partially callee-save (bottom 64 bits)
@@ -81,7 +81,7 @@ const ARM64Reg *Arm64RegCacheFPU::GetMIPSAllocationOrder(int &count) {
 		S28, S29, S30, S31,
 	};
 
-	static const ARM64Reg allocationOrderNEONVFPU[] = {
+	static constexpr ARM64Reg allocationOrderNEONVFPU[] = {
 		// Reserve four full 128-bit temp registers, should be plenty.
 
 		// Then let's use 12 register as singles
@@ -93,10 +93,10 @@ const ARM64Reg *Arm64RegCacheFPU::GetMIPSAllocationOrder(int &count) {
 	};
 
 	if (jo_->useASIMDVFPU) {
-		count = sizeof(allocationOrderNEONVFPU) / sizeof(const ARM64Reg);
+		count = std::size(allocationOrderNEONVFPU);
 		return allocationOrderNEONVFPU;
 	} else {
-		count = sizeof(allocationOrder) / sizeof(const ARM64Reg);
+		count = std::size(allocationOrder);
 		return allocationOrder;
 	}
 }

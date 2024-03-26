@@ -111,7 +111,7 @@ static MemoryView views[] =
 	// implement those.
 };
 
-static const int num_views = sizeof(views) / sizeof(MemoryView);
+static constexpr int num_views = std::size(views);
 
 inline static bool CanIgnoreView(const MemoryView &view) {
 #ifdef MASKED_PSP_MEMORY

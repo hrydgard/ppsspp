@@ -18,6 +18,7 @@
 #pragma once
 
 #include <cstddef>
+#include <iterator>
 #include "Common/CommonTypes.h"
 
 // This bool is the key to having the HD remasters work.
