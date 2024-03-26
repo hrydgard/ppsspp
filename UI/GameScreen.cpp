@@ -150,10 +150,6 @@ void GameScreen::CreateViews() {
 		tvVerified_ = infoLayout->Add(new NoticeView(NoticeLevel::INFO, ga->T("Click \"Calculate CRC\" to verify ISO"), "", new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
 		tvVerified_->SetVisibility(UI::V_GONE);
 		tvVerified_->SetSquishy(true);
-		if (info->badCHD) {
-			auto e = GetI18NCategory(I18NCat::ERRORS);
-			infoLayout->Add(new NoticeView(NoticeLevel::ERROR, e->T("BadCHD", "Bad CHD file.\nCompress using \"chdman createdvd\" for good performance."), "", new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetSquishy(true);
-		}
 	} else {
 		tvTitle_ = nullptr;
 		tvID_ = nullptr;

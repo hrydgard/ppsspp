@@ -626,6 +626,12 @@ void ConsoleListener::Log(const LogMessage &msg) {
 		case LogLevel::LWARNING: // light yellow
 			strcpy(ColorAttr, "\033[93m");
 			break;
+		case LogLevel::LINFO: // cyan
+			strcpy(ColorAttr, "\033[96m");
+			break;
+		case LogLevel::LDEBUG: // gray
+			strcpy(ColorAttr, "\033[90m");
+			break;
 		default:
 			break;
 		}

@@ -136,3 +136,6 @@ build
 libretro/obj/local
 
 ppsspp_retroachievements.dat
+
+# For CLion
+cmake-build-*/
