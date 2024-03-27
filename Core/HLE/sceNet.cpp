@@ -213,7 +213,7 @@ void __NetInit() {
 	INFO_LOG(SCENET, "LocalHost IP will be %s [%s]", ip2str(g_localhostIP.in.sin_addr).c_str(), mac2str(&mac).c_str());
 	
 	// TODO: May be we should initialize & cleanup somewhere else than here for PortManager to be used as general purpose for whatever port forwarding PPSSPP needed
-	__UPnPInit();
+	__UPnPInit(g_Config.iUPnPTimeout);
 
 	__ResetInitNetLib();
 	__NetApctlInit();

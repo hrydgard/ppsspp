@@ -896,6 +896,10 @@ void GameSettingsScreen::CreateNetworkingSettings(UI::ViewGroup *networkingSetti
 		return UI::EVENT_CONTINUE;
 	});
 	useOriPort->SetEnabledPtr(&g_Config.bEnableUPnP);
+	auto di = GetI18NCategory(I18NCat::DIALOG);
+	auto upnpTimeout = networkingSettings->Add(new PopupSliderChoice(&g_Config.iUPnPTimeout, 0, 5000, 2000, n->T("UPnP Timeout", "UPnP Timeout (default = 2000 ms)"), 50, screenManager()));
+	upnpTimeout->SetFormat(di->T("%d ms"));
+	upnpTimeout->SetEnabledPtr(&g_Config.bEnableUPnP);
 
 	networkingSettings->Add(new ItemHeader(n->T("Chat")));
 	networkingSettings->Add(new CheckBox(&g_Config.bEnableNetworkChat, n->T("Enable network chat", "Enable network chat")));
@@ -947,8 +951,6 @@ void GameSettingsScreen::CreateNetworkingSettings(UI::ViewGroup *networkingSetti
 		qc5->OnClick.Handle(this, &GameSettingsScreen::OnChangeQuickChat4);
 	}
 #endif
-
-	auto di = GetI18NCategory(I18NCat::DIALOG);
 
 	networkingSettings->Add(new ItemHeader(n->T("Misc", "Misc (default = compatibility)")));
 	networkingSettings->Add(new PopupSliderChoice(&g_Config.iPortOffset, 0, 60000, 10000, n->T("Port offset", "Port offset (0 = PSP compatibility)"), 100, screenManager()));

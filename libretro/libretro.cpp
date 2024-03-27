@@ -895,6 +895,10 @@ static void check_variables(CoreParameter &coreParam)
          g_Config.bUPnPUseOriginalPort = true;
    }
 
+   var.key = "ppsspp_upnp_timeout";
+   if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value)
+      g_Config.iUPnPTimeout = atoi(var.value);
+
    var.key = "ppsspp_port_offset";
    if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value)
       g_Config.iPortOffset = atoi(var.value);
