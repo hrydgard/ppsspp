@@ -20,6 +20,7 @@
 #include <vector>
 #include <set>
 #include <map>
+#include <unordered_map>
 #include <string>
 #include <mutex>
 
@@ -154,9 +155,9 @@ private:
 	};
 
 	// These are flattened, read-only copies of the actual data in active modules only.
-	std::map<u32, const FunctionEntry> activeFunctions;
-	std::map<u32, const LabelEntry> activeLabels;
-	std::map<u32, const DataEntry> activeData;
+	std::unordered_map<u32, const FunctionEntry> activeFunctions;
+	std::unordered_map<u32, const LabelEntry> activeLabels;
+	std::unordered_map<u32, const DataEntry> activeData;
 	bool activeNeedUpdate_ = false;
 
 	// This is indexed by the end address of the module.
