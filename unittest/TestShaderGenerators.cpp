@@ -390,7 +390,7 @@ const ShaderLanguage languages[] = {
 	ShaderLanguage::GLSL_1xx,
 	ShaderLanguage::GLSL_3xx,
 };
-const int numLanguages = ARRAY_SIZE(languages);
+constexpr int numLanguages = ARRAY_SIZE(languages);
 
 bool TestVertexShaders() {
 	char *buffer[numLanguages];

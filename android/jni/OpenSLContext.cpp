@@ -129,7 +129,7 @@ bool OpenSLContext::Init() {
 	const SLInterfaceID ids[2] = {SL_IID_BUFFERQUEUE, SL_IID_VOLUME};
 	const SLboolean req[2] = {SL_BOOLEAN_TRUE, SL_BOOLEAN_TRUE};
 	result = (*engineEngine)->CreateAudioPlayer(engineEngine, &bqPlayerObject, &audioSrc, &audioSnk,
-			sizeof(ids)/sizeof(ids[0]), ids, req);
+			std::size(ids), ids, req);
 	if (result != SL_RESULT_SUCCESS) {
 		ERROR_LOG(AUDIO, "OpenSL: CreateAudioPlayer failed: %d", (int)result);
 		(*outputMixObject)->Destroy(outputMixObject);
@@ -207,7 +207,7 @@ bool OpenSLContext::AudioRecord_Start(int sampleRate) {
 	const SLInterfaceID id[1] = {SL_IID_ANDROIDSIMPLEBUFFERQUEUE};
 	const SLboolean req[1] = {SL_BOOLEAN_TRUE};
 	result = (*engineEngine)->CreateAudioRecorder(engineEngine, &recorderObject, &audioSrc, &audioSnk,
-			sizeof(id)/sizeof(id[0]), id, req);
+		std::size(id), id, req);
 	if (!CheckResult(result, "CreateAudioRecorder failed"))
 		return false;
 

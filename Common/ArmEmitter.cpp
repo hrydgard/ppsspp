@@ -537,7 +537,7 @@ void ARMXEmitter::MOVI2R(ARMReg reg, u32 val, bool optimize)
 	}
 }
 
-static const char *const armRegStrings[] = {
+static constexpr const char* armRegStrings[] = {
 	"r0","r1","r2","r3",
 	"r4","r5","r6","r7",
 	"r8","r9","r10","r11",
@@ -570,7 +570,7 @@ static const char *const armRegStrings[] = {
 };
 
 const char *ARMRegAsString(ARMReg reg) {
-	if ((unsigned int)reg >= sizeof(armRegStrings)/sizeof(armRegStrings[0]))
+	if ((unsigned int)reg >= std::size(armRegStrings))
 		return "(bad)";
 	return armRegStrings[(int)reg];
 }

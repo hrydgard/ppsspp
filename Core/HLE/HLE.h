@@ -20,6 +20,7 @@
 #include <cstdio>
 #include <cstdarg>
 #include <type_traits>
+#include <iterator>
 
 #include "Common/CommonTypes.h"
 #include "Common/Log.h"

@@ -1022,7 +1022,7 @@ void CreditsScreen::DrawForeground(UIContext &dc) {
 	dc.Begin();
 	const Bounds &bounds = dc.GetLayoutBounds();
 
-	const int numItems = ARRAY_SIZE(credits);
+	constexpr int numItems = ARRAY_SIZE(credits);
 	int itemHeight = 36;
 	int totalHeight = numItems * itemHeight + bounds.h + 200;
 

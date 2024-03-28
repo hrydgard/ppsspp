@@ -444,12 +444,12 @@ void GPUDriverTestScreen::DiscardTest(UIContext &dc) {
 
 	static const char * const writeModeNames[] = { "Stencil+Depth", "Stencil", "Depth" };
 	Pipeline *writePipelines[] = { discardWriteDepthStencil_, discardWriteStencil_, discardWriteDepth_ };
-	const int numWriteModes = ARRAY_SIZE(writeModeNames);
+	constexpr int numWriteModes = ARRAY_SIZE(writeModeNames);
 
 	static const char * const testNames[] = { "Stenc", "Stenc+DepthA", "Depth", "StencA+Depth" };
 	Pipeline *testPipeline1[] = { drawTestStencilEqual_, drawTestStencilEqualDepthAlways_, drawTestDepthLessEqual_, drawTestStencilAlwaysDepthLessEqual_ };
 	Pipeline *testPipeline2[] = { drawTestStencilNotEqual_, drawTestStencilNotEqualDepthAlways_, drawTestDepthGreater_, drawTestStencilAlwaysDepthGreater_ };
-	const int numTests = ARRAY_SIZE(testNames);
+	constexpr int numTests = ARRAY_SIZE(testNames);
 
 	static const bool validCombinations[numWriteModes][numTests] = {
 		{true, true, true, true},

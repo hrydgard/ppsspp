@@ -60,16 +60,16 @@ const ARMReg *ArmRegCache::GetMIPSAllocationOrder(int &count) {
 	// R9 and upwards are reserved for jit basics.
 	// R14 (LR) is used as a scratch reg (overwritten on calls/return.)
 	if (jo_->downcountInRegister) {
-		static const ARMReg allocationOrder[] = {
+		static constexpr ARMReg allocationOrder[] = {
 			R1, R2, R3, R4, R5, R6, R12,
 		};
-		count = sizeof(allocationOrder) / sizeof(const int);
+		count = std::size(allocationOrder);
 		return allocationOrder;
 	} else {
-		static const ARMReg allocationOrder2[] = {
+		static constexpr ARMReg allocationOrder2[] = {
 			R1, R2, R3, R4, R5, R6, R7, R12,
 		};
-		count = sizeof(allocationOrder2) / sizeof(const int);
+		count = std::size(allocationOrder2);
 		return allocationOrder2;
 	}
 }

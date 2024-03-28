@@ -1,4 +1,4 @@
-﻿#include "Common/Data/Color/RGBAUtil.h"
+#include "Common/Data/Color/RGBAUtil.h"
 #include "Common/UI/Tween.h"
 #include "Common/UI/View.h"
 #include "Common/UI/ViewGroup.h"

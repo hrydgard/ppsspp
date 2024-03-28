@@ -283,18 +283,18 @@ void MIPSState::DoState(PointerWrap &p) {
 	else
 		MIPSComp::DoDummyJitState(p);
 
-	DoArray(p, r, sizeof(r) / sizeof(r[0]));
-	DoArray(p, f, sizeof(f) / sizeof(f[0]));
+	DoArray(p, r, std::size(r));
+	DoArray(p, f, std::size(f));
 	if (s <= 2) {
 		float vtemp[128];
-		DoArray(p, vtemp, sizeof(v) / sizeof(v[0]));
+		DoArray(p, vtemp, std::size(v));
 		for (int i = 0; i < 128; i++) {
 			v[voffset[i]] = vtemp[i];
 		}
 	} else {
-		DoArray(p, v, sizeof(v) / sizeof(v[0]));
+		DoArray(p, v, std::size(v));
 	}
-	DoArray(p, vfpuCtrl, sizeof(vfpuCtrl) / sizeof(vfpuCtrl[0]));
+	DoArray(p, vfpuCtrl, std::size(vfpuCtrl));
 	Do(p, pc);
 	Do(p, nextPC);
 	Do(p, downcount);
