@@ -549,6 +549,9 @@
     <ClCompile Include="..\..\Core\MIPS\MIPSTables.cpp">
       <Filter>MIPS</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\Core\MIPS\MIPSHooks.cpp">
+      <Filter>MIPS</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\Core\MIPS\MIPSVFPUUtils.cpp">
       <Filter>MIPS</Filter>
     </ClCompile>
@@ -1607,6 +1610,9 @@
       <Filter>MIPS</Filter>
     </ClInclude>
     <ClInclude Include="..\..\Core\MIPS\MIPSTables.h">
+      <Filter>MIPS</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Core\MIPS\MIPSHooks.h">
       <Filter>MIPS</Filter>
     </ClInclude>
     <ClInclude Include="..\..\Core\MIPS\MIPSVFPUUtils.h">
