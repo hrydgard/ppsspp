@@ -943,11 +943,11 @@ skip:
 		}
 
 		// Un named stubs, just in case.
-		if (!strncmp(name, "[UNK:", strlen("[UNK:")))
+		if (!strncmp(name, "[UNK:", cestrlen("[UNK:")))
 			return true;
 
 		// Assume any z_un, not just the address, is a default func.
-		return !strncmp(name, "z_un_", strlen("z_un_")) || !strncmp(name, "u_un_", strlen("u_un_"));
+		return !strncmp(name, "z_un_", cestrlen("z_un_")) || !strncmp(name, "u_un_", cestrlen("u_un_"));
 	}
 
 	static bool IsDefaultFunction(const std::string &name) {

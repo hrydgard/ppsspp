@@ -1960,7 +1960,7 @@ int sceKernelLoadExec(const char *filename, u32 paramPtr)
 
 	// If there's an EBOOT.BIN, redirect to that instead.
 	if (info.exists && endsWith(exec_filename, "/BOOT.BIN")) {
-		std::string eboot_filename = exec_filename.substr(0, exec_filename.length() - strlen("BOOT.BIN")) + "EBOOT.BIN";
+		const std::string &eboot_filename = exec_filename.substr(0, exec_filename.length() - cestrlen("BOOT.BIN")) + "EBOOT.BIN";
 
 		PSPFileInfo eboot_info = pspFileSystem.GetFileInfo(eboot_filename);
 		if (eboot_info.exists) {

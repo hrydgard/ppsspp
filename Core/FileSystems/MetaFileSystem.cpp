@@ -199,14 +199,14 @@ int MetaFileSystem::MapFilePath(const std::string &_inpath, std::string &outpath
 
 	// Special handling: host0:command.txt (as seen in Super Monkey Ball Adventures, for example)
 	// appears to mean the current directory on the UMD. Let's just assume the current directory.
-	if (strncasecmp(inpath.c_str(), "host0:", strlen("host0:")) == 0) {
+	if (strncasecmp(inpath.c_str(), "host0:", cestrlen("host0:")) == 0) {
 		INFO_LOG(FILESYS, "Host0 path detected, stripping: %s", inpath.c_str());
 		// However, this causes trouble when running tests, since our test framework uses host0:.
 		// Maybe it's really just supposed to map to umd0 or something?
 		if (PSP_CoreParameter().headLess) {
-			inpath = "umd0:" + inpath.substr(strlen("host0:"));
+			inpath = "umd0:" + inpath.substr(cestrlen("host0:"));
 		} else {
-			inpath = inpath.substr(strlen("host0:"));
+			inpath = inpath.substr(cestrlen("host0:"));
 		}
 	}
 

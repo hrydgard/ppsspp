@@ -428,7 +428,7 @@ std::string System_GetProperty(SystemProperty prop) {
 			// Technically, this is an opaque string, but try to find the locale code.
 			size_t messagesPos = locale.find("LC_MESSAGES=");
 			if (messagesPos != std::string::npos) {
-				messagesPos += strlen("LC_MESSAGES=");
+				messagesPos += cestrlen("LC_MESSAGES=");
 				size_t semi = locale.find(';', messagesPos);
 				locale = locale.substr(messagesPos, semi - messagesPos);
 			}

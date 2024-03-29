@@ -314,7 +314,7 @@ bool Path::CanNavigateUp() const {
 	if (type_ == PathType::CONTENT_URI) {
 		return AndroidContentURI(path_).CanNavigateUp();
 	} else if (type_ == PathType::HTTP) {
-		size_t rootSlash = path_.find_first_of('/', strlen("https://"));
+		size_t rootSlash = path_.find_first_of('/', cestrlen("https://"));
 		if (rootSlash == path_.npos || path_.size() == rootSlash + 1) {
 			// This means, "http://server" or "http://server/".  Can't go up.
 			return false;

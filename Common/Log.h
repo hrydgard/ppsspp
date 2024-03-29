@@ -19,6 +19,8 @@
 
 #include "CommonFuncs.h"
 
+#define cestrlen(s) std::char_traits<char>::length(s)
+
 #define	NOTICE_LEVEL  1  // VERY important information that is NOT errors. Like startup and debugprintfs from the game itself.
 #define	ERROR_LEVEL   2  // Important errors.
 #define	WARNING_LEVEL 3  // Something is suspicious.

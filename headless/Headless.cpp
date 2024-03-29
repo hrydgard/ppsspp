@@ -374,9 +374,9 @@ int main(int argc, const char* argv[])
 			testOptions.bench = true;
 		else if (!strcmp(argv[i], "-v") || !strcmp(argv[i], "--verbose"))
 			testOptions.verbose = true;
-		else if (!strncmp(argv[i], "--graphics=", strlen("--graphics=")) && strlen(argv[i]) > strlen("--graphics="))
+		else if (!strncmp(argv[i], "--graphics=", cestrlen("--graphics=")) && strlen(argv[i]) > cestrlen("--graphics="))
 		{
-			const char *gpuName = argv[i] + strlen("--graphics=");
+			const char *gpuName = argv[i] + cestrlen("--graphics=");
 			if (!strcasecmp(gpuName, "gles"))
 				gpuCore = GPUCORE_GLES;
 			// There used to be a separate "null" rendering core - just use software.
@@ -398,18 +398,18 @@ int main(int argc, const char* argv[])
 #else
 			gpuCore = GPUCORE_DIRECTX11;
 #endif
-		} else if (!strncmp(argv[i], "--screenshot=", strlen("--screenshot=")) && strlen(argv[i]) > strlen("--screenshot="))
-			screenshotFilename = argv[i] + strlen("--screenshot=");
-		else if (!strncmp(argv[i], "--timeout=", strlen("--timeout=")) && strlen(argv[i]) > strlen("--timeout="))
-			testOptions.timeout = strtod(argv[i] + strlen("--timeout="), nullptr);
-		else if (!strncmp(argv[i], "--max-mse=", strlen("--max-mse=")) && strlen(argv[i]) > strlen("--max-mse="))
-			testOptions.maxScreenshotError = strtod(argv[i] + strlen("--max-mse="), nullptr);
-		else if (!strncmp(argv[i], "--debugger=", strlen("--debugger=")) && strlen(argv[i]) > strlen("--debugger="))
-			debuggerPort = (int)strtoul(argv[i] + strlen("--debugger="), NULL, 10);
+		} else if (!strncmp(argv[i], "--screenshot=", cestrlen("--screenshot=")) && strlen(argv[i]) > cestrlen("--screenshot="))
+			screenshotFilename = argv[i] + cestrlen("--screenshot=");
+		else if (!strncmp(argv[i], "--timeout=", cestrlen("--timeout=")) && strlen(argv[i]) > cestrlen("--timeout="))
+			testOptions.timeout = strtod(argv[i] + cestrlen("--timeout="), nullptr);
+		else if (!strncmp(argv[i], "--max-mse=", cestrlen("--max-mse=")) && strlen(argv[i]) > cestrlen("--max-mse="))
+			testOptions.maxScreenshotError = strtod(argv[i] + cestrlen("--max-mse="), nullptr);
+		else if (!strncmp(argv[i], "--debugger=", cestrlen("--debugger=")) && strlen(argv[i]) > cestrlen("--debugger="))
+			debuggerPort = (int)strtoul(argv[i] + cestrlen("--debugger="), NULL, 10);
 		else if (!strcmp(argv[i], "--teamcity"))
 			teamCityMode = true;
-		else if (!strncmp(argv[i], "--state=", strlen("--state=")) && strlen(argv[i]) > strlen("--state="))
-			stateToLoad = argv[i] + strlen("--state=");
+		else if (!strncmp(argv[i], "--state=", cestrlen("--state=")) && strlen(argv[i]) > cestrlen("--state="))
+			stateToLoad = argv[i] + cestrlen("--state=");
 		else if (!strcmp(argv[i], "--help") || !strcmp(argv[i], "-h"))
 			return printUsage(argv[0], NULL);
 		else

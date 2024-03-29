@@ -583,15 +583,15 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 				g_Config.bSaveSettings = false;
 				break;
 			case '-':
-				if (!strncmp(argv[i], "--loglevel=", strlen("--loglevel=")) && strlen(argv[i]) > strlen("--loglevel="))
-					setLogLevel(static_cast<LogLevel>(std::atoi(argv[i] + strlen("--loglevel="))));
-				if (!strncmp(argv[i], "--log=", strlen("--log=")) && strlen(argv[i]) > strlen("--log="))
-					fileToLog = argv[i] + strlen("--log=");
-				if (!strncmp(argv[i], "--state=", strlen("--state=")) && strlen(argv[i]) > strlen("--state="))
-					stateToLoad = Path(std::string(argv[i] + strlen("--state=")));
-				if (!strncmp(argv[i], "--escape-exit", strlen("--escape-exit")))
+				if (!strncmp(argv[i], "--loglevel=", cestrlen("--loglevel=")) && strlen(argv[i]) > cestrlen("--loglevel="))
+					setLogLevel(static_cast<LogLevel>(std::atoi(argv[i] + cestrlen("--loglevel="))));
+				if (!strncmp(argv[i], "--log=", cestrlen("--log=")) && strlen(argv[i]) > cestrlen("--log="))
+					fileToLog = argv[i] + cestrlen("--log=");
+				if (!strncmp(argv[i], "--state=", cestrlen("--state=")) && strlen(argv[i]) > cestrlen("--state="))
+					stateToLoad = Path(std::string(argv[i] + cestrlen("--state=")));
+				if (!strncmp(argv[i], "--escape-exit", cestrlen("--escape-exit")))
 					g_Config.bPauseExitsEmulator = true;
-				if (!strncmp(argv[i], "--pause-menu-exit", strlen("--pause-menu-exit")))
+				if (!strncmp(argv[i], "--pause-menu-exit", cestrlen("--pause-menu-exit")))
 					g_Config.bPauseMenuExitsEmulator = true;
 				if (!strcmp(argv[i], "--fullscreen")) {
 					g_Config.iForceFullScreen = 1;
@@ -607,8 +607,8 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 					gotoGameSettings = true;
 				if (!strcmp(argv[i], "--developertools"))
 					gotoDeveloperTools = true;
-				if (!strncmp(argv[i], "--appendconfig=", strlen("--appendconfig=")) && strlen(argv[i]) > strlen("--appendconfig=")) {
-					g_Config.SetAppendedConfigIni(Path(std::string(argv[i] + strlen("--appendconfig="))));
+				if (!strncmp(argv[i], "--appendconfig=", cestrlen("--appendconfig=")) && strlen(argv[i]) > cestrlen("--appendconfig=")) {
+					g_Config.SetAppendedConfigIni(Path(std::string(argv[i] + cestrlen("--appendconfig="))));
 					g_Config.LoadAppendedConfig();
 				}
 				break;

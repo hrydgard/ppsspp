@@ -1694,8 +1694,9 @@ extern "C" jstring Java_org_ppsspp_ppsspp_ShortcutActivity_queryGameName(JNIEnv 
 
 			// Pretty arbitrary, but the home screen will often truncate titles.
 			// Let's remove "The " from names since it's common in English titles.
-			if (result.length() > strlen("The ") && startsWithNoCase(result, "The ")) {
-				result = result.substr(strlen("The "));
+			constexpr size_t len = cestrlen("The ");
+			if (result.length() > len && startsWithNoCase(result, "The ")) {
+				result = result.substr(len);
 			}
 
 			INFO_LOG(SYSTEM, "queryGameName: Got '%s'", result.c_str());

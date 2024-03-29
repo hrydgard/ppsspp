@@ -47,12 +47,12 @@ bool parseLBN(const std::string &filename, u32 *sectorStart, u32 *readSize) {
 		return false;
 
 	const char *filename_c = filename.c_str();
-	size_t pos = strlen("/sce_lbn");
+	constexpr size_t cpos = cestrlen("/sce_lbn");
 
-	if (sscanf(filename_c + pos, "%x", sectorStart) != 1)
+	if (sscanf(filename_c + cpos, "%x", sectorStart) != 1)
 		*sectorStart = 0;
 
-	pos = size_pos + strlen("_size");
+	const size_t pos = size_pos + cestrlen("_size");
 
 	if (sscanf(filename_c + pos, "%x", readSize) != 1)
 		*readSize = 0;
