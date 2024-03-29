@@ -25,6 +25,7 @@
 #include "Common/CommonTypes.h"
 #include "Core/HW/BufferQueue.h"
 #include "Core/HW/SasReverb.h"
+#include <iterator>
 
 class PointerWrap;
 

@@ -165,14 +165,16 @@ void VagDecoder::DoState(PointerWrap &p) {
 	if (!s)
 		return;
 
+	const int size = std::size(samples);
 	if (s >= 2) {
-		DoArray(p, samples, ARRAY_SIZE(samples));
+		DoArray(p, samples, size);
 	} else {
-		int samplesOld[ARRAY_SIZE(samples)];
-		DoArray(p, samplesOld, ARRAY_SIZE(samples));
-		for (size_t i = 0; i < ARRAY_SIZE(samples); ++i) {
+		int* samplesOld = new int[size];
+		DoArray(p, samplesOld, size);
+		for (size_t i = 0; i < size; ++i) {
 			samples[i] = samplesOld[i];
 		}
+		delete[] samplesOld;
 	}
 	Do(p, curSample);
 

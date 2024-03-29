@@ -213,7 +213,7 @@ const HLEModule moduleList[] =
 	{"pspeDebug", ARRAY_SIZE(pspeDebug), pspeDebug},
 };
 
-static const int numModules = ARRAY_SIZE(moduleList);
+static constexpr int numModules = ARRAY_SIZE(moduleList);
 
 void RegisterAllModules() {
 	Register_Kernel_Library();

@@ -100,10 +100,10 @@ const ARMReg *ArmRegCacheFPU::GetMIPSAllocationOrder(int &count) {
 	// NOTE: It's important that S2/S3 are not allocated with bNEON, even if !useNEONVFPU.
 	// They are used by a few instructions, like vh2f.
 	if (jo_->useNEONVFPU) {
-		count = sizeof(allocationOrderNEONVFPU) / sizeof(const ARMReg);
+		count = std::size(allocationOrderNEONVFPU);
 		return allocationOrderNEONVFPU;
 	} else {
-		count = sizeof(allocationOrderNEON) / sizeof(const ARMReg);
+		count = std::size(allocationOrderNEON);
 		return allocationOrderNEON;
 	}
 }

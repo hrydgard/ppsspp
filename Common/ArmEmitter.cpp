@@ -570,7 +570,7 @@ static const char *const armRegStrings[] = {
 };
 
 const char *ARMRegAsString(ARMReg reg) {
-	if ((unsigned int)reg >= sizeof(armRegStrings)/sizeof(armRegStrings[0]))
+	if ((unsigned int)reg >= std::size(armRegStrings))
 		return "(bad)";
 	return armRegStrings[(int)reg];
 }

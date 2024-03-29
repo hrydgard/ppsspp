@@ -191,8 +191,8 @@ void __sceAudiocodecDoState(PointerWrap &p){
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wsizeof-pointer-div"
 #endif
-			DoArray(p, codec_, s >= 2 ? count : (int)ARRAY_SIZE(codec_));
-			DoArray(p, ctxPtr_, s >= 2 ? count : (int)ARRAY_SIZE(ctxPtr_));
+			DoArray(p, codec_, s >= 2 ? count : sizeof(codec_) / codec_[0]);
+			DoArray(p, ctxPtr_, s >= 2 ? count : sizeof(ctxPtr_) / ctxPtr_[0]);
 			for (int i = 0; i < count; i++) {
 				auto decoder = new SimpleAudio(codec_[i]);
 				decoder->SetCtxPtr(ctxPtr_[i]);

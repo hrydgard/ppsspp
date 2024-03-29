@@ -93,10 +93,10 @@ const ARM64Reg *Arm64RegCacheFPU::GetMIPSAllocationOrder(int &count) {
 	};
 
 	if (jo_->useASIMDVFPU) {
-		count = sizeof(allocationOrderNEONVFPU) / sizeof(const ARM64Reg);
+		count = std::size(allocationOrderNEONVFPU);
 		return allocationOrderNEONVFPU;
 	} else {
-		count = sizeof(allocationOrder) / sizeof(const ARM64Reg);
+		count = std::size(allocationOrder);
 		return allocationOrder;
 	}
 }

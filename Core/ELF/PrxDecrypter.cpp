@@ -315,7 +315,7 @@ static const TAG_INFO g_tagInfo[] =
 
 static const TAG_INFO *GetTagInfo(u32 tagFind)
 {
-	for (u32 iTag = 0; iTag < sizeof(g_tagInfo)/sizeof(TAG_INFO); iTag++)
+	for (u32 iTag = 0; iTag < std::size(g_tagInfo); iTag++)
 		if (g_tagInfo[iTag].tag == tagFind)
 			return &g_tagInfo[iTag];
 	return NULL; // not found
@@ -471,7 +471,7 @@ static const TAG_INFO2 g_tagInfo2[] =
 
 static const TAG_INFO2 *GetTagInfo2(u32 tagFind)
 {
-	for (u32 iTag = 0; iTag < sizeof(g_tagInfo2) / sizeof(TAG_INFO2); iTag++)
+	for (u32 iTag = 0; iTag < std::size(g_tagInfo2); iTag++)
 	{
 		if (g_tagInfo2[iTag].tag == tagFind)
 		{

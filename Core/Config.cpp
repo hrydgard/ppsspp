@@ -977,7 +977,7 @@ static const ConfigSectionSettings sections[] = {
 	{"Achievements", achievementSettings, ARRAY_SIZE(achievementSettings)},
 };
 
-const size_t numSections = ARRAY_SIZE(sections);
+constexpr size_t numSections = ARRAY_SIZE(sections);
 
 static void IterateSettings(IniFile &iniFile, std::function<void(Section *section, const ConfigSetting &setting)> func) {
 	for (size_t i = 0; i < numSections; ++i) {

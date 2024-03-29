@@ -1019,14 +1019,14 @@ int FPURegCache::SanityCheck() const {
 }
 
 const int *FPURegCache::GetAllocationOrder(int &count) {
-	static const int allocationOrder[] = {
+	static constexpr int allocationOrder[] = {
 #if PPSSPP_ARCH(AMD64)
 		XMM6, XMM7, XMM8, XMM9, XMM10, XMM11, XMM12, XMM13, XMM14, XMM15, XMM2, XMM3, XMM4, XMM5
 #elif PPSSPP_ARCH(X86)
 		XMM2, XMM3, XMM4, XMM5, XMM6, XMM7,
 #endif
 	};
-	count = sizeof(allocationOrder) / sizeof(int);
+	count = std::size(allocationOrder);
 	return allocationOrder;
 }
 

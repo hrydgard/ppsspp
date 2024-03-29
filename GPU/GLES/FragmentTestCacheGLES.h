@@ -34,7 +34,7 @@ struct FragmentTestID {
 	};
 
 	bool operator < (const FragmentTestID &other) const {
-		for (size_t i = 0; i < sizeof(d) / sizeof(u32); i++) {
+		for (size_t i = 0; i < std::size(d); i++) {
 			if (d[i] < other.d[i])
 				return true;
 			if (d[i] > other.d[i])
@@ -43,7 +43,7 @@ struct FragmentTestID {
 		return false;
 	}
 	bool operator == (const FragmentTestID &other) const {
-		for (size_t i = 0; i < sizeof(d) / sizeof(u32); i++) {
+		for (size_t i = 0; i < std::size(d); i++) {
 			if (d[i] != other.d[i])
 				return false;
 		}

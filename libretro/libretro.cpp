@@ -1381,7 +1381,7 @@ static void retro_input(void)
             ret |= (1 << i);
    }
 
-   for (i = 0; i < sizeof(map) / sizeof(*map); i++)
+   for (i = 0; i < std::size(map); i++)
    {
       bool pressed = ret & (1 << map[i].retro);
 

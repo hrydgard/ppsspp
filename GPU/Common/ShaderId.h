@@ -145,7 +145,7 @@ struct ShaderID {
 
 	uint32_t d[2];
 	bool operator < (const ShaderID &other) const {
-		for (size_t i = 0; i < sizeof(d) / sizeof(uint32_t); i++) {
+		for (size_t i = 0; i < std::size(d); i++) {
 			if (d[i] < other.d[i])
 				return true;
 			if (d[i] > other.d[i])
@@ -154,7 +154,7 @@ struct ShaderID {
 		return false;
 	}
 	bool operator == (const ShaderID &other) const {
-		for (size_t i = 0; i < sizeof(d) / sizeof(uint32_t); i++) {
+		for (size_t i = 0; i < std::size(d); i++) {
 			if (d[i] != other.d[i])
 				return false;
 		}

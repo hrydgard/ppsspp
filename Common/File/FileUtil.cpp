@@ -988,7 +988,7 @@ bool OpenFileInEditor(const Path &fileName) {
 const Path GetCurDirectory() {
 #ifdef _WIN32
 	wchar_t buffer[4096];
-	size_t len = GetCurrentDirectory(sizeof(buffer) / sizeof(wchar_t), buffer);
+	size_t len = GetCurrentDirectory(std::size(buffer), buffer);
 	std::string curDir = ConvertWStringToUTF8(buffer);
 	return Path(curDir);
 #else
