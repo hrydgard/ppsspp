@@ -84,9 +84,9 @@ std::string GetCPUBrandString() {
 
 // Only Linux platforms have /proc/cpuinfo
 #if PPSSPP_PLATFORM(LINUX)
-const char procfile[] = "/proc/cpuinfo";
+constexpr char procfile[] = "/proc/cpuinfo";
 // https://www.kernel.org/doc/Documentation/ABI/testing/sysfs-devices-system-cpu
-const char syscpupresentfile[] = "/sys/devices/system/cpu/present";
+constexpr char syscpupresentfile[] = "/sys/devices/system/cpu/present";
 
 std::string GetCPUString() {
 	std::string procdata;

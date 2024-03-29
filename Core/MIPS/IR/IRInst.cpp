@@ -261,7 +261,7 @@ void DisassembleParam(char *buf, int bufSize, u8 param, char type, u32 constant)
 		"[0 0 1 0]",
 		"[0 0 0 1]",
 	};
-	static const char * const xyzw = "xyzw";
+	static constexpr char xyzw[] = "xyzw";
 
 	switch (type) {
 	case 'G':

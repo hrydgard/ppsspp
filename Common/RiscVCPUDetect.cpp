@@ -37,10 +37,10 @@
 
 // Only Linux platforms have /proc/cpuinfo
 #if defined(__linux__)
-const char procfile[] = "/proc/cpuinfo";
+constexpr char procfile[] = "/proc/cpuinfo";
 // https://www.kernel.org/doc/Documentation/ABI/testing/sysfs-devices-system-cpu
-const char syscpupresentfile[] = "/sys/devices/system/cpu/present";
-const char firmwarefile[] = "/sys/firmware/devicetree/base/compatible";
+constexpr char syscpupresentfile[] = "/sys/devices/system/cpu/present";
+constexpr char firmwarefile[] = "/sys/firmware/devicetree/base/compatible";
 
 class RiscVCPUInfoParser {
 public:
@@ -80,7 +80,7 @@ RiscVCPUInfoParser::RiscVCPUInfoParser() {
 
 int RiscVCPUInfoParser::ProcessorCount() {
 	// Not using present as that counts the logical CPUs (aka harts.)
-	static const char * const marker = "processor\t: ";
+	static constexpr char marker[] = "processor\t: ";
 	std::set<std::string> processors;
 	for (auto core : cores_) {
 		for (auto line : core) {
@@ -107,7 +107,7 @@ int RiscVCPUInfoParser::TotalLogicalCount() {
 			return high - low + 1;
 	}
 
-	static const char * const marker = "hart\t\t: ";
+	static constexpr char marker[] = "hart\t\t: ";
 	std::set<std::string> harts;
 	for (auto core : cores_) {
 		for (auto line : core) {
@@ -120,11 +120,11 @@ int RiscVCPUInfoParser::TotalLogicalCount() {
 }
 
 std::string RiscVCPUInfoParser::ISAString() {
-	static const char * const marker = "isa\t\t: ";
+	static constexpr char marker[] = "isa\t\t: ";
 	for (auto core : cores_) {
 		for (auto line : core) {
 			if (line.find(marker) != line.npos)
-				return line.substr(strlen(marker));
+				return line.substr(std::char_traits<char>::length(marker));
 		}
 	}
 

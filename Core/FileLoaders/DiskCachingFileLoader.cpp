@@ -42,8 +42,8 @@
 #define fseeko fseek
 #endif
 
-static const char * const CACHEFILE_MAGIC = "ppssppDC";
-static const s64 SAFETY_FREE_DISK_SPACE = 768 * 1024 * 1024; // 768 MB
+constexpr char CACHEFILE_MAGIC[] = "ppssppDC";
+static constexpr s64 SAFETY_FREE_DISK_SPACE = 768 * 1024 * 1024; // 768 MB
 // Aim to allow this many files cached at once.
 static const u32 CACHE_SPACE_FLEX = 4;
 
@@ -415,7 +415,7 @@ u32 DiskCachingFileLoaderCache::AllocateBlock(u32 indexPos) {
 }
 
 std::string DiskCachingFileLoaderCache::MakeCacheFilename(const Path &path) {
-	static const char *const invalidChars = "?*:/\\^|<>\"'";
+	static constexpr char invalidChars[] = "?*:/\\^|<>\"'";
 	std::string filename = path.ToString();
 	for (size_t i = 0; i < filename.size(); ++i) {
 		int c = filename[i];

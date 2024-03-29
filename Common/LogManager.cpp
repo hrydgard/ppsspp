@@ -39,7 +39,7 @@ const char *hleCurrentThreadName = nullptr;
 
 bool *g_bLogEnabledSetting = nullptr;
 
-static const char level_to_char[8] = "-NEWIDV";
+constexpr char level_to_char[8] = "-NEWIDV";
 
 #if PPSSPP_PLATFORM(UWP) && defined(_DEBUG)
 #define LOG_MSC_OUTPUTDEBUG true

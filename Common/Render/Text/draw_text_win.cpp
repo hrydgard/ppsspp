@@ -134,15 +134,15 @@ void TextDrawerWin32::MeasureString(const char *str, size_t len, float *w, float
 			SelectObject(ctx_->hDC, iter->second->hFont);
 		}
 
-		std::string toMeasure = ReplaceAll(std::string(str, len), "&&", "&");
+		const auto &toMeasure = ReplaceAll(std::string(str, len), "&&", "&");
 
 		std::vector<std::string_view> lines;
 		SplitString(toMeasure, '\n', lines);
 
 		int extW = 0, extH = 0;
-		for (auto &line : lines) {
+		for (const auto &line : lines) {
 			SIZE size;
-			std::wstring wstr = ConvertUTF8ToWString(line);
+			const auto &wstr = ConvertUTF8ToWString(line);
 			GetTextExtentPoint32(ctx_->hDC, wstr.c_str(), (int)wstr.size(), &size);
 
 			if (size.cx > extW)

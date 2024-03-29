@@ -2,7 +2,7 @@
 
 // TODO: This is a simple but not very efficient implementation.
 std::string Base64Encode(const uint8_t *p, size_t sz) {
-	static const char digits[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+	static constexpr char digits[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
 	size_t unpaddedLength = (4 * sz + 2) / 3;
 	std::string result;

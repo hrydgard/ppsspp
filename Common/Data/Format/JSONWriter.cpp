@@ -41,7 +41,7 @@ void JsonWriter::end() {
 const char *JsonWriter::indent(int n) const {
 	if (!pretty_)
 		return "";
-	static const char * const whitespace = "                                ";
+	static constexpr char whitespace[] = "                                ";
 	if (n > 32) {
 		// Avoid crash.
 		return whitespace;

@@ -812,27 +812,29 @@ int sceNetInetTerm() {
 void NetApctl_InitInfo() {
 	memset(&netApctlInfo, 0, sizeof(netApctlInfo));
 	// Set dummy/fake values, these probably not suppose to have valid info before connected to an AP, right?
-	std::string APname = "Wifi"; // fake AP/hotspot
-	truncate_cpy(netApctlInfo.name, sizeof(netApctlInfo.name), APname.c_str());
-	truncate_cpy(netApctlInfo.ssid, sizeof(netApctlInfo.ssid), APname.c_str());
+	static constexpr char APname[] = "Wifi";		        // fake AP/hotspot
+	static constexpr char ipstr[INET_ADDRSTRLEN] = "127.0.0.1"; // Patapon 3 seems to try to get current IP using ApctlGetInfo() right after ApctlInit(), what kind of IP should we use as default before ApctlConnect()? it shouldn't be a valid IP, right?
+	static constexpr char DNSaddr[] = "8.8.8.8";	        // google dns // TODO: it is advisable to give user choice select secondary or take DNS adress from ISP provider
+	static constexpr char subnetMask[] = "255.255.255.0";   // subnet mask
+	truncate_cpy(netApctlInfo.name, sizeof(netApctlInfo.name), APname);
+	truncate_cpy(netApctlInfo.ssid, sizeof(netApctlInfo.ssid), APname);
 	memcpy(netApctlInfo.bssid, "\1\1\2\2\3\3", sizeof(netApctlInfo.bssid)); // fake AP's mac address
-	netApctlInfo.ssidLength = static_cast<unsigned int>(APname.length());
+	netApctlInfo.ssidLength = static_cast<unsigned int>(std::char_traits<char>::length(APname));
 	netApctlInfo.strength = 99;
 	netApctlInfo.channel = g_Config.iWlanAdhocChannel;
 	if (netApctlInfo.channel == PSP_SYSTEMPARAM_ADHOC_CHANNEL_AUTOMATIC) netApctlInfo.channel = defaultWlanChannel;
 	// Get Local IP Address
 	sockaddr_in sockAddr;
 	getLocalIp(&sockAddr); // This will be valid IP, we probably not suppose to have a valid IP before connected to any AP, right?
-	char ipstr[INET_ADDRSTRLEN] = "127.0.0.1"; // Patapon 3 seems to try to get current IP using ApctlGetInfo() right after ApctlInit(), what kind of IP should we use as default before ApctlConnect()? it shouldn't be a valid IP, right?
-	inet_ntop(AF_INET, &sockAddr.sin_addr, ipstr, sizeof(ipstr));
+	inet_ntop(AF_INET, &sockAddr.sin_addr, (char*)ipstr, sizeof(ipstr));
 	truncate_cpy(netApctlInfo.ip, sizeof(netApctlInfo.ip), ipstr);
 	// Change the last number to 1 to indicate a common dns server/internet gateway
 	((u8*)&sockAddr.sin_addr.s_addr)[3] = 1;
-	inet_ntop(AF_INET, &sockAddr.sin_addr, ipstr, sizeof(ipstr));
+	inet_ntop(AF_INET, &sockAddr.sin_addr, (char*)ipstr, sizeof(ipstr));
 	truncate_cpy(netApctlInfo.gateway, sizeof(netApctlInfo.gateway), ipstr);
 	truncate_cpy(netApctlInfo.primaryDns, sizeof(netApctlInfo.primaryDns), ipstr);
-	truncate_cpy(netApctlInfo.secondaryDns, sizeof(netApctlInfo.secondaryDns), "8.8.8.8");
-	truncate_cpy(netApctlInfo.subNetMask, sizeof(netApctlInfo.subNetMask), "255.255.255.0");
+	truncate_cpy(netApctlInfo.secondaryDns, sizeof(netApctlInfo.secondaryDns), DNSaddr);
+	truncate_cpy(netApctlInfo.subNetMask, sizeof(netApctlInfo.subNetMask), subnetMask);
 }
 
 static int sceNetApctlInit(int stackSize, int initPriority) {

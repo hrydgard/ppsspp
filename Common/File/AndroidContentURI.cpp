@@ -1,12 +1,12 @@
 #include "Common/File/AndroidContentURI.h"
 
 bool AndroidContentURI::Parse(std::string_view path) {
-	const char *prefix = "content://";
+	static constexpr char prefix[] = "content://";
 	if (!startsWith(path, prefix)) {
 		return false;
 	}
 
-	std::string_view components = path.substr(strlen(prefix));
+	std::string_view components = path.substr(std::char_traits<char>::length(prefix));
 
 	std::vector<std::string_view> parts;
 	SplitString(components, '/', parts);

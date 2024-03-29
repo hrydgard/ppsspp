@@ -18,7 +18,7 @@
 
 TextDrawerAndroid::TextDrawerAndroid(Draw::DrawContext *draw) : TextDrawer(draw) {
 	auto env = getEnv();
-	const char *textRendererClassName = "org/ppsspp/ppsspp/TextRenderer";
+	static constexpr char textRendererClassName[] = "org/ppsspp/ppsspp/TextRenderer";
 	jclass localClass = findClass(textRendererClassName);
 	cls_textRenderer = reinterpret_cast<jclass>(env->NewGlobalRef(localClass));
 	if (cls_textRenderer) {

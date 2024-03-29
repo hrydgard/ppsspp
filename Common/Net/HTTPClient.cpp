@@ -233,8 +233,8 @@ void Connection::Disconnect() {
 namespace http {
 
 // TODO: do something sane here
-constexpr const char *DEFAULT_USERAGENT = "PPSSPP";
-constexpr const char *HTTP_VERSION = "1.1";
+constexpr char DEFAULT_USERAGENT[] = "PPSSPP";
+constexpr char HTTP_VERSION[] = "1.1";
 
 Client::Client() {
 	userAgent_ = DEFAULT_USERAGENT;

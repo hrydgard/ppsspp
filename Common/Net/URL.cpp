@@ -6,8 +6,8 @@ int MultipartFormDataEncoder::seq = 0;
 
 void UrlEncoder::AppendEscaped(const std::string &value)
 {
-	static const char * const unreservedChars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_.~";
-	static const char * const hexChars = "0123456789ABCDEF";
+	static constexpr char unreservedChars[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_.~";
+	static constexpr char hexChars[] = "0123456789ABCDEF";
 
 	for (size_t lastEnd = 0; lastEnd < value.length(); )
 	{
@@ -202,7 +202,7 @@ static const char SAFE[256] = {
 };
 
 std::string UriEncode(std::string_view sSrc) {
-	const char DEC2HEX[16 + 1] = "0123456789ABCDEF";
+	static constexpr char DEC2HEX[16 + 1] = "0123456789ABCDEF";
 	const unsigned char * pSrc = (const unsigned char *)sSrc.data();
 	const size_t SRC_LEN = sSrc.length();
 	unsigned char * const pStart = new unsigned char[SRC_LEN * 3];

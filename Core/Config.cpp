@@ -76,9 +76,9 @@ struct ConfigPrivate {
 };
 
 #ifdef _DEBUG
-static const char * const logSectionName = "LogDebug";
+constexpr char logSectionName[] = "LogDebug";
 #else
-static const char * const logSectionName = "Log";
+constexpr char logSectionName[] = "Log";
 #endif
 
 std::string GPUBackendToString(GPUBackend backend) {
@@ -1240,8 +1240,8 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	// splash screen quickly), but then we'll just show the notification next time instead, we store the
 	// upgrade number in the ini.
 	if (iRunCount % 10 == 0 && bCheckForNewVersion) {
-		const char *versionUrl = "http://www.ppsspp.org/version.json";
-		const char *acceptMime = "application/json, text/*; q=0.9, */*; q=0.8";
+		static constexpr char versionUrl[] = "http://www.ppsspp.org/version.json";
+		static constexpr char acceptMime[] = "application/json, text/*; q=0.9, */*; q=0.8";
 		g_DownloadManager.StartDownloadWithCallback(versionUrl, Path(), http::ProgressBarMode::NONE, &DownloadCompletedCallback, "version", acceptMime);
 	}
 

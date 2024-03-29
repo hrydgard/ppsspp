@@ -9,7 +9,7 @@
 #include "Common/Data/Format/ZIMLoad.h"
 #include "Common/Data/Format/ZIMSave.h"
 
-static const char magic[5] = "ZIMG";
+constexpr char magic[5] = "ZIMG";
 
 /*int num_levels = 1;
 if (flags & ZIM_HAS_MIPS) {

@@ -50,7 +50,7 @@ void SetExtraAssertInfo(const char *info) {
 bool HandleAssert(const char *function, const char *file, int line, const char *expression, const char* format, ...) {
 	// Read message and write it to the log
 	char text[LOG_BUF_SIZE];
-	const char *caption = "Critical";
+	static constexpr char caption[] = "Critical";
 	va_list args;
 	va_start(args, format);
 	vsnprintf(text, sizeof(text), format, args);
@@ -76,7 +76,7 @@ bool HandleAssert(const char *function, const char *file, int line, const char *
 	if (!getenv("CI")) {
 		int msgBoxStyle = MB_ICONINFORMATION | MB_YESNO;
 		std::wstring wtext = ConvertUTF8ToWString(formatted) + L"\n\nTry to continue?";
-		std::wstring wcaption = ConvertUTF8ToWString(std::string(caption) + " " + GetCurrentThreadName());
+		std::wstring wcaption = ConvertUTF8ToWString(std::string{caption} + " " + GetCurrentThreadName());
 		OutputDebugString(wtext.c_str());
 		if (IDYES != MessageBox(0, wtext.c_str(), wcaption.c_str(), msgBoxStyle)) {
 			return false;
