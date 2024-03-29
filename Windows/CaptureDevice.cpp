@@ -513,7 +513,7 @@ bool WindowsCaptureDevice::start(void *startParam) {
 
 	switch (state) {
 	case CAPTUREDEVIDE_STATE::STOPPED:
-		for (auto &name : deviceList) {
+		for (const auto &name : deviceList) {
 			if (name == selectedDeviceName) {
 				selection = count;
 				break;

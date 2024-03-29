@@ -193,7 +193,7 @@ u64 GameInfo::GetSaveDataSizeInBytes() {
 	for (size_t j = 0; j < saveDataDir.size(); j++) {
 		std::vector<File::FileInfo> fileInfo;
 		File::GetFilesInDir(saveDataDir[j], &fileInfo);
-		for (auto const &file : fileInfo) {
+		for (const auto &file : fileInfo) {
 			if (!file.isDirectory)
 				filesSizeInDir += file.size;
 		}
@@ -217,7 +217,7 @@ u64 GameInfo::GetInstallDataSizeInBytes() {
 	for (size_t j = 0; j < saveDataDir.size(); j++) {
 		std::vector<File::FileInfo> fileInfo;
 		File::GetFilesInDir(saveDataDir[j], &fileInfo);
-		for (auto const &file : fileInfo) {
+		for (const auto &file : fileInfo) {
 			// TODO: Might want to recurse here? Don't know games that use directories
 			// for install-data though.
 			if (!file.isDirectory)
@@ -813,11 +813,11 @@ void GameInfoCache::Clear() {
 
 void GameInfoCache::CancelAll() {
 	std::lock_guard<std::mutex> lock(mapLock_);
-	for (auto info : info_) {
+	for (const auto &[_, gameinfo] : info_) {
 		// GetFileLoader will create one if there isn't one already.
 		// Avoid that by checking.
-		if (info.second->HasFileLoader()) {
-			auto fl = info.second->GetFileLoader();
+		if (gameinfo->HasFileLoader()) {
+			auto fl = gameinfo->GetFileLoader();
 			if (fl) {
 				fl->Cancel();
 			}

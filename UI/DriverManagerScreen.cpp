@@ -177,8 +177,8 @@ void DriverManagerScreen::CreateDriverTab(UI::ViewGroup *drivers) {
 	const Path driverPath = GetDriverPath();
 	std::vector<File::FileInfo> listing;
 	if (File::GetFilesInDir(driverPath, &listing)) {
-		for (auto driver : listing) {
-			auto choice = drivers->Add(new DriverChoice(driver.name, g_Config.sCustomDriver == driver.name));
+		for (const auto &driver : listing) {
+			auto* choice = drivers->Add(new DriverChoice(driver.name, g_Config.sCustomDriver == driver.name));
 			choice->OnUse.Handle(this, &DriverManagerScreen::OnCustomDriverChange);
 			choice->OnDelete.Handle(this, &DriverManagerScreen::OnCustomDriverUninstall);
 		}
@@ -257,7 +257,7 @@ UI::EventReturn DriverManagerScreen::OnCustomDriverInstall(UI::EventParams &e) {
 		std::vector<File::FileInfo> zipListing;
 		zipFileReader->GetFileListing("", &zipListing, nullptr);
 
-		for (auto file : zipListing) {
+		for (const auto &file : zipListing) {
 			File::CreateEmptyFile(newCustomDriver / file.name);
 
 			size_t size;

@@ -141,7 +141,7 @@ void RetroAchievementsListScreen::CreateLeaderboardsTab(UI::ViewGroup *viewGroup
 		}
 	}
 
-	for (auto &leaderboard : leaderboards) {
+	for (const auto &leaderboard : leaderboards) {
 		int leaderboardID = leaderboard->id;
 		viewGroup->Add(new LeaderboardSummaryView(leaderboard))->OnClick.Add([=](UI::EventParams &e) -> UI::EventReturn {
 			screenManager()->push(new RetroAchievementsLeaderboardScreen(gamePath_, leaderboardID));

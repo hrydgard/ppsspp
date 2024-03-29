@@ -357,9 +357,9 @@ void DisplayLayoutScreen::CreateViews() {
 		if (i < g_Config.vPostShaderNames.size()) {
 			bool hasSettings = false;
 			std::vector<const ShaderInfo *> shaderChain = GetPostShaderChain(g_Config.vPostShaderNames[i]);
-			for (auto shaderInfo : shaderChain) {
+			for (const auto *shaderInfo : shaderChain) {
 				for (size_t i = 0; i < ARRAY_SIZE(shaderInfo->settings); ++i) {
-					auto &setting = shaderInfo->settings[i];
+					const auto &setting = shaderInfo->settings[i];
 					if (!setting.name.empty()) {
 						hasSettings = true;
 						break;
@@ -423,7 +423,7 @@ void DisplayLayoutScreen::CreateViews() {
 			continue;
 
 		std::vector<const ShaderInfo *> shaderChain = GetPostShaderChain(g_Config.vPostShaderNames[i]);
-		for (auto shaderInfo : shaderChain) {
+		for (const auto *shaderInfo : shaderChain) {
 			// Disable duplicated shader slider
 			bool duplicated = alreadyAddedShader.find(shaderInfo->section) != alreadyAddedShader.end();
 			alreadyAddedShader.insert(shaderInfo->section);
@@ -431,7 +431,7 @@ void DisplayLayoutScreen::CreateViews() {
 			LinearLayout *settingContainer = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(UI::FILL_PARENT, UI::WRAP_CONTENT, UI::Margins(24.0f, 0.0f, 0.0f, 0.0f)));
 			leftColumn->Add(settingContainer);
 			for (size_t i = 0; i < ARRAY_SIZE(shaderInfo->settings); ++i) {
-				auto &setting = shaderInfo->settings[i];
+				const auto &setting = shaderInfo->settings[i];
 				if (!setting.name.empty()) {
 					// This map lookup will create the setting in the mPostShaderSetting map if it doesn't exist, with a default value of 0.0.
 					std::string key = StringFromFormat("%sSettingCurrentValue%d", shaderInfo->section.c_str(), i + 1);

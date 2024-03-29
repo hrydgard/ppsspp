@@ -101,7 +101,7 @@ void TouchControlVisibilityScreen::CreateViews() {
 	}
 
 	auto mc = GetI18NCategory(I18NCat::MAPPABLECONTROLS);
-	for (auto toggle : toggles_) {
+	for (const auto &toggle : toggles_) {
 		LinearLayout *row = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 		row->SetSpacing(0);
 
@@ -172,7 +172,7 @@ void RightAnalogMappingScreen::CreateViews() {
 }
 
 UI::EventReturn TouchControlVisibilityScreen::OnToggleAll(UI::EventParams &e) {
-	for (auto toggle : toggles_) {
+	for (const auto &toggle : toggles_) {
 		*toggle.show = nextToggleAll_;
 	}
 	nextToggleAll_ = !nextToggleAll_;

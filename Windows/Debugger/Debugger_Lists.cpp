@@ -416,7 +416,7 @@ void CtrlBreakpointList::removeBreakpoint(int itemIndex)
 
 int CtrlBreakpointList::getTotalBreakpointCount() {
 	int count = (int)displayedMemChecks_.size();
-	for (auto bp : displayedBreakPoints_) {
+	for (const auto &bp : displayedBreakPoints_) {
 		if (!bp.temporary)
 			++count;
 	}

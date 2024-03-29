@@ -506,7 +506,7 @@ bool OnScreenMessagesView::Dismiss(float x, float y) {
 	bool dismissed = false;
 	std::lock_guard<std::mutex> lock(clickMutex_);
 	double now = time_now_d();
-	for (auto &zone : clickZones_) {
+	for (const auto &zone : clickZones_) {
 		if (zone.bounds.Contains(x, y)) {
 			g_OSD.DismissEntry(zone.index, now);
 			dismissed = true;

@@ -254,7 +254,7 @@ void ReloadAllThemeInfo() {
 
 std::vector<std::string> GetThemeInfoNames() {
 	std::vector<std::string> names;
-	for (auto& i : themeInfos)
+	for (const auto &i : themeInfos)
 		names.push_back(i.name);
 
 	return names;

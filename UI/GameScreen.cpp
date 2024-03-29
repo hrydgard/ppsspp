@@ -354,7 +354,7 @@ ScreenRenderFlags GameScreen::render(ScreenRenderMode mode) {
 		std::vector<GameDBInfo> dbInfos;
 		if (tvVerified_ && info->Ready(GameInfoFlags::PARAM_SFO) && g_gameDB.GetGameInfos(info->id_version, &dbInfos)) {
 			bool found = false;
-			for (auto &dbInfo : dbInfos) {
+			for (const auto &dbInfo : dbInfos) {
 				if (dbInfo.crc == crcVal) {
 					found = true;
 				}
@@ -385,7 +385,7 @@ ScreenRenderFlags GameScreen::render(ScreenRenderMode mode) {
 				// tvVerified_->SetLevel(NoticeLevel::WARN);
 			} else if (info->Ready(GameInfoFlags::UNCOMPRESSED_SIZE) && info->gameSizeUncompressed != 0) {  // don't do this check if info still pending
 				bool found = false;
-				for (auto &dbInfo : dbInfos) {
+				for (const auto &dbInfo : dbInfos) {
 					// TODO: Doesn't take CSO/CHD into account.
 					if (info->gameSizeUncompressed == dbInfo.size) {
 						found = true;

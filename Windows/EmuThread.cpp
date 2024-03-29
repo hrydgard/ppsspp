@@ -161,11 +161,11 @@ void MainThreadFunc() {
 	// We convert command line arguments to UTF-8 immediately.
 	std::vector<std::wstring> wideArgs = GetWideCmdLine();
 	std::vector<std::string> argsUTF8;
-	for (auto& string : wideArgs) {
+	for (const auto& string : wideArgs) {
 		argsUTF8.push_back(ConvertWStringToUTF8(string));
 	}
 	std::vector<const char *> args;
-	for (auto& string : argsUTF8) {
+	for (const auto& string : argsUTF8) {
 		args.push_back(string.c_str());
 	}
 	bool performingRestart = NativeIsRestarting();

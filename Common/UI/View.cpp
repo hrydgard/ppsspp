@@ -1330,7 +1330,8 @@ bool TextEdit::Key(const KeyInput &input) {
 
 void TextEdit::InsertAtCaret(const char *text) {
 	size_t len = strlen(text);
-	for (size_t i = 0; i < len; i++) {
+	text_.reserve(len);
+	for (size_t i = 0; i < len; ++i) {
 		text_.insert(text_.begin() + caret_, text[i]);
 		caret_++;
 	}

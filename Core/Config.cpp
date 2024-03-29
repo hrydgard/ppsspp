@@ -1501,7 +1501,7 @@ void Config::AddRecent(const std::string &file) {
 
 	private_->ResetRecentIsosThread();
 	std::lock_guard<std::mutex> guard(private_->recentIsosLock);
-	const std::string filename = File::ResolvePath(file);
+	const std::string &filename = File::ResolvePath(file);
 	recentIsos.insert(recentIsos.begin(), filename);
 	if ((int)recentIsos.size() > iMaxRecent)
 		recentIsos.resize(iMaxRecent);
@@ -1514,7 +1514,7 @@ void Config::RemoveRecent(const std::string &file) {
 
 	private_->ResetRecentIsosThread();
 	std::lock_guard<std::mutex> guard(private_->recentIsosLock);
-	const std::string filename = File::ResolvePath(file);
+	const std::string &filename = File::ResolvePath(file);
 	for (auto iter = recentIsos.begin(); iter != recentIsos.end();) {
 		const std::string recent = File::ResolvePath(*iter);
 		if (filename == recent) {

@@ -104,7 +104,7 @@ static bool IsTempPath(const Path &str) {
 	item = ReplaceAll(item, "/", "\\");
 #endif
 
-	std::vector<std::string> tempPaths = System_GetPropertyStringVec(SYSPROP_TEMP_DIRS);
+	const auto &tempPaths = System_GetPropertyStringVec(SYSPROP_TEMP_DIRS);
 	for (auto temp : tempPaths) {
 #ifdef _WIN32
 		temp = ReplaceAll(temp, "/", "\\");
@@ -674,7 +674,7 @@ bool GameBrowser::DisplayTopBar() {
 bool GameBrowser::HasSpecialFiles(std::vector<Path> &filenames) {
 	if (path_.GetPath().ToString() == "!RECENT") {
 		filenames.clear();
-		for (auto &str : g_Config.RecentIsos()) {
+		for (const auto &str : g_Config.RecentIsos()) {
 			filenames.push_back(Path(str));
 		}
 		return true;

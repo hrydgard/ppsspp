@@ -756,7 +756,7 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_init
 
 	if (!additionalStorageDirsString.empty()) {
 		SplitString(additionalStorageDirsString, ':', g_additionalStorageDirs);
-		for (auto &str : g_additionalStorageDirs) {
+		for (const auto &str : g_additionalStorageDirs) {
 			EARLY_LOG("Additional storage: %s", str.c_str());
 		}
 	}

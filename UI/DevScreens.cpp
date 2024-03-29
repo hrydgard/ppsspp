@@ -797,38 +797,38 @@ void SystemInfoScreen::CreateTabs() {
 
 		CollapsibleSection *vulkanFeatures = gpuExtensions->Add(new CollapsibleSection(si->T("Vulkan Features")));
 		std::vector<std::string> features = draw->GetFeatureList();
-		for (auto &feature : features) {
+		for (const auto &feature : features) {
 			vulkanFeatures->Add(new TextView(feature, new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetFocusable(true);
 		}
 
 		CollapsibleSection *presentModes = gpuExtensions->Add(new CollapsibleSection(si->T("Present modes")));
-		for (auto mode : draw->GetPresentModeList(di->T("Current"))) {
+		for (const auto &mode : draw->GetPresentModeList(di->T("Current"))) {
 			presentModes->Add(new TextView(mode, new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetFocusable(true);
 		}
 
 		CollapsibleSection *colorFormats = gpuExtensions->Add(new CollapsibleSection(si->T("Display Color Formats")));
-		for (auto &format : draw->GetSurfaceFormatList()) {
+		for (const auto &format : draw->GetSurfaceFormatList()) {
 			colorFormats->Add(new TextView(format, new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetFocusable(true);
 		}
 
 		CollapsibleSection *enabledExtensions = gpuExtensions->Add(new CollapsibleSection(std::string(si->T("Vulkan Extensions")) + " (" + std::string(di->T("Enabled")) + ")"));
 		std::vector<std::string> extensions = draw->GetExtensionList(true, true);
 		std::sort(extensions.begin(), extensions.end());
-		for (auto &extension : extensions) {
+		for (const auto &extension : extensions) {
 			enabledExtensions->Add(new TextView(extension, new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetFocusable(true);
 		}
 		// Also get instance extensions
 		enabledExtensions->Add(new ItemHeader(si->T("Instance")));
 		extensions = draw->GetExtensionList(false, true);
 		std::sort(extensions.begin(), extensions.end());
-		for (auto &extension : extensions) {
+		for (const auto &extension : extensions) {
 			enabledExtensions->Add(new TextView(extension, new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetFocusable(true);
 		}
 
 		CollapsibleSection *vulkanExtensions = gpuExtensions->Add(new CollapsibleSection(si->T("Vulkan Extensions")));
 		extensions = draw->GetExtensionList(true, false);
 		std::sort(extensions.begin(), extensions.end());
-		for (auto &extension : extensions) {
+		for (const auto &extension : extensions) {
 			vulkanExtensions->Add(new TextView(extension, new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetFocusable(true);
 		}
 
@@ -836,7 +836,7 @@ void SystemInfoScreen::CreateTabs() {
 		// Also get instance extensions
 		extensions = draw->GetExtensionList(false, false);
 		std::sort(extensions.begin(), extensions.end());
-		for (auto &extension : extensions) {
+		for (const auto &extension : extensions) {
 			vulkanExtensions->Add(new TextView(extension, new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetFocusable(true);
 		}
 	}
@@ -1157,9 +1157,9 @@ UI::EventReturn JitCompareScreen::OnShowStats(UI::EventParams &e) {
 	NOTICE_LOG(JIT, "Max Bloat: %0.2f%%  (%08x)", 100 * bcStats.maxBloat, bcStats.maxBloatBlock);
 
 	int ctr = 0, sz = (int)bcStats.bloatMap.size();
-	for (auto iter : bcStats.bloatMap) {
+	for (const auto &[f, u32] : bcStats.bloatMap) {
 		if (ctr < 10 || ctr > sz - 10) {
-			NOTICE_LOG(JIT, "%08x: %f", iter.second, iter.first);
+			NOTICE_LOG(JIT, "%08x: %f", u32, f);
 		} else if (ctr == 10) {
 			NOTICE_LOG(JIT, "...");
 		}
@@ -1399,8 +1399,8 @@ void FrameDumpTestScreen::CreateViews() {
 
 	dumps->Add(new ItemHeader("GE Frame Dumps"));
 
-	for (auto &file : files_) {
-		std::string url = framedumpsBaseUrl + file;
+	for (const auto &file : files_) {
+		const auto &url = framedumpsBaseUrl + file;
 		Choice *c = dumps->Add(new Choice(file));
 		c->SetTag(url);
 		c->OnClick.Handle<FrameDumpTestScreen>(this, &FrameDumpTestScreen::OnLoadDump);
@@ -1433,7 +1433,7 @@ void FrameDumpTestScreen::update() {
 			std::vector<std::string> lines;
 			// We rely slightly on nginx listing format here. Not great.
 			SplitString(listingHtml, '\n', lines);
-			for (auto &line : lines) {
+			for (const auto &line : lines) {
 				std::string trimmed = StripSpaces(line);
 				if (startsWith(trimmed, "<a href=\"")) {
 					trimmed = trimmed.substr(strlen("<a href=\""));
@@ -1547,7 +1547,7 @@ void TouchTestScreen::UpdateLogView() {
 	}
 
 	std::string text;
-	for (auto &iter : keyEventLog_) {
+	for (const auto &iter : keyEventLog_) {
 		text += iter + "\n";
 	}
 

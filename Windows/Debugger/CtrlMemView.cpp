@@ -247,7 +247,7 @@ void CtrlMemView::onPaint(WPARAM wParam, LPARAM lParam) {
 			const uint32_t byteAddress = (address + j) & ~0xC0000000;
 			std::string tag;
 			bool tagContinues = false;
-			for (auto info : memRangeInfo) {
+			for (const auto &info : memRangeInfo) {
 				if (info.start <= byteAddress && info.start + info.size > byteAddress) {
 					tag = info.tag;
 					tagContinues = byteAddress + 1 < info.start + info.size;

@@ -327,7 +327,7 @@ void ProductView::CreateViews() {
 	// Draw each line separately so focusing can scroll.
 	std::vector<std::string> lines;
 	SplitString(entry_.description, '\n', lines);
-	for (auto &line : lines) {
+	for (const auto &line : lines) {
 		Add(new TextView(line, ALIGN_LEFT | FLAG_WRAP_TEXT, false))->SetFocusable(true);
 	}
 

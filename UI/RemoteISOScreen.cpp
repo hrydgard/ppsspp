@@ -261,7 +261,7 @@ static bool LoadGameList(const Path &url, std::vector<Path> &games) {
 	if (scanCancelled) {
 		return false;
 	}
-	for (auto &file : files) {
+	for (const auto &file : files) {
 		if (file.isDirectory || RemoteISOFileSupported(file.name)) {
 			games.push_back(file.fullName);
 		}

@@ -129,12 +129,13 @@ static std::vector<int> ParseCPUList(const std::string &filename) {
 	if (File::ReadSysTextFileToString(Path(filename), &data)) {
 		std::vector<std::string> ranges;
 		SplitString(data, ',', ranges);
-		for (auto range : ranges) {
+		for (const auto &range : ranges) {
 			int low = 0, high = 0;
 			int parts = sscanf(range.c_str(), "%d-%d", &low, &high);
 			if (parts == 1) {
 				high = low;
 			}
+			results.reserve((high - low) + 1);
 			for (int i = low; i <= high; ++i) {
 				results.push_back(i);
 			}

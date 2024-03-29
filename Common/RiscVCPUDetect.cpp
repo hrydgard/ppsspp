@@ -82,8 +82,8 @@ int RiscVCPUInfoParser::ProcessorCount() {
 	// Not using present as that counts the logical CPUs (aka harts.)
 	static const char * const marker = "processor\t: ";
 	std::set<std::string> processors;
-	for (auto core : cores_) {
-		for (auto line : core) {
+	for (const auto &core : cores_) {
+		for (const auto &line : core) {
 			if (line.find(marker) != line.npos)
 				processors.insert(line);
 		}
@@ -109,8 +109,8 @@ int RiscVCPUInfoParser::TotalLogicalCount() {
 
 	static const char * const marker = "hart\t\t: ";
 	std::set<std::string> harts;
-	for (auto core : cores_) {
-		for (auto line : core) {
+	for (const auto &core : cores_) {
+		for (const auto &line : core) {
 			if (line.find(marker) != line.npos)
 				harts.insert(line);
 		}
@@ -121,8 +121,8 @@ int RiscVCPUInfoParser::TotalLogicalCount() {
 
 std::string RiscVCPUInfoParser::ISAString() {
 	static const char * const marker = "isa\t\t: ";
-	for (auto core : cores_) {
-		for (auto line : core) {
+	for (const auto &core : cores_) {
+		for (const auto &line : core) {
 			if (line.find(marker) != line.npos)
 				return line.substr(strlen(marker));
 		}
@@ -142,7 +142,7 @@ bool RiscVCPUInfoParser::FirmwareMatchesCompatible(const std::string &str) {
 		SplitString(data, '\0', firmware_);
 	}
 
-	for (auto compatible : firmware_) {
+	for (const auto &compatible : firmware_) {
 		if (compatible == str)
 			return true;
 	}

@@ -7,7 +7,7 @@
 #include "UnitTest.h"
 
 static bool CheckContainsDir(const std::vector<File::FileInfo> &listing, const char *name) {
-	for (auto &file : listing) {
+	for (const auto &file : listing) {
 		if (file.name == name && file.isDirectory) {
 			return true;
 		}
@@ -16,7 +16,7 @@ static bool CheckContainsDir(const std::vector<File::FileInfo> &listing, const c
 }
 
 static bool CheckContainsFile(const std::vector<File::FileInfo> &listing, const char *name) {
-	for (auto &file : listing) {
+	for (const auto &file : listing) {
 		if (file.name == name && !file.isDirectory) {
 			return true;
 		}

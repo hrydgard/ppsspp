@@ -455,7 +455,7 @@ void GenericListControl::ProcessUpdate() {
 		ListView_DeleteItem(handle,--items);
 	}
 
-	for (auto &act : pendingActions_) {
+	for (const auto &act : pendingActions_) {
 		switch (act.action) {
 		case Action::CHECK:
 			ListView_SetCheckState(handle, act.item, act.state ? TRUE : FALSE);
