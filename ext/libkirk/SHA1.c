@@ -356,7 +356,7 @@ void SHAFinal(BYTE *output, SHA_CTX *shsInfo)
 	SHAtoByte(output, shsInfo->digest, SHS_DIGESTSIZE);
 
 	/* Zeroise sensitive stuff */
-	memset((POINTER)shsInfo, 0, sizeof(shsInfo));
+	memset((POINTER)shsInfo, 0, sizeof(*shsInfo));
 }
 
 static void SHAtoByte(BYTE *output, UINT4 *input, unsigned int len)
