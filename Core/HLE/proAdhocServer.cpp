@@ -1376,7 +1376,7 @@ void game_product_override(SceNetAdhocctlProductCode * product)
 				// Destroy Prepare SQL Statement
 				sqlite3_finalize(statement);
 			}*/
-			for (const auto &product: productids) {
+			for (const auto &product : productids) {
 				if (IsMatch(product.id, productid)) {
 					// Set Exists Flag
 					exists = 1;
