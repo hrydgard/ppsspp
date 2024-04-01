@@ -34,8 +34,8 @@ struct Category {
 
 struct CategoryFrame {
 	CategoryFrame() {
-		memset(time_taken, 0, sizeof(time_taken));
-		memset(count, 0, sizeof(count));
+		memset(time_taken, 0, std::size(time_taken) * sizeof(float));
+		memset(count, 0, std::size(count) * sizeof(int));
 	}
 	float time_taken[MAX_CATEGORIES];
 	int count[MAX_CATEGORIES];

@@ -34,7 +34,8 @@
 #else
 #include "md5.h"
 
-#include <string.h>
+#include <cstring>
+#include <string>
 
 /*
  * 32-bit integer manipulation macros (little endian)
@@ -317,7 +318,7 @@ void ppsspp_md5_hmac_starts( md5_context *ctx, unsigned char *key, int keylen )
     ppsspp_md5_starts( ctx );
     ppsspp_md5_update( ctx, ctx->ipad, 64 );
 
-    memset( sum, 0, sizeof( sum ) );
+    memset( sum, 0, std::size(sum) * sizeof(unsigned char) );
 }
 
 /*
@@ -341,7 +342,7 @@ void ppsspp_md5_hmac_finish( md5_context *ctx, unsigned char output[16] )
     ppsspp_md5_update( ctx, tmpbuf, 16 );
     ppsspp_md5_finish( ctx, output );
 
-    memset( tmpbuf, 0, sizeof( tmpbuf ) );
+    memset( tmpbuf, 0, std::size(tmpbuf) * sizeof(unsigned char) );
 }
 
 /*

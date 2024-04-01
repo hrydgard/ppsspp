@@ -36,7 +36,7 @@ struct TempImage {
 	void Free() {
 		if (levels[0]) {
 			free(levels[0]);
-			memset(levels, 0, sizeof(levels));
+			memset(levels, 0, std::size(levels) * sizeof(uint8_t));
 		}
 	}
 };

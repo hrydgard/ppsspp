@@ -397,8 +397,8 @@ int SavedataParam::DeleteData(SceUtilitySavedataParam* param) {
 			if (strncmp(fileList[i].filename, fileName.c_str(), sizeof(fileList[i].filename)) != 0)
 				continue;
 
-			memset(fileList[i].filename, 0, sizeof(fileList[i].filename));
-			memset(fileList[i].hash, 0, sizeof(fileList[i].hash));
+			memset(fileList[i].filename, 0, std::size(fileList[i].filename) * sizeof(char));
+			memset(fileList[i].hash, 0, std::size(fileList[i].hash) * sizeof(u8));
 			changed = true;
 			break;
 		}
@@ -1125,8 +1125,8 @@ int SavedataParam::GetSizes(SceUtilitySavedataParam *param)
 		param->msFree->freeClusters = (u32)(freeBytes / MemoryStick_SectorSize());
 		param->msFree->freeSpaceKB = (u32)(freeBytes / 0x400);
 		const std::string spaceTxt = SavedataParam::GetSpaceText(freeBytes, false);
-		memset(param->msFree->freeSpaceStr, 0, sizeof(param->msFree->freeSpaceStr));
-		strncpy(param->msFree->freeSpaceStr, spaceTxt.c_str(), sizeof(param->msFree->freeSpaceStr));
+		memset(param->msFree->freeSpaceStr, 0, std::size(param->msFree->freeSpaceStr) * sizeof(char));
+		strncpy(param->msFree->freeSpaceStr, spaceTxt.c_str(), std::size(param->msFree->freeSpaceStr) * sizeof(char));
 		NotifyMemInfo(MemBlockFlags::WRITE, param->msFree.ptr, sizeof(SceUtilitySavedataMsFreeInfo), "SavedataGetSizes");
 	}
 	if (param->msData.IsValid())
@@ -1192,14 +1192,14 @@ int SavedataParam::GetSizes(SceUtilitySavedataParam *param)
 		param->utilityData->usedClusters = total_size / (u32)MemoryStick_SectorSize();
 		param->utilityData->usedSpaceKB = total_size / 0x400;
 		std::string spaceTxt = SavedataParam::GetSpaceText(total_size, true);
-		memset(param->utilityData->usedSpaceStr, 0, sizeof(param->utilityData->usedSpaceStr));
-		strncpy(param->utilityData->usedSpaceStr, spaceTxt.c_str(), sizeof(param->utilityData->usedSpaceStr));
+		memset(param->utilityData->usedSpaceStr, 0, std::size(param->utilityData->usedSpaceStr) * sizeof(char));
+		strncpy(param->utilityData->usedSpaceStr, spaceTxt.c_str(), std::size(param->utilityData->usedSpaceStr) * sizeof(char));
 
 		// TODO: Maybe these are rounded to the nearest 32KB?  Or something?
 		param->utilityData->usedSpace32KB = total_size / 0x400;
 		spaceTxt = SavedataParam::GetSpaceText(total_size, true);
-		memset(param->utilityData->usedSpace32Str, 0, sizeof(param->utilityData->usedSpace32Str));
-		strncpy(param->utilityData->usedSpace32Str, spaceTxt.c_str(), sizeof(param->utilityData->usedSpace32Str));
+		memset(param->utilityData->usedSpace32Str, 0, std::size(param->utilityData->usedSpace32Str) * sizeof(char));
+		strncpy(param->utilityData->usedSpace32Str, spaceTxt.c_str(), std::size(param->utilityData->usedSpace32Str) * sizeof(char));
 		NotifyMemInfo(MemBlockFlags::WRITE, param->utilityData.ptr, sizeof(SceUtilitySavedataUsedDataInfo), "SavedataGetSizes");
 	}
 	return ret;

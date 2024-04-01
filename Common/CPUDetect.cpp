@@ -177,7 +177,7 @@ void CPUInfo::Detect() {
 	// Assume CPU supports the CPUID instruction. Those that don't can barely
 	// boot modern OS:es anyway.
 	u32 cpu_id[4];
-	memset(cpu_string, 0, sizeof(cpu_string));
+	memset(cpu_string, 0, std::size(cpu_string) * sizeof(char));
 
 	// Detect CPU's CPUID capabilities, and grab cpu string
 	do_cpuid(cpu_id, 0x00000000);

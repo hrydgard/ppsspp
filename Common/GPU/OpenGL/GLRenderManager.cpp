@@ -395,7 +395,7 @@ void GLRenderManager::Finish() {
 				cmdString += StringFromFormat("%s: %d\n", RenderCommandToString((GLRRenderCommand)i), frameData.profile.commandCounts[i]);
 			}
 		}
-		memset(frameData.profile.commandCounts, 0, sizeof(frameData.profile.commandCounts));
+		memset(frameData.profile.commandCounts, 0, std::size(frameData.profile.commandCounts) * sizeof(int));
 		profilePassesString_ = cmdString + profilePassesString_;
 #endif
 

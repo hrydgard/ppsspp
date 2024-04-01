@@ -33,8 +33,9 @@
 #include "polarssl/sha1.h"
 */
 #include "sha1.h"
-#include <string.h>
-#include <stdio.h>
+#include <cstring>
+#include <string>
+#include <cstdio>
 
 /*
  * 32-bit integer manipulation macros (big endian)
@@ -352,7 +353,7 @@ void sha1_hmac_starts( sha1_context *ctx, unsigned char *key, int keylen )
     sha1_starts( ctx );
     sha1_update( ctx, ctx->ipad, 64 );
 
-    memset( sum, 0, sizeof( sum ) );
+    memset( sum, 0, std::size(sum) * sizeof(unsigned char) );
 }
 
 /*
@@ -376,7 +377,7 @@ void sha1_hmac_finish( sha1_context *ctx, unsigned char output[20] )
     sha1_update( ctx, tmpbuf, 20 );
     sha1_finish( ctx, output );
 
-    memset( tmpbuf, 0, sizeof( tmpbuf ) );
+    memset( tmpbuf, 0, std::size(tmpbuf) * sizeof(unsigned char) );
 }
 
 /*
