@@ -161,7 +161,7 @@ public:
 	// No jit operations may be run between these calls.
 	// Meant to be used to make memory safe for savestates, memcpy, etc.
 	std::vector<u32> SaveAndClearEmuHackOps();
-	void RestoreSavedEmuHackOps(std::vector<u32> saved);
+	void RestoreSavedEmuHackOps(const std::vector<u32> &saved);
 
 	int GetNumBlocks() const override { return num_blocks_; }
 

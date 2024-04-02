@@ -22,7 +22,7 @@ private:
 public:
 	int index; //helper 
 
-	void searchBoxRedraw(std::vector<u32> results);
+	void searchBoxRedraw(const std::vector<u32> &results);
 
 	// constructor
 	CMemoryDlg(HINSTANCE _hInstance, HWND _hParent, DebugInterface *_cpu);

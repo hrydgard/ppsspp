@@ -387,7 +387,7 @@ std::vector<u32> IRBlockCache::SaveAndClearEmuHackOps() {
 	return result;
 }
 
-void IRBlockCache::RestoreSavedEmuHackOps(std::vector<u32> saved) {
+void IRBlockCache::RestoreSavedEmuHackOps(const std::vector<u32> &saved) {
 	if ((int)blocks_.size() != (int)saved.size()) {
 		ERROR_LOG(JIT, "RestoreSavedEmuHackOps: Wrong saved block size.");
 		return;

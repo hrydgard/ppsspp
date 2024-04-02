@@ -139,7 +139,7 @@ public:
 	int FindByCookie(int cookie);
 
 	std::vector<u32> SaveAndClearEmuHackOps();
-	void RestoreSavedEmuHackOps(std::vector<u32> saved);
+	void RestoreSavedEmuHackOps(const std::vector<u32> &saved);
 
 	JitBlockDebugInfo GetBlockDebugInfo(int blockNum) const override;
 	void ComputeStats(BlockCacheStats &bcStats) const override;

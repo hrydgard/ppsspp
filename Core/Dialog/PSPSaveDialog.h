@@ -95,7 +95,7 @@ private:
 	void DisplaySaveDataInfo1();
 	void DisplaySaveDataInfo2(bool showNewData = false);
 	void DisplayMessage(std::string_view text, bool hasYesNo = false);
-	const std::string GetSelectedSaveDirName() const;
+	std::string GetSelectedSaveDirName() const;
 
 	void JoinIOThread();
 	void StartIOThread();
