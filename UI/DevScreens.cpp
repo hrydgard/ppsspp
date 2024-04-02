@@ -494,9 +494,6 @@ void SystemInfoScreen::CreateTabs() {
 	auto sy = GetI18NCategory(I18NCat::SYSTEM);
 	auto gr = GetI18NCategory(I18NCat::GRAPHICS);
 
-	TabHolder *tabHolder = new TabHolder(ORIENT_VERTICAL, 225, new AnchorLayoutParams(10, 0, 10, 0, false));
-	tabHolder->SetTag("DevSystemInfo");
-
 	LinearLayout *deviceSpecs = AddTab("Device Info", si->T("Device Info"));
 
 	CollapsibleSection *systemInfo = deviceSpecs->Add(new CollapsibleSection(si->T("System Information")));
@@ -778,16 +775,9 @@ void SystemInfoScreen::CreateTabs() {
 
 		// If there aren't any EGL extensions, no need to show the tab.
 		if (exts.size() > 0) {
-			ViewGroup *eglExtensionsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
-			eglExtensionsScroll->SetTag("DevSystemInfoEGLExt");
-			LinearLayout *eglExtensions = new LinearLayoutList(ORIENT_VERTICAL);
+			LinearLayout *eglExtensions = AddTab("EglExt", si->T("EGL Extensions"));
 			eglExtensions->SetSpacing(0);
-			eglExtensionsScroll->Add(eglExtensions);
-
-			tabHolder->AddTab(si->T("EGL Extensions"), eglExtensionsScroll);
-
 			eglExtensions->Add(new ItemHeader(si->T("EGL Extensions")));
-
 			for (auto &extension : exts) {
 				eglExtensions->Add(new TextView(extension, new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetFocusable(true);
 			}
