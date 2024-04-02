@@ -48,7 +48,7 @@ public:
 
 	FastVec &operator=(FastVec &&other)	{
 		if (this != &other) {
-			delete[] data_;
+			free(data_);
 			data_ = other.data_;
 			size_ = other.size_;
 			capacity_ = other.capacity_;
