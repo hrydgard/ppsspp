@@ -1395,7 +1395,7 @@ void FrameDumpTestScreen::CreateViews() {
 	LinearLayout *dumps = new LinearLayoutList(ORIENT_VERTICAL);
 	dumps->SetSpacing(0);
 	dumpsScroll->Add(dumps);
-	tabHolder->AddTab("Dumps", dumps);
+	tabHolder->AddTab("Dumps", dumpsScroll);
 
 	dumps->Add(new ItemHeader("GE Frame Dumps"));
 
@@ -1405,6 +1405,7 @@ void FrameDumpTestScreen::CreateViews() {
 		c->SetTag(url);
 		c->OnClick.Handle<FrameDumpTestScreen>(this, &FrameDumpTestScreen::OnLoadDump);
 	}
+	delete dumpsScroll;
 }
 
 UI::EventReturn FrameDumpTestScreen::OnLoadDump(UI::EventParams &params) {
