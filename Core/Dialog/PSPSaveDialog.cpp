@@ -308,7 +308,7 @@ int PSPSaveDialog::Init(int paramAddr)
 	return retval;
 }
 
-const std::string PSPSaveDialog::GetSelectedSaveDirName() const
+std::string PSPSaveDialog::GetSelectedSaveDirName() const
 {
 	switch ((SceUtilitySavedataType)(u32)param.GetPspParam()->mode)
 	{

@@ -88,7 +88,7 @@ public:
 	// Try to avoid this. Still useful in snprintf.
 	const char *T_cstr(const char *key, const char *def = nullptr);
 
-	const std::map<std::string, std::string> Missed() const {
+	std::map<std::string, std::string> Missed() const {
 		std::lock_guard<std::mutex> guard(missedKeyLock_);
 		return missedKeyLog_;
 	}

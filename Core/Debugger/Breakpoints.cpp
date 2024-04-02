@@ -622,20 +622,20 @@ void CBreakPoints::UpdateCachedMemCheckRanges() {
 	}
 }
 
-const std::vector<MemCheck> CBreakPoints::GetMemCheckRanges(bool write) {
+std::vector<MemCheck> CBreakPoints::GetMemCheckRanges(bool write) {
 	std::lock_guard<std::mutex> guard(memCheckMutex_);
 	if (write)
 		return memCheckRangesWrite_;
 	return memCheckRangesRead_;
 }
 
-const std::vector<MemCheck> CBreakPoints::GetMemChecks()
+std::vector<MemCheck> CBreakPoints::GetMemChecks()
 {
 	std::lock_guard<std::mutex> guard(memCheckMutex_);
 	return memChecks_;
 }
 
-const std::vector<BreakPoint> CBreakPoints::GetBreakpoints()
+std::vector<BreakPoint> CBreakPoints::GetBreakpoints()
 {
 	std::lock_guard<std::mutex> guard(breakPointsMutex_);
 	return breakPoints_;

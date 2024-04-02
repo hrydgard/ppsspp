@@ -951,7 +951,7 @@ bool GameBrowser::IsCurrentPathPinned() {
 	return std::find(paths.begin(), paths.end(), File::ResolvePath(path_.GetPath().ToString())) != paths.end();
 }
 
-const std::vector<Path> GameBrowser::GetPinnedPaths() {
+std::vector<Path> GameBrowser::GetPinnedPaths() const {
 #ifndef _WIN32
 	static const std::string sepChars = "/";
 #else
@@ -979,7 +979,7 @@ const std::vector<Path> GameBrowser::GetPinnedPaths() {
 	return results;
 }
 
-const std::string GameBrowser::GetBaseName(const std::string &path) {
+std::string GameBrowser::GetBaseName(const std::string &path) const {
 #ifndef _WIN32
 	static const std::string sepChars = "/";
 #else
