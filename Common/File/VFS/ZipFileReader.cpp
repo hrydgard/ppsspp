@@ -281,6 +281,7 @@ VFSOpenFile *ZipFileReader::OpenFileForRead(VFSFileReference *vfsReference, size
 	if (!openFile->zf) {
 		WARN_LOG(G3D, "File with index %d not found in zip", reference->zi);
 		lock_.unlock();
+		delete openFile;
 		return nullptr;
 	}
 
