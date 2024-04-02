@@ -354,10 +354,10 @@ void GameInfo::SetupTexture(Draw::DrawContext *thin3d, GameInfoTex &tex) {
 	using namespace Draw;
 	// TODO: Use TempImage to semi-load the image in the worker task, then here we
 	// could just call CreateTextureFromTempImage.
-	tex.texture = CreateTextureFromFileData(thin3d, (const uint8_t *)tex.data.data(), (int)tex.data.size(), ImageFileType::DETECT, false, GetTitle().c_str());
+	tex.texture = CreateTextureFromFileData(thin3d, (const uint8_t *)tex.data.data(), tex.data.size(), ImageFileType::DETECT, false, GetTitle().c_str());
 	tex.timeLoaded = time_now_d();
 	if (!tex.texture) {
-		ERROR_LOG(G3D, "Failed creating texture (%s) from %d-byte file", GetTitle().c_str(), (int)tex.data.size());
+		ERROR_LOG(G3D, "Failed creating texture (%s) from %d-byte file", GetTitle().c_str(), tex.data.size());
 	}
 }
 

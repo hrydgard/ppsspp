@@ -183,7 +183,7 @@ void HttpImageFileView::Draw(UIContext &dc) {
 		}
 
 		if (!textureData_.empty()) {
-			texture_ = CreateTextureFromFileData(dc.GetDrawContext(), (const uint8_t *)(textureData_.data()), (int)textureData_.size(), ImageFileType::DETECT, false, "store_icon");
+			texture_ = CreateTextureFromFileData(dc.GetDrawContext(), (const uint8_t *)(textureData_.data()), textureData_.size(), ImageFileType::DETECT, false, "store_icon");
 			if (!texture_)
 				textureFailed_ = true;
 			textureData_.clear();

@@ -1533,7 +1533,7 @@ static Path GetSecretPath(const char *nameOfSecret) {
 // name should be simple alphanumerics to avoid problems on Windows.
 bool NativeSaveSecret(const char *nameOfSecret, const std::string &data) {
 	Path path = GetSecretPath(nameOfSecret);
-	if (!File::WriteDataToFile(false, data.data(), (unsigned int)data.size(), path)) {
+	if (!File::WriteDataToFile(false, data.data(), data.size(), path)) {
 		WARN_LOG(SYSTEM, "Failed to write secret '%s' to path '%s'", nameOfSecret, path.c_str());
 		return false;
 	}

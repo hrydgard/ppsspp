@@ -46,7 +46,7 @@ bool SwitchMemstickFolderTo(Path newMemstickFolder) {
 #endif
 
 		std::string str = newMemstickFolder.ToString();
-		if (!File::WriteDataToFile(true, str.c_str(), (unsigned int)str.size(), memStickDirFile)) {
+		if (!File::WriteDataToFile(true, str.c_str(), str.size(), memStickDirFile)) {
 			ERROR_LOG(SYSTEM, "Failed to write memstick path '%s' to '%s'", newMemstickFolder.c_str(), memStickDirFile.c_str());
 			// Not sure what to do if this file can't be written.  Disk full?
 		}
@@ -208,7 +208,7 @@ MoveResult *MoveDirectoryContentsSafe(Path moveSrc, Path moveDest, MoveProgressR
 	for (size_t i = 0; i < fileSuffixesToMove.size(); i++) {
 		const auto &fileSuffix = fileSuffixesToMove[i];
 		progressReporter.SetProgress(StringFromFormat("%s (%s)", fileSuffix.suffix.c_str(), NiceSizeFormat(fileSuffix.fileSize).c_str()),
-			(int)i, (int)fileSuffixesToMove.size());
+			i, fileSuffixesToMove.size());
 
 		Path from = moveSrc / fileSuffix.suffix;
 		Path to = moveDest / fileSuffix.suffix;

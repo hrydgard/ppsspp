@@ -1509,7 +1509,7 @@ void GameSettingsScreen::CallbackMemstickFolder(bool yes) {
 		}
 		File::Delete(Path(testWriteFile));
 
-		if (!File::WriteDataToFile(true, pendingMemstickFolder_.c_str(), (unsigned int)pendingMemstickFolder_.size(), memstickDirFile)) {
+		if (!File::WriteDataToFile(true, pendingMemstickFolder_.c_str(), pendingMemstickFolder_.size(), memstickDirFile)) {
 			WARN_LOG(SYSTEM, "Failed to write memstick folder to '%s'", memstickDirFile.c_str());
 		} else {
 			// Save so the settings, at least, are transferred.
