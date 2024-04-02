@@ -316,12 +316,15 @@ void SplitString(std::string_view str, const char delim, std::vector<std::string
 
 void SplitString(std::string_view str, const char delim, std::vector<std::string> &output) {
 	size_t next = 0;
-	for (size_t pos = 0, len = str.length(); pos < len; ++pos) {
-		if (str[pos] == delim) {
-			output.emplace_back(str.substr(next, pos - next));
-			// Skip the delimiter itself.
-			next = pos + 1;
+	size_t pos = 0;
+	while (pos < str.length()) {
+		size_t delimPos = str.find(delim, pos);
+		if (delimPos == std::string_view::npos) {
+			break;
 		}
+		output.emplace_back(str.substr(next, delimPos - next));
+		next = delimPos + 1;
+		pos = delimPos + 1;
 	}
 
 	if (next == 0) {
