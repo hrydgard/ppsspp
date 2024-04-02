@@ -1325,7 +1325,8 @@ static u32 sceIoGetDevType(int id) {
 		WARN_LOG(SCEIO, "sceIoGetDevType(%d - %s)", id, f->fullpath.c_str());
 		if (f->isTTY)
 			result = (u32)PSPDevType::FILE;
-		result = (u32)pspFileSystem.DevType(f->handle) & (u32)PSPDevType::EMU_MASK;
+		else
+			result = (u32)pspFileSystem.DevType(f->handle) & (u32)PSPDevType::EMU_MASK;
 	} else {
 		ERROR_LOG(SCEIO, "sceIoGetDevType: unknown id %d", id);
 		result = SCE_KERNEL_ERROR_BADF;

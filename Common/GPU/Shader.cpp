@@ -68,7 +68,6 @@ void ShaderLanguageDesc::Init(ShaderLanguage lang) {
 		gles = true;
 		forceMatrix4x4 = true;
 		glslES30 = true;
-		texelFetch = "texelFetch";
 		break;
 	case GLSL_VULKAN:
 		fragColor0 = "fragColor0";
