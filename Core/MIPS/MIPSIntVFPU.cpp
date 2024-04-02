@@ -589,7 +589,7 @@ namespace MIPSInt
 		int vs = _VS;
 		int optype = (op >> 16) & 0x1f;
 		VectorSize sz = GetVecSize(op);
-		int n = GetNumVectorElements(sz);
+		u32 n = GetNumVectorElements(sz);
 		ReadVector(s, sz, vs);
 		// Some of these are prefix hacks (affects constants, etc.)
 		switch (optype) {
@@ -1559,7 +1559,7 @@ namespace MIPSInt
 		FloatBits d;
 		int vd = _VD;
 		VectorSize sz = GetVecSize(op);
-		int n = GetNumVectorElements(sz);
+		u32 n = GetNumVectorElements(sz);
 		// Values are written in backwards order.
 		for (int i = n - 1; i >= 0; i--) {
 			switch ((op >> 16) & 0x1f) {
@@ -2113,7 +2113,7 @@ namespace MIPSInt
 			break;
 		}
 
-		int n = GetNumVectorElements(sz);
+		u32 n = GetNumVectorElements(sz);
 		ReadVector(s, sz, vs);
 		ReadVector(t, sz, vt);
 		if (optype != 7) {
@@ -2165,7 +2165,7 @@ namespace MIPSInt
 		int vs = _VS;
 		int vt = _VT;
 		VectorSize sz = GetVecSize(op);
-		int n = GetNumVectorElements(sz);
+		u32 n = GetNumVectorElements(sz);
 		ReadVector(s, sz, vs);
 		ReadVector(t, sz, vt);
 
