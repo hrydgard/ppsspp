@@ -200,6 +200,7 @@ void __KernelShutdown()
 	__AtracShutdown();
 	__AudioShutdown();
 	__IoShutdown();
+	__HeapShutdown();
 	__KernelMutexShutdown();
 	__KernelThreadingShutdown();
 	__KernelMemoryShutdown();
