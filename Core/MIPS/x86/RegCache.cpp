@@ -71,7 +71,7 @@ void GPRRegCache::Start(MIPSState *mipsState, MIPSComp::JitState *js, MIPSComp::
 		xregs[i].dirty = false;
 		xregs[i].allocLocked = false;
 	}
-	memset(regs, 0, sizeof(regs));
+	memset(&regs, 0, sizeof(regs));
 	OpArg base = GetDefaultLocation(MIPS_REG_ZERO);
 	for (int i = 0; i < 32; i++) {
 		regs[i].location = base;

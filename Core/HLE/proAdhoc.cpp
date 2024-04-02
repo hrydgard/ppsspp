@@ -205,7 +205,7 @@ SceNetAdhocMatchingMemberInternal* addMember(SceNetAdhocMatchingContext * contex
 	else {
 		peer = (SceNetAdhocMatchingMemberInternal *)malloc(sizeof(SceNetAdhocMatchingMemberInternal));
 		if (peer != NULL) {
-			memset(peer, 0, sizeof(SceNetAdhocMatchingMemberInternal));
+			memset(peer, 0, sizeof(*peer));
 			peer->mac = *mac;
 			peer->lastping = CoreTiming::GetGlobalTimeUsScaled();
 			peerlock.lock();
@@ -242,7 +242,7 @@ void addFriend(SceNetAdhocctlConnectPacketS2C * packet) {
 		// Allocated Structure
 		if (peer != NULL) {
 			// Clear Memory
-			memset(peer, 0, sizeof(SceNetAdhocctlPeerInfo));
+			memset(peer, 0, sizeof(*peer));
 
 			// Save Nickname
 			peer->nickname = packet->name;
@@ -631,7 +631,7 @@ void postAcceptAddSiblings(SceNetAdhocMatchingContext * context, int siblingcoun
 			if (sibling != NULL)
 			{
 				// Clear Memory
-				memset(sibling, 0, sizeof(SceNetAdhocMatchingMemberInternal));
+				memset(sibling, 0, sizeof(*sibling));
 
 				// Save MAC Address
 				memcpy(&sibling->mac, mac, sizeof(SceNetEtherAddr));
@@ -1705,7 +1705,7 @@ int friendFinder(){
 						// Allocated Structure Data
 						if (group != NULL) {
 							// Clear Memory, should this be done only when allocating new group?
-							memset(group, 0, sizeof(SceNetAdhocctlScanInfo));
+							memset(group, 0, sizeof(*group));
 
 							// Link to existing Groups
 							group->next = newnetworks;

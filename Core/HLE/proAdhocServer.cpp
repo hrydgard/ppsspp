@@ -530,7 +530,7 @@ void login_user_stream(int fd, uint32_t ip)
 			if(user != NULL)
 			{
 				// Clear Memory
-				memset(user, 0, sizeof(SceNetAdhocctlUserNode));
+				memset(user, 0, sizeof(*user));
 
 				// Save Socket
 				user->stream = fd;
@@ -610,7 +610,7 @@ void login_user_data(SceNetAdhocctlUserNode * user, SceNetAdhocctlLoginPacketC2S
 			if(game != NULL)
 			{
 				// Clear Memory
-				memset(game, 0, sizeof(SceNetAdhocctlGameNode));
+				memset(game, 0, sizeof(*game));
 
 				// Save Game Product ID
 				game->game = data->game;
@@ -815,7 +815,7 @@ void connect_user(SceNetAdhocctlUserNode * user, SceNetAdhocctlGroupName * group
 				if(g != NULL)
 				{
 					// Clear Memory
-					memset(g, 0, sizeof(SceNetAdhocctlGroupNode));
+					memset(g, 0, sizeof(*g));
 
 					// Link Game Node
 					g->game = user->game;

@@ -133,8 +133,8 @@ bool PortManager::Initialize(const unsigned int timeout) {
 		free(urls);
 		return false;
 	}
-	memset(urls, 0, sizeof(struct UPNPUrls));
-	memset(datas, 0, sizeof(struct IGDdatas));
+	memset(urls, 0, sizeof(*urls));
+	memset(datas, 0, sizeof(*datas));
 
 	devlist = upnpDiscover(timeout, NULL, NULL, localport, ipv6, ttl, &error);
 	if (devlist)

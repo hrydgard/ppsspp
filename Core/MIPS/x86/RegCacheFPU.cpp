@@ -56,7 +56,7 @@ void FPURegCache::SetupInitialRegs() {
 		memset(xregsInitial[i].mipsRegs, -1, sizeof(xregsInitial[i].mipsRegs));
 		xregsInitial[i].dirty = false;
 	}
-	memset(regsInitial, 0, sizeof(regsInitial));
+	memset(&regsInitial, 0, sizeof(regsInitial));
 	OpArg base = GetDefaultLocation(0);
 	for (int i = 0; i < 32; i++) {
 		regsInitial[i].location = base;

@@ -870,7 +870,7 @@ static int pspDecryptType2(const u8 *inbuf, u8 *outbuf, u32 size)
 		memcpy(outbuf, inbuf, size);
 	}
 	
-	memset(header, 0, sizeof(KIRK_CMD1_HEADER));
+	memset(header, 0, sizeof(*header));
 	memcpy(reinterpret_cast<u8*>(&header->data_size), type2.kirkMetadata, sizeof(type2.kirkMetadata));
 	memcpy(reinterpret_cast<u8*>(header)+sizeof(KIRK_CMD1_HEADER), type2.prxHeader, sizeof(type2.prxHeader));
 	decryptKirkHeader(reinterpret_cast<u8*>(header), type2.kirkHeader, xorbuf.cbegin()+0x10, pti->code);
@@ -934,7 +934,7 @@ static int pspDecryptType5(const u8 *inbuf, u8 *outbuf, u32 size, const u8 *seed
 		memcpy(outbuf, inbuf, size);
 	}
 
-	memset(header, 0, sizeof(KIRK_CMD1_HEADER));
+	memset(header, 0, sizeof(*header));
 	memcpy(reinterpret_cast<u8*>(&header->data_size), type5.kirkMetadata, sizeof(type5.kirkMetadata));
 	memcpy(reinterpret_cast<u8*>(header)+sizeof(KIRK_CMD1_HEADER), type5.prxHeader, sizeof(type5.prxHeader));
 	decryptKirkHeader(reinterpret_cast<u8*>(header), type5.kirkHeader, xorbuf.cbegin()+0x10, pti->code);
@@ -999,7 +999,7 @@ static int pspDecryptType6(const u8 *inbuf, u8 *outbuf, u32 size)
 		memcpy(outbuf, inbuf, size);
 	}
 
-	memset(header, 0, sizeof(KIRK_CMD1_ECDSA_HEADER));
+	memset(header, 0, sizeof(*header));
 	memcpy(outbuf+offset+0x40, type6.ecdsaSignatureTail, sizeof(type6.ecdsaSignatureTail));
 	memcpy(reinterpret_cast<u8*>(&header->data_size), type6.kirkMetadata, sizeof(type6.kirkMetadata));
 	memcpy(reinterpret_cast<u8*>(header)+sizeof(KIRK_CMD1_ECDSA_HEADER), type6.prxHeader, sizeof(type6.prxHeader));

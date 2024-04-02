@@ -148,7 +148,7 @@ static const DeclTypeInfo VComp[] = {
 };
 
 static void VertexAttribSetup(D3DVERTEXELEMENT9 * VertexElement, u8 fmt, u8 offset, u8 usage, u8 usage_index = 0) {
-	memset(VertexElement, 0, sizeof(D3DVERTEXELEMENT9));
+	memset(VertexElement, 0, sizeof(*VertexElement));
 	VertexElement->Offset = offset;
 	VertexElement->Type = VComp[fmt].type;
 	VertexElement->Usage = usage;

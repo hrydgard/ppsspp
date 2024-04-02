@@ -180,8 +180,7 @@ namespace WindowsRawInput {
 	};
 
 	void Init() {
-		RAWINPUTDEVICE dev[3];
-		memset(dev, 0, sizeof(dev));
+		RAWINPUTDEVICE dev[3] = { 0 };
 
 		dev[0].usUsagePage = HID_USAGE_PAGE_GENERIC;
 		dev[0].usUsage = HID_USAGE_GENERIC_KEYBOARD;

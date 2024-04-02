@@ -176,7 +176,7 @@ static const DeclTypeInfo VComp[] = {
 };
 
 static void VertexAttribSetup(D3D11_INPUT_ELEMENT_DESC * VertexElement, u8 fmt, u8 offset, const char *semantic, u8 semantic_index = 0) {
-	memset(VertexElement, 0, sizeof(D3D11_INPUT_ELEMENT_DESC));
+	memset(VertexElement, 0, sizeof(*VertexElement));
 	VertexElement->AlignedByteOffset = offset;
 	VertexElement->Format = VComp[fmt].type;
 	VertexElement->SemanticName = semantic;

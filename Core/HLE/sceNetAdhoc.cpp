@@ -1471,7 +1471,7 @@ static int sceNetAdhocPdpCreate(const char *mac, int port, int bufferSize, u32 f
 							// Found Free Translator Index
 							if (i < MAX_SOCKET) {
 								// Clear Memory
-								memset(internal, 0, sizeof(AdhocSocket));
+								memset(internal, 0, sizeof(*internal));
 
 								// Socket Type
 								internal->type = SOCK_PDP;
@@ -3476,7 +3476,7 @@ static int sceNetAdhocPtpOpen(const char *srcmac, int sport, const char *dstmac,
 							// Found Free Translator ID
 							if (i < MAX_SOCKET) {
 								// Clear Memory
-								memset(internal, 0, sizeof(AdhocSocket));
+								memset(internal, 0, sizeof(*internal));
 
 								// Socket Type
 								internal->type = SOCK_PTP;
@@ -3589,7 +3589,7 @@ int AcceptPtpSocket(int ptpId, int newsocket, sockaddr_in& peeraddr, SceNetEther
 				// Found Free Translator ID
 				if (i < MAX_SOCKET) {
 					// Clear Memory
-					memset(internal, 0, sizeof(AdhocSocket));
+					memset(internal, 0, sizeof(*internal));
 
 					// Inherits some of Listening socket's properties
 					// Socket Type
@@ -4078,7 +4078,7 @@ static int sceNetAdhocPtpListen(const char *srcmac, int sport, int bufsize, int 
 								// Found Free Translator ID
 								if (i < MAX_SOCKET) {
 									// Clear Memory
-									memset(internal, 0, sizeof(AdhocSocket));
+									memset(internal, 0, sizeof(*internal));
 
 									// Socket Type
 									internal->type = SOCK_PTP;
@@ -4917,7 +4917,7 @@ static int sceNetAdhocMatchingCreate(int mode, int maxnum, int port, int rxbufle
 						getLocalMac(&localmac);
 
 						// Clear Memory
-						memset(context, 0, sizeof(SceNetAdhocMatchingContext));
+						memset(context, 0, sizeof(*context));
 
 						// Allocate Receive Buffer
 						context->rxbuf = (uint8_t*)malloc(rxbuflen);
@@ -6972,7 +6972,7 @@ void actOnHelloPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * se
 					if (peer != NULL)
 					{
 						// Clear Memory
-						memset(peer, 0, sizeof(SceNetAdhocMatchingMemberInternal));
+						memset(peer, 0, sizeof(*peer));
 
 						// Copy Sender MAC
 						peer->mac = *sendermac;
@@ -7056,7 +7056,7 @@ void actOnJoinPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * sen
 						if (peer != NULL)
 						{
 							// Clear Memory
-							memset(peer, 0, sizeof(SceNetAdhocMatchingMemberInternal));
+							memset(peer, 0, sizeof(*peer));
 
 							// Copy Sender MAC
 							peer->mac = *sendermac;
@@ -7383,7 +7383,7 @@ void actOnBirthPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * se
 			if (sibling != NULL)
 			{
 				// Clear Memory
-				memset(sibling, 0, sizeof(SceNetAdhocMatchingMemberInternal));
+				memset(sibling, 0, sizeof(*sibling));
 
 				// Save MAC Address
 				sibling->mac = mac;
