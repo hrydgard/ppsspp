@@ -1405,7 +1405,6 @@ void FrameDumpTestScreen::CreateViews() {
 		c->SetTag(url);
 		c->OnClick.Handle<FrameDumpTestScreen>(this, &FrameDumpTestScreen::OnLoadDump);
 	}
-	delete dumpsScroll;
 }
 
 UI::EventReturn FrameDumpTestScreen::OnLoadDump(UI::EventParams &params) {
