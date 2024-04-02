@@ -337,7 +337,8 @@ void SavedataButton::Draw(UIContext &dc) {
 		w = nw;
 	}
 
-	int txOffset = down_ ? 4 : 0;
+	// int txOffset = down_ ? 4 : 0;
+	int txOffset = 0;
 
 	Bounds overlayBounds = bounds_;
 
