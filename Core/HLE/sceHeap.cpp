@@ -47,11 +47,11 @@ struct Heap {
 static std::map<u32, Heap *> heapList;
 
 static Heap *getHeap(u32 addr) {
-	auto found = heapList.find(addr);
-	if (found == heapList.end()) {
-		return NULL;
+	auto it = heapList.find(addr);
+	if (it == heapList.end()) {
+		return nullptr;
 	}
-	return found->second;
+	return it->second;
 }
 
 void __HeapDoState(PointerWrap &p) {
@@ -70,6 +70,13 @@ enum SceHeapAttr {
 };
 
 void __HeapInit() {
+	heapList.clear();
+}
+
+void __HeapShutdown() {
+	for (auto it : heapList) {
+		delete it.second;
+	}
 	heapList.clear();
 }
 
