@@ -1514,16 +1514,12 @@ void Config::RemoveRecent(const std::string &file) {
 
 	private_->ResetRecentIsosThread();
 	std::lock_guard<std::mutex> guard(private_->recentIsosLock);
-	const std::string filename = File::ResolvePath(file);
-	for (auto iter = recentIsos.begin(); iter != recentIsos.end();) {
-		const std::string recent = File::ResolvePath(*iter);
-		if (filename == recent) {
-			// Note that the increment-erase idiom doesn't work with vectors.
-			iter = recentIsos.erase(iter);
-		} else {
-			iter++;
-		}
-	}
+	
+	const auto &filename = File::ResolvePath(file);
+	std::remove_if(recentIsos.begin(), recentIsos.end(), [filename](const auto &str) {
+		const auto &recent = File::ResolvePath(str);
+		return filename == recent;
+	});
 }
 
 void Config::CleanRecent() {
