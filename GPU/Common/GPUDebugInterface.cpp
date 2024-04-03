@@ -770,7 +770,7 @@ uint32_t GEExpressionFunctions::getFieldValue(GECmdFormat fmt, GECmdField field,
 	case GECmdField::FLAG_AFTER_8:
 		return (value >> 8) & 1;
 	case GECmdField::FLAG_AFTER_9:
-		return (value >> 8) & 1;
+		return (value >> 9) & 1;
 	case GECmdField::FLAG_AFTER_10:
 		return (value >> 10) & 1;
 	case GECmdField::FLAG_AFTER_11:
