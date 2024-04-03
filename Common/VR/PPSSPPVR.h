@@ -33,7 +33,6 @@ void InitVROnAndroid(void* vm, void* activity, const char* system, int version, 
 void EnterVR(bool firstStart, void* vulkanContext);
 void GetVRResolutionPerEye(int* width, int* height);
 void SetVRCallbacks(void(*axis)(const AxisInput *axis, size_t count), bool(*key)(const KeyInput &key), void(*touch)(const TouchInput &touch));
-void SetVREnabled(bool enabled);
 
 // VR input integration
 void SetVRAppMode(VRAppMode mode);
