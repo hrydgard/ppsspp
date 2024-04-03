@@ -4,6 +4,14 @@
 // Derived from Duckstation's RetroAchievements implementation by stenzek as can be seen
 // above, relicensed to GPL 2.0.
 
+// Actually after the rc_client rewrite, barely anything of that remains.
+
+// The PSP hash function:
+// md5_init
+// md5_hash(PSP_GAME/PARAM.SFO)
+// md5_hash(PSP_GAME/EBOOT.BIN)
+// hash = md5_finalize()
+
 #include <algorithm>
 #include <atomic>
 #include <cstdarg>
@@ -23,11 +31,10 @@
 #include "ext/rcheevos/include/rc_api_runtime.h"
 #include "ext/rcheevos/include/rc_api_user.h"
 #include "ext/rcheevos/include/rc_url.h"
-#include "ext/rcheevos/include/rc_hash.h"
-#include "ext/rcheevos/src/rhash/md5.h"
 
 #include "ext/rapidjson/include/rapidjson/document.h"
 
+#include "Common/Crypto/md5.h"
 #include "Common/Log.h"
 #include "Common/File/Path.h"
 #include "Common/File/FileUtil.h"
@@ -51,7 +58,58 @@
 #include "Core/ELF/ParamSFO.h"
 #include "Core/System.h"
 #include "Core/FileSystems/MetaFileSystem.h"
+#include "Core/FileSystems/ISOFileSystem.h"
 #include "Core/RetroAchievements.h"
+
+static bool HashISOFile(ISOFileSystem *fs, const std::string filename, md5_context *md5) {
+	int handle = fs->OpenFile(filename, FILEACCESS_READ);
+	if (handle < 0) {
+		return false;
+	}
+
+	uint32_t sz = fs->SeekFile(handle, 0, FILEMOVE_END);
+	fs->SeekFile(handle, 0, FILEMOVE_BEGIN);
+	if (!sz) {
+		return false;
+	}
+
+	std::unique_ptr<uint8_t[]> buffer(new uint8_t[sz]);
+	if (fs->ReadFile(handle, buffer.get(), sz) != sz) {
+		return false;
+	}
+	fs->CloseFile(handle);
+
+	ppsspp_md5_update(md5, buffer.get(), sz);
+	return true;
+}
+
+// Consumes the blockDevice.
+std::string ComputePSPHash(BlockDevice *blockDevice) {
+	md5_context md5;
+	ppsspp_md5_starts(&md5);
+
+	SequentialHandleAllocator alloc;
+	{
+		std::unique_ptr<ISOFileSystem> fs(new ISOFileSystem(&alloc, blockDevice));
+		if (!HashISOFile(fs.get(), "PSP_GAME/PARAM.SFO", &md5)) {
+			return std::string();
+		}
+		if (!HashISOFile(fs.get(), "PSP_GAME/SYSDIR/EBOOT.BIN", &md5)) {
+			return std::string();
+		}
+	}
+
+	uint8_t digest[16];
+	ppsspp_md5_finish(&md5, digest);
+
+	char hashStr[33];
+	/* NOTE: sizeof(hash) is 4 because it's still treated like a pointer, despite specifying a size */
+	snprintf(hashStr, 33, "%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x",
+		digest[0], digest[1], digest[2], digest[3], digest[4], digest[5], digest[6], digest[7],
+		digest[8], digest[9], digest[10], digest[11], digest[12], digest[13], digest[14], digest[15]
+	);
+	return std::string(hashStr);
+}
 
 static inline const char *DeNull(const char *ptr) {
 	return ptr ? ptr : "";
@@ -86,12 +144,6 @@ double g_lastLoginAttemptTime;
 static rc_client_t *g_rcClient;
 static const std::string g_RAImageID = "I_RETROACHIEVEMENTS_LOGO";
 constexpr double LOGIN_ATTEMPT_INTERVAL_S = 10.0;
-
-struct FileContext {
-	BlockDevice *bd;
-	int64_t seekPos;
-};
-static BlockDevice *g_blockDevice;
 
 #define PSP_MEMORY_OFFSET 0x08000000
 
@@ -430,60 +482,6 @@ void Initialize() {
 	}
 
 	rc_client_set_event_handler(g_rcClient, event_handler_callback);
-
-	rc_hash_filereader rc_filereader;
-	rc_filereader.open = [](const char *utf8Path) -> void *{
-		if (!g_blockDevice) {
-			ERROR_LOG(ACHIEVEMENTS, "No block device");
-			return nullptr;
-		}
-
-		return (void *) new FileContext{ g_blockDevice, 0 };
-	};
-	rc_filereader.seek = [](void *file_handle, int64_t offset, int origin) {
-		FileContext *ctx = (FileContext *)file_handle;
-		switch (origin) {
-		case SEEK_SET: ctx->seekPos = offset; break;
-		case SEEK_END: ctx->seekPos = ctx->bd->GetBlockSize() * ctx->bd->GetNumBlocks() + offset; break;
-		case SEEK_CUR: ctx->seekPos += offset; break;
-		default: break;
-		}
-	};
-	rc_filereader.tell = [](void *file_handle) -> int64_t {
-		return ((FileContext *)file_handle)->seekPos;
-	};
-	rc_filereader.read = [](void *file_handle, void *buffer, size_t requested_bytes) -> size_t {
-		FileContext *ctx = (FileContext *)file_handle;
-
-		int blockSize = ctx->bd->GetBlockSize();
-
-		int64_t offset = ctx->seekPos;
-		int64_t endOffset = ctx->seekPos + requested_bytes;
-		int firstBlock = offset / blockSize;
-		int afterLastBlock = (endOffset + blockSize - 1) / blockSize;
-		int numBlocks = afterLastBlock - firstBlock;
-		// This is suboptimal, but good enough since we're not doing a lot of accesses.
-		uint8_t *buf = new uint8_t[numBlocks * blockSize];
-		bool success = ctx->bd->ReadBlocks(firstBlock, numBlocks, (u8 *)buf);
-		if (success) {
-			int64_t firstOffset = firstBlock * blockSize;
-			memcpy(buffer, buf + (offset - firstOffset), requested_bytes);
-			ctx->seekPos += requested_bytes;
-			delete[] buf;
-			return requested_bytes;
-		} else {
-			delete[] buf;
-			ERROR_LOG(ACHIEVEMENTS, "Block device load fail");
-			return 0;
-		}
-	};
-	rc_filereader.close = [](void *file_handle) {
-		FileContext *ctx = (FileContext *)file_handle;
-		delete ctx->bd;
-		delete ctx;
-	};
-	rc_hash_init_custom_filereader(&rc_filereader);
-	rc_hash_init_default_cdreader();
 
 	TryLoginByToken(true);
 }
@@ -831,27 +829,31 @@ void SetGame(const Path &path, IdentifiedFileType fileType, FileLoader *fileLoad
 		return;
 	}
 
-	_dbg_assert_(!g_blockDevice);
-
-	// TODO: Fish the block device out of the loading process somewhere else. Though, probably easier to just do it here.
-	g_blockDevice = constructBlockDevice(fileLoader);
-	if (!g_blockDevice) {
-		ERROR_LOG(ACHIEVEMENTS, "Failed to construct block device for '%s' - can't identify", path.c_str());
-		return;
-	}
-
 	// The caller should hold off on executing game code until this turns false, checking with IsBlockingExecution()
 	g_isIdentifying = true;
+
+	// TODO: Fish the block device out of the loading process somewhere else. Though, probably easier to just do it here.
+	{
+		BlockDevice *blockDevice(constructBlockDevice(fileLoader));
+		if (!blockDevice) {
+			ERROR_LOG(ACHIEVEMENTS, "Failed to construct block device for '%s' - can't identify", path.c_str());
+			g_isIdentifying = false;
+			return;
+		}
+
+		// This consumes the blockDevice.
+		s_game_hash = ComputePSPHash(blockDevice);
+		if (!s_game_hash.empty()) {
+			INFO_LOG(ACHIEVEMENTS, "Hash: %s", s_game_hash.c_str());
+		}
+	}
 
 	// Apply pre-load settings.
 	rc_client_set_hardcore_enabled(g_rcClient, g_Config.bAchievementsChallengeMode ? 1 : 0);
 	rc_client_set_encore_mode_enabled(g_rcClient, g_Config.bAchievementsEncoreMode ? 1 : 0);
 	rc_client_set_unofficial_enabled(g_rcClient, g_Config.bAchievementsUnofficial ? 1 : 0);
 
-	rc_client_begin_identify_and_load_game(g_rcClient, RC_CONSOLE_PSP, path.c_str(), nullptr, 0, &identify_and_load_callback, nullptr);
-
-	// fclose above will have deleted it.
-	g_blockDevice = nullptr;
+	rc_client_begin_load_game(g_rcClient, s_game_hash.c_str(), &identify_and_load_callback, nullptr);
 }
 
 void UnloadGame() {
@@ -893,24 +895,26 @@ void ChangeUMD(const Path &path, FileLoader *fileLoader) {
 		return;
 	}
 
-	g_blockDevice = constructBlockDevice(fileLoader);
-	if (!g_blockDevice) {
+	BlockDevice *blockDevice = constructBlockDevice(fileLoader);
+	if (!blockDevice) {
 		ERROR_LOG(ACHIEVEMENTS, "Failed to construct block device for '%s' - can't identify", path.c_str());
 		return;
 	}
 
 	g_isIdentifying = true;
 
-	rc_client_begin_change_media(g_rcClient,
-		path.c_str(),
-		nullptr,
-		0,
+	// This consumes the blockDevice.
+	s_game_hash = ComputePSPHash(blockDevice);
+	if (s_game_hash.empty()) {
+		ERROR_LOG(ACHIEVEMENTS, "Failed to hash - can't identify");
+		return;
+	}
+
+	rc_client_begin_change_media_from_hash(g_rcClient,
+		s_game_hash.c_str(),
 		&change_media_callback,
 		nullptr
 	);
-
-	// fclose above will have deleted it.
-	g_blockDevice = nullptr;
 }
 
 std::set<uint32_t> GetActiveChallengeIDs() {

@@ -222,8 +222,6 @@ SOURCES_C += \
 	$(EXTDIR)/rcheevos/src/rcheevos/runtime_progress.c \
 	$(EXTDIR)/rcheevos/src/rcheevos/trigger.c \
 	$(EXTDIR)/rcheevos/src/rcheevos/value.c \
-	$(EXTDIR)/rcheevos/src/rhash/cdreader.c \
-	$(EXTDIR)/rcheevos/src/rhash/hash.c \
 	$(EXTDIR)/rcheevos/src/rhash/md5.c
 
 COREFLAGS += -DSTACK_LINE_READER_BUFFER_SIZE=1024

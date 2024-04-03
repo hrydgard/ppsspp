@@ -35,9 +35,7 @@ set(ALL_SOURCE_FILES
 	${SRC_DIR}/rcheevos/runtime_progress.c
 	${SRC_DIR}/rcheevos/trigger.c
 	${SRC_DIR}/rcheevos/value.c
-	# rhash
-	${SRC_DIR}/rhash/cdreader.c
-	${SRC_DIR}/rhash/hash.c
+	# rhash (still need just md5)
 	${SRC_DIR}/rhash/md5.c
 	${SRC_DIR}/rhash/md5.h
 	)
