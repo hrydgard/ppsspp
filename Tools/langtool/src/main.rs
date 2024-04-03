@@ -5,20 +5,20 @@ mod section;
 mod inifile;
 use inifile::IniFile;
 
-use structopt::StructOpt;
+use clap::Parser;
 
-#[derive(StructOpt, Debug)]
-struct Opt {
-    #[structopt(subcommand)]
+#[derive(Parser, Debug)]
+struct Args {
+    #[command(subcommand)]
     cmd: Command,
-    #[structopt(short, long)]
+    #[arg(short, long)]
     dry_run: bool,
 }
 
-#[derive(StructOpt, Debug)]
+#[derive(Parser, Debug)]
 enum Command {
     CopyMissingLines {
-        #[structopt(short, long)]
+        #[arg(short, long)]
         dont_comment_missing: bool,
     },
     CommentUnknownLines {},
@@ -173,7 +173,7 @@ fn sort_section(target_ini: &mut IniFile, section: &str) -> io::Result<()> {
 // TODO: Look into using https://github.com/Byron/google-apis-rs/tree/main/gen/translate2 for initial translations.
 
 fn main() {
-    let opt = Opt::from_args();
+    let opt = Args::parse();
 
     // TODO: Grab extra arguments from opt somehow.
     let args: Vec<String> = vec![]; //std::env::args().skip(1).collect();

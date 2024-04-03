@@ -1,8 +1,8 @@
 [package]
 authors = ["Henrik Rydgård <hrydgard@gmail.com>"]
-edition = "2018"
+edition = "2021"
 name = "langtool"
 version = "0.1.0"
 
 [dependencies]
-structopt = "0.3.26"
+clap = { version = "4.5", features = ["derive"] }
