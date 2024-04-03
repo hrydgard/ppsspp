@@ -261,20 +261,20 @@ void OnScreenDisplay::SetProgressBar(std::string_view id, std::string_view messa
 
 void OnScreenDisplay::RemoveProgressBar(const std::string &id, bool success, float delay_s) {
 	std::lock_guard<std::mutex> guard(mutex_);
-	for (auto iter = entries_.begin(); iter != entries_.end(); iter++) {
-		if (iter->type == OSDType::PROGRESS_BAR && iter->id == id) {
+	for (auto &ent : entries_) {
+		if (ent.type == OSDType::PROGRESS_BAR && ent.id == id) {
 			if (success) {
 				// Quickly shoot up to max, if we weren't there.
-				if (iter->maxValue != 0.0f) {
-					iter->progress = iter->maxValue;
+				if (ent.maxValue != 0.0f) {
+					ent.progress = ent.maxValue;
 				} else {
 					// Fake a full progress
-					iter->minValue = 0;
-					iter->maxValue = 1;
-					iter->progress = 1;
+					ent.minValue = 0;
+					ent.maxValue = 1;
+					ent.progress = 1;
 				}
 			}
-			iter->endTime = time_now_d() + delay_s + FadeoutTime();
+			ent.endTime = time_now_d() + delay_s + FadeoutTime();
 			break;
 		}
 	}
