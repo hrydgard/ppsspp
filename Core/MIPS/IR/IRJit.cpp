@@ -429,18 +429,18 @@ JitBlockDebugInfo IRBlockCache::GetBlockDebugInfo(int blockNum) const {
 }
 
 void IRBlockCache::ComputeStats(BlockCacheStats &bcStats) const {
-	double totalBloat = 0.0;
-	double maxBloat = 0.0;
-	double minBloat = 1000000000.0;
+	float totalBloat = 0.0f;
+	float maxBloat = 0.0f;
+	float minBloat = 1000000000.0f;
 	for (const auto &b : blocks_) {
-		double codeSize = (double)b.GetNumInstructions() * sizeof(IRInst);
-		if (codeSize == 0)
+		auto codeSize = static_cast<float>(b.GetNumInstructions()) * sizeof(IRInst);
+		if (codeSize == 0.0f)
 			continue;
 
 		u32 origAddr, mipsBytes;
 		b.GetRange(origAddr, mipsBytes);
-		double origSize = (double)mipsBytes;
-		double bloat = codeSize / origSize;
+		auto origSize = static_cast<float>(mipsBytes);
+		float bloat = codeSize / origSize;
 		if (bloat < minBloat) {
 			minBloat = bloat;
 			bcStats.minBloatBlock = origAddr;
@@ -452,10 +452,10 @@ void IRBlockCache::ComputeStats(BlockCacheStats &bcStats) const {
 		totalBloat += bloat;
 		bcStats.bloatMap[bloat] = origAddr;
 	}
-	bcStats.numBlocks = (int)blocks_.size();
+	bcStats.numBlocks = static_cast<int>(blocks_.size());
 	bcStats.minBloat = minBloat;
 	bcStats.maxBloat = maxBloat;
-	bcStats.avgBloat = totalBloat / (double)blocks_.size();
+	bcStats.avgBloat = totalBloat / static_cast<float>(blocks_.size());
 }
 
 int IRBlockCache::GetBlockNumberFromStartAddress(u32 em_address, bool realBlocksOnly) const {
