@@ -109,6 +109,9 @@ android {
 		gold {
 			res.srcDirs = ['gold/res']
 		}
+		vr {
+			manifest.srcFile 'VRManifest.xml'
+		}
 	}
 	productFlavors {
 		normal {
@@ -121,8 +124,7 @@ android {
 							'-DANDROID_PLATFORM=android-16',
 							'-DANDROID_TOOLCHAIN=clang',
 							'-DANDROID_CPP_FEATURES=',
-							'-DANDROID_STL=c++_static',
-							'-DOPENXR=TRUE'
+							'-DANDROID_STL=c++_static'
 				}
 			}
 			ndk {
@@ -141,12 +143,31 @@ android {
 							'-DANDROID_CPP_FEATURES=',
 							'-DANDROID_STL=c++_static',
 							'-DANDROID_ARM_NEON=TRUE',
-							'-DGOLD=TRUE',
-							'-DOPENXR=TRUE'
+							'-DGOLD=TRUE'
 				}
 			}
 			ndk {
 				abiFilters 'armeabi-v7a', 'arm64-v8a', 'x86_64'
+			}
+		}
+		vr {
+			applicationId 'org.ppsspp.ppssppvr'
+			dimension "variant"
+			targetSdkVersion 29  // Do not upgrade this, we depend on not requiring scoped storage on Oculus.
+			externalNativeBuild {
+				cmake {
+					// Available arguments listed at https://developer.android.com/ndk/guides/cmake.html
+					arguments '-DANDROID=true',
+							'-DANDROID_PLATFORM=android-16',
+							'-DANDROID_TOOLCHAIN=clang',
+							'-DANDROID_CPP_FEATURES=',
+							'-DANDROID_STL=c++_static',
+							'-DANDROID_ARM_NEON=TRUE',
+							'-DOPENXR=TRUE'
+				}
+			}
+			ndk {
+				abiFilters 'arm64-v8a'
 			}
 		}
 	}
@@ -156,6 +177,9 @@ android {
 			'normalOptimized',	// for testing
 			'normalRelease',	// for Google Play releases
 			'goldRelease',		// for Google Play releases
+			'vrDebug',    		// for VR debugging
+			'vrOptimized',		// for VR testing
+			'vrRelease',  		// for VR releases
 		]
 		variant.setIgnore(!needed)
 	}
