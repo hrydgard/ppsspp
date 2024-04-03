@@ -1128,6 +1128,6 @@ void Register_sceDisplay_driver() {
 
 void __DisplaySetFramerate(int value) {
 	framerate = value;
-	timePerVblank = 1.001f / (float)framerate;
+	timePerVblank = 1.001 / (double)framerate;
 	frameMs = 1001.0 / (double)framerate;
 }
