@@ -87,7 +87,7 @@ private:
 		u32 openSize;
 	};
 
-	typedef std::map<u32,OpenFileEntry> EntryMap;
+	typedef std::map<u32, OpenFileEntry> EntryMap;
 	EntryMap entries;
 	IHandleAllocator *hAlloc;
 	TreeEntry *treeroot;
