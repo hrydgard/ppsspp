@@ -86,6 +86,15 @@ VkResult VulkanContext::CreateInstance(const CreateInfo &info) {
 		return VK_ERROR_INITIALIZATION_FAILED;
 	}
 
+	// Check which Vulkan version we should request.
+	// Our code is fine with any version from 1.0 to 1.2, we don't know about higher versions.
+	vulkanApiVersion_ = VK_API_VERSION_1_0;
+	if (vkEnumerateInstanceVersion) {
+		vkEnumerateInstanceVersion(&vulkanApiVersion_);
+		vulkanApiVersion_ &= 0xFFFFF000;  // Remove patch version.
+		vulkanApiVersion_ = std::min(VK_API_VERSION_1_3, vulkanApiVersion_);
+	}
+
 	instance_layer_names_.clear();
 	device_layer_names_.clear();
 
@@ -167,22 +176,13 @@ VkResult VulkanContext::CreateInstance(const CreateInfo &info) {
 			WARN_LOG(G3D, "WARNING: Does not seem that instance extension '%s' is available. Trying to proceed anyway.", ext);
 	}
 
-	// Check which Vulkan version we should request.
-	// Our code is fine with any version from 1.0 to 1.2, we don't know about higher versions.
-	u32 vulkanApiVersion = VK_API_VERSION_1_0;
-	if (vkEnumerateInstanceVersion) {
-		vkEnumerateInstanceVersion(&vulkanApiVersion);
-		vulkanApiVersion &= 0xFFFFF000;  // Remove patch version.
-		vulkanApiVersion = std::min(VK_API_VERSION_1_2, vulkanApiVersion);
-	}
-
 	VkApplicationInfo app_info{ VK_STRUCTURE_TYPE_APPLICATION_INFO };
 	app_info.pApplicationName = info.app_name;
 	app_info.applicationVersion = info.app_ver;
 	app_info.pEngineName = info.app_name;
 	// Let's increment this when we make major engine/context changes.
 	app_info.engineVersion = 2;
-	app_info.apiVersion = vulkanApiVersion;
+	app_info.apiVersion = vulkanApiVersion_;
 
 	VkInstanceCreateInfo inst_info{ VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO };
 	inst_info.flags = 0;
@@ -619,7 +619,10 @@ void VulkanContext::ChooseDevice(int physical_device) {
 	device_extensions_enabled_.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
 }
 
-bool VulkanContext::EnableDeviceExtension(const char *extension) {
+bool VulkanContext::EnableDeviceExtension(const char *extension, uint32_t coreVersion) {
+	if (coreVersion != 0 && vulkanApiVersion_ >= coreVersion) {
+		return true;
+	}
 	for (auto &iter : device_extension_properties_) {
 		if (!strcmp(iter.extensionName, extension)) {
 			device_extensions_enabled_.push_back(extension);
@@ -660,30 +663,30 @@ VkResult VulkanContext::CreateDevice() {
 	_dbg_assert_(found);
 
 	// TODO: A lot of these are on by default in later Vulkan versions, should check for that, technically.
-	extensionsLookup_.KHR_maintenance1 = EnableDeviceExtension(VK_KHR_MAINTENANCE1_EXTENSION_NAME);
-	extensionsLookup_.KHR_maintenance2 = EnableDeviceExtension(VK_KHR_MAINTENANCE2_EXTENSION_NAME);
-	extensionsLookup_.KHR_maintenance3 = EnableDeviceExtension(VK_KHR_MAINTENANCE3_EXTENSION_NAME);
-	extensionsLookup_.KHR_multiview = EnableDeviceExtension(VK_KHR_MULTIVIEW_EXTENSION_NAME);
+	extensionsLookup_.KHR_maintenance1 = EnableDeviceExtension(VK_KHR_MAINTENANCE1_EXTENSION_NAME, VK_API_VERSION_1_1);
+	extensionsLookup_.KHR_maintenance2 = EnableDeviceExtension(VK_KHR_MAINTENANCE2_EXTENSION_NAME, VK_API_VERSION_1_1);
+	extensionsLookup_.KHR_maintenance3 = EnableDeviceExtension(VK_KHR_MAINTENANCE3_EXTENSION_NAME, VK_API_VERSION_1_1);
+	extensionsLookup_.KHR_multiview = EnableDeviceExtension(VK_KHR_MULTIVIEW_EXTENSION_NAME, VK_API_VERSION_1_1);
 
-	if (EnableDeviceExtension(VK_KHR_GET_MEMORY_REQUIREMENTS_2_EXTENSION_NAME)) {
+	if (EnableDeviceExtension(VK_KHR_GET_MEMORY_REQUIREMENTS_2_EXTENSION_NAME, VK_API_VERSION_1_1)) {
 		extensionsLookup_.KHR_get_memory_requirements2 = true;
-		extensionsLookup_.KHR_dedicated_allocation = EnableDeviceExtension(VK_KHR_DEDICATED_ALLOCATION_EXTENSION_NAME);
+		extensionsLookup_.KHR_dedicated_allocation = EnableDeviceExtension(VK_KHR_DEDICATED_ALLOCATION_EXTENSION_NAME, VK_API_VERSION_1_1);
 	}
-	if (EnableDeviceExtension(VK_KHR_CREATE_RENDERPASS_2_EXTENSION_NAME)) {
+	if (EnableDeviceExtension(VK_KHR_CREATE_RENDERPASS_2_EXTENSION_NAME, VK_API_VERSION_1_2)) {
 		extensionsLookup_.KHR_create_renderpass2 = true;
-		extensionsLookup_.KHR_depth_stencil_resolve = EnableDeviceExtension(VK_KHR_DEPTH_STENCIL_RESOLVE_EXTENSION_NAME);
+		extensionsLookup_.KHR_depth_stencil_resolve = EnableDeviceExtension(VK_KHR_DEPTH_STENCIL_RESOLVE_EXTENSION_NAME, VK_API_VERSION_1_2);
 	}
 
-	extensionsLookup_.EXT_shader_stencil_export = EnableDeviceExtension(VK_EXT_SHADER_STENCIL_EXPORT_EXTENSION_NAME);
-	extensionsLookup_.EXT_fragment_shader_interlock = EnableDeviceExtension(VK_EXT_FRAGMENT_SHADER_INTERLOCK_EXTENSION_NAME);
-	extensionsLookup_.ARM_rasterization_order_attachment_access = EnableDeviceExtension(VK_ARM_RASTERIZATION_ORDER_ATTACHMENT_ACCESS_EXTENSION_NAME);
+	extensionsLookup_.EXT_shader_stencil_export = EnableDeviceExtension(VK_EXT_SHADER_STENCIL_EXPORT_EXTENSION_NAME, 0);
+	extensionsLookup_.EXT_fragment_shader_interlock = EnableDeviceExtension(VK_EXT_FRAGMENT_SHADER_INTERLOCK_EXTENSION_NAME, 0);
+	extensionsLookup_.ARM_rasterization_order_attachment_access = EnableDeviceExtension(VK_ARM_RASTERIZATION_ORDER_ATTACHMENT_ACCESS_EXTENSION_NAME, 0);
 
 #if !PPSSPP_PLATFORM(MAC) && !PPSSPP_PLATFORM(IOS)
-	extensionsLookup_.GOOGLE_display_timing = EnableDeviceExtension(VK_GOOGLE_DISPLAY_TIMING_EXTENSION_NAME);
+	extensionsLookup_.GOOGLE_display_timing = EnableDeviceExtension(VK_GOOGLE_DISPLAY_TIMING_EXTENSION_NAME, 0);
 #endif
 	if (!extensionsLookup_.GOOGLE_display_timing) {
-		extensionsLookup_.KHR_present_id = EnableDeviceExtension(VK_KHR_PRESENT_ID_EXTENSION_NAME);
-		extensionsLookup_.KHR_present_wait = EnableDeviceExtension(VK_KHR_PRESENT_WAIT_EXTENSION_NAME);
+		extensionsLookup_.KHR_present_id = EnableDeviceExtension(VK_KHR_PRESENT_ID_EXTENSION_NAME, 0);
+		extensionsLookup_.KHR_present_wait = EnableDeviceExtension(VK_KHR_PRESENT_WAIT_EXTENSION_NAME, 0);
 	}
 
 	deviceFeatures_.enabled = {};
@@ -752,7 +755,7 @@ VkResult VulkanContext::CreateDevice() {
 	VulkanSetAvailable(true);
 
 	VmaAllocatorCreateInfo allocatorInfo = {};
-	allocatorInfo.vulkanApiVersion = VK_API_VERSION_1_0;
+	allocatorInfo.vulkanApiVersion = vulkanApiVersion_;
 	allocatorInfo.physicalDevice = physical_devices_[physical_device_];
 	allocatorInfo.device = device_;
 	allocatorInfo.instance = instance_;
