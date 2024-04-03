@@ -401,43 +401,30 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(Framebuffer
 	}
 
 	// Find a matching framebuffer.
-	VirtualFramebuffer *vfb = nullptr;
+	VirtualFramebuffer *normal_vfb = nullptr;
+	int y_offset;
+	VirtualFramebuffer *large_offset_vfb = nullptr;
+
 	for (auto v : vfbs_) {
 		const u32 bpp = BufferFormatBytesPerPixel(v->fb_format);
 
 		if (params.fb_address == v->fb_address && params.fb_format == v->fb_format && params.fb_stride == v->fb_stride) {
-			vfb = v;
-
-			if (vfb->z_address == 0 && vfb->z_stride == 0 && params.z_stride != 0) {
-				// Got one that was created by CreateRAMFramebuffer. Since it has no depth buffer,
-				// we just recreate it immediately.
-				ResizeFramebufFBO(vfb, vfb->width, vfb->height, true);
+			if (!normal_vfb) {
+				normal_vfb = v;
 			}
-
-			// Keep track, but this isn't really used.
-			vfb->z_stride = params.z_stride;
-			// Heuristic: In throughmode, a higher height could be used.  Let's avoid shrinking the buffer.
-			if (params.isModeThrough && (int)vfb->width <= params.fb_stride) {
-				vfb->width = std::max((int)vfb->width, drawing_width);
-				vfb->height = std::max((int)vfb->height, drawing_height);
-			} else {
-				vfb->width = drawing_width;
-				vfb->height = drawing_height;
-			}
-			break;
 		} else if (!PSP_CoreParameter().compat.flags().DisallowFramebufferAtOffset && !PSP_CoreParameter().compat.flags().SplitFramebufferMargin &&
 			v->fb_stride == params.fb_stride && v->fb_format == params.fb_format) {
 			u32 v_fb_first_line_end_ptr = v->fb_address + v->fb_stride * bpp;
 			u32 v_fb_end_ptr = v->fb_address + v->fb_stride * v->height * bpp;
 
-			if (params.fb_address > v->fb_address && params.fb_address < v_fb_first_line_end_ptr) {
+			if (!normal_vfb && params.fb_address > v->fb_address && params.fb_address < v_fb_first_line_end_ptr) {
 				const int x_offset = (params.fb_address - v->fb_address) / bpp;
 				if (x_offset < params.fb_stride && v->height >= drawing_height) {
 					// Pretty certainly a pure render-to-X-offset.
 					WARN_LOG_REPORT_ONCE(renderoffset, HLE, "Rendering to framebuffer offset at %08x +%dx%d (stride %d)", v->fb_address, x_offset, 0, v->fb_stride);
-					vfb = v;
+					normal_vfb = v;
 					gstate_c.SetCurRTOffset(x_offset, 0);
-					vfb->width = std::max((int)vfb->width, x_offset + drawing_width);
+					normal_vfb->width = std::max((int)normal_vfb->width, x_offset + drawing_width);
 					// To prevent the newSize code from being confused.
 					drawing_width += x_offset;
 					break;
@@ -445,18 +432,42 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(Framebuffer
 			} else if (PSP_CoreParameter().compat.flags().FramebufferAllowLargeVerticalOffset &&
 				params.fb_address > v->fb_address && v->fb_stride > 0 && (params.fb_address - v->fb_address) % v->FbStrideInBytes() == 0 &&
 				params.fb_address != 0x04088000 && v->fb_address != 0x04000000) {  // Heuristic to avoid merging the main framebuffers.
-				int y_offset = (params.fb_address - v->fb_address) / v->FbStrideInBytes();
+				y_offset = (params.fb_address - v->fb_address) / v->FbStrideInBytes();
 				if (y_offset <= v->bufferHeight) {  // note: v->height is misdetected as 256 instead of 272 here in tokimeki. Note that 272 is just the height of the upper part, it's supersampling vertically.
-					vfb = v;
-					WARN_LOG_REPORT_ONCE(tokimeki, FRAMEBUF, "Detected FBO at Y offset %d of %08x: %08x", y_offset, v->fb_address, params.fb_address);
-					gstate_c.SetCurRTOffset(0, y_offset);
-					vfb->height = std::max((int)vfb->height, y_offset + drawing_height);
-					drawing_height += y_offset;
-					// We ignore this match.
-					// TODO: We can allow X/Y overlaps too, but haven't seen any so safer to not.
+					large_offset_vfb = v;
 					break;
 				}
 			}
+		}
+	}
+
+	VirtualFramebuffer *vfb = nullptr;
+	if (large_offset_vfb) {
+		// These are prioritized over normal VFBs matches, to ensure things work even if the higher-address one
+		// is created first. Only enabled under compat flag.
+		vfb = large_offset_vfb;
+		WARN_LOG_REPORT_ONCE(tokimeki, FRAMEBUF, "Detected FBO at Y offset %d of %08x: %08x", y_offset, large_offset_vfb->fb_address, params.fb_address);
+		gstate_c.SetCurRTOffset(0, y_offset);
+		vfb->height = std::max((int)vfb->height, y_offset + drawing_height);
+		drawing_height += y_offset;
+		// TODO: We can allow X/Y overlaps too, but haven't seen any so safer to not.
+	} else if (normal_vfb) {
+		vfb = normal_vfb;
+		if (vfb->z_address == 0 && vfb->z_stride == 0 && params.z_stride != 0) {
+			// Got one that was created by CreateRAMFramebuffer. Since it has no depth buffer,
+			// we just recreate it immediately.
+			ResizeFramebufFBO(vfb, vfb->width, vfb->height, true);
+		}
+
+		// Keep track, but this isn't really used.
+		vfb->z_stride = params.z_stride;
+		// Heuristic: In throughmode, a higher height could be used.  Let's avoid shrinking the buffer.
+		if (params.isModeThrough && (int)vfb->width <= params.fb_stride) {
+			vfb->width = std::max((int)vfb->width, drawing_width);
+			vfb->height = std::max((int)vfb->height, drawing_height);
+		} else {
+			vfb->width = drawing_width;
+			vfb->height = drawing_height;
 		}
 	}
 
