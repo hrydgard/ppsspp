@@ -3,6 +3,7 @@
 #include <cmath>
 #include <iomanip>
 #include <sstream>
+#include <array>
 
 #include "ext/xxhash.h"
 #include "Common/StringUtils.h"
@@ -849,11 +850,12 @@ std::vector<u32> CtrlMemView::searchString(const std::string &searchQuery) {
 	if (searchData.empty())
 		return searchResAddrs;
 
-	std::vector<std::pair<u32, u32>> memoryAreas;
-	memoryAreas.emplace_back(PSP_GetScratchpadMemoryBase(), PSP_GetScratchpadMemoryEnd());
-	// Ignore the video memory mirrors.
-	memoryAreas.emplace_back(PSP_GetVidMemBase(), 0x04200000);
-	memoryAreas.emplace_back(PSP_GetKernelMemoryBase(), PSP_GetUserMemoryEnd());
+	std::array<std::pair<u32, u32>, 3> memoryAreas = { {
+		{ PSP_GetScratchpadMemoryBase(), PSP_GetScratchpadMemoryEnd() },
+		// Ignore the video memory mirrors.
+		{ PSP_GetVidMemBase(), 0x04200000 },
+		{ PSP_GetKernelMemoryBase(), PSP_GetUserMemoryEnd() }
+	} };
 
 	for (const auto &area : memoryAreas) {
 		const u32 segmentStart = area.first;
@@ -899,11 +901,12 @@ void CtrlMemView::search(bool continueSearch) {
 		return;
 	}
 
-	std::vector<std::pair<u32, u32>> memoryAreas;
-	// Ignore the video memory mirrors.
-	memoryAreas.emplace_back(PSP_GetVidMemBase(), 0x04200000);
-	memoryAreas.emplace_back(PSP_GetKernelMemoryBase(), PSP_GetUserMemoryEnd());
-	memoryAreas.emplace_back(PSP_GetScratchpadMemoryBase(), PSP_GetScratchpadMemoryEnd());
+	std::array<std::pair<u32, u32>, 3> memoryAreas = { {
+		// Ignore the video memory mirrors.
+		{ PSP_GetVidMemBase(), 0x04200000 },
+		{ PSP_GetKernelMemoryBase(), PSP_GetUserMemoryEnd() },
+		{ PSP_GetScratchpadMemoryBase(), PSP_GetScratchpadMemoryEnd() }
+	} };
 	
 	searching_ = true;
 	redraw();	// so the cursor is disabled

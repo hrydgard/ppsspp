@@ -395,6 +395,7 @@ void X64JitBackend::CompIR_ValidateAddress(IRInst inst) {
 	AND(32, R(SCRATCH1), Imm32(0x3FFFFFFF));
 
 	std::vector<FixupBranch> validJumps;
+	validJumps.reserve(3);
 
 	FixupBranch unaligned;
 	if (alignment != 1) {

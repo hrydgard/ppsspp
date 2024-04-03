@@ -228,7 +228,7 @@ void __GeDoState(PointerWrap &p) {
 	if (s >= 2) {
 		Do(p, ge_pending_cb);
 	} else {
-		std::list<GeInterruptData_v1> old;
+		std::vector<GeInterruptData_v1> old;
 		Do(p, old);
 		ge_pending_cb.clear();
 		for (auto it = old.begin(), end = old.end(); it != end; ++it) {

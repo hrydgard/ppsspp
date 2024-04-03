@@ -255,7 +255,7 @@ bool CwCheatScreen::ImportCheats(const Path & cheatFile) {
 	}
 
 	std::vector<std::string> title;
-	std::vector<std::string> newList;
+	std::deque<std::string> newList;
 
 	char linebuf[2048]{};
 	bool parseGameEntry = false;
