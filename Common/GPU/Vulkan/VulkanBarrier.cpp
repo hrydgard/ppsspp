@@ -11,7 +11,7 @@ VulkanBarrierBatch::~VulkanBarrierBatch() {
 	}
 }
 
-void VulkanBarrier::Flush(VkCommandBuffer cmd) {
+void VulkanBarrierBatch::Flush(VkCommandBuffer cmd) {
 	if (!imageBarriers_.empty()) {
 		vkCmdPipelineBarrier(cmd, srcStageMask_, dstStageMask_, dependencyFlags_, 0, nullptr, 0, nullptr, (uint32_t)imageBarriers_.size(), imageBarriers_.data());
 	}
@@ -21,7 +21,7 @@ void VulkanBarrier::Flush(VkCommandBuffer cmd) {
 	dependencyFlags_ = 0;
 }
 
-void VulkanBarrier::TransitionImage(
+void VulkanBarrierBatch::TransitionImage(
 	VkImage image, int baseMip, int numMipLevels, int numLayers, VkImageAspectFlags aspectMask,
 	VkImageLayout oldImageLayout, VkImageLayout newImageLayout,
 	VkAccessFlags srcAccessMask, VkAccessFlags dstAccessMask,
@@ -50,7 +50,7 @@ void VulkanBarrier::TransitionImage(
 	imageBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
 }
 
-void VulkanBarrier::TransitionImageAuto(
+void VulkanBarrierBatch::TransitionImageAuto(
 	VkImage image, int baseMip, int numMipLevels, int numLayers, VkImageAspectFlags aspectMask,
 	VkImageLayout oldImageLayout, VkImageLayout newImageLayout) {
 	_dbg_assert_(image != VK_NULL_HANDLE);
