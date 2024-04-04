@@ -207,7 +207,7 @@ static VKAPI_ATTR VkResult VKAPI_CALL vkCreateSwapchainKHR_libretro(VkDevice dev
 		chain.images[i].retro_image.create_info.image = chain.images[i].handle;
 		chain.images[i].retro_image.create_info.viewType = VK_IMAGE_VIEW_TYPE_2D;
 		chain.images[i].retro_image.create_info.format = pCreateInfo->imageFormat;
-		chain.images[i].retro_image.create_info.components = { VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_B, VK_COMPONENT_SWIZZLE_A };
+		chain.images[i].retro_image.create_info.components = { VK_COMPONENT_SWIZZLE_IDENTITY, VK_COMPONENT_SWIZZLE_IDENTITY, VK_COMPONENT_SWIZZLE_IDENTITY, VK_COMPONENT_SWIZZLE_IDENTITY };
 		chain.images[i].retro_image.create_info.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 		chain.images[i].retro_image.create_info.subresourceRange.layerCount = 1;
 		chain.images[i].retro_image.create_info.subresourceRange.levelCount = 1;
