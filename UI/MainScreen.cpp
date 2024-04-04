@@ -675,7 +675,7 @@ bool GameBrowser::HasSpecialFiles(std::vector<Path> &filenames) {
 	if (path_.GetPath().ToString() == "!RECENT") {
 		filenames.clear();
 		for (auto &str : g_Config.RecentIsos()) {
-			filenames.push_back(Path(str));
+			filenames.emplace_back(str);
 		}
 		return true;
 	}
@@ -974,7 +974,7 @@ const std::vector<Path> GameBrowser::GetPinnedPaths() {
 			}
 		}
 
-		results.push_back(Path(paths[i]));
+		results.emplace_back(paths[i]);
 	}
 	return results;
 }

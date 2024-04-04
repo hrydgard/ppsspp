@@ -45,7 +45,7 @@
 
 
 void NewThreadExecutor::Run(std::function<void()> func) {
-	threads_.push_back(std::thread(func));
+	threads_.emplace_back(func);
 }
 
 NewThreadExecutor::~NewThreadExecutor() {

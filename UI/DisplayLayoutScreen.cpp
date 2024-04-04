@@ -475,7 +475,7 @@ void PostProcScreen::CreateViews() {
 			continue;
 		if (shaders_[i].section == selectedName)
 			selected = (int)indexTranslation_.size();
-		items.push_back(std::string(ps->T(shaders_[i].section.c_str(), shaders_[i].name.c_str())));
+		items.emplace_back(ps->T(shaders_[i].section.c_str(), shaders_[i].name.c_str()));
 		indexTranslation_.push_back(i);
 	}
 	adaptor_ = UI::StringVectorListAdaptor(items, selected);

@@ -1184,7 +1184,7 @@ bool PurgeTemps(const IRWriter &in, IRWriter &out, const IROptions &opts) {
 				check.srcReg = inst.src1;
 				checks.push_back(check);
 			} else {
-				checks.push_back(Check(dest, i, false));
+				checks.emplace_back(dest, i, false);
 			}
 			break;
 
@@ -1194,7 +1194,7 @@ bool PurgeTemps(const IRWriter &in, IRWriter &out, const IROptions &opts) {
 				// These might sometimes be implicitly read/written by other instructions.
 				break;
 			}
-			checks.push_back(Check(dest, i, true));
+			checks.emplace_back(dest, i, true);
 			break;
 
 		// Not a GPR output.

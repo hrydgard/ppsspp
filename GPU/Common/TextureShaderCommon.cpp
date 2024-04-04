@@ -236,7 +236,7 @@ Draw2DPipeline *TextureShaderCache::GetDepalettizeShader(uint32_t clutMode, GETe
 std::vector<std::string> TextureShaderCache::DebugGetShaderIDs(DebugShaderType type) {
 	std::vector<std::string> ids;
 	for (auto &iter : depalCache_) {
-		ids.push_back(StringFromFormat("%08x", iter.first));
+		ids.emplace_back("%08x", iter.first);
 	}
 	return ids;
 }

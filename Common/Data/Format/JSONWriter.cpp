@@ -19,17 +19,17 @@ JsonWriter::~JsonWriter() {
 
 void JsonWriter::begin() {
 	str_ << "{";
-	stack_.push_back(StackEntry(DICT));
+	stack_.emplace_back(DICT);
 }
 
 void JsonWriter::beginArray() {
 	str_ << "[";
-	stack_.push_back(StackEntry(ARRAY));
+	stack_.emplace_back(ARRAY);
 }
 
 void JsonWriter::beginRaw() {
 	// For the uncommon case of writing a value directly, to avoid duplicated code.
-	stack_.push_back(StackEntry(RAW));
+	stack_.emplace_back(RAW);
 }
 
 void JsonWriter::end() {
@@ -84,7 +84,7 @@ const char *JsonWriter::arrayComma() const {
 void JsonWriter::pushDict() {
 	str_ << arrayComma() << arrayIndent() << "{";
 	stack_.back().first = false;
-	stack_.push_back(StackEntry(DICT));
+	stack_.emplace_back(DICT);
 }
 
 void JsonWriter::pushDict(const std::string &name) {
@@ -92,20 +92,20 @@ void JsonWriter::pushDict(const std::string &name) {
 	writeEscapedString(name);
 	str_ << (pretty_ ? "\": {" : "\":{");
 	stack_.back().first = false;
-	stack_.push_back(StackEntry(DICT));
+	stack_.emplace_back(DICT);
 }
 
 void JsonWriter::pushArray() {
 	str_ << arrayComma() << arrayIndent() << "[";
 	stack_.back().first = false;
-	stack_.push_back(StackEntry(ARRAY));
+	stack_.emplace_back(ARRAY);
 }
 
 void JsonWriter::pushArray(const std::string &name) {
 	str_ << comma() << indent() << "\"";
 	writeEscapedString(name);
 	str_ << (pretty_ ? "\": [" : "\":[");
-	stack_.push_back(StackEntry(ARRAY));
+	stack_.emplace_back(ARRAY);
 }
 
 void JsonWriter::writeBool(bool value) {

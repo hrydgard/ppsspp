@@ -1233,7 +1233,7 @@ void __NetAdhocDoState(PointerWrap &p) {
 
 void __UpdateAdhocctlHandlers(u32 flag, u32 error) {
 	std::lock_guard<std::recursive_mutex> adhocGuard(adhocEvtMtx);
-	adhocctlEvents.push_back({ flag, error });
+	adhocctlEvents.emplace_back(flag, error);
 }
 
 void __UpdateMatchingHandler(const MatchingArgs &ArgsPtr) {

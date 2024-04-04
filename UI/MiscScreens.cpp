@@ -568,7 +568,7 @@ void TextureShaderScreen::CreateViews() {
 	for (int i = 0; i < (int)shaders_.size(); i++) {
 		if (shaders_[i].section == g_Config.sTextureShaderName)
 			selected = i;
-		items.push_back(std::string(ps->T(shaders_[i].section.c_str(), shaders_[i].name.c_str())));
+		items.emplace_back(ps->T(shaders_[i].section.c_str(), shaders_[i].name.c_str()));
 	}
 	adaptor_ = UI::StringVectorListAdaptor(items, selected);
 

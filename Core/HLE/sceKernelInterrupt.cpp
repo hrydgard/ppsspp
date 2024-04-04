@@ -195,13 +195,13 @@ void IntrHandler::clear()
 
 void IntrHandler::queueUp(int subintr) {
 	if (subintr == PSP_INTR_SUB_NONE) {
-		pendingInterrupts.push_back(PendingInterrupt(intrNumber, subintr));
+		pendingInterrupts.emplace_back(intrNumber, subintr);
 	} else {
 		// Just call execute on all the subintr handlers for this interrupt.
 		// They will get queued up.
 		for (auto iter = subIntrHandlers.begin(); iter != subIntrHandlers.end(); ++iter) {
 			if ((subintr == PSP_INTR_SUB_ALL || iter->first == subintr) && iter->second.enabled && iter->second.handlerAddress != 0) {
-				pendingInterrupts.push_back(PendingInterrupt(intrNumber, iter->first));
+				pendingInterrupts.emplace_back(intrNumber, iter->first);
 			}
 		}
 	}

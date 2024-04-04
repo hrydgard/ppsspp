@@ -117,7 +117,7 @@ public:
 	void FinalizeBlock(int i, bool preload = false);
 	int GetNumBlocks() const override { return (int)blocks_.size(); }
 	int AllocateBlock(int emAddr) {
-		blocks_.push_back(IRBlock(emAddr));
+		blocks_.emplace_back(emAddr);
 		return (int)blocks_.size() - 1;
 	}
 	IRBlock *GetBlock(int i) {

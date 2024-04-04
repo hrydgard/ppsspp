@@ -874,8 +874,8 @@ void AutoConfForPad(const std::string &name) {
 #endif
 
 	// Add a couple of convenient keyboard mappings by default, too.
-	g_controllerMap[VIRTKEY_PAUSE].push_back(MultiInputMapping(InputMapping(DEVICE_ID_KEYBOARD, NKCODE_ESCAPE)));
-	g_controllerMap[VIRTKEY_FASTFORWARD].push_back(MultiInputMapping(InputMapping(DEVICE_ID_KEYBOARD, NKCODE_TAB)));
+	g_controllerMap[VIRTKEY_PAUSE].emplace_back(InputMapping(DEVICE_ID_KEYBOARD, NKCODE_ESCAPE));
+	g_controllerMap[VIRTKEY_FASTFORWARD].emplace_back(InputMapping(DEVICE_ID_KEYBOARD, NKCODE_TAB));
 	g_controllerMapGeneration++;
 }
 

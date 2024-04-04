@@ -250,7 +250,7 @@ bool PortManager::Add(const char* protocol, unsigned short port, unsigned short 
 				return false;
 			}
 		}
-		m_portList.push_front({ port_str, protocol });
+		m_portList.emplace_front(port_str, protocol);
 		// Keep tracks of it to be restored later if it belongs to others
 		if (el_it != m_otherPortList.end()) el_it->taken = true;
 	}
@@ -443,7 +443,7 @@ bool PortManager::RefreshPortList() {
 				desc_str = desc_str.substr(5);
 			// Only include port mappings created by PPSSPP for current LAN IP
 			if (intAddr == m_lanip && desc_str.find("PPSSPP:") != std::string::npos) {
-				m_portList.push_back({ extPort, protocol });
+				m_portList.emplace_back(extPort, protocol);
 			}
 			// Port mappings belong to others that might be taken by PPSSPP later
 			else {

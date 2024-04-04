@@ -341,7 +341,7 @@ void __DisplayVblankEndCallback(SceUID threadID, SceUID prevCallbackId) {
 	}
 
 	// Still have to wait a bit longer.
-	vblankWaitingThreads.push_back(WaitVBlankInfo(__KernelGetCurThread(), vcountUnblock - __DisplayGetVCount()));
+	vblankWaitingThreads.emplace_back(__KernelGetCurThread(), vcountUnblock - __DisplayGetVCount());
 	DEBUG_LOG(SCEDISPLAY, "sceDisplayWaitVblankCB: Resuming vblank wait from callback");
 }
 
@@ -774,7 +774,7 @@ static int DisplayWaitForVblanks(const char *reason, int vblanks, bool callbacks
 		++vblanks;
 	}
 
-	vblankWaitingThreads.push_back(WaitVBlankInfo(__KernelGetCurThread(), vblanks));
+	vblankWaitingThreads.emplace_back(__KernelGetCurThread(), vblanks);
 	__KernelWaitCurThread(WAITTYPE_VBLANK, 1, 0, 0, callbacks, reason);
 
 	return hleLogSuccessVerboseI(SCEDISPLAY, 0, "waiting for %d vblanks", vblanks);
