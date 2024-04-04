@@ -140,12 +140,6 @@
     <ClCompile Include="..\..\ext\rcheevos\src\rcheevos\value.c">
       <Filter>rcheevos</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\ext\rcheevos\src\rhash\cdreader.c">
-      <Filter>rhash</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\ext\rcheevos\src\rhash\hash.c">
-      <Filter>rhash</Filter>
-    </ClCompile>
     <ClCompile Include="..\..\ext\rcheevos\src\rhash\md5.c">
       <Filter>rhash</Filter>
     </ClCompile>
