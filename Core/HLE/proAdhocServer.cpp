@@ -1911,10 +1911,8 @@ int server_loop(int server)
 				{
 					// Switch Socket into Non-Blocking Mode
 					change_blocking_mode(loginresult, 1);
-				}
 
-				// Login User (Stream)
-				if (loginresult != -1) {
+					// Login User (Stream)
 					u32_le sip = addr.sin_addr.s_addr;
 					/* // Replacing 127.0.0.x with Ethernet IP will cause issue with multiple-instance of localhost (127.0.0.x)
 					if (sip == 0x0100007f) { //127.0.0.1 should be replaced with LAN/WAN IP whenever available

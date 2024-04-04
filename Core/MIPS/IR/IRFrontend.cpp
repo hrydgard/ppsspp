@@ -315,9 +315,7 @@ void IRFrontend::DoJit(u32 em_address, std::vector<IRInst> &instructions, u32 &m
 			NOTICE_LOG(JIT, "%s", buf);
 		}
 		NOTICE_LOG(JIT, "===============        end         =================");
-	}
 
-	if (logBlocks > 0 && dontLogBlocks == 0) {
 		NOTICE_LOG(JIT, "=============== IR (%d instructions) ===============", (int)code->GetInstructions().size());
 		for (size_t i = 0; i < code->GetInstructions().size(); i++) {
 			char buf[256];

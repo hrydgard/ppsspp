@@ -362,9 +362,7 @@ void SavedataButton::Draw(UIContext &dc) {
 			dc.Draw()->DrawImage4Grid(dc.theme->dropShadow4Grid, x - dropsize, y - dropsize*0.5f, x + w + dropsize, y + h + dropsize*1.5, alphaMul(shadowColor, 0.5f), 1.0f);
 			dc.Draw()->Flush();
 		}
-	}
 
-	if (texture) {
 		dc.Draw()->Flush();
 		dc.GetDrawContext()->BindTexture(0, texture);
 		dc.Draw()->DrawTexRect(x, y, x + w, y + h, 0, 0, 1, 1, color);

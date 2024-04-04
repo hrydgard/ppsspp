@@ -1028,9 +1028,7 @@ VKContext::VKContext(VulkanContext *vulkan, bool useRenderThread)
 				!strcmp(deviceProps.deviceName, "Mali-T830")) {
 				bugs_.Infest(Bugs::UNIFORM_INDEXING_BROKEN);
 			}
-		}
 
-		if (isOldVersion) {
 			// Very rough heuristic.
 			multisampleAllowed = false;
 		}

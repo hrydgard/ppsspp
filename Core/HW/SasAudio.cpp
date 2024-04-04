@@ -765,8 +765,7 @@ void SasInstance::DoState(PointerWrap &p) {
 	}
 	if (sendBuffer != NULL && grainSize > 0) {
 		DoArray(p, sendBuffer, grainSize * 2);
-	}
-	if (sendBuffer != NULL && grainSize > 0) {
+
 		// Backwards compat
 		int16_t *resampleBuf = new int16_t[grainSize * 4 + 3]();
 		DoArray(p, resampleBuf, grainSize * 4 + 3);
