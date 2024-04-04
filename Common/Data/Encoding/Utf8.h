@@ -40,8 +40,8 @@ public:
 	static const uint32_t INVALID = (uint32_t)-1;
 	// TODO: Try to get rid of this constructor.
 	explicit UTF8(const char *c);
-	explicit UTF8(std::string_view view) : c_(view.data()), size_((int)view.size()), index_(0) {}
-	explicit UTF8(std::string_view view, int index) : c_(view.data()), size_((int)view.size()), index_(index) {}
+	explicit UTF8(std::string_view view) : c_(view.data()), index_(0), size_((int)view.size()) {}
+	explicit UTF8(std::string_view view, int index) : c_(view.data()), index_(index), size_((int)view.size()) {}
 	bool end() const { return index_ == size_; }
 	// Returns true if the next character is outside BMP and Planes 1 - 16.
 	bool invalid() const {

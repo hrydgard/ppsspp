@@ -58,7 +58,7 @@ enum class NoticeLevel {
 class NoticeView : public UI::InertView {
 public:
 	NoticeView(NoticeLevel level, std::string_view text, std::string_view detailsText, UI::LayoutParams *layoutParams = 0)
-		: InertView(layoutParams), level_(level), text_(text), detailsText_(detailsText), iconName_("") {}
+		: InertView(layoutParams), text_(text), level_(level), detailsText_(detailsText), iconName_("") {}
 
 	void SetIconName(std::string_view name) {
 		iconName_ = name;

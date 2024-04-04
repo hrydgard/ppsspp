@@ -66,7 +66,7 @@ static void AfterSaveStateAction(SaveState::Status status, std::string_view mess
 class ScreenshotViewScreen : public PopupScreen {
 public:
 	ScreenshotViewScreen(const Path &filename, std::string title, int slot, Path gamePath)
-		: PopupScreen(title), filename_(filename), slot_(slot), gamePath_(gamePath) {}   // PopupScreen will translate Back on its own
+		: PopupScreen(title), filename_(filename), gamePath_(gamePath), slot_(slot) {}   // PopupScreen will translate Back on its own
 
 	int GetSlot() const {
 		return slot_;

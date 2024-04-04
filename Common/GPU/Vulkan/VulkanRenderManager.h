@@ -117,7 +117,7 @@ public:
 
 // Wrapped pipeline. Does own desc!
 struct VKRGraphicsPipeline {
-	VKRGraphicsPipeline(PipelineFlags flags, const char *tag) : flags_(flags), tag_(tag) {}
+	VKRGraphicsPipeline(PipelineFlags flags, const char *tag) : tag_(tag), flags_(flags) {}
 	~VKRGraphicsPipeline();
 
 	bool Create(VulkanContext *vulkan, VkRenderPass compatibleRenderPass, RenderPassType rpType, VkSampleCountFlagBits sampleCount, double scheduleTime, int countToCompile);
@@ -151,7 +151,7 @@ private:
 
 struct CompileQueueEntry {
 	CompileQueueEntry(VKRGraphicsPipeline *p, VkRenderPass _compatibleRenderPass, RenderPassType _renderPassType, VkSampleCountFlagBits _sampleCount)
-		: type(Type::GRAPHICS), graphics(p), compatibleRenderPass(_compatibleRenderPass), renderPassType(_renderPassType), sampleCount(_sampleCount) {}
+		: type(Type::GRAPHICS), compatibleRenderPass(_compatibleRenderPass), graphics(p), renderPassType(_renderPassType), sampleCount(_sampleCount) {}
 	enum class Type {
 		GRAPHICS,
 	};

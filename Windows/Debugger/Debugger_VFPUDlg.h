@@ -14,7 +14,6 @@ public:
 	void Size();
 
 private:
-	int index;
 	DebugInterface *cpu;
 	HFONT font;
 	int mode;

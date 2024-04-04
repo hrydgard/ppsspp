@@ -115,7 +115,7 @@ public:
 	Mode mode;
 	Error error = ERROR_NONE;
 
-	PointerWrap(u8 **ptr_, Mode mode_) : ptr(ptr_), ptrStart_(*ptr), mode(mode_) {
+	PointerWrap(u8 **ptr_, Mode mode_) : ptr(ptr_), mode(mode_), ptrStart_(*ptr) {
 		if (mode == MODE_MEASURE) {
 			checkpoints_.reserve(750);
 		}

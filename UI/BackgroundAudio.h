@@ -12,7 +12,7 @@ class AT3PlusReader;
 
 struct Sample {
 	// data must be new-ed.
-	Sample(int16_t *data, int channels, int length, int rateInHz) : channels_(channels), data_(data), length_(length), rateInHz_(rateInHz) {}
+	Sample(int16_t *data, int channels, int length, int rateInHz) : data_(data), channels_(channels), length_(length), rateInHz_(rateInHz) {}
 	~Sample() {
 		delete[] data_;
 	}

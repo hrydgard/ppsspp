@@ -59,7 +59,7 @@ std::string ResolveUrl(const std::string &baseUrl, const std::string &url) {
 class HttpImageFileView : public UI::View {
 public:
 	HttpImageFileView(http::RequestManager *requestManager, const std::string &path, UI::ImageSizeMode sizeMode = UI::IS_DEFAULT, bool useIconCache = true, UI::LayoutParams *layoutParams = nullptr)
-		: UI::View(layoutParams), path_(path), sizeMode_(sizeMode), requestManager_(requestManager), useIconCache_(useIconCache) {
+		: UI::View(layoutParams), path_(path), sizeMode_(sizeMode), useIconCache_(useIconCache), requestManager_(requestManager) {
 
 		if (useIconCache && g_iconCache.MarkPending(path_)) {
 			const char *acceptMime = "image/png, image/jpeg, image/*; q=0.9, */*; q=0.8";
