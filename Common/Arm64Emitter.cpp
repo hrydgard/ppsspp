@@ -4295,7 +4295,7 @@ bool ARM64FloatEmitter::TryAnyMOVI(u8 size, ARM64Reg Rd, uint64_t elementValue) 
 
 	uint64_t value = elementValue;
 	if (size != 64) {
-		uint64_t masked = elementValue & ((1 << size) - 1);
+		uint64_t masked = elementValue & ((1ULL << size) - 1ULL);
 		for (int i = size; i < 64; ++i) {
 			value |= masked << i;
 		}
