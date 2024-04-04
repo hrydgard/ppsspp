@@ -73,7 +73,7 @@ static bool HashISOFile(ISOFileSystem *fs, const std::string filename, md5_conte
 		return false;
 	}
 
-	std::unique_ptr<uint8_t[]> buffer(new uint8_t[sz]);
+	auto buffer = std::make_unique<uint8_t[]>(sz);
 	if (fs->ReadFile(handle, buffer.get(), sz) != sz) {
 		return false;
 	}
@@ -84,13 +84,15 @@ static bool HashISOFile(ISOFileSystem *fs, const std::string filename, md5_conte
 }
 
 // Consumes the blockDevice.
-std::string ComputePSPHash(BlockDevice *blockDevice) {
+// If failed, returns an empty string, otherwise a 32-character string with the hash in hex format.
+static std::string ComputePSPHash(BlockDevice *blockDevice) {
 	md5_context md5;
 	ppsspp_md5_starts(&md5);
 
 	SequentialHandleAllocator alloc;
 	{
-		std::unique_ptr<ISOFileSystem> fs(new ISOFileSystem(&alloc, blockDevice));
+		// ISOFileSystem takes owneship of the blockDevice here.
+		auto fs = std::make_unique<ISOFileSystem>(&alloc, blockDevice);
 		if (!HashISOFile(fs.get(), "PSP_GAME/PARAM.SFO", &md5)) {
 			return std::string();
 		}
