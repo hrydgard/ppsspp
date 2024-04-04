@@ -72,8 +72,6 @@
     <ClCompile Include="..\..\ext\rcheevos\src\rcheevos\runtime_progress.c" />
     <ClCompile Include="..\..\ext\rcheevos\src\rcheevos\trigger.c" />
     <ClCompile Include="..\..\ext\rcheevos\src\rcheevos\value.c" />
-    <ClCompile Include="..\..\ext\rcheevos\src\rhash\cdreader.c" />
-    <ClCompile Include="..\..\ext\rcheevos\src\rhash\hash.c" />
     <ClCompile Include="..\..\ext\rcheevos\src\rhash\md5.c" />
   </ItemGroup>
   <PropertyGroup Label="Globals">

@@ -289,9 +289,9 @@ private:
 	void ApplySonicHack(std::vector<VKRStep *> &steps);
 	void ApplyRenderPassMerge(std::vector<VKRStep *> &steps);
 
-	static void SetupTransitionToTransferSrc(VKRImage &img, VkImageAspectFlags aspect, VulkanBarrier *recordBarrier);
-	static void SetupTransitionToTransferDst(VKRImage &img, VkImageAspectFlags aspect, VulkanBarrier *recordBarrier);
-	static void SetupTransferDstWriteAfterWrite(VKRImage &img, VkImageAspectFlags aspect, VulkanBarrier *recordBarrier);
+	static void SetupTransitionToTransferSrc(VKRImage &img, VkImageAspectFlags aspect, VulkanBarrierBatch *recordBarrier);
+	static void SetupTransitionToTransferDst(VKRImage &img, VkImageAspectFlags aspect, VulkanBarrierBatch *recordBarrier);
+	static void SetupTransferDstWriteAfterWrite(VKRImage &img, VkImageAspectFlags aspect, VulkanBarrierBatch *recordBarrier);
 
 	VulkanContext *vulkan_;
 
@@ -315,7 +315,7 @@ private:
 	// Image barrier helper used during command buffer record (PerformRenderPass etc).
 	// Stored here to help reuse the allocation.
 
-	VulkanBarrier recordBarrier_;
+	VulkanBarrierBatch recordBarrier_;
 
 	// Swap chain management
 	struct SwapchainImageData {

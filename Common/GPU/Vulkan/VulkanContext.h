@@ -498,12 +498,6 @@ private:
 	VmaAllocator allocator_ = VK_NULL_HANDLE;
 };
 
-// Detailed control.
-void TransitionImageLayout2(VkCommandBuffer cmd, VkImage image, int baseMip, int mipLevels, int numLayers, VkImageAspectFlags aspectMask,
-	VkImageLayout oldImageLayout, VkImageLayout newImageLayout,
-	VkPipelineStageFlags srcStageMask, VkPipelineStageFlags dstStageMask,
-	VkAccessFlags srcAccessMask, VkAccessFlags dstAccessMask);
-
 // GLSL compiler
 void init_glslang();
 void finalize_glslang();

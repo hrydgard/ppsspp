@@ -11,7 +11,7 @@ VulkanBarrierBatch::~VulkanBarrierBatch() {
 	}
 }
 
-void VulkanBarrier::Flush(VkCommandBuffer cmd) {
+void VulkanBarrierBatch::Flush(VkCommandBuffer cmd) {
 	if (!imageBarriers_.empty()) {
 		vkCmdPipelineBarrier(cmd, srcStageMask_, dstStageMask_, dependencyFlags_, 0, nullptr, 0, nullptr, (uint32_t)imageBarriers_.size(), imageBarriers_.data());
 	}
@@ -21,7 +21,7 @@ void VulkanBarrier::Flush(VkCommandBuffer cmd) {
 	dependencyFlags_ = 0;
 }
 
-void VulkanBarrier::TransitionImage(
+void VulkanBarrierBatch::TransitionImage(
 	VkImage image, int baseMip, int numMipLevels, int numLayers, VkImageAspectFlags aspectMask,
 	VkImageLayout oldImageLayout, VkImageLayout newImageLayout,
 	VkAccessFlags srcAccessMask, VkAccessFlags dstAccessMask,
@@ -50,7 +50,7 @@ void VulkanBarrier::TransitionImage(
 	imageBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
 }
 
-void VulkanBarrier::TransitionImageAuto(
+void VulkanBarrierBatch::TransitionImageAuto(
 	VkImage image, int baseMip, int numMipLevels, int numLayers, VkImageAspectFlags aspectMask,
 	VkImageLayout oldImageLayout, VkImageLayout newImageLayout) {
 	_dbg_assert_(image != VK_NULL_HANDLE);
@@ -113,4 +113,23 @@ void VulkanBarrier::TransitionImageAuto(
 	imageBarrier.subresourceRange.baseArrayLayer = 0;
 	imageBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
 	imageBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+}
+
+void TransitionImageLayout2(VkCommandBuffer cmd, VkImage image, int baseMip, int numMipLevels, int numLayers, VkImageAspectFlags aspectMask,
+	VkImageLayout oldImageLayout, VkImageLayout newImageLayout,
+	VkPipelineStageFlags srcStageMask, VkPipelineStageFlags dstStageMask,
+	VkAccessFlags srcAccessMask, VkAccessFlags dstAccessMask) {
+	VkImageMemoryBarrier image_memory_barrier{ VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER };
+	image_memory_barrier.srcAccessMask = srcAccessMask;
+	image_memory_barrier.dstAccessMask = dstAccessMask;
+	image_memory_barrier.oldLayout = oldImageLayout;
+	image_memory_barrier.newLayout = newImageLayout;
+	image_memory_barrier.image = image;
+	image_memory_barrier.subresourceRange.aspectMask = aspectMask;
+	image_memory_barrier.subresourceRange.baseMipLevel = baseMip;
+	image_memory_barrier.subresourceRange.levelCount = numMipLevels;
+	image_memory_barrier.subresourceRange.layerCount = numLayers;  // We never use more than one layer, and old Mali drivers have problems with VK_REMAINING_ARRAY_LAYERS/VK_REMAINING_MIP_LEVELS.
+	image_memory_barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	image_memory_barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	vkCmdPipelineBarrier(cmd, srcStageMask, dstStageMask, 0, 0, nullptr, 0, nullptr, 1, &image_memory_barrier);
 }
