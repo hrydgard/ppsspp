@@ -109,7 +109,7 @@ static bool flippedThisFrame;
 static int framerate = 60;
 
 // 1.001f to compensate for the classic 59.94 NTSC framerate that the PSP seems to have.
-static double timePerVblank = 1.001f / (float)framerate;
+static double timePerVblank = 1.001 / framerate;
 
 // Don't include this in the state, time increases regardless of state.
 static double curFrameTime;
@@ -462,7 +462,7 @@ static void DoFrameIdleTiming() {
 	double before = time_now_d();
 	double dist = before - lastFrameTime;
 	// Ignore if the distance is just crazy.  May mean wrap or pause.
-	if (dist < 0.0 || dist >= 15 * timePerVblank) {
+	if (dist < 0.0 || dist >= 15.0 * timePerVblank) {
 		return;
 	}
 
@@ -1128,6 +1128,6 @@ void Register_sceDisplay_driver() {
 
 void __DisplaySetFramerate(int value) {
 	framerate = value;
-	timePerVblank = 1.001f / (float)framerate;
+	timePerVblank = 1.001 / (double)framerate;
 	frameMs = 1001.0 / (double)framerate;
 }
