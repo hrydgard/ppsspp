@@ -200,7 +200,7 @@ Draw2DPipeline *TextureShaderCache::GetDepalettizeShader(uint32_t clutMode, GETe
 	using namespace Draw;
 
 	// Generate an ID for depal shaders.
-	u64 id = ((u64)depthUpperBits << 32) | (clutMode & 0xFFFFFF) | (textureFormat << 24) | (bufferFormat << 28);
+	u64 id = ((u64)depthUpperBits << 32) | ((u64)clutMode & 0xFFFFFF) | ((u64)textureFormat << 24) | ((u64)bufferFormat << 28);
 
 	auto shader = depalCache_.find(id);
 	if (shader != depalCache_.end()) {

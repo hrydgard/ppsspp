@@ -1388,19 +1388,19 @@ float vfpu_asin(float x) {
 	return x;
 }
 
-static inline uint32_t vfpu_exp2_approx(uint32_t x) {
+static inline uint64_t vfpu_exp2_approx(uint32_t x) {
 	if(x == 0x00800000u) return 0x00800000u;
-	uint32_t a=vfpu_exp2_lut65536[x >> 16];
+	uint64_t a=vfpu_exp2_lut65536[x >> 16];
 	x &= 0x0000FFFFu;
-	uint32_t b = uint32_t(((2977151143ull * x) >> 23) + ((1032119999ull * (x * x)) >> 46));
-	return (a + uint32_t((uint64_t(a + (1u << 23)) * uint64_t(b)) >> 32)) & -4u;
+	uint64_t b = ((2977151143ull * x) >> 23) + ((1032119999ull * (x * x)) >> 46);
+	return (a + uint64_t((uint64_t(a + (1ui64 << 23)) * b) >> 32)) & -4ui64;
 }
 
 static inline uint32_t vfpu_exp2_fixed(uint32_t x) {
 	if(x == 0u) return 0u;
 	if(x == 0x00800000u) return 0x00800000u;
-	uint32_t A = vfpu_exp2_approx((x     ) & -64u);
-	uint32_t B = vfpu_exp2_approx((x + 64) & -64u);
+	uint64_t A = vfpu_exp2_approx((x     ) & -64u);
+	uint64_t B = vfpu_exp2_approx((x + 64) & -64u);
 	uint64_t a = (A<<4)+vfpu_exp2_lut[x >> 6][0]-64u;
 	uint64_t b = (B<<4)+vfpu_exp2_lut[x >> 6][1]-64u;
 	uint32_t y = uint32_t((a + (((b - a) * (x & 63)) >> 6)) >> 4);
@@ -1450,15 +1450,15 @@ float vfpu_rexp2(float x) {
 
 // Input fixed 9.23, output fixed 10.22.
 // Returns log2(1+x).
-static inline uint32_t vfpu_log2_approx(uint32_t x) {
+static inline uint64_t vfpu_log2_approx(uint32_t x) {
 	uint32_t a = vfpu_log2_lut65536[(x >> 16) + 0];
 	uint32_t b = vfpu_log2_lut65536[(x >> 16) + 1];
 	uint32_t c = vfpu_log2_lut65536_quadratic[x >> 16];
 	x &= 0xFFFFu;
-	uint64_t ret = uint64_t(a) * (0x10000u - x) + uint64_t(b) * x;
-	uint64_t d = (uint64_t(c) * x * (0x10000u-x)) >> 40;
+	uint64_t ret = uint64_t(a) * (0x10000ui64 - x) + uint64_t(b) * x;
+	uint64_t d = (uint64_t(c) * x * (0x10000ui64 - x)) >> 40;
 	ret += d;
-	return uint32_t(ret >> 16);
+	return ret >> 16;
 }
 
 // Matches PSP output on all known values.
@@ -1503,8 +1503,8 @@ float vfpu_log2(float x) {
 	int d = (e < 0x01000000u ? 0 : 8 - clz32_nonzero(e) - int(e >> 31));
 	//assert(d >= 0 && d < 8);
 	uint32_t q = 1u << d;
-	uint32_t A = vfpu_log2_approx((i     ) & -64u) & -q;
-	uint32_t B = vfpu_log2_approx((i + 64) & -64u) & -q;
+	uint64_t A = vfpu_log2_approx((i     ) & -64u) & -q;
+	uint64_t B = vfpu_log2_approx((i + 64) & -64u) & -q;
 	uint64_t a = (A << 6)+(uint64_t(vfpu_log2_lut[d][i >> 6][0]) - 80ull) * q;
 	uint64_t b = (B << 6)+(uint64_t(vfpu_log2_lut[d][i >> 6][1]) - 80ull) * q;
 	uint32_t v = uint32_t((a +(((b - a) * (i & 63)) >> 6)) >> 6);

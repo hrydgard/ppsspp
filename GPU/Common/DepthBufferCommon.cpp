@@ -191,8 +191,8 @@ bool FramebufferManagerCommon::ReadbackDepthbuffer(Draw::Framebuffer *fbo, int x
 	if (useColorPath) {
 		if (!depthReadbackPipeline_) {
 			const ShaderLanguageDesc &shaderLanguageDesc = draw_->GetShaderLanguageDesc();
-			char depth_dl_fs[1024];
-			char depth_dl_vs[1024];
+			char depth_dl_fs[1024] = {0};
+			char depth_dl_vs[1024] = {0};
 			ShaderWriter fsWriter(depth_dl_fs, shaderLanguageDesc, ShaderStage::Fragment);
 			ShaderWriter vsWriter(depth_dl_vs, shaderLanguageDesc, ShaderStage::Vertex);
 			GenerateDepthDownloadFs(fsWriter);
