@@ -80,7 +80,7 @@ protected:
 	virtual void GetColumnText(wchar_t* dest, int row, int col) = 0;
 	virtual int GetRowCount() = 0;
 	virtual void OnDoubleClick(int itemIndex, int column) { };
-	virtual void OnRightClick(int itemIndex, int column, const POINT& point) { };
+	virtual void OnRightClick(int itemIndex, int column, POINT point) { };
 	virtual void CopyRows(int start, int size);
 	virtual void OnToggle(int item, bool newValue) { };
 

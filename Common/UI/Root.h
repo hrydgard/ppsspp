@@ -35,7 +35,7 @@ KeyEventResult UnsyncKeyEvent(const KeyInput &key, ViewGroup *root);
 
 bool KeyEvent(const KeyInput &key, ViewGroup *root);
 void TouchEvent(const TouchInput &touch, ViewGroup *root);
-void AxisEvent(const AxisInput &axis, ViewGroup *root);
+void AxisEvent(AxisInput axis, ViewGroup *root);
 
 enum class UISound {
 	SELECT = 0,

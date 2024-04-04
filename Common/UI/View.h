@@ -20,6 +20,7 @@
 #include "Common/Math/math_util.h"
 #include "Common/Math/geom2d.h"
 #include "Common/Input/KeyCodes.h"
+#include "Common/Input/InputState.h"
 
 #include "Common/Common.h"
 
@@ -383,7 +384,7 @@ public:
 	// touch response from the frame rate. Same with Key and Axis.
 	virtual bool Key(const KeyInput &input) { return false; }
 	virtual bool Touch(const TouchInput &input) { return true; }
-	virtual void Axis(const AxisInput &input) {}
+	virtual void Axis(AxisInput input) {}
 	virtual void Update();
 
 	virtual void DeviceLost() {}

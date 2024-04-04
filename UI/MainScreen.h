@@ -38,7 +38,7 @@ enum class BrowseFlags {
 	HOMEBREW_STORE = 16,
 	STANDARD = 1 | 2 | 4 | 8,
 };
-ENUM_CLASS_BITOPS(BrowseFlags);
+ENUM_CLASS_BITOPS_WITHOUT_CONST_REF_PARAMS(BrowseFlags);
 
 bool LaunchFile(ScreenManager *screenManager, const Path &path);
 

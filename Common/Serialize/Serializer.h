@@ -56,12 +56,12 @@ public:
 	PointerWrapSection(PointerWrap &p, int ver, const char *title) : p_(p), ver_(ver), title_(title) {}
 	~PointerWrapSection();
 	
-	bool operator == (const int &v) const { return ver_ == v; }
-	bool operator != (const int &v) const { return ver_ != v; }
-	bool operator <= (const int &v) const { return ver_ <= v; }
-	bool operator >= (const int &v) const { return ver_ >= v; }
-	bool operator <  (const int &v) const { return ver_ < v; }
-	bool operator >  (const int &v) const { return ver_ > v; }
+	bool operator == (int v) const { return ver_ == v; }
+	bool operator != (int v) const { return ver_ != v; }
+	bool operator <= (int v) const { return ver_ <= v; }
+	bool operator >= (int v) const { return ver_ >= v; }
+	bool operator <  (int v) const { return ver_ < v; }
+	bool operator >  (int v) const { return ver_ > v; }
 
 	operator bool() const {
 		return ver_ > 0;

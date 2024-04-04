@@ -31,7 +31,7 @@ const int PSP_DEFAULT_FIRMWARE = 660;
 static const int8_t VOLUME_OFF = 0;
 static const int8_t VOLUME_FULL = 10;
 
-struct ConfigTouchPos {
+struct ConfigTouchPos { // size 16 bytes - dont use with const ref
 	float x;
 	float y;
 	float scale;
@@ -88,7 +88,7 @@ enum class RestoreSettingsBits : int {
 	CONTROLS = 2,
 	RECENT = 4,
 };
-ENUM_CLASS_BITOPS(RestoreSettingsBits);
+ENUM_CLASS_BITOPS_WITHOUT_CONST_REF_PARAMS(RestoreSettingsBits);
 
 std::string GPUBackendToString(GPUBackend backend);
 GPUBackend GPUBackendFromString(std::string_view backend);

@@ -123,7 +123,7 @@ bool ViewGroup::Key(const KeyInput &input) {
 	return ret;
 }
 
-void ViewGroup::Axis(const AxisInput &input) {
+void ViewGroup::Axis(AxisInput input) {
 	for (View *view : views_) {
 		// TODO: If there is a transformation active, transform input coordinates accordingly.
 		if (view->GetVisibility() == V_VISIBLE)

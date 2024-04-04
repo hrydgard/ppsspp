@@ -32,7 +32,7 @@ struct GPUDebugOp {
 	std::string desc;
 };
 
-enum GPUDebugBufferFormat {
+enum GPUDebugBufferFormat { // size 4 bytes - dont use as const ref
 	// These match GEBufferFormat.
 	GPU_DBG_FORMAT_565 = 0,
 	GPU_DBG_FORMAT_5551 = 1,
@@ -74,7 +74,7 @@ enum GPUDebugFramebufferType {
 	GPU_DBG_FRAMEBUF_DISPLAY,
 };
 
-inline GPUDebugBufferFormat &operator |=(GPUDebugBufferFormat &lhs, const GPUDebugBufferFormat &rhs) {
+inline GPUDebugBufferFormat &operator |=(GPUDebugBufferFormat &lhs, GPUDebugBufferFormat rhs) {
 	lhs = GPUDebugBufferFormat((int)lhs | (int)rhs);
 	return lhs;
 }

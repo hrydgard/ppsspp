@@ -771,7 +771,7 @@ UI::ViewGroup *CreatePadLayout(float xres, float yres, bool *pause, bool showPau
 		float x;
 		float y;
 	};
-	auto buttonLayoutParams = [=](const ConfigTouchPos &touch, ButtonOffset off = { 0, 0 }) {
+	auto buttonLayoutParams = [=](ConfigTouchPos touch, ButtonOffset off = { 0, 0 }) {
 		return new AnchorLayoutParams(touch.x * xres + off.x, touch.y * yres + off.y, NONE, NONE, true);
 	};
 
@@ -791,19 +791,19 @@ UI::ViewGroup *CreatePadLayout(float xres, float yres, bool *pause, bool showPau
 	const ImageID stickImage = g_Config.iTouchButtonStyle ? ImageID("I_STICK_LINE") : ImageID("I_STICK");
 	const ImageID stickBg = g_Config.iTouchButtonStyle ? ImageID("I_STICK_BG_LINE") : ImageID("I_STICK_BG");
 
-	auto addPSPButton = [=](int buttonBit, const char *key, ImageID bgImg, ImageID bgDownImg, ImageID img, const ConfigTouchPos &touch, ButtonOffset off = { 0, 0 }) -> PSPButton * {
+	auto addPSPButton = [=](int buttonBit, const char *key, ImageID bgImg, ImageID bgDownImg, ImageID img, ConfigTouchPos touch, ButtonOffset off = { 0, 0 }) -> PSPButton * {
 		if (touch.show) {
 			return root->Add(new PSPButton(buttonBit, key, bgImg, bgDownImg, img, touch.scale, buttonLayoutParams(touch, off)));
 		}
 		return nullptr;
 	};
-	auto addBoolButton = [=](bool *value, const char *key, ImageID bgImg, ImageID bgDownImg, ImageID img, const ConfigTouchPos &touch) -> BoolButton * {
+	auto addBoolButton = [=](bool *value, const char *key, ImageID bgImg, ImageID bgDownImg, ImageID img, ConfigTouchPos touch) -> BoolButton * {
 		if (touch.show) {
 			return root->Add(new BoolButton(value, key, bgImg, bgDownImg, img, touch.scale, buttonLayoutParams(touch)));
 		}
 		return nullptr;
 	};
-	auto addCustomButton = [=](const ConfigCustomButton& cfg, const char *key, const ConfigTouchPos &touch) -> CustomButton * {
+	auto addCustomButton = [=](const ConfigCustomButton& cfg, const char *key, ConfigTouchPos touch) -> CustomButton * {
 		using namespace CustomKeyData;
 		if (touch.show) {
 			auto aux = root->Add(new CustomButton(cfg.key, key, cfg.toggle, cfg.repeat, controllMapper,

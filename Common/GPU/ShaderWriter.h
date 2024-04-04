@@ -33,7 +33,7 @@ enum class ShaderWriterFlags {
 	FS_WRITE_DEPTH = 1,
 	FS_AUTO_STEREO = 2,  // Automatically indexes makes samplers tagged with `array` by gl_ViewIndex. Useful for stereo rendering.
 };
-ENUM_CLASS_BITOPS(ShaderWriterFlags);
+ENUM_CLASS_BITOPS_WITHOUT_CONST_REF_PARAMS(ShaderWriterFlags);
 
 class ShaderWriter {
 public:

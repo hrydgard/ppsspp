@@ -53,13 +53,13 @@ enum class ScreenRenderMode {
 	BEHIND = 4,
 	TOP = 8,
 };
-ENUM_CLASS_BITOPS(ScreenRenderMode);
+ENUM_CLASS_BITOPS_WITHOUT_CONST_REF_PARAMS(ScreenRenderMode);
 
 enum class ScreenRenderFlags {
 	NONE = 0,
 	HANDLED_THROTTLING = 1,
 };
-ENUM_CLASS_BITOPS(ScreenRenderFlags);
+ENUM_CLASS_BITOPS_WITHOUT_CONST_REF_PARAMS(ScreenRenderFlags);
 
 class Screen {
 public:

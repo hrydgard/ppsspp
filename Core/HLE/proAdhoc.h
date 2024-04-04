@@ -222,11 +222,11 @@ inline bool isDisconnected(int errcode) { return (errcode == EPIPE || errcode ==
 #endif
 // Ethernet Address
 #define ETHER_ADDR_LEN 6
-typedef struct SceNetEtherAddr {
+typedef struct SceNetEtherAddr { // size 6 bytes - dont use as const ref
   uint8_t data[ETHER_ADDR_LEN];
 } PACK SceNetEtherAddr;
 
-inline bool operator<(const SceNetEtherAddr& lhs, const SceNetEtherAddr& rhs) {
+inline bool operator<(SceNetEtherAddr lhs, SceNetEtherAddr rhs) {
 	uint64_t l = 0;
 	uint64_t r = 0;
 	const uint8_t* lp = lhs.data;

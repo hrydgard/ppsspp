@@ -57,6 +57,25 @@
 	}
 #endif
 
+#define ENUM_CLASS_BITOPS_WITHOUT_CONST_REF_PARAMS(T) \
+	static inline T operator |(T lhs, T rhs) { \
+		return T((int)lhs | (int)rhs); \
+	} \
+	static inline T &operator |= (T &lhs, T rhs) { \
+		lhs = lhs | rhs; \
+		return lhs; \
+	} \
+	static inline bool operator &(T lhs, T rhs) { \
+		return ((int)lhs & (int)rhs) != 0; \
+	} \
+	static inline T &operator &= (T &lhs, T rhs) { \
+		lhs = (T)((int)lhs & (int)rhs); \
+		return lhs; \
+	} \
+	static inline T operator ~(T rhs) { \
+		return (T)(~((int)rhs)); \
+	}
+
 #ifndef ARRAY_SIZE
 #define ARRAY_SIZE(a) (sizeof(a) / sizeof(a[0]))
 #endif

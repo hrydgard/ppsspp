@@ -31,7 +31,7 @@ public:
 	// Pass through external events to children.
 	bool Key(const KeyInput &input) override;
 	bool Touch(const TouchInput &input) override;
-	void Axis(const AxisInput &input) override;
+	void Axis(AxisInput input) override;
 
 	// By default, a container will layout to its own bounds.
 	void Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert) override = 0;

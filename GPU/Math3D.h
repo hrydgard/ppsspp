@@ -233,8 +233,8 @@ public:
 	constexpr Vec3(const T& _x, const T& _y, const T& _z) : x(_x), y(_y), z(_z) {}
 	Vec3(const Vec2<T>& _xy, const T& _z) : x(_xy.x), y(_xy.y), z(_z) {}
 #if defined(_M_SSE)
-	constexpr Vec3(const __m128 &_vec) : vec(_vec) {}
-	constexpr Vec3(const __m128i &_ivec) : ivec(_ivec) {}
+	constexpr Vec3(__m128 _vec) : vec(_vec) {}
+	constexpr Vec3(__m128i _ivec) : ivec(_ivec) {}
 	Vec3(const Vec3Packed<T> &_xyz) {
 		vec = _mm_loadu_ps(_xyz.AsArray());
 	}
@@ -593,8 +593,8 @@ public:
 	Vec4(const Vec2<T>& _xy, const T& _z, const T& _w) : x(_xy.x), y(_xy.y), z(_z), w(_w) {}
 	Vec4(const Vec3<T>& _xyz, const T& _w) : x(_xyz.x), y(_xyz.y), z(_xyz.z), w(_w) {}
 #if defined(_M_SSE)
-	Vec4(const __m128 &_vec) : vec(_vec) {}
-	Vec4(const __m128i &_ivec) : ivec(_ivec) {}
+	Vec4(__m128 _vec) : vec(_vec) {}
+	Vec4(__m128i _ivec) : ivec(_ivec) {}
 #elif PPSSPP_ARCH(ARM_NEON)
 	Vec4(const float32x4_t &_vec) : vec(_vec) {}
 #if !defined(_MSC_VER)

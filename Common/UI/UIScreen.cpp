@@ -68,7 +68,7 @@ void UIScreen::touch(const TouchInput &touch) {
 	}
 }
 
-void UIScreen::axis(const AxisInput &axis) {
+void UIScreen::axis(AxisInput axis) {
 	if (!ignoreInput_ && root_) {
 		UI::AxisEvent(axis, root_);
 	}

@@ -99,7 +99,7 @@ struct UniformDef {
 enum class SamplerFlags {
 	ARRAY_ON_VULKAN = 1,
 };
-ENUM_CLASS_BITOPS(SamplerFlags);
+ENUM_CLASS_BITOPS_WITHOUT_CONST_REF_PARAMS(SamplerFlags);
 
 struct SamplerDef {
 	int binding;  // Might only be used by some backends.

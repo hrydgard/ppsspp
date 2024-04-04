@@ -207,14 +207,14 @@ enum BindFramebufferColorFlags {
 	BINDFBCOLOR_UNCACHED = 16,
 };
 
-enum DrawTextureFlags {
+enum DrawTextureFlags { // size 4 bytes - dont use as const ref
 	DRAWTEX_NEAREST = 0,
 	DRAWTEX_LINEAR = 1,
 	DRAWTEX_TO_BACKBUFFER = 8,
 	DRAWTEX_DEPTH = 16,
 };
 
-inline DrawTextureFlags operator | (const DrawTextureFlags &lhs, const DrawTextureFlags &rhs) {
+inline DrawTextureFlags operator | (DrawTextureFlags lhs, DrawTextureFlags rhs) {
 	return DrawTextureFlags((u32)lhs | (u32)rhs);
 }
 

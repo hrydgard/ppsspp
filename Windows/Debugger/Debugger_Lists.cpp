@@ -239,7 +239,7 @@ void CtrlThreadList::OnDoubleClick(int itemIndex, int column)
 	SendMessage(GetParent(GetHandle()),WM_DEB_GOTOWPARAM,address,0);
 }
 
-void CtrlThreadList::OnRightClick(int itemIndex, int column, const POINT& point)
+void CtrlThreadList::OnRightClick(int itemIndex, int column, POINT point)
 {
 	showMenu(itemIndex,point);
 }
@@ -567,7 +567,7 @@ void CtrlBreakpointList::OnDoubleClick(int itemIndex, int column)
 	gotoBreakpointAddress(itemIndex);
 }
 
-void CtrlBreakpointList::OnRightClick(int itemIndex, int column, const POINT& point)
+void CtrlBreakpointList::OnRightClick(int itemIndex, int column, POINT point)
 {
 	showBreakpointMenu(itemIndex,point);
 }
@@ -577,7 +577,7 @@ void CtrlBreakpointList::OnToggle(int item, bool newValue)
 	toggleEnabled(item);
 }
 
-void CtrlBreakpointList::showBreakpointMenu(int itemIndex, const POINT &pt)
+void CtrlBreakpointList::showBreakpointMenu(int itemIndex, POINT pt)
 {
 	bool isMemory;
 	int index = getBreakpointIndex(itemIndex, isMemory);
@@ -930,7 +930,7 @@ void CtrlWatchList::GetColumnText(wchar_t *dest, int row, int col) {
 	}
 }
 
-void CtrlWatchList::OnRightClick(int itemIndex, int column, const POINT &pt) {
+void CtrlWatchList::OnRightClick(int itemIndex, int column, POINT pt) {
 	if (itemIndex == -1) {
 		switch (TriggerContextMenu(ContextMenuID::CPUADDWATCH, GetHandle(), ContextPoint::FromClient(pt))) {
 		case ID_DISASM_ADDNEWBREAKPOINT:

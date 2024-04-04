@@ -446,7 +446,7 @@ bool KeyMappingNewMouseKeyDialog::key(const KeyInput &key) {
 const float AXIS_BIND_THRESHOLD = 0.75f;
 const float AXIS_BIND_RELEASE_THRESHOLD = 0.35f;  // Used during mapping only to detect a "key-up" reliably.
 
-void KeyMappingNewKeyDialog::axis(const AxisInput &axis) {
+void KeyMappingNewKeyDialog::axis(AxisInput axis) {
 	if (time_now_d() < delayUntil_)
 		return;
 	if (ignoreInput_)
@@ -484,7 +484,7 @@ void KeyMappingNewKeyDialog::axis(const AxisInput &axis) {
 	}
 }
 
-void KeyMappingNewMouseKeyDialog::axis(const AxisInput &axis) {
+void KeyMappingNewMouseKeyDialog::axis(AxisInput axis) {
 	if (mapped_)
 		return;
 
@@ -549,7 +549,7 @@ bool AnalogSetupScreen::key(const KeyInput &key) {
 	return retval;
 }
 
-void AnalogSetupScreen::axis(const AxisInput &axis) {
+void AnalogSetupScreen::axis(AxisInput axis) {
 	// We DON'T call UIScreen::Axis here! Otherwise it'll try to move the UI focus around.
 	// UIScreen::axis(axis);
 
@@ -958,7 +958,7 @@ bool VisualMappingScreen::key(const KeyInput &key) {
 	return UIDialogScreenWithGameBackground::key(key);
 }
 
-void VisualMappingScreen::axis(const AxisInput &axis) {
+void VisualMappingScreen::axis(AxisInput axis) {
 	std::vector<int> results;
 	if (axis.value >= g_Config.fAnalogDeadzone * 0.7f)
 		KeyMap::InputMappingToPspButton(InputMapping(axis.deviceId, axis.axisId, 1), &results);

@@ -26,7 +26,7 @@ protected:
 	void GetColumnText(wchar_t *dest, int row, int col) override;
 	int GetRowCount() override { return (int) threads.size(); }
 	void OnDoubleClick(int itemIndex, int column) override;
-	void OnRightClick(int itemIndex, int column, const POINT &point) override;
+	void OnRightClick(int itemIndex, int column, POINT point) override;
 private:
 	std::vector<DebugThreadInfo> threads;
 };
@@ -43,7 +43,7 @@ protected:
 	void GetColumnText(wchar_t *dest, int row, int col) override;
 	int GetRowCount() override { return getTotalBreakpointCount(); }
 	void OnDoubleClick(int itemIndex, int column) override;
-	void OnRightClick(int itemIndex, int column, const POINT &point) override;
+	void OnRightClick(int itemIndex, int column, POINT point) override;
 	void OnToggle(int item, bool newValue) override;
 private:
 	std::vector<BreakPoint> displayedBreakPoints_;
@@ -57,7 +57,7 @@ private:
 	void removeBreakpoint(int itemIndex);
 	int getTotalBreakpointCount();
 	int getBreakpointIndex(int itemIndex, bool& isMemory);
-	void showBreakpointMenu(int itemIndex, const POINT &pt);
+	void showBreakpointMenu(int itemIndex, POINT pt);
 	void toggleEnabled(int itemIndex);
 };
 
@@ -101,7 +101,7 @@ protected:
 	bool WindowMessage(UINT msg, WPARAM wParam, LPARAM lParam, LRESULT &returnValue) override;
 	void GetColumnText(wchar_t *dest, int row, int col) override;
 	int GetRowCount() override { return (int)watches_.size(); }
-	void OnRightClick(int itemIndex, int column, const POINT &point) override;
+	void OnRightClick(int itemIndex, int column, POINT point) override;
 	bool ListenRowPrePaint() override { return true; }
 	bool OnRowPrePaint(int row, LPNMLVCUSTOMDRAW msg) override;
 

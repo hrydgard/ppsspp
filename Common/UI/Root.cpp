@@ -260,7 +260,7 @@ static void FakeKeyEvent(const KeyInput &key, ViewGroup *root) {
 	KeyEvent(key, root);
 }
 
-void AxisEvent(const AxisInput &axis, ViewGroup *root) {
+void AxisEvent(AxisInput axis, ViewGroup *root) {
 	enum class DirState {
 		NONE = 0,
 		POS = 1,

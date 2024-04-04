@@ -39,7 +39,7 @@ enum class MemBlockFlags {
 
 	SKIP_MEMCHECK = 0x00010000,
 };
-ENUM_CLASS_BITOPS(MemBlockFlags);
+ENUM_CLASS_BITOPS_WITHOUT_CONST_REF_PARAMS(MemBlockFlags);
 
 struct MemBlockInfo {
 	MemBlockFlags flags;

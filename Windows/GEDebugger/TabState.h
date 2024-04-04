@@ -39,7 +39,7 @@ protected:
 	void GetColumnText(wchar_t* dest, int row, int col) override;
 	int GetRowCount() override { return rowCount_; }
 	void OnDoubleClick(int row, int column) override;
-	void OnRightClick(int row, int column, const POINT& point) override;
+	void OnRightClick(int row, int column, POINT point) override;
 
 	bool ListenRowPrePaint() override { return true; }
 	bool OnRowPrePaint(int row, LPNMLVCUSTOMDRAW msg) override;

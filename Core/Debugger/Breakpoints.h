@@ -21,18 +21,18 @@
 
 #include "Core/Debugger/DebugInterface.h"
 
-enum BreakAction {
+enum BreakAction { // size 4 bytes - dont use as const ref
 	BREAK_ACTION_IGNORE = 0x00,
 	BREAK_ACTION_LOG = 0x01,
 	BREAK_ACTION_PAUSE = 0x02,
 };
 
-static inline BreakAction &operator |= (BreakAction &lhs, const BreakAction &rhs) {
+static inline BreakAction &operator |= (BreakAction &lhs, BreakAction rhs) {
 	lhs = BreakAction(lhs | rhs);
 	return lhs;
 }
 
-static inline BreakAction operator | (const BreakAction &lhs, const BreakAction &rhs) {
+static inline BreakAction operator | (BreakAction lhs, BreakAction rhs) {
 	return BreakAction((u32)lhs | (u32)rhs);
 }
 

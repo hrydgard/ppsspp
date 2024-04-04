@@ -234,7 +234,7 @@ public:
 	void DrawForeground(UIContext &dc) override;
 
 	bool key(const KeyInput &key) override;
-	void axis(const AxisInput &axis) override;
+	void axis(AxisInput axis) override;
 
 	const char *tag() const override { return "TouchTest"; }
 

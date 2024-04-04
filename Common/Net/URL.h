@@ -152,7 +152,7 @@ protected:
 
 class Url {
 public:
-	Url(const std::string url) : valid_(false), url_(url) {
+	Url(const std::string &url) : valid_(false), url_(url) {
 		Split();
 	}
 

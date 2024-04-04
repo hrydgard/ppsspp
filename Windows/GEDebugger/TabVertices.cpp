@@ -654,7 +654,7 @@ void CtrlMatrixList::OnDoubleClick(int row, int column) {
 	}
 }
 
-void CtrlMatrixList::OnRightClick(int row, int column, const POINT &point) {
+void CtrlMatrixList::OnRightClick(int row, int column, POINT point) {
 	if (row >= GetRowCount())
 		return;
 	const MatrixCmdPair *info = FindCmdPair(row);

@@ -69,7 +69,7 @@ enum class CAPTUREDEVIDE_COMMAND {
 	UPDATE_STATE
 };
 
-enum CAPTUREDEVIDE_ERROR {
+enum CAPTUREDEVIDE_ERROR { // size 4 bytes - dont use as const ref
 	CAPTUREDEVIDE_ERROR_NO_ERROR,
 	CAPTUREDEVIDE_ERROR_UNKNOWN_TYPE = 0x80000001,
 	CAPTUREDEVIDE_ERROR_INIT_FAILED,
@@ -193,7 +193,7 @@ public:
 	std::vector<std::string> getDeviceList(bool forceEnum = false, int *pActuallCount = nullptr);
 
 	void setError(const CAPTUREDEVIDE_ERROR &newError, const std::string &newErrorMessage) { error = newError; errorMessage = newErrorMessage; }
-	void setSelction(const UINT32 &selection) { param.selection = selection; }
+	void setSelction(UINT32 selection) { param.selection = selection; }
 	HRESULT setDeviceParam(IMFMediaType *pType);
 
 	bool isShutDown() const { return state == CAPTUREDEVIDE_STATE::SHUTDOWN; }

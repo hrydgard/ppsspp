@@ -110,7 +110,7 @@ struct MIPSInfo {
 		}
 	}
 
-	u64 operator & (const u64 &arg) const {
+	u64 operator & (u64 arg) const {
 		return value & arg;
 	}
 

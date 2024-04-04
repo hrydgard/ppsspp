@@ -50,7 +50,7 @@ enum class GETabPosition {
 	TOPRIGHT = 4,
 	ALL = 7,
 };
-ENUM_CLASS_BITOPS(GETabPosition);
+ENUM_CLASS_BITOPS_WITHOUT_CONST_REF_PARAMS(GETabPosition);
 
 enum class GETabType {
 	LIST_DISASM,

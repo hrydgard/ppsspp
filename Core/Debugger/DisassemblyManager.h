@@ -42,14 +42,14 @@ struct DisassemblyLineInfo
 
 enum LineType { LINE_UP, LINE_DOWN, LINE_RIGHT };
 
-struct BranchLine
+struct BranchLine // size 16 bytes - dont use as const ref
 {
 	u32 first;
 	u32 second;
 	LineType type;
 	int laneIndex;
 
-	bool operator<(const BranchLine& other) const
+	bool operator<(BranchLine other) const
 	{
 		return first < other.first;
 	}

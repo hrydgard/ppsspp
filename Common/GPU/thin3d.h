@@ -574,7 +574,7 @@ enum class PresentMode {
 	IMMEDIATE = 2,
 	MAILBOX = 4,
 };
-ENUM_CLASS_BITOPS(PresentMode);
+ENUM_CLASS_BITOPS_WITHOUT_CONST_REF_PARAMS(PresentMode);
 
 struct DeviceCaps {
 	GPUVendor vendor;
@@ -678,14 +678,14 @@ enum class TextureBindFlags {
 	NONE = 0,
 	VULKAN_BIND_ARRAY = 1,
 };
-ENUM_CLASS_BITOPS(TextureBindFlags);
+ENUM_CLASS_BITOPS_WITHOUT_CONST_REF_PARAMS(TextureBindFlags);
 
 enum class DebugFlags {
 	NONE = 0,
 	PROFILE_TIMESTAMPS = 1,
 	PROFILE_SCOPES = 2,
 };
-ENUM_CLASS_BITOPS(DebugFlags);
+ENUM_CLASS_BITOPS_WITHOUT_CONST_REF_PARAMS(DebugFlags);
 
 class DrawContext {
 public:

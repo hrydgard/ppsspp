@@ -113,7 +113,7 @@ enum class WriteStencil {
 	STENCIL_IS_ZERO = 2,
 	IGNORE_ALPHA = 4,
 };
-ENUM_CLASS_BITOPS(WriteStencil);
+ENUM_CLASS_BITOPS_WITHOUT_CONST_REF_PARAMS(WriteStencil);
 
 enum class GPUCopyFlag {
 	NONE = 0,
@@ -125,7 +125,7 @@ enum class GPUCopyFlag {
 	DEBUG_NOTIFIED = 16,
 	DISALLOW_CREATE_VFB = 32,
 };
-ENUM_CLASS_BITOPS(GPUCopyFlag);
+ENUM_CLASS_BITOPS_WITHOUT_CONST_REF_PARAMS(GPUCopyFlag);
 
 struct DisplayListStackEntry {
 	u32 pc;

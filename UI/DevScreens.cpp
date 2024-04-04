@@ -1559,7 +1559,7 @@ bool TouchTestScreen::key(const KeyInput &key) {
 	return true;
 }
 
-void TouchTestScreen::axis(const AxisInput &axis) {
+void TouchTestScreen::axis(AxisInput axis) {
 	char buf[512];
 	snprintf(buf, sizeof(buf), "Axis: %s (%d) (value %1.3f) Device ID: %d",
 		KeyMap::GetAxisName(axis.axisId).c_str(), axis.axisId, axis.value, axis.deviceId);

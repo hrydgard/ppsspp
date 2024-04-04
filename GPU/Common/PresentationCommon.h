@@ -71,7 +71,7 @@ enum class OutputFlags {
 	POSITION_FLIPPED = 0x0008,    // Vertex position in the shader is y-flipped relative to the screen.
 	PILLARBOX = 0x0010,           // Squeeze the image horizontally. Used for the DarkStalkers hack.
 };
-ENUM_CLASS_BITOPS(OutputFlags);
+ENUM_CLASS_BITOPS_WITHOUT_CONST_REF_PARAMS(OutputFlags);
 
 class PresentationCommon {
 public:

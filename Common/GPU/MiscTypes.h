@@ -7,13 +7,13 @@
 enum class InvalidationFlags {
 	CACHED_RENDER_STATE = 1,
 };
-ENUM_CLASS_BITOPS(InvalidationFlags);
+ENUM_CLASS_BITOPS_WITHOUT_CONST_REF_PARAMS(InvalidationFlags);
 
 enum class InvalidationCallbackFlags {
 	RENDER_PASS_STATE = 1,
 	COMMAND_BUFFER_STATE = 2,
 };
-ENUM_CLASS_BITOPS(InvalidationCallbackFlags);
+ENUM_CLASS_BITOPS_WITHOUT_CONST_REF_PARAMS(InvalidationCallbackFlags);
 
 typedef std::function<void(InvalidationCallbackFlags)> InvalidationCallback;
 

@@ -59,7 +59,7 @@ enum class IdentifiedFileType {
 // NB: It is a REQUIREMENT that implementations of this class are entirely thread safe!
 class FileLoader {
 public:
-	enum class Flags {
+	enum class Flags { // size 4 bytes - dont use as const ref
 		NONE,
 		// Not necessary to read from / store into cache.
 		HINT_UNCACHED,
@@ -134,7 +134,7 @@ protected:
 	FileLoader *backend_;
 };
 
-inline u32 operator & (const FileLoader::Flags &a, const FileLoader::Flags &b) {
+inline u32 operator & (FileLoader::Flags a, FileLoader::Flags b) {
 	return (u32)a & (u32)b;
 }
 

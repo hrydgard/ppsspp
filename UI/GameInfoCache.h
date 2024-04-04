@@ -59,7 +59,7 @@ enum class GameInfoFlags {
 	SIZE = 0x20,
 	UNCOMPRESSED_SIZE = 0x40,
 };
-ENUM_CLASS_BITOPS(GameInfoFlags);
+ENUM_CLASS_BITOPS_WITHOUT_CONST_REF_PARAMS(GameInfoFlags);
 
 class FileLoader;
 enum class IdentifiedFileType;

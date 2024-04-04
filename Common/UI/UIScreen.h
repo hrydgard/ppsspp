@@ -42,7 +42,7 @@ public:
 
 	virtual void touch(const TouchInput &touch);
 	virtual bool key(const KeyInput &key);
-	virtual void axis(const AxisInput &axis);
+	virtual void axis(AxisInput axis);
 
 	bool UnsyncTouch(const TouchInput &touch) override;
 	bool UnsyncKey(const KeyInput &key) override;

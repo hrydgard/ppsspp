@@ -973,7 +973,7 @@ void CtrlStateValues::OnDoubleClick(int row, int column) {
 	}
 }
 
-void CtrlStateValues::OnRightClick(int row, int column, const POINT &point) {
+void CtrlStateValues::OnRightClick(int row, int column, POINT point) {
 	if (gpuDebug == nullptr) {
 		return;
 	}

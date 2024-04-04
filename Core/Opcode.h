@@ -30,19 +30,19 @@ struct Opcode {
 	explicit Opcode(u32 v) : encoding(v) {
 	}
 
-	u32 operator & (const u32 &arg) const {
+	u32 operator & (u32 arg) const {
 		return encoding & arg;
 	}
 
-	u32 operator >> (const u32 &arg) const {
+	u32 operator >> (u32 arg) const {
 		return encoding >> arg;
 	}
 
-	bool operator == (const u32 &arg) const {
+	bool operator == (u32 arg) const {
 		return encoding == arg;
 	}
 
-	bool operator != (const u32 &arg) const {
+	bool operator != (u32 arg) const {
 		return encoding != arg;
 	}
 

@@ -181,7 +181,7 @@ struct KeyInput {
 	int flags;
 };
 
-struct AxisInput {
+struct AxisInput { // size 12 bytes - dont use with const ref
 	InputDeviceID deviceId;
 	InputAxis axisId;
 	float value;

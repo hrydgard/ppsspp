@@ -61,7 +61,7 @@ enum class PSPDevType {
 	EMU_MASK = 0xFF,
 	EMU_LBN = 0x10000,
 };
-ENUM_CLASS_BITOPS(PSPDevType);
+ENUM_CLASS_BITOPS_WITHOUT_CONST_REF_PARAMS(PSPDevType);
 
 enum class FileSystemFlags {
 	NONE = 0,
@@ -71,7 +71,7 @@ enum class FileSystemFlags {
 	FLASH = 8,
 	STRIP_PSP = 16,
 };
-ENUM_CLASS_BITOPS(FileSystemFlags);
+ENUM_CLASS_BITOPS_WITHOUT_CONST_REF_PARAMS(FileSystemFlags);
 
 class IHandleAllocator {
 public:
