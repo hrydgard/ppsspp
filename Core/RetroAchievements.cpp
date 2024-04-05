@@ -590,7 +590,7 @@ void Initialize() {
 			}
 		}
 		HWND hWnd = (HWND)System_GetPropertyInt(SYSPROP_MAIN_WINDOW_HANDLE);
-		rc_client_begin_load_raintegration(g_rcClient, szFilePath, hWnd, "PPSSPP", "1.0", &load_integration_callback, hWnd);
+		rc_client_begin_load_raintegration(g_rcClient, szFilePath, hWnd, "PPSSPP", PPSSPP_GIT_VERSION, &load_integration_callback, hWnd);
 		return;
 	}
 #endif
