@@ -112,7 +112,7 @@ public:
 	ReplacedTexture *FindReplacement(u64 cachekey, u32 hash, int w, int h);
 
 	// Check if a NotifyTextureDecoded for this texture is desired (used to avoid reads from write-combined memory.)
-	bool WillSave(const ReplacedTextureDecodeInfo &replacedInfo);
+	bool WillSave(const ReplacedTextureDecodeInfo &replacedInfo) const;
 
 	// Notify that a new texture was decoded. May already be upscaled, saves the data passed.
 	// If the replacer knows about this one already, texture will be passed in, otherwise nullptr.
@@ -140,7 +140,7 @@ protected:
 	float LookupReduceHashRange(int w, int h);
 	std::string LookupHashFile(u64 cachekey, u32 hash, bool *foundAlias, bool *ignored);
 
-	void ScanForHashNamedFiles(VFSBackend *dir, std::map<ReplacementCacheKey, std::map<int, std::string>> &filenameMap);
+	static void ScanForHashNamedFiles(VFSBackend *dir, std::map<ReplacementCacheKey, std::map<int, std::string>> &filenameMap);
 	void ComputeAliasMap(const std::map<ReplacementCacheKey, std::map<int, std::string>> &filenameMap);
 
 	bool replaceEnabled_ = false;

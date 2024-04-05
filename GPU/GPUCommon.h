@@ -158,7 +158,7 @@ public:
 
 	void Execute_Unknown(u32 op, u32 diff);
 
-	int EstimatePerVertexCost();
+	static int EstimatePerVertexCost();
 
 	// Note: Not virtual!
 	void Flush();

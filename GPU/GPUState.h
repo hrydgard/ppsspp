@@ -456,7 +456,7 @@ struct GPUgstate {
 
 	// Real data in the context ends here
 
-	void Reset();
+	static void Reset();
 	void Save(u32_le *ptr);
 	void Restore(const u32_le *ptr);
 };
@@ -720,7 +720,7 @@ public:
 	GEBufferFormat depalFramebufferFormat;
 
 	u32 getRelativeAddress(u32 data) const;
-	void Reset();
+	static void Reset();
 	void DoState(PointerWrap &p);
 };
 

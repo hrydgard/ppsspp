@@ -1045,12 +1045,12 @@ void FramebufferManagerCommon::DownloadFramebufferOnSwitch(VirtualFramebuffer *v
 	}
 }
 
-bool FramebufferManagerCommon::ShouldDownloadFramebufferColor(const VirtualFramebuffer *vfb) const {
+bool FramebufferManagerCommon::ShouldDownloadFramebufferColor(const VirtualFramebuffer *vfb) {
 	// Dangan Ronpa hack
 	return PSP_CoreParameter().compat.flags().Force04154000Download && vfb->fb_address == 0x04154000;
 }
 
-bool FramebufferManagerCommon::ShouldDownloadFramebufferDepth(const VirtualFramebuffer *vfb) const {
+bool FramebufferManagerCommon::ShouldDownloadFramebufferDepth(const VirtualFramebuffer *vfb) {
 	// Download depth buffer for Syphon Filter lens flares
 	if (!PSP_CoreParameter().compat.flags().ReadbackDepth || g_Config.iSkipGPUReadbackMode != (int)SkipGPUReadbackMode::NO_SKIP) {
 		return false;
@@ -2895,7 +2895,7 @@ Draw::Framebuffer *FramebufferManagerCommon::GetTempFBO(TempFBO reason, u16 w, u
 	return fbo;
 }
 
-void FramebufferManagerCommon::UpdateFramebufUsage(VirtualFramebuffer *vfb) {
+void FramebufferManagerCommon::UpdateFramebufUsage(VirtualFramebuffer *vfb) const {
 	auto checkFlag = [&](u16 flag, int last_frame) {
 		if (vfb->usageFlags & flag) {
 			const int age = frameLastFramebufUsed_ - last_frame;

@@ -639,7 +639,7 @@ void SoftwareTransform::BuildDrawingParams(int prim, int vertexCount, u32 vertTy
 	result->drawNumTrans = numTrans;
 }
 
-void SoftwareTransform::CalcCullParams(float &minZValue, float &maxZValue) {
+void SoftwareTransform::CalcCullParams(float &minZValue, float &maxZValue) const {
 	// The projected Z can be up to 0x3F8000FF, which is where this constant is from.
 	// It seems like it may only maintain 15 mantissa bits (excluding implied.)
 	maxZValue = 1.000030517578125f * gstate_c.vpDepthScale;
@@ -758,7 +758,7 @@ bool SoftwareTransform::ExpandRectangles(int vertexCount, int &numDecodedVerts, 
 	return true;
 }
 
-bool SoftwareTransform::ExpandLines(int vertexCount, int &numDecodedVerts, int vertsSize, u16 *&inds, int indsSize, const TransformedVertex *transformed, TransformedVertex *transformedExpanded, int &numTrans, bool throughmode) const {
+bool SoftwareTransform::ExpandLines(int vertexCount, int &numDecodedVerts, int vertsSize, u16 *&inds, int indsSize, const TransformedVertex *transformed, TransformedVertex *transformedExpanded, int &numTrans, bool throughmode) {
 	// Before we start, do a sanity check - does the output fit?
 	if ((vertexCount / 2) * 6 > indsSize) {
 		// Won't fit, kill the draw.
@@ -892,7 +892,7 @@ bool SoftwareTransform::ExpandLines(int vertexCount, int &numDecodedVerts, int v
 	return true;
 }
 
-bool SoftwareTransform::ExpandPoints(int vertexCount, int &maxIndex, int vertsSize, u16 *&inds, int indsSize, const TransformedVertex *transformed, TransformedVertex *transformedExpanded, int &numTrans, bool throughmode) const {
+bool SoftwareTransform::ExpandPoints(int vertexCount, int &maxIndex, int vertsSize, u16 *&inds, int indsSize, const TransformedVertex *transformed, TransformedVertex *transformedExpanded, int &numTrans, bool throughmode) {
 	// Before we start, do a sanity check - does the output fit?
 	if (vertexCount * 6 > indsSize) {
 		// Won't fit, kill the draw.

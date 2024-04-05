@@ -400,7 +400,7 @@ protected:
 	virtual void BindAsClutTexture(Draw::Texture *tex, bool smooth) {}
 
 	CheckAlphaResult DecodeTextureLevel(u8 *out, int outPitch, GETextureFormat format, GEPaletteFormat clutformat, uint32_t texaddr, int level, int bufw, TexDecodeFlags flags);
-	void UnswizzleFromMem(u32 *dest, u32 destPitch, const u8 *texptr, u32 bufw, u32 height, u32 bytesPerPixel);
+	static void UnswizzleFromMem(u32 *dest, u32 destPitch, const u8 *texptr, u32 bufw, u32 height, u32 bytesPerPixel);
 	CheckAlphaResult ReadIndexedTex(u8 *out, int outPitch, int level, const u8 *texptr, int bytesPerIndex, int bufw, bool reverseColors, bool expandTo32Bit);
 	ReplacedTexture *FindReplacement(TexCacheEntry *entry, int *w, int *h, int *d);
 	void PollReplacement(TexCacheEntry *entry, int *w, int *h, int *d);
@@ -418,7 +418,7 @@ protected:
 		return (const T *)clutBufRaw_;
 	}
 
-	u32 EstimateTexMemoryUsage(const TexCacheEntry *entry);
+	static u32 EstimateTexMemoryUsage(const TexCacheEntry *entry);
 
 	SamplerCacheKey GetSamplingParams(int maxLevel, const TexCacheEntry *entry);
 	SamplerCacheKey GetFramebufferSamplingParams(u16 bufferWidth, u16 bufferHeight);

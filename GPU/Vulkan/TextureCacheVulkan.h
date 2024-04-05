@@ -44,7 +44,7 @@ public:
 	void DeviceRestore(VulkanContext *vulkan);
 
 	std::vector<std::string> DebugGetSamplerIDs() const;
-	std::string DebugGetSamplerString(const std::string &id, DebugShaderStringType stringType);
+	static std::string DebugGetSamplerString(const std::string &id, DebugShaderStringType stringType);
 
 private:
 	VulkanContext *vulkan_;
@@ -94,7 +94,7 @@ protected:
 
 private:
 	void LoadVulkanTextureLevel(TexCacheEntry &entry, uint8_t *writePtr, int rowPitch,  int level, int scaleFactor, VkFormat dstFmt);
-	VkFormat GetDestFormat(GETextureFormat format, GEPaletteFormat clutFormat) const;
+	static VkFormat GetDestFormat(GETextureFormat format, GEPaletteFormat clutFormat) ;
 	void UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutBase, bool clutIndexIsSimple) override;
 
 	void BuildTexture(TexCacheEntry *const entry) override;
