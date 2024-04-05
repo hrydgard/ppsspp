@@ -120,7 +120,7 @@ void MemArena::ReleaseSpace() {
 	close(fd);
 }
 
-void *MemArena::CreateView(s64 offset, size_t size, void *base) {
+void *MemArena::CreateView(s64 offset, size_t size, void *base) const {
 	void *retval = mmap(base, size, PROT_READ | PROT_WRITE, MAP_SHARED | ((base == 0) ? 0 : MAP_FIXED), fd, offset);
 	if (retval == MAP_FAILED) {
 		NOTICE_LOG(MEMMAP, "mmap on ashmem (fd: %d) failed", (int)fd);

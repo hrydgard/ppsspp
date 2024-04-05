@@ -45,7 +45,7 @@ void MemArena::ReleaseSpace() {
 	memorySrcBase = 0;
 }
 
-void *MemArena::CreateView(s64 offset, size_t size, void *base) {
+void *MemArena::CreateView(s64 offset, size_t size, void *base) const {
 	Result rc = svcMapProcessMemory(base, envGetOwnProcessHandle(), (u64)(memoryCodeBase + offset), size);
 	if (R_FAILED(rc)) {
 		printf("Fatal error creating the view... base: %p offset: %p size: %p src: %p err: %d\n",

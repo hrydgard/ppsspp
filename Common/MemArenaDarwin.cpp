@@ -56,7 +56,7 @@ void MemArena::ReleaseSpace() {
 	vm_mem = 0;
 }
 
-void *MemArena::CreateView(s64 offset, size_t size, void *base) {
+void *MemArena::CreateView(s64 offset, size_t size, void *base) const {
 	mach_port_t self = mach_task_self();
 	vm_address_t target = (vm_address_t)base;
 	uint64_t mask = 0;

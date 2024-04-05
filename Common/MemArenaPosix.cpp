@@ -103,7 +103,7 @@ bool MemArena::GrabMemSpace(size_t size) {
 	return true;
 }
 
-void MemArena::ReleaseSpace() const {
+void MemArena::ReleaseSpace() {
 #ifndef NO_MMAP
 	close(fd);
 #endif

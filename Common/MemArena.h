@@ -37,7 +37,7 @@ class MemArena {
 public:
 	static size_t roundup(size_t x);
 	bool GrabMemSpace(size_t size);
-	void ReleaseSpace() const;
+	void ReleaseSpace();
 	void *CreateView(s64 offset, size_t size, void *base = 0) const;
 	static void ReleaseView(s64 offset, void *view, size_t size);
 

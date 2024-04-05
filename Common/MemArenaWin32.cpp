@@ -43,7 +43,7 @@ void MemArena::ReleaseSpace() {
 	hMemoryMapping = 0;
 }
 
-void *MemArena::CreateView(s64 offset, size_t size, void *viewbase) {
+void *MemArena::CreateView(s64 offset, size_t size, void *viewbase) const {
 	size = roundup(size);
 #if PPSSPP_PLATFORM(UWP)
 	// We just grabbed some RAM before using RESERVE. This commits it.
