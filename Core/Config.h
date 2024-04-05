@@ -528,6 +528,7 @@ public:
 	bool bAchievementsSoundEffects;
 	bool bAchievementsLogBadMemReads;
 	bool bAchievementsSaveStateInHardcoreMode;
+	bool bAchievementsEnableRAIntegration;
 
 	// Positioning of the various notifications
 	int iAchievementsLeaderboardTrackerPos;

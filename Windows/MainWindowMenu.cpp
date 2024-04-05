@@ -53,6 +53,10 @@
 #include "Core/Core.h"
 #include "Core/RetroAchievements.h"
 
+#ifdef RC_CLIENT_SUPPORTS_RAINTEGRATION
+#include "ext/rcheevos/include/rc_client_raintegration.h"
+#endif
+
 extern bool g_TakeScreenshot;
 
 namespace MainWindow {
@@ -946,7 +950,12 @@ namespace MainWindow {
 			break;
 
 		default:
-			MessageBox(hWnd, L"Unimplemented", L"Sorry", 0);
+#ifdef RC_CLIENT_SUPPORTS_RAINTEGRATION
+			if (rc_client_raintegration_activate_menu_item(Achievements::GetClient(), LOWORD(wParam))) {
+				break;
+			}
+#endif
+			MessageBox(hWnd, L"Unhandled menu item", L"Sorry", 0);
 			break;
 		}
 	}

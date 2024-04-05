@@ -25,6 +25,7 @@
 
 #include "ext/rcheevos/include/rcheevos.h"
 #include "ext/rcheevos/include/rc_client.h"
+#include "ext/rcheevos/include/rc_client_raintegration.h"
 #include "ext/rcheevos/include/rc_api_user.h"
 #include "ext/rcheevos/include/rc_api_info.h"
 #include "ext/rcheevos/include/rc_api_request.h"
@@ -38,8 +39,6 @@
 #include "Common/Log.h"
 #include "Common/File/Path.h"
 #include "Common/File/FileUtil.h"
-#include "Core/FileLoaders/LocalFileLoader.h"
-#include "Core/FileSystems/BlockDevices.h"
 #include "Common/Net/HTTPClient.h"
 #include "Common/System/OSD.h"
 #include "Common/System/System.h"
@@ -55,11 +54,20 @@
 #include "Core/MemMap.h"
 #include "Core/Config.h"
 #include "Core/CoreParameter.h"
-#include "Core/ELF/ParamSFO.h"
+#include "Core/Core.h"
 #include "Core/System.h"
+#include "Core/FileLoaders/LocalFileLoader.h"
+#include "Core/FileSystems/BlockDevices.h"
+#include "Core/ELF/ParamSFO.h"
 #include "Core/FileSystems/MetaFileSystem.h"
 #include "Core/FileSystems/ISOFileSystem.h"
 #include "Core/RetroAchievements.h"
+
+#if RC_CLIENT_SUPPORTS_RAINTEGRATION
+
+#include "Windows/MainWindow.h"
+
+#endif
 
 static bool HashISOFile(ISOFileSystem *fs, const std::string filename, md5_context *md5) {
 	int handle = fs->OpenFile(filename, FILEACCESS_READ);
@@ -67,7 +75,7 @@ static bool HashISOFile(ISOFileSystem *fs, const std::string filename, md5_conte
 		return false;
 	}
 
-	uint32_t sz = fs->SeekFile(handle, 0, FILEMOVE_END);
+	uint32_t sz = (uint32_t)fs->SeekFile(handle, 0, FILEMOVE_END);
 	fs->SeekFile(handle, 0, FILEMOVE_BEGIN);
 	if (!sz) {
 		return false;
@@ -131,7 +139,7 @@ static Achievements::Statistics g_stats;
 const std::string g_gameIconCachePrefix = "game:";
 const std::string g_iconCachePrefix = "badge:";
 
-Path s_game_path;
+Path g_gamePath;
 std::string s_game_hash;
 
 std::set<uint32_t> g_activeChallenges;
@@ -461,6 +469,93 @@ static void login_token_callback(int result, const char *error_message, rc_clien
 	g_isLoggingIn = false;
 }
 
+bool RAIntegrationDirty() {
+#ifdef RC_CLIENT_SUPPORTS_RAINTEGRATION
+	return rc_client_raintegration_has_modifications(g_rcClient);
+#else
+	return false;
+#endif
+}
+
+#ifdef RC_CLIENT_SUPPORTS_RAINTEGRATION
+
+static void raintegration_get_game_name_handler(char *buffer, uint32_t buffer_size, rc_client_t *client) {
+	snprintf(buffer, buffer_size, "%s", g_gamePath.GetFilename().c_str());
+}
+
+static void raintegration_write_memory_handler(uint32_t address, uint8_t *buffer, uint32_t num_bytes, rc_client_t *client) {
+	// convert_retroachievements_address_to_real_address
+	uint32_t realAddress = address + PSP_MEMORY_OFFSET;
+	uint8_t *writePtr = Memory::GetPointerWriteRange(address, num_bytes);
+	if (writePtr) {
+		memcpy(writePtr, buffer, num_bytes);
+	}
+}
+
+static void raintegration_event_handler(const rc_client_raintegration_event_t *event, rc_client_t *client) {
+	switch (event->type) {
+	case RC_CLIENT_RAINTEGRATION_EVENT_MENUITEM_CHECKED_CHANGED:
+		// The checked state of one of the menu items has changed and should be reflected in the UI.
+		// Call the handy helper function if the menu was created by rc_client_raintegration_rebuild_submenu.
+		rc_client_raintegration_update_menu_item(client, event->menu_item);
+		break;
+	case RC_CLIENT_RAINTEGRATION_EVENT_PAUSE:
+		// The toolkit has hit a breakpoint and wants to pause the emulator. Do so.
+		Core_EnableStepping(true, "ra_breakpoint");
+		break;
+	case RC_CLIENT_RAINTEGRATION_EVENT_HARDCORE_CHANGED:
+		// Hardcore mode has been changed (either directly by the user, or disabled through the use of the tools).
+		// The frontend doesn't necessarily need to know that this value changed, they can still query it whenever
+		// it's appropriate, but the event lets the frontend do things like enable/disable rewind or cheats.
+		// handle_hardcore_changed();
+		break;
+	default:
+		ERROR_LOG(ACHIEVEMENTS, "Unsupported raintegration event %u\n", event->type);
+		break;
+	}
+}
+
+static void load_integration_callback(int result, const char *error_message, rc_client_t *client, void *userdata) {
+	auto ac = GetI18NCategory(I18NCat::ACHIEVEMENTS);
+
+	// If DLL not present, do nothing. User can still play without the toolkit.
+	switch (result) {
+	case RC_OK:
+	{
+		// If not successful, just report the error and bail. Shouldn't happen.
+
+		// DLL was loaded.
+		g_OSD.Show(OSDType::MESSAGE_SUCCESS, ac->T("RAIntegration DLL loaded."));
+
+		// Hook up menu.
+		HWND hWnd = (HWND)userdata;
+		rc_client_raintegration_set_event_handler(g_rcClient, &raintegration_event_handler);
+		rc_client_raintegration_set_write_memory_function(g_rcClient, &raintegration_write_memory_handler);
+		rc_client_raintegration_set_get_game_name_function(g_rcClient, &raintegration_get_game_name_handler);
+		rc_client_raintegration_rebuild_submenu(g_rcClient, GetMenu(hWnd));
+		break;
+	}
+	case RC_MISSING_VALUE:
+		// This is fine, proceeding to login.
+		g_OSD.Show(OSDType::MESSAGE_WARNING, ac->T("RAIntegration is enabled, but RAIntegration-x64.dll was not found."));
+		break;
+	case RC_ABORTED:
+		// This is fine, proceeding to login.
+		g_OSD.Show(OSDType::MESSAGE_WARNING, ac->T("Wrong version of RAIntegration-x64.dll?"));
+		break;
+	default:
+		g_OSD.Show(OSDType::MESSAGE_ERROR, StringFromFormat("RAIntegration init failed: %s", error_message));
+		// Bailing.
+		return;
+	}
+
+	// Things are ready to load a game. If the DLL was initialized, calling rc_client_begin_load_game will be redirected
+	// through the DLL so the toolkit has access to the game data. Similarly, things like rc_create_leaderboard_list will
+	// be redirected through the DLL to reflect any local changes made by the user.
+	TryLoginByToken(true);
+}
+#endif
+
 void Initialize() {
 	if (!g_Config.bAchievementsEnable) {
 		_dbg_assert_(!g_rcClient);
@@ -477,7 +572,6 @@ void Initialize() {
 
 	// Provide a logging function to simplify debugging
 	rc_client_enable_logging(g_rcClient, RC_CLIENT_LOG_LEVEL_VERBOSE, log_message_callback);
-
 	if (!System_GetPropertyBool(SYSPROP_SUPPORTS_HTTPS)) {
 		// Disable SSL if not supported by our platform implementation.
 		rc_client_set_host(g_rcClient, "http://retroachievements.org");
@@ -485,6 +579,21 @@ void Initialize() {
 
 	rc_client_set_event_handler(g_rcClient, event_handler_callback);
 
+#ifdef RC_CLIENT_SUPPORTS_RAINTEGRATION
+	if (g_Config.bAchievementsEnableRAIntegration) {
+		wchar_t szFilePath[MAX_PATH];
+		GetModuleFileNameW(NULL, szFilePath, MAX_PATH);
+		for (int64_t i = wcslen(szFilePath) - 1; i > 0; i--) {
+			if (szFilePath[i] == '\\') {
+				szFilePath[i] = '\0';
+				break;
+			}
+		}
+		HWND hWnd = (HWND)System_GetPropertyInt(SYSPROP_MAIN_WINDOW_HANDLE);
+		rc_client_begin_load_raintegration(g_rcClient, szFilePath, hWnd, "PPSSPP", "1.0", &load_integration_callback, hWnd);
+		return;
+	}
+#endif
 	TryLoginByToken(true);
 }
 
@@ -551,7 +660,7 @@ static void login_password_callback(int result, const char *error_message, rc_cl
 
 bool LoginAsync(const char *username, const char *password) {
 	auto di = GetI18NCategory(I18NCat::DIALOG);
-	if (IsLoggedIn() || std::strlen(username) == 0 || std::strlen(password) == 0 || IsUsingRAIntegration())
+	if (IsLoggedIn() || std::strlen(username) == 0 || std::strlen(password) == 0)
 		return false;
 
 	g_OSD.SetProgressBar("cheevos_async_login", di->T("Logging in..."), 0, 0, 0, 0.0f);
@@ -587,6 +696,9 @@ void UpdateSettings() {
 
 bool Shutdown() {
 	g_activeChallenges.clear();
+#ifdef RC_CLIENT_SUPPORTS_RAINTEGRATION
+	rc_client_unload_raintegration(g_rcClient);
+#endif
 	rc_client_destroy(g_rcClient);
 	g_rcClient = nullptr;
 	INFO_LOG(ACHIEVEMENTS, "Achievements shut down.");
@@ -832,6 +944,7 @@ void SetGame(const Path &path, IdentifiedFileType fileType, FileLoader *fileLoad
 	}
 
 	// The caller should hold off on executing game code until this turns false, checking with IsBlockingExecution()
+	g_gamePath = path;
 	g_isIdentifying = true;
 
 	// TODO: Fish the block device out of the loading process somewhere else. Though, probably easier to just do it here.
@@ -861,6 +974,8 @@ void SetGame(const Path &path, IdentifiedFileType fileType, FileLoader *fileLoad
 void UnloadGame() {
 	if (g_rcClient) {
 		rc_client_unload_game(g_rcClient);
+		g_gamePath.clear();
+		s_game_hash.clear();
 	}
 }
 

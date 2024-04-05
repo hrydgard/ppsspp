@@ -1640,7 +1640,7 @@ void retro_cheat_set(unsigned index, bool enabled, const char *code) {
    }
 }
 
-int System_GetPropertyInt(SystemProperty prop)
+int64_t System_GetPropertyInt(SystemProperty prop)
 {
    switch (prop)
    {
