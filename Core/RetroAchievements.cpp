@@ -509,7 +509,7 @@ static void raintegration_event_handler(const rc_client_raintegration_event_t *e
 		// Hardcore mode has been changed (either directly by the user, or disabled through the use of the tools).
 		// The frontend doesn't necessarily need to know that this value changed, they can still query it whenever
 		// it's appropriate, but the event lets the frontend do things like enable/disable rewind or cheats.
-		// handle_hardcore_changed();
+		g_Config.bAchievementsHardcoreMode = rc_client_get_hardcore_enabled(client);
 		break;
 	default:
 		ERROR_LOG(ACHIEVEMENTS, "Unsupported raintegration event %u\n", event->type);
@@ -577,6 +577,11 @@ void Initialize() {
 	}
 
 	rc_client_set_event_handler(g_rcClient, event_handler_callback);
+
+	// Set initial settings properly. Hardcore mode is checked by RAIntegration.
+	rc_client_set_hardcore_enabled(g_rcClient, g_Config.bAchievementsHardcoreMode ? 1 : 0);
+	rc_client_set_encore_mode_enabled(g_rcClient, g_Config.bAchievementsEncoreMode ? 1 : 0);
+	rc_client_set_unofficial_enabled(g_rcClient, g_Config.bAchievementsUnofficial ? 1 : 0);
 
 #ifdef RC_CLIENT_SUPPORTS_RAINTEGRATION
 	if (g_Config.bAchievementsEnableRAIntegration) {
@@ -963,7 +968,7 @@ void SetGame(const Path &path, IdentifiedFileType fileType, FileLoader *fileLoad
 	}
 
 	// Apply pre-load settings.
-	rc_client_set_hardcore_enabled(g_rcClient, g_Config.bAchievementsChallengeMode ? 1 : 0);
+	rc_client_set_hardcore_enabled(g_rcClient, g_Config.bAchievementsHardcoreMode ? 1 : 0);
 	rc_client_set_encore_mode_enabled(g_rcClient, g_Config.bAchievementsEncoreMode ? 1 : 0);
 	rc_client_set_unofficial_enabled(g_rcClient, g_Config.bAchievementsUnofficial ? 1 : 0);
 

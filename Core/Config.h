@@ -522,7 +522,7 @@ public:
 	// Retro Achievement settings
 	// Copied from Duckstation, we might want to remove some.
 	bool bAchievementsEnable;
-	bool bAchievementsChallengeMode;
+	bool bAchievementsHardcoreMode;
 	bool bAchievementsEncoreMode;
 	bool bAchievementsUnofficial;
 	bool bAchievementsSoundEffects;
