@@ -513,15 +513,15 @@ int SavedataParam::Save(SceUtilitySavedataParam* param, const std::string &saveD
 	// For each file, 13 bytes for filename, 16 bytes for file hash (0 in PPSSPP), 3 byte for padding
 	u32 tmpDataSize = 0;
 	SaveSFOFileListEntry *tmpDataOrig = (SaveSFOFileListEntry *)sfoFile->GetValueData("SAVEDATA_FILE_LIST", &tmpDataSize);
-	SaveSFOFileListEntry *updatedList = new SaveSFOFileListEntry[FILE_LIST_COUNT_MAX];
+	auto updatedList = std::make_unique<SaveSFOFileListEntry[]>(FILE_LIST_COUNT_MAX);
 	if (tmpDataSize != 0)
-		memcpy(updatedList, tmpDataOrig, std::min(tmpDataSize, FILE_LIST_TOTAL_SIZE));
+		memcpy(updatedList.get(), tmpDataOrig, std::min(tmpDataSize, FILE_LIST_TOTAL_SIZE));
 	if (tmpDataSize < FILE_LIST_TOTAL_SIZE)
-		memset(updatedList + tmpDataSize, 0, FILE_LIST_TOTAL_SIZE - tmpDataSize);
+		memset(updatedList.get() + tmpDataSize, 0, FILE_LIST_TOTAL_SIZE - tmpDataSize);
 	// Leave a hash there and unchanged if it was already there.
 	if (secureMode && param->dataBuf.IsValid()) {
 		const std::string saveFilename = GetFileName(param);
-		for (auto entry = updatedList; entry < updatedList + FILE_LIST_COUNT_MAX; ++entry) {
+		for (auto entry = updatedList.get(); entry < updatedList.get() + FILE_LIST_COUNT_MAX; ++entry) {
 			if (entry->filename[0] != '\0') {
 				if (strncmp(entry->filename, saveFilename.c_str(), sizeof(entry->filename)) != 0)
 					continue;
@@ -533,8 +533,7 @@ int SavedataParam::Save(SceUtilitySavedataParam* param, const std::string &saveD
 		}
 	}
 
-	sfoFile->SetValue("SAVEDATA_FILE_LIST", (u8 *)updatedList, FILE_LIST_TOTAL_SIZE, (int)FILE_LIST_TOTAL_SIZE);
-	delete[] updatedList;
+	sfoFile->SetValue("SAVEDATA_FILE_LIST", (u8 *)updatedList.get(), FILE_LIST_TOTAL_SIZE, (int)FILE_LIST_TOTAL_SIZE);
 
 	// Init param with 0. This will be used to detect crypted save or not on loading
 	u8 *tmpData = new u8[128];

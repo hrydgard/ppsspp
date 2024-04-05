@@ -407,7 +407,7 @@ static void ExecuteWebServer() {
 
 	AndroidJNIThreadContext context;  // Destructor detaches.
 
-	auto http = new http::Server(new NewThreadExecutor());
+	auto http = std::make_unique<http::Server>(new NewThreadExecutor());
 	http->RegisterHandler("/", &HandleListing);
 	// This lists all the (current) recent ISOs.
 	http->SetFallbackHandler(&HandleFallback);
@@ -437,7 +437,6 @@ static void ExecuteWebServer() {
 
 	http->Stop();
 	StopAllDebuggers();
-	delete http;
 
 	UpdateStatus(ServerStatus::FINISHED);
 }
