@@ -182,9 +182,11 @@ public:
 	int GetBestPhysicalDevice();
 	int GetPhysicalDeviceByName(const std::string &name);
 	void ChooseDevice(int physical_device);
-	bool EnableInstanceExtension(const char *extension);
-	// The core version is to avoid enabling extensions that are merged into core Vulkan from a certain version.
+
+	// The coreVersion is to avoid enabling extensions that are merged into core Vulkan from a certain version.
+	bool EnableInstanceExtension(const char *extension, uint32_t coreVersion);
 	bool EnableDeviceExtension(const char *extension, uint32_t coreVersion);
+
 	VkResult CreateDevice();
 
 	const std::string &InitError() const { return init_error_; }
