@@ -676,9 +676,10 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 		Show(false);
 		return TRUE;
 	case WM_ACTIVATE:
-		if (wParam == WA_ACTIVE || wParam == WA_CLICKACTIVE)
-		{
+		if (wParam == WA_ACTIVE || wParam == WA_CLICKACTIVE) {
 			g_activeWindow = WINDOW_CPUDEBUGGER;
+		} else {
+			g_activeWindow = WINDOW_OTHER;
 		}
 		break;
 

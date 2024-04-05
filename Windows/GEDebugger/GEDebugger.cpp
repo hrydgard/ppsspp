@@ -1073,6 +1073,8 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 	case WM_ACTIVATE:
 		if (wParam == WA_ACTIVE || wParam == WA_CLICKACTIVE) {
 			g_activeWindow = WINDOW_GEDEBUGGER;
+		} else {
+			g_activeWindow = WINDOW_OTHER;
 		}
 		break;
 

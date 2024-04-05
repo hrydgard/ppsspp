@@ -599,12 +599,6 @@ namespace MainWindow
 		static bool firstErase = true;
 
 		switch (message) {
-		case WM_ACTIVATE:
-			if (wParam == WA_ACTIVE || wParam == WA_CLICKACTIVE) {
-				g_activeWindow = WINDOW_MAINWINDOW;
-			}
-			break;
-
 		case WM_SIZE:
 			break;
 
@@ -829,6 +823,8 @@ namespace MainWindow
 					}
 					g_activeWindow = WINDOW_MAINWINDOW;
 					pause = false;
+				} else {
+					g_activeWindow = WINDOW_OTHER;
 				}
 				if (!noFocusPause && g_Config.bPauseOnLostFocus && GetUIState() == UISTATE_INGAME) {
 					if (pause != Core_IsStepping()) {	// != is xor for bools

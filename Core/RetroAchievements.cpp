@@ -236,6 +236,15 @@ bool IsActive() {
 	return GetGameID() != 0;
 }
 
+static void raintegration_write_memory_handler(uint32_t address, uint8_t *buffer, uint32_t num_bytes, rc_client_t *client) {
+	// convert_retroachievements_address_to_real_address
+	uint32_t realAddress = address + PSP_MEMORY_OFFSET;
+	uint8_t *writePtr = Memory::GetPointerWriteRange(realAddress, num_bytes);
+	if (writePtr) {
+		memcpy(writePtr, buffer, num_bytes);
+	}
+}
+
 static uint32_t read_memory_callback(uint32_t address, uint8_t *buffer, uint32_t num_bytes, rc_client_t *client) {
 	// Achievements are traditionally defined relative to the base of main memory of the emulated console.
 	// This is some kind of RetroArch-related legacy. In the PSP's case, this is simply a straight offset of 0x08000000.
@@ -483,14 +492,7 @@ static void raintegration_get_game_name_handler(char *buffer, uint32_t buffer_si
 	snprintf(buffer, buffer_size, "%s", g_gamePath.GetFilename().c_str());
 }
 
-static void raintegration_write_memory_handler(uint32_t address, uint8_t *buffer, uint32_t num_bytes, rc_client_t *client) {
-	// convert_retroachievements_address_to_real_address
-	uint32_t realAddress = address + PSP_MEMORY_OFFSET;
-	uint8_t *writePtr = Memory::GetPointerWriteRange(address, num_bytes);
-	if (writePtr) {
-		memcpy(writePtr, buffer, num_bytes);
-	}
-}
+static void raintegration_write_memory_handler(uint32_t address, uint8_t *buffer, uint32_t num_bytes, rc_client_t *client);
 
 static void raintegration_event_handler(const rc_client_raintegration_event_t *event, rc_client_t *client) {
 	switch (event->type) {
@@ -507,7 +509,7 @@ static void raintegration_event_handler(const rc_client_raintegration_event_t *e
 		// Hardcore mode has been changed (either directly by the user, or disabled through the use of the tools).
 		// The frontend doesn't necessarily need to know that this value changed, they can still query it whenever
 		// it's appropriate, but the event lets the frontend do things like enable/disable rewind or cheats.
-		// handle_hardcore_changed();
+		g_Config.bAchievementsHardcoreMode = rc_client_get_hardcore_enabled(client);
 		break;
 	default:
 		ERROR_LOG(ACHIEVEMENTS, "Unsupported raintegration event %u\n", event->type);
@@ -530,6 +532,7 @@ static void load_integration_callback(int result, const char *error_message, rc_
 		rc_client_raintegration_set_get_game_name_function(g_rcClient, &raintegration_get_game_name_handler);
 		HWND hWnd = (HWND)userdata;
 		rc_client_raintegration_rebuild_submenu(g_rcClient, GetMenu(hWnd));
+		DrawMenuBar(hWnd);
 		break;
 	}
 	case RC_MISSING_VALUE:
@@ -575,6 +578,11 @@ void Initialize() {
 	}
 
 	rc_client_set_event_handler(g_rcClient, event_handler_callback);
+
+	// Set initial settings properly. Hardcore mode is checked by RAIntegration.
+	rc_client_set_hardcore_enabled(g_rcClient, g_Config.bAchievementsHardcoreMode ? 1 : 0);
+	rc_client_set_encore_mode_enabled(g_rcClient, g_Config.bAchievementsEncoreMode ? 1 : 0);
+	rc_client_set_unofficial_enabled(g_rcClient, g_Config.bAchievementsUnofficial ? 1 : 0);
 
 #ifdef RC_CLIENT_SUPPORTS_RAINTEGRATION
 	if (g_Config.bAchievementsEnableRAIntegration) {
@@ -961,7 +969,7 @@ void SetGame(const Path &path, IdentifiedFileType fileType, FileLoader *fileLoad
 	}
 
 	// Apply pre-load settings.
-	rc_client_set_hardcore_enabled(g_rcClient, g_Config.bAchievementsChallengeMode ? 1 : 0);
+	rc_client_set_hardcore_enabled(g_rcClient, g_Config.bAchievementsHardcoreMode ? 1 : 0);
 	rc_client_set_encore_mode_enabled(g_rcClient, g_Config.bAchievementsEncoreMode ? 1 : 0);
 	rc_client_set_unofficial_enabled(g_rcClient, g_Config.bAchievementsUnofficial ? 1 : 0);
 
