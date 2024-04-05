@@ -105,7 +105,7 @@ public:
 
 	void ClearInputLayoutMap();
 
-	bool SupportsHWTessellation() const;
+	static bool SupportsHWTessellation() ;
 
 protected:
 	bool UpdateUseHWTessellation(bool enable) const override;

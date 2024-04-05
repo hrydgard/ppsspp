@@ -521,8 +521,8 @@ public:
 
 private:
 	bool parseFieldReference(const char *ref, const char *field, uint32_t &referenceIndex);
-	uint32_t getFieldValue(GECmdFormat fmt, GECmdField field, uint32_t value);
-	ExpressionType getFieldType(GECmdFormat fmt, GECmdField field);
+	static uint32_t getFieldValue(GECmdFormat fmt, GECmdField field, uint32_t value);
+	static ExpressionType getFieldType(GECmdFormat fmt, GECmdField field);
 
 	GPUDebugInterface *gpu_;
 };

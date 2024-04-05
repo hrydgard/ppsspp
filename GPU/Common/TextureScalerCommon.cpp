@@ -595,7 +595,7 @@ TextureScalerCommon::TextureScalerCommon() {
 TextureScalerCommon::~TextureScalerCommon() {
 }
 
-bool TextureScalerCommon::IsEmptyOrFlat(const u32 *data, int pixels) const {
+bool TextureScalerCommon::IsEmptyOrFlat(const u32 *data, int pixels) {
 	u32 ref = data[0];
 	// TODO: SIMD-ify this (although, for most textures we'll get out very early)
 	for (int i = 1; i < pixels; ++i) {

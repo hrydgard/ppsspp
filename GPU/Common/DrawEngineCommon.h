@@ -65,7 +65,7 @@ namespace Spline { struct Weight2D; }
 class TessellationDataTransfer {
 public:
 	virtual ~TessellationDataTransfer() {}
-	void CopyControlPoints(float *pos, float *tex, float *col, int posStride, int texStride, int colStride, const SimpleVertex *const *points, int size, u32 vertType);
+	static void CopyControlPoints(float *pos, float *tex, float *col, int posStride, int texStride, int colStride, const SimpleVertex *const *points, int size, u32 vertType);
 	virtual void SendDataToShader(const SimpleVertex *const *points, int size_u, int size_v, u32 vertType, const Spline::Weight2D &weights) = 0;
 };
 
@@ -121,10 +121,10 @@ public:
 
 	template<class Surface>
 	void SubmitCurve(const void *control_points, const void *indices, Surface &surface, u32 vertType, int *bytesRead, const char *scope);
-	void ClearSplineBezierWeights();
+	static void ClearSplineBezierWeights();
 
-	bool CanUseHardwareTransform(int prim);
-	bool CanUseHardwareTessellation(GEPatchPrimType prim);
+	bool CanUseHardwareTransform(int prim) const;
+	bool CanUseHardwareTessellation(GEPatchPrimType prim) const;
 
 	std::vector<std::string> DebugGetVertexLoaderIDs();
 	std::string DebugGetVertexLoaderString(std::string id, DebugShaderStringType stringType);
@@ -161,7 +161,7 @@ protected:
 
 	void ApplyFramebufferRead(FBOTexState *fboTexState);
 
-	inline int IndexSize(u32 vtype) const {
+	static inline int IndexSize(u32 vtype) {
 		const u32 indexType = (vtype & GE_VTYPE_IDX_MASK);
 		if (indexType == GE_VTYPE_IDX_16BIT) {
 			return 2;

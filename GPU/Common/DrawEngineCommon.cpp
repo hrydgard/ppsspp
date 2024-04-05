@@ -1019,13 +1019,13 @@ int DrawEngineCommon::DecodeInds() {
 	return indexGen.VertexCount();
 }
 
-bool DrawEngineCommon::CanUseHardwareTransform(int prim) {
+bool DrawEngineCommon::CanUseHardwareTransform(int prim) const {
 	if (!useHWTransform_)
 		return false;
 	return !gstate.isModeThrough() && prim != GE_PRIM_RECTANGLES && prim > GE_PRIM_LINE_STRIP;
 }
 
-bool DrawEngineCommon::CanUseHardwareTessellation(GEPatchPrimType prim) {
+bool DrawEngineCommon::CanUseHardwareTessellation(GEPatchPrimType prim) const {
 	if (useHWTessellation_) {
 		return CanUseHardwareTransform(PatchPrimToPrim(prim));
 	}

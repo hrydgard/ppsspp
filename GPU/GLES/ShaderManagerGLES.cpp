@@ -379,7 +379,7 @@ static inline bool GuessVRDrawingHUD(bool is2D, bool flatScreen) {
 	return hud;
 }
 
-void LinkedShader::use(const ShaderID &VSID) {
+void LinkedShader::use(const ShaderID &VSID) const {
 	render_->BindProgram(program);
 	// Note that we no longer track attr masks here - we do it for the input layouts instead.
 }
@@ -1026,7 +1026,7 @@ bool ShaderManagerGLES::LoadCache(File::IOFile &f) {
 			linkPos = 0;
 		}
 
-		bool Done() {
+		bool Done() const {
 			return vertPos >= vert.size() && fragPos >= frag.size() && linkPos >= link.size();
 		}
 	} diskCachePending_;

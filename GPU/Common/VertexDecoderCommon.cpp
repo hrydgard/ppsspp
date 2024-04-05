@@ -1488,7 +1488,7 @@ int VertexDecoder::ToString(char *output, bool spaces) const {
 	return output - start;
 }
 
-std::string VertexDecoder::GetString(DebugShaderStringType stringType) {
+std::string VertexDecoder::GetString(DebugShaderStringType stringType) const {
 	char buffer[256];
 	switch (stringType) {
 	case SHADER_STRING_SHORT_DESC:

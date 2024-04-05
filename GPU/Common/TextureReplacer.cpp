@@ -723,7 +723,7 @@ public:
 	}
 };
 
-bool TextureReplacer::WillSave(const ReplacedTextureDecodeInfo &replacedInfo) {
+bool TextureReplacer::WillSave(const ReplacedTextureDecodeInfo &replacedInfo) const {
 	if (!saveEnabled_)
 		return false;
 	// Don't save the PPGe texture.
