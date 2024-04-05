@@ -312,7 +312,7 @@ bool Server::Run(int port) {
 	return true;
 }
 
-void Server::Stop() {
+void Server::Stop() const {
 	closesocket(listener_);
 }
 

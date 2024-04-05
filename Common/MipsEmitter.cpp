@@ -186,15 +186,15 @@ void MIPSEmitter::BGTZ(MIPSReg rs, const void *func, std::function<void ()> dela
 	SetJumpTarget(BGTZ(rs, delaySlot), func);
 }
 
-void MIPSEmitter::SetJumpTarget(const FixupBranch &branch) {
+void MIPSEmitter::SetJumpTarget(const FixupBranch &branch) const {
 	SetJumpTarget(branch, code_);
 }
 
-bool MIPSEmitter::BInRange(const void *func) {
+bool MIPSEmitter::BInRange(const void *func) const {
 	return BInRange(code_, func);
 }
 
-bool MIPSEmitter::JInRange(const void *func) {
+bool MIPSEmitter::JInRange(const void *func) const {
 	return JInRange(code_, func);
 }
 
@@ -253,7 +253,7 @@ void MIPSEmitter::QuickCallFunction(MIPSReg scratchreg, const void *func) {
 	}
 }
 
-FixupBranch MIPSEmitter::MakeFixupBranch(FixupBranchType type) {
+FixupBranch MIPSEmitter::MakeFixupBranch(FixupBranchType type) const {
 	FixupBranch b;
 	b.ptr = code_;
 	b.type = type;

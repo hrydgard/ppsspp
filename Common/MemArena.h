@@ -37,9 +37,9 @@ class MemArena {
 public:
 	size_t roundup(size_t x);
 	bool GrabMemSpace(size_t size);
-	void ReleaseSpace();
-	void *CreateView(s64 offset, size_t size, void *base = 0);
 	void ReleaseView(s64 offset, void *view, size_t size);
+	void ReleaseSpace() const;
+	void *CreateView(s64 offset, size_t size, void *base = 0) const;
 
 	// This only finds 1 GB in 32-bit
 	u8 *Find4GBBase();

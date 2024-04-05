@@ -74,7 +74,7 @@ void GLQueueRunner::CreateDeviceObjects() {
 	CHECK_GL_ERROR_IF_DEBUG();
 
 #if !PPSSPP_ARCH(X86)  // Doesn't work on AMD for some reason. See issue #17787
-	useDebugGroups_ = !gl_extensions.IsGLES && gl_extensions.VersionGEThan(4, 3);
+	useDebugGroups_ = !gl_extensions.IsGLES && GLExtensions::VersionGEThan(4, 3);
 #endif
 }
 
@@ -222,7 +222,7 @@ void GLQueueRunner::RunInitSteps(const FastVec<GLRInitStep> &steps, bool skipGLC
 				// Dual source alpha
 				glBindFragDataLocationIndexed(program->program, 0, 0, "fragColor0");
 				glBindFragDataLocationIndexed(program->program, 0, 1, "fragColor1");
-			} else if (gl_extensions.VersionGEThan(3, 0, 0)) {
+			} else if (GLExtensions::VersionGEThan(3, 0, 0)) {
 				glBindFragDataLocation(program->program, 0, "fragColor0");
 			}
 #elif !PPSSPP_PLATFORM(IOS)
@@ -594,7 +594,7 @@ retry_depth:
 			glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, fbo->z_buffer);
 			glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, GL_RENDERBUFFER, fbo->stencil_buffer);
 		}
-	} else if (gl_extensions.VersionGEThan(3, 0)) {
+	} else if (GLExtensions::VersionGEThan(3, 0)) {
 		INFO_LOG(G3D, "Creating %d x %d FBO using DEPTH24_STENCIL8 texture", fbo->width, fbo->height);
 		fbo->z_stencil_buffer = 0;
 		fbo->stencil_buffer = 0;
@@ -1592,7 +1592,7 @@ void GLQueueRunner::PerformReadbackImage(const GLRStep &pass) {
 	GLRTexture *tex = pass.readback_image.texture;
 	GLRect2D rect = pass.readback_image.srcRect;
 
-	if (gl_extensions.VersionGEThan(4, 5)) {
+	if (GLExtensions::VersionGEThan(4, 5)) {
 		int size = 4 * rect.w * rect.h;
 		if (size > readbackBufferSize_) {
 			delete[] readbackBuffer_;

@@ -103,13 +103,13 @@ bool MemArena::GrabMemSpace(size_t size) {
 	return true;
 }
 
-void MemArena::ReleaseSpace() {
+void MemArena::ReleaseSpace() const {
 #ifndef NO_MMAP
 	close(fd);
 #endif
 }
 
-void *MemArena::CreateView(s64 offset, size_t size, void *base)
+void *MemArena::CreateView(s64 offset, size_t size, void *base) const
 {
 #ifdef NO_MMAP
     return (void*) base;

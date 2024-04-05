@@ -205,7 +205,7 @@ void PSPDialog::FinishFadeOut() {
 	ChangeStatus(SCE_UTILITY_STATUS_FINISHED, 0);
 }
 
-u32 PSPDialog::CalcFadedColor(u32 inColor)
+u32 PSPDialog::CalcFadedColor(u32 inColor) const
 {
 	u32 alpha = inColor >> 24;
 	alpha = alpha * fadeValue / 255;
@@ -260,12 +260,12 @@ void PSPDialog::UpdateButtons()
 	buttons = __CtrlReadLatch();
 }
 
-bool PSPDialog::IsButtonPressed(int checkButton)
+bool PSPDialog::IsButtonPressed(int checkButton) const
 {
 	return !isFading && (buttons & checkButton);
 }
 
-bool PSPDialog::IsButtonHeld(int checkButton, int &framesHeld, int framesHeldThreshold, int framesHeldRepeatRate)
+bool PSPDialog::IsButtonHeld(int checkButton, int &framesHeld, int framesHeldThreshold, int framesHeldRepeatRate) const
 {
 	bool btnWasHeldLastFrame = (lastButtons & checkButton) && (__CtrlPeekButtons() & checkButton);
 	if (!isFading && btnWasHeldLastFrame) {

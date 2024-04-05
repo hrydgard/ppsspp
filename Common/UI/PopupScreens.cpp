@@ -86,7 +86,7 @@ void PopupContextMenuScreen::CreatePopupContents(UI::ViewGroup *parent) {
 
 std::string ChopTitle(const std::string &title) {
 	size_t pos = title.find('\n');
-	if (pos != title.npos) {
+	if (pos != std::string::npos) {
 		return title.substr(0, pos);
 	}
 	return title;

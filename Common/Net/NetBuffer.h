@@ -21,7 +21,7 @@ public:
 
 class Buffer : public ::Buffer {
 public:
-	bool FlushSocket(uintptr_t sock, double timeout, bool *cancelled = nullptr);
+	bool FlushSocket(uintptr_t sock, double timeout, const bool *cancelled = nullptr);
 
 	bool ReadAllWithProgress(int fd, int knownSize, RequestProgress *progress);
 

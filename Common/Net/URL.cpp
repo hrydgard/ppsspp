@@ -12,7 +12,7 @@ void UrlEncoder::AppendEscaped(const std::string &value)
 	for (size_t lastEnd = 0; lastEnd < value.length(); )
 	{
 		size_t pos = value.find_first_not_of(unreservedChars, lastEnd);
-		if (pos == value.npos)
+		if (pos == std::string::npos)
 		{
 			data += value.substr(lastEnd);
 			break;
@@ -52,7 +52,7 @@ void Url::Split() {
 	}
 
 	size_t portsep = host_.rfind(':');
-	if (portsep != host_.npos) {
+	if (portsep != std::string::npos) {
 		port_ = atoi(host_.substr(portsep + 1).c_str());
 		host_ = host_.substr(0, portsep);
 	} else {

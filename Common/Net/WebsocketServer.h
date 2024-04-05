@@ -60,7 +60,7 @@ public:
 		pong_ = func;
 	}
 
-	bool IsOpen() {
+	bool IsOpen() const {
 		return open_;
 	}
 	WebSocketClose CloseReason() {

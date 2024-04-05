@@ -59,7 +59,7 @@ struct FrameDataShared {
 	bool measurePresentTime;
 
 	void Init(VulkanContext *vulkan, bool useMultiThreading, bool measurePresentTime);
-	void Destroy(VulkanContext *vulkan);
+	void Destroy(VulkanContext *vulkan) const;
 };
 
 enum class FrameSubmitType {

@@ -338,7 +338,7 @@ void UIContext::FillRect(const UI::Drawable &drawable, const Bounds &bounds) {
 	} 
 }
 
-void UIContext::DrawRectDropShadow(const Bounds &bounds, float radius, float alpha, uint32_t color) {
+void UIContext::DrawRectDropShadow(const Bounds &bounds, float radius, float alpha, uint32_t color) const {
 	if (alpha <= 0.0f)
 		return;
 

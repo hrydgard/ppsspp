@@ -359,7 +359,7 @@ private:
 	u8 *code;
 	bool flags_locked;
 
-	void CheckFlags();
+	void CheckFlags() const;
 
 	void Rex(int w, int r, int x, int b);
 	void WriteSimple1Byte(int bits, u8 byte, X64Reg reg);

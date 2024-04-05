@@ -199,7 +199,7 @@ std::string Path::GetDirectory() const {
 		// Things are a bit different for HTTP, because we probably ended with /.
 		if (pos + 1 == path_.size()) {
 			pos = path_.rfind('/', pos - 1);
-			if (pos != path_.npos && pos > 8) {
+			if (pos != std::string::npos && pos > 8) {
 				return path_.substr(0, pos + 1);
 			}
 		}
@@ -315,7 +315,7 @@ bool Path::CanNavigateUp() const {
 		return AndroidContentURI(path_).CanNavigateUp();
 	} else if (type_ == PathType::HTTP) {
 		size_t rootSlash = path_.find_first_of('/', strlen("https://"));
-		if (rootSlash == path_.npos || path_.size() == rootSlash + 1) {
+		if (rootSlash == std::string::npos || path_.size() == rootSlash + 1) {
 			// This means, "http://server" or "http://server/".  Can't go up.
 			return false;
 		}

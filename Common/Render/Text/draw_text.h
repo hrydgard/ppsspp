@@ -53,7 +53,7 @@ public:
 	// Use for housekeeping like throwing out old strings.
 	virtual void OncePerFrame() = 0;
 
-	float CalculateDPIScale();
+	float CalculateDPIScale() const;
 	void SetForcedDPIScale(float dpi) {
 		dpiScale_ = dpi;
 		ignoreGlobalDpi_ = true;

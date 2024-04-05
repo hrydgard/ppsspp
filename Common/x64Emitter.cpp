@@ -174,7 +174,7 @@ const u8 *XEmitter::NopAlignCode16() {
 // This operation modifies flags; check to see the flags are locked.
 // If the flags are locked, we should immediately and loudly fail before
 // causing a subtle JIT bug.
-void XEmitter::CheckFlags()
+void XEmitter::CheckFlags() const
 {
 	_assert_msg_(!flags_locked, "Attempt to modify flags while flags locked!");
 }

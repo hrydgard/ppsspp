@@ -152,9 +152,9 @@ public:
 	FixupBranch BGTZ(MIPSReg rs, std::function<void ()> delaySlot = nullptr);
 	void BGTZ(MIPSReg rs, const void *func, std::function<void ()> delaySlot = nullptr);
 
-	void SetJumpTarget(const FixupBranch &branch);
-	bool BInRange(const void *func);
-	bool JInRange(const void *func);
+	void SetJumpTarget(const FixupBranch &branch) const;
+	bool BInRange(const void *func) const;
+	bool JInRange(const void *func) const;
 
 	// R_AT is the stereotypical scratch reg, but it is not likely to be used.
 	void QuickCallFunction(MIPSReg scratchreg, const void *func);
@@ -258,7 +258,7 @@ protected:
 	static void SetJumpTarget(const FixupBranch &branch, const void *dst);
 	static bool BInRange(const void *src, const void *dst);
 	static bool JInRange(const void *src, const void *dst);
-	FixupBranch MakeFixupBranch(FixupBranchType type);
+	FixupBranch MakeFixupBranch(FixupBranchType type) const;
 	void ApplyDelaySlot(std::function<void ()> delaySlot);
 
 private:

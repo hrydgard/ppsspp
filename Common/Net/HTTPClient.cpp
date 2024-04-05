@@ -106,7 +106,7 @@ static void FormatAddr(char *addrbuf, size_t bufsize, const addrinfo *info) {
 	}
 }
 
-bool Connection::Connect(int maxTries, double timeout, bool *cancelConnect) {
+bool Connection::Connect(int maxTries, double timeout, const bool *cancelConnect) {
 	if (port_ <= 0) {
 		ERROR_LOG(IO, "Bad port");
 		return false;
@@ -256,7 +256,7 @@ bool GetHeaderValue(const std::vector<std::string> &responseHeaders, const std::
 		if (startsWithNoCase(stripped, search)) {
 			size_t value_pos = search.length();
 			size_t after_white = stripped.find_first_not_of(" \t", value_pos);
-			if (after_white != stripped.npos)
+			if (after_white != std::string::npos)
 				value_pos = after_white;
 
 			if (!found)
@@ -408,11 +408,11 @@ int Client::ReadResponseHeaders(net::Buffer *readbuf, std::vector<std::string> &
 
 	int code;
 	size_t code_pos = line.find(' ');
-	if (code_pos != line.npos) {
+	if (code_pos != std::string::npos) {
 		code_pos = line.find_first_not_of(' ', code_pos);
 	}
 
-	if (code_pos != line.npos) {
+	if (code_pos != std::string::npos) {
 		code = atoi(&line[code_pos]);
 	} else {
 		ERROR_LOG(HTTP, "Could not parse HTTP status code: %s", line.c_str());
@@ -443,10 +443,10 @@ int Client::ReadResponseEntity(net::Buffer *readbuf, const std::vector<std::stri
 	for (std::string line : responseHeaders) {
 		if (startsWithNoCase(line, "Content-Length:")) {
 			size_t size_pos = line.find_first_of(' ');
-			if (size_pos != line.npos) {
+			if (size_pos != std::string::npos) {
 				size_pos = line.find_first_not_of(' ', size_pos);
 			}
-			if (size_pos != line.npos) {
+			if (size_pos != std::string::npos) {
 				contentLength = atoi(&line[size_pos]);
 				chunked = false;
 			}

@@ -20,7 +20,7 @@ public:
 	// Inits the sockaddr_in.
 	bool Resolve(const char *host, int port, DNSType type = DNSType::ANY);
 
-	bool Connect(int maxTries = 2, double timeout = 20.0f, bool *cancelConnect = nullptr);
+	bool Connect(int maxTries = 2, double timeout = 20.0f, const bool *cancelConnect = nullptr);
 	void Disconnect();
 
 	// Only to be used for bring-up and debugging.

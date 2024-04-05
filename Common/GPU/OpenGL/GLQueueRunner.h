@@ -366,7 +366,7 @@ public:
 		targetHeight_ = height;
 	}
 
-	bool SawOutOfMemory() {
+	bool SawOutOfMemory() const {
 		return sawOutOfMemory_;
 	}
 

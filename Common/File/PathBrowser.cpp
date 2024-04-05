@@ -196,7 +196,7 @@ void PathBrowser::ResetPending() {
 	pendingPath_.clear();
 }
 
-bool PathBrowser::IsListingReady() {
+bool PathBrowser::IsListingReady() const {
 	return ready_;
 }
 
@@ -216,7 +216,7 @@ std::string PathBrowser::GetFriendlyPath() const {
 	return str;
 }
 
-bool PathBrowser::GetListing(std::vector<File::FileInfo> &fileInfo, const char *filter, bool *cancel) {
+bool PathBrowser::GetListing(std::vector<File::FileInfo> &fileInfo, const char *filter, const bool *cancel) {
 	std::unique_lock<std::mutex> guard(pendingLock_);
 	while (!IsListingReady() && (!cancel || !*cancel)) {
 		// In case cancel changes, just sleep. TODO: Replace with condition variable.

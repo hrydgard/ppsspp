@@ -20,14 +20,14 @@ public:
 	// Actually apply the tween to a view.
 	void Apply(View *view);
 
-	bool Finished() {
+	bool Finished() const {
 		return finishApplied_ && time_now_d() >= start_ + delay_ + duration_;
 	}
 
 	void Persist() {
 		persists_ = true;
 	}
-	bool Persists() {
+	bool Persists() const {
 		return persists_;
 	}
 
@@ -40,7 +40,7 @@ public:
 	Event Finish;
 
 protected:
-	float DurationOffset() {
+	float DurationOffset() const {
 		return (time_now_d() - start_) - delay_;
 	}
 

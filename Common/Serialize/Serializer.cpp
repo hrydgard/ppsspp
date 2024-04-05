@@ -125,7 +125,7 @@ void PointerWrap::SetError(Error error_) {
 	}
 }
 
-bool PointerWrap::ExpectVoid(void *data, int size) {
+bool PointerWrap::ExpectVoid(void *data, int size) const {
 	switch (mode) {
 	case MODE_READ:	if (memcmp(data, *ptr, size) != 0) return false; break;
 	case MODE_WRITE: memcpy(*ptr, data, size); break;
@@ -140,7 +140,7 @@ bool PointerWrap::ExpectVoid(void *data, int size) {
 	return true;
 }
 
-void PointerWrap::DoVoid(void *data, int size) {
+void PointerWrap::DoVoid(void *data, int size) const {
 	switch (mode) {
 	case MODE_READ:	memcpy(data, *ptr, size); break;
 	case MODE_WRITE: memcpy(*ptr, data, size); break;

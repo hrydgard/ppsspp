@@ -272,7 +272,7 @@ void FrameDataShared::Init(VulkanContext *vulkan, bool useMultiThreading, bool m
 	this->measurePresentTime = measurePresentTime;
 }
 
-void FrameDataShared::Destroy(VulkanContext *vulkan) {
+void FrameDataShared::Destroy(VulkanContext *vulkan) const {
 	VkDevice device = vulkan->GetDevice();
 	vkDestroyFence(device, readbackFence, nullptr);
 }

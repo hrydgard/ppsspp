@@ -1713,7 +1713,7 @@ const SceUtilitySavedataParam *SavedataParam::GetPspParam() const
 	return pspParam;
 }
 
-int SavedataParam::GetFilenameCount()
+int SavedataParam::GetFilenameCount() const
 {
 	return saveNameListDataCount;
 }
@@ -1732,7 +1732,7 @@ std::string SavedataParam::GetSaveDir(int idx) const {
 	return saveDataList[idx].saveDir;
 }
 
-int SavedataParam::GetSelectedSave()
+int SavedataParam::GetSelectedSave() const
 {
 	// The slot # of the same save on LOAD/SAVE lists can dismatch so this isn't right anyhow
 	return selectedSave < saveNameListDataCount ? selectedSave : 0;
@@ -1748,7 +1748,7 @@ int SavedataParam::GetFirstListSave()
 	return 0;
 }
 
-int SavedataParam::GetLastListSave()
+int SavedataParam::GetLastListSave() const
 {
 	return saveNameListDataCount - 1;
 }

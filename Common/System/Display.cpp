@@ -53,7 +53,7 @@ DisplayProperties::DisplayProperties() {
 	rot_matrix.setIdentity();
 }
 
-void DisplayProperties::Print() {
+void DisplayProperties::Print() const {
 	printf("dp_xres/yres: %d, %d\n", dp_xres, dp_yres);
 	printf("pixel_xres/yres: %d, %d\n", pixel_xres, pixel_yres);
 

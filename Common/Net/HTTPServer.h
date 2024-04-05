@@ -86,7 +86,7 @@ public:
 	// for a new connection to handle.
 	bool RunSlice(double timeout);
 	bool Listen(int port, net::DNSType type = net::DNSType::ANY);
-	void Stop();
+	void Stop() const;
 
 	void RegisterHandler(const char *url_path, UrlHandlerFunc handler);
 	void SetFallbackHandler(UrlHandlerFunc handler);
@@ -96,7 +96,7 @@ public:
 	// if they don't recognize the url.
 	virtual void HandleRequest(const ServerRequest &request);
 
-	int Port() {
+	int Port() const {
 		return port_;
 	}
 

@@ -34,7 +34,7 @@ void RequestProgress::Update(int64_t downloaded, int64_t totalBytes, bool done) 
 	}
 }
 
-bool Buffer::FlushSocket(uintptr_t sock, double timeout, bool *cancelled) {
+bool Buffer::FlushSocket(uintptr_t sock, double timeout, const bool *cancelled) {
 	static constexpr float CANCEL_INTERVAL = 0.25f;
 	for (size_t pos = 0, end = data_.size(); pos < end; ) {
 		bool ready = false;

@@ -151,7 +151,7 @@ public:
 	int colorMask;
 	// uint32_t fixedColor;
 
-	void Apply(GLRenderManager *render) {
+	void Apply(GLRenderManager *render) const {
 		render->SetBlendAndMask(colorMask, enabled, srcCol, dstCol, srcAlpha, dstAlpha, eqCol, eqAlpha);
 	}
 };
@@ -178,7 +178,7 @@ public:
 	GLuint stencilPass;
 	GLuint stencilCompareOp;
 
-	void Apply(GLRenderManager *render, uint8_t stencilRef, uint8_t stencilWriteMask, uint8_t stencilCompareMask) {
+	void Apply(GLRenderManager *render, uint8_t stencilRef, uint8_t stencilWriteMask, uint8_t stencilCompareMask) const {
 		render->SetDepth(depthTestEnabled, depthWriteEnabled, depthComp);
 		render->SetStencil(
 			stencilEnabled, stencilCompareOp, stencilRef, stencilCompareMask,
@@ -188,7 +188,7 @@ public:
 
 class OpenGLRasterState : public RasterState {
 public:
-	void Apply(GLRenderManager *render) {
+	void Apply(GLRenderManager *render) const {
 		render->SetRaster(cullEnable, frontFace, cullMode, GL_FALSE, GL_FALSE);
 	}
 
@@ -248,7 +248,7 @@ bool OpenGLShaderModule::Compile(GLRenderManager *render, ShaderLanguage languag
 	source_ = std::string((const char *)data);
 	// Add the prelude on automatically.
 	if (glstage_ == GL_FRAGMENT_SHADER || glstage_ == GL_VERTEX_SHADER) {
-		if (source_.find("#version") == source_.npos) {
+		if (source_.find("#version") == std::string::npos) {
 			source_ = ApplyGLSLPrelude(source_, glstage_);
 		}
 	} else {
@@ -556,7 +556,7 @@ OpenGLContext::OpenGLContext(bool canChangeSwapInterval) : renderManager_(frameT
 		caps_.texture3DSupported = gl_extensions.OES_texture_3D;
 		caps_.textureDepthSupported = gl_extensions.GLES3 || gl_extensions.OES_depth_texture;
 	} else {
-		if (gl_extensions.VersionGEThan(3, 3, 0)) {
+		if (GLExtensions::VersionGEThan(3, 3, 0)) {
 			caps_.fragmentShaderInt32Supported = true;
 		}
 		caps_.preferredDepthBufferFormat = DataFormat::D24_S8;
@@ -579,11 +579,11 @@ OpenGLContext::OpenGLContext(bool canChangeSwapInterval) : renderManager_(frameT
 		caps_.clipDistanceSupported = gl_extensions.EXT_clip_cull_distance || gl_extensions.APPLE_clip_distance;
 		caps_.cullDistanceSupported = gl_extensions.EXT_clip_cull_distance;
 	} else {
-		caps_.clipDistanceSupported = gl_extensions.VersionGEThan(3, 0);
+		caps_.clipDistanceSupported = GLExtensions::VersionGEThan(3, 0);
 		caps_.cullDistanceSupported = gl_extensions.ARB_cull_distance;
 	}
 	caps_.textureNPOTFullySupported =
-		(!gl_extensions.IsGLES && gl_extensions.VersionGEThan(2, 0, 0)) ||
+		(!gl_extensions.IsGLES && GLExtensions::VersionGEThan(2, 0, 0)) ||
 		gl_extensions.IsCoreContext || gl_extensions.GLES3 ||
 		gl_extensions.ARB_texture_non_power_of_two || gl_extensions.OES_texture_npot;
 
@@ -635,7 +635,7 @@ OpenGLContext::OpenGLContext(bool canChangeSwapInterval) : renderManager_(frameT
 		frameData_[i].push = renderManager_.CreatePushBuffer(i, GL_ARRAY_BUFFER, 64 * 1024, "thin3d_vbuf");
 	}
 
-	if (!gl_extensions.VersionGEThan(3, 0, 0)) {
+	if (!GLExtensions::VersionGEThan(3, 0, 0)) {
 		// Don't use this extension on sub 3.0 OpenGL versions as it does not seem reliable.
 		bugs_.Infest(Bugs::DUAL_SOURCE_BLENDING_BROKEN);
 	} else if (caps_.vendor == GPUVendor::VENDOR_INTEL) {
@@ -661,7 +661,7 @@ OpenGLContext::OpenGLContext(bool canChangeSwapInterval) : renderManager_(frameT
 	// those can't handle NaN values in conditionals.
 	if (caps_.vendor == GPUVendor::VENDOR_VIVANTE ||
 		caps_.vendor == GPUVendor::VENDOR_BROADCOM ||
-		(caps_.vendor == GPUVendor::VENDOR_NVIDIA && !gl_extensions.VersionGEThan(3, 0, 0))) {
+		(caps_.vendor == GPUVendor::VENDOR_NVIDIA && !GLExtensions::VersionGEThan(3, 0, 0))) {
 		bugs_.Infest(Bugs::BROKEN_NAN_IN_CONDITIONAL);
 	}
 
@@ -695,10 +695,10 @@ OpenGLContext::OpenGLContext(bool canChangeSwapInterval) : renderManager_(frameT
 
 	shaderLanguageDesc_.Init(GLSL_1xx);
 
-	shaderLanguageDesc_.glslVersionNumber = gl_extensions.GLSLVersion();
+	shaderLanguageDesc_.glslVersionNumber = GLExtensions::GLSLVersion();
 
 	snprintf(shaderLanguageDesc_.driverInfo, sizeof(shaderLanguageDesc_.driverInfo),
-		"%s - GLSL %d", gl_extensions.model, gl_extensions.GLSLVersion());
+		"%s - GLSL %d", gl_extensions.model, GLExtensions::GLSLVersion());
 	// Detect shader language features.
 	if (gl_extensions.IsGLES) {
 		shaderLanguageDesc_.gles = true;
@@ -726,7 +726,7 @@ OpenGLContext::OpenGLContext(bool canChangeSwapInterval) : renderManager_(frameT
 		}
 	} else {
 		// I don't know why we were checking for IsCoreContext here before.
-		if (gl_extensions.VersionGEThan(3, 3, 0)) {
+		if (GLExtensions::VersionGEThan(3, 3, 0)) {
 			shaderLanguageDesc_.shaderLanguage = ShaderLanguage::GLSL_3xx;
 			shaderLanguageDesc_.fragColor0 = "fragColor0";
 			shaderLanguageDesc_.texture = "texture";
@@ -737,7 +737,7 @@ OpenGLContext::OpenGLContext(bool canChangeSwapInterval) : renderManager_(frameT
 			shaderLanguageDesc_.varying_vs = "out";
 			shaderLanguageDesc_.varying_fs = "in";
 			shaderLanguageDesc_.attribute = "in";
-		} else if (gl_extensions.VersionGEThan(3, 0, 0)) {
+		} else if (GLExtensions::VersionGEThan(3, 0, 0)) {
 			shaderLanguageDesc_.shaderLanguage = ShaderLanguage::GLSL_1xx;
 			shaderLanguageDesc_.fragColor0 = "fragColor0";
 			shaderLanguageDesc_.texture = "texture";
@@ -753,7 +753,7 @@ OpenGLContext::OpenGLContext(bool canChangeSwapInterval) : renderManager_(frameT
 			if (gl_extensions.EXT_gpu_shader4) {
 				// Older macOS devices seem to have problems defining uint uniforms.
 				// Let's just assume OpenGL 3.0+ is required.
-				shaderLanguageDesc_.bitwiseOps = gl_extensions.VersionGEThan(3, 0, 0);
+				shaderLanguageDesc_.bitwiseOps = GLExtensions::VersionGEThan(3, 0, 0);
 				shaderLanguageDesc_.texelFetch = "texelFetch2D";
 			}
 		}
@@ -796,12 +796,12 @@ OpenGLContext::~OpenGLContext() {
 void OpenGLContext::BeginFrame(DebugFlags debugFlags) {
 	renderManager_.BeginFrame(debugFlags & DebugFlags::PROFILE_TIMESTAMPS);
 	FrameData &frameData = frameData_[renderManager_.GetCurFrame()];
-	renderManager_.BeginPushBuffer(frameData.push);
+	GLRenderManager::BeginPushBuffer(frameData.push);
 }
 
 void OpenGLContext::EndFrame() {
 	FrameData &frameData = frameData_[renderManager_.GetCurFrame()];
-	renderManager_.EndPushBuffer(frameData.push);  // upload the data!
+	GLRenderManager::EndPushBuffer(frameData.push);  // upload the data!
 	renderManager_.Finish();
 	Invalidate(InvalidationFlags::CACHED_RENDER_STATE);
 }

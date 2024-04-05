@@ -239,7 +239,7 @@ void Profiler_GetSlowestThreads(int *data, int count) {
 	}
 }
 
-void Profiler_GetSlowestHistory(int category, int *slowestThreads, float *data, int count) {
+void Profiler_GetSlowestHistory(int category, const int *slowestThreads, float *data, int count) {
 	for (int i = 0; i < HISTORY_SIZE; i++) {
 		int x = i - count + profiler.historyPos + 1;
 		while (x < 0)

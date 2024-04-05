@@ -173,7 +173,7 @@ XrAction CreateAction(
 		const char* actionName,
 		const char* localizedName,
 		int countSubactionPaths,
-		XrPath* subactionPaths) {
+		const XrPath* subactionPaths) {
 
 	XrActionCreateInfo aci = {};
 	aci.type = XR_TYPE_ACTION_CREATE_INFO;

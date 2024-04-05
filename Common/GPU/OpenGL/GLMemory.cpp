@@ -42,7 +42,7 @@ void *GLRBuffer::Map(GLBufferStrategy strategy) {
 			}
 #endif
 			p = glMapBufferRange(target_, 0, size_, access);
-		} else if (gl_extensions.VersionGEThan(3, 0, 0)) {
+		} else if (GLExtensions::VersionGEThan(3, 0, 0)) {
 			// GLES3 or desktop 3.
 			p = glMapBufferRange(target_, 0, size_, access);
 		} else if (!gl_extensions.IsGLES) {

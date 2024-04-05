@@ -335,16 +335,16 @@ public:
 	SceUtilitySavedataParam *GetPspParam();
 	const SceUtilitySavedataParam *GetPspParam() const;
 
-	int GetFilenameCount();
+	int GetFilenameCount() const;
 	const SaveFileInfo& GetFileInfo(int idx);
 	std::string GetFilename(int idx) const;
 	std::string GetSaveDir(int idx) const;
 
-	int GetSelectedSave();
+	int GetSelectedSave() const;
 	void SetSelectedSave(int idx);
 
 	int GetFirstListSave();
-	int GetLastListSave();
+	int GetLastListSave() const;
 	int GetLatestSave();
 	int GetOldestSave();
 	int GetFirstDataSave();

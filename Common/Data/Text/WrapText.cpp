@@ -154,7 +154,7 @@ void WordWrapper::AppendWord(int endIndex, int lastChar, bool addNewline) {
 	} else {
 		// We may have appended a newline - check.
 		size_t pos = out_.find_last_of("\n");
-		if (pos != out_.npos) {
+		if (pos != std::string::npos) {
 			lastLineStart_ = pos + 1;
 		}
 

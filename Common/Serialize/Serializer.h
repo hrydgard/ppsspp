@@ -134,7 +134,7 @@ public:
 
 	void SetMode(Mode mode_) { mode = mode_; }
 	Mode GetMode() const { return mode; }
-	u8 **GetPPtr() { return ptr; }
+	u8 **GetPPtr() const { return ptr; }
 	void SetError(Error error_);
 
 	const char *GetBadSectionTitle() const {
@@ -142,12 +142,12 @@ public:
 	}
 
 	// Same as DoVoid, except doesn't advance pointer if it doesn't match on read.
-	bool ExpectVoid(void *data, int size);
-	void DoVoid(void *data, int size);
+	bool ExpectVoid(void *data, int size) const;
+	void DoVoid(void *data, int size) const;
 
 	void DoMarker(const char *prevName, u32 arbitraryNumber = 0x42);
 
-	void SkipBytes(size_t bytes) {
+	void SkipBytes(size_t bytes) const {
 		// Should work in all modes.
 		*ptr += bytes;
 	}

@@ -9,7 +9,7 @@
 
 float ToDegrees(float rad);
 float ToRadians(float deg);
-bool IsMatrixIdentity(float* matrix);
+bool IsMatrixIdentity(const float* matrix);
 
 // XrPosef
 XrPosef XrPosef_Identity();

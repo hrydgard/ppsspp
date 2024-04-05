@@ -67,7 +67,7 @@ void GLRenderManager::ThreadStart(Draw::DrawContext *draw) {
 	// Don't save draw, we don't want any thread safety confusion.
 	bool mapBuffers = draw->GetBugs().Has(Draw::Bugs::ANY_MAP_BUFFER_RANGE_SLOW);
 	bool hasBufferStorage = gl_extensions.ARB_buffer_storage || gl_extensions.EXT_buffer_storage;
-	if (!gl_extensions.VersionGEThan(3, 0, 0) && gl_extensions.IsGLES && !hasBufferStorage) {
+	if (!GLExtensions::VersionGEThan(3, 0, 0) && gl_extensions.IsGLES && !hasBufferStorage) {
 		// Force disable if it wouldn't work anyway.
 		mapBuffers = false;
 	}

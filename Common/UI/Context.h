@@ -95,7 +95,7 @@ public:
 	float CalculateTextScale(const char *text, float availWidth, float availHeight) const;
 
 	void FillRect(const UI::Drawable &drawable, const Bounds &bounds);
-	void DrawRectDropShadow(const Bounds &bounds, float radius, float alpha, uint32_t color = 0);
+	void DrawRectDropShadow(const Bounds &bounds, float radius, float alpha, uint32_t color = 0) const;
 	void DrawImageVGradient(ImageID image, uint32_t color1, uint32_t color2, const Bounds &bounds);
 
 	// in dps, like dp_xres and dp_yres

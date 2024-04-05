@@ -38,7 +38,7 @@ struct DisplayProperties {
 	Lin::Matrix4x4 rot_matrix;
 
 	DisplayProperties();
-	void Print();
+	void Print() const;
 };
 
 extern DisplayProperties g_display;

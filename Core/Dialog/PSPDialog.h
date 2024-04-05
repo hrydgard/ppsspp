@@ -94,8 +94,8 @@ protected:
 	PPGeStyle FadedStyle(PPGeAlign align, float scale);
 	PPGeImageStyle FadedImageStyle();
 	void UpdateButtons();
-	bool IsButtonPressed(int checkButton);
-	bool IsButtonHeld(int checkButton, int &framesHeld, int framesHeldThreshold = 30, int framesHeldRepeatRate = 10);
+	bool IsButtonPressed(int checkButton) const;
+	bool IsButtonHeld(int checkButton, int &framesHeld, int framesHeldThreshold = 30, int framesHeldRepeatRate = 10) const;
 	// The caption override is assumed to have a size of 64 bytes.
 	void DisplayButtons(int flags, std::string_view caption = "");
 	void ChangeStatus(DialogStatus newStatus, int delayUs);
@@ -114,7 +114,7 @@ protected:
 	void StartFade(bool fadeIn_);
 	void UpdateFade(int animSpeed);
 	virtual void FinishFadeOut();
-	u32 CalcFadedColor(u32 inColor);
+	u32 CalcFadedColor(u32 inColor) const;
 
 	DialogStatus pendingStatus = SCE_UTILITY_STATUS_NONE;
 	u64 pendingStatusTicks = 0;

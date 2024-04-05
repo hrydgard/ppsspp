@@ -260,7 +260,7 @@ std::string StringFromInt(int value) {
 // Turns "  hej " into "hej". Also handles tabs.
 std::string StripSpaces(const std::string &str) {
 	const size_t s = str.find_first_not_of(" \t\r\n");
-	if (str.npos != s)
+	if (std::string::npos != s)
 		return str.substr(s, str.find_last_not_of(" \t\r\n") - s + 1);
 	else
 		return "";
@@ -280,7 +280,7 @@ std::string StripQuotes(const std::string& s)
 // Turns "  hej " into "hej". Also handles tabs.
 std::string_view StripSpaces(std::string_view str) {
 	const size_t s = str.find_first_not_of(" \t\r\n");
-	if (str.npos != s)
+	if (std::string_view::npos != s)
 		return str.substr(s, str.find_last_not_of(" \t\r\n") - s + 1);
 	else
 		return "";
@@ -383,7 +383,7 @@ std::string ReplaceAll(std::string_view input, std::string_view src, std::string
 	// TODO: Don't mutate the input, just append stuff to the output instead.
 	while (true) {
 		pos = result.find(src, pos);
-		if (pos == result.npos)
+		if (pos == std::string::npos)
 			break;
 		result.replace(pos, src.size(), dest);
 		pos += dest.size();

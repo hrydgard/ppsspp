@@ -231,7 +231,7 @@ struct MeasureSpec {
 	MeasureSpec(MeasureSpecType t, float s = 0.0f) : type(t), size(s) {}
 	MeasureSpec() : type(UNSPECIFIED), size(0) {}
 
-	MeasureSpec operator -(float amount) {
+	MeasureSpec operator -(float amount) const {
 		// TODO: Check type
 		return MeasureSpec(type, size - amount);
 	}
