@@ -221,7 +221,7 @@ public:
 
 class ZipFileReaderOpenFile : public VFSOpenFile {
 public:
-	~ZipFileReaderOpenFile() {
+	~ZipFileReaderOpenFile() override {
 		// Needs to be closed properly and unlocked.
 		_dbg_assert_(zf == nullptr);
 	}

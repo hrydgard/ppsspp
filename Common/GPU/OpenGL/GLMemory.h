@@ -75,7 +75,7 @@ public:
 	};
 
 	GLPushBuffer(GLRenderManager *render, GLuint target, size_t size, const char *tag);
-	~GLPushBuffer();
+	~GLPushBuffer() override;
 
 	void Reset() { offset_ = 0; }
 

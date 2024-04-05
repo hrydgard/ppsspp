@@ -330,10 +330,10 @@ public:
 	void Infest(uint32_t bug) {
 		flags_ |= (1 << bug);
 	}
-	uint32_t MaxBugIndex() const {
+	static uint32_t MaxBugIndex() {
 		return (uint32_t)MAX_BUG;
 	}
-	const char *GetBugName(uint32_t bug);
+	static const char *GetBugName(uint32_t bug);
 
 	enum : uint32_t {
 		NO_DEPTH_CANNOT_DISCARD_STENCIL_ADRENO = 0,

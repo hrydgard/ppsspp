@@ -378,11 +378,11 @@ public:
 		deleter_.pushBuffers.push_back(pushbuffer);
 	}
 
-	void BeginPushBuffer(GLPushBuffer *pushbuffer) {
+	static void BeginPushBuffer(GLPushBuffer *pushbuffer) {
 		pushbuffer->Begin();
 	}
 
-	void EndPushBuffer(GLPushBuffer *pushbuffer) {
+	static void EndPushBuffer(GLPushBuffer *pushbuffer) {
 		pushbuffer->End();
 	}
 

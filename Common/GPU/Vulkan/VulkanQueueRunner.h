@@ -285,9 +285,9 @@ private:
 
 	void ResizeReadbackBuffer(CachedReadback *readback, VkDeviceSize requiredSize);
 
-	void ApplyMGSHack(std::vector<VKRStep *> &steps);
-	void ApplySonicHack(std::vector<VKRStep *> &steps);
-	void ApplyRenderPassMerge(std::vector<VKRStep *> &steps);
+	static void ApplyMGSHack(std::vector<VKRStep *> &steps);
+	static void ApplySonicHack(std::vector<VKRStep *> &steps);
+	static void ApplyRenderPassMerge(std::vector<VKRStep *> &steps);
 
 	static void SetupTransitionToTransferSrc(VKRImage &img, VkImageAspectFlags aspect, VulkanBarrierBatch *recordBarrier);
 	static void SetupTransitionToTransferDst(VKRImage &img, VkImageAspectFlags aspect, VulkanBarrierBatch *recordBarrier);

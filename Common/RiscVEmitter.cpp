@@ -1243,19 +1243,19 @@ static inline bool BJInRange(const void *src, const void *dst, int bits) {
 	return distance == encodable;
 }
 
-bool RiscVEmitter::BInRange(const void *src, const void *dst) const {
+bool RiscVEmitter::BInRange(const void *src, const void *dst) {
 	return BJInRange(src, dst, 13);
 }
 
-bool RiscVEmitter::JInRange(const void *src, const void *dst) const {
+bool RiscVEmitter::JInRange(const void *src, const void *dst) {
 	return BJInRange(src, dst, 21);
 }
 
-bool RiscVEmitter::CBInRange(const void *src, const void *dst) const {
+bool RiscVEmitter::CBInRange(const void *src, const void *dst) {
 	return BJInRange(src, dst, 9);
 }
 
-bool RiscVEmitter::CJInRange(const void *src, const void *dst) const {
+bool RiscVEmitter::CJInRange(const void *src, const void *dst) {
 	return BJInRange(src, dst, 12);
 }
 
@@ -2411,7 +2411,7 @@ static RiscVReg EncodeFLImm(int bits, double v) {
 	return INVALID_REG;
 }
 
-bool RiscVEmitter::CanFLI(int bits, double v) const {
+bool RiscVEmitter::CanFLI(int bits, double v) {
 	if (!SupportsFloatExtra())
 		return false;
 	if (bits == 16 && !SupportsFloatHalf())

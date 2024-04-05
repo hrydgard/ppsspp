@@ -120,11 +120,11 @@ std::shared_ptr<I18NCategory> I18NRepo::GetCategory(I18NCat category) {
 		return nullptr;
 }
 
-Path I18NRepo::GetIniPath(const std::string &languageID) const {
+Path I18NRepo::GetIniPath(const std::string &languageID) {
 	return Path("lang") / (languageID + ".ini");
 }
 
-bool I18NRepo::IniExists(const std::string &languageID) const {
+bool I18NRepo::IniExists(const std::string &languageID) {
 	File::FileInfo info;
 	if (!g_VFS.GetFileInfo(GetIniPath(languageID).ToString().c_str(), &info))
 		return false;

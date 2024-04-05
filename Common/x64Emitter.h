@@ -383,7 +383,7 @@ private:
 	void WriteBMI1Op(int size, u8 opPrefix, u16 op, X64Reg regOp1, X64Reg regOp2, OpArg arg, int extrabytes = 0);
 	void WriteBMI2Op(int size, u8 opPrefix, u16 op, X64Reg regOp1, X64Reg regOp2, OpArg arg, int extrabytes = 0);
 	void WriteFloatLoadStore(int bits, FloatOp op, FloatOp op_80b, OpArg arg);
-	void WriteNormalOp(XEmitter *emit, int bits, NormalOp op, const OpArg &a1, const OpArg &a2);
+	static void WriteNormalOp(XEmitter *emit, int bits, NormalOp op, const OpArg &a1, const OpArg &a2);
 
 protected:
 	inline void Write8(u8 value)   {*code++ = value;}
@@ -1444,7 +1444,7 @@ public:
 	#if PPSSPP_ARCH(X86)
 	inline int ABI_GetNumXMMRegs() { return 8; }
 	#else
-	inline int ABI_GetNumXMMRegs() { return 16; }
+	static inline int ABI_GetNumXMMRegs() { return 16; }
 	#endif
 };  // class XEmitter
 

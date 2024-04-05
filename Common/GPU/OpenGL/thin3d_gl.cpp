@@ -216,7 +216,7 @@ public:
 		glstage_ = ShaderStageToOpenGL(stage);
 	}
 
-	~OpenGLShaderModule() {
+	~OpenGLShaderModule() override {
 		if (shader_)
 			render_->DeleteShader(shader_);
 	}
@@ -269,7 +269,7 @@ struct PipelineLocData : GLRProgramLocData {
 class OpenGLInputLayout : public InputLayout {
 public:
 	OpenGLInputLayout(GLRenderManager *render) : render_(render) {}
-	~OpenGLInputLayout();
+	~OpenGLInputLayout() override;
 
 	void Compile(const InputLayoutDesc &desc);
 
@@ -282,7 +282,7 @@ private:
 class OpenGLPipeline : public Pipeline {
 public:
 	OpenGLPipeline(GLRenderManager *render) : render_(render) {}
-	~OpenGLPipeline() {
+	~OpenGLPipeline() override {
 		for (auto &iter : shaders) {
 			iter->Release();
 		}
@@ -323,7 +323,7 @@ class OpenGLTexture;
 class OpenGLContext : public DrawContext {
 public:
 	OpenGLContext(bool canChangeSwapInterval);
-	~OpenGLContext();
+	~OpenGLContext() override;
 
 	void SetTargetSize(int w, int h) override {
 		DrawContext::SetTargetSize(w, h);
@@ -851,7 +851,7 @@ static GLuint TypeToTarget(TextureType type) {
 class OpenGLTexture : public Texture {
 public:
 	OpenGLTexture(GLRenderManager *render, const TextureDesc &desc);
-	~OpenGLTexture();
+	~OpenGLTexture() override;
 
 	bool HasMips() const {
 		return mipLevels_ > 1 || generatedMips_;
@@ -942,7 +942,7 @@ public:
 		width_ = framebuffer->width;
 		height_ = framebuffer->height;
 	}
-	~OpenGLFramebuffer() {
+	~OpenGLFramebuffer() override {
 		render_->DeleteFramebuffer(framebuffer_);
 	}
 
@@ -1134,7 +1134,7 @@ public:
 		buffer_ = render->CreateBuffer(target_, size, usage_);
 		totalSize_ = size;
 	}
-	~OpenGLBuffer() {
+	~OpenGLBuffer() override {
 		render_->DeleteBuffer(buffer_);
 	}
 

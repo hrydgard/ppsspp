@@ -62,7 +62,7 @@ private:
 
 public:
 	CodeBlock() {}
-	~CodeBlock() {
+	~CodeBlock() override {
 		if (region)
 			FreeCodeSpace();
 	}

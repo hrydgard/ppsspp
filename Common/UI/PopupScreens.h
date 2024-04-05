@@ -261,7 +261,7 @@ public:
 		value_ = &valueInt_;
 		UpdateText();
 	}
-	~PopupMultiChoiceDynamic() {
+	~PopupMultiChoiceDynamic() override {
 		for (int i = 0; i < numChoices_; i++) {
 			delete[] choices_[i];
 		}

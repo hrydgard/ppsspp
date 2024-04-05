@@ -66,7 +66,7 @@ public:
 	void Shutdown();
 
 	// So that callers can create appropriate pipelines.
-	Draw::InputLayout *CreateInputLayout(Draw::DrawContext *t3d);
+	static Draw::InputLayout *CreateInputLayout(Draw::DrawContext *t3d);
 
 	int Count() const { return count_; }
 

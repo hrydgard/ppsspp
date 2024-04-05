@@ -114,7 +114,7 @@ public:
 	}
 
 private:
-	bool IsHttpsUrl(const std::string &url);
+	static bool IsHttpsUrl(const std::string &url);
 
 	std::vector<std::shared_ptr<Request>> downloads_;
 	// These get copied to downloads_ in Update(). It's so that callbacks can add new downloads

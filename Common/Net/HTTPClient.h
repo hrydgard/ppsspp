@@ -58,7 +58,7 @@ public:
 class Client : public net::Connection {
 public:
 	Client();
-	~Client();
+	~Client() override;
 
 	// Return value is the HTTP return code. 200 means OK. < 0 means some local error.
 	int GET(const RequestParams &req, Buffer *output, net::RequestProgress *progress);
@@ -93,7 +93,7 @@ protected:
 class HTTPRequest : public Request {
 public:
 	HTTPRequest(RequestMethod method, const std::string &url, const std::string &postData, const std::string &postMime, const Path &outfile, ProgressBarMode progressBarMode = ProgressBarMode::DELAYED, std::string_view name = "");
-	~HTTPRequest();
+	~HTTPRequest() override;
 
 	void Start() override;
 	void Join() override;

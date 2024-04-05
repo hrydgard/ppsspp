@@ -22,7 +22,7 @@
 class PSPPlaceholderDialog: public PSPDialog {
 public:
 	PSPPlaceholderDialog(UtilityDialogType type);
-	~PSPPlaceholderDialog();
+	~PSPPlaceholderDialog() override;
 
 	int Init();
 	int Update(int animSpeed) override;

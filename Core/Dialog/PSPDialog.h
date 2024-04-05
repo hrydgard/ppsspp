@@ -82,7 +82,7 @@ public:
 	UtilityDialogType DialogType() { return dialogType_; }
 
 	void StartDraw();
-	void EndDraw();
+	static void EndDraw();
 
 	void FinishVolatile();
 	int FinishInit();

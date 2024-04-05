@@ -113,7 +113,7 @@ private:
 class I18NRepo {
 public:
 	I18NRepo();
-	bool IniExists(const std::string &languageID) const;
+	static bool IniExists(const std::string &languageID) ;
 	bool LoadIni(const std::string &languageID, const Path &overridePath = Path()); // NOT the filename!
 
 	std::string LanguageID();
@@ -135,7 +135,7 @@ public:
 	void LogMissingKeys() const;
 
 private:
-	Path GetIniPath(const std::string &languageID) const;
+	static Path GetIniPath(const std::string &languageID) ;
 	void Clear();
 
 	mutable std::mutex catsLock_;

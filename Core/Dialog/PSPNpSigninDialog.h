@@ -34,7 +34,7 @@ struct SceUtilityNpSigninParam {
 class PSPNpSigninDialog: public PSPDialog {
 public:
 	PSPNpSigninDialog(UtilityDialogType type);
-	~PSPNpSigninDialog();
+	~PSPNpSigninDialog() override;
 
 	int Init(u32 paramAddr);
 	int Update(int animSpeed) override;

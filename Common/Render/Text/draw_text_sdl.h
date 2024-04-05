@@ -15,7 +15,7 @@ struct _TTF_Font;
 class TextDrawerSDL : public TextDrawer {
 public:
 	TextDrawerSDL(Draw::DrawContext *draw);
-	~TextDrawerSDL();
+	~TextDrawerSDL() override;
 
 	uint32_t SetFont(const char *fontName, int size, int flags) override;
 	void SetFont(uint32_t fontHandle) override;  // Shortcut once you've set the font once.

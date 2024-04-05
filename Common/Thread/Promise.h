@@ -14,7 +14,7 @@ public:
 		: fun_(fun), tx_(tx), type_(t), priority_(p) {
 		tx_->AddRef();
 	}
-	~PromiseTask() {
+	~PromiseTask() override {
 		tx_->Release();
 	}
 

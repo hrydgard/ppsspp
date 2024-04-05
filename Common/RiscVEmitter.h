@@ -422,9 +422,9 @@ public:
 	void FCLASS(int bits, RiscVReg rd, RiscVReg rs1);
 
 	// Additional floating point (Zfa.)
-	bool CanFLI(int bits, double v) const;
+	static bool CanFLI(int bits, double v) ;
 	bool CanFLI(int bits, uint32_t pattern) const;
-	bool CanFLI(int bits, float v) const {
+	static bool CanFLI(int bits, float v) {
 		return CanFLI(bits, (double)v);
 	}
 	void FLI(int bits, RiscVReg rd, double v);
@@ -1063,10 +1063,10 @@ public:
 
 private:
 	void SetJumpTarget(FixupBranch &branch, const void *dst);
-	bool BInRange(const void *src, const void *dst) const;
-	bool JInRange(const void *src, const void *dst) const;
-	bool CBInRange(const void *src, const void *dst) const;
-	bool CJInRange(const void *src, const void *dst) const;
+	static bool BInRange(const void *src, const void *dst) ;
+	static bool JInRange(const void *src, const void *dst) ;
+	static bool CBInRange(const void *src, const void *dst) ;
+	static bool CJInRange(const void *src, const void *dst) ;
 
 	void SetRegToImmediate(RiscVReg rd, uint64_t value, RiscVReg temp);
 

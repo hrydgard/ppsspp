@@ -59,7 +59,7 @@ struct pspMessageDialog
 class PSPMsgDialog: public PSPDialog {
 public:
 	PSPMsgDialog(UtilityDialogType type);
-	~PSPMsgDialog();
+	~PSPMsgDialog() override;
 
 	int Init(unsigned int paramAddr);
 	int Update(int animSpeed) override;

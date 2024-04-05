@@ -10,7 +10,7 @@ class ScrollView : public ViewGroup {
 public:
 	ScrollView(Orientation orientation, LayoutParams *layoutParams = 0)
 		: ViewGroup(layoutParams), orientation_(orientation) {}
-	~ScrollView();
+	~ScrollView() override;
 
 	void Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert) override;
 	void Layout() override;

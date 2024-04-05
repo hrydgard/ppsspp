@@ -25,7 +25,7 @@ UIScreen::~UIScreen() {
 	delete root_;
 }
 
-bool UIScreen::UseVerticalLayout() const {
+bool UIScreen::UseVerticalLayout() {
 	return g_display.dp_yres > g_display.dp_xres * 1.1f;
 }
 

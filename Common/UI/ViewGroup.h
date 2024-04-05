@@ -26,7 +26,7 @@ struct NeighborResult {
 class ViewGroup : public View {
 public:
 	ViewGroup(LayoutParams *layoutParams = 0) : View(layoutParams) {}
-	~ViewGroup();
+	~ViewGroup() override;
 
 	// Pass through external events to children.
 	bool Key(const KeyInput &input) override;

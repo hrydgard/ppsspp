@@ -12,7 +12,7 @@ public:
 		triggered_ = false;
 	}
 
-	~LimitedWaitable() {
+	~LimitedWaitable() override {
 		// Make sure no one is still waiting, and any notify lock is released.
 		Notify();
 	}

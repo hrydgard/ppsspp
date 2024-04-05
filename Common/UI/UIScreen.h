@@ -33,7 +33,7 @@ struct QueuedEvent {
 class UIScreen : public Screen {
 public:
 	UIScreen();
-	~UIScreen();
+	~UIScreen() override;
 
 	void update() override;
 	ScreenRenderFlags render(ScreenRenderMode mode) override;
@@ -61,7 +61,7 @@ protected:
 	virtual void CreateViews() = 0;
 
 	void RecreateViews() override { recreateViews_ = true; }
-	bool UseVerticalLayout() const;
+	static bool UseVerticalLayout() ;
 
 	UI::ViewGroup *root_ = nullptr;
 	Vec3 translation_ = Vec3(0.0f);

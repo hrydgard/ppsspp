@@ -11,7 +11,7 @@ class ManagedTexture;
 class AsyncImageFileView : public UI::Clickable {
 public:
 	AsyncImageFileView(const Path &filename, UI::ImageSizeMode sizeMode, UI::LayoutParams *layoutParams = 0);
-	~AsyncImageFileView();
+	~AsyncImageFileView() override;
 
 	void GetContentDimensionsBySpec(const UIContext &dc, UI::MeasureSpec horiz, UI::MeasureSpec vert, float &w, float &h) const override;
 	void Draw(UIContext &dc) override;

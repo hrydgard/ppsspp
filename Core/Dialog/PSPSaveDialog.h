@@ -72,7 +72,7 @@
 class PSPSaveDialog: public PSPDialog {
 public:
 	PSPSaveDialog(UtilityDialogType type);
-	~PSPSaveDialog();
+	~PSPSaveDialog() override;
 
 	int Init(int paramAddr);
 	int Update(int animSpeed) override;

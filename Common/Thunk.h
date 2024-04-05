@@ -48,7 +48,7 @@ public:
 	ThunkManager() {
 		Init();
 	}
-	~ThunkManager() {
+	~ThunkManager() override {
 		Shutdown();
 	}
 	const void *ProtectFunction(const void *function, int num_params);
@@ -86,6 +86,6 @@ private:
 	void Shutdown();
 	void Reset();
 
-	int ThunkStackOffset();
+	static int ThunkStackOffset();
 	int ThunkBytesNeeded();
 };

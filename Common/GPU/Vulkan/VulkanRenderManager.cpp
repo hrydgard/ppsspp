@@ -251,7 +251,7 @@ public:
 	CreateMultiPipelinesTask(VulkanContext *vulkan, std::vector<SinglePipelineTask> tasks) : vulkan_(vulkan), tasks_(tasks) {
 		tasksInFlight_.fetch_add(1);
 	}
-	~CreateMultiPipelinesTask() {}
+	~CreateMultiPipelinesTask() override {}
 
 	TaskType Type() const override {
 		return TaskType::CPU_COMPUTE;

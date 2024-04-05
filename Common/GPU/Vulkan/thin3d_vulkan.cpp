@@ -189,7 +189,7 @@ public:
 	}
 	bool Compile(VulkanContext *vulkan, ShaderLanguage language, const uint8_t *data, size_t size);
 	const std::string &GetSource() const { return source_; }
-	~VKShaderModule() {
+	~VKShaderModule() override {
 		if (module_) {
 			VkShaderModule shaderModule = module_->BlockUntilReady();
 			vulkan_->Delete().QueueDeleteShaderModule(shaderModule);
@@ -259,7 +259,7 @@ public:
 		ubo_ = new uint8_t[uboSize_];
 		vkrDesc = new VKRGraphicsPipelineDesc();
 	}
-	~VKPipeline() {
+	~VKPipeline() override {
 		if (pipeline) {
 			pipeline->QueueForDeletion(vulkan_);
 		}
@@ -334,7 +334,7 @@ public:
 	bool Create(VkCommandBuffer cmd, VulkanBarrierBatch *postBarriers, VulkanPushPool *pushBuffer, const TextureDesc &desc);
 	void Update(VkCommandBuffer cmd, VulkanBarrierBatch *postBarriers, VulkanPushPool *pushBuffer, const uint8_t *const *data, TextureCallback callback, int numLevels);
 
-	~VKTexture() {
+	~VKTexture() override {
 		Destroy();
 	}
 
@@ -378,7 +378,7 @@ class VKFramebuffer;
 class VKContext : public DrawContext {
 public:
 	VKContext(VulkanContext *vulkan, bool useRenderThread);
-	~VKContext();
+	~VKContext() override;
 
 	void DebugAnnotate(const char *annotation) override;
 	void Wait() override {
@@ -735,7 +735,7 @@ public:
 		VkResult res = vkCreateSampler(vulkan_->GetDevice(), &s, nullptr, &sampler_);
 		_assert_(VK_SUCCESS == res);
 	}
-	~VKSamplerState() {
+	~VKSamplerState() override {
 		vulkan_->Delete().QueueDeleteSampler(sampler_);
 	}
 
@@ -1374,7 +1374,7 @@ public:
 	VKBuffer(size_t size, uint32_t flags) : dataSize_(size) {
 		data_ = new uint8_t[size];
 	}
-	~VKBuffer() {
+	~VKBuffer() override {
 		delete[] data_;
 	}
 
@@ -1618,7 +1618,7 @@ public:
 		layers_ = fb->numLayers;
 		multiSampleLevel_ = multiSampleLevel;
 	}
-	~VKFramebuffer() {
+	~VKFramebuffer() override {
 		_assert_msg_(buf_, "Null buf_ in VKFramebuffer - double delete?");
 		buf_->Vulkan()->Delete().QueueCallback([](VulkanContext *vulkan, void *fb) {
 			VKRFramebuffer *vfb = static_cast<VKRFramebuffer *>(fb);

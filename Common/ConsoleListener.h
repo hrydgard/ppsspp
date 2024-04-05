@@ -28,21 +28,21 @@
 class ConsoleListener : public LogListener {
 public:
 	ConsoleListener();
-	~ConsoleListener();
+	~ConsoleListener() override;
 
 	void Init(bool AutoOpen = true, int Width = 200, int Height = 100, const char * Name = "DebugConsole (PPSSPP)");
 	void Open();
 	void UpdateHandle();
-	void Close();
-	bool IsOpen();
-	void LetterSpace(int Width, int Height);
-	void BufferWidthHeight(int BufferWidth, int BufferHeight, int ScreenWidth, int ScreenHeight, bool BufferFirst);
-	void PixelSpace(int Left, int Top, int Width, int Height, bool);
+	static void Close();
+	static bool IsOpen();
+	static void LetterSpace(int Width, int Height);
+	static void BufferWidthHeight(int BufferWidth, int BufferHeight, int ScreenWidth, int ScreenHeight, bool BufferFirst);
+	static void PixelSpace(int Left, int Top, int Width, int Height, bool);
 #if defined(USING_WIN_UI)
 	COORD GetCoordinates(int BytesRead, int BufferWidth);
 #endif
 	void Log(const LogMessage &message) override;
-	void ClearScreen(bool Cursor = true);
+	static void ClearScreen(bool Cursor = true);
 
 	void Show(bool bShow);
 	bool Hidden() const { return bHidden; }

@@ -213,7 +213,7 @@ enum class PSPOskNativeStatus {
 class PSPOskDialog: public PSPDialog {
 public:
 	PSPOskDialog(UtilityDialogType type);
-	~PSPOskDialog();
+	~PSPOskDialog() override;
 
 	int Init(u32 oskPtr);
 	int Update(int animSpeed) override;
@@ -227,7 +227,7 @@ protected:
 	}
 
 private:
-	void ConvertUCS2ToUTF8(std::string& _string, const PSPPointer<u16_le>& em_address);
+	static void ConvertUCS2ToUTF8(std::string& _string, const PSPPointer<u16_le>& em_address);
 	void ConvertUCS2ToUTF8(std::string& _string, const char16_t *input);
 	void RenderKeyboard();
 	int NativeKeyboard();
@@ -237,7 +237,7 @@ private:
 	void RemoveKorean(); // for Korean character removal
 
 	u32 FieldMaxLength();
-	int GetIndex(const wchar_t* src, wchar_t ch);
+	static int GetIndex(const wchar_t* src, wchar_t ch);
 
 	PSPPointer<SceUtilityOskParams> oskParams{};
 	std::string oskDesc;

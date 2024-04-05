@@ -38,7 +38,7 @@ struct SceUtilityNetconfParam {
 class PSPNetconfDialog: public PSPDialog {
 public:
 	PSPNetconfDialog(UtilityDialogType type);
-	~PSPNetconfDialog();
+	~PSPNetconfDialog() override;
 
 	int Init(u32 paramAddr);
 	int Update(int animSpeed) override;

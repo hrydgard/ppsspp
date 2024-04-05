@@ -106,7 +106,7 @@ public:
 	const UI::Theme &GetTheme() const {
 		return *theme;
 	}
-	void SetCurZ(float curZ);
+	static void SetCurZ(float curZ);
 
 	void PushTransform(const UITransform &transform);
 	void PopTransform();
