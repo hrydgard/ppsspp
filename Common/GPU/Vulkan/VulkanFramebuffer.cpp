@@ -524,7 +524,7 @@ VkRenderPass CreateRenderPass(VulkanContext *vulkan, const RPKey &key, RenderPas
 		rp2.pCorrelatedViewMasks = multiview ? &viewMask : nullptr;
 		rp2.pSubpasses = &subpass2;
 		rp2.subpassCount = 1;
-		res = vkCreateRenderPass2KHR(vulkan->GetDevice(), &rp2, nullptr, &pass);
+		res = vkCreateRenderPass2(vulkan->GetDevice(), &rp2, nullptr, &pass);
 	} else {
 		res = vkCreateRenderPass(vulkan->GetDevice(), &rp, nullptr, &pass);
 	}

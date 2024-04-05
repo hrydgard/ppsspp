@@ -1516,10 +1516,12 @@ void Config::RemoveRecent(const std::string &file) {
 	std::lock_guard<std::mutex> guard(private_->recentIsosLock);
 	
 	const auto &filename = File::ResolvePath(file);
-	std::remove_if(recentIsos.begin(), recentIsos.end(), [filename](const auto &str) {
+	auto iter = std::remove_if(recentIsos.begin(), recentIsos.end(), [filename](const auto &str) {
 		const auto &recent = File::ResolvePath(str);
 		return filename == recent;
 	});
+	// remove_if is weird.
+	recentIsos.erase(iter, recentIsos.end());
 }
 
 void Config::CleanRecent() {

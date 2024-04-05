@@ -161,12 +161,12 @@ VkResult VulkanContext::CreateInstance(const CreateInfo &info) {
 	// Temporary hack for libretro. For some reason, when we try to load the functions from this extension,
 	// we get null pointers when running libretro. Quite strange.
 #if !defined(__LIBRETRO__)
-	if (EnableInstanceExtension(VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME)) {
+	if (EnableInstanceExtension(VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME, VK_API_VERSION_1_1)) {
 		extensionsLookup_.KHR_get_physical_device_properties2 = true;
 	}
 #endif
 
-	if (EnableInstanceExtension(VK_EXT_SWAPCHAIN_COLOR_SPACE_EXTENSION_NAME)) {
+	if (EnableInstanceExtension(VK_EXT_SWAPCHAIN_COLOR_SPACE_EXTENSION_NAME, 0)) {
 		extensionsLookup_.EXT_swapchain_colorspace = true;
 	}
 
@@ -217,7 +217,7 @@ VkResult VulkanContext::CreateInstance(const CreateInfo &info) {
 		return res;
 	}
 
-	VulkanLoadInstanceFunctions(instance_, extensionsLookup_);
+	VulkanLoadInstanceFunctions(instance_, extensionsLookup_, vulkanApiVersion_);
 	if (!CheckLayers(instance_layer_properties_, instance_layer_names_)) {
 		WARN_LOG(G3D, "CheckLayers for instance failed");
 		// init_error_ = "Failed to validate instance layers";
@@ -259,7 +259,7 @@ VkResult VulkanContext::CreateInstance(const CreateInfo &info) {
 			props2.pNext = &pushProps;
 			pushProps.pNext = &extHostMemProps;
 			extHostMemProps.pNext = &depthStencilResolveProps;
-			vkGetPhysicalDeviceProperties2KHR(physical_devices_[i], &props2);
+			vkGetPhysicalDeviceProperties2(physical_devices_[i], &props2);
 			// Don't want bad pointers sitting around.
 			props2.pNext = nullptr;
 			pushProps.pNext = nullptr;
@@ -604,7 +604,7 @@ void VulkanContext::ChooseDevice(int physical_device) {
 		presentWaitFeatures.pNext = &presentIdFeatures;
 		presentIdFeatures.pNext = nullptr;
 
-		vkGetPhysicalDeviceFeatures2KHR(physical_devices_[physical_device_], &features2);
+		vkGetPhysicalDeviceFeatures2(physical_devices_[physical_device_], &features2);
 		deviceFeatures_.available.standard = features2.features;
 		deviceFeatures_.available.multiview = multiViewFeatures;
 		deviceFeatures_.available.presentWait = presentWaitFeatures;
@@ -632,7 +632,10 @@ bool VulkanContext::EnableDeviceExtension(const char *extension, uint32_t coreVe
 	return false;
 }
 
-bool VulkanContext::EnableInstanceExtension(const char *extension) {
+bool VulkanContext::EnableInstanceExtension(const char *extension, uint32_t coreVersion) {
+	if (coreVersion != 0 && vulkanApiVersion_ >= coreVersion) {
+		return true;
+	}
 	for (auto &iter : instance_extension_properties_) {
 		if (!strcmp(iter.extensionName, extension)) {
 			instance_extensions_enabled_.push_back(extension);
@@ -747,7 +750,7 @@ VkResult VulkanContext::CreateDevice() {
 		init_error_ = "Unable to create Vulkan device";
 		ERROR_LOG(G3D, "Unable to create Vulkan device");
 	} else {
-		VulkanLoadDeviceFunctions(device_, extensionsLookup_);
+		VulkanLoadDeviceFunctions(device_, extensionsLookup_, vulkanApiVersion_);
 	}
 	INFO_LOG(G3D, "Vulkan Device created: %s", physicalDeviceProperties_[physical_device_].properties.deviceName);
 
@@ -1762,7 +1765,7 @@ void VulkanContext::GetImageMemoryRequirements(VkImage image, VkMemoryRequiremen
 		VkMemoryDedicatedRequirementsKHR memDedicatedReq{VK_STRUCTURE_TYPE_MEMORY_DEDICATED_REQUIREMENTS_KHR};
 		memReq2.pNext = &memDedicatedReq;
 
-		vkGetImageMemoryRequirements2KHR(GetDevice(), &memReqInfo2, &memReq2);
+		vkGetImageMemoryRequirements2(GetDevice(), &memReqInfo2, &memReq2);
 
 		*mem_reqs = memReq2.memoryRequirements;
 		*dedicatedAllocation =
