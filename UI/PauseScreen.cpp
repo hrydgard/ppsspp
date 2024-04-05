@@ -258,7 +258,7 @@ void GamePauseScreen::update() {
 	UIScreen::update();
 
 	if (finishNextFrame_) {
-		TriggerFinish(DR_CANCEL);
+		TriggerFinish(finishNextFrameResult_);
 		finishNextFrame_ = false;
 	}
 
@@ -494,10 +494,26 @@ UI::EventReturn GamePauseScreen::OnScreenshotClicked(UI::EventParams &e) {
 }
 
 UI::EventReturn GamePauseScreen::OnExitToMenu(UI::EventParams &e) {
-	if (g_Config.bPauseMenuExitsEmulator) {
-		System_ExitApp();
+	// If RAIntegration has dirty info, ask for confirmation.
+	if (Achievements::RAIntegrationDirty()) {
+		auto ac = GetI18NCategory(I18NCat::ACHIEVEMENTS);
+		auto di = GetI18NCategory(I18NCat::DIALOG);
+		screenManager()->push(new PromptScreen(gamePath_, ac->T("You have unsaved RAIntegration changes. Exit?"), di->T("Yes"), di->T("No"), [=](bool result) {
+			if (result) {
+				if (g_Config.bPauseMenuExitsEmulator) {
+					System_ExitApp();
+				} else {
+					finishNextFrameResult_ = DR_OK;  // exit game
+					finishNextFrame_ = true;
+				}
+			}
+		}));
 	} else {
-		TriggerFinish(DR_OK);
+		if (g_Config.bPauseMenuExitsEmulator) {
+			System_ExitApp();
+		} else {
+			TriggerFinish(DR_OK);
+		}
 	}
 	return UI::EVENT_DONE;
 }

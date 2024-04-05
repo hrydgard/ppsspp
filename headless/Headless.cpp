@@ -99,7 +99,7 @@ void NativeResized() { }
 
 std::string System_GetProperty(SystemProperty prop) { return ""; }
 std::vector<std::string> System_GetPropertyStringVec(SystemProperty prop) { return std::vector<std::string>(); }
-int System_GetPropertyInt(SystemProperty prop) {
+int64_t System_GetPropertyInt(SystemProperty prop) {
 	if (prop == SYSPROP_SYSTEMVERSION)
 		return 31;
 	return -1;

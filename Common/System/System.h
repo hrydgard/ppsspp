@@ -192,6 +192,8 @@ enum SystemProperty {
 	SYSPROP_USER_DOCUMENTS_DIR,
 
 	SYSPROP_OK_BUTTON_LEFT,
+
+	SYSPROP_MAIN_WINDOW_HANDLE,
 };
 
 enum class SystemNotification {
@@ -252,7 +254,7 @@ enum class UIMessage {
 
 std::string System_GetProperty(SystemProperty prop);
 std::vector<std::string> System_GetPropertyStringVec(SystemProperty prop);
-int System_GetPropertyInt(SystemProperty prop);
+int64_t System_GetPropertyInt(SystemProperty prop);
 float System_GetPropertyFloat(SystemProperty prop);
 bool System_GetPropertyBool(SystemProperty prop);
 
