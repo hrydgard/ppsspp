@@ -931,7 +931,7 @@ void VulkanQueueRunner::LogReadbackImage(const VKRStep &step) {
 	INFO_LOG(G3D, "%s", StepToString(vulkan_, step).c_str());
 }
 
-void TransitionColorToOptimal(VkCommandBuffer cmd, VkImage colorImage, VkImageLayout colorLayout, int numLayers, VulkanBarrierBatch *recordBarrier) {
+static void TransitionColorToOptimal(VkCommandBuffer cmd, VkImage colorImage, VkImageLayout colorLayout, int numLayers, VulkanBarrierBatch *recordBarrier) {
 	VkPipelineStageFlags srcStageMask = 0;
 	VkAccessFlags srcAccessMask = 0;
 	switch (colorLayout) {
@@ -972,7 +972,7 @@ void TransitionColorToOptimal(VkCommandBuffer cmd, VkImage colorImage, VkImageLa
 		VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
 }
 
-void TransitionDepthToOptimal(VkCommandBuffer cmd, VkImage depthStencilImage, VkImageLayout depthStencilLayout, int numLayers, VulkanBarrierBatch *recordBarrier) {
+static void TransitionDepthToOptimal(VkCommandBuffer cmd, VkImage depthStencilImage, VkImageLayout depthStencilLayout, int numLayers, VulkanBarrierBatch *recordBarrier) {
 	VkPipelineStageFlags srcStageMask = 0;
 	VkAccessFlags srcAccessMask = 0;
 	switch (depthStencilLayout) {
@@ -1008,33 +1008,24 @@ void TransitionDepthToOptimal(VkCommandBuffer cmd, VkImage depthStencilImage, Vk
 		VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT);
 }
 
-void TransitionFromOptimal(VkCommandBuffer cmd, VkImage colorImage, VkImageLayout colorLayout, VkImage depthStencilImage, VkImageLayout depthStencilLayout, int numLayers) {
-	VkPipelineStageFlags srcStageMask = 0;
-	VkPipelineStageFlags dstStageMask = 0;
-
-	// If layouts aren't optimal, transition them.
-	VkImageMemoryBarrier barrier[2]{};
-
-	int barrierCount = 0;
+static void TransitionFromOptimal(VkCommandBuffer cmd, VkImage colorImage, VkImageLayout colorLayout, VkImage depthStencilImage, VkImageLayout depthStencilLayout, int numLayers, VulkanBarrierBatch *recordBarrier) {
 	if (colorLayout != VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL) {
-		barrier[0].sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-		barrier[0].pNext = nullptr;
-		srcStageMask |= VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-		barrier[0].srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+		VkPipelineStageFlags dstStageMask = 0;
+		VkAccessFlags dstAccessMask = 0;
 		// And the final transition.
 		// Don't need to transition it if VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL.
 		switch (colorLayout) {
 		case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL:
-			barrier[0].dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-			dstStageMask |= VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+			dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+			dstStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
 			break;
 		case VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL:
-			barrier[0].dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
-			dstStageMask |= VK_PIPELINE_STAGE_TRANSFER_BIT;
+			dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+			dstStageMask = VK_PIPELINE_STAGE_TRANSFER_BIT;
 			break;
 		case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
-			barrier[0].dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
-			dstStageMask |= VK_PIPELINE_STAGE_TRANSFER_BIT;
+			dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+			dstStageMask = VK_PIPELINE_STAGE_TRANSFER_BIT;
 			break;
 		case VK_IMAGE_LAYOUT_UNDEFINED:
 		case VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL:
@@ -1044,36 +1035,32 @@ void TransitionFromOptimal(VkCommandBuffer cmd, VkImage colorImage, VkImageLayou
 			_dbg_assert_msg_(false, "TransitionFromOptimal: Unexpected final color layout %d", (int)colorLayout);
 			break;
 		}
-		barrier[0].oldLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-		barrier[0].newLayout = colorLayout;
-		barrier[0].image = colorImage;
-		barrier[0].subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-		barrier[0].subresourceRange.baseMipLevel = 0;
-		barrier[0].subresourceRange.levelCount = 1;
-		barrier[0].subresourceRange.layerCount = numLayers;
-		barrier[0].srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-		barrier[0].dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-		barrierCount++;
+		recordBarrier->TransitionImage(
+			colorImage, 0, 1, numLayers, VK_IMAGE_ASPECT_COLOR_BIT,
+			VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+			colorLayout,
+			VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,  // srcAccessMask
+			dstAccessMask,
+			VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+			dstStageMask
+		);
 	}
 
 	if (depthStencilImage && depthStencilLayout != VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL) {
-		barrier[barrierCount].sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-		barrier[barrierCount].pNext = nullptr;
-
-		srcStageMask |= VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
-		barrier[barrierCount].srcAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+		VkPipelineStageFlags dstStageMask = 0;
+		VkAccessFlags dstAccessMask = 0;
 		switch (depthStencilLayout) {
 		case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL:
-			barrier[barrierCount].dstAccessMask |= VK_ACCESS_SHADER_READ_BIT;
-			dstStageMask |= VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+			dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+			dstStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
 			break;
 		case VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL:
-			barrier[barrierCount].dstAccessMask |= VK_ACCESS_TRANSFER_READ_BIT;
-			dstStageMask |= VK_PIPELINE_STAGE_TRANSFER_BIT;
+			dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+			dstStageMask = VK_PIPELINE_STAGE_TRANSFER_BIT;
 			break;
 		case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
-			barrier[barrierCount].dstAccessMask |= VK_ACCESS_TRANSFER_READ_BIT;
-			dstStageMask |= VK_PIPELINE_STAGE_TRANSFER_BIT;
+			dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+			dstStageMask = VK_PIPELINE_STAGE_TRANSFER_BIT;
 			break;
 		case VK_IMAGE_LAYOUT_UNDEFINED:
 		case VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL:
@@ -1083,19 +1070,15 @@ void TransitionFromOptimal(VkCommandBuffer cmd, VkImage colorImage, VkImageLayou
 			_dbg_assert_msg_(false, "TransitionFromOptimal: Unexpected final depth layout %d", (int)depthStencilLayout);
 			break;
 		}
-		barrier[barrierCount].oldLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-		barrier[barrierCount].newLayout = depthStencilLayout;
-		barrier[barrierCount].image = depthStencilImage;
-		barrier[barrierCount].subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
-		barrier[barrierCount].subresourceRange.baseMipLevel = 0;
-		barrier[barrierCount].subresourceRange.levelCount = 1;
-		barrier[barrierCount].subresourceRange.layerCount = numLayers;
-		barrier[barrierCount].srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-		barrier[barrierCount].dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-		barrierCount++;
-	}
-	if (barrierCount) {
-		vkCmdPipelineBarrier(cmd, srcStageMask, dstStageMask, VK_DEPENDENCY_BY_REGION_BIT, 0, nullptr, 0, nullptr, barrierCount, barrier);
+		recordBarrier->TransitionImage(
+			depthStencilImage, 0, 1, numLayers, VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT,
+			VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+			depthStencilLayout,
+			VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,  // srcAccessMask
+			dstAccessMask,
+			VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
+			dstStageMask
+		);
 	}
 }
 
@@ -1403,7 +1386,9 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 
 	if (fb) {
 		// If the desired final layout aren't the optimal layout for rendering, transition.
-		TransitionFromOptimal(cmd, fb->color.image, step.render.finalColorLayout, fb->depth.image, step.render.finalDepthStencilLayout, fb->numLayers);
+		// TODO: Not sure when we use this now?
+		TransitionFromOptimal(cmd, fb->color.image, step.render.finalColorLayout, fb->depth.image, step.render.finalDepthStencilLayout, fb->numLayers, &recordBarrier_);
+		recordBarrier_.Flush(cmd);
 
 		fb->color.layout = step.render.finalColorLayout;
 		fb->depth.layout = step.render.finalDepthStencilLayout;
