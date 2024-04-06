@@ -31,7 +31,7 @@ const char *RequestTypeAsString(SystemRequestType type) {
 	}
 }
 
-bool RequestManager::MakeSystemRequest(SystemRequestType type, RequesterToken token, RequestCallback callback, RequestFailedCallback failedCallback, std::string_view param1, std::string_view param2, int param3) {
+bool RequestManager::MakeSystemRequest(SystemRequestType type, RequesterToken token, RequestCallback callback, RequestFailedCallback failedCallback, std::string_view param1, std::string_view param2, int64_t param3, int64_t param4) {
 	if (token == NO_REQUESTER_TOKEN) {
 		_dbg_assert_(!callback);
 		_dbg_assert_(!failedCallback);
@@ -52,14 +52,13 @@ bool RequestManager::MakeSystemRequest(SystemRequestType type, RequesterToken to
 	std::string p1(param1);
 	std::string p2(param2);
 	// TODO: Convert to string_view
-	if (!System_MakeRequest(type, requestId, p1, p2, param3)) {
+	if (!System_MakeRequest(type, requestId, p1, p2, param3, param4)) {
 		if (callback || failedCallback) {
 			std::lock_guard<std::mutex> guard(callbackMutex_);
 			callbackMap_.erase(requestId);
 		}
 		return false;
 	}
-
 	return true;
 }
 

@@ -488,7 +488,7 @@ std::wstring MakeFilter(std::wstring filter) {
 	return filter;
 }
 
-bool System_MakeRequest(SystemRequestType type, int requestId, const std::string &param1, const std::string &param2, int param3) {
+bool System_MakeRequest(SystemRequestType type, int requestId, const std::string &param1, const std::string &param2, int64_t param3, int64_t param4) {
 	switch (type) {
 	case SystemRequestType::EXIT_APP:
 		if (!NativeIsRestarting()) {
@@ -636,6 +636,7 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 	}
 	case SystemRequestType::CREATE_GAME_SHORTCUT:
 		return W32Util::CreateDesktopShortcut(param1, param2);
+
 	default:
 		return false;
 	}

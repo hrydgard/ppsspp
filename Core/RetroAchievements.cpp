@@ -530,9 +530,9 @@ static void load_integration_callback(int result, const char *error_message, rc_
 		rc_client_raintegration_set_event_handler(g_rcClient, &raintegration_event_handler);
 		rc_client_raintegration_set_write_memory_function(g_rcClient, &raintegration_write_memory_handler);
 		rc_client_raintegration_set_get_game_name_function(g_rcClient, &raintegration_get_game_name_handler);
+
 		HWND hWnd = (HWND)userdata;
 		rc_client_raintegration_rebuild_submenu(g_rcClient, GetMenu(hWnd));
-		DrawMenuBar(hWnd);
 		break;
 	}
 	case RC_MISSING_VALUE:
