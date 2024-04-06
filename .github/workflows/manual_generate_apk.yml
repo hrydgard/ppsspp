@@ -11,6 +11,8 @@ on:
         options: 
         - NormalOptimized
         - NormalDebug
+        - VROptimized
+        - VRDebug
 
 jobs:
 
