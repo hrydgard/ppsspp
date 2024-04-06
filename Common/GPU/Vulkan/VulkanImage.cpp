@@ -38,7 +38,7 @@ static bool IsDepthStencilFormat(VkFormat format) {
 	}
 }
 
-bool VulkanTexture::CreateDirect(VkCommandBuffer cmd, int w, int h, int depth, int numMips, VkFormat format, VkImageLayout initialLayout, VkImageUsageFlags usage, const VkComponentMapping *mapping) {
+bool VulkanTexture::CreateDirect(int w, int h, int depth, int numMips, VkFormat format, VkImageLayout initialLayout, VkImageUsageFlags usage, VulkanBarrierBatch *barrierBatch, const VkComponentMapping *mapping) {
 	if (w == 0 || h == 0 || numMips == 0) {
 		ERROR_LOG(G3D, "Can't create a zero-size VulkanTexture");
 		return false;
@@ -113,10 +113,10 @@ bool VulkanTexture::CreateDirect(VkCommandBuffer cmd, int w, int h, int depth, i
 			_assert_(false);
 			break;
 		}
-		TransitionImageLayout2(cmd, image_, 0, numMips, 1, VK_IMAGE_ASPECT_COLOR_BIT,
+		barrierBatch->TransitionImage(image_, 0, numMips, 1, VK_IMAGE_ASPECT_COLOR_BIT,
 			VK_IMAGE_LAYOUT_UNDEFINED, initialLayout,
-			VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, dstStage,
-			0, dstAccessFlags);
+			0, dstAccessFlags,
+			VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, dstStage);
 	}
 
 	// Create the view while we're at it.

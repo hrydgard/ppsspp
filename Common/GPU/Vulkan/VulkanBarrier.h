@@ -55,9 +55,3 @@ private:
 	VkPipelineStageFlags dstStageMask_ = 0;
 	VkDependencyFlags dependencyFlags_ = 0;
 };
-
-// Detailed control, but just a single image. Use the barrier batch when possible.
-void TransitionImageLayout2(VkCommandBuffer cmd, VkImage image, int baseMip, int mipLevels, int numLayers, VkImageAspectFlags aspectMask,
-	VkImageLayout oldImageLayout, VkImageLayout newImageLayout,
-	VkPipelineStageFlags srcStageMask, VkPipelineStageFlags dstStageMask,
-	VkAccessFlags srcAccessMask, VkAccessFlags dstAccessMask);

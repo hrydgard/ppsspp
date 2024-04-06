@@ -419,7 +419,7 @@ private:
 
 	bool CheckLayers(const std::vector<LayerProperties> &layer_props, const std::vector<const char *> &layer_names) const;
 
-	WindowSystem winsys_;
+	WindowSystem winsys_{};
 
 	// Don't use the real types here to avoid having to include platform-specific stuff
 	// that we really don't want in everything that uses VulkanContext.
@@ -483,7 +483,7 @@ private:
 	std::vector<VkDebugUtilsMessengerEXT> utils_callbacks;
 
 	VkSwapchainKHR swapchain_ = VK_NULL_HANDLE;
-	VkFormat swapchainFormat_;
+	VkFormat swapchainFormat_ = VK_FORMAT_UNDEFINED;
 
 	uint32_t queue_count = 0;
 
@@ -492,7 +492,7 @@ private:
 	VkSurfaceCapabilitiesKHR surfCapabilities_{};
 	std::vector<VkSurfaceFormatKHR> surfFormats_{};
 
-	VkPresentModeKHR presentMode_;
+	VkPresentModeKHR presentMode_ = VK_PRESENT_MODE_FIFO_KHR;
 	std::vector<VkPresentModeKHR> availablePresentModes_;
 
 	std::vector<VkCommandBuffer> cmdQueue_;
@@ -515,6 +515,7 @@ bool GLSLtoSPV(const VkShaderStageFlagBits shader_type, const char *sourceCode, 
 const char *VulkanColorSpaceToString(VkColorSpaceKHR colorSpace);
 const char *VulkanFormatToString(VkFormat format);
 const char *VulkanPresentModeToString(VkPresentModeKHR presentMode);
+const char *VulkanImageLayoutToString(VkImageLayout imageLayout);
 
 std::string FormatDriverVersion(const VkPhysicalDeviceProperties &props);
 

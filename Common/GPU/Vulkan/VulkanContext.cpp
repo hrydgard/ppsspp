@@ -76,6 +76,20 @@ const char *VulkanPresentModeToString(VkPresentModeKHR presentMode) {
 	}
 }
 
+const char *VulkanImageLayoutToString(VkImageLayout imageLayout) {
+	switch (imageLayout) {
+	case VK_IMAGE_LAYOUT_UNDEFINED: return "UNDEFINED";
+	case VK_IMAGE_LAYOUT_GENERAL: return "GENERAL";
+	case VK_IMAGE_LAYOUT_PREINITIALIZED: return "PREINITIALIZED";
+	case VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL: return "TRANSFER_SRC_OPTIMAL";
+	case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL: return "TRANSFER_DST_OPTIMAL";
+	case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL: return "SHADER_READ_ONLY_OPTIMAL";
+	case VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL: return "COLOR_ATTACHMENT_OPTIMAL";
+	case VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL: return "DEPTH_STENCIL_ATTACHMENT_OPTIMAL";
+	default: return "OTHER";
+	}
+}
+
 VulkanContext::VulkanContext() {
 	// Do nothing here.
 }
