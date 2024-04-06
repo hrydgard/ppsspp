@@ -531,8 +531,10 @@ static void load_integration_callback(int result, const char *error_message, rc_
 		rc_client_raintegration_set_write_memory_function(g_rcClient, &raintegration_write_memory_handler);
 		rc_client_raintegration_set_get_game_name_function(g_rcClient, &raintegration_get_game_name_handler);
 
-		HWND hWnd = (HWND)userdata;
-		rc_client_raintegration_rebuild_submenu(g_rcClient, GetMenu(hWnd));
+		System_RunCallbackInWndProc([](void *vhWnd, void *userdata) {
+			HWND hWnd = reinterpret_cast<HWND>(vhWnd);
+			rc_client_raintegration_rebuild_submenu(g_rcClient, GetMenu(hWnd));
+		}, nullptr);
 		break;
 	}
 	case RC_MISSING_VALUE:
