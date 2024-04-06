@@ -86,6 +86,8 @@ enum class SystemRequestType {
 	GPS_COMMAND,
 	INFRARED_COMMAND,
 	MICROPHONE_COMMAND,
+
+	RUN_CALLBACK_IN_WNDPROC,
 };
 
 // Implementations are supposed to process the request, and post the response to the g_RequestManager (see Message.h).

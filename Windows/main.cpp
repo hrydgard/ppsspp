@@ -636,7 +636,13 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 	}
 	case SystemRequestType::CREATE_GAME_SHORTCUT:
 		return W32Util::CreateDesktopShortcut(param1, param2);
-
+	case SystemRequestType::RUN_CALLBACK_IN_WNDPROC:
+	{
+		auto func = reinterpret_cast<void (*)(void *window, void *userdata)>(param3);
+		void *userdata = reinterpret_cast<void *>(param4);
+		MainWindow::RunCallbackInWndProc(func, userdata);
+		return true;
+	}
 	default:
 		return false;
 	}
