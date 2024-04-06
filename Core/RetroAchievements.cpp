@@ -499,7 +499,10 @@ static void raintegration_event_handler(const rc_client_raintegration_event_t *e
 	case RC_CLIENT_RAINTEGRATION_EVENT_MENUITEM_CHECKED_CHANGED:
 		// The checked state of one of the menu items has changed and should be reflected in the UI.
 		// Call the handy helper function if the menu was created by rc_client_raintegration_rebuild_submenu.
-		rc_client_raintegration_update_menu_item(client, event->menu_item);
+		System_RunCallbackInWndProc([](void *vhWnd, void *userdata) {
+			auto menuItem = reinterpret_cast<const rc_client_raintegration_menu_item_t *>(userdata);
+			rc_client_raintegration_update_menu_item(g_rcClient, menuItem);
+		}, reinterpret_cast<void *>(reinterpret_cast<int64_t>(event->menu_item)));
 		break;
 	case RC_CLIENT_RAINTEGRATION_EVENT_PAUSE:
 		// The toolkit has hit a breakpoint and wants to pause the emulator. Do so.
