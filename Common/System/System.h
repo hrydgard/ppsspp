@@ -86,6 +86,8 @@ enum class SystemRequestType {
 	GPS_COMMAND,
 	INFRARED_COMMAND,
 	MICROPHONE_COMMAND,
+
+	RUN_CALLBACK_IN_WNDPROC,
 };
 
 // Implementations are supposed to process the request, and post the response to the g_RequestManager (see Message.h).
@@ -93,7 +95,7 @@ enum class SystemRequestType {
 // This can return false if it's known that the platform doesn't support the request, the app is supposed to handle
 // or ignore that cleanly.
 // Some requests don't use responses.
-bool System_MakeRequest(SystemRequestType type, int requestId, const std::string &param1, const std::string &param2, int param3);
+bool System_MakeRequest(SystemRequestType type, int requestId, const std::string &param1, const std::string &param2, int64_t param3, int64_t param4);
 
 PermissionStatus System_GetPermissionStatus(SystemPermission permission);
 void System_AskForPermission(SystemPermission permission);

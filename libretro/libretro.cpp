@@ -1709,7 +1709,7 @@ void System_Notify(SystemNotification notification) {
       break;
    }
 }
-bool System_MakeRequest(SystemRequestType type, int requestId, const std::string &param1, const std::string &param2, int param3) { return false; }
+bool System_MakeRequest(SystemRequestType type, int requestId, const std::string &param1, const std::string &param2, int64_t param3, int64_t param4) { return false; }
 void System_PostUIMessage(UIMessage message, const std::string &param) {}
 void NativeFrame(GraphicsContext *graphicsContext) {}
 void NativeResized() {}

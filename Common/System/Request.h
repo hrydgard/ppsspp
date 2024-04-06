@@ -27,7 +27,8 @@ public:
 	// The callback you pass in will be called on the main thread later.
 	// Params are at the end since it's the part most likely to recieve additions in the future,
 	// now that we have both callbacks.
-	bool MakeSystemRequest(SystemRequestType type, RequesterToken token, RequestCallback callback, RequestFailedCallback failedCallback, std::string_view param1, std::string_view param2, int param3);
+	// Pointers can be passed through param3 and param4 if needed, by casting.
+	bool MakeSystemRequest(SystemRequestType type, RequesterToken token, RequestCallback callback, RequestFailedCallback failedCallback, std::string_view param1, std::string_view param2, int64_t param3, int64_t param4 = 0);
 
 	// Called by the platform implementation, when it's finished with a request.
 	void PostSystemSuccess(int requestId, const char *responseString, int responseValue = 0);
@@ -174,6 +175,8 @@ inline bool System_SendDebugOutput(std::string_view string) {
 inline void System_SendDebugScreenshot(std::string_view data, int height) {
 	g_requestManager.MakeSystemRequest(SystemRequestType::SEND_DEBUG_SCREENSHOT, NO_REQUESTER_TOKEN, nullptr, nullptr, data, "", height);
 }
+
+void System_RunCallbackInWndProc(void (*callback)(void *, void *), void *userdata);
 
 // Non-inline to avoid including Path.h
 void System_CreateGameShortcut(const Path &path, std::string_view title);

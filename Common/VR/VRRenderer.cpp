@@ -295,13 +295,13 @@ bool VR_InitFrame( engine_t* engine ) {
 	}
 
 	// Update passthrough
-	if (passthroughRunning != VR_GetConfig(VR_CONFIG_PASSTHROUGH)) {
+	if (passthroughRunning != (VR_GetConfig(VR_CONFIG_PASSTHROUGH) != 0)) {
 		if (VR_GetConfig(VR_CONFIG_PASSTHROUGH)) {
 			OXR(xrPassthroughLayerResumeFB(passthroughLayer));
 		} else {
 			OXR(xrPassthroughLayerPauseFB(passthroughLayer));
 		}
-		passthroughRunning = VR_GetConfig(VR_CONFIG_PASSTHROUGH);
+		passthroughRunning = (VR_GetConfig(VR_CONFIG_PASSTHROUGH) != 0);
 	}
 
 	// NOTE: OpenXR does not use the concept of frame indices. Instead,

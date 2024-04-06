@@ -223,7 +223,7 @@ void System_Vibrate(int length_ms) {
 	// Ignore on PC
 }
 
-bool System_MakeRequest(SystemRequestType type, int requestId, const std::string &param1, const std::string &param2, int param3) {
+bool System_MakeRequest(SystemRequestType type, int requestId, const std::string &param1, const std::string &param2, int64_t param3, int64_t param4) {
 	switch (type) {
 	case SystemRequestType::RESTART_APP:
 		g_RestartRequested = true;

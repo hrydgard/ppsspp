@@ -460,7 +460,7 @@ void System_Notify(SystemNotification notification) {
 	}
 }
 
-bool System_MakeRequest(SystemRequestType type, int requestId, const std::string &param1, const std::string &param2, int param3) {
+bool System_MakeRequest(SystemRequestType type, int requestId, const std::string &param1, const std::string &param2, int64_t param3, int64_t param4) {
 	switch (type) {
 
 	case SystemRequestType::EXIT_APP:
@@ -478,7 +478,7 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 		ExecuteTask(error, Windows::ApplicationModel::Core::CoreApplication::RequestRestartAsync(nullptr));
 		if (error != Windows::ApplicationModel::Core::AppRestartFailureReason::RestartPending) {
 			// Shutdown
-			System_MakeRequest(SystemRequestType::EXIT_APP, requestId, param1, param2, param3);
+			System_MakeRequest(SystemRequestType::EXIT_APP, requestId, param1, param2, param3, param4);
 		}
 		return true;
 	}
