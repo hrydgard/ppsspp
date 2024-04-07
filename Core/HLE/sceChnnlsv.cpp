@@ -134,7 +134,7 @@ static int sub_15B0(u8* data, int alignedLen, u8* buf, int val)
 	return 0;
 }
 
-static int sub_0000(u8* data_out, u8* data, int alignedLen, u8* data2, int& data3, int mode)
+static int sub_0000(u8* data_out, u8* data, int alignedLen, const u8* data2, int& data3, int mode)
 {
 	memcpy(data_out+20, data2, 16);
 	// Mode 1:2 is 83, 3:4 is 87, 5:6 is 100
@@ -222,7 +222,7 @@ static int sceSdGetLastIndex(u32 addressCtx, u32 addressHash, u32 addressKey) {
 	return hleLogSuccessI(SCEMISC, sceSdGetLastIndex_(*ctx, hash, Memory::GetPointerWrite(addressKey)));
 }
 
-int sceSdGetLastIndex_(pspChnnlsvContext1& ctx, u8* in_hash, u8* in_key)
+int sceSdGetLastIndex_(pspChnnlsvContext1& ctx, u8* in_hash, const u8* in_key)
 {
 	if(ctx.keyLength >= 17)
 		return -1026;
@@ -348,7 +348,7 @@ static int sceSdRemoveValue(u32 addressCtx, u32 addressData, int length) {
 	return hleLogSuccessI(SCEMISC, sceSdRemoveValue_(*ctx, Memory::GetPointerWrite(addressData), length));
 }
 
-int sceSdRemoveValue_(pspChnnlsvContext1& ctx, u8* data, int length)
+int sceSdRemoveValue_(pspChnnlsvContext1& ctx, const u8* data, int length)
 {
 	if(ctx.keyLength >= 17)
 		return -1026;
@@ -400,7 +400,7 @@ static int sceSdCreateList(u32 ctx2Addr, int mode, int unkwn, u32 dataAddr, u32 
 	return hleLogSuccessI(SCEMISC, sceSdCreateList_(*ctx2, mode, unkwn, data, cryptkey));
 }
 
-int sceSdCreateList_(pspChnnlsvContext2& ctx2, int mode, int uknw, u8* data, u8* cryptkey)
+int sceSdCreateList_(pspChnnlsvContext2& ctx2, int mode, int uknw, u8* data, const u8* cryptkey)
 {
 	ctx2.mode = mode;
 	ctx2.unkn = 1;
