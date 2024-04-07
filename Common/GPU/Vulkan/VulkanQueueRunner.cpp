@@ -1090,10 +1090,9 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 				1,
 				iter.fb->numLayers,
 				VK_IMAGE_ASPECT_COLOR_BIT,
-				iter.fb->color.layout,
+				&iter.fb->color.layout,
 				iter.targetLayout
 			);
-			iter.fb->color.layout = iter.targetLayout;
 		} else if (iter.fb->depth.image != VK_NULL_HANDLE && (iter.aspect & (VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT)) && iter.fb->depth.layout != iter.targetLayout) {
 			recordBarrier_.TransitionImageAuto(
 				iter.fb->depth.image,
@@ -1101,10 +1100,9 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 				1,
 				iter.fb->numLayers,
 				VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT,
-				iter.fb->depth.layout,
+				&iter.fb->depth.layout,
 				iter.targetLayout
 			);
-			iter.fb->depth.layout = iter.targetLayout;
 		}
 	}
 

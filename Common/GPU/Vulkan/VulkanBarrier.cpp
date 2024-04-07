@@ -52,12 +52,12 @@ void VulkanBarrierBatch::TransitionImage(
 
 void VulkanBarrierBatch::TransitionImageAuto(
 	VkImage image, int baseMip, int numMipLevels, int numLayers, VkImageAspectFlags aspectMask,
-	VkImageLayout oldImageLayout, VkImageLayout newImageLayout) {
+	VkImageLayout *imageLayout, VkImageLayout newImageLayout) {
 	_dbg_assert_(image != VK_NULL_HANDLE);
 
 	VkAccessFlags srcAccessMask = 0;
 	VkAccessFlags dstAccessMask = 0;
-	switch (oldImageLayout) {
+	switch (*imageLayout) {
 	case VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL:
 		// Assert aspect here?
 		srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_COLOR_ATTACHMENT_READ_BIT;
@@ -84,7 +84,7 @@ void VulkanBarrierBatch::TransitionImageAuto(
 		srcStageMask_ |= VK_PIPELINE_STAGE_TRANSFER_BIT;
 		break;
 	default:
-		_assert_msg_(false, "Unexpected oldLayout: %d", (int)oldImageLayout);
+		_assert_msg_(false, "Unexpected oldLayout: %s", VulkanImageLayoutToString(*imageLayout));
 		break;
 	}
 
@@ -94,7 +94,7 @@ void VulkanBarrierBatch::TransitionImageAuto(
 		dstStageMask_ |= VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
 		break;
 	default:
-		_assert_msg_(false, "Unexpected newLayout: %d", (int)newImageLayout);
+		_assert_msg_(false, "Unexpected newLayout: %s", VulkanImageLayoutToString(newImageLayout));
 		break;
 	}
 
@@ -103,7 +103,7 @@ void VulkanBarrierBatch::TransitionImageAuto(
 	imageBarrier.pNext = nullptr;
 	imageBarrier.srcAccessMask = srcAccessMask;
 	imageBarrier.dstAccessMask = dstAccessMask;
-	imageBarrier.oldLayout = oldImageLayout;
+	imageBarrier.oldLayout = *imageLayout;
 	imageBarrier.newLayout = newImageLayout;
 	imageBarrier.image = image;
 	imageBarrier.subresourceRange.aspectMask = aspectMask;
@@ -113,4 +113,6 @@ void VulkanBarrierBatch::TransitionImageAuto(
 	imageBarrier.subresourceRange.baseArrayLayer = 0;
 	imageBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
 	imageBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+
+	*imageLayout = newImageLayout;
 }
