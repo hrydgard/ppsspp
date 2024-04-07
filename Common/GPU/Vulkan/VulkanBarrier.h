@@ -44,8 +44,8 @@ public:
 
 	// Automatically determines access and stage masks from layouts.
 	// Not universally usable, but works for PPSSPP's use.
-	void TransitionImageAuto(VkImage image, int baseMip, int numMipLevels, int numLayers, VkImageAspectFlags aspectMask,
-		VkImageLayout *imageLayout, VkImageLayout newImageLayout);
+	void TransitionColorImageAuto(VkImage image, VkImageLayout *imageLayout, VkImageLayout newImageLayout, int baseMip, int numMipLevels, int numLayers);
+	void TransitionDepthStencilImageAuto(VkImage image, VkImageLayout *imageLayout, VkImageLayout newImageLayout, int baseMip, int numMipLevels, int numLayers);
 
 	void Flush(VkCommandBuffer cmd);
 

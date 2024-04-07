@@ -1084,24 +1084,22 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 	for (size_t i = 0; i < step.preTransitions.size(); i++) {
 		const TransitionRequest &iter = step.preTransitions[i];
 		if (iter.aspect == VK_IMAGE_ASPECT_COLOR_BIT && iter.fb->color.layout != iter.targetLayout) {
-			recordBarrier_.TransitionImageAuto(
+			recordBarrier_.TransitionColorImageAuto(
 				iter.fb->color.image,
+				&iter.fb->color.layout,
+				iter.targetLayout,
 				0,
 				1,
-				iter.fb->numLayers,
-				VK_IMAGE_ASPECT_COLOR_BIT,
-				&iter.fb->color.layout,
-				iter.targetLayout
+				iter.fb->numLayers
 			);
 		} else if (iter.fb->depth.image != VK_NULL_HANDLE && (iter.aspect & (VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT)) && iter.fb->depth.layout != iter.targetLayout) {
-			recordBarrier_.TransitionImageAuto(
+			recordBarrier_.TransitionDepthStencilImageAuto(
 				iter.fb->depth.image,
+				&iter.fb->depth.layout,
+				iter.targetLayout,
 				0,
 				1,
-				iter.fb->numLayers,
-				VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT,
-				&iter.fb->depth.layout,
-				iter.targetLayout
+				iter.fb->numLayers
 			);
 		}
 	}
