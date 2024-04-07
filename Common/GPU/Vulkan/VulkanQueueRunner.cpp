@@ -1370,18 +1370,16 @@ void VulkanQueueRunner::PerformCopy(const VKRStep &step, VkCommandBuffer cmd) {
 
 	// First source barriers.
 	if (step.copy.aspectMask & VK_IMAGE_ASPECT_COLOR_BIT) {
-		SetupTransitionToTransferSrc(src->color, VK_IMAGE_ASPECT_COLOR_BIT, &recordBarrier_);
-		SetupTransitionToTransferDst(dst->color, VK_IMAGE_ASPECT_COLOR_BIT, &recordBarrier_);
+		recordBarrier_.TransitionColorImageAuto(&src->color, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
 	}
 
 	// We can't copy only depth or only stencil unfortunately - or can we?.
 	if (step.copy.aspectMask & (VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT)) {
 		_dbg_assert_(src->depth.image != VK_NULL_HANDLE);
 
-		SetupTransitionToTransferSrc(src->depth, VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT, &recordBarrier_);
+		recordBarrier_.TransitionDepthStencilImageAuto(&src->depth, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
 		if (dst->depth.layout != VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL) {
-			SetupTransitionToTransferDst(dst->depth, VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT, &recordBarrier_);
-			_dbg_assert_(dst->depth.layout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+			recordBarrier_.TransitionDepthStencilImageAuto(&dst->depth, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
 		} else {
 			// Kingdom Hearts: Subsequent copies twice to the same depth buffer without any other use.
 			// Not super sure how that happens, but we need a barrier to pass sync validation.
@@ -1395,17 +1393,17 @@ void VulkanQueueRunner::PerformCopy(const VKRStep &step, VkCommandBuffer cmd) {
 		// If both the targets are multisampled, copy the msaa targets too.
 		// For that, we need to transition them from their normally permanent VK_*_ATTACHMENT_OPTIMAL layouts, and then back.
 		if (step.copy.aspectMask & VK_IMAGE_ASPECT_COLOR_BIT) {
-			SetupTransitionToTransferSrc(src->msaaColor, VK_IMAGE_ASPECT_COLOR_BIT, &recordBarrier_);
+			recordBarrier_.TransitionColorImageAuto(&src->msaaColor, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
 			recordBarrier_.Flush(cmd);
-			SetupTransitionToTransferDst(dst->msaaColor, VK_IMAGE_ASPECT_COLOR_BIT, &recordBarrier_);
+			recordBarrier_.TransitionColorImageAuto(&dst->msaaColor, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
 			recordBarrier_.Flush(cmd);
 		}
 		if (step.copy.aspectMask & (VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT)) {
 			// Kingdom Hearts: Subsequent copies to the same depth buffer without any other use.
 			// Not super sure how that happens, but we need a barrier to pass sync validation.
-			SetupTransitionToTransferSrc(src->msaaDepth, VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT, &recordBarrier_);
+			recordBarrier_.TransitionDepthStencilImageAuto(&src->msaaDepth, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
 			recordBarrier_.Flush(cmd);
-			SetupTransitionToTransferDst(dst->msaaDepth, VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT, &recordBarrier_);
+			recordBarrier_.TransitionDepthStencilImageAuto(&dst->msaaDepth, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
 			recordBarrier_.Flush(cmd);
 		}
 	}
@@ -1526,16 +1524,16 @@ void VulkanQueueRunner::PerformBlit(const VKRStep &step, VkCommandBuffer cmd) {
 
 	// First source barriers.
 	if (step.blit.aspectMask & VK_IMAGE_ASPECT_COLOR_BIT) {
-		SetupTransitionToTransferSrc(src->color, VK_IMAGE_ASPECT_COLOR_BIT, &recordBarrier_);
-		SetupTransitionToTransferDst(dst->color, VK_IMAGE_ASPECT_COLOR_BIT, &recordBarrier_);
+		recordBarrier_.TransitionColorImageAuto(&src->color, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+		recordBarrier_.TransitionColorImageAuto(&dst->color, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
 	}
 
 	// We can't copy only depth or only stencil unfortunately.
 	if (step.blit.aspectMask & (VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT)) {
 		_assert_(src->depth.image != VK_NULL_HANDLE);
 		_assert_(dst->depth.image != VK_NULL_HANDLE);
-		SetupTransitionToTransferSrc(src->depth, VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT, &recordBarrier_);
-		SetupTransitionToTransferDst(dst->depth, VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT, &recordBarrier_);
+		recordBarrier_.TransitionDepthStencilImageAuto(&src->depth, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+		recordBarrier_.TransitionDepthStencilImageAuto(&dst->depth, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
 	}
 
 	recordBarrier_.Flush(cmd);
@@ -1762,16 +1760,14 @@ void VulkanQueueRunner::PerformReadback(const VKRStep &step, VkCommandBuffer cmd
 		VKRImage *srcImage;
 		if (step.readback.aspectMask & VK_IMAGE_ASPECT_COLOR_BIT) {
 			srcImage = &step.readback.src->color;
+			recordBarrier_.TransitionColorImageAuto(srcImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
 		} else if (step.readback.aspectMask & (VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT)) {
 			srcImage = &step.readback.src->depth;
+			recordBarrier_.TransitionDepthStencilImageAuto(srcImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
 			_dbg_assert_(srcImage->image != VK_NULL_HANDLE);
 		} else {
 			_dbg_assert_msg_(false, "No image aspect to readback?");
 			return;
-		}
-
-		if (srcImage->layout != VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL) {
-			SetupTransitionToTransferSrc(*srcImage, step.readback.aspectMask, &recordBarrier_);
 		}
 		image = srcImage->image;
 		copyLayout = srcImage->layout;
@@ -1831,12 +1827,8 @@ void VulkanQueueRunner::PerformReadback(const VKRStep &step, VkCommandBuffer cmd
 
 void VulkanQueueRunner::PerformReadbackImage(const VKRStep &step, VkCommandBuffer cmd) {
 	// TODO: Clean this up - just reusing `SetupTransitionToTransferSrc`.
-	VKRImage srcImage{};
-	srcImage.image = step.readback_image.image;
-	srcImage.layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-	srcImage.numLayers = 1;
-
-	SetupTransitionToTransferSrc(srcImage, VK_IMAGE_ASPECT_COLOR_BIT, &recordBarrier_);
+	VkImageLayout layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+	recordBarrier_.TransitionColorImageAuto(step.readback_image.image, &layout, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, 0, 1, 1);
 	recordBarrier_.Flush(cmd);
 
 	ResizeReadbackBuffer(&syncReadback_, sizeof(uint32_t) * step.readback_image.srcRect.extent.width * step.readback_image.srcRect.extent.height);
