@@ -931,78 +931,6 @@ void VulkanQueueRunner::LogReadbackImage(const VKRStep &step) {
 	INFO_LOG(G3D, "%s", StepToString(vulkan_, step).c_str());
 }
 
-static void TransitionColorFromOptimal(VkCommandBuffer cmd, VkImage colorImage, VkImageLayout colorLayout, int numLayers, VulkanBarrierBatch *recordBarrier) {
-	VkPipelineStageFlags dstStageMask = 0;
-	VkAccessFlags dstAccessMask = 0;
-	// And the final transition.
-	// Don't need to transition it if VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL.
-	switch (colorLayout) {
-	case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL:
-		dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-		dstStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-		break;
-	case VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL:
-		dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
-		dstStageMask = VK_PIPELINE_STAGE_TRANSFER_BIT;
-		break;
-	case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
-		dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
-		dstStageMask = VK_PIPELINE_STAGE_TRANSFER_BIT;
-		break;
-	case VK_IMAGE_LAYOUT_UNDEFINED:
-	case VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL:
-		// Nothing to do.
-		return;
-	default:
-		_dbg_assert_msg_(false, "TransitionFromOptimal: Unexpected final color layout %d", (int)colorLayout);
-		break;
-	}
-	recordBarrier->TransitionImage(
-		colorImage, 0, 1, numLayers, VK_IMAGE_ASPECT_COLOR_BIT,
-		VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-		colorLayout,
-		VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,  // srcAccessMask
-		dstAccessMask,
-		VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-		dstStageMask
-	);
-}
-
-static void TransitionDepthFromOptimal(VkCommandBuffer cmd, VkImage depthStencilImage, VkImageLayout depthStencilLayout, int numLayers, VulkanBarrierBatch *recordBarrier) {
-	VkPipelineStageFlags dstStageMask = 0;
-	VkAccessFlags dstAccessMask = 0;
-	switch (depthStencilLayout) {
-	case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL:
-		dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-		dstStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-		break;
-	case VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL:
-		dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
-		dstStageMask = VK_PIPELINE_STAGE_TRANSFER_BIT;
-		break;
-	case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
-		dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
-		dstStageMask = VK_PIPELINE_STAGE_TRANSFER_BIT;
-		break;
-	case VK_IMAGE_LAYOUT_UNDEFINED:
-	case VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL:
-		// Nothing to do.
-		return;
-	default:
-		_dbg_assert_msg_(false, "TransitionFromOptimal: Unexpected final depth layout %d", (int)depthStencilLayout);
-		break;
-	}
-	recordBarrier->TransitionImage(
-		depthStencilImage, 0, 1, numLayers, VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT,
-		VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
-		depthStencilLayout,
-		VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,  // srcAccessMask
-		dstAccessMask,
-		VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
-		dstStageMask
-	);
-}
-
 void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer cmd, int curFrame, QueueProfileContext &profile) {
 	for (size_t i = 0; i < step.preTransitions.size(); i++) {
 		const TransitionRequest &iter = step.preTransitions[i];
@@ -1303,9 +1231,9 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 
 	if (fb) {
 		// If the desired final layout aren't the optimal layout needed next, transition.
-		TransitionColorFromOptimal(cmd, fb->color.image, step.render.finalColorLayout, fb->numLayers, &recordBarrier_);
+		recordBarrier_.TransitionColorImageAuto(fb->color.image, &fb->color.layout, step.render.finalColorLayout, 0, 1, fb->numLayers);
 		if (fb->depth.image) {
-			TransitionDepthFromOptimal(cmd, fb->depth.image, step.render.finalDepthStencilLayout, fb->numLayers, &recordBarrier_);
+			recordBarrier_.TransitionDepthStencilImageAuto(fb->depth.image, &fb->depth.layout, step.render.finalDepthStencilLayout, 0, 1, fb->numLayers);
 		}
 		recordBarrier_.Flush(cmd);
 
