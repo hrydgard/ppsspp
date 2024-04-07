@@ -1008,6 +1008,7 @@ int SavedataParam::DecryptSave(unsigned int mode, unsigned char *data, int *data
 	return 0;
 }
 
+// Requires sfoData to be padded with zeroes to the next 16-byte boundary (due to BuildHash)
 int SavedataParam::UpdateHash(u8* sfoData, int sfoSize, int sfoDataParamsOffset, int encryptmode)
 {
 	int alignedLen = align16(sfoSize);
@@ -1057,8 +1058,9 @@ int SavedataParam::UpdateHash(u8* sfoData, int sfoSize, int sfoDataParamsOffset,
 	return 0;
 }
 
+// Requires sfoData to be padded with zeroes to the next 16-byte boundary.
 int SavedataParam::BuildHash(unsigned char *output,
-		unsigned char *data,
+		const unsigned char *data,
 		unsigned int len,
 		unsigned int alignedLen,
 		int mode,
@@ -1069,7 +1071,6 @@ int SavedataParam::BuildHash(unsigned char *output,
 	/* Set up buffers */
 	memset(&ctx1, 0, sizeof(pspChnnlsvContext1));
 	memset(output, 0, 0x10);
-	memset(data + len, 0, alignedLen - len);
 
 	/* Perform the magic */
 	if (sceSdSetIndex_(ctx1, mode & 0xFF) < 0)
