@@ -1635,9 +1635,6 @@ static u32 sceAtracGetNextSample(int atracID, u32 outNAddr) {
 			}
 			if (numSamples > atrac->SamplesPerFrame())
 				numSamples = atrac->SamplesPerFrame();
-			if (atrac->bufferState_ == ATRAC_STATUS_STREAMED_LOOP_FROM_END && (int)numSamples + atrac->currentSample_ > atrac->endSample_) {
-				atrac->bufferState_ = ATRAC_STATUS_ALL_DATA_LOADED;
-			}
 			if (Memory::IsValidAddress(outNAddr))
 				Memory::Write_U32(numSamples, outNAddr);
 			DEBUG_LOG(ME, "sceAtracGetNextSample(%i, %08x): %d samples left", atracID, outNAddr, numSamples);
