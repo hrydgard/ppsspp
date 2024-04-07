@@ -473,7 +473,7 @@ int SavedataParam::Save(SceUtilitySavedataParam* param, const std::string &saveD
 		u8 *data_ = param->dataBuf;
 
 		int aligned_len = align16(cryptedSize);
-		cryptedData = new u8[aligned_len + 0x10];
+		cryptedData = new u8[aligned_len + 0x10]{};
 		memcpy(cryptedData, data_, cryptedSize);
 
 		int decryptMode = DetermineCryptMode(param);
