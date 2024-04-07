@@ -55,7 +55,8 @@ public:
 		}
 	}
 
-	int GetDataOffset(const u8 *paramsfo, const std::string &dataName);
+	// If not found, returns a negative value.
+	int GetDataOffset(const u8 *paramsfo, const char *dataName);
 
 	void Clear();
 

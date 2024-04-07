@@ -375,6 +375,8 @@ private:
 	int DecryptSave(unsigned int mode, unsigned char *data, int *dataLen, int *alignedLen, unsigned char *cryptkey, const u8 *expectedHash);
 	int EncryptData(unsigned int mode, unsigned char *data, int *dataLen, int *alignedLen, unsigned char *hash, unsigned char *cryptkey);
 	int UpdateHash(u8* sfoData, int sfoSize, int sfoDataParamsOffset, int encryptmode);
+
+	// WARNING: this writes zeroes to data from len to alignedLen. This means that data must have space for the full alignedLen!
 	int BuildHash(unsigned char *output, unsigned char *data, unsigned int len,  unsigned int alignedLen, int mode, unsigned char *cryptkey);
 	int DetermineCryptMode(const SceUtilitySavedataParam *param) const;
 

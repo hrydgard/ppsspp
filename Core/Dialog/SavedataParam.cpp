@@ -145,7 +145,7 @@ namespace
 
 	int align16(int address)
 	{
-		return ((address + 0xF) >> 4) << 4;
+		return (address + 15) & ~15;
 	}
 
 	int GetSDKMainVersion(int sdkVersion)
@@ -537,10 +537,8 @@ int SavedataParam::Save(SceUtilitySavedataParam* param, const std::string &saveD
 	delete[] updatedList;
 
 	// Init param with 0. This will be used to detect crypted save or not on loading
-	u8 *tmpData = new u8[128];
-	memset(tmpData, 0, 128);
-	sfoFile->SetValue("SAVEDATA_PARAMS", tmpData, 128, 128);
-	delete[] tmpData;
+	u8 zeroes[128]{};
+	sfoFile->SetValue("SAVEDATA_PARAMS", zeroes, 128, 128);
 
 	u8 *sfoData;
 	size_t sfoSize;
