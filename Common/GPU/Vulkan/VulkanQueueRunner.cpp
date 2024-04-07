@@ -936,21 +936,13 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 		const TransitionRequest &iter = step.preTransitions[i];
 		if (iter.aspect == VK_IMAGE_ASPECT_COLOR_BIT && iter.fb->color.layout != iter.targetLayout) {
 			recordBarrier_.TransitionColorImageAuto(
-				iter.fb->color.image,
-				&iter.fb->color.layout,
-				iter.targetLayout,
-				0,
-				1,
-				iter.fb->numLayers
+				&iter.fb->color,
+				iter.targetLayout
 			);
 		} else if (iter.fb->depth.image != VK_NULL_HANDLE && (iter.aspect & (VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT)) && iter.fb->depth.layout != iter.targetLayout) {
 			recordBarrier_.TransitionDepthStencilImageAuto(
-				iter.fb->depth.image,
-				&iter.fb->depth.layout,
-				iter.targetLayout,
-				0,
-				1,
-				iter.fb->numLayers
+				&iter.fb->depth,
+				iter.targetLayout
 			);
 		}
 	}
@@ -1231,9 +1223,9 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 
 	if (fb) {
 		// If the desired final layout aren't the optimal layout needed next, transition.
-		recordBarrier_.TransitionColorImageAuto(fb->color.image, &fb->color.layout, step.render.finalColorLayout, 0, 1, fb->numLayers);
+		recordBarrier_.TransitionColorImageAuto(&fb->color, step.render.finalColorLayout);
 		if (fb->depth.image) {
-			recordBarrier_.TransitionDepthStencilImageAuto(fb->depth.image, &fb->depth.layout, step.render.finalDepthStencilLayout, 0, 1, fb->numLayers);
+			recordBarrier_.TransitionDepthStencilImageAuto(&fb->depth, step.render.finalDepthStencilLayout);
 		}
 		recordBarrier_.Flush(cmd);
 
@@ -1289,9 +1281,9 @@ VKRRenderPass *VulkanQueueRunner::PerformBindFramebufferAsRenderTarget(const VKR
 			fb->color.layout = VK_IMAGE_LAYOUT_GENERAL;
 		}
 
-		recordBarrier_.TransitionColorImageAuto(fb->color.image, &fb->color.layout, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, 0, 1, fb->numLayers);
+		recordBarrier_.TransitionColorImageAuto(&fb->color, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 		if (fb->depth.image) { // } && RenderPassTypeHasDepth(step.render.renderPassType)) {
-			recordBarrier_.TransitionDepthStencilImageAuto(fb->depth.image, &fb->depth.layout, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, 0, 1, fb->numLayers);
+			recordBarrier_.TransitionDepthStencilImageAuto(&fb->depth, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
 		}
 
 		// The transition from the optimal format happens after EndRenderPass, now that we don't

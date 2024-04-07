@@ -1,6 +1,7 @@
 #include "VulkanLoader.h"
 #include "VulkanContext.h"
 #include "VulkanBarrier.h"
+#include "VulkanFramebuffer.h"
 
 #include "Common/Log.h"
 
@@ -200,4 +201,12 @@ void VulkanBarrierBatch::TransitionDepthStencilImageAuto(
 	imageBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
 
 	*imageLayout = newImageLayout;
+}
+
+void VulkanBarrierBatch::TransitionColorImageAuto(VKRImage *image, VkImageLayout newImageLayout) {
+	TransitionColorImageAuto(image->image, &image->layout, newImageLayout, 0, 1, image->numLayers);
+}
+
+void VulkanBarrierBatch::TransitionDepthStencilImageAuto(VKRImage *image, VkImageLayout newImageLayout) {
+	TransitionDepthStencilImageAuto(image->image, &image->layout, newImageLayout, 0, 1, image->numLayers);
 }

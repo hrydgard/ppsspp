@@ -8,6 +8,7 @@
 #include "Common/Data/Collections/TinySet.h"
 
 class VulkanContext;
+struct VKRImage;
 
 class VulkanBarrierBatch {
 public:
@@ -46,6 +47,9 @@ public:
 	// Not universally usable, but works for PPSSPP's use.
 	void TransitionColorImageAuto(VkImage image, VkImageLayout *imageLayout, VkImageLayout newImageLayout, int baseMip, int numMipLevels, int numLayers);
 	void TransitionDepthStencilImageAuto(VkImage image, VkImageLayout *imageLayout, VkImageLayout newImageLayout, int baseMip, int numMipLevels, int numLayers);
+
+	void TransitionColorImageAuto(VKRImage *image, VkImageLayout newImageLayout);
+	void TransitionDepthStencilImageAuto(VKRImage *image, VkImageLayout newImageLayout);
 
 	void Flush(VkCommandBuffer cmd);
 
