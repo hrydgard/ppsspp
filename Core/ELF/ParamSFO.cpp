@@ -219,7 +219,7 @@ int ParamSFOData::GetDataOffset(const u8 *paramsfo, const std::string &dataName)
 	return -1;
 }
 
-bool ParamSFOData::WriteSFO(u8 **paramsfo, size_t *size) const {
+void ParamSFOData::WriteSFO(u8 **paramsfo, size_t *size) const {
 	size_t total_size = 0;
 	size_t key_size = 0;
 	size_t data_size = 0;
@@ -251,9 +251,10 @@ bool ParamSFOData::WriteSFO(u8 **paramsfo, size_t *size) const {
 	total_size += data_size;
 	*size = total_size;
 
-	u8* data = new u8[total_size];
+	size_t aligned_size = (total_size + 15) & ~15;
+	u8* data = new u8[aligned_size];
 	*paramsfo = data;
-	memset(data, 0, total_size);
+	memset(data, 0, aligned_size);
 	memcpy(data, &header, sizeof(Header));
 
 	// Now fill
@@ -300,8 +301,6 @@ bool ParamSFOData::WriteSFO(u8 **paramsfo, size_t *size) const {
 		index_ptr++;
 
 	}
-
-	return true;
 }
 
 void ParamSFOData::Clear() {
