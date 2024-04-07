@@ -21,7 +21,7 @@ For documentation of all kinds (usage, reference, development), see the [documen
 
 For build instructions and other development tutorials, see [the wiki](https://github.com/hrydgard/ppsspp/wiki).
 
-If you want to download regularly updated builds for Android, Windows x86 and x64, [visit Orphis' buildbot](https://buildbot.orphis.net/ppsspp/)
+To download fresh development builds for Android, Windows and Mac, [go to the /devbuilds page](https://www.ppsspp.org/devbuilds)
 
 For game compatibility, see [community compatibility feedback](https://report.ppsspp.org/games).
 
