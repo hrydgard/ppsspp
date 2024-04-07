@@ -125,7 +125,7 @@ body:
     attributes:
       label: Checklist
       options:
-        - label: "Test in the [latest git build](https://buildbot.orphis.net/ppsspp/) in case it's already fixed."
+        - label: "Test in the [latest git build](https://www.ppsspp.org/devbuilds) in case it's already fixed."
           required: true
         - label: "[Search for other reports](https://github.com/hrydgard/ppsspp/search?q=my+issue&type=issues) of the same issue."
           required: true

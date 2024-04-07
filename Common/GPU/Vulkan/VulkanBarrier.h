@@ -8,6 +8,7 @@
 #include "Common/Data/Collections/TinySet.h"
 
 class VulkanContext;
+struct VKRImage;
 
 class VulkanBarrierBatch {
 public:
@@ -16,6 +17,7 @@ public:
 
 	bool empty() const { return imageBarriers_.empty(); }
 
+	// TODO: Replace this with TransitionImage.
 	VkImageMemoryBarrier *Add(VkImage image, VkPipelineStageFlags srcStageMask, VkPipelineStageFlags dstStageMask, VkDependencyFlags dependencyFlags) {
 		srcStageMask_ |= srcStageMask;
 		dstStageMask_ |= dstStageMask;
@@ -44,8 +46,11 @@ public:
 
 	// Automatically determines access and stage masks from layouts.
 	// Not universally usable, but works for PPSSPP's use.
-	void TransitionImageAuto(VkImage image, int baseMip, int numMipLevels, int numLayers, VkImageAspectFlags aspectMask,
-		VkImageLayout oldImageLayout, VkImageLayout newImageLayout);
+	void TransitionColorImageAuto(VkImage image, VkImageLayout *imageLayout, VkImageLayout newImageLayout, int baseMip, int numMipLevels, int numLayers);
+	void TransitionDepthStencilImageAuto(VkImage image, VkImageLayout *imageLayout, VkImageLayout newImageLayout, int baseMip, int numMipLevels, int numLayers);
+
+	void TransitionColorImageAuto(VKRImage *image, VkImageLayout newImageLayout);
+	void TransitionDepthStencilImageAuto(VKRImage *image, VkImageLayout newImageLayout);
 
 	void Flush(VkCommandBuffer cmd);
 
