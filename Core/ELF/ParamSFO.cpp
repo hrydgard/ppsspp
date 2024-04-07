@@ -195,7 +195,7 @@ bool ParamSFOData::ReadSFO(const u8 *paramsfo, size_t size) {
 	return true;
 }
 
-int ParamSFOData::GetDataOffset(const u8 *paramsfo, const std::string &dataName) {
+int ParamSFOData::GetDataOffset(const u8 *paramsfo, const char *dataName) {
 	const Header *header = (const Header *)paramsfo;
 	if (header->magic != 0x46535000)
 		return -1;
@@ -210,7 +210,7 @@ int ParamSFOData::GetDataOffset(const u8 *paramsfo, const std::string &dataName)
 	for (u32 i = 0; i < header->index_table_entries; i++)
 	{
 		const char *key = (const char *)(key_start + indexTables[i].key_table_offset);
-		if (!strcmp(key, dataName.c_str()))
+		if (!strcmp(key, dataName))
 		{
 			return data_start + indexTables[i].data_table_offset;
 		}
