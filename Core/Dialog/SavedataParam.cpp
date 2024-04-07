@@ -581,16 +581,14 @@ int SavedataParam::Save(SceUtilitySavedataParam* param, const std::string &saveD
 		// copy back save name in request
 		strncpy(param->saveName, saveDirName.c_str(), 20);
 
-		if (fileName.empty()) {
-			delete[] cryptedData;
-		} else {
+		if (!fileName.empty()) {
 			if (!WritePSPFile(filePath, data_, saveSize)) {
 				ERROR_LOG(SCEUTILITY, "Error writing file %s", filePath.c_str());
 				delete[] cryptedData;
 				return SCE_UTILITY_SAVEDATA_ERROR_SAVE_MS_NOSPACE;
 			}
-			delete[] cryptedData;
 		}	
+		delete[] cryptedData;
 	}
 
 
@@ -1059,13 +1057,12 @@ int SavedataParam::UpdateHash(u8* sfoData, int sfoSize, int sfoDataParamsOffset,
 }
 
 // Requires sfoData to be padded with zeroes to the next 16-byte boundary.
-int SavedataParam::BuildHash(unsigned char *output,
-		const unsigned char *data,
+int SavedataParam::BuildHash(uint8_t *output,
+		const uint8_t *data,
 		unsigned int len,
 		unsigned int alignedLen,
 		int mode,
-		unsigned char *cryptkey)
-{
+		const uint8_t *cryptkey) {
 	pspChnnlsvContext1 ctx1;
 
 	/* Set up buffers */

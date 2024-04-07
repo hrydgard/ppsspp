@@ -21,6 +21,8 @@
 #include <mutex>
 #include <set>
 #include <unordered_map>
+#include <cstdint>
+
 #include "Common/CommonTypes.h"
 #include "Core/ELF/ParamSFO.h"
 #include "Core/MemMap.h"
@@ -377,7 +379,7 @@ private:
 	int UpdateHash(u8* sfoData, int sfoSize, int sfoDataParamsOffset, int encryptmode);
 
 	// data must be zero-padded from len to alignedLen!
-	int BuildHash(unsigned char *output, const unsigned char *data, unsigned int len, unsigned int alignedLen, int mode, unsigned char *cryptkey);
+	int BuildHash(uint8_t *output, const uint8_t *data, unsigned int len, unsigned int alignedLen, int mode, const uint8_t *cryptkey);
 	int DetermineCryptMode(const SceUtilitySavedataParam *param) const;
 
 	std::vector<SaveSFOFileListEntry> GetSFOEntries(const std::string &dirPath);
