@@ -1443,7 +1443,7 @@ VKRRenderPass *VulkanQueueRunner::PerformBindFramebufferAsRenderTarget(const VKR
 		}
 
 		TransitionColorToOptimal(cmd, fb->color.image, fb->color.layout, fb->numLayers, &recordBarrier_);
-		if (fb->depth.image && RenderPassTypeHasDepth(step.render.renderPassType)) {
+		if (fb->depth.image) { // } && RenderPassTypeHasDepth(step.render.renderPassType)) {
 			TransitionDepthToOptimal(cmd, fb->depth.image, fb->depth.layout, fb->numLayers, &recordBarrier_);
 		}
 
