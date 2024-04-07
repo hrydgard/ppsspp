@@ -56,14 +56,23 @@ void VulkanBarrierBatch::TransitionColorImageAuto(
 	VkAccessFlags srcAccessMask = 0;
 	VkAccessFlags dstAccessMask = 0;
 	switch (*imageLayout) {
-	case VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL:
-		// Assert aspect here?
-		srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_COLOR_ATTACHMENT_READ_BIT;
-		srcStageMask_ |= VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-		break;
 	case VK_IMAGE_LAYOUT_UNDEFINED:
 		srcAccessMask = 0;
 		srcStageMask_ |= VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+		break;
+	case VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL:
+		srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_COLOR_ATTACHMENT_READ_BIT;
+		srcStageMask_ |= VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+		break;
+	case VK_IMAGE_LAYOUT_GENERAL:
+		// We came from the Mali workaround, and are transitioning back to COLOR_ATTACHMENT_OPTIMAL.
+		srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+		srcStageMask_ |= VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+		break;
+	case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL:
+		// We only texture from images in the fragment shader, so can do this simply.
+		srcAccessMask = VK_ACCESS_SHADER_READ_BIT;
+		srcStageMask_ |= VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
 		break;
 	case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
 		srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
@@ -82,6 +91,18 @@ void VulkanBarrierBatch::TransitionColorImageAuto(
 	case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL:
 		dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
 		dstStageMask_ |= VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+		break;
+	case VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL:
+		dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+		dstStageMask_ |= VK_PIPELINE_STAGE_TRANSFER_BIT;
+		break;
+	case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
+		dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+		dstStageMask_ |= VK_PIPELINE_STAGE_TRANSFER_BIT;
+		break;
+	case VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL:
+		dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_COLOR_ATTACHMENT_READ_BIT;
+		dstStageMask_ |= VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
 		break;
 	default:
 		_assert_msg_(false, "Unexpected newLayout: %s", VulkanImageLayoutToString(newImageLayout));
@@ -114,14 +135,18 @@ void VulkanBarrierBatch::TransitionDepthStencilImageAuto(
 	VkAccessFlags srcAccessMask = 0;
 	VkAccessFlags dstAccessMask = 0;
 	switch (*imageLayout) {
-	case VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL:
-		// Assert aspect here?
-		srcAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT;
-		srcStageMask_ |= VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
-		break;
 	case VK_IMAGE_LAYOUT_UNDEFINED:
 		srcAccessMask = 0;
 		srcStageMask_ |= VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+		break;
+	case VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL:
+		srcAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT;
+		srcStageMask_ |= VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
+		break;
+	case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL:
+		// We only texture from images in the fragment shader, so can do this simply.
+		srcAccessMask = VK_ACCESS_SHADER_READ_BIT;
+		srcStageMask_ |= VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
 		break;
 	case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
 		srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
@@ -140,6 +165,18 @@ void VulkanBarrierBatch::TransitionDepthStencilImageAuto(
 	case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL:
 		dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
 		dstStageMask_ |= VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+		break;
+	case VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL:
+		dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+		dstStageMask_ |= VK_PIPELINE_STAGE_TRANSFER_BIT;
+		break;
+	case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
+		dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+		dstStageMask_ |= VK_PIPELINE_STAGE_TRANSFER_BIT;
+		break;
+	case VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL:
+		dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT;
+		dstStageMask_ |= VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
 		break;
 	default:
 		_assert_msg_(false, "Unexpected newLayout: %s", VulkanImageLayoutToString(newImageLayout));
