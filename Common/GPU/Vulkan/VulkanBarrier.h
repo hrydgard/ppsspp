@@ -17,6 +17,7 @@ public:
 
 	bool empty() const { return imageBarriers_.empty(); }
 
+	// TODO: Replace this with TransitionImage.
 	VkImageMemoryBarrier *Add(VkImage image, VkPipelineStageFlags srcStageMask, VkPipelineStageFlags dstStageMask, VkDependencyFlags dependencyFlags) {
 		srcStageMask_ |= srcStageMask;
 		dstStageMask_ |= dstStageMask;

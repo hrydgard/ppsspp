@@ -958,7 +958,6 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 	}
 
 	// Write-after-write hazards. Fixed flicker in God of War on ARM (before we added another fix that removed these).
-	// These aren't so common so not bothering to combine the barrier with the pretransition one.
 	if (step.render.framebuffer) {
 		int n = 0;
 		int stage = 0;
@@ -976,7 +975,7 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 				VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_COLOR_ATTACHMENT_READ_BIT,
 				VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
 				VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT
-				);
+			);
 		}
 		if (step.render.framebuffer->depth.image != VK_NULL_HANDLE && step.render.framebuffer->depth.layout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL) {
 			recordBarrier_.TransitionImage(
@@ -995,8 +994,8 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 		}
 	}
 
-	// This reads the layout of the color and depth images, and chooses a render pass using them that
-	// will transition to the desired final layout.
+	// This chooses a render pass according to the load/store attachment state. We no longer transition
+	// image layouts as part of the passes.
 	//
 	// NOTE: Unconditionally flushes recordBarrier_.
 	VKRRenderPass *renderPass = PerformBindFramebufferAsRenderTarget(step, cmd);
@@ -1282,7 +1281,9 @@ VKRRenderPass *VulkanQueueRunner::PerformBindFramebufferAsRenderTarget(const VKR
 		}
 
 		recordBarrier_.TransitionColorImageAuto(&fb->color, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-		if (fb->depth.image) { // } && RenderPassTypeHasDepth(step.render.renderPassType)) {
+
+		// If the render pass doesn't touch depth, we can avoid a layout transition of the depth buffer.
+		if (fb->depth.image && RenderPassTypeHasDepth(step.render.renderPassType)) {
 			recordBarrier_.TransitionDepthStencilImageAuto(&fb->depth, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
 		}
 
