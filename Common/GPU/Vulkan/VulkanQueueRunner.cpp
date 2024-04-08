@@ -1371,9 +1371,9 @@ void VulkanQueueRunner::PerformCopy(const VKRStep &step, VkCommandBuffer cmd) {
 	// TODO: If dst covers exactly the whole destination, we can set up a UNDEFINED->TRANSFER_DST_OPTIMAL transition,
 	// which can potentially be more efficient.
 
-	// First source barriers.
 	if (step.copy.aspectMask & VK_IMAGE_ASPECT_COLOR_BIT) {
 		recordBarrier_.TransitionColorImageAuto(&src->color, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+		recordBarrier_.TransitionColorImageAuto(&dst->color, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
 	}
 
 	// We can't copy only depth or only stencil unfortunately - or can we?.
@@ -1389,7 +1389,6 @@ void VulkanQueueRunner::PerformCopy(const VKRStep &step, VkCommandBuffer cmd) {
 			SetupTransferDstWriteAfterWrite(dst->depth, VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT, &recordBarrier_);
 		}
 	}
-	recordBarrier_.Flush(cmd);
 
 	bool multisampled = src->sampleCount != VK_SAMPLE_COUNT_1_BIT && dst->sampleCount != VK_SAMPLE_COUNT_1_BIT;
 	if (multisampled) {
@@ -1397,17 +1396,13 @@ void VulkanQueueRunner::PerformCopy(const VKRStep &step, VkCommandBuffer cmd) {
 		// For that, we need to transition them from their normally permanent VK_*_ATTACHMENT_OPTIMAL layouts, and then back.
 		if (step.copy.aspectMask & VK_IMAGE_ASPECT_COLOR_BIT) {
 			recordBarrier_.TransitionColorImageAuto(&src->msaaColor, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
-			recordBarrier_.Flush(cmd);
 			recordBarrier_.TransitionColorImageAuto(&dst->msaaColor, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-			recordBarrier_.Flush(cmd);
 		}
 		if (step.copy.aspectMask & (VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT)) {
 			// Kingdom Hearts: Subsequent copies to the same depth buffer without any other use.
 			// Not super sure how that happens, but we need a barrier to pass sync validation.
 			recordBarrier_.TransitionDepthStencilImageAuto(&src->msaaDepth, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
-			recordBarrier_.Flush(cmd);
 			recordBarrier_.TransitionDepthStencilImageAuto(&dst->msaaDepth, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-			recordBarrier_.Flush(cmd);
 		}
 	}
 
@@ -1511,6 +1506,7 @@ void VulkanQueueRunner::PerformCopy(const VKRStep &step, VkCommandBuffer cmd) {
 			);
 			dst->msaaDepth.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 		}
+		// Probably not necessary.
 		recordBarrier_.Flush(cmd);
 	}
 }
