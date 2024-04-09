@@ -254,6 +254,8 @@
     <ClInclude Include="..\..\ext\libpng17\pnglibconf.h" />
     <ClInclude Include="..\..\ext\libpng17\pngpriv.h" />
     <ClInclude Include="..\..\ext\libpng17\pngstruct.h" />
+    <ClInclude Include="..\..\ext\minimp3\minimp3.h" />
+    <ClInclude Include="..\..\ext\minimp3\minimp3_ex.h" />
     <ClInclude Include="..\..\ext\naett\naett.h" />
     <ClInclude Include="targetver.h" />
   </ItemGroup>
@@ -396,6 +398,7 @@
     <ClCompile Include="..\..\ext\libpng17\pngwrite.c" />
     <ClCompile Include="..\..\ext\libpng17\pngwtran.c" />
     <ClCompile Include="..\..\ext\libpng17\pngwutil.c" />
+    <ClCompile Include="..\..\ext\minimp3\minimp3.cpp" />
     <ClCompile Include="..\..\ext\naett\naett.c" />
   </ItemGroup>
   <ItemGroup>

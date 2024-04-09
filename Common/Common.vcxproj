@@ -399,6 +399,7 @@
     <ClInclude Include="..\ext\libpng17\pnglibconf.h" />
     <ClInclude Include="..\ext\libpng17\pngpriv.h" />
     <ClInclude Include="..\ext\libpng17\pngstruct.h" />
+    <ClInclude Include="..\ext\minimp3\minimp3.h" />
     <ClInclude Include="..\ext\naett\naett.h" />
     <ClInclude Include="..\ext\vma\vk_mem_alloc.h" />
     <ClInclude Include="ABI.h" />
@@ -832,6 +833,7 @@
       <ForcedIncludeFiles Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
       </ForcedIncludeFiles>
     </ClCompile>
+    <ClCompile Include="..\ext\minimp3\minimp3.cpp" />
     <ClCompile Include="..\ext\naett\naett.c" />
     <ClCompile Include="..\ext\vma\vk_mem_alloc.cpp" />
     <ClCompile Include="ABI.cpp" />

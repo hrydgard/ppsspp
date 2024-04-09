@@ -521,6 +521,9 @@
     <ClInclude Include="Math\CrossSIMD.h">
       <Filter>Math</Filter>
     </ClInclude>
+    <ClInclude Include="..\ext\minimp3\minimp3.h">
+      <Filter>ext\minimp3</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="ABI.cpp" />
@@ -975,6 +978,9 @@
     <ClCompile Include="GPU\Vulkan\VulkanDescSet.cpp">
       <Filter>GPU\Vulkan</Filter>
     </ClCompile>
+    <ClCompile Include="..\ext\minimp3\minimp3.cpp">
+      <Filter>ext\minimp3</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Crypto">
@@ -1084,6 +1090,9 @@
     </Filter>
     <Filter Include="ext\libchdr">
       <UniqueIdentifier>{b681797d-7747-487f-b448-5ef5b2d2805b}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ext\minimp3">
+      <UniqueIdentifier>{83cd76d0-d1ac-4ed1-9bdc-11fb5a20e5d3}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>

@@ -109,6 +109,9 @@ SPIRV_CROSS_FILES := \
 NAETT_FILES := \
   ${SRC}/ext/naett/naett.c
 
+MINIMP3_FILES := \
+    ${SRC}/ext/minimp3/minimp3.cpp
+
 RCHEEVOS_FILES := \
   ${SRC}/ext/rcheevos/src/rapi/rc_api_common.c \
   ${SRC}/ext/rcheevos/src/rapi/rc_api_editor.c \
@@ -217,6 +220,7 @@ EXEC_AND_LIB_FILES := \
   $(SPIRV_CROSS_FILES) \
   $(RCHEEVOS_FILES) \
   $(NAETT_FILES) \
+  $(MINIMP3_FILES) \
   $(EXT_FILES) \
   $(NATIVE_FILES) \
   $(SRC)/Common/Buffer.cpp \
