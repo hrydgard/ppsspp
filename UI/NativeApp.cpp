@@ -993,7 +993,17 @@ static void TakeScreenshot() {
 
 	bool success = TakeGameScreenshot(filename, g_Config.bScreenshotsAsPNG ? ScreenshotFormat::PNG : ScreenshotFormat::JPG, SCREENSHOT_OUTPUT);
 	if (success) {
-		g_OSD.Show(OSDType::MESSAGE_FILE_LINK, filename.ToString());
+		g_OSD.Show(OSDType::MESSAGE_FILE_LINK, filename.ToString(), 0.0f, "screenshot_link");
+		if (System_GetPropertyBool(SYSPROP_CAN_SHOW_FILE)) {
+			g_OSD.SetClickCallback("screenshot_link", [](bool clicked, void *data) -> void {
+				Path *path = reinterpret_cast<Path *>(data);
+				if (clicked) {
+					System_ShowFileInFolder(*path);
+				} else {
+					delete path;
+				}
+			}, new Path(filename));
+		}
 	} else {
 		auto err = GetI18NCategory(I18NCat::ERRORS);
 		g_OSD.Show(OSDType::MESSAGE_ERROR, err->T("Could not save screenshot file"));

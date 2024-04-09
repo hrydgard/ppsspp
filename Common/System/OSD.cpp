@@ -16,11 +16,10 @@ OnScreenDisplay::~OnScreenDisplay() {
 	std::lock_guard<std::mutex> guard(mutex_);
 
 	double now = time_now_d();
-	for (auto iter = entries_.begin(); iter != entries_.end(); ) {
-		if (iter->clickCallback) {
+	for (auto &iter : entries_) {
+		if (iter.clickCallback) {
 			// Wasn't clicked, but let it free any data.
-			iter->clickCallback(false, iter->clickUserData);
-			iter->clickCallback = nullptr;
+			iter.clickCallback(false, iter.clickUserData);
 		}
 	}
 }
@@ -65,7 +64,6 @@ void OnScreenDisplay::ClickEntry(size_t index, double now) {
 		entries_[index].endTime = std::min(now + FadeoutTime(), entries_[index].endTime);
 		if (entries_[index].clickCallback) {
 			entries_[index].clickCallback(true, entries_[index].clickUserData);
-			entries_[index].clickCallback = nullptr;
 		}
 	}
 }
@@ -321,10 +319,13 @@ void OnScreenDisplay::ClearAchievementStuff() {
 	}
 }
 
-void OnScreenDisplay::SetClickCallback(const char *id, void (*callback)(bool, void *)) {
+void OnScreenDisplay::SetClickCallback(const char *id, void (*callback)(bool, void *), void *userdata) {
+	_dbg_assert_(callback != nullptr);
 	for (auto &ent : entries_) {
-		if (ent.id == id) {
+		// protect against dupes.
+		if (ent.id == id && !ent.clickCallback) {
 			ent.clickCallback = callback;
+			ent.clickUserData = userdata;
 		}
 	}
 }

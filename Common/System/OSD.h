@@ -75,7 +75,7 @@ public:
 	void ClearAchievementStuff();
 
 	// Can't add an infinite number of "Show" functions, so starting to offer post-modification.
-	void SetClickCallback(const char *id, void (*callback)(bool, void *));
+	void SetClickCallback(const char *id, void (*callback)(bool, void *), void *userdata);
 
 	struct Entry {
 		OSDType type;

@@ -873,11 +873,11 @@ void SystemInfoScreen::CreateInternalsTab(UI::ViewGroup *internals) {
 	// This one is clickable
 	internals->Add(new Choice(si->T("Success")))->OnClick.Add([&](UI::EventParams &) {
 		g_OSD.Show(OSDType::MESSAGE_SUCCESS, "Success", 0.0f, "clickable");
-		g_OSD.SetClickCallback("clickable", [](bool clicked, void*) {
+		g_OSD.SetClickCallback("clickable", [](bool clicked, void *) {
 			if (clicked) {
 				System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://www.google.com/");
 			}
-		});
+		}, nullptr);
 		return UI::EVENT_DONE;
 	});
 	internals->Add(new Choice(sy->T("RetroAchievements")))->OnClick.Add([&](UI::EventParams &) {

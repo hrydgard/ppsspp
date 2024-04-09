@@ -714,7 +714,7 @@ public:
 		bool success = WriteTextureToPNG(&png, saveFilename, 0, rgbaData.data(), pitch, nullptr);
 		png_image_free(&png);
 		if (png.warning_or_error >= 2) {
-			ERROR_LOG(G3D, "Saving screenshot to PNG produced errors.");
+			ERROR_LOG(G3D, "Saving texture to PNG produced errors.");
 		} else if (success) {
 			NOTICE_LOG(G3D, "Saving texture for replacement: %08x / %dx%d in '%s'", replacedInfoHash, w, h, saveFilename.ToVisualString().c_str());
 		} else {
