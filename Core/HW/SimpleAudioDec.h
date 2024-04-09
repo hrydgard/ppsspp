@@ -118,13 +118,6 @@ public:
 	u32 AuGetLoopNum();
 
 	u32 AuGetInfoToAddStreamData(u32 bufPtr, u32 sizePtr, u32 srcPosPtr);
-	u32 AuGetMaxOutputSample() const { return MaxOutputSample; }
-	u32 AuGetSumDecodedSample() const { return SumDecodedSamples; }
-	int AuGetChannelNum() const { return Channels; }
-	int AuGetBitRate() const { return BitRate; }
-	int AuGetSamplingRate() const { return SamplingRate; }
-	int AuGetVersion() const { return Version; }
-	int AuGetFrameNum() const { return FrameNum; }
 
 	void SetReadPos(int pos) { readPos = pos; }
 	int ReadPos() { return readPos;  }

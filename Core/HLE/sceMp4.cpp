@@ -368,7 +368,7 @@ static u32 sceAacGetMaxOutputSample(u32 id)
 		return -1;
 	}
 
-	return ctx->AuGetMaxOutputSample();
+	return ctx->MaxOutputSample;
 }
 
 static u32 sceAacGetSumDecodedSample(u32 id)
@@ -380,7 +380,7 @@ static u32 sceAacGetSumDecodedSample(u32 id)
 		return -1;
 	}
 
-	return ctx->AuGetSumDecodedSample();
+	return ctx->SumDecodedSamples;
 }
 
 static u32 sceAacResetPlayPosition(u32 id)
