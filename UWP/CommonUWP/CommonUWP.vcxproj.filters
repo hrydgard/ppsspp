@@ -97,6 +97,9 @@
     <Filter Include="ext\naett">
       <UniqueIdentifier>{403c3154-5e8a-4da1-ba82-8f69bef25e14}</UniqueIdentifier>
     </Filter>
+    <Filter Include="ext\minimp3">
+      <UniqueIdentifier>{7b5c3ddc-225d-48d5-a829-9a1e71e304be}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\Common\ABI.cpp" />
@@ -455,6 +458,9 @@
     </ClCompile>
     <ClCompile Include="..\..\ext\naett\naett.c">
       <Filter>ext\naett</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\minimp3\minimp3.cpp">
+      <Filter>ext\minimp3</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -864,6 +870,12 @@
     </ClInclude>
     <ClInclude Include="..\..\Common\Math\CrossSIMD.h">
       <Filter>Math</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\minimp3\minimp3.h">
+      <Filter>ext\minimp3</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\minimp3\minimp3_ex.h">
+      <Filter>ext\minimp3</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
