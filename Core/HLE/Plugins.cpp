@@ -178,6 +178,11 @@ bool Load() {
 	auto sy = GetI18NCategory(I18NCat::SYSTEM);
 
 	for (const std::string &filename : prxPlugins) {
+		if (!g_Config.bEnablePlugins) {
+			WARN_LOG(SYSTEM, "Plugins are disabled, ignoring enabled plugin %s", filename.c_str());
+			continue;
+		}
+
 		std::string error_string = "";
 		SceUID module = KernelLoadModule(filename, &error_string);
 		if (!error_string.empty() || module < 0) {
