@@ -279,15 +279,7 @@ bool SimpleAudio::Decode(const uint8_t *inbuf, int inbytes, uint8_t *outbuf, int
 #endif  // USE_FFMPEG
 }
 
-int SimpleAudio::GetOutSamples() {
-	return outSamples;
-}
-
-int SimpleAudio::GetSourcePos() {
-	return srcPos;
-}
-
-void AudioClose(SimpleAudio **ctx) {
+void AudioClose(AudioDecoder **ctx) {
 #ifdef USE_FFMPEG
 	delete *ctx;
 	*ctx = 0;

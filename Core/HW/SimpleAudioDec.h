@@ -48,16 +48,33 @@ enum {
 	PSP_CODEC_AAC = 0x00001003,
 };
 
-class SimpleAudio {
+class AudioDecoder {
+public:
+	virtual ~AudioDecoder() {}
+
+	virtual bool Decode(const uint8_t* inbuf, int inbytes, uint8_t *outbuf, int *outbytes) = 0;
+	virtual bool IsOK() const = 0;
+
+	virtual int GetOutSamples() const = 0;
+	virtual int GetSourcePos() const = 0;
+};
+
+// FFMPEG-based decoder
+class SimpleAudio : public AudioDecoder {
 public:
 	SimpleAudio(int audioType, int sample_rate = 44100, int channels = 2);
 	~SimpleAudio();
 
-	bool Decode(const uint8_t* inbuf, int inbytes, uint8_t *outbuf, int *outbytes);
-	bool IsOK() const;
+	bool Decode(const uint8_t* inbuf, int inbytes, uint8_t *outbuf, int *outbytes) override;
+	bool IsOK() const override;
 
-	int GetOutSamples();
-	int GetSourcePos();
+	int GetOutSamples() const override {
+		return outSamples;
+	}
+	int GetSourcePos() const override {
+		return srcPos;
+	}
+
 	int GetAudioCodecID(int audioType); // Get audioCodecId from audioType
 
 	// Not save stated, only used by UI.  Used for ATRAC3 (non+) files.
@@ -94,7 +111,7 @@ private:
 	bool codecOpen_;
 };
 
-void AudioClose(SimpleAudio **ctx);
+void AudioClose(AudioDecoder **ctx);
 const char *GetCodecName(int codec);  // audioType
 bool IsValidCodec(int codec);
 
@@ -151,7 +168,7 @@ public:
 	int FrameNum = 0;
 
 	// Au decoder
-	SimpleAudio *decoder = nullptr;
+	AudioDecoder *decoder = nullptr;
 
 	// Au type
 	int audioType = 0;
