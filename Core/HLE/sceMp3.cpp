@@ -496,9 +496,6 @@ static int sceMp3Init(u32 mp3) {
 
 	ctx->Version = versionBits;
 
-	// This tells us to resample to the same frequency it decodes to.
-	ctx->decoder->SetResampleFrequency(ctx->freq);
-
 	return hleDelayResult(hleLogSuccessI(ME, 0), "mp3 init", PARSE_DELAY_MS);
 }
 

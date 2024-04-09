@@ -67,7 +67,6 @@ public:
 
 	// These two are only here because of save states.
 	int GetAudioType() const { return audioType; }
-	void SetResampleFrequency(int freq) { wanted_resample_freq = freq; }
 
 	// Just metadata.
 	void SetCtxPtr(u32 ptr) { ctxPtr = ptr;  }
@@ -83,7 +82,6 @@ private:
 	int channels_;
 	int outSamples; // output samples per frame
 	int srcPos; // bytes consumed in source during the last decoding
-	int wanted_resample_freq; // wanted resampling rate/frequency
 
 	AVFrame *frame_;
 #if HAVE_LIBAVCODEC_CONST_AVCODEC // USE_FFMPEG is implied
@@ -139,7 +137,8 @@ public:
 	u32 AuBufSize = 0;
 	u32 PCMBuf = 0;
 	u32 PCMBufSize = 0;
-	int freq = -1;
+
+	int freq = -1;  // used by AAC only?
 	int BitRate = 0;
 	int SamplingRate = -1;
 	int Channels = 0;

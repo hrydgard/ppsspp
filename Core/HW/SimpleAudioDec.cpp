@@ -58,7 +58,7 @@ int SimpleAudio::GetAudioCodecID(int audioType) {
 
 SimpleAudio::SimpleAudio(int audioType, int sample_rate, int channels)
 : ctxPtr(0xFFFFFFFF), audioType(audioType), sample_rate_(sample_rate), channels_(channels),
-  outSamples(0), srcPos(0), wanted_resample_freq(44100), frame_(0), codec_(0), codecCtx_(0), swrCtx_(0),
+  outSamples(0), srcPos(0), frame_(0), codec_(0), codecCtx_(0), swrCtx_(0),
   codecOpen_(false) {
 	Init();
 }
@@ -238,7 +238,7 @@ bool SimpleAudio::Decode(const uint8_t *inbuf, int inbytes, uint8_t *outbuf, int
 				swrCtx_,
 				wanted_channel_layout,
 				AV_SAMPLE_FMT_S16,
-				wanted_resample_freq,
+				codecCtx_->sample_rate,
 				dec_channel_layout,
 				codecCtx_->sample_fmt,
 				codecCtx_->sample_rate,
