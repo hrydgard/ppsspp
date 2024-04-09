@@ -46,7 +46,7 @@ AudioFileChooser::AudioFileChooser(RequesterToken token, std::string *value, std
 			g_BackgroundAudio.SFX().UpdateSample(sound, sample);
 		} else {
 			auto au = GetI18NCategory(I18NCat::AUDIO);
-			g_OSD.Show(OSDType::MESSAGE_ERROR, au->T("Audio file format not supported. Must be WAV."));
+			g_OSD.Show(OSDType::MESSAGE_ERROR, au->T("Audio file format not supported. Must be WAV or MP3."));
 			value->clear();
 		}
 		return UI::EVENT_DONE;
