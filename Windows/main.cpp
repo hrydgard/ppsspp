@@ -578,7 +578,7 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 			filter = MakeFilter(L"Cheat db files (*.db)|*.db|All files (*.*)|*.*||");
 			break;
 		case BrowseFileType::SOUND_EFFECT:
-			filter = MakeFilter(L"WAVE files (*.wav)|*.wav|All files (*.*)|*.*||");
+			filter = MakeFilter(L"Sound effect files (*.wav *.mp3)|*.wav;*.mp3|All files (*.*)|*.*||");
 			break;
 		case BrowseFileType::ANY:
 			filter = MakeFilter(L"All files (*.*)|*.*||");
