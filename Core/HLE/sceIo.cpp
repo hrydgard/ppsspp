@@ -2602,16 +2602,15 @@ int __IoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 out
 		pspFileSystem.ReadFile(f->handle, pgd_header, 0x90);
 		f->pgdInfo = pgd_open(pgd_header, 2, key_ptr);
 		if (!f->pgdInfo) {
-			ERROR_LOG(SCEIO, "Not a valid PGD file. Examining.");
 			f->npdrm = false;
 			pspFileSystem.SeekFile(f->handle, (s32)0, FILEMOVE_BEGIN);
 			if (memcmp(pgd_header, pgd_magic, 4) == 0) {
-				ERROR_LOG(SCEIO, "File is PGD file, but there's likely a key mismatch. Returning error.");
+				ERROR_LOG(SCEIO, "%s is PGD file, but there's likely a key mismatch. Returning error.", f->fullpath.c_str());
 				// File is PGD file, but key mismatch
 				return ERROR_PGD_INVALID_HEADER;
 			} else {
-				WARN_LOG(SCEIO, "File is not encrypted, proceeding.");
-				// File is decrypted.
+				INFO_LOG(SCEIO, "%s is not an encrypted PGD file as was expected. Proceeding.", f->fullpath.c_str());
+				// File is not encrypted.
 				return 0;
 			}
 		} else {
