@@ -40,6 +40,7 @@
 #include "float_dsp.h"
 #include "bytestream.h"
 #include "fft.h"
+#include "internal.h"
 #include "get_bits.h"
 
 #include "avcodec.h"
@@ -161,8 +162,8 @@ static int decode_bytes(const uint8_t *input, uint8_t *out, int bytes)
     for (i = 0; i < bytes / 4; i++)
         output[i] = c ^ buf[i];
 
-    if (off)
-        avpriv_request_sample(NULL, "Offset of %d", off);
+    //if (off)
+    //    avpriv_request_sample(NULL, "Offset of %d", off);
 
     return off;
 }
@@ -729,12 +730,8 @@ static int decode_frame(AVCodecContext *avctx, const uint8_t *databuf,
     return 0;
 }
 
-static int atrac3_decode_frame(AVCodecContext *avctx, void *data,
-                               int *got_frame_ptr, AVPacket *avpkt)
+int atrac3_decode_frame(AVCodecContext *avctx, AVFrame *frame, int *got_frame_ptr, const uint8_t *buf, int buf_size)
 {
-    AVFrame *frame     = data;
-    const uint8_t *buf = avpkt->data;
-    int buf_size = avpkt->size;
     ATRAC3Context *q = avctx->priv_data;
     int ret;
     const uint8_t *databuf;
@@ -787,9 +784,10 @@ static av_cold void atrac3_init_static_data(void)
     }
 }
 
+static int static_init_done;
+
 static av_cold int atrac3_decode_init(AVCodecContext *avctx)
 {
-    static int static_init_done;
     int i, ret;
     int version, delay, samples_per_frame, frame_factor;
     const uint8_t *edata_ptr = avctx->extradata;
@@ -923,10 +921,9 @@ static av_cold int atrac3_decode_init(AVCodecContext *avctx)
     return 0;
 }
 
-/*
 AVCodec ff_atrac3_decoder = {
     .name             = "atrac3",
-    .long_name        = NULL_IF_CONFIG_SMALL("ATRAC3 (Adaptive TRansform Acoustic Coding 3)"),
+    .long_name        = "ATRAC3 (Adaptive TRansform Acoustic Coding 3)",
     .type             = AVMEDIA_TYPE_AUDIO,
     .id               = AV_CODEC_ID_ATRAC3,
     .priv_data_size   = sizeof(ATRAC3Context),
@@ -937,4 +934,3 @@ AVCodec ff_atrac3_decoder = {
     .sample_fmts      = (const enum AVSampleFormat[]) { AV_SAMPLE_FMT_FLTP,
                                                         AV_SAMPLE_FMT_NONE },
 };
-*/

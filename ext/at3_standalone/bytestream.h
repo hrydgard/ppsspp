@@ -26,6 +26,7 @@
 #include <stdint.h>
 #include <string.h>
 
+#include "common.h"
 #include "intreadwrite.h"
 
 typedef struct GetByteContext {

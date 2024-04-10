@@ -144,14 +144,15 @@ private:
 	bool codecOpen_;
 };
 
-// TODO: This should also be able to create other types of decoders.
 AudioDecoder *CreateAudioDecoder(PSPAudioType audioType, int sampleRateHz, int channels) {
 	switch (audioType) {
 	case PSP_CODEC_MP3:
 		return new MiniMp3Audio();
+	case PSP_CODEC_AT3:
 	case PSP_CODEC_AT3PLUS:
 		return CreateAtrac3Audio(audioType);
 	default:
+		// Only AAC falls back to FFMPEG now.
 		return new SimpleAudio(audioType, sampleRateHz, channels);
 	}
 }

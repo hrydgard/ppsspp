@@ -17,11 +17,15 @@ inline int16_t clamp16(float f) {
 }
 
 // Uses our standalone AT3/AT3+ decoder derived from FFMPEG
+// Test case for ATRAC3: Mega Man Maverick Hunter X, PSP menu sound
 class Atrac3Audio : public AudioDecoder {
 public:
-	Atrac3Audio(PSPAudioType audioType) {
-		ctx_ = avcodec_alloc_context3(&ff_atrac3p_decoder);
-		// int retval = atrac3p_decode_init(ctx_);
+	Atrac3Audio(PSPAudioType audioType) : audioType_(audioType) {
+		if (audioType == PSP_CODEC_AT3PLUS) {
+			ctx_ = avcodec_alloc_context3(&ff_atrac3p_decoder);
+		} else {
+			ctx_ = avcodec_alloc_context3(&ff_atrac3_decoder);
+		}
 		frame_ = av_frame_alloc();
 	}
 	~Atrac3Audio() {
@@ -38,7 +42,12 @@ public:
 			ctx_->channels = 2;
 			ctx_->channel_layout = ctx_->channels == 2 ? AV_CH_LAYOUT_STEREO : AV_CH_LAYOUT_MONO;
 			ctx_->sample_rate = 44100;
-			int retval = avcodec_open2(ctx_, &ff_atrac3p_decoder, nullptr);
+			int retval;
+			if (audioType_ == PSP_CODEC_AT3PLUS) {
+				retval = avcodec_open2(ctx_, &ff_atrac3p_decoder, nullptr);
+			} else {
+				retval = avcodec_open2(ctx_, &ff_atrac3_decoder, nullptr);
+			}
 			_dbg_assert_(retval >= 0);
 			if (retval < 0) {
 				return false;
@@ -46,8 +55,14 @@ public:
 			codecOpen_ = true;
 		}
 
+		// We just call the decode function directly without going through the whole packet machinery.
 		int got_frame = 0;
-		int result = atrac3p_decode_frame(ctx_, frame_, &got_frame, inbuf, inbytes);
+		int result;
+		if (audioType_ == PSP_CODEC_AT3PLUS) {
+			result = atrac3p_decode_frame(ctx_, frame_, &got_frame, inbuf, inbytes);
+		} else {
+			result = atrac3_decode_frame(ctx_, frame_, &got_frame, inbuf, inbytes);
+		}
 		if (result < 0) {
 			*outbytes = 0;
 			return false;
@@ -85,15 +100,17 @@ public:
 	}
 
 	void SetExtraData(const uint8_t *data, int size, int wav_bytes_per_packet) {
-		_dbg_assert_(ctx_);
-		_dbg_assert_(!codecOpen_);
-		ctx_->extradata = (uint8_t *)av_mallocz(size);
-		ctx_->extradata_size = size;
-		ctx_->block_align = wav_bytes_per_packet;
-		codecOpen_ = false;
-		if (data != nullptr) {
-			memcpy(ctx_->extradata, data, size);
-		}
+		// if (audioType_ == PSP_CODEC_AT3PLUS) {
+			_dbg_assert_(ctx_);
+			_dbg_assert_(!codecOpen_);
+			ctx_->extradata = (uint8_t *)av_mallocz(size);
+			ctx_->extradata_size = size;
+			ctx_->block_align = wav_bytes_per_packet;
+			codecOpen_ = false;
+			if (data != nullptr) {
+				memcpy(ctx_->extradata, data, size);
+			}
+		//}
 	}
 
 	PSPAudioType GetAudioType() const override { return audioType_; }
