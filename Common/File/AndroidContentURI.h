@@ -22,7 +22,7 @@ private:
 	std::string root;
 	std::string file;
 public:
-	AndroidContentURI() {}
+	AndroidContentURI() = default;
 	explicit AndroidContentURI(std::string_view path) {
 		Parse(path);
 	}

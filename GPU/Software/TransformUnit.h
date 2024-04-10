@@ -45,7 +45,7 @@ enum class CullType {
 
 struct ScreenCoords
 {
-	ScreenCoords() {}
+	ScreenCoords() = default;
 	ScreenCoords(int x, int y, u16 z) : x(x), y(y), z(z) {}
 
 	int x;
@@ -71,7 +71,7 @@ struct ScreenCoords
 };
 
 struct DrawingCoords {
-	DrawingCoords() {}
+	DrawingCoords() = default;
 	DrawingCoords(s16 x, s16 y) : x(x), y(y) {}
 
 	s16 x;

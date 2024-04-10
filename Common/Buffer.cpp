@@ -7,8 +7,8 @@
 #include "Common/File/Path.h"
 #include "Common/Log.h"
 
-Buffer::Buffer() { }
-Buffer::~Buffer() { }
+Buffer::Buffer() = default;
+Buffer::~Buffer() = default;
 
 char *Buffer::Append(size_t length) {
 	if (length > 0) {

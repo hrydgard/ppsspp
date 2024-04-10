@@ -55,9 +55,8 @@ PortManager::PortManager():
 	// Don't call net::Init or similar here, we don't want stuff like that to happen before main.
 }
 
-PortManager::~PortManager() {
-	// FIXME: On Windows it seems using any UPnP functions in this destructor that gets triggered when exiting PPSSPP will resulting to UPNPCOMMAND_HTTP_ERROR due to early WSACleanup (miniupnpc was getting WSANOTINITIALISED internally)
-}
+PortManager::~PortManager() = default;
+// FIXME: On Windows it seems using any UPnP functions in this destructor that gets triggered when exiting PPSSPP will resulting to UPNPCOMMAND_HTTP_ERROR due to early WSACleanup (miniupnpc was getting WSANOTINITIALISED internally)
 
 void PortManager::Shutdown() {
 	Clear();

@@ -14,8 +14,7 @@ JsonWriter::JsonWriter(int flags) {
 	str_.precision(53);
 }
 
-JsonWriter::~JsonWriter() {
-}
+JsonWriter::~JsonWriter() = default;
 
 void JsonWriter::begin() {
 	str_ << "{";

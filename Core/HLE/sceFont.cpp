@@ -152,8 +152,7 @@ enum FontOpenMode {
 class Font {
 public:
 	// For savestates only.
-	Font() {
-	}
+	Font() = default;
 
 	Font(const u8 *data, size_t dataSize) {
 		Init(data, dataSize);
@@ -488,9 +487,7 @@ struct FontImageRect {
 // One can open either "internal" fonts or custom fonts into a fontlib.
 class FontLib {
 public:
-	FontLib() {
-		// For save states only.
-	}
+	FontLib() = default;
 
 	FontLib(FontNewLibParams *params, u32 errorCodePtr) {
 		params_ = *params;

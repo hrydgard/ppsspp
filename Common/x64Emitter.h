@@ -157,7 +157,7 @@ class XEmitter;
 // RIP addressing does not benefit from micro op fusion on Core arch
 struct OpArg
 {
-	OpArg() {}  // dummy op arg, used for storage
+	OpArg() = default;  // dummy op arg, used for storage
 	OpArg(u64 _offset, int _scale, X64Reg rmReg = RAX, X64Reg scaledReg = RAX)
 	{
 		operandReg = 0;

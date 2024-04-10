@@ -53,7 +53,7 @@ VkShaderModule CompileShaderModule(VulkanContext *vulkan, VkShaderStageFlagBits 
 }
 
 VulkanComputeShaderManager::VulkanComputeShaderManager(VulkanContext *vulkan) : vulkan_(vulkan), pipelines_(8) {}
-VulkanComputeShaderManager::~VulkanComputeShaderManager() {}
+VulkanComputeShaderManager::~VulkanComputeShaderManager() = default;
 
 void VulkanComputeShaderManager::InitDeviceObjects(Draw::DrawContext *draw) {
 	VkPipelineCacheCreateInfo pc{ VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO };

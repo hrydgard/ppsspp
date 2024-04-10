@@ -88,7 +88,7 @@ namespace MIPSComp {
 class ArmRegCache {
 public:
 	ArmRegCache(MIPSState *mipsState, MIPSComp::JitState *js, MIPSComp::JitOptions *jo);
-	~ArmRegCache() {}
+	~ArmRegCache() = default;
 
 	void Init(ArmGen::ARMXEmitter *emitter);
 	void Start(MIPSAnalyst::AnalysisResults &stats);

@@ -76,9 +76,7 @@ const char *VulkanPresentModeToString(VkPresentModeKHR presentMode) {
 	}
 }
 
-VulkanContext::VulkanContext() {
-	// Do nothing here.
-}
+VulkanContext::VulkanContext() = default;
 
 VkResult VulkanContext::CreateInstance(const CreateInfo &info) {
 	if (!vkCreateInstance) {

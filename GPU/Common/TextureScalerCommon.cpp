@@ -588,12 +588,10 @@ void dbgPGM(int w, int h, u32* pixels, const char* prefix = "dbg") { // 1 compon
 
 /////////////////////////////////////// Texture Scaler
 
-TextureScalerCommon::TextureScalerCommon() {
-	// initBicubicWeights() used to be here.
-}
+TextureScalerCommon::TextureScalerCommon() = default;
+// initBicubicWeights() used to be here.
 
-TextureScalerCommon::~TextureScalerCommon() {
-}
+TextureScalerCommon::~TextureScalerCommon() = default;
 
 bool TextureScalerCommon::IsEmptyOrFlat(const u32 *data, int pixels) {
 	u32 ref = data[0];

@@ -32,7 +32,7 @@ struct SimpleStat {
 	void Format(char *buffer, size_t sz);
 
 private:
-	SimpleStat() {}
+	SimpleStat() = default;
 	const char *name_;
 
 	// These are initialized in Reset().

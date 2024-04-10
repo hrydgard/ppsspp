@@ -80,7 +80,7 @@ VulkanPushPool::Block VulkanPushPool::CreateBlock(size_t size) {
 	return block;
 }
 
-VulkanPushPool::Block::~Block() {}
+VulkanPushPool::Block::~Block() = default;
 
 void VulkanPushPool::Block::Destroy(VulkanContext *vulkan) {
 	vmaUnmapMemory(vulkan->Allocator(), allocation);

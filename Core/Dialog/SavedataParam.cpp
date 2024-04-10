@@ -208,7 +208,7 @@ void SaveFileInfo::DoState(PointerWrap &p)
 	}
 }
 
-SavedataParam::SavedataParam() { }
+SavedataParam::SavedataParam() = default;
 
 void SavedataParam::Init()
 {

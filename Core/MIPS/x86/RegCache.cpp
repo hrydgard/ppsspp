@@ -54,8 +54,7 @@ void GPRRegCache::FlushBeforeCall() {
 	Flush();
 }
 
-GPRRegCache::GPRRegCache() {
-}
+GPRRegCache::GPRRegCache() = default;
 
 void GPRRegCache::Start(MIPSState *mipsState, MIPSComp::JitState *js, MIPSComp::JitOptions *jo, MIPSAnalyst::AnalysisResults &stats) {
 #if PPSSPP_ARCH(AMD64)

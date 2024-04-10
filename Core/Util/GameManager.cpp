@@ -71,8 +71,7 @@ static struct zip *ZipOpenPath(Path fileName) {
 	return z;
 }
 
-GameManager::GameManager() {
-}
+GameManager::GameManager() = default;
 
 Path GameManager::GetTempFilename() const {
 #ifdef _WIN32

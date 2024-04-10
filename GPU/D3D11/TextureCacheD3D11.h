@@ -33,7 +33,7 @@ class ShaderManagerD3D11;
 
 class SamplerCacheD3D11 {
 public:
-	SamplerCacheD3D11() {}
+	SamplerCacheD3D11() = default;
 	~SamplerCacheD3D11();
 	ID3D11SamplerState *GetOrCreateSampler(ID3D11Device *device, const SamplerCacheKey &key);
 

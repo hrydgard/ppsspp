@@ -144,7 +144,7 @@ public:
 	{
 		return Type;
 	}
-	Operand2() {} 
+	Operand2() = default;
 	Operand2(u32 imm, OpType type = TYPE_IMM)
 	{ 
 		Type = type; 

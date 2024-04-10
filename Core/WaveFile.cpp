@@ -8,7 +8,7 @@
 
 constexpr size_t WaveFileWriter::BUFFER_SIZE;
 
-WaveFileWriter::WaveFileWriter() {}
+WaveFileWriter::WaveFileWriter() = default;
 
 WaveFileWriter::~WaveFileWriter()
 {

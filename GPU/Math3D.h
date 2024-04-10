@@ -89,7 +89,7 @@ public:
 	T* AsArray() { return &x; }
 	const T* AsArray() const { return &x; }
 
-	Vec2() {}
+	Vec2() = default;
 	Vec2(const T a[2]) : x(a[0]), y(a[1]) {}
 	Vec2(const T& _x, const T& _y) : x(_x), y(_y) {}
 
@@ -228,7 +228,7 @@ public:
 	T* AsArray() { return &x; }
 	const T* AsArray() const { return &x; }
 
-	Vec3() {}
+	Vec3() = default;
 	Vec3(const T a[3]) : x(a[0]), y(a[1]), z(a[2]) {}
 	constexpr Vec3(const T& _x, const T& _y, const T& _z) : x(_x), y(_y), z(_z) {}
 	Vec3(const Vec2<T>& _xy, const T& _z) : x(_xy.x), y(_xy.y), z(_z) {}
@@ -414,7 +414,7 @@ public:
 	T* AsArray() { return &x; }
 	const T* AsArray() const { return &x; }
 
-	Vec3Packed() {}
+	Vec3Packed() = default;
 	Vec3Packed(const T a[3]) : x(a[0]), y(a[1]), z(a[2]) {}
 	Vec3Packed(const T& _x, const T& _y, const T& _z) : x(_x), y(_y), z(_z) {}
 	Vec3Packed(const Vec2<T>& _xy, const T& _z) : x(_xy.x), y(_xy.y), z(_z) {}
@@ -587,7 +587,7 @@ public:
 	T* AsArray() { return &x; }
 	const T* AsArray() const { return &x; }
 
-	Vec4() {}
+	Vec4() = default;
 	Vec4(const T a[4]) : x(a[0]), y(a[1]), z(a[2]), w(a[3]) {}
 	Vec4(const T& _x, const T& _y, const T& _z, const T& _w) : x(_x), y(_y), z(_z), w(_w) {}
 	Vec4(const Vec2<T>& _xy, const T& _z, const T& _w) : x(_xy.x), y(_xy.y), z(_z), w(_w) {}

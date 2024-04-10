@@ -138,7 +138,7 @@ class VKRRenderPass;
 
 struct VKRStep {
 	VKRStep(VKRStepType _type) : stepType(_type) {}
-	~VKRStep() {}
+	~VKRStep() = default;
 
 	VKRStepType stepType;
 	FastVec<VkRenderData> commands;

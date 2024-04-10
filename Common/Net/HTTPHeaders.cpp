@@ -12,8 +12,7 @@
 
 namespace http {
 
-RequestHeader::RequestHeader() {
-}
+RequestHeader::RequestHeader() = default;
 
 RequestHeader::~RequestHeader() {
 	delete [] referer;

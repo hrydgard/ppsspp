@@ -38,7 +38,7 @@ namespace MIPSComp {
 // TODO : Use arena allocators. For now let's just malloc.
 class IRBlock {
 public:
-	IRBlock() {}
+	IRBlock() = default;
 	IRBlock(u32 emAddr) : origAddr_(emAddr) {}
 	IRBlock(IRBlock &&b) {
 		instr_ = b.instr_;

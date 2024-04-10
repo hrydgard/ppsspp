@@ -317,8 +317,7 @@ bool IsValidCodec(int codec){
 
 // sceAu module starts from here
 
-AuCtx::AuCtx() {
-}
+AuCtx::AuCtx() = default;
 
 AuCtx::~AuCtx() {
 	if (decoder) {

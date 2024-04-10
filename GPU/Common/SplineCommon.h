@@ -192,7 +192,7 @@ struct ControlPoints {
 	Vec4f *col = nullptr;
 	u32_le defcolor;
 
-	ControlPoints() {}
+	ControlPoints() = default;
 	ControlPoints(const SimpleVertex *const *points, int size, SimpleBufferManager &managedBuf);
 	void Convert(const SimpleVertex *const *points, int size);
 	bool IsValid() const {

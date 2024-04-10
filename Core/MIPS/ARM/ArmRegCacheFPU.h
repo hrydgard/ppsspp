@@ -83,7 +83,7 @@ namespace MIPSComp {
 class ArmRegCacheFPU {
 public:
 	ArmRegCacheFPU(MIPSState *mipsState, MIPSComp::JitState *js, MIPSComp::JitOptions *jo);
-	~ArmRegCacheFPU() {}
+	~ArmRegCacheFPU() = default;
 
 	void Init(ArmGen::ARMXEmitter *emitter);
 

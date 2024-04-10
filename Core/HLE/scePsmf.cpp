@@ -161,7 +161,7 @@ typedef std::map<int, PsmfStream *> PsmfStreamMap;
 class Psmf {
 public:
 	// For savestates only.
-	Psmf() {}
+	Psmf() = default;
 	Psmf(const u8 *ptr, u32 data);
 	~Psmf();
 	void DoState(PointerWrap &p);
