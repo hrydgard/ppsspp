@@ -189,7 +189,7 @@ public:
 
 		wave_.Read(file_);
 
-		decoder_ = new SimpleAudio(wave_.codec, wave_.sample_rate, wave_.num_channels);
+		decoder_ = CreateAudioDecoder((PSPAudioType)wave_.codec, wave_.sample_rate, wave_.num_channels);
 		if (wave_.codec == PSP_CODEC_AT3) {
 			decoder_->SetExtraData(&wave_.at3_extradata[2], 14, wave_.raw_bytes_per_frame);
 		}

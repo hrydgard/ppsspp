@@ -38,8 +38,8 @@ extern "C" {
 #endif  // USE_FFMPEG
 
 // TODO: This should also be able to create other types of decoders.
-SimpleAudio *CreateAudioDecoder(int audioType) {
-	return new SimpleAudio(audioType);
+SimpleAudio *CreateAudioDecoder(PSPAudioType audioType, int sampleRateHz, int channels) {
+	return new SimpleAudio(audioType, sampleRateHz, channels);
 }
 
 int SimpleAudio::GetAudioCodecID(int audioType) {
@@ -61,8 +61,8 @@ int SimpleAudio::GetAudioCodecID(int audioType) {
 #endif // USE_FFMPEG
 }
 
-SimpleAudio::SimpleAudio(int audioType, int sample_rate, int channels)
-	: ctxPtr(0xFFFFFFFF), audioType(audioType), sample_rate_(sample_rate), channels_(channels),
+SimpleAudio::SimpleAudio(PSPAudioType audioType, int sampleRateHz, int channels)
+	: ctxPtr(0xFFFFFFFF), audioType(audioType), sample_rate_(sampleRateHz), channels_(channels),
 	outSamples(0), srcPos(0),
 	frame_(0), codec_(0), codecCtx_(0), swrCtx_(0),
 	codecOpen_(false) {
@@ -309,7 +309,7 @@ const char *GetCodecName(int codec) {
 	}
 };
 
-bool IsValidCodec(int codec){
+bool IsValidCodec(PSPAudioType codec){
 	if (codec >= PSP_CODEC_AT3PLUS && codec <= PSP_CODEC_AAC) {
 		return true;
 	}
@@ -535,7 +535,7 @@ void AuCtx::DoState(PointerWrap &p) {
 	Do(p, Channels);
 	Do(p, MaxOutputSample);
 	Do(p, readPos);
-	int audioType = decoder->GetAudioType();
+	int audioType = (int)decoder->GetAudioType();
 	Do(p, audioType);
 	Do(p, BitRate);
 	Do(p, SamplingRate);
@@ -555,6 +555,6 @@ void AuCtx::DoState(PointerWrap &p) {
 	}
 
 	if (p.mode == p.MODE_READ) {
-		decoder = CreateAudioDecoder(audioType);
+		decoder = CreateAudioDecoder((PSPAudioType)audioType);
 	}
 }

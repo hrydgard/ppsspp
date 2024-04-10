@@ -255,7 +255,7 @@ static u32 sceAacInit(u32 id)
 	aac->SetReadPos((int)aac->startPos);
 
 	// create aac decoder
-	aac->decoder = new SimpleAudio(PSP_CODEC_AAC);
+	aac->decoder = CreateAudioDecoder(PSP_CODEC_AAC);
 
 	// close the audio if id already exist.
 	if (aacMap.find(id) != aacMap.end()) {

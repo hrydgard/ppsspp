@@ -41,7 +41,7 @@ extern "C" {
 // Based on http://ffmpeg.org/doxygen/trunk/doc_2examples_2decoding_encoding_8c-example.html#_a13
 
 // audioType
-enum {
+enum PSPAudioType {
 	PSP_CODEC_AT3PLUS = 0x00001000,
 	PSP_CODEC_AT3 = 0x00001001,
 	PSP_CODEC_MP3 = 0x00001002,
@@ -57,13 +57,13 @@ public:
 
 	virtual int GetOutSamples() const = 0;
 	virtual int GetSourcePos() const = 0;
-	virtual int GetAudioType() const = 0;
+	virtual PSPAudioType GetAudioType() const = 0;
 };
 
 // FFMPEG-based decoder
 class SimpleAudio : public AudioDecoder {
 public:
-	SimpleAudio(int audioType, int sample_rate = 44100, int channels = 2);
+	SimpleAudio(PSPAudioType audioType, int sampleRateHz = 44100, int channels = 2);
 	~SimpleAudio();
 
 	bool Decode(const uint8_t* inbuf, int inbytes, uint8_t *outbuf, int *outbytes) override;
@@ -84,7 +84,7 @@ public:
 	void SetChannels(int channels);
 
 	// These two are only here because of save states.
-	int GetAudioType() const { return audioType; }
+	PSPAudioType GetAudioType() const { return audioType; }
 
 	// Just metadata.
 	void SetCtxPtr(u32 ptr) { ctxPtr = ptr;  }
@@ -94,7 +94,7 @@ private:
 	bool OpenCodec(int block_align);
 
 	u32 ctxPtr;
-	int audioType;
+	PSPAudioType audioType;
 	int sample_rate_;
 	int channels_;
 	int outSamples; // output samples per frame
@@ -114,7 +114,8 @@ private:
 void AudioClose(SimpleAudio **ctx);
 void AudioClose(AudioDecoder **ctx);
 const char *GetCodecName(int codec);  // audioType
-bool IsValidCodec(int codec);
+bool IsValidCodec(PSPAudioType codec);
+SimpleAudio *CreateAudioDecoder(PSPAudioType audioType, int sampleRateHz = 44100, int channels = 2);
 
 class AuCtx {
 public:

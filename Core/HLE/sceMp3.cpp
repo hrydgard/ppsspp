@@ -198,7 +198,7 @@ void __Mp3DoState(PointerWrap &p) {
 			mp3->MaxOutputSample = mp3_old->mp3MaxSamples;
 			mp3->SetReadPos(mp3_old->readPosition);
 
-			mp3->decoder = new SimpleAudio(PSP_CODEC_MP3);
+			mp3->decoder = CreateAudioDecoder(PSP_CODEC_MP3);
 			mp3Map[id] = mp3;
 		}
 	}
@@ -304,7 +304,7 @@ static u32 sceMp3ReserveMp3Handle(u32 mp3Addr) {
 	}
 
 	Au->SetReadPos(Au->startPos);
-	Au->decoder = new SimpleAudio(PSP_CODEC_MP3);
+	Au->decoder = CreateAudioDecoder(PSP_CODEC_MP3);
 
 	int handle = (int)mp3Map.size();
 	mp3Map[handle] = Au;
@@ -701,10 +701,10 @@ static u32 sceMp3ResetPlayPositionByFrame(u32 mp3, u32 frame) {
 }
 
 static u32 sceMp3LowLevelInit(u32 mp3, u32 unk) {
-	auto ctx = new AuCtx;
+	auto ctx = new AuCtx();
 
 	// create mp3 decoder
-	ctx->decoder = new SimpleAudio(PSP_CODEC_MP3);
+	ctx->decoder = CreateAudioDecoder(PSP_CODEC_MP3);
 
 	// close the audio if mp3 already exists.
 	if (mp3Map.find(mp3) != mp3Map.end()) {
