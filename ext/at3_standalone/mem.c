@@ -36,10 +36,9 @@
 #include <malloc.h>
 #endif
 
-#include "avassert.h"
+#include "compat.h"
 #include "avutil.h"
 #include "common.h"
-#include "dynarray.h"
 #include "intreadwrite.h"
 #include "mem.h"
 
@@ -59,7 +58,24 @@ void  free(void *ptr);
 
 #endif /* MALLOC_PREFIX */
 
-#include "mem_internal.h"
+int ff_fast_malloc(void *ptr, unsigned int *size, size_t min_size, int zero_realloc)
+{
+	void *val;
+
+	memcpy(&val, ptr, sizeof(val));
+	if (min_size <= *size) {
+		av_assert0(val || !min_size);
+		return 0;
+	}
+	min_size = FFMAX(min_size + min_size / 16 + 32, min_size);
+	av_freep(ptr);
+	val = zero_realloc ? av_mallocz(min_size) : av_malloc(min_size);
+	memcpy(ptr, &val, sizeof(val));
+	if (!val)
+		min_size = 0;
+	*size = min_size;
+	return 1;
+}
 
 #define ALIGN (HAVE_AVX ? 32 : 16)
 
@@ -307,51 +323,6 @@ void *av_memdup(const void *p, size_t size)
     return ptr;
 }
 
-int av_dynarray_add_nofree(void *tab_ptr, int *nb_ptr, void *elem)
-{
-    void **tab;
-    memcpy(&tab, tab_ptr, sizeof(tab));
-
-    AV_DYNARRAY_ADD(INT_MAX, sizeof(*tab), tab, *nb_ptr, {
-        tab[*nb_ptr] = elem;
-        memcpy(tab_ptr, &tab, sizeof(tab));
-    }, {
-        return AVERROR(ENOMEM);
-    });
-    return 0;
-}
-
-void av_dynarray_add(void *tab_ptr, int *nb_ptr, void *elem)
-{
-    void **tab;
-    memcpy(&tab, tab_ptr, sizeof(tab));
-
-    AV_DYNARRAY_ADD(INT_MAX, sizeof(*tab), tab, *nb_ptr, {
-        tab[*nb_ptr] = elem;
-        memcpy(tab_ptr, &tab, sizeof(tab));
-    }, {
-        *nb_ptr = 0;
-        av_freep(tab_ptr);
-    });
-}
-
-void *av_dynarray2_add(void **tab_ptr, int *nb_ptr, size_t elem_size,
-                       const uint8_t *elem_data)
-{
-    uint8_t *tab_elem_data = NULL;
-
-    AV_DYNARRAY_ADD(INT_MAX, elem_size, *tab_ptr, *nb_ptr, {
-        tab_elem_data = (uint8_t *)*tab_ptr + (*nb_ptr) * elem_size;
-        if (elem_data)
-            memcpy(tab_elem_data, elem_data, elem_size);
-        else if (CONFIG_MEMORY_POISONING)
-            memset(tab_elem_data, FF_MEMORY_POISON, elem_size);
-    }, {
-        av_freep(tab_ptr);
-        *nb_ptr = 0;
-    });
-    return tab_elem_data;
-}
 
 static void fill16(uint8_t *dst, int len)
 {

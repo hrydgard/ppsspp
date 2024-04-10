@@ -162,58 +162,6 @@ void av_frame_free(AVFrame **frame)
     av_freep(frame);
 }
 
-static int get_video_buffer(AVFrame *frame, int align)
-{
-    const AVPixFmtDescriptor *desc = av_pix_fmt_desc_get(frame->format);
-    int ret, i;
-
-    if (!desc)
-        return AVERROR(EINVAL);
-
-    if ((ret = av_image_check_size(frame->width, frame->height, 0, NULL)) < 0)
-        return ret;
-
-    if (!frame->linesize[0]) {
-        for(i=1; i<=align; i+=i) {
-            ret = av_image_fill_linesizes(frame->linesize, frame->format,
-                                          FFALIGN(frame->width, i));
-            if (ret < 0)
-                return ret;
-            if (!(frame->linesize[0] & (align-1)))
-                break;
-        }
-
-        for (i = 0; i < 4 && frame->linesize[i]; i++)
-            frame->linesize[i] = FFALIGN(frame->linesize[i], align);
-    }
-
-    for (i = 0; i < 4 && frame->linesize[i]; i++) {
-        int h = FFALIGN(frame->height, 32);
-        if (i == 1 || i == 2)
-            h = AV_CEIL_RSHIFT(h, desc->log2_chroma_h);
-
-        frame->buf[i] = av_buffer_alloc(frame->linesize[i] * h + 16 + 16/*STRIDE_ALIGN*/ - 1);
-        if (!frame->buf[i])
-            goto fail;
-
-        frame->data[i] = frame->buf[i]->data;
-    }
-    if (desc->flags & AV_PIX_FMT_FLAG_PAL || desc->flags & AV_PIX_FMT_FLAG_PSEUDOPAL) {
-        av_buffer_unref(&frame->buf[1]);
-        frame->buf[1] = av_buffer_alloc(AVPALETTE_SIZE);
-        if (!frame->buf[1])
-            goto fail;
-        frame->data[1] = frame->buf[1]->data;
-    }
-
-    frame->extended_data = frame->data;
-
-    return 0;
-fail:
-    av_frame_unref(frame);
-    return AVERROR(ENOMEM);
-}
-
 static int get_audio_buffer(AVFrame *frame, int align)
 {
     int channels;
@@ -275,8 +223,8 @@ int av_frame_get_buffer(AVFrame *frame, int align)
     if (frame->format < 0)
         return AVERROR(EINVAL);
 
-    if (frame->width > 0 && frame->height > 0)
-        return get_video_buffer(frame, align);
+	if (frame->width > 0 && frame->height > 0)
+		return AVERROR(EINVAL);
     else if (frame->nb_samples > 0 && (frame->channel_layout || frame->channels > 0))
         return get_audio_buffer(frame, align);
 
@@ -648,28 +596,6 @@ AVFrameSideData *av_frame_get_side_data(const AVFrame *frame,
     return NULL;
 }
 
-static int frame_copy_video(AVFrame *dst, const AVFrame *src)
-{
-    const uint8_t *src_data[4];
-    int i, planes;
-
-    if (dst->width  < src->width ||
-        dst->height < src->height)
-        return AVERROR(EINVAL);
-
-    planes = av_pix_fmt_count_planes(dst->format);
-    for (i = 0; i < planes; i++)
-        if (!dst->data[i] || !src->data[i])
-            return AVERROR(EINVAL);
-
-    memcpy(src_data, src->data, sizeof(src_data));
-    av_image_copy(dst->data, dst->linesize,
-                  src_data, src->linesize,
-                  dst->format, src->width, src->height);
-
-    return 0;
-}
-
 static int frame_copy_audio(AVFrame *dst, const AVFrame *src)
 {
     int planar   = av_sample_fmt_is_planar(dst->format);
@@ -700,7 +626,7 @@ int av_frame_copy(AVFrame *dst, const AVFrame *src)
         return AVERROR(EINVAL);
 
     if (dst->width > 0 && dst->height > 0)
-        return frame_copy_video(dst, src);
+        return AVERROR(EINVAL);
     else if (dst->nb_samples > 0 && dst->channel_layout)
         return frame_copy_audio(dst, src);
 

@@ -2,22 +2,27 @@
 
 // Compat hacks
 
-#define av_cold
-#define DECLARE_ALIGNED(bits, type, name)  type name
-#define LOCAL_ALIGNED(bits, type, name, subscript) type name subscript
-#define av_restrict
-#define av_always_inline __forceinline
-#define av_const
-#define av_alias
-#define av_unused
-#define av_pure
-#define av_warn_unused_result
-#define av_assert0(cond)
-#define av_assert1(cond)
-#define av_assert2(cond)
-#define av_log(...)
-#define attribute_deprecated
-#define av_printf_format(a,b)
-#define avpriv_report_missing_feature(...)
+#include "attributes.h"
 
 #include "error.h"
+
+#define CONFIG_MEMORY_POISONING 0
+#define CONFIG_HARDCODED_TABLES 0
+#define CONFIG_ME_CMP 0
+#define HWACCEL_CODEC_CAP_EXPERIMENTAL 0
+#define HAVE_THREADS 0
+#define CONFIG_FRAME_THREAD_ENCODER 0
+#define CONFIG_GRAY 0
+#define NULL_IF_CONFIG_SMALL(x) NULL
+#define ARCH_AARCH64 0
+#define ARCH_ARM 0
+#define ARCH_PPC 0
+#define ARCH_X86 0
+#define HAVE_MIPSFPU 0
+#define FF_API_AVPACKET_OLD_API 1
+#define FF_DISABLE_DEPRECATION_WARNINGS
+#define FF_ENABLE_DEPRECATION_WARNINGS
+#define CONFIG_MDCT 1
+#define CONFIG_FFT 1
+
+int ff_fast_malloc(void *ptr, unsigned int *size, size_t min_size, int zero_realloc);

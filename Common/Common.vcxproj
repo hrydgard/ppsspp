@@ -386,15 +386,20 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="..\ext\at3_standalone\at3_decoders.h" />
+    <ClInclude Include="..\ext\at3_standalone\atomic.h" />
     <ClInclude Include="..\ext\at3_standalone\atrac.h" />
     <ClInclude Include="..\ext\at3_standalone\atrac3data.h" />
     <ClInclude Include="..\ext\at3_standalone\atrac3plus.h" />
     <ClInclude Include="..\ext\at3_standalone\atrac3plus_data.h" />
+    <ClInclude Include="..\ext\at3_standalone\attributes.h" />
     <ClInclude Include="..\ext\at3_standalone\avcodec.h" />
     <ClInclude Include="..\ext\at3_standalone\avfft.h" />
+    <ClInclude Include="..\ext\at3_standalone\avstring.h" />
     <ClInclude Include="..\ext\at3_standalone\avutil.h" />
+    <ClInclude Include="..\ext\at3_standalone\bprint.h" />
     <ClInclude Include="..\ext\at3_standalone\bswap.h" />
     <ClInclude Include="..\ext\at3_standalone\buffer.h" />
+    <ClInclude Include="..\ext\at3_standalone\buffer_internal.h" />
     <ClInclude Include="..\ext\at3_standalone\bytestream.h" />
     <ClInclude Include="..\ext\at3_standalone\channel_layout.h" />
     <ClInclude Include="..\ext\at3_standalone\common.h" />
@@ -402,20 +407,29 @@
     <ClInclude Include="..\ext\at3_standalone\config.h" />
     <ClInclude Include="..\ext\at3_standalone\dict.h" />
     <ClInclude Include="..\ext\at3_standalone\error.h" />
+    <ClInclude Include="..\ext\at3_standalone\fft-internal.h" />
     <ClInclude Include="..\ext\at3_standalone\fft.h" />
     <ClInclude Include="..\ext\at3_standalone\float_dsp.h" />
     <ClInclude Include="..\ext\at3_standalone\frame.h" />
     <ClInclude Include="..\ext\at3_standalone\get_bits.h" />
     <ClInclude Include="..\ext\at3_standalone\internal.h" />
     <ClInclude Include="..\ext\at3_standalone\intfloat.h" />
+    <ClInclude Include="..\ext\at3_standalone\intmath.h" />
     <ClInclude Include="..\ext\at3_standalone\intreadwrite.h" />
     <ClInclude Include="..\ext\at3_standalone\libm.h" />
+    <ClInclude Include="..\ext\at3_standalone\log.h" />
     <ClInclude Include="..\ext\at3_standalone\macros.h" />
     <ClInclude Include="..\ext\at3_standalone\mathematics.h" />
     <ClInclude Include="..\ext\at3_standalone\mathops.h" />
+    <ClInclude Include="..\ext\at3_standalone\mem.h" />
+    <ClInclude Include="..\ext\at3_standalone\opt.h" />
+    <ClInclude Include="..\ext\at3_standalone\options_table.h" />
     <ClInclude Include="..\ext\at3_standalone\pixdesc.h" />
     <ClInclude Include="..\ext\at3_standalone\pixfmt.h" />
+    <ClInclude Include="..\ext\at3_standalone\rational.h" />
+    <ClInclude Include="..\ext\at3_standalone\rdft.h" />
     <ClInclude Include="..\ext\at3_standalone\samplefmt.h" />
+    <ClInclude Include="..\ext\at3_standalone\sinewin.h" />
     <ClInclude Include="..\ext\at3_standalone\util_internal.h" />
     <ClInclude Include="..\ext\at3_standalone\version.h" />
     <ClInclude Include="..\ext\basis_universal\basisu.h" />
@@ -617,14 +631,36 @@
     <ClInclude Include="x64Emitter.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="..\ext\at3_standalone\atomic.c" />
+    <ClCompile Include="..\ext\at3_standalone\atrac.c" />
     <ClCompile Include="..\ext\at3_standalone\atrac3.c" />
     <ClCompile Include="..\ext\at3_standalone\atrac3plus.c" />
     <ClCompile Include="..\ext\at3_standalone\atrac3plusdec.c" />
     <ClCompile Include="..\ext\at3_standalone\atrac3plusdsp.c" />
     <ClCompile Include="..\ext\at3_standalone\avfft.c" />
+    <ClCompile Include="..\ext\at3_standalone\avpacket.c" />
+    <ClCompile Include="..\ext\at3_standalone\avstring.c" />
+    <ClCompile Include="..\ext\at3_standalone\av_buffer.c" />
+    <ClCompile Include="..\ext\at3_standalone\bitstream.c" />
+    <ClCompile Include="..\ext\at3_standalone\bprint.c" />
+    <ClCompile Include="..\ext\at3_standalone\channel_layout.c" />
+    <ClCompile Include="..\ext\at3_standalone\codec_desc.c" />
+    <ClCompile Include="..\ext\at3_standalone\dict.c" />
+    <ClCompile Include="..\ext\at3_standalone\fft_template.c" />
     <ClCompile Include="..\ext\at3_standalone\float_dsp.c" />
     <ClCompile Include="..\ext\at3_standalone\frame.c" />
+    <ClCompile Include="..\ext\at3_standalone\intmath.c" />
+    <ClCompile Include="..\ext\at3_standalone\mathematics.c" />
     <ClCompile Include="..\ext\at3_standalone\mathops.c" />
+    <ClCompile Include="..\ext\at3_standalone\mdct_template.c" />
+    <ClCompile Include="..\ext\at3_standalone\mem.c" />
+    <ClCompile Include="..\ext\at3_standalone\opt.c" />
+    <ClCompile Include="..\ext\at3_standalone\options.c" />
+    <ClCompile Include="..\ext\at3_standalone\rational.c" />
+    <ClCompile Include="..\ext\at3_standalone\rdft.c" />
+    <ClCompile Include="..\ext\at3_standalone\samplefmt.c" />
+    <ClCompile Include="..\ext\at3_standalone\sinewin.c" />
+    <ClCompile Include="..\ext\at3_standalone\utils.c" />
     <ClCompile Include="..\ext\basis_universal\basisu_transcoder.cpp" />
     <ClCompile Include="..\ext\libpng17\png.c">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">NotUsing</PrecompiledHeader>

@@ -27,9 +27,10 @@
 // do not use libavutil/libm.h since this is compiled both
 // for the host and the target and config.h is only valid for the target
 #include <math.h>
-#include "libavcodec/aac_defines.h"
-#include "libavutil/attributes.h"
-#include "libavutil/common.h"
+
+#include "aac_defines.h"
+#include "attributes.h"
+#include "common.h"
 
 #if !CONFIG_HARDCODED_TABLES
 SINETABLE(  32);

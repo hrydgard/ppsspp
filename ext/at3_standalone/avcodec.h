@@ -28,15 +28,15 @@
  */
 
 #include <errno.h>
-/*
+#include "attributes.h"
+#include "buffer.h"
+#include "channel_layout.h"
+#include "log.h"
+ /*
 #include "libavutil/samplefmt.h"
-#include "libavutil/attributes.h"
 #include "libavutil/avutil.h"
-#include "libavutil/buffer.h"
 #include "libavutil/cpu.h"
-#include "libavutil/channel_layout.h"
 #include "libavutil/dict.h"
-#include "libavutil/log.h"
 #include "libavutil/pixfmt.h"
 */
 #include "frame.h"
@@ -1451,7 +1451,7 @@ typedef struct AVPacket {
      * stored.
      * May be NULL, then the packet data is not reference-counted.
      */
-    // AVBufferRef *buf;
+    AVBufferRef *buf;
     /**
      * Presentation timestamp in AVStream->time_base units; the time at which
      * the decompressed packet will be presented to the user.
@@ -1538,7 +1538,7 @@ typedef struct AVCodecContext {
      * information on struct for av_log
      * - set by avcodec_alloc_context3
      */
-    // const AVClass *av_class;
+    const AVClass *av_class;
     int log_level_offset;
 
     enum AVMediaType codec_type; /* see AVMEDIA_TYPE_xxx */
