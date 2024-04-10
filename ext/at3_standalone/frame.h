@@ -30,7 +30,6 @@
 
 #include "avutil.h"
 #include "buffer.h"
-#include "dict.h"
 #include "rational.h"
 #include "samplefmt.h"
 #include "version.h"
@@ -367,7 +366,6 @@ int     av_frame_get_decode_error_flags   (const AVFrame *frame);
 void    av_frame_set_decode_error_flags   (AVFrame *frame, int     val);
 int     av_frame_get_pkt_size(const AVFrame *frame);
 void    av_frame_set_pkt_size(AVFrame *frame, int val);
-AVDictionary **avpriv_frame_get_metadatap(AVFrame *frame);
 
 /**
  * Get the name of a colorspace.

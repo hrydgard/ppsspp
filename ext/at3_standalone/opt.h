@@ -277,8 +277,6 @@ typedef struct AVOption {
 #define AV_OPT_FLAG_METADATA        4   ///< some data extracted or inserted into the file like title, comment, ...
 #endif
 #define AV_OPT_FLAG_AUDIO_PARAM     8
-#define AV_OPT_FLAG_VIDEO_PARAM     16
-#define AV_OPT_FLAG_SUBTITLE_PARAM  32
 /**
  * The option is inteded for exporting values to the caller.
  */
@@ -652,48 +650,6 @@ void *av_opt_child_next(void *obj, void *prev);
 const AVClass *av_opt_child_class_next(const AVClass *parent, const AVClass *prev);
 
 /**
- * @defgroup opt_set_funcs Option setting functions
- * @{
- * Those functions set the field of obj with the given name to value.
- *
- * @param[in] obj A struct whose first element is a pointer to an AVClass.
- * @param[in] name the name of the field to set
- * @param[in] val The value to set. In case of av_opt_set() if the field is not
- * of a string type, then the given string is parsed.
- * SI postfixes and some named scalars are supported.
- * If the field is of a numeric type, it has to be a numeric or named
- * scalar. Behavior with more than one scalar and +- infix operators
- * is undefined.
- * If the field is of a flags type, it has to be a sequence of numeric
- * scalars or named flags separated by '+' or '-'. Prefixing a flag
- * with '+' causes it to be set without affecting the other flags;
- * similarly, '-' unsets a flag.
- * @param search_flags flags passed to av_opt_find2. I.e. if AV_OPT_SEARCH_CHILDREN
- * is passed here, then the option may be set on a child of obj.
- *
- * @return 0 if the value has been set, or an AVERROR code in case of
- * error:
- * AVERROR_OPTION_NOT_FOUND if no matching option exists
- * AVERROR(ERANGE) if the value is out of range
- * AVERROR(EINVAL) if the value is not valid
- */
-int av_opt_set         (void *obj, const char *name, const char *val, int search_flags);
-int av_opt_set_int     (void *obj, const char *name, int64_t     val, int search_flags);
-int av_opt_set_double  (void *obj, const char *name, double      val, int search_flags);
-int av_opt_set_q       (void *obj, const char *name, AVRational  val, int search_flags);
-int av_opt_set_bin     (void *obj, const char *name, const uint8_t *val, int size, int search_flags);
-int av_opt_set_image_size(void *obj, const char *name, int w, int h, int search_flags);
-int av_opt_set_pixel_fmt (void *obj, const char *name, enum AVPixelFormat fmt, int search_flags);
-int av_opt_set_sample_fmt(void *obj, const char *name, enum AVSampleFormat fmt, int search_flags);
-int av_opt_set_video_rate(void *obj, const char *name, AVRational val, int search_flags);
-int av_opt_set_channel_layout(void *obj, const char *name, int64_t ch_layout, int search_flags);
-/**
- * @note Any old dictionary present is discarded and replaced with a copy of the new one. The
- * caller still owns val is and responsible for freeing it.
- */
-int av_opt_set_dict_val(void *obj, const char *name, const AVDictionary *val, int search_flags);
-
-/**
  * Set a binary option to an integer list.
  *
  * @param obj    AVClass object to set options on
@@ -736,10 +692,8 @@ int av_opt_get         (void *obj, const char *name, int search_flags, uint8_t  
 int av_opt_get_int     (void *obj, const char *name, int search_flags, int64_t    *out_val);
 int av_opt_get_double  (void *obj, const char *name, int search_flags, double     *out_val);
 int av_opt_get_q       (void *obj, const char *name, int search_flags, AVRational *out_val);
-int av_opt_get_image_size(void *obj, const char *name, int search_flags, int *w_out, int *h_out);
 int av_opt_get_pixel_fmt (void *obj, const char *name, int search_flags, enum AVPixelFormat *out_fmt);
 int av_opt_get_sample_fmt(void *obj, const char *name, int search_flags, enum AVSampleFormat *out_fmt);
-int av_opt_get_video_rate(void *obj, const char *name, int search_flags, AVRational *out_val);
 int av_opt_get_channel_layout(void *obj, const char *name, int search_flags, int64_t *ch_layout);
 /**
  * @param[out] out_val The returned dictionary is a copy of the actual value and must

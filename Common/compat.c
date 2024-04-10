@@ -4,49 +4,6 @@
 #include "ext/at3_standalone/compat.h"
 #include "ext/at3_standalone/common.h"
 
-/*
-void *av_malloc(size_t size) {
-	return malloc(size);
-}
-
-void *av_mallocz(size_t size) {
-	return calloc(size, 1);
-}
-
-void av_free(void *p) {
-	free(p);
-}
-
-void av_freep(void **p) {
-	void *pp = *p;
-	free(pp);
-	*p = 0;
-}
-
-int ff_fast_malloc(void *ptr, unsigned int *size, size_t min_size, int zero_realloc)
-{
-	void *val;
-
-	memcpy(&val, ptr, sizeof(val));
-	if (min_size <= *size) {
-		av_assert0(val || !min_size);
-		return 0;
-	}
-	min_size = FFMAX(min_size + min_size / 16 + 32, min_size);
-	av_freep(ptr);
-	val = zero_realloc ? av_mallocz(min_size) : av_malloc(min_size);
-	memcpy(ptr, &val, sizeof(val));
-	if (!val)
-		min_size = 0;
-	*size = min_size;
-	return 1;
-}
-
-int av_fast_malloc(void *ptr, unsigned int *size, size_t min_size) {
-	return ff_fast_malloc(ptr, size, min_size, 0);
-}
-*/
-
 void av_log(void *avcl, int level, const char *fmt, ...) {
 
 }

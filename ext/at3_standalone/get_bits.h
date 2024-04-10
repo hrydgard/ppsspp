@@ -217,34 +217,6 @@ static inline int get_bits_count(const GetBitContext *s)
     return s->index;
 }
 
-static inline void skip_bits_long(GetBitContext *s, int n)
-{
-#if UNCHECKED_BITSTREAM_READER
-    s->index += n;
-#else
-    s->index += av_clip(n, -s->index, s->size_in_bits_plus8 - s->index);
-#endif
-}
-
-/**
- * read mpeg1 dc style vlc (sign bit + mantissa with no MSB).
- * if MSB not set it is negative
- * @param n length in bits
- */
-static inline int get_xbits(GetBitContext *s, int n)
-{
-    register int sign;
-    register int32_t cache;
-    OPEN_READER(re, s);
-    av_assert2(n>0 && n<=25);
-    UPDATE_CACHE(re, s);
-    cache = GET_CACHE(re, s);
-    sign  = ~cache >> 31;
-    LAST_SKIP_BITS(re, s, n);
-    CLOSE_READER(re, s);
-    return (NEG_USR32(sign ^ cache, n) ^ sign) - sign;
-}
-
 static inline int get_sbits(GetBitContext *s, int n)
 {
     register int tmp;
@@ -292,19 +264,6 @@ static inline unsigned int get_bits_le(GetBitContext *s, int n)
     return tmp;
 }
 
-/**
- * Show 1-25 bits.
- */
-static inline unsigned int show_bits(GetBitContext *s, int n)
-{
-    register int tmp;
-    OPEN_READER_NOSIZE(re, s);
-    av_assert2(n>0 && n<=25);
-    UPDATE_CACHE(re, s);
-    tmp = SHOW_UBITS(re, s, n);
-    return tmp;
-}
-
 static inline void skip_bits(GetBitContext *s, int n)
 {
     OPEN_READER(re, s);
@@ -330,84 +289,6 @@ static inline unsigned int get_bits1(GetBitContext *s)
     s->index = index;
 
     return result;
-}
-
-static inline unsigned int show_bits1(GetBitContext *s)
-{
-    return show_bits(s, 1);
-}
-
-static inline void skip_bits1(GetBitContext *s)
-{
-    skip_bits(s, 1);
-}
-
-/**
- * Read 0-32 bits.
- */
-static inline unsigned int get_bits_long(GetBitContext *s, int n)
-{
-    if (!n) {
-        return 0;
-    } else if (n <= MIN_CACHE_BITS) {
-        return get_bits(s, n);
-    } else {
-#ifdef BITSTREAM_READER_LE
-        unsigned ret = get_bits(s, 16);
-        return ret | (get_bits(s, n - 16) << 16);
-#else
-        unsigned ret = get_bits(s, 16) << (n - 16);
-        return ret | get_bits(s, n - 16);
-#endif
-    }
-}
-
-/**
- * Read 0-64 bits.
- */
-static inline uint64_t get_bits64(GetBitContext *s, int n)
-{
-    if (n <= 32) {
-        return get_bits_long(s, n);
-    } else {
-#ifdef BITSTREAM_READER_LE
-        uint64_t ret = get_bits_long(s, 32);
-        return ret | (uint64_t) get_bits_long(s, n - 32) << 32;
-#else
-        uint64_t ret = (uint64_t) get_bits_long(s, n - 32) << 32;
-        return ret | get_bits_long(s, 32);
-#endif
-    }
-}
-
-/**
- * Read 0-32 bits as a signed integer.
- */
-static inline int get_sbits_long(GetBitContext *s, int n)
-{
-    return sign_extend(get_bits_long(s, n), n);
-}
-
-/**
- * Show 0-32 bits.
- */
-static inline unsigned int show_bits_long(GetBitContext *s, int n)
-{
-    if (n <= MIN_CACHE_BITS) {
-        return show_bits(s, n);
-    } else {
-        GetBitContext gb = *s;
-        return get_bits_long(&gb, n);
-    }
-}
-
-static inline int check_marker(GetBitContext *s, const char *msg)
-{
-    int bit = get_bits1(s);
-    if (!bit)
-        av_log(NULL, AV_LOG_INFO, "Marker bit missing at %d of %d %s\n", get_bits_count(s) - 1, s->size_in_bits, msg);
-
-    return bit;
 }
 
 /**
@@ -589,126 +470,9 @@ static av_always_inline int get_vlc2(GetBitContext *s, VLC_TYPE (*table)[2],
     return code;
 }
 
-static inline int decode012(GetBitContext *gb)
-{
-    int n;
-    n = get_bits1(gb);
-    if (n == 0)
-        return 0;
-    else
-        return get_bits1(gb) + 1;
-}
-
-static inline int decode210(GetBitContext *gb)
-{
-    if (get_bits1(gb))
-        return 0;
-    else
-        return 2 - get_bits1(gb);
-}
-
 static inline int get_bits_left(GetBitContext *gb)
 {
     return gb->size_in_bits - get_bits_count(gb);
 }
-
-static inline int skip_1stop_8data_bits(GetBitContext *gb)
-{
-    if (get_bits_left(gb) <= 0)
-        return AVERROR_INVALIDDATA;
-
-    while (get_bits1(gb)) {
-        skip_bits(gb, 8);
-        if (get_bits_left(gb) <= 0)
-            return AVERROR_INVALIDDATA;
-    }
-
-    return 0;
-}
-
-//#define TRACE
-
-#ifdef TRACE
-static inline void print_bin(int bits, int n)
-{
-    int i;
-
-    for (i = n - 1; i >= 0; i--)
-        av_log(NULL, AV_LOG_DEBUG, "%d", (bits >> i) & 1);
-    for (i = n; i < 24; i++)
-        av_log(NULL, AV_LOG_DEBUG, " ");
-}
-
-static inline int get_bits_trace(GetBitContext *s, int n, const char *file,
-                                 const char *func, int line)
-{
-    int r = get_bits(s, n);
-
-    print_bin(r, n);
-    av_log(NULL, AV_LOG_DEBUG, "%5d %2d %3d bit @%5d in %s %s:%d\n",
-           r, n, r, get_bits_count(s) - n, file, func, line);
-
-    return r;
-}
-
-static inline int get_vlc_trace(GetBitContext *s, VLC_TYPE (*table)[2],
-                                int bits, int max_depth, const char *file,
-                                const char *func, int line)
-{
-    int show  = show_bits(s, 24);
-    int pos   = get_bits_count(s);
-    int r     = get_vlc2(s, table, bits, max_depth);
-    int len   = get_bits_count(s) - pos;
-    int bits2 = show >> (24 - len);
-
-    print_bin(bits2, len);
-
-    av_log(NULL, AV_LOG_DEBUG, "%5d %2d %3d vlc @%5d in %s %s:%d\n",
-           bits2, len, r, pos, file, func, line);
-
-    return r;
-}
-
-#define GET_RL_VLC(level, run, name, gb, table, bits,           \
-                   max_depth, need_update)                      \
-    do {                                                        \
-        int show  = SHOW_UBITS(name, gb, 24);                   \
-        int len;                                                \
-        int pos = name ## _index;                               \
-                                                                \
-        GET_RL_VLC_INTERNAL(level, run, name, gb, table, bits,max_depth, need_update); \
-                                                                \
-        len = name ## _index - pos + 1;                         \
-        show = show >> (24 - len);                              \
-                                                                \
-        print_bin(show, len);                                   \
-                                                                \
-        av_log(NULL, AV_LOG_DEBUG, "%5d %2d %3d/%-3d rlv @%5d in %s %s:%d\n",\
-               show, len, run-1, level, pos, __FILE__, __PRETTY_FUNCTION__, __LINE__);\
-    } while (0)                                                 \
-
-
-static inline int get_xbits_trace(GetBitContext *s, int n, const char *file,
-                                  const char *func, int line)
-{
-    int show = show_bits(s, n);
-    int r    = get_xbits(s, n);
-
-    print_bin(show, n);
-    av_log(NULL, AV_LOG_DEBUG, "%5d %2d %3d xbt @%5d in %s %s:%d\n",
-           show, n, r, get_bits_count(s) - n, file, func, line);
-
-    return r;
-}
-
-#define get_bits(s, n)  get_bits_trace(s , n, __FILE__, __PRETTY_FUNCTION__, __LINE__)
-#define get_bits1(s)    get_bits_trace(s,  1, __FILE__, __PRETTY_FUNCTION__, __LINE__)
-#define get_xbits(s, n) get_xbits_trace(s, n, __FILE__, __PRETTY_FUNCTION__, __LINE__)
-
-#define get_vlc(s, vlc)             get_vlc_trace(s, (vlc)->table, (vlc)->bits,   3, __FILE__, __PRETTY_FUNCTION__, __LINE__)
-#define get_vlc2(s, tab, bits, max) get_vlc_trace(s,          tab,        bits, max, __FILE__, __PRETTY_FUNCTION__, __LINE__)
-#else //TRACE
-#define GET_RL_VLC GET_RL_VLC_INTERNAL
-#endif
 
 #endif /* AVCODEC_GET_BITS_H */

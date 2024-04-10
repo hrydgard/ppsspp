@@ -90,17 +90,11 @@ int avcodec_get_context_defaults3(AVCodecContext *s, const AVCodec *codec)
 
     if(s->codec_type == AVMEDIA_TYPE_AUDIO)
         flags= AV_OPT_FLAG_AUDIO_PARAM;
-    else if(s->codec_type == AVMEDIA_TYPE_VIDEO)
-        flags= AV_OPT_FLAG_VIDEO_PARAM;
-    else if(s->codec_type == AVMEDIA_TYPE_SUBTITLE)
-        flags= AV_OPT_FLAG_SUBTITLE_PARAM;
     av_opt_set_defaults2(s, flags, flags);
 
     s->time_base           = (AVRational){0,1};
     s->pkt_timebase        = (AVRational){ 0, 1 };
     s->get_buffer2         = avcodec_default_get_buffer2;
-    s->execute             = avcodec_default_execute;
-    s->execute2            = avcodec_default_execute2;
     s->sample_fmt          = AV_SAMPLE_FMT_NONE;
 
     if(codec && codec->priv_data_size){
@@ -149,85 +143,6 @@ void avcodec_free_context(AVCodecContext **pavctx)
     av_freep(&avctx->rc_override);
 
     av_freep(pavctx);
-}
-
-int avcodec_copy_context(AVCodecContext *dest, const AVCodecContext *src)
-{
-    const AVCodec *orig_codec = dest->codec;
-    uint8_t *orig_priv_data = dest->priv_data;
-
-    if (avcodec_is_open(dest)) { // check that the dest context is uninitialized
-        av_log(dest, AV_LOG_ERROR,
-               "Tried to copy AVCodecContext %p into already-initialized %p\n",
-               src, dest);
-        return AVERROR(EINVAL);
-    }
-
-    av_opt_free(dest);
-    av_freep(&dest->rc_override);
-    av_freep(&dest->intra_matrix);
-    av_freep(&dest->inter_matrix);
-    av_freep(&dest->extradata);
-    av_freep(&dest->subtitle_header);
-
-    memcpy(dest, src, sizeof(*dest));
-    av_opt_copy(dest, src);
-
-    dest->priv_data       = orig_priv_data;
-    dest->codec           = orig_codec;
-
-    if (orig_priv_data && src->codec && src->codec->priv_class &&
-        dest->codec && dest->codec->priv_class)
-        av_opt_copy(orig_priv_data, src->priv_data);
-
-
-    /* set values specific to opened codecs back to their default state */
-    dest->slice_offset    = NULL;
-    dest->internal        = NULL;
-#if FF_API_CODED_FRAME
-FF_DISABLE_DEPRECATION_WARNINGS
-    dest->coded_frame     = NULL;
-FF_ENABLE_DEPRECATION_WARNINGS
-#endif
-
-    /* reallocate values that should be allocated separately */
-    dest->extradata       = NULL;
-    dest->intra_matrix    = NULL;
-    dest->inter_matrix    = NULL;
-    dest->rc_override     = NULL;
-    dest->subtitle_header = NULL;
-
-#define alloc_and_copy_or_fail(obj, size, pad) \
-    if (src->obj && size > 0) { \
-        dest->obj = av_malloc(size + pad); \
-        if (!dest->obj) \
-            goto fail; \
-        memcpy(dest->obj, src->obj, size); \
-        if (pad) \
-            memset(((uint8_t *) dest->obj) + size, 0, pad); \
-    }
-    alloc_and_copy_or_fail(extradata,    src->extradata_size,
-                           AV_INPUT_BUFFER_PADDING_SIZE);
-    dest->extradata_size  = src->extradata_size;
-    alloc_and_copy_or_fail(intra_matrix, 64 * sizeof(int16_t), 0);
-    alloc_and_copy_or_fail(inter_matrix, 64 * sizeof(int16_t), 0);
-    alloc_and_copy_or_fail(rc_override,  src->rc_override_count * sizeof(*src->rc_override), 0);
-    alloc_and_copy_or_fail(subtitle_header, src->subtitle_header_size, 1);
-    av_assert0(dest->subtitle_header_size == src->subtitle_header_size);
-#undef alloc_and_copy_or_fail
-
-    return 0;
-
-fail:
-    av_freep(&dest->rc_override);
-    av_freep(&dest->intra_matrix);
-    av_freep(&dest->inter_matrix);
-    av_freep(&dest->extradata);
-    av_freep(&dest->subtitle_header);
-    dest->subtitle_header_size = 0;
-    dest->extradata_size = 0;
-    av_opt_free(dest);
-    return AVERROR(ENOMEM);
 }
 
 const AVClass *avcodec_get_class(void)

@@ -35,7 +35,6 @@
 #include "mathematics.h"
 #include "avstring.h"
 #include "samplefmt.h"
-#include "dict.h"
 #include "avcodec.h"
 #include "opt.h"
 #include "internal.h"
@@ -233,9 +232,6 @@ static int audio_get_buffer(AVCodecContext *avctx, AVFrame *frame)
         frame->extended_data[i + AV_NUM_DATA_POINTERS] = frame->extended_buf[i]->data;
     }
 
-    if (avctx->debug & FF_DEBUG_BUFFERS)
-        av_log(avctx, AV_LOG_DEBUG, "default_get_buffer called on frame %p", frame);
-
     return 0;
 fail:
     av_frame_unref(frame);
@@ -250,8 +246,6 @@ int avcodec_default_get_buffer2(AVCodecContext *avctx, AVFrame *frame, int flags
         return ret;
 
     switch (avctx->codec_type) {
-    case AVMEDIA_TYPE_VIDEO:
-		return -1;
     case AVMEDIA_TYPE_AUDIO:
         return audio_get_buffer(avctx, frame);
     default:
@@ -262,8 +256,6 @@ int avcodec_default_get_buffer2(AVCodecContext *avctx, AVFrame *frame, int flags
 int ff_init_buffer_info(AVCodecContext *avctx, AVFrame *frame)
 {
     AVPacket *pkt = avctx->internal->pkt;
-    int i;
-   
     if (pkt) {
         av_frame_set_pkt_pos     (frame, pkt->pos);
         av_frame_set_pkt_duration(frame, pkt->duration);
@@ -275,8 +267,6 @@ int ff_init_buffer_info(AVCodecContext *avctx, AVFrame *frame)
     }
 
     switch (avctx->codec->type) {
-    case AVMEDIA_TYPE_VIDEO:
-        break;
     case AVMEDIA_TYPE_AUDIO:
         if (!frame->sample_rate)
             frame->sample_rate    = avctx->sample_rate;
@@ -306,29 +296,17 @@ int ff_init_buffer_info(AVCodecContext *avctx, AVFrame *frame)
     return 0;
 }
 
-int ff_decode_frame_props(AVCodecContext *avctx, AVFrame *frame)
-{
-    return ff_init_buffer_info(avctx, frame);
-}
-
-static int get_buffer_internal(AVCodecContext *avctx, AVFrame *frame, int flags)
-{
-    int override_dimensions = 1;
-    int ret;
-
-    ret = ff_decode_frame_props(avctx, frame);
-    if (ret < 0)
-        return ret;
-
-    ret = avctx->get_buffer2(avctx, frame, flags);
-
-end:
-    return ret;
-}
-
 int ff_get_buffer(AVCodecContext *avctx, AVFrame *frame, int flags)
 {
-    return get_buffer_internal(avctx, frame, flags);
+	int override_dimensions = 1;
+	int ret;
+
+	ret = ff_init_buffer_info(avctx, frame);
+	if (ret < 0)
+		return ret;
+
+	ret = avctx->get_buffer2(avctx, frame, flags);
+	return ret;
 }
 
 int avcodec_default_execute(AVCodecContext *c, int (*func)(AVCodecContext *c2, void *arg2), void *arg, int *ret, int count, int size)
@@ -369,7 +347,6 @@ static int64_t get_bit_rate(AVCodecContext *ctx)
     int bits_per_sample;
 
     switch (ctx->codec_type) {
-    case AVMEDIA_TYPE_VIDEO:
     case AVMEDIA_TYPE_DATA:
     case AVMEDIA_TYPE_SUBTITLE:
     case AVMEDIA_TYPE_ATTACHMENT:
@@ -478,30 +455,11 @@ int attribute_align_arg avcodec_open2(AVCodecContext *avctx, const AVCodec *code
     }
     avctx->frame_number = 0;
 
-    if ((avctx->codec->capabilities & AV_CODEC_CAP_EXPERIMENTAL) &&
-        avctx->strict_std_compliance > FF_COMPLIANCE_EXPERIMENTAL) {
-        const char *codec_string = av_codec_is_encoder(codec) ? "encoder" : "decoder";
-        AVCodec *codec2;
-        av_log(avctx, AV_LOG_ERROR,
-               "The %s '%s' is experimental but experimental codecs are not enabled, "
-               "add '-strict %d' if you want to use it.\n",
-               codec_string, codec->name, FF_COMPLIANCE_EXPERIMENTAL);
-        codec2 = av_codec_is_encoder(codec) ? avcodec_find_encoder(codec->id) : avcodec_find_decoder(codec->id);
-        if (!(codec2->capabilities & AV_CODEC_CAP_EXPERIMENTAL))
-            av_log(avctx, AV_LOG_ERROR, "Alternatively use the non experimental %s '%s'.\n",
-                codec_string, codec2->name);
-        ret = AVERROR_EXPERIMENTAL;
-        goto free_and_end;
-    }
-
     if (avctx->codec_type == AVMEDIA_TYPE_AUDIO &&
         (!avctx->time_base.num || !avctx->time_base.den)) {
         avctx->time_base.num = 1;
         avctx->time_base.den = avctx->sample_rate;
     }
-
-    if (!HAVE_THREADS && !(codec->capabilities & AV_CODEC_CAP_AUTO_THREADS))
-        avctx->thread_count = 1;
 
 #if FF_API_VISMV
     if (avctx->debug_mv)
@@ -515,8 +473,7 @@ int attribute_align_arg avcodec_open2(AVCodecContext *avctx, const AVCodec *code
     avctx->pts_correction_last_pts =
     avctx->pts_correction_last_dts = INT64_MIN;
 
-    if (   avctx->codec->init && (!(avctx->active_thread_type&FF_THREAD_FRAME)
-        || avctx->internal->frame_thread_encoder)) {
+    if (avctx->codec->init) {
         ret = avctx->codec->init(avctx);
         if (ret < 0) {
             goto free_and_end;
@@ -670,8 +627,6 @@ FF_ENABLE_DEPRECATION_WARNINGS
 #endif
     }
     avctx->codec = NULL;
-    avctx->active_thread_type = 0;
-
     return 0;
 }
 

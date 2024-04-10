@@ -20,7 +20,6 @@
 #include "channel_layout.h"
 #include "buffer.h"
 #include "common.h"
-#include "dict.h"
 #include "frame.h"
 #include "util_internal.h"
 #include "mem.h"
