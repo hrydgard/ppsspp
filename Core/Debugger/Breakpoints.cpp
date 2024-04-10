@@ -686,7 +686,7 @@ bool CBreakPoints::EvaluateLogFormat(DebugInterface *cpu, const std::string &fmt
 
 	size_t pos = 0;
 	while (pos < fmt.size()) {
-		size_t next = fmt.find_first_of("{", pos);
+		size_t next = fmt.find_first_of('{', pos);
 		if (next == fmt.npos) {
 			// End of the string.
 			result += fmt.substr(pos);
@@ -697,7 +697,7 @@ bool CBreakPoints::EvaluateLogFormat(DebugInterface *cpu, const std::string &fmt
 			pos = next;
 		}
 
-		size_t end = fmt.find_first_of("}", next + 1);
+		size_t end = fmt.find_first_of('}', next + 1);
 		if (end == fmt.npos) {
 			// Invalid: every expression needs a { and a }.
 			return false;

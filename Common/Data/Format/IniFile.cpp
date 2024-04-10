@@ -328,20 +328,20 @@ bool Section::Get(const char* key, std::vector<std::string>& values) const
 		return false;
 	}
 	// ignore starting , if any
-	size_t subStart = temp.find_first_not_of(",");
+	size_t subStart = temp.find_first_not_of(',');
 	size_t subEnd;
 
 	// split by , 
 	while (subStart != std::string::npos) {
 		
 		// Find next , 
-		subEnd = temp.find_first_of(",", subStart);
+		subEnd = temp.find_first_of(',', subStart);
 		if (subStart != subEnd) 
 			// take from first char until next , 
 			values.push_back(StripSpaces(temp.substr(subStart, subEnd - subStart)));
 	
 		// Find the next non , char
-		subStart = temp.find_first_not_of(",", subEnd);
+		subStart = temp.find_first_not_of(',', subEnd);
 	} 
 	
 	return true;

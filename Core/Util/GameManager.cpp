@@ -581,7 +581,7 @@ bool GameManager::InstallMemstickGame(struct zip *z, const Path &zipfile, const 
 		Path outFilename = dest / zippedName.substr(info.stripChars);
 
 		bool isDir = zippedName.empty() || zippedName.back() == '/';
-		if (!isDir && zippedName.find("/") != std::string::npos) {
+		if (!isDir && zippedName.find('/') != std::string::npos) {
 			outFilename = dest / zippedName.substr(0, zippedName.rfind('/'));
 		} else if (!isDir) {
 			outFilename = dest;

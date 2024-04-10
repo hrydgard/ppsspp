@@ -436,7 +436,7 @@ bool Load_PSP_ELF_PBP(FileLoader *fileLoader, std::string *error_string) {
 	std::string finalName = ms_path + file;
 
 	std::string homebrewName = PSP_CoreParameter().fileToStart.ToVisualString();
-	std::size_t lslash = homebrewName.find_last_of("/");
+	std::size_t lslash = homebrewName.find_last_of('/');
 #if PPSSPP_PLATFORM(UWP)
 	if (lslash == homebrewName.npos) {
 		lslash = homebrewName.find_last_of("\\");
