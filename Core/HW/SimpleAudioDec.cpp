@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <algorithm>
+#include <cmath>
 
 #include "Common/Serialize/SerializeFuncs.h"
 #include "Core/Config.h"
@@ -32,10 +33,56 @@ extern "C" {
 #include "libswresample/swresample.h"
 #include "libavutil/samplefmt.h"
 #include "libavcodec/avcodec.h"
-}
+#include "libavutil/version.h"
+
 #include "Core/FFMPEGCompat.h"
+}
 
 #endif  // USE_FFMPEG
+
+// FFMPEG-based decoder. TODO: Replace with individual codecs.
+class SimpleAudio : public AudioDecoder {
+public:
+	SimpleAudio(PSPAudioType audioType, int sampleRateHz = 44100, int channels = 2);
+	~SimpleAudio();
+
+	bool Decode(const uint8_t* inbuf, int inbytes, uint8_t *outbuf, int *outbytes) override;
+	bool IsOK() const override;
+
+	int GetOutSamples() const override {
+		return outSamples;
+	}
+	int GetSourcePos() const override {
+		return srcPos;
+	}
+
+	// Not save stated, only used by UI.  Used for ATRAC3 (non+) files.
+	void SetExtraData(const uint8_t *data, int size, int wav_bytes_per_packet) override;
+
+	void SetChannels(int channels) override;
+
+	// These two are only here because of save states.
+	PSPAudioType GetAudioType() const { return audioType; }
+
+private:
+	bool OpenCodec(int block_align);
+
+	PSPAudioType audioType;
+	int sample_rate_;
+	int channels_;
+	int outSamples; // output samples per frame
+	int srcPos; // bytes consumed in source during the last decoding
+
+	AVFrame *frame_;
+#if HAVE_LIBAVCODEC_CONST_AVCODEC // USE_FFMPEG is implied
+	const
+#endif
+		AVCodec *codec_;
+	AVCodecContext  *codecCtx_;
+	SwrContext      *swrCtx_;
+
+	bool codecOpen_;
+};
 
 // TODO: This should also be able to create other types of decoders.
 AudioDecoder *CreateAudioDecoder(PSPAudioType audioType, int sampleRateHz, int channels) {

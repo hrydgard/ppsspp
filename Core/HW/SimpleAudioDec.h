@@ -17,23 +17,8 @@
 
 #pragma once
 
-#include <cmath>
-
 #include "Core/HW/MediaEngine.h"
 #include "Core/HLE/sceAudio.h"
-
-struct AVFrame;
-struct AVCodec;
-struct AVCodecContext;
-struct SwrContext;
-
-#ifdef USE_FFMPEG
-
-extern "C" {
-#include "libavutil/version.h"
-};
-
-#endif
 
 // Wraps FFMPEG for audio decoding in a nice interface.
 // Decodes packet by packet - does NOT demux.
@@ -70,51 +55,6 @@ private:
 	uint32_t ctxPtr = 0xFFFFFFFF;
 };
 
-// FFMPEG-based decoder
-class SimpleAudio : public AudioDecoder {
-public:
-	SimpleAudio(PSPAudioType audioType, int sampleRateHz = 44100, int channels = 2);
-	~SimpleAudio();
-
-	bool Decode(const uint8_t* inbuf, int inbytes, uint8_t *outbuf, int *outbytes) override;
-	bool IsOK() const override;
-
-	int GetOutSamples() const override {
-		return outSamples;
-	}
-	int GetSourcePos() const override {
-		return srcPos;
-	}
-
-	// Not save stated, only used by UI.  Used for ATRAC3 (non+) files.
-	void SetExtraData(const uint8_t *data, int size, int wav_bytes_per_packet) override;
-
-	void SetChannels(int channels) override;
-
-	// These two are only here because of save states.
-	PSPAudioType GetAudioType() const { return audioType; }
-
-private:
-	bool OpenCodec(int block_align);
-
-	PSPAudioType audioType;
-	int sample_rate_;
-	int channels_;
-	int outSamples; // output samples per frame
-	int srcPos; // bytes consumed in source during the last decoding
-
-	AVFrame *frame_;
-#if HAVE_LIBAVCODEC_CONST_AVCODEC // USE_FFMPEG is implied
-	const
-#endif
-	AVCodec *codec_;
-	AVCodecContext  *codecCtx_;
-	SwrContext      *swrCtx_;
-
-	bool codecOpen_;
-};
-
-void AudioClose(SimpleAudio **ctx);
 void AudioClose(AudioDecoder **ctx);
 const char *GetCodecName(int codec);  // audioType
 bool IsValidCodec(PSPAudioType codec);
