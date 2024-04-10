@@ -57,6 +57,7 @@ public:
 
 	virtual int GetOutSamples() const = 0;
 	virtual int GetSourcePos() const = 0;
+	virtual int GetAudioType() const = 0;
 };
 
 // FFMPEG-based decoder
@@ -90,7 +91,6 @@ public:
 	u32 GetCtxPtr() const { return ctxPtr; }
 
 private:
-	void Init();
 	bool OpenCodec(int block_align);
 
 	u32 ctxPtr;
@@ -111,6 +111,7 @@ private:
 	bool codecOpen_;
 };
 
+void AudioClose(SimpleAudio **ctx);
 void AudioClose(AudioDecoder **ctx);
 const char *GetCodecName(int codec);  // audioType
 bool IsValidCodec(int codec);
@@ -170,9 +171,6 @@ public:
 	// Au decoder
 	AudioDecoder *decoder = nullptr;
 
-	// Au type
-	int audioType = 0;
-
 private:
 	size_t FindNextMp3Sync();
 
@@ -180,7 +178,7 @@ private:
 
 	// buffers informations
 	int AuBufAvailable = 0; // the available buffer of AuBuf to be able to recharge data
-	int readPos; // read position in audio source file
+	int readPos = 0; // read position in audio source file
 	int askedReadSize = 0; // the size of data requied to be read from file by the game
 	int nextOutputHalf = 0;
 };

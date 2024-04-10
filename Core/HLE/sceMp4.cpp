@@ -253,10 +253,9 @@ static u32 sceAacInit(u32 id)
 	aac->Channels = 2;
 	aac->MaxOutputSample = aac->PCMBufSize / 4;
 	aac->SetReadPos((int)aac->startPos);
-	aac->audioType = PSP_CODEC_AAC;
 
 	// create aac decoder
-	aac->decoder = new SimpleAudio(aac->audioType);
+	aac->decoder = new SimpleAudio(PSP_CODEC_AAC);
 
 	// close the audio if id already exist.
 	if (aacMap.find(id) != aacMap.end()) {
