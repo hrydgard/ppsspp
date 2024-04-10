@@ -41,18 +41,6 @@ std::map<int, uint8_t> PluginDataKeys;
 static bool anyEnabled = false;
 static std::vector<std::string> prxPlugins;
 
-enum class PluginType {
-	INVALID = 0,
-	PRX,
-};
-
-struct PluginInfo {
-	PluginType type;
-	std::string filename;
-	int version;
-	uint32_t memory;
-};
-
 static PluginInfo ReadPluginIni(const std::string &subdir, IniFile &ini) {
 	PluginInfo info;
 
@@ -66,9 +54,14 @@ static PluginInfo ReadPluginIni(const std::string &subdir, IniFile &ini) {
 	}
 
 	if (options->Get("filename", &value, "")) {
+		info.name = value;
 		info.filename = "ms0:/PSP/PLUGINS/" + subdir + "/" + value;
 	} else {
 		info.type = PluginType::INVALID;
+	}
+
+	if (options->Get("name", &value, "")) {
+		info.name = value;
 	}
 
 	options->Get("version", &info.version, 0);
@@ -89,7 +82,7 @@ static PluginInfo ReadPluginIni(const std::string &subdir, IniFile &ini) {
 	return info;
 }
 
-static std::vector<PluginInfo> FindPlugins(const std::string &gameID, const std::string &lang) {
+std::vector<PluginInfo> FindPlugins(const std::string &gameID, const std::string &lang) {
 	std::vector<File::FileInfo> pluginDirs;
 	GetFilesInDir(GetSysDirectory(DIRECTORY_PLUGINS), &pluginDirs);
 
@@ -110,23 +103,24 @@ static std::vector<PluginInfo> FindPlugins(const std::string &gameID, const std:
 		std::string gameIni;
 
 		// TODO: Should just use getsection and fail the ini if not found, I guess.
-		Section *games = ini.GetOrCreateSection("games");
-
-		if (games->Get(gameID.c_str(), &gameIni, "")) {
-			if (!strcasecmp(gameIni.c_str(), "true")) {
-				matches.insert("plugin.ini");
-			} else if (!strcasecmp(gameIni.c_str(), "false")){
-				continue;
-			} else if (!gameIni.empty()) {
-				matches.insert(gameIni);
+		const Section *games = ini.GetSection("games");
+		if (games) {
+			if (games->Get(gameID.c_str(), &gameIni, "")) {
+				if (!strcasecmp(gameIni.c_str(), "true")) {
+					matches.insert("plugin.ini");
+				} else if (!strcasecmp(gameIni.c_str(), "false")) {
+					continue;
+				} else if (!gameIni.empty()) {
+					matches.insert(gameIni);
+				}
 			}
-		}
 
-		if (games->Get("ALL", &gameIni, "")) {
-			if (!strcasecmp(gameIni.c_str(), "true")) {
-				matches.insert("plugin.ini");
-			} else if (!gameIni.empty()) {
-				matches.insert(gameIni);
+			if (games->Get("ALL", &gameIni, "")) {
+				if (!strcasecmp(gameIni.c_str(), "true")) {
+					matches.insert("plugin.ini");
+				} else if (!gameIni.empty()) {
+					matches.insert(gameIni);
+				}
 			}
 		}
 
@@ -184,6 +178,11 @@ bool Load() {
 	auto sy = GetI18NCategory(I18NCat::SYSTEM);
 
 	for (const std::string &filename : prxPlugins) {
+		if (!g_Config.bEnablePlugins) {
+			WARN_LOG(SYSTEM, "Plugins are disabled, ignoring enabled plugin %s", filename.c_str());
+			continue;
+		}
+
 		std::string error_string = "";
 		SceUID module = KernelLoadModule(filename, &error_string);
 		if (!error_string.empty() || module < 0) {
@@ -196,7 +195,7 @@ bool Load() {
 			ERROR_LOG(SYSTEM, "Unable to start plugin %s: %08x", filename.c_str(), ret);
 		} else {
 			std::string shortName = Path(filename).GetFilename();
-			g_OSD.Show(OSDType::MESSAGE_SUCCESS, ApplySafeSubstitutions(sy->T("Loaded plugin: %1"), shortName));
+			g_OSD.Show(OSDType::MESSAGE_SUCCESS, ApplySafeSubstitutions(sy->T("Loaded plugin: %1"), shortName), 6.0f);
 			started = true;
 		}
 

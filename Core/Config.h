@@ -237,6 +237,7 @@ public:
 	int iAutoLoadSaveState; // 0 = off, 1 = oldest, 2 = newest, >2 = slot number + 3
 	bool bEnableCheats;
 	bool bReloadCheats;
+	bool bEnablePlugins;
 	int iCwCheatRefreshIntervalMs;
 	float fCwCheatScrollPosition;
 	float fGameListScrollPosition;
