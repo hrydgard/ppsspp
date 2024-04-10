@@ -193,8 +193,6 @@ int atrac3p_decode_init(AVCodecContext *avctx)
         ctx->ch_units[i].waves_info_prev = &ctx->ch_units[i].wave_synth_hist[1];
     }
 
-    avctx->sample_fmt = AV_SAMPLE_FMT_FLTP;
-
     return 0;
 }
 
@@ -327,16 +325,13 @@ static void reconstruct_frame(ATRAC3PContext *ctx, Atrac3pChanUnitCtx *ch_unit,
     FFSWAP(Atrac3pWaveSynthParams *, ch_unit->waves_info, ch_unit->waves_info_prev);
 }
 
-int atrac3p_decode_frame(AVCodecContext *avctx, AVFrame *frame, int *got_frame_ptr, const uint8_t *avpkt_data, int avpkt_size)
+int atrac3p_decode_frame(AVCodecContext *avctx, float *out_data[2], int *nb_samples, int *got_frame_ptr, const uint8_t *avpkt_data, int avpkt_size)
 {
     ATRAC3PContext *ctx = avctx->priv_data;
     int i, ret, ch_unit_id, ch_block = 0, out_ch_index = 0, channels_to_process;
-    float **samples_p = (float **)frame->extended_data;
+	float **samples_p = out_data;
 
-    frame->nb_samples = ATRAC3P_FRAME_SAMPLES;
-    if ((ret = ff_get_buffer(avctx, frame, 0)) < 0)
-        return ret;
-
+    *nb_samples = ATRAC3P_FRAME_SAMPLES;
     if ((ret = init_get_bits8(&ctx->gb, avpkt_data, avpkt_size)) < 0)
         return ret;
 
@@ -388,7 +383,6 @@ int atrac3p_decode_frame(AVCodecContext *avctx, AVFrame *frame, int *got_frame_p
 AVCodec ff_atrac3p_decoder = {
     .name           = "atrac3plus",
     .id             = AV_CODEC_ID_ATRAC3P,
-    .capabilities   = AV_CODEC_CAP_DR1,
     .priv_data_size = sizeof(ATRAC3PContext),
     .init           = atrac3p_decode_init,
     .close          = atrac3p_decode_close,

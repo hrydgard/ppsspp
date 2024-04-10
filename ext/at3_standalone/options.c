@@ -54,9 +54,6 @@ int avcodec_get_context_defaults3(AVCodecContext *s, const AVCodec *codec)
         s->codec_id = codec->id;
     }
 
-    s->get_buffer2         = avcodec_default_get_buffer2;
-    s->sample_fmt          = AV_SAMPLE_FMT_NONE;
-
     if(codec && codec->priv_data_size){
         if(!s->priv_data){
             s->priv_data= av_mallocz(codec->priv_data_size);

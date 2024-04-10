@@ -581,13 +581,7 @@
     <ClInclude Include="..\ext\at3_standalone\avcodec.h">
       <Filter>ext\at3_standalone</Filter>
     </ClInclude>
-    <ClInclude Include="..\ext\at3_standalone\frame.h">
-      <Filter>ext\at3_standalone</Filter>
-    </ClInclude>
     <ClInclude Include="..\ext\at3_standalone\samplefmt.h">
-      <Filter>ext\at3_standalone</Filter>
-    </ClInclude>
-    <ClInclude Include="..\ext\at3_standalone\buffer.h">
       <Filter>ext\at3_standalone</Filter>
     </ClInclude>
     <ClInclude Include="..\ext\at3_standalone\mathematics.h">
@@ -621,9 +615,6 @@
       <Filter>ext\at3_standalone</Filter>
     </ClInclude>
     <ClInclude Include="..\ext\at3_standalone\log.h">
-      <Filter>ext\at3_standalone</Filter>
-    </ClInclude>
-    <ClInclude Include="..\ext\at3_standalone\buffer_internal.h">
       <Filter>ext\at3_standalone</Filter>
     </ClInclude>
     <ClInclude Include="..\ext\at3_standalone\intmath.h">
@@ -1110,9 +1101,6 @@
     <ClCompile Include="..\ext\at3_standalone\avfft.c">
       <Filter>ext\at3_standalone</Filter>
     </ClCompile>
-    <ClCompile Include="..\ext\at3_standalone\frame.c">
-      <Filter>ext\at3_standalone</Filter>
-    </ClCompile>
     <ClCompile Include="..\ext\at3_standalone\samplefmt.c">
       <Filter>ext\at3_standalone</Filter>
     </ClCompile>
@@ -1126,9 +1114,6 @@
       <Filter>ext\at3_standalone</Filter>
     </ClCompile>
     <ClCompile Include="..\ext\at3_standalone\channel_layout.c">
-      <Filter>ext\at3_standalone</Filter>
-    </ClCompile>
-    <ClCompile Include="..\ext\at3_standalone\av_buffer.c">
       <Filter>ext\at3_standalone</Filter>
     </ClCompile>
     <ClCompile Include="..\ext\at3_standalone\utils.c">

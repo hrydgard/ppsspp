@@ -730,7 +730,7 @@ static int decode_frame(AVCodecContext *avctx, const uint8_t *databuf,
     return 0;
 }
 
-int atrac3_decode_frame(AVCodecContext *avctx, AVFrame *frame, int *got_frame_ptr, const uint8_t *buf, int buf_size)
+int atrac3_decode_frame(AVCodecContext *avctx, float *out_data[2], int *nb_samples, int *got_frame_ptr, const uint8_t *buf, int buf_size)
 {
     ATRAC3Context *q = avctx->priv_data;
     int ret;
@@ -743,9 +743,7 @@ int atrac3_decode_frame(AVCodecContext *avctx, AVFrame *frame, int *got_frame_pt
     }
 
     /* get output buffer */
-    frame->nb_samples = SAMPLES_PER_FRAME;
-    if ((ret = ff_get_buffer(avctx, frame, 0)) < 0)
-        return ret;
+    *nb_samples = SAMPLES_PER_FRAME;
 
     /* Check if we need to descramble and what buffer to pass on. */
     if (q->scrambled_stream) {
@@ -755,7 +753,7 @@ int atrac3_decode_frame(AVCodecContext *avctx, AVFrame *frame, int *got_frame_pt
         databuf = buf;
     }
 
-    ret = decode_frame(avctx, databuf, (float **)frame->extended_data);
+    ret = decode_frame(avctx, databuf, out_data);
     if (ret) {
         av_log(NULL, AV_LOG_ERROR, "Frame decoding error!\n");
         return ret;
@@ -885,8 +883,6 @@ static av_cold int atrac3_decode_init(AVCodecContext *avctx)
                                          AV_INPUT_BUFFER_PADDING_SIZE);
     if (!q->decoded_bytes_buffer)
         return AVERROR(ENOMEM);
-
-    avctx->sample_fmt = AV_SAMPLE_FMT_FLTP;
 
     /* initialize the MDCT transform */
     if ((ret = ff_mdct_init(&q->mdct_ctx, 9, 1, 1.0 / 32768)) < 0) {

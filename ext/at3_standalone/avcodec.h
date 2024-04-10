@@ -29,10 +29,8 @@
 
 #include <errno.h>
 #include "attributes.h"
-#include "buffer.h"
 #include "channel_layout.h"
 #include "log.h"
-#include "frame.h"
 #include "rational.h"
 #include "version.h"
 
@@ -136,16 +134,6 @@ typedef struct AVCodecDescriptor {
  * Used to avoid some checks during header writing.
  */
 #define AV_INPUT_BUFFER_MIN_SIZE 16384
-
-/**
- * @ingroup lavc_encoding
- */
-typedef struct RcOverride{
-    int start_frame;
-    int end_frame;
-    int qscale; // If this is 0 then quality_factor will be used instead.
-    float quality_factor;
-} RcOverride;
 
 #if FF_API_MAX_BFRAMES
 /**
@@ -330,37 +318,6 @@ typedef struct RcOverride{
 #define AV_GET_BUFFER_FLAG_REF (1 << 0)
 
 /**
- * This structure stores compressed data. It is typically exported by demuxers
- * and then passed as input to decoders, or received as output from encoders and
- * then passed to muxers.
- *
- * For video, it should typically contain one compressed frame. For audio it may
- * contain several compressed frames. Encoders are allowed to output empty
- * packets, with no compressed data, containing only side data
- * (e.g. to update some stream parameters at the end of encoding).
- *
- * AVPacket is one of the few structs in FFmpeg, whose size is a part of public
- * ABI. Thus it may be allocated on stack and no new fields can be added to it
- * without libavcodec and libavformat major bump.
- *
- * The semantics of data ownership depends on the buf field.
- * If it is set, the packet data is dynamically allocated and is
- * valid indefinitely until a call to av_packet_unref() reduces the
- * reference count to 0.
- *
- * If the buf field is not set av_packet_ref() would make a copy instead
- * of increasing the reference count.
- *
- * The side data is always allocated with av_malloc(), copied by
- * av_packet_ref() and freed by av_packet_unref().
- *
- * @see av_packet_ref
- * @see av_packet_unref
- */
-
-struct AVBufferRef;
-
-/**
  * @}
  */
 
@@ -419,33 +376,11 @@ typedef struct AVCodecContext {
     void *priv_data;
 
     /**
-     * Private context used for internal data.
-     *
-     * Unlike priv_data, this is not codec-specific. It is used in general
-     * libavcodec functions.
-     */
-    struct AVCodecInternal *internal;
-
-    /**
-     * - encoding: Set by user.
-     * - decoding: unused
-     */
-    int compression_level;
-#define FF_COMPRESSION_DEFAULT -1
-
-    /**
      * AV_CODEC_FLAG_*.
      * - encoding: Set by user.
      * - decoding: Set by user.
      */
     int flags;
-
-    /**
-     * AV_CODEC_FLAG2_*
-     * - encoding: Set by user.
-     * - decoding: Set by user.
-     */
-    int flags2;
 
     /**
      * some codecs need / can use extradata like Huffman tables.
@@ -489,13 +424,6 @@ typedef struct AVCodecContext {
     int sample_rate; ///< samples per second
     int channels;    ///< number of audio channels
 
-    /**
-     * audio sample format
-     * - encoding: Set by user.
-     * - decoding: Set by libavcodec.
-     */
-    enum AVSampleFormat sample_fmt;  ///< sample format
-
     /* The following data should not be initialized. */
     /**
      * Number of samples per channel in an audio frame.
@@ -538,125 +466,6 @@ typedef struct AVCodecContext {
      * - decoding: set by user, may be overwritten by libavcodec.
      */
     uint64_t channel_layout;
-
-    /**
-     * This callback is called at the beginning of each frame to get data
-     * buffer(s) for it. There may be one contiguous buffer for all the data or
-     * there may be a buffer per each data plane or anything in between. What
-     * this means is, you may set however many entries in buf[] you feel necessary.
-     * Each buffer must be reference-counted using the AVBuffer API (see description
-     * of buf[] below).
-     *
-     * The following fields will be set in the frame before this callback is
-     * called:
-     * - format
-     * - width, height (video only)
-     * - sample_rate, channel_layout, nb_samples (audio only)
-     * Their values may differ from the corresponding values in
-     * AVCodecContext. This callback must use the frame values, not the codec
-     * context values, to calculate the required buffer size.
-     *
-     * This callback must fill the following fields in the frame:
-     * - data[]
-     * - linesize[]
-     * - extended_data:
-     *   * if the data is planar audio with more than 8 channels, then this
-     *     callback must allocate and fill extended_data to contain all pointers
-     *     to all data planes. data[] must hold as many pointers as it can.
-     *     extended_data must be allocated with av_malloc() and will be freed in
-     *     av_frame_unref().
-     *   * otherwise exended_data must point to data
-     * - buf[] must contain one or more pointers to AVBufferRef structures. Each of
-     *   the frame's data and extended_data pointers must be contained in these. That
-     *   is, one AVBufferRef for each allocated chunk of memory, not necessarily one
-     *   AVBufferRef per data[] entry. See: av_buffer_create(), av_buffer_alloc(),
-     *   and av_buffer_ref().
-     * - extended_buf and nb_extended_buf must be allocated with av_malloc() by
-     *   this callback and filled with the extra buffers if there are more
-     *   buffers than buf[] can hold. extended_buf will be freed in
-     *   av_frame_unref().
-     *
-     * If AV_CODEC_CAP_DR1 is not set then get_buffer2() must call
-     * avcodec_default_get_buffer2() instead of providing buffers allocated by
-     * some other means.
-     *
-     * Each data plane must be aligned to the maximum required by the target
-     * CPU.
-     *
-     * @see avcodec_default_get_buffer2()
-     *
-     * Video:
-     *
-     * If AV_GET_BUFFER_FLAG_REF is set in flags then the frame may be reused
-     * (read and/or written to if it is writable) later by libavcodec.
-     *
-     * avcodec_align_dimensions2() should be used to find the required width and
-     * height, as they normally need to be rounded up to the next multiple of 16.
-     *
-     * Some decoders do not support linesizes changing between frames.
-     *
-     * If frame multithreading is used and thread_safe_callbacks is set,
-     * this callback may be called from a different thread, but not from more
-     * than one at once. Does not need to be reentrant.
-     *
-     * @see avcodec_align_dimensions2()
-     *
-     * Audio:
-     *
-     * Decoders request a buffer of a particular size by setting
-     * AVFrame.nb_samples prior to calling get_buffer2(). The decoder may,
-     * however, utilize only part of the buffer by setting AVFrame.nb_samples
-     * to a smaller value in the output frame.
-     *
-     * As a convenience, av_samples_get_buffer_size() and
-     * av_samples_fill_arrays() in libavutil may be used by custom get_buffer2()
-     * functions to find the required data size and to fill data pointers and
-     * linesize. In AVFrame.linesize, only linesize[0] may be set for audio
-     * since all planes must be the same size.
-     *
-     * @see av_samples_get_buffer_size(), av_samples_fill_arrays()
-     *
-     * - encoding: unused
-     * - decoding: Set by libavcodec, user can override.
-     */
-    int (*get_buffer2)(struct AVCodecContext *s, AVFrame *frame, int flags);
-
-    /**
-     * If non-zero, the decoded audio and video frames returned from
-     * avcodec_decode_video2() and avcodec_decode_audio4() are reference-counted
-     * and are valid indefinitely. The caller must free them with
-     * av_frame_unref() when they are not needed anymore.
-     * Otherwise, the decoded frames must not be freed by the caller and are
-     * only valid until the next decode call.
-     *
-     * - encoding: unused
-     * - decoding: set by the caller before avcodec_open2().
-     */
-    int refcounted_frames;
-
-
-/**
- * Verify checksums embedded in the bitstream (could be of either encoded or
- * decoded data, depending on the codec) and print an error message on mismatch.
- * If AV_EF_EXPLODE is also set, a mismatching checksum will result in the
- * decoder returning an error.
- */
-#define AV_EF_CRCCHECK  (1<<0)
-#define AV_EF_BITSTREAM (1<<1)          ///< detect bitstream specification deviations
-#define AV_EF_BUFFER    (1<<2)          ///< detect improper bitstream length
-#define AV_EF_EXPLODE   (1<<3)          ///< abort decoding on minor error detection
-
-#define AV_EF_IGNORE_ERR (1<<15)        ///< ignore errors and continue
-#define AV_EF_CAREFUL    (1<<16)        ///< consider things that violate the spec, are fast to calculate and have not been seen in the wild as errors
-#define AV_EF_COMPLIANT  (1<<17)        ///< consider all spec non compliances as errors
-#define AV_EF_AGGRESSIVE (1<<18)        ///< consider things that a sane encoder should not do as an error
-
-    /**
-     * error
-     * - encoding: Set by libavcodec if flags & AV_CODEC_FLAG_PSNR.
-     * - decoding: unused
-     */
-    uint64_t error[AV_NUM_DATA_POINTERS];
 
     /**
      * IDCT algorithm, see FF_IDCT_* below.
@@ -724,12 +533,6 @@ typedef struct AVCodec {
      */
     const char *name;
     enum AVCodecID id;
-    /**
-     * Codec capabilities.
-     * see AV_CODEC_CAP_*
-     */
-    int capabilities;
-    const uint64_t *channel_layouts;         ///< array of support channel layouts, or NULL if unknown. array is terminated by 0
     const AVClass *priv_class;              ///< AVClass for the private context
 
     /*****************************************************************
@@ -870,13 +673,6 @@ int avcodec_close(AVCodecContext *avctx);
  * @addtogroup lavc_decoding
  * @{
  */
-
-/**
- * The default callback for AVCodecContext.get_buffer2(). It is made public so
- * it can be called by custom get_buffer2() implementations for decoders without
- * AV_CODEC_CAP_DR1 set.
- */
-int avcodec_default_get_buffer2(AVCodecContext *s, AVFrame *frame, int flags);
 
 typedef struct AVCodecParserContext {
     void *priv_data;
