@@ -301,7 +301,7 @@ static u32 sceAacGetLoopNum(u32 id)
 		ERROR_LOG(ME, "%s: bad aac id %08x", __FUNCTION__, id);
 		return -1;
 	}
-	return ctx->AuGetLoopNum();
+	return ctx->LoopNum;
 }
 
 static u32 sceAacSetLoopNum(u32 id, int loop)
@@ -313,7 +313,8 @@ static u32 sceAacSetLoopNum(u32 id, int loop)
 		return -1;
 	}
 
-	return ctx->AuSetLoopNum(loop);
+	ctx->LoopNum = loop;
+	return 0;
 }
 
 static int sceAacCheckStreamDataNeeded(u32 id)

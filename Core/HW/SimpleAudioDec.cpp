@@ -458,17 +458,6 @@ u32 AuCtx::AuDecode(u32 pcmAddr) {
 	return outpcmbufsize;
 }
 
-u32 AuCtx::AuGetLoopNum()
-{
-	return LoopNum;
-}
-
-u32 AuCtx::AuSetLoopNum(int loop)
-{
-	LoopNum = loop;
-	return 0;
-}
-
 // return 1 to read more data stream, 0 don't read
 int AuCtx::AuCheckStreamDataNeeded() {
 	// If we would ask for bytes, then some are needed.
