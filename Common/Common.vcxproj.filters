@@ -662,9 +662,6 @@
     <ClInclude Include="..\ext\at3_standalone\rational.h">
       <Filter>ext\at3_standalone</Filter>
     </ClInclude>
-    <ClInclude Include="..\ext\at3_standalone\rdft.h">
-      <Filter>ext\at3_standalone</Filter>
-    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="ABI.cpp" />
@@ -1204,9 +1201,6 @@
       <Filter>ext\at3_standalone</Filter>
     </ClCompile>
     <ClCompile Include="..\ext\at3_standalone\rational.c">
-      <Filter>ext\at3_standalone</Filter>
-    </ClCompile>
-    <ClCompile Include="..\ext\at3_standalone\rdft.c">
       <Filter>ext\at3_standalone</Filter>
     </ClCompile>
     <ClCompile Include="..\ext\at3_standalone\intmath.c">
