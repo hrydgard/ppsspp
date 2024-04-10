@@ -160,45 +160,6 @@
  * @}
  */
 
-/**
- * @addtogroup lavu_media Media Type
- * @brief Media Type
- */
-
-enum AVMediaType {
-    AVMEDIA_TYPE_UNKNOWN = -1,  ///< Usually treated as AVMEDIA_TYPE_DATA
-    AVMEDIA_TYPE_AUDIO,
-    AVMEDIA_TYPE_DATA,          ///< Opaque data information usually continuous
-    AVMEDIA_TYPE_SUBTITLE,
-    AVMEDIA_TYPE_ATTACHMENT,    ///< Opaque data information usually sparse
-    AVMEDIA_TYPE_NB
-};
-
-/**
- * @defgroup lavu_const Constants
- * @{
- *
- * @defgroup lavu_enc Encoding specific
- *
- * @note those definition should move to avcodec
- * @{
- */
-
-#define FF_LAMBDA_SHIFT 7
-#define FF_LAMBDA_SCALE (1<<FF_LAMBDA_SHIFT)
-#define FF_QP2LAMBDA 118 ///< factor to convert from H.263 QP to lambda
-#define FF_LAMBDA_MAX (256*128-1)
-
-#define FF_QUALITY_SCALE FF_LAMBDA_SCALE //FIXME maybe remove
-
-/**
- * @}
- * @defgroup lavu_time Timestamp specific
- *
- * FFmpeg internal timebase and timestamp definitions
- *
- * @{
- */
 
 /**
  * @brief Undefined timestamp value

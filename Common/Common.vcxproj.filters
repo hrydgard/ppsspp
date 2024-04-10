@@ -1137,9 +1137,6 @@
     <ClCompile Include="..\ext\at3_standalone\atrac.c">
       <Filter>ext\at3_standalone</Filter>
     </ClCompile>
-    <ClCompile Include="..\ext\at3_standalone\avpacket.c">
-      <Filter>ext\at3_standalone</Filter>
-    </ClCompile>
     <ClCompile Include="..\ext\at3_standalone\mathematics.c">
       <Filter>ext\at3_standalone</Filter>
     </ClCompile>

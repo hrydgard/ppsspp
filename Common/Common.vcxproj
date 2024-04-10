@@ -627,7 +627,6 @@
     <ClCompile Include="..\ext\at3_standalone\atrac3plusdec.c" />
     <ClCompile Include="..\ext\at3_standalone\atrac3plusdsp.c" />
     <ClCompile Include="..\ext\at3_standalone\avfft.c" />
-    <ClCompile Include="..\ext\at3_standalone\avpacket.c" />
     <ClCompile Include="..\ext\at3_standalone\av_buffer.c" />
     <ClCompile Include="..\ext\at3_standalone\bitstream.c" />
     <ClCompile Include="..\ext\at3_standalone\channel_layout.c" />

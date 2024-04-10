@@ -923,13 +923,8 @@ static av_cold int atrac3_decode_init(AVCodecContext *avctx)
 
 AVCodec ff_atrac3_decoder = {
     .name             = "atrac3",
-    .long_name        = "ATRAC3 (Adaptive TRansform Acoustic Coding 3)",
-    .type             = AVMEDIA_TYPE_AUDIO,
     .id               = AV_CODEC_ID_ATRAC3,
     .priv_data_size   = sizeof(ATRAC3Context),
     .init             = atrac3_decode_init,
     .close            = atrac3_decode_close,
-    .decode           = atrac3_decode_frame,
-    .sample_fmts      = (const enum AVSampleFormat[]) { AV_SAMPLE_FMT_FLTP,
-                                                        AV_SAMPLE_FMT_NONE },
 };

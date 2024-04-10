@@ -33,11 +33,6 @@
 #include "config.h"
 
 /**
- * The codec does not modify any global variables in the init function,
- * allowing to call the init function without locking any global mutexes.
- */
-#define FF_CODEC_CAP_INIT_THREADSAFE        (1 << 0)
-/**
  * The codec allows calling the close function for deallocation even if
  * the init function returned a failure. Without this capability flag, a
  * codec does such cleanup internally when returning failures from the
@@ -92,7 +87,6 @@ typedef struct FramePool {
      * Pool parameters
      */
     int format;
-    int width, height;
     int stride_align[AV_NUM_DATA_POINTERS];
     int linesize[4];
     int planes;
@@ -130,17 +124,9 @@ typedef struct AVCodecInternal {
      */
     int last_audio_frame;
 
-    AVFrame *to_free;
-
     FramePool *pool;
 
     void *thread_ctx;
-
-    /**
-     * Current packet as passed into the decoder, to avoid having to pass the
-     * packet into every function.
-     */
-    AVPacket *pkt;
 
     /**
      * temporary buffer used for encoders to store their bitstream
@@ -156,27 +142,12 @@ typedef struct AVCodecInternal {
     int skip_samples;
 } AVCodecInternal;
 
-struct AVCodecDefault {
-    const uint8_t *key;
-    const uint8_t *value;
-};
-
 extern const uint8_t ff_log2_run[41];
-
-/**
- * Return the index into tab at which {a,b} match elements {[0],[1]} of tab.
- * If there is no such matching pair then size is returned.
- */
-int ff_match_2uint16(const uint16_t (*tab)[2], int size, int a, int b);
 
 /**
  * does needed setup of pkt_pts/pos and such for (re)get_buffer();
  */
 int ff_init_buffer_info(AVCodecContext *s, AVFrame *frame);
-
-extern volatile int ff_avcodec_locked;
-int ff_lock_avcodec(AVCodecContext *log_ctx, const AVCodec *codec);
-int ff_unlock_avcodec(const AVCodec *codec);
 
 /**
  * Maximum size in bytes of extradata.
@@ -184,36 +155,6 @@ int ff_unlock_avcodec(const AVCodec *codec);
  * addressable by a 32-bit signed integer as used by get_bits.
  */
 #define FF_MAX_EXTRADATA_SIZE ((1 << 28) - AV_INPUT_BUFFER_PADDING_SIZE)
-
-/**
- * Check AVPacket size and/or allocate data.
- *
- * Encoders supporting AVCodec.encode2() can use this as a convenience to
- * ensure the output packet data is large enough, whether provided by the user
- * or allocated in this function.
- *
- * @param avctx   the AVCodecContext of the encoder
- * @param avpkt   the AVPacket
- *                If avpkt->data is already set, avpkt->size is checked
- *                to ensure it is large enough.
- *                If avpkt->data is NULL, a new buffer is allocated.
- *                avpkt->size is set to the specified size.
- *                All other AVPacket fields will be reset with av_init_packet().
- * @param size    the minimum required packet size
- * @param min_size This is a hint to the allocation algorithm, which indicates
- *                to what minimal size the caller might later shrink the packet
- *                to. Encoders often allocate packets which are larger than the
- *                amount of data that is written into them as the exact amount is
- *                not known at the time of allocation. min_size represents the
- *                size a packet might be shrunk to by the caller. Can be set to
- *                0. setting this roughly correctly allows the allocation code
- *                to choose between several allocation strategies to improve
- *                speed slightly.
- * @return        non negative on success, negative error code on failure
- */
-int ff_alloc_packet2(AVCodecContext *avctx, AVPacket *avpkt, int64_t size, int64_t min_size);
-
-attribute_deprecated int ff_alloc_packet(AVPacket *avpkt, int size);
 
 /**
  * Get a buffer for a frame. This is a wrapper around

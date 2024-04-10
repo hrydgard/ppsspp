@@ -31,47 +31,15 @@
 #include <float.h>              /* FLT_MIN, FLT_MAX */
 #include <string.h>
 
-static void *codec_child_next(void *obj, void *prev)
-{
-    AVCodecContext *s = obj;
-    if (!prev && s->codec && s->codec->priv_class && s->priv_data)
-        return s->priv_data;
-    return NULL;
-}
-
-static const AVClass *codec_child_class_next(const AVClass *prev)
-{
-    AVCodec *c = NULL;
-
-    /* find the codec that corresponds to prev */
-    while (prev && (c = av_codec_next(c)))
-        if (c->priv_class == prev)
-            break;
-
-    /* find next codec with priv options */
-    while (c = av_codec_next(c))
-        if (c->priv_class)
-            return c->priv_class;
-    return NULL;
-}
-
-static AVClassCategory get_category(void *ptr)
-{
-    AVCodecContext* avctx = ptr;
-    if(avctx->codec && avctx->codec->decode) return AV_CLASS_CATEGORY_DECODER;
-    else                                     return AV_CLASS_CATEGORY_ENCODER;
-}
-
 static const AVClass av_codec_context_class = {
     .class_name              = "AVCodecContext",
     .item_name               = NULL,
     .option                  = NULL,
     .version                 = LIBAVUTIL_VERSION_INT,
     .log_level_offset_offset = offsetof(AVCodecContext, log_level_offset),
-    .child_next              = codec_child_next,
-    .child_class_next        = codec_child_class_next,
-    .category                = AV_CLASS_CATEGORY_ENCODER,
-    .get_category            = get_category,
+    .child_next              = NULL,
+    .child_class_next        = NULL,
+    .category                = AV_CLASS_CATEGORY_DECODER,
 };
 
 int avcodec_get_context_defaults3(AVCodecContext *s, const AVCodec *codec)
@@ -81,14 +49,11 @@ int avcodec_get_context_defaults3(AVCodecContext *s, const AVCodec *codec)
 
     s->av_class = &av_codec_context_class;
 
-    s->codec_type = codec ? codec->type : AVMEDIA_TYPE_UNKNOWN;
     if (codec) {
         s->codec = codec;
         s->codec_id = codec->id;
     }
 
-    s->time_base           = (AVRational){0,1};
-    s->pkt_timebase        = (AVRational){ 0, 1 };
     s->get_buffer2         = avcodec_default_get_buffer2;
     s->sample_fmt          = AV_SAMPLE_FMT_NONE;
 
@@ -131,16 +96,8 @@ void avcodec_free_context(AVCodecContext **pavctx)
     avcodec_close(avctx);
 
     av_freep(&avctx->extradata);
-    av_freep(&avctx->intra_matrix);
-    av_freep(&avctx->inter_matrix);
-    av_freep(&avctx->rc_override);
 
     av_freep(pavctx);
-}
-
-const AVClass *avcodec_get_class(void)
-{
-    return &av_codec_context_class;
 }
 
 #define FOFFSET(x) offsetof(AVFrame,x)
@@ -151,10 +108,5 @@ static const AVClass av_frame_class = {
     .option                  = NULL,
     .version                 = LIBAVUTIL_VERSION_INT,
 };
-
-const AVClass *avcodec_get_frame_class(void)
-{
-    return &av_frame_class;
-}
 
 #define SROFFSET(x) offsetof(AVSubtitleRect,x)
