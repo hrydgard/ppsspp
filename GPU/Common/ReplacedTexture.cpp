@@ -66,9 +66,9 @@ static ReplacedImageType Identify(VFSBackend *vfs, VFSOpenFile *openFile, std::s
 	}
 	// Turn the signature into a readable string that we can display in an error message.
 	*outMagic = std::string((const char *)magic, 4);
-	for (int i = 0; i < outMagic->size(); i++) {
-		if ((s8)(*outMagic)[i] < 32) {
-			(*outMagic)[i] = '_';
+	for (char &ch : *outMagic) {
+		if ((s8)ch < 32) {
+			ch = '_';
 		}
 	}
 	vfs->Rewind(openFile);

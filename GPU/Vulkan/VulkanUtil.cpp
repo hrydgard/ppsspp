@@ -88,9 +88,9 @@ void VulkanComputeShaderManager::InitDeviceObjects(Draw::DrawContext *draw) {
 	res = vkCreateDescriptorSetLayout(device, &dsl, nullptr, &descriptorSetLayout_);
 	_assert_(VK_SUCCESS == res);
 
-	for (int i = 0; i < ARRAY_SIZE(frameData_); i++) {
-		frameData_[i].descPool.Create(vulkan_, bindingTypes, ARRAY_SIZE(bindingTypes), 4096);
-		frameData_[i].descPoolUsed = false;
+	for (auto &frame : frameData_) {
+        frame.descPool.Create(vulkan_, bindingTypes, ARRAY_SIZE(bindingTypes), 4096);
+        frame.descPoolUsed = false;
 	}
 
 	VkPushConstantRange push = {};
@@ -110,8 +110,8 @@ void VulkanComputeShaderManager::InitDeviceObjects(Draw::DrawContext *draw) {
 }
 
 void VulkanComputeShaderManager::DestroyDeviceObjects() {
-	for (int i = 0; i < ARRAY_SIZE(frameData_); i++) {
-		frameData_[i].descPool.Destroy();
+	for (auto &frame : frameData_) {
+        frame.descPool.Destroy();
 	}
 	if (descriptorSetLayout_) {
 		vulkan_->Delete().QueueDeleteDescriptorSetLayout(descriptorSetLayout_);

@@ -234,18 +234,17 @@ bool SymbolMap::SaveSymbolMap(const Path &filename) const {
 
 	gzprintf(f, ".text\n");
 
-	for (auto it = modules.begin(), end = modules.end(); it != end; ++it) {
-		const ModuleEntry &mod = *it;
-		gzprintf(f, ".module %x %08x %08x %s\n", mod.index, mod.start, mod.size, mod.name);
+	for (const auto &ent : modules) {
+        gzprintf(f, ".module %x %08x %08x %s\n", ent.index, ent.start, ent.size, ent.name);
 	}
 
-	for (auto it = functions.begin(), end = functions.end(); it != end; ++it) {
-		const FunctionEntry& e = it->second;
+	for (const auto &function : functions) {
+		const FunctionEntry& e = function.second;
 		gzprintf(f, "%08x %08x %x %i %s\n", e.start, e.size, e.module, ST_FUNCTION, GetLabelNameRel(e.start, e.module));
 	}
 
-	for (auto it = data.begin(), end = data.end(); it != end; ++it) {
-		const DataEntry& e = it->second;
+	for (const auto &it : data) {
+		const DataEntry& e = it.second;
 		gzprintf(f, "%08x %08x %x %i %s\n", e.start, e.size, e.module, ST_DATA, GetLabelNameRel(e.start, e.module));
 	}
 	gzclose(f);
@@ -323,8 +322,8 @@ void SymbolMap::SaveNocashSym(const Path &filename) const {
 		return;
 
 	// only write functions, the rest isn't really interesting
-	for (auto it = functions.begin(), end = functions.end(); it != end; ++it) {
-		const FunctionEntry& e = it->second;
+	for (const auto &function : functions) {
+		const FunctionEntry& e = function.second;
 		fprintf(f, "%08X %s,%04X\n", GetModuleAbsoluteAddr(e.start,e.module),GetLabelNameRel(e.start, e.module), e.size);
 	}
 	
@@ -430,9 +429,9 @@ std::vector<SymbolEntry> SymbolMap::GetAllSymbols(SymbolType symmask) {
 
 	if (symmask & ST_FUNCTION) {
 		std::lock_guard<std::recursive_mutex> guard(lock_);
-		for (auto it = activeFunctions.begin(); it != activeFunctions.end(); it++) {
+		for (auto &func : activeFunctions) {
 			SymbolEntry entry;
-			entry.address = it->first;
+			entry.address = func.first;
 			entry.size = GetFunctionSize(entry.address);
 			const char* name = GetLabelName(entry.address);
 			if (name != NULL)
@@ -443,9 +442,9 @@ std::vector<SymbolEntry> SymbolMap::GetAllSymbols(SymbolType symmask) {
 
 	if (symmask & ST_DATA) {
 		std::lock_guard<std::recursive_mutex> guard(lock_);
-		for (auto it = activeData.begin(); it != activeData.end(); it++) {
+		for (auto &data : activeData) {
 			SymbolEntry entry;
-			entry.address = it->first;
+			entry.address = data.first;
 			entry.size = GetDataSize(entry.address);
 			const char* name = GetLabelName(entry.address);
 			if (name != NULL)

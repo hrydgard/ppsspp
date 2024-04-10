@@ -19,6 +19,7 @@
 #if PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)
 
 #include <emmintrin.h>
+#include <algorithm>
 
 #include "Common/CPUDetect.h"
 #include "Core/Config.h"
@@ -1720,13 +1721,13 @@ void VertexDecoderJitCache::Jit_NormalFloatMorph() {
 
 bool VertexDecoderJitCache::CompileStep(const VertexDecoder &dec, int step) {
 	// See if we find a matching JIT function
-	for (size_t i = 0; i < ARRAY_SIZE(jitLookup); i++) {
-		if (dec.steps_[step] == jitLookup[i].func) {
-			((*this).*jitLookup[i].jitFunc)();
-			return true;
-		}
-	}
-	return false;
+    return std::any_of(std::cbegin(jitLookup), std::cend(jitLookup), [this, dec, step](const auto &jit) {
+        if (dec.steps_[step] == jit.func) {
+            ((*this).*jit.jitFunc)();
+            return true;
+        }
+        return false;
+    });
 }
 
 #endif // PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)

@@ -18,6 +18,7 @@
 #include <cstdio>
 #include <atomic>
 #include <mutex>
+#include <algorithm>
 
 #include "Common/System/System.h"
 #include "Common/Log.h"
@@ -146,11 +147,9 @@ bool CBreakPoints::RangeContainsBreakPoint(u32 addr, u32 size)
 		return false;
 	std::lock_guard<std::mutex> guard(breakPointsMutex_);
 	const u32 end = addr + size;
-	for (const auto &bp : breakPoints_)
-	{
-		if (bp.addr >= addr && bp.addr < end)
-			return true;
-	}
+    std::any_of(breakPoints_.begin(), breakPoints_.end(), [addr, end](const auto &bp) {
+        return bp.addr >= addr && bp.addr < end;
+    });
 
 	return false;
 }

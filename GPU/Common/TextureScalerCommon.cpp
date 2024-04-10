@@ -698,22 +698,22 @@ const int MIN_LINES_PER_THREAD = 4;
 
 void TextureScalerCommon::ScaleXBRZ(int factor, u32* source, u32* dest, int width, int height) {
 	xbrz::ScalerCfg cfg;
-	ParallelRangeLoop(&g_threadManager, std::bind(&xbrz::scale, factor, source, dest, width, height, xbrz::ColorFormat::ARGB, cfg, std::placeholders::_1, std::placeholders::_2), 0, height, MIN_LINES_PER_THREAD);
+	ParallelRangeLoop(&g_threadManager, [factor, source, dest, width, height, cfg](auto && PH1, auto && PH2) { return xbrz::scale(factor, source, dest, width, height, xbrz::ColorFormat::ARGB, cfg, std::forward<decltype(PH1)>(PH1), std::forward<decltype(PH2)>(PH2)); }, 0, height, MIN_LINES_PER_THREAD);
 }
 
 void TextureScalerCommon::ScaleBilinear(int factor, u32* source, u32* dest, int width, int height) {
 	bufTmp1.resize(width * height * factor);
 	u32 *tmpBuf = bufTmp1.data();
-	ParallelRangeLoop(&g_threadManager, std::bind(&bilinearH, factor, source, tmpBuf, width, std::placeholders::_1, std::placeholders::_2), 0, height, MIN_LINES_PER_THREAD);
-	ParallelRangeLoop(&g_threadManager, std::bind(&bilinearV, factor, tmpBuf, dest, width, 0, height, std::placeholders::_1, std::placeholders::_2), 0, height, MIN_LINES_PER_THREAD);
+	ParallelRangeLoop(&g_threadManager, [factor, source, tmpBuf, width](auto && PH1, auto && PH2) { return bilinearH(factor, source, tmpBuf, width, std::forward<decltype(PH1)>(PH1), std::forward<decltype(PH2)>(PH2)); }, 0, height, MIN_LINES_PER_THREAD);
+	ParallelRangeLoop(&g_threadManager, [factor, tmpBuf, dest, width, height](auto && PH1, auto && PH2) { return bilinearV(factor, tmpBuf, dest, width, 0, height, std::forward<decltype(PH1)>(PH1), std::forward<decltype(PH2)>(PH2)); }, 0, height, MIN_LINES_PER_THREAD);
 }
 
 void TextureScalerCommon::ScaleBicubicBSpline(int factor, u32* source, u32* dest, int width, int height) {
-	ParallelRangeLoop(&g_threadManager,std::bind(&scaleBicubicBSpline, factor, source, dest, width, height, std::placeholders::_1, std::placeholders::_2), 0, height, MIN_LINES_PER_THREAD);
+	ParallelRangeLoop(&g_threadManager,[factor, source, dest, width, height](auto && PH1, auto && PH2) { return scaleBicubicBSpline(factor, source, dest, width, height, std::forward<decltype(PH1)>(PH1), std::forward<decltype(PH2)>(PH2)); }, 0, height, MIN_LINES_PER_THREAD);
 }
 
 void TextureScalerCommon::ScaleBicubicMitchell(int factor, u32* source, u32* dest, int width, int height) {
-	ParallelRangeLoop(&g_threadManager,std::bind(&scaleBicubicMitchell, factor, source, dest, width, height, std::placeholders::_1, std::placeholders::_2), 0, height, MIN_LINES_PER_THREAD);
+	ParallelRangeLoop(&g_threadManager,[factor, source, dest, width, height](auto && PH1, auto && PH2) { return scaleBicubicMitchell(factor, source, dest, width, height, std::forward<decltype(PH1)>(PH1), std::forward<decltype(PH2)>(PH2)); }, 0, height, MIN_LINES_PER_THREAD);
 }
 
 void TextureScalerCommon::ScaleHybrid(int factor, u32* source, u32* dest, int width, int height, bool bicubic) {
@@ -730,8 +730,8 @@ void TextureScalerCommon::ScaleHybrid(int factor, u32* source, u32* dest, int wi
 	bufTmp2.resize(width*height*factor*factor);
 	bufTmp3.resize(width*height*factor*factor);
 
-	ParallelRangeLoop(&g_threadManager,std::bind(&generateDistanceMask, source, bufTmp1.data(), width, height, std::placeholders::_1, std::placeholders::_2), 0, height, MIN_LINES_PER_THREAD);
-	ParallelRangeLoop(&g_threadManager,std::bind(&convolve3x3, bufTmp1.data(), bufTmp2.data(), KERNEL_SPLAT, width, height, std::placeholders::_1, std::placeholders::_2), 0, height, MIN_LINES_PER_THREAD);
+	ParallelRangeLoop(&g_threadManager,[source, capture0 = bufTmp1.data(), width, height](auto && PH1, auto && PH2) { return generateDistanceMask(source, capture0, width, height, std::forward<decltype(PH1)>(PH1), std::forward<decltype(PH2)>(PH2)); }, 0, height, MIN_LINES_PER_THREAD);
+	ParallelRangeLoop(&g_threadManager,[capture0 = bufTmp1.data(), capture1 = bufTmp2.data(), width, height](auto && PH1, auto && PH2) { return convolve3x3(capture0, capture1, KERNEL_SPLAT, width, height, std::forward<decltype(PH1)>(PH1), std::forward<decltype(PH2)>(PH2)); }, 0, height, MIN_LINES_PER_THREAD);
 	ScaleBilinear(factor, bufTmp2.data(), bufTmp3.data(), width, height);
 	// mask C is now in bufTmp3
 
@@ -744,13 +744,13 @@ void TextureScalerCommon::ScaleHybrid(int factor, u32* source, u32* dest, int wi
 
 	// Now we can mix it all together
 	// The factor 8192 was found through practical testing on a variety of textures
-	ParallelRangeLoop(&g_threadManager,std::bind(&mix, dest, bufTmp2.data(), bufTmp3.data(), 8192, width*factor, std::placeholders::_1, std::placeholders::_2), 0, height*factor, MIN_LINES_PER_THREAD);
+	ParallelRangeLoop(&g_threadManager,[dest, capture0 = bufTmp2.data(), capture1 = bufTmp3.data(), capture2 = width*factor](auto && PH1, auto && PH2) { return mix(dest, capture0, capture1, 8192, capture2, std::forward<decltype(PH1)>(PH1), std::forward<decltype(PH2)>(PH2)); }, 0, height*factor, MIN_LINES_PER_THREAD);
 }
 
 void TextureScalerCommon::DePosterize(u32* source, u32* dest, int width, int height) {
 	bufTmp3.resize(width*height);
-	ParallelRangeLoop(&g_threadManager,std::bind(&deposterizeH, source, bufTmp3.data(), width, std::placeholders::_1, std::placeholders::_2), 0, height, MIN_LINES_PER_THREAD);
-	ParallelRangeLoop(&g_threadManager,std::bind(&deposterizeV, bufTmp3.data(), dest, width, height, std::placeholders::_1, std::placeholders::_2), 0, height, MIN_LINES_PER_THREAD);
-	ParallelRangeLoop(&g_threadManager,std::bind(&deposterizeH, dest, bufTmp3.data(), width, std::placeholders::_1, std::placeholders::_2), 0, height, MIN_LINES_PER_THREAD);
-	ParallelRangeLoop(&g_threadManager,std::bind(&deposterizeV, bufTmp3.data(), dest, width, height, std::placeholders::_1, std::placeholders::_2), 0, height, MIN_LINES_PER_THREAD);
+	ParallelRangeLoop(&g_threadManager,[source, capture0 = bufTmp3.data(), width](auto && PH1, auto && PH2) { return deposterizeH(source, capture0, width, std::forward<decltype(PH1)>(PH1), std::forward<decltype(PH2)>(PH2)); }, 0, height, MIN_LINES_PER_THREAD);
+	ParallelRangeLoop(&g_threadManager,[capture0 = bufTmp3.data(), dest, width, height](auto && PH1, auto && PH2) { return deposterizeV(capture0, dest, width, height, std::forward<decltype(PH1)>(PH1), std::forward<decltype(PH2)>(PH2)); }, 0, height, MIN_LINES_PER_THREAD);
+	ParallelRangeLoop(&g_threadManager,[dest, capture0 = bufTmp3.data(), width](auto && PH1, auto && PH2) { return deposterizeH(dest, capture0, width, std::forward<decltype(PH1)>(PH1), std::forward<decltype(PH2)>(PH2)); }, 0, height, MIN_LINES_PER_THREAD);
+	ParallelRangeLoop(&g_threadManager,[capture0 = bufTmp3.data(), dest, width, height](auto && PH1, auto && PH2) { return deposterizeV(capture0, dest, width, height, std::forward<decltype(PH1)>(PH1), std::forward<decltype(PH2)>(PH2)); }, 0, height, MIN_LINES_PER_THREAD);
 }

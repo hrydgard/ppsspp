@@ -604,8 +604,8 @@ ReplacedTexture *TextureReplacer::FindReplacement(u64 cachekey, u32 hash, int w,
 		desc.hashfiles = desc.filenames[0];  // The generated filename of the top level is used as the key in the data cache.
 		hashfiles.clear();
 		hashfiles.reserve(desc.filenames[0].size() * (desc.filenames.size() + 1));
-		for (int level = 0; level < desc.filenames.size(); level++) {
-			hashfiles += desc.filenames[level];
+		for (const auto &filename : desc.filenames) {
+			hashfiles += filename;
 			hashfiles.push_back('|');
 		}
 	} else {

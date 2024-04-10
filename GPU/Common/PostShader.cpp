@@ -68,29 +68,29 @@ void LoadPostShaderInfo(Draw::DrawContext *draw, const std::vector<Path> &direct
 		textureShaderInfo.push_back(info);
 	};
 
-	for (size_t d = 0; d < directories.size(); d++) {
+	for (const auto &dir : directories) {
 		std::vector<File::FileInfo> fileInfo;
-		g_VFS.GetFileListing(directories[d].c_str(), &fileInfo, "ini:");
+		g_VFS.GetFileListing(dir.c_str(), &fileInfo, "ini:");
 
 		if (fileInfo.empty()) {
-			File::GetFilesInDir(directories[d], &fileInfo, "ini:");
+			File::GetFilesInDir(dir, &fileInfo, "ini:");
 		}
 
-		for (size_t f = 0; f < fileInfo.size(); f++) {
+		for (auto &file : fileInfo) {
 			IniFile ini;
 			bool success = false;
-			if (fileInfo[f].isDirectory)
+			if (file.isDirectory)
 				continue;
 
-			Path name = fileInfo[f].fullName;
-			Path path = directories[d];
+			Path name = file.fullName;
+			Path path = dir;
 			// Hack around Android VFS path bug. really need to redesign this.
 			if (name.ToString().substr(0, 7) == "assets/")
 				name = Path(name.ToString().substr(7));
 			if (path.ToString().substr(0, 7) == "assets/")
 				path = Path(path.ToString().substr(7));
 
-			if (ini.LoadFromVFS(g_VFS, name.ToString()) || ini.Load(fileInfo[f].fullName)) {
+			if (ini.LoadFromVFS(g_VFS, name.ToString()) || ini.Load(file.fullName)) {
 				success = true;
 				// vsh load. meh.
 			}
@@ -218,12 +218,12 @@ void LoadPostShaderInfo(Draw::DrawContext *draw, const std::vector<Path> &direct
 	off.visible = true;
 	off.name = "Off";
 	off.section = "Off";
-	for (size_t i = 0; i < ARRAY_SIZE(off.settings); ++i) {
-		off.settings[i].name.clear();
-		off.settings[i].value = 0.0f;
-		off.settings[i].minValue = -1.0f;
-		off.settings[i].maxValue = 1.0f;
-		off.settings[i].step = 0.01f;
+	for (auto &setting : off.settings) {
+		setting.name.clear();
+		setting.value = 0.0f;
+		setting.minValue = -1.0f;
+		setting.maxValue = 1.0f;
+		setting.step = 0.01f;
 	}
 
 	TextureShaderInfo textureOff{};
@@ -258,9 +258,9 @@ void RemoveUnknownPostShaders(std::vector<std::string> *names) {
 }
 
 const ShaderInfo *GetPostShaderInfo(std::string_view name) {
-	for (size_t i = 0; i < shaderInfo.size(); i++) {
-		if (shaderInfo[i].section == name)
-			return &shaderInfo[i];
+	for (auto &info : shaderInfo) {
+		if (info.section == name)
+			return &info;
 	}
 	return nullptr;
 }
@@ -299,11 +299,9 @@ std::vector<const ShaderInfo *> GetFullPostShadersChain(const std::vector<std::s
 }
 
 bool PostShaderChainRequires60FPS(const std::vector<const ShaderInfo *> &chain) {
-	for (auto shaderInfo : chain) {
-		if (shaderInfo->requires60fps)
-			return true;
-	}
-	return false;
+    return std::any_of(chain.begin(), chain.end(), [](const ShaderInfo *shaderInfo) {
+        return shaderInfo->requires60fps;
+    });
 }
 
 const std::vector<ShaderInfo> &GetAllPostShaderInfo() {

@@ -3286,9 +3286,9 @@ static void DoRelease(T *&obj) {
 }
 
 void FramebufferManagerCommon::ReleasePipelines() {
-	for (int i = 0; i < ARRAY_SIZE(reinterpretFromTo_); i++) {
-		for (int j = 0; j < ARRAY_SIZE(reinterpretFromTo_); j++) {
-			DoRelease(reinterpretFromTo_[i][j]);
+	for (auto &draw : reinterpretFromTo_) {
+		for (auto &pipeline : draw) {
+			DoRelease(pipeline);
 		}
 	}
 	DoRelease(stencilWriteSampler_);
@@ -3352,18 +3352,18 @@ void FramebufferManagerCommon::DrawActiveTexture(float x, float y, float w, floa
 
 	const float invDestW = 2.0f / destW;
 	const float invDestH = 2.0f / destH;
-	for (int i = 0; i < 4; i++) {
-		coord[i].x = coord[i].x * invDestW - 1.0f;
-		coord[i].y = coord[i].y * invDestH - 1.0f;
+	for (auto &vertex : coord) {
+        vertex.x *= invDestW - 1.0f;
+        vertex.y *= invDestH - 1.0f;
 	}
 
 	if ((flags & DRAWTEX_TO_BACKBUFFER) && g_display.rotation != DisplayRotation::ROTATE_0) {
-		for (int i = 0; i < 4; i++) {
+		for (auto &vertex : coord) {
 			// backwards notation, should fix that...
-			Lin::Vec3 pos = Lin::Vec3(coord[i].x, coord[i].y, 0.0);
-			pos = pos * g_display.rot_matrix;
-			coord[i].x = pos.x;
-			coord[i].y = pos.y;
+			Lin::Vec3 pos = Lin::Vec3(vertex.x, vertex.y, 0.0);
+			pos *= g_display.rot_matrix;
+            vertex.x = pos.x;
+            vertex.y = pos.y;
 		}
 	}
 

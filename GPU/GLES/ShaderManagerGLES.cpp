@@ -704,8 +704,8 @@ ShaderManagerGLES::~ShaderManagerGLES() {
 
 void ShaderManagerGLES::Clear() {
 	DirtyLastShader();
-	for (auto iter = linkedShaderCache_.begin(); iter != linkedShaderCache_.end(); ++iter) {
-		iter->ls->Delete();
+	for (const auto &ent : linkedShaderCache_) {
+        ent.ls->Delete();
 	}
 	fsCache_.Iterate([&](const FShaderID &key, Shader *shader) {
 		delete shader;
@@ -865,12 +865,12 @@ LinkedShader *ShaderManagerGLES::ApplyFragmentShader(VShaderID VSID, Shader *vs,
 	LinkedShader *ls = nullptr;
 
 	u64 switchDirty = shaderSwitchDirtyUniforms_;
-	for (auto iter = linkedShaderCache_.begin(); iter != linkedShaderCache_.end(); ++iter) {
+	for (const auto &entry : linkedShaderCache_) {
 		// Deferred dirtying! Let's see if we can make this even more clever later.
-		iter->ls->dirtyUniforms |= switchDirty;
+        entry.ls->dirtyUniforms |= switchDirty;
 
-		if (iter->vs == vs && iter->fs == fs) {
-			ls = iter->ls;
+		if (entry.vs == vs && entry.fs == fs) {
+			ls = entry.ls;
 		}
 	}
 	shaderSwitchDirtyUniforms_ = 0;

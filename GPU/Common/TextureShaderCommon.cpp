@@ -138,16 +138,16 @@ ClutTexture TextureShaderCache::GetClutTexture(GEPaletteFormat clutFormat, const
 }
 
 void TextureShaderCache::Clear() {
-	for (auto shader = depalCache_.begin(); shader != depalCache_.end(); ++shader) {
-		if (shader->second->pipeline) {
-			shader->second->pipeline->Release();
+	for (auto &shader : depalCache_) {
+		if (shader.second->pipeline) {
+			shader.second->pipeline->Release();
 		}
-		delete shader->second;
+		delete shader.second;
 	}
 	depalCache_.clear();
-	for (auto tex = texCache_.begin(); tex != texCache_.end(); ++tex) {
-		tex->second->texture->Release();
-		delete tex->second;
+	for (auto &tex : texCache_) {
+		tex.second->texture->Release();
+		delete tex.second;
 	}
 	texCache_.clear();
 	if (nearestSampler_) {

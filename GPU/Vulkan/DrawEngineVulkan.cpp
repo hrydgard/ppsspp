@@ -112,7 +112,7 @@ void DrawEngineVulkan::InitDeviceObjects() {
 	tessDataTransferVulkan = new TessellationDataTransferVulkan(vulkan);
 	tessDataTransfer = tessDataTransferVulkan;
 
-	draw_->SetInvalidationCallback(std::bind(&DrawEngineVulkan::Invalidate, this, std::placeholders::_1));
+	draw_->SetInvalidationCallback([this](auto && PH1) { Invalidate(std::forward<decltype(PH1)>(PH1)); });
 }
 
 DrawEngineVulkan::~DrawEngineVulkan() {

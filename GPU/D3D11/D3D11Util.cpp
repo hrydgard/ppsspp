@@ -28,7 +28,16 @@ std::vector<uint8_t> CompileShaderToBytecodeD3D11(const char *code, size_t codeS
 		errors = std::string((const char *)errorMsgs->GetBufferPointer(), errorMsgs->GetBufferSize());
 		std::string numberedCode = LineNumberString(code);
 		if (SUCCEEDED(result)) {
-			WARN_LOG(G3D, "%s: %s", "warnings", errors.c_str());
+			std::vector<std::string_view> lines;
+			SplitString(errors, '\n', lines);
+			for (auto &line : lines) {
+				auto trimmed = StripSpaces(line);
+				// Ignore the useless warning about taking the power of negative numbers.
+				if (trimmed.find("pow(f, e) will not work for negative f") != std::string::npos) {
+					continue;
+				}
+				WARN_LOG(G3D, "%.*s", (int)trimmed.length(), trimmed.data());
+			}
 		} else {
 			ERROR_LOG(G3D, "%s: %s\n\n%s", "errors", errors.c_str(), numberedCode.c_str());
 		}
