@@ -38,11 +38,11 @@ extern "C" {
 #endif  // USE_FFMPEG
 
 // TODO: This should also be able to create other types of decoders.
-SimpleAudio *CreateAudioDecoder(PSPAudioType audioType, int sampleRateHz, int channels) {
+AudioDecoder *CreateAudioDecoder(PSPAudioType audioType, int sampleRateHz, int channels) {
 	return new SimpleAudio(audioType, sampleRateHz, channels);
 }
 
-int SimpleAudio::GetAudioCodecID(int audioType) {
+static int GetAudioCodecID(int audioType) {
 #ifdef USE_FFMPEG
 	switch (audioType) {
 	case PSP_CODEC_AAC:
@@ -62,7 +62,7 @@ int SimpleAudio::GetAudioCodecID(int audioType) {
 }
 
 SimpleAudio::SimpleAudio(PSPAudioType audioType, int sampleRateHz, int channels)
-	: ctxPtr(0xFFFFFFFF), audioType(audioType), sample_rate_(sampleRateHz), channels_(channels),
+	: audioType(audioType), sample_rate_(sampleRateHz), channels_(channels),
 	outSamples(0), srcPos(0),
 	frame_(0), codec_(0), codecCtx_(0), swrCtx_(0),
 	codecOpen_(false) {
@@ -125,7 +125,7 @@ bool SimpleAudio::OpenCodec(int block_align) {
 #endif  // USE_FFMPEG
 }
 
-void SimpleAudio::SetExtraData(const u8 *data, int size, int wav_bytes_per_packet) {
+void SimpleAudio::SetExtraData(const uint8_t *data, int size, int wav_bytes_per_packet) {
 #ifdef USE_FFMPEG
 	if (codecCtx_) {
 		codecCtx_->extradata = (uint8_t *)av_mallocz(size);

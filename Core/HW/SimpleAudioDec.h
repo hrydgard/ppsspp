@@ -58,6 +58,16 @@ public:
 	virtual int GetOutSamples() const = 0;
 	virtual int GetSourcePos() const = 0;
 	virtual PSPAudioType GetAudioType() const = 0;
+
+	virtual void SetChannels(int channels) = 0;
+	virtual void SetExtraData(const uint8_t *data, int size, int wav_bytes_per_packet) = 0;
+
+	// Just metadata.
+	void SetCtxPtr(uint32_t ptr) { ctxPtr = ptr; }
+	uint32_t GetCtxPtr() const { return ctxPtr; }
+
+private:
+	uint32_t ctxPtr = 0xFFFFFFFF;
 };
 
 // FFMPEG-based decoder
@@ -76,24 +86,17 @@ public:
 		return srcPos;
 	}
 
-	int GetAudioCodecID(int audioType); // Get audioCodecId from audioType
-
 	// Not save stated, only used by UI.  Used for ATRAC3 (non+) files.
-	void SetExtraData(const u8 *data, int size, int wav_bytes_per_packet);
+	void SetExtraData(const uint8_t *data, int size, int wav_bytes_per_packet) override;
 
-	void SetChannels(int channels);
+	void SetChannels(int channels) override;
 
 	// These two are only here because of save states.
 	PSPAudioType GetAudioType() const { return audioType; }
 
-	// Just metadata.
-	void SetCtxPtr(u32 ptr) { ctxPtr = ptr;  }
-	u32 GetCtxPtr() const { return ctxPtr; }
-
 private:
 	bool OpenCodec(int block_align);
 
-	u32 ctxPtr;
 	PSPAudioType audioType;
 	int sample_rate_;
 	int channels_;
@@ -115,7 +118,7 @@ void AudioClose(SimpleAudio **ctx);
 void AudioClose(AudioDecoder **ctx);
 const char *GetCodecName(int codec);  // audioType
 bool IsValidCodec(PSPAudioType codec);
-SimpleAudio *CreateAudioDecoder(PSPAudioType audioType, int sampleRateHz = 44100, int channels = 2);
+AudioDecoder *CreateAudioDecoder(PSPAudioType audioType, int sampleRateHz = 44100, int channels = 2);
 
 class AuCtx {
 public:

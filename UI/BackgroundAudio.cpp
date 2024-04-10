@@ -256,7 +256,7 @@ private:
 	int skip_next_samples_ = 0;
 	FixedSizeQueue<s16, 128 * 1024> bgQueue;
 	short *buffer_ = nullptr;
-	SimpleAudio *decoder_ = nullptr;
+	AudioDecoder *decoder_ = nullptr;
 };
 
 BackgroundAudio g_BackgroundAudio;
@@ -433,7 +433,7 @@ Sample *Sample::Load(const std::string &path) {
 	// mp3_info contains the decoded data.
 	int16_t *sample_data = new int16_t[mp3_info.samples];
 	memcpy(sample_data, mp3_info.buffer, mp3_info.samples * sizeof(int16_t));
-	Sample *sample = new Sample(sample_data, mp3_info.channels, mp3_info.samples, mp3_info.hz);
+	Sample *sample = new Sample(sample_data, mp3_info.channels, (int)mp3_info.samples, mp3_info.hz);
 	free(mp3_info.buffer);
 	delete[] data;
 	return sample;

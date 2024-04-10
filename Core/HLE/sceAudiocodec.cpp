@@ -36,12 +36,12 @@ struct AudioCodecContext {
 };
 
 // audioList is to store current playing audios.
-static std::map<u32, SimpleAudio *> audioList;
+static std::map<u32, AudioDecoder *> audioList;
 
 static bool oldStateLoaded = false;
 
 // find the audio decoder for corresponding ctxPtr in audioList
-static SimpleAudio *findDecoder(u32 ctxPtr) {
+static AudioDecoder *findDecoder(u32 ctxPtr) {
 	auto it = audioList.find(ctxPtr);
 	if (it != audioList.end()) {
 		return it->second;
@@ -83,7 +83,7 @@ static int sceAudiocodecInit(u32 ctxPtr, int codec) {
 		if (removeDecoder(ctxPtr)) {
 			WARN_LOG_REPORT(HLE, "sceAudiocodecInit(%08x, %d): replacing existing context", ctxPtr, codec);
 		}
-		auto decoder = CreateAudioDecoder(audioType);
+		AudioDecoder *decoder = CreateAudioDecoder(audioType);
 		decoder->SetCtxPtr(ctxPtr);
 		audioList[ctxPtr] = decoder;
 		INFO_LOG(ME, "sceAudiocodecInit(%08x, %i (%s))", ctxPtr, codec, GetCodecName(audioType));
@@ -216,7 +216,7 @@ void __sceAudiocodecDoState(PointerWrap &p){
 			auto ctxPtr_ = new u32[count];
 			int i = 0;
 			for (auto it = audioList.begin(), end = audioList.end(); it != end; it++) {
-				const SimpleAudio *decoder = it->second;
+				const AudioDecoder *decoder = it->second;
 				codec_[i] = decoder->GetAudioType();
 				ctxPtr_[i] = decoder->GetCtxPtr();
 				i++;
