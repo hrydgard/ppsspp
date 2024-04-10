@@ -172,6 +172,9 @@ endif
 SOURCES_C += $(LIBRETRODIR)/ext/glew/glew.c
 
 SOURCES_C += \
+	$(EXTDIR)/minimp3/minimp3.cpp
+
+SOURCES_C += \
 	$(EXTDIR)/libkirk/AES.c \
 	$(EXTDIR)/libkirk/amctrl.c \
 	$(EXTDIR)/libkirk/SHA1.c \
