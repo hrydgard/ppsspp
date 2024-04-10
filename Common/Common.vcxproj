@@ -385,6 +385,7 @@
     </Lib>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="..\ext\at3_standalone\at3_decoders.h" />
     <ClInclude Include="..\ext\at3_standalone\atrac.h" />
     <ClInclude Include="..\ext\at3_standalone\atrac3data.h" />
     <ClInclude Include="..\ext\at3_standalone\atrac3plus.h" />
@@ -405,14 +406,17 @@
     <ClInclude Include="..\ext\at3_standalone\float_dsp.h" />
     <ClInclude Include="..\ext\at3_standalone\frame.h" />
     <ClInclude Include="..\ext\at3_standalone\get_bits.h" />
+    <ClInclude Include="..\ext\at3_standalone\internal.h" />
     <ClInclude Include="..\ext\at3_standalone\intfloat.h" />
     <ClInclude Include="..\ext\at3_standalone\intreadwrite.h" />
     <ClInclude Include="..\ext\at3_standalone\libm.h" />
     <ClInclude Include="..\ext\at3_standalone\macros.h" />
     <ClInclude Include="..\ext\at3_standalone\mathematics.h" />
     <ClInclude Include="..\ext\at3_standalone\mathops.h" />
+    <ClInclude Include="..\ext\at3_standalone\pixdesc.h" />
     <ClInclude Include="..\ext\at3_standalone\pixfmt.h" />
     <ClInclude Include="..\ext\at3_standalone\samplefmt.h" />
+    <ClInclude Include="..\ext\at3_standalone\util_internal.h" />
     <ClInclude Include="..\ext\at3_standalone\version.h" />
     <ClInclude Include="..\ext\basis_universal\basisu.h" />
     <ClInclude Include="..\ext\basis_universal\basisu_containers.h" />
@@ -619,6 +623,7 @@
     <ClCompile Include="..\ext\at3_standalone\atrac3plusdsp.c" />
     <ClCompile Include="..\ext\at3_standalone\avfft.c" />
     <ClCompile Include="..\ext\at3_standalone\float_dsp.c" />
+    <ClCompile Include="..\ext\at3_standalone\frame.c" />
     <ClCompile Include="..\ext\at3_standalone\mathops.c" />
     <ClCompile Include="..\ext\basis_universal\basisu_transcoder.cpp" />
     <ClCompile Include="..\ext\libpng17\png.c">
@@ -886,6 +891,7 @@
     </ClCompile>
     <ClCompile Include="ArmEmitter.cpp" />
     <ClCompile Include="Buffer.cpp" />
+    <ClCompile Include="compat.c" />
     <ClCompile Include="Data\Collections\FastVec.h" />
     <ClCompile Include="Data\Color\RGBAUtil.cpp" />
     <ClCompile Include="Data\Convert\SmallDataConvert.cpp" />

@@ -65,7 +65,7 @@ typedef struct ATRAC3PContext {
     uint64_t my_channel_layout; ///< current channel layout
 } ATRAC3PContext;
 
-static av_cold int atrac3p_decode_close(AVCodecContext *avctx)
+int atrac3p_decode_close(AVCodecContext *avctx)
 {
     ATRAC3PContext *ctx = avctx->priv_data;
 
@@ -144,7 +144,7 @@ static av_cold int set_channel_params(ATRAC3PContext *ctx,
     return 0;
 }
 
-static av_cold int atrac3p_decode_init(AVCodecContext *avctx)
+int atrac3p_decode_init(AVCodecContext *avctx)
 {
     ATRAC3PContext *ctx = avctx->priv_data;
     int i, ch, ret;
@@ -327,11 +327,9 @@ static void reconstruct_frame(ATRAC3PContext *ctx, Atrac3pChanUnitCtx *ch_unit,
     FFSWAP(Atrac3pWaveSynthParams *, ch_unit->waves_info, ch_unit->waves_info_prev);
 }
 
-static int atrac3p_decode_frame(AVCodecContext *avctx, void *data,
-                                int *got_frame_ptr, AVPacket *avpkt)
+int atrac3p_decode_frame(AVCodecContext *avctx, AVFrame *frame, int *got_frame_ptr, const uint8_t *avpkt_data, int avpkt_size)
 {
     ATRAC3PContext *ctx = avctx->priv_data;
-    AVFrame *frame      = data;
     int i, ret, ch_unit_id, ch_block = 0, out_ch_index = 0, channels_to_process;
     float **samples_p = (float **)frame->extended_data;
 
@@ -339,7 +337,7 @@ static int atrac3p_decode_frame(AVCodecContext *avctx, void *data,
     if ((ret = ff_get_buffer(avctx, frame, 0)) < 0)
         return ret;
 
-    if ((ret = init_get_bits8(&ctx->gb, avpkt->data, avpkt->size)) < 0)
+    if ((ret = init_get_bits8(&ctx->gb, avpkt_data, avpkt_size)) < 0)
         return ret;
 
     if (get_bits1(&ctx->gb)) {
@@ -384,13 +382,12 @@ static int atrac3p_decode_frame(AVCodecContext *avctx, void *data,
 
     *got_frame_ptr = 1;
 
-    return FFMIN(avctx->block_align, avpkt->size);
+    return FFMIN(avctx->block_align, avpkt_size);
 }
 
-/*
 AVCodec ff_atrac3p_decoder = {
     .name           = "atrac3plus",
-    .long_name      = NULL_IF_CONFIG_SMALL("ATRAC3+ (Adaptive TRansform Acoustic Coding 3+)"),
+    .long_name      = "ATRAC3+ (Adaptive TRansform Acoustic Coding 3+)",
     .type           = AVMEDIA_TYPE_AUDIO,
     .id             = AV_CODEC_ID_ATRAC3P,
     .capabilities   = AV_CODEC_CAP_DR1,
@@ -399,4 +396,3 @@ AVCodec ff_atrac3p_decoder = {
     .close          = atrac3p_decode_close,
     .decode         = atrac3p_decode_frame,
 };
-*/

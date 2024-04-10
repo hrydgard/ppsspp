@@ -25,6 +25,7 @@
 #include "Core/HW/SimpleAudioDec.h"
 #include "Core/HW/MediaEngine.h"
 #include "Core/HW/BufferQueue.h"
+#include "Core/HW/Atrac3Standalone.h"
 
 #include "ext/minimp3/minimp3.h"
 
@@ -148,6 +149,8 @@ AudioDecoder *CreateAudioDecoder(PSPAudioType audioType, int sampleRateHz, int c
 	switch (audioType) {
 	case PSP_CODEC_MP3:
 		return new MiniMp3Audio();
+	case PSP_CODEC_AT3PLUS:
+		return CreateAtrac3Audio(audioType);
 	default:
 		return new SimpleAudio(audioType, sampleRateHz, channels);
 	}
