@@ -256,7 +256,7 @@ void TextureReplacer::ComputeAliasMap(const std::map<ReplacementCacheKey, std::m
 			}
 		}
 		if (alias == "|") {
-			alias = "";  // marker for no replacement
+			alias.clear();  // marker for no replacement
 		}
 		// Replace any '\' with '/', to be safe and consistent. Since these are from the ini file, we do this on all platforms.
 		for (auto &c : alias) {

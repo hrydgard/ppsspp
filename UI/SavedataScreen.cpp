@@ -319,10 +319,11 @@ void SavedataButton::Draw(UIContext &dc) {
 
 	Drawable bg = style.background;
 
-	dc.Draw()->Flush();
+	auto* draw = dc.Draw();
+	draw->Flush();
 	dc.RebindTexture();
 	dc.FillRect(bg, bounds_);
-	dc.Draw()->Flush();
+	draw->Flush();
 
 	if (texture) {
 		color = whiteAlpha(ease((time_now_d() - ginfo->icon.timeLoaded) * 2));
@@ -351,32 +352,32 @@ void SavedataButton::Draw(UIContext &dc) {
 			overlayBounds.y += txOffset * 2;
 		}
 		if (HasFocus()) {
-			dc.Draw()->Flush();
+			draw->Flush();
 			dc.RebindTexture();
 			float pulse = sin(time_now_d() * 7.0) * 0.25 + 0.8;
-			dc.Draw()->DrawImage4Grid(dc.theme->dropShadow4Grid, x - dropsize*1.5f, y - dropsize*1.5f, x + w + dropsize*1.5f, y + h + dropsize*1.5f, alphaMul(color, pulse), 1.0f);
-			dc.Draw()->Flush();
+			draw->DrawImage4Grid(dc.theme->dropShadow4Grid, x - dropsize*1.5f, y - dropsize*1.5f, x + w + dropsize*1.5f, y + h + dropsize*1.5f, alphaMul(color, pulse), 1.0f);
+			draw->Flush();
 		} else {
-			dc.Draw()->Flush();
+			draw->Flush();
 			dc.RebindTexture();
-			dc.Draw()->DrawImage4Grid(dc.theme->dropShadow4Grid, x - dropsize, y - dropsize*0.5f, x + w + dropsize, y + h + dropsize*1.5, alphaMul(shadowColor, 0.5f), 1.0f);
-			dc.Draw()->Flush();
+			draw->DrawImage4Grid(dc.theme->dropShadow4Grid, x - dropsize, y - dropsize*0.5f, x + w + dropsize, y + h + dropsize*1.5, alphaMul(shadowColor, 0.5f), 1.0f);
+			draw->Flush();
 		}
 	}
 
 	if (texture) {
-		dc.Draw()->Flush();
+		draw->Flush();
 		dc.GetDrawContext()->BindTexture(0, texture);
-		dc.Draw()->DrawTexRect(x, y, x + w, y + h, 0, 0, 1, 1, color);
-		dc.Draw()->Flush();
+		draw->DrawTexRect(x, y, x + w, y + h, 0, 0, 1, 1, color);
+		draw->Flush();
 	}
 
-	dc.Draw()->Flush();
+	draw->Flush();
 	dc.RebindTexture();
 	dc.SetFontStyle(dc.theme->uiFont);
 
 	float tw, th;
-	dc.Draw()->Flush();
+	draw->Flush();
 	dc.PushScissor(bounds_);
 
 	UpdateText(ginfo);
@@ -402,7 +403,7 @@ void SavedataButton::Draw(UIContext &dc) {
 	if (availableWidth < tw) {
 		dc.PopScissor();
 	}
-	dc.Draw()->Flush();
+	draw->Flush();
 	dc.PopScissor();
 
 	dc.RebindTexture();

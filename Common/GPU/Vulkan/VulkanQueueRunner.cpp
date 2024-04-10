@@ -292,24 +292,25 @@ void VulkanQueueRunner::PreprocessSteps(std::vector<VKRStep *> &steps) {
 
 			// Drop the clear step, and merge it into the next step that touches the same framebuffer.
 			for (int i = j + 1; i < (int)steps.size(); i++) {
+				auto &render = steps[i]->render;
 				if (steps[i]->stepType == VKRStepType::RENDER &&
-					steps[i]->render.framebuffer == steps[j]->render.framebuffer) {
-					if (steps[i]->render.colorLoad != VKRRenderPassLoadAction::CLEAR) {
-						steps[i]->render.colorLoad = VKRRenderPassLoadAction::CLEAR;
-						steps[i]->render.clearColor = steps[j]->render.clearColor;
+					render.framebuffer == steps[j]->render.framebuffer) {
+					if (render.colorLoad != VKRRenderPassLoadAction::CLEAR) {
+						render.colorLoad = VKRRenderPassLoadAction::CLEAR;
+						render.clearColor = steps[j]->render.clearColor;
 					}
-					if (steps[i]->render.depthLoad != VKRRenderPassLoadAction::CLEAR) {
-						steps[i]->render.depthLoad = VKRRenderPassLoadAction::CLEAR;
-						steps[i]->render.clearDepth = steps[j]->render.clearDepth;
+					if (render.depthLoad != VKRRenderPassLoadAction::CLEAR) {
+						render.depthLoad = VKRRenderPassLoadAction::CLEAR;
+						render.clearDepth = steps[j]->render.clearDepth;
 					}
-					if (steps[i]->render.stencilLoad != VKRRenderPassLoadAction::CLEAR) {
-						steps[i]->render.stencilLoad = VKRRenderPassLoadAction::CLEAR;
-						steps[i]->render.clearStencil = steps[j]->render.clearStencil;
+					if (render.stencilLoad != VKRRenderPassLoadAction::CLEAR) {
+						render.stencilLoad = VKRRenderPassLoadAction::CLEAR;
+						render.clearStencil = steps[j]->render.clearStencil;
 					}
-					MergeRenderAreaRectInto(&steps[i]->render.renderArea, steps[j]->render.renderArea);
-					steps[i]->render.renderPassType = MergeRPTypes(steps[i]->render.renderPassType, steps[j]->render.renderPassType);
-					steps[i]->render.numDraws += steps[j]->render.numDraws;
-					steps[i]->render.numReads += steps[j]->render.numReads;
+					MergeRenderAreaRectInto(&render.renderArea, steps[j]->render.renderArea);
+					render.renderPassType = MergeRPTypes(render.renderPassType, steps[j]->render.renderPassType);
+					render.numDraws += steps[j]->render.numDraws;
+					render.numReads += steps[j]->render.numReads;
 					// Cheaply skip the first step.
 					steps[j]->stepType = VKRStepType::RENDER_SKIP;
 					break;

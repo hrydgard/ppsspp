@@ -913,7 +913,7 @@ int PSPOskDialog::NativeKeyboard() {
 				if (nativeStatus_ != PSPOskNativeStatus::WAITING) {
 					return;
 				}
-				nativeValue_ = "";
+				nativeValue_.clear();
 				nativeStatus_ = PSPOskNativeStatus::FAILURE;
 			}
 		);

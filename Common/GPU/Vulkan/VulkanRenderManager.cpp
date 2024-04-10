@@ -899,7 +899,8 @@ void VulkanRenderManager::EndCurRenderStep() {
 void VulkanRenderManager::BindFramebufferAsRenderTarget(VKRFramebuffer *fb, VKRRenderPassLoadAction color, VKRRenderPassLoadAction depth, VKRRenderPassLoadAction stencil, uint32_t clearColor, float clearDepth, uint8_t clearStencil, const char *tag) {
 	_dbg_assert_(insideFrame_);
 	// Eliminate dupes (bind of the framebuffer we already are rendering to), instantly convert to a clear if possible.
-	if (!steps_.empty() && steps_.back()->stepType == VKRStepType::RENDER && steps_.back()->render.framebuffer == fb) {
+	auto *back = steps_.back();
+	if (!steps_.empty() && back->stepType == VKRStepType::RENDER && back->render.framebuffer == fb) {
 		u32 clearMask = 0;
 		if (color == VKRRenderPassLoadAction::CLEAR) {
 			clearMask |= VK_IMAGE_ASPECT_COLOR_BIT;
@@ -918,11 +919,11 @@ void VulkanRenderManager::BindFramebufferAsRenderTarget(VKRFramebuffer *fb, VKRR
 		//
 		// However, if we do need a clear and there are no commands in the previous pass,
 		// we want the queuerunner to have the opportunity to merge, so we'll go ahead and make a new renderpass.
-		if (clearMask == 0 || !steps_.back()->commands.empty()) {
-			curRenderStep_ = steps_.back();
+		if (clearMask == 0 || !back->commands.empty()) {
+			curRenderStep_ = back;
 			curStepHasViewport_ = false;
 			curStepHasScissor_ = false;
-			for (const auto &c : steps_.back()->commands) {
+			for (const auto &c : back->commands) {
 				if (c.cmd == VKRRenderCommand::VIEWPORT) {
 					curStepHasViewport_ = true;
 				} else if (c.cmd == VKRRenderCommand::SCISSOR) {
@@ -947,8 +948,8 @@ void VulkanRenderManager::BindFramebufferAsRenderTarget(VKRFramebuffer *fb, VKRR
 		if (curRenderStep_->commands.empty()) {
 			if (curRenderStep_->render.colorLoad != VKRRenderPassLoadAction::CLEAR && curRenderStep_->render.depthLoad != VKRRenderPassLoadAction::CLEAR && curRenderStep_->render.stencilLoad != VKRRenderPassLoadAction::CLEAR) {
 				// Can trivially kill the last empty render step.
-				_dbg_assert_(steps_.back() == curRenderStep_);
-				delete steps_.back();
+				_dbg_assert_(back == curRenderStep_);
+				delete back;
 				steps_.pop_back();
 				curRenderStep_ = nullptr;
 			}
@@ -959,7 +960,7 @@ void VulkanRenderManager::BindFramebufferAsRenderTarget(VKRFramebuffer *fb, VKRR
 	}
 
 	// Sanity check that we don't have binds to the backbuffer before binds to other buffers. It must always be bound last.
-	if (steps_.size() >= 1 && steps_.back()->stepType == VKRStepType::RENDER && steps_.back()->render.framebuffer == nullptr && fb != nullptr) {
+	if (steps_.size() >= 1 && back->stepType == VKRStepType::RENDER && back->render.framebuffer == nullptr && fb != nullptr) {
 		_dbg_assert_(false);
 	}
 

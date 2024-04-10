@@ -406,15 +406,16 @@ public:
 		stencilWriteMask_ = writeMask;
 		stencilCompareMask_ = compareMask;
 		// Do we need to update on the fly here?
+		const auto depthStencil = curPipeline_->depthStencil;
 		renderManager_.SetStencil(
-			curPipeline_->depthStencil->stencilEnabled,
-			curPipeline_->depthStencil->stencilCompareOp,
+			depthStencil->stencilEnabled,
+			depthStencil->stencilCompareOp,
 			refValue,
 			compareMask,
 			writeMask,
-			curPipeline_->depthStencil->stencilFail,
-			curPipeline_->depthStencil->stencilZFail,
-			curPipeline_->depthStencil->stencilPass);
+			depthStencil->stencilFail,
+			depthStencil->stencilZFail,
+			depthStencil->stencilPass);
 	}
 
 	void BindTextures(int start, int count, Texture **textures, TextureBindFlags flags) override;

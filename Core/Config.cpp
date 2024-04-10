@@ -1404,7 +1404,7 @@ void Config::PostLoadCleanup(bool gameSpecific) {
 
 	// Remove a legacy value.
 	if (g_Config.sCustomDriver == "Default") {
-		g_Config.sCustomDriver = "";
+		g_Config.sCustomDriver.clear();
 	}
 }
 
