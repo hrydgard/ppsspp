@@ -524,6 +524,93 @@
     <ClInclude Include="..\ext\minimp3\minimp3.h">
       <Filter>ext\minimp3</Filter>
     </ClInclude>
+    <ClInclude Include="..\ext\at3_standalone\atrac3data.h">
+      <Filter>ext\at3_standalone</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ext\at3_standalone\atrac3plus.h">
+      <Filter>ext\at3_standalone</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ext\at3_standalone\atrac3plus_data.h">
+      <Filter>ext\at3_standalone</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ext\at3_standalone\atrac.h">
+      <Filter>ext\at3_standalone</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ext\at3_standalone\get_bits.h">
+      <Filter>ext\at3_standalone</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ext\at3_standalone\compat.h">
+      <Filter>ext\at3_standalone</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ext\at3_standalone\config.h">
+      <Filter>ext\at3_standalone</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ext\at3_standalone\bswap.h">
+      <Filter>ext\at3_standalone</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ext\at3_standalone\bytestream.h">
+      <Filter>ext\at3_standalone</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ext\at3_standalone\fft.h">
+      <Filter>ext\at3_standalone</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ext\at3_standalone\float_dsp.h">
+      <Filter>ext\at3_standalone</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ext\at3_standalone\intreadwrite.h">
+      <Filter>ext\at3_standalone</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ext\at3_standalone\avfft.h">
+      <Filter>ext\at3_standalone</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ext\at3_standalone\error.h">
+      <Filter>ext\at3_standalone</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ext\at3_standalone\common.h">
+      <Filter>ext\at3_standalone</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ext\at3_standalone\mathops.h">
+      <Filter>ext\at3_standalone</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ext\at3_standalone\macros.h">
+      <Filter>ext\at3_standalone</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ext\at3_standalone\version.h">
+      <Filter>ext\at3_standalone</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ext\at3_standalone\avcodec.h">
+      <Filter>ext\at3_standalone</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ext\at3_standalone\frame.h">
+      <Filter>ext\at3_standalone</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ext\at3_standalone\avutil.h">
+      <Filter>ext\at3_standalone</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ext\at3_standalone\samplefmt.h">
+      <Filter>ext\at3_standalone</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ext\at3_standalone\pixfmt.h">
+      <Filter>ext\at3_standalone</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ext\at3_standalone\buffer.h">
+      <Filter>ext\at3_standalone</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ext\at3_standalone\dict.h">
+      <Filter>ext\at3_standalone</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ext\at3_standalone\mathematics.h">
+      <Filter>ext\at3_standalone</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ext\at3_standalone\intfloat.h">
+      <Filter>ext\at3_standalone</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ext\at3_standalone\channel_layout.h">
+      <Filter>ext\at3_standalone</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ext\at3_standalone\libm.h">
+      <Filter>ext\at3_standalone</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="ABI.cpp" />
@@ -981,6 +1068,27 @@
     <ClCompile Include="..\ext\minimp3\minimp3.cpp">
       <Filter>ext\minimp3</Filter>
     </ClCompile>
+    <ClCompile Include="..\ext\at3_standalone\atrac3.c">
+      <Filter>ext\at3_standalone</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ext\at3_standalone\atrac3plus.c">
+      <Filter>ext\at3_standalone</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ext\at3_standalone\atrac3plusdec.c">
+      <Filter>ext\at3_standalone</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ext\at3_standalone\atrac3plusdsp.c">
+      <Filter>ext\at3_standalone</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ext\at3_standalone\float_dsp.c">
+      <Filter>ext\at3_standalone</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ext\at3_standalone\avfft.c">
+      <Filter>ext\at3_standalone</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ext\at3_standalone\mathops.c">
+      <Filter>ext\at3_standalone</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Crypto">
@@ -1094,10 +1202,16 @@
     <Filter Include="ext\minimp3">
       <UniqueIdentifier>{83cd76d0-d1ac-4ed1-9bdc-11fb5a20e5d3}</UniqueIdentifier>
     </Filter>
+    <Filter Include="ext\at3_standalone">
+      <UniqueIdentifier>{586da66e-922a-4479-9dac-9d608a1b9183}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <Text Include="..\ext\libpng17\CMakeLists.txt">
       <Filter>ext\libpng17</Filter>
+    </Text>
+    <Text Include="..\ext\at3_standalone\README.txt">
+      <Filter>ext\at3_standalone</Filter>
     </Text>
   </ItemGroup>
   <ItemGroup>

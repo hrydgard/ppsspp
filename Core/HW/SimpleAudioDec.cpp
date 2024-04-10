@@ -51,6 +51,11 @@ extern "C" {
 
 #endif  // USE_FFMPEG
 
+// AAC decoder candidates:
+// * https://github.com/mstorsjo/fdk-aac/tree/master
+
+
+
 // minimp3-based decoder.
 class MiniMp3Audio : public AudioDecoder {
 public:
