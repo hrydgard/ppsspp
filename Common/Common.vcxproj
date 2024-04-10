@@ -421,7 +421,6 @@
     <ClInclude Include="..\ext\at3_standalone\mathops.h" />
     <ClInclude Include="..\ext\at3_standalone\mem.h" />
     <ClInclude Include="..\ext\at3_standalone\opt.h" />
-    <ClInclude Include="..\ext\at3_standalone\options_table.h" />
     <ClInclude Include="..\ext\at3_standalone\rational.h" />
     <ClInclude Include="..\ext\at3_standalone\samplefmt.h" />
     <ClInclude Include="..\ext\at3_standalone\sinewin.h" />

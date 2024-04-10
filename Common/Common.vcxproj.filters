@@ -629,9 +629,6 @@
     <ClInclude Include="..\ext\at3_standalone\opt.h">
       <Filter>ext\at3_standalone</Filter>
     </ClInclude>
-    <ClInclude Include="..\ext\at3_standalone\options_table.h">
-      <Filter>ext\at3_standalone</Filter>
-    </ClInclude>
     <ClInclude Include="..\ext\at3_standalone\log.h">
       <Filter>ext\at3_standalone</Filter>
     </ClInclude>

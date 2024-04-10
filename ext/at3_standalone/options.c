@@ -32,19 +32,6 @@
 #include <float.h>              /* FLT_MIN, FLT_MAX */
 #include <string.h>
 
-FF_DISABLE_DEPRECATION_WARNINGS
-#include "options_table.h"
-FF_ENABLE_DEPRECATION_WARNINGS
-
-static const char* context_to_name(void* ptr) {
-    AVCodecContext *avc= ptr;
-
-    if(avc && avc->codec && avc->codec->name)
-        return avc->codec->name;
-    else
-        return "NULL";
-}
-
 static void *codec_child_next(void *obj, void *prev)
 {
     AVCodecContext *s = obj;
@@ -78,7 +65,7 @@ static AVClassCategory get_category(void *ptr)
 
 static const AVClass av_codec_context_class = {
     .class_name              = "AVCodecContext",
-    .item_name               = context_to_name,
+    .item_name               = NULL,
     .option                  = NULL,
     .version                 = LIBAVUTIL_VERSION_INT,
     .log_level_offset_offset = offsetof(AVCodecContext, log_level_offset),
