@@ -22,7 +22,7 @@
 #include <stdint.h>
 
 #include "avutil.h"
-#include "attributes.h"
+#include "compat.h"
 
 /**
  * @addtogroup lavu_audio

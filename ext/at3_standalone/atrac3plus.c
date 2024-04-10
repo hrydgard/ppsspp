@@ -25,6 +25,9 @@
  * Bitstream parser for ATRAC3+ decoder.
  */
 
+#include <string.h>
+#include <stdlib.h>
+
 //#include "avcodec.h"
 #include "get_bits.h"
 #include "atrac3plus.h"

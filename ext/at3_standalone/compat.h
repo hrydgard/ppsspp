@@ -2,8 +2,6 @@
 
 // Compat hacks
 
-#include "attributes.h"
-
 #include "error.h"
 
 #define CONFIG_MEMORY_POISONING 0
@@ -24,6 +22,24 @@
 #define FF_ENABLE_DEPRECATION_WARNINGS
 #define CONFIG_MDCT 1
 #define CONFIG_FFT 1
+
+#define av_cold
+#define DECLARE_ALIGNED(bits, type, name)  type name
+#define LOCAL_ALIGNED(bits, type, name, subscript) type name subscript
+#define av_restrict
+#define av_always_inline __forceinline
+#define av_const
+#define av_alias
+#define av_unused
+#define av_pure
+#define av_warn_unused_result
+#define av_assert0(cond)
+#define av_assert1(cond)
+#define av_assert2(cond)
+#define attribute_deprecated
+#define attribute_align_arg
+#define av_printf_format(a,b)
+#define avpriv_report_missing_feature(...)
 
 #pragma warning(disable:4305)
 #pragma warning(disable:4244)
@@ -56,3 +72,8 @@ static inline av_const int av_toupper(int c)
 		c ^= 0x20;
 	return c;
 }
+
+
+#define AV_BSWAP16C(x) (((x) << 8 & 0xff00)  | ((x) >> 8 & 0x00ff))
+#define AV_BSWAP32C(x) (AV_BSWAP16C(x) << 16 | AV_BSWAP16C((x) >> 16))
+#define av_be2ne32(x) AV_BSWAP32C((x))

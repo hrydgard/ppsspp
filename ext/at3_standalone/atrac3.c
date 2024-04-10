@@ -40,7 +40,7 @@
 #include "float_dsp.h"
 #include "bytestream.h"
 #include "fft.h"
-#include "internal.h"
+#include "common.h"
 #include "get_bits.h"
 
 #include "avcodec.h"

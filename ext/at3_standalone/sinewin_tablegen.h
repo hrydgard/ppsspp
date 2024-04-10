@@ -29,7 +29,7 @@
 #include <math.h>
 
 #include "aac_defines.h"
-#include "attributes.h"
+#include "compat.h"
 #include "common.h"
 
 #if !CONFIG_HARDCODED_TABLES

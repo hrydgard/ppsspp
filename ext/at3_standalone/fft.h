@@ -31,7 +31,6 @@
 #endif
 
 #include <stdint.h>
-#include "config.h"
 
 #if FFT_FLOAT
 

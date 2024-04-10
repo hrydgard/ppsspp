@@ -23,9 +23,36 @@
 
 #include <stdint.h>
 #include <math.h>
-#include "attributes.h"
-#include "rational.h"
+#include "compat.h"
+#include "common.h"
 #include "intfloat.h"
+
+extern const uint32_t ff_inverse[257];
+extern const uint8_t ff_sqrt_tab[256];
+
+#ifndef sign_extend
+static inline av_const int sign_extend(int val, unsigned bits)
+{
+	unsigned shift = 8 * sizeof(int) - bits;
+	union { unsigned u; int s; } v = { (unsigned)val << shift };
+	return v.s >> shift;
+}
+#endif
+
+#ifndef zero_extend
+static inline av_const unsigned zero_extend(unsigned val, unsigned bits)
+{
+	return (val << ((8 * sizeof(int)) - bits)) >> ((8 * sizeof(int)) - bits);
+}
+#endif
+
+#ifndef NEG_SSR32
+#   define NEG_SSR32(a,s) ((( int32_t)(a))>>(32-(s)))
+#endif
+
+#ifndef NEG_USR32
+#   define NEG_USR32(a,s) (((uint32_t)(a))>>(32-(s)))
+#endif
 
 #ifndef M_E
 #define M_E            2.7182818284590452354   /* e */
@@ -77,18 +104,26 @@ enum AVRounding {
 };
 
 /**
+ * rational number numerator/denominator
+ */
+typedef struct AVRational {
+	int num; ///< numerator
+	int den; ///< denominator
+} AVRational;
+
+/**
  * Compute the greatest common divisor of a and b.
  *
  * @return gcd of a and b up to sign; if a >= 0 and b >= 0, return value is >= 0;
  * if a == 0 and b == 0, returns 0.
  */
-int64_t av_const av_gcd(int64_t a, int64_t b);
+int64_t av_gcd(int64_t a, int64_t b);
 
 /**
  * Rescale a 64-bit integer with rounding to nearest.
  * A simple a*b/c isn't possible as it can overflow.
  */
-int64_t av_rescale(int64_t a, int64_t b, int64_t c) av_const;
+int64_t av_rescale(int64_t a, int64_t b, int64_t c);
 
 /**
  * Rescale a 64-bit integer with specified rounding.
@@ -97,12 +132,12 @@ int64_t av_rescale(int64_t a, int64_t b, int64_t c) av_const;
  * @return rescaled value a, or if AV_ROUND_PASS_MINMAX is set and a is
  *         INT64_MIN or INT64_MAX then a is passed through unchanged.
  */
-int64_t av_rescale_rnd(int64_t a, int64_t b, int64_t c, enum AVRounding) av_const;
+int64_t av_rescale_rnd(int64_t a, int64_t b, int64_t c, enum AVRounding);
 
 /**
  * Rescale a 64-bit integer by 2 rational numbers.
  */
-int64_t av_rescale_q(int64_t a, AVRational bq, AVRational cq) av_const;
+int64_t av_rescale_q(int64_t a, AVRational bq, AVRational cq);
 
 /**
  * Rescale a 64-bit integer by 2 rational numbers with specified rounding.
@@ -111,11 +146,100 @@ int64_t av_rescale_q(int64_t a, AVRational bq, AVRational cq) av_const;
  *         INT64_MIN or INT64_MAX then a is passed through unchanged.
  */
 int64_t av_rescale_q_rnd(int64_t a, AVRational bq, AVRational cq,
-                         enum AVRounding) av_const;
+                         enum AVRounding);
 
 
-    /**
- * @}
+/**
+ * Create a rational.
+ * Useful for compilers that do not support compound literals.
+ * @note  The return value is not reduced.
  */
+static inline AVRational av_make_q(int num, int den)
+{
+	AVRational r = { num, den };
+	return r;
+}
+
+/**
+ * Compare two rationals.
+ * @param a first rational
+ * @param b second rational
+ * @return 0 if a==b, 1 if a>b, -1 if a<b, and INT_MIN if one of the
+ * values is of the form 0/0
+ */
+static inline int av_cmp_q(AVRational a, AVRational b) {
+	const int64_t tmp = a.num * (int64_t)b.den - b.num * (int64_t)a.den;
+
+	if (tmp) return (int)((tmp ^ a.den ^ b.den) >> 63) | 1;
+	else if (b.den && a.den) return 0;
+	else if (a.num && b.num) return (a.num >> 31) - (b.num >> 31);
+	else                    return INT_MIN;
+}
+
+/**
+ * Convert rational to double.
+ * @param a rational to convert
+ * @return (double) a
+ */
+static inline double av_q2d(AVRational a) {
+	return a.num / (double)a.den;
+}
+
+/**
+ * Reduce a fraction.
+ * This is useful for framerate calculations.
+ * @param dst_num destination numerator
+ * @param dst_den destination denominator
+ * @param num source numerator
+ * @param den source denominator
+ * @param max the maximum allowed for dst_num & dst_den
+ * @return 1 if exact, 0 otherwise
+ */
+int av_reduce(int *dst_num, int *dst_den, int64_t num, int64_t den, int64_t max);
+
+/**
+ * Multiply two rationals.
+ * @param b first rational
+ * @param c second rational
+ * @return b*c
+ */
+AVRational av_mul_q(AVRational b, AVRational c) av_const;
+
+/**
+ * Divide one rational by another.
+ * @param b first rational
+ * @param c second rational
+ * @return b/c
+ */
+AVRational av_div_q(AVRational b, AVRational c) av_const;
+
+/**
+ * Add two rationals.
+ * @param b first rational
+ * @param c second rational
+ * @return b+c
+ */
+AVRational av_add_q(AVRational b, AVRational c) av_const;
+
+/**
+ * Invert a rational.
+ * @param q value
+ * @return 1 / q
+ */
+static av_always_inline AVRational av_inv_q(AVRational q)
+{
+	AVRational r = { q.den, q.num };
+	return r;
+}
+
+/**
+ * Convert a double precision floating point number to a rational.
+ * inf is expressed as {1,0} or {-1,0} depending on the sign.
+ *
+ * @param d double to convert
+ * @param max the maximum allowed numerator and denominator
+ * @return (AVRational) d
+ */
+AVRational av_d2q(double d, int max) av_const;
 
 #endif /* AVUTIL_MATHEMATICS_H */

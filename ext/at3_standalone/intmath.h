@@ -23,8 +23,7 @@
 
 #include <stdint.h>
 
-#include "config.h"
-#include "attributes.h"
+#include "compat.h"
 
 #if ARCH_ARM
 #   include "arm/intmath.h"

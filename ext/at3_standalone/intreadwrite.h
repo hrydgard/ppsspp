@@ -22,7 +22,6 @@
 #include <stdint.h>
 
 #include "compat.h"
-#include "bswap.h"
 
 typedef union {
     uint64_t u64;

@@ -23,7 +23,7 @@
 
 #include <stdarg.h>
 #include "avutil.h"
-#include "attributes.h"
+#include "compat.h"
 #include "version.h"
 
 typedef enum {
@@ -351,6 +351,12 @@ void av_log_format_line(void *ptr, int level, const char *fmt, va_list vl,
 
 void av_log_set_flags(int arg);
 int av_log_get_flags(void);
+
+#ifdef DEBUG
+#   define ff_dlog(ctx, ...) av_log(ctx, AV_LOG_DEBUG, __VA_ARGS__)
+#else
+#   define ff_dlog(ctx, ...) do { if (0) av_log(ctx, AV_LOG_DEBUG, __VA_ARGS__); } while (0)
+#endif
 
 /**
  * @}

@@ -31,7 +31,7 @@
 #include "common.h"
 #include "common.h"
 #include "intreadwrite.h"
-#include "mathops.h"
+#include "mathematics.h"
  /*
 #include "libavutil/log.h"
 #include "libavutil/avassert.h"

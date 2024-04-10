@@ -68,24 +68,6 @@ DEF(unsigned int, be24, 3, AV_RB24, AV_WB24)
 DEF(unsigned int, be16, 2, AV_RB16, AV_WB16)
 DEF(unsigned int, byte, 1, AV_RB8 , AV_WB8)
 
-#if HAVE_BIGENDIAN
-#   define bytestream2_get_ne16  bytestream2_get_be16
-#   define bytestream2_get_ne24  bytestream2_get_be24
-#   define bytestream2_get_ne32  bytestream2_get_be32
-#   define bytestream2_get_ne64  bytestream2_get_be64
-#   define bytestream2_get_ne16u bytestream2_get_be16u
-#   define bytestream2_get_ne24u bytestream2_get_be24u
-#   define bytestream2_get_ne32u bytestream2_get_be32u
-#   define bytestream2_get_ne64u bytestream2_get_be64u
-#   define bytestream2_put_ne16  bytestream2_put_be16
-#   define bytestream2_put_ne24  bytestream2_put_be24
-#   define bytestream2_put_ne32  bytestream2_put_be32
-#   define bytestream2_put_ne64  bytestream2_put_be64
-#   define bytestream2_peek_ne16 bytestream2_peek_be16
-#   define bytestream2_peek_ne24 bytestream2_peek_be24
-#   define bytestream2_peek_ne32 bytestream2_peek_be32
-#   define bytestream2_peek_ne64 bytestream2_peek_be64
-#else
 #   define bytestream2_get_ne16  bytestream2_get_le16
 #   define bytestream2_get_ne24  bytestream2_get_le24
 #   define bytestream2_get_ne32  bytestream2_get_le32
@@ -94,23 +76,9 @@ DEF(unsigned int, byte, 1, AV_RB8 , AV_WB8)
 #   define bytestream2_get_ne24u bytestream2_get_le24u
 #   define bytestream2_get_ne32u bytestream2_get_le32u
 #   define bytestream2_get_ne64u bytestream2_get_le64u
-#   define bytestream2_put_ne16  bytestream2_put_le16
-#   define bytestream2_put_ne24  bytestream2_put_le24
-#   define bytestream2_put_ne32  bytestream2_put_le32
-#   define bytestream2_put_ne64  bytestream2_put_le64
 #   define bytestream2_peek_ne16 bytestream2_peek_le16
 #   define bytestream2_peek_ne24 bytestream2_peek_le24
 #   define bytestream2_peek_ne32 bytestream2_peek_le32
 #   define bytestream2_peek_ne64 bytestream2_peek_le64
-#endif
-
-static av_always_inline unsigned int bytestream_get_buffer(const uint8_t **b,
-                                                           uint8_t *dst,
-                                                           unsigned int size)
-{
-    memcpy(dst, *b, size);
-    (*b) += size;
-    return size;
-}
 
 #endif /* AVCODEC_BYTESTREAM_H */

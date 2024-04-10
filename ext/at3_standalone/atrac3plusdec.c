@@ -41,7 +41,7 @@
 #include "float_dsp.h"
 #include "avcodec.h"
 #include "get_bits.h"
-#include "internal.h"
+#include "common.h"
 #include "atrac.h"
 #include "atrac3plus.h"
 

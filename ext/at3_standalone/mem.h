@@ -29,7 +29,7 @@
 #include <limits.h>
 #include <stdint.h>
 
-#include "attributes.h"
+#include "compat.h"
 #include "error.h"
 #include "avutil.h"
 
@@ -37,7 +37,7 @@
  * @addtogroup lavu_mem
  * @{
  */
-
+#define FF_MEMORY_POISON 0x2a
 
 #if defined(__INTEL_COMPILER) && __INTEL_COMPILER < 1110 || defined(__SUNPRO_C)
     #define DECLARE_ALIGNED(n,t,v)      t __attribute__ ((aligned (n))) v
@@ -194,11 +194,6 @@ static inline int av_size_mult(size_t a, size_t b, size_t *r)
     *r = t;
     return 0;
 }
-
-/**
- * Set the maximum size that may me allocated in one block.
- */
-void av_max_alloc(size_t max);
 
 /**
  * Reallocate the given block if it is not large enough, otherwise do nothing.
