@@ -111,56 +111,6 @@
 #define AV_CH_LAYOUT_HEXADECAGONAL     (AV_CH_LAYOUT_OCTAGONAL|AV_CH_WIDE_LEFT|AV_CH_WIDE_RIGHT|AV_CH_TOP_BACK_LEFT|AV_CH_TOP_BACK_RIGHT|AV_CH_TOP_BACK_CENTER|AV_CH_TOP_FRONT_CENTER|AV_CH_TOP_FRONT_LEFT|AV_CH_TOP_FRONT_RIGHT)
 #define AV_CH_LAYOUT_STEREO_DOWNMIX    (AV_CH_STEREO_LEFT|AV_CH_STEREO_RIGHT)
 
-enum AVMatrixEncoding {
-    AV_MATRIX_ENCODING_NONE,
-    AV_MATRIX_ENCODING_DOLBY,
-    AV_MATRIX_ENCODING_DPLII,
-    AV_MATRIX_ENCODING_DPLIIX,
-    AV_MATRIX_ENCODING_DPLIIZ,
-    AV_MATRIX_ENCODING_DOLBYEX,
-    AV_MATRIX_ENCODING_DOLBYHEADPHONE,
-    AV_MATRIX_ENCODING_NB
-};
-
-/**
- * Return a channel layout id that matches name, or 0 if no match is found.
- *
- * name can be one or several of the following notations,
- * separated by '+' or '|':
- * - the name of an usual channel layout (mono, stereo, 4.0, quad, 5.0,
- *   5.0(side), 5.1, 5.1(side), 7.1, 7.1(wide), downmix);
- * - the name of a single channel (FL, FR, FC, LFE, BL, BR, FLC, FRC, BC,
- *   SL, SR, TC, TFL, TFC, TFR, TBL, TBC, TBR, DL, DR);
- * - a number of channels, in decimal, optionally followed by 'c', yielding
- *   the default channel layout for that number of channels (@see
- *   av_get_default_channel_layout);
- * - a channel layout mask, in hexadecimal starting with "0x" (see the
- *   AV_CH_* macros).
- *
- * @warning Starting from the next major bump the trailing character
- * 'c' to specify a number of channels will be required, while a
- * channel layout mask could also be specified as a decimal number
- * (if and only if not followed by "c").
- *
- * Example: "stereo+FC" = "2c+FC" = "2c+1c" = "0x7"
- */
-uint64_t av_get_channel_layout(const char *name);
-
-/**
- * Return a description of a channel layout.
- * If nb_channels is <= 0, it is guessed from the channel_layout.
- *
- * @param buf put here the string containing the channel layout
- * @param buf_size size in bytes of the buffer
- */
-void av_get_channel_layout_string(char *buf, int buf_size, int nb_channels, uint64_t channel_layout);
-
-struct AVBPrint;
-/**
- * Append a description of a channel layout to a bprint buffer.
- */
-void av_bprint_channel_layout(struct AVBPrint *bp, int nb_channels, uint64_t channel_layout);
-
 /**
  * Return the number of channels in the channel layout.
  */
@@ -170,50 +120,6 @@ int av_get_channel_layout_nb_channels(uint64_t channel_layout);
  * Return default channel layout for a given number of channels.
  */
 int64_t av_get_default_channel_layout(int nb_channels);
-
-/**
- * Get the index of a channel in channel_layout.
- *
- * @param channel a channel layout describing exactly one channel which must be
- *                present in channel_layout.
- *
- * @return index of channel in channel_layout on success, a negative AVERROR
- *         on error.
- */
-int av_get_channel_layout_channel_index(uint64_t channel_layout,
-                                        uint64_t channel);
-
-/**
- * Get the channel with the given index in channel_layout.
- */
-uint64_t av_channel_layout_extract_channel(uint64_t channel_layout, int index);
-
-/**
- * Get the name of a given channel.
- *
- * @return channel name on success, NULL on error.
- */
-const char *av_get_channel_name(uint64_t channel);
-
-/**
- * Get the description of a given channel.
- *
- * @param channel  a channel layout with a single channel
- * @return  channel description on success, NULL on error
- */
-const char *av_get_channel_description(uint64_t channel);
-
-/**
- * Get the value and name of a standard channel layout.
- *
- * @param[in]  index   index in an internal list, starting at 0
- * @param[out] layout  channel layout mask
- * @param[out] name    name of the layout
- * @return  0  if the layout exists,
- *          <0 if index is beyond the limits
- */
-int av_get_standard_channel_layout(unsigned index, uint64_t *layout,
-                                   const char **name);
 
 /**
  * @}

@@ -119,14 +119,6 @@ AVRational av_div_q(AVRational b, AVRational c) av_const;
 AVRational av_add_q(AVRational b, AVRational c) av_const;
 
 /**
- * Subtract one rational from another.
- * @param b first rational
- * @param c second rational
- * @return b-c
- */
-AVRational av_sub_q(AVRational b, AVRational c) av_const;
-
-/**
  * Invert a rational.
  * @param q value
  * @return 1 / q
@@ -146,26 +138,6 @@ static av_always_inline AVRational av_inv_q(AVRational q)
  * @return (AVRational) d
  */
 AVRational av_d2q(double d, int max) av_const;
-
-/**
- * @return 1 if q1 is nearer to q than q2, -1 if q2 is nearer
- * than q1, 0 if they have the same distance.
- */
-int av_nearer_q(AVRational q, AVRational q1, AVRational q2);
-
-/**
- * Find the nearest value in q_list to q.
- * @param q_list an array of rationals terminated by {0, 0}
- * @return the index of the nearest value found in the array
- */
-int av_find_nearest_q_idx(AVRational q, const AVRational* q_list);
-
-/**
- * Converts a AVRational to a IEEE 32bit float.
- *
- * The float is returned in a uint32_t and its value is platform indepenant.
- */
-uint32_t av_q2intfloat(AVRational q);
 
 /**
  * @}

@@ -79,16 +79,6 @@ AVBufferRef *av_buffer_alloc(int size)
     return ret;
 }
 
-AVBufferRef *av_buffer_allocz(int size)
-{
-    AVBufferRef *ret = av_buffer_alloc(size);
-    if (!ret)
-        return NULL;
-
-    memset(ret->data, 0, size);
-    return ret;
-}
-
 AVBufferRef *av_buffer_ref(AVBufferRef *buf)
 {
     AVBufferRef *ret = av_mallocz(sizeof(*ret));
@@ -136,32 +126,9 @@ int av_buffer_is_writable(const AVBufferRef *buf)
     return buf->buffer->refcount == 1;
 }
 
-void *av_buffer_get_opaque(const AVBufferRef *buf)
-{
-    return buf->buffer->opaque;
-}
-
 int av_buffer_get_ref_count(const AVBufferRef *buf)
 {
     return buf->buffer->refcount;
-}
-
-int av_buffer_make_writable(AVBufferRef **pbuf)
-{
-    AVBufferRef *newbuf, *buf = *pbuf;
-
-    if (av_buffer_is_writable(buf))
-        return 0;
-
-    newbuf = av_buffer_alloc(buf->size);
-    if (!newbuf)
-        return AVERROR(ENOMEM);
-
-    memcpy(newbuf->data, buf->data, buf->size);
-
-    buffer_replace(pbuf, &newbuf);
-
-    return 0;
 }
 
 int av_buffer_realloc(AVBufferRef **pbuf, int size)

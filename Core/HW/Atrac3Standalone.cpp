@@ -32,7 +32,6 @@ public:
 		avcodec_close(ctx_);
 		av_frame_free(&frame_);
 		av_freep(&ctx_->extradata);
-		av_freep(&ctx_->subtitle_header);
 		av_freep(&ctx_);
 	}
 

@@ -169,22 +169,14 @@ extern const uint8_t ff_log2_run[41];
  */
 int ff_match_2uint16(const uint16_t (*tab)[2], int size, int a, int b);
 
-unsigned int avpriv_toupper4(unsigned int x);
-
 /**
  * does needed setup of pkt_pts/pos and such for (re)get_buffer();
  */
 int ff_init_buffer_info(AVCodecContext *s, AVFrame *frame);
 
-
-void ff_color_frame(AVFrame *frame, const int color[4]);
-
 extern volatile int ff_avcodec_locked;
 int ff_lock_avcodec(AVCodecContext *log_ctx, const AVCodec *codec);
 int ff_unlock_avcodec(const AVCodec *codec);
-
-int avpriv_lock_avformat(void);
-int avpriv_unlock_avformat(void);
 
 /**
  * Maximum size in bytes of extradata.
@@ -222,37 +214,6 @@ int avpriv_unlock_avformat(void);
 int ff_alloc_packet2(AVCodecContext *avctx, AVPacket *avpkt, int64_t size, int64_t min_size);
 
 attribute_deprecated int ff_alloc_packet(AVPacket *avpkt, int size);
-
-/**
- * Rescale from sample rate to AVCodecContext.time_base.
- */
-static av_always_inline int64_t ff_samples_to_time_base(AVCodecContext *avctx,
-                                                        int64_t samples)
-{
-    if(samples == AV_NOPTS_VALUE)
-        return AV_NOPTS_VALUE;
-    return av_rescale_q(samples, (AVRational){ 1, avctx->sample_rate },
-                        avctx->time_base);
-}
-
-/**
- * 2^(x) for integer x
- * @return correctly rounded float
- */
-static av_always_inline float ff_exp2fi(int x) {
-    /* Normal range */
-    if (-126 <= x && x <= 128)
-        return av_int2float((x+127) << 23);
-    /* Too large */
-    else if (x > 128)
-        return INFINITY;
-    /* Subnormal numbers */
-    else if (x > -150)
-        return av_int2float(1 << (x+149));
-    /* Negligibly small */
-    else
-        return 0;
-}
 
 /**
  * Get a buffer for a frame. This is a wrapper around

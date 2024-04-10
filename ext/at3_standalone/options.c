@@ -28,7 +28,6 @@
 #include "internal.h"
 #include "util_internal.h"
 #include "mem.h"
-#include "opt.h"
 #include <float.h>              /* FLT_MIN, FLT_MAX */
 #include <string.h>
 
@@ -88,10 +87,6 @@ int avcodec_get_context_defaults3(AVCodecContext *s, const AVCodec *codec)
         s->codec_id = codec->id;
     }
 
-    if(s->codec_type == AVMEDIA_TYPE_AUDIO)
-        flags= AV_OPT_FLAG_AUDIO_PARAM;
-    av_opt_set_defaults2(s, flags, flags);
-
     s->time_base           = (AVRational){0,1};
     s->pkt_timebase        = (AVRational){ 0, 1 };
     s->get_buffer2         = avcodec_default_get_buffer2;
@@ -106,7 +101,6 @@ int avcodec_get_context_defaults3(AVCodecContext *s, const AVCodec *codec)
         }
         if(codec->priv_class){
             *(const AVClass**)s->priv_data = codec->priv_class;
-            av_opt_set_defaults(s->priv_data);
         }
     }
     return 0;
@@ -137,7 +131,6 @@ void avcodec_free_context(AVCodecContext **pavctx)
     avcodec_close(avctx);
 
     av_freep(&avctx->extradata);
-    av_freep(&avctx->subtitle_header);
     av_freep(&avctx->intra_matrix);
     av_freep(&avctx->inter_matrix);
     av_freep(&avctx->rc_override);
@@ -152,20 +145,10 @@ const AVClass *avcodec_get_class(void)
 
 #define FOFFSET(x) offsetof(AVFrame,x)
 
-static const AVOption frame_options[]={
-{"best_effort_timestamp", "", FOFFSET(best_effort_timestamp), AV_OPT_TYPE_INT64, {.i64 = AV_NOPTS_VALUE }, INT64_MIN, INT64_MAX, 0},
-{"pkt_pos", "", FOFFSET(pkt_pos), AV_OPT_TYPE_INT64, {.i64 = -1 }, INT64_MIN, INT64_MAX, 0},
-{"pkt_size", "", FOFFSET(pkt_size), AV_OPT_TYPE_INT64, {.i64 = -1 }, INT64_MIN, INT64_MAX, 0},
-{"format", "", FOFFSET(format), AV_OPT_TYPE_INT, {.i64 = -1 }, 0, INT_MAX, 0},
-{"channel_layout", "", FOFFSET(channel_layout), AV_OPT_TYPE_INT64, {.i64 = 0 }, 0, INT64_MAX, 0},
-{"sample_rate", "", FOFFSET(sample_rate), AV_OPT_TYPE_INT, {.i64 = 0 }, 0, INT_MAX, 0},
-{NULL},
-};
-
 static const AVClass av_frame_class = {
     .class_name              = "AVFrame",
     .item_name               = NULL,
-    .option                  = frame_options,
+    .option                  = NULL,
     .version                 = LIBAVUTIL_VERSION_INT,
 };
 

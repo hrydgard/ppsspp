@@ -930,7 +930,6 @@ AVCodec ff_atrac3_decoder = {
     .init             = atrac3_decode_init,
     .close            = atrac3_decode_close,
     .decode           = atrac3_decode_frame,
-    .capabilities     = AV_CODEC_CAP_SUBFRAMES | AV_CODEC_CAP_DR1,
     .sample_fmts      = (const enum AVSampleFormat[]) { AV_SAMPLE_FMT_FLTP,
                                                         AV_SAMPLE_FMT_NONE },
 };

@@ -32,31 +32,12 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
-#if HAVE_MALLOC_H
-#include <malloc.h>
-#endif
 
 #include "compat.h"
 #include "avutil.h"
 #include "common.h"
 #include "intreadwrite.h"
 #include "mem.h"
-
-#ifdef MALLOC_PREFIX
-
-#define malloc         AV_JOIN(MALLOC_PREFIX, malloc)
-#define memalign       AV_JOIN(MALLOC_PREFIX, memalign)
-#define posix_memalign AV_JOIN(MALLOC_PREFIX, posix_memalign)
-#define realloc        AV_JOIN(MALLOC_PREFIX, realloc)
-#define free           AV_JOIN(MALLOC_PREFIX, free)
-
-void *malloc(size_t size);
-void *memalign(size_t align, size_t size);
-int   posix_memalign(void **ptr, size_t align, size_t size);
-void *realloc(void *ptr, size_t size);
-void  free(void *ptr);
-
-#endif /* MALLOC_PREFIX */
 
 int ff_fast_malloc(void *ptr, unsigned int *size, size_t min_size, int zero_realloc)
 {
@@ -200,45 +181,11 @@ void *av_realloc_f(void *ptr, size_t nelem, size_t elsize)
     return r;
 }
 
-int av_reallocp(void *ptr, size_t size)
-{
-    void *val;
-
-    if (!size) {
-        av_freep(ptr);
-        return 0;
-    }
-
-    memcpy(&val, ptr, sizeof(val));
-    val = av_realloc(val, size);
-
-    if (!val) {
-        av_freep(ptr);
-        return AVERROR(ENOMEM);
-    }
-
-    memcpy(ptr, &val, sizeof(val));
-    return 0;
-}
-
 void *av_realloc_array(void *ptr, size_t nmemb, size_t size)
 {
     if (!size || nmemb >= INT_MAX / size)
         return NULL;
     return av_realloc(ptr, nmemb * size);
-}
-
-int av_reallocp_array(void *ptr, size_t nmemb, size_t size)
-{
-    void *val;
-
-    memcpy(&val, ptr, sizeof(val));
-    val = av_realloc_f(val, nmemb, size);
-    memcpy(ptr, &val, sizeof(val));
-    if (!val && nmemb && size)
-        return AVERROR(ENOMEM);
-
-    return 0;
 }
 
 void av_free(void *ptr)
@@ -272,57 +219,6 @@ void *av_mallocz(size_t size)
         memset(ptr, 0, size);
     return ptr;
 }
-
-void *av_calloc(size_t nmemb, size_t size)
-{
-    if (size <= 0 || nmemb >= INT_MAX / size)
-        return NULL;
-    return av_mallocz(nmemb * size);
-}
-
-char *av_strdup(const char *s)
-{
-    char *ptr = NULL;
-    if (s) {
-        size_t len = strlen(s) + 1;
-        ptr = av_realloc(NULL, len);
-        if (ptr)
-            memcpy(ptr, s, len);
-    }
-    return ptr;
-}
-
-char *av_strndup(const char *s, size_t len)
-{
-    char *ret = NULL, *end;
-
-    if (!s)
-        return NULL;
-
-    end = memchr(s, 0, len);
-    if (end)
-        len = end - s;
-
-    ret = av_realloc(NULL, len + 1);
-    if (!ret)
-        return NULL;
-
-    memcpy(ret, s, len);
-    ret[len] = 0;
-    return ret;
-}
-
-void *av_memdup(const void *p, size_t size)
-{
-    void *ptr = NULL;
-    if (p) {
-        ptr = av_malloc(size);
-        if (ptr)
-            memcpy(ptr, p, size);
-    }
-    return ptr;
-}
-
 
 static void fill16(uint8_t *dst, int len)
 {
@@ -395,56 +291,6 @@ static void fill32(uint8_t *dst, int len)
     while (len--) {
         *dst = dst[-4];
         dst++;
-    }
-}
-
-void av_memcpy_backptr(uint8_t *dst, int back, int cnt)
-{
-    const uint8_t *src = &dst[-back];
-    if (!back)
-        return;
-
-    if (back == 1) {
-        memset(dst, *src, cnt);
-    } else if (back == 2) {
-        fill16(dst, cnt);
-    } else if (back == 3) {
-        fill24(dst, cnt);
-    } else if (back == 4) {
-        fill32(dst, cnt);
-    } else {
-        if (cnt >= 16) {
-            int blocklen = back;
-            while (cnt > blocklen) {
-                memcpy(dst, src, blocklen);
-                dst       += blocklen;
-                cnt       -= blocklen;
-                blocklen <<= 1;
-            }
-            memcpy(dst, src, cnt);
-            return;
-        }
-        if (cnt >= 8) {
-            AV_COPY32U(dst,     src);
-            AV_COPY32U(dst + 4, src + 4);
-            src += 8;
-            dst += 8;
-            cnt -= 8;
-        }
-        if (cnt >= 4) {
-            AV_COPY32U(dst, src);
-            src += 4;
-            dst += 4;
-            cnt -= 4;
-        }
-        if (cnt >= 2) {
-            AV_COPY16U(dst, src);
-            src += 2;
-            dst += 2;
-            cnt -= 2;
-        }
-        if (cnt)
-            *dst = *src;
     }
 }
 

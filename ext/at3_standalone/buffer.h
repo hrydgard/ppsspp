@@ -101,12 +101,6 @@ typedef struct AVBufferRef {
 AVBufferRef *av_buffer_alloc(int size);
 
 /**
- * Same as av_buffer_alloc(), except the returned buffer will be initialized
- * to zero.
- */
-AVBufferRef *av_buffer_allocz(int size);
-
-/**
  * Always treat the buffer as read-only, even when it has only one
  * reference.
  */
@@ -162,23 +156,7 @@ void av_buffer_unref(AVBufferRef **buf);
  */
 int av_buffer_is_writable(const AVBufferRef *buf);
 
-/**
- * @return the opaque parameter set by av_buffer_create.
- */
-void *av_buffer_get_opaque(const AVBufferRef *buf);
-
 int av_buffer_get_ref_count(const AVBufferRef *buf);
-
-/**
- * Create a writable reference from a given buffer reference, avoiding data copy
- * if possible.
- *
- * @param buf buffer reference to make writable. On success, buf is either left
- *            untouched, or it is unreferenced and a new writable AVBufferRef is
- *            written in its place. On failure, buf is left untouched.
- * @return 0 on success, a negative AVERROR on failure.
- */
-int av_buffer_make_writable(AVBufferRef **buf);
 
 /**
  * Reallocate a given buffer.

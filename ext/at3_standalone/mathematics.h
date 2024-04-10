@@ -113,50 +113,6 @@ int64_t av_rescale_q(int64_t a, AVRational bq, AVRational cq) av_const;
 int64_t av_rescale_q_rnd(int64_t a, AVRational bq, AVRational cq,
                          enum AVRounding) av_const;
 
-/**
- * Compare 2 timestamps each in its own timebases.
- * The result of the function is undefined if one of the timestamps
- * is outside the int64_t range when represented in the others timebase.
- * @return -1 if ts_a is before ts_b, 1 if ts_a is after ts_b or 0 if they represent the same position
- */
-int av_compare_ts(int64_t ts_a, AVRational tb_a, int64_t ts_b, AVRational tb_b);
-
-/**
- * Compare 2 integers modulo mod.
- * That is we compare integers a and b for which only the least
- * significant log2(mod) bits are known.
- *
- * @param mod must be a power of 2
- * @return a negative value if a is smaller than b
- *         a positive value if a is greater than b
- *         0                if a equals          b
- */
-int64_t av_compare_mod(uint64_t a, uint64_t b, uint64_t mod);
-
-/**
- * Rescale a timestamp while preserving known durations.
- *
- * @param in_ts Input timestamp
- * @param in_tb Input timebase
- * @param fs_tb Duration and *last timebase
- * @param duration duration till the next call
- * @param out_tb Output timebase
- */
-int64_t av_rescale_delta(AVRational in_tb, int64_t in_ts,  AVRational fs_tb, int duration, int64_t *last, AVRational out_tb);
-
-/**
- * Add a value to a timestamp.
- *
- * This function guarantees that when the same value is repeatly added that
- * no accumulation of rounding errors occurs.
- *
- * @param ts Input timestamp
- * @param ts_tb Input timestamp timebase
- * @param inc value to add to ts
- * @param inc_tb inc timebase
- */
-int64_t av_add_stable(AVRational ts_tb, int64_t ts, AVRational inc_tb, int64_t inc);
-
 
     /**
  * @}

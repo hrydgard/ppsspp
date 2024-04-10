@@ -156,29 +156,6 @@
  * @addtogroup lavu_ver
  * @{
  */
-
-/**
- * Return the LIBAVUTIL_VERSION_INT constant.
- */
-unsigned avutil_version(void);
-
-/**
- * Return an informative version string. This usually is the actual release
- * version number or a git commit description. This string has no fixed format
- * and can change any time. It should never be parsed by code.
- */
-const char *av_version_info(void);
-
-/**
- * Return the libavutil build-time configuration.
- */
-const char *avutil_configuration(void);
-
-/**
- * Return the libavutil license.
- */
-const char *avutil_license(void);
-
 /**
  * @}
  */
@@ -196,12 +173,6 @@ enum AVMediaType {
     AVMEDIA_TYPE_ATTACHMENT,    ///< Opaque data information usually sparse
     AVMEDIA_TYPE_NB
 };
-
-/**
- * Return a string describing the media_type enum, NULL if media_type
- * is unknown.
- */
-const char *av_get_media_type_string(enum AVMediaType media_type);
 
 /**
  * @defgroup lavu_const Constants
