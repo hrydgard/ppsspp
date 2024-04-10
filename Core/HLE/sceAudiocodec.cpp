@@ -36,12 +36,12 @@ struct AudioCodecContext {
 };
 
 // audioList is to store current playing audios.
-static std::map<u32, SimpleAudio *> audioList;
+static std::map<u32, AudioDecoder *> audioList;
 
 static bool oldStateLoaded = false;
 
 // find the audio decoder for corresponding ctxPtr in audioList
-static SimpleAudio *findDecoder(u32 ctxPtr) {
+static AudioDecoder *findDecoder(u32 ctxPtr) {
 	auto it = audioList.find(ctxPtr);
 	if (it != audioList.end()) {
 		return it->second;
@@ -77,29 +77,31 @@ void __AudioCodecShutdown() {
 }
 
 static int sceAudiocodecInit(u32 ctxPtr, int codec) {
-	if (IsValidCodec(codec)) {
+	PSPAudioType audioType = (PSPAudioType)codec;
+	if (IsValidCodec(audioType)) {
 		// Create audio decoder for given audio codec and push it into AudioList
 		if (removeDecoder(ctxPtr)) {
 			WARN_LOG_REPORT(HLE, "sceAudiocodecInit(%08x, %d): replacing existing context", ctxPtr, codec);
 		}
-		auto decoder = new SimpleAudio(codec);
+		AudioDecoder *decoder = CreateAudioDecoder(audioType);
 		decoder->SetCtxPtr(ctxPtr);
 		audioList[ctxPtr] = decoder;
-		INFO_LOG(ME, "sceAudiocodecInit(%08x, %i (%s))", ctxPtr, codec, GetCodecName(codec));
+		INFO_LOG(ME, "sceAudiocodecInit(%08x, %i (%s))", ctxPtr, codec, GetCodecName(audioType));
 		DEBUG_LOG(ME, "Number of playing sceAudioCodec audios : %d", (int)audioList.size());
 		return 0;
 	}
-	ERROR_LOG_REPORT(ME, "sceAudiocodecInit(%08x, %i (%s)): Unknown audio codec %i", ctxPtr, codec, GetCodecName(codec), codec);
+	ERROR_LOG_REPORT(ME, "sceAudiocodecInit(%08x, %i (%s)): Unknown audio codec %i", ctxPtr, codec, GetCodecName(audioType), codec);
 	return 0;
 }
 
 static int sceAudiocodecDecode(u32 ctxPtr, int codec) {
+	PSPAudioType audioType = (PSPAudioType)codec;
 	if (!ctxPtr){
-		ERROR_LOG_REPORT(ME, "sceAudiocodecDecode(%08x, %i (%s)) got NULL pointer", ctxPtr, codec, GetCodecName(codec));
+		ERROR_LOG_REPORT(ME, "sceAudiocodecDecode(%08x, %i (%s)) got NULL pointer", ctxPtr, codec, GetCodecName(audioType));
 		return -1;
 	}
 
-	if (IsValidCodec(codec)){
+	if (IsValidCodec(audioType)){
 		int outbytes = 0;
 		// find a decoder in audioList
 		auto decoder = findDecoder(ctxPtr);
@@ -107,7 +109,7 @@ static int sceAudiocodecDecode(u32 ctxPtr, int codec) {
 		if (!decoder && oldStateLoaded) {
 			// We must have loaded an old state that did not have sceAudiocodec information.
 			// Fake it by creating the desired context.
-			decoder = new SimpleAudio(codec);
+			decoder = CreateAudioDecoder(audioType);
 			decoder->SetCtxPtr(ctxPtr);
 			audioList[ctxPtr] = decoder;
 		}
@@ -194,7 +196,7 @@ void __sceAudiocodecDoState(PointerWrap &p){
 			DoArray(p, codec_, s >= 2 ? count : (int)ARRAY_SIZE(codec_));
 			DoArray(p, ctxPtr_, s >= 2 ? count : (int)ARRAY_SIZE(ctxPtr_));
 			for (int i = 0; i < count; i++) {
-				auto decoder = new SimpleAudio(codec_[i]);
+				auto decoder = CreateAudioDecoder((PSPAudioType)codec_[i]);
 				decoder->SetCtxPtr(ctxPtr_[i]);
 				audioList[ctxPtr_[i]] = decoder;
 			}
@@ -214,7 +216,7 @@ void __sceAudiocodecDoState(PointerWrap &p){
 			auto ctxPtr_ = new u32[count];
 			int i = 0;
 			for (auto it = audioList.begin(), end = audioList.end(); it != end; it++) {
-				const SimpleAudio *decoder = it->second;
+				const AudioDecoder *decoder = it->second;
 				codec_[i] = decoder->GetAudioType();
 				ctxPtr_[i] = decoder->GetCtxPtr();
 				i++;

@@ -253,10 +253,9 @@ static u32 sceAacInit(u32 id)
 	aac->Channels = 2;
 	aac->MaxOutputSample = aac->PCMBufSize / 4;
 	aac->SetReadPos((int)aac->startPos);
-	aac->audioType = PSP_CODEC_AAC;
 
 	// create aac decoder
-	aac->decoder = new SimpleAudio(aac->audioType);
+	aac->decoder = CreateAudioDecoder(PSP_CODEC_AAC);
 
 	// close the audio if id already exist.
 	if (aacMap.find(id) != aacMap.end()) {
@@ -368,7 +367,7 @@ static u32 sceAacGetMaxOutputSample(u32 id)
 		return -1;
 	}
 
-	return ctx->AuGetMaxOutputSample();
+	return ctx->MaxOutputSample;
 }
 
 static u32 sceAacGetSumDecodedSample(u32 id)
@@ -380,7 +379,7 @@ static u32 sceAacGetSumDecodedSample(u32 id)
 		return -1;
 	}
 
-	return ctx->AuGetSumDecodedSample();
+	return ctx->SumDecodedSamples;
 }
 
 static u32 sceAacResetPlayPosition(u32 id)

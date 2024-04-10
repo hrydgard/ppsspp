@@ -340,7 +340,7 @@ bool MediaEngine::openContext(bool keepReadPos) {
 		return false;
 
 	setVideoDim();
-	m_audioContext = new SimpleAudio(m_audioType, 44100, 2);
+	m_audioContext = CreateAudioDecoder((PSPAudioType)m_audioType);
 	m_isVideoEnd = false;
 #endif // USE_FFMPEG
 	return true;

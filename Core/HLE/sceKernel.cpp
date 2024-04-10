@@ -124,6 +124,7 @@ void __KernelInit()
 	__IoInit();
 	__JpegInit();
 	__AudioInit();
+	__Mp3Init();
 	__SasInit();
 	__AtracInit();
 	__CccInit();

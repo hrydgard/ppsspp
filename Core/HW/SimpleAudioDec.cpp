@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <algorithm>
+#include <cmath>
 
 #include "Common/Serialize/SerializeFuncs.h"
 #include "Core/Config.h"
@@ -32,12 +33,63 @@ extern "C" {
 #include "libswresample/swresample.h"
 #include "libavutil/samplefmt.h"
 #include "libavcodec/avcodec.h"
-}
+#include "libavutil/version.h"
+
 #include "Core/FFMPEGCompat.h"
+}
 
 #endif  // USE_FFMPEG
 
-int SimpleAudio::GetAudioCodecID(int audioType) {
+// FFMPEG-based decoder. TODO: Replace with individual codecs.
+class SimpleAudio : public AudioDecoder {
+public:
+	SimpleAudio(PSPAudioType audioType, int sampleRateHz = 44100, int channels = 2);
+	~SimpleAudio();
+
+	bool Decode(const uint8_t* inbuf, int inbytes, uint8_t *outbuf, int *outbytes) override;
+	bool IsOK() const override;
+
+	int GetOutSamples() const override {
+		return outSamples;
+	}
+	int GetSourcePos() const override {
+		return srcPos;
+	}
+
+	// Not save stated, only used by UI.  Used for ATRAC3 (non+) files.
+	void SetExtraData(const uint8_t *data, int size, int wav_bytes_per_packet) override;
+
+	void SetChannels(int channels) override;
+
+	// These two are only here because of save states.
+	PSPAudioType GetAudioType() const { return audioType; }
+
+private:
+	bool OpenCodec(int block_align);
+
+	PSPAudioType audioType;
+	int sample_rate_;
+	int channels_;
+	int outSamples; // output samples per frame
+	int srcPos; // bytes consumed in source during the last decoding
+
+	AVFrame *frame_;
+#if HAVE_LIBAVCODEC_CONST_AVCODEC // USE_FFMPEG is implied
+	const
+#endif
+		AVCodec *codec_;
+	AVCodecContext  *codecCtx_;
+	SwrContext      *swrCtx_;
+
+	bool codecOpen_;
+};
+
+// TODO: This should also be able to create other types of decoders.
+AudioDecoder *CreateAudioDecoder(PSPAudioType audioType, int sampleRateHz, int channels) {
+	return new SimpleAudio(audioType, sampleRateHz, channels);
+}
+
+static int GetAudioCodecID(int audioType) {
 #ifdef USE_FFMPEG
 	switch (audioType) {
 	case PSP_CODEC_AAC:
@@ -56,14 +108,12 @@ int SimpleAudio::GetAudioCodecID(int audioType) {
 #endif // USE_FFMPEG
 }
 
-SimpleAudio::SimpleAudio(int audioType, int sample_rate, int channels)
-: ctxPtr(0xFFFFFFFF), audioType(audioType), sample_rate_(sample_rate), channels_(channels),
-  outSamples(0), srcPos(0), wanted_resample_freq(44100), frame_(0), codec_(0), codecCtx_(0), swrCtx_(0),
-  codecOpen_(false) {
-	Init();
-}
+SimpleAudio::SimpleAudio(PSPAudioType audioType, int sampleRateHz, int channels)
+	: audioType(audioType), sample_rate_(sampleRateHz), channels_(channels),
+	outSamples(0), srcPos(0),
+	frame_(0), codec_(0), codecCtx_(0), swrCtx_(0),
+	codecOpen_(false) {
 
-void SimpleAudio::Init() {
 #ifdef USE_FFMPEG
 #if LIBAVFORMAT_VERSION_INT < AV_VERSION_INT(58, 18, 100)
 	avcodec_register_all();
@@ -122,7 +172,7 @@ bool SimpleAudio::OpenCodec(int block_align) {
 #endif  // USE_FFMPEG
 }
 
-void SimpleAudio::SetExtraData(const u8 *data, int size, int wav_bytes_per_packet) {
+void SimpleAudio::SetExtraData(const uint8_t *data, int size, int wav_bytes_per_packet) {
 #ifdef USE_FFMPEG
 	if (codecCtx_) {
 		codecCtx_->extradata = (uint8_t *)av_mallocz(size);
@@ -179,6 +229,7 @@ bool SimpleAudio::IsOK() const {
 #endif
 }
 
+// Decodes a single input frame.
 bool SimpleAudio::Decode(const uint8_t *inbuf, int inbytes, uint8_t *outbuf, int *outbytes) {
 #ifdef USE_FFMPEG
 	if (!codecOpen_) {
@@ -238,7 +289,7 @@ bool SimpleAudio::Decode(const uint8_t *inbuf, int inbytes, uint8_t *outbuf, int
 				swrCtx_,
 				wanted_channel_layout,
 				AV_SAMPLE_FMT_S16,
-				wanted_resample_freq,
+				codecCtx_->sample_rate,
 				dec_channel_layout,
 				codecCtx_->sample_fmt,
 				codecCtx_->sample_rate,
@@ -279,12 +330,11 @@ bool SimpleAudio::Decode(const uint8_t *inbuf, int inbytes, uint8_t *outbuf, int
 #endif  // USE_FFMPEG
 }
 
-int SimpleAudio::GetOutSamples() {
-	return outSamples;
-}
-
-int SimpleAudio::GetSourcePos() {
-	return srcPos;
+void AudioClose(AudioDecoder **ctx) {
+#ifdef USE_FFMPEG
+	delete *ctx;
+	*ctx = 0;
+#endif  // USE_FFMPEG
 }
 
 void AudioClose(SimpleAudio **ctx) {
@@ -293,7 +343,6 @@ void AudioClose(SimpleAudio **ctx) {
 	*ctx = 0;
 #endif  // USE_FFMPEG
 }
-
 
 static const char *const codecNames[4] = {
 	"AT3+", "AT3", "MP3", "AAC",
@@ -307,7 +356,7 @@ const char *GetCodecName(int codec) {
 	}
 };
 
-bool IsValidCodec(int codec){
+bool IsValidCodec(PSPAudioType codec){
 	if (codec >= PSP_CODEC_AT3PLUS && codec <= PSP_CODEC_AAC) {
 		return true;
 	}
@@ -328,7 +377,7 @@ AuCtx::~AuCtx() {
 }
 
 size_t AuCtx::FindNextMp3Sync() {
-	if (audioType != PSP_CODEC_MP3) {
+	if (decoder->GetAudioType() != PSP_CODEC_MP3) {
 		return 0;
 	}
 
@@ -421,7 +470,7 @@ int AuCtx::AuCheckStreamDataNeeded() {
 }
 
 int AuCtx::AuStreamBytesNeeded() {
-	if (audioType == PSP_CODEC_MP3) {
+	if (decoder->GetAudioType() == PSP_CODEC_MP3) {
 		// The endPos and readPos are not considered, except when you've read to the end.
 		if (readPos >= endPos)
 			return 0;
@@ -436,7 +485,7 @@ int AuCtx::AuStreamBytesNeeded() {
 
 int AuCtx::AuStreamWorkareaSize() {
 	// Note that this is 31 bytes more than the max layer 3 frame size.
-	if (audioType == PSP_CODEC_MP3)
+	if (decoder->GetAudioType() == PSP_CODEC_MP3)
 		return 0x05c0;
 	return 0;
 }
@@ -533,6 +582,7 @@ void AuCtx::DoState(PointerWrap &p) {
 	Do(p, Channels);
 	Do(p, MaxOutputSample);
 	Do(p, readPos);
+	int audioType = (int)decoder->GetAudioType();
 	Do(p, audioType);
 	Do(p, BitRate);
 	Do(p, SamplingRate);
@@ -552,6 +602,6 @@ void AuCtx::DoState(PointerWrap &p) {
 	}
 
 	if (p.mode == p.MODE_READ) {
-		decoder = new SimpleAudio(audioType);
+		decoder = CreateAudioDecoder((PSPAudioType)audioType);
 	}
 }
