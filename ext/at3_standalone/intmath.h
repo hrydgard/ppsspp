@@ -138,27 +138,6 @@ static av_always_inline av_const int ff_ctzll_c(long long v)
 }
 #endif
 
-#ifndef ff_clz
-#define ff_clz ff_clz_c
-static av_always_inline av_const unsigned ff_clz_c(unsigned x)
-{
-    unsigned i = sizeof(x) * 8;
-
-    while (x) {
-        x >>= 1;
-        i--;
-    }
-
-    return i;
-}
-#endif
-
-#if AV_GCC_VERSION_AT_LEAST(3,4)
-#ifndef av_parity
-#define av_parity __builtin_parity
-#endif
-#endif
-
 /**
  * @}
  */

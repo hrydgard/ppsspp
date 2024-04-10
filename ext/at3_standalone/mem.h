@@ -60,18 +60,6 @@
     #define DECLARE_ASM_CONST(n,t,v)    static const t v
 #endif
 
-#if AV_GCC_VERSION_AT_LEAST(3,1)
-    #define av_malloc_attrib __attribute__((__malloc__))
-#else
-    #define av_malloc_attrib
-#endif
-
-#if AV_GCC_VERSION_AT_LEAST(4,3)
-    #define av_alloc_size(...) __attribute__((alloc_size(__VA_ARGS__)))
-#else
-    #define av_alloc_size(...)
-#endif
-
 /**
  * Allocate a block of size bytes with alignment suitable for all
  * memory accesses (including vectors if available on the CPU).
@@ -80,7 +68,7 @@
  * be allocated.
  * @see av_mallocz()
  */
-void *av_malloc(size_t size) av_malloc_attrib av_alloc_size(1);
+void *av_malloc(size_t size);
 
 /**
  * Allocate a block of size * nmemb bytes with av_malloc().
@@ -90,7 +78,7 @@ void *av_malloc(size_t size) av_malloc_attrib av_alloc_size(1);
  * be allocated.
  * @see av_malloc()
  */
-av_alloc_size(1, 2) static inline void *av_malloc_array(size_t nmemb, size_t size)
+static inline void *av_malloc_array(size_t nmemb, size_t size)
 {
     if (!size || nmemb >= INT_MAX / size)
         return NULL;
@@ -115,7 +103,7 @@ av_alloc_size(1, 2) static inline void *av_malloc_array(size_t nmemb, size_t siz
  *          some libc implementations.
  * @see av_fast_realloc()
  */
-void *av_realloc(void *ptr, size_t size) av_alloc_size(2);
+void *av_realloc(void *ptr, size_t size);
 
 /**
  * Allocate or reallocate a block of memory.
@@ -164,7 +152,7 @@ int av_reallocp(void *ptr, size_t size);
  *          The situation is undefined according to POSIX and may crash with
  *          some libc implementations.
  */
-av_alloc_size(2, 3) void *av_realloc_array(void *ptr, size_t nmemb, size_t size);
+void *av_realloc_array(void *ptr, size_t nmemb, size_t size);
 
 /**
  * Allocate or reallocate an array through a pointer to a pointer.
@@ -203,7 +191,7 @@ void av_free(void *ptr);
  * @return Pointer to the allocated block, NULL if it cannot be allocated.
  * @see av_malloc()
  */
-void *av_mallocz(size_t size) av_malloc_attrib av_alloc_size(1);
+void *av_mallocz(size_t size);
 
 /**
  * Allocate a block of nmemb * size bytes with alignment suitable for all
@@ -215,7 +203,7 @@ void *av_mallocz(size_t size) av_malloc_attrib av_alloc_size(1);
  * @param size
  * @return Pointer to the allocated block, NULL if it cannot be allocated.
  */
-void *av_calloc(size_t nmemb, size_t size) av_malloc_attrib;
+void *av_calloc(size_t nmemb, size_t size);
 
 /**
  * Allocate a block of size * nmemb bytes with av_mallocz().
@@ -226,7 +214,7 @@ void *av_calloc(size_t nmemb, size_t size) av_malloc_attrib;
  * @see av_mallocz()
  * @see av_malloc_array()
  */
-av_alloc_size(1, 2) static inline void *av_mallocz_array(size_t nmemb, size_t size)
+static inline void *av_mallocz_array(size_t nmemb, size_t size)
 {
     if (!size || nmemb >= INT_MAX / size)
         return NULL;
@@ -239,7 +227,7 @@ av_alloc_size(1, 2) static inline void *av_mallocz_array(size_t nmemb, size_t si
  * @return Pointer to a newly-allocated string containing a
  * copy of s or NULL if the string cannot be allocated.
  */
-char *av_strdup(const char *s) av_malloc_attrib;
+char *av_strdup(const char *s);
 
 /**
  * Duplicate a substring of the string s.
@@ -249,7 +237,7 @@ char *av_strdup(const char *s) av_malloc_attrib;
  * @return Pointer to a newly-allocated string containing a
  * copy of s or NULL if the string cannot be allocated.
  */
-char *av_strndup(const char *s, size_t len) av_malloc_attrib;
+char *av_strndup(const char *s, size_t len);
 
 /**
  * Duplicate the buffer p.

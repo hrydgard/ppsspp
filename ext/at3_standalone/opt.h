@@ -31,7 +31,6 @@
 #include "avutil.h"
 #include "dict.h"
 #include "log.h"
-#include "pixfmt.h"
 #include "samplefmt.h"
 #include "version.h"
 

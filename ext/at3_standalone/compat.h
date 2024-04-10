@@ -25,4 +25,7 @@
 #define CONFIG_MDCT 1
 #define CONFIG_FFT 1
 
+#pragma warning(disable:4305)
+#pragma warning(disable:4244)
+
 int ff_fast_malloc(void *ptr, unsigned int *size, size_t min_size, int zero_realloc);

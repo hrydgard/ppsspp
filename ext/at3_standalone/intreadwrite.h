@@ -84,69 +84,6 @@ typedef union {
  * Map AV_RNXX <-> AV_R[BL]XX for all variants provided by per-arch headers.
  */
 
-#if AV_HAVE_BIGENDIAN
-
-#   if    defined(AV_RN16) && !defined(AV_RB16)
-#       define AV_RB16(p) AV_RN16(p)
-#   elif !defined(AV_RN16) &&  defined(AV_RB16)
-#       define AV_RN16(p) AV_RB16(p)
-#   endif
-
-#   if    defined(AV_WN16) && !defined(AV_WB16)
-#       define AV_WB16(p, v) AV_WN16(p, v)
-#   elif !defined(AV_WN16) &&  defined(AV_WB16)
-#       define AV_WN16(p, v) AV_WB16(p, v)
-#   endif
-
-#   if    defined(AV_RN24) && !defined(AV_RB24)
-#       define AV_RB24(p) AV_RN24(p)
-#   elif !defined(AV_RN24) &&  defined(AV_RB24)
-#       define AV_RN24(p) AV_RB24(p)
-#   endif
-
-#   if    defined(AV_WN24) && !defined(AV_WB24)
-#       define AV_WB24(p, v) AV_WN24(p, v)
-#   elif !defined(AV_WN24) &&  defined(AV_WB24)
-#       define AV_WN24(p, v) AV_WB24(p, v)
-#   endif
-
-#   if    defined(AV_RN32) && !defined(AV_RB32)
-#       define AV_RB32(p) AV_RN32(p)
-#   elif !defined(AV_RN32) &&  defined(AV_RB32)
-#       define AV_RN32(p) AV_RB32(p)
-#   endif
-
-#   if    defined(AV_WN32) && !defined(AV_WB32)
-#       define AV_WB32(p, v) AV_WN32(p, v)
-#   elif !defined(AV_WN32) &&  defined(AV_WB32)
-#       define AV_WN32(p, v) AV_WB32(p, v)
-#   endif
-
-#   if    defined(AV_RN48) && !defined(AV_RB48)
-#       define AV_RB48(p) AV_RN48(p)
-#   elif !defined(AV_RN48) &&  defined(AV_RB48)
-#       define AV_RN48(p) AV_RB48(p)
-#   endif
-
-#   if    defined(AV_WN48) && !defined(AV_WB48)
-#       define AV_WB48(p, v) AV_WN48(p, v)
-#   elif !defined(AV_WN48) &&  defined(AV_WB48)
-#       define AV_WN48(p, v) AV_WB48(p, v)
-#   endif
-
-#   if    defined(AV_RN64) && !defined(AV_RB64)
-#       define AV_RB64(p) AV_RN64(p)
-#   elif !defined(AV_RN64) &&  defined(AV_RB64)
-#       define AV_RN64(p) AV_RB64(p)
-#   endif
-
-#   if    defined(AV_WN64) && !defined(AV_WB64)
-#       define AV_WB64(p, v) AV_WN64(p, v)
-#   elif !defined(AV_WN64) &&  defined(AV_WB64)
-#       define AV_WN64(p, v) AV_WB64(p, v)
-#   endif
-
-#else /* AV_HAVE_BIGENDIAN */
 
 #   if    defined(AV_RN16) && !defined(AV_RL16)
 #       define AV_RL16(p) AV_RN16(p)
@@ -207,8 +144,6 @@ typedef union {
 #   elif !defined(AV_WN64) &&  defined(AV_WL64)
 #       define AV_WN64(p, v) AV_WL64(p, v)
 #   endif
-
-#endif /* !AV_HAVE_BIGENDIAN */
 
 /*
  * Define AV_[RW]N helper macros to simplify definitions not provided

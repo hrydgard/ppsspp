@@ -21,36 +21,6 @@
 #include "fft.h"
 #include "mem.h"
 
-/* FFT */
-
-FFTContext *av_fft_init(int nbits, int inverse)
-{
-    FFTContext *s = av_mallocz(sizeof(*s));
-
-    if (s && ff_fft_init(s, nbits, inverse))
-        av_freep(&s);
-
-    return s;
-}
-
-void av_fft_permute(FFTContext *s, FFTComplex *z)
-{
-    s->fft_permute(s, z);
-}
-
-void av_fft_calc(FFTContext *s, FFTComplex *z)
-{
-    s->fft_calc(s, z);
-}
-
-av_cold void av_fft_end(FFTContext *s)
-{
-    if (s) {
-        ff_fft_end(s);
-        av_free(s);
-    }
-}
-
 #if CONFIG_MDCT
 
 FFTContext *av_mdct_init(int nbits, int inverse, double scale)

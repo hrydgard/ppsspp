@@ -32,7 +32,6 @@
 #include "dict.h"
 #include "avstring.h"
 #include "log.h"
-#include "pixdesc.h"
 #include "mathematics.h"
 #include "samplefmt.h"
 
@@ -1223,7 +1222,7 @@ int av_opt_is_set_to_default(void *obj, const AVOption *o)
     double d, d2;
     float f;
     AVRational q;
-    int ret, w, h;
+    int ret;
     char *str;
     void *dst;
 
@@ -1408,7 +1407,6 @@ int main(void)
         printf("rational=%d/%d\n", test_ctx.rational.num, test_ctx.rational.den);
         printf("video_rate=%d/%d\n", test_ctx.video_rate.num, test_ctx.video_rate.den);
         printf("width=%d height=%d\n", test_ctx.w, test_ctx.h);
-        printf("pix_fmt=%s\n", av_get_pix_fmt_name(test_ctx.pix_fmt));
         printf("sample_fmt=%s\n", av_get_sample_fmt_name(test_ctx.sample_fmt));
         printf("duration=%"PRId64"\n", test_ctx.duration);
         printf("color=%d %d %d %d\n", test_ctx.color[0], test_ctx.color[1], test_ctx.color[2], test_ctx.color[3]);

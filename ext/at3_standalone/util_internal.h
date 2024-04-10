@@ -38,7 +38,6 @@
 #include "attributes.h"
 #include "dict.h"
 #include "macros.h"
-#include "pixfmt.h"
 #include "version.h"
 
 #if ARCH_X86
@@ -215,16 +214,6 @@
 
 /**
  * Log a generic warning message about a missing feature.
- *
- * @param[in] avc a pointer to an arbitrary struct of which the first
- *                field is a pointer to an AVClass struct
- * @param[in] msg string containing the name of the missing feature
- */
-void avpriv_report_missing_feature(void *avc,
-                                   const char *msg, ...) av_printf_format(2, 3);
-
-/**
- * Log a generic warning message about a missing feature.
  * Additionally request that a sample showcasing the feature be uploaded.
  *
  * @param[in] avc a pointer to an arbitrary struct of which the first field is
@@ -232,7 +221,7 @@ void avpriv_report_missing_feature(void *avc,
  * @param[in] msg string containing the name of the missing feature
  */
 void avpriv_request_sample(void *avc,
-                           const char *msg, ...) av_printf_format(2, 3);
+                           const char *msg, ...);
 
 #if HAVE_LIBC_MSVCRT
 #include <crtversion.h>

@@ -29,7 +29,6 @@
 #include "buffer.h"
 #include "channel_layout.h"
 #include "mathematics.h"
-#include "pixfmt.h"
 #include "avcodec.h"
 #include "config.h"
 
@@ -155,11 +154,6 @@ typedef struct AVCodecInternal {
      * Number of audio samples to skip at the start of the next decoded frame
      */
     int skip_samples;
-
-    /**
-     * hwaccel-specific private data
-     */
-    void *hwaccel_priv_data;
 } AVCodecInternal;
 
 struct AVCodecDefault {

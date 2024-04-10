@@ -386,7 +386,6 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="..\ext\at3_standalone\at3_decoders.h" />
-    <ClInclude Include="..\ext\at3_standalone\atomic.h" />
     <ClInclude Include="..\ext\at3_standalone\atrac.h" />
     <ClInclude Include="..\ext\at3_standalone\atrac3data.h" />
     <ClInclude Include="..\ext\at3_standalone\atrac3plus.h" />
@@ -396,7 +395,6 @@
     <ClInclude Include="..\ext\at3_standalone\avfft.h" />
     <ClInclude Include="..\ext\at3_standalone\avstring.h" />
     <ClInclude Include="..\ext\at3_standalone\avutil.h" />
-    <ClInclude Include="..\ext\at3_standalone\bprint.h" />
     <ClInclude Include="..\ext\at3_standalone\bswap.h" />
     <ClInclude Include="..\ext\at3_standalone\buffer.h" />
     <ClInclude Include="..\ext\at3_standalone\buffer_internal.h" />
@@ -424,8 +422,6 @@
     <ClInclude Include="..\ext\at3_standalone\mem.h" />
     <ClInclude Include="..\ext\at3_standalone\opt.h" />
     <ClInclude Include="..\ext\at3_standalone\options_table.h" />
-    <ClInclude Include="..\ext\at3_standalone\pixdesc.h" />
-    <ClInclude Include="..\ext\at3_standalone\pixfmt.h" />
     <ClInclude Include="..\ext\at3_standalone\rational.h" />
     <ClInclude Include="..\ext\at3_standalone\samplefmt.h" />
     <ClInclude Include="..\ext\at3_standalone\sinewin.h" />
@@ -630,7 +626,6 @@
     <ClInclude Include="x64Emitter.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\ext\at3_standalone\atomic.c" />
     <ClCompile Include="..\ext\at3_standalone\atrac.c" />
     <ClCompile Include="..\ext\at3_standalone\atrac3.c" />
     <ClCompile Include="..\ext\at3_standalone\atrac3plus.c" />
@@ -641,16 +636,13 @@
     <ClCompile Include="..\ext\at3_standalone\avstring.c" />
     <ClCompile Include="..\ext\at3_standalone\av_buffer.c" />
     <ClCompile Include="..\ext\at3_standalone\bitstream.c" />
-    <ClCompile Include="..\ext\at3_standalone\bprint.c" />
     <ClCompile Include="..\ext\at3_standalone\channel_layout.c" />
-    <ClCompile Include="..\ext\at3_standalone\codec_desc.c" />
     <ClCompile Include="..\ext\at3_standalone\dict.c" />
     <ClCompile Include="..\ext\at3_standalone\fft_template.c" />
     <ClCompile Include="..\ext\at3_standalone\float_dsp.c" />
     <ClCompile Include="..\ext\at3_standalone\frame.c" />
     <ClCompile Include="..\ext\at3_standalone\intmath.c" />
     <ClCompile Include="..\ext\at3_standalone\mathematics.c" />
-    <ClCompile Include="..\ext\at3_standalone\mathops.c" />
     <ClCompile Include="..\ext\at3_standalone\mdct_template.c" />
     <ClCompile Include="..\ext\at3_standalone\mem.c" />
     <ClCompile Include="..\ext\at3_standalone\opt.c" />

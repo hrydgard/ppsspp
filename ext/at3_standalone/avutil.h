@@ -253,36 +253,6 @@ const char *av_get_media_type_string(enum AVMediaType media_type);
 
 /**
  * @}
- * @}
- * @defgroup lavu_picture Image related
- *
- * AVPicture types, pixel formats and basic image planes manipulation.
- *
- * @{
- */
-
-enum AVPictureType {
-    AV_PICTURE_TYPE_NONE = 0, ///< Undefined
-    AV_PICTURE_TYPE_I,     ///< Intra
-    AV_PICTURE_TYPE_P,     ///< Predicted
-    AV_PICTURE_TYPE_B,     ///< Bi-dir predicted
-    AV_PICTURE_TYPE_S,     ///< S(GMC)-VOP MPEG4
-    AV_PICTURE_TYPE_SI,    ///< Switching Intra
-    AV_PICTURE_TYPE_SP,    ///< Switching Predicted
-    AV_PICTURE_TYPE_BI,    ///< BI type
-};
-
-/**
- * Return a single letter to describe the given picture type
- * pict_type.
- *
- * @param[in] pict_type the picture type @return a single character
- * representing the picture type, '?' if pict_type is unknown
- */
-char av_get_picture_type_char(enum AVPictureType pict_type);
-
-/**
- * @}
  */
 
 #include "common.h"
@@ -292,7 +262,6 @@ char av_get_picture_type_char(enum AVPictureType pict_type);
 #include "macros.h"
 #include "mathematics.h"
 #include "log.h"
-#include "pixfmt.h"
 
 /**
  * Return x default pointer in case p is NULL.

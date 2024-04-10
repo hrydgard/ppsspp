@@ -28,7 +28,6 @@
 #include "common.h"
 #include "mem.h"
 #include "avstring.h"
-#include "bprint.h"
 
 int av_strstart(const char *str, const char *pfx, const char **ptr)
 {
@@ -299,23 +298,6 @@ char *av_append_path_component(const char *path, const char *component)
     return fullpath;
 }
 
-int av_escape(char **dst, const char *src, const char *special_chars,
-              enum AVEscapeMode mode, int flags)
-{
-    AVBPrint dstbuf;
-
-    av_bprint_init(&dstbuf, 1, AV_BPRINT_SIZE_UNLIMITED);
-    av_bprint_escape(&dstbuf, src, special_chars, mode, flags);
-
-    if (!av_bprint_is_complete(&dstbuf)) {
-        av_bprint_finalize(&dstbuf, NULL);
-        return AVERROR(ENOMEM);
-    } else {
-        av_bprint_finalize(&dstbuf, dst);
-        return dstbuf.len;
-    }
-}
-
 int av_match_name(const char *name, const char *names)
 {
     const char *p;
@@ -434,67 +416,3 @@ int av_match_list(const char *name, const char *list, char separator)
 
     return 0;
 }
-
-#ifdef TEST
-
-int main(void)
-{
-    int i;
-    char *fullpath;
-    static const char * const strings[] = {
-        "''",
-        "",
-        ":",
-        "\\",
-        "'",
-        "    ''    :",
-        "    ''  ''  :",
-        "foo   '' :",
-        "'foo'",
-        "foo     ",
-        "  '  foo  '  ",
-        "foo\\",
-        "foo':  blah:blah",
-        "foo\\:  blah:blah",
-        "foo\'",
-        "'foo :  '  :blahblah",
-        "\\ :blah",
-        "     foo",
-        "      foo       ",
-        "      foo     \\ ",
-        "foo ':blah",
-        " foo   bar    :   blahblah",
-        "\\f\\o\\o",
-        "'foo : \\ \\  '   : blahblah",
-        "'\\fo\\o:': blahblah",
-        "\\'fo\\o\\:':  foo  '  :blahblah"
-    };
-
-    printf("Testing av_get_token()\n");
-    for (i = 0; i < FF_ARRAY_ELEMS(strings); i++) {
-        const char *p = strings[i];
-        char *q;
-        printf("|%s|", p);
-        q = av_get_token(&p, ":");
-        printf(" -> |%s|", q);
-        printf(" + |%s|\n", p);
-        av_free(q);
-    }
-
-    printf("Testing av_append_path_component()\n");
-    #define TEST_APPEND_PATH_COMPONENT(path, component, expected) \
-        fullpath = av_append_path_component((path), (component)); \
-        printf("%s = %s\n", fullpath ? fullpath : "(null)", expected); \
-        av_free(fullpath);
-    TEST_APPEND_PATH_COMPONENT(NULL, NULL, "(null)")
-    TEST_APPEND_PATH_COMPONENT("path", NULL, "path");
-    TEST_APPEND_PATH_COMPONENT(NULL, "comp", "comp");
-    TEST_APPEND_PATH_COMPONENT("path", "comp", "path/comp");
-    TEST_APPEND_PATH_COMPONENT("path/", "comp", "path/comp");
-    TEST_APPEND_PATH_COMPONENT("path", "/comp", "path/comp");
-    TEST_APPEND_PATH_COMPONENT("path/", "/comp", "path/comp");
-    TEST_APPEND_PATH_COMPONENT("path/path2/", "/comp/comp2", "path/path2/comp/comp2");
-    return 0;
-}
-
-#endif /* TEST */
