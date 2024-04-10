@@ -269,7 +269,7 @@ int inet_pton(int af, const char* src, void* dst)
 			else if (ch < '0' || ch > '9')
 				return 0;
 			else
-				x = x * 10 + ch - '0';
+				x *= 10 + ch - '0';
 			if (x > 255)
 				return 0;
 		}
@@ -304,11 +304,11 @@ int inet_pton(int af, const char* src, void* dst)
 					k += 7 - marknum;
 			}
 			else if (ch >= '0' && ch <= '9')
-				x = x * 16 + ch - '0';
+				x *= 16 + ch - '0';
 			else if (ch >= 'a' && ch <= 'f')
-				x = x * 16 + ch - 'a' + 10;
+				x *= 16 + ch - 'a' + 10;
 			else if (ch >= 'A' && ch <= 'F')
-				x = x * 16 + ch - 'A' + 10;
+				x *= 16 + ch - 'A' + 10;
 			else
 				return 0;
 			if (x > 0xFFFF)
