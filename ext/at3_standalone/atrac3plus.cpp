@@ -854,8 +854,8 @@ static void decode_spectrum(GetBitContext *gb, Atrac3pChanUnitCtx *ctx,
         memset(chan->power_levs, ATRAC3P_POWER_COMP_OFF, sizeof(chan->power_levs));
 
         for (qu = 0; qu < ctx->used_quant_units; qu++) {
-            num_specs = ff_atrac3p_qu_to_spec_pos[qu + 1] -
-                        ff_atrac3p_qu_to_spec_pos[qu];
+            num_specs = av_atrac3p_qu_to_spec_pos[qu + 1] -
+                        av_atrac3p_qu_to_spec_pos[qu];
 
             wordlen = chan->qu_wordlen[qu];
             codetab = chan->qu_tab_idx[qu];
@@ -871,14 +871,14 @@ static void decode_spectrum(GetBitContext *gb, Atrac3pChanUnitCtx *ctx,
                     tab_index = tab->redirect;
 
                 decode_qu_spectra(gb, tab, &spec_vlc_tabs[tab_index],
-                                  &chan->spectrum[ff_atrac3p_qu_to_spec_pos[qu]],
+                                  &chan->spectrum[av_atrac3p_qu_to_spec_pos[qu]],
                                   num_specs);
             } else if (ch_num && ctx->channels[0].qu_wordlen[qu] && !codetab) {
                 /* copy coefficients from master */
-                memcpy(&chan->spectrum[ff_atrac3p_qu_to_spec_pos[qu]],
-                       &ctx->channels[0].spectrum[ff_atrac3p_qu_to_spec_pos[qu]],
+                memcpy(&chan->spectrum[av_atrac3p_qu_to_spec_pos[qu]],
+                       &ctx->channels[0].spectrum[av_atrac3p_qu_to_spec_pos[qu]],
                        num_specs *
-                       sizeof(chan->spectrum[ff_atrac3p_qu_to_spec_pos[qu]]));
+                       sizeof(chan->spectrum[av_atrac3p_qu_to_spec_pos[qu]]));
                 chan->qu_wordlen[qu] = ctx->channels[0].qu_wordlen[qu];
             }
         }

@@ -229,8 +229,8 @@ void ff_atrac3p_imdct(FFTContext *mdct_ctx, float *pIn,
 void ff_atrac3p_ipqf(FFTContext *dct_ctx, Atrac3pIPQFChannelCtx *hist,
                      const float *in, float *out);
 
-extern const uint16_t ff_atrac3p_qu_to_spec_pos[33];
-extern const float ff_atrac3p_sf_tab[64];
-extern const float ff_atrac3p_mant_tab[8];
+extern const uint16_t av_atrac3p_qu_to_spec_pos[33];
+extern const float av_atrac3p_sf_tab[64];
+extern const float av_atrac3p_mant_tab[8];
 
 #endif /* AVCODEC_ATRAC3PLUS_H */

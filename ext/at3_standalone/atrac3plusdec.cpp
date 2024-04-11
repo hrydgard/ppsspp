@@ -205,14 +205,14 @@ static void decode_residual_spectrum(Atrac3pChanUnitCtx *ctx,
         memset(out[ch], 0, ATRAC3P_FRAME_SAMPLES * sizeof(*out[ch]));
 
         for (qu = 0; qu < ctx->used_quant_units; qu++) {
-            src        = &ctx->channels[ch].spectrum[ff_atrac3p_qu_to_spec_pos[qu]];
-            dst        = &out[ch][ff_atrac3p_qu_to_spec_pos[qu]];
-            nspeclines = ff_atrac3p_qu_to_spec_pos[qu + 1] -
-                         ff_atrac3p_qu_to_spec_pos[qu];
+            src        = &ctx->channels[ch].spectrum[av_atrac3p_qu_to_spec_pos[qu]];
+            dst        = &out[ch][av_atrac3p_qu_to_spec_pos[qu]];
+            nspeclines = av_atrac3p_qu_to_spec_pos[qu + 1] -
+                         av_atrac3p_qu_to_spec_pos[qu];
 
             if (ctx->channels[ch].qu_wordlen[qu] > 0) {
-                q = ff_atrac3p_sf_tab[ctx->channels[ch].qu_sf_idx[qu]] *
-                    ff_atrac3p_mant_tab[ctx->channels[ch].qu_wordlen[qu]];
+                q = av_atrac3p_sf_tab[ctx->channels[ch].qu_sf_idx[qu]] *
+                    av_atrac3p_mant_tab[ctx->channels[ch].qu_wordlen[qu]];
                 for (i = 0; i < nspeclines; i++)
                     dst[i] = src[i] * q;
             }

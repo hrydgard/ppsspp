@@ -38,7 +38,7 @@
  *  To get the number of spectral lines in each quant unit do the following:
  *  num_specs = qu_to_spec_pos[i+1] - qu_to_spec_pos[i]
  */
-const uint16_t ff_atrac3p_qu_to_spec_pos[33] = {
+const uint16_t av_atrac3p_qu_to_spec_pos[33] = {
       0,    16,   32,   48,   64,   80,   96,  112,
     128,   160,  192,  224,  256,  288,  320,  352,
     384,   448,  512,  576,  640,  704,  768,  896,
@@ -48,7 +48,7 @@ const uint16_t ff_atrac3p_qu_to_spec_pos[33] = {
 
 /* Scalefactors table. */
 /* Approx. Equ: pow(2.0, (i - 16.0 + 0.501783948) / 3.0) */
-const float ff_atrac3p_sf_tab[64] = {
+const float av_atrac3p_sf_tab[64] = {
     0.027852058,  0.0350914, 0.044212341, 0.055704117,  0.0701828,
     0.088424683, 0.11140823,   0.1403656,  0.17684937, 0.22281647, 0.2807312, 0.35369873,
     0.44563293,   0.5614624,  0.70739746,  0.89126587,  1.1229248, 1.4147949,  1.7825317,
@@ -63,7 +63,7 @@ const float ff_atrac3p_sf_tab[64] = {
 
 /* Mantissa table. */
 /* pow(10, x * log10(2) + 0.05) / 2 / ([1,2,3,5,7,15,31] + 0.5) */
-const float ff_atrac3p_mant_tab[8] = {
+const float av_atrac3p_mant_tab[8] = {
     0.0,
     0.74801636,
     0.44882202,
@@ -167,7 +167,7 @@ static void waves_synth(Atrac3pWaveSynthParams *synth_param,
 
     /* fade out with steep Hann window if requested */
     if (envelope->has_stop_point) {
-        pos = (envelope->stop_pos + 1 << 2) - reg_offset;
+        pos = ((envelope->stop_pos + 1) << 2) - reg_offset;
         if (pos > 0 && pos <= 128) {
             out[pos - 4] *= hann_window[96];
             out[pos - 3] *= hann_window[64];
@@ -445,12 +445,12 @@ void ff_atrac3p_power_compensation(Atrac3pChanUnitCtx *ctx, int ch_index,
         if (ctx->channels[ch_index].qu_wordlen[qu] <= 0)
             continue;
 
-        qu_lev = ff_atrac3p_sf_tab[ctx->channels[ch_index].qu_sf_idx[qu]] *
-                 ff_atrac3p_mant_tab[ctx->channels[ch_index].qu_wordlen[qu]] /
+        qu_lev = av_atrac3p_sf_tab[ctx->channels[ch_index].qu_sf_idx[qu]] *
+                 av_atrac3p_mant_tab[ctx->channels[ch_index].qu_wordlen[qu]] /
                  (1 << ctx->channels[ch_index].qu_wordlen[qu]) * grp_lev;
 
-        dst = &sp[ff_atrac3p_qu_to_spec_pos[qu]];
-        nsp = ff_atrac3p_qu_to_spec_pos[qu + 1] - ff_atrac3p_qu_to_spec_pos[qu];
+        dst = &sp[av_atrac3p_qu_to_spec_pos[qu]];
+        nsp = av_atrac3p_qu_to_spec_pos[qu + 1] - av_atrac3p_qu_to_spec_pos[qu];
 
         for (i = 0; i < nsp; i++)
             dst[i] += pwcsp[i] * qu_lev;
