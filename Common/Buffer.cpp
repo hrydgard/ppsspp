@@ -111,7 +111,7 @@ void Buffer::Printf(const char *fmt, ...) {
 		// Output was truncated. TODO: Do something.
 		ERROR_LOG(IO, "Buffer::Printf truncated output");
 	}
-	if (retval < 0) {
+	if ((int)retval < 0) {
 		ERROR_LOG(IO, "Buffer::Printf failed");
 	}
 	va_end(vl);
