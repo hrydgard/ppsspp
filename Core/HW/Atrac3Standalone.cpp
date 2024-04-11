@@ -1,5 +1,3 @@
-#pragma once
-
 #include "SimpleAudioDec.h"
 
 #include "ext/at3_standalone/at3_decoders.h"
@@ -99,7 +97,7 @@ public:
 		// Hmm. ignore for now.
 	}
 
-	void SetExtraData(const uint8_t *data, int size, int wav_bytes_per_packet) {
+	void SetExtraData(const uint8_t *data, int size, int wav_bytes_per_packet) override {
 		// if (audioType_ == PSP_CODEC_AT3PLUS) {
 			_dbg_assert_(ctx_);
 			_dbg_assert_(!codecOpen_);

@@ -1,5 +1,7 @@
 #pragma once
 
+#include <stdlib.h>
+
 // Compat hacks
 
 #if defined(__GNUC__)
@@ -12,6 +14,8 @@
 #define DECLARE_ALIGNED(n,t,v)      t v
 #define DECLARE_ASM_CONST(n,t,v)    static const t v
 #endif
+
+#define AV_HAVE_FAST_UNALIGNED 0
 
 #define LOCAL_ALIGNED(bits, type, name, subscript) type name subscript
 #define av_restrict
@@ -71,35 +75,6 @@ void av_log(int level, const char *fmt, ...) av_printf_format(3, 4);
 
 #pragma warning(disable:4305)
 #pragma warning(disable:4244)
-
-int ff_fast_malloc(void *ptr, unsigned int *size, size_t min_size, int zero_realloc);
-
-/**
- * Copy the string src to dst, but no more than size - 1 bytes, and
- * null-terminate dst.
- *
- * This function is the same as BSD strlcpy().
- *
- * @param dst destination buffer
- * @param src source string
- * @param size size of destination buffer
- * @return the length of src
- *
- * @warning since the return value is the length of src, src absolutely
- * _must_ be a properly 0-terminated string, otherwise this will read beyond
- * the end of the buffer and possibly crash.
- */
-size_t av_strlcpy(char *dst, const char *src, size_t size);
-
-/**
- * Locale-independent conversion of ASCII characters to uppercase.
- */
-static inline int av_toupper(int c)
-{
-	if (c >= 'a' && c <= 'z')
-		c ^= 0x20;
-	return c;
-}
 
 #define AV_BSWAP16C(x) (((x) << 8 & 0xff00)  | ((x) >> 8 & 0x00ff))
 #define AV_BSWAP32C(x) (AV_BSWAP16C(x) << 16 | AV_BSWAP16C((x) >> 16))

@@ -38,7 +38,9 @@ SINETABLE(2048);
 SINETABLE(4096);
 SINETABLE(8192);
 
-float * const ff_sine_windows[] = {
+// Thie array is only accessed in init. However, not so for the
+// sine tables it points to.
+static float *ff_sine_windows[] = {
 	NULL, NULL, NULL, NULL, NULL, // unused
 	ff_sine_32 , ff_sine_64, ff_sine_128,
 	ff_sine_256, ff_sine_512, ff_sine_1024,

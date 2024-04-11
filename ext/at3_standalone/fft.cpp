@@ -54,7 +54,7 @@ COSTABLE(16384);
 COSTABLE(32768);
 COSTABLE(65536);
 
-FFTSample * const ff_cos_tabs[] = {
+static FFTSample * const ff_cos_tabs[] = {
     NULL, NULL, NULL, NULL,
     ff_cos_16,
     ff_cos_32,

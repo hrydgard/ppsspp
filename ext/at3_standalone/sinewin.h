@@ -44,5 +44,3 @@ extern SINETABLE(1024);
 extern SINETABLE(2048);
 extern SINETABLE(4096);
 extern SINETABLE(8192);
-
-extern float * const ff_sine_windows[14];

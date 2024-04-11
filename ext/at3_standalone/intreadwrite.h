@@ -16,9 +16,7 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
-#ifndef AVUTIL_INTREADWRITE_H
-#define AVUTIL_INTREADWRITE_H
-
+#pragma once
 #include <stdint.h>
 
 #include "compat.h"
@@ -44,45 +42,7 @@ typedef union {
     uint8_t  u8 [2];
 } av_alias av_alias16;
 
-/*
- * Arch-specific headers can provide any combination of
- * AV_[RW][BLN](16|24|32|48|64) and AV_(COPY|SWAP|ZERO)(64|128) macros.
- * Preprocessor symbols must be defined, even if these are implemented
- * as inline functions.
- *
- * R/W means read/write, B/L/N means big/little/native endianness.
- * The following macros require aligned access, compared to their
- * unaligned variants: AV_(COPY|SWAP|ZERO)(64|128), AV_[RW]N[8-64]A.
- * Incorrect usage may range from abysmal performance to crash
- * depending on the platform.
- *
- * The unaligned variants are AV_[RW][BLN][8-64] and AV_COPY*U.
- */
-
-#ifdef HAVE_AV_CONFIG_H
-
-#include "config.h"
-
-#if   ARCH_ARM
-#   include "arm/intreadwrite.h"
-#elif ARCH_AVR32
-#   include "avr32/intreadwrite.h"
-#elif ARCH_MIPS
-#   include "mips/intreadwrite.h"
-#elif ARCH_PPC
-#   include "ppc/intreadwrite.h"
-#elif ARCH_TOMI
-#   include "tomi/intreadwrite.h"
-#elif ARCH_X86
-#   include "x86/intreadwrite.h"
-#endif
-
-#endif /* HAVE_AV_CONFIG_H */
-
-/*
- * Map AV_RNXX <-> AV_R[BL]XX for all variants provided by per-arch headers.
- */
-
+#include "compat.h"
 
 #   if    defined(AV_RN16) && !defined(AV_RL16)
 #       define AV_RL16(p) AV_RN16(p)
@@ -148,22 +108,7 @@ typedef union {
  * Define AV_[RW]N helper macros to simplify definitions not provided
  * by per-arch headers.
  */
-
-#if defined(__GNUC__) && !defined(__TI_COMPILER_VERSION__)
-
-union unaligned_64 { uint64_t l; } __attribute__((packed)) av_alias;
-union unaligned_32 { uint32_t l; } __attribute__((packed)) av_alias;
-union unaligned_16 { uint16_t l; } __attribute__((packed)) av_alias;
-
-#   define AV_RN(s, p) (((const union unaligned_##s *) (p))->l)
-#   define AV_WN(s, p, v) ((((union unaligned_##s *) (p))->l) = (v))
-
-#elif defined(__DECC)
-
-#   define AV_RN(s, p) (*((const __unaligned uint##s##_t*)(p)))
-#   define AV_WN(s, p, v) (*((__unaligned uint##s##_t*)(p)) = (v))
-
-#elif AV_HAVE_FAST_UNALIGNED
+#if AV_HAVE_FAST_UNALIGNED
 
 #   define AV_RN(s, p) (((const av_alias##s*)(p))->u##s)
 #   define AV_WN(s, p, v) (((av_alias##s*)(p))->u##s = (v))
@@ -280,13 +225,8 @@ union unaligned_16 { uint16_t l; } __attribute__((packed)) av_alias;
     } while(0)
 #endif
 
-#if AV_HAVE_BIGENDIAN
-#   define AV_RN(s, p)    AV_RB##s(p)
-#   define AV_WN(s, p, v) AV_WB##s(p, v)
-#else
 #   define AV_RN(s, p)    AV_RL##s(p)
 #   define AV_WN(s, p, v) AV_WL##s(p, v)
-#endif
 
 #endif /* HAVE_FAST_UNALIGNED */
 
@@ -314,17 +254,10 @@ union unaligned_16 { uint16_t l; } __attribute__((packed)) av_alias;
 #   define AV_WN64(p, v) AV_WN(64, p, v)
 #endif
 
-#if AV_HAVE_BIGENDIAN
-#   define AV_RB(s, p)    AV_RN##s(p)
-#   define AV_WB(s, p, v) AV_WN##s(p, v)
-#   define AV_RL(s, p)    av_bswap##s(AV_RN##s(p))
-#   define AV_WL(s, p, v) AV_WN##s(p, av_bswap##s(v))
-#else
 #   define AV_RB(s, p)    av_bswap##s(AV_RN##s(p))
 #   define AV_WB(s, p, v) AV_WN##s(p, av_bswap##s(v))
 #   define AV_RL(s, p)    AV_RN##s(p)
 #   define AV_WL(s, p, v) AV_WN##s(p, v)
-#endif
 
 #define AV_RB8(x)     (((const uint8_t*)(x))[0])
 #define AV_WB8(p, d)  do { ((uint8_t*)(p))[0] = (d); } while(0)
@@ -401,5 +334,3 @@ union unaligned_16 { uint16_t l; } __attribute__((packed)) av_alias;
         ((uint8_t*)(p))[2] = (d)>>16;           \
     } while(0)
 #endif
-
-#endif /* AVUTIL_INTREADWRITE_H */
