@@ -765,6 +765,11 @@ int atrac3_decode_frame(ATRAC3Context *ctx, float *out_data[2], int *nb_samples,
     return block_align;
 }
 
+void atrac3_flush_buffers(ATRAC3Context *c) {
+	// There's no known correct way to do this, so let's just reset some stuff.
+	memset(c->temp_buf, 0, sizeof(c->temp_buf));
+}
+
 static void atrac3_init_static_data(void)
 {
     int i;

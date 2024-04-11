@@ -46,6 +46,15 @@ public:
 		return codecOpen_;
 	}
 
+	void FlushBuffers() {
+		if (at3Ctx_) {
+			atrac3_flush_buffers(at3Ctx_);
+		}
+		if (at3pCtx_) {
+			atrac3p_flush_buffers(at3pCtx_);
+		}
+	}
+
 	bool Decode(const uint8_t *inbuf, int inbytes, uint8_t *outbuf, int *outbytes) override {
 		if (!codecOpen_) {
 			_dbg_assert_(false);

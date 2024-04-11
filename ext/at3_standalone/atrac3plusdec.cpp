@@ -357,3 +357,7 @@ int atrac3p_decode_frame(ATRAC3PContext *ctx, float *out_data[2], int *nb_sample
 
     return FFMIN(ctx->block_align, avpkt_size);
 }
+
+void atrac3p_flush_buffers(ATRAC3PContext *ctx) {
+	// TODO: Not sure what should be zeroed here.
+}

@@ -48,6 +48,8 @@ public:
 
 	virtual void SetChannels(int channels) = 0;
 
+	virtual void FlushBuffers() {}
+
 	// Just metadata.
 	void SetCtxPtr(uint32_t ptr) { ctxPtr = ptr; }
 	uint32_t GetCtxPtr() const { return ctxPtr; }
