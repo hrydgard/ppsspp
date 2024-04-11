@@ -718,6 +718,7 @@ SOURCES_CXX += \
 	       $(COREDIR)/HW/Camera.cpp \
 	       $(COREDIR)/HW/Display.cpp \
 	       $(COREDIR)/HW/SimpleAudioDec.cpp \
+	       $(COREDIR)/HW/Atrac3Standalone.cpp \
 	       $(COREDIR)/HW/AsyncIOManager.cpp \
 	       $(COREDIR)/HW/MediaEngine.cpp \
 	       $(COREDIR)/HW/MpegDemux.cpp \

@@ -26,7 +26,7 @@
  * ATRAC common header
  */
 
-#include "ext/at3_standalone/compat.h"
+#include "compat.h"
 
 #ifndef AVCODEC_ATRAC_H
 #define AVCODEC_ATRAC_H

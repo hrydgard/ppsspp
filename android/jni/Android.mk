@@ -118,7 +118,6 @@ AT3_STANDALONE_FILES := \
 	${SRC}/ext/at3_standalone/atrac3plus.cpp \
 	${SRC}/ext/at3_standalone/atrac3plusdec.cpp \
 	${SRC}/ext/at3_standalone/atrac3plusdsp.cpp \
-	${SRC}/ext/at3_standalone/avcodec.cpp \
 	${SRC}/ext/at3_standalone/get_bits.cpp \
 	${SRC}/ext/at3_standalone/compat.cpp \
 	${SRC}/ext/at3_standalone/fft.cpp \
