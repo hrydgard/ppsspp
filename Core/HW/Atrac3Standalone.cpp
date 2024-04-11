@@ -55,7 +55,7 @@ public:
 		}
 	}
 
-	bool Decode(const uint8_t *inbuf, int inbytes, uint8_t *outbuf, int *outbytes) override {
+	bool Decode(const uint8_t *inbuf, int inbytes, int *inbytesConsumed, uint8_t *outbuf, int *outbytes) override {
 		if (!codecOpen_) {
 			_dbg_assert_(false);
 		}
@@ -70,19 +70,18 @@ public:
 		if (audioType_ == PSP_CODEC_AT3PLUS) {
 			result = atrac3p_decode_frame(at3pCtx_, buffers_, &nb_samples, &got_frame, inbuf, inbytes);
 		} else {
-			
 			result = atrac3_decode_frame(at3Ctx_, buffers_, &nb_samples, &got_frame, inbuf, inbytes);
 		}
 		if (result < 0) {
 			*outbytes = 0;
 			return false;
 		}
-		srcPos_ = result;
+		*inbytesConsumed = result;
 		outSamples_ = nb_samples;
 		if (nb_samples > 0) {
 			*outbytes = nb_samples * 2 * 2;
 
-			// Convert frame to outbuf.
+			// Convert frame to outbuf. TODO: Very SIMDable, though hardly hot.
 			for (int channel = 0; channel < 2; channel++) {
 				int16_t *output = (int16_t *)outbuf;
 				for (int i = 0; i < nb_samples; i++) {
@@ -98,9 +97,6 @@ public:
 
 	int GetOutSamples() const override {
 		return outSamples_;
-	}
-	int GetSourcePos() const override {
-		return srcPos_;
 	}
 
 	void SetChannels(int channels) override {
