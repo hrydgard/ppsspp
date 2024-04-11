@@ -511,7 +511,7 @@ static int sceMp3GetLoopNum(u32 mp3) {
 		return hleLogError(ME, ERROR_MP3_UNRESERVED_HANDLE, "incorrect handle type");
 	}
 
-	return hleLogSuccessI(ME, ctx->AuGetLoopNum());
+	return hleLogSuccessI(ME, ctx->LoopNum);
 }
 
 static int sceMp3GetMaxOutputSample(u32 mp3) {
@@ -555,7 +555,8 @@ static int sceMp3SetLoopNum(u32 mp3, int loop) {
 	if (loop < 0)
 		loop = -1;
 
-	return hleLogSuccessI(ME, ctx->AuSetLoopNum(loop));
+	ctx->LoopNum = loop;
+	return hleLogSuccessI(ME, 0);
 }
 
 static int sceMp3GetMp3ChannelNum(u32 mp3) {

@@ -26,6 +26,8 @@
 #include "Core/HW/MediaEngine.h"
 #include "Core/HW/BufferQueue.h"
 
+#include "ext/minimp3/minimp3.h"
+
 #ifdef USE_FFMPEG
 
 extern "C" {
@@ -49,6 +51,44 @@ extern "C" {
 
 #endif  // USE_FFMPEG
 
+// minimp3-based decoder.
+class MiniMp3Audio : public AudioDecoder {
+public:
+	MiniMp3Audio() {
+		mp3dec_init(&mp3_);
+	}
+	~MiniMp3Audio() {}
+
+	bool Decode(const uint8_t* inbuf, int inbytes, uint8_t *outbuf, int *outbytes) override {
+		mp3dec_frame_info_t info{};
+		int samplesWritten = mp3dec_decode_frame(&mp3_, inbuf, inbytes, (mp3d_sample_t *)outbuf, &info);
+		srcPos_ = info.frame_bytes;
+		*outbytes = samplesWritten * sizeof(mp3d_sample_t) * info.channels;
+		outSamples_ = samplesWritten * info.channels;
+		return true;
+	}
+
+	bool IsOK() const override { return true; }
+	int GetOutSamples() const override {
+		return outSamples_;
+	}
+	int GetSourcePos() const override {
+		return srcPos_;
+	}
+
+	void SetChannels(int channels) override {
+		// Hmm. ignore for now.
+	}
+
+	PSPAudioType GetAudioType() const override { return PSP_CODEC_MP3; }
+
+private:
+	// We use the lowest-level API.
+	mp3dec_t mp3_{};
+	int outSamples_ = 0;
+	int srcPos_ = 0;
+};
+
 // FFMPEG-based decoder. TODO: Replace with individual codecs.
 class SimpleAudio : public AudioDecoder {
 public:
@@ -56,7 +96,13 @@ public:
 	~SimpleAudio();
 
 	bool Decode(const uint8_t* inbuf, int inbytes, uint8_t *outbuf, int *outbytes) override;
-	bool IsOK() const override;
+	bool IsOK() const override {
+#ifdef USE_FFMPEG
+		return codec_ != 0;
+#else
+		return 0;
+#endif
+	}
 
 	int GetOutSamples() const override {
 		return outSamples;
@@ -67,11 +113,10 @@ public:
 
 	// Not save stated, only used by UI.  Used for ATRAC3 (non+) files.
 	void SetExtraData(const uint8_t *data, int size, int wav_bytes_per_packet) override;
-
 	void SetChannels(int channels) override;
 
 	// These two are only here because of save states.
-	PSPAudioType GetAudioType() const { return audioType; }
+	PSPAudioType GetAudioType() const override { return audioType; }
 
 private:
 	bool OpenCodec(int block_align);
@@ -95,7 +140,12 @@ private:
 
 // TODO: This should also be able to create other types of decoders.
 AudioDecoder *CreateAudioDecoder(PSPAudioType audioType, int sampleRateHz, int channels) {
-	return new SimpleAudio(audioType, sampleRateHz, channels);
+	switch (audioType) {
+	case PSP_CODEC_MP3:
+		return new MiniMp3Audio();
+	default:
+		return new SimpleAudio(audioType, sampleRateHz, channels);
+	}
 }
 
 static int GetAudioCodecID(int audioType) {
@@ -228,14 +278,6 @@ SimpleAudio::~SimpleAudio() {
 #endif
 	codec_ = 0;
 #endif  // USE_FFMPEG
-}
-
-bool SimpleAudio::IsOK() const {
-#ifdef USE_FFMPEG
-	return codec_ != 0;
-#else
-	return 0;
-#endif
 }
 
 // Decodes a single input frame.
@@ -456,17 +498,6 @@ u32 AuCtx::AuDecode(u32 pcmAddr) {
 
 	nextOutputHalf ^= 1;
 	return outpcmbufsize;
-}
-
-u32 AuCtx::AuGetLoopNum()
-{
-	return LoopNum;
-}
-
-u32 AuCtx::AuSetLoopNum(int loop)
-{
-	LoopNum = loop;
-	return 0;
 }
 
 // return 1 to read more data stream, 0 don't read
