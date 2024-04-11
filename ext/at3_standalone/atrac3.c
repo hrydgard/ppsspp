@@ -36,9 +36,9 @@
 #include <math.h>
 #include <stddef.h>
 #include <stdio.h>
+#include <string.h>
 
 #include "float_dsp.h"
-#include "bytestream.h"
 #include "fft.h"
 #include "compat.h"
 #include "get_bits.h"

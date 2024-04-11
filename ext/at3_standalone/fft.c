@@ -40,9 +40,9 @@
         y = a + b;                              \
     } while (0)
 
-#define ff_imdct_calc_c FFT_NAME(ff_imdct_calc_c)
-#define ff_imdct_half_c FFT_NAME(ff_imdct_half_c)
-#define ff_mdct_calc_c  FFT_NAME(ff_mdct_calc_c)
+#define ff_imdct_calc_c ff_imdct_calc_c
+#define ff_imdct_half_c ff_imdct_half_c
+#define ff_mdct_calc_c  ff_mdct_calc_c
 
 void ff_imdct_calc_c(FFTContext *s, FFTSample *output, const FFTSample *input);
 void ff_imdct_half_c(FFTContext *s, FFTSample *output, const FFTSample *input);
@@ -64,21 +64,21 @@ COSTABLE(16384);
 COSTABLE(32768);
 COSTABLE(65536);
 #endif
-COSTABLE_CONST FFTSample * const FFT_NAME(ff_cos_tabs)[] = {
+FFTSample * const ff_cos_tabs[] = {
     NULL, NULL, NULL, NULL,
-    FFT_NAME(ff_cos_16),
-    FFT_NAME(ff_cos_32),
-    FFT_NAME(ff_cos_64),
-    FFT_NAME(ff_cos_128),
-    FFT_NAME(ff_cos_256),
-    FFT_NAME(ff_cos_512),
-    FFT_NAME(ff_cos_1024),
-    FFT_NAME(ff_cos_2048),
-    FFT_NAME(ff_cos_4096),
-    FFT_NAME(ff_cos_8192),
-    FFT_NAME(ff_cos_16384),
-    FFT_NAME(ff_cos_32768),
-    FFT_NAME(ff_cos_65536),
+    ff_cos_16,
+    ff_cos_32,
+    ff_cos_64,
+    ff_cos_128,
+    ff_cos_256,
+    ff_cos_512,
+    ff_cos_1024,
+    ff_cos_2048,
+    ff_cos_4096,
+    ff_cos_8192,
+    ff_cos_16384,
+    ff_cos_32768,
+    ff_cos_65536,
 };
 
 static void fft_permute_c(FFTContext *s, FFTComplex *z);
@@ -101,7 +101,7 @@ void ff_init_ff_cos_tabs(int index)
     int i;
     int m = 1<<index;
     double freq = 2*M_PI/m;
-    FFTSample *tab = FFT_NAME(ff_cos_tabs)[index];
+    FFTSample *tab = ff_cos_tabs[index];
     for(i=0; i<=m/4; i++)
         tab[i] = FIX15(cos(i*freq));
     for(i=1; i<m/4; i++)
@@ -251,7 +251,7 @@ static void fft##n(FFTComplex *z)\
     fft##n2(z);\
     fft##n4(z+n4*2);\
     fft##n4(z+n4*3);\
-    pass(z,FFT_NAME(ff_cos_##n),n4/2);\
+    pass(z,ff_cos_##n,n4/2);\
 }
 
 static void fft4(FFTComplex *z)
@@ -287,8 +287,8 @@ static void fft8(FFTComplex *z)
 static void fft16(FFTComplex *z)
 {
     FFTDouble t1, t2, t3, t4, t5, t6;
-    FFTSample cos_16_1 = FFT_NAME(ff_cos_16)[1];
-    FFTSample cos_16_3 = FFT_NAME(ff_cos_16)[3];
+    FFTSample cos_16_1 = ff_cos_16[1];
+    FFTSample cos_16_3 = ff_cos_16[3];
 
     fft8(z);
     fft4(z+8);

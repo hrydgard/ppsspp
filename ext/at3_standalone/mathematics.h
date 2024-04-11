@@ -26,7 +26,6 @@
 #include <limits.h>
 
 #include "compat.h"
-#include "intfloat.h"
 
 extern const uint32_t ff_inverse[257];
 extern const uint8_t ff_sqrt_tab[256];

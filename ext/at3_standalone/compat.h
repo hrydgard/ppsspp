@@ -51,6 +51,15 @@
 
 #define FF_SANE_NB_CHANNELS 64U
 
+#define AV_LOG_ERROR    16
+#define AV_LOG_WARNING  24
+#define AV_LOG_INFO     32
+#define AV_LOG_VERBOSE  40
+#define AV_LOG_DEBUG    48
+#define AV_LOG_TRACE    56
+
+void av_log(void *avcl, int level, const char *fmt, ...) av_printf_format(3, 4);
+
 /**
  * Maximum size in bytes of extradata.
  * This value was chosen such that every bit of the buffer is

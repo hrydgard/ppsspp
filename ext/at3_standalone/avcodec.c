@@ -28,9 +28,7 @@
 #include "compat.h"
 #include "channel_layout.h"
 #include "compat.h"
-#include "mathematics.h"
 #include "avcodec.h"
-#include "bytestream.h"
 #include "mem.h"
 
 #include <stdlib.h>
@@ -39,11 +37,6 @@
 #include <limits.h>
 #include <float.h>
 
-static const AVClass av_codec_context_class = {
-    .class_name              = "AVCodecContext",
-    .category                = AV_CLASS_CATEGORY_DECODER,
-};
-
 AVCodecContext *avcodec_alloc_context3(const AVCodec *codec)
 {
 	AVCodecContext *avctx = av_mallocz(sizeof(AVCodecContext));
@@ -51,8 +44,6 @@ AVCodecContext *avcodec_alloc_context3(const AVCodec *codec)
 		return NULL;
 	int flags = 0;
 	memset(avctx, 0, sizeof(AVCodecContext));
-
-	avctx->av_class = &av_codec_context_class;
 
 	if (codec) {
 		avctx->codec = codec;
@@ -65,9 +56,6 @@ AVCodecContext *avcodec_alloc_context3(const AVCodec *codec)
 			if (!avctx->priv_data) {
 				return NULL;
 			}
-		}
-		if (codec->priv_class) {
-			*(const AVClass**)avctx->priv_data = codec->priv_class;
 		}
 	}
 	return avctx;
@@ -88,17 +76,6 @@ void avcodec_free_context(AVCodecContext **pavctx)
 
 int attribute_align_arg avcodec_open2(AVCodecContext *avctx, const AVCodec *codec, void **options)
 {
-	if ((codec && avctx->codec && codec != avctx->codec)) {
-		av_log(avctx, AV_LOG_ERROR, "This AVCodecContext was allocated for %s, "
-			"but %s passed to avcodec_open2()\n", avctx->codec->name, codec->name);
-		return AVERROR(EINVAL);
-	}
-	if (!codec)
-		codec = avctx->codec;
-
-	if (avctx->extradata_size < 0 || avctx->extradata_size >= FF_MAX_EXTRADATA_SIZE)
-		return AVERROR(EINVAL);
-
 	int ret = 0;
 
 	if (codec->priv_data_size > 0) {
@@ -108,17 +85,9 @@ int attribute_align_arg avcodec_open2(AVCodecContext *avctx, const AVCodec *code
 				ret = AVERROR(ENOMEM);
 				goto end;
 			}
-			if (codec->priv_class) {
-				*(const AVClass **)avctx->priv_data = codec->priv_class;
-			}
 		}
 	} else {
 		avctx->priv_data = NULL;
-	}
-
-	if (avctx->channels > FF_SANE_NB_CHANNELS) {
-		ret = AVERROR(EINVAL);
-		goto free_and_end;
 	}
 
 	avctx->codec = codec;
@@ -153,9 +122,6 @@ int attribute_align_arg avcodec_open2(AVCodecContext *avctx, const AVCodec *code
 		avctx->channels > FF_SANE_NB_CHANNELS) {
 		ret = AVERROR(EINVAL);
 		goto free_and_end;
-	}
-	if (codec->priv_data_size > 0 && avctx->priv_data && codec->priv_class) {
-		av_assert0(*(const AVClass **)avctx->priv_data == codec->priv_class);
 	}
 
 end:

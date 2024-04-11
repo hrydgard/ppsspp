@@ -31,7 +31,6 @@
 #include "compat.h"
 #include "channel_layout.h"
 #include "mem.h"
-#include "log.h"
 
 /**
  * @defgroup libavc Encoding/Decoding Library
@@ -294,7 +293,6 @@ typedef struct AVCodecContext {
      * information on struct for av_log
      * - set by avcodec_alloc_context3
      */
-    const AVClass *av_class;
     const struct AVCodec  *codec;
 #if FF_API_CODEC_NAME
     /**
@@ -488,7 +486,6 @@ typedef struct AVCodec {
      */
     const char *name;
     enum AVCodecID id;
-    const AVClass *priv_class;              ///< AVClass for the private context
 
     /*****************************************************************
      * No fields below this line are part of the public API. They

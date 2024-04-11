@@ -542,9 +542,6 @@
     <ClInclude Include="..\ext\at3_standalone\compat.h">
       <Filter>ext\at3_standalone</Filter>
     </ClInclude>
-    <ClInclude Include="..\ext\at3_standalone\bytestream.h">
-      <Filter>ext\at3_standalone</Filter>
-    </ClInclude>
     <ClInclude Include="..\ext\at3_standalone\fft.h">
       <Filter>ext\at3_standalone</Filter>
     </ClInclude>
@@ -558,9 +555,6 @@
       <Filter>ext\at3_standalone</Filter>
     </ClInclude>
     <ClInclude Include="..\ext\at3_standalone\mathematics.h">
-      <Filter>ext\at3_standalone</Filter>
-    </ClInclude>
-    <ClInclude Include="..\ext\at3_standalone\intfloat.h">
       <Filter>ext\at3_standalone</Filter>
     </ClInclude>
     <ClInclude Include="..\ext\at3_standalone\channel_layout.h">
@@ -1074,7 +1068,7 @@
     <ClCompile Include="..\ext\at3_standalone\mdct_template.c">
       <Filter>ext\at3_standalone</Filter>
     </ClCompile>
-    <ClCompile Include="..\ext\at3_standalone\fft_template.c">
+    <ClCompile Include="..\ext\at3_standalone\fft.c">
       <Filter>ext\at3_standalone</Filter>
     </ClCompile>
     <ClCompile Include="..\ext\at3_standalone\get_bits.c">

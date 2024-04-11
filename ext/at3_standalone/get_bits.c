@@ -140,7 +140,6 @@ static int build_table(VLC *vlc, int table_nb_bits, int nb_codes,
     if (table_nb_bits > 30)
        return -1;
     table_index = alloc_table(vlc, table_size, flags & INIT_VLC_USE_NEW_STATIC);
-    ff_dlog(NULL, "new table index=%d size=%d\n", table_index, table_size);
     if (table_index < 0)
         return table_index;
     table = (volatile VLC_TYPE (*)[2])&vlc->table[table_index];
@@ -150,7 +149,6 @@ static int build_table(VLC *vlc, int table_nb_bits, int nb_codes,
         n      = codes[i].bits;
         code   = codes[i].code;
         symbol = codes[i].symbol;
-        ff_dlog(NULL, "i=%d n=%d code=0x%x\n", i, n, code);
         if (n <= table_nb_bits) {
             /* no need to add another table */
             j = code >> (32 - table_nb_bits);
@@ -162,7 +160,6 @@ static int build_table(VLC *vlc, int table_nb_bits, int nb_codes,
             }
             for (k = 0; k < nb; k++) {
                 int bits = table[j][1];
-                ff_dlog(NULL, "%4x: code=%d n=%d\n", j, i, n);
                 if (bits != 0 && bits != n) {
                     av_log(NULL, AV_LOG_ERROR, "incorrect codes\n");
                     return AVERROR_INVALIDDATA;
@@ -192,8 +189,6 @@ static int build_table(VLC *vlc, int table_nb_bits, int nb_codes,
             subtable_bits = FFMIN(subtable_bits, table_nb_bits);
             j = (flags & INIT_VLC_LE) ? bitswap_32(code_prefix) >> (32 - table_nb_bits) : code_prefix;
             table[j][1] = -subtable_bits;
-            ff_dlog(NULL, "%4x: n=%d (subtable)\n",
-                    j, codes[i].bits + table_nb_bits);
             index = build_table(vlc, subtable_bits, k-i, codes+i, flags);
             if (index < 0)
                 return index;
