@@ -38,6 +38,15 @@ extern "C" {
 #include "Core/FFMPEGCompat.h"
 }
 
+#else
+
+extern "C" {
+	struct AVCodec;
+	struct AVCodecContext;
+	struct SwrContext;
+	struct AVFrame;
+}
+
 #endif  // USE_FFMPEG
 
 // FFMPEG-based decoder. TODO: Replace with individual codecs.
@@ -77,7 +86,7 @@ private:
 #if HAVE_LIBAVCODEC_CONST_AVCODEC // USE_FFMPEG is implied
 	const
 #endif
-		AVCodec *codec_;
+	AVCodec *codec_;
 	AVCodecContext  *codecCtx_;
 	SwrContext      *swrCtx_;
 

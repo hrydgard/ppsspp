@@ -97,7 +97,9 @@ static const int MPEG_HEADER_BUFFER_MINIMUM_SIZE = 2048;
 // For PMP media
 static u32 pmp_videoSource = 0; //pointer to the video source (SceMpegLLi structure) 
 static int pmp_nBlocks = 0; //number of blocks received in the last sceMpegBasePESpacketCopy call
+#ifdef USE_FFMPEG
 static std::list<AVFrame*> pmp_queue; //list of pmp video frames have been decoded and will be played
+#endif
 static std::list<u32> pmp_ContextList; //list of pmp media contexts
 static bool pmp_oldStateLoaded = false; // for dostate
 
