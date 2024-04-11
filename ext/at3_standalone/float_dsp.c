@@ -92,7 +92,7 @@ static void vector_fmul_reverse_c(float *dst, const float *src0,
         dst[i] = src0[i] * src1[-i];
 }
 
-av_cold AVFloatDSPContext *avpriv_float_dsp_alloc(int bit_exact)
+AVFloatDSPContext *avpriv_float_dsp_alloc(int bit_exact)
 {
     AVFloatDSPContext *fdsp = av_mallocz(sizeof(AVFloatDSPContext));
     if (!fdsp)

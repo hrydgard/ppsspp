@@ -2,8 +2,6 @@
 
 // Compat hacks
 
-#include "error.h"
-
 #define CONFIG_MEMORY_POISONING 0
 #define CONFIG_HARDCODED_TABLES 0
 #define CONFIG_ME_CMP 0
@@ -20,10 +18,8 @@
 #define FF_API_AVPACKET_OLD_API 1
 #define FF_DISABLE_DEPRECATION_WARNINGS
 #define FF_ENABLE_DEPRECATION_WARNINGS
-#define CONFIG_MDCT 1
 #define CONFIG_FFT 1
 
-#define av_cold
 #define DECLARE_ALIGNED(bits, type, name)  type name
 #define LOCAL_ALIGNED(bits, type, name, subscript) type name subscript
 #define av_restrict
@@ -40,6 +36,15 @@
 #define attribute_align_arg
 #define av_printf_format(a,b)
 #define avpriv_report_missing_feature(...)
+
+
+#define AVERROR(e) (-(e))   ///< Returns a negative error code from a POSIX error code, to return from library functions.
+#define AVUNERROR(e) (-(e)) ///< Returns a POSIX error code from a library function error return value.
+
+#define FFERRTAG(a, b, c, d) (-(int)MKTAG(a, b, c, d))
+
+#define AVERROR_INVALIDDATA        FFERRTAG( 'I','N','D','A') ///< Invalid data found when processing input
+#define AVERROR_PATCHWELCOME       FFERRTAG( 'P','A','W','E') ///< Not yet implemented in FFmpeg, patches welcome
 
 #pragma warning(disable:4305)
 #pragma warning(disable:4244)

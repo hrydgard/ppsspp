@@ -28,9 +28,10 @@
 
 #include <limits.h>
 #include <stdint.h>
+#include <errno.h>
+#include <stddef.h>
 
 #include "compat.h"
-#include "error.h"
 #include "avutil.h"
 
 /**

@@ -22,10 +22,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include "common.h"
-#include "libm.h"
 #include "mathematics.h"
 #include "fft.h"
-#include "fft-internal.h"
 
 /**
  * @file
@@ -45,7 +43,7 @@
 /**
  * init MDCT or IMDCT computation.
  */
-av_cold int ff_mdct_init(FFTContext *s, int nbits, int inverse, double scale)
+int ff_mdct_init(FFTContext *s, int nbits, int inverse, double scale)
 {
     int n, n4, i;
     double alpha, theta;
@@ -82,13 +80,8 @@ av_cold int ff_mdct_init(FFTContext *s, int nbits, int inverse, double scale)
     scale = sqrt(fabs(scale));
     for(i=0;i<n4;i++) {
         alpha = 2 * M_PI * (i + theta) / n;
-#if FFT_FIXED_32
-        s->tcos[i*tstep] = lrint(-cos(alpha) * 2147483648.0);
-        s->tsin[i*tstep] = lrint(-sin(alpha) * 2147483648.0);
-#else
         s->tcos[i*tstep] = FIX15(-cos(alpha) * scale);
         s->tsin[i*tstep] = FIX15(-sin(alpha) * scale);
-#endif
     }
     return 0;
  fail:
@@ -206,7 +199,7 @@ void ff_mdct_calc_c(FFTContext *s, FFTSample *out, const FFTSample *input)
     }
 }
 
-av_cold void ff_mdct_end(FFTContext *s)
+void ff_mdct_end(FFTContext *s)
 {
     av_freep(&s->tcos);
     ff_fft_end(s);

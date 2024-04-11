@@ -32,7 +32,21 @@
 #include "mem.h"
 #include "mathematics.h"
 #include "fft.h"
-#include "fft-internal.h"
+
+#define sqrthalf (float)M_SQRT1_2
+
+#define BF(x, y, a, b) do {                     \
+        x = a - b;                              \
+        y = a + b;                              \
+    } while (0)
+
+#define ff_imdct_calc_c FFT_NAME(ff_imdct_calc_c)
+#define ff_imdct_half_c FFT_NAME(ff_imdct_half_c)
+#define ff_mdct_calc_c  FFT_NAME(ff_mdct_calc_c)
+
+void ff_imdct_calc_c(FFTContext *s, FFTSample *output, const FFTSample *input);
+void ff_imdct_half_c(FFTContext *s, FFTSample *output, const FFTSample *input);
+void ff_mdct_calc_c(FFTContext *s, FFTSample *output, const FFTSample *input);
 
 /* cos(2*pi*x/n) for 0<=x<=n/4, followed by its reverse */
 #if !CONFIG_HARDCODED_TABLES
@@ -81,7 +95,7 @@ static int split_radix_permutation(int i, int n, int inverse)
     else                  return split_radix_permutation(i, m, inverse)*4 - 1;
 }
 
-av_cold void ff_init_ff_cos_tabs(int index)
+void ff_init_ff_cos_tabs(int index)
 {
 #if (!CONFIG_HARDCODED_TABLES) && (!FFT_FIXED_32)
     int i;
@@ -111,29 +125,7 @@ static int is_second_half_of_fft32(int i, int n)
         return is_second_half_of_fft32(i - 3*n/4, n/4);
 }
 
-static av_cold void fft_perm_avx(FFTContext *s)
-{
-    int i;
-    int n = 1 << s->nbits;
-
-    for (i = 0; i < n; i += 16) {
-        int k;
-        if (is_second_half_of_fft32(i, n)) {
-            for (k = 0; k < 16; k++)
-                s->revtab[-split_radix_permutation(i + k, n, s->inverse) & (n - 1)] =
-                    i + avx_tab[k];
-
-        } else {
-            for (k = 0; k < 16; k++) {
-                int j = i + k;
-                j = (j & ~7) | ((j >> 1) & 3) | ((j << 2) & 4);
-                s->revtab[-split_radix_permutation(i + k, n, s->inverse) & (n - 1)] = j;
-            }
-        }
-    }
-}
-
-av_cold int ff_fft_init(FFTContext *s, int nbits, int inverse)
+int ff_fft_init(FFTContext *s, int nbits, int inverse)
 {
     int i, j, n;
 
@@ -149,41 +141,21 @@ av_cold int ff_fft_init(FFTContext *s, int nbits, int inverse)
     if (!s->tmp_buf)
         goto fail;
     s->inverse = inverse;
-    s->fft_permutation = FF_FFT_PERM_DEFAULT;
 
     s->fft_permute = fft_permute_c;
     s->fft_calc    = fft_calc_c;
-#if CONFIG_MDCT
     s->imdct_calc  = ff_imdct_calc_c;
     s->imdct_half  = ff_imdct_half_c;
     s->mdct_calc   = ff_mdct_calc_c;
-#endif
-
-#if FFT_FLOAT
-    if (ARCH_AARCH64) ff_fft_init_aarch64(s);
-    if (ARCH_ARM)     ff_fft_init_arm(s);
-    if (ARCH_PPC)     ff_fft_init_ppc(s);
-    if (ARCH_X86)     ff_fft_init_x86(s);
-    if (CONFIG_MDCT)  s->mdct_calcw = s->mdct_calc;
-    if (HAVE_MIPSFPU) ff_fft_init_mips(s);
-#else
-    if (CONFIG_MDCT)  s->mdct_calcw = ff_mdct_calcw_c;
-    if (ARCH_ARM)     ff_fft_fixed_init_arm(s);
-#endif
+    s->mdct_calcw = s->mdct_calc;
     for(j=4; j<=nbits; j++) {
         ff_init_ff_cos_tabs(j);
     }
 
-    if (s->fft_permutation == FF_FFT_PERM_AVX) {
-        fft_perm_avx(s);
-    } else {
-        for(i=0; i<n; i++) {
-            j = i;
-            if (s->fft_permutation == FF_FFT_PERM_SWAP_LSBS)
-                j = (j&~3) | ((j>>1)&1) | ((j<<1)&2);
-			int index = -split_radix_permutation(i, n, s->inverse) & (n - 1);
-            s->revtab[index] = j;
-        }
+    for(i=0; i<n; i++) {
+        j = i;
+		int index = -split_radix_permutation(i, n, s->inverse) & (n - 1);
+        s->revtab[index] = j;
     }
 
     return 0;
@@ -199,16 +171,16 @@ static void fft_permute_c(FFTContext *s, FFTComplex *z)
     const uint16_t *revtab = s->revtab;
     np = 1 << s->nbits;
     /* TODO: handle split-radix permute in a more optimal way, probably in-place */
-    for(j=0;j<np;j++) s->tmp_buf[revtab[j]] = z[j];
+    for(j=0;j<np;j++)
+		s->tmp_buf[revtab[j]] = z[j];
     memcpy(z, s->tmp_buf, np * sizeof(FFTComplex));
 }
 
-av_cold void ff_fft_end(FFTContext *s)
+void ff_fft_end(FFTContext *s)
 {
     av_freep(&s->revtab);
     av_freep(&s->tmp_buf);
 }
-
 
 #define BUTTERFLIES(a0,a1,a2,a3) {\
     BF(t3, t5, t5, t1);\

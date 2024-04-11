@@ -77,89 +77,6 @@
  * version number.
  */
 
-/**
- * @defgroup lavu Common utility functions
- *
- * @brief
- * libavutil contains the code shared across all the other FFmpeg
- * libraries
- *
- * @note In order to use the functions provided by avutil you must include
- * the specific header.
- *
- * @{
- *
- * @defgroup lavu_crypto Crypto and Hashing
- *
- * @{
- * @}
- *
- * @defgroup lavu_math Maths
- * @{
- *
- * @}
- *
- * @defgroup lavu_string String Manipulation
- *
- * @{
- *
- * @}
- *
- * @defgroup lavu_mem Memory Management
- *
- * @{
- *
- * @}
- *
- * @defgroup lavu_data Data Structures
- * @{
- *
- * @}
- *
- * @defgroup lavu_audio Audio related
- *
- * @{
- *
- * @}
- *
- * @defgroup lavu_error Error Codes
- *
- * @{
- *
- * @}
- *
- * @defgroup lavu_log Logging Facility
- *
- * @{
- *
- * @}
- *
- * @defgroup lavu_misc Other
- *
- * @{
- *
- * @defgroup preproc_misc Preprocessor String Macros
- *
- * @{
- *
- * @}
- *
- * @defgroup version_utils Library Version Macros
- *
- * @{
- *
- * @}
- */
-
-
-/**
- * @addtogroup lavu_ver
- * @{
- */
-/**
- * @}
- */
-
 
 /**
  * @brief Undefined timestamp value
@@ -186,12 +103,6 @@
  * @}
  */
 
-#include "common.h"
-#include "error.h"
-#include "version.h"
-#include "mathematics.h"
-#include "log.h"
-
 /**
  * Return x default pointer in case p is NULL.
  */
@@ -209,7 +120,7 @@ static inline void *av_x_if_null(const void *p, const void *x)
  * @return  length of the list, in elements, not counting the terminator
  */
 unsigned av_int_list_length_for_size(unsigned elsize,
-                                     const void *list, uint64_t term) av_pure;
+                                     const void *list, uint64_t term);
 
 /**
  * Compute the length of an integer list.

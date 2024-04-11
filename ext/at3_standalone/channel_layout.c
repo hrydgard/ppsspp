@@ -24,6 +24,8 @@
  */
 
 #include <stdint.h>
+#include <errno.h>
+#include <stddef.h>
 
 #include "avutil.h"
 #include "channel_layout.h"

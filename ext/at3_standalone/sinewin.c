@@ -16,6 +16,44 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
-#define USE_FIXED 0
+#define _USE_MATH_DEFINES
+#include <math.h>
+
+#include <assert.h>
+#include "aac_defines.h"
+#include "compat.h"
+#include "common.h"
+
+#include "mem.h"
+#include "aac_defines.h"
+
 #include "sinewin.h"
-#include "sinewin_tablegen.h"
+
+SINETABLE(32);
+SINETABLE(64);
+SINETABLE(128);
+SINETABLE(256);
+SINETABLE(512);
+SINETABLE(1024);
+SINETABLE(2048);
+SINETABLE(4096);
+SINETABLE(8192);
+
+float * const ff_sine_windows[] = {
+	NULL, NULL, NULL, NULL, NULL, // unused
+	ff_sine_32 , ff_sine_64, ff_sine_128,
+	ff_sine_256, ff_sine_512, ff_sine_1024,
+	ff_sine_2048,ff_sine_4096, ff_sine_8192
+};
+
+// Generate a sine window.
+void ff_sine_window_init(float *window, int n) {
+	int i;
+	for (i = 0; i < n; i++)
+		window[i] = sinf((i + 0.5) * (M_PI / (2.0 * n)));
+}
+
+void ff_init_ff_sine_windows(int index) {
+	assert(index >= 0 && index < FF_ARRAY_ELEMS(ff_sine_windows));
+	ff_sine_window_init(ff_sine_windows[index], 1 << index);
+}

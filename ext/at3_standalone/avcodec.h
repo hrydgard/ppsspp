@@ -30,8 +30,8 @@
 #include <errno.h>
 #include "compat.h"
 #include "channel_layout.h"
+#include "mem.h"
 #include "log.h"
-#include "version.h"
 
 /**
  * @defgroup libavc Encoding/Decoding Library

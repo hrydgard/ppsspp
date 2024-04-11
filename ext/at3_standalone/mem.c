@@ -26,8 +26,6 @@
 
 #define _XOPEN_SOURCE 600
 
-#include "config.h"
-
 #include <limits.h>
 #include <stdint.h>
 #include <stdlib.h>

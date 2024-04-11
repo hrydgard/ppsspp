@@ -78,7 +78,7 @@ int atrac3p_decode_close(AVCodecContext *avctx)
     return 0;
 }
 
-static av_cold int set_channel_params(ATRAC3PContext *ctx,
+static int set_channel_params(ATRAC3PContext *ctx,
                                       AVCodecContext *avctx)
 {
     memset(ctx->channel_blocks, 0, sizeof(ctx->channel_blocks));

@@ -18,47 +18,31 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
-#ifndef AVCODEC_SINEWIN_H
-#define AVCODEC_SINEWIN_H
-
-#include "mem.h"
-#include "aac_defines.h"
-
-#if CONFIG_HARDCODED_TABLES
-#   define SINETABLE_CONST const
-#else
-#   define SINETABLE_CONST
-#endif
-
-#ifndef USE_FIXED
-#define USE_FIXED 0
-#endif
+#pragma once
 
 #define SINETABLE(size) \
-    SINETABLE_CONST DECLARE_ALIGNED(32, INTFLOAT, AAC_RENAME(ff_sine_##size))[size]
+    DECLARE_ALIGNED(32, float, ff_sine_##size)[size]
 
-/**
- * Generate a sine window.
- * @param   window  pointer to half window
- * @param   n       size of half window
- */
-void AAC_RENAME(ff_sine_window_init)(INTFLOAT *window, int n);
+ /**
+  * Generate a sine window.
+  * @param   window  pointer to half window
+  * @param   n       size of half window
+  */
+void ff_sine_window_init(float *window, int n);
 
 /**
  * initialize the specified entry of ff_sine_windows
  */
-void AAC_RENAME(ff_init_ff_sine_windows)(int index);
+void ff_init_ff_sine_windows(int index);
 
-extern SINETABLE(  32);
-extern SINETABLE(  64);
-extern SINETABLE( 128);
-extern SINETABLE( 256);
-extern SINETABLE( 512);
+extern SINETABLE(32);
+extern SINETABLE(64);
+extern SINETABLE(128);
+extern SINETABLE(256);
+extern SINETABLE(512);
 extern SINETABLE(1024);
 extern SINETABLE(2048);
 extern SINETABLE(4096);
 extern SINETABLE(8192);
 
-extern SINETABLE_CONST INTFLOAT * const AAC_RENAME(ff_sine_windows)[14];
-
-#endif /* AVCODEC_SINEWIN_H */
+extern float * const ff_sine_windows[14];

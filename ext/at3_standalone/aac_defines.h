@@ -80,8 +80,6 @@ typedef int                 AAC_SIGNE;
 #define FFT_FLOAT    1
 #define FFT_FIXED_32 0
 
-#define AAC_RENAME(x)       x
-#define AAC_RENAME_32(x)    x
 typedef float               INTFLOAT;
 typedef float               INT64FLOAT;
 typedef float               SHORTFLOAT;

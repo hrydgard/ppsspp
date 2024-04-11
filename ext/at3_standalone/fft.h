@@ -30,53 +30,32 @@
 #define FFT_FIXED_32 0
 #endif
 
+#define FIX15(v) (v)
+
+#define CMUL(dre, dim, are, aim, bre, bim) do { \
+        (dre) = (are) * (bre) - (aim) * (bim);  \
+        (dim) = (are) * (bim) + (aim) * (bre);  \
+    } while (0)
+
 #include <stdint.h>
 
-#if FFT_FLOAT
+typedef float FFTSample;
 
-#include "avfft.h"
+typedef struct FFTComplex {
+	FFTSample re, im;
+} FFTComplex;
+
+typedef struct FFTContext FFTContext;
 
 #define FFT_NAME(x) x
 
 typedef float FFTDouble;
-
-#else
-
-#if FFT_FIXED_32
-
-#define Q31(x) (int)((x)*2147483648.0 + 0.5)
-#define FFT_NAME(x) x ## _fixed_32
-
-typedef int32_t FFTSample;
-
-#else /* FFT_FIXED_32 */
-
-#define FFT_NAME(x) x ## _fixed
-
-typedef int16_t FFTSample;
-
-#endif /* FFT_FIXED_32 */
-
-typedef struct FFTComplex {
-    FFTSample re, im;
-} FFTComplex;
-
-typedef int    FFTDouble;
-typedef struct FFTContext FFTContext;
-
-#endif /* FFT_FLOAT */
 
 typedef struct FFTDComplex {
     FFTDouble re, im;
 } FFTDComplex;
 
 /* FFT computation */
-
-enum fft_permutation_type {
-    FF_FFT_PERM_DEFAULT,
-    FF_FFT_PERM_SWAP_LSBS,
-    FF_FFT_PERM_AVX,
-};
 
 enum mdct_permutation_type {
     FF_MDCT_PERM_NONE,
@@ -106,7 +85,6 @@ struct FFTContext {
     void (*imdct_half)(struct FFTContext *s, FFTSample *output, const FFTSample *input);
     void (*mdct_calc)(struct FFTContext *s, FFTSample *output, const FFTSample *input);
     void (*mdct_calcw)(struct FFTContext *s, FFTDouble *output, const FFTSample *input);
-    enum fft_permutation_type fft_permutation;
     enum mdct_permutation_type mdct_permutation;
 };
 
@@ -151,14 +129,6 @@ void ff_init_ff_cos_tabs(int index);
  * @param inverse         if 0 perform the forward transform, if 1 perform the inverse
  */
 int ff_fft_init(FFTContext *s, int nbits, int inverse);
-
-void ff_fft_init_aarch64(FFTContext *s);
-void ff_fft_init_x86(FFTContext *s);
-void ff_fft_init_arm(FFTContext *s);
-void ff_fft_init_mips(FFTContext *s);
-void ff_fft_init_ppc(FFTContext *s);
-
-void ff_fft_fixed_init_arm(FFTContext *s);
 
 void ff_fft_end(FFTContext *s);
 

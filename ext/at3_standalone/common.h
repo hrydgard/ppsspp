@@ -35,7 +35,6 @@
 #include <math.h>
 
 #include "compat.h"
-#include "version.h"
 #include "mem.h"
 
 //rounded division & shift

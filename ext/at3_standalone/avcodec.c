@@ -25,10 +25,19 @@
  */
 
 #include "avcodec.h"
+#include "compat.h"
+#include "channel_layout.h"
 #include "common.h"
-#include "util_internal.h"
+#include "mathematics.h"
+#include "avcodec.h"
+#include "bytestream.h"
 #include "mem.h"
+
+#include <stdlib.h>
+#include <stdarg.h>
 #include <string.h>
+#include <limits.h>
+#include <float.h>
 
 static const AVClass av_codec_context_class = {
     .class_name              = "AVCodecContext",
@@ -74,4 +83,109 @@ void avcodec_free_context(AVCodecContext **pavctx)
     avcodec_close(avctx);
     av_freep(&avctx->extradata);
     av_freep(pavctx);
+}
+
+
+int attribute_align_arg avcodec_open2(AVCodecContext *avctx, const AVCodec *codec, void **options)
+{
+	if ((codec && avctx->codec && codec != avctx->codec)) {
+		av_log(avctx, AV_LOG_ERROR, "This AVCodecContext was allocated for %s, "
+			"but %s passed to avcodec_open2()\n", avctx->codec->name, codec->name);
+		return AVERROR(EINVAL);
+	}
+	if (!codec)
+		codec = avctx->codec;
+
+	if (avctx->extradata_size < 0 || avctx->extradata_size >= FF_MAX_EXTRADATA_SIZE)
+		return AVERROR(EINVAL);
+
+	int ret = 0;
+
+	if (codec->priv_data_size > 0) {
+		if (!avctx->priv_data) {
+			avctx->priv_data = av_mallocz(codec->priv_data_size);
+			if (!avctx->priv_data) {
+				ret = AVERROR(ENOMEM);
+				goto end;
+			}
+			if (codec->priv_class) {
+				*(const AVClass **)avctx->priv_data = codec->priv_class;
+			}
+		}
+	} else {
+		avctx->priv_data = NULL;
+	}
+
+	if (avctx->channels > FF_SANE_NB_CHANNELS) {
+		ret = AVERROR(EINVAL);
+		goto free_and_end;
+	}
+
+	avctx->codec = codec;
+	avctx->codec_id = codec->id;
+
+	avctx->frame_number = 0;
+
+	if (avctx->codec->init) {
+		ret = avctx->codec->init(avctx);
+		if (ret < 0) {
+			goto free_and_end;
+		}
+	}
+
+	ret = 0;
+
+	/* validate channel layout from the decoder */
+	if (avctx->channel_layout) {
+		int channels = av_get_channel_layout_nb_channels(avctx->channel_layout);
+		if (!avctx->channels)
+			avctx->channels = channels;
+		else if (channels != avctx->channels) {
+			char buf[512] = "";
+			av_log(avctx, AV_LOG_WARNING,
+				"Channel layout '%s' with %d channels does not match specified number of channels %d: "
+				"ignoring specified channel layout\n",
+				buf, channels, avctx->channels);
+			avctx->channel_layout = 0;
+		}
+	}
+	if (avctx->channels && avctx->channels < 0 ||
+		avctx->channels > FF_SANE_NB_CHANNELS) {
+		ret = AVERROR(EINVAL);
+		goto free_and_end;
+	}
+	if (codec->priv_data_size > 0 && avctx->priv_data && codec->priv_class) {
+		av_assert0(*(const AVClass **)avctx->priv_data == codec->priv_class);
+	}
+
+end:
+
+	return ret;
+free_and_end:
+	if (avctx->codec)
+		avctx->codec->close(avctx);
+
+	av_freep(&avctx->priv_data);
+	avctx->codec = NULL;
+	goto end;
+}
+
+int avcodec_close(AVCodecContext *avctx)
+{
+	int i;
+
+	if (!avctx)
+		return 0;
+
+	if (avctx->codec && avctx->codec->close)
+		avctx->codec->close(avctx);
+	av_freep(&avctx->priv_data);
+	avctx->codec = NULL;
+	return 0;
+}
+
+void avcodec_flush_buffers(AVCodecContext *avctx)
+{
+	if (avctx->codec->flush)
+		avctx->codec->flush(avctx);
 }

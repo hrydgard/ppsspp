@@ -168,7 +168,7 @@ static int decode_bytes(const uint8_t *input, uint8_t *out, int bytes)
     return off;
 }
 
-static av_cold void init_imdct_window(void)
+static void init_imdct_window(void)
 {
     int i, j;
 
@@ -183,7 +183,7 @@ static av_cold void init_imdct_window(void)
     }
 }
 
-static av_cold int atrac3_decode_close(AVCodecContext *avctx)
+static int atrac3_decode_close(AVCodecContext *avctx)
 {
     ATRAC3Context *q = avctx->priv_data;
 
@@ -764,7 +764,7 @@ int atrac3_decode_frame(AVCodecContext *avctx, float *out_data[2], int *nb_sampl
     return avctx->block_align;
 }
 
-static av_cold void atrac3_init_static_data(void)
+static void atrac3_init_static_data(void)
 {
     int i;
 
@@ -784,7 +784,7 @@ static av_cold void atrac3_init_static_data(void)
 
 static int static_init_done;
 
-static av_cold int atrac3_decode_init(AVCodecContext *avctx)
+static int atrac3_decode_init(AVCodecContext *avctx)
 {
     int i, ret;
     int version, delay, samples_per_frame, frame_factor;

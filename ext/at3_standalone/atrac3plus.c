@@ -49,7 +49,7 @@ static VLC tone_vlc_tabs[7];
  * @param[in,out] tab_offset  starting offset to the generated vlc table
  * @param[out]    out_vlc     ptr to vlc table to be generated
  */
-static av_cold void build_canonical_huff(const uint8_t *cb, const uint8_t *xlat,
+static void build_canonical_huff(const uint8_t *cb, const uint8_t *xlat,
                                          int *tab_offset, VLC *out_vlc)
 {
     int i, b;
@@ -79,7 +79,7 @@ static av_cold void build_canonical_huff(const uint8_t *cb, const uint8_t *xlat,
     *tab_offset += 1 << max_len;
 }
 
-av_cold void ff_atrac3p_init_vlcs(void)
+void ff_atrac3p_init_vlcs(void)
 {
     int i, wl_vlc_offs, ct_vlc_offs, sf_vlc_offs, tab_offset;
 

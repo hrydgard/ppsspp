@@ -45,7 +45,7 @@ static const float qmf_48tap_half[24] = {
    -0.043596379,   -0.099384367,   0.13207909,    0.46424159
 };
 
-av_cold void ff_atrac_generate_tables(void)
+void ff_atrac_generate_tables(void)
 {
     int i;
     float s;
@@ -63,7 +63,7 @@ av_cold void ff_atrac_generate_tables(void)
         }
 }
 
-av_cold void ff_atrac_init_gain_compensation(AtracGCContext *gctx, int id2exp_offset,
+void ff_atrac_init_gain_compensation(AtracGCContext *gctx, int id2exp_offset,
                                              int loc_scale)
 {
     int i;
