@@ -569,12 +569,6 @@
     <ClInclude Include="..\ext\at3_standalone\sinewin.h">
       <Filter>ext\at3_standalone</Filter>
     </ClInclude>
-    <ClInclude Include="..\ext\at3_standalone\log.h">
-      <Filter>ext\at3_standalone</Filter>
-    </ClInclude>
-    <ClInclude Include="..\ext\at3_standalone\intmath.h">
-      <Filter>ext\at3_standalone</Filter>
-    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="ABI.cpp" />
@@ -1032,49 +1026,46 @@
     <ClCompile Include="..\ext\minimp3\minimp3.cpp">
       <Filter>ext\minimp3</Filter>
     </ClCompile>
-    <ClCompile Include="..\ext\at3_standalone\atrac3.c">
+    <ClCompile Include="..\ext\at3_standalone\atrac3.cpp">
       <Filter>ext\at3_standalone</Filter>
     </ClCompile>
-    <ClCompile Include="..\ext\at3_standalone\atrac3plus.c">
+    <ClCompile Include="..\ext\at3_standalone\atrac3plus.cpp">
       <Filter>ext\at3_standalone</Filter>
     </ClCompile>
-    <ClCompile Include="..\ext\at3_standalone\atrac3plusdec.c">
+    <ClCompile Include="..\ext\at3_standalone\atrac3plusdec.cpp">
       <Filter>ext\at3_standalone</Filter>
     </ClCompile>
-    <ClCompile Include="..\ext\at3_standalone\atrac3plusdsp.c">
+    <ClCompile Include="..\ext\at3_standalone\atrac3plusdsp.cpp">
       <Filter>ext\at3_standalone</Filter>
     </ClCompile>
-    <ClCompile Include="..\ext\at3_standalone\float_dsp.c">
+    <ClCompile Include="..\ext\at3_standalone\float_dsp.cpp">
       <Filter>ext\at3_standalone</Filter>
     </ClCompile>
-    <ClCompile Include="..\ext\at3_standalone\mem.c">
+    <ClCompile Include="..\ext\at3_standalone\mem.cpp">
       <Filter>ext\at3_standalone</Filter>
     </ClCompile>
-    <ClCompile Include="..\ext\at3_standalone\sinewin.c">
+    <ClCompile Include="..\ext\at3_standalone\sinewin.cpp">
       <Filter>ext\at3_standalone</Filter>
     </ClCompile>
-    <ClCompile Include="..\ext\at3_standalone\avcodec.c">
+    <ClCompile Include="..\ext\at3_standalone\avcodec.cpp">
       <Filter>ext\at3_standalone</Filter>
     </ClCompile>
-    <ClCompile Include="..\ext\at3_standalone\channel_layout.c">
+    <ClCompile Include="..\ext\at3_standalone\channel_layout.cpp">
       <Filter>ext\at3_standalone</Filter>
     </ClCompile>
-    <ClCompile Include="..\ext\at3_standalone\atrac.c">
+    <ClCompile Include="..\ext\at3_standalone\atrac.cpp">
       <Filter>ext\at3_standalone</Filter>
     </ClCompile>
-    <ClCompile Include="..\ext\at3_standalone\mathematics.c">
+    <ClCompile Include="..\ext\at3_standalone\mathematics.cpp">
       <Filter>ext\at3_standalone</Filter>
     </ClCompile>
-    <ClCompile Include="..\ext\at3_standalone\mdct_template.c">
+    <ClCompile Include="..\ext\at3_standalone\fft.cpp">
       <Filter>ext\at3_standalone</Filter>
     </ClCompile>
-    <ClCompile Include="..\ext\at3_standalone\fft.c">
+    <ClCompile Include="..\ext\at3_standalone\get_bits.cpp">
       <Filter>ext\at3_standalone</Filter>
     </ClCompile>
-    <ClCompile Include="..\ext\at3_standalone\get_bits.c">
-      <Filter>ext\at3_standalone</Filter>
-    </ClCompile>
-    <ClCompile Include="..\ext\at3_standalone\compat.c">
+    <ClCompile Include="..\ext\at3_standalone\compat.cpp">
       <Filter>ext\at3_standalone</Filter>
     </ClCompile>
   </ItemGroup>

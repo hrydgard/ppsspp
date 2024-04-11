@@ -39,7 +39,7 @@
 
 AVCodecContext *avcodec_alloc_context3(const AVCodec *codec)
 {
-	AVCodecContext *avctx = av_mallocz(sizeof(AVCodecContext));
+	AVCodecContext *avctx = (AVCodecContext *)av_mallocz(sizeof(AVCodecContext));
 	if (!avctx)
 		return NULL;
 	int flags = 0;
@@ -73,8 +73,7 @@ void avcodec_free_context(AVCodecContext **pavctx)
     av_freep(pavctx);
 }
 
-
-int attribute_align_arg avcodec_open2(AVCodecContext *avctx, const AVCodec *codec, void **options)
+int avcodec_open2(AVCodecContext *avctx, const AVCodec *codec, void *options)
 {
 	int ret = 0;
 

@@ -496,11 +496,6 @@ typedef struct AVCodec {
      */
     int priv_data_size;
 
-    /**
-     * Initialize codec static data, called from avcodec_register().
-     */
-    void (*init_static_data)(struct AVCodec *codec);
-
     int (*init)(AVCodecContext *);
     /**
      * Encode data to an AVPacket.
@@ -518,11 +513,6 @@ typedef struct AVCodec {
      * Will be called when seeking
      */
     void (*flush)(AVCodecContext *);
-    /**
-     * Internal codec capabilities.
-     * See FF_CODEC_CAP_* in internal.h
-     */
-    int caps_internal;
 } AVCodec;
 
 /**

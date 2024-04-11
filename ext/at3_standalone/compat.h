@@ -33,7 +33,6 @@
 #define av_assert1(cond)
 #define av_assert2(cond)
 #define attribute_deprecated
-#define attribute_align_arg
 #define av_printf_format(a,b)
 #define avpriv_report_missing_feature(...)
 
@@ -80,14 +79,6 @@ void av_log(void *avcl, int level, const char *fmt, ...) av_printf_format(3, 4);
 
 #define FFSWAP(type,a,b) do{type SWAP_tmp= b; b= a; a= SWAP_tmp;}while(0)
 #define FF_ARRAY_ELEMS(a) (sizeof(a) / sizeof((a)[0]))
-
-#ifndef av_log2
-av_const int av_log2(unsigned v);
-#endif
-
-#ifndef av_log2_16bit
-av_const int av_log2_16bit(unsigned v);
-#endif
 
 #define MKTAG(a,b,c,d) ((a) | ((b) << 8) | ((c) << 16) | ((unsigned)(d) << 24))
 

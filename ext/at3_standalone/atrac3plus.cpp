@@ -29,7 +29,7 @@
 #include <stdlib.h>
 
 //#include "avcodec.h"
-#include "intmath.h"
+#include "mathematics.h"
 #include "get_bits.h"
 #include "atrac3plus.h"
 #include "atrac3plus_data.h"

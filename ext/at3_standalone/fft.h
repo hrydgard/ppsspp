@@ -19,18 +19,7 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
-#ifndef AVCODEC_FFT_H
-#define AVCODEC_FFT_H
-
-#ifndef FFT_FLOAT
-#define FFT_FLOAT 1
-#endif
-
-#ifndef FFT_FIXED_32
-#define FFT_FIXED_32 0
-#endif
-
-#define FIX15(v) (v)
+#pragma once
 
 #define CMUL(dre, dim, are, aim, bre, bim) do { \
         (dre) = (are) * (bre) - (aim) * (bim);  \
@@ -50,10 +39,6 @@ typedef struct FFTComplex {
 typedef struct FFTContext FFTContext;
 
 typedef float FFTDouble;
-
-typedef struct FFTDComplex {
-    FFTDouble re, im;
-} FFTDComplex;
 
 /* FFT computation */
 
@@ -84,7 +69,6 @@ struct FFTContext {
     void (*imdct_calc)(struct FFTContext *s, FFTSample *output, const FFTSample *input);
     void (*imdct_half)(struct FFTContext *s, FFTSample *output, const FFTSample *input);
     void (*mdct_calc)(struct FFTContext *s, FFTSample *output, const FFTSample *input);
-    void (*mdct_calcw)(struct FFTContext *s, FFTDouble *output, const FFTSample *input);
     enum mdct_permutation_type mdct_permutation;
 };
 
@@ -123,5 +107,3 @@ void ff_fft_end(FFTContext *s);
 
 int ff_mdct_init(FFTContext *s, int nbits, int inverse, double scale);
 void ff_mdct_end(FFTContext *s);
-
-#endif /* AVCODEC_FFT_H */

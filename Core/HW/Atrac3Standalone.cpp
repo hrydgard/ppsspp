@@ -3,9 +3,7 @@
 #include "SimpleAudioDec.h"
 
 #include "ext/at3_standalone/at3_decoders.h"
-extern "C" {
 #include "ext/at3_standalone/avcodec.h"
-}
 
 inline int16_t clamp16(float f) {
 	if (f >= 1.0f)

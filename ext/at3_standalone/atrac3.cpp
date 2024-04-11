@@ -186,7 +186,7 @@ static void init_imdct_window(void)
 
 static int atrac3_decode_close(AVCodecContext *avctx)
 {
-    ATRAC3Context *q = avctx->priv_data;
+    ATRAC3Context *q = (ATRAC3Context * )avctx->priv_data;
 
     av_freep(&q->units);
     av_freep(&q->decoded_bytes_buffer);
@@ -638,7 +638,7 @@ static int decode_channel_sound_unit(ATRAC3Context *q, GetBitContext *gb,
 static int decode_frame(AVCodecContext *avctx, const uint8_t *databuf,
                         float **out_samples)
 {
-    ATRAC3Context *q = avctx->priv_data;
+    ATRAC3Context *q = (ATRAC3Context *)avctx->priv_data;
     int ret, i;
     uint8_t *ptr1;
 
@@ -732,7 +732,7 @@ static int decode_frame(AVCodecContext *avctx, const uint8_t *databuf,
 
 int atrac3_decode_frame(AVCodecContext *avctx, float *out_data[2], int *nb_samples, int *got_frame_ptr, const uint8_t *buf, int buf_size)
 {
-    ATRAC3Context *q = avctx->priv_data;
+    ATRAC3Context *q = (ATRAC3Context *)avctx->priv_data;
     int ret;
     const uint8_t *databuf;
 
@@ -789,7 +789,7 @@ static int atrac3_decode_init(AVCodecContext *avctx)
     int i, ret;
     int version, delay, samples_per_frame, frame_factor;
     const uint8_t *edata_ptr = avctx->extradata;
-    ATRAC3Context *q = avctx->priv_data;
+    ATRAC3Context *q = (ATRAC3Context * )avctx->priv_data;
 
     if (avctx->channels <= 0 || avctx->channels > 2) {
         av_log(avctx, AV_LOG_ERROR, "Channel configuration error!\n");
@@ -879,8 +879,7 @@ static int atrac3_decode_init(AVCodecContext *avctx)
     if (avctx->block_align >= UINT_MAX / 2)
         return AVERROR(EINVAL);
 
-    q->decoded_bytes_buffer = av_mallocz(FFALIGN(avctx->block_align, 4) +
-                                         AV_INPUT_BUFFER_PADDING_SIZE);
+    q->decoded_bytes_buffer = (uint8_t *)av_mallocz(FFALIGN(avctx->block_align, 4) + AV_INPUT_BUFFER_PADDING_SIZE);
     if (!q->decoded_bytes_buffer)
         return AVERROR(ENOMEM);
 
@@ -907,7 +906,7 @@ static int atrac3_decode_init(AVCodecContext *avctx)
 
     ff_atrac_init_gain_compensation(&q->gainc_ctx, 4, 3);
 
-    q->units = av_mallocz_array(avctx->channels, sizeof(*q->units));
+    q->units = (ChannelUnit *)av_mallocz_array(avctx->channels, sizeof(*q->units));
     if (!q->units) {
         atrac3_decode_close(avctx);
         return AVERROR(ENOMEM);
@@ -917,9 +916,9 @@ static int atrac3_decode_init(AVCodecContext *avctx)
 }
 
 AVCodec ff_atrac3_decoder = {
-    .name             = "atrac3",
-    .id               = AV_CODEC_ID_ATRAC3,
-    .priv_data_size   = sizeof(ATRAC3Context),
-    .init             = atrac3_decode_init,
-    .close            = atrac3_decode_close,
+    "atrac3",
+    AV_CODEC_ID_ATRAC3,
+    sizeof(ATRAC3Context),
+    &atrac3_decode_init,
+    &atrac3_decode_close,
 };

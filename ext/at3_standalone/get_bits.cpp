@@ -82,7 +82,7 @@ static int alloc_table(VLC *vlc, int size, int use_static)
         if (use_static)
             abort(); // cannot do anything, init_vlc() is used with too little memory
         vlc->table_allocated += (1 << vlc->bits);
-        vlc->table = av_realloc_f(vlc->table, vlc->table_allocated, sizeof(VLC_TYPE) * 2);
+        vlc->table = (VLC_TYPE(*)[2])av_realloc_f(vlc->table, vlc->table_allocated, sizeof(VLC_TYPE) * 2);
         if (!vlc->table) {
             vlc->table_allocated = 0;
             vlc->table_size = 0;
@@ -111,7 +111,8 @@ typedef struct VLCcode {
 
 static int compare_vlcspec(const void *a, const void *b)
 {
-    const VLCcode *sa = a, *sb = b;
+	const VLCcode *sa = (VLCcode *)a;
+	const VLCcode *sb = (VLCcode *)b;
     return (sa->code >> 1) - (sb->code >> 1);
 }
 /**
@@ -258,7 +259,7 @@ int ff_init_vlc_sparse(VLC *vlc_arg, int nb_bits, int nb_codes,
         vlc->table_allocated = 0;
         vlc->table_size      = 0;
 
-        buf = av_malloc_array((nb_codes + 1), sizeof(VLCcode));
+        buf = (VLCcode *)av_malloc_array((nb_codes + 1), sizeof(VLCcode));
         if (!buf)
             return AVERROR(ENOMEM);
     }

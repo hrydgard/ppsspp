@@ -207,7 +207,7 @@ static inline int get_bits_count(const GetBitContext *s)
 
 static inline int get_sbits(GetBitContext *s, int n)
 {
-    register int tmp;
+    int tmp;
     OPEN_READER(re, s);
     av_assert2(n>0 && n<=25);
     UPDATE_CACHE(re, s);
@@ -222,7 +222,7 @@ static inline int get_sbits(GetBitContext *s, int n)
  */
 static inline unsigned int get_bits(GetBitContext *s, int n)
 {
-    register int tmp;
+    int tmp;
     OPEN_READER(re, s);
     av_assert2(n>0 && n<=25);
     UPDATE_CACHE(re, s);
@@ -242,7 +242,7 @@ static av_always_inline int get_bitsz(GetBitContext *s, int n)
 
 static inline unsigned int get_bits_le(GetBitContext *s, int n)
 {
-    register int tmp;
+    int tmp;
     OPEN_READER(re, s);
     av_assert2(n>0 && n<=25);
     UPDATE_CACHE_LE(re, s);

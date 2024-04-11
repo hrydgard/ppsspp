@@ -66,7 +66,7 @@ typedef struct ATRAC3PContext {
 
 int atrac3p_decode_close(AVCodecContext *avctx)
 {
-    ATRAC3PContext *ctx = avctx->priv_data;
+    ATRAC3PContext *ctx = (ATRAC3PContext *)avctx->priv_data;
 
     av_freep(&ctx->ch_units);
 
@@ -144,7 +144,7 @@ static int set_channel_params(ATRAC3PContext *ctx,
 
 int atrac3p_decode_init(AVCodecContext *avctx)
 {
-    ATRAC3PContext *ctx = avctx->priv_data;
+    ATRAC3PContext *ctx = (ATRAC3PContext *)avctx->priv_data;
     int i, ch, ret;
 
     if (!avctx->block_align) {
@@ -168,7 +168,7 @@ int atrac3p_decode_init(AVCodecContext *avctx)
 
     ctx->my_channel_layout = avctx->channel_layout;
 
-    ctx->ch_units = av_mallocz_array(ctx->num_channel_blocks, sizeof(*ctx->ch_units));
+    ctx->ch_units = (Atrac3pChanUnitCtx *)av_mallocz_array(ctx->num_channel_blocks, sizeof(*ctx->ch_units));
 
     if (!ctx->ch_units) {
         atrac3p_decode_close(avctx);
@@ -324,7 +324,7 @@ static void reconstruct_frame(ATRAC3PContext *ctx, Atrac3pChanUnitCtx *ch_unit,
 
 int atrac3p_decode_frame(AVCodecContext *avctx, float *out_data[2], int *nb_samples, int *got_frame_ptr, const uint8_t *avpkt_data, int avpkt_size)
 {
-    ATRAC3PContext *ctx = avctx->priv_data;
+    ATRAC3PContext *ctx = (ATRAC3PContext *)avctx->priv_data;
     int i, ret, ch_unit_id, ch_block = 0, out_ch_index = 0, channels_to_process;
 	float **samples_p = out_data;
 
@@ -378,9 +378,9 @@ int atrac3p_decode_frame(AVCodecContext *avctx, float *out_data[2], int *nb_samp
 }
 
 AVCodec ff_atrac3p_decoder = {
-    .name           = "atrac3plus",
-    .id             = AV_CODEC_ID_ATRAC3P,
-    .priv_data_size = sizeof(ATRAC3PContext),
-    .init           = atrac3p_decode_init,
-    .close          = atrac3p_decode_close,
+    "atrac3plus",
+    AV_CODEC_ID_ATRAC3P,
+    sizeof(ATRAC3PContext),
+    atrac3p_decode_init,
+    atrac3p_decode_close,
 };

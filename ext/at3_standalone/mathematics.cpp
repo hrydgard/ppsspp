@@ -27,7 +27,6 @@
 #include <limits.h>
 
 #include "mathematics.h"
-#include "intmath.h"
 #include "compat.h"
 
 /* Stein's binary GCD algorithm:
@@ -66,11 +65,11 @@ int64_t av_rescale_rnd(int64_t a, int64_t b, int64_t c, enum AVRounding rnd)
     if (rnd & AV_ROUND_PASS_MINMAX) {
         if (a == INT64_MIN || a == INT64_MAX)
             return a;
-        rnd -= AV_ROUND_PASS_MINMAX;
+        rnd = (AVRounding)(rnd - AV_ROUND_PASS_MINMAX);
     }
 
     if (a < 0)
-        return -(uint64_t)av_rescale_rnd(-FFMAX(a, -INT64_MAX), b, c, rnd ^ ((rnd >> 1) & 1));
+        return -(uint64_t)av_rescale_rnd(-FFMAX(a, -INT64_MAX), b, c, (AVRounding)((int)rnd ^ (((int)rnd >> 1) & 1)));
 
     if (rnd == AV_ROUND_NEAR_INF)
         r = c / 2;
@@ -155,7 +154,7 @@ int av_reduce(int *dst_num, int *dst_den,
 		den = FFABS(den) / gcd;
 	}
 	if (num <= max && den <= max) {
-		a1 = (AVRational){ num, den };
+		a1 = AVRational{ (int)num, (int)den };
 		den = 0;
 	}
 
@@ -170,12 +169,12 @@ int av_reduce(int *dst_num, int *dst_den,
 			if (a1.den) x = FFMIN(x, (max - a0.den) / a1.den);
 
 			if (den * (2 * x * a1.den + a0.den) > num * a1.den)
-				a1 = (AVRational){ x * a1.num + a0.num, x * a1.den + a0.den };
+				a1 = AVRational{(int)(x * a1.num + a0.num), (int)(x * a1.den + a0.den) };
 			break;
 		}
 
 		a0 = a1;
-		a1 = (AVRational){ a2n, a2d };
+		a1 = AVRational{(int)a2n, (int)a2d };
 		num = den;
 		den = next_den;
 	}
@@ -198,7 +197,7 @@ AVRational av_mul_q(AVRational b, AVRational c)
 
 AVRational av_div_q(AVRational b, AVRational c)
 {
-	return av_mul_q(b, (AVRational) { c.den, c.num });
+	return av_mul_q(b, AVRational { c.den, c.num });
 }
 
 AVRational av_add_q(AVRational b, AVRational c) {
@@ -215,9 +214,9 @@ AVRational av_d2q(double d, int max)
 	int exponent;
 	int64_t den;
 	if (isnan(d))
-		return (AVRational) { 0, 0 };
+		return AVRational { 0, 0 };
 	if (fabs(d) > INT_MAX + 3LL)
-		return (AVRational) { d < 0 ? -1 : 1, 0 };
+		return AVRational { d < 0 ? -1 : 1, 0 };
 	frexp(d, &exponent);
 	exponent = FFMAX(exponent - 1, 0);
 	den = 1LL << (61 - exponent);
@@ -227,4 +226,43 @@ AVRational av_d2q(double d, int max)
 		av_reduce(&a.num, &a.den, floor(d * den + 0.5), den, INT_MAX);
 
 	return a;
+}
+
+static const uint8_t ff_logg2_tab[256] = {
+	0,0,1,1,2,2,2,2,3,3,3,3,3,3,3,3,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,
+	5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,
+	6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,
+	6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,
+	7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,
+	7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,
+	7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,
+	7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7
+};
+
+int av_log2(unsigned int v)
+{
+	int n = 0;
+	if (v & 0xffff0000) {
+		v >>= 16;
+		n += 16;
+	}
+	if (v & 0xff00) {
+		v >>= 8;
+		n += 8;
+	}
+	n += ff_logg2_tab[v];
+
+	return n;
+}
+
+int av_log2_16bit(unsigned int v)
+{
+	int n = 0;
+	if (v & 0xff00) {
+		v >>= 8;
+		n += 8;
+	}
+	n += ff_logg2_tab[v];
+
+	return n;
 }
