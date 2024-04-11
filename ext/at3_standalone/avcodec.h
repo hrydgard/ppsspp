@@ -23,7 +23,6 @@
 
 #include <errno.h>
 #include "compat.h"
-#include "channel_layout.h"
 #include "mem.h"
 
 enum AVCodecID {
@@ -103,13 +102,6 @@ typedef struct AVCodecContext {
      * Used by some WAV based audio codecs.
      */
     int block_align;
-
-    /**
-     * Audio channel layout.
-     * - encoding: set by user.
-     * - decoding: set by user, may be overwritten by libavcodec.
-     */
-    uint64_t channel_layout;
 } AVCodecContext;
 
 /**

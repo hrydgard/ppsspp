@@ -557,9 +557,6 @@
     <ClInclude Include="..\ext\at3_standalone\mathematics.h">
       <Filter>ext\at3_standalone</Filter>
     </ClInclude>
-    <ClInclude Include="..\ext\at3_standalone\channel_layout.h">
-      <Filter>ext\at3_standalone</Filter>
-    </ClInclude>
     <ClInclude Include="..\ext\at3_standalone\at3_decoders.h">
       <Filter>ext\at3_standalone</Filter>
     </ClInclude>
@@ -1050,9 +1047,6 @@
     <ClCompile Include="..\ext\at3_standalone\avcodec.cpp">
       <Filter>ext\at3_standalone</Filter>
     </ClCompile>
-    <ClCompile Include="..\ext\at3_standalone\channel_layout.cpp">
-      <Filter>ext\at3_standalone</Filter>
-    </ClCompile>
     <ClCompile Include="..\ext\at3_standalone\atrac.cpp">
       <Filter>ext\at3_standalone</Filter>
     </ClCompile>
@@ -1190,6 +1184,9 @@
       <Filter>ext\libpng17</Filter>
     </Text>
     <Text Include="..\ext\at3_standalone\README.txt">
+      <Filter>ext\at3_standalone</Filter>
+    </Text>
+    <Text Include="..\ext\at3_standalone\CMakeLists.txt">
       <Filter>ext\at3_standalone</Filter>
     </Text>
   </ItemGroup>

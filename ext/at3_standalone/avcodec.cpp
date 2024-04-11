@@ -26,9 +26,6 @@
 
 #include "avcodec.h"
 #include "compat.h"
-#include "channel_layout.h"
-#include "compat.h"
-#include "avcodec.h"
 #include "mem.h"
 
 #include <stdlib.h>
@@ -98,27 +95,6 @@ int avcodec_open2(AVCodecContext *avctx, const AVCodec *codec, void *options)
 	}
 
 	ret = 0;
-
-	/* validate channel layout from the decoder */
-	if (avctx->channel_layout) {
-		int channels = av_get_channel_layout_nb_channels(avctx->channel_layout);
-		if (!avctx->channels)
-			avctx->channels = channels;
-		else if (channels != avctx->channels) {
-			char buf[512] = "";
-			av_log(AV_LOG_WARNING,
-				"Channel layout '%s' with %d channels does not match specified number of channels %d: "
-				"ignoring specified channel layout\n",
-				buf, channels, avctx->channels);
-			avctx->channel_layout = 0;
-		}
-	}
-	if (avctx->channels && avctx->channels < 0 ||
-		avctx->channels > FF_SANE_NB_CHANNELS) {
-		ret = AVERROR(EINVAL);
-		goto free_and_end;
-	}
-
 end:
 
 	return ret;

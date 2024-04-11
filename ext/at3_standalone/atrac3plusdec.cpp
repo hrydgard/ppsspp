@@ -37,7 +37,6 @@
 #include <stdint.h>
 #include <string.h>
 
-#include "channel_layout.h"
 #include "float_dsp.h"
 #include "avcodec.h"
 #include "get_bits.h"
@@ -61,7 +60,6 @@ struct ATRAC3PContext {
 
     int num_channel_blocks;     ///< number of channel blocks
     uint8_t channel_blocks[5];  ///< channel configuration descriptor
-    uint64_t my_channel_layout; ///< current channel layout
 };
 
 int atrac3p_decode_close(AVCodecContext *avctx)
@@ -80,31 +78,25 @@ static int set_channel_params(ATRAC3PContext *ctx, AVCodecContext *avctx) {
     memset(ctx->channel_blocks, 0, sizeof(ctx->channel_blocks));
     switch (avctx->channels) {
     case 1:
-        if (avctx->channel_layout != AV_CH_FRONT_LEFT)
-            avctx->channel_layout = AV_CH_LAYOUT_MONO;
         ctx->num_channel_blocks = 1;
         ctx->channel_blocks[0]  = CH_UNIT_MONO;
         break;
     case 2:
-        avctx->channel_layout   = AV_CH_LAYOUT_STEREO;
         ctx->num_channel_blocks = 1;
         ctx->channel_blocks[0]  = CH_UNIT_STEREO;
         break;
     case 3:
-        avctx->channel_layout   = AV_CH_LAYOUT_SURROUND;
         ctx->num_channel_blocks = 2;
         ctx->channel_blocks[0]  = CH_UNIT_STEREO;
         ctx->channel_blocks[1]  = CH_UNIT_MONO;
         break;
     case 4:
-        avctx->channel_layout   = AV_CH_LAYOUT_4POINT0;
         ctx->num_channel_blocks = 3;
         ctx->channel_blocks[0]  = CH_UNIT_STEREO;
         ctx->channel_blocks[1]  = CH_UNIT_MONO;
         ctx->channel_blocks[2]  = CH_UNIT_MONO;
         break;
     case 6:
-        avctx->channel_layout   = AV_CH_LAYOUT_5POINT1_BACK;
         ctx->num_channel_blocks = 4;
         ctx->channel_blocks[0]  = CH_UNIT_STEREO;
         ctx->channel_blocks[1]  = CH_UNIT_MONO;
@@ -112,7 +104,6 @@ static int set_channel_params(ATRAC3PContext *ctx, AVCodecContext *avctx) {
         ctx->channel_blocks[3]  = CH_UNIT_MONO;
         break;
     case 7:
-        avctx->channel_layout   = AV_CH_LAYOUT_6POINT1_BACK;
         ctx->num_channel_blocks = 5;
         ctx->channel_blocks[0]  = CH_UNIT_STEREO;
         ctx->channel_blocks[1]  = CH_UNIT_MONO;
@@ -121,7 +112,6 @@ static int set_channel_params(ATRAC3PContext *ctx, AVCodecContext *avctx) {
         ctx->channel_blocks[4]  = CH_UNIT_MONO;
         break;
     case 8:
-        avctx->channel_layout   = AV_CH_LAYOUT_7POINT1;
         ctx->num_channel_blocks = 5;
         ctx->channel_blocks[0]  = CH_UNIT_STEREO;
         ctx->channel_blocks[1]  = CH_UNIT_MONO;
@@ -161,8 +151,6 @@ int atrac3p_decode_init(AVCodecContext *avctx)
 
     if ((ret = set_channel_params(ctx, avctx)) < 0)
         return ret;
-
-    ctx->my_channel_layout = avctx->channel_layout;
 
     ctx->ch_units = (Atrac3pChanUnitCtx *)av_mallocz_array(ctx->num_channel_blocks, sizeof(*ctx->ch_units));
 

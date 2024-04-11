@@ -39,7 +39,6 @@ public:
 		if (!codecOpen_) {
 			ctx_->block_align = inbytes;
 			ctx_->channels = 2;
-			ctx_->channel_layout = ctx_->channels == 2 ? AV_CH_LAYOUT_STEREO : AV_CH_LAYOUT_MONO;
 			int retval;
 			if (audioType_ == PSP_CODEC_AT3PLUS) {
 				retval = avcodec_open2(ctx_, &ff_atrac3p_decoder, nullptr);
