@@ -18,11 +18,11 @@ public:
 	Atrac3Audio(PSPAudioType audioType, int channels, size_t blockAlign, const uint8_t *extraData, size_t extraDataSize) : audioType_(audioType) {
 		blockAlign_ = blockAlign;
 		if (audioType == PSP_CODEC_AT3PLUS) {
-			at3pCtx_ = atrac3p_alloc(channels, blockAlign);
+			at3pCtx_ = atrac3p_alloc(channels, &blockAlign_);
 			if (at3pCtx_)
 				codecOpen_ = true;
 		} else if (audioType_ == PSP_CODEC_AT3) {
-			at3Ctx_ = atrac3_alloc(channels, blockAlign, extraData, extraDataSize);
+			at3Ctx_ = atrac3_alloc(channels, &blockAlign_, extraData, extraDataSize);
 			if (at3Ctx_)
 				codecOpen_ = true;
 		}
@@ -42,13 +42,18 @@ public:
 		}
 	}
 
+	bool IsOK() const override {
+		return codecOpen_;
+	}
+
 	bool Decode(const uint8_t *inbuf, int inbytes, uint8_t *outbuf, int *outbytes) override {
 		if (!codecOpen_) {
 			_dbg_assert_(false);
 		}
-		if (inbytes != blockAlign_) {
+		if (inbytes != blockAlign_ && blockAlign_ != 0) {
 			WARN_LOG(ME, "Atrac3Audio::Decode: Unexpected block align %d (expected %d)", inbytes, blockAlign_);
 		}
+		blockAlign_ = inbytes;
 		// We just call the decode function directly without going through the whole packet machinery.
 		int got_frame = 0;
 		int result;
@@ -82,7 +87,6 @@ public:
 		return true;
 	}
 
-	bool IsOK() const override { return true; }
 	int GetOutSamples() const override {
 		return outSamples_;
 	}

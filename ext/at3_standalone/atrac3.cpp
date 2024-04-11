@@ -785,7 +785,7 @@ static void atrac3_init_static_data(void)
 
 static int static_init_done;
 
-ATRAC3Context *atrac3_alloc(int channels, int block_align, const uint8_t *extra_data, int extra_data_size) {
+ATRAC3Context *atrac3_alloc(int channels, int *block_align, const uint8_t *extra_data, int extra_data_size) {
     int i, ret;
     int version, delay, samples_per_frame, frame_factor;
 
@@ -798,7 +798,13 @@ ATRAC3Context *atrac3_alloc(int channels, int block_align, const uint8_t *extra_
 
     ATRAC3Context *q = (ATRAC3Context *)av_mallocz(sizeof(ATRAC3Context));
     q->channels = channels;
-    q->block_align = block_align;
+    if (*block_align) {
+        q->block_align = *block_align;
+    } else {
+        // Atrac3 (unlike Atrac3+) requires a specified block align.
+        atrac3_free(q);
+        return nullptr;
+    }
 
     if (!static_init_done)
         atrac3_init_static_data();
@@ -824,9 +830,9 @@ ATRAC3Context *atrac3_alloc(int channels, int block_align, const uint8_t *extra_
         q->coding_mode       = q->coding_mode ? JOINT_STEREO : STEREO;
         q->scrambled_stream  = 0;
 
-        if (block_align !=  96 * channels * frame_factor &&
-            block_align != 152 * channels * frame_factor &&
-            block_align != 192 * channels * frame_factor) {
+        if (q->block_align !=  96 * channels * frame_factor &&
+            q->block_align != 152 * channels * frame_factor &&
+            q->block_align != 192 * channels * frame_factor) {
             av_log(AV_LOG_ERROR, "Unknown frame/channel/frame_factor "
                    "configuration %d/%d/%d\n", block_align,
                    channels, frame_factor);
@@ -887,7 +893,7 @@ ATRAC3Context *atrac3_alloc(int channels, int block_align, const uint8_t *extra_
         return nullptr;
 	}
 
-    q->decoded_bytes_buffer = (uint8_t *)av_mallocz(FFALIGN(block_align, 4) + AV_INPUT_BUFFER_PADDING_SIZE);
+    q->decoded_bytes_buffer = (uint8_t *)av_mallocz(FFALIGN(q->block_align, 4) + AV_INPUT_BUFFER_PADDING_SIZE);
 
     /* initialize the MDCT transform */
     if ((ret = ff_mdct_init(&q->mdct_ctx, 9, 1, 1.0 / 32768)) < 0) {
