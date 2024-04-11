@@ -38,10 +38,10 @@
 #include <string.h>
 
 #include "float_dsp.h"
-#include "avcodec.h"
 #include "get_bits.h"
 #include "compat.h"
 #include "atrac.h"
+#include "mem.h"
 #include "atrac3plus.h"
 
 struct ATRAC3PContext {
@@ -60,18 +60,16 @@ struct ATRAC3PContext {
 
     int num_channel_blocks;     ///< number of channel blocks
     uint8_t channel_blocks[5];  ///< channel configuration descriptor
+
+    int block_align;
 };
 
-int atrac3p_decode_close(AVCodecContext *avctx)
+void atrac3p_free(ATRAC3PContext *ctx)
 {
-    ATRAC3PContext *ctx = (ATRAC3PContext *)avctx->priv_data;
-
     av_freep(&ctx->ch_units);
-
     ff_mdct_end(&ctx->mdct_ctx);
     ff_mdct_end(&ctx->ipqf_dct_ctx);
-
-    return 0;
+    av_freep(&ctx);
 }
 
 static int set_channel_params(ATRAC3PContext *ctx, int channels) {
@@ -124,19 +122,18 @@ static int set_channel_params(ATRAC3PContext *ctx, int channels) {
                "Unsupported channel count: %d!\n", channels);
         return AVERROR_INVALIDDATA;
     }
-
     return 0;
 }
 
-int atrac3p_decode_init(AVCodecContext *avctx)
-{
-    ATRAC3PContext *ctx = (ATRAC3PContext *)avctx->priv_data;
+ATRAC3PContext *atrac3p_alloc(int block_align, int channels) {
     int i, ch, ret;
-
-    if (!avctx->block_align) {
+    if (!block_align) {
         av_log(AV_LOG_ERROR, "block_align is not set\n");
-        return AVERROR(EINVAL);
+        return nullptr;
     }
+
+    ATRAC3PContext *ctx = (ATRAC3PContext *)av_mallocz(sizeof(ATRAC3PContext));
+	ctx->block_align = block_align;
 
     ff_atrac3p_init_vlcs();
 
@@ -149,14 +146,16 @@ int atrac3p_decode_init(AVCodecContext *avctx)
 
     ff_atrac3p_init_wave_synth();
 
-    if ((ret = set_channel_params(ctx, avctx->channels)) < 0)
-        return ret;
+    if ((ret = set_channel_params(ctx, channels)) < 0) {
+        atrac3p_free(ctx);
+        return nullptr;
+    }
 
     ctx->ch_units = (Atrac3pChanUnitCtx *)av_mallocz_array(ctx->num_channel_blocks, sizeof(*ctx->ch_units));
 
     if (!ctx->ch_units) {
-        atrac3p_decode_close(avctx);
-        return AVERROR(ENOMEM);
+        atrac3p_free(ctx);
+        return nullptr;
     }
 
     for (i = 0; i < ctx->num_channel_blocks; i++) {
@@ -174,7 +173,7 @@ int atrac3p_decode_init(AVCodecContext *avctx)
         ctx->ch_units[i].waves_info_prev = &ctx->ch_units[i].wave_synth_hist[1];
     }
 
-    return 0;
+    return ctx;
 }
 
 static void decode_residual_spectrum(Atrac3pChanUnitCtx *ctx,
@@ -305,9 +304,8 @@ static void reconstruct_frame(ATRAC3PContext *ctx, Atrac3pChanUnitCtx *ch_unit,
     FFSWAP(Atrac3pWaveSynthParams *, ch_unit->waves_info, ch_unit->waves_info_prev);
 }
 
-int atrac3p_decode_frame(AVCodecContext *avctx, float *out_data[2], int *nb_samples, int *got_frame_ptr, const uint8_t *avpkt_data, int avpkt_size)
+int atrac3p_decode_frame(ATRAC3PContext *ctx, float *out_data[2], int *nb_samples, int *got_frame_ptr, const uint8_t *avpkt_data, int avpkt_size)
 {
-    ATRAC3PContext *ctx = (ATRAC3PContext *)avctx->priv_data;
     int i, ret, ch_unit_id, ch_block = 0, out_ch_index = 0, channels_to_process;
 	float **samples_p = out_data;
 
@@ -356,13 +354,5 @@ int atrac3p_decode_frame(AVCodecContext *avctx, float *out_data[2], int *nb_samp
 
     *got_frame_ptr = 1;
 
-    return FFMIN(avctx->block_align, avpkt_size);
+    return FFMIN(ctx->block_align, avpkt_size);
 }
-
-AVCodec ff_atrac3p_decoder = {
-    "atrac3plus",
-    AV_CODEC_ID_ATRAC3P,
-    sizeof(ATRAC3PContext),
-    atrac3p_decode_init,
-    atrac3p_decode_close,
-};

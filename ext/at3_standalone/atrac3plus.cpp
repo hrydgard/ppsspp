@@ -219,7 +219,8 @@ void ff_atrac3p_init_vlcs(void)
  * @param[in,out] ctx           ptr to the channel unit context
  * @return result code: 0 = OK, otherwise - error code
  */
-static int num_coded_units(GetBitContext *gb, Atrac3pChanParams *chan, Atrac3pChanUnitCtx *ctx)
+static int num_coded_units(GetBitContext *gb, Atrac3pChanParams *chan,
+                           Atrac3pChanUnitCtx *ctx)
 {
     chan->fill_mode = get_bits(gb, 2);
     if (!chan->fill_mode) {
