@@ -305,13 +305,14 @@ static void reconstruct_frame(ATRAC3PContext *ctx, Atrac3pChanUnitCtx *ch_unit,
     FFSWAP(Atrac3pWaveSynthParams *, ch_unit->waves_info, ch_unit->waves_info_prev);
 }
 
-int atrac3p_decode_frame(ATRAC3PContext *ctx, float *out_data[2], int *nb_samples, int *got_frame_ptr, const uint8_t *avpkt_data, int avpkt_size)
+int atrac3p_decode_frame(ATRAC3PContext *ctx, float *out_data[2], int *nb_samples, const uint8_t *indata, int indata_size)
 {
     int i, ret, ch_unit_id, ch_block = 0, out_ch_index = 0, channels_to_process;
 	float **samples_p = out_data;
 
-    *nb_samples = ATRAC3P_FRAME_SAMPLES;
-    if ((ret = init_get_bits8(&ctx->gb, avpkt_data, avpkt_size)) < 0)
+    *nb_samples = 0;
+
+    if ((ret = init_get_bits8(&ctx->gb, indata, indata_size)) < 0)
         return ret;
 
     if (get_bits1(&ctx->gb)) {
@@ -353,9 +354,8 @@ int atrac3p_decode_frame(ATRAC3PContext *ctx, float *out_data[2], int *nb_sample
         out_ch_index += channels_to_process;
     }
 
-    *got_frame_ptr = 1;
-
-    return FFMIN(ctx->block_align, avpkt_size);
+    *nb_samples = ATRAC3P_FRAME_SAMPLES;
+    return FFMIN(ctx->block_align, indata_size);
 }
 
 void atrac3p_flush_buffers(ATRAC3PContext *ctx) {

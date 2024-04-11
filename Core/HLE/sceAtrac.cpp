@@ -543,7 +543,7 @@ struct Atrac {
 		return true;
 	}
 
-	bool FillLowLevelPacket(u8 *ptr) {
+	AtracDecodeResult DecodeLowLevelPacket(u8 *ptr) {
 #ifdef USE_FFMPEG
 		av_init_packet(packet_);
 
@@ -551,7 +551,7 @@ struct Atrac {
 		packet_->size = bytesPerFrame_;
 		packet_->pos = 0;
 #endif // USE_FFMPEG
-		return true;
+		return DecodePacket();
 	}
 
 	AtracDecodeResult DecodePacket() {
@@ -2516,9 +2516,7 @@ static int sceAtracLowLevelDecode(int atracID, u32 sourceAddr, u32 sourceBytesCo
 	int numSamples = (atrac->codecType_ == PSP_MODE_AT_3_PLUS ? ATRAC3PLUS_MAX_SAMPLES : ATRAC3_MAX_SAMPLES);
 
 	if (!atrac->failedDecode_) {
-		atrac->FillLowLevelPacket(srcp);
-
-		AtracDecodeResult res = atrac->DecodePacket();
+		AtracDecodeResult res = atrac->DecodeLowLevelPacket(srcp);
 		if (res == ATDECODE_GOTFRAME) {
 #ifdef USE_FFMPEG
 			// got a frame

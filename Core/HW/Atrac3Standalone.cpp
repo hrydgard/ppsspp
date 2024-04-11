@@ -64,13 +64,12 @@ public:
 		}
 		blockAlign_ = inbytes;
 		// We just call the decode function directly without going through the whole packet machinery.
-		int got_frame = 0;
 		int result;
 		int nb_samples = 0;
 		if (audioType_ == PSP_CODEC_AT3PLUS) {
-			result = atrac3p_decode_frame(at3pCtx_, buffers_, &nb_samples, &got_frame, inbuf, inbytes);
+			result = atrac3p_decode_frame(at3pCtx_, buffers_, &nb_samples, inbuf, inbytes);
 		} else {
-			result = atrac3_decode_frame(at3Ctx_, buffers_, &nb_samples, &got_frame, inbuf, inbytes);
+			result = atrac3_decode_frame(at3Ctx_, buffers_, &nb_samples, inbuf, inbytes);
 		}
 		if (result < 0) {
 			*outbytes = 0;

@@ -729,7 +729,7 @@ static int decode_frame(ATRAC3Context *q, int block_align, int channels, const u
     return 0;
 }
 
-int atrac3_decode_frame(ATRAC3Context *ctx, float *out_data[2], int *nb_samples, int *got_frame_ptr, const uint8_t *buf, int buf_size)
+int atrac3_decode_frame(ATRAC3Context *ctx, float *out_data[2], int *nb_samples, const uint8_t *buf, int buf_size)
 {
     int ret;
     const uint8_t *databuf;
@@ -737,14 +737,13 @@ int atrac3_decode_frame(ATRAC3Context *ctx, float *out_data[2], int *nb_samples,
 	const int block_align = ctx->block_align;
 	const int channels = ctx->channels;
 
+    *nb_samples = 0;
+
     if (buf_size < block_align) {
         av_log(AV_LOG_ERROR,
                "Frame too small (%d bytes). Truncated file?\n", buf_size);
         return AVERROR_INVALIDDATA;
     }
-
-    /* get output buffer */
-    *nb_samples = SAMPLES_PER_FRAME;
 
     /* Check if we need to descramble and what buffer to pass on. */
     if (ctx->scrambled_stream) {
@@ -760,8 +759,7 @@ int atrac3_decode_frame(ATRAC3Context *ctx, float *out_data[2], int *nb_samples,
         return ret;
     }
 
-    *got_frame_ptr = 1;
-
+    *nb_samples = SAMPLES_PER_FRAME;
     return block_align;
 }
 
