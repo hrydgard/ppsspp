@@ -16,6 +16,7 @@
 #endif
 
 #define AV_HAVE_FAST_UNALIGNED 0
+#define AV_INPUT_BUFFER_PADDING_SIZE 32
 
 #define LOCAL_ALIGNED(bits, type, name, subscript) type name subscript
 #define av_restrict

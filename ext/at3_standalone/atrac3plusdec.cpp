@@ -125,7 +125,7 @@ static int set_channel_params(ATRAC3PContext *ctx, int channels) {
     return 0;
 }
 
-ATRAC3PContext *atrac3p_alloc(int block_align, int channels) {
+ATRAC3PContext *atrac3p_alloc(int channels, int block_align) {
     int i, ch, ret;
     if (!block_align) {
         av_log(AV_LOG_ERROR, "block_align is not set\n");

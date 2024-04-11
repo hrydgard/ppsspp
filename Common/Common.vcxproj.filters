@@ -551,9 +551,6 @@
     <ClInclude Include="..\ext\at3_standalone\intreadwrite.h">
       <Filter>ext\at3_standalone</Filter>
     </ClInclude>
-    <ClInclude Include="..\ext\at3_standalone\avcodec.h">
-      <Filter>ext\at3_standalone</Filter>
-    </ClInclude>
     <ClInclude Include="..\ext\at3_standalone\mathematics.h">
       <Filter>ext\at3_standalone</Filter>
     </ClInclude>
@@ -1042,9 +1039,6 @@
       <Filter>ext\at3_standalone</Filter>
     </ClCompile>
     <ClCompile Include="..\ext\at3_standalone\sinewin.cpp">
-      <Filter>ext\at3_standalone</Filter>
-    </ClCompile>
-    <ClCompile Include="..\ext\at3_standalone\avcodec.cpp">
       <Filter>ext\at3_standalone</Filter>
     </ClCompile>
     <ClCompile Include="..\ext\at3_standalone\atrac.cpp">

@@ -29,7 +29,6 @@
 #include <string.h>
 
 #include "float_dsp.h"
-#include "avcodec.h"
 #include "sinewin.h"
 #include "fft.h"
 #include "atrac3plus.h"

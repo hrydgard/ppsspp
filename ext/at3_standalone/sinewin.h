@@ -20,6 +20,8 @@
 
 #pragma once
 
+#include "compat.h"
+
 #define SINETABLE(size) \
     DECLARE_ALIGNED(32, float, ff_sine_##size)[size]
 

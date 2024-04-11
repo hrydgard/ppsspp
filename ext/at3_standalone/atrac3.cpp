@@ -40,10 +40,10 @@
 
 #include "float_dsp.h"
 #include "fft.h"
+#include "mem.h"
 #include "compat.h"
 #include "get_bits.h"
 
-#include "avcodec.h"
 #include "atrac.h"
 #include "atrac3data.h"
 
@@ -108,6 +108,9 @@ typedef struct ATRAC3Context {
 
     AtracGCContext    gainc_ctx;
     FFTContext        mdct_ctx;
+
+    int block_align;
+    int channels;
 } ATRAC3Context;
 
 static DECLARE_ALIGNED(32, float, mdct_window)[MDCT_SIZE];
@@ -184,16 +187,13 @@ static void init_imdct_window(void)
     }
 }
 
-static int atrac3_decode_close(AVCodecContext *avctx)
+void atrac3_free(ATRAC3Context *ctx)
 {
-    ATRAC3Context *q = (ATRAC3Context * )avctx->priv_data;
+    av_freep(&ctx->units);
+    av_freep(&ctx->decoded_bytes_buffer);
 
-    av_freep(&q->units);
-    av_freep(&q->decoded_bytes_buffer);
-
-    ff_mdct_end(&q->mdct_ctx);
-
-    return 0;
+    ff_mdct_end(&ctx->mdct_ctx);
+    av_freep(&ctx);
 }
 
 /**
@@ -729,14 +729,13 @@ static int decode_frame(ATRAC3Context *q, int block_align, int channels, const u
     return 0;
 }
 
-int atrac3_decode_frame(AVCodecContext *avctx, float *out_data[2], int *nb_samples, int *got_frame_ptr, const uint8_t *buf, int buf_size)
+int atrac3_decode_frame(ATRAC3Context *ctx, float *out_data[2], int *nb_samples, int *got_frame_ptr, const uint8_t *buf, int buf_size)
 {
-    ATRAC3Context *q = (ATRAC3Context *)avctx->priv_data;
     int ret;
     const uint8_t *databuf;
 
-	const int block_align = avctx->block_align;
-	const int channels = avctx->channels;
+	const int block_align = ctx->block_align;
+	const int channels = ctx->channels;
 
     if (buf_size < block_align) {
         av_log(AV_LOG_ERROR,
@@ -748,14 +747,14 @@ int atrac3_decode_frame(AVCodecContext *avctx, float *out_data[2], int *nb_sampl
     *nb_samples = SAMPLES_PER_FRAME;
 
     /* Check if we need to descramble and what buffer to pass on. */
-    if (q->scrambled_stream) {
-        decode_bytes(buf, q->decoded_bytes_buffer, block_align);
-        databuf = q->decoded_bytes_buffer;
+    if (ctx->scrambled_stream) {
+        decode_bytes(buf, ctx->decoded_bytes_buffer, block_align);
+        databuf = ctx->decoded_bytes_buffer;
     } else {
         databuf = buf;
     }
 
-    ret = decode_frame(q, block_align, channels, databuf, out_data);
+    ret = decode_frame(ctx, block_align, channels, databuf, out_data);
     if (ret) {
         av_log( AV_LOG_ERROR, "Frame decoding error!\n");
         return ret;
@@ -786,24 +785,27 @@ static void atrac3_init_static_data(void)
 
 static int static_init_done;
 
-static int atrac3_decode_init(AVCodecContext *avctx)
-{
+ATRAC3Context *atrac3_alloc(int channels, int block_align, const uint8_t *extra_data, int extra_data_size) {
     int i, ret;
     int version, delay, samples_per_frame, frame_factor;
-    const uint8_t *edata_ptr = avctx->extradata;
-    ATRAC3Context *q = (ATRAC3Context * )avctx->priv_data;
 
-    if (avctx->channels <= 0 || avctx->channels > 2) {
+    const uint8_t *edata_ptr = extra_data;
+
+    if (channels <= 0 || channels > 2) {
         av_log(AV_LOG_ERROR, "Channel configuration error!\n");
-        return AVERROR(EINVAL);
+        return nullptr;
     }
+
+    ATRAC3Context *q = (ATRAC3Context *)av_mallocz(sizeof(ATRAC3Context));
+    q->channels = channels;
+    q->block_align = block_align;
 
     if (!static_init_done)
         atrac3_init_static_data();
     static_init_done = 1;
 
     /* Take care of the codec-specific extradata. */
-    if (avctx->extradata_size == 14) {
+    if (extra_data_size == 14) {
         /* Parse the extradata, WAV format */
         av_log(AV_LOG_DEBUG, "[0-1] %d\n",
                bytestream_get_le16(&edata_ptr));  // Unknown value always 1
@@ -816,21 +818,22 @@ static int atrac3_decode_init(AVCodecContext *avctx)
                bytestream_get_le16(&edata_ptr));  // Unknown always 0
 
         /* setup */
-        samples_per_frame    = SAMPLES_PER_FRAME * avctx->channels;
+        samples_per_frame    = SAMPLES_PER_FRAME * channels;
         version              = 4;
         delay                = 0x88E;
         q->coding_mode       = q->coding_mode ? JOINT_STEREO : STEREO;
         q->scrambled_stream  = 0;
 
-        if (avctx->block_align !=  96 * avctx->channels * frame_factor &&
-            avctx->block_align != 152 * avctx->channels * frame_factor &&
-            avctx->block_align != 192 * avctx->channels * frame_factor) {
+        if (block_align !=  96 * channels * frame_factor &&
+            block_align != 152 * channels * frame_factor &&
+            block_align != 192 * channels * frame_factor) {
             av_log(AV_LOG_ERROR, "Unknown frame/channel/frame_factor "
-                   "configuration %d/%d/%d\n", avctx->block_align,
-                   avctx->channels, frame_factor);
-            return AVERROR_INVALIDDATA;
+                   "configuration %d/%d/%d\n", block_align,
+                   channels, frame_factor);
+            atrac3_free(q);
+            return nullptr;
         }
-    } else if (avctx->extradata_size == 12 || avctx->extradata_size == 10) {
+    } else if (extra_data_size == 12 || extra_data_size == 10) {
         /* Parse the extradata, RM format. */
         version                = bytestream_get_be32(&edata_ptr);
         samples_per_frame      = bytestream_get_be16(&edata_ptr);
@@ -840,56 +843,58 @@ static int atrac3_decode_init(AVCodecContext *avctx)
 
     } else {
         av_log(AV_LOG_ERROR, "Unknown extradata size %d.\n",
-               avctx->extradata_size);
-        return AVERROR(EINVAL);
+               extra_data_size);
+        atrac3_free(q);
+        return nullptr;
     }
 
     /* Check the extradata */
 
     if (version != 4) {
         av_log(AV_LOG_ERROR, "Version %d != 4.\n", version);
-        return AVERROR_INVALIDDATA;
+        atrac3_free(q);
+        return nullptr;
     }
 
     if (samples_per_frame != SAMPLES_PER_FRAME &&
         samples_per_frame != SAMPLES_PER_FRAME * 2) {
         av_log(AV_LOG_ERROR, "Unknown amount of samples per frame %d.\n",
                samples_per_frame);
-        return AVERROR_INVALIDDATA;
-    }
+         atrac3_free(q);
+         return nullptr;
+	}
 
     if (delay != 0x88E) {
         av_log(AV_LOG_ERROR, "Unknown amount of delay %x != 0x88E.\n",
                delay);
-        return AVERROR_INVALIDDATA;
-    }
+        atrac3_free(q);
+        return nullptr;
+	}
 
     if (q->coding_mode == STEREO)
         av_log(AV_LOG_DEBUG, "Normal stereo detected.\n");
     else if (q->coding_mode == JOINT_STEREO) {
-        if (avctx->channels != 2) {
+        if (channels != 2) {
             av_log(AV_LOG_ERROR, "Invalid coding mode\n");
-            return AVERROR_INVALIDDATA;
-        }
+            atrac3_free(q);
+            return nullptr;
+		}
         av_log(AV_LOG_DEBUG, "Joint stereo detected.\n");
     } else {
         av_log(AV_LOG_ERROR, "Unknown channel coding mode %x!\n",
                q->coding_mode);
-        return AVERROR_INVALIDDATA;
-    }
+        atrac3_free(q);
+        return nullptr;
+	}
 
-    if (avctx->block_align >= UINT_MAX / 2)
-        return AVERROR(EINVAL);
-
-    q->decoded_bytes_buffer = (uint8_t *)av_mallocz(FFALIGN(avctx->block_align, 4) + AV_INPUT_BUFFER_PADDING_SIZE);
-    if (!q->decoded_bytes_buffer)
-        return AVERROR(ENOMEM);
+    q->decoded_bytes_buffer = (uint8_t *)av_mallocz(FFALIGN(block_align, 4) + AV_INPUT_BUFFER_PADDING_SIZE);
 
     /* initialize the MDCT transform */
     if ((ret = ff_mdct_init(&q->mdct_ctx, 9, 1, 1.0 / 32768)) < 0) {
         av_log(AV_LOG_ERROR, "Error initializing MDCT\n");
         av_freep(&q->decoded_bytes_buffer);
-        return ret;
+
+        return nullptr;
     }
 
     /* init the joint-stereo decoding data */
@@ -908,19 +913,6 @@ static int atrac3_decode_init(AVCodecContext *avctx)
 
     ff_atrac_init_gain_compensation(&q->gainc_ctx, 4, 3);
 
-    q->units = (ChannelUnit *)av_mallocz_array(avctx->channels, sizeof(*q->units));
-    if (!q->units) {
-        atrac3_decode_close(avctx);
-        return AVERROR(ENOMEM);
-    }
-
-    return 0;
+    q->units = (ChannelUnit *)av_mallocz_array(channels, sizeof(*q->units));
+    return q;
 }
-
-AVCodec ff_atrac3_decoder = {
-    "atrac3",
-    AV_CODEC_ID_ATRAC3,
-    sizeof(ATRAC3Context),
-    &atrac3_decode_init,
-    &atrac3_decode_close,
-};

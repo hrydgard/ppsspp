@@ -390,7 +390,6 @@
     <ClInclude Include="..\ext\at3_standalone\atrac3data.h" />
     <ClInclude Include="..\ext\at3_standalone\atrac3plus.h" />
     <ClInclude Include="..\ext\at3_standalone\atrac3plus_data.h" />
-    <ClInclude Include="..\ext\at3_standalone\avcodec.h" />
     <ClInclude Include="..\ext\at3_standalone\compat.h" />
     <ClInclude Include="..\ext\at3_standalone\fft.h" />
     <ClInclude Include="..\ext\at3_standalone\float_dsp.h" />
@@ -609,7 +608,6 @@
     <ClCompile Include="..\ext\at3_standalone\float_dsp.cpp" />
     <ClCompile Include="..\ext\at3_standalone\mathematics.cpp" />
     <ClCompile Include="..\ext\at3_standalone\mem.cpp" />
-    <ClCompile Include="..\ext\at3_standalone\avcodec.cpp" />
     <ClCompile Include="..\ext\at3_standalone\sinewin.cpp" />
     <ClCompile Include="..\ext\basis_universal\basisu_transcoder.cpp" />
     <ClCompile Include="..\ext\libpng17\png.c">

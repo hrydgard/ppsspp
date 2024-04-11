@@ -11,7 +11,6 @@ set(ALL_SOURCE_FILES
 	${SRC_DIR}/atrac3plus.cpp
 	${SRC_DIR}/atrac3plusdec.cpp
 	${SRC_DIR}/atrac3plusdsp.cpp
-	${SRC_DIR}/avcodec.cpp
 	${SRC_DIR}/get_bits.cpp
 	${SRC_DIR}/compat.cpp
 	${SRC_DIR}/fft.cpp

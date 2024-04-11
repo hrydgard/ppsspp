@@ -31,8 +31,8 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "avcodec.h"
 #include "compat.h"
+#include "mem.h"
 #include "mathematics.h"
 #include "get_bits.h"
 

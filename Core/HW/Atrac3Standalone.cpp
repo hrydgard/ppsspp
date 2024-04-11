@@ -1,7 +1,6 @@
 #include "SimpleAudioDec.h"
 
 #include "ext/at3_standalone/at3_decoders.h"
-#include "ext/at3_standalone/avcodec.h"
 
 inline int16_t clamp16(float f) {
 	if (f >= 1.0f)
@@ -17,32 +16,23 @@ inline int16_t clamp16(float f) {
 class Atrac3Audio : public AudioDecoder {
 public:
 	Atrac3Audio(PSPAudioType audioType, int channels, size_t blockAlign, const uint8_t *extraData, size_t extraDataSize) : audioType_(audioType) {
+		blockAlign_ = blockAlign;
 		if (audioType == PSP_CODEC_AT3PLUS) {
-			at3pCtx_ = atrac3p_alloc(blockAlign, channels);
-			codecOpen_ = true;
-		} else {
-			ctx_ = avcodec_alloc_context3(&ff_atrac3_decoder);
-		}
-		if (audioType_ == PSP_CODEC_AT3) {
-			_dbg_assert_(ctx_);
-			_dbg_assert_(!codecOpen_);
-			ctx_->extradata = (uint8_t *)av_mallocz(extraDataSize);
-			ctx_->extradata_size = (int)extraDataSize;
-			ctx_->block_align = (int)blockAlign;
-			codecOpen_ = false;
-			if (extraData != nullptr) {
-				memcpy(ctx_->extradata, extraData, extraDataSize);
-			}
+			at3pCtx_ = atrac3p_alloc(channels, blockAlign);
+			if (at3pCtx_)
+				codecOpen_ = true;
+		} else if (audioType_ == PSP_CODEC_AT3) {
+			at3Ctx_ = atrac3_alloc(channels, blockAlign, extraData, extraDataSize);
+			if (at3Ctx_)
+				codecOpen_ = true;
 		}
 		for (int i = 0; i < 2; i++) {
 			buffers_[i] = new float[4096];
 		}
 	}
 	~Atrac3Audio() {
-		if (ctx_) {
-			avcodec_close(ctx_);
-			av_freep(&ctx_->extradata);
-			av_freep(&ctx_);
+		if (at3Ctx_) {
+			atrac3_free(at3Ctx_);
 		}
 		if (at3pCtx_) {
 			atrac3p_free(at3pCtx_);
@@ -54,21 +44,11 @@ public:
 
 	bool Decode(const uint8_t *inbuf, int inbytes, uint8_t *outbuf, int *outbytes) override {
 		if (!codecOpen_) {
-			int retval;
-			if (audioType_ == PSP_CODEC_AT3PLUS) {
-				_dbg_assert_(false);
-			} else {
-				ctx_->block_align = inbytes;
-				ctx_->channels = 2;
-				retval = avcodec_open2(ctx_, &ff_atrac3_decoder, nullptr);
-			}
-			_dbg_assert_(retval >= 0);
-			if (retval < 0) {
-				return false;
-			}
-			codecOpen_ = true;
+			_dbg_assert_(false);
 		}
-
+		if (inbytes != blockAlign_) {
+			WARN_LOG(ME, "Atrac3Audio::Decode: Unexpected block align %d (expected %d)", inbytes, blockAlign_);
+		}
 		// We just call the decode function directly without going through the whole packet machinery.
 		int got_frame = 0;
 		int result;
@@ -76,10 +56,8 @@ public:
 		if (audioType_ == PSP_CODEC_AT3PLUS) {
 			result = atrac3p_decode_frame(at3pCtx_, buffers_, &nb_samples, &got_frame, inbuf, inbytes);
 		} else {
-			if (inbytes != ctx_->block_align) {
-				WARN_LOG(ME, "Atrac3Audio::Decode: Unexpected block align %d (expected %d)", inbytes, ctx_->block_align);
-			}
-			result = atrac3_decode_frame(ctx_, buffers_, &nb_samples, &got_frame, inbuf, inbytes);
+			
+			result = atrac3_decode_frame(at3Ctx_, buffers_, &nb_samples, &got_frame, inbuf, inbytes);
 		}
 		if (result < 0) {
 			*outbytes = 0;
@@ -120,7 +98,9 @@ public:
 
 private:
 	ATRAC3PContext *at3pCtx_ = nullptr;
-	AVCodecContext* ctx_ = nullptr;
+	ATRAC3Context *at3Ctx_ = nullptr;
+
+	int blockAlign_ = 0;
 
 	int outSamples_ = 0;
 	int srcPos_ = 0;
