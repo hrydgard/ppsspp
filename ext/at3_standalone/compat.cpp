@@ -4,9 +4,7 @@
 
 #include "ext/at3_standalone/compat.h"
 
-void av_log(void *avcl, int level, const char *fmt, ...) {
-
-}
+void av_log(int level, const char *fmt, ...) {}
 
 int av_get_cpu_flags(void) {
 	return 0;

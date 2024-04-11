@@ -47,7 +47,6 @@ AVCodecContext *avcodec_alloc_context3(const AVCodec *codec)
 
 	if (codec) {
 		avctx->codec = codec;
-		avctx->codec_id = codec->id;
 	}
 
 	if (codec && codec->priv_data_size) {
@@ -90,9 +89,6 @@ int avcodec_open2(AVCodecContext *avctx, const AVCodec *codec, void *options)
 	}
 
 	avctx->codec = codec;
-	avctx->codec_id = codec->id;
-
-	avctx->frame_number = 0;
 
 	if (avctx->codec->init) {
 		ret = avctx->codec->init(avctx);
@@ -110,7 +106,7 @@ int avcodec_open2(AVCodecContext *avctx, const AVCodec *codec, void *options)
 			avctx->channels = channels;
 		else if (channels != avctx->channels) {
 			char buf[512] = "";
-			av_log(avctx, AV_LOG_WARNING,
+			av_log(AV_LOG_WARNING,
 				"Channel layout '%s' with %d channels does not match specified number of channels %d: "
 				"ignoring specified channel layout\n",
 				buf, channels, avctx->channels);

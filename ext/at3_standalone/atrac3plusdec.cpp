@@ -45,7 +45,7 @@
 #include "atrac.h"
 #include "atrac3plus.h"
 
-typedef struct ATRAC3PContext {
+struct ATRAC3PContext {
     GetBitContext gb;
 
     DECLARE_ALIGNED(32, float, samples)[2][ATRAC3P_FRAME_SAMPLES];  ///< quantized MDCT spectrum
@@ -62,7 +62,7 @@ typedef struct ATRAC3PContext {
     int num_channel_blocks;     ///< number of channel blocks
     uint8_t channel_blocks[5];  ///< channel configuration descriptor
     uint64_t my_channel_layout; ///< current channel layout
-} ATRAC3PContext;
+};
 
 int atrac3p_decode_close(AVCodecContext *avctx)
 {
@@ -76,16 +76,12 @@ int atrac3p_decode_close(AVCodecContext *avctx)
     return 0;
 }
 
-static int set_channel_params(ATRAC3PContext *ctx,
-                                      AVCodecContext *avctx)
-{
+static int set_channel_params(ATRAC3PContext *ctx, AVCodecContext *avctx) {
     memset(ctx->channel_blocks, 0, sizeof(ctx->channel_blocks));
-
     switch (avctx->channels) {
     case 1:
         if (avctx->channel_layout != AV_CH_FRONT_LEFT)
             avctx->channel_layout = AV_CH_LAYOUT_MONO;
-
         ctx->num_channel_blocks = 1;
         ctx->channel_blocks[0]  = CH_UNIT_MONO;
         break;
@@ -134,7 +130,7 @@ static int set_channel_params(ATRAC3PContext *ctx,
         ctx->channel_blocks[4]  = CH_UNIT_MONO;
         break;
     default:
-        av_log(avctx, AV_LOG_ERROR,
+        av_log(AV_LOG_ERROR,
                "Unsupported channel count: %d!\n", avctx->channels);
         return AVERROR_INVALIDDATA;
     }
@@ -148,7 +144,7 @@ int atrac3p_decode_init(AVCodecContext *avctx)
     int i, ch, ret;
 
     if (!avctx->block_align) {
-        av_log(avctx, AV_LOG_ERROR, "block_align is not set\n");
+        av_log(AV_LOG_ERROR, "block_align is not set\n");
         return AVERROR(EINVAL);
     }
 
@@ -157,7 +153,7 @@ int atrac3p_decode_init(AVCodecContext *avctx)
     /* initialize IPQF */
     ff_mdct_init(&ctx->ipqf_dct_ctx, 5, 1, 32.0 / 32768.0);
 
-    ff_atrac3p_init_imdct(avctx, &ctx->mdct_ctx);
+    ff_atrac3p_init_imdct(&ctx->mdct_ctx);
 
     ff_atrac_init_gain_compensation(&ctx->gainc_ctx, 6, 2);
 
@@ -333,7 +329,7 @@ int atrac3p_decode_frame(AVCodecContext *avctx, float *out_data[2], int *nb_samp
         return ret;
 
     if (get_bits1(&ctx->gb)) {
-        av_log(avctx, AV_LOG_ERROR, "Invalid start bit!\n");
+        av_log(AV_LOG_ERROR, "Invalid start bit!\n");
         return AVERROR_INVALIDDATA;
     }
 
@@ -345,7 +341,7 @@ int atrac3p_decode_frame(AVCodecContext *avctx, float *out_data[2], int *nb_samp
         }
         if (ch_block >= ctx->num_channel_blocks ||
             ctx->channel_blocks[ch_block] != ch_unit_id) {
-            av_log(avctx, AV_LOG_ERROR,
+            av_log(AV_LOG_ERROR,
                    "Frame data doesn't match channel configuration!\n");
             return AVERROR_INVALIDDATA;
         }

@@ -140,7 +140,6 @@ static inline unsigned zero_extend(unsigned val, unsigned bits)
  * @{
  */
 
-
 enum AVRounding {
     AV_ROUND_ZERO     = 0, ///< Round toward zero.
     AV_ROUND_INF      = 1, ///< Round away from zero.
@@ -179,7 +178,7 @@ int64_t av_rescale(int64_t a, int64_t b, int64_t c);
  * @return rescaled value a, or if AV_ROUND_PASS_MINMAX is set and a is
  *         INT64_MIN or INT64_MAX then a is passed through unchanged.
  */
-int64_t av_rescale_rnd(int64_t a, int64_t b, int64_t c, enum AVRounding);
+int64_t av_rescale_rnd(int64_t a, int64_t b, int64_t c, AVRounding);
 
 /**
  * Rescale a 64-bit integer by 2 rational numbers.
@@ -192,8 +191,7 @@ int64_t av_rescale_q(int64_t a, AVRational bq, AVRational cq);
  * @return rescaled value a, or if AV_ROUND_PASS_MINMAX is set and a is
  *         INT64_MIN or INT64_MAX then a is passed through unchanged.
  */
-int64_t av_rescale_q_rnd(int64_t a, AVRational bq, AVRational cq,
-                         enum AVRounding);
+int64_t av_rescale_q_rnd(int64_t a, AVRational bq, AVRational cq, AVRounding);
 
 
 /**
@@ -278,17 +276,6 @@ static inline AVRational av_inv_q(AVRational q)
 	AVRational r = { q.den, q.num };
 	return r;
 }
-
-/**
- * Convert a double precision floating point number to a rational.
- * inf is expressed as {1,0} or {-1,0} depending on the sign.
- *
- * @param d double to convert
- * @param max the maximum allowed numerator and denominator
- * @return (AVRational) d
- */
-AVRational av_d2q(double d, int max);
-
 
 /**
  * Clear high bits from an unsigned integer starting with specific bit position

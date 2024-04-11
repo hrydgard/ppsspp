@@ -173,10 +173,9 @@ int ff_atrac3p_decode_channel_unit(GetBitContext *gb, Atrac3pChanUnitCtx *ctx,
 /**
  * Initialize IMDCT transform.
  *
- * @param[in]   avctx      ptr to the AVCodecContext
  * @param[in]   mdct_ctx   pointer to MDCT transform context
  */
-void ff_atrac3p_init_imdct(AVCodecContext *avctx, FFTContext *mdct_ctx);
+void ff_atrac3p_init_imdct(FFTContext *mdct_ctx);
 
 /**
  * Initialize sine waves synthesizer.

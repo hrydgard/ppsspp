@@ -52,7 +52,7 @@ int64_t av_gcd(int64_t a, int64_t b) {
     return (uint64_t)u << k;
 }
 
-int64_t av_rescale_rnd(int64_t a, int64_t b, int64_t c, enum AVRounding rnd)
+int64_t av_rescale_rnd(int64_t a, int64_t b, int64_t c, AVRounding rnd)
 {
     int64_t r = 0;
     av_assert2(c > 0);
@@ -128,8 +128,7 @@ int64_t av_rescale(int64_t a, int64_t b, int64_t c)
     return av_rescale_rnd(a, b, c, AV_ROUND_NEAR_INF);
 }
 
-int64_t av_rescale_q_rnd(int64_t a, AVRational bq, AVRational cq,
-                         enum AVRounding rnd)
+int64_t av_rescale_q_rnd(int64_t a, AVRational bq, AVRational cq, AVRounding rnd)
 {
     int64_t b = bq.num * (int64_t)cq.den;
     int64_t c = cq.num * (int64_t)bq.den;
@@ -140,7 +139,6 @@ int64_t av_rescale_q(int64_t a, AVRational bq, AVRational cq)
 {
     return av_rescale_q_rnd(a, bq, cq, AV_ROUND_NEAR_INF);
 }
-
 
 int av_reduce(int *dst_num, int *dst_den,
 	int64_t num, int64_t den, int64_t max)
@@ -206,26 +204,6 @@ AVRational av_add_q(AVRational b, AVRational c) {
 		c.num * (int64_t)b.den,
 		b.den * (int64_t)c.den, INT_MAX);
 	return b;
-}
-
-AVRational av_d2q(double d, int max)
-{
-	AVRational a;
-	int exponent;
-	int64_t den;
-	if (isnan(d))
-		return AVRational { 0, 0 };
-	if (fabs(d) > INT_MAX + 3LL)
-		return AVRational { d < 0 ? -1 : 1, 0 };
-	frexp(d, &exponent);
-	exponent = FFMAX(exponent - 1, 0);
-	den = 1LL << (61 - exponent);
-	// (int64_t)rint() and llrint() do not work with gcc on ia64 and sparc64
-	av_reduce(&a.num, &a.den, floor(d * den + 0.5), den, max);
-	if ((!a.num || !a.den) && d && max > 0 && max < INT_MAX)
-		av_reduce(&a.num, &a.den, floor(d * den + 0.5), den, INT_MAX);
-
-	return a;
 }
 
 static const uint8_t ff_logg2_tab[256] = {

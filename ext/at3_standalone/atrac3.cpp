@@ -578,12 +578,12 @@ static int decode_channel_sound_unit(ATRAC3Context *q, GetBitContext *gb,
 
     if (coding_mode == JOINT_STEREO && channel_num == 1) {
         if (get_bits(gb, 2) != 3) {
-            av_log(NULL,AV_LOG_ERROR,"JS mono Sound Unit id != 3.\n");
+            av_log(AV_LOG_ERROR,"JS mono Sound Unit id != 3.\n");
             return AVERROR_INVALIDDATA;
         }
     } else {
         if (get_bits(gb, 6) != 0x28) {
-            av_log(NULL,AV_LOG_ERROR,"Sound Unit id != 0x28.\n");
+            av_log(AV_LOG_ERROR,"Sound Unit id != 0x28.\n");
             return AVERROR_INVALIDDATA;
         }
     }
@@ -737,7 +737,7 @@ int atrac3_decode_frame(AVCodecContext *avctx, float *out_data[2], int *nb_sampl
     const uint8_t *databuf;
 
     if (buf_size < avctx->block_align) {
-        av_log(avctx, AV_LOG_ERROR,
+        av_log(AV_LOG_ERROR,
                "Frame too small (%d bytes). Truncated file?\n", buf_size);
         return AVERROR_INVALIDDATA;
     }
@@ -755,7 +755,7 @@ int atrac3_decode_frame(AVCodecContext *avctx, float *out_data[2], int *nb_sampl
 
     ret = decode_frame(avctx, databuf, out_data);
     if (ret) {
-        av_log(NULL, AV_LOG_ERROR, "Frame decoding error!\n");
+        av_log( AV_LOG_ERROR, "Frame decoding error!\n");
         return ret;
     }
 
@@ -792,7 +792,7 @@ static int atrac3_decode_init(AVCodecContext *avctx)
     ATRAC3Context *q = (ATRAC3Context * )avctx->priv_data;
 
     if (avctx->channels <= 0 || avctx->channels > 2) {
-        av_log(avctx, AV_LOG_ERROR, "Channel configuration error!\n");
+        av_log(AV_LOG_ERROR, "Channel configuration error!\n");
         return AVERROR(EINVAL);
     }
 
@@ -803,14 +803,14 @@ static int atrac3_decode_init(AVCodecContext *avctx)
     /* Take care of the codec-specific extradata. */
     if (avctx->extradata_size == 14) {
         /* Parse the extradata, WAV format */
-        av_log(avctx, AV_LOG_DEBUG, "[0-1] %d\n",
+        av_log(AV_LOG_DEBUG, "[0-1] %d\n",
                bytestream_get_le16(&edata_ptr));  // Unknown value always 1
         edata_ptr += 4;                             // samples per channel
         q->coding_mode = bytestream_get_le16(&edata_ptr);
-        av_log(avctx, AV_LOG_DEBUG,"[8-9] %d\n",
+        av_log(AV_LOG_DEBUG,"[8-9] %d\n",
                bytestream_get_le16(&edata_ptr));  //Dupe of coding mode
         frame_factor = bytestream_get_le16(&edata_ptr);  // Unknown always 1
-        av_log(avctx, AV_LOG_DEBUG,"[12-13] %d\n",
+        av_log(AV_LOG_DEBUG,"[12-13] %d\n",
                bytestream_get_le16(&edata_ptr));  // Unknown always 0
 
         /* setup */
@@ -823,7 +823,7 @@ static int atrac3_decode_init(AVCodecContext *avctx)
         if (avctx->block_align !=  96 * avctx->channels * frame_factor &&
             avctx->block_align != 152 * avctx->channels * frame_factor &&
             avctx->block_align != 192 * avctx->channels * frame_factor) {
-            av_log(avctx, AV_LOG_ERROR, "Unknown frame/channel/frame_factor "
+            av_log(AV_LOG_ERROR, "Unknown frame/channel/frame_factor "
                    "configuration %d/%d/%d\n", avctx->block_align,
                    avctx->channels, frame_factor);
             return AVERROR_INVALIDDATA;
@@ -837,7 +837,7 @@ static int atrac3_decode_init(AVCodecContext *avctx)
         q->scrambled_stream    = 1;
 
     } else {
-        av_log(NULL, AV_LOG_ERROR, "Unknown extradata size %d.\n",
+        av_log(AV_LOG_ERROR, "Unknown extradata size %d.\n",
                avctx->extradata_size);
         return AVERROR(EINVAL);
     }
@@ -845,33 +845,33 @@ static int atrac3_decode_init(AVCodecContext *avctx)
     /* Check the extradata */
 
     if (version != 4) {
-        av_log(avctx, AV_LOG_ERROR, "Version %d != 4.\n", version);
+        av_log(AV_LOG_ERROR, "Version %d != 4.\n", version);
         return AVERROR_INVALIDDATA;
     }
 
     if (samples_per_frame != SAMPLES_PER_FRAME &&
         samples_per_frame != SAMPLES_PER_FRAME * 2) {
-        av_log(avctx, AV_LOG_ERROR, "Unknown amount of samples per frame %d.\n",
+        av_log(AV_LOG_ERROR, "Unknown amount of samples per frame %d.\n",
                samples_per_frame);
         return AVERROR_INVALIDDATA;
     }
 
     if (delay != 0x88E) {
-        av_log(avctx, AV_LOG_ERROR, "Unknown amount of delay %x != 0x88E.\n",
+        av_log(AV_LOG_ERROR, "Unknown amount of delay %x != 0x88E.\n",
                delay);
         return AVERROR_INVALIDDATA;
     }
 
     if (q->coding_mode == STEREO)
-        av_log(avctx, AV_LOG_DEBUG, "Normal stereo detected.\n");
+        av_log(AV_LOG_DEBUG, "Normal stereo detected.\n");
     else if (q->coding_mode == JOINT_STEREO) {
         if (avctx->channels != 2) {
-            av_log(avctx, AV_LOG_ERROR, "Invalid coding mode\n");
+            av_log(AV_LOG_ERROR, "Invalid coding mode\n");
             return AVERROR_INVALIDDATA;
         }
-        av_log(avctx, AV_LOG_DEBUG, "Joint stereo detected.\n");
+        av_log(AV_LOG_DEBUG, "Joint stereo detected.\n");
     } else {
-        av_log(avctx, AV_LOG_ERROR, "Unknown channel coding mode %x!\n",
+        av_log(AV_LOG_ERROR, "Unknown channel coding mode %x!\n",
                q->coding_mode);
         return AVERROR_INVALIDDATA;
     }
@@ -885,7 +885,7 @@ static int atrac3_decode_init(AVCodecContext *avctx)
 
     /* initialize the MDCT transform */
     if ((ret = ff_mdct_init(&q->mdct_ctx, 9, 1, 1.0 / 32768)) < 0) {
-        av_log(avctx, AV_LOG_ERROR, "Error initializing MDCT\n");
+        av_log(AV_LOG_ERROR, "Error initializing MDCT\n");
         av_freep(&q->decoded_bytes_buffer);
         return ret;
     }

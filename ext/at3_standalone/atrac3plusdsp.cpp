@@ -77,7 +77,7 @@ const float ff_atrac3p_mant_tab[8] = {
 
 #define ATRAC3P_MDCT_SIZE (ATRAC3P_SUBBAND_SAMPLES * 2)
 
-void ff_atrac3p_init_imdct(AVCodecContext *avctx, FFTContext *mdct_ctx)
+void ff_atrac3p_init_imdct(FFTContext *mdct_ctx)
 {
     ff_init_ff_sine_windows(7);
     ff_init_ff_sine_windows(6);

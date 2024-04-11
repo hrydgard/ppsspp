@@ -28,7 +28,6 @@
 #include <string.h>
 #include <stdlib.h>
 
-//#include "avcodec.h"
 #include "mathematics.h"
 #include "get_bits.h"
 #include "atrac3plus.h"
@@ -230,7 +229,7 @@ static int num_coded_units(GetBitContext *gb, Atrac3pChanParams *chan,
     } else {
         chan->num_coded_vals = get_bits(gb, 5);
         if (chan->num_coded_vals > ctx->num_quant_units) {
-            av_log(avctx, AV_LOG_ERROR,
+            av_log(AV_LOG_ERROR,
                    "Invalid number of transmitted units!\n");
             return AVERROR_INVALIDDATA;
         }
@@ -262,7 +261,7 @@ static int add_wordlen_weights(Atrac3pChanUnitCtx *ctx,
     for (i = 0; i < ctx->num_quant_units; i++) {
         chan->qu_wordlen[i] += weights_tab[i];
         if (chan->qu_wordlen[i] < 0 || chan->qu_wordlen[i] > 7) {
-            av_log(avctx, AV_LOG_ERROR,
+            av_log(AV_LOG_ERROR,
                    "WL index out of range: pos=%d, val=%d!\n",
                    i, chan->qu_wordlen[i]);
             return AVERROR_INVALIDDATA;
@@ -291,7 +290,7 @@ static int subtract_sf_weights(Atrac3pChanUnitCtx *ctx,
     for (i = 0; i < ctx->used_quant_units; i++) {
         chan->qu_sf_idx[i] -= weights_tab[i];
         if (chan->qu_sf_idx[i] < 0 || chan->qu_sf_idx[i] > 63) {
-            av_log(avctx, AV_LOG_ERROR,
+            av_log(AV_LOG_ERROR,
                    "SF index out of range: pos=%d, val=%d!\n",
                    i, chan->qu_sf_idx[i]);
             return AVERROR_INVALIDDATA;
@@ -372,7 +371,7 @@ static int decode_channel_wordlen(GetBitContext *gb, Atrac3pChanUnitCtx *ctx,
             if (chan->num_coded_vals) {
                 pos = get_bits(gb, 5);
                 if (pos > chan->num_coded_vals) {
-                    av_log(avctx, AV_LOG_ERROR,
+                    av_log(AV_LOG_ERROR,
                            "WL mode 1: invalid position!\n");
                     return AVERROR_INVALIDDATA;
                 }
@@ -460,7 +459,7 @@ static int decode_channel_wordlen(GetBitContext *gb, Atrac3pChanUnitCtx *ctx,
         pos = ch_num ? chan->num_coded_vals + chan->split_point
                      : ctx->num_quant_units - chan->split_point;
         if (pos > FF_ARRAY_ELEMS(chan->qu_wordlen)) {
-            av_log(avctx, AV_LOG_ERROR, "Split point beyond array\n");
+            av_log(AV_LOG_ERROR, "Split point beyond array\n");
             pos = FF_ARRAY_ELEMS(chan->qu_wordlen);
         }
         for (i = chan->num_coded_vals; i < pos; i++)
@@ -526,7 +525,7 @@ static int decode_channel_sf_idx(GetBitContext *gb, Atrac3pChanUnitCtx *ctx,
                 delta_bits    = get_bits(gb, 3);
                 min_val       = get_bits(gb, 6);
                 if (num_long_vals > ctx->used_quant_units || delta_bits == 7) {
-                    av_log(avctx, AV_LOG_ERROR,
+                    av_log(AV_LOG_ERROR,
                            "SF mode 1: invalid parameters!\n");
                     return AVERROR_INVALIDDATA;
                 }
@@ -685,7 +684,7 @@ static int get_num_ct_values(GetBitContext *gb, Atrac3pChanUnitCtx *ctx,
     if (get_bits1(gb)) {
         num_coded_vals = get_bits(gb, 5);
         if (num_coded_vals > ctx->used_quant_units) {
-            av_log(avctx, AV_LOG_ERROR,
+            av_log(AV_LOG_ERROR,
                    "Invalid number of code table indexes: %d!\n", num_coded_vals);
             return AVERROR_INVALIDDATA;
         }
@@ -1346,7 +1345,7 @@ static int decode_gainc_loc_codes(GetBitContext *gb, Atrac3pChanUnitCtx *ctx,
         for (i = 0; i < chan->gain_data[sb].num_points; i++) {
             if (dst->loc_code[i] < 0 || dst->loc_code[i] > 31 ||
                 (i && dst->loc_code[i] <= dst->loc_code[i - 1])) {
-                av_log(avctx, AV_LOG_ERROR,
+                av_log(AV_LOG_ERROR,
                        "Invalid gain location: ch=%d, sb=%d, pos=%d, val=%d\n",
                        ch_num, sb, i, dst->loc_code[i]);
                 return AVERROR_INVALIDDATA;
@@ -1492,10 +1491,9 @@ static int decode_band_numwavs(GetBitContext *gb, Atrac3pChanUnitCtx *ctx,
     for (sb = 0; sb < ctx->waves_info->num_tone_bands; sb++)
         if (band_has_tones[sb]) {
             if (ctx->waves_info->tones_index + dst[sb].num_wavs > 48) {
-                av_log(avctx, AV_LOG_ERROR,
-                       "Too many tones: %d (max. 48), frame: %d!\n",
-                       ctx->waves_info->tones_index + dst[sb].num_wavs,
-                       avctx->frame_number);
+                av_log(AV_LOG_ERROR,
+                       "Too many tones: %d (max. 48)!\n",
+                       ctx->waves_info->tones_index + dst[sb].num_wavs);
                 return AVERROR_INVALIDDATA;
             }
             dst[sb].start_index           = ctx->waves_info->tones_index;
@@ -1769,7 +1767,7 @@ int ff_atrac3p_decode_channel_unit(GetBitContext *gb, Atrac3pChanUnitCtx *ctx,
     /* parse sound header */
     ctx->num_quant_units = get_bits(gb, 5) + 1;
     if (ctx->num_quant_units > 28 && ctx->num_quant_units < 32) {
-        av_log(avctx, AV_LOG_ERROR,
+        av_log(AV_LOG_ERROR,
                "Invalid number of quantization units: %d!\n",
                ctx->num_quant_units);
         return AVERROR_INVALIDDATA;

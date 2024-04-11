@@ -29,17 +29,6 @@
 
 #define FF_MEMORY_POISON 0x2a
 
-#if defined(__GNUC__)
-    #define DECLARE_ALIGNED(n,t,v)      t __attribute__ ((aligned (n))) v
-    #define DECLARE_ASM_CONST(n,t,v)    static const t av_used __attribute__ ((aligned (n))) v
-#elif defined(_MSC_VER)
-    #define DECLARE_ALIGNED(n,t,v)      __declspec(align(n)) t v
-    #define DECLARE_ASM_CONST(n,t,v)    __declspec(align(n)) static const t v
-#else
-    #define DECLARE_ALIGNED(n,t,v)      t v
-    #define DECLARE_ASM_CONST(n,t,v)    static const t v
-#endif
-
 /**
  * Allocate a block of size bytes with alignment suitable for all
  * memory accesses (including vectors if available on the CPU).

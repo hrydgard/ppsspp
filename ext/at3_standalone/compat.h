@@ -20,7 +20,17 @@
 #define FF_ENABLE_DEPRECATION_WARNINGS
 #define CONFIG_FFT 1
 
-#define DECLARE_ALIGNED(bits, type, name)  type name
+#if defined(__GNUC__)
+#define DECLARE_ALIGNED(n,t,v)      t __attribute__ ((aligned (n))) v
+#define DECLARE_ASM_CONST(n,t,v)    static const t av_used __attribute__ ((aligned (n))) v
+#elif defined(_MSC_VER)
+#define DECLARE_ALIGNED(n,t,v)      __declspec(align(n)) t v
+#define DECLARE_ASM_CONST(n,t,v)    __declspec(align(n)) static const t v
+#else
+#define DECLARE_ALIGNED(n,t,v)      t v
+#define DECLARE_ASM_CONST(n,t,v)    static const t v
+#endif
+
 #define LOCAL_ALIGNED(bits, type, name, subscript) type name subscript
 #define av_restrict
 #define av_always_inline __forceinline
@@ -57,7 +67,7 @@
 #define AV_LOG_DEBUG    48
 #define AV_LOG_TRACE    56
 
-void av_log(void *avcl, int level, const char *fmt, ...) av_printf_format(3, 4);
+void av_log(int level, const char *fmt, ...) av_printf_format(3, 4);
 
 /**
  * Maximum size in bytes of extradata.
