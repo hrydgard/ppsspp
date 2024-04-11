@@ -40,7 +40,6 @@ void ff_imdct_half_c(FFTContext *s, FFTSample *output, const FFTSample *input);
 void ff_mdct_calc_c(FFTContext *s, FFTSample *output, const FFTSample *input);
 
 /* cos(2*pi*x/n) for 0<=x<=n/4, followed by its reverse */
-#if !CONFIG_HARDCODED_TABLES
 COSTABLE(16);
 COSTABLE(32);
 COSTABLE(64);
@@ -54,7 +53,7 @@ COSTABLE(8192);
 COSTABLE(16384);
 COSTABLE(32768);
 COSTABLE(65536);
-#endif
+
 FFTSample * const ff_cos_tabs[] = {
     NULL, NULL, NULL, NULL,
     ff_cos_16,
@@ -88,7 +87,6 @@ static int split_radix_permutation(int i, int n, int inverse)
 
 void ff_init_ff_cos_tabs(int index)
 {
-#if (!CONFIG_HARDCODED_TABLES) && (!FFT_FIXED_32)
     int i;
     int m = 1<<index;
     double freq = 2*M_PI/m;
@@ -97,7 +95,6 @@ void ff_init_ff_cos_tabs(int index)
         tab[i] = cos(i*freq);
     for(i=1; i<m/4; i++)
         tab[m/2-i] = tab[i];
-#endif
 }
 
 static const int avx_tab[] = {

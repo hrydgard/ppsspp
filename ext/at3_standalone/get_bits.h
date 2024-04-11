@@ -235,7 +235,7 @@ static inline unsigned int get_bits(GetBitContext *s, int n)
 /**
  * Read 0-25 bits.
  */
-static av_always_inline int get_bitsz(GetBitContext *s, int n)
+static inline int get_bitsz(GetBitContext *s, int n)
 {
     return n ? get_bits(s, n) : 0;
 }
@@ -398,43 +398,6 @@ void ff_free_vlc(VLC *vlc);
         SKIP_BITS(name, gb, n);                                 \
     } while (0)
 
-#define GET_RL_VLC_INTERNAL(level, run, name, gb, table, bits,  \
-                   max_depth, need_update)                      \
-    do {                                                        \
-        int n, nb_bits;                                         \
-        unsigned int index;                                     \
-                                                                \
-        index = SHOW_UBITS(name, gb, bits);                     \
-        level = table[index].level;                             \
-        n     = table[index].len;                               \
-                                                                \
-        if (max_depth > 1 && n < 0) {                           \
-            SKIP_BITS(name, gb, bits);                          \
-            if (need_update) {                                  \
-                UPDATE_CACHE(name, gb);                         \
-            }                                                   \
-                                                                \
-            nb_bits = -n;                                       \
-                                                                \
-            index = SHOW_UBITS(name, gb, nb_bits) + level;      \
-            level = table[index].level;                         \
-            n     = table[index].len;                           \
-            if (max_depth > 2 && n < 0) {                       \
-                LAST_SKIP_BITS(name, gb, nb_bits);              \
-                if (need_update) {                              \
-                    UPDATE_CACHE(name, gb);                     \
-                }                                               \
-                nb_bits = -n;                                   \
-                                                                \
-                index = SHOW_UBITS(name, gb, nb_bits) + level;  \
-                level = table[index].level;                     \
-                n     = table[index].len;                       \
-            }                                                   \
-        }                                                       \
-        run = table[index].run;                                 \
-        SKIP_BITS(name, gb, n);                                 \
-    } while (0)
-
 /**
  * Parse a vlc code.
  * @param bits is the number of bits which will be read at once, must be
@@ -443,7 +406,7 @@ void ff_free_vlc(VLC *vlc);
  *                  read the longest vlc code
  *                  = (max_vlc_length + bits - 1) / bits
  */
-static av_always_inline int get_vlc2(GetBitContext *s, VLC_TYPE (*table)[2],
+static inline int get_vlc2(GetBitContext *s, VLC_TYPE (*table)[2],
                                      int bits, int max_depth)
 {
     int code;
@@ -486,33 +449,11 @@ static inline type bytestream2_get_ ## name(GetByteContext *g)       \
         return 0;                                                              \
     }                                                                          \
     return bytestream2_get_ ## name ## u(g);                                   \
-}                                                                              \
-static inline type bytestream2_peek_ ## name(GetByteContext *g)      \
-{                                                                              \
-    if (g->buffer_end - g->buffer < bytes)                                     \
-        return 0;                                                              \
-    return read(g->buffer);                                                    \
 }
 
-DEF(uint64_t, le64, 8, AV_RL64, AV_WL64)
 DEF(unsigned int, le32, 4, AV_RL32, AV_WL32)
 DEF(unsigned int, le24, 3, AV_RL24, AV_WL24)
 DEF(unsigned int, le16, 2, AV_RL16, AV_WL16)
-DEF(uint64_t, be64, 8, AV_RB64, AV_WB64)
 DEF(unsigned int, be32, 4, AV_RB32, AV_WB32)
 DEF(unsigned int, be24, 3, AV_RB24, AV_WB24)
 DEF(unsigned int, be16, 2, AV_RB16, AV_WB16)
-DEF(unsigned int, byte, 1, AV_RB8, AV_WB8)
-
-#   define bytestream2_get_ne16  bytestream2_get_le16
-#   define bytestream2_get_ne24  bytestream2_get_le24
-#   define bytestream2_get_ne32  bytestream2_get_le32
-#   define bytestream2_get_ne64  bytestream2_get_le64
-#   define bytestream2_get_ne16u bytestream2_get_le16u
-#   define bytestream2_get_ne24u bytestream2_get_le24u
-#   define bytestream2_get_ne32u bytestream2_get_le32u
-#   define bytestream2_get_ne64u bytestream2_get_le64u
-#   define bytestream2_peek_ne16 bytestream2_peek_le16
-#   define bytestream2_peek_ne24 bytestream2_peek_le24
-#   define bytestream2_peek_ne32 bytestream2_peek_le32
-#   define bytestream2_peek_ne64 bytestream2_peek_le64

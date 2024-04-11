@@ -2,24 +2,6 @@
 
 // Compat hacks
 
-#define CONFIG_MEMORY_POISONING 0
-#define CONFIG_HARDCODED_TABLES 0
-#define CONFIG_ME_CMP 0
-#define HWACCEL_CODEC_CAP_EXPERIMENTAL 0
-#define HAVE_THREADS 0
-#define CONFIG_FRAME_THREAD_ENCODER 0
-#define CONFIG_GRAY 0
-#define NULL_IF_CONFIG_SMALL(x) NULL
-#define ARCH_AARCH64 0
-#define ARCH_ARM 0
-#define ARCH_PPC 0
-#define ARCH_X86 0
-#define HAVE_MIPSFPU 0
-#define FF_API_AVPACKET_OLD_API 1
-#define FF_DISABLE_DEPRECATION_WARNINGS
-#define FF_ENABLE_DEPRECATION_WARNINGS
-#define CONFIG_FFT 1
-
 #if defined(__GNUC__)
 #define DECLARE_ALIGNED(n,t,v)      t __attribute__ ((aligned (n))) v
 #define DECLARE_ASM_CONST(n,t,v)    static const t av_used __attribute__ ((aligned (n))) v
@@ -33,16 +15,11 @@
 
 #define LOCAL_ALIGNED(bits, type, name, subscript) type name subscript
 #define av_restrict
-#define av_always_inline __forceinline
-#define av_const
 #define av_alias
 #define av_unused
-#define av_pure
-#define av_warn_unused_result
 #define av_assert0(cond)
 #define av_assert1(cond)
 #define av_assert2(cond)
-#define attribute_deprecated
 #define av_printf_format(a,b)
 #define avpriv_report_missing_feature(...)
 
@@ -117,13 +94,12 @@ size_t av_strlcpy(char *dst, const char *src, size_t size);
 /**
  * Locale-independent conversion of ASCII characters to uppercase.
  */
-static inline av_const int av_toupper(int c)
+static inline int av_toupper(int c)
 {
 	if (c >= 'a' && c <= 'z')
 		c ^= 0x20;
 	return c;
 }
-
 
 #define AV_BSWAP16C(x) (((x) << 8 & 0xff00)  | ((x) >> 8 & 0x00ff))
 #define AV_BSWAP32C(x) (AV_BSWAP16C(x) << 16 | AV_BSWAP16C((x) >> 16))

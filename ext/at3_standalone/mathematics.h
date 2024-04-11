@@ -70,7 +70,7 @@ int av_log2_16bit(unsigned int v);
   */
   /* We use the De-Bruijn method outlined in:
    * http://supertech.csail.mit.edu/papers/debruijn.pdf. */
-static av_always_inline av_const int ff_ctz_c(int v)
+static inline int ff_ctz_c(int v)
 {
 	static const uint8_t debruijn_ctz32[32] = {
 		0, 1, 28, 2, 29, 14, 24, 3, 30, 22, 20, 15, 25, 17, 4, 8,
@@ -84,7 +84,7 @@ static av_always_inline av_const int ff_ctz_c(int v)
 #define ff_ctzll ff_ctzll_c
 /* We use the De-Bruijn method outlined in:
  * http://supertech.csail.mit.edu/papers/debruijn.pdf. */
-static av_always_inline av_const int ff_ctzll_c(long long v)
+static inline int ff_ctzll_c(long long v)
 {
 	static const uint8_t debruijn_ctz64[64] = {
 		0, 1, 2, 53, 3, 7, 54, 27, 4, 38, 41, 8, 34, 55, 48, 28,
