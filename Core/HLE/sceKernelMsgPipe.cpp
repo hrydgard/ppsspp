@@ -567,7 +567,7 @@ static void __KernelMsgPipeBeginCallback(SceUID threadID, SceUID prevCallbackId)
 	}
 }
 
-static bool __KernelCheckResumeMsgPipeSend(MsgPipe *m, MsgPipeWaitingThread &waitInfo, u32 &error, int result, bool &wokeThreads)
+static bool __KernelCheckResumeMsgPipeSend(MsgPipe *m, MsgPipeWaitingThread &waitInfo, u32 &error, int &result, bool &wokeThreads)
 {
 	if (!waitInfo.IsStillWaiting(m->GetUID()))
 		return true;
@@ -589,7 +589,7 @@ static bool __KernelCheckResumeMsgPipeSend(MsgPipe *m, MsgPipeWaitingThread &wai
 	return true;
 }
 
-static bool __KernelCheckResumeMsgPipeReceive(MsgPipe *m, MsgPipeWaitingThread &waitInfo, u32 &error, int result, bool &wokeThreads)
+static bool __KernelCheckResumeMsgPipeReceive(MsgPipe *m, MsgPipeWaitingThread &waitInfo, u32 &error, int &result, bool &wokeThreads)
 {
 	if (!waitInfo.IsStillWaiting(m->GetUID()))
 		return true;

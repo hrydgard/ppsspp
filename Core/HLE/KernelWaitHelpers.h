@@ -207,7 +207,8 @@ WaitBeginEndCallbackResult WaitEndCallback(SceUID threadID, SceUID prevCallbackI
 
 	bool wokeThreads;
 	// Attempt to unlock.
-	if (TryUnlock(ko, waitData, error, 0, wokeThreads)) {
+	int try_err;
+	if (TryUnlock(ko, waitData, error, try_err, wokeThreads)) {
 		return WAIT_CB_SUCCESS;
 	}
 
