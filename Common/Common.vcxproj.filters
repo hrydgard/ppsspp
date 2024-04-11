@@ -1086,7 +1086,7 @@
     <ClCompile Include="..\ext\at3_standalone\intmath.c">
       <Filter>ext\at3_standalone</Filter>
     </ClCompile>
-    <ClCompile Include="..\ext\at3_standalone\bitstream.c">
+    <ClCompile Include="..\ext\at3_standalone\get_bits.c">
       <Filter>ext\at3_standalone</Filter>
     </ClCompile>
     <ClCompile Include="..\ext\at3_standalone\compat.c">

@@ -610,7 +610,7 @@
     <ClCompile Include="..\ext\at3_standalone\atrac3plus.c" />
     <ClCompile Include="..\ext\at3_standalone\atrac3plusdec.c" />
     <ClCompile Include="..\ext\at3_standalone\atrac3plusdsp.c" />
-    <ClCompile Include="..\ext\at3_standalone\bitstream.c" />
+    <ClCompile Include="..\ext\at3_standalone\get_bits.c" />
     <ClCompile Include="..\ext\at3_standalone\channel_layout.c" />
     <ClCompile Include="..\ext\at3_standalone\compat.c" />
     <ClCompile Include="..\ext\at3_standalone\fft_template.c" />

@@ -47,7 +47,6 @@
 
 typedef struct ATRAC3PContext {
     GetBitContext gb;
-    AVFloatDSPContext *fdsp;
 
     DECLARE_ALIGNED(32, float, samples)[2][ATRAC3P_FRAME_SAMPLES];  ///< quantized MDCT spectrum
     DECLARE_ALIGNED(32, float, mdct_buf)[2][ATRAC3P_FRAME_SAMPLES]; ///< output of the IMDCT
@@ -70,7 +69,6 @@ int atrac3p_decode_close(AVCodecContext *avctx)
     ATRAC3PContext *ctx = avctx->priv_data;
 
     av_freep(&ctx->ch_units);
-    av_freep(&ctx->fdsp);
 
     ff_mdct_end(&ctx->mdct_ctx);
     ff_mdct_end(&ctx->ipqf_dct_ctx);
@@ -171,9 +169,8 @@ int atrac3p_decode_init(AVCodecContext *avctx)
     ctx->my_channel_layout = avctx->channel_layout;
 
     ctx->ch_units = av_mallocz_array(ctx->num_channel_blocks, sizeof(*ctx->ch_units));
-    ctx->fdsp = avpriv_float_dsp_alloc(avctx->flags & AV_CODEC_FLAG_BITEXACT);
 
-    if (!ctx->ch_units || !ctx->fdsp) {
+    if (!ctx->ch_units) {
         atrac3p_decode_close(avctx);
         return AVERROR(ENOMEM);
     }
@@ -268,7 +265,7 @@ static void reconstruct_frame(ATRAC3PContext *ctx, Atrac3pChanUnitCtx *ch_unit,
     for (ch = 0; ch < num_channels; ch++) {
         for (sb = 0; sb < ch_unit->num_subbands; sb++) {
             /* inverse transform and windowing */
-            ff_atrac3p_imdct(ctx->fdsp, &ctx->mdct_ctx,
+            ff_atrac3p_imdct(&ctx->mdct_ctx,
                              &ctx->samples[ch][sb * ATRAC3P_SUBBAND_SAMPLES],
                              &ctx->mdct_buf[ch][sb * ATRAC3P_SUBBAND_SAMPLES],
                              (ch_unit->channels[ch].wnd_shape_prev[sb] << 1) +
@@ -302,7 +299,7 @@ static void reconstruct_frame(ATRAC3PContext *ctx, Atrac3pChanUnitCtx *ch_unit,
             for (sb = 0; sb < ch_unit->num_subbands; sb++)
                 if (ch_unit->channels[ch].tones_info[sb].num_wavs ||
                     ch_unit->channels[ch].tones_info_prev[sb].num_wavs) {
-                    ff_atrac3p_generate_tones(ch_unit, ctx->fdsp, ch, sb,
+                    ff_atrac3p_generate_tones(ch_unit, ch, sb,
                                               &ctx->time_buf[ch][sb * 128]);
                 }
         }

@@ -117,7 +117,6 @@ void ff_atrac3p_init_wave_synth(void)
  *  @param[in]    synth_param   ptr to common synthesis parameters
  *  @param[in]    waves_info    parameters for each sine wave
  *  @param[in]    envelope      envelope data for all waves in a group
- *  @param[in]    fdsp          ptr to floating-point DSP context
  *  @param[in]    invert_phase  flag indicating 180° phase shift
  *  @param[in]    reg_offset    region offset for trimming envelope data
  *  @param[out]   out           receives sythesized data
@@ -125,7 +124,6 @@ void ff_atrac3p_init_wave_synth(void)
 static void waves_synth(Atrac3pWaveSynthParams *synth_param,
                         Atrac3pWavesData *waves_info,
                         Atrac3pWaveEnvelope *envelope,
-                        AVFloatDSPContext *fdsp,
                         int invert_phase, int reg_offset, float *out)
 {
     int i, wn, inc, pos;
@@ -151,7 +149,7 @@ static void waves_synth(Atrac3pWaveSynthParams *synth_param,
 
     /* invert phase if requested */
     if (invert_phase)
-        fdsp->vector_fmul_scalar(out, out, -1.0f, 128);
+        vector_fmul_scalar(out, out, -1.0f, 128);
 
     /* fade in with steep Hann window if requested */
     if (envelope->has_start_point) {
@@ -181,8 +179,7 @@ static void waves_synth(Atrac3pWaveSynthParams *synth_param,
     }
 }
 
-void ff_atrac3p_generate_tones(Atrac3pChanUnitCtx *ch_unit, AVFloatDSPContext *fdsp,
-                               int ch_num, int sb, float *out)
+void ff_atrac3p_generate_tones(Atrac3pChanUnitCtx *ch_unit, int ch_num, int sb, float *out)
 {
     DECLARE_ALIGNED(32, float, wavreg1)[128] = { 0 };
     DECLARE_ALIGNED(32, float, wavreg2)[128] = { 0 };
@@ -223,24 +220,24 @@ void ff_atrac3p_generate_tones(Atrac3pChanUnitCtx *ch_unit, AVFloatDSPContext *f
     /* synthesize waves for both overlapping regions */
     if (tones_now->num_wavs && reg1_env_nonzero)
         waves_synth(ch_unit->waves_info_prev, tones_now, &tones_now->curr_env,
-                    fdsp, ch_unit->waves_info_prev->invert_phase[sb] & ch_num,
+                    ch_unit->waves_info_prev->invert_phase[sb] & ch_num,
                     128, wavreg1);
 
     if (tones_next->num_wavs && reg2_env_nonzero)
-        waves_synth(ch_unit->waves_info, tones_next, &tones_next->curr_env, fdsp,
+        waves_synth(ch_unit->waves_info, tones_next, &tones_next->curr_env,
                     ch_unit->waves_info->invert_phase[sb] & ch_num, 0, wavreg2);
 
     /* Hann windowing for non-faded wave signals */
     if (tones_now->num_wavs && tones_next->num_wavs &&
         reg1_env_nonzero && reg2_env_nonzero) {
-        fdsp->vector_fmul(wavreg1, wavreg1, &hann_window[128], 128);
-        fdsp->vector_fmul(wavreg2, wavreg2,  hann_window,      128);
+        vector_fmul(wavreg1, wavreg1, &hann_window[128], 128);
+        vector_fmul(wavreg2, wavreg2,  hann_window,      128);
     } else {
         if (tones_now->num_wavs && !tones_now->curr_env.has_stop_point)
-            fdsp->vector_fmul(wavreg1, wavreg1, &hann_window[128], 128);
+            vector_fmul(wavreg1, wavreg1, &hann_window[128], 128);
 
         if (tones_next->num_wavs && !tones_next->curr_env.has_start_point)
-            fdsp->vector_fmul(wavreg2, wavreg2, hann_window, 128);
+            vector_fmul(wavreg2, wavreg2, hann_window, 128);
     }
 
     /* Overlap and add to residual */
@@ -461,7 +458,7 @@ void ff_atrac3p_power_compensation(Atrac3pChanUnitCtx *ctx, int ch_index,
     }
 }
 
-void ff_atrac3p_imdct(AVFloatDSPContext *fdsp, FFTContext *mdct_ctx, float *pIn,
+void ff_atrac3p_imdct(FFTContext *mdct_ctx, float *pIn,
                       float *pOut, int wind_id, int sb)
 {
     int i;
@@ -480,16 +477,15 @@ void ff_atrac3p_imdct(AVFloatDSPContext *fdsp, FFTContext *mdct_ctx, float *pIn,
      *   Both regions are 32 samples long. */
     if (wind_id & 2) { /* 1st half: steep window */
         memset(pOut, 0, sizeof(float) * 32);
-        fdsp->vector_fmul(&pOut[32], &pOut[32], ff_sine_64, 64);
+        vector_fmul(&pOut[32], &pOut[32], ff_sine_64, 64);
     } else /* 1st half: simple sine window */
-        fdsp->vector_fmul(pOut, pOut, ff_sine_128, ATRAC3P_MDCT_SIZE / 2);
+        vector_fmul(pOut, pOut, ff_sine_128, ATRAC3P_MDCT_SIZE / 2);
 
     if (wind_id & 1) { /* 2nd half: steep window */
-        fdsp->vector_fmul_reverse(&pOut[160], &pOut[160], ff_sine_64, 64);
+        vector_fmul_reverse(&pOut[160], &pOut[160], ff_sine_64, 64);
         memset(&pOut[224], 0, sizeof(float) * 32);
     } else /* 2nd half: simple sine window */
-        fdsp->vector_fmul_reverse(&pOut[128], &pOut[128], ff_sine_128,
-                                  ATRAC3P_MDCT_SIZE / 2);
+        vector_fmul_reverse(&pOut[128], &pOut[128], ff_sine_128, ATRAC3P_MDCT_SIZE / 2);
 }
 
 /* lookup table for fast modulo 23 op required for cyclic buffers of the IPQF */

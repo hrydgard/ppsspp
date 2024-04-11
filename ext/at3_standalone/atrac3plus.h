@@ -192,8 +192,7 @@ void ff_atrac3p_init_wave_synth(void);
  * @param[in]   sb        which subband to process
  * @param[out]  out       receives processed data
  */
-void ff_atrac3p_generate_tones(Atrac3pChanUnitCtx *ch_unit, AVFloatDSPContext *fdsp,
-                               int ch_num, int sb, float *out);
+void ff_atrac3p_generate_tones(Atrac3pChanUnitCtx *ch_unit, int ch_num, int sb, float *out);
 
 /**
  * Perform power compensation aka noise dithering.
@@ -218,7 +217,7 @@ void ff_atrac3p_power_compensation(Atrac3pChanUnitCtx *ctx, int ch_index,
  * @param[in]   wind_id    which MDCT window to apply
  * @param[in]   sb         subband number
  */
-void ff_atrac3p_imdct(AVFloatDSPContext *fdsp, FFTContext *mdct_ctx, float *pIn,
+void ff_atrac3p_imdct(FFTContext *mdct_ctx, float *pIn,
                       float *pOut, int wind_id, int sb);
 
 /**
