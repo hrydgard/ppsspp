@@ -16,13 +16,13 @@ inline int16_t clamp16(float f) {
 class Atrac3Audio : public AudioDecoder {
 public:
 	Atrac3Audio(PSPAudioType audioType, int channels, size_t blockAlign, const uint8_t *extraData, size_t extraDataSize) : audioType_(audioType) {
-		blockAlign_ = blockAlign;
+		blockAlign_ = (int)blockAlign;
 		if (audioType == PSP_CODEC_AT3PLUS) {
 			at3pCtx_ = atrac3p_alloc(channels, &blockAlign_);
 			if (at3pCtx_)
 				codecOpen_ = true;
 		} else if (audioType_ == PSP_CODEC_AT3) {
-			at3Ctx_ = atrac3_alloc(channels, &blockAlign_, extraData, extraDataSize);
+			at3Ctx_ = atrac3_alloc(channels, &blockAlign_, extraData, (int)extraDataSize);
 			if (at3Ctx_)
 				codecOpen_ = true;
 		}
@@ -46,7 +46,16 @@ public:
 		return codecOpen_;
 	}
 
-	bool Decode(const uint8_t *inbuf, int inbytes, uint8_t *outbuf, int *outbytes) override {
+	void FlushBuffers() {
+		if (at3Ctx_) {
+			atrac3_flush_buffers(at3Ctx_);
+		}
+		if (at3pCtx_) {
+			atrac3p_flush_buffers(at3pCtx_);
+		}
+	}
+
+	bool Decode(const uint8_t *inbuf, int inbytes, int *inbytesConsumed, uint8_t *outbuf, int *outbytes) override {
 		if (!codecOpen_) {
 			_dbg_assert_(false);
 		}
@@ -61,19 +70,18 @@ public:
 		if (audioType_ == PSP_CODEC_AT3PLUS) {
 			result = atrac3p_decode_frame(at3pCtx_, buffers_, &nb_samples, &got_frame, inbuf, inbytes);
 		} else {
-			
 			result = atrac3_decode_frame(at3Ctx_, buffers_, &nb_samples, &got_frame, inbuf, inbytes);
 		}
 		if (result < 0) {
 			*outbytes = 0;
 			return false;
 		}
-		srcPos_ = result;
+		*inbytesConsumed = result;
 		outSamples_ = nb_samples;
 		if (nb_samples > 0) {
 			*outbytes = nb_samples * 2 * 2;
 
-			// Convert frame to outbuf.
+			// Convert frame to outbuf. TODO: Very SIMDable, though hardly hot.
 			for (int channel = 0; channel < 2; channel++) {
 				int16_t *output = (int16_t *)outbuf;
 				for (int i = 0; i < nb_samples; i++) {
@@ -89,9 +97,6 @@ public:
 
 	int GetOutSamples() const override {
 		return outSamples_;
-	}
-	int GetSourcePos() const override {
-		return srcPos_;
 	}
 
 	void SetChannels(int channels) override {

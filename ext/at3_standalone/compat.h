@@ -2,7 +2,7 @@
 
 #include <stdlib.h>
 
-// Compat hacks
+// Compat hacks to make an FFMPEG-like environment, so we can keep the core code mostly unchanged.
 
 #if defined(__GNUC__)
 #define DECLARE_ALIGNED(n,t,v)      t __attribute__ ((aligned (n))) v

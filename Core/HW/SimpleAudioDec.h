@@ -39,14 +39,16 @@ public:
 
 	virtual PSPAudioType GetAudioType() const = 0;
 
-	virtual bool Decode(const uint8_t* inbuf, int inbytes, uint8_t *outbuf, int *outbytes) = 0;
+	// inbytesConsumed can include skipping metadata.
+	virtual bool Decode(const uint8_t *inbuf, int inbytes, int *inbytesConsumed, uint8_t *outbuf, int *outbytes) = 0;
 	virtual bool IsOK() const = 0;
 
 	// These two are only ever called after Decode, so can initialize on first.
 	virtual int GetOutSamples() const = 0;
-	virtual int GetSourcePos() const = 0;
 
 	virtual void SetChannels(int channels) = 0;
+
+	virtual void FlushBuffers() {}
 
 	// Just metadata.
 	void SetCtxPtr(uint32_t ptr) { ctxPtr = ptr; }

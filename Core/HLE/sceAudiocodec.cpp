@@ -118,7 +118,8 @@ static int sceAudiocodecDecode(u32 ctxPtr, int codec) {
 			// Use SimpleAudioDec to decode audio
 			auto ctx = PSPPointer<AudioCodecContext>::Create(ctxPtr);  // On stack, no need to allocate.
 			// Decode audio
-			decoder->Decode(Memory::GetPointer(ctx->inDataPtr), ctx->inDataSize, Memory::GetPointerWrite(ctx->outDataPtr), &outbytes);
+			int inDataConsumed = 0;
+			decoder->Decode(Memory::GetPointer(ctx->inDataPtr), ctx->inDataSize, &inDataConsumed, Memory::GetPointerWrite(ctx->outDataPtr), &outbytes);
 		}
 		DEBUG_LOG(ME, "sceAudiocodecDec(%08x, %i (%s))", ctxPtr, codec, GetCodecName(codec));
 		return 0;

@@ -179,20 +179,9 @@ struct AVPacket {
 #endif
 
 struct Atrac {
-	Atrac() : atracID_(-1), dataBuf_(0), decodePos_(0), bufferPos_(0),
-		channels_(0), outputChannels_(2), bitrate_(64), bytesPerFrame_(0), bufferMaxSize_(0), jointStereo_(0),
-		currentSample_(0), endSample_(0), firstSampleOffset_(0), dataOff_(0),
-		loopStartSample_(-1), loopEndSample_(-1), loopNum_(0),
-		failedDecode_(false), ignoreDataBuf_(false), codecType_(0),
-		bufferState_(ATRAC_STATUS_NO_DATA) {
+	Atrac() {
 		memset(&first_, 0, sizeof(first_));
 		memset(&second_, 0, sizeof(second_));
-#ifdef USE_FFMPEG
-		codecCtx_ = nullptr;
-		swrCtx_ = nullptr;
-		frame_ = nullptr;
-		packet_ = nullptr;
-#endif // USE_FFMPEG
 		context_ = 0;
 	}
 
@@ -401,40 +390,40 @@ struct Atrac {
 		return remainingBytes / bytesPerFrame_;
 	}
 
-	int atracID_;
-	u8 *dataBuf_;
+	int atracID_ = -1;
+	u8 *dataBuf_ = nullptr;
 
-	u32 decodePos_;
+	u32 decodePos_ = 0;
 	// Used by low-level decoding and to track streaming.
-	u32 bufferPos_;
-	u32 bufferValidBytes_;
+	u32 bufferPos_ = 0;
+	u32 bufferValidBytes_ = 0;
 	u32 bufferHeaderSize_ = 0;
 
-	u16 channels_;
-	u16 outputChannels_;
-	u32 bitrate_;
-	u16 bytesPerFrame_;
-	u32 bufferMaxSize_;
-	int jointStereo_;
+	u16 channels_ = 0;
+	u16 outputChannels_ = 2;
+	u32 bitrate_ = 64;
+	u16 bytesPerFrame_ = 0;
+	u32 bufferMaxSize_ = 0;
+	int jointStereo_ = 0;
 
-	int currentSample_;
-	int endSample_;
-	int firstSampleOffset_;
+	int currentSample_ = 0;
+	int endSample_ = 0;
+	int firstSampleOffset_ = 0;
 	// Offset of the first sample in the input buffer
-	int dataOff_;
+	int dataOff_ = 0;
 
 	std::vector<AtracLoopInfo> loopinfo_;
 
-	int loopStartSample_;
-	int loopEndSample_;
-	int loopNum_;
+	int loopStartSample_ = -1;
+	int loopEndSample_ = -1;
+	int loopNum_ = 0;
 
-	bool failedDecode_;
+	bool failedDecode_ = false;
 	// Indicates that the dataBuf_ array should not be used.
-	bool ignoreDataBuf_;
+	bool ignoreDataBuf_ = false;
 
-	u32 codecType_;
-	AtracStatus bufferState_;
+	u32 codecType_ = 0;
+	AtracStatus bufferState_ = ATRAC_STATUS_NO_DATA;
 
 	InputBuffer first_;
 	InputBuffer second_;
