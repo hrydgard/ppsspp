@@ -112,6 +112,22 @@ NAETT_FILES := \
 MINIMP3_FILES := \
     ${SRC}/ext/minimp3/minimp3.cpp
 
+AT3_STANDALONE_FILES := \
+	${SRC}/ext/at3_standalone/atrac.cpp \
+	${SRC}/ext/at3_standalone/atrac3.cpp \
+	${SRC}/ext/at3_standalone/atrac3plus.cpp \
+	${SRC}/ext/at3_standalone/atrac3plusdec.cpp \
+	${SRC}/ext/at3_standalone/atrac3plusdsp.cpp \
+	${SRC}/ext/at3_standalone/avcodec.cpp \
+	${SRC}/ext/at3_standalone/get_bits.cpp \
+	${SRC}/ext/at3_standalone/channel_layout.cpp \
+	${SRC}/ext/at3_standalone/compat.cpp \
+	${SRC}/ext/at3_standalone/fft.cpp \
+	${SRC}/ext/at3_standalone/float_dsp.cpp \
+	${SRC}/ext/at3_standalone/mathematics.cpp \
+	${SRC}/ext/at3_standalone/mem.cpp \
+	${SRC}/ext/at3_standalone/sinewin.cpp
+
 RCHEEVOS_FILES := \
   ${SRC}/ext/rcheevos/src/rapi/rc_api_common.c \
   ${SRC}/ext/rcheevos/src/rapi/rc_api_editor.c \
@@ -221,6 +237,7 @@ EXEC_AND_LIB_FILES := \
   $(RCHEEVOS_FILES) \
   $(NAETT_FILES) \
   $(MINIMP3_FILES) \
+  $(AT3_STANDALONE_FILES) \
   $(EXT_FILES) \
   $(NATIVE_FILES) \
   $(SRC)/Common/Buffer.cpp \
