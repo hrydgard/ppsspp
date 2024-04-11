@@ -635,17 +635,16 @@ static int decode_channel_sound_unit(ATRAC3Context *q, GetBitContext *gb,
     return 0;
 }
 
-static int decode_frame(AVCodecContext *avctx, const uint8_t *databuf,
+static int decode_frame(ATRAC3Context *q, int block_align, int channels, const uint8_t *databuf,
                         float **out_samples)
 {
-    ATRAC3Context *q = (ATRAC3Context *)avctx->priv_data;
     int ret, i;
     uint8_t *ptr1;
 
     if (q->coding_mode == JOINT_STEREO) {
         /* channel coupling mode */
         /* decode Sound Unit 1 */
-        init_get_bits(&q->gb, databuf, avctx->block_align * 8);
+        init_get_bits(&q->gb, databuf, block_align * 8);
 
         ret = decode_channel_sound_unit(q, &q->gb, q->units, out_samples[0], 0,
                                         JOINT_STEREO);
@@ -655,26 +654,26 @@ static int decode_frame(AVCodecContext *avctx, const uint8_t *databuf,
         /* Framedata of the su2 in the joint-stereo mode is encoded in
          * reverse byte order so we need to swap it first. */
         if (databuf == q->decoded_bytes_buffer) {
-            uint8_t *ptr2 = q->decoded_bytes_buffer + avctx->block_align - 1;
+            uint8_t *ptr2 = q->decoded_bytes_buffer + block_align - 1;
             ptr1          = q->decoded_bytes_buffer;
-            for (i = 0; i < avctx->block_align / 2; i++, ptr1++, ptr2--)
+            for (i = 0; i < block_align / 2; i++, ptr1++, ptr2--)
                 FFSWAP(uint8_t, *ptr1, *ptr2);
         } else {
-            const uint8_t *ptr2 = databuf + avctx->block_align - 1;
-            for (i = 0; i < avctx->block_align; i++)
+            const uint8_t *ptr2 = databuf + block_align - 1;
+            for (i = 0; i < block_align; i++)
                 q->decoded_bytes_buffer[i] = *ptr2--;
         }
 
         /* Skip the sync codes (0xF8). */
         ptr1 = q->decoded_bytes_buffer;
         for (i = 4; *ptr1 == 0xF8; i++, ptr1++) {
-            if (i >= avctx->block_align)
+            if (i >= block_align)
                 return AVERROR_INVALIDDATA;
         }
 
 
         /* set the bitstream reader at the start of the second Sound Unit*/
-        init_get_bits8(&q->gb, ptr1, q->decoded_bytes_buffer + avctx->block_align - ptr1);
+        init_get_bits8(&q->gb, ptr1, q->decoded_bytes_buffer + block_align - ptr1);
 
         /* Fill the Weighting coeffs delay buffer */
         memmove(q->weighting_delay, &q->weighting_delay[2],
@@ -703,11 +702,11 @@ static int decode_frame(AVCodecContext *avctx, const uint8_t *databuf,
     } else {
         /* normal stereo mode or mono */
         /* Decode the channel sound units. */
-        for (i = 0; i < avctx->channels; i++) {
+        for (i = 0; i < channels; i++) {
             /* Set the bitstream reader at the start of a channel sound unit. */
             init_get_bits(&q->gb,
-                          databuf + i * avctx->block_align / avctx->channels,
-                          avctx->block_align * 8 / avctx->channels);
+                          databuf + i * block_align / channels,
+                          block_align * 8 / channels);
 
             ret = decode_channel_sound_unit(q, &q->gb, &q->units[i],
                                             out_samples[i], i, q->coding_mode);
@@ -717,7 +716,7 @@ static int decode_frame(AVCodecContext *avctx, const uint8_t *databuf,
     }
 
     /* Apply the iQMF synthesis filter. */
-    for (i = 0; i < avctx->channels; i++) {
+    for (i = 0; i < channels; i++) {
         float *p1 = out_samples[i];
         float *p2 = p1 + 256;
         float *p3 = p2 + 256;
@@ -736,7 +735,10 @@ int atrac3_decode_frame(AVCodecContext *avctx, float *out_data[2], int *nb_sampl
     int ret;
     const uint8_t *databuf;
 
-    if (buf_size < avctx->block_align) {
+	const int block_align = avctx->block_align;
+	const int channels = avctx->channels;
+
+    if (buf_size < block_align) {
         av_log(AV_LOG_ERROR,
                "Frame too small (%d bytes). Truncated file?\n", buf_size);
         return AVERROR_INVALIDDATA;
@@ -747,13 +749,13 @@ int atrac3_decode_frame(AVCodecContext *avctx, float *out_data[2], int *nb_sampl
 
     /* Check if we need to descramble and what buffer to pass on. */
     if (q->scrambled_stream) {
-        decode_bytes(buf, q->decoded_bytes_buffer, avctx->block_align);
+        decode_bytes(buf, q->decoded_bytes_buffer, block_align);
         databuf = q->decoded_bytes_buffer;
     } else {
         databuf = buf;
     }
 
-    ret = decode_frame(avctx, databuf, out_data);
+    ret = decode_frame(q, block_align, channels, databuf, out_data);
     if (ret) {
         av_log( AV_LOG_ERROR, "Frame decoding error!\n");
         return ret;
@@ -761,7 +763,7 @@ int atrac3_decode_frame(AVCodecContext *avctx, float *out_data[2], int *nb_sampl
 
     *got_frame_ptr = 1;
 
-    return avctx->block_align;
+    return block_align;
 }
 
 static void atrac3_init_static_data(void)

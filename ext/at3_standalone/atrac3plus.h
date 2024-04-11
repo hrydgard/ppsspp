@@ -32,7 +32,6 @@
 
 #include "float_dsp.h"
 #include "atrac.h"
-#include "avcodec.h"
 #include "fft.h"
 #include "get_bits.h"
 
@@ -164,11 +163,10 @@ void ff_atrac3p_init_vlcs(void);
  * @param[in]     gb            the GetBit context
  * @param[in,out] ctx           ptr to the channel unit context
  * @param[in]     num_channels  number of channels to process
- * @param[in]     avctx         ptr to the AVCodecContext
  * @return result code: 0 = OK, otherwise - error code
  */
 int ff_atrac3p_decode_channel_unit(GetBitContext *gb, Atrac3pChanUnitCtx *ctx,
-                                   int num_channels, AVCodecContext *avctx);
+                                   int num_channels);
 
 /**
  * Initialize IMDCT transform.

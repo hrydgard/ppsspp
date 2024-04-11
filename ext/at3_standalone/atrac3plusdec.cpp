@@ -74,9 +74,9 @@ int atrac3p_decode_close(AVCodecContext *avctx)
     return 0;
 }
 
-static int set_channel_params(ATRAC3PContext *ctx, AVCodecContext *avctx) {
+static int set_channel_params(ATRAC3PContext *ctx, int channels) {
     memset(ctx->channel_blocks, 0, sizeof(ctx->channel_blocks));
-    switch (avctx->channels) {
+    switch (channels) {
     case 1:
         ctx->num_channel_blocks = 1;
         ctx->channel_blocks[0]  = CH_UNIT_MONO;
@@ -121,7 +121,7 @@ static int set_channel_params(ATRAC3PContext *ctx, AVCodecContext *avctx) {
         break;
     default:
         av_log(AV_LOG_ERROR,
-               "Unsupported channel count: %d!\n", avctx->channels);
+               "Unsupported channel count: %d!\n", channels);
         return AVERROR_INVALIDDATA;
     }
 
@@ -149,7 +149,7 @@ int atrac3p_decode_init(AVCodecContext *avctx)
 
     ff_atrac3p_init_wave_synth();
 
-    if ((ret = set_channel_params(ctx, avctx)) < 0)
+    if ((ret = set_channel_params(ctx, avctx->channels)) < 0)
         return ret;
 
     ctx->ch_units = (Atrac3pChanUnitCtx *)av_mallocz_array(ctx->num_channel_blocks, sizeof(*ctx->ch_units));
@@ -179,8 +179,7 @@ int atrac3p_decode_init(AVCodecContext *avctx)
 
 static void decode_residual_spectrum(Atrac3pChanUnitCtx *ctx,
                                      float out[2][ATRAC3P_FRAME_SAMPLES],
-                                     int num_channels,
-                                     AVCodecContext *avctx)
+                                     int num_channels)
 {
     int i, sb, ch, qu, nspeclines, RNG_index;
     float *dst, q;
@@ -242,7 +241,7 @@ static void decode_residual_spectrum(Atrac3pChanUnitCtx *ctx,
 }
 
 static void reconstruct_frame(ATRAC3PContext *ctx, Atrac3pChanUnitCtx *ch_unit,
-                              int num_channels, AVCodecContext *avctx)
+                              int num_channels)
 {
     int ch, sb;
 
@@ -324,7 +323,7 @@ int atrac3p_decode_frame(AVCodecContext *avctx, float *out_data[2], int *nb_samp
     while (get_bits_left(&ctx->gb) >= 2 &&
            (ch_unit_id = get_bits(&ctx->gb, 2)) != CH_UNIT_TERMINATOR) {
         if (ch_unit_id == CH_UNIT_EXTENSION) {
-            avpriv_report_missing_feature(avctx, "Channel unit extension");
+            avpriv_report_missing_feature("Channel unit extension");
             return AVERROR_PATCHWELCOME;
         }
         if (ch_block >= ctx->num_channel_blocks ||
@@ -339,14 +338,13 @@ int atrac3p_decode_frame(AVCodecContext *avctx, float *out_data[2], int *nb_samp
 
         if ((ret = ff_atrac3p_decode_channel_unit(&ctx->gb,
                                                   &ctx->ch_units[ch_block],
-                                                  channels_to_process,
-                                                  avctx)) < 0)
+                                                  channels_to_process)) < 0)
             return ret;
 
         decode_residual_spectrum(&ctx->ch_units[ch_block], ctx->samples,
-                                 channels_to_process, avctx);
+                                 channels_to_process);
         reconstruct_frame(ctx, &ctx->ch_units[ch_block],
-                          channels_to_process, avctx);
+                          channels_to_process);
 
         for (i = 0; i < channels_to_process; i++)
             memcpy(samples_p[out_ch_index + i], ctx->outp_buf[i],
