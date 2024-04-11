@@ -77,7 +77,7 @@ void IRFrontend::Comp_IType(MIPSOpcode op) {
 		break;
 
 	case 15: // R(rt) = uimm << 16;	 //lui
-		ir.WriteSetConstant(rt, uimm << 16);
+		ir.WriteS<IROp::SetConst>(rt, uimm << 16);
 		break;
 
 	default:

@@ -207,10 +207,10 @@ void IRFrontend::Comp_mxc1(MIPSOpcode op) {
 			// This needs to insert fpcond.
 			ir.Write(IROp::FpCtrlToReg, rt);
 		} else if (fs == 0) {
-			ir.Write(IROp::SetConst, rt, ir.AddConstant(MIPSState::FCR0_VALUE));
+			ir.WriteS<IROp::SetConst>(rt, MIPSState::FCR0_VALUE);
 		} else {
 			// Unsupported regs are always 0.
-			ir.Write(IROp::SetConst, rt, ir.AddConstant(0));
+			ir.WriteS<IROp::SetConst>(rt, 0);
 		}
 		return;
 

@@ -308,7 +308,7 @@ bool RemoveLoadStoreLeftRight(const IRWriter &in, IRWriter &out, const IROptions
 				addCommonProlog();
 				// dest &= (0x00ffffff >> shift)
 				// Alternatively, could shift to a wall and back (but would require two shifts each way.)
-				out.WriteSetConstant(IRTEMP_LR_MASK, 0x00ffffff);
+				out.WriteS<IROp::SetConst>(IRTEMP_LR_MASK, 0x00ffffff);
 				out.Write(IROp::Shr, IRTEMP_LR_MASK, IRTEMP_LR_MASK, IRTEMP_LR_SHIFT);
 				out.Write(IROp::And, inst.dest, inst.dest, IRTEMP_LR_MASK);
 				// IRTEMP_LR_SHIFT = 24 - shift
@@ -347,7 +347,7 @@ bool RemoveLoadStoreLeftRight(const IRWriter &in, IRWriter &out, const IROptions
 				out.Write(IROp::AddConst, IRTEMP_LR_SHIFT, IRTEMP_LR_SHIFT, out.AddConstant(24));
 				// dest &= (0xffffff00 << (24 - shift))
 				// Alternatively, could shift to a wall and back (but would require two shifts each way.)
-				out.WriteSetConstant(IRTEMP_LR_MASK, 0xffffff00);
+				out.WriteS<IROp::SetConst>(IRTEMP_LR_MASK, 0xffffff00);
 				out.Write(IROp::Shl, IRTEMP_LR_MASK, IRTEMP_LR_MASK, IRTEMP_LR_SHIFT);
 				out.Write(IROp::And, inst.dest, inst.dest, IRTEMP_LR_MASK);
 				// dest |= IRTEMP_LR_VALUE
@@ -384,7 +384,7 @@ bool RemoveLoadStoreLeftRight(const IRWriter &in, IRWriter &out, const IROptions
 			if (!combineOpposite(IROp::Store32Right, -3, IROp::Store32, -3)) {
 				addCommonProlog();
 				// IRTEMP_LR_VALUE &= 0xffffff00 << shift
-				out.WriteSetConstant(IRTEMP_LR_MASK, 0xffffff00);
+				out.WriteS<IROp::SetConst>(IRTEMP_LR_MASK, 0xffffff00);
 				out.Write(IROp::Shl, IRTEMP_LR_MASK, IRTEMP_LR_MASK, IRTEMP_LR_SHIFT);
 				out.Write(IROp::And, IRTEMP_LR_VALUE, IRTEMP_LR_VALUE, IRTEMP_LR_MASK);
 				// IRTEMP_LR_SHIFT = 24 - shift
@@ -401,7 +401,7 @@ bool RemoveLoadStoreLeftRight(const IRWriter &in, IRWriter &out, const IROptions
 			if (!combineOpposite(IROp::Store32Left, 3, IROp::Store32, 0)) {
 				addCommonProlog();
 				// IRTEMP_LR_VALUE &= 0x00ffffff << (24 - shift)
-				out.WriteSetConstant(IRTEMP_LR_MASK, 0x00ffffff);
+				out.WriteS<IROp::SetConst>(IRTEMP_LR_MASK, 0x00ffffff);
 				out.Write(IROp::Neg, IRTEMP_LR_SHIFT, IRTEMP_LR_SHIFT);
 				out.Write(IROp::AddConst, IRTEMP_LR_SHIFT, IRTEMP_LR_SHIFT, out.AddConstant(24));
 				out.Write(IROp::Shr, IRTEMP_LR_MASK, IRTEMP_LR_MASK, IRTEMP_LR_SHIFT);
@@ -606,7 +606,7 @@ bool PropagateConstants(const IRWriter &in, IRWriter &out, const IROptions &opts
 
 		case IROp::FMovFromGPR:
 			if (gpr.IsImm(inst.src1)) {
-				out.Write(IROp::SetConstF, inst.dest, out.AddConstant(gpr.GetImm(inst.src1)));
+				out.WriteS<IROp::SetConstF>(inst.dest, gpr.GetImm(inst.src1));
 			} else {
 				gpr.MapIn(inst.src1);
 				goto doDefault;
@@ -2009,7 +2009,7 @@ bool ReduceVec4Flush(const IRWriter &in, IRWriter &out, const IROptions &opts) {
 				} else if (inst.constant == 0xBF800000) {
 					out.Write(IROp::Vec4Init, temp, (int)Vec4Init::AllMinusONE);
 				} else {
-					out.Write(IROp::SetConstF, temp, out.AddConstant(inst.constant));
+					out.WriteS<IROp::SetConstF>(temp, inst.constant);
 					out.Write(IROp::Vec4Shuffle, temp, temp, 0);
 				}
 				out.Write(IROp::Vec4Blend, inst.dest & ~3, inst.dest & ~3, temp, blendMask);

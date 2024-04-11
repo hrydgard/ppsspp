@@ -35,7 +35,7 @@ void IRImmRegCache::Flush(IRReg rd) {
 			return;
 		}
 		_assert_((rd > 0 && rd < 32) || (rd >= IRTEMP_0 && rd < IRREG_VFPU_CTRL_BASE));
-		ir_->WriteSetConstant(rd, immVal_[rd]);
+		ir_->WriteS<IROp::SetConst>(rd, immVal_[rd]);
 		isImm_[rd] = false;
 	}
 }

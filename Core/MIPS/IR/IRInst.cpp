@@ -199,8 +199,12 @@ void IRWriter::Write(IROp op, u8 dst, u8 src1, u8 src2) {
 	nextConst_ = 0;
 }
 
-void IRWriter::WriteSetConstant(u8 dst, u32 value) {
-	Write(IROp::SetConst, dst, AddConstant(value));
+template <IROp type>
+void IRWriter::WriteS(u8 dst, u32 value) {
+	if constexpr (type == IROp::SetConst)
+		Write(type, dst, AddConstant(value));
+	else if constexpr (type == IROp::SetConstF)
+		Write(type, dst, AddConstantFloat(value));
 }
 
 int IRWriter::AddConstant(u32 value) {

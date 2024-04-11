@@ -380,7 +380,8 @@ public:
 	void Write(IRInst inst) {
 		insts_.push_back(inst);
 	}
-	void WriteSetConstant(u8 dst, u32 value);
+	template <IROp type>
+	void WriteS(u8 dst, u32 value);
 
 	int AddConstant(u32 value);
 	int AddConstantFloat(float value);

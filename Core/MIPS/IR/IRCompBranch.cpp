@@ -108,9 +108,9 @@ void IRFrontend::BranchRSRTComp(MIPSOpcode op, IRComparison cc, bool likely) {
 		// We still link when the branch is taken (targetAddr case.)
 		// Remember, it's from the perspective of the delay slot, so +12.
 		if ((branchInfo.delaySlotInfo & OUT_RA) != 0)
-			ir.WriteSetConstant(MIPS_REG_RA, GetCompilerPC() + 12);
+			ir.WriteS<IROp::SetConst>(MIPS_REG_RA, GetCompilerPC() + 12);
 		if ((branchInfo.delaySlotInfo & OUT_RD) != 0)
-			ir.WriteSetConstant(MIPS_GET_RD(branchInfo.delaySlotOp), GetCompilerPC() + 12);
+			ir.WriteS<IROp::SetConst>(MIPS_GET_RD(branchInfo.delaySlotOp), GetCompilerPC() + 12);
 	}
 
 	FlushAll();
@@ -141,7 +141,7 @@ void IRFrontend::BranchRSZeroComp(MIPSOpcode op, IRComparison cc, bool andLink, 
 		lhs = (MIPSGPReg)IRTEMP_LHS;
 	}
 	if (andLink)
-		ir.WriteSetConstant(MIPS_REG_RA, GetCompilerPC() + 8);
+		ir.WriteS<IROp::SetConst>(MIPS_REG_RA, GetCompilerPC() + 8);
 
 	if (!likely && !branchInfo.delaySlotIsBranch)
 		CompileDelaySlot();
@@ -158,9 +158,9 @@ void IRFrontend::BranchRSZeroComp(MIPSOpcode op, IRComparison cc, bool andLink, 
 		// We still link when the branch is taken (targetAddr case.)
 		// Remember, it's from the perspective of the delay slot, so +12.
 		if ((branchInfo.delaySlotInfo & OUT_RA) != 0)
-			ir.WriteSetConstant(MIPS_REG_RA, GetCompilerPC() + 12);
+			ir.WriteS<IROp::SetConst>(MIPS_REG_RA, GetCompilerPC() + 12);
 		if ((branchInfo.delaySlotInfo & OUT_RD) != 0)
-			ir.WriteSetConstant(MIPS_GET_RD(branchInfo.delaySlotOp), GetCompilerPC() + 12);
+			ir.WriteS<IROp::SetConst>(MIPS_GET_RD(branchInfo.delaySlotOp), GetCompilerPC() + 12);
 	}
 
 	// Taken
@@ -238,9 +238,9 @@ void IRFrontend::BranchFPFlag(MIPSOpcode op, IRComparison cc, bool likely) {
 		// We still link when the branch is taken (targetAddr case.)
 		// Remember, it's from the perspective of the delay slot, so +12.
 		if ((branchInfo.delaySlotInfo & OUT_RA) != 0)
-			ir.WriteSetConstant(MIPS_REG_RA, GetCompilerPC() + 12);
+			ir.WriteS<IROp::SetConst>(MIPS_REG_RA, GetCompilerPC() + 12);
 		if ((branchInfo.delaySlotInfo & OUT_RD) != 0)
-			ir.WriteSetConstant(MIPS_GET_RD(branchInfo.delaySlotOp), GetCompilerPC() + 12);
+			ir.WriteS<IROp::SetConst>(MIPS_GET_RD(branchInfo.delaySlotOp), GetCompilerPC() + 12);
 	}
 
 	FlushAll();
@@ -299,9 +299,9 @@ void IRFrontend::BranchVFPUFlag(MIPSOpcode op, IRComparison cc, bool likely) {
 		// We still link when the branch is taken (targetAddr case.)
 		// Remember, it's from the perspective of the delay slot, so +12.
 		if ((branchInfo.delaySlotInfo & OUT_RA) != 0)
-			ir.WriteSetConstant(MIPS_REG_RA, GetCompilerPC() + 12);
+			ir.WriteS<IROp::SetConst>(MIPS_REG_RA, GetCompilerPC() + 12);
 		if ((branchInfo.delaySlotInfo & OUT_RD) != 0)
-			ir.WriteSetConstant(MIPS_GET_RD(branchInfo.delaySlotOp), GetCompilerPC() + 12);
+			ir.WriteS<IROp::SetConst>(MIPS_GET_RD(branchInfo.delaySlotOp), GetCompilerPC() + 12);
 	}
 
 	// Taken
@@ -348,7 +348,7 @@ void IRFrontend::Comp_Jump(MIPSOpcode op) {
 		break;
 
 	case 3: //jal
-		ir.WriteSetConstant(MIPS_REG_RA, GetCompilerPC() + 8);
+		ir.WriteS<IROp::SetConst>(MIPS_REG_RA, GetCompilerPC() + 8);
 		CompileDelaySlot();
 		break;
 
@@ -388,7 +388,7 @@ void IRFrontend::Comp_JumpReg(MIPSOpcode op) {
 	if (IsSyscall(delaySlotOp)) {
 		ir.Write(IROp::SetPC, 0, rs);
 		if (andLink)
-			ir.WriteSetConstant(rd, GetCompilerPC() + 8);
+			ir.WriteS<IROp::SetConst>(rd, GetCompilerPC() + 8);
 		CompileDelaySlot();
 		// Syscall (the delay slot) does FlushAll.
 
@@ -397,7 +397,7 @@ void IRFrontend::Comp_JumpReg(MIPSOpcode op) {
 		return;  // Syscall (delay slot) wrote exit code.
 	} else if (delaySlotIsNice) {
 		if (andLink)
-			ir.WriteSetConstant(rd, GetCompilerPC() + 8);
+			ir.WriteS<IROp::SetConst>(rd, GetCompilerPC() + 8);
 		CompileDelaySlot();
 		destReg = rs;  // Safe because FlushAll doesn't change any regs
 		FlushAll();
@@ -406,7 +406,7 @@ void IRFrontend::Comp_JumpReg(MIPSOpcode op) {
 		ir.Write(IROp::Mov, IRTEMP_LHS, rs);
 		destReg = IRTEMP_LHS;
 		if (andLink)
-			ir.WriteSetConstant(rd, GetCompilerPC() + 8);
+			ir.WriteS<IROp::SetConst>(rd, GetCompilerPC() + 8);
 		CompileDelaySlot();
 		FlushAll();
 	}
