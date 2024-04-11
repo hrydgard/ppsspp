@@ -26,7 +26,7 @@
 #include <stdint.h>
 #include <string.h>
 
-#include "common.h"
+#include "compat.h"
 #include "intreadwrite.h"
 
 typedef struct GetByteContext {
@@ -34,16 +34,16 @@ typedef struct GetByteContext {
 } GetByteContext;
 
 #define DEF(type, name, bytes, read, write)                                  \
-static av_always_inline type bytestream_get_ ## name(const uint8_t **b)        \
+static inline type bytestream_get_ ## name(const uint8_t **b)        \
 {                                                                              \
     (*b) += bytes;                                                             \
     return read(*b - bytes);                                                   \
 }                                                                              \
-static av_always_inline type bytestream2_get_ ## name ## u(GetByteContext *g)  \
+static inline type bytestream2_get_ ## name ## u(GetByteContext *g)  \
 {                                                                              \
     return bytestream_get_ ## name(&g->buffer);                                \
 }                                                                              \
-static av_always_inline type bytestream2_get_ ## name(GetByteContext *g)       \
+static inline type bytestream2_get_ ## name(GetByteContext *g)       \
 {                                                                              \
     if (g->buffer_end - g->buffer < bytes) {                                   \
         g->buffer = g->buffer_end;                                             \
@@ -51,7 +51,7 @@ static av_always_inline type bytestream2_get_ ## name(GetByteContext *g)       \
     }                                                                          \
     return bytestream2_get_ ## name ## u(g);                                   \
 }                                                                              \
-static av_always_inline type bytestream2_peek_ ## name(GetByteContext *g)      \
+static inline type bytestream2_peek_ ## name(GetByteContext *g)      \
 {                                                                              \
     if (g->buffer_end - g->buffer < bytes)                                     \
         return 0;                                                              \

@@ -28,8 +28,7 @@
 
 #include <stdint.h>
 
-#include "common.h"
-#include "common.h"
+#include "compat.h"
 #include "intreadwrite.h"
 #include "mathematics.h"
  /*

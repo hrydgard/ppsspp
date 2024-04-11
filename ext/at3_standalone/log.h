@@ -22,7 +22,6 @@
 #define AVUTIL_LOG_H
 
 #include <stdarg.h>
-#include "avutil.h"
 #include "compat.h"
 
 typedef enum {

@@ -18,13 +18,7 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
-/**
- * @file
- * memory handling functions
- */
-
-#ifndef AVUTIL_MEM_H
-#define AVUTIL_MEM_H
+#pragma once
 
 #include <limits.h>
 #include <stdint.h>
@@ -32,25 +26,10 @@
 #include <stddef.h>
 
 #include "compat.h"
-#include "avutil.h"
 
-/**
- * @addtogroup lavu_mem
- * @{
- */
 #define FF_MEMORY_POISON 0x2a
 
-#if defined(__INTEL_COMPILER) && __INTEL_COMPILER < 1110 || defined(__SUNPRO_C)
-    #define DECLARE_ALIGNED(n,t,v)      t __attribute__ ((aligned (n))) v
-    #define DECLARE_ASM_CONST(n,t,v)    const t __attribute__ ((aligned (n))) v
-#elif defined(__TI_COMPILER_VERSION__)
-    #define DECLARE_ALIGNED(n,t,v)                      \
-        AV_PRAGMA(DATA_ALIGN(v,n))                      \
-        t __attribute__((aligned(n))) v
-    #define DECLARE_ASM_CONST(n,t,v)                    \
-        AV_PRAGMA(DATA_ALIGN(v,n))                      \
-        static const t __attribute__((aligned(n))) v
-#elif defined(__GNUC__)
+#if defined(__GNUC__)
     #define DECLARE_ALIGNED(n,t,v)      t __attribute__ ((aligned (n))) v
     #define DECLARE_ASM_CONST(n,t,v)    static const t av_used __attribute__ ((aligned (n))) v
 #elif defined(_MSC_VER)
@@ -235,5 +214,3 @@ void av_fast_mallocz(void *ptr, unsigned int *size, size_t min_size);
 /**
  * @}
  */
-
-#endif /* AVUTIL_MEM_H */

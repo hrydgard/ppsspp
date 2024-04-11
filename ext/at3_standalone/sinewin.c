@@ -22,7 +22,6 @@
 #include <assert.h>
 #include "aac_defines.h"
 #include "compat.h"
-#include "common.h"
 
 #include "mem.h"
 #include "aac_defines.h"

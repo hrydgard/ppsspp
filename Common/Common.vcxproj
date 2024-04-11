@@ -391,10 +391,8 @@
     <ClInclude Include="..\ext\at3_standalone\atrac3plus.h" />
     <ClInclude Include="..\ext\at3_standalone\atrac3plus_data.h" />
     <ClInclude Include="..\ext\at3_standalone\avcodec.h" />
-    <ClInclude Include="..\ext\at3_standalone\avutil.h" />
     <ClInclude Include="..\ext\at3_standalone\bytestream.h" />
     <ClInclude Include="..\ext\at3_standalone\channel_layout.h" />
-    <ClInclude Include="..\ext\at3_standalone\common.h" />
     <ClInclude Include="..\ext\at3_standalone\compat.h" />
     <ClInclude Include="..\ext\at3_standalone\fft.h" />
     <ClInclude Include="..\ext\at3_standalone\float_dsp.h" />
@@ -615,7 +613,6 @@
     <ClCompile Include="..\ext\at3_standalone\compat.c" />
     <ClCompile Include="..\ext\at3_standalone\fft_template.c" />
     <ClCompile Include="..\ext\at3_standalone\float_dsp.c" />
-    <ClCompile Include="..\ext\at3_standalone\intmath.c" />
     <ClCompile Include="..\ext\at3_standalone\mathematics.c" />
     <ClCompile Include="..\ext\at3_standalone\mdct_template.c" />
     <ClCompile Include="..\ext\at3_standalone\mem.c" />

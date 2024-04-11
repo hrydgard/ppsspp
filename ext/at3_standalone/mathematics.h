@@ -23,28 +23,25 @@
 
 #include <stdint.h>
 #include <math.h>
+#include <limits.h>
+
 #include "compat.h"
-#include "common.h"
 #include "intfloat.h"
 
 extern const uint32_t ff_inverse[257];
 extern const uint8_t ff_sqrt_tab[256];
 
-#ifndef sign_extend
-static inline av_const int sign_extend(int val, unsigned bits)
+static inline int sign_extend(int val, unsigned bits)
 {
 	unsigned shift = 8 * sizeof(int) - bits;
 	union { unsigned u; int s; } v = { (unsigned)val << shift };
 	return v.s >> shift;
 }
-#endif
 
-#ifndef zero_extend
-static inline av_const unsigned zero_extend(unsigned val, unsigned bits)
+static inline unsigned zero_extend(unsigned val, unsigned bits)
 {
 	return (val << ((8 * sizeof(int)) - bits)) >> ((8 * sizeof(int)) - bits);
 }
-#endif
 
 #ifndef NEG_SSR32
 #   define NEG_SSR32(a,s) ((( int32_t)(a))>>(32-(s)))
@@ -54,15 +51,6 @@ static inline av_const unsigned zero_extend(unsigned val, unsigned bits)
 #   define NEG_USR32(a,s) (((uint32_t)(a))>>(32-(s)))
 #endif
 
-#ifndef M_E
-#define M_E            2.7182818284590452354   /* e */
-#endif
-#ifndef M_LN2
-#define M_LN2          0.69314718055994530942  /* log_e 2 */
-#endif
-#ifndef M_LN10
-#define M_LN10         2.30258509299404568402  /* log_e 10 */
-#endif
 #ifndef M_LOG2_10
 #define M_LOG2_10      3.32192809488736234787  /* log_2 10 */
 #endif
@@ -80,12 +68,6 @@ static inline av_const unsigned zero_extend(unsigned val, unsigned bits)
 #endif
 #ifndef M_SQRT2
 #define M_SQRT2        1.41421356237309504880  /* sqrt(2) */
-#endif
-#ifndef NAN
-#define NAN            av_int2float(0x7fc00000)
-#endif
-#ifndef INFINITY
-#define INFINITY       av_int2float(0x7f800000)
 #endif
 
 /**
@@ -203,7 +185,7 @@ int av_reduce(int *dst_num, int *dst_den, int64_t num, int64_t den, int64_t max)
  * @param c second rational
  * @return b*c
  */
-AVRational av_mul_q(AVRational b, AVRational c) av_const;
+AVRational av_mul_q(AVRational b, AVRational c);
 
 /**
  * Divide one rational by another.
@@ -211,7 +193,7 @@ AVRational av_mul_q(AVRational b, AVRational c) av_const;
  * @param c second rational
  * @return b/c
  */
-AVRational av_div_q(AVRational b, AVRational c) av_const;
+AVRational av_div_q(AVRational b, AVRational c);
 
 /**
  * Add two rationals.
@@ -219,14 +201,14 @@ AVRational av_div_q(AVRational b, AVRational c) av_const;
  * @param c second rational
  * @return b+c
  */
-AVRational av_add_q(AVRational b, AVRational c) av_const;
+AVRational av_add_q(AVRational b, AVRational c);
 
 /**
  * Invert a rational.
  * @param q value
  * @return 1 / q
  */
-static av_always_inline AVRational av_inv_q(AVRational q)
+static inline AVRational av_inv_q(AVRational q)
 {
 	AVRational r = { q.den, q.num };
 	return r;
@@ -240,6 +222,42 @@ static av_always_inline AVRational av_inv_q(AVRational q)
  * @param max the maximum allowed numerator and denominator
  * @return (AVRational) d
  */
-AVRational av_d2q(double d, int max) av_const;
+AVRational av_d2q(double d, int max);
+
+
+/**
+ * Clear high bits from an unsigned integer starting with specific bit position
+ * @param  a value to clip
+ * @param  p bit position to clip at
+ * @return clipped value
+ */
+static inline unsigned av_mod_uintp2(unsigned a, unsigned p)
+{
+	return a & ((1 << p) - 1);
+}
+
+/**
+ * Count number of bits set to one in x
+ * @param x value to count bits of
+ * @return the number of bits set to one in x
+ */
+static inline int av_popcount(uint32_t x)
+{
+	x -= (x >> 1) & 0x55555555;
+	x = (x & 0x33333333) + ((x >> 2) & 0x33333333);
+	x = (x + (x >> 4)) & 0x0F0F0F0F;
+	x += x >> 8;
+	return (x + (x >> 16)) & 0x3F;
+}
+
+/**
+ * Count number of bits set to one in x
+ * @param x value to count bits of
+ * @return the number of bits set to one in x
+ */
+static inline int av_popcount64(uint64_t x)
+{
+	return av_popcount((uint32_t)x) + av_popcount((uint32_t)(x >> 32));
+}
 
 #endif /* AVUTIL_MATHEMATICS_H */

@@ -27,9 +27,9 @@
 #include <errno.h>
 #include <stddef.h>
 
-#include "avutil.h"
 #include "channel_layout.h"
-#include "common.h"
+#include "compat.h"
+#include "mathematics.h"
 
 struct channel_name {
     const char *name;

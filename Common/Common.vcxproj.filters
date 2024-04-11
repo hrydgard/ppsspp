@@ -554,9 +554,6 @@
     <ClInclude Include="..\ext\at3_standalone\intreadwrite.h">
       <Filter>ext\at3_standalone</Filter>
     </ClInclude>
-    <ClInclude Include="..\ext\at3_standalone\common.h">
-      <Filter>ext\at3_standalone</Filter>
-    </ClInclude>
     <ClInclude Include="..\ext\at3_standalone\avcodec.h">
       <Filter>ext\at3_standalone</Filter>
     </ClInclude>
@@ -582,9 +579,6 @@
       <Filter>ext\at3_standalone</Filter>
     </ClInclude>
     <ClInclude Include="..\ext\at3_standalone\intmath.h">
-      <Filter>ext\at3_standalone</Filter>
-    </ClInclude>
-    <ClInclude Include="..\ext\at3_standalone\avutil.h">
       <Filter>ext\at3_standalone</Filter>
     </ClInclude>
   </ItemGroup>
@@ -1081,9 +1075,6 @@
       <Filter>ext\at3_standalone</Filter>
     </ClCompile>
     <ClCompile Include="..\ext\at3_standalone\fft_template.c">
-      <Filter>ext\at3_standalone</Filter>
-    </ClCompile>
-    <ClCompile Include="..\ext\at3_standalone\intmath.c">
       <Filter>ext\at3_standalone</Filter>
     </ClCompile>
     <ClCompile Include="..\ext\at3_standalone\get_bits.c">

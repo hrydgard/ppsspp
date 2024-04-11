@@ -28,7 +28,7 @@
 
 #include "mathematics.h"
 #include "intmath.h"
-#include "common.h"
+#include "compat.h"
 
 /* Stein's binary GCD algorithm:
  * https://en.wikipedia.org/wiki/Binary_GCD_algorithm */

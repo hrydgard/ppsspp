@@ -32,7 +32,7 @@
 #include <string.h>
 
 #include "avcodec.h"
-#include "common.h"
+#include "compat.h"
 #include "mathematics.h"
 #include "get_bits.h"
 

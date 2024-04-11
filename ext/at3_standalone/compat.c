@@ -1,8 +1,8 @@
 #include <stdlib.h>
 #include <string.h>
+#include <stdint.h>
 
 #include "ext/at3_standalone/compat.h"
-#include "ext/at3_standalone/common.h"
 
 void av_log(void *avcl, int level, const char *fmt, ...) {
 

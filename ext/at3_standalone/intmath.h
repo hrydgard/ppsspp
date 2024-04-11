@@ -18,19 +18,11 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
-#ifndef AVUTIL_INTMATH_H
-#define AVUTIL_INTMATH_H
+#pragma once
 
 #include <stdint.h>
 
 #include "compat.h"
-
-#if ARCH_ARM
-#   include "arm/intmath.h"
-#endif
-#if ARCH_X86
-#   include "x86/intmath.h"
-#endif
 
 #if HAVE_FAST_CLZ
 #if AV_GCC_VERSION_AT_LEAST(3,4)
@@ -136,8 +128,3 @@ static av_always_inline av_const int ff_ctzll_c(long long v)
     return debruijn_ctz64[(uint64_t)((v & -v) * 0x022FDD63CC95386DU) >> 58];
 }
 #endif
-
-/**
- * @}
- */
-#endif /* AVUTIL_INTMATH_H */

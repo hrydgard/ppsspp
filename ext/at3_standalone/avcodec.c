@@ -27,7 +27,7 @@
 #include "avcodec.h"
 #include "compat.h"
 #include "channel_layout.h"
-#include "common.h"
+#include "compat.h"
 #include "mathematics.h"
 #include "avcodec.h"
 #include "bytestream.h"

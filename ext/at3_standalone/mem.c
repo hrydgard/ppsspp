@@ -32,8 +32,6 @@
 #include <string.h>
 
 #include "compat.h"
-#include "avutil.h"
-#include "common.h"
 #include "intreadwrite.h"
 #include "mem.h"
 

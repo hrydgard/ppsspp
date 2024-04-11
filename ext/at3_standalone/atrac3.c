@@ -40,12 +40,14 @@
 #include "float_dsp.h"
 #include "bytestream.h"
 #include "fft.h"
-#include "common.h"
+#include "compat.h"
 #include "get_bits.h"
 
 #include "avcodec.h"
 #include "atrac.h"
 #include "atrac3data.h"
+
+#define FFALIGN(x, a) (((x)+(a)-1)&~((a)-1))
 
 #define JOINT_STEREO    0x12
 #define STEREO          0x2
