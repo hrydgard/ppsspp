@@ -16,11 +16,24 @@ inline int16_t clamp16(float f) {
 // Test case for ATRAC3: Mega Man Maverick Hunter X, PSP menu sound
 class Atrac3Audio : public AudioDecoder {
 public:
-	Atrac3Audio(PSPAudioType audioType) : audioType_(audioType) {
+	Atrac3Audio(PSPAudioType audioType, int channels, size_t blockAlign, const uint8_t *extraData, size_t extraDataSize) : audioType_(audioType) {
 		if (audioType == PSP_CODEC_AT3PLUS) {
 			ctx_ = avcodec_alloc_context3(&ff_atrac3p_decoder);
 		} else {
 			ctx_ = avcodec_alloc_context3(&ff_atrac3_decoder);
+		}
+		if (audioType_ == PSP_CODEC_AT3) {
+			_dbg_assert_(ctx_);
+			_dbg_assert_(!codecOpen_);
+			ctx_->extradata = (uint8_t *)av_mallocz(extraDataSize);
+			ctx_->extradata_size = (int)extraDataSize;
+			ctx_->block_align = (int)blockAlign;
+			codecOpen_ = false;
+			if (extraData != nullptr) {
+				memcpy(ctx_->extradata, extraData, extraDataSize);
+			}
+		} else {
+			ctx_->block_align = (int)blockAlign;
 		}
 		for (int i = 0; i < 2; i++) {
 			buffers_[i] = new float[4096];
@@ -50,6 +63,10 @@ public:
 				return false;
 			}
 			codecOpen_ = true;
+		}
+
+		if (inbytes != ctx_->block_align) {
+			WARN_LOG(ME, "Atrac3Audio::Decode: Unexpected block align %d (expected %d)", inbytes, ctx_->block_align);
 		}
 
 		// We just call the decode function directly without going through the whole packet machinery.
@@ -96,20 +113,6 @@ public:
 		// Hmm. ignore for now.
 	}
 
-	void SetExtraData(const uint8_t *data, int size, int wav_bytes_per_packet) override {
-		// if (audioType_ == PSP_CODEC_AT3PLUS) {
-			_dbg_assert_(ctx_);
-			_dbg_assert_(!codecOpen_);
-			ctx_->extradata = (uint8_t *)av_mallocz(size);
-			ctx_->extradata_size = size;
-			ctx_->block_align = wav_bytes_per_packet;
-			codecOpen_ = false;
-			if (data != nullptr) {
-				memcpy(ctx_->extradata, data, size);
-			}
-		//}
-	}
-
 	PSPAudioType GetAudioType() const override { return audioType_; }
 
 private:
@@ -124,6 +127,9 @@ private:
 	PSPAudioType audioType_;
 };
 
-AudioDecoder *CreateAtrac3Audio(PSPAudioType audioType) {
-	return new Atrac3Audio(audioType);
+AudioDecoder *CreateAtrac3Audio(int channels, size_t blockAlign, const uint8_t *extraData, size_t extraDataSize) {
+	return new Atrac3Audio(PSP_CODEC_AT3, channels, blockAlign, extraData, extraDataSize);
+}
+AudioDecoder *CreateAtrac3PlusAudio(int channels, size_t blockAlign) {
+	return new Atrac3Audio(PSP_CODEC_AT3PLUS, channels, blockAlign, nullptr, 0);
 }

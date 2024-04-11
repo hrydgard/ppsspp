@@ -189,10 +189,17 @@ public:
 
 		wave_.Read(file_);
 
-		decoder_ = CreateAudioDecoder((PSPAudioType)wave_.codec, wave_.sample_rate, wave_.num_channels);
+		uint8_t *extraData = nullptr;
+		size_t extraDataSize = 0;
+		size_t blockSize = 0;
 		if (wave_.codec == PSP_CODEC_AT3) {
-			decoder_->SetExtraData(&wave_.at3_extradata[2], 14, wave_.raw_bytes_per_frame);
+			extraData = &wave_.at3_extradata[2];
+			extraDataSize = 14;
+			blockSize = wave_.raw_bytes_per_frame;
+		} else if (wave_.codec == PSP_CODEC_AT3PLUS) {
+			blockSize = wave_.raw_bytes_per_frame;
 		}
+		decoder_ = CreateAudioDecoder((PSPAudioType)wave_.codec, wave_.sample_rate, wave_.num_channels, blockSize, extraData, extraDataSize);
 		INFO_LOG(AUDIO, "read ATRAC, frames: %d, rate %d", wave_.numFrames, wave_.sample_rate);
 	}
 
