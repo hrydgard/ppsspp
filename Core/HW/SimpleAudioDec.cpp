@@ -25,6 +25,7 @@
 #include "Core/HW/SimpleAudioDec.h"
 #include "Core/HW/MediaEngine.h"
 #include "Core/HW/BufferQueue.h"
+#include "Core/HW/Atrac3Standalone.h"
 
 #include "ext/minimp3/minimp3.h"
 
@@ -50,6 +51,11 @@ extern "C" {
 }
 
 #endif  // USE_FFMPEG
+
+// AAC decoder candidates:
+// * https://github.com/mstorsjo/fdk-aac/tree/master
+
+
 
 // minimp3-based decoder.
 class MiniMp3Audio : public AudioDecoder {
@@ -111,8 +117,6 @@ public:
 		return srcPos;
 	}
 
-	// Not save stated, only used by UI.  Used for ATRAC3 (non+) files.
-	void SetExtraData(const uint8_t *data, int size, int wav_bytes_per_packet) override;
 	void SetChannels(int channels) override;
 
 	// These two are only here because of save states.
@@ -138,12 +142,16 @@ private:
 	bool codecOpen_;
 };
 
-// TODO: This should also be able to create other types of decoders.
-AudioDecoder *CreateAudioDecoder(PSPAudioType audioType, int sampleRateHz, int channels) {
+AudioDecoder *CreateAudioDecoder(PSPAudioType audioType, int sampleRateHz, int channels, size_t blockAlign, const uint8_t *extraData, size_t extraDataSize) {
 	switch (audioType) {
 	case PSP_CODEC_MP3:
 		return new MiniMp3Audio();
+	case PSP_CODEC_AT3:
+		return CreateAtrac3Audio(channels, blockAlign, extraData, extraDataSize);
+	case PSP_CODEC_AT3PLUS:
+		return CreateAtrac3PlusAudio(channels, blockAlign);
 	default:
+		// Only AAC falls back to FFMPEG now.
 		return new SimpleAudio(audioType, sampleRateHz, channels);
 	}
 }
@@ -229,21 +237,6 @@ bool SimpleAudio::OpenCodec(int block_align) {
 #else
 	return false;
 #endif  // USE_FFMPEG
-}
-
-void SimpleAudio::SetExtraData(const uint8_t *data, int size, int wav_bytes_per_packet) {
-#ifdef USE_FFMPEG
-	if (codecCtx_) {
-		codecCtx_->extradata = (uint8_t *)av_mallocz(size);
-		codecCtx_->extradata_size = size;
-		codecCtx_->block_align = wav_bytes_per_packet;
-		codecOpen_ = false;
-
-		if (data != nullptr) {
-			memcpy(codecCtx_->extradata, data, size);
-		}
-	}
-#endif
 }
 
 void SimpleAudio::SetChannels(int channels) {

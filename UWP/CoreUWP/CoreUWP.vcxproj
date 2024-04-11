@@ -261,6 +261,7 @@
     <ClInclude Include="..\..\Core\HW\MpegDemux.h" />
     <ClInclude Include="..\..\Core\HW\SasAudio.h" />
     <ClInclude Include="..\..\Core\HW\SasReverb.h" />
+    <ClInclude Include="..\..\Core\HW\Atrac3Standalone.h" />
     <ClInclude Include="..\..\Core\HW\SimpleAudioDec.h" />
     <ClInclude Include="..\..\Core\HW\StereoResampler.h" />
     <ClInclude Include="..\..\Core\KeyMap.h" />
@@ -508,6 +509,7 @@
     <ClCompile Include="..\..\Core\HW\MpegDemux.cpp" />
     <ClCompile Include="..\..\Core\HW\SasAudio.cpp" />
     <ClCompile Include="..\..\Core\HW\SasReverb.cpp" />
+    <ClCompile Include="..\..\Core\HW\Atrac3Standalone.cpp" />
     <ClCompile Include="..\..\Core\HW\SimpleAudioDec.cpp" />
     <ClCompile Include="..\..\Core\HW\StereoResampler.cpp" />
     <ClCompile Include="..\..\Core\KeyMap.cpp" />

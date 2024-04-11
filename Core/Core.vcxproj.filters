@@ -1306,6 +1306,9 @@
     <ClCompile Include="Util\MemStick.cpp">
       <Filter>Util</Filter>
     </ClCompile>
+    <ClCompile Include="HW\Atrac3Standalone.cpp">
+      <Filter>HW</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ELF\ElfReader.h">
@@ -2087,6 +2090,9 @@
     </ClInclude>
     <ClInclude Include="Util\MemStick.h">
       <Filter>Util</Filter>
+    </ClInclude>
+    <ClInclude Include="HW\Atrac3Standalone.h">
+      <Filter>HW</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

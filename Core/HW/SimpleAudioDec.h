@@ -47,7 +47,6 @@ public:
 	virtual int GetSourcePos() const = 0;
 
 	virtual void SetChannels(int channels) = 0;
-	virtual void SetExtraData(const uint8_t *data, int size, int wav_bytes_per_packet) {}
 
 	// Just metadata.
 	void SetCtxPtr(uint32_t ptr) { ctxPtr = ptr; }
@@ -60,7 +59,7 @@ private:
 void AudioClose(AudioDecoder **ctx);
 const char *GetCodecName(int codec);  // audioType
 bool IsValidCodec(PSPAudioType codec);
-AudioDecoder *CreateAudioDecoder(PSPAudioType audioType, int sampleRateHz = 44100, int channels = 2);
+AudioDecoder *CreateAudioDecoder(PSPAudioType audioType, int sampleRateHz = 44100, int channels = 2, size_t blockAlign = 0, const uint8_t *extraData = nullptr, size_t extraDataSize = 0);
 
 class AuCtx {
 public:

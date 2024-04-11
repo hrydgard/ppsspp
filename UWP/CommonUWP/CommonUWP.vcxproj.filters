@@ -100,6 +100,9 @@
     <Filter Include="ext\minimp3">
       <UniqueIdentifier>{7b5c3ddc-225d-48d5-a829-9a1e71e304be}</UniqueIdentifier>
     </Filter>
+    <Filter Include="ext\at3_standalone">
+      <UniqueIdentifier>{47e3b9c8-3a5f-4c78-b62b-3fa65bf23594}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\Common\ABI.cpp" />
@@ -461,6 +464,42 @@
     </ClCompile>
     <ClCompile Include="..\..\ext\minimp3\minimp3.cpp">
       <Filter>ext\minimp3</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\at3_standalone\atrac.cpp">
+      <Filter>ext\at3_standalone</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\at3_standalone\atrac3.cpp">
+      <Filter>ext\at3_standalone</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\at3_standalone\atrac3plus.cpp">
+      <Filter>ext\at3_standalone</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\at3_standalone\atrac3plusdec.cpp">
+      <Filter>ext\at3_standalone</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\at3_standalone\atrac3plusdsp.cpp">
+      <Filter>ext\at3_standalone</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\at3_standalone\compat.cpp">
+      <Filter>ext\at3_standalone</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\at3_standalone\fft.cpp">
+      <Filter>ext\at3_standalone</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\at3_standalone\float_dsp.cpp">
+      <Filter>ext\at3_standalone</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\at3_standalone\get_bits.cpp">
+      <Filter>ext\at3_standalone</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\at3_standalone\mathematics.cpp">
+      <Filter>ext\at3_standalone</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\at3_standalone\mem.cpp">
+      <Filter>ext\at3_standalone</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\at3_standalone\sinewin.cpp">
+      <Filter>ext\at3_standalone</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -877,6 +916,48 @@
     <ClInclude Include="..\..\ext\minimp3\minimp3_ex.h">
       <Filter>ext\minimp3</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\ext\at3_standalone\aac_defines.h">
+      <Filter>ext\at3_standalone</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\at3_standalone\at3_decoders.h">
+      <Filter>ext\at3_standalone</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\at3_standalone\atrac.h">
+      <Filter>ext\at3_standalone</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\at3_standalone\atrac3data.h">
+      <Filter>ext\at3_standalone</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\at3_standalone\atrac3plus.h">
+      <Filter>ext\at3_standalone</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\at3_standalone\atrac3plus_data.h">
+      <Filter>ext\at3_standalone</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\at3_standalone\compat.h">
+      <Filter>ext\at3_standalone</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\at3_standalone\fft.h">
+      <Filter>ext\at3_standalone</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\at3_standalone\float_dsp.h">
+      <Filter>ext\at3_standalone</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\at3_standalone\get_bits.h">
+      <Filter>ext\at3_standalone</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\at3_standalone\intreadwrite.h">
+      <Filter>ext\at3_standalone</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\at3_standalone\mathematics.h">
+      <Filter>ext\at3_standalone</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\at3_standalone\mem.h">
+      <Filter>ext\at3_standalone</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\at3_standalone\sinewin.h">
+      <Filter>ext\at3_standalone</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="..\..\Common\Math\fast\fast_matrix_neon.S">
@@ -916,5 +997,13 @@
     <None Include="..\..\ext\basis_universal\basisu_transcoder_tables_pvrtc2_alpha_33.inc">
       <Filter>ext\basis_universal</Filter>
     </None>
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="..\..\ext\at3_standalone\CMakeLists.txt">
+      <Filter>ext\at3_standalone</Filter>
+    </Text>
+    <Text Include="..\..\ext\at3_standalone\README.txt">
+      <Filter>ext\at3_standalone</Filter>
+    </Text>
   </ItemGroup>
 </Project>

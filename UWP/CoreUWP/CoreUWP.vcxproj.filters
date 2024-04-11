@@ -258,6 +258,9 @@
     <ClCompile Include="..\..\Core\HW\SimpleAudioDec.cpp">
       <Filter>HW</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\Core\HW\Atrac3Standalone.cpp">
+      <Filter>HW</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\Core\HW\StereoResampler.cpp">
       <Filter>HW</Filter>
     </ClCompile>
@@ -1304,6 +1307,9 @@
       <Filter>HW</Filter>
     </ClInclude>
     <ClInclude Include="..\..\Core\HW\SimpleAudioDec.h">
+      <Filter>HW</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Core\HW\Atrac3Standalone.h">
       <Filter>HW</Filter>
     </ClInclude>
     <ClInclude Include="..\..\Core\HW\StereoResampler.h">
