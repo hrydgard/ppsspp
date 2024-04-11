@@ -1244,26 +1244,25 @@ void VertexDecoder::SetVertexType(u32 fmt, const VertexDecoderOptions &options, 
 	if (!pos) {
 		reportNoPos = true;
 	}
-	if (pos >= 0) { // there's always a position
-		size = align(size, posalign[pos]);
-		posoff = size;
-		size += possize[pos];
-		if (posalign[pos] > biggest)
-			biggest = posalign[pos];
 
-		// We don't set posfmt because it's always DEC_FLOAT_3.
-		if (throughmode) {
-			steps_[numSteps_++] = posstep_through[pos];
+	size = align(size, posalign[pos]);
+	posoff = size;
+	size += possize[pos];
+	if (posalign[pos] > biggest)
+		biggest = posalign[pos];
+
+	// We don't set posfmt because it's always DEC_FLOAT_3.
+	if (throughmode) {
+		steps_[numSteps_++] = posstep_through[pos];
+	} else {
+		if (skinInDecode) {
+			steps_[numSteps_++] = morphcount == 1 ? posstep_skin[pos] : posstep_morph_skin[pos];
 		} else {
-			if (skinInDecode) {
-				steps_[numSteps_++] = morphcount == 1 ? posstep_skin[pos] : posstep_morph_skin[pos];
-			} else {
-				steps_[numSteps_++] = morphcount == 1 ? posstep[pos] : posstep_morph[pos];
-			}
+			steps_[numSteps_++] = morphcount == 1 ? posstep[pos] : posstep_morph[pos];
 		}
-		decFmt.posoff = decOff;
-		decOff += DecFmtSize(DecVtxFormat::PosFmt());
 	}
+	decFmt.posoff = decOff;
+	decOff += DecFmtSize(DecVtxFormat::PosFmt());
 
 	decFmt.stride = options.alignOutputToWord ? align(decOff, 4) : decOff;
 
