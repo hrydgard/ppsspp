@@ -298,7 +298,7 @@ enum GLRAspect {
 const char *GLRAspectToString(GLRAspect aspect);
 
 struct GLRStep {
-	GLRStep(GLRStepType _type) : stepType(_type) {}
+	GLRStep(GLRStepType _type) : stepType(_type), tag() {}
 	GLRStepType stepType;
 	FastVec<GLRRenderData> commands;
 	TinySet<const GLRFramebuffer *, 8> dependencies;

@@ -456,7 +456,7 @@ void MemStickScreen::update() {
 }
 
 ConfirmMemstickMoveScreen::ConfirmMemstickMoveScreen(Path newMemstickFolder, bool initialSetup)
-	: newMemstickFolder_(newMemstickFolder), initialSetup_(initialSetup) {
+	: newMemstickFolder_(newMemstickFolder), initialSetup_(initialSetup), progressReporter_() {
 	existingFilesInNewFolder_ = FolderSeemsToBeUsed(newMemstickFolder);
 	if (initialSetup_) {
 		moveData_ = false;

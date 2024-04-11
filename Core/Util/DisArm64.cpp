@@ -749,15 +749,21 @@ static void FPandASIMD1(uint32_t w, uint64_t addr, Instruction *instr) {
 				int dst_index = imm5 >> (size + 1);
 				int src_index = imm4 >> size;
 				int op = (w >> 29) & 1;
-				char s = "bhsd"[size];
+				char s;
+				switch (size) {
+				case 0x00: s = 'b'; break;
+				case 0x01: s = 'h'; break;
+				case 0x02: s = 's'; break;
+				case 0x03: s = 'd'; break;
+				}
 				if (op == 0 && imm4 == 0) {
 					// DUP (element)
 					int idxdsize = (imm5 & 8) ? 128 : 64;
-					char r = "dq"[idxdsize == 128];
+					char r = (idxdsize == 128) ? 'q' : 'd';
 					snprintf(instr->text, sizeof(instr->text), "dup %c%d, %c%d.%c[%d]", r, Rd, r, Rn, s, dst_index);
 				} else {
 					int idxdsize = (imm4 & 8) ? 128 : 64;
-					char r = "dq"[idxdsize == 128];
+					char r = (idxdsize == 128) ? 'q' : 'd';
 					snprintf(instr->text, sizeof(instr->text), "ins %c%d.%c[%d], %c%d.%c[%d]", r, Rd, s, dst_index, r, Rn, s, src_index);
 				}
 			}
