@@ -1795,8 +1795,7 @@ static u32 sceAtracResetPlayPosition(int atracID, int sample, int bytesWrittenFi
 			// Did we transition to a full buffer?
 			if (atrac->first_.size >= atrac->first_.filesize) {
 				atrac->first_.size = atrac->first_.filesize;
-				if (atrac->bufferState_ == ATRAC_STATUS_HALFWAY_BUFFER)
-					atrac->bufferState_ = ATRAC_STATUS_ALL_DATA_LOADED;
+				atrac->bufferState_ = ATRAC_STATUS_ALL_DATA_LOADED;
 			}
 		} else {
 			if (bufferInfo.first.filePos > atrac->first_.filesize) {

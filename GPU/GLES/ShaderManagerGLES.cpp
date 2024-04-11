@@ -1109,7 +1109,6 @@ bool ShaderManagerGLES::LoadCache(File::IOFile &f) {
 				// Give up on using the cache, just bail. We can't safely create the fallback shaders here
 				// without trying to deduce the vertType from the VSID.
 				ERROR_LOG(G3D, "Failed to compile a vertex shader loading from cache. Skipping rest of shader cache.");
-				delete vs;
 				pending.Clear();
 				return false;
 			}
@@ -1127,7 +1126,6 @@ bool ShaderManagerGLES::LoadCache(File::IOFile &f) {
 				// Give up on using the cache - something went wrong.
 				// We'll still keep the shaders we generated so far around.
 				ERROR_LOG(G3D, "Failed to compile a fragment shader loading from cache. Skipping rest of shader cache.");
-				delete fs;
 				pending.Clear();
 				return false;
 			}
