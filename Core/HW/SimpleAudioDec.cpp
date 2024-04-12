@@ -125,9 +125,6 @@ private:
 	int outSamples_ = 0; // output samples per frame
 
 	AVFrame *frame_ = nullptr;
-#if HAVE_LIBAVCODEC_CONST_AVCODEC // USE_FFMPEG is implied
-	const
-#endif
 	AVCodec *codec_ = nullptr;
 	AVCodecContext  *codecCtx_ = nullptr;
 	SwrContext      *swrCtx_ = nullptr;
