@@ -1209,169 +1209,169 @@ u32 _AtracDecodeData(int atracID, u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u3
 		return ATRAC_ERROR_BAD_ATRACID;
 	} else if (!atrac->dataBuf_) {
 		return ATRAC_ERROR_NO_DATA;
-	} else {
-		int loopNum = atrac->loopNum_;
-		if (atrac->bufferState_ == ATRAC_STATUS_FOR_SCESAS) {
-			// TODO: Might need more testing.
-			loopNum = 0;
-		}
+	}
 
-		// We already passed the end - return an error (many games check for this.)
-		if (atrac->currentSample_ >= atrac->endSample_ && loopNum == 0) {
-			*SamplesNum = 0;
-			*finish = 1;
-			if (atrac->context_.IsValid()) {
-				// refresh context_
-				_AtracGenerateContext(atrac);
-			}
-			return ATRAC_ERROR_ALL_DATA_DECODED;
-		} else {
-			// TODO: This isn't at all right, but at least it makes the music "last" some time.
-			u32 numSamples = 0;
+	int loopNum = atrac->loopNum_;
+	if (atrac->bufferState_ == ATRAC_STATUS_FOR_SCESAS) {
+		// TODO: Might need more testing.
+		loopNum = 0;
+	}
 
-			// It seems like the PSP aligns the sample position to 0x800...?
-			int offsetSamples = atrac->firstSampleOffset_ + atrac->FirstOffsetExtra();
-			int skipSamples = 0;
-			u32 maxSamples = atrac->endSample_ + 1 - atrac->currentSample_;
-			u32 unalignedSamples = (offsetSamples + atrac->currentSample_) % atrac->SamplesPerFrame();
-			if (unalignedSamples != 0) {
-				// We're off alignment, possibly due to a loop.  Force it back on.
-				maxSamples = atrac->SamplesPerFrame() - unalignedSamples;
-				skipSamples = unalignedSamples;
-			}
-
-			if (skipSamples != 0 && atrac->bufferHeaderSize_ == 0) {
-				// Skip the initial frame used to load state for the looped frame.
-				// TODO: We will want to actually read this in.
-				atrac->ConsumeFrame();
-			}
-
-			if (!atrac->failedDecode_ && (atrac->codecType_ == PSP_MODE_AT_3 || atrac->codecType_ == PSP_MODE_AT_3_PLUS)) {
-				atrac->SeekToSample(atrac->currentSample_);
-
-				AtracDecodeResult res = ATDECODE_FEEDME;
-				while (atrac->FillPacket(-skipSamples)) {
-					uint32_t packetAddr = atrac->CurBufferAddress(-skipSamples);
-#ifdef USE_FFMPEG
-					int packetSize = atrac->packet_->size;
-#endif // USE_FFMPEG
-					res = atrac->DecodePacket();
-					if (res == ATDECODE_FEEDME) {
-						continue;
-					} else if (res == ATDECODE_FAILED) {
-						*SamplesNum = 0;
-						*finish = 1;
-						return ATRAC_ERROR_ALL_DATA_DECODED;
-					} else if (res == ATDECODE_BADFRAME) {
-						// Retry next time.
-						break;
-					}
-					_dbg_assert_(res == ATDECODE_GOTFRAME);
-#ifdef USE_FFMPEG
-					// got a frame
-					int skipped = std::min(skipSamples, atrac->frame_->nb_samples);
-					skipSamples -= skipped;
-					numSamples = atrac->frame_->nb_samples - skipped;
-
-					// If we're at the end, clamp to samples we want.  It always returns a full chunk.
-					numSamples = std::min(maxSamples, numSamples);
-
-					if (skipped > 0 && numSamples == 0) {
-						// Wait for the next one.
-						res = ATDECODE_FEEDME;
-					}
-
-					if (outbuf != NULL && numSamples != 0) {
-						int inbufOffset = 0;
-						if (skipped != 0) {
-							AVSampleFormat fmt = (AVSampleFormat)atrac->frame_->format;
-							// We want the offset per channel.
-							inbufOffset = av_samples_get_buffer_size(NULL, 1, skipped, fmt, 1);
-						}
-
-						u8 *out = outbuf;
-						const u8 *inbuf[2] = {
-							atrac->frame_->extended_data[0] + inbufOffset,
-							atrac->frame_->extended_data[1] + inbufOffset,
-						};
-						int avret = swr_convert(atrac->swrCtx_, &out, numSamples, inbuf, numSamples);
-						if (outbufPtr != 0) {
-							u32 outBytes = numSamples * atrac->outputChannels_ * sizeof(s16);
-							if (packetAddr != 0 && MemBlockInfoDetailed()) {
-								char tagData[128];
-								size_t tagSize = FormatMemWriteTagAt(tagData, sizeof(tagData), "AtracDecode/", packetAddr, packetSize);
-								NotifyMemInfo(MemBlockFlags::READ, packetAddr, packetSize, tagData, tagSize);
-								NotifyMemInfo(MemBlockFlags::WRITE, outbufPtr, outBytes, tagData, tagSize);
-							} else {
-								NotifyMemInfo(MemBlockFlags::WRITE, outbufPtr, outBytes, "AtracDecode");
-							}
-						}
-						if (avret < 0) {
-							ERROR_LOG(ME, "swr_convert: Error while converting %d", avret);
-						}
-					}
-					// We only want one frame per call, let's continue the next time.
-					break;
-#endif // USE_FFMPEG
-				}
-
-				if (res != ATDECODE_GOTFRAME && atrac->currentSample_ < atrac->endSample_) {
-					// Never got a frame.  We may have dropped a GHA frame or otherwise have a bug.
-					// For now, let's try to provide an extra "frame" if possible so games don't infinite loop.
-					if (atrac->FileOffsetBySample(atrac->currentSample_) < atrac->first_.filesize) {
-						numSamples = std::min(maxSamples, atrac->SamplesPerFrame());
-						u32 outBytes = numSamples * atrac->outputChannels_ * sizeof(s16);
-						if (outbuf != nullptr) {
-							memset(outbuf, 0, outBytes);
-							NotifyMemInfo(MemBlockFlags::WRITE, outbufPtr, outBytes, "AtracDecode");
-						}
-					}
-				}
-			}
-
-			*SamplesNum = numSamples;
-			// update current sample and decodePos
-			atrac->currentSample_ += numSamples;
-			atrac->decodePos_ = atrac->DecodePosBySample(atrac->currentSample_);
-
-			atrac->ConsumeFrame();
-
-			int finishFlag = 0;
-			// TODO: Verify.
-			bool hitEnd = atrac->currentSample_ >= atrac->endSample_ || (numSamples == 0 && atrac->first_.size >= atrac->first_.filesize);
-			int loopEndAdjusted = atrac->loopEndSample_ - atrac->FirstOffsetExtra() - atrac->firstSampleOffset_;
-			if ((hitEnd || atrac->currentSample_ > loopEndAdjusted) && loopNum != 0) {
-				atrac->SeekToSample(atrac->loopStartSample_ - atrac->FirstOffsetExtra() - atrac->firstSampleOffset_);
-				if (atrac->bufferState_ != ATRAC_STATUS_FOR_SCESAS) {
-					if (atrac->loopNum_ > 0)
-						atrac->loopNum_--;
-				}
-				if ((atrac->bufferState_ & ATRAC_STATUS_STREAMED_MASK) == ATRAC_STATUS_STREAMED_MASK) {
-					// Whatever bytes we have left were added from the loop.
-					u32 loopOffset = atrac->FileOffsetBySample(atrac->loopStartSample_ - atrac->FirstOffsetExtra() - atrac->firstSampleOffset_ - atrac->SamplesPerFrame() * 2);
-					// TODO: Hmm, need to manage the buffer better.  But don't move fileoffset if we already have valid data.
-					if (loopOffset > atrac->first_.fileoffset || loopOffset + atrac->bufferValidBytes_ < atrac->first_.fileoffset) {
-						// Skip the initial frame at the start.
-						atrac->first_.fileoffset = atrac->FileOffsetBySample(atrac->loopStartSample_ - atrac->FirstOffsetExtra() - atrac->firstSampleOffset_ - atrac->SamplesPerFrame() * 2);
-					}
-				}
-			} else if (hitEnd) {
-				finishFlag = 1;
-
-				// Still move forward, so we know that we've read everything.
-				// This seems to be reflected in the context as well.
-				atrac->currentSample_ += atrac->SamplesPerFrame() - numSamples;
-			}
-
-			*finish = finishFlag;
-			*remains = atrac->RemainingFrames();
-		}
+	// We already passed the end - return an error (many games check for this.)
+	if (atrac->currentSample_ >= atrac->endSample_ && loopNum == 0) {
+		*SamplesNum = 0;
+		*finish = 1;
 		if (atrac->context_.IsValid()) {
 			// refresh context_
 			_AtracGenerateContext(atrac);
 		}
-		return 0;
+		return ATRAC_ERROR_ALL_DATA_DECODED;
 	}
+
+	// TODO: This isn't at all right, but at least it makes the music "last" some time.
+	u32 numSamples = 0;
+
+	// It seems like the PSP aligns the sample position to 0x800...?
+	int offsetSamples = atrac->firstSampleOffset_ + atrac->FirstOffsetExtra();
+	int skipSamples = 0;
+	u32 maxSamples = atrac->endSample_ + 1 - atrac->currentSample_;
+	u32 unalignedSamples = (offsetSamples + atrac->currentSample_) % atrac->SamplesPerFrame();
+	if (unalignedSamples != 0) {
+		// We're off alignment, possibly due to a loop.  Force it back on.
+		maxSamples = atrac->SamplesPerFrame() - unalignedSamples;
+		skipSamples = unalignedSamples;
+	}
+
+	if (skipSamples != 0 && atrac->bufferHeaderSize_ == 0) {
+		// Skip the initial frame used to load state for the looped frame.
+		// TODO: We will want to actually read this in.
+		atrac->ConsumeFrame();
+	}
+
+	if (!atrac->failedDecode_ && (atrac->codecType_ == PSP_MODE_AT_3 || atrac->codecType_ == PSP_MODE_AT_3_PLUS)) {
+		atrac->SeekToSample(atrac->currentSample_);
+
+		AtracDecodeResult res = ATDECODE_FEEDME;
+		while (atrac->FillPacket(-skipSamples)) {
+			uint32_t packetAddr = atrac->CurBufferAddress(-skipSamples);
+#ifdef USE_FFMPEG
+			int packetSize = atrac->packet_->size;
+#endif // USE_FFMPEG
+			res = atrac->DecodePacket();
+			if (res == ATDECODE_FEEDME) {
+				continue;
+			} else if (res == ATDECODE_FAILED) {
+				*SamplesNum = 0;
+				*finish = 1;
+				return ATRAC_ERROR_ALL_DATA_DECODED;
+			} else if (res == ATDECODE_BADFRAME) {
+				// Retry next time.
+				break;
+			}
+			_dbg_assert_(res == ATDECODE_GOTFRAME);
+#ifdef USE_FFMPEG
+			// got a frame
+			int skipped = std::min(skipSamples, atrac->frame_->nb_samples);
+			skipSamples -= skipped;
+			numSamples = atrac->frame_->nb_samples - skipped;
+
+			// If we're at the end, clamp to samples we want.  It always returns a full chunk.
+			numSamples = std::min(maxSamples, numSamples);
+
+			if (skipped > 0 && numSamples == 0) {
+				// Wait for the next one.
+				res = ATDECODE_FEEDME;
+			}
+
+			if (outbuf != NULL && numSamples != 0) {
+				int inbufOffset = 0;
+				if (skipped != 0) {
+					AVSampleFormat fmt = (AVSampleFormat)atrac->frame_->format;
+					// We want the offset per channel.
+					inbufOffset = av_samples_get_buffer_size(NULL, 1, skipped, fmt, 1);
+				}
+
+				u8 *out = outbuf;
+				const u8 *inbuf[2] = {
+					atrac->frame_->extended_data[0] + inbufOffset,
+					atrac->frame_->extended_data[1] + inbufOffset,
+				};
+				int avret = swr_convert(atrac->swrCtx_, &out, numSamples, inbuf, numSamples);
+				if (outbufPtr != 0) {
+					u32 outBytes = numSamples * atrac->outputChannels_ * sizeof(s16);
+					if (packetAddr != 0 && MemBlockInfoDetailed()) {
+						char tagData[128];
+						size_t tagSize = FormatMemWriteTagAt(tagData, sizeof(tagData), "AtracDecode/", packetAddr, packetSize);
+						NotifyMemInfo(MemBlockFlags::READ, packetAddr, packetSize, tagData, tagSize);
+						NotifyMemInfo(MemBlockFlags::WRITE, outbufPtr, outBytes, tagData, tagSize);
+					} else {
+						NotifyMemInfo(MemBlockFlags::WRITE, outbufPtr, outBytes, "AtracDecode");
+					}
+				}
+				if (avret < 0) {
+					ERROR_LOG(ME, "swr_convert: Error while converting %d", avret);
+				}
+			}
+			// We only want one frame per call, let's continue the next time.
+			break;
+#endif // USE_FFMPEG
+		}
+
+		if (res != ATDECODE_GOTFRAME && atrac->currentSample_ < atrac->endSample_) {
+			// Never got a frame.  We may have dropped a GHA frame or otherwise have a bug.
+			// For now, let's try to provide an extra "frame" if possible so games don't infinite loop.
+			if (atrac->FileOffsetBySample(atrac->currentSample_) < atrac->first_.filesize) {
+				numSamples = std::min(maxSamples, atrac->SamplesPerFrame());
+				u32 outBytes = numSamples * atrac->outputChannels_ * sizeof(s16);
+				if (outbuf != nullptr) {
+					memset(outbuf, 0, outBytes);
+					NotifyMemInfo(MemBlockFlags::WRITE, outbufPtr, outBytes, "AtracDecode");
+				}
+			}
+		}
+	}
+
+	*SamplesNum = numSamples;
+	// update current sample and decodePos
+	atrac->currentSample_ += numSamples;
+	atrac->decodePos_ = atrac->DecodePosBySample(atrac->currentSample_);
+
+	atrac->ConsumeFrame();
+
+	int finishFlag = 0;
+	// TODO: Verify.
+	bool hitEnd = atrac->currentSample_ >= atrac->endSample_ || (numSamples == 0 && atrac->first_.size >= atrac->first_.filesize);
+	int loopEndAdjusted = atrac->loopEndSample_ - atrac->FirstOffsetExtra() - atrac->firstSampleOffset_;
+	if ((hitEnd || atrac->currentSample_ > loopEndAdjusted) && loopNum != 0) {
+		atrac->SeekToSample(atrac->loopStartSample_ - atrac->FirstOffsetExtra() - atrac->firstSampleOffset_);
+		if (atrac->bufferState_ != ATRAC_STATUS_FOR_SCESAS) {
+			if (atrac->loopNum_ > 0)
+				atrac->loopNum_--;
+		}
+		if ((atrac->bufferState_ & ATRAC_STATUS_STREAMED_MASK) == ATRAC_STATUS_STREAMED_MASK) {
+			// Whatever bytes we have left were added from the loop.
+			u32 loopOffset = atrac->FileOffsetBySample(atrac->loopStartSample_ - atrac->FirstOffsetExtra() - atrac->firstSampleOffset_ - atrac->SamplesPerFrame() * 2);
+			// TODO: Hmm, need to manage the buffer better.  But don't move fileoffset if we already have valid data.
+			if (loopOffset > atrac->first_.fileoffset || loopOffset + atrac->bufferValidBytes_ < atrac->first_.fileoffset) {
+				// Skip the initial frame at the start.
+				atrac->first_.fileoffset = atrac->FileOffsetBySample(atrac->loopStartSample_ - atrac->FirstOffsetExtra() - atrac->firstSampleOffset_ - atrac->SamplesPerFrame() * 2);
+			}
+		}
+	} else if (hitEnd) {
+		finishFlag = 1;
+
+		// Still move forward, so we know that we've read everything.
+		// This seems to be reflected in the context as well.
+		atrac->currentSample_ += atrac->SamplesPerFrame() - numSamples;
+	}
+
+	*finish = finishFlag;
+	*remains = atrac->RemainingFrames();
+	if (atrac->context_.IsValid()) {
+		// refresh context_
+		_AtracGenerateContext(atrac);
+	}
+	return 0;
 }
 
 static u32 sceAtracDecodeData(int atracID, u32 outAddr, u32 numSamplesAddr, u32 finishFlagAddr, u32 remainAddr) {
