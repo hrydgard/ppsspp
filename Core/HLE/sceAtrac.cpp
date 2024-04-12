@@ -29,6 +29,7 @@
 #include "Core/Debugger/MemBlockInfo.h"
 #include "Core/HW/MediaEngine.h"
 #include "Core/HW/BufferQueue.h"
+#include "Core/HW/Atrac3Standalone.h"
 
 #include "Core/HLE/sceKernel.h"
 #include "Core/HLE/sceUtility.h"
@@ -391,6 +392,10 @@ struct Atrac {
 	}
 
 	int atracID_ = -1;
+
+	// TODO: Save the internal state of this, now technically possible.
+	AudioDecoder *decoder_ = nullptr;
+
 	u8 *dataBuf_ = nullptr;
 
 	u32 decodePos_ = 0;
@@ -439,6 +444,8 @@ struct Atrac {
 
 #ifdef USE_FFMPEG
 	void ReleaseFFMPEGContext() {
+		delete decoder_;
+		decoder_ = nullptr;
 		// All of these allow null pointers.
 		av_freep(&frame_);
 		swr_free(&swrCtx_);
@@ -539,19 +546,6 @@ struct Atrac {
 		} else {
 			return false;
 		}
-
-		return true;
-	}
-
-	AtracDecodeResult DecodeLowLevelPacket(u8 *ptr) {
-#ifdef USE_FFMPEG
-		av_init_packet(packet_);
-
-		packet_->data = ptr;
-		packet_->size = bytesPerFrame_;
-		packet_->pos = 0;
-#endif // USE_FFMPEG
-		return DecodePacket();
 	}
 
 	AtracDecodeResult DecodePacket() {
@@ -1252,7 +1246,11 @@ u32 _AtracDecodeData(int atracID, u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u3
 		atrac->SeekToSample(atrac->currentSample_);
 
 		AtracDecodeResult res = ATDECODE_FEEDME;
-		while (atrac->FillPacket(-skipSamples)) {
+		while (true) {
+			if (!atrac->FillPacket(-skipSamples)) {
+				break;
+			}
+
 			uint32_t packetAddr = atrac->CurBufferAddress(-skipSamples);
 #ifdef USE_FFMPEG
 			int packetSize = atrac->packet_->size;
@@ -1845,7 +1843,36 @@ static int __AtracUpdateOutputMode(Atrac *atrac, int wanted_channels) {
 }
 #endif // USE_FFMPEG
 
+// extraData should be 14 zeroed bytes.
+void InitAT3ExtraData(Atrac *atrac, uint8_t *extraData) {
+	// We don't pull this from the RIFF so that we can support OMA also.
+
+	// The only thing that changes are the jointStereo_ values.
+	extraData[0] = 1;
+	extraData[3] = atrac->channels_ << 3;
+	extraData[6] = atrac->jointStereo_;
+	extraData[8] = atrac->jointStereo_;
+	extraData[10] = 1;
+}
+
 int __AtracSetContext(Atrac *atrac) {
+	if (atrac->codecCtx_) {
+		// Shouldn't happen, but just in case.
+		atrac->ReleaseFFMPEGContext();
+	}
+	if (atrac->decoder_) {
+		delete atrac->decoder_;
+	}
+
+	// First, init the standalone decoder. Only used for low-level-decode initially, but simple.
+	if (atrac->codecType_ == PSP_MODE_AT_3) {
+		uint8_t extraData[14]{};
+		InitAT3ExtraData(atrac, extraData);
+		atrac->decoder_ = CreateAtrac3Audio(atrac->channels_, atrac->bytesPerFrame_, extraData, sizeof(extraData));
+	} else {
+		atrac->decoder_ = CreateAtrac3PlusAudio(atrac->channels_, atrac->bytesPerFrame_);
+	}
+
 #ifdef USE_FFMPEG
 	InitFFmpeg();
 
@@ -1858,11 +1885,6 @@ int __AtracSetContext(Atrac *atrac) {
 		return hleReportError(ME, ATRAC_ERROR_UNKNOWN_FORMAT, "unknown codec type in set context");
 	}
 
-	if (atrac->codecCtx_) {
-		// Shouldn't happen, but just in case.
-		atrac->ReleaseFFMPEGContext();
-	}
-
 	AVCodec *codec = avcodec_find_decoder(ff_codec);
 	atrac->codecCtx_ = avcodec_alloc_context3(codec);
 
@@ -1871,13 +1893,7 @@ int __AtracSetContext(Atrac *atrac) {
 		atrac->codecCtx_->extradata = (uint8_t *)av_mallocz(14);
 		atrac->codecCtx_->extradata_size = 14;
 
-		// We don't pull this from the RIFF so that we can support OMA also.
-		// The only thing that changes are the jointStereo_ values.
-		atrac->codecCtx_->extradata[0] = 1;
-		atrac->codecCtx_->extradata[3] = atrac->channels_ << 3;
-		atrac->codecCtx_->extradata[6] = atrac->jointStereo_;
-		atrac->codecCtx_->extradata[8] = atrac->jointStereo_;
-		atrac->codecCtx_->extradata[10] = 1;
+		InitAT3ExtraData(atrac, atrac->codecCtx_->extradata);
 	}
 
 	// Appears we need to force mono in some cases. (See CPkmn's comments in issue #4248)
@@ -1897,7 +1913,6 @@ int __AtracSetContext(Atrac *atrac) {
 	}
 	// Only one supported, it seems?
 	atrac->codecCtx_->sample_rate = 44100;
-
 	atrac->codecCtx_->request_sample_fmt = AV_SAMPLE_FMT_S16;
 	int ret;
 	if ((ret = avcodec_open2(atrac->codecCtx_, codec, nullptr)) < 0) {
@@ -1905,8 +1920,9 @@ int __AtracSetContext(Atrac *atrac) {
 		return hleLogError(ME, ATRAC_ERROR_BAD_CODEC_PARAMS, "failed to open decoder %d", ret);
 	}
 
-	if ((ret = __AtracUpdateOutputMode(atrac, atrac->outputChannels_)) < 0)
+	if ((ret = __AtracUpdateOutputMode(atrac, atrac->outputChannels_)) < 0) {
 		return hleLogError(ME, ret, "failed to set the output mode");
+	}
 
 	// alloc audio frame
 	atrac->frame_ = av_frame_alloc();
@@ -1918,10 +1934,9 @@ int __AtracSetContext(Atrac *atrac) {
 	atrac->packet_->data = nullptr;
 	atrac->packet_->size = 0;
 #endif
+#endif  // USE_FFMPEG
 	// reinit decodePos, because ffmpeg had changed it.
 	atrac->decodePos_ = 0;
-#endif
-
 	return 0;
 }
 
@@ -2466,9 +2481,6 @@ static int sceAtracLowLevelInitDecoder(int atracID, u32 paramsAddr) {
 	atrac->first_.size = 0;
 	atrac->first_.filesize = atrac->bytesPerFrame_;
 	atrac->bufferState_ = ATRAC_STATUS_LOW_LEVEL;
-
-	atrac->dataBuf_ = new u8[atrac->first_.filesize + overAllocBytes];
-	memset(atrac->dataBuf_, 0, atrac->first_.filesize + overAllocBytes);
 	atrac->currentSample_ = 0;
 	int ret = __AtracSetContext(atrac);
 
@@ -2500,30 +2512,13 @@ static int sceAtracLowLevelDecode(int atracID, u32 sourceAddr, u32 sourceBytesCo
 	}
 
 	int numSamples = (atrac->codecType_ == PSP_MODE_AT_3_PLUS ? ATRAC3PLUS_MAX_SAMPLES : ATRAC3_MAX_SAMPLES);
+	int bytesConsumed = 0;
+	int bytesWritten = 0;
+	atrac->decoder_->Decode(srcp, atrac->bytesPerFrame_, &bytesConsumed, outp, &bytesWritten);
+	*srcConsumed = bytesConsumed;
+	*outWritten = bytesWritten;
 
-	if (!atrac->failedDecode_) {
-		AtracDecodeResult res = atrac->DecodeLowLevelPacket(srcp);
-		if (res == ATDECODE_GOTFRAME) {
-#ifdef USE_FFMPEG
-			// got a frame
-			numSamples = atrac->frame_->nb_samples;
-
-			u8 *out = outp;
-			int avret = swr_convert(atrac->swrCtx_, &out, numSamples,
-				(const u8**)atrac->frame_->extended_data, numSamples);
-			u32 outBytes = numSamples * atrac->outputChannels_ * sizeof(s16);
-			NotifyMemInfo(MemBlockFlags::WRITE, samplesAddr, outBytes, "AtracLowLevelDecode");
-			if (avret < 0) {
-				ERROR_LOG(ME, "swr_convert: Error while converting %d", avret);
-			}
-#endif // USE_FFMPEG
-		} else {
-			// TODO: Error code otherwise?
-		}
-	}
-
-	*outWritten = numSamples * atrac->outputChannels_ * sizeof(s16);
-	*srcConsumed = atrac->bytesPerFrame_;
+	NotifyMemInfo(MemBlockFlags::WRITE, samplesAddr, bytesWritten, "AtracLowLevelDecode");
 
 	return hleLogDebug(ME, hleDelayResult(0, "low level atrac decode data", atracDecodeDelay));
 }
