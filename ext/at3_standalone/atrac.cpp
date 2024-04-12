@@ -32,7 +32,7 @@
 
 #include "atrac.h"
 
-float ff_atrac_sf_table[64];
+float av_atrac_sf_table[64];
 static float qmf_window[48];
 
 static const float qmf_48tap_half[24] = {
@@ -50,9 +50,9 @@ void ff_atrac_generate_tables(void)
     float s;
 
     /* Generate scale factors */
-    if (!ff_atrac_sf_table[63])
+    if (!av_atrac_sf_table[63])
         for (i=0 ; i<64 ; i++)
-            ff_atrac_sf_table[i] = pow(2.0, (i - 15) / 3.0);
+            av_atrac_sf_table[i] = pow(2.0, (i - 15) / 3.0);
 
     /* Generate the QMF window. */
     if (!qmf_window[47])

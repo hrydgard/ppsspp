@@ -476,15 +476,15 @@ void ff_atrac3p_imdct(FFTContext *mdct_ctx, float *pIn,
      *   Both regions are 32 samples long. */
     if (wind_id & 2) { /* 1st half: steep window */
         memset(pOut, 0, sizeof(float) * 32);
-        vector_fmul(&pOut[32], &pOut[32], ff_sine_64, 64);
+        vector_fmul(&pOut[32], &pOut[32], av_sine_64, 64);
     } else /* 1st half: simple sine window */
-        vector_fmul(pOut, pOut, ff_sine_128, ATRAC3P_MDCT_SIZE / 2);
+        vector_fmul(pOut, pOut, av_sine_128, ATRAC3P_MDCT_SIZE / 2);
 
     if (wind_id & 1) { /* 2nd half: steep window */
-        vector_fmul_reverse(&pOut[160], &pOut[160], ff_sine_64, 64);
+        vector_fmul_reverse(&pOut[160], &pOut[160], av_sine_64, 64);
         memset(&pOut[224], 0, sizeof(float) * 32);
     } else /* 2nd half: simple sine window */
-        vector_fmul_reverse(&pOut[128], &pOut[128], ff_sine_128, ATRAC3P_MDCT_SIZE / 2);
+        vector_fmul_reverse(&pOut[128], &pOut[128], av_sine_128, ATRAC3P_MDCT_SIZE / 2);
 }
 
 /* lookup table for fast modulo 23 op required for cyclic buffers of the IPQF */

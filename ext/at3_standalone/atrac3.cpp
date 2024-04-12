@@ -297,7 +297,7 @@ static int decode_spectrum(GetBitContext *gb, float *output)
                                        mantissas, subband_size);
 
             /* decode the scale factor for this subband */
-            scale_factor = ff_atrac_sf_table[sf_index[i]] *
+            scale_factor = av_atrac_sf_table[sf_index[i]] *
                            inv_max_quant[subband_vlc_index[i]];
 
             /* inverse quantize the coefficients */
@@ -379,7 +379,7 @@ static int decode_tonal_components(GetBitContext *gb,
                 coded_values     = coded_values_per_component + 1;
                 coded_values     = FFMIN(max_coded_values, coded_values);
 
-                scale_factor = ff_atrac_sf_table[sf_index] *
+                scale_factor = av_atrac_sf_table[sf_index] *
                                inv_max_quant[quant_step_index];
 
                 read_quant_spectral_coeffs(gb, quant_step_index, coding_mode,

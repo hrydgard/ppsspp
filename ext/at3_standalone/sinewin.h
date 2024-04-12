@@ -23,7 +23,7 @@
 #include "compat.h"
 
 #define SINETABLE(size) \
-    DECLARE_ALIGNED(32, float, ff_sine_##size)[size]
+    DECLARE_ALIGNED(32, float, av_sine_##size)[size]
 
  /**
   * Generate a sine window.

@@ -40,11 +40,11 @@ SINETABLE(8192);
 
 // Thie array is only accessed in init. However, not so for the
 // sine tables it points to.
-static float *ff_sine_windows[] = {
+static float *av_sine_windows[] = {
 	NULL, NULL, NULL, NULL, NULL, // unused
-	ff_sine_32 , ff_sine_64, ff_sine_128,
-	ff_sine_256, ff_sine_512, ff_sine_1024,
-	ff_sine_2048,ff_sine_4096, ff_sine_8192
+	av_sine_32, av_sine_64, av_sine_128,
+	av_sine_256, av_sine_512, av_sine_1024,
+	av_sine_2048, av_sine_4096, av_sine_8192
 };
 
 // Generate a sine window.
@@ -55,6 +55,6 @@ void ff_sine_window_init(float *window, int n) {
 }
 
 void ff_init_ff_sine_windows(int index) {
-	assert(index >= 0 && index < FF_ARRAY_ELEMS(ff_sine_windows));
-	ff_sine_window_init(ff_sine_windows[index], 1 << index);
+	assert(index >= 0 && index < FF_ARRAY_ELEMS(av_sine_windows));
+	ff_sine_window_init(av_sine_windows[index], 1 << index);
 }

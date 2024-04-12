@@ -51,7 +51,7 @@ typedef struct AtracGCContext {
     int     loc_size;       ///< size of location code in samples
 } AtracGCContext;
 
-extern float ff_atrac_sf_table[64];
+extern float av_atrac_sf_table[64];
 
 /**
  * Generate common tables.
