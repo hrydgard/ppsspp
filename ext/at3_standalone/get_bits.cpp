@@ -102,11 +102,11 @@ static inline uint32_t bitswap_32(uint32_t x)
 }
 
 typedef struct VLCcode {
-    uint8_t bits;
-    uint16_t symbol;
     /** codeword, with the first bit-to-be-read in the msb
      * (even if intended for a little-endian bitstream reader) */
     uint32_t code;
+    uint16_t symbol;
+    uint8_t bits;
 } VLCcode;
 
 static int compare_vlcspec(const void *a, const void *b)
