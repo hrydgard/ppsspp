@@ -532,22 +532,6 @@ struct Atrac {
 		return 0;
 	}
 
-	bool FillPacket(int adjust = 0) {
-		u32 off = FileOffsetBySample(currentSample_ + adjust);
-		if (off < first_.size) {
-#ifdef USE_FFMPEG
-			av_init_packet(packet_);
-			packet_->data = BufferStart() + off;
-			packet_->size = std::min((u32)bytesPerFrame_, first_.size - off);
-			packet_->pos = off;
-#endif // USE_FFMPEG
-
-			return true;
-		} else {
-			return false;
-		}
-	}
-
 	AtracDecodeResult DecodePacket() {
 #ifdef USE_FFMPEG
 		if (codecCtx_ == nullptr) {
@@ -1247,10 +1231,16 @@ u32 _AtracDecodeData(int atracID, u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u3
 
 		AtracDecodeResult res = ATDECODE_FEEDME;
 		while (true) {
-			if (!atrac->FillPacket(-skipSamples)) {
+			u32 off = atrac->FileOffsetBySample(atrac->currentSample_ - skipSamples);
+			if (off >= atrac->first_.size) {
 				break;
 			}
-
+#ifdef USE_FFMPEG
+			av_init_packet(atrac->packet_);
+			atrac->packet_->data = atrac->BufferStart() + off;
+			atrac->packet_->size = std::min((u32)atrac->bytesPerFrame_, atrac->first_.size - off);
+			atrac->packet_->pos = off;
+#endif // USE_FFMPEG
 			uint32_t packetAddr = atrac->CurBufferAddress(-skipSamples);
 #ifdef USE_FFMPEG
 			int packetSize = atrac->packet_->size;
