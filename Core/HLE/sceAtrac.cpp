@@ -1256,62 +1256,63 @@ u32 _AtracDecodeData(int atracID, u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u3
 					int packetSize = atrac->packet_->size;
 #endif // USE_FFMPEG
 					res = atrac->DecodePacket();
-					if (res == ATDECODE_FAILED) {
+					if (res == ATDECODE_FEEDME) {
+						continue;
+					} else if (res == ATDECODE_FAILED) {
 						*SamplesNum = 0;
 						*finish = 1;
 						return ATRAC_ERROR_ALL_DATA_DECODED;
-					}
-
-					if (res == ATDECODE_GOTFRAME) {
-#ifdef USE_FFMPEG
-						// got a frame
-						int skipped = std::min(skipSamples, atrac->frame_->nb_samples);
-						skipSamples -= skipped;
-						numSamples = atrac->frame_->nb_samples - skipped;
-
-						// If we're at the end, clamp to samples we want.  It always returns a full chunk.
-						numSamples = std::min(maxSamples, numSamples);
-
-						if (skipped > 0 && numSamples == 0) {
-							// Wait for the next one.
-							res = ATDECODE_FEEDME;
-						}
-
-						if (outbuf != NULL && numSamples != 0) {
-							int inbufOffset = 0;
-							if (skipped != 0) {
-								AVSampleFormat fmt = (AVSampleFormat)atrac->frame_->format;
-								// We want the offset per channel.
-								inbufOffset = av_samples_get_buffer_size(NULL, 1, skipped, fmt, 1);
-							}
-
-							u8 *out = outbuf;
-							const u8 *inbuf[2] = {
-								atrac->frame_->extended_data[0] + inbufOffset,
-								atrac->frame_->extended_data[1] + inbufOffset,
-							};
-							int avret = swr_convert(atrac->swrCtx_, &out, numSamples, inbuf, numSamples);
-							if (outbufPtr != 0) {
-								u32 outBytes = numSamples * atrac->outputChannels_ * sizeof(s16);
-								if (packetAddr != 0 && MemBlockInfoDetailed()) {
-									char tagData[128];
-									size_t tagSize = FormatMemWriteTagAt(tagData, sizeof(tagData), "AtracDecode/", packetAddr, packetSize);
-									NotifyMemInfo(MemBlockFlags::READ, packetAddr, packetSize, tagData, tagSize);
-									NotifyMemInfo(MemBlockFlags::WRITE, outbufPtr, outBytes, tagData, tagSize);
-								} else {
-									NotifyMemInfo(MemBlockFlags::WRITE, outbufPtr, outBytes, "AtracDecode");
-								}
-							}
-							if (avret < 0) {
-								ERROR_LOG(ME, "swr_convert: Error while converting %d", avret);
-							}
-						}
-#endif // USE_FFMPEG
-					}
-					if (res == ATDECODE_GOTFRAME || res == ATDECODE_BADFRAME) {
-						// We only want one frame per call, let's continue the next time.
+					} else if (res == ATDECODE_BADFRAME) {
+						// Retry next time.
 						break;
 					}
+					_dbg_assert_(res == ATDECODE_GOTFRAME);
+#ifdef USE_FFMPEG
+					// got a frame
+					int skipped = std::min(skipSamples, atrac->frame_->nb_samples);
+					skipSamples -= skipped;
+					numSamples = atrac->frame_->nb_samples - skipped;
+
+					// If we're at the end, clamp to samples we want.  It always returns a full chunk.
+					numSamples = std::min(maxSamples, numSamples);
+
+					if (skipped > 0 && numSamples == 0) {
+						// Wait for the next one.
+						res = ATDECODE_FEEDME;
+					}
+
+					if (outbuf != NULL && numSamples != 0) {
+						int inbufOffset = 0;
+						if (skipped != 0) {
+							AVSampleFormat fmt = (AVSampleFormat)atrac->frame_->format;
+							// We want the offset per channel.
+							inbufOffset = av_samples_get_buffer_size(NULL, 1, skipped, fmt, 1);
+						}
+
+						u8 *out = outbuf;
+						const u8 *inbuf[2] = {
+							atrac->frame_->extended_data[0] + inbufOffset,
+							atrac->frame_->extended_data[1] + inbufOffset,
+						};
+						int avret = swr_convert(atrac->swrCtx_, &out, numSamples, inbuf, numSamples);
+						if (outbufPtr != 0) {
+							u32 outBytes = numSamples * atrac->outputChannels_ * sizeof(s16);
+							if (packetAddr != 0 && MemBlockInfoDetailed()) {
+								char tagData[128];
+								size_t tagSize = FormatMemWriteTagAt(tagData, sizeof(tagData), "AtracDecode/", packetAddr, packetSize);
+								NotifyMemInfo(MemBlockFlags::READ, packetAddr, packetSize, tagData, tagSize);
+								NotifyMemInfo(MemBlockFlags::WRITE, outbufPtr, outBytes, tagData, tagSize);
+							} else {
+								NotifyMemInfo(MemBlockFlags::WRITE, outbufPtr, outBytes, "AtracDecode");
+							}
+						}
+						if (avret < 0) {
+							ERROR_LOG(ME, "swr_convert: Error while converting %d", avret);
+						}
+					}
+					// We only want one frame per call, let's continue the next time.
+					break;
+#endif // USE_FFMPEG
 				}
 
 				if (res != ATDECODE_GOTFRAME && atrac->currentSample_ < atrac->endSample_) {
