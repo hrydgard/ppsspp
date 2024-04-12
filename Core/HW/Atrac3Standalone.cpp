@@ -75,20 +75,25 @@ public:
 			*outbytes = 0;
 			return false;
 		}
-		*inbytesConsumed = result;
+		if (inbytesConsumed) {
+			*inbytesConsumed = result;
+		}
 		outSamples_ = nb_samples;
 		if (nb_samples > 0) {
-			*outbytes = nb_samples * 2 * 2;
-
-			// Convert frame to outbuf. TODO: Very SIMDable, though hardly hot.
-			for (int channel = 0; channel < 2; channel++) {
-				int16_t *output = (int16_t *)outbuf;
-				for (int i = 0; i < nb_samples; i++) {
-					output[i * 2] = clamp16(buffers_[0][i]);
-					output[i * 2 + 1] = clamp16(buffers_[1][i]);
+			if (outbytes) {
+				*outbytes = nb_samples * 2 * 2;
+			}
+			if (outbuf) {
+				// Convert frame to outbuf. TODO: Very SIMDable, though hardly hot.
+				for (int channel = 0; channel < 2; channel++) {
+					int16_t *output = (int16_t *)outbuf;
+					for (int i = 0; i < nb_samples; i++) {
+						output[i * 2] = clamp16(buffers_[0][i]);
+						output[i * 2 + 1] = clamp16(buffers_[1][i]);
+					}
 				}
 			}
-		} else {
+		} else if (outbytes) {
 			*outbytes = 0;
 		}
 		return true;
