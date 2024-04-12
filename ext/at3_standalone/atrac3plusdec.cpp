@@ -316,7 +316,7 @@ int atrac3p_decode_frame(ATRAC3PContext *ctx, float *out_data[2], int *nb_sample
         return ret;
 
     if (get_bits1(&ctx->gb)) {
-        av_log(AV_LOG_ERROR, "Invalid start bit!\n");
+        av_log(AV_LOG_ERROR, "Invalid start bit!");
         return AVERROR_INVALIDDATA;
     }
 
@@ -329,7 +329,7 @@ int atrac3p_decode_frame(ATRAC3PContext *ctx, float *out_data[2], int *nb_sample
         if (ch_block >= ctx->num_channel_blocks ||
             ctx->channel_blocks[ch_block] != ch_unit_id) {
             av_log(AV_LOG_ERROR,
-                   "Frame data doesn't match channel configuration!\n");
+                   "Frame data doesn't match channel configuration!");
             return AVERROR_INVALIDDATA;
         }
 

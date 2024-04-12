@@ -578,12 +578,12 @@ static int decode_channel_sound_unit(ATRAC3Context *q, GetBitContext *gb,
 
     if (coding_mode == JOINT_STEREO && channel_num == 1) {
         if (get_bits(gb, 2) != 3) {
-            av_log(AV_LOG_ERROR,"JS mono Sound Unit id != 3.\n");
+            av_log(AV_LOG_ERROR,"JS mono Sound Unit id != 3.");
             return AVERROR_INVALIDDATA;
         }
     } else {
         if (get_bits(gb, 6) != 0x28) {
-            av_log(AV_LOG_ERROR,"Sound Unit id != 0x28.\n");
+            av_log(AV_LOG_ERROR,"Sound Unit id != 0x28.");
             return AVERROR_INVALIDDATA;
         }
     }
@@ -741,7 +741,7 @@ int atrac3_decode_frame(ATRAC3Context *ctx, float *out_data[2], int *nb_samples,
 
     if (buf_size < block_align) {
         av_log(AV_LOG_ERROR,
-               "Frame too small (%d bytes). Truncated file?\n", buf_size);
+               "Frame too small (%d bytes). Truncated file?", buf_size);
         return AVERROR_INVALIDDATA;
     }
 
@@ -755,7 +755,7 @@ int atrac3_decode_frame(ATRAC3Context *ctx, float *out_data[2], int *nb_samples,
 
     ret = decode_frame(ctx, block_align, channels, databuf, out_data);
     if (ret) {
-        av_log( AV_LOG_ERROR, "Frame decoding error!\n");
+        av_log(AV_LOG_ERROR, "Frame decoding error!");
         return ret;
     }
 
@@ -795,7 +795,7 @@ ATRAC3Context *atrac3_alloc(int channels, int *block_align, const uint8_t *extra
     const uint8_t *edata_ptr = extra_data;
 
     if (channels <= 0 || channels > 2) {
-        av_log(AV_LOG_ERROR, "Channel configuration error!\n");
+        av_log(AV_LOG_ERROR, "Channel configuration error!");
         return nullptr;
     }
 
@@ -816,14 +816,14 @@ ATRAC3Context *atrac3_alloc(int channels, int *block_align, const uint8_t *extra
     /* Take care of the codec-specific extradata. */
     if (extra_data_size == 14) {
         /* Parse the extradata, WAV format */
-        av_log(AV_LOG_DEBUG, "[0-1] %d\n",
+        av_log(AV_LOG_DEBUG, "[0-1] %d",
                bytestream_get_le16(&edata_ptr));  // Unknown value always 1
         edata_ptr += 4;                             // samples per channel
         q->coding_mode = bytestream_get_le16(&edata_ptr);
-        av_log(AV_LOG_DEBUG,"[8-9] %d\n",
+        av_log(AV_LOG_DEBUG,"[8-9] %d",
                bytestream_get_le16(&edata_ptr));  //Dupe of coding mode
         frame_factor = bytestream_get_le16(&edata_ptr);  // Unknown always 1
-        av_log(AV_LOG_DEBUG,"[12-13] %d\n",
+        av_log(AV_LOG_DEBUG,"[12-13] %d",
                bytestream_get_le16(&edata_ptr));  // Unknown always 0
 
         /* setup */
@@ -837,7 +837,7 @@ ATRAC3Context *atrac3_alloc(int channels, int *block_align, const uint8_t *extra
             q->block_align != 152 * channels * frame_factor &&
             q->block_align != 192 * channels * frame_factor) {
             av_log(AV_LOG_ERROR, "Unknown frame/channel/frame_factor "
-                   "configuration %d/%d/%d\n", block_align,
+                   "configuration %d/%d/%d", block_align,
                    channels, frame_factor);
             atrac3_free(q);
             return nullptr;
@@ -851,7 +851,7 @@ ATRAC3Context *atrac3_alloc(int channels, int *block_align, const uint8_t *extra
         q->scrambled_stream    = 1;
 
     } else {
-        av_log(AV_LOG_ERROR, "Unknown extradata size %d.\n",
+        av_log(AV_LOG_ERROR, "Unknown extradata size %d.",
                extra_data_size);
         atrac3_free(q);
         return nullptr;
@@ -860,37 +860,37 @@ ATRAC3Context *atrac3_alloc(int channels, int *block_align, const uint8_t *extra
     /* Check the extradata */
 
     if (version != 4) {
-        av_log(AV_LOG_ERROR, "Version %d != 4.\n", version);
+        av_log(AV_LOG_ERROR, "Version %d != 4.", version);
         atrac3_free(q);
         return nullptr;
     }
 
     if (samples_per_frame != SAMPLES_PER_FRAME &&
         samples_per_frame != SAMPLES_PER_FRAME * 2) {
-        av_log(AV_LOG_ERROR, "Unknown amount of samples per frame %d.\n",
+        av_log(AV_LOG_ERROR, "Unknown amount of samples per frame %d.",
                samples_per_frame);
          atrac3_free(q);
          return nullptr;
 	}
 
     if (delay != 0x88E) {
-        av_log(AV_LOG_ERROR, "Unknown amount of delay %x != 0x88E.\n",
+        av_log(AV_LOG_ERROR, "Unknown amount of delay %x != 0x88E.",
                delay);
         atrac3_free(q);
         return nullptr;
 	}
 
     if (q->coding_mode == STEREO)
-        av_log(AV_LOG_DEBUG, "Normal stereo detected.\n");
+        av_log(AV_LOG_DEBUG, "Normal stereo detected.");
     else if (q->coding_mode == JOINT_STEREO) {
         if (channels != 2) {
-            av_log(AV_LOG_ERROR, "Invalid coding mode\n");
+            av_log(AV_LOG_ERROR, "Invalid coding mode");
             atrac3_free(q);
             return nullptr;
 		}
-        av_log(AV_LOG_DEBUG, "Joint stereo detected.\n");
+        av_log(AV_LOG_DEBUG, "Joint stereo detected.");
     } else {
-        av_log(AV_LOG_ERROR, "Unknown channel coding mode %x!\n",
+        av_log(AV_LOG_ERROR, "Unknown channel coding mode %x!",
                q->coding_mode);
         atrac3_free(q);
         return nullptr;
@@ -900,7 +900,7 @@ ATRAC3Context *atrac3_alloc(int channels, int *block_align, const uint8_t *extra
 
     /* initialize the MDCT transform */
     if ((ret = ff_mdct_init(&q->mdct_ctx, 9, 1, 1.0 / 32768)) < 0) {
-        av_log(AV_LOG_ERROR, "Error initializing MDCT\n");
+        av_log(AV_LOG_ERROR, "Error initializing MDCT");
         av_freep(&q->decoded_bytes_buffer);
 
         return nullptr;
