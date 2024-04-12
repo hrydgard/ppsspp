@@ -126,7 +126,11 @@ void __KernelInit()
 	__AudioInit();
 	__Mp3Init();
 	__SasInit();
-	__AtracInit();
+	if (g_Config.bNewAtrac3) {
+		__AtracInit2();
+	} else {
+		__AtracInit();
+	}
 	__CccInit();
 	__DisplayInit();
 	__GeInit();
@@ -198,7 +202,11 @@ void __KernelShutdown()
 	__GeShutdown();
 	__SasShutdown();
 	__DisplayShutdown();
-	__AtracShutdown();
+	if (g_Config.bNewAtrac3) {
+		__AtracShutdown2();
+	} else {
+		__AtracShutdown();
+	}
 	__AudioShutdown();
 	__IoShutdown();
 	__HeapShutdown();
@@ -256,7 +264,11 @@ void __KernelDoState(PointerWrap &p)
 		if (!s)
 			return;
 
-		__AtracDoState(p);
+		if (g_Config.bNewAtrac3) {
+			__AtracDoState2(p);
+		} else {
+			__AtracDoState(p);
+		}
 		__AudioDoState(p);
 		__CccDoState(p);
 		__CtrlDoState(p);

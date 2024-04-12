@@ -22,9 +22,15 @@
 class PointerWrap;
 
 void Register_sceAtrac3plus();
+void Register_sceAtrac3plus2();
+
 void __AtracInit();
 void __AtracDoState(PointerWrap &p);
 void __AtracShutdown();
+
+void __AtracInit2();
+void __AtracDoState2(PointerWrap &p);
+void __AtracShutdown2();
 
 enum AtracStatus : u8 {
 	ATRAC_STATUS_NO_DATA = 1,
@@ -90,3 +96,8 @@ u32 _AtracAddStreamData(int atracID, u32 bufPtr, u32 bytesToAdd);
 u32 _AtracDecodeData(int atracID, u8* outbuf, u32 outbufPtr, u32 *SamplesNum, u32* finish, int *remains);
 int _AtracGetIDByContext(u32 contextAddr);
 void __AtracLoadModule(int version, u32 crc);
+
+u32 _AtracAddStreamData2(int atracID, u32 bufPtr, u32 bytesToAdd);
+u32 _AtracDecodeData2(int atracID, u8* outbuf, u32 outbufPtr, u32 *SamplesNum, u32* finish, int *remains);
+int _AtracGetIDByContext2(u32 contextAddr);
+void __AtracLoadModule2(int version, u32 crc);

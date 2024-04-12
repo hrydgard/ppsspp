@@ -1190,9 +1190,12 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 				__PsmfPlayerLoadModule(devkitVersion, module->crc);
 			}
 			if (!strcmp(head->modname, "sceATRAC3plus_Library")) {
-				__AtracLoadModule(ver, module->crc);
+				if (g_Config.bNewAtrac3) {
+					__AtracLoadModule2(ver, module->crc);
+				} else {
+					__AtracLoadModule(ver, module->crc);
+				}
 			}
-
 		}
 
 		const u8 *in = ptr;
@@ -1636,7 +1639,11 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 			__PsmfPlayerLoadModule(devkitVersion, module->crc);
 		}
 		if (!strcmp(modinfo->name, "sceATRAC3plus_Library")) {
-			__AtracLoadModule(modinfo->moduleVersion, module->crc);
+			if (g_Config.bNewAtrac3) {
+				__AtracLoadModule2(modinfo->moduleVersion, module->crc);
+			} else {
+				__AtracLoadModule(modinfo->moduleVersion, module->crc);
+			}
 		}
 
 	}

@@ -1800,6 +1800,8 @@ void DeveloperToolsScreen::CreateViews() {
 		});
 	}
 
+	list->Add(new CheckBox(&g_Config.bNewAtrac3, dev->T("Use new sceAtrac implementation")));
+
 	if (GetGPUBackend() == GPUBackend::VULKAN && SupportsCustomDriver()) {
 		auto driverChoice = list->Add(new Choice(gr->T("Adreno Driver Manager")));
 		driverChoice->OnClick.Add([=](UI::EventParams &e) {

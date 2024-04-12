@@ -18,6 +18,7 @@
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/HLETables.h"
 #include "Core/HLE/FunctionWrappers.h"
+#include "Core/Config.h"
 
 #include "sceAtrac.h"
 #include "sceAudio.h"
@@ -249,7 +250,11 @@ void RegisterAllModules() {
 	Register_sceUmdUser();
 	Register_sceDmac();
 	Register_sceUtility();
-	Register_sceAtrac3plus();
+	if (g_Config.bNewAtrac3) {
+		Register_sceAtrac3plus2();
+	} else {
+		Register_sceAtrac3plus();
+	}
 	Register_scePsmf();
 	Register_scePsmfPlayer();
 	Register_sceOpenPSID();

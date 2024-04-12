@@ -568,6 +568,7 @@
     <ClCompile Include="FrameTiming.cpp" />
     <ClCompile Include="HLE\KUBridge.cpp" />
     <ClCompile Include="HLE\Plugins.cpp" />
+    <ClCompile Include="HLE\sceAtrac2.cpp" />
     <ClCompile Include="HLE\sceKernelHeap.cpp" />
     <ClCompile Include="HLE\sceNp2.cpp" />
     <ClCompile Include="HLE\sceUsbAcc.cpp" />

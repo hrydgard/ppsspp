@@ -1309,6 +1309,9 @@
     <ClCompile Include="HW\Atrac3Standalone.cpp">
       <Filter>HW</Filter>
     </ClCompile>
+    <ClCompile Include="HLE\sceAtrac2.cpp">
+      <Filter>HLE\Libraries</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ELF\ElfReader.h">
