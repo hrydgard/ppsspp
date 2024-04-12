@@ -74,8 +74,11 @@ void av_log(int level, const char *fmt, ...) av_printf_format(3, 4);
 
 #define MKTAG(a,b,c,d) ((a) | ((b) << 8) | ((c) << 16) | ((unsigned)(d) << 24))
 
+#ifdef _MSC_VER
 #pragma warning(disable:4305)
 #pragma warning(disable:4244)
+#pragma warning(disable:4101)  // unused variable
+#endif
 
 #define AV_BSWAP16C(x) (((x) << 8 & 0xff00)  | ((x) >> 8 & 0x00ff))
 #define AV_BSWAP32C(x) (AV_BSWAP16C(x) << 16 | AV_BSWAP16C((x) >> 16))

@@ -102,11 +102,11 @@ static inline uint32_t bitswap_32(uint32_t x)
 }
 
 typedef struct VLCcode {
-    uint8_t bits;
-    uint16_t symbol;
     /** codeword, with the first bit-to-be-read in the msb
      * (even if intended for a little-endian bitstream reader) */
     uint32_t code;
+    uint16_t symbol;
+    uint8_t bits;
 } VLCcode;
 
 static int compare_vlcspec(const void *a, const void *b)
@@ -162,7 +162,7 @@ static int build_table(VLC *vlc, int table_nb_bits, int nb_codes,
             for (k = 0; k < nb; k++) {
                 int bits = table[j][1];
                 if (bits != 0 && bits != n) {
-                    av_log( AV_LOG_ERROR, "incorrect codes\n");
+                    av_log(AV_LOG_ERROR, "incorrect codes");
                     return AVERROR_INVALIDDATA;
                 }
                 table[j][1] = n; //bits
@@ -273,14 +273,14 @@ int ff_init_vlc_sparse(VLC *vlc_arg, int nb_bits, int nb_codes,
         if (!(condition))                                                   \
             continue;                                                       \
         if (buf[j].bits > 3*nb_bits || buf[j].bits>32) {                    \
-            av_log( AV_LOG_ERROR, "Too long VLC (%d) in init_vlc\n", buf[j].bits);\
+            av_log(AV_LOG_ERROR, "Too long VLC (%d) in init_vlc", buf[j].bits);\
             if (!(flags & INIT_VLC_USE_NEW_STATIC))                         \
                 av_free(buf);                                               \
             return -1;                                                      \
         }                                                                   \
         GET_DATA(buf[j].code, codes, i, codes_wrap, codes_size);            \
         if (buf[j].code >= (1LL<<buf[j].bits)) {                            \
-            av_log( AV_LOG_ERROR, "Invalid code in init_vlc\n");       \
+            av_log(AV_LOG_ERROR, "Invalid code in init_vlc");               \
             if (!(flags & INIT_VLC_USE_NEW_STATIC))                         \
                 av_free(buf);                                               \
             return -1;                                                      \
@@ -305,7 +305,7 @@ int ff_init_vlc_sparse(VLC *vlc_arg, int nb_bits, int nb_codes,
 
     if (flags & INIT_VLC_USE_NEW_STATIC) {
         if(vlc->table_size != vlc->table_allocated)
-            av_log( AV_LOG_ERROR, "needed %d had %d\n", vlc->table_size, vlc->table_allocated);
+            av_log(AV_LOG_ERROR, "needed %d had %d", vlc->table_size, vlc->table_allocated);
 
         av_assert0(ret >= 0);
         *vlc_arg = *vlc;
