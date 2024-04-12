@@ -134,7 +134,7 @@ void ff_atrac_iqmf(float *inlo, float *inhi, unsigned int nIn, float *pOut,
     p3 = temp + 46;
 
     /* loop1 */
-    for(i=0; i<nIn; i+=2){
+    for(i=0; i<(int)nIn; i+=2){
         p3[2*i+0] = inlo[i  ] + inhi[i  ];
         p3[2*i+1] = inlo[i  ] - inhi[i  ];
         p3[2*i+2] = inlo[i+1] + inhi[i+1];
@@ -143,7 +143,7 @@ void ff_atrac_iqmf(float *inlo, float *inhi, unsigned int nIn, float *pOut,
 
     /* loop2 */
     p1 = temp;
-    for (j = nIn; j != 0; j--) {
+    for (j = (int)nIn; j != 0; j--) {
         float s1 = 0.0;
         float s2 = 0.0;
 

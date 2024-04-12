@@ -99,12 +99,12 @@ int64_t av_rescale_rnd(int64_t a, int64_t b, int64_t c, AVRounding rnd)
         a0  = a0 * b0 + t1a;
         a1  = a1 * b1 + (t1 >> 32) + (a0 < t1a);
         a0 += r;
-        a1 += a0 < r;
+        a1 += (int64_t)a0 < r;
 
         for (i = 63; i >= 0; i--) {
             a1 += a1 + ((a0 >> i) & 1);
             t1 += t1;
-            if (c <= a1) {
+            if (c <= (int64_t)a1) {
                 a1 -= c;
                 t1++;
             }
