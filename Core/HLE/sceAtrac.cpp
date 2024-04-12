@@ -1600,34 +1600,33 @@ static u32 sceAtracGetNextSample(int atracID, u32 outNAddr) {
 	if (err != 0) {
 		// Already logged.
 		return err;
-	} else {
-		if (atrac->currentSample_ >= atrac->endSample_) {
-			if (Memory::IsValidAddress(outNAddr))
-				Memory::WriteUnchecked_U32(0, outNAddr);
-			return hleLogSuccessI(ME, 0, "0 samples left");
-		} else {
-			// It seems like the PSP aligns the sample position to 0x800...?
-			u32 skipSamples = atrac->firstSampleOffset_ + atrac->FirstOffsetExtra();
-			u32 firstSamples = (atrac->SamplesPerFrame() - skipSamples) % atrac->SamplesPerFrame();
-			u32 numSamples = atrac->endSample_ + 1 - atrac->currentSample_;
-			if (atrac->currentSample_ == 0 && firstSamples != 0) {
-				numSamples = firstSamples;
-			}
-			u32 unalignedSamples = (skipSamples + atrac->currentSample_) % atrac->SamplesPerFrame();
-			if (unalignedSamples != 0) {
-				// We're off alignment, possibly due to a loop.  Force it back on.
-				numSamples = atrac->SamplesPerFrame() - unalignedSamples;
-			}
-			if (numSamples > atrac->SamplesPerFrame())
-				numSamples = atrac->SamplesPerFrame();
-			if (atrac->bufferState_ == ATRAC_STATUS_STREAMED_LOOP_FROM_END && (int)numSamples + atrac->currentSample_ > atrac->endSample_) {
-				atrac->bufferState_ = ATRAC_STATUS_ALL_DATA_LOADED;
-			}
-			if (Memory::IsValidAddress(outNAddr))
-				Memory::WriteUnchecked_U32(numSamples, outNAddr);
-			return hleLogSuccessI(ME, 0, "%d samples left", numSamples);
-		}
 	}
+	if (atrac->currentSample_ >= atrac->endSample_) {
+		if (Memory::IsValidAddress(outNAddr))
+			Memory::WriteUnchecked_U32(0, outNAddr);
+		return hleLogSuccessI(ME, 0, "0 samples left");
+	}
+
+	// It seems like the PSP aligns the sample position to 0x800...?
+	u32 skipSamples = atrac->firstSampleOffset_ + atrac->FirstOffsetExtra();
+	u32 firstSamples = (atrac->SamplesPerFrame() - skipSamples) % atrac->SamplesPerFrame();
+	u32 numSamples = atrac->endSample_ + 1 - atrac->currentSample_;
+	if (atrac->currentSample_ == 0 && firstSamples != 0) {
+		numSamples = firstSamples;
+	}
+	u32 unalignedSamples = (skipSamples + atrac->currentSample_) % atrac->SamplesPerFrame();
+	if (unalignedSamples != 0) {
+		// We're off alignment, possibly due to a loop.  Force it back on.
+		numSamples = atrac->SamplesPerFrame() - unalignedSamples;
+	}
+	if (numSamples > atrac->SamplesPerFrame())
+		numSamples = atrac->SamplesPerFrame();
+	if (atrac->bufferState_ == ATRAC_STATUS_STREAMED_LOOP_FROM_END && (int)numSamples + atrac->currentSample_ > atrac->endSample_) {
+		atrac->bufferState_ = ATRAC_STATUS_ALL_DATA_LOADED;
+	}
+	if (Memory::IsValidAddress(outNAddr))
+		Memory::WriteUnchecked_U32(numSamples, outNAddr);
+	return hleLogSuccessI(ME, 0, "%d samples left", numSamples);
 }
 
 // Obtains the number of frames remaining in the buffer which can be decoded.
@@ -1751,68 +1750,66 @@ static u32 sceAtracResetPlayPosition(int atracID, int sample, int bytesWrittenFi
 		return hleReportError(ME, ATRAC_ERROR_SECOND_BUFFER_NEEDED, "no second buffer");
 	} else if ((u32)sample + atrac->firstSampleOffset_ > (u32)atrac->endSample_ + atrac->firstSampleOffset_) {
 		return hleLogWarning(ME, ATRAC_ERROR_BAD_SAMPLE, "invalid sample position");
-	} else {
-		// Reuse the same calculation as before.
-		AtracResetBufferInfo bufferInfo;
-		AtracGetResetBufferInfo(atrac, &bufferInfo, sample);
-
-		if ((u32)bytesWrittenFirstBuf < bufferInfo.first.minWriteBytes || (u32)bytesWrittenFirstBuf > bufferInfo.first.writableBytes) {
-			return hleLogError(ME, ATRAC_ERROR_BAD_FIRST_RESET_SIZE, "first byte count not in valid range");
-		}
-		if ((u32)bytesWrittenSecondBuf < bufferInfo.second.minWriteBytes || (u32)bytesWrittenSecondBuf > bufferInfo.second.writableBytes) {
-			return hleLogError(ME, ATRAC_ERROR_BAD_SECOND_RESET_SIZE, "second byte count not in valid range");
-		}
-
-		if (atrac->bufferState_ == ATRAC_STATUS_ALL_DATA_LOADED) {
-			// Always adds zero bytes.
-		} else if (atrac->bufferState_ == ATRAC_STATUS_HALFWAY_BUFFER) {
-			// Okay, it's a valid number of bytes.  Let's set them up.
-			if (bytesWrittenFirstBuf != 0) {
-				if (!atrac->ignoreDataBuf_) {
-					Memory::Memcpy(atrac->dataBuf_ + atrac->first_.size, atrac->first_.addr + atrac->first_.size, bytesWrittenFirstBuf, "AtracResetPlayPosition");
-				}
-				atrac->first_.fileoffset += bytesWrittenFirstBuf;
-				atrac->first_.size += bytesWrittenFirstBuf;
-				atrac->first_.offset += bytesWrittenFirstBuf;
-			}
-
-			// Did we transition to a full buffer?
-			if (atrac->first_.size >= atrac->first_.filesize) {
-				atrac->first_.size = atrac->first_.filesize;
-				atrac->bufferState_ = ATRAC_STATUS_ALL_DATA_LOADED;
-			}
-		} else {
-			if (bufferInfo.first.filePos > atrac->first_.filesize) {
-				return hleDelayResult(hleLogError(ME, ATRAC_ERROR_API_FAIL, "invalid file position"), "reset play pos", 200);
-			}
-
-			// Move the offset to the specified position.
-			atrac->first_.fileoffset = bufferInfo.first.filePos;
-
-			if (bytesWrittenFirstBuf != 0) {
-				if (!atrac->ignoreDataBuf_) {
-					Memory::Memcpy(atrac->dataBuf_ + atrac->first_.fileoffset, atrac->first_.addr, bytesWrittenFirstBuf, "AtracResetPlayPosition");
-				}
-				atrac->first_.fileoffset += bytesWrittenFirstBuf;
-			}
-			atrac->first_.size = atrac->first_.fileoffset;
-			atrac->first_.offset = bytesWrittenFirstBuf;
-
-			atrac->bufferHeaderSize_ = 0;
-			atrac->bufferPos_ = atrac->bytesPerFrame_;
-			atrac->bufferValidBytes_ = bytesWrittenFirstBuf - atrac->bufferPos_;
-		}
-
-		if (atrac->codecType_ == PSP_MODE_AT_3 || atrac->codecType_ == PSP_MODE_AT_3_PLUS) {
-			atrac->SeekToSample(sample);
-		}
-
-		if (atrac->context_.IsValid()) {
-			_AtracGenerateContext(atrac);
-		}
-
-		return hleDelayResult(hleLogSuccessInfoI(ME, 0), "reset play pos", 3000);
 	}
+	// Reuse the same calculation as before.
+	AtracResetBufferInfo bufferInfo;
+	AtracGetResetBufferInfo(atrac, &bufferInfo, sample);
+
+	if ((u32)bytesWrittenFirstBuf < bufferInfo.first.minWriteBytes || (u32)bytesWrittenFirstBuf > bufferInfo.first.writableBytes) {
+		return hleLogError(ME, ATRAC_ERROR_BAD_FIRST_RESET_SIZE, "first byte count not in valid range");
+	}
+	if ((u32)bytesWrittenSecondBuf < bufferInfo.second.minWriteBytes || (u32)bytesWrittenSecondBuf > bufferInfo.second.writableBytes) {
+		return hleLogError(ME, ATRAC_ERROR_BAD_SECOND_RESET_SIZE, "second byte count not in valid range");
+	}
+
+	if (atrac->bufferState_ == ATRAC_STATUS_ALL_DATA_LOADED) {
+		// Always adds zero bytes.
+	} else if (atrac->bufferState_ == ATRAC_STATUS_HALFWAY_BUFFER) {
+		// Okay, it's a valid number of bytes.  Let's set them up.
+		if (bytesWrittenFirstBuf != 0) {
+			if (!atrac->ignoreDataBuf_) {
+				Memory::Memcpy(atrac->dataBuf_ + atrac->first_.size, atrac->first_.addr + atrac->first_.size, bytesWrittenFirstBuf, "AtracResetPlayPosition");
+			}
+			atrac->first_.fileoffset += bytesWrittenFirstBuf;
+			atrac->first_.size += bytesWrittenFirstBuf;
+			atrac->first_.offset += bytesWrittenFirstBuf;
+		}
+
+		// Did we transition to a full buffer?
+		if (atrac->first_.size >= atrac->first_.filesize) {
+			atrac->first_.size = atrac->first_.filesize;
+			atrac->bufferState_ = ATRAC_STATUS_ALL_DATA_LOADED;
+		}
+	} else {
+		if (bufferInfo.first.filePos > atrac->first_.filesize) {
+			return hleDelayResult(hleLogError(ME, ATRAC_ERROR_API_FAIL, "invalid file position"), "reset play pos", 200);
+		}
+
+		// Move the offset to the specified position.
+		atrac->first_.fileoffset = bufferInfo.first.filePos;
+
+		if (bytesWrittenFirstBuf != 0) {
+			if (!atrac->ignoreDataBuf_) {
+				Memory::Memcpy(atrac->dataBuf_ + atrac->first_.fileoffset, atrac->first_.addr, bytesWrittenFirstBuf, "AtracResetPlayPosition");
+			}
+			atrac->first_.fileoffset += bytesWrittenFirstBuf;
+		}
+		atrac->first_.size = atrac->first_.fileoffset;
+		atrac->first_.offset = bytesWrittenFirstBuf;
+
+		atrac->bufferHeaderSize_ = 0;
+		atrac->bufferPos_ = atrac->bytesPerFrame_;
+		atrac->bufferValidBytes_ = bytesWrittenFirstBuf - atrac->bufferPos_;
+	}
+
+	if (atrac->codecType_ == PSP_MODE_AT_3 || atrac->codecType_ == PSP_MODE_AT_3_PLUS) {
+		atrac->SeekToSample(sample);
+	}
+
+	if (atrac->context_.IsValid()) {
+		_AtracGenerateContext(atrac);
+	}
+	return hleDelayResult(hleLogSuccessInfoI(ME, 0), "reset play pos", 3000);
 }
 
 #ifdef USE_FFMPEG
