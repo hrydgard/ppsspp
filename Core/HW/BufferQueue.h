@@ -29,14 +29,12 @@ struct BufferQueue {
 	}
 
 	~BufferQueue() {
-		if (bufQueue)
-			delete [] bufQueue;
+		delete [] bufQueue;
 	}
 
 	bool alloc(int size) {
 		_assert_(size > 0);
-		if (bufQueue)
-			delete [] bufQueue;
+		delete [] bufQueue;
 		bufQueue = new unsigned char[size];
 		bufQueueSize = size;
 		clear();

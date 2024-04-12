@@ -189,8 +189,7 @@ LogManager::~LogManager() {
 	// Make sure we don't shutdown while logging.  RemoveListener locks too, but there are gaps.
 	std::lock_guard<std::mutex> listeners_lock(listeners_lock_);
 
-	if (fileLog_)
-		delete fileLog_;
+	delete fileLog_;
 #if !defined(MOBILE_DEVICE) || defined(_DEBUG)
 #if PPSSPP_PLATFORM(WINDOWS) && !PPSSPP_PLATFORM(UWP)
 	delete consoleLog_;

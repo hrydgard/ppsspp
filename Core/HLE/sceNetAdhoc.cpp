@@ -5008,7 +5008,7 @@ int NetAdhocMatching_Start(int matchingId, int evthPri, int evthPartitionId, int
 		//sceNetAdhocMatchingSetHelloOpt(matchingId, optLen, optDataAddr); //SetHelloOpt only works when context is running
 		if ((optLen > 0) && Memory::IsValidAddress(optDataAddr)) {
 			// Allocate the memory and copy the content
-			if (item->hello != NULL) free(item->hello);
+			free(item->hello);
 			item->hello = (uint8_t*)malloc(optLen);
 			if (item->hello != NULL) {
 				Memory::Memcpy(item->hello, optDataAddr, optLen);

@@ -1000,10 +1000,9 @@ static inline bool load_vfpu_table(T *&ptr, const char *filename, size_t expecte
 	size_t size = 0u;
 	INFO_LOG(Log::CPU, "Loading '%s'...", filename);
 	ptr = reinterpret_cast<decltype(&*ptr)>(g_VFS.ReadFile(filename, &size));
-	if(!ptr || size != expected_size)
-	{
+	if (!ptr || size != expected_size) {
 		ERROR_LOG(Log::CPU, "Error loading '%s' (size=%u, expected: %u)", filename, (unsigned)size, (unsigned)expected_size);
-		if(ptr) delete[] ptr;
+		delete[] ptr;
 		ptr = nullptr;
 		return false;
 	}

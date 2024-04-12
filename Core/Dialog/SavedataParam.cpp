@@ -1494,16 +1494,15 @@ void SavedataParam::Clear()
 		}
 
 		delete [] saveDataList;
-		saveDataList = 0;
+		saveDataList = NULL;
 		saveDataListCount = 0;
 	}
 	if (noSaveIcon)
 	{
-		if (noSaveIcon->texture != NULL)
-			delete noSaveIcon->texture;
+		delete noSaveIcon->texture;
 		noSaveIcon->texture = NULL;
 		delete noSaveIcon;
-		noSaveIcon = 0;
+		noSaveIcon = NULL;
 	}
 }
 
@@ -1924,8 +1923,7 @@ void SavedataParam::DoState(PointerWrap &p) {
 	Do(p, saveDataListCount);
 	Do(p, saveNameListDataCount);
 	if (p.mode == p.MODE_READ) {
-		if (saveDataList)
-			delete [] saveDataList;
+		delete [] saveDataList;
 		if (saveDataListCount != 0) {
 			saveDataList = new SaveFileInfo[saveDataListCount];
 			DoArray(p, saveDataList, saveDataListCount);

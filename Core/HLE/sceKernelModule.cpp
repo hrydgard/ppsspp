@@ -1387,8 +1387,7 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 	if (*magicPtr != 0x464c457f) {
 		ERROR_LOG(Log::sceModule, "Wrong magic number %08x", *magicPtr);
 		*error_string = "File corrupt";
-		if (newptr)
-			delete [] newptr;
+		delete [] newptr;
 		module->Cleanup();
 		kernelObjects.Destroy<PSPModule>(module->GetUID());
 		error = SCE_KERNEL_ERROR_UNSUPPORTED_PRX_TYPE;
@@ -1401,8 +1400,7 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 	int result = reader.LoadInto(loadAddress, fromTop);
 	if (result != SCE_KERNEL_ERROR_OK) {
 		ERROR_LOG(Log::sceModule, "LoadInto failed with error %08x",result);
-		if (newptr)
-			delete [] newptr;
+		delete [] newptr;
 		module->Cleanup();
 		kernelObjects.Destroy<PSPModule>(module->GetUID());
 		error = result;
@@ -1426,8 +1424,7 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 	if (!Memory::IsValidAddress(modinfoaddr)) {
 		*error_string = StringFromFormat("Bad module info address %08x", modinfoaddr);
 		ERROR_LOG(Log::sceModule, "Bad module info address %08x", modinfoaddr);
-		if (newptr)
-			delete[] newptr;
+		delete[] newptr;
 		module->Cleanup();
 		kernelObjects.Destroy<PSPModule>(module->GetUID());
 		error = SCE_KERNEL_ERROR_BAD_FILE;  // Probably not the right error code.
@@ -1729,8 +1726,7 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 		module->nm.entry_addr = -1;
 	}
 
-	if (newptr)
-		delete [] newptr;
+	delete [] newptr;
 
 	if (!reportedModule && IsHLEVersionedModule(modinfo->name)) {
 		INFO_LOG(Log::sceModule, "Loading module %s with version %04x, devkit %08x", modinfo->name, modinfo->moduleVersion, devkitVersion);
@@ -1817,9 +1813,7 @@ static PSPModule *__KernelLoadModule(u8 *fileptr, size_t fileSize, SceKernelLMOp
 		u32 error;
 		module = __KernelLoadELFFromPtr(temp ? temp : fileptr + offsets[5], elfSize, PSP_GetDefaultLoadAddress(), false, error_string, &magic, error);
 
-		if (temp) {
-			delete [] temp;
-		}
+		delete [] temp;
 	} else if (fileSize > sizeof(PSP_Header)) {
 		u32 error;
 		u32 magic = 0;
