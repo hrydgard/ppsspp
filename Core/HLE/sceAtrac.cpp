@@ -1205,11 +1205,10 @@ static u32 sceAtracAddStreamData(int atracID, u32 bytesToAdd) {
 u32 _AtracDecodeData(int atracID, u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u32 *finish, int *remains) {
 	Atrac *atrac = getAtrac(atracID);
 
-	u32 ret = 0;
 	if (atrac == NULL) {
-		ret = ATRAC_ERROR_BAD_ATRACID;
+		return ATRAC_ERROR_BAD_ATRACID;
 	} else if (!atrac->dataBuf_) {
-		ret = ATRAC_ERROR_NO_DATA;
+		return ATRAC_ERROR_NO_DATA;
 	} else {
 		int loopNum = atrac->loopNum_;
 		if (atrac->bufferState_ == ATRAC_STATUS_FOR_SCESAS) {
@@ -1221,7 +1220,11 @@ u32 _AtracDecodeData(int atracID, u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u3
 		if (atrac->currentSample_ >= atrac->endSample_ && loopNum == 0) {
 			*SamplesNum = 0;
 			*finish = 1;
-			ret = ATRAC_ERROR_ALL_DATA_DECODED;
+			if (atrac->context_.IsValid()) {
+				// refresh context_
+				_AtracGenerateContext(atrac);
+			}
+			return ATRAC_ERROR_ALL_DATA_DECODED;
 		} else {
 			// TODO: This isn't at all right, but at least it makes the music "last" some time.
 			u32 numSamples = 0;
@@ -1366,9 +1369,8 @@ u32 _AtracDecodeData(int atracID, u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u3
 			// refresh context_
 			_AtracGenerateContext(atrac);
 		}
+		return 0;
 	}
-
-	return ret;
 }
 
 static u32 sceAtracDecodeData(int atracID, u32 outAddr, u32 numSamplesAddr, u32 finishFlagAddr, u32 remainAddr) {
