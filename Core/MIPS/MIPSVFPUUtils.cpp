@@ -1003,7 +1003,7 @@ static inline bool load_vfpu_table(T *&ptr, const char *filename, size_t expecte
 	if(!ptr || size != expected_size)
 	{
 		ERROR_LOG(CPU, "Error loading '%s' (size=%u, expected: %u)", filename, (unsigned)size, (unsigned)expected_size);
-		if(ptr) delete[] ptr;
+		delete[] ptr;
 		ptr = nullptr;
 		return false;
 	}

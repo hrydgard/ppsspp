@@ -146,10 +146,8 @@ MediaEngine::~MediaEngine() {
 
 void MediaEngine::closeMedia() {
 	closeContext();
-	if (m_pdata)
-		delete m_pdata;
-	if (m_demux)
-		delete m_demux;
+	delete m_pdata;
+	delete m_demux;
 	m_pdata = nullptr;
 	m_demux = nullptr;
 	AudioClose(&m_audioContext);

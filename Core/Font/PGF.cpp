@@ -82,9 +82,7 @@ PGF::PGF()
 }
 
 PGF::~PGF() {
-	if (fontData) {
-		delete [] fontData;
-	}
+	delete [] fontData;
 }
 
 struct GlyphFromPGF1State {
@@ -139,9 +137,7 @@ void PGF::DoState(PointerWrap &p) {
 	Do(p, fontDataSizeTemp);
 	fontDataSize = (size_t)fontDataSizeTemp;
 	if (p.mode == p.MODE_READ) {
-		if (fontData) {
-			delete [] fontData;
-		}
+		delete [] fontData;
 		if (fontDataSize) {
 			fontData = new u8[fontDataSize];
 			DoArray(p, fontData, (int)fontDataSize);

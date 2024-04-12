@@ -79,8 +79,7 @@ private:
 		void SetData(const u8* data, int size);
 
 		~ValueData() {
-			if (u_value)
-				delete[] u_value;
+			delete[] u_value;
 		}
 	};
 

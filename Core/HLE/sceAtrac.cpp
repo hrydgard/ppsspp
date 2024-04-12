@@ -205,8 +205,7 @@ struct Atrac {
 		ReleaseFFMPEGContext();
 #endif // USE_FFMPEG
 
-		if (dataBuf_)
-			delete [] dataBuf_;
+		delete [] dataBuf_;
 		dataBuf_ = 0;
 		ignoreDataBuf_ = false;
 		bufferState_ = ATRAC_STATUS_NO_DATA;
@@ -267,8 +266,7 @@ struct Atrac {
 		Do(p, hasDataBuf);
 		if (hasDataBuf) {
 			if (p.mode == p.MODE_READ) {
-				if (dataBuf_)
-					delete [] dataBuf_;
+				delete [] dataBuf_;
 				dataBuf_ = new u8[first_.filesize + overAllocBytes];
 				memset(dataBuf_, 0, first_.filesize + overAllocBytes);
 			}
