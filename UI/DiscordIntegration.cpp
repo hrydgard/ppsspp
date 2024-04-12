@@ -92,7 +92,7 @@ void Discord::Update() {
 #endif
 }
 
-void Discord::SetPresenceGame(const char *gameTitle) {
+void Discord::SetPresenceGame(std::string_view gameTitle) {
 	if (!IsEnabled())
 		return;
 	
@@ -102,11 +102,10 @@ void Discord::SetPresenceGame(const char *gameTitle) {
 
 #ifdef ENABLE_DISCORD
 	auto sc = GetI18NCategory(I18NCat::SCREEN);
-
+	std::string title(gameTitle);
 	DiscordRichPresence discordPresence{};
-	discordPresence.state = gameTitle;
-	std::string details = sc->T("Playing");
-	discordPresence.details = details.c_str();
+	discordPresence.state = title.c_str();
+	discordPresence.details = sc->T_cstr("Playing");
 	discordPresence.startTimestamp = time(0);
 	discordPresence.largeImageText = "PPSSPP is the best PlayStation Portable emulator around!";
 #ifdef GOLD
@@ -130,7 +129,7 @@ void Discord::SetPresenceMenu() {
 	auto sc = GetI18NCategory(I18NCat::SCREEN);
 
 	DiscordRichPresence discordPresence{};
-	discordPresence.state = sc->T("In menu");
+	discordPresence.state = sc->T_cstr("In menu");
 	discordPresence.details = "";
 	discordPresence.startTimestamp = time(0);
 	discordPresence.largeImageText = "PPSSPP is the best PlayStation Portable emulator around!";

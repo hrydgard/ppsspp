@@ -4,6 +4,7 @@
 #include "Common/GPU/Vulkan/VulkanContext.h"
 
 class VKRRenderPass;
+class VulkanBarrierBatch;
 
 // Pipelines need to be created for the right type of render pass.
 // TODO: Rename to RenderPassFlags?
@@ -57,7 +58,7 @@ struct VKRImage {
 
 class VKRFramebuffer {
 public:
-	VKRFramebuffer(VulkanContext *vk, VkCommandBuffer initCmd, VKRRenderPass *compatibleRenderPass, int _width, int _height, int _numLayers, int _multiSampleLevel, bool createDepthStencilBuffer, const char *tag);
+	VKRFramebuffer(VulkanContext *vk, VulkanBarrierBatch *barriers, VkCommandBuffer initCmd, VKRRenderPass *compatibleRenderPass, int _width, int _height, int _numLayers, int _multiSampleLevel, bool createDepthStencilBuffer, const char *tag);
 	~VKRFramebuffer();
 
 	VkFramebuffer Get(VKRRenderPass *compatibleRenderPass, RenderPassType rpType);
@@ -94,7 +95,7 @@ public:
 
 	VulkanContext *Vulkan() const { return vulkan_; }
 private:
-	static void CreateImage(VulkanContext *vulkan, VkCommandBuffer cmd, VKRImage &img, int width, int height, int numLayers, VkSampleCountFlagBits sampleCount, VkFormat format, VkImageLayout initialLayout, bool color, const char *tag);
+	static void CreateImage(VulkanContext *vulkan, VulkanBarrierBatch *barriers, VkCommandBuffer cmd, VKRImage &img, int width, int height, int numLayers, VkSampleCountFlagBits sampleCount, VkFormat format, VkImageLayout initialLayout, bool color, const char *tag);
 
 	VkFramebuffer framebuf[(size_t)RenderPassType::TYPE_COUNT]{};
 
@@ -154,7 +155,7 @@ public:
 private:
 	// TODO: Might be better off with a hashmap once the render pass type count grows really large..
 	VkRenderPass pass[(size_t)RenderPassType::TYPE_COUNT]{};
-	VkSampleCountFlagBits sampleCounts[(size_t)RenderPassType::TYPE_COUNT];
+	VkSampleCountFlagBits sampleCounts[(size_t)RenderPassType::TYPE_COUNT]{};
 	RPKey key_;
 };
 

@@ -150,7 +150,7 @@ public:
 		return dest->Push(&ub_bones, sizeof(ub_bones), uboAlignment_, buf);
 	}
 
-	bool LoadCacheFlags(FILE *f, DrawEngineVulkan *drawEngine);
+	static bool LoadCacheFlags(FILE *f, DrawEngineVulkan *drawEngine);
 	bool LoadCache(FILE *f);
 	void SaveCache(FILE *f, DrawEngineVulkan *drawEngine);
 

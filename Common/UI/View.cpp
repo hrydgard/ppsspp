@@ -514,11 +514,13 @@ void Choice::Draw(UIContext &dc) {
 
 		if (image_.isValid()) {
 			const AtlasImage *image = dc.Draw()->GetAtlas()->getImage(image_);
-			_dbg_assert_(image);
-			paddingX += image->w + 6;
-			availWidth -= image->w + 6;
-			// TODO: Use scale rotation and flip here as well (DrawImageRotated is always ALIGN_CENTER for now)
-			dc.Draw()->DrawImage(image_, bounds_.x + 6, bounds_.centerY(), 1.0f, style.fgColor, ALIGN_LEFT | ALIGN_VCENTER);
+			if (image) {
+				_dbg_assert_(image);
+				paddingX += image->w + 6;
+				availWidth -= image->w + 6;
+				// TODO: Use scale rotation and flip here as well (DrawImageRotated is always ALIGN_CENTER for now)
+				dc.Draw()->DrawImage(image_, bounds_.x + 6, bounds_.centerY(), 1.0f, style.fgColor, ALIGN_LEFT | ALIGN_VCENTER);
+			}
 		}
 
 		if (centered_) {
@@ -544,7 +546,7 @@ std::string Choice::DescribeText() const {
 	return ApplySafeSubstitutions(u->T("%1 choice"), text_);
 }
 
-InfoItem::InfoItem(const std::string &text, const std::string &rightText, LayoutParams *layoutParams)
+InfoItem::InfoItem(std::string_view text, std::string_view rightText, LayoutParams *layoutParams)
 	: Item(layoutParams), text_(text), rightText_(rightText) {
 	// We set the colors later once we have a UIContext.
 	bgColor_ = AddTween(new CallbackColorTween(0.1f));
@@ -592,14 +594,14 @@ std::string InfoItem::DescribeText() const {
 	return ApplySafeSubstitutions(u->T("%1: %2"), text_, rightText_);
 }
 
-ItemHeader::ItemHeader(const std::string &text, LayoutParams *layoutParams)
+ItemHeader::ItemHeader(std::string_view text, LayoutParams *layoutParams)
 	: Item(layoutParams), text_(text) {
 	layoutParams_->width = FILL_PARENT;
 	layoutParams_->height = 40;
 }
 
 void ItemHeader::Draw(UIContext &dc) {
-	dc.SetFontStyle(dc.theme->uiFontSmall);
+	dc.SetFontStyle(large_ ? dc.theme->uiFont : dc.theme->uiFontSmall);
 	dc.DrawText(text_.c_str(), bounds_.x + 4, bounds_.centerY(), dc.theme->headerStyle.fgColor, ALIGN_LEFT | ALIGN_VCENTER);
 	dc.Draw()->DrawImageCenterTexel(dc.theme->whiteImage, bounds_.x, bounds_.y2()-2, bounds_.x2(), bounds_.y2(), dc.theme->headerStyle.fgColor);
 }
@@ -622,7 +624,7 @@ std::string ItemHeader::DescribeText() const {
 	return ApplySafeSubstitutions(u->T("%1 heading"), text_);
 }
 
-CollapsibleHeader::CollapsibleHeader(bool *toggle, const std::string &text, LayoutParams *layoutParams)
+CollapsibleHeader::CollapsibleHeader(bool *toggle, std::string_view text, LayoutParams *layoutParams)
 	: CheckBox(toggle, text, "", layoutParams) {
 	layoutParams_->width = FILL_PARENT;
 	layoutParams_->height = 40;
@@ -1096,7 +1098,7 @@ void TextView::Draw(UIContext &dc) {
 	}
 }
 
-TextEdit::TextEdit(const std::string &text, const std::string &title, const std::string &placeholderText, LayoutParams *layoutParams)
+TextEdit::TextEdit(std::string_view text, std::string_view title, std::string_view placeholderText, LayoutParams *layoutParams)
   : View(layoutParams), text_(text), title_(title), undo_(text), placeholderText_(placeholderText),
     textColor_(0xFFFFFFFF), maxLen_(255) {
 	caret_ = (int)text_.size();
@@ -1655,6 +1657,13 @@ void SliderFloat::GetContentDimensions(const UIContext &dc, float &w, float &h) 
 	// TODO
 	w = 100;
 	h = 50;
+}
+
+void Spacer::Draw(UIContext &dc) {
+	View::Draw(dc);
+	if (drawAsSeparator_) {
+		dc.FillRect(UI::Drawable(dc.theme->itemDownStyle.background.color), bounds_);
+	}
 }
 
 }  // namespace

@@ -5,6 +5,7 @@
 #include "Common/GPU/Vulkan/VulkanAlloc.h"
 #include "Common/GPU/Vulkan/VulkanImage.h"
 #include "Common/GPU/Vulkan/VulkanMemory.h"
+#include "Common/GPU/Vulkan/VulkanBarrier.h"
 #include "Common/StringUtils.h"
 
 using namespace PPSSPP_VK;
@@ -37,7 +38,7 @@ static bool IsDepthStencilFormat(VkFormat format) {
 	}
 }
 
-bool VulkanTexture::CreateDirect(VkCommandBuffer cmd, int w, int h, int depth, int numMips, VkFormat format, VkImageLayout initialLayout, VkImageUsageFlags usage, const VkComponentMapping *mapping) {
+bool VulkanTexture::CreateDirect(int w, int h, int depth, int numMips, VkFormat format, VkImageLayout initialLayout, VkImageUsageFlags usage, VulkanBarrierBatch *barrierBatch, const VkComponentMapping *mapping) {
 	if (w == 0 || h == 0 || numMips == 0) {
 		ERROR_LOG(G3D, "Can't create a zero-size VulkanTexture");
 		return false;
@@ -90,20 +91,21 @@ bool VulkanTexture::CreateDirect(VkCommandBuffer cmd, int w, int h, int depth, i
 	vulkan_->SetDebugName(image_, VK_OBJECT_TYPE_IMAGE, tag_);
 
 	// Write a command to transition the image to the requested layout, if it's not already that layout.
+	// TODO: We may generate mipmaps right after, so can't add to the end of frame batch. Well actually depending
+	// on the amount of mips we probably sometimes can..
+
 	if (initialLayout != VK_IMAGE_LAYOUT_UNDEFINED && initialLayout != VK_IMAGE_LAYOUT_PREINITIALIZED) {
+		VkPipelineStageFlags dstStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+		VkAccessFlagBits dstAccessFlags;
 		switch (initialLayout) {
 		case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
-			TransitionImageLayout2(cmd, image_, 0, numMips, 1, VK_IMAGE_ASPECT_COLOR_BIT,
-				VK_IMAGE_LAYOUT_UNDEFINED, initialLayout,
-				VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
-				0, VK_ACCESS_TRANSFER_WRITE_BIT);
+			dstStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+			dstAccessFlags = VK_ACCESS_TRANSFER_WRITE_BIT;
 			break;
 		case VK_IMAGE_LAYOUT_GENERAL:
 			// We use this initial layout when we're about to write to the image using a compute shader, only.
-			TransitionImageLayout2(cmd, image_, 0, numMips, 1, VK_IMAGE_ASPECT_COLOR_BIT,
-				VK_IMAGE_LAYOUT_UNDEFINED, initialLayout,
-				VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-				0, VK_ACCESS_SHADER_WRITE_BIT);
+			dstStage = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+			dstAccessFlags = VK_ACCESS_SHADER_READ_BIT;
 			break;
 		default:
 			// If you planned to use UploadMip, you want VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL. After the
@@ -111,6 +113,10 @@ bool VulkanTexture::CreateDirect(VkCommandBuffer cmd, int w, int h, int depth, i
 			_assert_(false);
 			break;
 		}
+		barrierBatch->TransitionImage(image_, 0, numMips, 1, VK_IMAGE_ASPECT_COLOR_BIT,
+			VK_IMAGE_LAYOUT_UNDEFINED, initialLayout,
+			0, dstAccessFlags,
+			VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, dstStage);
 	}
 
 	// Create the view while we're at it.
@@ -132,7 +138,7 @@ bool VulkanTexture::CreateDirect(VkCommandBuffer cmd, int w, int h, int depth, i
 	res = vkCreateImageView(vulkan_->GetDevice(), &view_info, NULL, &view_);
 	if (res != VK_SUCCESS) {
 		ERROR_LOG(G3D, "vkCreateImageView failed: %s. Destroying image.", VulkanResultToString(res));
-		_assert_(res == VK_ERROR_OUT_OF_HOST_MEMORY || res == VK_ERROR_OUT_OF_DEVICE_MEMORY || res == VK_ERROR_TOO_MANY_OBJECTS);
+		_assert_msg_(res == VK_ERROR_OUT_OF_HOST_MEMORY || res == VK_ERROR_OUT_OF_DEVICE_MEMORY || res == VK_ERROR_TOO_MANY_OBJECTS, "%d", (int)res);
 		vmaDestroyImage(vulkan_->Allocator(), image_, allocation_);
 		view_ = VK_NULL_HANDLE;
 		image_ = VK_NULL_HANDLE;
@@ -146,7 +152,7 @@ bool VulkanTexture::CreateDirect(VkCommandBuffer cmd, int w, int h, int depth, i
 		view_info.viewType = VK_IMAGE_VIEW_TYPE_2D_ARRAY;
 		res = vkCreateImageView(vulkan_->GetDevice(), &view_info, NULL, &arrayView_);
 		// Assume that if the above view creation succeeded, so will this.
-		_assert_(res == VK_SUCCESS);
+		_assert_msg_(res == VK_SUCCESS, "View creation failed: %d", (int)res);
 		vulkan_->SetDebugName(arrayView_, VK_OBJECT_TYPE_IMAGE_VIEW, tag_);
 	}
 
@@ -205,24 +211,29 @@ void VulkanTexture::GenerateMips(VkCommandBuffer cmd, int firstMipToGenerate, bo
 	_assert_msg_(firstMipToGenerate > 0, "Cannot generate the first level");
 	_assert_msg_(firstMipToGenerate < numMips_, "Can't generate levels beyond storage");
 
+	VulkanBarrierBatch batch;
 	// Transition the pre-set levels to GENERAL.
-	TransitionImageLayout2(cmd, image_, 0, firstMipToGenerate, 1, VK_IMAGE_ASPECT_COLOR_BIT,
-		fromCompute ? VK_IMAGE_LAYOUT_GENERAL : VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-		VK_IMAGE_LAYOUT_GENERAL,
-		fromCompute ? VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT : VK_PIPELINE_STAGE_TRANSFER_BIT, 
-		VK_PIPELINE_STAGE_TRANSFER_BIT,
-		fromCompute ? VK_ACCESS_SHADER_WRITE_BIT : VK_ACCESS_TRANSFER_WRITE_BIT,
-		VK_ACCESS_TRANSFER_READ_BIT);
 
-	// Do the same with the uninitialized levels, transition from UNDEFINED.
-	TransitionImageLayout2(cmd, image_, firstMipToGenerate, numMips_ - firstMipToGenerate, 1,
-		VK_IMAGE_ASPECT_COLOR_BIT,
-		VK_IMAGE_LAYOUT_UNDEFINED,
-		VK_IMAGE_LAYOUT_GENERAL,
+	VkImageMemoryBarrier *barrier = batch.Add(image_,
+		fromCompute ? VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT : VK_PIPELINE_STAGE_TRANSFER_BIT,
+		VK_PIPELINE_STAGE_TRANSFER_BIT, 0);
+	barrier->oldLayout = fromCompute ? VK_IMAGE_LAYOUT_GENERAL : VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+	barrier->newLayout = VK_IMAGE_LAYOUT_GENERAL;
+	barrier->srcAccessMask = fromCompute ? VK_ACCESS_SHADER_WRITE_BIT : VK_ACCESS_TRANSFER_WRITE_BIT;
+	barrier->dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+	barrier->subresourceRange.levelCount = firstMipToGenerate;
+
+	barrier = batch.Add(image_,
 		VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-		VK_PIPELINE_STAGE_TRANSFER_BIT,
-		0,
-		VK_ACCESS_TRANSFER_WRITE_BIT);
+		VK_PIPELINE_STAGE_TRANSFER_BIT, 0);
+	barrier->subresourceRange.baseMipLevel = firstMipToGenerate;
+	barrier->subresourceRange.levelCount = numMips_ - firstMipToGenerate;
+	barrier->oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+	barrier->newLayout = VK_IMAGE_LAYOUT_GENERAL;
+	barrier->srcAccessMask = 0;
+	barrier->dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+
+	batch.Flush(cmd);
 
 	// Now we can blit and barrier the whole pipeline.
 	for (int mip = firstMipToGenerate; mip < numMips_; mip++) {
@@ -248,35 +259,45 @@ void VulkanTexture::GenerateMips(VkCommandBuffer cmd, int firstMipToGenerate, bo
 
 		vkCmdBlitImage(cmd, image_, VK_IMAGE_LAYOUT_GENERAL, image_, VK_IMAGE_LAYOUT_GENERAL, 1, &blit, VK_FILTER_LINEAR);
 
-		TransitionImageLayout2(cmd, image_, mip, 1, 1, VK_IMAGE_ASPECT_COLOR_BIT,
-			VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_GENERAL,
-			VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
-			VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_TRANSFER_READ_BIT);
+		barrier = batch.Add(image_, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0);
+		barrier->subresourceRange.baseMipLevel = mip;
+		barrier->oldLayout = VK_IMAGE_LAYOUT_GENERAL;
+		barrier->newLayout = VK_IMAGE_LAYOUT_GENERAL;
+		barrier->srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+		barrier->dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+		batch.Flush(cmd);
 	}
 }
 
 void VulkanTexture::EndCreate(VkCommandBuffer cmd, bool vertexTexture, VkPipelineStageFlags prevStage, VkImageLayout layout) {
-	TransitionImageLayout2(cmd, image_, 0, numMips_, 1,
-		VK_IMAGE_ASPECT_COLOR_BIT,
-		layout, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-		prevStage, vertexTexture ? VK_PIPELINE_STAGE_VERTEX_SHADER_BIT : VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
-		prevStage == VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT ? VK_ACCESS_SHADER_WRITE_BIT : VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT);
+	VulkanBarrierBatch batch;
+	VkImageMemoryBarrier *barrier = batch.Add(image_, prevStage, vertexTexture ? VK_PIPELINE_STAGE_VERTEX_SHADER_BIT : VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0);
+	barrier->subresourceRange.levelCount = numMips_;
+	barrier->oldLayout = layout;
+	barrier->newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+	barrier->srcAccessMask = prevStage == VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT ? VK_ACCESS_SHADER_WRITE_BIT : VK_ACCESS_TRANSFER_WRITE_BIT;
+	barrier->dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+	batch.Flush(cmd);
 }
 
 void VulkanTexture::PrepareForTransferDst(VkCommandBuffer cmd, int levels) {
-	TransitionImageLayout2(cmd, image_, 0, levels, 1,
-		VK_IMAGE_ASPECT_COLOR_BIT,
-		VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-		VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
-		VK_ACCESS_SHADER_READ_BIT, VK_ACCESS_TRANSFER_WRITE_BIT);
+	VulkanBarrierBatch batch;
+	VkImageMemoryBarrier *barrier = batch.Add(image_, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0);
+	barrier->subresourceRange.levelCount = levels;
+	barrier->srcAccessMask = VK_ACCESS_SHADER_READ_BIT;
+	barrier->dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+	barrier->oldLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+	barrier->newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+	batch.Flush(cmd);
 }
 
-void VulkanTexture::RestoreAfterTransferDst(VkCommandBuffer cmd, int levels) {
-	TransitionImageLayout2(cmd, image_, 0, levels, 1,
-		VK_IMAGE_ASPECT_COLOR_BIT,
-		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-		VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
-		VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT);
+void VulkanTexture::RestoreAfterTransferDst(int levels, VulkanBarrierBatch *barriers) {
+	VkImageMemoryBarrier *barrier = barriers->Add(image_, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0);
+	barrier->subresourceRange.levelCount = levels;
+	barrier->srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+	barrier->dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+	barrier->oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+	barrier->newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 }
 
 VkImageView VulkanTexture::CreateViewForMip(int mip) {
@@ -284,10 +305,10 @@ VkImageView VulkanTexture::CreateViewForMip(int mip) {
 	view_info.image = image_;
 	view_info.viewType = VK_IMAGE_VIEW_TYPE_2D;
 	view_info.format = format_;
-	view_info.components.r = VK_COMPONENT_SWIZZLE_R;
-	view_info.components.g = VK_COMPONENT_SWIZZLE_G;
-	view_info.components.b = VK_COMPONENT_SWIZZLE_B;
-	view_info.components.a = VK_COMPONENT_SWIZZLE_A;
+	view_info.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
+	view_info.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
+	view_info.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
+	view_info.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
 	view_info.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 	view_info.subresourceRange.baseMipLevel = mip;
 	view_info.subresourceRange.levelCount = 1;

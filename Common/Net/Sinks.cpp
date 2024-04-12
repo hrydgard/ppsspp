@@ -220,7 +220,7 @@ void InputSink::AccountDrain(size_t bytes) {
 	}
 }
 
-bool InputSink::Empty() {
+bool InputSink::Empty() const {
 	return valid_ == 0;
 }
 
@@ -418,8 +418,12 @@ void OutputSink::AccountDrain(int bytes) {
 	}
 }
 
-bool OutputSink::Empty() {
+bool OutputSink::Empty() const {
 	return valid_ == 0;
 }
 
-};
+size_t OutputSink::BytesRemaining() const {
+	return valid_;
+}
+
+}  // namespace net

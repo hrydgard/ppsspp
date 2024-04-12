@@ -47,7 +47,10 @@ StorageError Android_CreateDirectory(const std::string &parentTreeUri, const std
 StorageError Android_CreateFile(const std::string &parentTreeUri, const std::string &fileName);
 StorageError Android_MoveFile(const std::string &fileUri, const std::string &srcParentUri, const std::string &destParentUri);
 StorageError Android_CopyFile(const std::string &fileUri, const std::string &destParentUri);
+
+// WARNING: This is very powerful, it will delete directories recursively!
 StorageError Android_RemoveFile(const std::string &fileUri);
+
 StorageError Android_RenameFileTo(const std::string &fileUri, const std::string &newName);
 bool Android_GetFileInfo(const std::string &fileUri, File::FileInfo *info);
 bool Android_FileExists(const std::string &fileUri);
@@ -64,6 +67,8 @@ void Android_RegisterStorageCallbacks(JNIEnv * env, jobject obj);
 #else
 
 // Stub out the Android Storage wrappers, so that we can avoid ifdefs everywhere.
+
+// See comments for the corresponding functions above.
 
 inline bool Android_IsContentUri(std::string_view uri) { return false; }
 inline int Android_OpenContentUriFd(std::string_view uri, const Android_OpenContentUriMode mode) { return -1; }

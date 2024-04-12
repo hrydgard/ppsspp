@@ -84,7 +84,7 @@ void InitMemoryForGameISO(FileLoader *fileLoader) {
 	std::shared_ptr<IFileSystem> blockSystem;
 
 	if (fileLoader->IsDirectory()) {
-		fileSystem = std::shared_ptr<IFileSystem>(new VirtualDiscFileSystem(&pspFileSystem, fileLoader->GetPath()));
+		fileSystem = std::make_shared<VirtualDiscFileSystem>(&pspFileSystem, fileLoader->GetPath());
 		blockSystem = fileSystem;
 	} else {
 		auto bd = constructBlockDevice(fileLoader);
@@ -92,9 +92,9 @@ void InitMemoryForGameISO(FileLoader *fileLoader) {
 		if (!bd)
 			return;
 
-		std::shared_ptr<IFileSystem> iso = std::shared_ptr<IFileSystem>(new ISOFileSystem(&pspFileSystem, bd));
+		auto iso = std::make_shared<ISOFileSystem>(&pspFileSystem, bd);
 		fileSystem = iso;
-		blockSystem = std::shared_ptr<IFileSystem>(new ISOBlockSystem(iso));
+		blockSystem = std::make_shared<ISOBlockSystem>(iso);
 	}
 
 	pspFileSystem.Mount("umd0:", blockSystem);
@@ -152,16 +152,16 @@ bool ReInitMemoryForGameISO(FileLoader *fileLoader) {
 	std::shared_ptr<IFileSystem> blockSystem;
 
 	if (fileLoader->IsDirectory()) {
-		fileSystem = std::shared_ptr<IFileSystem>(new VirtualDiscFileSystem(&pspFileSystem, fileLoader->GetPath()));
+		fileSystem = std::make_shared<VirtualDiscFileSystem>(&pspFileSystem, fileLoader->GetPath());
 		blockSystem = fileSystem;
 	} else {
 		auto bd = constructBlockDevice(fileLoader);
 		if (!bd)
 			return false;
 
-		std::shared_ptr<IFileSystem> iso = std::shared_ptr<IFileSystem>(new ISOFileSystem(&pspFileSystem, bd));
+		auto iso = std::make_shared<ISOFileSystem>(&pspFileSystem, bd);
 		fileSystem = iso;
-		blockSystem = std::shared_ptr<IFileSystem>(new ISOBlockSystem(iso));
+		blockSystem = std::make_shared<ISOBlockSystem>(iso);
 	}
 
 	pspFileSystem.Remount("umd0:", blockSystem);
@@ -218,7 +218,7 @@ void InitMemoryForGamePBP(FileLoader *fileLoader) {
 // that probably loads a plugin and then launches the actual game. These stubs don't work in PPSSPP.
 // No idea why they are doing this, but it works to just bypass it. They could stop
 // inventing new filenames though...
-static const char *altBootNames[] = {
+static const char * const altBootNames[] = {
 	"disc0:/PSP_GAME/SYSDIR/EBOOT.OLD",
 	"disc0:/PSP_GAME/SYSDIR/EBOOT.DAT",
 	"disc0:/PSP_GAME/SYSDIR/EBOOT.BI",
@@ -368,8 +368,8 @@ bool Load_PSP_ELF_PBP(FileLoader *fileLoader, std::string *error_string) {
 	if (PSP_CoreParameter().mountIsoLoader != nullptr) {
 		auto bd = constructBlockDevice(PSP_CoreParameter().mountIsoLoader);
 		if (bd != NULL) {
-			std::shared_ptr<IFileSystem> umd2 = std::shared_ptr<IFileSystem>(new ISOFileSystem(&pspFileSystem, bd));
-			std::shared_ptr<IFileSystem> blockSystem = std::shared_ptr<IFileSystem>(new ISOBlockSystem(umd2));
+			auto umd2 = std::make_shared<ISOFileSystem>(&pspFileSystem, bd);
+			auto blockSystem = std::make_shared<ISOBlockSystem>(umd2);
 
 			pspFileSystem.Mount("umd1:", blockSystem);
 			pspFileSystem.Mount("disc0:", umd2);
@@ -395,6 +395,7 @@ bool Load_PSP_ELF_PBP(FileLoader *fileLoader, std::string *error_string) {
 		ms_path = "umd0:/";
 	}
 
+	Path dir;
 	if (!PSP_CoreParameter().mountRoot.empty()) {
 		// We don't want to worry about .. and cwd and such.
 		const Path rootNorm = NormalizePath(PSP_CoreParameter().mountRoot);
@@ -423,17 +424,19 @@ bool Load_PSP_ELF_PBP(FileLoader *fileLoader, std::string *error_string) {
 		file = filepath + "/" + file;
 		path = rootNorm.ToString();
 		pspFileSystem.SetStartingDirectory(filepath);
+		dir = Path(path);
 	} else {
 		pspFileSystem.SetStartingDirectory(ms_path);
+		dir = full_path.NavigateUp();
 	}
 
-	std::shared_ptr<IFileSystem> fs = std::shared_ptr<IFileSystem>(new DirectoryFileSystem(&pspFileSystem, Path(path), FileSystemFlags::SIMULATE_FAT32 | FileSystemFlags::CARD));
+	auto fs = std::make_shared<DirectoryFileSystem>(&pspFileSystem, dir, FileSystemFlags::SIMULATE_FAT32 | FileSystemFlags::CARD);
 	pspFileSystem.Mount("umd0:", fs);
 
 	std::string finalName = ms_path + file;
 
 	std::string homebrewName = PSP_CoreParameter().fileToStart.ToVisualString();
-	std::size_t lslash = homebrewName.find_last_of("/");
+	std::size_t lslash = homebrewName.find_last_of('/');
 #if PPSSPP_PLATFORM(UWP)
 	if (lslash == homebrewName.npos) {
 		lslash = homebrewName.find_last_of("\\");
@@ -446,7 +449,7 @@ bool Load_PSP_ELF_PBP(FileLoader *fileLoader, std::string *error_string) {
 		homebrewTitle = homebrewName;
 	std::string discID = g_paramSFO.GetDiscID();
 	std::string discVersion = g_paramSFO.GetValueString("DISC_VERSION");
-	std::string madeUpID = g_paramSFO.GenerateFakeID();
+	std::string madeUpID = g_paramSFO.GenerateFakeID(Path());
 
 	std::string title = StringFromFormat("%s : %s", discID.c_str(), homebrewTitle.c_str());
 	INFO_LOG(LOADER, "%s", title.c_str());
@@ -492,7 +495,7 @@ bool Load_PSP_ELF_PBP(FileLoader *fileLoader, std::string *error_string) {
 }
 
 bool Load_PSP_GE_Dump(FileLoader *fileLoader, std::string *error_string) {
-	std::shared_ptr<IFileSystem> umd = std::shared_ptr<IFileSystem>(new BlobFileSystem(&pspFileSystem, fileLoader, "data.ppdmp"));
+	auto umd = std::make_shared<BlobFileSystem>(&pspFileSystem, fileLoader, "data.ppdmp");
 	pspFileSystem.Mount("disc0:", umd);
 
 	PSPLoaders_Shutdown();

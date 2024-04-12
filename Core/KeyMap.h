@@ -74,13 +74,11 @@ enum {
 	VIRTKEY_PREVIOUS_SLOT = 0x40000027,
 	VIRTKEY_TOGGLE_WLAN = 0x40000028,
 	VIRTKEY_EXIT_APP = 0x40000029,
+	VIRTKEY_TOGGLE_MOUSE = 0x40000030,
+	VIRTKEY_TOGGLE_TOUCH_CONTROLS =  0x40000031,
 	VIRTKEY_LAST,
 	VIRTKEY_COUNT = VIRTKEY_LAST - VIRTKEY_FIRST
 };
-
-const float AXIS_BIND_THRESHOLD = 0.75f;
-const float AXIS_BIND_RELEASE_THRESHOLD = 0.35f;  // Used during mapping only to detect a "key-up" reliably.
-const float AXIS_BIND_THRESHOLD_MOUSE = 0.01f;
 
 struct MappedAnalogAxis {
 	int axisId;
@@ -224,4 +222,13 @@ namespace KeyMap {
 	bool IsKeyMapped(InputDeviceID device, int key);
 
 	bool HasChanged(int &prevGeneration);
+
+	// Used for setting thresholds. Technically we could allow a setting per axis, but this is a reasonable compromise.
+	enum class AxisType {
+		TRIGGER,
+		STICK,
+		OTHER,
+	};
+
+	AxisType GetAxisType(InputAxis axis);
 }  // namespace KeyMap

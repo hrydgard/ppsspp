@@ -642,9 +642,9 @@ static void check_variables(CoreParameter &coreParam)
    if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value)
    {
       if (!strcmp(var.value, "disabled"))
-         g_Config.iSkipGPUReadbackMode = (int)SkipGPUReadbackMode::SKIP;
-      else
          g_Config.iSkipGPUReadbackMode = (int)SkipGPUReadbackMode::NO_SKIP;
+      else
+         g_Config.iSkipGPUReadbackMode = (int)SkipGPUReadbackMode::SKIP;
    }
 
    var.key = "ppsspp_frameskip";
@@ -1640,7 +1640,7 @@ void retro_cheat_set(unsigned index, bool enabled, const char *code) {
    }
 }
 
-int System_GetPropertyInt(SystemProperty prop)
+int64_t System_GetPropertyInt(SystemProperty prop)
 {
    switch (prop)
    {
@@ -1709,12 +1709,12 @@ void System_Notify(SystemNotification notification) {
       break;
    }
 }
-bool System_MakeRequest(SystemRequestType type, int requestId, const std::string &param1, const std::string &param2, int param3) { return false; }
+bool System_MakeRequest(SystemRequestType type, int requestId, const std::string &param1, const std::string &param2, int64_t param3, int64_t param4) { return false; }
 void System_PostUIMessage(UIMessage message, const std::string &param) {}
 void NativeFrame(GraphicsContext *graphicsContext) {}
 void NativeResized() {}
 
-void System_Toast(const char *str) {}
+void System_Toast(std::string_view str) {}
 
 inline int16_t Clamp16(int32_t sample) {
    if (sample < -32767) return -32767;
@@ -1750,7 +1750,6 @@ std::vector<std::string> System_GetCameraDeviceList() { return std::vector<std::
 bool System_AudioRecordingIsAvailable() { return false; }
 bool System_AudioRecordingState() { return false; }
 
-void System_InputBoxGetString(const std::string &title, const std::string &defaultValue, std::function<void(bool, const std::string &)> cb) { cb(false, ""); }
 #endif
 
 // TODO: To avoid having to define these here, these should probably be turned into system "requests".

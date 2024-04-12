@@ -180,13 +180,12 @@ public:
 
 	std::vector<std::unique_ptr<Section>> &Sections() { return sections; }
 
-	bool HasSection(const char *section) { return GetSection(section) != 0; }
+	bool HasSection(const char *section) { return GetSection(section) != nullptr; }
+	const Section* GetSection(const char* section) const;
+	Section* GetSection(const char* section);
 
 	Section* GetOrCreateSection(const char* section);
 
 private:
 	std::vector<std::unique_ptr<Section>> sections;
-
-	const Section* GetSection(const char* section) const;
-	Section* GetSection(const char* section);
 };

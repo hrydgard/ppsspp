@@ -33,7 +33,7 @@ public:
 	CwCheatScreen(const Path &gamePath);
 	~CwCheatScreen();
 
-	void LoadCheatInfo();
+	bool TryLoadCheatInfo();
 
 	UI::EventReturn OnAddCheat(UI::EventParams &params);
 	UI::EventReturn OnImportCheat(UI::EventParams &params);

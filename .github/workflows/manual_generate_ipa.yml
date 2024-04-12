@@ -1,11 +1,11 @@
-name: Manual Generate IPA
+name: Manual Generate iOS IPA
 on:
   workflow_dispatch:
     inputs:
 
       buildVariant:
         type: choice
-        description: 'Build Variant'     
+        description: 'Build Variant'
         required: true
         default: 'release'
         options: 
@@ -14,20 +14,28 @@ on:
 
 jobs:
 
-  apk:
+  ipa:
     name: Generate ${{ github.event.inputs.buildVariant }} IPA
     runs-on: macos-latest
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
           submodules: recursive
         
-      #- name: Fetch tags for macOS
-      #  # This is required for git describe --always to work for git-version.cpp.
-      #  run: |
-      #    git fetch --deepen=15000 --no-recurse-submodules --tags || exit 0
+      - name: Check Valid Version Tags
+        id: valid-tags
+        shell: bash
+        run: |
+          echo "count=$(git tag -l 'v[0-9]*' | wc -l | tr -d ' ')" >> $GITHUB_OUTPUT
+
+      - name: Fetch upstream tags # required for git describe to return a valid version on a new fork
+        if: ${{ steps.valid-tags.outputs.count == '0' }}
+        run: |
+          # TODO: should try to fetch tags from whereever this repo was forked from before fetching from official repo
+          git remote add upstream https://github.com/hrydgard/ppsspp.git # fetching from official repo as a fallback
+          git fetch --deepen=15000 --no-recurse-submodules --tags upstream || exit 0
 
       - name: Set Env Var(s)
         run: |
@@ -43,6 +51,7 @@ jobs:
           echo $(echo $GIT_VERSION | cut -c 2-) > build-ios/PPSSPP.app/Version.txt
           # Testing values ...
           echo "Content of [GITHUB_REF##*/] = ${GITHUB_REF##*/}"
+          echo "count=${{steps.valid-tags.outputs.count}}"
           echo $(echo $GIT_VERSION | cut -c 2-)
           # Testing file location ...
           find . -name "Version.txt"
@@ -50,6 +59,7 @@ jobs:
       - name: Setup ccache
         uses: hendrikmuhs/ccache-action@main
         with:
+          key: ios
           create-symlink: true
       
       - name: Execute build
@@ -76,8 +86,8 @@ jobs:
             cd -
           fi
 
-      - name: Upload IPA
-        uses: actions/upload-artifact@v3
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
         with:
           name: iOS-${{ github.event.inputs.buildVariant }} build
           path: ppsspp/

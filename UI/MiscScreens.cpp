@@ -240,7 +240,7 @@ private:
 			}
 
 			std::shared_ptr<GameInfo> ginfo = GetInfo(dc, index);
-			if (ginfo && ginfo->pending) {
+			if (ginfo && !ginfo->Ready(GameInfoFlags::BG)) {
 				// Wait for it to load.  It might be the next one.
 				break;
 			}
@@ -261,7 +261,7 @@ private:
 		const auto recentIsos = g_Config.RecentIsos();
 		if (index >= (int)recentIsos.size())
 			return nullptr;
-		return g_gameInfoCache->GetInfo(dc.GetDrawContext(), Path(recentIsos[index]), GAMEINFO_WANTBG);
+		return g_gameInfoCache->GetInfo(dc.GetDrawContext(), Path(recentIsos[index]), GameInfoFlags::BG);
 	}
 
 	void DrawTex(UIContext &dc, std::shared_ptr<GameInfo> &ginfo, float amount) {
@@ -376,13 +376,14 @@ uint32_t GetBackgroundColorWithAlpha(const UIContext &dc) {
 void DrawGameBackground(UIContext &dc, const Path &gamePath, float x, float y, float z) {
 	using namespace Draw;
 	using namespace UI;
-
-	std::shared_ptr<GameInfo> ginfo;
-	if (!gamePath.empty())
-		ginfo = g_gameInfoCache->GetInfo(dc.GetDrawContext(), gamePath, GAMEINFO_WANTBG);
 	dc.Flush();
 
-	GameInfoTex *pic = ginfo ? ginfo->GetBGPic() : nullptr;
+	std::shared_ptr<GameInfo> ginfo;
+	if (!gamePath.empty()) {
+		ginfo = g_gameInfoCache->GetInfo(dc.GetDrawContext(), gamePath, GameInfoFlags::BG);
+	}
+
+	GameInfoTex *pic = (ginfo && ginfo->Ready(GameInfoFlags::BG)) ? ginfo->GetBGPic() : nullptr;
 	if (pic) {
 		dc.GetDrawContext()->BindTexture(0, pic->texture);
 		uint32_t color = whiteAlpha(ease((time_now_d() - pic->timeLoaded) * 3)) & 0xFFc0c0c0;
@@ -506,11 +507,11 @@ void UIDialogScreenWithBackground::sendMessage(UIMessage message, const char *va
 	HandleCommonMessages(message, value, screenManager(), this);
 }
 
-PromptScreen::PromptScreen(const Path &gamePath, std::string message, std::string yesButtonText, std::string noButtonText, std::function<void(bool)> callback)
+PromptScreen::PromptScreen(const Path &gamePath, std::string_view message, std::string_view yesButtonText, std::string_view noButtonText, std::function<void(bool)> callback)
 	: UIDialogScreenWithGameBackground(gamePath), message_(message), callback_(callback) {
 	auto di = GetI18NCategory(I18NCat::DIALOG);
-	yesButtonText_ = di->T(yesButtonText.c_str());
-	noButtonText_ = di->T(noButtonText.c_str());
+	yesButtonText_ = di->T(yesButtonText);
+	noButtonText_ = di->T(noButtonText);
 }
 
 void PromptScreen::CreateViews() {
@@ -552,11 +553,13 @@ UI::EventReturn PromptScreen::OnNo(UI::EventParams &e) {
 }
 
 void PromptScreen::TriggerFinish(DialogResult result) {
-	callback_(result == DR_OK || result == DR_YES);
+	if (callback_) {
+		callback_(result == DR_OK || result == DR_YES);
+	}
 	UIDialogScreenWithBackground::TriggerFinish(result);
 }
 
-TextureShaderScreen::TextureShaderScreen(const std::string &title) : ListPopupScreen(title) {}
+TextureShaderScreen::TextureShaderScreen(std::string_view title) : ListPopupScreen(title) {}
 
 void TextureShaderScreen::CreateViews() {
 	auto ps = GetI18NCategory(I18NCat::TEXTURESHADERS);
@@ -567,7 +570,7 @@ void TextureShaderScreen::CreateViews() {
 	for (int i = 0; i < (int)shaders_.size(); i++) {
 		if (shaders_[i].section == g_Config.sTextureShaderName)
 			selected = i;
-		items.push_back(ps->T(shaders_[i].section.c_str(), shaders_[i].name.c_str()));
+		items.push_back(std::string(ps->T(shaders_[i].section.c_str(), shaders_[i].name.c_str())));
 	}
 	adaptor_ = UI::StringVectorListAdaptor(items, selected);
 
@@ -580,7 +583,7 @@ void TextureShaderScreen::OnCompleted(DialogResult result) {
 	g_Config.sTextureShaderName = shaders_[listView_->GetSelected()].section;
 }
 
-NewLanguageScreen::NewLanguageScreen(const std::string &title) : ListPopupScreen(title) {
+NewLanguageScreen::NewLanguageScreen(std::string_view title) : ListPopupScreen(title) {
 	// Disable annoying encoding warning
 #ifdef _MSC_VER
 #pragma warning(disable:4566)
@@ -760,7 +763,7 @@ void LogoScreen::DrawForeground(UIContext &dc) {
 	auto gr = GetI18NCategory(I18NCat::GRAPHICS);
 	char temp[256];
 	// Manually formatting UTF-8 is fun.  \xXX doesn't work everywhere.
-	snprintf(temp, sizeof(temp), "%s Henrik Rydg%c%crd", cr->T("created", "Created by"), 0xC3, 0xA5);
+	snprintf(temp, sizeof(temp), "%s Henrik Rydg%c%crd", cr->T_cstr("created", "Created by"), 0xC3, 0xA5);
 	if (System_GetPropertyBool(SYSPROP_APP_GOLD)) {
 		dc.Draw()->DrawImage(ImageID("I_ICONGOLD"), bounds.centerX() - 120, bounds.centerY() - 30, 1.2f, 0xFFFFFFFF, ALIGN_CENTER);
 	} else {
@@ -771,7 +774,7 @@ void LogoScreen::DrawForeground(UIContext &dc) {
 	dc.SetFontScale(1.0f, 1.0f);
 	dc.SetFontStyle(dc.theme->uiFont);
 	dc.DrawText(temp, bounds.centerX(), bounds.centerY() + 40, textColor, ALIGN_CENTER);
-	dc.DrawText(cr->T("license", "Free Software under GPL 2.0+"), bounds.centerX(), bounds.centerY() + 70, textColor, ALIGN_CENTER);
+	dc.DrawText(cr->T_cstr("license", "Free Software under GPL 2.0+"), bounds.centerX(), bounds.centerY() + 70, textColor, ALIGN_CENTER);
 
 	int ppsspp_org_y = bounds.h / 2 + 130;
 	dc.DrawText("www.ppsspp.org", bounds.centerX(), ppsspp_org_y, textColor, ALIGN_CENTER);
@@ -784,7 +787,7 @@ void LogoScreen::DrawForeground(UIContext &dc) {
 	// Add some emoji for testing.
 	apiName += CodepointToUTF8(0x1F41B) + CodepointToUTF8(0x1F41C) + CodepointToUTF8(0x1F914);
 #endif
-	dc.DrawText(gr->T(apiName), bounds.centerX(), ppsspp_org_y + 50, textColor, ALIGN_CENTER);
+	dc.DrawText(gr->T_cstr(apiName.c_str()), bounds.centerX(), ppsspp_org_y + 50, textColor, ALIGN_CENTER);
 #endif
 
 	dc.Flush();
@@ -832,7 +835,7 @@ UI::EventReturn CreditsScreen::OnSupport(UI::EventParams &e) {
 }
 
 UI::EventReturn CreditsScreen::OnTwitter(UI::EventParams &e) {
-	System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://twitter.com/#!/PPSSPP_emu");
+	System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://twitter.com/PPSSPP_emu");
 	return UI::EVENT_DONE;
 }
 
@@ -896,7 +899,7 @@ void CreditsScreen::DrawForeground(UIContext &dc) {
 	specialthankssolarmystic += cr->T("testing");
 	specialthankssolarmystic += ')';
 
-	const char *credits[] = {
+	std::string_view credits[] = {
 		System_GetPropertyBool(SYSPROP_APP_GOLD) ? "PPSSPP Gold" : "PPSSPP",
 		"",
 		cr->T("title", "A fast and portable PSP emulator"),
@@ -1028,13 +1031,15 @@ void CreditsScreen::DrawForeground(UIContext &dc) {
 	float t = (float)(time_now_d() - startTime_) * 60.0;
 
 	float y = bounds.y2() - fmodf(t, (float)totalHeight);
+	std::string line;
 	for (int i = 0; i < numItems; i++) {
 		float alpha = linearInOut(y+32, 64, bounds.y2() - 192, 64);
 		uint32_t textColor = colorAlpha(dc.theme->infoStyle.fgColor, alpha);
 
 		if (alpha > 0.0f) {
 			dc.SetFontScale(ease(alpha), ease(alpha));
-			dc.DrawText(credits[i], bounds.centerX(), y, textColor, ALIGN_HCENTER);
+			line = credits[i];
+			dc.DrawText(line.c_str(), bounds.centerX(), y, textColor, ALIGN_HCENTER);
 			dc.SetFontScale(1.0f, 1.0f);
 		}
 		y += itemHeight;
@@ -1052,14 +1057,16 @@ SettingInfoMessage::SettingInfoMessage(int align, float cutOffY, UI::AnchorLayou
 	Add(new UI::Spacer(10.0f));
 }
 
-void SettingInfoMessage::Show(const std::string &text, const UI::View *refView) {
+void SettingInfoMessage::Show(std::string_view text, const UI::View *refView) {
 	if (refView) {
 		Bounds b = refView->GetBounds();
 		const UI::AnchorLayoutParams *lp = GetLayoutParams()->As<UI::AnchorLayoutParams>();
-		if (cutOffY_ != -1.0f && b.y >= cutOffY_) {
-			ReplaceLayoutParams(new UI::AnchorLayoutParams(lp->width, lp->height, lp->left, 80.0f, lp->right, lp->bottom, lp->center));
-		} else {
-			ReplaceLayoutParams(new UI::AnchorLayoutParams(lp->width, lp->height, lp->left, g_display.dp_yres - 80.0f - 40.0f, lp->right, lp->bottom, lp->center));
+		if (lp) {
+			if (cutOffY_ != -1.0f && b.y >= cutOffY_) {
+				ReplaceLayoutParams(new UI::AnchorLayoutParams(lp->width, lp->height, lp->left, 80.0f, lp->right, lp->bottom, lp->center));
+			} else {
+				ReplaceLayoutParams(new UI::AnchorLayoutParams(lp->width, lp->height, lp->left, g_display.dp_yres - 80.0f - 40.0f, lp->right, lp->bottom, lp->center));
+			}
 		}
 	}
 	text_->SetText(text);
@@ -1088,7 +1095,8 @@ void SettingInfoMessage::Draw(UIContext &dc) {
 		dc.FillRect(style.background, bounds_);
 	}
 
-	text_->SetTextColor(whiteAlpha(alpha));
+	uint32_t textColor = colorAlpha(dc.GetTheme().itemStyle.fgColor, alpha);
+	text_->SetTextColor(textColor);
 	ViewGroup::Draw(dc);
 	showing_ = sinceShow <= timeToShow; // Don't consider fade time
 }

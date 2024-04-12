@@ -117,7 +117,7 @@ void HTTPFileLoader::Prepare() {
 
 int HTTPFileLoader::SendHEAD(const Url &url, std::vector<std::string> &responseHeaders) {
 	if (!url.Valid()) {
-		ERROR_LOG(LOADER, "HTTP request failed, invalid URL");
+		ERROR_LOG(LOADER, "HTTP request failed, invalid URL: '%s'", url.ToString().c_str());
 		latestError_ = "Invalid URL";
 		return -400;
 	}
@@ -128,10 +128,12 @@ int HTTPFileLoader::SendHEAD(const Url &url, std::vector<std::string> &responseH
 		return -400;
 	}
 
-	client_.SetDataTimeout(20.0);
-	Connect();
+	double timeout = 20.0;
+
+	client_.SetDataTimeout(timeout);
+	Connect(10.0);
 	if (!connected_) {
-		ERROR_LOG(LOADER, "HTTP request failed, failed to connect: %s port %d", url.Host().c_str(), url.Port());
+		ERROR_LOG(LOADER, "HTTP request failed, failed to connect: %s port %d (resource: '%s')", url.Host().c_str(), url.Port(), url.Resource().c_str());
 		latestError_ = "Could not connect (refused to connect)";
 		return -400;
 	}
@@ -186,7 +188,7 @@ size_t HTTPFileLoader::ReadAt(s64 absolutePos, size_t bytes, void *data, Flags f
 		return 0;
 	}
 
-	Connect();
+	Connect(10.0);
 	if (!connected_) {
 		return 0;
 	}
@@ -258,10 +260,9 @@ size_t HTTPFileLoader::ReadAt(s64 absolutePos, size_t bytes, void *data, Flags f
 	return readBytes;
 }
 
-void HTTPFileLoader::Connect() {
+void HTTPFileLoader::Connect(double timeout) {
 	if (!connected_) {
 		cancel_ = false;
-		// Latency is important here, so reduce the timeout.
-		connected_ = client_.Connect(3, 10.0, &cancel_);
+		connected_ = client_.Connect(3, timeout, &cancel_);
 	}
 }

@@ -32,6 +32,7 @@
 #define VK_NO_PROTOTYPES
 
 #include "ext/vulkan/vulkan.h"
+#include <string>
 
 // Hacky X11 header workaround
 #ifdef Opposite
@@ -229,12 +230,13 @@ extern PFN_vkSetDebugUtilsObjectNameEXT vkSetDebugUtilsObjectNameEXT;
 extern PFN_vkSetDebugUtilsObjectTagEXT vkSetDebugUtilsObjectTagEXT;
 
 // Assorted other extensions.
-extern PFN_vkGetBufferMemoryRequirements2KHR vkGetBufferMemoryRequirements2KHR;
-extern PFN_vkGetImageMemoryRequirements2KHR vkGetImageMemoryRequirements2KHR;
+extern PFN_vkGetBufferMemoryRequirements2 vkGetBufferMemoryRequirements2;
+extern PFN_vkGetImageMemoryRequirements2 vkGetImageMemoryRequirements2;
+extern PFN_vkGetPhysicalDeviceProperties2 vkGetPhysicalDeviceProperties2;
+extern PFN_vkGetPhysicalDeviceFeatures2 vkGetPhysicalDeviceFeatures2;
+extern PFN_vkCreateRenderPass2 vkCreateRenderPass2;
+
 extern PFN_vkGetMemoryHostPointerPropertiesEXT vkGetMemoryHostPointerPropertiesEXT;
-extern PFN_vkGetPhysicalDeviceProperties2KHR vkGetPhysicalDeviceProperties2KHR;
-extern PFN_vkGetPhysicalDeviceFeatures2KHR vkGetPhysicalDeviceFeatures2KHR;
-extern PFN_vkCreateRenderPass2KHR vkCreateRenderPass2KHR;
 extern PFN_vkWaitForPresentKHR vkWaitForPresentKHR;
 extern PFN_vkGetPastPresentationTimingGOOGLE vkGetPastPresentationTimingGOOGLE;
 extern PFN_vkGetRefreshCycleDurationGOOGLE vkGetRefreshCycleDurationGOOGLE;
@@ -266,9 +268,9 @@ struct VulkanExtensions {
 bool VulkanMayBeAvailable();
 void VulkanSetAvailable(bool available);
 
-bool VulkanLoad();
-void VulkanLoadInstanceFunctions(VkInstance instance, const VulkanExtensions &enabledExtensions);
-void VulkanLoadDeviceFunctions(VkDevice device, const VulkanExtensions &enabledExtensions);
+bool VulkanLoad(std::string *errorStr);
+void VulkanLoadInstanceFunctions(VkInstance instance, const VulkanExtensions &enabledExtensions, uint32_t vulkanApiVersion);
+void VulkanLoadDeviceFunctions(VkDevice device, const VulkanExtensions &enabledExtensions, uint32_t vulkanApiVersion);
 void VulkanFree();
 
 const char *VulkanResultToString(VkResult res);

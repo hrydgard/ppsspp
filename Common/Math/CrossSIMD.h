@@ -8,7 +8,14 @@
 
 #include "ppsspp_config.h"
 
-#include <cstdint>
+#include "stdint.h"
+
+#ifdef __clang__
+// Weird how you can't just use #pragma in a macro.
+#define DO_NOT_VECTORIZE_LOOP _Pragma("clang loop vectorize(disable)")
+#else
+#define DO_NOT_VECTORIZE_LOOP
+#endif
 
 #if PPSSPP_ARCH(SSE2)
 #include <emmintrin.h>

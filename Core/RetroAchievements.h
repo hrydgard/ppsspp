@@ -21,11 +21,11 @@
 #include "Common/CommonTypes.h"
 #include "Core/Loaders.h"  // for IdentifiedFileType
 
-#include "ext/rcheevos/include/rc_client.h"
-
 class Path;
 class PointerWrap;
 class FileLoader;
+
+struct rc_client_t;
 
 namespace Achievements {
 
@@ -33,20 +33,6 @@ struct Statistics {
 	// Debug stats
 	int badMemoryAccessCount;
 };
-
-// RAIntegration only exists for Windows, so no point checking it on other platforms.
-#ifdef WITH_RAINTEGRATION
-
-bool IsUsingRAIntegration();
-
-#else
-
-static inline bool IsUsingRAIntegration()
-{
-	return false;
-}
-
-#endif
 
 // Returns true if the user is logged in properly, and everything is set up for playing games with achievements.
 bool IsLoggedIn();
@@ -75,10 +61,13 @@ bool HardcoreModeActive();
 // If no message is specified, a standard "This feature is not available in Hardcore Mode" message will be shown.
 // Also returns true if hardcore mode is active.
 // Specify isSaveAction so we can still permit saves (but not loads) in hardcore mode if that option is enabled.
-bool WarnUserIfHardcoreModeActive(bool isSaveStateAction, const char *message = nullptr);
+bool WarnUserIfHardcoreModeActive(bool isSaveStateAction, std::string_view message = "");
 
 // Returns the length of the string. If (size_t)-1, there's no message.
 size_t GetRichPresenceMessage(char *buffer, size_t bufSize);
+
+// Returns true if the user has unsaved RAIntegration changes. Should prompt the user to be sure they want to exit.
+bool RAIntegrationDirty();
 
 // The new API is so much nicer that we can use it directly instead of wrapping it. So let's expose the client.
 // Will of course return nullptr if not active.

@@ -28,7 +28,7 @@ static const int leftColumnWidth = 140;
 
 class CheckBoxChoice : public UI::Choice {
 public:
-	CheckBoxChoice(const std::string &text, UI::CheckBox *checkbox, UI::LayoutParams *lp)
+	CheckBoxChoice(std::string_view text, UI::CheckBox *checkbox, UI::LayoutParams *lp)
 		: Choice(text, lp), checkbox_(checkbox) {
 		OnClick.Handle(this, &CheckBoxChoice::HandleClick);
 	}
@@ -113,11 +113,11 @@ void TouchControlVisibilityScreen::CreateViews() {
 			char translated[256];
 			int i = 0;
 			if (sscanf(toggle.key.c_str(), "Custom %d", &i) == 1) {
-				snprintf(translated, sizeof(translated), mc->T("Custom %d"), i);
+				snprintf(translated, sizeof(translated), mc->T_cstr("Custom %d"), i);
 			} else {
-				truncate_cpy(translated, mc->T(toggle.key));
+				truncate_cpy(translated, sizeof(translated), mc->T(toggle.key));
 			}
-			choice = new Choice(std::string(translated) + " (" + mc->T("tap to customize") + ")", "", false, new LinearLayoutParams(1.0f));
+			choice = new Choice(std::string(translated) + " (" + std::string(mc->T("tap to customize")) + ")", "", false, new LinearLayoutParams(1.0f));
 			choice->OnClick.Add(toggle.handle);
 		} else if (toggle.img.isValid()) {
 			choice = new CheckBoxChoice(toggle.img, checkbox, new LinearLayoutParams(1.0f));

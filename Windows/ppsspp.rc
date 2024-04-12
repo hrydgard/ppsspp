@@ -578,6 +578,7 @@ BEGIN
         MENUITEM "Take Screenshot",                         ID_DEBUG_TAKESCREENSHOT
         MENUITEM "Dump Next Frame to Log",                  ID_DEBUG_DUMPNEXTFRAME
         MENUITEM "Show Debug Statistics",                   ID_DEBUG_SHOWDEBUGSTATISTICS
+        MENUITEM "Restart Graphics",                        ID_DEBUG_RESTARTGRAPHICS,
         MENUITEM "", 0, MFT_SEPARATOR
         MENUITEM "Disassembly",                             ID_DEBUG_DISASSEMBLY
         MENUITEM "GE Debugger...",                          ID_DEBUG_GEDEBUGGER
@@ -662,6 +663,8 @@ BEGIN
             MENUITEM "Nearest",                             ID_OPTIONS_NEARESTFILTERING
             MENUITEM "Linear",                              ID_OPTIONS_LINEARFILTERING
             MENUITEM "Auto Max Quality",                    ID_OPTIONS_AUTOMAXQUALITYFILTERING
+            MENUITEM "", 0, MFT_SEPARATOR
+            MENUITEM "Smart 2D Texture Filtering",          ID_OPTIONS_SMART2DTEXTUREFILTERING
         END
         POPUP "Screen Scaling Filter",                      ID_OPTIONS_SCREENFILTER_MENU
         BEGIN

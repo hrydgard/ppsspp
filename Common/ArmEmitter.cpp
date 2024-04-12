@@ -537,7 +537,7 @@ void ARMXEmitter::MOVI2R(ARMReg reg, u32 val, bool optimize)
 	}
 }
 
-static const char *armRegStrings[] = {
+static const char *const armRegStrings[] = {
 	"r0","r1","r2","r3",
 	"r4","r5","r6","r7",
 	"r8","r9","r10","r11",
@@ -2865,7 +2865,7 @@ void ARMXEmitter::VMOVN(u32 Size, ARMReg Vd, ARMReg Vm)
 	_dbg_assert_msg_((Size & I_8) == 0, "%s cannot narrow from I_8", __FUNCTION__);
 
 	// For consistency with assembler syntax and VMOVL - encode one size down.
-	int halfSize = encodedSize(Size) - 1;
+	u32 halfSize = encodedSize(Size) - 1;
 
 	Write32((0xF3B << 20) | (halfSize << 18) | (1 << 17) | EncodeVd(Vd) | (1 << 9) | EncodeVm(Vm));
 }
@@ -2878,8 +2878,8 @@ void ARMXEmitter::VQMOVN(u32 Size, ARMReg Vd, ARMReg Vm)
 	_dbg_assert_msg_((Size & (I_UNSIGNED | I_SIGNED)) != 0, "Must specify I_SIGNED or I_UNSIGNED in %s NEON", __FUNCTION__);
 	_dbg_assert_msg_((Size & I_8) == 0, "%s cannot narrow from I_8", __FUNCTION__);
 
-	int halfSize = encodedSize(Size) - 1;
-	int op = (1 << 7) | (Size & I_UNSIGNED ? 1 << 6 : 0);
+	u32 halfSize = encodedSize(Size) - 1;
+	u32 op = (1 << 7) | (Size & I_UNSIGNED ? 1 << 6 : 0);
 
 	Write32((0xF3B << 20) | (halfSize << 18) | (1 << 17) | EncodeVd(Vd) | (1 << 9) | op | EncodeVm(Vm));
 }
@@ -2891,8 +2891,8 @@ void ARMXEmitter::VQMOVUN(u32 Size, ARMReg Vd, ARMReg Vm)
 	_dbg_assert_msg_(cpu_info.bNEON, "Can't use %s when CPU doesn't support it", __FUNCTION__);
 	_dbg_assert_msg_((Size & I_8) == 0, "%s cannot narrow from I_8", __FUNCTION__);
 
-	int halfSize = encodedSize(Size) - 1;
-	int op = (1 << 6);
+	u32 halfSize = encodedSize(Size) - 1;
+	u32 op = (1 << 6);
 
 	Write32((0xF3B << 20) | (halfSize << 18) | (1 << 17) | EncodeVd(Vd) | (1 << 9) | op | EncodeVm(Vm));
 }

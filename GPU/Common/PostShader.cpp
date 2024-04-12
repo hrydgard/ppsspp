@@ -257,7 +257,7 @@ void RemoveUnknownPostShaders(std::vector<std::string> *names) {
 	}
 }
 
-const ShaderInfo *GetPostShaderInfo(const std::string &name) {
+const ShaderInfo *GetPostShaderInfo(std::string_view name) {
 	for (size_t i = 0; i < shaderInfo.size(); i++) {
 		if (shaderInfo[i].section == name)
 			return &shaderInfo[i];
@@ -310,7 +310,7 @@ const std::vector<ShaderInfo> &GetAllPostShaderInfo() {
 	return shaderInfo;
 }
 
-const TextureShaderInfo *GetTextureShaderInfo(const std::string &name) {
+const TextureShaderInfo *GetTextureShaderInfo(std::string_view name) {
 	for (auto &info : textureShaderInfo) {
 		if (info.section == name) {
 			return &info;

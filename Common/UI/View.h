@@ -543,15 +543,15 @@ protected:
 // Right now more flexible image support though.
 class Button : public Clickable {
 public:
-	Button(const std::string &text, LayoutParams *layoutParams = 0)
+	Button(std::string_view text, LayoutParams *layoutParams = 0)
 		: Clickable(layoutParams), text_(text), imageID_(ImageID::invalid()) {}
-	Button(const std::string &text, ImageID imageID, LayoutParams *layoutParams = 0)
+	Button(std::string_view text, ImageID imageID, LayoutParams *layoutParams = 0)
 		: Clickable(layoutParams), text_(text), imageID_(imageID) {}
 
 	void Click() override;
 	void Draw(UIContext &dc) override;
 	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override;
-	const std::string &GetText() const { return text_; }
+	std::string_view GetText() const { return text_; }
 	std::string DescribeText() const override;
 	void SetPadding(int w, int h) {
 		paddingW_ = w;
@@ -579,7 +579,7 @@ private:
 
 class RadioButton : public Clickable {
 public:
-	RadioButton(int *value, int thisButtonValue, const std::string &text, LayoutParams *layoutParams = 0)
+	RadioButton(int *value, int thisButtonValue, std::string_view text, LayoutParams *layoutParams = 0)
 		: Clickable(layoutParams), value_(value), thisButtonValue_(thisButtonValue), text_(text) {}
 	void Click() override;
 	void Draw(UIContext &dc) override;
@@ -704,11 +704,11 @@ public:
 // Use to trigger something or open a submenu screen.
 class Choice : public ClickableItem {
 public:
-	Choice(const std::string &text, LayoutParams *layoutParams = nullptr)
+	Choice(std::string_view text, LayoutParams *layoutParams = nullptr)
 		: Choice(text, std::string(), false, layoutParams) {}
-	Choice(const std::string &text, ImageID image, LayoutParams *layoutParams = nullptr)
+	Choice(std::string_view text, ImageID image, LayoutParams *layoutParams = nullptr)
 		: ClickableItem(layoutParams), text_(text), image_(image) {}
-	Choice(const std::string &text, const std::string &smallText, bool selected = false, LayoutParams *layoutParams = nullptr)
+	Choice(std::string_view text, std::string_view smallText, bool selected = false, LayoutParams *layoutParams = nullptr)
 		: ClickableItem(layoutParams), text_(text), smallText_(smallText), image_(ImageID::invalid()) {}
 	Choice(ImageID image, LayoutParams *layoutParams = nullptr)
 		: ClickableItem(layoutParams), image_(image), rightIconImage_(ImageID::invalid()) {}
@@ -759,7 +759,7 @@ private:
 // Different key handling.
 class StickyChoice : public Choice {
 public:
-	StickyChoice(const std::string &text, const std::string &smallText = "", LayoutParams *layoutParams = 0)
+	StickyChoice(std::string_view text, std::string_view smallText = "", LayoutParams *layoutParams = 0)
 		: Choice(text, smallText, false, layoutParams) {}
 	StickyChoice(ImageID buttonImage, LayoutParams *layoutParams = 0)
 		: Choice(buttonImage, layoutParams) {}
@@ -779,7 +779,7 @@ protected:
 
 class InfoItem : public Item {
 public:
-	InfoItem(const std::string &text, const std::string &rightText, LayoutParams *layoutParams = nullptr);
+	InfoItem(std::string_view text, std::string_view rightText, LayoutParams *layoutParams = nullptr);
 
 	void Draw(UIContext &dc) override;
 	std::string DescribeText() const override;
@@ -787,13 +787,13 @@ public:
 	// These are focusable so that long lists of them can be keyboard scrolled.
 	bool CanBeFocused() const override { return true; }
 
-	void SetText(const std::string &text) {
+	void SetText(std::string_view text) {
 		text_ = text;
 	}
 	const std::string &GetText() const {
 		return text_;
 	}
-	void SetRightText(const std::string &text) {
+	void SetRightText(std::string_view text) {
 		rightText_ = text;
 	}
 	void SetChoiceStyle(bool choiceStyle) {
@@ -810,20 +810,53 @@ private:
 	bool choiceStyle_ = false;
 };
 
+class AbstractChoiceWithValueDisplay : public Choice {
+public:
+	AbstractChoiceWithValueDisplay(std::string_view text, LayoutParams *layoutParams = nullptr)
+		: Choice(text, layoutParams) {
+	}
+
+	void Draw(UIContext &dc) override;
+	void GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert, float &w, float &h) const override;
+
+	void SetPasswordDisplay() {
+		passwordDisplay_ = true;
+	}
+
+protected:
+	virtual std::string ValueText() const = 0;
+
+	float CalculateValueScale(const UIContext &dc, const std::string &valueText, float availWidth) const;
+
+	bool passwordDisplay_ = false;
+};
+
+class ChoiceWithCallbackValueDisplay : public AbstractChoiceWithValueDisplay {
+public:
+	ChoiceWithCallbackValueDisplay(std::string_view text, std::function<std::string()> valueFunc, LayoutParams *layoutParams = nullptr)
+		: AbstractChoiceWithValueDisplay(text, layoutParams), valueFunc_(valueFunc) {}
+protected:
+	std::string ValueText() const override {
+		return valueFunc_();
+	}
+	std::function<std::string()> valueFunc_;
+};
+
 class ItemHeader : public Item {
 public:
-	ItemHeader(const std::string &text, LayoutParams *layoutParams = 0);
+	ItemHeader(std::string_view text, LayoutParams *layoutParams = 0);
 	void Draw(UIContext &dc) override;
 	std::string DescribeText() const override;
 	void GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert, float &w, float &h) const override;
-
+	void SetLarge(bool large) { large_ = large; }
 private:
 	std::string text_;
+	bool large_ = false;
 };
 
 class PopupHeader : public Item {
 public:
-	PopupHeader(const std::string &text, LayoutParams *layoutParams = 0)
+	PopupHeader(std::string_view text, LayoutParams *layoutParams = 0)
 		: Item(layoutParams), text_(text) {
 			layoutParams_->width = FILL_PARENT;
 			layoutParams_->height = 64;
@@ -837,7 +870,7 @@ private:
 
 class CheckBox : public ClickableItem {
 public:
-	CheckBox(bool *toggle, const std::string &text, const std::string &smallText = "", LayoutParams *layoutParams = nullptr)
+	CheckBox(bool *toggle, std::string_view text, std::string_view smallText = "", LayoutParams *layoutParams = nullptr)
 		: ClickableItem(layoutParams), toggle_(toggle), text_(text), smallText_(smallText) {
 		OnClick.Handle(this, &CheckBox::OnClicked);
 	}
@@ -866,7 +899,7 @@ protected:
 
 class CollapsibleHeader : public CheckBox {
 public:
-	CollapsibleHeader(bool *toggle, const std::string &text, LayoutParams *layoutParams = nullptr);
+	CollapsibleHeader(bool *open, std::string_view text, LayoutParams *layoutParams = nullptr);
 	void Draw(UIContext &dc) override;
 	void GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert, float &w, float &h) const override;
 	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override;
@@ -874,17 +907,20 @@ public:
 	Point GetFocusPosition(FocusDirection dir) const override;
 
 	void SetHasSubitems(bool hasSubItems) { hasSubItems_ = hasSubItems; }
+	void SetOpenPtr(bool *open) {
+		toggle_ = open;
+	}
 private:
 	bool hasSubItems_ = true;
 };
 
 class BitCheckBox : public CheckBox {
 public:
-	BitCheckBox(uint32_t *bitfield, uint32_t bit, const std::string &text, const std::string &smallText = "", LayoutParams *layoutParams = nullptr)
+	BitCheckBox(uint32_t *bitfield, uint32_t bit, std::string_view text, std::string_view smallText = "", LayoutParams *layoutParams = nullptr)
 		: CheckBox(nullptr, text, smallText, layoutParams), bitfield_(bitfield), bit_(bit) {
 	}
     
-	BitCheckBox(int *bitfield, int bit, const std::string &text, const std::string &smallText = "", LayoutParams *layoutParams = nullptr) : BitCheckBox((uint32_t *)bitfield, (uint32_t)bit, text, smallText, layoutParams) {}
+	BitCheckBox(int *bitfield, int bit, std::string_view text, std::string_view smallText = "", LayoutParams *layoutParams = nullptr) : BitCheckBox((uint32_t *)bitfield, (uint32_t)bit, text, smallText, layoutParams) {}
 
 	void Toggle() override;
 	bool Toggled() const override;
@@ -917,11 +953,13 @@ public:
 			h = size_;
 	}
 
-	void Draw(UIContext &dc) override {}
+	void Draw(UIContext &dc) override;
 	std::string DescribeText() const override { return ""; }
+	void SetSeparator() { drawAsSeparator_ = true; }
 
 private:
 	float size_ = 0.0f;
+	bool drawAsSeparator_ = false;
 };
 
 class BorderView : public InertView {
@@ -950,7 +988,7 @@ public:
 	void GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert, float &w, float &h) const override;
 	void Draw(UIContext &dc) override;
 
-	void SetText(const std::string &text) { text_ = text; }
+	void SetText(std::string_view text) { text_ = text; }
 	const std::string &GetText() const { return text_; }
 	std::string DescribeText() const override { return GetText(); }
 	void SetSmall(bool small) { small_ = small; }
@@ -978,8 +1016,8 @@ private:
 
 class TextEdit : public View {
 public:
-	TextEdit(const std::string &text, const std::string &title, const std::string &placeholderText, LayoutParams *layoutParams = nullptr);
-	void SetText(const std::string &text) { text_ = text; scrollPos_ = 0; caret_ = (int)text_.size(); }
+	TextEdit(std::string_view text, std::string_view title, std::string_view placeholderText, LayoutParams *layoutParams = nullptr);
+	void SetText(std::string_view text) { text_ = text; scrollPos_ = 0; caret_ = (int)text_.size(); }
 	void SetTextColor(uint32_t color) { textColor_ = color; hasTextColor_ = true; }
 	const std::string &GetText() const { return text_; }
 	void SetMaxLen(size_t maxLen) { maxLen_ = maxLen; }

@@ -619,6 +619,7 @@ void ClearCallback() {
 
 static void FinishRecording() {
 	// We're done - this was just to write the result out.
+	Path filename = WriteRecording();
 	commands.clear();
 	pushbuf.clear();
 	lastVRAM.clear();
@@ -630,7 +631,6 @@ static void FinishRecording() {
 	lastEdramTrans = 0x400;
 
 	if (writeCallback) {
-		Path filename = WriteRecording();
 		writeCallback(filename);
 	}
 	writeCallback = nullptr;

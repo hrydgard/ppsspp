@@ -84,14 +84,6 @@ void CalculateDisplayOutputRect(FRect *rc, float origW, float origH, const FRect
 	float scale = g_Config.fDisplayScale;
 	float aspectRatioAdjust = g_Config.fDisplayAspectRatio;
 
-	// Ye olde 1080p hack, new version: If everything is setup to exactly cover the screen (defaults), and the screen display aspect ratio is 16:9,
-	// stretch the PSP's aspect ratio veeery slightly to fill it completely.
-	if (scale == 1.0f && offsetX == 0.5f && offsetY == 0.5f && aspectRatioAdjust == 1.0f && !g_Config.bDisplayIntegerScale) {
-		if (fabsf(frame.w / frame.h - 16.0f / 9.0f) < 0.0001f) {
-			aspectRatioAdjust = (frame.w / frame.h) / (480.0f / 272.0f);
-		}
-	}
-
 	float origRatio = !rotated ? origW / origH : origH / origW;
 	float frameRatio = frame.w / frame.h;
 
@@ -119,6 +111,15 @@ void CalculateDisplayOutputRect(FRect *rc, float origW, float origH, const FRect
 		// Image is taller than frame. Center horizontally.
 		outW = scaledHeight * origRatio;
 		outH = scaledHeight;
+	}
+
+	// Ye olde 1080p hack: If everything is setup to exactly cover the screen (defaults), and the screen display aspect ratio is 16:9,
+	// cut off one line from the top and bottom.
+	if (scale == 1.0f && aspectRatioAdjust == 1.0f && offsetX == 0.5f && offsetY == 0.5f && !g_Config.bDisplayIntegerScale && g_Config.bDisplayCropTo16x9) {
+		if (fabsf(frame.w / frame.h - 16.0f / 9.0f) < 0.0001f) {
+			outW *= 272.0f / 270.0f;
+			outH *= 272.0f / 270.0f;
+		}
 	}
 
 	if (g_Config.bDisplayIntegerScale) {
@@ -799,6 +800,7 @@ void PresentationCommon::CopyToOutput(OutputFlags flags, int uvRotation, float u
 
 	if (usePostShader) {
 		// When we render to temp framebuffers during post, we switch position, not UV.
+		// The flipping here is only because D3D has a clip coordinate system that doesn't match their screen coordinate system.
 		// The flipping here is only because D3D has a clip coordinate system that doesn't match their screen coordinate system.
 		bool flipped = flags & OutputFlags::POSITION_FLIPPED;
 		float y0 = flipped ? 1.0f : -1.0f;

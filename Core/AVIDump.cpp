@@ -45,6 +45,8 @@ extern "C" {
 #define av_frame_free avcodec_free_frame
 #endif
 
+#include "FFMPEGCompat.h"
+
 static AVFormatContext *s_format_context = nullptr;
 static AVCodecContext *s_codec_context = nullptr;
 static AVStream *s_stream = nullptr;

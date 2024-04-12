@@ -342,7 +342,7 @@ public:
 
 	int VertexSize() const { return size; }  // PSP format size
 
-	std::string GetString(DebugShaderStringType stringType);
+	std::string GetString(DebugShaderStringType stringType) const;
 
 	void Step_WeightsU8() const;
 	void Step_WeightsU16() const;

@@ -96,7 +96,7 @@ std::vector<std::string> ParamSFOData::GetKeys() const {
 std::string ParamSFOData::GetDiscID() {
 	const std::string discID = GetValueString("DISC_ID");
 	if (discID.empty()) {
-		std::string fakeID = GenerateFakeID();
+		std::string fakeID = GenerateFakeID(Path());
 		WARN_LOG(LOADER, "No DiscID found - generating a fake one: '%s' (from %s)", fakeID.c_str(), PSP_CoreParameter().fileToStart.c_str());
 		ValueData data;
 		data.type = VT_UTF8;
@@ -195,7 +195,7 @@ bool ParamSFOData::ReadSFO(const u8 *paramsfo, size_t size) {
 	return true;
 }
 
-int ParamSFOData::GetDataOffset(const u8 *paramsfo, const std::string &dataName) {
+int ParamSFOData::GetDataOffset(const u8 *paramsfo, const char *dataName) {
 	const Header *header = (const Header *)paramsfo;
 	if (header->magic != 0x46535000)
 		return -1;
@@ -210,7 +210,7 @@ int ParamSFOData::GetDataOffset(const u8 *paramsfo, const std::string &dataName)
 	for (u32 i = 0; i < header->index_table_entries; i++)
 	{
 		const char *key = (const char *)(key_start + indexTables[i].key_table_offset);
-		if (!strcmp(key, dataName.c_str()))
+		if (!strcmp(key, dataName))
 		{
 			return data_start + indexTables[i].data_table_offset;
 		}
@@ -219,7 +219,7 @@ int ParamSFOData::GetDataOffset(const u8 *paramsfo, const std::string &dataName)
 	return -1;
 }
 
-bool ParamSFOData::WriteSFO(u8 **paramsfo, size_t *size) const {
+void ParamSFOData::WriteSFO(u8 **paramsfo, size_t *size) const {
 	size_t total_size = 0;
 	size_t key_size = 0;
 	size_t data_size = 0;
@@ -251,9 +251,10 @@ bool ParamSFOData::WriteSFO(u8 **paramsfo, size_t *size) const {
 	total_size += data_size;
 	*size = total_size;
 
-	u8* data = new u8[total_size];
+	size_t aligned_size = (total_size + 15) & ~15;
+	u8* data = new u8[aligned_size];
 	*paramsfo = data;
-	memset(data, 0, total_size);
+	memset(data, 0, aligned_size);
 	memcpy(data, &header, sizeof(Header));
 
 	// Now fill
@@ -300,8 +301,6 @@ bool ParamSFOData::WriteSFO(u8 **paramsfo, size_t *size) const {
 		index_ptr++;
 
 	}
-
-	return true;
 }
 
 void ParamSFOData::Clear() {
@@ -320,15 +319,15 @@ void ParamSFOData::ValueData::SetData(const u8* data, int size) {
 	u_size = size;
 }
 
-std::string ParamSFOData::GenerateFakeID(const std::string &filename) const {
+std::string ParamSFOData::GenerateFakeID(const Path &filename) const {
 	// Generates fake gameID for homebrew based on it's folder name.
 	// Should probably not be a part of ParamSFO, but it'll be called in same places.
-	std::string file = PSP_CoreParameter().fileToStart.ToString();
+	// FileToStart here is actually a directory name, not a file, so taking GetFilename on it gets what we want.
+	Path path = PSP_CoreParameter().fileToStart;
 	if (!filename.empty())
-		file = filename;
+		path = filename;
 
-	std::size_t lslash = file.find_last_of("/");
-	file = file.substr(lslash + 1);
+	std::string file = path.GetFilename();
 
 	int sumOfAllLetters = 0;
 	for (char &c : file) {

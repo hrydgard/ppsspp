@@ -182,8 +182,11 @@ public:
 	int GetBestPhysicalDevice();
 	int GetPhysicalDeviceByName(const std::string &name);
 	void ChooseDevice(int physical_device);
-	bool EnableInstanceExtension(const char *extension);
-	bool EnableDeviceExtension(const char *extension);
+
+	// The coreVersion is to avoid enabling extensions that are merged into core Vulkan from a certain version.
+	bool EnableInstanceExtension(const char *extension, uint32_t coreVersion);
+	bool EnableDeviceExtension(const char *extension, uint32_t coreVersion);
+
 	VkResult CreateDevice();
 
 	const std::string &InitError() const { return init_error_; }
@@ -416,7 +419,7 @@ private:
 
 	bool CheckLayers(const std::vector<LayerProperties> &layer_props, const std::vector<const char *> &layer_names) const;
 
-	WindowSystem winsys_;
+	WindowSystem winsys_{};
 
 	// Don't use the real types here to avoid having to include platform-specific stuff
 	// that we really don't want in everything that uses VulkanContext.
@@ -428,6 +431,7 @@ private:
 	VkDevice device_ = VK_NULL_HANDLE;
 	VkQueue gfx_queue_ = VK_NULL_HANDLE;
 	VkSurfaceKHR surface_ = VK_NULL_HANDLE;
+	u32 vulkanApiVersion_ = 0;
 
 	std::string init_error_;
 	std::vector<const char *> instance_layer_names_;
@@ -479,7 +483,7 @@ private:
 	std::vector<VkDebugUtilsMessengerEXT> utils_callbacks;
 
 	VkSwapchainKHR swapchain_ = VK_NULL_HANDLE;
-	VkFormat swapchainFormat_;
+	VkFormat swapchainFormat_ = VK_FORMAT_UNDEFINED;
 
 	uint32_t queue_count = 0;
 
@@ -488,19 +492,13 @@ private:
 	VkSurfaceCapabilitiesKHR surfCapabilities_{};
 	std::vector<VkSurfaceFormatKHR> surfFormats_{};
 
-	VkPresentModeKHR presentMode_;
+	VkPresentModeKHR presentMode_ = VK_PRESENT_MODE_FIFO_KHR;
 	std::vector<VkPresentModeKHR> availablePresentModes_;
 
 	std::vector<VkCommandBuffer> cmdQueue_;
 
 	VmaAllocator allocator_ = VK_NULL_HANDLE;
 };
-
-// Detailed control.
-void TransitionImageLayout2(VkCommandBuffer cmd, VkImage image, int baseMip, int mipLevels, int numLayers, VkImageAspectFlags aspectMask,
-	VkImageLayout oldImageLayout, VkImageLayout newImageLayout,
-	VkPipelineStageFlags srcStageMask, VkPipelineStageFlags dstStageMask,
-	VkAccessFlags srcAccessMask, VkAccessFlags dstAccessMask);
 
 // GLSL compiler
 void init_glslang();
@@ -517,6 +515,7 @@ bool GLSLtoSPV(const VkShaderStageFlagBits shader_type, const char *sourceCode, 
 const char *VulkanColorSpaceToString(VkColorSpaceKHR colorSpace);
 const char *VulkanFormatToString(VkFormat format);
 const char *VulkanPresentModeToString(VkPresentModeKHR presentMode);
+const char *VulkanImageLayoutToString(VkImageLayout imageLayout);
 
 std::string FormatDriverVersion(const VkPhysicalDeviceProperties &props);
 

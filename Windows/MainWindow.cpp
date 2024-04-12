@@ -599,12 +599,6 @@ namespace MainWindow
 		static bool firstErase = true;
 
 		switch (message) {
-		case WM_ACTIVATE:
-			if (wParam == WA_ACTIVE || wParam == WA_CLICKACTIVE) {
-				g_activeWindow = WINDOW_MAINWINDOW;
-			}
-			break;
-
 		case WM_SIZE:
 			break;
 
@@ -770,6 +764,13 @@ namespace MainWindow
 			}
 			break;
 
+		case WM_USER_RUN_CALLBACK:
+		{
+			auto callback = reinterpret_cast<void (*)(void *window, void *userdata)>(wParam);
+			void *userdata = reinterpret_cast<void *>(lParam);
+			callback(hWnd, userdata);
+			break;
+		}
 		case WM_USER_GET_BASE_POINTER:
 			Reporting::NotifyDebugger();
 			switch (lParam) {
@@ -829,6 +830,8 @@ namespace MainWindow
 					}
 					g_activeWindow = WINDOW_MAINWINDOW;
 					pause = false;
+				} else {
+					g_activeWindow = WINDOW_OTHER;
 				}
 				if (!noFocusPause && g_Config.bPauseOnLostFocus && GetUIState() == UISTATE_INGAME) {
 					if (pause != Core_IsStepping()) {	// != is xor for bools
@@ -1137,6 +1140,10 @@ namespace MainWindow
 
 	bool IsFullscreen() {
 		return g_isFullscreen;
+	}
+
+	void RunCallbackInWndProc(void (*callback)(void *, void *), void *userdata) {
+		PostMessage(hwndMain, WM_USER_RUN_CALLBACK, reinterpret_cast<WPARAM>(callback), reinterpret_cast<LPARAM>(userdata));
 	}
 
 }  // namespace

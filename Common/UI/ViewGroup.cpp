@@ -14,6 +14,7 @@
 #include "Common/UI/Tween.h"
 #include "Common/UI/Root.h"
 #include "Common/UI/View.h"
+#include "Common/UI/UIScreen.h"
 #include "Common/UI/ViewGroup.h"
 #include "Common/Render/DrawBuffer.h"
 
@@ -188,7 +189,7 @@ std::string ViewGroup::DescribeText() const {
 	return ss.str();
 }
 
-std::string ViewGroup::DescribeListUnordered(const char *heading) const {
+std::string ViewGroup::DescribeListUnordered(std::string_view heading) const {
 	std::stringstream ss;
 	ss << heading << "\n";
 
@@ -205,7 +206,7 @@ std::string ViewGroup::DescribeListUnordered(const char *heading) const {
 	return ss.str();
 }
 
-std::string ViewGroup::DescribeListOrdered(const char *heading) const {
+std::string ViewGroup::DescribeListOrdered(std::string_view heading) const {
 	std::stringstream ss;
 	ss << heading << "\n";
 
@@ -495,10 +496,6 @@ void LinearLayout::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec v
 	if (views_.empty())
 		return;
 
-	if (tag_ == "debug") {
-		tag_ = "debug";
-	}
-
 	float sum = 0.0f;
 	float maxOther = 0.0f;
 	float totalWeight = 0.0f;
@@ -669,10 +666,6 @@ void LinearLayout::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec v
 // weight != 0 = fill remaining space.
 void LinearLayout::Layout() {
 	const Bounds &bounds = bounds_;
-
-	if (tag_ == "debug") {
-		tag_ = "debug";
-	}
 
 	Bounds itemBounds;
 	float pos;
@@ -957,17 +950,30 @@ TabHolder::TabHolder(Orientation orientation, float stripSize, LayoutParams *lay
 		tabScroll_->Add(tabStrip_);
 		Add(tabScroll_);
 	} else {
-		tabStrip_ = new ChoiceStrip(orientation, new LayoutParams(stripSize, WRAP_CONTENT));
+		tabContainer_ = new LinearLayout(ORIENT_VERTICAL, new LayoutParams(stripSize, FILL_PARENT));
+		tabStrip_ = new ChoiceStrip(orientation, new LayoutParams(FILL_PARENT, FILL_PARENT));
 		tabStrip_->SetTopTabs(true);
-		Add(tabStrip_);
+		tabScroll_ = new ScrollView(orientation, new LinearLayoutParams(1.0f));
+		tabScroll_->Add(tabStrip_);
+		tabContainer_->Add(tabScroll_);
+		Add(tabContainer_);
 	}
 	tabStrip_->OnChoice.Handle(this, &TabHolder::OnTabClick);
+
+	Add(new Spacer(4.0f))->SetSeparator();
 
 	contents_ = new AnchorLayout(new LinearLayoutParams(FILL_PARENT, FILL_PARENT, 1.0f));
 	Add(contents_)->SetClip(true);
 }
 
-void TabHolder::AddTabContents(const std::string &title, View *tabContents) {
+void TabHolder::AddBack(UIScreen *parent) {
+	if (tabContainer_) {
+		auto di = GetI18NCategory(I18NCat::DIALOG);
+		tabContainer_->Add(new Choice(di->T("Back"), "", false, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 0.0f, Margins(0, 0, 10, 10))))->OnClick.Handle<UIScreen>(parent, &UIScreen::OnBack);
+	}
+}
+
+void TabHolder::AddTabContents(std::string_view title, View *tabContents) {
 	tabContents->ReplaceLayoutParams(new AnchorLayoutParams(FILL_PARENT, FILL_PARENT));
 	tabs_.push_back(tabContents);
 	tabStrip_->AddChoice(title);
@@ -1069,7 +1075,7 @@ ChoiceStrip::ChoiceStrip(Orientation orientation, LayoutParams *layoutParams)
 	SetSpacing(0.0f);
 }
 
-void ChoiceStrip::AddChoice(const std::string &title) {
+void ChoiceStrip::AddChoice(std::string_view title) {
 	StickyChoice *c = new StickyChoice(title, "",
 			orientation_ == ORIENT_HORIZONTAL ?
 			nullptr :
@@ -1157,16 +1163,6 @@ bool ChoiceStrip::Key(const KeyInput &input) {
 	return ret || ViewGroup::Key(input);
 }
 
-void ChoiceStrip::Draw(UIContext &dc) {
-	ViewGroup::Draw(dc);
-	if (topTabs_) {
-		if (orientation_ == ORIENT_HORIZONTAL)
-			dc.Draw()->DrawImageCenterTexel(dc.theme->whiteImage, bounds_.x, bounds_.y2() - 4, bounds_.x2(), bounds_.y2(), dc.theme->itemDownStyle.background.color );
-		else if (orientation_ == ORIENT_VERTICAL)
-			dc.Draw()->DrawImageCenterTexel(dc.theme->whiteImage, bounds_.x2() - 4, bounds_.y, bounds_.x2(), bounds_.y2(), dc.theme->itemDownStyle.background.color );
-	}
-}
-
 std::string ChoiceStrip::DescribeText() const {
 	auto u = GetI18NCategory(I18NCat::UI_ELEMENTS);
 	return DescribeListUnordered(u->T("Choices:"));
@@ -1178,12 +1174,13 @@ StickyChoice *ChoiceStrip::Choice(int index) {
 	return nullptr;
 }
 
-CollapsibleSection::CollapsibleSection(const std::string &title, LayoutParams *layoutParams) : LinearLayout(ORIENT_VERTICAL, layoutParams) {
+CollapsibleSection::CollapsibleSection(std::string_view title, LayoutParams *layoutParams) : LinearLayout(ORIENT_VERTICAL, layoutParams) {
+	open_ = &localOpen_;
 	SetSpacing(0.0f);
 
-	heading_ = new CollapsibleHeader(&open_, title);
-	views_.push_back(heading_);
-	heading_->OnClick.Add([=](UI::EventParams &) {
+	header_ = new CollapsibleHeader(open_, title);
+	views_.push_back(header_);
+	header_->OnClick.Add([=](UI::EventParams &) {
 		// Change the visibility of all children except the first one.
 		// Later maybe try something more ambitious.
 		UpdateVisibility();
@@ -1193,12 +1190,12 @@ CollapsibleSection::CollapsibleSection(const std::string &title, LayoutParams *l
 
 void CollapsibleSection::Update() {
 	ViewGroup::Update();
-	heading_->SetHasSubitems(views_.size() > 1);
+	header_->SetHasSubitems(views_.size() > 1);
 }
 
 void CollapsibleSection::UpdateVisibility() {
 	for (size_t i = 1; i < views_.size(); i++) {
-		views_[i]->SetVisibility(open_ ? V_VISIBLE : V_GONE);
+		views_[i]->SetVisibility(*open_ ? V_VISIBLE : V_GONE);
 	}
 }
 

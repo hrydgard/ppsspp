@@ -60,7 +60,7 @@ private:
 
 RiscVCPUInfoParser::RiscVCPUInfoParser() {
 	std::string procdata, line;
-	if (!File::ReadFileToString(true, Path(procfile), procdata))
+	if (!File::ReadSysTextFileToString(Path(procfile), &procdata))
 		return;
 
 	std::istringstream file(procdata);
@@ -80,7 +80,7 @@ RiscVCPUInfoParser::RiscVCPUInfoParser() {
 
 int RiscVCPUInfoParser::ProcessorCount() {
 	// Not using present as that counts the logical CPUs (aka harts.)
-	static const char *marker = "processor\t: ";
+	static const char * const marker = "processor\t: ";
 	std::set<std::string> processors;
 	for (auto core : cores_) {
 		for (auto line : core) {
@@ -94,7 +94,7 @@ int RiscVCPUInfoParser::ProcessorCount() {
 
 int RiscVCPUInfoParser::TotalLogicalCount() {
 	std::string presentData, line;
-	bool presentSuccess = File::ReadFileToString(true, Path(syscpupresentfile), presentData);
+	bool presentSuccess = File::ReadSysTextFileToString(Path(syscpupresentfile), &presentData);
 	if (presentSuccess) {
 		std::istringstream presentFile(presentData);
 
@@ -107,7 +107,7 @@ int RiscVCPUInfoParser::TotalLogicalCount() {
 			return high - low + 1;
 	}
 
-	static const char *marker = "hart\t\t: ";
+	static const char * const marker = "hart\t\t: ";
 	std::set<std::string> harts;
 	for (auto core : cores_) {
 		for (auto line : core) {
@@ -120,7 +120,7 @@ int RiscVCPUInfoParser::TotalLogicalCount() {
 }
 
 std::string RiscVCPUInfoParser::ISAString() {
-	static const char *marker = "isa\t\t: ";
+	static const char * const marker = "isa\t\t: ";
 	for (auto core : cores_) {
 		for (auto line : core) {
 			if (line.find(marker) != line.npos)
@@ -136,7 +136,7 @@ bool RiscVCPUInfoParser::FirmwareMatchesCompatible(const std::string &str) {
 		firmwareLoaded_ = true;
 
 		std::string data;
-		if (!File::ReadFileToString(true, Path(firmwarefile), data))
+		if (!File::ReadSysTextFileToString(Path(firmwarefile), &data))
 			return false;
 
 		SplitString(data, '\0', firmware_);
@@ -241,10 +241,17 @@ std::vector<std::string> CPUInfo::Features() {
 		{ RiscV_D, "Double" },
 		{ RiscV_C, "Compressed" },
 		{ RiscV_V, "Vector" },
+		{ RiscV_Zvbb, "Vector Basic Bitmanip" },
+		{ RiscV_Zvkb, "Vector Crypto Bitmanip" },
 		{ RiscV_Zba, "Bitmanip Zba" },
 		{ RiscV_Zbb, "Bitmanip Zbb" },
 		{ RiscV_Zbc, "Bitmanip Zbc" },
 		{ RiscV_Zbs, "Bitmanip Zbs" },
+		{ RiscV_Zcb, "Compress Zcb" },
+		{ RiscV_Zfa, "Float Additional" },
+		{ RiscV_Zfh, "Float Half" },
+		{ RiscV_Zfhmin, "Float Half Minimal" },
+		{ RiscV_Zicond, "Integer Conditional" },
 		{ RiscV_Zicsr, "Zicsr" },
 		{ CPU64bit, "64-bit" },
 	};

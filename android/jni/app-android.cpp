@@ -115,8 +115,6 @@ enum class EmuThreadState {
 static std::thread emuThread;
 static std::atomic<int> emuThreadState((int)EmuThreadState::DISABLED);
 
-void UpdateRunLoopAndroid(JNIEnv *env);
-
 AndroidAudioState *g_audioState;
 
 struct FrameCommand {
@@ -201,6 +199,8 @@ int utimensat(int fd, const char *path, const struct timespec times[2]) {
 }
 }
 #endif
+
+static void ProcessFrameCommands(JNIEnv *env);
 
 void AndroidLogger::Log(const LogMessage &message) {
 	int mode;
@@ -337,8 +337,22 @@ static void EmuThreadFunc() {
 	// We just call the update/render loop here.
 	emuThreadState = (int)EmuThreadState::RUNNING;
 	while (emuThreadState != (int)EmuThreadState::QUIT_REQUESTED) {
-		UpdateRunLoopAndroid(env);
+		{
+			std::lock_guard<std::mutex> renderGuard(renderLock);
+			NativeFrame(graphicsContext);
+		}
+
+		std::lock_guard<std::mutex> guard(frameCommandLock);
+		if (!nativeActivity) {
+			ERROR_LOG(SYSTEM, "No activity, clearing commands");
+			while (!frameCommands.empty())
+				frameCommands.pop();
+			return;
+		}
+		// Still under lock here.
+		ProcessFrameCommands(env);
 	}
+
 	INFO_LOG(SYSTEM, "QUIT_REQUESTED found, left EmuThreadFunc loop. Setting state to STOPPED.");
 	emuThreadState = (int)EmuThreadState::STOPPED;
 
@@ -371,16 +385,14 @@ static void EmuThreadJoin() {
 	INFO_LOG(SYSTEM, "EmuThreadJoin - joined");
 }
 
-static void ProcessFrameCommands(JNIEnv *env);
-
 static void PushCommand(std::string cmd, std::string param) {
 	std::lock_guard<std::mutex> guard(frameCommandLock);
 	frameCommands.push(FrameCommand(cmd, param));
 }
 
 // Android implementation of callbacks to the Java part of the app
-void System_Toast(const char *text) {
-	PushCommand("toast", text);
+void System_Toast(std::string_view text) {
+	PushCommand("toast", std::string(text));
 }
 
 void System_ShowKeyboard() {
@@ -429,7 +441,7 @@ std::vector<std::string> System_GetPropertyStringVec(SystemProperty prop) {
 	}
 }
 
-int System_GetPropertyInt(SystemProperty prop) {
+int64_t System_GetPropertyInt(SystemProperty prop) {
 	switch (prop) {
 	case SYSPROP_SYSTEMVERSION:
 		return androidVersion;
@@ -486,7 +498,7 @@ bool System_GetPropertyBool(SystemProperty prop) {
 	case SYSPROP_HAS_TEXT_INPUT_DIALOG:
 		return true;
 	case SYSPROP_HAS_OPEN_DIRECTORY:
-		return false;
+		return false;  // We have this implemented but it may or may not work depending on if a file explorer is installed.
 	case SYSPROP_HAS_ADDITIONAL_STORAGE:
 		return !g_additionalStorageDirs.empty();
 	case SYSPROP_HAS_BACK_BUTTON:
@@ -1085,7 +1097,7 @@ void System_Notify(SystemNotification notification) {
 	}
 }
 
-bool System_MakeRequest(SystemRequestType type, int requestId, const std::string &param1, const std::string &param2, int param3) {
+bool System_MakeRequest(SystemRequestType type, int requestId, const std::string &param1, const std::string &param2, int64_t param3, int64_t param4) {
 	switch (type) {
 	case SystemRequestType::EXIT_APP:
 		PushCommand("finish", "");
@@ -1108,12 +1120,16 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 	case SystemRequestType::BROWSE_FOR_FILE:
 	{
 		BrowseFileType fileType = (BrowseFileType)param3;
+		std::string params = StringFromFormat("%d", requestId);
 		switch (fileType) {
 		case BrowseFileType::SOUND_EFFECT:
-			PushCommand("browse_file_audio", StringFromFormat("%d", requestId));
+			PushCommand("browse_file_audio", params);
+			break;
+		case BrowseFileType::ZIP:
+			PushCommand("browse_file_zip", params);
 			break;
 		default:
-			PushCommand("browse_file", StringFromFormat("%d", requestId));
+			PushCommand("browse_file", params);
 			break;
 		}
 		return true;
@@ -1128,6 +1144,9 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 	case SystemRequestType::GPS_COMMAND:
 		PushCommand("gps_command", param1);
 		return true;
+	case SystemRequestType::INFRARED_COMMAND:
+		PushCommand("infrared_command", param1);
+		return true;
 	case SystemRequestType::MICROPHONE_COMMAND:
 		PushCommand("microphone_command", param1);
 		return true;
@@ -1136,6 +1155,9 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 		return true;
 	case SystemRequestType::NOTIFY_UI_STATE:
 		PushCommand("uistate", param1);
+		return true;
+	case SystemRequestType::SHOW_FILE_IN_FOLDER:
+		PushCommand("show_folder", param1);
 		return true;
 	default:
 		return false;
@@ -1150,25 +1172,6 @@ extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_sendRequestResult(JNIEn
 	} else {
 		g_requestManager.PostSystemFailure(jrequestID);
 	}
-}
-
-void LockedNativeUpdateRender() {
-	std::lock_guard<std::mutex> renderGuard(renderLock);
-	NativeFrame(graphicsContext);
-}
-
-void UpdateRunLoopAndroid(JNIEnv *env) {
-	LockedNativeUpdateRender();
-
-	std::lock_guard<std::mutex> guard(frameCommandLock);
-	if (!nativeActivity) {
-		ERROR_LOG(SYSTEM, "No activity, clearing commands");
-		while (!frameCommands.empty())
-			frameCommands.pop();
-		return;
-	}
-	// Still under lock here.
-	ProcessFrameCommands(env);
 }
 
 extern "C" void Java_org_ppsspp_ppsspp_NativeRenderer_displayRender(JNIEnv *env, jobject obj) {
@@ -1629,12 +1632,19 @@ static void VulkanEmuThread(ANativeWindow *wnd) {
 		renderer_inited = true;
 
 		while (!exitRenderLoop) {
-			LockedNativeUpdateRender();
-			ProcessFrameCommands(env);
+			{
+				std::lock_guard<std::mutex> renderGuard(renderLock);
+				NativeFrame(graphicsContext);
+			}
+			{
+				std::lock_guard<std::mutex> guard(frameCommandLock);
+				ProcessFrameCommands(env);
+			}
 		}
+		INFO_LOG(G3D, "Leaving Vulkan main loop.");
+	} else {
+		INFO_LOG(G3D, "Not entering main loop.");
 	}
-
-	INFO_LOG(G3D, "Leaving EGL/Vulkan render loop.");
 
 	NativeShutdownGraphics();
 
@@ -1642,7 +1652,7 @@ static void VulkanEmuThread(ANativeWindow *wnd) {
 	graphicsContext->ThreadEnd();
 
 	// Shut the graphics context down to the same state it was in when we entered the render thread.
-	INFO_LOG(G3D, "Shutting down graphics context from render thread...");
+	INFO_LOG(G3D, "Shutting down graphics context...");
 	graphicsContext->ShutdownFromRenderThread();
 	renderLoopRunning = false;
 	exitRenderLoop = false;
@@ -1668,11 +1678,13 @@ extern "C" jstring Java_org_ppsspp_ppsspp_ShortcutActivity_queryGameName(JNIEnv 
 	std::string result = "";
 
 	GameInfoCache *cache = new GameInfoCache();
-	std::shared_ptr<GameInfo> info = cache->GetInfo(nullptr, path, 0);
+	std::shared_ptr<GameInfo> info = cache->GetInfo(nullptr, path, GameInfoFlags::PARAM_SFO);
 	// Wait until it's done: this is synchronous, unfortunately.
 	if (info) {
 		INFO_LOG(SYSTEM, "GetInfo successful, waiting");
-		cache->WaitUntilDone(info);
+		while (!info->Ready(GameInfoFlags::PARAM_SFO)) {
+			sleep_ms(1);
+		}
 		INFO_LOG(SYSTEM, "Done waiting");
 		if (info->fileType != IdentifiedFileType::UNKNOWN) {
 			result = info->GetTitle();

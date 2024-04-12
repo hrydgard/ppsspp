@@ -95,7 +95,7 @@ private:
 
 class LogLevelScreen : public UI::ListPopupScreen {
 public:
-	LogLevelScreen(const std::string &title);
+	LogLevelScreen(std::string_view title);
 
 	const char *tag() const override { return "LogLevel"; }
 
@@ -119,7 +119,7 @@ protected:
 
 class AddressPromptScreen : public PopupScreen {
 public:
-	AddressPromptScreen(const std::string &title) : PopupScreen(title, "OK", "Cancel"), addrView_(NULL), addr_(0) {
+	AddressPromptScreen(std::string_view title) : PopupScreen(title, "OK", "Cancel"), addrView_(NULL), addr_(0) {
 		memset(buttons_, 0, sizeof(buttons_));
 	}
 

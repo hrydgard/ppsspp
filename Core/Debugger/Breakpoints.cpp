@@ -622,20 +622,20 @@ void CBreakPoints::UpdateCachedMemCheckRanges() {
 	}
 }
 
-const std::vector<MemCheck> CBreakPoints::GetMemCheckRanges(bool write) {
+std::vector<MemCheck> CBreakPoints::GetMemCheckRanges(bool write) {
 	std::lock_guard<std::mutex> guard(memCheckMutex_);
 	if (write)
 		return memCheckRangesWrite_;
 	return memCheckRangesRead_;
 }
 
-const std::vector<MemCheck> CBreakPoints::GetMemChecks()
+std::vector<MemCheck> CBreakPoints::GetMemChecks()
 {
 	std::lock_guard<std::mutex> guard(memCheckMutex_);
 	return memChecks_;
 }
 
-const std::vector<BreakPoint> CBreakPoints::GetBreakpoints()
+std::vector<BreakPoint> CBreakPoints::GetBreakpoints()
 {
 	std::lock_guard<std::mutex> guard(breakPointsMutex_);
 	return breakPoints_;
@@ -686,7 +686,7 @@ bool CBreakPoints::EvaluateLogFormat(DebugInterface *cpu, const std::string &fmt
 
 	size_t pos = 0;
 	while (pos < fmt.size()) {
-		size_t next = fmt.find_first_of("{", pos);
+		size_t next = fmt.find_first_of('{', pos);
 		if (next == fmt.npos) {
 			// End of the string.
 			result += fmt.substr(pos);
@@ -697,7 +697,7 @@ bool CBreakPoints::EvaluateLogFormat(DebugInterface *cpu, const std::string &fmt
 			pos = next;
 		}
 
-		size_t end = fmt.find_first_of("}", next + 1);
+		size_t end = fmt.find_first_of('}', next + 1);
 		if (end == fmt.npos) {
 			// Invalid: every expression needs a { and a }.
 			return false;

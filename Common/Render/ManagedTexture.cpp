@@ -32,14 +32,16 @@ public:
 		size_t fileSize;
 		uint8_t *buffer = g_VFS.ReadFile(filename_.c_str(), &fileSize);
 		if (!buffer) {
-			filename_.clear();
 			ERROR_LOG(IO, "Failed to read file '%s'", filename_.c_str());
+			filename_.clear();
 			*state_ = ManagedTexture::LoadState::FAILED;
+			waitable_->Notify();
 			return;
 		}
 
-		if (!tempImage_->LoadTextureLevels(buffer, fileSize, type_)) {
+		if (!tempImage_->LoadTextureLevelsFromFileData(buffer, fileSize, type_)) {
 			*state_ = ManagedTexture::LoadState::FAILED;
+			waitable_->Notify();
 			return;
 		}
 		delete[] buffer;
@@ -68,7 +70,7 @@ static Draw::DataFormat ZimToT3DFormat(int zim) {
 	}
 }
 
-static ImageFileType DetectImageFileType(const uint8_t *data, size_t size) {
+ImageFileType DetectImageFileType(const uint8_t *data, size_t size) {
 	if (size < 4) {
 		return ImageFileType::UNKNOWN;
 	}
@@ -83,7 +85,7 @@ static ImageFileType DetectImageFileType(const uint8_t *data, size_t size) {
 	}
 }
 
-bool TempImage::LoadTextureLevels(const uint8_t *data, size_t size, ImageFileType typeSuggestion) {
+bool TempImage::LoadTextureLevelsFromFileData(const uint8_t *data, size_t size, ImageFileType typeSuggestion) {
 	if (typeSuggestion == ImageFileType::DETECT) {
 		typeSuggestion = DetectImageFileType(data, size);
 	}
@@ -156,7 +158,6 @@ Draw::Texture *CreateTextureFromTempImage(Draw::DrawContext *draw, const TempIma
 	desc.mipLevels = generateMips ? potentialLevels : image.numLevels;
 	desc.generateMips = generateMips && potentialLevels > image.numLevels;
 	desc.tag = name;
-	desc.initData.reserve(image.numLevels);
 	for (int i = 0; i < image.numLevels; i++) {
 		desc.initData.push_back(image.levels[i]);
 	}
@@ -165,7 +166,7 @@ Draw::Texture *CreateTextureFromTempImage(Draw::DrawContext *draw, const TempIma
 
 Draw::Texture *CreateTextureFromFileData(Draw::DrawContext *draw, const uint8_t *data, size_t dataSize, ImageFileType type, bool generateMips, const char *name) {
 	TempImage image;
-	if (!image.LoadTextureLevels(data, dataSize, type)) {
+	if (!image.LoadTextureLevelsFromFileData(data, dataSize, type)) {
 		return nullptr;
 	}
 	Draw::Texture *texture = CreateTextureFromTempImage(draw, image, generateMips, name);
@@ -230,6 +231,7 @@ void ManagedTexture::DeviceLost() {
 	INFO_LOG(G3D, "ManagedTexture::DeviceLost(%s)", filename_.c_str());
 	if (taskWaitable_) {
 		taskWaitable_->WaitAndRelease();
+		taskWaitable_ = nullptr;
 		pendingImage_.Free();
 	}
 	if (texture_)

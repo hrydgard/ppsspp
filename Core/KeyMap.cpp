@@ -48,6 +48,25 @@ std::set<std::string> g_seenPads;
 std::map<InputDeviceID, std::string> g_padNames;
 std::set<InputDeviceID> g_seenDeviceIds;
 
+AxisType GetAxisType(InputAxis input) {
+	switch (input) {
+	case JOYSTICK_AXIS_GAS:
+	case JOYSTICK_AXIS_BRAKE:
+	case JOYSTICK_AXIS_LTRIGGER:
+	case JOYSTICK_AXIS_RTRIGGER:
+		return AxisType::TRIGGER;
+	case JOYSTICK_AXIS_X:
+	case JOYSTICK_AXIS_Y:
+	case JOYSTICK_AXIS_Z:
+	case JOYSTICK_AXIS_RX:
+	case JOYSTICK_AXIS_RY:
+	case JOYSTICK_AXIS_RZ:
+		return AxisType::STICK;
+	default:
+		return AxisType::OTHER;
+	}
+}
+
 // Utility for UI navigation
 void SingleInputMappingFromPspButton(int btn, std::vector<InputMapping> *mappings, bool ignoreMouse) {
 	std::vector<MultiInputMapping> multiMappings;
@@ -446,6 +465,9 @@ const KeyMap_IntStrPair psp_button_names[] = {
 	{VIRTKEY_TOGGLE_WLAN, "Toggle WLAN"},
 	{VIRTKEY_EXIT_APP, "Exit App"},
 
+	{VIRTKEY_TOGGLE_MOUSE, "Toggle mouse input"},
+	{VIRTKEY_TOGGLE_TOUCH_CONTROLS, "Toggle touch controls"},
+
 	{VIRTKEY_AXIS_RIGHT_Y_MAX, "RightAn.Up"},
 	{VIRTKEY_AXIS_RIGHT_Y_MIN, "RightAn.Down"},
 	{VIRTKEY_AXIS_RIGHT_X_MIN, "RightAn.Left"},
@@ -531,12 +553,16 @@ bool InputMappingsFromPspButtonNoLock(int btn, std::vector<MultiInputMapping> *m
 		return false;
 	}
 	bool mapped = false;
-	mappings->clear();
+	if (mappings) {
+		mappings->clear();
+	}
 	for (auto &iter2 : iter->second) {
 		bool ignore = ignoreMouse && iter2.HasMouse();
-		if (mappings && !ignore) {
+		if (!ignore) {
 			mapped = true;
-			mappings->push_back(iter2);
+			if (mappings) {
+				mappings->push_back(iter2);
+			}
 		}
 	}
 	return mapped;
@@ -874,7 +900,7 @@ bool HasChanged(int &prevGeneration) {
 	return false;
 }
 
-static const char *g_vKeyNames[] = {
+static const char * const g_vKeyNames[] = {
 	"AXIS_X_MIN",
 	"AXIS_Y_MIN",
 	"AXIS_X_MAX",

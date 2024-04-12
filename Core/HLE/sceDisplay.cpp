@@ -109,7 +109,7 @@ static bool flippedThisFrame;
 static int framerate = 60;
 
 // 1.001f to compensate for the classic 59.94 NTSC framerate that the PSP seems to have.
-static double timePerVblank = 1.001f / (float)framerate;
+static double timePerVblank = 1.001 / framerate;
 
 // Don't include this in the state, time increases regardless of state.
 static double curFrameTime;
@@ -462,7 +462,7 @@ static void DoFrameIdleTiming() {
 	double before = time_now_d();
 	double dist = before - lastFrameTime;
 	// Ignore if the distance is just crazy.  May mean wrap or pause.
-	if (dist < 0.0 || dist >= 15 * timePerVblank) {
+	if (dist < 0.0 || dist >= 15.0 * timePerVblank) {
 		return;
 	}
 
@@ -484,7 +484,9 @@ static void DoFrameIdleTiming() {
 			sleep_ms(1);
 #else
 			const double left = goal - cur_time;
-			usleep((long)(left * 1000000));
+			if (left > 0.0f && left < 1.0f) {  // Sanity check
+				usleep((long)(left * 1000000));
+			}
 #endif
 		}
 
@@ -496,9 +498,6 @@ static void DoFrameIdleTiming() {
 
 void hleEnterVblank(u64 userdata, int cyclesLate) {
 	int vbCount = userdata;
-
-	// This should be a good place to do it. Should happen once per vblank. Here or in leave? Not sure it matters much.
-	Achievements::FrameUpdate();
 
 	VERBOSE_LOG(SCEDISPLAY, "Enter VBlank %i", vbCount);
 
@@ -743,7 +742,9 @@ void hleLagSync(u64 userdata, int cyclesLate) {
 		// Tight loop on win32 - intentionally, as timing is otherwise not precise enough.
 #ifndef _WIN32
 		const double left = goal - now;
-		usleep((long)(left * 1000000.0));
+		if (left > 0.0f && left < 1.0f) {  // Sanity check
+			usleep((long)(left * 1000000.0));
+		}
 #else
 		yield();
 #endif
@@ -1127,6 +1128,6 @@ void Register_sceDisplay_driver() {
 
 void __DisplaySetFramerate(int value) {
 	framerate = value;
-	timePerVblank = 1.001f / (float)framerate;
+	timePerVblank = 1.001 / (double)framerate;
 	frameMs = 1001.0 / (double)framerate;
 }

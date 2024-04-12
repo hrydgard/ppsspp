@@ -168,12 +168,13 @@ GPU_Vulkan::~GPU_Vulkan() {
 	if (draw_) {
 		VulkanRenderManager *rm = (VulkanRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
 		// This now also does a hard sync with the render thread, so that we can safely delete our pipeline layout below.
-		rm->DrainAndBlockCompileQueue();
+		rm->StopThreads();
+		rm->CheckNothingPending();
 	}
 
 	SaveCache(shaderCachePath_);
 
-	// Super important to delete pipeline manager FIRST, before clearing shaders, so we wait for all pending pipelines to finish compiling.
+	// StopThreads should have ensured that no pipelines are queued to compile at this point. So we can tear it down.
 	delete pipelineManager_;
 	pipelineManager_ = nullptr;
 
@@ -185,7 +186,7 @@ GPU_Vulkan::~GPU_Vulkan() {
 	// other managers are deleted in ~GPUCommonHW.
 	if (draw_) {
 		VulkanRenderManager *rm = (VulkanRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
-		rm->ReleaseCompileQueue();
+		rm->StartThreads();
 	}
 }
 
@@ -254,16 +255,18 @@ u32 GPU_Vulkan::CheckGPUFeatures() const {
 		}
 	}
 
-	// These are VULKAN_4444_FORMAT and friends.
-	// Note that we are now using the correct set of formats - the only cases where some may be missing
-	// are non-conformant implementations like MoltenVK.
-	uint32_t fmt4444 = draw_->GetDataFormatSupport(Draw::DataFormat::B4G4R4A4_UNORM_PACK16);
-	uint32_t fmt1555 = draw_->GetDataFormatSupport(Draw::DataFormat::A1R5G5B5_UNORM_PACK16);
-	uint32_t fmt565 = draw_->GetDataFormatSupport(Draw::DataFormat::R5G6B5_UNORM_PACK16);
-	if ((fmt4444 & Draw::FMT_TEXTURE) && (fmt565 & Draw::FMT_TEXTURE) && (fmt1555 & Draw::FMT_TEXTURE)) {
-		features |= GPU_USE_16BIT_FORMATS;
-	} else {
-		INFO_LOG(G3D, "Deficient texture format support: 4444: %d  1555: %d  565: %d", fmt4444, fmt1555, fmt565);
+	if (!draw_->GetBugs().Has(Draw::Bugs::PVR_BAD_16BIT_TEXFORMATS)) {
+		// These are VULKAN_4444_FORMAT and friends.
+		// Note that we are now using the correct set of formats - the only cases where some may be missing
+		// are non-conformant implementations like MoltenVK.
+		uint32_t fmt4444 = draw_->GetDataFormatSupport(Draw::DataFormat::B4G4R4A4_UNORM_PACK16);
+		uint32_t fmt1555 = draw_->GetDataFormatSupport(Draw::DataFormat::A1R5G5B5_UNORM_PACK16);
+		uint32_t fmt565 = draw_->GetDataFormatSupport(Draw::DataFormat::R5G6B5_UNORM_PACK16);
+		if ((fmt4444 & Draw::FMT_TEXTURE) && (fmt565 & Draw::FMT_TEXTURE) && (fmt1555 & Draw::FMT_TEXTURE)) {
+			features |= GPU_USE_16BIT_FORMATS;
+		} else {
+			INFO_LOG(G3D, "Deficient texture format support: 4444: %d  1555: %d  565: %d", fmt4444, fmt1555, fmt565);
+		}
 	}
 
 	if (g_Config.bStereoRendering && draw_->GetDeviceCaps().multiViewSupported) {
@@ -426,7 +429,7 @@ void GPU_Vulkan::DeviceLost() {
 	Draw::DrawContext *draw = draw_;
 	if (draw) {
 		VulkanRenderManager *rm = (VulkanRenderManager *)draw->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
-		rm->DrainAndBlockCompileQueue();
+		rm->StopThreads();
 	}
 
 	if (shaderCachePath_.Valid()) {
@@ -439,7 +442,7 @@ void GPU_Vulkan::DeviceLost() {
 
 	if (draw) {
 		VulkanRenderManager *rm = (VulkanRenderManager *)draw->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
-		rm->ReleaseCompileQueue();
+		rm->StartThreads();
 	}
 }
 

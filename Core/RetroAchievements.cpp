@@ -4,6 +4,14 @@
 // Derived from Duckstation's RetroAchievements implementation by stenzek as can be seen
 // above, relicensed to GPL 2.0.
 
+// Actually after the rc_client rewrite, barely anything of that remains.
+
+// The PSP hash function:
+// md5_init
+// md5_hash(PSP_GAME/PARAM.SFO)
+// md5_hash(PSP_GAME/EBOOT.BIN)
+// hash = md5_finalize()
+
 #include <algorithm>
 #include <atomic>
 #include <cstdarg>
@@ -17,22 +25,20 @@
 
 #include "ext/rcheevos/include/rcheevos.h"
 #include "ext/rcheevos/include/rc_client.h"
+#include "ext/rcheevos/include/rc_client_raintegration.h"
 #include "ext/rcheevos/include/rc_api_user.h"
 #include "ext/rcheevos/include/rc_api_info.h"
 #include "ext/rcheevos/include/rc_api_request.h"
 #include "ext/rcheevos/include/rc_api_runtime.h"
 #include "ext/rcheevos/include/rc_api_user.h"
 #include "ext/rcheevos/include/rc_url.h"
-#include "ext/rcheevos/include/rc_hash.h"
-#include "ext/rcheevos/src/rhash/md5.h"
 
 #include "ext/rapidjson/include/rapidjson/document.h"
 
+#include "Common/Crypto/md5.h"
 #include "Common/Log.h"
 #include "Common/File/Path.h"
 #include "Common/File/FileUtil.h"
-#include "Core/FileLoaders/LocalFileLoader.h"
-#include "Core/FileSystems/BlockDevices.h"
 #include "Common/Net/HTTPClient.h"
 #include "Common/System/OSD.h"
 #include "Common/System/System.h"
@@ -48,10 +54,72 @@
 #include "Core/MemMap.h"
 #include "Core/Config.h"
 #include "Core/CoreParameter.h"
-#include "Core/ELF/ParamSFO.h"
+#include "Core/Core.h"
 #include "Core/System.h"
+#include "Core/FileLoaders/LocalFileLoader.h"
+#include "Core/FileSystems/BlockDevices.h"
+#include "Core/ELF/ParamSFO.h"
 #include "Core/FileSystems/MetaFileSystem.h"
+#include "Core/FileSystems/ISOFileSystem.h"
 #include "Core/RetroAchievements.h"
+
+#if RC_CLIENT_SUPPORTS_RAINTEGRATION
+
+#include "Windows/MainWindow.h"
+
+#endif
+
+static bool HashISOFile(ISOFileSystem *fs, const std::string filename, md5_context *md5) {
+	int handle = fs->OpenFile(filename, FILEACCESS_READ);
+	if (handle < 0) {
+		return false;
+	}
+
+	uint32_t sz = (uint32_t)fs->SeekFile(handle, 0, FILEMOVE_END);
+	fs->SeekFile(handle, 0, FILEMOVE_BEGIN);
+	if (!sz) {
+		return false;
+	}
+
+	auto buffer = std::make_unique<uint8_t[]>(sz);
+	if (fs->ReadFile(handle, buffer.get(), sz) != sz) {
+		return false;
+	}
+	fs->CloseFile(handle);
+
+	ppsspp_md5_update(md5, buffer.get(), sz);
+	return true;
+}
+
+// Consumes the blockDevice.
+// If failed, returns an empty string, otherwise a 32-character string with the hash in hex format.
+static std::string ComputePSPHash(BlockDevice *blockDevice) {
+	md5_context md5;
+	ppsspp_md5_starts(&md5);
+
+	SequentialHandleAllocator alloc;
+	{
+		// ISOFileSystem takes owneship of the blockDevice here.
+		auto fs = std::make_unique<ISOFileSystem>(&alloc, blockDevice);
+		if (!HashISOFile(fs.get(), "PSP_GAME/PARAM.SFO", &md5)) {
+			return std::string();
+		}
+		if (!HashISOFile(fs.get(), "PSP_GAME/SYSDIR/EBOOT.BIN", &md5)) {
+			return std::string();
+		}
+	}
+
+	uint8_t digest[16];
+	ppsspp_md5_finish(&md5, digest);
+
+	char hashStr[33];
+	/* NOTE: sizeof(hash) is 4 because it's still treated like a pointer, despite specifying a size */
+	snprintf(hashStr, 33, "%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x",
+		digest[0], digest[1], digest[2], digest[3], digest[4], digest[5], digest[6], digest[7],
+		digest[8], digest[9], digest[10], digest[11], digest[12], digest[13], digest[14], digest[15]
+	);
+	return std::string(hashStr);
+}
 
 static inline const char *DeNull(const char *ptr) {
 	return ptr ? ptr : "";
@@ -64,14 +132,14 @@ void OnAchievementsLoginStateChange() {
 namespace Achievements {
 
 // It's the name of the secret, not a secret name - the value is not secret :)
-static const char *RA_TOKEN_SECRET_NAME = "retroachievements";
+static const char * const RA_TOKEN_SECRET_NAME = "retroachievements";
 
 static Achievements::Statistics g_stats;
 
 const std::string g_gameIconCachePrefix = "game:";
 const std::string g_iconCachePrefix = "badge:";
 
-Path s_game_path;
+Path g_gamePath;
 std::string s_game_hash;
 
 std::set<uint32_t> g_activeChallenges;
@@ -86,12 +154,6 @@ double g_lastLoginAttemptTime;
 static rc_client_t *g_rcClient;
 static const std::string g_RAImageID = "I_RETROACHIEVEMENTS_LOGO";
 constexpr double LOGIN_ATTEMPT_INTERVAL_S = 10.0;
-
-struct FileContext {
-	BlockDevice *bd;
-	int64_t seekPos;
-};
-static BlockDevice *g_blockDevice;
 
 #define PSP_MEMORY_OFFSET 0x08000000
 
@@ -147,13 +209,13 @@ size_t GetRichPresenceMessage(char *buffer, size_t bufSize) {
 	return rc_client_get_rich_presence_message(g_rcClient, buffer, bufSize);
 }
 
-bool WarnUserIfHardcoreModeActive(bool isSaveStateAction, const char *message) {
+bool WarnUserIfHardcoreModeActive(bool isSaveStateAction, std::string_view message) {
 	if (!HardcoreModeActive() || (isSaveStateAction && g_Config.bAchievementsSaveStateInHardcoreMode)) {
 		return false;
 	}
 
-	const char *showMessage = message;
-	if (!message) {
+	std::string_view showMessage = message;
+	if (message.empty()) {
 		auto ac = GetI18NCategory(I18NCat::ACHIEVEMENTS);
 		showMessage = ac->T("This feature is not available in Hardcore Mode");
 	}
@@ -172,6 +234,15 @@ bool IsBlockingExecution() {
 
 bool IsActive() {
 	return GetGameID() != 0;
+}
+
+static void raintegration_write_memory_handler(uint32_t address, uint8_t *buffer, uint32_t num_bytes, rc_client_t *client) {
+	// convert_retroachievements_address_to_real_address
+	uint32_t realAddress = address + PSP_MEMORY_OFFSET;
+	uint8_t *writePtr = Memory::GetPointerWriteRange(realAddress, num_bytes);
+	if (writePtr) {
+		memcpy(writePtr, buffer, num_bytes);
+	}
 }
 
 static uint32_t read_memory_callback(uint32_t address, uint8_t *buffer, uint32_t num_bytes, rc_client_t *client) {
@@ -407,6 +478,89 @@ static void login_token_callback(int result, const char *error_message, rc_clien
 	g_isLoggingIn = false;
 }
 
+bool RAIntegrationDirty() {
+#ifdef RC_CLIENT_SUPPORTS_RAINTEGRATION
+	return rc_client_raintegration_has_modifications(g_rcClient);
+#else
+	return false;
+#endif
+}
+
+#ifdef RC_CLIENT_SUPPORTS_RAINTEGRATION
+
+static void raintegration_get_game_name_handler(char *buffer, uint32_t buffer_size, rc_client_t *client) {
+	snprintf(buffer, buffer_size, "%s", g_gamePath.GetFilename().c_str());
+}
+
+static void raintegration_write_memory_handler(uint32_t address, uint8_t *buffer, uint32_t num_bytes, rc_client_t *client);
+
+static void raintegration_event_handler(const rc_client_raintegration_event_t *event, rc_client_t *client) {
+	switch (event->type) {
+	case RC_CLIENT_RAINTEGRATION_EVENT_MENUITEM_CHECKED_CHANGED:
+		// The checked state of one of the menu items has changed and should be reflected in the UI.
+		// Call the handy helper function if the menu was created by rc_client_raintegration_rebuild_submenu.
+		System_RunCallbackInWndProc([](void *vhWnd, void *userdata) {
+			auto menuItem = reinterpret_cast<const rc_client_raintegration_menu_item_t *>(userdata);
+			rc_client_raintegration_update_menu_item(g_rcClient, menuItem);
+		}, reinterpret_cast<void *>(reinterpret_cast<int64_t>(event->menu_item)));
+		break;
+	case RC_CLIENT_RAINTEGRATION_EVENT_PAUSE:
+		// The toolkit has hit a breakpoint and wants to pause the emulator. Do so.
+		Core_EnableStepping(true, "ra_breakpoint");
+		break;
+	case RC_CLIENT_RAINTEGRATION_EVENT_HARDCORE_CHANGED:
+		// Hardcore mode has been changed (either directly by the user, or disabled through the use of the tools).
+		// The frontend doesn't necessarily need to know that this value changed, they can still query it whenever
+		// it's appropriate, but the event lets the frontend do things like enable/disable rewind or cheats.
+		g_Config.bAchievementsHardcoreMode = rc_client_get_hardcore_enabled(client);
+		break;
+	default:
+		ERROR_LOG(ACHIEVEMENTS, "Unsupported raintegration event %u\n", event->type);
+		break;
+	}
+}
+
+static void load_integration_callback(int result, const char *error_message, rc_client_t *client, void *userdata) {
+	auto ac = GetI18NCategory(I18NCat::ACHIEVEMENTS);
+
+	// If DLL not present, do nothing. User can still play without the toolkit.
+	switch (result) {
+	case RC_OK:
+	{
+		// DLL was loaded correctly.
+		g_OSD.Show(OSDType::MESSAGE_SUCCESS, ac->T("RAIntegration DLL loaded."));
+
+		rc_client_raintegration_set_event_handler(g_rcClient, &raintegration_event_handler);
+		rc_client_raintegration_set_write_memory_function(g_rcClient, &raintegration_write_memory_handler);
+		rc_client_raintegration_set_get_game_name_function(g_rcClient, &raintegration_get_game_name_handler);
+
+		System_RunCallbackInWndProc([](void *vhWnd, void *userdata) {
+			HWND hWnd = reinterpret_cast<HWND>(vhWnd);
+			rc_client_raintegration_rebuild_submenu(g_rcClient, GetMenu(hWnd));
+		}, nullptr);
+		break;
+	}
+	case RC_MISSING_VALUE:
+		// This is fine, proceeding to login.
+		g_OSD.Show(OSDType::MESSAGE_WARNING, ac->T("RAIntegration is enabled, but RAIntegration-x64.dll was not found."));
+		break;
+	case RC_ABORTED:
+		// This is fine, proceeding to login.
+		g_OSD.Show(OSDType::MESSAGE_WARNING, ac->T("Wrong version of RAIntegration-x64.dll?"));
+		break;
+	default:
+		g_OSD.Show(OSDType::MESSAGE_ERROR, StringFromFormat("RAIntegration init failed: %s", error_message));
+		// Bailing.
+		return;
+	}
+
+	// Things are ready to load a game. If the DLL was initialized, calling rc_client_begin_load_game will be redirected
+	// through the DLL so the toolkit has access to the game data. Similarly, things like rc_create_leaderboard_list will
+	// be redirected through the DLL to reflect any local changes made by the user.
+	TryLoginByToken(true);
+}
+#endif
+
 void Initialize() {
 	if (!g_Config.bAchievementsEnable) {
 		_dbg_assert_(!g_rcClient);
@@ -423,7 +577,6 @@ void Initialize() {
 
 	// Provide a logging function to simplify debugging
 	rc_client_enable_logging(g_rcClient, RC_CLIENT_LOG_LEVEL_VERBOSE, log_message_callback);
-
 	if (!System_GetPropertyBool(SYSPROP_SUPPORTS_HTTPS)) {
 		// Disable SSL if not supported by our platform implementation.
 		rc_client_set_host(g_rcClient, "http://retroachievements.org");
@@ -431,60 +584,26 @@ void Initialize() {
 
 	rc_client_set_event_handler(g_rcClient, event_handler_callback);
 
-	rc_hash_filereader rc_filereader;
-	rc_filereader.open = [](const char *utf8Path) -> void *{
-		if (!g_blockDevice) {
-			ERROR_LOG(ACHIEVEMENTS, "No block device");
-			return nullptr;
+	// Set initial settings properly. Hardcore mode is checked by RAIntegration.
+	rc_client_set_hardcore_enabled(g_rcClient, g_Config.bAchievementsHardcoreMode ? 1 : 0);
+	rc_client_set_encore_mode_enabled(g_rcClient, g_Config.bAchievementsEncoreMode ? 1 : 0);
+	rc_client_set_unofficial_enabled(g_rcClient, g_Config.bAchievementsUnofficial ? 1 : 0);
+
+#ifdef RC_CLIENT_SUPPORTS_RAINTEGRATION
+	if (g_Config.bAchievementsEnableRAIntegration) {
+		wchar_t szFilePath[MAX_PATH];
+		GetModuleFileNameW(NULL, szFilePath, MAX_PATH);
+		for (int64_t i = wcslen(szFilePath) - 1; i > 0; i--) {
+			if (szFilePath[i] == '\\') {
+				szFilePath[i] = '\0';
+				break;
+			}
 		}
-
-		return (void *) new FileContext{ g_blockDevice, 0 };
-	};
-	rc_filereader.seek = [](void *file_handle, int64_t offset, int origin) {
-		FileContext *ctx = (FileContext *)file_handle;
-		switch (origin) {
-		case SEEK_SET: ctx->seekPos = offset; break;
-		case SEEK_END: ctx->seekPos = ctx->bd->GetBlockSize() * ctx->bd->GetNumBlocks() + offset; break;
-		case SEEK_CUR: ctx->seekPos += offset; break;
-		default: break;
-		}
-	};
-	rc_filereader.tell = [](void *file_handle) -> int64_t {
-		return ((FileContext *)file_handle)->seekPos;
-	};
-	rc_filereader.read = [](void *file_handle, void *buffer, size_t requested_bytes) -> size_t {
-		FileContext *ctx = (FileContext *)file_handle;
-
-		int blockSize = ctx->bd->GetBlockSize();
-
-		int64_t offset = ctx->seekPos;
-		int64_t endOffset = ctx->seekPos + requested_bytes;
-		int firstBlock = offset / blockSize;
-		int afterLastBlock = (endOffset + blockSize - 1) / blockSize;
-		int numBlocks = afterLastBlock - firstBlock;
-		// This is suboptimal, but good enough since we're not doing a lot of accesses.
-		uint8_t *buf = new uint8_t[numBlocks * blockSize];
-		bool success = ctx->bd->ReadBlocks(firstBlock, numBlocks, (u8 *)buf);
-		if (success) {
-			int64_t firstOffset = firstBlock * blockSize;
-			memcpy(buffer, buf + (offset - firstOffset), requested_bytes);
-			ctx->seekPos += requested_bytes;
-			delete[] buf;
-			return requested_bytes;
-		} else {
-			delete[] buf;
-			ERROR_LOG(ACHIEVEMENTS, "Block device load fail");
-			return 0;
-		}
-	};
-	rc_filereader.close = [](void *file_handle) {
-		FileContext *ctx = (FileContext *)file_handle;
-		delete ctx->bd;
-		delete ctx;
-	};
-	rc_hash_init_custom_filereader(&rc_filereader);
-	rc_hash_init_default_cdreader();
-
+		HWND hWnd = (HWND)System_GetPropertyInt(SYSPROP_MAIN_WINDOW_HANDLE);
+		rc_client_begin_load_raintegration(g_rcClient, szFilePath, hWnd, "PPSSPP", PPSSPP_GIT_VERSION, &load_integration_callback, hWnd);
+		return;
+	}
+#endif
 	TryLoginByToken(true);
 }
 
@@ -551,7 +670,7 @@ static void login_password_callback(int result, const char *error_message, rc_cl
 
 bool LoginAsync(const char *username, const char *password) {
 	auto di = GetI18NCategory(I18NCat::DIALOG);
-	if (IsLoggedIn() || std::strlen(username) == 0 || std::strlen(password) == 0 || IsUsingRAIntegration())
+	if (IsLoggedIn() || std::strlen(username) == 0 || std::strlen(password) == 0)
 		return false;
 
 	g_OSD.SetProgressBar("cheevos_async_login", di->T("Logging in..."), 0, 0, 0, 0.0f);
@@ -587,6 +706,9 @@ void UpdateSettings() {
 
 bool Shutdown() {
 	g_activeChallenges.clear();
+#ifdef RC_CLIENT_SUPPORTS_RAINTEGRATION
+	rc_client_unload_raintegration(g_rcClient);
+#endif
 	rc_client_destroy(g_rcClient);
 	g_rcClient = nullptr;
 	INFO_LOG(ACHIEVEMENTS, "Achievements shut down.");
@@ -831,32 +953,39 @@ void SetGame(const Path &path, IdentifiedFileType fileType, FileLoader *fileLoad
 		return;
 	}
 
-	_dbg_assert_(!g_blockDevice);
-
-	// TODO: Fish the block device out of the loading process somewhere else. Though, probably easier to just do it here.
-	g_blockDevice = constructBlockDevice(fileLoader);
-	if (!g_blockDevice) {
-		ERROR_LOG(ACHIEVEMENTS, "Failed to construct block device for '%s' - can't identify", path.c_str());
-		return;
-	}
-
 	// The caller should hold off on executing game code until this turns false, checking with IsBlockingExecution()
+	g_gamePath = path;
 	g_isIdentifying = true;
 
+	// TODO: Fish the block device out of the loading process somewhere else. Though, probably easier to just do it here.
+	{
+		BlockDevice *blockDevice(constructBlockDevice(fileLoader));
+		if (!blockDevice) {
+			ERROR_LOG(ACHIEVEMENTS, "Failed to construct block device for '%s' - can't identify", path.c_str());
+			g_isIdentifying = false;
+			return;
+		}
+
+		// This consumes the blockDevice.
+		s_game_hash = ComputePSPHash(blockDevice);
+		if (!s_game_hash.empty()) {
+			INFO_LOG(ACHIEVEMENTS, "Hash: %s", s_game_hash.c_str());
+		}
+	}
+
 	// Apply pre-load settings.
-	rc_client_set_hardcore_enabled(g_rcClient, g_Config.bAchievementsChallengeMode ? 1 : 0);
+	rc_client_set_hardcore_enabled(g_rcClient, g_Config.bAchievementsHardcoreMode ? 1 : 0);
 	rc_client_set_encore_mode_enabled(g_rcClient, g_Config.bAchievementsEncoreMode ? 1 : 0);
 	rc_client_set_unofficial_enabled(g_rcClient, g_Config.bAchievementsUnofficial ? 1 : 0);
 
-	rc_client_begin_identify_and_load_game(g_rcClient, RC_CONSOLE_PSP, path.c_str(), nullptr, 0, &identify_and_load_callback, nullptr);
-
-	// fclose above will have deleted it.
-	g_blockDevice = nullptr;
+	rc_client_begin_load_game(g_rcClient, s_game_hash.c_str(), &identify_and_load_callback, nullptr);
 }
 
 void UnloadGame() {
 	if (g_rcClient) {
 		rc_client_unload_game(g_rcClient);
+		g_gamePath.clear();
+		s_game_hash.clear();
 	}
 }
 
@@ -893,24 +1022,26 @@ void ChangeUMD(const Path &path, FileLoader *fileLoader) {
 		return;
 	}
 
-	g_blockDevice = constructBlockDevice(fileLoader);
-	if (!g_blockDevice) {
+	BlockDevice *blockDevice = constructBlockDevice(fileLoader);
+	if (!blockDevice) {
 		ERROR_LOG(ACHIEVEMENTS, "Failed to construct block device for '%s' - can't identify", path.c_str());
 		return;
 	}
 
 	g_isIdentifying = true;
 
-	rc_client_begin_change_media(g_rcClient,
-		path.c_str(),
-		nullptr,
-		0,
+	// This consumes the blockDevice.
+	s_game_hash = ComputePSPHash(blockDevice);
+	if (s_game_hash.empty()) {
+		ERROR_LOG(ACHIEVEMENTS, "Failed to hash - can't identify");
+		return;
+	}
+
+	rc_client_begin_change_media_from_hash(g_rcClient,
+		s_game_hash.c_str(),
 		&change_media_callback,
 		nullptr
 	);
-
-	// fclose above will have deleted it.
-	g_blockDevice = nullptr;
 }
 
 std::set<uint32_t> GetActiveChallengeIDs() {

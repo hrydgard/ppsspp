@@ -20,6 +20,7 @@
 #include <deque>
 #include <thread>
 #include <mutex>
+#include <atomic>
 #include <condition_variable>
 #include <set>
 #include <cstdlib>
@@ -113,11 +114,11 @@ namespace Reporting
 	static std::condition_variable crcCond;
 	static Path crcFilename;
 	static std::map<Path, u32> crcResults;
-	static volatile bool crcPending = false;
-	static volatile bool crcCancel = false;
+	static std::atomic<bool> crcPending{};
+	static std::atomic<bool> crcCancel{};
 	static std::thread crcThread;
 
-	static u32 CalculateCRC(BlockDevice *blockDevice, volatile bool *cancel) {
+	static u32 CalculateCRC(BlockDevice *blockDevice, std::atomic<bool> *cancel) {
 		auto ga = GetI18NCategory(I18NCat::GAME);
 
 		u32 crc = crc32(0, Z_NULL, 0);
@@ -162,7 +163,6 @@ namespace Reporting
 		crcResults[crcFilename] = crc;
 		crcPending = false;
 		crcCond.notify_one();
-		
 		return 0;
 	}
 
@@ -203,8 +203,10 @@ namespace Reporting
 			it = crcResults.find(gamePath);
 		}
 
-		if (crcThread.joinable())
+		if (crcThread.joinable()) {
+			INFO_LOG(SYSTEM, "Finished CRC calculation");
 			crcThread.join();
+		}
 		return it->second;
 	}
 
@@ -501,8 +503,9 @@ namespace Reporting
 	void AddScreenshotData(MultipartFormDataEncoder &postdata, const Path &filename)
 	{
 		std::string data;
-		if (!filename.empty() && File::ReadFileToString(false, filename, data))
+		if (!filename.empty() && File::ReadBinaryFileToString(filename, &data)) {
 			postdata.Add("screenshot", data, "screenshot.jpg", "image/jpeg");
+		}
 
 		const std::string iconFilename = "disc0:/PSP_GAME/ICON0.PNG";
 		std::vector<u8> iconData;

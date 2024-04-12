@@ -25,6 +25,7 @@
 #include "Common/Log.h"
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"
+#include "Common/Thread/ThreadUtil.h"
 #include "Core/Config.h"
 #include "Core/CoreTiming.h"
 #include "Core/Debugger/Breakpoints.h"
@@ -288,12 +289,7 @@ void MemSlabMap::Clear() {
 
 MemSlabMap::Slab *MemSlabMap::FindSlab(uint32_t addr) {
 	// Jump ahead using our index.
-	size_t slabIndex = addr / SLICE_SIZE;
-	if (slabIndex >= heads_.size()) {
-		// Shouldn't happen, but apparently can.
-		return nullptr;
-	}
-	Slab *slab = heads_[slabIndex];
+	Slab *slab = heads_[addr / SLICE_SIZE];
 	// We often move forward, so check the last find.
 	if (lastFind_->start > slab->start && lastFind_->start <= addr)
 		slab = lastFind_;
@@ -680,6 +676,8 @@ size_t FormatMemWriteTagAtNoFlush(char *buf, size_t sz, const char *prefix, uint
 }
 
 static void FlushMemInfoThread() {
+	SetCurrentThreadName("FlushMemInfo");
+
 	while (flushThreadRunning.load()) {
 		flushThreadPending = false;
 		FlushPendingMemInfo();

@@ -15,6 +15,57 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+// Games known to support custom music and almost certainly use sceMp3:
+//
+// * ATV Offroad Fury: Blazin' Trails
+// * Beats (/PSP/MUSIC)
+// * Crazy Taxi : Fare Wars  (/MUSIC)
+// * Dead or Alive Paradise
+// * Gran Turismo - You must first clear all driving challenges up to C to unlock this feature, then it will be available through the options menu.
+// * Grand Theft Auto : Liberty City Stories
+// * Grand Theft Auto : Vice City Stories
+// * Heroes' VS (#5866 ?)
+// * MLB 08 : The Show
+// * MotorStorm : Artic Edge
+// * NBA Live 09
+// * Need for Speed Carbon
+// * Need for Speed Pro Street
+// * Pro Evolution Soccer 2014
+// * SD Gundam G Generation Overworld
+// * TOCA Race Driver 2
+// * Untold Legends II
+// * Wipeout Pulse (/MUSIC/WIPEOUT)
+//
+// Games known to use LowLevelDecode:
+//
+// * Gundam G (custom BGM)
+// * Heroes' VS (custom BGM)
+//
+// Games that use sceMp3 internally
+//
+// * Kirameki School Life SP
+// * Breakquest (mini)
+// * Orbit (mini)
+// * SWAT Target Liberty ULES00927
+// * Geometry Wars (homebrew)
+// * Hanayaka Nari Wa ga Ichizoku
+// * Velocity (mini)
+// * N+ (mini) (#9379)
+// * Mighty Flip Champs DX (mini)
+// * EDGE (mini)
+// * Stellar Attack (mini)
+// * Hungry Giraffe (mini)
+// * OMG - Z (mini)
+// ...probably lots more minis...
+//
+// BUGS
+//
+// Custom music plays but starts stuttering:
+// * Beats
+//
+// Custom music just repeats a small section:
+// * Crazy Taxi
+
 #include <map>
 #include <algorithm>
 
@@ -44,9 +95,9 @@ static const int AU_BUF_MIN_SIZE = 8192;
 static const int PCM_BUF_MIN_SIZE = 9216;
 static const size_t MP3_MAX_HANDLES = 2;
 
-struct Mp3Context {
+// This one is only used for save state upgrading.
+struct Mp3ContextOld {
 public:
-
 	int mp3StreamStart;
 	int mp3StreamEnd;
 	u32 mp3Buf;
@@ -106,6 +157,10 @@ static AuCtx *getMp3Ctx(u32 mp3) {
 	return mp3Map[mp3];
 }
 
+void __Mp3Init() {
+	resourceInited = false;
+}
+
 void __Mp3Shutdown() {
 	for (auto it = mp3Map.begin(), end = mp3Map.end(); it != end; ++it) {
 		delete it->second;
@@ -121,7 +176,7 @@ void __Mp3DoState(PointerWrap &p) {
 	if (s >= 2) {
 		Do(p, mp3Map);
 	} else {
-		std::map<u32, Mp3Context *> mp3Map_old;
+		std::map<u32, Mp3ContextOld *> mp3Map_old;
 		Do(p, mp3Map_old); // read old map
 		for (auto it = mp3Map_old.begin(), end = mp3Map_old.end(); it != end; ++it) {
 			auto mp3 = new AuCtx;
@@ -143,8 +198,7 @@ void __Mp3DoState(PointerWrap &p) {
 			mp3->MaxOutputSample = mp3_old->mp3MaxSamples;
 			mp3->SetReadPos(mp3_old->readPosition);
 
-			mp3->audioType = PSP_CODEC_MP3;
-			mp3->decoder = new SimpleAudio(mp3->audioType);
+			mp3->decoder = CreateAudioDecoder(PSP_CODEC_MP3);
 			mp3Map[id] = mp3;
 		}
 	}
@@ -249,9 +303,8 @@ static u32 sceMp3ReserveMp3Handle(u32 mp3Addr) {
 		Au->PCMBufSize = 0;
 	}
 
-	Au->audioType = PSP_CODEC_MP3;
 	Au->SetReadPos(Au->startPos);
-	Au->decoder = new SimpleAudio(Au->audioType);
+	Au->decoder = CreateAudioDecoder(PSP_CODEC_MP3);
 
 	int handle = (int)mp3Map.size();
 	mp3Map[handle] = Au;
@@ -445,9 +498,6 @@ static int sceMp3Init(u32 mp3) {
 
 	ctx->Version = versionBits;
 
-	// This tells us to resample to the same frequency it decodes to.
-	ctx->decoder->SetResampleFrequency(ctx->freq);
-
 	return hleDelayResult(hleLogSuccessI(ME, 0), "mp3 init", PARSE_DELAY_MS);
 }
 
@@ -461,7 +511,7 @@ static int sceMp3GetLoopNum(u32 mp3) {
 		return hleLogError(ME, ERROR_MP3_UNRESERVED_HANDLE, "incorrect handle type");
 	}
 
-	return hleLogSuccessI(ME, ctx->AuGetLoopNum());
+	return hleLogSuccessI(ME, ctx->LoopNum);
 }
 
 static int sceMp3GetMaxOutputSample(u32 mp3) {
@@ -476,7 +526,7 @@ static int sceMp3GetMaxOutputSample(u32 mp3) {
 		return hleLogWarning(ME, 0, "no channel available for low level");
 	}
 
-	return hleLogSuccessI(ME, ctx->AuGetMaxOutputSample());
+	return hleLogSuccessI(ME, ctx->MaxOutputSample);
 }
 
 static int sceMp3GetSumDecodedSample(u32 mp3) {
@@ -489,7 +539,7 @@ static int sceMp3GetSumDecodedSample(u32 mp3) {
 		return hleLogError(ME, ERROR_MP3_UNRESERVED_HANDLE, "incorrect handle type");
 	}
 
-	return hleLogSuccessI(ME, ctx->AuGetSumDecodedSample());
+	return hleLogSuccessI(ME, ctx->SumDecodedSamples);
 }
 
 static int sceMp3SetLoopNum(u32 mp3, int loop) {
@@ -505,7 +555,8 @@ static int sceMp3SetLoopNum(u32 mp3, int loop) {
 	if (loop < 0)
 		loop = -1;
 
-	return hleLogSuccessI(ME, ctx->AuSetLoopNum(loop));
+	ctx->LoopNum = loop;
+	return hleLogSuccessI(ME, 0);
 }
 
 static int sceMp3GetMp3ChannelNum(u32 mp3) {
@@ -520,7 +571,7 @@ static int sceMp3GetMp3ChannelNum(u32 mp3) {
 		return hleLogWarning(ME, 0, "no channel available for low level");
 	}
 
-	return hleLogSuccessI(ME, ctx->AuGetChannelNum());
+	return hleLogSuccessI(ME, ctx->Channels);
 }
 
 static int sceMp3GetBitRate(u32 mp3) {
@@ -535,7 +586,7 @@ static int sceMp3GetBitRate(u32 mp3) {
 		return hleLogWarning(ME, 0, "no bitrate available for low level");
 	}
 
-	return hleLogSuccessI(ME, ctx->AuGetBitRate());
+	return hleLogSuccessI(ME, ctx->BitRate);
 }
 
 static int sceMp3GetSamplingRate(u32 mp3) {
@@ -550,7 +601,7 @@ static int sceMp3GetSamplingRate(u32 mp3) {
 		return hleLogWarning(ME, 0, "no sample rate available for low level");
 	}
 
-	return hleLogSuccessI(ME, ctx->AuGetSamplingRate());
+	return hleLogSuccessI(ME, ctx->SamplingRate);
 }
 
 static int sceMp3GetInfoToAddStreamData(u32 mp3, u32 dstPtr, u32 towritePtr, u32 srcposPtr) {
@@ -613,7 +664,7 @@ static u32 sceMp3GetFrameNum(u32 mp3) {
 		return hleLogError(ME, ERROR_MP3_NOT_YET_INIT_HANDLE, "not yet init");
 	}
 
-	return hleLogSuccessI(ME, ctx->AuGetFrameNum());
+	return hleLogSuccessI(ME, ctx->FrameNum);
 }
 
 static u32 sceMp3GetMPEGVersion(u32 mp3) {
@@ -630,7 +681,7 @@ static u32 sceMp3GetMPEGVersion(u32 mp3) {
 	}
 
 	// Tests have not revealed how to expose more than "3" here as a result.
-	return hleReportDebug(ME, ctx->AuGetVersion());
+	return hleReportDebug(ME, ctx->Version);
 }
 
 static u32 sceMp3ResetPlayPositionByFrame(u32 mp3, u32 frame) {
@@ -643,7 +694,7 @@ static u32 sceMp3ResetPlayPositionByFrame(u32 mp3, u32 frame) {
 		return hleLogError(ME, ERROR_MP3_NOT_YET_INIT_HANDLE, "not yet init");
 	}
 
-	if (frame >= (u32)ctx->AuGetFrameNum()) {
+	if (frame >= (u32)ctx->FrameNum) {
 		return hleLogError(ME, ERROR_MP3_BAD_RESET_FRAME, "bad frame position");
 	}
 
@@ -651,11 +702,10 @@ static u32 sceMp3ResetPlayPositionByFrame(u32 mp3, u32 frame) {
 }
 
 static u32 sceMp3LowLevelInit(u32 mp3, u32 unk) {
-	auto ctx = new AuCtx;
+	auto ctx = new AuCtx();
 
-	ctx->audioType = PSP_CODEC_MP3;
 	// create mp3 decoder
-	ctx->decoder = new SimpleAudio(ctx->audioType);
+	ctx->decoder = CreateAudioDecoder(PSP_CODEC_MP3);
 
 	// close the audio if mp3 already exists.
 	if (mp3Map.find(mp3) != mp3Map.end()) {
@@ -693,10 +743,11 @@ static u32 sceMp3LowLevelDecode(u32 mp3, u32 sourceAddr, u32 sourceBytesConsumed
 	auto outbuff = Memory::GetPointerWriteUnchecked(samplesAddr);
 	
 	int outpcmbytes = 0;
-	ctx->decoder->Decode(inbuff, 4096, outbuff, &outpcmbytes);
+	int inbytesConsumed = 0;
+	ctx->decoder->Decode(inbuff, 4096, &inbytesConsumed, outbuff, &outpcmbytes);
 	NotifyMemInfo(MemBlockFlags::WRITE, samplesAddr, outpcmbytes, "Mp3LowLevelDecode");
 	
-	Memory::Write_U32(ctx->decoder->GetSourcePos(), sourceBytesConsumedAddr);
+	Memory::Write_U32(inbytesConsumed, sourceBytesConsumedAddr);
 	Memory::Write_U32(outpcmbytes, sampleBytesAddr);
 	return 0;
 }

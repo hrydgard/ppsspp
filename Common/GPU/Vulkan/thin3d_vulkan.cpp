@@ -331,8 +331,8 @@ public:
 		: vulkan_(vulkan), mipLevels_(desc.mipLevels) {
 		format_ = desc.format;
 	}
-	bool Create(VkCommandBuffer cmd, VulkanPushPool *pushBuffer, const TextureDesc &desc);
-	void Update(VkCommandBuffer cmd, VulkanPushPool *pushBuffer, const uint8_t *const *data, TextureCallback callback, int numLevels);
+	bool Create(VkCommandBuffer cmd, VulkanBarrierBatch *postBarriers, VulkanPushPool *pushBuffer, const TextureDesc &desc);
+	void Update(VkCommandBuffer cmd, VulkanBarrierBatch *postBarriers, VulkanPushPool *pushBuffer, const uint8_t *const *data, TextureCallback callback, int numLevels);
 
 	~VKTexture() {
 		Destroy();
@@ -381,6 +381,9 @@ public:
 	~VKContext();
 
 	void DebugAnnotate(const char *annotation) override;
+	void Wait() override {
+		vkDeviceWaitIdle(vulkan_->GetDevice());
+	}
 
 	const DeviceCaps &GetDeviceCaps() const override {
 		return caps_;
@@ -392,12 +395,12 @@ public:
 		}
 		return list;
 	}
-	std::vector<std::string> GetPresentModeList(const char *currentMarkerString) const override {
+	std::vector<std::string> GetPresentModeList(std::string_view currentMarkerString) const override {
 		std::vector<std::string> list;
 		for (auto mode : vulkan_->GetAvailablePresentModes()) {
 			std::string str = VulkanPresentModeToString(mode);
 			if (mode == vulkan_->GetPresentMode()) {
-				str += std::string(" (") + currentMarkerString + ")";
+				str += std::string(" (") + std::string(currentMarkerString) + ")";
 			}
 			list.push_back(str);
 		}
@@ -491,8 +494,6 @@ public:
 	void EndFrame() override;
 	void Present(PresentMode presentMode, int vblanks) override;
 
-	void WipeQueue() override;
-
 	int GetFrameCount() override {
 		return frameCount_;
 	}
@@ -502,6 +503,14 @@ public:
 	void ResetStats() override {
 		renderManager_.ResetStats();
 	}
+	void StopThreads() override {
+		renderManager_.StopThreads();
+	}
+
+	void StartThreads() override {
+		renderManager_.StartThreads();
+	}
+
 
 	std::string GetInfoString(InfoField info) const override {
 		// TODO: Make these actually query the right information
@@ -690,8 +699,10 @@ VulkanTexture *VKContext::GetNullTexture() {
 		nullTexture_ = new VulkanTexture(vulkan_, "Null");
 		int w = 8;
 		int h = 8;
-		nullTexture_->CreateDirect(cmdInit, w, h, 1, 1, VK_FORMAT_A8B8G8R8_UNORM_PACK32, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-			VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT);
+		VulkanBarrierBatch barrier;
+		nullTexture_->CreateDirect(w, h, 1, 1, VK_FORMAT_A8B8G8R8_UNORM_PACK32, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+			VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, &barrier);
+		barrier.Flush(cmdInit);
 		uint32_t bindOffset;
 		VkBuffer bindBuf;
 		uint32_t *data = (uint32_t *)push_->Allocate(w * h * 4, 4, &bindBuf, &bindOffset);
@@ -759,7 +770,7 @@ enum class TextureState {
 	PENDING_DESTRUCTION,
 };
 
-bool VKTexture::Create(VkCommandBuffer cmd, VulkanPushPool *pushBuffer, const TextureDesc &desc) {
+bool VKTexture::Create(VkCommandBuffer cmd, VulkanBarrierBatch *postBarriers, VulkanPushPool *pushBuffer, const TextureDesc &desc) {
 	// Zero-sized textures not allowed.
 	_assert_(desc.width * desc.height * desc.depth > 0);  // remember to set depth to 1!
 	if (desc.width * desc.height * desc.depth <= 0) {
@@ -782,10 +793,12 @@ bool VKTexture::Create(VkCommandBuffer cmd, VulkanPushPool *pushBuffer, const Te
 
 	VkComponentMapping r8AsAlpha[4] = { VK_COMPONENT_SWIZZLE_ONE, VK_COMPONENT_SWIZZLE_ONE, VK_COMPONENT_SWIZZLE_ONE, VK_COMPONENT_SWIZZLE_R };
 
-	if (!vkTex_->CreateDirect(cmd, width_, height_, 1, mipLevels_, vulkanFormat, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, usageBits, desc.swizzle == TextureSwizzle::R8_AS_ALPHA ? r8AsAlpha : nullptr)) {
+	VulkanBarrierBatch barrier;
+	if (!vkTex_->CreateDirect(width_, height_, 1, mipLevels_, vulkanFormat, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, usageBits, &barrier, desc.swizzle == TextureSwizzle::R8_AS_ALPHA ? r8AsAlpha : nullptr)) {
 		ERROR_LOG(G3D,  "Failed to create VulkanTexture: %dx%dx%d fmt %d, %d levels", width_, height_, depth_, (int)vulkanFormat, mipLevels_);
 		return false;
 	}
+	barrier.Flush(cmd);
 	VkImageLayout layout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
 	if (desc.initData.size()) {
 		UpdateInternal(cmd, pushBuffer, desc.initData.data(), desc.initDataCallback, (int)desc.initData.size());
@@ -799,25 +812,24 @@ bool VKTexture::Create(VkCommandBuffer cmd, VulkanPushPool *pushBuffer, const Te
 	return true;
 }
 
-void VKTexture::Update(VkCommandBuffer cmd, VulkanPushPool *pushBuffer, const uint8_t * const *data, TextureCallback initDataCallback, int numLevels) {
+void VKTexture::Update(VkCommandBuffer cmd, VulkanBarrierBatch *postBarriers, VulkanPushPool *pushBuffer, const uint8_t * const *data, TextureCallback initDataCallback, int numLevels) {
 	// Before we can use UpdateInternal, we need to transition the image to the same state as after CreateDirect,
 	// making it ready for writing.
 	vkTex_->PrepareForTransferDst(cmd, numLevels);
 	UpdateInternal(cmd, pushBuffer, data, initDataCallback, numLevels);
-	vkTex_->RestoreAfterTransferDst(cmd, numLevels);
+	vkTex_->RestoreAfterTransferDst(numLevels, postBarriers);
 }
 
 void VKTexture::UpdateInternal(VkCommandBuffer cmd, VulkanPushPool *pushBuffer, const uint8_t * const *data, TextureCallback initDataCallback, int numLevels) {
 	int w = width_;
 	int h = height_;
 	int d = depth_;
-	int i;
 	VkFormat vulkanFormat = DataFormatToVulkan(format_);
 	int bpp = GetBpp(vulkanFormat);
 	int bytesPerPixel = bpp / 8;
 	TextureCopyBatch batch;
 	batch.reserve(numLevels);
-	for (i = 0; i < numLevels; i++) {
+	for (int i = 0; i < numLevels; i++) {
 		uint32_t offset;
 		VkBuffer buf;
 		size_t size = w * h * d * bytesPerPixel;
@@ -958,14 +970,14 @@ VKContext::VKContext(VulkanContext *vulkan, bool useRenderThread)
     caps_.deviceID = deviceProps.deviceID;
 
     if (caps_.vendor == GPUVendor::VENDOR_QUALCOMM) {
-		if (caps_.deviceID < 0x6000000)  // On sub 6xx series GPUs, disallow multisample.
-			multisampleAllowed = false;
+		// if (caps_.deviceID < 0x6000000)  // On sub 6xx series GPUs, disallow multisample.
+		multisampleAllowed = false;  // Actually, let's disable it on them all for now. See issue #18818.
 
 		// Adreno 5xx devices, all known driver versions, fail to discard stencil when depth write is off.
 		// See: https://github.com/hrydgard/ppsspp/pull/11684
 		if (deviceProps.deviceID >= 0x05000000 && deviceProps.deviceID < 0x06000000) {
 			if (deviceProps.driverVersion < 0x80180000) {
-				bugs_.Infest(Bugs::NO_DEPTH_CANNOT_DISCARD_STENCIL);
+				bugs_.Infest(Bugs::NO_DEPTH_CANNOT_DISCARD_STENCIL_ADRENO);
 			}
 		}
 		// Color write mask not masking write in certain scenarios with a depth test, see #10421.
@@ -998,8 +1010,9 @@ VKContext::VKContext(VulkanContext *vulkan, bool useRenderThread)
 		bugs_.Infest(Bugs::EQUAL_WZ_CORRUPTS_DEPTH);
 
 		// Nearly identical to the the Adreno bug, see #13833 (Midnight Club map broken) and other issues.
+		// It has the additional caveat that combining depth writes with NEVER depth tests crashes the driver.
 		// Reported fixed in major version 40 - let's add a check once confirmed.
-		bugs_.Infest(Bugs::NO_DEPTH_CANNOT_DISCARD_STENCIL);
+		bugs_.Infest(Bugs::NO_DEPTH_CANNOT_DISCARD_STENCIL_MALI);
 
 		// This started in driver 31 or 32, fixed in 40 - let's add a check once confirmed.
 		if (majorVersion >= 32) {
@@ -1025,11 +1038,16 @@ VKContext::VKContext(VulkanContext *vulkan, bool useRenderThread)
 			// Very rough heuristic.
 			multisampleAllowed = false;
 		}
+	} else if (caps_.vendor == GPUVendor::VENDOR_IMGTEC) {
+		// Not sure about driver versions, so let's just ban, impact is tiny.
+		bugs_.Infest(Bugs::PVR_BAD_16BIT_TEXFORMATS);
 	}
 
 	if (!vulkan->Extensions().KHR_depth_stencil_resolve) {
 		INFO_LOG(G3D, "KHR_depth_stencil_resolve not supported, disabling multisampling");
 	}
+
+	bugs_.Infest(Draw::Bugs::NO_DEPTH_CANNOT_DISCARD_STENCIL_MALI);
 
 	// We limit multisampling functionality to reasonably recent and known-good tiling GPUs.
 	if (multisampleAllowed) {
@@ -1117,10 +1135,6 @@ void VKContext::Invalidate(InvalidationFlags flags) {
 			texture = nullptr;
 		}
 	}
-}
-
-void VKContext::WipeQueue() {
-	renderManager_.Wipe();
 }
 
 void VKContext::BindDescriptors(VkBuffer buf, PackedDescriptor descriptors[4]) {
@@ -1294,7 +1308,7 @@ Texture *VKContext::CreateTexture(const TextureDesc &desc) {
 		return nullptr;
 	}
 	VKTexture *tex = new VKTexture(vulkan_, initCmd, push_, desc);
-	if (tex->Create(initCmd, push_, desc)) {
+	if (tex->Create(initCmd, &renderManager_.PostInitBarrier(), push_, desc)) {
 		return tex;
 	} else {
 		ERROR_LOG(G3D,  "Failed to create texture");
@@ -1314,7 +1328,7 @@ void VKContext::UpdateTextureLevels(Texture *texture, const uint8_t **data, Text
 	VKTexture *tex = (VKTexture *)texture;
 
 	_dbg_assert_(numLevels <= tex->NumLevels());
-	tex->Update(initCmd, push_, data, initDataCallback, numLevels);
+	tex->Update(initCmd, &renderManager_.PostInitBarrier(), push_, data, initDataCallback, numLevels);
 }
 
 static inline void CopySide(VkStencilOpState &dest, const StencilSetup &src) {
@@ -1536,6 +1550,10 @@ std::vector<std::string> VKContext::GetFeatureList() const {
 	AddFeature(features, "shaderCullDistance", available.shaderCullDistance, enabled.shaderCullDistance);
 	AddFeature(features, "occlusionQueryPrecise", available.occlusionQueryPrecise, enabled.occlusionQueryPrecise);
 	AddFeature(features, "multiDrawIndirect", available.multiDrawIndirect, enabled.multiDrawIndirect);
+	AddFeature(features, "robustBufferAccess", available.robustBufferAccess, enabled.robustBufferAccess);
+	AddFeature(features, "fullDrawIndexUint32", available.fullDrawIndexUint32, enabled.fullDrawIndexUint32);
+	AddFeature(features, "fragmentStoresAndAtomics", available.fragmentStoresAndAtomics, enabled.fragmentStoresAndAtomics);
+	AddFeature(features, "shaderInt16", available.shaderInt16, enabled.shaderInt16);
 
 	AddFeature(features, "multiview", vulkan_->GetDeviceFeatures().available.multiview.multiview, vulkan_->GetDeviceFeatures().enabled.multiview.multiview);
 	AddFeature(features, "multiviewGeometryShader", vulkan_->GetDeviceFeatures().available.multiview.multiviewGeometryShader, vulkan_->GetDeviceFeatures().enabled.multiview.multiviewGeometryShader);
@@ -1627,7 +1645,7 @@ Framebuffer *VKContext::CreateFramebuffer(const FramebufferDesc &desc) {
 	_assert_(desc.height > 0);
 
 	VkCommandBuffer cmd = renderManager_.GetInitCmd();
-	VKRFramebuffer *vkrfb = new VKRFramebuffer(vulkan_, cmd, renderManager_.GetQueueRunner()->GetCompatibleRenderPass(), desc.width, desc.height, desc.numLayers, desc.multiSampleLevel, desc.z_stencil, desc.tag);
+	VKRFramebuffer *vkrfb = new VKRFramebuffer(vulkan_, &renderManager_.PostInitBarrier(), cmd, renderManager_.GetQueueRunner()->GetCompatibleRenderPass(), desc.width, desc.height, desc.numLayers, desc.multiSampleLevel, desc.z_stencil, desc.tag);
 	return new VKFramebuffer(vkrfb, desc.multiSampleLevel);
 }
 

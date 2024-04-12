@@ -39,7 +39,7 @@ void WaitUntil(double now, double timestamp) {
 	}
 #else
 	const double left = timestamp - now;
-	if (left > 0.0) {
+	if (left > 0.0 && left < 3.0) {
 		usleep((long)(left * 1000000));
 	}
 #endif
@@ -74,12 +74,15 @@ void FrameTiming::PostSubmit() {
 		WaitUntil(time_now_d(), waitUntil_);
 		if (curTimePtr_) {
 			*curTimePtr_ = waitUntil_;
+			curTimePtr_ = nullptr;
 		}
 		waitUntil_ = 0.0;
 	}
 }
 
 Draw::PresentMode ComputePresentMode(Draw::DrawContext *draw, int *interval) {
+	_assert_(draw);
+
 	Draw::PresentMode mode = Draw::PresentMode::FIFO;
 
 	if (draw->GetDeviceCaps().presentModesSupported & (Draw::PresentMode::IMMEDIATE | Draw::PresentMode::MAILBOX)) {

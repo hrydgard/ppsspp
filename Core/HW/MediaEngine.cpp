@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "Common/Serialize/SerializeFuncs.h"
+#include "Common/Math/CrossSIMD.h"
 #include "Core/Config.h"
 #include "Core/Debugger/MemBlockInfo.h"
 #include "Core/HW/MediaEngine.h"
@@ -54,6 +55,9 @@ extern "C" {
 #endif // USE_FFMPEG
 
 #ifdef USE_FFMPEG
+
+#include "Core/FFMPEGCompat.h"
+
 static AVPixelFormat getSwsFormat(int pspFormat)
 {
 	switch (pspFormat)
@@ -336,7 +340,7 @@ bool MediaEngine::openContext(bool keepReadPos) {
 		return false;
 
 	setVideoDim();
-	m_audioContext = new SimpleAudio(m_audioType, 44100, 2);
+	m_audioContext = CreateAudioDecoder((PSPAudioType)m_audioType);
 	m_isVideoEnd = false;
 #endif // USE_FFMPEG
 	return true;
@@ -406,7 +410,7 @@ bool MediaEngine::addVideoStream(int streamNum, int streamId) {
 		// no need to add an existing stream.
 		if ((u32)streamNum < m_pFormatCtx->nb_streams)
 			return true;
-		const AVCodec *h264_codec = avcodec_find_decoder(AV_CODEC_ID_H264);
+		AVCodec *h264_codec = avcodec_find_decoder(AV_CODEC_ID_H264);
 		if (!h264_codec)
 			return false;
 		AVStream *stream = avformat_new_stream(m_pFormatCtx, h264_codec);
@@ -421,14 +425,20 @@ bool MediaEngine::addVideoStream(int streamNum, int streamId) {
 			stream->codecpar->codec_id = AV_CODEC_ID_H264;
 #else
 			stream->request_probe = 0;
-#endif
 			stream->need_parsing = AVSTREAM_PARSE_FULL;
+#endif
 			// We could set the width here, but we don't need to.
 			if (streamNum >= m_expectedVideoStreams) {
 				++m_expectedVideoStreams;
 			}
 
-			m_codecsToClose.push_back(stream->codec);
+#if LIBAVFORMAT_VERSION_INT >= AV_VERSION_INT(59, 16, 100)
+			AVCodec *codec = avcodec_find_decoder(stream->codecpar->codec_id);
+			AVCodecContext *codecCtx = avcodec_alloc_context3(codec);
+#else
+			AVCodecContext *codecCtx = stream->codec;
+#endif
+			m_codecsToClose.push_back(codecCtx);
 			return true;
 		}
 	}
@@ -770,10 +780,10 @@ inline void writeVideoLineRGBA(void *destp, const void *srcp, int width) {
 		count -= 8;
 	}
 #elif PPSSPP_ARCH(ARM_NEON)
-	int32x4_t mask = vdupq_n_u32(0x00FFFFFF);
+	uint32x4_t mask = vdupq_n_u32(0x00FFFFFF);
 	while (count >= 8) {
-		int32x4_t pixels1 = vandq_u32(vld1q_u32(src), mask);
-		int32x4_t pixels2 = vandq_u32(vld1q_u32(src + 4), mask);
+		uint32x4_t pixels1 = vandq_u32(vld1q_u32(src), mask);
+		uint32x4_t pixels2 = vandq_u32(vld1q_u32(src + 4), mask);
 		vst1q_u32(dest, pixels1);
 		vst1q_u32(dest + 4, pixels2);
 		src += 8;
@@ -782,6 +792,7 @@ inline void writeVideoLineRGBA(void *destp, const void *srcp, int width) {
 	}
 #endif
 	const u32 mask32 = 0x00FFFFFF;
+	DO_NOT_VECTORIZE_LOOP
 	while (count--) {
 		*dest++ = *src++ & mask32;
 	}
@@ -1066,7 +1077,8 @@ int MediaEngine::getAudioSamples(u32 bufferPtr) {
 			m_audioContext->SetChannels(1);
 		}
 
-		if (!m_audioContext->Decode(audioFrame, frameSize, buffer, &outbytes)) {
+		int inbytesConsumed = 0;
+		if (!m_audioContext->Decode(audioFrame, frameSize, &inbytesConsumed, buffer, &outbytes)) {
 			ERROR_LOG(ME, "Audio (%s) decode failed during video playback", GetCodecName(m_audioType));
 		}
 

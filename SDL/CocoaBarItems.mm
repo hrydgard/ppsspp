@@ -70,11 +70,11 @@ void OSXOpenURL(const char *url) {
 }
 
 -(NSString *)localizedString: (const char *)key category: (I18NCat)cat {
-    return @(T(cat, key));
+    return @(T_cstr(cat, key));
 }
 
 -(NSString *)localizedMenuString: (const char *)key {
-    std::string processed = UnescapeMenuString(T(I18NCat::DESKTOPUI, key), nullptr);
+    std::string processed = UnescapeMenuString(T_cstr(I18NCat::DESKTOPUI, key), nullptr);
     return @(processed.c_str());
 }
 
@@ -249,7 +249,7 @@ void OSXOpenURL(const char *url) {
 
 -(NSMenu *)makeFileSubmenu {
     std::shared_ptr<I18NCategory> desktopUILocalization = GetI18NCategory(I18NCat::DESKTOPUI);
-#define DESKTOPUI_LOCALIZED(key) @(UnescapeMenuString(desktopUILocalization->T(key), nil).c_str())
+#define DESKTOPUI_LOCALIZED(key) @(UnescapeMenuString(desktopUILocalization->T_cstr(key), nil).c_str())
 
     NSMenu *menu = [[NSMenu alloc] initWithTitle:DESKTOPUI_LOCALIZED("File")];
     NSMenuItem *openWithSystemFolderBrowserItem = [[NSMenuItem alloc] initWithTitle:DESKTOPUI_LOCALIZED("Load") action:@selector(openSystemFileBrowser) keyEquivalent:@"o"];
@@ -274,10 +274,10 @@ void OSXOpenURL(const char *url) {
     std::shared_ptr<I18NCategory> graphicsLocalization = GetI18NCategory(I18NCat::GRAPHICS);
     std::shared_ptr<I18NCategory> desktopUILocalization = GetI18NCategory(I18NCat::DESKTOPUI);
 
-    NSMenu *parent = [[NSMenu alloc] initWithTitle:@(mainSettingsLocalization->T("Graphics"))];
+    NSMenu *parent = [[NSMenu alloc] initWithTitle:@(mainSettingsLocalization->T_cstr("Graphics"))];
     NSMenu *backendsMenu = [[NSMenu alloc] init];
-#define GRAPHICS_LOCALIZED(key) @(graphicsLocalization->T(key))
-#define DESKTOPUI_LOCALIZED(key) @(UnescapeMenuString(desktopUILocalization->T(key), nil).c_str())
+#define GRAPHICS_LOCALIZED(key) @(graphicsLocalization->T_cstr(key))
+#define DESKTOPUI_LOCALIZED(key) @(UnescapeMenuString(desktopUILocalization->T_cstr(key), nil).c_str())
 
     NSMenuItem *gpuBackendItem = [[NSMenuItem alloc] initWithTitle:DESKTOPUI_LOCALIZED("Backend") action:nil keyEquivalent:@""];
 
@@ -333,7 +333,7 @@ void OSXOpenURL(const char *url) {
 
 -(NSMenu *)makeEmulationMenu {
     std::shared_ptr<I18NCategory> desktopUILocalization = GetI18NCategory(I18NCat::DESKTOPUI);
-#define DESKTOPUI_LOCALIZED(key) @(UnescapeMenuString(desktopUILocalization->T(key), nil).c_str())
+#define DESKTOPUI_LOCALIZED(key) @(UnescapeMenuString(desktopUILocalization->T_cstr(key), nil).c_str())
 
     NSMenu *parent = [[NSMenu alloc] initWithTitle:DESKTOPUI_LOCALIZED("Emulation")];
 
@@ -353,7 +353,7 @@ void OSXOpenURL(const char *url) {
 -(NSMenu *)makeDebugMenu {
     std::shared_ptr<I18NCategory> sysInfoLocalization = GetI18NCategory(I18NCat::SYSINFO);
     std::shared_ptr<I18NCategory> desktopUILocalization = GetI18NCategory(I18NCat::DESKTOPUI);
-#define DESKTOPUI_LOCALIZED(key) @(UnescapeMenuString(desktopUILocalization->T(key), nil).c_str())
+#define DESKTOPUI_LOCALIZED(key) @(UnescapeMenuString(desktopUILocalization->T_cstr(key), nil).c_str())
 
     NSMenu *parent = [[NSMenu alloc] initWithTitle:DESKTOPUI_LOCALIZED("Debugging")];
 
@@ -405,6 +405,10 @@ void OSXOpenURL(const char *url) {
     copyBaseAddr.target = self;
     copyBaseAddr.tag = 11;
 
+    NSMenuItem *restartGraphicsAction = [[NSMenuItem alloc] initWithTitle:DESKTOPUI_LOCALIZED("Restart Graphics") action:@selector(restartGraphics) keyEquivalent:@""];
+    restartGraphicsAction.target = self;
+    restartGraphicsAction.tag = 12;
+
     MENU_ITEM(showDebugStatsAction, DESKTOPUI_LOCALIZED("Show Debug Statistics"), @selector(toggleShowDebugStats:), ((DebugOverlay)g_Config.iDebugOverlay == DebugOverlay::DEBUG_STATS), 12)
 
     [parent addItem:loadSymbolMapAction];
@@ -421,6 +425,7 @@ void OSXOpenURL(const char *url) {
     [parent addItem:takeScreenshotAction];
     [parent addItem:dumpNextFrameToLogAction];
     [parent addItem:showDebugStatsAction];
+    [parent addItem:restartGraphicsAction];
 
     [parent addItem:[NSMenuItem separatorItem]];
     [parent addItem:copyBaseAddr];
@@ -429,9 +434,9 @@ void OSXOpenURL(const char *url) {
 
 -(void)breakAction: (NSMenuItem *)item {
    std::shared_ptr<I18NCategory> desktopUILocalization = GetI18NCategory(I18NCat::DESKTOPUI);
-#define DESKTOPUI_LOCALIZED(key) @(UnescapeMenuString(desktopUILocalization->T(key), nil).c_str())
+#define DESKTOPUI_LOCALIZED(key) @(UnescapeMenuString(desktopUILocalization->T_cstr(key), nil).c_str())
    std::shared_ptr<I18NCategory> developerUILocalization = GetI18NCategory(I18NCat::DEVELOPER);
-#define DEVELOPERUI_LOCALIZED(key) @(developerUILocalization->T(key))
+#define DEVELOPERUI_LOCALIZED(key) @(developerUILocalization->T_cstr(key))
     if (Core_IsStepping()) {
         Core_EnableStepping(false, "ui.break");
         item.title = DESKTOPUI_LOCALIZED("Break");
@@ -460,6 +465,10 @@ void OSXOpenURL(const char *url) {
     NSString *stringToCopy = [NSString stringWithFormat: @"%016llx", (uint64_t)(uintptr_t)Memory::base];
     [NSPasteboard.generalPasteboard declareTypes:@[NSPasteboardTypeString] owner:nil];
     [NSPasteboard.generalPasteboard setString:stringToCopy forType:NSPasteboardTypeString];
+}
+
+-(void)restartGraphics {
+    System_PostUIMessage(UIMessage::RESTART_GRAPHICS);
 }
 
 -(NSURL *)presentOpenPanelWithAllowedFileTypes: (NSArray<NSString *> *)allowedFileTypes {
@@ -539,7 +548,7 @@ TOGGLE_METHOD_INVERSE(BreakOnLoad, g_Config.bAutoRun)
 TOGGLE_METHOD(IgnoreIllegalRWs, g_Config.bIgnoreBadMemAccess)
 TOGGLE_METHOD(AutoFrameSkip, g_Config.bAutoFrameSkip, g_Config.UpdateAfterSettingAutoFrameSkip())
 TOGGLE_METHOD(SoftwareRendering, g_Config.bSoftwareRendering)
-TOGGLE_METHOD(FullScreen, g_Config.bFullScreen, System_MakeRequest(SystemRequestType::TOGGLE_FULLSCREEN_STATE, 0, g_Config.UseFullScreen() ? "1" : "0", "", 3))
+TOGGLE_METHOD(FullScreen, g_Config.bFullScreen, System_MakeRequest(SystemRequestType::TOGGLE_FULLSCREEN_STATE, 0, g_Config.UseFullScreen() ? "1" : "0", "", 3, 0))
 // TOGGLE_METHOD(VSync, g_Config.bVSync)
 #undef TOGGLE_METHOD
 
@@ -611,7 +620,7 @@ TOGGLE_METHOD(FullScreen, g_Config.bFullScreen, System_MakeRequest(SystemRequest
 
 -(void)addOpenRecentlyItem {
     std::shared_ptr<I18NCategory> mainmenuLocalization = GetI18NCategory(I18NCat::MAINMENU);
-#define MAINMENU_LOCALIZED(key) @(mainmenuLocalization->T(key))
+#define MAINMENU_LOCALIZED(key) @(mainmenuLocalization->T_cstr(key))
 
     std::vector<std::string> recentIsos = g_Config.RecentIsos();
     NSMenuItem *openRecent = [[NSMenuItem alloc] initWithTitle:MAINMENU_LOCALIZED("Recent") action:nil keyEquivalent:@""];

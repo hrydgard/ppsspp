@@ -649,9 +649,9 @@ void __IoInit() {
 
 	// TODO(scoped): This won't work if memStickDirectory points at the contents of /PSP...
 #if defined(USING_WIN_UI) || defined(APPLE)
-	auto flash0System = std::shared_ptr<IFileSystem>(new DirectoryFileSystem(&pspFileSystem, g_Config.flash0Directory, FileSystemFlags::FLASH));
+	auto flash0System = std::make_shared<DirectoryFileSystem>(&pspFileSystem, g_Config.flash0Directory, FileSystemFlags::FLASH);
 #else
-	auto flash0System = std::shared_ptr<IFileSystem>(new VFSFileSystem(&pspFileSystem, "flash0"));
+	auto flash0System = std::make_shared<VFSFileSystem>(&pspFileSystem, "flash0");
 #endif
 	FileSystemFlags memstickFlags = FileSystemFlags::SIMULATE_FAT32 | FileSystemFlags::CARD;
 
@@ -662,7 +662,7 @@ void __IoInit() {
 		memstickFlags |= FileSystemFlags::STRIP_PSP;
 	}
 
-	auto memstickSystem = std::shared_ptr<IFileSystem>(new DirectoryFileSystem(&pspFileSystem, g_Config.memStickDirectory, memstickFlags));
+	auto memstickSystem = std::make_shared<DirectoryFileSystem>(&pspFileSystem, g_Config.memStickDirectory, memstickFlags);
 
 	pspFileSystem.Mount("ms0:", memstickSystem);
 	pspFileSystem.Mount("fatms0:", memstickSystem);
@@ -675,7 +675,7 @@ void __IoInit() {
 		const std::string gameId = g_paramSFO.GetDiscID();
 		const Path exdataPath = GetSysDirectory(DIRECTORY_EXDATA) / gameId;
 		if (File::Exists(exdataPath)) {
-			auto exdataSystem = std::shared_ptr<IFileSystem>(new DirectoryFileSystem(&pspFileSystem, exdataPath, FileSystemFlags::SIMULATE_FAT32 | FileSystemFlags::CARD));
+			auto exdataSystem = std::make_shared<DirectoryFileSystem>(&pspFileSystem, exdataPath, FileSystemFlags::SIMULATE_FAT32 | FileSystemFlags::CARD);
 			pspFileSystem.Mount("exdata0:", exdataSystem);
 			INFO_LOG(SCEIO, "Mounted exdata/%s/ under memstick for exdata0:/", gameId.c_str());
 		} else {
@@ -1325,7 +1325,8 @@ static u32 sceIoGetDevType(int id) {
 		WARN_LOG(SCEIO, "sceIoGetDevType(%d - %s)", id, f->fullpath.c_str());
 		if (f->isTTY)
 			result = (u32)PSPDevType::FILE;
-		result = (u32)pspFileSystem.DevType(f->handle) & (u32)PSPDevType::EMU_MASK;
+		else
+			result = (u32)pspFileSystem.DevType(f->handle) & (u32)PSPDevType::EMU_MASK;
 	} else {
 		ERROR_LOG(SCEIO, "sceIoGetDevType: unknown id %d", id);
 		result = SCE_KERNEL_ERROR_BADF;
@@ -1554,6 +1555,11 @@ static FileNode *__IoOpen(int &error, const char *filename, int flags, int mode)
 
 static u32 sceIoOpen(const char *filename, int flags, int mode) {
 	hleEatCycles(18000);
+
+	if (!filename) {
+		// Not tested on the PSP.
+		return hleLogError(SCEIO, SCE_KERNEL_ERROR_ERRNO_FILE_NOT_FOUND, "nullptr file not found");
+	}
 
 	if (!__KernelIsDispatchEnabled()) {
 		hleEatCycles(48000);
@@ -2190,6 +2196,10 @@ static u32 sceIoSetAsyncCallback(int id, u32 clbckId, u32 clbckArg)
 
 static u32 sceIoOpenAsync(const char *filename, int flags, int mode) {
 	hleEatCycles(18000);
+	if (!filename) {
+		// Not tested on the PSP.
+		return hleLogError(SCEIO, SCE_KERNEL_ERROR_ERRNO_FILE_NOT_FOUND, "nullptr file not found");
+	}
 
 	// TODO: Use an internal method so as not to pollute the log?
 	// Intentionally does not work when interrupts disabled.
@@ -2592,16 +2602,15 @@ int __IoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 out
 		pspFileSystem.ReadFile(f->handle, pgd_header, 0x90);
 		f->pgdInfo = pgd_open(pgd_header, 2, key_ptr);
 		if (!f->pgdInfo) {
-			ERROR_LOG(SCEIO, "Not a valid PGD file. Examining.");
 			f->npdrm = false;
 			pspFileSystem.SeekFile(f->handle, (s32)0, FILEMOVE_BEGIN);
 			if (memcmp(pgd_header, pgd_magic, 4) == 0) {
-				ERROR_LOG(SCEIO, "File is PGD file, but there's likely a key mismatch. Returning error.");
+				ERROR_LOG(SCEIO, "%s is PGD file, but there's likely a key mismatch. Returning error.", f->fullpath.c_str());
 				// File is PGD file, but key mismatch
 				return ERROR_PGD_INVALID_HEADER;
 			} else {
-				WARN_LOG(SCEIO, "File is not encrypted, proceeding.");
-				// File is decrypted.
+				INFO_LOG(SCEIO, "%s is not an encrypted PGD file as was expected. Proceeding.", f->fullpath.c_str());
+				// File is not encrypted.
 				return 0;
 			}
 		} else {

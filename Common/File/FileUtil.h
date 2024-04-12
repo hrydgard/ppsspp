@@ -86,18 +86,18 @@ bool CreateDir(const Path &filename);
 // Creates the full path of fullPath returns true on success
 bool CreateFullPath(const Path &fullPath);
 
-// Deletes a given filename, return true on success
-// Doesn't supports deleting a directory
+// Deletes a given file by name, return true on success
+// Doesn't support deleting a directory (although it will work on some platforms - ideally shouldn't)
 bool Delete(const Path &filename);
 
-// Deletes a directory filename, returns true on success
+// Deletes a directory by name, returns true on success
 // Directory must be empty.
 bool DeleteDir(const Path &filename);
 
 // Deletes the given directory and anything under it. Returns true on success.
 bool DeleteDirRecursively(const Path &directory);
 
-// Renames file srcFilename to destFilename, returns true on success 
+// Renames/moves file srcFilename to destFilename, returns true on success 
 // Will usually only work with in the same partition or other unit of storage,
 // so you might have to fall back to copy/delete.
 bool Rename(const Path &srcFilename, const Path &destFilename);
@@ -122,6 +122,8 @@ bool OpenFileInEditor(const Path &fileName);
 
 // TODO: Belongs in System or something.
 const Path &GetExeDirectory();
+
+const Path GetCurDirectory();
 
 // simple wrapper for cstdlib file functions to
 // hopefully will make error checking easier
@@ -200,11 +202,23 @@ private:
 // TODO: Refactor, this was moved from the old file_util.cpp.
 
 // Whole-file reading/writing
-bool WriteStringToFile(bool text_file, const std::string &str, const Path &filename);
-bool WriteDataToFile(bool text_file, const void* data, size_t size, const Path &filename);
+bool WriteStringToFile(bool textFile, const std::string &str, const Path &filename);
+bool WriteDataToFile(bool textFile, const void* data, size_t size, const Path &filename);
 
-bool ReadFileToString(bool text_file, const Path &filename, std::string &str);
+bool ReadFileToStringOptions(bool textFile, bool allowShort, const Path &path, std::string *str);
+
+// Wrappers that clarify the intentions.
+inline bool ReadBinaryFileToString(const Path &path, std::string *str) {
+	return ReadFileToStringOptions(false, false, path, str);
+}
+inline bool ReadSysTextFileToString(const Path &path, std::string *str) {
+	return ReadFileToStringOptions(true, true, path, str);
+}
+inline bool ReadTextFileToString(const Path &path, std::string *str) {
+	return ReadFileToStringOptions(true, false, path, str);
+}
+
 // Return value must be delete[]-d.
-uint8_t *ReadLocalFile(const Path &filename, size_t *size);
+uint8_t *ReadLocalFile(const Path &path, size_t *size);
 
 }  // namespace

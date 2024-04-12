@@ -29,7 +29,7 @@ public:
 	enum RequestType {
 		SIMPLE, FULL,
 	};
-	RequestType type;
+	RequestType type = SIMPLE;
 	enum Method {
 		GET,
 		HEAD,

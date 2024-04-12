@@ -57,7 +57,7 @@ enum class ReplayState {
 // File data formats below.
 #pragma pack(push, 1)
 
-static const char *REPLAY_MAGIC = "PPREPLAY";
+static const char * const REPLAY_MAGIC = "PPREPLAY";
 static const int REPLAY_VERSION_MIN = 1;
 static const int REPLAY_VERSION_CURRENT = 1;
 

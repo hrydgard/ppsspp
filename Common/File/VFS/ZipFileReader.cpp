@@ -107,7 +107,7 @@ bool ZipFileReader::GetFileListing(const char *orig_path, std::vector<File::File
 
 	listing->clear();
 
-	INFO_LOG(SYSTEM, "Listing %s", orig_path);
+	// INFO_LOG(SYSTEM, "Zip: Listing '%s'", orig_path);
 
 	listing->reserve(directories.size() + files.size());
 	for (const auto &dir : directories) {
@@ -281,6 +281,7 @@ VFSOpenFile *ZipFileReader::OpenFileForRead(VFSFileReference *vfsReference, size
 	if (!openFile->zf) {
 		WARN_LOG(G3D, "File with index %d not found in zip", reference->zi);
 		lock_.unlock();
+		delete openFile;
 		return nullptr;
 	}
 

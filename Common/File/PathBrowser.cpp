@@ -77,24 +77,33 @@ bool LoadRemoteFileList(const Path &url, const std::string &userAgent, bool *can
 		ERROR_LOG(IO, "Unsupported Content-Type: %s", contentType.c_str());
 		return false;
 	}
-
+	Path basePath(baseURL.ToString());
 	for (auto &item : items) {
 		// Apply some workarounds.
 		if (item.empty())
 			continue;
-		if (item.back() == '\r')
+		if (item.back() == '\r') {
 			item.pop_back();
+			if (item.empty())
+				continue;
+		}
 		if (item == baseURL.Resource())
 			continue;
 
 		File::FileInfo info;
+		if (item.back() == '/') {
+			item.pop_back();
+			if (item.empty())
+				continue;
+			info.isDirectory = true;
+		} else {
+			info.isDirectory = false;
+		}
 		info.name = item;
-		info.fullName = Path(baseURL.Relative(item).ToString());
-		info.isDirectory = endsWith(item, "/");
+		info.fullName = basePath / item;
 		info.exists = true;
 		info.size = 0;
 		info.isWritable = false;
-
 		files.push_back(info);
 	}
 
@@ -102,12 +111,12 @@ bool LoadRemoteFileList(const Path &url, const std::string &userAgent, bool *can
 }
 
 PathBrowser::~PathBrowser() {
-	std::unique_lock<std::mutex> guard(pendingLock_);
-	pendingCancel_ = true;
-	pendingStop_ = true;
-	pendingCond_.notify_all();
-	guard.unlock();
-
+	{
+		std::unique_lock<std::mutex> guard(pendingLock_);
+		pendingCancel_ = true;
+		pendingStop_ = true;
+		pendingCond_.notify_all();
+	}
 	if (pendingThread_.joinable()) {
 		pendingThread_.join();
 	}

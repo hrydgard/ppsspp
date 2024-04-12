@@ -111,6 +111,7 @@ public abstract class NativeActivity extends Activity {
 	private PowerSaveModeReceiver mPowerSaveModeReceiver = null;
 	private SizeManager sizeManager = null;
 	private static LocationHelper mLocationHelper;
+	private static InfraredHelper mInfraredHelper;
 	private static CameraHelper mCameraHelper;
 
 	private static final String[] permissionsForStorage = {
@@ -472,6 +473,14 @@ public abstract class NativeActivity extends Activity {
 		}
 
 		mLocationHelper = new LocationHelper(this);
+		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
+			try {
+				mInfraredHelper = new InfraredHelper(this);
+			} catch (Exception e) {
+				mInfraredHelper = null;
+				Log.i(TAG, "InfraredHelper exception: " + e);
+			}
+		}
 		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB) {
 			// android.graphics.SurfaceTexture is not available before version 11.
 			mCameraHelper = new CameraHelper(this);
@@ -811,6 +820,7 @@ public abstract class NativeActivity extends Activity {
 		if (isVRDevice()) {
 			System.exit(0);
 		}
+		Log.i(TAG, "onDestroy");
 	}
 
 	@Override
@@ -1339,7 +1349,11 @@ public abstract class NativeActivity extends Activity {
 		AlertDialog dlg = builder.create();
 
 		dlg.setCancelable(true);
-		dlg.show();
+		try {
+			dlg.show();
+		} catch (Exception e) {
+			NativeApp.reportException(e, "AlertDialog");
+		}
 	}
 
 	public boolean processCommand(String command, String params) {
@@ -1400,7 +1414,7 @@ public abstract class NativeActivity extends Activity {
 				Log.e(TAG, e.toString());
 				return false;
 			}
-		} else if (command.equals("browse_file") || command.equals("browse_file_audio")) {
+		} else if (command.equals("browse_file") || command.equals("browse_file_audio") || command.equals("browse_file_zip")) {
 			try {
 				int requestId = Integer.parseInt(params);
 				int packedResultCode = packResultCode(RESULT_OPEN_DOCUMENT, requestId);
@@ -1408,7 +1422,12 @@ public abstract class NativeActivity extends Activity {
 				Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
 				intent.addCategory(Intent.CATEGORY_OPENABLE);
 				if (command.equals("browse_file_audio")) {
-					intent.setType("audio/x-wav");
+					// Trickery for multiple mime types.
+					String [] mimeTypes = {"audio/x-wav", "audio/x-mpeg3", "audio/mpeg"};
+					intent.setType("*/*");
+					intent.putExtra(Intent.EXTRA_MIME_TYPES, mimeTypes);
+				} else if (command.equals("browse_file_zip")) {
+					intent.setType("application/zip");
 				} else {
 					intent.setType("*/*");
 				}
@@ -1560,7 +1579,25 @@ public abstract class NativeActivity extends Activity {
 			} else if (params.equals("close")) {
 				mLocationHelper.stopLocationUpdates();
 			}
+		} else if (command.equals("infrared_command")) {
+			if (mInfraredHelper == null) {
+				return false;
+			}
+			if (params.startsWith("sircs")) {
+				Pattern pattern = Pattern.compile("sircs_(\\d+)_(\\d+)_(\\d+)_(\\d+)");
+				Matcher matcher = pattern.matcher(params);
+				if (!matcher.matches())
+					return false;
+				int ir_version = Integer.parseInt(matcher.group(1));
+				int ir_command = Integer.parseInt(matcher.group(2));
+				int ir_address = Integer.parseInt(matcher.group(3));
+				int ir_count   = Integer.parseInt(matcher.group(4));
+				mInfraredHelper.sendSircCommand(ir_version, ir_command, ir_address, ir_count);
+			}
 		} else if (command.equals("camera_command")) {
+			if (mCameraHelper == null) {
+				return false;
+			}
 			if (params.startsWith("startVideo")) {
 				Pattern pattern = Pattern.compile("startVideo_(\\d+)x(\\d+)");
 				Matcher matcher = pattern.matcher(params);
@@ -1569,7 +1606,7 @@ public abstract class NativeActivity extends Activity {
 				int width = Integer.parseInt(matcher.group(1));
 				int height = Integer.parseInt(matcher.group(2));
 				mCameraHelper.setCameraSize(width, height);
-				if (mCameraHelper != null && !askForPermissions(permissionsForCamera, REQUEST_CODE_CAMERA_PERMISSION)) {
+				if (!askForPermissions(permissionsForCamera, REQUEST_CODE_CAMERA_PERMISSION)) {
 					mCameraHelper.startCamera();
 				}
 			} else if (mCameraHelper != null && params.equals("stopVideo")) {
@@ -1600,8 +1637,25 @@ public abstract class NativeActivity extends Activity {
 				throw new Exception();
 			} catch (Exception e) {
 				NativeApp.reportException(e, params);
-
-
+			}
+		} else if (command.equals("show_folder")) {
+			try {
+				Uri selectedUri = Uri.parse(params);
+				Intent intent = new Intent(Intent.ACTION_VIEW);
+				intent.setDataAndType(selectedUri, "resource/folder");
+				if (intent.resolveActivityInfo(getPackageManager(), 0) != null) {
+					startActivity(intent);
+					Log.i(TAG, "Started activity for " + params);
+					return true;
+				} else {
+					Log.w(TAG, "No file explorer installed");
+					// if you reach this place, it means there is no any file
+					// explorer app installed on your device
+					return false;
+				}
+			} catch (Exception e) {
+				NativeApp.reportException(e, params);
+				return false;
 			}
 		}
 		return false;

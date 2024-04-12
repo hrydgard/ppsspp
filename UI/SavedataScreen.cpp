@@ -87,23 +87,24 @@ public:
 		UIContext &dc = *screenManager()->getUIContext();
 		const Style &textStyle = dc.theme->popupStyle;
 
-		std::shared_ptr<GameInfo> ginfo = g_gameInfoCache->GetInfo(screenManager()->getDrawContext(), savePath_, GAMEINFO_WANTBG | GAMEINFO_WANTSIZE);
-		if (!ginfo)
+		std::shared_ptr<GameInfo> ginfo = g_gameInfoCache->GetInfo(screenManager()->getDrawContext(), savePath_, GameInfoFlags::PARAM_SFO | GameInfoFlags::ICON | GameInfoFlags::SIZE);
+		if (!ginfo->Ready(GameInfoFlags::PARAM_SFO))
 			return;
 
-		ScrollView *contentScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 1.0f));
+		ScrollView *contentScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 1.0f, UI::Margins(0, 3)));
 		LinearLayout *content = new LinearLayout(ORIENT_VERTICAL);
 		parent->Add(contentScroll);
 		contentScroll->Add(content);
 		LinearLayout *toprow = new LinearLayout(ORIENT_HORIZONTAL, new LayoutParams(FILL_PARENT, WRAP_CONTENT));
 		content->Add(toprow);
+		toprow->SetSpacing(0.0);
 
 		if (ginfo->fileType == IdentifiedFileType::PSP_SAVEDATA_DIRECTORY) {
 			std::string savedata_detail = ginfo->paramSFO.GetValueString("SAVEDATA_DETAIL");
 			std::string savedata_title = ginfo->paramSFO.GetValueString("SAVEDATA_TITLE");
 
 			if (ginfo->icon.texture) {
-				toprow->Add(new GameIconView(savePath_, 2.0f, new LinearLayoutParams(Margins(10, 5))));
+				toprow->Add(new GameIconView(savePath_, 2.0f, new LinearLayoutParams(Margins(5, 5))));
 			}
 			LinearLayout *topright = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT, 1.0f));
 			topright->SetSpacing(1.0f);
@@ -260,7 +261,7 @@ void SavedataButton::UpdateDateSeconds() {
 }
 
 UI::EventReturn SavedataPopupScreen::OnDeleteButtonClick(UI::EventParams &e) {
-	std::shared_ptr<GameInfo> ginfo = g_gameInfoCache->GetInfo(nullptr, savePath_, GAMEINFO_WANTSIZE);
+	std::shared_ptr<GameInfo> ginfo = g_gameInfoCache->GetInfo(nullptr, savePath_, GameInfoFlags::PARAM_SFO);
 	ginfo->Delete();
 	TriggerFinish(DR_NO);
 	return UI::EVENT_DONE;
@@ -274,8 +275,8 @@ static std::string CleanSaveString(const std::string &str) {
 }
 
 bool SavedataButton::UpdateText() {
-	std::shared_ptr<GameInfo> ginfo = g_gameInfoCache->GetInfo(nullptr, savePath_, GAMEINFO_WANTSIZE);
-	if (!ginfo->pending) {
+	std::shared_ptr<GameInfo> ginfo = g_gameInfoCache->GetInfo(nullptr, savePath_, GameInfoFlags::PARAM_SFO);
+	if (ginfo->Ready(GameInfoFlags::PARAM_SFO)) {
 		UpdateText(ginfo);
 		return true;
 	}
@@ -294,12 +295,12 @@ void SavedataButton::UpdateText(const std::shared_ptr<GameInfo> &ginfo) {
 }
 
 void SavedataButton::Draw(UIContext &dc) {
-	std::shared_ptr<GameInfo> ginfo = g_gameInfoCache->GetInfo(dc.GetDrawContext(), savePath_, GAMEINFO_WANTSIZE);
+	std::shared_ptr<GameInfo> ginfo = g_gameInfoCache->GetInfo(dc.GetDrawContext(), savePath_, GameInfoFlags::ICON | GameInfoFlags::PARAM_SFO | GameInfoFlags::SIZE);
 	Draw::Texture *texture = 0;
 	u32 color = 0, shadowColor = 0;
 	using namespace UI;
 
-	if (ginfo->icon.texture) {
+	if (ginfo->Ready(GameInfoFlags::ICON) && ginfo->icon.texture) {
 		texture = ginfo->icon.texture;
 	}
 
@@ -336,8 +337,8 @@ void SavedataButton::Draw(UIContext &dc) {
 		w = nw;
 	}
 
-	int txOffset = down_ ? 4 : 0;
-	txOffset = 0;
+	// int txOffset = down_ ? 4 : 0;
+	int txOffset = 0;
 
 	Bounds overlayBounds = bounds_;
 
@@ -674,7 +675,7 @@ UI::EventReturn SavedataScreen::OnSortClick(UI::EventParams &e) {
 UI::EventReturn SavedataScreen::OnSearch(UI::EventParams &e) {
 	if (System_GetPropertyBool(SYSPROP_HAS_TEXT_INPUT_DIALOG)) {
 		auto di = GetI18NCategory(I18NCat::DIALOG);
-		System_InputBoxGetString(di->T("Filter"), searchFilter_, [](const std::string &value, int ivalue) {
+		System_InputBoxGetString(GetRequesterToken(), di->T("Filter"), searchFilter_, [](const std::string &value, int ivalue) {
 			System_PostUIMessage(UIMessage::SAVEDATA_SEARCH, value);
 		});
 	}
@@ -682,7 +683,10 @@ UI::EventReturn SavedataScreen::OnSearch(UI::EventParams &e) {
 }
 
 UI::EventReturn SavedataScreen::OnSavedataButtonClick(UI::EventParams &e) {
-	std::shared_ptr<GameInfo> ginfo = g_gameInfoCache->GetInfo(screenManager()->getDrawContext(), Path(e.s), 0);
+	std::shared_ptr<GameInfo> ginfo = g_gameInfoCache->GetInfo(screenManager()->getDrawContext(), Path(e.s), GameInfoFlags::PARAM_SFO);
+	if (!ginfo->Ready(GameInfoFlags::PARAM_SFO)) {
+		return UI::EVENT_DONE;
+	}
 	SavedataPopupScreen *popupScreen = new SavedataPopupScreen(e.s, ginfo->GetTitle());
 	if (e.v) {
 		popupScreen->SetPopupOrigin(e.v);
@@ -714,14 +718,15 @@ void GameIconView::GetContentDimensions(const UIContext &dc, float &w, float &h)
 
 void GameIconView::Draw(UIContext &dc) {
 	using namespace UI;
-	std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(NULL, gamePath_, GAMEINFO_WANTBG | GAMEINFO_WANTSIZE);
-
-	if (!info->icon.texture) {
+	std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(dc.GetDrawContext(), gamePath_, GameInfoFlags::ICON);
+	if (!info->Ready(GameInfoFlags::ICON) || !info->icon.texture) {
 		return;
 	}
 
-	textureWidth_ = info->icon.texture->Width() * scale_;
-	textureHeight_ = info->icon.texture->Height() * scale_;
+	Draw::Texture *texture = info->icon.texture;
+
+	textureWidth_ = texture->Width() * scale_;
+	textureHeight_ = texture->Height() * scale_;
 
 	// Fade icon with the backgrounds.
 	double loadTime = info->icon.timeLoaded;
@@ -736,7 +741,7 @@ void GameIconView::Draw(UIContext &dc) {
 	float nw = std::min(bounds_.h * textureWidth_ / textureHeight_, (float)bounds_.w);
 
 	dc.Flush();
-	dc.GetDrawContext()->BindTexture(0, info->icon.texture);
+	dc.GetDrawContext()->BindTexture(0, texture);
 	dc.Draw()->Rect(bounds_.x, bounds_.y, nw, bounds_.h, color);
 	dc.Flush();
 	dc.RebindTexture();

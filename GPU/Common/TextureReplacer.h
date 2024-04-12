@@ -100,7 +100,10 @@ public:
 
 	void NotifyConfigChanged();
 
-	bool Enabled() const { return enabled_; }
+	bool Enabled() const { return replaceEnabled_ || saveEnabled_; }  // used to check hashing method etc.
+	bool ReplaceEnabled() const { return replaceEnabled_; }
+	bool SaveEnabled() const { return saveEnabled_; }
+
 	bool AllowVideo() const { return allowVideo_; }
 
 	u32 ComputeHash(u32 addr, int bufw, int w, int h, bool swizzled, GETextureFormat fmt, u16 maxSeenV);
@@ -109,7 +112,7 @@ public:
 	ReplacedTexture *FindReplacement(u64 cachekey, u32 hash, int w, int h);
 
 	// Check if a NotifyTextureDecoded for this texture is desired (used to avoid reads from write-combined memory.)
-	bool WillSave(const ReplacedTextureDecodeInfo &replacedInfo);
+	bool WillSave(const ReplacedTextureDecodeInfo &replacedInfo) const;
 
 	// Notify that a new texture was decoded. May already be upscaled, saves the data passed.
 	// If the replacer knows about this one already, texture will be passed in, otherwise nullptr.
@@ -137,10 +140,11 @@ protected:
 	float LookupReduceHashRange(int w, int h);
 	std::string LookupHashFile(u64 cachekey, u32 hash, bool *foundAlias, bool *ignored);
 
-	void ScanForHashNamedFiles(VFSBackend *dir, std::map<ReplacementCacheKey, std::map<int, std::string>> &filenameMap);
+	static void ScanForHashNamedFiles(VFSBackend *dir, std::map<ReplacementCacheKey, std::map<int, std::string>> &filenameMap);
 	void ComputeAliasMap(const std::map<ReplacementCacheKey, std::map<int, std::string>> &filenameMap);
 
-	bool enabled_ = false;
+	bool replaceEnabled_ = false;
+	bool saveEnabled_ = false;
 	bool allowVideo_ = false;
 	bool ignoreAddress_ = false;
 	bool reduceHash_ = false;

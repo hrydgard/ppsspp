@@ -748,7 +748,6 @@ InputLayout *D3D11DrawContext::CreateInputLayout(const InputLayoutDesc &desc) {
 	inputLayout->desc = desc;
 
 	// Translate to D3D11 elements;
-	inputLayout->elements.reserve(desc.attributes.size());
 	for (size_t i = 0; i < desc.attributes.size(); i++) {
 		D3D11_INPUT_ELEMENT_DESC el;
 		el.AlignedByteOffset = desc.attributes[i].offset;
@@ -1143,7 +1142,6 @@ Pipeline *D3D11DrawContext::CreateGraphicsPipeline(const PipelineDesc &desc, con
 
 	std::vector<D3D11ShaderModule *> shaders;
 	D3D11ShaderModule *vshader = nullptr;
-	shaders.reserve(desc.shaders.size());
 	for (auto iter : desc.shaders) {
 		iter->AddRef();
 
@@ -1881,7 +1879,7 @@ void D3D11DrawContext::GetFramebufferDimensions(Framebuffer *fbo, int *w, int *h
 	}
 }
 
-DrawContext *T3DCreateD3D11Context(ID3D11Device *device, ID3D11DeviceContext *context, ID3D11Device1 *device1, ID3D11DeviceContext1 *context1, IDXGISwapChain *swapChain, D3D_FEATURE_LEVEL featureLevel, HWND hWnd, std::vector<std::string> adapterNames, int maxInflightFrames) {
+DrawContext *T3DCreateD3D11Context(ID3D11Device *device, ID3D11DeviceContext *context, ID3D11Device1 *device1, ID3D11DeviceContext1 *context1, IDXGISwapChain *swapChain, D3D_FEATURE_LEVEL featureLevel, HWND hWnd, const std::vector<std::string> &adapterNames, int maxInflightFrames) {
 	return new D3D11DrawContext(device, context, device1, context1, swapChain, featureLevel, hWnd, adapterNames, maxInflightFrames);
 }
 

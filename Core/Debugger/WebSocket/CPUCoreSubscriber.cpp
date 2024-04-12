@@ -219,7 +219,7 @@ static DebuggerRegType ValidateRegName(DebuggerRequest &req, const std::string &
 }
 
 static DebuggerRegType ValidateCatReg(DebuggerRequest &req, int *cat, int *reg) {
-	const char *name = req.data.getString("name", nullptr);
+	const char *name = req.data.getStringOr("name", nullptr);
 	if (name)
 		return ValidateRegName(req, name, cat, reg);
 

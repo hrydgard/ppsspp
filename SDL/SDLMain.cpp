@@ -206,13 +206,12 @@ static void UpdateScreenDPI(SDL_Window *window) {
 
 // Simple implementations of System functions
 
-
-void System_Toast(const char *text) {
+void System_Toast(std::string_view text) {
 #ifdef _WIN32
 	std::wstring str = ConvertUTF8ToWString(text);
 	MessageBox(0, str.c_str(), L"Toast!", MB_ICONINFORMATION);
 #else
-	puts(text);
+    printf("%*.s", (int)text.length(), text.data());
 #endif
 }
 
@@ -224,7 +223,7 @@ void System_Vibrate(int length_ms) {
 	// Ignore on PC
 }
 
-bool System_MakeRequest(SystemRequestType type, int requestId, const std::string &param1, const std::string &param2, int param3) {
+bool System_MakeRequest(SystemRequestType type, int requestId, const std::string &param1, const std::string &param2, int64_t param3, int64_t param4) {
 	switch (type) {
 	case SystemRequestType::RESTART_APP:
 		g_RestartRequested = true;
@@ -493,7 +492,7 @@ std::vector<std::string> System_GetPropertyStringVec(SystemProperty prop) {
 	}
 }
 
-int System_GetPropertyInt(SystemProperty prop) {
+int64_t System_GetPropertyInt(SystemProperty prop) {
 	switch (prop) {
 	case SYSPROP_AUDIO_SAMPLE_RATE:
 		return g_retFmt.freq;
@@ -563,9 +562,9 @@ bool System_GetPropertyBool(SystemProperty prop) {
 #if PPSSPP_PLATFORM(SWITCH)
 	case SYSPROP_HAS_TEXT_INPUT_DIALOG:
 		return __nx_applet_type == AppletType_Application || __nx_applet_type != AppletType_SystemApplication;
+#endif
 	case SYSPROP_HAS_KEYBOARD:
 		return true;
-#endif
 	case SYSPROP_APP_GOLD:
 #ifdef GOLD
 		return true;
@@ -675,17 +674,7 @@ static void EmuThreadFunc(GraphicsContext *graphicsContext) {
 	NativeInitGraphics(graphicsContext);
 
 	while (emuThreadState != (int)EmuThreadState::QUIT_REQUESTED) {
-		double startTime = time_now_d();
-
 		UpdateRunLoop(graphicsContext);
-
-		// Simple throttling to not burn the GPU in the menu.
-		if (GetUIState() != UISTATE_INGAME || !PSP_IsInited()) {
-			double diffTime = time_now_d() - startTime;
-			int sleepTime = (int)(1000.0 / 60.0) - (int)(diffTime * 1000.0);
-			if (sleepTime > 0)
-				sleep_ms(sleepTime);
-		}
 	}
 	emuThreadState = (int)EmuThreadState::STOPPED;
 	graphicsContext->StopThread();
@@ -867,7 +856,7 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 	case SDL_TEXTINPUT:
 		{
 			int pos = 0;
-			int c = u8_nextchar(event.text.text, &pos);
+			int c = u8_nextchar(event.text.text, &pos, strlen(event.text.text));
 			KeyInput key;
 			key.flags = KEY_CHAR;
 			key.unicodeChar = c;
@@ -946,6 +935,14 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 			break;
 		case SDL_BUTTON_RIGHT:
 			{
+				// Right button only emits mouse move events. This is weird,
+				// but consistent with Windows. Needs cleanup.
+				TouchInput input{};
+				input.x = mx;
+				input.y = my;
+				input.flags = TOUCH_MOVE | TOUCH_MOUSE;
+				input.id = 0;
+				NativeTouch(input);
 				KeyInput key(DEVICE_ID_MOUSE, NKCODE_EXT_MOUSEBUTTON_2, KEY_DOWN);
 				NativeKey(key);
 			}
@@ -1019,7 +1016,6 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 				input.x = mx;
 				input.y = my;
 				input.flags = TOUCH_UP | TOUCH_MOUSE;
-				input.id = 0;
 				NativeTouch(input);
 				KeyInput key(DEVICE_ID_MOUSE, NKCODE_EXT_MOUSEBUTTON_1, KEY_UP);
 				NativeKey(key);
@@ -1027,6 +1023,13 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 			break;
 		case SDL_BUTTON_RIGHT:
 			{
+				// Right button only emits mouse move events. This is weird,
+				// but consistent with Windows. Needs cleanup.
+				TouchInput input{};
+				input.x = mx;
+				input.y = my;
+				input.flags = TOUCH_MOVE | TOUCH_MOUSE;
+				NativeTouch(input);
 				KeyInput key(DEVICE_ID_MOUSE, NKCODE_EXT_MOUSEBUTTON_2, KEY_UP);
 				NativeKey(key);
 			}

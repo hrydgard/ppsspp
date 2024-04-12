@@ -336,7 +336,7 @@ public:
 	const char *GetBugName(uint32_t bug);
 
 	enum : uint32_t {
-		NO_DEPTH_CANNOT_DISCARD_STENCIL = 0,
+		NO_DEPTH_CANNOT_DISCARD_STENCIL_ADRENO = 0,
 		DUAL_SOURCE_BLENDING_BROKEN = 1,
 		ANY_MAP_BUFFER_RANGE_SLOW = 2,
 		PVR_GENMIPMAP_HEIGHT_GREATER = 3,
@@ -350,6 +350,8 @@ public:
 		GEOMETRY_SHADERS_SLOW_OR_BROKEN = 11,
 		ADRENO_RESOURCE_DEADLOCK = 12,
 		UNIFORM_INDEXING_BROKEN = 13,  // not a properly diagnosed issue, a workaround attempt: #17386
+		PVR_BAD_16BIT_TEXFORMATS = 14,
+		NO_DEPTH_CANNOT_DISCARD_STENCIL_MALI = 15,
 		MAX_BUG,
 	};
 
@@ -693,12 +695,14 @@ public:
 
 	Bugs GetBugs() const { return bugs_; }
 
+	virtual void Wait() {}
+
 	virtual const DeviceCaps &GetDeviceCaps() const = 0;
 	virtual uint32_t GetDataFormatSupport(DataFormat fmt) const = 0;
 	virtual std::vector<std::string> GetFeatureList() const { return std::vector<std::string>(); }
 	virtual std::vector<std::string> GetExtensionList(bool device, bool enabledOnly) const { return std::vector<std::string>(); }
 	virtual std::vector<std::string> GetDeviceList() const { return std::vector<std::string>(); }
-	virtual std::vector<std::string> GetPresentModeList(const char *currentMarkerString) const { return std::vector<std::string>(); }
+	virtual std::vector<std::string> GetPresentModeList(std::string_view currentMarkerString) const { return std::vector<std::string>(); }
 	virtual std::vector<std::string> GetSurfaceFormatList() const { return std::vector<std::string>(); }
 
 	// Describes the primary shader language that this implementation prefers.
@@ -718,7 +722,6 @@ public:
 	virtual BlendState *CreateBlendState(const BlendStateDesc &desc) = 0;
 	virtual SamplerState *CreateSamplerState(const SamplerStateDesc &desc) = 0;
 	virtual RasterState *CreateRasterState(const RasterStateDesc &desc) = 0;
-	// virtual ComputePipeline CreateComputePipeline(const ComputePipelineDesc &desc) = 0
 	virtual InputLayout *CreateInputLayout(const InputLayoutDesc &desc) = 0;
 	virtual ShaderModule *CreateShaderModule(ShaderStage stage, ShaderLanguage language, const uint8_t *data, size_t dataSize, const char *tag = "thin3d") = 0;
 	virtual Pipeline *CreateGraphicsPipeline(const PipelineDesc &desc, const char *tag) = 0;
@@ -823,8 +826,6 @@ public:
 	// NOTE: Not all backends support vblanks > 1. Some backends also can't change presentation mode immediately.
 	virtual void Present(PresentMode presentMode, int vblanks) = 0;
 
-	virtual void WipeQueue() {}
-
 	// This should be avoided as much as possible, in favor of clearing when binding a render target, which is native
 	// on Vulkan.
 	virtual void Clear(int mask, uint32_t colorval, float depthVal, int stencilVal) = 0;
@@ -834,6 +835,10 @@ public:
 		targetWidth_ = w;
 		targetHeight_ = h;
 	}
+
+	// In Vulkan, when changing things like MSAA mode, we can't have draw commands in flight (since we only support one at a time).
+	virtual void StopThreads() {}
+	virtual void StartThreads() {}
 
 	virtual std::string GetInfoString(InfoField info) const = 0;
 	virtual uint64_t GetNativeObject(NativeObject obj, void *srcObject = nullptr) = 0;  // Most uses don't need an srcObject.

@@ -234,7 +234,7 @@ static std::string GetGPRName(int r) {
 }
 
 void DisassembleParam(char *buf, int bufSize, u8 param, char type, u32 constant) {
-	static const char *vfpuCtrlNames[VFPU_CTRL_MAX] = {
+	static const char * const vfpuCtrlNames[VFPU_CTRL_MAX] = {
 		"SPFX",
 		"TPFX",
 		"DPFX",
@@ -252,7 +252,7 @@ void DisassembleParam(char *buf, int bufSize, u8 param, char type, u32 constant)
 		"RCX6",
 		"RCX7",
 	};
-	static const char *initVec4Names[8] = {
+	static const char * const initVec4Names[8] = {
 		"[0 0 0 0]",
 		"[1 1 1 1]",
 		"[-1 -1 -1 -1]",
@@ -261,7 +261,7 @@ void DisassembleParam(char *buf, int bufSize, u8 param, char type, u32 constant)
 		"[0 0 1 0]",
 		"[0 0 0 1]",
 	};
-	static const char *xyzw = "xyzw";
+	static const char * const xyzw = "xyzw";
 
 	switch (type) {
 	case 'G':

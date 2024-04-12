@@ -261,6 +261,9 @@ SamplerCacheKey TextureCacheCommon::GetSamplingParams(int maxLevel, const TexCac
 				if (uglyColorTest)
 					forceFiltering = TEX_FILTER_FORCE_NEAREST;
 			}
+			if (gstate_c.pixelMapped) {
+				forceFiltering = TEX_FILTER_FORCE_NEAREST;
+			}
 			break;
 		case TEX_FILTER_FORCE_LINEAR:
 			// Override to linear filtering if there's no alpha or color testing going on.
@@ -280,6 +283,9 @@ SamplerCacheKey TextureCacheCommon::GetSamplingParams(int maxLevel, const TexCac
 				bool uglyColorTest = gstate.isColorTestEnabled() && !IsColorTestTriviallyTrue() && gstate.getColorTestRef() != 0;
 				if (uglyColorTest)
 					forceFiltering = TEX_FILTER_FORCE_NEAREST;
+			}
+			if (gstate_c.pixelMapped) {
+				forceFiltering = TEX_FILTER_FORCE_NEAREST;
 			}
 			break;
 		}
@@ -395,6 +401,7 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 	if (!Memory::IsValidAddress(texaddr)) {
 		// Bind a null texture and return.
 		Unbind();
+		gstate_c.SetTextureIsVideo(false);
 		gstate_c.SetTextureIs3D(false);
 		gstate_c.SetTextureIsArray(false);
 		gstate_c.SetTextureIsFramebuffer(false);
@@ -563,6 +570,7 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 			// got one!
 			gstate_c.curTextureWidth = w;
 			gstate_c.curTextureHeight = h;
+			gstate_c.SetTextureIsVideo(false);
 			gstate_c.SetTextureIs3D((entry->status & TexCacheEntry::STATUS_3D) != 0);
 			gstate_c.SetTextureIsArray(false);
 			gstate_c.SetTextureIsBGRA((entry->status & TexCacheEntry::STATUS_BGRA) != 0);
@@ -669,6 +677,7 @@ TexCacheEntry *TextureCacheCommon::SetTexture() {
 
 	gstate_c.curTextureWidth = w;
 	gstate_c.curTextureHeight = h;
+	gstate_c.SetTextureIsVideo(false);
 	gstate_c.SetTextureIs3D((entry->status & TexCacheEntry::STATUS_3D) != 0);
 	gstate_c.SetTextureIsArray(false);  // Ordinary 2D textures still aren't used by array view in VK. We probably might as well, though, at this point..
 	gstate_c.SetTextureIsFramebuffer(false);
@@ -1191,6 +1200,7 @@ void TextureCacheCommon::SetTextureFramebuffer(const AttachCandidate &candidate)
 		nextTexture_ = nullptr;
 	}
 
+	gstate_c.SetTextureIsVideo(false);
 	gstate_c.SetTextureIs3D(false);
 	gstate_c.SetTextureIsArray(true);
 
@@ -1543,7 +1553,7 @@ ReplacedTexture *TextureCacheCommon::FindReplacement(TexCacheEntry *entry, int *
 	// Short circuit the non-enabled case.
 	// Otherwise, due to bReplaceTexturesAllowLate, we'll still spawn tasks looking for replacements
 	// that then won't be used.
-	if (!replacer_.Enabled()) {
+	if (!replacer_.ReplaceEnabled()) {
 		return nullptr;
 	}
 
@@ -1552,7 +1562,7 @@ ReplacedTexture *TextureCacheCommon::FindReplacement(TexCacheEntry *entry, int *
 	}
 
 	double replaceStart = time_now_d();
-	u64 cachekey = replacer_.Enabled() ? entry->CacheKey() : 0;
+	u64 cachekey = entry->CacheKey();
 	ReplacedTexture *replaced = replacer_.FindReplacement(cachekey, entry->fullhash, *w, *h);
 	replacementTimeThisFrame_ += time_now_d() - replaceStart;
 	if (!replaced) {
@@ -2148,6 +2158,7 @@ void TextureCacheCommon::ApplyTexture() {
 		ForgetLastTexture();
 	}
 
+	gstate_c.SetTextureIsVideo((entry->status & TexCacheEntry::STATUS_VIDEO) != 0);
 	if (entry->status & TexCacheEntry::STATUS_CLUT_GPU) {
 		// Special process.
 		ApplyTextureDepal(entry);
@@ -2904,7 +2915,7 @@ bool TextureCacheCommon::PrepareBuildTexture(BuildTexturePlan &plan, TexCacheEnt
 		// But, we still need to create the texture at a larger size.
 		plan.replaced->GetSize(0, &plan.createW, &plan.createH);
 	} else {
-		if (replacer_.Enabled() && !plan.doReplace && plan.depth == 1 && canReplace) {
+		if (replacer_.SaveEnabled() && !plan.doReplace && plan.depth == 1 && canReplace) {
 			ReplacedTextureDecodeInfo replacedInfo;
 			// TODO: Do we handle the race where a replacement becomes valid AFTER this but before we save?
 			replacedInfo.cachekey = entry->CacheKey();

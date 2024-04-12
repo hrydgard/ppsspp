@@ -45,6 +45,8 @@ struct SoftwareTransformResult {
 	TransformedVertex *drawBuffer;
 	int drawNumTrans;
 	bool drawIndexed;
+
+	bool pixelMapped;
 };
 
 struct SoftwareTransformParams {
@@ -65,15 +67,17 @@ public:
 	SoftwareTransform(SoftwareTransformParams &params) : params_(params) {}
 
 	void SetProjMatrix(const float mtx[14], bool invertedX, bool invertedY, const Lin::Vec3 &trans, const Lin::Vec3 &scale);
-	void Transform(int prim, u32 vertexType, const DecVtxFormat &decVtxFormat, int maxIndex, SoftwareTransformResult *result);
-	void DetectOffsetTexture(int maxIndex);
-	void BuildDrawingParams(int prim, int vertexCount, u32 vertType, u16 *&inds, int &maxIndex, SoftwareTransformResult *result);
+	void Transform(int prim, u32 vertexType, const DecVtxFormat &decVtxFormat, int numDecodedVerts, SoftwareTransformResult *result);
+
+	// NOTE: The viewport must be up to date!
+	// indsSize is in indices, not bytes.
+	void BuildDrawingParams(int prim, int vertexCount, u32 vertType, u16 *&inds, int indsSize, int &numDecodedVerts, int vertsSize, SoftwareTransformResult *result);
 
 protected:
-	void CalcCullParams(float &minZValue, float &maxZValue);
-	void ExpandRectangles(int vertexCount, int &maxIndex, u16 *&inds, const TransformedVertex *transformed, TransformedVertex *transformedExpanded, int &numTrans, bool throughmode);
-	void ExpandLines(int vertexCount, int &maxIndex, u16 *&inds, const TransformedVertex *transformed, TransformedVertex *transformedExpanded, int &numTrans, bool throughmode);
-	void ExpandPoints(int vertexCount, int &maxIndex, u16 *&inds, const TransformedVertex *transformed, TransformedVertex *transformedExpanded, int &numTrans, bool throughmode);
+	void CalcCullParams(float &minZValue, float &maxZValue) const;
+	bool ExpandRectangles(int vertexCount, int &numDecodedVerts, int vertsSize, u16 *&inds, int indsSize, const TransformedVertex *transformed, TransformedVertex *transformedExpanded, int &numTrans, bool throughmode, bool *pixelMappedExactly) const;
+	static bool ExpandLines(int vertexCount, int &numDecodedVerts, int vertsSize, u16 *&inds, int indsSize, const TransformedVertex *transformed, TransformedVertex *transformedExpanded, int &numTrans, bool throughmode) ;
+	static bool ExpandPoints(int vertexCount, int &numDecodedVerts, int vertsSize, u16 *&inds, int indsSize, const TransformedVertex *transformed, TransformedVertex *transformedExpanded, int &numTrans, bool throughmode) ;
 
 	const SoftwareTransformParams &params_;
 	Lin::Matrix4x4 projMatrix_;

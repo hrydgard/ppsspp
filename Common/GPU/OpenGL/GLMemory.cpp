@@ -63,8 +63,7 @@ bool GLRBuffer::Unmap() {
 }
 
 GLPushBuffer::GLPushBuffer(GLRenderManager *render, GLuint target, size_t size, const char *tag) : render_(render), size_(size), target_(target), tag_(tag) {
-	bool res = AddBuffer();
-	_assert_(res);
+	AddBuffer();
 	RegisterGPUMemoryManager(this);
 }
 
@@ -103,7 +102,6 @@ void GLPushBuffer::Unmap() {
 void GLPushBuffer::Flush() {
 	// Must be called from the render thread.
 	_dbg_assert_(OnRenderThread());
-
 	if (buf_ >= buffers_.size()) {
 		_dbg_assert_msg_(false, "buf_ somehow got out of sync: %d vs %d", (int)buf_, (int)buffers_.size());
 		return;
@@ -138,17 +136,15 @@ void GLPushBuffer::Flush() {
 	}
 }
 
-bool GLPushBuffer::AddBuffer() {
+void GLPushBuffer::AddBuffer() {
 	// INFO_LOG(G3D, "GLPushBuffer(%s): Allocating %d bytes", tag_, size_);
 	BufInfo info;
 	info.localMemory = (uint8_t *)AllocateAlignedMemory(size_, 16);
-	if (!info.localMemory)
-		return false;
+	_assert_msg_(info.localMemory != 0, "GLPushBuffer alloc fail: %d (%s)", (int)size_, tag_);
 	info.buffer = render_->CreateBuffer(target_, size_, GL_DYNAMIC_DRAW);
 	info.size = size_;
 	buf_ = buffers_.size();
 	buffers_.push_back(info);
-	return true;
 }
 
 void GLPushBuffer::Destroy(bool onRenderThread) {
@@ -178,13 +174,7 @@ void GLPushBuffer::NextBuffer(size_t minSize) {
 		while (size_ < minSize) {
 			size_ <<= 1;
 		}
-
-		bool res = AddBuffer();
-		_assert_(res);
-		if (!res) {
-			// Let's try not to crash at least?
-			buf_ = 0;
-		}
+		AddBuffer();
 	}
 
 	// Now, move to the next buffer and map it.
@@ -203,7 +193,6 @@ void GLPushBuffer::Defragment() {
 				info.localMemory = nullptr;
 			}
 		}
-
 		return;
 	}
 
@@ -220,8 +209,7 @@ void GLPushBuffer::Defragment() {
 
 	// Set some sane but very free limits. If there's another spike, we'll just allocate more anyway.
 	size_ = std::min(std::max(newSize, (size_t)65536), (size_t)(512 * 1024 * 1024));
-	bool res = AddBuffer();
-	_assert_msg_(res, "AddBuffer failed");
+	AddBuffer();
 }
 
 size_t GLPushBuffer::GetTotalSize() const {

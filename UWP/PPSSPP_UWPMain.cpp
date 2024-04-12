@@ -354,7 +354,7 @@ std::vector<std::string> System_GetPropertyStringVec(SystemProperty prop) {
 	}
 }
 
-int System_GetPropertyInt(SystemProperty prop) {
+int64_t System_GetPropertyInt(SystemProperty prop) {
 	switch (prop) {
 	case SYSPROP_AUDIO_SAMPLE_RATE:
 		return winAudioBackend ? winAudioBackend->GetSampleRate() : -1;
@@ -402,7 +402,7 @@ float System_GetPropertyFloat(SystemProperty prop) {
 	}
 }
 
-void System_Toast(const char *str) {}
+void System_Toast(std::string_view str) {}
 
 bool System_GetPropertyBool(SystemProperty prop) {
 	switch (prop) {
@@ -460,7 +460,7 @@ void System_Notify(SystemNotification notification) {
 	}
 }
 
-bool System_MakeRequest(SystemRequestType type, int requestId, const std::string &param1, const std::string &param2, int param3) {
+bool System_MakeRequest(SystemRequestType type, int requestId, const std::string &param1, const std::string &param2, int64_t param3, int64_t param4) {
 	switch (type) {
 
 	case SystemRequestType::EXIT_APP:
@@ -478,7 +478,7 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 		ExecuteTask(error, Windows::ApplicationModel::Core::CoreApplication::RequestRestartAsync(nullptr));
 		if (error != Windows::ApplicationModel::Core::AppRestartFailureReason::RestartPending) {
 			// Shutdown
-			System_MakeRequest(SystemRequestType::EXIT_APP, requestId, param1, param2, param3);
+			System_MakeRequest(SystemRequestType::EXIT_APP, requestId, param1, param2, param3, param4);
 		}
 		return true;
 	}
@@ -502,16 +502,19 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 		std::vector<std::string> supportedExtensions = {};
 		switch ((BrowseFileType)param3) {
 		case BrowseFileType::BOOTABLE:
-			supportedExtensions = { ".cso", ".bin", ".iso", ".elf", ".pbp", ".zip" };
+			supportedExtensions = { ".cso", ".iso", ".chd", ".elf", ".pbp", ".zip", ".prx", ".bin" };  // should .bin even be here?
 			break;
 		case BrowseFileType::INI:
 			supportedExtensions = { ".ini" };
+			break;
+		case BrowseFileType::ZIP:
+			supportedExtensions = { ".zip" };
 			break;
 		case BrowseFileType::DB:
 			supportedExtensions = { ".db" };
 			break;
 		case BrowseFileType::SOUND_EFFECT:
-			supportedExtensions = { ".wav" };
+			supportedExtensions = { ".wav", ".mp3" };
 			break;
 		case BrowseFileType::ANY:
 			// 'ChooseFile' will added '*' by default when there are no extensions assigned

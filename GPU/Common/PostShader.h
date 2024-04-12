@@ -106,13 +106,13 @@ struct TextureShaderInfo {
 
 void ReloadAllPostShaderInfo(Draw::DrawContext *draw);
 
-const ShaderInfo *GetPostShaderInfo(const std::string &name);
+const ShaderInfo *GetPostShaderInfo(std::string_view name);
 std::vector<const ShaderInfo *> GetPostShaderChain(const std::string &name);
 std::vector<const ShaderInfo *> GetFullPostShadersChain(const std::vector<std::string> &names);
 bool PostShaderChainRequires60FPS(const std::vector<const ShaderInfo *> &chain);
 const std::vector<ShaderInfo> &GetAllPostShaderInfo();
 
-const TextureShaderInfo *GetTextureShaderInfo(const std::string &name);
+const TextureShaderInfo *GetTextureShaderInfo(std::string_view name);
 const std::vector<TextureShaderInfo> &GetAllTextureShaderInfo();
 void RemoveUnknownPostShaders(std::vector<std::string> *names);
 

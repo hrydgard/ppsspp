@@ -116,15 +116,14 @@ if(NOT IOS)
 	list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake/sdl)
 endif()
 
-include(ccache)
+include(CheckCXXSourceCompiles)
 include(GNUInstallDirs)
 
 add_definitions(-DASSETS_DIR="${CMAKE_INSTALL_FULL_DATADIR}/ppsspp/assets/")
 
-if(OPENXR)
+if(OPENXR AND NOT ARMV7_DEVICE)
 	add_definitions(-DOPENXR)
-	add_library(openxr SHARED IMPORTED)
-	set_property(TARGET openxr PROPERTY IMPORTED_LOCATION "${CMAKE_SOURCE_DIR}/ext/openxr/stub/arm64-v8a/libopenxr_loader.so")
+	add_subdirectory(ext/OpenXR-SDK)
 	message("OpenXR enabled")
 endif()
 
@@ -173,6 +172,11 @@ option(USE_SYSTEM_ZSTD "Dynamically link against system zstd" ${USE_SYSTEM_ZSTD}
 option(USE_SYSTEM_MINIUPNPC "Dynamically link against system miniUPnPc" ${USE_SYSTEM_MINIUPNPC})
 option(USE_ASAN "Use address sanitizer" OFF)
 option(USE_UBSAN "Use undefined behaviour sanitizer" OFF)
+option(USE_CCACHE "Use ccache if detected" ON)
+
+if(USE_CCACHE)
+	include(ccache)
+endif()
 
 if(UNIX AND NOT (APPLE OR ANDROID) AND VULKAN)
 	if(USING_X11_VULKAN)
@@ -237,7 +241,7 @@ include_directories(ext/glslang)
 # Anyway, glew will be going away anyway.
 include_directories(ext/glew)
 
-if(OPENXR)
+if(OPENXR AND NOT ARMV7_DEVICE)
 	set(OPENGL_LIBRARIES GLESv3 EGL)
 elseif(NOT OPENGL_LIBRARIES AND USING_GLES2)
 	set(OPENGL_LIBRARIES GLESv2 EGL)
@@ -582,7 +586,7 @@ set(CommonVR
 	Common/VR/VRRenderer.cpp
 	Common/VR/VRRenderer.h
 )
-include_directories(ext/openxr)
+include_directories(ext/OpenXR-SDK/include)
 
 add_library(Common STATIC
 	${CommonX86}
@@ -949,6 +953,23 @@ if(USE_FFMPEG)
 	endif()
 
 	find_package(FFmpeg REQUIRED avcodec avformat avutil swresample swscale)
+	# Check if we need to use avcodec_(alloc|free)_frame instead of av_frame_(alloc|free)
+	# Check if we need to use const AVCodec
+	set(CMAKE_REQUIRED_LIBRARIES avcodec;avformat)
+	set(CMAKE_REQUIRED_FLAGS "-pedantic -Wall -Werror -Wno-unused-variable")
+	check_cxx_source_compiles("extern \"C\" {
+		#include <libavcodec/avcodec.h>
+		#include <libavformat/avformat.h>
+		}
+		static AVCodecContext *s_codec_context = NULL;
+		int main() {
+			const AVCodec *codec = avcodec_find_encoder(s_codec_context->codec_id);
+			return 0;
+		}
+		" HAVE_LIBAVCODEC_CONST_AVCODEC FAIL_REGEX "invalid conversion")
+
+	# Check if we need to use avcodec_alloc_context3 instead of stream->codec
+	# Check if we need to use av_frame_get_buffer instead of avcodec_default_get_buffer
 endif(USE_FFMPEG)
 
 find_package(ZLIB)
@@ -1225,6 +1246,10 @@ set(BASISU_LIBRARIES basis_universal)
 set(nativeExtra)
 set(nativeExtraLibs)
 
+if(OPENXR AND NOT ARMV7_DEVICE)
+	set(nativeExtraLibs ${nativeExtraLibs} openxr_loader)
+endif()
+
 if(ANDROID)
 	set(NativeAppSource ${NativeAppSource}
 		android/jni/app-android.cpp
@@ -1238,9 +1263,6 @@ if(ANDROID)
 		android/jni/OpenSLContext.cpp
 		android/jni/OpenSLContext.h
 	)
-	if (OPENXR)
-		set(nativeExtraLibs ${nativeExtraLibs} openxr)
-	endif()
 	# No target
 elseif(IOS AND NOT LIBRETRO)
 	set(nativeExtra ${nativeExtra}
@@ -1373,19 +1395,19 @@ else()
 		set(nativeExtraLibs ${nativeExtraLibs} PkgConfig::SDL2_ttf_PKGCONFIG)
 	endif()
 	if(APPLE)
-		set(nativeExtra ${nativeExtra} 
-		SDL/SDLMain.h 
-		SDL/SDLMain.mm 
-		SDL/SDLCocoaMetalLayer.h 
-		SDL/SDLCocoaMetalLayer.mm 
+		set(nativeExtra ${nativeExtra}
+		SDL/SDLMain.h
+		SDL/SDLMain.mm
+		SDL/SDLCocoaMetalLayer.h
+		SDL/SDLCocoaMetalLayer.mm
 		SDL/CocoaBarItems.mm
 		SDL/CocoaBarItems.h
 		SDL/PPSSPPAboutViewController.m
 		SDL/PPSSPPAboutViewController.h
-		UI/DarwinFileSystemServices.mm 
-		UI/DarwinFileSystemServices.h 
-		Common/Battery/AppleBatteryClient.m 
-		UI/PSPNSApplicationDelegate.mm 
+		UI/DarwinFileSystemServices.mm
+		UI/DarwinFileSystemServices.h
+		Common/Battery/AppleBatteryClient.m
+		UI/PSPNSApplicationDelegate.mm
 		UI/PSPNSApplicationDelegate.h)
 
         set_source_files_properties(UI/DarwinFileSystemServices.mm PROPERTIES COMPILE_FLAGS -fobjc-arc)
@@ -1455,6 +1477,8 @@ list(APPEND NativeAppSource
 	UI/GameScreen.cpp
 	UI/GameSettingsScreen.h
 	UI/GameSettingsScreen.cpp
+	UI/DriverManagerScreen.h
+	UI/DriverManagerScreen.cpp
 	UI/GPUDriverTestScreen.h
 	UI/GPUDriverTestScreen.cpp
 	UI/TiltAnalogSettingsScreen.h
@@ -2018,6 +2042,7 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/ELF/PrxDecrypter.h
 	Core/ELF/ParamSFO.cpp
 	Core/ELF/ParamSFO.h
+	Core/FFMPEGCompat.h
 	Core/FileSystems/tlzrc.cpp
 	Core/FileSystems/BlobFileSystem.cpp
 	Core/FileSystems/BlobFileSystem.h
@@ -2160,6 +2185,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/HLE/sceSfmt19937.h
 	Core/HLE/sceSha256.cpp
 	Core/HLE/sceSha256.h
+	Core/HLE/sceSircs.cpp
+	Core/HLE/sceSircs.h
 	Core/HLE/sceSsl.cpp
 	Core/HLE/sceSsl.h
 	Core/HLE/sceUmd.cpp
@@ -2187,6 +2214,9 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/HLE/scePauth.cpp
 	Core/HLE/scePauth.h
 	Core/HW/SimpleAudioDec.cpp
+	Core/HW/SimpleAudioDec.h
+	Core/HW/Atrac3Standalone.cpp
+	Core/HW/Atrac3Standalone.h
 	Core/HW/SimpleAudioDec.h
 	Core/HW/AsyncIOManager.cpp
 	Core/HW/AsyncIOManager.h
@@ -2272,6 +2302,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/Util/AudioFormat.h
 	Core/Util/GameManager.cpp
 	Core/Util/GameManager.h
+	Core/Util/MemStick.cpp
+	Core/Util/MemStick.h
 	Core/Util/GameDB.cpp
 	Core/Util/GameDB.h
 	Core/Util/PortManager.cpp
@@ -2334,7 +2366,7 @@ endif()
 
 include_directories(ext/libchdr/include)
 
-target_link_libraries(${CoreLibName} Common native chdr kirk cityhash sfmt19937 xbrz xxhash rcheevos ${GlslangLibs}
+target_link_libraries(${CoreLibName} Common native chdr kirk cityhash sfmt19937 xbrz xxhash rcheevos minimp3 at3_standalone ${GlslangLibs}
 	${CoreExtraLibs} ${OPENGL_LIBRARIES} ${X11_LIBRARIES} ${CMAKE_DL_LIBS})
 
 if(NOT HTTPS_NOT_AVAILABLE)
@@ -2348,6 +2380,9 @@ target_compile_features(${CoreLibName} PUBLIC cxx_std_17)
 
 if(FFmpeg_FOUND)
 	target_compile_definitions(${CoreLibName} PRIVATE USE_FFMPEG=1)
+	if (HAVE_LIBAVCODEC_CONST_AVCODEC)
+		target_compile_definitions(${CoreLibName} PRIVATE HAVE_LIBAVCODEC_CONST_AVCODEC=1)
+	endif()
 	set_target_properties(${CoreLibName} PROPERTIES NO_SYSTEM_FROM_IMPORTED true)
 	target_include_directories(${CoreLibName} BEFORE PUBLIC ${FFmpeg_INCLUDE_avcodec})
 	target_link_libraries(${CoreLibName}
@@ -2604,6 +2639,8 @@ set(NativeAssets
 	assets/sfx_select.wav
 	assets/sfx_toggle_off.wav
 	assets/sfx_toggle_on.wav
+	assets/sfx_achievement_unlocked.wav
+	assets/sfx_leaderbord_submitted.wav
 	source_assets/image/logo.png
 	source_assets/image/icon_regular_72.png
 )

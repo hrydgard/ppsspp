@@ -74,7 +74,7 @@ struct Builtin {
 	const char *replacement;
 };
 
-static const char *cbufferDecl = R"(
+static const char * const cbufferDecl = R"(
 cbuffer data : register(b0) {
 	float2 u_texelDelta;
 	float2 u_pixelDelta;
@@ -85,13 +85,13 @@ cbuffer data : register(b0) {
 };
 )";
 
-static const char *vulkanPrologue =
+static const char * const vulkanPrologue =
 R"(#version 450
 #extension GL_ARB_separate_shader_objects : enable
 #extension GL_ARB_shading_language_420pack : enable
 )";
 
-static const char *vulkanUboDecl = R"(
+static const char * const vulkanUboDecl = R"(
 layout (std140, set = 0, binding = 0) uniform Data {
 	vec2 u_texelDelta;
 	vec2 u_pixelDelta;
@@ -102,7 +102,7 @@ layout (std140, set = 0, binding = 0) uniform Data {
 };
 )";
 
-static const char *d3d9RegisterDecl = R"(
+static const char * const d3d9RegisterDecl = R"(
 float4 gl_HalfPixel : register(c0);
 float2 u_texelDelta : register(c1);
 float2 u_pixelDelta : register(c2);

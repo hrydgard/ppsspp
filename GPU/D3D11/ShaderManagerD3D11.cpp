@@ -251,7 +251,6 @@ std::vector<std::string> ShaderManagerD3D11::DebugGetShaderIDs(DebugShaderType t
 	switch (type) {
 	case SHADER_TYPE_VERTEX:
 	{
-		ids.reserve(vsCache_.size());
 		for (auto iter : vsCache_) {
 			iter.first.ToString(&id);
 			ids.push_back(id);
@@ -260,7 +259,6 @@ std::vector<std::string> ShaderManagerD3D11::DebugGetShaderIDs(DebugShaderType t
 	}
 	case SHADER_TYPE_FRAGMENT:
 	{
-		ids.reserve(fsCache_.size());
 		for (auto iter : fsCache_) {
 			iter.first.ToString(&id);
 			ids.push_back(id);

@@ -904,7 +904,7 @@ void Jit::CheckMemoryBreakpoint(int instructionOffset, MIPSGPReg rs, int offset)
 			SetJumpTarget(skipCheck);
 		}
 	} else {
-		const auto &memchecks = CBreakPoints::GetMemCheckRanges(isWrite);
+		const auto memchecks = CBreakPoints::GetMemCheckRanges(isWrite);
 		bool possible = !memchecks.empty();
 		if (!possible)
 			return;

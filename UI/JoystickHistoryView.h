@@ -12,7 +12,7 @@ enum class StickHistoryViewType {
 
 class JoystickHistoryView : public UI::InertView {
 public:
-	JoystickHistoryView(StickHistoryViewType type, std::string title, UI::LayoutParams *layoutParams = nullptr)
+	JoystickHistoryView(StickHistoryViewType type, std::string_view title, UI::LayoutParams *layoutParams = nullptr)
 		: UI::InertView(layoutParams), title_(title), type_(type) {}
 
 	void Draw(UIContext &dc) override;

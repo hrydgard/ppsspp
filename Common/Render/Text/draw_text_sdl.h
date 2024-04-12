@@ -28,9 +28,9 @@ public:
 
 protected:
 	void ClearCache() override;
-	void PrepareFallbackFonts();
+	void PrepareFallbackFonts(std::string_view locale);
 	uint32_t CheckMissingGlyph(const std::string& text);
-	bool FindFallbackFonts(uint32_t missingGlyph, int ptSize);
+	int FindFallbackFonts(uint32_t missingGlyph, int ptSize);
 
 	uint32_t fontHash_;
 	std::map<uint32_t, _TTF_Font *> fontMap_;
@@ -40,6 +40,8 @@ protected:
 
 	std::vector<_TTF_Font *> fallbackFonts_;
 	std::vector<std::pair<std::string, int>> fallbackFontPaths_; // path and font face index
+
+	std::map<int, int> glyphFallbackFontIndex_;
 
 #if defined(USE_SDL2_TTF_FONTCONFIG)
 	FcConfig *config;

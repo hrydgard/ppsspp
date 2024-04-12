@@ -35,7 +35,7 @@ using namespace PPSSPP_VK;
 
 VulkanLogOptions g_LogOptions;
 
-static const char *validationLayers[] = {
+static const char * const validationLayers[] = {
 	"VK_LAYER_KHRONOS_validation",
 	/*
 	// For layers included in the Android NDK.
@@ -76,6 +76,20 @@ const char *VulkanPresentModeToString(VkPresentModeKHR presentMode) {
 	}
 }
 
+const char *VulkanImageLayoutToString(VkImageLayout imageLayout) {
+	switch (imageLayout) {
+	case VK_IMAGE_LAYOUT_UNDEFINED: return "UNDEFINED";
+	case VK_IMAGE_LAYOUT_GENERAL: return "GENERAL";
+	case VK_IMAGE_LAYOUT_PREINITIALIZED: return "PREINITIALIZED";
+	case VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL: return "TRANSFER_SRC_OPTIMAL";
+	case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL: return "TRANSFER_DST_OPTIMAL";
+	case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL: return "SHADER_READ_ONLY_OPTIMAL";
+	case VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL: return "COLOR_ATTACHMENT_OPTIMAL";
+	case VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL: return "DEPTH_STENCIL_ATTACHMENT_OPTIMAL";
+	default: return "OTHER";
+	}
+}
+
 VulkanContext::VulkanContext() {
 	// Do nothing here.
 }
@@ -84,6 +98,15 @@ VkResult VulkanContext::CreateInstance(const CreateInfo &info) {
 	if (!vkCreateInstance) {
 		init_error_ = "Vulkan not loaded - can't create instance";
 		return VK_ERROR_INITIALIZATION_FAILED;
+	}
+
+	// Check which Vulkan version we should request.
+	// Our code is fine with any version from 1.0 to 1.2, we don't know about higher versions.
+	vulkanApiVersion_ = VK_API_VERSION_1_0;
+	if (vkEnumerateInstanceVersion) {
+		vkEnumerateInstanceVersion(&vulkanApiVersion_);
+		vulkanApiVersion_ &= 0xFFFFF000;  // Remove patch version.
+		vulkanApiVersion_ = std::min(VK_API_VERSION_1_3, vulkanApiVersion_);
 	}
 
 	instance_layer_names_.clear();
@@ -133,7 +156,7 @@ VkResult VulkanContext::CreateInstance(const CreateInfo &info) {
 #endif
 #endif
 
-	if ((flags_ & VULKAN_FLAG_VALIDATE) && g_Config.customDriver.empty()) {
+	if ((flags_ & VULKAN_FLAG_VALIDATE) && g_Config.sCustomDriver.empty()) {
 		if (IsInstanceExtensionAvailable(VK_EXT_DEBUG_UTILS_EXTENSION_NAME)) {
 			// Enable the validation layers
 			for (size_t i = 0; i < ARRAY_SIZE(validationLayers); i++) {
@@ -152,12 +175,12 @@ VkResult VulkanContext::CreateInstance(const CreateInfo &info) {
 	// Temporary hack for libretro. For some reason, when we try to load the functions from this extension,
 	// we get null pointers when running libretro. Quite strange.
 #if !defined(__LIBRETRO__)
-	if (EnableInstanceExtension(VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME)) {
+	if (EnableInstanceExtension(VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME, VK_API_VERSION_1_1)) {
 		extensionsLookup_.KHR_get_physical_device_properties2 = true;
 	}
 #endif
 
-	if (EnableInstanceExtension(VK_EXT_SWAPCHAIN_COLOR_SPACE_EXTENSION_NAME)) {
+	if (EnableInstanceExtension(VK_EXT_SWAPCHAIN_COLOR_SPACE_EXTENSION_NAME, 0)) {
 		extensionsLookup_.EXT_swapchain_colorspace = true;
 	}
 
@@ -167,22 +190,13 @@ VkResult VulkanContext::CreateInstance(const CreateInfo &info) {
 			WARN_LOG(G3D, "WARNING: Does not seem that instance extension '%s' is available. Trying to proceed anyway.", ext);
 	}
 
-	// Check which Vulkan version we should request.
-	// Our code is fine with any version from 1.0 to 1.2, we don't know about higher versions.
-	u32 vulkanApiVersion = VK_API_VERSION_1_0;
-	if (vkEnumerateInstanceVersion) {
-		vkEnumerateInstanceVersion(&vulkanApiVersion);
-		vulkanApiVersion &= 0xFFFFF000;  // Remove patch version.
-		vulkanApiVersion = std::min(VK_API_VERSION_1_2, vulkanApiVersion);
-	}
-
 	VkApplicationInfo app_info{ VK_STRUCTURE_TYPE_APPLICATION_INFO };
 	app_info.pApplicationName = info.app_name;
 	app_info.applicationVersion = info.app_ver;
 	app_info.pEngineName = info.app_name;
 	// Let's increment this when we make major engine/context changes.
 	app_info.engineVersion = 2;
-	app_info.apiVersion = vulkanApiVersion;
+	app_info.apiVersion = vulkanApiVersion_;
 
 	VkInstanceCreateInfo inst_info{ VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO };
 	inst_info.flags = 0;
@@ -217,7 +231,7 @@ VkResult VulkanContext::CreateInstance(const CreateInfo &info) {
 		return res;
 	}
 
-	VulkanLoadInstanceFunctions(instance_, extensionsLookup_);
+	VulkanLoadInstanceFunctions(instance_, extensionsLookup_, vulkanApiVersion_);
 	if (!CheckLayers(instance_layer_properties_, instance_layer_names_)) {
 		WARN_LOG(G3D, "CheckLayers for instance failed");
 		// init_error_ = "Failed to validate instance layers";
@@ -259,7 +273,7 @@ VkResult VulkanContext::CreateInstance(const CreateInfo &info) {
 			props2.pNext = &pushProps;
 			pushProps.pNext = &extHostMemProps;
 			extHostMemProps.pNext = &depthStencilResolveProps;
-			vkGetPhysicalDeviceProperties2KHR(physical_devices_[i], &props2);
+			vkGetPhysicalDeviceProperties2(physical_devices_[i], &props2);
 			// Don't want bad pointers sitting around.
 			props2.pNext = nullptr;
 			pushProps.pNext = nullptr;
@@ -604,7 +618,7 @@ void VulkanContext::ChooseDevice(int physical_device) {
 		presentWaitFeatures.pNext = &presentIdFeatures;
 		presentIdFeatures.pNext = nullptr;
 
-		vkGetPhysicalDeviceFeatures2KHR(physical_devices_[physical_device_], &features2);
+		vkGetPhysicalDeviceFeatures2(physical_devices_[physical_device_], &features2);
 		deviceFeatures_.available.standard = features2.features;
 		deviceFeatures_.available.multiview = multiViewFeatures;
 		deviceFeatures_.available.presentWait = presentWaitFeatures;
@@ -619,7 +633,10 @@ void VulkanContext::ChooseDevice(int physical_device) {
 	device_extensions_enabled_.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
 }
 
-bool VulkanContext::EnableDeviceExtension(const char *extension) {
+bool VulkanContext::EnableDeviceExtension(const char *extension, uint32_t coreVersion) {
+	if (coreVersion != 0 && vulkanApiVersion_ >= coreVersion) {
+		return true;
+	}
 	for (auto &iter : device_extension_properties_) {
 		if (!strcmp(iter.extensionName, extension)) {
 			device_extensions_enabled_.push_back(extension);
@@ -629,7 +646,10 @@ bool VulkanContext::EnableDeviceExtension(const char *extension) {
 	return false;
 }
 
-bool VulkanContext::EnableInstanceExtension(const char *extension) {
+bool VulkanContext::EnableInstanceExtension(const char *extension, uint32_t coreVersion) {
+	if (coreVersion != 0 && vulkanApiVersion_ >= coreVersion) {
+		return true;
+	}
 	for (auto &iter : instance_extension_properties_) {
 		if (!strcmp(iter.extensionName, extension)) {
 			instance_extensions_enabled_.push_back(extension);
@@ -660,30 +680,30 @@ VkResult VulkanContext::CreateDevice() {
 	_dbg_assert_(found);
 
 	// TODO: A lot of these are on by default in later Vulkan versions, should check for that, technically.
-	extensionsLookup_.KHR_maintenance1 = EnableDeviceExtension(VK_KHR_MAINTENANCE1_EXTENSION_NAME);
-	extensionsLookup_.KHR_maintenance2 = EnableDeviceExtension(VK_KHR_MAINTENANCE2_EXTENSION_NAME);
-	extensionsLookup_.KHR_maintenance3 = EnableDeviceExtension(VK_KHR_MAINTENANCE3_EXTENSION_NAME);
-	extensionsLookup_.KHR_multiview = EnableDeviceExtension(VK_KHR_MULTIVIEW_EXTENSION_NAME);
+	extensionsLookup_.KHR_maintenance1 = EnableDeviceExtension(VK_KHR_MAINTENANCE1_EXTENSION_NAME, VK_API_VERSION_1_1);
+	extensionsLookup_.KHR_maintenance2 = EnableDeviceExtension(VK_KHR_MAINTENANCE2_EXTENSION_NAME, VK_API_VERSION_1_1);
+	extensionsLookup_.KHR_maintenance3 = EnableDeviceExtension(VK_KHR_MAINTENANCE3_EXTENSION_NAME, VK_API_VERSION_1_1);
+	extensionsLookup_.KHR_multiview = EnableDeviceExtension(VK_KHR_MULTIVIEW_EXTENSION_NAME, VK_API_VERSION_1_1);
 
-	if (EnableDeviceExtension(VK_KHR_GET_MEMORY_REQUIREMENTS_2_EXTENSION_NAME)) {
+	if (EnableDeviceExtension(VK_KHR_GET_MEMORY_REQUIREMENTS_2_EXTENSION_NAME, VK_API_VERSION_1_1)) {
 		extensionsLookup_.KHR_get_memory_requirements2 = true;
-		extensionsLookup_.KHR_dedicated_allocation = EnableDeviceExtension(VK_KHR_DEDICATED_ALLOCATION_EXTENSION_NAME);
+		extensionsLookup_.KHR_dedicated_allocation = EnableDeviceExtension(VK_KHR_DEDICATED_ALLOCATION_EXTENSION_NAME, VK_API_VERSION_1_1);
 	}
-	if (EnableDeviceExtension(VK_KHR_CREATE_RENDERPASS_2_EXTENSION_NAME)) {
+	if (EnableDeviceExtension(VK_KHR_CREATE_RENDERPASS_2_EXTENSION_NAME, VK_API_VERSION_1_2)) {
 		extensionsLookup_.KHR_create_renderpass2 = true;
-		extensionsLookup_.KHR_depth_stencil_resolve = EnableDeviceExtension(VK_KHR_DEPTH_STENCIL_RESOLVE_EXTENSION_NAME);
+		extensionsLookup_.KHR_depth_stencil_resolve = EnableDeviceExtension(VK_KHR_DEPTH_STENCIL_RESOLVE_EXTENSION_NAME, VK_API_VERSION_1_2);
 	}
 
-	extensionsLookup_.EXT_shader_stencil_export = EnableDeviceExtension(VK_EXT_SHADER_STENCIL_EXPORT_EXTENSION_NAME);
-	extensionsLookup_.EXT_fragment_shader_interlock = EnableDeviceExtension(VK_EXT_FRAGMENT_SHADER_INTERLOCK_EXTENSION_NAME);
-	extensionsLookup_.ARM_rasterization_order_attachment_access = EnableDeviceExtension(VK_ARM_RASTERIZATION_ORDER_ATTACHMENT_ACCESS_EXTENSION_NAME);
+	extensionsLookup_.EXT_shader_stencil_export = EnableDeviceExtension(VK_EXT_SHADER_STENCIL_EXPORT_EXTENSION_NAME, 0);
+	extensionsLookup_.EXT_fragment_shader_interlock = EnableDeviceExtension(VK_EXT_FRAGMENT_SHADER_INTERLOCK_EXTENSION_NAME, 0);
+	extensionsLookup_.ARM_rasterization_order_attachment_access = EnableDeviceExtension(VK_ARM_RASTERIZATION_ORDER_ATTACHMENT_ACCESS_EXTENSION_NAME, 0);
 
 #if !PPSSPP_PLATFORM(MAC) && !PPSSPP_PLATFORM(IOS)
-	extensionsLookup_.GOOGLE_display_timing = EnableDeviceExtension(VK_GOOGLE_DISPLAY_TIMING_EXTENSION_NAME);
+	extensionsLookup_.GOOGLE_display_timing = EnableDeviceExtension(VK_GOOGLE_DISPLAY_TIMING_EXTENSION_NAME, 0);
 #endif
 	if (!extensionsLookup_.GOOGLE_display_timing) {
-		extensionsLookup_.KHR_present_id = EnableDeviceExtension(VK_KHR_PRESENT_ID_EXTENSION_NAME);
-		extensionsLookup_.KHR_present_wait = EnableDeviceExtension(VK_KHR_PRESENT_WAIT_EXTENSION_NAME);
+		extensionsLookup_.KHR_present_id = EnableDeviceExtension(VK_KHR_PRESENT_ID_EXTENSION_NAME, 0);
+		extensionsLookup_.KHR_present_wait = EnableDeviceExtension(VK_KHR_PRESENT_WAIT_EXTENSION_NAME, 0);
 	}
 
 	deviceFeatures_.enabled = {};
@@ -697,6 +717,11 @@ VkResult VulkanContext::CreateDevice() {
 	deviceFeatures_.enabled.standard.shaderCullDistance = deviceFeatures_.available.standard.shaderCullDistance;
 	deviceFeatures_.enabled.standard.geometryShader = deviceFeatures_.available.standard.geometryShader;
 	deviceFeatures_.enabled.standard.sampleRateShading = deviceFeatures_.available.standard.sampleRateShading;
+	
+#ifdef _DEBUG
+	// For debugging! Although, it might hide problems, so turning it off. Can be useful to rule out classes of issues.
+	// deviceFeatures_.enabled.standard.robustBufferAccess = deviceFeatures_.available.standard.robustBufferAccess;
+#endif
 
 	deviceFeatures_.enabled.multiview = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MULTIVIEW_FEATURES };
 	if (extensionsLookup_.KHR_multiview) {
@@ -739,7 +764,7 @@ VkResult VulkanContext::CreateDevice() {
 		init_error_ = "Unable to create Vulkan device";
 		ERROR_LOG(G3D, "Unable to create Vulkan device");
 	} else {
-		VulkanLoadDeviceFunctions(device_, extensionsLookup_);
+		VulkanLoadDeviceFunctions(device_, extensionsLookup_, vulkanApiVersion_);
 	}
 	INFO_LOG(G3D, "Vulkan Device created: %s", physicalDeviceProperties_[physical_device_].properties.deviceName);
 
@@ -747,7 +772,7 @@ VkResult VulkanContext::CreateDevice() {
 	VulkanSetAvailable(true);
 
 	VmaAllocatorCreateInfo allocatorInfo = {};
-	allocatorInfo.vulkanApiVersion = VK_API_VERSION_1_0;
+	allocatorInfo.vulkanApiVersion = vulkanApiVersion_;
 	allocatorInfo.physicalDevice = physical_devices_[physical_device_];
 	allocatorInfo.device = device_;
 	allocatorInfo.instance = instance_;
@@ -1486,25 +1511,6 @@ bool VulkanContext::CreateShaderModule(const std::vector<uint32_t> &spirv, VkSha
 	}
 }
 
-void TransitionImageLayout2(VkCommandBuffer cmd, VkImage image, int baseMip, int numMipLevels, int numLayers, VkImageAspectFlags aspectMask,
-	VkImageLayout oldImageLayout, VkImageLayout newImageLayout,
-	VkPipelineStageFlags srcStageMask, VkPipelineStageFlags dstStageMask,
-	VkAccessFlags srcAccessMask, VkAccessFlags dstAccessMask) {
-	VkImageMemoryBarrier image_memory_barrier{ VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER };
-	image_memory_barrier.srcAccessMask = srcAccessMask;
-	image_memory_barrier.dstAccessMask = dstAccessMask;
-	image_memory_barrier.oldLayout = oldImageLayout;
-	image_memory_barrier.newLayout = newImageLayout;
-	image_memory_barrier.image = image;
-	image_memory_barrier.subresourceRange.aspectMask = aspectMask;
-	image_memory_barrier.subresourceRange.baseMipLevel = baseMip;
-	image_memory_barrier.subresourceRange.levelCount = numMipLevels;
-	image_memory_barrier.subresourceRange.layerCount = numLayers;  // We never use more than one layer, and old Mali drivers have problems with VK_REMAINING_ARRAY_LAYERS/VK_REMAINING_MIP_LEVELS.
-	image_memory_barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-	image_memory_barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-	vkCmdPipelineBarrier(cmd, srcStageMask, dstStageMask, 0, 0, nullptr, 0, nullptr, 1, &image_memory_barrier);
-}
-
 EShLanguage FindLanguage(const VkShaderStageFlagBits shader_type) {
 	switch (shader_type) {
 	case VK_SHADER_STAGE_VERTEX_BIT:
@@ -1773,7 +1779,7 @@ void VulkanContext::GetImageMemoryRequirements(VkImage image, VkMemoryRequiremen
 		VkMemoryDedicatedRequirementsKHR memDedicatedReq{VK_STRUCTURE_TYPE_MEMORY_DEDICATED_REQUIREMENTS_KHR};
 		memReq2.pNext = &memDedicatedReq;
 
-		vkGetImageMemoryRequirements2KHR(GetDevice(), &memReqInfo2, &memReq2);
+		vkGetImageMemoryRequirements2(GetDevice(), &memReqInfo2, &memReq2);
 
 		*mem_reqs = memReq2.memoryRequirements;
 		*dedicatedAllocation =

@@ -118,6 +118,7 @@
 #include "UI/DiscordIntegration.h"
 #include "UI/EmuScreen.h"
 #include "UI/GameInfoCache.h"
+#include "UI/GameSettingsScreen.h"
 #include "UI/GPUDriverTestScreen.h"
 #include "UI/MiscScreens.h"
 #include "UI/MemStickScreen.h"
@@ -183,6 +184,7 @@ static Draw::DrawContext *g_draw;
 static Draw::Pipeline *colorPipeline;
 static Draw::Pipeline *texColorPipeline;
 static UIContext *uiContext;
+static int g_restartGraphics;
 
 #ifdef _WIN32
 WindowsAudioBackend *winAudioBackend;
@@ -307,7 +309,7 @@ static void CheckFailedGPUBackends() {
 
 	if (System_GetPropertyBool(SYSPROP_SUPPORTS_PERMISSIONS)) {
 		std::string data;
-		if (File::ReadFileToString(true, cache, data))
+		if (File::ReadTextFileToString(cache, &data))
 			g_Config.sFailedGPUBackends = data;
 	}
 
@@ -431,7 +433,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	if (File::Exists(memstickDirFile)) {
 		INFO_LOG(SYSTEM, "Reading '%s' to find memstick dir.", memstickDirFile.c_str());
 		std::string memstickDir;
-		if (File::ReadFileToString(true, memstickDirFile, memstickDir)) {
+		if (File::ReadTextFileToString(memstickDirFile, &memstickDir)) {
 			Path memstickPath(memstickDir);
 			if (!memstickPath.empty() && File::Exists(memstickPath)) {
 				g_Config.memStickDirectory = memstickPath;
@@ -458,7 +460,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	if (File::Exists(memstickDirFile)) {
 		INFO_LOG(SYSTEM, "Reading '%s' to find memstick dir.", memstickDirFile.c_str());
 		std::string memstickDir;
-		if (File::ReadFileToString(true, memstickDirFile, memstickDir)) {
+		if (File::ReadTextFileToString(memstickDirFile, &memstickDir)) {
 			Path memstickPath(memstickDir);
 			if (!memstickPath.empty() && File::Exists(memstickPath)) {
 				g_Config.memStickDirectory = memstickPath;
@@ -533,6 +535,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	bool gotBootFilename = false;
 	bool gotoGameSettings = false;
 	bool gotoTouchScreenTest = false;
+	bool gotoDeveloperTools = false;
 	boot_filename.clear();
 
 	// Parse command line
@@ -602,6 +605,8 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 					gotoTouchScreenTest = true;
 				if (!strcmp(argv[i], "--gamesettings"))
 					gotoGameSettings = true;
+				if (!strcmp(argv[i], "--developertools"))
+					gotoDeveloperTools = true;
 				if (!strncmp(argv[i], "--appendconfig=", strlen("--appendconfig=")) && strlen(argv[i]) > strlen("--appendconfig=")) {
 					g_Config.SetAppendedConfigIni(Path(std::string(argv[i] + strlen("--appendconfig="))));
 					g_Config.LoadAppendedConfig();
@@ -728,7 +733,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	g_BackgroundAudio.SFX().LoadSamples();
 
 	if (!boot_filename.empty() && stateToLoad.Valid()) {
-		SaveState::Load(stateToLoad, -1, [](SaveState::Status status, const std::string &message, void *) {
+		SaveState::Load(stateToLoad, -1, [](SaveState::Status status, std::string_view message, void *) {
 			if (!message.empty() && (!g_Config.bDumpFrames || !g_Config.bDumpVideoOutput)) {
 				g_OSD.Show(status == SaveState::Status::SUCCESS ? OSDType::MESSAGE_SUCCESS : OSDType::MESSAGE_ERROR,
 					message, status == SaveState::Status::SUCCESS ? 2.0 : 5.0);
@@ -754,6 +759,9 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	} else if (gotoTouchScreenTest) {
 		g_screenManager->switchScreen(new MainScreen());
 		g_screenManager->push(new TouchTestScreen(Path()));
+	} else if (gotoDeveloperTools) {
+		g_screenManager->switchScreen(new MainScreen());
+		g_screenManager->push(new DeveloperToolsScreen(Path()));
 	} else if (skipLogo) {
 		g_screenManager->switchScreen(new EmuScreen(boot_filename));
 	} else {
@@ -783,10 +791,6 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 
 	// Initialize retro achievements runtime.
 	Achievements::Initialize();
-
-#if !defined(__LIBRETRO__)
-	g_gameDB.LoadFromVFS(g_VFS, "redump.csv");
-#endif
 
 	// Must be done restarting by now.
 	restarting = false;
@@ -920,6 +924,7 @@ void NativeShutdownGraphics() {
 	}
 	g_iconCache.ClearTextures();
 
+	// TODO: This is not really necessary with Vulkan on Android - could keep shaders etc in memory
 	if (gpu)
 		gpu->DeviceLost();
 
@@ -1039,27 +1044,22 @@ static void SendMouseDeltaAxis();
 void NativeFrame(GraphicsContext *graphicsContext) {
 	PROFILE_END_FRAME();
 
+	// This can only be accessed from Windows currently, and causes linking errors with headless etc.
+	if (g_restartGraphics == 1) {
+		// Used for debugging only.
+		NativeShutdownGraphics();
+		g_restartGraphics++;
+		return;
+	}
+	else if (g_restartGraphics == 2) {
+		NativeInitGraphics(graphicsContext);
+		g_restartGraphics = 0;
+	}
+
 	double startTime = time_now_d();
 
 	ProcessWheelRelease(NKCODE_EXT_MOUSEWHEEL_UP, startTime, false);
 	ProcessWheelRelease(NKCODE_EXT_MOUSEWHEEL_DOWN, startTime, false);
-
-	std::vector<PendingMessage> toProcess;
-	{
-		std::lock_guard<std::mutex> lock(pendingMutex);
-		toProcess = std::move(pendingMessages);
-		pendingMessages.clear();
-	}
-
-	for (const auto &item : toProcess) {
-		if (HandleGlobalMessage(item.message, item.value)) {
-			// TODO: Add a to-string thingy.
-			INFO_LOG(SYSTEM, "Handled global message: %d / %s", (int)item.message, item.value.c_str());
-		}
-		g_screenManager->sendMessage(item.message, item.value.c_str());
-	}
-
-	g_requestManager.ProcessRequests();
 
 	// it's ok to call this redundantly with DoFrame from EmuScreen
 	Achievements::Idle();
@@ -1086,6 +1086,24 @@ void NativeFrame(GraphicsContext *graphicsContext) {
 	g_iconCache.FrameUpdate();
 
 	g_screenManager->update();
+
+	// Do this after g_screenManager.update() so we can receive setting changes before rendering.
+	std::vector<PendingMessage> toProcess;
+	{
+		std::lock_guard<std::mutex> lock(pendingMutex);
+		toProcess = std::move(pendingMessages);
+		pendingMessages.clear();
+	}
+
+	for (const auto &item : toProcess) {
+		if (HandleGlobalMessage(item.message, item.value)) {
+			// TODO: Add a to-string thingy.
+			INFO_LOG(SYSTEM, "Handled global message: %d / %s", (int)item.message, item.value.c_str());
+		}
+		g_screenManager->sendMessage(item.message, item.value.c_str());
+	}
+
+	g_requestManager.ProcessRequests();
 
 	// Apply the UIContext bounds as a 2D transformation matrix.
 	// TODO: This should be moved into the draw context...
@@ -1160,7 +1178,12 @@ void NativeFrame(GraphicsContext *graphicsContext) {
 		graphicsContext->Poll();
 	}
 
+	SendMouseDeltaAxis();
+
 	if (!(renderFlags & ScreenRenderFlags::HANDLED_THROTTLING)) {
+		// TODO: We should ideally mix this with game audio.
+		g_BackgroundAudio.Play();
+
 		float refreshRate = System_GetPropertyFloat(SYSPROP_DISPLAY_REFRESH_RATE);
 		// Simple throttling to not burn the GPU in the menu.
 		// TODO: This should move into NativeFrame. Also, it's only necessary in MAILBOX or IMMEDIATE presentation modes.
@@ -1168,18 +1191,16 @@ void NativeFrame(GraphicsContext *graphicsContext) {
 		int sleepTime = (int)(1000.0 / refreshRate) - (int)(diffTime * 1000.0);
 		if (sleepTime > 0)
 			sleep_ms(sleepTime);
-
-		// TODO: We should ideally mix this with game audio.
-		g_BackgroundAudio.Play();
 	}
-
-	SendMouseDeltaAxis();
 }
 
 bool HandleGlobalMessage(UIMessage message, const std::string &value) {
-	if (message == UIMessage::SAVESTATE_DISPLAY_SLOT) {
+	if (message == UIMessage::RESTART_GRAPHICS) {
+		g_restartGraphics = 1;
+		return true;
+	} else if (message == UIMessage::SAVESTATE_DISPLAY_SLOT) {
 		auto sy = GetI18NCategory(I18NCat::SYSTEM);
-		std::string msg = StringFromFormat("%s: %d", sy->T("Savestate Slot"), SaveState::GetCurrentSlot() + 1);
+		std::string msg = StringFromFormat("%s: %d", std::string(sy->T("Savestate Slot")).c_str(), SaveState::GetCurrentSlot() + 1);
 		// Show for the same duration as the preview.
 		g_OSD.Show(OSDType::MESSAGE_INFO, msg, 2.0f, "savestate_slot");
 		return true;
@@ -1512,7 +1533,7 @@ static Path GetSecretPath(const char *nameOfSecret) {
 // name should be simple alphanumerics to avoid problems on Windows.
 bool NativeSaveSecret(const char *nameOfSecret, const std::string &data) {
 	Path path = GetSecretPath(nameOfSecret);
-	if (!File::WriteDataToFile(false, data.data(), (unsigned int)data.size(), path)) {
+	if (!File::WriteDataToFile(false, data.data(), data.size(), path)) {
 		WARN_LOG(SYSTEM, "Failed to write secret '%s' to path '%s'", nameOfSecret, path.c_str());
 		return false;
 	}
@@ -1523,7 +1544,7 @@ bool NativeSaveSecret(const char *nameOfSecret, const std::string &data) {
 std::string NativeLoadSecret(const char *nameOfSecret) {
 	Path path = GetSecretPath(nameOfSecret);
 	std::string data;
-	if (!File::ReadFileToString(false, path, data)) {
+	if (!File::ReadBinaryFileToString(path, &data)) {
 		data.clear();  // just to be sure.
 	}
 	return data;

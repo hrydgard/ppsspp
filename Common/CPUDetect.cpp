@@ -126,7 +126,7 @@ static std::vector<int> ParseCPUList(const std::string &filename) {
 	std::string data;
 	std::vector<int> results;
 
-	if (File::ReadFileToString(true, Path(filename), data)) {
+	if (File::ReadSysTextFileToString(Path(filename), &data)) {
 		std::vector<std::string> ranges;
 		SplitString(data, ',', ranges);
 		for (auto range : ranges) {

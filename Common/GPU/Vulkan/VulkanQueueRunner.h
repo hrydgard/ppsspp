@@ -230,7 +230,7 @@ public:
 
 	// Swapchain
 	void DestroyBackBuffers();
-	bool CreateSwapchain(VkCommandBuffer cmdInit);
+	bool CreateSwapchain(VkCommandBuffer cmdInit, VulkanBarrierBatch *barriers);
 
 	bool HasBackbuffers() const {
 		return !framebuffers_.empty();
@@ -266,18 +266,9 @@ public:
 		hacksEnabled_ = hacks;
 	}
 
-	void NotifyCompileDone() {
-		compileDone_.notify_all();
-	}
-
-	void WaitForCompileNotification() {
-		std::unique_lock<std::mutex> lock(compileDoneMutex_);
-		compileDone_.wait(lock);
-	}
-
 private:
 	bool InitBackbufferFramebuffers(int width, int height);
-	bool InitDepthStencilBuffer(VkCommandBuffer cmd);  // Used for non-buffered rendering.
+	bool InitDepthStencilBuffer(VkCommandBuffer cmd, VulkanBarrierBatch *barriers);  // Used for non-buffered rendering.
 
 	VKRRenderPass *PerformBindFramebufferAsRenderTarget(const VKRStep &pass, VkCommandBuffer cmd);
 	void PerformRenderPass(const VKRStep &pass, VkCommandBuffer cmd, int curFrame, QueueProfileContext &profile);
@@ -298,9 +289,7 @@ private:
 	void ApplySonicHack(std::vector<VKRStep *> &steps);
 	void ApplyRenderPassMerge(std::vector<VKRStep *> &steps);
 
-	static void SetupTransitionToTransferSrc(VKRImage &img, VkImageAspectFlags aspect, VulkanBarrier *recordBarrier);
-	static void SetupTransitionToTransferDst(VKRImage &img, VkImageAspectFlags aspect, VulkanBarrier *recordBarrier);
-	static void SetupTransferDstWriteAfterWrite(VKRImage &img, VkImageAspectFlags aspect, VulkanBarrier *recordBarrier);
+	static void SetupTransferDstWriteAfterWrite(VKRImage &img, VkImageAspectFlags aspect, VulkanBarrierBatch *recordBarrier);
 
 	VulkanContext *vulkan_;
 
@@ -321,14 +310,10 @@ private:
 	// TODO: Enable based on compat.ini.
 	uint32_t hacksEnabled_ = 0;
 
-	// Compile done notifications.
-	std::mutex compileDoneMutex_;
-	std::condition_variable compileDone_;
-
 	// Image barrier helper used during command buffer record (PerformRenderPass etc).
 	// Stored here to help reuse the allocation.
 
-	VulkanBarrier recordBarrier_;
+	VulkanBarrierBatch recordBarrier_;
 
 	// Swap chain management
 	struct SwapchainImageData {

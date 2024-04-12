@@ -17,7 +17,9 @@ INCFLAGS += \
 	-I$(CORE_DIR) \
 	-I$(COMMONDIR) \
 	-I$(CORE_DIR)/libretro \
-	-I$(EXTDIR)/openxr \
+	-I$(EXTDIR)/libadrenotools/lib/linkernsbypass \
+	-I$(EXTDIR)/libadrenotools/include \
+	-I$(EXTDIR)/OpenXR-SDK/include \
 	-I$(EXTDIR)/glslang \
 	-I$(EXTDIR)/glslang-build \
 	-I$(EXTDIR)/native \
@@ -170,6 +172,9 @@ endif
 SOURCES_C += $(LIBRETRODIR)/ext/glew/glew.c
 
 SOURCES_C += \
+	$(EXTDIR)/minimp3/minimp3.cpp
+
+SOURCES_C += \
 	$(EXTDIR)/libkirk/AES.c \
 	$(EXTDIR)/libkirk/amctrl.c \
 	$(EXTDIR)/libkirk/SHA1.c \
@@ -220,8 +225,6 @@ SOURCES_C += \
 	$(EXTDIR)/rcheevos/src/rcheevos/runtime_progress.c \
 	$(EXTDIR)/rcheevos/src/rcheevos/trigger.c \
 	$(EXTDIR)/rcheevos/src/rcheevos/value.c \
-	$(EXTDIR)/rcheevos/src/rhash/cdreader.c \
-	$(EXTDIR)/rcheevos/src/rhash/hash.c \
 	$(EXTDIR)/rcheevos/src/rhash/md5.c
 
 COREFLAGS += -DSTACK_LINE_READER_BUFFER_SIZE=1024
@@ -255,6 +258,22 @@ SOURCES_C += \
 	$(EXTDIR)/libchdr/src/libchdr_chd.c \
 	$(EXTDIR)/libchdr/src/libchdr_flac.c \
 	$(EXTDIR)/libchdr/src/libchdr_huffman.c
+
+INCFLAGS += -I$(EXTDIR)/at3_standalone
+
+SOURCES_C += \
+	${EXTDIR}/at3_standalone/atrac.cpp \
+	${EXTDIR}/at3_standalone/atrac3.cpp \
+	${EXTDIR}/at3_standalone/atrac3plus.cpp \
+	${EXTDIR}/at3_standalone/atrac3plusdec.cpp \
+	${EXTDIR}/at3_standalone/atrac3plusdsp.cpp \
+	${EXTDIR}/at3_standalone/get_bits.cpp \
+	${EXTDIR}/at3_standalone/compat.cpp \
+	${EXTDIR}/at3_standalone/fft.cpp \
+	${EXTDIR}/at3_standalone/float_dsp.cpp \
+	${EXTDIR}/at3_standalone/mathematics.cpp \
+	${EXTDIR}/at3_standalone/mem.cpp \
+	${EXTDIR}/at3_standalone/sinewin.cpp
 
 ifeq ($(PLATFORM_EXT), android)
 COREFLAGS += -DHAVE_DLFCN_H
@@ -566,6 +585,14 @@ SOURCES_CXX += $(COMMONDIR)/MemArenaPosix.cpp \
 	       $(EXTDIR)/glslang/glslang/OSDependent/Unix/ossource.cpp
 endif
 
+
+ifeq ($(TARGET_ARCH),arm64)
+SOURCES_CXX += \
+	  $(EXTDIR)/libadrenotools/src/driver.cpp \
+	  $(EXTDIR)/libadrenotools/lib/linkernsbypass/android_linker_ns.cpp \
+	  $(EXTDIR)/libadrenotools/lib/linkernsbypass/elf_soname_patcher.cpp
+endif
+
 SOURCES_CXX += \
            $(COMMONDIR)/Render/Text/draw_text.cpp \
 	       $(EXTDIR)/jpge/jpgd.cpp \
@@ -617,6 +644,7 @@ SOURCES_CXX += \
 	       $(COREDIR)/HLE/KUBridge.cpp \
 	       $(COREDIR)/HLE/Plugins.cpp \
 	       $(COREDIR)/HLE/sceSha256.cpp \
+	       $(COREDIR)/HLE/sceSircs.cpp \
 	       $(COREDIR)/HLE/sceG729.cpp \
 	       $(COREDIR)/HLE/sceSfmt19937.cpp \
 	       $(COREDIR)/HLE/ReplaceTables.cpp \
@@ -690,6 +718,7 @@ SOURCES_CXX += \
 	       $(COREDIR)/HW/Camera.cpp \
 	       $(COREDIR)/HW/Display.cpp \
 	       $(COREDIR)/HW/SimpleAudioDec.cpp \
+	       $(COREDIR)/HW/Atrac3Standalone.cpp \
 	       $(COREDIR)/HW/AsyncIOManager.cpp \
 	       $(COREDIR)/HW/MediaEngine.cpp \
 	       $(COREDIR)/HW/MpegDemux.cpp \
@@ -740,6 +769,7 @@ SOURCES_CXX += \
 	       $(COREDIR)/System.cpp \
 	       $(COREDIR)/ThreadPools.cpp \
 	       $(COREDIR)/Util/BlockAllocator.cpp \
+	       $(COREDIR)/Util/MemStick.cpp \
 	       $(COREDIR)/Util/PPGeDraw.cpp \
 	       $(COREDIR)/Util/AudioFormat.cpp \
 	       $(COREDIR)/Util/PortManager.cpp \

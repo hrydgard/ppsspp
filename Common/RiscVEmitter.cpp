@@ -27,8 +27,15 @@
 
 namespace RiscVGen {
 
-static inline bool SupportsCompressed() {
-	return cpu_info.RiscV_C;
+static inline bool SupportsCompressed(char zcx = '\0') {
+	if (!cpu_info.RiscV_C)
+		return false;
+
+	switch (zcx) {
+	case 'b': return cpu_info.RiscV_Zcb;
+	case '\0': return true;
+	default: return false;
+	}
 }
 
 static inline uint8_t BitsSupported() {
@@ -60,6 +67,14 @@ static inline bool SupportsVector() {
 	return cpu_info.RiscV_V;
 }
 
+static inline bool SupportsVectorBitmanip(char zvxb) {
+	switch (zvxb) {
+	case 'b': return cpu_info.RiscV_Zvbb;
+	case 'k': return cpu_info.RiscV_Zvkb;
+	default: return false;
+	}
+}
+
 static inline bool SupportsBitmanip(char zbx) {
 	switch (zbx) {
 	case 'a': return cpu_info.RiscV_Zba;
@@ -70,9 +85,16 @@ static inline bool SupportsBitmanip(char zbx) {
 	}
 }
 
+static inline bool SupportsIntConditional() {
+	return cpu_info.RiscV_Zicond;
+}
+
 static inline bool SupportsFloatHalf(bool allowMin = false) {
-	// TODO
-	return false;
+	return cpu_info.RiscV_Zfh || (cpu_info.RiscV_Zfhmin && allowMin);
+}
+
+static inline bool SupportsFloatExtra() {
+	return cpu_info.RiscV_Zfa;
 }
 
 enum class Opcode32 {
@@ -156,6 +178,8 @@ enum class Funct3 {
 
 	FMIN = 0b000,
 	FMAX = 0b001,
+	FMINM = 0b010,
+	FMAXM = 0b011,
 
 	FMV = 0b000,
 	FCLASS = 0b001,
@@ -203,6 +227,9 @@ enum class Funct3 {
 
 	BSET = 0b001,
 	BEXT = 0b101,
+
+	CZERO_EQZ = 0b101,
+	CZERO_NEZ = 0b111,
 
 	C_ADDI4SPN = 0b000,
 	C_FLD = 0b001,
@@ -254,6 +281,7 @@ enum class Funct2 {
 
 	C_SUBW = 0b00,
 	C_ADDW = 0b01,
+	C_MUL = 0b10,
 };
 
 enum class Funct7 {
@@ -266,6 +294,7 @@ enum class Funct7 {
 
 	ADDUW_ZEXT = 0b0000100,
 	MINMAX_CLMUL = 0b0000101,
+	CZERO = 0b0000111,
 	SH_ADD = 0b0010000,
 	BSET_ORC = 0b0010100,
 	NOT = 0b0100000,
@@ -336,7 +365,13 @@ enum class Funct5 {
 	VFNCVT_RTZ_X_F = 0b10111,
 
 	VMV_S = 0b00000,
-	VPOPC = 0b10000,
+	VBREV8 = 0b01000,
+	VREV8 = 0b01001,
+	VBREV = 0b01010,
+	VCLZ = 0b01100,
+	VCTZ = 0b01101,
+	VCPOP_V = 0b01110,
+	VCPOP = 0b10000,
 	VFIRST = 0b10001,
 
 	VMSBF = 0b00001,
@@ -351,6 +386,13 @@ enum class Funct5 {
 	SEXT_B = 0b00100,
 	SEXT_H = 0b00101,
 	ORC_B = 0b00111,
+
+	C_ZEXT_B = 0b11000,
+	C_SEXT_B = 0b11001,
+	C_ZEXT_H = 0b11010,
+	C_SEXT_H = 0b11011,
+	C_ZEXT_W = 0b11100,
+	C_NOT = 0b11101,
 };
 
 enum class Funct4 {
@@ -363,8 +405,13 @@ enum class Funct4 {
 enum class Funct6 {
 	C_OP = 0b100011,
 	C_OP_32 = 0b100111,
+	C_LBU = 0b100000,
+	C_LH = 0b100001,
+	C_SB = 0b100010,
+	C_SH = 0b100011,
 
 	VADD = 0b000000,
+	VANDN = 0b000001,
 	VSUB = 0b000010,
 	VRSUB = 0b000011,
 	VMINU = 0b000100,
@@ -378,6 +425,9 @@ enum class Funct6 {
 	VSLIDEUP = 0b001110,
 	VRGATHEREI16 = 0b001110,
 	VSLIDEDOWN = 0b001111,
+	VROR = 0b010100,
+	VROL = 0b010101,
+	VWSLL = 0b110101,
 
 	VREDSUM = 0b000000,
 	VREDAND = 0b000001,
@@ -886,6 +936,35 @@ static inline u16 EncodeCJ(Opcode16 op, s32 simm12, Funct3 funct3) {
 	u16 imm11_4 = (ImmBit16(simm12, 11) << 1) | ImmBit16(simm12, 4);
 	u16 imm11_4_9_8_10_6_7_3_2_1_5 = (imm11_4 << 9) | (imm9_8_10_6 << 5) | imm7_3_2_1_5;
 	return (u16)op | (imm11_4_9_8_10_6_7_3_2_1_5 << 2) | ((u16)funct3 << 13);
+}
+
+static inline u16 EncodeCLB(Opcode16 op, RiscCReg rd, u8 uimm2, RiscCReg rs1, Funct6 funct6) {
+	_assert_msg_(SupportsCompressed(), "Compressed instructions unsupported");
+	_assert_msg_((uimm2 & 3) == uimm2, "CLB immediate must be 2 bit: %d", uimm2);
+	return (u16)op | ((u16)rd << 2) | ((u16)uimm2 << 5) | ((u16)rs1 << 7) | ((u16)funct6 << 10);
+}
+
+static inline u16 EncodeCSB(Opcode16 op, RiscCReg rs2, u8 uimm2, RiscCReg rs1, Funct6 funct6) {
+	_assert_msg_(SupportsCompressed(), "Compressed instructions unsupported");
+	_assert_msg_((uimm2 & 3) == uimm2, "CSB immediate must be 2 bit: %d", uimm2);
+	return (u16)op | ((u16)rs2 << 2) | ((u16)uimm2 << 5) | ((u16)rs1 << 7) | ((u16)funct6 << 10);
+}
+
+static inline u16 EncodeCLH(Opcode16 op, RiscCReg rd, u8 uimm1, bool funct1, RiscCReg rs1, Funct6 funct6) {
+	_assert_msg_(SupportsCompressed(), "Compressed instructions unsupported");
+	_assert_msg_((uimm1 & 1) == uimm1, "CLH immediate must be 1 bit: %d", uimm1);
+	return (u16)op | ((u16)rd << 2) | ((u16)uimm1 << 5) | ((u16)funct1 << 6) | ((u16)rs1 << 7) | ((u16)funct6 << 10);
+}
+
+static inline u16 EncodeCSH(Opcode16 op, RiscCReg rs2, u8 uimm1, bool funct1, RiscCReg rs1, Funct6 funct6) {
+	_assert_msg_(SupportsCompressed(), "Compressed instructions unsupported");
+	_assert_msg_((uimm1 & 1) == uimm1, "CSH immediate must be 1 bit: %d", uimm1);
+	return (u16)op | ((u16)rs2 << 2) | ((u16)uimm1 << 5) | ((u16)funct1 << 6) | ((u16)rs1 << 7) | ((u16)funct6 << 10);
+}
+
+static inline u16 EncodeCU(Opcode16 op, Funct5 funct5, RiscCReg rd, Funct6 funct6) {
+	_assert_msg_(SupportsCompressed(), "Compressed instructions unsupported");
+	return (u16)op | ((u16)funct5 << 2) | ((u16)rd << 7) | ((u16)funct6 << 10);
 }
 
 static inline Funct3 BitsToFunct3(int bits, bool useFloat = false, bool allowHalfMin = false) {
@@ -1471,6 +1550,12 @@ void RiscVEmitter::LB(RiscVReg rd, RiscVReg rs1, s32 simm12) {
 }
 
 void RiscVEmitter::LH(RiscVReg rd, RiscVReg rs1, s32 simm12) {
+	if (AutoCompress() && SupportsCompressed('b')) {
+		if (CanCompress(rd) && CanCompress(rs1) && (simm12 & 2) == simm12) {
+			C_LH(rd, rs1, simm12 & 3);
+			return;
+		}
+	}
 	Write32(EncodeGI(Opcode32::LOAD, rd, Funct3::LS_H, rs1, simm12));
 }
 
@@ -1489,18 +1574,42 @@ void RiscVEmitter::LW(RiscVReg rd, RiscVReg rs1, s32 simm12) {
 }
 
 void RiscVEmitter::LBU(RiscVReg rd, RiscVReg rs1, s32 simm12) {
+	if (AutoCompress() && SupportsCompressed('b')) {
+		if (CanCompress(rd) && CanCompress(rs1) && (simm12 & 3) == simm12) {
+			C_LBU(rd, rs1, simm12 & 3);
+			return;
+		}
+	}
 	Write32(EncodeGI(Opcode32::LOAD, rd, Funct3::LS_BU, rs1, simm12));
 }
 
 void RiscVEmitter::LHU(RiscVReg rd, RiscVReg rs1, s32 simm12) {
+	if (AutoCompress() && SupportsCompressed('b')) {
+		if (CanCompress(rd) && CanCompress(rs1) && (simm12 & 2) == simm12) {
+			C_LHU(rd, rs1, simm12 & 3);
+			return;
+		}
+	}
 	Write32(EncodeGI(Opcode32::LOAD, rd, Funct3::LS_HU, rs1, simm12));
 }
 
 void RiscVEmitter::SB(RiscVReg rs2, RiscVReg rs1, s32 simm12) {
+	if (AutoCompress() && SupportsCompressed('b')) {
+		if (CanCompress(rs2) && CanCompress(rs1) && (simm12 & 3) == simm12) {
+			C_SB(rs2, rs1, simm12 & 3);
+			return;
+		}
+	}
 	Write32(EncodeGS(Opcode32::STORE, Funct3::LS_B, rs1, rs2, simm12));
 }
 
 void RiscVEmitter::SH(RiscVReg rs2, RiscVReg rs1, s32 simm12) {
+	if (AutoCompress() && SupportsCompressed('b')) {
+		if (CanCompress(rs2) && CanCompress(rs1) && (simm12 & 2) == simm12) {
+			C_SH(rs2, rs1, simm12 & 3);
+			return;
+		}
+	}
 	Write32(EncodeGS(Opcode32::STORE, Funct3::LS_H, rs1, rs2, simm12));
 }
 
@@ -1556,6 +1665,12 @@ void RiscVEmitter::SLTIU(RiscVReg rd, RiscVReg rs1, s32 simm12) {
 
 void RiscVEmitter::XORI(RiscVReg rd, RiscVReg rs1, s32 simm12) {
 	_assert_msg_(rd != R_ZERO, "%s write to zero is a HINT", __func__);
+
+	if (AutoCompress() && SupportsCompressed('b') && CanCompress(rd) && rd == rs1 && simm12 == -1) {
+		C_NOT(rd);
+		return;
+	}
+
 	Write32(EncodeGI(Opcode32::OP_IMM, rd, Funct3::XOR, rs1, simm12));
 }
 
@@ -1575,9 +1690,14 @@ void RiscVEmitter::ORI(RiscVReg rd, RiscVReg rs1, s32 simm12) {
 void RiscVEmitter::ANDI(RiscVReg rd, RiscVReg rs1, s32 simm12) {
 	_assert_msg_(rd != R_ZERO, "%s write to zero is a HINT", __func__);
 
-	if (AutoCompress() && CanCompress(rd) && rd == rs1 && SignReduce32(simm12, 6) == simm12) {
-		C_ANDI(rd, (s8)simm12);
-		return;
+	if (AutoCompress() && CanCompress(rd) && rd == rs1) {
+		if (SignReduce32(simm12, 6) == simm12) {
+			C_ANDI(rd, (s8)simm12);
+			return;
+		} else if (SupportsCompressed('b') && simm12 == 0xFF) {
+			C_ZEXT_B(rd);
+			return;
+		}
 	}
 
 	Write32(EncodeGI(Opcode32::OP_IMM, rd, Funct3::AND, rs1, simm12));
@@ -1896,6 +2016,17 @@ void RiscVEmitter::MUL(RiscVReg rd, RiscVReg rs1, RiscVReg rs2) {
 	_assert_msg_(SupportsMulDiv(true), "%s instruction unsupported without M/Zmmul", __func__);
 	// Not explicitly a HINT, but seems sensible to restrict just in case.
 	_assert_msg_(rd != R_ZERO, "%s write to zero", __func__);
+
+	if (AutoCompress() && SupportsCompressed('b') && CanCompress(rd)) {
+		if (rd == rs1 && CanCompress(rs2)) {
+			C_MUL(rd, rs2);
+			return;
+		} else if (rd == rs2 && CanCompress(rs1)) {
+			C_MUL(rd, rs1);
+			return;
+		}
+	}
+
 	Write32(EncodeGR(Opcode32::OP, rd, Funct3::MUL, rs1, rs2, Funct7::MULDIV));
 }
 
@@ -2214,6 +2345,162 @@ void RiscVEmitter::FCLASS(int bits, RiscVReg rd, RiscVReg rs1) {
 	_assert_msg_(IsGPR(rd), "%s rd must be GPR", __func__);
 	_assert_msg_(IsFPR(rs1), "%s rs1 must be FPR", __func__);
 	Write32(EncodeR(Opcode32::OP_FP, rd, Funct3::FCLASS, rs1, F0, BitsToFunct2(bits), Funct5::FMV_TOX));
+}
+
+static const uint32_t FLIvalues[32] = {
+	0xBF800000, // -1.0
+	0x00800000, // FLT_MIN (note: a bit special)
+	0x37800000, // pow(2, -16)
+	0x38000000, // pow(2, -15)
+	0x3B800000, // pow(2, -8)
+	0x3C000000, // pow(2, -7)
+	0x3D800000, // 0.0625
+	0x3E000000, // 0.125
+	0x3E800000, // 0.25
+	0x3EA00000, // 0.3125
+	0x3EC00000, // 0.375
+	0x3EE00000, // 0.4375
+	0x3F000000, // 0.5
+	0x3F200000, // 0.625
+	0x3F400000, // 0.75
+	0x3F600000, // 0.875
+	0x3F800000, // 1.0
+	0x3FA00000, // 1.25
+	0x3FC00000, // 1.5
+	0x3FE00000, // 1.75
+	0x40000000, // 2.0
+	0x40200000, // 2.5
+	0x40400000, // 3.0
+	0x40800000, // 4.0
+	0x41000000, // 8.0
+	0x41800000, // 16.0
+	0x43000000, // 128.0
+	0x43800000, // 256.0
+	0x47000000, // pow(2, 15)
+	0x47800000, // pow(2, 16)
+	0x7F800000, // INFINITY
+	0x7FC00000, // NAN
+};
+
+static RiscVReg EncodeFLImm(int bits, double v) {
+	float f = (float)v;
+	int index = -1;
+	for (size_t i = 0; i < ARRAY_SIZE(FLIvalues); ++i) {
+		if (memcmp(&f, &FLIvalues[i], sizeof(float)) == 0) {
+			index = (int)i;
+			break;
+		}
+	}
+
+	// For 16-bit, 2/3 are subnormal and 29 is not possible.  Just avoid for now.
+	if (index != -1 && index != 1 && (bits > 16 || (index != 2 && index != 3 && index != 29)))
+		return (RiscVReg)index;
+
+	if (bits == 64) {
+		uint64_t dmin = 0x0010000000000000ULL;
+		if (memcmp(&v, &dmin, 8) == 0)
+			return F1;
+	} else if (bits == 32 && index == 1) {
+		return F1;
+	} else if (bits == 16) {
+		uint64_t hmin = 0x3F10000000000000ULL;
+		if (memcmp(&v, &hmin, 8) == 0)
+			return F1;
+	}
+
+	return INVALID_REG;
+}
+
+bool RiscVEmitter::CanFLI(int bits, double v) const {
+	if (!SupportsFloatExtra())
+		return false;
+	if (bits == 16 && !SupportsFloatHalf())
+		return false;
+	if (bits > FloatBitsSupported())
+		return false;
+	return EncodeFLImm(bits, v) != INVALID_REG;
+}
+
+bool RiscVEmitter::CanFLI(int bits, uint32_t pattern) const {
+	float f;
+	memcpy(&f, &pattern, sizeof(f));
+	return CanFLI(bits, f);
+}
+
+void RiscVEmitter::FLI(int bits, RiscVReg rd, double v) {
+	_assert_msg_(SupportsFloatExtra(), "%s cannot be used without Zfa", __func__);
+	_assert_msg_(bits <= FloatBitsSupported(), "FLI cannot be used for %d bits, only %d/%d supported", bits, BitsSupported(), FloatBitsSupported());
+	_assert_msg_(IsFPR(rd), "%s rd of wrong type", __func__);
+
+	RiscVReg imm = EncodeFLImm(bits, v);
+	_assert_msg_(imm != INVALID_REG, "FLI with unsupported constant %f for %d bits", v, bits);
+	Write32(EncodeR(Opcode32::OP_FP, rd, Funct3::FMV, imm, F1, BitsToFunct2(bits, false), Funct5::FMV_FROMX));
+}
+
+void RiscVEmitter::FLI(int bits, RiscVReg rd, uint32_t pattern) {
+	float f;
+	memcpy(&f, &pattern, sizeof(f));
+	FLI(bits, rd, f);
+}
+
+void RiscVEmitter::FMINM(int bits, RiscVReg rd, RiscVReg rs1, RiscVReg rs2) {
+	_assert_msg_(SupportsFloatExtra(), "%s cannot be used without Zfa", __func__);
+	Write32(EncodeFR(Opcode32::OP_FP, rd, Funct3::FMINM, rs1, rs2, BitsToFunct2(bits), Funct5::FMINMAX));
+}
+
+void RiscVEmitter::FMAXM(int bits, RiscVReg rd, RiscVReg rs1, RiscVReg rs2) {
+	_assert_msg_(SupportsFloatExtra(), "%s cannot be used without Zfa", __func__);
+	Write32(EncodeFR(Opcode32::OP_FP, rd, Funct3::FMAXM, rs1, rs2, BitsToFunct2(bits), Funct5::FMINMAX));
+}
+
+void RiscVEmitter::FROUND(int bits, RiscVReg rd, RiscVReg rs1, Round rm) {
+	_assert_msg_(SupportsFloatExtra(), "%s cannot be used without Zfa", __func__);
+	_assert_msg_(bits <= FloatBitsSupported(), "FROUND for %d float bits, only %d supported", bits, FloatBitsSupported());
+	_assert_msg_(IsFPR(rd), "%s rd of wrong type", __func__);
+	_assert_msg_(IsFPR(rs1), "%s rs1 of wrong type", __func__);
+
+	Funct2 toFmt = BitsToFunct2(bits, false);
+	Write32(EncodeR(Opcode32::OP_FP, rd, (Funct3)rm, rs1, F4, toFmt, Funct5::FCVT_SZ));
+}
+
+void RiscVEmitter::QuickFLI(int bits, RiscVReg rd, double v, RiscVReg scratchReg) {
+	if (CanFLI(bits, v)) {
+		FLI(bits, rd, v);
+	} else if (bits == 64) {
+		LI(scratchReg, v);
+		FMV(FMv::D, FMv::X, rd, scratchReg);
+	} else if (bits <= 32) {
+		QuickFLI(32, rd, (float)v, scratchReg);
+	} else {
+		_assert_msg_(false, "Unsupported QuickFLI bits");
+	}
+}
+
+void RiscVEmitter::QuickFLI(int bits, RiscVReg rd, uint32_t pattern, RiscVReg scratchReg) {
+	if (CanFLI(bits, pattern)) {
+		FLI(bits, rd, pattern);
+	} else if (bits == 32) {
+		LI(scratchReg, (int32_t)pattern);
+		FMV(FMv::W, FMv::X, rd, scratchReg);
+	} else if (bits == 16) {
+		LI(scratchReg, (int16_t)pattern);
+		FMV(FMv::H, FMv::X, rd, scratchReg);
+	} else {
+		_assert_msg_(false, "Unsupported QuickFLI bits");
+	}
+}
+
+void RiscVEmitter::QuickFLI(int bits, RiscVReg rd, float v, RiscVReg scratchReg) {
+	if (CanFLI(bits, v)) {
+		FLI(bits, rd, v);
+	} else if (bits == 64) {
+		QuickFLI(32, rd, (double)v, scratchReg);
+	} else if (bits == 32) {
+		LI(scratchReg, v);
+		FMV(FMv::D, FMv::X, rd, scratchReg);
+	} else {
+		_assert_msg_(false, "Unsupported QuickFLI bits");
+	}
 }
 
 void RiscVEmitter::CSRRW(RiscVReg rd, Csr csr, RiscVReg rs1) {
@@ -3563,7 +3850,7 @@ void RiscVEmitter::VMXNOR_MM(RiscVReg vd, RiscVReg vs2, RiscVReg vs1) {
 void RiscVEmitter::VCPOP_M(RiscVReg rd, RiscVReg vs2, VUseMask vm) {
 	_assert_msg_(IsGPR(rd), "%s instruction rd must be GPR", __func__);
 	_assert_msg_(rd != R_ZERO, "%s should avoid write to zero", __func__);
-	Write32(EncodeV(rd, Funct3::OPMVV, (RiscVReg)Funct5::VPOPC, vs2, vm, Funct6::VRWUNARY0));
+	Write32(EncodeV(rd, Funct3::OPMVV, (RiscVReg)Funct5::VCPOP, vs2, vm, Funct6::VRWUNARY0));
 }
 
 void RiscVEmitter::VFIRST_M(RiscVReg rd, RiscVReg vs2, VUseMask vm) {
@@ -3710,6 +3997,102 @@ void RiscVEmitter::VMVR_V(int regs, RiscVReg vd, RiscVReg vs2) {
 	Write32(EncodeIVI(vd, regs - 1, vs2, VUseMask::NONE, Funct6::VSMUL_VMVR));
 }
 
+void RiscVEmitter::VANDN_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm) {
+	_assert_msg_(SupportsVectorBitmanip('b') || SupportsVectorBitmanip('k'), "%s instruction requires Zvbb or Zvkb", __func__);
+	Write32(EncodeIVV(vd, vs1, vs2, vm, Funct6::VANDN));
+}
+
+void RiscVEmitter::VANDN_VX(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm) {
+	_assert_msg_(SupportsVectorBitmanip('b') || SupportsVectorBitmanip('k'), "%s instruction requires Zvbb or Zvkb", __func__);
+	Write32(EncodeIVX(vd, rs1, vs2, vm, Funct6::VANDN));
+}
+
+void RiscVEmitter::VBREV_V(RiscVReg vd, RiscVReg vs2, VUseMask vm) {
+	_assert_msg_(SupportsVectorBitmanip('b'), "%s instruction requires Zvbb", __func__);
+	_assert_msg_(IsVPR(vd), "%s instruction vd must be VPR", __func__);
+	_assert_msg_(vm != VUseMask::V0_T || vd != V0, "%s instruction vd overlap with mask", __func__);
+	Write32(EncodeV(vd, Funct3::OPMVV, (RiscVReg)Funct5::VBREV, vs2, vm, Funct6::VFXUNARY0));
+}
+
+void RiscVEmitter::VBREV8_V(RiscVReg vd, RiscVReg vs2, VUseMask vm) {
+	_assert_msg_(SupportsVectorBitmanip('b') || SupportsVectorBitmanip('k'), "%s instruction requires Zvbb or Zvkb", __func__);
+	_assert_msg_(IsVPR(vd), "%s instruction vd must be VPR", __func__);
+	_assert_msg_(vm != VUseMask::V0_T || vd != V0, "%s instruction vd overlap with mask", __func__);
+	Write32(EncodeV(vd, Funct3::OPMVV, (RiscVReg)Funct5::VBREV8, vs2, vm, Funct6::VFXUNARY0));
+}
+
+void RiscVEmitter::VREV8_V(RiscVReg vd, RiscVReg vs2, VUseMask vm) {
+	_assert_msg_(SupportsVectorBitmanip('b') || SupportsVectorBitmanip('k'), "%s instruction requires Zvbb or Zvkb", __func__);
+	_assert_msg_(IsVPR(vd), "%s instruction vd must be VPR", __func__);
+	_assert_msg_(vm != VUseMask::V0_T || vd != V0, "%s instruction vd overlap with mask", __func__);
+	Write32(EncodeV(vd, Funct3::OPMVV, (RiscVReg)Funct5::VREV8, vs2, vm, Funct6::VFXUNARY0));
+}
+
+void RiscVEmitter::VCLZ_V(RiscVReg vd, RiscVReg vs2, VUseMask vm) {
+	_assert_msg_(SupportsVectorBitmanip('b'), "%s instruction requires Zvbb", __func__);
+	_assert_msg_(IsVPR(vd), "%s instruction vd must be VPR", __func__);
+	_assert_msg_(vm != VUseMask::V0_T || vd != V0, "%s instruction vd overlap with mask", __func__);
+	Write32(EncodeV(vd, Funct3::OPMVV, (RiscVReg)Funct5::VCLZ, vs2, vm, Funct6::VFXUNARY0));
+}
+
+void RiscVEmitter::VCTZ_V(RiscVReg vd, RiscVReg vs2, VUseMask vm) {
+	_assert_msg_(SupportsVectorBitmanip('b'), "%s instruction requires Zvbb", __func__);
+	_assert_msg_(IsVPR(vd), "%s instruction vd must be VPR", __func__);
+	_assert_msg_(vm != VUseMask::V0_T || vd != V0, "%s instruction vd overlap with mask", __func__);
+	Write32(EncodeV(vd, Funct3::OPMVV, (RiscVReg)Funct5::VCTZ, vs2, vm, Funct6::VFXUNARY0));
+}
+
+void RiscVEmitter::VCPOP_V(RiscVReg vd, RiscVReg vs2, VUseMask vm) {
+	_assert_msg_(SupportsVectorBitmanip('b'), "%s instruction requires Zvbb", __func__);
+	_assert_msg_(IsVPR(vd), "%s instruction vd must be VPR", __func__);
+	_assert_msg_(vm != VUseMask::V0_T || vd != V0, "%s instruction vd overlap with mask", __func__);
+	Write32(EncodeV(vd, Funct3::OPMVV, (RiscVReg)Funct5::VCPOP_V, vs2, vm, Funct6::VFXUNARY0));
+}
+
+void RiscVEmitter::VROL_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm) {
+	_assert_msg_(SupportsVectorBitmanip('b') || SupportsVectorBitmanip('k'), "%s instruction requires Zvbb or Zvkb", __func__);
+	Write32(EncodeIVV(vd, vs1, vs2, vm, Funct6::VROL));
+}
+
+void RiscVEmitter::VROL_VX(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm) {
+	_assert_msg_(SupportsVectorBitmanip('b') || SupportsVectorBitmanip('k'), "%s instruction requires Zvbb or Zvkb", __func__);
+	Write32(EncodeIVX(vd, rs1, vs2, vm, Funct6::VROL));
+}
+
+void RiscVEmitter::VROR_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm) {
+	_assert_msg_(SupportsVectorBitmanip('b') || SupportsVectorBitmanip('k'), "%s instruction requires Zvbb or Zvkb", __func__);
+	Write32(EncodeIVV(vd, vs1, vs2, vm, Funct6::VROR));
+}
+
+void RiscVEmitter::VROR_VX(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm) {
+	_assert_msg_(SupportsVectorBitmanip('b') || SupportsVectorBitmanip('k'), "%s instruction requires Zvbb or Zvkb", __func__);
+	Write32(EncodeIVX(vd, rs1, vs2, vm, Funct6::VROR));
+}
+
+void RiscVEmitter::VROR_VI(RiscVReg vd, RiscVReg vs2, u8 uimm6, VUseMask vm) {
+	_assert_msg_(SupportsVectorBitmanip('b') || SupportsVectorBitmanip('k'), "%s instruction requires Zvbb or Zvkb", __func__);
+	_assert_msg_(uimm6 < 64, "%s immediate must be 0-63", __func__);
+	// From an encoding perspective, easier to think of this as vror and vror32.
+	Funct6 variant = uimm6 >= 32 ? Funct6::VROL : Funct6::VROR;
+	Write32(EncodeIVI(vd, SignReduce32(uimm6, 5), vs2, vm, variant));
+}
+
+void RiscVEmitter::VWSLL_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm) {
+	_assert_msg_(SupportsVectorBitmanip('b'), "%s instruction requires Zvbb", __func__);
+	Write32(EncodeIVV(vd, vs1, vs2, vm, Funct6::VWSLL));
+}
+
+void RiscVEmitter::VWSLL_VX(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm) {
+	_assert_msg_(SupportsVectorBitmanip('b'), "%s instruction requires Zvbb", __func__);
+	Write32(EncodeIVX(vd, rs1, vs2, vm, Funct6::VWSLL));
+}
+
+void RiscVEmitter::VWSLL_VI(RiscVReg vd, RiscVReg vs2, u8 uimm5, VUseMask vm) {
+	_assert_msg_(SupportsVectorBitmanip('b'), "%s instruction requires Zvbb", __func__);
+	_assert_msg_(uimm5 < 32, "%s immediate must be 0-31", __func__);
+	Write32(EncodeIVI(vd, SignReduce32(uimm5, 5), vs2, vm, Funct6::VWSLL));
+}
+
 void RiscVEmitter::ADD_UW(RiscVReg rd, RiscVReg rs1, RiscVReg rs2) {
 	if (BitsSupported() == 32) {
 		ADD(rd, rs1, rs2);
@@ -3718,6 +4101,12 @@ void RiscVEmitter::ADD_UW(RiscVReg rd, RiscVReg rs1, RiscVReg rs2) {
 
 	_assert_msg_(rd != R_ZERO, "%s should avoid write to zero", __func__);
 	_assert_msg_(SupportsBitmanip('a'), "%s instruction unsupported without B", __func__);
+
+	if (AutoCompress() && SupportsCompressed('b') && CanCompress(rd) && rd == rs1 && rs2 == R_ZERO) {
+		C_ZEXT_W(rd);
+		return;
+	}
+
 	Write32(EncodeGR(Opcode32::OP_32, rd, Funct3::ADD, rs1, rs2, Funct7::ADDUW_ZEXT));
 }
 
@@ -3861,18 +4250,36 @@ void RiscVEmitter::MINU(RiscVReg rd, RiscVReg rs1, RiscVReg rs2) {
 void RiscVEmitter::SEXT_B(RiscVReg rd, RiscVReg rs) {
 	_assert_msg_(rd != R_ZERO, "%s should avoid write to zero", __func__);
 	_assert_msg_(SupportsBitmanip('b'), "%s instruction unsupported without B", __func__);
+
+	if (AutoCompress() && SupportsCompressed('b') && CanCompress(rd) && rd == rs) {
+		C_SEXT_B(rd);
+		return;
+	}
+
 	Write32(EncodeGR(Opcode32::OP_IMM, rd, Funct3::COUNT_SEXT_ROL, rs, Funct5::SEXT_B, Funct7::COUNT_SEXT_ROT));
 }
 
 void RiscVEmitter::SEXT_H(RiscVReg rd, RiscVReg rs) {
 	_assert_msg_(rd != R_ZERO, "%s should avoid write to zero", __func__);
 	_assert_msg_(SupportsBitmanip('b'), "%s instruction unsupported without B", __func__);
+
+	if (AutoCompress() && SupportsCompressed('b') && CanCompress(rd) && rd == rs) {
+		C_SEXT_H(rd);
+		return;
+	}
+
 	Write32(EncodeGR(Opcode32::OP_IMM, rd, Funct3::COUNT_SEXT_ROL, rs, Funct5::SEXT_H, Funct7::COUNT_SEXT_ROT));
 }
 
 void RiscVEmitter::ZEXT_H(RiscVReg rd, RiscVReg rs) {
 	_assert_msg_(rd != R_ZERO, "%s should avoid write to zero", __func__);
 	_assert_msg_(SupportsBitmanip('b'), "%s instruction unsupported without B", __func__);
+
+	if (AutoCompress() && SupportsCompressed('b') && CanCompress(rd) && rd == rs) {
+		C_ZEXT_H(rd);
+		return;
+	}
+
 	if (BitsSupported() == 32)
 		Write32(EncodeGR(Opcode32::OP, rd, Funct3::ZEXT, rs, R_ZERO, Funct7::ADDUW_ZEXT));
 	else
@@ -4011,6 +4418,18 @@ void RiscVEmitter::BSETI(RiscVReg rd, RiscVReg rs1, u32 shamt) {
 	_assert_msg_(rd != R_ZERO, "%s should avoid write to zero", __func__);
 	_assert_msg_(SupportsBitmanip('s'), "%s instruction unsupported without B", __func__);
 	Write32(EncodeGIShift(Opcode32::OP_IMM, rd, Funct3::BSET, rs1, shamt, Funct7::BSET_ORC));
+}
+
+void RiscVEmitter::CZERO_EQZ(RiscVReg rd, RiscVReg rs1, RiscVReg rs2) {
+	_assert_msg_(rd != R_ZERO, "%s should avoid write to zero", __func__);
+	_assert_msg_(SupportsIntConditional(), "%s instruction unsupported without Zicond", __func__);
+	Write32(EncodeR(Opcode32::OP, rd, Funct3::CZERO_EQZ, rs1, rs2, Funct7::CZERO));
+}
+
+void RiscVEmitter::CZERO_NEZ(RiscVReg rd, RiscVReg rs1, RiscVReg rs2) {
+	_assert_msg_(rd != R_ZERO, "%s should avoid write to zero", __func__);
+	_assert_msg_(SupportsIntConditional(), "%s instruction unsupported without Zicond", __func__);
+	Write32(EncodeR(Opcode32::OP, rd, Funct3::CZERO_NEZ, rs1, rs2, Funct7::CZERO));
 }
 
 bool RiscVEmitter::AutoCompress() const {
@@ -4347,6 +4766,88 @@ void RiscVEmitter::C_SDSP(RiscVReg rs2, u32 uimm9) {
 	u8 imm5_4_3 = ImmBits8(uimm9, 3, 3);
 	u8 imm5_4_3_8_7_6 = (imm5_4_3 << 3) | imm8_7_6;
 	Write16(EncodeCSS(Opcode16::C2, rs2, imm5_4_3_8_7_6, Funct3::C_SDSP));
+}
+
+void RiscVEmitter::C_LBU(RiscVReg rd, RiscVReg rs1, u8 uimm2) {
+	_assert_msg_(SupportsCompressed('b'), "Zcb compressed instructions unsupported");
+	_assert_msg_(IsGPR(rd) && IsGPR(rs1), "%s must use GPRs", __func__);
+	_assert_msg_((uimm2 & 3) == uimm2, "%s offset must be 0-3", __func__);
+	Write16(EncodeCLB(Opcode16::C0, CompressReg(rd), uimm2, CompressReg(rs1), Funct6::C_LBU));
+}
+
+void RiscVEmitter::C_LHU(RiscVReg rd, RiscVReg rs1, u8 uimm2) {
+	_assert_msg_(SupportsCompressed('b'), "Zcb compressed instructions unsupported");
+	_assert_msg_(IsGPR(rd) && IsGPR(rs1), "%s must use GPRs", __func__);
+	_assert_msg_((uimm2 & 2) == uimm2, "%s offset must be 0 or 2", __func__);
+	Write16(EncodeCLH(Opcode16::C0, CompressReg(rd), uimm2 >> 1, false, CompressReg(rs1), Funct6::C_LH));
+}
+
+void RiscVEmitter::C_LH(RiscVReg rd, RiscVReg rs1, u8 uimm2) {
+	_assert_msg_(SupportsCompressed('b'), "Zcb compressed instructions unsupported");
+	_assert_msg_(IsGPR(rd) && IsGPR(rs1), "%s must use GPRs", __func__);
+	_assert_msg_((uimm2 & 2) == uimm2, "%s offset must be 0 or 2", __func__);
+	Write16(EncodeCLH(Opcode16::C0, CompressReg(rd), uimm2 >> 1, true, CompressReg(rs1), Funct6::C_LH));
+}
+
+void RiscVEmitter::C_SB(RiscVReg rs2, RiscVReg rs1, u8 uimm2) {
+	_assert_msg_(SupportsCompressed('b'), "Zcb compressed instructions unsupported");
+	_assert_msg_(IsGPR(rs2) && IsGPR(rs1), "%s must use GPRs", __func__);
+	_assert_msg_((uimm2 & 3) == uimm2, "%s offset must be 0-3", __func__);
+	Write16(EncodeCSB(Opcode16::C0, CompressReg(rs2), uimm2, CompressReg(rs1), Funct6::C_SB));
+}
+
+void RiscVEmitter::C_SH(RiscVReg rs2, RiscVReg rs1, u8 uimm2) {
+	_assert_msg_(SupportsCompressed('b'), "Zcb compressed instructions unsupported");
+	_assert_msg_(IsGPR(rs2) && IsGPR(rs1), "%s must use GPRs", __func__);
+	_assert_msg_((uimm2 & 2) == uimm2, "%s offset must be 0 or 2", __func__);
+	Write16(EncodeCSH(Opcode16::C0, CompressReg(rs2), uimm2 >> 1, false, CompressReg(rs1), Funct6::C_SH));
+}
+
+void RiscVEmitter::C_ZEXT_B(RiscVReg rd) {
+	_assert_msg_(SupportsCompressed('b'), "Zcb compressed instructions unsupported");
+	_assert_msg_(IsGPR(rd), "%s must use GPRs", __func__);
+	Write16(EncodeCU(Opcode16::C1, Funct5::C_ZEXT_B, CompressReg(rd), Funct6::C_OP_32));
+}
+
+void RiscVEmitter::C_SEXT_B(RiscVReg rd) {
+	_assert_msg_(SupportsCompressed('b'), "Zcb compressed instructions unsupported");
+	_assert_msg_(SupportsBitmanip('b'), "Zbb bitmanip instructions unsupported");
+	_assert_msg_(IsGPR(rd), "%s must use GPRs", __func__);
+	Write16(EncodeCU(Opcode16::C1, Funct5::C_SEXT_B, CompressReg(rd), Funct6::C_OP_32));
+}
+
+void RiscVEmitter::C_ZEXT_H(RiscVReg rd) {
+	_assert_msg_(SupportsCompressed('b'), "Zcb compressed instructions unsupported");
+	_assert_msg_(SupportsBitmanip('b'), "Zbb bitmanip instructions unsupported");
+	_assert_msg_(IsGPR(rd), "%s must use GPRs", __func__);
+	Write16(EncodeCU(Opcode16::C1, Funct5::C_ZEXT_H, CompressReg(rd), Funct6::C_OP_32));
+}
+
+void RiscVEmitter::C_SEXT_H(RiscVReg rd) {
+	_assert_msg_(SupportsCompressed('b'), "Zcb compressed instructions unsupported");
+	_assert_msg_(SupportsBitmanip('b'), "Zbb bitmanip instructions unsupported");
+	_assert_msg_(IsGPR(rd), "%s must use GPRs", __func__);
+	Write16(EncodeCU(Opcode16::C1, Funct5::C_SEXT_H, CompressReg(rd), Funct6::C_OP_32));
+}
+
+void RiscVEmitter::C_ZEXT_W(RiscVReg rd) {
+	_assert_msg_(SupportsCompressed('b'), "Zcb compressed instructions unsupported");
+	_assert_msg_(SupportsBitmanip('a'), "Zba bitmanip instructions unsupported");
+	_assert_msg_(IsGPR(rd), "%s must use GPRs", __func__);
+	Write16(EncodeCU(Opcode16::C1, Funct5::C_ZEXT_W, CompressReg(rd), Funct6::C_OP_32));
+}
+
+void RiscVEmitter::C_NOT(RiscVReg rd) {
+	_assert_msg_(SupportsCompressed('b'), "Zcb compressed instructions unsupported");
+	_assert_msg_(IsGPR(rd), "%s must use GPRs", __func__);
+	Write16(EncodeCU(Opcode16::C1, Funct5::C_NOT, CompressReg(rd), Funct6::C_OP_32));
+}
+
+void RiscVEmitter::C_MUL(RiscVReg rd, RiscVReg rs2) {
+	_assert_msg_(SupportsCompressed('b'), "Zcb compressed instructions unsupported");
+	_assert_msg_(SupportsMulDiv(true), "%s instruction unsupported without M/Zmmul", __func__);
+	_assert_msg_(IsGPR(rd), "%s must use GPRs", __func__);
+	Write16(EncodeCA(Opcode16::C1, CompressReg(rs2), Funct2::C_MUL, CompressReg(rd), Funct6::C_OP_32));
 }
 
 void RiscVCodeBlock::PoisonMemory(int offset) {

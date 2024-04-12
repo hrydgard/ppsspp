@@ -102,7 +102,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0x019ba2099fb88f3c, 48, "vector_normalize_t", },
 	{ 0x0266f96d740c7e03, 912, "memcpy", }, // Final Fantasy 4 (US)
 	{ 0x02bd2859045d2383, 240, "bcmp", },
-	{ 0x030507c9a1f0fc85, 92, "matrix_rot_x", },
+	{ 0x030507c9a1f0fc85, 92, "sceVfpuMatrix4RotX", },
 	{ 0x0483fceefa4557ff, 1360, "__udivdi3", },
 	{ 0x0558ad5c5be00ca1, 76, "vtfm_t", },
 	{ 0x05aceb23092fd6a1, 36, "zettai_hero_update_minimap_tex", }, // Zettai Hero Project (US)
@@ -126,7 +126,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0x0f2a1106ad84fb74, 52, "strcmp", },
 	{ 0x0ffa5db8396d4274, 64, "memcpy_jak", }, // CRUSH
 	{ 0x1252e902d0b49bfb, 44, "vector_sub_q_2", },
-	{ 0x12df3d33a58d0298, 52, "vmidt_t", },
+	{ 0x12df3d33a58d0298, 52, "sceVfpuMatrix3Unit", },
 	{ 0x12feef7b017d3431, 700, "memmove", },
 	{ 0x1322c7e3fe6dff4d, 784, "_free_r", },
 	{ 0x1376c115d5f1d90c, 36, "strlen", },
@@ -143,7 +143,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0x199821ce500ef9d2, 24, "vocp_t", },
 	{ 0x1a3c8e9d637ed421, 104, "__adddf3", },
 	{ 0x1a7564fa3e25c992, 844, "memcpy", }, // Valkyria Chronicles 3
-	{ 0x1aad94c0723edfc0, 124, "vmmul_t_transp", },
+	{ 0x1aad94c0723edfc0, 124, "sceVfpuMatrix3Mul", },
 	{ 0x1ab33b12b3cb8cb0, 28, "vqmul_q", },
 	{ 0x1ac05627df1f87f4, 112, "memcpy16", }, // Valkyria Chronicles 3
 	{ 0x1bdf3600844373fd, 112, "strstr", },
@@ -153,7 +153,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0x1d7de04b4e87d00b, 680, "kankabanchoutbr_download_frame", }, // Kenka Banchou Bros: Tokyo Battle Royale
 	{ 0x1daf6eaf0442391d, 1024, "utawarerumono_download_frame", }, // Utawarerumono portable
 	{ 0x1e1525e3bc2f6703, 676, "rint", },
-	{ 0x1ec055f28bb9f4d1, 88, "gu_update_stall", },
+	{ 0x1ec055f28bb9f4d1, 88, "_sceGuUpdateStallAddr", },
 	{ 0x1ef9cfe6afd3c035, 180, "memset", }, // Kingdom Hearts (US)
 	{ 0x1f53eac122f96b37, 224, "cosf", },
 	{ 0x2097a8b75c8fe651, 436, "atan2", },
@@ -174,11 +174,11 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0x2bcf5268dd26345a, 340, "acos", },
 	{ 0x2c4cb2028a1735bf, 600, "floor", },
 	{ 0x2c61a9a06a345b43, 1084, "otomenoheihou_download_frame", }, // Sangoku Koi Senki Otome no Heihou
-	{ 0x2ca5958bb816c72e, 44, "vector_i2f_t", },
+	{ 0x2ca5958bb816c72e, 44, "sceVfpuVector3FromIVector", },
 	{ 0x2e7022d9767c9018, 2100, "atan", },
 	{ 0x2f10d3faec84b5bb, 276, "sinf", },
-	{ 0x2f639673670caa0e, 772, "dl_write_matrix_2", },
-	{ 0x2f718936b371fc44, 40, "vcos_s", },
+	{ 0x2f639673670caa0e, 772, "sceGupSetMatrix", },
+	{ 0x2f718936b371fc44, 40, "sceVfpuScalarCos", },
 	{ 0x3024e961d1811dea, 396, "fmod", },
 	{ 0x3050bfd0e729dfbf, 220, "atvoffroadfuryblazintrails_download_frame", }, // ATV Offroad Fury Blazin' Trails (US)
 	{ 0x30c9c4f420573eb6, 540, "expf", },
@@ -196,25 +196,25 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0x368f6cf979709a31, 744, "memmove", }, // Jui Dr. Touma Jotarou
 	{ 0x373ce518eee5a2d2, 20, "matrix300_store_q", },
 	{ 0x3840f5766fada4b1, 592, "dissidia_recordframe_avi", }, // Dissidia (US), Dissidia 012 (US)
-	{ 0x388043e96b0e11fd, 144, "dl_write_material_2", },
+	{ 0x388043e96b0e11fd, 144, "sceGupMaterial", },
 	{ 0x38f19bc3be215acc, 388, "log10f", },
 	{ 0x3913b81ddcbe1efe, 880, "katamari_render_check", }, // Me and My Katamari (US)
 	{ 0x393047f06eceaba1, 96, "strcspn", },
 	{ 0x39a651942a0b3861, 204, "tan", },
 	{ 0x3a3bc2b20a55bf02, 68, "memchr", },
-	{ 0x3ab08b5659de1746, 40, "vsin_s", },
+	{ 0x3ab08b5659de1746, 40, "sceVfpuScalarSin", },
 	{ 0x3c421a9265f37ebc, 700, "memmove", }, // Final Fantasy 4 (US)
 	{ 0x3cbc2d50a3db59e9, 100, "strncmp", },
-	{ 0x3ce1806699a91d9d, 148, "dl_write_light", },
+	{ 0x3ce1806699a91d9d, 148, "sceGupLight", },
 	{ 0x3d5e914011c181d4, 444, "scalbnf", },
 	{ 0x3ea41eafb53fc99a, 388, "logf", },
 	{ 0x3fe38bff09ac3da0, 436, "_strtoul_r", },
 	{ 0x40a25c7e1fd44fe2, 24, "fabsf", },
 	// Unsafe due to immediates.
 	//{ 0x410d48d9b6580b4a, 36, "dl_write_ztest", },
-	{ 0x42dc17c8018f30f2, 44, "vtan.s", },
+	{ 0x42dc17c8018f30f2, 44, "sceVfpuScalarTan", },
 	{ 0x436b07caa2aab931, 352, "acos", },
-	{ 0x444472537eedf966, 32, "vmzero_q", },
+	{ 0x444472537eedf966, 32, "sceVfpuMatrix4Zero", },
 	{ 0x449ff96982626338, 28, "vmidt_q", },
 	{ 0x44f65b1a72c45703, 36, "strlen", },
 	{ 0x45528de3948615dc, 64, "memcpy", },
@@ -239,12 +239,12 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0x514161da54d37416, 1416, "__umoddi3", },
 	{ 0x51c52d7dd4d2191c, 360, "cos", },
 	{ 0x5287d4b8abd5806b, 768, "_strtoll_r", },
-	{ 0x52d5141545a75eda, 60, "dl_write_clutformat", },
-	{ 0x530cbe1ce9b45d58, 108, "dl_write_light_vector", },
+	{ 0x52d5141545a75eda, 60, "sceGuClutMode", },
+	{ 0x530cbe1ce9b45d58, 108, "sceGuLightAtt", },
 	{ 0x53c9aa23504a630f, 96, "vmmul_q_5", },
 	{ 0x54015ccbcbc75374, 24, "strlen", }, // Metal Gear Solid: Peace Walker demo
 	{ 0x5550d87a851c218c, 168, "dl_write_viewport", },
-	{ 0x55c1294280bfade0, 88, "dl_write_blend_fixed", },
+	{ 0x55c1294280bfade0, 88, "sceGuBlendFunc", },
 	{ 0x5642a63f3802a792, 456, "orenoimouto_download_frame", }, // Ore no Imouto ga Konnani Kawaii Wake ga Nai
 	{ 0x56c9929e8c8c5768, 24, "fabsf", },
 	{ 0x572b2d9e57e6e363, 788, "memcpy_thingy", },
@@ -254,13 +254,13 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0x59a0cb08f5ecf8b6, 28, "copysignf", },
 	{ 0x5ae4ec2a5e133de3, 28, "vector_cross_t", },
 	{ 0x5b005f8375d7c364, 236, "floorf", },
-	{ 0x5b103d973fd1dd94, 92, "matrix_rot_y", },
+	{ 0x5b103d973fd1dd94, 92, "sceVfpuMatrix4RotY", },
 	{ 0x5b9d7e9d4c905694, 196, "_calloc_r", },
 	{ 0x5bf7a77b028e9f66, 324, "sqrtf", },
 	{ 0x5c0b3edc0e48852c, 148, "memmove", }, // Dissidia 1 (US)
 	{ 0x5e898df42c4af6b8, 76, "wcsncmp", },
 	{ 0x5f473780835e3458, 52, "vclamp_q", },
-	{ 0x5fc58ed2c4d48b79, 40, "vtfm_q_transp", },
+	{ 0x5fc58ed2c4d48b79, 40, "sceVfpuMatrix4Transform", },
 	{ 0x6145029ef86f0365, 76, "__extendsfdf2", },
 	{ 0x62815f41fa86a131, 656, "scalbn", },
 	{ 0x6301fa5149bd973a, 120, "wcscat", },
@@ -285,19 +285,19 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0x6e9884c842a51142, 236, "strncasecmp", },
 	{ 0x6f101c5c4311c144, 276, "floorf", },
 	{ 0x6f1731f84bbf76c3, 116, "strcmp", },
-	{ 0x6f4e1a1a84df1da0, 68, "dl_write_texmode", },
+	{ 0x6f4e1a1a84df1da0, 68, "sceGupTexMode", },
 	{ 0x6f7c9109b5b8fa47, 688, "danganronpa1_2_download_frame", }, // Danganronpa 1
 	{ 0x70649c7211f6a8da, 16, "fabsf", },
 	{ 0x70a6152b265228e8, 296, "unendingbloodycall_download_frame", }, // unENDing Bloody Call
-	{ 0x7245b74db370ae72, 64, "vmmul_q_transp3", },
-	{ 0x7259d52b21814a5a, 40, "vtfm_t_transp", },
+	{ 0x7245b74db370ae72, 64, "sceVfpuMatrix4Mul", },
+	{ 0x7259d52b21814a5a, 40, "sceVfpuMatrix4TransformXYZ", },
 	{ 0x730f59cc6c0f5732, 452, "godseaterburst_depthmask_5551", }, // Gods Eater Burst (US)
 	{ 0x7354fd206796d817, 864, "flowers_download_frame", }, // Flowers
 	{ 0x736b34ebc702d873, 104, "vmmul_q_transp", },
 	{ 0x73a614c08f777d52, 792, "danganronpa2_2_download_frame", }, // Danganronpa 2
 	{ 0x7499a2ce8b60d801, 12, "abs", },
 	{ 0x74c77fb521740cd2, 284, "toheart2_download_frame_2", }, // To Heart 2 Portable
-	{ 0x74ebbe7d341463f3, 72, "dl_write_colortest", },
+	{ 0x74ebbe7d341463f3, 72, "sceGuColorFunc", },
 	{ 0x755a41f9183bb89a, 60, "vmmul_q", },
 	{ 0x757d7ab0afbc03f5, 948, "kirameki_school_life_download_frame", }, // Toradora! Portable
 	{ 0x759834c69bb12c12, 68, "strcpy", },
@@ -329,14 +329,14 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0x8da0164e69e9b531, 1040, "grisaianokajitsu_download_frame", }, // Grisaia no Kajitsu La Fruit de la Grisaia
 	{ 0x8dd0546db930ef25, 992, "memmove", }, // PoPoLoCrois (JPN)
 	{ 0x8df2928848857e97, 164, "strcat", },
-	{ 0x8e48cabd529ca6b5, 52, "vector_multiply_t", },
+	{ 0x8e48cabd529ca6b5, 52, "sceVfpuVector3Mul", },
 	{ 0x8e97dcb03fbaba5c, 104, "vmmul_q_transp", },
 	{ 0x8ecf804bbe7922e5, 572, "worms_copy_normalize_alpha" }, // Worms Battle Islands (US)
 	{ 0x8ee81b03d2eef1e7, 28, "vmul_t", },
 	{ 0x8f09fb8693c3c49d, 992, "kirameki_school_life_download_frame", }, // Hentai Ouji To Warawanai Neko
 	{ 0x8f19c41e8b987e18, 100, "matrix_mogrify", },
 	{ 0x8ff11e9bed387401, 700, "memmove", }, // God Eater 2
-	{ 0x910140c1a07aa59e, 256, "rot_matrix_euler_zyx", },
+	{ 0x910140c1a07aa59e, 256, "sceVfpuMatrix4Rot", },
 	{ 0x91606bd72ae90481, 44, "wmemcpy", },
 	{ 0x92c7d2de74068c9c, 32, "vcross_t", },
 	{ 0x93d8a275ba288b26, 32, "vdot_t", },
@@ -354,17 +354,17 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0x9d4f5f56b52f07f2, 808, "memmove", }, // Jeanne d'Arc (US)
 	{ 0x9e2941c4a5c5e847, 792, "memcpy", }, // LittleBigPlanet (US)
 	{ 0x9e6ce11f9d49f954, 292, "memcpy", }, // Jeanne d'Arc (US)
-	{ 0x9f269daa6f0da803, 128, "dl_write_scissor_region", },
+	{ 0x9f269daa6f0da803, 128, "sceGupScissor", },
 	{ 0x9f7919eeb43982b0, 208, "__fixdfsi", },
 	{ 0xa1c9b0a2c71235bf, 1752, "marvelalliance1_copy" }, // Marvel Ultimate Alliance 1 (EU)
 	{ 0x9b76c7f2a41aa805, 1752, "marvelalliance1_copy" }, // Marvel Ultimate alliance 1 (US)
 	{ 0xa1ca0640f11182e7, 72, "strcspn", },
 	{ 0xa243486be51ce224, 272, "cosf", },
-	{ 0xa2bcef60a550a3ef, 92, "matrix_rot_z", },
+	{ 0xa2bcef60a550a3ef, 92, "sceVfpuMatrix4RotZ", },
 	{ 0xa373f55c65cd757a, 312, "memcpy_swizzled" }, // God Eater Burst Demo
 	{ 0xa41989db0f9bf97e, 1304, "pow", },
 	{ 0xa44f6227fdbc12b1, 132, "memcmp", }, // Popolocrois (US)
-	{ 0xa46cc6ea720d5775, 44, "dl_write_cull", },
+	{ 0xa46cc6ea720d5775, 44, "sceGupFrontFace", },
 	{ 0xa54967288afe8f26, 600, "ceil", },
 	{ 0xa5ddbbc688e89a4d, 56, "isinf", },
 	{ 0xa615f6bd33195dae, 220, "atvoffroadfuryprodemo_download_frame", }, // ATV Offroad Fury Pro (US) demo
@@ -375,22 +375,22 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0xa85fe8abb88b1c6f, 52, "vector_sub_t", },
 	{ 0xa9194e55cc586557, 268, "memcpy", },
 	{ 0xa91b3d60bd75105b, 28, "vadd_t", },
-	{ 0xab97ec58c58a7c75, 52, "vector_divide_t", },
+	{ 0xab97ec58c58a7c75, 52, "sceVfpuVector3Div", },
 	{ 0xac84fa7571895c9a, 68, "memcpy", }, // Marvel Ultimate Alliance 2
 	{ 0xacc2c11c3ea28320, 268, "ceilf", },
-	{ 0xad67add5122b8c64, 52, "matrix_q_translate_t", },
+	{ 0xad67add5122b8c64, 52, "sceVfpuMatrix4Transfer", },
 	{ 0xada952a1adcea4f5, 60, "vmmul_q_transp5", },
 	{ 0xadfbf8fb8c933193, 56, "fabs", },
 	{ 0xae39bac51fd6e76b, 628, "gakuenheaven_download_frame", }, // Gakuen Heaven: Boy's Love Scramble!
 	{ 0xae50226363135bdd, 24, "vector_sub_t", },
-	{ 0xae6cd7dfac82c244, 48, "vpow_s", },
+	{ 0xae6cd7dfac82c244, 48, "sceVfpuScalarPow", },
 	{ 0xaf85d47f95ad2921, 1936, "pow", },
 	{ 0xafb2c7e56c04c8e9, 48, "vtfm_q", },
 	{ 0xafc9968e7d246a5e, 1588, "atan", },
 	{ 0xafcb7dfbc4d72588, 44, "vector_transform_3x4", },
 	{ 0xb07f9d82d79deea9, 536, "brandish_download_frame", },  // Brandish, and Sora no kiseki 3rd
 	{ 0xb09c9bc1343a774c, 456, "danganronpa2_1_download_frame", }, // Danganronpa 2
-	{ 0xb0db731f27d3aa1b, 40, "vmax_s", },
+	{ 0xb0db731f27d3aa1b, 40, "sceVfpuScalarMax", },
 	{ 0xb0ef265e87899f0a, 32, "vector_divide_t_s", },
 	{ 0xb183a37baa12607b, 32, "vscl_t", },
 	{ 0xb1a3e60a89af9857, 20, "fabs", },
@@ -405,20 +405,20 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0xb7d88567dc22aab1, 820, "memcpy", }, // Trails in the Sky (US)
 	{ 0xb877d3c37a7aaa5d, 60, "vmmul_q_2", },
 	{ 0xb89aa73b6f94ba95, 52, "vclamp_t", },
-	{ 0xb8bd1f0e02e9ad87, 156, "dl_write_light_dir", },
+	{ 0xb8bd1f0e02e9ad87, 156, "sceGuLightSpot", },
 	{ 0xb8cfaeebfeb2de20, 7548, "_vfprintf_r", },
 	{ 0xb97f352e85661af6, 32, "finitef", },
 	{ 0xba76a8e853426baa, 544, "soranokiseki_fc_download_frame", }, // Sora no kiseki FC
-	{ 0xbb3c6592ed319ba4, 132, "dl_write_fog_params", },
+	{ 0xbb3c6592ed319ba4, 132, "sceGuFog", },
 	{ 0xbb7d7c93e4c08577, 124, "__truncdfsf2", },
-	{ 0xbdf54d66079afb96, 200, "dl_write_bone_matrix_3", },
+	{ 0xbdf54d66079afb96, 200, "sceGuBoneMatrix", },
 	{ 0xbe773f78afd1a70f, 128, "rand", },
 	{ 0xbf5d02ccb8514881, 108, "strcmp", },
 	{ 0xbf791954ebef4afb, 396, "expf", },
 	{ 0xbfa8c16038b7753d, 868, "sakurasou_download_frame", }, // Sakurasou No Pet Na Kanojo
 	{ 0xbfe07e305abc4cd1, 808, "memmove" }, // Final Fantasy Tactics (US)
 	{ 0xc062f2545ef5dc39, 1076, "kirameki_school_life_download_frame", },// Kirameki School Life SP,and Boku wa Tomodati ga Sukunai
-	{ 0xc0feb88cc04a1dc7, 48, "vector_negate_t", },
+	{ 0xc0feb88cc04a1dc7, 48, "sceVfpuVector3Neg", },
 	{ 0xc1220040b0599a75, 472, "soranokiseki_sc_download_frame", }, // Sora no kiseki SC
 	{ 0xc1f34599d0b9146b, 116, "__subdf3", },
 	{ 0xc3089f66ee6f0a24, 464, "growlanser_create_saveicon", }, // Growlanswer IV
@@ -442,15 +442,15 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0xcee11483b550ce8f, 24, "vocp_q", },
 	{ 0xcfecf208769ed5fd, 272, "cosf", },
 	{ 0xd019b067b58cf6c3, 700, "memmove", }, // Star Ocean 1 (US)
-	{ 0xd12a3a91e0040229, 524, "dl_write_enable_disable", },
+	{ 0xd12a3a91e0040229, 524, "sceGupSetStatus", },
 	{ 0xd141d1efbfe13ca3, 968, "kirameki_school_life_download_frame", }, // Kirameki School Life SP,and Boku wa Tomodati ga Sukunai
 	{ 0xd1db467a23ebe00d, 724, "rewrite_download_frame", }, // Rewrite Portable
 	{ 0xd1faacfc711d61e8, 68, "__negdf2", },
 	{ 0xd207b0650a41dd9c, 28, "vmin_q", },
 	{ 0xd6d6e0bb21654778, 24, "vneg_t", },
-	{ 0xd7229fee680e7851, 40, "vmin_s", },
+	{ 0xd7229fee680e7851, 40, "sceVfpuScalarMin", },
 	{ 0xd75670860a7f4b05, 144, "wcsncpy", },
-	{ 0xd76d1a8804c7ec2c, 100, "dl_write_material", },
+	{ 0xd76d1a8804c7ec2c, 100, "sceGupModelColor", },
 	{ 0xd7d350c0b33a4662, 28, "vadd_q", },
 	{ 0xd80051931427dca0, 116, "__subdf3", },
 	{ 0xd96ba6e4ff86f1bf, 276, "katamari_screenshot_to_565", }, // Me and My Katamari (US)
@@ -491,7 +491,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0xf4ea7d2ec943fa02, 224, "sinf", },
 	{ 0xf4f8cdf479dfc4a4, 224, "sinf", },
 	{ 0xf527d906d69005a0, 848, "photokano_download_frame_2", }, // Photo Kano
-	{ 0xf52f993e444b6c52, 44, "dl_write_shademode", },
+	{ 0xf52f993e444b6c52, 44, "sceGupShadeModel", },
 	{ 0xf56641884b36c638, 468, "scalbn", },
 	{ 0xf5e91870b5b76ddc, 288, "motorstorm_download_frame", }, // MotorStorm: Arctic Edge
 	{ 0xf5f7826b4a61767c, 40, "matrix_copy_q", },
@@ -500,7 +500,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0xf7fc691db0147e25, 96, "strspn", },
 	{ 0xf842aea3baa61f29, 32, "vector_length_t", },
 	{ 0xf8e0902f4099a9d6, 2260, "qsort", },
-	{ 0xf972543ab7df071a, 32, "vsqrt_s", },
+	{ 0xf972543ab7df071a, 32, "sceVfpuScalarSqrt", },
 	{ 0xf9b00ef163e8b9d4, 32, "vscl_q", },
 	{ 0xf9ea1bf2a897ef24, 588, "ceil", },
 	{ 0xfa156c48461eeeb9, 24, "vf2id_q", },
@@ -1415,7 +1415,6 @@ skip:
 
 	std::vector<MIPSGPReg> GetOutputRegs(MIPSOpcode op) {
 		std::vector<MIPSGPReg> vec;
-		vec.reserve(3);
 		MIPSInfo info = MIPSGetInfo(op);
 		if (info & OUT_RD) vec.push_back(MIPS_GET_RD(op));
 		if (info & OUT_RT) vec.push_back(MIPS_GET_RT(op));

@@ -119,5 +119,7 @@ private:
 
 	UI::Button *cardboardDisableButton_ = nullptr;
 
+	std::string extraAssertInfoStr_;
+
 	ControlMapper controlMapper_;
 };

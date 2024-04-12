@@ -497,7 +497,7 @@ std::vector<u32> JitBlockCache::SaveAndClearEmuHackOps() {
 	return result;
 }
 
-void JitBlockCache::RestoreSavedEmuHackOps(std::vector<u32> saved) {
+void JitBlockCache::RestoreSavedEmuHackOps(const std::vector<u32> &saved) {
 	if (num_blocks_ != (int)saved.size()) {
 		ERROR_LOG(JIT, "RestoreSavedEmuHackOps: Wrong saved block size.");
 		return;

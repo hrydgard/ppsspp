@@ -521,8 +521,8 @@ public:
 
 private:
 	bool parseFieldReference(const char *ref, const char *field, uint32_t &referenceIndex);
-	uint32_t getFieldValue(GECmdFormat fmt, GECmdField field, uint32_t value);
-	ExpressionType getFieldType(GECmdFormat fmt, GECmdField field);
+	static uint32_t getFieldValue(GECmdFormat fmt, GECmdField field, uint32_t value);
+	static ExpressionType getFieldType(GECmdFormat fmt, GECmdField field);
 
 	GPUDebugInterface *gpu_;
 };
@@ -770,7 +770,7 @@ uint32_t GEExpressionFunctions::getFieldValue(GECmdFormat fmt, GECmdField field,
 	case GECmdField::FLAG_AFTER_8:
 		return (value >> 8) & 1;
 	case GECmdField::FLAG_AFTER_9:
-		return (value >> 8) & 1;
+		return (value >> 9) & 1;
 	case GECmdField::FLAG_AFTER_10:
 		return (value >> 10) & 1;
 	case GECmdField::FLAG_AFTER_11:

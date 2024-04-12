@@ -190,6 +190,12 @@ static bool LoadSymbolsIfSupported() {
 		if (!g_symbolMap)
 			return false;
 
+		if (PSP_CoreParameter().fileToStart.Type() == PathType::HTTP) {
+			// We don't support loading symbols over HTTP.
+			g_symbolMap->Clear();
+			return true;
+		}
+
 		bool result1 = g_symbolMap->LoadSymbolMap(SymbolMapFilename(PSP_CoreParameter().fileToStart, ".ppmap"));
 		// Load the old-style map file.
 		if (!result1)
@@ -228,7 +234,7 @@ bool DiscIDFromGEDumpPath(const Path &path, FileLoader *fileLoader, std::string 
 	// Fall back to using the filename.
 	std::string filename = path.GetFilename();
 	// Could be more discerning, but hey..
-	if (filename.size() > 10 && filename[0] == 'U' && filename[9] == '_') {
+	if (filename.size() > 10 && (filename[0] == 'U' || filename[0] == 'N') && filename[9] == '_') {
 		*id = filename.substr(0, 9);
 		return true;
 	} else {
@@ -284,7 +290,7 @@ bool CPU_Init(std::string *errorString, FileLoader *loadedFile) {
 		}
 		break;
 	case IdentifiedFileType::PPSSPP_GE_DUMP:
-		// Try to grab the disc ID from the filenameor GE dump.
+		// Try to grab the disc ID from the filename or GE dump.
 		if (DiscIDFromGEDumpPath(filename, loadedFile, &geDumpDiscID)) {
 			// Store in SFO, otherwise it'll generate a fake disc ID.
 			g_paramSFO.SetValue("DISC_ID", geDumpDiscID, 16);

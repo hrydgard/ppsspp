@@ -32,8 +32,9 @@
 }
 
 - (NSMenu *)applicationDockMenu:(NSApplication *)sender {
+	// TODO: Actually implement a dock menu thingy.
 	for (std::string iso : g_Config.RecentIsos()) {
-		printf("%s\n", iso.c_str());
+		// printf("%s\n", iso.c_str());
 	}
 	
 	return nil;

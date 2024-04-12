@@ -147,7 +147,7 @@ void X64JitBackend::CompIR_Breakpoint(IRInst inst) {
 			}
 			bool isWrite = MIPSAnalyst::IsOpMemoryWrite(checkedPC);
 
-			const auto &memchecks = CBreakPoints::GetMemCheckRanges(isWrite);
+			const auto memchecks = CBreakPoints::GetMemCheckRanges(isWrite);
 			// We can trivially skip if there are no checks for this type (i.e. read vs write.)
 			if (memchecks.empty())
 				break;
@@ -159,7 +159,6 @@ void X64JitBackend::CompIR_Breakpoint(IRInst inst) {
 			FlushAll();
 
 			std::vector<FixupBranch> hitChecks;
-			hitChecks.reserve(memchecks.size());
 			for (const auto &it : memchecks) {
 				if (it.end != 0) {
 					CMP(32, R(SCRATCH1), Imm32(it.start - size));
@@ -396,7 +395,6 @@ void X64JitBackend::CompIR_ValidateAddress(IRInst inst) {
 	AND(32, R(SCRATCH1), Imm32(0x3FFFFFFF));
 
 	std::vector<FixupBranch> validJumps;
-	validJumps.reserve(3);
 
 	FixupBranch unaligned;
 	if (alignment != 1) {

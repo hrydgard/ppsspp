@@ -1,18 +1,31 @@
 #include "Common/Render/DrawBuffer.h"
 #include "Common/GPU/thin3d.h"
 #include "Common/System/System.h"
-#include "UI/DebugOverlay.h"
+#include "Common/Data/Text/I18n.h"
+#include "Core/MIPS/MIPS.h"
 #include "Core/HW/Display.h"
 #include "Core/FrameTiming.h"
 #include "Core/HLE/sceSas.h"
+#include "Core/HLE/sceKernel.h"
+#include "Core/HLE/scePower.h"
+#include "Core/HLE/Plugins.h"
 #include "Core/ControlMapper.h"
 #include "Core/Config.h"
+#include "Core/MemFault.h"
+#include "Core/Reporting.h"
+#include "Core/CwCheat.h"
+#include "Core/Core.h"
+#include "Core/ELF/ParamSFO.h"
 #include "Core/System.h"
+#include "Core/Util/GameDB.h"
 #include "GPU/GPU.h"
 #include "GPU/GPUInterface.h"
 // TODO: This should be moved here or to Common, doesn't belong in /GPU
 #include "GPU/Vulkan/DebugVisVulkan.h"
 #include "GPU/Common/FramebufferManagerCommon.h"
+
+#include "UI/DevScreens.h"
+#include "UI/DebugOverlay.h"
 
 // For std::max
 #include <algorithm>
@@ -238,4 +251,213 @@ void DrawDebugOverlay(UIContext *ctx, const Bounds &bounds, DebugOverlay overlay
 	default:
 		break;
 	}
+}
+
+
+static const char *CPUCoreAsString(int core) {
+	switch (core) {
+	case 0: return "Interpreter";
+	case 1: return "JIT";
+	case 2: return "IR Interpreter";
+	case 3: return "JIT using IR";
+	default: return "N/A";
+	}
+}
+
+void DrawCrashDump(UIContext *ctx, const Path &gamePath) {
+	const MIPSExceptionInfo &info = Core_GetExceptionInfo();
+
+	auto sy = GetI18NCategory(I18NCat::SYSTEM);
+	FontID ubuntu24("UBUNTU24");
+	std::string discID = g_paramSFO.GetDiscID();
+	int x = 20 + System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_LEFT);
+	int y = 20 + System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_TOP);
+
+	ctx->Flush();
+	if (ctx->Draw()->GetFontAtlas()->getFont(ubuntu24))
+		ctx->BindFontTexture();
+	ctx->Draw()->SetFontScale(1.1f, 1.1f);
+	ctx->Draw()->DrawTextShadow(ubuntu24, sy->T_cstr("Game crashed"), x, y, 0xFFFFFFFF);
+
+	char statbuf[4096];
+	char versionString[256];
+	snprintf(versionString, sizeof(versionString), "%s", PPSSPP_GIT_VERSION);
+
+	bool checkingISO = false;
+	bool isoOK = false;
+
+	char crcStr[50]{};
+	if (Reporting::HasCRC(gamePath)) {
+		u32 crc = Reporting::RetrieveCRC(gamePath);
+		std::vector<GameDBInfo> dbInfos;
+		if (g_gameDB.GetGameInfos(discID, &dbInfos)) {
+			for (auto &dbInfo : dbInfos) {
+				if (dbInfo.crc == crc) {
+					isoOK = true;
+				}
+			}
+		}
+		snprintf(crcStr, sizeof(crcStr), "CRC: %08x %s\n", crc, isoOK ? "(Known good!)" : "(not identified)");
+	} else {
+		// Queue it for calculation, we want it!
+		// It's OK to call this repeatedly until we have it, which is natural here.
+		Reporting::QueueCRC(gamePath);
+		checkingISO = true;
+	}
+
+	// TODO: Draw a lot more information. Full register set, and so on.
+
+#ifdef _DEBUG
+	char build[] = "debug";
+#else
+	char build[] = "release";
+#endif
+
+	std::string sysName = System_GetProperty(SYSPROP_NAME);
+	int sysVersion = System_GetPropertyInt(SYSPROP_SYSTEMVERSION);
+
+	// First column
+	y += 65;
+
+	int columnWidth = (ctx->GetBounds().w - x - 10) / 2;
+	int height = ctx->GetBounds().h;
+
+	ctx->PushScissor(Bounds(x, y, columnWidth, height));
+
+	// INFO_LOG(SYSTEM, "DrawCrashDump (%d %d %d %d)", x, y, columnWidth, height);
+
+	snprintf(statbuf, sizeof(statbuf), R"(%s
+%s (%s)
+%s (%s)
+%s v%d (%s)
+%s
+)",
+ExceptionTypeAsString(info.type),
+discID.c_str(), g_paramSFO.GetValueString("TITLE").c_str(),
+versionString, build,
+sysName.c_str(), sysVersion, GetCompilerABI(),
+crcStr
+);
+
+	ctx->Draw()->SetFontScale(.7f, .7f);
+	ctx->Draw()->DrawTextShadow(ubuntu24, statbuf, x, y, 0xFFFFFFFF);
+	y += 160;
+
+	if (info.type == MIPSExceptionType::MEMORY) {
+		snprintf(statbuf, sizeof(statbuf), R"(
+Access: %s at %08x (sz: %d)
+PC: %08x
+%s)",
+MemoryExceptionTypeAsString(info.memory_type),
+info.address,
+info.accessSize,
+info.pc,
+info.info.c_str());
+		ctx->Draw()->DrawTextShadow(ubuntu24, statbuf, x, y, 0xFFFFFFFF);
+		y += 180;
+	} else if (info.type == MIPSExceptionType::BAD_EXEC_ADDR) {
+		snprintf(statbuf, sizeof(statbuf), R"(
+Destination: %s to %08x
+PC: %08x
+RA: %08x)",
+ExecExceptionTypeAsString(info.exec_type),
+info.address,
+info.pc,
+info.ra);
+		ctx->Draw()->DrawTextShadow(ubuntu24, statbuf, x, y, 0xFFFFFFFF);
+		y += 180;
+	} else if (info.type == MIPSExceptionType::BREAK) {
+		snprintf(statbuf, sizeof(statbuf), R"(
+BREAK
+PC: %08x
+)", info.pc);
+		ctx->Draw()->DrawTextShadow(ubuntu24, statbuf, x, y, 0xFFFFFFFF);
+		y += 180;
+	} else {
+		snprintf(statbuf, sizeof(statbuf), R"(
+Invalid / Unknown (%d)
+)", (int)info.type);
+		ctx->Draw()->DrawTextShadow(ubuntu24, statbuf, x, y, 0xFFFFFFFF);
+		y += 180;
+	}
+
+	std::string kernelState = __KernelStateSummary();
+
+	ctx->Draw()->DrawTextShadow(ubuntu24, kernelState.c_str(), x, y, 0xFFFFFFFF);
+
+	y += 40;
+
+	ctx->Draw()->SetFontScale(.5f, .5f);
+
+	ctx->Draw()->DrawTextShadow(ubuntu24, info.stackTrace.c_str(), x, y, 0xFFFFFFFF);
+
+	ctx->Draw()->SetFontScale(.7f, .7f);
+
+	ctx->PopScissor();
+
+	// Draw some additional stuff to the right.
+
+	std::string tips;
+	if (CheatsInEffect()) {
+		tips += "* Turn off cheats.\n";
+	}
+	if (GetLockedCPUSpeedMhz()) {
+		tips += "* Set CPU clock to default (0)\n";
+	}
+	if (checkingISO) {
+		tips += "* (waiting for CRC...)\n";
+	} else if (!isoOK) {  // TODO: Should check that it actually is an ISO and not a homebrew
+		tips += "* Verify and possibly re-dump your ISO\n  (CRC not recognized)\n";
+	}
+	if (!tips.empty()) {
+		tips = "Things to try:\n" + tips;
+	}
+
+	x += columnWidth + 10;
+	y = 85;
+	snprintf(statbuf, sizeof(statbuf),
+		"CPU Core: %s (flags: %08x)\n"
+		"Locked CPU freq: %d MHz\n"
+		"Cheats: %s, Plugins: %s\n\n%s",
+		CPUCoreAsString(g_Config.iCpuCore), g_Config.uJitDisableFlags,
+		GetLockedCPUSpeedMhz(),
+		CheatsInEffect() ? "Y" : "N", HLEPlugins::HasEnabled() ? "Y" : "N", tips.c_str());
+
+	ctx->Draw()->DrawTextShadow(ubuntu24, statbuf, x, y, 0xFFFFFFFF);
+	ctx->Flush();
+	ctx->Draw()->SetFontScale(1.0f, 1.0f);
+	ctx->RebindTexture();
+}
+
+void DrawFPS(UIContext *ctx, const Bounds &bounds) {
+	FontID ubuntu24("UBUNTU24");
+	float vps, fps, actual_fps;
+	__DisplayGetFPS(&vps, &fps, &actual_fps);
+
+	char fpsbuf[256]{};
+	if (g_Config.iShowStatusFlags == ((int)ShowStatusFlags::FPS_COUNTER | (int)ShowStatusFlags::SPEED_COUNTER)) {
+		snprintf(fpsbuf, sizeof(fpsbuf), "%0.0f/%0.0f (%0.1f%%)", actual_fps, fps, vps / (59.94f / 100.0f));
+	} else {
+		if (g_Config.iShowStatusFlags & (int)ShowStatusFlags::FPS_COUNTER) {
+			snprintf(fpsbuf, sizeof(fpsbuf), "FPS: %0.1f", actual_fps);
+		}
+		if (g_Config.iShowStatusFlags & (int)ShowStatusFlags::SPEED_COUNTER) {
+			snprintf(fpsbuf, sizeof(fpsbuf), "%s Speed: %0.1f%%", fpsbuf, vps / (59.94f / 100.0f));
+		}
+	}
+
+#ifdef CAN_DISPLAY_CURRENT_BATTERY_CAPACITY
+	if (g_Config.iShowStatusFlags & (int)ShowStatusFlags::BATTERY_PERCENT) {
+		snprintf(fpsbuf, sizeof(fpsbuf), "%s Battery: %d%%", fpsbuf, getCurrentBatteryCapacity());
+	}
+#endif
+
+	ctx->Flush();
+	ctx->BindFontTexture();
+	ctx->Draw()->SetFontScale(0.7f, 0.7f);
+	ctx->Draw()->DrawText(ubuntu24, fpsbuf, bounds.x2() - 8, 20, 0xc0000000, ALIGN_TOPRIGHT | FLAG_DYNAMIC_ASCII);
+	ctx->Draw()->DrawText(ubuntu24, fpsbuf, bounds.x2() - 10, 19, 0xFF3fFF3f, ALIGN_TOPRIGHT | FLAG_DYNAMIC_ASCII);
+	ctx->Draw()->SetFontScale(1.0f, 1.0f);
+	ctx->Flush();
+	ctx->RebindTexture();
 }

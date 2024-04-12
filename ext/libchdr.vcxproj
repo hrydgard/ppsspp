@@ -197,7 +197,7 @@
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
       <EnablePREfast>false</EnablePREfast>
-      <AdditionalIncludeDirectories>libchdr\include;libchdr\deps\lzma-22.01\include;zlib;</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>libchdr\include;libchdr\deps\lzma-22.01\include;zlib;zstd\lib;</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -216,7 +216,7 @@
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
       <EnablePREfast>false</EnablePREfast>
-      <AdditionalIncludeDirectories>libchdr\include;libchdr\deps\lzma-22.01\include;zlib;</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>libchdr\include;libchdr\deps\lzma-22.01\include;zlib;zstd\lib;</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -234,7 +234,7 @@
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
       <EnablePREfast>false</EnablePREfast>
-      <AdditionalIncludeDirectories>libchdr\include;libchdr\deps\lzma-22.01\include;zlib;</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>libchdr\include;libchdr\deps\lzma-22.01\include;zlib;zstd\lib;</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -252,7 +252,7 @@
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
       <EnablePREfast>false</EnablePREfast>
-      <AdditionalIncludeDirectories>libchdr\include;libchdr\deps\lzma-22.01\include;zlib;</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>libchdr\include;libchdr\deps\lzma-22.01\include;zlib;zstd\lib;</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -277,7 +277,7 @@
       <OmitFramePointers>true</OmitFramePointers>
       <WholeProgramOptimization>false</WholeProgramOptimization>
       <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
-      <AdditionalIncludeDirectories>libchdr\include;libchdr\deps\lzma-22.01\include;zlib;</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>libchdr\include;libchdr\deps\lzma-22.01\include;zlib;zstd\lib;</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -305,7 +305,7 @@
       <OmitFramePointers>true</OmitFramePointers>
       <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
-      <AdditionalIncludeDirectories>libchdr\include;libchdr\deps\lzma-22.01\include;zlib;</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>libchdr\include;libchdr\deps\lzma-22.01\include;zlib;zstd\lib;</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -332,7 +332,7 @@
       <OmitFramePointers>true</OmitFramePointers>
       <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
-      <AdditionalIncludeDirectories>libchdr\include;libchdr\deps\lzma-22.01\include;zlib;</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>libchdr\include;libchdr\deps\lzma-22.01\include;zlib;zstd\lib;</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -359,7 +359,7 @@
       <OmitFramePointers>true</OmitFramePointers>
       <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
-      <AdditionalIncludeDirectories>libchdr\include;libchdr\deps\lzma-22.01\include;zlib;</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>libchdr\include;libchdr\deps\lzma-22.01\include;zlib;zstd\lib;</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>

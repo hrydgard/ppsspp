@@ -1,0 +1,117 @@
+name: Manual Generate UWP MSIX/MSIXBundle
+on:
+  workflow_dispatch:
+    inputs:
+
+      buildConfiguration:
+        type: choice
+        description: 'Build Configuration'
+        required: true
+        default: 'Release'
+        options: 
+        - Release
+        - Debug
+
+      buildPlatform:
+        type: choice
+        description: 'Build Platform'
+        required: true
+        default: 'Bundle'
+        options: 
+        - Bundle
+        - x64
+        - ARM64
+        - ARM
+
+      signedPackage:
+        type: boolean
+        description: 'Signed Package'
+        required: true
+        default: true
+
+jobs:
+
+  build-uwp:
+    name: Generate ${{ github.event.inputs.buildConfiguration }} ${{ github.event.inputs.buildPlatform }} UWP
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Check Valid Version Tags
+        id: valid-tags
+        shell: bash
+        run: |
+          echo "count=$(git tag -l 'v[0-9]*' | wc -l | tr -d ' ')" >> $GITHUB_OUTPUT # $env:GITHUB_OUTPUT on pwsh
+          
+      - name: Fetch upstream tags # required for git describe to return a valid version on a new fork
+        if: ${{ steps.valid-tags.outputs.count == '0' }}
+        run: |
+          # TODO: should try to fetch tags from whereever this repo was forked from before fetching from official repo
+          git remote add upstream https://github.com/hrydgard/ppsspp.git # fetching from official repo as a fallback
+          git fetch --deepen=15000 --no-recurse-submodules --tags upstream || exit 0
+        
+      - name: Add MSBuild to PATH
+        uses: microsoft/setup-msbuild@v2
+          
+      #- name: Setup cache # We probably need something like MSBuildCache for MSBuild to be able to use cache properly
+      #  id: cache-uwp
+      #  uses: actions/cache@v3
+      #  with:
+      #    path: |
+      #      UWP/${{ github.event.inputs.buildPlatform }}/${{ github.event.inputs.buildConfiguration }}/**
+      #    key: uwp-${{ github.event.inputs.buildConfiguration }}-${{ github.event.inputs.buildPlatform }}
+
+      - name: Testing values
+        run: |
+          # Testing values ...
+          #env
+          echo "Content of [env.GITHUB_WORKSPACE] = ${env.GITHUB_WORKSPACE}"
+          echo "Content of [[env.GITHUB_WORKSPACE]] = ${{env.GITHUB_WORKSPACE}}"
+          echo "Content of [env:GITHUB_WORKSPACE] = ${env:GITHUB_WORKSPACE}"
+          echo "Content of [github.workspace] = ${github.workspace}"
+          echo "Content of [[github.workspace]] = ${{github.workspace}}"
+          echo "double ${{ github.event.inputs.buildConfiguration }}"
+          echo ${{github.workspace}}
+          echo "count=${{steps.valid-tags.outputs.count}}"
+          echo "single ${ github.event.inputs.buildConfiguration }"
+          echo $env:GITHUB_WORKSPACE
+      
+      - name: Execute MSIX build
+        working-directory: ${{ github.workspace }}
+        env:
+          INCLUDE_SYMBOLS: ${{ github.event.inputs.buildConfiguration == 'Debug' && 'true' || 'false' }}
+        if: ${{ github.event.inputs.buildPlatform != 'Bundle' }}
+        run: |
+          echo "include symbols = ${{ env.INCLUDE_SYMBOLS }}"
+          msbuild UWP/PPSSPP_UWP.sln /m /p:TrackFileAccess=false /p:Configuration=${{ github.event.inputs.buildConfiguration }} /p:Platform=${{ github.event.inputs.buildPlatform }} /p:IncludeSymbols=${{ env.INCLUDE_SYMBOLS }} /p:AppxSymbolPackageEnabled=${{ env.INCLUDE_SYMBOLS }} /p:AppxPackageSigningEnabled=${{ github.event.inputs.signedPackage }} /p:PackageCertificateKeyFile=PPSSPP_UWP_TemporaryKey.pfx /p:AppxBundle=Never /p:UapAppxPackageBuildMode=SideloadOnly /p:AppxBundlePlatforms="${{ github.event.inputs.buildPlatform }}"
+
+      - name: Execute MSIXBundle build
+        working-directory: ${{ github.workspace }}
+        env:
+          INCLUDE_SYMBOLS: ${{ github.event.inputs.buildConfiguration == 'Debug' && 'true' || 'false' }}
+        if: ${{ github.event.inputs.buildPlatform == 'Bundle' }}
+        run: |
+          echo "include symbols = ${{ env.INCLUDE_SYMBOLS }}"
+          msbuild UWP/PPSSPP_UWP.sln /m /p:TrackFileAccess=false /p:Configuration=${{ github.event.inputs.buildConfiguration }} /p:Platform=x64 /p:IncludeSymbols=${{ env.INCLUDE_SYMBOLS }} /p:AppxSymbolPackageEnabled=${{ env.INCLUDE_SYMBOLS }} /p:AppxPackageSigningEnabled=${{ github.event.inputs.signedPackage }} /p:PackageCertificateKeyFile=PPSSPP_UWP_TemporaryKey.pfx /p:AppxBundle=Always /p:UapAppxPackageBuildMode=SideloadOnly /p:AppxBundlePlatforms="x64|ARM64|ARM"
+          
+      - name: Package build
+        working-directory: ${{ github.workspace }}
+        run: |
+          # Testing file location ...
+          #find . -name "PPSSPP*.exe"
+          #find . -name "*.appx*"
+          #find . -name "*.msix*"
+          mkdir ppsspp
+          #ls UWP/AppPackages/PPSSPP_UWP
+          cp -r UWP/AppPackages/PPSSPP_UWP/*.* ppsspp/
+          #ls ppsspp
+          
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: UWP-${{ github.event.inputs.buildConfiguration }}-${{ github.event.inputs.buildPlatform }} build
+          path: ppsspp/

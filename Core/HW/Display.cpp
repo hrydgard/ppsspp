@@ -243,12 +243,12 @@ void DisplayFireVblankStart() {
 }
 
 void DisplayFireVblankEnd() {
-	std::vector<VblankCallback> toCall = [] {
-		std::lock_guard<std::mutex> guard(listenersLock);
-		return vblankListeners;
-	}();
-
 	isVblank = 0;
+	std::vector<VblankCallback> toCall;
+	{
+		std::lock_guard<std::mutex> guard(listenersLock);
+		toCall = vblankListeners;
+	}
 
 	for (VblankCallback cb : toCall) {
 		cb();

@@ -183,7 +183,7 @@ void HttpImageFileView::Draw(UIContext &dc) {
 		}
 
 		if (!textureData_.empty()) {
-			texture_ = CreateTextureFromFileData(dc.GetDrawContext(), (const uint8_t *)(textureData_.data()), (int)textureData_.size(), ImageFileType::DETECT, false, "store_icon");
+			texture_ = CreateTextureFromFileData(dc.GetDrawContext(), (const uint8_t *)(textureData_.data()), textureData_.size(), ImageFileType::DETECT, false, "store_icon");
 			if (!texture_)
 				textureFailed_ = true;
 			textureData_.clear();
@@ -280,7 +280,6 @@ private:
 	UI::Button *installButton_ = nullptr;
 	UI::Button *launchButton_ = nullptr;
 	UI::Button *cancelButton_ = nullptr;
-	UI::TextView *speedView_ = nullptr;
 	bool wasInstalled_ = false;
 };
 
@@ -305,21 +304,18 @@ void ProductView::CreateViews() {
 		installButton_->OnClick.Handle(this, &ProductView::OnInstall);
 		uninstallButton_ = nullptr;
 
-		speedView_ = progressDisplay->Add(new TextView(""));
-		speedView_->SetVisibility(isDownloading ? V_VISIBLE : V_GONE);
 		Add(progressDisplay);
 	} else {
 		installButton_ = nullptr;
-		speedView_ = nullptr;
-		Add(new TextView(st->T("Already Installed")));
+		launchButton_ = new Button(st->T("Launch Game"));
+		launchButton_->OnClick.Handle(this, &ProductView::OnLaunchClick);
+		Add(launchButton_);
 		uninstallButton_ = new Button(st->T("Uninstall"));
 		Add(uninstallButton_)->OnClick.Add([=](UI::EventParams &e) {
 			g_GameManager.UninstallGameOnThread(entry_.file);
 			return UI::EVENT_DONE;
 		});
-		launchButton_ = new Button(st->T("Launch Game"));
-		launchButton_->OnClick.Handle(this, &ProductView::OnLaunchClick);
-		Add(launchButton_);
+		Add(new TextView(st->T("Installed")));
 	}
 
 	cancelButton_ = Add(new Button(di->T("Cancel")));
@@ -336,7 +332,7 @@ void ProductView::CreateViews() {
 	}
 
 	float size = entry_.size / (1024.f * 1024.f);
-	Add(new TextView(StringFromFormat("%s: %.2f %s", st->T("Size"), size, st->T("MB"))));
+	Add(new TextView(StringFromFormat("%s: %.2f %s", st->T_cstr("Size"), size, st->T_cstr("MB"))));
 }
 
 void ProductView::Update() {
@@ -349,16 +345,9 @@ void ProductView::Update() {
 	if (uninstallButton_) {
 		uninstallButton_->SetEnabled(g_GameManager.GetState() == GameManagerState::IDLE);
 	}
-	if (g_GameManager.GetState() == GameManagerState::DOWNLOADING) {
-		if (speedView_) {
-			float speed = g_GameManager.DownloadSpeedKBps();
-			speedView_->SetText(StringFromFormat("%0.1f KB/s", speed));
-		}
-	} else {
+	if (g_GameManager.GetState() != GameManagerState::DOWNLOADING) {
 		if (cancelButton_)
 			cancelButton_->SetVisibility(UI::V_GONE);
-		if (speedView_)
-			speedView_->SetVisibility(UI::V_GONE);
 	}
 	if (launchButton_)
 		launchButton_->SetEnabled(g_GameManager.GetState() == GameManagerState::IDLE);
@@ -382,10 +371,6 @@ UI::EventReturn ProductView::OnInstall(UI::EventParams &e) {
 	}
 	if (cancelButton_) {
 		cancelButton_->SetVisibility(UI::V_VISIBLE);
-	}
-	if (speedView_) {
-		speedView_->SetVisibility(UI::V_VISIBLE);
-		speedView_->SetText("");
 	}
 	INFO_LOG(SYSTEM, "Triggering install of '%s'", fileUrl.c_str());
 	g_GameManager.DownloadAndInstall(fileUrl);
@@ -475,12 +460,12 @@ void StoreScreen::ParseListing(const std::string &json) {
 			e.type = ENTRY_PBPZIP;
 			e.name = GetTranslatedString(game, "name");
 			e.description = GetTranslatedString(game, "description", "");
-			e.author = game.getString("author", "?");
+			e.author = game.getStringOr("author", "?");
 			e.size = game.getInt("size");
-			e.downloadURL = game.getString("download-url", "");
-			e.iconURL = game.getString("icon-url", "");
+			e.downloadURL = game.getStringOr("download-url", "");
+			e.iconURL = game.getStringOr("icon-url", "");
 			e.hidden = false;  // NOTE: Handling of the "hidden" flag is broken in old versions of PPSSPP. Do not use.
-			const char *file = game.getString("file", nullptr);
+			const char *file = game.getStringOr("file", nullptr);
 			if (!file)
 				continue;
 			e.file = file;
@@ -509,7 +494,7 @@ void StoreScreen::CreateViews() {
 	if (connectionError_ || loading_) {
 		auto st = GetI18NCategory(I18NCat::STORE);
 		content = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT, 1.0f));
-		content->Add(new TextView(loading_ ? std::string(st->T("Loading...")) : StringFromFormat("%s: %d", st->T("Connection Error"), resultCode_)));
+		content->Add(new TextView(loading_ ? std::string(st->T("Loading...")) : StringFromFormat("%s: %d", st->T_cstr("Connection Error"), resultCode_)));
 		if (!loading_) {
 			content->Add(new Button(di->T("Retry")))->OnClick.Handle(this, &StoreScreen::OnRetry);
 
@@ -596,7 +581,7 @@ std::string StoreScreen::GetTranslatedString(const json::JsonGet json, const std
 	}
 	const char *str = nullptr;
 	if (dict) {
-		str = dict.getString(key.c_str(), nullptr);
+		str = dict.getStringOr(key.c_str(), nullptr);
 	}
 	if (str) {
 		return std::string(str);

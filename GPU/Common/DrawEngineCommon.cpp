@@ -75,7 +75,6 @@ VertexDecoder *DrawEngineCommon::GetVertexDecoder(u32 vtype) {
 
 std::vector<std::string> DrawEngineCommon::DebugGetVertexLoaderIDs() {
 	std::vector<std::string> ids;
-	ids.reserve(decoderMap_.size());
 	decoderMap_.Iterate([&](const uint32_t vtype, VertexDecoder *decoder) {
 		std::string id;
 		id.resize(sizeof(vtype));
@@ -911,6 +910,10 @@ bool DrawEngineCommon::SubmitPrim(const void *verts, const void *inds, GEPrimiti
 		if ((vertexCount < 2 && prim > 0) || (prim > GE_PRIM_LINE_STRIP && prim != GE_PRIM_RECTANGLES)) {
 			return false;
 		}
+		if (vertexCount <= 0) {
+			// Unfortunately we need to do this check somewhere since GetIndexBounds doesn't handle zero-length arrays.
+			return false;
+		}
 	}
 
 	bool applySkin = (vertTypeID & GE_VTYPE_WEIGHT_MASK) && decOptions_.applySkinInDecode;
@@ -1016,13 +1019,13 @@ int DrawEngineCommon::DecodeInds() {
 	return indexGen.VertexCount();
 }
 
-bool DrawEngineCommon::CanUseHardwareTransform(int prim) {
+bool DrawEngineCommon::CanUseHardwareTransform(int prim) const {
 	if (!useHWTransform_)
 		return false;
 	return !gstate.isModeThrough() && prim != GE_PRIM_RECTANGLES && prim > GE_PRIM_LINE_STRIP;
 }
 
-bool DrawEngineCommon::CanUseHardwareTessellation(GEPatchPrimType prim) {
+bool DrawEngineCommon::CanUseHardwareTessellation(GEPatchPrimType prim) const {
 	if (useHWTessellation_) {
 		return CanUseHardwareTransform(PatchPrimToPrim(prim));
 	}

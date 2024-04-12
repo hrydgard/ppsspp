@@ -62,6 +62,7 @@
 #include <dirent.h>
 #include <errno.h>
 #include <stdlib.h>
+#include <unistd.h>
 #endif
 
 #if defined(__DragonFly__) || defined(__FreeBSD__) || defined(__FreeBSD_kernel__) || defined(__NetBSD__)
@@ -612,41 +613,6 @@ bool CreateFullPath(const Path &path) {
 	return true;
 }
 
-// Deletes an empty directory, returns true on success
-bool DeleteDir(const Path &path) {
-	switch (path.Type()) {
-	case PathType::NATIVE:
-		break; // OK
-	case PathType::CONTENT_URI:
-		return Android_RemoveFile(path.ToString()) == StorageError::SUCCESS;
-	default:
-		return false;
-	}
-	INFO_LOG(COMMON, "DeleteDir: directory %s", path.c_str());
-
-	// check if a directory
-	if (!File::IsDirectory(path)) {
-		ERROR_LOG(COMMON, "DeleteDir: Not a directory %s", path.c_str());
-		return false;
-	}
-
-#ifdef _WIN32
-#if PPSSPP_PLATFORM(UWP)
-	if (RemoveDirectoryFromAppW(path.ToWString().c_str()))
-		return true;
-#else
-	if (::RemoveDirectory(path.ToWString().c_str()))
-		return true;
-#endif
-#else
-	if (rmdir(path.c_str()) == 0)
-		return true;
-#endif
-	ERROR_LOG(COMMON, "DeleteDir: %s: %s", path.c_str(), GetLastErrorMsg().c_str());
-
-	return false;
-}
-
 // renames file srcFilename to destFilename, returns true on success 
 bool Rename(const Path &srcFilename, const Path &destFilename) {
 	if (srcFilename.Type() != destFilename.Type()) {
@@ -662,13 +628,12 @@ bool Rename(const Path &srcFilename, const Path &destFilename) {
 		break;
 	case PathType::CONTENT_URI:
 		// Content URI: Can only rename if in the same folder.
-		// TODO: Fallback to move + rename? Or do we even care about that use case?
+		// TODO: Fallback to move + rename? Or do we even care about that use case? We have MoveIfFast for such tricks.
 		if (srcFilename.GetDirectory() != destFilename.GetDirectory()) {
 			INFO_LOG(COMMON, "Content URI rename: Directories not matching, failing. %s --> %s", srcFilename.c_str(), destFilename.c_str());
 			return false;
 		}
 		INFO_LOG(COMMON, "Content URI rename: %s --> %s", srcFilename.c_str(), destFilename.c_str());
-
 		return Android_RenameFileTo(srcFilename.ToString(), destFilename.GetFilename()) == StorageError::SUCCESS;
 	default:
 		return false;
@@ -786,22 +751,12 @@ bool Copy(const Path &srcFilename, const Path &destFilename) {
 
 // Will overwrite the target.
 bool Move(const Path &srcFilename, const Path &destFilename) {
-	// Try a shortcut in Android Storage scenarios.
-	if (srcFilename.Type() == PathType::CONTENT_URI && destFilename.Type() == PathType::CONTENT_URI && srcFilename.CanNavigateUp() && destFilename.CanNavigateUp()) {
-		// We do not handle simultaneous renames here.
-		if (srcFilename.GetFilename() == destFilename.GetFilename()) {
-			Path srcParent = srcFilename.NavigateUp();
-			Path dstParent = destFilename.NavigateUp();
-			if (Android_MoveFile(srcFilename.ToString(), srcParent.ToString(), dstParent.ToString()) == StorageError::SUCCESS) {
-				return true;
-			}
-			// If failed, fall through and try other ways.
-		}
-	}
-
-	if (Rename(srcFilename, destFilename)) {
+	bool fast = MoveIfFast(srcFilename, destFilename);
+	if (fast) {
 		return true;
-	} else if (Copy(srcFilename, destFilename)) {
+	}
+	// OK, that failed, so fall back on a copy.
+	if (Copy(srcFilename, destFilename)) {
 		return Delete(srcFilename);
 	} else {
 		return false;
@@ -809,7 +764,13 @@ bool Move(const Path &srcFilename, const Path &destFilename) {
 }
 
 bool MoveIfFast(const Path &srcFilename, const Path &destFilename) {
-	if (srcFilename.Type() == PathType::CONTENT_URI && destFilename.Type() == PathType::CONTENT_URI && srcFilename.CanNavigateUp() && destFilename.CanNavigateUp()) {
+	if (srcFilename.Type() != destFilename.Type()) {
+		// No way it's gonna work.
+		return false;
+	}
+
+	// Only need to check one type here, due to the above check.
+	if (srcFilename.Type() == PathType::CONTENT_URI && srcFilename.CanNavigateUp() && destFilename.CanNavigateUp()) {
 		if (srcFilename.GetFilename() == destFilename.GetFilename()) {
 			Path srcParent = srcFilename.NavigateUp();
 			Path dstParent = destFilename.NavigateUp();
@@ -821,11 +782,7 @@ bool MoveIfFast(const Path &srcFilename, const Path &destFilename) {
 		}
 	}
 
-	if (srcFilename.Type() != destFilename.Type()) {
-		// No way it's gonna work.
-		return false;
-	}
-
+	// Try a traditional rename operation.
 	return Rename(srcFilename, destFilename);
 }
 
@@ -935,19 +892,57 @@ bool CreateEmptyFile(const Path &filename) {
 	return true;
 }
 
-// Deletes the given directory and anything under it. Returns true on success.
-bool DeleteDirRecursively(const Path &directory) {
-	switch (directory.Type()) {
-	case PathType::CONTENT_URI:
+// Deletes an empty directory, returns true on success
+// WARNING: On Android with content URIs, it will delete recursively!
+bool DeleteDir(const Path &path) {
+	switch (path.Type()) {
 	case PathType::NATIVE:
-		break;  // OK
+		break; // OK
+	case PathType::CONTENT_URI:
+		return Android_RemoveFile(path.ToString()) == StorageError::SUCCESS;
+	default:
+		return false;
+	}
+	INFO_LOG(COMMON, "DeleteDir: directory %s", path.c_str());
+
+	// check if a directory
+	if (!File::IsDirectory(path)) {
+		ERROR_LOG(COMMON, "DeleteDir: Not a directory %s", path.c_str());
+		return false;
+	}
+
+#ifdef _WIN32
+#if PPSSPP_PLATFORM(UWP)
+	if (RemoveDirectoryFromAppW(path.ToWString().c_str()))
+		return true;
+#else
+	if (::RemoveDirectory(path.ToWString().c_str()))
+		return true;
+#endif
+#else
+	if (rmdir(path.c_str()) == 0)
+		return true;
+#endif
+	ERROR_LOG(COMMON, "DeleteDir: %s: %s", path.c_str(), GetLastErrorMsg().c_str());
+
+	return false;
+}
+
+// Deletes the given directory and anything under it. Returns true on success.
+bool DeleteDirRecursively(const Path &path) {
+	switch (path.Type()) {
+	case PathType::NATIVE:
+		break;
+	case PathType::CONTENT_URI:
+		// We make use of the dangerous auto-recursive property of Android_RemoveFile.
+		return Android_RemoveFile(path.ToString()) == StorageError::SUCCESS;
 	default:
 		ERROR_LOG(COMMON, "DeleteDirRecursively: Path type not supported");
 		return false;
 	}
 
 	std::vector<FileInfo> files;
-	GetFilesInDir(directory, &files, nullptr, GETFILES_GETHIDDEN);
+	GetFilesInDir(path, &files, nullptr, GETFILES_GETHIDDEN);
 	for (const auto &file : files) {
 		if (file.isDirectory) {
 			DeleteDirRecursively(file.fullName);
@@ -955,7 +950,7 @@ bool DeleteDirRecursively(const Path &directory) {
 			Delete(file.fullName);
 		}
 	}
-	return DeleteDir(directory);
+	return DeleteDir(path);
 }
 
 bool OpenFileInEditor(const Path &fileName) {
@@ -988,6 +983,19 @@ bool OpenFileInEditor(const Path &fileName) {
 	}
 #endif
 	return true;
+}
+
+const Path GetCurDirectory() {
+#ifdef _WIN32
+	wchar_t buffer[4096];
+	size_t len = GetCurrentDirectory(sizeof(buffer) / sizeof(wchar_t), buffer);
+	std::string curDir = ConvertWStringToUTF8(buffer);
+	return Path(curDir);
+#else
+	char temp[4096]{};
+	getcwd(temp, 4096);
+	return Path(temp);
+#endif
 }
 
 const Path &GetExeDirectory() {
@@ -1139,29 +1147,36 @@ bool IOFile::Resize(uint64_t size)
 	return m_good;
 }
 
-bool ReadFileToString(bool text_file, const Path &filename, std::string &str) {
-	FILE *f = File::OpenCFile(filename, text_file ? "r" : "rb");
+bool ReadFileToStringOptions(bool textFile, bool allowShort, const Path &filename, std::string *str) {
+	FILE *f = File::OpenCFile(filename, textFile ? "r" : "rb");
 	if (!f)
 		return false;
 	// Warning: some files, like in /sys/, may return a fixed size like 4096.
 	size_t len = (size_t)File::GetFileSize(f);
 	bool success;
 	if (len == 0) {
+		// Just read until we can't read anymore.
 		size_t totalSize = 1024;
 		size_t totalRead = 0;
 		do {
 			totalSize *= 2;
-			str.resize(totalSize);
-			totalRead += fread(&str[totalRead], 1, totalSize - totalRead, f);
+			str->resize(totalSize);
+			totalRead += fread(&(*str)[totalRead], 1, totalSize - totalRead, f);
 		} while (totalRead == totalSize);
-		str.resize(totalRead);
+		str->resize(totalRead);
 		success = true;
 	} else {
-		str.resize(len);
-		size_t totalRead = fread(&str[0], 1, len, f);
-		str.resize(totalRead);
+		str->resize(len);
+		size_t totalRead = fread(&(*str)[0], 1, len, f);
+		str->resize(totalRead);
 		// Allow less, because some system files will report incorrect lengths.
-		success = totalRead <= len;
+		// Also, when reading text with CRLF, the read length may be shorter.
+		if (textFile) {
+			// totalRead doesn't take \r into account since they might be skipped in this mode.
+			// So let's just ask how far the cursor got.
+			totalRead = ftell(f);
+		}
+		success = allowShort ? (totalRead <= len) : (totalRead == len);
 	}
 	fclose(f);
 	return success;

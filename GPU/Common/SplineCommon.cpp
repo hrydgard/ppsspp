@@ -81,7 +81,7 @@ void BuildIndex(u16 *indices, int &count, int num_u, int num_v, GEPatchPrimType 
 
 class Bezier3DWeight {
 private:
-	void CalcWeights(float t, Weight &w) {
+	static void CalcWeights(float t, Weight &w) {
 		// Bernstein 3D basis polynomial
 		w.basis[0] = (1 - t) * (1 - t) * (1 - t);
 		w.basis[1] = 3 * t * (1 - t) * (1 - t);
@@ -95,7 +95,7 @@ private:
 		w.deriv[3] = 3 * t * t;
 	}
 public:
-	Weight *CalcWeightsAll(u32 key) {
+	static Weight *CalcWeightsAll(u32 key) {
 		int tess = (int)key;
 		Weight *weights = new Weight[tess + 1];
 		const float inv_tess = 1.0f / (float)tess;
@@ -129,7 +129,7 @@ private:
 	};
 
 	// knot should be an array sized n + 5  (n + 1 + 1 + degree (cubic))
-	void CalcKnots(int n, int type, float *knots, KnotDiv *divs) {
+	static void CalcKnots(int n, int type, float *knots, KnotDiv *divs) {
 		// Basic theory (-2 to +3), optimized with KnotDiv (-2 to +0) 
 	//	for (int i = 0; i < n + 5; ++i) {
 		for (int i = 0; i < n + 2; ++i) {
@@ -160,7 +160,7 @@ private:
 		}
 	}
 
-	void CalcWeights(float t, const float *knots, const KnotDiv &div, Weight &w) {
+	static void CalcWeights(float t, const float *knots, const KnotDiv &div, Weight &w) {
 #ifdef _M_SSE
 		const __m128 knot012 = _mm_loadu_ps(knots);
 		const __m128 t012 = _mm_sub_ps(_mm_set_ps1(t), knot012);

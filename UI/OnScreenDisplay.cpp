@@ -24,6 +24,8 @@ static inline const char *DeNull(const char *ptr) {
 	return ptr ? ptr : "";
 }
 
+extern bool g_TakeScreenshot;
+
 static const float g_atlasIconSize = 36.0f;
 static const float extraTextScale = 0.7f;
 
@@ -50,12 +52,19 @@ static ImageID GetOSDIcon(NoticeLevel level) {
 
 static NoticeLevel GetNoticeLevel(OSDType type) {
 	switch (type) {
-	case OSDType::MESSAGE_INFO: return NoticeLevel::INFO;
+	case OSDType::MESSAGE_INFO:
+		return NoticeLevel::INFO;
 	case OSDType::MESSAGE_ERROR:
-	case OSDType::MESSAGE_ERROR_DUMP: return NoticeLevel::ERROR;
-	case OSDType::MESSAGE_WARNING: return NoticeLevel::WARN;
-	case OSDType::MESSAGE_SUCCESS: return NoticeLevel::SUCCESS;
-	default: return NoticeLevel::SUCCESS;
+	case OSDType::MESSAGE_ERROR_DUMP:
+	case OSDType::MESSAGE_CENTERED_ERROR:
+		return NoticeLevel::ERROR;
+	case OSDType::MESSAGE_WARNING:
+	case OSDType::MESSAGE_CENTERED_WARNING:
+		return NoticeLevel::WARN;
+	case OSDType::MESSAGE_SUCCESS:
+		return NoticeLevel::SUCCESS;
+	default:
+		return NoticeLevel::SUCCESS;
 	}
 }
 
@@ -234,7 +243,7 @@ static void RenderLeaderboardTracker(UIContext &dc, const Bounds &bounds, const 
 }
 
 void OnScreenMessagesView::Draw(UIContext &dc) {
-	if (!g_Config.bShowOnScreenMessages) {
+	if (!g_Config.bShowOnScreenMessages || g_TakeScreenshot) {
 		return;
 	}
 
@@ -290,6 +299,8 @@ void OnScreenMessagesView::Draw(UIContext &dc) {
 	typeEdges[(size_t)OSDType::LEADERBOARD_STARTED_FAILED] = (ScreenEdgePosition)g_Config.iAchievementsLeaderboardStartedOrFailedPos;
 	typeEdges[(size_t)OSDType::LEADERBOARD_SUBMITTED] = (ScreenEdgePosition)g_Config.iAchievementsLeaderboardSubmittedPos;
 	typeEdges[(size_t)OSDType::ACHIEVEMENT_UNLOCKED] = (ScreenEdgePosition)g_Config.iAchievementsUnlockedPos;
+	typeEdges[(size_t)OSDType::MESSAGE_CENTERED_WARNING] = ScreenEdgePosition::CENTER;
+	typeEdges[(size_t)OSDType::MESSAGE_CENTERED_ERROR] = ScreenEdgePosition::CENTER;
 
 	dc.SetFontScale(1.0f, 1.0f);
 
@@ -390,6 +401,7 @@ void OnScreenMessagesView::Draw(UIContext &dc) {
 		case ScreenEdgePosition::BOTTOM_RIGHT: horizAdj = 1; vertAdj = 1; break;
 		case ScreenEdgePosition::TOP_CENTER:  vertAdj = -1; break;
 		case ScreenEdgePosition::BOTTOM_CENTER: vertAdj = 1; break;
+		case ScreenEdgePosition::CENTER: break;
 		default: break;
 		}
 
@@ -453,6 +465,8 @@ void OnScreenMessagesView::Draw(UIContext &dc) {
 				case OSDType::MESSAGE_SUCCESS:
 				case OSDType::MESSAGE_WARNING:
 				case OSDType::MESSAGE_ERROR:
+				case OSDType::MESSAGE_CENTERED_ERROR:
+				case OSDType::MESSAGE_CENTERED_WARNING:
 				case OSDType::MESSAGE_ERROR_DUMP:
 				case OSDType::MESSAGE_FILE_LINK:
 				case OSDType::ACHIEVEMENT_UNLOCKED:
@@ -547,11 +561,16 @@ void NoticeView::GetContentDimensionsBySpec(const UIContext &dc, UI::MeasureSpec
 	if (bounds.h < 0) {
 		bounds.h = vert.size;
 	}
-
 	ApplyBoundsBySpec(bounds, horiz, vert);
 	MeasureNotice(dc, level_, text_, detailsText_, iconName_, 0, &w, &h, &height1_);
+	// Layout hack! Some weird problems with the layout that I can't figure out right now..
+	if (squishy_) {
+		w = 50.0;
+	}
 }
 
 void NoticeView::Draw(UIContext &dc) {
+	dc.PushScissor(bounds_);
 	RenderNotice(dc, bounds_, height1_, level_, text_, detailsText_, iconName_, 0, 1.0f);
+	dc.PopScissor();
 }

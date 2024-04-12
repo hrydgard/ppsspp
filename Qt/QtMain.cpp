@@ -185,7 +185,7 @@ std::vector<std::string> System_GetPropertyStringVec(SystemProperty prop) {
 	}
 }
 
-int System_GetPropertyInt(SystemProperty prop) {
+int64_t System_GetPropertyInt(SystemProperty prop) {
 	switch (prop) {
 #if defined(SDL)
 	case SYSPROP_AUDIO_SAMPLE_RATE:
@@ -316,7 +316,10 @@ bool MainUI::HandleCustomEvent(QEvent *e) {
 			filter = "DB files (*.db)";
 			break;
 		case BrowseFileType::SOUND_EFFECT:
-			filter = "WAVE files (*.wav)";
+			filter = "WAVE files (*.wav *.mp3)";
+			break;
+		case BrowseFileType::ZIP:
+			filter = "ZIP files (*.zip)";
 			break;
 		case BrowseFileType::ANY:
 			break;
@@ -351,7 +354,7 @@ bool MainUI::HandleCustomEvent(QEvent *e) {
 	return true;
 }
 
-bool System_MakeRequest(SystemRequestType type, int requestId, const std::string &param1, const std::string &param2, int param3) {
+bool System_MakeRequest(SystemRequestType type, int requestId, const std::string &param1, const std::string &param2, int64_t param3, int64_t param4) {
 	switch (type) {
 	case SystemRequestType::EXIT_APP:
 		qApp->exit(0);
@@ -385,7 +388,7 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 	}
 	case SystemRequestType::BROWSE_FOR_IMAGE:
 		// Fall back to file browser.
-		return System_MakeRequest(SystemRequestType::BROWSE_FOR_FILE, requestId, param1, param2, (int)BrowseFileType::IMAGE);
+		return System_MakeRequest(SystemRequestType::BROWSE_FOR_FILE, requestId, param1, param2, (int)BrowseFileType::IMAGE, 0);
 	case SystemRequestType::BROWSE_FOR_FILE:
 		g_requestId = requestId;
 		g_param1 = param1;
@@ -416,7 +419,7 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 	}
 }
 
-void System_Toast(const char *text) {}
+void System_Toast(std::string_view text) {}
 
 void System_AskForPermission(SystemPermission permission) {}
 PermissionStatus System_GetPermissionStatus(SystemPermission permission) { return PERMISSION_STATUS_GRANTED; }
@@ -658,7 +661,7 @@ bool MainUI::event(QEvent *e) {
 			default:
 				if (str.size()) {
 					int pos = 0;
-					int unicode = u8_nextchar(str.c_str(), &pos);
+					int unicode = u8_nextchar(str.c_str(), &pos, str.size());
 					NativeKey(KeyInput(DEVICE_ID_KEYBOARD, unicode));
 				}
 				break;

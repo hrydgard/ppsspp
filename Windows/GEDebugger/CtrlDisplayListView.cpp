@@ -77,8 +77,7 @@ LRESULT CALLBACK CtrlDisplayListView::wndProc(HWND hwnd, UINT msg, WPARAM wParam
 {
 	CtrlDisplayListView *win = CtrlDisplayListView::getFrom(hwnd);
 
-	switch(msg)
-	{
+	switch(msg) {
 	case WM_NCCREATE:
 		// Allocate a new CustCtrl structure for this window.
 		win = new CtrlDisplayListView(hwnd);
@@ -86,6 +85,8 @@ LRESULT CALLBACK CtrlDisplayListView::wndProc(HWND hwnd, UINT msg, WPARAM wParam
 		// Continue with window creation.
 		return win != NULL;
 	case WM_NCDESTROY:
+		SetWindowLongPtr(hwnd, GWLP_USERDATA, 0);
+		delete win;
 		break;
 	case WM_SIZE:
 		win->redraw();

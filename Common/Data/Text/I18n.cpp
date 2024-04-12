@@ -72,24 +72,32 @@ void I18NCategory::Clear() {
 	missedKeyLog_.clear();
 }
 
-const char *I18NCategory::T(const char *key, const char *def) {
-	if (!key) {
-		return "ERROR";
-	}
-
-	// Replace the \n's with \\n's so that key values with newlines will be found correctly.
-	std::string modifiedKey = key;
-	modifiedKey = ReplaceAll(modifiedKey, "\n", "\\n");
-
-	auto iter = map_.find(modifiedKey);
+std::string_view I18NCategory::T(std::string_view key, std::string_view def) {
+	auto iter = map_.find(key);
 	if (iter != map_.end()) {
 		return iter->second.text.c_str();
 	} else {
 		std::lock_guard<std::mutex> guard(missedKeyLock_);
-		if (def)
-			missedKeyLog_[key] = def;
+		std::string missedKey(key);
+		if (!def.empty())
+			missedKeyLog_[missedKey] = def;
 		else
-			missedKeyLog_[key] = modifiedKey;
+			missedKeyLog_[missedKey] = std::string(key);
+		return !def.empty() ? def : key;
+	}
+}
+
+const char *I18NCategory::T_cstr(const char *key, const char *def) {
+	auto iter = map_.find(key);
+	if (iter != map_.end()) {
+		return iter->second.text.c_str();
+	} else {
+		std::lock_guard<std::mutex> guard(missedKeyLock_);
+		std::string missedKey(key);
+		if (def)
+			missedKeyLog_[missedKey] = def;
+		else
+			missedKeyLog_[missedKey] = std::string(key);
 		return def ? def : key;
 	}
 }
@@ -98,6 +106,7 @@ void I18NCategory::SetMap(const std::map<std::string, std::string> &m) {
 	for (const auto &[key, value] : m) {
 		if (map_.find(key) == map_.end()) {
 			std::string text = ReplaceAll(value, "\\n", "\n");
+			_dbg_assert_(key.find('\n') == std::string::npos);
 			map_[key] = I18NEntry(text);
 		}
 	}

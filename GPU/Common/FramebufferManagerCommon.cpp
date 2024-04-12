@@ -401,50 +401,73 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(Framebuffer
 	}
 
 	// Find a matching framebuffer.
-	VirtualFramebuffer *vfb = nullptr;
+	VirtualFramebuffer *normal_vfb = nullptr;
+	int y_offset;
+	VirtualFramebuffer *large_offset_vfb = nullptr;
+
 	for (auto v : vfbs_) {
 		const u32 bpp = BufferFormatBytesPerPixel(v->fb_format);
 
 		if (params.fb_address == v->fb_address && params.fb_format == v->fb_format && params.fb_stride == v->fb_stride) {
-			vfb = v;
-
-			if (vfb->z_address == 0 && vfb->z_stride == 0 && params.z_stride != 0) {
-				// Got one that was created by CreateRAMFramebuffer. Since it has no depth buffer,
-				// we just recreate it immediately.
-				ResizeFramebufFBO(vfb, vfb->width, vfb->height, true);
+			if (!normal_vfb) {
+				normal_vfb = v;
 			}
-
-			// Keep track, but this isn't really used.
-			vfb->z_stride = params.z_stride;
-			// Heuristic: In throughmode, a higher height could be used.  Let's avoid shrinking the buffer.
-			if (params.isModeThrough && (int)vfb->width <= params.fb_stride) {
-				vfb->width = std::max((int)vfb->width, drawing_width);
-				vfb->height = std::max((int)vfb->height, drawing_height);
-			} else {
-				vfb->width = drawing_width;
-				vfb->height = drawing_height;
-			}
-			break;
-		} else if (!PSP_CoreParameter().compat.flags().DisallowFramebufferAtOffset && v->fb_stride == params.fb_stride && v->fb_format == params.fb_format && !PSP_CoreParameter().compat.flags().SplitFramebufferMargin) {
+		} else if (!PSP_CoreParameter().compat.flags().DisallowFramebufferAtOffset && !PSP_CoreParameter().compat.flags().SplitFramebufferMargin &&
+			v->fb_stride == params.fb_stride && v->fb_format == params.fb_format) {
 			u32 v_fb_first_line_end_ptr = v->fb_address + v->fb_stride * bpp;
 			u32 v_fb_end_ptr = v->fb_address + v->fb_stride * v->height * bpp;
 
-			if (params.fb_address > v->fb_address && params.fb_address < v_fb_first_line_end_ptr) {
+			if (!normal_vfb && params.fb_address > v->fb_address && params.fb_address < v_fb_first_line_end_ptr) {
 				const int x_offset = (params.fb_address - v->fb_address) / bpp;
 				if (x_offset < params.fb_stride && v->height >= drawing_height) {
 					// Pretty certainly a pure render-to-X-offset.
 					WARN_LOG_REPORT_ONCE(renderoffset, HLE, "Rendering to framebuffer offset at %08x +%dx%d (stride %d)", v->fb_address, x_offset, 0, v->fb_stride);
-					vfb = v;
+					normal_vfb = v;
 					gstate_c.SetCurRTOffset(x_offset, 0);
-					vfb->width = std::max((int)vfb->width, x_offset + drawing_width);
+					normal_vfb->width = std::max((int)normal_vfb->width, x_offset + drawing_width);
 					// To prevent the newSize code from being confused.
 					drawing_width += x_offset;
 					break;
 				}
-			} else {
-				// We ignore this match.
-				// TODO: We can allow X/Y overlaps too, but haven't seen any so safer to not.
+			} else if (PSP_CoreParameter().compat.flags().FramebufferAllowLargeVerticalOffset &&
+				params.fb_address > v->fb_address && v->fb_stride > 0 && (params.fb_address - v->fb_address) % v->FbStrideInBytes() == 0 &&
+				params.fb_address != 0x04088000 && v->fb_address != 0x04000000) {  // Heuristic to avoid merging the main framebuffers.
+				y_offset = (params.fb_address - v->fb_address) / v->FbStrideInBytes();
+				if (y_offset <= v->bufferHeight) {  // note: v->height is misdetected as 256 instead of 272 here in tokimeki. Note that 272 is just the height of the upper part, it's supersampling vertically.
+					large_offset_vfb = v;
+					break;
+				}
 			}
+		}
+	}
+
+	VirtualFramebuffer *vfb = nullptr;
+	if (large_offset_vfb) {
+		// These are prioritized over normal VFBs matches, to ensure things work even if the higher-address one
+		// is created first. Only enabled under compat flag.
+		vfb = large_offset_vfb;
+		WARN_LOG_REPORT_ONCE(tokimeki, FRAMEBUF, "Detected FBO at Y offset %d of %08x: %08x", y_offset, large_offset_vfb->fb_address, params.fb_address);
+		gstate_c.SetCurRTOffset(0, y_offset);
+		vfb->height = std::max((int)vfb->height, y_offset + drawing_height);
+		drawing_height += y_offset;
+		// TODO: We can allow X/Y overlaps too, but haven't seen any so safer to not.
+	} else if (normal_vfb) {
+		vfb = normal_vfb;
+		if (vfb->z_address == 0 && vfb->z_stride == 0 && params.z_stride != 0) {
+			// Got one that was created by CreateRAMFramebuffer. Since it has no depth buffer,
+			// we just recreate it immediately.
+			ResizeFramebufFBO(vfb, vfb->width, vfb->height, true);
+		}
+
+		// Keep track, but this isn't really used.
+		vfb->z_stride = params.z_stride;
+		// Heuristic: In throughmode, a higher height could be used.  Let's avoid shrinking the buffer.
+		if (params.isModeThrough && (int)vfb->width <= params.fb_stride) {
+			vfb->width = std::max((int)vfb->width, drawing_width);
+			vfb->height = std::max((int)vfb->height, drawing_height);
+		} else {
+			vfb->width = drawing_width;
+			vfb->height = drawing_height;
 		}
 	}
 
@@ -1033,12 +1056,12 @@ void FramebufferManagerCommon::DownloadFramebufferOnSwitch(VirtualFramebuffer *v
 	}
 }
 
-bool FramebufferManagerCommon::ShouldDownloadFramebufferColor(const VirtualFramebuffer *vfb) const {
+bool FramebufferManagerCommon::ShouldDownloadFramebufferColor(const VirtualFramebuffer *vfb) {
 	// Dangan Ronpa hack
 	return PSP_CoreParameter().compat.flags().Force04154000Download && vfb->fb_address == 0x04154000;
 }
 
-bool FramebufferManagerCommon::ShouldDownloadFramebufferDepth(const VirtualFramebuffer *vfb) const {
+bool FramebufferManagerCommon::ShouldDownloadFramebufferDepth(const VirtualFramebuffer *vfb) {
 	// Download depth buffer for Syphon Filter lens flares
 	if (!PSP_CoreParameter().compat.flags().ReadbackDepth || g_Config.iSkipGPUReadbackMode != (int)SkipGPUReadbackMode::NO_SKIP) {
 		return false;
@@ -1538,6 +1561,7 @@ void FramebufferManagerCommon::CopyDisplayToOutput(bool reallyDirty) {
 		// No framebuffer to display! Clear to black.
 		if (useBufferedRendering_) {
 			draw_->BindFramebufferAsRenderTarget(nullptr, { Draw::RPAction::CLEAR, Draw::RPAction::CLEAR, Draw::RPAction::CLEAR }, "CopyDisplayToOutput");
+			presentation_->NotifyPresent();
 		}
 		gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE);
 		return;
@@ -2801,7 +2825,9 @@ void FramebufferManagerCommon::NotifyRenderResized(int msaaLevel) {
 	PSP_CoreParameter().renderScaleFactor = scaleFactor;
 
 	if (UpdateRenderSize(msaaLevel)) {
+		draw_->StopThreads();
 		DestroyAllFBOs();
+		draw_->StartThreads();
 	}
 
 	// No drawing is allowed here. This includes anything that might potentially touch a command buffer, like creating images!
@@ -2880,7 +2906,7 @@ Draw::Framebuffer *FramebufferManagerCommon::GetTempFBO(TempFBO reason, u16 w, u
 	return fbo;
 }
 
-void FramebufferManagerCommon::UpdateFramebufUsage(VirtualFramebuffer *vfb) {
+void FramebufferManagerCommon::UpdateFramebufUsage(VirtualFramebuffer *vfb) const {
 	auto checkFlag = [&](u16 flag, int last_frame) {
 		if (vfb->usageFlags & flag) {
 			const int age = frameLastFramebufUsed_ - last_frame;

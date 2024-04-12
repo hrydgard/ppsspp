@@ -17,10 +17,10 @@
 
 #include <algorithm>
 #include <cmath>
+
 #include "Common/CPUDetect.h"
 #include "Common/Math/math_util.h"
 #include "Common/GPU/OpenGL/GLFeatures.h"
-
 #include "Core/Config.h"
 #include "GPU/GPUState.h"
 #include "GPU/Math3D.h"
@@ -171,7 +171,7 @@ void SoftwareTransform::SetProjMatrix(const float mtx[14], bool invertedX, bool 
 	projMatrix_.translateAndScale(trans, scale);
 }
 
-void SoftwareTransform::Transform(int prim, u32 vertType, const DecVtxFormat &decVtxFormat, int maxIndex, SoftwareTransformResult *result) {
+void SoftwareTransform::Transform(int prim, u32 vertType, const DecVtxFormat &decVtxFormat, int numDecodedVerts, SoftwareTransformResult *result) {
 	u8 *decoded = params_.decoded;
 	TransformedVertex *transformed = params_.transformed;
 	bool throughmode = (vertType & GE_VTYPE_THROUGH_MASK) != 0;
@@ -179,7 +179,8 @@ void SoftwareTransform::Transform(int prim, u32 vertType, const DecVtxFormat &de
 
 	float uscale = 1.0f;
 	float vscale = 1.0f;
-	if (throughmode) {
+	if (throughmode && prim != GE_PRIM_RECTANGLES) {
+		// For through rectangles, we do this scaling in Expand.
 		uscale /= gstate_c.curTextureWidth;
 		vscale /= gstate_c.curTextureHeight;
 	}
@@ -211,7 +212,7 @@ void SoftwareTransform::Transform(int prim, u32 vertType, const DecVtxFormat &de
 		const u32 materialAmbientRGBA = gstate.getMaterialAmbientRGBA();
 		const bool hasColor = reader.hasColor0();
 		const bool hasUV = reader.hasUV();
-		for (int index = 0; index < maxIndex; index++) {
+		for (int index = 0; index < numDecodedVerts; index++) {
 			// Do not touch the coordinates or the colors. No lighting.
 			reader.Goto(index);
 			// TODO: Write to a flexible buffer, we don't always need all four components.
@@ -220,7 +221,7 @@ void SoftwareTransform::Transform(int prim, u32 vertType, const DecVtxFormat &de
 			vert.pos_w = 1.0f;
 
 			if (hasColor) {
-				if (provokeIndOffset != 0 && index + provokeIndOffset < maxIndex) {
+				if (provokeIndOffset != 0 && index + provokeIndOffset < numDecodedVerts) {
 					reader.Goto(index + provokeIndOffset);
 					vert.color0_32 = reader.ReadColor0_8888();
 					reader.Goto(index);
@@ -248,7 +249,7 @@ void SoftwareTransform::Transform(int prim, u32 vertType, const DecVtxFormat &de
 	} else {
 		const Vec4f materialAmbientRGBA = Vec4f::FromRGBA(gstate.getMaterialAmbientRGBA());
 		// Okay, need to actually perform the full transform.
-		for (int index = 0; index < maxIndex; index++) {
+		for (int index = 0; index < numDecodedVerts; index++) {
 			reader.Goto(index);
 
 			float v[3] = {0, 0, 0};
@@ -269,7 +270,7 @@ void SoftwareTransform::Transform(int prim, u32 vertType, const DecVtxFormat &de
 
 			// Read all the provoking vertex values here.
 			Vec4f unlitColor;
-			if (provokeIndOffset != 0 && index + provokeIndOffset < maxIndex)
+			if (provokeIndOffset != 0 && index + provokeIndOffset < numDecodedVerts)
 				reader.Goto(index + provokeIndOffset);
 			if (reader.hasColor0())
 				reader.ReadColor0(unlitColor.AsArray());
@@ -438,10 +439,10 @@ void SoftwareTransform::Transform(int prim, u32 vertType, const DecVtxFormat &de
 	// TODO: This bleeds outside the play area in non-buffered mode. Big deal? Probably not.
 	// TODO: Allow creating a depth clear and a color draw.
 	bool reallyAClear = false;
-	if (maxIndex > 1 && prim == GE_PRIM_RECTANGLES && gstate.isModeClear() && throughmode) {
+	if (numDecodedVerts > 1 && prim == GE_PRIM_RECTANGLES && gstate.isModeClear() && throughmode) {
 		int scissorX2 = gstate.getScissorX2() + 1;
 		int scissorY2 = gstate.getScissorY2() + 1;
-		reallyAClear = IsReallyAClear(transformed, maxIndex, scissorX2, scissorY2);
+		reallyAClear = IsReallyAClear(transformed, numDecodedVerts, scissorX2, scissorY2);
 		if (reallyAClear && gstate.getColorMask() != 0xFFFFFFFF && (gstate.isClearModeColorMask() || gstate.isClearModeAlphaMask())) {
 			result->setSafeSize = true;
 			result->safeWidth = scissorX2;
@@ -466,7 +467,7 @@ void SoftwareTransform::Transform(int prim, u32 vertType, const DecVtxFormat &de
 	}
 
 	// Detect full screen "clears" that might not be so obvious, to set the safe size if possible.
-	if (!result->setSafeSize && prim == GE_PRIM_RECTANGLES && maxIndex == 2 && throughmode) {
+	if (!result->setSafeSize && prim == GE_PRIM_RECTANGLES && numDecodedVerts == 2 && throughmode) {
 		bool clearingColor = gstate.isModeClear() && (gstate.isClearModeColorMask() || gstate.isClearModeAlphaMask());
 		bool writingColor = gstate.getColorMask() != 0xFFFFFFFF;
 		bool startsZeroX = transformed[0].x <= 0.0f && transformed[1].x > 0.0f && transformed[1].x > transformed[0].x;
@@ -482,75 +483,7 @@ void SoftwareTransform::Transform(int prim, u32 vertType, const DecVtxFormat &de
 	}
 }
 
-// Also, this assumes SetTexture() has already figured out the actual texture height.
-void SoftwareTransform::DetectOffsetTexture(int maxIndex) {
-	TransformedVertex *transformed = params_.transformed;
-
-	const int w = gstate.getTextureWidth(0);
-	const int h = gstate.getTextureHeight(0);
-	float widthFactor = (float)w / (float)gstate_c.curTextureWidth;
-	float heightFactor = (float)h / (float)gstate_c.curTextureHeight;
-
-	// Breath of Fire 3 does some interesting rendering here, probably from being a port.
-	// It draws at 384x240 to two buffers in VRAM, one right after the other.
-	// We end up creating separate framebuffers, and rendering to each.
-	// But the game then stretches this to the screen - and reads from a single 512 tall texture.
-	// We initially use the first framebuffer.  This code detects the read from the second.
-	//
-	// First Vs: 12, 228 - second Vs: 252, 468 - estimated fb height: 272
-
-	// If curTextureHeight is < h, it must be a framebuffer that wasn't full height.
-	if (gstate_c.curTextureHeight < (u32)h && maxIndex >= 2) {
-		// This is the max V that will still land within the framebuffer (since it's shorter.)
-		// We already adjusted V to the framebuffer above.
-		const float maxAvailableV = 1.0f;
-		// This is the max V that would've been inside the original texture size.
-		const float maxValidV = heightFactor;
-
-		// Apparently, Assassin's Creed: Bloodlines accesses just outside.
-		const float invTexH = 1.0f / gstate_c.curTextureHeight; // size of one texel.
-
-		// Are either TL or BR inside the texture but outside the framebuffer?
-		const bool tlOutside = transformed[0].v > maxAvailableV + invTexH && transformed[0].v <= maxValidV;
-		const bool brOutside = transformed[1].v > maxAvailableV + invTexH && transformed[1].v <= maxValidV;
-
-		// If TL isn't outside, is it at least near the end?
-		// We check this because some games do 0-512 from a 272 tall framebuf.
-		const bool tlAlmostOutside = transformed[0].v > maxAvailableV * 0.5f && transformed[0].v <= maxValidV;
-
-		if (tlOutside || (brOutside && tlAlmostOutside)) {
-			const u32 prevXOffset = gstate_c.curTextureXOffset;
-			const u32 prevYOffset = gstate_c.curTextureYOffset;
-
-			// This is how far the nearest coord is, so that's where we'll look for the next framebuf.
-			const u32 yOffset = (int)(gstate_c.curTextureHeight * std::min(transformed[0].v, transformed[1].v));
-			if (params_.texCache->SetOffsetTexture(yOffset)) {
-				const float oldWidthFactor = widthFactor;
-				const float oldHeightFactor = heightFactor;
-				widthFactor = (float)w / (float)gstate_c.curTextureWidth;
-				heightFactor = (float)h / (float)gstate_c.curTextureHeight;
-
-				// We need to subtract this offset from the UVs to address the new framebuf.
-				const float adjustedYOffset = yOffset + prevYOffset - gstate_c.curTextureYOffset;
-				const float yDiff = (float)adjustedYOffset / (float)h;
-				const float adjustedXOffset = prevXOffset - gstate_c.curTextureXOffset;
-				const float xDiff = (float)adjustedXOffset / (float)w;
-
-				for (int index = 0; index < maxIndex; ++index) {
-					transformed[index].u = (transformed[index].u / oldWidthFactor - xDiff) * widthFactor;
-					transformed[index].v = (transformed[index].v / oldHeightFactor - yDiff) * heightFactor;
-				}
-
-				// We undid the offset, so reset.  This avoids a different shader.
-				gstate_c.curTextureXOffset = prevXOffset;
-				gstate_c.curTextureYOffset = prevYOffset;
-			}
-		}
-	}
-}
-
-// NOTE: The viewport must be up to date!
-void SoftwareTransform::BuildDrawingParams(int prim, int vertexCount, u32 vertType, u16 *&inds, int &maxIndex, SoftwareTransformResult *result) {
+void SoftwareTransform::BuildDrawingParams(int prim, int vertexCount, u32 vertType, u16 *&inds, int indsSize, int &numDecodedVerts, int vertsSize, SoftwareTransformResult *result) {
 	TransformedVertex *transformed = params_.transformed;
 	TransformedVertex *transformedExpanded = params_.transformedExpanded;
 	bool throughmode = (vertType & GE_VTYPE_THROUGH_MASK) != 0;
@@ -563,7 +496,12 @@ void SoftwareTransform::BuildDrawingParams(int prim, int vertexCount, u32 vertTy
 	bool useBufferedRendering = fbman->UseBufferedRendering();
 
 	if (prim == GE_PRIM_RECTANGLES) {
-		ExpandRectangles(vertexCount, maxIndex, inds, transformed, transformedExpanded, numTrans, throughmode);
+		if (!ExpandRectangles(vertexCount, numDecodedVerts, vertsSize, inds, indsSize, transformed, transformedExpanded, numTrans, throughmode, &result->pixelMapped)) {
+			result->drawIndexed = false;
+			result->drawNumTrans = 0;
+			result->pixelMapped = false;
+			return;
+		}
 		result->drawBuffer = transformedExpanded;
 		result->drawIndexed = true;
 
@@ -581,17 +519,28 @@ void SoftwareTransform::BuildDrawingParams(int prim, int vertexCount, u32 vertTy
 			}
 		}
 	} else if (prim == GE_PRIM_POINTS) {
-		ExpandPoints(vertexCount, maxIndex, inds, transformed, transformedExpanded, numTrans, throughmode);
+		result->pixelMapped = false;
+		if (!ExpandPoints(vertexCount, numDecodedVerts, vertsSize, inds, indsSize, transformed, transformedExpanded, numTrans, throughmode)) {
+			result->drawIndexed = false;
+			result->drawNumTrans = 0;
+			return;
+		}
 		result->drawBuffer = transformedExpanded;
 		result->drawIndexed = true;
 	} else if (prim == GE_PRIM_LINES) {
-		ExpandLines(vertexCount, maxIndex, inds, transformed, transformedExpanded, numTrans, throughmode);
+		result->pixelMapped = false;
+		if (!ExpandLines(vertexCount, numDecodedVerts, vertsSize, inds, indsSize, transformed, transformedExpanded, numTrans, throughmode)) {
+			result->drawIndexed = false;
+			result->drawNumTrans = 0;
+			return;
+		}
 		result->drawBuffer = transformedExpanded;
 		result->drawIndexed = true;
 	} else {
 		// We can simply draw the unexpanded buffer.
 		numTrans = vertexCount;
 		result->drawIndexed = true;
+		result->pixelMapped = false;
 
 		// If we don't support custom cull in the shader, process it here.
 		if (!gstate_c.Use(GPU_USE_CULL_DISTANCE) && vertexCount > 0 && !throughmode) {
@@ -648,6 +597,37 @@ void SoftwareTransform::BuildDrawingParams(int prim, int vertexCount, u32 vertTy
 
 				inds = newInds;
 			}
+		} else if (throughmode && g_Config.bSmart2DTexFiltering && !gstate_c.textureIsVideo) {
+			// We check some common cases for pixel mapping.
+			// TODO: It's not really optimal that some previous step has removed the triangle strip.
+			if (vertexCount <= 6 && prim == GE_PRIM_TRIANGLES) {
+				// It's enough to check UV deltas vs pos deltas between vertex pairs:
+				// 0-1 1-3 3-2 2-0. Maybe can even skip the last one. Probably some simple math can get us that sequence.
+				// Unfortunately we need to reverse the previous UV scaling operation. Fortunately these are powers of two
+				// so the operations are exact.
+				bool pixelMapped = true;
+				const u16 *indsIn = (const u16 *)inds;
+				for (int t = 0; t < vertexCount; t += 3) {
+					float uscale = gstate_c.curTextureWidth;
+					float vscale = gstate_c.curTextureHeight;
+					struct { int a; int b; } pairs[] = { {0, 1}, {1, 2}, {2, 0} };
+					for (int i = 0; i < ARRAY_SIZE(pairs); i++) {
+						int a = indsIn[t + pairs[i].a];
+						int b = indsIn[t + pairs[i].b];
+						float du = fabsf((transformed[a].u - transformed[b].u) * uscale);
+						float dv = fabsf((transformed[a].v - transformed[b].v) * vscale);
+						float dx = fabsf(transformed[a].x - transformed[b].x);
+						float dy = fabsf(transformed[a].y - transformed[b].y);
+						if (du != dx || dv != dy) {
+							pixelMapped = false;
+						}
+					}
+					if (!pixelMapped) {
+						break;
+					}
+				}
+				result->pixelMapped = pixelMapped;
+			}
 		}
 	}
 
@@ -659,7 +639,7 @@ void SoftwareTransform::BuildDrawingParams(int prim, int vertexCount, u32 vertTy
 	result->drawNumTrans = numTrans;
 }
 
-void SoftwareTransform::CalcCullParams(float &minZValue, float &maxZValue) {
+void SoftwareTransform::CalcCullParams(float &minZValue, float &maxZValue) const {
 	// The projected Z can be up to 0x3F8000FF, which is where this constant is from.
 	// It seems like it may only maintain 15 mantissa bits (excluding implied.)
 	maxZValue = 1.000030517578125f * gstate_c.vpDepthScale;
@@ -677,7 +657,17 @@ void SoftwareTransform::CalcCullParams(float &minZValue, float &maxZValue) {
 		std::swap(minZValue, maxZValue);
 }
 
-void SoftwareTransform::ExpandRectangles(int vertexCount, int &maxIndex, u16 *&inds, const TransformedVertex *transformed, TransformedVertex *transformedExpanded, int &numTrans, bool throughmode) {
+bool SoftwareTransform::ExpandRectangles(int vertexCount, int &numDecodedVerts, int vertsSize, u16 *&inds, int indsSize, const TransformedVertex *transformed, TransformedVertex *transformedExpanded, int &numTrans, bool throughmode, bool *pixelMappedExactly) const {
+	// Before we start, do a sanity check - does the output fit?
+	if ((vertexCount / 2) * 6 > indsSize) {
+		// Won't fit, kill the draw.
+		return false;
+	}
+	if ((vertexCount / 2) * 4 > vertsSize) {
+		// Won't fit, kill the draw.
+		return false;
+	}
+
 	// Rectangles always need 2 vertices, disregard the last one if there's an odd number.
 	vertexCount = vertexCount & ~1;
 	numTrans = 0;
@@ -687,33 +677,60 @@ void SoftwareTransform::ExpandRectangles(int vertexCount, int &maxIndex, u16 *&i
 	u16 *newInds = inds + vertexCount;
 	u16 *indsOut = newInds;
 
-	maxIndex = 4 * (vertexCount / 2);
+	numDecodedVerts = 4 * (vertexCount / 2);
+
+	float uscale = 1.0f;
+	float vscale = 1.0f;
+	if (throughmode) {
+		uscale /= gstate_c.curTextureWidth;
+		vscale /= gstate_c.curTextureHeight;
+	}
+
+	bool pixelMapped = g_Config.bSmart2DTexFiltering && !gstate_c.textureIsVideo;
+
 	for (int i = 0; i < vertexCount; i += 2) {
 		const TransformedVertex &transVtxTL = transformed[indsIn[i + 0]];
 		const TransformedVertex &transVtxBR = transformed[indsIn[i + 1]];
+
+		if (pixelMapped) {
+			float dx = transVtxBR.x - transVtxTL.x;
+			float dy = transVtxBR.y - transVtxTL.y;
+			float du = transVtxBR.u - transVtxTL.u;
+			float dv = transVtxBR.v - transVtxTL.v;
+
+			// NOTE: We will accept it as pixel mapped if only one dimension is stretched. This fixes dialog frames in FFI.
+			// Though, there could be false positives in other games due to this. Let's see if it is a problem...
+			if (dx <= 0 || dy <= 0 || (dx != du && dy != dv)) {
+				pixelMapped = false;
+			}
+		}
 
 		// We have to turn the rectangle into two triangles, so 6 points.
 		// This is 4 verts + 6 indices.
 
 		// bottom right
 		trans[0] = transVtxBR;
+		trans[0].u = transVtxBR.u * uscale;
+		trans[0].v = transVtxBR.v * vscale;
 
 		// top right
 		trans[1] = transVtxBR;
 		trans[1].y = transVtxTL.y;
-		trans[1].v = transVtxTL.v;
+		trans[1].u = transVtxBR.u * uscale;
+		trans[1].v = transVtxTL.v * vscale;
 
 		// top left
 		trans[2] = transVtxBR;
 		trans[2].x = transVtxTL.x;
 		trans[2].y = transVtxTL.y;
-		trans[2].u = transVtxTL.u;
-		trans[2].v = transVtxTL.v;
+		trans[2].u = transVtxTL.u * uscale;
+		trans[2].v = transVtxTL.v * vscale;
 
 		// bottom left
 		trans[3] = transVtxBR;
 		trans[3].x = transVtxTL.x;
-		trans[3].u = transVtxTL.u;
+		trans[3].u = transVtxTL.u * uscale;
+		trans[3].v = transVtxBR.v * vscale;
 
 		// That's the four corners. Now process UV rotation.
 		if (throughmode) {
@@ -730,15 +747,27 @@ void SoftwareTransform::ExpandRectangles(int vertexCount, int &maxIndex, u16 *&i
 		indsOut[3] = i * 2 + 3;
 		indsOut[4] = i * 2 + 0;
 		indsOut[5] = i * 2 + 2;
+
 		trans += 4;
 		indsOut += 6;
 
 		numTrans += 6;
 	}
 	inds = newInds;
+	*pixelMappedExactly = pixelMapped;
+	return true;
 }
 
-void SoftwareTransform::ExpandLines(int vertexCount, int &maxIndex, u16 *&inds, const TransformedVertex *transformed, TransformedVertex *transformedExpanded, int &numTrans, bool throughmode) {
+bool SoftwareTransform::ExpandLines(int vertexCount, int &numDecodedVerts, int vertsSize, u16 *&inds, int indsSize, const TransformedVertex *transformed, TransformedVertex *transformedExpanded, int &numTrans, bool throughmode) {
+	// Before we start, do a sanity check - does the output fit?
+	if ((vertexCount / 2) * 6 > indsSize) {
+		// Won't fit, kill the draw.
+		return false;
+	}
+	if ((vertexCount / 2) * 4 > vertsSize) {
+		return false;
+	}
+
 	// Lines always need 2 vertices, disregard the last one if there's an odd number.
 	vertexCount = vertexCount & ~1;
 	numTrans = 0;
@@ -758,7 +787,7 @@ void SoftwareTransform::ExpandLines(int vertexCount, int &maxIndex, u16 *&inds, 
 		dy = 1.0f;
 	}
 
-	maxIndex = 4 * (vertexCount / 2);
+	numDecodedVerts = 4 * (vertexCount / 2);
 
 	if (PSP_CoreParameter().compat.flags().CenteredLines) {
 		// Lines meant to be pretty in 3D like in Echochrome.
@@ -860,10 +889,20 @@ void SoftwareTransform::ExpandLines(int vertexCount, int &maxIndex, u16 *&inds, 
 	}
 
 	inds = newInds;
+	return true;
 }
 
+bool SoftwareTransform::ExpandPoints(int vertexCount, int &maxIndex, int vertsSize, u16 *&inds, int indsSize, const TransformedVertex *transformed, TransformedVertex *transformedExpanded, int &numTrans, bool throughmode) {
+	// Before we start, do a sanity check - does the output fit?
+	if (vertexCount * 6 > indsSize) {
+		// Won't fit, kill the draw.
+		return false;
+	}
+	if (vertexCount * 4 > vertsSize) {
+		// Won't fit, kill the draw.
+		return false;
+	}
 
-void SoftwareTransform::ExpandPoints(int vertexCount, int &maxIndex, u16 *&inds, const TransformedVertex *transformed, TransformedVertex *transformedExpanded, int &numTrans, bool throughmode) {
 	numTrans = 0;
 	TransformedVertex *trans = &transformedExpanded[0];
 
@@ -929,4 +968,5 @@ void SoftwareTransform::ExpandPoints(int vertexCount, int &maxIndex, u16 *&inds,
 		numTrans += 6;
 	}
 	inds = newInds;
+	return true;
 }

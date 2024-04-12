@@ -499,7 +499,7 @@ public:
 		// If we're only using a subset of verts, it's better to decode with random access (usually.)
 		// However, if we're reusing a lot of verts, we should read and cache them.
 		useCache_ = useIndices_ && vertex_count > (upperBound_ - lowerBound_ + 1);
-		if (useCache_ && cached_.size() < upperBound_ - lowerBound_ + 1)
+		if (useCache_ && (int)cached_.size() < upperBound_ - lowerBound_ + 1)
 			cached_.resize(std::max(128, upperBound_ - lowerBound_ + 1));
 	}
 

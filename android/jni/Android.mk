@@ -38,10 +38,6 @@ include $(BUILD_STATIC_LIBRARY)
 include $(CLEAR_VARS)
 include $(LOCAL_PATH)/Locals.mk
 
-LOCAL_C_INCLUDES += \
-  $(LOCAL_PATH)/../../ext/cpu_features/include \
-  $(LOCAL_PATH)/../../ext/rcheevos/include
-
 LOCAL_CFLAGS += -DSTACK_LINE_READER_BUFFER_SIZE=1024 -DHAVE_DLFCN_H -DRC_DISABLE_LUA -D_7ZIP_ST
 
 # http://software.intel.com/en-us/articles/getting-started-on-optimizing-ndk-project-for-multiple-cpu-architectures
@@ -113,6 +109,23 @@ SPIRV_CROSS_FILES := \
 NAETT_FILES := \
   ${SRC}/ext/naett/naett.c
 
+MINIMP3_FILES := \
+    ${SRC}/ext/minimp3/minimp3.cpp
+
+AT3_STANDALONE_FILES := \
+	${SRC}/ext/at3_standalone/atrac.cpp \
+	${SRC}/ext/at3_standalone/atrac3.cpp \
+	${SRC}/ext/at3_standalone/atrac3plus.cpp \
+	${SRC}/ext/at3_standalone/atrac3plusdec.cpp \
+	${SRC}/ext/at3_standalone/atrac3plusdsp.cpp \
+	${SRC}/ext/at3_standalone/get_bits.cpp \
+	${SRC}/ext/at3_standalone/compat.cpp \
+	${SRC}/ext/at3_standalone/fft.cpp \
+	${SRC}/ext/at3_standalone/float_dsp.cpp \
+	${SRC}/ext/at3_standalone/mathematics.cpp \
+	${SRC}/ext/at3_standalone/mem.cpp \
+	${SRC}/ext/at3_standalone/sinewin.cpp
+
 RCHEEVOS_FILES := \
   ${SRC}/ext/rcheevos/src/rapi/rc_api_common.c \
   ${SRC}/ext/rcheevos/src/rapi/rc_api_editor.c \
@@ -136,8 +149,6 @@ RCHEEVOS_FILES := \
   ${SRC}/ext/rcheevos/src/rcheevos/runtime_progress.c \
   ${SRC}/ext/rcheevos/src/rcheevos/trigger.c \
   ${SRC}/ext/rcheevos/src/rcheevos/value.c \
-  ${SRC}/ext/rcheevos/src/rhash/cdreader.c \
-  ${SRC}/ext/rcheevos/src/rhash/hash.c \
   ${SRC}/ext/rcheevos/src/rhash/md5.c
 
 ifeq ($(TARGET_ARCH_ABI),arm64-v8a)
@@ -223,6 +234,8 @@ EXEC_AND_LIB_FILES := \
   $(SPIRV_CROSS_FILES) \
   $(RCHEEVOS_FILES) \
   $(NAETT_FILES) \
+  $(MINIMP3_FILES) \
+  $(AT3_STANDALONE_FILES) \
   $(EXT_FILES) \
   $(NATIVE_FILES) \
   $(SRC)/Common/Buffer.cpp \
@@ -515,6 +528,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Core/ELF/PrxDecrypter.cpp \
   $(SRC)/Core/ELF/ParamSFO.cpp \
   $(SRC)/Core/HW/SimpleAudioDec.cpp \
+  $(SRC)/Core/HW/Atrac3Standalone.cpp \
   $(SRC)/Core/HW/AsyncIOManager.cpp \
   $(SRC)/Core/HW/BufferQueue.cpp \
   $(SRC)/Core/HW/Camera.cpp \
@@ -652,6 +666,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Core/HLE/sceSas.cpp \
   $(SRC)/Core/HLE/sceSfmt19937.cpp \
   $(SRC)/Core/HLE/sceSha256.cpp \
+  $(SRC)/Core/HLE/sceSircs.cpp \
   $(SRC)/Core/HLE/sceSsl.cpp \
   $(SRC)/Core/HLE/sceUmd.cpp \
   $(SRC)/Core/HLE/sceUsb.cpp \
@@ -678,6 +693,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Core/MIPS/JitCommon/JitBlockCache.cpp \
   $(SRC)/Core/MIPS/JitCommon/JitState.cpp \
   $(SRC)/Core/Util/AudioFormat.cpp \
+  $(SRC)/Core/Util/MemStick.cpp \
   $(SRC)/Core/Util/PortManager.cpp \
   $(SRC)/Core/Util/GameDB.cpp \
   $(SRC)/Core/Util/GameManager.cpp \
@@ -815,6 +831,7 @@ LOCAL_SRC_FILES := \
   $(SRC)/UI/ChatScreen.cpp \
   $(SRC)/UI/DebugOverlay.cpp \
   $(SRC)/UI/DevScreens.cpp \
+  $(SRC)/UI/DriverManagerScreen.cpp \
   $(SRC)/UI/DisplayLayoutScreen.cpp \
   $(SRC)/UI/EmuScreen.cpp \
   $(SRC)/UI/MainScreen.cpp \

@@ -198,7 +198,7 @@ static int Replace_memcpy_jak() {
 			skip = gpu->PerformMemoryCopy(destPtr, srcPtr, bytes);
 		}
 	}
-	if (!skip && bytes > SLICE_SIZE && bytes != 512 * 272 * 4) {
+	if (!skip && bytes > SLICE_SIZE && bytes != 512 * 272 * 4 && !PSP_CoreParameter().compat.flags().DisableMemcpySlicing) {
 		// This is a very slow func.  To avoid thread blocking, do a slice at a time.
 		// Avoiding exactly 512 * 272 * 4 to detect videos, though.
 		bytes = SLICE_SIZE;
@@ -390,7 +390,7 @@ static int Replace_memset_jak() {
 	if (Memory::IsVRAMAddress(destPtr) && (skipGPUReplacements & (int)GPUReplacementSkip::MEMSET) == 0) {
 		skip = gpu->PerformMemorySet(destPtr, value, bytes);
 	}
-	if (!skip && bytes > SLICE_SIZE) {
+	if (!skip && bytes > SLICE_SIZE && !PSP_CoreParameter().compat.flags().DisableMemcpySlicing) {
 		// This is a very slow func.  To avoid thread blocking, do a slice at a time.
 		bytes = SLICE_SIZE;
 		sliced = true;

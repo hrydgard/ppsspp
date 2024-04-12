@@ -99,7 +99,7 @@ UI::EventReturn PopupMultiChoice::HandleClick(UI::EventParams &e) {
 
 	std::vector<std::string> choices;
 	for (int i = 0; i < numChoices_; i++) {
-		choices.push_back(category ? category->T(choices_[i]) : choices_[i]);
+		choices.push_back(category ? std::string(category->T(choices_[i])) : std::string(choices_[i]));
 	}
 
 	ListPopupScreen *popupScreen = new ListPopupScreen(ChopTitle(text_), choices, *value_ - minVal_,
@@ -154,31 +154,49 @@ std::string PopupMultiChoice::ValueText() const {
 	return valueText_;
 }
 
-PopupSliderChoice::PopupSliderChoice(int *value, int minValue, int maxValue, int defaultValue, const std::string &text, ScreenManager *screenManager, const std::string &units, LayoutParams *layoutParams)
+PopupSliderChoice::PopupSliderChoice(int *value, int minValue, int maxValue, int defaultValue, std::string_view text, ScreenManager *screenManager, std::string_view units, LayoutParams *layoutParams)
 	: AbstractChoiceWithValueDisplay(text, layoutParams), value_(value), minValue_(minValue), maxValue_(maxValue), defaultValue_(defaultValue), step_(1), units_(units), screenManager_(screenManager) {
 	fmt_ = "%d";
 	OnClick.Handle(this, &PopupSliderChoice::HandleClick);
 }
 
-PopupSliderChoice::PopupSliderChoice(int *value, int minValue, int maxValue, int defaultValue, const std::string &text, int step, ScreenManager *screenManager, const std::string &units, LayoutParams *layoutParams)
+PopupSliderChoice::PopupSliderChoice(int *value, int minValue, int maxValue, int defaultValue, std::string_view text, int step, ScreenManager *screenManager, std::string_view units, LayoutParams *layoutParams)
 	: AbstractChoiceWithValueDisplay(text, layoutParams), value_(value), minValue_(minValue), maxValue_(maxValue), defaultValue_(defaultValue), step_(step), units_(units), screenManager_(screenManager) {
 	fmt_ = "%d";
 	OnClick.Handle(this, &PopupSliderChoice::HandleClick);
 }
 
-PopupSliderChoiceFloat::PopupSliderChoiceFloat(float *value, float minValue, float maxValue, float defaultValue, const std::string &text, ScreenManager *screenManager, const std::string &units, LayoutParams *layoutParams)
+void PopupSliderChoice::SetFormat(std::string_view fmt) {
+	fmt_ = fmt;
+	if (units_.empty()) {
+		if (startsWith(fmt_, "%d ")) {
+			units_ = fmt_.substr(3);
+		}
+	}
+}
+
+PopupSliderChoiceFloat::PopupSliderChoiceFloat(float *value, float minValue, float maxValue, float defaultValue, std::string_view text, ScreenManager *screenManager, std::string_view units, LayoutParams *layoutParams)
 	: AbstractChoiceWithValueDisplay(text, layoutParams), value_(value), minValue_(minValue), maxValue_(maxValue), defaultValue_(defaultValue), step_(1.0f), units_(units), screenManager_(screenManager) {
 	_dbg_assert_(maxValue > minValue);
 	fmt_ = "%2.2f";
 	OnClick.Handle(this, &PopupSliderChoiceFloat::HandleClick);
 }
 
-PopupSliderChoiceFloat::PopupSliderChoiceFloat(float *value, float minValue, float maxValue, float defaultValue, const std::string &text, float step, ScreenManager *screenManager, const std::string &units, LayoutParams *layoutParams)
+PopupSliderChoiceFloat::PopupSliderChoiceFloat(float *value, float minValue, float maxValue, float defaultValue, std::string_view text, float step, ScreenManager *screenManager, std::string_view units, LayoutParams *layoutParams)
 	: AbstractChoiceWithValueDisplay(text, layoutParams), value_(value), minValue_(minValue), maxValue_(maxValue), defaultValue_(defaultValue), step_(step), units_(units), screenManager_(screenManager) {
 	_dbg_assert_(step > 0.0f);
 	_dbg_assert_(maxValue > minValue);
 	fmt_ = "%2.2f";
 	OnClick.Handle(this, &PopupSliderChoiceFloat::HandleClick);
+}
+
+void PopupSliderChoiceFloat::SetFormat(std::string_view fmt) {
+	fmt_ = fmt;
+	if (units_.empty()) {
+		if (startsWith(fmt_, "%f ")) {
+			units_ = fmt_.substr(3);
+		}
+	}
 }
 
 EventReturn PopupSliderChoice::HandleClick(EventParams &e) {
@@ -204,7 +222,7 @@ EventReturn PopupSliderChoice::HandleChange(EventParams &e) {
 	return EVENT_DONE;
 }
 
-static bool IsValidNumberFormatString(const std::string &s) {
+static bool IsValidNumberFormatString(std::string_view s) {
 	if (s.empty())
 		return false;
 	size_t percentCount = 0;
@@ -500,8 +518,8 @@ void SliderFloatPopupScreen::OnCompleted(DialogResult result) {
 	}
 }
 
-PopupTextInputChoice::PopupTextInputChoice(std::string *value, const std::string &title, const std::string &placeholder, int maxLen, ScreenManager *screenManager, LayoutParams *layoutParams)
-	: AbstractChoiceWithValueDisplay(title, layoutParams), screenManager_(screenManager), value_(value), placeHolder_(placeholder), maxLen_(maxLen) {
+PopupTextInputChoice::PopupTextInputChoice(RequesterToken token, std::string *value, std::string_view title, std::string_view placeholder, int maxLen, ScreenManager *screenManager, LayoutParams *layoutParams)
+	: AbstractChoiceWithValueDisplay(title, layoutParams), screenManager_(screenManager), value_(value), placeHolder_(placeholder), maxLen_(maxLen), token_(token) {
 	OnClick.Handle(this, &PopupTextInputChoice::HandleClick);
 }
 
@@ -510,7 +528,7 @@ EventReturn PopupTextInputChoice::HandleClick(EventParams &e) {
 
 	// Choose method depending on platform capabilities.
 	if (System_GetPropertyBool(SYSPROP_HAS_TEXT_INPUT_DIALOG)) {
-		System_InputBoxGetString(text_, *value_ , [=](const std::string &enteredValue, int) {
+		System_InputBoxGetString(token_, text_, *value_ , [=](const std::string &enteredValue, int) {
 			*value_ = StripSpaces(enteredValue);
 			EventParams params{};
 			OnChange.Trigger(params);
@@ -664,14 +682,13 @@ std::string ChoiceWithValueDisplay::ValueText() const {
 	} else if (iValue_ != nullptr) {
 		valueText << *iValue_;
 	}
-
 	return valueText.str();
 }
 
-FileChooserChoice::FileChooserChoice(std::string *value, const std::string &text, BrowseFileType fileType, LayoutParams *layoutParams)
-	: AbstractChoiceWithValueDisplay(text, layoutParams), value_(value), fileType_(fileType) {
+FileChooserChoice::FileChooserChoice(RequesterToken token, std::string *value, std::string_view text, BrowseFileType fileType, LayoutParams *layoutParams)
+	: AbstractChoiceWithValueDisplay(text, layoutParams), value_(value), fileType_(fileType), token_(token) {
 	OnClick.Add([=](UI::EventParams &) {
-		System_BrowseForFile(text_, fileType, [=](const std::string &returnValue, int) {
+		System_BrowseForFile(token, text_, fileType, [=](const std::string &returnValue, int) {
 			if (*value_ != returnValue) {
 				*value = returnValue;
 				UI::EventParams e{};
@@ -686,10 +703,34 @@ FileChooserChoice::FileChooserChoice(std::string *value, const std::string &text
 std::string FileChooserChoice::ValueText() const {
 	if (value_->empty()) {
 		auto di = GetI18NCategory(I18NCat::DIALOG);
-		return di->T("Default");
+		return std::string(di->T("Default"));
 	}
 	Path path(*value_);
 	return path.GetFilename();
+}
+
+FolderChooserChoice::FolderChooserChoice(RequesterToken token, std::string *value, std::string_view text, LayoutParams *layoutParams)
+	: AbstractChoiceWithValueDisplay(text, layoutParams), value_(value), token_(token) {
+	OnClick.Add([=](UI::EventParams &) {
+		System_BrowseForFolder(token_, text_, Path(*value), [=](const std::string &returnValue, int) {
+			if (*value_ != returnValue) {
+				*value = returnValue;
+				UI::EventParams e{};
+				e.s = *value;
+				OnChange.Trigger(e);
+			}
+		});
+		return UI::EVENT_DONE;
+	});
+}
+
+std::string FolderChooserChoice::ValueText() const {
+	if (value_->empty()) {
+		auto di = GetI18NCategory(I18NCat::DIALOG);
+		return std::string(di->T("Default"));
+	}
+	Path path(*value_);
+	return path.ToVisualString();
 }
 
 }  // namespace

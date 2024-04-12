@@ -1,4 +1,5 @@
 #include "Common/System/Display.h"
+#include "Common/System/Request.h"
 #include "Common/Input/InputState.h"
 #include "Common/UI/Root.h"
 #include "Common/UI/Screen.h"
@@ -19,6 +20,21 @@ void Screen::focusChanged(ScreenFocusChange focusChange) {
 	case ScreenFocusChange::FOCUS_BECAME_TOP: eventName = "FOCUS_BECAME_TOP"; break;
 	}
 	DEBUG_LOG(SYSTEM, "Screen %s got %s", this->tag(), eventName);
+}
+
+int Screen::GetRequesterToken() {
+	if (token_ < 0) {
+		token_ = g_requestManager.GenerateRequesterToken();
+	}
+	return token_;
+}
+
+Screen::~Screen() {
+	screenManager_ = nullptr;
+	if (token_ >= 0) {
+		// To avoid expired callbacks getting called.
+		g_requestManager.ForgetRequestsWithToken(token_);
+	}
 }
 
 ScreenManager::~ScreenManager() {
@@ -167,14 +183,14 @@ ScreenRenderFlags ScreenManager::render() {
 		// the EmuScreen or the actual global background screen.
 		auto iter = stack_.end();
 		Screen *coveringScreen = nullptr;
-		Screen *backgroundScreen = nullptr;
+		Screen *foundBackgroundScreen = nullptr;
 		bool first = true;
 		do {
 			--iter;
-			if (!backgroundScreen && iter->screen->canBeBackground(first)) {
+			if (!foundBackgroundScreen && iter->screen->canBeBackground(first)) {
 				// There still might be a screen that wants to be background - generally the EmuScreen if present.
 				layers.push_back(iter->screen);
-				backgroundScreen = iter->screen;
+				foundBackgroundScreen = iter->screen;
 			} else if (!coveringScreen) {
 				layers.push_back(iter->screen);
 			}
@@ -184,10 +200,9 @@ ScreenRenderFlags ScreenManager::render() {
 			first = false;
 		} while (iter != stack_.begin());
 
-		// Confusing-looking expression, argh! Note the '_'
-		if (backgroundScreen_ && !backgroundScreen) {
+		if (backgroundScreen_ && !foundBackgroundScreen) {
 			layers.push_back(backgroundScreen_);
-			backgroundScreen = backgroundScreen_;
+			foundBackgroundScreen = backgroundScreen_;
 		}
 
 		// OK, now we iterate backwards over our little pile of collected screens.

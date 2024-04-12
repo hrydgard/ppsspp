@@ -215,10 +215,12 @@ bool GetFilesInDir(const Path &directory, std::vector<FileInfo> *files, const ch
 	}
 	// Find the first file in the directory.
 	WIN32_FIND_DATA ffd;
+	std::wstring wpath = directory.ToWString();
+	wpath += L"\\*";
 #if PPSSPP_PLATFORM(UWP)
-	HANDLE hFind = FindFirstFileExFromAppW((directory.ToWString() + L"\\*").c_str(), FindExInfoStandard, &ffd, FindExSearchNameMatch, NULL, 0);
+	HANDLE hFind = FindFirstFileExFromAppW(wpath.c_str(), FindExInfoStandard, &ffd, FindExSearchNameMatch, NULL, 0);
 #else
-	HANDLE hFind = FindFirstFileEx((directory.ToWString() + L"\\*").c_str(), FindExInfoStandard, &ffd, FindExSearchNameMatch, NULL, 0);
+	HANDLE hFind = FindFirstFileEx(wpath.c_str(), FindExInfoStandard, &ffd, FindExSearchNameMatch, NULL, 0);
 #endif
 	if (hFind == INVALID_HANDLE_VALUE) {
 #if PPSSPP_PLATFORM(UWP)

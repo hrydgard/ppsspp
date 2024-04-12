@@ -521,6 +521,48 @@
     <ClInclude Include="Math\CrossSIMD.h">
       <Filter>Math</Filter>
     </ClInclude>
+    <ClInclude Include="..\ext\minimp3\minimp3.h">
+      <Filter>ext\minimp3</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ext\at3_standalone\atrac3data.h">
+      <Filter>ext\at3_standalone</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ext\at3_standalone\atrac3plus.h">
+      <Filter>ext\at3_standalone</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ext\at3_standalone\atrac3plus_data.h">
+      <Filter>ext\at3_standalone</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ext\at3_standalone\atrac.h">
+      <Filter>ext\at3_standalone</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ext\at3_standalone\get_bits.h">
+      <Filter>ext\at3_standalone</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ext\at3_standalone\compat.h">
+      <Filter>ext\at3_standalone</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ext\at3_standalone\fft.h">
+      <Filter>ext\at3_standalone</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ext\at3_standalone\float_dsp.h">
+      <Filter>ext\at3_standalone</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ext\at3_standalone\intreadwrite.h">
+      <Filter>ext\at3_standalone</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ext\at3_standalone\mathematics.h">
+      <Filter>ext\at3_standalone</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ext\at3_standalone\at3_decoders.h">
+      <Filter>ext\at3_standalone</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ext\at3_standalone\mem.h">
+      <Filter>ext\at3_standalone</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ext\at3_standalone\sinewin.h">
+      <Filter>ext\at3_standalone</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="ABI.cpp" />
@@ -975,6 +1017,45 @@
     <ClCompile Include="GPU\Vulkan\VulkanDescSet.cpp">
       <Filter>GPU\Vulkan</Filter>
     </ClCompile>
+    <ClCompile Include="..\ext\minimp3\minimp3.cpp">
+      <Filter>ext\minimp3</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ext\at3_standalone\atrac3.cpp">
+      <Filter>ext\at3_standalone</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ext\at3_standalone\atrac3plus.cpp">
+      <Filter>ext\at3_standalone</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ext\at3_standalone\atrac3plusdec.cpp">
+      <Filter>ext\at3_standalone</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ext\at3_standalone\atrac3plusdsp.cpp">
+      <Filter>ext\at3_standalone</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ext\at3_standalone\float_dsp.cpp">
+      <Filter>ext\at3_standalone</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ext\at3_standalone\mem.cpp">
+      <Filter>ext\at3_standalone</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ext\at3_standalone\sinewin.cpp">
+      <Filter>ext\at3_standalone</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ext\at3_standalone\atrac.cpp">
+      <Filter>ext\at3_standalone</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ext\at3_standalone\mathematics.cpp">
+      <Filter>ext\at3_standalone</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ext\at3_standalone\fft.cpp">
+      <Filter>ext\at3_standalone</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ext\at3_standalone\get_bits.cpp">
+      <Filter>ext\at3_standalone</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ext\at3_standalone\compat.cpp">
+      <Filter>ext\at3_standalone</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Crypto">
@@ -1085,10 +1166,22 @@
     <Filter Include="ext\libchdr">
       <UniqueIdentifier>{b681797d-7747-487f-b448-5ef5b2d2805b}</UniqueIdentifier>
     </Filter>
+    <Filter Include="ext\minimp3">
+      <UniqueIdentifier>{83cd76d0-d1ac-4ed1-9bdc-11fb5a20e5d3}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ext\at3_standalone">
+      <UniqueIdentifier>{586da66e-922a-4479-9dac-9d608a1b9183}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <Text Include="..\ext\libpng17\CMakeLists.txt">
       <Filter>ext\libpng17</Filter>
+    </Text>
+    <Text Include="..\ext\at3_standalone\README.txt">
+      <Filter>ext\at3_standalone</Filter>
+    </Text>
+    <Text Include="..\ext\at3_standalone\CMakeLists.txt">
+      <Filter>ext\at3_standalone</Filter>
     </Text>
   </ItemGroup>
   <ItemGroup>
