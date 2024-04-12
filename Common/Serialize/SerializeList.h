@@ -27,7 +27,7 @@ void DoList(PointerWrap &p, std::list<T> &x, T &default_val) {
 	Do(p, list_size);
 	x.resize(list_size, default_val);
 
-	for (T elem : x)
+	for (T &elem : x)
 		Do(p, elem);
 }
 
