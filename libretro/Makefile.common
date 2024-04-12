@@ -23,6 +23,7 @@ INCFLAGS += \
 	-I$(EXTDIR)/glslang \
 	-I$(EXTDIR)/glslang-build \
 	-I$(EXTDIR)/native \
+	-I$(EXTDIR)/minimp3 \
 	-I$(EXTDIR)/zlib \
 	-I$(EXTDIR)/cpu_features/include \
 	-I$(ZSTDDIR) \
@@ -171,7 +172,7 @@ endif
 
 SOURCES_C += $(LIBRETRODIR)/ext/glew/glew.c
 
-SOURCES_C += \
+SOURCES_CXX += \
 	$(EXTDIR)/minimp3/minimp3.cpp
 
 SOURCES_C += \
@@ -261,7 +262,7 @@ SOURCES_C += \
 
 INCFLAGS += -I$(EXTDIR)/at3_standalone
 
-SOURCES_C += \
+SOURCES_CXX += \
 	${EXTDIR}/at3_standalone/atrac.cpp \
 	${EXTDIR}/at3_standalone/atrac3.cpp \
 	${EXTDIR}/at3_standalone/atrac3plus.cpp \
