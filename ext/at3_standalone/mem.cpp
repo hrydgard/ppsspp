@@ -50,7 +50,7 @@ int ff_fast_malloc(void *ptr, unsigned int *size, size_t min_size, int zero_real
 	memcpy(ptr, &val, sizeof(val));
 	if (!val)
 		min_size = 0;
-	*size = min_size;
+	*size = (unsigned int)min_size;
 	return 1;
 }
 
@@ -204,7 +204,7 @@ void *av_fast_realloc(void *ptr, unsigned int *size, size_t min_size)
     if (!ptr)
         min_size = 0;
 
-    *size = min_size;
+    *size = (unsigned int)min_size;
 
     return ptr;
 }
