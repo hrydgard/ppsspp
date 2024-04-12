@@ -841,99 +841,99 @@ int Atrac::Analyze(u32 addr, u32 size) {
 			break;
 		switch (chunkMagic) {
 		case FMT_CHUNK_MAGIC:
-			{
-				if (codecType_ != 0) {
-					return hleReportError(ME, ATRAC_ERROR_UNKNOWN_FORMAT, "multiple fmt definitions");
-				}
-
-				auto at3fmt = PSPPointer<const RIFFFmtChunk>::Create(first_.addr + offset);
-				if (chunkSize < 32 || (at3fmt->fmtTag == AT3_PLUS_MAGIC && chunkSize < 52)) {
-					return hleReportError(ME, ATRAC_ERROR_UNKNOWN_FORMAT, "fmt definition too small (%d)", chunkSize);
-				}
-
-				if (at3fmt->fmtTag == AT3_MAGIC)
-					codecType_ = PSP_MODE_AT_3;
-				else if (at3fmt->fmtTag == AT3_PLUS_MAGIC)
-					codecType_ = PSP_MODE_AT_3_PLUS;
-				else {
-					return hleReportError(ME, ATRAC_ERROR_UNKNOWN_FORMAT, "invalid fmt magic: %04x", at3fmt->fmtTag);
-				}
-				channels_ = at3fmt->channels;
-				if (channels_ != 1 && channels_ != 2) {
-					return hleReportError(ME, ATRAC_ERROR_UNKNOWN_FORMAT, "invalid channel count: %d", channels_);
-				}
-				if (at3fmt->samplerate != 44100) {
-					return hleReportError(ME, ATRAC_ERROR_UNKNOWN_FORMAT, "unsupported sample rate: %d", at3fmt->samplerate);
-				}
-				bitrate_ = at3fmt->avgBytesPerSec * 8;
-				bytesPerFrame_ = at3fmt->blockAlign;
-				if (bytesPerFrame_ == 0) {
-					return hleReportError(ME, ATRAC_ERROR_UNKNOWN_FORMAT, "invalid bytes per frame: %d", bytesPerFrame_);
-				}
-
-				// TODO: There are some format specific bytes here which seem to have fixed values?
-				// Probably don't need them.
-
-				if (at3fmt->fmtTag == AT3_MAGIC) {
-					// This is the offset to the jointStereo_ field.
-					jointStereo_ = Memory::Read_U32(first_.addr + offset + 24);
-				}
+		{
+			if (codecType_ != 0) {
+				return hleReportError(ME, ATRAC_ERROR_UNKNOWN_FORMAT, "multiple fmt definitions");
 			}
-			break;
+
+			auto at3fmt = PSPPointer<const RIFFFmtChunk>::Create(first_.addr + offset);
+			if (chunkSize < 32 || (at3fmt->fmtTag == AT3_PLUS_MAGIC && chunkSize < 52)) {
+				return hleReportError(ME, ATRAC_ERROR_UNKNOWN_FORMAT, "fmt definition too small (%d)", chunkSize);
+			}
+
+			if (at3fmt->fmtTag == AT3_MAGIC)
+				codecType_ = PSP_MODE_AT_3;
+			else if (at3fmt->fmtTag == AT3_PLUS_MAGIC)
+				codecType_ = PSP_MODE_AT_3_PLUS;
+			else {
+				return hleReportError(ME, ATRAC_ERROR_UNKNOWN_FORMAT, "invalid fmt magic: %04x", at3fmt->fmtTag);
+			}
+			channels_ = at3fmt->channels;
+			if (channels_ != 1 && channels_ != 2) {
+				return hleReportError(ME, ATRAC_ERROR_UNKNOWN_FORMAT, "invalid channel count: %d", channels_);
+			}
+			if (at3fmt->samplerate != 44100) {
+				return hleReportError(ME, ATRAC_ERROR_UNKNOWN_FORMAT, "unsupported sample rate: %d", at3fmt->samplerate);
+			}
+			bitrate_ = at3fmt->avgBytesPerSec * 8;
+			bytesPerFrame_ = at3fmt->blockAlign;
+			if (bytesPerFrame_ == 0) {
+				return hleReportError(ME, ATRAC_ERROR_UNKNOWN_FORMAT, "invalid bytes per frame: %d", bytesPerFrame_);
+			}
+
+			// TODO: There are some format specific bytes here which seem to have fixed values?
+			// Probably don't need them.
+
+			if (at3fmt->fmtTag == AT3_MAGIC) {
+				// This is the offset to the jointStereo_ field.
+				jointStereo_ = Memory::Read_U32(first_.addr + offset + 24);
+			}
+		}
+		break;
 		case FACT_CHUNK_MAGIC:
-			{
-				endSample_ = Memory::Read_U32(first_.addr + offset);
-				if (chunkSize >= 8) {
-					firstSampleOffset_ = Memory::Read_U32(first_.addr + offset + 4);
-				}
-				if (chunkSize >= 12) {
-					u32 largerOffset = Memory::Read_U32(first_.addr + offset + 8);
-					sampleOffsetAdjust = firstSampleOffset_ - largerOffset;
-				}
+		{
+			endSample_ = Memory::Read_U32(first_.addr + offset);
+			if (chunkSize >= 8) {
+				firstSampleOffset_ = Memory::Read_U32(first_.addr + offset + 4);
 			}
-			break;
+			if (chunkSize >= 12) {
+				u32 largerOffset = Memory::Read_U32(first_.addr + offset + 8);
+				sampleOffsetAdjust = firstSampleOffset_ - largerOffset;
+			}
+		}
+		break;
 		case SMPL_CHUNK_MAGIC:
-			{
-				if (chunkSize < 32) {
-					return hleReportError(ME, ATRAC_ERROR_UNKNOWN_FORMAT, "smpl chunk too small (%d)", chunkSize);
-				}
-				int checkNumLoops = Memory::Read_U32(first_.addr + offset + 28);
-				if (checkNumLoops != 0 && chunkSize < 36 + 20) {
-					return hleReportError(ME, ATRAC_ERROR_UNKNOWN_FORMAT, "smpl chunk too small for loop (%d, %d)", checkNumLoops, chunkSize);
-				}
-				if (checkNumLoops < 0) {
-					return hleReportError(ME, ATRAC_ERROR_UNKNOWN_FORMAT, "bad checkNumLoops (%d)", checkNumLoops);
-				}
+		{
+			if (chunkSize < 32) {
+				return hleReportError(ME, ATRAC_ERROR_UNKNOWN_FORMAT, "smpl chunk too small (%d)", chunkSize);
+			}
+			int checkNumLoops = Memory::Read_U32(first_.addr + offset + 28);
+			if (checkNumLoops != 0 && chunkSize < 36 + 20) {
+				return hleReportError(ME, ATRAC_ERROR_UNKNOWN_FORMAT, "smpl chunk too small for loop (%d, %d)", checkNumLoops, chunkSize);
+			}
+			if (checkNumLoops < 0) {
+				return hleReportError(ME, ATRAC_ERROR_UNKNOWN_FORMAT, "bad checkNumLoops (%d)", checkNumLoops);
+			}
 
-				loopinfo_.resize(checkNumLoops);
-				u32 loopinfoAddr = first_.addr + offset + 36;
-				// The PSP only cares about the first loop start and end, it seems.
-				// Most likely can skip the rest of this data, but it's not hurting anyone.
-				for (int i = 0; i < checkNumLoops && 36 + (u32)i < chunkSize; i++, loopinfoAddr += 24) {
-					loopinfo_[i].cuePointID = Memory::Read_U32(loopinfoAddr);
-					loopinfo_[i].type = Memory::Read_U32(loopinfoAddr + 4);
-					loopinfo_[i].startSample = Memory::Read_U32(loopinfoAddr + 8);
-					loopinfo_[i].endSample = Memory::Read_U32(loopinfoAddr + 12);
-					loopinfo_[i].fraction = Memory::Read_U32(loopinfoAddr + 16);
-					loopinfo_[i].playCount = Memory::Read_U32(loopinfoAddr + 20);
+			loopinfo_.resize(checkNumLoops);
+			u32 loopinfoAddr = first_.addr + offset + 36;
+			// The PSP only cares about the first loop start and end, it seems.
+			// Most likely can skip the rest of this data, but it's not hurting anyone.
+			for (int i = 0; i < checkNumLoops && 36 + (u32)i < chunkSize; i++, loopinfoAddr += 24) {
+				loopinfo_[i].cuePointID = Memory::Read_U32(loopinfoAddr);
+				loopinfo_[i].type = Memory::Read_U32(loopinfoAddr + 4);
+				loopinfo_[i].startSample = Memory::Read_U32(loopinfoAddr + 8);
+				loopinfo_[i].endSample = Memory::Read_U32(loopinfoAddr + 12);
+				loopinfo_[i].fraction = Memory::Read_U32(loopinfoAddr + 16);
+				loopinfo_[i].playCount = Memory::Read_U32(loopinfoAddr + 20);
 
-					if (loopinfo_[i].startSample >= loopinfo_[i].endSample) {
-						return hleReportError(ME, ATRAC_ERROR_BAD_CODEC_PARAMS, "loop starts after it ends");
-					}
+				if (loopinfo_[i].startSample >= loopinfo_[i].endSample) {
+					return hleReportError(ME, ATRAC_ERROR_BAD_CODEC_PARAMS, "loop starts after it ends");
 				}
 			}
-			break;
+		}
+		break;
 		case DATA_CHUNK_MAGIC:
-			{
-				bfoundData = true;
-				dataOff_ = offset;
-				dataChunkSize = chunkSize;
-				if (first_.filesize < offset + chunkSize) {
-					WARN_LOG_REPORT(ME, "Atrac data chunk extends beyond riff chunk");
-					first_.filesize = offset + chunkSize;
-				}
+		{
+			bfoundData = true;
+			dataOff_ = offset;
+			dataChunkSize = chunkSize;
+			if (first_.filesize < offset + chunkSize) {
+				WARN_LOG_REPORT(ME, "Atrac data chunk extends beyond riff chunk");
+				first_.filesize = offset + chunkSize;
 			}
-			break;
+		}
+		break;
 		}
 		offset += chunkSize;
 	}
