@@ -421,7 +421,6 @@ public:
 		// an init command, that's for sure.
 		GLRInitStep &step = initSteps_.push_uninitialized();
 		step.stepType = GLRInitStepType::BUFFER_SUBDATA;
-		_dbg_assert_(offset >= 0);
 		_dbg_assert_(offset <= buffer->size_ - size);
 		step.buffer_subdata.buffer = buffer;
 		step.buffer_subdata.offset = (int)offset;
