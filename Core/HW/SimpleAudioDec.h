@@ -20,10 +20,7 @@
 #include "Core/HW/MediaEngine.h"
 #include "Core/HLE/sceAudio.h"
 
-// Wraps FFMPEG for audio decoding in a nice interface.
 // Decodes packet by packet - does NOT demux.
-
-// Based on http://ffmpeg.org/doxygen/trunk/doc_2examples_2decoding_encoding_8c-example.html#_a13
 
 // audioType
 enum PSPAudioType {

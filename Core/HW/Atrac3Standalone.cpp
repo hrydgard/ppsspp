@@ -46,7 +46,7 @@ public:
 		return codecOpen_;
 	}
 
-	void FlushBuffers() {
+	void FlushBuffers() override {
 		if (at3Ctx_) {
 			atrac3_flush_buffers(at3Ctx_);
 		}

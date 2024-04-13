@@ -77,7 +77,7 @@ struct SceAtracIdInfo {
 	u8 unk[56];
 };
 
-struct SceAtracId {
+struct SceAtracContext {
 	// size 128
     SceAudiocodecCodec codec;
 	// size 128

@@ -55,7 +55,9 @@ extern "C" {
 // AAC decoder candidates:
 // * https://github.com/mstorsjo/fdk-aac/tree/master
 
-
+// h.264 decoder candidates:
+// * https://github.com/meerkat-cv/h264_decoder
+// * https://github.com/shengbinmeng/ffmpeg-h264-dec
 
 // minimp3-based decoder.
 class MiniMp3Audio : public AudioDecoder {
@@ -93,10 +95,11 @@ private:
 };
 
 // FFMPEG-based decoder. TODO: Replace with individual codecs.
-class SimpleAudio : public AudioDecoder {
+// Based on http://ffmpeg.org/doxygen/trunk/doc_2examples_2decoding_encoding_8c-example.html#_a13
+class FFmpegAudioDecoder : public AudioDecoder {
 public:
-	SimpleAudio(PSPAudioType audioType, int sampleRateHz = 44100, int channels = 2);
-	~SimpleAudio();
+	FFmpegAudioDecoder(PSPAudioType audioType, int sampleRateHz = 44100, int channels = 2);
+	~FFmpegAudioDecoder();
 
 	bool Decode(const uint8_t* inbuf, int inbytes, int *inbytesConsumed, uint8_t *outbuf, int *outbytes) override;
 	bool IsOK() const override {
@@ -142,7 +145,7 @@ AudioDecoder *CreateAudioDecoder(PSPAudioType audioType, int sampleRateHz, int c
 		return CreateAtrac3PlusAudio(channels, blockAlign);
 	default:
 		// Only AAC falls back to FFMPEG now.
-		return new SimpleAudio(audioType, sampleRateHz, channels);
+		return new FFmpegAudioDecoder(audioType, sampleRateHz, channels);
 	}
 }
 
@@ -165,7 +168,7 @@ static int GetAudioCodecID(int audioType) {
 #endif // USE_FFMPEG
 }
 
-SimpleAudio::SimpleAudio(PSPAudioType audioType, int sampleRateHz, int channels)
+FFmpegAudioDecoder::FFmpegAudioDecoder(PSPAudioType audioType, int sampleRateHz, int channels)
 	: audioType(audioType), sample_rate_(sampleRateHz), channels_(channels) {
 
 #ifdef USE_FFMPEG
@@ -205,7 +208,7 @@ SimpleAudio::SimpleAudio(PSPAudioType audioType, int sampleRateHz, int channels)
 #endif  // USE_FFMPEG
 }
 
-bool SimpleAudio::OpenCodec(int block_align) {
+bool FFmpegAudioDecoder::OpenCodec(int block_align) {
 #ifdef USE_FFMPEG
 	// Some versions of FFmpeg require this set.  May be set in SetExtraData(), but optional.
 	// When decoding, we decode by packet, so we know the size.
@@ -226,7 +229,7 @@ bool SimpleAudio::OpenCodec(int block_align) {
 #endif  // USE_FFMPEG
 }
 
-void SimpleAudio::SetChannels(int channels) {
+void FFmpegAudioDecoder::SetChannels(int channels) {
 	if (channels_ == channels) {
 		// Do nothing, already set.
 		return;
@@ -243,7 +246,7 @@ void SimpleAudio::SetChannels(int channels) {
 #endif
 }
 
-SimpleAudio::~SimpleAudio() {
+FFmpegAudioDecoder::~FFmpegAudioDecoder() {
 #ifdef USE_FFMPEG
 	swr_free(&swrCtx_);
 	av_frame_free(&frame_);
@@ -261,7 +264,7 @@ SimpleAudio::~SimpleAudio() {
 }
 
 // Decodes a single input frame.
-bool SimpleAudio::Decode(const uint8_t *inbuf, int inbytes, int *inbytesConsumed, uint8_t *outbuf, int *outbytes) {
+bool FFmpegAudioDecoder::Decode(const uint8_t *inbuf, int inbytes, int *inbytesConsumed, uint8_t *outbuf, int *outbytes) {
 #ifdef USE_FFMPEG
 	if (!codecOpen_) {
 		OpenCodec(inbytes);
@@ -368,7 +371,7 @@ void AudioClose(AudioDecoder **ctx) {
 #endif  // USE_FFMPEG
 }
 
-void AudioClose(SimpleAudio **ctx) {
+void AudioClose(FFmpegAudioDecoder **ctx) {
 #ifdef USE_FFMPEG
 	delete *ctx;
 	*ctx = 0;
@@ -408,10 +411,6 @@ AuCtx::~AuCtx() {
 }
 
 size_t AuCtx::FindNextMp3Sync() {
-	if (decoder->GetAudioType() != PSP_CODEC_MP3) {
-		return 0;
-	}
-
 	for (size_t i = 0; i < sourcebuff.size() - 2; ++i) {
 		if ((sourcebuff[i] & 0xFF) == 0xFF && (sourcebuff[i + 1] & 0xC0) == 0xC0) {
 			return i;
@@ -432,7 +431,10 @@ u32 AuCtx::AuDecode(u32 pcmAddr) {
 	// Decode a single frame in sourcebuff and output into PCMBuf.
 	if (!sourcebuff.empty()) {
 		// FFmpeg doesn't seem to search for a sync for us, so let's do that.
-		int nextSync = (int)FindNextMp3Sync();
+		int nextSync = 0;
+		if (decoder->GetAudioType() == PSP_CODEC_MP3) {
+			nextSync = (int)FindNextMp3Sync();
+		}
 		int inbytesConsumed = 0;
 		decoder->Decode(&sourcebuff[nextSync], (int)sourcebuff.size() - nextSync, &inbytesConsumed, outbuf, &outpcmbufsize);
 
@@ -546,18 +548,18 @@ u32 AuCtx::AuGetInfoToAddStreamData(u32 bufPtr, u32 sizePtr, u32 srcPosPtr) {
 	// we can recharge AuBuf from its beginning
 	if (readsize != 0) {
 		if (Memory::IsValidAddress(bufPtr))
-			Memory::Write_U32(AuBuf + offset, bufPtr);
+			Memory::WriteUnchecked_U32(AuBuf + offset, bufPtr);
 		if (Memory::IsValidAddress(sizePtr))
-			Memory::Write_U32(readsize, sizePtr);
+			Memory::WriteUnchecked_U32(readsize, sizePtr);
 		if (Memory::IsValidAddress(srcPosPtr))
-			Memory::Write_U32(readPos, srcPosPtr);
+			Memory::WriteUnchecked_U32(readPos, srcPosPtr);
 	} else {
 		if (Memory::IsValidAddress(bufPtr))
-			Memory::Write_U32(0, bufPtr);
+			Memory::WriteUnchecked_U32(0, bufPtr);
 		if (Memory::IsValidAddress(sizePtr))
-			Memory::Write_U32(0, sizePtr);
+			Memory::WriteUnchecked_U32(0, sizePtr);
 		if (Memory::IsValidAddress(srcPosPtr))
-			Memory::Write_U32(0, srcPosPtr);
+			Memory::WriteUnchecked_U32(0, srcPosPtr);
 	}
 
 	// Just for old save states.

@@ -147,7 +147,7 @@ struct InputBuffer {
 
 struct Atrac;
 int __AtracSetContext(Atrac *atrac);
-void _AtracGenerateContext(Atrac *atrac);
+static void _AtracWriteContextToPSPMem(Atrac *atrac);
 
 struct AtracLoopInfo {
 	int cuePointID;
@@ -419,7 +419,7 @@ struct Atrac {
 	InputBuffer first_;
 	InputBuffer second_;
 
-	PSPPointer<SceAtracId> context_;
+	PSPPointer<SceAtracContext> context_;
 
 	void ForceSeekToSample(int sample) {
 		if (decoder_) {
@@ -511,22 +511,31 @@ struct AtracResetBufferInfo {
 
 const int PSP_NUM_ATRAC_IDS = 6;
 static bool atracInited = true;
-static Atrac *atracIDs[PSP_NUM_ATRAC_IDS];
-static u32 atracIDTypes[PSP_NUM_ATRAC_IDS];
+static Atrac *atracContexts[PSP_NUM_ATRAC_IDS];
+static u32 atracContextTypes[PSP_NUM_ATRAC_IDS];
 static int atracLibVersion = 0;
 static u32 atracLibCrc = 0;
 
 void __AtracInit() {
+	_assert_(sizeof(SceAtracContext) == 256);
+
 	atracInited = true;
-	memset(atracIDs, 0, sizeof(atracIDs));
+	memset(atracContexts, 0, sizeof(atracContexts));
 
 	// Start with 2 of each in this order.
-	atracIDTypes[0] = PSP_MODE_AT_3_PLUS;
-	atracIDTypes[1] = PSP_MODE_AT_3_PLUS;
-	atracIDTypes[2] = PSP_MODE_AT_3;
-	atracIDTypes[3] = PSP_MODE_AT_3;
-	atracIDTypes[4] = 0;
-	atracIDTypes[5] = 0;
+	atracContextTypes[0] = PSP_MODE_AT_3_PLUS;
+	atracContextTypes[1] = PSP_MODE_AT_3_PLUS;
+	atracContextTypes[2] = PSP_MODE_AT_3;
+	atracContextTypes[3] = PSP_MODE_AT_3;
+	atracContextTypes[4] = 0;
+	atracContextTypes[5] = 0;
+}
+
+void __AtracShutdown() {
+	for (size_t i = 0; i < ARRAY_SIZE(atracContexts); ++i) {
+		delete atracContexts[i];
+		atracContexts[i] = nullptr;
+	}
 }
 
 void __AtracLoadModule(int version, u32 crc) {
@@ -542,16 +551,16 @@ void __AtracDoState(PointerWrap &p) {
 
 	Do(p, atracInited);
 	for (int i = 0; i < PSP_NUM_ATRAC_IDS; ++i) {
-		bool valid = atracIDs[i] != NULL;
+		bool valid = atracContexts[i] != nullptr;
 		Do(p, valid);
 		if (valid) {
-			Do(p, atracIDs[i]);
+			Do(p, atracContexts[i]);
 		} else {
-			delete atracIDs[i];
-			atracIDs[i] = NULL;
+			delete atracContexts[i];
+			atracContexts[i] = nullptr;
 		}
 	}
-	DoArray(p, atracIDTypes, PSP_NUM_ATRAC_IDS);
+	DoArray(p, atracContextTypes, PSP_NUM_ATRAC_IDS);
 	if (s < 2) {
 		atracLibVersion = 0;
 		atracLibCrc = 0;
@@ -562,18 +571,11 @@ void __AtracDoState(PointerWrap &p) {
 	}
 }
 
-void __AtracShutdown() {
-	for (size_t i = 0; i < ARRAY_SIZE(atracIDs); ++i) {
-		delete atracIDs[i];
-		atracIDs[i] = NULL;
-	}
-}
-
 static Atrac *getAtrac(int atracID) {
 	if (atracID < 0 || atracID >= PSP_NUM_ATRAC_IDS) {
-		return NULL;
+		return nullptr;
 	}
-	Atrac *atrac = atracIDs[atracID];
+	Atrac *atrac = atracContexts[atracID];
 
 	if (atrac && atrac->context_.IsValid()) {
 		// Read in any changes from the game to the context.
@@ -586,27 +588,24 @@ static Atrac *getAtrac(int atracID) {
 }
 
 static int createAtrac(Atrac *atrac) {
-	for (int i = 0; i < (int)ARRAY_SIZE(atracIDs); ++i) {
-		if (atracIDTypes[i] == atrac->codecType_ && atracIDs[i] == 0) {
-			atracIDs[i] = atrac;
+	for (int i = 0; i < (int)ARRAY_SIZE(atracContexts); ++i) {
+		if (atracContextTypes[i] == atrac->codecType_ && atracContexts[i] == 0) {
+			atracContexts[i] = atrac;
 			atrac->atracID_ = i;
 			return i;
 		}
 	}
-
 	return ATRAC_ERROR_NO_ATRACID;
 }
 
 static int deleteAtrac(int atracID) {
 	if (atracID >= 0 && atracID < PSP_NUM_ATRAC_IDS) {
-		if (atracIDs[atracID] != nullptr) {
-			delete atracIDs[atracID];
-			atracIDs[atracID] = nullptr;
-
+		if (atracContexts[atracID] != nullptr) {
+			delete atracContexts[atracID];
+			atracContexts[atracID] = nullptr;
 			return 0;
 		}
 	}
-
 	return ATRAC_ERROR_BAD_ATRACID;
 }
 
@@ -921,7 +920,7 @@ u32 _AtracAddStreamData(int atracID, u32 bufPtr, u32 bytesToAdd) {
 	atrac->first_.fileoffset += addbytes;
 	if (atrac->context_.IsValid()) {
 		// refresh context_
-		_AtracGenerateContext(atrac);
+		_AtracWriteContextToPSPMem(atrac);
 	}
 	return 0;
 }
@@ -1042,7 +1041,7 @@ static u32 sceAtracAddStreamData(int atracID, u32 bytesToAdd) {
 		if (atrac->bufferState_ == ATRAC_STATUS_HALFWAY_BUFFER)
 			atrac->bufferState_ = ATRAC_STATUS_ALL_DATA_LOADED;
 		if (atrac->context_.IsValid()) {
-			_AtracGenerateContext(atrac);
+			_AtracWriteContextToPSPMem(atrac);
 		}
 	}
 
@@ -1078,7 +1077,7 @@ u32 _AtracDecodeData(int atracID, u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u3
 		*finish = 1;
 		if (atrac->context_.IsValid()) {
 			// refresh context_
-			_AtracGenerateContext(atrac);
+			_AtracWriteContextToPSPMem(atrac);
 		}
 		return ATRAC_ERROR_ALL_DATA_DECODED;
 	}
@@ -1198,7 +1197,7 @@ u32 _AtracDecodeData(int atracID, u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u3
 	*remains = atrac->RemainingFrames();
 	if (atrac->context_.IsValid()) {
 		// refresh context_
-		_AtracGenerateContext(atrac);
+		_AtracWriteContextToPSPMem(atrac);
 	}
 	return 0;
 }
@@ -1212,12 +1211,12 @@ static u32 sceAtracDecodeData(int atracID, u32 outAddr, u32 numSamplesAddr, u32 
 	int ret = _AtracDecodeData(atracID, Memory::GetPointerWrite(outAddr), outAddr, &numSamples, &finish, &remains);
 	if (ret != (int)ATRAC_ERROR_BAD_ATRACID && ret != (int)ATRAC_ERROR_NO_DATA) {
 		if (Memory::IsValidAddress(numSamplesAddr))
-			Memory::Write_U32(numSamples, numSamplesAddr);
+			Memory::WriteUnchecked_U32(numSamples, numSamplesAddr);
 		if (Memory::IsValidAddress(finishFlagAddr))
-			Memory::Write_U32(finish, finishFlagAddr);
+			Memory::WriteUnchecked_U32(finish, finishFlagAddr);
 		// On error, no remaining frame value is written.
 		if (ret == 0 && Memory::IsValidAddress(remainAddr))
-			Memory::Write_U32(remains, remainAddr);
+			Memory::WriteUnchecked_U32(remains, remainAddr);
 	}
 	DEBUG_LOG(ME, "%08x=sceAtracDecodeData(%i, %08x, %08x[%08x], %08x[%08x], %08x[%d])", ret, atracID, outAddr, 
 			  numSamplesAddr, numSamples,
@@ -1636,7 +1635,7 @@ static u32 sceAtracResetPlayPosition(int atracID, int sample, int bytesWrittenFi
 	}
 
 	if (atrac->context_.IsValid()) {
-		_AtracGenerateContext(atrac);
+		_AtracWriteContextToPSPMem(atrac);
 	}
 	return hleDelayResult(hleLogSuccessInfoI(ME, 0), "reset play pos", 3000);
 }
@@ -1793,7 +1792,7 @@ static u32 sceAtracSetData(int atracID, u32 buffer, u32 bufferSize) {
 		return ret;
 	}
 
-	if (atrac->codecType_ != atracIDTypes[atracID]) {
+	if (atrac->codecType_ != atracContextTypes[atracID]) {
 		// TODO: Should this not change the buffer size?
 		return hleReportError(ME, ATRAC_ERROR_WRONG_CODECTYPE, "atracID uses different codec type than data");
 	}
@@ -1871,20 +1870,20 @@ static u32 sceAtracSetLoopNum(int atracID, int loopNum) {
 		atrac->loopEndSample_ = atrac->endSample_ + atrac->firstSampleOffset_ + atrac->FirstOffsetExtra();
 	}
 	if (atrac->context_.IsValid()) {
-		_AtracGenerateContext(atrac);
+		_AtracWriteContextToPSPMem(atrac);
 	}
 	return hleLogSuccessI(ME, 0);
 }
 
 static int sceAtracReinit(int at3Count, int at3plusCount) {
 	for (int i = 0; i < PSP_NUM_ATRAC_IDS; ++i) {
-		if (atracIDs[i] != NULL) {
+		if (atracContexts[i] != nullptr) {
 			ERROR_LOG_REPORT(ME, "sceAtracReinit(%d, %d): cannot reinit while IDs in use", at3Count, at3plusCount);
 			return SCE_KERNEL_ERROR_BUSY;
 		}
 	}
 
-	memset(atracIDTypes, 0, sizeof(atracIDTypes));
+	memset(atracContextTypes, 0, sizeof(atracContextTypes));
 	int next = 0;
 	int space = PSP_NUM_ATRAC_IDS;
 
@@ -1900,13 +1899,13 @@ static int sceAtracReinit(int at3Count, int at3plusCount) {
 	for (int i = 0; i < at3plusCount; ++i) {
 		space -= 2;
 		if (space >= 0) {
-			atracIDTypes[next++] = PSP_MODE_AT_3_PLUS;
+			atracContextTypes[next++] = PSP_MODE_AT_3_PLUS;
 		}
 	}
 	for (int i = 0; i < at3Count; ++i) {
 		space -= 1;
 		if (space >= 0) {
-			atracIDTypes[next++] = PSP_MODE_AT_3;
+			atracContextTypes[next++] = PSP_MODE_AT_3;
 		}
 	}
 
@@ -1929,7 +1928,7 @@ static int sceAtracGetOutputChannel(int atracID, u32 outputChanPtr) {
 		return err;
 	}
 	if (Memory::IsValidAddress(outputChanPtr)) {
-		Memory::Write_U32(atrac->outputChannels_, outputChanPtr);
+		Memory::WriteUnchecked_U32(atrac->outputChannels_, outputChanPtr);
 		return hleLogSuccessI(ME, 0);
 	} else {
 		return hleLogError(ME, 0, "invalid address");
@@ -2065,13 +2064,15 @@ static int sceAtracSetAA3DataAndGetID(u32 buffer, u32 bufferSize, u32 fileSize, 
 	return _AtracSetData(atracID, buffer, bufferSize, bufferSize, true);
 }
 
+// Used by SasAudio's AT3 integration.
 int _AtracGetIDByContext(u32 contextAddr) {
 	int atracID = (int)Memory::Read_U32(contextAddr + 0xfc);
 	return atracID;
 }
 
-void _AtracGenerateContext(Atrac *atrac) {
-	SceAtracId *context = atrac->context_;
+void _AtracWriteContextToPSPMem(Atrac *atrac) {
+	// context points into PSP memory.
+	SceAtracContext *context = atrac->context_;
 	context->info.buffer = atrac->first_.addr;
 	context->info.bufferByte = atrac->bufferMaxSize_;
 	context->info.secondBuffer = atrac->second_.addr;
@@ -2102,7 +2103,7 @@ void _AtracGenerateContext(Atrac *atrac) {
 	u8 *buf = (u8 *)context;
 	*(u32_le *)(buf + 0xfc) = atrac->atracID_;
 
-	NotifyMemInfo(MemBlockFlags::WRITE, atrac->context_.ptr, sizeof(SceAtracId), "AtracContext");
+	NotifyMemInfo(MemBlockFlags::WRITE, atrac->context_.ptr, sizeof(SceAtracContext), "AtracContext");
 }
 
 static u32 _sceAtracGetContextAddress(int atracID) {
@@ -2113,17 +2114,17 @@ static u32 _sceAtracGetContextAddress(int atracID) {
 	}
 	if (!atrac->context_.IsValid()) {
 		// allocate a new context_
-		u32 contextsize = 256;
-		atrac->context_ = kernelMemory.Alloc(contextsize, false, StringFromFormat("AtracCtx/%d", atracID).c_str());
+		u32 contextSize = sizeof(SceAtracContext);
+		// Note that Alloc can increase contextSize to the "grain" size.
+		atrac->context_ = kernelMemory.Alloc(contextSize, false, StringFromFormat("AtracCtx/%d", atracID).c_str());
 		if (atrac->context_.IsValid())
-			Memory::Memset(atrac->context_.ptr, 0, 256, "AtracContextClear");
-
+			Memory::Memset(atrac->context_.ptr, 0, contextSize, "AtracContextClear");
 		WARN_LOG(ME, "%08x=_sceAtracGetContextAddress(%i): allocated new context", atrac->context_.ptr, atracID);
 	}
 	else
 		WARN_LOG(ME, "%08x=_sceAtracGetContextAddress(%i)", atrac->context_.ptr, atracID);
 	if (atrac->context_.IsValid())
-		_AtracGenerateContext(atrac);
+		_AtracWriteContextToPSPMem(atrac);
 	return atrac->context_.ptr;
 }
 
@@ -2146,27 +2147,6 @@ static const At3HeaderMap at3HeaderMap[] = {
 	// At this size, stereo can only use joint stereo.
 	{ 0x00C0, 2, 1 }, // 66 kbps stereo
 };
-
-static bool initAT3Decoder(Atrac *atrac) {
-	atrac->bitrate_ = (atrac->bytesPerFrame_ * 352800) / 1000;
-	atrac->bitrate_ = (atrac->bitrate_ + 511) >> 10;
-	atrac->jointStereo_ = false;
-
-	// See if we can match the actual jointStereo value.
-	for (size_t i = 0; i < ARRAY_SIZE(at3HeaderMap); ++i) {
-		if (at3HeaderMap[i].Matches(atrac)) {
-			atrac->jointStereo_ = at3HeaderMap[i].jointStereo;
-			return true;
-		}
-	}
-	return false;
-}
-
-static void initAT3plusDecoder(Atrac *atrac) {
-	atrac->bitrate_ = (atrac->bytesPerFrame_ * 352800) / 1000;
-	atrac->bitrate_ = ((atrac->bitrate_ >> 11) + 8) & 0xFFFFFFF0;
-	atrac->jointStereo_ = false;
-}
 
 static int sceAtracLowLevelInitDecoder(int atracID, u32 paramsAddr) {
 	Atrac *atrac = getAtrac(atracID);
@@ -2195,12 +2175,26 @@ static int sceAtracLowLevelInitDecoder(int atracID, u32 paramsAddr) {
 	const char *channelName = atrac->channels_ == 1 ? "mono" : "stereo";
 
 	if (atrac->codecType_ == PSP_MODE_AT_3) {
-		if (!initAT3Decoder(atrac)) {
+		atrac->bitrate_ = (atrac->bytesPerFrame_ * 352800) / 1000;
+		atrac->bitrate_ = (atrac->bitrate_ + 511) >> 10;
+		atrac->jointStereo_ = false;
+
+		// See if we can match the actual jointStereo value.
+		bool found = false;
+		for (size_t i = 0; i < ARRAY_SIZE(at3HeaderMap); ++i) {
+			if (at3HeaderMap[i].Matches(atrac)) {
+				atrac->jointStereo_ = at3HeaderMap[i].jointStereo;
+				found = true;
+			}
+		}
+		if (!found) {
 			ERROR_LOG_REPORT(ME, "AT3 header map lacks entry for bpf: %i  channels: %i", atrac->bytesPerFrame_, atrac->channels_);
 			// TODO: Should we return an error code for these values?
 		}
 	} else if (atrac->codecType_ == PSP_MODE_AT_3_PLUS) {
-		initAT3plusDecoder(atrac);
+		atrac->bitrate_ = (atrac->bytesPerFrame_ * 352800) / 1000;
+		atrac->bitrate_ = ((atrac->bitrate_ >> 11) + 8) & 0xFFFFFFF0;
+		atrac->jointStereo_ = false;
 	}
 
 	atrac->dataOff_ = 0;
@@ -2211,7 +2205,7 @@ static int sceAtracLowLevelInitDecoder(int atracID, u32 paramsAddr) {
 	int ret = __AtracSetContext(atrac);
 
 	if (atrac->context_.IsValid()) {
-		_AtracGenerateContext(atrac);
+		_AtracWriteContextToPSPMem(atrac);
 	}
 
 	if (ret < 0) {
