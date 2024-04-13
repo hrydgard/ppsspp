@@ -631,9 +631,12 @@ void ff_atrac3p_ipqf(FFTContext *dct_ctx, Atrac3pIPQFChannelCtx *hist,
         imdct_half(dct_ctx, idct_out, idct_in);
 
         /* append the result to the history */
+        const int hist_pos = hist->pos;
         for (i = 0; i < 8; i++) {
-            hist->buf1[hist->pos][i] = idct_out[i + 8];
-            hist->buf2[hist->pos][i] = idct_out[7 - i];
+            hist->buf1[hist_pos][i] = idct_out[i + 8];
+        }
+        for (i = 0; i < 8; i++) {
+            hist->buf2[hist_pos][i] = idct_out[7 - i];
         }
 
         pos_now  = hist->pos;
