@@ -663,6 +663,26 @@ void ff_atrac3p_ipqf(FFTContext *dct_ctx, Atrac3pIPQFChannelCtx *hist,
             _mm_storeu_ps(outp + 12, _mm_add_ps(_mm_loadu_ps(outp + 12), _mm_add_ps(
                 _mm_mul_ps(_mm_reverse(_mm_loadu_ps(buf1)), _mm_loadu_ps(coeffs1 + 12)),
                 _mm_mul_ps(_mm_reverse(_mm_loadu_ps(buf2)), _mm_loadu_ps(coeffs2 + 12)))));
+#elif PPSSPP_ARCH(ARM_NEON)
+            auto vreverseq_f32 = [](float32x4_t x) -> float32x4_t {
+                float32x4_t rev = vrev64q_f32(x);
+                float32x2_t high = vget_high_f32(rev); //{4,3}
+                float32x2_t low = vget_low_f32(rev); //{1,2}
+                return vcombine_f32(high, low); //{4,3,2,1}
+            };
+            vst1q_f32(outp, vaddq_f32(vld1q_f32(outp), vaddq_f32(
+                vmulq_f32(vld1q_f32(buf1), vld1q_f32(coeffs1)),
+                vmulq_f32(vld1q_f32(buf2), vld1q_f32(coeffs2)))));
+            vst1q_f32(outp + 4, vaddq_f32(vld1q_f32(outp + 4), vaddq_f32(
+                vmulq_f32(vld1q_f32(buf1 + 4), vld1q_f32(coeffs1 + 4)),
+                vmulq_f32(vld1q_f32(buf2 + 4), vld1q_f32(coeffs2 + 4)))));
+
+            vst1q_f32(outp + 8, vaddq_f32(vld1q_f32(outp + 8), vaddq_f32(
+                vmulq_f32(vreverseq_f32(vld1q_f32(buf1 + 4)), vld1q_f32(coeffs1 + 8)),
+                vmulq_f32(vreverseq_f32(vld1q_f32(buf2 + 4)), vld1q_f32(coeffs2 + 8)))));
+            vst1q_f32(outp + 12, vaddq_f32(vld1q_f32(outp + 12), vaddq_f32(
+                vmulq_f32(vreverseq_f32(vld1q_f32(buf1)), vld1q_f32(coeffs1 + 12)),
+                vmulq_f32(vreverseq_f32(vld1q_f32(buf2)), vld1q_f32(coeffs2 + 12)))));
 #else
             for (i = 0; i < 8; i++) {
                 outp[i] += buf1[i] * coeffs1[i] + buf2[i] * coeffs2[i];
