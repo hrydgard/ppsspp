@@ -624,12 +624,18 @@ void ff_atrac3p_ipqf(FFTContext *dct_ctx, Atrac3pIPQFChannelCtx *hist,
         pos_next = mod23_lut[pos_now + 2]; // pos_next = (pos_now + 1) % 23;
 
         for (t = 0; t < ATRAC3P_PQF_FIR_LEN; t++) {
+            const float *buf1 = hist->buf1[pos_now];
+            const float *buf2 = hist->buf2[pos_next];
+            const float *coeffs1 = ipqf_coeffs1[t];
+            const float *coeffs2 = ipqf_coeffs2[t];
+
+			float *outp = out + s * 16;
             for (i = 0; i < 8; i++) {
-                out[s * 16 + i + 0] += hist->buf1[pos_now][i]  * ipqf_coeffs1[t][i] +
-                                       hist->buf2[pos_next][i] * ipqf_coeffs2[t][i];
-                out[s * 16 + i + 8] += hist->buf1[pos_now][7 - i]  * ipqf_coeffs1[t][i + 8] +
-                                       hist->buf2[pos_next][7 - i] * ipqf_coeffs2[t][i + 8];
+                outp[i] += buf1[i] * coeffs1[i] + buf2[i] * coeffs2[i];
             }
+			for (i = 0; i < 8; i++) {
+				outp[i + 8] += buf1[7 - i] * coeffs1[i + 8] + buf2[7 - i] * coeffs2[i + 8];
+			}
 
             pos_now  = mod23_lut[pos_next + 2]; // pos_now  = (pos_now  + 2) % 23;
             pos_next = mod23_lut[pos_now + 2];  // pos_next = (pos_next + 2) % 23;
