@@ -25,6 +25,22 @@
  *  DSP functions for ATRAC3+ decoder.
  */
 
+#include "ppsspp_config.h"
+
+#if PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)
+
+#include <emmintrin.h>
+
+#elif PPSSPP_ARCH(ARM_NEON)
+
+#if defined(_MSC_VER) && PPSSPP_ARCH(ARM64)
+#include <arm64_neon.h>
+#else
+#include <arm_neon.h>
+#endif
+
+#endif
+
 #include <math.h>
 #include <string.h>
 
@@ -466,7 +482,7 @@ void ff_atrac3p_imdct(FFTContext *mdct_ctx, float *pIn,
         for (i = 0; i < ATRAC3P_SUBBAND_SAMPLES / 2; i++)
             FFSWAP(float, pIn[i], pIn[ATRAC3P_SUBBAND_SAMPLES - 1 - i]);
 
-    mdct_ctx->imdct_calc(mdct_ctx, pOut, pIn);
+    imdct_calc(mdct_ctx, pOut, pIn);
 
     /* Perform windowing on the output.
      * ATRAC3+ uses two different MDCT windows:
@@ -612,7 +628,7 @@ void ff_atrac3p_ipqf(FFTContext *dct_ctx, Atrac3pIPQFChannelCtx *hist,
             idct_in[sb] = in[sb * ATRAC3P_SUBBAND_SAMPLES + s];
 
         /* Calculate the sine and cosine part of the PQF using IDCT-IV */
-        dct_ctx->imdct_half(dct_ctx, idct_out, idct_in);
+        imdct_half(dct_ctx, idct_out, idct_in);
 
         /* append the result to the history */
         for (i = 0; i < 8; i++) {
@@ -629,13 +645,32 @@ void ff_atrac3p_ipqf(FFTContext *dct_ctx, Atrac3pIPQFChannelCtx *hist,
             const float *coeffs1 = ipqf_coeffs1[t];
             const float *coeffs2 = ipqf_coeffs2[t];
 
-			float *outp = out + s * 16;
+            float *outp = out + s * 16;
+#if PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)
+            auto _mm_reverse = [](__m128 x) -> __m128 {
+                return _mm_shuffle_ps(x, x, _MM_SHUFFLE(0, 1, 2, 3));
+            };
+            _mm_storeu_ps(outp, _mm_add_ps(_mm_loadu_ps(outp), _mm_add_ps(
+                _mm_mul_ps(_mm_loadu_ps(buf1), _mm_loadu_ps(coeffs1)),
+                _mm_mul_ps(_mm_loadu_ps(buf2), _mm_loadu_ps(coeffs2)))));
+            _mm_storeu_ps(outp + 4, _mm_add_ps(_mm_loadu_ps(outp + 4), _mm_add_ps(
+                _mm_mul_ps(_mm_loadu_ps(buf1 + 4), _mm_loadu_ps(coeffs1 + 4)),
+                _mm_mul_ps(_mm_loadu_ps(buf2 + 4), _mm_loadu_ps(coeffs2 + 4)))));
+
+            _mm_storeu_ps(outp + 8, _mm_add_ps(_mm_loadu_ps(outp + 8), _mm_add_ps(
+                _mm_mul_ps(_mm_reverse(_mm_loadu_ps(buf1 + 4)), _mm_loadu_ps(coeffs1 + 8)),
+                _mm_mul_ps(_mm_reverse(_mm_loadu_ps(buf2 + 4)), _mm_loadu_ps(coeffs2 + 8)))));
+            _mm_storeu_ps(outp + 12, _mm_add_ps(_mm_loadu_ps(outp + 12), _mm_add_ps(
+                _mm_mul_ps(_mm_reverse(_mm_loadu_ps(buf1)), _mm_loadu_ps(coeffs1 + 12)),
+                _mm_mul_ps(_mm_reverse(_mm_loadu_ps(buf2)), _mm_loadu_ps(coeffs2 + 12)))));
+#else
             for (i = 0; i < 8; i++) {
                 outp[i] += buf1[i] * coeffs1[i] + buf2[i] * coeffs2[i];
             }
-			for (i = 0; i < 8; i++) {
-				outp[i + 8] += buf1[7 - i] * coeffs1[i + 8] + buf2[7 - i] * coeffs2[i + 8];
-			}
+            for (i = 0; i < 8; i++) {
+                outp[i + 8] += buf1[7 - i] * coeffs1[i + 8] + buf2[7 - i] * coeffs2[i + 8];
+            }
+#endif
 
             pos_now  = mod23_lut[pos_next + 2]; // pos_now  = (pos_now  + 2) % 23;
             pos_next = mod23_lut[pos_now + 2];  // pos_next = (pos_next + 2) % 23;

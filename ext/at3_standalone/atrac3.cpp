@@ -140,7 +140,7 @@ static void imlt(ATRAC3Context *q, float *input, float *output, int odd_band)
             FFSWAP(float, input[i], input[255 - i]);
     }
 
-    q->mdct_ctx.imdct_calc(&q->mdct_ctx, output, input);
+    imdct_calc(&q->mdct_ctx, output, input);
 
     /* Perform windowing on the output. */
     vector_fmul(output, output, mdct_window, MDCT_SIZE);

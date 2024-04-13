@@ -18,6 +18,9 @@
 #define AV_HAVE_FAST_UNALIGNED 0
 #define AV_INPUT_BUFFER_PADDING_SIZE 32
 
+// TODO: This should work but doesn't??
+// #define BITSTREAM_READER_LE
+
 #define LOCAL_ALIGNED(bits, type, name, subscript) type name subscript
 #define av_restrict
 #define av_alias
