@@ -2,6 +2,11 @@
 
 #include <cstdint>
 
+// Notes
+//
+// Performance-wise, these are OK.
+// For Atrac3+, the bottleneck is two functions: decode_qu_spectra and ff_atrac3p_ipqf. At least the latter is quite SIMD-able.
+
 // The full external API for the standalone Atrac3/3+ decoder.
 
 struct ATRAC3Context;

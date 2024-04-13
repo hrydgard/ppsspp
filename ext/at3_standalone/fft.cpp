@@ -35,9 +35,9 @@
 
 #define sqrthalf (float)M_SQRT1_2
 
-void ff_imdct_calc_c(FFTContext *s, FFTSample *output, const FFTSample *input);
-void ff_imdct_half_c(FFTContext *s, FFTSample *output, const FFTSample *input);
-void ff_mdct_calc_c(FFTContext *s, FFTSample *output, const FFTSample *input);
+void imdct_calc(FFTContext *s, FFTSample *output, const FFTSample *input);
+void imdct_half(FFTContext *s, FFTSample *output, const FFTSample *input);
+void mdct_calc(FFTContext *s, FFTSample *output, const FFTSample *input);
 
 /* cos(2*pi*x/n) for 0<=x<=n/4, followed by its reverse */
 COSTABLE(16);
@@ -71,8 +71,8 @@ static FFTSample * const av_cos_tabs[] = {
     av_cos_65536,
 };
 
-static void fft_permute_c(FFTContext *s, FFTComplex *z);
-static void fft_calc_c(FFTContext *s, FFTComplex *z);
+void fft_permute(FFTContext *s, FFTComplex *z);
+void fft_calc(FFTContext *s, FFTComplex *z);
 
 static int split_radix_permutation(int i, int n, int inverse)
 {
@@ -130,11 +130,6 @@ int ff_fft_init(FFTContext *s, int nbits, int inverse)
         goto fail;
     s->inverse = inverse;
 
-    s->fft_permute = fft_permute_c;
-    s->fft_calc    = fft_calc_c;
-    s->imdct_calc  = ff_imdct_calc_c;
-    s->imdct_half  = ff_imdct_half_c;
-    s->mdct_calc   = ff_mdct_calc_c;
     for(j=4; j<=nbits; j++) {
         ff_init_ff_cos_tabs(j);
     }
@@ -152,7 +147,7 @@ int ff_fft_init(FFTContext *s, int nbits, int inverse)
     return -1;
 }
 
-static void fft_permute_c(FFTContext *s, FFTComplex *z)
+void fft_permute(FFTContext *s, FFTComplex *z)
 {
     int j, np;
     const uint16_t *revtab = s->revtab;
@@ -315,11 +310,10 @@ static void (* const fft_dispatch[])(FFTComplex*) = {
     fft2048, fft4096, fft8192, fft16384, fft32768, fft65536,
 };
 
-static void fft_calc_c(FFTContext *s, FFTComplex *z)
+void fft_calc(FFTContext *s, FFTComplex *z)
 {
     fft_dispatch[s->nbits-2](z);
 }
-
 
 #include <stdlib.h>
 #include <string.h>
@@ -383,7 +377,7 @@ fail:
  * @param output N/2 samples
  * @param input N/2 samples
  */
-void ff_imdct_half_c(FFTContext *s, FFTSample *output, const FFTSample *input)
+void imdct_half(FFTContext *s, FFTSample *output, const FFTSample *input)
 {
 	int k, n8, n4, n2, n, j;
 	const uint16_t *revtab = s->revtab;
@@ -406,7 +400,7 @@ void ff_imdct_half_c(FFTContext *s, FFTSample *output, const FFTSample *input)
 		in1 += 2;
 		in2 -= 2;
 	}
-	s->fft_calc(s, z);
+	fft_calc(s, z);
 
 	/* post rotation + reordering */
 	for (k = 0; k < n8; k++) {
@@ -425,14 +419,14 @@ void ff_imdct_half_c(FFTContext *s, FFTSample *output, const FFTSample *input)
  * @param output N samples
  * @param input N/2 samples
  */
-void ff_imdct_calc_c(FFTContext *s, FFTSample *output, const FFTSample *input)
+void imdct_calc(FFTContext *s, FFTSample *output, const FFTSample *input)
 {
 	int k;
 	int n = 1 << s->mdct_bits;
 	int n2 = n >> 1;
 	int n4 = n >> 2;
 
-	ff_imdct_half_c(s, output + n4, input);
+	imdct_half(s, output + n4, input);
 
 	for (k = 0; k < n4; k++) {
 		output[k] = -output[n2 - k - 1];
@@ -445,7 +439,7 @@ void ff_imdct_calc_c(FFTContext *s, FFTSample *output, const FFTSample *input)
  * @param input N samples
  * @param out N/2 samples
  */
-void ff_mdct_calc_c(FFTContext *s, FFTSample *out, const FFTSample *input)
+void mdct_calc(FFTContext *s, FFTSample *out, const FFTSample *input)
 {
 	int i, j, n, n8, n4, n2, n3;
 	FFTDouble re, im;
@@ -473,7 +467,7 @@ void ff_mdct_calc_c(FFTContext *s, FFTSample *out, const FFTSample *input)
 		CMUL(x[j].re, x[j].im, re, im, -tcos[n8 + i], tsin[n8 + i]);
 	}
 
-	s->fft_calc(s, x);
+	fft_calc(s, x);
 
 	/* post rotation */
 	for (i = 0; i < n8; i++) {

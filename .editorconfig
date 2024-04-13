@@ -29,6 +29,10 @@ charset = utf-8-bom
 [Windows/{aboutbox.rc,version.rc}]
 charset = utf-8
 
+[ext/at3_standalone/**.{cpp,h}]
+indent_style = space
+indent_size = 4
+
 [libretro/**.{cpp,h}]
 indent_style = space
 indent_size = 3

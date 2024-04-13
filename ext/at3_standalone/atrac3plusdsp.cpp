@@ -25,6 +25,22 @@
  *  DSP functions for ATRAC3+ decoder.
  */
 
+#include "ppsspp_config.h"
+
+#if PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)
+
+#include <emmintrin.h>
+
+#elif PPSSPP_ARCH(ARM_NEON)
+
+#if defined(_MSC_VER) && PPSSPP_ARCH(ARM64)
+#include <arm64_neon.h>
+#else
+#include <arm_neon.h>
+#endif
+
+#endif
+
 #include <math.h>
 #include <string.h>
 
@@ -466,7 +482,7 @@ void ff_atrac3p_imdct(FFTContext *mdct_ctx, float *pIn,
         for (i = 0; i < ATRAC3P_SUBBAND_SAMPLES / 2; i++)
             FFSWAP(float, pIn[i], pIn[ATRAC3P_SUBBAND_SAMPLES - 1 - i]);
 
-    mdct_ctx->imdct_calc(mdct_ctx, pOut, pIn);
+    imdct_calc(mdct_ctx, pOut, pIn);
 
     /* Perform windowing on the output.
      * ATRAC3+ uses two different MDCT windows:
@@ -612,24 +628,72 @@ void ff_atrac3p_ipqf(FFTContext *dct_ctx, Atrac3pIPQFChannelCtx *hist,
             idct_in[sb] = in[sb * ATRAC3P_SUBBAND_SAMPLES + s];
 
         /* Calculate the sine and cosine part of the PQF using IDCT-IV */
-        dct_ctx->imdct_half(dct_ctx, idct_out, idct_in);
+        imdct_half(dct_ctx, idct_out, idct_in);
 
         /* append the result to the history */
+        const int hist_pos = hist->pos;
         for (i = 0; i < 8; i++) {
-            hist->buf1[hist->pos][i] = idct_out[i + 8];
-            hist->buf2[hist->pos][i] = idct_out[7 - i];
+            hist->buf1[hist_pos][i] = idct_out[i + 8];
+        }
+        for (i = 0; i < 8; i++) {
+            hist->buf2[hist_pos][i] = idct_out[7 - i];
         }
 
         pos_now  = hist->pos;
         pos_next = mod23_lut[pos_now + 2]; // pos_next = (pos_now + 1) % 23;
 
         for (t = 0; t < ATRAC3P_PQF_FIR_LEN; t++) {
+            const float *buf1 = hist->buf1[pos_now];
+            const float *buf2 = hist->buf2[pos_next];
+            const float *coeffs1 = ipqf_coeffs1[t];
+            const float *coeffs2 = ipqf_coeffs2[t];
+
+            float *outp = out + s * 16;
+#if PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)
+            auto _mm_reverse = [](__m128 x) -> __m128 {
+                return _mm_shuffle_ps(x, x, _MM_SHUFFLE(0, 1, 2, 3));
+            };
+            _mm_storeu_ps(outp, _mm_add_ps(_mm_loadu_ps(outp), _mm_add_ps(
+                _mm_mul_ps(_mm_loadu_ps(buf1), _mm_loadu_ps(coeffs1)),
+                _mm_mul_ps(_mm_loadu_ps(buf2), _mm_loadu_ps(coeffs2)))));
+            _mm_storeu_ps(outp + 4, _mm_add_ps(_mm_loadu_ps(outp + 4), _mm_add_ps(
+                _mm_mul_ps(_mm_loadu_ps(buf1 + 4), _mm_loadu_ps(coeffs1 + 4)),
+                _mm_mul_ps(_mm_loadu_ps(buf2 + 4), _mm_loadu_ps(coeffs2 + 4)))));
+
+            _mm_storeu_ps(outp + 8, _mm_add_ps(_mm_loadu_ps(outp + 8), _mm_add_ps(
+                _mm_mul_ps(_mm_reverse(_mm_loadu_ps(buf1 + 4)), _mm_loadu_ps(coeffs1 + 8)),
+                _mm_mul_ps(_mm_reverse(_mm_loadu_ps(buf2 + 4)), _mm_loadu_ps(coeffs2 + 8)))));
+            _mm_storeu_ps(outp + 12, _mm_add_ps(_mm_loadu_ps(outp + 12), _mm_add_ps(
+                _mm_mul_ps(_mm_reverse(_mm_loadu_ps(buf1)), _mm_loadu_ps(coeffs1 + 12)),
+                _mm_mul_ps(_mm_reverse(_mm_loadu_ps(buf2)), _mm_loadu_ps(coeffs2 + 12)))));
+#elif PPSSPP_ARCH(ARM_NEON)
+            auto vreverseq_f32 = [](float32x4_t x) -> float32x4_t {
+                float32x4_t rev = vrev64q_f32(x);
+                float32x2_t high = vget_high_f32(rev); //{4,3}
+                float32x2_t low = vget_low_f32(rev); //{1,2}
+                return vcombine_f32(high, low); //{4,3,2,1}
+            };
+            vst1q_f32(outp, vaddq_f32(vld1q_f32(outp), vaddq_f32(
+                vmulq_f32(vld1q_f32(buf1), vld1q_f32(coeffs1)),
+                vmulq_f32(vld1q_f32(buf2), vld1q_f32(coeffs2)))));
+            vst1q_f32(outp + 4, vaddq_f32(vld1q_f32(outp + 4), vaddq_f32(
+                vmulq_f32(vld1q_f32(buf1 + 4), vld1q_f32(coeffs1 + 4)),
+                vmulq_f32(vld1q_f32(buf2 + 4), vld1q_f32(coeffs2 + 4)))));
+
+            vst1q_f32(outp + 8, vaddq_f32(vld1q_f32(outp + 8), vaddq_f32(
+                vmulq_f32(vreverseq_f32(vld1q_f32(buf1 + 4)), vld1q_f32(coeffs1 + 8)),
+                vmulq_f32(vreverseq_f32(vld1q_f32(buf2 + 4)), vld1q_f32(coeffs2 + 8)))));
+            vst1q_f32(outp + 12, vaddq_f32(vld1q_f32(outp + 12), vaddq_f32(
+                vmulq_f32(vreverseq_f32(vld1q_f32(buf1)), vld1q_f32(coeffs1 + 12)),
+                vmulq_f32(vreverseq_f32(vld1q_f32(buf2)), vld1q_f32(coeffs2 + 12)))));
+#else
             for (i = 0; i < 8; i++) {
-                out[s * 16 + i + 0] += hist->buf1[pos_now][i]  * ipqf_coeffs1[t][i] +
-                                       hist->buf2[pos_next][i] * ipqf_coeffs2[t][i];
-                out[s * 16 + i + 8] += hist->buf1[pos_now][7 - i]  * ipqf_coeffs1[t][i + 8] +
-                                       hist->buf2[pos_next][7 - i] * ipqf_coeffs2[t][i + 8];
+                outp[i] += buf1[i] * coeffs1[i] + buf2[i] * coeffs2[i];
             }
+            for (i = 0; i < 8; i++) {
+                outp[i + 8] += buf1[7 - i] * coeffs1[i + 8] + buf2[7 - i] * coeffs2[i + 8];
+            }
+#endif
 
             pos_now  = mod23_lut[pos_next + 2]; // pos_now  = (pos_now  + 2) % 23;
             pos_next = mod23_lut[pos_now + 2];  // pos_next = (pos_next + 2) % 23;
