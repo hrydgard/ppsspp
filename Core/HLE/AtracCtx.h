@@ -100,6 +100,10 @@ struct AtracLoopInfo {
 
 class AudioDecoder;
 
+inline u32 FirstOffsetExtra(int codecType) {
+	return codecType == PSP_MODE_AT_3_PLUS ? 368 : 69;
+}
+
 struct Atrac {
 	~Atrac() {
 		ResetData();
@@ -135,10 +139,6 @@ struct Atrac {
 	// Output frame size
 	u32 SamplesPerFrame() const {
 		return codecType_ == PSP_MODE_AT_3_PLUS ? ATRAC3PLUS_MAX_SAMPLES : ATRAC3_MAX_SAMPLES;
-	}
-
-	u32 FirstOffsetExtra() const {
-		return codecType_ == PSP_MODE_AT_3_PLUS ? 368 : 69;
 	}
 
 	u32 DecodePosBySample(int sample) const {
@@ -213,6 +213,10 @@ struct Atrac {
 	}
 
 	void CalculateStreamInfo(u32 *readOffset);
+
+	u32 FirstOffsetExtra() const {
+		return ::FirstOffsetExtra(codecType_);
+	}
 
 	u32 StreamBufferEnd() const {
 		// The buffer is always aligned to a frame in size, not counting an optional header.

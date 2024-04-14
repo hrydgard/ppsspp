@@ -238,32 +238,32 @@ int Atrac::Analyze(u32 addr, u32 size) {
 	AnalyzeReset();
 
 	// 72 is about the size of the minimum required data to even be valid.
-	if (first_.size < 72) {
+	if (size < 72) {
 		return hleReportError(ME, ATRAC_ERROR_SIZE_TOO_SMALL, "buffer too small");
 	}
 
 	// TODO: Check the range (addr, size) instead.
-	if (!Memory::IsValidAddress(first_.addr)) {
+	if (!Memory::IsValidAddress(addr)) {
 		return hleReportWarning(ME, SCE_KERNEL_ERROR_ILLEGAL_ADDRESS, "invalid buffer address");
 	}
 
 	// TODO: Validate stuff.
-	if (Memory::ReadUnchecked_U32(first_.addr) != RIFF_CHUNK_MAGIC) {
+	if (Memory::ReadUnchecked_U32(addr) != RIFF_CHUNK_MAGIC) {
 		return hleReportError(ME, ATRAC_ERROR_UNKNOWN_FORMAT, "invalid RIFF header");
 	}
 
 	u32 offset = 8;
 	firstSampleOffset_ = 0;
 
-	while (Memory::Read_U32(first_.addr + offset) != RIFF_WAVE_MAGIC) {
+	while (Memory::Read_U32(addr + offset) != RIFF_WAVE_MAGIC) {
 		// Get the size preceding the magic.
-		int chunk = Memory::Read_U32(first_.addr + offset - 4);
+		int chunk = Memory::Read_U32(addr + offset - 4);
 		// Round the chunk size up to the nearest 2.
 		offset += chunk + (chunk & 1);
-		if (offset + 12 > first_.size) {
+		if (offset + 12 > size) {
 			return hleReportError(ME, ATRAC_ERROR_SIZE_TOO_SMALL, "too small for WAVE chunk at %d", offset);
 		}
-		if (Memory::Read_U32(first_.addr + offset) != RIFF_CHUNK_MAGIC) {
+		if (Memory::Read_U32(addr + offset) != RIFF_CHUNK_MAGIC) {
 			return hleReportError(ME, ATRAC_ERROR_UNKNOWN_FORMAT, "RIFF chunk did not contain WAVE");
 		}
 		offset += 8;
@@ -275,16 +275,18 @@ int Atrac::Analyze(u32 addr, u32 size) {
 	}
 
 	// RIFF size excluding chunk header.
-	first_.filesize = Memory::Read_U32(first_.addr + offset - 8) + 8;
+	first_.filesize = Memory::Read_U32(addr + offset - 8) + 8;
+
 	// Even if the RIFF size is too low, it may simply be incorrect.  This works on real firmware.
-	u32 maxSize = std::max(first_.filesize, first_.size);
+	u32 maxSize = std::max(first_.filesize, size);
 
 	bool bfoundData = false;
 	u32 dataChunkSize = 0;
 	int sampleOffsetAdjust = 0;
+
 	while (maxSize >= offset + 8 && !bfoundData) {
-		int chunkMagic = Memory::Read_U32(first_.addr + offset);
-		u32 chunkSize = Memory::Read_U32(first_.addr + offset + 4);
+		int chunkMagic = Memory::Read_U32(addr + offset);
+		u32 chunkSize = Memory::Read_U32(addr + offset + 4);
 		// Account for odd sized chunks.
 		if (chunkSize & 1) {
 			WARN_LOG_REPORT_ONCE(oddchunk, ME, "RIFF chunk had uneven size");
@@ -300,7 +302,7 @@ int Atrac::Analyze(u32 addr, u32 size) {
 				return hleReportError(ME, ATRAC_ERROR_UNKNOWN_FORMAT, "multiple fmt definitions");
 			}
 
-			auto at3fmt = PSPPointer<const RIFFFmtChunk>::Create(first_.addr + offset);
+			auto at3fmt = PSPPointer<const RIFFFmtChunk>::Create(addr + offset);
 			if (chunkSize < 32 || (at3fmt->fmtTag == AT3_PLUS_MAGIC && chunkSize < 52)) {
 				return hleReportError(ME, ATRAC_ERROR_UNKNOWN_FORMAT, "fmt definition too small (%d)", chunkSize);
 			}
@@ -330,18 +332,18 @@ int Atrac::Analyze(u32 addr, u32 size) {
 
 			if (at3fmt->fmtTag == AT3_MAGIC) {
 				// This is the offset to the jointStereo_ field.
-				jointStereo_ = Memory::Read_U32(first_.addr + offset + 24);
+				jointStereo_ = Memory::Read_U32(addr + offset + 24);
 			}
 		}
 		break;
 		case FACT_CHUNK_MAGIC:
 		{
-			endSample_ = Memory::Read_U32(first_.addr + offset);
+			endSample_ = Memory::Read_U32(addr + offset);
 			if (chunkSize >= 8) {
-				firstSampleOffset_ = Memory::Read_U32(first_.addr + offset + 4);
+				firstSampleOffset_ = Memory::Read_U32(addr + offset + 4);
 			}
 			if (chunkSize >= 12) {
-				u32 largerOffset = Memory::Read_U32(first_.addr + offset + 8);
+				u32 largerOffset = Memory::Read_U32(addr + offset + 8);
 				sampleOffsetAdjust = firstSampleOffset_ - largerOffset;
 			}
 		}
@@ -351,7 +353,7 @@ int Atrac::Analyze(u32 addr, u32 size) {
 			if (chunkSize < 32) {
 				return hleReportError(ME, ATRAC_ERROR_UNKNOWN_FORMAT, "smpl chunk too small (%d)", chunkSize);
 			}
-			int checkNumLoops = Memory::Read_U32(first_.addr + offset + 28);
+			int checkNumLoops = Memory::Read_U32(addr + offset + 28);
 			if (checkNumLoops != 0 && chunkSize < 36 + 20) {
 				return hleReportError(ME, ATRAC_ERROR_UNKNOWN_FORMAT, "smpl chunk too small for loop (%d, %d)", checkNumLoops, chunkSize);
 			}
@@ -360,7 +362,7 @@ int Atrac::Analyze(u32 addr, u32 size) {
 			}
 
 			loopinfo_.resize(checkNumLoops);
-			u32 loopinfoAddr = first_.addr + offset + 36;
+			u32 loopinfoAddr = addr + offset + 36;
 			// The PSP only cares about the first loop start and end, it seems.
 			// Most likely can skip the rest of this data, but it's not hurting anyone.
 			for (int i = 0; i < checkNumLoops && 36 + (u32)i < chunkSize; i++, loopinfoAddr += 24) {
@@ -430,25 +432,25 @@ int Atrac::AnalyzeAA3(u32 addr, u32 size, u32 filesize) {
 
 	AnalyzeReset();
 
-	if (first_.size < 10) {
+	if (size < 10) {
 		return hleReportError(ME, ATRAC_ERROR_AA3_SIZE_TOO_SMALL, "buffer too small");
 	}
 
 	// TODO: Make sure this validation is correct, more testing.
 
-	const u8 *buffer = Memory::GetPointer(first_.addr);
+	const u8 *buffer = Memory::GetPointer(addr);
 	if (buffer[0] != 'e' || buffer[1] != 'a' || buffer[2] != '3') {
 		return hleReportError(ME, ATRAC_ERROR_AA3_INVALID_DATA, "invalid ea3 magic bytes");
 	}
 
 	// It starts with an id3 header (replaced with ea3.)  This is the size.
 	u32 tagSize = buffer[9] | (buffer[8] << 7) | (buffer[7] << 14) | (buffer[6] << 21);
-	if (first_.size < tagSize + 36) {
+	if (size < tagSize + 36) {
 		return hleReportError(ME, ATRAC_ERROR_AA3_SIZE_TOO_SMALL, "truncated before id3 end");
 	}
 
 	// EA3 header starts at id3 header (10) + tagSize.
-	buffer = Memory::GetPointer(first_.addr + 10 + tagSize);
+	buffer = Memory::GetPointer(addr + 10 + tagSize);
 	if (buffer[0] != 'E' || buffer[1] != 'A' || buffer[2] != '3') {
 		return hleReportError(ME, ATRAC_ERROR_AA3_INVALID_DATA, "invalid EA3 magic bytes");
 	}
@@ -482,10 +484,9 @@ int Atrac::AnalyzeAA3(u32 addr, u32 size, u32 filesize) {
 	dataOff_ = 10 + tagSize + 96;
 	firstSampleOffset_ = 0;
 	if (endSample_ < 0 && bytesPerFrame_ != 0) {
-		endSample_ = ((first_.filesize - dataOff_) / bytesPerFrame_) * SamplesPerFrame();
+		endSample_ = ((filesize - dataOff_) / bytesPerFrame_) * SamplesPerFrame();
 	}
 	endSample_ -= 1;
-
 	return 0;
 }
 
