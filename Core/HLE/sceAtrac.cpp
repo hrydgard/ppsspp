@@ -345,7 +345,7 @@ static u32 sceAtracGetLoopStatus(int atracID, u32 loopNumAddr, u32 statusAddr) {
 		Memory::WriteUnchecked_U32(atrac->loopNum_, loopNumAddr);
 	// return audio's loopinfo in at3 file
 	if (Memory::IsValidAddress(statusAddr)) {
-		if (atrac->loopinfo_.size() > 0)
+		if (atrac->GetTrack().loopinfo.size() > 0)
 			Memory::WriteUnchecked_U32(1, statusAddr);
 		else
 			Memory::WriteUnchecked_U32(0, statusAddr);
@@ -478,10 +478,10 @@ static u32 sceAtracGetSoundSample(int atracID, u32 outEndSampleAddr, u32 outLoop
 		*outEndSample = atrac->GetTrack().endSample;
 	auto outLoopStart = PSPPointer<u32_le>::Create(outLoopStartSampleAddr);
 	if (outLoopStart.IsValid())
-		*outLoopStart = atrac->loopStartSample_ == -1 ? -1 : atrac->loopStartSample_ - atrac->track_.firstSampleOffset - atrac->FirstOffsetExtra();
+		*outLoopStart = atrac->GetTrack().loopStartSample == -1 ? -1 : atrac->GetTrack().loopStartSample - atrac->GetTrack().firstSampleOffset - atrac->FirstOffsetExtra();
 	auto outLoopEnd = PSPPointer<u32_le>::Create(outLoopEndSampleAddr);
 	if (outLoopEnd.IsValid())
-		*outLoopEnd = atrac->loopEndSample_ == -1 ? -1 : atrac->loopEndSample_ - atrac->track_.firstSampleOffset - atrac->FirstOffsetExtra();
+		*outLoopEnd = atrac->GetTrack().loopEndSample == -1 ? -1 : atrac->GetTrack().loopEndSample - atrac->GetTrack().firstSampleOffset - atrac->FirstOffsetExtra();
 
 	if (!outEndSample.IsValid() || !outLoopStart.IsValid() || !outLoopEnd.IsValid()) {
 		return hleReportError(ME, 0, "invalid address");
@@ -669,7 +669,7 @@ static u32 sceAtracSetLoopNum(int atracID, int loopNum) {
 		// Already logged.
 		return err;
 	}
-	if (atrac->loopinfo_.size() == 0) {
+	if (atrac->GetTrack().loopinfo.size() == 0) {
 		return hleLogError(ME, ATRAC_ERROR_NO_LOOP_INFORMATION, "no loop information");
 	}
 
