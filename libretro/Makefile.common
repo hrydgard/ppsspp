@@ -651,6 +651,7 @@ SOURCES_CXX += \
 	       $(COREDIR)/HLE/ReplaceTables.cpp \
 	       $(COREDIR)/HLE/HLEHelperThread.cpp \
 	       $(COREDIR)/HLE/HLETables.cpp \
+	       $(COREDIR)/HLE/AtracCtx.cpp \
 	       $(COREDIR)/HLE/sceAdler.cpp \
 	       $(COREDIR)/HLE/sceAtrac.cpp \
 	       $(COREDIR)/HLE/sceAudio.cpp \
