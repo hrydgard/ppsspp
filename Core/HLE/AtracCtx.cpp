@@ -45,7 +45,7 @@ void Atrac::DoState(PointerWrap &p) {
 	Do(p, channels_);
 	Do(p, outputChannels_);
 	if (s >= 5) {
-		Do(p, jointStereo_);
+		Do(p, track_.jointStereo);
 	}
 
 	Do(p, atracID_);
@@ -93,7 +93,7 @@ void Atrac::DoState(PointerWrap &p) {
 		bufferPos_ = decodePos_;
 	}
 
-	Do(p, bitrate_);
+	Do(p, track_.bitrate);
 	Do(p, track_.bytesPerFrame);
 
 	Do(p, track_.loopinfo);
@@ -331,7 +331,7 @@ int Atrac::Analyze(u32 addr, u32 size) {
 			if (at3fmt->samplerate != 44100) {
 				return hleReportError(ME, ATRAC_ERROR_UNKNOWN_FORMAT, "unsupported sample rate: %d", at3fmt->samplerate);
 			}
-			bitrate_ = at3fmt->avgBytesPerSec * 8;
+			track->bitrate = at3fmt->avgBytesPerSec * 8;
 			track->bytesPerFrame = at3fmt->blockAlign;
 			if (track->bytesPerFrame == 0) {
 				return hleReportError(ME, ATRAC_ERROR_UNKNOWN_FORMAT, "invalid bytes per frame: %d", track->bytesPerFrame);
@@ -342,7 +342,7 @@ int Atrac::Analyze(u32 addr, u32 size) {
 
 			if (at3fmt->fmtTag == AT3_MAGIC) {
 				// This is the offset to the jointStereo_ field.
-				jointStereo_ = Memory::Read_U32(addr + offset + 24);
+				track->jointStereo = Memory::Read_U32(addr + offset + 24);
 			}
 		}
 		break;
@@ -478,14 +478,14 @@ int Atrac::AnalyzeAA3(u32 addr, u32 size, u32 filesize) {
 	case 0:
 		track->codecType = PSP_MODE_AT_3;
 		track->bytesPerFrame = (codecParams & 0x03FF) * 8;
-		bitrate_ = at3SampleRates[(codecParams >> 13) & 7] * track->bytesPerFrame * 8 / 1024;
+		track->bitrate = at3SampleRates[(codecParams >> 13) & 7] * track->bytesPerFrame * 8 / 1024;
 		channels_ = 2;
-		jointStereo_ = (codecParams >> 17) & 1;
+		track->jointStereo = (codecParams >> 17) & 1;
 		break;
 	case 1:
 		track->codecType = PSP_MODE_AT_3_PLUS;
 		track->bytesPerFrame = ((codecParams & 0x03FF) * 8) + 8;
-		bitrate_ = at3SampleRates[(codecParams >> 13) & 7] * track->bytesPerFrame * 8 / 2048;
+		track->bitrate = at3SampleRates[(codecParams >> 13) & 7] * track->bytesPerFrame * 8 / 2048;
 		channels_ = (codecParams >> 10) & 7;
 		break;
 	case 3:
@@ -570,8 +570,8 @@ void Atrac::CreateDecoder() {
 		// The only thing that changes are the jointStereo_ values.
 		extraData[0] = 1;
 		extraData[3] = channels_ << 3;
-		extraData[6] = jointStereo_;
-		extraData[8] = jointStereo_;
+		extraData[6] = track_.jointStereo;
+		extraData[8] = track_.jointStereo;
 		extraData[10] = 1;
 		decoder_ = CreateAtrac3Audio(channels_, track_.bytesPerFrame, extraData, sizeof(extraData));
 	} else {
@@ -718,11 +718,11 @@ int Atrac::GetSecondBufferInfo(u32 *fileOffset, u32 *desiredSize) {
 }
 
 void Atrac::UpdateBitrate() {
-	bitrate_ = (track_.bytesPerFrame * 352800) / 1000;
+	track_.bitrate = (track_.bytesPerFrame * 352800) / 1000;
 	if (track_.codecType == PSP_MODE_AT_3_PLUS)
-		bitrate_ = ((bitrate_ >> 11) + 8) & 0xFFFFFFF0;
+		track_.bitrate = ((track_.bitrate >> 11) + 8) & 0xFFFFFFF0;
 	else
-		bitrate_ = (bitrate_ + 511) >> 10;
+		track_.bitrate = (track_.bitrate + 511) >> 10;
 }
 
 int Atrac::AddStreamData(u32 bytesToAdd) {
@@ -1093,13 +1093,13 @@ void Atrac::InitLowLevel(u32 paramsAddr, bool jointStereo) {
 	ResetData();
 
 	if (track_.codecType == PSP_MODE_AT_3) {
-		bitrate_ = (track_.bytesPerFrame * 352800) / 1000;
-		bitrate_ = (bitrate_ + 511) >> 10;
-		jointStereo_ = false;
+		track_.bitrate = (track_.bytesPerFrame * 352800) / 1000;
+		track_.bitrate = (track_.bitrate + 511) >> 10;
+		track_.jointStereo = false;
 	} else if (track_.codecType == PSP_MODE_AT_3_PLUS) {
-		bitrate_ = (track_.bytesPerFrame * 352800) / 1000;
-		bitrate_ = ((bitrate_ >> 11) + 8) & 0xFFFFFFF0;
-		jointStereo_ = false;
+		track_.bitrate = (track_.bytesPerFrame * 352800) / 1000;
+		track_.bitrate = ((track_.bitrate >> 11) + 8) & 0xFFFFFFF0;
+		track_.jointStereo = false;
 	}
 
 	track_.dataOff = 0;

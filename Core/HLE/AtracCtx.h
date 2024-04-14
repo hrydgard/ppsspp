@@ -114,6 +114,8 @@ struct Track {
 	int endSample;
 	// Offset of the first sample in the input buffer
 	int dataOff = 0;
+	u32 bitrate = 64;
+	int jointStereo = 0;
 
 	std::vector<AtracLoopInfo> loopinfo;
 	int loopStartSample = -1;
@@ -179,7 +181,7 @@ struct Atrac {
 	void UpdateBitrate();
 
 	int Bitrate() const {
-		return bitrate_;
+		return track_.bitrate;
 	}
 	int Channels() const {
 		return channels_;
@@ -268,9 +270,7 @@ struct Atrac {
 private:
 	void AnalyzeReset();
 
-	u32 bitrate_ = 64;
 	u32 bufferMaxSize_ = 0;
-	int jointStereo_ = 0;
 
 	// Used to track streaming.
 	u32 bufferPos_ = 0;
