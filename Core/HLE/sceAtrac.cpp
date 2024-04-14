@@ -121,13 +121,6 @@ const size_t overAllocBytes = 16384;
 
 static const int atracDecodeDelay = 2300;
 
-enum AtracDecodeResult {
-	ATDECODE_FAILED = -1,
-	ATDECODE_FEEDME = 0,
-	ATDECODE_GOTFRAME = 1,
-	ATDECODE_BADFRAME = 2,
-};
-
 struct InputBuffer {
 	// Address of the buffer.
 	u32 addr;
@@ -144,8 +137,6 @@ struct InputBuffer {
 	// Offset into the file at which new data is read.
 	u32 fileoffset;
 };
-
-struct Atrac;
 
 struct AtracLoopInfo {
 	int cuePointID;
@@ -1110,7 +1101,7 @@ u32 Atrac::DecodeData(u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u32 *finish, i
 	if ((codecType_ == PSP_MODE_AT_3 || codecType_ == PSP_MODE_AT_3_PLUS)) {
 		SeekToSample(currentSample_);
 
-		AtracDecodeResult res = ATDECODE_FEEDME;
+		bool gotFrame = false;
 		u32 off = FileOffsetBySample(currentSample_ - skipSamples);
 		if (off < first_.size) {
 			uint8_t *indata = BufferStart() + off;
@@ -1123,7 +1114,7 @@ u32 Atrac::DecodeData(u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u32 *finish, i
 				*finish = 1;
 				return ATRAC_ERROR_ALL_DATA_DECODED;
 			}
-			res = ATDECODE_GOTFRAME;
+			gotFrame = true;
 
 			numSamples = outBytes / 4;
 			uint32_t packetAddr = CurBufferAddress(-skipSamples);
@@ -1133,11 +1124,6 @@ u32 Atrac::DecodeData(u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u32 *finish, i
 			numSamples = numSamples - skipped;
 			// If we're at the end, clamp to samples we want.  It always returns a full chunk.
 			numSamples = std::min(maxSamples, numSamples);
-
-			if (skipped > 0 && numSamples == 0) {
-				// Wait for the next one.
-				res = ATDECODE_FEEDME;
-			}
 
 			if (packetAddr != 0 && MemBlockInfoDetailed()) {
 				char tagData[128];
@@ -1150,7 +1136,7 @@ u32 Atrac::DecodeData(u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u32 *finish, i
 			// We only want one frame per call, let's continue the next time.
 		}
 
-		if (res != ATDECODE_GOTFRAME && currentSample_ < endSample_) {
+		if (!gotFrame && currentSample_ < endSample_) {
 			// Never got a frame.  We may have dropped a GHA frame or otherwise have a bug.
 			// For now, let's try to provide an extra "frame" if possible so games don't infinite loop.
 			if (FileOffsetBySample(currentSample_) < first_.filesize) {
