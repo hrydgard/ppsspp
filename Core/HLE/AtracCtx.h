@@ -110,6 +110,17 @@ struct Track {
 	u32 fileSize;
 	u32 codecType;
 	u16 bytesPerFrame;
+	u32 firstSampleOffset;
+
+	// Input frame size
+	int BytesPerFrame() const {
+		return bytesPerFrame;
+	}
+
+	// Output frame size
+	u32 SamplesPerFrame() const {
+		return codecType == PSP_MODE_AT_3_PLUS ? ATRAC3PLUS_MAX_SAMPLES : ATRAC3_MAX_SAMPLES;
+	}
 };
 
 struct Atrac {
@@ -130,7 +141,7 @@ struct Atrac {
 			if (loopEndSample_ <= 0) {
 				// There's no looping, but we need to stream the data in our buffer.
 				bufferState_ = ATRAC_STATUS_STREAMED_WITHOUT_LOOP;
-			} else if (loopEndSample_ == endSample_ + firstSampleOffset_ + (int)FirstOffsetExtra()) {
+			} else if (loopEndSample_ == endSample_ + track_.firstSampleOffset + (int)FirstOffsetExtra()) {
 				bufferState_ = ATRAC_STATUS_STREAMED_LOOP_FROM_END;
 			} else {
 				bufferState_ = ATRAC_STATUS_STREAMED_LOOP_WITH_TRAILER;
@@ -140,23 +151,22 @@ struct Atrac {
 
 	void DoState(PointerWrap &p);
 
-	// Input frame size
-	int BytesPerFrame() const {
-		return track_.bytesPerFrame;
-	}
-	// Output frame size
 	u32 SamplesPerFrame() const {
-		return track_.codecType == PSP_MODE_AT_3_PLUS ? ATRAC3PLUS_MAX_SAMPLES : ATRAC3_MAX_SAMPLES;
+		return track_.SamplesPerFrame();
 	}
 
 	u32 DecodePosBySample(int sample) const {
-		return (u32)(firstSampleOffset_ + sample / (int)SamplesPerFrame() * track_.bytesPerFrame);
+		return (u32)(track_.firstSampleOffset + sample / (int)track_.SamplesPerFrame() * track_.bytesPerFrame);
 	}
 
 	u32 FileOffsetBySample(int sample) const {
-		int offsetSample = sample + firstSampleOffset_;
-		int frameOffset = offsetSample / (int)SamplesPerFrame();
+		int offsetSample = sample + track_.firstSampleOffset;
+		int frameOffset = offsetSample / (int)track_.SamplesPerFrame();
 		return (u32)(dataOff_ + track_.bytesPerFrame + frameOffset * track_.bytesPerFrame);
+	}
+
+	const Track &GetTrack() const {
+		return track_;
 	}
 
 	void UpdateBitrate();
@@ -183,7 +193,6 @@ struct Atrac {
 
 	int currentSample_ = 0;
 	int endSample_ = 0;
-	int firstSampleOffset_ = 0;
 
 	std::vector<AtracLoopInfo> loopinfo_;
 	int loopStartSample_ = -1;

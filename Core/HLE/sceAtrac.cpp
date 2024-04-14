@@ -290,7 +290,7 @@ static u32 sceAtracGetBufferInfoForResetting(int atracID, int sample, u32 buffer
 		return hleReportError(ME, SCE_KERNEL_ERROR_ILLEGAL_ADDR, "invalid buffer, should crash");
 	} else if (atrac->BufferState() == ATRAC_STATUS_STREAMED_LOOP_WITH_TRAILER && atrac->second_.size == 0) {
 		return hleReportError(ME, ATRAC_ERROR_SECOND_BUFFER_NEEDED, "no second buffer");
-	} else if ((u32)sample + atrac->firstSampleOffset_ > (u32)atrac->endSample_ + atrac->firstSampleOffset_) {
+	} else if ((u32)sample + atrac->GetTrack().firstSampleOffset > (u32)atrac->endSample_ + atrac->GetTrack().firstSampleOffset) {
 		// NOTE: Above we have to add firstSampleOffset to both sides - we seem to rely on wraparound.
 		return hleLogWarning(ME, ATRAC_ERROR_BAD_SAMPLE, "invalid sample position");
 	} else {
@@ -478,10 +478,10 @@ static u32 sceAtracGetSoundSample(int atracID, u32 outEndSampleAddr, u32 outLoop
 		*outEndSample = atrac->endSample_;
 	auto outLoopStart = PSPPointer<u32_le>::Create(outLoopStartSampleAddr);
 	if (outLoopStart.IsValid())
-		*outLoopStart = atrac->loopStartSample_ == -1 ? -1 : atrac->loopStartSample_ - atrac->firstSampleOffset_ - atrac->FirstOffsetExtra();
+		*outLoopStart = atrac->loopStartSample_ == -1 ? -1 : atrac->loopStartSample_ - atrac->track_.firstSampleOffset - atrac->FirstOffsetExtra();
 	auto outLoopEnd = PSPPointer<u32_le>::Create(outLoopEndSampleAddr);
 	if (outLoopEnd.IsValid())
-		*outLoopEnd = atrac->loopEndSample_ == -1 ? -1 : atrac->loopEndSample_ - atrac->firstSampleOffset_ - atrac->FirstOffsetExtra();
+		*outLoopEnd = atrac->loopEndSample_ == -1 ? -1 : atrac->loopEndSample_ - atrac->track_.firstSampleOffset - atrac->FirstOffsetExtra();
 
 	if (!outEndSample.IsValid() || !outLoopStart.IsValid() || !outLoopEnd.IsValid()) {
 		return hleReportError(ME, 0, "invalid address");
@@ -534,7 +534,7 @@ static u32 sceAtracResetPlayPosition(int atracID, int sample, int bytesWrittenFi
 
 	if (atrac->BufferState() == ATRAC_STATUS_STREAMED_LOOP_WITH_TRAILER && atrac->second_.size == 0) {
 		return hleReportError(ME, ATRAC_ERROR_SECOND_BUFFER_NEEDED, "no second buffer");
-	} else if ((u32)sample + atrac->firstSampleOffset_ > (u32)atrac->endSample_ + atrac->firstSampleOffset_) {
+	} else if ((u32)sample + atrac->GetTrack().firstSampleOffset > (u32)atrac->endSample_ + atrac->GetTrack().firstSampleOffset) {
 		// NOTE: Above we have to add firstSampleOffset to both sides - we seem to rely on wraparound.
 		return hleLogWarning(ME, ATRAC_ERROR_BAD_SAMPLE, "invalid sample position");
 	}
@@ -893,7 +893,7 @@ struct At3HeaderMap {
 	u8 jointStereo;
 
 	bool Matches(const Atrac *at) const {
-		return bytes == at->BytesPerFrame() && channels == at->Channels();
+		return bytes == at->GetTrack().BytesPerFrame() && channels == at->Channels();
 	}
 };
 
@@ -929,7 +929,7 @@ static int sceAtracLowLevelInitDecoder(int atracID, u32 paramsAddr) {
 			}
 		}
 		if (!found) {
-			ERROR_LOG_REPORT(ME, "AT3 header map lacks entry for bpf: %i  channels: %i", atrac->BytesPerFrame(), atrac->Channels());
+			ERROR_LOG_REPORT(ME, "AT3 header map lacks entry for bpf: %i  channels: %i", atrac->GetTrack().BytesPerFrame(), atrac->Channels());
 			// TODO: Should we return an error code for these values?
 		}
 	}
@@ -959,7 +959,7 @@ static int sceAtracLowLevelDecode(int atracID, u32 sourceAddr, u32 sourceBytesCo
 
 	int bytesConsumed = 0;
 	int bytesWritten = 0;
-	atrac->GetDecoder()->Decode(srcp, atrac->BytesPerFrame(), &bytesConsumed, outp, &bytesWritten);
+	atrac->GetDecoder()->Decode(srcp, atrac->GetTrack().BytesPerFrame(), &bytesConsumed, outp, &bytesWritten);
 	*srcConsumed = bytesConsumed;
 	*outWritten = bytesWritten;
 
