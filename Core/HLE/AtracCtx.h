@@ -133,6 +133,9 @@ struct Track {
 	}
 };
 
+int AnalyzeAA3Track(u32 addr, u32 size, u32 filesize, Track *track);
+int AnalyzeAtracTrack(u32 addr, u32 size, Track *track);
+
 struct Atrac {
 	~Atrac() {
 		ResetData();

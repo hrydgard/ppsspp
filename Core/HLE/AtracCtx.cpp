@@ -230,17 +230,7 @@ void Atrac::WriteContextToPSPMem() {
 }
 
 int Atrac::Analyze(u32 addr, u32 size) {
-	Track *track = &track_;
-	*track = {};
-
-	struct RIFFFmtChunk {
-		u16_le fmtTag;
-		u16_le channels;
-		u32_le samplerate;
-		u32_le avgBytesPerSec;
-		u16_le blockAlign;
-	};
-
+	track_ = {};
 	first_ = {};
 	first_.addr = addr;
 	first_.size = size;
@@ -261,6 +251,20 @@ int Atrac::Analyze(u32 addr, u32 size) {
 	if (Memory::ReadUnchecked_U32(addr) != RIFF_CHUNK_MAGIC) {
 		return hleReportError(ME, ATRAC_ERROR_UNKNOWN_FORMAT, "invalid RIFF header");
 	}
+
+	int retval = AnalyzeAtracTrack(addr, size, &track_);
+	first_._filesize_dontuse = track_.fileSize;
+	return retval;
+}
+
+int AnalyzeAtracTrack(u32 addr, u32 size, Track *track) {
+	struct RIFFFmtChunk {
+		u16_le fmtTag;
+		u16_le channels;
+		u32_le samplerate;
+		u32_le avgBytesPerSec;
+		u16_le blockAlign;
+	};
 
 	u32 offset = 8;
 	track->firstSampleOffset = 0;
@@ -432,25 +436,23 @@ int Atrac::Analyze(u32 addr, u32 size) {
 		return hleReportError(ME, ATRAC_ERROR_BAD_CODEC_PARAMS, "loop after end of data");
 	}
 
-	first_._filesize_dontuse = track->fileSize;
 	return 0;
 }
 
-int Atrac::AnalyzeAA3(u32 addr, u32 size, u32 filesize) {
-	Track *track = &track_;
-	*track = {};
-
+int Atrac::AnalyzeAA3(u32 addr, u32 size, u32 fileSize) {
 	first_.addr = addr;
 	first_.size = size;
-	track->fileSize = filesize;
-	first_._filesize_dontuse = filesize;
+	first_._filesize_dontuse = fileSize;
 
 	AnalyzeReset();
 
+	return AnalyzeAA3Track(addr, size, fileSize, &track_);
+}
+
+int AnalyzeAA3Track(u32 addr, u32 size, u32 fileSize, Track *track) {
 	if (size < 10) {
 		return hleReportError(ME, ATRAC_ERROR_AA3_SIZE_TOO_SMALL, "buffer too small");
 	}
-
 	// TODO: Make sure this validation is correct, more testing.
 
 	const u8 *buffer = Memory::GetPointer(addr);
@@ -469,6 +471,8 @@ int Atrac::AnalyzeAA3(u32 addr, u32 size, u32 filesize) {
 	if (buffer[0] != 'E' || buffer[1] != 'A' || buffer[2] != '3') {
 		return hleReportError(ME, ATRAC_ERROR_AA3_INVALID_DATA, "invalid EA3 magic bytes");
 	}
+	
+	track->fileSize = fileSize;
 
 	// Based on FFmpeg's code.
 	u32 codecParams = buffer[35] | (buffer[34] << 8) | (buffer[35] << 16);
@@ -499,7 +503,7 @@ int Atrac::AnalyzeAA3(u32 addr, u32 size, u32 filesize) {
 	track->dataOff = 10 + tagSize + 96;
 	track->firstSampleOffset = 0;
 	if (track->endSample < 0 && track->bytesPerFrame != 0) {
-		track->endSample = ((filesize - track->dataOff) / track->bytesPerFrame) * track->SamplesPerFrame();
+		track->endSample = ((track->fileSize - track->dataOff) / track->bytesPerFrame) * track->SamplesPerFrame();
 	}
 	track->endSample -= 1;
 	return 0;
