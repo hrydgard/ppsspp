@@ -925,7 +925,6 @@ u32 Atrac::DecodeData(u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u32 *finish, i
 		ConsumeFrame();
 	}
 
-	// TODO: We don't support any other codec type, check seems unnecessary?
 	SeekToSample(currentSample_);
 
 	bool gotFrame = false;
