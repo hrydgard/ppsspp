@@ -158,14 +158,6 @@ struct AtracLoopInfo {
 	int playCount;
 };
 
-#ifndef USE_FFMPEG
-struct AVPacket {
-	uint8_t *data;
-	int size;
-	int64_t pos;
-};
-#endif
-
 struct Atrac {
 	Atrac() {
 		memset(&first_, 0, sizeof(first_));
@@ -414,12 +406,15 @@ struct Atrac {
 	bool ignoreDataBuf_ = false;
 
 	u32 codecType_ = 0;
-	AtracStatus bufferState_ = ATRAC_STATUS_NO_DATA;
 
 	InputBuffer first_;
 	InputBuffer second_;
 
 	PSPPointer<SceAtracContext> context_;
+
+	AtracStatus BufferState() const {
+		return bufferState_;
+	}
 
 	void ForceSeekToSample(int sample) {
 		if (decoder_) {
@@ -492,6 +487,19 @@ struct Atrac {
 			bufferHeaderSize_ = 0;
 		}
 	}
+
+	void UpdateFromPSPRam() {
+		if (context_.IsValid()) {
+			// Read in any changes from the game to the context.
+			// TODO: Might be better to just always track in RAM.
+			bufferState_ = context_->info.state;
+			// This value is actually abused by games to store the SAS voice number.
+			loopNum_ = context_->info.loopNum;
+		}
+	}
+
+	// To be moved into private.
+	AtracStatus bufferState_ = ATRAC_STATUS_NO_DATA;
 
 private:
 	void AnalyzeReset();
@@ -576,13 +584,8 @@ static Atrac *getAtrac(int atracID) {
 		return nullptr;
 	}
 	Atrac *atrac = atracContexts[atracID];
-
-	if (atrac && atrac->context_.IsValid()) {
-		// Read in any changes from the game to the context.
-		// TODO: Might be better to just always track in RAM.
-		atrac->bufferState_ = atrac->context_->info.state;
-		// This value is actually abused by games to store the SAS voice number.
-		atrac->loopNum_ = atrac->context_->info.loopNum;
+	if (atrac) {
+		atrac->UpdateFromPSPRam();
 	}
 	return atrac;
 }
@@ -642,13 +645,13 @@ int Atrac::Analyze(u32 addr, u32 size) {
 		return hleReportError(ME, ATRAC_ERROR_SIZE_TOO_SMALL, "buffer too small");
 	}
 
+	// TODO: Check the range (addr, size) instead.
 	if (!Memory::IsValidAddress(first_.addr)) {
 		return hleReportWarning(ME, SCE_KERNEL_ERROR_ILLEGAL_ADDRESS, "invalid buffer address");
 	}
 
 	// TODO: Validate stuff.
-
-	if (Memory::Read_U32(first_.addr) != RIFF_CHUNK_MAGIC) {
+	if (Memory::ReadUnchecked_U32(first_.addr) != RIFF_CHUNK_MAGIC) {
 		return hleReportError(ME, ATRAC_ERROR_UNKNOWN_FORMAT, "invalid RIFF header");
 	}
 
@@ -928,7 +931,7 @@ u32 _AtracAddStreamData(int atracID, u32 bufPtr, u32 bytesToAdd) {
 static u32 AtracValidateData(const Atrac *atrac) {
 	if (!atrac) {
 		return hleLogError(ME, ATRAC_ERROR_BAD_ATRACID, "bad atrac ID");
-	} else if (atrac->bufferState_ == ATRAC_STATUS_NO_DATA) {
+	} else if (atrac->BufferState() == ATRAC_STATUS_NO_DATA) {
 		return hleLogError(ME, ATRAC_ERROR_NO_DATA, "no data");
 	} else {
 		return 0;
@@ -938,11 +941,11 @@ static u32 AtracValidateData(const Atrac *atrac) {
 static u32 AtracValidateManaged(const Atrac *atrac) {
 	if (!atrac) {
 		return hleLogError(ME, ATRAC_ERROR_BAD_ATRACID, "bad atrac ID");
-	} else if (atrac->bufferState_ == ATRAC_STATUS_NO_DATA) {
+	} else if (atrac->BufferState() == ATRAC_STATUS_NO_DATA) {
 		return hleLogError(ME, ATRAC_ERROR_NO_DATA, "no data");
-	} else if (atrac->bufferState_ == ATRAC_STATUS_LOW_LEVEL) {
+	} else if (atrac->BufferState() == ATRAC_STATUS_LOW_LEVEL) {
 		return hleLogError(ME, ATRAC_ERROR_IS_LOW_LEVEL, "low level stream, can't use");
-	} else if (atrac->bufferState_ == ATRAC_STATUS_FOR_SCESAS) {
+	} else if (atrac->BufferState() == ATRAC_STATUS_FOR_SCESAS) {
 		return hleLogError(ME, ATRAC_ERROR_IS_FOR_SCESAS, "SAS stream, can't use");
 	} else {
 		return 0;
