@@ -58,7 +58,7 @@ void Atrac::DoState(PointerWrap &p) {
 	}
 
 	Do(p, bufferMaxSize_);
-	Do(p, codecType_);
+	Do(p, track_.codecType);
 
 	Do(p, currentSample_);
 	Do(p, endSample_);
@@ -167,7 +167,6 @@ void Atrac::ResetData() {
 
 void Atrac::AnalyzeReset() {
 	// Reset some values.
-	codecType_ = 0;
 	currentSample_ = 0;
 	endSample_ = -1;
 	loopNum_ = 0;
@@ -201,7 +200,7 @@ void Atrac::WriteContextToPSPMem() {
 	context->info.bufferByte = bufferMaxSize_;
 	context->info.secondBuffer = second_.addr;
 	context->info.secondBufferByte = second_.size;
-	context->info.codec = codecType_;
+	context->info.codec = track_.codecType;
 	context->info.loopNum = loopNum_;
 	context->info.loopStart = loopStartSample_ > 0 ? loopStartSample_ : 0;
 	context->info.loopEnd = loopEndSample_ > 0 ? loopEndSample_ : 0;
@@ -213,7 +212,7 @@ void Atrac::WriteContextToPSPMem() {
 	if (firstSampleOffset_ != 0) {
 		context->info.samplesPerChan = firstSampleOffset_ + FirstOffsetExtra();
 	} else {
-		context->info.samplesPerChan = (codecType_ == PSP_MODE_AT_3_PLUS ? ATRAC3PLUS_MAX_SAMPLES : ATRAC3_MAX_SAMPLES);
+		context->info.samplesPerChan = (track_.codecType == PSP_MODE_AT_3_PLUS ? ATRAC3PLUS_MAX_SAMPLES : ATRAC3_MAX_SAMPLES);
 	}
 	context->info.sampleSize = bytesPerFrame_;
 	context->info.numChan = channels_;
@@ -309,7 +308,7 @@ int Atrac::Analyze(u32 addr, u32 size) {
 		switch (chunkMagic) {
 		case FMT_CHUNK_MAGIC:
 		{
-			if (codecType_ != 0) {
+			if (track->codecType != 0) {
 				return hleReportError(ME, ATRAC_ERROR_UNKNOWN_FORMAT, "multiple fmt definitions");
 			}
 
@@ -319,9 +318,9 @@ int Atrac::Analyze(u32 addr, u32 size) {
 			}
 
 			if (at3fmt->fmtTag == AT3_MAGIC)
-				codecType_ = PSP_MODE_AT_3;
+				track->codecType = PSP_MODE_AT_3;
 			else if (at3fmt->fmtTag == AT3_PLUS_MAGIC)
-				codecType_ = PSP_MODE_AT_3_PLUS;
+				track->codecType = PSP_MODE_AT_3_PLUS;
 			else {
 				return hleReportError(ME, ATRAC_ERROR_UNKNOWN_FORMAT, "invalid fmt magic: %04x", at3fmt->fmtTag);
 			}
@@ -405,7 +404,7 @@ int Atrac::Analyze(u32 addr, u32 size) {
 		offset += chunkSize;
 	}
 
-	if (codecType_ == 0) {
+	if (track->codecType == 0) {
 		return hleReportError(ME, ATRAC_ERROR_UNKNOWN_FORMAT, "could not detect codec");
 	}
 
@@ -477,14 +476,14 @@ int Atrac::AnalyzeAA3(u32 addr, u32 size, u32 filesize) {
 
 	switch (buffer[32]) {
 	case 0:
-		codecType_ = PSP_MODE_AT_3;
+		track->codecType = PSP_MODE_AT_3;
 		bytesPerFrame_ = (codecParams & 0x03FF) * 8;
 		bitrate_ = at3SampleRates[(codecParams >> 13) & 7] * bytesPerFrame_ * 8 / 1024;
 		channels_ = 2;
 		jointStereo_ = (codecParams >> 17) & 1;
 		break;
 	case 1:
-		codecType_ = PSP_MODE_AT_3_PLUS;
+		track->codecType = PSP_MODE_AT_3_PLUS;
 		bytesPerFrame_ = ((codecParams & 0x03FF) * 8) + 8;
 		bitrate_ = at3SampleRates[(codecParams >> 13) & 7] * bytesPerFrame_ * 8 / 2048;
 		channels_ = (codecParams >> 10) & 7;
@@ -565,7 +564,7 @@ void Atrac::CreateDecoder() {
 	}
 
 	// First, init the standalone decoder. Only used for low-level-decode initially, but simple.
-	if (codecType_ == PSP_MODE_AT_3) {
+	if (track_.codecType == PSP_MODE_AT_3) {
 		// We don't pull this from the RIFF so that we can support OMA also.
 		uint8_t extraData[14]{};
 		// The only thing that changes are the jointStereo_ values.
@@ -653,7 +652,7 @@ int Atrac::SetData(u32 buffer, u32 readSize, u32 bufferSize, int successCode) {
 	ResetData();
 	UpdateBufferState();
 
-	if (codecType_ != PSP_MODE_AT_3 && codecType_ != PSP_MODE_AT_3_PLUS) {
+	if (track_.codecType != PSP_MODE_AT_3 && track_.codecType != PSP_MODE_AT_3_PLUS) {
 		// Shouldn't have gotten here, Analyze() checks this.
 		bufferState_ = ATRAC_STATUS_NO_DATA;
 		return hleReportError(ME, ATRAC_ERROR_UNKNOWN_FORMAT, "unexpected codec type in set data");
@@ -671,7 +670,7 @@ int Atrac::SetData(u32 buffer, u32 readSize, u32 bufferSize, int successCode) {
 		bufferValidBytes_ = first_.size - bufferPos_;
 	}
 
-	const char *codecName = codecType_ == PSP_MODE_AT_3 ? "atrac3" : "atrac3+";
+	const char *codecName = track_.codecType == PSP_MODE_AT_3 ? "atrac3" : "atrac3+";
 	const char *channelName = channels_ == 1 ? "mono" : "stereo";
 
 	// Over-allocate databuf to prevent going off the end if the bitstream is bad or if there are
@@ -720,7 +719,7 @@ int Atrac::GetSecondBufferInfo(u32 *fileOffset, u32 *desiredSize) {
 
 void Atrac::UpdateBitrate() {
 	bitrate_ = (bytesPerFrame_ * 352800) / 1000;
-	if (codecType_ == PSP_MODE_AT_3_PLUS)
+	if (track_.codecType == PSP_MODE_AT_3_PLUS)
 		bitrate_ = ((bitrate_ >> 11) + 8) & 0xFFFFFFF0;
 	else
 		bitrate_ = (bitrate_ + 511) >> 10;
@@ -1075,7 +1074,7 @@ u32 Atrac::ResetPlayPosition(int sample, int bytesWrittenFirstBuf, int bytesWrit
 		bufferValidBytes_ = bytesWrittenFirstBuf - bufferPos_;
 	}
 
-	if (codecType_ == PSP_MODE_AT_3 || codecType_ == PSP_MODE_AT_3_PLUS) {
+	if (track_.codecType == PSP_MODE_AT_3 || track_.codecType == PSP_MODE_AT_3_PLUS) {
 		SeekToSample(sample);
 	}
 
@@ -1091,11 +1090,11 @@ void Atrac::InitLowLevel(u32 paramsAddr, bool jointStereo) {
 	first_.writableBytes = bytesPerFrame_;
 	ResetData();
 
-	if (codecType_ == PSP_MODE_AT_3) {
+	if (track_.codecType == PSP_MODE_AT_3) {
 		bitrate_ = (bytesPerFrame_ * 352800) / 1000;
 		bitrate_ = (bitrate_ + 511) >> 10;
 		jointStereo_ = false;
-	} else if (codecType_ == PSP_MODE_AT_3_PLUS) {
+	} else if (track_.codecType == PSP_MODE_AT_3_PLUS) {
 		bitrate_ = (bytesPerFrame_ * 352800) / 1000;
 		bitrate_ = ((bitrate_ >> 11) + 8) & 0xFFFFFFF0;
 		jointStereo_ = false;

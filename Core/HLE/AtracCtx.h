@@ -108,6 +108,8 @@ inline u32 FirstOffsetExtra(int codecType) {
 
 struct Track {
 	u32 fileSize;
+	u32 codecType;
+	u32 bytesPerFrame;
 };
 
 struct Atrac {
@@ -144,7 +146,7 @@ struct Atrac {
 	}
 	// Output frame size
 	u32 SamplesPerFrame() const {
-		return codecType_ == PSP_MODE_AT_3_PLUS ? ATRAC3PLUS_MAX_SAMPLES : ATRAC3_MAX_SAMPLES;
+		return track_.codecType == PSP_MODE_AT_3_PLUS ? ATRAC3PLUS_MAX_SAMPLES : ATRAC3_MAX_SAMPLES;
 	}
 
 	u32 DecodePosBySample(int sample) const {
@@ -205,7 +207,7 @@ struct Atrac {
 	void SeekToSample(int sample);
 
 	u32 CodecType() const {
-		return codecType_;
+		return track_.codecType;
 	}
 	AudioDecoder *GetDecoder() const {
 		return decoder_;
@@ -223,7 +225,7 @@ struct Atrac {
 	void CalculateStreamInfo(u32 *readOffset);
 
 	u32 FirstOffsetExtra() const {
-		return ::FirstOffsetExtra(codecType_);
+		return ::FirstOffsetExtra(track_.codecType);
 	}
 
 	u32 StreamBufferEnd() const {
@@ -253,9 +255,6 @@ struct Atrac {
 	u32 GetNextSamples();
 
 	void InitLowLevel(u32 paramsAddr, bool jointStereo);
-
-	// To be moved into private.
-	u32 codecType_ = 0;
 
 private:
 	void AnalyzeReset();

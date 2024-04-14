@@ -176,7 +176,7 @@ static u32 sceAtracGetAtracID(int codecType) {
 	}
 
 	Atrac *atrac = new Atrac();
-	atrac->codecType_ = codecType;
+	atrac->track_.codecType = codecType;
 	int atracID = createAtrac(atrac);
 	if (atracID < 0) {
 		delete atrac;
@@ -602,7 +602,7 @@ static u32 sceAtracSetData(int atracID, u32 buffer, u32 bufferSize) {
 		return ret;
 	}
 
-	if (atrac->codecType_ != atracContextTypes[atracID]) {
+	if (atrac->track_.codecType != atracContextTypes[atracID]) {
 		// TODO: Should this not change the buffer size?
 		return hleReportError(ME, ATRAC_ERROR_WRONG_CODECTYPE, "atracID uses different codec type than data");
 	}
@@ -913,18 +913,13 @@ static int sceAtracLowLevelInitDecoder(int atracID, u32 paramsAddr) {
 		return hleLogError(ME, ATRAC_ERROR_BAD_ATRACID, "bad atrac ID");
 	}
 
-	if (atrac->codecType_ != PSP_MODE_AT_3 && atrac->codecType_ != PSP_MODE_AT_3_PLUS) {
-		// TODO: Error code?  Was silently 0 before, and just didn't work.  Shouldn't ever happen...
-		return hleReportError(ME, ATRAC_ERROR_UNKNOWN_FORMAT, "bad codec type");
-	}
-
 	if (!Memory::IsValidAddress(paramsAddr)) {
 		// TODO: Returning zero as code was before.  Needs testing.
 		return hleReportError(ME, 0, "invalid pointers");
 	}
 
 	bool jointStereo = false;
-	if (atrac->codecType_ == PSP_MODE_AT_3) {
+	if (atrac->track_.codecType == PSP_MODE_AT_3) {
 		// See if we can match the actual jointStereo value.
 		bool found = false;
 		for (size_t i = 0; i < ARRAY_SIZE(at3HeaderMap); ++i) {
@@ -941,7 +936,7 @@ static int sceAtracLowLevelInitDecoder(int atracID, u32 paramsAddr) {
 
 	atrac->InitLowLevel(paramsAddr, jointStereo);
 
-	const char *codecName = atrac->codecType_ == PSP_MODE_AT_3 ? "atrac3" : "atrac3+";
+	const char *codecName = atrac->track_.codecType == PSP_MODE_AT_3 ? "atrac3" : "atrac3+";
 	const char *channelName = atrac->channels_ == 1 ? "mono" : "stereo";
 	return hleLogSuccessInfoI(ME, 0, "%s %s audio", codecName, channelName);
 }
