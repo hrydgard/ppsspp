@@ -157,6 +157,8 @@ struct AtracLoopInfo {
 	int playCount;
 };
 
+struct AtracResetBufferInfo;
+
 struct Atrac {
 	Atrac() {
 		memset(&first_, 0, sizeof(first_));
@@ -498,6 +500,8 @@ struct Atrac {
 	}
 
 	void WriteContextToPSPMem();
+	u32 DecodeData(u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u32 *finish, int *remains);
+	void GetResetBufferInfo(AtracResetBufferInfo *bufferInfo, int sample);
 
 	// To be moved into private.
 	AtracStatus bufferState_ = ATRAC_STATUS_NO_DATA;
@@ -1053,19 +1057,19 @@ static u32 sceAtracAddStreamData(int atracID, u32 bytesToAdd) {
 	return hleLogSuccessI(ME, 0);
 }
 
-static u32 _AtracDecodeData(Atrac *atrac, u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u32 *finish, int *remains) {
-	int loopNum = atrac->loopNum_;
-	if (atrac->bufferState_ == ATRAC_STATUS_FOR_SCESAS) {
+u32 Atrac::DecodeData(u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u32 *finish, int *remains) {
+	int loopNum = loopNum_;
+	if (bufferState_ == ATRAC_STATUS_FOR_SCESAS) {
 		// TODO: Might need more testing.
 		loopNum = 0;
 	}
 
 	// We already passed the end - return an error (many games check for this.)
-	if (atrac->currentSample_ >= atrac->endSample_ && loopNum == 0) {
+	if (currentSample_ >= endSample_ && loopNum == 0) {
 		*SamplesNum = 0;
 		*finish = 1;
 		// refresh context_
-		atrac->WriteContextToPSPMem();
+		WriteContextToPSPMem();
 		return ATRAC_ERROR_ALL_DATA_DECODED;
 	}
 
@@ -1073,32 +1077,33 @@ static u32 _AtracDecodeData(Atrac *atrac, u8 *outbuf, u32 outbufPtr, u32 *Sample
 	u32 numSamples = 0;
 
 	// It seems like the PSP aligns the sample position to 0x800...?
-	int offsetSamples = atrac->firstSampleOffset_ + atrac->FirstOffsetExtra();
+	int offsetSamples = firstSampleOffset_ + FirstOffsetExtra();
 	int skipSamples = 0;
-	u32 maxSamples = atrac->endSample_ + 1 - atrac->currentSample_;
-	u32 unalignedSamples = (offsetSamples + atrac->currentSample_) % atrac->SamplesPerFrame();
+	u32 maxSamples = endSample_ + 1 - currentSample_;
+	u32 unalignedSamples = (offsetSamples + currentSample_) % SamplesPerFrame();
 	if (unalignedSamples != 0) {
 		// We're off alignment, possibly due to a loop.  Force it back on.
-		maxSamples = atrac->SamplesPerFrame() - unalignedSamples;
+		maxSamples = SamplesPerFrame() - unalignedSamples;
 		skipSamples = unalignedSamples;
 	}
 
-	if (skipSamples != 0 && atrac->bufferHeaderSize_ == 0) {
+	if (skipSamples != 0 && bufferHeaderSize_ == 0) {
 		// Skip the initial frame used to load state for the looped frame.
 		// TODO: We will want to actually read this in.
-		atrac->ConsumeFrame();
+		ConsumeFrame();
 	}
 
-	if (!atrac->failedDecode_ && (atrac->codecType_ == PSP_MODE_AT_3 || atrac->codecType_ == PSP_MODE_AT_3_PLUS)) {
-		atrac->SeekToSample(atrac->currentSample_);
+	// TODO: We don't support any other codec type, check seems unnecessary?
+	if (!failedDecode_ && (codecType_ == PSP_MODE_AT_3 || codecType_ == PSP_MODE_AT_3_PLUS)) {
+		SeekToSample(currentSample_);
 
 		AtracDecodeResult res = ATDECODE_FEEDME;
-		u32 off = atrac->FileOffsetBySample(atrac->currentSample_ - skipSamples);
-		if (off < atrac->first_.size) {
-			uint8_t *indata = atrac->BufferStart() + off;
+		u32 off = FileOffsetBySample(currentSample_ - skipSamples);
+		if (off < first_.size) {
+			uint8_t *indata = BufferStart() + off;
 			int bytesConsumed = 0;
 			int outBytes = 0;
-			if (!atrac->decoder_->Decode(indata, atrac->bytesPerFrame_, &bytesConsumed,
+			if (!decoder_->Decode(indata, bytesPerFrame_, &bytesConsumed,
 				outbuf, &outBytes)) {
 				// Decode failed.
 				*SamplesNum = 0;
@@ -1108,7 +1113,7 @@ static u32 _AtracDecodeData(Atrac *atrac, u8 *outbuf, u32 outbufPtr, u32 *Sample
 			res = ATDECODE_GOTFRAME;
 
 			numSamples = outBytes / 4;
-			uint32_t packetAddr = atrac->CurBufferAddress(-skipSamples);
+			uint32_t packetAddr = CurBufferAddress(-skipSamples);
 			// got a frame
 			int skipped = std::min((u32)skipSamples, numSamples);
 			skipSamples -= skipped;
@@ -1123,8 +1128,8 @@ static u32 _AtracDecodeData(Atrac *atrac, u8 *outbuf, u32 outbufPtr, u32 *Sample
 
 			if (packetAddr != 0 && MemBlockInfoDetailed()) {
 				char tagData[128];
-				size_t tagSize = FormatMemWriteTagAt(tagData, sizeof(tagData), "AtracDecode/", packetAddr, atrac->bytesPerFrame_);
-				NotifyMemInfo(MemBlockFlags::READ, packetAddr, atrac->bytesPerFrame_, tagData, tagSize);
+				size_t tagSize = FormatMemWriteTagAt(tagData, sizeof(tagData), "AtracDecode/", packetAddr, bytesPerFrame_);
+				NotifyMemInfo(MemBlockFlags::READ, packetAddr, bytesPerFrame_, tagData, tagSize);
 				NotifyMemInfo(MemBlockFlags::WRITE, outbufPtr, outBytes, tagData, tagSize);
 			} else {
 				NotifyMemInfo(MemBlockFlags::WRITE, outbufPtr, outBytes, "AtracDecode");
@@ -1132,12 +1137,12 @@ static u32 _AtracDecodeData(Atrac *atrac, u8 *outbuf, u32 outbufPtr, u32 *Sample
 			// We only want one frame per call, let's continue the next time.
 		}
 
-		if (res != ATDECODE_GOTFRAME && atrac->currentSample_ < atrac->endSample_) {
+		if (res != ATDECODE_GOTFRAME && currentSample_ < endSample_) {
 			// Never got a frame.  We may have dropped a GHA frame or otherwise have a bug.
 			// For now, let's try to provide an extra "frame" if possible so games don't infinite loop.
-			if (atrac->FileOffsetBySample(atrac->currentSample_) < atrac->first_.filesize) {
-				numSamples = std::min(maxSamples, atrac->SamplesPerFrame());
-				u32 outBytes = numSamples * atrac->outputChannels_ * sizeof(s16);
+			if (FileOffsetBySample(currentSample_) < first_.filesize) {
+				numSamples = std::min(maxSamples, SamplesPerFrame());
+				u32 outBytes = numSamples * outputChannels_ * sizeof(s16);
 				if (outbuf != nullptr) {
 					memset(outbuf, 0, outBytes);
 					NotifyMemInfo(MemBlockFlags::WRITE, outbufPtr, outBytes, "AtracDecode");
@@ -1148,28 +1153,28 @@ static u32 _AtracDecodeData(Atrac *atrac, u8 *outbuf, u32 outbufPtr, u32 *Sample
 
 	*SamplesNum = numSamples;
 	// update current sample and decodePos
-	atrac->currentSample_ += numSamples;
-	atrac->decodePos_ = atrac->DecodePosBySample(atrac->currentSample_);
+	currentSample_ += numSamples;
+	decodePos_ = DecodePosBySample(currentSample_);
 
-	atrac->ConsumeFrame();
+	ConsumeFrame();
 
 	int finishFlag = 0;
 	// TODO: Verify.
-	bool hitEnd = atrac->currentSample_ >= atrac->endSample_ || (numSamples == 0 && atrac->first_.size >= atrac->first_.filesize);
-	int loopEndAdjusted = atrac->loopEndSample_ - atrac->FirstOffsetExtra() - atrac->firstSampleOffset_;
-	if ((hitEnd || atrac->currentSample_ > loopEndAdjusted) && loopNum != 0) {
-		atrac->SeekToSample(atrac->loopStartSample_ - atrac->FirstOffsetExtra() - atrac->firstSampleOffset_);
-		if (atrac->bufferState_ != ATRAC_STATUS_FOR_SCESAS) {
-			if (atrac->loopNum_ > 0)
-				atrac->loopNum_--;
+	bool hitEnd = currentSample_ >= endSample_ || (numSamples == 0 && first_.size >= first_.filesize);
+	int loopEndAdjusted = loopEndSample_ - FirstOffsetExtra() - firstSampleOffset_;
+	if ((hitEnd || currentSample_ > loopEndAdjusted) && loopNum != 0) {
+		SeekToSample(loopStartSample_ - FirstOffsetExtra() - firstSampleOffset_);
+		if (bufferState_ != ATRAC_STATUS_FOR_SCESAS) {
+			if (loopNum_ > 0)
+				loopNum_--;
 		}
-		if ((atrac->bufferState_ & ATRAC_STATUS_STREAMED_MASK) == ATRAC_STATUS_STREAMED_MASK) {
+		if ((bufferState_ & ATRAC_STATUS_STREAMED_MASK) == ATRAC_STATUS_STREAMED_MASK) {
 			// Whatever bytes we have left were added from the loop.
-			u32 loopOffset = atrac->FileOffsetBySample(atrac->loopStartSample_ - atrac->FirstOffsetExtra() - atrac->firstSampleOffset_ - atrac->SamplesPerFrame() * 2);
+			u32 loopOffset = FileOffsetBySample(loopStartSample_ - FirstOffsetExtra() - firstSampleOffset_ - SamplesPerFrame() * 2);
 			// TODO: Hmm, need to manage the buffer better.  But don't move fileoffset if we already have valid data.
-			if (loopOffset > atrac->first_.fileoffset || loopOffset + atrac->bufferValidBytes_ < atrac->first_.fileoffset) {
+			if (loopOffset > first_.fileoffset || loopOffset + bufferValidBytes_ < first_.fileoffset) {
 				// Skip the initial frame at the start.
-				atrac->first_.fileoffset = atrac->FileOffsetBySample(atrac->loopStartSample_ - atrac->FirstOffsetExtra() - atrac->firstSampleOffset_ - atrac->SamplesPerFrame() * 2);
+				first_.fileoffset = FileOffsetBySample(loopStartSample_ - FirstOffsetExtra() - firstSampleOffset_ - SamplesPerFrame() * 2);
 			}
 		}
 	} else if (hitEnd) {
@@ -1177,13 +1182,13 @@ static u32 _AtracDecodeData(Atrac *atrac, u8 *outbuf, u32 outbufPtr, u32 *Sample
 
 		// Still move forward, so we know that we've read everything.
 		// This seems to be reflected in the context as well.
-		atrac->currentSample_ += atrac->SamplesPerFrame() - numSamples;
+		currentSample_ += SamplesPerFrame() - numSamples;
 	}
 
 	*finish = finishFlag;
-	*remains = atrac->RemainingFrames();
+	*remains = RemainingFrames();
 	// refresh context_
-	atrac->WriteContextToPSPMem();
+	WriteContextToPSPMem();
 	return 0;
 }
 
@@ -1199,7 +1204,7 @@ static u32 sceAtracDecodeData(int atracID, u32 outAddr, u32 numSamplesAddr, u32 
 	u32 numSamples = 0;
 	u32 finish = 0;
 	int remains = 0;
-	int ret = _AtracDecodeData(atrac, Memory::GetPointerWrite(outAddr), outAddr, &numSamples, &finish, &remains);
+	int ret = atrac->DecodeData(Memory::GetPointerWrite(outAddr), outAddr, &numSamples, &finish, &remains);
 	if (ret != (int)ATRAC_ERROR_BAD_ATRACID && ret != (int)ATRAC_ERROR_NO_DATA) {
 		if (Memory::IsValidAddress(numSamplesAddr))
 			Memory::WriteUnchecked_U32(numSamples, numSamplesAddr);
@@ -1225,47 +1230,47 @@ static u32 sceAtracEndEntry() {
 	return 0;
 }
 
-static void AtracGetResetBufferInfo(Atrac *atrac, AtracResetBufferInfo *bufferInfo, int sample) {
-	if (atrac->bufferState_ == ATRAC_STATUS_ALL_DATA_LOADED) {
-		bufferInfo->first.writePosPtr = atrac->first_.addr;
+void Atrac::GetResetBufferInfo(AtracResetBufferInfo *bufferInfo, int sample) {
+	if (bufferState_ == ATRAC_STATUS_ALL_DATA_LOADED) {
+		bufferInfo->first.writePosPtr = first_.addr;
 		// Everything is loaded, so nothing needs to be read.
 		bufferInfo->first.writableBytes = 0;
 		bufferInfo->first.minWriteBytes = 0;
 		bufferInfo->first.filePos = 0;
-	} else if (atrac->bufferState_ == ATRAC_STATUS_HALFWAY_BUFFER) {
+	} else if (bufferState_ == ATRAC_STATUS_HALFWAY_BUFFER) {
 		// Here the message is: you need to read at least this many bytes to get to that position.
 		// This is because we're filling the buffer start to finish, not streaming.
-		bufferInfo->first.writePosPtr = atrac->first_.addr + atrac->first_.size;
-		bufferInfo->first.writableBytes = atrac->first_.filesize - atrac->first_.size;
-		int minWriteBytes = atrac->FileOffsetBySample(sample) - atrac->first_.size;
+		bufferInfo->first.writePosPtr = first_.addr + first_.size;
+		bufferInfo->first.writableBytes = first_.filesize - first_.size;
+		int minWriteBytes = FileOffsetBySample(sample) - first_.size;
 		if (minWriteBytes > 0) {
 			bufferInfo->first.minWriteBytes = minWriteBytes;
 		} else {
 			bufferInfo->first.minWriteBytes = 0;
 		}
-		bufferInfo->first.filePos = atrac->first_.size;
+		bufferInfo->first.filePos = first_.size;
 	} else {
 		// This is without the sample offset.  The file offset also includes the previous batch of samples?
-		int sampleFileOffset = atrac->FileOffsetBySample(sample - atrac->firstSampleOffset_ - atrac->SamplesPerFrame());
+		int sampleFileOffset = FileOffsetBySample(sample - firstSampleOffset_ - SamplesPerFrame());
 
 		// Update the writable bytes.  When streaming, this is just the number of bytes until the end.
-		const u32 bufSizeAligned = (atrac->bufferMaxSize_ / atrac->bytesPerFrame_) * atrac->bytesPerFrame_;
-		const int needsMoreFrames = atrac->FirstOffsetExtra();
+		const u32 bufSizeAligned = (bufferMaxSize_ / bytesPerFrame_) * bytesPerFrame_;
+		const int needsMoreFrames = FirstOffsetExtra();
 
-		bufferInfo->first.writePosPtr = atrac->first_.addr;
-		bufferInfo->first.writableBytes = std::min(atrac->first_.filesize - sampleFileOffset, bufSizeAligned);
-		if (((sample + atrac->firstSampleOffset_) % (int)atrac->SamplesPerFrame()) >= (int)atrac->SamplesPerFrame() - needsMoreFrames) {
+		bufferInfo->first.writePosPtr = first_.addr;
+		bufferInfo->first.writableBytes = std::min(first_.filesize - sampleFileOffset, bufSizeAligned);
+		if (((sample + firstSampleOffset_) % (int)SamplesPerFrame()) >= (int)SamplesPerFrame() - needsMoreFrames) {
 			// Not clear why, but it seems it wants a bit extra in case the sample is late?
-			bufferInfo->first.minWriteBytes = atrac->bytesPerFrame_ * 3;
+			bufferInfo->first.minWriteBytes = bytesPerFrame_ * 3;
 		} else {
-			bufferInfo->first.minWriteBytes = atrac->bytesPerFrame_ * 2;
+			bufferInfo->first.minWriteBytes = bytesPerFrame_ * 2;
 		}
-		if ((u32)sample < (u32)atrac->firstSampleOffset_ && sampleFileOffset != atrac->dataOff_) {
-			sampleFileOffset -= atrac->bytesPerFrame_;
+		if ((u32)sample < (u32)firstSampleOffset_ && sampleFileOffset != dataOff_) {
+			sampleFileOffset -= bytesPerFrame_;
 		}
 		bufferInfo->first.filePos = sampleFileOffset;
 
-		if (atrac->second_.size != 0) {
+		if (second_.size != 0) {
 			// TODO: We have a second buffer.  Within it, minWriteBytes should be zero.
 			// The filePos should be after the end of the second buffer (or zero.)
 			// We actually need to ensure we READ from the second buffer before implementing that.
@@ -1273,7 +1278,7 @@ static void AtracGetResetBufferInfo(Atrac *atrac, AtracResetBufferInfo *bufferIn
 	}
 
 	// It seems like this is always the same as the first buffer's pos, weirdly.
-	bufferInfo->second.writePosPtr = atrac->first_.addr;
+	bufferInfo->second.writePosPtr = first_.addr;
 	// Reset never needs a second buffer write, since the loop is in a fixed place.
 	bufferInfo->second.writableBytes = 0;
 	bufferInfo->second.minWriteBytes = 0;
@@ -1299,7 +1304,7 @@ static u32 sceAtracGetBufferInfoForResetting(int atracID, int sample, u32 buffer
 	} else if ((u32)sample + atrac->firstSampleOffset_ > (u32)atrac->endSample_ + atrac->firstSampleOffset_) {
 		return hleLogWarning(ME, ATRAC_ERROR_BAD_SAMPLE, "invalid sample position");
 	} else {
-		AtracGetResetBufferInfo(atrac, bufferInfo, sample);
+		atrac->GetResetBufferInfo(bufferInfo, sample);
 		return hleLogSuccessInfoI(ME, 0);
 	}
 }
@@ -1572,7 +1577,7 @@ static u32 sceAtracResetPlayPosition(int atracID, int sample, int bytesWrittenFi
 	}
 	// Reuse the same calculation as before.
 	AtracResetBufferInfo bufferInfo;
-	AtracGetResetBufferInfo(atrac, &bufferInfo, sample);
+	atrac->GetResetBufferInfo(&bufferInfo, sample);
 
 	if ((u32)bytesWrittenFirstBuf < bufferInfo.first.minWriteBytes || (u32)bytesWrittenFirstBuf > bufferInfo.first.writableBytes) {
 		return hleLogError(ME, ATRAC_ERROR_BAD_FIRST_RESET_SIZE, "first byte count not in valid range");
@@ -2212,7 +2217,6 @@ static int sceAtracLowLevelDecode(int atracID, u32 sourceAddr, u32 sourceBytesCo
 		return hleReportError(ME, 0, "invalid pointers");
 	}
 
-	int numSamples = (atrac->codecType_ == PSP_MODE_AT_3_PLUS ? ATRAC3PLUS_MAX_SAMPLES : ATRAC3_MAX_SAMPLES);
 	int bytesConsumed = 0;
 	int bytesWritten = 0;
 	atrac->decoder_->Decode(srcp, atrac->bytesPerFrame_, &bytesConsumed, outp, &bytesWritten);
@@ -2259,7 +2263,7 @@ u32 AtracSasDecodeData(int atracID, u8* outbuf, u32 outbufPtr, u32 *SamplesNum, 
 	Atrac *atrac = getAtrac(atracID);
 	if (!atrac)
 		return 0;
-	return _AtracDecodeData(atrac, outbuf, outbufPtr, SamplesNum, finish, remains);
+	return atrac->DecodeData(outbuf, outbufPtr, SamplesNum, finish, remains);
 }
 
 int AtracSasGetIDByContext(u32 contextAddr) {
