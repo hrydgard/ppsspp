@@ -162,25 +162,22 @@ struct Atrac {
 
 	int RemainingFrames() const;
 
-	int atracID_ = -1;
-
 	u8 *dataBuf_ = nullptr;
+	// Offset of the first sample in the input buffer
+	int dataOff_ = 0;
 	// Indicates that the dataBuf_ array should not be used.
 	bool ignoreDataBuf_ = false;
-
 	u32 decodePos_ = 0;
 
+	int atracID_ = -1;
 	u16 channels_ = 0;
 	u16 outputChannels_ = 2;
 
 	int currentSample_ = 0;
 	int endSample_ = 0;
 	int firstSampleOffset_ = 0;
-	// Offset of the first sample in the input buffer
-	int dataOff_ = 0;
 
 	std::vector<AtracLoopInfo> loopinfo_;
-
 	int loopStartSample_ = -1;
 	int loopEndSample_ = -1;
 	int loopNum_ = 0;
@@ -255,7 +252,7 @@ private:
 	u32 bufferMaxSize_ = 0;
 	int jointStereo_ = 0;
 
-	// Used by low-level decoding and to track streaming.
+	// Used to track streaming.
 	u32 bufferPos_ = 0;
 	u32 bufferValidBytes_ = 0;
 	u32 bufferHeaderSize_ = 0;
