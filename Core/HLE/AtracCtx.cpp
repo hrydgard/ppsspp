@@ -891,54 +891,52 @@ u32 Atrac::DecodeData(u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u32 *finish, i
 	}
 
 	// TODO: We don't support any other codec type, check seems unnecessary?
-	if ((codecType_ == PSP_MODE_AT_3 || codecType_ == PSP_MODE_AT_3_PLUS)) {
-		SeekToSample(currentSample_);
+	SeekToSample(currentSample_);
 
-		bool gotFrame = false;
-		u32 off = FileOffsetBySample(currentSample_ - skipSamples);
-		if (off < first_.size) {
-			uint8_t *indata = BufferStart() + off;
-			int bytesConsumed = 0;
-			int outBytes = 0;
-			if (!decoder_->Decode(indata, bytesPerFrame_, &bytesConsumed,
-				outbuf, &outBytes)) {
-				// Decode failed.
-				*SamplesNum = 0;
-				*finish = 1;
-				return ATRAC_ERROR_ALL_DATA_DECODED;
-			}
-			gotFrame = true;
-
-			numSamples = outBytes / 4;
-			uint32_t packetAddr = CurBufferAddress(-skipSamples);
-			// got a frame
-			int skipped = std::min((u32)skipSamples, numSamples);
-			skipSamples -= skipped;
-			numSamples = numSamples - skipped;
-			// If we're at the end, clamp to samples we want.  It always returns a full chunk.
-			numSamples = std::min(maxSamples, numSamples);
-
-			if (packetAddr != 0 && MemBlockInfoDetailed()) {
-				char tagData[128];
-				size_t tagSize = FormatMemWriteTagAt(tagData, sizeof(tagData), "AtracDecode/", packetAddr, bytesPerFrame_);
-				NotifyMemInfo(MemBlockFlags::READ, packetAddr, bytesPerFrame_, tagData, tagSize);
-				NotifyMemInfo(MemBlockFlags::WRITE, outbufPtr, outBytes, tagData, tagSize);
-			} else {
-				NotifyMemInfo(MemBlockFlags::WRITE, outbufPtr, outBytes, "AtracDecode");
-			}
-			// We only want one frame per call, let's continue the next time.
+	bool gotFrame = false;
+	u32 off = FileOffsetBySample(currentSample_ - skipSamples);
+	if (off < first_.size) {
+		uint8_t *indata = BufferStart() + off;
+		int bytesConsumed = 0;
+		int outBytes = 0;
+		if (!decoder_->Decode(indata, bytesPerFrame_, &bytesConsumed,
+			outbuf, &outBytes)) {
+			// Decode failed.
+			*SamplesNum = 0;
+			*finish = 1;
+			return ATRAC_ERROR_ALL_DATA_DECODED;
 		}
+		gotFrame = true;
 
-		if (!gotFrame && currentSample_ < endSample_) {
-			// Never got a frame.  We may have dropped a GHA frame or otherwise have a bug.
-			// For now, let's try to provide an extra "frame" if possible so games don't infinite loop.
-			if (FileOffsetBySample(currentSample_) < first_.filesize) {
-				numSamples = std::min(maxSamples, SamplesPerFrame());
-				u32 outBytes = numSamples * outputChannels_ * sizeof(s16);
-				if (outbuf != nullptr) {
-					memset(outbuf, 0, outBytes);
-					NotifyMemInfo(MemBlockFlags::WRITE, outbufPtr, outBytes, "AtracDecode");
-				}
+		numSamples = outBytes / 4;
+		uint32_t packetAddr = CurBufferAddress(-skipSamples);
+		// got a frame
+		int skipped = std::min((u32)skipSamples, numSamples);
+		skipSamples -= skipped;
+		numSamples = numSamples - skipped;
+		// If we're at the end, clamp to samples we want.  It always returns a full chunk.
+		numSamples = std::min(maxSamples, numSamples);
+
+		if (packetAddr != 0 && MemBlockInfoDetailed()) {
+			char tagData[128];
+			size_t tagSize = FormatMemWriteTagAt(tagData, sizeof(tagData), "AtracDecode/", packetAddr, bytesPerFrame_);
+			NotifyMemInfo(MemBlockFlags::READ, packetAddr, bytesPerFrame_, tagData, tagSize);
+			NotifyMemInfo(MemBlockFlags::WRITE, outbufPtr, outBytes, tagData, tagSize);
+		} else {
+			NotifyMemInfo(MemBlockFlags::WRITE, outbufPtr, outBytes, "AtracDecode");
+		}
+		// We only want one frame per call, let's continue the next time.
+	}
+
+	if (!gotFrame && currentSample_ < endSample_) {
+		// Never got a frame.  We may have dropped a GHA frame or otherwise have a bug.
+		// For now, let's try to provide an extra "frame" if possible so games don't infinite loop.
+		if (FileOffsetBySample(currentSample_) < first_.filesize) {
+			numSamples = std::min(maxSamples, SamplesPerFrame());
+			u32 outBytes = numSamples * outputChannels_ * sizeof(s16);
+			if (outbuf != nullptr) {
+				memset(outbuf, 0, outBytes);
+				NotifyMemInfo(MemBlockFlags::WRITE, outbufPtr, outBytes, "AtracDecode");
 			}
 		}
 	}
