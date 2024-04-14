@@ -462,17 +462,7 @@ static u32 sceAtracGetSecondBufferInfo(int atracID, u32 fileOffsetAddr, u32 desi
 		return hleReportError(ME, SCE_KERNEL_ERROR_ILLEGAL_ADDR, "invalid addresses");
 	}
 
-	if (atrac->BufferState() != ATRAC_STATUS_STREAMED_LOOP_WITH_TRAILER) {
-		// Writes zeroes in this error case.
-		*fileOffset = 0;
-		*desiredSize = 0;
-		return hleLogWarning(ME, ATRAC_ERROR_SECOND_BUFFER_NOT_NEEDED, "not needed");
-	}
-
-	*fileOffset = atrac->FileOffsetBySample(atrac->loopEndSample_ - atrac->firstSampleOffset_);
-	*desiredSize = atrac->first_.filesize - *fileOffset;
-
-	return hleLogSuccessI(ME, 0);
+	return atrac->GetSecondBufferInfo(fileOffset, desiredSize);
 }
 
 static u32 sceAtracGetSoundSample(int atracID, u32 outEndSampleAddr, u32 outLoopStartSampleAddr, u32 outLoopEndSampleAddr) {

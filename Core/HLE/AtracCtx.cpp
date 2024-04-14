@@ -49,7 +49,14 @@ void Atrac::DoState(PointerWrap &p) {
 	}
 
 	Do(p, atracID_);
+	if (p.mode != p.MODE_READ) {
+		first_._filesize_dontuse = track_.fileSize;
+	}
 	Do(p, first_);
+	if (p.mode == p.MODE_READ) {
+		track_.fileSize = first_._filesize_dontuse;
+	}
+
 	Do(p, bufferMaxSize_);
 	Do(p, codecType_);
 
@@ -68,10 +75,10 @@ void Atrac::DoState(PointerWrap &p) {
 		if (p.mode == p.MODE_READ) {
 			if (dataBuf_)
 				delete[] dataBuf_;
-			dataBuf_ = new u8[first_.filesize + overAllocBytes];
-			memset(dataBuf_, 0, first_.filesize + overAllocBytes);
+			dataBuf_ = new u8[track_.fileSize + overAllocBytes];
+			memset(dataBuf_, 0, track_.fileSize + overAllocBytes);
 		}
-		DoArray(p, dataBuf_, first_.filesize);
+		DoArray(p, dataBuf_, track_.fileSize);
 	}
 	Do(p, second_);
 
@@ -212,7 +219,7 @@ void Atrac::WriteContextToPSPMem() {
 	context->info.numChan = channels_;
 	context->info.dataOff = dataOff_;
 	context->info.endSample = endSample_ + firstSampleOffset_ + FirstOffsetExtra();
-	context->info.dataEnd = first_.filesize;
+	context->info.dataEnd = track_.fileSize;
 	context->info.curOff = first_.fileoffset;
 	context->info.decodePos = DecodePosBySample(currentSample_);
 	context->info.streamDataByte = first_.size - dataOff_;
@@ -224,6 +231,9 @@ void Atrac::WriteContextToPSPMem() {
 }
 
 int Atrac::Analyze(u32 addr, u32 size) {
+	Track *track = &track_;
+	*track = {};
+
 	struct RIFFFmtChunk {
 		u16_le fmtTag;
 		u16_le channels;
@@ -232,6 +242,7 @@ int Atrac::Analyze(u32 addr, u32 size) {
 		u16_le blockAlign;
 	};
 
+	first_ = {};
 	first_.addr = addr;
 	first_.size = size;
 
@@ -275,10 +286,10 @@ int Atrac::Analyze(u32 addr, u32 size) {
 	}
 
 	// RIFF size excluding chunk header.
-	first_.filesize = Memory::Read_U32(addr + offset - 8) + 8;
+	track->fileSize = Memory::Read_U32(addr + offset - 8) + 8;
 
 	// Even if the RIFF size is too low, it may simply be incorrect.  This works on real firmware.
-	u32 maxSize = std::max(first_.filesize, size);
+	u32 maxSize = std::max(track->fileSize, size);
 
 	bool bfoundData = false;
 	u32 dataChunkSize = 0;
@@ -384,9 +395,9 @@ int Atrac::Analyze(u32 addr, u32 size) {
 			bfoundData = true;
 			dataOff_ = offset;
 			dataChunkSize = chunkSize;
-			if (first_.filesize < offset + chunkSize) {
+			if (track->fileSize < offset + chunkSize) {
 				WARN_LOG_REPORT(ME, "Atrac data chunk extends beyond riff chunk");
-				first_.filesize = offset + chunkSize;
+				track->fileSize = offset + chunkSize;
 			}
 		}
 		break;
@@ -422,13 +433,18 @@ int Atrac::Analyze(u32 addr, u32 size) {
 		return hleReportError(ME, ATRAC_ERROR_BAD_CODEC_PARAMS, "loop after end of data");
 	}
 
+	first_._filesize_dontuse = track->fileSize;
 	return 0;
 }
 
 int Atrac::AnalyzeAA3(u32 addr, u32 size, u32 filesize) {
+	Track *track = &track_;
+	*track = {};
+
 	first_.addr = addr;
 	first_.size = size;
-	first_.filesize = filesize;
+	track->fileSize = filesize;
+	first_._filesize_dontuse = filesize;
 
 	AnalyzeReset();
 
@@ -501,7 +517,7 @@ void Atrac::CalculateStreamInfo(u32 *outReadOffset) {
 		// If we're buffering the entire file, just give the same as readOffset.
 		first_.offset = readOffset;
 		// In this case, the bytes writable are just the remaining bytes, always.
-		first_.writableBytes = first_.filesize - readOffset;
+		first_.writableBytes = track_.fileSize - readOffset;
 	} else {
 		u32 bufferEnd = StreamBufferEnd();
 		u32 bufferValidExtended = bufferPos_ + bufferValidBytes_;
@@ -514,7 +530,7 @@ void Atrac::CalculateStreamInfo(u32 *outReadOffset) {
 			first_.writableBytes = bufferPos_ - bufferStartUsed;
 		}
 
-		if (readOffset >= first_.filesize) {
+		if (readOffset >= track_.fileSize) {
 			if (bufferState_ == ATRAC_STATUS_STREAMED_WITHOUT_LOOP) {
 				// We don't need anything more, so all 0s.
 				readOffset = 0;
@@ -525,9 +541,9 @@ void Atrac::CalculateStreamInfo(u32 *outReadOffset) {
 			}
 		}
 
-		if (readOffset + first_.writableBytes > first_.filesize) {
+		if (readOffset + first_.writableBytes > track_.fileSize) {
 			// Never ask for past the end of file, even when the space is free.
-			first_.writableBytes = first_.filesize - readOffset;
+			first_.writableBytes = track_.fileSize - readOffset;
 		}
 
 		// If you don't think this should be here, remove it.  It's just a temporary safety check.
@@ -577,7 +593,7 @@ void Atrac::GetResetBufferInfo(AtracResetBufferInfo *bufferInfo, int sample) {
 		// Here the message is: you need to read at least this many bytes to get to that position.
 		// This is because we're filling the buffer start to finish, not streaming.
 		bufferInfo->first.writePosPtr = first_.addr + first_.size;
-		bufferInfo->first.writableBytes = first_.filesize - first_.size;
+		bufferInfo->first.writableBytes = track_.fileSize - first_.size;
 		int minWriteBytes = FileOffsetBySample(sample) - first_.size;
 		if (minWriteBytes > 0) {
 			bufferInfo->first.minWriteBytes = minWriteBytes;
@@ -594,7 +610,7 @@ void Atrac::GetResetBufferInfo(AtracResetBufferInfo *bufferInfo, int sample) {
 		const int needsMoreFrames = FirstOffsetExtra();
 
 		bufferInfo->first.writePosPtr = first_.addr;
-		bufferInfo->first.writableBytes = std::min(first_.filesize - sampleFileOffset, bufSizeAligned);
+		bufferInfo->first.writableBytes = std::min(track_.fileSize - sampleFileOffset, bufSizeAligned);
 		if (((sample + firstSampleOffset_) % (int)SamplesPerFrame()) >= (int)SamplesPerFrame() - needsMoreFrames) {
 			// Not clear why, but it seems it wants a bit extra in case the sample is late?
 			bufferInfo->first.minWriteBytes = bytesPerFrame_ * 3;
@@ -625,8 +641,8 @@ int Atrac::SetData(u32 buffer, u32 readSize, u32 bufferSize, int successCode) {
 	first_.addr = buffer;
 	first_.size = readSize;
 
-	if (first_.size > first_.filesize)
-		first_.size = first_.filesize;
+	if (first_.size > track_.fileSize)
+		first_.size = track_.fileSize;
 	first_.fileoffset = first_.size;
 
 	// got the size of temp buf, and calculate offset
@@ -661,10 +677,10 @@ int Atrac::SetData(u32 buffer, u32 readSize, u32 bufferSize, int successCode) {
 	// Over-allocate databuf to prevent going off the end if the bitstream is bad or if there are
 	// bugs in the decoder. This happens, see issue #15788. Arbitrary, but let's make it a whole page on the popular
 	// architecture that has the largest pages (M1).
-	dataBuf_ = new u8[first_.filesize + overAllocBytes];
-	memset(dataBuf_, 0, first_.filesize + overAllocBytes);
+	dataBuf_ = new u8[track_.fileSize + overAllocBytes];
+	memset(dataBuf_, 0, track_.fileSize + overAllocBytes);
 	if (!ignoreDataBuf_) {
-		u32 copybytes = std::min(bufferSize, first_.filesize);
+		u32 copybytes = std::min(bufferSize, track_.fileSize);
 		Memory::Memcpy(dataBuf_, buffer, copybytes, "AtracSetData");
 	}
 	CreateDecoder();
@@ -673,7 +689,7 @@ int Atrac::SetData(u32 buffer, u32 readSize, u32 bufferSize, int successCode) {
 
 u32 Atrac::SetSecondBuffer(u32 secondBuffer, u32 secondBufferSize) {
 	u32 secondFileOffset = FileOffsetBySample(loopEndSample_ - firstSampleOffset_);
-	u32 desiredSize = first_.filesize - secondFileOffset;
+	u32 desiredSize = track_.fileSize - secondFileOffset;
 
 	// 3 seems to be the number of frames required to handle a loop.
 	if (secondBufferSize < desiredSize && secondBufferSize < (u32)BytesPerFrame() * 3) {
@@ -686,6 +702,19 @@ u32 Atrac::SetSecondBuffer(u32 secondBuffer, u32 secondBufferSize) {
 	second_.addr = secondBuffer;
 	second_.size = secondBufferSize;
 	second_.fileoffset = secondFileOffset;
+	return hleLogSuccessI(ME, 0);
+}
+
+int Atrac::GetSecondBufferInfo(u32 *fileOffset, u32 *desiredSize) {
+	if (BufferState() != ATRAC_STATUS_STREAMED_LOOP_WITH_TRAILER) {
+		// Writes zeroes in this error case.
+		*fileOffset = 0;
+		*desiredSize = 0;
+		return hleLogWarning(ME, ATRAC_ERROR_SECOND_BUFFER_NOT_NEEDED, "not needed");
+	}
+
+	*fileOffset = FileOffsetBySample(loopEndSample_ - firstSampleOffset_);
+	*desiredSize = track_.fileSize - *fileOffset;
 	return hleLogSuccessI(ME, 0);
 }
 
@@ -705,15 +734,15 @@ int Atrac::AddStreamData(u32 bytesToAdd) {
 
 	if (bytesToAdd > 0) {
 		first_.fileoffset = readOffset;
-		int addbytes = std::min(bytesToAdd, first_.filesize - first_.fileoffset);
+		int addbytes = std::min(bytesToAdd, track_.fileSize - first_.fileoffset);
 		if (!ignoreDataBuf_) {
 			Memory::Memcpy(dataBuf_ + first_.fileoffset, first_.addr + first_.offset, addbytes, "AtracAddStreamData");
 		}
 		first_.fileoffset += addbytes;
 	}
 	first_.size += bytesToAdd;
-	if (first_.size >= first_.filesize) {
-		first_.size = first_.filesize;
+	if (first_.size >= track_.fileSize) {
+		first_.size = track_.fileSize;
 		if (bufferState_ == ATRAC_STATUS_HALFWAY_BUFFER)
 			bufferState_ = ATRAC_STATUS_ALL_DATA_LOADED;
 		WriteContextToPSPMem();
@@ -731,11 +760,11 @@ int Atrac::AddStreamData(u32 bytesToAdd) {
 }
 
 u32 Atrac::AddStreamDataSas(u32 bufPtr, u32 bytesToAdd) {
-	int addbytes = std::min(bytesToAdd, first_.filesize - first_.fileoffset - FirstOffsetExtra());
+	int addbytes = std::min(bytesToAdd, track_.fileSize - first_.fileoffset - FirstOffsetExtra());
 	Memory::Memcpy(dataBuf_ + first_.fileoffset + FirstOffsetExtra(), bufPtr, addbytes, "AtracAddStreamData");
 	first_.size += bytesToAdd;
-	if (first_.size >= first_.filesize) {
-		first_.size = first_.filesize;
+	if (first_.size >= track_.fileSize) {
+		first_.size = track_.fileSize;
 		if (bufferState_ == ATRAC_STATUS_HALFWAY_BUFFER)
 			bufferState_ = ATRAC_STATUS_ALL_DATA_LOADED;
 	}
@@ -811,7 +840,7 @@ int Atrac::RemainingFrames() const {
 	}
 
 	u32 currentFileOffset = FileOffsetBySample(currentSample_ - SamplesPerFrame() + FirstOffsetExtra());
-	if (first_.fileoffset >= first_.filesize) {
+	if (first_.fileoffset >= track_.fileSize) {
 		if (bufferState_ == ATRAC_STATUS_STREAMED_WITHOUT_LOOP) {
 			return PSP_ATRAC_NONLOOP_STREAM_DATA_IS_ON_MEMORY;
 		}
@@ -932,7 +961,7 @@ u32 Atrac::DecodeData(u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u32 *finish, i
 	if (!gotFrame && currentSample_ < endSample_) {
 		// Never got a frame.  We may have dropped a GHA frame or otherwise have a bug.
 		// For now, let's try to provide an extra "frame" if possible so games don't infinite loop.
-		if (FileOffsetBySample(currentSample_) < first_.filesize) {
+		if (FileOffsetBySample(currentSample_) < track_.fileSize) {
 			numSamples = std::min(maxSamples, SamplesPerFrame());
 			u32 outBytes = numSamples * outputChannels_ * sizeof(s16);
 			if (outbuf != nullptr) {
@@ -951,7 +980,7 @@ u32 Atrac::DecodeData(u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u32 *finish, i
 
 	int finishFlag = 0;
 	// TODO: Verify.
-	bool hitEnd = currentSample_ >= endSample_ || (numSamples == 0 && first_.size >= first_.filesize);
+	bool hitEnd = currentSample_ >= endSample_ || (numSamples == 0 && first_.size >= track_.fileSize);
 	int loopEndAdjusted = loopEndSample_ - FirstOffsetExtra() - firstSampleOffset_;
 	if ((hitEnd || currentSample_ > loopEndAdjusted) && loopNum != 0) {
 		SeekToSample(loopStartSample_ - FirstOffsetExtra() - firstSampleOffset_);
@@ -1020,12 +1049,12 @@ u32 Atrac::ResetPlayPosition(int sample, int bytesWrittenFirstBuf, int bytesWrit
 		}
 
 		// Did we transition to a full buffer?
-		if (first_.size >= first_.filesize) {
-			first_.size = first_.filesize;
+		if (first_.size >= track_.fileSize) {
+			first_.size = track_.fileSize;
 			bufferState_ = ATRAC_STATUS_ALL_DATA_LOADED;
 		}
 	} else {
-		if (bufferInfo.first.filePos > first_.filesize) {
+		if (bufferInfo.first.filePos > track_.fileSize) {
 			return hleDelayResult(hleLogError(ME, ATRAC_ERROR_API_FAIL, "invalid file position"), "reset play pos", 200);
 		}
 
@@ -1074,7 +1103,7 @@ void Atrac::InitLowLevel(u32 paramsAddr, bool jointStereo) {
 
 	dataOff_ = 0;
 	first_.size = 0;
-	first_.filesize = bytesPerFrame_;
+	track_.fileSize = bytesPerFrame_;  // not really meaningful
 	bufferState_ = ATRAC_STATUS_LOW_LEVEL;
 	currentSample_ = 0;
 	CreateDecoder();

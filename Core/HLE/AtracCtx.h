@@ -72,6 +72,8 @@ const int PSP_ATRAC_ALLDATA_IS_ON_MEMORY = -1;
 const int PSP_ATRAC_NONLOOP_STREAM_DATA_IS_ON_MEMORY = -2;
 const int PSP_ATRAC_LOOP_STREAM_DATA_IS_ON_MEMORY = -3;
 
+// This is not a PSP-native struct.
+// But, it's stored in its entirety in savestates, which makes it awkward to change it.
 struct InputBuffer {
 	// Address of the buffer.
 	u32 addr;
@@ -84,7 +86,7 @@ struct InputBuffer {
 	// Unused, always 0.
 	u32 neededBytes;
 	// Total size of the entire file data.
-	u32 filesize;
+	u32 _filesize_dontuse;
 	// Offset into the file at which new data is read.
 	u32 fileoffset;
 };
@@ -104,6 +106,10 @@ inline u32 FirstOffsetExtra(int codecType) {
 	return codecType == PSP_MODE_AT_3_PLUS ? 368 : 69;
 }
 
+struct Track {
+	u32 fileSize;
+};
+
 struct Atrac {
 	~Atrac() {
 		ResetData();
@@ -111,8 +117,8 @@ struct Atrac {
 
 	void ResetData();
 	void UpdateBufferState() {
-		if (bufferMaxSize_ >= first_.filesize) {
-			if (first_.size < first_.filesize) {
+		if (bufferMaxSize_ >= track_.fileSize) {
+			if (first_.size < track_.fileSize) {
 				// The buffer is big enough, but we don't have all the data yet.
 				bufferState_ = ATRAC_STATUS_HALFWAY_BUFFER;
 			} else {
@@ -185,6 +191,8 @@ struct Atrac {
 	InputBuffer first_{};
 	InputBuffer second_{};
 
+	Track track_{};
+
 	PSPPointer<SceAtracContext> context_{};
 
 	AtracStatus BufferState() const {
@@ -239,6 +247,7 @@ struct Atrac {
 	void GetResetBufferInfo(AtracResetBufferInfo *bufferInfo, int sample);
 	int SetData(u32 buffer, u32 readSize, u32 bufferSize, int successCode = 0);
 	u32 SetSecondBuffer(u32 secondBuffer, u32 secondBufferSize);
+	int GetSecondBufferInfo(u32 *fileOffset, u32 *desiredSize);
 	u32 DecodeData(u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u32 *finish, int *remains);
 	void ConsumeFrame();
 	u32 GetNextSamples();
