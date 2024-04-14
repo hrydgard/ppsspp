@@ -94,7 +94,7 @@ void Atrac::DoState(PointerWrap &p) {
 	}
 
 	Do(p, bitrate_);
-	Do(p, bytesPerFrame_);
+	Do(p, track_.bytesPerFrame);
 
 	Do(p, loopinfo_);
 	if (s < 9) {
@@ -214,7 +214,7 @@ void Atrac::WriteContextToPSPMem() {
 	} else {
 		context->info.samplesPerChan = (track_.codecType == PSP_MODE_AT_3_PLUS ? ATRAC3PLUS_MAX_SAMPLES : ATRAC3_MAX_SAMPLES);
 	}
-	context->info.sampleSize = bytesPerFrame_;
+	context->info.sampleSize = track_.bytesPerFrame;
 	context->info.numChan = channels_;
 	context->info.dataOff = dataOff_;
 	context->info.endSample = endSample_ + firstSampleOffset_ + FirstOffsetExtra();
@@ -332,9 +332,9 @@ int Atrac::Analyze(u32 addr, u32 size) {
 				return hleReportError(ME, ATRAC_ERROR_UNKNOWN_FORMAT, "unsupported sample rate: %d", at3fmt->samplerate);
 			}
 			bitrate_ = at3fmt->avgBytesPerSec * 8;
-			bytesPerFrame_ = at3fmt->blockAlign;
-			if (bytesPerFrame_ == 0) {
-				return hleReportError(ME, ATRAC_ERROR_UNKNOWN_FORMAT, "invalid bytes per frame: %d", bytesPerFrame_);
+			track->bytesPerFrame = at3fmt->blockAlign;
+			if (track->bytesPerFrame == 0) {
+				return hleReportError(ME, ATRAC_ERROR_UNKNOWN_FORMAT, "invalid bytes per frame: %d", track->bytesPerFrame);
 			}
 
 			// TODO: There are some format specific bytes here which seem to have fixed values?
@@ -422,8 +422,8 @@ int Atrac::Analyze(u32 addr, u32 size) {
 	}
 
 	// if there is no correct endsample, try to guess it
-	if (endSample_ <= 0 && bytesPerFrame_ != 0) {
-		endSample_ = (dataChunkSize / bytesPerFrame_) * SamplesPerFrame();
+	if (endSample_ <= 0 && track->bytesPerFrame != 0) {
+		endSample_ = (dataChunkSize / track->bytesPerFrame) * SamplesPerFrame();
 		endSample_ -= firstSampleOffset_ + FirstOffsetExtra();
 	}
 	endSample_ -= 1;
@@ -477,15 +477,15 @@ int Atrac::AnalyzeAA3(u32 addr, u32 size, u32 filesize) {
 	switch (buffer[32]) {
 	case 0:
 		track->codecType = PSP_MODE_AT_3;
-		bytesPerFrame_ = (codecParams & 0x03FF) * 8;
-		bitrate_ = at3SampleRates[(codecParams >> 13) & 7] * bytesPerFrame_ * 8 / 1024;
+		track->bytesPerFrame = (codecParams & 0x03FF) * 8;
+		bitrate_ = at3SampleRates[(codecParams >> 13) & 7] * track->bytesPerFrame * 8 / 1024;
 		channels_ = 2;
 		jointStereo_ = (codecParams >> 17) & 1;
 		break;
 	case 1:
 		track->codecType = PSP_MODE_AT_3_PLUS;
-		bytesPerFrame_ = ((codecParams & 0x03FF) * 8) + 8;
-		bitrate_ = at3SampleRates[(codecParams >> 13) & 7] * bytesPerFrame_ * 8 / 2048;
+		track->bytesPerFrame = ((codecParams & 0x03FF) * 8) + 8;
+		bitrate_ = at3SampleRates[(codecParams >> 13) & 7] * track->bytesPerFrame * 8 / 2048;
 		channels_ = (codecParams >> 10) & 7;
 		break;
 	case 3:
@@ -498,8 +498,8 @@ int Atrac::AnalyzeAA3(u32 addr, u32 size, u32 filesize) {
 
 	dataOff_ = 10 + tagSize + 96;
 	firstSampleOffset_ = 0;
-	if (endSample_ < 0 && bytesPerFrame_ != 0) {
-		endSample_ = ((filesize - dataOff_) / bytesPerFrame_) * SamplesPerFrame();
+	if (endSample_ < 0 && track->bytesPerFrame != 0) {
+		endSample_ = ((filesize - dataOff_) / track->bytesPerFrame) * SamplesPerFrame();
 	}
 	endSample_ -= 1;
 	return 0;
@@ -573,9 +573,9 @@ void Atrac::CreateDecoder() {
 		extraData[6] = jointStereo_;
 		extraData[8] = jointStereo_;
 		extraData[10] = 1;
-		decoder_ = CreateAtrac3Audio(channels_, bytesPerFrame_, extraData, sizeof(extraData));
+		decoder_ = CreateAtrac3Audio(channels_, track_.bytesPerFrame, extraData, sizeof(extraData));
 	} else {
-		decoder_ = CreateAtrac3PlusAudio(channels_, bytesPerFrame_);
+		decoder_ = CreateAtrac3PlusAudio(channels_, track_.bytesPerFrame);
 	}
 	// reinit decodePos, because ffmpeg had changed it.
 	decodePos_ = 0;
@@ -605,19 +605,19 @@ void Atrac::GetResetBufferInfo(AtracResetBufferInfo *bufferInfo, int sample) {
 		int sampleFileOffset = FileOffsetBySample(sample - firstSampleOffset_ - SamplesPerFrame());
 
 		// Update the writable bytes.  When streaming, this is just the number of bytes until the end.
-		const u32 bufSizeAligned = (bufferMaxSize_ / bytesPerFrame_) * bytesPerFrame_;
+		const u32 bufSizeAligned = (bufferMaxSize_ / track_.bytesPerFrame) * track_.bytesPerFrame;
 		const int needsMoreFrames = FirstOffsetExtra();
 
 		bufferInfo->first.writePosPtr = first_.addr;
 		bufferInfo->first.writableBytes = std::min(track_.fileSize - sampleFileOffset, bufSizeAligned);
 		if (((sample + firstSampleOffset_) % (int)SamplesPerFrame()) >= (int)SamplesPerFrame() - needsMoreFrames) {
 			// Not clear why, but it seems it wants a bit extra in case the sample is late?
-			bufferInfo->first.minWriteBytes = bytesPerFrame_ * 3;
+			bufferInfo->first.minWriteBytes = track_.bytesPerFrame * 3;
 		} else {
-			bufferInfo->first.minWriteBytes = bytesPerFrame_ * 2;
+			bufferInfo->first.minWriteBytes = track_.bytesPerFrame * 2;
 		}
 		if ((u32)sample < (u32)firstSampleOffset_ && sampleFileOffset != dataOff_) {
-			sampleFileOffset -= bytesPerFrame_;
+			sampleFileOffset -= track_.bytesPerFrame;
 		}
 		bufferInfo->first.filePos = sampleFileOffset;
 
@@ -666,7 +666,7 @@ int Atrac::SetData(u32 buffer, u32 readSize, u32 bufferSize, int successCode) {
 	}
 	if (bufferState_ == ATRAC_STATUS_STREAMED_WITHOUT_LOOP || bufferState_ == ATRAC_STATUS_STREAMED_LOOP_FROM_END || bufferState_ == ATRAC_STATUS_STREAMED_LOOP_WITH_TRAILER) {
 		bufferHeaderSize_ = dataOff_;
-		bufferPos_ = dataOff_ + bytesPerFrame_;
+		bufferPos_ = dataOff_ + track_.bytesPerFrame;
 		bufferValidBytes_ = first_.size - bufferPos_;
 	}
 
@@ -718,7 +718,7 @@ int Atrac::GetSecondBufferInfo(u32 *fileOffset, u32 *desiredSize) {
 }
 
 void Atrac::UpdateBitrate() {
-	bitrate_ = (bytesPerFrame_ * 352800) / 1000;
+	bitrate_ = (track_.bytesPerFrame * 352800) / 1000;
 	if (track_.codecType == PSP_MODE_AT_3_PLUS)
 		bitrate_ = ((bitrate_ >> 11) + 8) & 0xFFFFFFF0;
 	else
@@ -821,11 +821,11 @@ void Atrac::SeekToSample(int sample) {
 			adjust = -(int)(offsetSamples % SamplesPerFrame());
 		}
 		const u32 off = FileOffsetBySample(sample + adjust);
-		const u32 backfill = bytesPerFrame_ * 2;
+		const u32 backfill = track_.bytesPerFrame * 2;
 		const u32 start = off - dataOff_ < backfill ? dataOff_ : off - backfill;
 
-		for (u32 pos = start; pos < off; pos += bytesPerFrame_) {
-			decoder_->Decode(BufferStart() + pos, bytesPerFrame_, nullptr, nullptr, nullptr);
+		for (u32 pos = start; pos < off; pos += track_.bytesPerFrame) {
+			decoder_->Decode(BufferStart() + pos, track_.bytesPerFrame, nullptr, nullptr, nullptr);
 		}
 	}
 
@@ -855,7 +855,7 @@ int Atrac::RemainingFrames() const {
 
 	if ((bufferState_ & ATRAC_STATUS_STREAMED_MASK) == ATRAC_STATUS_STREAMED_MASK) {
 		// Since we're streaming, the remaining frames are what's valid in the buffer.
-		return bufferValidBytes_ / bytesPerFrame_;
+		return bufferValidBytes_ / track_.bytesPerFrame;
 	}
 
 	// Since the first frame is shorter by this offset, add to round up at this offset.
@@ -864,14 +864,14 @@ int Atrac::RemainingFrames() const {
 		// Just in case.  Shouldn't happen, but once did by mistake.
 		return 0;
 	}
-	return remainingBytes / bytesPerFrame_;
+	return remainingBytes / track_.bytesPerFrame;
 }
 
 void Atrac::ConsumeFrame() {
-	bufferPos_ += bytesPerFrame_;
+	bufferPos_ += track_.bytesPerFrame;
 	if ((bufferState_ & ATRAC_STATUS_STREAMED_MASK) == ATRAC_STATUS_STREAMED_MASK) {
-		if (bufferValidBytes_ > bytesPerFrame_) {
-			bufferValidBytes_ -= bytesPerFrame_;
+		if (bufferValidBytes_ > track_.bytesPerFrame) {
+			bufferValidBytes_ -= track_.bytesPerFrame;
 		} else {
 			bufferValidBytes_ = 0;
 		}
@@ -928,7 +928,7 @@ u32 Atrac::DecodeData(u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u32 *finish, i
 		uint8_t *indata = BufferStart() + off;
 		int bytesConsumed = 0;
 		int outBytes = 0;
-		if (!decoder_->Decode(indata, bytesPerFrame_, &bytesConsumed,
+		if (!decoder_->Decode(indata, track_.bytesPerFrame, &bytesConsumed,
 			outbuf, &outBytes)) {
 			// Decode failed.
 			*SamplesNum = 0;
@@ -948,8 +948,8 @@ u32 Atrac::DecodeData(u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u32 *finish, i
 
 		if (packetAddr != 0 && MemBlockInfoDetailed()) {
 			char tagData[128];
-			size_t tagSize = FormatMemWriteTagAt(tagData, sizeof(tagData), "AtracDecode/", packetAddr, bytesPerFrame_);
-			NotifyMemInfo(MemBlockFlags::READ, packetAddr, bytesPerFrame_, tagData, tagSize);
+			size_t tagSize = FormatMemWriteTagAt(tagData, sizeof(tagData), "AtracDecode/", packetAddr, track_.bytesPerFrame);
+			NotifyMemInfo(MemBlockFlags::READ, packetAddr, track_.bytesPerFrame, tagData, tagSize);
 			NotifyMemInfo(MemBlockFlags::WRITE, outbufPtr, outBytes, tagData, tagSize);
 		} else {
 			NotifyMemInfo(MemBlockFlags::WRITE, outbufPtr, outBytes, "AtracDecode");
@@ -1070,7 +1070,7 @@ u32 Atrac::ResetPlayPosition(int sample, int bytesWrittenFirstBuf, int bytesWrit
 		first_.offset = bytesWrittenFirstBuf;
 
 		bufferHeaderSize_ = 0;
-		bufferPos_ = bytesPerFrame_;
+		bufferPos_ = track_.bytesPerFrame;
 		bufferValidBytes_ = bytesWrittenFirstBuf - bufferPos_;
 	}
 
@@ -1086,23 +1086,23 @@ void Atrac::InitLowLevel(u32 paramsAddr, bool jointStereo) {
 	channels_ = Memory::Read_U32(paramsAddr);
 	outputChannels_ = Memory::Read_U32(paramsAddr + 4);
 	bufferMaxSize_ = Memory::Read_U32(paramsAddr + 8);
-	bytesPerFrame_ = bufferMaxSize_;
-	first_.writableBytes = bytesPerFrame_;
+	track_.bytesPerFrame = bufferMaxSize_;
+	first_.writableBytes = track_.bytesPerFrame;
 	ResetData();
 
 	if (track_.codecType == PSP_MODE_AT_3) {
-		bitrate_ = (bytesPerFrame_ * 352800) / 1000;
+		bitrate_ = (track_.bytesPerFrame * 352800) / 1000;
 		bitrate_ = (bitrate_ + 511) >> 10;
 		jointStereo_ = false;
 	} else if (track_.codecType == PSP_MODE_AT_3_PLUS) {
-		bitrate_ = (bytesPerFrame_ * 352800) / 1000;
+		bitrate_ = (track_.bytesPerFrame * 352800) / 1000;
 		bitrate_ = ((bitrate_ >> 11) + 8) & 0xFFFFFFF0;
 		jointStereo_ = false;
 	}
 
 	dataOff_ = 0;
 	first_.size = 0;
-	track_.fileSize = bytesPerFrame_;  // not really meaningful
+	track_.fileSize = track_.bytesPerFrame;  // not really meaningful
 	bufferState_ = ATRAC_STATUS_LOW_LEVEL;
 	currentSample_ = 0;
 	CreateDecoder();

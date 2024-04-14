@@ -109,7 +109,7 @@ inline u32 FirstOffsetExtra(int codecType) {
 struct Track {
 	u32 fileSize;
 	u32 codecType;
-	u32 bytesPerFrame;
+	u16 bytesPerFrame;
 };
 
 struct Atrac {
@@ -142,7 +142,7 @@ struct Atrac {
 
 	// Input frame size
 	int BytesPerFrame() const {
-		return bytesPerFrame_;
+		return track_.bytesPerFrame;
 	}
 	// Output frame size
 	u32 SamplesPerFrame() const {
@@ -150,13 +150,13 @@ struct Atrac {
 	}
 
 	u32 DecodePosBySample(int sample) const {
-		return (u32)(firstSampleOffset_ + sample / (int)SamplesPerFrame() * bytesPerFrame_);
+		return (u32)(firstSampleOffset_ + sample / (int)SamplesPerFrame() * track_.bytesPerFrame);
 	}
 
 	u32 FileOffsetBySample(int sample) const {
 		int offsetSample = sample + firstSampleOffset_;
 		int frameOffset = offsetSample / (int)SamplesPerFrame();
-		return (u32)(dataOff_ + bytesPerFrame_ + frameOffset * bytesPerFrame_);
+		return (u32)(dataOff_ + track_.bytesPerFrame + frameOffset * track_.bytesPerFrame);
 	}
 
 	void UpdateBitrate();
@@ -231,8 +231,8 @@ struct Atrac {
 	u32 StreamBufferEnd() const {
 		// The buffer is always aligned to a frame in size, not counting an optional header.
 		// The header will only initially exist after the data is first set.
-		u32 framesAfterHeader = (bufferMaxSize_ - bufferHeaderSize_) / bytesPerFrame_;
-		return framesAfterHeader * bytesPerFrame_ + bufferHeaderSize_;
+		u32 framesAfterHeader = (bufferMaxSize_ - bufferHeaderSize_) / track_.bytesPerFrame;
+		return framesAfterHeader * track_.bytesPerFrame + bufferHeaderSize_;
 	}
 
 	int Analyze(u32 addr, u32 size);
@@ -260,7 +260,6 @@ private:
 	void AnalyzeReset();
 
 	u32 bitrate_ = 64;
-	u16 bytesPerFrame_ = 0;
 	u32 bufferMaxSize_ = 0;
 	int jointStereo_ = 0;
 
