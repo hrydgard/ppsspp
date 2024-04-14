@@ -112,6 +112,8 @@ struct Track {
 	u16 bytesPerFrame;
 	int firstSampleOffset;
 	int endSample;
+	// Offset of the first sample in the input buffer
+	int dataOff = 0;
 
 	std::vector<AtracLoopInfo> loopinfo;
 	int loopStartSample = -1;
@@ -167,7 +169,7 @@ struct Atrac {
 	u32 FileOffsetBySample(int sample) const {
 		int offsetSample = sample + track_.firstSampleOffset;
 		int frameOffset = offsetSample / (int)track_.SamplesPerFrame();
-		return (u32)(dataOff_ + track_.bytesPerFrame + frameOffset * track_.bytesPerFrame);
+		return (u32)(track_.dataOff + track_.bytesPerFrame + frameOffset * track_.bytesPerFrame);
 	}
 
 	const Track &GetTrack() const {
@@ -186,8 +188,6 @@ struct Atrac {
 	int RemainingFrames() const;
 
 	u8 *dataBuf_ = nullptr;
-	// Offset of the first sample in the input buffer
-	int dataOff_ = 0;
 	// Indicates that the dataBuf_ array should not be used.
 	bool ignoreDataBuf_ = false;
 	u32 decodePos_ = 0;

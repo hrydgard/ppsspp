@@ -64,9 +64,9 @@ void Atrac::DoState(PointerWrap &p) {
 	Do(p, track_.endSample);
 	Do(p, track_.firstSampleOffset);
 	if (s >= 3) {
-		Do(p, dataOff_);
+		Do(p, track_.dataOff);
 	} else {
-		dataOff_ = track_.firstSampleOffset;
+		track_.dataOff = track_.firstSampleOffset;
 	}
 
 	u32 hasDataBuf = dataBuf_ != nullptr;
@@ -127,10 +127,10 @@ void Atrac::DoState(PointerWrap &p) {
 		Do(p, bufferValidBytes_);
 		Do(p, bufferHeaderSize_);
 	} else {
-		bufferHeaderSize_ = dataOff_;
-		bufferValidBytes_ = std::min(first_.size - dataOff_, StreamBufferEnd() - dataOff_);
+		bufferHeaderSize_ = track_.dataOff;
+		bufferValidBytes_ = std::min(first_.size - track_.dataOff, StreamBufferEnd() - track_.dataOff);
 		if ((bufferState_ & ATRAC_STATUS_STREAMED_MASK) == ATRAC_STATUS_STREAMED_MASK) {
-			bufferPos_ = dataOff_;
+			bufferPos_ = track_.dataOff;
 		}
 	}
 
@@ -216,12 +216,12 @@ void Atrac::WriteContextToPSPMem() {
 	}
 	context->info.sampleSize = track_.bytesPerFrame;
 	context->info.numChan = channels_;
-	context->info.dataOff = dataOff_;
+	context->info.dataOff = track_.dataOff;
 	context->info.endSample = track_.endSample + track_.firstSampleOffset + FirstOffsetExtra();
 	context->info.dataEnd = track_.fileSize;
 	context->info.curOff = first_.fileoffset;
 	context->info.decodePos = DecodePosBySample(currentSample_);
-	context->info.streamDataByte = first_.size - dataOff_;
+	context->info.streamDataByte = first_.size - track_.dataOff;
 
 	u8 *buf = (u8 *)context;
 	*(u32_le *)(buf + 0xfc) = atracID_;
@@ -392,7 +392,7 @@ int Atrac::Analyze(u32 addr, u32 size) {
 		case DATA_CHUNK_MAGIC:
 		{
 			bfoundData = true;
-			dataOff_ = offset;
+			track->dataOff = offset;
 			dataChunkSize = chunkSize;
 			if (track->fileSize < offset + chunkSize) {
 				WARN_LOG_REPORT(ME, "Atrac data chunk extends beyond riff chunk");
@@ -496,10 +496,10 @@ int Atrac::AnalyzeAA3(u32 addr, u32 size, u32 filesize) {
 		return hleReportError(ME, ATRAC_ERROR_AA3_INVALID_DATA, "invalid codec type %d", buffer[32]);
 	}
 
-	dataOff_ = 10 + tagSize + 96;
+	track->dataOff = 10 + tagSize + 96;
 	track->firstSampleOffset = 0;
 	if (track->endSample < 0 && track->bytesPerFrame != 0) {
-		track->endSample = ((filesize - dataOff_) / track->bytesPerFrame) * track->SamplesPerFrame();
+		track->endSample = ((filesize - track->dataOff) / track->bytesPerFrame) * track->SamplesPerFrame();
 	}
 	track->endSample -= 1;
 	return 0;
@@ -616,7 +616,7 @@ void Atrac::GetResetBufferInfo(AtracResetBufferInfo *bufferInfo, int sample) {
 		} else {
 			bufferInfo->first.minWriteBytes = track_.bytesPerFrame * 2;
 		}
-		if ((u32)sample < (u32)track_.firstSampleOffset && sampleFileOffset != dataOff_) {
+		if ((u32)sample < (u32)track_.firstSampleOffset && sampleFileOffset != track_.dataOff) {
 			sampleFileOffset -= track_.bytesPerFrame;
 		}
 		bufferInfo->first.filePos = sampleFileOffset;
@@ -665,8 +665,8 @@ int Atrac::SetData(u32 buffer, u32 readSize, u32 bufferSize, int successCode) {
 		ignoreDataBuf_ = true;
 	}
 	if (bufferState_ == ATRAC_STATUS_STREAMED_WITHOUT_LOOP || bufferState_ == ATRAC_STATUS_STREAMED_LOOP_FROM_END || bufferState_ == ATRAC_STATUS_STREAMED_LOOP_WITH_TRAILER) {
-		bufferHeaderSize_ = dataOff_;
-		bufferPos_ = dataOff_ + track_.bytesPerFrame;
+		bufferHeaderSize_ = track_.dataOff;
+		bufferPos_ = track_.dataOff + track_.bytesPerFrame;
 		bufferValidBytes_ = first_.size - bufferPos_;
 	}
 
@@ -822,7 +822,7 @@ void Atrac::SeekToSample(int sample) {
 		}
 		const u32 off = FileOffsetBySample(sample + adjust);
 		const u32 backfill = track_.bytesPerFrame * 2;
-		const u32 start = off - dataOff_ < backfill ? dataOff_ : off - backfill;
+		const u32 start = off - track_.dataOff < backfill ? track_.dataOff : off - backfill;
 
 		for (u32 pos = start; pos < off; pos += track_.bytesPerFrame) {
 			decoder_->Decode(BufferStart() + pos, track_.bytesPerFrame, nullptr, nullptr, nullptr);
@@ -1102,7 +1102,7 @@ void Atrac::InitLowLevel(u32 paramsAddr, bool jointStereo) {
 		jointStereo_ = false;
 	}
 
-	dataOff_ = 0;
+	track_.dataOff = 0;
 	first_.size = 0;
 	track_.fileSize = track_.bytesPerFrame;  // not really meaningful
 	bufferState_ = ATRAC_STATUS_LOW_LEVEL;
