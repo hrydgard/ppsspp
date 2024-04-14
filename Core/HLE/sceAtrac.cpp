@@ -765,7 +765,7 @@ static int sceAtracSetMOutHalfwayBuffer(int atracID, u32 buffer, u32 readSize, u
 		// Already logged.
 		return ret;
 	}
-	if (atrac->channels_ != 1) {
+	if (atrac->GetTrack().channels != 1) {
 		// It seems it still sets the data.
 		atrac->outputChannels_ = 2;
 		atrac->SetData(buffer, readSize, bufferSize);
@@ -789,7 +789,7 @@ static u32 sceAtracSetMOutData(int atracID, u32 buffer, u32 bufferSize) {
 		// Already logged.
 		return ret;
 	}
-	if (atrac->channels_ != 1) {
+	if (atrac->GetTrack().channels != 1) {
 		// It seems it still sets the data.
 		atrac->outputChannels_ = 2;
 		atrac->SetData(buffer, bufferSize, bufferSize);
@@ -809,7 +809,7 @@ static int sceAtracSetMOutDataAndGetID(u32 buffer, u32 bufferSize) {
 		delete atrac;
 		return ret;
 	}
-	if (atrac->channels_ != 1) {
+	if (atrac->GetTrack().channels != 1) {
 		delete atrac;
 		return hleReportError(ME, ATRAC_ERROR_NOT_MONO, "not mono data");
 	}
@@ -834,7 +834,7 @@ static int sceAtracSetMOutHalfwayBufferAndGetID(u32 buffer, u32 readSize, u32 bu
 		delete atrac;
 		return ret;
 	}
-	if (atrac->channels_ != 1) {
+	if (atrac->GetTrack().channels != 1) {
 		delete atrac;
 		return hleReportError(ME, ATRAC_ERROR_NOT_MONO, "not mono data");
 	}
@@ -937,7 +937,7 @@ static int sceAtracLowLevelInitDecoder(int atracID, u32 paramsAddr) {
 	atrac->InitLowLevel(paramsAddr, jointStereo);
 
 	const char *codecName = atrac->track_.codecType == PSP_MODE_AT_3 ? "atrac3" : "atrac3+";
-	const char *channelName = atrac->channels_ == 1 ? "mono" : "stereo";
+	const char *channelName = atrac->GetTrack().channels == 1 ? "mono" : "stereo";
 	return hleLogSuccessInfoI(ME, 0, "%s %s audio", codecName, channelName);
 }
 

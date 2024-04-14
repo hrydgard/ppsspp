@@ -42,7 +42,7 @@ void Atrac::DoState(PointerWrap &p) {
 	if (!s)
 		return;
 
-	Do(p, channels_);
+	Do(p, track_.channels);
 	Do(p, outputChannels_);
 	if (s >= 5) {
 		Do(p, track_.jointStereo);
@@ -175,7 +175,7 @@ void Atrac::AnalyzeReset() {
 	track_.loopEndSample = -1;
 	decodePos_ = 0;
 	bufferPos_ = 0;
-	channels_ = 2;
+	track_.channels = 2;
 }
 
 void Atrac::UpdateContextFromPSPMem() {
@@ -215,7 +215,7 @@ void Atrac::WriteContextToPSPMem() {
 		context->info.samplesPerChan = (track_.codecType == PSP_MODE_AT_3_PLUS ? ATRAC3PLUS_MAX_SAMPLES : ATRAC3_MAX_SAMPLES);
 	}
 	context->info.sampleSize = track_.bytesPerFrame;
-	context->info.numChan = channels_;
+	context->info.numChan = track_.channels;
 	context->info.dataOff = track_.dataOff;
 	context->info.endSample = track_.endSample + track_.firstSampleOffset + FirstOffsetExtra();
 	context->info.dataEnd = track_.fileSize;
@@ -324,9 +324,9 @@ int Atrac::Analyze(u32 addr, u32 size) {
 			else {
 				return hleReportError(ME, ATRAC_ERROR_UNKNOWN_FORMAT, "invalid fmt magic: %04x", at3fmt->fmtTag);
 			}
-			channels_ = at3fmt->channels;
-			if (channels_ != 1 && channels_ != 2) {
-				return hleReportError(ME, ATRAC_ERROR_UNKNOWN_FORMAT, "invalid channel count: %d", channels_);
+			track->channels = at3fmt->channels;
+			if (track->channels != 1 && track->channels != 2) {
+				return hleReportError(ME, ATRAC_ERROR_UNKNOWN_FORMAT, "invalid channel count: %d", track->channels);
 			}
 			if (at3fmt->samplerate != 44100) {
 				return hleReportError(ME, ATRAC_ERROR_UNKNOWN_FORMAT, "unsupported sample rate: %d", at3fmt->samplerate);
@@ -479,14 +479,14 @@ int Atrac::AnalyzeAA3(u32 addr, u32 size, u32 filesize) {
 		track->codecType = PSP_MODE_AT_3;
 		track->bytesPerFrame = (codecParams & 0x03FF) * 8;
 		track->bitrate = at3SampleRates[(codecParams >> 13) & 7] * track->bytesPerFrame * 8 / 1024;
-		channels_ = 2;
+		track->channels = 2;
 		track->jointStereo = (codecParams >> 17) & 1;
 		break;
 	case 1:
 		track->codecType = PSP_MODE_AT_3_PLUS;
 		track->bytesPerFrame = ((codecParams & 0x03FF) * 8) + 8;
 		track->bitrate = at3SampleRates[(codecParams >> 13) & 7] * track->bytesPerFrame * 8 / 2048;
-		channels_ = (codecParams >> 10) & 7;
+		track->channels = (codecParams >> 10) & 7;
 		break;
 	case 3:
 	case 4:
@@ -569,13 +569,13 @@ void Atrac::CreateDecoder() {
 		uint8_t extraData[14]{};
 		// The only thing that changes are the jointStereo_ values.
 		extraData[0] = 1;
-		extraData[3] = channels_ << 3;
+		extraData[3] = track_.channels << 3;
 		extraData[6] = track_.jointStereo;
 		extraData[8] = track_.jointStereo;
 		extraData[10] = 1;
-		decoder_ = CreateAtrac3Audio(channels_, track_.bytesPerFrame, extraData, sizeof(extraData));
+		decoder_ = CreateAtrac3Audio(track_.channels, track_.bytesPerFrame, extraData, sizeof(extraData));
 	} else {
-		decoder_ = CreateAtrac3PlusAudio(channels_, track_.bytesPerFrame);
+		decoder_ = CreateAtrac3PlusAudio(track_.channels, track_.bytesPerFrame);
 	}
 	// reinit decodePos, because ffmpeg had changed it.
 	decodePos_ = 0;
@@ -671,7 +671,7 @@ int Atrac::SetData(u32 buffer, u32 readSize, u32 bufferSize, int successCode) {
 	}
 
 	const char *codecName = track_.codecType == PSP_MODE_AT_3 ? "atrac3" : "atrac3+";
-	const char *channelName = channels_ == 1 ? "mono" : "stereo";
+	const char *channelName = track_.channels == 1 ? "mono" : "stereo";
 
 	// Over-allocate databuf to prevent going off the end if the bitstream is bad or if there are
 	// bugs in the decoder. This happens, see issue #15788. Arbitrary, but let's make it a whole page on the popular
@@ -1085,7 +1085,7 @@ u32 Atrac::ResetPlayPosition(int sample, int bytesWrittenFirstBuf, int bytesWrit
 }
 
 void Atrac::InitLowLevel(u32 paramsAddr, bool jointStereo) {
-	channels_ = Memory::Read_U32(paramsAddr);
+	track_.channels = Memory::Read_U32(paramsAddr);
 	outputChannels_ = Memory::Read_U32(paramsAddr + 4);
 	bufferMaxSize_ = Memory::Read_U32(paramsAddr + 8);
 	track_.bytesPerFrame = bufferMaxSize_;

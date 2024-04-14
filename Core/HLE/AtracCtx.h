@@ -116,6 +116,7 @@ struct Track {
 	int dataOff = 0;
 	u32 bitrate = 64;
 	int jointStereo = 0;
+	u16 channels = 0;
 
 	std::vector<AtracLoopInfo> loopinfo;
 	int loopStartSample = -1;
@@ -184,7 +185,7 @@ struct Atrac {
 		return track_.bitrate;
 	}
 	int Channels() const {
-		return channels_;
+		return track_.channels;
 	}
 
 	int RemainingFrames() const;
@@ -195,7 +196,6 @@ struct Atrac {
 	u32 decodePos_ = 0;
 
 	int atracID_ = -1;
-	u16 channels_ = 0;
 	u16 outputChannels_ = 2;
 
 	int currentSample_ = 0;
