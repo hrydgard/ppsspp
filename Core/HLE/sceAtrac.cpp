@@ -146,7 +146,6 @@ struct InputBuffer {
 };
 
 struct Atrac;
-int __AtracSetContext(Atrac *atrac);
 
 struct AtracLoopInfo {
 	int cuePointID;
@@ -305,7 +304,7 @@ struct Atrac {
 
 		// Make sure to do this late; it depends on things like bytesPerFrame_.
 		if (p.mode == p.MODE_READ && bufferState_ != ATRAC_STATUS_NO_DATA) {
-			__AtracSetContext(this);
+			SetContext();
 		}
 		
 		if (s >= 2 && s < 9) {
@@ -489,19 +488,14 @@ struct Atrac {
 		}
 	}
 
-	void UpdateFromPSPMem() {
-		if (context_.IsValid()) {
-			// Read in any changes from the game to the context.
-			// TODO: Might be better to just always track in RAM.
-			bufferState_ = context_->info.state;
-			// This value is actually abused by games to store the SAS voice number.
-			loopNum_ = context_->info.loopNum;
-		}
-	}
+	void UpdateContextFromPSPMem();
 
 	void WriteContextToPSPMem();
 	u32 DecodeData(u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u32 *finish, int *remains);
 	void GetResetBufferInfo(AtracResetBufferInfo *bufferInfo, int sample);
+	void SetLoopNum(int loopNum);
+	u32 AddStreamData(u32 bufPtr, u32 bytesToAdd);
+	int SetContext();
 
 	// To be moved into private.
 	AtracStatus bufferState_ = ATRAC_STATUS_NO_DATA;
@@ -509,6 +503,17 @@ struct Atrac {
 private:
 	void AnalyzeReset();
 };
+
+void Atrac::SetLoopNum(int loopNum) {
+	// Spammed in MHU
+	loopNum_ = loopNum;
+	if (loopNum != 0 && loopinfo_.size() == 0) {
+		// Just loop the whole audio
+		loopStartSample_ = firstSampleOffset_ + FirstOffsetExtra();
+		loopEndSample_ = endSample_ + firstSampleOffset_ + FirstOffsetExtra();
+	}
+	WriteContextToPSPMem();
+}
 
 struct AtracSingleResetBufferInfo {
 	u32_le writePosPtr;
@@ -590,7 +595,7 @@ static Atrac *getAtrac(int atracID) {
 	}
 	Atrac *atrac = atracContexts[atracID];
 	if (atrac) {
-		atrac->UpdateFromPSPMem();
+		atrac->UpdateContextFromPSPMem();
 	}
 	return atrac;
 }
@@ -631,15 +636,15 @@ void Atrac::AnalyzeReset() {
 	channels_ = 2;
 }
 
-struct RIFFFmtChunk {
-	u16_le fmtTag;
-	u16_le channels;
-	u32_le samplerate;
-	u32_le avgBytesPerSec;
-	u16_le blockAlign;
-};
-
 int Atrac::Analyze(u32 addr, u32 size) {
+	struct RIFFFmtChunk {
+		u16_le fmtTag;
+		u16_le channels;
+		u32_le samplerate;
+		u32_le avgBytesPerSec;
+		u16_le blockAlign;
+	};
+
 	first_.addr = addr;
 	first_.size = size;
 
@@ -913,18 +918,18 @@ static u32 sceAtracGetAtracID(int codecType) {
 	return hleLogSuccessInfoI(ME, atracID);
 }
 
-static u32 _AtracAddStreamData(Atrac *atrac, u32 bufPtr, u32 bytesToAdd) {
-	int addbytes = std::min(bytesToAdd, atrac->first_.filesize - atrac->first_.fileoffset - atrac->FirstOffsetExtra());
-	Memory::Memcpy(atrac->dataBuf_ + atrac->first_.fileoffset + atrac->FirstOffsetExtra(), bufPtr, addbytes, "AtracAddStreamData");
-	atrac->first_.size += bytesToAdd;
-	if (atrac->first_.size >= atrac->first_.filesize) {
-		atrac->first_.size = atrac->first_.filesize;
-		if (atrac->bufferState_ == ATRAC_STATUS_HALFWAY_BUFFER)
-			atrac->bufferState_ = ATRAC_STATUS_ALL_DATA_LOADED;
+u32 Atrac::AddStreamData(u32 bufPtr, u32 bytesToAdd) {
+	int addbytes = std::min(bytesToAdd, first_.filesize - first_.fileoffset - FirstOffsetExtra());
+	Memory::Memcpy(dataBuf_ + first_.fileoffset + FirstOffsetExtra(), bufPtr, addbytes, "AtracAddStreamData");
+	first_.size += bytesToAdd;
+	if (first_.size >= first_.filesize) {
+		first_.size = first_.filesize;
+		if (bufferState_ == ATRAC_STATUS_HALFWAY_BUFFER)
+			bufferState_ = ATRAC_STATUS_ALL_DATA_LOADED;
 	}
-	atrac->first_.fileoffset += addbytes;
+	first_.fileoffset += addbytes;
 	// refresh context_
-	atrac->WriteContextToPSPMem();
+	WriteContextToPSPMem();
 	return 0;
 }
 
@@ -1646,21 +1651,21 @@ void InitAT3ExtraData(Atrac *atrac, uint8_t *extraData) {
 	extraData[10] = 1;
 }
 
-int __AtracSetContext(Atrac *atrac) {
-	if (atrac->decoder_) {
-		delete atrac->decoder_;
+int Atrac::SetContext() {
+	if (decoder_) {
+		delete decoder_;
 	}
 
 	// First, init the standalone decoder. Only used for low-level-decode initially, but simple.
-	if (atrac->codecType_ == PSP_MODE_AT_3) {
+	if (codecType_ == PSP_MODE_AT_3) {
 		uint8_t extraData[14]{};
-		InitAT3ExtraData(atrac, extraData);
-		atrac->decoder_ = CreateAtrac3Audio(atrac->channels_, atrac->bytesPerFrame_, extraData, sizeof(extraData));
+		InitAT3ExtraData(this, extraData);
+		decoder_ = CreateAtrac3Audio(channels_, bytesPerFrame_, extraData, sizeof(extraData));
 	} else {
-		atrac->decoder_ = CreateAtrac3PlusAudio(atrac->channels_, atrac->bytesPerFrame_);
+		decoder_ = CreateAtrac3PlusAudio(channels_, bytesPerFrame_);
 	}
 	// reinit decodePos, because ffmpeg had changed it.
-	atrac->decodePos_ = 0;
+	decodePos_ = 0;
 	return 0;
 }
 
@@ -1710,7 +1715,7 @@ static int _AtracSetData(Atrac *atrac, u32 buffer, u32 readSize, u32 bufferSize,
 		u32 copybytes = std::min(bufferSize, atrac->first_.filesize);
 		Memory::Memcpy(atrac->dataBuf_, buffer, copybytes, "AtracSetData");
 	}
-	int ret = __AtracSetContext(atrac);
+	int ret = atrac->SetContext();
 	if (ret < 0) {
 		// Already logged.
 		return ret;
@@ -1856,14 +1861,8 @@ static u32 sceAtracSetLoopNum(int atracID, int loopNum) {
 	if (atrac->loopinfo_.size() == 0) {
 		return hleLogError(ME, ATRAC_ERROR_NO_LOOP_INFORMATION, "no loop information");
 	}
-	// Spammed in MHU
-	atrac->loopNum_ = loopNum;
-	if (loopNum != 0 && atrac->loopinfo_.size() == 0) {
-		// Just loop the whole audio
-		atrac->loopStartSample_ = atrac->firstSampleOffset_ + atrac->FirstOffsetExtra();
-		atrac->loopEndSample_ = atrac->endSample_ + atrac->firstSampleOffset_ + atrac->FirstOffsetExtra();
-	}
-	atrac->WriteContextToPSPMem();
+
+	atrac->SetLoopNum(loopNum);
 	return hleLogSuccessI(ME, 0);
 }
 
@@ -2056,6 +2055,18 @@ static int sceAtracSetAA3DataAndGetID(u32 buffer, u32 bufferSize, u32 fileSize, 
 	return _AtracSetData(atracID, buffer, bufferSize, bufferSize, true);
 }
 
+void Atrac::UpdateContextFromPSPMem() {
+	if (!context_.IsValid()) {
+		return;
+	}
+
+	// Read in any changes from the game to the context.
+	// TODO: Might be better to just always track in RAM.
+	bufferState_ = context_->info.state;
+	// This value is actually abused by games to store the SAS voice number.
+	loopNum_ = context_->info.loopNum;
+}
+
 void Atrac::WriteContextToPSPMem() {
 	if (!context_.IsValid()) {
 		return;
@@ -2190,7 +2201,7 @@ static int sceAtracLowLevelInitDecoder(int atracID, u32 paramsAddr) {
 	atrac->first_.filesize = atrac->bytesPerFrame_;
 	atrac->bufferState_ = ATRAC_STATUS_LOW_LEVEL;
 	atrac->currentSample_ = 0;
-	int ret = __AtracSetContext(atrac);
+	int ret = atrac->SetContext();
 
 	atrac->WriteContextToPSPMem();
 
@@ -2256,7 +2267,7 @@ u32 AtracSasAddStreamData(int atracID, u32 bufPtr, u32 bytesToAdd) {
 	Atrac *atrac = getAtrac(atracID);
 	if (!atrac)
 		return 0;
-	return _AtracAddStreamData(atrac, bufPtr, bytesToAdd);
+	return atrac->AddStreamData(bufPtr, bytesToAdd);
 }
 
 u32 AtracSasDecodeData(int atracID, u8* outbuf, u32 outbufPtr, u32 *SamplesNum, u32* finish, int *remains) {
