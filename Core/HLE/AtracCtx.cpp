@@ -640,7 +640,9 @@ void Atrac::GetResetBufferInfo(AtracResetBufferInfo *bufferInfo, int sample) {
 	bufferInfo->second.filePos = 0;
 }
 
-int Atrac::SetData(u32 buffer, u32 readSize, u32 bufferSize, int successCode) {
+int Atrac::SetData(u32 buffer, u32 readSize, u32 bufferSize, int outputChannels, int successCode) {
+	outputChannels_ = outputChannels;
+
 	first_.addr = buffer;
 	first_.size = readSize;
 
@@ -932,8 +934,7 @@ u32 Atrac::DecodeData(u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u32 *finish, i
 		uint8_t *indata = BufferStart() + off;
 		int bytesConsumed = 0;
 		int outBytes = 0;
-		if (!decoder_->Decode(indata, track_.bytesPerFrame, &bytesConsumed,
-			outbuf, &outBytes)) {
+		if (!decoder_->Decode(indata, track_.bytesPerFrame, &bytesConsumed, outbuf, &outBytes)) {
 			// Decode failed.
 			*SamplesNum = 0;
 			*finish = 1;

@@ -108,6 +108,7 @@ inline u32 FirstOffsetExtra(int codecType) {
 
 struct Track {
 	u32 fileSize;
+	// This both does and doesn't belong in Track - it's fixed for an Atrac instance. Oh well.
 	u32 codecType;
 	u16 bytesPerFrame;
 	int firstSampleOffset;
@@ -192,6 +193,9 @@ struct Atrac {
 	}
 
 	int RemainingFrames() const;
+	int GetOutputChannels() const {
+		return outputChannels_;
+	}
 
 	u8 *dataBuf_ = nullptr;
 	// Indicates that the dataBuf_ array should not be used.
@@ -261,7 +265,7 @@ struct Atrac {
 	void SetLoopNum(int loopNum);
 	u32 ResetPlayPosition(int sample, int bytesWrittenFirstBuf, int bytesWrittenSecondBuf);
 	void GetResetBufferInfo(AtracResetBufferInfo *bufferInfo, int sample);
-	int SetData(u32 buffer, u32 readSize, u32 bufferSize, int successCode = 0);
+	int SetData(u32 buffer, u32 readSize, u32 bufferSize, int outputChannels, int successCode);
 	u32 SetSecondBuffer(u32 secondBuffer, u32 secondBufferSize);
 	int GetSecondBufferInfo(u32 *fileOffset, u32 *desiredSize);
 	u32 DecodeData(u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u32 *finish, int *remains);
