@@ -15,7 +15,8 @@ inline int16_t clamp16(float f) {
 // Test case for ATRAC3: Mega Man Maverick Hunter X, PSP menu sound
 class Atrac3Audio : public AudioDecoder {
 public:
-	Atrac3Audio(PSPAudioType audioType, int channels, size_t blockAlign, const uint8_t *extraData, size_t extraDataSize) : audioType_(audioType) {
+	Atrac3Audio(PSPAudioType audioType, int channels, size_t blockAlign, const uint8_t *extraData, size_t extraDataSize)
+		: audioType_(audioType), channels_(channels) {
 		blockAlign_ = (int)blockAlign;
 		if (audioType == PSP_CODEC_AT3PLUS) {
 			at3pCtx_ = atrac3p_alloc(channels, &blockAlign_);
@@ -55,7 +56,7 @@ public:
 		}
 	}
 
-	bool Decode(const uint8_t *inbuf, int inbytes, int *inbytesConsumed, uint8_t *outbuf, int *outbytes) override {
+	bool Decode(const uint8_t *inbuf, int inbytes, int *inbytesConsumed, int outputChannels, uint8_t *outbuf, int *outbytes) override {
 		if (!codecOpen_) {
 			_dbg_assert_(false);
 		}
@@ -84,12 +85,20 @@ public:
 				*outbytes = nb_samples * 2 * 2;
 			}
 			if (outbuf) {
-				// Convert frame to outbuf. TODO: Very SIMDable, though hardly hot.
-				for (int channel = 0; channel < 2; channel++) {
-					int16_t *output = (int16_t *)outbuf;
+				_dbg_assert_(outputChannels == 1 || outputChannels == 2);
+				int16_t *output = (int16_t *)outbuf;
+				const float *left = buffers_[0];
+				if (outputChannels == 2) {
+					// Stereo output, standard.
+					const float *right = channels_ == 2 ? buffers_[1] : buffers_[0];
 					for (int i = 0; i < nb_samples; i++) {
-						output[i * 2] = clamp16(buffers_[0][i]);
-						output[i * 2 + 1] = clamp16(buffers_[1][i]);
+						output[i * 2] = clamp16(left[i]);
+						output[i * 2 + 1] = clamp16(right[i]);
+					}
+				} else {
+					// Mono output, just take the left channel.
+					for (int i = 0; i < nb_samples; i++) {
+						output[i] = clamp16(left[i]);
 					}
 				}
 			}
@@ -113,6 +122,7 @@ private:
 	ATRAC3PContext *at3pCtx_ = nullptr;
 	ATRAC3Context *at3Ctx_ = nullptr;
 
+	int channels_ = 0;
 	int blockAlign_ = 0;
 
 	int outSamples_ = 0;

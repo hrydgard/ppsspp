@@ -219,7 +219,7 @@ public:
 		while (bgQueue.size() < (size_t)(len * 2)) {
 			int outBytes = 0;
 			int inbytesConsumed = 0;
-			decoder_->Decode(wave_.raw_data + raw_offset_, wave_.raw_bytes_per_frame, &inbytesConsumed, (uint8_t *)buffer_, &outBytes);
+			decoder_->Decode(wave_.raw_data + raw_offset_, wave_.raw_bytes_per_frame, &inbytesConsumed, 2, (uint8_t *)buffer_, &outBytes);
 			if (!outBytes)
 				return false;
 
