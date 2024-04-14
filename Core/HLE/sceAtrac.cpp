@@ -147,7 +147,6 @@ struct InputBuffer {
 
 struct Atrac;
 int __AtracSetContext(Atrac *atrac);
-static void _AtracWriteContextToPSPMem(Atrac *atrac);
 
 struct AtracLoopInfo {
 	int cuePointID;
@@ -488,7 +487,7 @@ struct Atrac {
 		}
 	}
 
-	void UpdateFromPSPRam() {
+	void UpdateFromPSPMem() {
 		if (context_.IsValid()) {
 			// Read in any changes from the game to the context.
 			// TODO: Might be better to just always track in RAM.
@@ -497,6 +496,8 @@ struct Atrac {
 			loopNum_ = context_->info.loopNum;
 		}
 	}
+
+	void WriteContextToPSPMem();
 
 	// To be moved into private.
 	AtracStatus bufferState_ = ATRAC_STATUS_NO_DATA;
@@ -585,7 +586,7 @@ static Atrac *getAtrac(int atracID) {
 	}
 	Atrac *atrac = atracContexts[atracID];
 	if (atrac) {
-		atrac->UpdateFromPSPRam();
+		atrac->UpdateFromPSPMem();
 	}
 	return atrac;
 }
@@ -908,10 +909,7 @@ static u32 sceAtracGetAtracID(int codecType) {
 	return hleLogSuccessInfoI(ME, atracID);
 }
 
-u32 _AtracAddStreamData(int atracID, u32 bufPtr, u32 bytesToAdd) {
-	Atrac *atrac = getAtrac(atracID);
-	if (!atrac)
-		return 0;
+static u32 _AtracAddStreamData(Atrac *atrac, u32 bufPtr, u32 bytesToAdd) {
 	int addbytes = std::min(bytesToAdd, atrac->first_.filesize - atrac->first_.fileoffset - atrac->FirstOffsetExtra());
 	Memory::Memcpy(atrac->dataBuf_ + atrac->first_.fileoffset + atrac->FirstOffsetExtra(), bufPtr, addbytes, "AtracAddStreamData");
 	atrac->first_.size += bytesToAdd;
@@ -921,10 +919,8 @@ u32 _AtracAddStreamData(int atracID, u32 bufPtr, u32 bytesToAdd) {
 			atrac->bufferState_ = ATRAC_STATUS_ALL_DATA_LOADED;
 	}
 	atrac->first_.fileoffset += addbytes;
-	if (atrac->context_.IsValid()) {
-		// refresh context_
-		_AtracWriteContextToPSPMem(atrac);
-	}
+	// refresh context_
+	atrac->WriteContextToPSPMem();
 	return 0;
 }
 
@@ -1043,9 +1039,7 @@ static u32 sceAtracAddStreamData(int atracID, u32 bytesToAdd) {
 		atrac->first_.size = atrac->first_.filesize;
 		if (atrac->bufferState_ == ATRAC_STATUS_HALFWAY_BUFFER)
 			atrac->bufferState_ = ATRAC_STATUS_ALL_DATA_LOADED;
-		if (atrac->context_.IsValid()) {
-			_AtracWriteContextToPSPMem(atrac);
-		}
+		atrac->WriteContextToPSPMem();
 	}
 
 	atrac->first_.offset += bytesToAdd;
@@ -1059,15 +1053,7 @@ static u32 sceAtracAddStreamData(int atracID, u32 bytesToAdd) {
 	return hleLogSuccessI(ME, 0);
 }
 
-u32 _AtracDecodeData(int atracID, u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u32 *finish, int *remains) {
-	Atrac *atrac = getAtrac(atracID);
-
-	if (atrac == NULL) {
-		return ATRAC_ERROR_BAD_ATRACID;
-	} else if (!atrac->dataBuf_) {
-		return ATRAC_ERROR_NO_DATA;
-	}
-
+static u32 _AtracDecodeData(Atrac *atrac, u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u32 *finish, int *remains) {
 	int loopNum = atrac->loopNum_;
 	if (atrac->bufferState_ == ATRAC_STATUS_FOR_SCESAS) {
 		// TODO: Might need more testing.
@@ -1078,10 +1064,8 @@ u32 _AtracDecodeData(int atracID, u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u3
 	if (atrac->currentSample_ >= atrac->endSample_ && loopNum == 0) {
 		*SamplesNum = 0;
 		*finish = 1;
-		if (atrac->context_.IsValid()) {
-			// refresh context_
-			_AtracWriteContextToPSPMem(atrac);
-		}
+		// refresh context_
+		atrac->WriteContextToPSPMem();
 		return ATRAC_ERROR_ALL_DATA_DECODED;
 	}
 
@@ -1198,20 +1182,24 @@ u32 _AtracDecodeData(int atracID, u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u3
 
 	*finish = finishFlag;
 	*remains = atrac->RemainingFrames();
-	if (atrac->context_.IsValid()) {
-		// refresh context_
-		_AtracWriteContextToPSPMem(atrac);
-	}
+	// refresh context_
+	atrac->WriteContextToPSPMem();
 	return 0;
 }
 
+// Note that outAddr being null is completely valid here, used to skip data.
 static u32 sceAtracDecodeData(int atracID, u32 outAddr, u32 numSamplesAddr, u32 finishFlagAddr, u32 remainAddr) {
-	// Note that outAddr being null is completely valid here, used to skip data.
+	Atrac *atrac = getAtrac(atracID);
+	if (atrac == NULL) {
+		return ATRAC_ERROR_BAD_ATRACID;
+	} else if (!atrac->dataBuf_) {  // TODO: Should check bufferState instead?
+		return ATRAC_ERROR_NO_DATA;
+	}
 
 	u32 numSamples = 0;
 	u32 finish = 0;
 	int remains = 0;
-	int ret = _AtracDecodeData(atracID, Memory::GetPointerWrite(outAddr), outAddr, &numSamples, &finish, &remains);
+	int ret = _AtracDecodeData(atrac, Memory::GetPointerWrite(outAddr), outAddr, &numSamples, &finish, &remains);
 	if (ret != (int)ATRAC_ERROR_BAD_ATRACID && ret != (int)ATRAC_ERROR_NO_DATA) {
 		if (Memory::IsValidAddress(numSamplesAddr))
 			Memory::WriteUnchecked_U32(numSamples, numSamplesAddr);
@@ -1637,9 +1625,7 @@ static u32 sceAtracResetPlayPosition(int atracID, int sample, int bytesWrittenFi
 		atrac->SeekToSample(sample);
 	}
 
-	if (atrac->context_.IsValid()) {
-		_AtracWriteContextToPSPMem(atrac);
-	}
+	atrac->WriteContextToPSPMem();
 	return hleDelayResult(hleLogSuccessInfoI(ME, 0), "reset play pos", 3000);
 }
 
@@ -1872,9 +1858,7 @@ static u32 sceAtracSetLoopNum(int atracID, int loopNum) {
 		atrac->loopStartSample_ = atrac->firstSampleOffset_ + atrac->FirstOffsetExtra();
 		atrac->loopEndSample_ = atrac->endSample_ + atrac->firstSampleOffset_ + atrac->FirstOffsetExtra();
 	}
-	if (atrac->context_.IsValid()) {
-		_AtracWriteContextToPSPMem(atrac);
-	}
+	atrac->WriteContextToPSPMem();
 	return hleLogSuccessI(ME, 0);
 }
 
@@ -2067,46 +2051,43 @@ static int sceAtracSetAA3DataAndGetID(u32 buffer, u32 bufferSize, u32 fileSize, 
 	return _AtracSetData(atracID, buffer, bufferSize, bufferSize, true);
 }
 
-// Used by SasAudio's AT3 integration.
-int _AtracGetIDByContext(u32 contextAddr) {
-	int atracID = (int)Memory::Read_U32(contextAddr + 0xfc);
-	return atracID;
-}
-
-void _AtracWriteContextToPSPMem(Atrac *atrac) {
+void Atrac::WriteContextToPSPMem() {
+	if (!context_.IsValid()) {
+		return;
+	}
 	// context points into PSP memory.
-	SceAtracContext *context = atrac->context_;
-	context->info.buffer = atrac->first_.addr;
-	context->info.bufferByte = atrac->bufferMaxSize_;
-	context->info.secondBuffer = atrac->second_.addr;
-	context->info.secondBufferByte = atrac->second_.size;
-	context->info.codec = atrac->codecType_;
-	context->info.loopNum = atrac->loopNum_;
-	context->info.loopStart = atrac->loopStartSample_ > 0 ? atrac->loopStartSample_ : 0;
-	context->info.loopEnd = atrac->loopEndSample_ > 0 ? atrac->loopEndSample_ : 0;
+	SceAtracContext *context = context_;
+	context->info.buffer = first_.addr;
+	context->info.bufferByte = bufferMaxSize_;
+	context->info.secondBuffer = second_.addr;
+	context->info.secondBufferByte = second_.size;
+	context->info.codec = codecType_;
+	context->info.loopNum = loopNum_;
+	context->info.loopStart = loopStartSample_ > 0 ? loopStartSample_ : 0;
+	context->info.loopEnd = loopEndSample_ > 0 ? loopEndSample_ : 0;
 
 	// Note that we read in the state when loading the atrac object, so it's safe
 	// to update it back here all the time.  Some games, like Sol Trigger, change it.
 	// TODO: Should we just keep this in PSP ram then, or something?
-	context->info.state = atrac->bufferState_;
-	if (atrac->firstSampleOffset_ != 0) {
-		context->info.samplesPerChan = atrac->firstSampleOffset_ + atrac->FirstOffsetExtra();
+	context->info.state = bufferState_;
+	if (firstSampleOffset_ != 0) {
+		context->info.samplesPerChan = firstSampleOffset_ + FirstOffsetExtra();
 	} else {
-		context->info.samplesPerChan = (atrac->codecType_ == PSP_MODE_AT_3_PLUS ? ATRAC3PLUS_MAX_SAMPLES : ATRAC3_MAX_SAMPLES);
+		context->info.samplesPerChan = (codecType_ == PSP_MODE_AT_3_PLUS ? ATRAC3PLUS_MAX_SAMPLES : ATRAC3_MAX_SAMPLES);
 	}
-	context->info.sampleSize = atrac->bytesPerFrame_;
-	context->info.numChan = atrac->channels_;
-	context->info.dataOff = atrac->dataOff_;
-	context->info.endSample = atrac->endSample_ + atrac->firstSampleOffset_ + atrac->FirstOffsetExtra();
-	context->info.dataEnd = atrac->first_.filesize;
-	context->info.curOff = atrac->first_.fileoffset;
-	context->info.decodePos = atrac->DecodePosBySample(atrac->currentSample_);
-	context->info.streamDataByte = atrac->first_.size - atrac->dataOff_;
+	context->info.sampleSize = bytesPerFrame_;
+	context->info.numChan = channels_;
+	context->info.dataOff = dataOff_;
+	context->info.endSample = endSample_ + firstSampleOffset_ + FirstOffsetExtra();
+	context->info.dataEnd = first_.filesize;
+	context->info.curOff = first_.fileoffset;
+	context->info.decodePos = DecodePosBySample(currentSample_);
+	context->info.streamDataByte = first_.size - dataOff_;
 
 	u8 *buf = (u8 *)context;
-	*(u32_le *)(buf + 0xfc) = atrac->atracID_;
+	*(u32_le *)(buf + 0xfc) = atracID_;
 
-	NotifyMemInfo(MemBlockFlags::WRITE, atrac->context_.ptr, sizeof(SceAtracContext), "AtracContext");
+	NotifyMemInfo(MemBlockFlags::WRITE, context_.ptr, sizeof(SceAtracContext), "AtracContext");
 }
 
 static u32 _sceAtracGetContextAddress(int atracID) {
@@ -2126,8 +2107,7 @@ static u32 _sceAtracGetContextAddress(int atracID) {
 	}
 	else
 		WARN_LOG(ME, "%08x=_sceAtracGetContextAddress(%i)", atrac->context_.ptr, atracID);
-	if (atrac->context_.IsValid())
-		_AtracWriteContextToPSPMem(atrac);
+	atrac->WriteContextToPSPMem();
 	return atrac->context_.ptr;
 }
 
@@ -2207,9 +2187,7 @@ static int sceAtracLowLevelInitDecoder(int atracID, u32 paramsAddr) {
 	atrac->currentSample_ = 0;
 	int ret = __AtracSetContext(atrac);
 
-	if (atrac->context_.IsValid()) {
-		_AtracWriteContextToPSPMem(atrac);
-	}
+	atrac->WriteContextToPSPMem();
 
 	if (ret < 0) {
 		// Already logged.
@@ -2266,6 +2244,27 @@ static int sceAtracSetAA3HalfwayBufferAndGetID(u32 buffer, u32 readSize, u32 buf
 
 	atrac->outputChannels_ = 2;
 	return _AtracSetData(atracID, buffer, readSize, bufferSize, true);
+}
+
+// External interface used by sceSas' AT3 integration.
+
+u32 AtracSasAddStreamData(int atracID, u32 bufPtr, u32 bytesToAdd) {
+	Atrac *atrac = getAtrac(atracID);
+	if (!atrac)
+		return 0;
+	return _AtracAddStreamData(atrac, bufPtr, bytesToAdd);
+}
+
+u32 AtracSasDecodeData(int atracID, u8* outbuf, u32 outbufPtr, u32 *SamplesNum, u32* finish, int *remains) {
+	Atrac *atrac = getAtrac(atracID);
+	if (!atrac)
+		return 0;
+	return _AtracDecodeData(atrac, outbuf, outbufPtr, SamplesNum, finish, remains);
+}
+
+int AtracSasGetIDByContext(u32 contextAddr) {
+	int atracID = (int)Memory::Read_U32(contextAddr + 0xfc);
+	return atracID;
 }
 
 const HLEFunction sceAtrac3plus[] = {
