@@ -61,7 +61,7 @@ void Atrac::DoState(PointerWrap &p) {
 	Do(p, track_.codecType);
 
 	Do(p, currentSample_);
-	Do(p, endSample_);
+	Do(p, track_.endSample);
 	Do(p, track_.firstSampleOffset);
 	if (s >= 3) {
 		Do(p, dataOff_);
@@ -168,7 +168,7 @@ void Atrac::ResetData() {
 void Atrac::AnalyzeReset() {
 	// Reset some values.
 	currentSample_ = 0;
-	endSample_ = -1;
+	track_.endSample = -1;
 	loopNum_ = 0;
 	loopinfo_.clear();
 	loopStartSample_ = -1;
@@ -217,7 +217,7 @@ void Atrac::WriteContextToPSPMem() {
 	context->info.sampleSize = track_.bytesPerFrame;
 	context->info.numChan = channels_;
 	context->info.dataOff = dataOff_;
-	context->info.endSample = endSample_ + track_.firstSampleOffset + FirstOffsetExtra();
+	context->info.endSample = track_.endSample + track_.firstSampleOffset + FirstOffsetExtra();
 	context->info.dataEnd = track_.fileSize;
 	context->info.curOff = first_.fileoffset;
 	context->info.decodePos = DecodePosBySample(currentSample_);
@@ -348,7 +348,7 @@ int Atrac::Analyze(u32 addr, u32 size) {
 		break;
 		case FACT_CHUNK_MAGIC:
 		{
-			endSample_ = Memory::Read_U32(addr + offset);
+			track->endSample = Memory::Read_U32(addr + offset);
 			if (chunkSize >= 8) {
 				track->firstSampleOffset = Memory::Read_U32(addr + offset + 4);
 			}
@@ -414,21 +414,21 @@ int Atrac::Analyze(u32 addr, u32 size) {
 
 	// set the loopStartSample_ and loopEndSample_ by loopinfo_
 	if (loopinfo_.size() > 0) {
-		loopStartSample_ = loopinfo_[0].startSample + FirstOffsetExtra() + sampleOffsetAdjust;
-		loopEndSample_ = loopinfo_[0].endSample + FirstOffsetExtra() + sampleOffsetAdjust;
+		loopStartSample_ = loopinfo_[0].startSample + ::FirstOffsetExtra(track->codecType) + sampleOffsetAdjust;
+		loopEndSample_ = loopinfo_[0].endSample + ::FirstOffsetExtra(track->codecType) + sampleOffsetAdjust;
 	} else {
 		loopStartSample_ = -1;
 		loopEndSample_ = -1;
 	}
 
 	// if there is no correct endsample, try to guess it
-	if (endSample_ <= 0 && track->bytesPerFrame != 0) {
-		endSample_ = (dataChunkSize / track->bytesPerFrame) * track_.SamplesPerFrame();
-		endSample_ -= track->firstSampleOffset + FirstOffsetExtra();
+	if (track->endSample <= 0 && track->bytesPerFrame != 0) {
+		track->endSample = (dataChunkSize / track->bytesPerFrame) * track->SamplesPerFrame();
+		track->endSample -= track->firstSampleOffset + ::FirstOffsetExtra(track->codecType);
 	}
-	endSample_ -= 1;
+	track->endSample -= 1;
 
-	if (loopEndSample_ != -1 && loopEndSample_ > endSample_ + track->firstSampleOffset + (int)FirstOffsetExtra()) {
+	if (loopEndSample_ != -1 && loopEndSample_ > track->endSample + track->firstSampleOffset + (int)::FirstOffsetExtra(track->codecType)) {
 		return hleReportError(ME, ATRAC_ERROR_BAD_CODEC_PARAMS, "loop after end of data");
 	}
 
@@ -498,10 +498,10 @@ int Atrac::AnalyzeAA3(u32 addr, u32 size, u32 filesize) {
 
 	dataOff_ = 10 + tagSize + 96;
 	track->firstSampleOffset = 0;
-	if (endSample_ < 0 && track->bytesPerFrame != 0) {
-		endSample_ = ((filesize - dataOff_) / track->bytesPerFrame) * track_.SamplesPerFrame();
+	if (track->endSample < 0 && track->bytesPerFrame != 0) {
+		track->endSample = ((filesize - dataOff_) / track->bytesPerFrame) * track->SamplesPerFrame();
 	}
-	endSample_ -= 1;
+	track->endSample -= 1;
 	return 0;
 }
 
@@ -777,7 +777,7 @@ u32 Atrac::GetNextSamples() {
 	// It seems like the PSP aligns the sample position to 0x800...?
 	u32 skipSamples = track_.firstSampleOffset + FirstOffsetExtra();
 	u32 firstSamples = (track_.SamplesPerFrame() - skipSamples) % track_.SamplesPerFrame();
-	u32 numSamples = endSample_ + 1 - currentSample_;
+	u32 numSamples = track_.endSample + 1 - currentSample_;
 	if (currentSample_ == 0 && firstSamples != 0) {
 		numSamples = firstSamples;
 	}
@@ -788,7 +788,7 @@ u32 Atrac::GetNextSamples() {
 	}
 	if (numSamples > track_.SamplesPerFrame())
 		numSamples = track_.SamplesPerFrame();
-	if (bufferState_ == ATRAC_STATUS_STREAMED_LOOP_FROM_END && (int)numSamples + currentSample_ > endSample_) {
+	if (bufferState_ == ATRAC_STATUS_STREAMED_LOOP_FROM_END && (int)numSamples + currentSample_ > track_.endSample) {
 		bufferState_ = ATRAC_STATUS_ALL_DATA_LOADED;
 	}
 	return numSamples;
@@ -891,7 +891,7 @@ u32 Atrac::DecodeData(u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u32 *finish, i
 	}
 
 	// We already passed the end - return an error (many games check for this.)
-	if (currentSample_ >= endSample_ && loopNum == 0) {
+	if (currentSample_ >= track_.endSample && loopNum == 0) {
 		*SamplesNum = 0;
 		*finish = 1;
 		// refresh context_
@@ -905,7 +905,7 @@ u32 Atrac::DecodeData(u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u32 *finish, i
 	// It seems like the PSP aligns the sample position to 0x800...?
 	int offsetSamples = track_.firstSampleOffset + FirstOffsetExtra();
 	int skipSamples = 0;
-	u32 maxSamples = endSample_ + 1 - currentSample_;
+	u32 maxSamples = track_.endSample + 1 - currentSample_;
 	u32 unalignedSamples = (offsetSamples + currentSample_) % track_.SamplesPerFrame();
 	if (unalignedSamples != 0) {
 		// We're off alignment, possibly due to a loop.  Force it back on.
@@ -957,7 +957,7 @@ u32 Atrac::DecodeData(u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u32 *finish, i
 		// We only want one frame per call, let's continue the next time.
 	}
 
-	if (!gotFrame && currentSample_ < endSample_) {
+	if (!gotFrame && currentSample_ < track_.endSample) {
 		// Never got a frame.  We may have dropped a GHA frame or otherwise have a bug.
 		// For now, let's try to provide an extra "frame" if possible so games don't infinite loop.
 		if (FileOffsetBySample(currentSample_) < track_.fileSize) {
@@ -979,7 +979,7 @@ u32 Atrac::DecodeData(u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u32 *finish, i
 
 	int finishFlag = 0;
 	// TODO: Verify.
-	bool hitEnd = currentSample_ >= endSample_ || (numSamples == 0 && first_.size >= track_.fileSize);
+	bool hitEnd = currentSample_ >= track_.endSample || (numSamples == 0 && first_.size >= track_.fileSize);
 	int loopEndAdjusted = loopEndSample_ - FirstOffsetExtra() - track_.firstSampleOffset;
 	if ((hitEnd || currentSample_ > loopEndAdjusted) && loopNum != 0) {
 		SeekToSample(loopStartSample_ - FirstOffsetExtra() - track_.firstSampleOffset);
@@ -1017,7 +1017,7 @@ void Atrac::SetLoopNum(int loopNum) {
 	if (loopNum != 0 && loopinfo_.size() == 0) {
 		// Just loop the whole audio
 		loopStartSample_ = track_.firstSampleOffset + FirstOffsetExtra();
-		loopEndSample_ = endSample_ + track_.firstSampleOffset + FirstOffsetExtra();
+		loopEndSample_ = track_.endSample + track_.firstSampleOffset + FirstOffsetExtra();
 	}
 	WriteContextToPSPMem();
 }

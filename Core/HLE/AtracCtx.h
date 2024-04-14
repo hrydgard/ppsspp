@@ -110,7 +110,8 @@ struct Track {
 	u32 fileSize;
 	u32 codecType;
 	u16 bytesPerFrame;
-	u32 firstSampleOffset;
+	int firstSampleOffset;
+	int endSample;
 
 	// Input frame size
 	int BytesPerFrame() const {
@@ -141,7 +142,7 @@ struct Atrac {
 			if (loopEndSample_ <= 0) {
 				// There's no looping, but we need to stream the data in our buffer.
 				bufferState_ = ATRAC_STATUS_STREAMED_WITHOUT_LOOP;
-			} else if (loopEndSample_ == endSample_ + track_.firstSampleOffset + (int)FirstOffsetExtra()) {
+			} else if (loopEndSample_ == track_.endSample + track_.firstSampleOffset + (int)FirstOffsetExtra()) {
 				bufferState_ = ATRAC_STATUS_STREAMED_LOOP_FROM_END;
 			} else {
 				bufferState_ = ATRAC_STATUS_STREAMED_LOOP_WITH_TRAILER;
@@ -192,7 +193,6 @@ struct Atrac {
 	u16 outputChannels_ = 2;
 
 	int currentSample_ = 0;
-	int endSample_ = 0;
 
 	std::vector<AtracLoopInfo> loopinfo_;
 	int loopStartSample_ = -1;
