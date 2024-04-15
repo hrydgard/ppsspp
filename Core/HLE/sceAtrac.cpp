@@ -239,10 +239,10 @@ static u32 sceAtracAddStreamData(int atracID, u32 bytesToAdd) {
 // Note that outAddr being null is completely valid here, used to skip data.
 static u32 sceAtracDecodeData(int atracID, u32 outAddr, u32 numSamplesAddr, u32 finishFlagAddr, u32 remainAddr) {
 	Atrac *atrac = getAtrac(atracID);
-	if (atrac == NULL) {
-		return ATRAC_ERROR_BAD_ATRACID;
-	} else if (!atrac->dataBuf_) {  // TODO: Should check bufferState instead?
-		return ATRAC_ERROR_NO_DATA;
+	u32 err = AtracValidateData(atrac);
+	if (err != 0) {
+		// Already logged.
+		return err;
 	}
 
 	u32 numSamples = 0;
