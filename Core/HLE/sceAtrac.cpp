@@ -288,7 +288,7 @@ static u32 sceAtracGetBufferInfoForResetting(int atracID, int sample, u32 buffer
 
 	if (!bufferInfo.IsValid()) {
 		return hleReportError(ME, SCE_KERNEL_ERROR_ILLEGAL_ADDR, "invalid buffer, should crash");
-	} else if (atrac->BufferState() == ATRAC_STATUS_STREAMED_LOOP_WITH_TRAILER && atrac->second_.size == 0) {
+	} else if (atrac->BufferState() == ATRAC_STATUS_STREAMED_LOOP_WITH_TRAILER && atrac->SecondBufferSize() == 0) {
 		return hleReportError(ME, ATRAC_ERROR_SECOND_BUFFER_NEEDED, "no second buffer");
 	} else if ((u32)sample + atrac->GetTrack().firstSampleOffset > (u32)atrac->GetTrack().endSample + atrac->GetTrack().firstSampleOffset) {
 		// NOTE: Above we have to add firstSampleOffset to both sides - we seem to rely on wraparound.
@@ -393,11 +393,11 @@ static u32 sceAtracGetNextDecodePosition(int atracID, u32 outposAddr) {
 	}
 
 	if (Memory::IsValidAddress(outposAddr)) {
-		if (atrac->currentSample_ >= atrac->GetTrack().endSample) {
+		if (atrac->CurrentSample() >= atrac->GetTrack().endSample) {
 			Memory::WriteUnchecked_U32(0, outposAddr);
 			return hleLogSuccessI(ME, ATRAC_ERROR_ALL_DATA_DECODED, "all data decoded");
 		} else {
-			Memory::WriteUnchecked_U32(atrac->currentSample_, outposAddr);
+			Memory::WriteUnchecked_U32(atrac->CurrentSample(), outposAddr);
 			return hleLogSuccessI(ME, 0);
 		}
 	} else {
@@ -412,7 +412,7 @@ static u32 sceAtracGetNextSample(int atracID, u32 outNAddr) {
 		// Already logged.
 		return err;
 	}
-	if (atrac->currentSample_ >= atrac->GetTrack().endSample) {
+	if (atrac->CurrentSample() >= atrac->GetTrack().endSample) {
 		if (Memory::IsValidAddress(outNAddr))
 			Memory::WriteUnchecked_U32(0, outNAddr);
 		return hleLogSuccessI(ME, 0, "0 samples left");
@@ -500,13 +500,15 @@ static u32 sceAtracGetStreamDataInfo(int atracID, u32 writePtrAddr, u32 writable
 		return err;
 	}
 
-	u32 readOffset;
-	atrac->CalculateStreamInfo(&readOffset);
+	u32 writePtr = 0;
+	u32 writableBytes = 0;
+	u32 readOffset = 0;
+	atrac->GetStreamDataInfo(&writePtr, &writableBytes, &readOffset);
 
 	if (Memory::IsValidAddress(writePtrAddr))
-		Memory::WriteUnchecked_U32(atrac->first_.addr + atrac->first_.offset, writePtrAddr);
+		Memory::WriteUnchecked_U32(writePtr, writePtrAddr);
 	if (Memory::IsValidAddress(writableBytesAddr))
-		Memory::WriteUnchecked_U32(atrac->first_.writableBytes, writableBytesAddr);
+		Memory::WriteUnchecked_U32(writableBytes, writableBytesAddr);
 	if (Memory::IsValidAddress(readOffsetAddr))
 		Memory::WriteUnchecked_U32(readOffset, readOffsetAddr);
 
@@ -532,7 +534,7 @@ static u32 sceAtracResetPlayPosition(int atracID, int sample, int bytesWrittenFi
 		return err;
 	}
 
-	if (atrac->BufferState() == ATRAC_STATUS_STREAMED_LOOP_WITH_TRAILER && atrac->second_.size == 0) {
+	if (atrac->BufferState() == ATRAC_STATUS_STREAMED_LOOP_WITH_TRAILER && atrac->SecondBufferSize() == 0) {
 		return hleReportError(ME, ATRAC_ERROR_SECOND_BUFFER_NEEDED, "no second buffer");
 	} else if ((u32)sample + atrac->GetTrack().firstSampleOffset > (u32)atrac->GetTrack().endSample + atrac->GetTrack().firstSampleOffset) {
 		// NOTE: Above we have to add firstSampleOffset to both sides - we seem to rely on wraparound.
@@ -787,7 +789,6 @@ static u32 sceAtracSetMOutData(int atracID, u32 buffer, u32 bufferSize) {
 		atrac->SetData(buffer, bufferSize, bufferSize, 2, 0);
 		return hleReportError(ME, ATRAC_ERROR_NOT_MONO, "not mono data");
 	} else {
-		atrac->outputChannels_ = 1;
 		return _AtracSetData(atracID, buffer, bufferSize, bufferSize, 1, false);
 	}
 }
@@ -908,7 +909,7 @@ static int sceAtracLowLevelInitDecoder(int atracID, u32 paramsAddr) {
 	}
 
 	bool jointStereo = false;
-	if (atrac->track_.codecType == PSP_MODE_AT_3) {
+	if (atrac->GetTrack().codecType == PSP_MODE_AT_3) {
 		// See if we can match the actual jointStereo value.
 		bool found = false;
 		for (size_t i = 0; i < ARRAY_SIZE(at3HeaderMap); ++i) {
@@ -925,7 +926,7 @@ static int sceAtracLowLevelInitDecoder(int atracID, u32 paramsAddr) {
 
 	atrac->InitLowLevel(paramsAddr, jointStereo);
 
-	const char *codecName = atrac->track_.codecType == PSP_MODE_AT_3 ? "atrac3" : "atrac3+";
+	const char *codecName = atrac->GetTrack().codecType == PSP_MODE_AT_3 ? "atrac3" : "atrac3+";
 	const char *channelName = atrac->GetTrack().channels == 1 ? "mono" : "stereo";
 	return hleLogSuccessInfoI(ME, 0, "%s %s audio", codecName, channelName);
 }

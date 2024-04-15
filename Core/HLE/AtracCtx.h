@@ -179,6 +179,10 @@ struct Atrac {
 		return (u32)(track_.dataOff + track_.bytesPerFrame + frameOffset * track_.bytesPerFrame);
 	}
 
+	u32 SecondBufferSize() const {
+		return second_.size;
+	}
+
 	const Track &GetTrack() const {
 		return track_;
 	}
@@ -223,6 +227,9 @@ struct Atrac {
 	u8 *BufferStart();
 
 	void SeekToSample(int sample);
+	int CurrentSample() const {
+		return currentSample_;
+	}
 
 	u32 CodecType() const {
 		return track_.codecType;
@@ -259,6 +266,7 @@ struct Atrac {
 	void UpdateContextFromPSPMem();
 	void WriteContextToPSPMem();
 
+	void GetStreamDataInfo(u32 *writePtr, u32 *writableBytes, u32 *readOffset);
 	int AddStreamData(u32 bytesToAdd);
 	u32 AddStreamDataSas(u32 bufPtr, u32 bytesToAdd);
 	void CreateDecoder();

@@ -731,6 +731,16 @@ void Atrac::UpdateBitrate() {
 		track_.bitrate = (track_.bitrate + 511) >> 10;
 }
 
+void Atrac::GetStreamDataInfo(u32 *writePtr, u32 *writableBytes, u32 *readOffset) {
+	u32 calculatedReadOffset;
+	// TODO: Feels like this should already have been computed?
+	CalculateStreamInfo(&calculatedReadOffset);
+
+	*writePtr = first_.addr + first_.offset;
+	*writableBytes = first_.writableBytes;
+	*readOffset = calculatedReadOffset;
+}
+
 int Atrac::AddStreamData(u32 bytesToAdd) {
 	u32 readOffset;
 	CalculateStreamInfo(&readOffset);
