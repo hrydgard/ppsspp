@@ -1202,6 +1202,9 @@
     <ClCompile Include="..\..\Core\HLE\AtracCtx.cpp">
       <Filter>HLE</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\Core\HLE\AtracCtx2.cpp">
+      <Filter>HLE</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="pch.h" />
@@ -1886,6 +1889,9 @@
       <Filter>Util</Filter>
     </ClInclude>
     <ClInclude Include="..\..\Core\HLE\AtracCtx.h">
+      <Filter>HLE</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Core\HLE\AtracCtx2.h">
       <Filter>HLE</Filter>
     </ClInclude>
   </ItemGroup>

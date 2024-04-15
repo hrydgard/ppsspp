@@ -17,9 +17,12 @@
 
 #pragma once
 
+#include <vector>
+
 #include "Common/CommonTypes.h"
 #include "Common/Swap.h"
 
+#include "Core/MemMap.h"
 #include "Core/HLE/sceAtrac.h"
 
 struct AtracSingleResetBufferInfo {
@@ -205,7 +208,6 @@ public:
 
 	void CreateDecoder();
 
-	virtual uint32_t CurBufferAddress(int adjust = 0) const = 0;
 	virtual int CurrentSample() const = 0;
 	virtual int RemainingFrames() const = 0;
 	virtual u32 SecondBufferSize() const = 0;
@@ -230,8 +232,6 @@ public:
 	virtual void InitLowLevel(u32 paramsAddr, bool jointStereo) = 0;
 
 protected:
-	virtual void AnalyzeReset() = 0;
-
 	Track track_{};
 	u16 outputChannels_ = 2;
 	int loopNum_ = 0;
@@ -247,7 +247,7 @@ public:
 		ResetData();
 	}
 
-	uint32_t CurBufferAddress(int adjust = 0) const override {
+	uint32_t CurBufferAddress(int adjust = 0) const {
 		u32 off = track_.FileOffsetBySample(currentSample_ + adjust);
 		if (off < first_.size && ignoreDataBuf_) {
 			return first_.addr + off;
@@ -256,10 +256,7 @@ public:
 		return 0;
 	}
 
-	u8 *BufferStart() {
-		return ignoreDataBuf_ ? Memory::GetPointerWrite(first_.addr) : dataBuf_;
-	}
-
+	u8 *BufferStart();
 	void DoState(PointerWrap &p) override;
 	void WriteContextToPSPMem() override;
 
@@ -285,7 +282,7 @@ public:
 	int GetSecondBufferInfo(u32 *fileOffset, u32 *desiredSize) override;
 	u32 DecodeData(u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u32 *finish, int *remains) override;
 	u32 GetNextSamples() override;
-	void InitLowLevel(u32 paramsAddr, bool jointStereo);
+	void InitLowLevel(u32 paramsAddr, bool jointStereo) override;
 
 protected:
 	void AnalyzeReset();

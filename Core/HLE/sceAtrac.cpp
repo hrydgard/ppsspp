@@ -35,6 +35,7 @@
 #include "Core/HLE/sceKernelMemory.h"
 #include "Core/HLE/sceAtrac.h"
 #include "Core/HLE/AtracCtx.h"
+#include "Core/HLE/AtracCtx2.h"
 #include "Core/System.h"
 
 // Notes about sceAtrac buffer management
@@ -136,6 +137,14 @@ void __AtracDoState(PointerWrap &p) {
 	}
 }
 
+static AtracBase *allocAtrac(bool forceOld = false) {
+	if (g_Config.bUseNewAtrac && !forceOld) {
+		return new Atrac2();
+	} else {
+		return new Atrac();
+	}
+}
+
 static AtracBase *getAtrac(int atracID) {
 	if (atracID < 0 || atracID >= PSP_NUM_ATRAC_IDS) {
 		return nullptr;
@@ -169,13 +178,14 @@ static int deleteAtrac(int atracID) {
 	return ATRAC_ERROR_BAD_ATRACID;
 }
 
-// Really, allocate a new Atrac context of a specific codec type.
+// Really, allocate an Atrac context of a specific codec type.
+// Useful to initialize a context for low level decode.
 static u32 sceAtracGetAtracID(int codecType) {
 	if (codecType != PSP_MODE_AT_3 && codecType != PSP_MODE_AT_3_PLUS) {
 		return hleReportError(ME, ATRAC_ERROR_INVALID_CODECTYPE, "invalid codecType");
 	}
 
-	AtracBase *atrac = new Atrac();
+	AtracBase *atrac = allocAtrac();
 	atrac->GetTrackMut().codecType = codecType;
 	int atracID = createAtrac(atrac);
 	if (atracID < 0) {
@@ -619,7 +629,7 @@ static int sceAtracSetDataAndGetID(u32 buffer, int bufferSize) {
 		bufferSize = 0x10000000;
 	}
 
-	Atrac *atrac = new Atrac();
+	AtracBase *atrac = allocAtrac();
 	int ret = atrac->Analyze(buffer, bufferSize);
 	if (ret < 0) {
 		// Already logged.
@@ -639,7 +649,7 @@ static int sceAtracSetHalfwayBufferAndGetID(u32 buffer, u32 readSize, u32 buffer
 	if (readSize > bufferSize) {
 		return hleLogError(ME, ATRAC_ERROR_INCORRECT_READ_SIZE, "read size too large");
 	}
-	Atrac *atrac = new Atrac();
+	AtracBase *atrac = allocAtrac();
 	int ret = atrac->Analyze(buffer, readSize);
 	if (ret < 0) {
 		// Already logged.
@@ -795,7 +805,7 @@ static u32 sceAtracSetMOutData(int atracID, u32 buffer, u32 bufferSize) {
 
 // Note: This doesn't seem to be part of any available libatrac3plus library.
 static int sceAtracSetMOutDataAndGetID(u32 buffer, u32 bufferSize) {
-	Atrac *atrac = new Atrac();
+	AtracBase *atrac = allocAtrac();
 	int ret = atrac->Analyze(buffer, bufferSize);
 	if (ret < 0) {
 		// Already logged.
@@ -819,7 +829,7 @@ static int sceAtracSetMOutHalfwayBufferAndGetID(u32 buffer, u32 readSize, u32 bu
 	if (readSize > bufferSize) {
 		return hleLogError(ME, ATRAC_ERROR_INCORRECT_READ_SIZE, "read size too large");
 	}
-	Atrac *atrac = new Atrac();
+	AtracBase *atrac = allocAtrac();
 	int ret = atrac->Analyze(buffer, readSize);
 	if (ret < 0) {
 		// Already logged.
@@ -840,7 +850,7 @@ static int sceAtracSetMOutHalfwayBufferAndGetID(u32 buffer, u32 readSize, u32 bu
 }
 
 static int sceAtracSetAA3DataAndGetID(u32 buffer, u32 bufferSize, u32 fileSize, u32 metadataSizeAddr) {
-	Atrac *atrac = new Atrac();
+	AtracBase *atrac = allocAtrac();
 	int ret = atrac->AnalyzeAA3(buffer, bufferSize, fileSize);
 	if (ret < 0) {
 		// Already logged.
@@ -962,7 +972,7 @@ static int sceAtracSetAA3HalfwayBufferAndGetID(u32 buffer, u32 readSize, u32 buf
 		return hleLogError(ME, ATRAC_ERROR_INCORRECT_READ_SIZE, "read size too large");
 	}
 
-	Atrac *atrac = new Atrac();
+	AtracBase *atrac = allocAtrac();
 	int ret = atrac->AnalyzeAA3(buffer, readSize, fileSize);
 	if (ret < 0) {
 		// Already logged.
