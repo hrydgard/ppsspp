@@ -175,6 +175,10 @@ void Atrac::AnalyzeReset() {
 	bufferPos_ = 0;
 }
 
+u8 *Atrac::BufferStart() {
+	return ignoreDataBuf_ ? Memory::GetPointerWrite(first_.addr) : dataBuf_;
+}
+
 void AtracBase::UpdateContextFromPSPMem() {
 	if (!context_.IsValid()) {
 		return;
