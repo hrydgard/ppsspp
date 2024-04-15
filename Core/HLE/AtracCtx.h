@@ -154,7 +154,8 @@ struct Track {
 int AnalyzeAA3Track(u32 addr, u32 size, u32 filesize, Track *track);
 int AnalyzeAtracTrack(u32 addr, u32 size, Track *track);
 
-struct AtracBase {
+class AtracBase {
+public:
 	virtual ~AtracBase() {}
 	virtual void UpdateBufferState() = 0;
 

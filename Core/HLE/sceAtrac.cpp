@@ -76,7 +76,7 @@ static const int atracDecodeDelay = 2300;
 
 const int PSP_NUM_ATRAC_IDS = 6;
 static bool atracInited = true;
-static Atrac *atracContexts[PSP_NUM_ATRAC_IDS];
+static AtracBase *atracContexts[PSP_NUM_ATRAC_IDS];
 static u32 atracContextTypes[PSP_NUM_ATRAC_IDS];
 static int atracLibVersion = 0;
 static u32 atracLibCrc = 0;
@@ -119,7 +119,7 @@ void __AtracDoState(PointerWrap &p) {
 		bool valid = atracContexts[i] != nullptr;
 		Do(p, valid);
 		if (valid) {
-			Do(p, atracContexts[i]);
+			DoSubClass<AtracBase, Atrac>(p, atracContexts[i]);
 		} else {
 			delete atracContexts[i];
 			atracContexts[i] = nullptr;
@@ -136,18 +136,18 @@ void __AtracDoState(PointerWrap &p) {
 	}
 }
 
-static Atrac *getAtrac(int atracID) {
+static AtracBase *getAtrac(int atracID) {
 	if (atracID < 0 || atracID >= PSP_NUM_ATRAC_IDS) {
 		return nullptr;
 	}
-	Atrac *atrac = atracContexts[atracID];
+	AtracBase *atrac = atracContexts[atracID];
 	if (atrac) {
 		atrac->UpdateContextFromPSPMem();
 	}
 	return atrac;
 }
 
-static int createAtrac(Atrac *atrac) {
+static int createAtrac(AtracBase *atrac) {
 	for (int i = 0; i < (int)ARRAY_SIZE(atracContexts); ++i) {
 		if (atracContextTypes[i] == atrac->CodecType() && atracContexts[i] == 0) {
 			atracContexts[i] = atrac;
@@ -175,7 +175,7 @@ static u32 sceAtracGetAtracID(int codecType) {
 		return hleReportError(ME, ATRAC_ERROR_INVALID_CODECTYPE, "invalid codecType");
 	}
 
-	Atrac *atrac = new Atrac();
+	AtracBase *atrac = new Atrac();
 	atrac->track_.codecType = codecType;
 	int atracID = createAtrac(atrac);
 	if (atracID < 0) {
@@ -186,7 +186,7 @@ static u32 sceAtracGetAtracID(int codecType) {
 	return hleLogSuccessInfoI(ME, atracID);
 }
 
-static u32 AtracValidateData(const Atrac *atrac) {
+static u32 AtracValidateData(const AtracBase *atrac) {
 	if (!atrac) {
 		return hleLogError(ME, ATRAC_ERROR_BAD_ATRACID, "bad atrac ID");
 	} else if (atrac->BufferState() == ATRAC_STATUS_NO_DATA) {
@@ -196,7 +196,7 @@ static u32 AtracValidateData(const Atrac *atrac) {
 	}
 }
 
-static u32 AtracValidateManaged(const Atrac *atrac) {
+static u32 AtracValidateManaged(const AtracBase *atrac) {
 	if (!atrac) {
 		return hleLogError(ME, ATRAC_ERROR_BAD_ATRACID, "bad atrac ID");
 	} else if (atrac->BufferState() == ATRAC_STATUS_NO_DATA) {
@@ -215,7 +215,7 @@ static u32 AtracValidateManaged(const Atrac *atrac) {
 //
 // The total size of the buffer is atrac->bufferMaxSize_.
 static u32 sceAtracAddStreamData(int atracID, u32 bytesToAdd) {
-	Atrac *atrac = getAtrac(atracID);
+	AtracBase *atrac = getAtrac(atracID);
 	u32 err = AtracValidateManaged(atrac);
 	if (err != 0) {
 		// Already logged.
@@ -238,7 +238,7 @@ static u32 sceAtracAddStreamData(int atracID, u32 bytesToAdd) {
 
 // Note that outAddr being null is completely valid here, used to skip data.
 static u32 sceAtracDecodeData(int atracID, u32 outAddr, u32 numSamplesAddr, u32 finishFlagAddr, u32 remainAddr) {
-	Atrac *atrac = getAtrac(atracID);
+	AtracBase *atrac = getAtrac(atracID);
 	u32 err = AtracValidateData(atrac);
 	if (err != 0) {
 		// Already logged.
@@ -279,7 +279,7 @@ static u32 sceAtracEndEntry() {
 static u32 sceAtracGetBufferInfoForResetting(int atracID, int sample, u32 bufferInfoAddr) {
 	auto bufferInfo = PSPPointer<AtracResetBufferInfo>::Create(bufferInfoAddr);
 
-	Atrac *atrac = getAtrac(atracID);
+	AtracBase *atrac = getAtrac(atracID);
 	u32 err = AtracValidateManaged(atrac);
 	if (err != 0) {
 		// Already logged.
@@ -300,7 +300,7 @@ static u32 sceAtracGetBufferInfoForResetting(int atracID, int sample, u32 buffer
 }
 
 static u32 sceAtracGetBitrate(int atracID, u32 outBitrateAddr) {
-	Atrac *atrac = getAtrac(atracID);
+	AtracBase *atrac = getAtrac(atracID);
 	u32 err = AtracValidateData(atrac);
 	if (err != 0) {
 		// Already logged.
@@ -318,7 +318,7 @@ static u32 sceAtracGetBitrate(int atracID, u32 outBitrateAddr) {
 }
 
 static u32 sceAtracGetChannel(int atracID, u32 channelAddr) {
-	Atrac *atrac = getAtrac(atracID);
+	AtracBase *atrac = getAtrac(atracID);
 	u32 err = AtracValidateData(atrac);
 	if (err != 0) {
 		// Already logged.
@@ -334,7 +334,7 @@ static u32 sceAtracGetChannel(int atracID, u32 channelAddr) {
 }
 
 static u32 sceAtracGetLoopStatus(int atracID, u32 loopNumAddr, u32 statusAddr) {
-	Atrac *atrac = getAtrac(atracID);
+	AtracBase *atrac = getAtrac(atracID);
 	u32 err = AtracValidateData(atrac);
 	if (err != 0) {
 		// Already logged.
@@ -356,7 +356,7 @@ static u32 sceAtracGetLoopStatus(int atracID, u32 loopNumAddr, u32 statusAddr) {
 }
 
 static u32 sceAtracGetInternalErrorInfo(int atracID, u32 errorAddr) {
-	Atrac *atrac = getAtrac(atracID);
+	AtracBase *atrac = getAtrac(atracID);
 	u32 err = AtracValidateData(atrac);
 	if (err != 0) {
 		// Already logged.
@@ -369,7 +369,7 @@ static u32 sceAtracGetInternalErrorInfo(int atracID, u32 errorAddr) {
 }
 
 static u32 sceAtracGetMaxSample(int atracID, u32 maxSamplesAddr) {
-	Atrac *atrac = getAtrac(atracID);
+	AtracBase *atrac = getAtrac(atracID);
 	u32 err = AtracValidateData(atrac);
 	if (err != 0) {
 		// Already logged.
@@ -385,7 +385,7 @@ static u32 sceAtracGetMaxSample(int atracID, u32 maxSamplesAddr) {
 }
 
 static u32 sceAtracGetNextDecodePosition(int atracID, u32 outposAddr) {
-	Atrac *atrac = getAtrac(atracID);
+	AtracBase *atrac = getAtrac(atracID);
 	u32 err = AtracValidateData(atrac);
 	if (err != 0) {
 		// Already logged.
@@ -406,7 +406,7 @@ static u32 sceAtracGetNextDecodePosition(int atracID, u32 outposAddr) {
 }
 
 static u32 sceAtracGetNextSample(int atracID, u32 outNAddr) {
-	Atrac *atrac = getAtrac(atracID);
+	AtracBase *atrac = getAtrac(atracID);
 	u32 err = AtracValidateData(atrac);
 	if (err != 0) {
 		// Already logged.
@@ -430,7 +430,7 @@ static u32 sceAtracGetNextSample(int atracID, u32 outNAddr) {
 static u32 sceAtracGetRemainFrame(int atracID, u32 remainAddr) {
 	auto remainingFrames = PSPPointer<u32_le>::Create(remainAddr);
 
-	Atrac *atrac = getAtrac(atracID);
+	AtracBase *atrac = getAtrac(atracID);
 	u32 err = AtracValidateManaged(atrac);
 	if (err != 0) {
 		// Already logged.
@@ -450,7 +450,7 @@ static u32 sceAtracGetSecondBufferInfo(int atracID, u32 fileOffsetAddr, u32 desi
 	auto fileOffset = PSPPointer<u32_le>::Create(fileOffsetAddr);
 	auto desiredSize = PSPPointer<u32_le>::Create(desiredSizeAddr);
 
-	Atrac *atrac = getAtrac(atracID);
+	AtracBase *atrac = getAtrac(atracID);
 	u32 err = AtracValidateManaged(atrac);
 	if (err != 0) {
 		// Already logged.
@@ -466,7 +466,7 @@ static u32 sceAtracGetSecondBufferInfo(int atracID, u32 fileOffsetAddr, u32 desi
 }
 
 static u32 sceAtracGetSoundSample(int atracID, u32 outEndSampleAddr, u32 outLoopStartSampleAddr, u32 outLoopEndSampleAddr) {
-	Atrac *atrac = getAtrac(atracID);
+	AtracBase *atrac = getAtrac(atracID);
 	u32 err = AtracValidateManaged(atrac);
 	if (err != 0) {
 		// Already logged.
@@ -493,7 +493,7 @@ static u32 sceAtracGetSoundSample(int atracID, u32 outEndSampleAddr, u32 outLoop
 // such as where the data read from, where the data add to,
 // and how many bytes are allowed to add.
 static u32 sceAtracGetStreamDataInfo(int atracID, u32 writePtrAddr, u32 writableBytesAddr, u32 readOffsetAddr) {
-	Atrac *atrac = getAtrac(atracID);
+	AtracBase *atrac = getAtrac(atracID);
 	u32 err = AtracValidateManaged(atrac);
 	if (err != 0) {
 		// Already logged.
@@ -527,7 +527,7 @@ static u32 sceAtracReleaseAtracID(int atracID) {
 // Normally, sceAtracGetBufferInfoForResetting() is called to determine how to buffer.
 // The game must add sufficient packets to the buffer in order to complete the seek.
 static u32 sceAtracResetPlayPosition(int atracID, int sample, int bytesWrittenFirstBuf, int bytesWrittenSecondBuf) {
-	Atrac *atrac = getAtrac(atracID);
+	AtracBase *atrac = getAtrac(atracID);
 	u32 err = AtracValidateManaged(atrac);
 	if (err != 0) {
 		// Already logged.
@@ -551,7 +551,7 @@ static u32 sceAtracResetPlayPosition(int atracID, int sample, int bytesWrittenFi
 }
 
 static int _AtracSetData(int atracID, u32 buffer, u32 readSize, u32 bufferSize, int outputChannels, bool needReturnAtracID) {
-	Atrac *atrac = getAtrac(atracID);
+	AtracBase *atrac = getAtrac(atracID);
 	// Don't use AtracValidateManaged here.
 	if (!atrac)
 		return hleLogError(ME, ATRAC_ERROR_BAD_ATRACID, "invalid atrac ID");
@@ -561,7 +561,7 @@ static int _AtracSetData(int atracID, u32 buffer, u32 readSize, u32 bufferSize, 
 }
 
 static u32 sceAtracSetHalfwayBuffer(int atracID, u32 buffer, u32 readSize, u32 bufferSize) {
-	Atrac *atrac = getAtrac(atracID);
+	AtracBase *atrac = getAtrac(atracID);
 	// Don't use AtracValidateManaged here.
 	if (!atrac) {
 		return hleLogError(ME, ATRAC_ERROR_BAD_ATRACID, "invalid atrac ID");
@@ -581,7 +581,7 @@ static u32 sceAtracSetHalfwayBuffer(int atracID, u32 buffer, u32 readSize, u32 b
 }
 
 static u32 sceAtracSetSecondBuffer(int atracID, u32 secondBuffer, u32 secondBufferSize) {
-	Atrac *atrac = getAtrac(atracID);
+	AtracBase *atrac = getAtrac(atracID);
 	u32 err = AtracValidateManaged(atrac);
 	if (err != 0) {
 		// Already logged.
@@ -592,7 +592,7 @@ static u32 sceAtracSetSecondBuffer(int atracID, u32 secondBuffer, u32 secondBuff
 }
 
 static u32 sceAtracSetData(int atracID, u32 buffer, u32 bufferSize) {
-	Atrac *atrac = getAtrac(atracID);
+	AtracBase *atrac = getAtrac(atracID);
 	if (!atrac) {
 		return hleLogError(ME, ATRAC_ERROR_BAD_ATRACID, "bad atrac ID");
 	}
@@ -660,7 +660,7 @@ static u32 sceAtracStartEntry() {
 }
 
 static u32 sceAtracSetLoopNum(int atracID, int loopNum) {
-	Atrac *atrac = getAtrac(atracID);
+	AtracBase *atrac = getAtrac(atracID);
 	u32 err = AtracValidateData(atrac);
 	if (err != 0) {
 		// Already logged.
@@ -720,7 +720,7 @@ static int sceAtracReinit(int at3Count, int at3plusCount) {
 }
 
 static int sceAtracGetOutputChannel(int atracID, u32 outputChanPtr) {
-	Atrac *atrac = getAtrac(atracID);
+	AtracBase *atrac = getAtrac(atracID);
 	u32 err = AtracValidateData(atrac);
 	if (err != 0) {
 		// Already logged.
@@ -735,7 +735,7 @@ static int sceAtracGetOutputChannel(int atracID, u32 outputChanPtr) {
 }
 
 static int sceAtracIsSecondBufferNeeded(int atracID) {
-	Atrac *atrac = getAtrac(atracID);
+	AtracBase *atrac = getAtrac(atracID);
 	u32 err = AtracValidateManaged(atrac);
 	if (err != 0) {
 		// Already logged.
@@ -748,7 +748,7 @@ static int sceAtracIsSecondBufferNeeded(int atracID) {
 }
 
 static int sceAtracSetMOutHalfwayBuffer(int atracID, u32 buffer, u32 readSize, u32 bufferSize) {
-	Atrac *atrac = getAtrac(atracID);
+	AtracBase *atrac = getAtrac(atracID);
 	// Don't use AtracValidate* here.
 	if (!atrac) {
 		return hleLogError(ME, ATRAC_ERROR_BAD_ATRACID, "bad atrac ID");
@@ -773,7 +773,7 @@ static int sceAtracSetMOutHalfwayBuffer(int atracID, u32 buffer, u32 readSize, u
 
 // Note: This doesn't seem to be part of any available libatrac3plus library.
 static u32 sceAtracSetMOutData(int atracID, u32 buffer, u32 bufferSize) {
-	Atrac *atrac = getAtrac(atracID);
+	AtracBase *atrac = getAtrac(atracID);
 	// Don't use AtracValidate* here.
 	if (!atrac) {
 		return hleLogError(ME, ATRAC_ERROR_BAD_ATRACID, "bad atrac ID");
@@ -857,7 +857,7 @@ static int sceAtracSetAA3DataAndGetID(u32 buffer, u32 bufferSize, u32 fileSize, 
 }
 
 static u32 _sceAtracGetContextAddress(int atracID) {
-	Atrac *atrac = getAtrac(atracID);
+	AtracBase *atrac = getAtrac(atracID);
 	if (!atrac) {
 		ERROR_LOG(ME, "_sceAtracGetContextAddress(%i): bad atrac id", atracID);
 		return 0;
@@ -882,7 +882,7 @@ struct At3HeaderMap {
 	u16 channels;
 	u8 jointStereo;
 
-	bool Matches(const Atrac *at) const {
+	bool Matches(const AtracBase *at) const {
 		return bytes == at->GetTrack().BytesPerFrame() && channels == at->Channels();
 	}
 };
@@ -898,7 +898,7 @@ static const At3HeaderMap at3HeaderMap[] = {
 };
 
 static int sceAtracLowLevelInitDecoder(int atracID, u32 paramsAddr) {
-	Atrac *atrac = getAtrac(atracID);
+	AtracBase *atrac = getAtrac(atracID);
 	if (!atrac) {
 		return hleLogError(ME, ATRAC_ERROR_BAD_ATRACID, "bad atrac ID");
 	}
@@ -937,7 +937,7 @@ static int sceAtracLowLevelDecode(int atracID, u32 sourceAddr, u32 sourceBytesCo
 	auto outp = PSPPointer<u8>::Create(samplesAddr);
 	auto outWritten = PSPPointer<u32_le>::Create(sampleBytesAddr);
 
-	Atrac *atrac = getAtrac(atracID);
+	AtracBase *atrac = getAtrac(atracID);
 	if (!atrac) {
 		return hleLogError(ME, ATRAC_ERROR_BAD_ATRACID, "bad atrac ID");
 	}
@@ -981,14 +981,14 @@ static int sceAtracSetAA3HalfwayBufferAndGetID(u32 buffer, u32 readSize, u32 buf
 // External interface used by sceSas' AT3 integration.
 
 u32 AtracSasAddStreamData(int atracID, u32 bufPtr, u32 bytesToAdd) {
-	Atrac *atrac = getAtrac(atracID);
+	AtracBase *atrac = getAtrac(atracID);
 	if (!atrac)
 		return 0;
 	return atrac->AddStreamDataSas(bufPtr, bytesToAdd);
 }
 
 u32 AtracSasDecodeData(int atracID, u8* outbuf, u32 outbufPtr, u32 *SamplesNum, u32* finish, int *remains) {
-	Atrac *atrac = getAtrac(atracID);
+	AtracBase *atrac = getAtrac(atracID);
 	if (!atrac)
 		return 0;
 	return atrac->DecodeData(outbuf, outbufPtr, SamplesNum, finish, remains);
