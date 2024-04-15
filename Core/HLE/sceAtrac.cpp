@@ -307,7 +307,7 @@ static u32 sceAtracGetBitrate(int atracID, u32 outBitrateAddr) {
 		return err;
 	}
 
-	atrac->UpdateBitrate();
+	atrac->GetTrackMut().UpdateBitrate();
 
 	if (Memory::IsValidAddress(outBitrateAddr)) {
 		Memory::WriteUnchecked_U32(atrac->Bitrate(), outBitrateAddr);
@@ -377,7 +377,7 @@ static u32 sceAtracGetMaxSample(int atracID, u32 maxSamplesAddr) {
 	}
 
 	if (Memory::IsValidAddress(maxSamplesAddr)) {
-		Memory::WriteUnchecked_U32(atrac->SamplesPerFrame(), maxSamplesAddr);
+		Memory::WriteUnchecked_U32(atrac->GetTrack().SamplesPerFrame(), maxSamplesAddr);
 		return hleLogSuccessI(ME, 0);
 	} else {
 		return hleLogError(ME, 0, "invalid address");
@@ -500,9 +500,9 @@ static u32 sceAtracGetStreamDataInfo(int atracID, u32 writePtrAddr, u32 writable
 		return err;
 	}
 
-	u32 writePtr = 0;
-	u32 writableBytes = 0;
-	u32 readOffset = 0;
+	u32 writePtr;
+	u32 writableBytes;
+	u32 readOffset;
 	atrac->GetStreamDataInfo(&writePtr, &writableBytes, &readOffset);
 
 	if (Memory::IsValidAddress(writePtrAddr))

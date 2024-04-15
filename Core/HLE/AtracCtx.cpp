@@ -167,18 +167,15 @@ void Atrac::ResetData() {
 
 void Atrac::AnalyzeReset() {
 	// Reset some values.
+	track_.AnalyzeReset();
+
 	currentSample_ = 0;
-	track_.endSample = -1;
 	loopNum_ = 0;
-	track_.loopinfo.clear();
-	track_.loopStartSample = -1;
-	track_.loopEndSample = -1;
 	decodePos_ = 0;
 	bufferPos_ = 0;
-	track_.channels = 2;
 }
 
-void Atrac::UpdateContextFromPSPMem() {
+void AtracBase::UpdateContextFromPSPMem() {
 	if (!context_.IsValid()) {
 		return;
 	}
@@ -562,7 +559,7 @@ void Atrac::CalculateStreamInfo(u32 *outReadOffset) {
 	}
 }
 
-void Atrac::CreateDecoder() {
+void AtracBase::CreateDecoder() {
 	if (decoder_) {
 		delete decoder_;
 	}
@@ -581,8 +578,6 @@ void Atrac::CreateDecoder() {
 	} else {
 		decoder_ = CreateAtrac3PlusAudio(track_.channels, track_.bytesPerFrame);
 	}
-	// reinit decodePos, because ffmpeg had changed it.
-	decodePos_ = 0;
 }
 
 void Atrac::GetResetBufferInfo(AtracResetBufferInfo *bufferInfo, int sample) {
@@ -723,14 +718,6 @@ int Atrac::GetSecondBufferInfo(u32 *fileOffset, u32 *desiredSize) {
 	return hleLogSuccessI(ME, 0);
 }
 
-void Atrac::UpdateBitrate() {
-	track_.bitrate = (track_.bytesPerFrame * 352800) / 1000;
-	if (track_.codecType == PSP_MODE_AT_3_PLUS)
-		track_.bitrate = ((track_.bitrate >> 11) + 8) & 0xFFFFFFF0;
-	else
-		track_.bitrate = (track_.bitrate + 511) >> 10;
-}
-
 void Atrac::GetStreamDataInfo(u32 *writePtr, u32 *writableBytes, u32 *readOffset) {
 	u32 calculatedReadOffset;
 	// TODO: Feels like this should already have been computed?
@@ -808,10 +795,6 @@ u32 Atrac::GetNextSamples() {
 		bufferState_ = ATRAC_STATUS_ALL_DATA_LOADED;
 	}
 	return numSamples;
-}
-
-u8 *Atrac::BufferStart() {
-	return ignoreDataBuf_ ? Memory::GetPointerWrite(first_.addr) : dataBuf_;
 }
 
 void Atrac::ForceSeekToSample(int sample) {
