@@ -176,7 +176,7 @@ static u32 sceAtracGetAtracID(int codecType) {
 	}
 
 	Atrac *atrac = new Atrac();
-	atrac->codecType_ = codecType;
+	atrac->track_.codecType = codecType;
 	int atracID = createAtrac(atrac);
 	if (atracID < 0) {
 		delete atrac;
@@ -290,7 +290,8 @@ static u32 sceAtracGetBufferInfoForResetting(int atracID, int sample, u32 buffer
 		return hleReportError(ME, SCE_KERNEL_ERROR_ILLEGAL_ADDR, "invalid buffer, should crash");
 	} else if (atrac->BufferState() == ATRAC_STATUS_STREAMED_LOOP_WITH_TRAILER && atrac->second_.size == 0) {
 		return hleReportError(ME, ATRAC_ERROR_SECOND_BUFFER_NEEDED, "no second buffer");
-	} else if ((u32)sample + atrac->firstSampleOffset_ > (u32)atrac->endSample_ + atrac->firstSampleOffset_) {
+	} else if ((u32)sample + atrac->GetTrack().firstSampleOffset > (u32)atrac->GetTrack().endSample + atrac->GetTrack().firstSampleOffset) {
+		// NOTE: Above we have to add firstSampleOffset to both sides - we seem to rely on wraparound.
 		return hleLogWarning(ME, ATRAC_ERROR_BAD_SAMPLE, "invalid sample position");
 	} else {
 		atrac->GetResetBufferInfo(bufferInfo, sample);
@@ -344,7 +345,7 @@ static u32 sceAtracGetLoopStatus(int atracID, u32 loopNumAddr, u32 statusAddr) {
 		Memory::WriteUnchecked_U32(atrac->loopNum_, loopNumAddr);
 	// return audio's loopinfo in at3 file
 	if (Memory::IsValidAddress(statusAddr)) {
-		if (atrac->loopinfo_.size() > 0)
+		if (atrac->GetTrack().loopinfo.size() > 0)
 			Memory::WriteUnchecked_U32(1, statusAddr);
 		else
 			Memory::WriteUnchecked_U32(0, statusAddr);
@@ -392,7 +393,7 @@ static u32 sceAtracGetNextDecodePosition(int atracID, u32 outposAddr) {
 	}
 
 	if (Memory::IsValidAddress(outposAddr)) {
-		if (atrac->currentSample_ >= atrac->endSample_) {
+		if (atrac->currentSample_ >= atrac->GetTrack().endSample) {
 			Memory::WriteUnchecked_U32(0, outposAddr);
 			return hleLogSuccessI(ME, ATRAC_ERROR_ALL_DATA_DECODED, "all data decoded");
 		} else {
@@ -411,7 +412,7 @@ static u32 sceAtracGetNextSample(int atracID, u32 outNAddr) {
 		// Already logged.
 		return err;
 	}
-	if (atrac->currentSample_ >= atrac->endSample_) {
+	if (atrac->currentSample_ >= atrac->GetTrack().endSample) {
 		if (Memory::IsValidAddress(outNAddr))
 			Memory::WriteUnchecked_U32(0, outNAddr);
 		return hleLogSuccessI(ME, 0, "0 samples left");
@@ -461,17 +462,7 @@ static u32 sceAtracGetSecondBufferInfo(int atracID, u32 fileOffsetAddr, u32 desi
 		return hleReportError(ME, SCE_KERNEL_ERROR_ILLEGAL_ADDR, "invalid addresses");
 	}
 
-	if (atrac->BufferState() != ATRAC_STATUS_STREAMED_LOOP_WITH_TRAILER) {
-		// Writes zeroes in this error case.
-		*fileOffset = 0;
-		*desiredSize = 0;
-		return hleLogWarning(ME, ATRAC_ERROR_SECOND_BUFFER_NOT_NEEDED, "not needed");
-	}
-
-	*fileOffset = atrac->FileOffsetBySample(atrac->loopEndSample_ - atrac->firstSampleOffset_);
-	*desiredSize = atrac->first_.filesize - *fileOffset;
-
-	return hleLogSuccessI(ME, 0);
+	return atrac->GetSecondBufferInfo(fileOffset, desiredSize);
 }
 
 static u32 sceAtracGetSoundSample(int atracID, u32 outEndSampleAddr, u32 outLoopStartSampleAddr, u32 outLoopEndSampleAddr) {
@@ -484,13 +475,13 @@ static u32 sceAtracGetSoundSample(int atracID, u32 outEndSampleAddr, u32 outLoop
 
 	auto outEndSample = PSPPointer<u32_le>::Create(outEndSampleAddr);
 	if (outEndSample.IsValid())
-		*outEndSample = atrac->endSample_;
+		*outEndSample = atrac->GetTrack().endSample;
 	auto outLoopStart = PSPPointer<u32_le>::Create(outLoopStartSampleAddr);
 	if (outLoopStart.IsValid())
-		*outLoopStart = atrac->loopStartSample_ == -1 ? -1 : atrac->loopStartSample_ - atrac->firstSampleOffset_ - atrac->FirstOffsetExtra();
+		*outLoopStart = atrac->GetTrack().loopStartSample == -1 ? -1 : atrac->GetTrack().loopStartSample - atrac->GetTrack().firstSampleOffset - atrac->FirstOffsetExtra();
 	auto outLoopEnd = PSPPointer<u32_le>::Create(outLoopEndSampleAddr);
 	if (outLoopEnd.IsValid())
-		*outLoopEnd = atrac->loopEndSample_ == -1 ? -1 : atrac->loopEndSample_ - atrac->firstSampleOffset_ - atrac->FirstOffsetExtra();
+		*outLoopEnd = atrac->GetTrack().loopEndSample == -1 ? -1 : atrac->GetTrack().loopEndSample - atrac->GetTrack().firstSampleOffset - atrac->FirstOffsetExtra();
 
 	if (!outEndSample.IsValid() || !outLoopStart.IsValid() || !outLoopEnd.IsValid()) {
 		return hleReportError(ME, 0, "invalid address");
@@ -543,7 +534,8 @@ static u32 sceAtracResetPlayPosition(int atracID, int sample, int bytesWrittenFi
 
 	if (atrac->BufferState() == ATRAC_STATUS_STREAMED_LOOP_WITH_TRAILER && atrac->second_.size == 0) {
 		return hleReportError(ME, ATRAC_ERROR_SECOND_BUFFER_NEEDED, "no second buffer");
-	} else if ((u32)sample + atrac->firstSampleOffset_ > (u32)atrac->endSample_ + atrac->firstSampleOffset_) {
+	} else if ((u32)sample + atrac->GetTrack().firstSampleOffset > (u32)atrac->GetTrack().endSample + atrac->GetTrack().firstSampleOffset) {
+		// NOTE: Above we have to add firstSampleOffset to both sides - we seem to rely on wraparound.
 		return hleLogWarning(ME, ATRAC_ERROR_BAD_SAMPLE, "invalid sample position");
 	}
 
@@ -556,12 +548,12 @@ static u32 sceAtracResetPlayPosition(int atracID, int sample, int bytesWrittenFi
 	return hleDelayResult(hleLogSuccessInfoI(ME, 0), "reset play pos", 3000);
 }
 
-static int _AtracSetData(int atracID, u32 buffer, u32 readSize, u32 bufferSize, bool needReturnAtracID = false) {
+static int _AtracSetData(int atracID, u32 buffer, u32 readSize, u32 bufferSize, int outputChannels, bool needReturnAtracID) {
 	Atrac *atrac = getAtrac(atracID);
 	// Don't use AtracValidateManaged here.
 	if (!atrac)
 		return hleLogError(ME, ATRAC_ERROR_BAD_ATRACID, "invalid atrac ID");
-	int ret = atrac->SetData(buffer, readSize, bufferSize, needReturnAtracID ? atracID : 0);
+	int ret = atrac->SetData(buffer, readSize, bufferSize, outputChannels, needReturnAtracID ? atracID : 0);
 	// not sure the real delay time
 	return hleDelayResult(ret, "atrac set data", 100);
 }
@@ -583,8 +575,7 @@ static u32 sceAtracSetHalfwayBuffer(int atracID, u32 buffer, u32 readSize, u32 b
 		return ret;
 	}
 
-	atrac->outputChannels_ = 2;
-	return _AtracSetData(atracID, buffer, readSize, bufferSize);
+	return _AtracSetData(atracID, buffer, readSize, bufferSize, 2, false);
 }
 
 static u32 sceAtracSetSecondBuffer(int atracID, u32 secondBuffer, u32 secondBufferSize) {
@@ -610,13 +601,12 @@ static u32 sceAtracSetData(int atracID, u32 buffer, u32 bufferSize) {
 		return ret;
 	}
 
-	if (atrac->codecType_ != atracContextTypes[atracID]) {
+	if (atrac->track_.codecType != atracContextTypes[atracID]) {
 		// TODO: Should this not change the buffer size?
 		return hleReportError(ME, ATRAC_ERROR_WRONG_CODECTYPE, "atracID uses different codec type than data");
 	}
 
-	atrac->outputChannels_ = 2;
-	return _AtracSetData(atracID, buffer, bufferSize, bufferSize);
+	return _AtracSetData(atracID, buffer, bufferSize, bufferSize, 2, false);
 }
 
 static int sceAtracSetDataAndGetID(u32 buffer, int bufferSize) {
@@ -640,8 +630,7 @@ static int sceAtracSetDataAndGetID(u32 buffer, int bufferSize) {
 		return hleLogError(ME, atracID, "no free ID");
 	}
 
-	atrac->outputChannels_ = 2;
-	return _AtracSetData(atracID, buffer, bufferSize, bufferSize, true);
+	return _AtracSetData(atracID, buffer, bufferSize, bufferSize, 2, true);
 }
 
 static int sceAtracSetHalfwayBufferAndGetID(u32 buffer, u32 readSize, u32 bufferSize) {
@@ -660,9 +649,7 @@ static int sceAtracSetHalfwayBufferAndGetID(u32 buffer, u32 readSize, u32 buffer
 		delete atrac;
 		return hleLogError(ME, atracID, "no free ID");
 	}
-
-	atrac->outputChannels_ = 2;
-	return _AtracSetData(atracID, buffer, readSize, bufferSize, true);
+	return _AtracSetData(atracID, buffer, readSize, bufferSize, 2, true);
 }
 
 static u32 sceAtracStartEntry() {
@@ -677,7 +664,7 @@ static u32 sceAtracSetLoopNum(int atracID, int loopNum) {
 		// Already logged.
 		return err;
 	}
-	if (atrac->loopinfo_.size() == 0) {
+	if (atrac->GetTrack().loopinfo.size() == 0) {
 		return hleLogError(ME, ATRAC_ERROR_NO_LOOP_INFORMATION, "no loop information");
 	}
 
@@ -738,7 +725,7 @@ static int sceAtracGetOutputChannel(int atracID, u32 outputChanPtr) {
 		return err;
 	}
 	if (Memory::IsValidAddress(outputChanPtr)) {
-		Memory::WriteUnchecked_U32(atrac->outputChannels_, outputChanPtr);
+		Memory::WriteUnchecked_U32(atrac->GetOutputChannels(), outputChanPtr);
 		return hleLogSuccessI(ME, 0);
 	} else {
 		return hleLogError(ME, 0, "invalid address");
@@ -773,14 +760,12 @@ static int sceAtracSetMOutHalfwayBuffer(int atracID, u32 buffer, u32 readSize, u
 		// Already logged.
 		return ret;
 	}
-	if (atrac->channels_ != 1) {
+	if (atrac->GetTrack().channels != 1) {
 		// It seems it still sets the data.
-		atrac->outputChannels_ = 2;
-		atrac->SetData(buffer, readSize, bufferSize);
+		atrac->SetData(buffer, readSize, bufferSize, 2, 0);
 		return hleReportError(ME, ATRAC_ERROR_NOT_MONO, "not mono data");
 	} else {
-		atrac->outputChannels_ = 1;
-		return _AtracSetData(atracID, buffer, readSize, bufferSize);
+		return _AtracSetData(atracID, buffer, readSize, bufferSize, 1, false);
 	}
 }
 
@@ -797,14 +782,13 @@ static u32 sceAtracSetMOutData(int atracID, u32 buffer, u32 bufferSize) {
 		// Already logged.
 		return ret;
 	}
-	if (atrac->channels_ != 1) {
+	if (atrac->GetTrack().channels != 1) {
 		// It seems it still sets the data.
-		atrac->outputChannels_ = 2;
-		atrac->SetData(buffer, bufferSize, bufferSize);
+		atrac->SetData(buffer, bufferSize, bufferSize, 2, 0);
 		return hleReportError(ME, ATRAC_ERROR_NOT_MONO, "not mono data");
 	} else {
 		atrac->outputChannels_ = 1;
-		return _AtracSetData(atracID, buffer, bufferSize, bufferSize);
+		return _AtracSetData(atracID, buffer, bufferSize, bufferSize, 1, false);
 	}
 }
 
@@ -817,7 +801,7 @@ static int sceAtracSetMOutDataAndGetID(u32 buffer, u32 bufferSize) {
 		delete atrac;
 		return ret;
 	}
-	if (atrac->channels_ != 1) {
+	if (atrac->GetTrack().channels != 1) {
 		delete atrac;
 		return hleReportError(ME, ATRAC_ERROR_NOT_MONO, "not mono data");
 	}
@@ -827,8 +811,7 @@ static int sceAtracSetMOutDataAndGetID(u32 buffer, u32 bufferSize) {
 		return hleLogError(ME, atracID, "no free ID");
 	}
 
-	atrac->outputChannels_ = 1;
-	return _AtracSetData(atracID, buffer, bufferSize, bufferSize, true);
+	return _AtracSetData(atracID, buffer, bufferSize, bufferSize, 1, true);
 }
 
 static int sceAtracSetMOutHalfwayBufferAndGetID(u32 buffer, u32 readSize, u32 bufferSize) {
@@ -842,7 +825,7 @@ static int sceAtracSetMOutHalfwayBufferAndGetID(u32 buffer, u32 readSize, u32 bu
 		delete atrac;
 		return ret;
 	}
-	if (atrac->channels_ != 1) {
+	if (atrac->GetTrack().channels != 1) {
 		delete atrac;
 		return hleReportError(ME, ATRAC_ERROR_NOT_MONO, "not mono data");
 	}
@@ -852,8 +835,7 @@ static int sceAtracSetMOutHalfwayBufferAndGetID(u32 buffer, u32 readSize, u32 bu
 		return hleLogError(ME, atracID, "no free ID");
 	}
 
-	atrac->outputChannels_ = 1;
-	return _AtracSetData(atracID, buffer, readSize, bufferSize, true);
+	return _AtracSetData(atracID, buffer, readSize, bufferSize, 1, true);
 }
 
 static int sceAtracSetAA3DataAndGetID(u32 buffer, u32 bufferSize, u32 fileSize, u32 metadataSizeAddr) {
@@ -870,8 +852,7 @@ static int sceAtracSetAA3DataAndGetID(u32 buffer, u32 bufferSize, u32 fileSize, 
 		return hleLogError(ME, atracID, "no free ID");
 	}
 
-	atrac->outputChannels_ = 2;
-	return _AtracSetData(atracID, buffer, bufferSize, bufferSize, true);
+	return _AtracSetData(atracID, buffer, bufferSize, bufferSize, 2, true);
 }
 
 static u32 _sceAtracGetContextAddress(int atracID) {
@@ -901,7 +882,7 @@ struct At3HeaderMap {
 	u8 jointStereo;
 
 	bool Matches(const Atrac *at) const {
-		return bytes == at->BytesPerFrame() && channels == at->Channels();
+		return bytes == at->GetTrack().BytesPerFrame() && channels == at->Channels();
 	}
 };
 
@@ -921,18 +902,13 @@ static int sceAtracLowLevelInitDecoder(int atracID, u32 paramsAddr) {
 		return hleLogError(ME, ATRAC_ERROR_BAD_ATRACID, "bad atrac ID");
 	}
 
-	if (atrac->codecType_ != PSP_MODE_AT_3 && atrac->codecType_ != PSP_MODE_AT_3_PLUS) {
-		// TODO: Error code?  Was silently 0 before, and just didn't work.  Shouldn't ever happen...
-		return hleReportError(ME, ATRAC_ERROR_UNKNOWN_FORMAT, "bad codec type");
-	}
-
 	if (!Memory::IsValidAddress(paramsAddr)) {
 		// TODO: Returning zero as code was before.  Needs testing.
 		return hleReportError(ME, 0, "invalid pointers");
 	}
 
 	bool jointStereo = false;
-	if (atrac->codecType_ == PSP_MODE_AT_3) {
+	if (atrac->track_.codecType == PSP_MODE_AT_3) {
 		// See if we can match the actual jointStereo value.
 		bool found = false;
 		for (size_t i = 0; i < ARRAY_SIZE(at3HeaderMap); ++i) {
@@ -942,15 +918,15 @@ static int sceAtracLowLevelInitDecoder(int atracID, u32 paramsAddr) {
 			}
 		}
 		if (!found) {
-			ERROR_LOG_REPORT(ME, "AT3 header map lacks entry for bpf: %i  channels: %i", atrac->BytesPerFrame(), atrac->Channels());
+			ERROR_LOG_REPORT(ME, "AT3 header map lacks entry for bpf: %i  channels: %i", atrac->GetTrack().BytesPerFrame(), atrac->Channels());
 			// TODO: Should we return an error code for these values?
 		}
 	}
 
 	atrac->InitLowLevel(paramsAddr, jointStereo);
 
-	const char *codecName = atrac->codecType_ == PSP_MODE_AT_3 ? "atrac3" : "atrac3+";
-	const char *channelName = atrac->channels_ == 1 ? "mono" : "stereo";
+	const char *codecName = atrac->track_.codecType == PSP_MODE_AT_3 ? "atrac3" : "atrac3+";
+	const char *channelName = atrac->GetTrack().channels == 1 ? "mono" : "stereo";
 	return hleLogSuccessInfoI(ME, 0, "%s %s audio", codecName, channelName);
 }
 
@@ -972,7 +948,7 @@ static int sceAtracLowLevelDecode(int atracID, u32 sourceAddr, u32 sourceBytesCo
 
 	int bytesConsumed = 0;
 	int bytesWritten = 0;
-	atrac->GetDecoder()->Decode(srcp, atrac->BytesPerFrame(), &bytesConsumed, outp, &bytesWritten);
+	atrac->GetDecoder()->Decode(srcp, atrac->GetTrack().BytesPerFrame(), &bytesConsumed, outp, &bytesWritten);
 	*srcConsumed = bytesConsumed;
 	*outWritten = bytesWritten;
 
@@ -998,8 +974,7 @@ static int sceAtracSetAA3HalfwayBufferAndGetID(u32 buffer, u32 readSize, u32 buf
 		return hleLogError(ME, atracID, "no free ID");
 	}
 
-	atrac->outputChannels_ = 2;
-	return _AtracSetData(atracID, buffer, readSize, bufferSize, true);
+	return _AtracSetData(atracID, buffer, readSize, bufferSize, 2, true);
 }
 
 // External interface used by sceSas' AT3 integration.
