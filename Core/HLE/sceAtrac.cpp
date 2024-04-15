@@ -176,7 +176,7 @@ static u32 sceAtracGetAtracID(int codecType) {
 	}
 
 	AtracBase *atrac = new Atrac();
-	atrac->track_.codecType = codecType;
+	atrac->GetTrackMut().codecType = codecType;
 	int atracID = createAtrac(atrac);
 	if (atracID < 0) {
 		delete atrac;
@@ -310,7 +310,7 @@ static u32 sceAtracGetBitrate(int atracID, u32 outBitrateAddr) {
 	atrac->GetTrackMut().UpdateBitrate();
 
 	if (Memory::IsValidAddress(outBitrateAddr)) {
-		Memory::WriteUnchecked_U32(atrac->Bitrate(), outBitrateAddr);
+		Memory::WriteUnchecked_U32(atrac->GetTrack().bitrate, outBitrateAddr);
 		return hleLogSuccessI(ME, 0);
 	} else {
 		return hleLogError(ME, 0, "invalid address");
@@ -326,7 +326,7 @@ static u32 sceAtracGetChannel(int atracID, u32 channelAddr) {
 	}
 
 	if (Memory::IsValidAddress(channelAddr)){
-		Memory::WriteUnchecked_U32(atrac->Channels(), channelAddr);
+		Memory::WriteUnchecked_U32(atrac->GetTrack().channels, channelAddr);
 		return hleLogSuccessI(ME, 0);
 	} else {
 		return hleLogError(ME, 0, "invalid address");
@@ -342,7 +342,7 @@ static u32 sceAtracGetLoopStatus(int atracID, u32 loopNumAddr, u32 statusAddr) {
 	}
 
 	if (Memory::IsValidAddress(loopNumAddr))
-		Memory::WriteUnchecked_U32(atrac->loopNum_, loopNumAddr);
+		Memory::WriteUnchecked_U32(atrac->LoopNum(), loopNumAddr);
 	// return audio's loopinfo in at3 file
 	if (Memory::IsValidAddress(statusAddr)) {
 		if (atrac->GetTrack().loopinfo.size() > 0)
@@ -603,7 +603,7 @@ static u32 sceAtracSetData(int atracID, u32 buffer, u32 bufferSize) {
 		return ret;
 	}
 
-	if (atrac->track_.codecType != atracContextTypes[atracID]) {
+	if (atrac->GetTrack().codecType != atracContextTypes[atracID]) {
 		// TODO: Should this not change the buffer size?
 		return hleReportError(ME, ATRAC_ERROR_WRONG_CODECTYPE, "atracID uses different codec type than data");
 	}
@@ -883,7 +883,7 @@ struct At3HeaderMap {
 	u8 jointStereo;
 
 	bool Matches(const AtracBase *at) const {
-		return bytes == at->GetTrack().BytesPerFrame() && channels == at->Channels();
+		return bytes == at->GetTrack().BytesPerFrame() && channels == at->GetTrack().channels;
 	}
 };
 
@@ -919,7 +919,7 @@ static int sceAtracLowLevelInitDecoder(int atracID, u32 paramsAddr) {
 			}
 		}
 		if (!found) {
-			ERROR_LOG_REPORT(ME, "AT3 header map lacks entry for bpf: %i  channels: %i", atrac->GetTrack().BytesPerFrame(), atrac->Channels());
+			ERROR_LOG_REPORT(ME, "AT3 header map lacks entry for bpf: %i  channels: %i", atrac->GetTrack().BytesPerFrame(), atrac->GetTrack().channels);
 			// TODO: Should we return an error code for these values?
 		}
 	}
@@ -949,7 +949,7 @@ static int sceAtracLowLevelDecode(int atracID, u32 sourceAddr, u32 sourceBytesCo
 
 	int bytesConsumed = 0;
 	int bytesWritten = 0;
-	atrac->GetDecoder()->Decode(srcp, atrac->GetTrack().BytesPerFrame(), &bytesConsumed, 2, outp, &bytesWritten);
+	atrac->Decoder()->Decode(srcp, atrac->GetTrack().BytesPerFrame(), &bytesConsumed, 2, outp, &bytesWritten);
 	*srcConsumed = bytesConsumed;
 	*outWritten = bytesWritten;
 

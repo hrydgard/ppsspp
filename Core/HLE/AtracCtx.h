@@ -141,6 +141,16 @@ struct Track {
 			bitrate = (bitrate + 511) >> 10;
 	}
 
+	u32 DecodePosBySample(int sample) const {
+		return (u32)(firstSampleOffset + sample / (int)SamplesPerFrame() * bytesPerFrame);
+	}
+
+	u32 FileOffsetBySample(int sample) const {
+		int offsetSample = sample + firstSampleOffset;
+		int frameOffset = offsetSample / (int)SamplesPerFrame();
+		return (u32)(dataOff + bytesPerFrame + frameOffset * bytesPerFrame);
+	}
+
 	void AnalyzeReset() {
 		endSample = -1;
 		loopinfo.clear();
@@ -157,19 +167,8 @@ int AnalyzeAtracTrack(u32 addr, u32 size, Track *track);
 class AtracBase {
 public:
 	virtual ~AtracBase() {}
-	virtual void UpdateBufferState() = 0;
 
 	virtual void DoState(PointerWrap &p) = 0;
-
-	u32 DecodePosBySample(int sample) const {
-		return (u32)(track_.firstSampleOffset + sample / (int)track_.SamplesPerFrame() * track_.bytesPerFrame);
-	}
-
-	u32 FileOffsetBySample(int sample) const {
-		int offsetSample = sample + track_.firstSampleOffset;
-		int frameOffset = offsetSample / (int)track_.SamplesPerFrame();
-		return (u32)(track_.dataOff + track_.bytesPerFrame + frameOffset * track_.bytesPerFrame);
-	}
 
 	const Track &GetTrack() const {
 		return track_;
@@ -179,21 +178,11 @@ public:
 		return track_;
 	}
 
-	int Bitrate() const {
-		return track_.bitrate;
-	}
-	int Channels() const {
-		return track_.channels;
-	}
-
 	int GetOutputChannels() const {
 		return outputChannels_;
 	}
 
 	int atracID_ = -1;
-	u16 outputChannels_ = 2;
-	int loopNum_ = 0;
-	Track track_{};
 
 	PSPPointer<SceAtracContext> context_{};
 
@@ -201,15 +190,19 @@ public:
 		return bufferState_;
 	}
 
+	int LoopNum() const {
+		return loopNum_;
+	}
 	u32 CodecType() const {
 		return track_.codecType;
 	}
-	AudioDecoder *GetDecoder() const {
+	AudioDecoder *Decoder() const {
 		return decoder_;
 	}
 	u32 FirstOffsetExtra() const {
 		return ::FirstOffsetExtra(track_.codecType);
 	}
+
 	void CreateDecoder();
 
 	virtual uint32_t CurBufferAddress(int adjust = 0) const = 0;
@@ -232,14 +225,16 @@ public:
 	virtual int SetData(u32 buffer, u32 readSize, u32 bufferSize, int outputChannels, int successCode) = 0;
 	virtual u32 SetSecondBuffer(u32 secondBuffer, u32 secondBufferSize) = 0;
 	virtual int GetSecondBufferInfo(u32 *fileOffset, u32 *desiredSize) = 0;
-	virtual void ForceSeekToSample(int sample) = 0;
-	virtual void SeekToSample(int sample) = 0;
 	virtual u32 DecodeData(u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u32 *finish, int *remains) = 0;
 	virtual u32 GetNextSamples() = 0;
 	virtual void InitLowLevel(u32 paramsAddr, bool jointStereo) = 0;
 
 protected:
 	virtual void AnalyzeReset() = 0;
+
+	Track track_{};
+	u16 outputChannels_ = 2;
+	int loopNum_ = 0;
 
 	// TODO: Save the internal state of this, now technically possible.
 	AudioDecoder *decoder_ = nullptr;
@@ -251,30 +246,9 @@ public:
 	~Atrac() {
 		ResetData();
 	}
-	void ResetData();
-
-	virtual void UpdateBufferState() {
-		if (bufferMaxSize_ >= track_.fileSize) {
-			if (first_.size < track_.fileSize) {
-				// The buffer is big enough, but we don't have all the data yet.
-				bufferState_ = ATRAC_STATUS_HALFWAY_BUFFER;
-			} else {
-				bufferState_ = ATRAC_STATUS_ALL_DATA_LOADED;
-			}
-		} else {
-			if (track_.loopEndSample <= 0) {
-				// There's no looping, but we need to stream the data in our buffer.
-				bufferState_ = ATRAC_STATUS_STREAMED_WITHOUT_LOOP;
-			} else if (track_.loopEndSample == track_.endSample + track_.firstSampleOffset + (int)FirstOffsetExtra()) {
-				bufferState_ = ATRAC_STATUS_STREAMED_LOOP_FROM_END;
-			} else {
-				bufferState_ = ATRAC_STATUS_STREAMED_LOOP_WITH_TRAILER;
-			}
-		}
-	}
 
 	uint32_t CurBufferAddress(int adjust = 0) const override {
-		u32 off = FileOffsetBySample(currentSample_ + adjust);
+		u32 off = track_.FileOffsetBySample(currentSample_ + adjust);
 		if (off < first_.size && ignoreDataBuf_) {
 			return first_.addr + off;
 		}
@@ -309,22 +283,18 @@ public:
 	int SetData(u32 buffer, u32 readSize, u32 bufferSize, int outputChannels, int successCode) override;
 	u32 SetSecondBuffer(u32 secondBuffer, u32 secondBufferSize) override;
 	int GetSecondBufferInfo(u32 *fileOffset, u32 *desiredSize) override;
-	void ForceSeekToSample(int sample) override;
-	void SeekToSample(int sample) override;
 	u32 DecodeData(u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u32 *finish, int *remains) override;
 	u32 GetNextSamples() override;
 	void InitLowLevel(u32 paramsAddr, bool jointStereo);
-
-	// Indicates that the dataBuf_ array should not be used.
-	u8 *dataBuf_ = nullptr;
-
-	InputBuffer first_{};
-	InputBuffer second_{};
 
 protected:
 	void AnalyzeReset();
 
 private:
+	void UpdateBufferState();
+	void ResetData();
+	void SeekToSample(int sample);
+	void ForceSeekToSample(int sample);
 	u32 StreamBufferEnd() const {
 		// The buffer is always aligned to a frame in size, not counting an optional header.
 		// The header will only initially exist after the data is first set.
@@ -334,6 +304,11 @@ private:
 	void ConsumeFrame();
 	void CalculateStreamInfo(u32 *readOffset);
 
+	InputBuffer first_{};
+	InputBuffer second_{};
+
+	u8 *dataBuf_ = nullptr;
+	// Indicates that the dataBuf_ array should not be used.
 	bool ignoreDataBuf_ = false;
 
 	int currentSample_ = 0;

@@ -217,7 +217,7 @@ void Atrac::WriteContextToPSPMem() {
 	context->info.endSample = track_.endSample + track_.firstSampleOffset + FirstOffsetExtra();
 	context->info.dataEnd = track_.fileSize;
 	context->info.curOff = first_.fileoffset;
-	context->info.decodePos = DecodePosBySample(currentSample_);
+	context->info.decodePos = track_.DecodePosBySample(currentSample_);
 	context->info.streamDataByte = first_.size - track_.dataOff;
 
 	u8 *buf = (u8 *)context;
@@ -537,7 +537,7 @@ void Atrac::CalculateStreamInfo(u32 *outReadOffset) {
 				first_.offset = 0;
 				first_.writableBytes = 0;
 			} else {
-				readOffset = FileOffsetBySample(track_.loopStartSample - FirstOffsetExtra() - track_.firstSampleOffset - track_.SamplesPerFrame() * 2);
+				readOffset = track_.FileOffsetBySample(track_.loopStartSample - FirstOffsetExtra() - track_.firstSampleOffset - track_.SamplesPerFrame() * 2);
 			}
 		}
 
@@ -592,7 +592,7 @@ void Atrac::GetResetBufferInfo(AtracResetBufferInfo *bufferInfo, int sample) {
 		// This is because we're filling the buffer start to finish, not streaming.
 		bufferInfo->first.writePosPtr = first_.addr + first_.size;
 		bufferInfo->first.writableBytes = track_.fileSize - first_.size;
-		int minWriteBytes = FileOffsetBySample(sample) - first_.size;
+		int minWriteBytes = track_.FileOffsetBySample(sample) - first_.size;
 		if (minWriteBytes > 0) {
 			bufferInfo->first.minWriteBytes = minWriteBytes;
 		} else {
@@ -601,7 +601,7 @@ void Atrac::GetResetBufferInfo(AtracResetBufferInfo *bufferInfo, int sample) {
 		bufferInfo->first.filePos = first_.size;
 	} else {
 		// This is without the sample offset.  The file offset also includes the previous batch of samples?
-		int sampleFileOffset = FileOffsetBySample(sample - track_.firstSampleOffset - track_.SamplesPerFrame());
+		int sampleFileOffset = track_.FileOffsetBySample(sample - track_.firstSampleOffset - track_.SamplesPerFrame());
 
 		// Update the writable bytes.  When streaming, this is just the number of bytes until the end.
 		const u32 bufSizeAligned = (bufferMaxSize_ / track_.bytesPerFrame) * track_.bytesPerFrame;
@@ -688,7 +688,7 @@ int Atrac::SetData(u32 buffer, u32 readSize, u32 bufferSize, int outputChannels,
 }
 
 u32 Atrac::SetSecondBuffer(u32 secondBuffer, u32 secondBufferSize) {
-	u32 secondFileOffset = FileOffsetBySample(track_.loopEndSample - track_.firstSampleOffset);
+	u32 secondFileOffset = track_.FileOffsetBySample(track_.loopEndSample - track_.firstSampleOffset);
 	u32 desiredSize = track_.fileSize - secondFileOffset;
 
 	// 3 seems to be the number of frames required to handle a loop.
@@ -713,7 +713,7 @@ int Atrac::GetSecondBufferInfo(u32 *fileOffset, u32 *desiredSize) {
 		return hleLogWarning(ME, ATRAC_ERROR_SECOND_BUFFER_NOT_NEEDED, "not needed");
 	}
 
-	*fileOffset = FileOffsetBySample(track_.loopEndSample - track_.firstSampleOffset);
+	*fileOffset = track_.FileOffsetBySample(track_.loopEndSample - track_.firstSampleOffset);
 	*desiredSize = track_.fileSize - *fileOffset;
 	return hleLogSuccessI(ME, 0);
 }
@@ -726,6 +726,26 @@ void Atrac::GetStreamDataInfo(u32 *writePtr, u32 *writableBytes, u32 *readOffset
 	*writePtr = first_.addr + first_.offset;
 	*writableBytes = first_.writableBytes;
 	*readOffset = calculatedReadOffset;
+}
+
+void Atrac::UpdateBufferState() {
+	if (bufferMaxSize_ >= track_.fileSize) {
+		if (first_.size < track_.fileSize) {
+			// The buffer is big enough, but we don't have all the data yet.
+			bufferState_ = ATRAC_STATUS_HALFWAY_BUFFER;
+		} else {
+			bufferState_ = ATRAC_STATUS_ALL_DATA_LOADED;
+		}
+	} else {
+		if (track_.loopEndSample <= 0) {
+			// There's no looping, but we need to stream the data in our buffer.
+			bufferState_ = ATRAC_STATUS_STREAMED_WITHOUT_LOOP;
+		} else if (track_.loopEndSample == track_.endSample + track_.firstSampleOffset + (int)FirstOffsetExtra()) {
+			bufferState_ = ATRAC_STATUS_STREAMED_LOOP_FROM_END;
+		} else {
+			bufferState_ = ATRAC_STATUS_STREAMED_LOOP_WITH_TRAILER;
+		}
+	}
 }
 
 int Atrac::AddStreamData(u32 bytesToAdd) {
@@ -819,7 +839,7 @@ void Atrac::SeekToSample(int sample) {
 			int offsetSamples = track_.firstSampleOffset + FirstOffsetExtra();
 			adjust = -(int)(offsetSamples % track_.SamplesPerFrame());
 		}
-		const u32 off = FileOffsetBySample(sample + adjust);
+		const u32 off = track_.FileOffsetBySample(sample + adjust);
 		const u32 backfill = track_.bytesPerFrame * 2;
 		const u32 start = off - track_.dataOff < backfill ? track_.dataOff : off - backfill;
 
@@ -837,7 +857,7 @@ int Atrac::RemainingFrames() const {
 		return PSP_ATRAC_ALLDATA_IS_ON_MEMORY;
 	}
 
-	u32 currentFileOffset = FileOffsetBySample(currentSample_ - track_.SamplesPerFrame() + FirstOffsetExtra());
+	u32 currentFileOffset = track_.FileOffsetBySample(currentSample_ - track_.SamplesPerFrame() + FirstOffsetExtra());
 	if (first_.fileoffset >= track_.fileSize) {
 		if (bufferState_ == ATRAC_STATUS_STREAMED_WITHOUT_LOOP) {
 			return PSP_ATRAC_NONLOOP_STREAM_DATA_IS_ON_MEMORY;
@@ -921,7 +941,7 @@ u32 Atrac::DecodeData(u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u32 *finish, i
 	SeekToSample(currentSample_);
 
 	bool gotFrame = false;
-	u32 off = FileOffsetBySample(currentSample_ - skipSamples);
+	u32 off = track_.FileOffsetBySample(currentSample_ - skipSamples);
 	if (off < first_.size) {
 		uint8_t *indata = BufferStart() + off;
 		int bytesConsumed = 0;
@@ -957,7 +977,7 @@ u32 Atrac::DecodeData(u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u32 *finish, i
 	if (!gotFrame && currentSample_ < track_.endSample) {
 		// Never got a frame.  We may have dropped a GHA frame or otherwise have a bug.
 		// For now, let's try to provide an extra "frame" if possible so games don't infinite loop.
-		if (FileOffsetBySample(currentSample_) < track_.fileSize) {
+		if (track_.FileOffsetBySample(currentSample_) < track_.fileSize) {
 			numSamples = std::min(maxSamples, track_.SamplesPerFrame());
 			u32 outBytes = numSamples * outputChannels_ * sizeof(s16);
 			if (outbuf != nullptr) {
@@ -970,7 +990,7 @@ u32 Atrac::DecodeData(u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u32 *finish, i
 	*SamplesNum = numSamples;
 	// update current sample and decodePos
 	currentSample_ += numSamples;
-	decodePos_ = DecodePosBySample(currentSample_);
+	decodePos_ = track_.DecodePosBySample(currentSample_);
 
 	ConsumeFrame();
 
@@ -986,11 +1006,11 @@ u32 Atrac::DecodeData(u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u32 *finish, i
 		}
 		if ((bufferState_ & ATRAC_STATUS_STREAMED_MASK) == ATRAC_STATUS_STREAMED_MASK) {
 			// Whatever bytes we have left were added from the loop.
-			u32 loopOffset = FileOffsetBySample(track_.loopStartSample - FirstOffsetExtra() - track_.firstSampleOffset - track_.SamplesPerFrame() * 2);
+			u32 loopOffset = track_.FileOffsetBySample(track_.loopStartSample - FirstOffsetExtra() - track_.firstSampleOffset - track_.SamplesPerFrame() * 2);
 			// TODO: Hmm, need to manage the buffer better.  But don't move fileoffset if we already have valid data.
 			if (loopOffset > first_.fileoffset || loopOffset + bufferValidBytes_ < first_.fileoffset) {
 				// Skip the initial frame at the start.
-				first_.fileoffset = FileOffsetBySample(track_.loopStartSample - FirstOffsetExtra() - track_.firstSampleOffset - track_.SamplesPerFrame() * 2);
+				first_.fileoffset = track_.FileOffsetBySample(track_.loopStartSample - FirstOffsetExtra() - track_.firstSampleOffset - track_.SamplesPerFrame() * 2);
 			}
 		}
 	} else if (hitEnd) {
