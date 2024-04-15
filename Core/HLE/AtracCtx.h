@@ -134,7 +134,7 @@ struct Track {
 	// sometimes not.
 	int firstSampleOffset = 0;
 
-	// Last sample number. Though, we made it so in Analyze, it's exclusive in the file.
+	// Last sample number. Inclusive. Though, we made it so in Analyze, it's exclusive in the file.
 	// Does not take firstSampleOffset into account.
 	int endSample = 0;
 
@@ -193,6 +193,8 @@ struct Track {
 		// TODO: Could probably reset more.
 	}
 
+	// Only used by the new implementation.
+	void DoState(PointerWrap &p);
 	void DebugLog();
 };
 
@@ -221,14 +223,14 @@ public:
 		outputChannels_ = channels;
 	}
 
+	// These are written to from sceAtrac. This should probably be refactored
+	// into constructors.
 	int atracID_ = -1;
-
 	PSPPointer<SceAtracContext> context_{};
 
 	AtracStatus BufferState() const {
 		return bufferState_;
 	}
-
 	int LoopNum() const {
 		return loopNum_;
 	}
@@ -240,10 +242,10 @@ public:
 	}
 
 	void CreateDecoder();
+	void SetLoopNum(int loopNum);  // can be safely shared.
 
 	virtual int CurrentSample() const = 0;
 	virtual int RemainingFrames() const = 0;
-	virtual u32 SecondBufferSize() const = 0;
 
 	virtual int Analyze(u32 addr, u32 size) = 0;
 	virtual int AnalyzeAA3(u32 addr, u32 size, u32 filesize) = 0;
@@ -252,17 +254,26 @@ public:
 	virtual void WriteContextToPSPMem() = 0;
 
 	virtual void GetStreamDataInfo(u32 *writePtr, u32 *writableBytes, u32 *readOffset) = 0;
-	virtual int AddStreamData(u32 bytesToAdd) = 0;
-	virtual u32 AddStreamDataSas(u32 bufPtr, u32 bytesToAdd) = 0;
-	virtual void SetLoopNum(int loopNum);
-	virtual u32 ResetPlayPosition(int sample, int bytesWrittenFirstBuf, int bytesWrittenSecondBuf) = 0;
-	virtual void GetResetBufferInfo(AtracResetBufferInfo *bufferInfo, int sample) = 0;
+
 	virtual int SetData(u32 buffer, u32 readSize, u32 bufferSize, int outputChannels, int successCode) = 0;
 
+	// Notify the player that the user has written some new data.
+	virtual int AddStreamData(u32 bytesToAdd) = 0;
+	virtual u32 AddStreamDataSas(u32 bufPtr, u32 bytesToAdd) = 0;
+
+	virtual u32 ResetPlayPosition(int sample, int bytesWrittenFirstBuf, int bytesWrittenSecondBuf) = 0;
+	virtual void GetResetBufferInfo(AtracResetBufferInfo *bufferInfo, int sample) = 0;
+	
+	virtual int SecondBufferSize() const = 0;
 	virtual int GetSecondBufferInfo(u32 *fileOffset, u32 *desiredSize);
 	virtual u32 SetSecondBuffer(u32 secondBuffer, u32 secondBufferSize) = 0;
-	virtual u32 DecodeData(u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u32 *finish, int *remains) = 0;
+
+	// Returns how many samples the next DecodeData will write.
 	virtual u32 GetNextSamples() = 0;
+	// Decodes data.
+	virtual u32 DecodeData(u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u32 *finish, int *remains) = 0;
+
+	// Sets the context up for low level decode (individual packets, no streaming or track logic).
 	virtual void InitLowLevel(u32 paramsAddr, bool jointStereo) = 0;
 
 protected:
@@ -275,6 +286,10 @@ protected:
 	AtracStatus bufferState_ = ATRAC_STATUS_NO_DATA;
 };
 
+// The "legacy" implementation of sceAtrac in PPSSPP.
+// This does many things wrong, but mostly works.
+// See AtracCtx2.h for the new implementation.
+// For documentation see AtracBase function comments.
 class Atrac : public AtracBase {
 public:
 	~Atrac() {
@@ -302,7 +317,7 @@ public:
 		return currentSample_;
 	}
 	int RemainingFrames() const override;
-	u32 SecondBufferSize() const override {
+	int SecondBufferSize() const override {
 		return second_.size;
 	}
 

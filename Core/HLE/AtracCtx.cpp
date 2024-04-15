@@ -445,6 +445,8 @@ int AnalyzeAtracTrack(u32 addr, u32 size, Track *track) {
 		return hleReportError(Log::ME, ATRAC_ERROR_BAD_CODEC_PARAMS, "loop after end of data");
 	}
 
+	track->DebugLog();
+
 	return 0;
 }
 
@@ -930,7 +932,6 @@ u32 Atrac::DecodeData(u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u32 *finish, i
 		return ATRAC_ERROR_ALL_DATA_DECODED;
 	}
 
-	// TODO: This isn't at all right, but at least it makes the music "last" some time.
 	u32 numSamples = 0;
 
 	// It seems like the PSP aligns the sample position to 0x800...?
