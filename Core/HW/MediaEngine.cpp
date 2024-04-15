@@ -1078,7 +1078,7 @@ int MediaEngine::getAudioSamples(u32 bufferPtr) {
 		}
 
 		int inbytesConsumed = 0;
-		if (!m_audioContext->Decode(audioFrame, frameSize, &inbytesConsumed, buffer, &outbytes)) {
+		if (!m_audioContext->Decode(audioFrame, frameSize, &inbytesConsumed, 2, buffer, &outbytes)) {
 			ERROR_LOG(ME, "Audio (%s) decode failed during video playback", GetCodecName(m_audioType));
 		}
 

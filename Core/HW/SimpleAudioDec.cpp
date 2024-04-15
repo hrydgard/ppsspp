@@ -67,7 +67,9 @@ public:
 	}
 	~MiniMp3Audio() {}
 
-	bool Decode(const uint8_t* inbuf, int inbytes, int *inbytesConsumed, uint8_t *outbuf, int *outbytes) override {
+	bool Decode(const uint8_t* inbuf, int inbytes, int *inbytesConsumed, int outputChannels, uint8_t *outbuf, int *outbytes) override {
+		_dbg_assert_(outputChannels == 2);
+
 		mp3dec_frame_info_t info{};
 		int samplesWritten = mp3dec_decode_frame(&mp3_, inbuf, inbytes, (mp3d_sample_t *)outbuf, &info);
 		*inbytesConsumed = info.frame_bytes;
@@ -101,7 +103,7 @@ public:
 	FFmpegAudioDecoder(PSPAudioType audioType, int sampleRateHz = 44100, int channels = 2);
 	~FFmpegAudioDecoder();
 
-	bool Decode(const uint8_t* inbuf, int inbytes, int *inbytesConsumed, uint8_t *outbuf, int *outbytes) override;
+	bool Decode(const uint8_t* inbuf, int inbytes, int *inbytesConsumed, int outputChannels, uint8_t *outbuf, int *outbytes) override;
 	bool IsOK() const override {
 #ifdef USE_FFMPEG
 		return codec_ != 0;
@@ -264,7 +266,7 @@ FFmpegAudioDecoder::~FFmpegAudioDecoder() {
 }
 
 // Decodes a single input frame.
-bool FFmpegAudioDecoder::Decode(const uint8_t *inbuf, int inbytes, int *inbytesConsumed, uint8_t *outbuf, int *outbytes) {
+bool FFmpegAudioDecoder::Decode(const uint8_t *inbuf, int inbytes, int *inbytesConsumed, int outputChannels, uint8_t *outbuf, int *outbytes) {
 #ifdef USE_FFMPEG
 	if (!codecOpen_) {
 		OpenCodec(inbytes);
@@ -315,6 +317,7 @@ bool FFmpegAudioDecoder::Decode(const uint8_t *inbuf, int inbytes, int *inbytesC
 
 	if (got_frame) {
 		// Initializing the sample rate convert. We will use it to convert float output into int.
+		_dbg_assert_(outputChannels == 2);
 		int64_t wanted_channel_layout = AV_CH_LAYOUT_STEREO; // we want stereo output layout
 		int64_t dec_channel_layout = frame_->channel_layout; // decoded channel layout
 
@@ -436,7 +439,7 @@ u32 AuCtx::AuDecode(u32 pcmAddr) {
 			nextSync = (int)FindNextMp3Sync();
 		}
 		int inbytesConsumed = 0;
-		decoder->Decode(&sourcebuff[nextSync], (int)sourcebuff.size() - nextSync, &inbytesConsumed, outbuf, &outpcmbufsize);
+		decoder->Decode(&sourcebuff[nextSync], (int)sourcebuff.size() - nextSync, &inbytesConsumed, 2, outbuf, &outpcmbufsize);
 
 		if (outpcmbufsize == 0) {
 			// Nothing was output, hopefully we're at the end of the stream.

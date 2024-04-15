@@ -744,7 +744,7 @@ static u32 sceMp3LowLevelDecode(u32 mp3, u32 sourceAddr, u32 sourceBytesConsumed
 	
 	int outpcmbytes = 0;
 	int inbytesConsumed = 0;
-	ctx->decoder->Decode(inbuff, 4096, &inbytesConsumed, outbuff, &outpcmbytes);
+	ctx->decoder->Decode(inbuff, 4096, &inbytesConsumed, 2, outbuff, &outpcmbytes);
 	NotifyMemInfo(MemBlockFlags::WRITE, samplesAddr, outpcmbytes, "Mp3LowLevelDecode");
 	
 	Memory::Write_U32(inbytesConsumed, sourceBytesConsumedAddr);

@@ -831,7 +831,7 @@ void Atrac::SeekToSample(int sample) {
 		const u32 start = off - track_.dataOff < backfill ? track_.dataOff : off - backfill;
 
 		for (u32 pos = start; pos < off; pos += track_.bytesPerFrame) {
-			decoder_->Decode(BufferStart() + pos, track_.bytesPerFrame, nullptr, nullptr, nullptr);
+			decoder_->Decode(BufferStart() + pos, track_.bytesPerFrame, nullptr, 2, nullptr, nullptr);
 		}
 	}
 
@@ -933,7 +933,7 @@ u32 Atrac::DecodeData(u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u32 *finish, i
 		uint8_t *indata = BufferStart() + off;
 		int bytesConsumed = 0;
 		int outBytes = 0;
-		if (!decoder_->Decode(indata, track_.bytesPerFrame, &bytesConsumed, outbuf, &outBytes)) {
+		if (!decoder_->Decode(indata, track_.bytesPerFrame, &bytesConsumed, outputChannels_, outbuf, &outBytes)) {
 			// Decode failed.
 			*SamplesNum = 0;
 			*finish = 1;
