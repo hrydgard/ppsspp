@@ -319,6 +319,7 @@ int main(int argc, const char* argv[])
 {
 	PROFILE_INIT();
 #if PPSSPP_PLATFORM(WINDOWS)
+	SetCleanExitOnAssert();
 	timeBeginPeriod(1);
 #else
 	// Ignore sigpipe.
