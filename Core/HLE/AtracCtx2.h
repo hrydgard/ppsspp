@@ -48,8 +48,10 @@ private:
 
 	u32 bufAddr_ = 0;
 	u32 bufSize_ = 0;
-	u32 bufValidBytes_ = 0;
-	u32 fileReadOffset_ = 0;
+
+	u32 bufValidBytes_ = 0;  // In case of halfway or fully loaded modes
+
+	u32 fileReadOffset_ = 0;  // Next offset in the host's file to read.
 
 	u32 bufPos_ = 0;
 };

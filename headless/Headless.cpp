@@ -332,14 +332,12 @@ int main(int argc, const char* argv[])
 			if (++i >= argc)
 				return printUsage(argv[0], "Missing argument after -m");
 			mountIso = argv[i];
-		}
-		else if (!strcmp(argv[i], "-r") || !strcmp(argv[i], "--root"))
+		} else if (!strcmp(argv[i], "-r") || !strcmp(argv[i], "--root"))
 		{
 			if (++i >= argc)
 				return printUsage(argv[0], "Missing argument after -r");
 			mountRoot = argv[i];
-		}
-		else if (!strcmp(argv[i], "-l") || !strcmp(argv[i], "--log"))
+		} else if (!strcmp(argv[i], "-l") || !strcmp(argv[i], "--log"))
 			fullLog = true;
 		else if (!strcmp(argv[i], "-o") || !strcmp(argv[i], "--odslog"))
 			outputDebugStringLog = true;

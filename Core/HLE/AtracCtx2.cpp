@@ -36,6 +36,11 @@
 //   * Ape Academy 2 (bufsize 8192)
 //   * Half Minute Hero (bufsize 65536)
 //   * Flatout (tricky! needs investigation)
+//
+// Unit tests to pass
+//   [x] setdata, ids
+//   [x] addstreamdata
+//   [ ]
 
 void Track::DoState(PointerWrap &p) {
 	auto s = p.Section("Track", 1, 0);
@@ -118,12 +123,30 @@ void Atrac2::WriteContextToPSPMem() {
 int Atrac2::Analyze(u32 addr, u32 size) {
 	track_ = {};
 	track_.AnalyzeReset();
+
+	// 72 is about the size of the minimum required data to even be valid.
+	if (size < 72) {
+		return hleReportError(ME, ATRAC_ERROR_SIZE_TOO_SMALL, "buffer too small");
+	}
+
+	// TODO: Check the range (addr, size) instead.
+	if (!Memory::IsValidAddress(addr)) {
+		return hleReportWarning(ME, SCE_KERNEL_ERROR_ILLEGAL_ADDRESS, "invalid buffer address");
+	}
+
+	const int RIFF_CHUNK_MAGIC = 0x46464952;
+
+	if (Memory::ReadUnchecked_U32(addr) != RIFF_CHUNK_MAGIC) {
+		return hleReportError(ME, ATRAC_ERROR_UNKNOWN_FORMAT, "invalid RIFF header");
+	}
+
 	int retval = AnalyzeAtracTrack(addr, size, &track_);
 	if (retval < 0) {
 		return retval;
 	}
+
 	bufAddr_ = addr;
-	bufSize_ = size;
+	bufValidBytes_ = size;
 	return 0;
 }
 
@@ -164,6 +187,19 @@ void Atrac2::GetStreamDataInfo(u32 *writePtr, u32 *writableBytes, u32 *readOffse
 }
 
 int Atrac2::AddStreamData(u32 bytesToAdd) {
+	if (bufferState_ == ATRAC_STATUS_ALL_DATA_LOADED || bufferState_ == ATRAC_STATUS_HALFWAY_BUFFER) {
+		_assert_(track_.fileSize == bufSize_);
+		if (bytesToAdd > bufSize_ - bufValidBytes_) {
+			return hleLogWarning(ME, ATRAC_ERROR_ADD_DATA_IS_TOO_BIG, "buffer already loaded");
+		}
+		bufValidBytes_ += bytesToAdd;
+		if (bufValidBytes_ == bufSize_) {
+			bufferState_ = ATRAC_STATUS_ALL_DATA_LOADED;
+		}
+		return 0;
+	}
+
+	_dbg_assert_msg_(false, "handle streaming addstreamdata");
 	return 0;
 }
 
@@ -189,7 +225,7 @@ int Atrac2::SetData(u32 buffer, u32 readSize, u32 bufferSize, int outputChannels
 	// buffer/bufferSize are a little redundant here since we already got them from Analyze.
 	// So let's just assert equality.
 	_dbg_assert_(bufAddr_ == buffer);
-	_dbg_assert_(bufSize_ == bufferSize);
+	bufSize_ = bufferSize;
 
 	if (bufferSize >= track_.fileSize) {
 		if (readSize < bufferSize) {
