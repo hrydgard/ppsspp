@@ -276,6 +276,15 @@ int Atrac2::SecondBufferSize() const {
 	return 0;
 }
 
+// Simple wrapper around decoder->Decode that lets you cut a range out of the output.
+// Might move this into the Decoder interface later.
+// Uses a small internal buffer.
+inline bool DecodeRange(AudioDecoder *decoder, const uint8_t *inbuf, int inbytes, int *inbytesConsumed, int outputChannels, int rangeStart, int rangeEnd, uint8_t *outbuf, int *outbytes) {
+	float temp[4096];
+	bool result = decoder->Decode(inbuf, inbytes, inbytesConsumed, outputChannels, (int16_t *)outbuf, outbytes);
+
+}
+
 u32 Atrac2::DecodeData(u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u32 *finish, int *remains) {
 	// We already passed the end - return an error (many games check for this.)
 	if (currentSample_ >= track_.endSample && LoopNum() == 0) {
@@ -291,7 +300,9 @@ u32 Atrac2::DecodeData(u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u32 *finish, 
 
 	int bytesConsumed = 0;
 	int outSamplesWritten = 0;
-	decoder_->Decode(srcFrame, track_.bytesPerFrame, &bytesConsumed, outputChannels_, (int16_t *)outbuf, &outSamplesWritten);
+	if (!decoder_->Decode(srcFrame, track_.bytesPerFrame, &bytesConsumed, outputChannels_, (int16_t *)outbuf, &outSamplesWritten)) {
+		ERROR_LOG(ME, "Atrac decode failed");
+	}
 
 	// DEBUG_LOG(ME, "bufPos: %d currentSample: %d", bufPos_, currentSample_);
 
