@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <shlwapi.h>
+
 #include "Common/Thread/ThreadUtil.h"
 #include "CaptureDevice.h"
 #include "BufferLock.h"
@@ -180,8 +181,8 @@ HRESULT ReaderCallback::OnReadSample(
 				else
 					srcPadding = device->deviceParam.default_stride - lStride;
 
-				if (SUCCEEDED(hr)) {
 #ifdef USE_FFMPEG
+				if (SUCCEEDED(hr)) {
 					// Convert image to RGB24
 					if (lStride > 0) {
 						imgConvert(
@@ -199,6 +200,25 @@ HRESULT ReaderCallback::OnReadSample(
 						av_free(invertedSrcImg);
 					}
 
+					// Mirror the image in-place if needed.
+					if (g_Config.bCameraMirrorHorizontal) {
+						for (int y = 0; y < dstH; y++) {
+							uint8_t *line = device->imageRGB + y * device->imgRGBLineSizes[0];
+							for (int x = 0; x < dstW / 2; x++) {
+								const uint8_t r = line[x * 3];
+								const uint8_t g = line[x * 3 + 1];
+								const uint8_t b = line[x * 3 + 1];
+								const int invX = (dstW - 1 - x);
+								line[x * 3 + 0] = line[invX * 3 + 0];
+								line[x * 3 + 1] = line[invX * 3 + 1];
+								line[x * 3 + 2] = line[invX * 3 + 2];
+								line[invX * 3 + 0] = r;
+								line[invX * 3 + 1] = g;
+								line[invX * 3 + 2] = b;
+							}
+						}
+					}
+
 					// Compress image to jpeg from RGB24.
 					jpge::compress_image_to_jpeg_file_in_memory(
 						device->imageJpeg, imgJpegSize,
@@ -206,8 +226,8 @@ HRESULT ReaderCallback::OnReadSample(
 						dstH,
 						3,
 						device->imageRGB);
-#endif
 				}
+#endif
 				Camera::pushCameraImage(imgJpegSize, device->imageJpeg);
 			}
 			// Request the next frame.
