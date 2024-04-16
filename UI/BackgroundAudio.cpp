@@ -217,11 +217,12 @@ public:
 			return false;
 
 		while (bgQueue.size() < (size_t)(len * 2)) {
-			int outBytes = 0;
+			int outSamples = 0;
 			int inbytesConsumed = 0;
-			decoder_->Decode(wave_.raw_data + raw_offset_, wave_.raw_bytes_per_frame, &inbytesConsumed, 2, (uint8_t *)buffer_, &outBytes);
-			if (!outBytes)
+			bool result = decoder_->Decode(wave_.raw_data + raw_offset_, wave_.raw_bytes_per_frame, &inbytesConsumed, 2, (int16_t *)buffer_, &outSamples);
+			if (!result || !outSamples)
 				return false;
+			int outBytes = outSamples * 2 * sizeof(int16_t);
 
 			if (wave_.raw_offset_loop_end != 0 && raw_offset_ == wave_.raw_offset_loop_end) {
 				// Only take the remaining bytes, but convert to stereo s16.

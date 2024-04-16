@@ -56,7 +56,7 @@ public:
 		}
 	}
 
-	bool Decode(const uint8_t *inbuf, int inbytes, int *inbytesConsumed, int outputChannels, uint8_t *outbuf, int *outbytes) override {
+	bool Decode(const uint8_t *inbuf, int inbytes, int *inbytesConsumed, int outputChannels, int16_t *outbuf, int *outSamples) override {
 		if (!codecOpen_) {
 			_dbg_assert_(false);
 		}
@@ -73,43 +73,40 @@ public:
 			result = atrac3_decode_frame(at3Ctx_, buffers_, &nb_samples, inbuf, inbytes);
 		}
 		if (result < 0) {
-			*outbytes = 0;
+			if (outSamples) {
+				*outSamples = 0;
+			}
 			return false;
 		}
 		if (inbytesConsumed) {
 			*inbytesConsumed = result;
 		}
-		outSamples_ = nb_samples;
+		if (outSamples) {
+			*outSamples = nb_samples;
+		}
 		if (nb_samples > 0) {
-			if (outbytes) {
-				*outbytes = nb_samples * 2 * 2;
+			if (outSamples) {
+				*outSamples = nb_samples;
 			}
 			if (outbuf) {
 				_dbg_assert_(outputChannels == 1 || outputChannels == 2);
-				int16_t *output = (int16_t *)outbuf;
 				const float *left = buffers_[0];
 				if (outputChannels == 2) {
 					// Stereo output, standard.
 					const float *right = channels_ == 2 ? buffers_[1] : buffers_[0];
 					for (int i = 0; i < nb_samples; i++) {
-						output[i * 2] = clamp16(left[i]);
-						output[i * 2 + 1] = clamp16(right[i]);
+						outbuf[i * 2] = clamp16(left[i]);
+						outbuf[i * 2 + 1] = clamp16(right[i]);
 					}
 				} else {
 					// Mono output, just take the left channel.
 					for (int i = 0; i < nb_samples; i++) {
-						output[i] = clamp16(left[i]);
+						outbuf[i] = clamp16(left[i]);
 					}
 				}
 			}
-		} else if (outbytes) {
-			*outbytes = 0;
 		}
 		return true;
-	}
-
-	int GetOutSamples() const override {
-		return outSamples_;
 	}
 
 	void SetChannels(int channels) override {
@@ -125,7 +122,6 @@ private:
 	int channels_ = 0;
 	int blockAlign_ = 0;
 
-	int outSamples_ = 0;
 	int srcPos_ = 0;
 	float *buffers_[2]{};
 
