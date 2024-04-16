@@ -3,6 +3,37 @@
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/HLE/AtracCtx2.h"
+#include "Core/HW/Atrac3Standalone.h"
+
+// Convenient command line:
+// Windows\x64\debug\PPSSPPHeadless.exe  --root pspautotests/tests/../ --compare --timeout=5 --new-atrac --graphics=software pspautotests/tests/audio/atrac/decode.prx
+
+// See the big comment in sceAtrac.cpp for an overview of the different modes of operation.
+//
+// Test cases
+//
+// Halfway buffer
+//
+// * None found yet
+//
+// All-data-loaded
+//
+// * MotoGP (menu music with specified loop). Simple repeated calls to sceAtracDecodeData
+// * Archer MacLean's Mercury (in-game, not menu)
+// * Crisis Core
+//
+// Streaming
+//
+// - Good ones (early)
+//   * Everybody's Golf 2 (0x2000 buffer size, loop from end)
+//   * Burnout Legends (no loop, 0x1800 buffer size)
+//   * Suicide Barbie
+// - Others
+//   * Bleach
+//   * God of War: Chains of Olympus
+//   * Ape Academy 2 (bufsize 8192)
+//   * Half Minute Hero (bufsize 65536)
+//   * Flatout (tricky! needs investigation)
 
 void Atrac2::DoState(PointerWrap &p) {
 	_assert_msg_(false, "Savestates not yet support with new Atrac implementation.\n\nTurn it off in Developer settings.\n\n");
@@ -28,14 +59,14 @@ void Atrac2::WriteContextToPSPMem() {
 	// TODO: Should we just keep this in PSP ram then, or something?
 	context->info.state = bufferState_;
 	if (track_.firstSampleOffset != 0) {
-		context->info.samplesPerChan = track_.firstSampleOffset + FirstOffsetExtra();
+		context->info.samplesPerChan = track_.FirstSampleOffsetFull();
 	} else {
 		context->info.samplesPerChan = (track_.codecType == PSP_MODE_AT_3_PLUS ? ATRAC3PLUS_MAX_SAMPLES : ATRAC3_MAX_SAMPLES);
 	}
 	context->info.sampleSize = track_.bytesPerFrame;
 	context->info.numChan = track_.channels;
-	context->info.dataOff = track_.dataOff;
-	context->info.endSample = track_.endSample + track_.firstSampleOffset + FirstOffsetExtra();
+	context->info.dataOff = track_.dataByteOffset;
+	context->info.endSample = track_.endSample + track_.FirstSampleOffsetFull();
 	context->info.dataEnd = track_.fileSize;
 	context->info.curOff = 0; // first_.fileoffset;
 	context->info.decodePos = track_.DecodePosBySample(currentSample_);
@@ -83,10 +114,6 @@ u32 Atrac2::AddStreamDataSas(u32 bufPtr, u32 bytesToAdd) {
 	return 0;
 }
 
-void Atrac2::SetLoopNum(int loopNum) {
-
-}
-
 u32 Atrac2::ResetPlayPosition(int sample, int bytesWrittenFirstBuf, int bytesWrittenSecondBuf) {
 	return 0;
 }
@@ -106,12 +133,6 @@ int Atrac2::SetData(u32 buffer, u32 readSize, u32 bufferSize, int outputChannels
 
 u32 Atrac2::SetSecondBuffer(u32 secondBuffer, u32 secondBufferSize) {
 	return 0;
-}
-
-int Atrac2::GetSecondBufferInfo(u32 *fileOffset, u32 *desiredSize) {
-	*fileOffset = 0;
-	*desiredSize = 0;
-	return hleLogSuccessInfoI(ME, ATRAC_ERROR_SECOND_BUFFER_NOT_NEEDED, "not needed");
 }
 
 u32 Atrac2::DecodeData(u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u32 *finish, int *remains) {
@@ -137,7 +158,7 @@ void Atrac2::InitLowLevel(u32 paramsAddr, bool jointStereo) {
 		track_.bitrate = ((track_.bitrate >> 11) + 8) & 0xFFFFFFF0;
 		track_.jointStereo = false;
 	}
-	track_.dataOff = 0;
+	track_.dataByteOffset = 0;
 	bufferState_ = ATRAC_STATUS_LOW_LEVEL;
 	currentSample_ = 0;
 	CreateDecoder();

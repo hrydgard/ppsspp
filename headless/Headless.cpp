@@ -319,6 +319,7 @@ int main(int argc, const char* argv[])
 {
 	PROFILE_INIT();
 #if PPSSPP_PLATFORM(WINDOWS)
+	SetCleanExitOnAssert();
 	timeBeginPeriod(1);
 #else
 	// Ignore sigpipe.
@@ -338,6 +339,7 @@ int main(int argc, const char* argv[])
 	GPUCore gpuCore = GPUCORE_SOFTWARE;
 	CPUCore cpuCore = CPUCore::JIT;
 	int debuggerPort = -1;
+	bool newAtrac = false;
 
 	std::vector<std::string> testFilenames;
 	const char *mountIso = nullptr;
@@ -374,6 +376,8 @@ int main(int argc, const char* argv[])
 			testOptions.bench = true;
 		else if (!strcmp(argv[i], "-v") || !strcmp(argv[i], "--verbose"))
 			testOptions.verbose = true;
+		else if (!strcmp(argv[i], "--new-atrac"))
+			newAtrac = true;
 		else if (!strncmp(argv[i], "--graphics=", strlen("--graphics=")) && strlen(argv[i]) > strlen("--graphics="))
 		{
 			const char *gpuName = argv[i] + strlen("--graphics=");
@@ -497,6 +501,7 @@ int main(int argc, const char* argv[])
 	g_Config.iGlobalVolume = VOLUME_FULL;
 	g_Config.iReverbVolume = VOLUME_FULL;
 	g_Config.internalDataDirectory.clear();
+	g_Config.bUseNewAtrac = newAtrac;
 
 	Path exePath = File::GetExeDirectory();
 	g_Config.flash0Directory = exePath / "assets/flash0";
