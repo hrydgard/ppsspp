@@ -717,7 +717,7 @@ u32 Atrac::SetSecondBuffer(u32 secondBuffer, u32 secondBufferSize) {
 	return hleLogSuccessI(ME, 0);
 }
 
-int Atrac::GetSecondBufferInfo(u32 *fileOffset, u32 *desiredSize) {
+int AtracBase::GetSecondBufferInfo(u32 *fileOffset, u32 *desiredSize) {
 	if (BufferState() != ATRAC_STATUS_STREAMED_LOOP_WITH_TRAILER) {
 		// Writes zeroes in this error case.
 		*fileOffset = 0;
@@ -947,6 +947,8 @@ u32 Atrac::DecodeData(u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u32 *finish, i
 	if (skipSamples != 0 && bufferHeaderSize_ == 0) {
 		// Skip the initial frame used to load state for the looped frame.
 		// TODO: We will want to actually read this in.
+		// TODO again: This seems to happen on the first frame of playback regardless of loops.
+		// Can't be good.
 		ConsumeFrame();
 	}
 

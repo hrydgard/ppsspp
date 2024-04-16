@@ -254,8 +254,9 @@ public:
 	virtual u32 ResetPlayPosition(int sample, int bytesWrittenFirstBuf, int bytesWrittenSecondBuf) = 0;
 	virtual void GetResetBufferInfo(AtracResetBufferInfo *bufferInfo, int sample) = 0;
 	virtual int SetData(u32 buffer, u32 readSize, u32 bufferSize, int outputChannels, int successCode) = 0;
+
+	virtual int GetSecondBufferInfo(u32 *fileOffset, u32 *desiredSize);
 	virtual u32 SetSecondBuffer(u32 secondBuffer, u32 secondBufferSize) = 0;
-	virtual int GetSecondBufferInfo(u32 *fileOffset, u32 *desiredSize) = 0;
 	virtual u32 DecodeData(u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u32 *finish, int *remains) = 0;
 	virtual u32 GetNextSamples() = 0;
 	virtual void InitLowLevel(u32 paramsAddr, bool jointStereo) = 0;
@@ -307,7 +308,6 @@ public:
 	void GetResetBufferInfo(AtracResetBufferInfo *bufferInfo, int sample) override;
 	int SetData(u32 buffer, u32 readSize, u32 bufferSize, int outputChannels, int successCode) override;
 	u32 SetSecondBuffer(u32 secondBuffer, u32 secondBufferSize) override;
-	int GetSecondBufferInfo(u32 *fileOffset, u32 *desiredSize) override;
 	u32 DecodeData(u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u32 *finish, int *remains) override;
 	u32 GetNextSamples() override;
 	void InitLowLevel(u32 paramsAddr, bool jointStereo) override;

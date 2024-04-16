@@ -135,12 +135,6 @@ u32 Atrac2::SetSecondBuffer(u32 secondBuffer, u32 secondBufferSize) {
 	return 0;
 }
 
-int Atrac2::GetSecondBufferInfo(u32 *fileOffset, u32 *desiredSize) {
-	*fileOffset = 0;
-	*desiredSize = 0;
-	return hleLogSuccessInfoI(ME, ATRAC_ERROR_SECOND_BUFFER_NOT_NEEDED, "not needed");
-}
-
 u32 Atrac2::DecodeData(u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u32 *finish, int *remains) {
 
 	return 0;
