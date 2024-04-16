@@ -105,24 +105,42 @@ struct AtracLoopInfo {
 
 class AudioDecoder;
 
-inline u32 FirstOffsetExtra(int codecType) {
-	return codecType == PSP_MODE_AT_3_PLUS ? 368 : 69;
-}
-
 struct Track {
-	u32 fileSize;
 	// This both does and doesn't belong in Track - it's fixed for an Atrac instance. Oh well.
-	u32 codecType;
-	u16 bytesPerFrame;
-	int firstSampleOffset;
-	int endSample;
-	// Offset of the first sample in the input buffer
-	int dataOff = 0;
+	u32 codecType = 0;
+
+	// Size of the full track being streamed or played. Can be a lot larger than the in-memory buffer in the streaming modes.
+	u32 fileSize = 0;
+
+	// Not really used for much except queries, this keeps track of the bitrate of the track.
 	u32 bitrate = 64;
+
+	// Signifies whether to use a more efficient coding mode with less stereo separation. For our purposes, just metadata.
 	int jointStereo = 0;
+
+	// Number of audio channels in the track.
 	u16 channels = 0;
 
+	// The size of an encoded frame in bytes.
+	u16 bytesPerFrame = 0;
+
+	// Byte offset of the first encoded frame in the input buffer. Note: Some samples may be skipped according to firstSampleOffset.
+	int dataByteOffset = 0;
+
+	// How many samples to skip from the beginning of a track when decoding.
+	// Actually, the real number is this added to FirstOffsetExtra(codecType). You can call
+	// FirstSampleOffset2() to get that.
+	// Some use of these offsets around the code seem to be inconsistent, sometimes the extra is included,
+	// sometimes not.
+	int firstSampleOffset = 0;
+
+	// Last sample number. Though, we made it so in Analyze, it's exclusive in the file.
+	// Does not take firstSampleOffset into account.
+	int endSample = 0;
+
+	// Loop configuration. The PSP only supports one loop but we store them all.
 	std::vector<AtracLoopInfo> loopinfo;
+	// The actual used loop offsets. These appear to be raw offsets, not taking FirstSampleOffset2() into account.
 	int loopStartSample = -1;
 	int loopEndSample = -1;
 
@@ -131,7 +149,16 @@ struct Track {
 		return bytesPerFrame;
 	}
 
-	// Output frame size
+	inline int FirstOffsetExtra() const {
+		return codecType == PSP_MODE_AT_3_PLUS ? 368 : 69;
+	}
+
+	// Includes the extra offset. See firstSampleOffset comment above.
+	int FirstSampleOffsetFull() const {
+		return FirstOffsetExtra() + firstSampleOffset;
+	}
+
+	// Output frame size, different between the two supported codecs.
 	u32 SamplesPerFrame() const {
 		return codecType == PSP_MODE_AT_3_PLUS ? ATRAC3PLUS_MAX_SAMPLES : ATRAC3_MAX_SAMPLES;
 	}
@@ -144,14 +171,17 @@ struct Track {
 			bitrate = (bitrate + 511) >> 10;
 	}
 
+	// This appears to be buggy, should probably include FirstOffsetExtra?
+	// Actually the units don't even make sense here.
 	u32 DecodePosBySample(int sample) const {
 		return (u32)(firstSampleOffset + sample / (int)SamplesPerFrame() * bytesPerFrame);
 	}
 
+	// This appears to be buggy, should probably include FirstOffsetExtra?
 	u32 FileOffsetBySample(int sample) const {
 		int offsetSample = sample + firstSampleOffset;
 		int frameOffset = offsetSample / (int)SamplesPerFrame();
-		return (u32)(dataOff + bytesPerFrame + frameOffset * bytesPerFrame);
+		return (u32)(dataByteOffset + bytesPerFrame + frameOffset * bytesPerFrame);
 	}
 
 	void AnalyzeReset() {
@@ -162,6 +192,8 @@ struct Track {
 		channels = 2;
 		// TODO: Could probably reset more.
 	}
+
+	void DebugLog();
 };
 
 int AnalyzeAA3Track(u32 addr, u32 size, u32 filesize, Track *track);
@@ -202,9 +234,6 @@ public:
 	AudioDecoder *Decoder() const {
 		return decoder_;
 	}
-	u32 FirstOffsetExtra() const {
-		return ::FirstOffsetExtra(track_.codecType);
-	}
 
 	void CreateDecoder();
 
@@ -221,7 +250,7 @@ public:
 	virtual void GetStreamDataInfo(u32 *writePtr, u32 *writableBytes, u32 *readOffset) = 0;
 	virtual int AddStreamData(u32 bytesToAdd) = 0;
 	virtual u32 AddStreamDataSas(u32 bufPtr, u32 bytesToAdd) = 0;
-	virtual void SetLoopNum(int loopNum) = 0;
+	virtual void SetLoopNum(int loopNum);
 	virtual u32 ResetPlayPosition(int sample, int bytesWrittenFirstBuf, int bytesWrittenSecondBuf) = 0;
 	virtual void GetResetBufferInfo(AtracResetBufferInfo *bufferInfo, int sample) = 0;
 	virtual int SetData(u32 buffer, u32 readSize, u32 bufferSize, int outputChannels, int successCode) = 0;
@@ -274,7 +303,6 @@ public:
 	void GetStreamDataInfo(u32 *writePtr, u32 *writableBytes, u32 *readOffset) override;
 	int AddStreamData(u32 bytesToAdd) override;
 	u32 AddStreamDataSas(u32 bufPtr, u32 bytesToAdd) override;
-	void SetLoopNum(int loopNum) override;
 	u32 ResetPlayPosition(int sample, int bytesWrittenFirstBuf, int bytesWrittenSecondBuf) override;
 	void GetResetBufferInfo(AtracResetBufferInfo *bufferInfo, int sample) override;
 	int SetData(u32 buffer, u32 readSize, u32 bufferSize, int outputChannels, int successCode) override;
@@ -302,7 +330,7 @@ private:
 	void CalculateStreamInfo(u32 *readOffset);
 
 	InputBuffer first_{};
-	InputBuffer second_{};
+	InputBuffer second_{};  // only addr, size, fileoffset are used (incomplete)
 
 	u8 *dataBuf_ = nullptr;
 	// Indicates that the dataBuf_ array should not be used.

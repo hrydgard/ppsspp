@@ -405,7 +405,7 @@ static u32 sceAtracGetNextDecodePosition(int atracID, u32 outposAddr) {
 	if (Memory::IsValidAddress(outposAddr)) {
 		if (atrac->CurrentSample() >= atrac->GetTrack().endSample) {
 			Memory::WriteUnchecked_U32(0, outposAddr);
-			return hleLogSuccessI(ME, ATRAC_ERROR_ALL_DATA_DECODED, "all data decoded");
+			return hleLogSuccessI(ME, ATRAC_ERROR_ALL_DATA_DECODED, "all data decoded - beyond endSample");
 		} else {
 			Memory::WriteUnchecked_U32(atrac->CurrentSample(), outposAddr);
 			return hleLogSuccessI(ME, 0);
@@ -488,10 +488,10 @@ static u32 sceAtracGetSoundSample(int atracID, u32 outEndSampleAddr, u32 outLoop
 		*outEndSample = atrac->GetTrack().endSample;
 	auto outLoopStart = PSPPointer<u32_le>::Create(outLoopStartSampleAddr);
 	if (outLoopStart.IsValid())
-		*outLoopStart = atrac->GetTrack().loopStartSample == -1 ? -1 : atrac->GetTrack().loopStartSample - atrac->GetTrack().firstSampleOffset - atrac->FirstOffsetExtra();
+		*outLoopStart = atrac->GetTrack().loopStartSample == -1 ? -1 : atrac->GetTrack().loopStartSample - atrac->GetTrack().FirstSampleOffsetFull();
 	auto outLoopEnd = PSPPointer<u32_le>::Create(outLoopEndSampleAddr);
 	if (outLoopEnd.IsValid())
-		*outLoopEnd = atrac->GetTrack().loopEndSample == -1 ? -1 : atrac->GetTrack().loopEndSample - atrac->GetTrack().firstSampleOffset - atrac->FirstOffsetExtra();
+		*outLoopEnd = atrac->GetTrack().loopEndSample == -1 ? -1 : atrac->GetTrack().loopEndSample - atrac->GetTrack().FirstSampleOffsetFull();
 
 	if (!outEndSample.IsValid() || !outLoopStart.IsValid() || !outLoopEnd.IsValid()) {
 		return hleReportError(ME, 0, "invalid address");
