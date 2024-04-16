@@ -37,14 +37,11 @@ public:
 	virtual PSPAudioType GetAudioType() const = 0;
 
 	// inbytesConsumed can include skipping metadata.
-	virtual bool Decode(const uint8_t *inbuf, int inbytes, int *inbytesConsumed, int outputChannels, uint8_t *outbuf, int *outbytes) = 0;
+	// outSamples is in stereo samples. So you have to multiply by 4 for 16-bit stereo audio to get bytes.
+	virtual bool Decode(const uint8_t *inbuf, int inbytes, int *inbytesConsumed, int outputChannels, int16_t *outbuf, int *outSamples) = 0;
 	virtual bool IsOK() const = 0;
 
-	// These two are only ever called after Decode, so can initialize on first.
-	virtual int GetOutSamples() const = 0;
-
 	virtual void SetChannels(int channels) = 0;
-
 	virtual void FlushBuffers() {}
 
 	// Just metadata.

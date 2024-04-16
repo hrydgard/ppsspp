@@ -1054,7 +1054,7 @@ int MediaEngine::getNextAudioFrame(u8 **buf, int *headerCode1, int *headerCode2)
 }
 
 int MediaEngine::getAudioSamples(u32 bufferPtr) {
-	u8 *buffer = Memory::GetPointerWriteRange(bufferPtr, 8192);
+	int16_t *buffer = (int16_t *)Memory::GetPointerWriteRange(bufferPtr, 8192);
 	if (buffer == nullptr) {
 		ERROR_LOG_REPORT(ME, "Ignoring bad audio decode address %08x during video playback", bufferPtr);
 	}
@@ -1068,7 +1068,7 @@ int MediaEngine::getAudioSamples(u32 bufferPtr) {
 	if (frameSize == 0) {
 		return 0;
 	}
-	int outbytes = 0;
+	int outSamples = 0;
 
 	if (m_audioContext != nullptr) {
 		if (headerCode1 == 0x24) {
@@ -1078,11 +1078,12 @@ int MediaEngine::getAudioSamples(u32 bufferPtr) {
 		}
 
 		int inbytesConsumed = 0;
-		if (!m_audioContext->Decode(audioFrame, frameSize, &inbytesConsumed, 2, buffer, &outbytes)) {
+		if (!m_audioContext->Decode(audioFrame, frameSize, &inbytesConsumed, 2, buffer, &outSamples)) {
 			ERROR_LOG(ME, "Audio (%s) decode failed during video playback", GetCodecName(m_audioType));
 		}
+		int outBytes = outSamples * sizeof(int16_t) * 2;
 
-		NotifyMemInfo(MemBlockFlags::WRITE, bufferPtr, outbytes, "VideoDecodeAudio");
+		NotifyMemInfo(MemBlockFlags::WRITE, bufferPtr, outBytes, "VideoDecodeAudio");
 	}
 
 	return 0x2000;

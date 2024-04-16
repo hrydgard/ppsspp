@@ -944,7 +944,7 @@ static int sceAtracLowLevelInitDecoder(int atracID, u32 paramsAddr) {
 static int sceAtracLowLevelDecode(int atracID, u32 sourceAddr, u32 sourceBytesConsumedAddr, u32 samplesAddr, u32 sampleBytesAddr) {
 	auto srcp = PSPPointer<u8>::Create(sourceAddr);
 	auto srcConsumed = PSPPointer<u32_le>::Create(sourceBytesConsumedAddr);
-	auto outp = PSPPointer<u8>::Create(samplesAddr);
+	auto outp = PSPPointer<s16>::Create(samplesAddr);
 	auto outWritten = PSPPointer<u32_le>::Create(sampleBytesAddr);
 
 	AtracBase *atrac = getAtrac(atracID);
@@ -958,8 +958,9 @@ static int sceAtracLowLevelDecode(int atracID, u32 sourceAddr, u32 sourceBytesCo
 	}
 
 	int bytesConsumed = 0;
-	int bytesWritten = 0;
-	atrac->Decoder()->Decode(srcp, atrac->GetTrack().BytesPerFrame(), &bytesConsumed, 2, outp, &bytesWritten);
+	int outSamples = 0;
+	atrac->Decoder()->Decode(srcp, atrac->GetTrack().BytesPerFrame(), &bytesConsumed, 2, outp, &outSamples);
+	int bytesWritten = outSamples * 2 * sizeof(int16_t);
 	*srcConsumed = bytesConsumed;
 	*outWritten = bytesWritten;
 

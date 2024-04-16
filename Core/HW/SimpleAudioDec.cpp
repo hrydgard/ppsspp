@@ -67,22 +67,17 @@ public:
 	}
 	~MiniMp3Audio() {}
 
-	bool Decode(const uint8_t* inbuf, int inbytes, int *inbytesConsumed, int outputChannels, uint8_t *outbuf, int *outbytes) override {
+	bool Decode(const uint8_t* inbuf, int inbytes, int *inbytesConsumed, int outputChannels, int16_t *outbuf, int *outSamples) override {
 		_dbg_assert_(outputChannels == 2);
 
 		mp3dec_frame_info_t info{};
 		int samplesWritten = mp3dec_decode_frame(&mp3_, inbuf, inbytes, (mp3d_sample_t *)outbuf, &info);
 		*inbytesConsumed = info.frame_bytes;
-		*outbytes = samplesWritten * sizeof(mp3d_sample_t) * info.channels;
-		outSamples_ = samplesWritten * info.channels;
+		*outSamples = samplesWritten;
 		return true;
 	}
 
 	bool IsOK() const override { return true; }
-	int GetOutSamples() const override {
-		return outSamples_;
-	}
-
 	void SetChannels(int channels) override {
 		// Hmm. ignore for now.
 	}
@@ -92,8 +87,6 @@ public:
 private:
 	// We use the lowest-level API.
 	mp3dec_t mp3_{};
-	int outSamples_ = 0;
-	int srcPos_ = 0;
 };
 
 // FFMPEG-based decoder. TODO: Replace with individual codecs.
@@ -103,17 +96,13 @@ public:
 	FFmpegAudioDecoder(PSPAudioType audioType, int sampleRateHz = 44100, int channels = 2);
 	~FFmpegAudioDecoder();
 
-	bool Decode(const uint8_t* inbuf, int inbytes, int *inbytesConsumed, int outputChannels, uint8_t *outbuf, int *outbytes) override;
+	bool Decode(const uint8_t* inbuf, int inbytes, int *inbytesConsumed, int outputChannels, int16_t *outbuf, int *outSamples) override;
 	bool IsOK() const override {
 #ifdef USE_FFMPEG
 		return codec_ != 0;
 #else
 		return 0;
 #endif
-	}
-
-	int GetOutSamples() const override {
-		return outSamples_;
 	}
 
 	void SetChannels(int channels) override;
@@ -127,7 +116,6 @@ private:
 	PSPAudioType audioType;
 	int sample_rate_;
 	int channels_;
-	int outSamples_ = 0; // output samples per frame
 
 	AVFrame *frame_ = nullptr;
 	AVCodec *codec_ = nullptr;
@@ -266,7 +254,7 @@ FFmpegAudioDecoder::~FFmpegAudioDecoder() {
 }
 
 // Decodes a single input frame.
-bool FFmpegAudioDecoder::Decode(const uint8_t *inbuf, int inbytes, int *inbytesConsumed, int outputChannels, uint8_t *outbuf, int *outbytes) {
+bool FFmpegAudioDecoder::Decode(const uint8_t *inbuf, int inbytes, int *inbytesConsumed, int outputChannels, int16_t *outbuf, int *outSamples) {
 #ifdef USE_FFMPEG
 	if (!codecOpen_) {
 		OpenCodec(inbytes);
@@ -280,8 +268,12 @@ bool FFmpegAudioDecoder::Decode(const uint8_t *inbuf, int inbytes, int *inbytesC
 	int got_frame = 0;
 	av_frame_unref(frame_);
 
-	*outbytes = 0;
-	*inbytesConsumed = 0;
+	if (outSamples) {
+		*outSamples = 0;
+	}
+	if (inbytesConsumed) {
+		*inbytesConsumed = 0;
+	}
 #if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(57, 48, 101)
 	if (inbytes != 0) {
 		int err = avcodec_send_packet(codecCtx_, &packet);
@@ -344,17 +336,14 @@ bool FFmpegAudioDecoder::Decode(const uint8_t *inbuf, int inbytes, int *inbytesC
 		// convert audio to AV_SAMPLE_FMT_S16
 		int swrRet = 0;
 		if (outbuf != nullptr) {
-			swrRet = swr_convert(swrCtx_, &outbuf, frame_->nb_samples, (const u8 **)frame_->extended_data, frame_->nb_samples);
+			swrRet = swr_convert(swrCtx_, (uint8_t **)&outbuf, frame_->nb_samples, (const u8 **)frame_->extended_data, frame_->nb_samples);
 		}
 		if (swrRet < 0) {
 			ERROR_LOG(ME, "swr_convert: Error while converting: %d", swrRet);
 			return false;
 		}
-		// output samples per frame, we should *2 since we have two channels
-		outSamples_ = swrRet * 2;
-
-		// each sample occupies 2 bytes
-		*outbytes = outSamples_ * 2;
+		// output stereo samples per frame
+		*outSamples = swrRet;
 
 		// Save outbuf into pcm audio, you can uncomment this line to save and check the decoded audio into pcm file.
 		// SaveAudio("dump.pcm", outbuf, *outbytes);
@@ -439,7 +428,9 @@ u32 AuCtx::AuDecode(u32 pcmAddr) {
 			nextSync = (int)FindNextMp3Sync();
 		}
 		int inbytesConsumed = 0;
-		decoder->Decode(&sourcebuff[nextSync], (int)sourcebuff.size() - nextSync, &inbytesConsumed, 2, outbuf, &outpcmbufsize);
+		int outSamples = 0;
+		decoder->Decode(&sourcebuff[nextSync], (int)sourcebuff.size() - nextSync, &inbytesConsumed, 2, (int16_t *)outbuf, &outSamples);
+		outpcmbufsize = outSamples * 2 * sizeof(int16_t);
 
 		if (outpcmbufsize == 0) {
 			// Nothing was output, hopefully we're at the end of the stream.
@@ -447,7 +438,7 @@ u32 AuCtx::AuDecode(u32 pcmAddr) {
 			sourcebuff.clear();
 		} else {
 			// Update our total decoded samples, but don't count stereo.
-			SumDecodedSamples += decoder->GetOutSamples() / 2;
+			SumDecodedSamples += outSamples;
 			// get consumed source length
 			int srcPos = inbytesConsumed + nextSync;
 			// remove the consumed source

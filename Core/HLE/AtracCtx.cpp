@@ -949,16 +949,17 @@ u32 Atrac::DecodeData(u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u32 *finish, i
 	if (off < first_.size) {
 		uint8_t *indata = BufferStart() + off;
 		int bytesConsumed = 0;
-		int outBytes = 0;
-		if (!decoder_->Decode(indata, track_.bytesPerFrame, &bytesConsumed, outputChannels_, outbuf, &outBytes)) {
+		int outSamples = 0;
+		if (!decoder_->Decode(indata, track_.bytesPerFrame, &bytesConsumed, outputChannels_, (int16_t *)outbuf, &outSamples)) {
 			// Decode failed.
 			*SamplesNum = 0;
 			*finish = 1;
 			return ATRAC_ERROR_ALL_DATA_DECODED;
 		}
+		int outBytes = outSamples * outputChannels_ * sizeof(int16_t);
 		gotFrame = true;
 
-		numSamples = outBytes / 4;
+		numSamples = outSamples;
 		uint32_t packetAddr = CurBufferAddress(-skipSamples);
 		// got a frame
 		int skipped = std::min((u32)skipSamples, numSamples);
