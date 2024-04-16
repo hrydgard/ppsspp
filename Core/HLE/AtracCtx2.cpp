@@ -40,7 +40,7 @@
 // Unit tests to pass
 //   [x] setdata, ids
 //   [x] addstreamdata
-//   [ ]
+//   [ ] decode
 
 void Track::DoState(PointerWrap &p) {
 	auto s = p.Section("Track", 1, 0);
@@ -254,8 +254,22 @@ int Atrac2::SetData(u32 buffer, u32 readSize, u32 bufferSize, int outputChannels
 	return hleLogSuccessI(Log::ME, successCode);
 }
 
+// Second buffer is only used for tails after a loop, it seems?
 u32 Atrac2::SetSecondBuffer(u32 secondBuffer, u32 secondBufferSize) {
-	return 0;
+	u32 secondFileOffset = track_.FileOffsetBySample(track_.loopEndSample - track_.firstSampleOffset);
+	u32 desiredSize = track_.fileSize - secondFileOffset;
+	// 3 seems to be the number of frames required to handle a loop.
+	if (secondBufferSize < desiredSize && secondBufferSize < (u32)track_.BytesPerFrame() * 3) {
+		return hleReportError(ME, ATRAC_ERROR_SIZE_TOO_SMALL, "too small");
+	}
+	if (BufferState() != ATRAC_STATUS_STREAMED_LOOP_WITH_TRAILER) {
+		return hleReportError(ME, ATRAC_ERROR_SECOND_BUFFER_NOT_NEEDED, "not needed");
+	}
+
+	// second_.addr = secondBuffer;
+	// second_.size = secondBufferSize;
+	// second_.fileoffset = secondFileOffset;
+	return hleLogSuccessI(ME, 0);
 }
 
 int Atrac2::SecondBufferSize() const {
@@ -263,6 +277,15 @@ int Atrac2::SecondBufferSize() const {
 }
 
 u32 Atrac2::DecodeData(u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u32 *finish, int *remains) {
+	// We already passed the end - return an error (many games check for this.)
+	if (currentSample_ >= track_.endSample && LoopNum() == 0) {
+		*SamplesNum = 0;
+		*finish = 1;
+		// refresh context_
+		WriteContextToPSPMem();
+		return ATRAC_ERROR_ALL_DATA_DECODED;
+	}
+
 	const u32 srcFrameAddr = bufAddr_ + bufPos_;
 	const u8 *srcFrame = Memory::GetPointer(srcFrameAddr);
 
@@ -280,7 +303,7 @@ u32 Atrac2::DecodeData(u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u32 *finish, 
 
 	// Track sample position and loops
 	currentSample_ += samplesWritten;
-	if (currentSample_ >= track_.loopEndSample && LoopNum() != 0) {
+	if (LoopNum() != 0 && currentSample_ >= track_.loopEndSample) {
 		// TODO: Cut down *SamplesNum?
 		DEBUG_LOG(Log::ME, "sceAtrac: Hit loop (%d) at %d (currentSample_ == %d), seeking to sample %d", loopNum_, track_.loopEndSample, currentSample_, track_.loopStartSample);
 

@@ -791,6 +791,7 @@ int Atrac::AddStreamData(u32 bytesToAdd) {
 		loopNum_++;
 		SeekToSample(track_.loopStartSample - track_.FirstSampleOffsetFull());
 	}
+
 	return 0;
 }
 
