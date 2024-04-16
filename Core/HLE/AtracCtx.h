@@ -130,11 +130,12 @@ struct Track {
 	// How many samples to skip from the beginning of a track when decoding.
 	// Actually, the real number is this added to FirstOffsetExtra(codecType). You can call
 	// FirstSampleOffset2() to get that.
+
 	// Some use of these offsets around the code seem to be inconsistent, sometimes the extra is included,
 	// sometimes not.
 	int firstSampleOffset = 0;
 
-	// Last sample number. Inclusive. Though, we made it so in Analyze, it's exclusive in the file.
+	// Last sample number, inclusive. Though, we made it such in Analyze, it's exclusive in the file.
 	// Does not take firstSampleOffset into account.
 	int endSample = 0;
 
@@ -177,7 +178,7 @@ struct Track {
 		return (u32)(firstSampleOffset + sample / (int)SamplesPerFrame() * bytesPerFrame);
 	}
 
-	// This appears to be buggy, should probably include FirstOffsetExtra?
+	// This appears to be buggy, should probably include FirstOffsetExtra (or ignore the offsets).
 	u32 FileOffsetBySample(int sample) const {
 		int offsetSample = sample + firstSampleOffset;
 		int frameOffset = offsetSample / (int)SamplesPerFrame();

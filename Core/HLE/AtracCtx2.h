@@ -44,14 +44,22 @@ private:
 		}
 	}
 
+	// This is relative to track_.FirstSampleOffset2().
 	int currentSample_ = 0;
 
+	// The current buffer in-memory to read from. Can be static or streaming.
 	u32 bufAddr_ = 0;
 	u32 bufSize_ = 0;
+	// In case of a "halfway" buffer, how much is filled.
+	u32 bufValidBytes_ = 0;
 
-	u32 bufValidBytes_ = 0;  // In case of halfway or fully loaded modes
-
-	u32 fileReadOffset_ = 0;  // Next offset in the host's file to read.
+	u32 bufWriteOffset_ = 0;  // Corresponds to first.offset
+	u32 fileReadOffset_ = 0;  // Corresponds to first.fileoffset (Next offset in the host's file to read.)
 
 	u32 bufPos_ = 0;
+	bool streamWrapped_ = false;
+
+	// Second buffer
+	u32 secondBufAddr_ = 0;
+	u32 secondBufSize_ = 0;
 };
