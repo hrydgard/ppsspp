@@ -75,25 +75,6 @@ const int PSP_ATRAC_ALLDATA_IS_ON_MEMORY = -1;
 const int PSP_ATRAC_NONLOOP_STREAM_DATA_IS_ON_MEMORY = -2;
 const int PSP_ATRAC_LOOP_STREAM_DATA_IS_ON_MEMORY = -3;
 
-// This is not a PSP-native struct.
-// But, it's stored in its entirety in savestates, which makes it awkward to change it.
-struct InputBuffer {
-	// Address of the buffer.
-	u32 addr;
-	// Size of data read so far into dataBuf_ (to be removed.)
-	u32 size;
-	// Offset into addr at which new data is added.
-	u32 offset;
-	// Last writableBytes number (to be removed.)
-	u32 writableBytes;
-	// Unused, always 0.
-	u32 neededBytes;
-	// Total size of the entire file data.
-	u32 _filesize_dontuse;
-	// Offset into the file at which new data is read.
-	u32 fileoffset;
-};
-
 struct AtracLoopInfo {
 	int cuePointID;
 	int type;
@@ -193,6 +174,9 @@ struct Track {
 		// TODO: Could probably reset more.
 	}
 
+	// Only used in AtracCtx2.
+	void DoState(PointerWrap &p);
+
 	void DebugLog();
 };
 
@@ -243,7 +227,9 @@ public:
 
 	virtual int CurrentSample() const = 0;
 	virtual int RemainingFrames() const = 0;
-	virtual u32 SecondBufferSize() const = 0;
+
+	virtual void SetLoopNum(int loopNum);
+	virtual int SetData(u32 buffer, u32 readSize, u32 bufferSize, int outputChannels, int successCode) = 0;
 
 	virtual int Analyze(u32 addr, u32 size) = 0;
 	virtual int AnalyzeAA3(u32 addr, u32 size, u32 filesize) = 0;
@@ -254,15 +240,17 @@ public:
 	virtual void GetStreamDataInfo(u32 *writePtr, u32 *writableBytes, u32 *readOffset) = 0;
 	virtual int AddStreamData(u32 bytesToAdd) = 0;
 	virtual u32 AddStreamDataSas(u32 bufPtr, u32 bytesToAdd) = 0;
-	virtual void SetLoopNum(int loopNum);
-	virtual u32 ResetPlayPosition(int sample, int bytesWrittenFirstBuf, int bytesWrittenSecondBuf) = 0;
+
 	virtual void GetResetBufferInfo(AtracResetBufferInfo *bufferInfo, int sample) = 0;
-	virtual int SetData(u32 buffer, u32 readSize, u32 bufferSize, int outputChannels, int successCode) = 0;
+	virtual u32 ResetPlayPosition(int sample, int bytesWrittenFirstBuf, int bytesWrittenSecondBuf) = 0;
 
 	virtual int GetSecondBufferInfo(u32 *fileOffset, u32 *desiredSize);
 	virtual u32 SetSecondBuffer(u32 secondBuffer, u32 secondBufferSize) = 0;
-	virtual u32 DecodeData(u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u32 *finish, int *remains) = 0;
+	virtual u32 SecondBufferSize() const = 0;
+
 	virtual u32 GetNextSamples() = 0;
+	virtual u32 DecodeData(u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u32 *finish, int *remains) = 0;
+
 	virtual void InitLowLevel(u32 paramsAddr, bool jointStereo) = 0;
 
 protected:
@@ -302,19 +290,22 @@ public:
 		return currentSample_;
 	}
 	int RemainingFrames() const override;
-	u32 SecondBufferSize() const override {
-		return second_.size;
-	}
+
+	int SetData(u32 buffer, u32 readSize, u32 bufferSize, int outputChannels, int successCode) override;
 
 	void GetStreamDataInfo(u32 *writePtr, u32 *writableBytes, u32 *readOffset) override;
 	int AddStreamData(u32 bytesToAdd) override;
 	u32 AddStreamDataSas(u32 bufPtr, u32 bytesToAdd) override;
-	u32 ResetPlayPosition(int sample, int bytesWrittenFirstBuf, int bytesWrittenSecondBuf) override;
+
 	void GetResetBufferInfo(AtracResetBufferInfo *bufferInfo, int sample) override;
-	int SetData(u32 buffer, u32 readSize, u32 bufferSize, int outputChannels, int successCode) override;
+	u32 ResetPlayPosition(int sample, int bytesWrittenFirstBuf, int bytesWrittenSecondBuf) override;
+
 	u32 SetSecondBuffer(u32 secondBuffer, u32 secondBufferSize) override;
-	u32 DecodeData(u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u32 *finish, int *remains) override;
+	u32 SecondBufferSize() const override { return second_.size; }
+
 	u32 GetNextSamples() override;
+	u32 DecodeData(u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u32 *finish, int *remains) override;
+
 	void InitLowLevel(u32 paramsAddr, bool jointStereo) override;
 
 protected:
@@ -333,6 +324,25 @@ private:
 	}
 	void ConsumeFrame();
 	void CalculateStreamInfo(u32 *readOffset);
+
+	// This is not a PSP-native struct.
+	// But, it's stored in its entirety in savestates, which makes it awkward to change it.
+	struct InputBuffer {
+		// Address of the buffer.
+		u32 addr;
+		// Size of data read so far into dataBuf_ (to be removed.)
+		u32 size;
+		// Offset into addr at which new data is added.
+		u32 offset;
+		// Last writableBytes number (to be removed.)
+		u32 writableBytes;
+		// Unused, always 0.
+		u32 neededBytes;
+		// Total size of the entire file data.
+		u32 _filesize_dontuse;
+		// Offset into the file at which new data is read.
+		u32 fileoffset;
+	};
 
 	InputBuffer first_{};
 	InputBuffer second_{};  // only addr, size, fileoffset are used (incomplete)

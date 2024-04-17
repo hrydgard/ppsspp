@@ -186,8 +186,11 @@ void AtracBase::UpdateContextFromPSPMem() {
 
 	// Read in any changes from the game to the context.
 	// TODO: Might be better to just always track in RAM.
+	// TODO: It's possible that there are more changes we should read. Who knows,
+	// problem games like FlatOut might poke stuff into the context?
 	bufferState_ = context_->info.state;
 	// This value is actually abused by games to store the SAS voice number.
+	// That's why the code later ignores it in Sas mode.
 	loopNum_ = context_->info.loopNum;
 }
 
