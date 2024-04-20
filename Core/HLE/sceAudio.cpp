@@ -492,6 +492,26 @@ static int sceAudioInput(u32 maxSamples, u32 sampleRate, u32 bufAddr) {
 	return __MicInput(maxSamples, sampleRate, bufAddr, AUDIOINPUT, false);
 }
 
+static int sceAudioInputInit(int unknown1, int gain, int unknown2) {
+	ERROR_LOG(HLE, "UNIMPL sceAudioInputInit: unknown1: %d, gain: %d, unknown2: %d", unknown1, gain, unknown2);
+	return 0;
+}
+
+static int sceAudioInputInitEx(u32 paramAddr) {
+	ERROR_LOG(HLE, "UNIMPL sceAudioInputInitEx: paramAddr: %08x", paramAddr);
+	return 0;
+}
+
+static int sceAudioPollInputEnd() {
+	ERROR_LOG(HLE, "UNIMPL sceAudioPollInputEnd");
+	return 0;
+}
+
+static int sceAudioWaitInputEnd() {
+	ERROR_LOG(HLE, "UNIMPL sceAudioWaitInputEnd");
+	return 0;
+}
+
 static int sceAudioGetInputLength() {
 	int ret = Microphone::getReadMicDataLength() / 2;
 	ERROR_LOG(HLE, "UNTEST sceAudioGetInputLength(ret: %d)", ret);
@@ -559,13 +579,13 @@ const HLEFunction sceAudio[] =
 	{0XB61595C0, nullptr,                                   "sceAudioLoopbackTest",          '?', ""    },
 
 	// Microphone interface
-	{0X7DE61688, nullptr,                                   "sceAudioInputInit",             '?', ""    },
-	{0XE926D3FB, nullptr,                                   "sceAudioInputInitEx",           '?', ""    },
+	{0X7DE61688, &WrapI_III<sceAudioInputInit>,             "sceAudioInputInit",             'i', "iii" },
+	{0XE926D3FB, &WrapI_U<sceAudioInputInitEx>,             "sceAudioInputInitEx",           'i', "x"   },
 	{0X6D4BEC68, &WrapI_UUU<sceAudioInput>,                 "sceAudioInput",                 'i', "xxx" },
 	{0X086E5895, &WrapI_UUU<sceAudioInputBlocking>,         "sceAudioInputBlocking",         'i', "xxx" },
 	{0XA708C6A6, &WrapI_V<sceAudioGetInputLength>,          "sceAudioGetInputLength",        'i', ""    },
-	{0XA633048E, nullptr,                                   "sceAudioPollInputEnd",          '?', ""    },
-	{0X87B2E651, nullptr,                                   "sceAudioWaitInputEnd",          '?', ""    },
+	{0XA633048E, &WrapI_V<sceAudioPollInputEnd>,            "sceAudioPollInputEnd",          'i', ""    },
+	{0X87B2E651, &WrapI_V<sceAudioWaitInputEnd>,            "sceAudioWaitInputEnd",          'i', ""    },
 
 	{0X36FD8AA9, &WrapU_U<sceAudioRoutingSetMode>,          "sceAudioRoutingSetMode",        'x', "x"   },
 	{0X39240E7D, &WrapU_V<sceAudioRoutingGetMode>,          "sceAudioRoutingGetMode",        'x', ""    },
