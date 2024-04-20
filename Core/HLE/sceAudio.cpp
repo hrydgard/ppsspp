@@ -492,6 +492,16 @@ static int sceAudioInput(u32 maxSamples, u32 sampleRate, u32 bufAddr) {
 	return __MicInput(maxSamples, sampleRate, bufAddr, AUDIOINPUT, false);
 }
 
+static int sceAudioInputInit(s32 unknown1, s32 gain, s32 unknown2) {
+	ERROR_LOG(HLE, "UNIMPL sceAudioInputInit: unknown1: %d, gain: %d, unknown2: %d", unknown1, gain, unknown2);
+	return 0;
+}
+
+static int sceAudioInputInitEx(u32 pspAudioInputParamsAddr) {
+	ERROR_LOG(HLE, "UNIMPL sceAudioInputInitEx: pspAudioInputParamsAddr: %08x", pspAudioInputParamsAddr);
+	return 0;
+}
+
 static int sceAudioGetInputLength() {
 	int ret = Microphone::getReadMicDataLength() / 2;
 	ERROR_LOG(HLE, "UNTEST sceAudioGetInputLength(ret: %d)", ret);
@@ -559,8 +569,8 @@ const HLEFunction sceAudio[] =
 	{0XB61595C0, nullptr,                                   "sceAudioLoopbackTest",          '?', ""    },
 
 	// Microphone interface
-	{0X7DE61688, nullptr,                                   "sceAudioInputInit",             '?', ""    },
-	{0XE926D3FB, nullptr,                                   "sceAudioInputInitEx",           '?', ""    },
+	{0X7DE61688, &WrapI_III<sceAudioInputInit>,             "sceAudioInputInit",             'i', "iii" },
+	{0XE926D3FB, &WrapI_U<sceAudioInputInitEx>,             "sceAudioInputInitEx",           'i', "x"   },
 	{0X6D4BEC68, &WrapI_UUU<sceAudioInput>,                 "sceAudioInput",                 'i', "xxx" },
 	{0X086E5895, &WrapI_UUU<sceAudioInputBlocking>,         "sceAudioInputBlocking",         'i', "xxx" },
 	{0XA708C6A6, &WrapI_V<sceAudioGetInputLength>,          "sceAudioGetInputLength",        'i', ""    },
