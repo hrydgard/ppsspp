@@ -282,6 +282,7 @@ static const char * const device_name_blacklist[] = {
 static const char * const so_names[] = {
 #if PPSSPP_PLATFORM(IOS)
 	"@executable_path/Frameworks/libMoltenVK.dylib",
+	"MoltenVK",
 #elif PPSSPP_PLATFORM(MAC)
 	"@executable_path/../Frameworks/libMoltenVK.dylib",
 #else
