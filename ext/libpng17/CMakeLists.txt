@@ -19,6 +19,7 @@ add_library(png17 STATIC
 	pngrutil.c
 	pngset.c
 	pngstruct.h
+	pngtest.c
 	pngtrans.c
 	pngwio.c
 	pngwrite.c
