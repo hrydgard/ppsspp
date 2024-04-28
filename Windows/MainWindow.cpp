@@ -29,6 +29,7 @@
 #include <shellapi.h>
 #include <commctrl.h>
 #include <string>
+#include <dwmapi.h>
 
 #include "Common/System/Display.h"
 #include "Common/System/NativeApp.h"
@@ -482,6 +483,10 @@ namespace MainWindow
 			return FALSE;
 
 		SetWindowLong(hwndMain, GWL_EXSTYLE, WS_EX_APPWINDOW);
+
+
+		const DWM_WINDOW_CORNER_PREFERENCE pref = DWMWCP_DONOTROUND;
+		DwmSetWindowAttribute(hwndMain, DWMWA_WINDOW_CORNER_PREFERENCE, &pref, sizeof(pref));
 
 		RECT rcClient;
 		GetClientRect(hwndMain, &rcClient);
