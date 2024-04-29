@@ -297,20 +297,12 @@ DECL_FFT(512,256,128)
 #define pass pass_big
 #endif
 DECL_FFT(1024,512,256)
-DECL_FFT(2048,1024,512)
-DECL_FFT(4096,2048,1024)
-DECL_FFT(8192,4096,2048)
-DECL_FFT(16384,8192,4096)
-DECL_FFT(32768,16384,8192)
-DECL_FFT(65536,32768,16384)
 
 static void (* const fft_dispatch[])(FFTComplex*) = {
     fft4, fft8, fft16, fft32, fft64, fft128, fft256, fft512, fft1024,
-    fft2048, fft4096, fft8192, fft16384, fft32768, fft65536,
 };
 
-void fft_calc(FFTContext *s, FFTComplex *z)
-{
+void fft_calc(FFTContext *s, FFTComplex *z) {
     fft_dispatch[s->nbits-2](z);
 }
 
