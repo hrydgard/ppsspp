@@ -91,9 +91,19 @@ static bool HashISOFile(ISOFileSystem *fs, const std::string filename, md5_conte
 	return true;
 }
 
+static std::string FormatRCheevosMD5(uint8_t digest[16]) {
+	char hashStr[33];
+	/* NOTE: sizeof(hash) is 4 because it's still treated like a pointer, despite specifying a size */
+	snprintf(hashStr, 33, "%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x",
+		digest[0], digest[1], digest[2], digest[3], digest[4], digest[5], digest[6], digest[7],
+		digest[8], digest[9], digest[10], digest[11], digest[12], digest[13], digest[14], digest[15]
+	);
+	return std::string(hashStr);
+}
+
 // Consumes the blockDevice.
 // If failed, returns an empty string, otherwise a 32-character string with the hash in hex format.
-static std::string ComputePSPHash(BlockDevice *blockDevice) {
+static std::string ComputePSPISOHash(BlockDevice *blockDevice) {
 	md5_context md5;
 	ppsspp_md5_starts(&md5);
 
@@ -111,14 +121,23 @@ static std::string ComputePSPHash(BlockDevice *blockDevice) {
 
 	uint8_t digest[16];
 	ppsspp_md5_finish(&md5, digest);
+	return FormatRCheevosMD5(digest);
+}
 
-	char hashStr[33];
-	/* NOTE: sizeof(hash) is 4 because it's still treated like a pointer, despite specifying a size */
-	snprintf(hashStr, 33, "%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x",
-		digest[0], digest[1], digest[2], digest[3], digest[4], digest[5], digest[6], digest[7],
-		digest[8], digest[9], digest[10], digest[11], digest[12], digest[13], digest[14], digest[15]
-	);
-	return std::string(hashStr);
+static std::string ComputePSPHomebrewHash(FileLoader *fileLoader) {
+	md5_context md5;
+	ppsspp_md5_starts(&md5);
+
+	// Cap the data we read to 64MB (MAX_BUFFER_SIZE in rcheevos' hash.c), and hash that.
+	std::vector<uint8_t> buffer;
+	size_t fileSize = std::min((s64)(1024 * 1024 * 64), fileLoader->FileSize());
+	buffer.resize(fileSize);
+	fileLoader->ReadAt(0, fileSize, buffer.data(), FileLoader::Flags::NONE);
+	ppsspp_md5_update(&md5, buffer.data(), (int)buffer.size());
+
+	uint8_t digest[16];
+	ppsspp_md5_finish(&md5, digest);
+	return FormatRCheevosMD5(digest);
 }
 
 static inline const char *DeNull(const char *ptr) {
@@ -927,10 +946,16 @@ bool IsReadyToStart() {
 }
 
 void SetGame(const Path &path, IdentifiedFileType fileType, FileLoader *fileLoader) {
+	bool homebrew = false;
 	switch (fileType) {
 	case IdentifiedFileType::PSP_ISO:
 	case IdentifiedFileType::PSP_ISO_NP:
 		// These file types are OK.
+		break;
+	case IdentifiedFileType::PSP_PBP_DIRECTORY:
+		// This should be a homebrew, which we now support as well.
+		// We select the homebrew hashing method.
+		homebrew = true;
 		break;
 	default:
 		// Other file types are not yet supported.
@@ -957,8 +982,14 @@ void SetGame(const Path &path, IdentifiedFileType fileType, FileLoader *fileLoad
 	g_gamePath = path;
 	g_isIdentifying = true;
 
-	// TODO: Fish the block device out of the loading process somewhere else. Though, probably easier to just do it here.
-	{
+	if (homebrew) {
+		// Homebrew hashing method - just hash the eboot.
+		s_game_hash = ComputePSPHomebrewHash(fileLoader);
+	} else {
+		// ISO hashing method.
+		//
+		// TODO: Fish the block device out of the loading process somewhere else. Though, probably easier to just do it here,
+		// we need a temporary blockdevice anyway since it gets consumed by ComputePSPISOHash.
 		BlockDevice *blockDevice(constructBlockDevice(fileLoader));
 		if (!blockDevice) {
 			ERROR_LOG(ACHIEVEMENTS, "Failed to construct block device for '%s' - can't identify", path.c_str());
@@ -967,7 +998,7 @@ void SetGame(const Path &path, IdentifiedFileType fileType, FileLoader *fileLoad
 		}
 
 		// This consumes the blockDevice.
-		s_game_hash = ComputePSPHash(blockDevice);
+		s_game_hash = ComputePSPISOHash(blockDevice);
 		if (!s_game_hash.empty()) {
 			INFO_LOG(ACHIEVEMENTS, "Hash: %s", s_game_hash.c_str());
 		}
@@ -1031,7 +1062,7 @@ void ChangeUMD(const Path &path, FileLoader *fileLoader) {
 	g_isIdentifying = true;
 
 	// This consumes the blockDevice.
-	s_game_hash = ComputePSPHash(blockDevice);
+	s_game_hash = ComputePSPISOHash(blockDevice);
 	if (s_game_hash.empty()) {
 		ERROR_LOG(ACHIEVEMENTS, "Failed to hash - can't identify");
 		return;
