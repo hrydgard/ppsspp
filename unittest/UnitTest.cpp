@@ -1061,6 +1061,10 @@ TestItem availableTests[] = {
 int main(int argc, const char *argv[]) {
 	SetCurrentThreadName("UnitTest");
 
+	printf("CPU name: %s\n", cpu_info.cpu_string);
+	printf("ABI: %s\n", GetCompilerABI());
+
+	// In case we're on ARM, assume these are available.
 	cpu_info.bNEON = true;
 	cpu_info.bVFP = true;
 	cpu_info.bVFPv3 = true;
@@ -1096,10 +1100,11 @@ int main(int argc, const char *argv[]) {
 			printf("%d tests passed.\n", passes);
 		}
 		if (fails > 0) {
+			printf("%d tests failed!\n", fails);
 			return 2;
 		}
 	} else if (testFunc == nullptr) {
-		fprintf(stderr, "You may select a test to run by passing an argument.\n");
+		fprintf(stderr, "You may select a test to run by passing an argument, either \"all\" or one or more of the below.\n");
 		fprintf(stderr, "\n");
 		fprintf(stderr, "Available tests:\n");
 		for (auto f : availableTests) {
