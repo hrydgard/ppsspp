@@ -161,3 +161,5 @@ private:
 };
 
 extern CPUInfo cpu_info;
+
+const char *GetCompilerABI();

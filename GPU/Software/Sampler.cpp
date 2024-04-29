@@ -181,6 +181,7 @@ NearestFunc SamplerJitCache::GetByID(const SamplerID &id, size_t key, BinManager
 	}
 
 	if (!binner) {
+		printf("No binner, can't compile\n");
 		// Can't compile, let's try to do it later when there's an opportunity.
 		compileQueue_.insert(id);
 		return nullptr;

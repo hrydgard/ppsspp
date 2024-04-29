@@ -2,6 +2,7 @@
 #include "Common/GPU/thin3d.h"
 #include "Common/System/System.h"
 #include "Common/Data/Text/I18n.h"
+#include "Common/CPUDetect.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/HW/Display.h"
 #include "Core/FrameTiming.h"
