@@ -128,9 +128,9 @@ static std::string ComputePSPHomebrewHash(FileLoader *fileLoader) {
 	md5_context md5;
 	ppsspp_md5_starts(&md5);
 
-	// Cap the data we read to 16MB, and hash that.
+	// Cap the data we read to 64MB (MAX_BUFFER_SIZE in rcheevos' hash.c), and hash that.
 	std::vector<uint8_t> buffer;
-	size_t fileSize = std::min((s64)(1024 * 1024 * 16), fileLoader->FileSize());
+	size_t fileSize = std::min((s64)(1024 * 1024 * 64), fileLoader->FileSize());
 	buffer.resize(fileSize);
 	fileLoader->ReadAt(0, fileSize, buffer.data(), FileLoader::Flags::NONE);
 	ppsspp_md5_update(&md5, buffer.data(), (int)buffer.size());
