@@ -263,7 +263,7 @@ VkResult VulkanContext::CreateInstance(const CreateInfo &info) {
 		return res;
 	}
 
-	if (extensionsLookup_.KHR_get_physical_device_properties2) {
+	if (extensionsLookup_.KHR_get_physical_device_properties2 && vkGetPhysicalDeviceProperties2) {
 		for (uint32_t i = 0; i < gpu_count; i++) {
 			VkPhysicalDeviceProperties2 props2{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2};
 			VkPhysicalDevicePushDescriptorPropertiesKHR pushProps{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PUSH_DESCRIPTOR_PROPERTIES_KHR};
@@ -291,6 +291,7 @@ VkResult VulkanContext::CreateInstance(const CreateInfo &info) {
 	}
 
 	if (extensionsLookup_.EXT_debug_utils) {
+		_assert_(vkCreateDebugUtilsMessengerEXT != nullptr);
 		InitDebugUtilsCallback();
 	}
 
