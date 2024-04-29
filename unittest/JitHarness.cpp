@@ -197,8 +197,10 @@ bool TestJit() {
 		ir_speed = ExecCPUTest();
 		mipsr4k.UpdateCore(CPUCore::JIT);
 		jit_speed = ExecCPUTest();
+#if !PPSSPP_PLATFORM(MAC)
 		mipsr4k.UpdateCore(CPUCore::JIT_IR);
 		jit_ir_speed = ExecCPUTest(false);
+#endif
 
 		// Disassemble
 		JitBlockCacheDebugInterface *cache = MIPSComp::jit->GetBlockCacheDebugInterface();

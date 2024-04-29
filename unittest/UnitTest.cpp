@@ -1099,7 +1099,7 @@ int main(int argc, const char *argv[]) {
 			return 2;
 		}
 	} else if (testFunc == nullptr) {
-		fprintf(stderr, "You may select a test to run by passing an argument.\n");
+		fprintf(stderr, "You may select a test to run by passing an argument, either \"all\" or one or more of the below.\n");
 		fprintf(stderr, "\n");
 		fprintf(stderr, "Available tests:\n");
 		for (auto f : availableTests) {
