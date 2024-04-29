@@ -742,10 +742,169 @@ static int sysclib_memcmp(u32 dst, u32 src, u32 size) {
 }
 
 static int sysclib_sprintf(u32 dst, u32 fmt) {
-	ERROR_LOG(SCEKERNEL, "Unimpl sysclib_sprintf(dest=%08x, src=%08x)", dst, fmt);
+	ERROR_LOG(SCEKERNEL, "Untested sysclib_sprintf(dst=%08x, fmt=%08x)", dst, fmt);
 	if (Memory::IsValidAddress(dst) && Memory::IsValidAddress(fmt)) {
-		// TODO: Properly use the format string with more parameters.
-		return sprintf((char *)Memory::GetPointerUnchecked(dst), "%s", Memory::GetCharPointerUnchecked(fmt));
+
+
+		u32 psp_stack_pointer = currentMIPS->r[MIPS_REG_SP];
+		ERROR_LOG(SCEKERNEL, "Fmt: %s", Memory::GetCharPointerUnchecked(fmt));
+		ERROR_LOG(SCEKERNEL, "PSP arg reg dump: 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x",
+		currentMIPS->r[MIPS_REG_A0],
+		currentMIPS->r[MIPS_REG_A1],
+		currentMIPS->r[MIPS_REG_A2],
+		currentMIPS->r[MIPS_REG_A3],
+		currentMIPS->r[MIPS_REG_T0],
+		currentMIPS->r[MIPS_REG_T1],
+		currentMIPS->r[MIPS_REG_T2],
+		currentMIPS->r[MIPS_REG_T3]
+		);
+		for(int i = 0;i < 24; i+=8){
+			u32 base = psp_stack_pointer + i * 4;
+			ERROR_LOG(SCEKERNEL, "PSP stack dump: 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x",
+			Memory::Read_U32(base),
+			Memory::Read_U32(base + 1 * 4),
+			Memory::Read_U32(base + 2 * 4),
+			Memory::Read_U32(base + 3 * 4),
+			Memory::Read_U32(base + 4 * 4),
+			Memory::Read_U32(base + 5 * 4),
+			Memory::Read_U32(base + 6 * 4),
+			Memory::Read_U32(base + 7 * 4)
+			);
+		}
+		int state = 0;
+		std::string result = "";
+		std::string cur_fmt = "";
+		int bytes_to_read = 0;
+		int arg_idx = 0;
+		int fmt_len = 0;
+
+		for(const char *c = Memory::GetCharPointerUnchecked(fmt); *c != '\0'; c++){
+			// in case we have a bad fmt string, try not to crash the whole emulator
+			fmt_len++;
+			if(fmt_len == 1024){
+				ERROR_LOG(SCEKERNEL, "sprintf, fmt is longer than 1024");
+				return 0;
+			}
+
+			if(state == 0){
+				if(*c == '%'){
+					cur_fmt = "%";
+					state = 1;
+					bytes_to_read = 0;
+				}else{
+					result.append(1, *c);
+				}
+			}else{
+				cur_fmt.append(1, *c);
+
+				// going by https://cplusplus.com/reference/cstdio/printf/#compatibility
+				// no idea what the kernel module really supports as of writing this
+
+				if(*c == '%'){
+					result.append(cur_fmt);
+					state = 0;
+				}else if(*c == 'd' ||
+					*c == 'i' ||
+					*c == 'u' ||
+					*c == 'o' ||
+					*c == 'x' ||
+					*c == 'X' ||
+					*c == 'f' ||
+					*c == 'e' ||
+					*c == 'E' ||
+					*c == 'g' ||
+					*c == 'G' ||
+					*c == 'c' ||
+					*c == 'p' ||
+					*c == 'n' ||
+					*c == 's'
+				){
+					// we have a format ending
+					if(*c == 's'){
+						// consume 4 bytes from arguments
+						u32 val = 0;
+						if(arg_idx <= 1){
+							val = currentMIPS->r[MIPS_REG_A2 + arg_idx];
+						}else if(arg_idx <= 5){
+							val = currentMIPS->r[MIPS_REG_T0 + arg_idx - 2];
+						}else{
+							// XXX assuming right to left arg pushing
+							int stack_idx = arg_idx - 6;
+							u32 stack_cur = psp_stack_pointer + stack_idx * 4;
+
+							if(!Memory::IsValidAddress(stack_cur)){
+								ERROR_LOG(SCEKERNEL, "sprintf, bad stack pointer %08x", stack_cur);
+								return 0;
+							}
+							val = Memory::Read_U32(stack_cur);
+						}
+						arg_idx++;
+
+						if(!Memory::IsValidAddress(val)){
+							ERROR_LOG(SCEKERNEL, "sprintf, bad string reference %08x", val);
+							return 0;
+						}
+
+						const char *str = Memory::GetCharPointerUnchecked(val);
+						// limit the string length and hope that we don't crash on a bad string reference
+						char buf[1024] = {0};
+						strncpy(buf, str, sizeof(buf));
+						buf[sizeof(buf) - 1] = '\0';
+						result.append(buf);
+					}else{
+						u64 val = 0;
+						if(bytes_to_read == 0){
+							bytes_to_read = 4;
+						}
+						int read_cnt = 0;
+						while(bytes_to_read != 0){
+							u64 val_from_arg = 0;
+							if(arg_idx <= 1){
+								val_from_arg = currentMIPS->r[MIPS_REG_A2 + arg_idx];
+							}else if(arg_idx <= 5){
+								val_from_arg = currentMIPS->r[MIPS_REG_T0 + arg_idx - 2];
+							}else{
+								// XXX assuming right to left arg pushing
+								int stack_idx = arg_idx - 6;
+								u32 stack_cur = psp_stack_pointer + stack_idx * 4;
+
+								if(!Memory::IsValidAddress(stack_cur)){
+									ERROR_LOG(SCEKERNEL, "sprintf, bad stack pointer %08x", stack_cur);
+									return 0;
+								}
+								val_from_arg = Memory::Read_U32(stack_cur);
+							}
+							arg_idx++;
+
+							val = val | (val_from_arg << (read_cnt * 32));
+
+							bytes_to_read = bytes_to_read - 4;
+							read_cnt++;
+						}
+						/*
+						// windows compiler don't like this
+						int space_needed = snprintf(nullptr, 0, cur_fmt.c_str(), val);
+						char buf[space_needed + 1];
+						sprintf(buf, cur_fmt.c_str(), val);
+						*/
+						char buf[1024] = {0};
+						snprintf(buf, sizeof(buf), cur_fmt.c_str(), val);
+						buf[sizeof(buf) - 1] = '\0';
+						result.append(buf);
+					}
+					state = 0;
+				}else if(*c == 'h'){
+					// allegrex calling convention is 4 bytes aligned
+					bytes_to_read = 4;
+				}else if(*c == 'l'){
+					bytes_to_read = bytes_to_read + 4;
+				}
+			}
+		}
+
+		// if a small buffer was allocated by the program, we will likely crash
+		strcpy((char *)Memory::GetPointerUnchecked(dst), result.c_str());
+		return result.length();
 	} else {
 		// What to do? Crash, probably.
 		return 0;
