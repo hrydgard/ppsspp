@@ -1519,9 +1519,9 @@ void Config::RemoveRecent(const std::string &file) {
 	private_->ResetRecentIsosThread();
 	std::lock_guard<std::mutex> guard(private_->recentIsosLock);
 	
-	const auto &filename = File::ResolvePath(file);
+	const std::string filename = File::ResolvePath(file);
 	auto iter = std::remove_if(recentIsos.begin(), recentIsos.end(), [filename](const auto &str) {
-		const auto &recent = File::ResolvePath(str);
+		const std::string recent = File::ResolvePath(str);
 		return filename == recent;
 	});
 	// remove_if is weird.
