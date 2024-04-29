@@ -154,7 +154,7 @@ void InitVROnAndroid(void* vm, void* activity, const char* system, int version, 
 	if (strcmp(vendor, "PICO") == 0) {
 		VR_SetPlatformFLag(VR_PLATFORM_CONTROLLER_PICO, true);
 		VR_SetPlatformFLag(VR_PLATFORM_EXTENSION_INSTANCE, true);
-	} else if ((strcmp(vendor, "META") == 0) || (strcmp(vendor, "OCULUS") == 0)) {
+	} else {
 		VR_SetPlatformFLag(VR_PLATFORM_CONTROLLER_QUEST, true);
 		VR_SetPlatformFLag(VR_PLATFORM_EXTENSION_FOVEATION, true);
 		VR_SetPlatformFLag(VR_PLATFORM_EXTENSION_PASSTHROUGH, true);
