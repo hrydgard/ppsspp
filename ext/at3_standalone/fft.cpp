@@ -37,7 +37,6 @@
 
 void imdct_calc(FFTContext *s, FFTSample *output, const FFTSample *input);
 void imdct_half(FFTContext *s, FFTSample *output, const FFTSample *input);
-void mdct_calc(FFTContext *s, FFTSample *output, const FFTSample *input);
 
 /* cos(2*pi*x/n) for 0<=x<=n/4, followed by its reverse */
 COSTABLE(16);
