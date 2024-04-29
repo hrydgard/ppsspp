@@ -216,6 +216,10 @@ public:
 	int GetOutputChannels() const {
 		return outputChannels_;
 	}
+	void SetOutputChannels(int channels) {
+		// Only used for sceSas audio. To be refactored away in the future.
+		outputChannels_ = channels;
+	}
 
 	int atracID_ = -1;
 
