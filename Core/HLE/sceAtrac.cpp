@@ -1007,6 +1007,11 @@ u32 AtracSasDecodeData(int atracID, u8* outbuf, u32 outbufPtr, u32 *SamplesNum, 
 
 int AtracSasGetIDByContext(u32 contextAddr) {
 	int atracID = (int)Memory::Read_U32(contextAddr + 0xfc);
+	// Restored old hack here that forces outputChannels_ to 1, since sceSas expects mono output, unlike normal usage.
+	// This is for savestate compatibility.
+	// I think it would be better to simply pass in a 1 as a parameter to atrac->DecodeData in AtracSasDecodeData above.
+	AtracBase *atrac = getAtrac(atracID);
+	atrac->SetOutputChannels(1);
 	return atracID;
 }
 
