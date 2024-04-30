@@ -549,6 +549,7 @@ static void load_integration_callback(int result, const char *error_message, rc_
 		// DLL was loaded correctly.
 		g_OSD.Show(OSDType::MESSAGE_SUCCESS, ac->T("RAIntegration DLL loaded."));
 
+		rc_client_raintegration_set_console_id(g_rcClient, RC_CONSOLE_PSP);
 		rc_client_raintegration_set_event_handler(g_rcClient, &raintegration_event_handler);
 		rc_client_raintegration_set_write_memory_function(g_rcClient, &raintegration_write_memory_handler);
 		rc_client_raintegration_set_get_game_name_function(g_rcClient, &raintegration_get_game_name_handler);
