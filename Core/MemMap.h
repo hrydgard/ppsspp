@@ -310,6 +310,21 @@ inline bool IsValidAddress(const u32 address) {
 	}
 }
 
+inline bool IsValidNullTerminatedString(const u32 address) {
+	int i = 0;
+	while (true) {
+		u32 char_at = address + i;
+		if (!IsValidAddress(char_at)) {
+			return false;
+		}
+		const char *c = GetCharPointerUnchecked(char_at);
+		if (*c == '\0') {
+			return true;
+		}
+		i++;
+	}
+}
+
 inline u32 ValidSize(const u32 address, const u32 requested_size) {
 	u32 max_size;
 	if ((address & 0x3E000000) == 0x08000000) {

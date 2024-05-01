@@ -743,8 +743,9 @@ static int sysclib_memcmp(u32 dst, u32 src, u32 size) {
 
 static int sysclib_sprintf(u32 dst, u32 fmt) {
 	ERROR_LOG(SCEKERNEL, "Untested sysclib_sprintf(dst=%08x, fmt=%08x)", dst, fmt);
-	if (!Memory::IsValidAddress(dst) || !Memory::IsValidAddress(fmt)) {
-		// What to do? Crash, probably.
+
+	if (!Memory::IsValidNullTerminatedString(fmt)) {
+		ERROR_LOG(SCEKERNEL, "sysclib_sprintf bad fmt");
 		return 0;
 	}
 
@@ -764,16 +765,8 @@ static int sysclib_sprintf(u32 dst, u32 fmt) {
 	std::string specifier = "";
 	int bytes_to_read = 0;
 	int arg_idx = 0;
-	int fmt_len = 0;
 	std::string result = "";
 	for (const char *c = Memory::GetCharPointerUnchecked(fmt); *c != '\0'; c++) {
-		// in case we have a bad fmt string, try not to crash the whole emulator
-		fmt_len++;
-		if (fmt_len == 1024) {
-			ERROR_LOG(SCEKERNEL, "sysclib_sprintf fmt is longer than 1024");
-			return 0;
-		}
-
 		if (!processing_specifier) {
 			if (*c == '%') {
 				specifier = "%";
@@ -815,17 +808,11 @@ static int sysclib_sprintf(u32 dst, u32 fmt) {
 				}
 				arg_idx++;
 
-				if (!Memory::IsValidAddress(val)) {
-					ERROR_LOG(SCEKERNEL, "sysclib_sprintf bad string reference %08x", val);
+				if (!Memory::IsValidNullTerminatedString(val)) {
+					ERROR_LOG(SCEKERNEL, "sysclib_sprintf bad string reference at %08x", val);
 					return 0;
 				}
-
-				const char *str = Memory::GetCharPointerUnchecked(val);
-				// limit the string length and hope that we don't crash on a bad string reference
-				char buf[1024] = {0};
-				strncpy(buf, str, sizeof(buf));
-				buf[sizeof(buf) - 1] = '\0';
-				result.append(buf);
+				result.append(Memory::GetCharPointerUnchecked(val));
 				processing_specifier = false;
 				break;
 			}
@@ -873,7 +860,7 @@ static int sysclib_sprintf(u32 dst, u32 fmt) {
 					bytes_to_read = bytes_to_read - 4;
 					read_cnt++;
 				}
-				char buf[1024] = {0};
+				char buf[128] = {0};
 				snprintf(buf, sizeof(buf), specifier.c_str(), val);
 				buf[sizeof(buf) - 1] = '\0';
 				result.append(buf);
@@ -895,8 +882,13 @@ static int sysclib_sprintf(u32 dst, u32 fmt) {
 		}
 	}
 
-	// if a small buffer was allocated by the program, we will likely crash
-	strcpy((char *)Memory::GetPointerUnchecked(dst), result.c_str());
+	DEBUG_LOG(SCEKERNEL, "sysclib_sprintf result string has length %u, content:", result.length());
+	DEBUG_LOG(SCEKERNEL, "%s", result.c_str());
+	if (!Memory::IsValidRange(dst, result.length() + 1)) {
+		ERROR_LOG(SCEKERNEL, "sysclib_sprintf result string is too long or dst is invalid");
+		return 0;
+	}
+	memcpy((char *)Memory::GetPointerUnchecked(dst), result.c_str(), result.length() + 1);
 	return result.length();
 }
 
