@@ -744,19 +744,9 @@ static int sysclib_memcmp(u32 dst, u32 src, u32 size) {
 static int sysclib_sprintf(u32 dst, u32 fmt) {
 	ERROR_LOG(SCEKERNEL, "Untested sysclib_sprintf(dst=%08x, fmt=%08x)", dst, fmt);
 
-	// check fmt before using it
-	int i = 0;
-	while (true) {
-		u32 char_at = fmt + i;
-		if (!Memory::IsValidAddress(char_at)) {
-			ERROR_LOG(SCEKERNEL, "sysclib_sprintf bad fmt");
-			return 0;
-		}
-		const char *c = Memory::GetCharPointerUnchecked(char_at);
-		if (*c == '\0') {
-			break;
-		}
-		i++;
+	if (!Memory::IsValidNullTerminatedString(fmt)) {
+		ERROR_LOG(SCEKERNEL, "sysclib_sprintf bad fmt");
+		return 0;
 	}
 
 	DEBUG_LOG(SCEKERNEL, "sysclib_sprintf fmt: %s", Memory::GetCharPointerUnchecked(fmt));
@@ -818,22 +808,11 @@ static int sysclib_sprintf(u32 dst, u32 fmt) {
 				}
 				arg_idx++;
 
-				// check and copy the string reference
-				i = 0;
-				while (true) {
-					u32 char_at = val + i;
-					if (!Memory::IsValidAddress(char_at)) {
-						ERROR_LOG(SCEKERNEL, "sysclib_sprintf bad string reference at %08x", val);
-						return 0;
-					}
-					const char* ref_c = Memory::GetCharPointerUnchecked(char_at);
-					if (*ref_c == '\0') {
-						break;
-					}
-					result.append(1, *ref_c);
-					i++;
+				if (!Memory::IsValidNullTerminatedString(val)) {
+					ERROR_LOG(SCEKERNEL, "sysclib_sprintf bad string reference at %08x", val);
+					return 0;
 				}
-
+				result.append(Memory::GetCharPointerUnchecked(val));
 				processing_specifier = false;
 				break;
 			}
