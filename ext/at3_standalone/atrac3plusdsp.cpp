@@ -46,7 +46,6 @@
 #include <string.h>
 
 #include "float_dsp.h"
-#include "sinewin.h"
 #include "fft.h"
 #include "atrac3plus.h"
 
@@ -91,12 +90,22 @@ const float av_atrac3p_mant_tab[8] = {
     0.035619736
 };
 
+DECLARE_ALIGNED(32, float, av_sine_64)[64];
+DECLARE_ALIGNED(32, float, av_sine_128)[128];
+
+// Generate a sine window.
+static void ff_sine_window_init(float *window, int n) {
+    int i;
+    for (i = 0; i < n; i++)
+        window[i] = sinf((i + 0.5) * (M_PI / (2.0 * n)));
+}
+
 #define ATRAC3P_MDCT_SIZE (ATRAC3P_SUBBAND_SAMPLES * 2)
 
 void ff_atrac3p_init_imdct(FFTContext *mdct_ctx)
 {
-    ff_init_ff_sine_windows(7);
-    ff_init_ff_sine_windows(6);
+    ff_sine_window_init(av_sine_64, 64);
+    ff_sine_window_init(av_sine_128, 128);
 
     /* Initialize the MDCT transform. */
     ff_mdct_init(mdct_ctx, 8, 1, -1.0);

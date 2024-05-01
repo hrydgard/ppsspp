@@ -492,9 +492,6 @@
     <ClCompile Include="..\..\ext\at3_standalone\mem.cpp">
       <Filter>ext\at3_standalone</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\ext\at3_standalone\sinewin.cpp">
-      <Filter>ext\at3_standalone</Filter>
-    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="targetver.h" />
@@ -941,9 +938,6 @@
       <Filter>ext\at3_standalone</Filter>
     </ClInclude>
     <ClInclude Include="..\..\ext\at3_standalone\mem.h">
-      <Filter>ext\at3_standalone</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\ext\at3_standalone\sinewin.h">
       <Filter>ext\at3_standalone</Filter>
     </ClInclude>
   </ItemGroup>

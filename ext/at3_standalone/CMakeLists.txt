@@ -15,7 +15,6 @@ set(ALL_SOURCE_FILES
 	${SRC_DIR}/compat.cpp
 	${SRC_DIR}/fft.cpp
 	${SRC_DIR}/mem.cpp
-	${SRC_DIR}/sinewin.cpp
 	)
 
 add_library(at3_standalone STATIC ${ALL_SOURCE_FILES})
