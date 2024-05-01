@@ -62,10 +62,6 @@ struct FFTContext {
 };
 
 /**
-     * Do the permutation needed BEFORE calling fft_calc().
-     */
-void fft_permute(struct FFTContext *s, FFTComplex *z);
-/**
  * Do a complex FFT with the parameters defined in ff_fft_init(). The
  * input data must be permuted before. No 1.0/sqrt(n) normalization is done.
  */

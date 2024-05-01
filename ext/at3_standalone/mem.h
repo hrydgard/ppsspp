@@ -27,8 +27,6 @@
 
 #include "compat.h"
 
-#define FF_MEMORY_POISON 0x2a
-
 /**
  * Allocate a block of size bytes with alignment suitable for all
  * memory accesses (including vectors if available on the CPU).
@@ -70,7 +68,6 @@ static inline void *av_malloc_array(size_t nmemb, size_t size)
  *          pointers from such functions can be passed to realloc() at all.
  *          The situation is undefined according to POSIX and may crash with
  *          some libc implementations.
- * @see av_fast_realloc()
  */
 void *av_realloc(void *ptr, size_t size);
 
@@ -83,25 +80,6 @@ void *av_realloc(void *ptr, size_t size);
  *   leak with the classic "buf = realloc(buf); if (!buf) return -1;".
  */
 void *av_realloc_f(void *ptr, size_t nelem, size_t elsize);
-
-/**
- * Allocate or reallocate an array.
- * If ptr is NULL and nmemb > 0, allocate a new block. If
- * nmemb is zero, free the memory block pointed to by ptr.
- * @param ptr Pointer to a memory block already allocated with
- * av_realloc() or NULL.
- * @param nmemb Number of elements
- * @param size Size of the single element
- * @return Pointer to a newly-reallocated block or NULL if the block
- * cannot be reallocated or the function is used to free the memory block.
- * @warning Pointers originating from the av_malloc() family of functions must
- *          not be passed to av_realloc(). The former can be implemented using
- *          memalign() (or other functions), and there is no guarantee that
- *          pointers from such functions can be passed to realloc() at all.
- *          The situation is undefined according to POSIX and may crash with
- *          some libc implementations.
- */
-void *av_realloc_array(void *ptr, size_t nmemb, size_t size);
 
 /**
  * Free a memory block which has been allocated with av_malloc(z)() or
@@ -148,57 +126,6 @@ static inline void *av_mallocz_array(size_t nmemb, size_t size)
  * @see av_free()
  */
 void av_freep(void *ptr);
-
-/**
- * Multiply two size_t values checking for overflow.
- * @return  0 if success, AVERROR(EINVAL) if overflow.
- */
-static inline int av_size_mult(size_t a, size_t b, size_t *r)
-{
-    size_t t = a * b;
-    /* Hack inspired from glibc: only try the division if nelem and elsize
-     * are both greater than sqrt(SIZE_MAX). */
-    if ((a | b) >= ((size_t)1 << (sizeof(size_t) * 4)) && a && t / a != b)
-        return AVERROR(EINVAL);
-    *r = t;
-    return 0;
-}
-
-/**
- * Reallocate the given block if it is not large enough, otherwise do nothing.
- *
- * @see av_realloc
- */
-void *av_fast_realloc(void *ptr, unsigned int *size, size_t min_size);
-
-/**
- * Allocate a buffer, reusing the given one if large enough.
- *
- * Contrary to av_fast_realloc the current buffer contents might not be
- * preserved and on error the old buffer is freed, thus no special
- * handling to avoid memleaks is necessary.
- *
- * @param ptr pointer to pointer to already allocated buffer, overwritten with pointer to new buffer
- * @param size size of the buffer *ptr points to
- * @param min_size minimum size of *ptr buffer after returning, *ptr will be NULL and
- *                 *size 0 if an error occurred.
- */
-void av_fast_malloc(void *ptr, unsigned int *size, size_t min_size);
-
-/**
- * Allocate a buffer, reusing the given one if large enough.
- *
- * All newly allocated space is initially cleared
- * Contrary to av_fast_realloc the current buffer contents might not be
- * preserved and on error the old buffer is freed, thus no special
- * handling to avoid memleaks is necessary.
- *
- * @param ptr pointer to pointer to already allocated buffer, overwritten with pointer to new buffer
- * @param size size of the buffer *ptr points to
- * @param min_size minimum size of *ptr buffer after returning, *ptr will be NULL and
- *                 *size 0 if an error occurred.
- */
-void av_fast_mallocz(void *ptr, unsigned int *size, size_t min_size);
 
 /**
  * @}

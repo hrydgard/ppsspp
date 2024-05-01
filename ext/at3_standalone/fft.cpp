@@ -48,12 +48,6 @@ COSTABLE(128);
 COSTABLE(256);
 COSTABLE(512);
 COSTABLE(1024);
-COSTABLE(2048);
-COSTABLE(4096);
-COSTABLE(8192);
-COSTABLE(16384);
-COSTABLE(32768);
-COSTABLE(65536);
 
 static FFTSample * const av_cos_tabs[] = {
     NULL, NULL, NULL, NULL,
@@ -64,12 +58,6 @@ static FFTSample * const av_cos_tabs[] = {
     av_cos_256,
     av_cos_512,
     av_cos_1024,
-    av_cos_2048,
-    av_cos_4096,
-    av_cos_8192,
-    av_cos_16384,
-    av_cos_32768,
-    av_cos_65536,
 };
 
 void fft_calc(FFTContext *s, FFTComplex *z);
