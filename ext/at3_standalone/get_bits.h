@@ -20,6 +20,7 @@
 
 #pragma once
 #include <stdint.h>
+#include <limits.h>
 
 #include "compat.h"
 #include "intreadwrite.h"
