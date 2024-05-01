@@ -14,7 +14,6 @@ set(ALL_SOURCE_FILES
 	${SRC_DIR}/get_bits.cpp
 	${SRC_DIR}/compat.cpp
 	${SRC_DIR}/fft.cpp
-	${SRC_DIR}/float_dsp.cpp
 	${SRC_DIR}/mem.cpp
 	${SRC_DIR}/sinewin.cpp
 	)

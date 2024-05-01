@@ -486,9 +486,6 @@
     <ClCompile Include="..\..\ext\at3_standalone\fft.cpp">
       <Filter>ext\at3_standalone</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\ext\at3_standalone\float_dsp.cpp">
-      <Filter>ext\at3_standalone</Filter>
-    </ClCompile>
     <ClCompile Include="..\..\ext\at3_standalone\get_bits.cpp">
       <Filter>ext\at3_standalone</Filter>
     </ClCompile>
@@ -935,9 +932,6 @@
       <Filter>ext\at3_standalone</Filter>
     </ClInclude>
     <ClInclude Include="..\..\ext\at3_standalone\fft.h">
-      <Filter>ext\at3_standalone</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\ext\at3_standalone\float_dsp.h">
       <Filter>ext\at3_standalone</Filter>
     </ClInclude>
     <ClInclude Include="..\..\ext\at3_standalone\get_bits.h">

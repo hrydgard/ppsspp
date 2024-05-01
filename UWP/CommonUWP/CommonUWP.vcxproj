@@ -248,7 +248,6 @@
     <ClInclude Include="..\..\ext\at3_standalone\atrac3plus_data.h" />
     <ClInclude Include="..\..\ext\at3_standalone\compat.h" />
     <ClInclude Include="..\..\ext\at3_standalone\fft.h" />
-    <ClInclude Include="..\..\ext\at3_standalone\float_dsp.h" />
     <ClInclude Include="..\..\ext\at3_standalone\get_bits.h" />
     <ClInclude Include="..\..\ext\at3_standalone\intreadwrite.h" />
     <ClInclude Include="..\..\ext\at3_standalone\mem.h" />
@@ -401,7 +400,6 @@
     <ClCompile Include="..\..\ext\at3_standalone\atrac3plusdsp.cpp" />
     <ClCompile Include="..\..\ext\at3_standalone\compat.cpp" />
     <ClCompile Include="..\..\ext\at3_standalone\fft.cpp" />
-    <ClCompile Include="..\..\ext\at3_standalone\float_dsp.cpp" />
     <ClCompile Include="..\..\ext\at3_standalone\get_bits.cpp" />
     <ClCompile Include="..\..\ext\at3_standalone\mem.cpp" />
     <ClCompile Include="..\..\ext\at3_standalone\sinewin.cpp" />
