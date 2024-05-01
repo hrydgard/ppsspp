@@ -29,8 +29,10 @@
 #include <stdlib.h>
 #include <string.h>
 
+#define _USE_MATH_DEFINES
+#include <math.h>
+
 #include "mem.h"
-#include "mathematics.h"
 #include "fft.h"
 
 #define sqrthalf (float)M_SQRT1_2
@@ -70,7 +72,6 @@ static FFTSample * const av_cos_tabs[] = {
     av_cos_65536,
 };
 
-void fft_permute(FFTContext *s, FFTComplex *z);
 void fft_calc(FFTContext *s, FFTComplex *z);
 
 static int split_radix_permutation(int i, int n, int inverse)
@@ -144,17 +145,6 @@ int ff_fft_init(FFTContext *s, int nbits, int inverse)
     av_freep(&s->revtab);
     av_freep(&s->tmp_buf);
     return -1;
-}
-
-void fft_permute(FFTContext *s, FFTComplex *z)
-{
-    int j, np;
-    const uint16_t *revtab = s->revtab;
-    np = 1 << s->nbits;
-    /* TODO: handle split-radix permute in a more optimal way, probably in-place */
-    for(j=0;j<np;j++)
-		s->tmp_buf[revtab[j]] = z[j];
-    memcpy(z, s->tmp_buf, np * sizeof(FFTComplex));
 }
 
 void ff_fft_end(FFTContext *s)
@@ -269,7 +259,6 @@ static void fft8(FFTComplex *z)
     TRANSFORM(z[1],z[3],z[5],z[7],sqrthalf,sqrthalf);
 }
 
-#if !CONFIG_SMALL
 static void fft16(FFTComplex *z)
 {
     FFTDouble t1, t2, t3, t4, t5, t6;
@@ -285,17 +274,12 @@ static void fft16(FFTComplex *z)
     TRANSFORM(z[1],z[5],z[9],z[13],cos_16_1,cos_16_3);
     TRANSFORM(z[3],z[7],z[11],z[15],cos_16_3,cos_16_1);
 }
-#else
-DECL_FFT(16,8,4)
-#endif
 DECL_FFT(32,16,8)
 DECL_FFT(64,32,16)
 DECL_FFT(128,64,32)
 DECL_FFT(256,128,64)
 DECL_FFT(512,256,128)
-#if !CONFIG_SMALL
 #define pass pass_big
-#endif
 DECL_FFT(1024,512,256)
 
 static void (* const fft_dispatch[])(FFTComplex*) = {
@@ -309,7 +293,6 @@ void fft_calc(FFTContext *s, FFTComplex *z) {
 #include <stdlib.h>
 #include <string.h>
 
-#include "mathematics.h"
 #include "fft.h"
 #include "mem.h"
 

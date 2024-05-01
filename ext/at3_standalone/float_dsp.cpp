@@ -35,15 +35,9 @@ void vector_fmul_scalar(float *dst, const float *src, float mul, int len) {
         dst[i] = src[i] * mul;
 }
 
-void vector_fmul_add(float *dst, const float *src0, const float *src1, const float *src2, int len) {
-    int i;
-    for (i = 0; i < len; i++)
-        dst[i] = src0[i] * src1[i] + src2[i];
-}
-
 void vector_fmul_reverse(float *dst, const float *src0, const float *src1, int len) {
     int i;
-    src1 += len-1;
+    src1 += len - 1;
     for (i = 0; i < len; i++)
         dst[i] = src0[i] * src1[-i];
 }

@@ -395,7 +395,6 @@
     <ClInclude Include="..\ext\at3_standalone\float_dsp.h" />
     <ClInclude Include="..\ext\at3_standalone\get_bits.h" />
     <ClInclude Include="..\ext\at3_standalone\intreadwrite.h" />
-    <ClInclude Include="..\ext\at3_standalone\mathematics.h" />
     <ClInclude Include="..\ext\at3_standalone\mem.h" />
     <ClInclude Include="..\ext\at3_standalone\sinewin.h" />
     <ClInclude Include="..\ext\basis_universal\basisu.h" />
@@ -606,7 +605,6 @@
     <ClCompile Include="..\ext\at3_standalone\compat.cpp" />
     <ClCompile Include="..\ext\at3_standalone\fft.cpp" />
     <ClCompile Include="..\ext\at3_standalone\float_dsp.cpp" />
-    <ClCompile Include="..\ext\at3_standalone\mathematics.cpp" />
     <ClCompile Include="..\ext\at3_standalone\mem.cpp" />
     <ClCompile Include="..\ext\at3_standalone\sinewin.cpp" />
     <ClCompile Include="..\ext\basis_universal\basisu_transcoder.cpp" />

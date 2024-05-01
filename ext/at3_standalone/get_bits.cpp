@@ -33,7 +33,6 @@
 
 #include "compat.h"
 #include "mem.h"
-#include "mathematics.h"
 #include "get_bits.h"
 
 static const uint8_t ff_reverse[256] = {
