@@ -20,10 +20,30 @@
 
 #pragma once
 #include <stdint.h>
+#include <limits.h>
 
 #include "compat.h"
 #include "intreadwrite.h"
-#include "mathematics.h"
+
+#ifndef NEG_SSR32
+#   define NEG_SSR32(a,s) ((( int32_t)(a))>>(32-(s)))
+#endif
+
+#ifndef NEG_USR32
+#   define NEG_USR32(a,s) (((uint32_t)(a))>>(32-(s)))
+#endif
+
+static inline unsigned zero_extend(unsigned val, unsigned bits)
+{
+    return (val << ((8 * sizeof(int)) - bits)) >> ((8 * sizeof(int)) - bits);
+}
+
+static inline int sign_extend(int val, unsigned bits)
+{
+    unsigned shift = 8 * sizeof(int) - bits;
+    union { unsigned u; int s; } v = { (unsigned)val << shift };
+    return v.s >> shift;
+}
 
 /*
  * Safe bitstream reading:

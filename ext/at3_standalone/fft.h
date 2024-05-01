@@ -62,17 +62,12 @@ struct FFTContext {
 };
 
 /**
-     * Do the permutation needed BEFORE calling fft_calc().
-     */
-void fft_permute(struct FFTContext *s, FFTComplex *z);
-/**
  * Do a complex FFT with the parameters defined in ff_fft_init(). The
  * input data must be permuted before. No 1.0/sqrt(n) normalization is done.
  */
 void fft_calc(struct FFTContext *s, FFTComplex *z);
 void imdct_calc(struct FFTContext *s, FFTSample *output, const FFTSample *input);
 void imdct_half(struct FFTContext *s, FFTSample *output, const FFTSample *input);
-void mdct_calc(struct FFTContext *s, FFTSample *output, const FFTSample *input);
 
 #define COSTABLE(size) \
      DECLARE_ALIGNED(32, FFTSample, av_cos_##size)[size/2]

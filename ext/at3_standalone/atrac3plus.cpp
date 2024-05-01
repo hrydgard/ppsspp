@@ -28,7 +28,6 @@
 #include <string.h>
 #include <stdlib.h>
 
-#include "mathematics.h"
 #include "get_bits.h"
 #include "atrac3plus.h"
 #include "atrac3plus_data.h"
@@ -40,6 +39,34 @@ static VLC ct_vlc_tabs[4];
 static VLC spec_vlc_tabs[112];
 static VLC gain_vlc_tabs[11];
 static VLC tone_vlc_tabs[7];
+
+static const uint8_t ff_logg2_tab[256] = {
+    0,0,1,1,2,2,2,2,3,3,3,3,3,3,3,3,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,
+    5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,
+    6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,
+    6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,
+    7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,
+    7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,
+    7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,
+    7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7
+};
+
+// todo: Replace with clz type instructions.
+int av_log2(unsigned int v)
+{
+    int n = 0;
+    if (v & 0xffff0000) {
+        v >>= 16;
+        n += 16;
+    }
+    if (v & 0xff00) {
+        v >>= 8;
+        n += 8;
+    }
+    n += ff_logg2_tab[v];
+
+    return n;
+}
 
 /**
  * Generate canonical VLC table from given descriptor.
@@ -786,6 +813,16 @@ static int decode_code_table_indexes(GetBitContext *gb, Atrac3pChanUnitCtx *ctx,
     }
 
     return 0;
+}
+
+/**
+ * Clear high bits from an unsigned integer starting with specific bit position
+ * @param  a value to clip
+ * @param  p bit position to clip at
+ * @return clipped value
+ */
+inline unsigned av_mod_uintp2(unsigned a, unsigned p) {
+    return a & ((1 << p) - 1);
 }
 
 /**

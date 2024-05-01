@@ -33,7 +33,6 @@
 
 #include "compat.h"
 #include "mem.h"
-#include "mathematics.h"
 #include "get_bits.h"
 
 static const uint8_t ff_reverse[256] = {
@@ -318,7 +317,6 @@ int ff_init_vlc_sparse(VLC *vlc_arg, int nb_bits, int nb_codes,
     }
     return 0;
 }
-
 
 void ff_free_vlc(VLC *vlc)
 {

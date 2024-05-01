@@ -271,10 +271,7 @@ SOURCES_CXX += \
 	${EXTDIR}/at3_standalone/get_bits.cpp \
 	${EXTDIR}/at3_standalone/compat.cpp \
 	${EXTDIR}/at3_standalone/fft.cpp \
-	${EXTDIR}/at3_standalone/float_dsp.cpp \
-	${EXTDIR}/at3_standalone/mathematics.cpp \
-	${EXTDIR}/at3_standalone/mem.cpp \
-	${EXTDIR}/at3_standalone/sinewin.cpp
+	${EXTDIR}/at3_standalone/mem.cpp
 
 ifeq ($(PLATFORM_EXT), android)
 COREFLAGS += -DHAVE_DLFCN_H

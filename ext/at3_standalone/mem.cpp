@@ -35,23 +35,19 @@
 #include "intreadwrite.h"
 #include "mem.h"
 
-int ff_fast_malloc(void *ptr, unsigned int *size, size_t min_size, int zero_realloc)
+ /**
+  * Multiply two size_t values checking for overflow.
+  * @return  0 if success, AVERROR(EINVAL) if overflow.
+  */
+static inline int av_size_mult(size_t a, size_t b, size_t *r)
 {
-	void *val;
-
-	memcpy(&val, ptr, sizeof(val));
-	if (min_size <= *size) {
-		av_assert0(val || !min_size);
-		return 0;
-	}
-	min_size = FFMAX(min_size + min_size / 16 + 32, min_size);
-	av_freep(ptr);
-	val = zero_realloc ? av_mallocz(min_size) : av_malloc(min_size);
-	memcpy(ptr, &val, sizeof(val));
-	if (!val)
-		min_size = 0;
-	*size = (unsigned int)min_size;
-	return 1;
+    size_t t = a * b;
+    /* Hack inspired from glibc: only try the division if nelem and elsize
+     * are both greater than sqrt(SIZE_MAX). */
+    if ((a | b) >= ((size_t)1 << (sizeof(size_t) * 4)) && a && t / a != b)
+        return AVERROR(EINVAL);
+    *r = t;
+    return 0;
 }
 
 #define ALIGN (HAVE_AVX ? 32 : 16)
@@ -87,13 +83,6 @@ void *av_realloc_f(void *ptr, size_t nelem, size_t elsize)
     return r;
 }
 
-void *av_realloc_array(void *ptr, size_t nmemb, size_t size)
-{
-    if (!size || nmemb >= INT_MAX / size)
-        return NULL;
-    return av_realloc(ptr, nmemb * size);
-}
-
 void av_free(void *ptr)
 {
     free(ptr);
@@ -114,107 +103,4 @@ void *av_mallocz(size_t size)
     if (ptr)
         memset(ptr, 0, size);
     return ptr;
-}
-
-static void fill16(uint8_t *dst, int len)
-{
-    uint32_t v = AV_RN16(dst - 2);
-
-    v |= v << 16;
-
-    while (len >= 4) {
-        AV_WN32(dst, v);
-        dst += 4;
-        len -= 4;
-    }
-
-    while (len--) {
-        *dst = dst[-2];
-        dst++;
-    }
-}
-
-static void fill24(uint8_t *dst, int len)
-{
-#if HAVE_BIGENDIAN
-    uint32_t v = AV_RB24(dst - 3);
-    uint32_t a = v << 8  | v >> 16;
-    uint32_t b = v << 16 | v >> 8;
-    uint32_t c = v << 24 | v;
-#else
-    uint32_t v = AV_RL24(dst - 3);
-    uint32_t a = v       | v << 24;
-    uint32_t b = v >> 8  | v << 16;
-    uint32_t c = v >> 16 | v << 8;
-#endif
-
-    while (len >= 12) {
-        AV_WN32(dst,     a);
-        AV_WN32(dst + 4, b);
-        AV_WN32(dst + 8, c);
-        dst += 12;
-        len -= 12;
-    }
-
-    if (len >= 4) {
-        AV_WN32(dst, a);
-        dst += 4;
-        len -= 4;
-    }
-
-    if (len >= 4) {
-        AV_WN32(dst, b);
-        dst += 4;
-        len -= 4;
-    }
-
-    while (len--) {
-        *dst = dst[-3];
-        dst++;
-    }
-}
-
-static void fill32(uint8_t *dst, int len)
-{
-    uint32_t v = AV_RN32(dst - 4);
-
-    while (len >= 4) {
-        AV_WN32(dst, v);
-        dst += 4;
-        len -= 4;
-    }
-
-    while (len--) {
-        *dst = dst[-4];
-        dst++;
-    }
-}
-
-void *av_fast_realloc(void *ptr, unsigned int *size, size_t min_size)
-{
-    if (min_size < *size)
-        return ptr;
-
-    min_size = FFMAX(min_size + min_size / 16 + 32, min_size);
-
-    ptr = av_realloc(ptr, min_size);
-    /* we could set this to the unmodified min_size but this is safer
-     * if the user lost the ptr and uses NULL now
-     */
-    if (!ptr)
-        min_size = 0;
-
-    *size = (unsigned int)min_size;
-
-    return ptr;
-}
-
-void av_fast_malloc(void *ptr, unsigned int *size, size_t min_size)
-{
-    ff_fast_malloc(ptr, size, min_size, 0);
-}
-
-void av_fast_mallocz(void *ptr, unsigned int *size, size_t min_size)
-{
-    ff_fast_malloc(ptr, size, min_size, 1);
 }

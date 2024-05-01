@@ -551,16 +551,10 @@
     <ClInclude Include="..\ext\at3_standalone\intreadwrite.h">
       <Filter>ext\at3_standalone</Filter>
     </ClInclude>
-    <ClInclude Include="..\ext\at3_standalone\mathematics.h">
-      <Filter>ext\at3_standalone</Filter>
-    </ClInclude>
     <ClInclude Include="..\ext\at3_standalone\at3_decoders.h">
       <Filter>ext\at3_standalone</Filter>
     </ClInclude>
     <ClInclude Include="..\ext\at3_standalone\mem.h">
-      <Filter>ext\at3_standalone</Filter>
-    </ClInclude>
-    <ClInclude Include="..\ext\at3_standalone\sinewin.h">
       <Filter>ext\at3_standalone</Filter>
     </ClInclude>
   </ItemGroup>
@@ -1032,19 +1026,10 @@
     <ClCompile Include="..\ext\at3_standalone\atrac3plusdsp.cpp">
       <Filter>ext\at3_standalone</Filter>
     </ClCompile>
-    <ClCompile Include="..\ext\at3_standalone\float_dsp.cpp">
-      <Filter>ext\at3_standalone</Filter>
-    </ClCompile>
     <ClCompile Include="..\ext\at3_standalone\mem.cpp">
       <Filter>ext\at3_standalone</Filter>
     </ClCompile>
-    <ClCompile Include="..\ext\at3_standalone\sinewin.cpp">
-      <Filter>ext\at3_standalone</Filter>
-    </ClCompile>
     <ClCompile Include="..\ext\at3_standalone\atrac.cpp">
-      <Filter>ext\at3_standalone</Filter>
-    </ClCompile>
-    <ClCompile Include="..\ext\at3_standalone\mathematics.cpp">
       <Filter>ext\at3_standalone</Filter>
     </ClCompile>
     <ClCompile Include="..\ext\at3_standalone\fft.cpp">

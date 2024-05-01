@@ -121,10 +121,7 @@ AT3_STANDALONE_FILES := \
 	${SRC}/ext/at3_standalone/get_bits.cpp \
 	${SRC}/ext/at3_standalone/compat.cpp \
 	${SRC}/ext/at3_standalone/fft.cpp \
-	${SRC}/ext/at3_standalone/float_dsp.cpp \
-	${SRC}/ext/at3_standalone/mathematics.cpp \
-	${SRC}/ext/at3_standalone/mem.cpp \
-	${SRC}/ext/at3_standalone/sinewin.cpp
+	${SRC}/ext/at3_standalone/mem.cpp
 
 RCHEEVOS_FILES := \
   ${SRC}/ext/rcheevos/src/rapi/rc_api_common.c \

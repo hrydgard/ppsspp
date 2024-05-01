@@ -29,15 +29,16 @@
 #include <stdlib.h>
 #include <string.h>
 
+#define _USE_MATH_DEFINES
+#include <math.h>
+
 #include "mem.h"
-#include "mathematics.h"
 #include "fft.h"
 
 #define sqrthalf (float)M_SQRT1_2
 
 void imdct_calc(FFTContext *s, FFTSample *output, const FFTSample *input);
 void imdct_half(FFTContext *s, FFTSample *output, const FFTSample *input);
-void mdct_calc(FFTContext *s, FFTSample *output, const FFTSample *input);
 
 /* cos(2*pi*x/n) for 0<=x<=n/4, followed by its reverse */
 COSTABLE(16);
@@ -47,12 +48,6 @@ COSTABLE(128);
 COSTABLE(256);
 COSTABLE(512);
 COSTABLE(1024);
-COSTABLE(2048);
-COSTABLE(4096);
-COSTABLE(8192);
-COSTABLE(16384);
-COSTABLE(32768);
-COSTABLE(65536);
 
 static FFTSample * const av_cos_tabs[] = {
     NULL, NULL, NULL, NULL,
@@ -63,15 +58,8 @@ static FFTSample * const av_cos_tabs[] = {
     av_cos_256,
     av_cos_512,
     av_cos_1024,
-    av_cos_2048,
-    av_cos_4096,
-    av_cos_8192,
-    av_cos_16384,
-    av_cos_32768,
-    av_cos_65536,
 };
 
-void fft_permute(FFTContext *s, FFTComplex *z);
 void fft_calc(FFTContext *s, FFTComplex *z);
 
 static int split_radix_permutation(int i, int n, int inverse)
@@ -145,17 +133,6 @@ int ff_fft_init(FFTContext *s, int nbits, int inverse)
     av_freep(&s->revtab);
     av_freep(&s->tmp_buf);
     return -1;
-}
-
-void fft_permute(FFTContext *s, FFTComplex *z)
-{
-    int j, np;
-    const uint16_t *revtab = s->revtab;
-    np = 1 << s->nbits;
-    /* TODO: handle split-radix permute in a more optimal way, probably in-place */
-    for(j=0;j<np;j++)
-		s->tmp_buf[revtab[j]] = z[j];
-    memcpy(z, s->tmp_buf, np * sizeof(FFTComplex));
 }
 
 void ff_fft_end(FFTContext *s)
@@ -270,7 +247,6 @@ static void fft8(FFTComplex *z)
     TRANSFORM(z[1],z[3],z[5],z[7],sqrthalf,sqrthalf);
 }
 
-#if !CONFIG_SMALL
 static void fft16(FFTComplex *z)
 {
     FFTDouble t1, t2, t3, t4, t5, t6;
@@ -286,39 +262,25 @@ static void fft16(FFTComplex *z)
     TRANSFORM(z[1],z[5],z[9],z[13],cos_16_1,cos_16_3);
     TRANSFORM(z[3],z[7],z[11],z[15],cos_16_3,cos_16_1);
 }
-#else
-DECL_FFT(16,8,4)
-#endif
 DECL_FFT(32,16,8)
 DECL_FFT(64,32,16)
 DECL_FFT(128,64,32)
 DECL_FFT(256,128,64)
 DECL_FFT(512,256,128)
-#if !CONFIG_SMALL
 #define pass pass_big
-#endif
 DECL_FFT(1024,512,256)
-DECL_FFT(2048,1024,512)
-DECL_FFT(4096,2048,1024)
-DECL_FFT(8192,4096,2048)
-DECL_FFT(16384,8192,4096)
-DECL_FFT(32768,16384,8192)
-DECL_FFT(65536,32768,16384)
 
 static void (* const fft_dispatch[])(FFTComplex*) = {
     fft4, fft8, fft16, fft32, fft64, fft128, fft256, fft512, fft1024,
-    fft2048, fft4096, fft8192, fft16384, fft32768, fft65536,
 };
 
-void fft_calc(FFTContext *s, FFTComplex *z)
-{
+void fft_calc(FFTContext *s, FFTComplex *z) {
     fft_dispatch[s->nbits-2](z);
 }
 
 #include <stdlib.h>
 #include <string.h>
 
-#include "mathematics.h"
 #include "fft.h"
 #include "mem.h"
 
@@ -431,53 +393,6 @@ void imdct_calc(FFTContext *s, FFTSample *output, const FFTSample *input)
 	for (k = 0; k < n4; k++) {
 		output[k] = -output[n2 - k - 1];
 		output[n - k - 1] = output[n2 + k];
-	}
-}
-
-/**
- * Compute MDCT of size N = 2^nbits
- * @param input N samples
- * @param out N/2 samples
- */
-void mdct_calc(FFTContext *s, FFTSample *out, const FFTSample *input)
-{
-	int i, j, n, n8, n4, n2, n3;
-	FFTDouble re, im;
-	const uint16_t *revtab = s->revtab;
-	const FFTSample *tcos = s->tcos;
-	const FFTSample *tsin = s->tsin;
-	FFTComplex *x = (FFTComplex *)out;
-
-	n = 1 << s->mdct_bits;
-	n2 = n >> 1;
-	n4 = n >> 2;
-	n8 = n >> 3;
-	n3 = 3 * n4;
-
-	/* pre rotation */
-	for (i = 0; i < n8; i++) {
-		re = (-input[2 * i + n3] - input[n3 - 1 - 2 * i]);
-		im = (-input[n4 + 2 * i] + input[n4 - 1 - 2 * i]);
-		j = revtab[i];
-		CMUL(x[j].re, x[j].im, re, im, -tcos[i], tsin[i]);
-
-		re = (input[2 * i] - input[n2 - 1 - 2 * i]);
-		im = (-input[n2 + 2 * i] - input[n - 1 - 2 * i]);
-		j = revtab[n8 + i];
-		CMUL(x[j].re, x[j].im, re, im, -tcos[n8 + i], tsin[n8 + i]);
-	}
-
-	fft_calc(s, x);
-
-	/* post rotation */
-	for (i = 0; i < n8; i++) {
-		FFTSample r0, i0, r1, i1;
-		CMUL(i1, r0, x[n8 - i - 1].re, x[n8 - i - 1].im, -tsin[n8 - i - 1], -tcos[n8 - i - 1]);
-		CMUL(i0, r1, x[n8 + i].re, x[n8 + i].im, -tsin[n8 + i], -tcos[n8 + i]);
-		x[n8 - i - 1].re = r0;
-		x[n8 - i - 1].im = i0;
-		x[n8 + i].re = r1;
-		x[n8 + i].im = i1;
 	}
 }
 
