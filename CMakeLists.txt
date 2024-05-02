@@ -3,11 +3,6 @@ cmake_minimum_required(VERSION 3.8)
 project(PPSSPP)
 enable_testing()
 
-# This little macro lets you set any XCode specific property
-macro(set_xcode_property TARGET XCODE_PROPERTY XCODE_VALUE)
-    set_property (TARGET ${TARGET} PROPERTY XCODE_ATTRIBUTE_${XCODE_PROPERTY} ${XCODE_VALUE})
-endmacro(set_xcode_property)
-
 #This is supposed to work but doesn't!
 if(NOT ANDROID)
 	set(CMAKE_CXX_STANDARD 17)
@@ -2812,7 +2807,11 @@ if(NOT ANDROID)
 endif()
 # packaging and code signing
 if(IOS AND NOT LIBRETRO)
-	set(DEPLOYMENT_TARGET 11.0)
+	if(IOS_APP_STORE)
+		set(DEPLOYMENT_TARGET 12.0)
+	else()
+		set(DEPLOYMENT_TARGET 11.0)
+	endif()
 	file(GLOB IOSAssets ios/assets/*.png)
 	list(REMOVE_ITEM IOSAssets ${CMAKE_CURRENT_SOURCE_DIR}/ios/assets/Default-568h@2x.png)
 	list(REMOVE_ITEM IOSAssets ${CMAKE_CURRENT_SOURCE_DIR}/ios/assets/Default-568h@3x.png)
@@ -2840,9 +2839,15 @@ if(IOS AND NOT LIBRETRO)
 	)
 	set(MACOSX_DEPLOYMENT_TARGET ${DEPLOYMENT_TARGET})
 	if(IOS_APP_STORE)
+		if(GOLD)
+			set(BUNDLE_PLIST "${CMAKE_CURRENT_SOURCE_DIR}/ios/PPSSPP-AppStoreGold.plist")
+		else()
+			set(BUNDLE_PLIST "${CMAKE_CURRENT_SOURCE_DIR}/ios/PPSSPP-AppStore.plist")
+		endif()
+		# message(${DEVELOPMENT_TEAM_ID})
 		# https://stackoverflow.com/questions/40664125/cmake-and-code-signing-in-xcode-8-for-ios-projects
 		set_target_properties(${TargetBin} PROPERTIES
-			MACOSX_BUNDLE_INFO_PLIST "${CMAKE_CURRENT_SOURCE_DIR}/ios/PPSSPP-AppStore.plist"
+			MACOSX_BUNDLE_INFO_PLIST ${BUNDLE_PLIST}
 			RESOURCE "ios/Launch Screen.storyboard"
 			RESOURCE "ios/Settings.bundle"
 			RESOURCE "ext/vulkan/iOS/Frameworks"
