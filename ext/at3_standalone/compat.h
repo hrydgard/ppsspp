@@ -4,15 +4,22 @@
 
 // Compat hacks to make an FFMPEG-like environment, so we can keep the core code mostly unchanged.
 
-#if defined(__GNUC__)
+#if defined(__clang__)
+#define DECLARE_ALIGNED(n, t, v)      t __attribute__((aligned(n))) v
+#define DECLARE_ASM_CONST(n, t, v)    static const t av_used __attribute__((aligned(n))) v
+#define av_restrict __restrict
+#elif defined(__GNUC__)
 #define DECLARE_ALIGNED(n,t,v)      t __attribute__ ((aligned (n))) v
 #define DECLARE_ASM_CONST(n,t,v)    static const t av_used __attribute__ ((aligned (n))) v
+#define av_restrict __restrict__
 #elif defined(_MSC_VER)
 #define DECLARE_ALIGNED(n,t,v)      __declspec(align(n)) t v
 #define DECLARE_ASM_CONST(n,t,v)    __declspec(align(n)) static const t v
+#define av_restrict __restrict
 #else
 #define DECLARE_ALIGNED(n,t,v)      t v
 #define DECLARE_ASM_CONST(n,t,v)    static const t v
+#define av_restrict
 #endif
 
 #define AV_HAVE_FAST_UNALIGNED 0
@@ -22,7 +29,6 @@
 // #define BITSTREAM_READER_LE
 
 #define LOCAL_ALIGNED(bits, type, name, subscript) type name subscript
-#define av_restrict
 #define av_alias
 #define av_unused
 #define av_assert0(cond)
