@@ -2,7 +2,8 @@
 
 mkdir build-ios
 pushd build-ios
-cmake .. -DIOS_APP_STORE=ON -DCMAKE_TOOLCHAIN_FILE=cmake/Toolchains/ios.cmake -DIOS_PLATFORM=OS -GXcode
+
+cmake .. -DIOS_APP_STORE=ON -DCMAKE_TOOLCHAIN_FILE=cmake/Toolchains/ios.cmake -DDEVELOPMENT_TEAM_ID=97NS59EENG -DIOS_PLATFORM=OS -GXcode
 # TODO: Get a MoltenVK somewhere.
 #cp ../MoltenVK/iOS/Frameworks/libMoltenVK.dylib PPSSPP.app/Frameworks
 popd

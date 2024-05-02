@@ -3,6 +3,11 @@ cmake_minimum_required(VERSION 3.8)
 project(PPSSPP)
 enable_testing()
 
+# This little macro lets you set any XCode specific property
+macro(set_xcode_property TARGET XCODE_PROPERTY XCODE_VALUE)
+    set_property (TARGET ${TARGET} PROPERTY XCODE_ATTRIBUTE_${XCODE_PROPERTY} ${XCODE_VALUE})
+endmacro(set_xcode_property)
+
 #This is supposed to work but doesn't!
 if(NOT ANDROID)
 	set(CMAKE_CXX_STANDARD 17)
@@ -429,7 +434,11 @@ if(NOT MSVC)
 	endif()
 
 	if(IOS)
-		set(CMAKE_OSX_DEPLOYMENT_TARGET "11.0")
+		if(IOS_APP_STORE)
+			set(CMAKE_OSX_DEPLOYMENT_TARGET "12.0")
+		else()
+			set(CMAKE_OSX_DEPLOYMENT_TARGET "11.0")
+		endif()
 	elseif(APPLE AND NOT CMAKE_CROSSCOMPILING)
 		if(LIBRETRO AND ARM64)
 			set(CMAKE_OSX_DEPLOYMENT_TARGET "10.14")
@@ -1317,6 +1326,7 @@ elseif(IOS AND NOT LIBRETRO)
 	set_source_files_properties(ios/LocationHelper.mm PROPERTIES COMPILE_FLAGS -fobjc-arc)
 	set_source_files_properties(UI/DarwinFileSystemServices.mm PROPERTIES COMPILE_FLAGS -fobjc-arc)
 	set_source_files_properties(Common/Battery/AppleBatteryClient.m PROPERTIES COMPILE_FLAGS -fobjc-arc)
+
 	set(TargetBin PPSSPP)
 elseif(IOS AND LIBRETRO)
     set(nativeExtraLibs ${nativeExtraLibs} "-framework GLKit")
@@ -2829,17 +2839,34 @@ if(IOS AND NOT LIBRETRO)
 		COMMAND /bin/bash "${CMAKE_SOURCE_DIR}/ios/macbundle.sh" \"${APP_DIR_NAME}\"
 	)
 	set(MACOSX_DEPLOYMENT_TARGET ${DEPLOYMENT_TARGET})
-	set_target_properties(${TargetBin} PROPERTIES
-		MACOSX_BUNDLE_INFO_PLIST "${CMAKE_CURRENT_SOURCE_DIR}/ios/PPSSPP-Info.plist"
-		RESOURCE "ios/Launch Screen.storyboard"
-		RESOURCE "ios/Settings.bundle"
-		RESOURCE "ext/vulkan/iOS/Frameworks"
-		XCODE_ATTRIBUTE_IPHONEOS_DEPLOYMENT_TARGET ${DEPLOYMENT_TARGET}
-		XCODE_ATTRIBUTE_TARGETED_DEVICE_FAMILY "iPhone/iPad"
-		XCODE_ATTRIBUTE_CLANG_ENABLE_OBJC_ARC YES
-		XCODE_ATTRIBUTE_ENABLE_BITCODE NO
-		XCODE_ATTRIBUTE_CODE_SIGN_IDENTITY "-"
-	)
+	if(IOS_APP_STORE)
+		# https://stackoverflow.com/questions/40664125/cmake-and-code-signing-in-xcode-8-for-ios-projects
+		set_target_properties(${TargetBin} PROPERTIES
+			MACOSX_BUNDLE_INFO_PLIST "${CMAKE_CURRENT_SOURCE_DIR}/ios/PPSSPP-AppStore.plist"
+			RESOURCE "ios/Launch Screen.storyboard"
+			RESOURCE "ios/Settings.bundle"
+			RESOURCE "ext/vulkan/iOS/Frameworks"
+			XCODE_ATTRIBUTE_IPHONEOS_DEPLOYMENT_TARGET ${DEPLOYMENT_TARGET}
+			XCODE_ATTRIBUTE_TARGETED_DEVICE_FAMILY "iPhone/iPad"
+			XCODE_ATTRIBUTE_CLANG_ENABLE_OBJC_ARC YES
+			XCODE_ATTRIBUTE_ENABLE_BITCODE NO
+			XCODE_ATTRIBUTE_DEVELOPMENT_TEAM "97NS59EENG"
+			XCODE_ATTRIBUTE_CODE_SIGN_IDENTITY "Apple Development"
+			XCODE_ATTRIBUTE_CODE_SIGN_STYLE "Automatic"
+		)
+	else()
+		set_target_properties(${TargetBin} PROPERTIES
+			MACOSX_BUNDLE_INFO_PLIST "${CMAKE_CURRENT_SOURCE_DIR}/ios/PPSSPP-Info.plist"
+			RESOURCE "ios/Launch Screen.storyboard"
+			RESOURCE "ios/Settings.bundle"
+			RESOURCE "ext/vulkan/iOS/Frameworks"
+			XCODE_ATTRIBUTE_IPHONEOS_DEPLOYMENT_TARGET ${DEPLOYMENT_TARGET}
+			XCODE_ATTRIBUTE_TARGETED_DEVICE_FAMILY "iPhone/iPad"
+			XCODE_ATTRIBUTE_CLANG_ENABLE_OBJC_ARC YES
+			XCODE_ATTRIBUTE_ENABLE_BITCODE NO
+			XCODE_ATTRIBUTE_CODE_SIGN_IDENTITY "-"
+		)
+	endif()
 endif()
 
 if(MACOSX AND NOT IOS)
