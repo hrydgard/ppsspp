@@ -18,20 +18,20 @@
 
 #pragma once
 
-inline void vector_fmul(float *dst, const float *src0, const float *src1, int len) {
-    int i;
-    for (i = 0; i < len; i++)
-        dst[i] = src0[i] * src1[i];
+#include "compat.h"
+
+inline void vector_fmul(float * av_restrict dst, const float * av_restrict src, int len) {
+    for (int i = 0; i < len; i++)
+        dst[i] = dst[i] * src[i];
 }
 
 /**
 * Multiply a vector of floats by a scalar float.  Source and
 * destination vectors must overlap exactly or not at all.
 */
-inline void vector_fmul_scalar(float *dst, const float *src, float mul, int len) {
-    int i;
-    for (i = 0; i < len; i++)
-        dst[i] = src[i] * mul;
+inline void vector_fmul_scalar(float *dst, float mul, int len) {
+    for (int i = 0; i < len; i++)
+        dst[i] *= mul;
 }
 
 /**
@@ -39,18 +39,15 @@ inline void vector_fmul_scalar(float *dst, const float *src, float mul, int len)
 * in a vector of floats. The second vector of floats is iterated over
 * in reverse order.
 *
-* @param dst  output vector
+* @param dst  output and first input vector
 *             constraints: 32-byte aligned
-* @param src0 first input vector
-*             constraints: 32-byte aligned
-* @param src1 second input vector
+* @param src second input vector
 *             constraints: 32-byte aligned
 * @param len  number of elements in the input
 *             constraints: multiple of 16
 */
-inline void vector_fmul_reverse(float *dst, const float *src0, const float *src1, int len) {
-    int i;
-    src1 += len - 1;
-    for (i = 0; i < len; i++)
-        dst[i] = src0[i] * src1[-i];
+inline void vector_fmul_reverse(float * av_restrict dst, const float * av_restrict src, int len) {
+    src += len - 1;
+    for (int i = 0; i < len; i++)
+        dst[i] *= src[-i];
 }
