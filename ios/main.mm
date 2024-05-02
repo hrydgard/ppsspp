@@ -29,6 +29,9 @@
 #include "Common/Log.h"
 #include "UI/DarwinFileSystemServices.h"
 
+// Compile out all the hackery in app store builds.
+#if !PPSSPP_PLATFORM(IOS_APP_STORE)
+
 struct cs_blob_index {
 	uint32_t type;
 	uint32_t offset;
@@ -269,6 +272,7 @@ bool jb_enable_ptrace_hack(void) {
 	
 	return true;
 }
+#endif
 
 float g_safeInsetLeft = 0.0;
 float g_safeInsetRight = 0.0;
@@ -473,22 +477,20 @@ void System_Vibrate(int mode) {
 
 int main(int argc, char *argv[])
 {
-	// Hacky hacks to try to enable JIT by pretending to be a debugger.
-	csops = reinterpret_cast<decltype(csops)>(dlsym(dlopen(nullptr, RTLD_LAZY), "csops"));
-	exc_server = reinterpret_cast<decltype(exc_server)>(dlsym(dlopen(NULL, RTLD_LAZY), "exc_server"));
-	ptrace = reinterpret_cast<decltype(ptrace)>(dlsym(dlopen(NULL, RTLD_LAZY), "ptrace"));
-	// see https://github.com/hrydgard/ppsspp/issues/11905
-
-	// Tried checking for JIT support here with AllocateExecutableMemory and ProtectMemoryPages,
-	// but it just succeeds, and then fails when you try to execute from it.
-
-	// So, we'll just resort to a version check.
-
 	version = [[[UIDevice currentDevice] systemVersion] UTF8String];
 	if (2 != sscanf(version.c_str(), "%d", &g_iosVersionMajor)) {
 		// Just set it to 14.0 if the parsing fails for whatever reason.
 		g_iosVersionMajor = 14;
 	}
+
+#if PPSSPP_PLATFORM(IOS_APP_STORE)
+	g_jitAvailable = false;
+#else
+	// Hacky hacks to try to enable JIT by pretending to be a debugger.
+	csops = reinterpret_cast<decltype(csops)>(dlsym(dlopen(nullptr, RTLD_LAZY), "csops"));
+	exc_server = reinterpret_cast<decltype(exc_server)>(dlsym(dlopen(NULL, RTLD_LAZY), "exc_server"));
+	ptrace = reinterpret_cast<decltype(ptrace)>(dlsym(dlopen(NULL, RTLD_LAZY), "ptrace"));
+	// see https://github.com/hrydgard/ppsspp/issues/11905
 
 	if (jb_spawn_ptrace_child(argc, argv)) {
 		INFO_LOG(SYSTEM, "JIT: ptrace() child spawn trick\n");
@@ -505,6 +507,11 @@ int main(int argc, char *argv[])
 		g_jitAvailable = false;
 	}
 
+	// Tried checking for JIT support here with AllocateExecutableMemory and ProtectMemoryPages,
+	// but it just succeeds, and then fails when you try to execute from it.
+
+	// So, we'll just resort to a version check.
+	// TODO: This seems outdated.
 /*
 	if (g_iosVersionMajor > 14 || (g_iosVersionMajor == 14 && g_iosVersionMinor >= 4)) {
 		g_jitAvailable = false;
@@ -512,13 +519,13 @@ int main(int argc, char *argv[])
 		g_jitAvailable = true;
 	}
 */
-
-	PROFILE_INIT();
+#endif
 
 	// Ignore sigpipe.
 	if (signal(SIGPIPE, SIG_IGN) == SIG_ERR) {
 		perror("Unable to ignore SIGPIPE");
 	}
+	PROFILE_INIT();
 
 	@autoreleasepool {
 		return UIApplicationMain(argc, argv, NSStringFromClass([PPSSPPUIApplication class]), NSStringFromClass([AppDelegate class]));

@@ -1168,6 +1168,14 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	if (iMaxRecent == 0)
 		iMaxRecent = 60;
 
+	// Fix JIT setting if no longer available.
+	if (!System_GetPropertyBool(SYSPROP_CAN_JIT)) {
+		if (iCpuCore == (int)CPUCore::JIT || iCpuCore == (int)CPUCore::JIT_IR) {
+			WARN_LOG(LOADER, "Forcing JIT off due to unavailablility");
+			iCpuCore = (int)CPUCore::IR_INTERPRETER;
+		}
+	}
+
 	if (iMaxRecent > 0) {
 		private_->ResetRecentIsosThread();
 		std::lock_guard<std::mutex> guard(private_->recentIsosLock);
