@@ -134,6 +134,13 @@ else()
 	message("Normal Build")
 endif()
 
+if(IOS_APP_STORE)
+	add_definitions(-DPPSSPP_PLATFORM_IOS_APP_STORE)
+	message("iOS App Store build")
+else()
+	message("iOS sideload build")
+endif()
+
 # User-editable options (go into CMakeCache.txt)
 # :: Processors
 option(ARMV7 "Set to ON if targeting an ARMv7 processor" ${ARMV7_DEVICE})
