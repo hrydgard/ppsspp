@@ -124,7 +124,13 @@ PathBrowser::~PathBrowser() {
 
 void PathBrowser::SetPath(const Path &path) {
 	path_ = path;
+	ApplyRestriction();
 	HandlePath();
+}
+
+void PathBrowser::RestrictToRoot(const Path &root) {
+	INFO_LOG(SYSTEM, "Restricting to root: %s", root.c_str());
+	restrictedRoot_ = root;
 }
 
 void PathBrowser::HandlePath() {
@@ -203,7 +209,7 @@ bool PathBrowser::IsListingReady() {
 std::string PathBrowser::GetFriendlyPath() const {
 	std::string str = GetPath().ToVisualString();
 	// Show relative to memstick root if there.
-	if (startsWith(str, aliasMatch_)) {
+	if (path_.StartsWith(aliasMatch_)) {
 		return aliasDisplay_ + str.substr(aliasMatch_.size());
 	}
 
@@ -229,12 +235,24 @@ bool PathBrowser::GetListing(std::vector<File::FileInfo> &fileInfo, const char *
 	return true;
 }
 
+void PathBrowser::ApplyRestriction() {
+	if (!path_.StartsWith(restrictedRoot_) && !startsWith(path_.ToString(), "!")) {
+		WARN_LOG(SYSTEM, "Applying path restriction: %s (%s didn't match)", restrictedRoot_.c_str(), path_.c_str());
+		path_ = restrictedRoot_;
+	}
+}
+
 bool PathBrowser::CanNavigateUp() {
+	if (path_ == restrictedRoot_) {
+		return false;
+	}
 	return path_.CanNavigateUp();
 }
 
 void PathBrowser::NavigateUp() {
+	_dbg_assert_(CanNavigateUp());
 	path_ = path_.NavigateUp();
+	ApplyRestriction();
 }
 
 // TODO: Support paths like "../../hello"

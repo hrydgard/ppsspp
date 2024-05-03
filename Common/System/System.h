@@ -193,6 +193,10 @@ enum SystemProperty {
 
 	SYSPROP_USER_DOCUMENTS_DIR,
 
+	// iOS app store limitation: The documents directory should be the only browsable directory.
+	// We'll not return true for this in non-app-store builds.
+	SYSPROP_LIMITED_FILE_BROWSING,
+
 	SYSPROP_OK_BUTTON_LEFT,
 
 	SYSPROP_MAIN_WINDOW_HANDLE,

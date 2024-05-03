@@ -8,7 +8,6 @@
 #include <vector>
 #include <cstdlib>
 
-
 #include "Common/File/DirListing.h"
 #include "Common/File/Path.h"
 
@@ -18,7 +17,6 @@
 class PathBrowser {
 public:
 	PathBrowser() {}
-	PathBrowser(const Path &path) { SetPath(path); }
 	~PathBrowser();
 
 	void SetPath(const Path &path);
@@ -41,11 +39,11 @@ public:
 	void SetUserAgent(const std::string &s) {
 		userAgent_ = s;
 	}
-	void SetRootAlias(const std::string &alias, const std::string &longValue) {
+	void SetRootAlias(const std::string &alias, const Path &rootPath) {
 		aliasDisplay_ = alias;
-		aliasMatch_ = longValue;
+		aliasMatch_ = rootPath;
 	}
-
+	void RestrictToRoot(const Path &root);
 	bool empty() const {
 		return path_.empty();
 	}
@@ -53,12 +51,14 @@ public:
 private:
 	void HandlePath();
 	void ResetPending();
+	void ApplyRestriction();
 
 	Path path_;
 	Path pendingPath_;
+	Path restrictedRoot_;
 	std::string userAgent_;
 	std::string aliasDisplay_;
-	std::string aliasMatch_;
+	Path aliasMatch_;
 	std::vector<File::FileInfo> pendingFiles_;
 	std::condition_variable pendingCond_;
 	std::mutex pendingLock_;

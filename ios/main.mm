@@ -349,6 +349,8 @@ bool System_GetPropertyBool(SystemProperty prop) {
 #endif
 		case SYSPROP_CAN_JIT:
 			return g_jitAvailable;
+		case SYSPROP_LIMITED_FILE_BROWSING:
+			return false;  // But will return true in app store builds.
 #ifndef HTTPS_NOT_AVAILABLE
 		case SYSPROP_SUPPORTS_HTTPS:
 			return true;

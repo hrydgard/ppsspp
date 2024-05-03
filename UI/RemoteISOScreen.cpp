@@ -253,10 +253,11 @@ bool RemoteISOConnectScreen::FindServer(std::string &resultHost, int &resultPort
 }
 
 static bool LoadGameList(const Path &url, std::vector<Path> &games) {
-	PathBrowser browser(url);
+	PathBrowser browser;
+	browser.SetPath(url);
 	std::vector<File::FileInfo> files;
 	browser.SetUserAgent(StringFromFormat("PPSSPP/%s", PPSSPP_GIT_VERSION));
-	browser.SetRootAlias("ms:", GetSysDirectory(DIRECTORY_MEMSTICK_ROOT).ToVisualString() + "/");
+	browser.SetRootAlias("ms:", GetSysDirectory(DIRECTORY_MEMSTICK_ROOT));
 	browser.GetListing(files, "iso:cso:chd:pbp:elf:prx:ppdmp:", &scanCancelled);
 	if (scanCancelled) {
 		return false;
