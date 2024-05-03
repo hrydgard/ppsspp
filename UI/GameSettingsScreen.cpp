@@ -1755,7 +1755,7 @@ void DeveloperToolsScreen::CreateViews() {
 
 	list->Add(new ItemHeader(sy->T("General")));
 
-	bool canUseJit = true;
+	bool canUseJit = System_GetPropertyBool(SYSPROP_CAN_JIT);
 	// iOS can now use JIT on all modes, apparently.
 	// The bool may come in handy for future non-jit platforms though (UWP XB1?)
 
