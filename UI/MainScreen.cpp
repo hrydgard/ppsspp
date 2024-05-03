@@ -652,7 +652,7 @@ Path GameBrowser::HomePath() {
 	if (!homePath_.empty()) {
 		return homePath_;
 	}
-#if PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(SWITCH) || defined(USING_WIN_UI) || PPSSPP_PLATFORM(UWP)
+#if PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(SWITCH) || defined(USING_WIN_UI) || PPSSPP_PLATFORM(UWP) || PPSSPP_PLATFORM(IOS)
 	return g_Config.memStickDirectory;
 #else
 	return Path(getenv("HOME"));
