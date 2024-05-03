@@ -310,35 +310,37 @@ inline bool IsValidAddress(const u32 address) {
 	}
 }
 
-inline bool IsValidNullTerminatedString(const u32 address) {
-	int i = 0;
-	while (true) {
-		u32 char_at = address + i;
-		if (!IsValidAddress(char_at)) {
-			return false;
-		}
-		const char *c = GetCharPointerUnchecked(char_at);
-		if (*c == '\0') {
-			return true;
-		}
-		i++;
+inline u32 MaxSizeAtAddress(const u32 address){
+	if ((address & 0x3E000000) == 0x08000000) {
+		return 0x08000000 + g_MemorySize - (address & 0x3FFFFFFF);
+	} else if ((address & 0x3F800000) == 0x04000000) {
+		return 0x04800000 - (address & 0x3FFFFFFF);
+	} else if ((address & 0xBFFFC000) == 0x00010000) {
+		return 0x00014000 - (address & 0x3FFFFFFF);
+	} else if ((address & 0x3F000000) >= 0x08000000 && (address & 0x3F000000) < 0x08000000 + g_MemorySize) {
+		return 0x08000000 + g_MemorySize - (address & 0x3FFFFFFF);
+	} else {
+		return 0;
 	}
 }
 
-inline u32 ValidSize(const u32 address, const u32 requested_size) {
-	u32 max_size;
-	if ((address & 0x3E000000) == 0x08000000) {
-		max_size = 0x08000000 + g_MemorySize - (address & 0x3FFFFFFF);
-	} else if ((address & 0x3F800000) == 0x04000000) {
-		max_size = 0x04800000 - (address & 0x3FFFFFFF);
-	} else if ((address & 0xBFFFC000) == 0x00010000) {
-		max_size = 0x00014000 - (address & 0x3FFFFFFF);
-	} else if ((address & 0x3F000000) >= 0x08000000 && (address & 0x3F000000) < 0x08000000 + g_MemorySize) {
-		max_size = 0x08000000 + g_MemorySize - (address & 0x3FFFFFFF);
-	} else {
-		max_size = 0;
+inline bool IsValidNullTerminatedString(const u32 address) {
+	u32 max_size = MaxSizeAtAddress(address);
+	if (max_size == 0) {
+		return false;
 	}
 
+	const char *c = GetCharPointerUnchecked(address);
+	for (u32 i = 0; i < max_size; i++) {
+		if (c[i] == '\0') {
+			return true;
+		}
+	}
+	return false;
+}
+
+inline u32 ValidSize(const u32 address, const u32 requested_size) {
+	u32 max_size = MaxSizeAtAddress(address);
 	if (requested_size > max_size) {
 		return max_size;
 	}
