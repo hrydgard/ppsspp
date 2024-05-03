@@ -37,10 +37,6 @@
 #define av_printf_format(a,b)
 #define avpriv_report_missing_feature(...)
 
-#define AV_NOPTS_VALUE          ((int64_t)UINT64_C(0x8000000000000000))
-#define AV_TIME_BASE            1000000
-#define AV_TIME_BASE_Q          (AVRational){1, AV_TIME_BASE}
-
 #define AVERROR(e) (-(e))   ///< Returns a negative error code from a POSIX error code, to return from library functions.
 #define AVUNERROR(e) (-(e)) ///< Returns a POSIX error code from a library function error return value.
 
@@ -48,8 +44,6 @@
 
 #define AVERROR_INVALIDDATA        FFERRTAG( 'I','N','D','A') ///< Invalid data found when processing input
 #define AVERROR_PATCHWELCOME       FFERRTAG( 'P','A','W','E') ///< Not yet implemented in FFmpeg, patches welcome
-
-#define FF_SANE_NB_CHANNELS 64U
 
 #define AV_LOG_ERROR    16
 #define AV_LOG_WARNING  24
@@ -59,13 +53,6 @@
 #define AV_LOG_TRACE    56
 
 void av_log(int level, const char *fmt, ...) av_printf_format(3, 4);
-
-/**
- * Maximum size in bytes of extradata.
- * This value was chosen such that every bit of the buffer is
- * addressable by a 32-bit signed integer as used by get_bits.
- */
-#define FF_MAX_EXTRADATA_SIZE ((1 << 28) - AV_INPUT_BUFFER_PADDING_SIZE)
 
  /**
   * Absolute value, Note, INT_MIN / INT64_MIN result in undefined behavior as they
