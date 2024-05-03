@@ -816,16 +816,6 @@ static int decode_code_table_indexes(GetBitContext *gb, Atrac3pChanUnitCtx *ctx,
 }
 
 /**
- * Clear high bits from an unsigned integer starting with specific bit position
- * @param  a value to clip
- * @param  p bit position to clip at
- * @return clipped value
- */
-inline unsigned av_mod_uintp2(unsigned a, unsigned p) {
-    return a & ((1 << p) - 1);
-}
-
-/**
  * Decode huffman-coded spectral lines for a given quant unit.
  *
  * This is a generalized version for all known coding modes.
@@ -846,21 +836,21 @@ static void decode_qu_spectra(GetBitContext *gb, const Atrac3pSpecCodeTab *tab,
     int bits       = tab->bits;
     int is_signed  = tab->is_signed;
     unsigned val;
+    const unsigned bitmask = ((1 << bits) - 1);  // mask to clear higher bits.
 
     for (pos = 0; pos < num_specs;) {
         if (group_size == 1 || get_bits1(gb)) {
             for (j = 0; j < group_size; j++) {
                 val = get_vlc2(gb, vlc_tab->table, vlc_tab->bits, 1);
-
                 for (i = 0; i < num_coeffs; i++) {
-                    cf = av_mod_uintp2(val, bits);
+                    cf = val & bitmask;
                     if (is_signed)
                         cf = sign_extend(cf, bits);
                     else if (cf && get_bits1(gb))
                         cf = -cf;
 
                     out[pos++] = cf;
-                    val      >>= bits;
+                    val >>= bits;
                 }
             }
         } else /* group skipped */
