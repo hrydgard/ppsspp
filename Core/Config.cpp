@@ -1227,6 +1227,13 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 		ResetControlLayout();
 	}
 
+	// Force JIT setting to a valid value for the current system configuration.
+	if (!System_GetPropertyBool(SYSPROP_CAN_JIT)) {
+		if (g_Config.iCpuCore == (int)CPUCore::JIT || g_Config.iCpuCore == (int)CPUCore::JIT_IR) {
+			g_Config.iCpuCore = (int)CPUCore::IR_INTERPRETER;
+		}
+	}
+
 	const char *gitVer = PPSSPP_GIT_VERSION;
 	Version installed(gitVer);
 	Version upgrade(upgradeVersion);

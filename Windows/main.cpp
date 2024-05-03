@@ -269,23 +269,23 @@ extern WindowsAudioBackend *winAudioBackend;
 
 #ifdef _WIN32
 #if PPSSPP_PLATFORM(UWP)
-static int ScreenDPI() {
-	return 96;  // TODO UWP
+static float ScreenDPI() {
+	return 96.0f;  // TODO UWP
 }
 #else
-static int ScreenDPI() {
+static float ScreenDPI() {
 	HDC screenDC = GetDC(nullptr);
 	int dotsPerInch = GetDeviceCaps(screenDC, LOGPIXELSY);
 	ReleaseDC(nullptr, screenDC);
-	return dotsPerInch ? dotsPerInch : 96;
+	return dotsPerInch ? (float)dotsPerInch : 96.0f;
 }
 #endif
 #endif
 
-static int ScreenRefreshRateHz() {
-	static int rate = 0;
+static float ScreenRefreshRateHz() {
+	static float rate = 0.0f;
 	static double lastCheck = 0.0;
-	double now = time_now_d();
+	const double now = time_now_d();
 	if (!rate || lastCheck < now - 10.0) {
 		lastCheck = now;
 		DEVMODE lpDevMode{};
@@ -295,12 +295,12 @@ static int ScreenRefreshRateHz() {
 		// TODO: Use QueryDisplayConfig instead (Win7+) so we can get fractional refresh rates correctly.
 
 		if (EnumDisplaySettings(NULL, ENUM_CURRENT_SETTINGS, &lpDevMode) == 0) {
-			rate = 60;  // default value
+			rate = 60.0f;  // default value
 		} else {
 			if (lpDevMode.dmFields & DM_DISPLAYFREQUENCY) {
-				rate = lpDevMode.dmDisplayFrequency > 60 ? lpDevMode.dmDisplayFrequency : 60;
+				rate = (float)(lpDevMode.dmDisplayFrequency > 60 ? lpDevMode.dmDisplayFrequency : 60);
 			} else {
-				rate = 60;
+				rate = 60.0f;
 			}
 		}
 	}
@@ -340,9 +340,9 @@ int64_t System_GetPropertyInt(SystemProperty prop) {
 float System_GetPropertyFloat(SystemProperty prop) {
 	switch (prop) {
 	case SYSPROP_DISPLAY_REFRESH_RATE:
-		return (float)ScreenRefreshRateHz();
+		return ScreenRefreshRateHz();
 	case SYSPROP_DISPLAY_DPI:
-		return (float)ScreenDPI();
+		return ScreenDPI();
 	case SYSPROP_DISPLAY_SAFE_INSET_LEFT:
 	case SYSPROP_DISPLAY_SAFE_INSET_RIGHT:
 	case SYSPROP_DISPLAY_SAFE_INSET_TOP:
@@ -480,7 +480,7 @@ void System_Notify(SystemNotification notification) {
 	}
 }
 
-std::wstring MakeFilter(std::wstring filter) {
+static std::wstring MakeFilter(std::wstring filter) {
 	for (size_t i = 0; i < filter.length(); i++) {
 		if (filter[i] == '|')
 			filter[i] = '\0';
@@ -651,7 +651,8 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 void System_AskForPermission(SystemPermission permission) {}
 PermissionStatus System_GetPermissionStatus(SystemPermission permission) { return PERMISSION_STATUS_GRANTED; }
 
-void EnableCrashingOnCrashes() {
+// Don't swallow exceptions.
+static void EnableCrashingOnCrashes() {
 	typedef BOOL (WINAPI *tGetPolicy)(LPDWORD lpFlags);
 	typedef BOOL (WINAPI *tSetPolicy)(DWORD dwFlags);
 	const DWORD EXCEPTION_SWALLOWING = 0x1;
