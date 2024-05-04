@@ -2606,7 +2606,7 @@ set(WindowsFiles
 list(APPEND LinkCommon ${CoreLibName} ${CMAKE_THREAD_LIBS_INIT})
 
 if(WIN32)
-	list(APPEND LinkCommon kernel32 user32 gdi32 shell32 comctl32 dsound xinput d3d9 winmm dinput8 ole32 winspool ksuser mf uxtheme mfplat mfreadwrite mfuuid shlwapi)
+	list(APPEND LinkCommon kernel32 user32 gdi32 shell32 comctl32 dsound xinput d3d9 winmm dinput8 ole32 winspool ksuser dwmapi mf uxtheme mfplat mfreadwrite mfuuid shlwapi)
 	#setup_target_project(${TargetBin} Windows)
 	list(APPEND NativeAppSource ${WindowsFiles})
 endif()
