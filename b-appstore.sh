@@ -1,5 +1,7 @@
 # Build script for iOS app store
 
+echo "PPSSPP App Store XCode generator script"
+
 # Set the development team ID as a DEVTEAM env variable.
 
 if [[ -z "${DEVTEAM}" ]]; then
@@ -12,9 +14,19 @@ if [[ -z "${GOLD}" ]]; then
   exit 1
 fi
 
-rm -rf build-ios
-mkdir build-ios
-pushd build-ios
+FOLDER_NAME="build-ios"
+
+if [[ "$GOLD" = "YES" ]]; then
+  echo "GOLD is set to YES, setting folder to build-ios-gold"
+  FOLDER_NAME="build-ios-gold"
+else
+  echo "Non-GOLD build."
+fi
+
+rm -rf $FOLDER_NAME
+mkdir $FOLDER_NAME
+
+pushd $FOLDER_NAME
 
 BUILD_TYPE=Release
 
@@ -25,6 +37,10 @@ cmake .. -DIOS_APP_STORE=ON -DGOLD=$GOLD -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DCMAKE_
 # TODO: Get a MoltenVK somewhere.
 #cp ../MoltenVK/iOS/Frameworks/libMoltenVK.dylib PPSSPP.app/Frameworks
 popd
+
+# Very gross hack
+# Avoid XCode race condition (???) by pre-generating git-version.cpp
+cmake -DSOURCE_DIR=. -DOUTPUT_DIR=$FOLDER_NAME -P git-version.cmake
 
 # To open the xcode project:
 # open build-ios/PPSSPP.xcodeproj
