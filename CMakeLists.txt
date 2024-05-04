@@ -136,6 +136,7 @@ endif()
 
 if(IOS_APP_STORE)
 	add_definitions(-DPPSSPP_PLATFORM_IOS_APP_STORE)
+	set(CMAKE_XCODE_GENERATE_SCHEME NO)
 	message("iOS App Store build")
 else()
 	message("iOS sideload build")
@@ -2858,6 +2859,7 @@ if(IOS AND NOT LIBRETRO)
 		# https://stackoverflow.com/questions/40664125/cmake-and-code-signing-in-xcode-8-for-ios-projects
 		set_target_properties(${TargetBin} PROPERTIES
 			MACOSX_BUNDLE_INFO_PLIST ${BUNDLE_PLIST}
+			XCODE_GENERATE_SCHEME YES  # Avoid the scheme bloat in XCode
 			RESOURCE "ios/Launch Screen.storyboard"
 			RESOURCE "ios/Settings.bundle"
 			RESOURCE "ext/vulkan/iOS/Frameworks"
@@ -2872,6 +2874,7 @@ if(IOS AND NOT LIBRETRO)
 	else()
 		set_target_properties(${TargetBin} PROPERTIES
 			MACOSX_BUNDLE_INFO_PLIST "${CMAKE_CURRENT_SOURCE_DIR}/ios/PPSSPP-Info.plist"
+			XCODE_GENERATE_SCHEME YES
 			RESOURCE "ios/Launch Screen.storyboard"
 			RESOURCE "ios/Settings.bundle"
 			RESOURCE "ext/vulkan/iOS/Frameworks"
