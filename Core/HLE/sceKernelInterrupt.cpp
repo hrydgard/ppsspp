@@ -882,7 +882,7 @@ static int sysclib_sprintf(u32 dst, u32 fmt) {
 		}
 	}
 
-	DEBUG_LOG(SCEKERNEL, "sysclib_sprintf result string has length %u, content:", result.length());
+	DEBUG_LOG(SCEKERNEL, "sysclib_sprintf result string has length %d, content:", (int)result.length());
 	DEBUG_LOG(SCEKERNEL, "%s", result.c_str());
 	if (!Memory::IsValidRange(dst, result.length() + 1)) {
 		ERROR_LOG(SCEKERNEL, "sysclib_sprintf result string is too long or dst is invalid");
