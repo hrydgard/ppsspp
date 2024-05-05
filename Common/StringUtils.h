@@ -86,7 +86,7 @@ void SplitString(std::string_view str, const char delim, std::vector<std::string
 // Try to avoid this when possible, in favor of the string_view version.
 void SplitString(std::string_view str, const char delim, std::vector<std::string> &output);
 
-void GetQuotedStrings(const std::string& str, std::vector<std::string>& output);
+void GetQuotedStrings(std::string_view str, std::vector<std::string> &output);
 
 std::string ReplaceAll(std::string_view input, std::string_view src, std::string_view dest);
 
