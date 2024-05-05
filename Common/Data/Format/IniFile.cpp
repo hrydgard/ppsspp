@@ -198,7 +198,7 @@ bool Section::GetKeys(std::vector<std::string> &keys) const {
 	return true;
 }
 
-ParsedIniLine *Section::GetLine(const char *key) {
+ParsedIniLine *Section::GetLine(std::string_view key) {
 	for (auto &line : lines_) {
 		if (equalsNoCase(line.Key(), key))
 			return &line;
@@ -206,7 +206,7 @@ ParsedIniLine *Section::GetLine(const char *key) {
 	return nullptr;
 }
 
-const ParsedIniLine *Section::GetLine(const char* key) const {
+const ParsedIniLine *Section::GetLine(std::string_view key) const {
 	for (auto &line : lines_) {
 		if (equalsNoCase(line.Key(), key))
 			return &line;
@@ -214,38 +214,38 @@ const ParsedIniLine *Section::GetLine(const char* key) const {
 	return nullptr;
 }
 
-void Section::Set(const char* key, uint32_t newValue) {
+void Section::Set(std::string_view key, uint32_t newValue) {
 	char temp[128];
 	snprintf(temp, sizeof(temp), "0x%08x", newValue);
 	Set(key, (const char *)temp);
 }
 
-void Section::Set(const char* key, uint64_t newValue) {
+void Section::Set(std::string_view key, uint64_t newValue) {
 	char temp[128];
 	snprintf(temp, sizeof(temp), "0x%016" PRIx64, newValue);
 	Set(key, (const char *)temp);
 }
 
-void Section::Set(const char* key, float newValue) {
+void Section::Set(std::string_view key, float newValue) {
 	_dbg_assert_(!my_isnanorinf(newValue));
 	char temp[128];
 	snprintf(temp, sizeof(temp), "%f", newValue);
 	Set(key, (const char *)temp);
 }
 
-void Section::Set(const char* key, double newValue) {
+void Section::Set(std::string_view key, double newValue) {
 	char temp[128];
 	snprintf(temp, sizeof(temp), "%f", newValue);
 	Set(key, (const char *)temp);
 }
 
-void Section::Set(const char* key, int newValue) {
+void Section::Set(std::string_view key, int newValue) {
 	char temp[128];
 	snprintf(temp, sizeof(temp), "%d", newValue);
 	Set(key, (const char *)temp);
 }
 
-void Section::Set(const char* key, const char* newValue) {
+void Section::Set(std::string_view key, const char* newValue) {
 	ParsedIniLine *line = GetLine(key);
 	if (line) {
 		line->SetValue(newValue);
@@ -255,7 +255,7 @@ void Section::Set(const char* key, const char* newValue) {
 	}
 }
 
-void Section::Set(const char* key, const std::string& newValue, const std::string& defaultValue)
+void Section::Set(std::string_view key, const std::string& newValue, const std::string& defaultValue)
 {
 	if (newValue != defaultValue)
 		Set(key, newValue);
@@ -263,7 +263,7 @@ void Section::Set(const char* key, const std::string& newValue, const std::strin
 		Delete(key);
 }
 
-bool Section::Get(const char* key, std::string* value, const char* defaultValue) const {
+bool Section::Get(std::string_view key, std::string* value, const char* defaultValue) const {
 	const ParsedIniLine *line = GetLine(key);
 	if (!line) {
 		if (defaultValue) {
@@ -276,7 +276,7 @@ bool Section::Get(const char* key, std::string* value, const char* defaultValue)
 	return true;
 }
 
-void Section::Set(const char* key, const float newValue, const float defaultValue)
+void Section::Set(std::string_view key, const float newValue, const float defaultValue)
 {
 	if (newValue != defaultValue)
 		Set(key, newValue);
@@ -284,7 +284,7 @@ void Section::Set(const char* key, const float newValue, const float defaultValu
 		Delete(key);
 }
 
-void Section::Set(const char* key, int newValue, int defaultValue)
+void Section::Set(std::string_view key, int newValue, int defaultValue)
 {
 	if (newValue != defaultValue)
 		Set(key, newValue);
@@ -292,7 +292,7 @@ void Section::Set(const char* key, int newValue, int defaultValue)
 		Delete(key);
 }
 
-void Section::Set(const char* key, bool newValue, bool defaultValue)
+void Section::Set(std::string_view key, bool newValue, bool defaultValue)
 {
 	if (newValue != defaultValue)
 		Set(key, newValue);
@@ -300,7 +300,7 @@ void Section::Set(const char* key, bool newValue, bool defaultValue)
 		Delete(key);
 }
 
-void Section::Set(const char* key, const std::vector<std::string>& newValues) 
+void Section::Set(std::string_view key, const std::vector<std::string>& newValues)
 {
 	std::string temp;
 	// Join the strings with , 
@@ -319,12 +319,10 @@ void Section::AddComment(const std::string &comment) {
 	lines_.emplace_back(ParsedIniLine::CommentOnly("# " + comment));
 }
 
-bool Section::Get(const char* key, std::vector<std::string>& values) const
-{
+bool Section::Get(std::string_view key, std::vector<std::string>& values) const {
 	std::string temp;
 	bool retval = Get(key, &temp, 0);
-	if (!retval || temp.empty())
-	{
+	if (!retval || temp.empty()) {
 		return false;
 	}
 	// ignore starting , if any
@@ -333,7 +331,6 @@ bool Section::Get(const char* key, std::vector<std::string>& values) const
 
 	// split by , 
 	while (subStart != std::string::npos) {
-		
 		// Find next , 
 		subEnd = temp.find_first_of(',', subStart);
 		if (subStart != subEnd) 
@@ -347,8 +344,7 @@ bool Section::Get(const char* key, std::vector<std::string>& values) const
 	return true;
 }
 
-bool Section::Get(const char* key, int* value, int defaultValue) const
-{
+bool Section::Get(std::string_view key, int* value, int defaultValue) const {
 	std::string temp;
 	bool retval = Get(key, &temp, 0);
 	if (retval && TryParse(temp, value))
@@ -357,8 +353,7 @@ bool Section::Get(const char* key, int* value, int defaultValue) const
 	return false;
 }
 
-bool Section::Get(const char* key, uint32_t* value, uint32_t defaultValue) const
-{
+bool Section::Get(std::string_view key, uint32_t* value, uint32_t defaultValue) const {
 	std::string temp;
 	bool retval = Get(key, &temp, 0);
 	if (retval && TryParse(temp, value))
@@ -367,8 +362,7 @@ bool Section::Get(const char* key, uint32_t* value, uint32_t defaultValue) const
 	return false;
 }
 
-bool Section::Get(const char* key, uint64_t* value, uint64_t defaultValue) const
-{
+bool Section::Get(std::string_view key, uint64_t* value, uint64_t defaultValue) const {
 	std::string temp;
 	bool retval = Get(key, &temp, 0);
 	if (retval && TryParse(temp, value))
@@ -377,8 +371,7 @@ bool Section::Get(const char* key, uint64_t* value, uint64_t defaultValue) const
 	return false;
 }
 
-bool Section::Get(const char* key, bool* value, bool defaultValue) const
-{
+bool Section::Get(std::string_view key, bool* value, bool defaultValue) const {
 	std::string temp;
 	bool retval = Get(key, &temp, 0);
 	if (retval && TryParse(temp, value))
@@ -387,8 +380,7 @@ bool Section::Get(const char* key, bool* value, bool defaultValue) const
 	return false;
 }
 
-bool Section::Get(const char* key, float* value, float defaultValue) const
-{
+bool Section::Get(std::string_view key, float* value, float defaultValue) const {
 	std::string temp;
 	bool retval = Get(key, &temp, 0);
 	if (retval && TryParse(temp, value))
@@ -397,8 +389,7 @@ bool Section::Get(const char* key, float* value, float defaultValue) const
 	return false;
 }
 
-bool Section::Get(const char* key, double* value, double defaultValue) const
-{
+bool Section::Get(std::string_view key, double* value, double defaultValue) const {
 	std::string temp;
 	bool retval = Get(key, &temp, 0);
 	if (retval && TryParse(temp, value))
@@ -407,7 +398,7 @@ bool Section::Get(const char* key, double* value, double defaultValue) const
 	return false;
 }
 
-bool Section::Exists(const char *key) const {
+bool Section::Exists(std::string_view key) const {
 	for (auto &line : lines_) {
 		if (equalsNoCase(key, line.Key()))
 			return true;
@@ -425,7 +416,7 @@ std::map<std::string, std::string> Section::ToMap() const {
 	return outMap;
 }
 
-bool Section::Delete(const char *key) {
+bool Section::Delete(std::string_view key) {
 	ParsedIniLine *line = GetLine(key);
 	for (auto liter = lines_.begin(); liter != lines_.end(); ++liter) {
 		if (line == &*liter) {

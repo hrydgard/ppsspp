@@ -54,56 +54,56 @@ class Section {
 
 public:
 	Section() {}
-	Section(const std::string& name) : name_(name) {}
+	Section(std::string_view name) : name_(name) {}
 
-	bool Exists(const char *key) const;
-	bool Delete(const char *key);
+	bool Exists(std::string_view key) const;
+	bool Delete(std::string_view key);
 
 	void Clear();
 
 	std::map<std::string, std::string> ToMap() const;
 
-	ParsedIniLine *GetLine(const char *key);
-	const ParsedIniLine *GetLine(const char *key) const;
+	ParsedIniLine *GetLine(std::string_view key);
+	const ParsedIniLine *GetLine(std::string_view key) const;
 
-	void Set(const char* key, const char* newValue);
-	void Set(const char* key, const std::string& newValue, const std::string& defaultValue);
+	void Set(std::string_view key, const char* newValue);
+	void Set(std::string_view key, const std::string& newValue, const std::string& defaultValue);
 
-	void Set(const std::string &key, const std::string &value) {
-		Set(key.c_str(), value.c_str());
+	void Set(std::string_view key, const std::string &value) {
+		Set(key, value.c_str());
 	}
-	bool Get(const char* key, std::string* value, const char* defaultValue) const;
+	bool Get(std::string_view key, std::string* value, const char* defaultValue) const;
 
-	void Set(const char* key, uint32_t newValue);
-	void Set(const char* key, uint64_t newValue);
-	void Set(const char* key, float newValue);
-	void Set(const char* key, const float newValue, const float defaultValue);
-	void Set(const char* key, double newValue);
+	void Set(std::string_view key, uint32_t newValue);
+	void Set(std::string_view key, uint64_t newValue);
+	void Set(std::string_view key, float newValue);
+	void Set(std::string_view key, const float newValue, const float defaultValue);
+	void Set(std::string_view key, double newValue);
 
-	void Set(const char* key, int newValue, int defaultValue);
-	void Set(const char* key, int newValue);
+	void Set(std::string_view key, int newValue, int defaultValue);
+	void Set(std::string_view key, int newValue);
 
-	void Set(const char* key, bool newValue, bool defaultValue);
-	void Set(const char* key, bool newValue) {
+	void Set(std::string_view key, bool newValue, bool defaultValue);
+	void Set(std::string_view key, bool newValue) {
 		Set(key, newValue ? "True" : "False");
 	}
-	void Set(const char* key, const std::vector<std::string>& newValues);
+	void Set(std::string_view key, const std::vector<std::string>& newValues);
 
 	// Declare without a body to make it fail to compile. This is to prevent accidentally
 	// setting a pointer as a bool. The failure is in the linker unfortunately, but that's better
 	// than accidentally succeeding in a bad way.
 	template<class T>
-	void Set(const char *key, T *ptr);
+	void Set(std::string_view key, T *ptr);
 
 	void AddComment(const std::string &comment);
 
-	bool Get(const char* key, int* value, int defaultValue = 0) const;
-	bool Get(const char* key, uint32_t* value, uint32_t defaultValue = 0) const;
-	bool Get(const char* key, uint64_t* value, uint64_t defaultValue = 0) const;
-	bool Get(const char* key, bool* value, bool defaultValue = false) const;
-	bool Get(const char* key, float* value, float defaultValue = false) const;
-	bool Get(const char* key, double* value, double defaultValue = false) const;
-	bool Get(const char* key, std::vector<std::string>& values) const;
+	bool Get(std::string_view key, int* value, int defaultValue = 0) const;
+	bool Get(std::string_view key, uint32_t* value, uint32_t defaultValue = 0) const;
+	bool Get(std::string_view key, uint64_t* value, uint64_t defaultValue = 0) const;
+	bool Get(std::string_view key, bool* value, bool defaultValue = false) const;
+	bool Get(std::string_view key, float* value, float defaultValue = false) const;
+	bool Get(std::string_view key, double* value, double defaultValue = false) const;
+	bool Get(std::string_view key, std::vector<std::string>& values) const;
 
 	// Return a list of all keys in this section
 	bool GetKeys(std::vector<std::string> &keys) const;
