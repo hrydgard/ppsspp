@@ -270,10 +270,6 @@ inline bool IsKernelAndNotVolatileAddress(const u32 address) {
 
 bool IsScratchpadAddress(const u32 address);
 
-inline const char *GetCharPointerUnchecked(const u32 address) {
-	return (const char *)GetPointerUnchecked(address);
-}
-
 inline void MemcpyUnchecked(void *to_data, const u32 from_address, const u32 len) {
 	memcpy(to_data, GetPointerUnchecked(from_address), len);
 }
@@ -314,6 +310,8 @@ inline u32 MaxSizeAtAddress(const u32 address){
 	}
 }
 
+// NOTE: Unlike the similar IsValidRange/IsValidAddress functions, this one is linear cost vs the size of the string,
+// for hopefully-obvious reasons.
 inline bool IsValidNullTerminatedString(const u32 address) {
 	u32 max_size = MaxSizeAtAddress(address);
 	if (max_size == 0) {
@@ -321,10 +319,8 @@ inline bool IsValidNullTerminatedString(const u32 address) {
 	}
 
 	const char *c = GetCharPointerUnchecked(address);
-	for (u32 i = 0; i < max_size; i++) {
-		if (c[i] == '\0') {
-			return true;
-		}
+	if (memchr(c, '\0', max_size)) {
+		return true;
 	}
 	return false;
 }
@@ -339,6 +335,10 @@ inline u32 ValidSize(const u32 address, const u32 requested_size) {
 
 inline bool IsValidRange(const u32 address, const u32 size) {
 	return ValidSize(address, size) == size;
+}
+
+inline const char *GetCharPointerUnchecked(const u32 address) {
+	return (const char *)GetPointerUnchecked(address);
 }
 
 // Used for auto-converted char * parameters, which can sometimes legitimately be null -
