@@ -838,6 +838,12 @@ static void IoStartAsyncThread(int id, FileNode *f) {
 
 static u32 sceIoAssign(u32 alias_addr, u32 physical_addr, u32 filesystem_addr, int mode, u32 arg_addr, int argSize)
 {
+	if (!Memory::IsValidNullTerminatedString(alias_addr) ||
+		!Memory::IsValidNullTerminatedString(physical_addr) ||
+		!Memory::IsValidNullTerminatedString(filesystem_addr)) {
+		return hleLogError(SCEIO, -1, "Bad parameters");
+	}
+
 	std::string alias = Memory::GetCharPointer(alias_addr);
 	std::string physical_dev = Memory::GetCharPointer(physical_addr);
 	std::string filesystem_dev = Memory::GetCharPointer(filesystem_addr);
@@ -2009,8 +2015,7 @@ static u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 o
 	{
 		// Emulator special tricks!
 		
-		enum
-		{
+		enum {
 			EMULATOR_DEVCTL__GET_HAS_DISPLAY = 1,
 			EMULATOR_DEVCTL__SEND_OUTPUT,
 			EMULATOR_DEVCTL__IS_EMULATOR,
@@ -2031,14 +2036,14 @@ static u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 o
 				Memory::Write_U32(PSP_CoreParameter().headLess ? 0 : 1, outPtr);
 			return 0;
 		case EMULATOR_DEVCTL__SEND_OUTPUT:
-			{
-				std::string data(Memory::GetCharPointer(argAddr), argLen);
+			if (Memory::IsValidRange(argAddr, argLen)) {
+				std::string data(Memory::GetCharPointerUnchecked(argAddr), argLen);
 				if (!System_SendDebugOutput(data))
 					DEBUG_LOG(SCEIO, "%s", data.c_str());
 				if (PSP_CoreParameter().collectDebugOutput)
 					*PSP_CoreParameter().collectDebugOutput += data;
-				return 0;
 			}
+			return 0;
 		case EMULATOR_DEVCTL__IS_EMULATOR:
 			if (Memory::IsValidAddress(outPtr))
 				Memory::Write_U32(1, outPtr);
@@ -2932,7 +2937,13 @@ static int IoAsyncFinish(int id) {
 		case IoAsyncOp::OPEN:
 		{
 			// See notes on timing in sceIoOpen.
-			const std::string filename = Memory::GetCharPointer(params.open.filenameAddr);
+			if (!Memory::IsValidNullTerminatedString(params.open.filenameAddr)) {
+				// Bad
+				ERROR_LOG(SCEIO, "Bad pointer to filename %08x", params.open.filenameAddr);
+				us = 80;
+				break;
+			}
+			const std::string filename = Memory::GetCharPointerUnchecked(params.open.filenameAddr);
 			IFileSystem *sys = pspFileSystem.GetSystemFromFilename(filename);
 			if (sys) {
 				if (f->asyncResult == (int)SCE_KERNEL_ERROR_ERRNO_FILE_NOT_FOUND) {

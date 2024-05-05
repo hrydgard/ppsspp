@@ -310,6 +310,10 @@ inline u32 MaxSizeAtAddress(const u32 address){
 	}
 }
 
+inline const char *GetCharPointerUnchecked(const u32 address) {
+	return (const char *)GetPointerUnchecked(address);
+}
+
 // NOTE: Unlike the similar IsValidRange/IsValidAddress functions, this one is linear cost vs the size of the string,
 // for hopefully-obvious reasons.
 inline bool IsValidNullTerminatedString(const u32 address) {
@@ -337,14 +341,11 @@ inline bool IsValidRange(const u32 address, const u32 size) {
 	return ValidSize(address, size) == size;
 }
 
-inline const char *GetCharPointerUnchecked(const u32 address) {
-	return (const char *)GetPointerUnchecked(address);
-}
-
 // Used for auto-converted char * parameters, which can sometimes legitimately be null -
-// so we don't want to get caught in GetPointer's crash reporting.
+// so we don't want to get caught in GetPointer's crash reporting
+// TODO: This should use IsValidNullTerminatedString, but may be expensive since this is used so much - needs evaluation.
 inline const char *GetCharPointer(const u32 address) {
-	if (address && IsValidNullTerminatedString(address)) {
+	if (address && IsValidAddress(address)) {
 		return GetCharPointerUnchecked(address);
 	} else {
 		return nullptr;
