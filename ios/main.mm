@@ -354,7 +354,11 @@ bool System_GetPropertyBool(SystemProperty prop) {
 		case SYSPROP_CAN_JIT:
 			return g_jitAvailable;
 		case SYSPROP_LIMITED_FILE_BROWSING:
+#if PPSSPP_PLATFORM(IOS_APP_STORE)
+			return true;
+#else
 			return false;  // But will return true in app store builds.
+#endif
 #ifndef HTTPS_NOT_AVAILABLE
 		case SYSPROP_SUPPORTS_HTTPS:
 			return true;
