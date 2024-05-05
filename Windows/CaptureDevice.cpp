@@ -205,10 +205,10 @@ HRESULT ReaderCallback::OnReadSample(
 						for (int y = 0; y < dstH; y++) {
 							uint8_t *line = device->imageRGB + y * device->imgRGBLineSizes[0];
 							for (int x = 0; x < dstW / 2; x++) {
-								const uint8_t r = line[x * 3];
+								const int invX = dstW - 1 - x;
+								const uint8_t r = line[x * 3 + 0];
 								const uint8_t g = line[x * 3 + 1];
-								const uint8_t b = line[x * 3 + 1];
-								const int invX = (dstW - 1 - x);
+								const uint8_t b = line[x * 3 + 2];
 								line[x * 3 + 0] = line[invX * 3 + 0];
 								line[x * 3 + 1] = line[invX * 3 + 1];
 								line[x * 3 + 2] = line[invX * 3 + 2];

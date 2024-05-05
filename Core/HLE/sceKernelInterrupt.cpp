@@ -888,8 +888,8 @@ static int sysclib_sprintf(u32 dst, u32 fmt) {
 		ERROR_LOG(SCEKERNEL, "sysclib_sprintf result string is too long or dst is invalid");
 		return 0;
 	}
-	memcpy((char *)Memory::GetPointerUnchecked(dst), result.c_str(), result.length() + 1);
-	return result.length();
+	memcpy((char *)Memory::GetPointerUnchecked(dst), result.c_str(), (int)result.length() + 1);
+	return (int)result.length();
 }
 
 static u32 sysclib_memset(u32 destAddr, int data, int size) {
