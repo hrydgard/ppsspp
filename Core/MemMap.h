@@ -270,16 +270,6 @@ inline bool IsKernelAndNotVolatileAddress(const u32 address) {
 
 bool IsScratchpadAddress(const u32 address);
 
-// Used for auto-converted char * parameters, which can sometimes legitimately be null -
-// so we don't want to get caught in GetPointer's crash reporting.
-inline const char* GetCharPointer(const u32 address) {
-	if (address) {
-		return (const char *)GetPointer(address);
-	} else {
-		return nullptr;
-	}
-}
-
 inline const char *GetCharPointerUnchecked(const u32 address) {
 	return (const char *)GetPointerUnchecked(address);
 }
@@ -349,6 +339,16 @@ inline u32 ValidSize(const u32 address, const u32 requested_size) {
 
 inline bool IsValidRange(const u32 address, const u32 size) {
 	return ValidSize(address, size) == size;
+}
+
+// Used for auto-converted char * parameters, which can sometimes legitimately be null -
+// so we don't want to get caught in GetPointer's crash reporting.
+inline const char *GetCharPointer(const u32 address) {
+	if (address && IsValidNullTerminatedString(address)) {
+		return GetCharPointerUnchecked(address);
+	} else {
+		return nullptr;
+	}
 }
 
 }  // namespace Memory
