@@ -133,43 +133,13 @@ public:
 	// Returns true if key exists in section
 	bool Exists(const char* sectionName, const char* key) const;
 
-	// TODO: Get rid of these, in favor of the Section ones.
-	void Set(const char* sectionName, const char* key, const char* newValue) {
-		GetOrCreateSection(sectionName)->Set(key, newValue);
-	}
-	void Set(const char* sectionName, const char* key, const std::string& newValue) {
-		GetOrCreateSection(sectionName)->Set(key, newValue.c_str());
-	}
-	void Set(const char* sectionName, const char* key, int newValue) {
-		GetOrCreateSection(sectionName)->Set(key, newValue);
-	}
-	void Set(const char* sectionName, const char* key, uint32_t newValue) {
-		GetOrCreateSection(sectionName)->Set(key, newValue);
-	}
-	void Set(const char* sectionName, const char* key, uint64_t newValue) {
-		GetOrCreateSection(sectionName)->Set(key, newValue);
-	}
-	void Set(const char* sectionName, const char* key, bool newValue) {
-		GetOrCreateSection(sectionName)->Set(key, newValue);
-	}
-	void Set(const char* sectionName, const char* key, const std::vector<std::string>& newValues) {
-		GetOrCreateSection(sectionName)->Set(key, newValues);
-	}
-
-	// TODO: Get rid of these, in favor of the Section ones.
+	// These will not create the section if it doesn't exist.
 	bool Get(const char* sectionName, const char* key, std::string* value, const char* defaultValue = "");
 	bool Get(const char* sectionName, const char* key, int* value, int defaultValue = 0);
 	bool Get(const char* sectionName, const char* key, uint32_t* value, uint32_t defaultValue = 0);
 	bool Get(const char* sectionName, const char* key, uint64_t* value, uint64_t defaultValue = 0);
 	bool Get(const char* sectionName, const char* key, bool* value, bool defaultValue = false);
 	bool Get(const char* sectionName, const char* key, std::vector<std::string>& values);
-
-	template<typename T> bool GetIfExists(const char* sectionName, const char* key, T value)
-	{
-		if (Exists(sectionName, key))
-			return Get(sectionName, key, value);
-		return false;
-	}
 
 	bool GetKeys(const char* sectionName, std::vector<std::string>& keys) const;
 
