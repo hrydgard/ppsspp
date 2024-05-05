@@ -13,13 +13,13 @@
 	<key>CFBundleDisplayName</key>
 	<string>PPSSPP Gold</string>
 	<key>CFBundleExecutable</key>
-	<string>PPSSPPGold</string>
+	<string>PPSSPP</string>
 	<key>CFBundleIdentifier</key>
 	<string>org.ppsspp.ppsspp-gold</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>PPSSPPGold</string>
+	<string>PPSSPP</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>

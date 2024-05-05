@@ -374,11 +374,14 @@ if(NOT MSVC)
 		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=gnu++17")
 	endif()
 	if(CLANG)
-		add_definitions(-Wno-nullability-completeness)
-		add_definitions(-Wno-tautological-pointer-compare)
-		add_definitions(-Wno-deprecated-register)
-		add_definitions(-Wno-sign-conversion)
-		add_definitions(-Wno-shorten-64-to-32)
+		add_definitions(
+			-Wno-nullability-completeness
+			-Wno-tautological-pointer-compare
+			-Wno-deprecated-register
+			-Wno-sign-conversion
+			-Wno-shorten-64-to-32
+			#-Wdeprecated-declarations
+		)
 	endif()
 
 	if(USE_ASAN)
@@ -2827,24 +2830,21 @@ if(IOS AND NOT LIBRETRO)
 	set_source_files_properties(${RSRC_XIB_FILES}
 		PROPERTIES MACOSX_PACKAGE_LOCATION Resources
 	)
+
 	#This breaks in modern XCode. Not sure when it worked...
 	#if(CMAKE_GENERATOR STREQUAL "Xcode")
 	#	set(APP_DIR_NAME "$(TARGET_BUILD_DIR)/$(FULL_PRODUCT_NAME)")
 	#else()
 		set(APP_DIR_NAME "$<TARGET_FILE_DIR:PPSSPP>")
 	#endif()
-	add_custom_command(TARGET PPSSPP POST_BUILD
-		COMMAND mkdir -p \"${APP_DIR_NAME}\"
-		COMMAND tar -c -C ${CMAKE_CURRENT_BINARY_DIR} --exclude .DS_Store --exclude .git assets *.png | tar -x -C \"${APP_DIR_NAME}\"
-		COMMAND /bin/bash "${CMAKE_SOURCE_DIR}/ios/macbundle.sh" \"${APP_DIR_NAME}\"
-	)
+
 	set(MACOSX_DEPLOYMENT_TARGET ${DEPLOYMENT_TARGET})
 	if(IOS_APP_STORE)
 		if(GOLD)
 			set(BUNDLE_PLIST "${CMAKE_CURRENT_SOURCE_DIR}/ios/PPSSPP-AppStoreGold.plist")
 			set(BUNDLE_IDENTIFIER "org.ppsspp.ppsspp-gold")
 			set(ICON_NAME "IconGold")
-			set(PRODUCT_NAME "PPSSPPGold")
+			set(PRODUCT_NAME "PPSSPP")
 		else()
 			set(BUNDLE_PLIST "${CMAKE_CURRENT_SOURCE_DIR}/ios/PPSSPP-AppStore.plist")
 			set(BUNDLE_IDENTIFIER "org.ppsspp.ppsspp-free")
@@ -2854,13 +2854,41 @@ if(IOS AND NOT LIBRETRO)
 		message(STATUS ${DEVELOPMENT_TEAM_ID})
 		message(STATUS ${ICON_NAME})
 		message(STATUS ${DEPLOYMENT_TARGET})
+		# This is for injecting the version into the plist.
+		add_custom_command(TARGET ${TargetBin} POST_BUILD
+			COMMAND mkdir -p \"${APP_DIR_NAME}\"
+			COMMAND tar -c -C ${CMAKE_CURRENT_BINARY_DIR} --exclude .DS_Store --exclude .git assets *.png | tar -x -C \"${APP_DIR_NAME}\"
+			COMMAND /bin/bash "${CMAKE_SOURCE_DIR}/ios/macbundle.sh" \"${APP_DIR_NAME}\"
+		)
 		# https://stackoverflow.com/questions/40664125/cmake-and-code-signing-in-xcode-8-for-ios-projects
 		set_target_properties(${TargetBin} PROPERTIES
-			MACOSX_BUNDLE_INFO_PLIST ${BUNDLE_PLIST}
-			XCODE_GENERATE_SCHEME YES  # Avoid the scheme bloat in XCode
+			XCODE_GENERATE_SCHEME YES  # Avoid the scheme bloat in XCode by only setting it to YES for this target.
 			RESOURCE "ios/Launch Screen.storyboard"
 			RESOURCE "ios/Settings.bundle"
 			RESOURCE "ext/vulkan/iOS/Frameworks"
+			XCODE_ATTRIBUTE_PRODUCT_BUNDLE_IDENTIFIER ${BUNDLE_IDENTIFIER}
+			XCODE_ATTRIBUTE_PRODUCT_NAME ${PRODUCT_NAME}
+			XCODE_ATTRIBUTE_ASSETCATALOG_COMPILER_APPICON_NAME ${ICON_NAME}
+			MACOSX_BUNDLE_INFO_PLIST ${BUNDLE_PLIST}
+			# Some sources say we should generate the PLIST. There's stuff in it that
+			# I don't know how to generate, though.
+			#XCODE_ATTRIBUTE_GENERATE_INFOPLIST_FILE "YES"
+			##XCODE_ATTRIBUTE_INFOPLIST_FILE "${CMAKE_CURRENT_SOURCE_DIR}/Info.plist"
+			#XCODE_ATTRIBUTE_INFOPLIST_KEY_CFBundleDisplayName "PPSSPP"
+			#XCODE_ATTRIBUTE_INFOPLIST_KEY_NSHumanReadableCopyright  "(c)2024 PPSSPP Project"
+			#XCODE_ATTRIBUTE_INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"
+			#XCODE_ATTRIBUTE_INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"
+			#XCODE_ATTRIBUTE_INFOPLIST_KEY_NSLocationWhenInUseUsageDescription "Your location may be used to emulate Go!Explore, a GPS accessory"
+			#XCODE_ATTRIBUTE_INFOPLIST_KEY_NSCameraUsageDescription "Your camera may be used to emulate Go!Cam, a camera accessory"
+			#XCODE_ATTRIBUTE_INFOPLIST_KEY_NSMicrophoneUsageDescription "Your microphone may be used to emulate Go!Cam/Talkman, a microphone accessory"
+			#XCODE_ATTRIBUTE_INFOPLIST_KEY_UILaunchImageFile "Default.png"
+			#UIFileSharingEnabled and LSSupportsOpeningDocumentsInPlace
+			#XCODE_ATTRIBUTE_INFOPLIST_KEY_UIStatusBarHidden YES
+			#XCODE_ATTRIBUTE_INFOPLIST_KEY_UIViewControllerBasedStatusBarAppearance YES
+			#XCODE_ATTRIBUTE_INFOPLIST_KEY_UIRequiredDeviceCapabilities arm64
+			XCODE_ATTRIBUTE_INFOPLIST_KEY_UIFileSharingEnabled YES
+			XCODE_EMBED_FRAMEWORKS_REMOVE_HEADERS_ON_COPY YES
+			XCODE_EMBED_FRAMEWORKS_CODE_SIGN_ON_COPY YES
 			XCODE_ATTRIBUTE_IPHONEOS_DEPLOYMENT_TARGET ${DEPLOYMENT_TARGET}
 			XCODE_ATTRIBUTE_TARGETED_DEVICE_FAMILY "1,2"
 			XCODE_ATTRIBUTE_CLANG_ENABLE_OBJC_ARC YES
@@ -2868,8 +2896,16 @@ if(IOS AND NOT LIBRETRO)
 			XCODE_ATTRIBUTE_DEVELOPMENT_TEAM ${DEVELOPMENT_TEAM_ID}
 			XCODE_ATTRIBUTE_CODE_SIGN_IDENTITY "Apple Development"
 			XCODE_ATTRIBUTE_CODE_SIGN_STYLE "Automatic"
+			XCODE_ATTRIBUTE_SKIP_INSTALL NO
+   			XCODE_ATTRIBUTE_INSTALL_PATH "$(LOCAL_APPS_DIR)"
 		)
 	else()
+		# This is for injecting the version into the plist.
+		add_custom_command(TARGET PPSSPP POST_BUILD
+			COMMAND mkdir -p \"${APP_DIR_NAME}\"
+			COMMAND tar -c -C ${CMAKE_CURRENT_BINARY_DIR} --exclude .DS_Store --exclude .git assets *.png | tar -x -C \"${APP_DIR_NAME}\"
+			COMMAND /bin/bash "${CMAKE_SOURCE_DIR}/ios/macbundle.sh" \"${APP_DIR_NAME}\"
+		)
 		set_target_properties(${TargetBin} PROPERTIES
 			MACOSX_BUNDLE_INFO_PLIST "${CMAKE_CURRENT_SOURCE_DIR}/ios/PPSSPP-Info.plist"
 			XCODE_GENERATE_SCHEME YES

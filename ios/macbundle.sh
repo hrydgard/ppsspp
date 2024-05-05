@@ -4,7 +4,7 @@ PPSSPP="${1}"
 PPSSPPiOS="${PPSSPP}/PPSSPP"
 
 if [ ! -f "${PPSSPPiOS}" ]; then
-  echo "No such file: ${PPSSPPiOS}!"
+  echo "macbundle.sh: No such file: ${PPSSPPiOS}!"
   exit 0
 fi
 
