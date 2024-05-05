@@ -382,7 +382,7 @@ size_t DirectoryFileHandle::Seek(s32 position, FileMove type)
 		// The actual, underlying file hasn't been truncated (yet.)
 		if (type == FILEMOVE_END) {
 			type = FILEMOVE_BEGIN;
-			position = needsTrunc_ + position;
+			position = (s32)(needsTrunc_ + position);
 		}
 	}
 

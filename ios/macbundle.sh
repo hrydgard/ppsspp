@@ -18,3 +18,5 @@ else
 	plutil -replace CFBundleShortVersionString -string "" ${PPSSPP}/Info.plist
 	plutil -replace CFBundleVersion            -string "" ${PPSSPP}/Info.plist
 fi
+
+echo "macbundle.sh: Updated ${PPSSPP}/Info.plist"
