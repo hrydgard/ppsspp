@@ -456,7 +456,7 @@ void StoreScreen::ParseListing(const std::string &json) {
 		entries_.clear();
 		for (const JsonNode *pgame : entries->value) {
 			JsonGet game = pgame->value;
-			StoreEntry e;
+			StoreEntry e{};
 			e.type = ENTRY_PBPZIP;
 			e.name = GetTranslatedString(game, "name");
 			e.description = GetTranslatedString(game, "description", "");
@@ -464,6 +464,12 @@ void StoreScreen::ParseListing(const std::string &json) {
 			e.size = game.getInt("size");
 			e.downloadURL = game.getStringOr("download-url", "");
 			e.iconURL = game.getStringOr("icon-url", "");
+			e.contentRating = game.getInt("content-rating", 0);
+#if PPSSPP_PLATFORM(IOS_APP_STORE)
+			if (e.contentRating >= 100) {
+				continue;
+			}
+#endif
 			e.hidden = false;  // NOTE: Handling of the "hidden" flag is broken in old versions of PPSSPP. Do not use.
 			const char *file = game.getStringOr("file", nullptr);
 			if (!file)
@@ -483,9 +489,9 @@ void StoreScreen::CreateViews() {
 	auto mm = GetI18NCategory(I18NCat::MAINMENU);
 
 	// Top bar
-	LinearLayout *topBar = root_->Add(new LinearLayout(ORIENT_HORIZONTAL));
-	topBar->Add(new Button(di->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
-	titleText_ = new TextView(mm->T("PPSSPP Homebrew Store"));
+	LinearLayout *topBar = root_->Add(new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, 64.0f)));
+	topBar->Add(new Choice(di->T("Back"), new LinearLayoutParams(WRAP_CONTENT, FILL_PARENT)))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
+	titleText_ = new TextView(mm->T("PPSSPP Homebrew Store"), ALIGN_VCENTER, false, new LinearLayoutParams(WRAP_CONTENT, FILL_PARENT));
 	topBar->Add(titleText_);
 	UI::Drawable solid(0xFFbd9939);
 	topBar->SetBG(solid);

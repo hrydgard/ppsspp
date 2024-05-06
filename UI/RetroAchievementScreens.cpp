@@ -308,6 +308,8 @@ void RetroAchievementsSettingsScreen::CreateAccountTab(UI::ViewGroup *viewGroup)
 				return UI::EVENT_DONE;
 			});
 		} else {
+			// TODO: For text input on iOS, look into https://stackoverflow.com/questions/7253477/how-to-display-the-iphone-ipad-keyboard-over-a-full-screen-opengl-es-app
+
 			// Hack up a temporary quick login-form-ish-thing
 			viewGroup->Add(new PopupTextInputChoice(GetRequesterToken(), &username_, di->T("Username"), "", 128, screenManager()));
 			viewGroup->Add(new PopupTextInputChoice(GetRequesterToken(), &password_, di->T("Password"), "", 128, screenManager()))->SetPasswordDisplay();
@@ -410,7 +412,7 @@ void MeasureAchievement(const UIContext &dc, const rc_client_achievement_t *achi
 	}
 }
 
-void MeasureGameAchievementSummary(const UIContext &dc, float *w, float *h) {
+static void MeasureGameAchievementSummary(const UIContext &dc, float *w, float *h) {
 	std::string description = Achievements::GetGameAchievementSummary();
 
 	float tw, th;
@@ -421,12 +423,12 @@ void MeasureGameAchievementSummary(const UIContext &dc, float *w, float *h) {
 	*w += 8.0f;
 }
 
-void MeasureLeaderboardSummary(const UIContext &dc, const rc_client_leaderboard_t *leaderboard, float *w, float *h) {
+static void MeasureLeaderboardSummary(const UIContext &dc, const rc_client_leaderboard_t *leaderboard, float *w, float *h) {
 	*w = 0.0f;
 	*h = 72.0f;
 }
 
-void MeasureLeaderboardEntry(const UIContext &dc, const rc_client_leaderboard_entry_t *entry, float *w, float *h) {
+static void MeasureLeaderboardEntry(const UIContext &dc, const rc_client_leaderboard_entry_t *entry, float *w, float *h) {
 	*w = 0.0f;
 	*h = 72.0f;
 }
@@ -537,7 +539,7 @@ void RenderAchievement(UIContext &dc, const rc_client_achievement_t *achievement
 	dc.PopScissor();
 }
 
-void RenderGameAchievementSummary(UIContext &dc, const Bounds &bounds, float alpha) {
+static void RenderGameAchievementSummary(UIContext &dc, const Bounds &bounds, float alpha) {
 	using namespace UI;
 	UI::Drawable background = dc.theme->itemStyle.background;
 
@@ -579,7 +581,7 @@ void RenderGameAchievementSummary(UIContext &dc, const Bounds &bounds, float alp
 	dc.RebindTexture();
 }
 
-void RenderLeaderboardSummary(UIContext &dc, const rc_client_leaderboard_t *leaderboard, AchievementRenderStyle style, const Bounds &bounds, float alpha, float startTime, float time_s, bool hasFocus) {
+static void RenderLeaderboardSummary(UIContext &dc, const rc_client_leaderboard_t *leaderboard, AchievementRenderStyle style, const Bounds &bounds, float alpha, float startTime, float time_s, bool hasFocus) {
 	using namespace UI;
 	UI::Drawable background = dc.theme->itemStyle.background;
 	if (hasFocus) {
@@ -622,7 +624,7 @@ void RenderLeaderboardSummary(UIContext &dc, const rc_client_leaderboard_t *lead
 	dc.RebindTexture();
 }
 
-void RenderLeaderboardEntry(UIContext &dc, const rc_client_leaderboard_entry_t *entry, const Bounds &bounds, float alpha, bool hasFocus, bool isCurrentUser) {
+static void RenderLeaderboardEntry(UIContext &dc, const rc_client_leaderboard_entry_t *entry, const Bounds &bounds, float alpha, bool hasFocus, bool isCurrentUser) {
 	using namespace UI;
 	UI::Drawable background = dc.theme->itemStyle.background;
 	if (hasFocus) {

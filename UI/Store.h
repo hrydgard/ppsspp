@@ -54,6 +54,7 @@ struct StoreEntry {
 	std::string category;
 	std::string downloadURL;  // Only set for games that are not hosted on store.ppsspp.org
 	bool hidden;
+	int contentRating;  // 100 means to hide it on iOS. No other values defined yet.
 	u64 size;
 };
 
