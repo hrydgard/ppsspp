@@ -970,12 +970,23 @@ void GameSettingsScreen::CreateToolsSettings(UI::ViewGroup *tools) {
 
 	tools->Add(new ItemHeader(ms->T("Tools")));
 
-	auto retro = tools->Add(new Choice(sy->T("RetroAchievements")));
-	retro->OnClick.Add([=](UI::EventParams &) -> UI::EventReturn {
-		screenManager()->push(new RetroAchievementsSettingsScreen(gamePath_));
-		return UI::EVENT_DONE;
-	});
-	retro->SetIcon(ImageID("I_RETROACHIEVEMENTS_LOGO"));
+	bool showRetroAchievements = true;
+#if PPSSPP_PLATFORM(IOS_APP_STORE)
+	// Hide RetroAchievements login (unless the user has specified a login via the ini file).
+	// A non-working login won't pass App Store review.
+	if (g_Config.sAchievementsUserName.empty()) {
+		showRetroAchievements = false;
+	}
+#endif
+	if (showRetroAchievements) {
+		auto retro = tools->Add(new Choice(sy->T("RetroAchievements")));
+		retro->OnClick.Add([=](UI::EventParams &) -> UI::EventReturn {
+			screenManager()->push(new RetroAchievementsSettingsScreen(gamePath_));
+			return UI::EVENT_DONE;
+		});
+		retro->SetIcon(ImageID("I_RETROACHIEVEMENTS_LOGO"));
+	}
+
 	// These were moved here so use the wrong translation objects, to avoid having to change all inis... This isn't a sustainable situation :P
 	tools->Add(new Choice(sa->T("Savedata Manager")))->OnClick.Add([=](UI::EventParams &) {
 		screenManager()->push(new SavedataScreen(gamePath_));
