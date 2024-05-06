@@ -10,7 +10,7 @@ if [ ! -f "${PPSSPPiOS}" ]; then
   exit 0
 fi
 
-GIT_VERSION_FILE="${1}/../../git-version.cpp"
+GIT_VERSION_FILE="${2}/git-version.cpp"
 if [ ! -f "${GIT_VERSION_FILE}" ]; then
   echo "iosbundle.sh: No git-version.cpp file: ${GIT_VERSION_FILE}"
   exit 0

@@ -383,7 +383,8 @@ if(NOT MSVC)
 			-Wno-deprecated-register
 			-Wno-sign-conversion
 			-Wno-shorten-64-to-32
-			#-Wdeprecated-declarations
+			# Hack around a bad check for __GNUC__ in basis_universal that makes it use old stuff on iOS
+			-Wno-deprecated-builtins
 		)
 	endif()
 
@@ -1259,9 +1260,6 @@ add_library(basis_universal STATIC
 	ext/basis_universal/basisu_transcoder_tables_pvrtc2_alpha_33.inc
 	ext/basis_universal/basisu_transcoder_uastc.h
 )
-
-# Hack around a bad check for __GNUC__ that makes it use old stuff on iOS
-target_compile_options(basis_universal PRIVATE "-Wno-deprecated-builtins")
 set(BASISU_LIBRARIES basis_universal)
 
 set(nativeExtra)
@@ -2858,12 +2856,17 @@ if(IOS AND NOT LIBRETRO)
 			set(PRODUCT_NAME "PPSSPP")
 		endif()
 		message(STATUS "DevTeam: ${DEVELOPMENT_TEAM_ID} Icon: ${ICON_NAME} Target: ${TargetBin}")
+		message(STATUS "CURRENT_BINARY_DIR: ${CMAKE_CURRENT_BINARY_DIR}")
+
 		# This is for injecting the version into the plist.
 		add_custom_command(TARGET ${TargetBin} POST_BUILD
-			#COMMAND mkdir -p \"${APP_DIR_NAME}\"
-			# This tar command seems questionable? It seems to just copy png files, we already have steps for that?
-			COMMAND tar -c -C ${CMAKE_CURRENT_BINARY_DIR} --exclude .DS_Store --exclude .git assets *.png | tar -x -C -v \"${APP_DIR_NAME}\"
-			COMMAND /bin/bash "${CMAKE_SOURCE_DIR}/ios/iosbundle.sh" \"${APP_DIR_NAME}\"
+			COMMAND echo "Creating ${APP_DIR_NAME}"
+			COMMAND mkdir -p \"${APP_DIR_NAME}\"
+			# This tar command seems to be responsible for copying assets. I thought we had another step that did that..
+			# Prepend -v to the extracting command to see the files copied.
+			COMMAND tar -c -C ${CMAKE_CURRENT_BINARY_DIR} --exclude .DS_Store --exclude .git assets *.png | tar -x -C \"${APP_DIR_NAME}\"
+			# This updates the version in the plist.
+			COMMAND /bin/bash "${CMAKE_SOURCE_DIR}/ios/iosbundle.sh" \"${APP_DIR_NAME}\" "${CMAKE_CURRENT_BINARY_DIR}"
 		)
 		# https://stackoverflow.com/questions/40664125/cmake-and-code-signing-in-xcode-8-for-ios-projects
 		set_target_properties(${TargetBin} PROPERTIES

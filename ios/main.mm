@@ -370,6 +370,7 @@ bool System_GetPropertyBool(SystemProperty prop) {
 
 void System_Notify(SystemNotification notification) {
 	switch (notification) {
+	default: break;
 	}
 }
 
