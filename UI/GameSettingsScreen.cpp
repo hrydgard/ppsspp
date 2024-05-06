@@ -1231,7 +1231,9 @@ void GameSettingsScreen::CreateSystemSettings(UI::ViewGroup *systemSettings) {
 	systemSettings->Add(new PopupMultiChoice(&g_Config.iLanguage, psps->T("Game language"), defaultLanguages, -1, ARRAY_SIZE(defaultLanguages), I18NCat::PSPSETTINGS, screenManager()));
 	static const char *models[] = { "PSP-1000", "PSP-2000/3000" };
 	systemSettings->Add(new PopupMultiChoice(&g_Config.iPSPModel, sy->T("PSP Model"), models, 0, ARRAY_SIZE(models), I18NCat::SYSTEM, screenManager()))->SetEnabled(!PSP_IsInited());
+#if !PPSSPP_PLATFORM(IOS_APP_STORE)
 	systemSettings->Add(new PopupTextInputChoice(GetRequesterToken(), &g_Config.sNickName, sy->T("Change Nickname"), "", 32, screenManager()));
+#endif
 	systemSettings->Add(new CheckBox(&g_Config.bDayLightSavings, sy->T("Day Light Saving")));
 	static const char *dateFormat[] = { "YYYYMMDD", "MMDDYYYY", "DDMMYYYY" };
 	systemSettings->Add(new PopupMultiChoice(&g_Config.iDateFormat, sy->T("Date Format"), dateFormat, 0, ARRAY_SIZE(dateFormat), I18NCat::SYSTEM, screenManager()));
