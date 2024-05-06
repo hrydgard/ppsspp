@@ -483,9 +483,9 @@ void StoreScreen::CreateViews() {
 	auto mm = GetI18NCategory(I18NCat::MAINMENU);
 
 	// Top bar
-	LinearLayout *topBar = root_->Add(new LinearLayout(ORIENT_HORIZONTAL));
-	topBar->Add(new Button(di->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
-	titleText_ = new TextView(mm->T("PPSSPP Homebrew Store"));
+	LinearLayout *topBar = root_->Add(new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, 64.0f)));
+	topBar->Add(new Choice(di->T("Back"), new LinearLayoutParams(WRAP_CONTENT, FILL_PARENT)))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
+	titleText_ = new TextView(mm->T("PPSSPP Homebrew Store"), ALIGN_VCENTER, false, new LinearLayoutParams(WRAP_CONTENT, FILL_PARENT));
 	topBar->Add(titleText_);
 	UI::Drawable solid(0xFFbd9939);
 	topBar->SetBG(solid);
