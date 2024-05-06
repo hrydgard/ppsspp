@@ -456,7 +456,7 @@ void StoreScreen::ParseListing(const std::string &json) {
 		entries_.clear();
 		for (const JsonNode *pgame : entries->value) {
 			JsonGet game = pgame->value;
-			StoreEntry e;
+			StoreEntry e{};
 			e.type = ENTRY_PBPZIP;
 			e.name = GetTranslatedString(game, "name");
 			e.description = GetTranslatedString(game, "description", "");
@@ -464,6 +464,12 @@ void StoreScreen::ParseListing(const std::string &json) {
 			e.size = game.getInt("size");
 			e.downloadURL = game.getStringOr("download-url", "");
 			e.iconURL = game.getStringOr("icon-url", "");
+			e.contentRating = game.getInt("content-rating", 0);
+#if PPSSPP_PLATFORM(IOS_APP_STORE)
+			if (e.contentRating >= 100) {
+				continue;
+			}
+#endif
 			e.hidden = false;  // NOTE: Handling of the "hidden" flag is broken in old versions of PPSSPP. Do not use.
 			const char *file = game.getStringOr("file", nullptr);
 			if (!file)
