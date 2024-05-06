@@ -131,11 +131,14 @@ if(GOLD)
 	add_definitions(-DGOLD)
 	message("Gold Build")
 else()
-	message("Normal Build")
+	message("Non-gold Build")
 endif()
 
 if(IOS_APP_STORE)
 	add_definitions(-DPPSSPP_PLATFORM_IOS_APP_STORE)
+	add_definitions(-DGLES_SILENCE_DEPRECATION)
+	# Set a global default to not generate schemes for each target.
+	# Makes using XCode sligthly more sane.
 	set(CMAKE_XCODE_GENERATE_SCHEME NO)
 	message("iOS App Store build")
 else()
@@ -1256,6 +1259,9 @@ add_library(basis_universal STATIC
 	ext/basis_universal/basisu_transcoder_tables_pvrtc2_alpha_33.inc
 	ext/basis_universal/basisu_transcoder_uastc.h
 )
+
+# Hack around a bad check for __GNUC__ that makes it use old stuff on iOS
+target_compile_options(basis_universal PRIVATE "-Wno-deprecated-builtins")
 set(BASISU_LIBRARIES basis_universal)
 
 set(nativeExtra)
@@ -2851,14 +2857,13 @@ if(IOS AND NOT LIBRETRO)
 			set(ICON_NAME "Icon")
 			set(PRODUCT_NAME "PPSSPP")
 		endif()
-		message(STATUS ${DEVELOPMENT_TEAM_ID})
-		message(STATUS ${ICON_NAME})
-		message(STATUS ${DEPLOYMENT_TARGET})
+		message(STATUS "DevTeam: ${DEVELOPMENT_TEAM_ID} Icon: ${ICON_NAME} Target: ${TargetBin}")
 		# This is for injecting the version into the plist.
 		add_custom_command(TARGET ${TargetBin} POST_BUILD
-			COMMAND mkdir -p \"${APP_DIR_NAME}\"
-			COMMAND tar -c -C ${CMAKE_CURRENT_BINARY_DIR} --exclude .DS_Store --exclude .git assets *.png | tar -x -C \"${APP_DIR_NAME}\"
-			COMMAND /bin/bash "${CMAKE_SOURCE_DIR}/ios/macbundle.sh" \"${APP_DIR_NAME}\"
+			#COMMAND mkdir -p \"${APP_DIR_NAME}\"
+			# This tar command seems questionable? It seems to just copy png files, we already have steps for that?
+			COMMAND tar -c -C ${CMAKE_CURRENT_BINARY_DIR} --exclude .DS_Store --exclude .git assets *.png | tar -x -C -v \"${APP_DIR_NAME}\"
+			COMMAND /bin/bash "${CMAKE_SOURCE_DIR}/ios/iosbundle.sh" \"${APP_DIR_NAME}\"
 		)
 		# https://stackoverflow.com/questions/40664125/cmake-and-code-signing-in-xcode-8-for-ios-projects
 		set_target_properties(${TargetBin} PROPERTIES
@@ -2869,22 +2874,11 @@ if(IOS AND NOT LIBRETRO)
 			XCODE_ATTRIBUTE_PRODUCT_BUNDLE_IDENTIFIER ${BUNDLE_IDENTIFIER}
 			XCODE_ATTRIBUTE_PRODUCT_NAME ${PRODUCT_NAME}
 			XCODE_ATTRIBUTE_ASSETCATALOG_COMPILER_APPICON_NAME ${ICON_NAME}
+			BUILD_WITH_INSTALL_RPATH YES
 			MACOSX_BUNDLE_INFO_PLIST ${BUNDLE_PLIST}
 			# Some sources say we should generate the PLIST. There's stuff in it that
 			# I don't know how to generate, though.
 			#XCODE_ATTRIBUTE_GENERATE_INFOPLIST_FILE "YES"
-			##XCODE_ATTRIBUTE_INFOPLIST_FILE "${CMAKE_CURRENT_SOURCE_DIR}/Info.plist"
-			#XCODE_ATTRIBUTE_INFOPLIST_KEY_CFBundleDisplayName "PPSSPP"
-			#XCODE_ATTRIBUTE_INFOPLIST_KEY_NSHumanReadableCopyright  "(c)2024 PPSSPP Project"
-			#XCODE_ATTRIBUTE_INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"
-			#XCODE_ATTRIBUTE_INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"
-			#XCODE_ATTRIBUTE_INFOPLIST_KEY_NSLocationWhenInUseUsageDescription "Your location may be used to emulate Go!Explore, a GPS accessory"
-			#XCODE_ATTRIBUTE_INFOPLIST_KEY_NSCameraUsageDescription "Your camera may be used to emulate Go!Cam, a camera accessory"
-			#XCODE_ATTRIBUTE_INFOPLIST_KEY_NSMicrophoneUsageDescription "Your microphone may be used to emulate Go!Cam/Talkman, a microphone accessory"
-			#XCODE_ATTRIBUTE_INFOPLIST_KEY_UILaunchImageFile "Default.png"
-			#UIFileSharingEnabled and LSSupportsOpeningDocumentsInPlace
-			#XCODE_ATTRIBUTE_INFOPLIST_KEY_UIStatusBarHidden YES
-			#XCODE_ATTRIBUTE_INFOPLIST_KEY_UIViewControllerBasedStatusBarAppearance YES
 			#XCODE_ATTRIBUTE_INFOPLIST_KEY_UIRequiredDeviceCapabilities arm64
 			XCODE_ATTRIBUTE_INFOPLIST_KEY_UIFileSharingEnabled YES
 			XCODE_EMBED_FRAMEWORKS_REMOVE_HEADERS_ON_COPY YES
