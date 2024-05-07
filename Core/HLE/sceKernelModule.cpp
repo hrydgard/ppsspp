@@ -841,7 +841,7 @@ void UnexportFuncSymbol(const FuncSymbolExport &func) {
 	if (strcmp(func.moduleName, "sceLibfont") == 0) {
 		if (FuncImportIsSyscall(func.moduleName, func.nid)) {
 			// Oops, HLE covers this.
-			// return;
+			return;
 		}
 	}
 
