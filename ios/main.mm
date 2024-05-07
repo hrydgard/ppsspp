@@ -443,7 +443,9 @@ void System_AskForPermission(SystemPermission permission) {}
 
 PermissionStatus System_GetPermissionStatus(SystemPermission permission) { return PERMISSION_STATUS_GRANTED; }
 
+#if !PPSSPP_PLATFORM(IOS_APP_STORE)
 FOUNDATION_EXTERN void AudioServicesPlaySystemSoundWithVibration(unsigned long, objc_object*, NSDictionary*);
+#endif
 
 BOOL SupportsTaptic() {
 	// we're on an iOS version that cannot instantiate UISelectionFeedbackGenerator, so no.
@@ -470,6 +472,7 @@ void System_Vibrate(int mode) {
 		}
 		[app.feedbackGenerator selectionChanged];
 	} else {
+#if !PPSSPP_PLATFORM(IOS_APP_STORE)
 		NSMutableDictionary *dictionary = [NSMutableDictionary dictionary];
 		NSArray *pattern = @[@YES, @30, @NO, @2];
 
@@ -477,6 +480,7 @@ void System_Vibrate(int mode) {
 		dictionary[@"Intensity"] = @2;
 
 		AudioServicesPlaySystemSoundWithVibration(kSystemSoundID_Vibrate, nil, dictionary);
+#endif
 	}
 }
 
