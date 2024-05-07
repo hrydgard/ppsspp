@@ -810,7 +810,7 @@ void ImportFuncSymbol(const FuncSymbolImport &func, bool reimporting, const char
 }
 
 void ExportFuncSymbol(const FuncSymbolExport &func) {
-	if (strcmp(func.moduleName, "fontfuck") == 0) {
+	if (strcmp(func.moduleName, "sceLibfont") == 0) {
 		if (FuncImportIsSyscall(func.moduleName, func.nid)) {
 			// HLE covers this already - let's ignore the function.
 			WARN_LOG(LOADER, "Ignoring func export %s/%08x, already implemented in HLE.", func.moduleName, func.nid);
