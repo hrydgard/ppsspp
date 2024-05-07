@@ -838,9 +838,11 @@ void ExportFuncSymbol(const FuncSymbolExport &func) {
 }
 
 void UnexportFuncSymbol(const FuncSymbolExport &func) {
-	if (FuncImportIsSyscall(func.moduleName, func.nid)) {
-		// Oops, HLE covers this.
-		return;
+	if (strcmp(func.moduleName, "sceLibfont") == 0) {
+		if (FuncImportIsSyscall(func.moduleName, func.nid)) {
+			// Oops, HLE covers this.
+			// return;
+		}
 	}
 
 	u32 error;
