@@ -1269,13 +1269,11 @@ void MainScreen::CreateViews() {
 	if (!vertical) {
 		rightColumnChoices->Add(new Choice(mm->T("www.ppsspp.org")))->OnClick.Handle(this, &MainScreen::OnPPSSPPOrg);
 
-#if !PPSSPP_PLATFORM(IOS_APP_STORE)
 		if (!System_GetPropertyBool(SYSPROP_APP_GOLD) && (System_GetPropertyInt(SYSPROP_DEVICE_TYPE) != DEVICE_TYPE_VR)) {
 			Choice *gold = rightColumnChoices->Add(new Choice(mm->T("Buy PPSSPP Gold")));
 			gold->OnClick.Handle(this, &MainScreen::OnSupport);
 			gold->SetIcon(ImageID("I_ICONGOLD"), 0.5f);
 		}
-#endif
 	}
 
 	rightColumnChoices->Add(new Spacer(25.0));
@@ -1540,7 +1538,9 @@ UI::EventReturn MainScreen::OnCredits(UI::EventParams &e) {
 }
 
 UI::EventReturn MainScreen::OnSupport(UI::EventParams &e) {
-#ifdef __ANDROID__
+#if PPSSPP_PLATFORM(IOS_APP_STORE)
+	System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://apps.apple.com/us/app/ppsspp-gold-psp-emulator/id6502287918");
+#elif PPSSPP_PLATFORM(ANDROID)
 	System_LaunchUrl(LaunchUrlType::BROWSER_URL, "market://details?id=org.ppsspp.ppssppgold");
 #else
 	System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://www.ppsspp.org/buygold");
