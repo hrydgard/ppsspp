@@ -28,6 +28,16 @@
 	<string>????</string>
 	<key>CFBundleVersion</key>
 	<string>1.0</string>
+	<key>CFBundleIcons</key>
+	<dict>
+		<key>CFBundlePrimaryIcon</key>
+		<dict>
+			<key>CFBundleIconFiles</key>
+			<array>
+			<string>assets</string>
+			</array>
+		</dict>
+	</dict>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
@@ -49,13 +59,6 @@
 	<array>
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
-	</array>
-	<key>CFBundleIconFiles</key>
-	<array>
-		<string>assets/Icon-72.png</string>
-		<string>assets/Icon-72@2x.png</string>
-		<string>assets/Icon.png</string>
-		<string>assets/Icon@2x.png</string>
 	</array>
 	<key>UILaunchImageFile</key>
 	<string>Default.png</string>

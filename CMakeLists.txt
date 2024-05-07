@@ -2782,7 +2782,12 @@ if(TargetBin)
 		endif()
 
 		if(IOS)
-			add_executable(${TargetBin} MACOSX_BUNDLE ${ICON_PATH_ABS} ${NativeAssets} ${BigFontAssets} ${SHADER_FILES} ${THEME_FILE} ${DEBUGGER_FILES} ${FLASH0_FILES} ${LANG_FILES} ${NativeAppSource} "ios/Settings.bundle" "ios/Launch Screen.storyboard")
+			set(AssetCatalog "")
+			if(IOS_APP_STORE)
+				message("Adding asset catalog to build")
+				set(AssetCatalog "${CMAKE_SOURCE_DIR}/ios/assets.xcassets")
+			endif()
+			add_executable(${TargetBin} MACOSX_BUNDLE ${ICON_PATH_ABS} ${NativeAssets} ${BigFontAssets} ${AssetCatalog} ${SHADER_FILES} ${THEME_FILE} ${DEBUGGER_FILES} ${FLASH0_FILES} ${LANG_FILES} ${NativeAppSource} "ios/Settings.bundle" "ios/Launch Screen.storyboard")
 			if(NOT IOS_APP_STORE)
 				file(INSTALL "${CMAKE_SOURCE_DIR}/ext/vulkan/iOS/Frameworks/libMoltenVK.dylib" DESTINATION "${CMAKE_BINARY_DIR}/PPSSPP.app/Frameworks/")
 			endif()
@@ -2831,8 +2836,8 @@ if(IOS AND NOT LIBRETRO)
 	if(IOS_DEBUG)
 		file(INSTALL pspautotests DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/assets)
 	endif()
-	set(RSRC_XIB_FILES assets/Icon@2x.png)
-	set(RSRC_XIB_FILES "Launch Screen.storyboard")
+	set(RSRC_XIB_FILES assets/Icon@2x.png "Launch Screen.storyboard" ${CMAKE_CURRENT_SOURCE_DIR}/ios/assets.xcassets)
+
 	set_source_files_properties(${RSRC_XIB_FILES}
 		PROPERTIES MACOSX_PACKAGE_LOCATION Resources
 	)
@@ -2849,12 +2854,12 @@ if(IOS AND NOT LIBRETRO)
 		if(GOLD)
 			set(BUNDLE_PLIST "${CMAKE_CURRENT_SOURCE_DIR}/ios/PPSSPP-AppStoreGold.plist")
 			set(BUNDLE_IDENTIFIER "org.ppsspp.ppsspp-gold")
-			set(ICON_NAME "IconGold")
+			set(ICON_NAME "AppIconGold")
 			set(PRODUCT_NAME "PPSSPP")
 		else()
 			set(BUNDLE_PLIST "${CMAKE_CURRENT_SOURCE_DIR}/ios/PPSSPP-AppStore.plist")
 			set(BUNDLE_IDENTIFIER "org.ppsspp.ppsspp-free")
-			set(ICON_NAME "Icon")
+			set(ICON_NAME "AppIcon")
 			set(PRODUCT_NAME "PPSSPP")
 		endif()
 		message(STATUS "DevTeam: ${DEVELOPMENT_TEAM_ID} Icon: ${ICON_NAME} Target: ${TargetBin}")
@@ -2875,6 +2880,7 @@ if(IOS AND NOT LIBRETRO)
 			XCODE_GENERATE_SCHEME YES  # Avoid the scheme bloat in XCode by only setting it to YES for this target.
 			RESOURCE "ios/Launch Screen.storyboard"
 			RESOURCE "ios/Settings.bundle"
+			RESOURCE "ios/assets.xcassets"
 			RESOURCE "ext/vulkan/iOS/Frameworks"
 			XCODE_ATTRIBUTE_PRODUCT_BUNDLE_IDENTIFIER ${BUNDLE_IDENTIFIER}
 			XCODE_ATTRIBUTE_PRODUCT_NAME ${PRODUCT_NAME}
