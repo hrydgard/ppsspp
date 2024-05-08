@@ -482,6 +482,7 @@ public:
 	float fCameraSide;
 	float fCanvasDistance;
 	float fCanvas3DDistance;
+	float fFieldOfViewPercentage;
 	float fHeadUpDisplayScale;
 	float fMotionLength;
 	float fHeadRotationScale;

@@ -958,6 +958,7 @@ static const ConfigSetting vrSettings[] = {
 	ConfigSetting("VRCameraPitch", &g_Config.iCameraPitch, 0, CfgFlag::PER_GAME),
 	ConfigSetting("VRCanvasDistance", &g_Config.fCanvasDistance, 12.0f, CfgFlag::DEFAULT),
 	ConfigSetting("VRCanvas3DDistance", &g_Config.fCanvas3DDistance, 3.0f, CfgFlag::DEFAULT),
+	ConfigSetting("VRFieldOfView", &g_Config.fFieldOfViewPercentage, 100.0f, CfgFlag::PER_GAME),
 	ConfigSetting("VRHeadUpDisplayScale", &g_Config.fHeadUpDisplayScale, 0.3f, CfgFlag::PER_GAME),
 	ConfigSetting("VRMotionLength", &g_Config.fMotionLength, 0.5f, CfgFlag::DEFAULT),
 	ConfigSetting("VRHeadRotationScale", &g_Config.fHeadRotationScale, 5.0f, CfgFlag::PER_GAME),
