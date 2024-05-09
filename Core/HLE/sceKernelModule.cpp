@@ -1150,6 +1150,62 @@ static int gzipDecompress(u8 *OutBuffer, int OutBufferLength, u8 *InBuffer) {
 	return stream.total_out;
 }
 
+static void parsePrxLibInfo(const u8* ptr, u32 headerSize) {
+	// 0x0 - ~SCE
+	// 0x4 - the header's size
+	// At some offset (starting from 0x8) - the lib info
+	const u8 start = 0x8;
+	const u8 lib_info_size = 8 + 12 + 4; // The prefix, libname and version
+
+	if (headerSize - start < lib_info_size) {
+		// That's very wrong!
+		WARN_LOG(SCEMODULE, "~SCE module, header too small (0x%x bytes) to fit a lib info", headerSize);
+		return;
+	}
+
+	auto end = ptr + headerSize;
+	ptr += start;
+	while (*ptr == 0x0 && ptr < end) {
+		++ptr;
+	}
+
+	// Now that we have found the start, let's do one more check
+	if (end - ptr < lib_info_size) {
+		// That's very wrong!
+		WARN_LOG(SCEMODULE, "~SCE module, unexpected header (not an error)");
+		return;
+	}
+
+	// The lib info prefix looks like {'\', 'y', 'r', '=', '`', 'c', '`', '0'} (Big Endian)
+	const u64_le lib_info_prefix = 0x306063603D72795C;
+	auto lib_info_ptr = reinterpret_cast<const u64_le*>(ptr);
+	if (*lib_info_ptr != lib_info_prefix) {
+		// That's very wrong!
+		WARN_LOG(SCEMODULE, "~SCE module, unexpected header (not an error)");
+		return;
+	}
+	ptr += sizeof(lib_info_prefix);
+
+	// Decipher the Caesar cipher with sanity checks (isprint)
+
+	u8 nameBuffer[12 + 1];
+	for (int i = 0; i < 12; ++i, ++ptr) {
+		u8 symbol = *ptr - 0x12u;
+		nameBuffer[i] = isprint(symbol) ? symbol : '?';
+	}
+	nameBuffer[12] = '\0';
+
+	u8 versionBuffer[8] = "?.?.?.?";
+	for (int i = 0; i < 4; ++i, ++ptr) {
+		u8 symbol = *ptr - 0x14u;
+		if (isprint(symbol)) {
+			versionBuffer[2 * i] = symbol;
+		}
+	}
+	
+	INFO_LOG(SCEMODULE, "~SCE module: Lib-PSP %s (SDK %s)", nameBuffer, versionBuffer);
+}
+
 static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 loadAddress, bool fromTop, std::string *error_string, u32 *magic, u32 &error) {
 	PSPModule *module = new PSPModule();
 	kernelObjects.Create(module);
@@ -1164,12 +1220,19 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 	u8 *newptr = 0;
 	u32_le *magicPtr = (u32_le *) ptr;
 	if (*magicPtr == 0x4543537e) { // "~SCE"
-		INFO_LOG(SCEMODULE, "~SCE module, skipping header");
+
 		u32 headerSize = *(u32_le*)(ptr + 4);
 		if (headerSize < elfSize) {
+			// Parse and print the lib info
+			parsePrxLibInfo(ptr, headerSize);
+
+			// Advance the pointer to the relevant data
 			ptr += headerSize;
 			elfSize -= headerSize;
 			magicPtr = (u32_le *)ptr;
+		}
+		else {
+			ERROR_LOG(SCEMODULE, "~SCE module: bad data");
 		}
 	}
 	*magic = *magicPtr;
