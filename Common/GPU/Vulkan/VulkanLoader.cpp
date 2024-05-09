@@ -285,6 +285,7 @@ static const char * const so_names[] = {
 	"MoltenVK",
 #elif PPSSPP_PLATFORM(MAC)
 	"@executable_path/../Frameworks/libMoltenVK.dylib",
+	"MoltenVK",
 #else
 	"libvulkan.so",
 #if !defined(__ANDROID__)
