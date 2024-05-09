@@ -842,6 +842,15 @@ static void check_variables(CoreParameter &coreParam)
          g_Config.iTexFiltering = 4;
    }
 
+   var.key = "ppsspp_smart_2d_texture_filtering";
+   if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value)
+   {
+      if (!strcmp(var.value, "disabled"))
+         g_Config.bSmart2DTexFiltering = false;
+      else
+         g_Config.bSmart2DTexFiltering = true;
+   }
+
    var.key = "ppsspp_texture_replacement";
    if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value)
    {
