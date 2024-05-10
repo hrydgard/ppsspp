@@ -250,8 +250,7 @@ void IRJit::RunLoopUntil(u64 globalticks) {
 			u32 inst = Memory::ReadUnchecked_U32(mips_->pc);
 			u32 opcode = inst & 0xFF000000;
 			if (opcode == MIPS_EMUHACK_OPCODE) {
-				u32 data = inst & 0xFFFFFF;
-				IRBlock *block = blocks_.GetBlock(data);
+				IRBlock *block = blocks_.GetBlockUnchecked(inst & 0xFFFFFF);
 				u32 startPC = mips_->pc;
 				mips_->pc = IRInterpret(mips_, block->GetInstructions(), block->GetNumInstructions());
 				// Note: this will "jump to zero" on a badly constructed block missing exits.

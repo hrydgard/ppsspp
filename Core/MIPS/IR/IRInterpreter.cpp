@@ -1138,12 +1138,13 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, int count) {
 			// Unimplemented IR op. Bad.
 			Crash();
 		}
-#ifdef _DEBUG
-		if (mips->r[0] != 0)
-			Crash();
-#endif
 		inst++;
 	}
+
+#ifdef _DEBUG
+	if (mips->r[0] != 0)
+		Crash();
+#endif
 
 	// We hit count.  If this is a full block, it was badly constructed.
 	return 0;
