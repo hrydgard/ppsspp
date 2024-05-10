@@ -481,6 +481,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/GPU/Common/ReinterpretFramebuffer.cpp \
   $(SRC)/GPU/Common/DepthBufferCommon.cpp \
   $(SRC)/GPU/Common/VertexDecoderCommon.cpp.arm \
+  $(SRC)/GPU/Common/VertexDecoderHandwritten.cpp.arm \
   $(SRC)/GPU/Common/TextureCacheCommon.cpp.arm \
   $(SRC)/GPU/Common/TextureScalerCommon.cpp.arm \
   $(SRC)/GPU/Common/ShaderCommon.cpp \

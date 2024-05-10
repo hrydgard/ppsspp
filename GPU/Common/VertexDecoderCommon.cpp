@@ -36,6 +36,7 @@
 #include "GPU/ge_constants.h"
 #include "GPU/Math3D.h"
 #include "GPU/Common/VertexDecoderCommon.h"
+#include "GPU/Common/VertexDecoderHandwritten.h"
 
 static const u8 tcsize[4] = { 0, 2, 4, 8 }, tcalign[4] = { 0, 1, 2, 4 };
 static const u8 colsize[8] = { 0, 0, 0, 0, 2, 2, 2, 4 }, colalign[8] = { 0, 0, 0, 0, 2, 2, 2, 4 };
@@ -1281,6 +1282,14 @@ void VertexDecoder::SetVertexType(u32 fmt, const VertexDecoderOptions &options, 
 	}
 
 	_assert_msg_(decFmt.uvfmt == DEC_FLOAT_2 || decFmt.uvfmt == DEC_NONE, "Reader only supports float UV");
+
+	// See GetVertTypeID
+	uint32_t fmtWithoutSkinFlag = (fmt_ & ~0x04000000);
+	if (fmtWithoutSkinFlag == (GE_VTYPE_TC_8BIT | GE_VTYPE_COL_5551 | GE_VTYPE_POS_16BIT)) {
+		// Can skip looking up in the JIT.
+		jitted_ = &VtxDec_Tu8_C5551_Ps16;
+		return;
+	}
 
 	// Attempt to JIT as well. But only do that if the main CPU JIT is enabled, in order to aid
 	// debugging attempts - if the main JIT doesn't work, this one won't do any better, probably.

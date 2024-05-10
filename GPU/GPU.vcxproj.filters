@@ -273,6 +273,9 @@
     <ClInclude Include="Common\TextureReplacer.h">
       <Filter>Common</Filter>
     </ClInclude>
+    <ClInclude Include="Common\VertexDecoderHandwritten.h">
+      <Filter>Common</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Math3D.cpp">
@@ -540,6 +543,9 @@
       <Filter>Common</Filter>
     </ClCompile>
     <ClCompile Include="Common\TextureReplacer.cpp">
+      <Filter>Common</Filter>
+    </ClCompile>
+    <ClCompile Include="Common\VertexDecoderHandwritten.cpp">
       <Filter>Common</Filter>
     </ClCompile>
   </ItemGroup>

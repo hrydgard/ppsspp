@@ -463,6 +463,7 @@ SOURCES_C +=\
 SOURCES_CXX += \
 	$(GPUCOMMONDIR)/Draw2D.cpp \
 	$(GPUCOMMONDIR)/VertexDecoderCommon.cpp \
+	$(GPUCOMMONDIR)/VertexDecoderHandwritten.cpp \
 	$(GPUCOMMONDIR)/GPUStateUtils.cpp \
 	$(GPUCOMMONDIR)/DrawEngineCommon.cpp \
 	$(GPUCOMMONDIR)/SplineCommon.cpp \

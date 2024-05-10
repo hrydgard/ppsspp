@@ -1,0 +1,115 @@
+#include "Common/CommonTypes.h"
+#include "Common/Data/Convert/ColorConv.h"
+#include "GPU/Common/VertexDecoderCommon.h"
+#include "GPU/GPUState.h"
+
+
+// Candidates for hand-writing
+// (found using our custom Very Sleepy).
+// GPU::P:_f_N:_s8_C:_8888_T:_u16__(24b)_040001BE  (5%+ of God of War execution)
+// GPU::P:_f_N:_s8_C:_8888_T:_u16_W:_f_(1x)__(28b)_040007BE (1%+ of God of War execution)
+
+
+void VtxDec_Tu8_C5551_Ps16(const u8 *srcp, u8 *dstp, int count, const UVScale *uvScaleOffset) {
+	struct GTAVTX {
+		union {
+			struct {
+				u8 u;
+				u8 v;
+			};
+			u16 uv;
+		};
+		u16 col;
+		s16 x;
+		s16 y;
+		s16 z;
+	};
+	// NOTE: This might be different for different vertex format.
+	struct OutVTX {
+		float u;
+		float v;
+		uint32_t col;
+		float x;
+		float y;
+		float z;
+	};
+	const GTAVTX *src = (const GTAVTX *)srcp;
+	OutVTX *dst = (OutVTX *)dstp;
+	float uscale = uvScaleOffset->uScale * (1.0f / 128.0f);
+	float vscale = uvScaleOffset->vScale * (1.0f / 128.0f);
+	float uoff = uvScaleOffset->uOff;
+	float voff = uvScaleOffset->vOff;
+
+	u32 alpha = 0xFFFFFFFF;
+
+#if PPSSPP_ARCH(SSE2)
+	__m128 uvOff = _mm_setr_ps(uoff, voff, uoff, voff);
+	__m128 uvScale = _mm_setr_ps(uscale, vscale, uscale, vscale);
+	__m128 posScale = _mm_set1_ps(1.0f / 32768.0f);
+	__m128i rmask = _mm_set1_epi32(0x001F);
+	__m128i gmask = _mm_set1_epi32(0x03E0);
+	__m128i bmask = _mm_set1_epi32(0x7c00);
+	__m128i amask = _mm_set1_epi32(0x8000);
+	__m128i lowbits = _mm_set1_epi32(0x00070707);
+
+	// Two vertices at a time, we can share some calculations.
+	// It's OK to accidentally decode an extra vertex.
+	for (int i = 0; i < count; i += 2) {
+		__m128i pos0 = _mm_loadl_epi64((const __m128i *) & src[i].x);
+		__m128i pos1 = _mm_loadl_epi64((const __m128i *) & src[i + 1].x);
+		// Translate UV, combined. TODO: Can possibly shuffle UV and col together here
+		uint32_t uv0 = (uint32_t)src[i].uv | ((uint32_t)src[i + 1].uv << 16);
+		uint64_t col0 = (uint64_t)src[i].col | ((uint64_t)src[i + 1].col << 32);
+		__m128i pos0_32 = _mm_srai_epi32(_mm_unpacklo_epi16(pos0, pos0), 16);
+		__m128i pos1_32 = _mm_srai_epi32(_mm_unpacklo_epi16(pos1, pos1), 16);
+		__m128 pos0_ext = _mm_mul_ps(_mm_cvtepi32_ps(pos0_32), posScale);
+		__m128 pos1_ext = _mm_mul_ps(_mm_cvtepi32_ps(pos1_32), posScale);
+
+		__m128i uv8 = _mm_set1_epi32(uv0);
+		__m128i uv16 = _mm_unpacklo_epi8(uv8, uv8);
+		__m128i uv32 = _mm_srli_epi32(_mm_unpacklo_epi16(uv16, uv16), 24);
+		__m128d uvf = _mm_castps_pd(_mm_add_ps(_mm_mul_ps(_mm_cvtepi32_ps(uv32), uvScale), uvOff));
+		alpha &= col0;
+
+		// Combined RGBA
+		__m128i col = _mm_set1_epi64x(col0);
+		__m128i r = _mm_slli_epi32(_mm_and_si128(col, rmask), 8 - 5);
+		__m128i g = _mm_slli_epi32(_mm_and_si128(col, gmask), 16 - 10);
+		__m128i b = _mm_slli_epi32(_mm_and_si128(col, bmask), 24 - 15);
+		__m128i a = _mm_srai_epi32(_mm_slli_epi32(_mm_and_si128(col, amask), 16), 7);
+		col = _mm_or_si128(_mm_or_si128(r, g), b);
+		col = _mm_or_si128(col, _mm_and_si128(_mm_srli_epi32(col, 5), lowbits));
+		col = _mm_or_si128(col, a);
+
+		// TODO: Mix into fewer stores.
+		_mm_storeu_ps(&dst[i].x, pos0_ext);
+		_mm_storeu_ps(&dst[i + 1].x, pos1_ext);
+		_mm_storel_pd((double *)&dst[i].u, uvf);
+		_mm_storeh_pd((double *)&dst[i + 1].u, uvf);
+		dst[i].col = _mm_cvtsi128_si32(col);
+		dst[i + 1].col = _mm_cvtsi128_si32(_mm_shuffle_epi32(col, _MM_SHUFFLE(1, 1, 1, 1)));
+	}
+
+	alpha = alpha & (alpha >> 16);
+
+#else
+
+	for (int i = 0; i < count; i++) {
+		float u = src[i].u * uscale + uoff;
+		float v = src[i].v * vscale + voff;
+		alpha &= src[i].col;
+		uint32_t color = RGBA5551ToRGBA8888(src[i].col);
+		float x = src[i].x * (1.0f / 32768.0f);
+		float y = src[i].y * (1.0f / 32768.0f);
+		float z = src[i].z * (1.0f / 32768.0f);
+		dst[i].col = color;
+		dst[i].u = u;
+		dst[i].v = v;
+		dst[i].x = x;
+		dst[i].y = y;
+		dst[i].z = z;
+	}
+
+#endif
+	gstate_c.vertexFullAlpha = (alpha >> 15) & 1;
+}
