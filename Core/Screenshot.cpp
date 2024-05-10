@@ -30,6 +30,7 @@
 #include "Core/Screenshot.h"
 #include "Core/Core.h"
 #include "GPU/Common/GPUDebugInterface.h"
+#include "GPU/Common/FramebufferManagerCommon.h"
 #include "GPU/GPUInterface.h"
 #include "GPU/GPUState.h"
 
@@ -328,28 +329,30 @@ static GPUDebugBuffer ApplyRotation(const GPUDebugBuffer &buf, DisplayRotation r
 	return rotated;
 }
 
-bool TakeGameScreenshot(const Path &filename, ScreenshotFormat fmt, ScreenshotType type, int *width, int *height, int maxRes) {
-	if (!gpuDebug) {
-		ERROR_LOG(SYSTEM, "Can't take screenshots when GPU not running");
-		return false;
-	}
+bool TakeGameScreenshot(Draw::DrawContext *draw, const Path &filename, ScreenshotFormat fmt, ScreenshotType type, int *width, int *height, int maxRes) {
 	GPUDebugBuffer buf;
 	bool success = false;
 	u32 w = (u32)-1;
 	u32 h = (u32)-1;
 
 	if (type == SCREENSHOT_DISPLAY || type == SCREENSHOT_RENDER) {
+		if (!gpuDebug) {
+			ERROR_LOG(SYSTEM, "Can't take screenshots when GPU not running");
+			return false;
+		}
 		success = gpuDebug->GetCurrentFramebuffer(buf, type == SCREENSHOT_RENDER ? GPU_DBG_FRAMEBUF_RENDER : GPU_DBG_FRAMEBUF_DISPLAY, maxRes);
 		w = maxRes > 0 ? 480 * maxRes : PSP_CoreParameter().renderWidth;
 		h = maxRes > 0 ? 272 * maxRes : PSP_CoreParameter().renderHeight;
 	} else if (g_display.rotation != DisplayRotation::ROTATE_0) {
+		_dbg_assert_(draw);
 		GPUDebugBuffer temp;
-		success = gpuDebug->GetOutputFramebuffer(temp);
+		success = ::GetOutputFramebuffer(draw, buf);
 		if (success) {
 			buf = ApplyRotation(temp, g_display.rotation);
 		}
 	} else {
-		success = gpuDebug->GetOutputFramebuffer(buf);
+		_dbg_assert_(draw);
+		success = ::GetOutputFramebuffer(draw, buf);
 	}
 
 	if (!success) {

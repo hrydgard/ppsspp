@@ -107,7 +107,6 @@ namespace MainWindow {
 		EnableMenuItem(menu, ID_DEBUG_LOADSYMFILE, menuEnable);
 		EnableMenuItem(menu, ID_DEBUG_SAVESYMFILE, menuEnable);
 		EnableMenuItem(menu, ID_DEBUG_RESETSYMBOLTABLE, menuEnable);
-		EnableMenuItem(menu, ID_DEBUG_TAKESCREENSHOT, menuEnable);
 		EnableMenuItem(menu, ID_DEBUG_SHOWDEBUGSTATISTICS, menuInGameEnable);
 		EnableMenuItem(menu, ID_DEBUG_EXTRACTFILE, menuEnable);
 		EnableMenuItem(menu, ID_DEBUG_MEMORYBASE, menuInGameEnable);
