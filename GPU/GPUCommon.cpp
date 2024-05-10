@@ -1675,11 +1675,12 @@ void GPUCommon::DoBlockTransfer(u32 skipDrawReason) {
 	if ((dstBasePtr & 0x04800000) == 0x04800000)
 		dstBasePtr &= ~0x00800000;
 
-	// Use height less one to account for width, which can be greater or less than stride.
+	// Use height less one to account for width, which can be greater or less than stride, and then add it on for the last line.
+	// NOTE: The sizes are only used for validity checks and memory info tracking.
 	const uint32_t src = srcBasePtr + (srcY * srcStride + srcX) * bpp;
-	const uint32_t srcSize = (height - 1) * (srcStride + width) * bpp;
 	const uint32_t dst = dstBasePtr + (dstY * dstStride + dstX) * bpp;
-	const uint32_t dstSize = (height - 1) * (dstStride + width) * bpp;
+	const uint32_t srcSize = ((height - 1) * srcStride) + width * bpp;
+	const uint32_t dstSize = ((height - 1) * dstStride) + width * bpp;
 
 	bool srcDstOverlap = src + srcSize > dst && dst + dstSize > src;
 	bool srcValid = Memory::IsValidRange(src, srcSize);

@@ -959,8 +959,9 @@ static int sceAtracLowLevelDecode(int atracID, u32 sourceAddr, u32 sourceBytesCo
 
 	int bytesConsumed = 0;
 	int outSamples = 0;
-	atrac->Decoder()->Decode(srcp, atrac->GetTrack().BytesPerFrame(), &bytesConsumed, 2, outp, &outSamples);
-	int bytesWritten = outSamples * 2 * sizeof(int16_t);
+	int channels = atrac->GetOutputChannels();
+	atrac->Decoder()->Decode(srcp, atrac->GetTrack().BytesPerFrame(), &bytesConsumed, channels, outp, &outSamples);
+	int bytesWritten = outSamples * channels * sizeof(int16_t);
 	*srcConsumed = bytesConsumed;
 	*outWritten = bytesWritten;
 

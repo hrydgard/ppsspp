@@ -1008,19 +1008,19 @@ namespace MainWindow
 					return DefWindowProc(hWnd, message, wParam, lParam);
 
 				HDROP hdrop = (HDROP)wParam;
-				int count = DragQueryFile(hdrop,0xFFFFFFFF,0,0);
+				int count = DragQueryFile(hdrop, 0xFFFFFFFF, 0, 0);
 				if (count != 1) {
-					MessageBox(hwndMain,L"You can only load one file at a time",L"Error",MB_ICONINFORMATION);
-				}
-				else
-				{
-					TCHAR filename[512];
-					if (DragQueryFile(hdrop, 0, filename, 512) != 0) {
+					// TODO: Translate? Or just not bother?
+					MessageBox(hwndMain, L"You can only load one file at a time", L"Error", MB_ICONINFORMATION);
+				} else {
+					TCHAR filename[1024];
+					if (DragQueryFile(hdrop, 0, filename, ARRAY_SIZE(filename)) != 0) {
 						const std::string utf8_filename = ReplaceAll(ConvertWStringToUTF8(filename), "\\", "/");
 						System_PostUIMessage(UIMessage::REQUEST_GAME_BOOT, utf8_filename);
 						Core_EnableStepping(false);
 					}
 				}
+				DragFinish(hdrop);
 			}
 			break;
 

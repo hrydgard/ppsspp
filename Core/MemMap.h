@@ -337,6 +337,7 @@ inline u32 ValidSize(const u32 address, const u32 requested_size) {
 	return requested_size;
 }
 
+// NOTE: If size == 0, any address will be accepted. This may not be ideal for all cases.
 inline bool IsValidRange(const u32 address, const u32 size) {
 	return ValidSize(address, size) == size;
 }
