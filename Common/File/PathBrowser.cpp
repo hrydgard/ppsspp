@@ -168,24 +168,26 @@ void PathBrowser::HandlePath() {
 				break;
 			}
 			lastPath = pendingPath_;
-			bool success = false;
 			if (lastPath.Type() == PathType::HTTP) {
 				guard.unlock();
 				results.clear();
-				success = LoadRemoteFileList(lastPath, userAgent_, &pendingCancel_, results);
+				success_ = LoadRemoteFileList(lastPath, userAgent_, &pendingCancel_, results);
 				guard.lock();
 			} else if (lastPath.empty()) {
 				results.clear();
-				success = true;
+				success_ = true;
 			} else {
 				guard.unlock();
 				results.clear();
-				success = File::GetFilesInDir(lastPath, &results, nullptr);
+				success_ = File::GetFilesInDir(lastPath, &results, nullptr);
+				if (!success_) {
+					WARN_LOG(IO, "PathBrowser: Failed to list directory: %s", lastPath.c_str());
+				}
 				guard.lock();
 			}
 
 			if (pendingPath_ == lastPath) {
-				if (success && !pendingCancel_) {
+				if (success_ && !pendingCancel_) {
 					pendingFiles_ = results;
 				}
 				pendingPath_.clear();

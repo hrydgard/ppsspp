@@ -773,7 +773,11 @@ void GameBrowser::Refresh() {
 			if (System_GetPropertyBool(SYSPROP_HAS_ADDITIONAL_STORAGE)) {
 				topBar->Add(new Choice(ImageID("I_SDCARD"), new LayoutParams(WRAP_CONTENT, 64.0f)))->OnClick.Handle(this, &GameBrowser::StorageClick);
 			}
-#if PPSSPP_PLATFORM(IOS) || PPSSPP_PLATFORM(MAC)
+#if PPSSPP_PLATFORM(IOS_APP_STORE)
+			// Don't show a browse button, not meaningful to browse outside the documents folder it seems,
+			// as we can't list things like document folders of another app, as far as I can tell.
+			// However, we do show a Load.. button for picking individual files, that seems to work.
+#elif PPSSPP_PLATFORM(IOS) || PPSSPP_PLATFORM(MAC)
 			// on Darwin, we don't show the 'Browse' text alongside the image
 			// we show just the image, because we don't need to emphasize the button on Darwin
 			topBar->Add(new Choice(ImageID("I_FOLDER_OPEN"), new LayoutParams(WRAP_CONTENT, 64.0f)))->OnClick.Handle(this, &GameBrowser::BrowseClick);
@@ -848,6 +852,8 @@ void GameBrowser::Refresh() {
 	std::vector<GameButton *> gameButtons;
 
 	listingPending_ = !path_.IsListingReady();
+
+	// TODO: If listing failed, show a special error message.
 
 	std::vector<Path> filenames;
 	if (HasSpecialFiles(filenames)) {
