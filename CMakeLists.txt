@@ -2865,9 +2865,10 @@ if(IOS AND NOT LIBRETRO)
 		message(STATUS "DevTeam: ${DEVELOPMENT_TEAM_ID} Icon: ${ICON_NAME} Target: ${TargetBin}")
 		message(STATUS "CURRENT_BINARY_DIR: ${CMAKE_CURRENT_BINARY_DIR}")
 
-		# This is for injecting the version into the plist.
+		# This is for injecting the version into the plist, and also copying resources.
+		# Should find a different way to do both these things.
 		add_custom_command(TARGET ${TargetBin} POST_BUILD
-			COMMAND echo "Creating ${APP_DIR_NAME}"
+			COMMAND echo "Creating ${APP_DIR_NAME} for app store build"
 			COMMAND mkdir -p \"${APP_DIR_NAME}\"
 			# This tar command seems to be responsible for copying assets. I thought we had another step that did that..
 			# Prepend -v to the extracting command to see the files copied.
@@ -2907,6 +2908,7 @@ if(IOS AND NOT LIBRETRO)
 	else()
 		# This is for injecting the version into the plist.
 		add_custom_command(TARGET PPSSPP POST_BUILD
+			COMMAND echo "Creating ${APP_DIR_NAME} for sideload build"
 			COMMAND mkdir -p \"${APP_DIR_NAME}\"
 			COMMAND tar -c -C ${CMAKE_CURRENT_BINARY_DIR} --exclude .DS_Store --exclude .git assets *.png | tar -x -C \"${APP_DIR_NAME}\"
 			COMMAND /bin/bash "${CMAKE_SOURCE_DIR}/ios/macbundle.sh" \"${APP_DIR_NAME}\"

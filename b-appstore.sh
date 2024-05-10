@@ -23,6 +23,7 @@ else
   echo "Non-GOLD build."
 fi
 
+echo "Clearing and re-creating output directory"
 rm -rf $FOLDER_NAME
 mkdir $FOLDER_NAME
 
@@ -38,6 +39,10 @@ popd
 # Very gross hack
 # Avoid XCode race condition (???) by pre-generating git-version.cpp
 cmake -DSOURCE_DIR=. -DOUTPUT_DIR=$FOLDER_NAME -P git-version.cmake
+
+echo
+echo "*** Done. Now run the following command to open in XCode, then run or archive:"
+echo "  open $FOLDER_NAME/PPSSPP.xcodeproj"
 
 # To open the xcode project:
 # open build-ios/PPSSPP.xcodeproj

@@ -357,9 +357,11 @@ static const ConfigSetting cpuSettings[] = {
 };
 
 static int DefaultInternalResolution() {
-	// Auto on Windows and Linux, 2x on large screens, 1x elsewhere.
+	// Auto on Windows and Linux, 2x on large screens and iOS, 1x elsewhere.
 #if defined(USING_WIN_UI) || defined(USING_QT_UI)
 	return 0;
+#elif PPSSPP_PLATFORM(IOS)
+	return 2;
 #else
 	if (System_GetPropertyInt(SYSPROP_DEVICE_TYPE) == DEVICE_TYPE_VR) {
 		return 4;
@@ -380,7 +382,7 @@ static int DefaultFastForwardMode() {
 }
 
 static int DefaultAndroidHwScale() {
-#ifdef __ANDROID__
+#if PPSSPP_PLATFORM(ANDROID)
 	if (System_GetPropertyInt(SYSPROP_SYSTEMVERSION) >= 19 || System_GetPropertyInt(SYSPROP_DEVICE_TYPE) == DEVICE_TYPE_TV) {
 		// Arbitrary cutoff at Kitkat - modern devices are usually powerful enough that hw scaling
 		// doesn't really help very much and mostly causes problems. See #11151
