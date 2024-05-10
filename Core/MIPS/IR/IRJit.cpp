@@ -246,21 +246,24 @@ void IRJit::RunLoopUntil(u64 globalticks) {
 		if (coreState != 0) {
 			break;
 		}
-		while (mips_->downcount >= 0) {
-			u32 inst = Memory::ReadUnchecked_U32(mips_->pc);
+
+		MIPSState *mips = mips_;
+
+		while (mips->downcount >= 0) {
+			u32 inst = Memory::ReadUnchecked_U32(mips->pc);
 			u32 opcode = inst & 0xFF000000;
 			if (opcode == MIPS_EMUHACK_OPCODE) {
 				IRBlock *block = blocks_.GetBlockUnchecked(inst & 0xFFFFFF);
-				u32 startPC = mips_->pc;
-				mips_->pc = IRInterpret(mips_, block->GetInstructions(), block->GetNumInstructions());
+				u32 startPC = mips->pc;
+				mips->pc = IRInterpret(mips, block->GetInstructions(), block->GetNumInstructions());
 				// Note: this will "jump to zero" on a badly constructed block missing exits.
-				if (!Memory::IsValidAddress(mips_->pc) || (mips_->pc & 3) != 0) {
-					Core_ExecException(mips_->pc, startPC, ExecExceptionType::JUMP);
+				if (!Memory::IsValid4AlignedAddress(mips->pc)) {
+					Core_ExecException(mips->pc, startPC, ExecExceptionType::JUMP);
 					break;
 				}
 			} else {
 				// RestoreRoundingMode(true);
-				Compile(mips_->pc);
+				Compile(mips->pc);
 				// ApplyRoundingMode(true);
 			}
 		}
