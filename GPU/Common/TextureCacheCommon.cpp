@@ -2833,7 +2833,10 @@ bool TextureCacheCommon::PrepareBuildTexture(BuildTexturePlan &plan, TexCacheEnt
 		plan.scaleFactor = 1;
 	} else if (!g_DoubleTextureCoordinates) {
 		// Refuse to load invalid-ly sized textures, which can happen through display list corruption.
-		if (plan.w > 1024 || plan.h > 1024) {
+		// However, turns out some games uses huge textures for font rendering for no apparent reason.
+		// These will only work correctly in the top 512x512 part. So, I've increased the threshold quite a bit.
+		// We probably should handle these differently, by clamping the texture size and texture coordinates, but meh.
+		if (plan.w > 2048 || plan.h > 2048) {
 			ERROR_LOG(G3D, "Bad texture dimensions: %dx%d", plan.w, plan.h);
 			return false;
 		}
