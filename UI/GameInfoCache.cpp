@@ -52,6 +52,7 @@ void GameInfoTex::Clear() {
 		texture->Release();
 		texture = nullptr;
 	}
+	timeLoaded = 0.0;
 }
 
 GameInfo::GameInfo(const Path &gamePath) : filePath_(gamePath) {
