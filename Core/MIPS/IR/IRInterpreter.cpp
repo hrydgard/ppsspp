@@ -283,33 +283,20 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, int count) {
 		case IROp::LoadVec4:
 		{
 			u32 base = mips->r[inst->src1] + inst->constant;
-#if defined(_M_SSE)
-			_mm_store_ps(&mips->f[inst->dest], _mm_load_ps((const float *)Memory::GetPointerUnchecked(base)));
-#else
-			for (int i = 0; i < 4; i++)
-				mips->f[inst->dest + i] = Memory::ReadUnchecked_Float(base + 4 * i);
-#endif
+			// This compiles to a nice SSE load/store on x86, and hopefully similar on ARM.
+			memcpy(&mips->f[inst->dest], Memory::GetPointerUnchecked(base), 4 * 4);
 			break;
 		}
 		case IROp::StoreVec4:
 		{
 			u32 base = mips->r[inst->src1] + inst->constant;
-#if defined(_M_SSE)
-			_mm_store_ps((float *)Memory::GetPointerUnchecked(base), _mm_load_ps(&mips->f[inst->dest]));
-#else
-			for (int i = 0; i < 4; i++)
-				Memory::WriteUnchecked_Float(mips->f[inst->dest + i], base + 4 * i);
-#endif
+			memcpy((float *)Memory::GetPointerUnchecked(base), &mips->f[inst->dest], 4 * 4);
 			break;
 		}
 
 		case IROp::Vec4Init:
 		{
-#if defined(_M_SSE)
-			_mm_store_ps(&mips->f[inst->dest], _mm_load_ps(vec4InitValues[inst->src1]));
-#else
 			memcpy(&mips->f[inst->dest], vec4InitValues[inst->src1], 4 * sizeof(float));
-#endif
 			break;
 		}
 
@@ -398,8 +385,9 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, int count) {
 #if defined(_M_SSE)
 			_mm_store_ps(&mips->f[inst->dest], _mm_mul_ps(_mm_load_ps(&mips->f[inst->src1]), _mm_set1_ps(mips->f[inst->src2])));
 #else
+			const float factor = mips->f[inst->src2];
 			for (int i = 0; i < 4; i++)
-				mips->f[inst->dest + i] = mips->f[inst->src1 + i] * mips->f[inst->src2];
+				mips->f[inst->dest + i] = mips->f[inst->src1 + i] * factor;
 #endif
 			break;
 		}
@@ -792,7 +780,7 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, int count) {
 			mips->f[inst->dest] = mips->f[inst->src1] - mips->f[inst->src2];
 			break;
 		case IROp::FMul:
-			if ((my_isinf(mips->f[inst->src1]) && mips->f[inst->src2] == 0.0f) || (my_isinf(mips->f[inst->src2]) && mips->f[inst->src1] == 0.0f)) {
+			if ((mips->f[inst->src2] == 0.0f && my_isinf(mips->f[inst->src1])) || (mips->f[inst->src1] == 0.0f && my_isinf(mips->f[inst->src2]))) {
 				mips->fi[inst->dest] = 0x7fc00000;
 			} else {
 				mips->f[inst->dest] = mips->f[inst->src1] * mips->f[inst->src2];
