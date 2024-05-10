@@ -115,6 +115,7 @@ struct VRCompat {
 	bool ForceFlatScreen;
 	bool IdentityViewHack;
 	int MirroringVariant;
+	bool ProjectionHack;
 	bool Skyplane;
 	float UnitsPerMeter;
 };
