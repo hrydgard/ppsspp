@@ -650,19 +650,20 @@ bool StartVRRender() {
 			fov.angleUp += vrView[eye].fov.angleUp / 2.0f;
 			fov.angleDown += vrView[eye].fov.angleDown / 2.0f;
 		}
-		float nearZ = g_Config.fFieldOfViewPercentage / 200.0f;
+		float nearZ = 0.01f;
+		float fovHack = g_Config.fFieldOfViewPercentage / 200.0f;
 		float tanAngleLeft = tanf(fov.angleLeft);
 		float tanAngleRight = tanf(fov.angleRight);
 		float tanAngleDown = tanf(fov.angleDown);
 		float tanAngleUp = tanf(fov.angleUp);
 		float M[16] = {};
 		M[0] = 2 / (tanAngleRight - tanAngleLeft);
-		M[2] = (tanAngleRight + tanAngleLeft) / (tanAngleRight - tanAngleLeft);
 		M[5] = 2 / (tanAngleUp - tanAngleDown);
-		M[6] = (tanAngleUp + tanAngleDown) / (tanAngleUp - tanAngleDown);
+		M[8] = (tanAngleRight + tanAngleLeft) / (tanAngleRight - tanAngleLeft);
+		M[9] = (tanAngleUp + tanAngleDown) / (tanAngleUp - tanAngleDown);
 		M[10] = -1;
-		M[11] = -(nearZ + nearZ);
-		M[14] = -1;
+		M[11] = -(fovHack + fovHack);
+		M[14] = -(nearZ + nearZ);
 		memcpy(vrMatrix[VR_PROJECTION_MATRIX], M, sizeof(float) * 16);
 
 		// Decide if the scene is 3D or not
@@ -808,14 +809,19 @@ void UpdateVRParams(float* projMatrix) {
 }
 
 void UpdateVRProjection(float* projMatrix, float* leftEye, float* rightEye) {
-	float* hmdProjection = vrMatrix[VR_PROJECTION_MATRIX];
+	float output[16];
 	for (int i = 0; i < 16; i++) {
-		if ((hmdProjection[i] > 0) != (projMatrix[i] > 0)) {
-			hmdProjection[i] *= -1.0f;
+		if (fabs(projMatrix[i]) > 0) {
+			output[i] = vrMatrix[VR_PROJECTION_MATRIX][i];
+			if ((output[i] > 0) != (projMatrix[i] > 0)) {
+				output[i] *= -1.0f;
+			}
+		} else {
+			output[i] = 0;
 		}
 	}
-	memcpy(leftEye, hmdProjection, 16 * sizeof(float));
-	memcpy(rightEye, hmdProjection, 16 * sizeof(float));
+	memcpy(leftEye, output, 16 * sizeof(float));
+	memcpy(rightEye, output, 16 * sizeof(float));
 }
 
 void UpdateVRView(float* leftEye, float* rightEye) {
