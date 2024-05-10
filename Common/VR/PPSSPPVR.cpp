@@ -811,7 +811,9 @@ void UpdateVRParams(float* projMatrix) {
 void UpdateVRProjection(float* projMatrix, float* leftEye, float* rightEye) {
 	float output[16];
 	for (int i = 0; i < 16; i++) {
-		if (fabs(projMatrix[i]) > 0) {
+		if (PSP_CoreParameter().compat.vrCompat().ProjectionHack && ((i == 8) || (i == 9))) {
+			output[i] = 0;
+		} else if (fabs(projMatrix[i]) > 0) {
 			output[i] = vrMatrix[VR_PROJECTION_MATRIX][i];
 			if ((output[i] > 0) != (projMatrix[i] > 0)) {
 				output[i] *= -1.0f;
