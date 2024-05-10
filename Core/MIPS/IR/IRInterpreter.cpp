@@ -108,13 +108,9 @@ u32 RunValidateAddress(u32 pc, u32 addr, u32 isWrite) {
 }
 
 // We cannot use NEON on ARM32 here until we make it a hard dependency. We can, however, on ARM64.
-u32 IRInterpret(MIPSState *mips, const IRInst *inst, int count) {
-	const IRInst *end = inst + count;
-	while (inst != end) {
+u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
+	while (true) {
 		switch (inst->op) {
-		case IROp::Nop:
-			_assert_(false);
-			break;
 		case IROp::SetConst:
 			mips->r[inst->dest] = inst->constant;
 			break;
@@ -1121,19 +1117,21 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, int count) {
 		case IROp::UpdateRoundingMode:
 			// TODO: Implement
 			break;
-
+		case IROp::Nop:
+			_assert_(false);
+			break;
 		default:
 			// Unimplemented IR op. Bad.
 			Crash();
 		}
+
+#ifdef _DEBUG
+		if (mips->r[0] != 0)
+			Crash();
+#endif
 		inst++;
 	}
 
-#ifdef _DEBUG
-	if (mips->r[0] != 0)
-		Crash();
-#endif
-
-	// We hit count.  If this is a full block, it was badly constructed.
+	// We should not reach here anymore.
 	return 0;
 }
