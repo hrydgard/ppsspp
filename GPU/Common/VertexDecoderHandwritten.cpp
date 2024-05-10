@@ -9,6 +9,73 @@
 // GPU::P:_f_N:_s8_C:_8888_T:_u16__(24b)_040001BE  (5%+ of God of War execution)
 // GPU::P:_f_N:_s8_C:_8888_T:_u16_W:_f_(1x)__(28b)_040007BE (1%+ of God of War execution)
 
+void VtxDec_Tu16_C8888_Pfloat(const u8 *srcp, u8 *dstp, int count, const UVScale *uvScaleOffset) {
+	struct GOWVTX {
+		union {
+			struct {
+				u16 u;
+				u16 v;
+			};
+			u32 packed_uv;
+		};
+		u32 packed_normal;
+		u32 col;
+		float x;
+		float y;
+		float z;
+	};
+	// NOTE: This might be different for different vertex formats.
+	struct OutVTX {
+		float u;
+		float v;
+		u32 packed_normal;
+		uint32_t col;
+		float x;
+		float y;
+		float z;
+	};
+	const GOWVTX *src = (const GOWVTX *)srcp;
+	OutVTX *dst = (OutVTX *)dstp;
+	float uscale = uvScaleOffset->uScale * (1.0f / 32768.0f);
+	float vscale = uvScaleOffset->vScale * (1.0f / 32768);
+	float uoff = uvScaleOffset->uOff;
+	float voff = uvScaleOffset->vOff;
+
+	u32 alpha = 0xFFFFFFFF;
+
+#if PPSSPP_ARCH(SSE2)
+	__m128 uvOff = _mm_setr_ps(uoff, voff, uoff, voff);
+	__m128 uvScale = _mm_setr_ps(uscale, vscale, uscale, vscale);
+	for (int i = 0; i < count; i++) {
+		__m128i uv = _mm_set1_epi32(src[i].packed_uv);
+		__m128 fuv = _mm_cvtepi32_ps(_mm_unpacklo_epi16(uv, _mm_setzero_si128()));
+		__m128 finalUV = _mm_add_ps(_mm_mul_ps(fuv, uvScale), uvOff);
+		u32 normal = src[i].packed_normal;
+		__m128 colpos = _mm_loadu_ps((const float *)&src[i].col);
+		_mm_store1_pd((double *)&dst[i].u, _mm_castps_pd(finalUV));
+		dst[i].packed_normal = normal;
+		_mm_storeu_ps((float *)&dst[i].col, colpos);
+	}
+#else
+	for (int i = 0; i < count; i++) {
+		float u = src[i].u * uscale + uoff;
+		float v = src[i].v * vscale + voff;
+		uint32_t color = src[i].col;
+		alpha &= color;
+		float x = src[i].x;
+		float y = src[i].y;
+		float z = src[i].z;
+		dst[i].col = color;
+		dst[i].packed_normal = src[i].packed_normal;
+		dst[i].u = u;
+		dst[i].v = v;
+		dst[i].x = x;
+		dst[i].y = y;
+		dst[i].z = z;
+	}
+#endif
+	gstate_c.vertexFullAlpha = (alpha >> 24) == 0xFF;
+}
 
 void VtxDec_Tu8_C5551_Ps16(const u8 *srcp, u8 *dstp, int count, const UVScale *uvScaleOffset) {
 	struct GTAVTX {
@@ -24,7 +91,7 @@ void VtxDec_Tu8_C5551_Ps16(const u8 *srcp, u8 *dstp, int count, const UVScale *u
 		s16 y;
 		s16 z;
 	};
-	// NOTE: This might be different for different vertex format.
+	// NOTE: This might be different for different vertex formats.
 	struct OutVTX {
 		float u;
 		float v;
