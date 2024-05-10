@@ -647,3 +647,6 @@ protected:
 	u8 *convBuf_ = nullptr;
 	u32 convBufSize_ = 0;
 };
+
+// Should probably live elsewhere.
+bool GetOutputFramebuffer(Draw::DrawContext *draw, GPUDebugBuffer &buffer);
