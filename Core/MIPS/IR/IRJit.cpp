@@ -254,11 +254,10 @@ void IRJit::RunLoopUntil(u64 globalticks) {
 			u32 opcode = inst & 0xFF000000;
 			if (opcode == MIPS_EMUHACK_OPCODE) {
 				IRBlock *block = blocks_.GetBlockUnchecked(inst & 0xFFFFFF);
-				u32 startPC = mips->pc;
 				mips->pc = IRInterpret(mips, block->GetInstructions(), block->GetNumInstructions());
 				// Note: this will "jump to zero" on a badly constructed block missing exits.
 				if (!Memory::IsValid4AlignedAddress(mips->pc)) {
-					Core_ExecException(mips->pc, startPC, ExecExceptionType::JUMP);
+					Core_ExecException(mips->pc, block->GetOriginalStart(), ExecExceptionType::JUMP);
 					break;
 				}
 			} else {
